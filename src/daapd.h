@@ -30,6 +30,9 @@ typedef struct tag_songentry {
 } SONGENTRY;
 
 typedef struct tag_config {
+    pid_t rend_pid;
+    int use_mdns;
+    int stop;
     char *configfile;
     char *web_root;
     int port;
