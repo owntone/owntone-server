@@ -13,7 +13,7 @@ DBFILE=db-memory.c
 endif
 
 if COND_REND_POSIX
-RENDSRC=mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c mdns/mDNSUNP.c rend-posix.c mdns/mDNSPlatformFunctions.h
+RENDSRC=mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c mDNSUNP.c rend-posix.c mDNSPlatformFunctions.h
 endif
 
 if COND_REND_HOWL
@@ -30,8 +30,8 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	mp3-scanner.h mp3-scanner.c playlist.c playlist.h rend-unix.c rend-unix.h \
 	lexer.l parser.y $(RENDSRC) strcasestr.c strcasestr.h strsep.c
 
-EXTRA_DIST = mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c \
-	mdns/mDNSUNP.c mdns/mDNSPlatformFunctions.h mdns/mDNSPosix.h mdns/mDNSUNP.h \
+EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
+	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
 	rend-howl.c rend-posix.c rend-osx.c strcasestr.c strsep.c db-memory.c \
 	db-gdbm.c strcasestr.h redblack.c redblack.h
 
