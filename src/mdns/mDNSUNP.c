@@ -1,76 +1,61 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
-    File:       mDNSUNP.c
-
-    Contains:   Code derived from "UNIX Network Programming".
-
-    Written by: Quinn
-
-    Copyright:  Copyright (c) 2002 by Apple Computer, Inc., All Rights Reserved.
-
-    Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc.
-                ("Apple") in consideration of your agreement to the following terms, and your
-                use, installation, modification or redistribution of this Apple software
-                constitutes acceptance of these terms.  If you do not agree with these terms,
-                please do not use, install, modify or redistribute this Apple software.
-
-                In consideration of your agreement to abide by the following terms, and subject
-                to these terms, Apple grants you a personal, non-exclusive license, under Apple's
-                copyrights in this original Apple software (the "Apple Software"), to use,
-                reproduce, modify and redistribute the Apple Software, with or without
-                modifications, in source and/or binary forms; provided that if you redistribute
-                the Apple Software in its entirety and without modifications, you must retain
-                this notice and the following text and disclaimers in all such redistributions of
-                the Apple Software.  Neither the name, trademarks, service marks or logos of
-                Apple Computer, Inc. may be used to endorse or promote products derived from the
-                Apple Software without specific prior written permission from Apple.  Except as
-                expressly stated in this notice, no other rights or licenses, express or implied,
-                are granted by Apple herein, including but not limited to any patent rights that
-                may be infringed by your derivative works or by other works in which the Apple
-                Software may be incorporated.
-
-                The Apple Software is provided by Apple on an "AS IS" basis.  APPLE MAKES NO
-                WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED
-                WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-                PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS USE AND OPERATION ALONE OR IN
-                COMBINATION WITH YOUR PRODUCTS.
-
-                IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL OR
-                CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-                GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-                ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION
-                OF THE APPLE SOFTWARE, HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT
-                (INCLUDING NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
-                ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     Change History (most recent first):
 
 $Log$
-Revision 1.2  2003/11/26 06:12:53  ron
-Exclude from memory checks
+Revision 1.3  2004/03/02 00:03:37  rpedde
+Merge new rendezvous code
 
-Revision 1.1  2003/10/23 21:43:01  ron
-Add Apple mDNS reponder
+Revision 1.12  2003/09/02 20:47:13  cheshire
+Fix signed/unsigned warning
+
+Revision 1.11  2003/08/12 19:56:26  cheshire
+Update to APSL 2.0
+
+Revision 1.10  2003/08/06 18:20:51  cheshire
+Makefile cleanup
+
+Revision 1.9  2003/07/14 18:11:54  cheshire
+Fix stricter compiler warnings
+
+Revision 1.8  2003/07/02 21:19:59  cheshire
+<rdar://problem/3313413> Update copyright notices, etc., in source code comments
+
+Revision 1.7  2003/03/20 21:10:31  cheshire
+Fixes done at IETF 56 to make mDNSProxyResponderPosix run on Solaris
+
+Revision 1.6  2003/03/13 03:46:21  cheshire
+Fixes to make the code build on Linux
+
+Revision 1.5  2003/02/07 03:02:02  cheshire
+Submitted by: Mitsutaka Watanabe
+The code saying "index += 1;" was effectively making up random interface index values.
+The right way to find the correct interface index is if_nametoindex();
+
+Revision 1.4  2002/12/23 22:13:31  jgraessl
+
+Reviewed by: Stuart Cheshire
+Initial IPv6 support for mDNSResponder.
 
 Revision 1.3  2002/09/21 20:44:53  zarzycki
 Added APSL info
@@ -94,9 +79,6 @@ First checkin
 #include <unistd.h>
 #include <stdio.h>
 
-#define __IN_ERR__
-#include "err.h"
-
 /* Solaris defined SIOCGIFCONF etc in <sys/sockio.h> but 
    other platforms don't even have that include file.  So, 
    if we haven't yet got a definition, let's try to find 
@@ -116,8 +98,6 @@ First checkin
 #endif
 
 
-#define max(a,b)    ((a) > (b) ? (a) : (b))
-
 struct ifi_info *get_ifi_info(int family, int doaliases)
 {
     int                 junk;
@@ -127,9 +107,11 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
     struct ifconf       ifc;
     struct ifreq        *ifr, ifrcopy;
     struct sockaddr_in  *sinptr;
-    int                 index;
+    
+#if defined(AF_INET6) && defined(HAVE_IPV6)
+    struct sockaddr_in6 *sinptr6;
+#endif
 
-    index = 0;
     sockfd = -1;
     buf = NULL;
     ifihead = NULL;
@@ -169,25 +151,10 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
     for (ptr = buf; ptr < buf + ifc.ifc_len; ) {
         ifr = (struct ifreq *) ptr;
 
-#ifdef  HAVE_SOCKADDR_SA_LEN
-        len = max(sizeof(struct sockaddr), ifr->ifr_addr.sa_len);
-#else
-        switch (ifr->ifr_addr.sa_family) {
-#ifdef  IPV6
-        case AF_INET6:  
-            len = sizeof(struct sockaddr_in6);
-            break;
-#endif
-        case AF_INET:   
-        default:    
-            len = sizeof(struct sockaddr);
-            break;
-        }
-#endif  /* HAVE_SOCKADDR_SA_LEN */
+		len = GET_SA_LEN(ifr->ifr_addr);
         ptr += sizeof(ifr->ifr_name) + len; /* for next one in buffer */
     
-	DPRINTF(ERR_DEBUG,"intf %d name=%s AF=%d", index, ifr->ifr_name, 
-		ifr->ifr_addr.sa_family);
+//        fprintf(stderr, "intf %d name=%s AF=%d\n", index, ifr->ifr_name, ifr->ifr_addr.sa_family);
         
         if (ifr->ifr_addr.sa_family != family)
             continue;   /* ignore if not desired address family */
@@ -220,8 +187,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
 
         ifi->ifi_flags = flags;     /* IFF_xxx values */
         ifi->ifi_myflags = myflags; /* IFI_xxx values */
-        index += 1;
-        ifi->ifi_index = index;
+        ifi->ifi_index = if_nametoindex(ifr->ifr_name);
         memcpy(ifi->ifi_name, ifr->ifr_name, IFI_NAME);
         ifi->ifi_name[IFI_NAME-1] = '\0';
 /* end get_ifi_info2 */
@@ -265,6 +231,24 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
 #endif
             }
             break;
+
+#if defined(AF_INET6) && defined(HAVE_IPV6)
+        case AF_INET6:
+            sinptr6 = (struct sockaddr_in6 *) &ifr->ifr_addr;
+            if (ifi->ifi_addr == NULL) {
+                ifi->ifi_addr = calloc(1, sizeof(struct sockaddr_in6));
+                if (ifi->ifi_addr == NULL) {
+                    goto gotError;
+                }
+                
+                /* Some platforms (*BSD) inject the prefix in IPv6LL addresses */
+                /* We need to strip that out */
+                if (IN6_IS_ADDR_LINKLOCAL(&sinptr6->sin6_addr))
+                	sinptr6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
+                memcpy(ifi->ifi_addr, sinptr6, sizeof(struct sockaddr_in6));
+            }
+            break;
+#endif
 
         default:
             break;
@@ -317,7 +301,7 @@ recvfrom_flags(int fd, void *ptr, size_t nbytes, int *flagsp,
     struct iovec    iov[1];
     ssize_t         n;
 
-#ifdef  HAVE_MSGHDR_MSG_CONTROL
+#ifdef CMSG_FIRSTHDR
     struct cmsghdr  *cmptr;
     union {
       struct cmsghdr    cm;
@@ -329,7 +313,7 @@ recvfrom_flags(int fd, void *ptr, size_t nbytes, int *flagsp,
     msg.msg_flags = 0;
 #else
     memset(&msg, 0, sizeof(msg));   /* make certain msg_accrightslen = 0 */
-#endif
+#endif /* CMSG_FIRSTHDR */
 
     msg.msg_name = (void *) sa;
     msg.msg_namelen = *salenptr;
@@ -356,13 +340,14 @@ recvfrom_flags(int fd, void *ptr, size_t nbytes, int *flagsp,
 /* end recvfrom_flags1 */
 
 /* include recvfrom_flags2 */
-#ifndef HAVE_MSGHDR_MSG_CONTROL
+#ifndef CMSG_FIRSTHDR
+	#warning CMSG_FIRSTHDR not defined. Will not be able to determine destination address, received interface, etc.
     *flagsp = 0;                    /* pass back results */
     return(n);
 #else
 
     *flagsp = msg.msg_flags;        /* pass back results */
-    if (msg.msg_controllen < sizeof(struct cmsghdr) ||
+    if (msg.msg_controllen < (socklen_t)sizeof(struct cmsghdr) ||
         (msg.msg_flags & MSG_CTRUNC) || pktp == NULL)
         return(n);
 
@@ -381,9 +366,12 @@ struct in_pktinfo
         if (cmptr->cmsg_level == IPPROTO_IP && 
             cmptr->cmsg_type == IP_PKTINFO) {
             struct in_pktinfo *tmp;
+            struct sockaddr_in *sin = (struct sockaddr_in*)&pktp->ipi_addr;
             
             tmp = (struct in_pktinfo *) CMSG_DATA(cmptr);
-            memcpy(&pktp->ipi_addr, &tmp->ipi_addr, sizeof(struct in_addr));
+            sin->sin_family = AF_INET;
+            sin->sin_addr = tmp->ipi_addr;
+            sin->sin_port = 0;
             pktp->ipi_ifindex = tmp->ipi_ifindex;
             continue;
         }
@@ -392,9 +380,11 @@ struct in_pktinfo
 #ifdef  IP_RECVDSTADDR
         if (cmptr->cmsg_level == IPPROTO_IP &&
             cmptr->cmsg_type == IP_RECVDSTADDR) {
-
-            memcpy(&pktp->ipi_addr, CMSG_DATA(cmptr),
-                   sizeof(struct in_addr));
+            struct sockaddr_in *sin = (struct sockaddr_in*)&pktp->ipi_addr;
+            
+            sin->sin_family = AF_INET;
+            sin->sin_addr = *(struct in_addr*)CMSG_DATA(cmptr);
+            sin->sin_port = 0;
             continue;
         }
 #endif
@@ -402,23 +392,36 @@ struct in_pktinfo
 #ifdef  IP_RECVIF
         if (cmptr->cmsg_level == IPPROTO_IP &&
             cmptr->cmsg_type == IP_RECVIF) {
-            struct sockaddr_dl  *sdl;
-            int nameLen;
-
-            sdl = (struct sockaddr_dl *) CMSG_DATA(cmptr);
+            struct sockaddr_dl  *sdl = (struct sockaddr_dl *) CMSG_DATA(cmptr);
+            int nameLen = (sdl->sdl_nlen < IFI_NAME - 1) ? sdl->sdl_nlen : (IFI_NAME - 1);
             pktp->ipi_ifindex = sdl->sdl_index;
-            nameLen = sdl->sdl_nlen;
-            if (nameLen > (IFI_NAME - 1)) {
-                nameLen = IFI_NAME - 1;
-            }
+#ifndef HAVE_BROKEN_RECVIF_NAME
             strncpy(pktp->ipi_ifname, sdl->sdl_data, nameLen);
+#endif
             assert(pktp->ipi_ifname[IFI_NAME - 1] == 0);
             // null terminated because of memset above
+            continue;
+        }
+#endif
+
+#if defined(IPV6_PKTINFO) && defined(HAVE_IPV6)
+        if (cmptr->cmsg_level == IPPROTO_IPV6 && 
+            cmptr->cmsg_type == IPV6_PKTINFO) {
+            struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&pktp->ipi_addr;
+			struct in6_pktinfo *ip6_info = (struct in6_pktinfo*)CMSG_DATA(cmptr);
+			
+            sin6->sin6_family   = AF_INET6;
+            sin6->sin6_len      = sizeof(*sin6);
+            sin6->sin6_addr     = ip6_info->ipi6_addr;
+            sin6->sin6_flowinfo = 0;
+            sin6->sin6_scope_id = 0;
+            sin6->sin6_port     = 0;
+			pktp->ipi_ifindex   = ip6_info->ipi6_ifindex;
             continue;
         }
 #endif
         assert(0);  // unknown ancillary data
     }
     return(n);
-#endif  /* HAVE_MSGHDR_MSG_CONTROL */
+#endif /* CMSG_FIRSTHDR */
 }

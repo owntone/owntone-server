@@ -1,73 +1,71 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
- */
-/*
-    File:       responder.c
-
-    Contains:   Code to implement an mDNS responder on the Posix platform.
-
-    Written by: Quinn
-
-    Copyright:  Copyright (c) 2002 by Apple Computer, Inc., All Rights Reserved.
-
-    Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc.
-                ("Apple") in consideration of your agreement to the following terms, and your
-                use, installation, modification or redistribution of this Apple software
-                constitutes acceptance of these terms.  If you do not agree with these terms,
-                please do not use, install, modify or redistribute this Apple software.
-
-                In consideration of your agreement to abide by the following terms, and subject
-                to these terms, Apple grants you a personal, non-exclusive license, under Apple's
-                copyrights in this original Apple software (the "Apple Software"), to use,
-                reproduce, modify and redistribute the Apple Software, with or without
-                modifications, in source and/or binary forms; provided that if you redistribute
-                the Apple Software in its entirety and without modifications, you must retain
-                this notice and the following text and disclaimers in all such redistributions of
-                the Apple Software.  Neither the name, trademarks, service marks or logos of
-                Apple Computer, Inc. may be used to endorse or promote products derived from the
-                Apple Software without specific prior written permission from Apple.  Except as
-                expressly stated in this notice, no other rights or licenses, express or implied,
-                are granted by Apple herein, including but not limited to any patent rights that
-                may be infringed by your derivative works or by other works in which the Apple
-                Software may be incorporated.
-
-                The Apple Software is provided by Apple on an "AS IS" basis.  APPLE MAKES NO
-                WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED
-                WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-                PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS USE AND OPERATION ALONE OR IN
-                COMBINATION WITH YOUR PRODUCTS.
-
-                IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL OR
-                CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-                GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-                ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION
-                OF THE APPLE SOFTWARE, HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT
-                (INCLUDING NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
-                ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
     Change History (most recent first):
 
 $Log$
-Revision 1.1  2003/10/23 21:43:01  ron
-Add Apple mDNS reponder
+Revision 1.2  2004/03/02 00:03:37  rpedde
+Merge new rendezvous code
+
+Revision 1.16  2003/08/14 02:19:55  cheshire
+<rdar://problem/3375491> Split generic ResourceRecord type into two separate types: AuthRecord and CacheRecord
+
+Revision 1.15  2003/08/12 19:56:26  cheshire
+Update to APSL 2.0
+
+Revision 1.14  2003/08/06 18:20:51  cheshire
+Makefile cleanup
+
+Revision 1.13  2003/07/23 00:00:04  cheshire
+Add comments
+
+Revision 1.12  2003/07/15 01:55:16  cheshire
+<rdar://problem/3315777> Need to implement service registration with subtypes
+
+Revision 1.11  2003/07/14 18:11:54  cheshire
+Fix stricter compiler warnings
+
+Revision 1.10  2003/07/10 20:27:31  cheshire
+<rdar://problem/3318717> mDNSResponder Posix version is missing a 'b' in the getopt option string
+
+Revision 1.9  2003/07/02 21:19:59  cheshire
+<rdar://problem/3313413> Update copyright notices, etc., in source code comments
+
+Revision 1.8  2003/06/18 05:48:41  cheshire
+Fix warnings
+
+Revision 1.7  2003/05/06 00:00:50  cheshire
+<rdar://problem/3248914> Rationalize naming of domainname manipulation functions
+
+Revision 1.6  2003/03/08 00:35:56  cheshire
+Switched to using new "mDNS_Execute" model (see "mDNSCore/Implementer Notes.txt")
+
+Revision 1.5  2003/02/20 06:48:36  cheshire
+Bug #: 3169535 Xserve RAID needs to do interface-specific registrations
+Reviewed by: Josh Graessley, Bob Bradley
+
+Revision 1.4  2003/01/28 03:07:46  cheshire
+Add extra parameter to mDNS_RenameAndReregisterService(),
+and add support for specifying a domain other than dot-local.
 
 Revision 1.3  2002/09/21 20:44:53  zarzycki
 Added APSL info
@@ -92,14 +90,18 @@ First checkin
 #include <signal.h>
 #include <fcntl.h>
 
+#if COMPILER_LIKES_PRAGMA_MARK
 #pragma mark ***** Globals
+#endif
 
 static mDNS mDNSStorage;       // mDNS core uses this to store its globals
 static mDNS_PlatformSupport PlatformStorage;  // Stores this platform's globals
 
 static const char *gProgramName = "mDNSResponderPosix";
 
+#if COMPILER_LIKES_PRAGMA_MARK
 #pragma mark ***** Signals
+#endif
 
 static volatile mDNSBool gReceivedSigUsr1;
 static volatile mDNSBool gReceivedSigHup;
@@ -167,7 +169,9 @@ static void HandleSigQuit(int sigraised)
     exit(0);
 }
 
+#if COMPILER_LIKES_PRAGMA_MARK
 #pragma mark ***** Parameter Checking
+#endif
 
 static mDNSBool CheckThatRichTextHostNameIsUsable(const char *richTextHostName, mDNSBool printExplanation)
     // Checks that richTextHostName is a reasonable host name 
@@ -194,7 +198,7 @@ static mDNSBool CheckThatRichTextHostNameIsUsable(const char *richTextHostName, 
         result = mDNSfalse;
     }
     if (result) {
-        ConvertCStringToDomainLabel(richTextHostName, &richLabel);
+        MakeDomainLabelFromLiteralString(&richLabel, richTextHostName);
         ConvertUTF8PstringToRFC1034HostLabel(richLabel.c, &poorLabel);
         if (poorLabel.c[0] == 0) {
             if (printExplanation) {
@@ -339,18 +343,21 @@ static mDNSBool CheckThatPortNumberIsUsable(long portNumber, mDNSBool printExpla
     return result;
 }
 
+#if COMPILER_LIKES_PRAGMA_MARK
 #pragma mark ***** Command Line Arguments
+#endif
 
 static const char kDefaultPIDFile[]     = "/var/run/mDNSResponder.pid";
 static const char kDefaultServiceType[] = "_afpovertcp._tcp.";
+static const char kDefaultServiceDomain[] = "local.";
 enum {
     kDefaultPortNumber = 548
 };
 
-static void PrintUsage(char **argv)
+static void PrintUsage()
 {
     fprintf(stderr, 
-            "Usage: %s [-v level ] [-r] [-n name] [-t type] [-x TXT] [-p port] [-f file] [-d] [-P pidfile]\n", 
+            "Usage: %s [-v level ] [-r] [-n name] [-t type] [-d domain] [-x TXT] [-p port] [-f file] [-b] [-P pidfile]\n", 
             gProgramName);
     fprintf(stderr, "          -v verbose mode, level is a number from 0 to 2\n");
     fprintf(stderr, "             0 = no debugging info (default)\n");
@@ -360,18 +367,20 @@ static void PrintUsage(char **argv)
     fprintf(stderr, "          -r also bind to port 53 (port 5353 is always bound)\n");
     fprintf(stderr, "          -n uses 'name' as the host name (default is none)\n");
     fprintf(stderr, "          -t uses 'type' as the service type (default is '%s')\n", kDefaultServiceType);
+    fprintf(stderr, "          -d uses 'domain' as the service domain (default is '%s')\n", kDefaultServiceDomain);
     fprintf(stderr, "          -x uses 'TXT' as the service TXT record (default is empty)\n");
     fprintf(stderr, "          -p uses 'port' as the port number (default is '%d')\n",  kDefaultPortNumber);
     fprintf(stderr, "          -f reads a service list from 'file'\n");
-    fprintf(stderr, "          -d forces daemon mode\n");
+    fprintf(stderr, "          -b forces daemon (background) mode\n");
     fprintf(stderr, "          -P uses 'pidfile' as the PID file\n");
     fprintf(stderr, "             (default is '%s')\n",  kDefaultPIDFile);
-    fprintf(stderr, "             only meaningful if -d also specified\n");
+    fprintf(stderr, "             only meaningful if -b also specified\n");
 }
 
 static   mDNSBool  gAvoidPort53      = mDNStrue;
 static const char *gRichTextHostName = "";
 static const char *gServiceType      = kDefaultServiceType;
+static const char *gServiceDomain    = kDefaultServiceDomain;
 static mDNSu8      gServiceText[sizeof(RDataBody)];
 static mDNSu16     gServiceTextLen   = 0;
 static        int  gPortNumber       = kDefaultPortNumber;
@@ -397,7 +406,7 @@ static void ParseArguments(int argc, char **argv)
     // Parse command line options using getopt.
     
     do {
-        ch = getopt(argc, argv, "v:rn:x:t:p:f:dP");
+        ch = getopt(argc, argv, "v:rn:t:d:x:p:f:dPb");
         if (ch != -1) {
             switch (ch) {
                 case 'v':
@@ -424,6 +433,9 @@ static void ParseArguments(int argc, char **argv)
                         exit(1);
                     }
                     break;
+                case 'd':
+                    gServiceDomain = optarg;
+                    break;
                 case 'x':
                     if ( ! CheckThatServiceTextIsUsable(optarg, mDNStrue, gServiceText, &gServiceTextLen) ) {
                         exit(1);
@@ -438,7 +450,7 @@ static void ParseArguments(int argc, char **argv)
                 case 'f':
                     gServiceFile = optarg;
                     break;
-                case 'd':
+                case 'b':
                     gDaemon = mDNStrue;
                     break;
                 case 'P':
@@ -446,7 +458,7 @@ static void ParseArguments(int argc, char **argv)
                     break;
                 case '?':
                 default:
-                    PrintUsage(argv);
+                    PrintUsage();
                     exit(1);
                     break;
             }
@@ -456,6 +468,7 @@ static void ParseArguments(int argc, char **argv)
     // Check for any left over command line arguments.
     
     if (optind != argc) {
+	    PrintUsage();
         fprintf(stderr, "%s: Unexpected argument '%s'\n", gProgramName, argv[optind]);
         exit(1);
     }
@@ -463,12 +476,15 @@ static void ParseArguments(int argc, char **argv)
     // Check for inconsistency between the arguments.
     
     if ( (gRichTextHostName[0] == 0) && (gServiceFile[0] == 0) ) {
+    	PrintUsage();
         fprintf(stderr, "%s: You must specify a service to register (-n) or a service file (-f).\n", gProgramName);
         exit(1);
     }
 }
 
+#if COMPILER_LIKES_PRAGMA_MARK
 #pragma mark ***** Registration
+#endif
 
 typedef struct PosixService PosixService;
 
@@ -488,13 +504,13 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
     switch (status) {
 
         case mStatus_NoError:      
-            debugf("Callback: %##s Name Registered",   thisRegistration->RR_SRV.name.c); 
+            debugf("Callback: %##s Name Registered",   thisRegistration->RR_SRV.resrec.name.c); 
             // Do nothing; our name was successfully registered.  We may 
             // get more call backs in the future.
             break;
 
         case mStatus_NameConflict: 
-            debugf("Callback: %##s Name Conflict",     thisRegistration->RR_SRV.name.c); 
+            debugf("Callback: %##s Name Conflict",     thisRegistration->RR_SRV.resrec.name.c); 
 
             // In the event of a conflict, this sample RegistrationCallback 
             // just calls mDNS_RenameAndReregisterService to automatically 
@@ -507,12 +523,12 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
             // Also, what do we do if mDNS_RenameAndReregisterService returns an 
             // error.  Right now I have no place to send that error to.
             
-            status = mDNS_RenameAndReregisterService(m, thisRegistration);
+            status = mDNS_RenameAndReregisterService(m, thisRegistration, mDNSNULL);
             assert(status == mStatus_NoError);
             break;
 
         case mStatus_MemFree:      
-            debugf("Callback: %##s Memory Free",       thisRegistration->RR_SRV.name.c); 
+            debugf("Callback: %##s Memory Free",       thisRegistration->RR_SRV.resrec.name.c); 
             
             // When debugging is enabled, make sure that thisRegistration 
             // is not on our gServiceList.
@@ -532,7 +548,7 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
             break;
 
         default:                   
-            debugf("Callback: %##s Unknown Status %d", thisRegistration->RR_SRV.name.c, status); 
+            debugf("Callback: %##s Unknown Status %d", thisRegistration->RR_SRV.resrec.name.c, status); 
             break;
     }
 }
@@ -541,6 +557,7 @@ static int gServiceID = 0;
 
 static mStatus RegisterOneService(const char *  richTextHostName, 
                                   const char *  serviceType, 
+                                  const char *  serviceDomain, 
                                   const mDNSu8  text[],
                                   mDNSu16       textLen,
                                   long          portNumber)
@@ -558,17 +575,18 @@ static mStatus RegisterOneService(const char *  richTextHostName,
         status = mStatus_NoMemoryErr;
     }
     if (status == mStatus_NoError) {
-        ConvertCStringToDomainLabel(richTextHostName,  &name);
-        ConvertCStringToDomainName(serviceType, &type);
-        ConvertCStringToDomainName("local.", &domain);
+        MakeDomainLabelFromLiteralString(&name,  richTextHostName);
+        MakeDomainNameFromDNSNameString(&type, serviceType);
+        MakeDomainNameFromDNSNameString(&domain, serviceDomain);
         port.b[0] = (portNumber >> 8) & 0x0FF;
         port.b[1] = (portNumber >> 0) & 0x0FF;;
         status = mDNS_RegisterService(&mDNSStorage, &thisServ->coreServ,
-                &name, &type, &domain,
-                NULL,
-                port, 
-                text, textLen,
-                RegistrationCallback, thisServ);
+                &name, &type, &domain,				// Name, type, domain
+                NULL, port, 						// Host and port
+                text, textLen,						// TXT data, length
+                NULL, 0,							// Subtypes
+                mDNSInterface_Any,					// Interace ID
+                RegistrationCallback, thisServ);	// Callback and context
     }
     if (status == mStatus_NoError) {
         thisServ->serviceID = gServiceID;
@@ -619,6 +637,7 @@ static mStatus RegisterServicesInFile(const char *filePath)
     int         ch;
     char name[256];
     char type[256];
+    const char *dom = kDefaultServiceDomain;
     char rawText[1024];
     mDNSu8  text[sizeof(RDataBody)];
     mDNSu16 textLen;
@@ -647,6 +666,14 @@ static mStatus RegisterServicesInFile(const char *filePath)
                     good = ReadALine(type, sizeof(type), fp);
                 }
                 if (good) {
+                	char *p = type;
+                	while (*p && *p != ' ') p++;
+                	if (*p) {
+                		*p = 0;
+                		dom = p+1;
+                	}
+                }
+                if (good) {
                     good = ReadALine(rawText, sizeof(rawText), fp);
                 }
                 if (good) {
@@ -659,7 +686,7 @@ static mStatus RegisterServicesInFile(const char *filePath)
                             && CheckThatPortNumberIsUsable(atol(port), mDNSfalse);
                 }
                 if (good) {
-                    status = RegisterOneService(name, type, text, textLen, atol(port));
+                    status = RegisterOneService(name, type, dom, text, textLen, atol(port));
                     if (status != mStatus_NoError) {
                         fprintf(stderr, 
                                 "%s: Failed to register service, name = %s, type = %s, port = %s\n", 
@@ -694,6 +721,7 @@ static mStatus RegisterOurServices(void)
     if (gRichTextHostName[0] != 0) {
         status = RegisterOneService(gRichTextHostName, 
                                     gServiceType, 
+                                    gServiceDomain, 
                                     gServiceText, gServiceTextLen, 
                                     gPortNumber);
     }
@@ -725,9 +753,11 @@ static void DeregisterOurServices(void)
     }
 }
 
+#if COMPILER_LIKES_PRAGMA_MARK
 #pragma mark **** Main
+#endif
 
-#if !defined(HAVE_DAEMON)
+#ifdef NOT_HAVE_DAEMON
 
     // The version of Solaris that I tested on didn't have the daemon 
     // call.  This implementation was basically stolen from the 
@@ -762,7 +792,7 @@ static void DeregisterOurServices(void)
         return (0);
     }
 
-#endif
+#endif /* NOT_HAVE_DAEMON */
 
 int main(int argc, char **argv)
 {
@@ -870,7 +900,7 @@ int main(int argc, char **argv)
 		else
 			{
 			// 5. Call mDNSPosixProcessFDSet to let the mDNSPosix layer do its work
-			mDNSPosixProcessFDSet(&mDNSStorage, result, &readfds);
+			mDNSPosixProcessFDSet(&mDNSStorage, &readfds);
 			
 			// 6. This example client has no other work it needs to be doing,
 			// but a real client would do its work here

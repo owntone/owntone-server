@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.14  2004/03/02 00:03:37  rpedde
+  Merge new rendezvous code
+
   Revision 1.13  2004/03/01 16:29:42  rpedde
   Fix logging
 
@@ -235,14 +238,14 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
 
     case mStatus_NoError:      
 	DPRINTF(ERR_DEBUG,"Callback: %##s Name Registered\n",
-		thisRegistration->RR_SRV.name.c); 
+		thisRegistration->RR_SRV.resrec.name.c); 
 	// Do nothing; our name was successfully registered.  We may 
 	// get more call backs in the future.
 	break;
 
     case mStatus_NameConflict: 
 	DPRINTF(ERR_WARN,"Callback: %##s Name Conflict\n",
-		thisRegistration->RR_SRV.name.c); 
+		thisRegistration->RR_SRV.resrec.name.c); 
 
 	// In the event of a conflict, this sample RegistrationCallback 
 	// just calls mDNS_RenameAndReregisterService to automatically 
@@ -255,13 +258,13 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
 	// Also, what do we do if mDNS_RenameAndReregisterService returns an 
 	// error.  Right now I have no place to send that error to.
             
-	status = mDNS_RenameAndReregisterService(m, thisRegistration);
+	status = mDNS_RenameAndReregisterService(m, thisRegistration, mDNSNULL);
 	assert(status == mStatus_NoError);
 	break;
 
     case mStatus_MemFree:      
 	DPRINTF(ERR_WARN,"Callback: %##s Memory Free\n",
-		thisRegistration->RR_SRV.name.c); 
+		thisRegistration->RR_SRV.resrec.name.c); 
             
 	// When debugging is enabled, make sure that thisRegistration 
 	// is not on our gServiceList.
@@ -282,7 +285,7 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
 
     default:                   
 	DPRINTF(ERR_WARN,"Callback: %##s Unknown Status %d\n", 
-		thisRegistration->RR_SRV.name.c, status); 
+		thisRegistration->RR_SRV.resrec.name.c, status); 
 	break;
     }
 }
@@ -291,6 +294,7 @@ static int gServiceID = 0;
 
 static mStatus RegisterOneService(const char *  richTextHostName, 
                                   const char *  serviceType, 
+				  const char *  serviceDomain,
                                   const mDNSu8  text[],
                                   mDNSu16       textLen,
                                   long          portNumber)
@@ -308,9 +312,10 @@ static mStatus RegisterOneService(const char *  richTextHostName,
         status = mStatus_NoMemoryErr;
     }
     if (status == mStatus_NoError) {
-        ConvertCStringToDomainLabel(richTextHostName,  &name);
-        ConvertCStringToDomainName(serviceType, &type);
-        ConvertCStringToDomainName("local.", &domain);
+        MakeDomainLabelFromLiteralString(&name,  richTextHostName);
+        MakeDomainNameFromDNSNameString(&type, serviceType);
+        MakeDomainNameFromDNSNameString(&domain, serviceDomain);
+
         port.b[0] = (portNumber >> 8) & 0x0FF;
         port.b[1] = (portNumber >> 0) & 0x0FF;;
         status = mDNS_RegisterService(&mDNSStorage, &thisServ->coreServ,
@@ -318,6 +323,8 @@ static mStatus RegisterOneService(const char *  richTextHostName,
 				      NULL,
 				      port, 
 				      text, textLen,
+				      NULL, 0,
+				      mDNSInterface_Any,
 				      RegistrationCallback, thisServ);
     }
     if (status == mStatus_NoError) {
@@ -384,7 +391,7 @@ void rend_callback(void) {
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
 	DPRINTF(ERR_DEBUG,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
-	RegisterOneService(msg.name,msg.type,NULL,0,msg.port);
+	RegisterOneService(msg.name,msg.type,".local",NULL,0,msg.port);
 	rend_send_response(0); /* success */
 	break;
     case REND_MSG_TYPE_UNREGISTER:
@@ -457,7 +464,7 @@ int rend_private_init(char *user) {
 	    if (errno != EINTR) gStopNow = mDNStrue;
 	} else {
 	    // 5. Call mDNSPosixProcessFDSet to let the mDNSPosix layer do its work
-	    mDNSPosixProcessFDSet(&mDNSStorage, result, &readfds);
+	    mDNSPosixProcessFDSet(&mDNSStorage, &readfds);
 	    
 	    // 6. This example client has no other work it needs to be doing,
 	    // but a real client would do its work here
