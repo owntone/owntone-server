@@ -734,7 +734,11 @@ void *ws_dispatcher(void *arg) {
 		    pwsc->threadno);
 
 	    can_dispatch=0;
-	    if(auth_handler) {
+	    /* If an auth handler is registered, but it accepts a 
+	     * username and password of NULL, then don't bother 
+	     * authing. 
+	     */
+	    if((auth_handler) && (auth_handler(NULL,NULL)==0)) {
 		/* do the auth thing */
 		auth=ws_getarg(&pwsc->request_headers,"Authorization");
 		if(auth) {
@@ -749,16 +753,19 @@ void *ws_dispatcher(void *arg) {
 		    ws_addarg(&pwsc->response_headers,"Connection","close");
 		    ws_addarg(&pwsc->response_headers,"WWW-Authenticate",
 			      "Basic realm=\"webserver\"");
-		    pwsc->close=1;
 		    ws_returnerror(pwsc,401,"Unauthorized");
-		    ws_close(pwsc);
-		    return NULL;
+		    pwsc->error=0;
 		}
+	    } else {
+		can_dispatch=1;
 	    }
-	    if(req_handler)
-		req_handler(pwsc);
-	    else
-		ws_defaulthandler(pwsp,pwsc);		
+
+	    if(can_dispatch) {
+		if(req_handler)
+		    req_handler(pwsc);
+		else
+		    ws_defaulthandler(pwsp,pwsc);		
+	    }
 	}
 
 	if((pwsc->close) || (pwsc->error) || (pwsp->stop)) {
