@@ -142,10 +142,6 @@ int err_unlock_mutex(void) {
 void *err_malloc(char *file, int line, size_t size) {
     ERR_LEAK *pnew;
 
-    DPRINTF(ERR_DEBUG,"Mallocing %d bytes\n",size);
-    err_leakcheck();
-    DPRINTF(ERR_DEBUG,"---\n");
-
     pnew=(ERR_LEAK*)malloc(sizeof(ERR_LEAK));
     if(!pnew) 
 	log_err(1,"Error: cannot allocate leak struct\n");
@@ -162,10 +158,6 @@ void *err_malloc(char *file, int line, size_t size) {
     err_leak.next=pnew;
 
     err_unlock_mutex();
-
-    DPRINTF(ERR_DEBUG,"Malloced at %x\n",pnew->ptr);
-    err_leakcheck();
-    DPRINTF(ERR_DEBUG,"---\n");
 
     return pnew->ptr;
 }
@@ -195,10 +187,6 @@ char *err_strdup(char *file, int line, const char *str) {
 void err_free(char *file, int line, void *ptr) {
     ERR_LEAK *current,*last;
 
-    DPRINTF(ERR_DEBUG,"Freeing %x\n",ptr);
-    err_leakcheck();
-    DPRINTF(ERR_DEBUG,"---\n");
-
     if(err_lock_mutex()) 
 	log_err(1,"Error: cannot lock error mutex\n");
 
@@ -219,10 +207,6 @@ void err_free(char *file, int line, void *ptr) {
     }
 
     err_unlock_mutex();
-
-    DPRINTF(ERR_DEBUG,"Freed\n");
-    err_leakcheck();
-    DPRINTF(ERR_DEBUG,"---\n");
 }
 
 /*
