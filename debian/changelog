@@ -1,11 +1,17 @@
-mt-daapd (0.2.1-pre1) unstable; urgency=low
+mt-daapd (0.2.1-1) unstable; urgency=low
+  * Add support for ogg metainfo
+  * Add support for xing/lame tags
+  * Better connect speed
+  * More bug fixes
+	
+mt-daapd (0.2.1-pre1-1) unstable; urgency=low
   * Add support for background filesystem scans
   * More aac and id3 tags
   * Various bug fixes
 
  -- Ron Pedde <ron@pedde.com>  Sat, 23 Oct 2004 19:10:00 -0500
 
-mt-daapd (0.2.0) unstable; urgency=low
+mt-daapd (0.2.0-1) unstable; urgency=low
   * Add gdbm database
   * Add support for .m4a and .m4p
   * Various bug fixes

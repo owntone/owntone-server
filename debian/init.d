@@ -33,10 +33,8 @@ case "$1" in
 	;;
   stop)
 	echo -n "Stopping $DESC: "
-	#start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
-	#	--exec $DAEMON
-        # XXX FIXME This shouldn't be a killall!
-        killall -INT mt-daapd || true
+	start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
+	    --signal 2
 	echo "$NAME."
 	;;
   #reload)
