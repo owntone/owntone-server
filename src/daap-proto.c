@@ -37,6 +37,103 @@
 DAAP_BLOCK *daap_get_new(void);
 DAAP_BLOCK *daap_add_formatted(DAAP_BLOCK *parent, char *tag, 
 			       int len, char *value);
+
+
+GZIP_STREAM *gzip_alloc(void) {
+  GZIP_STREAM *gz = malloc(sizeof(GZIP_STREAM));
+  gz->in_size = GZIP_CHUNK;
+  gz->in = malloc(gz->in_size);
+  gz->bytes_in = 0;
+  gz->out = NULL;
+  gz->bytes_out = 0;
+  return gz;
+}
+
+ssize_t gzip_write(GZIP_STREAM *gz, void *buf, size_t size) {
+  int next_size;
+  char *in2;
+  int new_size;
+  
+  if (gz->in == NULL) 
+    return -1;
+
+  /* make sure input buffer is big enough */
+  while (gz->in_size <= gz->bytes_in + size) {
+    new_size = 2*gz->in_size;
+    in2 = malloc(new_size);
+    if (in2 == NULL) {
+      DPRINTF(E_LOG,L_WS|L_DAAP,"out of memory for input buffer\n");
+      free(gz->in);
+      gz->in = NULL;
+      gz->bytes_in = gz->in_size = 0;
+      return -1;
+    }
+    memcpy(in2, gz->in, gz->in_size);
+    free(gz->in);
+    gz->in = in2;
+    gz->in_size = new_size;
+  }
+  memcpy(gz->in + gz->bytes_in, buf, size);
+  gz->bytes_in += size;
+  return size;
+}
+   
+int gzip_compress(GZIP_STREAM *gz) {
+  int out_size;
+  int status; 
+  z_stream strm;
+
+  if (gz->in == NULL)
+    return -1;
+
+  out_size = (int)(1.05*gz->in_size) + 20;
+  gz->out = malloc(out_size);
+  if (gz->out == NULL) {
+      DPRINTF(E_INF,L_WS|L_DAAP,"out of memory for output buffer\n");
+      gz->bytes_out = 0;
+      return -1;
+  }
+
+  strm.zalloc = Z_NULL;
+  strm.zfree = Z_NULL;
+  strm.opaque = Z_NULL;
+  strm.next_in = gz->in;
+  strm.avail_in = gz->bytes_in;
+  strm.next_out = gz->out;
+  strm.avail_out = out_size;
+  deflateInit2(&strm,GZIP_COMPRESSION_LEVEL,Z_DEFLATED,31,8,Z_DEFAULT_STRATEGY);
+  while ((status = deflate(&strm,Z_FINISH)) == Z_OK)
+    ;
+  if (status != Z_STREAM_END) {
+    DPRINTF(E_LOG,L_WS|L_DAAP,"unable to compress data\n");
+    gz->bytes_out = 0;
+    return -1;
+  }
+  gz->bytes_out = strm.total_out;
+  deflateEnd(&strm);
+
+  return gz->bytes_out;
+}
+
+int gzip_close(GZIP_STREAM *gz, int fd) {
+  int bytes_written = gz->bytes_out;
+  if (r_write(fd,gz->out,gz->bytes_out) != gz->bytes_out) {
+    DPRINTF(E_LOG,L_WS|L_DAAP,"unable to write gzipped data\n");
+    return -1;
+  }
+  if (gz->in != NULL)
+    free(gz->in);
+  if (gz->out != NULL)
+    free(gz->out);
+  free(gz);
+  return bytes_written;
+}
+
+
+  
+
+
+
 /*
  * daap_get_new
  *
@@ -237,32 +334,50 @@ DAAP_BLOCK *daap_add_empty(DAAP_BLOCK *parent, char *tag) {
  *
  * Serialize a daap tree to a fd;
  */
-int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
+int daap_serialize(DAAP_BLOCK *root, int fd, GZIP_STREAM *gz) {
     char size[4];
 
     while(root) {
+      if (gz == NULL)
 	r_write(fd,root->tag,4);
+      else
+	gzip_write(gz,root->tag,4);
 
-	size[0] = (root->reported_size >> 24) & 0xFF;
-	size[1] = (root->reported_size >> 16) & 0xFF;
-	size[2] = (root->reported_size >> 8 ) & 0xFF;
-	size[3] = (root->reported_size) & 0xFF;
-
+      size[0] = (root->reported_size >> 24) & 0xFF;
+      size[1] = (root->reported_size >> 16) & 0xFF;
+      size[2] = (root->reported_size >> 8 ) & 0xFF;
+      size[3] = (root->reported_size) & 0xFF;
+      
+      if (gz == NULL)
 	r_write(fd,&size,4);
+      else
+	gzip_write(gz,&size,4);
 	
-	if(root->size) {
-	    if(root->free)
-		r_write(fd,root->value,root->size);
-	    else
-		r_write(fd,root->svalue,root->size);
+      if(root->size) {
+	if(root->free) {
+	  if (gz == NULL) {
+	    r_write(fd,root->value,root->size);
+	  }
+	  else {
+	    gzip_write(gz,root->value,root->size);
+	  }
 	}
+	else {
+	  if (gz == NULL) {
+	    r_write(fd,root->svalue,root->size);
+	  }
+	  else {
+	    gzip_write(gz,root->svalue,root->size);
+	  }
+	}
+      }
     
-	if(root->children) {
-	    if(daap_serialize(root->children,fd,gzip))
-		return -1;
-	}
+      if(root->children) {
+	if(daap_serialize(root->children,fd,gz))
+	  return -1;
+      }
 
-	root=root->next;
+      root=root->next;
     }
     
     return 0;

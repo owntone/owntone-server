@@ -58,3 +58,7 @@ Gavin Shelley
 
 Stephen Rubner
  * fixes for ulong ino_t
+
+Ciamac Moallemi
+ * gzip content-encoding
+

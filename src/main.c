@@ -171,6 +171,10 @@ void daap_handler(WS_CONNINFO *pwsc) {
     char *first, *last;
     char* index = 0;
     int streaming=0;
+    int compress =0;
+    int start_time;
+    int end_time;
+    int bytes_written;
 
     MP3FILE *pmp3;
     int file_fd;
@@ -325,21 +329,39 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     if(!streaming) {
 	DPRINTF(E_DBG,L_WS,"Satisfying request\n");
-	ws_addresponseheader(pwsc,"Content-Length","%d",root->reported_size + 8);
-	ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
 
-	DPRINTF(E_DBG,L_WS,"Emitting headers\n");
-	ws_emitheaders(pwsc);
-
-	/*
-	  if(ws_testrequestheader(pwsc,"Accept-Encoding","gzip")) {
-	  ws_addresponseheader(pwsc,"Content-Encoding","gzip");
+	if((config.compress) && ws_testrequestheader(pwsc,"Accept-Encoding","gzip") && root->reported_size >= 1000) {
 	  compress=1;
-	  }
-	*/
+	}
 
 	DPRINTF(E_DBG,L_WS|L_DAAP,"Serializing\n");
-	daap_serialize(root,pwsc->fd,0);
+	start_time = time(NULL);
+	if (compress) {	  
+	  DPRINTF(E_DBG,L_WS|L_DAAP,"Using compression: %s\n", pwsc->uri);
+	  GZIP_STREAM *gz = gzip_alloc();
+	  daap_serialize(root,pwsc->fd,gz);
+	  gzip_compress(gz);
+	  bytes_written = gz->bytes_out;
+	  ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+	  ws_addresponseheader(pwsc,"Content-Length","%d",bytes_written);
+	  ws_addresponseheader(pwsc,"Content-Encoding","gzip");
+	  DPRINTF(E_DBG,L_WS,"Emitting headers\n");
+	  ws_emitheaders(pwsc);
+	  if (gzip_close(gz,pwsc->fd) != bytes_written) {
+	    DPRINTF(E_LOG,L_WS|L_DAAP,"Error compressing data\n");
+	  }
+	  DPRINTF(E_DBG,L_WS|L_DAAP,"Compression ratio: %f\n",((double) bytes_written)/(8.0 + root->reported_size))
+	}
+	else {
+	  bytes_written = root->reported_size + 8;
+	  ws_addresponseheader(pwsc,"Content-Length","%d",bytes_written);
+	  ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+	  DPRINTF(E_DBG,L_WS,"Emitting headers\n");
+	  ws_emitheaders(pwsc);
+	  daap_serialize(root,pwsc->fd,NULL);
+	}
+	end_time = time(NULL);
+	DPRINTF(E_DBG,L_WS|L_DAAP,"Sent %d bytes in %d seconds\n",bytes_written,end_time-start_time);
 	DPRINTF(E_DBG,L_WS|L_DAAP,"Done, freeing\n");
 	daap_free(root);
     } else {

@@ -23,6 +23,24 @@
 #define _DAAP_PROTO_H_
 
 
+#include "zlib.h"
+
+#define GZIP_CHUNK 16384
+#define GZIP_COMPRESSION_LEVEL Z_DEFAULT_COMPRESSION
+
+typedef struct gzip_stream_tag {
+  int bytes_in;
+  int bytes_out;
+  int in_size;
+  char *in;
+  char *out;
+} GZIP_STREAM;
+
+GZIP_STREAM *gzip_alloc(void);
+ssize_t gzip_write(GZIP_STREAM *gz, void *buf, size_t size);
+int gzip_compress(GZIP_STREAM *gz);
+int gzip_close(GZIP_STREAM *gz, int fd);
+
 typedef struct daap_block_tag {
     char tag[4];
     int reported_size;
@@ -42,7 +60,7 @@ DAAP_BLOCK *daap_add_empty(DAAP_BLOCK *parent, char *tag);
 DAAP_BLOCK *daap_add_char(DAAP_BLOCK *parent, char *tag, char value);
 DAAP_BLOCK *daap_add_short(DAAP_BLOCK *parent, char *tag, short int value);
 DAAP_BLOCK *daap_add_long(DAAP_BLOCK *parent, char *tag, int v1, int v2);
-int daap_serialize(DAAP_BLOCK *root, int fd, int gzip);
+int daap_serialize(DAAP_BLOCK *root, int fd, GZIP_STREAM *gz);
 void daap_free(DAAP_BLOCK *root);
 
 // remove a block from it's parent (and free it)
