@@ -19,38 +19,51 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+/**
+ * \file daapd.h
+ *
+ * header file for main.c.  Why it isn't main.h, I don't know.
+ * In fact...
+ *
+ * \todo make daapd.h into main.h
+ */
+
 #ifndef _DAAPD_H_
 #define _DAAPD_H_
 
+/** Simple struct for holding stat info.
+ * \todo wire up the tag_stats#bytes_served stuff into r_write() in restart.c
+ */
 typedef struct tag_stats {
-    time_t start_time;
-    int songs_served;
-
-    unsigned int gb_served;
-    unsigned int bytes_served;
+    time_t start_time;          /**< When the server was started */
+    int songs_served;           /**< How many songs have been served */
+ 
+    unsigned int gb_served;     /**< How many gigs of data have been served (unused) */
+    unsigned int bytes_served;  /**< How many bytes of data served (unused) */
 } STATS;
 
+/** Global config struct */
 typedef struct tag_config {
-    int use_mdns;
-    int stop;
-    int reload;
-    char *configfile;
-    char *web_root;
-    int port;
-    int rescan_interval;
-    int always_scan;       /* 0 to minimize disk usage (embedded devices) - not in config */
-    int process_m3u;
-    char *adminpassword;
-    char *readpassword;
-    char *mp3dir;
-    char *servername;
-    char *playlist;
-    char *runas;
-    char *dbdir;
-    char *extensions;
-    char *artfilename;
-    char *logfile;
-    STATS stats;
+    int use_mdns;         /**< Should we do rendezvous advertisements? */
+    int stop;             /**< Time to exit? */
+    int reload;           /**< Time to reload and/or rescan the database? */
+    char *configfile;     /**< path to config file */
+    char *web_root;       /**< path to the directory containing the admin-root files */
+    int port;             /**< port to listen on */
+    int rescan_interval;  /**< How often to do a background rescan of the file system */
+    int always_scan;      /**< 0 to minimize disk usage (embedded devices) - not in config */
+    int process_m3u;      /**< Should we process m3u files? */
+    char *adminpassword;  /**< Password to web management pages */
+    char *readpassword;   /**< iTunes password */
+    char *mp3dir;         /**< root directory of the mp3 files */
+    char *servername;     /**< Name advertised via rendezvous */
+    char *playlist;       /**< Path to the playlist file */
+    char *runas;          /**< Who to drop privs to (if run as root) */
+    char *dbdir;          /**< Where to put the db file */
+    char *extensions;     /**< What music file extentions to process */
+    char *artfilename;    /**< What filename to merge coverart with */
+    char *logfile;        /**< What file to use as a logfile */
+    STATS stats;          /**< Stats structure (see above) */
 } CONFIG;
 
 extern CONFIG config;

@@ -24,8 +24,8 @@
  * Error handling, logging, and memory leak checking.
  *
  * Most of these functions should not be used directly.  For the most
- * part, they are hidden in macros like DPRINTF and MEMNOTIFY.  The
- * only function here that is really directly useable is log_setdest
+ * part, they are hidden in macros like #DPRINTF and #MEMNOTIFY.  The
+ * only function here that is really directly useable is log_setdest()
  */
 
 #ifdef HAVE_CONFIG_H
@@ -83,13 +83,11 @@ static int err_unlock_mutex(void);
 /**
  * Write a printf-style formatted message to the log destination.
  * This can be stderr, syslog, or a logfile, as determined by 
- * log_setdest.  Note that this function should not be directly
- * used, rather it should be used via the DPRINTF macro.
+ * log_setdest().  Note that this function should not be directly
+ * used, rather it should be used via the #DPRINTF macro.
  *
  * \param level Level at which to log \ref log_levels
  * \param fmt printf-style 
- *
- * \relatesalso log_setdest
  */
 void log_err(int level, char *fmt, ...)
 {
@@ -139,9 +137,7 @@ void log_err(int level, char *fmt, ...)
  *
  * \param app appname (used only for syslog destination)
  * \param destination where to log to \ref log_dests "as defined in err.h"
- *
- * \relatesalso log_err
- ****************************************************/
+ */
 void log_setdest(char *app, int destination) {
     if(err_logdestination == destination)
 	return;
@@ -212,10 +208,10 @@ int err_unlock_mutex(void) {
  * Let the leak detector know about a chunk of memory
  * that needs to be freed, but came from an external library.
  * Example: gdbm functions.  Note that this should only
- * be called via the MEMNOTIFY macro.
+ * be called via the #MEMNOTIFY macro.
  *
- * \param file filled in from the MEMNOTIFY macro with __FILE__
- * \param line filled in from the MEMNOTIFY macro with __LINE__
+ * \param file filled in from the #MEMNOTIFY macro with __FILE__
+ * \param line filled in from the #MEMNOTIFY macro with __LINE__
  * \param ptr ptr to block of memory which must be freed
  */
 void err_notify(char *file, int line, void *ptr) {

@@ -36,7 +36,7 @@
  * \todo Refactor daap_handler()
  */
 
-/* \mainpage mt-daapd
+/** \mainpage mt-daapd
  * \section about_section About
  *
  * This is mt-daapd, an attempt to create an iTunes server for
@@ -105,7 +105,8 @@
 # define SIGCLD SIGCHLD
 #endif
 
-#define MAIN_SLEEP_INTERVAL  2   /**< seconds to sleep before checking for shutdown/reload */
+/** Seconds to sleep before checking for a shutdown or reload */
+#define MAIN_SLEEP_INTERVAL  2
 /*
  * Globals
  */
@@ -119,6 +120,8 @@ static void write_pid_file(void);
 static void usage(char *program);
 static void *signal_handler(void *arg);
 static int start_signal_handler(void);
+static void daap_handler(WS_CONNINFO *pwsc);
+static int daap_auth(char *username, char *password);
 
 /**
  * Handles authentication for the daap server.  This isn't the
@@ -152,6 +155,8 @@ int daap_auth(char *username, char *password) {
  * into multiple functions, and perhaps moved into daap.c
  *
  * \param pwsc Webserver connection info, passed from the webserver
+ *
+ * \todo Decomplexify this!
  */
 void daap_handler(WS_CONNINFO *pwsc) {
     int close;
