@@ -981,7 +981,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	if(ferror(infile)) {
 	    DPRINTF(ERR_LOG,"Error reading: %s\n",strerror(errno));
 	} else {
-	    DPRINTF(ERR_LOG,"Short file: %s\n",infile);
+	    DPRINTF(ERR_LOG,"Short file: %s\n",file);
 	}
 	return -1;
     }
