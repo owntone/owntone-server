@@ -6,9 +6,10 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <link rel="stylesheet" type="text/css" href="mt-daapd.css" />
     @ispage status.html:<meta http-equiv="refresh" content="10" />:@
+    @ispage playlist.html:<script type="text/javascript" src="playlist.js"></script>:@
   </head>
 
-  <body>
+  <body @ispage playlist.html:onload="init()":@>
 
     <div>
       <!-- <h1>.: m t - d a a p d :.</h1> -->
@@ -23,6 +24,7 @@
       <a href="index.html" class="@ispage index.html:selected:plain@">Home</a>
       <a href="config.html" class="@ispage config.html:selected:plain@">Config</a>
       <a href="status.html" class="@ispage status.html:selected:plain@">Status</a>
+      <a href="playlist.html" class="@ispage playlist.html:selected:plain@">Playlist</a>
       <a href="feedback.html" class="@ispage feedback.html:selected:plain@">Feedback</a>
       <a href="thanks.html" class="@ispage thanks.html:selected:plain@">Thanks</a>
     </div>
@@ -38,6 +40,7 @@
     <table class="columns">
       <tbody>
 	<tr>
+@ispage playlist.html:<!--:@
 	  <td class="left">
 	    <div class="box">
 	      <h5>Links</h5>
@@ -93,6 +96,7 @@
 
 
 	  </td>
+@ispage playlist.html:-->:@
 	  <td class="main">
 	    <div class="document">
 	      <div> 

@@ -1,0 +1,54 @@
+@include hdr.html@
+<h1>Playlist</h1>
+<table>
+<tr>
+<td valign="top">
+  Source<br />
+  <select id="source" name="select" size="20">
+    <option value="1">Library</option>
+  </select>
+</td>
+
+<td valign="top">
+<table id="browse">
+  <tr>
+  <td>
+  Genre<br />
+  <select id="genre" name="select" size="10">
+    <option value="1">All genres</option>
+  </select>
+  </td>
+  <td>
+Artist<br />
+  <select id="artist" name="select" size="10">
+    <option value="1">All artists</option>
+  </select>
+  </td>
+  <td>
+Album<br />
+  <select id="album" name="select" size="10">
+    <option value="1">All albums</option>
+  </select>
+  </td>
+  </tr>
+</table>  
+
+<div class="stx" style="break: both;">
+  <table id="songs" border="0" cellspacing="0" cellpadding="0">
+    <thead>
+    <tr>
+      <th>Song</th>
+      <th>Time</th>
+      <th>Artist</th>
+      <th>Album</th>
+      <th>Genre</th>
+    </tr>
+    </thead>
+    <tbody>
+    </tbody>
+  </table>
+</div>
+</td>
+</tr>
+</table>
+@include ftr.html@
