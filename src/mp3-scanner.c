@@ -73,9 +73,21 @@ typedef struct tag_scan_id3header {
 /*
  * Globals
  */
-int scan_br_table[] = {
-    0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0
+int scan_br_table[5][16] = {
+    { 0,32,64,96,128,160,192,224,256,288,320,352,384,416,448,0 }, /* MPEG1, Layer 1 */
+    { 0,32,48,56,64,80,96,112,128,160,192,224,256,320,384,0 },    /* MPEG1, Layer 2 */
+    { 0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0 },     /* MPEG1, Layer 3 */
+    { 0,32,48,56,64,80,96,112,128,144,160,176,192,224,256,0 },    /* MPEG2/2.5, Layer 1 */
+    { 0,8,16,24,32,40,48,56,64,80,96,112,128,144,160,0 }          /* MPEG2/2.5, Layer 2/3 */
 };
+
+int scan_sample_table[3][4] = {
+    { 44100, 48000, 32000, 0 },
+    { 22050, 24000, 16000, 0 },
+    { 11025, 12000, 8000, 0 }
+};
+
+
 
 int scan_mode_foreground=1;
 
@@ -891,11 +903,14 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     unsigned char buffer[1024];
     int time_seconds;
     int index;
+    int layer_index;
+    int sample_index;
 
     int ver=0;
     int layer=0;
     int bitrate=0;
     int samplerate=0;
+    int stereo=0;
 
     if(!(infile=fopen(file,"rb"))) {
 	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
@@ -938,28 +953,55 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     if((buffer[index] == 0xFF)&&(buffer[index+1] >= 224)) {
 	ver=(buffer[index+1] & 0x18) >> 3;
 	layer=(buffer[index+1] & 0x6) >> 1;
-	if((ver==3) && (layer==1)) { /* MPEG1, Layer 3 */
+
+	layer_index=-1;
+	sample_index=-1;
+
+	switch(ver) {
+	case 0: /* MPEG Version 2.5 */
+	    sample_index=2;
+	    if(layer == 3)
+		layer_index=3;
+	    else
+		layer_index=4;
+	    break;
+	case 2: /* MPEG Version 2 */
+	    sample_index=1;
+	    if(layer == 3)
+		layer_index=3;
+	    else
+		layer_index=4;
+	    break;
+	case 3: /* MPEG Version 1 */
+	    sample_index=0;
+	    if(layer == 3) /* layer 1 */
+		layer_index=0;
+	    if(layer == 2) /* layer 2 */
+		layer_index=1;
+	    if(layer == 1) /* layer 3 */
+		layer_index=2;
+	    break;
+	}
+
+
+	if(layer_index != -1) {
 	    bitrate=(buffer[index+2] & 0xF0) >> 4;
-	    bitrate=scan_br_table[bitrate];
+	    bitrate=scan_br_table[layer_index][bitrate];
 	    samplerate=(buffer[index+2] & 0x0C) >> 2;
-	    switch(samplerate) {
-	    case 0:
-		samplerate=44100;
-		break;
-	    case 1:
-		samplerate=48000;
-		break;
-	    case 2:
-		samplerate=32000;
-		break;
-	    }
+	    samplerate=scan_sample_table[sample_index][samplerate];
 	    pmp3->bitrate=bitrate;
 	    pmp3->samplerate=samplerate;
+	    stereo=buffer[index+3] & 0xC0 >> 6;
+	    if(stereo == 3)
+		stereo=0;
+	    else
+		stereo=1;
 	} else {
 	    /* not an mp3... */
-	    DPRINTF(ERR_DEBUG,"File is not a MPEG-1/Layer III\n");
+	    DPRINTF(ERR_DEBUG,"File is not a MPEG file\n");
 	    return -1;
 	}
+
 
 	/* guesstimate the file length */
 	time_seconds = ((int)(file_size * 8)) / (bitrate * 1024);
