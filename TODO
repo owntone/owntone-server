@@ -1,0 +1,12 @@
+TODO List
+---------
+
+serving by byte range
+# config_thread_status (done, 13 nov 2k3)
+# server-side includes on config pages (done, 12 nov 2k3)
+make a reference counted stringlist for the in-memory db
+make id by inode in in-memory db
+make in-memory db a b-tree, not a linked list
+dumb playlists
+smart playlists
+move thread_status to webserver, make graceful stop function
