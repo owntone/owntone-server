@@ -340,7 +340,7 @@ int scan_path(char *path) {
 	if(pde->d_name[0] == '.') /* skip hidden and directories */
 	    continue;
 
-	sprintf(mp3_path,"%s/%s",path,pde->d_name);
+	snprintf(mp3_path,PATH_MAX,"%s/%s",path,pde->d_name);
 	DPRINTF(ERR_DEBUG,"Found %s\n",mp3_path);
 	if(stat(mp3_path,&sb)) {
 	    DPRINTF(ERR_WARN,"Error statting: %s\n",strerror(errno));
@@ -399,6 +399,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 	db_add_playlist(playlistid,m3u_path,0);
 	DPRINTF(ERR_INFO,"Added playlist as id %d\n",playlistid);
 
+	memset(linebuffer,0x00,sizeof(linebuffer));
 	while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
 	    while((linebuffer[strlen(linebuffer)-1] == '\n') ||
 		  (linebuffer[strlen(linebuffer)-1] == '\r'))   /* windows? */
@@ -924,7 +925,11 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
     pmp3->file_size=file_size;
 
-    fread(buffer,1,sizeof(buffer),infile);
+    if(fread(buffer,1,sizeof(buffer),infile) != sizeof(buffer)) {
+	DPRINTF(ERR_LOG,"Short file: %s\n",infile);
+	return -1;
+    }
+
     pid3=(SCAN_ID3HEADER*)buffer;
     
     if(strncmp(pid3->id,"ID3",3)==0) {
@@ -939,7 +944,10 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     file_size -= fp_size;
 
     fseek(infile,fp_size,SEEK_SET);
-    fread(buffer,1,sizeof(buffer),infile);
+    if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
+	DPRINTF(ERR_LOG,"Short file: %s\n",file);
+	return -1;
+    }
 
     index=0;
     while(((buffer[index] != 0xFF) || (buffer[index+1] < 224)) &&
@@ -984,29 +992,31 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	    break;
 	}
 
-
-	if(layer_index != -1) {
-	    bitrate=(buffer[index+2] & 0xF0) >> 4;
-	    bitrate=scan_br_table[layer_index][bitrate];
-	    samplerate=(buffer[index+2] & 0x0C) >> 2;
-	    samplerate=scan_sample_table[sample_index][samplerate];
-	    pmp3->bitrate=bitrate;
-	    pmp3->samplerate=samplerate;
-	    stereo=buffer[index+3] & 0xC0 >> 6;
-	    if(stereo == 3)
-		stereo=0;
-	    else
-		stereo=1;
-	    DPRINTF(ERR_DEBUG," MPEG Version: %s\n",ver == 3 ? "1" : (ver == 2 ? "2" : "2.5"));
-	    DPRINTF(ERR_DEBUG," Layer: %d\n",4-layer);
-	    DPRINTF(ERR_DEBUG," Sample Rate: %d\n",samplerate);
-	    DPRINTF(ERR_DEBUG," Bit Rate: %d\n",bitrate);
-	} else {
-	    /* not an mp3... */
-	    DPRINTF(ERR_WARN,"%s is not a MPEG file... skipping\n",file);
+	if((layer_index < 0) || (layer_index > 4)) {
+	    DPRINTF(ERR_LOG,"Bad mp3 header in %s: bad layer_index\n",file);
 	    return -1;
 	}
 
+	if((sample_index < 0) || (sample_index > 2)) {
+	    DPRINTF(ERR_LOG,"Bad mp3 header in %s: bad sample_index\n",file);
+	    return -1;
+	}
+
+	bitrate=(buffer[index+2] & 0xF0) >> 4;
+	bitrate=scan_br_table[layer_index][bitrate];
+	samplerate=(buffer[index+2] & 0x0C) >> 2;  /* can only be 0-3 */
+	samplerate=scan_sample_table[sample_index][samplerate];
+	pmp3->bitrate=bitrate;
+	pmp3->samplerate=samplerate;
+	stereo=buffer[index+3] & 0xC0 >> 6;
+	if(stereo == 3)
+	    stereo=0;
+	else
+	    stereo=1;
+	DPRINTF(ERR_DEBUG," MPEG Version: %s\n",ver == 3 ? "1" : (ver == 2 ? "2" : "2.5"));
+	DPRINTF(ERR_DEBUG," Layer: %d\n",4-layer);
+	DPRINTF(ERR_DEBUG," Sample Rate: %d\n",samplerate);
+	DPRINTF(ERR_DEBUG," Bit Rate: %d\n",bitrate);
 
 	/* guesstimate the file length */
 	if(bitrate)
