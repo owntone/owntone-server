@@ -68,6 +68,18 @@ static int gettimeout(struct timeval end,
     return 0;
 }
 
+
+int r_fdprintf(int fd, char *fmt, ...) {
+    char buffer[1024];
+    va_list ap;
+
+    va_start(ap, fmt);
+    vsnprintf(buffer, 1024, fmt, ap);
+    va_end(ap);
+
+    return r_write(fd,buffer,strlen(buffer));
+}
+
 /* Restart versions of traditional functions */
 
 int r_close(int fildes) {

@@ -74,5 +74,14 @@ DAAP_BLOCK *daap_find(DAAP_BLOCK *parent, char* tag);
 // search a block's children and change an integer value
 int daap_set_int(DAAP_BLOCK* parent, char* tag, int value);
 
+typedef struct tag_daap_items {
+    int type;
+    char *tag;
+    char *description;
+} DAAP_ITEMS;
+
+extern DAAP_ITEMS taglist[];
+
+
 #endif
 

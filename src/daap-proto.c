@@ -333,11 +333,154 @@ DAAP_BLOCK *daap_add_empty(DAAP_BLOCK *parent, char *tag) {
     return daap_add_formatted(parent,tag,0,NULL);
 }
 
+
+DAAP_ITEMS *daap_lookup_tag(char *tag) {
+    DAAP_ITEMS *pitem;
+
+    pitem=taglist;
+    while((pitem->tag) && (strncmp(tag,pitem->tag,4))) {
+	pitem++;
+    }
+
+    if(!pitem->tag)
+	DPRINTF(E_FATAL,L_DAAP,"Unknown daap tag: %c%c%c%c\n",tag[0],tag[1],tag[2],tag[3]);
+
+    return pitem;
+}
+
+
+
+/**
+ * xml entity encoding, stupid style
+ */
+char *daap_xml_entity_encode(char *original) {
+    char *new;
+    char *s, *d;
+    int destsize;
+
+    destsize = 6*strlen(original)+1;
+    new=(char *)malloc(destsize);
+    if(!new) return NULL;
+
+    memset(new,0x00,destsize);
+
+    s=original;
+    d=new;
+
+    while(*s) {
+	switch(*s) {
+	case '>':
+	    strcat(d,"&gt;");
+	    d += 4;
+	    s++;
+	    break;
+	case '<':
+	    strcat(d,"&lt;");
+	    d += 4;
+	    s++;
+	    break;
+	case '"':
+	    strcat(d,"&quot;");
+	    d += 6;
+	    s++;
+	    break;
+	case '\'':
+	    strcat(d,"&apos;");
+	    d += 6;
+	    s++;
+	    break;
+	case '&':
+	    strcat(d,"&amp;");
+	    d += 5;
+	    s++;
+	    break;
+	default:
+	    *d++ = *s++;
+	}
+    }
+
+    return new;
+}
+
+/**
+ * serialize a dmap tree as xml
+ */
+int daap_serialize_xml(DAAP_BLOCK *root, int fd) {
+    DAAP_ITEMS *pitem;
+    unsigned char *data;
+    int ivalue;
+    long long lvalue;
+    char *encoded_string;
+
+    while(root) {
+	if(root->free)
+	    data=(unsigned char *)root->value;
+	else
+	    data=(unsigned char *)root->svalue;
+
+	pitem=daap_lookup_tag(root->tag);
+	r_fdprintf(fd,"<%s>",pitem->description);
+	if(pitem->type != 0x0c) { /* container */
+	    switch(pitem->type) {
+	    case 0x01: /* byte */
+		r_fdprintf(fd,"%d",*((char *)data));
+		break;
+	    case 0x02: /* unsigned byte */
+		r_fdprintf(fd,"%ud",*((char *)data));
+		break;
+	    case 0x03: /* short */
+		ivalue = data[0] << 8 | data[1];
+		r_fdprintf(fd,"%d",ivalue);
+		break;
+	    case 0x05: /* int */
+	    case 0x0A: /* epoch */
+		ivalue = data[0] << 24 |
+		    data[1] << 16 |
+		    data[2] << 8 |
+		    data[3];
+		r_fdprintf(fd,"%d",ivalue);
+		break;
+	    case 0x07: /* long long */
+		ivalue = data[0] << 24 |
+		    data[1] << 16 |
+		    data[2] << 8 |
+		    data[3];
+		lvalue=ivalue;
+		ivalue = data[4] << 24 |
+		    data[5] << 16 |
+		    data[6] << 8 |
+		    data[7];
+		lvalue = (lvalue << 32) | ivalue;
+		r_fdprintf(fd,"%ll",ivalue);
+		break;
+	    case 0x09: /* string */
+		encoded_string=daap_xml_entity_encode(data);
+		r_fdprintf(fd,"%s",encoded_string);
+		free(encoded_string);
+		break;
+	    case 0x0B: /* version? */
+		ivalue=data[0] << 8 | data[1];
+		r_fdprintf(fd,"%d.%d.%d",ivalue,data[2],data[3]);
+		break;
+	    default:
+		DPRINTF(E_FATAL,L_DAAP,"Bad dmap type: %d, %s\n",
+			pitem->type, pitem->description);
+		break;
+	    }
+	} else {
+	    daap_serialize_xml(root->children,fd);
+	}
+	r_fdprintf(fd,"</%s>",pitem->description);
+	root=root->next;
+    }
+}
+
+
 /*
  * daap_serialmem
  *
  * Serialize a daap tree to a fd;
- */
+*/
 int daap_serialize(DAAP_BLOCK *root, int fd, GZIP_STREAM *gz) {
     char size[4];
 

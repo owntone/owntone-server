@@ -233,7 +233,7 @@ void db_init_once(void) {
 int db_open(char *parameters, int reload) {
     char db_path[PATH_MAX + 1];
     int current_db_version;
-    char *errmsg;
+    char *perr;
     int err;
 
     if(pthread_once(&db_initlock,db_init_once))
@@ -242,14 +242,14 @@ int db_open(char *parameters, int reload) {
     snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs_sqlite.db");
 
     db_gdbmlock();
-    db_songs=sqlite_open(db_path,0,&errmsg);
+    db_songs=sqlite_open(db_path,0,&perr);
     if(!db_songs)
-	DPRINTF(E_FATAL,L_DB,"db_open: %s\n",errmsg);
+	DPRINTF(E_FATAL,L_DB,"db_open: %s\n",perr);
 
     if(reload) {
-	err=sqlite_exec(db_songs,"DELETE FROM songs",NULL,NULL,&errmsg);
+	err=sqlite_exec(db_songs,"DELETE FROM songs",NULL,NULL,&perr);
 	if(err != SQLITE_OK)
-	    DPRINTF(E_FATAL,L_DB,"Cannot reload tables: %s\n",errmsg);
+	    DPRINTF(E_FATAL,L_DB,"Cannot reload tables: %s\n",perr);
     }
 
     db_gdbmunlock();
@@ -423,6 +423,7 @@ int db_start_initial_update(void) {
     /* load up the red-black tree with all the current songs in the db */
 
     db_gdbmlock();
+    sqlite_exec(db_songs,"PRAGMA synchronous=OFF;",NULL,NULL,&perr);
     err=sqlite_get_table(db_songs,"SELECT id FROM songs",&resarray,
 			 &rows, &cols, &perr);
     db_gdbmunlock();
@@ -473,6 +474,12 @@ int db_end_initial_update(void) {
 
     DB_PLAYLIST *current,*last;
     DB_PLAYLISTENTRY *pple;
+
+    char *perr;
+
+    db_gdbmlock();
+    sqlite_exec(db_songs,"PRAGMA synchronous=NORMAL;",NULL,NULL,&perr);
+    db_gdbmunlock();
 
     DPRINTF(E_DBG,L_DB|L_SCAN,"Initial update over.  Removing stale items\n");
     val=rblookup(RB_LUFIRST,NULL,db_removed);

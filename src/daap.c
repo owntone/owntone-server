@@ -41,12 +41,6 @@
 #include "daapd.h"
 #include "query.h"
 
-typedef struct tag_daap_items {
-    int type;
-    char *tag;
-    char *description;
-} DAAP_ITEMS;
-
 DAAP_ITEMS taglist[] = {
 	{ 0x05, "miid", "dmap.itemid" },
 	{ 0x09, "minm", "dmap.itemname" },
@@ -132,6 +126,16 @@ DAAP_ITEMS taglist[] = {
 	{ 0x0C, "arif", "daap.resolveinfo" },
 	{ 0x05, "aeNV", "com.apple.itunes.norm-volume" },
 	{ 0x01, "aeSP", "com.apple.itunes.smart-playlist" },
+	/* iTunes 4.5+ */
+	{ 0x01, "msas", "dmap.authenticationschemes" },
+	{ 0x05, "ascd", "daap.songcodectype" },
+	{ 0x05, "aeSV", "com.apple.itunes.music-sharing-version" },
+	{ 0x05, "aePI", "com.apple.itunes.itms-playlistid" },
+	{ 0x05, "aeCI", "com.apple.iTunes.itms-composerid" },
+	{ 0x05, "aeGI", "com.apple.iTunes.itms-genreid" },
+	{ 0x05, "aeAI", "com.apple.iTunes.itms-artistid" },
+	{ 0x05, "aeSI", "com.apple.iTunes.itms-songid" },
+	{ 0x09, "agrp", "daap.songgrouping" },
 	{ 0x00, NULL,   NULL }
 };
 

@@ -182,6 +182,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
     int start_time;
     int end_time;
     int bytes_written;
+    int serialize_as_xml;
 
     MP3FILE *pmp3;
     int file_fd;
@@ -256,7 +257,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	 * /databases/id/containers, which returns a container
 	 * /databases/id/containers/id/items, which returns playlist elements
 	 * /databases/id/items/id.mp3, to spool an mp3
- * /databases/id/browse/category
+	 * /databases/id/browse/category
 	 */
 
 	uri = strdup(pwsc->uri);
@@ -342,7 +343,13 @@ void daap_handler(WS_CONNINFO *pwsc) {
     if(!streaming) {
 	DPRINTF(E_DBG,L_WS,"Satisfying request\n");
 
-	if((config.compress) && ws_testrequestheader(pwsc,"Accept-Encoding","gzip") && root->reported_size >= 1000) {
+	serialize_as_xml=0;
+	if(ws_getvar(pwsc,"output"))
+	    serialize_as_xml=1;
+	    
+
+	if((config.compress) && ws_testrequestheader(pwsc,"Accept-Encoding","gzip") && 
+	   (root->reported_size >= 1000) && (!serialize_as_xml)) {
 	  compress=1;
 	}
 
@@ -366,11 +373,21 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	}
 	else {
 	  bytes_written = root->reported_size + 8;
-	  ws_addresponseheader(pwsc,"Content-Length","%d",bytes_written);
+	  if(!serialize_as_xml) {
+	      ws_addresponseheader(pwsc,"Content-Length","%d",bytes_written);
+	  } else {
+	      ws_addresponseheader(pwsc,"Connection","close");
+	      pwsc->close=1;
+	  }
 	  ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
 	  DPRINTF(E_DBG,L_WS,"Emitting headers\n");
 	  ws_emitheaders(pwsc);
-	  daap_serialize(root,pwsc->fd,NULL);
+	  if(!serialize_as_xml) {
+	      daap_serialize(root,pwsc->fd,NULL);
+	  } else {
+	      ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+	      daap_serialize_xml(root,pwsc->fd);
+	  }
 	}
 	end_time = time(NULL);
 	DPRINTF(E_DBG,L_WS|L_DAAP,"Sent %d bytes in %d seconds\n",bytes_written,end_time-start_time);

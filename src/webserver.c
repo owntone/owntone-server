@@ -1109,14 +1109,20 @@ int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value) {
  */
 int ws_testarg(ARGLIST *root, char *key, char *value) {
     char *retval;
+    int result;
+
 
     DPRINTF(E_DBG,L_WS,"Checking to see if %s matches %s\n",key,value);
 
     retval=ws_getarg(root,key);
-    if(!retval)
+    if(!retval) {
+	DPRINTF(E_DBG,L_WS,"Nope!\n");
 	return 0;
+    }
 
-    return !strcasecmp(value,retval);
+    result=!strcasecmp(value,retval);
+    DPRINTF(E_DBG,L_WS,"And it %s\n",result ? "DOES!" : "does NOT");
+    return result;
 }
 
 /*
@@ -1187,7 +1193,7 @@ int ws_addarg(ARGLIST *root, char *key, char *fmt, ...) {
 
     current=root->next;
     while(current) {
-	if(!strcmp(current->key,key)) {
+	if(!strcasecmp(current->key,key)) {
 	    /* got a match! */
 	    DPRINTF(E_DBG,L_WS,"Updating %s from %s to %s\n",
 		    key,current->value,value);

@@ -38,7 +38,7 @@ CREATE TABLE config (
 	value		VARCHAR(1024)	NOT NULL
 );
 
-CREATE INDEX idx_id ON songs(id);
-CREATE INDEX idx_path on songs(path);
+#CREATE INDEX idx_id ON songs(id);
+#CREATE INDEX idx_path on songs(path);
 
 INSERT INTO config (term, value) VALUES ('version','8');

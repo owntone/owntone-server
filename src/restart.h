@@ -43,6 +43,7 @@
 
 struct timeval add2currenttime(double seconds);
 int copyfile(int fromfd, int tofd);
+int r_fdprintf(int fd, char *fmt, ...);
 int r_close(int fildes);
 int r_dup2(int fildes, int fildes2);
 int r_open2(const char *path, int oflag);
