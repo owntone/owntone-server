@@ -36,6 +36,7 @@ typedef struct tag_config {
     char *adminpassword;
     char *readpassword;
     char *mp3dir;
+    char *servername;
 
     SONGENTRY songlist;
 } CONFIG;

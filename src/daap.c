@@ -346,7 +346,7 @@ DAAP_BLOCK *daap_response_update(int clientver) {
  *
  * handle the daap block for the /databases/containers URI
  */
-DAAP_BLOCK *daap_response_playlists(void) {
+DAAP_BLOCK *daap_response_playlists(char *name) {
     DAAP_BLOCK *root;
     DAAP_BLOCK *mlcl;
     DAAP_BLOCK *mlit;
@@ -366,7 +366,7 @@ DAAP_BLOCK *daap_response_playlists(void) {
 	    if(mlit) {
 		g = g && daap_add_int(mlit,"miid",0x1);
 		g = g && daap_add_long(mlit,"mper",0,2);
-		g = g && daap_add_string(mlit,"minm","mt-daapd");
+		g = g && daap_add_string(mlit,"minm",name);
 		g = g && daap_add_int(mlit,"mimc",db_get_song_count());
 	    }
 	}
@@ -389,7 +389,7 @@ DAAP_BLOCK *daap_response_playlists(void) {
  * handle the daap block for the /databases URI
  */
 
-DAAP_BLOCK *daap_response_dbinfo(void) {
+DAAP_BLOCK *daap_response_dbinfo(char *name) {
     DAAP_BLOCK *root;
     DAAP_BLOCK *mlcl;
     DAAP_BLOCK *mlit;
@@ -409,7 +409,7 @@ DAAP_BLOCK *daap_response_dbinfo(void) {
 	    if(mlit) {
 		g = g && daap_add_int(mlit,"miid",0x20);
 		g = g && daap_add_long(mlit,"mper",0,1);
-		g = g && daap_add_string(mlit,"minm","mt-daapd");
+		g = g && daap_add_string(mlit,"minm",name);
 		g = g && daap_add_int(mlit,"mimc",db_get_song_count()); /* songs */
 		g = g && daap_add_int(mlit,"mctc",0x1); /* playlists */
 	    }
@@ -432,7 +432,7 @@ DAAP_BLOCK *daap_response_dbinfo(void) {
  *
  * handle the daap block for the /server-info URI
  */
-DAAP_BLOCK *daap_response_server_info(void) {
+DAAP_BLOCK *daap_response_server_info(char *name) {
     DAAP_BLOCK *root;
     int g=1;
 
@@ -444,7 +444,7 @@ DAAP_BLOCK *daap_response_server_info(void) {
 	g = (int)daap_add_int(root,"mstt",200); /* result */
 	g = g && daap_add_int(root,"mpro",2 << 16); /* dmap proto ? */
 	g = g && daap_add_int(root,"apro",2 << 16); /* daap protocol */
-	g = g && daap_add_string(root,"minm","mt-daapd"); /* server name */
+	g = g && daap_add_string(root,"minm",name); /* server name */
 	g = g && daap_add_char(root,"mslr",0); /* logon required */
 	g = g && daap_add_int(root,"mstm",1800); /* timeout  - iTunes=1800 */
 	g = g && daap_add_char(root,"msal",0); /* autologout */

@@ -23,13 +23,13 @@
 
 #include "daap-proto.h"
 
-DAAP_BLOCK *daap_response_server_info(void);
+DAAP_BLOCK *daap_response_server_info(char *name);
 DAAP_BLOCK *daap_response_content_codes(void);
 DAAP_BLOCK *daap_response_login(void);
 DAAP_BLOCK *daap_response_update(int clientver);
 DAAP_BLOCK *daap_response_songlist(void);
-DAAP_BLOCK *daap_response_playlists(void);
-DAAP_BLOCK *daap_response_dbinfo(void);
+DAAP_BLOCK *daap_response_playlists(char *name);
+DAAP_BLOCK *daap_response_dbinfo(char *name);
 DAAP_BLOCK *daap_response_playlist_items(int playlist);
 
 #endif /* _DAAP_H_ */
