@@ -133,16 +133,18 @@ typedef struct {
 /*
  * Globals 
  */
-int db_version_no;
-int db_update_mode=0;
-int db_song_count;
-int db_playlist_count=0;
-int db_last_scan;
-DB_PLAYLIST db_playlists;
-pthread_rwlock_t db_rwlock; /* OSX doesn't have PTHREAD_RWLOCK_INITIALIZER (?!?!?!?!) */
-pthread_once_t db_initlock=PTHREAD_ONCE_INIT;
-GDBM_FILE db_songs;
-struct rbtree *db_removed;
+static int db_version_no;  /**< db version, incremented every time add or delete */
+static int db_update_mode=0; /**< Are we in the middle of a bulk update? */
+static int db_song_count; /**< Number of songs in the db */
+static int db_playlist_count=0; /**< Number of active playlists */
+static int db_last_scan; /**< Dunno... */
+static DB_PLAYLIST db_playlists; /**< The current playlists */
+static pthread_rwlock_t db_rwlock; /**< pthread r/w sync for the database */
+static pthread_once_t db_initlock=PTHREAD_ONCE_INIT; /**< to initialize the rwlock */
+static GDBM_FILE db_songs; /**< Database that holds the mp3 info */
+static struct rbtree *db_removed; /**< rbtree to do quick searchs to do background scans */
+static MP3FILE gdbm_mp3; /**< used during enumerations */
+static int gdbm_mustfree=0;  /**< is the data in #gdbm_mp3 valid? Should it be freed? */
 
 /*
  * Forwards
@@ -985,6 +987,11 @@ ENUMHANDLE db_enum_begin(void) {
 
     db_writelock();
 
+    if(gdbm_mp3_mustfree) {
+	db_dispose(gdbm_mp3);
+    }
+    gdbm_mp3_mustfree=0;
+
     *pkey=gdbm_firstkey(db_songs);
     return (ENUMHANDLE)pkey;
 }
@@ -993,7 +1000,11 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
     datum *pkey = *current;
     datum next;
     datum data;
-    static MP3FILE mp3;
+
+    if(gdbm_mp3_mustfree) {
+	db_dispose(gdbm_mp3);
+    }
+    gdbm_mp3_mustfree=0;
 
     if(pkey->dptr) {
 	data=gdbm_fetch(db_songs,*pkey);
@@ -1017,6 +1028,11 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
 
 int db_enum_end(ENUMHANDLE handle) {
     datum *pkey = handle;
+
+    if(gdbm_mp3_mustfree) {
+	db_dispose(gdbm_mp3);
+    }
+    gdbm_mp3_mustfree=0;
 
     if(pkey->dptr)
 	free(pkey->dptr);
