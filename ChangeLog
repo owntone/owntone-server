@@ -1,3 +1,11 @@
+2004-05-07  Ron Pedde  <ron@mac-laptop.dynamic.pedde.com>
+
+	* configure.in: Solaris fixes from ian (?)
+
+2004-04-28  Ron Pedde  <ron@pedde.com>
+
+	* src/daap.c: iTunes 4.5 compatibility
+
 2004-04-13  Ron Pedde  <ron@pedde.com>
 
 	* src/dynamic-art.c: merged in patch from Hiren Joshi
