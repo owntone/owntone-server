@@ -891,6 +891,42 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 	if((!used) && (have_utf8) && (utf8_text))
 	    free(utf8_text);
 
+	/* v2 COMM tags are a bit different than v1 */
+	if((!strcmp(pid3frame->id,"COMM")) && (pid3frame->nfields == 4)) {
+	    /* Make sure it isn't a application-specific comment...
+	     * This currently includes the following:
+	     *
+	     * iTunes_CDDB_IDs
+	     * iTunNORM
+	     * 
+	     * If other apps stuff crap into comment fields, then we'll ignore them
+	     * here.
+	     */
+	    native_text=id3_field_getstring(&pid3frame->fields[2]);
+	    if(native_text) {
+		utf8_text=id3_ucs4_utf8duplicate(native_text);
+		if((utf8_text) && (strncasecmp(utf8_text,"iTun",4) != 0)) {
+		    /* it's a real comment */
+		    if(utf8_text)
+			free(utf8_text);
+
+		    native_text=id3_field_getfullstring(&pid3frame->fields[3]);
+		    if(native_text) {
+			if(pmp3->comment)
+			    free(pmp3->comment);
+			utf8_text=id3_ucs4_utf8duplicate(native_text);
+			if(utf8_text) {
+			    pmp3->comment=utf8_text;
+			    MEMNOTIFY(pmp3->comment);
+			}
+		    }
+		} else {
+		    if(utf8_text)
+			free(utf8_text);
+		}
+	    }
+	}
+
 	index++;
     }
 
