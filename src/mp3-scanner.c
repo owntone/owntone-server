@@ -265,8 +265,8 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
     SCAN_ID3HEADER *pid3;
     unsigned int size=0;
-    fpos_t fp_size=0;
-    fpos_t file_size;
+    off_t fp_size=0;
+    off_t file_size;
     unsigned char buffer[256];
     int time_seconds;
 
@@ -288,7 +288,7 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
 	DPRINTF(ERR_DEBUG,"Found ID3 header\n");
 	size = (pid3->size[0] << 21 | pid3->size[1] << 14 | 
 		pid3->size[2] << 7 | pid3->size[3]);
-	fp_size=(fpos_t)(size + sizeof(SCAN_ID3HEADER));
+	fp_size=size + sizeof(SCAN_ID3HEADER);
 	DPRINTF(ERR_DEBUG,"Header length: %d\n",size);
     }
 
@@ -296,7 +296,7 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     file_size=ftell(infile);
     file_size -= fp_size;
 
-    fsetpos(infile,&fp_size);
+    fseek(infile,fp_size,SEEK_SET);
     fread(buffer,1,sizeof(buffer),infile);
 
     if((buffer[0] == 0xFF)&&(buffer[1] >= 224)) {
