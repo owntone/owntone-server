@@ -19,9 +19,14 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
+#include <sys/select.h>
+#include <sys/time.h>
+#include <sys/types.h>
 
 #include "db-memory.h"
 #include "daap-proto.h"
@@ -315,14 +320,28 @@ DAAP_BLOCK *daap_response_songlist(void) {
  * handle the daap block for the /update URI
  */
 
-DAAP_BLOCK *daap_response_update(int clientver) {
+DAAP_BLOCK *daap_response_update(int fd, int clientver) {
     DAAP_BLOCK *root;
     int g=1;
+    fd_set rset;
+    struct timeval tv;
+    int result;
 
     DPRINTF(ERR_DEBUG,"Preparing to send update response\n");
 
     while(clientver == db_version()) {
-	sleep(30);
+	FD_ZERO(&rset);
+	FD_SET(fd,&rset);
+
+	tv.tv_sec=30;
+	tv.tv_usec=0;
+
+	result=select(fd+1,&rset,NULL,NULL,&tv);
+	if(FD_ISSET(fd,&rset)) {
+	    /* can't be ready for read, must be error */
+	    DPRINTF(ERR_DEBUG,"Socket closed?\n");
+	    return NULL;
+	}
     }
 
     root=daap_add_empty(NULL,"mupd");
