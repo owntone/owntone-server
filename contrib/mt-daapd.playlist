@@ -16,6 +16,10 @@
 #   Album (string)
 #   Genre (string) 
 #   Path (string) -- full path to song, including filename
+#   Composer (string)
+#   Orchestra (string)
+#   Conductor (string)
+#   Grouping (string) -- I don't even know what this is...
 #   Year (int)
 #
 # Valid operators include:
@@ -46,8 +50,28 @@
 # as well as those with a genre of "Techno-Industrial" or
 # "Trance/Techno", for example.
 #
+# "AAC Files" {
+#   path includes ".m4a" ||
+#   path includes ".m4p"
+# }
+#
+# This would match all m4a and m4p files -- i.e. iTunes-ripped aac files
+# or songs downloaded from iTMS.
+#
+# "Orchestral Music" {
+#   Orchestra !IS "" ||
+#   Conductor !IS ""
+# }
+#
+# This would match anything with *anything* entered as a
+# orchestra or conductor... this would probably include any
+# orchestral music.  Kind of ugly, but works!
+#
 # I expect that this language will grow over time.  If you want
 # to hack on it, see src/lexer.l, src/parser.y, and src/playlist.c
+#
+# If there is something missing you particularly want, let me
+# (rpedde@users.sourceforge.net) know!
 #
 
 "60's Music" {

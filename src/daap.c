@@ -226,6 +226,8 @@ DAAP_BLOCK *daap_response_songlist(void) {
     ENUMHANDLE henum;
     MP3FILE *current;
     char fdescr[50];
+    char *artist;
+    int artist_len;
 
     DPRINTF(ERR_DEBUG,"Preparing to send db items\n");
 
@@ -253,8 +255,38 @@ DAAP_BLOCK *daap_response_songlist(void) {
 		    if(current->album)
 			g = g && daap_add_string(mlit,"asal",current->album);
 
-		    if(current->artist)
+		    artist=NULL;
+		    artist_len=0;
+		    if(current->orchestra || current->conductor) {
+			if(current->orchestra)
+			    artist_len += strlen(current->orchestra);
+			if(current->conductor)
+			    artist_len += strlen(current->conductor);
+
+			artist_len += 3;
+
+			artist=(char*)malloc(artist_len);
+			if(artist) {
+			    memset(artist,0x0,artist_len);
+
+			    if(current->orchestra)
+				strcat(artist,current->orchestra);
+
+			    if(current->orchestra && current->conductor)
+				strcat(artist," - ");
+
+			    if(current->conductor)
+				strcat(artist,current->conductor);
+
+			    g = g && daap_add_string(mlit,"asar",artist);
+
+			    free(artist);
+			    artist=NULL;
+			} else 
+			    g=1;
+		    } else if(current->artist) {
 			g = g && daap_add_string(mlit,"asar",current->artist);
+		    }
 
 		    // g = g && daap_add_short(mlit,"asbt",0); /* bpm */
 		    if(current->bitrate)
@@ -264,7 +296,12 @@ DAAP_BLOCK *daap_response_songlist(void) {
 			g = g && daap_add_string(mlit,"ascm",current->comment); /* comment */
 
 		    // g = g && daap_add_char(mlit,"asco",0x0); /* compilation */
-		    // g = g && daap_add_string(mlit,"ascp",""); /* composer */
+		    
+		    if(current->composer)
+			g = g && daap_add_string(mlit,"ascp",current->composer); /* composer */
+
+		    if(current->grouping)
+			g = g && daap_add_string(mlit,"agrp",current->grouping); /* grouping */
 
 		    if(current->time_added) {
 			g = g && daap_add_int(mlit,"asda",current->time_added); /* added */
@@ -304,8 +341,8 @@ DAAP_BLOCK *daap_response_songlist(void) {
 		    
 		    if(current->title)
 			g = g && daap_add_string(mlit,"minm",current->title); /* descr */
-		    else
-			g = g && daap_add_string(mlit,"minm",current->fname); /* descr */
+		    else 
+			g = g && daap_add_string(mlit,"minm",current->fname);
 
 		    // mper (long)
 		    // g = g && daap_add_char(mlit,"asdb",0); /* disabled */

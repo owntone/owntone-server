@@ -25,23 +25,28 @@
 typedef struct tag_mp3file {
     char *path;
     char *fname;
-    char *title;
-    char *artist;
-    char *album;
-    char *genre;
-    char *comment;
+    char *title;     /* TIT2 */
+    char *artist;    /* TPE1 */
+    char *album;     /* TALB */
+    char *genre;     /* TCON */
+    char *comment;   /* COMM */
     char *type;
+    char *composer;  /* TCOM */
+    char *orchestra; /* TPE2 */
+    char *conductor; /* TPE3 */
+    char *grouping;  /* TIT1 */
+
 
     int bitrate;
     int samplerate;
     int song_length;
     int file_size;
-    int year;
+    int year;        /* TDRC */
     
-    int track;
+    int track;       /* TRCK */
     int total_tracks;
 
-    int disc;
+    int disc;        /* TPOS */
     int total_discs;
 
     int time_added;

@@ -46,6 +46,10 @@ artist                   { yylval.ival=ARTIST; return(ARTIST); }
 album                    { yylval.ival=ALBUM; return(ALBUM); }
 genre                    { yylval.ival=GENRE; return(GENRE); }
 path                     { yylval.ival=PATH; return(PATH); }
+composer                 { yylval.ival=COMPOSER; return(COMPOSER); }
+orchestra                { yylval.ival=ORCHESTRA; return(ORCHESTRA); }
+conductor                { yylval.ival=CONDUCTOR; return(CONDUCTOR); }
+grouping                 { yylval.ival=GROUPING; return(GROUPING); }
 
 year                     { yylval.ival=YEAR; return(YEAR); }
 

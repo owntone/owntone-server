@@ -352,6 +352,18 @@ int db_add(MP3FILE *mp3file) {
     if(mp3file->type)
 	g = g && (pnew->mp3file.type=strdup(mp3file->type));
 
+    if(mp3file->composer)
+	g = g && (pnew->mp3file.composer=strdup(mp3file->composer));
+
+    if(mp3file->orchestra)
+	g = g && (pnew->mp3file.orchestra=strdup(mp3file->orchestra));
+
+    if(mp3file->conductor)
+	g = g && (pnew->mp3file.conductor=strdup(mp3file->conductor));
+
+    if(mp3file->grouping)
+	g = g && (pnew->mp3file.grouping=strdup(mp3file->grouping));
+
     if(!g) {
 	DPRINTF(ERR_WARN,"Malloc error in db_add\n");
 	db_freerecord(pnew);
@@ -394,6 +406,10 @@ void db_freerecord(MP3RECORD *mp3record) {
     MAYBEFREE(mp3record->mp3file.genre);
     MAYBEFREE(mp3record->mp3file.comment);
     MAYBEFREE(mp3record->mp3file.type);
+    MAYBEFREE(mp3record->mp3file.composer);
+    MAYBEFREE(mp3record->mp3file.orchestra);
+    MAYBEFREE(mp3record->mp3file.conductor);
+    MAYBEFREE(mp3record->mp3file.grouping);
     free(mp3record);
 }
 

@@ -101,6 +101,18 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     case PATH:
 	printf("PATH ");
 	break;
+    case COMPOSER:
+	printf("COMPOSER ");
+	break;
+    case ORCHESTRA:
+	printf("ORCHESTRA ");
+	break;
+    case CONDUCTOR:
+	printf("CONDUCTOR ");
+	break;
+    case GROUPING:
+	printf("GROUPING ");
+	break;
     case YEAR:
 	printf("YEAR ");
 	break;
@@ -259,6 +271,18 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	break;
     case PATH:
 	cval=pmp3->path;
+	break;
+    case COMPOSER:
+	cval=pmp3->composer;
+	break;
+    case ORCHESTRA:
+	cval=pmp3->orchestra;
+	break;
+    case CONDUCTOR:
+	cval=pmp3->conductor;
+	break;
+    case GROUPING:
+	cval=pmp3->grouping;
 	break;
     case YEAR:
 	ival=pmp3->year;

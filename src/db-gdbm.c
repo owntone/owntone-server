@@ -38,7 +38,7 @@
 #include "playlist.h"
 #include "redblack.h"
 
-#define DB_VERSION 1
+#define DB_VERSION 2
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
 /*
  * Typedefs
@@ -90,6 +90,10 @@ typedef struct tag_mp3packed {
     int genre_len;
     int comment_len;
     int type_len;
+    int composer_len;
+    int orchestra_len;
+    int conductor_len;
+    int grouping_len;
 
     char data[1];
 } MP3PACKED;
@@ -448,6 +452,10 @@ datum *db_packrecord(MP3FILE *pmp3) {
     len += STRLEN(pmp3->genre);
     len += STRLEN(pmp3->comment);
     len += STRLEN(pmp3->type);
+    len += STRLEN(pmp3->composer);
+    len += STRLEN(pmp3->orchestra);
+    len += STRLEN(pmp3->conductor);
+    len += STRLEN(pmp3->grouping);
 
     result = (datum*) malloc(sizeof(datum));
     if(!result)
@@ -489,6 +497,10 @@ datum *db_packrecord(MP3FILE *pmp3) {
     ppacked->genre_len=STRLEN(pmp3->genre);
     ppacked->comment_len=STRLEN(pmp3->comment);
     ppacked->type_len=STRLEN(pmp3->type);
+    ppacked->composer_len=STRLEN(pmp3->composer);
+    ppacked->orchestra_len=STRLEN(pmp3->orchestra);
+    ppacked->conductor_len=STRLEN(pmp3->conductor);
+    ppacked->grouping_len=STRLEN(pmp3->grouping);
 
     offset=0;
     if(pmp3->path)
@@ -523,6 +535,22 @@ datum *db_packrecord(MP3FILE *pmp3) {
 	strncpy(&ppacked->data[offset],pmp3->type,ppacked->type_len);
     offset+=ppacked->type_len;
 
+    if(pmp3->composer)
+	strncpy(&ppacked->data[offset],pmp3->composer,ppacked->composer_len);
+    offset+=ppacked->composer_len;
+
+    if(pmp3->orchestra)
+	strncpy(&ppacked->data[offset],pmp3->orchestra,ppacked->orchestra_len);
+    offset+=ppacked->orchestra_len;
+
+    if(pmp3->conductor)
+	strncpy(&ppacked->data[offset],pmp3->conductor,ppacked->conductor_len);
+    offset+=ppacked->conductor_len;
+
+    if(pmp3->grouping)
+	strncpy(&ppacked->data[offset],pmp3->grouping,ppacked->grouping_len);
+    offset+=ppacked->grouping_len;
+
     /* whew */
     return result;
 }
@@ -543,6 +571,10 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
 
     /* VERSION 1 */
     ppacked=(MP3PACKED*)pdatum->dptr;
+
+    if(ppacked->version != DB_VERSION) 
+	log_err(1,"ON-DISK DATABASE VERSION HAS CHANGED!  Delete your songs.gdb and restart.\n");
+
     pmp3->bitrate=ppacked->bitrate;
     pmp3->samplerate=ppacked->samplerate;
     pmp3->song_length=ppacked->song_length;
@@ -589,6 +621,22 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
     if(ppacked->type_len > 1)
 	pmp3->type=strdup(&ppacked->data[offset]);
     offset += ppacked->type_len;
+
+    if(ppacked->composer_len > 1)
+	pmp3->composer=strdup(&ppacked->data[offset]);
+    offset += ppacked->composer_len;
+
+    if(ppacked->orchestra_len > 1)
+	pmp3->orchestra=strdup(&ppacked->data[offset]);
+    offset += ppacked->orchestra_len;
+
+    if(ppacked->conductor_len > 1) 
+	pmp3->conductor=strdup(&ppacked->data[offset]);
+    offset += ppacked->conductor_len;
+
+    if(ppacked->grouping_len > 1)
+	pmp3->grouping=strdup(&ppacked->data[offset]);
+    offset += ppacked->grouping_len;
     
     return 0;
 }
@@ -670,6 +718,11 @@ void db_freefile(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->album);
     MAYBEFREE(pmp3->genre);
     MAYBEFREE(pmp3->comment);
+    MAYBEFREE(pmp3->type); 
+    MAYBEFREE(pmp3->composer);
+    MAYBEFREE(pmp3->orchestra);
+    MAYBEFREE(pmp3->conductor);
+    MAYBEFREE(pmp3->grouping);
 }
 
 /*

@@ -701,6 +701,22 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 		    used=1;
 		    pmp3->album = utf8_text;
 		    DPRINTF(ERR_DEBUG," Album: %s\n",utf8_text);
+		} else if(!strcmp(pid3frame->id,"TCOM")) {
+		    used=1;
+		    pmp3->composer = utf8_text;
+		    DPRINTF(ERR_DEBUG," Composer: %s\n",utf8_text);
+		} else if(!strcmp(pid3frame->id,"TIT1")) {
+		    used=1;
+		    pmp3->grouping = utf8_text;
+		    DPRINTF(ERR_DEBUG," Grouping: %s\n",utf8_text);
+		} else if(!strcmp(pid3frame->id,"TPE2")) {
+		    used=1;
+		    pmp3->orchestra = utf8_text;
+		    DPRINTF(ERR_DEBUG," Orchestra: %s\n",utf8_text);
+		} else if(!strcmp(pid3frame->id,"TPE3")) {
+		    used=1;
+		    pmp3->conductor = utf8_text;
+		    DPRINTF(ERR_DEBUG," Conductor: %s\n",utf8_text);
 		} else if(!strcmp(pid3frame->id,"TCON")) {
 		    used=1;
 		    pmp3->genre = utf8_text;
@@ -776,6 +792,10 @@ int scan_freetags(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->genre);
     MAYBEFREE(pmp3->comment);
     MAYBEFREE(pmp3->type);
+    MAYBEFREE(pmp3->composer);
+    MAYBEFREE(pmp3->orchestra);
+    MAYBEFREE(pmp3->conductor);
+    MAYBEFREE(pmp3->grouping);
 
     return 0;
 }

@@ -57,6 +57,10 @@ int pl_number=2;
 %token <ival> ALBUM 
 %token <ival> GENRE
 %token <ival> PATH
+%token <ival> COMPOSER
+%token <ival> ORCHESTRA
+%token <ival> CONDUCTOR
+%token <ival> GROUPING
 
 %token <ival> EQUALS
 %token <ival> LESS
@@ -117,6 +121,10 @@ strtag: ARTIST
 | ALBUM
 | GENRE
 | PATH
+| COMPOSER
+| ORCHESTRA
+| CONDUCTOR
+| GROUPING
 ;
 
 strbool: IS { $$=$1; }
