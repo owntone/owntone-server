@@ -481,7 +481,7 @@ int main(int argc, char *argv[]) {
     }
 
 
-    if(db_open(config.db_dir)) {
+    if(db_open(config.dbdir)) {
 	perror("db_open");
 	exit(EXIT_FAILURE);
     }

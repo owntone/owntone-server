@@ -23,7 +23,8 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	daap-proto.c daap-proto.h daap.c daap.h db-gdbm.c db-memory.h \
 	mp3-scanner.h mp3-scanner.c playlist.c playlist.h rend-unix.c \
 	rend-unix.h lexer.l parser.y strcasestr.c strcasestr.h strsep.c \
-	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC)
+	redblack.c redblack.h \
+	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) 
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
