@@ -121,7 +121,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     switch(err_logdestination) {
     case LOGDEST_LOGFILE:
 	tt_now=time(NULL);
-	gmtime_r(&tt_now,&tm_now);
+	localtime_r(&tt_now,&tm_now);
 	strftime(timebuf,sizeof(timebuf),"%F %T",&tm_now);
 	fprintf(err_file,"%s: %s",timebuf,errbuf);
 	if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
