@@ -353,12 +353,20 @@ DAAP_ITEMS *daap_lookup_tag(char *tag) {
 /**
  * xml entity encoding, stupid style
  */
-char *daap_xml_entity_encode(char *original) {
+char *daap_xml_entity_encode(char *original, int len) {
     char *new;
     char *s, *d;
     int destsize;
+    int truelen;
 
-    destsize = 6*strlen(original)+1;
+    /* this is about stupid */
+    if(len) {
+	truelen=len;
+    } else {
+	truelen=strlen(original);
+    }
+    
+    destsize = 6*truelen+1;
     new=(char *)malloc(destsize);
     if(!new) return NULL;
 
@@ -367,7 +375,7 @@ char *daap_xml_entity_encode(char *original) {
     s=original;
     d=new;
 
-    while(*s) {
+    while(s < (original+truelen)) {
 	switch(*s) {
 	case '>':
 	    strcat(d,"&gt;");
@@ -420,56 +428,57 @@ int daap_serialize_xml(DAAP_BLOCK *root, int fd) {
 
 	pitem=daap_lookup_tag(root->tag);
 	r_fdprintf(fd,"<%s>",pitem->description);
-	if(pitem->type != 0x0c) { /* container */
-	    switch(pitem->type) {
-	    case 0x01: /* byte */
-		r_fdprintf(fd,"%d",*((char *)data));
-		break;
-	    case 0x02: /* unsigned byte */
-		r_fdprintf(fd,"%ud",*((char *)data));
-		break;
-	    case 0x03: /* short */
-		ivalue = data[0] << 8 | data[1];
-		r_fdprintf(fd,"%d",ivalue);
-		break;
-	    case 0x05: /* int */
-	    case 0x0A: /* epoch */
-		ivalue = data[0] << 24 |
-		    data[1] << 16 |
-		    data[2] << 8 |
-		    data[3];
-		r_fdprintf(fd,"%d",ivalue);
-		break;
-	    case 0x07: /* long long */
-		ivalue = data[0] << 24 |
-		    data[1] << 16 |
-		    data[2] << 8 |
-		    data[3];
-		lvalue=ivalue;
-		ivalue = data[4] << 24 |
-		    data[5] << 16 |
-		    data[6] << 8 |
-		    data[7];
-		lvalue = (lvalue << 32) | ivalue;
-		r_fdprintf(fd,"%ll",ivalue);
-		break;
-	    case 0x09: /* string */
-		encoded_string=daap_xml_entity_encode(data);
-		r_fdprintf(fd,"%s",encoded_string);
-		free(encoded_string);
-		break;
-	    case 0x0B: /* version? */
-		ivalue=data[0] << 8 | data[1];
-		r_fdprintf(fd,"%d.%d.%d",ivalue,data[2],data[3]);
-		break;
-	    default:
-		DPRINTF(E_FATAL,L_DAAP,"Bad dmap type: %d, %s\n",
-			pitem->type, pitem->description);
-		break;
-	    }
-	} else {
-	    daap_serialize_xml(root->children,fd);
+	switch(pitem->type) {
+	case 0x01: /* byte */
+	    r_fdprintf(fd,"%d",*((char *)data));
+	    break;
+	case 0x02: /* unsigned byte */
+	    r_fdprintf(fd,"%ud",*((char *)data));
+	    break;
+	case 0x03: /* short */
+	    ivalue = data[0] << 8 | data[1];
+	    r_fdprintf(fd,"%d",ivalue);
+	    break;
+	case 0x05: /* int */
+	case 0x0A: /* epoch */
+	    ivalue = data[0] << 24 |
+		data[1] << 16 |
+		data[2] << 8 |
+		data[3];
+	    r_fdprintf(fd,"%d",ivalue);
+	    break;
+	case 0x07: /* long long */
+	    ivalue = data[0] << 24 |
+		data[1] << 16 |
+		data[2] << 8 |
+		data[3];
+	    lvalue=ivalue;
+	    ivalue = data[4] << 24 |
+		data[5] << 16 |
+		data[6] << 8 |
+		data[7];
+	    lvalue = (lvalue << 32) | ivalue;
+	    r_fdprintf(fd,"%ll",ivalue);
+	    break;
+	case 0x09: /* string */
+	case 0x0C: /* container, but mlit is a string in browse */
+	    encoded_string=daap_xml_entity_encode(data,root->size);
+	    r_fdprintf(fd,"%s",encoded_string);
+	    free(encoded_string);
+	    break;
+	case 0x0B: /* version? */
+	    ivalue=data[0] << 8 | data[1];
+	    r_fdprintf(fd,"%d.%d.%d",ivalue,data[2],data[3]);
+	    break;
+	default:
+	    DPRINTF(E_FATAL,L_DAAP,"Bad dmap type: %d, %s\n",
+		    pitem->type, pitem->description);
+	    break;
 	}
+
+	if(root->children)
+	    daap_serialize_xml(root->children,fd);
+
 	r_fdprintf(fd,"</%s>",pitem->description);
 	root=root->next;
     }
