@@ -235,7 +235,8 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     if(pthread_mutex_lock(&pwsp->exit_mutex))
 	DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
 
-    pHead=pTail=pwsp->connlist.next;
+    pTail=&(pwsp->connlist);
+    pHead=pwsp->connlist.next;
 
     while((pHead) && (pHead->pwsc != pwsc)) {
 	pTail=pHead;
