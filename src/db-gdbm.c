@@ -348,12 +348,9 @@ int db_scanning(void) {
  */
 int db_version(void) {
     int version;
-    int err;
 
     db_readlock();
-
     version=db_version_no;
-    
     db_unlock();
 
     return version;
@@ -897,9 +894,6 @@ ENUMHANDLE db_enum_begin(void) {
     }
 
     helper->next = helper->root;
-
-    db_unlock();
-
     return helper;
 }
 
@@ -1034,6 +1028,7 @@ int db_enum_end(ENUMHANDLE handle) {
 
     free(helper);
 
+    db_unlock();
     return 0;
 }
 
