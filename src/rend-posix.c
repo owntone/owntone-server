@@ -73,6 +73,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.6  2003/11/26 06:12:53  ron
+  Exclude from memory checks
+
   Revision 1.5  2003/11/23 18:13:15  ron
   Exit rather than returning... shouldn't make a difference, but does.  ?
 
@@ -111,6 +114,7 @@
 #include <signal.h>
 #include <fcntl.h>
 
+#define __IN_ERR__
 #include "err.h"
 
 #pragma mark ***** Globals

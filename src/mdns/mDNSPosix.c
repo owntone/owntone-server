@@ -22,6 +22,9 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.2  2003/11/26 06:12:53  ron
+Exclude from memory checks
+
 Revision 1.1  2003/10/23 21:43:01  ron
 Add Apple mDNS reponder
 
@@ -52,6 +55,7 @@ First checkin
 #include <sys/uio.h>
 #include <netinet/in.h>
 
+#define __IN_ERR__
 #include "err.h"
 #include "mDNSUNP.h"
 

@@ -66,6 +66,9 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.2  2003/11/26 06:12:53  ron
+Exclude from memory checks
+
 Revision 1.1  2003/10/23 21:43:01  ron
 Add Apple mDNS reponder
 
@@ -91,6 +94,7 @@ First checkin
 #include <unistd.h>
 #include <stdio.h>
 
+#define __IN_ERR__
 #include "err.h"
 
 /* Solaris defined SIOCGIFCONF etc in <sys/sockio.h> but 
