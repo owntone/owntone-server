@@ -1,6 +1,3 @@
-DROP TABLE songs;
-DROP TABLE config;
-
 CREATE TABLE songs (
 	id		INTEGER PRIMARY KEY NOT NULL,
 	path		VARCHAR(4096) NOT NULL,
@@ -30,7 +27,9 @@ CREATE TABLE songs (
 	time_played	INTEGER	DEFAULT NULL,
 	db_timestamp	INTEGER DEFAULT NULL,
 	bpm		INTEGER DEFAULT NULL,
-	compilation	INTEGER DEFAULT NULL
+	compilation	INTEGER DEFAULT NULL,
+	play_count	INTEGER DEFAULT NULL,
+	rating		INTEGER DEFAULT NULL
 );	
 
 CREATE TABLE config (
@@ -38,7 +37,28 @@ CREATE TABLE config (
 	value		VARCHAR(1024)	NOT NULL
 );
 
-#CREATE INDEX idx_id ON songs(id);
-#CREATE INDEX idx_path on songs(path);
+CREATE TABLE playlists (
+       id    	       INTEGER PRIMARY KEY NOT NULL,
+       name	       VARCHAR(255) NOT NULL,
+       smart	       INTEGER NOT NULL,
+       query	       VARCHAR(1024)
+);
 
-INSERT INTO config (term, value) VALUES ('version','8');
+CREATE TABLE playlistitems (
+       id              INTEGER NOT NULL,
+       songid	       INTEGER NOT NULL
+);
+
+CREATE TABLE users (
+       id              INTEGER PRIMARY KEY NOT NULL,
+       library	       INTEGER NOT NULL DEFAULT 1,
+       name	       VARCHAR(255) NOT NULL,
+       password	       VARCHAR(255) NOT NULL
+);
+       
+;CREATE INDEX idx_path on songs(path);
+
+INSERT INTO config (term, value) VALUES ('version','1');
+INSERT INTO users(id,name,password) VALUES (1,'admin','mt-daapd');
+INSERT INTO playlists(id,name,smart,query) VALUES (1,'Library',1,'1');
+
