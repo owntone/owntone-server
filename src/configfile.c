@@ -708,19 +708,18 @@ int config_get_session_count(void) {
     }
 
     pcurrent=scan_status.next;
-    while(pcurrent) {
-	if(pcurrent->session != 0) {
-	    /* check to see if there is another one before this one */
-	    pcheck=scan_status.next;
-	    while(pcheck != pcurrent) {
-		if(pcheck->session == pcurrent->session) 
-		    break;
-		pcheck=pcheck->next;
-	    }
 
-	    if(pcheck == pcurrent)
-		count++;
+    while(pcurrent) {
+	pcheck=scan_status.next;
+	while(pcheck != pcurrent) {
+	    if(strcmp(pcheck->host,pcurrent->host) == 0)
+		break;
+	    pcheck=pcheck->next;
 	}
+	
+	if(pcheck == pcurrent)
+	    count++;
+
 	pcurrent=pcurrent->next;
     }
 
