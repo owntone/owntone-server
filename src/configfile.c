@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
+#include <sys/wait.h>
 
 #include "configfile.h"
 #include "err.h"
@@ -47,6 +48,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 int config_mutex_lock(void);
 int config_mutex_unlock(void);
@@ -80,6 +82,7 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"threadstat",(void*)NULL,config_emit_threadstatus },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"ispage",(void*)NULL,config_emit_ispage },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"session-count",(void*)NULL,config_emit_session_count },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"service-status",(void*)NULL,config_emit_service_status },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -128,9 +131,12 @@ int config_read(char *file) {
 	return -1;
     }
 
-    memset((void*)&config,0,sizeof(CONFIG));
-
     config.configfile=strdup(file);
+    config.web_root=NULL;
+    config.adminpassword=NULL;
+    config.readpassword=NULL;
+    config.mp3dir=NULL;
+    config.servername="mt-daapd " VERSION;
 
     while(fgets(buffer,MAX_LINE,fin)) {
 	if(*buffer != '#') {
@@ -315,6 +321,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     int file_fd;
     struct stat sb;
     char *pw;
+    int status;
 
     DPRINTF(ERR_DEBUG,"Entereing config_handler\n");
 
@@ -368,12 +375,29 @@ void config_handler(WS_CONNINFO *pwsc) {
 		free(config.adminpassword);
 	    config.adminpassword=strdup(pw);
 	}
+
+	pw=ws_getvar(pwsc,"action");
+	if(pw) {
+	    if(strcasecmp(pw,"stopmdns")==0) {
+		DPRINTF(ERR_INFO,"Stopping rendezvous daemon\n");
+		kill(config.rend_pid,SIGINT);
+		wait(&status);
+	    } else if (strcasecmp(pw,"startmdns")==0) {
+		rend_init(&config.rend_pid,config.servername, config.port);
+	    } else if (strcasecmp(pw,"stopdaap")==0) {
+		config.stop=1;
+	    }
+	}
     }
 
     ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
     ws_emitheaders(pwsc);
     
-    config_subst_stream(pwsc, file_fd);
+    if(strcasecmp(resolved_path[strlen(resolved_path) - 5],".html") == 0) {
+	config_subst_stream(pwsc, file_fd);
+    } else { 
+	copyfile(file_fd,pwsc->fd);
+    }
 
     r_close(file_fd);
     DPRINTF(ERR_DEBUG,"Thread %d: Served successfully\n",pwsc->threadno);
@@ -414,6 +438,48 @@ void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg) {
  */
 void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%d",*((int*)value));
+}
+
+/*
+ * config_emit_service_status
+ *
+ * emit the current service status
+ */
+void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
+    int mdns_running;
+    int status;
+    int err;
+    char *html;
+
+    ws_writefd(pwsc,"<TABLE><TR><TH ALIGN=LEFT>Service</TH>");
+    ws_writefd(pwsc,"<TH ALIGN=LEFT>Status</TH><TH ALIGN=LEFT>Control</TH></TR>\n");
+
+    ws_writefd(pwsc,"<TR><TD>Rendezvous</TD>");
+    if(config.use_mdns) {
+	mdns_running=1;
+	err=waitpid(config.rend_pid,&status,WNOHANG);
+	if(err == -1)
+	    mdns_running=0;
+	if(mdns_running) {
+	    html="<a href=\"config-update.html?action=stopmdns\">Stop MDNS responder</a>";
+	} else {
+	    html="<a href=\"config-update.html?action=startmdns\">Start MDNS responder</a>";
+	}
+
+	ws_writefd(pwsc,"<TD>%s</TD><TD>%s</TD></TR>\n",mdns_running ? "Running":"Stopped",
+		   html);
+    } else {
+	ws_writefd(pwsc,"<TD>Not configured</TD><TD>&nbsp;</TD></TR>\n");
+    }
+
+    ws_writefd(pwsc,"<TR><TD>DAAP Server</TD><TD>%s</TD>",config.stop ? "Stopping":"Running");
+    if(config.stop) {
+	ws_writefd(pwsc,"<TD>Wait...</TD></TR>\n");
+    } else {
+	ws_writefd(pwsc,"<TD><a href=\"config-update.html?action=stopdaap\">Stop DAAP Server</a>");
+    }
+
+    ws_writefd(pwsc,"</TABLE>\n");
 }
 
 /*
