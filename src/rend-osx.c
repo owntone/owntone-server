@@ -19,6 +19,10 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <unistd.h>
+#include <pwd.h>
+#include <sys/types.h>
+
 #include <libc.h>
 #include <arpa/nameser.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -79,15 +83,35 @@ static void rend_reply(DNSServiceRegistrationReplyErrorType errorCode, void *con
 /*
  * public interface
  */
-int rend_init(pid_t *pid, char *name, int port) {
+int rend_init(pid_t *pid, char *name, int port, char *user) {
     dns_service_discovery_ref daap_ref=NULL;
     dns_service_discovery_ref http_ref=NULL;
     unsigned short usPort=port;
+    struct passwd *pw=NULL;
 
     *pid=fork();
     if(*pid) {
 	return 0;
     }
+
+
+    /* drop privs */
+    if(getuid() == (uid_t)0) {
+	pw=getpwnam(user);
+	if(pw) {
+	    if(initgroups(user,pw->pw_gid) != 0 || 
+	       setgid(pw->pw_gid) != 0 ||
+	       setuid(pw->pw_uid) != 0) {
+		fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
+			user,pw->pw_gid, pw->pw_uid);
+		exit(EXIT_FAILURE);
+	    }
+	} else {
+	    fprintf(stderr,"Couldn't lookup user %s\n",user);
+	    exit(EXIT_FAILURE);
+	}
+    }
+
 
     signal(SIGINT,  rend_sigint);      // SIGINT is what you get for a Ctrl-C
 

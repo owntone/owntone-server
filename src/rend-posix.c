@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.8  2003/12/29 23:39:18  ron
+  add priv dropping
+
   Revision 1.7  2003/12/29 20:41:08  ron
   Make sure all files have GPL notice
 
@@ -132,6 +135,8 @@
 #include <errno.h>			// For errno, EINTR
 #include <signal.h>
 #include <fcntl.h>
+#include <pwd.h>
+#include <sys/types.h>
 
 #define __IN_ERR__
 #include "err.h"
@@ -543,9 +548,10 @@ static void DeregisterOurServices(void)
 
 #pragma mark **** Main
 
-int rend_init(pid_t *pid,char *name, int port) {
+int rend_init(pid_t *pid,char *name, int port, char user) {
     mStatus status;
     mDNSBool result;
+    struct passwd *pw=NULL;
 
     status = mDNS_Init(&mDNSStorage, &PlatformStorage,
 		       mDNS_Init_NoCache, mDNS_Init_ZeroCacheSize,
@@ -561,6 +567,24 @@ int rend_init(pid_t *pid,char *name, int port) {
     if(*pid) {
 	return 0;
     }
+
+    /* drop privs */
+    if(getuid() == (uid_t)0) {
+	pw=getpwnam(user);
+	if(pw) {
+	    if(initgroups(user,pw->pw_gid) != 0 || 
+	       setgid(pw->pw_gid) != 0 ||
+	       setuid(pw->pw_uid) != 0) {
+		fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
+			user,pw->pw_gid, pw->pw_uid);
+		exit(EXIT_FAILURE);
+	    }
+	} else {
+	    fprintf(stderr,"Couldn't lookup user %s\n",user);
+	    exit(EXIT_FAILURE);
+	}
+    }
+
 
     DPRINTF(ERR_DEBUG,"Registering tcp service\n");
     RegisterOneService(name,"_http._tcp",NULL,0,port);

@@ -27,6 +27,7 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
+#include <pwd.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -379,6 +380,7 @@ int main(int argc, char *argv[]) {
     int parseonly=0;
     int foreground=0;
     config.use_mdns=0;
+    struct passwd *pw=NULL;
 
 #ifdef DEBUG
     char *optval="d:c:mpf";
@@ -420,6 +422,13 @@ int main(int argc, char *argv[]) {
 	}
     }
 
+#ifdef DEBUG
+    if(!foreground) {
+	fprintf(stderr,"WARNING: Debug mode: not detaching\n");
+	foreground=1;
+    }
+#endif
+
     /* read the configfile, if specified, otherwise
      * try defaults */
 
@@ -430,7 +439,24 @@ int main(int argc, char *argv[]) {
 
     if((config.use_mdns) && (!parseonly)) {
 	fprintf(stderr,"Starting rendezvous daemon\n");
-	rend_init(&config.rend_pid,config.servername, config.port);
+	rend_init(&config.rend_pid,config.servername, config.port, config.runas);
+    }
+
+    /* drop privs */
+    if(getuid() == (uid_t)0) {
+	pw=getpwnam(config.runas);
+	if(pw) {
+	    if(initgroups(config.runas,pw->pw_gid) != 0 || 
+	       setgid(pw->pw_gid) != 0 ||
+	       setuid(pw->pw_uid) != 0) {
+		fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
+			config.runas,pw->pw_gid, pw->pw_uid);
+		exit(EXIT_FAILURE);
+	    }
+	} else {
+	    fprintf(stderr,"Couldn't lookup user %s\n",config.runas);
+	    exit(EXIT_FAILURE);
+	}
     }
 
     DPRINTF(ERR_DEBUG,"Initializing database\n");
@@ -488,17 +514,17 @@ int main(int argc, char *argv[]) {
 	sleep(10);
 
     if(config.use_mdns) {
-	fprintf(stderr,"Killing rendezvous daemon\n");
+	if(foreground) fprintf(stderr,"Killing rendezvous daemon\n");
 	kill(config.rend_pid,SIGINT);
 	wait(&status);
     }
 
-    fprintf(stderr,"Stopping webserver\n");
+    if(foreground) fprintf(stderr,"Stopping webserver\n");
     ws_stop(server);
 
     config_close();
 
-    fprintf(stderr,"Closing database\n");
+    if(foreground) fprintf(stderr,"Closing database\n");
     db_deinit();
 
 #ifdef DEBUG
@@ -506,7 +532,9 @@ int main(int argc, char *argv[]) {
     err_leakcheck();
 #endif
 
-    fprintf(stderr,"\nDone\n");
+    if(foreground) fprintf(stderr,"\nDone\n");
+
+    log_err(0,"Exiting");
     return EXIT_SUCCESS;
 }
 

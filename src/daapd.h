@@ -41,6 +41,7 @@ typedef struct tag_config {
     char *mp3dir;
     char *servername;
     char *playlist;
+    char *runas;
 
     SONGENTRY songlist;
 } CONFIG;

@@ -72,6 +72,7 @@ typedef struct tag_configelement {
 } CONFIGELEMENT;
 
 CONFIGELEMENT config_elements[] = {
+    { 1,1,0,CONFIG_TYPE_STRING,"runas",(void*)&config.runas,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"web_root",(void*)&config.web_root,config_emit_string },
     { 1,1,0,CONFIG_TYPE_INT,"port",(void*)&config.port,config_emit_int },
     { 1,1,0,CONFIG_TYPE_STRING,"admin_pw",(void*)&config.adminpassword,config_emit_string },
@@ -141,6 +142,7 @@ int config_read(char *file) {
     config.readpassword=NULL;
     config.mp3dir=NULL;
     config.playlist=NULL;
+    config.runas=NULL;
     config.servername="mt-daapd " VERSION;
 
     while(fgets(buffer,MAX_LINE,fin)) {
