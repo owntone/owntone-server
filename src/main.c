@@ -2,7 +2,7 @@
  * $Id$
  * Driver for multi-threaded daap server
  *
- * Copyright (C) 2003 Ron Pedde (ron@corbey.com)
+ * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
