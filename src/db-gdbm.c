@@ -23,6 +23,7 @@
 #  include "config.h"
 #endif
 
+#undef WANT_SORT
 #define _XOPEN_SOURCE 600
 
 #include <errno.h>
@@ -125,7 +126,7 @@ typedef struct tag_mp3packed {
 typedef struct {
     MP3RECORD*	root;
     MP3RECORD*	next;
-} MP3HELPER;;
+} MP3HELPER;
 
 /*
  * Globals 
@@ -744,7 +745,9 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
  * add an MP3 file to the database.
  *
  * FIXME: Like the playlist adds, this assumes that this will only be called
- * during a db_update... that the writelock is already held
+ * during a db_update... that the writelock is already held.  This wouldn't 
+ * necessarily be that case if, say, we were doing an add from the web interface.
+ *
  */
 int db_add(MP3FILE *pmp3) {
     int err;
@@ -842,6 +845,8 @@ int compare(MP3RECORD* a, MP3RECORD* b)
     return a->mp3file.id - b->mp3file.id;
 }
 
+#ifdef WANT_SORT 
+
 /*
  * db_enum_begin
  *
@@ -857,16 +862,22 @@ int compare(MP3RECORD* a, MP3RECORD* b)
  *
  * this should be done quickly, as we'll be holding
  * a reader lock on the db
+ *
+ * RP: Changed the read lock to a write lock, to serialize
+ * enums.  On a background scan with multiple clients, the
+ * cost of doing multiple insertion sorts on the database simultaneously
+ * is way too painful.  Particularly on embedded device
+ * like the NSLU2.
  */
 ENUMHANDLE db_enum_begin(void) {
     int err;
     MP3HELPER* helper;
     datum	key, next;
 
-    db_readlock();
+    db_writelock();
 
     helper = calloc(1, sizeof(MP3HELPER));
-    
+
     for(key = gdbm_firstkey(db_songs) ; key.dptr ; key = next)
     {
 	MP3RECORD*	entry = calloc(1, sizeof(MP3RECORD));
@@ -893,9 +904,105 @@ ENUMHANDLE db_enum_begin(void) {
 	free(key.dptr);
     }
 
+    db_unlock();
     helper->next = helper->root;
+
     return helper;
 }
+
+/*
+ * db_enum
+ *
+ * Walk to the next entry
+ */
+MP3FILE *db_enum(ENUMHANDLE *current) {
+    MP3HELPER*	helper;
+    MP3RECORD*	record;
+
+    if(!current)
+	return 0;
+
+    helper = *(MP3HELPER**) current;
+    record = helper->next;
+
+    if(helper->next == 0)
+	return 0;
+
+    helper->next = helper->next->next;
+
+    return &record->mp3file;
+}
+
+/*
+ * db_enum_end
+ *
+ * dispose of the list we built up in db_enum_begin, the lock's
+ * already been released.
+ */
+int db_enum_end(ENUMHANDLE handle) {
+    MP3HELPER*	helper = (MP3HELPER*) handle;
+    MP3RECORD*	record;
+
+    while(helper->root)
+    {
+	MP3RECORD*	record = helper->root;
+
+	helper->root = record->next;
+
+	db_freefile(&record->mp3file);
+    }
+
+    free(helper);
+
+    return 0;
+}
+#else /* Don't WANT_SORT */
+
+ENUMHANDLE db_enum_begin(void) {
+    int err;
+    datum *pkey;
+
+    pkey=(datum *)malloc(sizeof(datum));
+    if(!pkey)
+	return NULL;
+
+    static datum key;
+
+    db_writelock();
+
+    *pkey=gdbm_firstkey(db_songs);
+
+    return (ENUMHANDLE)pkey;
+}
+
+MP3FILE *db_enum(ENUMHANDLE *current) {
+    datum *pkey = *current;
+    datum data;
+    static MP3FILE mp3;
+
+    if(pkey->dptr) {
+	data=gdbm_fetch(db_songs,*pkey);
+	if(!data.dptr)
+	    DPRINTF(ERR_FATAL, "Cannot find item.... corrupt database?\n");
+
+	if(db_unpackrecord(&data,&mp3))
+	    DPRINTF(ERR_FATAL,"Cannot unpack item... corrupt database?\n");
+
+	free(pkey->dptr);
+	*pkey = gdbm_nextkey(db_songs,*pkey);
+
+	return &mp3;
+    }
+
+    return NULL;
+}
+
+int db_enum_end(ENUMHANDLE handle) {
+    db_unlock();
+    return 0;
+}
+
+#endif /* WANT_SORT */
 
 /*
  * db_playlist_enum_begin
@@ -935,30 +1042,6 @@ ENUMHANDLE db_playlist_items_enum_begin(int playlistid) {
 	return NULL;
 
     return current->nodes;
-}
-
-
-/*
- * db_enum
- *
- * Walk to the next entry
- */
-MP3FILE *db_enum(ENUMHANDLE *current) {
-    MP3HELPER*	helper;
-    MP3RECORD*	record;
-
-    if(!current)
-	return 0;
-
-    helper = *(MP3HELPER**) current;
-    record = helper->next;
-
-    if(helper->next == 0)
-	return 0;
-
-    helper->next = helper->next->next;
-
-    return &record->mp3file;
 }
 
 /*
@@ -1007,30 +1090,6 @@ int db_playlist_items_enum(ENUMHANDLE* handle) {
     return -1;
 }
 
-/*
- * db_enum_end
- *
- * dispose of the list we built up in db_enum_begin, the lock's
- * already been released.
- */
-int db_enum_end(ENUMHANDLE handle) {
-    MP3HELPER*	helper = (MP3HELPER*) handle;
-    MP3RECORD*	record;
-
-    while(helper->root)
-    {
-	MP3RECORD*	record = helper->root;
-
-	helper->root = record->next;
-
-	db_freefile(&record->mp3file);
-    }
-
-    free(helper);
-
-    db_unlock();
-    return 0;
-}
 
 /*
  * db_playlist_enum_end
