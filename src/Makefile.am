@@ -29,4 +29,5 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
 	rend-howl.c rend-posix.c rend-osx.c strcasestr.c strsep.c db-memory.c \
-	db-gdbm.c strcasestr.h redblack.c redblack.h db-memory.c
+	db-gdbm.c strcasestr.h redblack.c redblack.h db-memory.c \
+	parser.h
