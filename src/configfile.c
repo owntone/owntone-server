@@ -57,6 +57,7 @@ void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 int config_file_is_readonly(void);
 int config_mutex_lock(void);
@@ -103,6 +104,7 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"service-status",(void*)NULL,config_emit_service_status },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"user",(void*)NULL,config_emit_user },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"readonly",(void*)NULL,config_emit_readonly },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"version",(void*)NULL,config_emit_version },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -858,4 +860,13 @@ int config_get_next_session(void) {
     config_mutex_unlock();
 
     return session;
+}
+
+/*
+ * config_emit_version
+ *
+ * Thow out the version info
+ */
+void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg) {
+    ws_writefd(pwsc,"Version %s",VERSION);
 }
