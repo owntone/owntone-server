@@ -40,11 +40,15 @@ dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
 CPPFLAGS="$CPPFLAGS -DHOST='\"$host\"'"
 
+dnl
+dnl The apple mDNS stuff wants these compile flags.
+dnl
 
 case $host in
 *solaris*)
 	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN -D_XPG4_2 "
 	CPPFLAGS="$CPPFLAGS -D__EXTENSIONS__ -DHAVE_BROKEN_RECVIF_NAME"
+	CPPFLAGS="$CPPFLAGS -D_POSIX_PTHREAD_SEMANTICS
 	LDFLAGS="$LDFLAGS -lnsl -lsocket";;	
 *linux*)
 	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN";;
@@ -113,7 +117,7 @@ AC_ARG_WITH(id3tag,
 
 
 AC_CHECK_HEADERS(gdbm.h,, [
- AC_MSG_ERROR([gdbm.h not found... try --with-gdmb-includes=dir])])
+ AC_MSG_ERROR([gdbm.h not found... try --with-gdbm-includes=dir])])
 AC_CHECK_LIB(gdbm,gdbm_open,echo "Have gdbm", echo "Must have gdbm";exit)
 
 if test "$STATIC_LIBS" != "no"; then
