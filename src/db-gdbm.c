@@ -1199,7 +1199,7 @@ int db_exists(int id) {
 
     if(db_update_mode) {
 	/* knock it off the maybe list */
-	(void*)node = rbdelete((void*)&id,db_removed);
+	node = (int*)rbdelete((void*)&id,db_removed);
 	if(node) {
 	    DPRINTF(ERR_DEBUG,"Knocked node %d from the list\n",*node);
 	    free(node);
