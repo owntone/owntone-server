@@ -22,7 +22,9 @@ start() {
 
 stop() {
 	echo -n $"Shutting down DAAP server: "
-	killproc mt-daapd
+	# This is broken.
+	killall -INT mt-daapd
+#	killproc mt-daapd
 	RETVAL=$?
 
 	echo

@@ -36,7 +36,7 @@ case "$1" in
 	#start-stop-daemon --stop --quiet --pidfile /var/run/$NAME.pid \
 	#	--exec $DAEMON
         # XXX FIXME This shouldn't be a killall!
-        killall mt-daapd || true
+        killall -INT mt-daapd || true
 	echo "$NAME."
 	;;
   #reload)
