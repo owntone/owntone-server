@@ -52,6 +52,7 @@ conductor                { yylval.ival=CONDUCTOR; return(CONDUCTOR); }
 grouping                 { yylval.ival=GROUPING; return(GROUPING); }
 
 year                     { yylval.ival=YEAR; return(YEAR); }
+bpm                      { yylval.ival=BPM; return(BPM); }
 
 is                       { yylval.ival=IS; return(IS); }
 includes                 { yylval.ival=INCLUDES; return(INCLUDES); }

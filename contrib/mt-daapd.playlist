@@ -21,6 +21,7 @@
 #   Conductor (string)
 #   Grouping (string) -- I don't even know what this is...
 #   Year (int)
+#   BPM (int)
 #
 # Valid operators include:
 #   is, includes (string)

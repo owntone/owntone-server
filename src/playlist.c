@@ -116,6 +116,9 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     case YEAR:
 	printf("YEAR ");
 	break;
+    case BPM:
+	printf("BPM ");
+	break;
     default:
 	printf ("<unknown tag> ");
 	break;
@@ -286,6 +289,9 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	break;
     case YEAR:
 	ival=pmp3->year;
+	break;
+    case BPM:
+	ival=pmp3->bpm;
 	break;
     }
 

@@ -78,6 +78,7 @@ int pl_number=2;
 %token <ival> NUM
 
 %token <ival> YEAR
+%token <ival> BPM
 
 %type <plval> expression
 %type <plval> predicate
@@ -107,6 +108,7 @@ predicate: strtag strbool ID { $$=pl_newcharpredicate($1, $2, $3); }
 ;
 
 inttag: YEAR
+| BPM
 ;
 
 intbool: EQUALS { $$ = $1; }
