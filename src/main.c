@@ -612,6 +612,7 @@ void *signal_handler(void *arg) {
 
     config.stop=0;
     config.reload=0;
+    config.pid=getpid();
 
     DPRINTF(E_WARN,L_MAIN,"Signal handler started\n");
 
@@ -804,8 +805,8 @@ int main(int argc, char *argv[]) {
 
 	daemon_start();
 
-	fprintf(pid_fp,"%d\n",getpid());
-	fclose(pid_fp);
+	/* just to be on the safe side... */
+	config.pid=0;
     }
 
     /* DWB: shouldn't this be done after dropping privs? */
@@ -823,6 +824,15 @@ int main(int argc, char *argv[]) {
     if(start_signal_handler(&signal_tid)) {
 	DPRINTF(E_FATAL,L_MAIN,"Error starting signal handler %s\n",strerror(errno));
     }
+
+
+    /* wait to for config.pid to be set by the signal handler */
+    while(!config.pid) {
+	sleep(1);
+    }
+
+    fprintf(pid_fp,"%d\n",config.pid);
+    fclose(pid_fp);
 
     DPRINTF(E_LOG,L_MAIN|L_PL,"Loading playlists\n");
 

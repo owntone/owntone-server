@@ -55,6 +55,7 @@ typedef struct tag_config {
     int process_m3u;      /**< Should we process m3u files? */
     int scan_type;        /**< How hard to search mp3 files. see scan_get_mp3fileinfo() */
     int compress;         /**< Should we compress? */
+    int pid;              /**< pid that will accept INT to terminate */
     char *adminpassword;  /**< Password to web management pages */
     char *readpassword;   /**< iTunes password */
     char *mp3dir;         /**< root directory of the mp3 files */
