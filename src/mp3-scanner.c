@@ -1219,7 +1219,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	    fseek(infile,fp_size,SEEK_SET);
 
 	    if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
-		DPRINTF(E_LOG,L_SCAN,"Can't find valid MP3 frame for %s",file);
+		DPRINTF(E_LOG,L_SCAN,"Can't find valid MP3 frame for %s\n",file);
 		fclose(infile);
 		return -1;
 	    }
