@@ -66,7 +66,6 @@ typedef struct tag_scan_id3header {
     unsigned char size[4];
 } __attribute((packed)) SCAN_ID3HEADER;
 
-
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
 
@@ -957,6 +956,7 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
     int samples;
     off_t file_size;
     int ms;
+    char buffer[10];
 
     DPRINTF(ERR_DEBUG,"Getting AAC file info\n");
 
@@ -993,6 +993,13 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 
 	DPRINTF(ERR_DEBUG,"Song length: %d seconds\n", pmp3->song_length / 1000);
     }
+
+    /* calculate bitrate from song length... Kinda cheesy */
+    atom_offset=aac_drilltoatom(infile,"mdat",&atom_length);
+    if(atom_offset != -1) {
+	pmp3->bitrate = atom_length / ((pmp3->song_length / 1000) * 128);
+    }
+
     fclose(infile);
     return 0;
 }
