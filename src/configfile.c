@@ -74,6 +74,8 @@ static void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 static int config_file_is_readonly(void);
 static int config_mutex_lock(void);
 static int config_mutex_unlock(void);
+static int config_existdir(char *path);
+static int config_makedir(char *path);
 
 /*
  * Defines
@@ -144,6 +146,67 @@ pthread_mutex_t scan_mutex = PTHREAD_MUTEX_INITIALIZER; /**< status list mutex *
 int config_session=0;                                   /**< session counter */
 
 #define MAX_LINE 1024
+
+
+/**
+ * Try and create a directory, including parents.
+ * 
+ * \param path path to make
+ * \returns 0 on success, -1 otherwise, with errno set
+ */
+
+int config_makedir(char *path) {
+    char *token;
+    char *pathdup;
+    char path_buffer[PATH_MAX];
+    int err;
+
+    pathdup=strdup(path);
+    if(!pathdup) {
+	return -1;
+    }
+
+    token=strtok(pathdup+1,"/");
+    strcpy(path_buffer,"/");
+
+    while(token) {
+	token=strtok(NULL,"/");
+	if((strlen(path_buffer) + strlen(token)) < PATH_MAX) {
+	    strcat(path_buffer,token);
+	    if(mkdir(path_buffer,0700)) {
+		err=errno;
+		free(pathdup);
+		errno=err;
+		return -1;  
+	    }
+	} else {
+	    errno=ENAMETOOLONG;
+	    return -1; 
+	}
+    }
+
+    free(pathdup);
+    return 0;
+}
+
+/**
+ * Determine if a particular directory exists or not
+ *
+ * \param path directory to test for existence
+ */
+int config_existdir(char *path) {
+    struct stat sb;
+
+    if(stat(path,&sb)) {
+	return 0;
+    }
+
+    if(sb.st_mode & S_IFDIR)
+	return 1;
+
+    errno=ENOTDIR;
+    return 0;
+}
 
 
 /**
@@ -250,10 +313,18 @@ int config_read(char *file) {
     fclose(fin);
     free(buffer);
 
-    /* fix the fullpath of the web root */
+    /* Set the directory components to realpaths */
     realpath(config.web_root,path_buffer);
     free(config.web_root);
     config.web_root=strdup(path_buffer);
+
+    realpath(config.mp3dir,path_buffer);
+    free(config.mp3dir);
+    config.mp3dir=strdup(path_buffer);
+
+    realpath(config.dbdir,path_buffer);
+    free(config.dbdir);
+    config.dbdir=strdup(path_buffer);
 
     /* check to see if all required elements are satisfied */
     pce=config_elements;
@@ -301,7 +372,18 @@ int config_read(char *file) {
     }
 
     /* should really check the mp3 path */
+    if(!config_existdir(config.mp3dir)) {
+	DPRINTF(E_LOG,L_CONF,"Bad mp3 directory (%s): %s\n",config.mp3dir,strerror(errno));
+	return -1;
+    }
 
+    if(!config_existdir(config.dbdir)) {
+	/* try to make it */
+	if(config_makedir(config.dbdir)) {
+	    DPRINTF(E_LOG,L_CONF,"Database dir %s does not exist, cannot create: %s\n",
+		    config.dbdir,strerror(errno));
+	}
+    }
 
     return err;
 }
