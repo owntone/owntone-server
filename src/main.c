@@ -77,7 +77,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
     int file_fd;
     int session_id=0;
 
-    off_t offset;
+    off_t offset=0;
     off_t file_len;
 
     close=pwsc->close;
@@ -85,7 +85,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
     root=NULL;
 
     ws_addresponseheader(pwsc,"Accept-Ranges","bytes");
-    ws_addresponseheader(pwsc,"DAAP-Server","iTunes/4.1 (Mac OS X)");
+    ws_addresponseheader(pwsc,"DAAP-Server","mt-daapd/%s",VERSION);
     ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
 
     if(ws_getvar(pwsc,"session-id")) {
@@ -239,6 +239,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		ws_emitheaders(pwsc);
 
 		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
+		DPRINTF(ERR_INFO,"Streaming %s\n",pmp3->fname);
+
 		if(offset) {
 		    lseek(file_fd,offset,SEEK_SET);
 		}

@@ -375,7 +375,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 	    used=1;
 	    pmp3->genre = utf8_text;
 	    DPRINTF(ERR_DEBUG," Genre: %s\n",utf8_text);
-	    if(isdigit(pmp3->genre[0])) {
+	    if((pmp3->genre) && (isdigit(pmp3->genre[0]))) {
 		genre=atoi(pmp3->genre);
 		free(pmp3->genre);
 		pmp3->genre=strdup(scan_winamp_genre[genre]);
