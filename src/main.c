@@ -44,8 +44,7 @@
 #include "mp3-scanner.h"
 #include "rend.h"
 #include "webserver.h"
-
-// 3689
+#include "playlist.h"
 
 
 /*
@@ -271,6 +270,7 @@ void usage(char *program) {
 #endif
     printf("  -m             Use mDNS\n");
     printf("  -c <file>      Use configfile specified");
+    printf("  -p             Parse playlist file\n");
     printf("\n\n");
 }
 
@@ -282,13 +282,14 @@ int main(int argc, char *argv[]) {
     ENUMHANDLE handle;
     MP3FILE *pmp3;
     int status;
+    int parseonly=0;
 
     config.use_mdns=0;
 
 #ifdef DEBUG
-    char *optval="d:c:m";
+    char *optval="d:c:mp";
 #else
-    char *optval="c:m";
+    char *optval="c:mp";
 #endif /* DEBUG */
 
     printf("mt-daapd: version $Revision$\n");
@@ -308,6 +309,10 @@ int main(int argc, char *argv[]) {
 
 	case 'm':
 	    config.use_mdns=1;
+	    break;
+
+	case 'p':
+	    parseonly=1;
 	    break;
 
 	default:
@@ -333,7 +338,7 @@ int main(int argc, char *argv[]) {
 	}
     }
 
-    if(config.use_mdns) {
+    if((config.use_mdns) && (!parseonly)) {
 	fprintf(stderr,"Starting rendezvous daemon\n");
 	rend_init(&config.rend_pid,config.servername, config.port);
     }
@@ -344,6 +349,17 @@ int main(int argc, char *argv[]) {
     if(db_init("none")) {
 	perror("db_init");
 	exit(EXIT_FAILURE);
+    }
+
+    if(config.playlist)
+	pl_load(config.playlist);
+
+    if(parseonly) {
+	if(!pl_error) {
+	    printf("Parsed successfully.\n");
+	    pl_dump();
+	}
+	exit(EXIT_SUCCESS);
     }
 
     printf("Scanning MP3s\n");
