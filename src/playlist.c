@@ -264,7 +264,7 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
     }
 
     if(pnode->type==T_INT) {
-	DPRINTF(ERR_DEBUG,"Comparing %d to %d\n",ival,pnode->arg2,ival);
+	DPRINTF(ERR_DEBUG,"Comparing %d to %d\n",ival,pnode->arg2.ival);
 
 	switch(boolarg) {
 	case EQUALS:
