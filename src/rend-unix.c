@@ -129,6 +129,7 @@ int rend_register(char *name, char *type, int port) {
 	return -1;
     }
 
+    memset(msg,0x00,sizeof(msg)); /* shut valgrind up */
     msg.cmd=REND_MSG_TYPE_REGISTER;
     strcpy(msg.name,name);
     strcpy(msg.type,type);
