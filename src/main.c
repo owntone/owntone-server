@@ -51,7 +51,13 @@
 #include "playlist.h"
 #include "dynamic-art.h"
 
+#ifndef DEFAULT_CONFIGFILE
 #define DEFAULT_CONFIGFILE "/etc/mt-daapd.conf"
+#endif
+
+#ifndef PIDFILE
+#define PIDFILE	"/var/run/mt-daapd.pid"
+#endif
 
 #ifndef SIGCLD
 # define SIGCLD SIGCHLD
@@ -67,6 +73,7 @@ CONFIG config;
  */
 RETSIGTYPE sig_child(int signal);
 int daemon_start(int reap_children);
+void write_pid_file(void);
 
 /*
  * daap_auth
@@ -167,6 +174,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	 * /databases/id/containers, which returns a container
 	 * /databases/id/containers/id/items, which returns playlist elements
 	 * /databases/id/items/id.mp3, to spool an mp3
+	 * /databases/id/browse/category
 	 */
 
 	uri = strdup(pwsc->uri);
@@ -198,7 +206,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		/* songlist */
 		free(uri);
 		// pass the meta field request for processing
-		root=daap_response_songlist(ws_getvar(pwsc,"meta"));
+		// pass the query request for processing
+		root=daap_response_songlist(ws_getvar(pwsc,"meta"),
+					    ws_getvar(pwsc,"query"));
 		config_set_status(pwsc,session_id,"Sending songlist");
 	    } else if (strncasecmp(last,"containers/",11)==0) {
 		/* playlist elements */
@@ -213,7 +223,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		    playlist_index=atoi(first);
 		    // pass the meta list info for processing
 		    root=daap_response_playlist_items(playlist_index,
-						      ws_getvar(pwsc,"meta"));
+						      ws_getvar(pwsc,"meta"),
+						      ws_getvar(pwsc,"query"));
 		}
 		free(uri);
 		config_set_status(pwsc,session_id,"Sending playlist info");
@@ -222,6 +233,14 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		free(uri);
 		root=daap_response_playlists(config.servername);
 		config_set_status(pwsc,session_id,"Sending playlist info");
+#ifdef OPT_BROWSE
+	    } else if (strncasecmp(last,"browse/",7)==0) {
+		config_set_status(pwsc,session_id,"Compiling browse info");
+		root = daap_response_browse(last + 7, 
+					    ws_getvar(pwsc, "filter"));
+		config_set_status(pwsc,session_id,"Sending browse info");
+		free(uri);
+#endif
 	    }
 	}
 
@@ -291,7 +310,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		// content type (dmap tagged) should only be used on
 		// dmap protocol requests, not the actually song data
 		if(pmp3->type) 
-		    ws_addresponseheader(pwsc,"Content-Type","audio/%s",(pmp3->type)+1);
+		    ws_addresponseheader(pwsc,"Content-Type","audio/%s",pmp3->type);
 
 		ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
 		ws_addresponseheader(pwsc,"Connection","Close");
@@ -539,13 +558,14 @@ int main(int argc, char *argv[]) {
     WSHANDLE server;
     int parseonly=0;
     int foreground=0;
+    int reload=0;
     int start_time;
     int end_time;
 
     config.use_mdns=1;
     err_debuglevel=1;
 
-    while((option=getopt(argc,argv,"d:c:mpf")) != -1) {
+    while((option=getopt(argc,argv,"d:c:mpfr")) != -1) {
 	switch(option) {
 	case 'd':
 	    err_debuglevel=atoi(optarg);
@@ -564,6 +584,10 @@ int main(int argc, char *argv[]) {
 
 	case 'p':
 	    parseonly=1;
+	    break;
+
+	case 'r':
+	    reload=1;
 	    break;
 
 	default:
@@ -599,7 +623,19 @@ int main(int argc, char *argv[]) {
 	}
     }
 
-    if(db_open(config.dbdir)) {
+    /* DWB: we want to detach before we drop privs so the pid file can
+       be created with the original permissions.  This has the
+       drawback that there's a bit less error checking done while
+       we're attached, but if is much better when being automatically
+       started as a system service. */
+    if(!foreground) 
+    {
+	daemon_start(1);
+	write_pid_file();
+    }
+
+    /* DWB: shouldn't this be done after dropping privs? */
+    if(db_open(config.dbdir, reload)) {
 	DPRINTF(ERR_FATAL,"Error in db_open: %s\n",strerror(errno));
     }
 
@@ -632,10 +668,6 @@ int main(int argc, char *argv[]) {
     if(db_init()) {
 	DPRINTF(ERR_FATAL,"Error in db_init: %s\n",strerror(errno));
     }
-
-    /* will want to detach before we start scanning mp3 files */
-    if(!foreground) 
-	daemon_start(1);
 
     DPRINTF(ERR_LOG,"Starting mp3 scan\n");
     if(scan_init(config.mp3dir)) {
@@ -724,3 +756,22 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 
+void write_pid_file(void)
+{
+    FILE*	fp;
+    int		fd;
+
+    /* use open/fdopen instead of fopen for more control over the file
+       permissions */
+    if(-1 == (fd = open(PIDFILE, O_CREAT | O_WRONLY | O_TRUNC, 0644)))
+	return;
+
+    if(0 == (fp = fdopen(fd, "w")))
+    {
+	close(fd);
+	return;
+    }
+
+    fprintf(fp, "%d\n", getpid());
+    fclose(fp);
+}

@@ -40,6 +40,10 @@
 #include "err.h"
 #include "daapd.h"
 
+#ifdef OPT_QUERY
+#include "query.h"
+#endif
+
 typedef struct tag_daap_items {
     int type;
     char *tag;
@@ -133,6 +137,39 @@ DAAP_ITEMS taglist[] = {
 	{ 0x01, "aeSP", "com.apple.itunes.smart-playlist" },
 	{ 0x00, NULL,   NULL }
 };
+
+#ifdef OPT_QUERY
+#define OFFSET_OF(__type, __field)	((size_t) (&((__type*) 0)->__field))
+
+static query_field_t	song_fields[] = {
+    { qft_string,	"dmap.itemname",	OFFSET_OF(MP3FILE, title) },
+    { qft_i32,		"dmap.itemid",		OFFSET_OF(MP3FILE, id) },
+    { qft_string,	"daap.songalbum",	OFFSET_OF(MP3FILE, album) },
+    { qft_string,	"daap.songartist",	OFFSET_OF(MP3FILE, artist) },
+    { qft_i32,		"daap.songbitrate",	OFFSET_OF(MP3FILE, bitrate) },
+    { qft_string,	"daap.songcomment",	OFFSET_OF(MP3FILE, comment) },
+    //     { qft_i32_const,	"daap.songcompilation",	0 },
+    { qft_string,	"daap.songcomposer",	OFFSET_OF(MP3FILE, composer) },
+    //    { qft_i32_const,	"daap.songdatakind", 0 },
+    //    { qft_string,	"daap.songdataurl",	OFFSET_OF(MP3FILE, url) },
+    { qft_i32,		"daap.songdateadded",	OFFSET_OF(MP3FILE, time_added) },
+    { qft_i32,		"daap.songdatemodified",OFFSET_OF(MP3FILE, time_modified) },
+    { qft_string,	"daap.songdescription",	OFFSET_OF(MP3FILE, description) },
+    { qft_i32,		"daap.songdisccount",	OFFSET_OF(MP3FILE, total_discs) },
+    { qft_i32,		"daap.songdiscnumber",	OFFSET_OF(MP3FILE, disc) },
+    { qft_string,	"daap.songformat",	OFFSET_OF(MP3FILE, type) },
+    { qft_string,	"daap.songgenre",	OFFSET_OF(MP3FILE, genre) },
+    { qft_i32,		"daap.songsamplerate",	OFFSET_OF(MP3FILE, samplerate) },
+    { qft_i32,		"daap.songsize",	OFFSET_OF(MP3FILE, file_size) },
+    //    { qft_i32_const,	"daap.songstarttime",	0 },
+    { qft_i32,		"daap.songstoptime",	OFFSET_OF(MP3FILE, song_length)  },
+    { qft_i32,		"daap.songtime",	OFFSET_OF(MP3FILE, song_length) },
+    { qft_i32,		"daap.songtrackcount",	OFFSET_OF(MP3FILE, total_tracks) },
+    { qft_i32,		"daap.songtracknumber",	OFFSET_OF(MP3FILE, track) },
+    { qft_i32,		"daap.songyear",	OFFSET_OF(MP3FILE, year) },
+    { 0 }
+};
+#endif
 
 /* Forwards */
 
@@ -350,7 +387,7 @@ MetaField_t encodeMetaRequest(char* meta, MetaDataMap* map)
 		break;
 
 	if(m->tag)
-	    bits |= (1 << m->bit);
+	    bits |= (((MetaField_t) 1) << m->bit);
 	else
 	    DPRINTF(ERR_WARN, "Unknown meta code: %*s\n", len, start);
     }
@@ -362,10 +399,10 @@ MetaField_t encodeMetaRequest(char* meta, MetaDataMap* map)
 
 int wantsMeta(MetaField_t meta, MetaFieldName_t fieldNo)
 {
-    return 0 != (meta & (1ll << fieldNo));
+    return 0 != (meta & (((MetaField_t) 1) << fieldNo));
 }
 
-DAAP_BLOCK *daap_response_songlist(char* metaStr) {
+DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
     DAAP_BLOCK *root;
     int g=1;
     DAAP_BLOCK *mlcl;
@@ -373,7 +410,11 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr) {
     ENUMHANDLE henum;
     MP3FILE *current;
     MetaField_t meta;
-    
+#ifdef OPT_QUERY
+    query_node_t*	filter = 0;
+#endif
+    int			songs = 0;
+
     // if the meta tag is specified, encode it, if it's not specified
     // we're given the latitude to select our own subset, for
     // simplicity we just include everything.
@@ -381,6 +422,18 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr) {
 	meta = (MetaField_t) -1ll;
     else
 	meta = encodeMetaRequest(metaStr, gSongMetaDataMap);
+
+#ifdef OPT_QUERY
+    if(0 != query)
+    {
+	filter = query_build(query, song_fields);
+	if(err_debuglevel >= ERR_INFO)
+	{
+	    fprintf(stderr, "query: %s\n", query);
+	    query_dump(stderr, filter, 0);
+	}
+    }
+#endif
 
     DPRINTF(ERR_DEBUG,"Preparing to send db items\n");
 
@@ -394,22 +447,33 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr) {
     if(root) {
 	g = (int)daap_add_int(root,"mstt",200);
 	g = g && daap_add_char(root,"muty",0);
-	g = g && daap_add_int(root,"mtco",db_get_song_count());
-	g = g && daap_add_int(root,"mrco",db_get_song_count());
+	g = g && daap_add_int(root,"mtco",0);
+	g = g && daap_add_int(root,"mrco",0);
 
 	mlcl=daap_add_empty(root,"mlcl");
 
 	if(mlcl) {
 	    while(g && (current=db_enum(&henum))) {
-	        DPRINTF(ERR_DEBUG,"Got entry for %s\n",current->fname);
-		// song entry generation extracted for usage with
-		// playlists as well
-		g = 0 != daap_add_song_entry(mlcl, current, meta);
+#ifdef OPT_QUERY
+		if(filter == 0 || query_test(filter, current))
+#endif
+		{
+		    DPRINTF(ERR_DEBUG,"Got entry for %s\n",current->fname);
+		    // song entry generation extracted for usage with
+		    // playlists as well
+		    g = 0 != daap_add_song_entry(mlcl, current, meta);
+		    songs++;
+		}
 	    }
 	} else g=0;
     }
 
-    db_enum_end();
+    db_enum_end(henum);
+
+#ifdef OPT_QUERY
+    if(filter != 0)
+	query_free(filter);
+#endif
 
     if(!g) {
 	DPRINTF(ERR_DEBUG,"Error enumerating database\n");
@@ -418,6 +482,9 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr) {
     }
 
     DPRINTF(ERR_DEBUG,"Successfully enumerated database\n");
+
+    daap_set_int(root, "mtco", songs);
+    daap_set_int(root, "mrco", songs);
 
     return root;
 }
@@ -435,50 +502,14 @@ DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, MetaField_t met
     mlit=daap_add_empty(mlcl,"mlit");
     if(mlit) {
 	if(wantsMeta(meta, metaItemKind))
-	    g = g && daap_add_char(mlit,"mikd",2); /* audio */
+	    g = g && daap_add_char(mlit,"mikd",song->item_kind); /* audio */
 	if(wantsMeta(meta, metaSongDataKind))
 	    g = g && daap_add_char(mlit,"asdk",0); /* local file */
 	if(song->album && (wantsMeta(meta, metaSongAlbum)))
 	    g = g && daap_add_string(mlit,"asal",song->album);
 
-	if(wantsMeta(meta, metaSongArtist))
-	{
-	    char *artist;
-	    int artist_len;
-
-	    artist=NULL;
-	    artist_len=0;
-	    if(song->orchestra || song->conductor) {
-		if(song->orchestra)
-		    artist_len += strlen(song->orchestra);
-		if(song->conductor)
-		    artist_len += strlen(song->conductor);
-
-		artist_len += 3;
-
-		artist=(char*)malloc(artist_len);
-		if(artist) {
-		    memset(artist,0x0,artist_len);
-
-		    if(song->orchestra)
-			strcat(artist,song->orchestra);
-
-		    if(song->orchestra && song->conductor)
-			strcat(artist," - ");
-
-		    if(song->conductor)
-			strcat(artist,song->conductor);
-
-		    g = g && daap_add_string(mlit,"asar",artist);
-
-		    free(artist);
-		    artist=NULL;
-		} else 
-		    g=1;
-	    } else if(song->artist) {
-		g = g && daap_add_string(mlit,"asar",song->artist);
-	    }
-	}
+	if(song->artist && wantsMeta(meta, metaSongArtist))
+	    g = g && daap_add_string(mlit,"asar",song->artist);
 
 	// g = g && daap_add_short(mlit,"asbt",0); /* bpm */
 	if(song->bitrate && (wantsMeta(meta, metaSongBitRate)))
@@ -521,25 +552,12 @@ DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, MetaField_t met
 		    
 	/* these quite go hand in hand */
 	if(wantsMeta(meta, metaSongFormat))
-	    g = g && daap_add_string(mlit,"asfm",(char*)&song->type[1]); /* song format */
+	    g = g && daap_add_string(mlit,"asfm",song->type); /* song format */
 	if(wantsMeta(meta, metaSongDescription))
-	{
-	    char fdescr[50];
-	    if(!strcasecmp(song->type,".ogg")) {
-		sprintf(fdescr,"QuickTime movie file");
-	    } else {
-		sprintf(fdescr,"%s audio file",song->type);
-	    }
-	    g = g && daap_add_string(mlit,"asdt",fdescr); /* descr */
-	}
+	    g = g && daap_add_string(mlit, "asdt",song->description);
 
 	if(wantsMeta(meta, metaItemName))
-	{
-	    if(song->title)
-		g = g && daap_add_string(mlit,"minm",song->title); /* descr */
-	    else 
-		g = g && daap_add_string(mlit,"minm",song->fname);
-	}
+	    g = g && daap_add_string(mlit,"minm",song->title); /* descr */
 
 	// mper (long)
 	// g = g && daap_add_char(mlit,"asdb",0); /* disabled */
@@ -553,10 +571,10 @@ DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, MetaField_t met
 	if(wantsMeta(meta, metaSongStartTime))
 	    g = g && daap_add_int(mlit,"asst",0); /* song start time? */
 	if(wantsMeta(meta, metaSongStopTime))
-	    g = g && daap_add_int(mlit,"assp",0); /* songstoptime */
+	    g = g && daap_add_int(mlit,"assp",0); /* song stop time */
 
 	if(song->song_length && (wantsMeta(meta, metaSongTime)))
-	    g = g && daap_add_int(mlit,"astm",song->song_length*1000); /* song time */
+	    g = g && daap_add_int(mlit,"astm",song->song_length); /* song time */
 
 	if(song->total_tracks && (wantsMeta(meta, metaSongTrackCount)))
 	    g = g && daap_add_short(mlit,"astc",song->total_tracks); /* track count */
@@ -680,7 +698,7 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
 		}
 		g = g && mlit;
 	    }
-	    db_playlist_enum_end();
+	    db_playlist_enum_end(henum);
 	}
 
     }
@@ -770,8 +788,12 @@ DAAP_BLOCK *daap_response_server_info(char *name, char *client_version) {
 
 	g = g && daap_add_string(root,"minm",name); /* server name */
 
+#if 0
+	/* DWB: login isn't actually required since the session id
+	   isn't recorded, and isn't actually used for anything */
 	/* logon is always required, even if a password isn't */
 	g = g && daap_add_char(root,"mslr",1);
+#endif
 
 	/* authentication method is 0 for nothing, 1 for name and
 	   password, 2 for password only */
@@ -786,12 +808,17 @@ DAAP_BLOCK *daap_response_server_info(char *name, char *client_version) {
 	   supported */
 	g = g && daap_add_char(root,"msex",0); /* extensions */
 	g = g && daap_add_char(root,"msix",0); /* indexing? */
+
+#ifdef OPT_BROWSE
+	g = g && daap_add_char(root,"msbr",0); /* browsing */
+#endif
+#ifdef OPT_QUERY
+	g = g && daap_add_char(root,"msqy",0); /* queries */
+#endif
 #if 0
 	g = g && daap_add_char(root,"msal",0); /* autologout */
 	g = g && daap_add_char(root,"msup",0); /* update */
 	g = g && daap_add_char(root,"mspi",0); /* persistant ids */
-	g = g && daap_add_char(root,"msbr",0); /* browsing */
-	g = g && daap_add_char(root,"msqy",0); /* queries */
 	g = g && daap_add_char(root,"msrs",0); /* resolve?  req. persist id */
 #endif
         g = g && daap_add_int(root,"msdc",1); /* database count */
@@ -811,7 +838,7 @@ DAAP_BLOCK *daap_response_server_info(char *name, char *client_version) {
  *
  * given a playlist number, return the items on the playlist
  */
-DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr) {
+DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, char* query) {
     DAAP_BLOCK *root;
     DAAP_BLOCK *mlcl;
     DAAP_BLOCK *mlit;
@@ -820,6 +847,10 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr) {
     int itemid;
     int g=1;
     unsigned long long meta;
+#ifdef OPT_QUERY
+    query_node_t*	filter = 0;
+#endif
+    int			songs = 0;
 
     // if no meta information is specifically requested, return only
     // the base play list information.  iTunes only requests the base
@@ -833,6 +864,18 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr) {
 		(1ll << metaParentContainerId));
     else
 	meta = encodeMetaRequest(metaStr, gSongMetaDataMap);
+
+#ifdef OPT_QUERY
+    if(0 != query)
+    {
+	filter = query_build(query, song_fields);
+	if(err_debuglevel >= ERR_INFO)
+	{
+	    fprintf(stderr, "query: %s\n", query);
+	    query_dump(stderr, filter, 0);
+	}
+    }
+#endif
 
     DPRINTF(ERR_DEBUG,"Preparing to send playlist items for pl #%d\n",playlist);
     
@@ -857,22 +900,34 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr) {
 	if(mlcl) {
 	    if(playlist == 1) {
 		while((current=db_enum(&henum))) {
-		    mlit=daap_add_song_entry(mlcl, current, meta);
-		    if(0 != mlit) {
-			if(wantsMeta(meta, metaContainerItemId))
-			    g = g && daap_add_int(mlit,"mcti",playlist);
-		    } else g=0;
+#ifdef OPT_QUERY
+		    if(0 == filter || query_test(filter, current))
+#endif
+		    {
+			songs++;
+			mlit=daap_add_song_entry(mlcl, current, meta);
+			if(0 != mlit) {
+			    if(wantsMeta(meta, metaContainerItemId))
+				g = g && daap_add_int(mlit,"mcti",playlist);
+			} else g=0;
+		    }
 		}
 	    } else { /* other playlist */
 		while((itemid=db_playlist_items_enum(&henum)) != -1) {
 		    current = db_find(itemid);
 		    if(0 != current) {
-			DPRINTF(ERR_DEBUG,"Adding itemid %d\n",itemid);
-			mlit=daap_add_song_entry(mlcl,current,meta);
-			if(0 != mlit) {
-			    if(wantsMeta(meta, metaContainerItemId))
-				g = g && daap_add_int(mlit,"mcti",playlist);
-			} else g = 0;
+#ifdef OPT_QUERY
+			if(0 == filter || query_test(filter, current))
+			{
+#endif
+			    songs++;
+			    DPRINTF(ERR_DEBUG,"Adding itemid %d\n",itemid);
+			    mlit=daap_add_song_entry(mlcl,current,meta);
+			    if(0 != mlit) {
+				if(wantsMeta(meta, metaContainerItemId))
+				    g = g && daap_add_int(mlit,"mcti",playlist);
+			    } else g = 0;
+			}
 		    } else g = 0;
 		}
 	    }
@@ -880,14 +935,22 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr) {
     }
 
     if(playlist == 1)
-	db_enum_end();
+	db_enum_end(henum);
     else
-	db_playlist_items_enum_end();
+	db_playlist_items_enum_end(henum);
+
+#ifdef OPT_QUERY
+    if(0 != filter)
+	query_free(filter);
+#endif
 
     if(!g) {
 	daap_free(root);
 	return NULL;
     }
+
+    daap_set_int(root, "mtco", songs);
+    daap_set_int(root, "mrco", songs);
 
     return root;
 }
@@ -988,12 +1051,7 @@ void daap_handle_index(DAAP_BLOCK* block, const char* index)
 
     // update the returned record count entry, it's required, so
     // should have already be created
-    assert(0 != (item = daap_find(block, "mrco")));
-
-    item->svalue[0] = count >> 24;
-    item->svalue[1] = count >> 16;
-    item->svalue[2] = count >> 8;
-    item->svalue[3] = count;
+    daap_set_int(block, "mrco", count);
 
     DPRINTF(ERR_INFO, "index:%s first:%d count:%d\n", index, first, count);
 
@@ -1001,7 +1059,7 @@ void daap_handle_index(DAAP_BLOCK* block, const char* index)
     for(back = &list->children ; *back && first ; )
 	if(!strncmp((**back).tag, "mlit", 4))
 	{
-	    DPRINTF(ERR_INFO, "first:%d removing\n", first);
+	    DPRINTF(ERR_DEBUG, "first:%d removing\n", first);
 	    daap_remove(*back);
 	    first--;
 	}
@@ -1012,7 +1070,7 @@ void daap_handle_index(DAAP_BLOCK* block, const char* index)
     for( ; *back && count ; back = &(**back).next)
 	if(!strncmp((**back).tag, "mlit", 4))
 	{
-	    DPRINTF(ERR_INFO, "count:%d keeping\n", count);
+	    DPRINTF(ERR_DEBUG, "count:%d keeping\n", count);
 	    count--;
 	}
 
@@ -1021,10 +1079,182 @@ void daap_handle_index(DAAP_BLOCK* block, const char* index)
     {
 	if(!strncmp((**back).tag, "mlit", 4))
 	{
-	    DPRINTF(ERR_INFO, "removing spare\n");
+	    DPRINTF(ERR_DEBUG, "removing spare\n");
 	    daap_remove(*back);
 	}
 	else
 	    back = &(**back).next;
     }
 }
+
+#ifdef OPT_BROWSE
+typedef struct _browse_item browse_item;
+struct _browse_item
+{
+    char*		name;
+    browse_item*	next;
+};
+
+static void add_browse_item(browse_item** root, char* name)
+{
+    browse_item*	item;
+
+    while(0 != (item = *root) && strcmp(item->name, name) < 0)
+	root = &item->next;
+
+    if(item && strcmp(item->name, name) == 0)
+	return;
+
+    item = calloc(1, sizeof(browse_item));
+    item->name = strdup(name);
+    item->next = *root;
+    *root = item;
+}
+
+static void free_browse_items(browse_item* root)
+{
+    while(0 != root)
+    {
+	browse_item*	next = root->next;
+
+	free(root->name);
+	free(root);
+
+	root = next;
+    }
+}
+
+static int count_browse_items(browse_item* root)
+{
+    int	count = 0;
+
+    while(0 != root)
+    {
+	root = root->next;
+	count++;
+    }
+
+    return count;
+}
+
+#ifdef OPT_QUERY
+/* in theory each type of browse has a separate subset of these fields
+   which can be used for filtering, but it's just not worth the effort
+   and doesn't save anything */
+static query_field_t browse_fields[] = {
+    { qft_string,	"daap.songartist",	OFFSET_OF(MP3FILE, artist) },
+    { qft_string,	"daap.songalbum",	OFFSET_OF(MP3FILE, album) },
+    { qft_string,	"daap.songgenre",	OFFSET_OF(MP3FILE, genre) },
+    { qft_string,	"daap.songcomposer",	OFFSET_OF(MP3FILE, composer) },
+    { 0 }
+};
+#endif
+
+DAAP_BLOCK* daap_response_browse(const char* name, const char* filter)
+{
+    MP3FILE*		current;
+    ENUMHANDLE		henum;
+    size_t		field;
+    char*		l_type;
+    browse_item*	items = 0;
+    browse_item*	item;
+    DAAP_BLOCK*		root = 0;
+    query_node_t*	query = 0;
+
+    if(!strcmp(name, "artists"))
+    {
+	field = OFFSET_OF(MP3FILE, artist);
+	l_type = "abar";
+    }
+    else if(!strcmp(name, "genres"))
+    {
+	field = OFFSET_OF(MP3FILE, genre);
+	l_type = "abgn";
+    }
+    else if(!strcmp(name, "albums"))
+    {
+	field = OFFSET_OF(MP3FILE, album);
+	l_type = "abal";
+    }
+    else if(!strcmp(name, "composers"))
+    {
+	field = OFFSET_OF(MP3FILE, composer);
+	l_type = "abcp";
+    }
+    else
+    {
+	DPRINTF(ERR_WARN,"Invalid browse request: %s\n", name);
+	return NULL;
+    }
+
+#ifdef OPT_QUERY
+    if(0 != filter && 
+       0 == (query = query_build(filter, browse_fields)))
+	return NULL;
+
+    if(query && err_debuglevel >= ERR_INFO)
+    {
+	fprintf(stderr, "query: %s\n", query);
+	query_dump(stderr, query, 0);
+    }
+#endif
+
+    if(0 == (henum = db_enum_begin()))
+	return NULL;
+
+    while((current = db_enum(&henum)))
+    {
+#ifdef OPT_QUERY
+	if(0 == query || query_test(query, current))
+#endif
+	{
+	    char*	name = * (char**) ((size_t) current + field);
+
+	    if(0 != name)
+		add_browse_item(&items, name);
+	}
+    }
+
+    db_enum_end(henum);
+
+    if(0 != (root = daap_add_empty(0, "abro")))
+    {
+	int		count = count_browse_items(items);
+	DAAP_BLOCK*	mlcl;
+
+	if(!daap_add_int(root, "mstt", 200) ||
+	   !daap_add_int(root, "mtco", count) ||
+	   !daap_add_int(root, "mrco", count) ||
+	   0 == (mlcl = daap_add_empty(root, l_type)))
+	    goto error;
+
+	for(item = items ; item ; item = item->next)
+	{
+	    if(!daap_add_string(mlcl, "mlit", item->name))
+		goto error;
+	}
+    }
+
+    free_browse_items(items);
+
+#ifdef OPT_QUERY
+    if(0 != query)
+	query_free(query);
+#endif
+
+    return root;
+
+ error:
+    free_browse_items(items);
+
+#ifdef OPT_QUERY
+    if(0 != query)
+	query_free(query);
+#endif
+
+    if(root != 0)
+	daap_free(root);
+
+    return NULL;
+}
+#endif

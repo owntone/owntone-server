@@ -55,8 +55,14 @@ typedef struct tag_mp3file {
 
     int got_id3;
     unsigned int id;
+
+    /* generated fields */
+    char* description;		/* long file type */
+    int item_kind;		/* song or movie */
 } MP3FILE;
 
 extern int scan_init(char *path);
+
+extern void make_composite_tags(MP3FILE *song);
 
 #endif /* _MP3_SCANNER_H_ */

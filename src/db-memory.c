@@ -389,6 +389,8 @@ int db_add(MP3FILE *mp3file) {
 	return -1;
     }
 
+    make_composite_tags(&pnew->mp3file);
+
     pnew->next=db_root.next;
     db_root.next=pnew;
 
@@ -421,6 +423,7 @@ void db_freerecord(MP3RECORD *mp3record) {
     MAYBEFREE(mp3record->mp3file.orchestra);
     MAYBEFREE(mp3record->mp3file.conductor);
     MAYBEFREE(mp3record->mp3file.grouping);
+    MAYBEFREE(mp3record->mp3file.description);
     free(mp3record);
 }
 

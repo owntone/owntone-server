@@ -51,5 +51,8 @@ void daap_remove(DAAP_BLOCK* root);
 // search a block's direct children for a block with a given tag
 DAAP_BLOCK *daap_find(DAAP_BLOCK *parent, char* tag);
 
+// search a block's children and change an integer value
+int daap_set_int(DAAP_BLOCK* parent, char* tag, int value);
+
 #endif
 

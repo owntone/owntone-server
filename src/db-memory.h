@@ -29,7 +29,7 @@ typedef void* ENUMHANDLE;
 extern int db_start_initial_update(void);
 extern int db_end_initial_update(void);
 extern int db_is_empty(void);
-extern int db_open(char *parameters);
+extern int db_open(char *parameters, int reload);
 extern int db_init(void);
 extern int db_deinit(void);
 extern int db_version(void);
@@ -39,8 +39,8 @@ extern int db_add_playlist(unsigned int playlistid, char *name, int is_smart);
 extern int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
 
 extern ENUMHANDLE db_enum_begin(void);
-extern MP3FILE *db_enum(ENUMHANDLE *current);
-extern int db_enum_end(void);
+extern MP3FILE *db_enum(ENUMHANDLE *handle);
+extern int db_enum_end(ENUMHANDLE handle);
 extern MP3FILE *db_find(int id);
 
 extern int db_get_song_count(void);
@@ -50,11 +50,11 @@ extern int db_get_playlist_is_smart(int playlistid);
 
 extern ENUMHANDLE db_playlist_enum_begin(void);
 extern int db_playlist_enum(ENUMHANDLE *current);
-extern int db_playlist_enum_end(void);
+extern int db_playlist_enum_end(ENUMHANDLE handle);
 
 extern ENUMHANDLE db_playlist_items_enum_begin(int playlistid);
 extern int db_playlist_items_enum(ENUMHANDLE *current);
-extern int db_playlist_items_enum_end(void);
+extern int db_playlist_items_enum_end(ENUMHANDLE handle);
 
 extern char *db_get_playlist_name(int playlistid);
 

@@ -261,6 +261,8 @@ int scan_freetags(MP3FILE *pmp3);
 void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
 void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
+void make_composite_tags(MP3FILE *pmp3);
+
 /*
  * scan_init
  *
@@ -452,14 +454,17 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     mp3file.path=mp3_path;
     mp3file.fname=pde->d_name;
     if(strlen(pde->d_name) > 4)
-	mp3file.type=strdup((char*)&pde->d_name[strlen(pde->d_name) - 4]);
+	mp3file.type=strdup(strrchr(pde->d_name, '.') + 1);
     
-    /* FIXME; assumes that st_ino is a u_int_32 */
+    /* FIXME; assumes that st_ino is a u_int_32 
+       DWB: also assumes that the library is contained entirely within
+       one file system */
     mp3file.id=psb->st_ino;
     
     /* Do the tag lookup here */
     if(!scan_gettags(mp3file.path,&mp3file) && 
        !scan_get_fileinfo(mp3file.path,&mp3file)) {
+	make_composite_tags(&mp3file);
 	db_add(&mp3file);
 	pl_eval(&mp3file); /* FIXME: move to db_add? */
     } else {
@@ -630,11 +635,11 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
      * in turn, just in case the extensions are wrong/lying
      */
 
-    if(strcasestr(".aac.m4a.m4p.mp4",pmp3->type))
+    if(strcasestr("aacm4a4pmp4",pmp3->type))
 	return scan_get_aactags(file,pmp3);
 
     /* should handle mp3 in the same way */
-    if(!strcasecmp(pmp3->type,".mp3"))
+    if(!strcasecmp(pmp3->type,"mp3"))
 	return scan_get_mp3tags(file,pmp3);
 
     /* maybe this is an extension that we've manually
@@ -661,7 +666,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
     char *tmp;
     int got_numeric_genre;
 
-    if(strcasecmp(pmp3->type,".mp3"))  /* can't get tags for non-mp3 */
+    if(strcasecmp(pmp3->type,"mp3"))  /* can't get tags for non-mp3 */
 	return 0;
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
@@ -775,6 +780,9 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 		} else if(!strcmp(pid3frame->id,"TDRC")) {
 		    pmp3->year = atoi(utf8_text);
 		    DPRINTF(ERR_DEBUG," Year: %d\n",pmp3->year);
+		} else if(!strcmp(pid3frame->id,"TLEN")) {
+		    pmp3->song_length = atoi(utf8_text) / 1000;
+		    DPRINTF(ERR_DEBUG, " Length: %d\n", pmp3->song_length);
 		}
 	    }
 	}
@@ -807,6 +815,7 @@ int scan_freetags(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->orchestra);
     MAYBEFREE(pmp3->conductor);
     MAYBEFREE(pmp3->grouping);
+    MAYBEFREE(pmp3->description);
 
     return 0;
 }
@@ -821,10 +830,10 @@ int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
     off_t file_size;
 
-    if(strcasestr(".aac.m4a.m4p.mp4",pmp3->type))
+    if(strcasestr("aacm4am4pmp4",pmp3->type))
 	return scan_get_aacfileinfo(file,pmp3);
        
-    if(!strcasecmp(pmp3->type,".mp3"))
+    if(!strcasecmp(pmp3->type,"mp3"))
 	return scan_get_mp3fileinfo(file,pmp3);
     
     /* a file we don't know anything about... ogg or aiff maybe */
@@ -878,11 +887,13 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 	    fseek(infile,16,SEEK_CUR);
 	    fread((void*)&temp_int,1,sizeof(int),infile);
 	    temp_int=ntohl(temp_int);
+	    /* DWB: use ms time instead of sec */
 	    if(temp_int > 720000)
-		pmp3->song_length=temp_int / 90000; /* PlayFair? */
+		pmp3->song_length=temp_int / 90; /* PlayFair? */
 	    else
-		pmp3->song_length=temp_int/600;
-	    DPRINTF(ERR_DEBUG,"Song length: %d seconds\n",temp_int/600);
+		pmp3->song_length=temp_int * 1000 / 600;
+
+	    DPRINTF(ERR_DEBUG,"Song length: %d seconds\n", pmp3->song_length / 1000);
 	}
     }
     fclose(infile);
@@ -903,7 +914,6 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     off_t fp_size=0;
     off_t file_size;
     unsigned char buffer[1024];
-    int time_seconds=0;
     int index;
     int layer_index;
     int sample_index;
@@ -1019,11 +1029,17 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	DPRINTF(ERR_DEBUG," Bit Rate: %d\n",bitrate);
 
 	/* guesstimate the file length */
-	if(bitrate)
-	    time_seconds = ((int)(file_size * 8)) / (bitrate * 1024);
-
 	if(!pmp3->song_length) /* could have gotten it from the tag */
-	    pmp3->song_length=time_seconds;
+	{
+	    /* DWB: use ms time instead of seconds, use doubles to
+	       avoid overflow */
+	    if(bitrate)
+	    {
+		pmp3->song_length = (int) ((double) file_size * 8000. /
+					   (double) bitrate /
+					   1024.);
+	    }
+	}
     } else {
 	/* FIXME: should really scan forward to next sync frame */
 	fclose(infile);
@@ -1034,4 +1050,49 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
     fclose(infile);
     return 0;
+}
+
+void make_composite_tags(MP3FILE *song)
+{
+    int len;
+
+    len=0;
+
+    if(!song->artist && (song->orchestra || song->conductor)) {
+	if(song->orchestra)
+	    len += strlen(song->orchestra);
+	if(song->conductor)
+	    len += strlen(song->conductor);
+
+	len += 3;
+
+	song->artist=(char*)calloc(len, 1);
+	if(song->artist) {
+	    if(song->orchestra)
+		strcat(song->artist,song->orchestra);
+
+	    if(song->orchestra && song->conductor)
+		strcat(song->artist," - ");
+
+	    if(song->conductor)
+		strcat(song->artist,song->conductor);
+	}
+    }
+
+    if(!strcasecmp(song->type,"ogg")) {
+	song->description = strdup("QuickTime movie file");
+    } else {
+	char fdescr[50];
+
+	sprintf(fdescr,"%s audio file",song->type);
+	song->description = strdup(fdescr);
+    }
+
+    if(!song->title)
+	song->title = strdup(song->fname);
+
+    if(!strcmp(song->type, "ogg"))
+	song->item_kind = 4;
+    else
+	song->item_kind = 2;
 }

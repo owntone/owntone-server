@@ -33,7 +33,6 @@ AC_ARG_ENABLE(new-howl,[  --enable-new-howl  Use howl 0.9.2 or later],
 		        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-howl);;
 		      esac ],[rend_howl=false])
 
-
 AC_ARG_ENABLE(howl,[  --enable-howl      Use the howl mDNS library],
 		      [ case "${enableval}" in
                         yes) rend_howl=true; LDFLAGS="${LDFLAGS} -lrendezvous -lcorby -lsalt";
@@ -41,6 +40,21 @@ AC_ARG_ENABLE(howl,[  --enable-howl      Use the howl mDNS library],
 		        no)  rend_howl=false;;
 		        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-howl);;
 		      esac ],[rend_howl=false])
+AC_ARG_ENABLE(browse,[  --enable-browse  enable experimenal browse support],
+	[ case "${enableval}" in
+	  yes) opt_browse=true; CPPFLAGS="${CPPFLAGS} -DOPT_BROWSE";;
+	  no)  opt_browse=false;;
+          *)   AC_MSG_ERROR(bad value ${enableval} for --enable-browse);;
+         esac ],[opt_browse=false])
+AC_ARG_ENABLE(query,[  --enable-query   enable experimenal query support],
+	[ case "${enableval}" in
+	  yes) opt_query=true; CPPFLAGS="${CPPFLAGS} -DOPT_QUERY";;
+	  no)  opt_query=false;;
+          *)   AC_MSG_ERROR(bad value ${enableval} for --enable-query);;
+         esac ],[opt_query=false])
+
+AM_CONDITIONAL(OPT_BROWSE, test x$opt_browse = xtrue)
+AM_CONDITIONAL(OPT_QUERY, test x$opt_query = xtrue)
 
 AM_CONDITIONAL(COND_REND_HOWL, test x$rend_howl = xtrue)
 AM_CONDITIONAL(COND_REND_POSIX, test x$rend_howl = xfalse)

@@ -40,6 +40,7 @@
 #define RB_FREE
 #include "redblack.h"
 
+#include "db-memory.h"
 
 /*
  * Defines
@@ -61,10 +62,11 @@
 /*
  * Typedefs
  */
-typedef struct tag_mp3record {
+typedef struct tag_mp3record MP3RECORD;
+struct tag_mp3record {
     MP3FILE mp3file;
-    datum key;
-} MP3RECORD;
+    MP3RECORD* next;
+};
 
 typedef struct tag_playlistentry {
     unsigned int id;
@@ -116,6 +118,10 @@ typedef struct tag_mp3packed {
     char data[1];
 } MP3PACKED;
 
+typedef struct {
+    MP3RECORD*	root;
+    MP3RECORD*	next;
+} MP3HELPER;;
 
 /*
  * Globals 
@@ -127,7 +133,6 @@ int db_playlist_count=0;
 DB_PLAYLIST db_playlists;
 pthread_rwlock_t db_rwlock; /* OSX doesn't have PTHREAD_RWLOCK_INITIALIZER */
 pthread_once_t db_initlock=PTHREAD_ONCE_INIT;
-MP3RECORD db_enum_helper;
 GDBM_FILE db_songs;
 struct rbtree *db_removed;
 
@@ -138,7 +143,7 @@ struct rbtree *db_removed;
 int db_start_initial_update(void);
 int db_end_initial_update(void);
 int db_is_empty(void);
-int db_open(char *parameters);
+int db_open(char *parameters, int reload);
 int db_init();
 int db_deinit(void);
 int db_version(void);
@@ -148,18 +153,6 @@ int db_add_playlist(unsigned int playlistid, char *name, int is_smart);
 int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
 int db_unpackrecord(datum *pdatum, MP3FILE *pmp3);
 datum *db_packrecord(MP3FILE *pmp3);
-
-MP3RECORD *db_enum_begin(void);
-MP3FILE *db_enum(MP3RECORD **current);
-int db_enum_end(void);
-
-DB_PLAYLIST *db_playlist_enum_begin(void);
-int db_playlist_enum(DB_PLAYLIST **current);
-int db_playlist_enum_end(void);
-
-DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid);
-int db_playlist_items_enum(DB_PLAYLISTENTRY **current);
-int db_playlist_items_enum_end(void);
 
 int db_get_song_count(void);
 int db_get_playlist_count(void);
@@ -199,14 +192,16 @@ void db_init_once(void) {
  *
  * Open the database, so we can drop privs
  */
-int db_open(char *parameters) {
+int db_open(char *parameters, int reload) {
     char db_path[PATH_MAX + 1];
 
     if(pthread_once(&db_initlock,db_init_once))
 	return -1;
 
     snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs.gdb");
-    db_songs=gdbm_open(db_path,0,GDBM_WRCREAT | GDBM_SYNC | GDBM_NOLOCK,
+
+    reload = reload ? GDBM_NEWDB : GDBM_WRCREAT;
+    db_songs=gdbm_open(db_path, 0, reload | GDBM_SYNC | GDBM_NOLOCK,
 		       0600,NULL);
     if(!db_songs) {
 	DPRINTF(ERR_FATAL,"Could not open songs database (%s)\n",
@@ -686,6 +681,8 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
 	pmp3->grouping=strdup(&ppacked->data[offset]);
     offset += ppacked->grouping_len;
     
+    make_composite_tags(pmp3);
+
     return 0;
 }
 
@@ -771,19 +768,45 @@ void db_freefile(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->orchestra);
     MAYBEFREE(pmp3->conductor);
     MAYBEFREE(pmp3->grouping);
+    MAYBEFREE(pmp3->description);
 }
 
 /*
  * db_enum_begin
  *
- * Begin to walk through an enum of 
- * the database.
+ * Begin to walk through an enum of the database.  In order to retain
+ * some sanity in song ordering we scan all the songs and perform an
+ * insertion sort based on album, track, record id.
+ *
+ * Since the list is built entirely within this routine, it's also
+ * safe to release the lock once the list is built.
+ *
+ * Also we eliminate the static db_enum_helper which allows (the
+ * admittedly unnecessary) possibility of reentrance.
  *
  * this should be done quickly, as we'll be holding
  * a reader lock on the db
  */
-MP3RECORD *db_enum_begin(void) {
+int compare(MP3RECORD* a, MP3RECORD* b)
+{
+    int	comp;
+
+    if((comp = strcmp(a->mp3file.album, b->mp3file.album)) != 0)
+	return comp;
+
+    if((comp = (a->mp3file.disc - b->mp3file.disc)) != 0)
+	return comp;
+
+    if((comp = (a->mp3file.track - b->mp3file.track)) != 0)
+	return comp;
+
+    return a->mp3file.id - b->mp3file.id;
+}
+
+ENUMHANDLE db_enum_begin(void) {
     int err;
+    MP3HELPER* helper;
+    datum	key, next;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
 	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
@@ -791,13 +814,39 @@ MP3RECORD *db_enum_begin(void) {
 	return NULL;
     }
 
-    memset((void*)&db_enum_helper,0x00,sizeof(db_enum_helper));
-    db_enum_helper.key=gdbm_firstkey(db_songs);
-    MEMNOTIFY(db_enum_helper.key.dptr);
-    if(!db_enum_helper.key.dptr)
-	return NULL;
+    helper = calloc(1, sizeof(MP3HELPER));
+    
+    for(key = gdbm_firstkey(db_songs) ; key.dptr ; key = next)
+    {
+	MP3RECORD*	entry = calloc(1, sizeof(MP3RECORD));
+	MP3RECORD**	root;
+	datum		data;
 
-    return &db_enum_helper;
+	data = gdbm_fetch(db_songs, key);
+	if(!data.dptr)
+	    DPRINTF(ERR_FATAL, "Cannot find item... corrupt database?\n");
+
+	if(db_unpackrecord(&data, &entry->mp3file))
+	    DPRINTF(ERR_FATAL, "Cannot unpack item... corrupt database?\n");
+
+	for(root = &helper->root ; *root ; root = &(**root).next)
+	{
+	    if(compare(*root, entry) > 0)
+		break;
+	}
+
+	entry->next = *root;
+	*root = entry;
+
+	next = gdbm_nextkey(db_songs, key);
+	free(key.dptr);
+    }
+
+    helper->next = helper->root;
+
+    pthread_rwlock_unlock(&db_rwlock);
+
+    return helper;
 }
 
 /*
@@ -805,7 +854,7 @@ MP3RECORD *db_enum_begin(void) {
  *
  * Start enumerating playlists
  */
-DB_PLAYLIST *db_playlist_enum_begin(void) {
+ENUMHANDLE db_playlist_enum_begin(void) {
     int err;
     DB_PLAYLIST *current;
 
@@ -828,7 +877,7 @@ DB_PLAYLIST *db_playlist_enum_begin(void) {
  *
  * Start enumerating playlist items
  */
-DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid) {
+ENUMHANDLE db_playlist_items_enum_begin(int playlistid) {
     DB_PLAYLIST *current;
     int err;
 
@@ -854,40 +903,16 @@ DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid) {
  *
  * Walk to the next entry
  */
-MP3FILE *db_enum(MP3RECORD **current) {
-    datum nextkey;
-    datum data;
+MP3FILE *db_enum(ENUMHANDLE *current) {
+    MP3HELPER*	helper = *(MP3HELPER**) current;
+    MP3RECORD*	record = helper->next;
 
-    if(db_enum_helper.key.dptr) {
-	db_freefile(&db_enum_helper.mp3file);
+    if(helper->next == 0)
+	return 0;
 
-	/* Got the key, let's fetch it */
-	data=gdbm_fetch(db_songs,db_enum_helper.key);
-	MEMNOTIFY(data.dptr);
-	if(!data.dptr) {
-	    DPRINTF(ERR_FATAL,"Inconsistant database.\n");
-	}
+    helper->next = helper->next->next;
 
-	if(db_unpackrecord(&data,&db_enum_helper.mp3file)) {
-	    DPRINTF(ERR_FATAL,"Cannot unpack item.. Corrupt database?\n");
-	}
-
-	if(data.dptr)
-	    free(data.dptr);
-
-	nextkey=gdbm_nextkey(db_songs,db_enum_helper.key);
-	MEMNOTIFY(nextkey.dptr);
-
-	if(db_enum_helper.key.dptr) {
-	    free(db_enum_helper.key.dptr);
-	    db_enum_helper.key.dptr=NULL;
-	}
-
-	db_enum_helper.key=nextkey;
-	return &db_enum_helper.mp3file;
-    }
-
-    return NULL;
+    return &record->mp3file;
 }
 
 /*
@@ -895,7 +920,8 @@ MP3FILE *db_enum(MP3RECORD **current) {
  *
  * walk to the next entry
  */
-int db_playlist_enum(DB_PLAYLIST **current) {
+int db_playlist_enum(ENUMHANDLE* handle) {
+    DB_PLAYLIST** current = (DB_PLAYLIST**) handle;
     int retval;
     DB_PLAYLIST *p;
 
@@ -917,7 +943,8 @@ int db_playlist_enum(DB_PLAYLIST **current) {
  *
  * walk to the next entry
  */
-int db_playlist_items_enum(DB_PLAYLISTENTRY **current) {
+int db_playlist_items_enum(ENUMHANDLE* handle) {
+    DB_PLAYLISTENTRY **current = (DB_PLAYLISTENTRY**) handle;
     int retval;
 
     if(*current) {
@@ -932,14 +959,25 @@ int db_playlist_items_enum(DB_PLAYLISTENTRY **current) {
 /*
  * db_enum_end
  *
- * quit walking the database (and give up reader lock)
+ * dispose of the list we built up in db_enum_begin, the lock's
+ * already been released.
  */
-int db_enum_end(void) {
-    db_freefile(&db_enum_helper.mp3file);
-    if(db_enum_helper.key.dptr)
-	free(db_enum_helper.key.dptr);
+int db_enum_end(ENUMHANDLE handle) {
+    MP3HELPER*	helper = (MP3HELPER*) handle;
+    MP3RECORD*	record;
 
-    return pthread_rwlock_unlock(&db_rwlock);
+    while(helper->root)
+    {
+	MP3RECORD*	record = helper->root;
+
+	helper->root = record->next;
+
+	db_freefile(&record->mp3file);
+    }
+
+    free(helper);
+
+    return 0;
 }
 
 /*
@@ -947,7 +985,7 @@ int db_enum_end(void) {
  *
  * quit walking the database
  */
-int db_playlist_enum_end(void) {
+int db_playlist_enum_end(ENUMHANDLE handle) {
     return pthread_rwlock_unlock(&db_rwlock);
 }
 
@@ -956,7 +994,7 @@ int db_playlist_enum_end(void) {
  *
  * Quit walking the database
  */
-int db_playlist_items_enum_end(void) {
+int db_playlist_items_enum_end(ENUMHANDLE handle) {
     return pthread_rwlock_unlock(&db_rwlock);
 }
 

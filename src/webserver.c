@@ -356,6 +356,10 @@ void *ws_mainthread(void *arg) {
 void ws_close(WS_CONNINFO *pwsc) {
     WS_PRIVATE *pwsp = (WS_PRIVATE *)pwsc->pwsp;
 
+    /* DWB: update the status so it doesn't fill up with no longer
+       relevant entries  */
+    config_set_status(pwsc, 0, NULL);
+
     DPRINTF(ERR_DEBUG,"Thread %d: Terminating\n",pwsc->threadno);
     DPRINTF(ERR_DEBUG,"Thread %d: Freeing request headers\n",pwsc->threadno);
     ws_freearglist(&pwsc->request_headers);
@@ -521,7 +525,7 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
 		DPRINTF(ERR_DEBUG,"Thread %d: Adding header *%s=%s*\n",
 			pwsc->threadno,first,last);
 
-		if(ws_addarg(&pwsc->request_headers,first,last)) {
+		if(ws_addarg(&pwsc->request_headers,first,"%s",last)) {
 		    DPRINTF(ERR_FATAL,"Thread %d: Out of memory\n",
 			    pwsc->threadno);
 		    pwsc->error=ENOMEM;
@@ -567,7 +571,7 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
 	} else {
 	    DPRINTF(ERR_DEBUG,"Thread %d: Adding arg %s = %s\n",
 		    pwsc->threadno,first,middle);
-	    ws_addarg(&pwsc->request_vars,first,middle);
+	    ws_addarg(&pwsc->request_vars,first,"%s",middle);
 	}
 	
 	if(!last) {
@@ -613,7 +617,9 @@ void *ws_dispatcher(void *arg) {
 	 * and decide where to dispatch it
 	 */
 
-	if((readlinetimed(pwsc->fd,buffer,sizeof(buffer),30.0)) < 1) {
+	/* DWB: set timeout to 30 minutes as advertised in the
+	   server-info response. */
+	if((readlinetimed(pwsc->fd,buffer,sizeof(buffer),1800.0)) < 1) {
 	    pwsc->error=errno;
 	    pwsc->close=1;
 	    DPRINTF(ERR_WARN,"Thread %d:  could not read: %s\n",
@@ -623,6 +629,7 @@ void *ws_dispatcher(void *arg) {
 	}
 
 	DPRINTF(ERR_DEBUG,"Thread %d: got request\n",pwsc->threadno);
+	DPRINTF(ERR_DEBUG - 1, "Request: %s", buffer);
 
 	first=last=buffer;
 	strsep(&last," ");
@@ -1057,10 +1064,13 @@ char *ws_urldecode(char *string) {
 
     while(*src) {
 	switch(*src) {
+#if 0
+	    /* DWB - space gets converted to %20, not +, this definitely breaks compatibility with iTunes */
 	case '+':
 	    *dst++=' ';
 	    src++;
 	    break;
+#endif
 	case '%':
 	    /* this is hideous */
 	    src++;

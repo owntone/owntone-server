@@ -167,9 +167,12 @@ int config_read(char *file) {
     config.runas=NULL;
     config.artfilename=NULL;
     config.logfile=NULL;
-    config.extensions=".mp3";
 
-    config.servername="mt-daapd " VERSION;
+    /* DWB: use alloced space so it can be freed without errors */
+    config.extensions=strdup(".mp3");
+
+    /* DWB: use alloced space so it can be freed without errors */
+    config.servername=strdup("mt-daapd " VERSION);
 
     while(fgets(buffer,MAX_LINE,fin)) {
 	if(*buffer != '#') {
@@ -195,6 +198,9 @@ int config_read(char *file) {
 			
 			switch(pce->type) {
 			case CONFIG_TYPE_STRING:
+			    /* DWB: free space to prevent small leak */
+			    if(*((char **)(pce->var)))
+				free(*((char **)(pce->var)));
 			    *((char **)(pce->var)) = (void*)strdup(value);
 			    break;
 			case CONFIG_TYPE_INT:

@@ -336,3 +336,20 @@ void daap_free(DAAP_BLOCK *root) {
     }
     return;
 }
+
+// search a block's children and change an integer value
+int daap_set_int(DAAP_BLOCK* parent, char* tag, int value)
+{
+    DAAP_BLOCK*	child = daap_find(parent, tag);
+
+    if(0 == child || child->size != sizeof(int))
+	return 0;
+
+    child->svalue[0]=(value >> 24) & 0xFF;
+    child->svalue[1]=(value >> 16) & 0xFF;
+    child->svalue[2]=(value >> 8) & 0xFF;
+    child->svalue[3]=value & 0xFF;
+
+    return 1;
+}
+
