@@ -78,6 +78,7 @@ static int config_mutex_lock(void);
 static int config_mutex_unlock(void);
 static int config_existdir(char *path);
 static int config_makedir(char *path);
+static char *config_content_type(WS_CONNINFO *pwsc, char *path);
 
 /*
  * Defines
@@ -85,6 +86,17 @@ static int config_makedir(char *path);
 #define CONFIG_TYPE_INT       0  /**< Config element is an integer */
 #define CONFIG_TYPE_STRING    1  /**< Config element is a string */
 #define CONFIG_TYPE_SPECIAL   4  /**< Config element is a web  parameter */
+
+typedef struct tag_contenttypes {
+    char *extension;
+    char *contenttype;
+} CONTENTTYPES;
+
+CONTENTTYPES config_default_types[] = {
+    { ".css", "text/css" },
+    { ".txt", "text/plain" },
+    { NULL, NULL }
+};
 
 /** Every config file directive and web interface directive is a CONFIGELEMENT */
 typedef struct tag_configelement {
@@ -153,6 +165,23 @@ int config_session=0;                                   /**< session counter */
 
 #define MAX_LINE 1024
 
+/**
+ * set the content type based on the file type
+ */
+static char *config_content_type(WS_CONNINFO *pwsc, char *path) {
+    char *extension;
+    CONTENTTYPES *pct=config_default_types;
+
+    extension=strrchr(path,'.');
+    if(extension) {
+	while((pct->extension) && (strcasecmp(pct->extension,extension)))
+	    pct++;
+
+	if(pct->extension) {
+	    ws_addresponseheader(pwsc,"Content-Type",pct->contenttype);
+	}
+    }
+}
 
 /**
  * Try and create a directory, including parents.
@@ -676,6 +705,8 @@ void config_handler(WS_CONNINFO *pwsc) {
 	    }
 	}
     }
+
+    config_content_type(pwsc, resolved_path);
 
     ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
     ws_emitheaders(pwsc);
