@@ -20,6 +20,7 @@
  */
 
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,7 @@ int config_read(char *file, CONFIG *pconfig) {
     int err;
     char *value;
     char *comment;
+    char path_buffer[PATH_MAX];
     err=0;
 
     buffer=(char*)malloc(MAX_LINE);
@@ -80,8 +82,9 @@ int config_read(char *file, CONFIG *pconfig) {
 		    value[strlen(value)-1] = '\0';
 
 		if(!strcasecmp(buffer,"web_root")) {
-		    pconfig->web_root=strdup(value);
-		    DPRINTF(ERR_DEBUG,"Web root: %s\n",value);
+		    realpath(value,path_buffer);
+		    pconfig->web_root=strdup(path_buffer);
+		    DPRINTF(ERR_DEBUG,"Web root: %s\n",path_buffer);
 		} else if(!strcasecmp(buffer,"port")) {
 		    pconfig->port=atoi(value);
 		    DPRINTF(ERR_DEBUG,"Port: %d\n",pconfig->port);
