@@ -60,14 +60,13 @@
  * Typedefs
  */
 
-#pragma pack(1)
 typedef struct tag_scan_id3header {
     unsigned char id[3];
     unsigned char version[2];
     unsigned char flags;
     unsigned char size[4];
-} SCAN_ID3HEADER;
-#pragma pack(0)
+} __attribute((packed)) SCAN_ID3HEADER;
+
 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
