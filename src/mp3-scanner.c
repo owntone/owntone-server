@@ -68,7 +68,6 @@ typedef struct tag_scan_id3header {
 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
-
 /*
  * Globals
  */
@@ -280,6 +279,16 @@ static taghandler taghandlers[] = {
     { "url", scan_get_nultags, scan_get_urlfileinfo },
     { NULL, 0 }
 };
+
+time_t mac_to_unix_time(int t) {
+  struct timeval        tv;
+  struct timezone       tz;
+  
+  gettimeofday(&tv, &tz);
+  
+  return (t - (365L * 66L * 24L * 60L * 60L + 17L * 60L * 60L * 24L) +
+          (tz.tz_minuteswest * 60));
+}
 
 /*
  * scan_init
@@ -495,7 +504,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 	mp3file.time_added=psb->st_mtime;
 	if(psb->st_ctime < mp3file.time_added)
 	    mp3file.time_added=psb->st_ctime;
-	mp3file.time_modified=time(NULL);
+        mp3file.time_modified=psb->st_mtime;
 
 	DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 
@@ -1027,6 +1036,7 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
     off_t file_size;
     int ms;
     unsigned char buffer[2];
+    int time = 0;
 
     DPRINTF(E_DBG,L_SCAN,"Getting AAC file info\n");
 
@@ -1044,7 +1054,14 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
     /* now, hunt for the mvhd atom */
     atom_offset = aac_drilltoatom(infile, "moov:mvhd", &atom_length);
     if(atom_offset != -1) {
-	fseek(infile,12,SEEK_CUR);
+        fseek(infile, 4, SEEK_CUR);
+        fread((void *)&time, sizeof(int), 1, infile);
+        time = ntohl(time);
+        pmp3->time_added = mac_to_unix_time(time);
+
+        fread((void *)&time, sizeof(int), 1, infile);
+        time = ntohl(time);
+        pmp3->time_modified = mac_to_unix_time(time);
 	fread((void*)&sample_size,1,sizeof(int),infile);
 	fread((void*)&samples,1,sizeof(int),infile);
 
@@ -1111,6 +1128,7 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 	if (atom_offset != -1) {
 	    pmp3->bitrate = atom_length / ((pmp3->song_length / 1000) * 128);
 	}
+
     }
 
     fclose(infile);

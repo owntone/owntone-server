@@ -101,6 +101,7 @@ typedef struct tag_mp3packed {
     int time_added;
     int time_modified;
     int time_played;
+    int db_timestamp;
 
     int bpm; // DB Version 3
 
@@ -647,6 +648,7 @@ datum *db_packrecord(MP3FILE *pmp3) {
     ppacked->time_added=pmp3->time_added;
     ppacked->time_modified=pmp3->time_modified;
     ppacked->time_played=pmp3->time_played;
+    ppacked->db_timestamp=pmp3->db_timestamp;
     ppacked->bpm=pmp3->bpm;
     ppacked->compilation=pmp3->compilation;
     ppacked->id=pmp3->id;
@@ -755,6 +757,7 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
     pmp3->total_discs=ppacked->total_discs;
     pmp3->time_added=ppacked->time_added;
     pmp3->time_modified=ppacked->time_modified;
+    pmp3->db_timestamp=ppacked->db_timestamp;
     pmp3->time_played=ppacked->time_played;
     pmp3->bpm=ppacked->bpm;
     pmp3->compilation=ppacked->compilation;
@@ -851,7 +854,9 @@ int db_add(MP3FILE *pmp3) {
     ppacked=(MP3PACKED *)pnew->dptr;
     if(!ppacked->time_added)
 	ppacked->time_added=(int)time(NULL);
-    ppacked->time_modified=(int)time(NULL);
+    if(!ppacked->time_modified)
+      ppacked->time_modified=(int)time(NULL);
+    ppacked->db_timestamp = (int)time(NULL);
     ppacked->time_played=0; /* do we want to keep track of this? */
 
     db_writelock();
@@ -1442,7 +1447,7 @@ int db_last_modified(int id) {
     if(!pmp3) {
 	retval=0;
     } else {
-	retval=pmp3->time_modified;
+      retval = pmp3->db_timestamp;
     }
 
     if(pmp3) {

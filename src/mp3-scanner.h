@@ -54,6 +54,7 @@ typedef struct tag_mp3file {
     int time_added;
     int time_modified;
     int time_played;
+    int db_timestamp;
     
     int bpm;         /* TBPM */
 
@@ -65,7 +66,7 @@ typedef struct tag_mp3file {
     int item_kind;		/* song or movie */
     int data_kind;              /* dmap.datakind (asdk) */
 
-  char compilation;
+    char compilation;
 } MP3FILE;
 
 extern int scan_init(char *path);
