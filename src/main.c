@@ -90,7 +90,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     if(!strcasecmp(pwsc->uri,"/server-info")) {
 	config_set_status(pwsc,session_id,"Sending server info");
-	root=daap_response_server_info();
+	root=daap_response_server_info(config.servername);
     } else if (!strcasecmp(pwsc->uri,"/content-codes")) {
 	config_set_status(pwsc,session_id,"Sending content codes");
 	root=daap_response_content_codes();
@@ -112,7 +112,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	return;
     } else if(strcmp(pwsc->uri,"/databases")==0) {
 	config_set_status(pwsc,session_id,"Sending database info");
-	root=daap_response_dbinfo();
+	root=daap_response_dbinfo(config.servername);
     } else if(strncmp(pwsc->uri,"/databases/",11) == 0) {
 
 	/* the /databases/ uri will either be:
@@ -171,7 +171,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	    } else if (strncasecmp(last,"containers",10)==0) {
 		/* list of playlists */
 		free(uri);
-		root=daap_response_playlists();
+		root=daap_response_playlists(config.servername);
 		config_set_status(pwsc,session_id,"Sending playlist info");
 	    }
 	}
@@ -256,7 +256,7 @@ int main(int argc, char *argv[]) {
     WSCONFIG ws_config;
     WSHANDLE server;
     pid_t rendezvous_pid;
-    int use_mdns=0;
+    int use_mdns=1;
     ENUMHANDLE handle;
     MP3FILE *pmp3;
 
@@ -345,7 +345,7 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(server,"^/databases/.*",daap_handler,NULL,0);
 
     if(use_mdns)
-	rend_init(&rendezvous_pid);
+	rend_init(&rendezvous_pid,config.servername, config.port);
 
     while(1) {
 	sleep(20);
