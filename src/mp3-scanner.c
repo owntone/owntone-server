@@ -82,9 +82,9 @@ int scan_br_table[5][16] = {
 };
 
 int scan_sample_table[3][4] = {
-    { 44100, 48000, 32000, 0 },
-    { 22050, 24000, 16000, 0 },
-    { 11025, 12000, 8000, 0 }
+    { 44100, 48000, 32000, 0 },  /* MPEG 1 */
+    { 22050, 24000, 16000, 0 },  /* MPEG 2 */
+    { 11025, 12000, 8000, 0 }    /* MPEG 2.5 */
 };
 
 
@@ -879,7 +879,10 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 	    fseek(infile,16,SEEK_CUR);
 	    fread((void*)&temp_int,1,sizeof(int),infile);
 	    temp_int=ntohl(temp_int);
-	    pmp3->song_length=temp_int/600;
+	    if(temp_int > 720000)
+		pmp3->song_length=temp_int / 90000; /* PlayFair? */
+	    else
+		pmp3->song_length=temp_int/600;
 	    DPRINTF(ERR_DEBUG,"Song length: %d seconds\n",temp_int/600);
 	}
     }

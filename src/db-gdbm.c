@@ -218,11 +218,6 @@ int db_init(void) {
     MP3FILE mp3file;
     datum tmp_key,tmp_nextkey,song_data;
     
-    if((db_removed=rbinit(db_compare_rb_nodes,NULL)) == NULL) {
-	errno=ENOMEM;
-	return -1;
-    }
-
     pl_register();
 
     db_version_no=1;
@@ -236,12 +231,6 @@ int db_init(void) {
     MEMNOTIFY(tmp_key.dptr);
 
     while(tmp_key.dptr) {
-	/* Add it to the rbtree */
-	if(!rbsearch((void*)tmp_key.dptr,db_removed)) {
-	    errno=ENOMEM;
-	    return -1;
-	}
-
 	/* Fetch that key */
 	song_data=gdbm_fetch(db_songs,tmp_key);
 	MEMNOTIFY(song_data.dptr);
@@ -256,7 +245,7 @@ int db_init(void) {
 	
 	tmp_nextkey=gdbm_nextkey(db_songs,tmp_key);
 	MEMNOTIFY(tmp_nextkey.dptr);
-	// free(tmp_key.dptr); /* we'll free it in update mode */
+	free(tmp_key.dptr); 
 	tmp_key=tmp_nextkey;
 	db_song_count++;
     }
@@ -309,7 +298,34 @@ int db_version(void) {
  * Set the db to bulk import mode
  */
 int db_start_initial_update(void) {
+    datum tmp_key,tmp_nextkey;
+
+    if((db_removed=rbinit(db_compare_rb_nodes,NULL)) == NULL) {
+	errno=ENOMEM;
+	return -1;
+    }
+
+    /* load up the red-black tree with all the current songs in the db */
+
+    tmp_key=gdbm_firstkey(db_songs);
+
+    MEMNOTIFY(tmp_key.dptr);
+
+    while(tmp_key.dptr) {
+	/* Add it to the rbtree */
+	if(!rbsearch((void*)tmp_key.dptr,db_removed)) {
+	    errno=ENOMEM;
+	    return -1;
+	}
+	
+	tmp_nextkey=gdbm_nextkey(db_songs,tmp_key);
+	MEMNOTIFY(tmp_nextkey.dptr);
+	// free(tmp_key.dptr); /* we'll free it in update mode */
+	tmp_key=tmp_nextkey;
+    }
+
     db_update_mode=1;
+
     return 0;
 }
 

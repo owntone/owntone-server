@@ -91,7 +91,6 @@ void log_err(int quit, char *fmt, ...)
  ****************************************************/
 void log_setdest(char *app, int destination) {
     switch(destination) {
-
     case LOGDEST_SYSLOG:
 	if(err_logdestination != LOGDEST_SYSLOG) {
 	    openlog(app,LOG_PID,LOG_DAEMON);
@@ -104,6 +103,8 @@ void log_setdest(char *app, int destination) {
 	}
 	break;
     }
+
+    err_logdestination=destination;
 }
 
 #ifdef DEBUG_MEMORY
