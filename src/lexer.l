@@ -5,8 +5,11 @@
  * Simple playlist lexer
  */
 
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
+#include "err.h"
 #include "playlist.h"
 #include "parser.h"
 
@@ -15,33 +18,39 @@ extern int yydebug;
 %}
 
 %option yylineno
+%option case-insensitive
+
+qstring \"[^\"\n]*[\"\n]
 
 %%
 
 [\n\t ]+
 
-artist                   { yylval.ival=TOK_ARTIST; return(TOK_ARTIST); }
-album                    { yylval.ival=TOK_ALBUM; return(TOK_ALBUM); }
-genre                    { yylval.ival=TOK_GENRE; return(TOK_GENRE); }
+artist                   { yylval.ival=ARTIST; return(ARTIST); }
+album                    { yylval.ival=ALBUM; return(ALBUM); }
+genre                    { yylval.ival=GENRE; return(GENRE); }
 
 is |
-=                        { yylval.ival=TOK_IS; return(TOK_IS); }
+=                        { yylval.ival=IS; return(IS); }
 
 includes |
 =~ |
-~=                       { yylval.ival=TOK_INCLUDES; return(TOK_INCLUDES); }
+~=                       { yylval.ival=INCLUDES; return(INCLUDES); }
 
 or |
-\|\|                     { yylval.ival=TOK_OR; return(TOK_OR); }
+\|\|                     { yylval.ival=OR; return(OR); }
 
 and |
-&&                       { yylval.ival=TOK_AND; return(TOK_AND); }
+&&                       { yylval.ival=AND; return(AND); }
 
 not |
-!                        { yylval.ival=1; return(TOK_NOT); }
+!                        { yylval.ival=1; return(NOT); }
 
 
-\"[A-Za-z0-9 ]*\"        { yylval.cval=strdup(yytext); return(TOK_ID); }
+{qstring}                { yylval.cval=strdup(yytext+1);
+                           if(yylval.cval[strlen(yylval.cval)-1] == '"');
+                               yylval.cval[strlen(yylval.cval)-1] = '\0';
+                           return(ID); }
 
 . { return yytext[0]; }
 
@@ -52,33 +61,8 @@ int yywrap(void) {
 }
 
 void yyerror(char *msg) {
-    printf("\nParser Error:  Line %d: %s\n",yylineno, msg);
-    printf("Wish I could be more helpful.  :(\n\n");
-    printf("If you know how to generate good yacc errors, please\n");
-    printf("Let me know!\n\n");
-    exit(0);
+    pl_error=1;
+    log_err(0,"Line %d: %s\n",yylineno, msg);
 }
 
 
-/*
-int main(int argc, char *argv[]) {
-    FILE *fin;
-    int result;
-
-    yydebug=1;
-
-    fin=fopen(argv[1],"r");
-    if(!fin) {
-	perror("fopen");
-	return 1;
-    }
-    
-    yyin=fin;
-    result=yyparse();
-    printf("Parsed... result = %d\n", result);
-
-    pl_dump();
-
-    return 0;
-}
-*/
