@@ -1,0 +1,70 @@
+/*
+ * $Id$
+ * Webserver library
+ *
+ * Copyright (C) 2003 Ron Pedde (ron@corbey.com)
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program; if not, write to the Free Software
+ * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+ */
+
+#ifndef _WEBSERVER_H_
+#define _WEBSERVER_H_
+
+
+/*
+ * Defines
+ */
+
+#define RT_GET       0
+#define RT_POST      1
+
+/* 
+ * Typedefs
+ */
+
+typedef struct tag_wsconfig {
+    char *web_root;
+    char *id;
+    unsigned short port;
+} WSCONFIG;
+
+typedef struct tag_arglist {
+    char *key;
+    char *value;
+    struct tag_arglist *next;
+} ARGLIST;
+
+typedef struct tag_ws_conninfo {
+    int fd;
+    int request_type;
+    char *uri;
+    char *hostname;
+    ARGLIST request_headers;
+    ARGLIST response_headers;
+    ARGLIST request_vars;
+} WS_CONNINFO;
+
+typedef void* WSHANDLE;
+
+/*
+ * Externs
+ */
+
+extern WSHANDLE ws_start(WSCONFIG *config);
+extern int ws_stop(WSHANDLE ws);
+extern void ws_close(WS_CONNINFO *pwsc);
+extern int ws_returnerror(WS_CONNINFO *pwsc, int error, char *description);
+
+#endif /* _WEBSERVER_H_ */

@@ -1,0 +1,26 @@
+dnl 
+dnl Much of this is autoscan generated.  Some of it I don't really know
+dnl what to do with.
+dnl
+
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT(src/netview.c)
+dnl AC_CANONICAL_SYSTEM
+
+AM_CONFIG_HEADER(config.h)
+AM_INIT_AUTOMAKE(netview,0.1.0)
+
+dnl Checks for programs.
+AC_PROG_CC
+
+dnl Checks for libraries.
+
+dnl Checks for header files.
+AC_HEADER_STDC
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_CONST
+AC_TYPE_MODE_T
+
+dnl Checks for library functions.
+AC_OUTPUT(src/Makefile Makefile)
