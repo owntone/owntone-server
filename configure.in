@@ -19,8 +19,6 @@ rend_posix=true
 STATIC_LIBS=no
 CPPFLAGS="${CPPFLAGS} -g"
 
-LDFLAGS="${LDFLAGS} -lz"
-
 AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
 
 AC_ARG_ENABLE(debug,[  --enable-debug          Enable debugging features],
@@ -163,7 +161,9 @@ else
   echo "Adding dynamic libid3tag"
 fi
 
-if test x"$use_oggvorbis" == x"true"; then
+echo USE_OGGVORBIS is $use_oggvorbis
+
+if test x$use_oggvorbis = xtrue; then
   AC_CHECK_HEADERS(ogg/ogg.h,, [
    AC_MSG_ERROR([ogg/ogg.h not found... Must have libogg installed for Ogg/Vorbis support])])
   AC_CHECK_LIB(ogg,ogg_sync_init,echo "Have ogg",echo "Must have libogg for Ogg/Vorbis support";exit)
