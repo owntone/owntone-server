@@ -580,22 +580,22 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
 			    pmp3->genre=strdup((char*)&current_data[16]);
 			} else if(!memcmp(current_atom,"trkn",4)) {
 			    us_data=*((unsigned short *)&current_data[18]);
-			    us_data=htons(us_data);
+			    us_data=ntohs(us_data);
 
 			    pmp3->track=us_data;
 
 			    us_data=*((unsigned short *)&current_data[20]);
-			    us_data=htons(us_data);
+			    us_data=ntohs(us_data);
 
 			    pmp3->total_tracks=us_data;
 			} else if(!memcmp(current_atom,"disk",4)) {
 			    us_data=*((unsigned short *)&current_data[18]);
-			    us_data=htons(us_data);
+			    us_data=ntohs(us_data);
 
 			    pmp3->disc=us_data;
 
 			    us_data=*((unsigned short *)&current_data[20]);
-			    us_data=htons(us_data);
+			    us_data=ntohs(us_data);
 
 			    pmp3->total_discs=us_data;
 			} else if(!memcmp(current_atom,"\xA9" "day",4)) {
