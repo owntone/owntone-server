@@ -336,6 +336,9 @@ int db_add(MP3FILE *mp3file) {
     if(mp3file->comment)
 	g = g && (pnew->mp3file.comment=strdup(mp3file->comment));
 
+    if(mp3file->type)
+	g = g && (pnew->mp3file.type=strdup(mp3file->type));
+
     if(!g) {
 	DPRINTF(ERR_WARN,"Malloc error in db_add\n");
 	db_freerecord(pnew);
@@ -377,6 +380,7 @@ void db_freerecord(MP3RECORD *mp3record) {
     MAYBEFREE(mp3record->mp3file.album);
     MAYBEFREE(mp3record->mp3file.genre);
     MAYBEFREE(mp3record->mp3file.comment);
+    MAYBEFREE(mp3record->mp3file.type);
     free(mp3record);
 }
 
