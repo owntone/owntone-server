@@ -23,11 +23,8 @@
     Change History (most recent first):
 
 $Log$
-Revision 1.1  2004/03/29 17:55:17  rpedde
-Flatten mdns stuff
-
-Revision 1.3  2004/03/02 00:03:37  rpedde
-Merge new rendezvous code
+Revision 1.2  2005/01/10 01:07:01  rpedde
+Synchronize mDNS to Apples 58.8 drop
 
 Revision 1.12  2003/09/02 20:47:13  cheshire
 Fix signed/unsigned warning

@@ -36,20 +36,11 @@
 	Change History (most recent first):
 
 $Log$
-Revision 1.4  2004/11/29 05:55:45  rpedde
-Fix for OpenBSD
+Revision 1.5  2005/01/10 01:07:01  rpedde
+Synchronize mDNS to Apples 58.8 drop
 
-Revision 1.3  2004/11/13 07:14:26  rpedde
-modularize debugging statements
-
-Revision 1.2  2004/10/25 04:51:54  rpedde
-tune down some of the logging
-
-Revision 1.1  2004/03/29 17:55:17  rpedde
-Flatten mdns stuff
-
-Revision 1.4  2004/03/02 00:03:37  rpedde
-Merge new rendezvous code
+Revision 1.25.2.1  2004/04/09 17:57:31  cheshire
+Make sure to set the TxAndRx field so that duplicate suppression works correctly
 
 Revision 1.25  2003/10/30 19:25:49  cheshire
 Fix signed/unsigned warning on certain compilers
@@ -710,6 +701,7 @@ static int SetupOneInterface(mDNS *const m, struct sockaddr *intfAddr, const cha
 		// Set up the fields required by the mDNS core.
 		SockAddrTomDNSAddr(intfAddr, &intf->coreIntf.ip, NULL);
 		intf->coreIntf.Advertise = m->AdvertiseLocalAddresses;
+		intf->coreIntf.TxAndRx   = mDNStrue;
 
 		// Set up the extra fields in PosixNetworkInterface.
 		assert(intf->intfName != NULL);         // intf->intfName already set up above

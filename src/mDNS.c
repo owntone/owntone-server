@@ -44,11 +44,26 @@
     Change History (most recent first):
 
 $Log$
-Revision 1.1  2004/03/29 17:55:17  rpedde
-Flatten mdns stuff
+Revision 1.2  2005/01/10 01:07:00  rpedde
+Synchronize mDNS to Apples 58.8 drop
 
-Revision 1.4  2004/03/02 00:14:26  rpedde
-Update to mdns 58.3
+Revision 1.307.2.8  2004/04/03 05:18:19  bradley
+Added cast to fix signed/unsigned warning due to int promotion.
+
+Revision 1.307.2.7  2004/03/30 06:46:24  cheshire
+Compiler warning fixes from Don Woodward at Roku Labs
+
+Revision 1.307.2.6  2004/03/09 03:03:38  cheshire
+<rdar://problem/3581961> Don't take lock until after mDNS_Update() has validated that the data is good
+
+Revision 1.307.2.5  2004/03/02 02:55:24  cheshire
+<rdar://problem/3549576> Properly support "_services._dns-sd._udp" meta-queries
+
+Revision 1.307.2.4  2004/02/18 01:55:08  cheshire
+<rdar://problem/3553472>: Increase delay to 400ms when answering queries with multi-packet KA lists
+
+Revision 1.307.2.3  2004/01/28 23:08:45  cheshire
+<rdar://problem/3488559>: Hard code domain enumeration functions to return ".local" only
 
 Revision 1.307.2.2  2003/12/20 01:51:40  cheshire
 <rdar://problem/3515876>: Error putting additional records into packets
@@ -1102,10 +1117,10 @@ static const mDNSOpaque16 ResponseFlags = { { kDNSFlag0_QR_Response | kDNSFlag0_
 
 static const char *const mDNS_DomainTypeNames[] =
 	{
-	"_browse._mdns._udp.local.",
-	"_default._browse._mdns._udp.local.",
-	"_register._mdns._udp.local.",
-	"_default._register._mdns._udp.local."
+	"_browse._dns-sd._udp.local.",
+	"_default._browse._dns-sd._udp.local.",
+	"_register._dns-sd._udp.local.",
+	"_default._register._dns-sd._udp.local."
 	};
 
 #define AssignDomainName(DST, SRC) mDNSPlatformMemCopy((SRC).c, (DST).c, DomainNameLength(&(SRC)))
@@ -2195,13 +2210,13 @@ mDNSlocal mDNSu16 GetRDLength(const ResourceRecord *const rr, mDNSBool estimate)
 	const domainname *const name = estimate ? &rr->name : mDNSNULL;
 	switch (rr->rrtype)
 		{
-		case kDNSType_A:	return(sizeof(rd->ip)); break;
+		case kDNSType_A:	return(sizeof(rd->ip));
 		case kDNSType_CNAME:// Same as PTR
 		case kDNSType_PTR:	return(CompressedDomainNameLength(&rd->name, name));
 		case kDNSType_HINFO:return(mDNSu16)(2 + (int)rd->data[0] + (int)rd->data[1 + (int)rd->data[0]]);
 		case kDNSType_NULL:	// Same as TXT -- not self-describing, so have to just trust rdlength
 		case kDNSType_TXT:  return(rr->rdlength); // TXT is not self-describing, so have to just trust rdlength
-		case kDNSType_AAAA:	return(sizeof(rd->ipv6)); break;
+		case kDNSType_AAAA:	return(sizeof(rd->ipv6));
 		case kDNSType_SRV:	return(mDNSu16)(6 + CompressedDomainNameLength(&rd->srv.target, name));
 		default:			debugf("Warning! Don't know how to get length of resource type %d", rr->rrtype);
 							return(rr->rdlength);
@@ -2775,7 +2790,7 @@ mDNSlocal const mDNSu8 *FindCompressionPointer(const mDNSu8 *const base, const m
 mDNSlocal mDNSu8 *putDomainNameAsLabels(const DNSMessage *const msg,
 	mDNSu8 *ptr, const mDNSu8 *const limit, const domainname *const name)
 	{
-	const mDNSu8 *const base        = (const mDNSu8 *const)msg;
+	const mDNSu8 *const base        = (const mDNSu8 *)msg;
 	const mDNSu8 *      np          = name->c;
 	const mDNSu8 *const max         = name->c + MAX_DOMAIN_NAME;	// Maximum that's valid
 	const mDNSu8 *      pointer     = mDNSNULL;
@@ -3780,7 +3795,7 @@ mDNSlocal mDNSBool AccelerateThisQuery(mDNS *const m, DNSQuestion *q)
 	if (TimeToSendThisQuestion(q, m->timenow + q->ThisQInterval/2))
 		{
 		// We forecast: qname (n) type (2) class (2)
-		mDNSu32 forecast = DomainNameLength(&q->qname) + 4;
+		mDNSu32 forecast = (mDNSu32)DomainNameLength(&q->qname) + 4;
 		CacheRecord *rr;
 		for (rr=m->rrcache_hash[HashSlot(&q->qname)]; rr; rr=rr->next)		// If we have a resource record in our cache,
 			if (rr->resrec.rdlength <= SmallRecordLimit &&					// which is small enough to sensibly fit in the packet
@@ -4953,7 +4968,7 @@ mDNSlocal mDNSu8 *ProcessQuery(mDNS *const m, const DNSMessage *const query, con
 	CacheRecord **eap             = &ExpectedAnswers;
 	DNSQuestion     *DupQuestions    = mDNSNULL;			// Our questions that are identical to questions in this packet
 	DNSQuestion    **dqp             = &DupQuestions;
-	mDNSBool         delayresponse   = mDNSfalse;
+	mDNSs32          delayresponse   = 0;
 	mDNSBool         HaveUnicastAnswer = mDNSfalse;
 	const mDNSu8    *ptr             = query->data;
 	mDNSu8          *responseptr     = mDNSNULL;
@@ -4961,7 +4976,7 @@ mDNSlocal mDNSu8 *ProcessQuery(mDNS *const m, const DNSMessage *const query, con
 	int i;
 
 	// If TC flag is set, it means we should expect that additional known answers may be coming in another packet.
-	if (query->h.flags.b[0] & kDNSFlag0_TC) delayresponse = mDNStrue;
+	if (query->h.flags.b[0] & kDNSFlag0_TC) delayresponse = mDNSPlatformOneSecond;	// Divided by 50 = 20ms
 
 	// ***
 	// *** 1. Parse Question Section and mark potential answers
@@ -5031,7 +5046,7 @@ mDNSlocal mDNSu8 *ProcessQuery(mDNS *const m, const DNSMessage *const query, con
 			CacheRecord *rr;
 			// If we couldn't answer this question, someone else might be able to,
 			// so use random delay on response to reduce collisions
-			if (NumAnswersForThisQuestion == 0) delayresponse = mDNStrue;
+			if (NumAnswersForThisQuestion == 0) delayresponse = mDNSPlatformOneSecond;	// Divided by 50 = 20ms
 
 			// Make a list indicating which of our own cache records we expect to see updated as a result of this query
 			// Note: Records larger than 1K are not habitually multicast, so don't expect those to be updated
@@ -5071,10 +5086,7 @@ mDNSlocal mDNSu8 *ProcessQuery(mDNS *const m, const DNSMessage *const query, con
 	// ***
 	for (rr = m->ResourceRecords; rr; rr=rr->next)				// Now build our list of potential answers
 		if (rr->NR_AnswerTo)									// If we marked the record...
-			{
 			AddRecordToResponseList(&nrp, rr, mDNSNULL);		// ... add it to the list
-			if (rr->resrec.RecordType == kDNSRecordTypeShared) delayresponse = mDNStrue;
-			}
 
 	// ***
 	// *** 3. Add additional records
@@ -5217,6 +5229,11 @@ mDNSlocal mDNSu8 *ProcessQuery(mDNS *const m, const DNSMessage *const query, con
 						}
 					}
 				}
+			if (rr->resrec.RecordType == kDNSRecordTypeShared)
+				{
+				if (query->h.flags.b[0] & kDNSFlag0_TC) delayresponse = mDNSPlatformOneSecond * 20;	// Divided by 50 = 400ms
+				else                                    delayresponse = mDNSPlatformOneSecond;		// Divided by 50 = 20ms
+			}
 			}
 		else if (rr->NR_AdditionalTo && rr->NR_AdditionalTo->NR_AnswerTo == (mDNSu8*)~0)
 			{
@@ -5232,10 +5249,22 @@ mDNSlocal mDNSu8 *ProcessQuery(mDNS *const m, const DNSMessage *const query, con
 	// ***
 	// *** 7. If we think other machines are likely to answer these questions, set our packet suppression timer
 	// ***
-	if (delayresponse && !m->SuppressSending)
+	if (delayresponse && (!m->SuppressSending || (m->SuppressSending - m->timenow) < (delayresponse + 49) / 50))
 		{
-		// Pick a random delay between 20ms and 120ms.
-		m->SuppressSending = m->timenow + (mDNSPlatformOneSecond*2 + (mDNSs32)mDNSRandom((mDNSu32)mDNSPlatformOneSecond*10)) / 100;
+		// Pick a random delay:
+		// We start with the base delay chosen above (typically either 1 second or 20 seconds),
+		// and add a random value in the range 0-5 seconds (making 1-6 seconds or 20-25 seconds).
+		// This is an integer value, with resolution determined by the platform clock rate.
+		// We then divide that by 50 to get the delay value in ticks. We defer the division until last
+		// to get better results on platforms with coarse clock granularity (e.g. ten ticks per second).
+		// The +49 before dividing is to ensure we round up, not down, to ensure that even
+		// on platforms where the native clock rate is less than fifty ticks per second,
+		// we still guarantee that the final calculated delay is at least one platform tick.
+		// We want to make sure we don't ever allow the delay to be zero ticks,
+		// because if that happens we'll fail the Rendezvous Conformance Test.
+		// Our final computed delay is 20-120ms for normal delayed replies,
+		// or 400-500ms in the case of multi-packet known-answer lists.
+		m->SuppressSending = m->timenow + (delayresponse + (mDNSs32)mDNSRandom((mDNSu32)mDNSPlatformOneSecond*5) + 49) / 50;
 		if (m->SuppressSending == 0) m->SuppressSending = 1;
 		}
 
@@ -6085,7 +6114,11 @@ mDNSexport mStatus mDNS_GetDomains(mDNS *const m, DNSQuestion *const question, m
 	question->qclass           = kDNSClass_IN;
 	question->QuestionCallback = Callback;
 	question->QuestionContext  = Context;
-	return(mDNS_StartQuery(m, question));
+
+	// No sense doing this until we actually support unicast query/update
+	//return(mDNS_StartQuery(m, question));
+	(void)m; // Unused
+	return(mStatus_NoError);
 	}
 
 // ***************************************************************************
@@ -6151,10 +6184,10 @@ mDNSexport mStatus mDNS_Update(mDNS *const m, AuthRecord *const rr, mDNSu32 newt
 	const mDNSu16 newrdlength,
 	RData *const newrdata, mDNSRecordUpdateCallback *Callback)
 	{
-	mDNS_Lock(m);
-
 	if (!ValidateRData(rr->resrec.rrtype, newrdlength, newrdata))
 		{ LogMsg("Attempt to update record with invalid rdata: %s", GetRRDisplayString_rdb(m, &rr->resrec, &newrdata->u)); return(mStatus_Invalid); }
+
+	mDNS_Lock(m);
 
 	// If TTL is unspecified, leave TTL unchanged
 	if (newttl == 0) newttl = rr->resrec.rroriginalttl;
@@ -6638,7 +6671,7 @@ mDNSexport mStatus mDNS_RegisterService(mDNS *const m, ServiceRecordSet *sr,
 	// Set up the record names
 	// For now we only create an advisory record for the main type, not for subtypes
 	// We need to gain some operational experience before we decide if there's a need to create them for subtypes too
-	if (ConstructServiceName(&sr->RR_ADV.resrec.name, (domainlabel*)"\x09_services", (domainname*)"\x05_mdns\x04_udp", domain) == mDNSNULL)
+	if (ConstructServiceName(&sr->RR_ADV.resrec.name, (domainlabel*)"\x09_services", (domainname*)"\x07_dns-sd\x04_udp", domain) == mDNSNULL)
 		return(mStatus_BadParamErr);
 	if (ConstructServiceName(&sr->RR_PTR.resrec.name, mDNSNULL, type, domain) == mDNSNULL) return(mStatus_BadParamErr);
 	if (ConstructServiceName(&sr->RR_SRV.resrec.name, name,     type, domain) == mDNSNULL) return(mStatus_BadParamErr);

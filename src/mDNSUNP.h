@@ -23,14 +23,8 @@
     Change History (most recent first):
 
 $Log$
-Revision 1.1  2004/03/29 17:55:17  rpedde
-Flatten mdns stuff
-
-Revision 1.3  2004/03/16 05:11:18  rpedde
-Fix obvious typecast bug
-
-Revision 1.2  2004/03/02 00:03:37  rpedde
-Merge new rendezvous code
+Revision 1.2  2005/01/10 01:07:01  rpedde
+Synchronize mDNS to Apples 58.8 drop
 
 Revision 1.8  2003/08/12 19:56:26  cheshire
 Update to APSL 2.0
@@ -87,7 +81,7 @@ First checkin
 #define GET_SA_LEN(X) (((struct sockaddr*)&(X))->sa_family == AF_INET  ? sizeof(struct sockaddr_in) : \
                        ((struct sockaddr*)&(X))->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr))
 #else
-#define GET_SA_LEN(X) (((struct sockaddr*)&(X))->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr))
+#define GET_SA_LEN(X) ((X).sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr))
 #endif
 
 #define IFI_NAME    16          /* same as IFNAMSIZ in <net/if.h> */
