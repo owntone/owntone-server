@@ -52,7 +52,11 @@
 #include "dynamic-art.h"
 
 #ifndef DEFAULT_CONFIGFILE
+#ifdef NSLU2
+#define DEFAULT_CONFIGFILE "/opt/etc/mt-daapd.conf"
+#else
 #define DEFAULT_CONFIGFILE "/etc/mt-daapd.conf"
+#endif
 #endif
 
 #ifndef PIDFILE
@@ -483,7 +487,12 @@ int drop_privs(char *user) {
 
     /* drop privs */
     if(getuid() == (uid_t)0) {
-	pw=getpwnam(config.runas);
+	if(atoi(user)) {
+	    pw=getpwuid((uid_t)atoi(user)); /* doh! */
+	} else {
+	    pw=getpwnam(config.runas);
+	}
+
 	if(pw) {
 	    if(initgroups(user,pw->pw_gid) != 0 || 
 	       setgid(pw->pw_gid) != 0 ||
@@ -737,9 +746,10 @@ int main(int argc, char *argv[]) {
 
     while(!config.stop) {
 	if((config.rescan_interval) && (rescan_counter > config.rescan_interval)) {
-	    if(scan_init(config.mp3dir)) {
-		DPRINTF(ERR_LOG,"Background scanning error... exiting\n");
-		config.stop=1;
+	    if((config.always_scan) || (config_get_session_count())) {
+		config.reload=1;
+	    } else {
+		DPRINTF(ERR_DEBUG,"Skipping background scan... no connected users\n");
 	    }
 	    rescan_counter=0;
 	}
@@ -767,10 +777,6 @@ int main(int argc, char *argv[]) {
 	DPRINTF(ERR_LOG,"Stopping rendezvous daemon\n");
 	rend_stop();
     }
-
-    /* Have a refcount problem with the web server...
-     * Need to troubleshoot it more later, but for now, we'll
-     * just stop the webserver the non-graceful way. */
 
     DPRINTF(ERR_LOG,"Stopping web server\n");
     ws_stop(server);

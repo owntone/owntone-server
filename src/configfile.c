@@ -160,6 +160,7 @@ int config_read(char *file) {
 	return -1;
     }
 
+    config.always_scan=0;
     config.configfile=strdup(file);
     config.web_root=NULL;
     config.adminpassword=NULL;
@@ -641,20 +642,21 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"</TABLE>\n");
 }
 
-/*
- * config_emit_session_count
+
+/* 
+ * config_get_session_count
  *
- * emit the number of unique hosts (with a session)
+ * get the number of unique hosts with a session
  */
-void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg) {
+int config_get_session_count(void) {
     SCAN_STATUS *pcurrent, *pcheck;
     int count=0;
 
-    if(config_mutex_lock())
-	return;
+    if(config_mutex_lock()) {
+	return 0;
+    }
 
     pcurrent=scan_status.next;
-
     while(pcurrent) {
 	if(pcurrent->session != 0) {
 	    /* check to see if there is another one before this one */
@@ -671,8 +673,18 @@ void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg) {
 	pcurrent=pcurrent->next;
     }
 
-    ws_writefd(pwsc,"%d",count);
     config_mutex_unlock();
+    return count;
+}
+
+
+/*
+ * config_emit_session_count
+ *
+ * emit the number of unique hosts (with a session)
+ */
+void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg) {
+    ws_writefd(pwsc,"%d",config_get_session_count());
 }
 
 /*
