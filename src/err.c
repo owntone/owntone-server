@@ -118,11 +118,17 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
  
     err_lock_mutex(); /* atomic file writes */
 
+    if((!level) && (err_logdestination != LOGDEST_STDERR)) {
+	fprintf(stderr,"%s",errbuf);
+	fprintf(stderr,"Aborting\n");
+	fflush(stderr); /* shouldn't have to do this? */
+    }
+
     switch(err_logdestination) {
     case LOGDEST_LOGFILE:
 	tt_now=time(NULL);
 	localtime_r(&tt_now,&tm_now);
-	strftime(timebuf,sizeof(timebuf),"%F %T",&tm_now);
+	strftime(timebuf,sizeof(timebuf),"%Y-%m-%d %T",&tm_now);
 	fprintf(err_file,"%s: %s",timebuf,errbuf);
 	if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
 	fflush(err_file);
