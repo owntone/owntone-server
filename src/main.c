@@ -219,116 +219,6 @@ void daap_handler(WS_CONNINFO *pwsc) {
  * Handle config web pages
  */
 
-void config_handler(WS_CONNINFO *pwsc) {
-    char path[PATH_MAX];
-    char resolved_path[PATH_MAX];
-    int file_fd;
-    struct stat sb;
-    char argbuffer[30];
-    int in_arg;
-    char *argptr;
-    char next;
-    
-    pwsc->close=1;
-    ws_addresponseheader(pwsc,"Connection","close");
-
-    snprintf(path,PATH_MAX,"%s/%s",config.web_root,pwsc->uri);
-    if(!realpath(path,resolved_path)) {
-	pwsc->error=errno;
-	DPRINTF(ERR_WARN,"Cannot resolve %s\n",path);
-	ws_returnerror(pwsc,404,"Not found");
-	return;
-    }
-
-    /* this should really return a 302:Found */
-    stat(resolved_path,&sb);
-    if(sb.st_mode & S_IFDIR)
-	strcat(resolved_path,"/index.html");
-
-    DPRINTF(ERR_DEBUG,"Thread %d: Preparing to serve %s\n",
-	    pwsc->threadno, resolved_path);
-
-    if(strncmp(resolved_path,config.web_root,
-	       strlen(config.web_root))) {
-	pwsc->error=EINVAL;
-	DPRINTF(ERR_WARN,"Thread %d: Requested file %s out of root\n",
-		pwsc->threadno,resolved_path);
-	ws_returnerror(pwsc,403,"Forbidden");
-	return;
-    }
-
-    file_fd=r_open2(resolved_path,O_RDONLY);
-    if(file_fd == -1) {
-	pwsc->error=errno;
-	DPRINTF(ERR_WARN,"Thread %d: Error opening %s: %s\n",
-		pwsc->threadno,resolved_path,strerror(errno));
-	ws_returnerror(pwsc,404,"Not found");
-	return;
-    }
-    
-    if(strcasecmp(pwsc->uri,"/config-update.html")==0) {
-	/* we need to update stuff */
-	argptr=ws_getvar(pwsc,"adminpw");
-	if(argptr) {
-	    if(config.adminpassword)
-		free(config.adminpassword);
-	    config.adminpassword=strdup(argptr);
-	}
-    }
-
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
-
-    /* now throw out the file, with replacements */
-    in_arg=0;
-    argptr=argbuffer;
-
-    while(1) {
-	if(r_read(file_fd,&next,1) <= 0)
-	    break;
-
-	if(in_arg) {
-	    if(next == '@') {
-		in_arg=0;
-		if(strcasecmp(argbuffer,"WEB_ROOT") == 0) {
-		    ws_writefd(pwsc,"%s",config.web_root);
-		} else if (strcasecmp(argbuffer,"PORT") == 0) {
-		    ws_writefd(pwsc,"%d",config.port);
-		} else if (strcasecmp(argbuffer,"ADMINPW") == 0) {
-		    ws_writefd(pwsc,"%s",config.adminpassword);
-		} else if (strcasecmp(argbuffer,"RELEASE") == 0) {
-		    ws_writefd(pwsc,"mt-daapd %s\n",VERSION);
-		} else if (strcasecmp(argbuffer,"MP3DIR") == 0) {
-		    ws_writefd(pwsc,"%s",config.mp3dir);
-		} else {
-		    ws_writefd(pwsc,"@ERR@");
-		}
-	    } else {
-		if((argptr - argbuffer) < (sizeof(argbuffer)-1))
-		    *argptr++ = next;
-	    }
-	} else {
-	    if(next == '@') {
-		argptr=argbuffer;
-		memset(argbuffer,0,sizeof(argbuffer));
-		in_arg=1;
-	    } else {
-		if(r_write(pwsc->fd,&next,1) == -1)
-		    break;
-	    }
-	}
-    }
-
-    r_close(file_fd);
-    DPRINTF(ERR_DEBUG,"Thread %d: Served successfully\n",pwsc->threadno);
-    return;
-}
-
-int config_auth(char *user, char *password) {
-    return !strcmp(password,config.adminpassword);
-}
-
-
 void usage(char *program) {
     printf("Usage: %s [options]\n\n",program);
     printf("Options:\n");
@@ -386,13 +276,13 @@ int main(int argc, char *argv[]) {
      * try defaults */
 
     if(!configfile) {
-	if(config_read("/etc/mt-daapd.conf",&config))
-	    if(config_read("./mt-daapd.conf",&config)) {
+	if(config_read("/etc/mt-daapd.conf"))
+	    if(config_read("./mt-daapd.conf")) {
 		perror("configfile_read");
 		exit(EXIT_FAILURE);
 	    }
     } else {
-	if(config_read(configfile,&config)) {
+	if(config_read(configfile)) {
 	    perror("config_read");
 	    exit(EXIT_FAILURE);
 	}
