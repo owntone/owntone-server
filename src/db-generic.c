@@ -23,7 +23,7 @@
 #  include "config.h"
 #endif
 
-#define _XOPEN_SOURCE 600  /** I forgot why I needed this? */
+#define _XOPEN_SOURCE 500  /** unix98?  pthread_once_t, etc */
 
 #include <pthread.h>
 #include <stdio.h>
@@ -236,6 +236,8 @@ static void db_writelock(void);
 static void db_readlock(void);
 static int db_unlock(void);
 static void db_init_once(void);
+static void db_utf8_validate(MP3FILE *pmp3);
+static int db_utf8_validate_string(char *string);
 
 /**
  * encode a string meta request into a MetaField_t
@@ -423,6 +425,7 @@ int db_add(MP3FILE *pmp3) {
     int retval;
 
     db_writelock();
+    db_utf8_validate(pmp3);
     retval=db_current->dbs_add(pmp3);
     db_revision_no++;
     db_unlock();
@@ -684,4 +687,87 @@ int db_dmap_add_container(char *where, char *tag, int size) {
 
     return 8;
 }
+
+
+/**
+ * check the strings in a MP3FILE to ensure they are
+ * valid utf-8.  If they are not, the string will be corrected
+ *
+ * \param pmp3 MP3FILE to verify for valid utf-8
+ */
+void db_utf8_validate(MP3FILE *pmp3) {
+    int is_invalid=0;
+
+    /* we won't bother with path and fname... those were culled with the
+     * scan.  Even if they are invalid (_could_ they be?), then we 
+     * won't be able to open the file if we change them.  Likewise,
+     * we won't do type or description, as these can't be bad, or they
+     * wouldn't have been scanned */
+
+    is_invalid = db_utf8_validate_string(pmp3->title);
+    is_invalid |= db_utf8_validate_string(pmp3->artist);
+    is_invalid |= db_utf8_validate_string(pmp3->album);
+    is_invalid |= db_utf8_validate_string(pmp3->genre);
+    is_invalid |= db_utf8_validate_string(pmp3->comment);
+    is_invalid |= db_utf8_validate_string(pmp3->composer);
+    is_invalid |= db_utf8_validate_string(pmp3->orchestra);
+    is_invalid |= db_utf8_validate_string(pmp3->conductor);
+    is_invalid |= db_utf8_validate_string(pmp3->grouping);
+    is_invalid |= db_utf8_validate_string(pmp3->url);
+
+    if(is_invalid) {
+	DPRINTF(E_LOG,L_SCAN,"Invalid UTF-8 in %s\n",pmp3->path);
+    }
+}
+
+/**
+ * check a string to verify it is valid utf-8.  The passed
+ * string will be in-place modified to be utf-8 clean by substituting
+ * the character '?' for invalid utf-8 codepoints
+ *
+ * \param string string to clean
+ */
+int db_utf8_validate_string(char *string) {
+    char *current = string;
+    int run,r_current;
+    int retval=0;
+
+    if(!string)
+	return 0;
+
+    while(*current) {
+	if(!((*current) & 0x80)) {
+	    current++;
+	} else {
+	    run=0;
+
+	    /* it's a lead utf-8 character */
+	    if((*current & 0xE0) == 0xC0) run=1;
+	    if((*current & 0xF0) == 0xE0) run=2;
+	    if((*current & 0xF8) == 0xF0) run=3;
+
+	    if(!run) {
+		/* high bit set, but invalid */
+		*current++='?';
+		retval=1;
+	    } else {
+		r_current=0;
+		while((r_current != run) && (*(current + r_current + 1)) &&
+		      ((*(current + r_current + 1) & 0xC0) == 0x80)) {
+		    r_current++;
+		}
+
+		if(r_current != run) {
+		    *current++ = '?';
+		    retval=1;
+		} else {
+		    current += (1 + run);
+		}
+	    }
+	}
+    }
+
+    return retval;
+}
+
 

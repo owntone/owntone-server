@@ -53,6 +53,7 @@ void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3);
 int db_sqlite_exec(int fatal, char *fmt, ...);
 int db_sqlite_get_table(int fatal, char ***resarray, int *rows, int *cols, char *fmt, ...);
 int db_sqlite_free_table(char **resarray);
+int db_sqlite_get_int(int loglevel, char *fmt, ...);
 int db_sqlite_update(MP3FILE *pmp3);
 int db_sqlite_update_version(int from_version);
 int db_sqlite_get_version(void);
@@ -156,6 +157,45 @@ int db_sqlite_free_table(char **resarray) {
     return 0;
 }
 
+/**
+ * db_sqlite_get_int
+ */
+int db_sqlite_get_int(int loglevel, char *fmt, ...) {
+    int rows, cols;
+    char **resarray;
+    va_list ap;
+    char *query;
+    int err;
+    char *perr;
+    int retval;
+
+    va_start(ap,fmt);
+    query=sqlite_vmprintf(fmt,ap);
+    va_end(ap);
+
+    DPRINTF(E_DBG,L_DB,"Executing: %s\n",query);
+
+    db_sqlite_lock();
+    err=sqlite_get_table(db_sqlite_songs,query,&resarray,&rows,&cols,&perr);
+    if(err == SQLITE_OK)
+	sqlite_freemem(query);
+    db_sqlite_unlock();
+
+    if(err != SQLITE_OK) {
+	DPRINTF(loglevel == E_FATAL ? E_LOG : loglevel,L_DB,"Query: %s\n",query);
+        DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
+	db_sqlite_lock();
+	sqlite_freemem(query);
+	db_sqlite_unlock();
+	return 0;
+    }
+
+    retval=atoi(resarray[cols]);
+
+    sqlite_free_table(resarray);
+    return retval;
+}
+
 
 /**
  * open sqlite database
@@ -184,8 +224,13 @@ int db_sqlite_open(char *parameters) {
  */
 int db_sqlite_init(int reload) {
     int items;
+    int rescan;
 
     db_sqlite_update_version(db_sqlite_get_version());
+    rescan=db_sqlite_get_int(E_DBG,"SELECT value FROM config WHERE term='rescan'");
+
+    if(rescan)
+	reload=1;
 
     items=db_sqlite_get_count(countSongs);
 
@@ -237,9 +282,11 @@ int db_sqlite_end_scan(void) {
     if(db_sqlite_reload) {
 	db_sqlite_exec(E_FATAL,"COMMIT TRANSACTION");
 	db_sqlite_exec(E_FATAL,"CREATE INDEX idx_path ON songs(path)");
+	db_sqlite_exec(E_DBG,"DELETE FROM config WHERE term='rescan'");
 	db_sqlite_exec(E_FATAL,"PRAGMA synchronous=NORMAL");
     } else {
 	db_sqlite_exec(E_FATAL,"DELETE FROM songs WHERE id NOT IN (SELECT id FROM updated)");
+	db_sqlite_exec(E_FATAL,"UPDATE songs SET force_update=0");
 	db_sqlite_exec(E_FATAL,"DROP TABLE updated");
     }
 
@@ -1205,6 +1252,7 @@ int db_sqlite_get_version(void) {
 
 
 char *db_sqlite_upgrade_scripts[] = {
+    /* version 0 -> version 1 -- initial update */
     "CREATE TABLE songs (\n"
     "   id		INTEGER PRIMARY KEY NOT NULL,\n"
     "   path		VARCHAR(4096) UNIQUE NOT NULL,\n"
@@ -1262,7 +1310,13 @@ char *db_sqlite_upgrade_scripts[] = {
     "   songid	       INTEGER NOT NULL\n"
     ");\n"
     "INSERT INTO config VALUES ('version','','1');\n"
-    "INSERT INTO playlists VALUES (1,'Library',1,0,'1');\n", /* Version 0 -> Version 1 */
+    "INSERT INTO playlists VALUES (1,'Library',1,0,'1');\n",
+
+    /* version 1 -> version 2 */
+    /* force rescan for invalid utf-8 data */
+    "REPLACE INTO config VALUES('rescan',NULL,1);\n"
+    "UPDATE config SET value=2 WHERE term='version';\n",
+
     NULL /* No more versions! */
 };
 
@@ -1272,7 +1326,6 @@ char *db_sqlite_upgrade_scripts[] = {
  * \param from_version the current version of the database
  */
 int db_sqlite_update_version(int from_version) {
-    
     while(db_sqlite_upgrade_scripts[from_version]) {
 	DPRINTF(E_LOG,L_DB,"Upgrading database from version %d to version %d\n",from_version,
 		from_version+1);
