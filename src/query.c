@@ -50,8 +50,6 @@ static query_node_t *match_string(const query_field_t* field,
 
 char *query_unescape(const char* query);
 
-static char *query_lookup_name(char *name);
-
 
 static query_field_t	song_fields[] = {
     { qft_string,	"dmap.itemname",	"title" },
