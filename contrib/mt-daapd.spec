@@ -1,25 +1,25 @@
 Summary: A multi-threaded implementation of Apple's DAAP server
 Name: mt-daapd
-Version: 0.1.0
+Version: 0.1.1
 Release: 1
 License: GPL
 Group: Development/Networking
 URL: http://www.pedde.com/downloads/%{name}-%{version}.tar.gz
 Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-Requires: howl libid3tag
+Requires: libid3tag
 BuildRequires: libid3tag-devel
 
 %description
 A multi-threaded implementation of Apple's DAAP server, mt-daapd
 allows a Linux machine to advertise MP3 files to to used by 
-Windows or Mac iTunes clients.  This verison uses SwampWolf's
-"howl" as a mDNS daemon.
+Windows or Mac iTunes clients.  This version uses Apple's ASPL Rendezvous
+daemon.
 %prep
 %setup -q
 
 %build
-./configure --enable-howl --prefix=$RPM_BUILD_ROOT/usr
+./configure --prefix=$RPM_BUILD_ROOT/usr
 make RPM_OPT_FLAGS="$RPM_OPT_FLAGS"
 
 %install
@@ -38,7 +38,8 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
-/etc/*
+%config /etc/mt-daapd.conf
+%config /etc/mt-daapd.playlist
 /usr/sbin/*
 /usr/share/mt-daapd/*
 
@@ -46,6 +47,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Thu Jan 29 2004 ron <ron@pedde.com>
+- Update to 0.1.1
+
 * Fri Nov 14 2003 root <root@hafnium.corbey.com> 
 - Initial build.
 

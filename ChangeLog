@@ -1,0 +1,8 @@
+2004-01-29    <ron@hafnium.corbey.com>
+
+	* Bump version number to 0.1.1
+	* Add support for Solaris
+	* Fix format string problem
+	* Add support for Howl (> 0.9)
+	* Fix renedezvous advertising problem
+
