@@ -462,9 +462,11 @@ int daap_serialize_xml(DAAP_BLOCK *root, int fd) {
 	    break;
 	case 0x09: /* string */
 	case 0x0C: /* container, but mlit is a string in browse */
-	    encoded_string=daap_xml_entity_encode(data,root->size);
-	    r_fdprintf(fd,"%s",encoded_string);
-	    free(encoded_string);
+	    if(root->size) {
+		encoded_string=daap_xml_entity_encode(data,root->size);
+		r_fdprintf(fd,"%s",encoded_string);
+		free(encoded_string);
+	    }
 	    break;
 	case 0x0B: /* version? */
 	    ivalue=data[0] << 8 | data[1];
