@@ -1,0 +1,15 @@
+mt-daapd (0.1.1-1) unstable; urgency=low
+
+  * Add track information
+  * Support for Solaris
+  * Format string fixes
+  * Support for Howl 0.9 or better
+
+ -- Ron Pedde <ron@pedde.com>  Thu, 29 Jan 2004 11:37:14 -0600
+
+mt-daapd (0.1.0-1) unstable; urgency=low
+
+  * Initial Release.
+
+ -- Aubin Paul <debian@outlyer.org>  Tue,  6 Jan 2004 08:16:53 -0500
+
