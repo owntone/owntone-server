@@ -31,6 +31,7 @@
 
 #include "err.h"
 #include "mp3-scanner.h"
+#include "playlist.h"
 
 #define DB_VERSION 1
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
@@ -117,6 +118,8 @@ int db_version(void);
 int db_add(MP3FILE *mp3file);
 int db_add_playlist(unsigned int playlistid, char *name);
 int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
+int db_unpackrecord(datum *pdatum, MP3FILE *pmp3);
+datum *db_packrecord(MP3FILE *pmp3);
 
 MP3RECORD *db_enum_begin(void);
 MP3FILE *db_enum(MP3RECORD **current);
@@ -156,7 +159,9 @@ void db_init_once(void) {
  * of the database files
  */
 int db_init(char *parameters) {
-    datum tmp_data,tmp_nextkey;
+    MP3FILE mp3file;
+
+    datum tmp_key,tmp_nextkey,song_data;
     char db_path[PATH_MAX + 1];
     
     snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs.gdb");
@@ -171,16 +176,30 @@ int db_init(char *parameters) {
     db_version_no=1;
     db_song_count=0;
 
+    DPRINTF(ERR_DEBUG,"Building playlists\n");
+
     /* count the actual songs and build the playlists */
-    tmp_data=gdbm_firstkey(db_songs);
+    tmp_key=gdbm_firstkey(db_songs);
 
-    MEMNOTIFY(tmp_data.dptr);
+    MEMNOTIFY(tmp_key.dptr);
 
-    while(tmp_data.dptr) {
-	tmp_nextkey=gdbm_nextkey(db_songs,tmp_data);
+    while(tmp_key.dptr) {
+	/* Fetch that key */
+	song_data=gdbm_fetch(db_songs,tmp_key);
+	MEMNOTIFY(song_data.dptr);
+	if(song_data.dptr) {
+	    if(!db_unpackrecord(&song_data,&mp3file)) {
+		/* Check against playlist */
+		pl_eval(&mp3file);
+		db_freefile(&mp3file);
+	    }
+	    free(song_data.dptr);
+	}
+	
+	tmp_nextkey=gdbm_nextkey(db_songs,tmp_key);
 	MEMNOTIFY(tmp_nextkey.dptr);
-	free(tmp_data.dptr);
-	tmp_data=tmp_nextkey;
+	free(tmp_key.dptr);
+	tmp_key=tmp_nextkey;
 	db_song_count++;
     }
 

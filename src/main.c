@@ -479,16 +479,12 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
     }
 
-    DPRINTF(ERR_DEBUG,"Initializing database\n");
-
-    /* Initialize the database before starting */
-    if(db_init(config.dbdir)) {
-	perror("db_init");
-	exit(EXIT_FAILURE);
-    }
+    DPRINTF(ERR_DEBUG,"Loading playlists...\n");
 
     if(config.playlist)
 	pl_load(config.playlist);
+
+    DPRINTF(ERR_DEBUG,"Initializing database\n");
 
     if(parseonly) {
 	if(!pl_error) {
@@ -496,6 +492,12 @@ int main(int argc, char *argv[]) {
 	    pl_dump();
 	}
 	exit(EXIT_SUCCESS);
+    }
+
+    /* Initialize the database before starting */
+    if(db_init(config.dbdir)) {
+	perror("db_init");
+	exit(EXIT_FAILURE);
     }
 
     /* will want to detach before we start scanning mp3 files */
