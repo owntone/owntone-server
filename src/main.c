@@ -178,6 +178,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
     }
 
     if((!root)&&(!streaming)) {
+	DPRINTF(ERR_DEBUG,"Bad request -- root=%x, streaming=%d\n",root,streaming);
 	ws_returnerror(pwsc,400,"Invalid Request");
 	config_set_status(pwsc,session_id,NULL);
 	return;

@@ -152,6 +152,8 @@ DAAP_BLOCK *daap_response_content_codes(void) {
     DAAP_BLOCK *root;
     DAAP_ITEMS *current=taglist;
     int g=1;
+    
+    DPRINTF(ERR_DEBUG,"Preparing to get content codes\n");
 
     root=daap_add_empty(NULL,"mccr");
     if(root) {
@@ -183,6 +185,7 @@ DAAP_BLOCK *daap_response_login(void) {
     DAAP_BLOCK *root;
     int g=1;
     
+    DPRINTF(ERR_DEBUG,"Preparing to send login response\n");
 
     root=daap_add_empty(NULL,"mlog");
     if(root) {
@@ -212,9 +215,13 @@ DAAP_BLOCK *daap_response_songlist(void) {
     ENUMHANDLE henum;
     MP3FILE *current;
 
+    DPRINTF(ERR_DEBUG,"Preparing to send db items\n");
+
     henum=db_enum_begin();
-    if(!henum)
+    if(!henum) {
+	DPRINTF(ERR_DEBUG,"Can't get enum handle\n");
 	return NULL;
+    }
 
     root=daap_add_empty(NULL,"adbs");
     if(root) {
@@ -312,6 +319,8 @@ DAAP_BLOCK *daap_response_update(int clientver) {
     DAAP_BLOCK *root;
     int g=1;
 
+    DPRINTF(ERR_DEBUG,"Preparing to send update response\n");
+
     while(clientver == db_version()) {
 	sleep(30);
     }
@@ -342,6 +351,8 @@ DAAP_BLOCK *daap_response_playlists(void) {
     DAAP_BLOCK *mlcl;
     DAAP_BLOCK *mlit;
     int g=1;
+
+    DPRINTF(ERR_DEBUG,"Preparing to send playlists\n");
     
     root=daap_add_empty(NULL,"aply");
     if(root) {
@@ -383,6 +394,8 @@ DAAP_BLOCK *daap_response_dbinfo(void) {
     DAAP_BLOCK *mlcl;
     DAAP_BLOCK *mlit;
     int g=1;
+
+    DPRINTF(ERR_DEBUG,"Preparing to send db info\n");
     
     root=daap_add_empty(NULL,"avdb");
     if(root) {
@@ -422,6 +435,8 @@ DAAP_BLOCK *daap_response_dbinfo(void) {
 DAAP_BLOCK *daap_response_server_info(void) {
     DAAP_BLOCK *root;
     int g=1;
+
+    DPRINTF(ERR_DEBUG,"Preparing to send server info\n");
 
     root=daap_add_empty(NULL,"msrv");
 
@@ -464,6 +479,8 @@ DAAP_BLOCK *daap_response_playlist_items(int playlist) {
     ENUMHANDLE henum;
     MP3FILE *current;
     int g=1;
+
+    DPRINTF(ERR_DEBUG,"Preparing to send playlist items for pl #%d\n",playlist);
     
     henum=db_enum_begin();
     if(!henum)
