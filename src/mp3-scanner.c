@@ -433,6 +433,9 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 	    used=1;
 	    pmp3->comment = utf8_text;
 	    DPRINTF(ERR_DEBUG," Comment: %s\n",utf8_text);
+	} else if(!strcmp(pid3frame->id,"TDRC")) {
+	    pmp3->year = atoi(utf8_text);
+	    DPRINTF(ERR_DEBUG," Year: %d\n",pmp3->year);
 	}
 
 	if((!used) && (pid3frame->id[0]=='T') && (utf8_text))

@@ -297,7 +297,8 @@ DAAP_BLOCK *daap_response_songlist(void) {
 		    // g = g && daap_add_short(mlit,"astc",0); /* track count */
 		    // g = g && daap_add_short(mlit,"astn",0); /* track number */
 		    // g = g && daap_add_char(mlit,"asur",3); /* rating */
-		    // g = g && daap_add_short(mlit,"asyr",0);
+		    if(current->year)
+			g = g && daap_add_short(mlit,"asyr",current->year);
 		} else g=0;
 	    }
 	} else g=0;
