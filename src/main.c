@@ -472,11 +472,18 @@ int main(int argc, char *argv[]) {
     }
 
     if((config.use_mdns) && (!parseonly)) {
-	fprintf(stderr,"Starting rendezvous daemon\n");
+	fprintf(stderr,"Starting rendezvous daemon -- indexing "
+		"mp3 files... wait.\n");
 	if(rend_init(config.runas)) {
 	    perror("rend_init");
 	    exit(EXIT_FAILURE);
 	}
+    }
+
+
+    if(db_open(config.db_dir)) {
+	perror("db_open");
+	exit(EXIT_FAILURE);
     }
 
     // Drop privs here
@@ -501,7 +508,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Initialize the database before starting */
-    if(db_init(config.dbdir)) {
+    if(db_init()) {
 	perror("db_init");
 	exit(EXIT_FAILURE);
     }

@@ -75,7 +75,8 @@ pthread_once_t db_initlock=PTHREAD_ONCE_INIT;
 int db_start_initial_update(void);
 int db_end_initial_update(void);
 int db_is_empty(void);
-int db_init(char *parameters);
+int db_open(char *parameters);
+int db_init();
 int db_deinit(void);
 int db_version(void);
 int db_add(MP3FILE *mp3file);
@@ -114,13 +115,23 @@ void db_init_once(void) {
     pthread_rwlock_init(&db_rwlock,NULL);
 }
 
+
+/*
+ * db_open
+ *
+ * We'll wait for db_init
+ */
+void db_open(char *parameters) {
+    return 0;
+}
+
 /*
  * db_init
  *
  * Initialize the database.  For the in-memory db
  * the parameters are insignificant
  */
-int db_init(char *parameters) {
+int db_init(void) {
     db_root.next=NULL;
     db_version_no=1;
     db_song_count=0;

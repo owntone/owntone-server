@@ -183,18 +183,39 @@ void db_init_once(void) {
 }
 
 /*
+ * db_open
+ *
+ * Open the database, so we can drop privs
+ */
+int db_open(char *parameters) {
+    char db_path[PATH_MAX + 1];
+
+    if(pthread_once(&db_initlock,db_init_once))
+	return -1;
+
+    snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs.gdb");
+    db_songs=gdbm_open(db_path,0,GDBM_WRCREAT | GDBM_SYNC | GDBM_NOLOCK,
+		       0600,NULL);
+    if(!db_songs) {
+	DPRINTF(ERR_FATAL,"Could not open songs database (%s)\n",
+		db_path);
+	return -1;
+    }
+
+    return 0;
+}
+
+
+/*
  * db_init
  *
  * Initialize the database.  Parameter is the directory
  * of the database files
  */
-int db_init(char *parameters) {
+int db_init(void) {
     MP3FILE mp3file;
     datum tmp_key,tmp_nextkey,song_data;
-    char db_path[PATH_MAX + 1];
     
-    if(pthread_once(&db_initlock,db_init_once))
-	return -1;
 
     if((db_removed=rbinit(db_compare_rb_nodes,NULL)) == NULL) {
 	errno=ENOMEM;
@@ -202,15 +223,6 @@ int db_init(char *parameters) {
     }
 
     pl_register();
-
-    snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs.gdb");
-    db_songs=gdbm_open(db_path,0,GDBM_WRCREAT | GDBM_SYNC | GDBM_NOLOCK,
-		       0600,NULL);
-    if(!db_songs) {
-	DPRINTF(ERR_FATAL,"Could not open songs database (%s)\n",
-		gdbm_strerror(errno));
-	return -1;
-    }
 
     db_version_no=1;
     db_song_count=0;
