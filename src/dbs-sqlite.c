@@ -408,7 +408,7 @@ int db_sqlite_update(MP3FILE *pmp3) {
 		       "bpm=%d,"    // bpm
 		       "compilation=%d,"    // compilation
 		       "rating=%d,"    // rating
-		       "sample_count=%d,"
+		       "sample_count=%d" // sample_count
 		       " WHERE path='%q'",
 		       STR(pmp3->title),
 		       STR(pmp3->artist),
