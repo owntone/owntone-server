@@ -161,6 +161,7 @@ int db_sqlite_free_table(char **resarray) {
     db_sqlite_lock();
     sqlite_free_table(resarray);
     db_sqlite_unlock();
+    return 0;
 }
 
 
@@ -174,7 +175,7 @@ int db_sqlite_open(char *parameters) {
     snprintf(db_path,sizeof(db_path),"%s/songs.db",parameters);
     
     db_sqlite_lock();
-    db_sqlite_songs=sqlite_open(db_path,0,&perr);
+    db_sqlite_songs=sqlite_open(db_path,0666,&perr);
     if(!db_sqlite_songs)
 	DPRINTF(E_FATAL,L_DB,"db_sqlite_open: %s (%s)\n",perr,db_path);
 
@@ -727,7 +728,7 @@ int db_sqlite_enum_fetch(DBQUERYINFO *pinfo, unsigned char **pdmap) {
     db_sqlite_unlock();
 
     DPRINTF(E_FATAL,L_DB,"sqlite_step: %s\n",perr);
-    return NULL;
+    return 0;
 }
 
 /**

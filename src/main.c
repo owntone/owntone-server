@@ -452,11 +452,6 @@ int main(int argc, char *argv[]) {
 	daemon_start();
     }
 
-    /* DWB: shouldn't this be done after dropping privs? */
-    if(db_open(config.dbdir))
-	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
-
-
     // Drop privs here
     if(drop_privs(config.runas)) {
 	DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
@@ -478,6 +473,11 @@ int main(int argc, char *argv[]) {
 	fprintf(pid_fp,"%d\n",config.pid);
 	fclose(pid_fp);
     }
+
+    /* this will require that the db be readable by the runas user */
+    if(db_open(config.dbdir))
+	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
+
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
     if(db_init(reload)) {
