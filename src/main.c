@@ -392,7 +392,7 @@ int main(int argc, char *argv[]) {
     char *optval="c:mpf";
 #endif /* DEBUG */
 
-    fprintf(stderr,"mt-daapd: version $Revision$\n");
+    fprintf(stderr,"mt-daapd: version %s\n",VERSION);
     fprintf(stderr,"Copyright (c) 2003 Ron Pedde.  All rights reserved\n");
     fprintf(stderr,"Portions Copyright (c) 1999-2001 Apple Computer, Inc.  All rights Reserved.\n\n");
 
