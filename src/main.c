@@ -33,6 +33,8 @@
 #include <sys/types.h>
 
 #include "configfile.h"
+#include "daap.h"
+#include "daap-proto.h"
 #include "err.h"
 #include "rend.h"
 #include "webserver.h"
@@ -45,6 +47,67 @@
  */
 CONFIG config;
 
+
+/* 
+ * daap_handler
+ *
+ * Handle daap-related web pages
+ */
+void daap_handler(WS_CONNINFO *pwsc) {
+    int len;
+    int close;
+    DAAP_BLOCK *root,*error;
+    int compress=0;
+
+    close=pwsc->close;
+    pwsc->close=1;
+
+    ws_addresponseheader(pwsc,"Accept-Ranges","bytes");
+    ws_addresponseheader(pwsc,"DAAP-Server","iTunes/4.1 (Mac OS X)");
+    ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
+
+
+    if(!strcasecmp(pwsc->uri,"/server-info")) {
+	root=daap_response_server_info();
+    } else if (!strcasecmp(pwsc->uri,"/content-codes")) {
+	root=daap_response_content_codes();
+    } else if (!strcasecmp(pwsc->uri,"/login")) {
+	root=daap_response_login();
+    } else if (!strcasecmp(pwsc->uri,"/update")) {
+	root=daap_response_update();
+    } else if (!strcasecmp(pwsc->uri,"/databases")) {
+	root=daap_response_databases();
+    } else if (!strcasecmp(pwsc->uri,"/logout")) {
+	ws_returnerror(pwsc,204,"Logout Successful");
+	return;
+    } else {
+	DPRINTF(ERR_WARN,"Bad handler!  Can't find uri handler for %s\n",
+		pwsc->uri);
+	return;
+    }
+
+    if(!root)
+	return;
+
+    pwsc->close=close;
+
+    ws_addresponseheader(pwsc,"Content-Length","%d",root->reported_size + 8);
+
+    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+    ws_emitheaders(pwsc);
+
+    /*
+    if(ws_testrequestheader(pwsc,"Accept-Encoding","gzip")) {
+	ws_addresponseheader(pwsc,"Content-Encoding","gzip");
+	compress=1;
+    }
+    */
+
+    daap_serialize(root,pwsc->fd,0);
+    daap_free(root);
+
+    return;
+}
 
 /* 
  * config_handler
@@ -164,6 +227,7 @@ void usage(char *program) {
 #ifdef DEBUG    
     printf("  -d <number>    Debuglevel (0-9)\n");
 #endif
+    printf("  -m             Use mDNS\n");
     printf("  -c <file>      Use configfile specified");
     printf("\n\n");
 }
@@ -174,11 +238,12 @@ int main(int argc, char *argv[]) {
     WSCONFIG ws_config;
     WSHANDLE server;
     pid_t rendezvous_pid;
+    int use_mdns=0;
 
 #ifdef DEBUG
-    char *optval="d:c:";
+    char *optval="d:c:m";
 #else
-    char *optval="c:";
+    char *optval="c:m";
 #endif /* DEBUG */
 
     printf("mt-daapd: version $Revision$\n");
@@ -195,6 +260,11 @@ int main(int argc, char *argv[]) {
 	case 'c':
 	    configfile=optarg;
 	    break;
+
+	case 'm':
+	    use_mdns=1;
+	    break;
+
 	default:
 	    usage(argv[0]);
 	    exit(EXIT_FAILURE);
@@ -231,9 +301,16 @@ int main(int argc, char *argv[]) {
 	return EXIT_FAILURE;
     }
 
-    ws_registerhandler(server, "^.*$",config_handler,config_auth);
+    ws_registerhandler(server, "^.*$",config_handler,config_auth,1);
+    ws_registerhandler(server, "^/server-info$",daap_handler,NULL,0);
+    ws_registerhandler(server, "^/content-codes$",daap_handler,NULL,0);
+    ws_registerhandler(server,"^/login$",daap_handler,NULL,0);
+    ws_registerhandler(server,"^/update$",daap_handler,NULL,0);
+    ws_registerhandler(server,"^/databases$",daap_handler,NULL,0);
+    ws_registerhandler(server,"^/logout$",daap_handler,NULL,0);
 
-    rend_init(&rendezvous_pid);
+    if(use_mdns)
+	rend_init(&rendezvous_pid);
 
     while(1) {
 	sleep(20);

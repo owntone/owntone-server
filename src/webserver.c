@@ -25,12 +25,13 @@
 
 #include <fcntl.h>
 #include <limits.h>
+#include <pthread.h>
 #include <regex.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
+#include <time.h>
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -43,7 +44,7 @@
  */
 
 #define MAX_HOSTNAME 256
-#define MAX_LINEBUFFER 256
+#define MAX_LINEBUFFER 1024
 
 /*
  * Local (private) typedefs
@@ -53,6 +54,7 @@ typedef struct tag_ws_handler {
     regex_t regex;
     void (*req_handler)(WS_CONNINFO*);
     int(*auth_handler)(char *, char *);
+    int addheaders;
     struct tag_ws_handler *next;
 } WS_HANDLER;
 
@@ -91,16 +93,22 @@ int ws_testarg(ARGLIST *root, char *key, char *value);
 void ws_emitheaders(WS_CONNINFO *pwsc);
 int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc, 
 		   void(**preq)(WS_CONNINFO*),
-		   int(**pauth)(char *, char *));
+		   int(**pauth)(char *, char *),
+		   int *addheaders);
 int ws_registerhandler(WSHANDLE ws, char *regex, 
 		       void(*handler)(WS_CONNINFO*),
-		       int(*auth)(char *, char *));
+		       int(*auth)(char *, char *),
+		       int addheaders);
 int ws_decodepassword(char *header, char **username, char **password);
+int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
 
 /*
  * Globals
  */
 pthread_mutex_t munsafe=PTHREAD_MUTEX_INITIALIZER;
+char *ws_dow[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
+char *ws_moy[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
+		   "Aug", "Sep", "Oct", "Nov", "Dec" };
 
 /*
  * ws_lock_unsafe
@@ -517,6 +525,9 @@ void *ws_dispatcher(void *arg) {
     int connection_done=0;
     int can_dispatch;
     char *auth, *username, *password;
+    int hdrs,handler;
+    time_t now;
+    struct tm now_tm;
     void (*req_handler)(WS_CONNINFO*);
     int(*auth_handler)(char *, char *);
 
@@ -546,6 +557,7 @@ void *ws_dispatcher(void *arg) {
 	    pwsc->error=EINVAL;
 	    free(argvp[0]);
 	    ws_returnerror(pwsc,400,"Bad request");
+	    ws_close(pwsc);
 	    return NULL;
 	}
 	
@@ -558,6 +570,7 @@ void *ws_dispatcher(void *arg) {
 	    pwsc->error=EINVAL;
 	    free(argvp[0]);
 	    ws_returnerror(pwsc,501,"Not implemented");
+	    ws_close(pwsc);
 	    return NULL;
 	}
 	
@@ -575,18 +588,6 @@ void *ws_dispatcher(void *arg) {
 	 * decide whether or not this is a persistant
 	 * connection */
 
-	pwsc->close=!ws_testarg(&pwsc->request_headers,"connection",
-				"keep-alive");
-
-	ws_addarg(&pwsc->response_headers,"Connection",
-		  pwsc->close ? "close" : "keep-alive");
-	
-	ws_addarg(&pwsc->response_headers,"Server",
-		  "mt-daapd/%s",VERSION);
-
-	ws_addarg(&pwsc->response_headers,"Content-Type","text/html");
-	ws_addarg(&pwsc->response_headers,"Content-Language","en_us");
-
 	pwsc->uri=strdup(argvp[1]);
 	free(argvp[0]);
 	
@@ -597,6 +598,7 @@ void *ws_dispatcher(void *arg) {
 	    DPRINTF(ERR_FATAL,"Thread %d: Error allocation URI\n",
 		    pwsc->threadno);
 	    ws_returnerror(pwsc,500,"Internal server error");
+	    ws_close(pwsc);
 	    return NULL;
 	}
 	
@@ -625,8 +627,37 @@ void *ws_dispatcher(void *arg) {
 	if(pwsc->request_type == RT_POST)
 	    ws_getpostvars(pwsc);
 
+	hdrs=1;
+
+	handler=ws_findhandler(pwsp,pwsc,&req_handler,&auth_handler,&hdrs);
+
+	time(&now);
+	DPRINTF(ERR_DEBUG,"Thread %d: Time is %d seconds after epoch\n",
+		pwsc->threadno,now);
+	gmtime_r(&now,&now_tm);
+	DPRINTF(ERR_DEBUG,"Thread %d: Setting time header\n",pwsc->threadno);
+	ws_addarg(&pwsc->response_headers,"Date", 
+		  "%s, %d %s %d %02d:%02d:%02d GMT",
+		  ws_dow[now_tm.tm_wday],now_tm.tm_mday,
+		  ws_moy[now_tm.tm_mon],now_tm.tm_year + 1900,
+		  now_tm.tm_hour,now_tm.tm_min,now_tm.tm_sec);
+
+	pwsc->close=ws_testarg(&pwsc->request_headers,"connection",
+			       "close");
+
+	if(hdrs) {
+	    ws_addarg(&pwsc->response_headers,"Connection",
+		      pwsc->close ? "close" : "keep-alive");
+	    
+	    ws_addarg(&pwsc->response_headers,"Server",
+		      "mt-daapd/%s",VERSION);
+	    
+	    ws_addarg(&pwsc->response_headers,"Content-Type","text/html");
+	    ws_addarg(&pwsc->response_headers,"Content-Language","en_us");
+	}
+
 	/* Find the appropriate handler and dispatch it */
-	if(ws_findhandler(pwsp,pwsc,&req_handler,&auth_handler) == -1) {
+	if(handler == -1) {
 	    DPRINTF(ERR_DEBUG,"Thread %d: Using default handler.\n",
 		    pwsc->threadno);
 	    ws_defaulthandler(pwsp,pwsc);
@@ -651,14 +682,14 @@ void *ws_dispatcher(void *arg) {
 			      "Basic realm=\"webserver\"");
 		    pwsc->close=1;
 		    ws_returnerror(pwsc,401,"Unauthorized");
+		    ws_close(pwsc);
 		    return NULL;
 		}
-
-		if(req_handler)
-		    req_handler(pwsc);
-		else
-		    ws_defaulthandler(pwsp,pwsc);		
 	    }
+	    if(req_handler)
+		req_handler(pwsc);
+	    else
+		ws_defaulthandler(pwsp,pwsc);		
 	}
 
 	if((pwsc->close)||(pwsc->error))
@@ -713,7 +744,6 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
 
     ws_writefd(pwsc,"</i></BODY>\r\n</HTML>\r\n");
 
-    ws_close(pwsc);
     return 0;
 }
 
@@ -797,6 +827,7 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
 	pwsc->error=errno;
 	DPRINTF(ERR_WARN,"Cannot resolve %s\n",path);
 	ws_returnerror(pwsc,404,"Not found");
+	ws_close(pwsc);
 	return;
     }
 
@@ -809,6 +840,7 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
 	DPRINTF(ERR_WARN,"Thread %d: Requested file %s out of root\n",
 		pwsc->threadno,resolved_path);
 	ws_returnerror(pwsc,403,"Forbidden");
+	ws_close(pwsc);
 	return;
     }
 
@@ -818,6 +850,7 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
 	DPRINTF(ERR_WARN,"Thread %d: Error opening %s: %s\n",
 		pwsc->threadno,resolved_path,strerror(errno));
 	ws_returnerror(pwsc,404,"Not found");
+	ws_close(pwsc);
 	return;
     }
     
@@ -844,6 +877,18 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     return;
 }
 
+
+/*
+ * ws_testrequestheader
+ *
+ * Check to see if a request header is a particular value
+ *
+ * Example:
+ *
+ */
+int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value) {
+    return ws_testarg(&pwsc->request_headers,header,value);
+}
 
 /*
  * ws_testarg
@@ -1025,7 +1070,8 @@ char *ws_urldecode(char *string) {
  */
 int ws_registerhandler(WSHANDLE ws, char *regex, 
 		       void(*handler)(WS_CONNINFO*),
-		       int(*auth)(char *, char *)) {
+		       int(*auth)(char *, char *),
+		       int addheaders) {
     WS_HANDLER *phandler;
     WS_PRIVATE *pwsp = (WS_PRIVATE *)ws;
 
@@ -1041,6 +1087,7 @@ int ws_registerhandler(WSHANDLE ws, char *regex,
 
     phandler->req_handler=handler;
     phandler->auth_handler=auth;
+    phandler->addheaders=addheaders;
 
     ws_lock_unsafe();
     phandler->next=pwsp->handlers.next;
@@ -1060,7 +1107,8 @@ int ws_registerhandler(WSHANDLE ws, char *regex,
  */
 int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc, 
 		   void(**preq)(WS_CONNINFO*),
-		   int(**pauth)(char *, char *)) {
+		   int(**pauth)(char *, char *),
+		   int *addheaders) {
     WS_HANDLER *phandler=pwsp->handlers.next;
 
     ws_lock_unsafe();
@@ -1074,6 +1122,7 @@ int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
 	    DPRINTF(ERR_DEBUG,"Thread %d: URI Match!\n",pwsc->threadno);
 	    *preq=phandler->req_handler;
 	    *pauth=phandler->auth_handler;
+	    *addheaders=phandler->addheaders;
 	    ws_unlock_unsafe();
 	    return 0;
 	}
@@ -1202,8 +1251,15 @@ int ws_decodepassword(char *header, char **username, char **password) {
  *
  * Simple wrapper around the CONNINFO response headers
  */
-int ws_addresponseheader(WS_CONNINFO *pwsc, char *header, char *val) {
-    return ws_addarg(&pwsc->response_headers,header,val);
+int ws_addresponseheader(WS_CONNINFO *pwsc, char *header, char *fmt, ...) {
+    va_list ap;
+    char value[MAX_LINEBUFFER];
+
+    va_start(ap,fmt);
+    vsnprintf(value,sizeof(value),fmt,ap);
+    va_end(ap);
+
+    return ws_addarg(&pwsc->response_headers,header,value);
 }
 
 /*

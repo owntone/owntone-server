@@ -82,7 +82,12 @@ install_sh = /Users/ron/Documents/School/cs4953 - Concurrency/mt-daapd/install-s
 #
 sbin_PROGRAMS = mt-daapd
 
-mt_daapd_SOURCES = main.c rend.c uici.c webserver.c configfile.c err.c restart.c mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c mdns/mDNSUNP.c
+mt_daapd_SOURCES = main.c daapd.h rend.c rend.h uici.c uici.h webserver.c \
+	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
+	daap-proto.c daap-proto.h daap.c daap.h \
+	 mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c \
+	mdns/mDNSUNP.c
+
 subdir = src
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
@@ -92,8 +97,8 @@ PROGRAMS = $(sbin_PROGRAMS)
 
 am_mt_daapd_OBJECTS = main.$(OBJEXT) rend.$(OBJEXT) uici.$(OBJEXT) \
 	webserver.$(OBJEXT) configfile.$(OBJEXT) err.$(OBJEXT) \
-	restart.$(OBJEXT) mDNS.$(OBJEXT) mDNSPosix.$(OBJEXT) \
-	mDNSUNP.$(OBJEXT)
+	restart.$(OBJEXT) daap-proto.$(OBJEXT) daap.$(OBJEXT) \
+	mDNS.$(OBJEXT) mDNSPosix.$(OBJEXT) mDNSUNP.$(OBJEXT)
 mt_daapd_OBJECTS = $(am_mt_daapd_OBJECTS)
 mt_daapd_LDADD = $(LDADD)
 mt_daapd_DEPENDENCIES =
@@ -102,15 +107,17 @@ mt_daapd_LDFLAGS =
 DEFS = -DHAVE_CONFIG_H
 DEFAULT_INCLUDES =  -I. -I$(srcdir) -I$(top_builddir)
 CPPFLAGS =  -DDEBUG -g -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN -DHAVE_SOCKLEN_T
-LDFLAGS =  -lpthread
+LDFLAGS =  -lpthread -lz
 LIBS = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
-DEP_FILES = ./$(DEPDIR)/configfile.Po ./$(DEPDIR)/err.Po \
-	./$(DEPDIR)/mDNS.Po ./$(DEPDIR)/mDNSPosix.Po \
-	./$(DEPDIR)/mDNSUNP.Po ./$(DEPDIR)/main.Po \
-	./$(DEPDIR)/rend.Po ./$(DEPDIR)/restart.Po \
-	./$(DEPDIR)/uici.Po ./$(DEPDIR)/webserver.Po
+DEP_FILES = ./$(DEPDIR)/configfile.Po \
+	./$(DEPDIR)/daap-proto.Po ./$(DEPDIR)/daap.Po \
+	./$(DEPDIR)/err.Po ./$(DEPDIR)/mDNS.Po \
+	./$(DEPDIR)/mDNSPosix.Po ./$(DEPDIR)/mDNSUNP.Po \
+	./$(DEPDIR)/main.Po ./$(DEPDIR)/rend.Po \
+	./$(DEPDIR)/restart.Po ./$(DEPDIR)/uici.Po \
+	./$(DEPDIR)/webserver.Po
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
@@ -167,6 +174,8 @@ distclean-compile:
 	-rm -f *.tab.c
 
 include ./$(DEPDIR)/configfile.Po
+include ./$(DEPDIR)/daap-proto.Po
+include ./$(DEPDIR)/daap.Po
 include ./$(DEPDIR)/err.Po
 include ./$(DEPDIR)/mDNS.Po
 include ./$(DEPDIR)/mDNSPosix.Po
