@@ -94,7 +94,7 @@ int ws_unlock_unsafe(void);
 void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
 int ws_addarg(ARGLIST *root, char *key, char *fmt, ...);
 void ws_freearglist(ARGLIST *root);
-char *ws_urldecode(char *string);
+char *ws_urldecode(char *string, int space_as_plus);
 int ws_getheaders(WS_CONNINFO *pwsc);
 int ws_getpostvars(WS_CONNINFO *pwsc);
 int ws_getgetvars(WS_CONNINFO *pwsc, char *string);
@@ -111,8 +111,9 @@ int ws_registerhandler(WSHANDLE ws, char *regex,
 int ws_decodepassword(char *header, char **username, char **password);
 int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
 char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header);
-void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
-void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
+static void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
+static void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
+static int ws_encoding_hack(WS_CONNINFO *pwsc);
 
 /*
  * Globals
@@ -650,6 +651,25 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
     return 0;
 }
 
+
+/*
+ * ws_encoding_hack
+ */
+int ws_encoding_hack(WS_CONNINFO *pwsc) {
+    char *user_agent;
+    int space_as_plus=1;
+
+    user_agent=ws_getrequestheader(pwsc, "user-agent");
+    if(user_agent) {
+	if(strncasecmp(user_agent,"Roku",4) == 0) 
+	    space_as_plus=0;
+	if(strncasecmp(user_agent,"iTunes",6) == 0)
+	    space_as_plus=0;
+    }
+    return space_as_plus;
+}
+
+
 /*
  * ws_getgetvars
  *
@@ -662,8 +682,12 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
     char *key, *value;
     int done;
 
+    int space_as_plus;
+
     DPRINTF(E_DBG,L_WS,"Thread %d: Entering ws_getgetvars (%s)\n",
 	    pwsc->threadno,string);
+
+    space_as_plus=ws_encoding_hack(pwsc);
 
     done=0;
 
@@ -678,8 +702,8 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
 	    DPRINTF(E_WARN,L_WS,"Thread %d: Bad arg: %s\n",
 		    pwsc->threadno,first);
 	} else {
-	    key=ws_urldecode(first);
-	    value=ws_urldecode(middle);
+	    key=ws_urldecode(first,space_as_plus);
+	    value=ws_urldecode(middle,space_as_plus);
 	    
 	    DPRINTF(E_DBG,L_WS,"Thread %d: Adding arg %s = %s\n",
 		    pwsc->threadno,key,value);
@@ -821,7 +845,7 @@ void *ws_dispatcher(void *arg) {
 	DPRINTF(E_DBG,L_WS,"Thread %d: Original URI: %s\n",
 		pwsc->threadno,pwsc->uri);
 	
-	first=ws_urldecode(pwsc->uri);
+	first=ws_urldecode(pwsc->uri,ws_encoding_hack(pwsc));
 	free(pwsc->uri);
 	pwsc->uri=first;
 
@@ -1194,7 +1218,7 @@ int ws_addarg(ARGLIST *root, char *key, char *fmt, ...) {
  *
  * returns NULL on error (ENOMEM)
  */
-char *ws_urldecode(char *string) {
+char *ws_urldecode(char *string, int space_as_plus) {
     char *pnew;
     char *src,*dst;
     int val=0;
@@ -1208,13 +1232,18 @@ char *ws_urldecode(char *string) {
 
     while(*src) {
 	switch(*src) {
-#if 0
 	    /* DWB - space gets converted to %20, not +, this definitely breaks compatibility with iTunes */
+	    /* But the browsers encode space as plus, so when using the web interface,
+	     * anything with a plus is broken.  This will end up having to be sniffed
+	     * by remote agent */
 	case '+':
-	    *dst++=' ';
+	    if(space_as_plus) {
+		*dst++=' ';
+	    } else {
+		*dst++=*src;
+	    }
 	    src++;
 	    break;
-#endif
 	case '%':
 	    /* this is hideous */
 	    src++;
