@@ -306,10 +306,12 @@ int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
     uncompressed=(char*)malloc(uncompressed_len+1);
     if(!uncompressed) {
 	DPRINTF(ERR_INFO,"Error allocating serialization block\n");
+	daap_free(root);
 	return -1;
     }
 
     daap_serialmem(root,uncompressed);
+    daap_free(root);
 
     if(gzip) {
 	/* guarantee enough buffer space */
@@ -395,10 +397,13 @@ int daap_compress(char *input, long in_len, char *output, long *out_len) {
  * Free an entire daap formatted block
  */
 int daap_free(DAAP_BLOCK *root) {
+    if(!root)
+	return;
+
     if((root->size)&&(root->free))
 	free(root->value);
-    free(root->children);
-    free(root->next);
+    daap_free(root->children);
+    daap_free(root->next);
     free(root);
     return 0;
 }
