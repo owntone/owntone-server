@@ -227,6 +227,7 @@ extern int ws_stop(WSHANDLE ws) {
     while(pwsp->handlers.next) {
 	current=pwsp->handlers.next;
 	pwsp->handlers.next=current->next;
+	regfree(&current->regex);
 	free(current);
     }
 
