@@ -6,8 +6,6 @@
 #include <string.h>
 #include <stdio.h>
 
-#define DEBUG
-
 #include "err.h"
 #include "query.h"
 
@@ -608,6 +606,10 @@ void query_dump(FILE* fp, query_node_t* query, int depth)
 	"contains",
 	"constant"
     };
+
+#ifndef DEBUG
+    return;
+#endif
 
     switch(query->type)
     {
