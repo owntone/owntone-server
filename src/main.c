@@ -119,7 +119,7 @@ static int daemon_start(void);
 static void write_pid_file(void);
 static void usage(char *program);
 static void *signal_handler(void *arg);
-static int start_signal_handler(void);
+static int start_signal_handler(pthread_t *handler_tid);
 static void daap_handler(WS_CONNINFO *pwsc);
 static int daap_auth(char *username, char *password);
 
@@ -613,7 +613,7 @@ void *signal_handler(void *arg) {
 		break;
 	    }
 	}
-    }    
+    }
 
     return NULL;
 }
@@ -623,12 +623,11 @@ void *signal_handler(void *arg) {
  * signal handler started by spawning a new thread on
  * signal_handler().
  *
- * \returns 0 on success, -1 with errno set otherwise
+ * \returns 0 on success, -1 on failure with errno set
  */
-int start_signal_handler(void) {
+int start_signal_handler(pthread_t *handler_tid) {
     int error;
     sigset_t set;
-    pthread_t handler_tid;
 
     if((sigemptyset(&set) == -1) ||
        (sigaddset(&set,SIGINT) == -1) ||
@@ -639,13 +638,14 @@ int start_signal_handler(void) {
 	return -1;
     }
 
-    if(error=pthread_create(&handler_tid, NULL, signal_handler, NULL)) {
+    if(error=pthread_create(handler_tid, NULL, signal_handler, NULL)) {
 	errno=error;
 	DPRINTF(E_LOG,L_MAIN,"Error creating signal_handler thread\n");
 	return -1;
     }
 
-    pthread_detach(handler_tid);
+    /* we'll not detach this... let's join it */
+    //pthread_detach(handler_tid);
     return 0;
 }
 
@@ -679,6 +679,7 @@ int main(int argc, char *argv[]) {
     int end_time;
     int rescan_counter=0;
     int old_song_count;
+    pthread_t signal_tid;
 
     config.use_mdns=1;
     err_debuglevel=1;
@@ -772,7 +773,7 @@ int main(int argc, char *argv[]) {
 
     /* block signals and set up the signal handling thread */
     DPRINTF(E_LOG,L_MAIN,"Starting signal handler\n");
-    if(start_signal_handler()) {
+    if(start_signal_handler(&signal_tid)) {
 	DPRINTF(E_FATAL,L_MAIN,"Error starting signal handler %s\n",strerror(errno));
     }
 
@@ -872,6 +873,12 @@ int main(int argc, char *argv[]) {
 	rend_stop();
     }
 #endif
+
+
+    DPRINTF(E_LOG,L_MAIN,"Stopping signal handler\n");
+    if(!pthread_kill(signal_tid,SIGINT)) {
+	pthread_join(signal_tid,NULL);
+    }
 
     DPRINTF(E_LOG,L_MAIN|L_WS,"Stopping web server\n");
     ws_stop(server);
