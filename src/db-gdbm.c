@@ -145,12 +145,16 @@ static GDBM_FILE db_songs; /**< Database that holds the mp3 info */
 static struct rbtree *db_removed; /**< rbtree to do quick searchs to do background scans */
 static MP3FILE gdbm_mp3; /**< used during enumerations */
 static int gdbm_mp3_mustfree=0;  /**< is the data in #gdbm_mp3 valid? Should it be freed? */
+static pthread_mutex_t db_gdbm_mutex = PTHREAD_MUTEX_INITIALIZER; /**< gdbm not reentrant */
 
 /*
  * Forwards
  */
 static void db_writelock(void);
 static void db_readlock(void);
+static int db_unlock(void);
+static void db_gdbmlock(void);
+static int db_gdbmunlock(void);
 
 int db_start_initial_update(void);
 int db_end_initial_update(void);
@@ -216,6 +220,29 @@ int db_unlock(void) {
 }
 
 
+/* 
+ * db_gdbmlock
+ * 
+ * lock the gdbm functions
+ */
+void db_gdbmlock(void) {
+    int err;
+
+    if((err=pthread_mutex_lock(&db_gdbm_mutex))) {
+	DPRINTF(E_FATAL,L_DB,"cannot lock gdbmlock: %s\n",strerror(err));
+    }
+}
+
+/*
+ * db_gdbmunlock
+ * 
+ * useless, but symmetrical 
+ */
+int db_gdbmunlock(void) {
+    return pthread_mutex_unlock(&db_gdbm_mutex);
+}
+
+
 /*
  * db_compare_rb_nodes
  *
@@ -252,8 +279,12 @@ int db_open(char *parameters, int reload) {
     snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs.gdb");
 
     reload = reload ? GDBM_NEWDB : GDBM_WRCREAT;
+
+    db_gdbmlock();
     db_songs=gdbm_open(db_path, 0, reload | GDBM_SYNC | GDBM_NOLOCK,
 		       0600,NULL);
+    db_gdbmunlock();
+
     if(!db_songs) {
 	DPRINTF(E_FATAL,L_DB,"Could not open songs database (%s)\n",
 		db_path);
@@ -282,13 +313,18 @@ int db_init(void) {
     DPRINTF(E_DBG,L_DB|L_PL,"Building playlists\n");
 
     /* count the actual songs and build the playlists */
+    db_gdbmlock();
     tmp_key=gdbm_firstkey(db_songs);
+    db_gdbmunlock();
 
     MEMNOTIFY(tmp_key.dptr);
 
     while(tmp_key.dptr) {
 	/* Fetch that key */
+	db_gdbmlock();
 	song_data=gdbm_fetch(db_songs,tmp_key);
+	db_gdbmunlock();
+
 	MEMNOTIFY(song_data.dptr);
 	if(song_data.dptr) {
 	    if(!db_unpackrecord(&song_data,&mp3file)) {
@@ -299,7 +335,10 @@ int db_init(void) {
 	    free(song_data.dptr);
 	}
 	
+	db_gdbmlock();
 	tmp_nextkey=gdbm_nextkey(db_songs,tmp_key);
+	db_gdbmunlock();
+
 	MEMNOTIFY(tmp_nextkey.dptr);
 	free(tmp_key.dptr); 
 	tmp_key=tmp_nextkey;
@@ -321,7 +360,9 @@ int db_deinit(void) {
     DB_PLAYLIST *plist;
     DB_PLAYLISTENTRY *pentry;
 
+    db_gdbmlock();
     gdbm_close(db_songs);
+    db_gdbmunlock();
 
     while(db_playlists.next) {
 	plist=db_playlists.next;
@@ -383,7 +424,9 @@ int db_start_initial_update(void) {
 
     /* load up the red-black tree with all the current songs in the db */
 
+    db_gdbmlock();
     tmp_key=gdbm_firstkey(db_songs);
+    db_gdbmunlock();
 
     MEMNOTIFY(tmp_key.dptr);
 
@@ -395,7 +438,10 @@ int db_start_initial_update(void) {
 	    return -1;
 	}
 	
+	db_gdbmlock();
 	tmp_nextkey=gdbm_nextkey(db_songs,tmp_key);
+	db_gdbmunlock();
+
 	MEMNOTIFY(tmp_nextkey.dptr);
 	// free(tmp_key.dptr); /* we'll free it in update mode */
 	tmp_key=tmp_nextkey;
@@ -428,10 +474,12 @@ int db_end_initial_update(void) {
     DPRINTF(E_DBG,L_DB,"Reorganizing db\n");
 
     db_writelock();
+    db_gdbmlock();
     gdbm_reorganize(db_songs);
     gdbm_sync(db_songs);
     DPRINTF(E_DBG,L_DB,"Reorganize done\n");
     db_update_mode=0;
+    db_gdbmunlock();
     db_unlock();
 
     return 0;
@@ -808,18 +856,24 @@ int db_add(MP3FILE *pmp3) {
 
     db_writelock();
 
+    db_gdbmlock();
     if(gdbm_store(db_songs,dkey,*pnew,GDBM_REPLACE)) {
+	db_gdbmunlock();
 	DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database\n",pmp3->fname);
     }
+    db_gdbmunlock();
 
     DPRINTF(E_DBG,L_DB,"Testing for %d\n",pmp3->id);
     id=pmp3->id;
     dkey.dptr=(void*)&id;
     dkey.dsize=sizeof(unsigned int);
 
+    db_gdbmlock();
     if(!gdbm_exists(db_songs,dkey)) {
+	db_gdbmunlock();
 	DPRINTF(E_FATAL,L_DB,"Error.. could not find just added file\n");
     }
+    db_gdbmunlock();
 
     free(pnew->dptr);
     free(pnew);
@@ -915,6 +969,7 @@ ENUMHANDLE db_enum_begin(void) {
 
     helper = calloc(1, sizeof(MP3HELPER));
 
+    db_gdbmlock();
     for(key = gdbm_firstkey(db_songs) ; key.dptr ; key = next)
     {
 	MP3RECORD*	entry = calloc(1, sizeof(MP3RECORD));
@@ -941,6 +996,7 @@ ENUMHANDLE db_enum_begin(void) {
 	free(key.dptr);
     }
 
+    db_gdbm_unlock();
     db_unlock();
     helper->next = helper->root;
 
@@ -1010,7 +1066,9 @@ ENUMHANDLE db_enum_begin(void) {
     }
     gdbm_mp3_mustfree=0;
 
+    db_gdbmlock();
     *pkey=gdbm_firstkey(db_songs);
+    db_gdbmunlock();
     return (ENUMHANDLE)pkey;
 }
 
@@ -1025,7 +1083,10 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
     gdbm_mp3_mustfree=0;
 
     if(pkey->dptr) {
+	db_gdbmlock();
 	data=gdbm_fetch(db_songs,*pkey);
+	db_gdbmunlock();
+
 	if(!data.dptr)
 	    DPRINTF(E_FATAL,L_DB, "Cannot find item.... corrupt database?\n");
 
@@ -1035,7 +1096,10 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
 
 	free(data.dptr);
 
+	db_gdbmlock();
 	next = gdbm_nextkey(db_songs,*pkey);
+	db_gdbmunlock();
+
 	free(pkey->dptr);
 	*pkey=next;
 
@@ -1184,7 +1248,10 @@ MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
 
     db_readlock();
 
+    db_gdbmlock();
     content=gdbm_fetch(db_songs,key);
+    db_gdbmunlock();
+
     MEMNOTIFY(content.dptr);
     if(!content.dptr) {
 	DPRINTF(E_WARN,L_DB,"Could not find id %d\n",id);
@@ -1332,7 +1399,10 @@ int db_exists(int id) {
 
     db_readlock();
 
+    db_gdbmlock();
     content=gdbm_fetch(db_songs,key);
+    db_gdbmunlock();
+
     MEMNOTIFY(content.dptr);
     if(!content.dptr) {
 	DPRINTF(E_DBG,L_DB,"Nope!  Not in DB\n");
@@ -1401,7 +1471,10 @@ int db_delete(int id) {
 	db_writelock();
 	key.dptr=(void*)&id;
 	key.dsize=sizeof(int);
+	db_gdbmlock();
 	gdbm_delete(db_songs,key);
+	db_gdbmunlock();
+
 	db_song_count--;
 	db_version_no++;
 
