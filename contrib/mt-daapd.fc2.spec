@@ -20,7 +20,7 @@ daemon.
 
 %build
 # Someone could give me some autoconf that would find the howl include dir...
-./configure --prefix=$RPM_BUILD_ROOT/usr --enable-howl --enable-oggvorbis
+./configure --prefix=$RPM_BUILD_ROOT/usr --enable-oggvorbis
 
 make RPM_OPT_FLAGS="$RPM_OPT_FLAGS"
 
