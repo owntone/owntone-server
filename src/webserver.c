@@ -934,9 +934,9 @@ void *ws_dispatcher(void *arg) {
  */
 int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
     char buffer[1024];
+    va_list ap;
 
     DPRINTF(E_SPAM,L_WS,"Entering ws_writefd\n");
-    va_list ap;
 
     va_start(ap, fmt);
     vsnprintf(buffer, 1024, fmt, ap);
