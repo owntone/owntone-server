@@ -19,6 +19,13 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+
+/**
+ * \file configfile.c
+ * 
+ * Configfile and web interface handling.
+ */
+
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -50,41 +57,43 @@
 /*
  * Forwards
  */
-void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg);
-void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
-int config_file_is_readonly(void);
-int config_mutex_lock(void);
-int config_mutex_unlock(void);
+static void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
+static int config_file_is_readonly(void);
+static int config_mutex_lock(void);
+static int config_mutex_unlock(void);
 
 /*
  * Defines
  */
-#define CONFIG_TYPE_INT       0
-#define CONFIG_TYPE_STRING    1
-#define CONFIG_TYPE_SPECIAL   4
+#define CONFIG_TYPE_INT       0  /**< Config element is an integer */
+#define CONFIG_TYPE_STRING    1  /**< Config element is a string */
+#define CONFIG_TYPE_SPECIAL   4  /**< Config element is a web  parameter */
 
+/** Every config file directive and web interface directive is a CONFIGELEMENT */
 typedef struct tag_configelement {
-    int config_element;
-    int required;
-    int changed;
-    int type;
-    char *name;
-    void *var;
-    void (*emit)(WS_CONNINFO *, void *, char *);
+    int config_element;    /**< config file directive or web interface directive */
+    int required;          /**< If config file, is it required? */
+    int changed;           /**< Has this been changed since the last load? */
+    int type;              /**< Int, string, or special? */
+    char *name;            /**< config file directive name */
+    void *var;             /**< if config file, where is the corresponding var? */
+    void (*emit)(WS_CONNINFO *, void *, char *);  /* how to display it on a web page */
 } CONFIGELEMENT;
 
+/** List of all valid config entries and web interface directives */
 CONFIGELEMENT config_elements[] = {
     { 1,1,0,CONFIG_TYPE_STRING,"runas",(void*)&config.runas,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"web_root",(void*)&config.web_root,config_emit_string },
@@ -119,6 +128,7 @@ CONFIGELEMENT config_elements[] = {
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
+/** table of thread status -- as displayed on the status page */
 typedef struct tag_scan_status {
     int session;
     int thread;
@@ -127,20 +137,19 @@ typedef struct tag_scan_status {
     struct tag_scan_status *next;
 } SCAN_STATUS;
 
-SCAN_STATUS scan_status = { 0,0,NULL,NULL };
-pthread_mutex_t scan_mutex = PTHREAD_MUTEX_INITIALIZER;
-int config_session=0;
+SCAN_STATUS scan_status = { 0,0,NULL,NULL };            /**< root of status list */
+pthread_mutex_t scan_mutex = PTHREAD_MUTEX_INITIALIZER; /**< status list mutex */
+int config_session=0;                                   /**< session counter */
 
 #define MAX_LINE 1024
 
 
-/*
- * config_read
- *
+/**
  * Read the specified config file, padding the config structure
  * appropriately.
  *
- * This function returns 0 on success, errorcode on failure
+ * \param file config file to process
+ * \returns 0 on success, -1 otherwise with errno set
  */
 int config_read(char *file) {
     FILE *fin;
@@ -204,6 +213,8 @@ int config_read(char *file) {
 			handled=1;
 			pce->changed=1;
 			
+			DPRINTF(E_DBG,L_CONF,"Read %s: %s\n",pce->name,value);
+
 			switch(pce->type) {
 			case CONFIG_TYPE_STRING:
 			    /* DWB: free space to prevent small leak */
@@ -267,9 +278,7 @@ int config_read(char *file) {
 }
 
 
-/*
- * config_close
- *
+/**
  * free up any memory used
  */
 void config_close(void) {
@@ -281,15 +290,22 @@ void config_close(void) {
     pce=config_elements;
     err=0;
     while((pce->config_element != -1)) {
-	if((pce->config_element) && (pce->type == CONFIG_TYPE_STRING) && (*((char**)pce->var))) 
+	if((pce->config_element) && 
+	   (pce->type == CONFIG_TYPE_STRING) && 
+	   (*((char**)pce->var))) {
+	    DPRINTF(E_DBG,L_CONF,"Freeing %s\n",pce->name);
 	    free(*((char**)pce->var));
+	}
 	pce++;
     }
 }
 
-/*
- * config_write
+/**
+ * Write the config specified in the web post to a file.  This
+ * doesn't change the running config, just updates the config
+ * file.
  *
+ * \param pwsc the connection struct from the config-update url
  */
 int config_write(WS_CONNINFO *pwsc) {
     FILE *configfile;
@@ -325,11 +341,14 @@ int config_write(WS_CONNINFO *pwsc) {
     return 0;
 }
 
-/* 
- * config_subst_stream
- * 
+/**
  * walk through a stream doing substitution on the
- * meta commands
+ * meta commands.  This is what fills in the fields
+ * on the web page, or throws out the thread status
+ * table on the status page.
+ *
+ * \param pwsc the web connection for the original page
+ * \param fd_src the fd of the file to do substitutions on
  */
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
     int in_arg;
@@ -389,10 +408,11 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
     }
 }
 
-/*
- * config_handler
+/**
+ * This is the webserver callback for all non-daap web requests.
+ * This includes the admin page handling.
  *
- * Handle serving pages from the admin-root
+ * \param pwsc web connection of request
  */
 void config_handler(WS_CONNINFO *pwsc) {
     char path[PATH_MAX];
@@ -501,6 +521,12 @@ void config_handler(WS_CONNINFO *pwsc) {
     return;
 }
 
+/**
+ * The auth handler for the admin pages
+ *
+ * \param user username passed in the auth request
+ * \param password password passed in the auth request
+ */
 int config_auth(char *user, char *password) {
     if((!password)||(!config.adminpassword))
 	return 0;
@@ -508,39 +534,51 @@ int config_auth(char *user, char *password) {
 }
 
 
-/*
- * config_emit_string
+/**
+ * Used to emit a string configuration value to an admin page
  *
- * write a simple string value to the connection
+ * \param pwsc web connection
+ * \param value the variable that was requested
+ * \param arg any args passwd with the meta command
  */
 void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(*((char**)value))
 	ws_writefd(pwsc,"%s",*((char**)value));
 }
 
-/*
- * config_emit_literal
+/**
+ * Emit a string to the admin page.  This is an actual string,
+ * not a pointer to a string pointer, like emit_string.
  *
- * Emit a regular char *
+ * \param pwsc web connection
+ * \param value the variable that was requested
+ * \param arg any args passwd with the meta command
  */
 void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s",(char*)value);
 }
 
 
-/*
- * config_emit_int
+/**
+ * Emit an integer valut to the web page.
  *
- * write a simple int value to the connection
+ * \param pwsc web connection
+ * \param value the variable that was requested
+ * \param arg any args passwd with the meta command
  */
 void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%d",*((int*)value));
 }
 
-/*
- * config_emit_service_status
+/**
+ * Dumps the status and control block to the web page.  This is the
+ * page that offers the user the ability to rescan, or stop the
+ * daap server.
  *
- * emit the current service status
+ * \param pwsc web connection
+ * \param value the variable that was requested.  This is
+ *        required by the config struct, but unused.
+ * \param arg any args passwd with the meta command.  Also unused
  */
 void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     int mdns_running;
@@ -651,10 +689,13 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
 }
 
 
-/* 
- * config_get_session_count
+/**
+ * Get the count of connected users.  This is actually not totally accurate,
+ * as there may be a "connected" host that is in between requesting songs.
+ * It's marginally close though.  It is really the number of connections
+ * with non-zero session numbers.  
  *
- * get the number of unique hosts with a session
+ * \returns connected user count
  */
 int config_get_session_count(void) {
     SCAN_STATUS *pcurrent, *pcheck;
@@ -686,19 +727,25 @@ int config_get_session_count(void) {
 }
 
 
-/*
- * config_emit_session_count
+/**
+ * dump the html code for the SESSION-COUNT command
  *
- * emit the number of unique hosts (with a session)
+ * \param pwsc web connection
+ * \param value the variable that was requested.  This is
+ *        required by the config struct, but unused.
+ * \param arg any args passwd with the meta command.  Also unused
  */
 void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%d",config_get_session_count());
 }
 
-/*
- * config_emit_threadstatus
+/**
+ * dump the html code for the THREADSTAT command
  *
- * dump thread status info into a html table
+ * \param pwsc web connection
+ * \param value the variable that was requested.  This is
+ *        required by the config struct, but unused.
+ * \param arg any args passwd with the meta command.  Also unused
  */
 void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg) {
     SCAN_STATUS *pss;
@@ -723,10 +770,15 @@ void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg) {
 }
 
 
-/*
- * config_emit_ispage
+/**
+ * Kind of a hackish function to emit false or true if the served page is the
+ * same name as the argument.  This is basically used to not make the current
+ * tab a link when it is selected.  Kind of a hack.
  *
- * This is a tacky function to make the headers look right.  :)
+ * \param pwsc web connection
+ * \param value the variable that was requested.  Unused.
+ * \param arg any args passwd with the meta command.  In this case
+ * it is the page to test to see if it matches
  */
 void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
     char *first;
@@ -781,10 +833,12 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
 	free(false);
 }
 
-/*
- * config_emit_user
+/**
+ * Emit the html for the USER command
  *
- * Throw out the username
+ * \param pwsc web connection
+ * \param value the variable that was requested.  Unused.
+ * \param arg any args passwd with the meta command.  Unused.
  */
 void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(ws_getvar(pwsc, "HTTP_USER")) {
@@ -793,10 +847,10 @@ void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg) {
     return;
 }
 
-/*
- * config_file_is_readonly
+/**
+ * Check to see if the config file is read only
  *
- * See if the configfile is writable or not
+ * \returns 1 if the file is readonly, 0 otherwise
  */
 int config_file_is_readonly(void) {
     FILE *fin;
@@ -810,9 +864,14 @@ int config_file_is_readonly(void) {
     return 0;
 }
 
-/*
- * config_emit_readonly
+/**
+ * implement the READONLY command.  This is really a hack so
+ * that the html config form isn't editable if the config file
+ * isn't writable by the server.
  *
+ * \param pwsc web connection
+ * \param value the variable that was requested.  Unused.
+ * \param arg any args passwd with the meta command.  Unused
  */
 void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(config_file_is_readonly()) {
@@ -820,10 +879,13 @@ void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
 }
 
-/*
- * config_emit_include
+/**
+ * implement the INCLUDE command.  This is essentially a server 
+ * side include.
  *
- * Do a server-side include
+ * \param pwsc web connection
+ * \param value the variable that was requested.  Unused.
+ * \param arg any args passwd with the meta command.  Unused.
  */
 void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     char resolved_path[PATH_MAX];
@@ -877,10 +939,16 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     return;
 }
 
-/*
- * config_set_status
+/**
+ * Update the status info for a particuarl thread.  The thread
+ * status is the string displayed in the THREADSTAT block of the
+ * admin page.  That string is set with the function, which take
+ * a printf-style format specifier.  Setting the status to NULL
+ * will remove the thread from the config table.
  *
- * update the status info for a particular thread
+ * \param pwsc the web connection of the thread to update
+ * \param session the session id of that thread
+ * \param fmt printf style form specifier
  */
 void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     char buffer[1024];
@@ -944,10 +1012,9 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     DPRINTF(E_DBG,L_CONF,"Exiting config_set_status\n");
 }
 
-/*
- * config_mutex_lock
- *
- * Lock the scan status mutex
+/**
+ * Lock the config mutex.  This is the mutex that provides
+ * thread safety around the threadstat list.
  */
 int config_mutex_lock(void) {
     int err;
@@ -960,10 +1027,9 @@ int config_mutex_lock(void) {
     return 0;
 }
 
-/*
- * config_mutex_unlock
- *
- * Unlock the scan status mutex
+/**
+ * Unlock the config mutex.  This is the mutex that provides
+ * thread safety for the threadstat list
  */
 int config_mutex_unlock(void) {
     int err;
@@ -976,8 +1042,10 @@ int config_mutex_unlock(void) {
     return 0;
 }
 
-/*
- * return the next available session ID
+/**
+ * Get the next available session id.
+ *
+ * \returns duh... the next available session id
  */
 int config_get_next_session(void) {
     int session;
@@ -989,30 +1057,36 @@ int config_get_next_session(void) {
     return session;
 }
 
-/*
- * config_emit_version
+/**
+ * implement the VERSION command
  *
- * Thow out the version info
+ * \param pwsc web connection
+ * \param value the variable that was requested.  Unused.
+ * \param arg any args passwd with the meta command.  Unused.
  */
 void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s",VERSION);
 }
 
 
-/*
- * config_emit_system
+/**
+ * implement the SYSTEM command.
  *
- * Thow out the system info
+ * \param pwsc web connection
+ * \param value the variable that was requested.  Unused.
+ * \param arg any args passwd with the meta command.  Unused.
  */
 void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s",HOST);
 }
 
 
-/*
- * config_emit_flags
+/**
+ * Implement the FLAGS command.
  *
- * Thow out the configure flag info
+ * \param pwsc web connection
+ * \param value the variable that was requested.  Unused.
+ * \param arg any args passwd with the meta command.  Unused.
  */
 void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg) {
 #ifdef WITH_GDBM
