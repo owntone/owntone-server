@@ -89,12 +89,13 @@ char *query_build_sql(char *query) {
     int size=sizeof(sql);
 
     pquery=query_build(query);
-    if(!query_build_clause(pquery,&sqlptr,&size)) {
+    if(pquery) {
+	if(!query_build_clause(pquery,&sqlptr,&size)) {
+	    query_free(pquery);
+	    return strdup(sql);
+	}
 	query_free(pquery);
-	return strdup(sql);
     }
-
-    query_free(pquery);
     return NULL;
 }
 
