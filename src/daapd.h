@@ -53,6 +53,7 @@ typedef struct tag_config {
     int rescan_interval;  /**< How often to do a background rescan of the file system */
     int always_scan;      /**< 0 to minimize disk usage (embedded devices) */
     int process_m3u;      /**< Should we process m3u files? */
+    int scan_type;        /**< How hard to search mp3 files. see scan_get_mp3fileinfo() */
     char *adminpassword;  /**< Password to web management pages */
     char *readpassword;   /**< iTunes password */
     char *mp3dir;         /**< root directory of the mp3 files */

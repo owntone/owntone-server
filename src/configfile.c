@@ -109,6 +109,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_INT,"rescan_interval",(void*)&config.rescan_interval,config_emit_int },
     { 1,0,0,CONFIG_TYPE_INT,"always_scan",(void*)&config.always_scan,config_emit_int },
     { 1,0,0,CONFIG_TYPE_INT,"process_m3u",(void*)&config.process_m3u,config_emit_int },
+    { 1,0,0,CONFIG_TYPE_INT,"scan_type",(void*)&config.scan_type,config_emit_int },
     { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
@@ -173,7 +174,12 @@ int config_read(char *file) {
 	return -1;
     }
 
+#ifdef NSLU2    
     config.always_scan=0;
+#else
+    config.always_scan=1;
+#endif
+
     config.configfile=strdup(file);
     config.web_root=NULL;
     config.adminpassword=NULL;
@@ -185,6 +191,7 @@ int config_read(char *file) {
     config.logfile=NULL;
     config.rescan_interval=0;
     config.process_m3u=0;
+    config.scan_type=0;
 
     /* DWB: use alloced space so it can be freed without errors */
     config.extensions=strdup(".mp3");
@@ -336,7 +343,9 @@ int config_write(WS_CONNINFO *pwsc) {
     fprintf(configfile,"extensions\t%s\n",ws_getvar(pwsc,"extensions"));
     fprintf(configfile,"db_dir\t\t%s\n",ws_getvar(pwsc,"db_dir"));
     fprintf(configfile,"rescan_interval\t%s\n",ws_getvar(pwsc,"rescan_interval"));
-    fprintf(configfile,"always_scan\t%s\n",ws_getvar(pwsc,"always_scan"));
+    fprintf(configfile,"scan_type\t%d\n",ws_getvar(pwsc,"scan_type"));
+    if(ws_getvar(pwsc,"always_scan") && strlen(ws_getvar(pwsc,"always_scan")))
+	fprintf(configfile,"always_scan\t%s\n",ws_getvar(pwsc,"always_scan"));
     if(ws_getvar(pwsc,"art_filename") && strlen(ws_getvar(pwsc,"art_filename")))
 	fprintf(configfile,"art_filename\t%s\n",ws_getvar(pwsc,"art_filename"));
     if(ws_getvar(pwsc,"logfile") && strlen(ws_getvar(pwsc,"logfile")))

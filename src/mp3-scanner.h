@@ -70,9 +70,9 @@ typedef struct tag_mp3file {
 } MP3FILE;
 
 extern int scan_init(char *path);
-
 extern void make_composite_tags(MP3FILE *song);
 
+/* this should be refactored out of here... */
 extern off_t aac_drilltoatom(FILE *aac_fp, char *atom_path, unsigned int *atom_length);
 
 #endif /* _MP3_SCANNER_H_ */

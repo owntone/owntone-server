@@ -59,21 +59,27 @@
  * Typedefs
  */
 
+/**
+ * Struct to keep info about the information gleaned from
+ * the mp3 frame header.
+ */
 typedef struct tag_scan_frameinfo {
-    int layer;
-    int bitrate;
-    int samplerate;
-    int stereo;
+    int layer;               /**< 1, 2, or 3, representing Layer I, II, and III */
+    int bitrate;             /**< Bitrate in kbps (128, 64, etc) */
+    int samplerate;          /**< Samplerate (e.g. 44100) */
+    int stereo;              /**< Any kind of stereo.. joint, dual mono, etc */
 
-    int frame_length;
-    int crc_protected;
-    int samples_per_frame;
-    int padding;
-    int xing_offset;
+    int frame_length;        /**< Frame length in bytes - calculated */
+    int crc_protected;       /**< Is the frame crc protected? */
+    int samples_per_frame;   /**< Samples per frame - calculated field */
+    int padding;             /**< Whether or not there is a padding sample */
+    int xing_offset;         /**< Where the xing header should be relative to end of hdr */
+    int number_of_frames;    /**< Number of frames in the song */
 
-    double version;
+    int frame_offset;        /**< Where this frame was found */
 
-    int is_cbr;
+    double version;          /**< MPEG version (e.g. 2.0, 2.5, 1.0) */
+
     int is_valid;
 } SCAN_FRAMEINFO;
 
@@ -266,22 +272,28 @@ char *scan_winamp_genre[] = {
 /*
  * Forwards
  */
-int scan_path(char *path);
-int scan_gettags(char *file, MP3FILE *pmp3);
-int scan_get_mp3tags(char *file, MP3FILE *pmp3);
-int scan_get_aactags(char *file, MP3FILE *pmp3);
-int scan_get_nultags(char *file, MP3FILE *pmp3) { return 0; };
-int scan_get_fileinfo(char *file, MP3FILE *pmp3);
-int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3);
-int scan_get_aacfileinfo(char *file, MP3FILE *pmp3);
-int scan_get_nulfileinfo(char *file, MP3FILE *pmp3) { return 0; };
-int scan_get_urlfileinfo(char *file, MP3FILE *pmp3);
+static int scan_path(char *path);
+static int scan_gettags(char *file, MP3FILE *pmp3);
+static int scan_get_mp3tags(char *file, MP3FILE *pmp3);
+static int scan_get_aactags(char *file, MP3FILE *pmp3);
+static int scan_get_nultags(char *file, MP3FILE *pmp3) { return 0; };
+static int scan_get_fileinfo(char *file, MP3FILE *pmp3);
+static int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3);
+static int scan_get_aacfileinfo(char *file, MP3FILE *pmp3);
+static int scan_get_nulfileinfo(char *file, MP3FILE *pmp3) { return 0; };
+static int scan_get_urlfileinfo(char *file, MP3FILE *pmp3);
 
-int scan_freetags(MP3FILE *pmp3);
-void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
-void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
+static int scan_freetags(MP3FILE *pmp3);
+static void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
+static void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
-void make_composite_tags(MP3FILE *pmp3);
+static int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi);
+static time_t mac_to_unix_time(int t);
+
+
+/* 
+ * Typedefs
+ */
 
 typedef struct {
     char*	suffix;
@@ -299,6 +311,12 @@ static taghandler taghandlers[] = {
     { NULL, 0 }
 };
 
+
+/**
+ * Convert mac time to unix time (different epochs)
+ *
+ * param t time since mac epoch
+ */
 time_t mac_to_unix_time(int t) {
   struct timeval        tv;
   struct timezone       tz;
@@ -1233,7 +1251,7 @@ int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi) {
     bitrate_index=(frame[2] & 0xF0) >> 4;
     samplerate_index=(frame[2] & 0x0C) >> 2;
 
-    if(bitrate_index == 0xF) {
+    if((bitrate_index == 0xF) || (bitrate_index==0x0)) {
 	pfi->is_valid=0;
 	return -1;
     }
@@ -1279,16 +1297,169 @@ int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi) {
 	pfi->frame_length = 144 * pfi->bitrate * 1000 / pfi->samplerate + pfi->padding;
     }
 
+    if((pfi->frame_length > 2880) || (pfi->frame_length <= 0)) {
+	pfi->is_valid=0;
+	return -1;
+    }
+
     pfi->is_valid=1;
     return 0;
 }
 
-
-/*
- * scan_get_mp3fileinfo
+/**
+ * Scan 10 frames from the middle of the file and determine an
+ * average bitrate from that.  It might not be as accurate as a full
+ * frame count, but it's probably Close Enough (tm)
  *
+ * @param infile file to scan for average bitrate
+ * @param pfi pointer to frame info struct to put the bitrate into
+ */
+void scan_get_average_bitrate(FILE *infile, SCAN_FRAMEINFO *pfi) {
+    fpos_t file_size;
+    unsigned char frame_buffer[2900];
+    unsigned char header[4];
+    int index=0;
+    int found=0;
+    fpos_t pos;
+    SCAN_FRAMEINFO fi;
+    int frame_count=0;
+    int bitrate_total=0;
+
+    DPRINTF(E_DBG,L_SCAN,"Starting averaging bitrate\n");
+
+    fseek(infile,0,SEEK_END);
+    file_size=ftell(infile);
+
+    pos=file_size/2;
+
+    /* now, find the first frame */
+    fseek(infile,pos,SEEK_SET);
+    if(fread(frame_buffer,1,sizeof(frame_buffer),infile) != sizeof(frame_buffer)) 
+	return;
+
+    while(!found) {
+	while((frame_buffer[index] != 0xFF) && (index < (sizeof(frame_buffer)-4)))
+	    index++;
+
+	if(index >= (sizeof(frame_buffer)-4)) { /* largest mp3 frame is 2880 bytes */
+	    DPRINTF(E_DBG,L_SCAN,"Could not find frame... quitting\n");
+	    return;
+	}
+	    
+	if(!scan_decode_mp3_frame(&frame_buffer[index],&fi)) { 
+	    /* see if next frame is valid */
+	    fseek(infile,pos + index + fi.frame_length,SEEK_SET);
+	    if(fread(header,1,sizeof(header),infile) != sizeof(header)) {
+		DPRINTF(E_DBG,L_SCAN,"Could not read frame header\n");
+		return;
+	    }
+
+	    if(!scan_decode_mp3_frame(header,&fi))
+		found=1;
+	}
+	
+	if(!found)
+	    index++;
+    }
+
+    pos += index;
+
+    /* found first frame.  Let's move */
+    while(frame_count < 10) {
+	fseek(infile,pos,SEEK_SET);
+	if(fread(header,1,sizeof(header),infile) != sizeof(header)) {
+	    DPRINTF(E_DBG,L_SCAN,"Could not read frame header\n");
+	    return;
+	}
+	if(scan_decode_mp3_frame(header,&fi)) {
+	    DPRINTF(E_DBG,L_SCAN,"Invalid frame header while averaging\n");
+	    return;
+	}
+    
+	bitrate_total += fi.bitrate;
+	frame_count++;
+	pos += fi.frame_length;
+    }
+
+    DPRINTF(E_DBG,L_SCAN,"Old bitrate: %d\n",pfi->bitrate);
+    pfi->bitrate = bitrate_total/frame_count;
+    DPRINTF(E_DBG,L_SCAN,"New bitrate: %d\n",pfi->bitrate);
+
+    return;
+}
+
+/**
+ * do a full frame-by-frame scan of the file, counting frames
+ * as we go to try and get a more accurate song length estimate.
+ * If the song turns out to be CBR, then we'll not set the frame
+ * length.  Instead we'll use the file size estimate, since it is 
+ * more consistent with iTunes.
+ *
+ * @param infile file to scan for frame count
+ * @param pfi pointer to frame info struct to put framecount into
+ */
+void scan_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi) {
+    int pos;
+    int frames=0;
+    unsigned char frame_buffer[4];
+    SCAN_FRAMEINFO fi;
+    fpos_t file_size;
+    int err=0;
+    int cbr=1;
+    int last_bitrate=0;
+
+    DPRINTF(E_DBG,L_SCAN,"Starting frame count\n");
+    
+    fseek(infile,0,SEEK_END);
+    file_size=ftell(infile);
+
+    pos=pfi->frame_offset;
+
+    while(1) {
+	err=1;
+	DPRINTF(E_DBG,L_SCAN,"Seeking to %d\n",pos);
+
+	fseek(infile,pos,SEEK_SET);
+	if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
+	    /* check for valid frame */
+	    if(!scan_decode_mp3_frame(frame_buffer,&fi)) {
+		frames++;
+		pos += fi.frame_length;
+		err=0;
+
+		if((last_bitrate) && (fi.bitrate != last_bitrate))
+		    cbr=0;
+		last_bitrate=fi.bitrate;
+
+		/* no point in brute scan of a cbr file... */
+		if(cbr && (frames > 100)) {
+		    DPRINTF(E_DBG,L_SCAN,"File appears to be CBR... quitting frame count\n");
+		    return;
+		}
+	    }
+	}
+
+	if(err) {
+	    if(pos > (file_size - 4096)) {  /* probably good enough */
+		pfi->number_of_frames=frames;
+		DPRINTF(E_DBG,L_SCAN,"Estimated frame count: %d\n",frames);
+		return;
+	    } else {
+		DPRINTF(E_DBG,L_SCAN,"Frame count aborted on error.  Pos=%d, Count=%d\n",
+			pos, frames);
+		return;
+	    }
+	}
+    }
+}
+
+
+/**
  * Get information from the file headers itself -- like
  * song length, bit rate, etc.
+ *
+ * @param file File to get info for
+ * @param pmp3 where to put the found information
  */
 int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
@@ -1300,14 +1471,18 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     unsigned char buffer[1024];
     int index;
 
-    int number_of_frames=0;
     int xing_flags;
     int found;
+
+    int first_check;
+    char frame_buffer[4];
 
     if(!(infile=fopen(file,"rb"))) {
 	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
 	return -1;
     }
+
+    memset((void*)&fi,0x00,sizeof(fi));
 
     fseek(infile,0,SEEK_END);
     file_size=ftell(infile);
@@ -1326,88 +1501,106 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     }
 
     pid3=(SCAN_ID3HEADER*)buffer;
-    
+
+    found=0;
+    fp_size=0;
+
     if(strncmp(pid3->id,"ID3",3)==0) {
 	/* found an ID3 header... */
 	DPRINTF(E_DBG,L_SCAN,"Found ID3 header\n");
 	size = (pid3->size[0] << 21 | pid3->size[1] << 14 | 
 		pid3->size[2] << 7 | pid3->size[3]);
 	fp_size=size + sizeof(SCAN_ID3HEADER);
+	first_check=1;
 	DPRINTF(E_DBG,L_SCAN,"Header length: %d\n",size);
     }
 
-    fseek(infile,fp_size,SEEK_SET);
-    if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
-	DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
-	fclose(infile);
-	return -1;
-    }
+    index = 0;
 
-    index=0;
-    found=0;
-    
-    if(scan_decode_mp3_frame(&buffer[index],&fi)) { /* Bad frame header */
-	DPRINTF(E_DBG,L_SCAN,"Starting brute-force search for frame header\n");
+    /* Here we start the brute-force header seeking.  Sure wish there
+     * weren't so many crappy mp3 files out there
+     */
 
-	fp_size=0;
+    while(!found) {
+	fseek(infile,fp_size,SEEK_SET);
+	DPRINTF(E_DBG,L_SCAN,"Reading in new block at %d\n",(int)fp_size);
+	if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
+	    DPRINTF(E_LOG,L_SCAN,"Short read: %s\n",file);
+	    fclose(infile);
+	    break;
+	}
+
+	index=0;
 	while(!found) {
-	    DPRINTF(E_DBG,L_SCAN,"Seeking to %d\n",(int)fp_size);
-	    fseek(infile,fp_size,SEEK_SET);
+	    while((buffer[index] != 0xFF) && (index < (sizeof(buffer)-50)))
+		index++;
 
-	    if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
-		DPRINTF(E_LOG,L_SCAN,"Can't find valid MP3 frame for %s\n",file);
-		fclose(infile);
-		return -1;
+	    if((first_check) && (index)) {
+		fp_size=0;
+		DPRINTF(E_DBG,L_SCAN,"Bad header... dropping back for full frame search\n");
+		first_check=0;
+		break;
 	    }
 
-	    /* look for header */
-	    index=0;
-	    while(!found) {
-		if(index > sizeof(buffer)-50) {
-		    fp_size += index;
-		    DPRINTF(E_DBG,L_SCAN,"Block exhausted\n");
-		    break;  /* read in the next block */
-		}
+	    if(index > sizeof(buffer) - 50) {
+		fp_size += index;
+		DPRINTF(E_DBG,L_SCAN,"Block exhausted\n");
+		break;
+	    }
 
-		if(!scan_decode_mp3_frame(&buffer[index],&fi)) {
-		    DPRINTF(E_DBG,L_SCAN,"valid header at %d\n",index);
-		    if(strncasecmp((char*)&buffer[index+fi.xing_offset+4],"XING",4) == 0) {
-			found=1;
-		    }
-
-		    /* should check next frame... */
+	    if(!scan_decode_mp3_frame(&buffer[index],&fi)) {
+		DPRINTF(E_DBG,L_SCAN,"valid header at %d\n",index);
+		if(strncasecmp((char*)&buffer[index+fi.xing_offset+4],"XING",4) == 0) {
+		    /* no need to check further... if there is a xing header there,
+		     * this is definately a valid frame */
 		    found=1;
+		    fp_size += index;
+		} else {
+		    /* No Xing... check for next frame */
+		    DPRINTF(E_DBG,L_SCAN,"Found valid frame at %04x\n",(int)fp_size+index);
+		    DPRINTF(E_DBG,L_SCAN,"Checking at %04x\n",(int)fp_size+index+fi.frame_length);
+		    fseek(infile,fp_size + index + fi.frame_length,SEEK_SET);
+		    if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
+			if(!scan_decode_mp3_frame(frame_buffer,&fi)) {
+			    found=1;
+			    fp_size += index;
+			} 
+		    }
+		    if(!found) {
+			DPRINTF(E_DBG,L_SCAN,"Didn't pan out.\n");
+		    }
 		}
-
-		if(!found)
-		    index++;
+	    }
+	    
+	    if(!found) {
+		index++;
+		if (first_check) {
+		    /* if the header info was wrong about where the data started,
+		     * then start a brute-force scan from the beginning of the file.
+		     * don't want to just scan forward, because we might have already 
+		     * missed the xing header
+		     */
+		    DPRINTF(E_DBG,L_SCAN,"Bad header... dropping back for full frame search\n");
+		    first_check=0;
+		    fp_size=0;
+		    break;
+		}
 	    }
 	}
     }
 
     file_size -= fp_size;
-
-    /*
-
-    while(((buffer[index] != 0xFF) || (buffer[index+1] < 224)) &&
-	  (index < (sizeof(buffer)-(10 + 18 + 32)))) {
-	index++;
-    }
-
-    if(index) {
-	DPRINTF(E_DBG,L_SCAN,"Scanned forward %d bytes to find frame header\n",index);
-    }
-    */
+    fi.frame_offset=fp_size;
 
     if(scan_decode_mp3_frame(&buffer[index],&fi)) {
 	fclose(infile);
-	DPRINTF(E_DBG,L_SCAN,"Could not find sync frame\n");
+	DPRINTF(E_LOG,L_SCAN,"Could not find sync frame: %s\n",file);
+	DPRINTF(E_LOG,L_SCAN,"If this is a valid mp3 file that plays in "
+		"other applications, please email me at rpedde@users.sourceforge.net "
+		"and tell me you got this error.  Thanks");
 	return 0;
     }
 
-    pmp3->bitrate=fi.bitrate;
-    pmp3->samplerate=fi.samplerate;
-    
     DPRINTF(E_DBG,L_SCAN," MPEG Version: %0.1g\n",fi.version);
     DPRINTF(E_DBG,L_SCAN," Layer: %d\n",fi.layer);
     DPRINTF(E_DBG,L_SCAN," Sample Rate: %d\n",fi.samplerate);
@@ -1423,21 +1616,39 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
 	if(xing_flags & 0x1) {
 	    /* Frames field is valid... */
-	    number_of_frames=*((int*)&buffer[index+fi.xing_offset+4+8]);
-	    number_of_frames=ntohs(number_of_frames);
+	    fi.number_of_frames=*((int*)&buffer[index+fi.xing_offset+4+8]);
+	    fi.number_of_frames=ntohs(fi.number_of_frames);
 	}
     }
 
+    if((config.scan_type != 0) &&
+       (fi.number_of_frames == 0) &&
+       (!pmp3->song_length)) {
+	/* We have no good estimate of song time, and we want more
+	 * aggressive scanning */
+	DPRINTF(E_DBG,L_SCAN,"Starting aggressive file length scan\n");
+	if(config.scan_type == 1) {
+	    /* get average bitrate */
+	    scan_get_average_bitrate(infile, &fi);
+	} else {
+	    /* get full frame count */
+	    scan_get_frame_count(infile, &fi);
+	}
+    }
+
+    pmp3->bitrate=fi.bitrate;
+    pmp3->samplerate=fi.samplerate;
+    
     /* guesstimate the file length */
     if(!pmp3->song_length) { /* could have gotten it from the tag */
 	/* DWB: use ms time instead of seconds, use doubles to
 	   avoid overflow */
-	if(!number_of_frames) { /* not vbr */
+	if(!fi.number_of_frames) { /* not vbr */
 	    pmp3->song_length = (int) ((double) file_size * 8. /
 				       (double) fi.bitrate);
 
 	} else {
-	    pmp3->song_length = (int) ((double)(number_of_frames*fi.samples_per_frame*1000.)/
+	    pmp3->song_length = (int) ((double)(fi.number_of_frames*fi.samples_per_frame*1000.)/
 				       (double) fi.samplerate);
 	}
 
@@ -1448,6 +1659,13 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     return 0;
 }
 
+/**
+ * Manually build tags.  Set artist to computer/orchestra
+ * if there is already no artist.  Perhaps this could be 
+ * done better, but I'm not sure what else to do here.
+ *
+ * @param song MP3FILE of the file to build composite tags for
+ */
 void make_composite_tags(MP3FILE *song)
 {
     int len;
