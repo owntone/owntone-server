@@ -825,7 +825,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 		    pmp3->year = atoi(utf8_text);
 		    DPRINTF(E_DBG,L_SCAN," Year: %d\n",pmp3->year);
 		} else if(!strcmp(pid3frame->id,"TLEN")) {
-		    pmp3->song_length = atoi(utf8_text) / 1000;
+		    pmp3->song_length = atoi(utf8_text); /* now in ms */
 		    DPRINTF(E_DBG,L_SCAN," Length: %d\n", pmp3->song_length);
 		} else if(!strcmp(pid3frame->id,"TBPM")) {
 		    pmp3->bpm = atoi(utf8_text);
@@ -1159,6 +1159,14 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     int samplerate=0;
     int stereo=0;
 
+    int padding_bit=0;
+    int padding_bytes=0;
+    int samples_per_frame=0;
+    int frame_size=0;
+    int number_of_frames=0;
+    int xing_offset,xing_flags;
+    int found;
+
     if(!(infile=fopen(file,"rb"))) {
 	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
 	return -1;
@@ -1191,8 +1199,6 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	DPRINTF(E_DBG,L_SCAN,"Header length: %d\n",size);
     }
 
-    file_size -= fp_size;
-
     fseek(infile,fp_size,SEEK_SET);
     if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
 	DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
@@ -1201,18 +1207,70 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     }
 
     index=0;
+    found=0;
+    if((buffer[index] == 0xFF) && (buffer[index+1] >= 224)) {
+	/* good header */
+    } else {
+	DPRINTF(E_DBG,L_SCAN,"Starting brute-force search for frame header\n");
+
+	fp_size=0;
+	while(!found) {
+	    DPRINTF(E_DBG,L_SCAN,"Seeking to %d\n",(int)fp_size);
+	    fseek(infile,fp_size,SEEK_SET);
+
+	    if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
+		DPRINTF(E_LOG,L_SCAN,"Can't find valid MP3 frame for %s",file);
+		fclose(infile);
+		return -1;
+	    }
+
+	    /* look for header */
+	    index=0;
+	    while(!found) {
+		if(index > sizeof(buffer)-50) {
+		    fp_size += index;
+		    DPRINTF(E_DBG,L_SCAN,"Block exhausted\n");
+		    break;  /* read in the next block */
+		}
+
+		if((buffer[index] == 0xFF) && (buffer[index+1] >= 224)) {
+		    DPRINTF(E_DBG,L_SCAN,"Possible header at %d\n",index);
+		    /* could be valid... sanity check it */
+
+		    ver=(buffer[index+1] & 0x18) >> 3;
+		    layer=(buffer[index+1] & 0x6) >> 1;
+		    bitrate=(buffer[index+2] & 0xF0) >> 4;
+
+		    if((ver != 1) && (layer != 0) && (bitrate != 0) && (bitrate !=15)) {
+			DPRINTF(E_DBG,L_SCAN,"Good header\n");
+			fp_size =+ (index + 1);
+			found=1;
+		    }
+		}
+		if(!found)
+		    index++;
+	    }
+	}
+    }
+
+    file_size -= fp_size;
+
+    /*
+
     while(((buffer[index] != 0xFF) || (buffer[index+1] < 224)) &&
-	  (index < (sizeof(buffer)-10))) {
+	  (index < (sizeof(buffer)-(10 + 18 + 32)))) {
 	index++;
     }
 
     if(index) {
 	DPRINTF(E_DBG,L_SCAN,"Scanned forward %d bytes to find frame header\n",index);
     }
+    */
 
     if((buffer[index] == 0xFF)&&(buffer[index+1] >= 224)) {
 	ver=(buffer[index+1] & 0x18) >> 3;
 	layer=(buffer[index+1] & 0x6) >> 1;
+	layer = 4-layer;
 
 	layer_index=-1;
 	sample_index=-1;
@@ -1220,25 +1278,25 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	switch(ver) {
 	case 0: /* MPEG Version 2.5 */
 	    sample_index=2;
-	    if(layer == 3)
+	    if(layer == 1)
 		layer_index=3;
 	    else
 		layer_index=4;
 	    break;
 	case 2: /* MPEG Version 2 */
 	    sample_index=1;
-	    if(layer == 3)
+	    if(layer == 1)
 		layer_index=3;
 	    else
 		layer_index=4;
 	    break;
 	case 3: /* MPEG Version 1 */
 	    sample_index=0;
-	    if(layer == 3) /* layer 1 */
+	    if(layer == 1) /* layer 1 */
 		layer_index=0;
 	    if(layer == 2) /* layer 2 */
 		layer_index=1;
-	    if(layer == 1) /* layer 3 */
+	    if(layer == 3) /* layer 3 */
 		layer_index=2;
 	    break;
 	}
@@ -1255,6 +1313,16 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	    return -1;
 	}
 
+	if(layer==1) samples_per_frame=384;  /* Layer I */
+	if(layer==2) samples_per_frame=1152; /* Layer II */
+	if(layer==3) {                       /* Layer III */
+	    if(ver == 3) { /* MPEG 1 */
+		samples_per_frame=1152;
+	    } else {
+		samples_per_frame=576;
+	    }
+	}
+
 	bitrate=(buffer[index+2] & 0xF0) >> 4;
 	bitrate=scan_br_table[layer_index][bitrate];
 	samplerate=(buffer[index+2] & 0x0C) >> 2;  /* can only be 0-3 */
@@ -1266,22 +1334,64 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	    stereo=0;
 	else
 	    stereo=1;
+
+	padding_bit=(buffer[index+2] & 0x02) >> 1;
+	if(padding_bit) {
+	    if(layer == 1)
+		padding_bytes=4;
+	    else
+		padding_bytes=1;
+	}
+
 	DPRINTF(E_DBG,L_SCAN," MPEG Version: %s\n",ver == 3 ? "1" : (ver == 2 ? "2" : "2.5"));
-	DPRINTF(E_DBG,L_SCAN," Layer: %d\n",4-layer);
+	DPRINTF(E_DBG,L_SCAN," Layer: %d\n",layer);
 	DPRINTF(E_DBG,L_SCAN," Sample Rate: %d\n",samplerate);
 	DPRINTF(E_DBG,L_SCAN," Bit Rate: %d\n",bitrate);
 
-	/* guesstimate the file length */
-	if(!pmp3->song_length) { /* could have gotten it from the tag */
-	    
-	    /* DWB: use ms time instead of seconds, use doubles to
-	       avoid overflow */
-	    if(bitrate) {
-		pmp3->song_length = (int) ((double) file_size * 8000. /
-					   (double) bitrate /
-					   1024.);
+	if(ver == 3) { /* MPEG 1 */
+	    if(stereo) {
+		xing_offset=32;
+	    } else {
+		xing_offset=17;
+	    }
+	} else {
+	    if(stereo) {
+		xing_offset=17;
+	    } else {
+		xing_offset=9;
 	    }
 	}
+
+	/* now check for an XING header */
+	if(strncasecmp((char*)&buffer[index+xing_offset+4],"XING",4) == 0) {
+	    DPRINTF(E_DBG,L_SCAN,"Found Xing header\n");
+	    xing_flags=*((int*)&buffer[index+xing_offset+4+4]);
+	    xing_flags=ntohs(xing_flags);
+
+	    DPRINTF(E_DBG,L_SCAN,"Xing Flags: %02X\n",xing_flags);
+
+	    if(xing_flags & 0x1) {
+		/* Frames field is valid... */
+		number_of_frames=*((int*)&buffer[index+xing_offset+4+8]);
+		number_of_frames=ntohs(number_of_frames);
+	    }
+	}
+
+	/* guesstimate the file length */
+	if(!pmp3->song_length) { /* could have gotten it from the tag */
+	    /* DWB: use ms time instead of seconds, use doubles to
+	       avoid overflow */
+	    if(!number_of_frames) { /* not vbr */
+		pmp3->song_length = (int) ((double) file_size * 8. /
+					   (double) bitrate);
+
+	    } else {
+		pmp3->song_length = (int) ((double)(number_of_frames*samples_per_frame*1000.)/
+					   (double) samplerate);
+	    }
+
+	}
+	DPRINTF(E_DBG,L_SCAN," Song Length: %d\n",pmp3->song_length);
     } else {
 	/* FIXME: should really scan forward to next sync frame */
 	fclose(infile);
