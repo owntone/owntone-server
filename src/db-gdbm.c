@@ -171,7 +171,7 @@ char *db_get_playlist_name(int playlistid);
 
 MP3FILE *db_find(int id);
 
-void db_freefile(MP3FILE *pmp3);
+void db_dispose(MP3FILE *pmp3);
 int db_compare_rb_nodes(const void *pa, const void *pb, const void *cfg);
 
 
@@ -290,7 +290,7 @@ int db_init(void) {
 	    if(!db_unpackrecord(&song_data,&mp3file)) {
 		/* Check against playlist */
 		pl_eval(&mp3file);
-		db_freefile(&mp3file);
+		db_dispose(&mp3file);
 	    }
 	    free(song_data.dptr);
 	}
@@ -815,11 +815,11 @@ int db_add(MP3FILE *pmp3) {
 }
 
 /*
- * db_freefile
+ * db_dispose
  *
  * free a complete mp3record
  */
-void db_freefile(MP3FILE *pmp3) {
+void db_dispose(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->path);
     MAYBEFREE(pmp3->fname);
     MAYBEFREE(pmp3->title);
@@ -966,7 +966,7 @@ int db_enum_end(ENUMHANDLE handle) {
 
 	helper->root = record->next;
 
-	db_freefile(&record->mp3file);
+	db_dispose(&record->mp3file);
     }
 
     free(helper);
@@ -1161,7 +1161,6 @@ MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
     return pmp3;
 }
 
-
 /*
  * db_get_playlist_count
  *
@@ -1318,7 +1317,7 @@ int db_last_modified(int id) {
     }
 
     if(pmp3) {
-	db_freefile(pmp3);
+	db_dispose(pmp3);
 	free(pmp3);
     }
 

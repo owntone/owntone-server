@@ -238,7 +238,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	 * /databases/id/containers, which returns a container
 	 * /databases/id/containers/id/items, which returns playlist elements
 	 * /databases/id/items/id.mp3, to spool an mp3
-	 * /databases/id/browse/category
+ * /databases/id/browse/category
 	 */
 
 	uri = strdup(pwsc->uri);
@@ -264,6 +264,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		    *last='\0';
 		    item=atoi(first);
 		    streaming=1;
+		    DPRINTF(E_DBG,L_DAAP|L_WS,"Streaming request for id %d\n",item);
 		}
 		free(uri);
 	    } else if (strncasecmp(last,"items",5)==0) {
@@ -349,6 +350,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
 	pmp3=db_find(item);
 	if(!pmp3) {
+	    DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %d\n",item);
 	    ws_returnerror(pwsc,404,"File Not Found");
 	} else {
 	    /* got the file, let's open and serve it */
@@ -359,7 +361,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 			pwsc->threadno,pmp3->path,strerror(errno));
 		ws_returnerror(pwsc,404,"Not found");
 		config_set_status(pwsc,session_id,NULL);
-
+		db_dispose(pmp3);
+		free(pmp3);
 	    } else {
 		real_len=lseek(file_fd,0,SEEK_END);
 		lseek(file_fd,0,SEEK_SET);
@@ -437,6 +440,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		}
 		config_set_status(pwsc,session_id,NULL);
 		r_close(file_fd);
+		db_dispose(pmp3);
+		free(pmp3);
 	    }
 	}
     }
@@ -688,6 +693,7 @@ int main(int argc, char *argv[]) {
 		usage(argv[0]);
 		exit(-1);
 	    }
+	    exit(0);
 	    break;
 	case 'f':
 	    foreground=1;

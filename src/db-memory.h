@@ -42,6 +42,7 @@ extern ENUMHANDLE db_enum_begin(void);
 extern MP3FILE *db_enum(ENUMHANDLE *handle);
 extern int db_enum_end(ENUMHANDLE handle);
 extern MP3FILE *db_find(int id);
+extern void db_dispose(MP3FILE *pmp3); /* must be called after a db_find */
 
 extern int db_get_song_count(void);
 extern int db_get_playlist_count(void);
