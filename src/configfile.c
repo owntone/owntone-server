@@ -1206,6 +1206,10 @@ void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg) {
  * \param arg any args passwd with the meta command.  Unused.
  */
 void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg) {
+#ifdef OGGVORBIS
+    ws_writefd(pwsc,"%s ","--enable-oggvorbis");
+#endif
+
 #ifdef WITH_GDBM
     ws_writefd(pwsc,"%s ","--with-gdbm");
 #endif
