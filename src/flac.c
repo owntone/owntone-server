@@ -39,7 +39,6 @@
 #include <dirent.h>      /* why here?  For osx 10.2, of course! */
 
 #include "daapd.h"
-#include "db-memory.h"
 #include "err.h"
 #include "mp3-scanner.h"
 
@@ -51,7 +50,6 @@
 
 int scan_get_flacfileinfo(char *filename, MP3FILE *pmp3)
 {
-    FLAC__bool ok;
     FLAC__Metadata_Chain *chain;
     FLAC__Metadata_Iterator *iterator;
     FLAC__StreamMetadata *block;
@@ -123,7 +121,6 @@ int scan_get_flacfileinfo(char *filename, MP3FILE *pmp3)
 
 int scan_get_flactags(char *filename, MP3FILE *pmp3)
 {
-    FLAC__bool ok;
     FLAC__Metadata_Chain *chain;
     FLAC__Metadata_Iterator *iterator;
     FLAC__StreamMetadata *block;
@@ -157,44 +154,44 @@ int scan_get_flactags(char *filename, MP3FILE *pmp3)
 	if (block->type == FLAC__METADATA_TYPE_VORBIS_COMMENT) {
 	    {
 		for (i = 0; i < block->data.vorbis_comment.num_comments; i++) {
-		    if (val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-						 "ARTIST", &len)) {
+		    if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						  "ARTIST", &len))) {
 			if ((pmp3->artist = calloc(len + 1, 1)) != NULL)
 			    strncpy(pmp3->artist, val, len);
-		    } else if (val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							"TITLE", &len)) {
+		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+							 "TITLE", &len))) {
 			if ((pmp3->title = calloc(len + 1, 1)) != NULL)
 			    strncpy(pmp3->title, val, len);
-		    } else if (val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							"ALBUM", &len)) {
+		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+							 "ALBUM", &len))) {
 			if ((pmp3->album = calloc(len + 1, 1)) != NULL)
 			    strncpy(pmp3->album, val, len);
-		    } else if (val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							"GENRE", &len)) {
+		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+							 "GENRE", &len))) {
 			if ((pmp3->genre = calloc(len + 1, 1)) != NULL)
 			    strncpy(pmp3->genre, val, len);
-		    } else if (val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							"COMPOSER", &len)) {
+		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+							 "COMPOSER", &len))) {
 			if ((pmp3->composer = calloc(len + 1, 1)) != NULL)
 			    strncpy(pmp3->composer, val, len);
-		    } else if (val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							"COMMENT", &len)) {
+		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+							 "COMMENT", &len))) {
 			if ((pmp3->comment = calloc(len + 1, 1)) != NULL)
 			    strncpy(pmp3->comment, val, len);
-		    } else if (val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							"TRACKNUMBER", &len)) {
+		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+							 "TRACKNUMBER", &len))) {
 			tmp = *(val + len);
 			*(val + len) = '\0';
 			pmp3->track = atoi(val);
 			*(val + len) = tmp;
-		    } else if (val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							"DISCNUMBER", &len)) {
+		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+							 "DISCNUMBER", &len))) {
 			tmp = *(val + len);
 			*(val + len) = '\0';
 			pmp3->disc = atoi(val);
 			*(val + len) = tmp;
-		    } else if (val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							"YEAR", &len)) {
+		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+							 "YEAR", &len))) {
 			tmp = *(val + len);
 			*(val + len) = '\0';
 			pmp3->year = atoi(val);
