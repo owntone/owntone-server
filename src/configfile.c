@@ -77,6 +77,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,1,0,CONFIG_TYPE_STRING,"admin_pw",(void*)&config.adminpassword,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"mp3_dir",(void*)&config.mp3dir,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
+    { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"package",(void*)PACKAGE,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"include",(void*)NULL,config_emit_include },
@@ -138,6 +139,7 @@ int config_read(char *file) {
     config.adminpassword=NULL;
     config.readpassword=NULL;
     config.mp3dir=NULL;
+    config.playlist=NULL;
     config.servername="mt-daapd " VERSION;
 
     while(fgets(buffer,MAX_LINE,fin)) {
