@@ -232,11 +232,15 @@ int scan_freetags(MP3FILE *pmp3);
  */
 
 int scan_init(char *path) {
+    int err;
     if(db_is_empty()) {
 	if(db_start_initial_update()) 
 	    return -1;
 
-	scan_foreground(path);
+
+	DPRINTF(ERR_DEBUG,"Scanning for MP3s in %s\n",path);
+
+	err=scan_foreground(path);
 
 	if(db_end_initial_update())
 	    return -1;
@@ -245,7 +249,7 @@ int scan_init(char *path) {
 	return ENOTSUP;
     }
 
-    return 0;
+    return err;
 }
 
 /*
