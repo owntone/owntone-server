@@ -22,7 +22,7 @@ start() {
 
 stop() {
 	echo -n $"Shutting down DAAP server: "
-	killproc gpm
+	killproc mt-daapd
 	RETVAL=$?
 
 	echo
