@@ -146,7 +146,7 @@ void *err_malloc(char *file, int line, size_t size) {
     err_leakcheck();
     DPRINTF(ERR_DEBUG,"---\n");
 
-    pnew=(ERR_LEAK*)malloc(sizeof(pnew));
+    pnew=(ERR_LEAK*)malloc(sizeof(ERR_LEAK));
     if(!pnew) 
 	log_err(1,"Error: cannot allocate leak struct\n");
 
