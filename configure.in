@@ -12,6 +12,15 @@ AC_PROG_CC
 AC_CANONICAL_HOST
 
 AC_ARG_ENABLE(debug,Enable debugging features,CPPFLAGS="$CPPFLAGS -DDEBUG -g")
+AC_ARG_ENABLE(howl,[  --enable-howl      Use the howl mDNS library],
+		      [ case "${enableval}" in
+                        yes) rend_howl=true; LDFLAGS="${LDFLAGS} -lrendezvous -lcorby -lsalt";;
+		        no)  rend_howl=false;;
+		        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-howl);;
+		      esac ],[rend_howl=false])
+
+AM_CONDITIONAL(COND_REND_HOWL, test x$rend_howl = xtrue)
+AM_CONDITIONAL(COND_REND_POSIX, test x$rend_howl = xfalse)
 
 dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
@@ -43,13 +52,13 @@ AC_ARG_WITH(id3tag,
 	fi
 ])
 
+
+
 AC_CHECK_HEADERS(zlib.h,LDFLAGS="${LDFLAGS} -lz",[
   AC_MSG_ERROR([zlib.h not found... try --with-zlib=dir])])
 
 AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
   AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
-
-
 
 dnl AC_CHECK_LIB(id3tag,id3_file_open,LDFLAGS="$LDFLAGS -lid3tag",echo "Must have libid3tag";exit)
 dnl AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
