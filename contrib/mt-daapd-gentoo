@@ -31,6 +31,8 @@ start() {
 # stop the daemon
 stop() {
 	ebegin "Stopping mt-daapd DAAP server"
-	start-stop-daemon --stop --quiet --exec /usr/local/sbin/mt-daapd
+#	start-stop-daemon --stop --quiet --exec /usr/local/sbin/mt-daapd
+# 	I dunno if this works... try it:
+	start-stop-daemon --stop --quiet --pidfile /var/run/mt-daapd.pid --signal 2
 	eend $?
 }
