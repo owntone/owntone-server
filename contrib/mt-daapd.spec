@@ -40,6 +40,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,-)
 %config /etc/mt-daapd.conf
 %config /etc/mt-daapd.playlist
+/etc/rc.d/init.d/mt-daapd
 /usr/sbin/*
 /usr/share/mt-daapd/*
 
