@@ -46,7 +46,7 @@
 /*
  * Defines
  */
-#define DB_VERSION 5
+#define DB_VERSION 6
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
@@ -103,7 +103,7 @@ typedef struct tag_mp3packed {
     int time_played;
     int db_timestamp;
 
-    int bpm; // DB Version 3
+    int bpm;
 
     char compilation;
 
@@ -122,7 +122,7 @@ typedef struct tag_mp3packed {
     int conductor_len;
     int grouping_len;
 
-    int url_len;  /* DB Version 4 */
+    int url_len; 
     char data[1];
 } MP3PACKED;
 
