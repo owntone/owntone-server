@@ -429,6 +429,12 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
 	    henum=db_playlist_enum_begin();
 	    while(henum) {
 		playlistid=db_playlist_enum(&henum);
+		DPRINTF(ERR_DEBUG,"Returning playlist %d\n",playlistid);
+		DPRINTF(ERR_DEBUG,"  -- Songs: %d\n",
+			db_get_playlist_entry_count(playlistid));
+		DPRINTF(ERR_DEBUG,"  -- Smart: %s\n",
+			db_get_playlist_is_smart(playlistid) ?
+			"Yes" : "No");
 		mlit=daap_add_empty(mlcl,"mlit");
 		if(mlit) {
 		    g = g && daap_add_int(mlit,"miid",playlistid);
@@ -589,6 +595,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist) {
 		while((itemid=db_playlist_items_enum(&henum)) != -1) {
 		    mlit=daap_add_empty(mlcl,"mlit");
 		    if(mlit) {
+			DPRINTF(ERR_DEBUG,"Adding itemid %d\n",itemid);
 			g = g && daap_add_char(mlit,"mikd",2);
 			g = g && daap_add_int(mlit,"miid",itemid);
 			g = g && daap_add_int(mlit,"mcti",playlist);
