@@ -376,6 +376,8 @@ int scan_path(char *path) {
 			
 			/* only scan if it's been changed, or empty db */
 			modified_time=sb.st_mtime;
+			DPRINTF(ERR_DEBUG,"FS Modified time: %d\n",modified_time);
+			DPRINTF(ERR_DEBUG,"DB Modified time: %d\n",db_last_modified(sb.st_ino));
 			if((scan_mode_foreground) || 
 			   !db_exists(sb.st_ino) ||
 			   db_last_modified(sb.st_ino) < modified_time) {
@@ -490,6 +492,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 	mp3file.time_added=psb->st_mtime;
 	if(psb->st_ctime < mp3file.time_added)
 	    mp3file.time_added=psb->st_ctime;
+	mp3file.time_modified=time(NULL);
 
 	DPRINTF(ERR_DEBUG," Date Added: %d\n",mp3file.time_added);
 

@@ -768,7 +768,7 @@ int db_add(MP3FILE *pmp3) {
     ppacked=(MP3PACKED *)pnew->dptr;
     if(!ppacked->time_added)
 	ppacked->time_added=(int)time(NULL);
-    ppacked->time_modified=ppacked->time_added;
+    ppacked->time_modified=(int)time(NULL);
     ppacked->time_played=0; /* do we want to keep track of this? */
 
     if(gdbm_store(db_songs,dkey,*pnew,GDBM_REPLACE)) {
@@ -1192,10 +1192,18 @@ int db_exists(int id) {
     int *node;
     int err;
     MP3FILE *pmp3;
+    datum key,content;
 
-    /* this is wrong and expensive */
+    DPRINTF(ERR_DEBUG,"Checking if node %d in db\n");
+    key.dptr=(char*)&id;
+    key.dsize=sizeof(int);
 
-    pmp3=db_find(id);
+    content=gdbm_fetch(db_songs,key);
+    MEMNOTIFY(content.dptr);
+    if(!content.dptr) {
+	DPRINTF(ERR_DEBUG,"Nope!  Not in DB\n");
+	return 0;
+    }
 
     if(db_update_mode) {
 	/* knock it off the maybe list */
@@ -1205,8 +1213,10 @@ int db_exists(int id) {
 	    free(node);
 	}
     }
-    
-    return pmp3 ? 1 : 0;
+
+    free(content.dptr);
+    DPRINTF(ERR_DEBUG,"Yup, in database\n");
+    return 1;
 }
 
 
