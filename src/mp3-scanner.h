@@ -37,6 +37,10 @@ typedef struct tag_mp3file {
     int file_size;
     int year;
 
+    int mtime;
+    int atime;
+    int ctime;
+
     int got_id3;
     unsigned int id;
 } MP3FILE;

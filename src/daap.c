@@ -32,6 +32,7 @@
 #include "daap-proto.h"
 #include "daap.h"
 #include "err.h"
+#include "daapd.h"
 
 typedef struct tag_daap_items {
     int type;
@@ -258,8 +259,15 @@ DAAP_BLOCK *daap_response_songlist(void) {
 
 		    // g = g && daap_add_char(mlit,"asco",0x0); /* compilation */
 		    // g = g && daap_add_string(mlit,"ascp",""); /* composer */
-		    // g = g && daap_add_int(mlit,"asda",0); /* date added */
-		    // g = g && daap_add_int(mlit,"asdm",0); /* date modified */
+
+		    if(current->ctime) {
+			g = g && daap_add_int(mlit,"asda",current->ctime); /* added */
+		    }
+
+		    if(current->mtime) {
+			g = g && daap_add_int(mlit,"asdm",current->mtime); /* modified */
+		    }
+
 		    // g = g && daap_add_short(mlit,"asdc",0); /* # of discs */
 		    // g = g && daap_add_short(mlit,"asdn",0); /* disc number */
 		    // g = g && daap_add_char(mlit,"asdk",0); /* song datakind? */
@@ -485,7 +493,7 @@ DAAP_BLOCK *daap_response_server_info(char *name) {
 	g = g && daap_add_int(root,"mpro",2 << 16); /* dmap proto ? */
 	g = g && daap_add_int(root,"apro",2 << 16); /* daap protocol */
 	g = g && daap_add_string(root,"minm",name); /* server name */
-	g = g && daap_add_char(root,"mslr",0); /* logon required */
+	g = g && daap_add_char(root,"mslr",config.readpassword != NULL); /* logon required */
 	g = g && daap_add_int(root,"mstm",1800); /* timeout  - iTunes=1800 */
 	g = g && daap_add_char(root,"msal",0); /* autologout */
 	g = g && daap_add_char(root,"msup",1); /* update */

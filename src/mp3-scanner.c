@@ -346,6 +346,10 @@ int scan_foreground(char *path) {
 		    mp3file.path=mp3_path;
 		    mp3file.fname=de.d_name;
 
+		    mp3file.mtime=sb.st_mtimespec.tv_sec;
+		    mp3file.atime=sb.st_atimespec.tv_sec;
+		    mp3file.ctime=sb.st_ctimespec.tv_sec;
+
 		    /* FIXME; assumes that st_ino is a u_int_32 */
 		    mp3file.id=sb.st_ino;
 		    
