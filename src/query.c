@@ -80,6 +80,35 @@ static query_field_t	song_fields[] = {
     { 0,                NULL,                   NULL }
 };
 
+char *query_sql_escape(char *term) {
+    int new_size=0;
+    char *src, *dst;
+    char *pnew;
+
+    src=term;
+    while(*src) {
+	new_size++;
+	if(*src == '\'')
+	    new_size++;
+	src++;
+    }
+
+    src=term;
+    pnew=(char*)malloc(new_size+1);
+    if(!pnew)
+	return pnew;
+
+    dst=pnew;
+    while(*src) {
+	if(*src == '\'')
+	    *dst++='\'';
+	*dst++=*src++;
+    }
+
+    *dst='\0';
+    return pnew;
+}
+
 char *query_build_sql(char *query) {
     query_node_t *pquery;
     char sql[2048];
@@ -426,7 +455,7 @@ static query_node_t*	match_string(const query_field_t* field,
     node = (query_node_t*) calloc(1, sizeof(*node));
     node->type = op;
     node->left.field = field;
-    node->right.str = strdup(match);
+    node->right.str = query_sql_escape(match);
 
     *pcursor = cursor;
 
