@@ -77,7 +77,6 @@ typedef struct tag_ws_private {
  */
 void *ws_mainthread(void*);
 void *ws_dispatcher(void*);
-int ws_makeargv(const char *s, const char *delimiters, char ***argvp);
 int ws_lock_unsafe(void);
 int ws_unlock_unsafe(void);
 void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
@@ -172,6 +171,7 @@ WSHANDLE ws_start(WSCONFIG *config) {
     memcpy(&pwsp->wsconfig,config,sizeof(WS_PRIVATE));
     pwsp->running=0;
     pwsp->threadno=0;
+    pwsp->stop=0;
     pwsp->dispatch_threads=0;
     pwsp->handlers.next=NULL;
 
@@ -197,7 +197,7 @@ WSHANDLE ws_start(WSCONFIG *config) {
     DPRINTF(ERR_INFO,"Starting server thread\n");
     if(err=pthread_create(&pwsp->server_tid,NULL,ws_mainthread,(void*)pwsp)) {
 	DPRINTF(ERR_WARN,"Could not spawn thread: %s\n",strerror(err));
-	close(pwsp->server_fd);
+	r_close(pwsp->server_fd);
 	errno=err;
 	return NULL;
     }
@@ -215,9 +215,19 @@ WSHANDLE ws_start(WSCONFIG *config) {
  */
 extern int ws_stop(WSHANDLE ws) {
     WS_PRIVATE *pwsp = (WS_PRIVATE*)ws;
+    WS_HANDLER *current;
 
     /* free the ws_handlers */
+    while(pwsp->handlers.next) {
+	current=pwsp->handlers.next;
+	pwsp->handlers.next=current->next;
+	free(current);
+    }
+
     pwsp->stop=1;
+    pwsp->running=0;
+
+    r_close(pwsp->server_fd); /* this should tick off the listener */
 
     /* Wait for all the threads to die */
     if(pthread_mutex_lock(&pwsp->exit_mutex))
@@ -229,6 +239,8 @@ extern int ws_stop(WSHANDLE ws) {
     }
 
     pthread_mutex_unlock(&pwsp->exit_mutex);
+
+    free(pwsp);
     
     return 0;
 }
@@ -265,8 +277,9 @@ void *ws_mainthread(void *arg) {
 	memset(pwsc,0,sizeof(WS_CONNINFO));
 
 	if((fd=u_accept(pwsp->server_fd,hostname,MAX_HOSTNAME)) == -1) {
-	    close(pwsp->server_fd);
+	    r_close(pwsp->server_fd);
 	    pwsp->running=0;
+	    free(pwsc);
 	    return NULL;
 	}
 
@@ -323,10 +336,12 @@ void ws_close(WS_CONNINFO *pwsc) {
     ws_freearglist(&pwsc->response_headers);
     DPRINTF(ERR_DEBUG,"Thread %d: Freeing request vars\n",pwsc->threadno);
     ws_freearglist(&pwsc->request_vars);
+    if(pwsc->uri) 
+	free(pwsc->uri);
     
     if((pwsc->close)||(pwsc->error)) {
 	DPRINTF(ERR_DEBUG,"Thread %d: Closing fd\n",pwsc->threadno);
-	close(pwsc->fd);
+	r_close(pwsc->fd);
 	free(pwsc->hostname);
 	
 	/* this thread is done */
@@ -551,9 +566,7 @@ void *ws_dispatcher(void *arg) {
     WS_PRIVATE *pwsp=pwsc->pwsp;
     char buffer[MAX_LINEBUFFER];
     char *buffp;
-    char *first;
-    char **argvp;
-    int tokens;
+    char *first,*last;
     int done;
     int connection_done=0;
     int can_dispatch;
@@ -583,27 +596,29 @@ void *ws_dispatcher(void *arg) {
 
 	DPRINTF(ERR_DEBUG,"Thread %d: got request\n",pwsc->threadno);
 
-	tokens=ws_makeargv(buffer," ",&argvp);
-	if(tokens != 3) {
-	    pwsc->error=EINVAL;
-	    free(argvp[0]);
-	    ws_returnerror(pwsc,400,"Bad request");
+	first=last=buffer;
+	strsep(&last," ");
+	if(!last) {
+	    ws_returnerror(pwsc,400,"Bad request\n");
 	    ws_close(pwsc);
 	    return NULL;
 	}
 	
-	if(!strcasecmp(argvp[0],"get")) {
+	if(!strcasecmp(first,"get")) {
 	    pwsc->request_type = RT_GET;
-	} else if(!strcasecmp(argvp[0],"post")) {
+	} else if(!strcasecmp(first,"post")) {
 	    pwsc->request_type = RT_POST;
 	} else {
 	    /* return a 501 not implemented */
 	    pwsc->error=EINVAL;
-	    free(argvp[0]);
 	    ws_returnerror(pwsc,501,"Not implemented");
 	    ws_close(pwsc);
 	    return NULL;
 	}
+
+	first=last;
+	strsep(&last," ");
+	pwsc->uri=strdup(first);
 	
 	/* Get headers */
 	if(ws_getheaders(pwsc)) {
@@ -619,9 +634,6 @@ void *ws_dispatcher(void *arg) {
 	 * decide whether or not this is a persistant
 	 * connection */
 
-	pwsc->uri=strdup(argvp[1]);
-	free(argvp[0]);
-	
 	if(!pwsc->uri) {
 	    /* We have memory allocation errors... might just
 	     * as well bail */
@@ -781,69 +793,6 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
 }
 
 /*
- * ws_makeargv
- *
- * Turn a string into an argv-like array of char *.
- * the array must be destroyed by freeing the first
- * element.
- *
- * This code was stolen from Dr. Robbins.
- * (srobbins@cs.utsa.edu).  Any errors in it
- * were introduced by me, though.
- */
-int ws_makeargv(const char *s, const char *delimiters, char ***argvp) {
-    int i;
-    int numtokens;
-    const char *snew;
-    char *t;
-    int err;
-
-    /* this whole function is sickeningly unsafe */
-    DPRINTF(ERR_DEBUG,"Parsing input: %s",s);
-
-    if(ws_lock_unsafe())
-	return -1;
-
-    if ((s == NULL) || (delimiters == NULL) || (argvp == NULL)) {
-	ws_unlock_unsafe();
-	return -1;
-    }
-    *argvp = NULL;                           
-    snew = s + strspn(s, delimiters);  /* snew is real start of string */
-    if ((t = malloc(strlen(snew) + 1)) == NULL) {
-	ws_unlock_unsafe();
-	return -1; 
-    }
-    
-    /* count the number of tokens in s */
-    strcpy(t, snew);
-    numtokens = 0;
-    if (strtok(t, delimiters) != NULL) 
-	for (numtokens = 1; strtok(NULL, delimiters) != NULL; numtokens++) ; 
-    
-    /* create argument array for ptrs to the tokens */
-    if ((*argvp = malloc((numtokens + 1)*sizeof(char *))) == NULL) {
-	free(t);
-	ws_unlock_unsafe();
-	return -1; 
-    } 
-
-    /* insert pointers to tokens into the argument array */
-    if (numtokens == 0) {
-      free(t);
-    } else {
-	strcpy(t, snew);
-	**argvp = strtok(t, delimiters);
-	for (i = 1; i < numtokens; i++)
-	    *((*argvp) + i) = strtok(NULL, delimiters);
-    } 
-
-    /* put in the final NULL pointer and return */
-    *((*argvp) + numtokens) = NULL;
-    return ws_unlock_unsafe() ? -1 : numtokens;
-}     
-
-/*
  * ws_defaulthandler
  *
  * default URI handler.  This simply finds the file
@@ -905,7 +854,7 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     /* now throw out the file */
     copyfile(file_fd,pwsc->fd);
 
-    close(file_fd);
+    r_close(file_fd);
     DPRINTF(ERR_DEBUG,"Thread %d: Served successfully\n",pwsc->threadno);
     return;
 }
