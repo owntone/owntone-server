@@ -1,6 +1,6 @@
 Summary: A multi-threaded implementation of Apple's DAAP server
 Name: mt-daapd
-Version: 0.2.0
+Version: 0.2.0-pre1
 Release: 1
 License: GPL
 Group: Development/Networking
@@ -44,13 +44,14 @@ rm -rf $RPM_BUILD_ROOT
 /etc/rc.d/init.d/mt-daapd
 /usr/sbin/mt-daapd
 /usr/share/mt-daapd/*
+/var/cache/mt-daapd
 
 %doc
 
 
 %changelog
 * Mon Apr 06 2004 ron <ron@pedde.com>
-- Update to 0.2.0
+- Update to 0.2.0-pre1
 - Add /var/cache/mt-daapd
 
 * Thu Jan 29 2004 ron <ron@pedde.com>

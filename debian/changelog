@@ -1,4 +1,4 @@
-mt-daapd (0.2.0-1) unstable; urgency=low
+mt-daapd (0.2.0-pre1) unstable; urgency=low
   * Add gdbm database
   * Add support for .m4a and .m4p
   * Various bug fixes
