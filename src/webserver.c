@@ -361,8 +361,10 @@ void ws_close(WS_CONNINFO *pwsc) {
     ws_freearglist(&pwsc->response_headers);
     DPRINTF(ERR_DEBUG,"Thread %d: Freeing request vars\n",pwsc->threadno);
     ws_freearglist(&pwsc->request_vars);
-    if(pwsc->uri) 
+    if(pwsc->uri) {
 	free(pwsc->uri);
+	pwsc->uri=NULL;
+    }
     
     if((pwsc->close)||(pwsc->error)) {
 	DPRINTF(ERR_DEBUG,"Thread %d: Closing fd\n",pwsc->threadno);
@@ -746,7 +748,8 @@ void *ws_dispatcher(void *arg) {
 		    if(auth_handler(username,password))
 			can_dispatch=1;
 		    ws_addarg(&pwsc->request_vars,"HTTP_USER",username);
-		    free(username);
+		    ws_addarg(&pwsc->request_vars,"HTTP_PASSWD",password);
+		    free(username); /* this frees password too */
 		} 
 
 		if(!can_dispatch) { /* auth failed, or need auth */
