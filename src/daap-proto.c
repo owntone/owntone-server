@@ -55,6 +55,7 @@ DAAP_BLOCK *daap_get_new(void) {
 	return NULL;
     }
 
+    pnew->free=0;
     pnew->value=NULL;
     pnew->parent=NULL;
     pnew->children=NULL;
@@ -86,7 +87,7 @@ DAAP_BLOCK *daap_add_formatted(DAAP_BLOCK *parent, char *tag,
     pnew->size=size;
     memcpy(pnew->tag,tag,4);
 
-    if((size <= 4) && (size > 0)) { /* we can just put it in svalue */
+    if((size <= 4) && (size >= 0)) { /* we can just put it in svalue */
 	memcpy(pnew->svalue,value,size);
 	pnew->free=0;
     } else {
@@ -274,6 +275,8 @@ int daap_serialmem(DAAP_BLOCK *root, char *where) {
 
     if(daap_serialmem(root->children,where))
 	return -1;
+
+    where += root->reported_size;
 
     if(daap_serialmem(root->next,where))
 	return -1;
