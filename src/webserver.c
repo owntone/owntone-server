@@ -133,13 +133,17 @@ char *ws_moy[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
  */
 int ws_lock_unsafe(void) {
     int err;
+    int retval=0;
+
+    DPRINTF(E_SPAM,L_WS,"Entering ws_lock_unsafe\n");
 
     if((err=pthread_mutex_lock(&ws_unsafe))) {
 	errno=err;
-	return -1;
+	retval=-1;
     }
 
-    return 0;
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_lock_unsafe with retval of %d\n",retval);
+    return retval;
 }
 
 /*
@@ -152,13 +156,17 @@ int ws_lock_unsafe(void) {
  */
 int ws_unlock_unsafe(void) {
     int err;
+    int retval=0;
+
+    DPRINTF(E_SPAM,L_WS,"Entering ws_unlock_unsafe\n");
 
     if((err=pthread_mutex_unlock(&ws_unsafe))) {
 	errno=err;
-	return -1;
+	retval=-1;
     }
 
-    return 0;
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_unlock_unsafe with a retval of %d\n",retval);
+    return retval;
 }
 
 /*
@@ -176,11 +184,14 @@ int ws_unlock_unsafe(void) {
  */
 WSHANDLE ws_start(WSCONFIG *config) {
     int err;
-    
     WS_PRIVATE *pwsp;
 
-    if((pwsp=(WS_PRIVATE*)malloc(sizeof(WS_PRIVATE))) == NULL)
+    DPRINTF(E_SPAM,L_WS,"Entering ws_start\n");
+    
+    if((pwsp=(WS_PRIVATE*)malloc(sizeof(WS_PRIVATE))) == NULL) {
+	DPRINTF(E_SPAM,L_WS,"Malloc error: %s\n",strerror(errno));
 	return NULL;
+    }
 
     memcpy(&pwsp->wsconfig,config,sizeof(WS_PRIVATE));
     pwsp->connlist.next=NULL;
@@ -192,11 +203,13 @@ WSHANDLE ws_start(WSCONFIG *config) {
 
     if((err=pthread_cond_init(&pwsp->exit_cond, NULL))) {
 	errno=err;
+	DPRINTF(E_LOG,L_WS,"Error in pthread_cond_init: %s\n",strerror(errno));
 	return NULL;
     }
 
     if((err=pthread_mutex_init(&pwsp->exit_mutex,NULL))) {
 	errno=err;
+	DPRINTF(E_LOG,L_WS,"Error in pthread_mutex_init: %s\n",strerror(errno));
 	return NULL;
     }
 
@@ -204,14 +217,14 @@ WSHANDLE ws_start(WSCONFIG *config) {
 
     if((pwsp->server_fd = u_open(pwsp->wsconfig.port)) == -1) {
 	err=errno;
-	DPRINTF(E_WARN,L_WS,"Could not open port: %s\n",strerror(errno));
+	DPRINTF(E_LOG,L_WS,"Could not open port: %s\n",strerror(errno));
 	errno=err;
 	return NULL;
     }
 
     DPRINTF(E_INF,L_WS,"Starting server thread\n");
     if((err=pthread_create(&pwsp->server_tid,NULL,ws_mainthread,(void*)pwsp))) {
-	DPRINTF(E_WARN,L_WS,"Could not spawn thread: %s\n",strerror(err));
+	DPRINTF(E_LOG,L_WS,"Could not spawn thread: %s\n",strerror(err));
 	r_close(pwsp->server_fd);
 	errno=err;
 	return NULL;
@@ -220,6 +233,7 @@ WSHANDLE ws_start(WSCONFIG *config) {
     /* we're really running */
     pwsp->running=1;
 
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_start\n");
     return (WSHANDLE)pwsp;
 }
 
@@ -231,6 +245,8 @@ WSHANDLE ws_start(WSCONFIG *config) {
  */
 void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     WS_CONNLIST *pHead, *pTail;
+
+    DPRINTF(E_SPAM,L_WS,"Entering ws_remove_dispatch_thread\n");
 
     if(pthread_mutex_lock(&pwsp->exit_mutex))
 	DPRINTF(E_FATAL,L_WS,"Cannot lock condition mutex\n");
@@ -259,6 +275,7 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     }
 
     pthread_mutex_unlock(&pwsp->exit_mutex);
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_remote_dispatch_thread\n");
 }
 
 
@@ -269,6 +286,8 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
  */
 void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     WS_CONNLIST *pNew;
+
+    DPRINTF(E_SPAM,L_WS,"Entering ws_add_dispatch_thread\n");
 
     pNew=(WS_CONNLIST*)malloc(sizeof(WS_CONNLIST));
     pNew->next=NULL;
@@ -287,6 +306,7 @@ void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     pwsp->connlist.next = pNew;
 
     pthread_mutex_unlock(&pwsp->exit_mutex);
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_add_dispatch_thread\n");
 }
 
 /*
@@ -300,7 +320,7 @@ extern int ws_stop(WSHANDLE ws) {
     WS_CONNLIST *pcl;
     void *result;
 
-    DPRINTF(E_DBG,L_WS,"ws_stop: %d threads\n",pwsp->dispatch_threads);
+    DPRINTF(E_DBG,L_WS,"Entering ws_stop: %d threads\n",pwsp->dispatch_threads);
 
     /* free the ws_handlers */
     while(pwsp->handlers.next) {
@@ -346,7 +366,8 @@ extern int ws_stop(WSHANDLE ws) {
     pthread_mutex_unlock(&pwsp->exit_mutex);
 
     free(pwsp);
-    
+
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_stop\n");
     return 0;
 }
 
@@ -370,6 +391,8 @@ void *ws_mainthread(void *arg) {
     pthread_t tid;
     char hostname[MAX_HOSTNAME];
 
+    DPRINTF(E_SPAM,L_WS,"Entering ws_mainthread\n");
+
     while(1) {
 	pwsc=(WS_CONNINFO*)malloc(sizeof(WS_CONNINFO));
 	if(!pwsc) {
@@ -382,13 +405,13 @@ void *ws_mainthread(void *arg) {
 	memset(pwsc,0,sizeof(WS_CONNINFO));
 
 	if((fd=u_accept(pwsp->server_fd,hostname,MAX_HOSTNAME)) == -1) {
-	    DPRINTF(E_DBG,L_WS,"Dispatcher: accept failed: %s\n",strerror(errno));
+	    DPRINTF(E_LOG,L_WS,"Dispatcher: accept failed: %s\n",strerror(errno));
 	    shutdown(pwsp->server_fd,SHUT_RDWR);
 	    r_close(pwsp->server_fd);
 	    pwsp->running=0;
 	    free(pwsc);
 
-	    DPRINTF(E_DBG,L_WS,"Dispatcher: Aborting\n");
+	    DPRINTF(E_FATAL,L_WS,"Dispatcher: Aborting\n");
 	    return NULL;
 	}
 
@@ -409,13 +432,15 @@ void *ws_mainthread(void *arg) {
 	/* now, throw off a dispatch thread */
 	if((err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc))) {
 	    pwsc->error=err;
-	    DPRINTF(E_WARN,L_WS,"Could not spawn thread: %s\n",strerror(err));
+	    DPRINTF(E_FATAL,L_WS,"Could not spawn thread: %s\n",strerror(err));
 	    ws_close(pwsc);
 	} else {
 	    ws_add_dispatch_thread(pwsp,pwsc);
 	    pthread_detach(tid);
 	}
     }
+
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_mainthred\n");
 }
 
 
@@ -432,6 +457,9 @@ void *ws_mainthread(void *arg) {
  */
 void ws_close(WS_CONNINFO *pwsc) {
     WS_PRIVATE *pwsp = (WS_PRIVATE *)pwsc->pwsp;
+
+
+    DPRINTF(E_SPAM,L_WS,"Entering ws_close\n");
 
     /* DWB: update the status so it doesn't fill up with no longer
        relevant entries  */
@@ -459,8 +487,10 @@ void ws_close(WS_CONNINFO *pwsc) {
 	ws_remove_dispatch_thread(pwsp, pwsc);
 
 	free(pwsc);
+	DPRINTF(E_SPAM,L_WS,"Exiting ws_close (thread terminating)\n");
 	pthread_exit(NULL);
     }
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_close (thread continuing)\n");
 }
 
 /*
@@ -471,6 +501,8 @@ void ws_close(WS_CONNINFO *pwsc) {
 void ws_freearglist(ARGLIST *root) {
     ARGLIST *current;
 
+    DPRINTF(E_SPAM,L_WS,"Entering ws_freearglist\n");
+
     while(root->next) {
 	free(root->next->key);
 	free(root->next->value);
@@ -478,12 +510,15 @@ void ws_freearglist(ARGLIST *root) {
 	root->next=current->next;
 	free(current);
     }
+
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_freearglist\n");
 }
 
 
 void ws_emitheaders(WS_CONNINFO *pwsc) {
     ARGLIST *pcurrent=pwsc->response_headers.next;
 
+    DPRINTF(E_SPAM,L_WS,"Entering ws_emitheaders\n");
     while(pcurrent) {
 	DPRINTF(E_DBG,L_WS,"Emitting reponse header %s: %s\n",pcurrent->key,
 		pcurrent->value);
@@ -492,6 +527,7 @@ void ws_emitheaders(WS_CONNINFO *pwsc) {
     }
 
     ws_writefd(pwsc,"\r\n");
+    DPRINTF(E_SPAM,L_WS,"Exitin ws_emitheaders\n");
 }
 
 
@@ -505,6 +541,8 @@ int ws_getpostvars(WS_CONNINFO *pwsc) {
     char *content_length;
     int length;
     char *buffer;
+
+    DPRINTF(E_SPAM,L_WS,"Entering ws_getpostvars\n");
 
     content_length = ws_getarg(&pwsc->request_headers,"Content-Length");
     if(!content_length) {
@@ -539,6 +577,8 @@ int ws_getpostvars(WS_CONNINFO *pwsc) {
     pwsc->error=ws_getgetvars(pwsc,buffer);
     
     free(buffer);
+
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_getpostvars\n");
     return pwsc->error;
 }
 
@@ -553,6 +593,8 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
     char *first, *last;
     int done;
     char buffer[MAX_LINEBUFFER];
+
+    DPRINTF(E_SPAM,L_WS,"Entering ws_getheaders\n");
 
     /* Break down the headers into some kind of header list */
     done=0;
@@ -604,6 +646,7 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
 	}
     }
 
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_getheaders\n");
     return 0;
 }
 
@@ -619,10 +662,7 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
     char *key, *value;
     int done;
 
-    DPRINTF(E_DBG,L_WS,"Thread %d: Original string: %s\n",
-	    pwsc->threadno,string);
-
-    DPRINTF(E_DBG,L_WS,"Thread %d: Processing GET/POSTs from %s\n",
+    DPRINTF(E_DBG,L_WS,"Thread %d: Entering ws_getgetvars (%s)\n",
 	    pwsc->threadno,string);
 
     done=0;
@@ -658,6 +698,7 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
 	}
     }
 
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_getgetvars\n");
     return 0;
 }
 
@@ -683,8 +724,8 @@ void *ws_dispatcher(void *arg) {
     void (*req_handler)(WS_CONNINFO*);
     int(*auth_handler)(char *, char *);
 
-    DPRINTF(E_DBG,L_WS,"Thread %d: Connection from %s\n",pwsc->threadno,
-	    pwsc->hostname);
+    DPRINTF(E_DBG,L_WS,"Thread %d: Entering ws_dispatcher (Connection from %s)\n",
+	    pwsc->threadno, pwsc->hostname);
 	
     while(!connection_done) {
 	/* Now, get the request from the other end
@@ -711,6 +752,7 @@ void *ws_dispatcher(void *arg) {
 	    pwsc->close=1;
 	    ws_returnerror(pwsc,400,"Bad request\n");
 	    ws_close(pwsc);
+	    DPRINTF(E_SPAM,L_WS,"Error: bad request.  Exiting ws_dispatcher\n");
 	    return NULL;
 	}
 	
@@ -724,6 +766,7 @@ void *ws_dispatcher(void *arg) {
 	    pwsc->close=1;
 	    ws_returnerror(pwsc,501,"Not implemented");
 	    ws_close(pwsc);
+	    DPRINTF(E_SPAM,L_WS,"Error: not get or post.  Exiting ws_dispatcher\n");
 	    return NULL;
 	}
 
@@ -734,7 +777,7 @@ void *ws_dispatcher(void *arg) {
 	/* Get headers */
 	if((ws_getheaders(pwsc)) || (!last)) { /* didn't provide a HTTP/1.x */
 	    /* error already set */
-	    DPRINTF(E_FATAL,L_WS,"Thread %d: Couldn't parse headers - aborting\n",
+	    DPRINTF(E_LOG,L_WS,"Thread %d: Couldn't parse headers - aborting\n",
 		    pwsc->threadno);
 	    pwsc->close=1;
 	    ws_close(pwsc);
@@ -750,15 +793,14 @@ void *ws_dispatcher(void *arg) {
 	} else { /* default to persistant for HTTP/1.1 and above */
 	    pwsc->close=ws_testarg(&pwsc->request_headers,"connection","close");
 	}
+
 	DPRINTF(E_DBG,L_WS,"Thread %d: Connection type %s: Connection: %s\n",
 		pwsc->threadno, last, pwsc->close ? "non-persist" : "persist");
 
 	if(!pwsc->uri) {
-	    /* We have memory allocation errors... might just
-	     * as well bail */
 	    pwsc->error=ENOMEM;
 	    pwsc->close=1; /* force a full close */
-	    DPRINTF(E_FATAL,L_WS,"Thread %d: Error allocation URI\n",
+	    DPRINTF(E_LOG,L_WS,"Thread %d: Error allocation URI\n",
 		    pwsc->threadno);
 	    ws_returnerror(pwsc,500,"Internal server error");
 	    ws_close(pwsc);
@@ -823,7 +865,7 @@ void *ws_dispatcher(void *arg) {
 		      pwsc->close ? "close" : "keep-alive");
 	    
 	    ws_addarg(&pwsc->response_headers,"Server",
-		      "mt-daapd/%s",VERSION);
+		      "mt-daapd/" VERSION);
 	    
 	    ws_addarg(&pwsc->response_headers,"Content-Type","text/html");
 	    ws_addarg(&pwsc->response_headers,"Content-Language","en_us");
@@ -880,6 +922,7 @@ void *ws_dispatcher(void *arg) {
 	}
 	ws_close(pwsc);
     }
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_dispatcher\n");
     return NULL;
 }
 
@@ -892,12 +935,14 @@ void *ws_dispatcher(void *arg) {
 int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
     char buffer[1024];
 
+    DPRINTF(E_SPAM,L_WS,"Entering ws_writefd\n");
     va_list ap;
 
     va_start(ap, fmt);
     vsnprintf(buffer, 1024, fmt, ap);
     va_end(ap);
 
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_writefd\n");
     return r_write(pwsc->fd,buffer,strlen(buffer));
 }
 
@@ -914,7 +959,7 @@ int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
 int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
     char *useragent;
 
-    DPRINTF(E_WARN,L_WS,"Thread %d: Pushing a %d: %s\n",
+    DPRINTF(E_WARN,L_WS,"Thread %d: Entering ws_returnerror (%d: %s)\n",
 	    pwsc->threadno,error,description);
     ws_writefd(pwsc,"HTTP/1.1 %d %s\r\n",error,description);
     
@@ -938,6 +983,7 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
 
     ws_writefd(pwsc,"</i></BODY>\r\n</HTML>\r\n");
 
+    DPRINTF(E_SPAM,L_WS,"Exiting ws_returnerror\n");
     return 0;
 }
 
@@ -953,10 +999,12 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     int file_fd;
     off_t len;
     
+    DPRINTF(E_SPAM,L_WS,"Entering ws_defaulthandler\n");
+
     snprintf(path,MAXPATHLEN,"%s/%s",pwsp->wsconfig.web_root,pwsc->uri);
     if(!realpath(path,resolved_path)) {
 	pwsc->error=errno;
-	DPRINTF(E_WARN,L_WS,"Cannot resolve %s\n",path);
+	DPRINTF(E_WARN,L_WS,"Exiting ws_defaulthandler: Cannot resolve %s\n",path);
 	ws_returnerror(pwsc,404,"Not found");
 	ws_close(pwsc);
 	return;
@@ -968,7 +1016,8 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     if(strncmp(resolved_path,pwsp->wsconfig.web_root,
 	       strlen(pwsp->wsconfig.web_root))) {
 	pwsc->error=EINVAL;
-	DPRINTF(E_WARN,L_WS,"Thread %d: Requested file %s out of root\n",
+	DPRINTF(E_WARN,L_WS,"Exiting ws_defaulthandler: Thread %d: "
+		"Requested file %s out of root\n",
 		pwsc->threadno,resolved_path);
 	ws_returnerror(pwsc,403,"Forbidden");
 	ws_close(pwsc);
@@ -978,7 +1027,8 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     file_fd=open(resolved_path,O_RDONLY);
     if(file_fd == -1) {
 	pwsc->error=errno;
-	DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: %s\n",
+	DPRINTF(E_WARN,L_WS,"Exiting ws_defaulthandler: Thread %d: "
+		"Error opening %s: %s\n",
 		pwsc->threadno,resolved_path,strerror(errno));
 	ws_returnerror(pwsc,404,"Not found");
 	ws_close(pwsc);
@@ -1004,7 +1054,9 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     copyfile(file_fd,pwsc->fd);
 
     r_close(file_fd);
-    DPRINTF(E_DBG,L_WS,"Thread %d: Served successfully\n",pwsc->threadno);
+    DPRINTF(E_DBG,L_WS,"Exiting ws_defaulthandler: "
+	    "Thread %d: Served successfully\n",
+	    pwsc->threadno);
     return;
 }
 
