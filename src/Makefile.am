@@ -7,7 +7,7 @@ AM_YFLAGS=-d
 sbin_PROGRAMS = mt-daapd
 
 if COND_USE_GDBM
-DBFILE=db-gdbm.c
+DBFILE=db-gdbm.c redblack.c
 else
 DBFILE=db-memory.c
 endif
