@@ -317,29 +317,29 @@ int scan_path(char *path) {
 	DPRINTF(ERR_DEBUG,"Found %s\n",mp3_path);
 	if(stat(mp3_path,&sb)) {
 	    DPRINTF(ERR_WARN,"Error statting: %s\n",strerror(errno));
-	}
-
-	if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
-	    DPRINTF(ERR_DEBUG,"Found dir %s... recursing\n",pde->d_name);
-	    scan_path(mp3_path);
 	} else {
-	    DPRINTF(ERR_DEBUG,"Processing file\n");
-	    /* process the file */
-	    if(strlen(pde->d_name) > 4) {
-		if(strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) {
-		    /* we found an m3u file */
-		    scan_static_playlist(path, pde, &sb);
-		} else if (strcasestr(config.extensions,
-				     (char*)&pde->d_name[strlen(pde->d_name) - 4])) {
-
-		    /* only scan if it's been changed, or empty db */
-		    modified_time=sb.st_mtime;
-		    if((scan_mode_foreground) || 
-		       !db_exists(sb.st_ino) ||
-		       db_last_modified(sb.st_ino) < modified_time) {
-			scan_music_file(path,pde,&sb);
-		    } else {
-			DPRINTF(ERR_DEBUG,"Skipping file... not modified\n");
+	    if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
+		DPRINTF(ERR_DEBUG,"Found dir %s... recursing\n",pde->d_name);
+		scan_path(mp3_path);
+	    } else {
+		DPRINTF(ERR_INFO,"Processing %s\n",mp3_path);
+		/* process the file */
+		if(strlen(pde->d_name) > 4) {
+		    if(strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) {
+			/* we found an m3u file */
+			scan_static_playlist(path, pde, &sb);
+		    } else if (strcasestr(config.extensions,
+					  (char*)&pde->d_name[strlen(pde->d_name) - 4])) {
+			
+			/* only scan if it's been changed, or empty db */
+			modified_time=sb.st_mtime;
+			if((scan_mode_foreground) || 
+			   !db_exists(sb.st_ino) ||
+			   db_last_modified(sb.st_ino) < modified_time) {
+			    scan_music_file(path,pde,&sb);
+			} else {
+			    DPRINTF(ERR_DEBUG,"Skipping file... not modified\n");
+			}
 		    }
 		}
 	    }

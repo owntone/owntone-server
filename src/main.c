@@ -422,6 +422,8 @@ int main(int argc, char *argv[]) {
     WSHANDLE server;
     int parseonly=0;
     int foreground=0;
+    int start_time;
+    int end_time;
 
     config.use_mdns=1;
 
@@ -459,6 +461,8 @@ int main(int argc, char *argv[]) {
 
     /* read the configfile, if specified, otherwise
      * try defaults */
+
+    start_time=time(NULL);
 
     if(config_read(configfile)) {
 	perror("config_read");
@@ -535,6 +539,11 @@ int main(int argc, char *argv[]) {
 	rend_register(config.servername,"_daap._tcp",config.port);
 	rend_register(config.servername,"_http._tcp",config.port);
     }
+
+    end_time=time(NULL);
+
+    log_err(0,"Scanned %d songs in  %d seconds\n",db_get_song_count(),
+	    end_time-start_time);
 
     config.stop=0;
 

@@ -335,6 +335,7 @@ DAAP_BLOCK *daap_response_songlist(void) {
     db_enum_end();
 
     if(!g) {
+	DPRINTF(ERR_DEBUG,"Error enumerating database\n");
 	daap_free(root);
 	return NULL;
     }
