@@ -1,3 +1,8 @@
+mt-daapd (0.2.1.1-1) unstable; urgency=low
+  * Trivial fixes for stupid bugs
+
+ -- Ron Pedde <ron@pedde.com>  Sat,  5 Feb 2005 15:18:00 -0600
+
 mt-daapd (0.2.1-1) unstable; urgency=low
   * Add support for ogg metainfo
   * Add support for xing/lame tags

@@ -86,13 +86,13 @@ binary-arch: build install
 #	dh_installemacsen
 #	dh_installpam
 #	dh_installmime
-	dh_installinit --init-script=daap
+	dh_installinit --init-script=mt-daapd
 #	dh_installcron
 #	dh_installinfo
 	dh_installman
 	dh_link
 	dh_strip
-	dh_compress
+#	dh_compress
 	dh_fixperms
 #	dh_perl
 #	dh_python
