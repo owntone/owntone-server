@@ -27,10 +27,11 @@ DAAP_BLOCK *daap_response_server_info(char *name, char *client_version);
 DAAP_BLOCK *daap_response_content_codes(void);
 DAAP_BLOCK *daap_response_login(char *hostname);
 DAAP_BLOCK *daap_response_update(int fd, int clientver);
-DAAP_BLOCK *daap_response_songlist(void);
+DAAP_BLOCK *daap_response_songlist(char* metaInfo);
 DAAP_BLOCK *daap_response_playlists(char *name);
 DAAP_BLOCK *daap_response_dbinfo(char *name);
-DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist);
+DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr);
+void daap_handle_index(DAAP_BLOCK* block, const char* index);
+DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, unsigned long long meta);
 
 #endif /* _DAAP_H_ */
-

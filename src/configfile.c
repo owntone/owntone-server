@@ -429,32 +429,34 @@ void config_handler(WS_CONNINFO *pwsc) {
     }
     
     if(strcasecmp(pwsc->uri,"/config-update.html")==0) {
-	/* we need to update stuff */
-	pw=ws_getvar(pwsc,"admin_pw");
-	if(pw) {
-	    if(config.adminpassword)
-		free(config.adminpassword);
-	    config.adminpassword=strdup(pw);
-	}
-
-	pw=ws_getvar(pwsc,"password");
-	if(pw) {
-	    if(config.readpassword)
-		free(config.readpassword);
-	    config.readpassword=strdup(pw);
-	}
-
-	if(!config_file_is_readonly()) {
-	    DPRINTF(ERR_INFO,"Updating config file\n");
-	    config_write(pwsc);
-	}
-
-
+	/* don't update (and turn everything to (null)) the
+	   configuration file if what the user's really trying to do is
+	   stop the server */
 	pw=ws_getvar(pwsc,"action");
 	if(pw) {
 	    /* ignore stopmdns and startmdns */
 	    if (strcasecmp(pw,"stopdaap")==0) {
 		config.stop=1;
+	    }
+	} else {
+	    /* we need to update stuff */
+	    pw=ws_getvar(pwsc,"admin_pw");
+	    if(pw) {
+		if(config.adminpassword)
+		    free(config.adminpassword);
+		config.adminpassword=strdup(pw);
+	    }
+
+	    pw=ws_getvar(pwsc,"password");
+	    if(pw) {
+		if(config.readpassword)
+		    free(config.readpassword);
+		config.readpassword=strdup(pw);
+	    }
+
+	    if(!config_file_is_readonly()) {
+		DPRINTF(ERR_INFO,"Updating config file\n");
+		config_write(pwsc);
 	    }
 	}
     }

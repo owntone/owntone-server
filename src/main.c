@@ -100,6 +100,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
     int playlist_index;
     int item=0;
     char *first, *last;
+    char* index = 0;
     int streaming=0;
 
     MP3FILE *pmp3;
@@ -156,6 +157,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
     } else if(strcmp(pwsc->uri,"/databases")==0) {
 	config_set_status(pwsc,session_id,"Sending database info");
 	root=daap_response_dbinfo(config.servername);
+	if(0 != (index = ws_getvar(pwsc, "index")))
+	    daap_handle_index(root, index);
     } else if(strncmp(pwsc->uri,"/databases/",11) == 0) {
 
 	/* the /databases/ uri will either be:
@@ -194,7 +197,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	    } else if (strncasecmp(last,"items",5)==0) {
 		/* songlist */
 		free(uri);
-		root=daap_response_songlist();
+		// pass the meta field request for processing
+		root=daap_response_songlist(ws_getvar(pwsc,"meta"));
 		config_set_status(pwsc,session_id,"Sending songlist");
 	    } else if (strncasecmp(last,"containers/",11)==0) {
 		/* playlist elements */
@@ -207,7 +211,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		if(*last) {
 		    *last='\0';
 		    playlist_index=atoi(first);
-		    root=daap_response_playlist_items(playlist_index);
+		    // pass the meta list info for processing
+		    root=daap_response_playlist_items(playlist_index,
+						      ws_getvar(pwsc,"meta"));
 		}
 		free(uri);
 		config_set_status(pwsc,session_id,"Sending playlist info");
@@ -218,6 +224,10 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		config_set_status(pwsc,session_id,"Sending playlist info");
 	    }
 	}
+
+	// prune the full list if an index range was specified
+	if(0 != (index = ws_getvar(pwsc, "index")))
+	    daap_handle_index(root, index);
     }
 
     if((!root)&&(!streaming)) {
@@ -276,8 +286,16 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
 		DPRINTF(ERR_DEBUG,"Thread %d: Length of file (remaining) is %ld\n",
 			pwsc->threadno,(long)file_len);
+		
+		// DWB:  fix content-type to correctly reflect data
+		// content type (dmap tagged) should only be used on
+		// dmap protocol requests, not the actually song data
+		if(pmp3->type) 
+		    ws_addresponseheader(pwsc,"Content-Type","audio/%s",(pmp3->type)+1);
+
 		ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
 		ws_addresponseheader(pwsc,"Connection","Close");
+
 
 		if(!offset)
 		    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");

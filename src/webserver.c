@@ -452,7 +452,9 @@ int ws_getpostvars(WS_CONNINFO *pwsc) {
 	return -1;
     }
 
-    if((readtimed(pwsc->fd, buffer, length, 30.0)) == -1) {
+    // make the read time out 30 minutes like we said in the
+    // /server-info response
+    if((readtimed(pwsc->fd, buffer, length, 1800.0)) == -1) {
 	DPRINTF(ERR_INFO,"Thread %d: Timeout reading post vars\n",
 		pwsc->threadno);
 	pwsc->error=errno;

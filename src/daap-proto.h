@@ -45,5 +45,11 @@ DAAP_BLOCK *daap_add_long(DAAP_BLOCK *parent, char *tag, int v1, int v2);
 int daap_serialize(DAAP_BLOCK *root, int fd, int gzip);
 void daap_free(DAAP_BLOCK *root);
 
+// remove a block from it's parent (and free it)
+void daap_remove(DAAP_BLOCK* root);
+
+// search a block's direct children for a block with a given tag
+DAAP_BLOCK *daap_find(DAAP_BLOCK *parent, char* tag);
+
 #endif
 

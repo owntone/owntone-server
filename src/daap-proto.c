@@ -27,6 +27,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #include "daap-proto.h"
 #include "err.h"
@@ -265,6 +266,51 @@ int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
     }
     
     return 0;
+}
+
+/*
+ * daap_remove
+ *
+ * remove a node from it's parent node and release it
+ */
+void daap_remove(DAAP_BLOCK* node)
+{
+    DAAP_BLOCK*	parent = node->parent;
+
+    if(0 != parent)
+    {
+	DAAP_BLOCK**	ptr = &parent->children;
+
+	while(*ptr && *ptr != node)
+	    ptr = &(**ptr).next;
+
+	assert(0 != *ptr);
+	
+	// remove us from the chain
+	*ptr = node->next;
+
+	// update sizes in parent chain
+	for(parent = node->parent ; parent ; parent = parent->parent)
+	    parent->reported_size -= (8 + node->reported_size);
+	
+	// clear parent and next pointers so daap_free doesn't get ambitious
+	node->parent = 0;
+	node->next = 0;
+    }
+    
+    daap_free(node);
+}
+
+/*
+ * find a child block of the parent node
+ */
+DAAP_BLOCK *daap_find(DAAP_BLOCK *parent, char* tag)
+{
+    for(parent = parent->children ; parent ; parent = parent->next)
+	if(!strncmp(parent->tag, tag, 4))
+	    break;
+
+    return parent;
 }
 
 /*
