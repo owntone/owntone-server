@@ -3,6 +3,8 @@ mt-daapd (0.2.1-1) unstable; urgency=low
   * Add support for xing/lame tags
   * Better connect speed
   * More bug fixes
+
+ -- Ron Pedde <ron@pedde.com>  Sat, 29 Jan 2005 23:09:00 -0600
 	
 mt-daapd (0.2.1-pre1-1) unstable; urgency=low
   * Add support for background filesystem scans
