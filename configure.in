@@ -19,7 +19,9 @@ rend_posix=true
 STATIC_LIBS=no
 CPPFLAGS="${CPPFLAGS} -g"
 
-AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
+dnl fix freebsd's broken (?) libpthread
+AC_CHECK_LIB(c_r,pthread_creat,LDFLAGS="${LDFLAGS} -lc_r", [
+  AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="${LDFLAGS} -lpthread") ])
 
 AC_ARG_ENABLE(debug,[  --enable-debug          Enable debugging features],
 		       CPPFLAGS="${CPPFLAGS} -Wall")
