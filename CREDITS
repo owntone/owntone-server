@@ -38,7 +38,7 @@ David W. Berry (dwb@greenwing.com)
  * Tons of protocol compliance fixes.
  * Browse, query, and index support
 
-Paul Kim (mr.pickles.esq@gmail.com)
+Paul Kim (mrpickles@users.sourceforge.net)
  * Dynamic art code for AAC
  * Various AAC meta-info cleanups
  * Compilation tag support (aac and mp3)
