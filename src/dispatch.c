@@ -611,7 +611,6 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 	    ws_returnerror(pwsc,404,"Not found");
 	    config_set_status(pwsc,pqi->session_id,NULL);
 	    db_dispose_item(pmp3);
-	    free(pmp3);
 	    free(real_path);
 	} else {
 	    if(pmp3->type)
@@ -753,7 +752,6 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 	    config_set_status(pwsc,pqi->session_id,NULL);
 	    r_close(file_fd);
 	    db_dispose_item(pmp3);
-	    free(pmp3);
 	}
     }
 
