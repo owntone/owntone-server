@@ -439,7 +439,7 @@ int db_sqlite_update(MP3FILE *pmp3) {
 		       pmp3->path);
 
     if((db_sqlite_in_scan) && (!db_sqlite_reload)) {
-	db_sqlite_exec(1,"INSERT INTO updated (id) select id from songs where path='%q')",
+	db_sqlite_exec(1,"INSERT INTO updated (id) select id from songs where path='%q'",
 		       pmp3->path);
     }
 
