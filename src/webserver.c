@@ -63,9 +63,16 @@ typedef struct tag_ws_handler {
     struct tag_ws_handler *next;
 } WS_HANDLER;
 
+typedef struct tag_ws_connlist {
+    WS_CONNINFO *pwsc;
+    char *status;
+    struct tag_ws_connlist *next;
+} WS_CONNLIST;
+
 typedef struct tag_ws_private {
     WSCONFIG wsconfig;
     WS_HANDLER handlers;
+    WS_CONNLIST connlist;
     int server_fd;
     int stop;
     int running;
@@ -75,6 +82,7 @@ typedef struct tag_ws_private {
     pthread_cond_t exit_cond;
     pthread_mutex_t exit_mutex;
 } WS_PRIVATE;
+
 
 /*
  * Forwards
@@ -103,6 +111,8 @@ int ws_registerhandler(WSHANDLE ws, char *regex,
 int ws_decodepassword(char *header, char **username, char **password);
 int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
 char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header);
+void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
+void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
 
 /*
  * Globals
@@ -173,6 +183,7 @@ WSHANDLE ws_start(WSCONFIG *config) {
 	return NULL;
 
     memcpy(&pwsp->wsconfig,config,sizeof(WS_PRIVATE));
+    pwsp->connlist.next=NULL;
     pwsp->running=0;
     pwsp->threadno=0;
     pwsp->stop=0;
@@ -212,6 +223,71 @@ WSHANDLE ws_start(WSCONFIG *config) {
     return (WSHANDLE)pwsp;
 }
 
+
+/*
+ * ws_remove_dispatch_thread
+ * 
+ * remove a dispatch thread from the thread list
+ */
+void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
+    WS_CONNLIST *pHead, *pTail;
+
+    if(pthread_mutex_lock(&pwsp->exit_mutex))
+	DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
+
+    pHead=pTail=pwsp->connlist.next;
+
+    while((pHead) && (pHead->pwsc != pwsc)) {
+	pTail=pHead;
+	pHead=pHead->next;
+    }
+
+    if(pHead) {
+	pwsp->dispatch_threads--;
+	DPRINTF(ERR_DEBUG,"With thread %d exiting, %d are still running\n",
+		pwsc->threadno,pwsp->dispatch_threads);
+
+	pTail->next = pHead->next;
+	
+	if(pHead->status)
+	    free(pHead->status);
+	free(pHead);
+
+	/* signal condition in case something is waiting */
+	pthread_cond_signal(&pwsp->exit_cond);
+    }
+
+    pthread_mutex_unlock(&pwsp->exit_mutex);
+}
+
+
+/*
+ * ws_add_dispatch_thread
+ *
+ * Add a thread to the dispatch thread list
+ */
+void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
+    WS_CONNLIST *pNew;
+
+    pNew=(WS_CONNLIST*)malloc(sizeof(WS_CONNLIST));
+    pNew->next=NULL;
+    pNew->pwsc=pwsc;
+    pNew->status=strdup("Initializing");
+
+    if(!pNew)
+	DPRINTF(ERR_FATAL,"Malloc: %s\n",strerror(errno));
+    
+    if(pthread_mutex_lock(&pwsp->exit_mutex))
+	DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
+
+    /* list is locked... */
+    pwsp->dispatch_threads++;
+    pNew->next = pwsp->connlist.next;
+    pwsp->connlist.next = pNew;
+
+    pthread_mutex_unlock(&pwsp->exit_mutex);
+}
+
 /*
  * ws_stop
  *
@@ -220,6 +296,8 @@ WSHANDLE ws_start(WSCONFIG *config) {
 extern int ws_stop(WSHANDLE ws) {
     WS_PRIVATE *pwsp = (WS_PRIVATE*)ws;
     WS_HANDLER *current;
+    WS_CONNLIST *pcl;
+    void *result;
 
     DPRINTF(ERR_DEBUG,"ws_stop: %d threads\n",pwsp->dispatch_threads);
 
@@ -237,12 +315,28 @@ extern int ws_stop(WSHANDLE ws) {
     DPRINTF(ERR_DEBUG,"ws_stop: closing the server fd\n");
     shutdown(pwsp->server_fd,SHUT_RDWR);
     r_close(pwsp->server_fd); /* this should tick off the listener */
+    
+    /* wait for the server thread to terminate.  SHould be quick! */
+    pthread_join(pwsp->server_tid,&result);
 
-    /* Wait for all the threads to die */
+    /* Give the threads an extra push */
     if(pthread_mutex_lock(&pwsp->exit_mutex))
 	DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
 
-    /* wait for condition */
+    pcl=pwsp->connlist.next;
+
+    /* Closing the client sockets out from under the dispatch threads
+     * should cause the dispatch threads to exit out with an error.
+     */
+    while(pcl) {
+	if(pcl->pwsc->fd) {
+	    shutdown(pcl->pwsc->fd,SHUT_RDWR);
+	    r_close(pcl->pwsc->fd);
+	} 
+	pcl=pcl->next;
+    }
+
+    /* wait for the threads to be done */
     while(pwsp->dispatch_threads) {
 	DPRINTF(ERR_DEBUG,"ws_stop: I still see %d threads\n",pwsp->dispatch_threads);
 	pthread_cond_wait(&pwsp->exit_cond, &pwsp->exit_mutex);
@@ -275,28 +369,12 @@ void *ws_mainthread(void *arg) {
     pthread_t tid;
     char hostname[MAX_HOSTNAME];
 
-    if(pthread_mutex_lock(&pwsp->exit_mutex))
-	DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
-    
-    pwsp->dispatch_threads++;
-
-    pthread_mutex_unlock(&pwsp->exit_mutex);
-    
     while(1) {
 	pwsc=(WS_CONNINFO*)malloc(sizeof(WS_CONNINFO));
 	if(!pwsc) {
 	    /* can't very well service any more threads! */
 	    DPRINTF(ERR_FATAL,"Error: %s\n",strerror(errno));
 	    pwsp->running=0;
-
-
-	    /* decrement the number of dispatch threads */
-	    if(pthread_mutex_lock(&pwsp->exit_mutex))
-		DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
-    
-	    pwsp->dispatch_threads--;
-	    pthread_cond_signal(&pwsp->exit_cond);
-	    pthread_mutex_unlock(&pwsp->exit_mutex);
 	    return NULL;
 	}
 
@@ -304,17 +382,11 @@ void *ws_mainthread(void *arg) {
 
 	if((fd=u_accept(pwsp->server_fd,hostname,MAX_HOSTNAME)) == -1) {
 	    DPRINTF(ERR_DEBUG,"Dispatcher: accept failed: %s\n",strerror(errno));
+	    shutdown(pwsp->server_fd,SHUT_RDWR);
 	    r_close(pwsp->server_fd);
 	    pwsp->running=0;
 	    free(pwsc);
 
-	    /* decrement dispatch threads */
-	    if(pthread_mutex_lock(&pwsp->exit_mutex))
-		DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
-    
-	    pwsp->dispatch_threads--;
-	    pthread_cond_signal(&pwsp->exit_cond);
-	    pthread_mutex_unlock(&pwsp->exit_mutex);
 	    DPRINTF(ERR_DEBUG,"Dispatcher: Aborting\n");
 	    return NULL;
 	}
@@ -334,18 +406,12 @@ void *ws_mainthread(void *arg) {
 	ws_unlock_unsafe();
 
 	/* now, throw off a dispatch thread */
-	if(pthread_mutex_lock(&pwsp->exit_mutex))
-	    DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
-
-	pwsp->dispatch_threads++;  /* since ws_close will decrement if fail */
-
 	if((err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc))) {
 	    pwsc->error=err;
 	    DPRINTF(ERR_WARN,"Could not spawn thread: %s\n",strerror(err));
-	    pthread_mutex_unlock(&pwsp->exit_mutex);
 	    ws_close(pwsc);
 	} else {
-	    pthread_mutex_unlock(&pwsp->exit_mutex);
+	    ws_add_dispatch_thread(pwsp,pwsc);
 	    pthread_detach(tid);
 	}
     }
@@ -384,26 +450,15 @@ void ws_close(WS_CONNINFO *pwsc) {
     
     if((pwsc->close)||(pwsc->error)) {
 	DPRINTF(ERR_DEBUG,"Thread %d: Closing fd\n",pwsc->threadno);
+	shutdown(pwsc->fd,SHUT_RDWR);
 	r_close(pwsc->fd);
 	free(pwsc->hostname);
 	
 	/* this thread is done */
-	if(pthread_mutex_lock(&pwsp->exit_mutex)) 
-	    DPRINTF(ERR_FATAL,"Error: cannot lock condition mutex\n");
-
-	if(!pwsp->dispatch_threads) {
-	    DPRINTF(ERR_FATAL,"Error: Bad dispatch thread count!\n");
-	} else {
-	    pwsp->dispatch_threads--;
-	    DPRINTF(ERR_INFO,"Thread %d: without me, there are only %d threads left\n",
-		    pwsc->threadno,pwsp->dispatch_threads);
-
-	    if(pthread_cond_signal(&pwsp->exit_cond))
-		DPRINTF(ERR_FATAL,"Error: cannot signal condition\n");
-	}
-	pthread_mutex_unlock(&pwsp->exit_mutex);
+	ws_remove_dispatch_thread(pwsp, pwsc);
 
 	free(pwsc);
+	pthread_exit(NULL);
     }
 }
 
