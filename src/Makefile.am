@@ -13,22 +13,23 @@ DBFILE=db-memory.c
 endif
 
 if COND_REND_POSIX
-RENDSRC=mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c mDNSUNP.c rend-posix.c mDNSPlatformFunctions.h
+PRENDSRC=mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c mDNSUNP.c rend-posix.c mDNSPlatformFunctions.h
 endif
 
 if COND_REND_HOWL
-RENDSRC=rend-howl.c
+HRENDSRC=rend-howl.c
 endif
 
 if COND_REND_OSX
-RENDSRC=rend-osx.c
+ORENDSRC=rend-osx.c
 endif
 
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	daap-proto.c daap-proto.h daap.c daap.h $(DBFILE) db-memory.h \
 	mp3-scanner.h mp3-scanner.c playlist.c playlist.h rend-unix.c \
-	rend-unix.h lexer.l parser.y $(RENDSRC) strcasestr.c strcasestr.h strsep.c
+	rend-unix.h lexer.l parser.y strcasestr.c strcasestr.h strsep.c \
+	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC)
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
