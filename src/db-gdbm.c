@@ -48,6 +48,15 @@
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
+/* For old version of gdbm */
+#ifndef GDBM_SYNC
+# define GDBM_SYNC 0
+#endif
+
+#ifndef GDBM_NOLOCK
+# define GDBM_NOLOCK 0
+#endif
+
 
 /*
  * Typedefs

@@ -4,7 +4,7 @@ dnl Process this file with autoconf to produce a configure script.
 AC_INIT(config.h.in)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(mt-daapd,0.2.0-pre2)
+AM_INIT_AUTOMAKE(mt-daapd,0.2.0)
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -18,9 +18,21 @@ AM_CONDITIONAL(COND_REND_OSX,false)
 STATIC_LIBS=no
 CPPFLAGS="${CPPFLAGS} -g"
 
+LDFLAGS="${LDFLAGS} -lz"
+
+AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
+
 AC_ARG_ENABLE(debug,Enable debugging features,CPPFLAGS="${CPPFLAGS} -Wall")
 AC_ARG_ENABLE(debug-memory,Enable mem leak debugging,CPPFLAGS="${CPPFLAGS} -DDEBUG_MEMORY")
 AC_ARG_ENABLE(efence,Enable electric fence,LDFLAGS="${LDFLAGS} -lefence")
+AC_ARG_ENABLE(new-howl,[  --enable-new-howl  Use howl 0.9.2 or later],
+		      [ case "${enableval}" in
+                        yes) rend_howl=true; LDFLAGS="${LDFLAGS} -lhowl";
+			CPPFLAGS="${CPPFLAGS} -DWITH_HOWL";;
+		        no)  rend_howl=false;;
+		        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-howl);;
+		      esac ],[rend_howl=false])
+
 
 AC_ARG_ENABLE(howl,[  --enable-howl      Use the howl mDNS library],
 		      [ case "${enableval}" in
@@ -142,10 +154,6 @@ fi
 
 AC_REPLACE_FUNCS(strcasestr)
 AC_REPLACE_FUNCS(strsep)
-
-LDFLAGS="${LDFLAGS} -lz"
-
-AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
 
 dnl Checks for header files.
 AC_HEADER_STDC
