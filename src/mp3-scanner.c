@@ -329,7 +329,6 @@ int scan_path(char *path) {
 		DPRINTF(ERR_DEBUG,"Found dir %s... recursing\n",pde->d_name);
 		scan_path(mp3_path);
 	    } else {
-		DPRINTF(ERR_INFO,"Processing %s\n",mp3_path);
 		/* process the file */
 		if(strlen(pde->d_name) > 4) {
 		    if(strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) {
@@ -771,8 +770,9 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     unsigned int size=0;
     off_t fp_size=0;
     off_t file_size;
-    unsigned char buffer[256];
+    unsigned char buffer[1024];
     int time_seconds;
+    int index;
 
     int ver=0;
     int layer=0;
@@ -812,13 +812,23 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     fseek(infile,fp_size,SEEK_SET);
     fread(buffer,1,sizeof(buffer),infile);
 
-    if((buffer[0] == 0xFF)&&(buffer[1] >= 224)) {
-	ver=(buffer[1] & 0x18) >> 3;
-	layer=(buffer[1] & 0x6) >> 1;
+    index=0;
+    while(((buffer[index] != 0xFF) || (buffer[index+1] < 224)) &&
+	  (index < (sizeof(buffer)-10))) {
+	index++;
+    }
+
+    if(index) {
+	DPRINTF(ERR_DEBUG,"Scanned forward %d bytes to find frame header\n",index);
+    }
+
+    if((buffer[index] == 0xFF)&&(buffer[index+1] >= 224)) {
+	ver=(buffer[index+1] & 0x18) >> 3;
+	layer=(buffer[index+1] & 0x6) >> 1;
 	if((ver==3) && (layer==1)) { /* MPEG1, Layer 3 */
-	    bitrate=(buffer[2] & 0xF0) >> 4;
+	    bitrate=(buffer[index+2] & 0xF0) >> 4;
 	    bitrate=scan_br_table[bitrate];
-	    samplerate=(buffer[2] & 0x0C) >> 2;
+	    samplerate=(buffer[index+2] & 0x0C) >> 2;
 	    switch(samplerate) {
 	    case 0:
 		samplerate=44100;
@@ -846,7 +856,7 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
 	/* FIXME: should really scan forward to next sync frame */
 	fclose(infile);
 	DPRINTF(ERR_DEBUG,"Could not find sync frame\n");
-	return -1;
+	return 0;
     }
     
 
