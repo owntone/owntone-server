@@ -35,8 +35,9 @@ extern int db_deinit(void);
 extern int db_version(void);
 extern int db_add(MP3FILE *mp3file);
 extern int db_delete(int id);
-extern int db_add_playlist(unsigned int playlistid, char *name, int is_smart);
+extern int db_add_playlist(unsigned int playlistid, char *name, int file_time, int is_smart);
 extern int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
+extern int db_delete_playlist(unsigned int playlistid);
 
 extern ENUMHANDLE db_enum_begin(void);
 extern MP3FILE *db_enum(ENUMHANDLE *handle);
@@ -58,7 +59,7 @@ extern int db_playlist_items_enum(ENUMHANDLE *current);
 extern int db_playlist_items_enum_end(ENUMHANDLE handle);
 
 extern char *db_get_playlist_name(int playlistid);
-
+extern int db_playlist_last_modified(int playlistid);
 extern int db_scanning(void);
 
 /* For persistant databases only */

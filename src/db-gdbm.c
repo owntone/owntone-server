@@ -78,7 +78,9 @@ typedef struct tag_playlist {
     unsigned int id;
     int songs;
     int is_smart;
+    int found;
     char *name;
+    int file_time;
     struct tag_playlistentry *nodes;
     struct tag_playlist *next;
 } DB_PLAYLIST;
@@ -157,6 +159,8 @@ static int db_unlock(void);
 static void db_gdbmlock(void);
 static int db_gdbmunlock(void);
 
+static DB_PLAYLIST *db_playlist_find(int playlistid);
+
 int db_start_initial_update(void);
 int db_end_initial_update(void);
 int db_is_empty(void);
@@ -166,7 +170,8 @@ int db_deinit(void);
 int db_version(void);
 int db_add(MP3FILE *mp3file);
 int db_delete(int id);
-int db_add_playlist(unsigned int playlistid, char *name, int is_smart);
+int db_delete_playlist(unsigned int playlistid);
+int db_add_playlist(unsigned int playlistid, char *name, int file_time, int is_smart);
 int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
 int db_unpackrecord(datum *pdatum, MP3FILE *pmp3);
 int db_scanning(void);
@@ -413,6 +418,7 @@ int db_version(void) {
 int db_start_initial_update(void) {
     datum tmp_key,tmp_nextkey;
     int err;
+    DB_PLAYLIST *current;
 
     /* we need a write lock on the db -- stop enums from happening */
     db_writelock();
@@ -448,6 +454,14 @@ int db_start_initial_update(void) {
 	tmp_key=tmp_nextkey;
     }
 
+
+    /* walk through the playlists and mark them as not found */
+    current=db_playlists.next;
+    while(current) {
+	current->found=0;
+	current=current->next;
+    }
+
     db_update_mode=1;
     db_unlock();
 
@@ -461,6 +475,8 @@ int db_start_initial_update(void) {
  */
 int db_end_initial_update(void) {
     const void *val;
+    DB_PLAYLIST *current,*last;
+    DB_PLAYLISTENTRY *pple;
 
     DPRINTF(E_DBG,L_DB|L_SCAN,"Initial update over.  Removing stale items\n");
     for(val=rblookup(RB_LUFIRST,NULL,db_removed); val != NULL; 
@@ -479,6 +495,36 @@ int db_end_initial_update(void) {
     gdbm_reorganize(db_songs);
     gdbm_sync(db_songs);
     DPRINTF(E_DBG,L_DB,"Reorganize done\n");
+
+
+    DPRINTF(E_DBG,L_DB|L_PL,"Finding deleted static playlists\n");
+    
+    current=db_playlists.next;
+    last=&db_playlists;
+
+    while(current) {
+	if((!current->found)&&(!current->is_smart)) {
+	    DPRINTF(E_DBG,L_DB|L_PL,"Deleting playlist %s\n",current->name);
+	    last->next=current->next;
+	    if(current->nodes)
+		db_playlist_count--;
+	    db_version_no++;
+
+	    while(current->nodes) {
+		pple=current->nodes;
+		current->nodes=pple->next;
+		free(pple);
+	    }
+
+	    if(current->name)
+		free(current->name);
+	    free(current);
+	    
+	    current=last;
+	}
+	current=current->next;
+    }
+
     db_update_mode=0;
     db_gdbmunlock();
     db_unlock();
@@ -498,15 +544,107 @@ int db_is_empty(void) {
 }
 
 
+/**
+ * Get the pointer to a specific playlist.  MUST HAVE A
+ * READLOCK TO CALL THIS!
+ *
+ * @param playlistid playlist to find
+ * @returns DB_PLAYLIST of playlist, or null otherwise.
+ */
+DB_PLAYLIST *db_playlist_find(int playlistid) {
+    DB_PLAYLIST *current;
+
+    current=db_playlists.next;
+    while(current && (current->id != playlistid))
+	current=current->next;
+
+    if(!current) {
+	return NULL;
+    }
+
+    return current;
+}
+
+/**
+ * delete a given playlist
+ *
+ * @param playlistid playlist to delete
+ */
+int db_delete_playlist(unsigned int playlistid) {
+    DB_PLAYLIST *plist;
+    DB_PLAYLISTENTRY *pple;
+    DB_PLAYLIST *last, *current;
+
+    DPRINTF(E_DBG,L_PL,"Deleting playlist %d\n",playlistid);
+
+    db_writelock();
+
+    current=db_playlists.next;
+    last=&db_playlists;
+
+    while(current && (current->id != playlistid)) {
+	last=current;
+	current=current->next;
+    }
+
+    if(!current) {
+	db_unlock();
+	return -1;
+    }
+
+    last->next=current->next;
+
+    if(current->nodes)
+	db_playlist_count--;
+
+    db_version_no++;
+
+    db_unlock();
+
+    while(current->nodes) {
+	pple=current->nodes;
+	current->nodes=pple->next;
+	free(pple);
+    }
+
+    if(current->name)
+	free(current->name);
+
+    free(current);
+    return 0;
+}
+
+/**
+ * find the last modified time of a specific playlist
+ * 
+ * @param playlistid playlist to check (inode)
+ * @returns file_time of playlist, or 0 if no playlist
+ */
+int db_playlist_last_modified(int playlistid) {
+    DB_PLAYLIST *plist;
+    int file_time;
+
+    db_readlock();
+    plist=db_playlist_find(playlistid);
+    if(!plist) {
+	db_unlock();
+	return 0;
+    }
+
+    file_time=plist->file_time;
+    
+    /* mark as found, so deleted playlists can go away */
+    plist->found=1;
+    db_unlock();
+    return file_time;
+}
+
 /*
  * db_add_playlist
  *
  * Add a new playlist
- *
- * FIXME: this assume we are in db_update mode... if this is called at random,
- * then we have to get a write lock.
  */
-int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
+int db_add_playlist(unsigned int playlistid, char *name, int file_time, int is_smart) {
     int err;
     DB_PLAYLIST *pnew;
 
@@ -518,6 +656,8 @@ int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
     pnew->id=playlistid;
     pnew->nodes=NULL;
     pnew->songs=0;
+    pnew->found=1;
+    pnew->file_time=file_time;
     pnew->is_smart=is_smart;
 
     if(!pnew->name) {
@@ -1259,7 +1399,7 @@ MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
 
     MEMNOTIFY(content.dptr);
     if(!content.dptr) {
-	DPRINTF(E_WARN,L_DB,"Could not find id %d\n",id);
+	DPRINTF(E_DBG,L_DB,"Could not find id %d\n",id);
 	db_unlock();
 	return NULL;
     }

@@ -230,7 +230,7 @@ void pl_register(void) {
     pcurrent=pl_smart.next;
     while(pcurrent) {
 	DPRINTF(E_INF,L_PL,"Adding smart playlist %s as %d\n",pcurrent->name,pcurrent->id)
-	    db_add_playlist(pcurrent->id, pcurrent->name,1);
+	    db_add_playlist(pcurrent->id, pcurrent->name,0,1);
 	pcurrent=pcurrent->next;
     }
 }

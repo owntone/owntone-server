@@ -460,13 +460,20 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     struct stat sb;
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",pde->d_name);
+    
+    /* see if we should update it */
+    if(db_playlist_last_modified(psb->st_ino) == psb->st_mtime)
+	return;
+
+    db_delete_playlist(psb->st_ino);
+
     strcpy(m3u_path,pde->d_name);
     snprintf(playlist_path,sizeof(playlist_path),"%s/%s",path,pde->d_name);
     m3u_path[strlen(pde->d_name) - 4] = '\0';
     playlistid=psb->st_ino;
     fd=open(playlist_path,O_RDONLY);
     if(fd != -1) {
-	db_add_playlist(playlistid,m3u_path,0);
+	db_add_playlist(playlistid,m3u_path,psb->st_mtime,0);
 	DPRINTF(E_INF,L_SCAN|L_PL,"Added playlist as id %d\n",playlistid);
 
 	memset(linebuffer,0x00,sizeof(linebuffer));
