@@ -144,6 +144,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	root=daap_response_update(pwsc->fd,clientrev);
 	if((!ws_getvar(pwsc,"delta")) && (root==NULL)) {
 	    DPRINTF(ERR_LOG,"Client %s disconnected\n",pwsc->hostname);
+	    config_set_status(pwsc,session_id,NULL);
+	    pwsc->close=1;
+	    return;
 	}
     } else if (!strcasecmp(pwsc->uri,"/logout")) {
 	config_set_status(pwsc,session_id,NULL);
@@ -297,7 +300,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
 		} else if(offset) {
 			DPRINTF(ERR_INFO,"Seeking to offset %d\n",offset);
-			lseek(file_fd,(fpos_t)offset,SEEK_SET);
+			lseek(file_fd,offset,SEEK_SET);
 		}
 
 		if(copyfile(file_fd,pwsc->fd)) {
@@ -654,6 +657,10 @@ int main(int argc, char *argv[]) {
 	if(config.reload) {
 	    config.reload=0;
 	    DPRINTF(ERR_LOG,"Reloading configuration\n");
+	    if(scan_init(config.mp3dir)) {
+		DPRINTF(ERR_LOG,"Error rescanning... exiting\n");
+		config.stop=1;
+	    }
 	}
 	sleep(2);
     }

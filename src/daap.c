@@ -417,6 +417,7 @@ DAAP_BLOCK *daap_response_update(int fd, int clientver) {
 	if(FD_ISSET(fd,&rset)) {
 	    /* can't be ready for read, must be error */
 	    DPRINTF(ERR_DEBUG,"Socket closed?\n");
+	    
 	    return NULL;
 	}
     }

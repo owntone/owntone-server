@@ -350,6 +350,8 @@ int db_end_initial_update(void) {
 
     rbdestroy(db_removed);
 
+    db_version_no++;
+
     return 0;
 }
 

@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <stdio.h>
 #include <pwd.h>
+#include <signal.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <rendezvous/rendezvous.h>
@@ -73,6 +74,7 @@ int rend_private_init(char *user) {
     sw_result result;
     
     DPRINTF(ERR_DEBUG,"Starting rendezvous services\n");
+    signal(SIGHUP,  SIG_IGN);           // SIGHUP might happen from a request to reload the daap server
 
     if(sw_rendezvous_init(&rend_handle) != SW_OKAY) {
 	DPRINTF(ERR_WARN,"Error initializing rendezvous\n");
