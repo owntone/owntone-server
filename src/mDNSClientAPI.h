@@ -23,6 +23,9 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.2  2004/09/19 03:03:47  rpedde
+Jim Buzbee's ARM patches for NSLU2
+
 Revision 1.1  2004/03/29 17:55:17  rpedde
 Flatten mdns stuff
 
@@ -501,9 +504,9 @@ typedef struct { void *dummy; } *mDNSInterfaceID;
 // less than, add, multiply, increment, decrement, etc., are undefined for opaque identifiers,
 // and if you make the mistake of trying to do those using the NotAnInteger field, then you'll
 // find you get code that doesn't work consistently on big-endian and little-endian machines.
-typedef union { mDNSu8 b[2]; mDNSu16 NotAnInteger; } mDNSOpaque16;
-typedef union { mDNSu8 b[4]; mDNSu32 NotAnInteger; } mDNSOpaque32;
-typedef union { mDNSu8 b[16]; mDNSu16 w[8]; mDNSu32 l[4]; } mDNSOpaque128;
+typedef union { mDNSu8 b[2]; mDNSu16 NotAnInteger; } __attribute__ ((packed)) mDNSOpaque16;
+typedef union { mDNSu8 b[4]; mDNSu32 NotAnInteger; } __attribute__ ((packed)) mDNSOpaque32;
+typedef union { mDNSu8 b[16]; mDNSu16 w[8]; mDNSu32 l[4]; } __attribute__ ((packed)) mDNSOpaque128;
 
 typedef mDNSOpaque16  mDNSIPPort;		// An IP port is a two-byte opaque identifier (not an integer)
 typedef mDNSOpaque32  mDNSv4Addr;		// An IP address is a four-byte opaque identifier (not an integer)
@@ -521,7 +524,7 @@ typedef struct
 	{
 	mDNSs32 type;
 	union { mDNSv6Addr v6; mDNSv4Addr v4; } ip;
-	} mDNSAddr;
+	} __attribute__ ((packed)) mDNSAddr;
 
 enum { mDNSfalse = 0, mDNStrue = 1 };
 
@@ -671,8 +674,8 @@ enum
 	kDNSRecordTypePacketUniqueMask = 0x20	// True for PacketAddUnique and PacketAnsUnique
 	};
 
-typedef struct { mDNSu16 priority; mDNSu16 weight; mDNSIPPort port; domainname target; } rdataSRV;
-typedef struct { mDNSu16 preference; domainname exchange; } rdataMX;
+typedef struct { mDNSu16 priority; mDNSu16 weight; mDNSIPPort port; domainname target; } __attribute__ ((packed)) rdataSRV;
+typedef struct { mDNSu16 preference; domainname exchange; } __attribute__ ((packed)) rdataMX;
 
 // StandardAuthRDSize is 264 (256+8), which is large enough to hold a maximum-sized SRV record
 // MaximumRDSize is 8K the absolute maximum we support (at least for now)
