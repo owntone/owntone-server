@@ -377,6 +377,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	      ws_addresponseheader(pwsc,"Content-Length","%d",bytes_written);
 	  } else {
 	      ws_addresponseheader(pwsc,"Connection","close");
+	      ws_addresponseheader(pwsc,"Content-type","text/xml");
 	      pwsc->close=1;
 	  }
 	  ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
