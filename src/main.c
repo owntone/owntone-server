@@ -490,7 +490,7 @@ int daemon_start(void) {
     if((fd = open("/dev/null", O_RDWR, 0)) != -1) {
 	dup2(fd, STDIN_FILENO);
 	dup2(fd, STDOUT_FILENO);
-        dup2(fd, STDERR_FILENO);
+	dup2(fd, STDERR_FILENO); 
 	if (fd > 2)
 	    close(fd);
     }
@@ -753,7 +753,6 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
     }
 
-
     if(!foreground) {
 	if(config.logfile) {
 	    err_setdest(config.logfile,LOGDEST_LOGFILE);
@@ -771,18 +770,24 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-    /* DWB: shouldn't this be done after dropping privs? */
-    if(db_open(config.dbdir, reload)) 
-	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
-
     /* open the pidfile, so it can be written once we detach */
     if(!foreground) {
+	daemon_start();
+
 	if(-1 == (pid_fd = open(PIDFILE,O_CREAT | O_WRONLY | O_TRUNC, 0644)))
 	    DPRINTF(E_FATAL,L_MAIN,"Error opening pidfile (%s): %s\n",PIDFILE,strerror(errno));
 
 	if(0 == (pid_fp = fdopen(pid_fd, "w")))
 	    DPRINTF(E_FATAL,L_MAIN,"fdopen: %s\n",strerror(errno));
+
+	fprintf(pid_fp,"%d\n",getpid());
+	fclose(pid_fp);
     }
+
+    /* DWB: shouldn't this be done after dropping privs? */
+    if(db_open(config.dbdir, reload)) 
+	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
+
 
     // Drop privs here
     if(drop_privs(config.runas)) {
@@ -812,13 +817,6 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
     if(db_init()) {
 	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
-    }
-
-    /* Wait as long as we can to detach */
-    if(!foreground) {
-	daemon_start();
-	fprintf(pid_fp,"%d\n",getpid());
-	fclose(pid_fp);
     }
 
     DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
