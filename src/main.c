@@ -522,6 +522,7 @@ void usage(char *program) {
     printf("  -c <file>      Use configfile specified");
     printf("  -p             Parse playlist file\n");
     printf("  -f             Run in foreground\n");
+    printf("  -y             Yes, go ahead and run as non-root user");
     printf("\n\n");
     printf("Valid debug modules:\n");
     printf(" config,webserver,database,scan,query,index,browse\n");
@@ -685,12 +686,13 @@ int main(int argc, char *argv[]) {
     int end_time;
     int rescan_counter=0;
     int old_song_count;
+    int force_non_root=0;
     pthread_t signal_tid;
 
     config.use_mdns=1;
     err_debuglevel=1;
 
-    while((option=getopt(argc,argv,"D:d:c:mpfr")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:mpfry")) != -1) {
 	switch(option) {
 	case 'd':
 	    err_debuglevel=atoi(optarg);
@@ -698,7 +700,7 @@ int main(int argc, char *argv[]) {
 	case 'D':
 	    if(err_setdebugmask(optarg)) {
 		usage(argv[0]);
-		exit(-1);
+		exit(EXIT_FAILURE);
 	    }
 	    break;
 	case 'f':
@@ -722,6 +724,10 @@ int main(int argc, char *argv[]) {
 	    reload=1;
 	    break;
 
+	case 'y':
+	    force_non_root=1;
+	    break;
+
 	default:
 	    usage(argv[0]);
 	    exit(EXIT_FAILURE);
@@ -729,15 +735,21 @@ int main(int argc, char *argv[]) {
 	}
     }
 
+    if((getuid()) && (!force_non_root)) {
+	fprintf(stderr,"You are not root.  This is almost certainly wrong.  If you are\n"
+		"sure you want to do this, use the -y command-line switch\n");
+	exit(EXIT_FAILURE);
+    }
+
     /* read the configfile, if specified, otherwise
      * try defaults */
     config.stats.start_time=start_time=time(NULL);
 
     if(config_read(configfile)) {
-	if(errno) perror("config_read");
-	else fprintf(stderr,"Error reading config file (%s)\n",configfile);
+	fprintf(stderr,"Error reading config file (%s)\n",configfile);
 	exit(EXIT_FAILURE);
     }
+
 
     if((config.logfile) && (!parseonly) && (!foreground)) {
 	err_setdest(config.logfile,LOGDEST_LOGFILE);	
@@ -747,15 +759,10 @@ int main(int argc, char *argv[]) {
 	}
     }
 
-
-#ifndef WITHOUT_MDNS
-    if((config.use_mdns) && (!parseonly)) {
-	DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
-	if(rend_init(config.runas)) {
-	    DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",strerror(errno));
-	}
+    /* DWB: shouldn't this be done after dropping privs? */
+    if(db_open(config.dbdir, reload)) {
+	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
     }
-#endif
 
     /* DWB: we want to detach before we drop privs so the pid file can
        be created with the original permissions.  This has the
@@ -763,19 +770,10 @@ int main(int argc, char *argv[]) {
        we're attached, but if is much better when being automatically
        started as a system service. */
     if(!foreground) {
-	daemon_start();
 	write_pid_file();
     }
 
-    /* DWB: shouldn't this be done after dropping privs? */
-    if(db_open(config.dbdir, reload)) {
-	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
-    }
 
-    // Drop privs here
-    if(drop_privs(config.runas)) {
-	DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
-    }
 
     /* block signals and set up the signal handling thread */
     DPRINTF(E_LOG,L_MAIN,"Starting signal handler\n");
@@ -796,11 +794,33 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_SUCCESS);
     }
 
+
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
     if(db_init()) {
 	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
+
+
+#ifndef WITHOUT_MDNS
+    if((config.use_mdns) && (!parseonly)) {
+	DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
+	if(rend_init(config.runas)) {
+	    DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",strerror(errno));
+	}
+    }
+#endif
+
+    /* Wait as long as we can to detach */
+    if(!foreground) {
+	daemon_start();
+    }
+
+    // Drop privs here
+    if(drop_privs(config.runas)) {
+	DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
+    }
+
 
     DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
     if(scan_init(config.mp3dir)) {
