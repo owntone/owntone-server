@@ -285,8 +285,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		if(!offset)
 		    config.stats.songs_served++; /* FIXME: remove stat races */
 
-		if((config.artfilename) && ((img_fd=da_get_image_fd(pmp3->path)) != -1) &&
-		   (!offset)) {
+		if((config.artfilename) && 
+		   ((img_fd=da_get_image_fd(pmp3->path)) != -1) && (!offset) &&
+		   (strncasecmp(pmp3->type,".mp3",4) ==0)) {
 		    DPRINTF(ERR_INFO,"Dynamically attaching artwork to %s (fd %d)\n",
 			    pmp3->fname, img_fd);
 		    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
@@ -489,6 +490,9 @@ int main(int argc, char *argv[]) {
 	    log_setdest("mt-daapd",LOGDEST_SYSLOG);
 	}
     }
+
+    /* block signals and set up the signal handling thread */
+
 
 
     if((config.use_mdns) && (!parseonly)) {
