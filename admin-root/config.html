@@ -2,34 +2,47 @@
 
 <h1>Configuration</h1>
 
-<div class="stx">
+<P>
+Note that the following fields will only be editable if the
+configuration file itself is writable by the mt-daapd server.  If you
+make changes to these settings, they will not be reflected in the
+running server.  The server must be restarted for these values to
+take effect.
 
+<div class="stx">
     <FORM METHOD="POST" ACTION="/config-update.html">
       <TABLE>
 	<TR>
 	  <TD>Web Root</TD>
-	  <TD><INPUT TYPE="TEXT" NAME="WEB_ROOT" READONLY SIZE="80"
-	  VALUE="@WEB_ROOT@"></TD>
+	  <TD><INPUT TYPE="TEXT" @READONLY@ NAME="WEB_ROOT" SIZE="80" VALUE="@WEB_ROOT@"></TD>
+	</TR>
+	<TR>
+	  <TD>Playlist File</TD>
+	  <TD><INPUT TYPE="TEXT" @READONLY@ NAME="PLAYLIST" SIZE="80" VALUE="@PLAYLIST@" SIZE="80"></TD>
 	</TR>
 	<TR>
 	  <TD>MP3 Dir</TD>
-	  <TD><INPUT TYPE="TEXT" NAME="MP3DIR" READONLY SIZE="80"
-	  VALUE="@MP3_DIR@"></TD>
+	  <TD><INPUT TYPE="TEXT" @READONLY@ NAME="MP3_DIR" SIZE="80" VALUE="@MP3_DIR@"></TD>
 	</TR>
 	<TR>
 	  <TD>Port</TD>
-	  <TD><INPUT TYPE="TEXT" NAME="PORT" READONLY
-	  VALUE="@PORT@"></TD>
+	  <TD><INPUT TYPE="TEXT" @READONLY@ NAME="PORT" VALUE="@PORT@"></TD>
 	</TR>
 	<TR>
 	  <TD>Server Name</TD>
-	  <TD><INPUT TYPE="TEXT" NAME="SERVERNAME"
-	  VALUE="@SERVERNAME@"></TD>
+	  <TD><INPUT TYPE="TEXT" @READONLY@ NAME="SERVERNAME" VALUE="@SERVERNAME@"></TD>
+	</TR>
+	<TR>
+	  <TD>Run As</TD>
+	  <TD><INPUT TYPE="TEXT" @READONLY@ NAME="RUNAS" VALUE="@RUNAS@"></TD>
 	</TR>
 	<TR>
 	  <TD>Admin Password</TD>
-	  <TD><INPUT TYPE="TEXT" NAME="ADMINPW"
-	  VALUE="@ADMIN_PW@"></TD>
+	  <TD><INPUT TYPE="TEXT" @READONLY@ NAME="ADMIN_PW" VALUE="@ADMIN_PW@"></TD>
+	</TR>
+	<TR>
+	  <TD>MP3 Password</TD>
+	  <TD><INPUT TYPE="TEXT" @READONLY@ NAME="PASSWORD" VALUE="@PASSWORD@"></TD>
 	</TR>
       </TABLE>
       <INPUT TYPE="SUBMIT" NAME="SUBMIT" VALUE="Submit">
