@@ -171,6 +171,7 @@ extern int db_dmap_add_char(char *where, char *tag, char value);
 extern int db_dmap_add_short(char *where, char *tag, short value);
 extern int db_dmap_add_int(char *where, char *tag, int value);
 extern int db_dmap_add_string(char *where, char *tag, char *value);
+extern int db_dmap_add_literal(char *where, char *tag, char *value, int size);
 extern int db_dmap_add_container(char *where, char *tag, int size);
 
 /* Holdover functions from old db interface...

@@ -63,7 +63,8 @@ typedef struct tag_mp3file {
     int got_id3;
     unsigned int id;
 
-    char* description;		/* long file type */
+    char *description;		/* long file type */
+    char *codectype;            /* song.codectype */
     int item_kind;		/* song or movie */
     int data_kind;              /* dmap.datakind (asdk) */
     int force_update;

@@ -244,6 +244,8 @@ int db_sqlite_init(int reload) {
 	db_sqlite_reload=1;
 	db_sqlite_exec(E_DBG,"DROP INDEX idx_path");
 	db_sqlite_exec(E_FATAL,"DELETE FROM songs");
+    } else {
+	db_sqlite_exec(E_FATAL,"VACUUM");
     }
     return 0;
 }
@@ -435,7 +437,8 @@ int db_sqlite_add(MP3FILE *pmp3) {
 		       "%d,"    // db_timestamp
 		       "%d,"    // disabled
 		       "%d,"    // sample_count
-		       "0)",    // force_update    
+		       "0,"     // force_update    
+		       "'%q')", // codectype
 		       STR(pmp3->path),
 		       STR(pmp3->fname),
 		       STR(pmp3->title),
@@ -468,7 +471,9 @@ int db_sqlite_add(MP3FILE *pmp3) {
 		       pmp3->time_modified,
 		       pmp3->time_played,
 		       pmp3->db_timestamp,
-		       pmp3->disabled);
+		       pmp3->disabled,
+		       pmp3->sample_count,
+		       STR(pmp3->codectype));
     
     if(err == SQLITE_CONSTRAINT) {
 	/* probably because the path already exists... */
@@ -529,7 +534,8 @@ int db_sqlite_update(MP3FILE *pmp3) {
 		       "bpm=%d,"    // bpm
 		       "compilation=%d,"    // compilation
 		       "rating=%d,"    // rating
-		       "sample_count=%d" // sample_count
+		       "sample_count=%d," // sample_count
+		       "codectype='%q'"   // codec
 		       " WHERE path='%q'",
 		       STR(pmp3->title),
 		       STR(pmp3->artist),
@@ -557,6 +563,7 @@ int db_sqlite_update(MP3FILE *pmp3) {
 		       pmp3->compilation,
 		       pmp3->rating,
 		       pmp3->sample_count,
+		       STR(pmp3->codectype),
 		       pmp3->path);
 
     if((db_sqlite_in_scan) && (!db_sqlite_reload)) {
@@ -1021,7 +1028,9 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 	if(db_wantsmeta(pinfo->meta, metaContainerItemId))
 	    /* mcti */
 	    size += 12;
-
+	if(ISSTR(valarray[37]) && db_wantsmeta(pinfo->meta, metaSongCodecType))
+	    /* ascd */
+	    size += 12;
 	return size;
 	break;
 
@@ -1146,6 +1155,8 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
 	    current += db_dmap_add_char(current,"asur",(char)atoi(valarray[25]));
 	if(valarray[18] && atoi(valarray[18]) && db_wantsmeta(pinfo->meta, metaSongYear))
 	    current += db_dmap_add_short(current,"asyr",(short)atoi(valarray[18]));
+	if(ISSTR(valarray[37]) && db_wantsmeta(pinfo->meta, metaSongCodecType))
+	    current += db_dmap_add_literal(current,"ascd",valarray[37],4);
 	if(db_wantsmeta(pinfo->meta, metaContainerItemId))
 	    current += db_dmap_add_int(current,"mcti",atoi(valarray[0]));
 	return 0;
@@ -1205,6 +1216,7 @@ void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3) {
     pmp3->disabled=db_sqlite_atoi(valarray[34]);
     pmp3->sample_count=db_sqlite_atoi(valarray[35]);
     pmp3->force_update=db_sqlite_atoi(valarray[36]);
+    pmp3->codectype=db_sqlite_strdup(valarray[37]);
 }
 
 /**
@@ -1289,6 +1301,7 @@ void db_sqlite_dispose_item(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->grouping);
     MAYBEFREE(pmp3->description);
     MAYBEFREE(pmp3->url);
+    MAYBEFREE(pmp3->codectype);
     free(pmp3);
 }
 
@@ -1411,6 +1424,71 @@ char *db_sqlite_upgrade_scripts[] = {
     "REPLACE INTO config VALUES('rescan',NULL,1);\n"
     "UPDATE config SET value=2 WHERE term='version';\n",
 
+    /* version 2 -> version 3 */
+    /* add daap.songcodectype, normalize daap.songformat and daap.songdescription */
+    "drop index idx_path;\n"
+    "create temp table tempsongs as select * from songs;\n"
+    "drop table songs;\n"
+    "CREATE TABLE songs (\n"
+    "   id		INTEGER PRIMARY KEY NOT NULL,\n"
+    "   path		VARCHAR(4096) UNIQUE NOT NULL,\n"
+    "   fname		VARCHAR(255) NOT NULL,\n"
+    "   title		VARCHAR(1024) DEFAULT NULL,\n"
+    "   artist 		VARCHAR(1024) DEFAULT NULL,\n"
+    "   album		VARCHAR(1024) DEFAULT NULL,\n"
+    "   genre		VARCHAR(255) DEFAULT NULL,\n"
+    "   comment 	VARCHAR(4096) DEFAULT NULL,\n"
+    "   type		VARCHAR(255) DEFAULT NULL,\n"
+    "   composer	VARCHAR(1024) DEFAULT NULL,\n"
+    "   orchestra	VARCHAR(1024) DEFAULT NULL,\n"
+    "   conductor	VARCHAR(1024) DEFAULT NULL,\n"
+    "   grouping	VARCHAR(1024) DEFAULT NULL,\n"
+    "   url		VARCHAR(1024) DEFAULT NULL,\n"
+    "   bitrate		INTEGER DEFAULT 0,\n"
+    "   samplerate	INTEGER DEFAULT 0,\n"
+    "   song_length	INTEGER DEFAULT 0,\n"
+    "   file_size	INTEGER DEFAULT 0,\n"
+    "   year		INTEGER DEFAULT 0,\n"
+    "   track		INTEGER DEFAULT 0,\n"
+    "   total_tracks	INTEGER DEFAULT 0,\n"
+    "   disc		INTEGER DEFAULT 0,\n"
+    "   total_discs	INTEGER DEFAULT 0,\n"
+    "   bpm		INTEGER DEFAULT 0,\n"
+    "   compilation	INTEGER DEFAULT 0,\n"
+    "   rating		INTEGER DEFAULT 0,\n"
+    "   play_count	INTEGER DEFAULT 0,\n"
+    "   data_kind	INTEGER DEFAULT 0,\n"
+    "   item_kind	INTEGER DEFAULT 0,\n"
+    "   description	INTEGER DEFAULT 0,\n"
+    "   time_added	INTEGER DEFAULT 0,\n"
+    "   time_modified	INTEGER DEFAULT 0,\n"
+    "   time_played	INTEGER	DEFAULT 0,\n"
+    "   db_timestamp	INTEGER DEFAULT 0,\n"
+    "   disabled        INTEGER DEFAULT 0,\n"
+    "   sample_count    INTEGER DEFAULT 0,\n"
+    "   force_update	INTEGER DEFAULT 0,\n"
+    "   codectype       VARCHAR(5) DEFAULT NULL\n"
+    ");\n"
+    "begin transaction;\n"
+    "insert into songs select *,NULL from tempsongs;\n"
+    "commit transaction;\n"
+    "update songs set type=lower(type);\n"
+    "update songs set type='m4a' where type='aac' or type='mp4';\n"
+    "update songs set type='flac' where type='fla';\n"
+    "update songs set description='AAC audio file' where type='m4a';\n"
+    "update songs set description='MPEG audio file' where type='mp3';\n"
+    "update songs set description='WAV audio file' where type='wav';\n"
+    "update songs set description='Playlist URL' where type='pls';\n"
+    "update songs set description='Ogg Vorbis audio file' where type='ogg';\n"
+    "update songs set description='FLAC audio file' where type='flac';\n"
+    "update songs set codectype='mp4a' where type='m4a' or type='m4p';\n"
+    "update songs set codectype='mpeg' where type='mp3';\n"
+    "update songs set codectype='ogg' where type='ogg';\n"
+    "update songs set codectype='flac' where type='flac';\n"
+    "update songs set force_update=1 where type='m4a';\n"      /* look for alac */
+    "create index idx_path on songs(path);\n"
+    "drop table tempsongs;\n"
+    "update config set value=3 where term='version';\n",
     NULL /* No more versions! */
 };
 

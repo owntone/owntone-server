@@ -264,6 +264,20 @@ char *scan_winamp_genre[] = {
 
 #define WINAMP_GENRE_UNKNOWN 148
 
+/* 
+ * Typedefs
+ */
+
+typedef struct {
+    char *suffix;
+    int	(*tags)(char* file, MP3FILE* pmp3);
+    int	(*files)(char* file, MP3FILE* pmp3);
+    char *type;         /* daap.songformat */
+    char *codectype;    /* song.codectype */
+    char *description;  /* daap.songdescription */
+} TAGHANDLER;
+
+
 
 /*
  * Forwards
@@ -287,6 +301,8 @@ static void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 static int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi);
 static time_t mac_to_unix_time(int t);
 
+static TAGHANDLER *scan_gethandler(char *type);
+
 #ifdef OGGVORBIS
 extern int scan_get_oggfileinfo(char *filename, MP3FILE *pmp3);
 #endif
@@ -296,34 +312,45 @@ extern int scan_get_flacfileinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_flactags(char *filename, MP3FILE *pmp3);
 #endif
 
-/* 
- * Typedefs
+
+/* For known types, I'm gong to use the "official" apple
+ * daap.songformat, daap.songdescription, and daap.songcodecsubtype.
+ * If I we don't have "official" ones, we can make them up the
+ * way we currently are:  using extension or whatver.  
+ *
+ * This means that you can test to see if something is, say, an un-drmed
+ * aac file by just testing for ->type "m4a", rather than checking every different
+ * flavor of file extension.
+ * 
+ * NOTE: Although they are represented here as strings, the codectype is *really*
+ * an unsigned short.  So when it gets serialized, it gets serialized as a short int.
+ * If you put something other than 3 or 4 characters as your codectype, you'll see
+ * strange results.
+ *
+ * FIXME: url != pls -- this method of dispatching handlers based on file type
+ * is completely wrong.  There needs to be a separate type that gets carried around
+ * with it, at least outside the database that says where the info CAME FROM.
+ *
+ * This system is broken, and won't work with something like a .cue file
  */
-
-typedef struct {
-    char*	suffix;
-    int		(*tags)(char* file, MP3FILE* pmp3);
-    int		(*files)(char* file, MP3FILE* pmp3);
-} taghandler;
-
-static taghandler taghandlers[] = {
-    { "aac", scan_get_aactags, scan_get_aacfileinfo },
-    { "mp4", scan_get_aactags, scan_get_aacfileinfo },
-    { "m4a", scan_get_aactags, scan_get_aacfileinfo },
-    { "m4p", scan_get_aactags, scan_get_aacfileinfo },
-    { "mp3", scan_get_mp3tags, scan_get_mp3fileinfo },
-    { "wav", scan_get_nultags, scan_get_wavfileinfo },
-    { "url", scan_get_nultags, scan_get_urlfileinfo },
+static TAGHANDLER taghandlers[] = {
+    { "aac", scan_get_aactags, scan_get_aacfileinfo, "m4a", "mp4a", "AAC audio file" },
+    { "mp4", scan_get_aactags, scan_get_aacfileinfo, "m4a", "mp4a", "AAC audio file" },
+    { "m4a", scan_get_aactags, scan_get_aacfileinfo, "m4a", "mp4a", "AAC audio file" },
+    { "m4p", scan_get_aactags, scan_get_aacfileinfo, "m4p", "mp4a", "AAC audio file" },
+    { "mp3", scan_get_mp3tags, scan_get_mp3fileinfo, "mp3", "mpeg", "MPEG audio file" },
+    { "wav", scan_get_nultags, scan_get_wavfileinfo, "wav", "wav", "WAV audio file" },
+    { "url", scan_get_nultags, scan_get_urlfileinfo, "pls", NULL, "Playlist URL" },
+    { "pls", scan_get_nultags, scan_get_urlfileinfo, "pls", NULL, "Playlist URL" },
 #ifdef OGGVORBIS
-    { "ogg", scan_get_nultags, scan_get_oggfileinfo },
+    { "ogg", scan_get_nultags, scan_get_oggfileinfo, "ogg", "ogg", "Ogg Vorbis audio file" },
 #endif
 #ifdef FLAC
-    { "flac", scan_get_flactags, scan_get_flacfileinfo },
-    { "fla", scan_get_flactags, scan_get_flacfileinfo },
+    { "flac", scan_get_flactags, scan_get_flacfileinfo, "flac","flac", "FLAC audio file" },
+    { "fla", scan_get_flactags, scan_get_flacfileinfo,  "flac","flac", "FLAC audio file" },
 #endif
-    { NULL, 0 }
+    { NULL, NULL, NULL, NULL, NULL, NULL }
 };
-
 
 /**
  * Convert mac time to unix time (different epochs)
@@ -520,6 +547,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     DPRINTF(E_WARN,L_SCAN|L_PL,"Done processing playlist\n");
 }
 */
+
 /*
  * scan_music_file
  *
@@ -528,6 +556,10 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     MP3FILE mp3file;
     char mp3_path[PATH_MAX];
+    char *current=NULL;
+    char *type;
+    TAGHANDLER *ptaghandler;
+    char fdescr[50];
 
     snprintf(mp3_path,sizeof(mp3_path),"%s/%s",path,pde->d_name);
 
@@ -537,14 +569,38 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     memset((void*)&mp3file,0,sizeof(mp3file));
     mp3file.path=strdup(mp3_path);
     mp3file.fname=strdup(pde->d_name);
-    if(strlen(pde->d_name) > 4)
-	mp3file.type=strdup(strrchr(pde->d_name, '.') + 1);
-    
-    /* FIXME: assumes that st_ino is a u_int_32 
-       DWB: also assumes that the library is contained entirely within
-       one file system 
-    */
-    mp3file.id=psb->st_ino;
+    if(strlen(pde->d_name) > 4) {
+	type = strrchr(pde->d_name, '.') + 1;
+	if(type) {
+	    /* see if there is "official" format and info for it */
+	    ptaghandler=scan_gethandler(type);
+	    if(ptaghandler) {
+		/* yup, use the official format */
+		mp3file.type=strdup(ptaghandler->type);
+		if(ptaghandler->description)
+		    mp3file.description=strdup(ptaghandler->description);
+
+		if(ptaghandler->codectype)
+		    mp3file.codectype=strdup(ptaghandler->codectype);
+
+		DPRINTF(E_DBG,L_SCAN,"Codec type: %s\n",mp3file.codectype);
+	    } else {
+		/* just dummy up songformat, codectype and description */
+		mp3file.type=strdup(type);
+
+		/* upper-case types cause some problems */
+		current=mp3file.type;
+		while(*current) {
+		    *current=tolower(*current);
+		    current++;
+		}
+		
+		sprintf(fdescr,"%s audio file",mp3file.type);
+		mp3file.description = strdup(fdescr);
+		/* we'll just dodge the codectype */
+	    }
+	}
+    }
     
     /* Do the tag lookup here */
     if(!scan_gettags(mp3file.path,&mp3file) && 
@@ -559,12 +615,11 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 	    mp3file.time_added=psb->st_ctime;
         mp3file.time_modified=psb->st_mtime;
 
-	//	server_side_convert_set(&mp3file);
-
 	DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 
+	DPRINTF(E_DBG,L_SCAN," Codec: %s\n",mp3file.codectype);
+
 	db_add(&mp3file);
-	//	pl_eval(&mp3file); /* FIXME: move to db_add? */
     } else {
 	DPRINTF(E_WARN,L_SCAN,"Skipping %s - scan_gettags failed\n",pde->d_name);
     }
@@ -720,27 +775,37 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
 }
 
 
-/*
- * scan_gettags
+/**
+ * fetch the taghandler for this file type
+ */
+TAGHANDLER *scan_gethandler(char *type) {
+    TAGHANDLER *phdl = taghandlers;
+
+    while((phdl->suffix) && (strcasecmp(phdl->suffix,type)))
+	phdl++;
+
+    if(phdl->suffix)
+	return phdl;
+
+    return NULL;
+}
+
+
+/**
+ * Dispatch the appropriate handler to get specific tag metainfomation
  *
- * Scan an mp3 file for id3 tags using libid3tag
+ * \param file file to get tag info for
+ * \param pmp3 mp3 file struct to fill info into
  */
 int scan_gettags(char *file, MP3FILE *pmp3) {
-    taghandler *hdl;
+    TAGHANDLER *hdl;
 
     /* dispatch to appropriate tag handler */
-    for(hdl = taghandlers ; hdl->suffix ; ++hdl)
-	if(!strcasecmp(hdl->suffix, pmp3->type))
-	    break;
+    hdl = scan_gethandler(pmp3->type);
+    if(hdl && hdl->tags)
+	return hdl->tags(file,pmp3);
 
-    if(hdl->tags)
-	return hdl->tags(file, pmp3);
-
-    /* maybe this is an extension that we've manually
-     * specified in the config file, but don't know how
-     * to extract tags from.  Ogg, maybe.
-     */
-
+    /* otherwise, it's a file type we don't understand yet */
     return 0;
 }
 
@@ -759,9 +824,6 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
     id3_ucs4_t const *native_text;
     char *tmp;
     int got_numeric_genre;
-
-    if(strcasecmp(pmp3->type,"mp3"))  /* can't get tags for non-mp3 */
-	return 0;
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
@@ -963,29 +1025,28 @@ int scan_freetags(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->conductor);
     MAYBEFREE(pmp3->grouping);
     MAYBEFREE(pmp3->description);
+    MAYBEFREE(pmp3->codectype);
 
     return 0;
 }
 
 
-/*
- * scan_get_fileinfo
- *
+/**
  * Dispatch to actual file info handlers
+ *
+ * \param file file to read file metainfo for
+ * \param pmp3 struct to stuff with info gleaned
  */
 int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
     off_t file_size;
 
-    taghandler *hdl;
+    TAGHANDLER *hdl;
 
     /* dispatch to appropriate tag handler */
-    for(hdl = taghandlers ; hdl->suffix ; ++hdl)
-	if(!strcasecmp(hdl->suffix, pmp3->type))
-	    break;
-
-    if(hdl->files)
-	return hdl->files(file, pmp3);
+    hdl = scan_gethandler(pmp3->type);
+    if(hdl && hdl->files)
+	return hdl->files(file,pmp3);
 
     /* a file we don't know anything about... ogg or aiff maybe */
     if(!(infile=fopen(file,"rb"))) {
@@ -1148,6 +1209,7 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 
     pmp3->file_size=file_size;
 
+
     /* now, hunt for the mvhd atom */
     atom_offset = aac_drilltoatom(infile, "moov:mvhd", &atom_length);
     if(atom_offset != -1) {
@@ -1180,6 +1242,17 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 
     pmp3->bitrate = 0;
 
+
+    /* see if it is aac or alac */
+    atom_offset = aac_drilltoatom(infile, "moov:trak:mdia:minf:stbl:stsd:alac", &atom_length);
+    if(atom_offset != -1) {
+	/* should we still pull samplerate, etc from the this atom? */
+	if(pmp3->codectype) {
+	    free(pmp3->codectype);
+	}
+	pmp3->codectype=strdup("alac");
+    }
+
     /* Get the sample rate from the 'mp4a' atom (timescale). This is also
        found in the 'mdhd' atom which is a bit closer but we need to 
        navigate to the 'mp4a' atom anyways to get to the 'esds' atom. */
@@ -1207,6 +1280,14 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 	    fread((void *)&bit_rate, sizeof(unsigned int), 1, infile);
 
 	    pmp3->bitrate = ntohl(bit_rate) / 1000;
+
+	    DPRINTF(E_DBG,L_SCAN,"esds bitrate: %d\n",pmp3->bitrate);
+
+	    if(pmp3->bitrate > 320) {
+		DPRINTF(E_LOG,L_SCAN,"Capping AAC bitrate.  Please report this "
+			"message to the forums on www.mt-daapd.org.  Thx.\n");
+		pmp3->bitrate = 320;
+	    }
 	} else {
 	    DPRINTF(E_DBG,L_SCAN, "Could not find 'esds' atom to determine bit rate.\n");
 	}
@@ -1225,7 +1306,6 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 	if ((atom_offset != -1) && (pmp3->song_length)) {
 	    pmp3->bitrate = atom_length / ((pmp3->song_length / 1000) * 128);
 	}
-
     }
 
     fclose(infile);
@@ -1809,10 +1889,8 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
  *
  * @param song MP3FILE of the file to build composite tags for
  */
-void make_composite_tags(MP3FILE *song)
-{
+void make_composite_tags(MP3FILE *song) {
     int len;
-    char fdescr[50];
 
     len=0;
 
@@ -1837,16 +1915,8 @@ void make_composite_tags(MP3FILE *song)
 	}
     }
 
-    sprintf(fdescr,"%s audio file",song->type);
-    song->description = strdup(fdescr);
-
     if(song->url) {
-	song->description = strdup("Playlist URL");
 	song->data_kind=1;
-	/* bit of a hack for the roku soundbridge - type *has* to be pls */
-	if(song->type)
-	    free(song->type);
-	song->type = strdup("pls");
     } else {
 	song->data_kind=0;
     }
@@ -1854,7 +1924,6 @@ void make_composite_tags(MP3FILE *song)
     if(!song->title)
 	song->title = strdup(song->fname);
 
-    /* Ogg used to be set as an item_kind of 4.  Dunno why */
-    song->item_kind = 2;
+    song->item_kind = 2; /* music, I think. */
 }
 

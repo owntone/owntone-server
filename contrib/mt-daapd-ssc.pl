@@ -27,13 +27,11 @@
 #
 
 #
-# This is quite rudimentary.  Obvious TODO list is as follows:
+# This is quite rudimentary but handles most cases quite well.
 #
-# - Speedup the streaming start.
-# - Make the guessing of the wav length reliable.
-# - Implement Apple Lossless, somehow, someone, PLEASE!  It could be done
-#   by integrating QuickTime 6.5 codecs to MPlayer (currently 6.3)
-# - Possibly implement some kind of caching.
+# TODO-list:
+#   - Make the guessing of the wav length reliable.
+#   - Possibly implement some kind of caching.
 #
 # I'll probably never have time for above things, but now it should
 # be easy for someone to take this over, since basically all you have
@@ -71,23 +69,33 @@ $SIG{PIPE} = 'IGNORE';
   if ($off < 0) {
     usage();
   }
-  if ($fn =~ m/^..*\.wav/i) {
+  if ($fn =~ m/^..*\.wav$/i) {
     passthru_proc($fn, $off, $forgelen);
-  } elsif ($fn =~ m/^..*\.wave/i) {
+  } elsif ($fn =~ m/^..*\.wave$/i) {
     passthru_proc($fn, $off, $forgelen);
-  } elsif ($fn =~ m/^..*\.flac/i) {
+  } elsif ($fn =~ m/^..*\.flac$/i) {
     flac_proc($fn, $off, $forgelen);
-  } elsif ($fn =~ m/^..*\.fla/i) {
+  } elsif ($fn =~ m/^..*\.fla$/i) {
     flac_proc($fn, $off, $forgelen);
-  } elsif ($fn =~ m/^..*\.mp3/i) {
+  } elsif ($fn =~ m/^..*\.mp4$/i) {
+    mpeg4_proc($fn, $off, $forgelen);
+  } elsif ($fn =~ m/^..*\.m4a$/i) {
+    mpeg4_proc($fn, $off, $forgelen);
+  } elsif ($fn =~ m/^..*\.m4p$/i) {
+    mpeg4_proc($fn, $off, $forgelen);
+  } elsif ($fn =~ m/^..*\.aac$/i) {
+    mpeg4_proc($fn, $off, $forgelen);
+  } elsif ($fn =~ m/^..*\.shn$/i) {
     ffmpeg_proc($fn, $off, $forgelen);
-  } elsif ($fn =~ m/^..*\.mpg/i) {
+  } elsif ($fn =~ m/^..*\.mp3$/i) {
     ffmpeg_proc($fn, $off, $forgelen);
-  } elsif ($fn =~ m/^..*\.ogg/i) {
+  } elsif ($fn =~ m/^..*\.mpg$/i) {
     ffmpeg_proc($fn, $off, $forgelen);
-  } elsif ($fn =~ m/^..*\.avi/i) {
+  } elsif ($fn =~ m/^..*\.ogg$/i) {
     ffmpeg_proc($fn, $off, $forgelen);
-  } elsif ($fn =~ m/^..*\.au/i) {
+  } elsif ($fn =~ m/^..*\.avi$/i) {
+    ffmpeg_proc($fn, $off, $forgelen);
+  } elsif ($fn =~ m/^..*\.au$/i) {
     ffmpeg_proc($fn, $off, $forgelen);
   } else {
     mplayer_proc($fn, $off, $forgelen);
@@ -512,4 +520,55 @@ sub mplayer_proc
   }
   close($w);
   unlink($tf);
+}
+
+sub mpeg4_proc
+{
+  my ($fn) = shift;
+  my ($off) = shift;
+  my ($forgelen) = shift;
+  my ($f) = undef;
+  my ($hdr) = undef;
+  my ($r) = undef;
+
+  if (open($f, "< $fn")) {
+    my ($rl) = sysread($f, $hdr, 512);
+    close($f);
+    if ($rl != 512) {
+      return undef;
+    }
+  } else {
+    return undef;
+  }
+
+  #
+  # This detection is really rudimentary, but seems to
+  # do the job for now.
+  #
+  if (index($hdr, "Halac") >= 0) {
+    $r = alac_proc($fn, $off, $forgelen);
+  } else {
+    $r = ffmpeg_proc($fn, $off, $forgelen);
+  }
+
+  return $r;
+}
+
+sub alac_proc
+{
+  my ($fn) = shift;
+  my ($off) = shift;
+  my ($forgelen) = shift;
+  my ($r) = undef;
+  my ($w) = undef;
+  my ($pid);
+
+  $pid = open2($r, $w, 'alac', "$fn");
+  wav_loop($r, $off, undef); # Ignore $forgelen
+  close($r);
+  close($w);
+  if (waitpid($pid, WNOHANG) <= 0) {
+    kill(SIGKILL, $pid);
+    waitpid($pid, 0);
+  }
 }

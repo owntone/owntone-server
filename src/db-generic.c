@@ -733,6 +733,29 @@ int db_dmap_add_string(char *where, char *tag, char *value) {
 }
 
 /**
+ * add a literal chunk of data to a dmap block
+ *
+ * \param where where to serialize the dmap info
+ * \param tag what four byte tag
+ * \param value what to put there
+ * \param size how much data to cram in there
+ */
+int db_dmap_add_literal(char *where, char *tag, char *value, int size) {
+    /* tag */
+    memcpy(where,tag,4);
+
+    /* length */
+    where[4]=(size >> 24) & 0xFF;
+    where[5]=(size >> 16) & 0xFF;
+    where[6]=(size >> 8) & 0xFF;
+    where[7]=size & 0xFF;
+
+    memcpy(where+8,value,size);
+    return 8+size;
+}
+
+
+/**
  * add a container type to a dmap block (type 0x0C)
  *
  * \param where where to serialize the dmap info
