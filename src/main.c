@@ -107,6 +107,12 @@
 
 /** Seconds to sleep before checking for a shutdown or reload */
 #define MAIN_SLEEP_INTERVAL  2
+
+/** Let's hope if you have no atoll, you only have 32 bit inodes... */
+#if !HAVE_ATOLL
+#  define atoll(a) atol(a)
+#endif
+
 /*
  * Globals
  */
