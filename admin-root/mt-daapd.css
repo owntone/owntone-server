@@ -933,10 +933,48 @@ table.calendar td.todaynoevent {
     border: 2px solid #FFA500;
 }
 
+.odd {
+  background-color: #ffffff;
+  border-top: 0px;
+  border-bottom: 0px;
+}
+.even {
+  background-color: #edf3fe;
+  border-top: 0px;
+  border-bottom: 0px;
+}
+.mytbody {
+  height: 300px;
+  overflow: auto;
+  font: icon; !important
+}
+#browse {
+  font: icon; !important
+}
+.mytable {
+    /* The default table for document listings. Contains name, document types, modification times etc in a file-browser-like fashion */
+    border-collapse: collapse;
+    border-left: 1px solid #8CACBB;
+    border-bottom: 1px solid #8CACBB;
+    font-size: 80%;
+    margin: 1em 0em 1em 0em;
+    clear: both;
+}
 
-
-
-
+.mytable th {
+    background: #DEE7EC;
+    border-top: 1px solid #8CACBB;
+    border-bottom: 1px solid #8CACBB;
+    border-right: 1px solid #8CACBB;
+    color: Black;
+    font-weight: normal;
+    padding: 0em 1em 0em 1em;
+    text-transform: lowercase;
+    white-space: nowrap;
+}
+.mytable td {
+  padding-left: 2px;
+}
 
 /*  */
 
