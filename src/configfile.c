@@ -458,7 +458,7 @@ int config_write(WS_CONNINFO *pwsc) {
     fprintf(configfile,"extensions\t%s\n",ws_getvar(pwsc,"extensions"));
     fprintf(configfile,"db_dir\t\t%s\n",ws_getvar(pwsc,"db_dir"));
     fprintf(configfile,"rescan_interval\t%s\n",ws_getvar(pwsc,"rescan_interval"));
-    fprintf(configfile,"scan_type\t%d\n",ws_getvar(pwsc,"scan_type"));
+    fprintf(configfile,"scan_type\t%s\n",ws_getvar(pwsc,"scan_type"));
     if(ws_getvar(pwsc,"always_scan") && strlen(ws_getvar(pwsc,"always_scan")))
 	fprintf(configfile,"always_scan\t%s\n",ws_getvar(pwsc,"always_scan"));
     if(ws_getvar(pwsc,"art_filename") && strlen(ws_getvar(pwsc,"art_filename")))
@@ -466,6 +466,7 @@ int config_write(WS_CONNINFO *pwsc) {
     if(ws_getvar(pwsc,"logfile") && strlen(ws_getvar(pwsc,"logfile")))
 	fprintf(configfile,"logfile\t\t%s\n",ws_getvar(pwsc,"logfile"));
     fprintf(configfile,"process_m3u\t%s\n",ws_getvar(pwsc,"process_m3u"));    
+    fprintf(configfile,"compress\t%s\n",ws_getvar(pwsc,"compress"));
 
     fclose(configfile);
     return 0;
