@@ -393,7 +393,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
     ws_emitheaders(pwsc);
     
-    if(strcasecmp(resolved_path[strlen(resolved_path) - 5],".html") == 0) {
+    if(strcasecmp(&resolved_path[strlen(resolved_path) - 5],".html") == 0) {
 	config_subst_stream(pwsc, file_fd);
     } else { 
 	copyfile(file_fd,pwsc->fd);
