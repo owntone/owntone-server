@@ -155,6 +155,8 @@ extern int db_end_scan(void);
 extern int db_exists(char *path);
 extern int db_scanning(void);
 
+extern int db_add_playlist(char *name, int type, char *clause, int *playlistid);
+
 extern MP3FILE *db_fetch_item(int id);
 extern MP3FILE *db_fetch_path(char *path);
 
@@ -176,5 +178,13 @@ extern int db_dmap_add_container(char *where, char *tag, int size);
 extern int db_get_song_count(void); 
 extern int db_get_playlist_count(void);
 extern void db_dispose_item(MP3FILE *pmp3);
+
+
+#define DB_E_SUCCESS                 0
+#define DB_E_SQL_ERROR               1 /**< some kind of sql error - typically bad syntax */
+#define DB_E_DUPLICATE_PLAYLIST      2 /**< playlist already exists when adding */
+#define DB_E_NOCLAUSE                3 /**< adding smart playlist with no clause */
+
+
 
 #endif /* _DB_GENERIC_H_ */

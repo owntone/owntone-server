@@ -46,6 +46,7 @@ typedef struct tag_db_functions {
     int(*dbs_init)(int);
     int(*dbs_deinit)(void);
     int(*dbs_add)(MP3FILE*);
+    int(*dbs_add_playlist)(char *, int, char *, int *);
     int(*dbs_enum_start)(DBQUERYINFO *);
     int(*dbs_enum_size)(DBQUERYINFO *, int *);
     int(*dbs_enum_fetch)(DBQUERYINFO *, unsigned char **);
@@ -68,6 +69,7 @@ DB_FUNCTIONS db_functions[] = {
 	db_sqlite_init,
 	db_sqlite_deinit,
 	db_sqlite_add,
+	db_sqlite_add_playlist,
 	db_sqlite_enum_start,
 	db_sqlite_enum_size,
 	db_sqlite_enum_fetch,
@@ -185,6 +187,7 @@ DAAP_ITEMS taglist[] = {
     /* mt-daapd specific */
     { 0x09, "MSPS", "org.mt-daapd.smart-playlist-spec" },
     { 0x01, "MPTY", "org.mt-daapd.playlist-type" },
+    { 0x0C, "MAPR", "org.mt-daapd.addplaylistresponse" },
 
     { 0x00, NULL,   NULL }
 };
@@ -449,6 +452,27 @@ int db_add(MP3FILE *pmp3) {
     db_utf8_validate(pmp3);
     retval=db_current->dbs_add(pmp3);
     db_revision_no++;
+    db_unlock();
+
+    return retval;
+}
+
+/**
+ * add a playlist
+ *
+ * \param name name of playlist to add
+ * \param type type of playlist to add: 0 - static, 1 - smart, 2 - m3u
+ * \param clause where clause (if type 1)
+ * \param playlistid returns the id of the playlist created
+ * \returns 0 on success, error code otherwise 
+ */
+int db_add_playlist(char *name, int type, char *clause, int *playlistid) {
+    int retval;
+
+    db_writelock();
+    retval=db_current->dbs_add_playlist(name,type,clause,playlistid);
+    if(retval == DB_E_SUCCESS)
+	db_revision_no++;
     db_unlock();
 
     return retval;

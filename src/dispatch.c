@@ -52,6 +52,7 @@ static void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_playlists(WS_CONNINFO *pqsc, DBQUERYINFO *pqi);
+static void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_logout(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 
@@ -177,9 +178,11 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	}
 	pqi->db_id=atoi(pqi->uri_sections[1]);
 	if(pqi->uri_count == 3) {
-	    if(!strcasecmp(pqi->uri_sections[2],"items"))
+	    if(!strcasecmp(pqi->uri_sections[2],"items")) 
+		/* /databases/id/items */
 		return dispatch_items(pwsc,pqi);
 	    if(!strcasecmp(pqi->uri_sections[2],"containers"))
+		/* /databases/id/containers */		
 		return dispatch_playlists(pwsc,pqi);
 	    
 	    pwsc->close=1;
@@ -189,9 +192,15 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	}
 	if(pqi->uri_count == 4) {
 	    if(!strcasecmp(pqi->uri_sections[2],"browse"))
+		/* /databases/id/browse/something */
 		return dispatch_browse(pwsc,pqi);
 	    if(!strcasecmp(pqi->uri_sections[2],"items"))
+		/* /databases/id/items/id.mp3 */
 		return dispatch_stream(pwsc,pqi);
+	    if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+	       (!strcasecmp(pqi->uri_sections[3],"add")))
+		/* /databases/id/containers/add */
+		return dispatch_addplaylist(pwsc,pqi);
 	    
 	    pwsc->close=1;
 	    free(pqi);
@@ -753,6 +762,51 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     free(pqi);
 }
 
+/**
+ * add a playlist
+ */
+void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
+    char playlist_response[32];
+    char *current=playlist_response;
+    char *name, *query;
+    int type;
+    int retval, playlistid;
+
+    if((!ws_getvar(pwsc,"org.mt-daapd.playlist-type")) ||
+       (!ws_getvar(pwsc,"dmap.itemname"))) {
+	DPRINTF(E_LOG,L_DAAP,"attempt to add playlist with invalid type\n");
+	ws_returnerror(pwsc,500,"bad playlist info specified");
+	return;
+    }
+
+    type=atoi(ws_getvar(pwsc,"org.mt-daapd.playlist-type"));
+    name=ws_getvar(pwsc,"dmap.itemname");
+    query=ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
+
+    retval=db_add_playlist(name,type,query,&playlistid);
+    if(retval != DB_E_SUCCESS) {
+	DPRINTF(E_LOG,L_DAAP,"error adding playlist.  aborting\n");
+	ws_returnerror(pwsc,500,"error adding playlist");
+	return;
+    }
+
+    /* success... spool out a dmap block */
+    current += db_dmap_add_container(current,"MAPR",24);
+    current += db_dmap_add_int(current,"mstt",200);         /* 12 */
+    current += db_dmap_add_int(current,"miid",playlistid);  /* 12 */
+
+    dispatch_output_start(pwsc,pqi,32);
+    dispatch_output_write(pwsc,pqi,playlist_response,32);
+    dispatch_output_end(pwsc,pqi);
+
+    pwsc->close=1;
+
+    return;
+}
+
+/**
+ * enumerate and return playlistitems
+ */
 void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char items_response[61];
     char *current=items_response;

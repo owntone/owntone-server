@@ -37,5 +37,6 @@ extern int db_sqlite_get_count(CountType_t type);
 extern MP3FILE *db_sqlite_fetch_item(int id);
 extern MP3FILE *db_sqlite_fetch_path(char *path);
 extern void db_sqlite_dispose_item(MP3FILE *pmp3);
+extern int db_sqlite_add_playlist(char *name, int type, char *clause, int *playlistid);
 
 #endif /* _DBS_SQLITE_H_ */

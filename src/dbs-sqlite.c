@@ -53,7 +53,7 @@ void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3);
 int db_sqlite_exec(int fatal, char *fmt, ...);
 int db_sqlite_get_table(int fatal, char ***resarray, int *rows, int *cols, char *fmt, ...);
 int db_sqlite_free_table(char **resarray);
-int db_sqlite_get_int(int loglevel, char *fmt, ...);
+int db_sqlite_get_int(int loglevel, int *result, char *fmt, ...);
 int db_sqlite_update(MP3FILE *pmp3);
 int db_sqlite_update_version(int from_version);
 int db_sqlite_get_version(void);
@@ -160,14 +160,13 @@ int db_sqlite_free_table(char **resarray) {
 /**
  * db_sqlite_get_int
  */
-int db_sqlite_get_int(int loglevel, char *fmt, ...) {
+int db_sqlite_get_int(int loglevel, int *result, char *fmt, ...) {
     int rows, cols;
     char **resarray;
     va_list ap;
     char *query;
     int err;
     char *perr;
-    int retval;
 
     va_start(ap,fmt);
     query=sqlite_vmprintf(fmt,ap);
@@ -187,13 +186,13 @@ int db_sqlite_get_int(int loglevel, char *fmt, ...) {
 	db_sqlite_lock();
 	sqlite_freemem(query);
 	db_sqlite_unlock();
-	return 0;
+	return DB_E_SQL_ERROR;
     }
 
-    retval=atoi(resarray[cols]);
+    *result=atoi(resarray[cols]);
 
     sqlite_free_table(resarray);
-    return retval;
+    return DB_E_SUCCESS;
 }
 
 
@@ -224,10 +223,10 @@ int db_sqlite_open(char *parameters) {
  */
 int db_sqlite_init(int reload) {
     int items;
-    int rescan;
+    int rescan=0;
 
     db_sqlite_update_version(db_sqlite_get_version());
-    rescan=db_sqlite_get_int(E_DBG,"SELECT value FROM config WHERE term='rescan'");
+    db_sqlite_get_int(E_DBG,&rescan,"SELECT value FROM config WHERE term='rescan'");
 
     if(rescan)
 	reload=1;
@@ -297,6 +296,43 @@ int db_sqlite_end_scan(void) {
     return 0;
 }
 
+
+/**
+ * add a playlist
+ *
+ * \param name name of the playlist
+ * \param type playlist type: 0 - static, 1 - smart, 2 - m3u
+ * \param clause: "where" clause for smart playlist
+ */
+int db_sqlite_add_playlist(char *name, int type, char *clause, int *playlistid) {
+    int cnt=0;
+    int result;
+
+    db_sqlite_get_int(E_DBG,&cnt,"select count(*) from playlists where "
+		      "upper(title)=upper('%q')",name);
+
+    if(cnt) return DB_E_DUPLICATE_PLAYLIST;
+    if((type == 1) && (!clause)) return DB_E_NOCLAUSE;
+
+    /* Let's throw it in  */
+    if(type == 1) {
+	result=db_sqlite_get_int(E_DBG,&cnt,"select count (*) from songs where %s",clause);
+	if(result != DB_E_SUCCESS) return result;
+	result = db_sqlite_exec(E_LOG,"insert into playlists (title,smart,items,query) "
+				"values ('%q',1,%d,'%q')",name,cnt,clause);
+    } else {
+	result = db_sqlite_exec(E_LOG,"insert into playlists (title,smart,items,query) "
+				"values ('%q',0,0,NULL)",name);
+    }
+
+    if(result)
+	return result;
+
+    result = db_sqlite_get_int(E_LOG,playlistid,
+			       "select id from playlists where title='%q'", name);
+
+    return result;
+}
 
 /**
  * add a database item
