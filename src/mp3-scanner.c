@@ -241,7 +241,10 @@ int scan_path(char *path);
 int scan_gettags(char *file, MP3FILE *pmp3);
 int scan_get_mp3tags(char *file, MP3FILE *pmp3);
 int scan_get_aactags(char *file, MP3FILE *pmp3);
-int scan_getfileinfo(char *file, MP3FILE *pmp3);
+int scan_get_fileinfo(char *file, MP3FILE *pmp3);
+int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3);
+int scan_get_aacfileinfo(char *file, MP3FILE *pmp3);
+
 int scan_freetags(MP3FILE *pmp3);
 void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
 void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
@@ -436,7 +439,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     
     /* Do the tag lookup here */
     if(!scan_gettags(mp3file.path,&mp3file) && 
-       !scan_getfileinfo(mp3file.path,&mp3file)) {
+       !scan_get_fileinfo(mp3file.path,&mp3file)) {
 	db_add(&mp3file);
 	pl_eval(&mp3file); /* FIXME: move to db_add? */
     } else {
@@ -604,6 +607,12 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     if(!strcasecmp(pmp3->type,".m4a"))
 	return scan_get_aactags(file,pmp3);
 
+    if(!strcasecmp(pmp3->type,".m4p"))
+	return scan_get_aactags(file,pmp3);
+
+    if(!strcasecmp(pmp3->type,".mp4"))
+	return scan_get_aactags(file,pmp3);
+
     /* should handle mp3 in the same way */
     if(!strcasecmp(pmp3->type,".mp3"))
 	return scan_get_mp3tags(file,pmp3);
@@ -630,9 +639,6 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
     int have_text;
     id3_ucs4_t const *native_text;
     char *tmp;
-
-
-
 
     if(strcasecmp(pmp3->type,".mp3"))  /* can't get tags for non-mp3 */
 	return 0;
@@ -758,13 +764,89 @@ int scan_freetags(MP3FILE *pmp3) {
     return 0;
 }
 
+
 /*
- * scan_getfileinfo
+ * scan_get_fileinfo
+ *
+ * Dispatch to actual file info handlers
+ */
+int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
+    FILE *infile;
+    off_t file_size;
+
+    if(strcasestr(".aac.m4a.m4p.mp4",pmp3->type))
+	return scan_get_aacfileinfo(file,pmp3);
+       
+    if(!strcasecmp(pmp3->type,".mp3"))
+	return scan_get_mp3fileinfo(file,pmp3);
+    
+    /* a file we don't know anything about... ogg or aiff maybe */
+    if(!(infile=fopen(file,"rb"))) {
+	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
+	return -1;
+    }
+
+    /* we can at least get this */
+    fseek(infile,0,SEEK_END);
+    file_size=ftell(infile);
+    fseek(infile,0,SEEK_SET);
+
+    pmp3->file_size=file_size;
+
+    fclose(infile);
+    return 0;
+}
+
+
+/*
+ * scan_get_aacfileinfo
+ *
+ * Get info from the actual aac headers
+ */
+int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
+    FILE *infile;
+    long atom_offset;
+    int atom_length;
+    int temp_int;
+    off_t file_size;
+
+    DPRINTF(ERR_DEBUG,"Getting AAC file info\n");
+
+    if(!(infile=fopen(file,"rb"))) {
+	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
+	return -1;
+    }
+
+    fseek(infile,0,SEEK_END);
+    file_size=ftell(infile);
+    fseek(infile,0,SEEK_SET);
+
+    pmp3->file_size=file_size;
+
+    /* now, hunt for the mvhd atom */
+    atom_offset=scan_aac_findatom(infile,file_size,"moov",&atom_length);
+    if(atom_offset != -1) {
+	atom_offset=scan_aac_findatom(infile,atom_length-8,"mvhd",&atom_length);
+	if(atom_offset != -1) {
+	    fseek(infile,16,SEEK_CUR);
+	    fread((void*)&temp_int,1,sizeof(int),infile);
+	    temp_int=ntohl(temp_int);
+	    pmp3->song_length=temp_int/600;
+	    DPRINTF(ERR_DEBUG,"Song length: %d seconds\n",temp_int/600);
+	}
+    }
+    fclose(infile);
+    return 0;
+}
+
+
+/*
+ * scan_get_mp3fileinfo
  *
  * Get information from the file headers itself -- like
  * song length, bit rate, etc.
  */
-int scan_getfileinfo(char *file, MP3FILE *pmp3) {
+int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
     SCAN_ID3HEADER *pid3;
     unsigned int size=0;
@@ -789,11 +871,6 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     fseek(infile,0,SEEK_SET);
 
     pmp3->file_size=file_size;
-
-    if(strcasecmp(pmp3->type,".mp3")) {  /* can't get bit-info for non-mp3 */
-	fclose(infile);
-	return 0;
-    }
 
     fread(buffer,1,sizeof(buffer),infile);
     pid3=(SCAN_ID3HEADER*)buffer;
