@@ -561,6 +561,7 @@ int main(int argc, char *argv[]) {
     int start_time;
     int end_time;
     int rescan_counter;
+    int old_song_count;
 
     config.use_mdns=1;
     err_debuglevel=1;
@@ -719,12 +720,16 @@ int main(int argc, char *argv[]) {
 	}
 
 	if(config.reload) {
+	    old_song_count = db_get_song_count();
+	    start_time=time(NULL);
+
 	    DPRINTF(ERR_LOG,"Rescanning database\n");
 	    if(scan_init(config.mp3dir)) {
 		DPRINTF(ERR_LOG,"Error rescanning... exiting\n");
 		config.stop=1;
 	    }
 	    config.reload=0;
+	    DPRINTF(ERR_INFO,"Background scanned %d songs (previously %d) in %d seconds\n",db_get_song_count(),old_song_count,time(NULL)-start_time);
 	}
 
 	sleep(MAIN_SLEEP_INTERVAL);
