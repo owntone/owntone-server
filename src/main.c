@@ -52,6 +52,21 @@
  */
 CONFIG config;
 
+/*
+ * daap_auth
+ *
+ * Auth handler for the daap server
+ */
+int daap_auth(char *username, char *password) {
+    if((password == NULL) && (config.readpassword == NULL))
+	return 1;
+
+    if(password == NULL)
+	return 0;
+
+    return !strcasecmp(password,config.readpassword);
+}
+
 /* 
  * daap_handler
  *
@@ -387,11 +402,11 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(server, "^.*$",config_handler,config_auth,1);
     ws_registerhandler(server, "^/server-info$",daap_handler,NULL,0);
     ws_registerhandler(server, "^/content-codes$",daap_handler,NULL,0);
-    ws_registerhandler(server,"^/login$",daap_handler,NULL,0);
-    ws_registerhandler(server,"^/update$",daap_handler,NULL,0);
-    ws_registerhandler(server,"^/databases$",daap_handler,NULL,0);
-    ws_registerhandler(server,"^/logout$",daap_handler,NULL,0);
-    ws_registerhandler(server,"^/databases/.*",daap_handler,NULL,0);
+    ws_registerhandler(server,"^/login$",daap_handler,daap_auth,0);
+    ws_registerhandler(server,"^/update$",daap_handler,daap_auth,0);
+    ws_registerhandler(server,"^/databases$",daap_handler,daap_auth,0);
+    ws_registerhandler(server,"^/logout$",daap_handler,daap_auth,0);
+    ws_registerhandler(server,"^/databases/.*",daap_handler,daap_auth,0);
 
     config.stop=0;
 
