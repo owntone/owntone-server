@@ -1018,6 +1018,7 @@ int db_add(MP3FILE *pmp3) {
     datum dkey;
     MP3PACKED *ppacked;
     unsigned long int id;
+    int new=1;
 
     DPRINTF(E_DBG,L_DB,"Adding %s\n",pmp3->path);
 
@@ -1029,6 +1030,13 @@ int db_add(MP3FILE *pmp3) {
     /* insert the datum into the underlying database */
     dkey.dptr=(void*)&(pmp3->id);
     dkey.dsize=sizeof(unsigned long int);
+
+    db_gdbmlock();
+    if(gdbm_exists(db_songs,dkey)) {
+	new=0;
+	DPRINTF(E_DBG,L_DB,"this is an update, not an add\n");
+    }
+    db_gdbmunlock();
 
     /* dummy this up in case the client didn't */
     ppacked=(MP3PACKED *)pnew->dptr;
@@ -1048,26 +1056,15 @@ int db_add(MP3FILE *pmp3) {
     }
     db_gdbmunlock();
 
-    DPRINTF(E_DBG,L_DB,"Testing for %lu\n",pmp3->id);
-    id=pmp3->id;
-    dkey.dptr=(void*)&id;
-    dkey.dsize=sizeof(unsigned long int);
-
-    db_gdbmlock();
-    if(!gdbm_exists(db_songs,dkey)) {
-	db_gdbmunlock();
-	DPRINTF(E_FATAL,L_DB,"Error.. could not find just added file\n");
-    }
-    db_gdbmunlock();
-
     free(pnew->dptr);
     free(pnew);
 
     db_version_no++;
 
-    db_song_count++;
+    if(new)
+	db_song_count++;
     
-    DPRINTF(E_DBG,L_DB,"Added file\n");
+    DPRINTF(E_DBG,L_DB,"%s file\n", new ? "Added" : "Updated");
 
     db_unlock();
     return 0;
