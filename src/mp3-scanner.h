@@ -52,6 +52,8 @@ typedef struct tag_mp3file {
     int time_added;
     int time_modified;
     int time_played;
+    
+    int bpm;         /* TBPM */
 
     int got_id3;
     unsigned int id;

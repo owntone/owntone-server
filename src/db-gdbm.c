@@ -45,7 +45,7 @@
 /*
  * Defines
  */
-#define DB_VERSION 2
+#define DB_VERSION 3
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
@@ -84,6 +84,7 @@ typedef struct tag_playlist {
 
 typedef struct tag_mp3packed {
     int version;
+    int struct_size; // so we can upgrade in place next time... doh!
     int bitrate;
     int samplerate;
     int song_length;
@@ -99,6 +100,8 @@ typedef struct tag_mp3packed {
     int time_added;
     int time_modified;
     int time_played;
+
+    int bpm; // DB Version 3
 
     unsigned int id; /* inode */
 
@@ -517,6 +520,8 @@ datum *db_packrecord(MP3FILE *pmp3) {
     ppacked=(MP3PACKED *)result->dptr;
 
     ppacked->version=DB_VERSION;
+    ppacked->struct_size=sizeof(MP3PACKED);
+
     ppacked->bitrate=pmp3->bitrate;
     ppacked->samplerate=pmp3->samplerate;
     ppacked->song_length=pmp3->song_length;
@@ -529,6 +534,7 @@ datum *db_packrecord(MP3FILE *pmp3) {
     ppacked->time_added=pmp3->time_added;
     ppacked->time_modified=pmp3->time_modified;
     ppacked->time_played=pmp3->time_played;
+    ppacked->bpm=pmp3->bpm;
     ppacked->id=pmp3->id;
 
     ppacked->path_len=STRLEN(pmp3->path);
@@ -630,6 +636,7 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
     pmp3->time_added=ppacked->time_added;
     pmp3->time_modified=ppacked->time_modified;
     pmp3->time_played=ppacked->time_played;
+    pmp3->bpm=ppacked->bpm;
     pmp3->id=ppacked->id;
 
     offset=0;

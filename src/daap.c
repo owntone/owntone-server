@@ -503,15 +503,19 @@ DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, MetaField_t met
     if(mlit) {
 	if(wantsMeta(meta, metaItemKind))
 	    g = g && daap_add_char(mlit,"mikd",song->item_kind); /* audio */
+
 	if(wantsMeta(meta, metaSongDataKind))
 	    g = g && daap_add_char(mlit,"asdk",0); /* local file */
+
 	if(song->album && (wantsMeta(meta, metaSongAlbum)))
 	    g = g && daap_add_string(mlit,"asal",song->album);
 
 	if(song->artist && wantsMeta(meta, metaSongArtist))
 	    g = g && daap_add_string(mlit,"asar",song->artist);
 
-	// g = g && daap_add_short(mlit,"asbt",0); /* bpm */
+	if(song->bpm && (wantsMeta(meta, metaSongBPM)))
+	    g = g && daap_add_short(mlit,"asbt",song->bpm); /* bpm */
+
 	if(song->bitrate && (wantsMeta(meta, metaSongBitRate)))
 	    g = g && daap_add_short(mlit,"asbr",song->bitrate); /* bitrate!! */
 
@@ -927,7 +931,9 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 				if(wantsMeta(meta, metaContainerItemId))
 				    g = g && daap_add_int(mlit,"mcti",playlist);
 			    } else g = 0;
+#ifdef OPT_QUERY
 			}
+#endif
 		    } else g = 0;
 		}
 	    }

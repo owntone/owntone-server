@@ -542,6 +542,7 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
  * ws_getgetvars
  *
  * parse a GET string of variables (or POST)
+ * 
  */
 int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
     char *new_string;

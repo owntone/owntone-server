@@ -794,6 +794,9 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 		} else if(!strcmp(pid3frame->id,"TLEN")) {
 		    pmp3->song_length = atoi(utf8_text) / 1000;
 		    DPRINTF(ERR_DEBUG, " Length: %d\n", pmp3->song_length);
+		} else if(!strcmp(pid3frame->id,"TBPM")) {
+		    pmp3->bpm = atoi(utf8_text);
+		    DPRINTF(ERR_DEBUG, "BPM: %d\n", pmp3->bpm);
 		}
 	    }
 	}
@@ -903,10 +906,7 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 	    fread((void*)&temp_int,1,sizeof(int),infile);
 	    temp_int=ntohl(temp_int);
 	    /* DWB: use ms time instead of sec */
-	    if(temp_int > 720000)
-		pmp3->song_length=temp_int / 90; /* PlayFair? */
-	    else
-		pmp3->song_length=temp_int * 1000 / 600;
+	    pmp3->song_length=temp_int * 1000 / 600;
 
 	    DPRINTF(ERR_DEBUG,"Song length: %d seconds\n", pmp3->song_length / 1000);
 	}
