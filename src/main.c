@@ -74,6 +74,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     MP3FILE *pmp3;
     int file_fd;
+    int session_id=0;
 
     close=pwsc->close;
     pwsc->close=1;  /* in case we have any errors */
@@ -83,24 +84,34 @@ void daap_handler(WS_CONNINFO *pwsc) {
     ws_addresponseheader(pwsc,"DAAP-Server","iTunes/4.1 (Mac OS X)");
     ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
 
+    if(ws_getvar(pwsc,"session-id")) {
+	session_id=atoi(ws_getvar(pwsc,"session-id"));
+    }
 
     if(!strcasecmp(pwsc->uri,"/server-info")) {
+	config_set_status(pwsc,session_id,"Sending server info");
 	root=daap_response_server_info();
     } else if (!strcasecmp(pwsc->uri,"/content-codes")) {
+	config_set_status(pwsc,session_id,"Sending content codes");
 	root=daap_response_content_codes();
     } else if (!strcasecmp(pwsc->uri,"/login")) {
+	config_set_status(pwsc,session_id,"Logging in");
 	root=daap_response_login();
     } else if (!strcasecmp(pwsc->uri,"/update")) {
 	if(!ws_getvar(pwsc,"delta")) { /* first check */
 	    clientrev=db_version() - 1;
+	    config_set_status(pwsc,session_id,"Sending database");
 	} else {
 	    clientrev=atoi(ws_getvar(pwsc,"delta"));
+	    config_set_status(pwsc,session_id,"Waiting for DB updates");
 	}
 	root=daap_response_update(clientrev);
     } else if (!strcasecmp(pwsc->uri,"/logout")) {
+	config_set_status(pwsc,session_id,NULL);
 	ws_returnerror(pwsc,204,"Logout Successful");
 	return;
     } else if(strcmp(pwsc->uri,"/databases")==0) {
+	config_set_status(pwsc,session_id,"Sending database info");
 	root=daap_response_dbinfo();
     } else if(strncmp(pwsc->uri,"/databases/",11) == 0) {
 
@@ -141,6 +152,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		/* songlist */
 		free(uri);
 		root=daap_response_songlist();
+		config_set_status(pwsc,session_id,"Sending songlist");
 	    } else if (strncasecmp(last,"containers/",11)==0) {
 		/* playlist elements */
 		first=last + 11;
@@ -155,16 +167,19 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		    root=daap_response_playlist_items(playlist_index);
 		}
 		free(uri);
+		config_set_status(pwsc,session_id,"Sending playlist info");
 	    } else if (strncasecmp(last,"containers",10)==0) {
 		/* list of playlists */
 		free(uri);
 		root=daap_response_playlists();
+		config_set_status(pwsc,session_id,"Sending playlist info");
 	    }
 	}
     }
 
     if((!root)&&(!streaming)) {
 	ws_returnerror(pwsc,400,"Invalid Request");
+	config_set_status(pwsc,session_id,NULL);
 	return;
     }
 
@@ -199,12 +214,16 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		DPRINTF(ERR_WARN,"Thread %d: Error opening %s: %s\n",
 			pwsc->threadno,pmp3->path,strerror(errno));
 		ws_returnerror(pwsc,404,"Not found");
+		config_set_status(pwsc,session_id,NULL);
+
 	    } else {
 		ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
 		ws_addresponseheader(pwsc,"Connection","Close");
 		ws_emitheaders(pwsc);
 
+		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
 		copyfile(file_fd,pwsc->fd);
+		config_set_status(pwsc,session_id,NULL);
 		r_close(file_fd);
 	    }
 	}
