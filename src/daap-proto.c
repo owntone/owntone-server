@@ -239,32 +239,30 @@ DAAP_BLOCK *daap_add_empty(DAAP_BLOCK *parent, char *tag) {
 int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
     char size[4];
 
-    if(!root)
-	return 0;
+    while(root) {
+	r_write(fd,root->tag,4);
+
+	size[0] = (root->reported_size >> 24) & 0xFF;
+	size[1] = (root->reported_size >> 16) & 0xFF;
+	size[2] = (root->reported_size >> 8 ) & 0xFF;
+	size[3] = (root->reported_size) & 0xFF;
+
+	r_write(fd,&size,4);
+	
+	if(root->size) {
+	    if(root->free)
+		r_write(fd,root->value,root->size);
+	    else
+		r_write(fd,root->svalue,root->size);
+	}
     
-    r_write(fd,root->tag,4);
+	if(root->children) {
+	    if(daap_serialize(root->children,fd,gzip))
+		return -1;
+	}
 
-    size[0] = (root->reported_size >> 24) & 0xFF;
-    size[1] = (root->reported_size >> 16) & 0xFF;
-    size[2] = (root->reported_size >> 8 ) & 0xFF;
-    size[3] = (root->reported_size) & 0xFF;
-
-    r_write(fd,&size,4);
-
-    if(root->size) {
-	if(root->free)
-	    r_write(fd,root->value,root->size);
-	else
-	    r_write(fd,root->svalue,root->size);
+	root=root->next;
     }
-    
-    if(root->children) {
-	if(daap_serialize(root->children,fd,gzip))
-	   return -1;
-    }
-
-    if(daap_serialize(root->next,fd,gzip))
-	return -1;
     
     return 0;
 }
@@ -275,17 +273,20 @@ int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
  * Free an entire daap formatted block
  */
 void daap_free(DAAP_BLOCK *root) {
-    if(!root)
-	return;
+    DAAP_BLOCK *pnext;
 
-    DPRINTF(ERR_DEBUG,"Freeing %c%c%c%c\n",root->tag[0],root->tag[1],
-	    root->tag[2],root->tag[3]);
+    while(root) {
+	DPRINTF(ERR_DEBUG,"Freeing %c%c%c%c\n",root->tag[0],root->tag[1],
+		root->tag[2],root->tag[3]);
 
-    if((root->size) && (root->free))
-	free(root->value); /* otherwise, static value */
+	if((root->size) && (root->free))
+	    free(root->value); /* otherwise, static value */
 
-    daap_free(root->children);
-    daap_free(root->next);
-    free(root);
+	daap_free(root->children);
+	
+	pnext=root->next;
+	free(root);
+	root=pnext;
+    }
     return;
 }

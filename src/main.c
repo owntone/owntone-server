@@ -457,13 +457,16 @@ void *signal_handler(void *arg) {
 	    /* process the signal */
 	    switch(sig) {
 	    case SIGINT:
-		DPRINTF(ERR_LOG,"Got INT signal.  Notifying daap server.\n");
+		DPRINTF(ERR_LOG,"Got INT signal. Notifying daap server.\n");
 		config.stop=1;
 		return NULL;
 		break;
 	    case SIGHUP:
 		DPRINTF(ERR_LOG,"Got HUP signal. Notifying daap server.\n");
 		config.reload=1;
+		break;
+	    default:
+		DPRINTF(ERR_LOG,"What am I doing here?\n");
 		break;
 	    }
 	}
@@ -649,7 +652,7 @@ int main(int argc, char *argv[]) {
 	    config.reload=0;
 	    DPRINTF(ERR_LOG,"Reloading configuration\n");
 	}
-	sleep(10);
+	sleep(2);
     }
 
     DPRINTF(ERR_LOG,"Stopping gracefully\n");
