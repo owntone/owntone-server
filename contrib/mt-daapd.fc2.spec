@@ -7,8 +7,8 @@ Group: Development/Networking
 URL: http://sourceforge.net/project/showfiles.php?group_id=98211
 Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-Requires: libid3tag gdbm libogg howl libvorbis howl-libs
-BuildRequires: libid3tag-devel gdbm-devel howl-devel libogg-devel libvorbis-devel
+Requires: libid3tag gdbm libogg libvorbis
+BuildRequires: libid3tag-devel gdbm-devel libogg-devel libvorbis-devel
 
 %description
 A multi-threaded implementation of Apple's DAAP server, mt-daapd
@@ -20,7 +20,7 @@ daemon.
 
 %build
 # Someone could give me some autoconf that would find the howl include dir...
-./configure --prefix=$RPM_BUILD_ROOT/usr --enable-howl --enable-oggvorbis --with-howl-includes=/usr/include/howl-0.9.6
+./configure --prefix=$RPM_BUILD_ROOT/usr --enable-howl --enable-oggvorbis
 
 make RPM_OPT_FLAGS="$RPM_OPT_FLAGS"
 
@@ -53,7 +53,7 @@ rm -rf $RPM_BUILD_ROOT
 
 %changelog
 * Tue Jan 18 2005 ron <ron@pedde.com>
-- Update to 0.2.1, add howl & oggvorbis
+- Update to 0.2.1, add oggvorbis
 
 * Tue Jun 01 2004 ron <ron@pedde.com>
 - Update to 0.2.0
