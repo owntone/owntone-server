@@ -99,6 +99,7 @@ int ws_registerhandler(WSHANDLE ws, char *regex,
 		       int addheaders);
 int ws_decodepassword(char *header, char **username, char **password);
 int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
+char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header);
 
 /*
  * Globals
@@ -1275,4 +1276,8 @@ int ws_addresponseheader(WS_CONNINFO *pwsc, char *header, char *fmt, ...) {
  */
 char *ws_getvar(WS_CONNINFO *pwsc, char *var) {
     return ws_getarg(&pwsc->request_vars,var);
+}
+
+char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header) {
+    return ws_getarg(&pwsc->request_headers,header);
 }
