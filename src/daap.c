@@ -1175,9 +1175,9 @@ DAAP_BLOCK* daap_response_browse(const char* name, const char* filter)
 	return NULL;
 
     if(query) {
-	DPRINTF(ERR_INFO,"query: %s\n",query);
+	DPRINTF(ERR_INFO,"query: %s\n",filter);
 	if(err_debuglevel >= ERR_INFO) /* this is broken */
-	    query_dump(stderr,filter, 0);
+	    query_dump(stderr,query, 0);
     }
 
     if(0 == (henum = db_enum_begin()))
