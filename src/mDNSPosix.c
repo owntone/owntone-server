@@ -36,6 +36,9 @@
 	Change History (most recent first):
 
 $Log$
+Revision 1.4  2004/11/29 05:55:45  rpedde
+Fix for OpenBSD
+
 Revision 1.3  2004/11/13 07:14:26  rpedde
 modularize debugging statements
 
@@ -353,7 +356,7 @@ static void SocketDataReady(mDNS *const m, PosixNetworkInterface *intf, int skt)
 		// so all we can do is just assume it's a multicast
 
 		#if HAVE_BROKEN_RECVDSTADDR || (!defined(IP_PKTINFO) && !defined(IP_RECVDSTADDR))
-			if ( (destAddr.NotAnInteger == 0) && (flags & MSG_MCAST) )
+			if ( (destAddr.ip.v4.NotAnInteger == 0) && (flags & MSG_MCAST) )
 				{
 				destAddr.type == senderAddr.type;
 				if      (senderAddr.type == mDNSAddrType_IPv4) destAddr.ip.v4 = AllDNSLinkGroup;
