@@ -553,6 +553,7 @@ DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, MetaField_t met
 	/* these quite go hand in hand */
 	if(wantsMeta(meta, metaSongFormat))
 	    g = g && daap_add_string(mlit,"asfm",song->type); /* song format */
+
 	if(wantsMeta(meta, metaSongDescription))
 	    g = g && daap_add_string(mlit, "asdt",song->description);
 

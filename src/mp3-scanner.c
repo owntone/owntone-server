@@ -1311,6 +1311,10 @@ void make_composite_tags(MP3FILE *song)
     if(song->url) {
 	song->description = strdup("Playlist URL");
 	song->data_kind=1;
+	/* bit of a hack for the roku soundbridge - type *has* to be pls */
+	if(song->type)
+	    free(song->type);
+	song->type = strdup("pls");
     } else {
 	song->data_kind=0;
     }
