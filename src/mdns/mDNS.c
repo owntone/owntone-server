@@ -44,8 +44,8 @@
     Change History (most recent first):
 
 $Log$
-Revision 1.3  2004/03/02 00:03:37  rpedde
-Merge new rendezvous code
+Revision 1.4  2004/03/02 00:14:26  rpedde
+Update to mdns 58.3
 
 Revision 1.307.2.2  2003/12/20 01:51:40  cheshire
 <rdar://problem/3515876>: Error putting additional records into packets
@@ -959,20 +959,8 @@ Revision 1.65  2002/12/23 22:13:28  jgraessl
 Reviewed by: Stuart Cheshire
 Initial IPv6 support for mDNSResponder.
 
-<<<<<<< mDNS.c
 Revision 1.64  2002/11/26 20:49:06  cheshire
 Bug #: 3104543 RFC 1123 allows the first character of a name label to be either a letter or a digit
-=======
-$Log$
-Revision 1.3  2004/03/02 00:03:37  rpedde
-Merge new rendezvous code
-
-Revision 1.2  2004/02/25 16:13:37  rpedde
-More -Wall cleanups
-
-Revision 1.1  2003/10/23 21:43:01  ron
-Add Apple mDNS reponder
->>>>>>> 1.2
 
 Revision 1.63  2002/09/21 20:44:49  zarzycki
 Added APSL info
@@ -1001,7 +989,6 @@ Merge in license terms from Quinn's copy, in preparation for Darwin release
 */
 
 #define TEST_LOCALONLY_FOR_EVERYTHING 0
-#undef COMPILER_LIKES_PRAGMA_MARK
 
 #include "mDNSClientAPI.h"				// Defines the interface provided to the client layer above
 #include "mDNSPlatformFunctions.h"		// Defines the interface required of the supporting layer below
@@ -6308,7 +6295,6 @@ mDNSlocal void mDNS_DeadvertiseInterface(mDNS *const m, NetworkInterfaceInfo *se
 
 mDNSexport void mDNS_GenerateFQDN(mDNS *const m)
 	{
-<<<<<<< mDNS.c
 	domainname newname;
 	mDNS_Lock(m);
 
@@ -6349,37 +6335,6 @@ mDNSlocal void HostNameCallback(mDNS *const m, AuthRecord *const rr, mStatus res
 		if      (result == mStatus_NoError)      msg = "Name registered";
 		else if (result == mStatus_NameConflict) msg = "Name conflict";
 		debugf("HostNameCallback: %##s (%s) %s (%ld)", rr->resrec.name.c, DNSTypeName(rr->resrec.rrtype), msg, result);
-=======
-	// Set up the Primary mDNS FQDN
-	m->hostname1.c[0] = 0;
-	AppendDomainLabelToName(&m->hostname1, &m->hostlabel);
-	AppendStringLabelToName(&m->hostname1, "local");
-
-	// Set up the Secondary mDNS FQDN
-	m->hostname2.c[0] = 0;
-	AppendDomainLabelToName(&m->hostname2, &m->hostlabel);
-	AppendStringLabelToName(&m->hostname2, "local");
-	AppendStringLabelToName(&m->hostname2, "arpa");
-
-	// Make sure that any SRV records (and the like) that reference our 
-	// host name in their rdata get updated to reference this new host name
-	UpdateHostNameTargets(m);
-	}
-
-mDNSlocal void HostNameCallback(mDNS *const m, ResourceRecord *const rr, mStatus result)
-	{
-	switch (result)
-		{
-		case mStatus_NoError:
-			debugf("HostNameCallback: %##s (%s) Name registered",   rr->name.c, DNSTypeName(rr->rrtype));
-			break;
-		case mStatus_NameConflict:
-			debugf("HostNameCallback: %##s (%s) Name conflict",     rr->name.c, DNSTypeName(rr->rrtype));
-			break;
-		default:
-			debugf("HostNameCallback: %##s (%s) Unknown result %d", rr->name.c, DNSTypeName(rr->rrtype), result);
-			break;
->>>>>>> 1.2
 		}
 	#endif
 
@@ -6599,7 +6554,6 @@ mDNSexport void mDNS_DeregisterInterface(mDNS *const m, NetworkInterfaceInfo *se
 
 mDNSlocal void ServiceCallback(mDNS *const m, AuthRecord *const rr, mStatus result)
 	{
-<<<<<<< mDNS.c
 	ServiceRecordSet *sr = (ServiceRecordSet *)rr->RecordContext;
 	(void)m;	// Unused parameter
 
@@ -6610,34 +6564,6 @@ mDNSlocal void ServiceCallback(mDNS *const m, AuthRecord *const rr, mStatus resu
 		else if (result == mStatus_NameConflict) msg = "Name Conflict";
 		else if (result == mStatus_MemFree)      msg = "Memory Free";
 		debugf("ServiceCallback: %##s (%s) %s (%ld)", rr->resrec.name.c, DNSTypeName(rr->resrec.rrtype), msg, result);
-=======
-	ServiceRecordSet *sr = (ServiceRecordSet *)rr->Context;
-	switch (result)
-		{
-		case mStatus_NoError:
-			if (rr == &sr->RR_SRV)
-				debugf("ServiceCallback: Service RR_SRV %##s Registered", rr->name.c);
-			else
-				debugf("ServiceCallback: %##s (%s) ERROR Should only get mStatus_NoError callback for RR_SRV",
-					rr->name.c, DNSTypeName(rr->rrtype));
-			break;
-
-		case mStatus_NameConflict:
-			debugf("ServiceCallback: %##s (%s) Name Conflict", rr->name.c, DNSTypeName(rr->rrtype));
-			break;
-
-		case mStatus_MemFree:
-			if (rr == &sr->RR_PTR)
-				debugf("ServiceCallback: Service RR_PTR %##s Memory Free", rr->name.c);
-			else
-				debugf("ServiceCallback: %##s (%s) ERROR Should only get mStatus_MemFree callback for RR_PTR",
-					rr->name.c, DNSTypeName(rr->rrtype));
-			break;
-
-		default:
-			debugf("ServiceCallback: %##s (%s) Unknown Result %d", rr->name.c, DNSTypeName(rr->rrtype), result);
-			break;
->>>>>>> 1.2
 		}
 	#endif
 
