@@ -48,6 +48,48 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode);
 
 extern FILE *yyin;
 
+#define MATCH_WILD_CHR   '?'
+#define MATCH_WILD_STR '*'
+#define MATCH_CHAR_EQ(m, c, case_sensitive) \
+  (((m) == (c)) ||			    \
+   ((! case_sensitive) &&		    \
+    ((isalpha((m)) ? toupper((m)) : (m)) == \
+     (isalpha((c)) ? toupper((c)) : (c)))))
+
+/*
+ * match
+ *
+ * Trivial pattern matcher.
+ *   - '*' matches to any (sub)string
+ *   - '?' matches to any character
+ * Returs non-zero on match.
+ */
+static int match(char *mask, char *str, int case_sensitive)
+{
+    unsigned char *s, *m;
+
+    m = (unsigned char *)mask;
+    s = (unsigned char *)str;
+    while (*m != '\0') {
+        if ((! MATCH_CHAR_EQ(*m, *s, case_sensitive)) &&
+           (*m != MATCH_WILD_CHR) && (*m != MATCH_WILD_STR)) {
+            return 0;
+        } else if (*m == MATCH_WILD_STR) {
+	    m++;
+            while (*s) {
+                if (match((char *)m, (char *)s, case_sensitive))
+                    return 1;
+                s++;
+            }
+            return ((!(*m != '\0')) ? 1 : 0);
+        } else {
+            s++;
+            m++;
+        }
+    }
+    return ((!(*s != '\0')) ? 1 : 0);
+}
+
 /*
  * pl_dump
  *
@@ -149,6 +191,9 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
 	break;
     case INCLUDES:
 	printf("%s",not? "DOES NOT INCLUDE " : "INCLUDES ");
+	break;
+    case MATCHES:
+	printf("%s",not? "DOES NOT MATCH " : "MATCHES ");
 	break;
     case EQUALS:
 	printf("EQUALS ");
@@ -354,6 +399,10 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	case INCLUDES:
 	    r_arg=(int)strcasestr(cval,pnode->arg2.cval);
 	    retval = not ? !r_arg : r_arg;
+	    break;
+	case MATCHES:
+	    r_arg = match(pnode->arg2.cval, cval, 0);
+	    retval = not ? r_arg : !r_arg;
 	    break;
 	}
     }

@@ -72,6 +72,7 @@ int pl_number=2;
 %token <ival> GREATEREQUAL
 %token <ival> IS 
 %token <ival> INCLUDES
+%token <ival> MATCHES
 
 %token <ival> OR 
 %token <ival> AND
@@ -168,6 +169,7 @@ strtag: ARTIST
 
 strbool: IS { $$=$1; }
 | INCLUDES { $$=$1; }
+| MATCHES { $$=$1; }
 | NOT strbool { $$=$2 | 0x80000000; }
 ;
 

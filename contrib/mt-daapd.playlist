@@ -28,13 +28,15 @@
 #   Date (date)
 #
 # Valid operators include:
-#   is, includes (string)
+#   is, includes (string), matches (string)
 #   >, <, <=, >=, = (int)
 #   after, before (date)
 #
-# the "is" operator must exactly match the tag,
-# while the "includes" operator matches a substring.
-# Both matches are case-insensitive
+# the "is" operator must exactly match the tag, while
+# the "includes" operator matches a substring and
+# "matches" operator makes trivial wildcard match using
+# "?" and "*" as wildcards for any character and any
+# string accordingly.  All matches are case-insensitive.
 #
 # Valid operands include:
 #   "string value" (string)

@@ -81,6 +81,7 @@ after                    { yylval.ival=AFTER; return(AFTER); }
 
 is                       { yylval.ival=IS; return(IS); }
 includes                 { yylval.ival=INCLUDES; return(INCLUDES); }
+matches                  { yylval.ival=INCLUDES; return(MATCHES); }
 =                        { yylval.ival=EQUALS; return(EQUALS); }
 
 or |
