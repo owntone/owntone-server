@@ -418,14 +418,11 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
     else
 	meta = encodeMetaRequest(metaStr, gSongMetaDataMap);
 
-    if(0 != query)
-    {
+    if(0 != query) {
 	filter = query_build(query, song_fields);
-	if(err_debuglevel >= ERR_INFO)
-	{
-	    fprintf(stderr, "query: %s\n", query);
-	    query_dump(stderr, filter, 0);
-	}
+	DPRINTF(ERR_INFO,"query: %s\n", query);
+	if(err_debuglevel >= ERR_INFO) /* this is broken */
+	    query_dump(stderr,filter, 0);
     }
 
     DPRINTF(ERR_DEBUG,"Preparing to send db items\n");
@@ -861,14 +858,11 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
     else
 	meta = encodeMetaRequest(metaStr, gSongMetaDataMap);
 
-    if(0 != query)
-    {
+    if(0 != query) {
 	filter = query_build(query, song_fields);
-	if(err_debuglevel >= ERR_INFO)
-	{
-	    fprintf(stderr, "query: %s\n", query);
-	    query_dump(stderr, filter, 0);
-	}
+	DPRINTF(ERR_INFO,"query: %s\n",query);
+	if(err_debuglevel >= ERR_INFO) /* this is broken */
+	    query_dump(stderr,filter, 0);
     }
 
     DPRINTF(ERR_DEBUG,"Preparing to send playlist items for pl #%d\n",playlist);
@@ -1180,10 +1174,10 @@ DAAP_BLOCK* daap_response_browse(const char* name, const char* filter)
        0 == (query = query_build(filter, browse_fields)))
 	return NULL;
 
-    if(query && err_debuglevel >= ERR_INFO)
-    {
-	fprintf(stderr, "query: %s\n", query);
-	query_dump(stderr, query, 0);
+    if(query) {
+	DPRINTF(ERR_INFO,"query: %s\n",query);
+	if(err_debuglevel >= ERR_INFO) /* this is broken */
+	    query_dump(stderr,filter, 0);
     }
 
     if(0 == (henum = db_enum_begin()))
