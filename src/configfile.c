@@ -84,7 +84,11 @@ CONFIGELEMENT config_elements[] = {
     { 1,1,0,CONFIG_TYPE_INT,"port",(void*)&config.port,config_emit_int },
     { 1,1,0,CONFIG_TYPE_STRING,"admin_pw",(void*)&config.adminpassword,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"mp3_dir",(void*)&config.mp3dir,config_emit_string },
+#ifdef WITH_GDBM
     { 1,1,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
+#else
+    { 1,0,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
+#endif
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },

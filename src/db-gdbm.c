@@ -19,24 +19,26 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#define _XOPEN_SOURCE 600
+
 #include <errno.h>
 #include <gdbm.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 
 
-#define __USE_UNIX98
-#include <pthread.h>
-
 #include "err.h"
 #include "mp3-scanner.h"
 
+#define DB_VERSION 1
+#define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
 /*
  * Typedefs
  */
 typedef struct tag_mp3record {
     MP3FILE mp3file;
-    struct tag_mp3record *next;
+    datum key;
 } MP3RECORD;
 
 typedef struct tag_playlistentry {
@@ -52,6 +54,39 @@ typedef struct tag_playlist {
     struct tag_playlist *next;
 } DB_PLAYLIST;
 
+typedef struct tag_mp3packed {
+    int version;
+    int bitrate;
+    int samplerate;
+    int song_length;
+    int file_size;
+    int year;
+    
+    int track;
+    int total_tracks;
+
+    int disc;
+    int total_discs;
+
+    int time_added;
+    int time_modified;
+    int time_played;
+
+    unsigned int id; /* inode */
+
+    int path_len;
+    int fname_len;
+    int title_len;
+    int artist_len;
+    int album_len;
+    int genre_len;
+    int comment_len;
+    int type_len;
+
+    char data[1];
+} MP3PACKED;
+
+
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
 /*
@@ -61,11 +96,12 @@ int db_version_no;
 int db_update_mode=0;
 int db_song_count;
 int db_playlist_count=0;
+DB_PLAYLIST db_playlists;
 pthread_rwlock_t db_rwlock; /* OSX doesn't have PTHREAD_RWLOCK_INITIALIZER */
 pthread_once_t db_initlock=PTHREAD_ONCE_INIT;
+MP3RECORD db_enum_helper;
 
 GDBM_FILE db_songs;
-GDBM_FILE db_playlists;
 
 /*
  * Forwards
@@ -100,7 +136,7 @@ char *db_get_playlist_name(int playlistid);
 
 MP3FILE *db_find(int id);
 
-void db_freerecord(MP3RECORD *mp3record);
+void db_freefile(MP3FILE *pmp3);
 
 /*
  * db_init_once
@@ -119,32 +155,31 @@ void db_init_once(void) {
  * of the database files
  */
 int db_init(char *parameters) {
-    char db_path[MAX_PATH + 1];
+    datum tmp_data,tmp_nextkey;
+    char db_path[PATH_MAX + 1];
     
-    snprintf(db_path,sizeof(db_path),"%s\\%s",parameters,"songs.gdb");
+    snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs.gdb");
     db_songs=gdbm_open(db_path,0,GDBM_WRCREAT | GDBM_SYNC | GDBM_NOLOCK,
 		       0600,NULL);
     if(!db_songs) {
 	DPRINTF(ERR_FATAL,"Could not open songs database (%s)\n",
-		gdbm_strerror(gdbm_error));
+		gdbm_strerror(errno));
 	return -1;
     }
-
-    snprintf(db_path,sizeof(db_path),"%s\\%s",parameters,"playlists.gdb");
-    db_playlists=gdbm_open(db_path,0,GDBM_WRCREAT | GDBM_SYNC | GDBM_NOLOCK,
-			   0600,NULL);
-
-    if(!db_playlists) {
-	DPRINTF(ERR_FATAL,"Could not open playlist database (%s)\n",
-		gdbm_strerror(gdbm_error));
-	return -1;
-    }
-
 
     db_version_no=1;
     db_song_count=0;
 
     /* count the actual songs... */
+    tmp_data=gdbm_firstkey(db_songs);
+    while(tmp_data.dptr) {
+	tmp_nextkey=gdbm_nextkey(db_songs,tmp_data);
+	free(tmp_data.dptr);
+	tmp_data=tmp_nextkey;
+	db_song_count++;
+    }
+
+    DPRINTF(ERR_DEBUG,"Loaded database... found %d songs\n",db_song_count);
 
     /* and the playlists */
     return pthread_once(&db_initlock,db_init_once);
@@ -156,15 +191,10 @@ int db_init(char *parameters) {
  * Close the db, in this case freeing memory
  */
 int db_deinit(void) {
-    MP3RECORD *current;
     DB_PLAYLIST *plist;
     DB_PLAYLISTENTRY *pentry;
 
-    while(db_root.next) {
-	current=db_root.next;
-	db_root.next=current->next;
-	db_freerecord(current);
-    }
+    gdbm_close(db_songs);
 
     while(db_playlists.next) {
 	plist=db_playlists.next;
@@ -219,7 +249,7 @@ int db_end_initial_update(void) {
  * background update mode
  */
 int db_is_empty(void) {
-    return !db_root.next;
+    return !db_song_count;
 }
 
 
@@ -324,62 +354,203 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
 }
 
 /*
+ * db_packrecord 
+ *
+ * Given an MP3 record, turn it into a datum
+ */
+datum *db_packrecord(MP3FILE *pmp3) {
+    int len;
+    datum *result;
+    MP3PACKED *ppacked;
+    int offset;
+
+    len=sizeof(MP3PACKED)-1;  /* minus the data char... */
+    len += STRLEN(pmp3->path);
+    len += STRLEN(pmp3->fname);
+    len += STRLEN(pmp3->title);
+    len += STRLEN(pmp3->artist);
+    len += STRLEN(pmp3->album);
+    len += STRLEN(pmp3->genre);
+    len += STRLEN(pmp3->comment);
+    len += STRLEN(pmp3->type);
+
+    result = (datum*) malloc(sizeof(datum));
+    if(!result)
+	return NULL;
+
+    result->dptr = (char*)malloc(len);  /* FIXME: always a char*? */
+    if(!result->dptr) {
+	free(result);
+	return NULL;
+    }
+
+    memset(result->dptr,0x00,len);
+
+    /* start packing! */
+    ppacked=(MP3PACKED *)result->dptr;
+
+    ppacked->version=DB_VERSION;
+    ppacked->bitrate=pmp3->bitrate;
+    ppacked->samplerate=pmp3->samplerate;
+    ppacked->song_length=pmp3->song_length;
+    ppacked->file_size=pmp3->file_size;
+    ppacked->year=pmp3->year;
+    ppacked->track=pmp3->track;
+    ppacked->total_tracks=pmp3->total_tracks;
+    ppacked->disc=pmp3->disc;
+    ppacked->total_discs=pmp3->total_discs;
+    ppacked->time_added=pmp3->time_added;
+    ppacked->time_modified=pmp3->time_modified;
+    ppacked->time_played=pmp3->time_played;
+    ppacked->id=pmp3->id;
+
+    ppacked->path_len=STRLEN(pmp3->path);
+    ppacked->fname_len=STRLEN(pmp3->fname);
+    ppacked->title_len=STRLEN(pmp3->title);
+    ppacked->artist_len=STRLEN(pmp3->artist);
+    ppacked->album_len=STRLEN(pmp3->album);
+    ppacked->genre_len=STRLEN(pmp3->genre);
+    ppacked->comment_len=STRLEN(pmp3->comment);
+    ppacked->type_len=STRLEN(pmp3->type);
+
+    offset=0;
+    if(pmp3->path)
+	strncpy(&ppacked->data[offset],pmp3->path,ppacked->path_len);
+    offset+=ppacked->path_len;
+
+    if(pmp3->fname)
+	strncpy(&ppacked->data[offset],pmp3->fname,ppacked->fname_len);
+    offset+=ppacked->fname_len;
+
+    if(pmp3->title)
+	strncpy(&ppacked->data[offset],pmp3->title,ppacked->title_len);
+    offset+=ppacked->title_len;
+
+    if(pmp3->artist)
+	strncpy(&ppacked->data[offset],pmp3->artist,ppacked->artist_len);
+    offset+=ppacked->artist_len;
+
+    if(pmp3->album)
+	strncpy(&ppacked->data[offset],pmp3->album,ppacked->album_len);
+    offset+=ppacked->album_len;
+
+    if(pmp3->genre)
+	strncpy(&ppacked->data[offset],pmp3->genre,ppacked->genre_len);
+    offset+=ppacked->genre_len;
+
+    if(pmp3->comment)
+	strncpy(&ppacked->data[offset],pmp3->comment,ppacked->comment_len);
+    offset+=ppacked->comment_len;
+
+    if(pmp3->type)
+	strncpy(&ppacked->data[offset],pmp3->type,ppacked->type_len);
+    offset+=ppacked->type_len;
+
+    /* whew */
+    result->dsize=len;
+    return result;
+}
+
+
+/*
+ * db_unpackrecord
+ *
+ * Given a datum, return an MP3 record
+ */
+int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
+    MP3PACKED *ppacked;
+    int offset;
+
+    /* should check minimum length (for v1) */
+
+
+    /* VERSION 1 */
+    ppacked=(MP3PACKED*)pdatum->dptr;
+    pmp3->bitrate=ppacked->bitrate;
+    pmp3->samplerate=ppacked->samplerate;
+    pmp3->song_length=ppacked->song_length;
+    pmp3->file_size=ppacked->file_size;
+    pmp3->year=ppacked->year;
+    pmp3->track=ppacked->track;
+    pmp3->total_tracks=ppacked->total_tracks;
+    pmp3->disc=ppacked->disc;
+    pmp3->total_discs=ppacked->total_discs;
+    pmp3->time_added=ppacked->time_added;
+    pmp3->time_modified=ppacked->time_modified;
+    pmp3->time_played=ppacked->time_played;
+    pmp3->id=ppacked->id;
+
+    offset=0;
+    pmp3->path=strdup(&ppacked->data[offset]);
+    offset += ppacked->path_len;
+
+    pmp3->fname=strdup(&ppacked->data[offset]);
+    offset += ppacked->fname_len;
+
+    pmp3->title=strdup(&ppacked->data[offset]);
+    offset += ppacked->title_len;
+
+    pmp3->artist=strdup(&ppacked->data[offset]);
+    offset += ppacked->artist_len;
+
+    pmp3->album=strdup(&ppacked->data[offset]);
+    offset += ppacked->album_len;
+
+    pmp3->genre=strdup(&ppacked->data[offset]);
+    offset += ppacked->genre_len;
+
+    pmp3->comment=strdup(&ppacked->data[offset]);
+    offset += ppacked->comment_len;
+
+    pmp3->type=strdup(&ppacked->data[offset]);
+    offset += ppacked->type_len;
+    
+    return 0;
+}
+
+/*
  * db_add
  *
  * add an MP3 file to the database.
  */
-
-int db_add(MP3FILE *mp3file) {
+int db_add(MP3FILE *pmp3) {
     int err;
     int g;
-    MP3RECORD *pnew;
+    datum *pnew;
+    datum dkey;
+    MP3PACKED *ppacked;
 
-    DPRINTF(ERR_DEBUG,"Adding %s\n",mp3file->path);
+    DPRINTF(ERR_DEBUG,"Adding %s\n",pmp3->path);
 
-    if((pnew=(MP3RECORD*)malloc(sizeof(MP3RECORD))) == NULL) {
-	free(pnew);
-	errno=ENOMEM;
-	return -1;
-    }
-
-    memset(pnew,0,sizeof(MP3RECORD));
-
-    memcpy(&pnew->mp3file,mp3file,sizeof(MP3FILE));
-
-    g=(int) pnew->mp3file.path=strdup(mp3file->path);
-    g = g && (pnew->mp3file.fname=strdup(mp3file->fname));
-
-    if(mp3file->title)
-	g = g && (pnew->mp3file.title=strdup(mp3file->title));
-    
-    if(mp3file->artist)
-	g = g && (pnew->mp3file.artist=strdup(mp3file->artist));
-
-    if(mp3file->album)
-	g = g && (pnew->mp3file.album=strdup(mp3file->album));
-
-    if(mp3file->genre)
-	g = g && (pnew->mp3file.genre=strdup(mp3file->genre));
-
-    if(mp3file->comment)
-	g = g && (pnew->mp3file.comment=strdup(mp3file->comment));
-
-    if(!g) {
-	DPRINTF(ERR_WARN,"Malloc error in db_add\n");
-	db_freerecord(pnew);
+    if(!(pnew=db_packrecord(pmp3))) {
 	errno=ENOMEM;
 	return -1;
     }
 
     if(err=pthread_rwlock_wrlock(&db_rwlock)) {
 	DPRINTF(ERR_WARN,"cannot lock wrlock in db_add\n");
-	db_freerecord(pnew);
+	free(pnew->dptr);
+	free(pnew);
 	errno=err;
 	return -1;
     }
 
-    pnew->next=db_root.next;
-    db_root.next=pnew;
+    /* insert the datum into the underlying database */
+    dkey.dptr=(void*)&(pmp3->id);
+    dkey.dsize=sizeof(unsigned int);
+
+    /* dummy this up in case the client didn't */
+    ppacked=(MP3PACKED *)pnew->dptr;
+    ppacked->time_added=(int)time(NULL);
+    ppacked->time_modified=ppacked->time_added;
+    ppacked->time_played=0;
+
+    if(gdbm_store(db_songs,dkey,*pnew,GDBM_INSERT)) {
+	log_err(0,"Error inserting file %s in database\n",pmp3->fname);
+    }
+
+    free(pnew->dptr);
+    free(pnew);
 
     if(!db_update_mode) {
 	db_version_no++;
@@ -393,19 +564,18 @@ int db_add(MP3FILE *mp3file) {
 }
 
 /*
- * db_freerecord
+ * db_freefile
  *
  * free a complete mp3record
  */
-void db_freerecord(MP3RECORD *mp3record) {
-    MAYBEFREE(mp3record->mp3file.path);
-    MAYBEFREE(mp3record->mp3file.fname);
-    MAYBEFREE(mp3record->mp3file.title);
-    MAYBEFREE(mp3record->mp3file.artist);
-    MAYBEFREE(mp3record->mp3file.album);
-    MAYBEFREE(mp3record->mp3file.genre);
-    MAYBEFREE(mp3record->mp3file.comment);
-    free(mp3record);
+void db_freefile(MP3FILE *pmp3) {
+    MAYBEFREE(pmp3->path);
+    MAYBEFREE(pmp3->fname);
+    MAYBEFREE(pmp3->title);
+    MAYBEFREE(pmp3->artist);
+    MAYBEFREE(pmp3->album);
+    MAYBEFREE(pmp3->genre);
+    MAYBEFREE(pmp3->comment);
 }
 
 /*
@@ -426,7 +596,12 @@ MP3RECORD *db_enum_begin(void) {
 	return NULL;
     }
 
-    return db_root.next;
+    memset((void*)&db_enum_helper,0x00,sizeof(db_enum_helper));
+    db_enum_helper.key=gdbm_firstkey(db_songs);
+    if(!db_enum_helper.key.dptr)
+	return NULL;
+
+    return &db_enum_helper;
 }
 
 /*
@@ -486,12 +661,27 @@ DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid) {
  */
 MP3FILE *db_enum(MP3RECORD **current) {
     MP3FILE *retval;
+    datum nextkey;
 
-    if(*current) {
-	retval=&((*current)->mp3file);
-	*current=(*current)->next;
-	return retval;
+    if(current) {
+	db_freefile(&db_enum_helper.mp3file);
+
+	/* have to fetch to the next key... */
+	if(!db_unpackrecord(&db_enum_helper.key,&db_enum_helper.mp3file)) {
+	    log_err(1,"Cannot unpack item.. Corrupt database?\n");
+	}
+
+	nextkey=gdbm_nextkey(db_songs,db_enum_helper.key);
+	if(db_enum_helper.key.dptr) {
+	    free(db_enum_helper.key.dptr);
+	    db_enum_helper.key.dptr=NULL;
+	}
+
+	db_enum_helper.key=nextkey;
+	if(nextkey.dptr)
+	    return &db_enum_helper.mp3file;
     }
+
     return NULL;
 }
 
@@ -540,6 +730,10 @@ int db_playlist_items_enum(DB_PLAYLISTENTRY **current) {
  * quit walking the database (and give up reader lock)
  */
 int db_enum_end(void) {
+    db_freefile(&db_enum_helper.mp3file);
+    if(db_enum_helper.key.dptr)
+	free(db_enum_helper.key.dptr);
+
     return pthread_rwlock_unlock(&db_rwlock);
 }
 
@@ -564,19 +758,32 @@ int db_playlist_items_enum_end(void) {
 /*
  * db_find
  *
- * Find a MP3FILE entry based on file id
+ * Find a MP3FILE entry based on file id  
  */
-MP3FILE *db_find(int id) {
-    MP3RECORD *current=db_root.next;
-    while((current) && (current->mp3file.id != id)) {
-	current=current->next;
-    }
+MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
+    static MP3FILE *pmp3=NULL;
+    datum key, content;
 
-    if(!current)
+    key.dptr=(char*)&id;
+    key.dsize=sizeof(int);
+
+    content=gdbm_fetch(db_songs,key);
+    if(!content.dptr)
 	return NULL;
 
-    return &current->mp3file;
+    if(pmp3) {
+	db_freefile(pmp3);
+	free(pmp3);
+    }
+
+    pmp3=(MP3FILE*)malloc(sizeof(MP3FILE));
+    if(!pmp3)
+	return NULL;
+
+    db_unpackrecord(&content,pmp3);
+    return pmp3;
 }
+
 
 /*
  * db_get_playlist_count

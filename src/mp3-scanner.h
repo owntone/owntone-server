@@ -44,9 +44,9 @@ typedef struct tag_mp3file {
     int disc;
     int total_discs;
 
-    int mtime;
-    int atime;
-    int ctime;
+    int time_added;
+    int time_modified;
+    int time_played;
 
     int got_id3;
     unsigned int id;

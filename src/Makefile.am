@@ -6,6 +6,12 @@ AM_YFLAGS=-d
 
 sbin_PROGRAMS = mt-daapd
 
+if COND_USE_GDBM
+DBFILE=db-gdbm.c
+else
+DBFILE=db-memory.c
+endif
+
 if COND_NEED_STRCASESTR
 STRCASESTR=strcasestr.c
 endif
@@ -28,13 +34,14 @@ endif
 
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
-	daap-proto.c daap-proto.h daap.c daap.h db-memory.c db-memory.h \
+	daap-proto.c daap-proto.h daap.c daap.h $(DBFILE) db-memory.h \
 	mp3-scanner.h mp3-scanner.c playlist.c playlist.h rend-unix.c rend-unix.h \
 	lexer.l parser.y $(RENDSRC) $(STRCASESTR) $(STRSEP)
 
 EXTRA_DIST = mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c \
 	mdns/mDNSUNP.c mdns/mDNSPlatformFunctions.h mdns/mDNSPosix.h mdns/mDNSUNP.h \
-	rend-howl.c rend-posix.c rend-osx.c strcasestr.c strsep.c
+	rend-howl.c rend-posix.c rend-osx.c strcasestr.c strsep.c db-memory.c \
+	db-gdbm.c
 
 
 

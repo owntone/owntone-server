@@ -397,16 +397,6 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     if(strlen(pde->d_name) > 4)
 	mp3file.type=strdup((char*)&pde->d_name[strlen(pde->d_name) - 4]);
     
-#ifdef MAC /* wtf is this about? */
-    mp3file.mtime=psb->st_mtimespec.tv_sec;
-    mp3file.atime=psb->st_atimespec.tv_sec;
-    mp3file.ctime=psb->st_ctimespec.tv_sec;
-#else
-    mp3file.mtime=psb->st_mtime;
-    mp3file.atime=psb->st_atime;
-    mp3file.ctime=psb->st_ctime;
-#endif
-    
     /* FIXME; assumes that st_ino is a u_int_32 */
     mp3file.id=psb->st_ino;
     

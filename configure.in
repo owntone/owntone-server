@@ -56,6 +56,15 @@ esac
 dnl Checks for libraries.
 AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
 
+AC_ARG_WITH(gdbm,
+        [--with-gdbm                           store music info in gdbm databases],
+	[ case "${withval}" in
+	  yes) use_gdbm=true; LDFLAGS="${LDFLAGS} -lgdbm"; CFLAGS="${CFLAGS} -DWITH_GDBM";;
+          no) use_gdbm=false;;
+          *)   AC_MSG_ERROR(bad value ${withval} for --with-gdbm);;
+          esac ], [use_gdbm=false])
+AM_CONDITIONAL(COND_USE_GDBM, test x$use_gdbm = xtrue)
+        
 AC_ARG_WITH(howl-includes,
 	[--with-howl-includes[[=DIR]]          use howl include files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then

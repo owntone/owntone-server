@@ -262,12 +262,12 @@ DAAP_BLOCK *daap_response_songlist(void) {
 		    // g = g && daap_add_char(mlit,"asco",0x0); /* compilation */
 		    // g = g && daap_add_string(mlit,"ascp",""); /* composer */
 
-		    if(current->ctime) {
-			g = g && daap_add_int(mlit,"asda",current->ctime); /* added */
+		    if(current->time_added) {
+			g = g && daap_add_int(mlit,"asda",current->time_added); /* added */
 		    }
 
-		    if(current->mtime) {
-			g = g && daap_add_int(mlit,"asdm",current->mtime); /* modified */
+		    if(current->time_modified) {
+			g = g && daap_add_int(mlit,"asdm",current->time_modified); /* modified */
 		    }
 
 		    if(current->total_discs) {
