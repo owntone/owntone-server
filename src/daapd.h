@@ -38,6 +38,7 @@ typedef struct tag_config {
     char *web_root;
     int port;
     int rescan_interval;
+    int always_scan;       /* 0 to minimize disk usage (embedded devices) - not in config */
     int process_m3u;
     char *adminpassword;
     char *readpassword;
