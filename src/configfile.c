@@ -38,8 +38,9 @@
 /*
  * Forwards
  */
-void config_emit_string(void *value,WS_CONNINFO *pwsc);
-void config_emit_int(void *value,WS_CONNINFO *pwsc);
+void config_emit_string(WS_CONNINFO *pwsc, void *value);
+void config_emit_literal(WS_CONNINFO *pwsc, void *value);
+void config_emit_int(WS_CONNINFO *pwsc, void *value);
 
 /*
  * Defines
@@ -54,7 +55,7 @@ typedef struct tag_configelement {
     int type;
     char *name;
     void *var;
-    void (*emit)(void *,WS_CONNINFO *);
+    void (*emit)(WS_CONNINFO *, void *);
 } CONFIGELEMENT;
 
 CONFIGELEMENT config_elements[] = {
@@ -62,6 +63,8 @@ CONFIGELEMENT config_elements[] = {
     { 1,1,0,CONFIG_TYPE_INT,"port",(void*)&config.port,config_emit_int },
     { 1,1,0,CONFIG_TYPE_STRING,"admin_pw",(void*)&config.adminpassword,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"mp3_dir",(void*)&config.mp3dir,config_emit_string },
+    { 0,0,0,CONFIG_TYPE_STRING,"release",(void*)VERSION,config_emit_literal },
+    { 0,0,0,CONFIG_TYPE_STRING,"package",(void*)PACKAGE,config_emit_literal },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -127,7 +130,7 @@ int config_read(char *file) {
 			
 			switch(pce->type) {
 			case CONFIG_TYPE_STRING:
-			    pce->var = (void*)strdup(value);
+			    *((char **)(pce->var)) = (void*)strdup(value);
 			    break;
 			case CONFIG_TYPE_INT:
 			    *((int*)(pce->var)) = atoi(value);
@@ -148,6 +151,11 @@ int config_read(char *file) {
 
     fclose(fin);
 
+    /* fix the fullpath of the web root */
+    realpath(config.web_root,path_buffer);
+    free(config.web_root);
+    config.web_root=strdup(path_buffer);
+
     /* check to see if all required elements are satisfied */
     pce=config_elements;
     err=0;
@@ -156,6 +164,17 @@ int config_read(char *file) {
 	    fprintf(stderr,"Required config entry '%s' not specified\n",pce->name);
 	    err=-1;
 	}
+	if((pce->config_element) && (pce->changed)) {
+	    switch(pce->type) {
+	    case CONFIG_TYPE_STRING:
+		DPRINTF(ERR_INFO,"%s: %s\n",pce->name,*((char**)pce->var));
+		break;
+	    case CONFIG_TYPE_INT:
+		DPRINTF(ERR_INFO,"%s: %d\n",pce->name,*((int*)pce->var));
+		break;
+	    }
+	}
+
 	pce->changed=0;
 	pce++;
     }
@@ -187,6 +206,9 @@ void config_handler(WS_CONNINFO *pwsc) {
     int in_arg;
     char *argptr;
     char next;
+    CONFIGELEMENT *pce;
+
+    DPRINTF(ERR_DEBUG,"Entereing config_handler\n");
     
     pwsc->close=1;
     ws_addresponseheader(pwsc,"Connection","close");
@@ -249,18 +271,20 @@ void config_handler(WS_CONNINFO *pwsc) {
 	if(in_arg) {
 	    if(next == '@') {
 		in_arg=0;
-		if(strcasecmp(argbuffer,"WEB_ROOT") == 0) {
-		    ws_writefd(pwsc,"%s",config.web_root);
-		} else if (strcasecmp(argbuffer,"PORT") == 0) {
-		    ws_writefd(pwsc,"%d",config.port);
-		} else if (strcasecmp(argbuffer,"ADMINPW") == 0) {
-		    ws_writefd(pwsc,"%s",config.adminpassword);
-		} else if (strcasecmp(argbuffer,"RELEASE") == 0) {
-		    ws_writefd(pwsc,"mt-daapd %s\n",VERSION);
-		} else if (strcasecmp(argbuffer,"MP3DIR") == 0) {
-		    ws_writefd(pwsc,"%s",config.mp3dir);
-		} else {
-		    ws_writefd(pwsc,"@ERR@");
+
+		DPRINTF(ERR_DEBUG,"Got directive %s\n",argbuffer);
+
+		pce=config_elements;
+		while(pce->config_element != -1) {
+		    if(strcasecmp(argbuffer,pce->name) == 0) {
+			pce->emit(pwsc, pce->var);
+			break;
+		    }
+		    pce++;
+		}
+
+		if(pce->config_element == -1) { /* bad subst */
+		    ws_writefd(pwsc,"@%s@",argbuffer);
 		}
 	    } else {
 		if((argptr - argbuffer) < (sizeof(argbuffer)-1))
@@ -284,6 +308,8 @@ void config_handler(WS_CONNINFO *pwsc) {
 }
 
 int config_auth(char *user, char *password) {
+    if((!password)||(!config.adminpassword))
+	return 0;
     return !strcmp(password,config.adminpassword);
 }
 
@@ -293,8 +319,17 @@ int config_auth(char *user, char *password) {
  *
  * write a simple string value to the connection
  */
-void config_emit_string(void *value,WS_CONNINFO *pwsc) {
-    ws_writefd(pwsc,"%s",value);
+void config_emit_string(WS_CONNINFO *pwsc, void *value) {
+    ws_writefd(pwsc,"%s",*((char**)value));
+}
+
+/*
+ * config_emit_literal
+ *
+ * Emit a regular char *
+ */
+void config_emit_literal(WS_CONNINFO *pwsc, void *value) {
+    ws_writefd(pwsc,"%s",(char*)value);
 }
 
 
@@ -303,7 +338,7 @@ void config_emit_string(void *value,WS_CONNINFO *pwsc) {
  *
  * write a simple int value to the connection
  */
-void config_emit_int(void *value,WS_CONNINFO *pwsc) {
-    ws_writefd(pwsc,"%d",value);
+void config_emit_int(WS_CONNINFO *pwsc, void *value) {
+    ws_writefd(pwsc,"%d",*((int*)value));
 }
 
