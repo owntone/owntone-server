@@ -46,6 +46,7 @@ typedef struct tag_playlist {
     unsigned int id;
     int songs;
     char *name;
+    int is_smart;
     struct tag_playlistentry *nodes;
     struct tag_playlist *next;
 } DB_PLAYLIST;
@@ -74,7 +75,7 @@ int db_init(char *parameters);
 int db_deinit(void);
 int db_version(void);
 int db_add(MP3FILE *mp3file);
-int db_add_playlist(unsigned int playlistid, char *name);
+int db_add_playlist(unsigned int playlistid, char *name, int is_smart);
 int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
 
 MP3RECORD *db_enum_begin(void);
@@ -91,6 +92,7 @@ int db_playlist_items_enum_end(void);
 
 int db_get_song_count(void);
 int db_get_playlist_count(void);
+int db_get_playlist_is_smart(int playlistid);
 int db_get_playlist_entry_count(int playlistid);
 char *db_get_playlist_name(int playlistid);
 
@@ -119,7 +121,13 @@ int db_init(char *parameters) {
     db_version_no=1;
     db_song_count=0;
     db_playlists.next=NULL;
-    return pthread_once(&db_initlock,db_init_once);
+
+    if(pthread_once(&db_initlock,db_init_once))
+	return -1;
+    
+    pl_register();
+
+    return 0;
 }
 
 /*
@@ -200,7 +208,7 @@ int db_is_empty(void) {
  *
  * Add a new playlist
  */
-int db_add_playlist(unsigned int playlistid, char *name) {
+int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
     int err;
     DB_PLAYLIST *pnew;
     
@@ -210,6 +218,7 @@ int db_add_playlist(unsigned int playlistid, char *name) {
 
     pnew->name=strdup(name);
     pnew->id=playlistid;
+    pnew->is_smart=is_smart;
     pnew->nodes=NULL;
     pnew->songs=0;
 
@@ -571,6 +580,37 @@ int db_get_playlist_count(void) {
 int db_get_song_count(void) {
     return db_song_count;
 }
+
+/*
+ * db_get_playlist_is_smart
+ *
+ * return whether or not the playlist is a "smart" playlist
+ */
+int db_get_playlist_is_smart(int playlistid) {
+    DB_PLAYLIST *current;
+    int err;
+    int result;
+
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
+	log_err(0,"Cannot lock rwlock\n");
+	errno=err;
+	return -1;	
+    }
+
+    current=db_playlists.next;
+    while(current && (current->id != playlistid))
+	current=current->next;
+
+    if(!current) {
+	result=0;
+    } else {
+	result=1;
+    }
+
+    pthread_rwlock_unlock(&db_rwlock);
+    return result;
+}
+
 
 /*
  * db_get_playlist_entry_count

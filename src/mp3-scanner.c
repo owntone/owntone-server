@@ -47,7 +47,10 @@
 #include "err.h"
 #include "mp3-scanner.h"
 #include "playlist.h"
-#include "strcasestr.h"
+
+#ifdef NEED_STRCASESTR
+# include "strcasestr.h"
+#endif
 
 /*
  * Typedefs
@@ -370,7 +373,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     playlistid=psb->st_ino;
     fd=open(playlist_path,O_RDONLY);
     if(fd != -1) {
-	db_add_playlist(playlistid,m3u_path);
+	db_add_playlist(playlistid,m3u_path,0);
 
 	while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
 	    while((linebuffer[strlen(linebuffer)-1] == '\n') ||

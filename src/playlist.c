@@ -158,7 +158,6 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
  */
 int pl_load(char *file) {
     FILE *fin;
-    SMART_PLAYLIST *pcurrent;
     int result;
 
     fin=fopen(file,"r");
@@ -174,16 +173,25 @@ int pl_load(char *file) {
 	return -1;
     }
 
+    return 0;
+}
+
+/*
+ * pl_register
+ *
+ * Register the playlists
+ */
+void pl_register(void) {
+    SMART_PLAYLIST *pcurrent;
+
     /* register the playlists */
     DPRINTF(ERR_INFO,"Finished loading smart playlists\n");
     pcurrent=pl_smart.next;
     while(pcurrent) {
 	DPRINTF(ERR_INFO,"Adding smart playlist %s as %d\n",pcurrent->name,pcurrent->id)
-	db_add_playlist(pcurrent->id, pcurrent->name);
+	    db_add_playlist(pcurrent->id, pcurrent->name,1);
 	pcurrent=pcurrent->next;
     }
-
-    return 0;
 }
 
 /*

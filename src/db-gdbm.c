@@ -51,6 +51,7 @@ typedef struct tag_playlistentry {
 typedef struct tag_playlist {
     unsigned int id;
     int songs;
+    int is_smart;
     char *name;
     struct tag_playlistentry *nodes;
     struct tag_playlist *next;
@@ -116,7 +117,7 @@ int db_init(char *parameters);
 int db_deinit(void);
 int db_version(void);
 int db_add(MP3FILE *mp3file);
-int db_add_playlist(unsigned int playlistid, char *name);
+int db_add_playlist(unsigned int playlistid, char *name, int is_smart);
 int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
 int db_unpackrecord(datum *pdatum, MP3FILE *pmp3);
 datum *db_packrecord(MP3FILE *pmp3);
@@ -135,6 +136,7 @@ int db_playlist_items_enum_end(void);
 
 int db_get_song_count(void);
 int db_get_playlist_count(void);
+int db_get_playlist_is_smart(int playlistid); 
 int db_get_playlist_entry_count(int playlistid);
 char *db_get_playlist_name(int playlistid);
 
@@ -164,6 +166,11 @@ int db_init(char *parameters) {
     datum tmp_key,tmp_nextkey,song_data;
     char db_path[PATH_MAX + 1];
     
+    if(pthread_once(&db_initlock,db_init_once))
+	return -1;
+
+    pl_register();
+
     snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs.gdb");
     db_songs=gdbm_open(db_path,0,GDBM_WRCREAT | GDBM_SYNC | GDBM_NOLOCK,
 		       0600,NULL);
@@ -206,7 +213,7 @@ int db_init(char *parameters) {
     DPRINTF(ERR_DEBUG,"Loaded database... found %d songs\n",db_song_count);
 
     /* and the playlists */
-    return pthread_once(&db_initlock,db_init_once);
+    return 0;
 }
 
 /*
@@ -282,7 +289,7 @@ int db_is_empty(void) {
  *
  * Add a new playlist
  */
-int db_add_playlist(unsigned int playlistid, char *name) {
+int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
     int err;
     DB_PLAYLIST *pnew;
     
@@ -294,6 +301,7 @@ int db_add_playlist(unsigned int playlistid, char *name) {
     pnew->id=playlistid;
     pnew->nodes=NULL;
     pnew->songs=0;
+    pnew->is_smart=is_smart;
 
     if(!pnew->name) {
 	free(pnew);
@@ -857,6 +865,37 @@ int db_get_playlist_count(void) {
  */
 int db_get_song_count(void) {
     return db_song_count;
+}
+
+
+/*
+ * db_get_playlist_is_smart
+ *
+ * return whether or not the playlist is a "smart" playlist
+ */
+int db_get_playlist_is_smart(int playlistid) {
+    DB_PLAYLIST *current;
+    int err;
+    int result;
+
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
+	log_err(0,"Cannot lock rwlock\n");
+	errno=err;
+	return -1;	
+    }
+
+    current=db_playlists.next;
+    while(current && (current->id != playlistid))
+	current=current->next;
+
+    if(!current) {
+	result=0;
+    } else {
+	result=1;
+    }
+
+    pthread_rwlock_unlock(&db_rwlock);
+    return result;
 }
 
 /*

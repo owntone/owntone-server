@@ -435,6 +435,9 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
 		    g = g && daap_add_long(mlit,"mper",0,playlistid);
 		    g = g && daap_add_string(mlit,"minm",db_get_playlist_name(playlistid));
 		    g = g && daap_add_int(mlit,"mimc",db_get_playlist_entry_count(playlistid));
+		    if(db_get_playlist_is_smart(playlistid)) {
+			g = g && daap_add_char(mlit,"aeSP",0x1);
+		    }
 		}
 		g = g && mlit;
 	    }

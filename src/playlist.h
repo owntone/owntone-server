@@ -54,6 +54,7 @@ extern int pl_error;
 extern void pl_dump(void);
 extern int pl_load(char *file);
 extern void pl_eval(MP3FILE *pmp3);
+extern void pl_register(void);
 
 #endif /* _PL_H_ */
 
