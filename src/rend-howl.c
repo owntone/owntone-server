@@ -29,15 +29,14 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <sys/types.h>
-#include <rendezvous/rendezvous.h>
-#include <salt/log.h>
+#include <howl.h>
 #include <pthread.h>
 
 #include "err.h"
 #include "rend-unix.h"
 
 pthread_t rend_tid;
-sw_rendezvous rend_handle;
+sw_discovery rend_handle;
 
 /* Forwards */
 void *rend_pipe_monitor(void* arg);
@@ -48,10 +47,9 @@ void rend_callback(void);
  *
  * Callback function for mDNS stuff
  */
-static sw_result rend_howl_reply(sw_rendezvous_publish_handler handler,
-				 sw_rendezvous rendezvous,
-				 sw_rendezvous_publish_status status,
-				 sw_rendezvous_publish_id id,
+static sw_result rend_howl_reply(sw_discovery discovery,
+				 sw_discovery_publish_status status,
+				 sw_discovery_oid oid,
 				 sw_opaque extra) {
     static sw_string status_text[] = {
 	"started",
@@ -76,8 +74,8 @@ int rend_private_init(char *user) {
     DPRINTF(E_DBG,L_REND,"Starting rendezvous services\n");
     signal(SIGHUP,  SIG_IGN);           // SIGHUP might happen from a request to reload the daap server
 
-    if(sw_rendezvous_init(&rend_handle) != SW_OKAY) {
-	DPRINTF(E_WARN,L_REND,"Error initializing rendezvous\n");
+    if(sw_discovery_init(&rend_handle) != SW_OKAY) {
+	DPRINTF(E_WARN,L_REND,"Error initializing howl\n");
 	errno=EINVAL;
 	return -1;
     }
@@ -95,7 +93,7 @@ int rend_private_init(char *user) {
 
     DPRINTF(E_DBG,L_REND,"Entering runloop\n");
 
-    sw_rendezvous_run(rend_handle);
+    sw_discovery_run(rend_handle);
 
     DPRINTF(E_DBG,L_REND,"Exiting runloop\n");
 
@@ -138,7 +136,7 @@ void *rend_pipe_monitor(void* arg) {
  */
 void rend_callback(void) {
     REND_MESSAGE msg;
-    sw_rendezvous_publish_id rend_id;
+    sw_discovery_oid rend_oid;
     sw_result result;
 
     /* here, we've seen the message, now we have to process it */
@@ -151,8 +149,18 @@ void rend_callback(void) {
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
 	DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
-	if((result=sw_rendezvous_publish(rend_handle,msg.name,msg.type,NULL,NULL,msg.port,NULL,0,
-					 NULL,rend_howl_reply,NULL,&rend_id)) != SW_OKAY) {
+	if((result=sw_discovery_publish(rend_handle,
+					0, /* interface handle */
+					msg.name,
+					msg.type,
+					NULL, /* domain */
+					NULL, /* host */
+					msg.port,
+					NULL, /* text record */
+					0, /* text record length */
+					rend_howl_reply,
+					NULL,
+					&rend_oid)) != SW_OKAY) {
 	    DPRINTF(E_WARN,L_REND,"Error registering name\n");
 	    rend_send_response(-1);
 	} else {
@@ -167,7 +175,7 @@ void rend_callback(void) {
 	DPRINTF(E_DBG,L_REND,"Stopping mDNS\n");
 	rend_send_response(0);
 	//sw_rendezvous_stop_publish(rend_handle);
-	sw_rendezvous_fina(rend_handle);
+	sw_discovery_fina(rend_handle);
 	break;
     case REND_MSG_TYPE_STATUS:
 	DPRINTF(E_DBG,L_REND,"Status inquiry -- returning 0\n");
