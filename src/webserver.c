@@ -265,12 +265,28 @@ void *ws_mainthread(void *arg) {
     pthread_t tid;
     char hostname[MAX_HOSTNAME];
 
+    if(pthread_mutex_lock(&pwsp->exit_mutex))
+	log_err(1,"Cannot lock condition mutex\n");
+    
+    pwsp->dispatch_threads++;
+
+    pthread_mutex_unlock(&pwsp->exit_mutex);
+    
     while(1) {
 	pwsc=(WS_CONNINFO*)malloc(sizeof(WS_CONNINFO));
 	if(!pwsc) {
 	    /* can't very well service any more threads! */
 	    DPRINTF(ERR_FATAL,"Error: %s\n",strerror(errno));
 	    pwsp->running=0;
+
+
+	    /* decrement the number of dispatch threads */
+	    if(pthread_mutex_lock(&pwsp->exit_mutex))
+		log_err(1,"Cannot lock condition mutex\n");
+    
+	    pwsp->dispatch_threads--;
+	    pthread_cond_signal(&pwsp->exit_cond);
+	    pthread_mutex_unlock(&pwsp->exit_mutex);
 	    return NULL;
 	}
 
@@ -280,6 +296,14 @@ void *ws_mainthread(void *arg) {
 	    r_close(pwsp->server_fd);
 	    pwsp->running=0;
 	    free(pwsc);
+
+	    /* decrement dispatch threads */
+	    if(pthread_mutex_lock(&pwsp->exit_mutex))
+		log_err(1,"Cannot lock condition mutex\n");
+    
+	    pwsp->dispatch_threads--;
+	    pthread_cond_signal(&pwsp->exit_cond);
+	    pthread_mutex_unlock(&pwsp->exit_mutex);
 	    return NULL;
 	}
 
