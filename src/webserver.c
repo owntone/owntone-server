@@ -741,6 +741,7 @@ void *ws_dispatcher(void *arg) {
 		    ws_decodepassword(auth,&username,&password);
 		    if(auth_handler(username,password))
 			can_dispatch=1;
+		    ws_addarg(&pwsc->request_vars,"HTTP_USER",username);
 		    free(username);
 		} 
 
