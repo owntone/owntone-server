@@ -39,7 +39,7 @@
 #include <dirent.h>      /* why here?  For osx 10.2, of course! */
 
 #include "daapd.h"
-#include "db-memory.h"
+#include "db-generic.h"
 #include "err.h"
 #include "mp3-scanner.h"
 #include "ssc.h"

@@ -71,15 +71,13 @@
 #include <sys/wait.h>
 
 #include "configfile.h"
-#include "db-memory.h"
-#include "daap.h"
-#include "daap-proto.h"
+#include "dispatch.h"
 #include "err.h"
 #include "mp3-scanner.h"
 #include "webserver.h"
-#include "playlist.h"
 #include "ssc.h"
 #include "dynamic-art.h"
+#include "db-generic.h"
 
 #ifndef WITHOUT_MDNS
 # include "rend.h"
@@ -123,464 +121,9 @@ CONFIG config; /**< Main configuration structure, as read from configfile */
  * Forwards
  */
 static int daemon_start(void);
-static void write_pid_file(void);
 static void usage(char *program);
 static void *signal_handler(void *arg);
 static int start_signal_handler(pthread_t *handler_tid);
-static void daap_handler(WS_CONNINFO *pwsc);
-static int daap_auth(char *username, char *password);
-
-/**
- * Handles authentication for the daap server.  This isn't the
- * authenticator for the web admin page, but rather the iTunes 
- * authentication when trying to connect to the server.  Note that most
- * of this is actually handled in the web server registration, which
- * decides when to apply the authentication or not.  If you mess with
- * when and where the webserver applies auth or not, you'll likely 
- * break something.  It seems that some requests must be authed, and others
- * not.  If you apply authentication somewhere that iTunes doesn't expect
- * it, it happily disconnects.
- *
- * \param username The username passed by iTunes
- * \param password The password passed by iTunes
- * \returns 1 if auth successful, 0 otherwise
- */
-int daap_auth(char *username, char *password) {
-    if((password == NULL) && 
-       ((config.readpassword == NULL) || (strlen(config.readpassword)==0)))
-	return 1;
-
-    if(password == NULL)
-	return 0;
-
-    return !strcasecmp(password,config.readpassword);
-}
-
-/**
- * This handles requests that are daap-related.  For example,
- * /server-info, /login, etc.  This should really be split up
- * into multiple functions, and perhaps moved into daap.c
- *
- * \param pwsc Webserver connection info, passed from the webserver
- *
- * \todo Decomplexify this!
- */
-void daap_handler(WS_CONNINFO *pwsc) {
-    int close;
-    DAAP_BLOCK *root;
-    int clientrev;
-
-    /* for the /databases URI */
-    char *uri;
-    unsigned long int db_index;
-    unsigned long int playlist_index;
-    unsigned long int item=0;
-    char *first, *last;
-    char* index = 0;
-    int streaming=0;
-    int compress =0;
-    int start_time;
-    int end_time;
-    int bytes_written;
-    int serialize_as_xml;
-
-    MP3FILE *pmp3;
-    int file_fd;
-    FILE *file_ptr; /* for possible conv filter */
-    int session_id=0;
-
-    int img_fd;
-    struct stat sb;
-    long img_size;
-
-    off_t offset=0;
-    off_t real_len;
-    off_t file_len;
-
-    char *real_path;
-
-    int bytes_copied=0;
-
-    GZIP_STREAM *gz;
-
-    close=pwsc->close;
-    pwsc->close=1;  /* in case we have any errors */
-    root=NULL;
-
-    ws_addresponseheader(pwsc,"Accept-Ranges","bytes");
-    ws_addresponseheader(pwsc,"DAAP-Server","mt-daapd/%s",VERSION);
-    ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
-
-    if(ws_getvar(pwsc,"session-id")) {
-	session_id=atoi(ws_getvar(pwsc,"session-id"));
-    }
-
-    if(!strcasecmp(pwsc->uri,"/server-info")) {
-	config_set_status(pwsc,session_id,"Sending server info");
-	root=daap_response_server_info(config.servername,
-				       ws_getrequestheader(pwsc,"Client-DAAP-Version"));
-    } else if (!strcasecmp(pwsc->uri,"/content-codes")) {
-	config_set_status(pwsc,session_id,"Sending content codes");
-	root=daap_response_content_codes();
-    } else if (!strcasecmp(pwsc->uri,"/login")) {
-	config_set_status(pwsc,session_id,"Logging in");
-	root=daap_response_login(pwsc->hostname);
-    } else if (!strcasecmp(pwsc->uri,"/update")) {
-	if(!ws_getvar(pwsc,"delta")) { /* first check */
-	    clientrev=db_version() - 1;
-	    config_set_status(pwsc,session_id,"Sending database");
-	} else {
-	    clientrev=atoi(ws_getvar(pwsc,"delta"));
-	    config_set_status(pwsc,session_id,"Waiting for DB updates");
-	}
-	root=daap_response_update(pwsc->fd,clientrev);
-	if((ws_getvar(pwsc,"delta")) && (root==NULL)) {
-	    DPRINTF(E_LOG,L_WS,"Client %s disconnected\n",pwsc->hostname);
-	    config_set_status(pwsc,session_id,NULL);
-	    pwsc->close=1;
-	    return;
-	}
-    } else if (!strcasecmp(pwsc->uri,"/logout")) {
-	config_set_status(pwsc,session_id,NULL);
-	ws_returnerror(pwsc,204,"Logout Successful");
-	return;
-    } else if(strcmp(pwsc->uri,"/databases")==0) {
-	config_set_status(pwsc,session_id,"Sending database info");
-	root=daap_response_dbinfo(config.servername);
-	if(0 != (index = ws_getvar(pwsc, "index")))
-	    daap_handle_index(root, index);
-    } else if(strncmp(pwsc->uri,"/databases/",11) == 0) {
-
-	/* the /databases/ uri will either be:
-	 *
-	 * /databases/id/items, which returns items in a db
-	 * /databases/id/containers, which returns a container
-	 * /databases/id/containers/id/items, which returns playlist elements
-	 * /databases/id/items/id.mp3, to spool an mp3
-	 * /databases/id/browse/category
-	 */
-
-	uri = strdup(pwsc->uri);
-	first=(char*)&uri[11];
-	last=first;
-	while((*last) && (*last != '/')) {
-	    last++;
-	}
-	
-	if(*last) {
-	    *last='\0';
-	    db_index=atoll(first);
-	    
-	    last++;
-
-	    if(strncasecmp(last,"items/",6)==0) {
-		/* streaming */
-		first=last+6;
-		while((*last) && (*last != '.')) 
-		    last++;
-
-		if(*last == '.') {
-		    *last='\0';
-		    item=atoll(first);
-		    streaming=1;
-		    DPRINTF(E_DBG,L_DAAP|L_WS,"Streaming request for id %lu\n",item);
-		}
-		free(uri);
-	    } else if (strncasecmp(last,"items",5)==0) {
-		/* songlist */
-		free(uri);
-		// pass the meta field request for processing
-		// pass the query request for processing
-		root=daap_response_songlist(ws_getvar(pwsc,"meta"),
-					    ws_getvar(pwsc,"query"));
-		config_set_status(pwsc,session_id,"Sending songlist");
-	    } else if (strncasecmp(last,"containers/",11)==0) {
-		/* playlist elements */
-		first=last + 11;
-		last=first;
-		while((*last) && (*last != '/')) {
-		    last++;
-		}
-	
-		if(*last) {
-		    *last='\0';
-		    playlist_index=atoll(first);
-		    // pass the meta list info for processing
-		    root=daap_response_playlist_items(playlist_index,
-						      ws_getvar(pwsc,"meta"),
-						      ws_getvar(pwsc,"query"));
-		}
-		free(uri);
-		config_set_status(pwsc,session_id,"Sending playlist info");
-	    } else if (strncasecmp(last,"containers",10)==0) {
-		/* list of playlists */
-		free(uri);
-		root=daap_response_playlists(config.servername);
-		config_set_status(pwsc,session_id,"Sending playlist info");
-	    } else if (strncasecmp(last,"browse/",7)==0) {
-		config_set_status(pwsc,session_id,"Compiling browse info");
-		root = daap_response_browse(last + 7, 
-					    ws_getvar(pwsc, "filter"));
-		config_set_status(pwsc,session_id,"Sending browse info");
-		free(uri);
-	    }
-	}
-
-	// prune the full list if an index range was specified
-	if(0 != (index = ws_getvar(pwsc, "index")))
-	    daap_handle_index(root, index);
-    }
-
-    if((!root)&&(!streaming)) {
-	DPRINTF(E_DBG,L_WS|L_DAAP,"Bad request -- root=%x, streaming=%d\n",root,streaming);
-	ws_returnerror(pwsc,400,"Invalid Request");
-	config_set_status(pwsc,session_id,NULL);
-	return;
-    }
-
-    pwsc->close=close;
-
-    if(!streaming) {
-	DPRINTF(E_DBG,L_WS,"Satisfying request\n");
-
-	serialize_as_xml=0;
-	if(ws_getvar(pwsc,"output"))
-	    serialize_as_xml=1;
-	    
-
-	if((config.compress) && ws_testrequestheader(pwsc,"Accept-Encoding","gzip") && 
-	   (root->reported_size >= 1000) && (!serialize_as_xml)) {
-	  compress=1;
-	}
-
-	DPRINTF(E_DBG,L_WS|L_DAAP,"Serializing\n");
-	start_time = time(NULL);
-	if (compress) {	  
-	  DPRINTF(E_DBG,L_WS|L_DAAP,"Using compression: %s\n", pwsc->uri);
-	  gz = gzip_alloc();
-	  daap_serialize(root,pwsc->fd,gz);
-	  gzip_compress(gz);
-	  bytes_written = gz->bytes_out;
-	  ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-	  ws_addresponseheader(pwsc,"Content-Length","%d",bytes_written);
-	  ws_addresponseheader(pwsc,"Content-Encoding","gzip");
-	  DPRINTF(E_DBG,L_WS,"Emitting headers\n");
-	  ws_emitheaders(pwsc);
-	  if (gzip_close(gz,pwsc->fd) != bytes_written) {
-	    DPRINTF(E_LOG,L_WS|L_DAAP,"Error compressing data\n");
-	  }
-	  DPRINTF(E_DBG,L_WS|L_DAAP,"Compression ratio: %f\n",((double) bytes_written)/(8.0 + root->reported_size))
-	}
-	else {
-	  bytes_written = root->reported_size + 8;
-	  if(!serialize_as_xml) {
-	      ws_addresponseheader(pwsc,"Content-Length","%d",bytes_written);
-	  } else {
-	      ws_addresponseheader(pwsc,"Connection","close");
-	      ws_addresponseheader(pwsc,"Content-type","text/xml");
-	      pwsc->close=1;
-	  }
-	  ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-	  DPRINTF(E_DBG,L_WS,"Emitting headers\n");
-	  ws_emitheaders(pwsc);
-	  if(!serialize_as_xml) {
-	      daap_serialize(root,pwsc->fd,NULL);
-	  } else {
-	      ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
-	      daap_serialize_xml(root,pwsc->fd);
-	  }
-	}
-	end_time = time(NULL);
-	DPRINTF(E_DBG,L_WS|L_DAAP,"Sent %d bytes in %d seconds\n",bytes_written,end_time-start_time);
-	DPRINTF(E_DBG,L_WS|L_DAAP,"Done, freeing\n");
-	daap_free(root);
-    } else {
-	/* stream out the song */
-	pwsc->close=1;
-
-	if(ws_getrequestheader(pwsc,"range")) { 
-	    offset=(off_t)atol(ws_getrequestheader(pwsc,"range") + 6);
-	}
-
-	pmp3=db_find(item);
-	if(!pmp3) {
-	    DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
-	    ws_returnerror(pwsc,404,"File Not Found");
-	} else if ((real_path=server_side_convert_path(pmp3->path)) != NULL) {
-	    // The file should be converted in the server side.
-	    DPRINTF(E_WARN,L_WS,"Thread %d: Autoconvert file %s for client\n",
-		    pwsc->threadno,real_path);
-	    file_ptr = server_side_convert_open(real_path,
-						offset,
-						pmp3->song_length);
-	    if (file_ptr) {
-		file_fd = fileno(file_ptr);
-	    } else {
-		file_fd = -1;
-	    }
-	    if(file_fd == -1) {
-		if (file_ptr) {
-		    server_side_convert_close(file_ptr);
-		}
-		pwsc->error=errno;
-		DPRINTF(E_WARN,L_WS,
-			"Thread %d: Error opening %s for conversion\n",
-			pwsc->threadno,real_path);
-		ws_returnerror(pwsc,404,"Not found");
-		config_set_status(pwsc,session_id,NULL);
-		db_dispose(pmp3);
-		free(pmp3);
-		free(real_path);
-	    } else {
-		// DWB:  fix content-type to correctly reflect data
-		// content type (dmap tagged) should only be used on
-		// dmap protocol requests, not the actually song data
-		if(pmp3->type)
-		    ws_addresponseheader(pwsc,"Content-Type","audio/%s",
-					 pmp3->type);
-		// Also content-length -heade would be nice, but since
-		// we don't really know it here, so let's leave it out.
-		ws_addresponseheader(pwsc,"Connection","Close");
-
-		if(!offset)
-		    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-		else {
-		    // This is actually against the protocol, since
-		    // range MUST be explicit according to HTTP-standard
-		    // Seems to work at least with iTunes.
-		    ws_addresponseheader(pwsc,
-					 "Content-Range","bytes %ld-*/*",
-					 (long)offset);
-		    ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
-		}
-
-		ws_emitheaders(pwsc);
-
-		config_set_status(pwsc,session_id,
-				  "Streaming file via convert filter '%s'",
-				  pmp3->fname);
-		DPRINTF(E_LOG,L_WS,
-			"Session %d: Streaming file '%s' to %s (offset %ld)\n",
-			session_id,pmp3->fname, pwsc->hostname,(long)offset);
-		
-		if(!offset)
-		    config.stats.songs_served++; /* FIXME: remove stat races */
-		if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
-		    DPRINTF(E_INF,L_WS,
-			    "Error copying converted file to remote... %s\n",
-			    strerror(errno));
-		} else {
-		    DPRINTF(E_INF,L_WS,
-			    "Finished streaming converted file to remote\n");
-		}
-		server_side_convert_close(file_ptr);
-		config_set_status(pwsc,session_id,NULL);
-		db_dispose(pmp3);
-		free(pmp3);
-		free(real_path);
-	    }
-	} else {
-	    /* got the file, let's open and serve it */
-	    file_fd=r_open2(pmp3->path,O_RDONLY);
-	    if(file_fd == -1) {
-		pwsc->error=errno;
-		DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: %s\n",
-			pwsc->threadno,pmp3->path,strerror(errno));
-		ws_returnerror(pwsc,404,"Not found");
-		config_set_status(pwsc,session_id,NULL);
-		db_dispose(pmp3);
-		free(pmp3);
-	    } else {
-		real_len=lseek(file_fd,0,SEEK_END);
-		lseek(file_fd,0,SEEK_SET);
-
-                /* Re-adjust content length for cover art */
-                if((config.artfilename) &&
-                   ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
-                  fstat(img_fd, &sb);
-                  img_size = sb.st_size;
-
-                  if (strncasecmp(pmp3->type,"mp3",4) ==0) {
-                    /*PENDING*/
-                  } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
-                    real_len += img_size + 24;
-
-                    if (offset > img_size + 24) {
-                      offset -= img_size + 24;
-                    }
-                  }
-                }
-
-		file_len = real_len - offset;
-
-		DPRINTF(E_DBG,L_WS,"Thread %d: Length of file (remaining) is %ld\n",
-			pwsc->threadno,(long)file_len);
-		
-		// DWB:  fix content-type to correctly reflect data
-		// content type (dmap tagged) should only be used on
-		// dmap protocol requests, not the actually song data
-		if(pmp3->type) 
-		    ws_addresponseheader(pwsc,"Content-Type","audio/%s",pmp3->type);
-
-		ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
-		ws_addresponseheader(pwsc,"Connection","Close");
-
-
-		if(!offset)
-		    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-		else {
-		    ws_addresponseheader(pwsc,"Content-Range","bytes %ld-%ld/%ld",
-					 (long)offset,(long)real_len,
-					 (long)real_len+1);
-		    ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
-		}
-
-		ws_emitheaders(pwsc);
-
-		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
-		DPRINTF(E_LOG,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
-			session_id,pmp3->fname, pwsc->hostname,(long)offset);
-		
-		if(!offset)
-		    config.stats.songs_served++; /* FIXME: remove stat races */
-
-		if((config.artfilename) &&
-		   (!offset) &&
-		   ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
-		    if (strncasecmp(pmp3->type,"mp3",4) ==0) {
-			DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n",
-				pmp3->fname, img_fd);
-			da_attach_image(img_fd, pwsc->fd, file_fd, offset);
-		    } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
-			DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n", 
-				pmp3->fname, img_fd);
-			da_aac_attach_image(img_fd, pwsc->fd, file_fd, offset);
-		    }
-		} else if(offset) {
-		    DPRINTF(E_INF,L_WS,"Seeking to offset %ld\n",(long)offset);
-		    lseek(file_fd,offset,SEEK_SET);
-		}
-		
-		if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
-		    DPRINTF(E_INF,L_WS,"Error copying file to remote... %s\n",
-			    strerror(errno));
-		} else {
-		    DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
-			    bytes_copied);
-		}
-
-		config_set_status(pwsc,session_id,NULL);
-		r_close(file_fd);
-		db_dispose(pmp3);
-		free(pmp3);
-	    }
-	}
-    }
-
-    DPRINTF(E_DBG,L_WS|L_DAAP,"Finished serving DAAP response\n");
-
-    return;
-}
 
 /**
  * Fork and exit.  Stolen pretty much straight from Stevens.
@@ -645,7 +188,6 @@ void usage(char *program) {
     printf("  -D <mod,mod..> Debug modules\n");
     printf("  -m             Disable mDNS\n");
     printf("  -c <file>      Use configfile specified\n");
-    printf("  -p             Parse playlist file\n");
     printf("  -f             Run in foreground\n");
     printf("  -y             Yes, go ahead and run as non-root user\n");
     printf("\n\n");
@@ -771,7 +313,7 @@ int start_signal_handler(pthread_t *handler_tid) {
 	return -1;
     }
 
-    if(error=pthread_create(handler_tid, NULL, signal_handler, NULL)) {
+    if((error=pthread_create(handler_tid, NULL, signal_handler, NULL))) {
 	errno=error;
 	DPRINTF(E_LOG,L_MAIN,"Error creating signal_handler thread\n");
 	return -1;
@@ -805,7 +347,6 @@ int main(int argc, char *argv[]) {
     char *configfile=DEFAULT_CONFIGFILE;
     WSCONFIG ws_config;
     WSHANDLE server;
-    int parseonly=0;
     int foreground=0;
     int reload=0;
     int start_time;
@@ -813,6 +354,7 @@ int main(int argc, char *argv[]) {
     int rescan_counter=0;
     int old_song_count;
     int force_non_root=0;
+    int skip_initial=0;
     pthread_t signal_tid;
 
     int pid_fd;
@@ -821,7 +363,7 @@ int main(int argc, char *argv[]) {
     config.use_mdns=1;
     err_debuglevel=1;
 
-    while((option=getopt(argc,argv,"D:d:c:mpfry")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:mfrys")) != -1) {
 	switch(option) {
 	case 'd':
 	    err_debuglevel=atoi(optarg);
@@ -844,13 +386,12 @@ int main(int argc, char *argv[]) {
 	    config.use_mdns=0;
 	    break;
 
-	case 'p':
-	    parseonly=1;
-	    foreground=1;
-	    break;
-
 	case 'r':
 	    reload=1;
+	    break;
+
+	case 's':
+	    skip_initial=1;
 	    break;
 
 	case 'y':
@@ -888,7 +429,7 @@ int main(int argc, char *argv[]) {
     }
 
 #ifndef WITHOUT_MDNS
-    if((config.use_mdns) && (!parseonly)) {
+    if(config.use_mdns) {
 	DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
 	if(rend_init(config.runas)) {
 	    DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",strerror(errno));
@@ -904,14 +445,14 @@ int main(int argc, char *argv[]) {
 	if(0 == (pid_fp = fdopen(pid_fd, "w")))
 	    DPRINTF(E_FATAL,L_MAIN,"fdopen: %s\n",strerror(errno));
 
-	daemon_start();
-
 	/* just to be on the safe side... */
 	config.pid=0;
+
+	daemon_start();
     }
 
     /* DWB: shouldn't this be done after dropping privs? */
-    if(db_open(config.dbdir, reload)) 
+    if(db_open(config.dbdir))
 	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
 
 
@@ -936,29 +477,17 @@ int main(int argc, char *argv[]) {
 	fprintf(pid_fp,"%d\n",config.pid);
 	fclose(pid_fp);
     }
-
-    DPRINTF(E_LOG,L_MAIN|L_PL,"Loading playlists\n");
-
-    if(config.playlist)
-	pl_load(config.playlist);
-
-    if(parseonly) {
-	if(!pl_error) {
-	    fprintf(stderr,"Parsed successfully.\n");
-	    pl_dump();
-	}
-	exit(EXIT_SUCCESS);
-    }
-
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
-    if(db_init()) {
+    if(db_init(reload)) {
 	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
 
-    DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
-    if(scan_init(config.mp3dir)) {
-	DPRINTF(E_FATAL,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
+    if(!skip_initial) {
+	DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
+	if(scan_init(config.mp3dir)) {
+	    DPRINTF(E_FATAL,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
+	}
     }
 
     /* start up the web server */

@@ -46,10 +46,9 @@
 #include <dirent.h>      /* why here?  For osx 10.2, of course! */
 
 #include "daapd.h"
-#include "db-memory.h"
+#include "db-generic.h"
 #include "err.h"
 #include "mp3-scanner.h"
-#include "playlist.h"
 #include "ssc.h"
 
 #ifndef HAVE_STRCASESTR
@@ -110,10 +109,6 @@ int scan_sample_table[3][4] = {
     { 22050, 24000, 16000, 0 },  /* MPEG 2 */
     { 11025, 12000, 8000, 0 }    /* MPEG 2.5 */
 };
-
-
-
-int scan_mode_foreground=1;
 
 char *scan_winamp_genre[] = {
     "Blues",              // 0
@@ -282,11 +277,11 @@ static int scan_get_fileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_aacfileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_wavfileinfo(char *file, MP3FILE *pmp3);
-static int scan_get_nulfileinfo(char *file, MP3FILE *pmp3) { return 0; };
+//static int scan_get_nulfileinfo(char *file, MP3FILE *pmp3) { return 0; };
 static int scan_get_urlfileinfo(char *file, MP3FILE *pmp3);
 
 static int scan_freetags(MP3FILE *pmp3);
-static void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
+//static void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
 static void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
 static int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi);
@@ -361,24 +356,15 @@ time_t mac_to_unix_time(int t) {
 int scan_init(char *path) {
     int err=0;
 
-    scan_mode_foreground=0;
-    if(db_is_empty()) {
-	scan_mode_foreground=1;
-    }
-
-    if(db_start_initial_update()) 
+    if(db_start_scan()) 
 	return -1;
 
-    DPRINTF(E_DBG,L_SCAN,"%s scanning for MP3s in %s\n",
-	    scan_mode_foreground ? "Foreground" : "Background",
-	    path);
+    DPRINTF(E_DBG,L_SCAN,"Scanning for MP3s in %s\n",path);
 
     err=scan_path(path);
 
-    if(db_end_initial_update())
+    if(db_end_scan())
 	return -1;
-
-    scan_mode_foreground=0;
 
     return err;
 }
@@ -441,16 +427,17 @@ int scan_path(char *path) {
 		    if((strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) &&
 		       config.process_m3u){
 			/* we found an m3u file */
-			scan_static_playlist(path, pde, &sb);
+			DPRINTF(E_LOG,L_SCAN,"Oops... we aren't doing playlists.. Sorry: %s\n",
+				mp3_path);
+			//			scan_static_playlist(path, pde, &sb);
 		    } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
 			       (strcasestr(config.extensions, ext))) {
 			/* only scan if it's been changed, or empty db */
 			modified_time=sb.st_mtime;
 			DPRINTF(E_DBG,L_SCAN,"FS Mod time: %d\n",modified_time);
-			DPRINTF(E_DBG,L_SCAN,"DB Mod time: %d\n",db_last_modified(sb.st_ino));
-			if((scan_mode_foreground) || 
-			   !db_exists(sb.st_ino) ||
-			   db_last_modified(sb.st_ino) < modified_time) {
+			DPRINTF(E_DBG,L_SCAN,"DB Mod time: %d\n",db_last_modified(mp3_path));
+			if(!db_get_id(mp3_path) ||
+			   db_last_modified(mp3_path) < modified_time) {
 			    scan_music_file(path,pde,&sb);
 			} else {
 			    DPRINTF(E_DBG,L_SCAN,"Skipping file... not modified\n");
@@ -470,6 +457,7 @@ int scan_path(char *path) {
  *
  * Scan a file as a static playlist
  */
+/*
 void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     char playlist_path[PATH_MAX];
     char m3u_path[PATH_MAX];
@@ -480,7 +468,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",pde->d_name);
     
-    /* see if we should update it */
+  
     if(db_playlist_last_modified(psb->st_ino) == psb->st_mtime)
 	return;
 
@@ -498,15 +486,15 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 	memset(linebuffer,0x00,sizeof(linebuffer));
 	while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
 	    while((linebuffer[strlen(linebuffer)-1] == '\n') ||
-		  (linebuffer[strlen(linebuffer)-1] == '\r'))   /* windows? */
+		  (linebuffer[strlen(linebuffer)-1] == '\r')) 
 		linebuffer[strlen(linebuffer)-1] = '\0';
 
 	    if((linebuffer[0] == ';') || (linebuffer[0] == '#'))
 		continue;
 
-	    /* FIXME - should chomp trailing comments */
+	    // FIXME - should chomp trailing comments
 
-	    /* otherwise, assume it is a path */
+	    // otherwise, assume it is a path
 	    if(linebuffer[0] == '/') {
 		strcpy(m3u_path,linebuffer);
 	    } else {
@@ -515,9 +503,9 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 
 	    DPRINTF(E_DBG,L_SCAN|L_PL,"Checking %s\n",m3u_path);
 
-	    /* might be valid, might not... */
+	    // might be valid, might not...
 	    if(!stat(m3u_path,&sb)) {
-		/* FIXME: check to see if valid inode! */
+		// FIXME: check to see if valid inode!
 		db_add_playlist_song(playlistid,sb.st_ino);
 	    } else {
 		DPRINTF(E_WARN,L_SCAN|L_PL,"Playlist entry %s bad: %s\n",
@@ -529,7 +517,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Done processing playlist\n");
 }
-
+*/
 /*
  * scan_music_file
  *
@@ -574,7 +562,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 	DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 
 	db_add(&mp3file);
-	pl_eval(&mp3file); /* FIXME: move to db_add? */
+	//	pl_eval(&mp3file); /* FIXME: move to db_add? */
     } else {
 	DPRINTF(E_WARN,L_SCAN,"Skipping %s - scan_gettags failed\n",pde->d_name);
     }
@@ -1622,7 +1610,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     int xing_flags;
     int found;
 
-    int first_check;
+    int first_check=0;
     char frame_buffer[4];
 
     if(!(infile=fopen(file,"rb"))) {

@@ -54,10 +54,12 @@ static void rend_stoprunloop(void) {
 /*
  * rend_sigint
  */
+/*
 static void rend_sigint(int sigraised) {
     DPRINTF(E_INF,L_REND,"SIGINT\n");
     rend_stoprunloop();
 }
+*/
 
 /*
  * rend_handler

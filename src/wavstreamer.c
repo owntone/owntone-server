@@ -246,9 +246,8 @@ int main(int argc, char **argv)
     int c;
     unsigned long sec = 0, us = 0, samples = 0;
     unsigned long offset = 0;
-    unsigned long skip = 0;
     char *end;
-    FILE *f;
+    FILE *f=NULL;
     unsigned char *hdr;
     size_t hdr_len;
     size_t data_len;

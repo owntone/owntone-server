@@ -54,14 +54,15 @@ typedef struct tag_mp3file {
     int time_added;
     int time_modified;
     int time_played;
+    int play_count;
+    int rating;
     int db_timestamp;
-    
+    int disabled;
     int bpm;         /* TBPM */
 
     int got_id3;
-//    unsigned int id;
-	unsigned long int	id;
-    /* generated fields */
+    unsigned int id;
+
     char* description;		/* long file type */
     int item_kind;		/* song or movie */
     int data_kind;              /* dmap.datakind (asdk) */
@@ -72,7 +73,7 @@ typedef struct tag_mp3file {
 extern int scan_init(char *path);
 extern void make_composite_tags(MP3FILE *song);
 
-/* this should be refactored out of here... */
+/* FIXME: this should be refactored out of here... */
 extern off_t aac_drilltoatom(FILE *aac_fp, char *atom_path, unsigned int *atom_length);
-
+extern long scan_aac_findatom(FILE *fin, long max_offset, char *which_atom, int *atom_size);
 #endif /* _MP3_SCANNER_H_ */

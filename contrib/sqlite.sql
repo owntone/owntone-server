@@ -13,23 +13,29 @@ CREATE TABLE songs (
 	conductor	VARCHAR(1024) DEFAULT NULL,
 	grouping	VARCHAR(1024) DEFAULT NULL,
 	url		VARCHAR(1024) DEFAULT NULL,
-	bitrate		INTEGER DEFAULT NULL,
-	samplerate	INTEGER DEFAULT NULL,
-	song_length	INTEGER DEFAULT NULL,
-	file_size	INTEGER DEFAULT NULL,
-	year		INTEGER DEFAULT NULL,
-	track		INTEGER DEFAULT NULL,
-	total_tracks	INTEGER DEFAULT NULL,
-	disc		INTEGER DEFAULT NULL,
-	total_discs	INTEGER DEFAULT NULL,
-	time_added	INTEGER DEFAULT NULL,
-	time_modified	INTEGER DEFAULT NULL,
-	time_played	INTEGER	DEFAULT NULL,
-	db_timestamp	INTEGER DEFAULT NULL,
-	bpm		INTEGER DEFAULT NULL,
-	compilation	INTEGER DEFAULT NULL,
-	play_count	INTEGER DEFAULT NULL,
-	rating		INTEGER DEFAULT NULL
+	bitrate		INTEGER DEFAULT 0,
+	samplerate	INTEGER DEFAULT 0,
+	song_length	INTEGER DEFAULT 0,
+	file_size	INTEGER DEFAULT 0,
+	year		INTEGER DEFAULT 0,
+	track		INTEGER DEFAULT 0,
+	total_tracks	INTEGER DEFAULT 0,
+	disc		INTEGER DEFAULT 0,
+	total_discs	INTEGER DEFAULT 0,
+	bpm		INTEGER DEFAULT 0,
+	compilation	INTEGER DEFAULT 0,
+	rating		INTEGER DEFAULT 0,
+	play_count	INTEGER DEFAULT 0,
+	data_kind	INTEGER DEFAULT 0,
+	item_kind	INTEGER DEFAULT 0,
+	description	INTEGER DEFAULT 0,
+	time_added	INTEGER DEFAULT 0,
+	time_modified	INTEGER DEFAULT 0,
+	time_played	INTEGER	DEFAULT 0,
+	db_timestamp	INTEGER DEFAULT 0,
+	disabled        INTEGER DEFAULT 0,
+	updated		INTEGER DEFAULT 0,
+	force_update	INTEGER DEFAULT 0
 );	
 
 CREATE TABLE config (
@@ -41,6 +47,7 @@ CREATE TABLE playlists (
        id    	       INTEGER PRIMARY KEY NOT NULL,
        name	       VARCHAR(255) NOT NULL,
        smart	       INTEGER NOT NULL,
+       items	       INTEGER NOT NULL,
        query	       VARCHAR(1024)
 );
 
@@ -58,7 +65,7 @@ CREATE TABLE users (
        
 ;CREATE INDEX idx_path on songs(path);
 
-INSERT INTO config (term, value) VALUES ('version','1');
-INSERT INTO users(id,name,password) VALUES (1,'admin','mt-daapd');
-INSERT INTO playlists(id,name,smart,query) VALUES (1,'Library',1,'1');
+INSERT INTO config VALUES ('version','1');
+INSERT INTO users VALUES (1,1,'admin','mt-daapd');
+INSERT INTO playlists VALUES (1,'Library',1,0,'1');
 

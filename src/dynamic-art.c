@@ -33,12 +33,15 @@
 
 #include "configfile.h"
 #include "err.h"
-#include "playlist.h"
 #include "restart.h"
+#include "mp3-scanner.h"
 
 #define BLKSIZE PIPE_BUF
 
+/* Forwards */
+
 int *da_get_current_tag_info(int file_fd);
+int fcopyblock(FILE *fromfp, int tofd, size_t size);
 
 /* For some reason, we need to lose 2 bytes from this image size
    This size is everything after the APIC text in this frame.

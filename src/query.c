@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <ctype.h>
 
 #include "err.h"
 #include "query.h"
@@ -27,10 +28,12 @@ static int		get_field_name(const char** pcursor,
 				       const char* query, 
 				       char* name, 
 				       int len);
+/*
 static int		get_opcode(const char** pcursor,
 				   const char* query, 
 				   char* name, 
 				   int len);
+*/
 static query_node_t*	match_number(const query_field_t* field, 
 				     char not, char opcode,
 				     const char** pcursor, 
@@ -300,6 +303,9 @@ static query_node_t*	match_number(const query_field_t* field,
     case qft_i64:
 	node->right.i64 = strtoll(*pcursor, (char**) pcursor, 10);
 	break;
+    default:
+	DPRINTF(E_LOG,L_QRY,"Bad field type -- invalid query\n");
+	break;
     }
 
     if(**pcursor != '\'')
@@ -421,6 +427,9 @@ int query_test(query_node_t* query, void* target)
 	/* constants */
     case qot_const:
 	return query->left.constant;
+
+    default:
+	return 0;
     }
     /* should not happen */
     return 0;
@@ -641,7 +650,7 @@ void query_dump(FILE* fp, query_node_t* query, int depth)
 		    depth, "", labels[query->type],
 		    query->left.field->name, query->right.i32);
 	else
-	    fprintf(fp, "%*s(%s %s %q)\n",
+	    fprintf(fp, "%*s(%s %s %ll)\n",
 		    depth, "", labels[query->type],
 		    query->left.field->name, query->right.i64);
 	break;
@@ -659,6 +668,8 @@ void query_dump(FILE* fp, query_node_t* query, int depth)
 	/* constants */
     case qot_const:
 	fprintf(fp, "%*s(%s)\n", depth, "", query->left.constant ? "true" : "false");
+	break;
+    default:
 	break;
     }
     

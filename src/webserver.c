@@ -464,6 +464,9 @@ void ws_close(WS_CONNINFO *pwsc) {
 
     /* DWB: update the status so it doesn't fill up with no longer
        relevant entries  */
+
+    /* FIXME:  status handling should be done with a callback or something */
+
     config_set_status(pwsc, 0, NULL);
 
     DPRINTF(E_DBG,L_WS,"Thread %d: Terminating\n",pwsc->threadno);
@@ -677,7 +680,6 @@ int ws_encoding_hack(WS_CONNINFO *pwsc) {
  * 
  */
 int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
-    char *new_string;
     char *first, *last, *middle;
     char *key, *value;
     int done;

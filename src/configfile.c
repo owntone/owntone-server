@@ -48,8 +48,9 @@
 #include <sys/wait.h>
 
 #include "configfile.h"
+#include "db-generic.h"
 #include "err.h"
-#include "xml-rpc.h"
+//#include "xml-rpc.h"
 
 #ifndef WITHOUT_MDNS
 # include "rend.h"
@@ -78,7 +79,7 @@ static int config_mutex_lock(void);
 static int config_mutex_unlock(void);
 static int config_existdir(char *path);
 static int config_makedir(char *path);
-static char *config_content_type(WS_CONNINFO *pwsc, char *path);
+static void config_content_type(WS_CONNINFO *pwsc, char *path);
 
 /*
  * Defines
@@ -168,7 +169,7 @@ int config_session=0;                                   /**< session counter */
 /**
  * set the content type based on the file type
  */
-static char *config_content_type(WS_CONNINFO *pwsc, char *path) {
+void config_content_type(WS_CONNINFO *pwsc, char *path) {
     char *extension;
     CONTENTTYPES *pct=config_default_types;
 
@@ -619,15 +620,16 @@ void config_handler(WS_CONNINFO *pwsc) {
     pwsc->close=1;
     ws_addresponseheader(pwsc,"Connection","close");
 
+    /*
     if(strcasecmp(pwsc->uri,"/xml-rpc")==0) {
-	/* perhaps this should get a separate handler */
+	// perhaps this should get a separate handler 
 	config_set_status(pwsc,0,"Serving xml-rpc method");
 	xml_handle(pwsc);
 	DPRINTF(E_DBG,L_CONF|L_XML,"Thread %d: xml-rpc served\n",pwsc->threadno);
 	config_set_status(pwsc,0,NULL);
 	return;
     }
-
+    */
     snprintf(path,PATH_MAX,"%s/%s",config.web_root,pwsc->uri);
     if(!realpath(path,resolved_path)) {
 	pwsc->error=errno;
@@ -876,7 +878,7 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(!scanning) {
 	ws_writefd(pwsc,"<tr>\n");
 	ws_writefd(pwsc," <th>DB Version</th>\n");
-	ws_writefd(pwsc," <td>%d</td>\n",db_version());
+	ws_writefd(pwsc," <td>%d</td>\n",db_revision());
 	ws_writefd(pwsc,"</tr>\n");
     }
 
