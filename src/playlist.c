@@ -233,7 +233,7 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	if(!cval) 
 	    cval = "";
 
-	DPRINTF(ERR_DEBUG,"Matching %s to %s\n",argc,pnode->arg2.cval);
+	DPRINTF(ERR_DEBUG,"Matching %s to %s\n",cval,pnode->arg2.cval);
 
 	switch(boolarg) {
 	case IS:
@@ -248,6 +248,8 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
     }
 
     if(pnode->type==T_INT) {
+	DPRINTF(ERR_DEBUG,"Comparing %d to %d\n",ival,pnode->arg2,ival);
+
 	switch(boolarg) {
 	case EQUALS:
 	    r_arg=(ival == pnode->arg2.ival);
@@ -265,7 +267,7 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	    r_arg=(ival <= pnode->arg2.ival);
 	    break;
 	}
-	return not? !r_arg : r_arg;
+	retval = not? !r_arg : r_arg;
     }
 
     /* can't get here */
