@@ -1,6 +1,12 @@
+/*
+ * $Id$
+ * 
+ * SQLite database schema
+ */
+
 CREATE TABLE songs (
 	id		INTEGER PRIMARY KEY NOT NULL,
-	path		VARCHAR(4096) NOT NULL,
+	path		VARCHAR(4096) UNIQUE NOT NULL,
 	fname		VARCHAR(255) NOT NULL,
         title		VARCHAR(1024) DEFAULT NULL,
 	artist 		VARCHAR(1024) DEFAULT NULL,
@@ -34,12 +40,13 @@ CREATE TABLE songs (
 	time_played	INTEGER	DEFAULT 0,
 	db_timestamp	INTEGER DEFAULT 0,
 	disabled        INTEGER DEFAULT 0,
-	updated		INTEGER DEFAULT 0,
+	sample_count    INTEGER DEFAULT 0,
 	force_update	INTEGER DEFAULT 0
 );	
 
 CREATE TABLE config (
 	term		VARCHAR(255)	NOT NULL,
+	subterm		VARCHAR(255)    DEFAULT NULL,   
 	value		VARCHAR(1024)	NOT NULL
 );
 
@@ -62,10 +69,10 @@ CREATE TABLE users (
        name	       VARCHAR(255) NOT NULL,
        password	       VARCHAR(255) NOT NULL
 );
-       
-;CREATE INDEX idx_path on songs(path);
 
-INSERT INTO config VALUES ('version','1');
+CREATE INDEX idx_path on songs(path);
+
+INSERT INTO config VALUES ('version','','1');
 INSERT INTO users VALUES (1,1,'admin','mt-daapd');
 INSERT INTO playlists VALUES (1,'Library',1,0,'1');
 

@@ -52,11 +52,11 @@ typedef struct tag_db_functions {
     int(*dbs_enum_fetch)(DBQUERYINFO *, unsigned char **);
     int(*dbs_enum_reset)(DBQUERYINFO *);
     int(*dbs_enum_end)(void);
-    int(*dbs_get_id)(char *);
     int(*dbs_start_scan)(void);
     int(*dbs_end_scan)(void);
     int(*dbs_get_count)(CountType_t);
     MP3FILE*(*dbs_fetch_item)(int);
+    MP3FILE*(*dbs_fetch_path)(char *);
     void(*dbs_dispose_item)(MP3FILE*);
 }DB_FUNCTIONS;
 
@@ -75,11 +75,11 @@ DB_FUNCTIONS db_functions[] = {
 	db_sqlite_enum_fetch,
 	db_sqlite_enum_reset,
 	db_sqlite_enum_end,
-	db_sqlite_get_id,
 	db_sqlite_start_scan,
 	db_sqlite_end_scan,
 	db_sqlite_get_count,
 	db_sqlite_fetch_item,
+	db_sqlite_fetch_path,
 	db_sqlite_dispose_item
     },
 #endif
@@ -423,19 +423,12 @@ int db_scanning(void) {
  */
 int db_add(MP3FILE *pmp3) {
     int retval;
-    int id;
-
-    id=db_get_id(pmp3->path);
 
     db_writelock();
-    if(id) {
-	retval=db_current->dbs_update(pmp3);
-    } else {
-	retval=db_current->dbs_add(pmp3);
-	db_revision_no++;
-    }
-
+    retval=db_current->dbs_add(pmp3);
+    db_revision_no++;
     db_unlock();
+
     return retval;
 }
 
@@ -517,6 +510,16 @@ MP3FILE *db_fetch_item(int id) {
     return retval;
 }
 
+MP3FILE *db_fetch_path(char *path) {
+    MP3FILE *retval;
+    
+    db_readlock();
+    retval=db_current->dbs_fetch_path(path);
+    db_unlock();
+
+    return retval;
+}
+
 int db_start_scan(void) {
     int retval;
 
@@ -538,33 +541,7 @@ int db_end_scan(void) {
     
     return retval;
 }
-
-int db_last_modified(char *path) {
-    int id;
-    MP3FILE *pmp3;
-    int retval=0;
-
-    id=db_get_id(path);
-    pmp3=db_fetch_item(id);
-    if(pmp3) {
-	retval=pmp3->db_timestamp;
-	db_dispose_item(pmp3);
-    }
-    return retval;
-}
     
-
-    
-int db_get_id(char *path) {
-    int retval;
-
-    db_readlock();
-    retval=db_current->dbs_get_id(path);
-    db_unlock();
-
-    return retval;
-}
-
 void db_dispose_item(MP3FILE *pmp3) {
     return db_current->dbs_dispose_item(pmp3);
 }

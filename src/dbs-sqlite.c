@@ -43,6 +43,7 @@ static sqlite *db_sqlite_songs; /**< Database that holds the mp3 info */
 static pthread_mutex_t db_sqlite_mutex = PTHREAD_MUTEX_INITIALIZER; /**< sqlite not reentrant */
 static sqlite_vm *db_sqlite_pvm;
 static int db_sqlite_in_scan=0;
+static int db_sqlite_reload=0;
 
 /* Forwards */
 int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray);
@@ -97,9 +98,14 @@ int db_sqlite_open(char *parameters) {
 int db_sqlite_init(int reload) {
     int err;
     char *perr;
+    int items;
 
-    if(reload) {
+    items=db_sqlite_get_count(countSongs);
+
+    if((reload) || (!items)) {
+	DPRINTF(E_LOG,L_DB,"Full reload...\n");
 	/* this may or may not fail, depending if the index is already in place */
+	db_sqlite_reload=1;
 	db_sqlite_lock();
 	sqlite_exec(db_sqlite_songs,"DROP INDEX idx_path",NULL,NULL,&perr);
 	err=sqlite_exec(db_sqlite_songs,"DELETE FROM songs",NULL,NULL,&perr);
@@ -129,15 +135,20 @@ int db_sqlite_deinit(void) {
  */
 int db_sqlite_start_scan(void) {
     char *perr;
-    int err;
 
     db_sqlite_lock();
-    err=sqlite_exec(db_sqlite_songs,"UPDATE songs SET updated=0",NULL,NULL,&perr);
+
+    if(db_sqlite_reload) {
+	sqlite_exec(db_sqlite_songs,"PRAGMA synchronous = OFF;",NULL,NULL,&perr);
+	sqlite_exec(db_sqlite_songs,"BEGIN TRANSACTION;",NULL,NULL,&perr);
+    } else {
+	/* if not a full reload, we'll be doing update checks */
+	sqlite_exec(db_sqlite_songs,"DROP TABLE updated",NULL,NULL,&perr);
+	sqlite_exec(db_sqlite_songs,"CREATE TEMP TABLE updated (id int)",NULL,NULL,&perr);
+    }
+
     db_sqlite_unlock();
 
-    if(err != SQLITE_OK)
-	DPRINTF(E_FATAL,L_DB,"db_sqlite_start_scan: %s\n",perr);
-    
     db_sqlite_in_scan=1;
 
     return 0;
@@ -148,16 +159,32 @@ int db_sqlite_start_scan(void) {
  */
 int db_sqlite_end_scan(void) {
     char *perr;
-    int err;
+    int err=0;
 
     db_sqlite_lock();
-    sqlite_exec(db_sqlite_songs,"PRAGMA synchronous=NORMAL",NULL,NULL,&perr);
-    err=sqlite_exec(db_sqlite_songs,"DELETE FROM songs WHERE updated=0",NULL,NULL,&perr);
+    if(db_sqlite_reload) {
+	err=sqlite_exec(db_sqlite_songs,"COMMIT TRANSACTION;",NULL,NULL,&perr);
+	if(err != SQLITE_OK) {
+	    DPRINTF(E_FATAL,L_DB,"Could not commit insert transactions\n");
+	}
+	DPRINTF(E_LOG,L_DB,"Creating path index...\n");
+	sqlite_exec(db_sqlite_songs,"CREATE INDEX idx_path ON songs(path)",NULL,NULL,&perr);
+	sqlite_exec(db_sqlite_songs,"PRAGMA synchronous=NORMAL;",NULL,NULL,&perr);
+    } else {
+	err=sqlite_exec(db_sqlite_songs,
+			"DELETE FROM songs WHERE id NOT IN (SELECT id FROM updated)",
+			NULL,NULL,&perr);
+	if(err == SQLITE_OK) {
+	    err |= sqlite_exec(db_sqlite_songs,"DROP TABLE updated",NULL,NULL,&perr);
+	}
+    }
+
     db_sqlite_unlock();
 
     if(err != SQLITE_OK)
 	DPRINTF(E_FATAL,L_DB,"db_sqlite_end_scan: %s\n",perr);
-    
+
+    db_sqlite_reload=0;
     db_sqlite_in_scan=0;
     return 0;
 }
@@ -173,6 +200,7 @@ int db_sqlite_add(MP3FILE *pmp3) {
     char *perr;
 
     DPRINTF(E_SPAM,L_DB,"Entering db_sqlite_add\n");
+
 
     if(!pmp3->time_added)
 	pmp3->time_added = (int)time(NULL);
@@ -221,7 +249,7 @@ int db_sqlite_add(MP3FILE *pmp3) {
 			   "%d,"    // time_played
 			   "%d,"    // db_timestamp
 			   "%d,"    // disabled
-			   "1,"     // updated
+			   "%d,"    // sample_count
 			   "0)",    // force_update    
 			   NULL,NULL,
 			   &perr,
@@ -259,9 +287,26 @@ int db_sqlite_add(MP3FILE *pmp3) {
 			   pmp3->db_timestamp,
 			   pmp3->disabled);
     db_sqlite_unlock();
+
+    if(err == SQLITE_CONSTRAINT) {
+	/* probably because the path already exists... */
+	DPRINTF(E_DBG,L_DB,"Could not add mp3 file: %s... updating instead\n",pmp3->path);
+	return db_sqlite_update(pmp3);
+    }
+
     if(err != SQLITE_OK)
 	DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database: %s\n",
 		pmp3->fname,perr);
+
+    if((db_sqlite_in_scan)&&(!db_sqlite_reload)) {
+	db_sqlite_lock();
+	err=sqlite_exec(db_sqlite_songs,"INSERT INTO updated VALUES (last_insert_rowid())",
+			NULL,NULL,&perr);	
+	if(err != SQLITE_OK)
+	    DPRINTF(E_LOG,L_DB,"Error inserting into update table: %s\n",perr);
+	
+	db_sqlite_unlock();
+    }
 
     DPRINTF(E_SPAM,L_DB,"Exiting db_sqlite_add\n");
     return 0;
@@ -308,7 +353,7 @@ int db_sqlite_update(MP3FILE *pmp3) {
 			   "bpm=%d,"    // bpm
 			   "compilation=%d,"    // compilation
 			   "rating=%d,"    // rating
-			   "updated=1"     // updated
+			   "sample_count=%d,"
 			   " WHERE path='%q'",
 			   NULL,NULL,
 			   &perr,
@@ -337,11 +382,23 @@ int db_sqlite_update(MP3FILE *pmp3) {
 			   pmp3->bpm,
 			   pmp3->compilation,
 			   pmp3->rating,
+			   pmp3->sample_count,
 			   pmp3->path);
     db_sqlite_unlock();
     if(err != SQLITE_OK)
 	DPRINTF(E_FATAL,L_DB,"Error updating file %s in database: %s\n",
 		pmp3->fname,perr);
+
+    if((db_sqlite_in_scan) && (!db_sqlite_reload)) {
+	db_sqlite_lock();
+	err=sqlite_exec_printf(db_sqlite_songs,
+			       "INSERT INTO updated (id) select id from songs where path='%q')",
+			       NULL,NULL,&perr,pmp3->path);	
+	if(err != SQLITE_OK)
+	    DPRINTF(E_LOG,L_DB,"Error inserting into update table: %s\n",perr);
+	
+	db_sqlite_unlock();
+    }
 
     return 0;
 }
@@ -876,33 +933,6 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
     return 0;
 }
 
-/**
- * return the id for a given path (or 0 if it does not exist)
- *
- * \param path path of the file we are looking for
- */
-int db_sqlite_get_id(char *path) {
-    int err, rows, cols;
-    char *perr;
-    char **resarray;
-    int retval=0;
-    
-    db_sqlite_lock();
-    err=sqlite_get_table_printf(db_sqlite_songs,"SELECT * FROM songs WHERE path='%q'",
-				&resarray, &rows, &cols, &perr, path);
-    db_sqlite_unlock();
-
-    if(rows != 0) {
-	retval=atoi(resarray[cols]);
-    }
-
-    db_sqlite_lock();
-    sqlite_free_table(resarray);
-    db_sqlite_unlock();
-
-    return retval;
-}
-
 int db_sqlite_atoi(const char *what) {
     return what ? atoi(what) : 0;
 }
@@ -948,6 +978,8 @@ void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3) {
     pmp3->time_played=db_sqlite_atoi(valarray[32]);
     pmp3->db_timestamp=db_sqlite_atoi(valarray[33]);
     pmp3->disabled=db_sqlite_atoi(valarray[34]);
+    pmp3->sample_count=db_sqlite_atoi(valarray[35]);
+    pmp3->force_update=db_sqlite_atoi(valarray[36]);
 }
 
 /**
@@ -976,8 +1008,8 @@ MP3FILE *db_sqlite_fetch_item(int id) {
 
     db_sqlite_lock();
     sqlite_free_table(resarray);
-    if(db_sqlite_in_scan) {
-	sqlite_exec_printf(db_sqlite_songs,"UPDATE songs SET updated=1 WHERE id=%d",
+    if((db_sqlite_in_scan) && (!db_sqlite_reload)) {
+	sqlite_exec_printf(db_sqlite_songs,"insert into updated values (%d)",
 			   NULL,NULL,&perr,id);
     }
     db_sqlite_unlock();
@@ -985,6 +1017,45 @@ MP3FILE *db_sqlite_fetch_item(int id) {
     return pmp3;
 }
 
+/**
+ * retrieve a MP3FILE struct for the song with a give path
+ *
+ * \param path path of the file to retreive
+ */
+extern MP3FILE *db_sqlite_fetch_path(char *path) {
+    int err,rows,cols;
+    char *perr;
+    char **resarray;
+    MP3FILE *pmp3=NULL;
+
+    /* here's a bit of a hack */
+    if(db_sqlite_reload) {
+	return NULL;
+    }
+
+    db_sqlite_lock();
+    err=sqlite_get_table_printf(db_sqlite_songs,"SELECT * FROM songs WHERE path=%q",
+				&resarray, &rows, &cols, &perr, path);
+    db_sqlite_unlock();
+
+    if(rows != 0) {
+	pmp3=(MP3FILE*)malloc(sizeof(MP3FILE));
+	if(!pmp3) 
+	    DPRINTF(E_FATAL,L_MISC,"Malloc error in db_sqlite_fetch_item\n");
+
+	db_sqlite_build_mp3file((char **)&resarray[cols],pmp3);
+    }
+
+    db_sqlite_lock();
+    sqlite_free_table(resarray);
+    if((db_sqlite_in_scan)&&(!db_sqlite_reload)) {
+	sqlite_exec_printf(db_sqlite_songs,"INSERT INTO updated VALUES (%d)",
+			   NULL,NULL,&perr,pmp3->id);
+    }
+    db_sqlite_unlock();
+
+    return pmp3;
+}
 
 /** 
  * dispose of a MP3FILE struct that was obtained 
@@ -993,7 +1064,7 @@ MP3FILE *db_sqlite_fetch_item(int id) {
  * \param pmp3 item obtained from db_sqlite_fetch_item
  */
 void db_sqlite_dispose_item(MP3FILE *pmp3) {
-    if(pmp3)
+    if(!pmp3)
 	return;
 
     MAYBEFREE(pmp3->path);

@@ -138,8 +138,12 @@ extern int db_start_scan(void);
 extern int db_end_scan(void);
 extern int db_exists(char *path);
 extern int db_scanning(void);
-extern int db_last_modified(char *path);
 
+extern MP3FILE *db_fetch_item(int id);
+extern MP3FILE *db_fetch_path(char *path);
+
+
+/* metatag parsing */
 extern MetaField_t db_encode_meta(char *meta);
 extern int db_wantsmeta(MetaField_t meta, MetaFieldName_t fieldNo);
 
@@ -155,8 +159,6 @@ extern int db_dmap_add_container(char *where, char *tag, int size);
  */
 extern int db_get_song_count(void); 
 extern int db_get_playlist_count(void);
-extern MP3FILE *db_fetch_item(int id);
-extern int db_get_id(char *path);
 extern void db_dispose_item(MP3FILE *pmp3);
 
 #endif /* _DB_GENERIC_H_ */

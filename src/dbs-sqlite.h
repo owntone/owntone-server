@@ -32,11 +32,11 @@ extern int db_sqlite_enum_size(DBQUERYINFO *pinfo, int *count);
 extern int db_sqlite_enum_fetch(DBQUERYINFO *pinfo, unsigned char **pdmap);
 extern int db_sqlite_enum_reset(DBQUERYINFO *pinfo);
 extern int db_sqlite_enum_end(void);
-extern int db_sqlite_get_id(char *path);
 extern int db_sqlite_start_scan(void);
 extern int db_sqlite_end_scan(void);
 extern int db_sqlite_get_count(CountType_t type);
 extern MP3FILE *db_sqlite_fetch_item(int id);
+extern MP3FILE *db_sqlite_fetch_path(char *path);
 extern void db_sqlite_dispose_item(MP3FILE *pmp3);
 
 #endif /* _DBS_SQLITE_H_ */

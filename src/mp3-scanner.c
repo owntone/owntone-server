@@ -383,6 +383,7 @@ int scan_path(char *path) {
     struct stat sb;
     int modified_time;
     char *ext;
+    MP3FILE *pmp3;
 
     if((current_dir=opendir(path)) == NULL) {
 	DPRINTF(E_WARN,L_SCAN,"opendir: %s\n",strerror(errno));
@@ -427,18 +428,19 @@ int scan_path(char *path) {
 		    if((strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) &&
 		       config.process_m3u){
 			/* we found an m3u file */
-			DPRINTF(E_LOG,L_SCAN,"Oops... we aren't doing playlists.. Sorry: %s\n",
+			DPRINTF(E_LOG,L_SCAN,"Oops... no playlists.. Sorry: %s\n",
 				mp3_path);
 			//			scan_static_playlist(path, pde, &sb);
 		    } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
 			       (strcasestr(config.extensions, ext))) {
 			/* only scan if it's been changed, or empty db */
 			modified_time=sb.st_mtime;
-			DPRINTF(E_DBG,L_SCAN,"FS Mod time: %d\n",modified_time);
-			DPRINTF(E_DBG,L_SCAN,"DB Mod time: %d\n",db_last_modified(mp3_path));
-			if(!db_get_id(mp3_path) ||
-			   db_last_modified(mp3_path) < modified_time) {
+			pmp3=db_fetch_path(mp3_path);
+
+			if((!pmp3) || (pmp3->db_timestamp < modified_time) || 
+			   (pmp3->force_update)) {
 			    scan_music_file(path,pde,&sb);
+			    db_dispose_item(pmp3);
 			} else {
 			    DPRINTF(E_DBG,L_SCAN,"Skipping file... not modified\n");
 			}

@@ -66,7 +66,8 @@ typedef struct tag_mp3file {
     char* description;		/* long file type */
     int item_kind;		/* song or movie */
     int data_kind;              /* dmap.datakind (asdk) */
-
+    int force_update;
+    int sample_count;
     char compilation;
 } MP3FILE;
 
