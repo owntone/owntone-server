@@ -534,8 +534,8 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(server,"^/login$",daap_handler,daap_auth,0);
     ws_registerhandler(server,"^/update$",daap_handler,daap_auth,0);
     ws_registerhandler(server,"^/databases$",daap_handler,daap_auth,0);
-    ws_registerhandler(server,"^/logout$",daap_handler,daap_auth,0);
-    ws_registerhandler(server,"^/databases/.*",daap_handler,daap_auth,0);
+    ws_registerhandler(server,"^/logout$",daap_handler,NULL,0);
+    ws_registerhandler(server,"^/databases/.*",daap_handler,NULL,0);
 
     if(config.use_mdns) { /* register services */
 	DPRINTF(ERR_DEBUG,"Registering rendezvous names\n");
