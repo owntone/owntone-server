@@ -48,6 +48,11 @@
 #define MAXBACKLOG 50
 #endif
 
+#ifndef INADDR_NONE
+#  define INADDR_NONE 0xFFFFFFFFU
+#endif
+
+
 /*
  *                           u_igniore_sigpipe
  * Ignore SIGPIPE if the default action is in effect.

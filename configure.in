@@ -31,6 +31,9 @@ AM_CONDITIONAL(COND_REND_POSIX, test x$rend_howl = xfalse)
 dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
 case $host in
+*solaris*)
+	CPPFLAGS="$CPPFLAGS -DHAVE_SOCKLEN_T"
+	LDFLAGS="$LDFLAGS -lnsl -lsocket";;	
 *linux*)
 	CPPFLAGS="$CPPFLAGS -DHAVE_SOCKLEN_T";;
 *darwin*)
