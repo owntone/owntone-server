@@ -53,15 +53,22 @@ esac
 dnl Checks for libraries.
 AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
 
-AC_ARG_WITH(zlib,
-	[--with-zlib[[=DIR]]             use zlib in DIR],[
+AC_ARG_WITH(howl-includes,
+	[--with-howl-includes[[=DIR]]          use howl include files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
-	  Z_DIR=$withval
-	  CPPFLAGS="${CPPFLAGS} -I$withval/include"
-	  LDFLAGS="${LDFLAGS} -L$withval/lib"
+	 Z_DIR=$withval
+         CPPFLAGS="${CPPFLAGS} -I$withval"
 	fi
 ])
-	
+
+AC_ARG_WITH(howl-libs,
+	[--with-howl-libs[[=DIR]]          use howl lib files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+         LDFLAGS="${LDFLAGS} -L$withval"
+	fi
+])
+
 AC_ARG_WITH(id3tag,
 	[--with-id3tag[[=DIR]]           use id3tag in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
@@ -73,8 +80,8 @@ AC_ARG_WITH(id3tag,
 
 
 
-AC_CHECK_HEADERS(zlib.h,LDFLAGS="${LDFLAGS} -lz",[
-  AC_MSG_ERROR([zlib.h not found... try --with-zlib=dir])])
+dnl AC_CHECK_HEADERS(zlib.h,LDFLAGS="${LDFLAGS} -lz",[
+dnl  AC_MSG_ERROR([zlib.h not found... try --with-zlib=dir])])
 
 AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
   AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])

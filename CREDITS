@@ -1,0 +1,16 @@
+/* $Id$ */
+
+I've received lots of help from people on this project.
+
+These are the people who have contributed to whatever
+small success this project enjoys (in order of
+contribution)
+
+Aubin Paul (debian@outlyer.org) 
+ * Patches for Debian package generation
+ * Precompiled Debian binaries
+
+Paul Forgey (paulf@aphrodite.com)
+ * Tons of troubleshooting on Solaris
+ * Fixes for readdir_r
+
