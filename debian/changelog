@@ -1,3 +1,10 @@
+mt-daapd (0.2.0-1) unstable; urgency=low
+  * Add gdbm database
+  * Add support for .m4a and .m4p
+  * Various bug fixes
+
+ -- Ron Pedde <ron@pedde.com>  Mon,  6 Apr 2004 21:10:00 -0600
+	
 mt-daapd (0.1.1-1) unstable; urgency=low
 
   * Add track information
