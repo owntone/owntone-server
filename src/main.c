@@ -105,7 +105,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	    clientrev=atoi(ws_getvar(pwsc,"delta"));
 	    config_set_status(pwsc,session_id,"Waiting for DB updates");
 	}
-	root=daap_response_update(clientrev);
+	root=daap_response_update(pwsc->fd,clientrev);
     } else if (!strcasecmp(pwsc->uri,"/logout")) {
 	config_set_status(pwsc,session_id,NULL);
 	ws_returnerror(pwsc,204,"Logout Successful");
@@ -256,10 +256,11 @@ int main(int argc, char *argv[]) {
     char *configfile=NULL;
     WSCONFIG ws_config;
     WSHANDLE server;
-    pid_t rendezvous_pid;
-    int use_mdns=0;
     ENUMHANDLE handle;
     MP3FILE *pmp3;
+    int status;
+
+    config.use_mdns=0;
 
 #ifdef DEBUG
     char *optval="d:c:m";
@@ -283,7 +284,7 @@ int main(int argc, char *argv[]) {
 	    break;
 
 	case 'm':
-	    use_mdns=1;
+	    config.use_mdns=1;
 	    break;
 
 	default:
@@ -345,17 +346,36 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(server,"^/logout$",daap_handler,NULL,0);
     ws_registerhandler(server,"^/databases/.*",daap_handler,NULL,0);
 
-    if(use_mdns)
-	rend_init(&rendezvous_pid,config.servername, config.port);
-
-    while(1) {
-	sleep(100);
+    if(config.use_mdns) {
+	fprintf(stderr,"Starting rendezvous daemon\n");
+	rend_init(&config.rend_pid,config.servername, config.port);
     }
 
+    config.stop=0;
+
+    while(!config.stop)
+	sleep(10);
+
+    if(config.use_mdns) {
+	fprintf(stderr,"Killing rendezvous daemon\n");
+	kill(config.rend_pid,SIGINT);
+	wait(&status);
+    }
+
+    fprintf(stderr,"Stopping webserver\n");
+    ws_stop(server);
+
+    config_close();
+
+    fprintf(stderr,"Closing database\n");
+    db_deinit();
+
 #ifdef DEBUG
+    fprintf(stderr,"Leaked memory:\n");
     err_leakcheck();
 #endif
 
+    fprintf(stderr,"\nDone\n");
     return EXIT_SUCCESS;
 }
 
