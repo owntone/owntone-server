@@ -27,8 +27,8 @@ endif
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	daap-proto.c daap-proto.h daap.c daap.h $(DBFILE) db-memory.h \
-	mp3-scanner.h mp3-scanner.c playlist.c playlist.h rend-unix.c rend-unix.h \
-	lexer.l parser.y $(RENDSRC) strcasestr.c strcasestr.h strsep.c
+	mp3-scanner.h mp3-scanner.c playlist.c playlist.h rend-unix.c \
+	rend-unix.h lexer.l parser.y $(RENDSRC) strcasestr.c strcasestr.h strsep.c
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
