@@ -4,7 +4,7 @@ dnl Process this file with autoconf to produce a configure script.
 AC_INIT(config.h.in)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(mt-daapd,0.1.1)
+AM_INIT_AUTOMAKE(mt-daapd,0.2.0-cvs)
 
 dnl Checks for programs.
 AC_PROG_CC
@@ -93,8 +93,17 @@ AC_ARG_WITH(id3tag,
 dnl AC_CHECK_HEADERS(zlib.h,LDFLAGS="${LDFLAGS} -lz",[
 dnl  AC_MSG_ERROR([zlib.h not found... try --with-zlib=dir])])
 
-AC_CHECK_FUNC(strcasestr,,AM_CONDITIONAL(COND_NEED_STRCASESTR,true))
-AC_CHECK_FUNC(strsep,,AM_CONDITIONAL(COND_NEED_STRSEP,true))
+AC_REPLACE_FUNCS(strcasestr)
+AC_REPLACE_FUNCS(strsep)
+
+dnl AC_CHECK_FUNC(strcasestr,,[
+dnl 	AM_CONDITIONAL(COND_NEED_STRCASESTR,true)
+dnl 	AH_VERBATIM(NEED_STRCASESTR,[#define NEED_STRCASESTR 1])
+dnl ])
+
+dnl AC_CHECK_FUNC(strsep,,
+dnl 	AM_CONDITIONAL(COND_NEED_STRSEP,true))
+dnl	AH_VERBATIM(NEED_STRSEP,[#define NEED_STRSEP 1])
 
 AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
   AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
