@@ -90,7 +90,7 @@ int db_init(char *parameters) {
     db_root.next=NULL;
     db_version_no=1;
     db_song_count=0;
-    db_song_id=0;
+    db_song_id=1;
 
     return pthread_once(&db_initlock,db_init_once);
 }

@@ -427,7 +427,7 @@ DAAP_BLOCK *daap_response_playlists(void) {
 	    if(mlit) {
 		g = g && daap_add_int(mlit,"miid",0x1);
 		g = g && daap_add_long(mlit,"mper",0,2);
-		g = g && daap_add_string(mlit,"minm","daapd music");
+		g = g && daap_add_string(mlit,"minm","mt-daapd");
 		g = g && daap_add_int(mlit,"mimc",db_get_song_count());
 	    }
 	}
@@ -468,7 +468,7 @@ DAAP_BLOCK *daap_response_dbinfo(void) {
 	    if(mlit) {
 		g = g && daap_add_int(mlit,"miid",0x20);
 		g = g && daap_add_long(mlit,"mper",0,1);
-		g = g && daap_add_string(mlit,"minm","daapd music");
+		g = g && daap_add_string(mlit,"minm","mt-daapd");
 		g = g && daap_add_int(mlit,"mimc",db_get_song_count()); /* songs */
 		g = g && daap_add_int(mlit,"mctc",0x1); /* playlists */
 	    }
@@ -501,11 +501,11 @@ DAAP_BLOCK *daap_response_server_info(void) {
 	g = (int)daap_add_int(root,"mstt",200); /* result */
 	g = g && daap_add_int(root,"mpro",2 << 16); /* dmap proto ? */
 	g = g && daap_add_int(root,"apro",2 << 16); /* daap protocol */
-	g = g && daap_add_string(root,"minm","daapd music"); /* server name */
+	g = g && daap_add_string(root,"minm","mt-daapd"); /* server name */
 	g = g && daap_add_char(root,"mslr",0); /* logon required */
 	g = g && daap_add_int(root,"mstm",1800); /* timeout  - iTunes=1800 */
 	g = g && daap_add_char(root,"msal",0); /* autologout */
-	g = g && daap_add_char(root,"msup",0); /* update */
+	g = g && daap_add_char(root,"msup",1); /* update */
 	g = g && daap_add_char(root,"mspi",0); /* persistant ids */
 	g = g && daap_add_char(root,"msex",0); /* extensions */
 	g = g && daap_add_char(root,"msbr",0); /* browsing */
