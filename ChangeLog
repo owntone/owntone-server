@@ -1,4 +1,10 @@
-2004-05-07  Ron Pedde  <ron@mac-laptop.dynamic.pedde.com>
+2004-05-21  Ron Pedde  <ron@pedde.com>
+	* everywhere: fixes for more conformant protocol handling,
+	support for index tag, meta tag, bug fixes for configuration file
+	overwriting, many other fixes and improvements from David
+	W. Berry (dwb@greenwing.com)
+
+2004-05-07  Ron Pedde  <ron@pedde.com>
 
 	* configure.in: Solaris fixes from ian (?)
 
