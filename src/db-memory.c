@@ -165,9 +165,15 @@ int db_add(MP3FILE *mp3file) {
 
     g=(int) pnew->mp3file.path=strdup(mp3file->path);
     g = g && (pnew->mp3file.fname=strdup(mp3file->fname));
-    g = g && (pnew->mp3file.artist=strdup(mp3file->artist));
-    g = g && (pnew->mp3file.album=strdup(mp3file->album));
-    g = g && (pnew->mp3file.genre=strdup(mp3file->genre));
+
+    if(mp3file->artist)
+	g = g && (pnew->mp3file.artist=strdup(mp3file->artist));
+
+    if(mp3file->album)
+	g = g && (pnew->mp3file.album=strdup(mp3file->album));
+
+    if(mp3file->genre)
+	g = g && (pnew->mp3file.genre=strdup(mp3file->genre));
 
     if(!g) {
 	DPRINTF(ERR_WARN,"Malloc error in db_add\n");

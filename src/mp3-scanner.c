@@ -19,11 +19,20 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <dirent.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <sys/types.h>
+
 #include "db-memory.h"
 #include "mp3-scanner.h"
+
+/*
+ * Forwards
+ */
+int scan_foreground(char *path);
 
 /*
  * scan_init
@@ -39,18 +48,65 @@
  */
 
 int scan_init(char *path) {
-    MP3FILE junk={
-	"/tmp/x.mp3",
-	"Some Title",
-	"Some Artist",
-	"Some Album",
-	"Some Genre",
-	1
-    };
+    if(db_is_empty()) {
+	if(db_start_initial_update()) 
+	    return -1;
 
-    if(db_add(&junk)) {
-	perror("db_add");
-	exit(EXIT_FAILURE);
+	scan_foreground(path);
+
+	if(db_end_initial_update())
+	    return -1;
+    } else {
+	/* do deferred updating */
+	return ENOTIMPL;
     }
+
     return 0;
 }
+
+/*
+ * scan_foreground
+ *
+ * Do a brute force scan of a path, finding all the MP3 files there
+ */
+int scan_foreground(char *path) {
+    MP3FILE mp3file;
+    DIR *current;
+    struct dirent de;
+    struct dirent *pde;
+    int err;
+    char mp3_path[PATH_MAX];
+
+    if((current_dir=opendir(path)) == NULL) {
+	return -1;
+    }
+
+    while(1) {
+	err=readdir_r(current_dir,&de,&pde);
+	if(err == -1) {
+	    err=errno;
+	    closedir(current);
+	    errno=err;
+	    return -1;
+	}
+	
+	if(!pde)
+	    break;
+
+	/* process the file */
+	if(de.d_namelen > 4) {
+	    if(strcasecmp(".mp3",de.d_name[de.d_namelen - 4]) == 0) {
+		/* we found an mp3 file */
+		sprintf(mp3_path,"%s/%s",path,de.d_name);
+		memset(mp3file,0,sizeof(mp3file));
+		mp3file->path=mp3_path;
+		mp3file->fname=de.d_name;
+
+		db_add(&mp3file);
+	    }
+	}
+    }
+
+    closedir(current);
+}
+
