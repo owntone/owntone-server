@@ -158,24 +158,27 @@ int config_session=0;                                   /**< session counter */
  */
 
 int config_makedir(char *path) {
-    char *token;
+    char *token, *next_token;
     char *pathdup;
     char path_buffer[PATH_MAX];
     int err;
+
+    DPRINTF(E_DBG,L_CONF,"Creating %s\n",path);
 
     pathdup=strdup(path);
     if(!pathdup) {
 	return -1;
     }
 
-    token=strtok(pathdup+1,"/");
-    strcpy(path_buffer,"/");
+    next_token=pathdup+1;
+    memset(path_buffer,0,sizeof(path_buffer));
 
-    while(token) {
-	token=strtok(NULL,"/");
+    while((token=strsep(&next_token,"/"))) {
 	if((strlen(path_buffer) + strlen(token)) < PATH_MAX) {
+	    strcat(path_buffer,"/");
 	    strcat(path_buffer,token);
-	    if(mkdir(path_buffer,0700)) {
+	    DPRINTF(E_DBG,L_CONF,"Making %s\n",path_buffer);
+	    if((mkdir(path_buffer,0700)) && (errno != EEXIST)) {
 		err=errno;
 		free(pathdup);
 		errno=err;
@@ -198,6 +201,8 @@ int config_makedir(char *path) {
  */
 int config_existdir(char *path) {
     struct stat sb;
+
+    DPRINTF(E_DBG,L_CONF,"Checking existence of %s\n",path);
 
     if(stat(path,&sb)) {
 	return 0;
@@ -385,6 +390,7 @@ int config_read(char *file) {
 	if(config_makedir(config.dbdir)) {
 	    DPRINTF(E_LOG,L_CONF,"Database dir %s does not exist, cannot create: %s\n",
 		    config.dbdir,strerror(errno));
+	    return -1;
 	}
     }
 
