@@ -99,13 +99,29 @@ function playlistSelect(event) {
   
   items = g_req.responseXML.getElementsByTagName('dmap.listingitem');
   
-  
   for (i=0; i < items.length; i++) {
-    song = items[i].getElementsByTagName('dmap.itemname').item(0).textContent;
+    // Have to check if the tag really was returned from the server
+    if (song = items[i].getElementsByTagName('dmap.itemname').item(0)) {
+      song = song.textContent;
+    } else {
+      song = '';
+    }
     time = ''; //items[i].getElementsByTagName('daap.songtime').item(0).textContent;
-    artist = items[i].getElementsByTagName('daap.songartist').item(0).textContent;
-    album = items[i].getElementsByTagName('daap.songalbum').item(0).textContent;
-    genre = items[i].getElementsByTagName('daap.songgenre').item(0).textContent;
+    if (artist = items[i].getElementsByTagName('daap.songartist').item(0)) {
+      artist = artist.textContent;
+    } else {
+      artist = '';
+    }
+    if (album = items[i].getElementsByTagName('daap.songalbum').item(0)) {
+      album = album.textContent;
+    } else {
+      album = '';
+    }
+    if (genre = items[i].getElementsByTagName('daap.songgenre').item(0)) {
+      genre = genre.textContent;
+    } else {
+      genre = '';
+    }
     addRow(tableBody,song,time,artist,album,genre);
   }
   
