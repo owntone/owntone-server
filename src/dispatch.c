@@ -55,8 +55,31 @@ static void dispatch_playlists(WS_CONNINFO *pqsc, DBQUERYINFO *pqi);
 static void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_logout(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 
+static int dispatch_output_start(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, int content_length);
+static int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, int len);
+static int dispatch_output_end(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
+
+static DAAP_ITEMS *dispatch_xml_lookup_tag(char *tag);
+static char *dispatch_xml_encode(char *original, int len);
+static int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, int len);
 
 
+/** 
+ * Hold the inf for the output serializer
+ */
+typedef struct tag_xml_stack {
+    char tag[5];
+    int bytes_left;
+} XML_STACK;
+
+typedef struct tag_output_info {
+    int xml_output;
+    int readable;
+    int browse_response;
+    int dmap_response_length;
+    int stack_height;
+    XML_STACK stack[10];
+} OUTPUT_INFO;
 
 
 /**
@@ -85,6 +108,11 @@ int daap_auth(char *username, char *password) {
     return !strcasecmp(password,config.readpassword);
 }
 
+/**
+ * decodes the request and hands it off to the appropriate dispatcher
+ *
+ * \param pwsc the current web connection info
+ */
 void daap_handler(WS_CONNINFO *pwsc) {
     DBQUERYINFO *pqi;
     char *token, *string, *save;
@@ -183,6 +211,352 @@ void daap_handler(WS_CONNINFO *pwsc) {
     free(pqi);
     ws_returnerror(pwsc,404,"Page not found");
     return;
+}
+
+
+/**
+ * set up whatever necessary to begin streaming the output
+ * to the client.
+ *
+ * \param pwsc pointer to the current conninfo struct
+ * \param pqi pointer to the current dbquery struct
+ * \param content_length content_length (assuming dmap) of the output
+ */
+int dispatch_output_start(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, int content_length) {
+    OUTPUT_INFO *poi;
+
+    poi=(OUTPUT_INFO*)calloc(1,sizeof(OUTPUT_INFO));
+    if(!poi) {
+	DPRINTF(E_LOG,L_DAAP,"Malloc error in dispatch_ouput_start\n");
+	return -1;
+    }
+
+    pqi->output_info = (void*) poi;
+    poi->dmap_response_length = content_length;
+
+    if(ws_getvar(pwsc,"output")) {
+	if(strcasecmp(ws_getvar(pwsc,"output"),"readable") == 0)
+	    poi->readable=1;
+
+	poi->xml_output=1;
+	ws_addresponseheader(pwsc,"Content-Type","text/xml");
+	ws_addresponseheader(pwsc,"Connection","Close");
+	pwsc->close=1;
+	ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+	ws_emitheaders(pwsc);
+	ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+	if(poi->readable)
+	    ws_writefd(pwsc,"\n");
+	return 0;
+    }
+
+    ws_addresponseheader(pwsc,"Content-Length","%d",poi->dmap_response_length);
+    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+    ws_emitheaders(pwsc);
+
+    /* I guess now we would start writing the output */
+    return 0;
+}
+
+/**
+ * write the output to wherever it goes.  This expects to be fed
+ * full dmap blocks.  In the simplest case, it just streams those
+ * dmap blocks out to the client.  In more complex cases, it convert
+ * them to xml, or compresses them.
+ *
+ * \param pqi pointer to the current dbquery info struct
+ * \param pwsc pointer to the current conninfo struct
+ * \param pblock block of data to write
+ * \param len length of block to write
+ */
+int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, int len) {
+    OUTPUT_INFO *poi=(pqi->output_info);
+    int result;
+
+    if(poi->xml_output) 
+	return dispatch_output_xml_write(pwsc, pqi, block, len);
+
+    result=r_write(pwsc->fd,block,len);
+
+    if(result != len)
+	return -1;
+
+    return 0;
+}
+
+/**
+ * this is the serializer for xml.  This assumes that (with the exception of
+ * containers) blocks are complete dmap blocks
+ *
+ * \param pqi pointer to the current dbquery info struct
+ * \param pwsc pointer to the current conninfo struct
+ * \param pblock block of data to write
+ * \param len length of block to write
+ */
+int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, int len) {
+    OUTPUT_INFO *poi = pqi->output_info;
+    char *current=block;
+    char block_tag[5];
+    int block_len;
+    int len_left;
+    DAAP_ITEMS *pitem;
+    unsigned char *data;
+    int ivalue;
+    long long lvalue;
+    int block_done=1;
+    int stack_ptr;
+    char *encoded_string;
+
+    while(current < (block + len)) {
+	block_done=1;
+	len_left=(block+len) - current;
+	if(len_left < 8) {
+	    DPRINTF(E_FATAL,L_DAAP,"Badly formatted dmap block - frag size: %d",len_left);
+	}
+
+	/* set up block */
+	memcpy(block_tag,current,4);
+	block_tag[4] = '\0';
+	block_len = ntohl(*((int*)&current[4]));
+	data = &current[8];
+
+	if(strncmp(block_tag,"abro",4) ==0 ) {
+	    /* browse queries treat mlit as a string, not container */
+	    poi->browse_response=1;
+	}
+
+	/* lookup and serialize */
+	pitem=dispatch_xml_lookup_tag(block_tag);
+	if(poi->readable) 
+	    r_fdprintf(pwsc->fd,"%*s",poi->stack_height,"");
+	r_fdprintf(pwsc->fd,"<%s>",pitem->description);
+	switch(pitem->type) {
+	case 0x01: /* byte */
+	    if(block_len != 1) {
+		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 1\n",block_tag,	block_len);
+	    }
+	    r_fdprintf(pwsc->fd,"%d",*((char *)data));
+	    break;
+
+	case 0x02: /* unsigned byte */
+	    if(block_len != 1) {
+		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 1\n",block_tag, block_len);
+	    }
+	    r_fdprintf(pwsc->fd,"%ud",*((char *)data));
+	    break;
+
+	case 0x03: /* short */
+	    if(block_len != 2) {
+		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 2\n",block_tag, block_len);
+	    }
+
+	    ivalue = data[0] << 8 | data[1];
+	    r_fdprintf(pwsc->fd,"%d",ivalue);
+	    break;
+
+	case 0x05: /* int */
+	case 0x0A: /* epoch */
+	    if(block_len != 4) {
+		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 4\n",block_tag, block_len);
+	    }
+	    ivalue = data[0] << 24 |
+		data[1] << 16 |
+		data[2] << 8 |
+		data[3];
+	    r_fdprintf(pwsc->fd,"%d",ivalue);
+	    break;
+	case 0x07: /* long long */
+	    if(block_len != 8) {
+		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 8\n",block_tag, block_len);
+	    }
+
+	    ivalue = data[0] << 24 |
+		data[1] << 16 |
+		data[2] << 8 |
+		data[3];
+	    lvalue=ivalue;
+	    ivalue = data[4] << 24 |
+		data[5] << 16 |
+		data[6] << 8 |
+		data[7];
+	    lvalue = (lvalue << 32) | ivalue;
+	    r_fdprintf(pwsc->fd,"%ll",ivalue);
+	    break;
+	case 0x09: /* string */
+	    encoded_string=dispatch_xml_encode(data,block_len);
+	    r_fdprintf(pwsc->fd,"%s",encoded_string);
+	    free(encoded_string);
+	    break;
+	case 0x0B: /* version? */
+	    if(block_len != 4) {
+		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 4\n",block_tag, block_len);
+	    }
+
+	    ivalue=data[0] << 8 | data[1];
+	    r_fdprintf(pwsc->fd,"%d.%d.%d",ivalue,data[2],data[3]);
+	    break;
+
+	case 0x0C:
+	    if((poi->browse_response)&&(strcmp(block_tag,"mlit") ==0)) {
+		encoded_string=dispatch_xml_encode(data,block_len);
+		r_fdprintf(pwsc->fd,"%s",encoded_string);
+		free(encoded_string);
+	    } else {
+		/* we'll need to stack this up and try and remember where we
+		 * came from.  Make it an extra 8 so that it gets fixed to
+		 * the *right* amount when the stacks are juggled below
+		 */
+
+		poi->stack[poi->stack_height].bytes_left=block_len + 8;
+		memcpy(poi->stack[poi->stack_height].tag,block_tag,5);
+		poi->stack_height++;
+		if(poi->stack_height == 10) {
+		    DPRINTF(E_FATAL,L_DAAP,"Stack overflow\n");
+		}
+		block_done=0;
+	    }
+	    break;
+
+	default:
+	    DPRINTF(E_FATAL,L_DAAP,"Bad dmap type: %d, %s\n",
+		    pitem->type, pitem->description);
+	    break;
+	}
+
+	if(block_done) {
+	    r_fdprintf(pwsc->fd,"</%s>",pitem->description);
+	    if(poi->readable)
+		r_fdprintf(pwsc->fd,"\n");
+
+	    block_len += 8;
+	} else {
+	    /* must be a container */
+	    block_len = 8;
+	    if(poi->readable)
+		r_fdprintf(pwsc->fd,"\n");
+	}
+
+	current += block_len;
+
+	if(poi->stack_height) {
+	    stack_ptr=poi->stack_height;
+	    while(stack_ptr--) {
+		poi->stack[stack_ptr].bytes_left -= block_len;
+		if(poi->stack[stack_ptr].bytes_left < 0) {
+		    DPRINTF(E_FATAL,L_DAAP,"negative container\n");
+		}
+		
+		if(!poi->stack[stack_ptr].bytes_left) {
+		    poi->stack_height--;
+		    pitem=dispatch_xml_lookup_tag(poi->stack[stack_ptr].tag);
+		    if(poi->readable) 
+			r_fdprintf(pwsc->fd,"%*s",poi->stack_height,"");
+		    r_fdprintf(pwsc->fd,"</%s>",pitem->description);
+		    if(poi->readable)
+			r_fdprintf(pwsc->fd,"\n");
+		}
+	    }
+	}
+    }
+
+    return 0;
+}
+
+
+/**
+ * finish streaming output to the client, freeing any allocated
+ * memory, and cleaning up
+ * 
+ * \param pwsc current conninfo struct 
+ * \param pqi current dbquery struct
+ */
+int dispatch_output_end(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
+    OUTPUT_INFO *poi = pqi->output_info;
+
+    if((poi) && (poi->xml_output) && (poi->stack_height)) {
+	DPRINTF(E_LOG,L_DAAP,"Badly formed xml -- still stack\n");
+    }
+
+    config_set_status(pwsc,pqi->session_id,NULL);
+    free(poi);
+    free(pqi);
+
+    return 0;
+}
+
+
+DAAP_ITEMS *dispatch_xml_lookup_tag(char *tag) {
+    DAAP_ITEMS *pitem;
+
+    pitem=taglist;
+    while((pitem->tag) && (strncmp(tag,pitem->tag,4))) {
+	pitem++;
+    }
+
+    if(!pitem->tag)
+	DPRINTF(E_FATAL,L_DAAP,"Unknown daap tag: %c%c%c%c\n",tag[0],tag[1],tag[2],tag[3]);
+
+    return pitem;
+}
+
+/**
+ * xml entity encoding, stupid style
+ */
+char *dispatch_xml_encode(char *original, int len) {
+    char *new;
+    char *s, *d;
+    int destsize;
+    int truelen;
+
+    /* this is about stupid */
+    if(len) {
+	truelen=len;
+    } else {
+	truelen=strlen(original);
+    }
+    
+    destsize = 6*truelen+1;
+    new=(char *)malloc(destsize);
+    if(!new) return NULL;
+
+    memset(new,0x00,destsize);
+
+    s=original;
+    d=new;
+
+    while(s < (original+truelen)) {
+	switch(*s) {
+	case '>':
+	    strcat(d,"&gt;");
+	    d += 4;
+	    s++;
+	    break;
+	case '<':
+	    strcat(d,"&lt;");
+	    d += 4;
+	    s++;
+	    break;
+	case '"':
+	    strcat(d,"&quot;");
+	    d += 6;
+	    s++;
+	    break;
+	case '\'':
+	    strcat(d,"&apos;");
+	    d += 6;
+	    s++;
+	    break;
+	case '&':
+	    strcat(d,"&amp;");
+	    d += 5;
+	    s++;
+	    break;
+	default:
+	    *d++ = *s++;
+	}
+    }
+
+    return new;
 }
 
 void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
@@ -422,15 +796,12 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mrco",song_count);  /* 12 */
     current += db_dmap_add_container(current,"mlcl",list_length);  
 
-    ws_addresponseheader(pwsc,"Content-Length","%d",61+list_length);
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
-
-    r_write(pwsc->fd,items_response,61);
+    dispatch_output_start(pwsc,pqi,61+list_length);
+    dispatch_output_write(pwsc,pqi,items_response,61);
 
     while((list_length=db_enum_fetch(pqi,&block)) > 0) {
-	DPRINTF(E_DBG,L_DAAP,"Got block of size %d\n",list_length);
-	r_write(pwsc->fd,block,list_length);
+	DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
+	dispatch_output_write(pwsc,pqi,block,list_length);
 	free(block);
     }
 
@@ -438,8 +809,7 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     db_enum_end();
 
-    config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
+    dispatch_output_end(pwsc,pqi);
     return;
 }
 
@@ -492,15 +862,12 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mrco",item_count);                /* 12 */
     current += db_dmap_add_container(current,response_type,list_length);  /*  8 + length */
 
-    ws_addresponseheader(pwsc,"Content-Length","%d",52+list_length);
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
-
-    r_write(pwsc->fd,browse_response,52);
+    dispatch_output_start(pwsc,pqi,52+list_length);
+    dispatch_output_write(pwsc,pqi,browse_response,52);
 
     while((list_length=db_enum_fetch(pqi,&block)) > 0) {
-	DPRINTF(E_DBG,L_DAAP|L_BROW,"Got block of size %d\n",list_length);
-	r_write(pwsc->fd,block,list_length);
+	DPRINTF(E_SPAM,L_DAAP|L_BROW,"Got block of size %d\n",list_length);
+	dispatch_output_write(pwsc,pqi,block,list_length);
 	free(block);
     }
 
@@ -508,8 +875,7 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     
     db_enum_end();
 
-    config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
+    dispatch_output_end(pwsc,pqi);
     return;
 }
 
@@ -547,15 +913,12 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mrco",pl_count);    /* 12 */
     current += db_dmap_add_container(current,"mlcl",list_length);  
 
-    ws_addresponseheader(pwsc,"Content-Length","%d",61+list_length);
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
-
-    r_write(pwsc->fd,playlist_response,61);
+    dispatch_output_start(pwsc,pqi,61+list_length);
+    dispatch_output_write(pwsc,pqi,playlist_response,61);
 
     while((list_length=db_enum_fetch(pqi,&block)) > 0) {
-	DPRINTF(E_DBG,L_DAAP,"Got block of size %d\n",list_length);
-	r_write(pwsc->fd,block,list_length);
+	DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
+	dispatch_output_write(pwsc,pqi,block,list_length);
 	free(block);
     }
 
@@ -563,8 +926,7 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     db_enum_end();
 
-    config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
+    dispatch_output_end(pwsc,pqi);
     return;
 }
 
@@ -600,15 +962,12 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mrco",song_count);  /* 12 */
     current += db_dmap_add_container(current,"mlcl",list_length);  
 
-    ws_addresponseheader(pwsc,"Content-Length","%d",61+list_length);
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
-
-    r_write(pwsc->fd,items_response,61);
+    dispatch_output_start(pwsc,pqi,61+list_length);
+    dispatch_output_write(pwsc,pqi,items_response,61);
 
     while((list_length=db_enum_fetch(pqi,&block)) > 0) {
-	DPRINTF(E_DBG,L_DAAP,"Got block of size %d\n",list_length);
-	r_write(pwsc->fd,block,list_length);
+	DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
+	dispatch_output_write(pwsc,pqi,block,list_length);
 	free(block);
     }
 
@@ -616,8 +975,7 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     db_enum_end();
 
-    config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
+    dispatch_output_end(pwsc,pqi);
     return;
 }
 
@@ -656,14 +1014,11 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mstt",200);       /* 12 */
     current += db_dmap_add_int(current,"musr",db_revision());   /* 12 */
 
-    ws_addresponseheader(pwsc,"Content-Length","32");
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
+    dispatch_output_start(pwsc,pqi,32);
+    dispatch_output_write(pwsc,pqi,update_response,32);
+    dispatch_output_end(pwsc,pqi);
 
-    r_write(pwsc->fd,update_response,32);
-
-    config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
+    return;
 }
 
 void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
@@ -685,13 +1040,10 @@ void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mimc",db_get_song_count());      /* 12 */
     current += db_dmap_add_int(current,"mctc",db_get_playlist_count());  /* 12 */
 
-    ws_addresponseheader(pwsc,"Content-Length","%d",113 + namelen);
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
+    dispatch_output_start(pwsc,pqi,113+namelen);
+    dispatch_output_write(pwsc,pqi,dbinfo_response,113+namelen);
+    dispatch_output_end(pwsc,pqi);
 
-    r_write(pwsc->fd,dbinfo_response,113 + namelen);
-    config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
     return;
 }
 
@@ -713,13 +1065,9 @@ void dispatch_login(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mstt",200);       /* 12 */
     current += db_dmap_add_int(current,"mlid",session);   /* 12 */
 
-    ws_addresponseheader(pwsc,"Content-Length","32");
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
-
-    r_write(pwsc->fd,login_response,32);
-    config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
+    dispatch_output_start(pwsc,pqi,32);
+    dispatch_output_write(pwsc,pqi,login_response,32);
+    dispatch_output_end(pwsc,pqi);
     return;
 }
 
@@ -741,12 +1089,9 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_container(current,"mccr",len + 12);
     current += db_dmap_add_int(current,"mstt",200);
     
-    
-    ws_addresponseheader(pwsc,"Content-Length","%d",len+20);
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
-    r_write(pwsc->fd,content_codes,20);
-    
+    dispatch_output_start(pwsc,pqi,len+20);
+    dispatch_output_write(pwsc,pqi,content_codes,20);
+
     dicurrent=taglist;
     while(dicurrent->type) {
 	current=mdcl;
@@ -755,12 +1100,12 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 	current += db_dmap_add_string(current,"mcnm",dicurrent->tag);         /* 12 */
 	current += db_dmap_add_string(current,"mcna",dicurrent->description); /* 8 + descr */
 	current += db_dmap_add_short(current,"mcty",dicurrent->type);         /* 10 */
-	r_write(pwsc->fd,mdcl,len+8);
+	dispatch_output_write(pwsc,pqi,mdcl,len+8);
 	dicurrent++;
     }
-
-    config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
+    
+    dispatch_output_end(pwsc,pqi);
+    return;
 }
 
 void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
@@ -805,13 +1150,10 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_char(current,"msup",0);         /* 9 */
     current += db_dmap_add_int(current,"msdc",1);          /* 12 */
 
-    ws_addresponseheader(pwsc,"Content-Length","%d",actual_length);
+    dispatch_output_start(pwsc,pqi,actual_length);
+    dispatch_output_write(pwsc,pqi,server_info,actual_length);
+    dispatch_output_end(pwsc,pqi);
 
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
-
-    r_write(pwsc->fd,server_info,actual_length);
-    config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
+    return;
 }
 

@@ -103,6 +103,7 @@ typedef struct tag_dbqueryinfo {
     int uri_count;
     char *uri_sections[10];
     char *whereclause;
+    void *output_info;
 } DBQUERYINFO;
 
 typedef struct {
