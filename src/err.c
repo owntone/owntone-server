@@ -146,6 +146,9 @@ int err_unlock_mutex(void) {
 void err_notify(char *file, int line, void *ptr) {
     ERR_LEAK *pnew;
 
+    if(!ptr)
+	return;
+
     pnew=(ERR_LEAK*)malloc(sizeof(ERR_LEAK));
     if(!pnew) 
 	log_err(1,"Error: cannot allocate leak struct\n");

@@ -23,6 +23,7 @@
 
 #include <errno.h>
 #include <gdbm.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
@@ -172,8 +173,12 @@ int db_init(char *parameters) {
 
     /* count the actual songs... */
     tmp_data=gdbm_firstkey(db_songs);
+
+    MEMNOTIFY(tmp_data.dptr);
+
     while(tmp_data.dptr) {
 	tmp_nextkey=gdbm_nextkey(db_songs,tmp_data);
+	MEMNOTIFY(tmp_nextkey.dptr);
 	free(tmp_data.dptr);
 	tmp_data=tmp_nextkey;
 	db_song_count++;
@@ -278,7 +283,7 @@ int db_add_playlist(unsigned int playlistid, char *name) {
 
     DPRINTF(ERR_DEBUG,"Adding new playlist %s\n",name);
 
-    if(err=pthread_rwlock_wrlock(&db_rwlock)) {
+    if((err=pthread_rwlock_wrlock(&db_rwlock))) {
 	DPRINTF(ERR_WARN,"cannot lock wrlock in db_add\n");
 	free(pnew->name);
 	free(pnew);
@@ -319,7 +324,7 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
 
     DPRINTF(ERR_DEBUG,"Adding new playlist item\n"); 
 
-    if(err=pthread_rwlock_wrlock(&db_rwlock)) {
+    if((err=pthread_rwlock_wrlock(&db_rwlock))) {
 	DPRINTF(ERR_WARN,"cannot lock wrlock in db_add\n");
 	free(pnew);
 	errno=err;
@@ -378,7 +383,9 @@ datum *db_packrecord(MP3FILE *pmp3) {
     if(!result)
 	return NULL;
 
-    result->dptr = (char*)malloc(len);  /* FIXME: always a char*? */
+    result->dptr = (void*)malloc(len);
+    result->dsize=len;
+
     if(!result->dptr) {
 	free(result);
 	return NULL;
@@ -447,7 +454,6 @@ datum *db_packrecord(MP3FILE *pmp3) {
     offset+=ppacked->type_len;
 
     /* whew */
-    result->dsize=len;
     return result;
 }
 
@@ -463,6 +469,7 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
 
     /* should check minimum length (for v1) */
 
+    memset(pmp3,0x0,sizeof(MP3FILE));
 
     /* VERSION 1 */
     ppacked=(MP3PACKED*)pdatum->dptr;
@@ -481,28 +488,36 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
     pmp3->id=ppacked->id;
 
     offset=0;
-    pmp3->path=strdup(&ppacked->data[offset]);
+    if(ppacked->path_len > 1)
+	pmp3->path=strdup(&ppacked->data[offset]);
     offset += ppacked->path_len;
 
-    pmp3->fname=strdup(&ppacked->data[offset]);
+    if(ppacked->fname_len > 1)
+	pmp3->fname=strdup(&ppacked->data[offset]);
     offset += ppacked->fname_len;
 
-    pmp3->title=strdup(&ppacked->data[offset]);
+    if(ppacked->title_len > 1)
+	pmp3->title=strdup(&ppacked->data[offset]);
     offset += ppacked->title_len;
 
-    pmp3->artist=strdup(&ppacked->data[offset]);
+    if(ppacked->artist_len > 1)
+	pmp3->artist=strdup(&ppacked->data[offset]);
     offset += ppacked->artist_len;
 
-    pmp3->album=strdup(&ppacked->data[offset]);
+    if(ppacked->album_len > 1)
+	pmp3->album=strdup(&ppacked->data[offset]);
     offset += ppacked->album_len;
 
-    pmp3->genre=strdup(&ppacked->data[offset]);
+    if(ppacked->genre_len > 1)
+	pmp3->genre=strdup(&ppacked->data[offset]);
     offset += ppacked->genre_len;
 
-    pmp3->comment=strdup(&ppacked->data[offset]);
+    if(ppacked->comment_len > 1)
+	pmp3->comment=strdup(&ppacked->data[offset]);
     offset += ppacked->comment_len;
 
-    pmp3->type=strdup(&ppacked->data[offset]);
+    if(ppacked->type_len > 1)
+	pmp3->type=strdup(&ppacked->data[offset]);
     offset += ppacked->type_len;
     
     return 0;
@@ -515,10 +530,10 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
  */
 int db_add(MP3FILE *pmp3) {
     int err;
-    int g;
     datum *pnew;
     datum dkey;
     MP3PACKED *ppacked;
+    unsigned int id;
 
     DPRINTF(ERR_DEBUG,"Adding %s\n",pmp3->path);
 
@@ -527,7 +542,7 @@ int db_add(MP3FILE *pmp3) {
 	return -1;
     }
 
-    if(err=pthread_rwlock_wrlock(&db_rwlock)) {
+    if((err=pthread_rwlock_wrlock(&db_rwlock))) {
 	DPRINTF(ERR_WARN,"cannot lock wrlock in db_add\n");
 	free(pnew->dptr);
 	free(pnew);
@@ -547,6 +562,15 @@ int db_add(MP3FILE *pmp3) {
 
     if(gdbm_store(db_songs,dkey,*pnew,GDBM_INSERT)) {
 	log_err(0,"Error inserting file %s in database\n",pmp3->fname);
+    }
+
+    DPRINTF(ERR_DEBUG,"Testing for %d\n",pmp3->id);
+    id=pmp3->id;
+    dkey.dptr=(void*)&id;
+    dkey.dsize=sizeof(unsigned int);
+
+    if(!gdbm_exists(db_songs,dkey)) {
+	log_err(0,"Error.. could not find just added file\n");
     }
 
     free(pnew->dptr);
@@ -590,7 +614,7 @@ void db_freefile(MP3FILE *pmp3) {
 MP3RECORD *db_enum_begin(void) {
     int err;
 
-    if(err=pthread_rwlock_rdlock(&db_rwlock)) {
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
 	log_err(0,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
@@ -598,6 +622,7 @@ MP3RECORD *db_enum_begin(void) {
 
     memset((void*)&db_enum_helper,0x00,sizeof(db_enum_helper));
     db_enum_helper.key=gdbm_firstkey(db_songs);
+    MEMNOTIFY(db_enum_helper.key.dptr);
     if(!db_enum_helper.key.dptr)
 	return NULL;
 
@@ -613,7 +638,7 @@ DB_PLAYLIST *db_playlist_enum_begin(void) {
     int err;
     DB_PLAYLIST *current;
 
-    if(err=pthread_rwlock_rdlock(&db_rwlock)) {
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
 	log_err(0,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
@@ -634,10 +659,9 @@ DB_PLAYLIST *db_playlist_enum_begin(void) {
  */
 DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid) {
     DB_PLAYLIST *current;
-    DB_PLAYLISTENTRY *retval;
     int err;
 
-    if(err=pthread_rwlock_rdlock(&db_rwlock)) {
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
 	log_err(0,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
@@ -660,26 +684,36 @@ DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid) {
  * Walk to the next entry
  */
 MP3FILE *db_enum(MP3RECORD **current) {
-    MP3FILE *retval;
     datum nextkey;
+    datum data;
 
-    if(current) {
+    if(db_enum_helper.key.dptr) {
 	db_freefile(&db_enum_helper.mp3file);
 
-	/* have to fetch to the next key... */
-	if(!db_unpackrecord(&db_enum_helper.key,&db_enum_helper.mp3file)) {
+	/* Got the key, let's fetch it */
+	data=gdbm_fetch(db_songs,db_enum_helper.key);
+	MEMNOTIFY(data.dptr);
+	if(!data.dptr) {
+	    log_err(1,"Inconsistant database.\n");
+	}
+
+	if(db_unpackrecord(&data,&db_enum_helper.mp3file)) {
 	    log_err(1,"Cannot unpack item.. Corrupt database?\n");
 	}
 
+	if(data.dptr)
+	    free(data.dptr);
+
 	nextkey=gdbm_nextkey(db_songs,db_enum_helper.key);
+	MEMNOTIFY(nextkey.dptr);
+
 	if(db_enum_helper.key.dptr) {
 	    free(db_enum_helper.key.dptr);
 	    db_enum_helper.key.dptr=NULL;
 	}
 
 	db_enum_helper.key=nextkey;
-	if(nextkey.dptr)
-	    return &db_enum_helper.mp3file;
+	return &db_enum_helper.mp3file;
     }
 
     return NULL;
@@ -768,6 +802,7 @@ MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
     key.dsize=sizeof(int);
 
     content=gdbm_fetch(db_songs,key);
+    MEMNOTIFY(content.dptr);
     if(!content.dptr)
 	return NULL;
 
@@ -814,7 +849,7 @@ int db_get_playlist_entry_count(int playlistid) {
     DB_PLAYLIST *current;
     int err;
 
-    if(err=pthread_rwlock_rdlock(&db_rwlock)) {
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
 	log_err(0,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
@@ -846,7 +881,7 @@ char *db_get_playlist_name(int playlistid) {
     DB_PLAYLIST *current;
     int err;
 
-    if(err=pthread_rwlock_rdlock(&db_rwlock)) {
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
 	log_err(0,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
