@@ -400,7 +400,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     int genre;
     int have_utf8;
     int have_text;
-    unsigned char *native_text;
+    id3_ucs4_t const *native_text;
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
@@ -421,7 +421,8 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     index=0;
     while((pid3frame=id3_tag_findframe(pid3tag,"",index))) {
 	used=0;
-	utf8_text=native_text=NULL;
+	utf8_text=NULL;
+	native_text=NULL;
 	have_utf8=0;
 	have_text=0;
 
