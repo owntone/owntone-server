@@ -715,7 +715,7 @@ int main(int argc, char *argv[]) {
     pthread_t signal_tid;
 
     int pid_fd;
-    FILE *pid_fp;
+    FILE *pid_fp=NULL;
 
     config.use_mdns=1;
     err_debuglevel=1;
@@ -826,13 +826,15 @@ int main(int argc, char *argv[]) {
     }
 
 
-    /* wait to for config.pid to be set by the signal handler */
-    while(!config.pid) {
-	sleep(1);
-    }
+    if(pid_fp) {
+	/* wait to for config.pid to be set by the signal handler */
+	while(!config.pid) {
+	    sleep(1);
+	}
 
-    fprintf(pid_fp,"%d\n",config.pid);
-    fclose(pid_fp);
+	fprintf(pid_fp,"%d\n",config.pid);
+	fclose(pid_fp);
+    }
 
     DPRINTF(E_LOG,L_MAIN|L_PL,"Loading playlists\n");
 
