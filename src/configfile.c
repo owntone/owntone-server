@@ -109,6 +109,7 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"readonly",(void*)NULL,config_emit_readonly },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"version",(void*)NULL,config_emit_version },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"system",(void*)NULL,config_emit_system },
+    { 1,0,0,CONFIG_TYPE_STRING,"art_filename",(void*)&config.artfilename,config_emit_string },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"flags",(void*)NULL,config_emit_flags },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
@@ -164,6 +165,7 @@ int config_read(char *file) {
     config.mp3dir=NULL;
     config.playlist=NULL;
     config.runas=NULL;
+    config.artfilename=NULL;
     config.logfile=NULL;
     config.extensions=".mp3";
 

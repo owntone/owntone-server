@@ -49,6 +49,7 @@
 #include "rend.h"
 #include "webserver.h"
 #include "playlist.h"
+#include "dynamic-art.h"
 
 #define DEFAULT_CONFIGFILE "/etc/mt-daapd.conf"
 
@@ -104,6 +105,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
     MP3FILE *pmp3;
     int file_fd;
     int session_id=0;
+
+    int img_fd;
 
     off_t offset=0;
     off_t file_len;
@@ -278,13 +281,21 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
 		DPRINTF(ERR_LOG,"Session %d: Streaming file '%s' to %s\n",session_id,
 			pmp3->fname, pwsc->hostname);
+		
+		if(!offset)
+		    config.stats.songs_served++; /* FIXME: remove stat races */
 
-		config.stats.songs_served++; /* FIXME: remove stat races */
-
-		if(offset) {
-		    DPRINTF(ERR_INFO,"Seeking to offset %d\n",offset);
-		    lseek(file_fd,offset,SEEK_SET);
+		if((config.artfilename) && (img_fd=da_get_image_fd(pmp3->path)) && (!offset)) {
+		    DPRINTF(ERR_INFO,"Dynamically attaching artwork to %s\n",pmp3->fname);
+		    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
+		    r_close(img_fd);
+		} else {
+		    if(offset) {
+			DPRINTF(ERR_INFO,"Seeking to offset %d\n",offset);
+			lseek(file_fd,offset,SEEK_SET);
+		    }
 		}
+
 		if(copyfile(file_fd,pwsc->fd)) {
 		    DPRINTF(ERR_INFO,"Error copying file to remote... %s\n",
 			    strerror(errno));

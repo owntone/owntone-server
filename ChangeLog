@@ -1,4 +1,14 @@
-2004-04-04  Ron Pedde  <ron@mac-laptop.dynamic.pedde.com>
+2004-04-13  Ron Pedde  <ron@pedde.com>
+
+	* src/dynamic-art.c: merged in patch from Hiren Joshi
+	(hirenj@mooh.org) to allow .jpg files to be transparently
+	streamed into the id3 tag.  ubercool.
+
+2004-04-11  Ron Pedde  <ron@pedde.com>
+
+	* src/err.c: add in support for a logfile.  Feature request #916153
+
+2004-04-04  Ron Pedde  <ron@pedde.com>
 
 	* src/mp3-scanner.c: add support for MPEG v 2 and 2.5.  Feature
 	request #916151
