@@ -63,6 +63,7 @@ int pl_number=2;
 %token <ival> CONDUCTOR
 %token <ival> GROUPING
 %token <ival> TYPE
+%token <ival> COMMENT
 
 %token <ival> EQUALS
 %token <ival> LESS
@@ -162,6 +163,7 @@ strtag: ARTIST
 | CONDUCTOR
 | GROUPING
 | TYPE
+| COMMENT
 ;
 
 strbool: IS { $$=$1; }

@@ -21,6 +21,7 @@
 #   Conductor (string)
 #   Grouping (string) -- I don't even know what this is...
 #   Comment (string)
+#   Type (string) -- "mp3 audio file", "m4a audio file", etc.
 #   Year (int)
 #   BPM (int)
 #   Bitrate (int)
