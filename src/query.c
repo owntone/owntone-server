@@ -523,9 +523,9 @@ int query_build_clause(query_node_t *query, char **current, int *size) {
 	">=",
 	">",
 	"=",
-	" (%s LIKE '%s\%) ",
-	" (%s LIKE '\%%s') ",
-	" (%s LIKE '\%%s\%') ",
+	" (%s LIKE '%s%%') ",
+	" (%s LIKE '%%%s') ",
+	" (%s LIKE '%%%s%%') ",
 	"constant"
     };
 
