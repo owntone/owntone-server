@@ -23,6 +23,7 @@
 #define _DAAP_PROTO_H_
 
 
+#include <sys/types.h>
 #include "zlib.h"
 
 #define GZIP_CHUNK 16384
