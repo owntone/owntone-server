@@ -337,6 +337,10 @@ int config_write(WS_CONNINFO *pwsc) {
     fprintf(configfile,"db_dir\t\t%s\n",ws_getvar(pwsc,"db_dir"));
     fprintf(configfile,"rescan_interval\t%s\n",ws_getvar(pwsc,"rescan_interval"));
     fprintf(configfile,"always_scan\t%s\n",ws_getvar(pwsc,"always_scan"));
+    if(ws_getvar(pwsc,"art_filename") && strlen(ws_getvar(pwsc,"art_filename")))
+	fprintf(configfile,"art_filename\t%s\n",ws_getvar(pwsc,"art_filename"));
+    if(ws_getvar(pwsc,"logfile") && strlen(ws_getvar(pwsc,"logfile")))
+	fprintf(configfile,"logfile\t\t%s\n",ws_getvar(pwsc,"logfile"));
     fprintf(configfile,"process_m3u\t%s\n",ws_getvar(pwsc,"process_m3u"));    
 
     fclose(configfile);
