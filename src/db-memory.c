@@ -101,7 +101,14 @@ int db_init(char *parameters) {
  * Close the db, in this case freeing memory
  */
 int db_deinit(void) {
-    /* free used memory here */
+    MP3RECORD *current;
+
+    while(db_root.next) {
+	current=db_root.next;
+	db_root.next=current->next;
+	db_freerecord(current);
+    }
+
     return 0;
 }
 
