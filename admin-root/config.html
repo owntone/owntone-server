@@ -1,0 +1,37 @@
+<HTML>
+  <HEAD>
+    <TITLE>mt-daapd administration</TITLE>
+  </HEAD>
+  <BODY>
+    <CENTER>
+      <A HREF="config.html">Configure</A> | 
+      <A HREF="status.html">Status</A> | 
+      <A HREF="services.html">Services</A>
+    </CENTER>
+
+    <HR>
+    <CENTER><h1>Config</h1></CENTER>
+    <FORM METHOD="POST" ACTION="/config-update.html">
+      <TABLE>
+	<TR>
+	  <TD>Web Root</TD>
+	  <TD><INPUT TYPE="TEXT" NAME="WEB_ROOT" READONLY
+	  VALUE="@WEB_ROOT@"></TD>
+	</TR>
+	<TR>
+	  <TD>Port</TD>
+	  <TD><INPUT TYPE="TEXT" NAME="PORT" READONLY
+	  VALUE="@PORT@"></TD>
+	</TR>
+	<TR>
+	  <TD>Admin Password</TD>
+	  <TD><INPUT TYPE="TEXT" NAME="ADMINPW"
+	  VALUE="@ADMINPW@"></TD>
+	</TR>
+      </TABLE>
+      <INPUT TYPE="SUBMIT" NAME="SUBMIT" VALUE="Submit">
+    </FORM>
+    <HR>
+    <i>@RELEASE@</i>
+  </BODY>
+</HTML>
