@@ -195,7 +195,7 @@ DAAP_BLOCK *daap_response_content_codes(void) {
 DAAP_BLOCK *daap_response_login(char *hostname) {
     DAAP_BLOCK *root;
     int g=1;
-    int session;
+    int session=0;
     
     DPRINTF(ERR_DEBUG,"Preparing to send login response\n");
 
@@ -557,18 +557,29 @@ DAAP_BLOCK *daap_response_dbinfo(char *name) {
  *
  * handle the daap block for the /server-info URI
  */
-DAAP_BLOCK *daap_response_server_info(char *name) {
+DAAP_BLOCK *daap_response_server_info(char *name, char *client_version) {
     DAAP_BLOCK *root;
     int g=1;
 
-    DPRINTF(ERR_DEBUG,"Preparing to send server info\n");
+    DPRINTF(ERR_DEBUG,"Preparing to send server info for client version %s\n",client_version);
 
     root=daap_add_empty(NULL,"msrv");
 
     if(root) {
 	g = (int)daap_add_int(root,"mstt",200); /* result */
-	g = g && daap_add_int(root,"mpro",2 << 16); /* dmap proto ? */
-	g = g && daap_add_int(root,"apro",2 << 16); /* daap protocol */
+	if((!client_version)||(!strcmp(client_version,"3.0"))) {
+	    g = g && daap_add_int(root,"mpro",2 << 16); /* dmap proto ? */
+	    g = g && daap_add_int(root,"apro",3 << 16); /* daap protocol */
+	} else {
+	    if(!strcmp(client_version,"1.0")) {
+		g = g && daap_add_int(root,"mpro",1 << 16); /* dmap proto ? */
+		g = g && daap_add_int(root,"apro",1 << 16); /* daap protocol */
+	    } else if(!strcmp(client_version,"2.0")) {
+		g = g && daap_add_int(root,"mpro",1 << 16); /* dmap proto ? */
+		g = g && daap_add_int(root,"apro",2 << 16); /* daap protocol */
+	    }
+	}
+
 	g = g && daap_add_string(root,"minm",name); /* server name */
 	g = g && daap_add_char(root,"mslr",config.readpassword != NULL); /* logon required */
 	g = g && daap_add_int(root,"mstm",1800); /* timeout  - iTunes=1800 */

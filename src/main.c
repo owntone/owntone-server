@@ -108,8 +108,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     int img_fd;
 
-    off_t offset=0;
-    off_t file_len;
+    long offset=0;
+    long file_len;
 
     close=pwsc->close;
     pwsc->close=1;  /* in case we have any errors */
@@ -125,7 +125,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     if(!strcasecmp(pwsc->uri,"/server-info")) {
 	config_set_status(pwsc,session_id,"Sending server info");
-	root=daap_response_server_info(config.servername);
+	root=daap_response_server_info(config.servername,
+				       ws_getrequestheader(pwsc,"Client-DAAP-Version"));
     } else if (!strcasecmp(pwsc->uri,"/content-codes")) {
 	config_set_status(pwsc,session_id,"Sending content codes");
 	root=daap_response_content_codes();
@@ -248,8 +249,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	pwsc->close=1;
 
 	if(ws_getrequestheader(pwsc,"range")) { 
-	    offset=atol(ws_getrequestheader(pwsc,"range") + 6);
-	    DPRINTF(ERR_DEBUG,"Thread %d: Skipping to byte %ld\n",pwsc->threadno,offset);
+	    offset=(long)atol(ws_getrequestheader(pwsc,"range") + 6);
+	    DPRINTF(ERR_DEBUG,"Offset is %ld\n",offset);
 	}
 
 	pmp3=db_find(item);
@@ -266,7 +267,10 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		config_set_status(pwsc,session_id,NULL);
 
 	    } else {
-		file_len=lseek(file_fd,0,SEEK_END);
+		file_len=(long)lseek(file_fd,0,SEEK_END);
+		DPRINTF(ERR_DEBUG,"Thread %d: length of file is %ld\n",
+			pwsc->threadno,(long)file_len);
+
 		lseek(file_fd,0,SEEK_SET);
 		file_len -= offset;
 
@@ -285,15 +289,15 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		if(!offset)
 		    config.stats.songs_served++; /* FIXME: remove stat races */
 
-		if((config.artfilename) && 
-		   ((img_fd=da_get_image_fd(pmp3->path)) != -1) && (!offset) &&
-		   (strncasecmp(pmp3->type,".mp3",4) ==0)) {
+		if((config.artfilename) &&
+		   (!offset) && (strncasecmp(pmp3->type,".mp3",4) ==0) &&
+		   ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
 		    DPRINTF(ERR_INFO,"Dynamically attaching artwork to %s (fd %d)\n",
 			    pmp3->fname, img_fd);
 		    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
 		} else if(offset) {
 			DPRINTF(ERR_INFO,"Seeking to offset %d\n",offset);
-			lseek(file_fd,offset,SEEK_SET);
+			lseek(file_fd,(fpos_t)offset,SEEK_SET);
 		}
 
 		if(copyfile(file_fd,pwsc->fd)) {
@@ -438,7 +442,6 @@ int drop_privs(char *user) {
  * This thread merely spins waiting for signals
  */
 void *signal_handler(void *arg) {
-    int error;
     sigset_t intmask;
     int sig;
 

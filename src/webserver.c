@@ -688,6 +688,19 @@ void *ws_dispatcher(void *arg) {
 	first=ws_urldecode(pwsc->uri);
 	free(pwsc->uri);
 	pwsc->uri=first;
+
+	/* Strip out the proxy stuff - iTunes 4.5 */
+	first=strstr(pwsc->uri,"://");
+	if(first) {
+	    first += 3;
+	    first=strchr(first,'/');
+	    if(first) {
+		first=strdup(first);
+		free(pwsc->uri);
+		pwsc->uri=first;
+	    }
+	}
+	
 	
 	DPRINTF(ERR_DEBUG,"Thread %d: Translated URI: %s\n",pwsc->threadno,
 		pwsc->uri);
@@ -945,11 +958,12 @@ int ws_testarg(ARGLIST *root, char *key, char *value) {
 char *ws_getarg(ARGLIST *root, char *key) {
     ARGLIST *pcurrent=root->next;
 
-    while((pcurrent)&&(strcasecmp(pcurrent->key,key))) 
+    while((pcurrent)&&(strcasecmp(pcurrent->key,key)))
 	pcurrent=pcurrent->next;
 
     if(pcurrent)
 	return pcurrent->value;
+
     return NULL;
 }
 
@@ -1132,6 +1146,8 @@ int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
 
     ws_lock_unsafe();
 
+    *preq=NULL;
+
     DPRINTF(ERR_DEBUG,"Thread %d: Preparing to find handler\n",
 	    pwsc->threadno);
 
@@ -1287,7 +1303,7 @@ int ws_addresponseheader(WS_CONNINFO *pwsc, char *header, char *fmt, ...) {
  * Simple wrapper around the CONNINFO request vars
  */
 char *ws_getvar(WS_CONNINFO *pwsc, char *var) {
-    return ws_getarg(&pwsc->request_vars,var);
+    return ws_getarg(&(pwsc->request_vars),var);
 }
 
 char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header) {

@@ -23,7 +23,7 @@
 
 #include "daap-proto.h"
 
-DAAP_BLOCK *daap_response_server_info(char *name);
+DAAP_BLOCK *daap_response_server_info(char *name, char *client_version);
 DAAP_BLOCK *daap_response_content_codes(void);
 DAAP_BLOCK *daap_response_login(char *hostname);
 DAAP_BLOCK *daap_response_update(int fd, int clientver);
