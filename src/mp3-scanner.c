@@ -589,9 +589,19 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
 			    pmp3->artist=strdup((char*)&current_data[16]);
 			} else if(!memcmp(current_atom,"\xA9" "alb",4)) {
 			    pmp3->album=strdup((char*)&current_data[16]);
+			} else if(!memcmp(current_atom,"\xA9" "cmt",4)) {
+			    pmp3->comment=strdup((char*)&current_data[16]);
+			} else if(!memcmp(current_atom,"\xA9" "wrt",4)) {
+			    pmp3->composer=strdup((char*)&current_data[16]);
+			} else if(!memcmp(current_atom,"\xA9" "grp",4)) {
+			    pmp3->grouping=strdup((char*)&current_data[16]);
 			} else if(!memcmp(current_atom,"\xA9" "gen",4)) {
 			    /* can this be a winamp genre??? */
 			    pmp3->genre=strdup((char*)&current_data[16]);
+			} else if(!memcmp(current_atom,"tmpo",4)) {
+			    us_data=*((unsigned short *)&current_data[16]);
+			    us_data=ntohs(us_data);
+			    pmp3->bpm=us_data;
 			} else if(!memcmp(current_atom,"trkn",4)) {
 			    us_data=*((unsigned short *)&current_data[18]);
 			    us_data=ntohs(us_data);
