@@ -921,6 +921,8 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 				    g = g && daap_add_int(mlit,"mcti",playlist);
 			    } else g = 0;
 			}
+			db_dispose(current);
+			free(current);
 		    } else g = 0;
 		}
 	    }
