@@ -563,7 +563,6 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     MP3FILE *pmp3;
     FILE *file_ptr;
     int file_fd;
-    char *real_path;
     int bytes_copied;
     off_t real_len;
     off_t file_len;
@@ -586,13 +585,13 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     if(!pmp3) {
 	DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
 	ws_returnerror(pwsc,404,"File Not Found");
-    } else if ((real_path=server_side_convert_path(pmp3->path)) != NULL) {
+    } else if (server_side_convert(pmp3->fname)) {
 	/************************
 	 * Server side conversion
 	 ************************/
 	DPRINTF(E_WARN,L_WS,"Thread %d: Autoconvert file %s for client\n",
-		pwsc->threadno,real_path);
-	file_ptr = server_side_convert_open(real_path,
+		pwsc->threadno,pmp3->path);
+	file_ptr = server_side_convert_open(pmp3->path,
 					    offset,
 					    pmp3->song_length);
 	if (file_ptr) {
@@ -607,11 +606,10 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 	    pwsc->error=errno;
 	    DPRINTF(E_WARN,L_WS,
 		    "Thread %d: Error opening %s for conversion\n",
-		    pwsc->threadno,real_path);
+		    pwsc->threadno,pmp3->path);
 	    ws_returnerror(pwsc,404,"Not found");
 	    config_set_status(pwsc,pqi->session_id,NULL);
 	    db_dispose_item(pmp3);
-	    free(real_path);
 	} else {
 	    if(pmp3->type)
 		ws_addresponseheader(pwsc,"Content-Type","audio/%s",
@@ -654,8 +652,6 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 	    server_side_convert_close(file_ptr);
 	    config_set_status(pwsc,pqi->session_id,NULL);
 	    db_dispose_item(pmp3);
-	    free(pmp3);
-	    free(real_path);
 	}
     } else {
 	/**********************
@@ -669,7 +665,6 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 	    ws_returnerror(pwsc,404,"Not found");
 	    config_set_status(pwsc,pqi->session_id,NULL);
 	    db_dispose_item(pmp3);
-	    free(pmp3);
 	} else {
 	    real_len=lseek(file_fd,0,SEEK_END);
 	    lseek(file_fd,0,SEEK_SET);

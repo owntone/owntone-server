@@ -37,6 +37,7 @@
 #include "mp3-scanner.h"
 #include "db-generic.h"
 #include "dbs-sqlite.h"
+#include "ssc.h"
 
 /* Globals */
 static sqlite *db_sqlite_songs; /**< Database that holds the mp3 info */
@@ -58,6 +59,7 @@ int db_sqlite_get_version(void);
 int db_sqlite_update_playlists(void);
 
 #define STR(a) (a) ? (a) : ""
+#define ISSTR(a) ((a) && strlen((a)))
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
 /**
@@ -81,15 +83,13 @@ int db_sqlite_unlock(void) {
 /**
  * exec a simple statement
  *
- * \param fatal whether failure of this to execute is fatal or not
+ * \param what level to log a failure of this sql statement to exec
  */
-int db_sqlite_exec(int fatal, char *fmt, ...) {
+int db_sqlite_exec(int loglevel, char *fmt, ...) {
     va_list ap;
     char *query;
     int err;
     char *perr;
-    int loglevel;
-
 
     va_start(ap,fmt);
     query=sqlite_vmprintf(fmt,ap);
@@ -104,11 +104,7 @@ int db_sqlite_exec(int fatal, char *fmt, ...) {
     db_sqlite_unlock();
 
     if(err != SQLITE_OK) {
-	loglevel=E_FATAL;
-	if(!fatal)
-	    loglevel=E_LOG;
-
-	DPRINTF(E_LOG,L_DB,"Query: %s\n",query);
+	DPRINTF(loglevel,L_DB,"Query: %s\n",query);
         DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
 	db_sqlite_lock();
 	sqlite_freemem(query);
@@ -123,12 +119,11 @@ int db_sqlite_exec(int fatal, char *fmt, ...) {
  * get a sqlite table
  *
  */
-int db_sqlite_get_table(int fatal, char ***resarray, int *rows, int *cols, char *fmt, ...) {
+int db_sqlite_get_table(int loglevel, char ***resarray, int *rows, int *cols, char *fmt, ...) {
     va_list ap;
     char *query;
     int err;
     char *perr;
-    int loglevel;
 
     va_start(ap,fmt);
     query=sqlite_vmprintf(fmt,ap);
@@ -143,11 +138,8 @@ int db_sqlite_get_table(int fatal, char ***resarray, int *rows, int *cols, char 
     db_sqlite_unlock();
 
     if(err != SQLITE_OK) {
-	loglevel=E_FATAL;
-	if(!fatal)
-	    loglevel=E_LOG;
-
-	DPRINTF(loglevel,L_DB,"Query: %s, Error: %s\n",query,perr);
+	DPRINTF(loglevel,L_DB,"Query: %s\n",query);
+        DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
 	db_sqlite_lock();
 	sqlite_freemem(query);
 	db_sqlite_unlock();
@@ -179,6 +171,8 @@ int db_sqlite_open(char *parameters) {
     if(!db_sqlite_songs)
 	DPRINTF(E_FATAL,L_DB,"db_sqlite_open: %s (%s)\n",perr,db_path);
 
+    sqlite_busy_timeout(db_sqlite_songs,30000);  /* 30 seconds */
+
     db_sqlite_unlock();
     return 0;
 }
@@ -199,8 +193,8 @@ int db_sqlite_init(int reload) {
 	DPRINTF(E_LOG,L_DB,"Full reload...\n");
 	/* this may or may not fail, depending if the index is already in place */
 	db_sqlite_reload=1;
-	db_sqlite_exec(0,"DROP INDEX idx_path");
-	db_sqlite_exec(1,"DELETE FROM songs");
+	db_sqlite_exec(E_DBG,"DROP INDEX idx_path");
+	db_sqlite_exec(E_FATAL,"DELETE FROM songs");
     }
     return 0;
 }
@@ -223,12 +217,12 @@ int db_sqlite_deinit(void) {
 int db_sqlite_start_scan(void) {
 
     if(db_sqlite_reload) {
-	db_sqlite_exec(0,"PRAGMA synchronous = OFF");
-	db_sqlite_exec(0,"BEGIN TRANSACTION");
+	db_sqlite_exec(E_FATAL,"PRAGMA synchronous = OFF");
+	db_sqlite_exec(E_FATAL,"BEGIN TRANSACTION");
     } else {
 	/* if not a full reload, we'll be doing update checks */
-	db_sqlite_exec(0,"DROP TABLE updated");
-	db_sqlite_exec(1,"CREATE TEMP TABLE updated (id int)");
+	db_sqlite_exec(E_DBG,"DROP TABLE updated");
+	db_sqlite_exec(E_FATAL,"CREATE TEMP TABLE updated (id int)");
     }
 
     db_sqlite_in_scan=1;
@@ -241,12 +235,12 @@ int db_sqlite_start_scan(void) {
 int db_sqlite_end_scan(void) {
 
     if(db_sqlite_reload) {
-	db_sqlite_exec(1,"COMMIT TRANSACTION");
-	db_sqlite_exec(1,"CREATE INDEX idx_path ON songs(path)");
-	db_sqlite_exec(1,"PRAGMA synchronous=NORMAL");
+	db_sqlite_exec(E_FATAL,"COMMIT TRANSACTION");
+	db_sqlite_exec(E_FATAL,"CREATE INDEX idx_path ON songs(path)");
+	db_sqlite_exec(E_FATAL,"PRAGMA synchronous=NORMAL");
     } else {
-	db_sqlite_exec(1,"DELETE FROM songs WHERE id NOT IN (SELECT id FROM updated)");
-	db_sqlite_exec(1,"DROP TABLE updated");
+	db_sqlite_exec(E_FATAL,"DELETE FROM songs WHERE id NOT IN (SELECT id FROM updated)");
+	db_sqlite_exec(E_FATAL,"DROP TABLE updated");
     }
 
     db_sqlite_update_playlists();
@@ -277,7 +271,7 @@ int db_sqlite_add(MP3FILE *pmp3) {
     pmp3->play_count=0;
     pmp3->time_played=0;
 
-    err=db_sqlite_exec(0,"INSERT INTO songs VALUES "
+    err=db_sqlite_exec(E_DBG,"INSERT INTO songs VALUES "
 		       "(NULL,"   // id
 		       "'%q',"  // path
 		       "'%q',"  // fname
@@ -359,7 +353,7 @@ int db_sqlite_add(MP3FILE *pmp3) {
 	DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database\n",pmp3->fname);
 
     if((db_sqlite_in_scan)&&(!db_sqlite_reload)) {
-	db_sqlite_exec(1,"INSERT INTO updated VALUES (last_insert_rowid())");
+	db_sqlite_exec(E_FATAL,"INSERT INTO updated VALUES (last_insert_rowid())");
     }
 
     if(!db_sqlite_in_scan) 
@@ -382,7 +376,7 @@ int db_sqlite_update(MP3FILE *pmp3) {
 
     pmp3->db_timestamp = (int)time(NULL);
 
-    err=db_sqlite_exec(1,"UPDATE songs SET "
+    err=db_sqlite_exec(E_FATAL,"UPDATE songs SET "
 		       "title='%q',"  // title
 		       "artist='%q',"  // artist
 		       "album='%q',"  // album
@@ -439,7 +433,7 @@ int db_sqlite_update(MP3FILE *pmp3) {
 		       pmp3->path);
 
     if((db_sqlite_in_scan) && (!db_sqlite_reload)) {
-	db_sqlite_exec(1,"INSERT INTO updated (id) select id from songs where path='%q'",
+	db_sqlite_exec(E_FATAL,"INSERT INTO updated (id) select id from songs where path='%q'",
 		       pmp3->path);
     }
 
@@ -457,16 +451,16 @@ int db_sqlite_update_playlists(void) {
     char **resarray;
     int rows, cols, index;
 
-    db_sqlite_get_table(1,&resarray, &rows, &cols, "SELECT * FROM playlists");
+    db_sqlite_get_table(E_FATAL,&resarray, &rows, &cols, "SELECT * FROM playlists");
 
     for(index=1;index <= rows; index ++) {
 	DPRINTF(E_DBG,L_DB,"Updating playlist counts for %s\n",resarray[cols * index + 1]);
 	if(atoi(resarray[cols * index + 2])) { // is a smart playlist
-	    db_sqlite_exec(1,"UPDATE playlists SET items=(SELECT COUNT(*) "
+	    db_sqlite_exec(E_FATAL,"UPDATE playlists SET items=(SELECT COUNT(*) "
 			   "FROM songs WHERE %s) WHERE id=%s",resarray[cols * index + 4],
 			   resarray[cols * index]);
 	} else {
-	    db_sqlite_exec(1,"UPDATE playlists SET items=(SELECT COUNT(*) "
+	    db_sqlite_exec(E_FATAL,"UPDATE playlists SET items=(SELECT COUNT(*) "
 			   "FROM playlistitems WHERE id=%s) WHERE id=%s",
 			   resarray[cols * index], resarray[cols * index]);
 	}
@@ -755,6 +749,7 @@ int db_sqlite_enum_end(void) {
 
 int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
     int size;
+    int transcode;
 
     switch(pinfo->query_type) {
     case queryTypeBrowseArtists: /* simple 'mlit' entry */
@@ -772,6 +767,18 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 	break;
     case queryTypeItems:
     case queryTypePlaylistItems:  /* essentially the same query */
+	/* see if this is going to be transcoded */
+	transcode = server_side_convert(valarray[2]);
+	
+	/* Items that get changed by transcode:
+	 *
+	 * type:         item  8: changes to 'wav'
+	 * description:  item 29: changes to 'wav audio file'
+	 * bitrate:      item 15: guestimated, based on item 15, samplerate
+	 * 
+	 * probably file size should change as well, but currently doesn't
+	 */
+
 	size = 8; /* mlit */
 	if(db_wantsmeta(pinfo->meta, metaItemKind)) 
 	    /* mikd */
@@ -779,31 +786,38 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 	if(db_wantsmeta(pinfo->meta, metaSongDataKind))
 	    /* asdk */
 	    size += 9;
-	if(valarray[13] && db_wantsmeta(pinfo->meta, metaSongDataURL)) 
+	if(ISSTR(valarray[13]) && db_wantsmeta(pinfo->meta, metaSongDataURL)) 
 	    /* asul */
 	    size += (8 + strlen(valarray[13]));
-	if(valarray[5] && db_wantsmeta(pinfo->meta, metaSongAlbum))    
+	if(ISSTR(valarray[5]) && db_wantsmeta(pinfo->meta, metaSongAlbum))    
 	    /* asal */
 	    size += (8 + strlen(valarray[5]));
-	if(valarray[4] && db_wantsmeta(pinfo->meta, metaSongArtist))   
+	if(ISSTR(valarray[4]) && db_wantsmeta(pinfo->meta, metaSongArtist))   
 	    /* asar */
 	    size += (8 + strlen(valarray[4]));
 	if(valarray[23] && atoi(valarray[23]) && db_wantsmeta(pinfo->meta, metaSongBPM))      
 	    /* asbt */
 	    size += 10;
-	if(valarray[14] && atoi(valarray[14]) && db_wantsmeta(pinfo->meta, metaSongBitRate))  
+	if(db_wantsmeta(pinfo->meta, metaSongBitRate)) {
 	    /* asbr */
-	    size += 10;
-	if(valarray[7] && db_wantsmeta(pinfo->meta, metaSongComment))  
+	    if(transcode) {
+		if(valarray[15] && atoi(valarray[15]))
+		    size += 10;
+	    } else {
+		if(valarray[14] && atoi(valarray[14]))
+		    size += 10;
+	    }
+	}
+	if(ISSTR(valarray[7]) && db_wantsmeta(pinfo->meta, metaSongComment))  
 	    /* ascm */
 	    size += (8 + strlen(valarray[7]));
 	if(valarray[24] && atoi(valarray[24]) && db_wantsmeta(pinfo->meta,metaSongCompilation)) 
 	    /* asco */
 	    size += 9;
-	if(valarray[9] && db_wantsmeta(pinfo->meta, metaSongComposer))
+	if(ISSTR(valarray[9]) && db_wantsmeta(pinfo->meta, metaSongComposer))
 	    /* ascp */
 	    size += (8 + strlen(valarray[9]));
-	if(valarray[12] && db_wantsmeta(pinfo->meta, metaSongGrouping))
+	if(ISSTR(valarray[12]) && db_wantsmeta(pinfo->meta, metaSongGrouping))
 	    /* agrp */
 	    size += (8 + strlen(valarray[12]));
 	if(valarray[30] && atoi(valarray[30]) && db_wantsmeta(pinfo->meta, metaSongDateAdded))
@@ -815,19 +829,29 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 	if(valarray[22] && atoi(valarray[22]) && db_wantsmeta(pinfo->meta, metaSongDiscCount))
 	    /* asdc */
 	    size += 10;
-	if(valarray[6] && db_wantsmeta(pinfo->meta, metaSongGenre))
+	if(ISSTR(valarray[6]) && db_wantsmeta(pinfo->meta, metaSongGenre))
 	    /* asgn */
 	    size += (8 + strlen(valarray[6]));
 	if(db_wantsmeta(pinfo->meta,metaItemId))
 	    /* miid */
 	    size += 12;
-	if(valarray[8] && db_wantsmeta(pinfo->meta,metaSongFormat))
+	if(ISSTR(valarray[8]) && db_wantsmeta(pinfo->meta,metaSongFormat)) {
 	    /* asfm */
-	    size += (8 + strlen(valarray[8]));
-	if(valarray[29] && db_wantsmeta(pinfo->meta,metaSongDescription))
+	    if(transcode) {
+		size += 11;   /* 'wav' */
+	    } else {
+		size += (8 + strlen(valarray[8]));
+	    }
+	}
+	if(ISSTR(valarray[29]) && db_wantsmeta(pinfo->meta,metaSongDescription)) {
 	    /* asdt */
-	    size += (8 + strlen(valarray[29]));
-	if(valarray[3] && db_wantsmeta(pinfo->meta,metaItemName))
+	    if(transcode) {
+		size += 22;  /* 'wav audio file' */
+	    } else {
+		size += (8 + strlen(valarray[29]));
+	    }
+	}
+	if(ISSTR(valarray[3]) && db_wantsmeta(pinfo->meta,metaItemName))
 	    /* minm */
 	    size += (8 + strlen(valarray[3]));
 	if(valarray[34] && atoi(valarray[34]) && db_wantsmeta(pinfo->meta,metaSongDisabled))
@@ -876,6 +900,8 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 
 int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int len) {
     unsigned char *current = presult;
+    int transcode;
+    int samplerate=0;
 
     switch(pinfo->query_type) {
     case queryTypeBrowseArtists: /* simple 'mlit' entry */
@@ -893,28 +919,49 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
 	break;
     case queryTypeItems:
     case queryTypePlaylistItems:  /* essentially the same query */
+	/* see if this is going to be transcoded */
+	transcode = server_side_convert(valarray[2]);
+	
+	/* Items that get changed by transcode:
+	 *
+	 * type:         item  8: changes to 'wav'
+	 * description:  item 29: changes to 'wav audio file'
+	 * bitrate:      item 15: guestimated, but doesn't change file size
+	 * 
+	 * probably file size should change as well, but currently doesn't
+	 */
+
 	current += db_dmap_add_container(current,"mlit",len-8);
 	if(db_wantsmeta(pinfo->meta, metaItemKind)) 
 	    current += db_dmap_add_char(current,"mikd",(char)atoi(valarray[28]));
 	if(db_wantsmeta(pinfo->meta, metaSongDataKind))
 	    current += db_dmap_add_char(current,"asdk",(char)atoi(valarray[27]));
-	if(valarray[13] && db_wantsmeta(pinfo->meta, metaSongDataURL)) 
+	if(ISSTR(valarray[13]) && db_wantsmeta(pinfo->meta, metaSongDataURL)) 
 	    current += db_dmap_add_string(current,"asul",valarray[13]);
-	if(valarray[5] && db_wantsmeta(pinfo->meta, metaSongAlbum))    
+	if(ISSTR(valarray[5]) && db_wantsmeta(pinfo->meta, metaSongAlbum))    
 	    current += db_dmap_add_string(current,"asal",valarray[5]);
-	if(valarray[4] && db_wantsmeta(pinfo->meta, metaSongArtist))   
+	if(ISSTR(valarray[4]) && db_wantsmeta(pinfo->meta, metaSongArtist))   
 	    current += db_dmap_add_string(current,"asar",valarray[4]);
 	if(valarray[23] && atoi(valarray[23]) && db_wantsmeta(pinfo->meta, metaSongBPM))      
 	    current += db_dmap_add_short(current,"asbt",(short)atoi(valarray[23]));
-	if(valarray[14] && atoi(valarray[14]) && db_wantsmeta(pinfo->meta, metaSongBitRate))  
-	    current += db_dmap_add_short(current,"asbr",(short)atoi(valarray[14]));
-	if(valarray[7] && db_wantsmeta(pinfo->meta, metaSongComment))  
+	if(valarray[14] && atoi(valarray[14]) && db_wantsmeta(pinfo->meta, metaSongBitRate)) {
+	    if(transcode) {
+		if(valarray[15]) samplerate=atoi(valarray[15]);
+		if(samplerate) {
+		    current += db_dmap_add_short(current,"asbr",
+						 (short)(samplerate * 4 * 8)/1000);
+		}
+	    } else {
+		current += db_dmap_add_short(current,"asbr",(short)atoi(valarray[14]));
+	    }
+	}
+	if(ISSTR(valarray[7]) && db_wantsmeta(pinfo->meta, metaSongComment))  
 	    current += db_dmap_add_string(current,"ascm",valarray[7]);
 	if(valarray[24] && atoi(valarray[24]) && db_wantsmeta(pinfo->meta,metaSongCompilation)) 
 	    current += db_dmap_add_char(current,"asco",(char)atoi(valarray[24]));
-	if(valarray[9] && db_wantsmeta(pinfo->meta, metaSongComposer))
+	if(ISSTR(valarray[9]) && db_wantsmeta(pinfo->meta, metaSongComposer))
 	    current += db_dmap_add_string(current,"ascp",valarray[9]);
-	if(valarray[12] && db_wantsmeta(pinfo->meta, metaSongGrouping))
+	if(ISSTR(valarray[12]) && db_wantsmeta(pinfo->meta, metaSongGrouping))
 	    current += db_dmap_add_string(current,"agrp",valarray[12]);
 	if(valarray[30] && atoi(valarray[30]) && db_wantsmeta(pinfo->meta, metaSongDateAdded))
 	    current += db_dmap_add_int(current,"asda",(int)atoi(valarray[30]));
@@ -922,15 +969,25 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
 	    current += db_dmap_add_int(current,"asdm",(int)atoi(valarray[31]));
 	if(valarray[22] && atoi(valarray[22]) && db_wantsmeta(pinfo->meta, metaSongDiscCount))
 	    current += db_dmap_add_short(current,"asdc",(short)atoi(valarray[22]));
-	if(valarray[6] && db_wantsmeta(pinfo->meta, metaSongGenre))
+	if(ISSTR(valarray[6]) && db_wantsmeta(pinfo->meta, metaSongGenre))
 	    current += db_dmap_add_string(current,"asgn",valarray[6]);
 	if(db_wantsmeta(pinfo->meta,metaItemId))
 	    current += db_dmap_add_int(current,"miid",(int)atoi(valarray[0]));
-	if(valarray[8] && db_wantsmeta(pinfo->meta,metaSongFormat))
-	    current += db_dmap_add_string(current,"asfm",valarray[8]);
-	if(valarray[29] && db_wantsmeta(pinfo->meta,metaSongDescription))
-	    current += db_dmap_add_string(current,"asdt",valarray[29]);
-	if(valarray[3] && db_wantsmeta(pinfo->meta,metaItemName))
+	if(ISSTR(valarray[8]) && db_wantsmeta(pinfo->meta,metaSongFormat)) {
+	    if(transcode) {
+		current += db_dmap_add_string(current,"asfm","wav");
+	    } else {
+		current += db_dmap_add_string(current,"asfm",valarray[8]);
+	    }
+	}
+	if(ISSTR(valarray[29]) && db_wantsmeta(pinfo->meta,metaSongDescription)) {
+	    if(transcode) {
+		current += db_dmap_add_string(current,"asdt","wav audio file");
+	    } else {
+		current += db_dmap_add_string(current,"asdt",valarray[29]);
+	    }
+	}
+	if(ISSTR(valarray[3]) && db_wantsmeta(pinfo->meta,metaItemName))
 	    current += db_dmap_add_string(current,"minm",valarray[3]);
 	if(valarray[34] && atoi(valarray[34]) && db_wantsmeta(pinfo->meta,metaSongDisabled))
 	    current += db_dmap_add_char(current,"asdb",(char)atoi(valarray[34]));
@@ -1019,7 +1076,7 @@ MP3FILE *db_sqlite_fetch_item(int id) {
     char **resarray;
     MP3FILE *pmp3=NULL;
 
-    db_sqlite_get_table(0,&resarray,&rows,&cols,"SELECT * FROM songs WHERE id=%d",id);
+    db_sqlite_get_table(E_DBG,&resarray,&rows,&cols,"SELECT * FROM songs WHERE id=%d",id);
 
     if(rows != 0) {
 	pmp3=(MP3FILE*)malloc(sizeof(MP3FILE));
@@ -1032,7 +1089,7 @@ MP3FILE *db_sqlite_fetch_item(int id) {
     db_sqlite_free_table(resarray);
 
     if ((rows) && (db_sqlite_in_scan) && (!db_sqlite_reload)) {
-	db_sqlite_exec(1,"INSERT INTO updated VALUES (%d)",id);
+	db_sqlite_exec(E_FATAL,"INSERT INTO updated VALUES (%d)",id);
     }
 
     return pmp3;
@@ -1048,7 +1105,7 @@ MP3FILE *db_sqlite_fetch_path(char *path) {
     char **resarray;
     MP3FILE *pmp3=NULL;
 
-    db_sqlite_get_table(0,&resarray,&rows,&cols,"SELECT * FROM songs WHERE path='%q'",path);
+    db_sqlite_get_table(E_DBG,&resarray,&rows,&cols,"SELECT * FROM songs WHERE path='%q'",path);
 
     if(rows != 0) {
 	pmp3=(MP3FILE*)malloc(sizeof(MP3FILE));
@@ -1061,7 +1118,7 @@ MP3FILE *db_sqlite_fetch_path(char *path) {
     db_sqlite_free_table(resarray);
 
     if ((rows) && (db_sqlite_in_scan) && (!db_sqlite_reload)) {
-	db_sqlite_exec(1,"INSERT INTO updated VALUES (%d)",pmp3->id);
+	db_sqlite_exec(E_FATAL,"INSERT INTO updated VALUES (%d)",pmp3->id);
     }
 
     return pmp3;
@@ -1117,7 +1174,7 @@ int db_sqlite_get_count(CountType_t type) {
 	break;
     }
 
-    db_sqlite_get_table(0,&resarray, &rows, &cols,"SELECT COUNT(*) FROM %q", table);
+    db_sqlite_get_table(E_DBG,&resarray, &rows, &cols,"SELECT COUNT(*) FROM %q", table);
 
     if(rows != 0) {
 	retval=atoi(resarray[cols]);
@@ -1135,7 +1192,7 @@ int db_sqlite_get_version(void) {
     char **resarray;
     int retval=0;
     
-    db_sqlite_get_table(0,&resarray, &rows, &cols,
+    db_sqlite_get_table(E_DBG,&resarray, &rows, &cols,
 			"select value from config where term='version'");
 
     if(rows != 0) {
@@ -1187,6 +1244,7 @@ char *db_sqlite_upgrade_scripts[] = {
     "   sample_count    INTEGER DEFAULT 0,\n"
     "   force_update	INTEGER DEFAULT 0\n"
     ");\n"
+    "CREATE INDEX idx_path ON songs(path)\n" 
     "CREATE TABLE config (\n"
     "   term		VARCHAR(255)	NOT NULL,\n"
     "   subterm		VARCHAR(255)    DEFAULT NULL,\n"
@@ -1218,7 +1276,7 @@ int db_sqlite_update_version(int from_version) {
     while(db_sqlite_upgrade_scripts[from_version]) {
 	DPRINTF(E_LOG,L_DB,"Upgrading database from version %d to version %d\n",from_version,
 		from_version+1);
-	db_sqlite_exec(1,db_sqlite_upgrade_scripts[from_version]);
+	db_sqlite_exec(E_FATAL,db_sqlite_upgrade_scripts[from_version]);
 	from_version++;
     }
 

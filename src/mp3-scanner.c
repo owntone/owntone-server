@@ -559,7 +559,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 	    mp3file.time_added=psb->st_ctime;
         mp3file.time_modified=psb->st_mtime;
 
-	server_side_convert_set(&mp3file);
+	//	server_side_convert_set(&mp3file);
 
 	DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 

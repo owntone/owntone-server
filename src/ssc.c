@@ -69,6 +69,39 @@ char *server_side_convert_path(char *path)
     return r;
 }
 
+
+/**
+ * Check if the file specified by fname should be converted in
+ * server to wav.  Currently it does this by file extension, but
+ * could in the future decided to transcode based on user agent.
+ *
+ * @param fname file name of file to check for conversion
+ * @returns 1 if should be converted.  0 if not
+ */
+int server_side_convert(char *fname) {
+    char *ext;
+
+    DPRINTF(E_DBG,L_SCAN,"Checking for ssc: %s\n",fname);
+
+    if ((!config.ssc_extensions) ||
+	(!config.ssc_extensions[0]) ||
+	(!config.ssc_prog) ||
+	(!config.ssc_prog[0]) ||
+	(!fname)) {
+	DPRINTF(E_DBG,L_SCAN,"Nope\n");
+	return 0;
+    }
+
+    if(((ext = strrchr(fname, '.')) != NULL) && 
+       (strcasestr(config.ssc_extensions, ext))) {
+	DPRINTF(E_DBG,L_SCAN,"Yup\n");
+	return 1;
+    }
+
+    DPRINTF(E_DBG,L_SCAN,"Nope\n");
+    return 0;
+}
+
 /**
  * Check if the file entry (otherwise complete) is such that
  * file should be converted in server end to wav-format.
