@@ -63,11 +63,27 @@ AC_ARG_WITH(gdbm,
           esac ], [use_gdbm=false])
 AM_CONDITIONAL(COND_USE_GDBM, test x$use_gdbm = xtrue)
         
+AC_ARG_WITH(gdbm-includes,
+	[--with-gdbm-includes[[=DIR]]          use gdbm include files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+	 CPPFLAGS="${CPPFLAGS} -I$withval"
+	fi
+])
+
 AC_ARG_WITH(howl-includes,
 	[--with-howl-includes[[=DIR]]          use howl include files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
          CPPFLAGS="${CPPFLAGS} -I$withval"
+	fi
+])
+
+AC_ARG_WITH(gdbm-libs,
+	[--with-gdbm-libs[[=DIR]]          use gdbm lib files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval;
+	 LDFLAGS="${LDFLAGS} -L$withval"
 	fi
 ])
 
