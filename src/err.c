@@ -41,8 +41,10 @@ typedef struct tag_err_leak {
 int err_debuglevel=0;
 int err_logdestination=LOGDEST_STDERR;
 
+#ifdef DEBUG
 pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER;
 ERR_LEAK err_leak = { NULL, NULL, 0, 0, NULL };
+#endif
 
 /*
  * Forwards
