@@ -279,13 +279,14 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		ws_emitheaders(pwsc);
 
 		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
-		DPRINTF(ERR_LOG,"Session %d: Streaming file '%s' to %s\n",session_id,
-			pmp3->fname, pwsc->hostname);
+		DPRINTF(ERR_LOG,"Session %d: Streaming file '%s' to %s (offset %d)\n",
+			session_id,pmp3->fname, pwsc->hostname,offset);
 		
 		if(!offset)
 		    config.stats.songs_served++; /* FIXME: remove stat races */
 
-		if((config.artfilename) && (img_fd=da_get_image_fd(pmp3->path) != -1)) {
+		if((config.artfilename) && ((img_fd=da_get_image_fd(pmp3->path)) != -1) &&
+		   (!offset)) {
 		    DPRINTF(ERR_INFO,"Dynamically attaching artwork to %s (fd %d)\n",
 			    pmp3->fname, img_fd);
 		    da_attach_image(img_fd, pwsc->fd, file_fd, offset);

@@ -78,7 +78,7 @@ int da_get_image_fd(char *filename) {
     strcpy(path_end+1,config.artfilename);
     fd = open(buffer,O_RDONLY);
     if(fd != -1) 
-	DPRINTF(ERR_INFO,"Found image file %s\n",buffer);
+	DPRINTF(ERR_INFO,"Found image file %s (fd %d)\n",buffer,fd);
 
     return fd;
 }
@@ -126,13 +126,14 @@ int da_attach_image(int img_fd, int out_fd, int mp3_fd, int offset)
     unsigned char buffer[4];
     struct stat sb;
 
-    if(fstat(img_fd,&sb)) {
-	DPRINTF(ERR_INFO,"Cannot stat image file... %s\n",strerror(errno));
+    fstat(img_fd,&sb);
+    img_size=sb.st_size;
+
+    DPRINTF(ERR_INFO,"Image appears to be %ld bytes\n",img_size);
+    if(img_size < 1) {
+	r_close(img_fd);
 	return 0;
     }
-
-    img_size=sb.st_size;
-    DPRINTF(ERR_INFO,"Image appears to be %ld bytes\n",img_size);
 
     if (offset > (img_size + 24) ) {
 	lseek(mp3_fd,(offset - img_size - 24),SEEK_SET);
