@@ -40,7 +40,7 @@ extern void log_setdest(char *app, int destination);
 
 #ifdef DEBUG
 # define DPRINTF(level, fmt, arg...) \
-    { log_err(level,"%s, %d: ",__FILE__,__LINE__); log_err(0,fmt,##arg); }
+    { log_err(level,"%s, %d: ",__FILE__,__LINE__); log_err(level,fmt,##arg); }
 #else
 # define DPRINTF(level, fmt, arg...) \
     { log_err(level,fmt,##arg); }
