@@ -26,6 +26,8 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
+#include <pthread.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,15 +40,21 @@
 /*
  * Forwards
  */
-void config_emit_string(WS_CONNINFO *pwsc, void *value);
-void config_emit_literal(WS_CONNINFO *pwsc, void *value);
-void config_emit_int(WS_CONNINFO *pwsc, void *value);
+void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
+int config_mutex_lock(void);
+int config_mutex_unlock(void);
 
 /*
  * Defines
  */
 #define CONFIG_TYPE_INT       0
 #define CONFIG_TYPE_STRING    1
+#define CONFIG_TYPE_SPECIAL   4
 
 typedef struct tag_configelement {
     int config_element;
@@ -55,7 +63,7 @@ typedef struct tag_configelement {
     int type;
     char *name;
     void *var;
-    void (*emit)(WS_CONNINFO *, void *);
+    void (*emit)(WS_CONNINFO *, void *, char *);
 } CONFIGELEMENT;
 
 CONFIGELEMENT config_elements[] = {
@@ -63,11 +71,22 @@ CONFIGELEMENT config_elements[] = {
     { 1,1,0,CONFIG_TYPE_INT,"port",(void*)&config.port,config_emit_int },
     { 1,1,0,CONFIG_TYPE_STRING,"admin_pw",(void*)&config.adminpassword,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"mp3_dir",(void*)&config.mp3dir,config_emit_string },
-    { 0,0,0,CONFIG_TYPE_STRING,"release",(void*)VERSION,config_emit_literal },
-    { 0,0,0,CONFIG_TYPE_STRING,"package",(void*)PACKAGE,config_emit_literal },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"package",(void*)PACKAGE,config_emit_literal },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"include",(void*)NULL,config_emit_include },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"threadstat",(void*)NULL,config_emit_threadstatus },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
+typedef struct tag_scan_status {
+    int session;
+    int thread;
+    char *what;
+    struct tag_scan_status *next;
+} SCAN_STATUS;
+
+SCAN_STATUS scan_status = { 0,0,NULL,NULL };
+pthread_mutex_t scan_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define MAX_LINE 1024
 
@@ -192,6 +211,70 @@ int config_write(CONFIG *pconfig) {
     return 0;
 }
 
+/* 
+ * config_subst_stream
+ * 
+ * walk through a stream doing substitution on the
+ * meta commands
+ */
+void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
+    int in_arg;
+    char *argptr;
+    char argbuffer[30];
+    char next;
+    CONFIGELEMENT *pce;
+    char *first, *last;
+
+    /* now throw out the file, with replacements */
+    in_arg=0;
+    argptr=argbuffer;
+
+    while(1) {
+	if(r_read(fd_src,&next,1) <= 0)
+	    break;
+
+	if(in_arg) {
+	    if((next == '@') && (strlen(argbuffer) > 0)) {
+		in_arg=0;
+
+		DPRINTF(ERR_DEBUG,"Got directive %s\n",argbuffer);
+
+		/* see if there are args */
+		first=last=argbuffer;
+		strsep(&last," ");
+
+		pce=config_elements;
+		while(pce->config_element != -1) {
+		    if(strcasecmp(first,pce->name) == 0) {
+			pce->emit(pwsc, pce->var,last);
+			break;
+		    }
+		    pce++;
+		}
+
+		if(pce->config_element == -1) { /* bad subst */
+		    ws_writefd(pwsc,"@%s@",argbuffer);
+		}
+	    } else if(next == '@') {
+		ws_writefd(pwsc,"@");
+		in_arg=0;
+	    } else {
+		if((argptr - argbuffer) < (sizeof(argbuffer)-1))
+		    *argptr++ = next;
+	    }
+	} else {
+	    if(next == '@') {
+		argptr=argbuffer;
+		memset(argbuffer,0,sizeof(argbuffer));
+		in_arg=1;
+	    } else {
+		if(r_write(pwsc->fd,&next,1) == -1)
+		    break;
+	    }
+	}
+    }
+}
+
 /*
  * config_handler
  *
@@ -202,13 +285,11 @@ void config_handler(WS_CONNINFO *pwsc) {
     char resolved_path[PATH_MAX];
     int file_fd;
     struct stat sb;
-    char argbuffer[30];
-    int in_arg;
-    char *argptr;
-    char next;
-    CONFIGELEMENT *pce;
+    char *pw;
 
     DPRINTF(ERR_DEBUG,"Entereing config_handler\n");
+
+    config_set_status(pwsc,0,"Serving admin pages");
     
     pwsc->close=1;
     ws_addresponseheader(pwsc,"Connection","close");
@@ -218,6 +299,7 @@ void config_handler(WS_CONNINFO *pwsc) {
 	pwsc->error=errno;
 	DPRINTF(ERR_WARN,"Cannot resolve %s\n",path);
 	ws_returnerror(pwsc,404,"Not found");
+	config_set_status(pwsc,0,NULL);
 	return;
     }
 
@@ -235,6 +317,7 @@ void config_handler(WS_CONNINFO *pwsc) {
 	DPRINTF(ERR_WARN,"Thread %d: Requested file %s out of root\n",
 		pwsc->threadno,resolved_path);
 	ws_returnerror(pwsc,403,"Forbidden");
+	config_set_status(pwsc,0,NULL);
 	return;
     }
 
@@ -244,66 +327,28 @@ void config_handler(WS_CONNINFO *pwsc) {
 	DPRINTF(ERR_WARN,"Thread %d: Error opening %s: %s\n",
 		pwsc->threadno,resolved_path,strerror(errno));
 	ws_returnerror(pwsc,404,"Not found");
+	config_set_status(pwsc,0,NULL);
 	return;
     }
     
     if(strcasecmp(pwsc->uri,"/config-update.html")==0) {
 	/* we need to update stuff */
-	argptr=ws_getvar(pwsc,"adminpw");
-	if(argptr) {
+	pw=ws_getvar(pwsc,"adminpw");
+	if(pw) {
 	    if(config.adminpassword)
 		free(config.adminpassword);
-	    config.adminpassword=strdup(argptr);
+	    config.adminpassword=strdup(pw);
 	}
     }
 
     ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
     ws_emitheaders(pwsc);
-
-    /* now throw out the file, with replacements */
-    in_arg=0;
-    argptr=argbuffer;
-
-    while(1) {
-	if(r_read(file_fd,&next,1) <= 0)
-	    break;
-
-	if(in_arg) {
-	    if(next == '@') {
-		in_arg=0;
-
-		DPRINTF(ERR_DEBUG,"Got directive %s\n",argbuffer);
-
-		pce=config_elements;
-		while(pce->config_element != -1) {
-		    if(strcasecmp(argbuffer,pce->name) == 0) {
-			pce->emit(pwsc, pce->var);
-			break;
-		    }
-		    pce++;
-		}
-
-		if(pce->config_element == -1) { /* bad subst */
-		    ws_writefd(pwsc,"@%s@",argbuffer);
-		}
-	    } else {
-		if((argptr - argbuffer) < (sizeof(argbuffer)-1))
-		    *argptr++ = next;
-	    }
-	} else {
-	    if(next == '@') {
-		argptr=argbuffer;
-		memset(argbuffer,0,sizeof(argbuffer));
-		in_arg=1;
-	    } else {
-		if(r_write(pwsc->fd,&next,1) == -1)
-		    break;
-	    }
-	}
-    }
+    
+    config_subst_stream(pwsc, file_fd);
 
     r_close(file_fd);
     DPRINTF(ERR_DEBUG,"Thread %d: Served successfully\n",pwsc->threadno);
+    config_set_status(pwsc,0,NULL);
     return;
 }
 
@@ -319,7 +364,7 @@ int config_auth(char *user, char *password) {
  *
  * write a simple string value to the connection
  */
-void config_emit_string(WS_CONNINFO *pwsc, void *value) {
+void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s",*((char**)value));
 }
 
@@ -328,7 +373,7 @@ void config_emit_string(WS_CONNINFO *pwsc, void *value) {
  *
  * Emit a regular char *
  */
-void config_emit_literal(WS_CONNINFO *pwsc, void *value) {
+void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s",(char*)value);
 }
 
@@ -338,7 +383,188 @@ void config_emit_literal(WS_CONNINFO *pwsc, void *value) {
  *
  * write a simple int value to the connection
  */
-void config_emit_int(WS_CONNINFO *pwsc, void *value) {
+void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%d",*((int*)value));
 }
 
+/*
+ * config_emit_threadstatus
+ *
+ * dump thread status info into a html table
+ */
+void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg) {
+    SCAN_STATUS *pss;
+    
+    if(config_mutex_lock())
+	return;
+
+    ws_writefd(pwsc,"<TABLE><TR><TH ALIGN=LEFT>Thread</TH>");
+    ws_writefd(pwsc,"<TH ALIGN=LEFT>Session</TH><TH ALIGN=LEFT>Host</TH>");
+    ws_writefd(pwsc,"<TH ALIGN=LEFT>Action</TH></TR>\n");
+
+
+    pss=scan_status.next;
+    while(pss) {
+	ws_writefd(pwsc,"<TR><TD>%d</TD><TD>%d</TD><TD>%s</TD><TD>%s</TD></TR>\n",
+		   pss->thread,pss->session,pwsc->hostname,pss->what);
+	pss=pss->next;
+    }
+
+    ws_writefd(pwsc,"</TABLE>\n");
+    config_mutex_unlock();
+}
+
+/*
+ * config_emit_include
+ *
+ * Do a server-side include
+ */
+void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
+    char resolved_path[PATH_MAX];
+    char path[PATH_MAX];
+    int file_fd;
+    struct stat sb;
+    char argbuffer[30];
+    int in_arg;
+    char *argptr;
+    char next;
+    CONFIGELEMENT *pce;
+    char *first, *last;
+
+    DPRINTF(ERR_DEBUG,"Preparing to include %s\n",arg);
+    
+    snprintf(path,PATH_MAX,"%s/%s",config.web_root,arg);
+    if(!realpath(path,resolved_path)) {
+	pwsc->error=errno;
+	DPRINTF(ERR_WARN,"Cannot resolve %s\n",path);
+	ws_writefd(pwsc,"<hr><i>error: cannot find %s</i><hr>",arg);
+	return;
+    }
+
+    /* this should really return a 302:Found */
+    stat(resolved_path,&sb);
+    if(sb.st_mode & S_IFDIR) {
+	ws_writefd(pwsc,"<hr><i>error: cannot include director %s</i><hr>",arg);
+	return;
+    }
+
+
+    DPRINTF(ERR_DEBUG,"Thread %d: Preparing to serve %s\n",
+	    pwsc->threadno, resolved_path);
+
+    if(strncmp(resolved_path,config.web_root,
+	       strlen(config.web_root))) {
+	pwsc->error=EINVAL;
+	DPRINTF(ERR_WARN,"Thread %d: Requested file %s out of root\n",
+		pwsc->threadno,resolved_path);
+	ws_writefd(pwsc,"<hr><i>error: %s out of web root</i><hr>",arg);
+	return;
+    }
+
+    file_fd=r_open2(resolved_path,O_RDONLY);
+    if(file_fd == -1) {
+	pwsc->error=errno;
+	DPRINTF(ERR_WARN,"Thread %d: Error opening %s: %s\n",
+		pwsc->threadno,resolved_path,strerror(errno));
+	ws_writefd(pwsc,"<hr><i>error: cannot open %s: %s</i><hr>",arg,strerror(errno));
+	return;
+    }
+    
+    config_subst_stream(pwsc, file_fd);
+
+    r_close(file_fd);
+    DPRINTF(ERR_DEBUG,"Thread %d: included successfully\n",pwsc->threadno);
+    return;
+}
+
+/*
+ * config_set_status
+ *
+ * update the status info for a particular thread
+ */
+void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
+    char buffer[1024];
+    va_list ap;
+    SCAN_STATUS *pfirst, *plast;
+
+    if(config_mutex_lock()) {
+	/* we should really shutdown the app here... */
+	exit(EXIT_FAILURE);
+    }
+
+    pfirst=plast=scan_status.next;
+    while((pfirst) && (pfirst->thread != pwsc->threadno)) {
+	plast=pfirst;
+	pfirst=pfirst->next;
+    }
+
+    if(fmt) {
+	va_start(ap, fmt);
+	vsnprintf(buffer, 1024, fmt, ap);
+	va_end(ap);
+
+	if(pfirst) { /* already there */
+	    free(pfirst->what);
+	    pfirst->what = strdup(buffer);
+	    pfirst->session = session; /* this might change! */
+	} else {
+	    pfirst=(SCAN_STATUS*)malloc(sizeof(SCAN_STATUS));
+	    if(pfirst) {
+		pfirst->what = strdup(buffer);
+		pfirst->session = session;
+		pfirst->thread = pwsc->threadno;
+		pfirst->next=scan_status.next;
+		scan_status.next=pfirst;
+	    }
+	}
+    } else {
+	if(!pfirst) {
+	    config_mutex_unlock();
+	    return;
+	}
+
+	if(pfirst==plast) { 
+	    scan_status.next=pfirst->next;
+	    free(pfirst->what);
+	    free(pfirst);
+	} else {
+	    plast->next = pfirst->next;
+	    free(pfirst->what);
+	    free(pfirst);
+	}
+    }
+
+    config_mutex_unlock();
+}
+
+/*
+ * config_mutex_lock
+ *
+ * Lock the scan status mutex
+ */
+int config_mutex_lock(void) {
+    int err;
+
+    if(err=pthread_mutex_lock(&scan_mutex)) {
+	errno=err;
+	return - 1;
+    }
+
+    return 0;
+}
+
+/*
+ * config_mutex_unlock
+ *
+ * Unlock the scan status mutex
+ */
+int config_mutex_unlock(void) {
+    int err;
+
+    if(err=pthread_mutex_unlock(&scan_mutex)) {
+	errno=err;
+	return -1;
+    }
+
+    return 0;
+}
