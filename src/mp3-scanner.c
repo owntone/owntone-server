@@ -901,7 +901,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     off_t fp_size=0;
     off_t file_size;
     unsigned char buffer[1024];
-    int time_seconds;
+    int time_seconds=0;
     int index;
     int layer_index;
     int sample_index;
@@ -996,6 +996,10 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 		stereo=0;
 	    else
 		stereo=1;
+	    DPRINTF(ERR_DEBUG," MPEG Version: %s\n",ver == 3 ? "1" : (ver == 2 ? "2" : "2.5"));
+	    DPRINTF(ERR_DEBUG," Layer: %d\n",4-layer);
+	    DPRINTF(ERR_DEBUG," Sample Rate: %d\n",samplerate);
+	    DPRINTF(ERR_DEBUG," Bit Rate: %d\n",bitrate);
 	} else {
 	    /* not an mp3... */
 	    DPRINTF(ERR_DEBUG,"File is not a MPEG file\n");
@@ -1004,7 +1008,9 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
 
 	/* guesstimate the file length */
-	time_seconds = ((int)(file_size * 8)) / (bitrate * 1024);
+	if(bitrate)
+	    time_seconds = ((int)(file_size * 8)) / (bitrate * 1024);
+
 	if(!pmp3->song_length) /* could have gotten it from the tag */
 	    pmp3->song_length=time_seconds;
     } else {
