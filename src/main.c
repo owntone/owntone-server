@@ -19,6 +19,36 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+/**
+ * \file main.c
+ *
+ * Driver for mt-daapd, including the main() function.  This
+ * is responsible for kicking off the initial mp3 scan, starting
+ * up the signal handler, starting up the webserver, and waiting
+ * around for external events to happen (like a request to rescan,
+ * or a background rescan to take place.)
+ *
+ * It also contains the daap handling callback for the webserver.
+ * This should almost certainly be somewhere else, and is in
+ * desparate need of refactoring, but somehow continues to be in
+ * this file.
+ *
+ * \todo Refactor daap_handler()
+ */
+
+/* \mainpage mt-daapd
+ * \section about_section About
+ *
+ * This is mt-daapd, an attempt to create an iTunes server for
+ * linux and other POSIXish systems.  Maybe even Windows with cygwin,
+ * eventually.
+ *
+ * You might check these locations for more info:
+ * - <a href="http://sf.net/projects/mt-daapd">Project page on SourceForge</a>
+ * - <a href="http://mt-daapd.sf.net">Home page</a>
+ *
+ */
+
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -54,39 +84,56 @@
 # include "rend.h"
 #endif
 
-
+/**
+ * Where the default configfile is.  On the NSLU2 running unslung,
+ * thats in /opt, not /etc. */
 #ifndef DEFAULT_CONFIGFILE
 #ifdef NSLU2
-#define DEFAULT_CONFIGFILE "/opt/etc/mt-daapd.conf"
+#define DEFAULT_CONFIGFILE "/opt/etc/mt-daapd/mt-daapd.conf"
 #else
 #define DEFAULT_CONFIGFILE "/etc/mt-daapd.conf"
 #endif
 #endif
 
+/** Where to dump the pidfile */
 #ifndef PIDFILE
 #define PIDFILE	"/var/run/mt-daapd.pid"
 #endif
 
+/** You say po-tay-to, I say po-tat-o */
 #ifndef SIGCLD
 # define SIGCLD SIGCHLD
 #endif
 
-#define MAIN_SLEEP_INTERVAL  2   /* seconds to sleep before checking for shutdown/reload */
+#define MAIN_SLEEP_INTERVAL  2   /**< seconds to sleep before checking for shutdown/reload */
 /*
  * Globals
  */
-CONFIG config;
+CONFIG config; /**< Main configuration structure, as read from configfile */
 
 /* 
  * Forwards
  */
-int daemon_start(void);
-void write_pid_file(void);
+static int daemon_start(void);
+static void write_pid_file(void);
+static void usage(char *program);
+static void *signal_handler(void *arg);
+static int start_signal_handler(void);
 
-/*
- * daap_auth
+/**
+ * Handles authentication for the daap server.  This isn't the
+ * authenticator for the web admin page, but rather the iTunes 
+ * authentication when trying to connect to the server.  Note that most
+ * of this is actually handled in the web server registration, which
+ * decides when to apply the authentication or not.  If you mess with
+ * when and where the webserver applies auth or not, you'll likely 
+ * break something.  It seems that some requests must be authed, and others
+ * not.  If you apply authentication somewhere that iTunes doesn't expect
+ * it, it happily disconnects.
  *
- * Auth handler for the daap server
+ * \param username The username passed by iTunes
+ * \param password The password passed by iTunes
+ * \returns 1 if auth successful, 0 otherwise
  */
 int daap_auth(char *username, char *password) {
     if((password == NULL) && 
@@ -99,10 +146,12 @@ int daap_auth(char *username, char *password) {
     return !strcasecmp(password,config.readpassword);
 }
 
-/* 
- * daap_handler
+/**
+ * This handles requests that are daap-related.  For example,
+ * /server-info, /login, etc.  This should really be split up
+ * into multiple functions, and perhaps moved into daap.c
  *
- * Handle daap-related web pages
+ * \param pwsc Webserver connection info, passed from the webserver
  */
 void daap_handler(WS_CONNINFO *pwsc) {
     int close;
@@ -391,25 +440,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
     return;
 }
 
-/*
- * sig_child
- *
- * reap children
+/**
+ * Fork and exit.  Stolen pretty much straight from Stevens.
  */
-RETSIGTYPE sig_child(int signal)
-{
-    int status;
-
-    while (wait(&status)) {
-    };
-}
-
-/*
- * daemon_start
- *
- * This is pretty much stolen straight from Stevens
- */
-
 int daemon_start(void) {
     int childpid, fd;
 
@@ -458,12 +491,11 @@ int daemon_start(void) {
     return 0;
 }
 
-/*
- * usage
+/**
+ * Print usage information to stdout
  *
- * print usage message
+ * \param program name of program (argv[0])
  */
-
 void usage(char *program) {
     printf("Usage: %s [options]\n\n",program);
     printf("Options:\n");
@@ -475,10 +507,13 @@ void usage(char *program) {
     printf("\n\n");
 }
 
-/*
- * drop_privs
+/**
+ * Drop privs.  This allows mt-daapd to run as a non-privileged user.
+ * Hopefully this will limit the damage it could do if exploited
+ * remotely.  Note that only the user need be specified.  GID
+ * is set to the primary group of the user.
  *
- * drop privs to a specific user
+ * \param user user to run as (or UID)
  */
 int drop_privs(char *user) {
     int err;
@@ -513,10 +548,15 @@ int drop_privs(char *user) {
     return 0;
 }
 
-/*
- * signal_handler
- *
- * This thread merely spins waiting for signals
+/**
+ * Wait for signals and flag the main process.  This is
+ * a thread handler for the signal processing thread.  It
+ * does absolutely nothing except wait for signals.  The rest
+ * of the threads are running with signals blocked, so this thread
+ * is guaranteed to catch all the signals.  It sets flags in
+ * the config structure that the main thread looks for.  Specifically,
+ * the stop flag (from an INT signal), and the reload flag (from HUP).
+ * \param arg NULL, but required of a thread procedure
  */
 void *signal_handler(void *arg) {
     sigset_t intmask;
@@ -562,10 +602,12 @@ void *signal_handler(void *arg) {
     return NULL;
 }
 
-/*
- * start_signal_handler
+/**
+ * Block signals, then start the signal handler.  The
+ * signal handler started by spawning a new thread on
+ * signal_handler().
  *
- * Block signals and set up the signal handler
+ * \returns 0 on success, -1 with errno set otherwise
  */
 int start_signal_handler(void) {
     int error;
@@ -591,6 +633,24 @@ int start_signal_handler(void) {
     return 0;
 }
 
+/**
+ * Kick off the daap server and wait for events.
+ *
+ * This starts the initial db scan, sets up the signal
+ * handling, starts the webserver, then sits back and waits
+ * for events, as notified by the signal handler and the
+ * web interface.  These events are communicated via flags
+ * in the config structure.
+ *
+ * \param argc count of command line arguments
+ * \param argv command line argument pointers
+ * \returns 0 on success, -1 otherwise
+ *
+ * \todo split out a ws_init and ws_start, so that the
+ * web space handlers can be registered before the webserver
+ * starts.
+ *
+ */
 int main(int argc, char *argv[]) {
     int option;
     char *configfile=DEFAULT_CONFIGFILE;
@@ -810,13 +870,10 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 
-/*
- * write_pid_file
- *
- * Assumes we haven't dropped privs yet
+/**
+ * Dump a pidfile in the file specified by PIDFILE
  */
-void write_pid_file(void)
-{
+void write_pid_file(void) {
     FILE*	fp;
     int		fd;
 

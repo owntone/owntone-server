@@ -19,6 +19,15 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+/**
+ * \file err.c
+ * Error handling, logging, and memory leak checking.
+ *
+ * Most of these functions should not be used directly.  For the most
+ * part, they are hidden in macros like DPRINTF and MEMNOTIFY.  The
+ * only function here that is really directly useable is log_setdest
+ */
+
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
@@ -33,17 +42,25 @@
 #include <syslog.h>
 
 
+/* don't want to redefine malloc -- if doing memory debugging,
+ * this is the only file that *shouldn't* be redefining malloc and
+ * friends.  Hence the define.
+ */
 #define __IN_ERR__
 #include "err.h"
 
 
-int err_debuglevel=0;
-int err_logdestination=LOGDEST_STDERR;
-FILE *err_file=NULL;
-pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER;
+int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
+static int err_logdestination=LOGDEST_STDERR; /**< current log destination */
+static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
+static pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER; /**< for serializing log messages */
 
 #ifdef DEBUG_MEMORY
 
+/**
+ * Nodes for a linked list of in-use memory.  Any malloc/strdup/etc
+ * calls get a new node of this type added to the ::err_leak list.
+ */
 typedef struct tag_err_leak {
     void *ptr;
     char *file;
@@ -52,7 +69,7 @@ typedef struct tag_err_leak {
     struct tag_err_leak *next;
 } ERR_LEAK;
 
-
+/** head of linked list of in-use memory */
 ERR_LEAK err_leak = { NULL, NULL, 0, 0, NULL };
 #endif
 
@@ -60,12 +77,20 @@ ERR_LEAK err_leak = { NULL, NULL, 0, 0, NULL };
  * Forwards
  */
 
-int err_lock_mutex(void);
-int err_unlock_mutex(void);
+static int err_lock_mutex(void);
+static int err_unlock_mutex(void);
 
-/****************************************************
- * log_err
- ****************************************************/
+/**
+ * Write a printf-style formatted message to the log destination.
+ * This can be stderr, syslog, or a logfile, as determined by 
+ * log_setdest.  Note that this function should not be directly
+ * used, rather it should be used via the DPRINTF macro.
+ *
+ * \param level Level at which to log \ref log_levels
+ * \param fmt printf-style 
+ *
+ * \relatesalso log_setdest
+ */
 void log_err(int level, char *fmt, ...)
 {
     va_list ap;
@@ -109,8 +134,13 @@ void log_err(int level, char *fmt, ...)
     }
 }
 
-/****************************************************
- * log_setdest
+/**
+ * Sets the log destination.  (stderr, syslog, or logfile)
+ *
+ * \param app appname (used only for syslog destination)
+ * \param destination where to log to \ref log_dests "as defined in err.h"
+ *
+ * \relatesalso log_err
  ****************************************************/
 void log_setdest(char *app, int destination) {
     if(err_logdestination == destination)
@@ -142,10 +172,12 @@ void log_setdest(char *app, int destination) {
 }
 
 
-/*
- * err_lock
+/**
+ * Lock the error mutex.  This is used to serialize
+ * log messages, as well as protect access to the memory
+ * list, when memory debugging is enabled.
  *
- * Lock the error mutex
+ * \returns 0 on success, otherwise -1 with errno set
  */
 int err_lock_mutex(void) {
     int err;
@@ -158,13 +190,10 @@ int err_lock_mutex(void) {
     return 0;
 }
 
-/*
- * err_unlock
- *
+/**
  * Unlock the error mutex
  *
- * returns 0 on success,
- * returns -1 on failure, with errno set
+ * \returns 0 on success, otherwise -1 with errno set
  */
 int err_unlock_mutex(void) {
     int err;
@@ -179,9 +208,15 @@ int err_unlock_mutex(void) {
 
 #ifdef DEBUG_MEMORY
 
-/*
+/**
  * Let the leak detector know about a chunk of memory
- * that needs to be freed, but came from an external library
+ * that needs to be freed, but came from an external library.
+ * Example: gdbm functions.  Note that this should only
+ * be called via the MEMNOTIFY macro.
+ *
+ * \param file filled in from the MEMNOTIFY macro with __FILE__
+ * \param line filled in from the MEMNOTIFY macro with __LINE__
+ * \param ptr ptr to block of memory which must be freed
  */
 void err_notify(char *file, int line, void *ptr) {
     ERR_LEAK *pnew;
@@ -207,10 +242,13 @@ void err_notify(char *file, int line, void *ptr) {
     err_unlock_mutex();
 }
 
-/*
- * err_malloc
+/**
+ * malloc wrapper for leak checking.  This never gets
+ * called directly, only via malloc.
  *
- * safe malloc
+ * \param file filled in via macro with __FILE__
+ * \param line filled in via macro with __LINE__
+ * \param size size of block to allocate
  */
 void *err_malloc(char *file, int line, size_t size) {
     ERR_LEAK *pnew;
@@ -236,10 +274,13 @@ void *err_malloc(char *file, int line, size_t size) {
 }
 
 
-/*
- * err_strdup
+/**
+ * Memory check wrapper for strdup.  This should not
+ * be called directly
  *
- * safe strdup
+ * \param file filled in via macro with __FILE__
+ * \param line filled in via macro with __LINE__
+ * \param str str to strdup
  */
 char *err_strdup(char *file, int line, const char *str) {
     void *pnew;
@@ -252,10 +293,13 @@ char *err_strdup(char *file, int line, const char *str) {
     return pnew;
 }
 
-/*
- * err_free
+/**
+ * Memory checking wrapper for free. This should not be
+ * called direclty.
  *
- * safe free
+ * \param file filled in by macro with __FILE__
+ * \param line filled in by macro with __LINE__
+ * \param ptr block of memory to free
  */
 void err_free(char *file, int line, void *ptr) {
     ERR_LEAK *current,*last;
@@ -282,10 +326,10 @@ void err_free(char *file, int line, void *ptr) {
     err_unlock_mutex();
 }
 
-/*
- * void err_leakcheck
- *
- * Walk through the list of memory
+/**
+ * Dumps the list of in-use memory.  This walks the linked
+ * list created by the malloc and strdup wrappers, and dumps
+ * them to stdout.
  */
 void err_leakcheck(void) {
     ERR_LEAK *current;
