@@ -23,6 +23,9 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.3  2004/11/11 18:47:25  rpedde
+fix typedefs for AMD64
+
 Revision 1.2  2004/09/19 03:03:47  rpedde
 Jim Buzbee's ARM patches for NSLU2
 
@@ -489,8 +492,8 @@ typedef   signed char  mDNSs8;
 typedef unsigned char  mDNSu8;
 typedef   signed short mDNSs16;
 typedef unsigned short mDNSu16;
-typedef   signed long  mDNSs32;
-typedef unsigned long  mDNSu32;
+typedef   signed int   mDNSs32;
+typedef unsigned int   mDNSu32;
 
 // To enforce useful type checking, we make mDNSInterfaceID be a pointer to a dummy struct
 // This way, mDNSInterfaceIDs can be assigned, and compared with each other, but not with other types
