@@ -217,7 +217,6 @@ int db_init(void) {
     MP3FILE mp3file;
     datum tmp_key,tmp_nextkey,song_data;
     
-
     if((db_removed=rbinit(db_compare_rb_nodes,NULL)) == NULL) {
 	errno=ENOMEM;
 	return -1;
@@ -330,6 +329,7 @@ int db_end_initial_update(void) {
 	db_delete(*((int*)val));
 	free(val);
     }
+    DPRINTF(ERR_DEBUG,"Done removing stale items\n");
 
     rbdestroy(db_removed);
 

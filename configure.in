@@ -103,9 +103,9 @@ AC_ARG_WITH(id3tag,
 ])
 
 
-AC_CHECK_HEADERS(gdbm.h,LDFLAGS="${LDFLAGS} -lgdbm", [
+AC_CHECK_HEADERS(gdbm.h,, [
  AC_MSG_ERROR([gdbm.h not found... try --with-gdmb-includes=dir])])
-AC_CHECK_LIB(gdbm,gdbm_open,LDFLAGS="$LDFLAGS -lgdbm", echo "Must have gdbm";exit)
+AC_CHECK_LIB(gdbm,gdbm_open,, echo "Must have gdbm";exit)
 
 AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
  AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
