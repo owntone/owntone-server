@@ -713,13 +713,11 @@ int main(int argc, char *argv[]) {
 	if(config.reload) {
 	    config.reload=0;
 
-	    /* Need to get traces of an update, obviously... this ain't it.
 	    DPRINTF(ERR_LOG,"Reloading configuration\n");
 	    if(scan_init(config.mp3dir)) {
 		DPRINTF(ERR_LOG,"Error rescanning... exiting\n");
 		config.stop=1;
 	    }
-	    */
 	}
 	sleep(2);
     }

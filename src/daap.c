@@ -481,7 +481,7 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
 	return NULL;
     }
 
-    DPRINTF(ERR_DEBUG,"Successfully enumerated database\n");
+    DPRINTF(ERR_DEBUG,"Successfully enumerated database - %d items\n",songs);
 
     daap_set_int(root, "mtco", songs);
     daap_set_int(root, "mrco", songs);
@@ -553,7 +553,10 @@ DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, MetaField_t met
 
 	if(wantsMeta(meta, metaItemId))
 	    g = g && daap_add_int(mlit,"miid",song->id); /* id */
-		    
+		
+	if(wantsMeta(meta, metaPersistentId)) 
+	    g = g && daap_add_long(mlit,"mper",0,song->id);
+
 	/* these quite go hand in hand */
 	if(wantsMeta(meta, metaSongFormat))
 	    g = g && daap_add_string(mlit,"asfm",song->type); /* song format */
@@ -673,7 +676,7 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
 	    mlit=daap_add_empty(mlcl,"mlit");
 	    if(mlit) {
 		g = g && daap_add_int(mlit,"miid",0x1);
-		g = g && daap_add_long(mlit,"mper",0,2);
+		g = g && daap_add_long(mlit,"mper",0,1);
 		g = g && daap_add_string(mlit,"minm",name);
 		g = g && daap_add_int(mlit,"mimc",db_get_song_count());
 	    }
@@ -759,6 +762,9 @@ DAAP_BLOCK *daap_response_dbinfo(char *name) {
 	return NULL;
     }
 
+    DPRINTF(ERR_DEBUG,"Sent db info... %d songs, %d playlists\n",db_get_song_count(),
+	    db_get_playlist_count());
+
     return root;
 }
 
@@ -819,10 +825,12 @@ DAAP_BLOCK *daap_response_server_info(char *name, char *client_version) {
 #ifdef OPT_QUERY
 	g = g && daap_add_char(root,"msqy",0); /* queries */
 #endif
-#if 0
-	g = g && daap_add_char(root,"msal",0); /* autologout */
+
 	g = g && daap_add_char(root,"msup",0); /* update */
+
+#if 0
 	g = g && daap_add_char(root,"mspi",0); /* persistant ids */
+	g = g && daap_add_char(root,"msal",0); /* autologout */
 	g = g && daap_add_char(root,"msrs",0); /* resolve?  req. persist id */
 #endif
         g = g && daap_add_int(root,"msdc",1); /* database count */
@@ -912,7 +920,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 			mlit=daap_add_song_entry(mlcl, current, meta);
 			if(0 != mlit) {
 			    if(wantsMeta(meta, metaContainerItemId))
-				g = g && daap_add_int(mlit,"mcti",playlist);
+				g = g && daap_add_int(mlit,"mcti",current->id);
 			} else g=0;
 		    }
 		}
@@ -928,7 +936,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 			    DPRINTF(ERR_DEBUG,"Adding itemid %d\n",itemid);
 			    mlit=daap_add_song_entry(mlcl,current,meta);
 			    if(0 != mlit) {
-				if(wantsMeta(meta, metaContainerItemId))
+				if(wantsMeta(meta, metaContainerItemId)) // current->id?
 				    g = g && daap_add_int(mlit,"mcti",playlist);
 			    } else g = 0;
 #ifdef OPT_QUERY
@@ -954,6 +962,8 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 	daap_free(root);
 	return NULL;
     }
+
+    DPRINTF(ERR_DEBUG,"Sucessfully enumerated %d items\n",songs);
 
     daap_set_int(root, "mtco", songs);
     daap_set_int(root, "mrco", songs);

@@ -133,10 +133,10 @@ DAAP_BLOCK *daap_add_long(DAAP_BLOCK *parent, char *tag, int v1, int v2) {
     ivalue[2]=(v1 >> 8) & 0xFF;
     ivalue[3]=v1 & 0xFF;
 
-    ivalue[4]=(v1 >> 24) & 0xFF;
-    ivalue[5]=(v1 >> 16) & 0xFF;
-    ivalue[6]=(v1 >> 8) & 0xFF;
-    ivalue[7]=v1 & 0xFF;
+    ivalue[4]=(v2 >> 24) & 0xFF;
+    ivalue[5]=(v2 >> 16) & 0xFF;
+    ivalue[6]=(v2 >> 8) & 0xFF;
+    ivalue[7]=v2 & 0xFF;
 
     return daap_add_formatted(parent,tag,8,ivalue);
 }

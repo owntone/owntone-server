@@ -974,7 +974,11 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     pmp3->file_size=file_size;
 
     if(fread(buffer,1,sizeof(buffer),infile) != sizeof(buffer)) {
-	DPRINTF(ERR_LOG,"Short file: %s\n",infile);
+	if(ferror(infile)) {
+	    DPRINTF(ERR_LOG,"Error reading: %s\n",strerror(errno));
+	} else {
+	    DPRINTF(ERR_LOG,"Short file: %s\n",infile);
+	}
 	return -1;
     }
 
