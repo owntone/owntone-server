@@ -37,10 +37,6 @@
 DAAP_BLOCK *daap_get_new(void);
 DAAP_BLOCK *daap_add_formatted(DAAP_BLOCK *parent, char *tag, 
 			       int len, char *value);
-int daap_serialmem(DAAP_BLOCK *root, char *where);
-int daap_compress(char *input, long in_len, char *output, long *out_len);
-
-
 /*
  * daap_get_new
  *
@@ -239,159 +235,42 @@ DAAP_BLOCK *daap_add_empty(DAAP_BLOCK *parent, char *tag) {
 /*
  * daap_serialmem
  *
- * Serialize a daap tree to memory, so it can be
- * gzipped
+ * Serialize a daap tree to a fd;
  */
-int daap_serialmem(DAAP_BLOCK *root, char *where) {
+int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
     DAAP_BLOCK *current;
     char size[4];
 
     if(!root)
 	return 0;
 
-    DPRINTF(ERR_DEBUG,"Serializing %c%c%c%c\n",root->tag[0],root->tag[1],
-	    root->tag[2],root->tag[3]);
-
-
-    memcpy(where,root->tag,4);
-    where+=4;
+    
+    r_write(fd,root->tag,4);
 
     size[0] = (root->reported_size >> 24) & 0xFF;
     size[1] = (root->reported_size >> 16) & 0xFF;
     size[2] = (root->reported_size >> 8 ) & 0xFF;
     size[3] = (root->reported_size) & 0xFF;
 
-    memcpy(where,&size,4);
-    where+=4;
+    r_write(fd,&size,4);
 
     if(root->size) {
 	if(root->free)
-	    memcpy(where,root->value,root->size);
+	    r_write(fd,root->value,root->size);
 	else
-	    memcpy(where,root->svalue,root->size);
-
-	where+=root->size;
+	    r_write(fd,root->svalue,root->size);
     }
     
     if(root->children) {
-	if(daap_serialmem(root->children,where))
-	    return -1;
-	
-	where += root->reported_size;
+	if(daap_serialize(root->children,fd,gzip))
+	   return -1;
     }
 
-    if(daap_serialmem(root->next,where))
+    if(daap_serialize(root->next,fd,gzip))
 	return -1;
-
+    
     return 0;
 }
-
-
-/*
- * daap_serialize
- *
- * Throw the whole daap structure out a fd (depth first),
- * gzipped
- *
- * FIXME: this is gross.  clean this up
- */
-int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
-    char *uncompressed;
-    long uncompressed_len;
-    char *compressed;
-    long compressed_len;
-    int err;
-
-    uncompressed_len = root->reported_size + 8;
-    uncompressed=(char*)malloc(uncompressed_len+1);
-    if(!uncompressed) {
-	DPRINTF(ERR_INFO,"Error allocating serialization block\n");
-	daap_free(root);
-	return -1;
-    }
-
-    daap_serialmem(root,uncompressed);
-    daap_free(root);
-
-    if(gzip) {
-	/* guarantee enough buffer space */
-	compressed_len = uncompressed_len * 101/100 + 12;
-	compressed=(char*)malloc(compressed_len);
-	if(!compressed) {
-	    DPRINTF(ERR_INFO,"Error allocation compression block\n");
-	    free(uncompressed);
-	    return -1;
-	}
-	
-	/*
-	err=daap_compress(uncompressed,uncompressed_len,
-			  compressed, &compressed_len);
-	*/
-
-	if(err) {
-	    DPRINTF(ERR_INFO,"Error compressing: %s\n",strerror(errno));
-	    free(uncompressed);
-	    free(compressed);
-	    return -1;
-	}
-
-	if(r_write(fd,compressed,compressed_len) != compressed_len) {
-	    DPRINTF(ERR_INFO,"Error writing compressed daap stream\n");
-	    free(uncompressed);
-	    free(compressed);
-	    return -1;
-	}
-	free(compressed);
-	free(uncompressed);
-    } else {
-	if(r_write(fd,uncompressed,uncompressed_len) != uncompressed_len) {
-	    DPRINTF(ERR_INFO,"Error writing uncompressed daap stream\n");
-	    free(uncompressed);
-	    return -1;
-	}
-	free(uncompressed);
-    }
-
-    DPRINTF(ERR_DEBUG,"Finished serializing\n");
-    return 0;
-}
-
-/*
- * daap_compress
- *
- * The zlib library is documented as threadsafe so long as
- * the zalloc and zfree routines are implemented reentrantly.
- *
- * I have no idea what platforms this will be ported to,
- * and even though I do not believe the functions I am using
- * will call zalloc or zfree, I am going to put this function
- * in a critical section.  Someone with more knowledge of zlib
- * than I can determine if it is really necessary.
- *
- * This doesn't actually do gzip encoding -- it does a full
- * gzip-style file, including header info.  This is not what
- * we want
- */
-
-/*
-int daap_compress(char *input, long in_len, char *output, long *out_len) {
-    int err;
-
-    err=compress(output,out_len,input,in_len);
-    switch(err) {
-    case Z_OK:
-	break;
-    case Z_MEM_ERROR:
-	errno=ENOMEM;
-	break;
-    case Z_BUF_ERROR:
-	errno=EINVAL;
-	break;
-    }
-
-    return (err == Z_OK ? 0 : -1);
-}
-*/
 
 /*
  * daap_free
