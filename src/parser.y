@@ -25,13 +25,17 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include "playlist.h"
 
 #define YYERROR_VERBOSE 1
 
+extern int yyerror(char *msg);
+
 /* Forwards */
 
-extern PL_NODE *pl_newpredicate(int tag, int op, char *value, int type);
+extern PL_NODE *pl_newcharpredicate(int tag, int op, char *value);
+extern PL_NODE *pl_newintpredicate(int tag, int op, int value);
 extern PL_NODE *pl_newexpr(PL_NODE *arg1, int op, PL_NODE *arg2);
 extern int pl_addplaylist(char *name, PL_NODE *root);
 
@@ -93,8 +97,8 @@ expression: expression AND expression { $$=pl_newexpr($1,$2,$3); }
 | predicate
 ;
 
-predicate: strtag strbool ID { $$=pl_newpredicate($1, $2, $3, T_STR); }
-| inttag intbool NUM { $$=pl_newpredicate($1, $2, $3, T_INT); }
+predicate: strtag strbool ID { $$=pl_newcharpredicate($1, $2, $3); }
+| inttag intbool NUM { $$=pl_newintpredicate($1, $2, $3); }
 ;
 
 inttag: YEAR
@@ -119,8 +123,7 @@ strbool: IS { $$=$1; }
 ;
 
 %%
-
-PL_NODE *pl_newpredicate(int tag, int op, char *value, int type) {
+PL_NODE *pl_newintpredicate(int tag, int op, int value) {
     PL_NODE *pnew;
 
     pnew=(PL_NODE*)malloc(sizeof(PL_NODE));
@@ -128,7 +131,21 @@ PL_NODE *pl_newpredicate(int tag, int op, char *value, int type) {
 	return NULL;
 
     pnew->op=op;
-    pnew->type=type;
+    pnew->type=T_INT;
+    pnew->arg1.ival=tag;
+    pnew->arg2.ival=value;
+    return pnew;
+}
+
+PL_NODE *pl_newcharpredicate(int tag, int op, char *value) {
+    PL_NODE *pnew;
+
+    pnew=(PL_NODE*)malloc(sizeof(PL_NODE));
+    if(!pnew)
+	return NULL;
+
+    pnew->op=op;
+    pnew->type=T_STR;
     pnew->arg1.ival=tag;
     pnew->arg2.cval=value;
     return pnew;
