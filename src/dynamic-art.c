@@ -21,14 +21,20 @@
 
 
 #include <errno.h>
+#include <fcntl.h>
 #include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fcntl.h>
 
+#include "configfile.h"
 #include "err.h"
 #include "playlist.h"
-#include "configfile.h"
+#include "restart.h"
+
 
 int *da_get_current_tag_info(int file_fd);
 
