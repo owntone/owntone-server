@@ -200,8 +200,10 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 	used=0;
 	utf8_text=NULL;
 
-	if((pid3frame->id[0] == 'T')&&(id3_field_getnstrings(&pid3frame->fields[1])))
+	if((pid3frame->id[0] == 'T')&&(id3_field_getnstrings(&pid3frame->fields[1]))) {
 	    utf8_text=id3_ucs4_utf8duplicate(id3_field_getstrings(&pid3frame->fields[1],0));
+	    MEMNOTIFY(utf8_text);
+	}
 
 	if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
 	    used=1;
@@ -225,7 +227,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 	    DPRINTF(ERR_DEBUG," Comment: %s\n",utf8_text);
 	}
 
-	if((!used) && (pid3frame->id[0]=='T') && utf8_text)
+	if((!used) && (pid3frame->id[0]=='T') && (utf8_text))
 	    free(utf8_text);
 
 	index++;
