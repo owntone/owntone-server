@@ -107,15 +107,15 @@ AC_ARG_WITH(id3tag,
 	  LDFLAGS="${LDFLAGS} -L$withval/lib"
 	fi
 ])
+AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
+ AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
+AC_CHECK_LIB(id3tag,id3_file_open,LDFLAGS="$LDFLAGS -lid3tag",echo "Must have libid3tag";exit)
 
 AC_REPLACE_FUNCS(strcasestr)
 AC_REPLACE_FUNCS(strsep)
 
-AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
-  AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
-
 AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
-AC_CHECK_LIB(id3tag,id3_file_open,LDFLAGS="$LDFLAGS -lid3tag",echo "Must have libid3tag";exit)
+
 
 dnl Checks for header files.
 AC_HEADER_STDC
