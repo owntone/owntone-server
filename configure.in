@@ -104,28 +104,14 @@ AC_ARG_WITH(id3tag,
 	fi
 ])
 
-
-
-dnl AC_CHECK_HEADERS(zlib.h,LDFLAGS="${LDFLAGS} -lz",[
-dnl  AC_MSG_ERROR([zlib.h not found... try --with-zlib=dir])])
-
 AC_REPLACE_FUNCS(strcasestr)
 AC_REPLACE_FUNCS(strsep)
-
-dnl AC_CHECK_FUNC(strcasestr,,[
-dnl 	AM_CONDITIONAL(COND_NEED_STRCASESTR,true)
-dnl 	AH_VERBATIM(NEED_STRCASESTR,[#define NEED_STRCASESTR 1])
-dnl ])
-
-dnl AC_CHECK_FUNC(strsep,,
-dnl 	AM_CONDITIONAL(COND_NEED_STRSEP,true))
-dnl	AH_VERBATIM(NEED_STRSEP,[#define NEED_STRSEP 1])
 
 AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
   AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
 
-dnl AC_CHECK_LIB(id3tag,id3_file_open,LDFLAGS="$LDFLAGS -lid3tag",echo "Must have libid3tag";exit)
-dnl AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
+AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
+AC_CHECK_LIB(id3tag,id3_file_open,LDFLAGS="$LDFLAGS -lid3tag",echo "Must have libid3tag";exit)
 
 dnl Checks for header files.
 AC_HEADER_STDC
