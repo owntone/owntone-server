@@ -63,6 +63,7 @@
 # define SIGCLD SIGCHLD
 #endif
 
+#define MAIN_SLEEP_INTERVAL  2   /* seconds to sleep before checking for shutdown/reload */
 /*
  * Globals
  */
@@ -561,6 +562,7 @@ int main(int argc, char *argv[]) {
     int reload=0;
     int start_time;
     int end_time;
+    int rescan_counter;
 
     config.use_mdns=1;
     err_debuglevel=1;
@@ -710,6 +712,14 @@ int main(int argc, char *argv[]) {
     config.stop=0;
 
     while(!config.stop) {
+	if((config.rescan_interval) && (rescan_counter > config.rescan_interval)) {
+	    if(scan_init(config.mp3dir)) {
+		DPRINTF(ERR_LOG,"Background scanning error... exiting\n");
+		config.stop=1;
+	    }
+	    rescan_counter=0;
+	}
+
 	if(config.reload) {
 	    config.reload=0;
 
@@ -719,7 +729,9 @@ int main(int argc, char *argv[]) {
 		config.stop=1;
 	    }
 	}
-	sleep(2);
+
+	sleep(MAIN_SLEEP_INTERVAL);
+	rescan_counter += MAIN_SLEEP_INTERVAL;
     }
 
     DPRINTF(ERR_LOG,"Stopping gracefully\n");
@@ -733,10 +745,8 @@ int main(int argc, char *argv[]) {
      * Need to troubleshoot it more later, but for now, we'll
      * just stop the webserver the non-graceful way. */
 
-    /*
     DPRINTF(ERR_LOG,"Stopping web server\n");
     ws_stop(server);
-    */
 
     config_close();
 
@@ -755,6 +765,11 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 
+/*
+ * write_pid_file
+ *
+ * Assumes we haven't dropped privs yet
+ */
 void write_pid_file(void)
 {
     FILE*	fp;
