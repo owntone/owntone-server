@@ -269,8 +269,16 @@ DAAP_BLOCK *daap_response_songlist(void) {
 			g = g && daap_add_int(mlit,"asdm",current->mtime); /* modified */
 		    }
 
-		    // g = g && daap_add_short(mlit,"asdc",0); /* # of discs */
-		    // g = g && daap_add_short(mlit,"asdn",0); /* disc number */
+		    if(current->total_discs) {
+			/* # of discs */
+			g = g && daap_add_short(mlit,"asdc",current->total_discs);
+		    }
+
+		    if(current->disc) {
+			/* disc number */
+			g = g && daap_add_short(mlit,"asdn",current->disc);
+		    }
+
 		    // g = g && daap_add_char(mlit,"asdk",0); /* song datakind? */
 		    // aseq - null string!
 

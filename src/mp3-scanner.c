@@ -477,6 +477,14 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 		    used=1;
 		    pmp3->comment = utf8_text;
 		    DPRINTF(ERR_DEBUG," Comment: %s\n",pmp3->comment);
+		} else if(!strcmp(pid3frame->id,"TPOS")) {
+		    tmp=(char*)utf8_text;
+		    strsep(&tmp,"/");
+		    if(tmp) {
+			pmp3->total_discs=atoi(tmp);
+		    }
+		    pmp3->disc=atoi((char*)utf8_text);
+		    DPRINTF(ERR_DEBUG," Disc %d of %d\n",pmp3->disc,pmp3->total_discs);
 		} else if(!strcmp(pid3frame->id,"TRCK")) {
 		    tmp=(char*)utf8_text;
 		    strsep(&tmp,"/");
