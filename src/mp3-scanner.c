@@ -261,9 +261,10 @@ int scan_init(char *path) {
     scan_mode_foreground=0;
     if(db_is_empty()) {
 	scan_mode_foreground=1;
-	if(db_start_initial_update()) 
-	    return -1;
     }
+
+    if(db_start_initial_update()) 
+	return -1;
 
     DPRINTF(ERR_DEBUG,"%s scanning for MP3s in %s\n",
 	    scan_mode_foreground ? "Foreground" : "Background",
@@ -271,9 +272,8 @@ int scan_init(char *path) {
 
     err=scan_path(path);
 
-    if(scan_mode_foreground)
-	if(db_end_initial_update())
-	    return -1;
+    if(db_end_initial_update())
+	return -1;
 
     scan_mode_foreground=0;
 
@@ -374,6 +374,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     fd=open(playlist_path,O_RDONLY);
     if(fd != -1) {
 	db_add_playlist(playlistid,m3u_path,0);
+	DPRINTF(ERR_DEBUG,"Added playlist as id %d\n",playlistid);
 
 	while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
 	    while((linebuffer[strlen(linebuffer)-1] == '\n') ||
@@ -397,7 +398,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 	    /* might be valid, might not... */
 	    if(!stat(m3u_path,&sb)) {
 		/* FIXME: check to see if valid inode! */
-		db_add_playlist_song(playlistid,psb->st_ino);
+		db_add_playlist_song(playlistid,sb.st_ino);
 	    } else {
 		DPRINTF(ERR_WARN,"Playlist entry %s bad: %s\n",
 			m3u_path,strerror(errno));
