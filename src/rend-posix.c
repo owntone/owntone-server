@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.17  2004/03/29 19:44:58  rpedde
+  Move mdns stuff out of mdns subdir to help compile on older automakes
+
   Revision 1.16  2004/03/08 19:21:03  rpedde
   start of background scanning
 
@@ -151,8 +154,8 @@
 
 */
 
-#include "mdns/mDNSClientAPI.h"// Defines the interface to the client layer above
-#include "mdns/mDNSPosix.h"    // Defines the specific types needed to run mDNS on this platform
+#include "mDNSClientAPI.h"// Defines the interface to the client layer above
+#include "mDNSPosix.h"    // Defines the specific types needed to run mDNS on this platform
 
 #include <assert.h>
 #include <stdio.h>			// For printf()
