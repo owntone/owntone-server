@@ -604,7 +604,7 @@ int db_get_playlist_is_smart(int playlistid) {
     if(!current) {
 	result=0;
     } else {
-	result=1;
+	result=current->is_smart;
     }
 
     pthread_rwlock_unlock(&db_rwlock);
