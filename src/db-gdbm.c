@@ -36,6 +36,7 @@
 #include "err.h"
 #include "mp3-scanner.h"
 #include "playlist.h"
+#define RB_FREE
 #include "redblack.h"
 
 
@@ -327,8 +328,8 @@ int db_end_initial_update(void) {
     for(val=rblookup(RB_LUFIRST,NULL,db_removed); val != NULL; 
 	val=rblookup(RB_LUNEXT,val,db_removed)) {
 	db_delete(*((int*)val));
-	free(val);
     }
+
     DPRINTF(ERR_DEBUG,"Done removing stale items\n");
 
     rbdestroy(db_removed);
