@@ -89,6 +89,12 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.10  2004/01/20 04:41:20  rpedde
+  merge new-rend-branch
+
+  Revision 1.9.2.1  2004/01/16 20:51:01  rpedde
+  Convert rend-posix to message-based system
+
   Revision 1.9  2004/01/04 05:02:23  rpedde
   fix segfault on dropping privs
 
@@ -143,6 +149,8 @@
 
 #define __IN_ERR__
 #include "err.h"
+#include "rend.h"
+#include "rend-unix.h"
 
 #pragma mark ***** Globals
 
@@ -549,55 +557,73 @@ static void DeregisterOurServices(void)
     }
 }
 
-#pragma mark **** Main
+/*
+ * rend_callback
+ *
+ * This is borrowed from the OSX rend client
+ */
+void rend_callback(void) {
+    REND_MESSAGE msg;
+    int result;
 
-int rend_init(pid_t *pid,char *name, int port, char *user) {
+    DPRINTF(ERR_DEBUG,"Processing rendezvous message\n");
+
+    /* here, we've seen the message, now we have to process it */
+
+    if((result=rend_read_message(&msg)) != sizeof(msg)) {
+	DPRINTF(ERR_DEBUG,"Expected %d, got %d\n",sizeof(msg),result);
+	DPRINTF(ERR_FATAL,"Error reading rendezvous message: %s\n",
+		strerror(errno));
+	exit(1);
+    }
+
+    switch(msg.cmd) {
+    case REND_MSG_TYPE_REGISTER:
+	DPRINTF(ERR_DEBUG,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
+	RegisterOneService(msg.name,msg.type,NULL,0,msg.port);
+	rend_send_response(0); /* success */
+	break;
+    case REND_MSG_TYPE_UNREGISTER:
+	rend_send_response(1); /* error */
+	break;
+    case REND_MSG_TYPE_STOP:
+	DPRINTF(ERR_INFO,"Stopping mDNS\n");
+	gStopNow = mDNStrue;
+	rend_send_response(0);
+	break;
+    case REND_MSG_TYPE_STATUS:
+	rend_send_response(1);
+	break;
+    default:
+	break;
+    }
+}
+
+
+#pragma mark **** rend_private_init
+
+int rend_private_init(char *user) {
     mStatus status;
     mDNSBool result;
-    struct passwd *pw=NULL;
 
     status = mDNS_Init(&mDNSStorage, &PlatformStorage,
 		       mDNS_Init_NoCache, mDNS_Init_ZeroCacheSize,
 		       mDNS_Init_AdvertiseLocalAddresses,
 		       mDNS_Init_NoInitCallback, mDNS_Init_NoInitCallbackContext);
-
+    
     if (status != mStatus_NoError) {
 	DPRINTF(ERR_FATAL,"mDNS Error %d\n",status);
 	return(-1);
     }
 
-    *pid=fork();
-    if(*pid) {
-	return 0;
-    }
-
-    /* drop privs */
-    if(getuid() == (uid_t)0) {
-	pw=getpwnam(user);
-	if(pw) {
-	    if(initgroups(user,pw->pw_gid) != 0 || 
-	       setgid(pw->pw_gid) != 0 ||
-	       setuid(pw->pw_uid) != 0) {
-		fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
-			user,pw->pw_gid, pw->pw_uid);
-		exit(EXIT_FAILURE);
-	    }
-	} else {
-	    fprintf(stderr,"Couldn't lookup user %s\n",user);
-	    exit(EXIT_FAILURE);
-	}
-    }
-
-
-    DPRINTF(ERR_DEBUG,"Registering tcp service\n");
-    RegisterOneService(name,"_http._tcp",NULL,0,port);
-    RegisterOneService(name,"_daap._tcp",NULL,0,port);
+    if(drop_privs(user))
+	return -1;
 
     signal(SIGINT,  HandleSigInt);      // SIGINT is what you get for a Ctrl-C
     signal(SIGQUIT, HandleSigQuit);     // SIGQUIT is what you get for a Ctrl-\ (indeed)
-    
+
     while (!gStopNow) {
-	int nfds = 0;
+	int nfds = 1;
 	fd_set readfds;
 	struct timeval timeout;
 	int result;
@@ -606,6 +632,7 @@ int rend_init(pid_t *pid,char *name, int port, char *user) {
 	// This example client has no file descriptors of its own,
 	// but a real application would call FD_SET to add them to the set here
 	FD_ZERO(&readfds);
+	FD_SET(rend_pipe_to[RD_SIDE],&readfds);
 	
 	// 2. Set up the timeout.
 	// This example client has no other work it needs to be doing,
@@ -632,6 +659,9 @@ int rend_init(pid_t *pid,char *name, int port, char *user) {
 	    // 6. This example client has no other work it needs to be doing,
 	    // but a real client would do its work here
 	    // ... (do work) ...
+	    if(FD_ISSET(rend_pipe_to[RD_SIDE],&readfds)) {
+		rend_callback();
+	    }
 	}
     }
     
@@ -650,4 +680,5 @@ int rend_init(pid_t *pid,char *name, int port, char *user) {
 
     exit(result);
 }
+
 

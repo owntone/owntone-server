@@ -22,6 +22,10 @@
 #ifndef _REND_H_
 #define _REND_H_
 
-int rend_init(pid_t *pid, char *name, int port, char *user);
+extern int rend_init(char *user);
+extern int rend_running(void);
+extern int rend_stop(void);
+extern int rend_register(char *name, char *type, int port);
+extern int rend_unregister(char *name, char *type, int port);
 
 #endif /* _REND_H_ */

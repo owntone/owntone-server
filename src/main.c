@@ -373,6 +373,39 @@ void usage(char *program) {
     printf("\n\n");
 }
 
+/*
+ * drop_privs
+ *
+ * drop privs to a specific user
+ */
+int drop_privs(char *user) {
+    int err;
+    struct passwd *pw=NULL;
+
+    /* drop privs */
+    if(getuid() == (uid_t)0) {
+	pw=getpwnam(config.runas);
+	if(pw) {
+	    if(initgroups(user,pw->pw_gid) != 0 || 
+	       setgid(pw->pw_gid) != 0 ||
+	       setuid(pw->pw_uid) != 0) {
+		err=errno;
+		fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
+			user,pw->pw_gid, pw->pw_uid);
+		errno=err;
+		return -1;
+	    }
+	} else {
+	    err=errno;
+	    fprintf(stderr,"Couldn't lookup user %s\n",user);
+	    errno=err;
+	    return -1;
+	}
+    }
+
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     int option;
     char *configfile=DEFAULT_CONFIGFILE;
@@ -384,7 +417,6 @@ int main(int argc, char *argv[]) {
     int parseonly=0;
     int foreground=0;
     config.use_mdns=1;
-    struct passwd *pw=NULL;
 
 #ifdef DEBUG
     char *optval="d:c:mpf";
@@ -443,24 +475,16 @@ int main(int argc, char *argv[]) {
 
     if((config.use_mdns) && (!parseonly)) {
 	fprintf(stderr,"Starting rendezvous daemon\n");
-	rend_init(&config.rend_pid,config.servername, config.port, config.runas);
-    }
-
-    /* drop privs */
-    if(getuid() == (uid_t)0) {
-	pw=getpwnam(config.runas);
-	if(pw) {
-	    if(initgroups(config.runas,pw->pw_gid) != 0 || 
-	       setgid(pw->pw_gid) != 0 ||
-	       setuid(pw->pw_uid) != 0) {
-		fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
-			config.runas,pw->pw_gid, pw->pw_uid);
-		exit(EXIT_FAILURE);
-	    }
-	} else {
-	    fprintf(stderr,"Couldn't lookup user %s\n",config.runas);
+	if(rend_init(config.runas)) {
+	    perror("rend_init");
 	    exit(EXIT_FAILURE);
 	}
+    }
+
+    // Drop privs here
+    if(drop_privs(config.runas)) {
+	perror("drop_privs");
+	exit(EXIT_FAILURE);
     }
 
     DPRINTF(ERR_DEBUG,"Initializing database\n");
@@ -512,6 +536,12 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(server,"^/logout$",daap_handler,daap_auth,0);
     ws_registerhandler(server,"^/databases/.*",daap_handler,daap_auth,0);
 
+    if(config.use_mdns) { /* register services */
+	DPRINTF(ERR_DEBUG,"Registering rendezvous names\n");
+	rend_register(config.servername,"_daap._tcp",config.port);
+	rend_register(config.servername,"_http._tcp",config.port);
+    }
+
     config.stop=0;
 
     while(!config.stop)
@@ -519,8 +549,7 @@ int main(int argc, char *argv[]) {
 
     if(config.use_mdns) {
 	if(foreground) fprintf(stderr,"Killing rendezvous daemon\n");
-	kill(config.rend_pid,SIGINT);
-	wait(&status);
+	rend_stop();
     }
 
     if(foreground) fprintf(stderr,"Stopping webserver\n");

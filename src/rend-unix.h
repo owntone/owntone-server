@@ -1,6 +1,6 @@
 /*
  * $Id$
- * Functions for reading and writing the config file
+ * General unix rendezvous routines
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
  *
@@ -19,18 +19,33 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef _CONFIGFILE_H_
-#define _CONFIGFILE_H_
+#ifndef _REND_UNIX_H_
+#define _REND_UNIX_H_
 
-#include "daapd.h"
-#include "webserver.h"
+#define MAX_NAME_LEN 256
 
-extern int config_read(char *file);
-extern int config_write(WS_CONNINFO *pwsc);
-extern int config_auth(char *user, char *password);
-extern void config_handler(WS_CONNINFO *pwsc);
-extern void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...);
-extern int config_get_next_session(void);
-extern void config_close(void);
+typedef struct tag_rend_message {
+    int cmd;
+    int port;
+    char name[MAX_NAME_LEN];
+    char type[MAX_NAME_LEN];
+} REND_MESSAGE;
 
-#endif /* _CONFIGFILE_H_ */
+#define REND_MSG_TYPE_REGISTER     0
+#define REND_MSG_TYPE_UNREGISTER   1
+#define REND_MSG_TYPE_STOP         2
+#define REND_MSG_TYPE_STATUS       3
+
+#define RD_SIDE 0
+#define WR_SIDE 1
+
+extern int rend_pipe_to[2];
+extern int rend_pipe_from[2];
+
+extern int rend_send_message(REND_MESSAGE *pmsg);
+extern int rend_send_response(int value);
+extern int rend_private_init(char *user);
+extern int rend_read_message(REND_MESSAGE *pmsg);
+
+#endif /* _REND_UNIX_H_ */
+

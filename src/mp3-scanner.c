@@ -261,7 +261,7 @@ int scan_init(char *path) {
 int scan_foreground(char *path) {
     MP3FILE mp3file;
     DIR *current_dir;
-    struct dirent de;
+    char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* overcommit for solaris */
     struct dirent *pde;
     int err;
     char mp3_path[PATH_MAX];
@@ -276,9 +276,9 @@ int scan_foreground(char *path) {
     }
 
     while(1) {
-	pde=&de;
+	pde=(struct dirent *)&de;
 
-	err=readdir_r(current_dir,&de,&pde);
+	err=readdir_r(current_dir,(struct dirent *)de,&pde);
 	if(err == -1) {
 	    DPRINTF(ERR_DEBUG,"Error on readdir_r: %s\n",strerror(errno));
 	    err=errno;
@@ -290,28 +290,28 @@ int scan_foreground(char *path) {
 	if(!pde)
 	    break;
 	
-	if(de.d_name[0] == '.') /* skip hidden and directories */
+	if(pde->d_name[0] == '.') /* skip hidden and directories */
 	    continue;
 
-	sprintf(mp3_path,"%s/%s",path,de.d_name);
+	sprintf(mp3_path,"%s/%s",path,pde->d_name);
 	DPRINTF(ERR_DEBUG,"Found %s\n",mp3_path);
 	if(stat(mp3_path,&sb)) {
 	    DPRINTF(ERR_WARN,"Error statting: %s\n",strerror(errno));
 	}
 
 	if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
-	    DPRINTF(ERR_DEBUG,"Found dir %s... recursing\n",de.d_name);
+	    DPRINTF(ERR_DEBUG,"Found dir %s... recursing\n",pde->d_name);
 	    scan_foreground(mp3_path);
 	} else {
 	    DPRINTF(ERR_DEBUG,"Processing file\n");
 	    /* process the file */
-	    if(strlen(de.d_name) > 4) {
-		if(strcasecmp(".m3u",(char*)&de.d_name[strlen(de.d_name) - 4]) == 0) {
+	    if(strlen(pde->d_name) > 4) {
+		if(strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) {
 		    /* we found an m3u file */
 
-		    DPRINTF(ERR_DEBUG,"Found m3u: %s\n",de.d_name);
-		    strcpy(m3u_path,de.d_name);
-		    m3u_path[strlen(de.d_name) - 4] = '\0';
+		    DPRINTF(ERR_DEBUG,"Found m3u: %s\n",pde->d_name);
+		    strcpy(m3u_path,pde->d_name);
+		    m3u_path[strlen(pde->d_name) - 4] = '\0';
 		    playlistid=sb.st_ino;
 		    fd=open(mp3_path,O_RDONLY);
 		    if(fd != -1) {
@@ -344,13 +344,13 @@ int scan_foreground(char *path) {
 			}
 			close(fd);
 		    }
-		} else if(strcasecmp(".mp3",(char*)&de.d_name[strlen(de.d_name) - 4]) == 0) {
+		} else if(strcasecmp(".mp3",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) {
 		    /* we found an mp3 file */
-		    DPRINTF(ERR_DEBUG,"Found mp3: %s\n",de.d_name);
+		    DPRINTF(ERR_DEBUG,"Found mp3: %s\n",pde->d_name);
 
 		    memset((void*)&mp3file,0,sizeof(mp3file));
 		    mp3file.path=mp3_path;
-		    mp3file.fname=de.d_name;
+		    mp3file.fname=pde->d_name;
 
 #ifdef MAC /* wtf is this about? */
 		    mp3file.mtime=sb.st_mtimespec.tv_sec;
@@ -371,7 +371,7 @@ int scan_foreground(char *path) {
 			db_add(&mp3file);
 			pl_eval(&mp3file);
 		    } else {
-			DPRINTF(ERR_INFO,"Skipping %s\n",de.d_name);
+			DPRINTF(ERR_INFO,"Skipping %s\n",pde->d_name);
 		    }
 		    
 		    scan_freetags(&mp3file);

@@ -26,9 +26,17 @@
 #include <sys/types.h>
 #include <rendezvous/rendezvous.h>
 #include <salt/log.h>
-
+#include <pthread.h>
 
 #include "err.h"
+#include "rend-unix.h"
+
+pthread_t rend_tid;
+sw_rendezvous rend_handle;
+
+/* Forwards */
+void *rend_pipe_monitor(void* arg);
+void rend_callback(void);
 
 /*
  * rend_howl_reply
@@ -53,57 +61,113 @@ static sw_result rend_howl_reply(sw_rendezvous_publish_handler handler,
 
 
 /*
- * public interface
+ * rend_private_init
+ *
+ * Initialize howl and start runloop
  */
-int rend_init(pid_t *pid, char *name, int port, char *user) {
-    sw_rendezvous rendezvous;
+int rend_private_init(char *user) {
     sw_result result;
-    sw_rendezvous_publish_id daap_id;
-    sw_rendezvous_publish_id http_id;
-    struct passwd *pw=NULL;
-
-    /* drop privs */
-    if(getuid() == (uid_t)0) {
-	pw=getpwnam(user);
-	if(pw) {
-	    if(initgroups(user,pw->pw_gid) != 0 || 
-	       setgid(pw->pw_gid) != 0 ||
-	       setuid(pw->pw_uid) != 0) {
-		fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
-			user,pw->pw_gid, pw->pw_uid);
-		exit(EXIT_FAILURE);
-	    }
-	} else {
-	    fprintf(stderr,"Couldn't lookup user %s\n",user);
-	    exit(EXIT_FAILURE);
-	}
-    }
-
     
-    if(sw_rendezvous_init(&rendezvous) != SW_OKAY) {
+    DPRINTF(ERR_DEBUG,"Starting rendezvous services\n");
+
+    if(sw_rendezvous_init(&rend_handle) != SW_OKAY) {
 	DPRINTF(ERR_WARN,"Error initializing rendezvous\n");
 	errno=EINVAL;
 	return -1;
     }
 
-    if((result=sw_rendezvous_publish(rendezvous,name,"_daap._tcp",NULL,NULL,port,NULL,NULL,
-				     rend_howl_reply,NULL,&daap_id)) != SW_OKAY) {
-	DPRINTF(ERR_WARN,"Error registering DAAP server via mDNS: %d\n",result);
+    if(drop_privs(user)) 
 	return -1;
-    }
 
-    if((result=sw_rendezvous_publish(rendezvous,name,"_http._tcp",NULL,NULL,port,NULL,NULL,
-				     rend_howl_reply,NULL,&http_id)) != SW_OKAY) {
-	DPRINTF(ERR_WARN,"Error registering HTTP server via mDNS: %d\n",result);
-	return -1;
-    }
+    DPRINTF(ERR_DEBUG,"Starting polling thread\n");
     
-    *pid=fork();
-    if(*pid) {
-	return 0;
+    if(pthread_create(&rend_tid,NULL,rend_pipe_monitor,NULL)) {
+	DPRINTF(ERR_FATAL,"Could not start thread.  Terminating\n");
+	/* should kill parent, too */
+	exit(EXIT_FAILURE);
     }
 
-    DPRINTF(ERR_DEBUG,"Registered rendezvous services\n");
-    sw_rendezvous_run(rendezvous);
+    DPRINTF(ERR_DEBUG,"Entering runloop\n");
+
+    sw_rendezvous_run(rend_handle);
+
+    DPRINTF(ERR_DEBUG,"Exiting runloop\n");
+
     return 0;
+}
+
+/*
+ * rend_pipe_monitor
+ */
+void *rend_pipe_monitor(void* arg) {
+    fd_set rset;
+    struct timeval tv;
+    int result;
+
+    while(1) {
+	DPRINTF(ERR_DEBUG,"Waiting for data\n");
+	FD_ZERO(&rset);
+	FD_SET(rend_pipe_to[RD_SIDE],&rset);
+
+	/* sit in a select spin until there is data on the to fd */
+	while(((result=select(rend_pipe_to[RD_SIDE] + 1,&rset,NULL,NULL,NULL)) != -1) &&
+	    errno != EINTR) {
+	    if(FD_ISSET(rend_pipe_to[RD_SIDE],&rset)) {
+		DPRINTF(ERR_DEBUG,"Received a message from daap server\n");
+		rend_callback();
+	    }
+	}
+
+	DPRINTF(ERR_DEBUG,"Select error!\n");
+	/* should really bail here */
+    }
+}
+
+
+/*
+ * rend_callback
+ *
+ * This gets called from the main thread when there is a 
+ * message waiting to be processed.
+ */
+void rend_callback(void) {
+    REND_MESSAGE msg;
+    sw_rendezvous_publish_id rend_id;
+    sw_result result;
+
+    /* here, we've seen the message, now we have to process it */
+
+    if(rend_read_message(&msg) != sizeof(msg)) {
+	DPRINTF(ERR_FATAL,"Error reading rendezvous message\n");
+	exit(EXIT_FAILURE);
+    }
+
+    switch(msg.cmd) {
+    case REND_MSG_TYPE_REGISTER:
+	DPRINTF(ERR_DEBUG,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
+	if((result=sw_rendezvous_publish(rend_handle,msg.name,msg.type,NULL,NULL,msg.port,NULL,0,
+					 NULL,rend_howl_reply,NULL,&rend_id)) != SW_OKAY) {
+	    DPRINTF(ERR_WARN,"Error registering name\n");
+	    rend_send_response(-1);
+	} else {
+	    rend_send_response(0); /* success */
+	}
+	break;
+    case REND_MSG_TYPE_UNREGISTER:
+	DPRINTF(ERR_WARN,"Unsupported function: UNREGISTER\n");
+	rend_send_response(-1); /* error */
+	break;
+    case REND_MSG_TYPE_STOP:
+	DPRINTF(ERR_DEBUG,"Stopping mDNS\n");
+	rend_send_response(0);
+	//sw_rendezvous_stop_publish(rend_handle);
+	sw_rendezvous_fina(rend_handle);
+	break;
+    case REND_MSG_TYPE_STATUS:
+	DPRINTF(ERR_DEBUG,"Status inquiry -- returning 0\n");
+	rend_send_response(0); /* success */
+	break;
+    default:
+	break;
+    }
 }

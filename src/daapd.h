@@ -30,7 +30,6 @@ typedef struct tag_songentry {
 } SONGENTRY;
 
 typedef struct tag_config {
-    pid_t rend_pid;
     int use_mdns;
     int stop;
     char *configfile;
@@ -47,5 +46,8 @@ typedef struct tag_config {
 } CONFIG;
 
 extern CONFIG config;
+
+/* Forwards */
+extern drop_privs(char *user);
 
 #endif /* _DAAPD_H_ */

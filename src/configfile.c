@@ -32,6 +32,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
 
@@ -51,7 +52,9 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
+int config_file_is_readonly(void);
 int config_mutex_lock(void);
 int config_mutex_unlock(void);
 
@@ -89,6 +92,7 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"session-count",(void*)NULL,config_emit_session_count },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"service-status",(void*)NULL,config_emit_service_status },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"user",(void*)NULL,config_emit_user },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"readonly",(void*)NULL,config_emit_readonly },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -240,7 +244,7 @@ void config_close(void) {
     pce=config_elements;
     err=0;
     while((pce->config_element != -1)) {
-	if((pce->config_element) && (pce->type == CONFIG_TYPE_STRING)) 
+	if((pce->config_element) && (pce->type == CONFIG_TYPE_STRING) && (*((char**)pce->var))) 
 	    free(*((char**)pce->var));
 	pce++;
     }
@@ -250,7 +254,32 @@ void config_close(void) {
  * config_write
  *
  */
-int config_write(CONFIG *pconfig) {
+int config_write(WS_CONNINFO *pwsc) {
+    FILE *configfile;
+    char ctime_buf[27];
+    time_t now;
+
+    configfile=fopen(config.configfile,"w");
+    if(!configfile)
+	return -1;
+
+    now=time(NULL);
+    ctime_r(&now,ctime_buf);
+    fprintf(configfile,"#\n# mt-daapd.conf\n#\n");
+    fprintf(configfile,"# Edited: %s",ctime_buf);
+    fprintf(configfile,"# By:     %s\n",ws_getvar(pwsc,"HTTP_USER"));
+    fprintf(configfile,"#\n");
+
+    fprintf(configfile,"web_root\t%s\n",ws_getvar(pwsc,"web_root"));
+    fprintf(configfile,"port\t\t%s\n",ws_getvar(pwsc,"port"));
+    fprintf(configfile,"admin_pw\t%s\n",ws_getvar(pwsc,"admin_pw"));
+    fprintf(configfile,"mp3_dir\t\t%s\n",ws_getvar(pwsc,"mp3_dir"));
+    fprintf(configfile,"servername\t%s\n",ws_getvar(pwsc,"servername"));
+    fprintf(configfile,"runas\t\t%s\n",ws_getvar(pwsc,"runas"));
+    fprintf(configfile,"playlist\t%s\n",ws_getvar(pwsc,"playlist"));
+    fprintf(configfile,"password\t%s\n",ws_getvar(pwsc,"password"));
+
+    fclose(configfile);
     return 0;
 }
 
@@ -377,22 +406,30 @@ void config_handler(WS_CONNINFO *pwsc) {
     
     if(strcasecmp(pwsc->uri,"/config-update.html")==0) {
 	/* we need to update stuff */
-	pw=ws_getvar(pwsc,"adminpw");
+	pw=ws_getvar(pwsc,"admin_pw");
 	if(pw) {
 	    if(config.adminpassword)
 		free(config.adminpassword);
 	    config.adminpassword=strdup(pw);
 	}
 
+	pw=ws_getvar(pwsc,"password");
+	if(pw) {
+	    if(config.readpassword)
+		free(config.readpassword);
+	    config.readpassword=strdup(pw);
+	}
+
+	if(!config_file_is_readonly()) {
+	    DPRINTF(ERR_INFO,"Updating config file\n");
+	    config_write(pwsc);
+	}
+
+
 	pw=ws_getvar(pwsc,"action");
 	if(pw) {
-	    if(strcasecmp(pw,"stopmdns")==0) {
-		DPRINTF(ERR_INFO,"Stopping rendezvous daemon\n");
-		kill(config.rend_pid,SIGINT);
-		wait(&status);
-	    } else if (strcasecmp(pw,"startmdns")==0) {
-		rend_init(&config.rend_pid,config.servername, config.port);
-	    } else if (strcasecmp(pw,"stopdaap")==0) {
+	    /* ignore stopmdns and startmdns */
+	    if (strcasecmp(pw,"stopdaap")==0) {
 		config.stop=1;
 	    }
 	}
@@ -426,7 +463,8 @@ int config_auth(char *user, char *password) {
  * write a simple string value to the connection
  */
 void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg) {
-    ws_writefd(pwsc,"%s",*((char**)value));
+    if(*((char**)value))
+	ws_writefd(pwsc,"%s",*((char**)value));
 }
 
 /*
@@ -464,10 +502,8 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
 
     ws_writefd(pwsc,"<TR><TD>Rendezvous</TD>");
     if(config.use_mdns) {
-	mdns_running=1;
-	err=waitpid(config.rend_pid,&status,WNOHANG);
-	if(err == -1)
-	    mdns_running=0;
+	mdns_running=!rend_running();
+
 	if(mdns_running) {
 	    html="<a href=\"config-update.html?action=stopmdns\">Stop MDNS responder</a>";
 	} else {
@@ -620,6 +656,33 @@ void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg) {
 	ws_writefd(pwsc,"%s",ws_getvar(pwsc, "HTTP_USER"));
     }
     return;
+}
+
+/*
+ * config_file_is_readonly
+ *
+ * See if the configfile is writable or not
+ */
+int config_file_is_readonly(void) {
+    FILE *fin;
+
+    fin=fopen(config.configfile,"r+");
+    if(!fin) {
+	return 1;
+    }
+
+    fclose(fin);
+    return 0;
+}
+
+/*
+ * config_emit_readonly
+ *
+ */
+void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg) {
+    if(config_file_is_readonly()) {
+	ws_writefd(pwsc,"READONLY");
+    }
 }
 
 /*
