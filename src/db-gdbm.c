@@ -787,11 +787,21 @@ void db_freefile(MP3FILE *pmp3) {
  * this should be done quickly, as we'll be holding
  * a reader lock on the db
  */
+static int nullstrcmp(const char* a, const char* b)
+{
+    if(a == 0)
+	return b == 0 ? 1 : 0;
+    if(b == 0)
+	return -1;
+
+    return strcmp(a, b);
+}
+
 int compare(MP3RECORD* a, MP3RECORD* b)
 {
     int	comp;
 
-    if((comp = strcmp(a->mp3file.album, b->mp3file.album)) != 0)
+    if((comp = nullstrcmp(a->mp3file.album, b->mp3file.album)) != 0)
 	return comp;
 
     if((comp = (a->mp3file.disc - b->mp3file.disc)) != 0)
