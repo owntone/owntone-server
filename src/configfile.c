@@ -240,6 +240,13 @@ int config_read(char *file) {
     if((fin=fopen(file,"r")) == NULL) {
 	err=errno;
 	free(buffer);
+
+	if(ENOENT == err) {
+	    DPRINTF(E_LOG,L_CONF,"Whoops!  Can't find the config file!  If you are running this for the first\n");
+	    DPRINTF(E_LOG,L_CONF,"time, then perhaps you've forgotten to copy the sample config in the \n");
+	    DPRINTF(E_LOG,L_CONF,"contrib directory into /etc/mt-daapd.conf.  Just a suggestion...\n\n");
+	}
+
 	errno=err;
 	return -1;
     }
@@ -398,8 +405,10 @@ int config_read(char *file) {
     if(!strncmp(ZLIB_VERSION,"0.",2) ||
        !strncmp(ZLIB_VERSION,"1.0",3) ||
        !strncmp(ZLIB_VERSION,"1.1",3)) {
-	config.compress=0;
-	DPRINTF(E_LOG,L_CONF,"Must have zlib > 1.2.0 to use gzip content encoding.  You have %s.  Sucks, huh?\n",ZLIB_VERSION);
+	if(config.compress) {
+	    config.compress=0;
+	    DPRINTF(E_LOG,L_CONF,"Must have zlib > 1.2.0 to use gzip content encoding.  You have %s.  Disabling.\n",ZLIB_VERSION);
+	}
     }
 
     return err;
