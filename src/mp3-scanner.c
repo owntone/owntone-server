@@ -976,7 +976,7 @@ int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
 
     /* dispatch to appropriate tag handler */
     for(hdl = taghandlers ; hdl->suffix ; ++hdl)
-	if(!strcmp(hdl->suffix, pmp3->type))
+	if(!strcasecmp(hdl->suffix, pmp3->type))
 	    break;
 
     if(hdl->files)
