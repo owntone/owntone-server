@@ -140,7 +140,7 @@ AC_ARG_WITH(id3tag,
 	fi
 ])
 
-
+AC_CHECK_HEADERS(getopt.h,,)
 AC_CHECK_HEADERS(gdbm.h,, [
  AC_MSG_ERROR([gdbm.h not found... try --with-gdbm-includes=dir])])
 AC_CHECK_LIB(gdbm,gdbm_open,echo "Have gdbm", echo "Must have gdbm";exit)
@@ -170,36 +170,34 @@ else
 fi
 CFLAGS=$oldcflags
 
-echo USE_OGGVORBIS is $use_oggvorbis
-
 if test x$use_oggvorbis = xtrue; then
   AC_CHECK_HEADERS(ogg/ogg.h,, [
    AC_MSG_ERROR([ogg/ogg.h not found... Must have libogg installed for Ogg/Vorbis support])])
-  AC_CHECK_LIB(ogg,ogg_sync_init,echo "Have ogg",echo "Must have libogg for Ogg/Vorbis support";exit)
+  AC_CHECK_LIB(ogg,ogg_sync_init,,echo "Must have libogg for Ogg/Vorbis support";exit)
 
   if test x"$STATIC_LIBS" != x"no"; then
     LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libogg.a"
-    echo "Adding static libogg"
   else
     LDFLAGS="${LDFLAGS} -logg"
-    echo "Adding dynamic libogg"
   fi
 
   AC_CHECK_HEADERS(vorbis/codec.h,, [
    AC_MSG_ERROR([vorbis/codec.h not found... Must have libvorbis installed for Ogg/Vorbis support])])
-  AC_CHECK_LIB(vorbis,vorbis_info_init,echo "Have vorbis",echo "Must have libvorbis for Ogg/Vorbis support";exit)
-  AC_CHECK_LIB(vorbisfile,ov_open,echo "Have vorbisfile",echo "Must have libvorbisfile for Ogg/Vorbis support";exit)
+  AC_CHECK_LIB(vorbis,vorbis_info_init,,echo "Must have libvorbis for Ogg/Vorbis support";exit)
 
   if test x"$STATIC_LIBS" != x"no"; then
-    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libvorbis.a ${STATIC_LIBS}/libvorbisfile.a"
-    echo "Adding static libvorbis"
+    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libvorbis.a"
   else
-    LDFLAGS="${LDFLAGS} -lvorbis -lvorbisfile"
-    echo "Adding dynamic libvorbis"
+    LDFLAGS="${LDFLAGS} -lvorbis"
+  fi
+
+  AC_CHECK_LIB(vorbisfile,ov_open,,echo "Must have libvorbisfile for Ogg/Vorbis support";exit)
+  if test x"$STATIC_LIBS" != x"no"; then
+    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libvorbisfile.a"
+  else
+    LDFLAGS="${LDFLAGS} -lvorbisfile"
   fi
 fi
-
-echo USE_FLAC is $use_flac
 
 if test x$use_flac = xtrue; then
   AC_CHECK_HEADERS(FLAC/metadata.h,, [
@@ -208,10 +206,8 @@ if test x$use_flac = xtrue; then
 
   if test x"$STATIC_LIBS" != x"no"; then
     LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libFLAC.a"
-    echo "Adding static libFLAC"
   else
     LDFLAGS="${LDFLAGS} -lFLAC"
-    echo "Adding dynamic libFLAC"
   fi
 fi
 
