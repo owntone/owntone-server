@@ -332,6 +332,11 @@ int main(int argc, char *argv[]) {
 	}
     }
 
+    if(config.use_mdns) {
+	fprintf(stderr,"Starting rendezvous daemon\n");
+	rend_init(&config.rend_pid,config.servername, config.port);
+    }
+
     DPRINTF(ERR_DEBUG,"Initializing database\n");
 
     /* Initialize the database before starting */
@@ -370,11 +375,6 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(server,"^/databases$",daap_handler,NULL,0);
     ws_registerhandler(server,"^/logout$",daap_handler,NULL,0);
     ws_registerhandler(server,"^/databases/.*",daap_handler,NULL,0);
-
-    if(config.use_mdns) {
-	fprintf(stderr,"Starting rendezvous daemon\n");
-	rend_init(&config.rend_pid,config.servername, config.port);
-    }
 
     config.stop=0;
 
