@@ -473,7 +473,7 @@ int main(int argc, char *argv[]) {
     DPRINTF(ERR_DEBUG,"Initializing database\n");
 
     /* Initialize the database before starting */
-    if(db_init("none")) {
+    if(db_init(config.dbdir)) {
 	perror("db_init");
 	exit(EXIT_FAILURE);
     }
