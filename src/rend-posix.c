@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.11  2004/02/09 18:33:59  rpedde
+  Pretty up
+
   Revision 1.10  2004/01/20 04:41:20  rpedde
   merge new-rend-branch
 
@@ -347,71 +350,6 @@ static mDNSu8      gServiceText[sizeof(RDataBody)];
 static mDNSu16     gServiceTextLen   = 0;
 static        int  gPortNumber       = kDefaultPortNumber;
 
-/*
-static void ParseArguments(int argc, char **argv)
-// Parses our command line arguments into the global variables 
-// listed above.
-{
-    int ch;
-    
-    // Parse command line options using getopt.
-    
-    do {
-        ch = getopt(argc, argv, "v:rn:x:t:p:f:dP");
-        if (ch != -1) {
-            switch (ch) {
-		break;
-	    case 'r':
-		gAvoidPort53 = mDNSfalse;
-		break;
-	    case 'n':
-		gRichTextHostName = optarg;
-		if ( ! CheckThatRichTextHostNameIsUsable(gRichTextHostName) ) {
-		    exit(1);
-		}
-		break;
-	    case 't':
-		gServiceType = optarg;
-		if ( ! CheckThatServiceTypeIsUsable(gServiceType) ) {
-		    exit(1);
-		}
-		break;
-	    case 'x':
-		if ( ! CheckThatServiceTextIsUsable(optarg, gServiceText, &gServiceTextLen) ) {
-		    exit(1);
-		}
-		break;
-	    case 'p':
-		gPortNumber = atol(optarg);
-		if ( ! CheckThatPortNumberIsUsable(gPortNumber) ) {
-		    exit(1);
-		}
-		break;
-	    case '?':
-	    default:
-		PrintUsage(argv);
-		exit(1);
-		break;
-            }
-        }
-    } while (ch != -1);
-
-    // Check for any left over command line arguments.
-    
-    if (optind != argc) {
-        fprintf(stderr, "%s: Unexpected argument '%s'\n", gProgramName, argv[optind]);
-        exit(1);
-    }
-    
-    // Check for inconsistency between the arguments.
-    
-    if ( (gRichTextHostName[0] == 0) && (gServiceFile[0] == 0) ) {
-        fprintf(stderr, "%s: You must specify a service to register (-n) or a service file (-f).\n", gProgramName);
-        exit(1);
-    }
-}
-*/
-
 #pragma mark ***** Registration
 
 typedef struct PosixService PosixService;
@@ -565,16 +503,18 @@ static void DeregisterOurServices(void)
 void rend_callback(void) {
     REND_MESSAGE msg;
     int result;
+    int err;
 
     DPRINTF(ERR_DEBUG,"Processing rendezvous message\n");
 
     /* here, we've seen the message, now we have to process it */
 
     if((result=rend_read_message(&msg)) != sizeof(msg)) {
+	err=errno;
 	DPRINTF(ERR_DEBUG,"Expected %d, got %d\n",sizeof(msg),result);
-	DPRINTF(ERR_FATAL,"Error reading rendezvous message: %s\n",
-		strerror(errno));
-	exit(1);
+	DPRINTF(ERR_FATAL,"Rendezvous pipe closed... Exiting\n");
+	gStopNow=mDNStrue;
+	return;
     }
 
     switch(msg.cmd) {
