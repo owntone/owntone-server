@@ -1,3 +1,8 @@
+2004-04-04  Ron Pedde  <ron@mac-laptop.dynamic.pedde.com>
+
+	* src/mp3-scanner.c: add support for MPEG v 2 and 2.5.  Feature
+	request #916151
+
 2004-03-13  Ron Pedde  <ron@pedde.com>
 
 	* src/mp3-scanner.c: fix static playlists - untracked bug
