@@ -693,7 +693,6 @@ int main(int argc, char *argv[]) {
 		usage(argv[0]);
 		exit(-1);
 	    }
-	    exit(0);
 	    break;
 	case 'f':
 	    foreground=1;
