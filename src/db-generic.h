@@ -38,7 +38,7 @@ typedef enum {
     // song meta data
     metaSongAlbum = firstTypeSpecificMetaId,
     metaSongArtist,
-    metaSongBPM,		/* beats per minute */
+    metaSongBPM,
     metaSongBitRate,
     metaSongComment,
     metaSongCompilation,
@@ -105,10 +105,9 @@ typedef struct tag_dbqueryinfo {
     char *whereclause;
 } DBQUERYINFO;
 
-typedef struct
-{
-    const char*		tag;
-    MetaFieldName_t	bit;
+typedef struct {
+    const char*	tag;
+    MetaFieldName_t bit;
 } METAMAP;
 
 typedef struct tag_daap_items {

@@ -40,9 +40,9 @@ typedef enum
 typedef struct query_field_ query_field_t;
 struct query_field_
 {
-    query_type_t	type;
-    const char*		name;
-    int			offset;
+    query_type_t type;
+    const char*	name;
+    const char* fieldname;
 };
 
 typedef struct query_node_ query_node_t;
@@ -62,10 +62,6 @@ struct query_node_
     }				right;
 };
 
-query_node_t*		query_build(const char* query, 
-				    const query_field_t* fields);
-int			query_test(query_node_t* query, void* target);
-void			query_free(query_node_t* query);
-void			query_dump(FILE* fp, query_node_t* query, int depth);
+extern char *query_build_sql(char *query);
 
 #endif

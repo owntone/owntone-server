@@ -488,6 +488,8 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
     if(pinfo->whereclause) {
 	if(have_clause)
 	    strcat(query_rest," AND ");
+	else
+	    strcpy(query_rest," WHERE ");
 
 	strcat(query_rest,"(");
 	strcat(query_rest,pinfo->whereclause);
@@ -628,7 +630,6 @@ int db_sqlite_enum_fetch(DBQUERYINFO *pinfo, unsigned char **pdmap) {
 	    if(!presult)
 		return 0;
 	    db_sqlite_build_dmap(pinfo,(char**)valarray,presult,result_size);
-	    DPRINTF(E_DBG,L_DB,"Building response for %s (size %d)\n",valarray[3],result_size);
 	    *pdmap = presult;
 	    return result_size;
 	}

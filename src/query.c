@@ -4,55 +4,109 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <ctype.h>
 
+#include "db-generic.h"
 #include "err.h"
 #include "query.h"
 
-static const query_field_t* find_field(const char* name, 
-				       const query_field_t* fields);
-static int arith_query(query_node_t* query, void* target);
-static int string_query(query_node_t* query, void* target);
+static query_node_t* query_build(const char* query);
+static void query_free(query_node_t* query);
+static int query_build_clause(query_node_t *query, char **current, int *size); 
 
-static query_node_t*	match_specifier(const char* query,
-					const char** cursor,
-					const query_field_t* fields);
-static query_node_t*	group_match(const char* query,
-				    const char** cursor,
-				    const query_field_t* fields);
-static query_node_t*	single_match(const char* query,
+static const query_field_t *find_field(const char* name, 
+				       const query_field_t* fields);
+// static int arith_query(query_node_t* query, void* target);
+// static int string_query(query_node_t* query, void* target);
+
+static query_node_t *match_specifier(const char* query,
 				     const char** cursor,
 				     const query_field_t* fields);
-static int		get_field_name(const char** pcursor,
-				       const char* query, 
-				       char* name, 
-				       int len);
-/*
-static int		get_opcode(const char** pcursor,
-				   const char* query, 
-				   char* name, 
-				   int len);
-*/
-static query_node_t*	match_number(const query_field_t* field, 
-				     char not, char opcode,
-				     const char** pcursor, 
-				     const char* query);
-static query_node_t*	match_string(const query_field_t* field, 
-				     char not, char opcode,
-				     const char** pcursor, 
-				     const char* query);
-char*			query_unescape(const char* query);
 
-query_node_t* query_build(const char* query, const query_field_t* fields)
-{
+static query_node_t *group_match(const char* query,
+				 const char** cursor,
+				 const query_field_t* fields);
+
+static query_node_t *single_match(const char* query,
+				  const char** cursor,
+				  const query_field_t* fields);
+
+static int get_field_name(const char** pcursor,
+			  const char* query, 
+			  char* name, 
+			  int len);
+
+static query_node_t *match_number(const query_field_t* field, 
+				  char not, char opcode,
+				  const char** pcursor, 
+				  const char* query);
+
+static query_node_t *match_string(const query_field_t* field, 
+				  char not, char opcode,
+				  const char** pcursor, 
+				  const char* query);
+
+char *query_unescape(const char* query);
+
+static char *query_lookup_name(char *name);
+
+
+static query_field_t	song_fields[] = {
+    { qft_string,	"dmap.itemname",	"title" },
+    { qft_i32,		"dmap.itemid",		"id" },
+    { qft_string,	"daap.songalbum",	"album" },
+    { qft_string,	"daap.songartist",	"artist" },
+    { qft_i32,		"daap.songbitrate",     "bitrate" },
+    { qft_string,	"daap.songcomment",	"comment" },
+    { qft_i32,  	"daap.songcompilation",	"compilation" },
+    { qft_string,	"daap.songcomposer",	"composer" },
+    { qft_i32,  	"daap.songdatakind",    "data_kind" },
+    { qft_string,	"daap.songdataurl",	"url" },
+    { qft_i32,		"daap.songdateadded",	"time_added" },
+    { qft_i32,		"daap.songdatemodified","time_modified" },
+    { qft_string,	"daap.songdescription",	"description" },
+    { qft_i32,		"daap.songdisccount",	"total_discs" },
+    { qft_i32,		"daap.songdiscnumber",	"disc" },
+    { qft_string,	"daap.songformat",	"type" },
+    { qft_string,	"daap.songgenre",	"genre" },
+    { qft_i32,		"daap.songsamplerate",	"samplerate" },
+    { qft_i32,		"daap.songsize",	"file_size" },
+    //    { qft_i32_const,	"daap.songstarttime",	0 },
+    { qft_i32,		"daap.songstoptime",	"song_length" },
+    { qft_i32,		"daap.songtime",	"song_length" },
+    { qft_i32,		"daap.songtrackcount",	"total_tracks" },
+    { qft_i32,		"daap.songtracknumber",	"track" },
+    { qft_i32,		"daap.songyear",	"year" },
+    { 0,                NULL,                   NULL }
+};
+
+char *query_build_sql(char *query) {
+    query_node_t *pquery;
+    char sql[2048];
+    char *sqlptr=sql;
+    int size=sizeof(sql);
+
+    pquery=query_build(query);
+    if(!query_build_clause(pquery,&sqlptr,&size)) {
+	query_free(pquery);
+	return strdup(sql);
+    }
+
+    query_free(pquery);
+    return NULL;
+}
+
+
+query_node_t* query_build(const char* query) {
     query_node_t*	left = 0;
     char*		raw = query_unescape(query);
     const char*		cursor = raw;
     query_node_t*	right = 0;
     query_type_t	join;
 
-    if(0 == (left = match_specifier(query, &cursor, fields)))
+    if(0 == (left = match_specifier(query, &cursor, song_fields)))
 	goto error;
 
     while(*cursor)
@@ -72,7 +126,7 @@ query_node_t* query_build(const char* query, const query_field_t* fields)
 
 	cursor++;
 
-	if(0 == (right = match_specifier(raw, &cursor, fields)))
+	if(0 == (right = match_specifier(raw, &cursor, song_fields)))
 	    goto error;
 
 	con = (query_node_t*) calloc(1, sizeof(*con));
@@ -99,12 +153,12 @@ query_node_t* query_build(const char* query, const query_field_t* fields)
 
 static query_node_t*	match_specifier(const char* query,
 					const char** cursor,
-					const query_field_t* fields)
-{
-    switch(**cursor)
-    {
-    case '\'':		return single_match(query, cursor, fields);
-    case '(':		return group_match(query, cursor, fields);
+					const query_field_t* fields) {
+    switch(**cursor) {
+    case '\'':		
+	return single_match(query, cursor, fields);
+    case '(':		
+	return group_match(query, cursor, fields);
     }
 
     DPRINTF(E_LOG,L_QRY,"Illegal character '%c' (0%o) at index %d: %s\n",
@@ -243,20 +297,17 @@ static query_node_t*	single_match(const char* query,
     return node;
 }
 
-static int		get_field_name(const char** pcursor,
-				       const char* query, 
-				       char* name, 
-				       int len)
-{
+static int get_field_name(const char** pcursor,
+			  const char* query, 
+			  char* name, 
+			  int len) {
     const char*	cursor = *pcursor;
 
     if(!isalpha(*cursor))
 	return 0;
 
-    while(isalpha(*cursor) || *cursor == '.')
-    {
-	if(--len <= 0)
-	{
+    while(isalpha(*cursor) || *cursor == '.') {
+	if(--len <= 0) {
 	    DPRINTF(E_LOG,L_QRY,"token length exceeded at offset %d: %s\n",
 		    cursor - query, query);
 	    return 0;
@@ -331,32 +382,26 @@ static query_node_t*	match_string(const query_field_t* field,
     query_type_t	op = qot_is;
     query_node_t*	node;
 
-    if(opcode != ':')
-    {
+    if(opcode != ':') {
 	DPRINTF(E_LOG,L_QRY,"Illegal operation on string: %c at index %d: %s\n",
 		opcode, cursor - query - 1);
 	return NULL;
     }
 
-    if(*cursor == '*')
-    {
+    if(*cursor == '*') {
 	op = qot_ends;
 	cursor++;
     }
 
-    while(*cursor && *cursor != '\'')
-    {
-	if(--left == 0)
-	{
+    while(*cursor && *cursor != '\'') {
+	if(--left == 0) {
 	    DPRINTF(E_LOG,L_QRY,"string too long at index %d: %s\n",
 		    cursor - query, query);
 	    return NULL;
 	}
 
-	if(*cursor == '\\')
-	{
-	    switch(*++cursor)
-	    {
+	if(*cursor == '\\') {
+	    switch(*++cursor) {
 	    case '*':
 	    case '\'':
 	    case '\\':
@@ -367,13 +412,12 @@ static query_node_t*	match_string(const query_field_t* field,
 			*cursor, *cursor, cursor - query, query);
 		return NULL;
 	    }
-	}
-	else
+	} else {
 	    *dst++ = *cursor++;
+	}
     }
 
-    if(dst[-1] == '*')
-    {
+    if(dst[-1] == '*') {
 	op = (op == qot_is) ? qot_begins : qot_contains;
 	dst--;
     }
@@ -390,70 +434,25 @@ static query_node_t*	match_string(const query_field_t* field,
     return node;
 }
 
-int query_test(query_node_t* query, void* target)
-{
-    switch(query->type)
-    {
-	/* conjunction */
-    case qot_and:
-	return (query_test(query->left.node, target) &&
-		query_test(query->right.node, target));
 
-    case qot_or:
-	return (query_test(query->left.node, target) ||
-		query_test(query->right.node, target));
-
-	/* negation */
-    case qot_not:	
-	return !query_test(query->left.node, target);
-
-	/* arithmetic */
-    case qot_eq:
-    case qot_ne:
-    case qot_le:
-    case qot_lt:
-    case qot_ge:
-    case qot_gt:
-	return arith_query(query, target);
-
-	/* string */
-    case qot_is:
-    case qot_begins:
-    case qot_ends:
-    case qot_contains:
-	return string_query(query, target);
-	break;
-
-	/* constants */
-    case qot_const:
-	return query->left.constant;
-
-    default:
-	return 0;
-    }
-    /* should not happen */
-    return 0;
-}
-
-void query_free(query_node_t* query)
-{
+void query_free(query_node_t* query) {
     if(0 != query)
     {
 	switch(query->type)
 	{
-	    /* conjunction */
+	    // conjunction 
 	case qot_and:
 	case qot_or:
 	    query_free(query->left.node);
 	    query_free(query->right.node);
 	    break;
 
-	    /* negation */
+	    // negation
 	case qot_not:
 	    query_free(query->left.node);
 	    break;
 
-	    /* arithmetic */
+	    // arithmetic
 	case qot_eq:
 	case qot_ne:
 	case qot_le:
@@ -462,7 +461,7 @@ void query_free(query_node_t* query)
 	case qot_gt:
 	    break;
 
-	    /* string */
+	    // string
 	case qot_is:
 	case qot_begins:
 	case qot_ends:
@@ -470,7 +469,7 @@ void query_free(query_node_t* query)
 	    free(query->right.str);
 	    break;
 
-	    /* constants */
+	    // constants 
 	case qot_const:
 	    break;
 	    
@@ -483,13 +482,11 @@ void query_free(query_node_t* query)
     }
 }
 
-static const query_field_t* find_field(const char* name, const query_field_t* fields)
-{
+static const query_field_t* find_field(const char* name, const query_field_t* fields) {
     while(fields->name && strcasecmp(fields->name, name))
 	fields++;
 
-    if(fields->name == 0)
-    {
+    if(fields->name == 0) {
 	DPRINTF(E_LOG,L_QRY,"Illegal query field: %s\n", name);
 	return NULL;
     }
@@ -497,186 +494,98 @@ static const query_field_t* find_field(const char* name, const query_field_t* fi
     return fields;
 }
 
-static int arith_query(query_node_t* query, void* target)
-{
-    const query_field_t*	field = query->left.field;
+int query_add_string(char **current, int *size, char *fmt, ...) {
+    va_list ap;
+    int write_size;
 
-    switch(field->type)
-    {
-    case qft_i32:
-	{
-	    int		tv = * (int*) ((size_t) target + field->offset);
+    va_start(ap, fmt);
+    write_size=vsnprintf(*current, *size, fmt, ap);
+    va_end(ap);
 
-	    tv -= query->right.i32;
-
-	    switch(query->type)
-	    {
-	    case qot_eq:	return tv == 0;
-	    case qot_ne:	return tv != 0;
-	    case qot_le:	return tv <= 0;
-	    case qot_lt:	return tv < 0;
-	    case qot_ge:	return tv >= 0;
-	    case qot_gt:	return tv > 0;
-	    default:
-		DPRINTF(E_LOG,L_QRY,"illegal query type: %d\n", query->type);
-		break;
-	    }
-	}
-	break;
-
-    case qft_i64:
-	{
-	    long long tv = * (long long*) ((size_t) target + field->offset);
-
-	    tv -= query->right.i32;
-
-	    switch(query->type)
-	    {
-	    case qot_eq:	return tv == 0;
-	    case qot_ne:	return tv != 0;
-	    case qot_le:	return tv <= 0;
-	    case qot_lt:	return tv < 0;
-	    case qot_ge:	return tv >= 0;
-	    case qot_gt:	return tv > 0;
-	    default:
-		DPRINTF(E_LOG,L_QRY,"illegal query type: %d\n", query->type);
-		break;
-	    }
-	}
-	break;
-
-    default:
-	DPRINTF(E_LOG,L_QRY,"illegal field type: %d\n", field->type);
-	break;
-    }
-    
-    return 0;
-}
-
-static int string_query(query_node_t* query, void* target)
-{
-    const query_field_t*	field = query->left.field;
-    const char*		ts;
-
-    if(field->type != qft_string)
-    {
-	DPRINTF(E_LOG,L_QRY,"illegal field type: %d\n", field->type);
+    if(write_size > *size) {
+	*size=0;
 	return 0;
     }
 
-    ts = * (const char**) ((size_t) target + field->offset);
-
-    if(0 == ts)
-	return strlen(query->right.str) == 0;
-	
-    switch(query->type)
-    {
-    case qot_is:
-	return !strcasecmp(query->right.str, ts);
-
-    case qot_begins:
-	return !strncasecmp(query->right.str, ts, strlen(query->right.str));
-
-    case qot_ends:
-	{
-	    int start = strlen(ts) - strlen(query->right.str);
-
-	    if(start < 0)
-		return 0;
-
-	    return !strcasecmp(query->right.str, ts + start);
-	}
-	
-    case qot_contains:
-	return (int) strcasestr(ts, query->right.str); /* returns null if not found */
-
-    default:
-	DPRINTF(E_LOG,L_QRY,"Illegal query type: %d\n", query->type);
-	break;
-    }
-
-    return 0;
+    *size = *size - write_size;
+    return write_size;
 }
 
-void query_dump(FILE* fp, query_node_t* query, int depth)
-{
-    static const char* labels[] = {
+int query_build_clause(query_node_t *query, char **current, int *size) {
+    char* labels[] = {
 	"NOP",
-	"and",
-	"or",
-	"not",
-	"==",
-	"!=",
+	"AND",
+	"OR",
+	"NOT",
+	"=",
+	"<>",
 	"<=",
 	"<",
 	">=",
 	">",
-	"eq",
-	"beginswith",
-	"endwith",
-	"contains",
+	"=",
+	" (%s LIKE '%s\%) ",
+	" (%s LIKE '\%%s') ",
+	" (%s LIKE '\%%s\%') ",
 	"constant"
     };
 
-#ifndef DEBUG
-    return;
-#endif
-
-    switch(query->type)
-    {
+    switch(query->type) {
     case qot_and:
     case qot_or:
-	fprintf(fp, "%*s(%s\n", depth, "", labels[query->type]);
-	query_dump(fp, query->left.node, depth + 4);
-	query_dump(fp, query->right.node, depth + 4);
-	fprintf(fp, "%*s)\n", depth, "");
+	if(*size) (*current) += query_add_string(current,size," (");
+	if(query_build_clause(query->left.node,current,size)) return 1;
+	if(*size) (*current) += query_add_string(current,size," %s ", labels[query->type]);
+	if(query_build_clause(query->right.node,current,size)) return 1;
+	if(*size) (*current) += query_add_string(current,size,") ");
 	break;
 
     case qot_not:
-	fprintf(fp, "%*s(not\n", depth, "");
-	query_dump(fp, query->left.node, depth + 4);
-	fprintf(fp, "%*s)\n", depth, "");
+	if(*size) (*current) += query_add_string(current,size," (NOT ");
+	if(query_build_clause(query->left.node,current,size)) return 1;
+	if(*size) (*current) += query_add_string(current,size,") ");
 	break;
-
-	/* arithmetic */
+	
     case qot_eq:
     case qot_ne:
     case qot_le:
     case qot_lt:
     case qot_ge:
     case qot_gt:
-	if(query->left.field->type == qft_i32)
-	    fprintf(fp, "%*s(%s %s %d)\n",
-		    depth, "", labels[query->type],
-		    query->left.field->name, query->right.i32);
-	else
-	    fprintf(fp, "%*s(%s %s %ll)\n",
-		    depth, "", labels[query->type],
-		    query->left.field->name, query->right.i64);
+	if(*size) (*current) += query_add_string(current,size," (%s %s ",
+						 query->left.field->fieldname,
+						 labels[query->type]);
+	if(query->left.field->type == qft_i32) {
+	    if(*size) (*current) += query_add_string(current,size," %d) ",query->right.i32);
+	} else {
+	    if(*size) (*current) += query_add_string(current,size," %ll) ",query->right.i64);
+	}
 	break;
 
-	/* string */
+
     case qot_is:
+	if(*size)(*current) += query_add_string(current,size," (%s='%s') ", 
+						query->left.field->fieldname,
+						query->right.str);
+	break;
     case qot_begins:
     case qot_ends:
     case qot_contains:
-	fprintf(fp, "%*s(%s %s \"%s\")\n",
-		depth, "", labels[query->type],
-		query->left.field->name, query->right.str);
+	if(*size)(*current) += query_add_string(current,size,labels[query->type],
+						query->left.field->fieldname,
+						query->right.str);
 	break;
-
-	/* constants */
-    case qot_const:
-	fprintf(fp, "%*s(%s)\n", depth, "", query->left.constant ? "true" : "false");
-	break;
+    case qot_const:  /* Not sure what this would be for */
+	break; 
     default:
 	break;
     }
-    
+
+    return 0;
 }
 
-char* query_unescape(const char* src)
-{
+char* query_unescape(const char* src) {
+
     char*	copy = malloc(strlen(src) + 1);
     char*	dst = copy;
 

@@ -40,6 +40,7 @@
 #include "dynamic-art.h"
 #include "restart.h"
 #include "daapd.h"
+#include "query.h"
 
 /* Forwards */
 static void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
@@ -87,6 +88,7 @@ int daap_auth(char *username, char *password) {
 void daap_handler(WS_CONNINFO *pwsc) {
     DBQUERYINFO *pqi;
     char *token, *string, *save;
+    char *query;
 
     pqi=(DBQUERYINFO*)malloc(sizeof(DBQUERYINFO));
     if(!pqi) {
@@ -95,6 +97,13 @@ void daap_handler(WS_CONNINFO *pwsc) {
     }
 
     memset(pqi,0x00,sizeof(DBQUERYINFO));
+
+    query=ws_getvar(pwsc,"query");
+    if(!query) query=ws_getvar(pwsc,"filter");
+    if(query) {
+	DPRINTF(E_DBG,L_DAAP,"Getting sql clause for %s\n",query);
+	pqi->whereclause = query_build_sql(query);
+    }
 
     /* Add some default headers */
     ws_addresponseheader(pwsc,"Accept-Ranges","bytes");

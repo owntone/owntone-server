@@ -45,7 +45,7 @@ CREATE TABLE config (
 
 CREATE TABLE playlists (
        id    	       INTEGER PRIMARY KEY NOT NULL,
-       name	       VARCHAR(255) NOT NULL,
+       title	       VARCHAR(255) NOT NULL,
        smart	       INTEGER NOT NULL,
        items	       INTEGER NOT NULL,
        query	       VARCHAR(1024)
