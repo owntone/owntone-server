@@ -39,7 +39,6 @@
 #include "daap.h"
 #include "err.h"
 #include "daapd.h"
-
 #include "query.h"
 
 typedef struct tag_daap_items {

@@ -54,7 +54,7 @@
 #define L_DAAP    0x00000200 /**< Generally daap related - main.c, daap.c, query.c */
 #define L_MAIN    0x00000400 /**< setup, teardown, signals - main.c */
 #define L_REND    0x00000800 /**< rendezvous -- rend-unix.c, rend-posix.c, etc */
-
+#define L_XML     0x00002000 /**< xml - xml-rpc.c */
 #define L_MISC    0x80000000 /**< anything else */
 
 extern int err_debuglevel;

@@ -28,6 +28,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	mp3-scanner.h mp3-scanner.c playlist.c playlist.h \
 	rend-unix.h lexer.l parser.y strcasestr.c strcasestr.h strsep.c \
 	redblack.c redblack.h dynamic-art.c dynamic-art.h query.c query.h \
+	xml-rpc.h xml-rpc.c \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC)
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \

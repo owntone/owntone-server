@@ -49,6 +49,7 @@
 
 #include "configfile.h"
 #include "err.h"
+#include "xml-rpc.h"
 
 #ifndef WITHOUT_MDNS
 # include "rend.h"
@@ -580,6 +581,15 @@ void config_handler(WS_CONNINFO *pwsc) {
     
     pwsc->close=1;
     ws_addresponseheader(pwsc,"Connection","close");
+
+    if(strcasecmp(pwsc->uri,"/xml-rpc")==0) {
+	/* perhaps this should get a separate handler */
+	config_set_status(pwsc,0,"Serving xml-rpc method");
+	xml_handle(pwsc);
+	DPRINTF(E_DBG,L_CONF|L_XML,"Thread %d: xml-rpc served\n",pwsc->threadno);
+	config_set_status(pwsc,0,NULL);
+	return;
+    }
 
     snprintf(path,PATH_MAX,"%s/%s",config.web_root,pwsc->uri);
     if(!realpath(path,resolved_path)) {

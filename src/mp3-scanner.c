@@ -347,7 +347,7 @@ time_t mac_to_unix_time(int t) {
  */
 
 int scan_init(char *path) {
-    int err;
+    int err=0;
 
     scan_mode_foreground=0;
     if(db_is_empty()) {
@@ -386,6 +386,7 @@ int scan_path(char *path) {
     int modified_time;
 
     if((current_dir=opendir(path)) == NULL) {
+	DPRINTF(E_WARN,L_SCAN,"opendir: %s\n",strerror(errno));
 	return -1;
     }
 
