@@ -927,8 +927,13 @@ int main(int argc, char *argv[]) {
 	pthread_join(signal_tid,NULL);
     }
 
+    /* Got to find a cleaner way to stop the web server.
+     * Closing the fd of the socking accepting doesn't necessarily
+     * cause the accept to fail on some libcs.
+     *
     DPRINTF(E_LOG,L_MAIN|L_WS,"Stopping web server\n");
     ws_stop(server);
+    */
 
     config_close();
 

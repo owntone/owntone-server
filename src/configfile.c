@@ -396,7 +396,6 @@ int config_read(char *file) {
 	DPRINTF(E_LOG,L_CONF,"Must have zlib > 1.2.0 to use gzip content encoding.  You have %s.  Sucks, huh?\n",ZLIB_VERSION);
     }
 
-
     return err;
 }
 

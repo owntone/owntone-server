@@ -25,6 +25,7 @@
 
 #include <errno.h>
 #include <restart.h>
+#include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -48,6 +49,7 @@ int rend_pid;
  */
 int rend_init(char *user) {
     int err;
+    int fd;
 
     if(pipe((int*)&rend_pipe_to) == -1)
 	return -1;
@@ -80,6 +82,39 @@ int rend_init(char *user) {
     /* child */
     close(rend_pipe_to[WR_SIDE]);
     close(rend_pipe_from[RD_SIDE]);
+    
+    /* Depending on the backend, this might not get done on the
+     * rendezvous server-specific side
+     */
+    signal(SIGTTOU, SIG_IGN);
+    signal(SIGTTIN, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+
+#ifdef SETPGRP_VOID
+    setpgrp();
+#else
+    setpgrp(0,0);
+#endif
+
+#ifdef TIOCNOTTY
+    if ((fd = open("/dev/tty", O_RDWR)) >= 0) {
+	ioctl(fd, TIOCNOTTY, (char *) NULL);
+	close(fd);
+    }
+#endif
+
+    if((fd = open("/dev/null", O_RDWR, 0)) != -1) {
+	dup2(fd, STDIN_FILENO);
+	dup2(fd, STDOUT_FILENO);
+	dup2(fd, STDERR_FILENO); 
+	if (fd > 2)
+	    close(fd);
+    }
+
+    errno = 0;
+
+    chdir("/");
+    umask(0);
 
     /* something bad here... should really signal the parent, rather
      * than just zombieizing
