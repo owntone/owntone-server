@@ -147,10 +147,8 @@ AC_CHECK_LIB(gdbm,gdbm_open,,echo "no libgdbm.  Try --with-gdbm-lib=dir";exit)
 
 if test "$STATIC_LIBS" != "no"; then
   LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libgdbm.a"
-  echo "Adding static libgdbm"
 else
   LDFLAGS="${LDFLAGS} -lgdbm"
-  echo "Adding dynamic libgdbm"
 fi
 
 AC_CHECK_HEADERS(id3tag.h,, [
@@ -163,10 +161,8 @@ AC_CHECK_LIB(id3tag,id3_file_open,,echo "no libid3tag. Try --with-id3tag=dir";ex
 
 if test "$STATIC_LIBS" != "no"; then
   LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libid3tag.a -lz"
-  echo "Adding static libid3tag"
 else
   LDFLAGS="${LDFLAGS} -lid3tag -lz"
-  echo "Adding dynamic libid3tag"
 fi
 CFLAGS=$oldcflags
 
