@@ -1013,6 +1013,7 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
 
 	if(db_unpackrecord(&data,&gdbm_mp3))
 	    DPRINTF(E_FATAL,L_DB,"Cannot unpack item... corrupt database?\n");
+	gdbm_mp3_mustfree=1;
 
 	free(data.dptr);
 
