@@ -38,13 +38,13 @@ pkglibdir = $(libdir)/mt-daapd
 pkgincludedir = $(includedir)/mt-daapd
 top_builddir = ..
 
-ACLOCAL = aclocal-1.6
-AUTOCONF = autoconf
-AUTOMAKE = automake-1.6
-AUTOHEADER = autoheader
+ACLOCAL = ${SHELL} /home/ron/working/mt-daapd/missing --run aclocal-1.6
+AUTOCONF = ${SHELL} /home/ron/working/mt-daapd/missing --run autoconf
+AUTOMAKE = ${SHELL} /home/ron/working/mt-daapd/missing --run automake-1.6
+AUTOHEADER = ${SHELL} /home/ron/working/mt-daapd/missing --run autoheader
 
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
-INSTALL = /sw/bin/install -c
+INSTALL = /usr/bin/install -c
 INSTALL_PROGRAM = ${INSTALL}
 INSTALL_DATA = ${INSTALL} -m 644
 install_sh_DATA = $(install_sh) -c -m 644
@@ -60,13 +60,13 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 host_alias = 
-host_triplet = powerpc-apple-darwin7.0.0
+host_triplet = i686-pc-linux-gnu
 
 EXEEXT = 
 OBJEXT = o
 PATH_SEPARATOR = :
-AMTAR = tar
-AWK = awk
+AMTAR = ${SHELL} /home/ron/working/mt-daapd/missing --run tar
+AWK = gawk
 CC = gcc
 DEPDIR = .deps
 INSTALL_STRIP_PROGRAM = ${SHELL} $(install_sh) -c -s
@@ -76,7 +76,7 @@ VERSION = 0.1.0
 V_NETLIBS = 
 am__include = include
 am__quote = 
-install_sh = /Users/ron/Documents/School/cs4953 - Concurrency/mt-daapd/install-sh
+install_sh = /home/ron/working/mt-daapd/install-sh
 
 # $Id$
 #
@@ -106,8 +106,8 @@ mt_daapd_LDFLAGS =
 
 DEFS = -DHAVE_CONFIG_H
 DEFAULT_INCLUDES =  -I. -I$(srcdir) -I$(top_builddir)
-CPPFLAGS =  -DDEBUG -g -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN -DHAVE_SOCKLEN_T
-LDFLAGS =  -lpthread -lz
+CPPFLAGS =  -DDEBUG -g -DHAVE_SOCKLEN_T
+LDFLAGS =  -lpthread
 LIBS = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles

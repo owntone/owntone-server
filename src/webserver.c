@@ -23,6 +23,7 @@
 #  include "config.h"
 #endif
 
+#include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>

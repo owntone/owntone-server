@@ -313,8 +313,10 @@ int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
 	    return -1;
 	}
 	
+	/*
 	err=daap_compress(uncompressed,uncompressed_len,
 			  compressed, &compressed_len);
+	*/
 
 	if(err) {
 	    DPRINTF(ERR_INFO,"Error compressing: %s\n",strerror(errno));
@@ -354,7 +356,12 @@ int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
  * in a critical section.  Someone with more knowledge of zlib
  * than I can determine if it is really necessary.
  *
+ * This doesn't actually do gzip encoding -- it does a full
+ * gzip-style file, including header info.  This is not what
+ * we want
  */
+
+/*
 int daap_compress(char *input, long in_len, char *output, long *out_len) {
     int err;
 
@@ -372,7 +379,7 @@ int daap_compress(char *input, long in_len, char *output, long *out_len) {
 
     return (err == Z_OK ? 0 : -1);
 }
-
+*/
 
 /*
  * daap_free
