@@ -70,7 +70,7 @@ struct tag_mp3record {
 };
 
 typedef struct tag_playlistentry {
-	unsigned long int	id;
+    unsigned long int	id;
     struct tag_playlistentry *next;
 } DB_PLAYLISTENTRY;
 
@@ -82,6 +82,7 @@ typedef struct tag_playlist {
     char *name;
     int file_time;
     struct tag_playlistentry *nodes;
+    struct tag_playlistentry *last_node;  /**< Make a tail add o(1) */
     struct tag_playlist *next;
 } DB_PLAYLIST;
 
@@ -688,6 +689,7 @@ int db_add_playlist(unsigned long int playlistid, char *name, int file_time, int
     pnew->name=strdup(name);
     pnew->id=playlistid;
     pnew->nodes=NULL;
+    pnew->last_node=NULL;
     pnew->songs=0;
     pnew->found=1;
     pnew->file_time=file_time;
@@ -752,8 +754,13 @@ int db_add_playlist_song(unsigned long int playlistid, unsigned long int itemid)
 
     current->songs++;
     DPRINTF(E_DBG,L_DB|L_PL,"Playlist now has %d entries\n",current->songs);
-    pnew->next = current->nodes;
-    current->nodes = pnew;
+
+    if(current->last_node) {
+	current->last_node->next = pnew;
+    } else {
+	current->nodes = pnew;
+    }
+    current->last_node=pnew;
 
     db_version_no++;
     
@@ -1673,9 +1680,14 @@ int db_delete(unsigned long int id) {
 		} else {
 		    ptail->next=phead->next;
 		}
+
+		if(pcurrent->last_node == phead)
+		    pcurrent->last_node = ptail;
+
 		free(phead);
 
 		if(pcurrent->nodes == NULL) {
+		    pcurrent->last_node=NULL;
 		    DPRINTF(E_DBG,L_DB|L_PL,"Empty Playlist!\n");
 		    db_playlist_count--;
 		}
