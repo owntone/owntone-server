@@ -375,6 +375,7 @@ int db_start_initial_update(void) {
 
     if((db_removed=rbinit(db_compare_rb_nodes,NULL)) == NULL) {
 	errno=ENOMEM;
+	db_unlock();
 	return -1;
     }
 
@@ -388,6 +389,7 @@ int db_start_initial_update(void) {
 	/* Add it to the rbtree */
 	if(!rbsearch((void*)tmp_key.dptr,db_removed)) {
 	    errno=ENOMEM;
+	    db_unlock();
 	    return -1;
 	}
 	
@@ -398,6 +400,7 @@ int db_start_initial_update(void) {
     }
 
     db_update_mode=1;
+    db_unlock();
 
     return 0;
 }
@@ -410,6 +413,7 @@ int db_start_initial_update(void) {
 int db_end_initial_update(void) {
     const void *val;
 
+    db_writelock();
     db_update_mode=0;
 
     DPRINTF(E_DBG,L_DB|L_SCAN,"Initial update over.  Removing stale items\n");
@@ -454,9 +458,9 @@ int db_is_empty(void) {
 int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
     int err;
     DB_PLAYLIST *pnew;
-    
+
     pnew=(DB_PLAYLIST*)malloc(sizeof(DB_PLAYLIST));
-    if(!pnew)
+    if(!pnew) 
 	return -1;
 
     pnew->name=strdup(name);
@@ -472,12 +476,15 @@ int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
 
     DPRINTF(E_DBG,L_DB|L_PL,"Adding new playlist %s\n",name);
 
+    db_writelock();
+
     pnew->next=db_playlists.next;
     db_playlists.next=pnew;
 
     db_version_no++;
 
     DPRINTF(E_DBG,L_DB|L_PL,"Added playlist\n");
+    db_unlock();
     return 0;
 }
 
@@ -493,7 +500,7 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
     DB_PLAYLIST *current;
     DB_PLAYLISTENTRY *pnew;
     int err;
-    
+
     pnew=(DB_PLAYLISTENTRY*)malloc(sizeof(DB_PLAYLISTENTRY));
     if(!pnew)
 	return -1;
@@ -503,14 +510,14 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
 
     DPRINTF(E_DBG,L_DB|L_PL,"Adding item %d to %d\n",itemid,playlistid); 
 
+    db_writelock();
+
     current=db_playlists.next;
     while(current && (current->id != playlistid))
 	current=current->next;
 
     if(!current) {
 	DPRINTF(E_WARN,L_DB|L_PL,"Could not find playlist attempting to add to\n");
-	if(!db_update_mode)
-	    db_unlock();
 	db_unlock();
 	free(pnew);
 	return -1;
@@ -525,8 +532,10 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
     current->nodes = pnew;
 
     db_version_no++;
-
+    
     DPRINTF(E_DBG,L_DB|L_PL,"Added playlist item\n");
+
+    db_unlock();
     return 0;
 }
 
@@ -795,6 +804,8 @@ int db_add(MP3FILE *pmp3) {
     ppacked->time_modified=(int)time(NULL);
     ppacked->time_played=0; /* do we want to keep track of this? */
 
+    db_writelock();
+
     if(gdbm_store(db_songs,dkey,*pnew,GDBM_REPLACE)) {
 	DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database\n",pmp3->fname);
     }
@@ -816,6 +827,8 @@ int db_add(MP3FILE *pmp3) {
     db_song_count++;
     
     DPRINTF(E_DBG,L_DB,"Added file\n");
+
+    db_unlock();
     return 0;
 }
 
@@ -1168,32 +1181,26 @@ MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
     key.dptr=(char*)&id;
     key.dsize=sizeof(int);
 
-    if(!db_update_mode) {
-	db_readlock(); /** \todo fix race */
-	is_locked=1;
-    }
+    db_readlock();
 
     content=gdbm_fetch(db_songs,key);
     MEMNOTIFY(content.dptr);
     if(!content.dptr) {
 	DPRINTF(E_WARN,L_DB,"Could not find id %d\n",id);
-	if(is_locked)
-	    db_unlock();
+	db_unlock();
 	return NULL;
     }
 
     pmp3=(MP3FILE*)malloc(sizeof(MP3FILE));
     if(!pmp3) {
 	DPRINTF(E_LOG,L_MISC,"Malloc failed in db_find\n");
-	if(is_locked)
-	    db_unlock();
+	db_unlock();
 	return NULL;
     }
 
     db_unpackrecord(&content,pmp3);
     free(content.dptr);
-    if(is_locked)
-	db_unlock();
+    db_unlock();
     return pmp3;
 }
 
@@ -1313,10 +1320,13 @@ int db_exists(int id) {
     key.dptr=(char*)&id;
     key.dsize=sizeof(int);
 
+    db_readlock();
+
     content=gdbm_fetch(db_songs,key);
     MEMNOTIFY(content.dptr);
     if(!content.dptr) {
 	DPRINTF(E_DBG,L_DB,"Nope!  Not in DB\n");
+	db_unlock();
 	return 0;
     }
 
@@ -1328,6 +1338,8 @@ int db_exists(int id) {
 	    free(node);
 	}
     }
+
+    db_unlock();
 
     free(content.dptr);
     DPRINTF(E_DBG,L_DB,"Yup, in database\n");
@@ -1345,6 +1357,7 @@ int db_last_modified(int id) {
     MP3FILE *pmp3;
     int err;
 
+    /* readlocked as part of db_find */
     pmp3=db_find(id);
     if(!pmp3) {
 	retval=0;
@@ -1375,6 +1388,7 @@ int db_delete(int id) {
     DPRINTF(E_DBG,L_DB,"Removing item %d\n",id);
 
     if(db_exists(id)) {
+	db_writelock();
 	key.dptr=(void*)&id;
 	key.dsize=sizeof(int);
 	gdbm_delete(db_songs,key);
@@ -1407,9 +1421,10 @@ int db_delete(int id) {
 	    }
 	    pcurrent=pcurrent->next;
 	}
+	db_version_no++;
+	db_unlock();
     }
 
-    db_version_no++;
 
     return 0;
 }
