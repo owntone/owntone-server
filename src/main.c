@@ -76,6 +76,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
     int file_fd;
     int session_id=0;
 
+    off_t offset;
+    off_t file_len;
+
     close=pwsc->close;
     pwsc->close=1;  /* in case we have any errors */
     root=NULL;
@@ -203,6 +206,11 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	/* stream out the song */
 	pwsc->close=1;
 
+	if(ws_getrequestheader(pwsc,"range")) { 
+	    offset=atol(ws_getrequestheader(pwsc,"range") + 6);
+	    DPRINTF(ERR_DEBUG,"Thread %d: Skipping to byte %ld\n",pwsc->threadno,offset);
+	}
+
 	pmp3=db_find(item);
 	if(!pmp3) {
 	    ws_returnerror(pwsc,404,"File Not Found");
@@ -217,11 +225,22 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		config_set_status(pwsc,session_id,NULL);
 
 	    } else {
-		ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+		file_len=lseek(file_fd,0,SEEK_END);
+		lseek(file_fd,0,SEEK_SET);
+		file_len -= offset;
+
+		DPRINTF(ERR_DEBUG,"Thread %d: Length of file (remaining) is %ld\n",
+			pwsc->threadno,(long)file_len);
+		ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
 		ws_addresponseheader(pwsc,"Connection","Close");
+
+		ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
 		ws_emitheaders(pwsc);
 
 		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
+		if(offset) {
+		    lseek(file_fd,offset,SEEK_SET);
+		}
 		copyfile(file_fd,pwsc->fd);
 		config_set_status(pwsc,session_id,NULL);
 		r_close(file_fd);
