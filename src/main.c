@@ -661,11 +661,14 @@ int main(int argc, char *argv[]) {
     while(!config.stop) {
 	if(config.reload) {
 	    config.reload=0;
+
+	    /* Need to get traces of an update, obviously... this ain't it.
 	    DPRINTF(ERR_LOG,"Reloading configuration\n");
 	    if(scan_init(config.mp3dir)) {
 		DPRINTF(ERR_LOG,"Error rescanning... exiting\n");
 		config.stop=1;
 	    }
+	    */
 	}
 	sleep(2);
     }
@@ -677,8 +680,14 @@ int main(int argc, char *argv[]) {
 	rend_stop();
     }
 
+    /* Have a refcount problem with the web server...
+     * Need to troubleshoot it more later, but for now, we'll
+     * just stop the webserver the non-graceful way. */
+
+    /*
     DPRINTF(ERR_LOG,"Stopping web server\n");
     ws_stop(server);
+    */
 
     config_close();
 
