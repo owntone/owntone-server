@@ -204,7 +204,7 @@ char *scan_winamp_genre[] = {
 	"JPop",
 	"SynthPop",
 	"Unknown"
-}
+};
 
 
 /*
