@@ -4,7 +4,7 @@ Version: 0.1.1
 Release: 1
 License: GPL
 Group: Development/Networking
-URL: http://www.pedde.com/downloads/%{name}-%{version}.tar.gz
+URL: http://sourceforge.net/project/showfiles.php?group_id=98211
 Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
 Requires: libid3tag
