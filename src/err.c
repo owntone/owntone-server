@@ -186,9 +186,9 @@ void err_setdest(char *app, int destination) {
  * \param list comma separated list of modules to debug.  
  */
 extern int err_setdebugmask(char *list) {
-    char **pcurrent=err_categorylist;
     unsigned int rack;
     char *token, *str, *last;
+    int index;
 
     err_debugmask=0x80000000; /* always log L_MISC! */
     str=list;
@@ -199,12 +199,14 @@ extern int err_setdebugmask(char *list) {
 
 	if(token) {
 	    rack=1;
-	    while((*pcurrent) && (strcasecmp(*pcurrent,token))) {
+	    index=0;
+	    while((err_categorylist[index]) && 
+		  (strcasecmp(err_categorylist[index],token))) {
 		rack <<= 1;
-		pcurrent++;
+		index++;
 	    }
 
-	    if(!pcurrent) {
+	    if(!err_categorylist[index]) {
 		DPRINTF(E_LOG,L_MISC,"Unknown module: %s\n",token);
 		return 1;
 	    } else {
@@ -214,7 +216,7 @@ extern int err_setdebugmask(char *list) {
 	} else break; /* !token */
     }
 
-    DPRINTF(E_LOG,L_MISC,"Debug mask is 0x%08x\n",err_debugmask);
+    DPRINTF(E_INF,L_MISC,"Debug mask is 0x%08x\n",err_debugmask);
 
     return 0;
 }
