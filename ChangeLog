@@ -1,4 +1,9 @@
-2204-09-08  Ron Pedde <ron@pedde.com>
+2004-10-15  Ron Pedde <ron@pedde.com>
+	* src/dynamic-art.c: merged in patch from Paul Kim
+	(mr.pickles.esq@gmail.com) for dynamic cover art on aac
+	files (like the stuff from Hiren).
+	
+2004-09-08  Ron Pedde <ron@pedde.com>
 	* mp3-scanner.c: decode more aac tags.  Feature request #990546
 	* mp3-scanner.c: support for bitrate on playlsits. FR #996506
 	

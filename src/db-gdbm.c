@@ -104,6 +104,8 @@ typedef struct tag_mp3packed {
 
     int bpm; // DB Version 3
 
+    char compilation;
+
     unsigned int id; /* inode */
 
     int path_len;
@@ -580,6 +582,7 @@ datum *db_packrecord(MP3FILE *pmp3) {
     ppacked->time_modified=pmp3->time_modified;
     ppacked->time_played=pmp3->time_played;
     ppacked->bpm=pmp3->bpm;
+    ppacked->compilation=pmp3->compilation;
     ppacked->id=pmp3->id;
 
     ppacked->path_len=STRLEN(pmp3->path);
@@ -682,6 +685,7 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
     pmp3->time_modified=ppacked->time_modified;
     pmp3->time_played=ppacked->time_played;
     pmp3->bpm=ppacked->bpm;
+    pmp3->compilation=ppacked->compilation;
     pmp3->id=ppacked->id;
 
     offset=0;

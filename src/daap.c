@@ -511,7 +511,8 @@ DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, MetaField_t met
 	if(song->comment && (wantsMeta(meta, metaSongComment)))
 	    g = g && daap_add_string(mlit,"ascm",song->comment); /* comment */
 
-	// g = g && daap_add_char(mlit,"asco",0x0); /* compilation */
+        if(song->compilation && (wantsMeta(meta, metaSongCompilation)))
+            g = g && daap_add_char(mlit,"asco",song->compilation); /* compilation */
 		    
 	if(song->composer && (wantsMeta(meta, metaSongComposer)))
 	    g = g && daap_add_string(mlit,"ascp",song->composer); /* composer */

@@ -116,6 +116,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
     int session_id=0;
 
     int img_fd;
+    struct stat sb;
+    long img_size;
 
     off_t offset=0;
     off_t real_len;
@@ -300,6 +302,24 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	    } else {
 		real_len=lseek(file_fd,0,SEEK_END);
 		lseek(file_fd,0,SEEK_SET);
+
+                /* Re-adjust content length for cover art */
+                if((config.artfilename) &&
+                   ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
+                  fstat(img_fd, &sb);
+                  img_size = sb.st_size;
+
+                  if (strncasecmp(pmp3->type,"mp3",4) ==0) {
+                    /*PENDING*/
+                  } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
+                    real_len += img_size + 24;
+
+                    if (offset > img_size + 24) {
+                      offset -= img_size + 24;
+                    }
+                  }
+                }
+
 		file_len = real_len - offset;
 
 		DPRINTF(ERR_DEBUG,"Thread %d: Length of file (remaining) is %ld\n",
@@ -334,11 +354,16 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		    config.stats.songs_served++; /* FIXME: remove stat races */
 
 		if((config.artfilename) &&
-		   (!offset) && (strncasecmp(pmp3->type,".mp3",4) ==0) &&
+		   (!offset) &&
 		   ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
+                  if (strncasecmp(pmp3->type,"mp3",4) ==0) {
 		    DPRINTF(ERR_INFO,"Dynamically attaching artwork to %s (fd %d)\n",
 			    pmp3->fname, img_fd);
 		    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
+                  } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
+		    DPRINTF(ERR_INFO,"Dynamically attaching artwork to %s (fd %d)\n", pmp3->fname, img_fd);
+                    da_aac_attach_image(img_fd, pwsc->fd, file_fd, offset);
+                  }
 		} else if(offset) {
 		    DPRINTF(ERR_INFO,"Seeking to offset %ld\n",(long)offset);
 		    lseek(file_fd,offset,SEEK_SET);

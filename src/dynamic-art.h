@@ -24,5 +24,8 @@
 
 int da_get_image_fd(char *filename);
 int da_attach_image(int img_fd, int out_fd, int mp3_fd, int offset);
+off_t da_aac_attach_image(int img_fd, int out_fd, int aac_fd, int offset);
+int copyblock(int fromfd, int tofd, size_t size);
+int fcopyblock(FILE *fromfp, int tofd, size_t size);
 
 #endif /* _DYNAMICART_H_ */
