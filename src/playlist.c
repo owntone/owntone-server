@@ -119,6 +119,9 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     case BPM:
 	printf("BPM ");
 	break;
+    case BITRATE:
+	printf("BITRATE ");
+	break;
     default:
 	printf ("<unknown tag> ");
 	break;
@@ -292,6 +295,9 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	break;
     case BPM:
 	ival=pmp3->bpm;
+	break;
+    case BITRATE:
+	ival=pmp3->bitrate / 1024; // bitrate in Kbps
 	break;
     }
 
