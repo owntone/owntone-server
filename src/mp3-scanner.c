@@ -1466,7 +1466,7 @@ void scan_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi) {
 
     while(1) {
 	err=1;
-	DPRINTF(E_DBG,L_SCAN,"Seeking to %d\n",pos);
+	DPRINTF(E_SPAM,L_SCAN,"Seeking to %d\n",pos);
 
 	fseek(infile,pos,SEEK_SET);
 	if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
