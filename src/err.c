@@ -135,6 +135,31 @@ int err_unlock_mutex(void) {
 }
 
 /*
+ * Let the leak detector know about a chunk of memory
+ * that needs to be freed, but came from an external library
+ */
+void err_notify(char *file, int line, void *ptr) {
+    ERR_LEAK *pnew;
+
+    pnew=(ERR_LEAK*)malloc(sizeof(ERR_LEAK));
+    if(!pnew) 
+	log_err(1,"Error: cannot allocate leak struct\n");
+
+    if(err_lock_mutex()) 
+	log_err(1,"Error: cannot lock error mutex\n");
+	
+    pnew->file=file;
+    pnew->line=line;
+    pnew->size=0;
+    pnew->ptr=ptr;
+
+    pnew->next=err_leak.next;
+    err_leak.next=pnew;
+
+    err_unlock_mutex();
+}
+
+/*
  * err_malloc
  *
  * safe malloc
@@ -199,7 +224,7 @@ void err_free(char *file, int line, void *ptr) {
     }
 
     if(!current) {
-	log_err(0,"Attempt to free unallocated memory: %s, %d\n",file,line);
+	log_err(1,"Attempt to free unallocated memory: %s, %d\n",file,line);
     } else {
 	free(current->ptr);
 	last->next=current->next;

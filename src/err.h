@@ -48,12 +48,14 @@ extern void log_setdest(char *app, int destination);
 #  define malloc(x) err_malloc(__FILE__,__LINE__,x)
 #  define strdup(x) err_strdup(__FILE__,__LINE__,x)
 #  define free(x) err_free(__FILE__,__LINE__,x)
+#  define MEMNOTIFY(x) err_notify(__FILE__,__LINE__,x)
 # endif /* __IN_ERR__ */
 
 
 extern void *err_malloc(char *file, int line, size_t size);
 extern char *err_strdup(char *file, int line, const char *str);
 extern void err_free(char *file, int line, void *ptr);
+extern void err_notify(char *file, int line, void *ptr);
 extern void err_leakcheck(void);
 
 #endif /* DEBUG */
