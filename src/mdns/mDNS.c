@@ -68,6 +68,9 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.2  2004/02/25 16:13:37  rpedde
+More -Wall cleanups
+
 Revision 1.1  2003/10/23 21:43:01  ron
 Add Apple mDNS reponder
 
@@ -3782,7 +3785,6 @@ mDNSexport void mDNS_GenerateFQDN(mDNS *const m)
 
 mDNSlocal void HostNameCallback(mDNS *const m, ResourceRecord *const rr, mStatus result)
 	{
-	#pragma unused(rr)
 	switch (result)
 		{
 		case mStatus_NoError:
@@ -3939,7 +3941,6 @@ mDNSexport void mDNS_DeregisterInterface(mDNS *const m, NetworkInterfaceInfo *se
 
 mDNSlocal void ServiceCallback(mDNS *const m, ResourceRecord *const rr, mStatus result)
 	{
-	#pragma unused(m)
 	ServiceRecordSet *sr = (ServiceRecordSet *)rr->Context;
 	switch (result)
 		{

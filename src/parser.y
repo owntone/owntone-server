@@ -24,6 +24,7 @@
 
 
 #include <stdio.h>
+#include <stdlib.h>
 #include "playlist.h"
 
 #define YYERROR_VERBOSE 1

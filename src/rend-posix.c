@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.12  2004/02/25 16:13:37  rpedde
+  More -Wall cleanups
+
   Revision 1.11  2004/02/09 18:33:59  rpedde
   Pretty up
 
@@ -151,16 +154,15 @@
 #include <sys/types.h>
 
 #define __IN_ERR__
+#include "daapd.h"
 #include "err.h"
 #include "rend.h"
 #include "rend-unix.h"
 
-#pragma mark ***** Globals
 
 static mDNS mDNSStorage;       // mDNS core uses this to store its globals
 static mDNS_PlatformSupport PlatformStorage;  // Stores this platform's globals
 
-#pragma mark ***** Signals
 
 static volatile mDNSBool gStopNow;
 
@@ -202,155 +204,14 @@ static void HandleSigQuit(int sigraised)
     exit(0);
 }
 
-#pragma mark ***** Parameter Checking
 
-static mDNSBool CheckThatRichTextHostNameIsUsable(const char *richTextHostName)
-// Checks that richTextHostName is a reasonable host name 
-// label and, if it isn't and printExplanation is true, prints 
-// an explanation of why not.
-{
-    mDNSBool    result;
-    domainlabel richLabel;
-    domainlabel poorLabel;
-    
-    result = mDNStrue;
-    if (result && strlen(richTextHostName) > 63) {
-        result = mDNSfalse;
-    }
-    if (result && richTextHostName[0] == 0) {
-        result = mDNSfalse;
-    }
-    if (result) {
-        ConvertCStringToDomainLabel(richTextHostName, &richLabel);
-        ConvertUTF8PstringToRFC1034HostLabel(richLabel.c, &poorLabel);
-        if (poorLabel.c[0] == 0) {
-            result = mDNSfalse;
-        }
-    }
-    return result;
-}
 
-static mDNSBool CheckThatServiceTypeIsUsable(const char *serviceType)
-// Checks that serviceType is a reasonable service type 
-// label and, if it isn't and printExplanation is true, prints 
-// an explanation of why not.
-{
-    mDNSBool result;
-    
-    result = mDNStrue;
-    if (result && strlen(serviceType) > 63) {
-        result = mDNSfalse;
-    }
-    if (result && serviceType[0] == 0) {
-        result = mDNSfalse;
-    }
-    return result;
-}
-
-static mDNSBool CheckThatServiceTextIsUsable(const char *serviceText,
-                                             mDNSu8 *pStringList, mDNSu16 *pStringListLen)
-// Checks that serviceText is a reasonable service text record 
-// and, if it isn't and printExplanation is true, prints 
-// an explanation of why not.  Also parse the text into 
-// the packed PString buffer denoted by pStringList and 
-// return the length of that buffer in *pStringListLen.
-// Note that this routine assumes that the buffer is 
-// sizeof(RDataBody) bytes long.
-{
-    mDNSBool result;
-    size_t   serviceTextLen;
-    
-    // Note that parsing a C string into a PString list always 
-    // expands the data by one character, so the following 
-    // compare is ">=", not ">".  Here's the logic:
-    //
-    // #1 For a string with not ^A's, the PString length is one 
-    //    greater than the C string length because we add a length 
-    //    byte.
-    // #2 For every regular (not ^A) character you add to the C 
-    //    string, you add a regular character to the PString list.
-    //    This does not affect the equivalence stated in #1.
-    // #3 For every ^A you add to the C string, you add a length 
-    //    byte to the PString list but you also eliminate the ^A, 
-    //    which again does not affect the equivalence stated in #1.
-    
-    result = mDNStrue;
-    serviceTextLen = strlen(serviceText);
-    if (result && strlen(serviceText) >= sizeof(RDataBody)) {
-        result = mDNSfalse;
-    }
-    
-    // Now break the string up into PStrings delimited by ^A.
-    // We know the data will fit so we can ignore buffer overrun concerns. 
-    // However, we still have to treat runs long than 255 characters as
-    // an error.
-    
-    if (result) {
-        int         lastPStringOffset;
-        int         i;
-        int         thisPStringLen;
-        
-        // This algorithm is a little tricky.  We start by copying 
-        // the string directly into the output buffer, shifted up by 
-        // one byte.  We then fill in the first byte with a ^A. 
-        // We then walk backwards through the buffer and, for each 
-        // ^A that we find, we replace it with the difference between 
-        // its offset and the offset of the last ^A that we found
-        // (ie lastPStringOffset).
-        
-        memcpy(&pStringList[1], serviceText, serviceTextLen);
-        pStringList[0] = 1;
-        lastPStringOffset = serviceTextLen + 1;
-        for (i = serviceTextLen; i >= 0; i--) {
-            if ( pStringList[i] == 1 ) {
-                thisPStringLen = (lastPStringOffset - i - 1);
-                assert(thisPStringLen >= 0);
-                if (thisPStringLen > 255) {
-                    result = mDNSfalse;
-                    break;
-                } else {
-                    pStringList[i]    = thisPStringLen;
-                    lastPStringOffset = i;
-                }
-            }
-        }
-        
-        *pStringListLen = serviceTextLen + 1;
-    }
-
-    return result;
-}
-
-static mDNSBool CheckThatPortNumberIsUsable(long portNumber)
-// Checks that portNumber is a reasonable port number
-// and, if it isn't and printExplanation is true, prints 
-// an explanation of why not.
-{
-    mDNSBool result;
-    
-    result = mDNStrue;
-    if (result && (portNumber <= 0 || portNumber > 65535)) {
-        result = mDNSfalse;
-    }
-    return result;
-}
-
-#pragma mark ***** Command Line Arguments
 
 /* get rid of pidfile handling - rep - 21 Oct 2k3 */
 static const char kDefaultServiceType[] = "_http._tcp.";
 enum {
     kDefaultPortNumber = 80
 };
-
-static   mDNSBool  gAvoidPort53      = mDNStrue;
-static const char *gRichTextHostName = "";
-static const char *gServiceType      = kDefaultServiceType;
-static mDNSu8      gServiceText[sizeof(RDataBody)];
-static mDNSu16     gServiceTextLen   = 0;
-static        int  gPortNumber       = kDefaultPortNumber;
-
-#pragma mark ***** Registration
 
 typedef struct PosixService PosixService;
 
@@ -540,7 +401,6 @@ void rend_callback(void) {
 }
 
 
-#pragma mark **** rend_private_init
 
 int rend_private_init(char *user) {
     mStatus status;

@@ -271,8 +271,6 @@ int scan_foreground(char *path) {
     struct dirent *pde;
     int err;
     char mp3_path[PATH_MAX];
-    char linebuffer[PATH_MAX];
-    int fd;
     struct stat sb;
 
     if((current_dir=opendir(path)) == NULL) {

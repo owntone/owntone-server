@@ -22,6 +22,9 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.3  2004/02/25 16:13:37  rpedde
+More -Wall cleanups
+
 Revision 1.2  2003/11/26 06:12:53  ron
 Exclude from memory checks
 
@@ -120,8 +123,6 @@ static mStatus PosixErrorToStatus(int errNum)
     }
     return result;
 }
-
-#pragma mark ***** Send and Receive
 
 mDNSexport mStatus mDNSPlatformSendUDP(const mDNS *const m, const DNSMessage *const msg, const mDNSu8 *const end,
     mDNSIPAddr src, mDNSIPPort srcPort, mDNSIPAddr dst, mDNSIPPort dstPort)
@@ -256,7 +257,6 @@ static void SocketDataReady(mDNS *const m, PosixNetworkInterface *intf, int skt)
     }
 }
 
-#pragma mark ***** Init and Term
 
 // On OS X this gets the text of the field labelled "Computer Name" in the Sharing Prefs Control Panel
 // Other platforms can either get the information from the appropriate place,
@@ -723,7 +723,6 @@ extern mStatus mDNSPlatformPosixRefreshInterfaceList(mDNS *const m)
     return PosixErrorToStatus(err);
 }
 
-#pragma mark ***** Locking
 
 // On the Posix platform, locking is a no-op because we only ever enter 
 // mDNS core on the main thread.
@@ -732,7 +731,6 @@ mDNSexport void    mDNSPlatformLock   (const mDNS *const m)
     // mDNS core calls this routine when it wants to prevent 
     // the platform from reentering mDNS core code.
 {
-    #pragma unused(m)
 }
 
 mDNSexport void    mDNSPlatformUnlock (const mDNS *const m) 
@@ -740,10 +738,8 @@ mDNSexport void    mDNSPlatformUnlock (const mDNS *const m)
     // taken by mDNSPlatformLock and allow the platform to 
     // reenter mDNS core code.
 { 
-    #pragma unused(m)
 }
 
-#pragma mark ***** Strings
 
 mDNSexport void    mDNSPlatformStrCopy(const void *src,       void *dst)
     // mDNS core calls this routine to copy C strings. 
