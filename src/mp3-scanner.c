@@ -1315,12 +1315,12 @@ int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi) {
  * @param pfi pointer to frame info struct to put the bitrate into
  */
 void scan_get_average_bitrate(FILE *infile, SCAN_FRAMEINFO *pfi) {
-    fpos_t file_size;
+    off_t file_size;
     unsigned char frame_buffer[2900];
     unsigned char header[4];
     int index=0;
     int found=0;
-    fpos_t pos;
+    off_t pos;
     SCAN_FRAMEINFO fi;
     int frame_count=0;
     int bitrate_total=0;
@@ -1403,7 +1403,7 @@ void scan_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi) {
     int frames=0;
     unsigned char frame_buffer[4];
     SCAN_FRAMEINFO fi;
-    fpos_t file_size;
+    off_t file_size;
     int err=0;
     int cbr=1;
     int last_bitrate=0;
