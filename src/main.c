@@ -219,8 +219,11 @@ void daap_handler(WS_CONNINFO *pwsc) {
     pwsc->close=close;
 
     if(!streaming) {
+	DPRINTF(ERR_DEBUG,"Satisfying request\n");
 	ws_addresponseheader(pwsc,"Content-Length","%d",root->reported_size + 8);
 	ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+
+	DPRINTF(ERR_DEBUG,"Emitting headers\n");
 	ws_emitheaders(pwsc);
 
 	/*
@@ -230,7 +233,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	  }
 	*/
 
+	DPRINTF(ERR_DEBUG,"Serializing\n");
 	daap_serialize(root,pwsc->fd,0);
+	DPRINTF(ERR_DEBUG,"Done, freeing\n");
 	daap_free(root);
     } else {
 	/* stream out the song */

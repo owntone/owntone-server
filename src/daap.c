@@ -339,6 +339,8 @@ DAAP_BLOCK *daap_response_songlist(void) {
 	return NULL;
     }
 
+    DPRINTF(ERR_DEBUG,"Successfully enumerated database\n");
+
     return root;
 }
 
