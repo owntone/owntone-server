@@ -1,6 +1,6 @@
 Summary: A multi-threaded implementation of Apple's DAAP server
 Name: mt-daapd
-Version: 0.2.1
+Version: 0.2.1.1
 Release: 1
 License: GPL
 Group: Development/Networking
