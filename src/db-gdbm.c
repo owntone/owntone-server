@@ -498,13 +498,23 @@ int db_start_initial_update(void) {
  */
 int db_end_initial_update(void) {
     const void *val;
+    unsigned long int oldval;
+    unsigned long int *oldptr;
+
     DB_PLAYLIST *current,*last;
     DB_PLAYLISTENTRY *pple;
 
     DPRINTF(E_DBG,L_DB|L_SCAN,"Initial update over.  Removing stale items\n");
-    for(val=rblookup(RB_LUFIRST,NULL,db_removed); val != NULL; 
-	val=rblookup(RB_LUNEXT,val,db_removed)) {
-	db_delete(*((int*)val));
+    val=rblookup(RB_LUFIRST,NULL,db_removed);
+
+    while(val) {
+	oldval=(*((int*)val));
+	oldptr=(unsigned long int*)rbdelete((void*)&oldval,db_removed);
+	if(oldptr)
+	    free(oldptr);
+	db_delete(oldval);
+
+	val=rblookup(RB_LUFIRST,NULL,db_removed);
     }
 
     DPRINTF(E_DBG,L_DB|L_SCAN,"Done removing stale items\n");
