@@ -45,6 +45,7 @@ void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 int config_mutex_lock(void);
 int config_mutex_unlock(void);
@@ -75,6 +76,7 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"package",(void*)PACKAGE,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"include",(void*)NULL,config_emit_include },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"threadstat",(void*)NULL,config_emit_threadstatus },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"ispage",(void*)NULL,config_emit_ispage },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -82,6 +84,7 @@ typedef struct tag_scan_status {
     int session;
     int thread;
     char *what;
+    char *host;
     struct tag_scan_status *next;
 } SCAN_STATUS;
 
@@ -220,7 +223,7 @@ int config_write(CONFIG *pconfig) {
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
     int in_arg;
     char *argptr;
-    char argbuffer[30];
+    char argbuffer[80];
     char next;
     CONFIGELEMENT *pce;
     char *first, *last;
@@ -406,12 +409,71 @@ void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg) {
     pss=scan_status.next;
     while(pss) {
 	ws_writefd(pwsc,"<TR><TD>%d</TD><TD>%d</TD><TD>%s</TD><TD>%s</TD></TR>\n",
-		   pss->thread,pss->session,pwsc->hostname,pss->what);
+		   pss->thread,pss->session,pss->host,pss->what);
 	pss=pss->next;
     }
 
     ws_writefd(pwsc,"</TABLE>\n");
     config_mutex_unlock();
+}
+
+
+/*
+ * config_emit_ispage
+ *
+ * This is a tacky function to make the headers look right.  :)
+ */
+void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
+    char *first;
+    char *last;
+
+    char *page, *true, *false;
+
+    DPRINTF(ERR_DEBUG,"Splitting arg %s\n",arg);
+
+    first=last=arg;
+    strsep(&last,":");
+    
+    if(last) {
+	page=strdup(first);
+	if(!page)
+	    return;
+	first=last;
+	strsep(&last,":");
+	if(last) {
+	    true=strdup(first);
+	    false=strdup(last);
+	    if((!true)||(!false))
+		return;
+	} else {
+	    true=strdup(first);
+	    if(!true)
+		return;
+	    false=NULL;
+	}
+    } else {
+	return;
+    }
+
+
+    DPRINTF(ERR_DEBUG,"page: %s, uri: %s\n",page,pwsc->uri);
+
+    if((strlen(page) > strlen(pwsc->uri)) ||
+       (strcasecmp(page,(char*)&pwsc->uri[strlen(pwsc->uri) - strlen(page)]) != 0)) {
+	ws_writefd(pwsc,"%s",false);
+    } else {
+	ws_writefd(pwsc,"%s",true);
+    }
+
+
+    if(page)
+	free(page);
+
+    if(true)
+	free(true);
+
+    if(false)
+	free(false);
 }
 
 /*
@@ -513,7 +575,8 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
 		pfirst->what = strdup(buffer);
 		pfirst->session = session;
 		pfirst->thread = pwsc->threadno;
-		pfirst->next=scan_status.next;
+		pfirst->next = scan_status.next;
+		pfirst->host = strdup(pwsc->hostname);
 		scan_status.next=pfirst;
 	    }
 	}
@@ -526,10 +589,12 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
 	if(pfirst==plast) { 
 	    scan_status.next=pfirst->next;
 	    free(pfirst->what);
+	    free(pfirst->host);
 	    free(pfirst);
 	} else {
 	    plast->next = pfirst->next;
 	    free(pfirst->what);
+	    free(pfirst->host);
 	    free(pfirst);
 	}
     }
