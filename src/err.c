@@ -67,10 +67,10 @@ void log_err(int quit, char *fmt, ...)
 
     switch(err_logdestination) {
     case LOGDEST_STDERR:
-        fprintf(stderr, errbuf);
+        fprintf(stderr, "%s", errbuf);
         break;
     case LOGDEST_SYSLOG:
-        syslog(LOG_INFO, errbuf);
+        syslog(LOG_INFO, "%s", errbuf);
         break;
     }
 
