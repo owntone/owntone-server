@@ -39,6 +39,7 @@
 
 #include <sys/param.h>
 #include <sys/types.h>
+#include <sys/socket.h>
 
 #include "err.h"
 #include "webserver.h"
@@ -220,6 +221,8 @@ extern int ws_stop(WSHANDLE ws) {
     WS_PRIVATE *pwsp = (WS_PRIVATE*)ws;
     WS_HANDLER *current;
 
+    DPRINTF(ERR_DEBUG,"ws_stop: %d threads\n",pwsp->dispatch_threads);
+
     /* free the ws_handlers */
     while(pwsp->handlers.next) {
 	current=pwsp->handlers.next;
@@ -230,6 +233,8 @@ extern int ws_stop(WSHANDLE ws) {
     pwsp->stop=1;
     pwsp->running=0;
 
+    DPRINTF(ERR_DEBUG,"ws_stop: closing the server fd\n");
+    shutdown(pwsp->server_fd,SHUT_RDWR);
     r_close(pwsp->server_fd); /* this should tick off the listener */
 
     /* Wait for all the threads to die */
@@ -238,6 +243,7 @@ extern int ws_stop(WSHANDLE ws) {
 
     /* wait for condition */
     while(pwsp->dispatch_threads) {
+	DPRINTF(ERR_DEBUG,"ws_stop: I still see %d threads\n",pwsp->dispatch_threads);
 	pthread_cond_wait(&pwsp->exit_cond, &pwsp->exit_mutex);
     }
 
@@ -296,6 +302,7 @@ void *ws_mainthread(void *arg) {
 	memset(pwsc,0,sizeof(WS_CONNINFO));
 
 	if((fd=u_accept(pwsp->server_fd,hostname,MAX_HOSTNAME)) == -1) {
+	    DPRINTF(ERR_DEBUG,"Dispatcher: accept failed: %s\n",strerror(errno));
 	    r_close(pwsp->server_fd);
 	    pwsp->running=0;
 	    free(pwsc);
@@ -307,6 +314,7 @@ void *ws_mainthread(void *arg) {
 	    pwsp->dispatch_threads--;
 	    pthread_cond_signal(&pwsp->exit_cond);
 	    pthread_mutex_unlock(&pwsp->exit_mutex);
+	    DPRINTF(ERR_DEBUG,"Dispatcher: Aborting\n");
 	    return NULL;
 	}
 
