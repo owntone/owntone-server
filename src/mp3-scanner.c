@@ -340,6 +340,7 @@ int scan_path(char *path) {
     while(1) {
 	if(config.stop) {
 	    DPRINTF(E_WARN,L_SCAN,"Stop detected.  Aborting scan of %s.\n",path);
+	    closedir(current_dir);
 	    return 0;
 	}
 
@@ -1157,6 +1158,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	} else {
 	    DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
 	}
+	fclose(infile);
 	return -1;
     }
 
@@ -1176,6 +1178,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     fseek(infile,fp_size,SEEK_SET);
     if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
 	DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
+	fclose(infile);
 	return -1;
     }
 
@@ -1224,11 +1227,13 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
 	if((layer_index < 0) || (layer_index > 4)) {
 	    DPRINTF(E_LOG,L_SCAN,"Bad mp3 header in %s: bad layer_index\n",file);
+	    fclose(infile);
 	    return -1;
 	}
 
 	if((sample_index < 0) || (sample_index > 2)) {
 	    DPRINTF(E_LOG,L_SCAN,"Bad mp3 header in %s: bad sample_index\n",file);
+	    fclose(infile);
 	    return -1;
 	}
 
@@ -1249,17 +1254,16 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	DPRINTF(E_DBG,L_SCAN," Bit Rate: %d\n",bitrate);
 
 	/* guesstimate the file length */
-	if(!pmp3->song_length) /* could have gotten it from the tag */
-	    {
-		/* DWB: use ms time instead of seconds, use doubles to
-		   avoid overflow */
-		if(bitrate)
-		    {
-			pmp3->song_length = (int) ((double) file_size * 8000. /
-						   (double) bitrate /
-						   1024.);
-		    }
+	if(!pmp3->song_length) { /* could have gotten it from the tag */
+	    
+	    /* DWB: use ms time instead of seconds, use doubles to
+	       avoid overflow */
+	    if(bitrate) {
+		pmp3->song_length = (int) ((double) file_size * 8000. /
+					   (double) bitrate /
+					   1024.);
 	    }
+	}
     } else {
 	/* FIXME: should really scan forward to next sync frame */
 	fclose(infile);

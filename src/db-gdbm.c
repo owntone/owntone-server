@@ -149,6 +149,8 @@ static int gdbm_mp3_mustfree=0;  /**< is the data in #gdbm_mp3 valid? Should it 
 /*
  * Forwards
  */
+static void db_writelock(void);
+static void db_readlock(void);
 
 int db_start_initial_update(void);
 int db_end_initial_update(void);
@@ -413,9 +415,6 @@ int db_start_initial_update(void) {
 int db_end_initial_update(void) {
     const void *val;
 
-    db_writelock();
-    db_update_mode=0;
-
     DPRINTF(E_DBG,L_DB|L_SCAN,"Initial update over.  Removing stale items\n");
     for(val=rblookup(RB_LUFIRST,NULL,db_removed); val != NULL; 
 	val=rblookup(RB_LUNEXT,val,db_removed)) {
@@ -427,9 +426,12 @@ int db_end_initial_update(void) {
     rbdestroy(db_removed);
 
     DPRINTF(E_DBG,L_DB,"Reorganizing db\n");
+
+    db_writelock();
     gdbm_reorganize(db_songs);
     gdbm_sync(db_songs);
     DPRINTF(E_DBG,L_DB,"Reorganize done\n");
+    db_update_mode=0;
     db_unlock();
 
     return 0;
@@ -1096,7 +1098,7 @@ ENUMHANDLE db_playlist_items_enum_begin(int playlistid) {
     while(current && (current->id != playlistid))
 	current=current->next;
     
-    if(!current)
+    if(!current) 
 	return NULL;
 
     return current->nodes;
@@ -1134,7 +1136,7 @@ int db_playlist_items_enum(ENUMHANDLE* handle) {
     DB_PLAYLISTENTRY **current;
     int retval;
 
-    if(!handle)
+    if(!handle) 
 	return -1;
 
     current = (DB_PLAYLISTENTRY**) handle;
@@ -1176,7 +1178,6 @@ int db_playlist_items_enum_end(ENUMHANDLE handle) {
 MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
     MP3FILE *pmp3=NULL;
     datum key, content;
-    int is_locked=0;
 
     key.dptr=(char*)&id;
     key.dsize=sizeof(int);
@@ -1198,9 +1199,9 @@ MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
 	return NULL;
     }
 
+    db_unlock();
     db_unpackrecord(&content,pmp3);
     free(content.dptr);
-    db_unlock();
     return pmp3;
 }
 
@@ -1210,7 +1211,12 @@ MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
  * return the number of playlists
  */
 int db_get_playlist_count(void) {
-    return db_playlist_count;
+    int retval;
+
+    db_readlock();
+    retval=db_playlist_count;
+    db_unlock();
+    return retval;
 }
 
 /*
@@ -1220,7 +1226,13 @@ int db_get_playlist_count(void) {
  * request
  */
 int db_get_song_count(void) {
-    return db_song_count;
+    int retval;
+
+    db_readlock();
+    retval=db_song_count;
+    db_unlock();
+    
+    return retval;
 }
 
 
@@ -1280,8 +1292,6 @@ int db_get_playlist_entry_count(int playlistid) {
  * db_get_playlist_name
  *
  * return the name of a playlist
- *
- * FIXME: Small race here
  */
 char *db_get_playlist_name(int playlistid) {
     char *name;
