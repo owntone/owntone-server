@@ -232,8 +232,9 @@ int config_read(char *file) {
     char path_buffer[PATH_MAX];
     CONFIGELEMENT *pce;
     int handled;
+    char *term;
 
-    buffer=(char*)malloc(MAX_LINE);
+    buffer=(char*)malloc(MAX_LINE+1);
     if(!buffer)
 	return -1;
 
@@ -278,49 +279,56 @@ int config_read(char *file) {
     config.servername=strdup("mt-daapd " VERSION);
 
     while(fgets(buffer,MAX_LINE,fin)) {
-	if(*buffer != '#') {
-	    value=buffer;
-	    strsep(&value,"\t ");
-	    if(value) {
-		while((*value==' ')||(*value=='\t'))
-		    value++;
+	buffer[MAX_LINE] = '\0';
 
-		comment=value;
-		strsep(&comment,"#");
+	comment=strchr(buffer,'#');
+	if(comment)
+	    *comment = '\0';
 
-		if(value[strlen(value)-1] == '\n')
-		    value[strlen(value)-1] = '\0';
+	while(strlen(buffer) && (strchr("\n\r ",buffer[strlen(buffer)-1])))
+	    buffer[strlen(buffer)-1] = '\0';
 
-		pce=config_elements;
-		handled=0;
-		while((!handled) && (pce->config_element != -1)) {
-		    if((strcasecmp(buffer,pce->name)==0) && (pce->config_element)) {
-			/* valid config directive */
-			handled=1;
-			pce->changed=1;
-			
-			DPRINTF(E_DBG,L_CONF,"Read %s: %s\n",pce->name,value);
+	term=buffer;
 
-			switch(pce->type) {
-			case CONFIG_TYPE_STRING:
-			    /* DWB: free space to prevent small leak */
-			    if(*((char **)(pce->var)))
-				free(*((char **)(pce->var)));
-			    *((char **)(pce->var)) = (void*)strdup(value);
-			    break;
-			case CONFIG_TYPE_INT:
-			    *((int*)(pce->var)) = atoi(value);
-			    break;
-			}
+	while((*term=='\t') || (*term==' '))
+	    term++;
+
+	value=term;
+
+	strsep(&value,"\t ");
+	if((value) && (term) && (strlen(term))) {
+	    while(strlen(value) && (strchr("\t ",*value)))
+		value++;
+	    
+	    pce=config_elements;
+	    handled=0;
+	    while((!handled) && (pce->config_element != -1)) {
+		if((strcasecmp(term,pce->name)==0) && (pce->config_element)) {
+		    /* valid config directive */
+		    handled=1;
+		    pce->changed=1;
+		    
+		    DPRINTF(E_DBG,L_CONF,"Read %s: %s\n",pce->name,value);
+		    
+		    switch(pce->type) {
+		    case CONFIG_TYPE_STRING:
+			/* DWB: free space to prevent small leak */
+			if(*((char **)(pce->var)))
+			    free(*((char **)(pce->var)));
+			*((char **)(pce->var)) = (void*)strdup(value);
+			break;
+		    case CONFIG_TYPE_INT:
+			*((int*)(pce->var)) = atoi(value);
+			break;
 		    }
-		    pce++;
 		}
-
-		if(!handled) {
-		    fprintf(stderr,"Invalid config directive: %s\n",buffer);
-		    fclose(fin);
-		    return -1;
-		}
+		pce++;
+	    }
+	    
+	    if(!handled) {
+		fprintf(stderr,"Invalid config directive: %s\n",buffer);
+		fclose(fin);
+		return -1;
 	    }
 	}
     }
