@@ -20,7 +20,6 @@
  */
 /* Detta script finns att hämta på http://www.jojoxx.net och 
    får användas fritt så länge som dessa rader står kvar. */ 
-
 function DataDumper(obj,n,prefix){
 	var str=""; prefix=(prefix)?prefix:""; n=(n)?n+1:1; var ind=""; for(var i=0;i<n;i++){ ind+="    "; }
 	if(typeof(obj)=="string"){
@@ -29,6 +28,8 @@ function DataDumper(obj,n,prefix){
 		str+=ind+prefix+"Number:"+obj+"\n";
 	} else if(typeof(obj)=="function"){
 		str+=ind+prefix+"Function:"+obj+"\n";
+	} else if(typeof(obj) == 'boolean') {
+    str+=ind+prefix+"Boolean:" + obj + "\n";
 	} else {
 		var type="Array";
 		for(var i in obj){ type=(type=="Array"&&i==parseInt(i))?"Array":"Object" }
@@ -43,7 +44,7 @@ function DataDumper(obj,n,prefix){
 	return str;
 }
 
-var g_req;
+//var g_req;
 var g_requestor;
 var g_selectedGenres = Array();
 var g_selectedAlbums = Array();
@@ -58,18 +59,24 @@ String.prototype.myEncodeURI = function () {
 };
 
 Requestor = function(baseUrl) {
+  g_requestor = this;
+  this.req = ''; // holds the request
+  this.responseHandler;
   this.baseUrl = baseUrl;
   this.que = Array();
+
     // All browsers but IE
-  g_req = false;
   if (window.XMLHttpRequest) {
-    g_req = new XMLHttpRequest();
+    this.req = new XMLHttpRequest();
     // MS IE
   } else if (window.ActiveXObject) {
-    g_req = new ActiveXObject("Microsoft.XMLHTTP");
+    this.req = new ActiveXObject("Microsoft.XMLHTTP");
   }
   this.busy = false;
 
+};
+Requestor.prototype.setResponseHandler = function(resp) {
+  this.responseHandler = resp;
 };
 Requestor.prototype.addRequest = function(url) {
   if (this.busy) {
@@ -86,17 +93,36 @@ Requestor.prototype._openRequest = function(url) {
     } else {
       url += '?output=xml';
     }
-    g_req.open('get',this.baseUrl+url,true);
-    g_req.onreadystatechange = Requestor_handleRequest;
-    g_req.send(null);
+    this.req.open('get',this.baseUrl+url,true);
+    this.req.onreadystatechange = Requestor_handleRequest;
+    this.req.send(null);
 };
 Requestor_handleRequest = function() {
-  if (4   == g_req.readyState) {
-    // readystate 4 means the whole document is loaded
-    if (200 == g_req.status) {
+  // readystate 4 means the whole document is loaded
+  if (4   == g_requestor.req.readyState) {
       // Only try to parse the response if we got
       // ok from the server
-      xmldoc = g_req.responseXML;
+    if (200 == g_requestor.req.status) {
+      // send the recieved document off to the handler
+      g_requestor.responseHandler(g_requestor.req.responseXML);
+    }
+    // Check if there are requests qued up
+    if (g_requestor.que.length > 0) {
+      // Just to be able to pull ourseves up by our boot straps
+      window.setTimeout(Requestor_queChecker,5);
+      return;
+    } else {
+      g_requestor.busy = false;
+    }
+  }
+};
+function Requestor_queChecker() {
+  if (url = g_requestor.que.shift()) {
+    g_requestor._openRequest(url);
+  }
+}
+
+function response(xmldoc) {
       if ('daap.databaseplaylists' == xmldoc.firstChild.nodeName) {
         el = document.getElementById('source');
         addPlaylists(el,xmldoc);
@@ -115,6 +141,8 @@ Requestor_handleRequest = function() {
           case 'daap.browsealbumlisting':
                 el = document.getElementById('album');
                 addOptions(el,'album',xmldoc);
+                // All other boxes are updated, now get the songs
+                getSongs();
                 break;                    
           default:
                 // We got something else back...
@@ -123,28 +151,14 @@ Requestor_handleRequest = function() {
         // Songlist
         addSongs(xmldoc);
       }
-    }
-    if (g_requestor.que.length > 0) {
-      // Just to be able to pull ourseves up by our boot straps
-      window.setTimeout(Requestor_queChecker,5);
-      return;
-    } else {
-      g_requestor.busy = false;
-    }
-  }
-};
-function Requestor_queChecker() {
-  if (url = g_requestor.que.shift()) {
-    g_requestor._openRequest(url);
-  }
 }
-
 function init() {
-  g_requestor = new Requestor(baseUrl);
-  g_requestor.addRequest('databases/1/containers');
-  g_requestor.addRequest('databases/1/browse/genres');
-  g_requestor.addRequest('databases/1/browse/artists');
-  g_requestor.addRequest('databases/1/browse/albums');
+  req = new Requestor(baseUrl);
+  req.setResponseHandler(response);
+  req.addRequest('databases/1/containers');
+  req.addRequest('databases/1/browse/genres');
+  req.addRequest('databases/1/browse/artists');
+  req.addRequest('databases/1/browse/albums');
   el = document.getElementById('source');
   el.addEventListener('change',playlistSelect,true);
 
@@ -154,26 +168,10 @@ function init() {
   el = document.getElementById('artist');
   el.addEventListener('change',artistSelect,true);
 
-//###FIXME album select
-return;
-  // get playlists
-  
-  g_req.open('get',baseUrl+'databases/1/containers?output=xml',false);
-  g_req.send(null);
-  
-  
-  g_req.open('get',baseUrl+'databases/1/browse/genres?output=xml',false);
-  g_req.send(null);
-    
-  g_req.open('get',baseUrl+'databases/1/browse/artists?output=xml',false);
-  g_req.send(null);
-  
-  g_req.open('get',baseUrl+'databases/1/browse/albums?output=xml',false);
-  g_req.send(null);
   el = document.getElementById('album');
-  addOptions(el,'album',g_req.responseXML);
-
+  el.addEventListener('change',albumSelect,true);
 }
+
 function addOptions(el,label,xmldoc) {
   while(el.hasChildNodes()) {
     el.removeChild(el.firstChild);
@@ -191,26 +189,27 @@ function addOptions(el,label,xmldoc) {
   el.appendChild(option);
 
   items = xmldoc.getElementsByTagName('dmap.listingitem');
+  selectAll = true;
   for (i=0; i<items.length; i++) {
     option = document.createElement('option');
     itemName = items[i].textContent;
     option.value = itemName;
-    selectAll = true;
     switch (label) {
       case 'genre': 
         if (g_selectedGenres[itemName]) {
-          //option.selected = true;
+          option.selected = true;
           selectAll = false;
         }
         break;
       case 'artist':
         if (g_selectedArtists[itemName]) {
-          //option.selected = true;
+          option.selected = true;
           selectAll = false;
         }
+        break;
       case 'album':
         if (g_selectedAlbums[itemName]) {
-          //option.selected = true;
+          option.selected = true;
           selectAll = false;
         }
       default: // if we get here something is wrong
@@ -221,15 +220,26 @@ function addOptions(el,label,xmldoc) {
     el.appendChild(option);
   }
   if (selectAll) {
+    // clear the global selections arrays
     el.options[0].selected = true;
+    switch (label) {
+      case 'genre':
+        g_selectedGenres = Array();
+        break;
+      case 'artist':
+        g_selectedArtists = Array();
+        break;
+      case 'album':
+        g_selectedAlbums = Array();
+        break;
+      default:
+        // Can't get here    
+    }
   } else {
-    el.removeAttribute('selected');
-  }
-  if ('album' == label) {
-    //### All other boxes are updated, this is the last one, now get the songs
-    getSongs();
+    el.options[0].selected = false;
   }
 }
+
 function addPlaylists(el,xmldoc) {
   //items = xmldoc.getElementsByTagName('dmap.listingitem');
   list = xmldoc.childNodes[0].childNodes[4];
@@ -243,6 +253,7 @@ function addPlaylists(el,xmldoc) {
     el.appendChild(option);
   }
 }
+
 function playlistSelect(event) {
   table = document.getElementById('songs');
   tableBody = removeRows(table);
@@ -345,6 +356,7 @@ function genreSelect(event) {
 	  }
 	  filter = '?filter=' + filter.join(',');
   }
+//dump(DataDumper(g_selectedGenres));
   g_requestor.addRequest('databases/1/browse/artists' + filter);
   g_requestor.addRequest('databases/1/browse/albums' + filter);
 }
@@ -408,7 +420,7 @@ function getSongs() {
       // so set filter to empty
     query = '';
   } else {
-    query = '&query=' + query.join(',');
+    query = '&query=' + query.join(' ');
   }
   //alert(query);
   g_requestor.addRequest('databases/1/items' +
