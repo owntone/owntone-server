@@ -787,7 +787,7 @@ void *ws_dispatcher(void *arg) {
 		} 
 
 		if(!can_dispatch) { /* auth failed, or need auth */
-		    ws_addarg(&pwsc->response_headers,"Connection","close");
+		    //ws_addarg(&pwsc->response_headers,"Connection","close");
 		    ws_addarg(&pwsc->response_headers,"WWW-Authenticate",
 			      "Basic realm=\"webserver\"");
 		    ws_returnerror(pwsc,401,"Unauthorized");
@@ -843,9 +843,19 @@ int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
  * just close the connection with prejudice.
  */
 int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
+    char *useragent;
+
     DPRINTF(ERR_WARN,"Thread %d: Pushing a %d: %s\n",
 	    pwsc->threadno,error,description);
     ws_writefd(pwsc,"HTTP/1.1 %d %s\r\n",error,description);
+    
+    /* we'll force a close here unless the user agent is
+       iTunes, which seems to get pissy about it */
+    useragent = ws_getarg(&pwsc->request_headers,"User-Agent");
+    if(useragent && (strncmp(useragent,"iTunes",6))) {
+	pwsc->close=1;
+	ws_addarg(&pwsc->response_headers,"Connection","close");
+    }
 
     ws_emitheaders(pwsc);
 
