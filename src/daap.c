@@ -389,7 +389,7 @@ MetaField_t encodeMetaRequest(char* meta, MetaDataMap* map)
 	if(m->tag)
 	    bits |= (((MetaField_t) 1) << m->bit);
 	else
-	    DPRINTF(ERR_WARN, "Unknown meta code: %*s\n", len, start);
+	    DPRINTF(ERR_WARN, "Unknown meta code: %.*s\n", len, start);
     }
 
     DPRINTF(ERR_DEBUG, "meta codes: %llu\n", bits);
