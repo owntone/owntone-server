@@ -318,7 +318,7 @@ static query_node_t*	match_string(const query_field_t* field,
 				     const char** pcursor, 
 				     const char* query)
 {
-    char		match[64];
+    char		match[256];
     char*		dst = match;
     int			left = sizeof(match);
     const char*		cursor = *pcursor;
