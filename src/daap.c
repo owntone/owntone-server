@@ -918,7 +918,8 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 			    mlit=daap_add_song_entry(mlcl,current,meta);
 			    if(0 != mlit) {
 				if(wantsMeta(meta, metaContainerItemId)) // current->id?
-				    g = g && daap_add_int(mlit,"mcti",playlist);
+				    //				    g = g && daap_add_int(mlit,"mcti",playlist);
+				    g = g && daap_add_int(mlit,"mcti",current->id);
 			    } else g = 0;
 			}
 			db_dispose(current);
