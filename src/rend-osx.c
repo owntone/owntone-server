@@ -10,9 +10,11 @@
 
 #include "err.h"
 
+CFRunLoopRef rend_runloop;
+
 
 static void rend_stoprunloop(void) {
-    CFRunLoopStop(CFRunLoopGetCurrent());
+    CFRunLoopStop(rend_runloop);
 }
 
 static void rend_sigint(int sigraised) {
@@ -64,31 +66,37 @@ static void rend_reply(DNSServiceRegistrationReplyErrorType errorCode, void *con
 int rend_init(pid_t *pid, char *name, int port) {
     dns_service_discovery_ref daap_ref=NULL;
     dns_service_discovery_ref http_ref=NULL;
-
-    signal(SIGINT,  rend_sigint);      // SIGINT is what you get for a Ctrl-C
-
-
-    DPRINTF(ERR_DEBUG,"Registering services\n");
-
-    daap_ref=DNSServiceRegistrationCreate(name,"_daap._tcp",".local",port,"",rend_reply,nil);
-    http_ref=DNSServiceRegistrationCreate(name,"_http._tcp",".local",port,"",rend_reply,nil);
-
-    if(rend_addtorunloop(daap_ref) || rend_addtorunloop(http_ref)) {
-	DPRINTF(ERR_WARN,"Add to runloop failed\n");
-	return -1;
-    }
+    unsigned short usPort=port;
 
     *pid=fork();
     if(*pid) {
 	return 0;
     }
 
+    signal(SIGINT,  rend_sigint);      // SIGINT is what you get for a Ctrl-C
+
+
+    DPRINTF(ERR_DEBUG,"Registering services\n");
+
+    daap_ref=DNSServiceRegistrationCreate(name,"_daap._tcp","",usPort,"",rend_reply,nil);
+    http_ref=DNSServiceRegistrationCreate(name,"_http._tcp","",port,"",rend_reply,nil);
+
+    if(rend_addtorunloop(daap_ref)|| rend_addtorunloop(http_ref)) {
+	DPRINTF(ERR_WARN,"Add to runloop failed\n");
+	return -1;
+    }
+
+    rend_runloop = CFRunLoopGetCurrent();
+
+
     DPRINTF(ERR_DEBUG,"Registered rendezvous services\n");
 
     CFRunLoopRun();
 
+    DPRINTF(ERR_DEBUG,"Exiting runloop\n");
+
     DNSServiceDiscoveryDeallocate(daap_ref);
     DNSServiceDiscoveryDeallocate(http_ref);
 
-    return 0;
+    exit(0);
 }
