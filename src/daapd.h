@@ -38,6 +38,7 @@ typedef struct tag_config {
     char *web_root;
     int port;
     int rescan_interval;
+    int process_m3u;
     char *adminpassword;
     char *readpassword;
     char *mp3dir;

@@ -95,6 +95,7 @@ CONFIGELEMENT config_elements[] = {
 #endif
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
     { 1,0,0,CONFIG_TYPE_INT,"rescan_interval",(void*)&config.rescan_interval,config_emit_int },
+    { 1,0,0,CONFIG_TYPE_INT,"process_m3u",(void*)&config.rescan_interval,config_emit_int },
     { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
@@ -169,6 +170,7 @@ int config_read(char *file) {
     config.artfilename=NULL;
     config.logfile=NULL;
     config.rescan_interval=0;
+    config.process_m3u=0;
 
     /* DWB: use alloced space so it can be freed without errors */
     config.extensions=strdup(".mp3");
@@ -312,6 +314,7 @@ int config_write(WS_CONNINFO *pwsc) {
     fprintf(configfile,"extensions\t%s\n",ws_getvar(pwsc,"extensions"));
     fprintf(configfile,"db_dir\t\t%s\n",ws_getvar(pwsc,"db_dir"));
     fprintf(configfile,"rescan_interval\t%s\n",ws_getvar(pwsc,"rescan_interval"));
+    fprintf(configfile,"process_m3u\t%s\n",ws_getvar(pwsc,"process_m3u"));    
 
     fclose(configfile);
     return 0;

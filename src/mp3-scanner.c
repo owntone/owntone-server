@@ -366,7 +366,8 @@ int scan_path(char *path) {
 	    } else {
 		/* process the file */
 		if(strlen(pde->d_name) > 4) {
-		    if(strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) {
+		    if((strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) &&
+		       config.process_m3u){
 			/* we found an m3u file */
 			scan_static_playlist(path, pde, &sb);
 		    } else if (strcasestr(config.extensions,
