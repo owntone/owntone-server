@@ -422,6 +422,8 @@ int query_test(query_node_t* query, void* target)
     case qot_const:
 	return query->left.constant;
     }
+    /* should not happen */
+    return 0;
 }
 
 void query_free(query_node_t* query)

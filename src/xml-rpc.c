@@ -54,7 +54,7 @@ void xml_get_playlists(WS_CONNINFO *pwsc) {
     ws_writefd(pwsc,"HTTP/1.0 200 OK\r\n");
     ws_emitheaders(pwsc);
 
-    ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+    ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
     ws_writefd(pwsc,"<playlists>");
 
     /* enumerate all the playlists */
@@ -99,15 +99,18 @@ void xml_get_playlistitems(WS_CONNINFO *pwsc) {
 
     playlistid=atoi(playlistnum);
 
+    ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
     ws_writefd(pwsc,"<playlist>");
 
     henum=db_playlist_items_enum_begin(playlistid);
     while((itemid=db_playlist_items_enum(&henum)) != -1) {
 	current=db_find(itemid);
 	if(0 != current) {
-	    ws_writefd(pwsc,"<item>%lu</item>",itemid);
+	    ws_writefd(pwsc,"<item>");
+	    ws_writefd(pwsc,"<id>%lu</id>",itemid);
 	    temp=xml_entity_encode(current->title);
 	    ws_writefd(pwsc,"<name>%s</name>",temp);
+	    ws_writefd(pwsc,"</item>");
 	    free(temp);
 	    db_dispose(current);
 	    free(current);

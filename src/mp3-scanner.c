@@ -50,6 +50,7 @@
 #include "err.h"
 #include "mp3-scanner.h"
 #include "playlist.h"
+#include "ssc.h"
 
 #ifndef HAVE_STRCASESTR
 # include "strcasestr.h"
@@ -384,6 +385,7 @@ int scan_path(char *path) {
     char mp3_path[PATH_MAX];
     struct stat sb;
     int modified_time;
+    char *ext;
 
     if((current_dir=opendir(path)) == NULL) {
 	DPRINTF(E_WARN,L_SCAN,"opendir: %s\n",strerror(errno));
@@ -429,9 +431,8 @@ int scan_path(char *path) {
 		       config.process_m3u){
 			/* we found an m3u file */
 			scan_static_playlist(path, pde, &sb);
-		    } else if (strcasestr(config.extensions,
-					  (char*)&pde->d_name[strlen(pde->d_name) - 4])) {
-			
+		    } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
+			       (strcasestr(config.extensions, ext))) {
 			/* only scan if it's been changed, or empty db */
 			modified_time=sb.st_mtime;
 			DPRINTF(E_DBG,L_SCAN,"FS Mod time: %d\n",modified_time);
@@ -533,8 +534,8 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     DPRINTF(E_INF,L_SCAN,"Found music file: %s\n",pde->d_name);
     
     memset((void*)&mp3file,0,sizeof(mp3file));
-    mp3file.path=mp3_path;
-    mp3file.fname=pde->d_name;
+    mp3file.path=strdup(mp3_path);
+    mp3file.fname=strdup(pde->d_name);
     if(strlen(pde->d_name) > 4)
 	mp3file.type=strdup(strrchr(pde->d_name, '.') + 1);
     
@@ -556,6 +557,8 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 	if(psb->st_ctime < mp3file.time_added)
 	    mp3file.time_added=psb->st_ctime;
         mp3file.time_modified=psb->st_mtime;
+
+	server_side_convert_set(&mp3file);
 
 	DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 
@@ -942,6 +945,8 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
  * Free up the tags that were dynamically allocated
  */
 int scan_freetags(MP3FILE *pmp3) {
+    MAYBEFREE(pmp3->path);
+    MAYBEFREE(pmp3->fname);
     MAYBEFREE(pmp3->title);
     MAYBEFREE(pmp3->artist);
     MAYBEFREE(pmp3->album);
@@ -1769,3 +1774,4 @@ void make_composite_tags(MP3FILE *song)
     /* Ogg used to be set as an item_kind of 4.  Dunno why */
     song->item_kind = 2;
 }
+

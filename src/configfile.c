@@ -117,6 +117,8 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_INT,"compress",(void*)&config.compress,config_emit_int },
     { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },
+    { 1,0,0,CONFIG_TYPE_STRING,"ssc_extensions",(void*)&config.ssc_extensions,config_emit_string },
+    { 1,0,0,CONFIG_TYPE_STRING,"ssc_prog",(void*)&config.ssc_prog,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"logfile",(void*)&config.logfile, config_emit_string },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
@@ -275,6 +277,8 @@ int config_read(char *file) {
 
     /* DWB: use alloced space so it can be freed without errors */
     config.extensions=strdup(".mp3");
+    config.ssc_extensions=strdup("");
+    config.ssc_prog=strdup("");
 
     /* DWB: use alloced space so it can be freed without errors */
     config.servername=strdup("mt-daapd " VERSION);
@@ -479,6 +483,8 @@ int config_write(WS_CONNINFO *pwsc) {
     if(ws_getvar(pwsc,"password") && strlen(ws_getvar(pwsc,"password")))
 	fprintf(configfile,"password\t%s\n",ws_getvar(pwsc,"password"));
     fprintf(configfile,"extensions\t%s\n",ws_getvar(pwsc,"extensions"));
+    fprintf(configfile,"ssc_extensions\t%s\n",ws_getvar(pwsc,"ssc_extensions"));
+    fprintf(configfile,"ssc_prog\t%s\n",ws_getvar(pwsc,"ssc_prog"));
     fprintf(configfile,"db_dir\t\t%s\n",ws_getvar(pwsc,"db_dir"));
     fprintf(configfile,"rescan_interval\t%s\n",ws_getvar(pwsc,"rescan_interval"));
     fprintf(configfile,"scan_type\t%s\n",ws_getvar(pwsc,"scan_type"));

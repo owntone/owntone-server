@@ -68,3 +68,11 @@ Roger Mundt
 dirkthedaring2 (?)
  * fixes for inverted playlist
  * speedups on connect
+
+Adrian Schroeter
+ * fixes for AMD64
+ * -Wall cleanups
+
+Timo J. Rinne
+ * Server-side format conversion (on-the-fly transcoding)
+

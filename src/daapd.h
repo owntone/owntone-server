@@ -64,6 +64,8 @@ typedef struct tag_config {
     char *runas;          /**< Who to drop privs to (if run as root) */
     char *dbdir;          /**< Where to put the db file */
     char *extensions;     /**< What music file extentions to process */
+    char *ssc_extensions; /**< What extensions are converted in server */
+    char *ssc_prog;       /**< Server side music format converter prog */
     char *artfilename;    /**< What filename to merge coverart with */
     char *logfile;        /**< What file to use as a logfile */
     STATS stats;          /**< Stats structure (see above) */

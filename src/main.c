@@ -78,6 +78,7 @@
 #include "mp3-scanner.h"
 #include "webserver.h"
 #include "playlist.h"
+#include "ssc.h"
 #include "dynamic-art.h"
 
 #ifndef WITHOUT_MDNS
@@ -184,6 +185,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     MP3FILE *pmp3;
     int file_fd;
+    FILE *file_ptr; /* for possible conv filter */
     int session_id=0;
 
     int img_fd;
@@ -193,6 +195,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
     off_t offset=0;
     off_t real_len;
     off_t file_len;
+
+    char *real_path;
 
     int bytes_copied=0;
 
@@ -384,6 +388,77 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	if(!pmp3) {
 	    DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
 	    ws_returnerror(pwsc,404,"File Not Found");
+	} else if ((real_path=server_side_convert_path(pmp3->path)) != NULL) {
+	    // The file should be converted in the server side.
+	    DPRINTF(E_WARN,L_WS,"Thread %d: Autoconvert file %s for client\n",
+		    pwsc->threadno,real_path);
+	    file_ptr=server_side_convert_open(real_path,offset);
+	    if (file_ptr) {
+		file_fd = fileno(file_ptr);
+	    } else {
+		file_fd = -1;
+	    }
+	    if(file_fd == -1) {
+		if (file_ptr) {
+		    server_side_convert_close(file_ptr);
+		}
+		pwsc->error=errno;
+		DPRINTF(E_WARN,L_WS,
+			"Thread %d: Error opening %s for conversion\n",
+			pwsc->threadno,real_path);
+		ws_returnerror(pwsc,404,"Not found");
+		config_set_status(pwsc,session_id,NULL);
+		db_dispose(pmp3);
+		free(pmp3);
+		free(real_path);
+	    } else {
+		// DWB:  fix content-type to correctly reflect data
+		// content type (dmap tagged) should only be used on
+		// dmap protocol requests, not the actually song data
+		if(pmp3->type)
+		    ws_addresponseheader(pwsc,"Content-Type","audio/%s",
+					 pmp3->type);
+		// Also content-length -heade would be nice, but since
+		// we don't really know it here, so let's leave it out.
+		ws_addresponseheader(pwsc,"Connection","Close");
+
+		if(!offset)
+		    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+		else {
+		    // This is actually against the protocol, since
+		    // range MUST be explicit according to HTTP-standard
+		    // Seems to work at least with iTunes.
+		    ws_addresponseheader(pwsc,
+					 "Content-Range","bytes %ld-*/*",
+					 (long)offset);
+		    ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
+		}
+
+		ws_emitheaders(pwsc);
+
+		config_set_status(pwsc,session_id,
+				  "Streaming file via convert filter '%s'",
+				  pmp3->fname);
+		DPRINTF(E_LOG,L_WS,
+			"Session %d: Streaming file '%s' to %s (offset %ld)\n",
+			session_id,pmp3->fname, pwsc->hostname,(long)offset);
+		
+		if(!offset)
+		    config.stats.songs_served++; /* FIXME: remove stat races */
+		if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
+		    DPRINTF(E_INF,L_WS,
+			    "Error copying converted file to remote... %s\n",
+			    strerror(errno));
+		} else {
+		    DPRINTF(E_INF,L_WS,
+			    "Finished streaming converted file to remote\n");
+		}
+		server_side_convert_close(file_ptr);
+		config_set_status(pwsc,session_id,NULL);
+		db_dispose(pmp3);
+		free(pmp3);
+		free(real_path);
+	    }
 	} else {
 	    /* got the file, let's open and serve it */
 	    file_fd=r_open2(pmp3->path,O_RDONLY);
@@ -634,8 +709,8 @@ void *signal_handler(void *arg) {
 	    switch(sig) {
 	    case SIGCLD:
 		DPRINTF(E_LOG,L_MAIN,"Got CLD signal.  Reaping\n");
-		while (wait(&status)) {
-		};
+		while (wait3(&status, WNOHANG, NULL) > 0) {
+		}
 		break;
 	    case SIGINT:
 		DPRINTF(E_LOG,L_MAIN,"Got INT signal. Notifying daap server.\n");
