@@ -116,6 +116,9 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     case GROUPING:
 	printf("GROUPING ");
 	break;
+    case TYPE:
+	printf("TYPE ");
+	break;
     case YEAR:
 	printf("YEAR ");
 	break;
@@ -306,6 +309,9 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	break;
     case GROUPING:
 	cval=pmp3->grouping;
+	break;
+    case TYPE:
+	cval=pmp3->description;
 	break;
     case YEAR:
 	ival=pmp3->year;

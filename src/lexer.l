@@ -54,6 +54,7 @@ composer                 { yylval.ival=COMPOSER; return(COMPOSER); }
 orchestra                { yylval.ival=ORCHESTRA; return(ORCHESTRA); }
 conductor                { yylval.ival=CONDUCTOR; return(CONDUCTOR); }
 grouping                 { yylval.ival=GROUPING; return(GROUPING); }
+type                     { yylval.ival=TYPE; return(TYPE); }
 
 year                     { yylval.ival=YEAR; return(YEAR); }
 bpm                      { yylval.ival=BPM; return(BPM); }
