@@ -73,7 +73,7 @@ DAAP_BLOCK *daap_add_formatted(DAAP_BLOCK *parent, char *tag,
     DAAP_BLOCK *current,*last;
     DAAP_BLOCK *pnew;
 
-    DPRINTF(E_DBG,L_DAAP,"Adding daap tag %s\n",tag);
+    DPRINTF(E_SPAM,L_DAAP,"Adding daap tag %s\n",tag);
     pnew = daap_get_new();
     if(!pnew)
 	return NULL;
@@ -322,7 +322,7 @@ void daap_free(DAAP_BLOCK *root) {
     DAAP_BLOCK *pnext;
 
     while(root) {
-	DPRINTF(E_DBG,L_DAAP,"Freeing %c%c%c%c\n",root->tag[0],root->tag[1],
+	DPRINTF(E_SPAM,L_DAAP,"Freeing %c%c%c%c\n",root->tag[0],root->tag[1],
 		root->tag[2],root->tag[3]);
 
 	if((root->size) && (root->free))
