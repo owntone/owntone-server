@@ -58,14 +58,8 @@ esac
 dnl Checks for libraries.
 AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
 
-AC_ARG_WITH(gdbm,
-        [--with-gdbm                           store music info in gdbm databases],
-	[ case "${withval}" in
-	  yes) use_gdbm=true; LDFLAGS="${LDFLAGS} -lgdbm"; CPPFLAGS="${CPPFLAGS} -DWITH_GDBM";;
-          no) use_gdbm=false;;
-          *)   AC_MSG_ERROR(bad value ${withval} for --with-gdbm);;
-          esac ], [use_gdbm=false])
-AM_CONDITIONAL(COND_USE_GDBM, test x$use_gdbm = xtrue)
+dnl no with gdbm anymore
+LDFLAGS="${LDFLAGS} -lgdbm";
         
 AC_ARG_WITH(gdbm-includes,
 	[--with-gdbm-includes[[=DIR]]          use gdbm include files in DIR],[
@@ -107,6 +101,12 @@ AC_ARG_WITH(id3tag,
 	  LDFLAGS="${LDFLAGS} -L$withval/lib"
 	fi
 ])
+
+
+AC_CHECK_HEADERS(gdbm.h,LDFLAGS="${LDFLAGS} -lgdbm", [
+ AC_MSG_ERROR([gdbm.h not found... try --with-gdmb-includes=dir])]])
+AC_CHECK_LIB(gdbm,gdbm_open,LDFLAGS="$LDFLAGS -lgdbm", echo "Must have gdbm";exit)
+
 AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
  AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
 AC_CHECK_LIB(id3tag,id3_file_open,LDFLAGS="$LDFLAGS -lid3tag",echo "Must have libid3tag";exit)
