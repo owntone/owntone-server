@@ -1,5 +1,10 @@
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include <string.h>
 
+#if !HAVE_STRCASESTR
 /* case-independent string matching, similar to strstr but
  * matching */
 char * strcasestr(char* haystack, char* needle) {
@@ -20,3 +25,4 @@ char * strcasestr(char* haystack, char* needle) {
   return NULL;
 }
 
+#endif /* !HAVE_STRCASESTR */

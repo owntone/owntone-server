@@ -12,14 +12,6 @@ else
 DBFILE=db-memory.c
 endif
 
-if COND_NEED_STRCASESTR
-STRCASESTR=strcasestr.c strcasestr.h
-endif
-
-if COND_NEED_STRSEP
-STRSEP=strsep.c
-endif
-
 if COND_REND_POSIX
 RENDSRC=mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c mdns/mDNSUNP.c rend-posix.c mdns/mDNSPlatformFunctions.h
 endif
@@ -36,7 +28,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	daap-proto.c daap-proto.h daap.c daap.h $(DBFILE) db-memory.h \
 	mp3-scanner.h mp3-scanner.c playlist.c playlist.h rend-unix.c rend-unix.h \
-	lexer.l parser.y $(RENDSRC) $(STRCASESTR) $(STRSEP)
+	lexer.l parser.y $(RENDSRC) strcasestr.c strcasestr.h strsep.c
 
 EXTRA_DIST = mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c \
 	mdns/mDNSUNP.c mdns/mDNSPlatformFunctions.h mdns/mDNSPosix.h mdns/mDNSUNP.h \

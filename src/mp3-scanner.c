@@ -32,7 +32,6 @@
 
 #define _POSIX_PTHREAD_SEMANTICS
 #include <ctype.h>
-#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <id3tag.h>
@@ -45,6 +44,7 @@
 #include <netinet/in.h>  /* htons and friends */
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <dirent.h>      /* why here?  For osx 10.2, of course! */
 
 #include "daapd.h"
 #include "db-memory.h"

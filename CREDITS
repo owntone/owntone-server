@@ -26,3 +26,9 @@ Hans-Christoph Steiner (eighthave@users.sourceforge.net)
 David Imhoff (6219@thrijswijk.nl)
  * Code cleanup patches (_XOPEN_SOURCE, declaration problems)
 
+James Turner (jmturner@users.sourceforge.net)
+ * Fixes for OSX 10.2
+ * configure.in suggestions
+
+
+
