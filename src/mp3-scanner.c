@@ -399,6 +399,8 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     unsigned char *utf8_text;
     int genre;
     int have_utf8;
+    int have_text;
+    unsigned char *native_text;
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
@@ -419,15 +421,20 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     index=0;
     while((pid3frame=id3_tag_findframe(pid3tag,"",index))) {
 	used=0;
-	utf8_text=NULL;
+	utf8_text=native_text=NULL;
 	have_utf8=0;
+	have_text=0;
 
-	if((pid3frame->id[0] == 'T')&&(id3_field_getnstrings(&pid3frame->fields[1]))) 
-	    have_utf8=1;
+	if(((pid3frame->id[0] == 'T')||(strcmp(pid3frame->id,"COMM")==0)) &&
+	   (id3_field_getnstrings(&pid3frame->fields[1]))) 
+	    have_text=1;
 
-	if(have_utf8) {
-	    utf8_text=id3_ucs4_utf8duplicate(id3_field_getstrings(&pid3frame->fields[1],0));
-	    if(utf8_text) {
+	if(have_text) {
+	    native_text=id3_field_getstrings(&pid3frame->fields[1],0);
+
+	    if(native_text) {
+		have_utf8=1;
+		utf8_text=id3_ucs4_utf8duplicate(native_text);
 		MEMNOTIFY(utf8_text);
 
 		if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
@@ -451,6 +458,10 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 			free(pmp3->genre);
 			pmp3->genre=strdup(scan_winamp_genre[genre]);
 		    }
+		} else if(!strcmp(pid3frame->id,"COMM")) {
+		    used=1;
+		    pmp3->comment = utf8_text;
+		    DPRINTF(ERR_DEBUG," Comment: %s\n",pmp3->comment);
 		} else if(!strcmp(pid3frame->id,"TDRC")) {
 		    pmp3->year = atoi(utf8_text);
 		    DPRINTF(ERR_DEBUG," Year: %d\n",pmp3->year);
@@ -458,14 +469,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 	    }
 	}
 
-
-	if((!strcmp(pid3frame->id,"COMM"))&&(id3_field_getnstrings(&pid3frame->fields[1]))) {
-	    pmp3->comment=strdup(id3_field_getstrings(&pid3frame->fields[1],0));
-	    DPRINTF(ERR_DEBUG," Comment: %s\n",pmp3->comment);
-	}
-
-	/* can check for non-utf tags here */
-
+	/* can check for non-text tags here */
 	if((!used) && (have_utf8) && (utf8_text))
 	    free(utf8_text);
 
