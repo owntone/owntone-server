@@ -413,6 +413,11 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
     
     const char *ptail;
 
+    query[0] = '\0';
+    query_select[0] = '\0';
+    query_count[0] = '\0';
+    query_rest[0] = '\0';
+
     switch(pinfo->query_type) {
     case queryTypeItems:
 	strcpy(query_select,"SELECT * FROM songs ");
@@ -452,8 +457,8 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
 
 	/* Note that sqlite doesn't support COUNT(DISTINCT x) */
     case queryTypeBrowseAlbums:
-	strcpy(query_select,"SELECT DISTINCT albums FROM songs ");
-	strcpy(query_count,"SELECT COUNT(albums) FROM (SELECT DISTINCT albums FROM songs ");
+	strcpy(query_select,"SELECT DISTINCT album FROM songs ");
+	strcpy(query_count,"SELECT COUNT(album) FROM (SELECT DISTINCT album FROM songs ");
 	browse=1;
 	break;
 
@@ -572,13 +577,18 @@ int db_sqlite_enum_size(DBQUERYINFO *pinfo, int *count) {
     char *perr;
     int cols;
     int total_size=0;
+    int record_size;
+
+    DPRINTF(E_DBG,L_DB,"Enumerating size\n");
 
     *count=0;
 
     db_sqlite_lock();
     while((err=sqlite_step(db_sqlite_pvm,&cols,&valarray,&colarray)) == SQLITE_ROW) {
-	total_size += db_sqlite_get_size(pinfo,(char**)valarray);
-	*count = *count + 1;
+	if((record_size = db_sqlite_get_size(pinfo,(char**)valarray))) {
+	    total_size += record_size;
+	    *count = *count + 1;
+	}
     }
 
     if(err != SQLITE_DONE) {
@@ -590,6 +600,7 @@ int db_sqlite_enum_size(DBQUERYINFO *pinfo, int *count) {
     db_sqlite_unlock();
     db_sqlite_enum_reset(pinfo);
 
+    DPRINTF(E_DBG,L_DB,"Got size: %d\n",total_size);
     return total_size;
 }
 
@@ -603,23 +614,27 @@ int db_sqlite_enum_fetch(DBQUERYINFO *pinfo, unsigned char **pdmap) {
     int err;
     char *perr;
     int cols;
-    int result_size;
+    int result_size=-1;
     unsigned char *presult;
 
     db_sqlite_lock();
     err=sqlite_step(db_sqlite_pvm,&cols,&valarray,&colarray);
     db_sqlite_unlock();
 
-    if(err == SQLITE_ROW) {
+    while((err == SQLITE_ROW) && (result_size)) {
 	result_size=db_sqlite_get_size(pinfo,(char**)valarray);
-	presult=(unsigned char*)malloc(result_size);
-	if(!presult)
-	    return 0;
-	db_sqlite_build_dmap(pinfo,(char**)valarray,presult,result_size);
-	DPRINTF(E_DBG,L_DB,"Building response for %s (size %d)\n",valarray[3],result_size);
-	*pdmap = presult;
-	return result_size;
-    } else if(err == SQLITE_DONE) {
+	if(result_size) {
+	    presult=(unsigned char*)malloc(result_size);
+	    if(!presult)
+		return 0;
+	    db_sqlite_build_dmap(pinfo,(char**)valarray,presult,result_size);
+	    DPRINTF(E_DBG,L_DB,"Building response for %s (size %d)\n",valarray[3],result_size);
+	    *pdmap = presult;
+	    return result_size;
+	}
+    }
+
+    if(err == SQLITE_DONE) {
 	return -1;
     }
 
@@ -653,19 +668,15 @@ int db_sqlite_enum_end(void) {
     return 0;
 }
 
-
 int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
     int size;
 
     switch(pinfo->query_type) {
     case queryTypeBrowseArtists: /* simple 'mlit' entry */
-	return 8 + strlen(valarray[4]);
     case queryTypeBrowseAlbums:
-	return 8 + strlen(valarray[5]);
     case queryTypeBrowseGenres:
-	return 8 + strlen(valarray[6]);
     case queryTypeBrowseComposers:
-	return 8 + strlen(valarray[11]);
+	return valarray[0] ? (8 + strlen(valarray[0])) : 0;
     case queryTypePlaylists:
 	size = 8;   /* mlit */
 	size += 12; /* miid */
@@ -783,13 +794,10 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
 
     switch(pinfo->query_type) {
     case queryTypeBrowseArtists: /* simple 'mlit' entry */
-	return db_dmap_add_string(current,"mlit",valarray[4]);
     case queryTypeBrowseAlbums:
-	return db_dmap_add_string(current,"mlit",valarray[5]);
     case queryTypeBrowseGenres:
-	return db_dmap_add_string(current,"mlit",valarray[6]);
     case queryTypeBrowseComposers:
-	return db_dmap_add_string(current,"mlit",valarray[11]);
+	return db_dmap_add_string(current,"mlit",valarray[0]);
     case queryTypePlaylists:
 	/* do I want to include the mlit? */
 	current += db_dmap_add_container(current,"mlit",len - 8);

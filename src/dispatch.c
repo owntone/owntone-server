@@ -394,9 +394,6 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 		     (1ll << metaParentContainerId));
     }
 
-    /* should build the query string here, too */
-    pqi->whereclause = NULL;
-
     pqi->query_type = queryTypePlaylistItems;
     pqi->index_type=indexTypeNone;
     if(db_enum_start(pqi)) {
@@ -438,6 +435,70 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
+    char browse_response[52];
+    char *current=browse_response;
+    int item_count;
+    int list_length;
+    unsigned char *block;
+    char *response_type;
+
+    if(!strcmp(pqi->uri_sections[3],"artists")) {
+	response_type = "abar";
+	pqi->query_type=queryTypeBrowseArtists;
+    } else if(!strcmp(pqi->uri_sections[3],"genres")) {
+	response_type = "abgn";
+	pqi->query_type=queryTypeBrowseGenres;
+    } else if(!strcmp(pqi->uri_sections[3],"albums")) {
+	response_type = "abal";
+	pqi->query_type=queryTypeBrowseAlbums;
+    } else if(!strcmp(pqi->uri_sections[3],"composers")) {
+	response_type = "abcp";
+	pqi->query_type=queryTypeBrowseComposers;
+    } else {
+	DPRINTF(E_WARN,L_DAAP|L_BROW,"Invalid browse request type %s\n",pqi->uri_sections[3]);
+	ws_returnerror(pwsc,404,"Invalid browse type");
+	config_set_status(pwsc,pqi->session_id,NULL);
+	free(pqi);
+	return;
+    }
+
+    pqi->index_type = indexTypeNone;
+
+    if(db_enum_start(pqi)) {
+	DPRINTF(E_LOG,L_DAAP|L_BROW,"Could not start enum\n");
+	ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
+	return;
+    }
+    
+    DPRINTF(E_DBG,L_DAAP|L_BROW,"Getting enum size.\n");
+
+    list_length=db_enum_size(pqi,&item_count);
+
+    DPRINTF(E_DBG,L_DAAP|L_BROW,"Item enum: got %d items, dmap size: %d\n",
+	    item_count,list_length);
+
+    current += db_dmap_add_container(current,"abro",list_length + 44);
+    current += db_dmap_add_int(current,"mstt",200);                       /* 12 */
+    current += db_dmap_add_int(current,"mtco",item_count);                /* 12 */
+    current += db_dmap_add_int(current,"mrco",item_count);                /* 12 */
+    current += db_dmap_add_container(current,response_type,list_length);  /*  8 + length */
+
+    ws_addresponseheader(pwsc,"Content-Length","%d",52+list_length);
+    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+    ws_emitheaders(pwsc);
+
+    r_write(pwsc->fd,browse_response,52);
+
+    while((list_length=db_enum_fetch(pqi,&block)) > 0) {
+	DPRINTF(E_DBG,L_DAAP|L_BROW,"Got block of size %d\n",list_length);
+	r_write(pwsc->fd,block,list_length);
+	free(block);
+    }
+
+    DPRINTF(E_DBG,L_DAAP|L_BROW,"Done enumerating\n");
+    
+    db_enum_end();
+
     config_set_status(pwsc,pqi->session_id,NULL);
     free(pqi);
     return;
@@ -457,14 +518,12 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 	pqi->meta = (MetaField_t) -1ll;
     }
 
-    /* should build the query string here, too */
-    pqi->whereclause = NULL;
 
     pqi->query_type = queryTypePlaylists;
-    pqi->index_type=indexTypeNone;
+    pqi->index_type = indexTypeNone;
     if(db_enum_start(pqi)) {
 	DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
-	ws_returnerror(pwsc,500,"Internal server error: out of memory!");
+	ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
 	return;
     }
     
@@ -512,9 +571,6 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     } else {
 	pqi->meta = (MetaField_t) -1ll;
     }
-
-    /* should build the query string here, too */
-    pqi->whereclause = NULL;
 
     pqi->query_type = queryTypeItems;
     pqi->index_type=indexTypeNone;
