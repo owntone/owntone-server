@@ -34,7 +34,7 @@ case $host in
 *linux*)
 	CPPFLAGS="$CPPFLAGS -DHAVE_SOCKLEN_T";;
 *darwin*)
-	CPPFLAGS="$CPPFLAGS -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN -DHAVE_SOCKLEN_T"
+	CPPFLAGS="$CPPFLAGS -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN -DHAVE_SOCKLEN_T -DMAC"
 	LDFLAGS="$LDFLAGS -framework CoreFoundation"	
 
 	AM_CONDITIONAL(COND_REND_OSX,true)
