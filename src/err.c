@@ -138,7 +138,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
 	if(!level) fprintf(stderr,"Aborting\n");
         break;
     case LOGDEST_SYSLOG:
-        syslog(LOG_INFO, "%s", errbuf);
+        syslog(LOG_NOTICE, "%s", errbuf);
 	if(!level) syslog(LOG_INFO, "Aborting\n");
         break;
     }
