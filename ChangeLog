@@ -1,3 +1,7 @@
+2004-03-13  Ron Pedde  <ron@pedde.com>
+
+	* src/mp3-scanner.c: fix static playlists - untracked bug
+
 2004-03-10  Ron Pedde  <ron@pedde.com>
 
 	* src/daap.c: make "smart" playlists show the smart playlist icon

@@ -33,6 +33,7 @@ extern int db_init(char *parameters);
 extern int db_deinit(void);
 extern int db_version(void);
 extern int db_add(MP3FILE *mp3file);
+extern int db_delete(int id);
 extern int db_add_playlist(unsigned int playlistid, char *name, int is_smart);
 extern int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
 

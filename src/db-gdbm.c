@@ -32,6 +32,7 @@
 #include "err.h"
 #include "mp3-scanner.h"
 #include "playlist.h"
+#include "redblack.h"
 
 #define DB_VERSION 1
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
@@ -103,8 +104,8 @@ DB_PLAYLIST db_playlists;
 pthread_rwlock_t db_rwlock; /* OSX doesn't have PTHREAD_RWLOCK_INITIALIZER */
 pthread_once_t db_initlock=PTHREAD_ONCE_INIT;
 MP3RECORD db_enum_helper;
-
 GDBM_FILE db_songs;
+struct rbtree *db_removed;
 
 /*
  * Forwards
@@ -117,6 +118,7 @@ int db_init(char *parameters);
 int db_deinit(void);
 int db_version(void);
 int db_add(MP3FILE *mp3file);
+int db_delete(int id);
 int db_add_playlist(unsigned int playlistid, char *name, int is_smart);
 int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
 int db_unpackrecord(datum *pdatum, MP3FILE *pmp3);
@@ -143,6 +145,19 @@ char *db_get_playlist_name(int playlistid);
 MP3FILE *db_find(int id);
 
 void db_freefile(MP3FILE *pmp3);
+int db_compare_rb_nodes(const void *pa, const void *pb, const void *cfg);
+
+/*
+ * db_compare_rb_nodes
+ *
+ * compare redblack nodes, which are just ints
+ */
+int db_compare_rb_nodes(const void *pa, const void *pb, const void *cfg) {
+    if(*(int*)pa < *(int *)pb) return -1;
+    if(*(int*)pb < *(int *)pa) return 1;
+    return 0;
+}
+
 
 /*
  * db_init_once
@@ -162,12 +177,16 @@ void db_init_once(void) {
  */
 int db_init(char *parameters) {
     MP3FILE mp3file;
-
     datum tmp_key,tmp_nextkey,song_data;
     char db_path[PATH_MAX + 1];
     
     if(pthread_once(&db_initlock,db_init_once))
 	return -1;
+
+    if((db_removed=rbinit(db_compare_rb_nodes,NULL)) == NULL) {
+	errno=ENOMEM;
+	return -1;
+    }
 
     pl_register();
 
@@ -191,6 +210,12 @@ int db_init(char *parameters) {
     MEMNOTIFY(tmp_key.dptr);
 
     while(tmp_key.dptr) {
+	/* Add it to the rbtree */
+	if(!rbsearch((void*)tmp_key.dptr,db_removed)) {
+	    errno=ENOMEM;
+	    return -1;
+	}
+
 	/* Fetch that key */
 	song_data=gdbm_fetch(db_songs,tmp_key);
 	MEMNOTIFY(song_data.dptr);
@@ -205,7 +230,7 @@ int db_init(char *parameters) {
 	
 	tmp_nextkey=gdbm_nextkey(db_songs,tmp_key);
 	MEMNOTIFY(tmp_nextkey.dptr);
-	free(tmp_key.dptr);
+	// free(tmp_key.dptr); /* we'll free it in update mode */
 	tmp_key=tmp_nextkey;
 	db_song_count++;
     }
@@ -268,7 +293,19 @@ int db_start_initial_update(void) {
  * Take the db out of bulk import mode
  */
 int db_end_initial_update(void) {
+    const void *val;
+    int inode;
+
     db_update_mode=0;
+
+    DPRINTF(ERR_DEBUG,"Initial update over.  Removing stale items\n");
+    for(val=rblookup(RB_LUFIRST,NULL,db_removed); val != NULL; val=rblookup(RB_LUNEXT,val,db_removed)) {
+	db_delete(*((int*)val));
+	free(val);
+    }
+
+    rbdestroy(db_removed);
+
     return 0;
 }
 
@@ -349,7 +386,7 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
     pnew->id=itemid;
     pnew->next=NULL;
 
-    DPRINTF(ERR_DEBUG,"Adding new playlist item\n"); 
+    DPRINTF(ERR_DEBUG,"Adding item %d to %d\n",itemid,playlistid); 
 
     if((err=pthread_rwlock_wrlock(&db_rwlock))) {
 	DPRINTF(ERR_WARN,"cannot lock wrlock in db_add\n");
@@ -372,7 +409,9 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
     if(!current->songs)
 	db_playlist_count++;
 
+
     current->songs++;
+    DPRINTF(ERR_DEBUG,"Playlist now has %d entries\n",current->songs);
     pnew->next = current->nodes;
     current->nodes = pnew;
 
@@ -588,7 +627,7 @@ int db_add(MP3FILE *pmp3) {
     ppacked->time_played=0;
 
     if(gdbm_store(db_songs,dkey,*pnew,GDBM_REPLACE)) {
-	log_err(0,"Error inserting file %s in database\n",pmp3->fname);
+	log_err(1,"Error inserting file %s in database\n",pmp3->fname);
     }
 
     DPRINTF(ERR_DEBUG,"Testing for %d\n",pmp3->id);
@@ -597,7 +636,7 @@ int db_add(MP3FILE *pmp3) {
     dkey.dsize=sizeof(unsigned int);
 
     if(!gdbm_exists(db_songs,dkey)) {
-	log_err(0,"Error.. could not find just added file\n");
+	log_err(1,"Error.. could not find just added file\n");
     }
 
     free(pnew->dptr);
@@ -642,7 +681,7 @@ MP3RECORD *db_enum_begin(void) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	log_err(1,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -666,7 +705,7 @@ DB_PLAYLIST *db_playlist_enum_begin(void) {
     DB_PLAYLIST *current;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	log_err(1,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -689,7 +728,7 @@ DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	log_err(1,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -879,7 +918,7 @@ int db_get_playlist_is_smart(int playlistid) {
     int result;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	log_err(1,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
     }
@@ -891,7 +930,7 @@ int db_get_playlist_is_smart(int playlistid) {
     if(!current) {
 	result=0;
     } else {
-	result=1;
+	result=current->is_smart;
     }
 
     pthread_rwlock_unlock(&db_rwlock);
@@ -909,7 +948,7 @@ int db_get_playlist_entry_count(int playlistid) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	log_err(1,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
     }
@@ -941,7 +980,7 @@ char *db_get_playlist_name(int playlistid) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	log_err(1,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -967,10 +1006,30 @@ char *db_get_playlist_name(int playlistid) {
  * Check if a particular ID exists or not
  */
 int db_exists(int id) {
-    /* this is wrong and expensive */
+    int *node;
+    int err;
     MP3FILE *pmp3;
 
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
+	log_err(1,"Cannot lock rwlock\n");
+	errno=err;
+	return -1;	
+    }
+
+    /* this is wrong and expensive */
+
     pmp3=db_find(id);
+
+    if(db_update_mode) {
+	/* knock it off the maybe list */
+	(void*)node = rbdelete((void*)&id,db_removed);
+	if(node) {
+	    DPRINTF(ERR_DEBUG,"Knocked node %d from the list\n",*node);
+	    free(node);
+	}
+    }
+    
+    pthread_rwlock_unlock(&db_rwlock);
     return pmp3 ? 1 : 0;
 }
 
@@ -981,12 +1040,80 @@ int db_exists(int id) {
  * See when the file was last updated in the database
  */
 int db_last_modified(int id) {
+    int retval;
     MP3FILE *pmp3;
+    int err;
+
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
+	log_err(1,"Cannot lock rwlock\n");
+	errno=err;
+	return -1;	
+    }
 
     pmp3=db_find(id);
-    if(!pmp3) 
-	return 0;
+    if(!pmp3) {
+	retval=0;
+    } else {
+	retval=pmp3->time_modified;
+    }
 
 
-    return pmp3->time_modified;
+    pthread_rwlock_unlock(&db_rwlock);
+    return retval;
+}
+
+/*
+ * db_delete
+ *
+ * Delete an item from the database, and also remove it
+ * from any playlists.
+ */
+int db_delete(int id) {
+    int err;
+    int retval;
+    datum key;
+    DB_PLAYLIST *pcurrent;
+    DB_PLAYLISTENTRY *phead, *ptail;
+
+    DPRINTF(ERR_DEBUG,"Removing item %d\n",id);
+
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
+	log_err(1,"Cannot lock rwlock\n");
+	errno=err;
+	return -1;	
+    }
+
+    if(db_exists(id)) {
+	key.dptr=(void*)&id;
+	key.dsize=sizeof(int);
+	gdbm_delete(db_songs,key);
+	db_song_count--;
+	if(!db_update_mode) 
+	    db_version_no++;
+
+	/* walk the playlists and remove the item */
+	pcurrent=db_playlists.next;
+	while(pcurrent) {
+	    phead=ptail=pcurrent->nodes;
+	    while(phead && (phead->id != id)) {
+		ptail=phead;
+		phead=phead->next;
+	    }
+
+	    if(phead) { /* found it */
+		DPRINTF(ERR_DEBUG,"Removing from playlist %d\n",
+			pcurrent->id);
+		if(phead == pcurrent->nodes) {
+		    pcurrent->nodes=phead->next;
+		} else {
+		    ptail->next=phead->next;
+		}
+		free(phead);
+	    }
+	    pcurrent=pcurrent->next;
+	}
+    }
+
+    pthread_rwlock_unlock(&db_rwlock);
+    return 0;
 }
