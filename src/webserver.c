@@ -328,13 +328,14 @@ void *ws_mainthread(void *arg) {
 	if(pthread_mutex_lock(&pwsp->exit_mutex))
 	    DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
 
+	pwsp->dispatch_threads++;  /* since ws_close will decrement if fail */
+
 	if((err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc))) {
 	    pwsc->error=err;
 	    DPRINTF(ERR_WARN,"Could not spawn thread: %s\n",strerror(err));
 	    pthread_mutex_unlock(&pwsp->exit_mutex);
 	    ws_close(pwsc);
 	} else {
-	    pwsp->dispatch_threads++;
 	    pthread_mutex_unlock(&pwsp->exit_mutex);
 	    pthread_detach(tid);
 	}
@@ -385,6 +386,9 @@ void ws_close(WS_CONNINFO *pwsc) {
 	    DPRINTF(ERR_FATAL,"Error: Bad dispatch thread count!\n");
 	} else {
 	    pwsp->dispatch_threads--;
+	    DPRINTF(ERR_INFO,"Thread %d: without me, there are only %d threads left\n",
+		    pwsc->threadno,pwsp->dispatch_threads);
+
 	    if(pthread_cond_signal(&pwsp->exit_cond))
 		DPRINTF(ERR_FATAL,"Error: cannot signal condition\n");
 	}
@@ -635,6 +639,7 @@ void *ws_dispatcher(void *arg) {
 	first=last=buffer;
 	strsep(&last," ");
 	if(!last) {
+	    pwsc->close=1;
 	    ws_returnerror(pwsc,400,"Bad request\n");
 	    ws_close(pwsc);
 	    return NULL;
@@ -647,6 +652,7 @@ void *ws_dispatcher(void *arg) {
 	} else {
 	    /* return a 501 not implemented */
 	    pwsc->error=EINVAL;
+	    pwsc->close=1;
 	    ws_returnerror(pwsc,501,"Not implemented");
 	    ws_close(pwsc);
 	    return NULL;
@@ -657,10 +663,11 @@ void *ws_dispatcher(void *arg) {
 	pwsc->uri=strdup(first);
 	
 	/* Get headers */
-	if(ws_getheaders(pwsc)) {
+	if((ws_getheaders(pwsc)) || (!last)) { /* didn't provide a HTTP/1.x */
 	    /* error already set */
 	    DPRINTF(ERR_FATAL,"Thread %d: Couldn't parse headers - aborting\n",
 		    pwsc->threadno);
+	    pwsc->close=1;
 	    ws_close(pwsc);
 	    return NULL;
 	}
@@ -669,11 +676,19 @@ void *ws_dispatcher(void *arg) {
 	/* Now that we have the headers, we can
 	 * decide whether or not this is a persistant
 	 * connection */
+	if(strncasecmp(last,"HTTP/1.0",8)==0) { /* defaults to non-persistant */
+	    pwsc->close=!ws_testarg(&pwsc->request_headers,"connection","keep-alive");
+	} else { /* default to persistant for HTTP/1.1 and above */
+	    pwsc->close=ws_testarg(&pwsc->request_headers,"connection","close");
+	}
+	DPRINTF(ERR_DEBUG,"Thread %d: Connection type %s: Connection: %s\n",
+		pwsc->threadno, last, pwsc->close ? "non-persist" : "persist");
 
 	if(!pwsc->uri) {
 	    /* We have memory allocation errors... might just
 	     * as well bail */
 	    pwsc->error=ENOMEM;
+	    pwsc->close=1; /* force a full close */
 	    DPRINTF(ERR_FATAL,"Thread %d: Error allocation URI\n",
 		    pwsc->threadno);
 	    ws_returnerror(pwsc,500,"Internal server error");
@@ -733,9 +748,6 @@ void *ws_dispatcher(void *arg) {
 		  ws_dow[now_tm.tm_wday],now_tm.tm_mday,
 		  ws_moy[now_tm.tm_mon],now_tm.tm_year + 1900,
 		  now_tm.tm_hour,now_tm.tm_min,now_tm.tm_sec);
-
-	pwsc->close=ws_testarg(&pwsc->request_headers,"connection",
-			       "close");
 
 	if(hdrs) {
 	    ws_addarg(&pwsc->response_headers,"Connection",
