@@ -92,6 +92,7 @@ typedef struct tag_scan_status {
 
 SCAN_STATUS scan_status = { 0,0,NULL,NULL };
 pthread_mutex_t scan_mutex = PTHREAD_MUTEX_INITIALIZER;
+int config_session=0;
 
 #define MAX_LINE 1024
 
@@ -668,4 +669,17 @@ int config_mutex_unlock(void) {
     }
 
     return 0;
+}
+
+/*
+ * return the next available session ID
+ */
+int config_get_next_session(void) {
+    int session;
+    config_mutex_lock();
+
+    session=++config_session;
+    config_mutex_unlock();
+
+    return session;
 }

@@ -30,5 +30,6 @@ extern int config_write(CONFIG *pconfig);
 extern int config_auth(char *user, char *password);
 extern void config_handler(WS_CONNINFO *pwsc);
 extern void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...);
+extern int config_get_next_session(void);
 
 #endif /* _CONFIGFILE_H_ */
