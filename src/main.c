@@ -128,7 +128,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	root=daap_response_content_codes();
     } else if (!strcasecmp(pwsc->uri,"/login")) {
 	config_set_status(pwsc,session_id,"Logging in");
-	root=daap_response_login();
+	root=daap_response_login(pwsc->hostname);
     } else if (!strcasecmp(pwsc->uri,"/update")) {
 	if(!ws_getvar(pwsc,"delta")) { /* first check */
 	    clientrev=db_version() - 1;
@@ -138,6 +138,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	    config_set_status(pwsc,session_id,"Waiting for DB updates");
 	}
 	root=daap_response_update(pwsc->fd,clientrev);
+	if((!ws_getvar(pwsc,"delta")) && (root==NULL)) {
+	    DPRINTF(ERR_LOG,"Client %s disconnected\n",pwsc->hostname);
+	}
     } else if (!strcasecmp(pwsc->uri,"/logout")) {
 	config_set_status(pwsc,session_id,NULL);
 	ws_returnerror(pwsc,204,"Logout Successful");
@@ -273,7 +276,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		ws_emitheaders(pwsc);
 
 		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
-		DPRINTF(ERR_INFO,"Streaming %s\n",pmp3->fname);
+		DPRINTF(ERR_LOG,"Session %d: Streaming %s to %s\n",session_id,
+			pmp3->fname, pwsc->hostname);
 
 		config.stats.songs_served++; /* FIXME: remove stat races */
 
@@ -428,10 +432,7 @@ int main(int argc, char *argv[]) {
     int end_time;
 
     config.use_mdns=1;
-
-    fprintf(stderr,"mt-daapd: version %s\n",VERSION);
-    fprintf(stderr,"Copyright (c) 2003 Ron Pedde.  All rights reserved\n");
-    fprintf(stderr,"Portions Copyright (c) 1999-2001 Apple Computer, Inc.  All rights Reserved.\n\n");
+    err_debuglevel=1;
 
     while((option=getopt(argc,argv,"d:c:mpf")) != -1) {
 	switch(option) {
@@ -463,41 +464,44 @@ int main(int argc, char *argv[]) {
 
     /* read the configfile, if specified, otherwise
      * try defaults */
-
     config.stats.start_time=start_time=time(NULL);
 
     if(config_read(configfile)) {
-	perror("config_read");
+	if(errno) perror("config_read");
+	else fprintf(stderr,"Error reading config file (%s)\n",configfile);
 	exit(EXIT_FAILURE);
     }
 
+    if(config.logfile) {
+	log_setdest(config.logfile,LOGDEST_LOGFILE);	
+    } else {
+	if(!foreground) {
+	    log_setdest("mt-daapd",LOGDEST_SYSLOG);
+	}
+    }
+
+
     if((config.use_mdns) && (!parseonly)) {
-	fprintf(stderr,"Starting rendezvous daemon -- indexing "
-		"mp3 files... wait.\n");
+	DPRINTF(ERR_LOG,"Starting rendezvous daemon\n");
 	if(rend_init(config.runas)) {
-	    perror("rend_init");
-	    exit(EXIT_FAILURE);
+	    DPRINTF(ERR_FATAL,"Error in rend_init: %s\n",strerror(errno));
 	}
     }
 
 
     if(db_open(config.dbdir)) {
-	perror("db_open");
-	exit(EXIT_FAILURE);
+	DPRINTF(ERR_FATAL,"Error in db_open: %s\n",strerror(errno));
     }
 
     // Drop privs here
     if(drop_privs(config.runas)) {
-	perror("drop_privs");
-	exit(EXIT_FAILURE);
+	DPRINTF(ERR_FATAL,"Error in drop_privs: %s\n",strerror(errno));
     }
 
-    DPRINTF(ERR_DEBUG,"Loading playlists...\n");
+    DPRINTF(ERR_LOG,"Loading playlists\n");
 
     if(config.playlist)
 	pl_load(config.playlist);
-
-    DPRINTF(ERR_DEBUG,"Initializing database\n");
 
     if(parseonly) {
 	if(!pl_error) {
@@ -508,30 +512,30 @@ int main(int argc, char *argv[]) {
     }
 
     /* Initialize the database before starting */
+    DPRINTF(ERR_LOG,"Initializing database\n");
     if(db_init()) {
-	perror("db_init");
-	exit(EXIT_FAILURE);
+	DPRINTF(ERR_FATAL,"Error in db_init: %s\n",strerror(errno));
     }
 
     /* will want to detach before we start scanning mp3 files */
-    if(!foreground) {
-	log_setdest("mt-daapd",LOGDEST_SYSLOG);
+    if(!foreground) 
 	daemon_start(1);
-    }
 
+    DPRINTF(ERR_LOG,"Starting mp3 scan\n");
     if(scan_init(config.mp3dir)) {
-	log_err(1,"Error scanning MP3 files: %s\n",strerror(errno));
-	exit(EXIT_FAILURE);
+	DPRINTF(ERR_FATAL,"Error scanning MP3 files: %s\n",strerror(errno));
     }
 
     /* start up the web server */
     ws_config.web_root=config.web_root;
     ws_config.port=config.port;
 
+    DPRINTF(ERR_LOG,"Starting web server from %s on port %d\n",
+	    config.web_root, config.port);
+
     server=ws_start(&ws_config);
     if(!server) {
-	log_err(1,"Error starting web server: %s\n",strerror(errno));
-	return EXIT_FAILURE;
+	DPRINTF(ERR_FATAL,"Error staring web server: %s\n",strerror(errno));
     }
 
     ws_registerhandler(server, "^.*$",config_handler,config_auth,1);
@@ -544,14 +548,14 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(server,"^/databases/.*",daap_handler,NULL,0);
 
     if(config.use_mdns) { /* register services */
-	DPRINTF(ERR_DEBUG,"Registering rendezvous names\n");
+	DPRINTF(ERR_LOG,"Registering rendezvous names\n");
 	rend_register(config.servername,"_daap._tcp",config.port);
 	rend_register(config.servername,"_http._tcp",config.port);
     }
 
     end_time=time(NULL);
 
-    log_err(0,"Scanned %d songs in  %d seconds\n",db_get_song_count(),
+    DPRINTF(ERR_LOG,"Scanned %d songs in  %d seconds\n",db_get_song_count(),
 	    end_time-start_time);
 
     config.stop=0;
@@ -559,17 +563,19 @@ int main(int argc, char *argv[]) {
     while(!config.stop)
 	sleep(10);
 
+    DPRINTF(ERR_LOG,"Stopping gracefully\n");
+
     if(config.use_mdns) {
-	if(foreground) fprintf(stderr,"Killing rendezvous daemon\n");
+	DPRINTF(ERR_LOG,"Stopping rendezvous daemon\n");
 	rend_stop();
     }
 
-    if(foreground) fprintf(stderr,"Stopping webserver\n");
+    DPRINTF(ERR_LOG,"Stopping web server\n");
     ws_stop(server);
 
     config_close();
 
-    if(foreground) fprintf(stderr,"Closing database\n");
+    DPRINTF(ERR_LOG,"Closing database\n");
     db_deinit();
 
 #ifdef DEBUG_MEMORY
@@ -577,9 +583,10 @@ int main(int argc, char *argv[]) {
     err_leakcheck();
 #endif
 
-    if(foreground) fprintf(stderr,"\nDone\n");
+    DPRINTF(ERR_LOG,"Done!\n");
 
-    log_err(0,"Exiting");
+    log_setdest(NULL,LOGDEST_STDERR);
+
     return EXIT_SUCCESS;
 }
 

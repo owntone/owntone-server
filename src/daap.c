@@ -192,22 +192,26 @@ DAAP_BLOCK *daap_response_content_codes(void) {
  * handle the daap block for the /login URI
  */
 
-DAAP_BLOCK *daap_response_login(void) {
+DAAP_BLOCK *daap_response_login(char *hostname) {
     DAAP_BLOCK *root;
     int g=1;
+    int session;
     
     DPRINTF(ERR_DEBUG,"Preparing to send login response\n");
 
     root=daap_add_empty(NULL,"mlog");
     if(root) {
 	g = (int)daap_add_int(root,"mstt",200);
-	g = g && daap_add_int(root,"mlid",config_get_next_session());
+	session=config_get_next_session();
+	g = g && daap_add_int(root,"mlid",session);
     }
 
     if(!g) {
 	daap_free(root);
 	return NULL;
     }
+
+    DPRINTF(ERR_LOG,"%s logging in as session %d\n",hostname,session);
 
     return root;
 }

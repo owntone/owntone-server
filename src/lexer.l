@@ -72,7 +72,7 @@ not |
 \>                       { yylval.ival=GREATER; return(GREATER); }
 
 {qstring}                { yylval.cval=strdup(yytext+1);
-                           if(yylval.cval[strlen(yylval.cval)-1] == '"');
+                           if(yylval.cval[strlen(yylval.cval)-1] == '"')
                                yylval.cval[strlen(yylval.cval)-1] = '\0';
                            return(ID); }
 
@@ -88,7 +88,7 @@ int yywrap(void) {
 
 void yyerror(char *msg) {
     pl_error=1;
-    log_err(0,"Line %d: %s\n",yylineno, msg);
+    DPRINTF(ERR_LOG,"Playlist error, line %d: %s\n",yylineno, msg);
 }
 
 

@@ -437,7 +437,7 @@ MP3RECORD *db_enum_begin(void) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -455,7 +455,7 @@ DB_PLAYLIST *db_playlist_enum_begin(void) {
     DB_PLAYLIST *current;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -478,7 +478,7 @@ DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -623,7 +623,7 @@ int db_get_playlist_is_smart(int playlistid) {
     int result;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
     }
@@ -654,7 +654,7 @@ int db_get_playlist_entry_count(int playlistid) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
     }
@@ -686,7 +686,7 @@ char *db_get_playlist_name(int playlistid) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(0,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }

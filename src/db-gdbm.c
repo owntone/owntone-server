@@ -609,7 +609,8 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
     ppacked=(MP3PACKED*)pdatum->dptr;
 
     if(ppacked->version != DB_VERSION) 
-	log_err(1,"ON-DISK DATABASE VERSION HAS CHANGED\nDelete your songs.gdb and restart.\n");
+	DPRINTF(ERR_FATAL,"ON-DISK DATABASE VERSION HAS CHANGED\n"
+		"Delete your songs.gdb and restart.\n");
 
     pmp3->bitrate=ppacked->bitrate;
     pmp3->samplerate=ppacked->samplerate;
@@ -715,7 +716,7 @@ int db_add(MP3FILE *pmp3) {
     ppacked->time_played=0;
 
     if(gdbm_store(db_songs,dkey,*pnew,GDBM_REPLACE)) {
-	log_err(1,"Error inserting file %s in database\n",pmp3->fname);
+	DPRINTF(ERR_FATAL,"Error inserting file %s in database\n",pmp3->fname);
     }
 
     DPRINTF(ERR_DEBUG,"Testing for %d\n",pmp3->id);
@@ -724,7 +725,7 @@ int db_add(MP3FILE *pmp3) {
     dkey.dsize=sizeof(unsigned int);
 
     if(!gdbm_exists(db_songs,dkey)) {
-	log_err(1,"Error.. could not find just added file\n");
+	DPRINTF(ERR_FATAL,"Error.. could not find just added file\n");
     }
 
     free(pnew->dptr);
@@ -774,7 +775,7 @@ MP3RECORD *db_enum_begin(void) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(1,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -798,7 +799,7 @@ DB_PLAYLIST *db_playlist_enum_begin(void) {
     DB_PLAYLIST *current;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(1,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -821,7 +822,7 @@ DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(1,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -853,11 +854,11 @@ MP3FILE *db_enum(MP3RECORD **current) {
 	data=gdbm_fetch(db_songs,db_enum_helper.key);
 	MEMNOTIFY(data.dptr);
 	if(!data.dptr) {
-	    log_err(1,"Inconsistant database.\n");
+	    DPRINTF(ERR_FATAL,"Inconsistant database.\n");
 	}
 
 	if(db_unpackrecord(&data,&db_enum_helper.mp3file)) {
-	    log_err(1,"Cannot unpack item.. Corrupt database?\n");
+	    DPRINTF(ERR_FATAL,"Cannot unpack item.. Corrupt database?\n");
 	}
 
 	if(data.dptr)
@@ -1011,7 +1012,7 @@ int db_get_playlist_is_smart(int playlistid) {
     int result;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(1,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
     }
@@ -1041,7 +1042,7 @@ int db_get_playlist_entry_count(int playlistid) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(1,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
     }
@@ -1073,7 +1074,7 @@ char *db_get_playlist_name(int playlistid) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(1,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return NULL;
     }
@@ -1104,7 +1105,7 @@ int db_exists(int id) {
     MP3FILE *pmp3;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(1,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
     }
@@ -1138,7 +1139,7 @@ int db_last_modified(int id) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(1,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
     }
@@ -1171,7 +1172,7 @@ int db_delete(int id) {
     DPRINTF(ERR_DEBUG,"Removing item %d\n",id);
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	log_err(1,"Cannot lock rwlock\n");
+	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
 	errno=err;
 	return -1;	
     }

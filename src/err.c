@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <stdarg.h>
+#include <time.h>
 #include <errno.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -38,6 +39,8 @@
 
 int err_debuglevel=0;
 int err_logdestination=LOGDEST_STDERR;
+FILE *err_file=NULL;
+pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER;
 
 #ifdef DEBUG_MEMORY
 
@@ -49,7 +52,7 @@ typedef struct tag_err_leak {
     struct tag_err_leak *next;
 } ERR_LEAK;
 
-pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER;
+
 ERR_LEAK err_leak = { NULL, NULL, 0, 0, NULL };
 #endif
 
@@ -63,25 +66,45 @@ int err_unlock_mutex(void);
 /****************************************************
  * log_err
  ****************************************************/
-void log_err(int quit, char *fmt, ...)
+void log_err(int level, char *fmt, ...)
 {
     va_list ap;
-    char errbuf[256];
+    char timebuf[256];
+    char errbuf[1024];
+    struct tm tm_now;
+    time_t tt_now;
+
+    if(level > err_debuglevel)
+	return;
 
     va_start(ap, fmt);
     vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
     va_end(ap);
+ 
+    err_lock_mutex(); /* atomic file writes */
 
     switch(err_logdestination) {
+    case LOGDEST_LOGFILE:
+	tt_now=time(NULL);
+	gmtime_r(&tt_now,&tm_now);
+	strftime(timebuf,sizeof(timebuf),"%F %T",&tm_now);
+	fprintf(err_file,"%s %s: ",timebuf,errbuf);
+	if(!level) fprintf(err_file,"%s %s: Aborting\n");
+	fflush(err_file);
+	break;
     case LOGDEST_STDERR:
         fprintf(stderr, "%s", errbuf);
+	if(!level) fprintf(stderr,"Aborting\n");
         break;
     case LOGDEST_SYSLOG:
         syslog(LOG_INFO, "%s", errbuf);
+	if(!level) syslog(LOG_INFO, "Aborting\n");
         break;
     }
 
-    if(quit) {
+    err_unlock_mutex();
+
+    if(!level) {
         exit(EXIT_FAILURE);
     }
 }
@@ -90,24 +113,34 @@ void log_err(int quit, char *fmt, ...)
  * log_setdest
  ****************************************************/
 void log_setdest(char *app, int destination) {
-    switch(destination) {
+    if(err_logdestination == destination)
+	return;
+
+    switch(err_logdestination) {
     case LOGDEST_SYSLOG:
-	if(err_logdestination != LOGDEST_SYSLOG) {
-	    openlog(app,LOG_PID,LOG_DAEMON);
+	closelog();
+	break;
+    case LOGDEST_LOGFILE:
+	fclose(err_file);
+	break;
+    }
+
+    switch(destination) {
+    case LOGDEST_LOGFILE:
+	err_file=fopen(app,"w+");
+	if(err_file==NULL) {
+	    fprintf(stderr,"Error opening %s: %s\n",app,strerror(errno));
+	    exit(EXIT_FAILURE);
 	}
 	break;
-    case LOGDEST_STDERR:
-	if(err_logdestination == LOGDEST_SYSLOG) {
-	    /* close the syslog */
-	    closelog();
-	}
+    case LOGDEST_SYSLOG:
+	openlog(app,LOG_PID,LOG_DAEMON);
 	break;
     }
 
     err_logdestination=destination;
 }
 
-#ifdef DEBUG_MEMORY
 
 /*
  * err_lock
@@ -143,6 +176,8 @@ int err_unlock_mutex(void) {
 
     return 0;
 }
+
+#ifdef DEBUG_MEMORY
 
 /*
  * Let the leak detector know about a chunk of memory

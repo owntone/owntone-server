@@ -97,6 +97,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
+    { 1,0,0,CONFIG_TYPE_STRING,"logfile",(void*)&config.logfile, config_emit_string },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"package",(void*)PACKAGE,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"include",(void*)NULL,config_emit_include },
@@ -163,6 +164,7 @@ int config_read(char *file) {
     config.mp3dir=NULL;
     config.playlist=NULL;
     config.runas=NULL;
+    config.logfile=NULL;
     config.extensions=".mp3";
 
     config.servername="mt-daapd " VERSION;
@@ -224,7 +226,6 @@ int config_read(char *file) {
     while((pce->config_element != -1)) {
 	if(pce->required && pce->config_element && !pce->changed) {
 	    fprintf(stderr,"Required config entry '%s' not specified\n",pce->name);
-	    errno=EINVAL;
 	    err=-1;
 	}
 	if((pce->config_element) && (pce->changed)) {

@@ -24,10 +24,12 @@
 
 #define LOGDEST_STDERR       0
 #define LOGDEST_SYSLOG       1
+#define LOGDEST_LOGFILE      2
 
 #define ERR_DEBUG            9
 #define ERR_INFO             5
 #define ERR_WARN             2
+#define ERR_LOG              1   /* should be logging at level 1 */
 #define ERR_FATAL            0
 
 extern int err_debuglevel;
@@ -36,9 +38,13 @@ extern int err_logdestination;
 extern void log_err(int quit, char *fmt, ...);
 extern void log_setdest(char *app, int destination);
 
-
+#ifdef DEBUG
 # define DPRINTF(level, fmt, arg...) \
-    { if((level) <= err_debuglevel) { log_err(0,"%s, %d: ",__FILE__,__LINE__); log_err(0,fmt,##arg); }}
+    { log_err(level,"%s, %d: ",__FILE__,__LINE__); log_err(0,fmt,##arg); }
+#else
+# define DPRINTF(level, fmt, arg...) \
+    { log_err(level,fmt,##arg); }
+#endif
 
 #ifdef DEBUG_MEMORY
 # ifndef __IN_ERR__

@@ -384,7 +384,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     int playlistid;
     struct stat sb;
 
-    DPRINTF(ERR_DEBUG,"Found static playlist: %s\n",pde->d_name);
+    DPRINTF(ERR_WARN,"Processing static playlist: %s\n",pde->d_name);
     strcpy(m3u_path,pde->d_name);
     snprintf(playlist_path,sizeof(playlist_path),"%s/%s",path,pde->d_name);
     m3u_path[strlen(pde->d_name) - 4] = '\0';
@@ -392,7 +392,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     fd=open(playlist_path,O_RDONLY);
     if(fd != -1) {
 	db_add_playlist(playlistid,m3u_path,0);
-	DPRINTF(ERR_DEBUG,"Added playlist as id %d\n",playlistid);
+	DPRINTF(ERR_INFO,"Added playlist as id %d\n",playlistid);
 
 	while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
 	    while((linebuffer[strlen(linebuffer)-1] == '\n') ||
@@ -424,6 +424,8 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 	}
 	close(fd);
     }
+
+    DPRINTF(ERR_WARN,"Done processing playlist\n");
 }
 
 /*
@@ -455,7 +457,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 	db_add(&mp3file);
 	pl_eval(&mp3file); /* FIXME: move to db_add? */
     } else {
-	DPRINTF(ERR_INFO,"Skipping %s\n",pde->d_name);
+	DPRINTF(ERR_WARN,"Skipping %s - scan_gettags failed\n",pde->d_name);
     }
     
     scan_freetags(&mp3file);

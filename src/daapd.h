@@ -44,6 +44,7 @@ typedef struct tag_config {
     char *runas;
     char *dbdir;
     char *extensions;
+    char *logfile;
     STATS stats;
 } CONFIG;
 

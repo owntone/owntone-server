@@ -234,7 +234,7 @@ extern int ws_stop(WSHANDLE ws) {
 
     /* Wait for all the threads to die */
     if(pthread_mutex_lock(&pwsp->exit_mutex))
-	log_err(1,"Cannot lock condition mutex\n");
+	DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
 
     /* wait for condition */
     while(pwsp->dispatch_threads) {
@@ -269,7 +269,7 @@ void *ws_mainthread(void *arg) {
     char hostname[MAX_HOSTNAME];
 
     if(pthread_mutex_lock(&pwsp->exit_mutex))
-	log_err(1,"Cannot lock condition mutex\n");
+	DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
     
     pwsp->dispatch_threads++;
 
@@ -285,7 +285,7 @@ void *ws_mainthread(void *arg) {
 
 	    /* decrement the number of dispatch threads */
 	    if(pthread_mutex_lock(&pwsp->exit_mutex))
-		log_err(1,"Cannot lock condition mutex\n");
+		DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
     
 	    pwsp->dispatch_threads--;
 	    pthread_cond_signal(&pwsp->exit_cond);
@@ -302,7 +302,7 @@ void *ws_mainthread(void *arg) {
 
 	    /* decrement dispatch threads */
 	    if(pthread_mutex_lock(&pwsp->exit_mutex))
-		log_err(1,"Cannot lock condition mutex\n");
+		DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
     
 	    pwsp->dispatch_threads--;
 	    pthread_cond_signal(&pwsp->exit_cond);
@@ -326,7 +326,7 @@ void *ws_mainthread(void *arg) {
 
 	/* now, throw off a dispatch thread */
 	if(pthread_mutex_lock(&pwsp->exit_mutex))
-	    log_err(1,"Cannot lock condition mutex\n");
+	    DPRINTF(ERR_FATAL,"Cannot lock condition mutex\n");
 
 	if((err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc))) {
 	    pwsc->error=err;
@@ -375,14 +375,14 @@ void ws_close(WS_CONNINFO *pwsc) {
 	
 	/* this thread is done */
 	if(pthread_mutex_lock(&pwsp->exit_mutex)) 
-	    log_err(1,"Error: cannot lock condition mutex\n");
+	    DPRINTF(ERR_FATAL,"Error: cannot lock condition mutex\n");
 
 	if(!pwsp->dispatch_threads) {
-	    log_err(1,"Error: Bad dispatch thread count!\n");
+	    DPRINTF(ERR_FATAL,"Error: Bad dispatch thread count!\n");
 	} else {
 	    pwsp->dispatch_threads--;
 	    if(pthread_cond_signal(&pwsp->exit_cond))
-		log_err(1,"Error: cannot signal condition\n");
+		DPRINTF(ERR_FATAL,"Error: cannot signal condition\n");
 	}
 	pthread_mutex_unlock(&pwsp->exit_mutex);
 
