@@ -80,8 +80,7 @@ CONFIG config;
 /* 
  * Forwards
  */
-RETSIGTYPE sig_child(int signal);
-int daemon_start(int reap_children);
+int daemon_start(void);
 void write_pid_file(void);
 
 /*
@@ -411,8 +410,7 @@ RETSIGTYPE sig_child(int signal)
  * This is pretty much stolen straight from Stevens
  */
 
-int daemon_start(int reap_children)
-{
+int daemon_start(void) {
     int childpid, fd;
 
     signal(SIGTTOU, SIG_IGN);
@@ -457,9 +455,6 @@ int daemon_start(int reap_children)
     chdir("/");
     umask(0);
 
-    if (reap_children) {
-	signal(SIGCLD, sig_child);
-    }
     return 0;
 }
 
@@ -526,6 +521,7 @@ int drop_privs(char *user) {
 void *signal_handler(void *arg) {
     sigset_t intmask;
     int sig;
+    int status;
 
     config.stop=0;
     config.reload=0;
@@ -534,6 +530,7 @@ void *signal_handler(void *arg) {
 
     while(!config.stop) {
 	if((sigemptyset(&intmask) == -1) ||
+	   (sigaddset(&intmask, SIGCLD) == -1) ||
 	   (sigaddset(&intmask, SIGINT) == -1) ||
 	   (sigaddset(&intmask, SIGHUP) == -1) ||
 	   (sigwait(&intmask, &sig) == -1)) {
@@ -541,6 +538,11 @@ void *signal_handler(void *arg) {
 	} else {
 	    /* process the signal */
 	    switch(sig) {
+	    case SIGCLD:
+		DPRINTF(ERR_LOG,"Got CLD signal.  Reaping\n");
+		while (wait(&status)) {
+		};
+		break;
 	    case SIGINT:
 		DPRINTF(ERR_LOG,"Got INT signal. Notifying daap server.\n");
 		config.stop=1;
@@ -598,7 +600,7 @@ int main(int argc, char *argv[]) {
     int reload=0;
     int start_time;
     int end_time;
-    int rescan_counter;
+    int rescan_counter=0;
     int old_song_count;
 
     config.use_mdns=1;
@@ -670,9 +672,8 @@ int main(int argc, char *argv[]) {
        drawback that there's a bit less error checking done while
        we're attached, but if is much better when being automatically
        started as a system service. */
-    if(!foreground) 
-    {
-	daemon_start(1);
+    if(!foreground) {
+	daemon_start();
 	write_pid_file();
     }
 

@@ -274,7 +274,7 @@ static query_node_t*	match_number(const query_field_t* field,
 				     const char** pcursor, 
 				     const char* query)
 {
-    query_node_t*	node = (query_node_t*) calloc(1, sizeof(node));
+    query_node_t*	node = (query_node_t*) calloc(1, sizeof(*node));
 
     switch(opcode)
     {
