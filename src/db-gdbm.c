@@ -1270,6 +1270,11 @@ int db_delete(int id) {
 		    ptail->next=phead->next;
 		}
 		free(phead);
+
+		if(pcurrent->nodes == NULL) {
+		    DPRINTF(ERR_DEBUG,"Empty Playlist!\n");
+		    db_playlist_count--;
+		}
 	    }
 	    pcurrent=pcurrent->next;
 	}
