@@ -800,7 +800,11 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 
 	    if(native_text) {
 		have_utf8=1;
-		utf8_text=id3_ucs4_utf8duplicate(native_text);
+		if(config.latin1_tags) {
+		    utf8_text=id3_ucs4_latin1duplicate(native_text);
+		} else {
+		    utf8_text=id3_ucs4_utf8duplicate(native_text);
+		}
 		MEMNOTIFY(utf8_text);
 
 		if(!strcmp(pid3frame->id,"TIT2")) { /* Title */

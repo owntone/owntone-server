@@ -112,6 +112,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
     { 1,0,0,CONFIG_TYPE_INT,"rescan_interval",(void*)&config.rescan_interval,config_emit_int },
     { 1,0,0,CONFIG_TYPE_INT,"always_scan",(void*)&config.always_scan,config_emit_int },
+    { 1,0,0,CONFIG_TYPE_INT,"latin1_tags",(void*)&config.latin1_tags,config_emit_int },
     { 1,0,0,CONFIG_TYPE_INT,"process_m3u",(void*)&config.process_m3u,config_emit_int },
     { 1,0,0,CONFIG_TYPE_INT,"scan_type",(void*)&config.scan_type,config_emit_int },
     { 1,0,0,CONFIG_TYPE_INT,"compress",(void*)&config.compress,config_emit_int },
@@ -274,6 +275,7 @@ int config_read(char *file) {
     config.process_m3u=0;
     config.scan_type=0;
     config.compress=0;
+    config.latin1_tags=0;
 
     /* DWB: use alloced space so it can be freed without errors */
     config.extensions=strdup(".mp3");
