@@ -73,6 +73,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.5  2003/11/23 18:13:15  ron
+  Exit rather than returning... shouldn't make a difference, but does.  ?
+
   Revision 1.4  2003/11/20 21:58:22  ron
   More diag logging, move WS_PRIVATE into the WS_CONNINFO
 
@@ -595,6 +598,6 @@ int rend_init(pid_t *pid,char *name, int port) {
     DPRINTF(ERR_DEBUG, "Finished with status %ld, result %d\n", 
 	    status, result);
 
-    return result;
+    exit(result);
 }
 
