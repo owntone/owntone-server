@@ -499,6 +499,7 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
     char current_atom[4];
     char *current_data;
     unsigned short us_data;
+    int genre;
     int len;
 
     if(!(fin=fopen(file,"rb"))) {
@@ -574,6 +575,14 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
 			    pmp3->total_discs=us_data;
 			} else if(!memcmp(current_atom,"\xA9" "day",4)) {
 			    pmp3->year=atoi((char*)&current_data[16]);
+			} else if(!memcmp(current_atom,"gnre",4)) {
+			    genre=(int)(*((char*)&current_data[17]));
+			    genre--;
+			    
+			    if((genre < 0) || (genre > WINAMP_GENRE_UNKNOWN))
+				genre=WINAMP_GENRE_UNKNOWN;
+
+			    pmp3->genre=strdup(scan_winamp_genre[genre]);
 			}
 
 			free(current_data);
@@ -639,6 +648,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
     int have_text;
     id3_ucs4_t const *native_text;
     char *tmp;
+    int got_numeric_genre;
 
     if(strcasecmp(pmp3->type,".mp3"))  /* can't get tags for non-mp3 */
 	return 0;
@@ -694,20 +704,26 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 		} else if(!strcmp(pid3frame->id,"TCON")) {
 		    used=1;
 		    pmp3->genre = utf8_text;
+		    got_numeric_genre=0;
 		    DPRINTF(ERR_DEBUG," Genre: %s\n",utf8_text);
 		    if(pmp3->genre) {
 			if(!strlen(pmp3->genre)) {
 			    genre=WINAMP_GENRE_UNKNOWN;
+			    got_numeric_genre=1;
 			} else if (isdigit(pmp3->genre[0])) {
 			    genre=atoi(pmp3->genre);
+			    got_numeric_genre=1;
 			} else if ((pmp3->genre[0] == '(') && (isdigit(pmp3->genre[1]))) {
 			    genre=atoi((char*)&pmp3->genre[1]);
-			}
+			    got_numeric_genre=1;
+			} 
 
-			if((genre < 0) || (genre > WINAMP_GENRE_UNKNOWN))
-			    genre=WINAMP_GENRE_UNKNOWN;
-			free(pmp3->genre);
-			pmp3->genre=strdup(scan_winamp_genre[genre]);
+			if(got_numeric_genre) {
+			    if((genre < 0) || (genre > WINAMP_GENRE_UNKNOWN))
+				genre=WINAMP_GENRE_UNKNOWN;
+			    free(pmp3->genre);
+			    pmp3->genre=strdup(scan_winamp_genre[genre]);
+			}
 		    }
 		} else if(!strcmp(pid3frame->id,"COMM")) {
 		    used=1;
