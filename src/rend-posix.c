@@ -73,6 +73,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.3  2003/11/17 16:40:09  ron
+  add support for named db
+
   Revision 1.2  2003/11/14 04:54:55  ron
   Use port 53
 
@@ -511,7 +514,7 @@ static void DeregisterOurServices(void)
 
 #pragma mark **** Main
 
-int rend_init(pid_t *pid) {
+int rend_init(pid_t *pid,char *name, int port) {
     mStatus status;
     mDNSBool result;
 
@@ -531,8 +534,8 @@ int rend_init(pid_t *pid) {
     }
 
     DPRINTF(ERR_DEBUG,"Registering tcp service\n");
-    RegisterOneService("mt-daapd","_http._tcp",NULL,0,3689);
-    RegisterOneService("mt-daapd","_daap._tcp",NULL,0,3689);
+    RegisterOneService(name,"_http._tcp",NULL,0,port);
+    RegisterOneService(name,"_daap._tcp",NULL,0,port);
 
     signal(SIGINT,  HandleSigInt);      // SIGINT is what you get for a Ctrl-C
     signal(SIGQUIT, HandleSigQuit);     // SIGQUIT is what you get for a Ctrl-\ (indeed)
