@@ -1527,7 +1527,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
 	    DPRINTF(E_LOG,L_SCAN,"Short read: %s\n",file);
 	    fclose(infile);
-	    break;
+	    return 0;
 	}
 
 	index=0;
@@ -1565,7 +1565,12 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 			    found=1;
 			    fp_size += index;
 			} 
+		    } else {
+			DPRINTF(E_LOG,L_SCAN,"Could not read frame header: %s\n",file);
+			fclose(infile);
+			return 0;
 		    }
+
 		    if(!found) {
 			DPRINTF(E_DBG,L_SCAN,"Didn't pan out.\n");
 		    }
