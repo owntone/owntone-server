@@ -753,6 +753,15 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
     }
 
+
+    if(!foreground) {
+	if(config.logfile) {
+	    err_setdest(config.logfile,LOGDEST_LOGFILE);
+	} else {
+	    err_setdest("mt-daapd",LOGDEST_SYSLOG);
+	}
+    }
+
 #ifndef WITHOUT_MDNS
     if((config.use_mdns) && (!parseonly)) {
 	DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
@@ -807,11 +816,6 @@ int main(int argc, char *argv[]) {
 
     /* Wait as long as we can to detach */
     if(!foreground) {
-	if(config.logfile) {
-	    err_setdest(config.logfile,LOGDEST_LOGFILE);
-	} else {
-	    err_setdest("mt-daapd",LOGDEST_SYSLOG);
-	}
 	daemon_start();
 	fprintf(pid_fp,"%d\n",getpid());
 	fclose(pid_fp);
