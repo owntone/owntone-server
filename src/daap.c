@@ -370,6 +370,8 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
     DAAP_BLOCK *mlcl;
     DAAP_BLOCK *mlit;
     int g=1;
+    int playlistid;
+    ENUMHANDLE henum;
 
     DPRINTF(ERR_DEBUG,"Preparing to send playlists\n");
     
@@ -377,8 +379,8 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
     if(root) {
 	g = (int)daap_add_int(root,"mstt",200);
 	g = g && daap_add_char(root,"muty",0); 
-	g = g && daap_add_int(root,"mtco",1);
-	g = g && daap_add_int(root,"mrco",1);
+	g = g && daap_add_int(root,"mtco",1 + db_get_playlist_count());
+	g = g && daap_add_int(root,"mrco",1 + db_get_playlist_count());
 	mlcl=daap_add_empty(root,"mlcl");
 	if(mlcl) {
 	    mlit=daap_add_empty(mlcl,"mlit");
@@ -388,10 +390,28 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
 		g = g && daap_add_string(mlit,"minm",name);
 		g = g && daap_add_int(mlit,"mimc",db_get_song_count());
 	    }
+
+	    g = g && mlit;
+
+	    /* add the rest of the playlists */
+	    henum=db_playlist_enum_begin();
+	    while(henum) {
+		playlistid=db_playlist_enum(&henum);
+		mlit=daap_add_empty(mlcl,"mlit");
+		if(mlit) {
+		    g = g && daap_add_int(mlit,"miid",playlistid);
+		    g = g && daap_add_long(mlit,"mper",0,playlistid);
+		    g = g && daap_add_string(mlit,"minm",db_get_playlist_name(playlistid));
+		    g = g && daap_add_int(mlit,"mimc",db_get_playlist_entry_count(playlistid));
+		}
+		g = g && mlit;
+	    }
+	    db_playlist_enum_end();
 	}
+
     }
 
-    g = g && mlcl && mlit;
+    g = g && mlcl;
 
     if(!g) {
 	DPRINTF(ERR_INFO,"Memory problem.  Bailing\n");
@@ -426,11 +446,11 @@ DAAP_BLOCK *daap_response_dbinfo(char *name) {
 	if(mlcl) {
 	    mlit=daap_add_empty(mlcl,"mlit");
 	    if(mlit) {
-		g = g && daap_add_int(mlit,"miid",0x20);
+		g = g && daap_add_int(mlit,"miid",1);
 		g = g && daap_add_long(mlit,"mper",0,1);
 		g = g && daap_add_string(mlit,"minm",name);
 		g = g && daap_add_int(mlit,"mimc",db_get_song_count()); /* songs */
-		g = g && daap_add_int(mlit,"mctc",0x1); /* playlists */
+		g = g && daap_add_int(mlit,"mctc",1 + db_get_playlist_count()); /* playlists */
 	    }
 	}
     }
@@ -491,17 +511,23 @@ DAAP_BLOCK *daap_response_server_info(char *name) {
  *
  * given a playlist number, return the items on the playlist
  */
-DAAP_BLOCK *daap_response_playlist_items(int playlist) {
+DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist) {
     DAAP_BLOCK *root;
     DAAP_BLOCK *mlcl;
     DAAP_BLOCK *mlit;
     ENUMHANDLE henum;
     MP3FILE *current;
+    int itemid;
     int g=1;
 
     DPRINTF(ERR_DEBUG,"Preparing to send playlist items for pl #%d\n",playlist);
     
-    henum=db_enum_begin();
+    if(playlist == 1) {
+	henum=db_enum_begin();
+    } else {
+	henum=db_playlist_items_enum_begin(playlist);
+    }
+
     if(!henum)
 	return NULL;
 
@@ -515,18 +541,32 @@ DAAP_BLOCK *daap_response_playlist_items(int playlist) {
 	mlcl=daap_add_empty(root,"mlcl");
 
 	if(mlcl) {
-	    while(current=db_enum(&henum)) {
-		mlit=daap_add_empty(mlcl,"mlit");
-		if(mlit) {
-		    g = g && daap_add_char(mlit,"mikd",2);
-		    g = g && daap_add_int(mlit,"miid",current->id);
-		    g = g && daap_add_int(mlit,"mcti",0x1); /* built-in container */
-		} else g=0;
+	    if(playlist == 1) {
+		while(current=db_enum(&henum)) {
+		    mlit=daap_add_empty(mlcl,"mlit");
+		    if(mlit) {
+			g = g && daap_add_char(mlit,"mikd",2);
+			g = g && daap_add_int(mlit,"miid",current->id);
+			g = g && daap_add_int(mlit,"mcti",playlist);
+		    } else g=0;
+		}
+	    } else { /* other playlist */
+		while((itemid=db_playlist_items_enum(&henum)) != -1) {
+		    mlit=daap_add_empty(mlcl,"mlit");
+		    if(mlit) {
+			g = g && daap_add_char(mlit,"mikd",2);
+			g = g && daap_add_int(mlit,"miid",itemid);
+			g = g && daap_add_int(mlit,"mcti",playlist);
+		    } else g = 0;
+		}
 	    }
 	} else g=0;
     }
 
-    db_enum_end();
+    if(playlist == 1)
+	db_enum_end();
+    else
+	db_playlist_items_enum_end();
 
     if(!g) {
 	daap_free(root);

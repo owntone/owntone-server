@@ -30,7 +30,7 @@ DAAP_BLOCK *daap_response_update(int fd, int clientver);
 DAAP_BLOCK *daap_response_songlist(void);
 DAAP_BLOCK *daap_response_playlists(char *name);
 DAAP_BLOCK *daap_response_dbinfo(char *name);
-DAAP_BLOCK *daap_response_playlist_items(int playlist);
+DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist);
 
 #endif /* _DAAP_H_ */
 
