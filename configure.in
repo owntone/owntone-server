@@ -20,6 +20,7 @@ STATIC_LIBS=no
 CPPFLAGS="${CPPFLAGS} -g"
 
 AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
+AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
 
 AC_ARG_ENABLE(debug,[  --enable-debug          Enable debugging features],
 		       CPPFLAGS="${CPPFLAGS} -Wall")
@@ -85,8 +86,6 @@ case $host in
 esac
 
 dnl Checks for libraries.
-AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
-
 AC_ARG_WITH(static-libs,
 	[--with-static-libs[[=DIR]]            use static libs in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
