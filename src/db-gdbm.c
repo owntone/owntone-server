@@ -420,6 +420,7 @@ int db_end_initial_update(void) {
 
     rbdestroy(db_removed);
 
+    gdbm_reorganize(db_songs);
     db_unlock();
 
     return 0;
