@@ -52,7 +52,6 @@
  */
 CONFIG config;
 
-
 /* 
  * daap_handler
  *
@@ -65,8 +64,20 @@ void daap_handler(WS_CONNINFO *pwsc) {
     int compress=0;
     int clientrev;
 
+    /* for the /databases URI */
+    char *uri;
+    int db_index;
+    int playlist_index;
+    int item;
+    char *first, *last;
+    int streaming=0;
+
+    MP3FILE *pmp3;
+    int file_fd;
+
     close=pwsc->close;
-    pwsc->close=1;
+    pwsc->close=1;  /* in case we have any errors */
+    root=NULL;
 
     ws_addresponseheader(pwsc,"Accept-Ranges","bytes");
     ws_addresponseheader(pwsc,"DAAP-Server","iTunes/4.1 (Mac OS X)");
@@ -86,40 +97,118 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	    clientrev=atoi(ws_getvar(pwsc,"delta"));
 	}
 	root=daap_response_update(clientrev);
-    } else if (!strcasecmp(pwsc->uri,"/databases")) {
-	root=daap_response_databases(pwsc->uri);
     } else if (!strcasecmp(pwsc->uri,"/logout")) {
 	ws_returnerror(pwsc,204,"Logout Successful");
 	return;
-    } else if (!strncasecmp(pwsc->uri,"/databases/",11)) {
-	root=daap_response_databases(pwsc->uri);
-    } else {
-	DPRINTF(ERR_WARN,"Bad handler!  Can't find uri handler for %s\n",
-		pwsc->uri);
-	return;
+    } else if(strcmp(pwsc->uri,"/databases")==0) {
+	root=daap_response_dbinfo();
+    } else if(strncmp(pwsc->uri,"/databases/",11) == 0) {
+
+	/* the /databases/ uri will either be:
+	 *
+	 * /databases/id/items, which returns items in a db
+	 * /databases/id/containers, which returns a container
+	 * /databases/id/containers/id/items, which returns playlist elements
+	 * /databases/id/items/id.mp3, to spool an mp3
+	 */
+
+	uri = strdup(pwsc->uri);
+	first=(char*)&uri[11];
+	last=first;
+	while((*last) && (*last != '/')) {
+	    last++;
+	}
+	
+	if(*last) {
+	    *last='\0';
+	    db_index=atoi(first);
+	    
+	    last++;
+
+	    if(strncasecmp(last,"items/",6)==0) {
+		/* streaming */
+		first=last+6;
+		while((*last) && (*last != '.')) 
+		    last++;
+
+		if(*last == '.') {
+		    *last='\0';
+		    item=atoi(first);
+		    streaming=1;
+		}
+		free(uri);
+	    } else if (strncasecmp(last,"items",5)==0) {
+		/* songlist */
+		free(uri);
+		root=daap_response_songlist();
+	    } else if (strncasecmp(last,"containers/",11)==0) {
+		/* playlist elements */
+		first=last + 11;
+		last=first;
+		while((*last) && (*last != '/')) {
+		    last++;
+		}
+	
+		if(*last) {
+		    *last='\0';
+		    playlist_index=atoi(first);
+		    root=daap_response_playlist_items(playlist_index);
+		}
+		free(uri);
+	    } else if (strncasecmp(last,"containers",10)==0) {
+		/* list of playlists */
+		free(uri);
+		root=daap_response_playlists();
+	    }
+	}
     }
 
-    if(!root) {
+    if((!root)&&(!streaming)) {
 	ws_returnerror(pwsc,400,"Invalid Request");
 	return;
     }
 
     pwsc->close=close;
 
-    ws_addresponseheader(pwsc,"Content-Length","%d",root->reported_size + 8);
+    if(!streaming) {
+	ws_addresponseheader(pwsc,"Content-Length","%d",root->reported_size + 8);
+	ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+	ws_emitheaders(pwsc);
 
-    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    ws_emitheaders(pwsc);
+	/*
+	  if(ws_testrequestheader(pwsc,"Accept-Encoding","gzip")) {
+	  ws_addresponseheader(pwsc,"Content-Encoding","gzip");
+	  compress=1;
+	  }
+	*/
 
-    /*
-    if(ws_testrequestheader(pwsc,"Accept-Encoding","gzip")) {
-	ws_addresponseheader(pwsc,"Content-Encoding","gzip");
-	compress=1;
+	daap_serialize(root,pwsc->fd,0);
+	daap_free(root);
+    } else {
+	/* stream out the song */
+	pwsc->close=1;
+
+	pmp3=db_find(item);
+	if(!pmp3) {
+	    ws_returnerror(pwsc,404,"File Not Found");
+	} else {
+	    /* got the file, let's open and serve it */
+	    file_fd=r_open2(pmp3->path,O_RDONLY);
+	    if(file_fd == -1) {
+		pwsc->error=errno;
+		DPRINTF(ERR_WARN,"Thread %d: Error opening %s: %s\n",
+			pwsc->threadno,pmp3->path,strerror(errno));
+		ws_returnerror(pwsc,404,"Not found");
+	    } else {
+		ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+		ws_addresponseheader(pwsc,"Connection","Close");
+		ws_emitheaders(pwsc);
+
+		copyfile(file_fd,pwsc->fd);
+		r_close(file_fd);
+	    }
+	}
     }
-    */
-
-    daap_serialize(root,pwsc->fd,0);
-    daap_free(root);
 
     return;
 }
@@ -168,7 +257,7 @@ void config_handler(WS_CONNINFO *pwsc) {
 	return;
     }
 
-    file_fd=open(resolved_path,O_RDONLY);
+    file_fd=r_open2(resolved_path,O_RDONLY);
     if(file_fd == -1) {
 	pwsc->error=errno;
 	DPRINTF(ERR_WARN,"Thread %d: Error opening %s: %s\n",
@@ -230,7 +319,7 @@ void config_handler(WS_CONNINFO *pwsc) {
 	}
     }
 
-    close(file_fd);
+    r_close(file_fd);
     DPRINTF(ERR_DEBUG,"Thread %d: Served successfully\n",pwsc->threadno);
     return;
 }

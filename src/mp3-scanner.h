@@ -30,6 +30,12 @@ typedef struct tag_mp3file {
     char *album;
     char *genre;
     char *comment;
+
+    int bitrate;
+    int samplerate;
+    int song_length;
+    int file_size;
+
     int got_id3;
     int id;
 } MP3FILE;

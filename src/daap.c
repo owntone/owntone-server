@@ -123,10 +123,6 @@ DAAP_ITEMS taglist[] = {
 };
 
 /* Forwards */
-DAAP_BLOCK *daap_response_songlist(void);
-DAAP_BLOCK *daap_response_playlists(void);
-DAAP_BLOCK *daap_response_dbinfo(void);
-DAAP_BLOCK *daap_response_playlist_items(int playlist);
 
 int daap_add_mdcl(DAAP_BLOCK *root, char *tag, char *name, short int number) {
     DAAP_BLOCK *mdcl;
@@ -242,7 +238,8 @@ DAAP_BLOCK *daap_response_songlist(void) {
 			g = g && daap_add_string(mlit,"asar",current->artist);
 
 		    // g = g && daap_add_short(mlit,"asbt",0); /* bpm */
-		    // g = g && daap_add_short(mlit,"asbr",128); /* bitrate!! */
+		    if(current->bitrate)
+			g = g && daap_add_short(mlit,"asbr",current->bitrate); /* bitrate!! */
 
 		    if(current->comment)
 			g = g && daap_add_string(mlit,"ascm",current->comment); /* comment */
@@ -254,7 +251,6 @@ DAAP_BLOCK *daap_response_songlist(void) {
 		    // g = g && daap_add_short(mlit,"asdc",0); /* # of discs */
 		    // g = g && daap_add_short(mlit,"asdn",0); /* disc number */
 		    // g = g && daap_add_char(mlit,"asdk",0); /* song datakind? */
-		    // g = g && daap_add_string(mlit,"asfm","mp3"); /* song format */
 		    // aseq - null string!
 
 		    if(current->genre)
@@ -262,6 +258,8 @@ DAAP_BLOCK *daap_response_songlist(void) {
 
 		    g = g && daap_add_int(mlit,"miid",current->id); /* id */
 		    
+		    /* these quite go hand in hand */
+		    g = g && daap_add_string(mlit,"asfm","mp3"); /* song format */
 		    g = g && daap_add_string(mlit,"asdt","MPEG audio file"); /* descr */
 		    
 		    if(current->title)
@@ -272,11 +270,18 @@ DAAP_BLOCK *daap_response_songlist(void) {
 		    // mper (long)
 		    // g = g && daap_add_char(mlit,"asdb",0); /* disabled */
 		    // g = g && daap_add_char(mlit,"asrv",0); /* rel vol */
-		    // g = g && daap_add_int(mlit,"assr",44100); /* sample rate */
-		    // g = g && daap_add_int(mlit,"assz",1024); /* FIXME: Song size! */
-		    // g = g && daap_add_int(mlit,"asst",0); /* song start time? */
-		    // g = g && daap_add_int(mlit,"assp",0); /* songstoptime */
-		    // g = g && daap_add_int(mlit,"astm",3600); /* song time */
+		    if(current->samplerate)
+			g = g && daap_add_int(mlit,"assr",current->samplerate); /* samp rate */
+		    
+		    if(current->file_size)
+			g = g && daap_add_int(mlit,"assz",current->file_size); /* Size! */
+		    
+		    g = g && daap_add_int(mlit,"asst",0); /* song start time? */
+		    g = g && daap_add_int(mlit,"assp",0); /* songstoptime */
+
+		    if(current->song_length) 
+			g = g && daap_add_int(mlit,"astm",current->song_length*1000); /* song time */
+
 		    // g = g && daap_add_short(mlit,"astc",0); /* track count */
 		    // g = g && daap_add_short(mlit,"astn",0); /* track number */
 		    // g = g && daap_add_char(mlit,"asur",3); /* rating */
@@ -326,99 +331,6 @@ DAAP_BLOCK *daap_response_update(int clientver) {
     return root;
 }
 
-/*
- * daap_response_databases
- *
- * handle the daap block for the /databases URI
- */
-
-DAAP_BLOCK *daap_response_databases(char *path) {
-    char *uri;
-    int db_index;
-    int playlist_index;
-    char *first, *last;
-
-    if(strcmp(path,"/databases")==0) {
-	return daap_response_dbinfo();
-    }
-
-
-    uri = strdup(path);
-    first=(char*)&uri[11];
-    last=first;
-    while((*last) && (*last != '/')) {
-	last++;
-    }
-    
-    if(*last != '/') {
-	return NULL;
-    }
-    
-    *last='\0';
-    db_index=atoi(first);
-    
-    /* now we have the db id.  Next, we have to figure out
-     * if it's a container request or a 
-     * items request
-     *
-     * note we generally don't care about the DB index, since we only
-     * support 1 db.
-     */
-    
-    /* the /databases/ uri will either be
-     *
-     * /databases, which returns an AVDB,
-     * /databases/id/items, which returns items in a db
-     * /databases/id/containers, which returns a container
-     * /databases/id/containers/id/items, which returns playlist elements
-     * /databases/id/items/id.mp3, to spool an mp3
-     */
-
-    last++;
-
-    if(strncasecmp(last,"items/",6)==0) {
-	/* streaming */
-	free(uri);
-	return NULL;
-    }
-
-    if(strncasecmp(last,"items",5)==0) {
-	/* songlist */
-	free(uri);
-	return daap_response_songlist();
-    }
-
-    if(strncasecmp(last,"containers/",11)==0) {
-	/* playlist elements */
-	first=last + 11;
-	last=first;
-	while((*last) && (*last != '/')) {
-	    last++;
-	}
-	
-	if(*last != '/') {
-	    return NULL;
-	}
-	
-	*last='\0';
-	playlist_index=atoi(first);
-
-	free(uri);
-
-	return daap_response_playlist_items(playlist_index);
-    }
-
-    if(strncasecmp(last,"containers",10)==0) {
-	/* list of playlists */
-	free(uri);
-	return daap_response_playlists();
-	return NULL;
-    }
-
-    free(uri);
-    return NULL;
-
-}
 
 /*
  * daap_response_playlists
@@ -587,3 +499,5 @@ DAAP_BLOCK *daap_response_playlist_items(int playlist) {
 
     return root;
 }
+
+

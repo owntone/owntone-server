@@ -36,13 +36,30 @@
 /*
  * Typedefs
  */
+
+typedef struct tag_scan_id3header {
+    unsigned char id[3];
+    unsigned char version[2];
+    unsigned char flags;
+    unsigned char size[4];
+} SCAN_ID3HEADER;
+
 #define MAYBEFREE(a) { if((a)) free((a)); };
+
+
+/*
+ * Globals
+ */
+int scan_br_table[] = {
+    0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0
+};
 
 /*
  * Forwards
  */
 int scan_foreground(char *path);
 int scan_gettags(char *file, MP3FILE *pmp3);
+int scan_getfileinfo(char *file, MP3FILE *pmp3);
 int scan_freetags(MP3FILE *pmp3);
 
 /*
@@ -133,6 +150,7 @@ int scan_foreground(char *path) {
 		    
 		    /* Do the tag lookup here */
 		    scan_gettags(mp3file.path,&mp3file);
+		    scan_getfileinfo(mp3file.path,&mp3file);
 		    
 		    db_add(&mp3file);
 		    
@@ -228,5 +246,86 @@ int scan_freetags(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->genre);
     MAYBEFREE(pmp3->comment);
 
+    return 0;
+}
+
+/*
+ * scan_getfileinfo
+ *
+ * Get information from the file headers itself -- like
+ * song length, bit rate, etc.
+ */
+int scan_getfileinfo(char *file, MP3FILE *pmp3) {
+    FILE *infile;
+    SCAN_ID3HEADER *pid3;
+    unsigned int size=0;
+    fpos_t fp_size=0;
+    fpos_t file_size;
+    unsigned char buffer[256];
+    int time_seconds;
+
+    int ver=0;
+    int layer=0;
+    int bitrate=0;
+    int samplerate=0;
+
+    if(!(infile=fopen(file,"rb"))) {
+	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
+	return -1;
+    }
+    
+    fread(buffer,1,sizeof(buffer),infile);
+    pid3=(SCAN_ID3HEADER*)buffer;
+    
+    if(strncmp(pid3->id,"ID3",3)==0) {
+	/* found an ID3 header... */
+	size = (pid3->size[0] << 21 | pid3->size[1] << 14 | 
+		pid3->size[2] << 7 | pid3->size[3]);
+	fp_size=size + sizeof(SCAN_ID3HEADER);
+    }
+
+    fseek(infile,0,SEEK_END);
+    file_size=ftell(infile);
+    file_size -= fp_size;
+
+    fsetpos(infile,&fp_size);
+    fread(buffer,1,sizeof(buffer),infile);
+
+    if((buffer[0] == 0xFF)&&(buffer[1] >= 224)) {
+	printf("Found sync frame\n");
+
+	ver=(buffer[1] & 0x18) >> 3;
+	layer=(buffer[1] & 0x6) >> 1;
+	if((ver==3) && (layer==1)) { /* MPEG1, Layer 3 */
+	    bitrate=(buffer[2] & 0xF0) >> 4;
+	    bitrate=scan_br_table[bitrate];
+	    samplerate=(buffer[2] & 0x0C) >> 2;
+	    switch(samplerate) {
+	    case 0:
+		samplerate=44100;
+		break;
+	    case 1:
+		samplerate=48000;
+		break;
+	    case 2:
+		samplerate=32000;
+		break;
+	    }
+	    pmp3->bitrate=bitrate;
+	    pmp3->samplerate=samplerate;
+	}
+
+	/* guesstimate the file length */
+	time_seconds = ((int)(file_size * 8)) / (bitrate * 1024);
+	pmp3->song_length=time_seconds;
+	pmp3->file_size=file_size;
+    } else {
+	/* should really scan forward to next sync frame */
+	fclose(infile);
+	return -1;
+    }
+    
+
+    fclose(infile);
     return 0;
 }
