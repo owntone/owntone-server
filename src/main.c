@@ -317,23 +317,14 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
     }
 
-    DPRINTF(ERR_DEBUG,"Scanning MP3s\n");
+    printf("Scanning MP3s\n");
 
     if(scan_init(config.mp3dir)) {
 	perror("scan_init");
 	exit(EXIT_FAILURE);
     }
 
-#ifdef DEBUG
-    printf("Dump of database:\n");
-    handle=db_enum_begin();
-    while(pmp3=db_enum(&handle)) {
-	printf("File: %s\n",pmp3->fname);
-    }
-    db_enum_end();
-
-    
-#endif    
+    printf("Done... starting server\n");
 
     /* start up the web server */
     ws_config.web_root=config.web_root;
