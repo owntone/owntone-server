@@ -34,36 +34,36 @@ extern int db_init(void);
 extern int db_deinit(void);
 extern int db_version(void);
 extern int db_add(MP3FILE *mp3file);
-extern int db_delete(int id);
-extern int db_add_playlist(unsigned int playlistid, char *name, int file_time, int is_smart);
-extern int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
-extern int db_delete_playlist(unsigned int playlistid);
+extern int db_delete(unsigned long int id);
+extern int db_add_playlist(unsigned long int playlistid, char *name, int file_time, int is_smart);
+extern int db_add_playlist_song(unsigned long int playlistid, unsigned long int itemid);
+extern int db_delete_playlist(unsigned long int playlistid);
 
 extern ENUMHANDLE db_enum_begin(void);
 extern MP3FILE *db_enum(ENUMHANDLE *handle);
 extern int db_enum_end(ENUMHANDLE handle);
-extern MP3FILE *db_find(int id);
+extern MP3FILE *db_find(unsigned long int id);
 extern void db_dispose(MP3FILE *pmp3); /* must be called after a db_find */
 
 extern int db_get_song_count(void);
 extern int db_get_playlist_count(void);
-extern int db_get_playlist_entry_count(int playlistid);
-extern int db_get_playlist_is_smart(int playlistid);
+extern int db_get_playlist_entry_count(unsigned long int playlistid);
+extern int db_get_playlist_is_smart(unsigned long int playlistid);
 
 extern ENUMHANDLE db_playlist_enum_begin(void);
 extern int db_playlist_enum(ENUMHANDLE *current);
 extern int db_playlist_enum_end(ENUMHANDLE handle);
 
-extern ENUMHANDLE db_playlist_items_enum_begin(int playlistid);
+extern ENUMHANDLE db_playlist_items_enum_begin(unsigned long int playlistid);
 extern int db_playlist_items_enum(ENUMHANDLE *current);
 extern int db_playlist_items_enum_end(ENUMHANDLE handle);
 
-extern char *db_get_playlist_name(int playlistid);
-extern int db_playlist_last_modified(int playlistid);
+extern char *db_get_playlist_name(unsigned long int playlistid);
+extern int db_playlist_last_modified(unsigned long int playlistid);
 extern int db_scanning(void);
 
 /* For persistant databases only */
-extern int db_exists(int id);
-extern int db_last_modified(int id);
+extern int db_exists(unsigned long int id);
+extern int db_last_modified(unsigned long int id);
 
 #endif /* _DB_MEMORY_H_ */

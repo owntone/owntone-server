@@ -59,8 +59,8 @@ typedef struct tag_mp3file {
     int bpm;         /* TBPM */
 
     int got_id3;
-    unsigned int id;
-
+//    unsigned int id;
+	unsigned long int	id;
     /* generated fields */
     char* description;		/* long file type */
     int item_kind;		/* song or movie */

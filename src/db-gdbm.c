@@ -46,7 +46,7 @@
 /*
  * Defines
  */
-#define DB_VERSION 6
+#define DB_VERSION 7
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
@@ -70,12 +70,12 @@ struct tag_mp3record {
 };
 
 typedef struct tag_playlistentry {
-    unsigned int id;
+	unsigned long int	id;
     struct tag_playlistentry *next;
 } DB_PLAYLISTENTRY;
 
 typedef struct tag_playlist {
-    unsigned int id;
+	unsigned long int	id;
     int songs;
     int is_smart;
     int found;
@@ -109,8 +109,8 @@ typedef struct tag_mp3packed {
 
     char compilation;
 
-    unsigned int id; /* inode */
-
+    unsigned long int id;
+	
     int path_len;
     int fname_len;
     int title_len;
@@ -159,7 +159,7 @@ static int db_unlock(void);
 static void db_gdbmlock(void);
 static int db_gdbmunlock(void);
 
-static DB_PLAYLIST *db_playlist_find(int playlistid);
+static DB_PLAYLIST	*db_playlist_find(unsigned long int playlistid);
 
 int db_start_initial_update(void);
 int db_end_initial_update(void);
@@ -169,21 +169,21 @@ int db_init();
 int db_deinit(void);
 int db_version(void);
 int db_add(MP3FILE *mp3file);
-int db_delete(int id);
-int db_delete_playlist(unsigned int playlistid);
-int db_add_playlist(unsigned int playlistid, char *name, int file_time, int is_smart);
-int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
+int db_delete(unsigned long int id);
+int db_delete_playlist(unsigned long int playlistid);
+int db_add_playlist(unsigned long int playlistid, char *name, int file_time, int is_smart);
+int db_add_playlist_song(unsigned long int playlistid, unsigned long int itemid);
 int db_unpackrecord(datum *pdatum, MP3FILE *pmp3);
 int db_scanning(void);
 datum *db_packrecord(MP3FILE *pmp3);
 
 int db_get_song_count(void);
 int db_get_playlist_count(void);
-int db_get_playlist_is_smart(int playlistid); 
-int db_get_playlist_entry_count(int playlistid);
-char *db_get_playlist_name(int playlistid);
+int db_get_playlist_is_smart(unsigned long int playlistid);
+int db_get_playlist_entry_count(unsigned long int playlistid);
+char *db_get_playlist_name(unsigned long int playlistid);
 
-MP3FILE *db_find(int id);
+MP3FILE *db_find(unsigned long int id);
 
 void db_dispose(MP3FILE *pmp3);
 int db_compare_rb_nodes(const void *pa, const void *pb, const void *cfg);
@@ -255,8 +255,8 @@ int db_gdbmunlock(void) {
  * compare redblack nodes, which are just ints
  */
 int db_compare_rb_nodes(const void *pa, const void *pb, const void *cfg) {
-    if(*(int*)pa < *(int *)pb) return -1;
-    if(*(int*)pb < *(int *)pa) return 1;
+    if(*(unsigned long int*)pa < *(unsigned long int *)pb) return -1;
+    if(*(unsigned long int*)pb < *(unsigned long int *)pa) return 1;
     return 0;
 }
 
@@ -551,7 +551,7 @@ int db_is_empty(void) {
  * @param playlistid playlist to find
  * @returns DB_PLAYLIST of playlist, or null otherwise.
  */
-DB_PLAYLIST *db_playlist_find(int playlistid) {
+DB_PLAYLIST *db_playlist_find(unsigned long int playlistid) {
     DB_PLAYLIST *current;
 
     current=db_playlists.next;
@@ -570,12 +570,12 @@ DB_PLAYLIST *db_playlist_find(int playlistid) {
  *
  * @param playlistid playlist to delete
  */
-int db_delete_playlist(unsigned int playlistid) {
+int db_delete_playlist(unsigned long int playlistid) {
     DB_PLAYLIST *plist;
     DB_PLAYLISTENTRY *pple;
     DB_PLAYLIST *last, *current;
 
-    DPRINTF(E_DBG,L_PL,"Deleting playlist %d\n",playlistid);
+    DPRINTF(E_DBG,L_PL,"Deleting playlist %ld\n",playlistid);
 
     db_writelock();
 
@@ -620,7 +620,7 @@ int db_delete_playlist(unsigned int playlistid) {
  * @param playlistid playlist to check (inode)
  * @returns file_time of playlist, or 0 if no playlist
  */
-int db_playlist_last_modified(int playlistid) {
+int db_playlist_last_modified(unsigned long int playlistid) {
     DB_PLAYLIST *plist;
     int file_time;
 
@@ -644,7 +644,7 @@ int db_playlist_last_modified(int playlistid) {
  *
  * Add a new playlist
  */
-int db_add_playlist(unsigned int playlistid, char *name, int file_time, int is_smart) {
+int db_add_playlist(unsigned long int playlistid, char *name, int file_time, int is_smart) {
     int err;
     DB_PLAYLIST *pnew;
 
@@ -687,7 +687,7 @@ int db_add_playlist(unsigned int playlistid, char *name, int file_time, int is_s
  * FIXME: as db_add playlist, this assumes we already have a writelock from
  * db_udpate_mode.
  */
-int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
+int db_add_playlist_song(unsigned long int playlistid, unsigned long int itemid) {
     DB_PLAYLIST *current;
     DB_PLAYLISTENTRY *pnew;
     int err;
@@ -699,7 +699,7 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
     pnew->id=itemid;
     pnew->next=NULL;
 
-    DPRINTF(E_DBG,L_DB|L_PL,"Adding item %d to %d\n",itemid,playlistid); 
+    DPRINTF(E_DBG,L_DB|L_PL,"Adding item %ld to %ld\n",itemid,playlistid); 
 
     db_writelock();
 
@@ -977,7 +977,7 @@ int db_add(MP3FILE *pmp3) {
     datum *pnew;
     datum dkey;
     MP3PACKED *ppacked;
-    unsigned int id;
+    unsigned long int id;
 
     DPRINTF(E_DBG,L_DB,"Adding %s\n",pmp3->path);
 
@@ -988,7 +988,7 @@ int db_add(MP3FILE *pmp3) {
 
     /* insert the datum into the underlying database */
     dkey.dptr=(void*)&(pmp3->id);
-    dkey.dsize=sizeof(unsigned int);
+    dkey.dsize=sizeof(unsigned long int);
 
     /* dummy this up in case the client didn't */
     ppacked=(MP3PACKED *)pnew->dptr;
@@ -1008,10 +1008,10 @@ int db_add(MP3FILE *pmp3) {
     }
     db_gdbmunlock();
 
-    DPRINTF(E_DBG,L_DB,"Testing for %d\n",pmp3->id);
+    DPRINTF(E_DBG,L_DB,"Testing for %lu\n",pmp3->id);
     id=pmp3->id;
     dkey.dptr=(void*)&id;
-    dkey.dsize=sizeof(unsigned int);
+    dkey.dsize=sizeof(unsigned long int);
 
     db_gdbmlock();
     if(!gdbm_exists(db_songs,dkey)) {
@@ -1297,7 +1297,7 @@ ENUMHANDLE db_playlist_enum_begin(void) {
  *
  * Start enumerating playlist items
  */
-ENUMHANDLE db_playlist_items_enum_begin(int playlistid) {
+ENUMHANDLE db_playlist_items_enum_begin(unsigned long int playlistid) {
     DB_PLAYLIST *current;
     int err;
 
@@ -1384,12 +1384,12 @@ int db_playlist_items_enum_end(ENUMHANDLE handle) {
  *
  * Find a MP3FILE entry based on file id  
  */
-MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
+MP3FILE *db_find(unsigned long int id) {  /* FIXME: Not reentrant */
     MP3FILE *pmp3=NULL;
     datum key, content;
 
-    key.dptr=(char*)&id;
-    key.dsize=sizeof(int);
+    key.dptr=(void *)&id;
+    key.dsize=sizeof(unsigned long int);
 
     db_readlock();
 
@@ -1399,7 +1399,7 @@ MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
 
     MEMNOTIFY(content.dptr);
     if(!content.dptr) {
-	DPRINTF(E_DBG,L_DB,"Could not find id %d\n",id);
+	DPRINTF(E_DBG,L_DB,"Could not find id %ld\n",id);
 	db_unlock();
 	return NULL;
     }
@@ -1453,7 +1453,7 @@ int db_get_song_count(void) {
  *
  * return whether or not the playlist is a "smart" playlist
  */
-int db_get_playlist_is_smart(int playlistid) {
+int db_get_playlist_is_smart(unsigned long int playlistid) {
     DB_PLAYLIST *current;
     int err;
     int result;
@@ -1479,7 +1479,7 @@ int db_get_playlist_is_smart(int playlistid) {
  *
  * return the number of songs in a particular playlist
  */
-int db_get_playlist_entry_count(int playlistid) {
+int db_get_playlist_entry_count(unsigned long int playlistid) {
     int count;
     DB_PLAYLIST *current;
     int err;
@@ -1505,7 +1505,7 @@ int db_get_playlist_entry_count(int playlistid) {
  *
  * return the name of a playlist
  */
-char *db_get_playlist_name(int playlistid) {
+char *db_get_playlist_name(unsigned long int playlistid) {
     char *name;
     DB_PLAYLIST *current;
     int err;
@@ -1532,15 +1532,15 @@ char *db_get_playlist_name(int playlistid) {
  *
  * Check if a particular ID exists or not
  */
-int db_exists(int id) {
-    int *node;
+int db_exists(unsigned long int id) {
+    unsigned long int *node;
     int err;
     MP3FILE *pmp3;
     datum key,content;
 
-    DPRINTF(E_DBG,L_DB,"Checking if node %d in db\n",id);
-    key.dptr=(char*)&id;
-    key.dsize=sizeof(int);
+    DPRINTF(E_DBG,L_DB,"Checking if node %lu in db\n",id);
+    key.dptr=(void *)&id;
+    key.dsize=sizeof(unsigned long int);
 
     db_readlock();
 
@@ -1557,9 +1557,9 @@ int db_exists(int id) {
 
     if(db_update_mode) {
 	/* knock it off the maybe list */
-	node = (int*)rbdelete((void*)&id,db_removed);
+	node = (unsigned long int*)rbdelete((void*)&id,db_removed);
 	if(node) {
-	    DPRINTF(E_DBG,L_DB,"Knocked node %d from the list\n",*node);
+	    DPRINTF(E_DBG,L_DB,"Knocked node %lu from the list\n",*node);
 	    free(node);
 	}
     }
@@ -1577,10 +1577,10 @@ int db_exists(int id) {
  *
  * See when the file was last updated in the database
  */
-int db_last_modified(int id) {
+int db_last_modified(unsigned long int id) {
     int retval;
     MP3FILE *pmp3;
-    int err;
+//    int err;
 
     /* readlocked as part of db_find */
     pmp3=db_find(id);
@@ -1604,18 +1604,18 @@ int db_last_modified(int id) {
  * Delete an item from the database, and also remove it
  * from any playlists.
  */
-int db_delete(int id) {
+int db_delete(unsigned long int id) {
     int err;
     datum key;
     DB_PLAYLIST *pcurrent;
     DB_PLAYLISTENTRY *phead, *ptail;
 
-    DPRINTF(E_DBG,L_DB,"Removing item %d\n",id);
+    DPRINTF(E_DBG,L_DB,"Removing item %lu\n",id);
 
     if(db_exists(id)) {
 	db_writelock();
 	key.dptr=(void*)&id;
-	key.dsize=sizeof(int);
+	key.dsize=sizeof(unsigned long int);
 	db_gdbmlock();
 	gdbm_delete(db_songs,key);
 	db_gdbmunlock();
@@ -1633,7 +1633,7 @@ int db_delete(int id) {
 	    }
 
 	    if(phead) { /* found it */
-		DPRINTF(E_DBG,L_DB|L_PL,"Removing from playlist %d\n",
+		DPRINTF(E_DBG,L_DB|L_PL,"Removing from playlist %lu\n",
 			pcurrent->id);
 		if(phead == pcurrent->nodes) {
 		    pcurrent->nodes=phead->next;

@@ -846,7 +846,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
     DAAP_BLOCK *mlit;
     ENUMHANDLE henum;
     MP3FILE *current;
-    int itemid;
+    unsigned long int itemid;
     int g=1;
     unsigned long long meta;
     query_node_t*	filter = 0;
@@ -914,7 +914,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 			if(0 == filter || query_test(filter, current))
 			{
 			    songs++;
-			    DPRINTF(E_DBG,L_DAAP|L_PL,"Adding itemid %d\n",itemid);
+			    DPRINTF(E_DBG,L_DAAP|L_PL,"Adding itemid %lu\n",itemid);
 			    mlit=daap_add_song_entry(mlcl,current,meta);
 			    if(0 != mlit) {
 				if(wantsMeta(meta, metaContainerItemId)) // current->id?
