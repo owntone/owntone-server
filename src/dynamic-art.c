@@ -76,7 +76,7 @@ int da_get_image_fd(char *filename) {
     path_end = strrchr(buffer,'/');
     strcpy(path_end+1,config.artfilename);
     fd = open(buffer,O_RDONLY);
-    if(fd) 
+    if(fd != -1) 
 	DPRINTF(ERR_INFO,"Found image file %s\n",buffer);
 
     return fd;
@@ -125,7 +125,11 @@ int da_attach_image(int img_fd, int out_fd, int mp3_fd, int offset)
     unsigned char buffer[4];
     struct stat sb;
 
-    fstat(img_fd,&sb);
+    if(fstat(img_fd,&sb)) {
+	DPRINTF(ERR_INFO,"Cannot stat image file... %s\n",strerror(errno));
+	return 0;
+    }
+
     img_size=sb.st_size;
     DPRINTF(ERR_INFO,"Image appears to be %ld bytes\n",img_size);
 
