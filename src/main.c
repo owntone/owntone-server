@@ -689,6 +689,9 @@ int main(int argc, char *argv[]) {
     int force_non_root=0;
     pthread_t signal_tid;
 
+    int pid_fd;
+    FILE *pid_fp;
+
     config.use_mdns=1;
     err_debuglevel=1;
 
@@ -750,27 +753,31 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
     }
 
-
-    if((config.logfile) && (!parseonly) && (!foreground)) {
-	err_setdest(config.logfile,LOGDEST_LOGFILE);	
-    } else {
-	if(!foreground) {
-	    err_setdest("mt-daapd",LOGDEST_SYSLOG);
+#ifndef WITHOUT_MDNS
+    if((config.use_mdns) && (!parseonly)) {
+	DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
+	if(rend_init(config.runas)) {
+	    DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",strerror(errno));
 	}
     }
+#endif
 
     /* DWB: shouldn't this be done after dropping privs? */
-    if(db_open(config.dbdir, reload)) {
+    if(db_open(config.dbdir, reload)) 
 	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
+
+    /* open the pidfile, so it can be written once we detach */
+    if(!foreground) {
+	if(-1 == (pid_fd = open(PIDFILE,O_CREAT | O_WRONLY | O_TRUNC, 0644)))
+	    DPRINTF(E_FATAL,L_MAIN,"Error opening pidfile (%s): %s\n",PIDFILE,strerror(errno));
+
+	if(0 == (pid_fp = fdopen(pid_fd, "w")))
+	    DPRINTF(E_FATAL,L_MAIN,"fdopen: %s\n",strerror(errno));
     }
 
-    /* DWB: we want to detach before we drop privs so the pid file can
-       be created with the original permissions.  This has the
-       drawback that there's a bit less error checking done while
-       we're attached, but if is much better when being automatically
-       started as a system service. */
-    if(!foreground) {
-	write_pid_file();
+    // Drop privs here
+    if(drop_privs(config.runas)) {
+	DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
     }
 
     /* block signals and set up the signal handling thread */
@@ -792,35 +799,23 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_SUCCESS);
     }
 
-
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
     if(db_init()) {
 	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
 
-
     /* Wait as long as we can to detach */
     if(!foreground) {
-	daemon_start();
-    }
-
-    /* Have to do rend_init after daemon_start, to avoid closing
-     * the pipe */
-#ifndef WITHOUT_MDNS
-    if((config.use_mdns) && (!parseonly)) {
-	DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
-	if(rend_init(config.runas)) {
-	    DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",strerror(errno));
+	if(config.logfile) {
+	    err_setdest(config.logfile,LOGDEST_LOGFILE);
+	} else {
+	    err_setdest("mt-daapd",LOGDEST_SYSLOG);
 	}
+	daemon_start();
+	fprintf(pid_fp,"%d\n",getpid());
+	fclose(pid_fp);
     }
-#endif
-
-    // Drop privs here
-    if(drop_privs(config.runas)) {
-	DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
-    }
-
 
     DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
     if(scan_init(config.mp3dir)) {
@@ -926,24 +921,3 @@ int main(int argc, char *argv[]) {
     return EXIT_SUCCESS;
 }
 
-/**
- * Dump a pidfile in the file specified by PIDFILE
- */
-void write_pid_file(void) {
-    FILE*	fp;
-    int		fd;
-
-    /* use open/fdopen instead of fopen for more control over the file
-       permissions */
-    if(-1 == (fd = open(PIDFILE, O_CREAT | O_WRONLY | O_TRUNC, 0644)))
-	return;
-
-    if(0 == (fp = fdopen(fd, "w")))
-    {
-	close(fd);
-	return;
-    }
-
-    fprintf(fp, "%d\n", getpid());
-    fclose(fp);
-}
