@@ -43,7 +43,7 @@ DAAP_BLOCK *daap_add_char(DAAP_BLOCK *parent, char *tag, char value);
 DAAP_BLOCK *daap_add_short(DAAP_BLOCK *parent, char *tag, short int value);
 DAAP_BLOCK *daap_add_long(DAAP_BLOCK *parent, char *tag, int v1, int v2);
 int daap_serialize(DAAP_BLOCK *root, int fd, int gzip);
-int daap_free(DAAP_BLOCK *root);
+void daap_free(DAAP_BLOCK *root);
 
 #endif
 

@@ -27,12 +27,15 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
+#include <rend.h>
+#include <restart.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
 #include <sys/stat.h>
 #include <sys/wait.h>
 
@@ -81,6 +84,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,1,0,CONFIG_TYPE_INT,"port",(void*)&config.port,config_emit_int },
     { 1,1,0,CONFIG_TYPE_STRING,"admin_pw",(void*)&config.adminpassword,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"mp3_dir",(void*)&config.mp3dir,config_emit_string },
+    { 1,1,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
@@ -358,9 +362,8 @@ void config_handler(WS_CONNINFO *pwsc) {
     int file_fd;
     struct stat sb;
     char *pw;
-    int status;
 
-    DPRINTF(ERR_DEBUG,"Entereing config_handler\n");
+    DPRINTF(ERR_DEBUG,"Entering config_handler\n");
 
     config_set_status(pwsc,0,"Serving admin pages");
     
@@ -493,8 +496,6 @@ void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg) {
  */
 void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     int mdns_running;
-    int status;
-    int err;
     char *html;
 
     ws_writefd(pwsc,"<TABLE><TR><TH ALIGN=LEFT>Service</TH>");
@@ -695,12 +696,6 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     char path[PATH_MAX];
     int file_fd;
     struct stat sb;
-    char argbuffer[30];
-    int in_arg;
-    char *argptr;
-    char next;
-    CONFIGELEMENT *pce;
-    char *first, *last;
 
     DPRINTF(ERR_DEBUG,"Preparing to include %s\n",arg);
     
@@ -819,7 +814,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
 int config_mutex_lock(void) {
     int err;
 
-    if(err=pthread_mutex_lock(&scan_mutex)) {
+    if((err=pthread_mutex_lock(&scan_mutex))) {
 	errno=err;
 	return - 1;
     }
@@ -835,7 +830,7 @@ int config_mutex_lock(void) {
 int config_mutex_unlock(void) {
     int err;
 
-    if(err=pthread_mutex_unlock(&scan_mutex)) {
+    if((err=pthread_mutex_unlock(&scan_mutex))) {
 	errno=err;
 	return -1;
     }

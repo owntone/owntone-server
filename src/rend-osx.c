@@ -21,6 +21,7 @@
 
 #include <unistd.h>
 #include <pwd.h>
+#include <pthread.h>
 #include <sys/types.h>
 
 #include <libc.h>
@@ -106,7 +107,6 @@ static void rend_reply(DNSServiceRegistrationReplyErrorType errorCode, void *con
  */
 void *rend_pipe_monitor(void* arg) {
     fd_set rset;
-    struct timeval tv;
     int result;
 
 

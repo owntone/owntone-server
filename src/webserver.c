@@ -23,16 +23,19 @@
 #  include "config.h"
 #endif
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
 #include <regex.h>
+#include <restart.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <uici.h>
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -88,7 +91,6 @@ int ws_getpostvars(WS_CONNINFO *pwsc);
 int ws_getgetvars(WS_CONNINFO *pwsc, char *string);
 char *ws_getarg(ARGLIST *root, char *key);
 int ws_testarg(ARGLIST *root, char *key, char *value);
-void ws_emitheaders(WS_CONNINFO *pwsc);
 int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc, 
 		   void(**preq)(WS_CONNINFO*),
 		   int(**pauth)(char *, char *),
@@ -121,7 +123,7 @@ char *ws_moy[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
 int ws_lock_unsafe(void) {
     int err;
 
-    if(err=pthread_mutex_lock(&ws_unsafe)) {
+    if((err=pthread_mutex_lock(&ws_unsafe))) {
 	errno=err;
 	return -1;
     }
@@ -140,7 +142,7 @@ int ws_lock_unsafe(void) {
 int ws_unlock_unsafe(void) {
     int err;
 
-    if(err=pthread_mutex_unlock(&ws_unsafe)) {
+    if((err=pthread_mutex_unlock(&ws_unsafe))) {
 	errno=err;
 	return -1;
     }
@@ -176,12 +178,12 @@ WSHANDLE ws_start(WSCONFIG *config) {
     pwsp->dispatch_threads=0;
     pwsp->handlers.next=NULL;
 
-    if(err=pthread_cond_init(&pwsp->exit_cond, NULL)) {
+    if((err=pthread_cond_init(&pwsp->exit_cond, NULL))) {
 	errno=err;
 	return NULL;
     }
 
-    if(err=pthread_mutex_init(&pwsp->exit_mutex,NULL)) {
+    if((err=pthread_mutex_init(&pwsp->exit_mutex,NULL))) {
 	errno=err;
 	return NULL;
     }
@@ -196,7 +198,7 @@ WSHANDLE ws_start(WSCONFIG *config) {
     }
 
     DPRINTF(ERR_INFO,"Starting server thread\n");
-    if(err=pthread_create(&pwsp->server_tid,NULL,ws_mainthread,(void*)pwsp)) {
+    if((err=pthread_create(&pwsp->server_tid,NULL,ws_mainthread,(void*)pwsp))) {
 	DPRINTF(ERR_WARN,"Could not spawn thread: %s\n",strerror(err));
 	r_close(pwsp->server_fd);
 	errno=err;
@@ -326,7 +328,7 @@ void *ws_mainthread(void *arg) {
 	if(pthread_mutex_lock(&pwsp->exit_mutex))
 	    log_err(1,"Cannot lock condition mutex\n");
 
-	if(err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc)) {
+	if((err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc))) {
 	    pwsc->error=err;
 	    DPRINTF(ERR_WARN,"Could not spawn thread: %s\n",strerror(err));
 	    pthread_mutex_unlock(&pwsp->exit_mutex);
@@ -427,7 +429,6 @@ void ws_emitheaders(WS_CONNINFO *pwsc) {
  * get headers
  */
 int ws_getpostvars(WS_CONNINFO *pwsc) {
-    char *first, *last;
     char *content_length;
     int length;
     char *buffer;
@@ -592,9 +593,7 @@ void *ws_dispatcher(void *arg) {
     WS_CONNINFO *pwsc=(WS_CONNINFO*)arg;
     WS_PRIVATE *pwsp=pwsc->pwsp;
     char buffer[MAX_LINEBUFFER];
-    char *buffp;
     char *first,*last;
-    int done;
     int connection_done=0;
     int can_dispatch;
     char *auth, *username, *password;
@@ -1029,7 +1028,7 @@ int ws_addarg(ARGLIST *root, char *key, char *fmt, ...) {
 char *ws_urldecode(char *string) {
     char *pnew;
     char *src,*dst;
-    int val;
+    int val=0;
 
     pnew=(char*)malloc(strlen(string)+1);
     if(!pnew)
@@ -1201,7 +1200,7 @@ int ws_decodepassword(char *header, char **username, char **password) {
 
     decodebuffer=(unsigned char *)malloc(strlen(header));
     if(!decodebuffer)
-	return;
+	return -1;
 
     DPRINTF(ERR_DEBUG,"Preparing to decode %s\n",header);
 

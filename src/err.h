@@ -36,14 +36,11 @@ extern int err_logdestination;
 extern void log_err(int quit, char *fmt, ...);
 extern void log_setdest(char *app, int destination);
 
-#ifdef DEBUG
-# define DPRINTF(level, fmt, arg...) \
-    { if((level) <= err_debuglevel) { log_err(0,"%s: ",__FILE__); log_err(0,fmt,##arg); }}
-#else
-# define DPRINTF(level, fmt, arg...)
-#endif /* DEBUG */
 
-#ifdef DEBUG
+# define DPRINTF(level, fmt, arg...) \
+    { if((level) <= err_debuglevel) { log_err(0,"%s, %d: ",__FILE__,__LINE__); log_err(0,fmt,##arg); }}
+
+#ifdef DEBUG_MEMORY
 # ifndef __IN_ERR__
 #  define malloc(x) err_malloc(__FILE__,__LINE__,x)
 #  define strdup(x) err_strdup(__FILE__,__LINE__,x)
@@ -60,5 +57,5 @@ extern void err_leakcheck(void);
 
 #else
 # define MEMNOTIFY(x)
-#endif /* DEBUG */
+#endif /* DEBUG_MEMORY */
 #endif /* __ERR_H__ */

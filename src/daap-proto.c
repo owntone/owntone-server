@@ -237,12 +237,10 @@ DAAP_BLOCK *daap_add_empty(DAAP_BLOCK *parent, char *tag) {
  * Serialize a daap tree to a fd;
  */
 int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
-    DAAP_BLOCK *current;
     char size[4];
 
     if(!root)
 	return 0;
-
     
     r_write(fd,root->tag,4);
 
@@ -276,7 +274,7 @@ int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
  *
  * Free an entire daap formatted block
  */
-int daap_free(DAAP_BLOCK *root) {
+void daap_free(DAAP_BLOCK *root) {
     if(!root)
 	return;
 
@@ -289,5 +287,5 @@ int daap_free(DAAP_BLOCK *root) {
     daap_free(root->children);
     daap_free(root->next);
     free(root);
-    return 0;
+    return;
 }

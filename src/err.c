@@ -23,12 +23,19 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <pthread.h>
-#include <syslog.h>
 #include <stdlib.h>
+#include <string.h>
+#include <syslog.h>
+
 
 #define __IN_ERR__
 #include "err.h"
 
+
+int err_debuglevel=0;
+int err_logdestination=LOGDEST_STDERR;
+
+#ifdef DEBUG_MEMORY
 
 typedef struct tag_err_leak {
     void *ptr;
@@ -38,10 +45,6 @@ typedef struct tag_err_leak {
     struct tag_err_leak *next;
 } ERR_LEAK;
 
-int err_debuglevel=0;
-int err_logdestination=LOGDEST_STDERR;
-
-#ifdef DEBUG
 pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER;
 ERR_LEAK err_leak = { NULL, NULL, 0, 0, NULL };
 #endif
@@ -99,7 +102,7 @@ void log_setdest(char *app, int destination) {
     }
 }
 
-#ifdef DEBUG
+#ifdef DEBUG_MEMORY
 
 /*
  * err_lock
@@ -109,7 +112,7 @@ void log_setdest(char *app, int destination) {
 int err_lock_mutex(void) {
     int err;
 
-    if(err=pthread_mutex_lock(&err_mutex)) {
+    if((err=pthread_mutex_lock(&err_mutex))) {
 	errno=err;
 	return -1;
     }
@@ -128,7 +131,7 @@ int err_lock_mutex(void) {
 int err_unlock_mutex(void) {
     int err;
 
-    if(err=pthread_mutex_unlock(&err_mutex)) {
+    if((err=pthread_mutex_unlock(&err_mutex))) {
 	errno=err;
 	return -1;
     }
@@ -249,7 +252,7 @@ void err_leakcheck(void) {
 
     current=err_leak.next;
     while(current) {
-	printf("%s: %d - %d bytes at %x\n",current->file, current->line, current->size,
+	printf("%s: %d - %d bytes at %p\n",current->file, current->line, current->size,
 	       current->ptr);
 	current=current->next;
     }

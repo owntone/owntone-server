@@ -20,11 +20,13 @@
  */
 
 #define _POSIX_PTHREAD_SEMANTICS
+#include <ctype.h>
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <id3tag.h>
 #include <limits.h>
+#include <restart.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -399,7 +401,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     int index;
     int used;
     unsigned char *utf8_text;
-    int genre;
+    int genre=WINAMP_GENRE_UNKNOWN;
     int have_utf8;
     int have_text;
     id3_ucs4_t const *native_text;

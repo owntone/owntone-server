@@ -41,6 +41,7 @@ typedef struct tag_config {
     char *servername;
     char *playlist;
     char *runas;
+    char *dbdir;
 
     SONGENTRY songlist;
 } CONFIG;
@@ -48,6 +49,6 @@ typedef struct tag_config {
 extern CONFIG config;
 
 /* Forwards */
-extern drop_privs(char *user);
+extern int drop_privs(char *user);
 
 #endif /* _DAAPD_H_ */

@@ -84,5 +84,6 @@ extern int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...);
 extern char *ws_getvar(WS_CONNINFO *pwsc, char *var);
 extern char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header);
 extern int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
+extern void ws_emitheaders(WS_CONNINFO *pwsc);
 
 #endif /* _WEBSERVER_H_ */

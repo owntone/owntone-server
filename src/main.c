@@ -28,6 +28,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <pwd.h>
+#include <restart.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -36,6 +37,7 @@
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/wait.h>
 
 #include "configfile.h"
 #include "db-memory.h"
@@ -86,17 +88,15 @@ int daap_auth(char *username, char *password) {
  * Handle daap-related web pages
  */
 void daap_handler(WS_CONNINFO *pwsc) {
-    int len;
     int close;
-    DAAP_BLOCK *root,*error;
-    int compress=0;
+    DAAP_BLOCK *root;
     int clientrev;
 
     /* for the /databases URI */
     char *uri;
     int db_index;
     int playlist_index;
-    int item;
+    int item=0;
     char *first, *last;
     int streaming=0;
 
@@ -364,9 +364,7 @@ int daemon_start(int reap_children)
 void usage(char *program) {
     printf("Usage: %s [options]\n\n",program);
     printf("Options:\n");
-#ifdef DEBUG    
     printf("  -d <number>    Debuglevel (0-9)\n");
-#endif
     printf("  -m             Disable mDNS\n");
     printf("  -c <file>      Use configfile specified");
     printf("  -p             Parse playlist file\n");
@@ -412,24 +410,15 @@ int main(int argc, char *argv[]) {
     char *configfile=DEFAULT_CONFIGFILE;
     WSCONFIG ws_config;
     WSHANDLE server;
-    ENUMHANDLE handle;
-    MP3FILE *pmp3;
-    int status;
     int parseonly=0;
     int foreground=0;
     config.use_mdns=1;
-
-#ifdef DEBUG
-    char *optval="d:c:mpf";
-#else
-    char *optval="c:mpf";
-#endif /* DEBUG */
 
     fprintf(stderr,"mt-daapd: version %s\n",VERSION);
     fprintf(stderr,"Copyright (c) 2003 Ron Pedde.  All rights reserved\n");
     fprintf(stderr,"Portions Copyright (c) 1999-2001 Apple Computer, Inc.  All rights Reserved.\n\n");
 
-    while((option=getopt(argc,argv,optval)) != -1) {
+    while((option=getopt(argc,argv,"d:c:mpf")) != -1) {
 	switch(option) {
 #ifdef DEBUG
 	case 'd':
@@ -458,13 +447,6 @@ int main(int argc, char *argv[]) {
 	    break;
 	}
     }
-
-#ifdef DEBUG
-    if(!foreground) {
-	fprintf(stderr,"WARNING: Debug mode: not detaching\n");
-	foreground=1;
-    }
-#endif
 
     /* read the configfile, if specified, otherwise
      * try defaults */
@@ -561,7 +543,7 @@ int main(int argc, char *argv[]) {
     if(foreground) fprintf(stderr,"Closing database\n");
     db_deinit();
 
-#ifdef DEBUG
+#ifdef DEBUG_MEMORY
     fprintf(stderr,"Leaked memory:\n");
     err_leakcheck();
 #endif

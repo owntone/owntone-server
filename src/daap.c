@@ -28,6 +28,7 @@
 #include <sys/time.h>
 #include <sys/types.h>
 
+#include "configfile.h"
 #include "db-memory.h"
 #include "daap-proto.h"
 #include "daap.h"
@@ -239,7 +240,7 @@ DAAP_BLOCK *daap_response_songlist(void) {
 	mlcl=daap_add_empty(root,"mlcl");
 
 	if(mlcl) {
-	    while(current=db_enum(&henum)) {
+	    while((current=db_enum(&henum))) {
 	        DPRINTF(ERR_DEBUG,"Got entry for %s\n",current->fname);
 		mlit=daap_add_empty(mlcl,"mlit");
 		if(mlit) {
@@ -379,9 +380,9 @@ DAAP_BLOCK *daap_response_update(int fd, int clientver) {
  * handle the daap block for the /databases/containers URI
  */
 DAAP_BLOCK *daap_response_playlists(char *name) {
-    DAAP_BLOCK *root;
-    DAAP_BLOCK *mlcl;
-    DAAP_BLOCK *mlit;
+    DAAP_BLOCK *root=NULL;
+    DAAP_BLOCK *mlcl=NULL;
+    DAAP_BLOCK *mlit=NULL;
     int g=1;
     int playlistid;
     ENUMHANDLE henum;
@@ -442,9 +443,9 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
  */
 
 DAAP_BLOCK *daap_response_dbinfo(char *name) {
-    DAAP_BLOCK *root;
-    DAAP_BLOCK *mlcl;
-    DAAP_BLOCK *mlit;
+    DAAP_BLOCK *root=NULL;
+    DAAP_BLOCK *mlcl=NULL;
+    DAAP_BLOCK *mlit=NULL;
     int g=1;
 
     DPRINTF(ERR_DEBUG,"Preparing to send db info\n");
@@ -555,7 +556,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist) {
 
 	if(mlcl) {
 	    if(playlist == 1) {
-		while(current=db_enum(&henum)) {
+		while((current=db_enum(&henum))) {
 		    mlit=daap_add_empty(mlcl,"mlit");
 		    if(mlit) {
 			g = g && daap_add_char(mlit,"mikd",2);

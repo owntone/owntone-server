@@ -20,11 +20,17 @@
  */
 
 #include <stdio.h>
+#include <string.h>
 
+
+#include "db-memory.h"
 #include "err.h"
 #include "mp3-scanner.h"
 #include "playlist.h"
 #include "parser.h"
+
+/* Externs */
+extern int yyparse(void *);
 
 /* Globals */
 SMART_PLAYLIST pl_smart = { NULL, 0, NULL, NULL };
@@ -158,7 +164,7 @@ int pl_load(char *file) {
     }
 
     yyin=fin;
-    result=yyparse();
+    result=yyparse(NULL);
     fclose(fin);
 
     if(pl_error) {
@@ -204,12 +210,13 @@ void pl_eval(MP3FILE *pmp3) {
  */
 int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
     int r_arg,r_arg2;
-    int argtypec;
-    char *cval;
-    int ival;
+    char *cval=NULL;
+    int ival=0;
     int boolarg;
     int not=0;
     int retval=0;
+
+    r_arg=r_arg2=0;
 
     if((pnode->op == AND) || (pnode->op == OR)) {
 	r_arg=pl_eval_node(pmp3,pnode->arg1.plval);
@@ -257,7 +264,7 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	    retval = not ? r_arg : !r_arg;
 	    break;
 	case INCLUDES:
-	    r_arg=strcasestr(cval,pnode->arg2.cval);
+	    r_arg=(int)strcasestr(cval,pnode->arg2.cval);
 	    retval = not ? !r_arg : r_arg;
 	    break;
 	}
