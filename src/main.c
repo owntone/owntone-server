@@ -165,9 +165,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     /* for the /databases URI */
     char *uri;
-    int db_index;
-    int playlist_index;
-    int item=0;
+    unsigned long int db_index;
+    unsigned long int playlist_index;
+    unsigned long int item=0;
     char *first, *last;
     char* index = 0;
     int streaming=0;
@@ -252,7 +252,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	
 	if(*last) {
 	    *last='\0';
-	    db_index=atoi(first);
+	    db_index=atoll(first);
 	    
 	    last++;
 
@@ -264,9 +264,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
 		if(*last == '.') {
 		    *last='\0';
-		    item=atoi(first);
+		    item=atoll(first);
 		    streaming=1;
-		    DPRINTF(E_DBG,L_DAAP|L_WS,"Streaming request for id %d\n",item);
+		    DPRINTF(E_DBG,L_DAAP|L_WS,"Streaming request for id %lu\n",item);
 		}
 		free(uri);
 	    } else if (strncasecmp(last,"items",5)==0) {
@@ -287,7 +287,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	
 		if(*last) {
 		    *last='\0';
-		    playlist_index=atoi(first);
+		    playlist_index=atoll(first);
 		    // pass the meta list info for processing
 		    root=daap_response_playlist_items(playlist_index,
 						      ws_getvar(pwsc,"meta"),
@@ -352,7 +352,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
 	pmp3=db_find(item);
 	if(!pmp3) {
-	    DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %d\n",item);
+	    DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
 	    ws_returnerror(pwsc,404,"File Not Found");
 	} else {
 	    /* got the file, let's open and serve it */
@@ -773,8 +773,6 @@ int main(int argc, char *argv[]) {
 	write_pid_file();
     }
 
-
-
     /* block signals and set up the signal handling thread */
     DPRINTF(E_LOG,L_MAIN,"Starting signal handler\n");
     if(start_signal_handler(&signal_tid)) {
@@ -802,6 +800,13 @@ int main(int argc, char *argv[]) {
     }
 
 
+    /* Wait as long as we can to detach */
+    if(!foreground) {
+	daemon_start();
+    }
+
+    /* Have to do rend_init after daemon_start, to avoid closing
+     * the pipe */
 #ifndef WITHOUT_MDNS
     if((config.use_mdns) && (!parseonly)) {
 	DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
@@ -810,11 +815,6 @@ int main(int argc, char *argv[]) {
 	}
     }
 #endif
-
-    /* Wait as long as we can to detach */
-    if(!foreground) {
-	daemon_start();
-    }
 
     // Drop privs here
     if(drop_privs(config.runas)) {
