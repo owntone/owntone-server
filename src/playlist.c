@@ -25,6 +25,7 @@
 
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 #include "db-memory.h"
 #include "err.h"
@@ -71,6 +72,8 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     int index;
     int not=0;
     unsigned int boolarg;
+    char datebuffer[40];
+    struct tm *ptm;
 
     for(index=0;index<indent;index++) {
 	printf(" ");
@@ -122,6 +125,9 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     case BITRATE:
 	printf("BITRATE ");
 	break;
+    case DATEADDED:
+	printf("DATE ");
+	break;
     default:
 	printf ("<unknown tag> ");
 	break;
@@ -153,6 +159,12 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     case GREATEREQUAL:
 	printf(">= ");
 	break;
+    case BEFORE:
+	printf("BEFORE ");
+	break;
+    case AFTER:
+	printf("AFTER ");
+	break;
     default:
 	printf("<unknown boolop> ");
 	break;
@@ -164,6 +176,11 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
 	break;
     case T_INT:
 	printf("%d\n",pnode->arg2.ival);
+	break;
+    case T_DATE:
+	ptm=localtime((time_t*)&pnode->arg2.ival);
+	strftime(datebuffer,sizeof(datebuffer),"%Y-%m-%d",ptm);
+	printf("%s\n",datebuffer);
 	break;
     default:
 	printf("<unknown type>\n");
@@ -299,6 +316,12 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
     case BITRATE:
 	ival=pmp3->bitrate / 1024; // bitrate in Kbps
 	break;
+    case DATEADDED:
+	ival=pmp3->time_added;
+	break;
+    default:
+	DPRINTF(ERR_FATAL,"Unknown token in playlist.  This can't happen!\n\n");
+	break;
     }
 
     boolarg=(pnode->op) & 0x7FFFFFFF;
@@ -321,6 +344,19 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	    retval = not ? !r_arg : r_arg;
 	    break;
 	}
+    }
+
+    if(pnode->type==T_DATE) {
+	DPRINTF(ERR_DEBUG,"Comparing (datewise) %d to %d\n",ival,pnode->arg2.ival);
+	switch(boolarg) {
+	case BEFORE:
+	    r_arg=(ival < pnode->arg2.ival);
+	    break;
+	case AFTER:
+	    r_arg=(ival > pnode->arg2.ival);
+	    break;
+	}
+	retval=r_arg;
     }
 
     if(pnode->type==T_INT) {
@@ -346,7 +382,6 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	retval = not? !r_arg : r_arg;
     }
 
-    /* can't get here */
     DPRINTF(ERR_DEBUG,"Returning %d\n",retval);
     return retval;
 }

@@ -472,13 +472,26 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     
     /* FIXME; assumes that st_ino is a u_int_32 
        DWB: also assumes that the library is contained entirely within
-       one file system */
+       one file system 
+       REP: true, although linux doesn't even guarantee a unique inode
+       within a single device!
+    */
     mp3file.id=psb->st_ino;
     
     /* Do the tag lookup here */
     if(!scan_gettags(mp3file.path,&mp3file) && 
        !scan_get_fileinfo(mp3file.path,&mp3file)) {
 	make_composite_tags(&mp3file);
+	/* fill in the time_added.  I'm not sure of the logic in this.
+	   My thinking is to use time created, but what is that?  Best
+	   guess would be earliest of st_mtime and st_ctime...
+	*/
+	mp3file.time_added=psb->st_mtime;
+	if(psb->st_ctime < mp3file.time_added)
+	    mp3file.time_added=psb->st_ctime;
+
+	DPRINTF(ERR_DEBUG," Date Added: %d\n",mp3file.time_added);
+
 	db_add(&mp3file);
 	pl_eval(&mp3file); /* FIXME: move to db_add? */
     } else {

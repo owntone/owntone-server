@@ -26,6 +26,7 @@
 
 #define T_INT  0
 #define T_STR  1
+#define T_DATE 2
 
 typedef struct tag_pl_node {
     int op;

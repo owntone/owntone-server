@@ -1,3 +1,7 @@
+2204-09-08  Ron Pedde <ron@pedde.com>
+	* mp3-scanner.c: decode more aac tags.  Feature request #990546
+	* mp3-scanner.c: support for bitrate on playlsits. FR #996506
+	
 2004-05-21  Ron Pedde  <ron@pedde.com>
 	* everywhere: fixes for more conformant protocol handling,
 	support for index tag, meta tag, bug fixes for configuration file

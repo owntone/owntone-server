@@ -36,6 +36,7 @@ extern int yyerror(char *msg);
 
 extern PL_NODE *pl_newcharpredicate(int tag, int op, char *value);
 extern PL_NODE *pl_newintpredicate(int tag, int op, int value);
+extern PL_NODE *pl_newdatepredicate(int tag, int op, int value);
 extern PL_NODE *pl_newexpr(PL_NODE *arg1, int op, PL_NODE *arg2);
 extern int pl_addplaylist(char *name, PL_NODE *root);
 
@@ -76,17 +77,28 @@ int pl_number=2;
 
 %token <cval> ID
 %token <ival> NUM
+%token <ival> DATE
 
 %token <ival> YEAR
 %token <ival> BPM
 %token <ival> BITRATE
 
+%token <ival> DATEADDED
+%token <ival> BEFORE
+%token <ival> AFTER
+%token <ival> AGO
+%token <ival> INTERVAL
+
 %type <plval> expression
 %type <plval> predicate
 %type <ival> strtag
 %type <ival> inttag
+%type <ival> datetag
+%type <ival> dateval
+%type <ival> interval
 %type <ival> strbool
 %type <ival> intbool
+%type <ival> datebool
 %type <ival> playlist
 
 %%
@@ -106,6 +118,10 @@ expression: expression AND expression { $$=pl_newexpr($1,$2,$3); }
 
 predicate: strtag strbool ID { $$=pl_newcharpredicate($1, $2, $3); }
 | inttag intbool NUM { $$=pl_newintpredicate($1, $2, $3); }
+| datetag datebool dateval { $$=pl_newdatepredicate($1, $2, $3); }
+;
+
+datetag: DATEADDED { $$ = $1; }
 ;
 
 inttag: YEAR
@@ -119,6 +135,21 @@ intbool: EQUALS { $$ = $1; }
 | GREATER { $$ = $1; }
 | GREATEREQUAL { $$ = $1; }
 | NOT intbool { $$ = $2 | 0x80000000; }
+;
+
+datebool: BEFORE { $$ = $1; }
+| AFTER { $$ = $1; }
+| NOT datebool { $$=$2 | 0x80000000; }
+;
+
+interval: INTERVAL { $$ = $1; }
+| NUM INTERVAL { $$ = $1 * $2; }
+;
+
+dateval: DATE { $$ = $1; }
+| interval BEFORE dateval { $$ = $3 - $1; }
+| interval AFTER dateval { $$ = $3 + $1; }
+| interval AGO { $$ = time(NULL) - $1; }
 ;
 
 strtag: ARTIST
@@ -146,6 +177,20 @@ PL_NODE *pl_newintpredicate(int tag, int op, int value) {
 
     pnew->op=op;
     pnew->type=T_INT;
+    pnew->arg1.ival=tag;
+    pnew->arg2.ival=value;
+    return pnew;
+}
+
+PL_NODE *pl_newdatepredicate(int tag, int op, int value) {
+    PL_NODE *pnew;
+
+    pnew=(PL_NODE*)malloc(sizeof(PL_NODE));
+    if(!pnew)
+	return NULL;
+
+    pnew->op=op;
+    pnew->type=T_DATE;
     pnew->arg1.ival=tag;
     pnew->arg2.ival=value;
     return pnew;

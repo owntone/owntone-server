@@ -688,6 +688,7 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
 	pmp3->grouping=strdup(&ppacked->data[offset]);
     offset += ppacked->grouping_len;
     
+    /* shouldn't this have been done when scanning? */
     make_composite_tags(pmp3);
 
     return 0;
@@ -726,9 +727,10 @@ int db_add(MP3FILE *pmp3) {
 
     /* dummy this up in case the client didn't */
     ppacked=(MP3PACKED *)pnew->dptr;
-    ppacked->time_added=(int)time(NULL);
+    if(!ppacked->time_added)
+	ppacked->time_added=(int)time(NULL);
     ppacked->time_modified=ppacked->time_added;
-    ppacked->time_played=0;
+    ppacked->time_played=0; /* do we want to keep track of this? */
 
     if(gdbm_store(db_songs,dkey,*pnew,GDBM_REPLACE)) {
 	DPRINTF(ERR_FATAL,"Error inserting file %s in database\n",pmp3->fname);

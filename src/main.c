@@ -584,6 +584,7 @@ int main(int argc, char *argv[]) {
 
 	case 'p':
 	    parseonly=1;
+	    foreground=1;
 	    break;
 
 	case 'r':
@@ -607,7 +608,7 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
     }
 
-    if(config.logfile) {
+    if((config.logfile) && (!parseonly)) {
 	log_setdest(config.logfile,LOGDEST_LOGFILE);	
     } else {
 	if(!foreground) {
