@@ -28,6 +28,7 @@
 #include <sys/types.h>
 
 #include "db-memory.h"
+#include "err.h"
 #include "mp3-scanner.h"
 
 /*
@@ -83,6 +84,7 @@ int scan_foreground(char *path) {
     }
 
     while(1) {
+	pde=&de;
 	err=readdir_r(current_dir,&de,&pde);
 	if(err == -1) {
 	    err=errno;
@@ -96,8 +98,9 @@ int scan_foreground(char *path) {
 
 	/* process the file */
 	if(strlen(de.d_name) > 4) {
-	    if(strcasecmp(".mp3",de.d_name[strlen(de.d_name) - 4]) == 0) {
+	    if(strcasecmp(".mp3",(char*)&de.d_name[strlen(de.d_name) - 4]) == 0) {
 		/* we found an mp3 file */
+		DPRINTF(ERR_DEBUG,"Found mp3: %s\n",de.d_name);
 		sprintf(mp3_path,"%s/%s",path,de.d_name);
 		memset((void*)&mp3file,0,sizeof(mp3file));
 		mp3file.path=mp3_path;

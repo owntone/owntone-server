@@ -212,15 +212,18 @@ DAAP_BLOCK *daap_add_data(DAAP_BLOCK *parent, char *tag,
 DAAP_BLOCK *daap_add_string(DAAP_BLOCK *parent, char *tag, char *value) {
     char *newvalue;
 
-    if(strlen(value) > 4) {
-	newvalue=strdup(value);
-    
-	if(!newvalue)
-	    return NULL;
-
-	return daap_add_formatted(parent,tag,strlen(newvalue),newvalue);
-    } 
-    return daap_add_formatted(parent,tag,strlen(value),value);
+    if(value) {
+	if(strlen(value) > 4) {
+	    newvalue=strdup(value);
+	    
+	    if(!newvalue)
+		return NULL;
+	    
+	    return daap_add_formatted(parent,tag,strlen(newvalue),newvalue);
+	} 
+	return daap_add_formatted(parent,tag,strlen(value),value);
+    }
+    return daap_add_formatted(parent,tag,0,"");
 }
 
 /*

@@ -47,6 +47,7 @@ MP3RECORD db_root;
 int db_version_no;
 int db_update_mode=0;
 int db_song_count;
+int db_song_id;
 pthread_rwlock_t db_rwlock; /* OSX doesn't have PTHREAD_RWLOCK_INITIALIZER */
 pthread_once_t db_initlock=PTHREAD_ONCE_INIT;
 /*
@@ -89,6 +90,7 @@ int db_init(char *parameters) {
     db_root.next=NULL;
     db_version_no=1;
     db_song_count=0;
+    db_song_id=0;
 
     return pthread_once(&db_initlock,db_init_once);
 }
@@ -192,6 +194,7 @@ int db_add(MP3FILE *mp3file) {
 	return -1;
     }
 
+    pnew->mp3file.id=db_song_id++;
     pnew->next=db_root.next;
     db_root.next=pnew;
 

@@ -1014,7 +1014,7 @@ char *ws_urldecode(char *string) {
     char *src,*dst;
     int val;
 
-    pnew=(char*)malloc(strlen(string));
+    pnew=(char*)malloc(strlen(string)+1);
     if(!pnew)
 	return NULL;
 

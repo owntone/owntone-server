@@ -80,10 +80,10 @@ void daap_handler(WS_CONNINFO *pwsc) {
     } else if (!strcasecmp(pwsc->uri,"/login")) {
 	root=daap_response_login();
     } else if (!strcasecmp(pwsc->uri,"/update")) {
-	if(!ws_getvar(pwsc,"revision-number")) { /* first check */
+	if(!ws_getvar(pwsc,"delta")) { /* first check */
 	    clientrev=db_version() - 1;
 	} else {
-	    clientrev=atoi(ws_getvar(pwsc,"revision-number"));
+	    clientrev=atoi(ws_getvar(pwsc,"delta"));
 	}
 	root=daap_response_update(clientrev);
     } else if (!strcasecmp(pwsc->uri,"/databases")) {
@@ -308,12 +308,16 @@ int main(int argc, char *argv[]) {
 	    exit(EXIT_FAILURE);
 	}
     }
-	    
+
+    DPRINTF(ERR_DEBUG,"Initializing database\n");
+
     /* Initialize the database before starting */
     if(db_init("none")) {
 	perror("db_init");
 	exit(EXIT_FAILURE);
     }
+
+    DPRINTF(ERR_DEBUG,"Scanning MP3s\n");
 
     if(scan_init(config.mp3dir)) {
 	perror("scan_init");
