@@ -719,13 +719,12 @@ int main(int argc, char *argv[]) {
 	}
 
 	if(config.reload) {
-	    config.reload=0;
-
-	    DPRINTF(ERR_LOG,"Reloading configuration\n");
+	    DPRINTF(ERR_LOG,"Rescanning database\n");
 	    if(scan_init(config.mp3dir)) {
 		DPRINTF(ERR_LOG,"Error rescanning... exiting\n");
 		config.stop=1;
 	    }
+	    config.reload=0;
 	}
 
 	sleep(MAIN_SLEEP_INTERVAL);

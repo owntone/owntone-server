@@ -567,7 +567,7 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
 	ws_writefd(pwsc,"<TD><a href=\"config-update.html?action=stopdaap\">Stop DAAP Server</a></TD></TR>");
     }
 
-    scanning = db_scanning();
+    scanning = config.reload;
     ws_writefd(pwsc,"<TR><TD>Background scanner</TD><TD>%s</TD>",scanning ? "Running":"Idle");
     if(scanning) {
 	ws_writefd(pwsc,"<TD>Wait...</TD></TR>");
@@ -621,10 +621,12 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc," <TD>%d</TD>\n",config.stats.songs_served);
     ws_writefd(pwsc,"</TR>\n");
 
-    ws_writefd(pwsc,"<TR>\n");
-    ws_writefd(pwsc," <TH>DB Version</TH>\n");
-    ws_writefd(pwsc," <TD>%d</TD>\n",db_version());
-    ws_writefd(pwsc,"</TR>\n");
+    if(!scanning) {
+	ws_writefd(pwsc,"<TR>\n");
+	ws_writefd(pwsc," <TH>DB Version</TH>\n");
+	ws_writefd(pwsc," <TD>%d</TD>\n",db_version());
+	ws_writefd(pwsc,"</TR>\n");
+    }
 
     /*
     ws_writefd(pwsc,"<TR>\n");
