@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -329,6 +330,9 @@ int scan_foreground(char *path) {
 			    if(!stat(m3u_path,&sb)) {
 				/* FIXME: check to see if valid inode! */
 				db_add_playlist_song(playlistid,sb.st_ino);
+			    } else {
+				DPRINTF(ERR_WARN,"Playlist entry %s bad: %s\n",
+					m3u_path,strerror(errno));
 			    }
 			}
 			close(fd);
