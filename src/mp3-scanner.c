@@ -401,6 +401,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     int have_utf8;
     int have_text;
     id3_ucs4_t const *native_text;
+    char *tmp;
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
@@ -463,6 +464,14 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 		    used=1;
 		    pmp3->comment = utf8_text;
 		    DPRINTF(ERR_DEBUG," Comment: %s\n",pmp3->comment);
+		} else if(!strcmp(pid3frame->id,"TRCK")) {
+		    tmp=(char*)utf8_text;
+		    strsep(&tmp,"/");
+		    if(tmp) {
+			pmp3->total_tracks=atoi(tmp);
+		    }
+		    pmp3->track=atoi((char*)utf8_text);
+		    DPRINTF(ERR_DEBUG," Track %d of %d\n",pmp3->track,pmp3->total_tracks);
 		} else if(!strcmp(pid3frame->id,"TDRC")) {
 		    pmp3->year = atoi(utf8_text);
 		    DPRINTF(ERR_DEBUG," Year: %d\n",pmp3->year);

@@ -302,8 +302,12 @@ DAAP_BLOCK *daap_response_songlist(void) {
 		    if(current->song_length) 
 			g = g && daap_add_int(mlit,"astm",current->song_length*1000); /* song time */
 
-		    // g = g && daap_add_short(mlit,"astc",0); /* track count */
-		    // g = g && daap_add_short(mlit,"astn",0); /* track number */
+		    if(current->total_tracks)
+			g = g && daap_add_short(mlit,"astc",current->total_tracks); /* track count */
+		    
+		    if(current->track)
+			g = g && daap_add_short(mlit,"astn",current->track); /* track number */
+
 		    // g = g && daap_add_char(mlit,"asur",3); /* rating */
 		    if(current->year)
 			g = g && daap_add_short(mlit,"asyr",current->year);
