@@ -1687,6 +1687,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 void make_composite_tags(MP3FILE *song)
 {
     int len;
+    char fdescr[50];
 
     len=0;
 
@@ -1711,14 +1712,8 @@ void make_composite_tags(MP3FILE *song)
 	}
     }
 
-    if(!strcasecmp(song->type,"ogg")) {
-	song->description = strdup("QuickTime movie file");
-    } else {
-        char fdescr[50];
-
-	sprintf(fdescr,"%s audio file",song->type);
-	song->description = strdup(fdescr);
-    }
+    sprintf(fdescr,"%s audio file",song->type);
+    song->description = strdup(fdescr);
 
     if(song->url) {
 	song->description = strdup("Playlist URL");
@@ -1734,10 +1729,6 @@ void make_composite_tags(MP3FILE *song)
     if(!song->title)
 	song->title = strdup(song->fname);
 
-    /* PENDING: treat ogg just like any audio file? Doing so allows it
-       to show up in iTunes but it still can't be streamed. */
-    /*if(!strcmp(song->type, "ogg"))
-	song->item_kind = 4;
-        else*/
-	song->item_kind = 2;
+    /* Ogg used to be set as an item_kind of 4.  Dunno why */
+    song->item_kind = 2;
 }
