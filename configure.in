@@ -56,6 +56,7 @@ AM_CONDITIONAL(COND_OGGVORBIS, test x$use_oggvorbis = xtrue)
 
 AM_CONDITIONAL(COND_NEED_STRCASESTR,false)
 AM_CONDITIONAL(COND_NEED_STRSEP,false)
+AM_CONDITIONAL(COND_NEED_ATOLL,false)
 
 dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
@@ -195,6 +196,7 @@ fi
 
 AC_REPLACE_FUNCS(strcasestr)
 AC_REPLACE_FUNCS(strsep)
+AC_REPLACE_FUNCS(atoll)
 
 dnl Checks for header files.
 AC_HEADER_STDC
