@@ -46,11 +46,18 @@
 #include "webserver.h"
 #include "playlist.h"
 
+#define DEFAULT_CONFIGFILE "/etc/mt-daapd.conf"
 
 /*
  * Globals
  */
 CONFIG config;
+
+/* 
+ * Forwards
+ */
+RETSIGTYPE sig_child(int signal);
+int daemon_start(int reap_children);
 
 /*
  * daap_auth
@@ -271,10 +278,81 @@ void daap_handler(WS_CONNINFO *pwsc) {
     return;
 }
 
-/* 
- * config_handler
+/*
+ * sig_child
  *
- * Handle config web pages
+ * reap children
+ */
+RETSIGTYPE sig_child(int signal)
+{
+    int status;
+
+    while (wait(&status)) {
+    };
+}
+
+/*
+ * daemon_start
+ *
+ * This is pretty much stolen straight from Stevens
+ */
+
+int daemon_start(int reap_children)
+{
+    int childpid, fd;
+
+    signal(SIGTTOU, SIG_IGN);
+    signal(SIGTTIN, SIG_IGN);
+    signal(SIGTSTP, SIG_IGN);
+
+    // Fork and exit
+    if ((childpid = fork()) < 0) {
+	fprintf(stderr, "Can't fork!\n");
+	return -1;
+    } else if (childpid > 0)
+	exit(0);
+
+#ifdef SETPGRP_VOID
+    setpgrp();
+#else
+    setpgrp(0,0);
+#endif
+
+#ifdef TIOCNOTTY
+    if ((fd = open("/dev/tty", O_RDWR)) >= 0) {
+	ioctl(fd, TIOCNOTTY, (char *) NULL);
+	close(fd);
+    }
+#endif
+
+    if((fd = open("/dev/null", O_RDWR, 0)) != -1) {
+	dup2(fd, STDIN_FILENO);
+	dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO);
+	if (fd > 2)
+	    close(fd);
+    }
+
+    /*
+    for (fd = 0; fd < FOPEN_MAX; fd++)
+	close(fd);
+    */
+
+    errno = 0;
+
+    chdir("/");
+    umask(0);
+
+    if (reap_children) {
+	signal(SIGCLD, sig_child);
+    }
+    return 0;
+}
+
+/*
+ * usage
+ *
+ * print usage message
  */
 
 void usage(char *program) {
@@ -286,30 +364,31 @@ void usage(char *program) {
     printf("  -m             Use mDNS\n");
     printf("  -c <file>      Use configfile specified");
     printf("  -p             Parse playlist file\n");
+    printf("  -f             Run in foreground\n");
     printf("\n\n");
 }
 
 int main(int argc, char *argv[]) {
     int option;
-    char *configfile=NULL;
+    char *configfile=DEFAULT_CONFIGFILE;
     WSCONFIG ws_config;
     WSHANDLE server;
     ENUMHANDLE handle;
     MP3FILE *pmp3;
     int status;
     int parseonly=0;
-
+    int foreground=0;
     config.use_mdns=0;
 
 #ifdef DEBUG
-    char *optval="d:c:mp";
+    char *optval="d:c:mpf";
 #else
-    char *optval="c:mp";
+    char *optval="c:mpf";
 #endif /* DEBUG */
 
-    printf("mt-daapd: version $Revision$\n");
-    printf("Copyright (c) 2003 Ron Pedde.  All rights reserved\n");
-    printf("Portions Copyright (c) 1999-2001 Apple Computer, Inc.  All rights Reserved.\n\n");
+    fprintf(stderr,"mt-daapd: version $Revision$\n");
+    fprintf(stderr,"Copyright (c) 2003 Ron Pedde.  All rights reserved\n");
+    fprintf(stderr,"Portions Copyright (c) 1999-2001 Apple Computer, Inc.  All rights Reserved.\n\n");
 
     while((option=getopt(argc,argv,optval)) != -1) {
 	switch(option) {
@@ -318,6 +397,10 @@ int main(int argc, char *argv[]) {
 	    err_debuglevel=atoi(optarg);
 	    break;
 #endif
+	case 'f':
+	    foreground=1;
+	    break;
+
 	case 'c':
 	    configfile=optarg;
 	    break;
@@ -340,17 +423,9 @@ int main(int argc, char *argv[]) {
     /* read the configfile, if specified, otherwise
      * try defaults */
 
-    if(!configfile) {
-	if(config_read("/etc/mt-daapd.conf"))
-	    if(config_read("./mt-daapd.conf")) {
-		perror("configfile_read");
-		exit(EXIT_FAILURE);
-	    }
-    } else {
-	if(config_read(configfile)) {
-	    perror("config_read");
-	    exit(EXIT_FAILURE);
-	}
+    if(config_read(configfile)) {
+	perror("config_read");
+	exit(EXIT_FAILURE);
     }
 
     if((config.use_mdns) && (!parseonly)) {
@@ -371,23 +446,22 @@ int main(int argc, char *argv[]) {
 
     if(parseonly) {
 	if(!pl_error) {
-	    printf("Parsed successfully.\n");
+	    fprintf(stderr,"Parsed successfully.\n");
 	    pl_dump();
 	}
 	exit(EXIT_SUCCESS);
     }
 
-    printf("Scanning MP3s\n");
-
-    if(scan_init(config.mp3dir)) {
-	perror("scan_init");
-	exit(EXIT_FAILURE);
+    /* will want to detach before we start scanning mp3 files */
+    if(!foreground) {
+	log_setdest("mt-daapd",LOGDEST_SYSLOG);
+	daemon_start(1);
     }
 
-    printf("Done... starting server\n");
-
-    //    db_add_playlist(27,"foo");
-    //    db_add_playlist_song(27,941027);
+    if(scan_init(config.mp3dir)) {
+	log_err(1,"Error scanning MP3 files: %s\n",strerror(errno));
+	exit(EXIT_FAILURE);
+    }
 
     /* start up the web server */
     ws_config.web_root=config.web_root;
@@ -395,7 +469,7 @@ int main(int argc, char *argv[]) {
 
     server=ws_start(&ws_config);
     if(!server) {
-	perror("ws_start");
+	log_err(1,"Error starting web server: %s\n",strerror(errno));
 	return EXIT_FAILURE;
     }
 
