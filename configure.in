@@ -143,7 +143,7 @@ AC_ARG_WITH(id3tag,
 AC_CHECK_HEADERS(getopt.h,,)
 AC_CHECK_HEADERS(gdbm.h,, [
  AC_MSG_ERROR([gdbm.h not found... try --with-gdbm-includes=dir])])
-AC_CHECK_LIB(gdbm,gdbm_open,echo "Have gdbm", echo "Must have gdbm";exit)
+AC_CHECK_LIB(gdbm,gdbm_open,,echo "no libgdbm.  Try --with-gdbm-lib=dir";exit)
 
 if test "$STATIC_LIBS" != "no"; then
   LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libgdbm.a"
@@ -159,7 +159,7 @@ AC_CHECK_HEADERS(id3tag.h,, [
 oldcflags=$CFLAGS
 
 CFLAGS="$CFLAGS -lz"
-AC_CHECK_LIB(id3tag,id3_file_open,echo "Have id3tag",echo "Must have libid3tag";exit)
+AC_CHECK_LIB(id3tag,id3_file_open,,echo "no libid3tag. Try --with-id3tag=dir";exit)
 
 if test "$STATIC_LIBS" != "no"; then
   LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libid3tag.a -lz"
