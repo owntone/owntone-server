@@ -190,6 +190,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     int bytes_copied=0;
 
+    GZIP_STREAM *gz;
+
     close=pwsc->close;
     pwsc->close=1;  /* in case we have any errors */
     root=NULL;
@@ -338,7 +340,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	start_time = time(NULL);
 	if (compress) {	  
 	  DPRINTF(E_DBG,L_WS|L_DAAP,"Using compression: %s\n", pwsc->uri);
-	  GZIP_STREAM *gz = gzip_alloc();
+	  gz = gzip_alloc();
 	  daap_serialize(root,pwsc->fd,gz);
 	  gzip_compress(gz);
 	  bytes_written = gz->bytes_out;
