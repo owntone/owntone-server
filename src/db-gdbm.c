@@ -422,7 +422,10 @@ int db_end_initial_update(void) {
 
     rbdestroy(db_removed);
 
+    DPRINTF(E_DBG,L_DB,"Reorganizing db\n");
     gdbm_reorganize(db_songs);
+    gdbm_sync(db_songs);
+    DPRINTF(E_DBG,L_DB,"Reorganize done\n");
     db_unlock();
 
     return 0;
@@ -1160,21 +1163,37 @@ int db_playlist_items_enum_end(ENUMHANDLE handle) {
 MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
     MP3FILE *pmp3=NULL;
     datum key, content;
+    int is_locked=0;
 
     key.dptr=(char*)&id;
     key.dsize=sizeof(int);
 
+    if(!db_update_mode) {
+	db_readlock(); /** \todo fix race */
+	is_locked=1;
+    }
+
     content=gdbm_fetch(db_songs,key);
     MEMNOTIFY(content.dptr);
-    if(!content.dptr)
+    if(!content.dptr) {
+	DPRINTF(E_WARN,L_DB,"Could not find id %d\n",id);
+	if(is_locked)
+	    db_unlock();
 	return NULL;
+    }
 
     pmp3=(MP3FILE*)malloc(sizeof(MP3FILE));
-    if(!pmp3)
+    if(!pmp3) {
+	DPRINTF(E_LOG,L_MISC,"Malloc failed in db_find\n");
+	if(is_locked)
+	    db_unlock();
 	return NULL;
+    }
 
     db_unpackrecord(&content,pmp3);
     free(content.dptr);
+    if(is_locked)
+	db_unlock();
     return pmp3;
 }
 
