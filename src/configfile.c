@@ -508,6 +508,8 @@ void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg) {
 void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     int mdns_running;
     char *html;
+    char buf[256];
+    int r_days, r_hours, r_mins, r_secs;
 
     ws_writefd(pwsc,"<TABLE><TR><TH ALIGN=LEFT>Service</TH>");
     ws_writefd(pwsc,"<TH ALIGN=LEFT>Status</TH><TH ALIGN=LEFT>Control</TH></TR>\n");
@@ -534,6 +536,59 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     } else {
 	ws_writefd(pwsc,"<TD><a href=\"config-update.html?action=stopdaap\">Stop DAAP Server</a>");
     }
+
+    ws_writefd(pwsc,"</TABLE>\n");
+
+    ws_writefd(pwsc,"<TABLE>\n");
+    ws_writefd(pwsc,"<TR>\n");
+    ws_writefd(pwsc," <TH>Uptime</TH>\n");
+
+    r_secs=time(NULL)-config.stats.start_time;
+
+    r_days=r_secs/(3600 * 24);
+    r_secs -= ((3600 * 24) * r_days);
+
+    r_hours=r_secs/3600;
+    r_secs -= (3600 * r_hours);
+
+    r_mins=r_secs/60;
+    r_secs -= 60 * r_mins;
+
+    memset(buf,0x0,sizeof(buf));
+    if(r_days) 
+	sprintf((char*)&buf[strlen(buf)],"%d day%s, ", r_days,
+		r_days == 1 ? "" : "s");
+
+    if(r_days || r_hours) 
+	sprintf((char*)&buf[strlen(buf)],"%d hour%s, ", r_hours,
+		r_hours == 1 ? "" : "s");
+
+    if(r_days || r_hours || r_mins)
+	sprintf((char*)&buf[strlen(buf)],"%d minute%s, ", r_mins,
+		r_mins == 1 ? "" : "s");
+
+    sprintf((char*)&buf[strlen(buf)],"%d second%s ", r_secs,
+	    r_secs == 1 ? "" : "s");
+    
+    ws_writefd(pwsc," <TD>%s</TD>\n",buf);
+    ws_writefd(pwsc,"</TR>\n");
+    
+    ws_writefd(pwsc,"<TR>\n");
+    ws_writefd(pwsc," <TH>Songs</TH>\n");
+    ws_writefd(pwsc," <TD>%d</TD>\n",db_get_song_count());
+    ws_writefd(pwsc,"</TR>\n");
+
+    ws_writefd(pwsc,"<TR>\n");
+    ws_writefd(pwsc," <TH>Songs Served</TH>\n");
+    ws_writefd(pwsc," <TD>%d</TD>\n",config.stats.songs_served);
+    ws_writefd(pwsc,"</TR>\n");
+
+    /*
+    ws_writefd(pwsc,"<TR>\n");
+    ws_writefd(pwsc," <TH>Bytes Served</TH>\n");
+    ws_writefd(pwsc," <TD>%d</TD>\n",config.stats.songs_served);
+    ws_writefd(pwsc,"</TR>\n");
+    */
 
     ws_writefd(pwsc,"</TABLE>\n");
 }

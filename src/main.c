@@ -275,6 +275,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
 		DPRINTF(ERR_INFO,"Streaming %s\n",pmp3->fname);
 
+		config.stats.songs_served++; /* FIXME: remove stat races */
+
 		if(offset) {
 		    DPRINTF(ERR_INFO,"Seeking to offset %d\n",offset);
 		    lseek(file_fd,offset,SEEK_SET);
@@ -462,7 +464,7 @@ int main(int argc, char *argv[]) {
     /* read the configfile, if specified, otherwise
      * try defaults */
 
-    start_time=time(NULL);
+    config.stats.start_time=start_time=time(NULL);
 
     if(config_read(configfile)) {
 	perror("config_read");

@@ -22,12 +22,13 @@
 #ifndef _DAAPD_H_
 #define _DAAPD_H_
 
-typedef struct tag_songentry {
-    int index;
-    char *file;
-    
-    struct tag_songentry *next;
-} SONGENTRY;
+typedef struct tag_stats {
+    time_t start_time;
+    int songs_served;
+
+    unsigned int gb_served;
+    unsigned int bytes_served;
+} STATS;
 
 typedef struct tag_config {
     int use_mdns;
@@ -43,7 +44,7 @@ typedef struct tag_config {
     char *runas;
     char *dbdir;
     char *extensions;
-    SONGENTRY songlist;
+    STATS stats;
 } CONFIG;
 
 extern CONFIG config;
