@@ -575,6 +575,7 @@ int start_signal_handler(void) {
     if((sigemptyset(&set) == -1) ||
        (sigaddset(&set,SIGINT) == -1) ||
        (sigaddset(&set,SIGHUP) == -1) ||
+       (sigaddset(&set,SIGCLD) == -1) ||
        (sigprocmask(SIG_BLOCK, &set, NULL) == -1)) {
 	DPRINTF(ERR_LOG,"Error setting signal set\n");
 	return -1;
