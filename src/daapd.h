@@ -40,6 +40,6 @@ typedef struct tag_config {
     SONGENTRY songlist;
 } CONFIG;
 
-
+extern CONFIG config;
 
 #endif /* _DAAPD_H_ */
