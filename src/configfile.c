@@ -789,10 +789,10 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     int r_days, r_hours, r_mins, r_secs;
     int scanning;
 
-    ws_writefd(pwsc,"<TABLE><TR><TH ALIGN=LEFT>Service</TH>");
-    ws_writefd(pwsc,"<TH ALIGN=LEFT>Status</TH><TH ALIGN=LEFT>Control</TH></TR>\n");
+    ws_writefd(pwsc,"<table><tr><th align=\"left\">Service</th>");
+    ws_writefd(pwsc,"<th align=\"left\">Status</th><th align=\"left\">Control</th></tr>\n");
 
-    ws_writefd(pwsc,"<TR><TD>Rendezvous</TD>");
+    ws_writefd(pwsc,"<tr><td>Rendezvous</td>");
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) {
 	mdns_running=!rend_running();
@@ -803,35 +803,35 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
 	    html="<a href=\"config-update.html?action=startmdns\">Start MDNS Server</a>";
 	}
 
-	ws_writefd(pwsc,"<TD>%s</TD><TD>%s</TD></TR>\n",mdns_running ? "Running":"Stopped",
+	ws_writefd(pwsc,"<td>%s</td><td>%s</td></tr>\n",mdns_running ? "Running":"Stopped",
 		   html);
     } else {
-	ws_writefd(pwsc,"<TD>Not configured</TD><TD>&nbsp;</TD></TR>\n");
+	ws_writefd(pwsc,"<td>Not configured</td><td>&nbsp;</td></tr>\n");
     }
 #else
-    ws_writefd(pwsc,"<TD>No Support</TD><TD>&nbsp;</TD></TR>\n");
+    ws_writefd(pwsc,"<td>No Support</td><td>&nbsp;</td></tr>\n");
 #endif
 
-    ws_writefd(pwsc,"<TR><TD>DAAP Server</TD><TD>%s</TD>",config.stop ? "Stopping":"Running");
+    ws_writefd(pwsc,"<tr><td>DAAP Server</td><td>%s</td>",config.stop ? "Stopping":"Running");
     if(config.stop) {
-	ws_writefd(pwsc,"<TD>Wait...</TD></TR>\n");
+	ws_writefd(pwsc,"<td>Wait...</td></tr>\n");
     } else {
-	ws_writefd(pwsc,"<TD><a href=\"config-update.html?action=stopdaap\">Stop DAAP Server</a></TD></TR>");
+	ws_writefd(pwsc,"<td><a href=\"config-update.html?action=stopdaap\">Stop DAAP Server</a></td></tr>");
     }
 
     scanning = config.reload;
-    ws_writefd(pwsc,"<TR><TD>Background scanner</TD><TD>%s</TD>",scanning ? "Running":"Idle");
+    ws_writefd(pwsc,"<tr><td>Background scanner</td><td>%s</td>",scanning ? "Running":"Idle");
     if(scanning) {
-	ws_writefd(pwsc,"<TD>Wait...</TD></TR>");
+	ws_writefd(pwsc,"<td>Wait...</td></tr>");
     } else {
-	ws_writefd(pwsc,"<TD><A HREF=\"config-update.html?action=rescan\">Start Scan</A></TD></TR>");
+	ws_writefd(pwsc,"<td><a href=\"config-update.html?action=rescan\">Start Scan</a></td></tr>");
     }
 
-    ws_writefd(pwsc,"</TABLE>\n");
+    ws_writefd(pwsc,"</table>\n");
 
-    ws_writefd(pwsc,"<TABLE>\n");
-    ws_writefd(pwsc,"<TR>\n");
-    ws_writefd(pwsc," <TH>Uptime</TH>\n");
+    ws_writefd(pwsc,"<table>\n");
+    ws_writefd(pwsc,"<tr>\n");
+    ws_writefd(pwsc," <th>Uptime</th>\n");
 
     r_secs=time(NULL)-config.stats.start_time;
 
@@ -860,34 +860,34 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     sprintf((char*)&buf[strlen(buf)],"%d second%s ", r_secs,
 	    r_secs == 1 ? "" : "s");
     
-    ws_writefd(pwsc," <TD>%s</TD>\n",buf);
-    ws_writefd(pwsc,"</TR>\n");
+    ws_writefd(pwsc," <td>%s</td>\n",buf);
+    ws_writefd(pwsc,"</tr>\n");
     
-    ws_writefd(pwsc,"<TR>\n");
-    ws_writefd(pwsc," <TH>Songs</TH>\n");
-    ws_writefd(pwsc," <TD>%d</TD>\n",db_get_song_count());
-    ws_writefd(pwsc,"</TR>\n");
+    ws_writefd(pwsc,"<tr>\n");
+    ws_writefd(pwsc," <th>Songs</th>\n");
+    ws_writefd(pwsc," <td>%d</td>\n",db_get_song_count());
+    ws_writefd(pwsc,"</tr>\n");
 
-    ws_writefd(pwsc,"<TR>\n");
-    ws_writefd(pwsc," <TH>Songs Served</TH>\n");
-    ws_writefd(pwsc," <TD>%d</TD>\n",config.stats.songs_served);
-    ws_writefd(pwsc,"</TR>\n");
+    ws_writefd(pwsc,"<tr>\n");
+    ws_writefd(pwsc," <th>Songs Served</th>\n");
+    ws_writefd(pwsc," <td>%d</td>\n",config.stats.songs_served);
+    ws_writefd(pwsc,"</tr>\n");
 
     if(!scanning) {
-	ws_writefd(pwsc,"<TR>\n");
-	ws_writefd(pwsc," <TH>DB Version</TH>\n");
-	ws_writefd(pwsc," <TD>%d</TD>\n",db_version());
-	ws_writefd(pwsc,"</TR>\n");
+	ws_writefd(pwsc,"<tr>\n");
+	ws_writefd(pwsc," <th>DB Version</th>\n");
+	ws_writefd(pwsc," <td>%d</td>\n",db_version());
+	ws_writefd(pwsc,"</tr>\n");
     }
 
     /*
-    ws_writefd(pwsc,"<TR>\n");
-    ws_writefd(pwsc," <TH>Bytes Served</TH>\n");
-    ws_writefd(pwsc," <TD>%d</TD>\n",config.stats.songs_served);
-    ws_writefd(pwsc,"</TR>\n");
+    ws_writefd(pwsc,"<tr>\n");
+    ws_writefd(pwsc," <th>Bytes Served</th>\n");
+    ws_writefd(pwsc," <td>%d</td>\n",config.stats.songs_served);
+    ws_writefd(pwsc,"</tr>\n");
     */
 
-    ws_writefd(pwsc,"</TABLE>\n");
+    ws_writefd(pwsc,"</table>\n");
 }
 
 
@@ -954,19 +954,19 @@ void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(config_mutex_lock())
 	return;
 
-    ws_writefd(pwsc,"<TABLE><TR><TH ALIGN=LEFT>Thread</TH>");
-    ws_writefd(pwsc,"<TH ALIGN=LEFT>Session</TH><TH ALIGN=LEFT>Host</TH>");
-    ws_writefd(pwsc,"<TH ALIGN=LEFT>Action</TH></TR>\n");
+    ws_writefd(pwsc,"<table><tr><th align=\"left\">Thread</th>");
+    ws_writefd(pwsc,"<th align=\"left\">Session</th><th align=\"left\">Host</th>");
+    ws_writefd(pwsc,"<th align=\"left\">Action</th></tr>\n");
 
 
     pss=scan_status.next;
     while(pss) {
-	ws_writefd(pwsc,"<TR><TD>%d</TD><TD>%d</TD><TD>%s</TD><TD>%s</TD></TR>\n",
+	ws_writefd(pwsc,"<tr><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>\n",
 		   pss->thread,pss->session,pss->host,pss->what);
 	pss=pss->next;
     }
 
-    ws_writefd(pwsc,"</TABLE>\n");
+    ws_writefd(pwsc,"</table>\n");
     config_mutex_unlock();
 }
 
@@ -1076,7 +1076,7 @@ int config_file_is_readonly(void) {
  */
 void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(config_file_is_readonly()) {
-	ws_writefd(pwsc,"READONLY");
+	ws_writefd(pwsc,"readonly=\"readonly\"");
     }
 }
 

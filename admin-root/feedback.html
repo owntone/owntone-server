@@ -4,12 +4,12 @@
 
 <div class="stx">
 
-<FORM ACTION="http://www.pedde.com/mt-daapd/register.php" METHOD="POST">
+<form action="http://www.pedde.com/mt-daapd/register.php" method="post">
 
 <table>
 <tr valign="top">
   <th>Works?</th>
-  <td><input type="checkbox" name="works" value="CHECKED" CHECKED></td>
+  <td><input type="checkbox" name="works" value="CHECKED" checked="checked" /></td>
   <td>
   The most important question.  Did this version work for you?
   If not, uncheck the box, and put an explanation in the NOTES
@@ -19,7 +19,7 @@
 
 <tr valign="top">
   <th>Version</th>
-  <td><input type="text" name="version" value="@VERSION@"></td>
+  <td><input type="text" name="version" value="@VERSION@" /></td>
   <td>
   This is the version of mt-daapd you are running.  If you are using a 
   public release, use the version number (0.1.0, 0.1.1, etc).  If it is
@@ -30,7 +30,7 @@
 
 <tr valign="top">
   <th>System</th>
-  <td><input type="text" name="system" value="@SYSTEM@"></td>
+  <td><input type="text" name="system" value="@SYSTEM@" /></td>
   <td>
   This is the operating system and version you are running.
   Use something like "Sparc Solaris 9" or "x86 Linux 2.6.3" or
@@ -41,7 +41,7 @@
 
 <tr valign="top">
   <th>Compile args</th>
-  <td><input type="text" name="compile" value="@FLAGS@"></td>
+  <td><input type="text" name="compile" value="@FLAGS@" /></td>
   <td>
   If you used any compile flags, that would be helpful.  Examples
   might include '--with-gdbm', or '--enable-howl' or something else.
@@ -50,7 +50,7 @@
 
 <tr valign="top">
   <th>Notes</th>
-  <td><textarea rows=3 cols=40 name="notes"></textarea></td>
+  <td><textarea rows="3" cols="40" name="notes"></textarea></td>
   <td>
   If it didn't work for you, or if you just want to make a
   suggestion, leave those notes here.  Remember that these
@@ -60,7 +60,7 @@
 
 <tr valign="top">
   <th>Rating</th>
-  <td><input type="text" name="rating"></td>
+  <td><input type="text" name="rating" /></td>
   <td>
   Just for fun, give this release a rating from 1 to 10, 1 being
   so bad it started your computer on fire, 10 meaning works so
@@ -69,7 +69,8 @@
 </tr>
 </table>
 
-<input type="submit" value="Leave Feedback">
+<div><input type="submit" value="Leave Feedback" /></div>
+</form>
 </div>
 
 @include ftr.html@
