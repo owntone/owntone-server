@@ -176,6 +176,7 @@ int config_read(char *file) {
     }
 
     fclose(fin);
+    free(buffer);
 
     /* fix the fullpath of the web root */
     realpath(config.web_root,path_buffer);
@@ -210,6 +211,26 @@ int config_read(char *file) {
     return err;
 }
 
+
+/*
+ * config_close
+ *
+ * free up any memory used
+ */
+void config_close(void) {
+    CONFIGELEMENT *pce;
+    int err;
+
+    /* check to see if all required elements are satisfied */
+    free(config.configfile);
+    pce=config_elements;
+    err=0;
+    while((pce->config_element != -1)) {
+	if((pce->config_element) && (pce->type == CONFIG_TYPE_STRING)) 
+	    free(*((char**)pce->var));
+	pce++;
+    }
+}
 
 /*
  * config_write
