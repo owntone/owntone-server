@@ -23,6 +23,9 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.3  2005/01/10 18:11:29  rpedde
+Fix compile error on solaris
+
 Revision 1.2  2005/01/10 01:07:01  rpedde
 Synchronize mDNS to Apples 58.8 drop
 
@@ -81,7 +84,7 @@ First checkin
 #define GET_SA_LEN(X) (((struct sockaddr*)&(X))->sa_family == AF_INET  ? sizeof(struct sockaddr_in) : \
                        ((struct sockaddr*)&(X))->sa_family == AF_INET6 ? sizeof(struct sockaddr_in6) : sizeof(struct sockaddr))
 #else
-#define GET_SA_LEN(X) ((X).sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr))
+#define GET_SA_LEN(X) (((struct sockaddr*)&(X))->sa_family == AF_INET ? sizeof(struct sockaddr_in) : sizeof(struct sockaddr))
 #endif
 
 #define IFI_NAME    16          /* same as IFNAMSIZ in <net/if.h> */
