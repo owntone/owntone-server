@@ -23,8 +23,11 @@
 #define _CONFIGFILE_H_
 
 #include "daapd.h"
+#include "webserver.h"
 
-extern int config_read(char *file, CONFIG *pconfig);
+extern int config_read(char *file);
 extern int config_write(CONFIG *pconfig);
+extern int config_auth(char *user, char *password);
+extern void config_handler(WS_CONNINFO *pwsc);
 
 #endif /* _CONFIGFILE_H_ */
