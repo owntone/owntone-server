@@ -543,10 +543,10 @@ void usage(char *program) {
     printf("  -d <number>    Debuglevel (0-9)\n");
     printf("  -D <mod,mod..> Debug modules\n");
     printf("  -m             Disable mDNS\n");
-    printf("  -c <file>      Use configfile specified");
+    printf("  -c <file>      Use configfile specified\n");
     printf("  -p             Parse playlist file\n");
     printf("  -f             Run in foreground\n");
-    printf("  -y             Yes, go ahead and run as non-root user");
+    printf("  -y             Yes, go ahead and run as non-root user\n");
     printf("\n\n");
     printf("Valid debug modules:\n");
     printf(" config,webserver,database,scan,query,index,browse\n");
@@ -795,7 +795,7 @@ int main(int argc, char *argv[]) {
 #endif
 
     /* open the pidfile, so it can be written once we detach */
-    if(!foreground) {
+    if((!foreground) && (!force_non_root)) {
 	if(-1 == (pid_fd = open(PIDFILE,O_CREAT | O_WRONLY | O_TRUNC, 0644)))
 	    DPRINTF(E_FATAL,L_MAIN,"Error opening pidfile (%s): %s\n",PIDFILE,strerror(errno));
 
