@@ -89,6 +89,9 @@
   Change History (most recent first):
 
  $Log$
+ Revision 1.23  2005/01/07 06:57:59  rpedde
+ fix minor errno problem
+
  Revision 1.22  2004/12/09 05:05:54  rpedde
  Logging fixes
 
@@ -482,8 +485,8 @@ int rend_private_init(char *user) {
 	result = select(nfds, &readfds, NULL, NULL, &timeout);
 	
 	if (result < 0) {
-	    DPRINTF(E_WARN,L_REND,"select() returned %d errno %d\n", result, errno);
 	    if (errno != EINTR) gStopNow = mDNStrue;
+	    DPRINTF(E_WARN,L_REND,"select() returned %d errno %d\n", result, errno);
 	} else {
 	    // 5. Call mDNSPosixProcessFDSet to let the mDNSPosix layer do its work
 	    mDNSPosixProcessFDSet(&mDNSStorage, &readfds);
