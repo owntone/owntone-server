@@ -8,14 +8,19 @@
 
 #include "mp3-scanner.h"
 
+#define T_INT  0
+#define T_STR  1
+
 typedef struct tag_pl_node {
     int op;
+    int type;
     union { 
 	int ival;
 	struct tag_pl_node *plval;
     } arg1;
     union {
 	char *cval;
+	int ival;
 	struct tag_pl_node *plval;
     } arg2;
 } PL_NODE;

@@ -73,6 +73,9 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     case GENRE:
 	printf("GENRE ");
 	break;
+    case YEAR:
+	printf("YEAR ");
+	break;
     default:
 	printf ("<unknown tag> ");
 	break;
@@ -89,12 +92,37 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     case INCLUDES:
 	printf("%s",not? "DOES NOT INCLUDE " : "INCLUDES ");
 	break;
+    case EQUALS:
+	printf("EQUALS ");
+	break;
+    case LESS:
+	printf("< ");
+	break;
+    case LESSEQUAL:
+	printf("<= ");
+	break;
+    case GREATER:
+	printf("> ");
+	break;
+    case GREATEREQUAL:
+	printf(">= ");
+	break;
     default:
 	printf("<unknown boolop> ");
 	break;
     }
 
-    printf("%s\n",pnode->arg2.cval);
+    switch(pnode->type) {
+    case T_STR:
+	printf("%s\n",pnode->arg2.cval);
+	break;
+    case T_INT:
+	printf("%d\n",pnode->arg2.ival);
+	break;
+    default:
+	printf("<unknown type>\n");
+	break;
+    }
     return;
 }
 
@@ -161,7 +189,8 @@ void pl_eval(MP3FILE *pmp3) {
 int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
     int r_arg,r_arg2;
     int argtypec;
-    char *argc;
+    char *cval;
+    int ival;
     int boolarg;
     int not=0;
     int retval=0;
@@ -183,16 +212,16 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
     /* Not an AND/OR node, so let's eval */
     switch(pnode->arg1.ival) {
     case ALBUM:
-	argtypec=1;
-	argc=pmp3->album;
+	cval=pmp3->album;
 	break;
     case ARTIST:
-	argtypec=1;
-	argc=pmp3->artist;
+	cval=pmp3->artist;
 	break;
     case GENRE:
-	argtypec=1;
-	argc=pmp3->genre;
+	cval=pmp3->genre;
+	break;
+    case YEAR:
+	ival=pmp3->year;
 	break;
     }
 
@@ -200,22 +229,43 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
     if(pnode->op & 0x80000000)
 	not=1;
 
-    if(argtypec) {
-	if(!argc)
-	    return not;
+    if(pnode->type==T_STR) {
+	if(!cval) 
+	    cval = "";
 
 	DPRINTF(ERR_DEBUG,"Matching %s to %s\n",argc,pnode->arg2.cval);
 
 	switch(boolarg) {
 	case IS:
-	    r_arg=strcasecmp(argc,pnode->arg2.cval);
+	    r_arg=strcasecmp(cval,pnode->arg2.cval);
 	    retval = not ? r_arg : !r_arg;
 	    break;
 	case INCLUDES:
-	    r_arg=strcasestr(argc,pnode->arg2.cval);
+	    r_arg=strcasestr(cval,pnode->arg2.cval);
 	    retval = not ? !r_arg : r_arg;
 	    break;
 	}
+    }
+
+    if(pnode->type==T_INT) {
+	switch(boolarg) {
+	case EQUALS:
+	    r_arg=(ival == pnode->arg2.ival);
+	    break;
+	case GREATER:
+	    r_arg=(ival > pnode->arg2.ival);
+	    break;
+	case GREATEREQUAL:
+	    r_arg=(ival >= pnode->arg2.ival);
+	    break;
+	case LESS:
+	    r_arg=(ival < pnode->arg2.ival);
+	    break;
+	case LESSEQUAL:
+	    r_arg=(ival <= pnode->arg2.ival);
+	    break;
+	}
+	return not? !r_arg : r_arg;
     }
 
     /* can't get here */

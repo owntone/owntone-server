@@ -7,7 +7,7 @@
 
 /* Forwards */
 
-extern PL_NODE *pl_newpredicate(int tag, int op, char *value);
+extern PL_NODE *pl_newpredicate(int tag, int op, char *value, int type);
 extern PL_NODE *pl_newexpr(PL_NODE *arg1, int op, PL_NODE *arg2);
 extern int pl_addplaylist(char *name, PL_NODE *root);
 
@@ -29,6 +29,11 @@ int pl_number=2;
 %token <ival> ALBUM 
 %token <ival> GENRE
 
+%token <ival> EQUALS
+%token <ival> LESS
+%token <ival> LESSEQUAL
+%token <ival> GREATER
+%token <ival> GREATEREQUAL
 %token <ival> IS 
 %token <ival> INCLUDES
 
@@ -37,12 +42,16 @@ int pl_number=2;
 %token <ival> NOT
 
 %token <cval> ID
+%token <ival> NUM
+
+%token <ival> YEAR
 
 %type <plval> expression
 %type <plval> predicate
-%type <ival> idtag
-%type <ival> boolarg
-%type <cval> value
+%type <ival> strtag
+%type <ival> inttag
+%type <ival> strbool
+%type <ival> intbool
 %type <ival> playlist
 
 %%
@@ -60,25 +69,34 @@ expression: expression AND expression { $$=pl_newexpr($1,$2,$3); }
 | predicate
 ;
 
-predicate: idtag boolarg value { $$=pl_newpredicate($1, $2, $3); }
+predicate: strtag strbool ID { $$=pl_newpredicate($1, $2, $3, T_STR); }
+| inttag intbool NUM { $$=pl_newpredicate($1, $2, $3, T_INT); }
+;
 
-idtag: ARTIST
+inttag: YEAR
+;
+
+intbool: EQUALS { $$ = $1; }
+| LESS { $$ = $1; }
+| LESSEQUAL { $$ = $1; }
+| GREATER { $$ = $1; }
+| GREATEREQUAL { $$ = $1; }
+| NOT intbool { $$ = $2 | 0x80000000; }
+;
+
+strtag: ARTIST
 | ALBUM
 | GENRE
 ;
 
-boolarg: IS { $$=$1; }
+strbool: IS { $$=$1; }
 | INCLUDES { $$=$1; }
-| NOT boolarg { $$=$2 | 0x80000000; }
+| NOT strbool { $$=$2 | 0x80000000; }
 ;
-
-value: ID
-;
-
 
 %%
 
-PL_NODE *pl_newpredicate(int tag, int op, char *value) {
+PL_NODE *pl_newpredicate(int tag, int op, char *value, int type) {
     PL_NODE *pnew;
 
     pnew=(PL_NODE*)malloc(sizeof(PL_NODE));
@@ -86,6 +104,7 @@ PL_NODE *pl_newpredicate(int tag, int op, char *value) {
 	return NULL;
 
     pnew->op=op;
+    pnew->type=type;
     pnew->arg1.ival=tag;
     pnew->arg2.cval=value;
     return pnew;
