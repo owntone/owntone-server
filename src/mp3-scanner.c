@@ -181,6 +181,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
+	DPRINTF(ERR_WARN,"Cannot open %s\n",file);
 	return -1;
     }
 
@@ -190,6 +191,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 	err=errno;
 	id3_file_close(pid3file);
 	errno=err;
+	DPRINTF(ERR_WARN,"Cannot get ID3 tag for %s\n",file);
 	return -1;
     }
 
@@ -231,6 +233,8 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 
     pmp3->got_id3=1;
     id3_file_close(pid3file);
+    DPRINTF(ERR_DEBUG,"Got id3 tag successfully\n");
+    return 0;
 }
 
 /*
@@ -261,8 +265,8 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
     SCAN_ID3HEADER *pid3;
     unsigned int size=0;
-    long fp_size;
-    long file_size;
+    fpos_t fp_size=0;
+    fpos_t file_size;
     unsigned char buffer[256];
     int time_seconds;
 
@@ -281,9 +285,11 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     
     if(strncmp(pid3->id,"ID3",3)==0) {
 	/* found an ID3 header... */
+	DPRINTF(ERR_DEBUG,"Found ID3 header\n");
 	size = (pid3->size[0] << 21 | pid3->size[1] << 14 | 
 		pid3->size[2] << 7 | pid3->size[3]);
-	fp_size=size + sizeof(SCAN_ID3HEADER);
+	fp_size=(fpos_t)(size + sizeof(SCAN_ID3HEADER));
+	DPRINTF(ERR_DEBUG,"Header length: %d\n",size);
     }
 
     fseek(infile,0,SEEK_END);
@@ -315,6 +321,7 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
 	    pmp3->samplerate=samplerate;
 	} else {
 	    /* not an mp3... */
+	    DPRINTF(ERR_DEBUG,"File is not a MPEG-1/Layer III\n");
 	    return -1;
 	}
 
@@ -325,6 +332,7 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     } else {
 	/* should really scan forward to next sync frame */
 	fclose(infile);
+	DPRINTF(ERR_DEBUG,"Could not find sync frame\n");
 	return -1;
     }
     
