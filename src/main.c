@@ -270,9 +270,13 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		DPRINTF(ERR_INFO,"Streaming %s\n",pmp3->fname);
 
 		if(offset) {
+		    DPRINTF(ERR_INFO,"Seeking to offset %d\n",offset);
 		    lseek(file_fd,offset,SEEK_SET);
 		}
-		copyfile(file_fd,pwsc->fd);
+		if(copyfile(file_fd,pwsc->fd)) {
+		    DPRINTF(ERR_INFO,"Error copying file to remote... %s\n",
+			    strerror(errno));
+		}
 		config_set_status(pwsc,session_id,NULL);
 		r_close(file_fd);
 	    }
@@ -420,11 +424,9 @@ int main(int argc, char *argv[]) {
 
     while((option=getopt(argc,argv,"d:c:mpf")) != -1) {
 	switch(option) {
-#ifdef DEBUG
 	case 'd':
 	    err_debuglevel=atoi(optarg);
 	    break;
-#endif
 	case 'f':
 	    foreground=1;
 	    break;

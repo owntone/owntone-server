@@ -42,7 +42,7 @@ typedef struct tag_config {
     char *playlist;
     char *runas;
     char *dbdir;
-
+    char *extensions;
     SONGENTRY songlist;
 } CONFIG;
 

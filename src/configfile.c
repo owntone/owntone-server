@@ -87,6 +87,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,1,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
+    { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"package",(void*)PACKAGE,config_emit_literal },
@@ -152,6 +153,8 @@ int config_read(char *file) {
     config.mp3dir=NULL;
     config.playlist=NULL;
     config.runas=NULL;
+    config.extensions=".mp3";
+
     config.servername="mt-daapd " VERSION;
 
     while(fgets(buffer,MAX_LINE,fin)) {
@@ -282,6 +285,8 @@ int config_write(WS_CONNINFO *pwsc) {
     fprintf(configfile,"runas\t\t%s\n",ws_getvar(pwsc,"runas"));
     fprintf(configfile,"playlist\t%s\n",ws_getvar(pwsc,"playlist"));
     fprintf(configfile,"password\t%s\n",ws_getvar(pwsc,"password"));
+    fprintf(configfile,"extensions\t%s\n",ws_getvar(pwsc,"extensions"));
+    fprintf(configfile,"db_dir\t\t%s\n",ws_getvar(pwsc,"db_dir"));
 
     fclose(configfile);
     return 0;

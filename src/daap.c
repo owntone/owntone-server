@@ -221,6 +221,7 @@ DAAP_BLOCK *daap_response_songlist(void) {
     DAAP_BLOCK *mlit;
     ENUMHANDLE henum;
     MP3FILE *current;
+    char fdescr[50];
 
     DPRINTF(ERR_DEBUG,"Preparing to send db items\n");
 
@@ -288,8 +289,14 @@ DAAP_BLOCK *daap_response_songlist(void) {
 		    g = g && daap_add_int(mlit,"miid",current->id); /* id */
 		    
 		    /* these quite go hand in hand */
-		    g = g && daap_add_string(mlit,"asfm","mp3"); /* song format */
-		    g = g && daap_add_string(mlit,"asdt","MPEG audio file"); /* descr */
+		    g = g && daap_add_string(mlit,"asfm",(char*)&current->type[1]); /* song format */
+		    if(!strcasecmp(current->type,".ogg")) {
+			sprintf(fdescr,"QuickTime movie file");
+		    } else {
+			sprintf(fdescr,"%s audio file",current->type);
+		    }
+		    g = g && daap_add_string(mlit,"asdt",fdescr); /* descr */
+		    //		    g = g && daap_add_string(mlit,"asdt","MPEG audio file"); /* descr */
 		    
 		    if(current->title)
 			g = g && daap_add_string(mlit,"minm",current->title); /* descr */

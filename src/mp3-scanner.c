@@ -34,6 +34,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "daapd.h"
 #include "db-memory.h"
 #include "err.h"
 #include "mp3-scanner.h"
@@ -222,6 +223,8 @@ int scan_foreground(char *path);
 int scan_gettags(char *file, MP3FILE *pmp3);
 int scan_getfileinfo(char *file, MP3FILE *pmp3);
 int scan_freetags(MP3FILE *pmp3);
+void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
+void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
 /*
  * scan_init
@@ -263,16 +266,13 @@ int scan_init(char *path) {
  * Do a brute force scan of a path, finding all the MP3 files there
  */
 int scan_foreground(char *path) {
-    MP3FILE mp3file;
     DIR *current_dir;
     char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* overcommit for solaris */
     struct dirent *pde;
     int err;
     char mp3_path[PATH_MAX];
-    char m3u_path[PATH_MAX];
     char linebuffer[PATH_MAX];
     int fd;
-    int playlistid;
     struct stat sb;
 
     if((current_dir=opendir(path)) == NULL) {
@@ -312,73 +312,10 @@ int scan_foreground(char *path) {
 	    if(strlen(pde->d_name) > 4) {
 		if(strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) {
 		    /* we found an m3u file */
-
-		    DPRINTF(ERR_DEBUG,"Found m3u: %s\n",pde->d_name);
-		    strcpy(m3u_path,pde->d_name);
-		    m3u_path[strlen(pde->d_name) - 4] = '\0';
-		    playlistid=sb.st_ino;
-		    fd=open(mp3_path,O_RDONLY);
-		    if(fd != -1) {
-			db_add_playlist(playlistid,m3u_path);
-
-			while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
-			    while(linebuffer[strlen(linebuffer)-1] == '\n')
-				linebuffer[strlen(linebuffer)-1] = '\0';
-
-			    if((linebuffer[0] == ';') || (linebuffer[0] == '#'))
-				continue;
-
-			    /* otherwise, assume it is a path */
-			    if(linebuffer[0] == '/') {
-				strcpy(m3u_path,linebuffer);
-			    } else {
-				snprintf(m3u_path,sizeof(m3u_path),"%s/%s",path,linebuffer);
-			    }
-
-			    DPRINTF(ERR_DEBUG,"Checking %s\n",m3u_path);
-
-			    /* might be valid, might not... */
-			    if(!stat(m3u_path,&sb)) {
-				/* FIXME: check to see if valid inode! */
-				db_add_playlist_song(playlistid,sb.st_ino);
-			    } else {
-				DPRINTF(ERR_WARN,"Playlist entry %s bad: %s\n",
-					m3u_path,strerror(errno));
-			    }
-			}
-			close(fd);
-		    }
-		} else if(strcasecmp(".mp3",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) {
-		    /* we found an mp3 file */
-		    DPRINTF(ERR_DEBUG,"Found mp3: %s\n",pde->d_name);
-
-		    memset((void*)&mp3file,0,sizeof(mp3file));
-		    mp3file.path=mp3_path;
-		    mp3file.fname=pde->d_name;
-
-#ifdef MAC /* wtf is this about? */
-		    mp3file.mtime=sb.st_mtimespec.tv_sec;
-		    mp3file.atime=sb.st_atimespec.tv_sec;
-		    mp3file.ctime=sb.st_ctimespec.tv_sec;
-#else
-		    mp3file.mtime=sb.st_mtime;
-		    mp3file.atime=sb.st_atime;
-		    mp3file.ctime=sb.st_ctime;
-#endif
-
-		    /* FIXME; assumes that st_ino is a u_int_32 */
-		    mp3file.id=sb.st_ino;
-		    
-		    /* Do the tag lookup here */
-		    if(!scan_gettags(mp3file.path,&mp3file) && 
-		       !scan_getfileinfo(mp3file.path,&mp3file)) {
-			db_add(&mp3file);
-			pl_eval(&mp3file);
-		    } else {
-			DPRINTF(ERR_INFO,"Skipping %s\n",pde->d_name);
-		    }
-		    
-		    scan_freetags(&mp3file);
+		    scan_static_playlist(path, pde, &sb);
+		} else if (strcasestr(config.extensions,
+				     (char*)&pde->d_name[strlen(pde->d_name) - 4])) {
+		    scan_music_file(path,pde,&sb);
 		}
 	    }
 	}
@@ -387,6 +324,107 @@ int scan_foreground(char *path) {
     closedir(current_dir);
     return 0;
 }
+
+/*
+ * scan_static_playlist
+ *
+ * Scan a file as a static playlist
+ */
+void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
+    char playlist_path[PATH_MAX];
+    char m3u_path[PATH_MAX];
+    char linebuffer[PATH_MAX];
+    int fd;
+    int playlistid;
+    struct stat sb;
+
+    DPRINTF(ERR_DEBUG,"Found static playlist: %s\n",pde->d_name);
+    strcpy(m3u_path,pde->d_name);
+    snprintf(playlist_path,sizeof(playlist_path),"%s/%s",path,pde->d_name);
+    m3u_path[strlen(pde->d_name) - 4] = '\0';
+    playlistid=psb->st_ino;
+    fd=open(playlist_path,O_RDONLY);
+    if(fd != -1) {
+	db_add_playlist(playlistid,m3u_path);
+
+	while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
+	    while((linebuffer[strlen(linebuffer)-1] == '\n') ||
+		  (linebuffer[strlen(linebuffer)-1] == '\r'))   /* windows? */
+		linebuffer[strlen(linebuffer)-1] = '\0';
+
+	    if((linebuffer[0] == ';') || (linebuffer[0] == '#'))
+		continue;
+
+	    /* FIXME - should chomp trailing comments */
+
+	    /* otherwise, assume it is a path */
+	    if(linebuffer[0] == '/') {
+		strcpy(m3u_path,linebuffer);
+	    } else {
+		snprintf(m3u_path,sizeof(m3u_path),"%s/%s",path,linebuffer);
+	    }
+
+	    DPRINTF(ERR_DEBUG,"Checking %s\n",m3u_path);
+
+	    /* might be valid, might not... */
+	    if(!stat(m3u_path,&sb)) {
+		/* FIXME: check to see if valid inode! */
+		db_add_playlist_song(playlistid,psb->st_ino);
+	    } else {
+		DPRINTF(ERR_WARN,"Playlist entry %s bad: %s\n",
+			m3u_path,strerror(errno));
+	    }
+	}
+	close(fd);
+    }
+}
+
+/*
+ * scan_music_file
+ *
+ * scan a particular file as a music file
+ */
+void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
+    MP3FILE mp3file;
+    char mp3_path[PATH_MAX];
+
+    snprintf(mp3_path,sizeof(mp3_path),"%s/%s",path,pde->d_name);
+
+    /* we found an mp3 file */
+    DPRINTF(ERR_DEBUG,"Found music file: %s\n",pde->d_name);
+    
+    memset((void*)&mp3file,0,sizeof(mp3file));
+    mp3file.path=mp3_path;
+    mp3file.fname=pde->d_name;
+    if(strlen(pde->d_name) > 4)
+	mp3file.type=strdup((char*)&pde->d_name[strlen(pde->d_name) - 4]);
+    
+#ifdef MAC /* wtf is this about? */
+    mp3file.mtime=psb->st_mtimespec.tv_sec;
+    mp3file.atime=psb->st_atimespec.tv_sec;
+    mp3file.ctime=psb->st_ctimespec.tv_sec;
+#else
+    mp3file.mtime=psb->st_mtime;
+    mp3file.atime=psb->st_atime;
+    mp3file.ctime=psb->st_ctime;
+#endif
+    
+    /* FIXME; assumes that st_ino is a u_int_32 */
+    mp3file.id=psb->st_ino;
+    
+    /* Do the tag lookup here */
+    if(!scan_gettags(mp3file.path,&mp3file) && 
+       !scan_getfileinfo(mp3file.path,&mp3file)) {
+	db_add(&mp3file);
+	pl_eval(&mp3file); /* FIXME: move to db_add? */
+    } else {
+	DPRINTF(ERR_INFO,"Skipping %s\n",pde->d_name);
+    }
+    
+    scan_freetags(&mp3file);
+}
+
+
 
 /*
  * scan_gettags
@@ -406,6 +444,9 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     int have_text;
     id3_ucs4_t const *native_text;
     char *tmp;
+
+    if(strcasecmp(pmp3->type,".mp3"))  /* can't get tags for non-mp3 */
+	return 0;
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
@@ -507,7 +548,6 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
 	index++;
     }
 
-    pmp3->got_id3=1;
     id3_file_close(pid3file);
     DPRINTF(ERR_DEBUG,"Got id3 tag successfully\n");
     return 0;
@@ -519,14 +559,12 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
  * Free up the tags that were dynamically allocated
  */
 int scan_freetags(MP3FILE *pmp3) {
-    if(!pmp3->got_id3) 
-	return 0;
-
     MAYBEFREE(pmp3->title);
     MAYBEFREE(pmp3->artist);
     MAYBEFREE(pmp3->album);
     MAYBEFREE(pmp3->genre);
     MAYBEFREE(pmp3->comment);
+    MAYBEFREE(pmp3->type);
 
     return 0;
 }
@@ -555,7 +593,18 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
 	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
 	return -1;
     }
-    
+
+    fseek(infile,0,SEEK_END);
+    file_size=ftell(infile);
+    fseek(infile,0,SEEK_SET);
+
+    pmp3->file_size=file_size;
+
+    if(strcasecmp(pmp3->type,".mp3")) {  /* can't get bit-info for non-mp3 */
+	fclose(infile);
+	return 0;
+    }
+
     fread(buffer,1,sizeof(buffer),infile);
     pid3=(SCAN_ID3HEADER*)buffer;
     
@@ -568,8 +617,6 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
 	DPRINTF(ERR_DEBUG,"Header length: %d\n",size);
     }
 
-    fseek(infile,0,SEEK_END);
-    file_size=ftell(infile);
     file_size -= fp_size;
 
     fseek(infile,fp_size,SEEK_SET);
@@ -604,7 +651,6 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
 	/* guesstimate the file length */
 	time_seconds = ((int)(file_size * 8)) / (bitrate * 1024);
 	pmp3->song_length=time_seconds;
-	pmp3->file_size=file_size;
     } else {
 	/* should really scan forward to next sync frame */
 	fclose(infile);
