@@ -1,14 +1,14 @@
 Summary: A multi-threaded implementation of Apple's DAAP server
 Name: mt-daapd
-Version: 0.1.1
+Version: 0.2.0
 Release: 1
 License: GPL
 Group: Development/Networking
 URL: http://sourceforge.net/project/showfiles.php?group_id=98211
 Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
-Requires: libid3tag
-BuildRequires: libid3tag-devel
+Requires: libid3tag gdbm
+BuildRequires: libid3tag-devel gdbm-devel
 
 %description
 A multi-threaded implementation of Apple's DAAP server, mt-daapd
@@ -26,6 +26,7 @@ make RPM_OPT_FLAGS="$RPM_OPT_FLAGS"
 rm -rf $RPM_BUILD_ROOT
 make install
 mkdir -p $RPM_BUILD_ROOT/etc/rc.d/init.d
+mkdir -p $RPM_BUILD_ROOT/var/cache/mt-daapd
 cp contrib/mt-daapd $RPM_BUILD_ROOT/etc/rc.d/init.d
 cp contrib/mt-daapd.conf $RPM_BUILD_ROOT/etc
 cp contrib/mt-daapd.playlist $RPM_BUILD_ROOT/etc
@@ -41,13 +42,17 @@ rm -rf $RPM_BUILD_ROOT
 %config /etc/mt-daapd.conf
 %config /etc/mt-daapd.playlist
 /etc/rc.d/init.d/mt-daapd
-/usr/sbin/*
+/usr/sbin/mt-daapd
 /usr/share/mt-daapd/*
 
 %doc
 
 
 %changelog
+* Mon Apr 06 2004 ron <ron@pedde.com>
+- Update to 0.2.0
+- Add /var/cache/mt-daapd
+
 * Thu Jan 29 2004 ron <ron@pedde.com>
 - Update to 0.1.1
 
