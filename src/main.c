@@ -36,9 +36,11 @@
 #include <sys/types.h>
 
 #include "configfile.h"
+#include "db-memory.h"
 #include "daap.h"
 #include "daap-proto.h"
 #include "err.h"
+#include "mp3-scanner.h"
 #include "rend.h"
 #include "webserver.h"
 
@@ -61,6 +63,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
     int close;
     DAAP_BLOCK *root,*error;
     int compress=0;
+    int clientrev;
 
     close=pwsc->close;
     pwsc->close=1;
@@ -77,7 +80,12 @@ void daap_handler(WS_CONNINFO *pwsc) {
     } else if (!strcasecmp(pwsc->uri,"/login")) {
 	root=daap_response_login();
     } else if (!strcasecmp(pwsc->uri,"/update")) {
-	root=daap_response_update();
+	if(!ws_getvar(pwsc,"revision-number")) { /* first check */
+	    clientrev=db_version() - 1;
+	} else {
+	    clientrev=atoi(ws_getvar(pwsc,"revision-number"));
+	}
+	root=daap_response_update(clientrev);
     } else if (!strcasecmp(pwsc->uri,"/databases")) {
 	root=daap_response_databases(pwsc->uri);
     } else if (!strcasecmp(pwsc->uri,"/logout")) {
@@ -250,6 +258,8 @@ int main(int argc, char *argv[]) {
     WSHANDLE server;
     pid_t rendezvous_pid;
     int use_mdns=0;
+    ENUMHANDLE handle;
+    MP3FILE *pmp3;
 
 #ifdef DEBUG
     char *optval="d:c:m";
@@ -299,8 +309,27 @@ int main(int argc, char *argv[]) {
 	}
     }
 	    
-    /* should verify the configfile has enough info
-     * to start */
+    /* Initialize the database before starting */
+    if(db_init("none")) {
+	perror("db_init");
+	exit(EXIT_FAILURE);
+    }
+
+    if(scan_init(config.mp3dir)) {
+	perror("scan_init");
+	exit(EXIT_FAILURE);
+    }
+
+#ifdef DEBUG
+    printf("Dump of database:\n");
+    handle=db_enum_begin();
+    while(pmp3=db_enum(&handle)) {
+	printf("File: %s\n",pmp3->fname);
+    }
+    db_enum_end();
+
+    
+#endif    
 
     /* start up the web server */
     ws_config.web_root=config.web_root;

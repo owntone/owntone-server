@@ -26,7 +26,7 @@
 DAAP_BLOCK *daap_response_server_info(void);
 DAAP_BLOCK *daap_response_content_codes(void);
 DAAP_BLOCK *daap_response_login(void);
-DAAP_BLOCK *daap_response_update(void);
+DAAP_BLOCK *daap_response_update(int clientver);
 DAAP_BLOCK *daap_response_databases(char *path);
 
 #endif /* _DAAP_H_ */

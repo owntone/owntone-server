@@ -35,7 +35,9 @@ extern int db_version(void);
 extern int db_add(MP3FILE *mp3file);
 extern ENUMHANDLE db_enum_begin(void);
 extern MP3FILE *db_enum(ENUMHANDLE *current);
-extern int db_enum_end(ENUMHANDLE current);
+extern int db_enum_end(void);
 extern MP3FILE *db_find(int id);
+
+extern int db_get_song_count(void);
 
 #endif /* _DB_MEMORY_H_ */

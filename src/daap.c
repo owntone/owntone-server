@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "db-memory.h"
 #include "daap-proto.h"
 #include "daap.h"
 #include "err.h"
@@ -210,16 +211,66 @@ DAAP_BLOCK *daap_response_login(void) {
 DAAP_BLOCK *daap_response_songlist(void) {
     DAAP_BLOCK *root;
     int g=1;
-    
+    DAAP_BLOCK *mlcl;
+    DAAP_BLOCK *mlit;
+    ENUMHANDLE henum;
+    MP3FILE *current;
+
+    henum=db_enum_begin();
+    if(!henum)
+	return NULL;
 
     root=daap_add_empty(NULL,"adbs");
     if(root) {
 	g = (int)daap_add_int(root,"mstt",200);
 	g = g && daap_add_char(root,"muty",0);
-	g = g && daap_add_int(root,"mtco",0);
-	g = g && daap_add_int(root,"mrco",0);
-	g = g && daap_add_empty(root,"mlcl");
+	g = g && daap_add_int(root,"mtco",db_get_song_count());
+	g = g && daap_add_int(root,"mrco",db_get_song_count());
+
+	mlcl=daap_add_empty(root,"mlcl");
+
+	if(mlcl) {
+	    while(current=db_enum(&henum)) {
+	        DPRINTF(ERR_DEBUG,"Got entry for %s\n",current->fname);
+		mlit=daap_add_empty(mlcl,"mlit");
+		if(mlit) {
+		    g = g && daap_add_char(mlit,"mikd",2); /* audio */
+		    g = g && daap_add_string(mlit,"asal",current->album);
+		    g = g && daap_add_string(mlit,"asar",current->artist);
+		    g = g && daap_add_short(mlit,"asbt",0); /* bpm */
+		    g = g && daap_add_short(mlit,"asbr",128); /* bitrate!! */
+		    g = g && daap_add_string(mlit,"ascm","ron was here"); /* comment */
+		    g = g && daap_add_char(mlit,"asco",0x0); /* compilation */
+		    g = g && daap_add_string(mlit,"ascp",""); /* composer */
+		    g = g && daap_add_int(mlit,"asda",0); /* date added */
+		    g = g && daap_add_int(mlit,"asdm",0); /* date modified */
+		    g = g && daap_add_short(mlit,"asdc",0); /* # of discs */
+		    g = g && daap_add_short(mlit,"asdn",0); /* disc number */
+		    g = g && daap_add_char(mlit,"asdk",0); /* song datakind? */
+		    g = g && daap_add_string(mlit,"asfm","mp3"); /* song format */
+		    // aseq - null string!
+		    g = g && daap_add_string(mlit,"asgn",current->genre); /* genre */
+		    g = g && daap_add_int(mlit,"miid",current->id); /* id */
+		    g = g && daap_add_string(mlit,"asdt","MPEG audio file"); /* descr */
+		    g = g && daap_add_string(mlit,"minm",current->fname); /* descr */
+		    // mper (long)
+		    g = g && daap_add_char(mlit,"asdb",0); /* disabled */
+		    g = g && daap_add_char(mlit,"asrv",0); /* rel vol */
+		    g = g && daap_add_int(mlit,"assr",44100); /* sample rate */
+		    g = g && daap_add_int(mlit,"assz",1024); /* FIXME: Song size! */
+		    g = g && daap_add_int(mlit,"asst",0); /* song start time? */
+		    g = g && daap_add_int(mlit,"assp",0); /* songstoptime */
+		    g = g && daap_add_int(mlit,"astm",3600); /* song time */
+		    g = g && daap_add_short(mlit,"astc",0); /* track count */
+		    g = g && daap_add_short(mlit,"astn",0); /* track number */
+		    g = g && daap_add_char(mlit,"asur",3); /* rating */
+		    g = g && daap_add_short(mlit,"asyr",0);
+		} else g=0;
+	    }
+	} else g=0;
     }
+
+    db_enum_end();
 
     if(!g) {
 	daap_free(root);
@@ -236,15 +287,19 @@ DAAP_BLOCK *daap_response_songlist(void) {
  * handle the daap block for the /update URI
  */
 
-DAAP_BLOCK *daap_response_update(void) {
+DAAP_BLOCK *daap_response_update(int clientver) {
     DAAP_BLOCK *root;
     int g=1;
-    
+
+    while(clientver == db_version()) {
+	sleep(30);
+    }
+
     root=daap_add_empty(NULL,"mupd");
     if(root) {
 	g = (int)daap_add_int(root,"mstt",200);
 	/* theoretically, this would go up if the db changes? */
-	g = g && daap_add_int(root,"musr",3);
+	g = g && daap_add_int(root,"musr",db_version());
     }
 
     if(!g) {
@@ -373,7 +428,7 @@ DAAP_BLOCK *daap_response_playlists(void) {
 		g = g && daap_add_int(mlit,"miid",0x1);
 		g = g && daap_add_long(mlit,"mper",0,2);
 		g = g && daap_add_string(mlit,"minm","daapd music");
-		g = g && daap_add_int(mlit,"mimc",0x0);
+		g = g && daap_add_int(mlit,"mimc",db_get_song_count());
 	    }
 	}
     }
@@ -414,7 +469,7 @@ DAAP_BLOCK *daap_response_dbinfo(void) {
 		g = g && daap_add_int(mlit,"miid",0x20);
 		g = g && daap_add_long(mlit,"mper",0,1);
 		g = g && daap_add_string(mlit,"minm","daapd music");
-		g = g && daap_add_int(mlit,"mimc",0x0); /* songs */
+		g = g && daap_add_int(mlit,"mimc",db_get_song_count()); /* songs */
 		g = g && daap_add_int(mlit,"mctc",0x1); /* playlists */
 	    }
 	}
@@ -476,8 +531,15 @@ DAAP_BLOCK *daap_response_server_info(void) {
  */
 DAAP_BLOCK *daap_response_playlist_items(int playlist) {
     DAAP_BLOCK *root;
+    DAAP_BLOCK *mlcl;
+    DAAP_BLOCK *mlit;
+    ENUMHANDLE henum;
+    MP3FILE *current;
     int g=1;
     
+    henum=db_enum_begin();
+    if(!henum)
+	return NULL;
 
     root=daap_add_empty(NULL,"apso");
     if(root) {
@@ -485,8 +547,22 @@ DAAP_BLOCK *daap_response_playlist_items(int playlist) {
 	g = g && daap_add_char(root,"muty",0);
 	g = g && daap_add_int(root,"mtco",0);
 	g = g && daap_add_int(root,"mrco",0);
-	g = g && daap_add_empty(root,"mlcl");
+
+	mlcl=daap_add_empty(root,"mlcl");
+
+	if(mlcl) {
+	    while(current=db_enum(&henum)) {
+		mlit=daap_add_empty(mlcl,"mlit");
+		if(mlit) {
+		    g = g && daap_add_char(mlit,"mikd",2);
+		    g = g && daap_add_int(mlit,"miid",current->id);
+		    g = g && daap_add_int(mlit,"mcti",0x1); /* built-in container */
+		} else g=0;
+	    }
+	} else g=0;
     }
+
+    db_enum_end();
 
     if(!g) {
 	daap_free(root);

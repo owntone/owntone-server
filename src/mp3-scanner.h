@@ -31,4 +31,6 @@ typedef struct tag_mp3file {
     int id;
 } MP3FILE;
 
+extern int scan_init(char *path);
+
 #endif /* _MP3_SCANNER_H_ */

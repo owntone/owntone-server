@@ -24,6 +24,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "err.h"
 #include "mp3-scanner.h"
 
 /*
@@ -40,10 +41,11 @@ typedef struct tag_mp3record {
  * Globals 
  */
 MP3RECORD db_root;
-int db_version;
+int db_version_no;
 int db_update_mode=0;
-pthread_rwlock_t db_rwlock=PTHREAD_RWLOCK_INITIALIZER;
-
+int db_song_count;
+pthread_rwlock_t db_rwlock; /* OSX doesn't have PTHREAD_RWLOCK_INITIALIZER */
+pthread_once_t db_initlock=PTHREAD_ONCE_INIT;
 /*
  * Forwards
  */
@@ -56,7 +58,23 @@ int db_deinit(void);
 int db_version(void);
 int db_add(MP3FILE *mp3file);
 
+MP3RECORD *db_enum_begin(void);
+MP3FILE *db_enum(MP3RECORD **current);
+int db_enum_end(void);
+int db_get_song_count(void);
+MP3FILE *db_find(int id);
+
 void db_freerecord(MP3RECORD *mp3record);
+
+/*
+ * db_init_once
+ *
+ * Must dynamically initialize the rwlock, as Mac OSX 10.3 (at least)
+ * doesn't have a static initializer for rwlocks
+ */
+void db_init_once(void) {
+    pthread_rwlock_init(&db_rwlock,NULL);
+}
 
 /*
  * db_init
@@ -66,7 +84,10 @@ void db_freerecord(MP3RECORD *mp3record);
  */
 int db_init(char *parameters) {
     db_root.next=NULL;
-    return 0;
+    db_version_no=1;
+    db_song_count=0;
+
+    return pthread_once(&db_initlock,db_init_once);
 }
 
 /*
@@ -85,7 +106,7 @@ int db_deinit(void) {
  * return the db version
  */
 int db_version(void) {
-    return db_version;
+    return db_version_no;
 }
 
 /*
@@ -116,7 +137,7 @@ int db_end_initial_update(void) {
  * background update mode
  */
 int db_is_empty(void) {
-    return db_root.next;
+    return !db_root.next;
 }
 
 /*
@@ -127,9 +148,12 @@ int db_is_empty(void) {
 
 int db_add(MP3FILE *mp3file) {
     int err;
+    int g;
     MP3RECORD *pnew;
 
-    if(!pnew=(MP3RECORD*)malloc(sizeof(MP3RECORD))) {
+    DPRINTF(ERR_DEBUG,"Adding %s\n",mp3file->path);
+
+    if((pnew=(MP3RECORD*)malloc(sizeof(MP3RECORD))) == NULL) {
 	free(pnew);
 	errno=ENOMEM;
 	return -1;
@@ -137,29 +161,40 @@ int db_add(MP3FILE *mp3file) {
 
     memset(pnew,0,sizeof(MP3RECORD));
 
-    memcpy(pnew->mp3file,mp3file,sizeof(MP3FILE));
-    err=(int) pnew->mp3file.path=strdup(mp3file->path);
-    err = err | pnew->mp3file.fname=strdup(mp3file->fname);
-    err = err | pnew->mp3file.artist=strdup(mp3file->artist);
-    err = err | pnew->mp3file.album=strdup(mp3file->album);
-    err = err | pnew->mp3file.genre=strdup(mp3file->genre);
+    memcpy(&pnew->mp3file,mp3file,sizeof(MP3FILE));
 
-    if(err) {
+    g=(int) pnew->mp3file.path=strdup(mp3file->path);
+    g = g && (pnew->mp3file.fname=strdup(mp3file->fname));
+    g = g && (pnew->mp3file.artist=strdup(mp3file->artist));
+    g = g && (pnew->mp3file.album=strdup(mp3file->album));
+    g = g && (pnew->mp3file.genre=strdup(mp3file->genre));
+
+    if(!g) {
+	DPRINTF(ERR_WARN,"Malloc error in db_add\n");
 	db_freerecord(pnew);
 	errno=ENOMEM;
 	return -1;
     }
 
-    if(err=pthread_rwlock_wrlock(&db_wrlock)) {
+    if(err=pthread_rwlock_wrlock(&db_rwlock)) {
+	DPRINTF(ERR_WARN,"cannot lock wrlock in db_add\n");
 	db_freerecord(pnew);
 	errno=err;
 	return -1;
     }
 
-    pnew->next=root.next;
-    root.next=pnew->next;
+    pnew->next=db_root.next;
+    db_root.next=pnew;
 
-    pthread_rwlock_unlock(&db_wrlock);
+    if(!db_update_mode) {
+	db_version_no++;
+    }
+
+    db_song_count++;
+    
+    pthread_rwlock_unlock(&db_rwlock);
+    DPRINTF(ERR_DEBUG,"Added file\n");
+    return 0;
 }
 
 /*
@@ -176,3 +211,76 @@ void db_freerecord(MP3RECORD *mp3record) {
     free(mp3record);
 }
 
+/*
+ * db_enum_begin
+ *
+ * Begin to walk through an enum of 
+ * the database.
+ *
+ * this should be done quickly, as we'll be holding
+ * a reader lock on the db
+ */
+MP3RECORD *db_enum_begin(void) {
+    int err;
+
+    if(err=pthread_rwlock_wrlock(&db_rwlock)) {
+	log_err(0,"Cannot lock rwlock\n");
+	errno=err;
+	return NULL;
+    }
+
+    return db_root.next;
+}
+
+
+/*
+ * db_enum
+ *
+ * Walk to the next entry
+ */
+MP3FILE *db_enum(MP3RECORD **current) {
+    MP3FILE *retval;
+
+    if(*current) {
+	retval=&((*current)->mp3file);
+	*current=(*current)->next;
+	return retval;
+    }
+    return NULL;
+}
+
+/*
+ * db_enum_end
+ *
+ * quit walking the database (and give up reader lock)
+ */
+int db_enum_end(void) {
+    return pthread_rwlock_unlock(&db_rwlock);
+}
+
+/*
+ * db_find
+ *
+ * Find a MP3FILE entry based on file id
+ */
+MP3FILE *db_find(int id) {
+    MP3RECORD *current=db_root.next;
+    while((current) && (current->mp3file.id != id)) {
+	current=current->next;
+    }
+
+    if(!current)
+	return NULL;
+
+    return &current->mp3file;
+}
+
+/*
+ * db_get_song_count
+ *
+ * return the number of songs in the database.  Used for the /database
+ * request
+ */
+int db_get_song_count(void) {
+    return db_song_count;
+}
