@@ -88,7 +88,10 @@
 
   Change History (most recent first):
 
-  $Log$
+ $Log$
+ Revision 1.21  2004/11/30 04:17:32  rpedde
+ use pascal packed string to avoid invalid rdata error
+
   Revision 1.20  2004/11/30 04:04:17  rpedde
   database id txt record to store settings
 
@@ -406,7 +409,7 @@ void rend_callback(void) {
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
 	DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.name,msg.type,msg.port);
-	RegisterOneService(msg.name,msg.type,"local.","Database ID=beddab1edeadbea7",28,
+	RegisterOneService(msg.name,msg.type,"local.","\034Database ID=beddab1edeadbea7",29,
 			   msg.port);
 	rend_send_response(0); /* success */
 	break;

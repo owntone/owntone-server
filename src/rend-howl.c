@@ -156,8 +156,8 @@ void rend_callback(void) {
 					NULL, /* domain */
 					NULL, /* host */
 					msg.port,
-					"Database ID=beddab1edeadbea7", /* text record */
-					28, /* text record length */
+					"\034Database ID=beddab1edeadbea7", /* text record */
+					29, /* text record length */
 					rend_howl_reply,
 					NULL,
 					&rend_oid)) != SW_OKAY) {
