@@ -1,0 +1,71 @@
+# $Id$
+#
+# This is the playlist file, for specifying iTunes-style
+# "Smart Playlists".
+# 
+# The syntax is as follows:
+#
+# "Playlist Name" { expression }
+#
+# An expression consists of:
+#
+# ID3-tag-name operator operand
+#
+# Where valid ID3-tag-names are:
+#   Artist (string)
+#   Album (string)
+#   Genre (string)
+#   Year (int)
+#
+# Valid operators include:
+#   is, includes (string)
+#   >, <, <=, >=, = (int)
+#
+# the "is" operator must exactly match the tag,
+# while the "includes" operator matches a substring.
+# Both matches are case-insensitive
+#
+# Valid operands include:
+#   "string value" (string)
+#   integer (int)
+#
+# Multiple expressions can be anded or ored together,
+# using the keywords OR and AND (or || and &&).
+# The unary not operator is also supported using the
+# keyword NOT (or !)
+#
+# Examples:
+#
+# "techno" {
+#    genre includes "techno" ||
+#    artist includes "zombie"
+# }
+#
+# This would match songs by "Rob Zombie" or "White Zombie",
+# as well as those with a genre of "Techno-Industrial" or
+# "Trance/Techno", for example.
+#
+# I expect that this language will grow over time.  If you want
+# to hack on it, see src/lexer.l, src/parser.y, and src/playlist.c
+#
+
+"60's Music" {
+	Year > 1959 && Year < 1970
+}
+
+"70's Music" {
+	Year > 1969 && Year < 1980
+}
+
+"80's Music" {
+	Year > 1979 && Year < 1990
+}
+
+"90's Music" {
+	Year > 1989 && Year < 2000
+}
+
+"00's Music" {
+	Year > 1999
+}
+

@@ -7,10 +7,12 @@ Group: Development/Networking
 URL: http://www.pedde.com/downloads/%{name}-%{version}.tar.gz
 Source0: %{name}-%{version}.tar.gz
 BuildRoot: %{_tmppath}/%{name}-%{version}-%{release}-buildroot
+Requires: howl libid3tag
+BuildRequires: libid3tag-devel
 
 %description
 A multi-threaded implementation of Apple's DAAP server, mt-daapd
-allows a linux machine to advertise MP3 files to to used by 
+allows a Linux machine to advertise MP3 files to to used by 
 Windows or Mac iTunes clients.
 %prep
 %setup -q
@@ -24,6 +26,8 @@ rm -rf $RPM_BUILD_ROOT
 make install
 mkdir -p $RPM_BUILD_ROOT/etc/init.d
 cp contrib/mt-daapd $RPM_BUILD_ROOT/etc/init.d
+cp contrib/mt-daapd.conf $RPM_BUILD_ROOT/etc
+cp contrib/mt-daapd.playlist $RPM_BUILD_ROOT/etc
 
 %post
 /sbin/chkconfig --add mt-daapd
@@ -33,6 +37,10 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,-)
+/etc/*
+/usr/sbin/*
+/usr/share/mt-daapd/*
+
 %doc
 
 

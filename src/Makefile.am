@@ -7,7 +7,7 @@ AM_YFLAGS=-d
 sbin_PROGRAMS = mt-daapd
 
 if COND_REND_POSIX
-RENDSRC=mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c mdns/mDNSUNP.c rend-posix.c
+RENDSRC=mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c mdns/mDNSUNP.c rend-posix.c mdns/mDNSPlatformFunctions.h
 endif
 
 if COND_REND_HOWL
@@ -25,6 +25,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	lexer.l parser.y $(RENDSRC)
 
 EXTRA_DIST = mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c \
-	mdns/mDNSUNP.c rend-howl.c rend-posix.c rend-osx.c
+	mdns/mDNSUNP.c mdns/mDNSPlatformFunctions.h mdns/mDNSPosix.h mdns/mDNSUNP.h \
+	rend-howl.c rend-posix.c rend-osx.c
 
 
