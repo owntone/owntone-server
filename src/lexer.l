@@ -40,6 +40,7 @@ qstring \"[^\"\n]*[\"\n]
 %%
 
 [\n\t ]+
+\#.*\n
 
 artist                   { yylval.ival=ARTIST; return(ARTIST); }
 album                    { yylval.ival=ALBUM; return(ALBUM); }
