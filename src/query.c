@@ -129,7 +129,7 @@ char *query_build_sql(char *query) {
 
 query_node_t* query_build(const char* query) {
     query_node_t*	left = 0;
-    char*		raw = query_unescape(query);
+    char*		raw = (char*)query; //query_unescape(query); 
     const char*		cursor = raw;
     query_node_t*	right = 0;
     query_type_t	join;
