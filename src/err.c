@@ -118,7 +118,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
  
     err_lock_mutex(); /* atomic file writes */
 
-    if((!level) && (err_logdestination != LOGDEST_STDERR) && (!(cat && L_REND))) {
+    if((!level) && (err_logdestination != LOGDEST_STDERR) && (!(cat & L_REND))) {
 	fprintf(stderr,"%s",errbuf);
 	fprintf(stderr,"Aborting\n");
 	fflush(stderr); /* shouldn't have to do this? */
