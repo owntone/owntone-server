@@ -923,8 +923,14 @@ ENUMHANDLE db_playlist_items_enum_begin(int playlistid) {
  * Walk to the next entry
  */
 MP3FILE *db_enum(ENUMHANDLE *current) {
-    MP3HELPER*	helper = *(MP3HELPER**) current;
-    MP3RECORD*	record = helper->next;
+    MP3HELPER*	helper;
+    MP3RECORD*	record;
+
+    if(!current)
+	return 0;
+
+    helper = *(MP3HELPER**) current;
+    record = helper->next;
 
     if(helper->next == 0)
 	return 0;
@@ -963,8 +969,13 @@ int db_playlist_enum(ENUMHANDLE* handle) {
  * walk to the next entry
  */
 int db_playlist_items_enum(ENUMHANDLE* handle) {
-    DB_PLAYLISTENTRY **current = (DB_PLAYLISTENTRY**) handle;
+    DB_PLAYLISTENTRY **current;
     int retval;
+
+    if(!handle)
+	return -1;
+
+    current = (DB_PLAYLISTENTRY**) handle;
 
     if(*current) {
 	retval = (*current)->id;

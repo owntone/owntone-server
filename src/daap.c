@@ -897,8 +897,10 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 	henum=db_playlist_items_enum_begin(playlist);
     }
 
+    /* we can allow an empty playlist... 
     if(!henum)
 	return NULL;
+    */
 
     root=daap_add_empty(NULL,"apso");
     if(root) {
