@@ -292,8 +292,8 @@ int db_open(char *parameters, int reload) {
     db_gdbmunlock();
 
     if(!db_songs) {
-	DPRINTF(E_FATAL,L_DB,"Could not open songs database (%s)\n",
-		db_path);
+	DPRINTF(E_FATAL,L_DB,"Could not open songs database (%s): %s\n",
+		db_path,strerror(errno));
 	return -1;
     }
 
