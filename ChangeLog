@@ -1,3 +1,24 @@
+2004-03-03    <ron@hafnium.corbey.com>
+
+	* src/db-gdbm.c: Add gdbm backed database
+
+2004-03-01
+
+	* src/rend-posix.c: merge Apple's Rendezvous drop 58.3 (bug #902244)
+	
+2004-02-24    <ron@mac-laptop>
+
+	* src/db-memory.c: code cleanups from David Imhoff
+	* contrib/mt-daapd: fix init script (bug #902248)
+
+2004-02-18    <ron@hafnium.corbey.com>
+
+	* src/mp3-scanner.c: Support TPOS tag (feature #898348)
+
+2004-02-09    <ron@hafnium.corbey.com>
+
+	* src/mp3-scanner.c: Fix for genre > 148 (bug #900664)
+	
 2004-01-29    <ron@hafnium.corbey.com>
 
 	* Bump version number to 0.1.1
