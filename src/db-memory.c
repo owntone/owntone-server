@@ -130,11 +130,26 @@ int db_init(char *parameters) {
  */
 int db_deinit(void) {
     MP3RECORD *current;
+    DB_PLAYLIST *plist;
+    DB_PLAYLISTENTRY *pentry;
 
     while(db_root.next) {
 	current=db_root.next;
 	db_root.next=current->next;
 	db_freerecord(current);
+    }
+
+    while(db_playlists.next) {
+	plist=db_playlists.next;
+	db_playlists.next=plist->next;
+	free(plist->name);
+	/* free all the nodes */
+	while(plist->nodes) {
+	    pentry=plist->nodes;
+	    plist->nodes = pentry->next;
+	    free(pentry);
+	}
+	free(plist);
     }
 
     return 0;
@@ -214,7 +229,8 @@ int db_add_playlist(unsigned int playlistid, char *name) {
 	return -1;
     }
 
-    db_playlist_count++;
+    /* we'll update playlist count when we add a song! */
+    //    db_playlist_count++;
     pnew->next=db_playlists.next;
     db_playlists.next=pnew;
 
@@ -263,6 +279,9 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
 	free(pnew);
 	return -1;
     }
+
+    if(!current->songs)
+	db_playlist_count++;
 
     current->songs++;
     pnew->next = current->nodes;
@@ -390,6 +409,7 @@ MP3RECORD *db_enum_begin(void) {
  */
 DB_PLAYLIST *db_playlist_enum_begin(void) {
     int err;
+    DB_PLAYLIST *current;
 
     if(err=pthread_rwlock_rdlock(&db_rwlock)) {
 	log_err(0,"Cannot lock rwlock\n");
@@ -397,7 +417,12 @@ DB_PLAYLIST *db_playlist_enum_begin(void) {
 	return NULL;
     }
 
-    return db_playlists.next;
+    /* find first playlist with a song in it! */
+    current=db_playlists.next;
+    while(current && (!current->songs))
+	current=current->next;
+
+    return current;
 }
 
 /*
@@ -418,7 +443,7 @@ DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid) {
 
     current=db_playlists.next;
     while(current && (current->id != playlistid))
-	current++;
+	current=current->next;
     
     if(!current)
 	return NULL;
@@ -450,10 +475,16 @@ MP3FILE *db_enum(MP3RECORD **current) {
  */
 int db_playlist_enum(DB_PLAYLIST **current) {
     int retval;
+    DB_PLAYLIST *p;
 
     if(*current) {
 	retval = (*current)->id;
-	*current=(*current)->next;
+	p=*current;
+	p=p->next;
+	while(p && (!p->songs))
+	    p=p->next;
+
+	*current=p;
 	return retval;
     }
     return -1;
