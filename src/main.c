@@ -349,8 +349,8 @@ int main(int argc, char *argv[]) {
 
     printf("Done... starting server\n");
 
-    db_add_playlist(27,"foo");
-    db_add_playlist_song(27,941027);
+    //    db_add_playlist(27,"foo");
+    //    db_add_playlist_song(27,941027);
 
     /* start up the web server */
     ws_config.web_root=config.web_root;
