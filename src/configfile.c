@@ -49,6 +49,7 @@ void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 int config_mutex_lock(void);
 int config_mutex_unlock(void);
@@ -83,6 +84,7 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"ispage",(void*)NULL,config_emit_ispage },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"session-count",(void*)NULL,config_emit_session_count },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"service-status",(void*)NULL,config_emit_service_status },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"user",(void*)NULL,config_emit_user },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -600,6 +602,18 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
 
     if(false)
 	free(false);
+}
+
+/*
+ * config_emit_user
+ *
+ * Throw out the username
+ */
+void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg) {
+    if(ws_getvar(pwsc, "HTTP_USER")) {
+	ws_writefd(pwsc,"%s",ws_getvar(pwsc, "HTTP_USER"));
+    }
+    return;
 }
 
 /*
