@@ -58,6 +58,8 @@ extern int db_playlist_items_enum_end(ENUMHANDLE handle);
 
 extern char *db_get_playlist_name(int playlistid);
 
+extern int db_scanning(void);
+
 /* For persistant databases only */
 extern int db_exists(int id);
 extern int db_last_modified(int id);
