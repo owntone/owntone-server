@@ -9,7 +9,7 @@ AM_INIT_AUTOMAKE(mt-daapd,0.1.0)
 dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_YACC
-AC_PROG_LEX
+AM_PROG_LEX
 
 AC_CANONICAL_HOST
 
