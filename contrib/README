@@ -2,13 +2,14 @@
 
 In here goes stuff that anyone wants to send... add-ons, unsupported patches, etc.
 
+
 mt-daapd.conf.........: an example config
 mt-daapd.playlist.....: an example playlist
 
 mt-daapd..............: an init.d script, suitable for redhat
 mt-daapd-gentoo.......: an init.d script, suitable for gentoo
 
-mt-daapd-ssc-script...: a transcoding script, using perl
+mt-daapd-ssc.pl.......: a transcoding script, using perl
 mt-daapd-ssc.sh.......: a transcoding script, using shell
 
 mt-daapd.spec.........: a specfile, without ogg-vorbis or howl
