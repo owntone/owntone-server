@@ -1,14 +1,21 @@
-<HTML>
-  <HEAD>
-    <TITLE>mt-daapd administration</TITLE>
-  </HEAD>
-  <BODY>
-    <h1>Configuration Updated</h1>
-    <B>Web Root:</B> @WEB_ROOT@<BR>
-    <B>MP3 Dir:</B> @MP3DIR@<BR>
-    <B>Port:</B> @PORT@<BR>
-    <B>Admin Password:</B> @ADMINPW@
-    <HR>
-    <i>@RELEASE@</i>
-  </BODY>
-</HTML>
+@include hdr.html@
+
+<h1>Configuration Updated</h1>
+
+<div class="stx">
+
+<TABLE>
+<TR><TH>Web Root</TH><TD>@WEB_ROOT@</TD></TR>
+<TR><TH>MP3 Dir</TH><TD>@MP3_DIR@</TD></TR>
+<TR><TH>Port</TH><TD>@PORT@</TD></TR>
+<TR><TH>Admin Password</TH><TD>@ADMIN_PW@</TD></TR>
+</TABLE>
+
+<BR>
+
+@SERVICE-STATUS@
+
+</div>
+
+@include ftr.html@
+
