@@ -276,7 +276,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		ws_emitheaders(pwsc);
 
 		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
-		DPRINTF(ERR_LOG,"Session %d: Streaming %s to %s\n",session_id,
+		DPRINTF(ERR_LOG,"Session %d: Streaming file '%s' to %s\n",session_id,
 			pmp3->fname, pwsc->hostname);
 
 		config.stats.songs_served++; /* FIXME: remove stat races */

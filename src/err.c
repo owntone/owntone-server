@@ -88,8 +88,8 @@ void log_err(int level, char *fmt, ...)
 	tt_now=time(NULL);
 	gmtime_r(&tt_now,&tm_now);
 	strftime(timebuf,sizeof(timebuf),"%F %T",&tm_now);
-	fprintf(err_file,"%s %s: ",timebuf,errbuf);
-	if(!level) fprintf(err_file,"%s %s: Aborting\n");
+	fprintf(err_file,"%s: %s",timebuf,errbuf);
+	if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
 	fflush(err_file);
 	break;
     case LOGDEST_STDERR:
@@ -127,7 +127,7 @@ void log_setdest(char *app, int destination) {
 
     switch(destination) {
     case LOGDEST_LOGFILE:
-	err_file=fopen(app,"w+");
+	err_file=fopen(app,"a");
 	if(err_file==NULL) {
 	    fprintf(stderr,"Error opening %s: %s\n",app,strerror(errno));
 	    exit(EXIT_FAILURE);
