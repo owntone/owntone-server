@@ -104,7 +104,7 @@ int db_sqlite_exec(int loglevel, char *fmt, ...) {
     db_sqlite_unlock();
 
     if(err != SQLITE_OK) {
-	DPRINTF(loglevel,L_DB,"Query: %s\n",query);
+	DPRINTF(loglevel == E_FATAL ? E_LOG : loglevel,L_DB,"Query: %s\n",query);
         DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
 	db_sqlite_lock();
 	sqlite_freemem(query);
@@ -138,7 +138,7 @@ int db_sqlite_get_table(int loglevel, char ***resarray, int *rows, int *cols, ch
     db_sqlite_unlock();
 
     if(err != SQLITE_OK) {
-	DPRINTF(loglevel,L_DB,"Query: %s\n",query);
+	DPRINTF(loglevel == E_FATAL ? E_LOG : loglevel,L_DB,"Query: %s\n",query);
         DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
 	db_sqlite_lock();
 	sqlite_freemem(query);
@@ -1244,7 +1244,7 @@ char *db_sqlite_upgrade_scripts[] = {
     "   sample_count    INTEGER DEFAULT 0,\n"
     "   force_update	INTEGER DEFAULT 0\n"
     ");\n"
-    "CREATE INDEX idx_path ON songs(path)\n" 
+    "CREATE INDEX idx_path ON songs(path);\n" 
     "CREATE TABLE config (\n"
     "   term		VARCHAR(255)	NOT NULL,\n"
     "   subterm		VARCHAR(255)    DEFAULT NULL,\n"
