@@ -18,16 +18,12 @@ if COND_REND_OSX
 ORENDSRC=rend-osx.c
 endif
 
-if OPT_QUERY
-QUERYSRC = query.c query.h
-endif
-
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	daap-proto.c daap-proto.h daap.c daap.h db-gdbm.c db-memory.h \
 	mp3-scanner.h mp3-scanner.c playlist.c playlist.h rend-unix.c \
 	rend-unix.h lexer.l parser.y strcasestr.c strcasestr.h strsep.c \
-	redblack.c redblack.h dynamic-art.c dynamic-art.h \
+	redblack.c redblack.h dynamic-art.c dynamic-art.h query.c query.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(QUERYSRC)
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \

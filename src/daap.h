@@ -33,8 +33,6 @@ DAAP_BLOCK *daap_response_dbinfo(char *name);
 DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, char* query);
 void daap_handle_index(DAAP_BLOCK* block, const char* index);
 DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, unsigned long long meta);
-#ifdef OPT_BROWSE
 DAAP_BLOCK* daap_response_browse(const char* name, const char* filter);
-#endif
 
 #endif /* _DAAP_H_ */

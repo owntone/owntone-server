@@ -40,9 +40,7 @@
 #include "err.h"
 #include "daapd.h"
 
-#ifdef OPT_QUERY
 #include "query.h"
-#endif
 
 typedef struct tag_daap_items {
     int type;
@@ -138,7 +136,6 @@ DAAP_ITEMS taglist[] = {
 	{ 0x00, NULL,   NULL }
 };
 
-#ifdef OPT_QUERY
 #define OFFSET_OF(__type, __field)	((size_t) (&((__type*) 0)->__field))
 
 static query_field_t	song_fields[] = {
@@ -169,7 +166,6 @@ static query_field_t	song_fields[] = {
     { qft_i32,		"daap.songyear",	OFFSET_OF(MP3FILE, year) },
     { 0 }
 };
-#endif
 
 /* Forwards */
 
@@ -410,9 +406,8 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
     ENUMHANDLE henum;
     MP3FILE *current;
     MetaField_t meta;
-#ifdef OPT_QUERY
+
     query_node_t*	filter = 0;
-#endif
     int			songs = 0;
 
     // if the meta tag is specified, encode it, if it's not specified
@@ -423,7 +418,6 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
     else
 	meta = encodeMetaRequest(metaStr, gSongMetaDataMap);
 
-#ifdef OPT_QUERY
     if(0 != query)
     {
 	filter = query_build(query, song_fields);
@@ -433,7 +427,6 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
 	    query_dump(stderr, filter, 0);
 	}
     }
-#endif
 
     DPRINTF(ERR_DEBUG,"Preparing to send db items\n");
 
@@ -454,9 +447,7 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
 
 	if(mlcl) {
 	    while(g && (current=db_enum(&henum))) {
-#ifdef OPT_QUERY
 		if(filter == 0 || query_test(filter, current))
-#endif
 		{
 		    DPRINTF(ERR_DEBUG,"Got entry for %s\n",current->fname);
 		    // song entry generation extracted for usage with
@@ -470,10 +461,8 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
 
     db_enum_end(henum);
 
-#ifdef OPT_QUERY
     if(filter != 0)
 	query_free(filter);
-#endif
 
     if(!g) {
 	DPRINTF(ERR_DEBUG,"Error enumerating database\n");
@@ -819,12 +808,8 @@ DAAP_BLOCK *daap_response_server_info(char *name, char *client_version) {
 	g = g && daap_add_char(root,"msex",0); /* extensions */
 	g = g && daap_add_char(root,"msix",0); /* indexing? */
 
-#ifdef OPT_BROWSE
 	g = g && daap_add_char(root,"msbr",0); /* browsing */
-#endif
-#ifdef OPT_QUERY
 	g = g && daap_add_char(root,"msqy",0); /* queries */
-#endif
 
 	g = g && daap_add_char(root,"msup",0); /* update */
 
@@ -859,9 +844,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
     int itemid;
     int g=1;
     unsigned long long meta;
-#ifdef OPT_QUERY
     query_node_t*	filter = 0;
-#endif
     int			songs = 0;
 
     // if no meta information is specifically requested, return only
@@ -877,7 +860,6 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
     else
 	meta = encodeMetaRequest(metaStr, gSongMetaDataMap);
 
-#ifdef OPT_QUERY
     if(0 != query)
     {
 	filter = query_build(query, song_fields);
@@ -887,7 +869,6 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 	    query_dump(stderr, filter, 0);
 	}
     }
-#endif
 
     DPRINTF(ERR_DEBUG,"Preparing to send playlist items for pl #%d\n",playlist);
     
@@ -914,9 +895,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 	if(mlcl) {
 	    if(playlist == 1) {
 		while((current=db_enum(&henum))) {
-#ifdef OPT_QUERY
 		    if(0 == filter || query_test(filter, current))
-#endif
 		    {
 			songs++;
 			mlit=daap_add_song_entry(mlcl, current, meta);
@@ -930,10 +909,8 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 		while((itemid=db_playlist_items_enum(&henum)) != -1) {
 		    current = db_find(itemid);
 		    if(0 != current) {
-#ifdef OPT_QUERY
 			if(0 == filter || query_test(filter, current))
 			{
-#endif
 			    songs++;
 			    DPRINTF(ERR_DEBUG,"Adding itemid %d\n",itemid);
 			    mlit=daap_add_song_entry(mlcl,current,meta);
@@ -941,9 +918,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 				if(wantsMeta(meta, metaContainerItemId)) // current->id?
 				    g = g && daap_add_int(mlit,"mcti",playlist);
 			    } else g = 0;
-#ifdef OPT_QUERY
 			}
-#endif
 		    } else g = 0;
 		}
 	    }
@@ -955,10 +930,8 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
     else
 	db_playlist_items_enum_end(henum);
 
-#ifdef OPT_QUERY
     if(0 != filter)
 	query_free(filter);
-#endif
 
     if(!g) {
 	daap_free(root);
@@ -1105,7 +1078,6 @@ void daap_handle_index(DAAP_BLOCK* block, const char* index)
     }
 }
 
-#ifdef OPT_BROWSE
 typedef struct _browse_item browse_item;
 struct _browse_item
 {
@@ -1155,7 +1127,6 @@ static int count_browse_items(browse_item* root)
     return count;
 }
 
-#ifdef OPT_QUERY
 /* in theory each type of browse has a separate subset of these fields
    which can be used for filtering, but it's just not worth the effort
    and doesn't save anything */
@@ -1166,7 +1137,6 @@ static query_field_t browse_fields[] = {
     { qft_string,	"daap.songcomposer",	OFFSET_OF(MP3FILE, composer) },
     { 0 }
 };
-#endif
 
 DAAP_BLOCK* daap_response_browse(const char* name, const char* filter)
 {
@@ -1205,7 +1175,6 @@ DAAP_BLOCK* daap_response_browse(const char* name, const char* filter)
 	return NULL;
     }
 
-#ifdef OPT_QUERY
     if(0 != filter && 
        0 == (query = query_build(filter, browse_fields)))
 	return NULL;
@@ -1215,16 +1184,13 @@ DAAP_BLOCK* daap_response_browse(const char* name, const char* filter)
 	fprintf(stderr, "query: %s\n", query);
 	query_dump(stderr, query, 0);
     }
-#endif
 
     if(0 == (henum = db_enum_begin()))
 	return NULL;
 
     while((current = db_enum(&henum)))
     {
-#ifdef OPT_QUERY
 	if(0 == query || query_test(query, current))
-#endif
 	{
 	    char*	name = * (char**) ((size_t) current + field);
 
@@ -1255,24 +1221,19 @@ DAAP_BLOCK* daap_response_browse(const char* name, const char* filter)
 
     free_browse_items(items);
 
-#ifdef OPT_QUERY
     if(0 != query)
 	query_free(query);
-#endif
 
     return root;
 
  error:
     free_browse_items(items);
 
-#ifdef OPT_QUERY
     if(0 != query)
 	query_free(query);
-#endif
 
     if(root != 0)
 	daap_free(root);
 
     return NULL;
 }
-#endif

@@ -234,14 +234,12 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		free(uri);
 		root=daap_response_playlists(config.servername);
 		config_set_status(pwsc,session_id,"Sending playlist info");
-#ifdef OPT_BROWSE
 	    } else if (strncasecmp(last,"browse/",7)==0) {
 		config_set_status(pwsc,session_id,"Compiling browse info");
 		root = daap_response_browse(last + 7, 
 					    ws_getvar(pwsc, "filter"));
 		config_set_status(pwsc,session_id,"Sending browse info");
 		free(uri);
-#endif
 	    }
 	}
 
