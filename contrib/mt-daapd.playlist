@@ -22,6 +22,7 @@
 #   Grouping (string) -- I don't even know what this is...
 #   Year (int)
 #   BPM (int)
+#   Bitrate (int)
 #
 # Valid operators include:
 #   is, includes (string)
