@@ -52,6 +52,10 @@ void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3);
 int db_sqlite_exec(int fatal, char *fmt, ...);
 int db_sqlite_get_table(int fatal, char ***resarray, int *rows, int *cols, char *fmt, ...);
 int db_sqlite_free_table(char **resarray);
+int db_sqlite_update(MP3FILE *pmp3);
+int db_sqlite_update_version(int from_version);
+int db_sqlite_get_version(void);
+int db_sqlite_update_playlists(void);
 
 #define STR(a) (a) ? (a) : ""
 #define MAYBEFREE(a) { if((a)) free((a)); };
@@ -104,7 +108,8 @@ int db_sqlite_exec(int fatal, char *fmt, ...) {
 	if(!fatal)
 	    loglevel=E_LOG;
 
-	DPRINTF(loglevel,L_DB,"Query: %s Error: %s\n",query,perr);
+	DPRINTF(E_LOG,L_DB,"Query: %s\n",query);
+        DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
 	db_sqlite_lock();
 	sqlite_freemem(query);
 	db_sqlite_unlock();
@@ -185,6 +190,8 @@ int db_sqlite_open(char *parameters) {
 int db_sqlite_init(int reload) {
     int items;
 
+    db_sqlite_update_version(db_sqlite_get_version());
+
     items=db_sqlite_get_count(countSongs);
 
     if((reload) || (!items)) {
@@ -240,6 +247,8 @@ int db_sqlite_end_scan(void) {
 	db_sqlite_exec(1,"DELETE FROM songs WHERE id NOT IN (SELECT id FROM updated)");
 	db_sqlite_exec(1,"DROP TABLE updated");
     }
+
+    db_sqlite_update_playlists();
 
     db_sqlite_reload=0;
     db_sqlite_in_scan=0;
@@ -352,6 +361,9 @@ int db_sqlite_add(MP3FILE *pmp3) {
 	db_sqlite_exec(1,"INSERT INTO updated VALUES (last_insert_rowid())");
     }
 
+    if(!db_sqlite_in_scan) 
+	db_sqlite_update_playlists();
+
     DPRINTF(E_SPAM,L_DB,"Exiting db_sqlite_add\n");
     return 0;
 }
@@ -430,6 +442,9 @@ int db_sqlite_update(MP3FILE *pmp3) {
 		       pmp3->path);
     }
 
+    if(!db_sqlite_in_scan) 
+	db_sqlite_update_playlists();
+
     return 0;
 }
 
@@ -446,7 +461,7 @@ int db_sqlite_update_playlists(void) {
     for(index=1;index <= rows; index ++) {
 	DPRINTF(E_DBG,L_DB,"Updating playlist counts for %s\n",resarray[cols * index + 1]);
 	if(atoi(resarray[cols * index + 2])) { // is a smart playlist
-	    db_sqlite_exec(1,"UPDATE playlsits SET items=(SELECT COUNT(*) "
+	    db_sqlite_exec(1,"UPDATE playlists SET items=(SELECT COUNT(*) "
 			   "FROM songs WHERE %s) WHERE id=%s",resarray[cols * index + 4],
 			   resarray[cols * index]);
 	} else {
@@ -481,7 +496,7 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
     char **resarray;
     int rows, cols;
     int browse=0;
-    int results;
+    int results=0;
     
     const char *ptail;
 
@@ -568,36 +583,32 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
 	strcat(query_rest,")");
     }
 
-    /* find out how many hits */
-    strcpy(scratch,query_count);
-    strcat(scratch,query_rest);
-    if(browse) 
-	strcat(scratch,")");
 
-    DPRINTF(E_DBG,L_DB,"result count query: %s\n",scratch);
+    if(pinfo->index_type == indexTypeLast) {
+	/* We don't really care how many items unless we are
+	 * doing a "last n items" query */
+	strcpy(scratch,query_count);
+	strcat(scratch,query_rest);
+	if(browse) 
+	    strcat(scratch,")");
 
-    db_sqlite_lock();
-    err=sqlite_get_table(db_sqlite_songs,scratch,&resarray,&rows,&cols,&perr);
-    if(err != SQLITE_OK) {
-	db_sqlite_unlock();
-	DPRINTF(E_LOG,L_DB,"Error in results query: %s\n",perr);
-	return -1;
-    }
+	DPRINTF(E_DBG,L_DB,"result count query: %s\n",scratch);
 
-    results=atoi(resarray[1]);
-    sqlite_free_table(resarray);
-    db_sqlite_unlock();
-
-    /* update the playlist counts */
-    if(pinfo->query_type == queryTypePlaylistItems) {
-	sprintf(scratch,"UPDATE playlists SET items=%d WHERE id=%d",
-		results,pinfo->playlist_id);
 	db_sqlite_lock();
-	sqlite_exec(db_sqlite_songs,scratch,NULL,NULL,&perr);
+	err=sqlite_get_table(db_sqlite_songs,scratch,&resarray,&rows,&cols,&perr);
+	if(err != SQLITE_OK) {
+	    db_sqlite_unlock();
+	    DPRINTF(E_LOG,L_DB,"Error in results query: %s\n",perr);
+	    return -1;
+	}
+
+
+	results=atoi(resarray[1]);
+	sqlite_free_table(resarray);
 	db_sqlite_unlock();
+
+	DPRINTF(E_DBG,L_DB,"Number of results: %d\n",results);
     }
-    
-    DPRINTF(E_DBG,L_DB,"Number of results: %d\n",results);
 
     strcpy(query,query_select);
     strcat(query,query_rest);
@@ -611,7 +622,7 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
 	if(pinfo->index_low >= results) {
 	    sprintf(scratch," LIMIT %d",pinfo->index_low); /* unnecessary */
 	} else {
-	    sprintf(scratch," LIMIT %d OFFSET %d",pinfo->index_low, results=pinfo->index_low);
+	    sprintf(scratch," LIMIT %d OFFSET %d",pinfo->index_low, results-pinfo->index_low);
 	}
 	break;
     case indexTypeSub:
@@ -1088,7 +1099,7 @@ void db_sqlite_dispose_item(MP3FILE *pmp3) {
  *
  * \param type either countPlaylists or countSongs (type to count)
  */
-extern int db_sqlite_get_count(CountType_t type) {
+int db_sqlite_get_count(CountType_t type) {
     char *table;
     int rows, cols;
     char **resarray;
@@ -1114,3 +1125,104 @@ extern int db_sqlite_get_count(CountType_t type) {
     db_sqlite_free_table(resarray);
     return retval;
 }
+
+/**
+ * get the database version of the currently opened database
+ */
+int db_sqlite_get_version(void) {
+    int rows, cols;
+    char **resarray;
+    int retval=0;
+    
+    db_sqlite_get_table(0,&resarray, &rows, &cols,
+			"select value from config where term='version'");
+
+    if(rows != 0) {
+	retval=atoi(resarray[cols]);
+    }
+
+    db_sqlite_free_table(resarray);
+    return retval;
+}
+
+
+char *db_sqlite_upgrade_scripts[] = {
+    "CREATE TABLE songs (\n"
+    "   id		INTEGER PRIMARY KEY NOT NULL,\n"
+    "   path		VARCHAR(4096) UNIQUE NOT NULL,\n"
+    "   fname		VARCHAR(255) NOT NULL,\n"
+    "   title		VARCHAR(1024) DEFAULT NULL,\n"
+    "   artist 		VARCHAR(1024) DEFAULT NULL,\n"
+    "   album		VARCHAR(1024) DEFAULT NULL,\n"
+    "   genre		VARCHAR(255) DEFAULT NULL,\n"
+    "   comment 	VARCHAR(4096) DEFAULT NULL,\n"
+    "   type		VARCHAR(255) DEFAULT NULL,\n"
+    "   composer	VARCHAR(1024) DEFAULT NULL,\n"
+    "   orchestra	VARCHAR(1024) DEFAULT NULL,\n"
+    "   conductor	VARCHAR(1024) DEFAULT NULL,\n"
+    "   grouping	VARCHAR(1024) DEFAULT NULL,\n"
+    "   url		VARCHAR(1024) DEFAULT NULL,\n"
+    "   bitrate		INTEGER DEFAULT 0,\n"
+    "   samplerate	INTEGER DEFAULT 0,\n"
+    "   song_length	INTEGER DEFAULT 0,\n"
+    "   file_size	INTEGER DEFAULT 0,\n"
+    "   year		INTEGER DEFAULT 0,\n"
+    "   track		INTEGER DEFAULT 0,\n"
+    "   total_tracks	INTEGER DEFAULT 0,\n"
+    "   disc		INTEGER DEFAULT 0,\n"
+    "   total_discs	INTEGER DEFAULT 0,\n"
+    "   bpm		INTEGER DEFAULT 0,\n"
+    "   compilation	INTEGER DEFAULT 0,\n"
+    "   rating		INTEGER DEFAULT 0,\n"
+    "   play_count	INTEGER DEFAULT 0,\n"
+    "   data_kind	INTEGER DEFAULT 0,\n"
+    "   item_kind	INTEGER DEFAULT 0,\n"
+    "   description	INTEGER DEFAULT 0,\n"
+    "   time_added	INTEGER DEFAULT 0,\n"
+    "   time_modified	INTEGER DEFAULT 0,\n"
+    "   time_played	INTEGER	DEFAULT 0,\n"
+    "   db_timestamp	INTEGER DEFAULT 0,\n"
+    "   disabled        INTEGER DEFAULT 0,\n"
+    "   sample_count    INTEGER DEFAULT 0,\n"
+    "   force_update	INTEGER DEFAULT 0\n"
+    ");\n"
+    "CREATE TABLE config (\n"
+    "   term		VARCHAR(255)	NOT NULL,\n"
+    "   subterm		VARCHAR(255)    DEFAULT NULL,\n"
+    "   value		VARCHAR(1024)	NOT NULL\n"
+    ");\n"
+    "CREATE TABLE playlists (\n"
+    "   id    	       INTEGER PRIMARY KEY NOT NULL,\n"
+    "   title	       VARCHAR(255) NOT NULL,\n"
+    "   smart	       INTEGER NOT NULL,\n"
+    "   items	       INTEGER NOT NULL,\n"
+    "   query	       VARCHAR(1024)\n"
+    ");\n"
+    "CREATE TABLE playlistitems (\n"
+    "   id              INTEGER NOT NULL,\n"
+    "   songid	       INTEGER NOT NULL\n"
+    ");\n"
+    "INSERT INTO config VALUES ('version','','1');\n"
+    "INSERT INTO playlists VALUES (1,'Library',1,0,'1');\n", /* Version 0 -> Version 1 */
+    NULL /* No more versions! */
+};
+
+/**
+ * Upgrade database from an older version of the database to the newest
+ *
+ * \param from_version the current version of the database
+ */
+int db_sqlite_update_version(int from_version) {
+    
+    while(db_sqlite_upgrade_scripts[from_version]) {
+	DPRINTF(E_LOG,L_DB,"Upgrading database from version %d to version %d\n",from_version,
+		from_version+1);
+	db_sqlite_exec(1,db_sqlite_upgrade_scripts[from_version]);
+	from_version++;
+    }
+
+    return 0;
+}
+
+
+

@@ -100,7 +100,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
 {
     va_list ap;
     char timebuf[256];
-    char errbuf[1024];
+    char errbuf[4096];
     struct tm tm_now;
     time_t tt_now;
 

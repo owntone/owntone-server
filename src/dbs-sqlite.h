@@ -26,7 +26,6 @@ extern int db_sqlite_open(char *parameters);
 extern int db_sqlite_init(int reload);
 extern int db_sqlite_deinit(void);
 extern int db_sqlite_add(MP3FILE *pmp3);
-extern int db_sqlite_update(MP3FILE *pmp3);
 extern int db_sqlite_enum_start(DBQUERYINFO *pinfo);
 extern int db_sqlite_enum_size(DBQUERYINFO *pinfo, int *count);
 extern int db_sqlite_enum_fetch(DBQUERYINFO *pinfo, unsigned char **pdmap);

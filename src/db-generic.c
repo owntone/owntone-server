@@ -46,7 +46,6 @@ typedef struct tag_db_functions {
     int(*dbs_init)(int);
     int(*dbs_deinit)(void);
     int(*dbs_add)(MP3FILE*);
-    int(*dbs_update)(MP3FILE*);
     int(*dbs_enum_start)(DBQUERYINFO *);
     int(*dbs_enum_size)(DBQUERYINFO *, int *);
     int(*dbs_enum_fetch)(DBQUERYINFO *, unsigned char **);
@@ -69,7 +68,6 @@ DB_FUNCTIONS db_functions[] = {
 	db_sqlite_init,
 	db_sqlite_deinit,
 	db_sqlite_add,
-	db_sqlite_update,
 	db_sqlite_enum_start,
 	db_sqlite_enum_size,
 	db_sqlite_enum_fetch,
