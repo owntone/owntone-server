@@ -311,7 +311,8 @@ int config_write(WS_CONNINFO *pwsc) {
     fprintf(configfile,"servername\t%s\n",ws_getvar(pwsc,"servername"));
     fprintf(configfile,"runas\t\t%s\n",ws_getvar(pwsc,"runas"));
     fprintf(configfile,"playlist\t%s\n",ws_getvar(pwsc,"playlist"));
-    fprintf(configfile,"password\t%s\n",ws_getvar(pwsc,"password"));
+    if(ws_getvar(pwsc,"password") && strlen(ws_getvar(pwsc,"password")))
+	fprintf(configfile,"password\t%s\n",ws_getvar(pwsc,"password"));
     fprintf(configfile,"extensions\t%s\n",ws_getvar(pwsc,"extensions"));
     fprintf(configfile,"db_dir\t\t%s\n",ws_getvar(pwsc,"db_dir"));
     fprintf(configfile,"rescan_interval\t%s\n",ws_getvar(pwsc,"rescan_interval"));
