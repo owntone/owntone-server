@@ -34,6 +34,7 @@
 #include "db-memory.h"
 #include "err.h"
 #include "mp3-scanner.h"
+#include "playlist.h"
 
 /*
  * Typedefs
@@ -352,6 +353,7 @@ int scan_foreground(char *path) {
 		    if(!scan_gettags(mp3file.path,&mp3file) && 
 		       !scan_getfileinfo(mp3file.path,&mp3file)) {
 			db_add(&mp3file);
+			pl_eval(&mp3file);
 		    } else {
 			DPRINTF(ERR_INFO,"Skipping %s\n",de.d_name);
 		    }
