@@ -98,6 +98,7 @@ int rend_running(void) {
     int result;
 
     DPRINTF(ERR_DEBUG,"Status inquiry\n");
+    memset((void*)&msg,0x00,sizeof(msg));
     msg.cmd=REND_MSG_TYPE_STATUS;
     result=rend_send_message(&msg);
     DPRINTF(ERR_DEBUG,"Returning status %d\n",result);

@@ -33,6 +33,7 @@ typedef struct tag_stats {
 typedef struct tag_config {
     int use_mdns;
     int stop;
+    int reload;
     char *configfile;
     char *web_root;
     int port;

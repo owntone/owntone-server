@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.18  2004/04/19 06:19:46  rpedde
+  Starting to fix signal stuff
+
   Revision 1.17  2004/03/29 19:44:58  rpedde
   Move mdns stuff out of mdns subdir to help compile on older automakes
 
@@ -437,6 +440,7 @@ int rend_private_init(char *user) {
 
     signal(SIGINT,  HandleSigInt);      // SIGINT is what you get for a Ctrl-C
     signal(SIGQUIT, HandleSigQuit);     // SIGQUIT is what you get for a Ctrl-\ (indeed)
+    signal(SIGHUP,  SIG_IGN);           // SIGHUP might happen from a request to reload the daap server
 
     while (!gStopNow) {
 	int nfds = 1;

@@ -318,6 +318,11 @@ int scan_path(char *path) {
     }
 
     while(1) {
+	if(config.stop) {
+	    DPRINTF(ERR_WARN,"Stop detected.  Aborting scan of %s.\n",path);
+	    return 0;
+	}
+
 	pde=(struct dirent *)&de;
 
 	err=readdir_r(current_dir,(struct dirent *)de,&pde);

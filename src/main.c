@@ -432,6 +432,74 @@ int drop_privs(char *user) {
     return 0;
 }
 
+/*
+ * signal_handler
+ *
+ * This thread merely spins waiting for signals
+ */
+void *signal_handler(void *arg) {
+    int error;
+    sigset_t intmask;
+    int sig;
+
+    config.stop=0;
+    config.reload=0;
+
+    DPRINTF(ERR_WARN,"Signal handler started\n");
+
+    while(!config.stop) {
+	if((sigemptyset(&intmask) == -1) ||
+	   (sigaddset(&intmask, SIGINT) == -1) ||
+	   (sigaddset(&intmask, SIGHUP) == -1) ||
+	   (sigwait(&intmask, &sig) == -1)) {
+	    DPRINTF(ERR_FATAL,"Error waiting for signals.  Aborting\n");
+	} else {
+	    /* process the signal */
+	    switch(sig) {
+	    case SIGINT:
+		DPRINTF(ERR_LOG,"Got INT signal.  Notifying daap server.\n");
+		config.stop=1;
+		return NULL;
+		break;
+	    case SIGHUP:
+		DPRINTF(ERR_LOG,"Got HUP signal. Notifying daap server.\n");
+		config.reload=1;
+		break;
+	    }
+	}
+    }    
+
+    return NULL;
+}
+
+/*
+ * start_signal_handler
+ *
+ * Block signals and set up the signal handler
+ */
+int start_signal_handler(void) {
+    int error;
+    sigset_t set;
+    pthread_t handler_tid;
+
+    if((sigemptyset(&set) == -1) ||
+       (sigaddset(&set,SIGINT) == -1) ||
+       (sigaddset(&set,SIGHUP) == -1) ||
+       (sigprocmask(SIG_BLOCK, &set, NULL) == -1)) {
+	DPRINTF(ERR_LOG,"Error setting signal set\n");
+	return -1;
+    }
+
+    if(error=pthread_create(&handler_tid, NULL, signal_handler, NULL)) {
+	errno=error;
+	DPRINTF(ERR_LOG,"Error creating signal_handler thread\n");
+	return -1;
+    }
+
+    pthread_detach(handler_tid);
+    return 0;
+}
+
 int main(int argc, char *argv[]) {
     int option;
     char *configfile=DEFAULT_CONFIGFILE;
@@ -491,9 +559,6 @@ int main(int argc, char *argv[]) {
 	}
     }
 
-    /* block signals and set up the signal handling thread */
-
-
 
     if((config.use_mdns) && (!parseonly)) {
 	DPRINTF(ERR_LOG,"Starting rendezvous daemon\n");
@@ -502,7 +567,6 @@ int main(int argc, char *argv[]) {
 	}
     }
 
-
     if(db_open(config.dbdir)) {
 	DPRINTF(ERR_FATAL,"Error in db_open: %s\n",strerror(errno));
     }
@@ -510,6 +574,12 @@ int main(int argc, char *argv[]) {
     // Drop privs here
     if(drop_privs(config.runas)) {
 	DPRINTF(ERR_FATAL,"Error in drop_privs: %s\n",strerror(errno));
+    }
+
+    /* block signals and set up the signal handling thread */
+    DPRINTF(ERR_LOG,"Starting signal handler\n");
+    if(start_signal_handler()) {
+	DPRINTF(ERR_FATAL,"Error starting signal handler %s\n",strerror(errno));
     }
 
     DPRINTF(ERR_LOG,"Loading playlists\n");
@@ -574,8 +644,13 @@ int main(int argc, char *argv[]) {
 
     config.stop=0;
 
-    while(!config.stop)
+    while(!config.stop) {
+	if(config.reload) {
+	    config.reload=0;
+	    DPRINTF(ERR_LOG,"Reloading configuration\n");
+	}
 	sleep(10);
+    }
 
     DPRINTF(ERR_LOG,"Stopping gracefully\n");
 
