@@ -184,6 +184,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
     off_t real_len;
     off_t file_len;
 
+    int bytes_copied=0;
+
     close=pwsc->close;
     pwsc->close=1;  /* in case we have any errors */
     root=NULL;
@@ -434,10 +436,14 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		    lseek(file_fd,offset,SEEK_SET);
 		}
 		
-		if(copyfile(file_fd,pwsc->fd)) {
+		if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
 		    DPRINTF(E_INF,L_WS,"Error copying file to remote... %s\n",
 			    strerror(errno));
+		} else {
+		    DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
+			    bytes_copied);
 		}
+
 		config_set_status(pwsc,session_id,NULL);
 		r_close(file_fd);
 		db_dispose(pmp3);
