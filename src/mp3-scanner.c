@@ -21,6 +21,7 @@
 
 #include <dirent.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <id3tag.h>
 #include <limits.h>
 #include <stdio.h>
@@ -257,6 +258,10 @@ int scan_foreground(char *path) {
     struct dirent *pde;
     int err;
     char mp3_path[PATH_MAX];
+    char m3u_path[PATH_MAX];
+    char linebuffer[PATH_MAX];
+    int fd;
+    int playlistid;
     struct stat sb;
 
     if((current_dir=opendir(path)) == NULL) {
@@ -293,7 +298,42 @@ int scan_foreground(char *path) {
 	    DPRINTF(ERR_DEBUG,"Processing file\n");
 	    /* process the file */
 	    if(strlen(de.d_name) > 4) {
-		if(strcasecmp(".mp3",(char*)&de.d_name[strlen(de.d_name) - 4]) == 0) {
+		if(strcasecmp(".m3u",(char*)&de.d_name[strlen(de.d_name) - 4]) == 0) {
+		    /* we found an m3u file */
+
+		    DPRINTF(ERR_DEBUG,"Found m3u: %s\n",de.d_name);
+		    strcpy(m3u_path,de.d_name);
+		    m3u_path[strlen(de.d_name) - 4] = '\0';
+		    playlistid=sb.st_ino;
+		    fd=open(mp3_path,O_RDONLY);
+		    if(fd != -1) {
+			db_add_playlist(playlistid,m3u_path);
+
+			while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
+			    while(linebuffer[strlen(linebuffer)-1] == '\n')
+				linebuffer[strlen(linebuffer)-1] = '\0';
+
+			    if((linebuffer[0] == ';') || (linebuffer[0] == '#'))
+				continue;
+
+			    /* otherwise, assume it is a path */
+			    if(linebuffer[0] == '/') {
+				strcpy(m3u_path,linebuffer);
+			    } else {
+				snprintf(m3u_path,sizeof(m3u_path),"%s/%s",path,linebuffer);
+			    }
+
+			    DPRINTF(ERR_DEBUG,"Checking %s\n",m3u_path);
+
+			    /* might be valid, might not... */
+			    if(!stat(m3u_path,&sb)) {
+				/* FIXME: check to see if valid inode! */
+				db_add_playlist_song(playlistid,sb.st_ino);
+			    }
+			}
+			close(fd);
+		    }
+		} else if(strcasecmp(".mp3",(char*)&de.d_name[strlen(de.d_name) - 4]) == 0) {
 		    /* we found an mp3 file */
 		    DPRINTF(ERR_DEBUG,"Found mp3: %s\n",de.d_name);
 
