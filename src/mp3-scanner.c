@@ -59,6 +59,25 @@
  * Typedefs
  */
 
+typedef struct tag_scan_frameinfo {
+    int layer;
+    int bitrate;
+    int samplerate;
+    int stereo;
+
+    int frame_length;
+    int crc_protected;
+    int samples_per_frame;
+    int padding;
+    int xing_offset;
+
+    double version;
+
+    int is_cbr;
+    int is_valid;
+} SCAN_FRAMEINFO;
+
+
 typedef struct tag_scan_id3header {
     unsigned char id[3];
     unsigned char version[2];
@@ -1136,6 +1155,135 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 }
 
 
+/**
+ * Decode an mp3 frame header.  Determine layer, bitrate, 
+ * samplerate, etc, and fill in the passed structure.
+ *
+ * @param frame 4 byte mp3 frame header
+ * @param pfi pointer to an allocated SCAN_FRAMEINFO struct
+ * @return 0 on success (valid frame), -1 otherwise
+ */
+int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi) {
+    int ver;
+    int layer_index;
+    int sample_index;
+    int bitrate_index;
+    int samplerate_index;
+
+    if((frame[0] != 0xFF) || (frame[1] < 224)) {
+	pfi->is_valid=0;
+	return -1;
+    }
+
+    ver=(frame[1] & 0x18) >> 3;
+    pfi->layer = 4 - ((frame[1] & 0x6) >> 1);
+
+    layer_index=-1;
+    sample_index=-1;
+
+    switch(ver) {
+    case 0:
+	pfi->version = 2.5;
+	sample_index=2;
+	if(pfi->layer == 1)
+	    layer_index = 3;
+	if((pfi->layer == 2) || (pfi->layer == 3))
+	    layer_index = 4;
+	break;
+    case 2:                 
+	pfi->version = 2.0;
+	sample_index=1;
+	if(pfi->layer == 1)
+	    layer_index=3;
+	if((pfi->layer == 2) || (pfi->layer == 3))
+	    layer_index=4;
+	break;
+    case 3:
+	pfi->version = 1.0;
+	sample_index=0;
+	if(pfi->layer == 1)
+	    layer_index = 0;
+	if(pfi->layer == 2)
+	    layer_index = 1;
+	if(pfi->layer == 3)
+	    layer_index = 2;
+	break;
+    }
+
+    if((layer_index < 0) || (layer_index > 4)) {
+	pfi->is_valid=0;
+	return -1;
+    }
+
+    if((sample_index < 0) || (sample_index > 2)) {
+	pfi->is_valid=0;
+	return -1;
+    }
+
+    if(pfi->layer==1) pfi->samples_per_frame=384;
+    if(pfi->layer==2) pfi->samples_per_frame=1152;
+    if(pfi->layer==3) {
+	if(pfi->version == 1.0) {
+	    pfi->samples_per_frame=1152;
+	} else {
+	    pfi->samples_per_frame=576;
+	}
+    }
+
+    bitrate_index=(frame[2] & 0xF0) >> 4;
+    samplerate_index=(frame[2] & 0x0C) >> 2;
+
+    if(bitrate_index == 0xF) {
+	pfi->is_valid=0;
+	return -1;
+    }
+
+    if(samplerate_index == 3) {
+	pfi->is_valid=0;
+	return -1;
+    }
+	
+    pfi->bitrate = scan_br_table[layer_index][bitrate_index];
+    pfi->samplerate = scan_sample_table[sample_index][samplerate_index];
+
+    if((frame[3] & 0xC0 >> 6) == 3) 
+	pfi->stereo = 0;
+    else
+	pfi->stereo = 1;
+
+    if(frame[2] & 0x02) { /* Padding bit set */
+	pfi->padding=1;
+    } else {
+	pfi->padding=0;
+    }
+
+    if(pfi->version == 1.0) {
+	if(pfi->stereo) {
+	    pfi->xing_offset=32;
+	} else {
+	    pfi->xing_offset=17;
+	}
+    } else {
+	if(pfi->stereo) {
+	    pfi->xing_offset=17;
+	} else {
+	    pfi->xing_offset=9;
+	}
+    }
+
+    pfi->crc_protected=(frame[1] & 0xFE);
+
+    if(pfi->layer == 1) {
+	pfi->frame_length = (12 * pfi->bitrate * 1000 / pfi->samplerate + pfi->padding) * 4;
+    } else {
+	pfi->frame_length = 144 * pfi->bitrate * 1000 / pfi->samplerate + pfi->padding;
+    }
+
+    pfi->is_valid=1;
+    return 0;
+}
+
+
 /*
  * scan_get_mp3fileinfo
  *
@@ -1145,26 +1293,15 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
     SCAN_ID3HEADER *pid3;
+    SCAN_FRAMEINFO fi;
     unsigned int size=0;
     off_t fp_size=0;
     off_t file_size;
     unsigned char buffer[1024];
     int index;
-    int layer_index;
-    int sample_index;
 
-    int ver=0;
-    int layer=0;
-    int bitrate=0;
-    int samplerate=0;
-    int stereo=0;
-
-    int padding_bit=0;
-    int padding_bytes=0;
-    int samples_per_frame=0;
-    int frame_size=0;
     int number_of_frames=0;
-    int xing_offset,xing_flags;
+    int xing_flags;
     int found;
 
     if(!(infile=fopen(file,"rb"))) {
@@ -1208,9 +1345,8 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
     index=0;
     found=0;
-    if((buffer[index] == 0xFF) && (buffer[index+1] >= 224)) {
-	/* good header */
-    } else {
+    
+    if(scan_decode_mp3_frame(&buffer[index],&fi)) { /* Bad frame header */
 	DPRINTF(E_DBG,L_SCAN,"Starting brute-force search for frame header\n");
 
 	fp_size=0;
@@ -1233,20 +1369,16 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 		    break;  /* read in the next block */
 		}
 
-		if((buffer[index] == 0xFF) && (buffer[index+1] >= 224)) {
-		    DPRINTF(E_DBG,L_SCAN,"Possible header at %d\n",index);
-		    /* could be valid... sanity check it */
-
-		    ver=(buffer[index+1] & 0x18) >> 3;
-		    layer=(buffer[index+1] & 0x6) >> 1;
-		    bitrate=(buffer[index+2] & 0xF0) >> 4;
-
-		    if((ver != 1) && (layer != 0) && (bitrate != 0) && (bitrate !=15)) {
-			DPRINTF(E_DBG,L_SCAN,"Good header\n");
-			fp_size =+ (index + 1);
+		if(!scan_decode_mp3_frame(&buffer[index],&fi)) {
+		    DPRINTF(E_DBG,L_SCAN,"valid header at %d\n",index);
+		    if(strncasecmp((char*)&buffer[index+fi.xing_offset+4],"XING",4) == 0) {
 			found=1;
 		    }
+
+		    /* should check next frame... */
+		    found=1;
 		}
+
 		if(!found)
 		    index++;
 	    }
@@ -1267,138 +1399,50 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     }
     */
 
-    if((buffer[index] == 0xFF)&&(buffer[index+1] >= 224)) {
-	ver=(buffer[index+1] & 0x18) >> 3;
-	layer=(buffer[index+1] & 0x6) >> 1;
-	layer = 4-layer;
-
-	layer_index=-1;
-	sample_index=-1;
-
-	switch(ver) {
-	case 0: /* MPEG Version 2.5 */
-	    sample_index=2;
-	    if(layer == 1)
-		layer_index=3;
-	    else
-		layer_index=4;
-	    break;
-	case 2: /* MPEG Version 2 */
-	    sample_index=1;
-	    if(layer == 1)
-		layer_index=3;
-	    else
-		layer_index=4;
-	    break;
-	case 3: /* MPEG Version 1 */
-	    sample_index=0;
-	    if(layer == 1) /* layer 1 */
-		layer_index=0;
-	    if(layer == 2) /* layer 2 */
-		layer_index=1;
-	    if(layer == 3) /* layer 3 */
-		layer_index=2;
-	    break;
-	}
-
-	if((layer_index < 0) || (layer_index > 4)) {
-	    DPRINTF(E_LOG,L_SCAN,"Bad mp3 header in %s: bad layer_index\n",file);
-	    fclose(infile);
-	    return -1;
-	}
-
-	if((sample_index < 0) || (sample_index > 2)) {
-	    DPRINTF(E_LOG,L_SCAN,"Bad mp3 header in %s: bad sample_index\n",file);
-	    fclose(infile);
-	    return -1;
-	}
-
-	if(layer==1) samples_per_frame=384;  /* Layer I */
-	if(layer==2) samples_per_frame=1152; /* Layer II */
-	if(layer==3) {                       /* Layer III */
-	    if(ver == 3) { /* MPEG 1 */
-		samples_per_frame=1152;
-	    } else {
-		samples_per_frame=576;
-	    }
-	}
-
-	bitrate=(buffer[index+2] & 0xF0) >> 4;
-	bitrate=scan_br_table[layer_index][bitrate];
-	samplerate=(buffer[index+2] & 0x0C) >> 2;  /* can only be 0-3 */
-	samplerate=scan_sample_table[sample_index][samplerate];
-	pmp3->bitrate=bitrate;
-	pmp3->samplerate=samplerate;
-	stereo=buffer[index+3] & 0xC0 >> 6;
-	if(stereo == 3)
-	    stereo=0;
-	else
-	    stereo=1;
-
-	padding_bit=(buffer[index+2] & 0x02) >> 1;
-	if(padding_bit) {
-	    if(layer == 1)
-		padding_bytes=4;
-	    else
-		padding_bytes=1;
-	}
-
-	DPRINTF(E_DBG,L_SCAN," MPEG Version: %s\n",ver == 3 ? "1" : (ver == 2 ? "2" : "2.5"));
-	DPRINTF(E_DBG,L_SCAN," Layer: %d\n",layer);
-	DPRINTF(E_DBG,L_SCAN," Sample Rate: %d\n",samplerate);
-	DPRINTF(E_DBG,L_SCAN," Bit Rate: %d\n",bitrate);
-
-	if(ver == 3) { /* MPEG 1 */
-	    if(stereo) {
-		xing_offset=32;
-	    } else {
-		xing_offset=17;
-	    }
-	} else {
-	    if(stereo) {
-		xing_offset=17;
-	    } else {
-		xing_offset=9;
-	    }
-	}
-
-	/* now check for an XING header */
-	if(strncasecmp((char*)&buffer[index+xing_offset+4],"XING",4) == 0) {
-	    DPRINTF(E_DBG,L_SCAN,"Found Xing header\n");
-	    xing_flags=*((int*)&buffer[index+xing_offset+4+4]);
-	    xing_flags=ntohs(xing_flags);
-
-	    DPRINTF(E_DBG,L_SCAN,"Xing Flags: %02X\n",xing_flags);
-
-	    if(xing_flags & 0x1) {
-		/* Frames field is valid... */
-		number_of_frames=*((int*)&buffer[index+xing_offset+4+8]);
-		number_of_frames=ntohs(number_of_frames);
-	    }
-	}
-
-	/* guesstimate the file length */
-	if(!pmp3->song_length) { /* could have gotten it from the tag */
-	    /* DWB: use ms time instead of seconds, use doubles to
-	       avoid overflow */
-	    if(!number_of_frames) { /* not vbr */
-		pmp3->song_length = (int) ((double) file_size * 8. /
-					   (double) bitrate);
-
-	    } else {
-		pmp3->song_length = (int) ((double)(number_of_frames*samples_per_frame*1000.)/
-					   (double) samplerate);
-	    }
-
-	}
-	DPRINTF(E_DBG,L_SCAN," Song Length: %d\n",pmp3->song_length);
-    } else {
-	/* FIXME: should really scan forward to next sync frame */
+    if(scan_decode_mp3_frame(&buffer[index],&fi)) {
 	fclose(infile);
 	DPRINTF(E_DBG,L_SCAN,"Could not find sync frame\n");
 	return 0;
     }
+
+    pmp3->bitrate=fi.bitrate;
+    pmp3->samplerate=fi.samplerate;
     
+    DPRINTF(E_DBG,L_SCAN," MPEG Version: %0.1g\n",fi.version);
+    DPRINTF(E_DBG,L_SCAN," Layer: %d\n",fi.layer);
+    DPRINTF(E_DBG,L_SCAN," Sample Rate: %d\n",fi.samplerate);
+    DPRINTF(E_DBG,L_SCAN," Bit Rate: %d\n",fi.bitrate);
+	
+    /* now check for an XING header */
+    if(strncasecmp((char*)&buffer[index+fi.xing_offset+4],"XING",4) == 0) {
+	DPRINTF(E_DBG,L_SCAN,"Found Xing header\n");
+	xing_flags=*((int*)&buffer[index+fi.xing_offset+4+4]);
+	xing_flags=ntohs(xing_flags);
+
+	DPRINTF(E_DBG,L_SCAN,"Xing Flags: %02X\n",xing_flags);
+
+	if(xing_flags & 0x1) {
+	    /* Frames field is valid... */
+	    number_of_frames=*((int*)&buffer[index+fi.xing_offset+4+8]);
+	    number_of_frames=ntohs(number_of_frames);
+	}
+    }
+
+    /* guesstimate the file length */
+    if(!pmp3->song_length) { /* could have gotten it from the tag */
+	/* DWB: use ms time instead of seconds, use doubles to
+	   avoid overflow */
+	if(!number_of_frames) { /* not vbr */
+	    pmp3->song_length = (int) ((double) file_size * 8. /
+				       (double) fi.bitrate);
+
+	} else {
+	    pmp3->song_length = (int) ((double)(number_of_frames*fi.samples_per_frame*1000.)/
+				       (double) fi.samplerate);
+	}
+
+    }
+    DPRINTF(E_DBG,L_SCAN," Song Length: %d\n",pmp3->song_length);
 
     fclose(infile);
     return 0;
