@@ -194,7 +194,7 @@ fi
 if test x$use_flac = xtrue; then
   AC_CHECK_HEADERS(FLAC/metadata.h,, [
    AC_MSG_ERROR([FLAC/metadata.h not found... Must have libFLAC installed for FLAC support])])
-  AC_CHECK_LIB(FLAC,FLAC__metadata_chain_read,echo "Have FLAC",echo "Must have libFLAC for FLAC support";exit)
+  AC_CHECK_LIB(FLAC,FLAC__metadata_chain_read,,echo "Must have libFLAC for FLAC support";exit)
 
   if test x"$STATIC_LIBS" != x"no"; then
     LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libFLAC.a"
