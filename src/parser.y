@@ -11,9 +11,13 @@ extern PL_NODE *pl_newpredicate(int tag, int op, char *value);
 extern PL_NODE *pl_newexpr(PL_NODE *arg1, int op, PL_NODE *arg2);
 extern int pl_addplaylist(char *name, PL_NODE *root);
 
+/* Globals */
+
+int pl_number=2;
+
 %}
 
-%left TOK_OR TOK_AND
+%left OR AND
 
 %union {
     unsigned int ival;
@@ -21,18 +25,18 @@ extern int pl_addplaylist(char *name, PL_NODE *root);
     PL_NODE *plval;    
 }
 
-%token <ival> TOK_ARTIST 
-%token <ival> TOK_ALBUM 
-%token <ival> TOK_GENRE
+%token <ival> ARTIST 
+%token <ival> ALBUM 
+%token <ival> GENRE
 
-%token <ival> TOK_IS 
-%token <ival> TOK_INCLUDES
+%token <ival> IS 
+%token <ival> INCLUDES
 
-%token <ival> TOK_OR 
-%token <ival> TOK_AND
-%token <ival> TOK_NOT
+%token <ival> OR 
+%token <ival> AND
+%token <ival> NOT
 
-%token <cval> TOK_ID
+%token <cval> ID
 
 %type <plval> expression
 %type <plval> predicate
@@ -43,32 +47,32 @@ extern int pl_addplaylist(char *name, PL_NODE *root);
 
 %%
 
-playlistlist: playlist
-| playlistlist playlist
+playlistlist: playlist {}
+| playlistlist playlist {}
 ;
 
-playlist: TOK_ID '{' expression '}' { $$ = pl_addplaylist($1, $3); }
+playlist: ID '{' expression '}' { $$ = pl_addplaylist($1, $3); }
 ;
 
-expression: expression TOK_AND expression { $$=pl_newexpr($1,$2,$3); }
-| expression TOK_OR expression { $$=pl_newexpr($1,$2,$3); }
+expression: expression AND expression { $$=pl_newexpr($1,$2,$3); }
+| expression OR expression { $$=pl_newexpr($1,$2,$3); }
 | '(' expression ')' { $$=$2; }
 | predicate
 ;
 
 predicate: idtag boolarg value { $$=pl_newpredicate($1, $2, $3); }
 
-idtag: TOK_ARTIST
-| TOK_ALBUM
-| TOK_GENRE
+idtag: ARTIST
+| ALBUM
+| GENRE
 ;
 
-boolarg: TOK_IS
-| TOK_INCLUDES
-| TOK_NOT boolarg { $$=$2 | 0x80000000; }
+boolarg: IS { $$=$1; }
+| INCLUDES { $$=$1; }
+| NOT boolarg { $$=$2 | 0x80000000; }
 ;
 
-value: TOK_ID
+value: ID
 ;
 
 
@@ -110,6 +114,7 @@ int pl_addplaylist(char *name, PL_NODE *root) {
     pnew->next=pl_smart.next;
     pnew->name=name;
     pnew->root=root;
+    pnew->id=pl_number++;
     pl_smart.next=pnew;
 
     return 0;
