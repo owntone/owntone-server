@@ -14,6 +14,9 @@ AM_PROG_LEX
 AC_CANONICAL_HOST
 
 AM_CONDITIONAL(COND_REND_OSX,false)
+
+use_gdbm=true
+use_sqlite=false
 rend_posix=true
 
 STATIC_LIBS=no
@@ -55,6 +58,12 @@ AC_ARG_ENABLE(flac,[  --enable-flac      Enable FLAC support],
                       use_flac=true;
                       CPPFLAGS="${CPPFLAGS} -DFLAC")
 
+AC_ARG_ENABLE(sqlite,[  --enable-sqlite    Enable SQLite backend],
+			use_sqlite=true;
+			LDFLAGS="${LDFLAGS} -lsqlite";
+			use_gdbm=false)
+
+
 AM_CONDITIONAL(COND_REND_HOWL, test x$rend_howl = xtrue)
 AM_CONDITIONAL(COND_REND_POSIX, test x$rend_posix = xtrue)
 AM_CONDITIONAL(COND_OGGVORBIS, test x$use_oggvorbis = xtrue)
@@ -62,6 +71,9 @@ AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 
 AM_CONDITIONAL(COND_NEED_STRCASESTR,false)
 AM_CONDITIONAL(COND_NEED_STRSEP,false)
+
+AM_CONDITIONAL(COND_SQLITE,test x$use_sqlite = xtrue)
+AM_CONDITIONAL(COND_GDBM,test x$use_gdbm = xtrue)
 
 dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
@@ -141,6 +153,7 @@ AC_ARG_WITH(id3tag,
 ])
 
 AC_CHECK_HEADERS(getopt.h,,)
+
 AC_CHECK_HEADERS(gdbm.h,, [
  AC_MSG_ERROR([gdbm.h not found... try --with-gdbm-includes=dir])])
 AC_CHECK_LIB(gdbm,gdbm_open,,echo "no libgdbm.  Try --with-gdbm-lib=dir";exit)

@@ -27,19 +27,28 @@ if COND_FLAC
 FLACSRC=flac.c
 endif
 
+if COND_GDBM
+GDBMDB=db-gdbm.c
+endif
+
+if COND_SQLITE
+SQLITEDB=db-sqlite.c
+endif
+
 wavstreamer_SOURCES = wavstreamer.c
 
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
-	daap-proto.c daap-proto.h daap.c daap.h db-gdbm.c db-memory.h \
+	daap-proto.c daap-proto.h daap.c daap.h db-memory.h \
 	mp3-scanner.h mp3-scanner.c playlist.c playlist.h \
 	rend-unix.h lexer.l parser.y strcasestr.c strcasestr.h strsep.c \
 	redblack.c redblack.h dynamic-art.c dynamic-art.h query.c query.h \
 	xml-rpc.h xml-rpc.c ssc.c ssc.h \
-	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC)
+	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
+	$(GDBMDB) $(SQLITEDB)
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
 	rend-howl.c rend-posix.c rend-osx.c db-memory.c \
 	db-gdbm.c strcasestr.h redblack.c redblack.h db-memory.c \
-	parser.h ogg.c flac.c
+	parser.h ogg.c flac.c db-gdbm.c db-sqlite.c
