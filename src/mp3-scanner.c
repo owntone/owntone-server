@@ -19,6 +19,7 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#define _POSIX_PTHREAD_SEMANTICS
 #include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -276,6 +277,7 @@ int scan_foreground(char *path) {
 
     while(1) {
 	pde=&de;
+
 	err=readdir_r(current_dir,&de,&pde);
 	if(err == -1) {
 	    DPRINTF(ERR_DEBUG,"Error on readdir_r: %s\n",strerror(errno));
@@ -288,7 +290,7 @@ int scan_foreground(char *path) {
 	if(!pde)
 	    break;
 	
-	if(de.d_name[0] == '.')
+	if(de.d_name[0] == '.') /* skip hidden and directories */
 	    continue;
 
 	sprintf(mp3_path,"%s/%s",path,de.d_name);
@@ -379,6 +381,7 @@ int scan_foreground(char *path) {
     }
 
     closedir(current_dir);
+    return 0;
 }
 
 /*
@@ -395,6 +398,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     int used;
     unsigned char *utf8_text;
     int genre;
+    int have_utf8;
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
@@ -416,43 +420,53 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     while((pid3frame=id3_tag_findframe(pid3tag,"",index))) {
 	used=0;
 	utf8_text=NULL;
+	have_utf8=0;
 
-	if((pid3frame->id[0] == 'T')&&(id3_field_getnstrings(&pid3frame->fields[1]))) {
+	if((pid3frame->id[0] == 'T')&&(id3_field_getnstrings(&pid3frame->fields[1]))) 
+	    have_utf8=1;
+
+	if(have_utf8) {
 	    utf8_text=id3_ucs4_utf8duplicate(id3_field_getstrings(&pid3frame->fields[1],0));
-	    MEMNOTIFY(utf8_text);
-	}
+	    if(utf8_text) {
+		MEMNOTIFY(utf8_text);
 
-	if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
-	    used=1;
-	    pmp3->title = utf8_text;
-	    DPRINTF(ERR_DEBUG," Title: %s\n",utf8_text);
-	} else if(!strcmp(pid3frame->id,"TPE1")) {
-	    used=1;
-	    pmp3->artist = utf8_text;
-	    DPRINTF(ERR_DEBUG," Artist: %s\n",utf8_text);
-	} else if(!strcmp(pid3frame->id,"TALB")) {
-	    used=1;
-	    pmp3->album = utf8_text;
-	    DPRINTF(ERR_DEBUG," Album: %s\n",utf8_text);
-	} else if(!strcmp(pid3frame->id,"TCON")) {
-	    used=1;
-	    pmp3->genre = utf8_text;
-	    DPRINTF(ERR_DEBUG," Genre: %s\n",utf8_text);
-	    if((pmp3->genre) && (isdigit(pmp3->genre[0]))) {
-		genre=atoi(pmp3->genre);
-		free(pmp3->genre);
-		pmp3->genre=strdup(scan_winamp_genre[genre]);
+		if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
+		    used=1;
+		    pmp3->title = utf8_text;
+		    DPRINTF(ERR_DEBUG," Title: %s\n",utf8_text);
+		} else if(!strcmp(pid3frame->id,"TPE1")) {
+		    used=1;
+		    pmp3->artist = utf8_text;
+		    DPRINTF(ERR_DEBUG," Artist: %s\n",utf8_text);
+		} else if(!strcmp(pid3frame->id,"TALB")) {
+		    used=1;
+		    pmp3->album = utf8_text;
+		    DPRINTF(ERR_DEBUG," Album: %s\n",utf8_text);
+		} else if(!strcmp(pid3frame->id,"TCON")) {
+		    used=1;
+		    pmp3->genre = utf8_text;
+		    DPRINTF(ERR_DEBUG," Genre: %s\n",utf8_text);
+		    if((pmp3->genre) && (isdigit(pmp3->genre[0]))) {
+			genre=atoi(pmp3->genre);
+			free(pmp3->genre);
+			pmp3->genre=strdup(scan_winamp_genre[genre]);
+		    }
+		} else if(!strcmp(pid3frame->id,"TDRC")) {
+		    pmp3->year = atoi(utf8_text);
+		    DPRINTF(ERR_DEBUG," Year: %d\n",pmp3->year);
+		}
 	    }
-	} else if(!strcmp(pid3frame->id,"COMM")) {
-	    used=1;
-	    pmp3->comment = utf8_text;
-	    DPRINTF(ERR_DEBUG," Comment: %s\n",utf8_text);
-	} else if(!strcmp(pid3frame->id,"TDRC")) {
-	    pmp3->year = atoi(utf8_text);
-	    DPRINTF(ERR_DEBUG," Year: %d\n",pmp3->year);
 	}
 
-	if((!used) && (pid3frame->id[0]=='T') && (utf8_text))
+
+	if((!strcmp(pid3frame->id,"COMM"))&&(id3_field_getnstrings(&pid3frame->fields[1]))) {
+	    pmp3->comment=strdup(id3_field_getstrings(&pid3frame->fields[1],0));
+	    DPRINTF(ERR_DEBUG," Comment: %s\n",pmp3->comment);
+	}
+
+	/* can check for non-utf tags here */
+
+	if((!used) && (have_utf8) && (utf8_text))
 	    free(utf8_text);
 
 	index++;
