@@ -108,8 +108,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     int img_fd;
 
-    long offset=0;
-    long file_len;
+    off_t offset=0;
+    off_t real_len;
+    off_t file_len;
 
     close=pwsc->close;
     pwsc->close=1;  /* in case we have any errors */
@@ -142,7 +143,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	    config_set_status(pwsc,session_id,"Waiting for DB updates");
 	}
 	root=daap_response_update(pwsc->fd,clientrev);
-	if((!ws_getvar(pwsc,"delta")) && (root==NULL)) {
+	if((ws_getvar(pwsc,"delta")) && (root==NULL)) {
 	    DPRINTF(ERR_LOG,"Client %s disconnected\n",pwsc->hostname);
 	    config_set_status(pwsc,session_id,NULL);
 	    pwsc->close=1;
@@ -252,8 +253,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	pwsc->close=1;
 
 	if(ws_getrequestheader(pwsc,"range")) { 
-	    offset=(long)atol(ws_getrequestheader(pwsc,"range") + 6);
-	    DPRINTF(ERR_DEBUG,"Offset is %ld\n",offset);
+	    offset=(off_t)atol(ws_getrequestheader(pwsc,"range") + 6);
 	}
 
 	pmp3=db_find(item);
@@ -270,24 +270,29 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		config_set_status(pwsc,session_id,NULL);
 
 	    } else {
-		file_len=(long)lseek(file_fd,0,SEEK_END);
-		DPRINTF(ERR_DEBUG,"Thread %d: length of file is %ld\n",
-			pwsc->threadno,(long)file_len);
-
+		real_len=lseek(file_fd,0,SEEK_END);
 		lseek(file_fd,0,SEEK_SET);
-		file_len -= offset;
+		file_len = real_len - offset;
 
 		DPRINTF(ERR_DEBUG,"Thread %d: Length of file (remaining) is %ld\n",
 			pwsc->threadno,(long)file_len);
 		ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
 		ws_addresponseheader(pwsc,"Connection","Close");
 
-		ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+		if(!offset)
+		    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+		else {
+		    ws_addresponseheader(pwsc,"Content-Range","bytes %ld-%ld/%ld",
+					 (long)offset,(long)real_len,
+					 (long)real_len+1);
+		    ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
+		}
+
 		ws_emitheaders(pwsc);
 
 		config_set_status(pwsc,session_id,"Streaming file '%s'",pmp3->fname);
 		DPRINTF(ERR_LOG,"Session %d: Streaming file '%s' to %s (offset %d)\n",
-			session_id,pmp3->fname, pwsc->hostname,offset);
+			session_id,pmp3->fname, pwsc->hostname,(long)offset);
 		
 		if(!offset)
 		    config.stats.songs_served++; /* FIXME: remove stat races */
@@ -299,8 +304,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 			    pmp3->fname, img_fd);
 		    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
 		} else if(offset) {
-			DPRINTF(ERR_INFO,"Seeking to offset %d\n",offset);
-			lseek(file_fd,offset,SEEK_SET);
+		    DPRINTF(ERR_INFO,"Seeking to offset %ld\n",(long)offset);
+		    lseek(file_fd,offset,SEEK_SET);
 		}
 
 		if(copyfile(file_fd,pwsc->fd)) {

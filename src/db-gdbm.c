@@ -30,6 +30,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 
@@ -336,7 +337,6 @@ int db_start_initial_update(void) {
  */
 int db_end_initial_update(void) {
     const void *val;
-    int inode;
 
     db_update_mode=0;
 
@@ -1166,7 +1166,6 @@ int db_last_modified(int id) {
  */
 int db_delete(int id) {
     int err;
-    int retval;
     datum key;
     DB_PLAYLIST *pcurrent;
     DB_PLAYLISTENTRY *phead, *ptail;
