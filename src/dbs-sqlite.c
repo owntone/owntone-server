@@ -806,12 +806,17 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 	return valarray[0] ? (8 + strlen(valarray[0])) : 0;
     case queryTypePlaylists:
 	size = 8;   /* mlit */
-	size += 12; /* miid */
-	size += 12; /* mimc */
-	size += 9;  /* aeSP */
-	size += (8 + strlen(valarray[1])); /* minm */
-	if((valarray[2]) && atoi(valarray[2])) /* MSPS */
-	    size += (8 + strlen(valarray[4]));
+	size += 12; /* mimc - you get it whether you want it or not */
+	if(db_wantsmeta(pinfo->meta, metaItemId))
+	    size += 12; /* miid */
+	if(db_wantsmeta(pinfo->meta, metaItunesSmartPlaylist))
+	    size += 9;  /* aeSP */
+	if(db_wantsmeta(pinfo->meta, metaItemName))
+	    size += (8 + strlen(valarray[1])); /* minm */
+	if(valarray[2] && atoi(valarray[2]) && db_wantsmeta(pinfo->meta, metaMPlaylistSpec))
+	    size += (8 + strlen(valarray[4])); /* MSPS */
+	if(db_wantsmeta(pinfo->meta, metaMPlaylistType)) 
+	    size += 9; /* MPTY */
 	return size;
 	break;
     case queryTypeItems:
@@ -961,12 +966,17 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
     case queryTypePlaylists:
 	/* do I want to include the mlit? */
 	current += db_dmap_add_container(current,"mlit",len - 8);
-	current += db_dmap_add_int(current,"miid",atoi(valarray[0]));
+	if(db_wantsmeta(pinfo->meta,metaItemId))
+	    current += db_dmap_add_int(current,"miid",atoi(valarray[0]));
 	current += db_dmap_add_int(current,"mimc",atoi(valarray[3]));
-	current += db_dmap_add_char(current,"aeSP",atoi(valarray[2]));
-	current += db_dmap_add_string(current,"minm",valarray[1]);
-	if((valarray[2]) && atoi(valarray[2]))
+	if(db_wantsmeta(pinfo->meta,metaItunesSmartPlaylist))
+	    current += db_dmap_add_char(current,"aeSP",atoi(valarray[2]));
+	if(db_wantsmeta(pinfo->meta,metaItemName)) 
+	    current += db_dmap_add_string(current,"minm",valarray[1]);
+	if((valarray[2]) && atoi(valarray[2]) && db_wantsmeta(pinfo->meta, metaMPlaylistSpec))
 	    current += db_dmap_add_string(current,"MSPS",valarray[4]);
+	if(db_wantsmeta(pinfo->meta, metaMPlaylistType))
+	    current += db_dmap_add_char(current,"MPTY",atoi(valarray[2]));
 	break;
     case queryTypeItems:
     case queryTypePlaylistItems:  /* essentially the same query */

@@ -883,7 +883,10 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     if(ws_getvar(pwsc,"meta")) {
 	pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
     } else {
-	pqi->meta = (MetaField_t) -1ll;
+	pqi->meta = ((1ll << metaItemId) |
+		     (1ll << metaItemName) |
+		     (1ll << metaPersistentId) |
+		     (1ll << metaItunesSmartPlaylist));
     }
 
 

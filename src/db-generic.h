@@ -66,8 +66,21 @@ typedef enum {
     metaSongUserRating,
     metaSongYear,
 
+    /* iTunes 4.5 + */
+    metaSongCodecType,
+    metaSongCodecSubType,
+    metaItunesNormVolume,
+    metaItmsSongId,
+    metaItmsArtistId,
+    metaItmsPlaylistId,
+    metaItmsComposerId,
+    metaItmsGenreId,
+    metaItmsStorefrontId,
+    metaItunesSmartPlaylist,
+
     /* mt-daapd specific */
-    metaMTDSmartPlaylistSpec
+    metaMPlaylistSpec,
+    metaMPlaylistType
 } MetaFieldName_t;
 
 typedef enum {
