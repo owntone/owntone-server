@@ -366,7 +366,7 @@ void usage(char *program) {
 #ifdef DEBUG    
     printf("  -d <number>    Debuglevel (0-9)\n");
 #endif
-    printf("  -m             Use mDNS\n");
+    printf("  -m             Disable mDNS\n");
     printf("  -c <file>      Use configfile specified");
     printf("  -p             Parse playlist file\n");
     printf("  -f             Run in foreground\n");
@@ -383,7 +383,7 @@ int main(int argc, char *argv[]) {
     int status;
     int parseonly=0;
     int foreground=0;
-    config.use_mdns=0;
+    config.use_mdns=1;
     struct passwd *pw=NULL;
 
 #ifdef DEBUG
@@ -412,7 +412,7 @@ int main(int argc, char *argv[]) {
 	    break;
 
 	case 'm':
-	    config.use_mdns=1;
+	    config.use_mdns=0;
 	    break;
 
 	case 'p':
