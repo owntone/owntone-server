@@ -13,7 +13,8 @@ BuildRequires: libid3tag-devel
 %description
 A multi-threaded implementation of Apple's DAAP server, mt-daapd
 allows a Linux machine to advertise MP3 files to to used by 
-Windows or Mac iTunes clients.
+Windows or Mac iTunes clients.  This verison uses SwampWolf's
+"howl" as a mDNS daemon.
 %prep
 %setup -q
 
@@ -24,8 +25,8 @@ make RPM_OPT_FLAGS="$RPM_OPT_FLAGS"
 %install
 rm -rf $RPM_BUILD_ROOT
 make install
-mkdir -p $RPM_BUILD_ROOT/etc/init.d
-cp contrib/mt-daapd $RPM_BUILD_ROOT/etc/init.d
+mkdir -p $RPM_BUILD_ROOT/etc/rc.d/init.d
+cp contrib/mt-daapd $RPM_BUILD_ROOT/etc/rc.d/init.d
 cp contrib/mt-daapd.conf $RPM_BUILD_ROOT/etc
 cp contrib/mt-daapd.playlist $RPM_BUILD_ROOT/etc
 
