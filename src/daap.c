@@ -235,36 +235,52 @@ DAAP_BLOCK *daap_response_songlist(void) {
 		mlit=daap_add_empty(mlcl,"mlit");
 		if(mlit) {
 		    g = g && daap_add_char(mlit,"mikd",2); /* audio */
-		    g = g && daap_add_string(mlit,"asal",current->album);
-		    g = g && daap_add_string(mlit,"asar",current->artist);
-		    g = g && daap_add_short(mlit,"asbt",0); /* bpm */
-		    g = g && daap_add_short(mlit,"asbr",128); /* bitrate!! */
-		    g = g && daap_add_string(mlit,"ascm","ron was here"); /* comment */
-		    g = g && daap_add_char(mlit,"asco",0x0); /* compilation */
-		    g = g && daap_add_string(mlit,"ascp",""); /* composer */
-		    g = g && daap_add_int(mlit,"asda",0); /* date added */
-		    g = g && daap_add_int(mlit,"asdm",0); /* date modified */
-		    g = g && daap_add_short(mlit,"asdc",0); /* # of discs */
-		    g = g && daap_add_short(mlit,"asdn",0); /* disc number */
-		    g = g && daap_add_char(mlit,"asdk",0); /* song datakind? */
-		    g = g && daap_add_string(mlit,"asfm","mp3"); /* song format */
+		    if(current->album)
+			g = g && daap_add_string(mlit,"asal",current->album);
+
+		    if(current->artist)
+			g = g && daap_add_string(mlit,"asar",current->artist);
+
+		    // g = g && daap_add_short(mlit,"asbt",0); /* bpm */
+		    // g = g && daap_add_short(mlit,"asbr",128); /* bitrate!! */
+
+		    if(current->comment)
+			g = g && daap_add_string(mlit,"ascm",current->comment); /* comment */
+
+		    // g = g && daap_add_char(mlit,"asco",0x0); /* compilation */
+		    // g = g && daap_add_string(mlit,"ascp",""); /* composer */
+		    // g = g && daap_add_int(mlit,"asda",0); /* date added */
+		    // g = g && daap_add_int(mlit,"asdm",0); /* date modified */
+		    // g = g && daap_add_short(mlit,"asdc",0); /* # of discs */
+		    // g = g && daap_add_short(mlit,"asdn",0); /* disc number */
+		    // g = g && daap_add_char(mlit,"asdk",0); /* song datakind? */
+		    // g = g && daap_add_string(mlit,"asfm","mp3"); /* song format */
 		    // aseq - null string!
-		    g = g && daap_add_string(mlit,"asgn",current->genre); /* genre */
+
+		    if(current->genre)
+			g = g && daap_add_string(mlit,"asgn",current->genre); /* genre */
+
 		    g = g && daap_add_int(mlit,"miid",current->id); /* id */
+		    
 		    g = g && daap_add_string(mlit,"asdt","MPEG audio file"); /* descr */
-		    g = g && daap_add_string(mlit,"minm",current->fname); /* descr */
+		    
+		    if(current->title)
+			g = g && daap_add_string(mlit,"minm",current->title); /* descr */
+		    else
+			g = g && daap_add_string(mlit,"minm",current->fname); /* descr */
+
 		    // mper (long)
-		    g = g && daap_add_char(mlit,"asdb",0); /* disabled */
-		    g = g && daap_add_char(mlit,"asrv",0); /* rel vol */
-		    g = g && daap_add_int(mlit,"assr",44100); /* sample rate */
-		    g = g && daap_add_int(mlit,"assz",1024); /* FIXME: Song size! */
-		    g = g && daap_add_int(mlit,"asst",0); /* song start time? */
-		    g = g && daap_add_int(mlit,"assp",0); /* songstoptime */
-		    g = g && daap_add_int(mlit,"astm",3600); /* song time */
-		    g = g && daap_add_short(mlit,"astc",0); /* track count */
-		    g = g && daap_add_short(mlit,"astn",0); /* track number */
-		    g = g && daap_add_char(mlit,"asur",3); /* rating */
-		    g = g && daap_add_short(mlit,"asyr",0);
+		    // g = g && daap_add_char(mlit,"asdb",0); /* disabled */
+		    // g = g && daap_add_char(mlit,"asrv",0); /* rel vol */
+		    // g = g && daap_add_int(mlit,"assr",44100); /* sample rate */
+		    // g = g && daap_add_int(mlit,"assz",1024); /* FIXME: Song size! */
+		    // g = g && daap_add_int(mlit,"asst",0); /* song start time? */
+		    // g = g && daap_add_int(mlit,"assp",0); /* songstoptime */
+		    // g = g && daap_add_int(mlit,"astm",3600); /* song time */
+		    // g = g && daap_add_short(mlit,"astc",0); /* track count */
+		    // g = g && daap_add_short(mlit,"astn",0); /* track number */
+		    // g = g && daap_add_char(mlit,"asur",3); /* rating */
+		    // g = g && daap_add_short(mlit,"asyr",0);
 		} else g=0;
 	    }
 	} else g=0;
