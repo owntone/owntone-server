@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/opt/bin/bash
 #
 # script to facilitate server-side transcoding of ogg files
 # Ron Pedde (ron@pedde.com)
@@ -10,7 +10,11 @@
 #
 
 ogg_file() {
-    oggdec --quiet -o - $1 | dd bs=1 ibs=1024 obs=1024 skip=$OFFSET 2>/dev/null
+    if [ $OFFSET -eq 0 ]; then
+	    oggdec --quiet -o - "$1"
+    else
+	    oggdec --quiet -o - "$1" | dd bs=$OFFSET skip=1 2>/dev/null
+    fi
 }
 
 
@@ -22,8 +26,9 @@ else
     OFFSET=$2
 fi
 
-
-if ( echo $1 | grep -i "\.ogg$" > /dev/null 2>&1 ); then
-    ogg_file $1 $OFFSET
+if [ $OFFSET -lt 1024 ]; then
+	OFFSET=0
 fi
+
+ogg_file $1 $OFFSET
 
