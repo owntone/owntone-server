@@ -13,7 +13,7 @@ DBFILE=db-memory.c
 endif
 
 if COND_NEED_STRCASESTR
-STRCASESTR=strcasestr.c
+STRCASESTR=strcasestr.c strcasestr.h
 endif
 
 if COND_NEED_STRSEP
@@ -41,7 +41,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 EXTRA_DIST = mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c \
 	mdns/mDNSUNP.c mdns/mDNSPlatformFunctions.h mdns/mDNSPosix.h mdns/mDNSUNP.h \
 	rend-howl.c rend-posix.c rend-osx.c strcasestr.c strsep.c db-memory.c \
-	db-gdbm.c
+	db-gdbm.c strcasestr.h
 
 
 

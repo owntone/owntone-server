@@ -629,3 +629,29 @@ char *db_get_playlist_name(int playlistid) {
     pthread_rwlock_unlock(&db_rwlock);
     return name;
 }
+
+
+/*
+ * db_exists
+ *
+ * Check if a particular id is in the database
+ */
+int db_exists(int id) {
+    MP3FILE *pmp3;
+
+    pmp3=db_find(id);
+
+    return pmp3 ? 1 : 0;
+}
+
+/*
+ * db_last_modified
+ *
+ * See when the file was modified (according to the database)
+ *
+ * This is merely a stub for the in-memory db
+ */
+int db_last_modified(int id) {
+    return 0;
+}
+

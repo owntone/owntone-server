@@ -38,6 +38,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <netinet/in.h>  /* htons and friends */
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -46,6 +47,7 @@
 #include "err.h"
 #include "mp3-scanner.h"
 #include "playlist.h"
+#include "strcasestr.h"
 
 /*
  * Typedefs
@@ -67,6 +69,8 @@ typedef struct tag_scan_id3header {
 int scan_br_table[] = {
     0,32,40,48,56,64,80,96,112,128,160,192,224,256,320,0
 };
+
+int scan_mode_foreground=1;
 
 char *scan_winamp_genre[] = {
     "Blues",              // 0
@@ -226,7 +230,7 @@ char *scan_winamp_genre[] = {
 /*
  * Forwards
  */
-int scan_foreground(char *path);
+int scan_path(char *path);
 int scan_gettags(char *file, MP3FILE *pmp3);
 int scan_get_mp3tags(char *file, MP3FILE *pmp3);
 int scan_get_aactags(char *file, MP3FILE *pmp3);
@@ -250,37 +254,42 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
 int scan_init(char *path) {
     int err;
+
+    scan_mode_foreground=0;
     if(db_is_empty()) {
+	scan_mode_foreground=1;
 	if(db_start_initial_update()) 
 	    return -1;
+    }
 
+    DPRINTF(ERR_DEBUG,"%s scanning for MP3s in %s\n",
+	    scan_mode_foreground ? "Foreground" : "Background",
+	    path);
 
-	DPRINTF(ERR_DEBUG,"Scanning for MP3s in %s\n",path);
+    err=scan_path(path);
 
-	err=scan_foreground(path);
-
+    if(scan_mode_foreground)
 	if(db_end_initial_update())
 	    return -1;
-    } else {
-	/* do deferred updating */
-	return ENOTSUP;
-    }
+
+    scan_mode_foreground=0;
 
     return err;
 }
 
 /*
- * scan_foreground
+ * scan_path
  *
  * Do a brute force scan of a path, finding all the MP3 files there
  */
-int scan_foreground(char *path) {
+int scan_path(char *path) {
     DIR *current_dir;
     char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* overcommit for solaris */
     struct dirent *pde;
     int err;
     char mp3_path[PATH_MAX];
     struct stat sb;
+    int modified_time;
 
     if((current_dir=opendir(path)) == NULL) {
 	return -1;
@@ -312,7 +321,7 @@ int scan_foreground(char *path) {
 
 	if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
 	    DPRINTF(ERR_DEBUG,"Found dir %s... recursing\n",pde->d_name);
-	    scan_foreground(mp3_path);
+	    scan_path(mp3_path);
 	} else {
 	    DPRINTF(ERR_DEBUG,"Processing file\n");
 	    /* process the file */
@@ -322,7 +331,16 @@ int scan_foreground(char *path) {
 		    scan_static_playlist(path, pde, &sb);
 		} else if (strcasestr(config.extensions,
 				     (char*)&pde->d_name[strlen(pde->d_name) - 4])) {
-		    scan_music_file(path,pde,&sb);
+
+		    /* only scan if it's been changed, or empty db */
+		    modified_time=sb.st_mtime;
+		    if((scan_mode_foreground) || 
+		       !db_exists(sb.st_ino) ||
+		       db_last_modified(sb.st_ino) < modified_time) {
+			scan_music_file(path,pde,&sb);
+		    } else {
+			DPRINTF(ERR_DEBUG,"Skipping file... not modified\n");
+		    }
 		}
 	    }
 	}
@@ -471,6 +489,7 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
     char current_atom[4];
     char *current_data;
     unsigned short us_data;
+    int len;
 
     if(!(fin=fopen(file,"rb"))) {
 	DPRINTF(ERR_INFO,"Cannot open file %s for reading\n",file);
@@ -504,8 +523,12 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
 			if(fread(current_atom,1,4,fin) != 4) 
 			    break;
 			
-			current_data=(char*)malloc(current_size - 7);  /* extra byte */
-			memset(current_data,0x00,current_size - 7);
+			len=current_size-7;  /* for ill-formed too-short tags */
+			if(len < 22)
+			    len=22;
+
+			current_data=(char*)malloc(len);  /* extra byte */
+			memset(current_data,0x00,len);
 
 			if(fread(current_data,1,current_size-8,fin) != current_size-8) 
 			    break;
@@ -812,7 +835,7 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
 	if(!pmp3->song_length) /* could have gotten it from the tag */
 	    pmp3->song_length=time_seconds;
     } else {
-	/* should really scan forward to next sync frame */
+	/* FIXME: should really scan forward to next sync frame */
 	fclose(infile);
 	DPRINTF(ERR_DEBUG,"Could not find sync frame\n");
 	return -1;

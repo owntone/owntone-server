@@ -55,4 +55,8 @@ extern int db_playlist_items_enum_end(void);
 
 extern char *db_get_playlist_name(int playlistid);
 
+/* For persistant databases only */
+extern int db_exists(int id);
+extern int db_last_modified(int id);
+
 #endif /* _DB_MEMORY_H_ */

@@ -171,7 +171,7 @@ int db_init(char *parameters) {
     db_version_no=1;
     db_song_count=0;
 
-    /* count the actual songs... */
+    /* count the actual songs and build the playlists */
     tmp_data=gdbm_firstkey(db_songs);
 
     MEMNOTIFY(tmp_data.dptr);
@@ -560,7 +560,7 @@ int db_add(MP3FILE *pmp3) {
     ppacked->time_modified=ppacked->time_added;
     ppacked->time_played=0;
 
-    if(gdbm_store(db_songs,dkey,*pnew,GDBM_INSERT)) {
+    if(gdbm_store(db_songs,dkey,*pnew,GDBM_REPLACE)) {
 	log_err(0,"Error inserting file %s in database\n",pmp3->fname);
     }
 
@@ -789,6 +789,7 @@ int db_playlist_items_enum_end(void) {
     return pthread_rwlock_unlock(&db_rwlock);
 }
 
+
 /*
  * db_find
  *
@@ -901,3 +902,33 @@ char *db_get_playlist_name(int playlistid) {
     return name;
 }
 
+
+/*
+ * db_exists
+ *
+ * Check if a particular ID exists or not
+ */
+int db_exists(int id) {
+    /* this is wrong and expensive */
+    MP3FILE *pmp3;
+
+    pmp3=db_find(id);
+    return pmp3 ? 1 : 0;
+}
+
+
+/*
+ * db_last_modified
+ *
+ * See when the file was last updated in the database
+ */
+int db_last_modified(int id) {
+    MP3FILE *pmp3;
+
+    pmp3=db_find(id);
+    if(!pmp3) 
+	return 0;
+
+
+    return pmp3->time_modified;
+}

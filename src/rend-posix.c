@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.16  2004/03/08 19:21:03  rpedde
+  start of background scanning
+
   Revision 1.15  2004/03/02 01:35:31  rpedde
   fix domain
 
@@ -240,15 +243,13 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
     switch (status) {
 
     case mStatus_NoError:      
-	DPRINTF(ERR_DEBUG,"Callback: %##s Name Registered\n",
-		thisRegistration->RR_SRV.resrec.name.c); 
+	DPRINTF(ERR_DEBUG,"Callback: Name Registered\n");
 	// Do nothing; our name was successfully registered.  We may 
 	// get more call backs in the future.
 	break;
 
     case mStatus_NameConflict: 
-	DPRINTF(ERR_WARN,"Callback: %##s Name Conflict\n",
-		thisRegistration->RR_SRV.resrec.name.c); 
+	DPRINTF(ERR_WARN,"Callback: Name Conflict\n");
 
 	// In the event of a conflict, this sample RegistrationCallback 
 	// just calls mDNS_RenameAndReregisterService to automatically 
@@ -266,8 +267,7 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
 	break;
 
     case mStatus_MemFree:      
-	DPRINTF(ERR_WARN,"Callback: %##s Memory Free\n",
-		thisRegistration->RR_SRV.resrec.name.c); 
+	DPRINTF(ERR_WARN,"Callback: Memory Free\n");
             
 	// When debugging is enabled, make sure that thisRegistration 
 	// is not on our gServiceList.
@@ -287,8 +287,7 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
 	break;
 
     default:                   
-	DPRINTF(ERR_WARN,"Callback: %##s Unknown Status %d\n", 
-		thisRegistration->RR_SRV.resrec.name.c, status); 
+	DPRINTF(ERR_WARN,"Callback: Unknown Status %d\n",status); 
 	break;
     }
 }
