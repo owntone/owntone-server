@@ -1211,7 +1211,7 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 
 	atom_offset=aac_drilltoatom(infile,"mdat",&atom_length);
 
-	if (atom_offset != -1) {
+	if ((atom_offset != -1) && (pmp3->song_length)) {
 	    pmp3->bitrate = atom_length / ((pmp3->song_length / 1000) * 128);
 	}
 
