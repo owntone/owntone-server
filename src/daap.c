@@ -1094,10 +1094,10 @@ static void add_browse_item(browse_item** root, char* name)
 {
     browse_item*	item;
 
-    while(0 != (item = *root) && strcmp(item->name, name) < 0)
+    while(0 != (item = *root) && strcasecmp(item->name, name) < 0)
 	root = &item->next;
 
-    if(item && strcmp(item->name, name) == 0)
+    if(item && strcasecmp(item->name, name) == 0)
 	return;
 
     item = calloc(1, sizeof(browse_item));
