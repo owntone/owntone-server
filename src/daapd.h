@@ -51,7 +51,7 @@ typedef struct tag_config {
     char *web_root;       /**< path to the directory containing the admin-root files */
     int port;             /**< port to listen on */
     int rescan_interval;  /**< How often to do a background rescan of the file system */
-    int always_scan;      /**< 0 to minimize disk usage (embedded devices) - not in config */
+    int always_scan;      /**< 0 to minimize disk usage (embedded devices) */
     int process_m3u;      /**< Should we process m3u files? */
     char *adminpassword;  /**< Password to web management pages */
     char *readpassword;   /**< iTunes password */
