@@ -198,7 +198,7 @@ DAAP_BLOCK *daap_response_content_codes(void) {
     DAAP_ITEMS *current=taglist;
     int g=1;
     
-    DPRINTF(ERR_DEBUG,"Preparing to get content codes\n");
+    DPRINTF(E_DBG,L_DAAP,"Preparing to get content codes\n");
 
     root=daap_add_empty(NULL,"mccr");
     if(root) {
@@ -231,7 +231,7 @@ DAAP_BLOCK *daap_response_login(char *hostname) {
     int g=1;
     int session=0;
     
-    DPRINTF(ERR_DEBUG,"Preparing to send login response\n");
+    DPRINTF(E_DBG,L_DAAP,"Preparing to send login response\n");
 
     root=daap_add_empty(NULL,"mlog");
     if(root) {
@@ -245,7 +245,7 @@ DAAP_BLOCK *daap_response_login(char *hostname) {
 	return NULL;
     }
 
-    DPRINTF(ERR_LOG,"%s logging in as session %d\n",hostname,session);
+    DPRINTF(E_LOG,L_DAAP,"%s logging in as session %d\n",hostname,session);
 
     return root;
 }
@@ -385,10 +385,10 @@ MetaField_t encodeMetaRequest(char* meta, MetaDataMap* map)
 	if(m->tag)
 	    bits |= (((MetaField_t) 1) << m->bit);
 	else
-	    DPRINTF(ERR_WARN, "Unknown meta code: %.*s\n", len, start);
+	    DPRINTF(E_WARN,L_DAAP,"Unknown meta code: %.*s\n", len, start);
     }
 
-    DPRINTF(ERR_DEBUG, "meta codes: %llu\n", bits);
+    DPRINTF(E_DBG, L_DAAP, "meta codes: %llu\n", bits);
 
     return bits;
 }
@@ -410,7 +410,7 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
     query_node_t*	filter = 0;
     int			songs = 0;
 
-    DPRINTF(ERR_DEBUG,"enter daap_response_songlist\n");
+    DPRINTF(E_DBG,L_DAAP,"enter daap_response_songlist\n");
 
     // if the meta tag is specified, encode it, if it's not specified
     // we're given the latitude to select our own subset, for
@@ -422,16 +422,16 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
 
     if(0 != query) {
 	filter = query_build(query, song_fields);
-	DPRINTF(ERR_INFO,"query: %s\n", query);
-	if(err_debuglevel >= ERR_INFO) /* this is broken */
+	DPRINTF(E_INF,L_DAAP|L_QRY,"query: %s\n", query);
+	if(err_debuglevel >= E_INF) /* this is broken */
 	    query_dump(stderr,filter, 0);
     }
 
-    DPRINTF(ERR_DEBUG,"Preparing to send db items\n");
+    DPRINTF(E_DBG,L_DAAP|L_DB,"Preparing to send db items\n");
 
     henum=db_enum_begin();
     if((!henum) && (db_get_song_count())) {
-	DPRINTF(ERR_DEBUG,"Can't get enum handle - exiting daap_response_songlist\n");
+	DPRINTF(E_DBG,L_DAAP|L_DB,"Can't get enum handle - exiting daap_response_songlist\n");
 	return NULL;
     }
 
@@ -448,7 +448,7 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
 	    while(g && (current=db_enum(&henum))) {
 		if(filter == 0 || query_test(filter, current))
 		{
-		    DPRINTF(ERR_DEBUG,"Got entry for %s\n",current->fname);
+		    DPRINTF(E_DBG,L_DAAP|L_DB,"Got entry for %s\n",current->fname);
 		    // song entry generation extracted for usage with
 		    // playlists as well
 		    g = 0 != daap_add_song_entry(mlcl, current, meta);
@@ -464,17 +464,17 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
 	query_free(filter);
 
     if(!g) {
-	DPRINTF(ERR_DEBUG,"Error enumerating database - exiting daap_response_songlist\n");
+	DPRINTF(E_DBG,L_DAAP|L_DB,"Error enumerating db - exiting daap_response_songlist\n");
 	daap_free(root);
 	return NULL;
     }
 
-    DPRINTF(ERR_DEBUG,"Successfully enumerated database - %d items\n",songs);
+    DPRINTF(E_DBG,L_DAAP|L_DB,"Successfully enumerated database - %d items\n",songs);
 
     daap_set_int(root, "mtco", songs);
     daap_set_int(root, "mrco", songs);
 
-    DPRINTF(ERR_DEBUG,"Exiting daap_response_songlist\n");
+    DPRINTF(E_DBG,L_DAAP,"Exiting daap_response_songlist\n");
     return root;
 }
 
@@ -610,7 +610,7 @@ DAAP_BLOCK *daap_response_update(int fd, int clientver) {
     struct timeval tv;
     int result;
 
-    DPRINTF(ERR_DEBUG,"Preparing to send update response\n");
+    DPRINTF(E_DBG,L_DAAP,"Preparing to send update response\n");
 
     while(clientver == db_version()) {
 	FD_ZERO(&rset);
@@ -622,7 +622,7 @@ DAAP_BLOCK *daap_response_update(int fd, int clientver) {
 	result=select(fd+1,&rset,NULL,NULL,&tv);
 	if(FD_ISSET(fd,&rset)) {
 	    /* can't be ready for read, must be error */
-	    DPRINTF(ERR_DEBUG,"Socket closed?\n");
+	    DPRINTF(E_DBG,L_DAAP,"Socket closed?\n");
 	    
 	    return NULL;
 	}
@@ -657,7 +657,7 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
     int playlistid;
     ENUMHANDLE henum;
 
-    DPRINTF(ERR_DEBUG,"Preparing to send playlists\n");
+    DPRINTF(E_DBG,L_DAAP,"Preparing to send playlists\n");
     
     root=daap_add_empty(NULL,"aply");
     if(root) {
@@ -681,10 +681,10 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
 	    henum=db_playlist_enum_begin();
 	    while(henum) {
 		playlistid=db_playlist_enum(&henum);
-		DPRINTF(ERR_DEBUG,"Returning playlist %d\n",playlistid);
-		DPRINTF(ERR_DEBUG,"  -- Songs: %d\n",
+		DPRINTF(E_DBG,L_DAAP|L_PL,"Returning playlist %d\n",playlistid);
+		DPRINTF(E_DBG,L_DAAP|L_PL,"  -- Songs: %d\n",
 			db_get_playlist_entry_count(playlistid));
-		DPRINTF(ERR_DEBUG,"  -- Smart: %s\n",
+		DPRINTF(E_DBG,L_DAAP|L_PL,"  -- Smart: %s\n",
 			db_get_playlist_is_smart(playlistid) ?
 			"Yes" : "No");
 		mlit=daap_add_empty(mlcl,"mlit");
@@ -707,7 +707,7 @@ DAAP_BLOCK *daap_response_playlists(char *name) {
     g = g && mlcl;
 
     if(!g) {
-	DPRINTF(ERR_INFO,"Memory problem.  Bailing\n");
+	DPRINTF(E_INF,L_DAAP,"Memory problem.  Bailing\n");
 	daap_free(root);
 	return NULL;
     }
@@ -727,7 +727,7 @@ DAAP_BLOCK *daap_response_dbinfo(char *name) {
     DAAP_BLOCK *mlit=NULL;
     int g=1;
 
-    DPRINTF(ERR_DEBUG,"Preparing to send db info\n");
+    DPRINTF(E_DBG,L_DAAP|L_DB,"Preparing to send db info\n");
     
     root=daap_add_empty(NULL,"avdb");
     if(root) {
@@ -751,12 +751,12 @@ DAAP_BLOCK *daap_response_dbinfo(char *name) {
     g = g && mlcl && mlit;
 
     if(!g) {
-	DPRINTF(ERR_INFO,"Memory problem.  Bailing\n");
+	DPRINTF(E_INF,L_DAAP,"Memory problem.  Bailing\n");
 	daap_free(root);
 	return NULL;
     }
 
-    DPRINTF(ERR_DEBUG,"Sent db info... %d songs, %d playlists\n",db_get_song_count(),
+    DPRINTF(E_DBG,L_DAAP|L_DB,"Sent db info... %d songs, %d playlists\n",db_get_song_count(),
 	    db_get_playlist_count());
 
     return root;
@@ -771,7 +771,7 @@ DAAP_BLOCK *daap_response_server_info(char *name, char *client_version) {
     DAAP_BLOCK *root;
     int g=1;
 
-    DPRINTF(ERR_DEBUG,"Preparing to send server info for client version %s\n",client_version);
+    DPRINTF(E_DBG,L_DAAP,"Preparing to send server-info for client ver %s\n",client_version);
 
     root=daap_add_empty(NULL,"msrv");
 
@@ -867,12 +867,12 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 
     if(0 != query) {
 	filter = query_build(query, song_fields);
-	DPRINTF(ERR_INFO,"query: %s\n",query);
-	if(err_debuglevel >= ERR_INFO) /* this is broken */
+	DPRINTF(E_INF,L_DAAP|L_QRY,"query: %s\n",query);
+	if(err_debuglevel >= E_INF) /* this is broken */
 	    query_dump(stderr,filter, 0);
     }
 
-    DPRINTF(ERR_DEBUG,"Preparing to send playlist items for pl #%d\n",playlist);
+    DPRINTF(E_DBG,L_DAAP|L_PL,"Preparing to send playlist items for pl #%d\n",playlist);
     
     if(playlist == 1) {
 	henum=db_enum_begin();
@@ -914,7 +914,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 			if(0 == filter || query_test(filter, current))
 			{
 			    songs++;
-			    DPRINTF(ERR_DEBUG,"Adding itemid %d\n",itemid);
+			    DPRINTF(E_DBG,L_DAAP|L_PL,"Adding itemid %d\n",itemid);
 			    mlit=daap_add_song_entry(mlcl,current,meta);
 			    if(0 != mlit) {
 				if(wantsMeta(meta, metaContainerItemId)) // current->id?
@@ -940,7 +940,7 @@ DAAP_BLOCK *daap_response_playlist_items(unsigned int playlist, char* metaStr, c
 	return NULL;
     }
 
-    DPRINTF(ERR_DEBUG,"Sucessfully enumerated %d items\n",songs);
+    DPRINTF(E_DBG,L_DAAP|L_PL,"Sucessfully enumerated %d items\n",songs);
 
     daap_set_int(root, "mtco", songs);
     daap_set_int(root, "mrco", songs);
@@ -1046,13 +1046,13 @@ void daap_handle_index(DAAP_BLOCK* block, const char* index)
     // should have already be created
     daap_set_int(block, "mrco", count);
 
-    DPRINTF(ERR_INFO, "index:%s first:%d count:%d\n", index, first, count);
+    DPRINTF(E_INF,L_DAAP|L_IND, "index:%s first:%d count:%d\n", index, first, count);
 
     // remove the first first entries
     for(back = &list->children ; *back && first ; )
 	if(!strncmp((**back).tag, "mlit", 4))
 	{
-	    DPRINTF(ERR_DEBUG, "first:%d removing\n", first);
+	    DPRINTF(E_DBG,L_DAAP|L_IND, "first:%d removing\n", first);
 	    daap_remove(*back);
 	    first--;
 	}
@@ -1063,7 +1063,7 @@ void daap_handle_index(DAAP_BLOCK* block, const char* index)
     for( ; *back && count ; back = &(**back).next)
 	if(!strncmp((**back).tag, "mlit", 4))
 	{
-	    DPRINTF(ERR_DEBUG, "count:%d keeping\n", count);
+	    DPRINTF(E_DBG,L_DAAP|L_IND,"count:%d keeping\n", count);
 	    count--;
 	}
 
@@ -1072,7 +1072,7 @@ void daap_handle_index(DAAP_BLOCK* block, const char* index)
     {
 	if(!strncmp((**back).tag, "mlit", 4))
 	{
-	    DPRINTF(ERR_DEBUG, "removing spare\n");
+	    DPRINTF(E_DBG,L_DAAP|L_IND,"removing spare\n");
 	    daap_remove(*back);
 	}
 	else
@@ -1173,7 +1173,7 @@ DAAP_BLOCK* daap_response_browse(const char* name, const char* filter)
     }
     else
     {
-	DPRINTF(ERR_WARN,"Invalid browse request: %s\n", name);
+	DPRINTF(E_WARN,L_DAAP|L_BROW,"Invalid browse request: %s\n", name);
 	return NULL;
     }
 
@@ -1182,8 +1182,8 @@ DAAP_BLOCK* daap_response_browse(const char* name, const char* filter)
 	return NULL;
 
     if(query) {
-	DPRINTF(ERR_INFO,"query: %s\n",filter);
-	if(err_debuglevel >= ERR_INFO) /* this is broken */
+	DPRINTF(E_INF,L_DAAP|L_BROW|L_QRY,"query: %s\n",filter);
+	if(err_debuglevel >= E_INF) /* this is broken */
 	    query_dump(stderr,query, 0);
     }
 

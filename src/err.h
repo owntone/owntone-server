@@ -34,38 +34,43 @@
 #define LOGDEST_LOGFILE      2  /**< Log to logfile */
 
 /** @anchor log_levels */
-#define ERR_EXCESSIVE        10  /**< Logorrhea! */
-#define ERR_DEBUG            9   /**< Way too verbose */
-#define ERR_INFO             5   /**< Good info, not too much spam */
-#define ERR_WARN             2   /**< Reasonably important, but not enough to log */
-#define ERR_LOG              1   /**< Something that should go in a log file */
-#define ERR_FATAL            0   /**< Log and force an exit */
+#define E_SPAM         10   /**< Logorrhea! */
+#define E_DBG           9   /**< Way too verbose */
+#define E_INF           5   /**< Good info, not too much spam */
+#define E_WARN          2   /**< Reasonably important, but not enough to log */
+#define E_LOG           1   /**< Something that should go in a log file */
+#define E_FATAL         0   /**< Log and force an exit */
 
 /** @anchor log_categories */
-#define LOG_CONFIG           0x0001 /**< configfile.c */
-#define LOG_WEBSERVER        0x0002 /**< webserver.c */
-#define LOG_DATABASE         0x0004 /**< db-* */
-#define LOG_SCAN             0x0008 /**< mp3-scanner.c */
-#define LOG_QUERY            0x0010 /**< query.c */
-#define LOG_INDEX            0x0020 /**< daap.c */
-#define LOG_BROWSE           0x0040 /**< daap.c, query.c */
-#define LOG_PLAYLIST         0x0080 /**< playlist.c, lexer.l, parser.y */
+#define L_CONF    0x00000001 /**< configuration - configfile.c */
+#define L_WS      0x00000002 /**< webserver - webserver.c */
+#define L_DB      0x00000004 /**< database - db-gdbm.c, db-memory.c */
+#define L_SCAN    0x00000008 /**< scanner - mp3-scanner.c */
+#define L_QRY     0x00000010 /**< query - query.c */
+#define L_IND     0x00000020 /**< index - daap.c */
+#define L_BROW    0x00000040 /**< browse - daap.c, query.c */
+#define L_PL      0x00000080 /**< playlists - playlist.c, lexer.l, parser.y */
+#define L_ART     0x00000100 /**< cover art - dynamic-art.c */
+#define L_DAAP    0x00000200 /**< Generally daap related - main.c, daap.c, query.c */
+#define L_MAIN    0x00000400 /**< setup, teardown, signals - main.c */
+#define L_REND    0x00000800 /**< rendezvous -- rend-unix.c, rend-posix.c, etc */
 
+#define L_MISC    0x80000000 /**< anything else */
 
 extern int err_debuglevel;
 
-extern void log_err(int quit, char *fmt, ...);
+extern void log_err(int level, unsigned int cat, char *fmt, ...);
 extern void log_setdest(char *app, int destination);
 
 /**
  * Print a debugging or log message
  */
 #ifdef DEBUG
-# define DPRINTF(level, fmt, arg...) \
-    { log_err(level,"%s, %d: ",__FILE__,__LINE__); log_err(level,fmt,##arg); }
+# define DPRINTF(level, cat, fmt, arg...)				\
+    { log_err(level,cat,"%s, %d: ",__FILE__,__LINE__); log_err(level,cat,fmt,##arg); }
 #else
-# define DPRINTF(level, fmt, arg...) \
-    { log_err(level,fmt,##arg); }
+# define DPRINTF(level, cat, fmt, arg...)	\
+    { log_err(level,cat,fmt,##arg); }
 #endif
 
 #ifdef DEBUG_MEMORY

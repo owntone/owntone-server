@@ -241,7 +241,7 @@ int config_read(char *file) {
     err=0;
     while((pce->config_element != -1)) {
 	if(pce->required && pce->config_element && !pce->changed) {
-	    DPRINTF(ERR_LOG,"Required config entry '%s' not specified\n",pce->name);
+	    DPRINTF(E_LOG,L_CONF,"Required config entry '%s' not specified\n",pce->name);
 	    err=-1;
 	}
 
@@ -249,10 +249,10 @@ int config_read(char *file) {
 	if((pce->config_element) && (pce->changed)) {
 	    switch(pce->type) {
 	    case CONFIG_TYPE_STRING:
-		DPRINTF(ERR_INFO,"%s: %s\n",pce->name,*((char**)pce->var));
+		DPRINTF(E_INF,"%s: %s\n",pce->name,*((char**)pce->var));
 		break;
 	    case CONFIG_TYPE_INT:
-		DPRINTF(ERR_INFO,"%s: %d\n",pce->name,*((int*)pce->var));
+		DPRINTF(E_INF,"%s: %d\n",pce->name,*((int*)pce->var));
 		break;
 	    }
 	}
@@ -351,7 +351,7 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
 	    if((next == '@') && (strlen(argbuffer) > 0)) {
 		in_arg=0;
 
-		DPRINTF(ERR_DEBUG,"Got directive %s\n",argbuffer);
+		DPRINTF(E_DBG,L_CONF,"Got directive %s\n",argbuffer);
 
 		/* see if there are args */
 		first=last=argbuffer;
@@ -401,7 +401,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     struct stat sb;
     char *pw;
 
-    DPRINTF(ERR_DEBUG,"Entering config_handler\n");
+    DPRINTF(E_DBG,L_CONF|L_WS,"Entering config_handler\n");
 
     config_set_status(pwsc,0,"Serving admin pages");
     
@@ -411,7 +411,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     snprintf(path,PATH_MAX,"%s/%s",config.web_root,pwsc->uri);
     if(!realpath(path,resolved_path)) {
 	pwsc->error=errno;
-	DPRINTF(ERR_WARN,"Cannot resolve %s\n",path);
+	DPRINTF(E_WARN,L_CONF|L_WS,"Cannot resolve %s\n",path);
 	ws_returnerror(pwsc,404,"Not found");
 	config_set_status(pwsc,0,NULL);
 	return;
@@ -422,13 +422,13 @@ void config_handler(WS_CONNINFO *pwsc) {
     if(sb.st_mode & S_IFDIR)
 	strcat(resolved_path,"/index.html");
 
-    DPRINTF(ERR_DEBUG,"Thread %d: Preparing to serve %s\n",
+    DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Preparing to serve %s\n",
 	    pwsc->threadno, resolved_path);
 
     if(strncmp(resolved_path,config.web_root,
 	       strlen(config.web_root))) {
 	pwsc->error=EINVAL;
-	DPRINTF(ERR_WARN,"Thread %d: Requested file %s out of root\n",
+	DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
 		pwsc->threadno,resolved_path);
 	ws_returnerror(pwsc,403,"Forbidden");
 	config_set_status(pwsc,0,NULL);
@@ -438,7 +438,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     file_fd=r_open2(resolved_path,O_RDONLY);
     if(file_fd == -1) {
 	pwsc->error=errno;
-	DPRINTF(ERR_WARN,"Thread %d: Error opening %s: %s\n",
+	DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
 		pwsc->threadno,resolved_path,strerror(errno));
 	ws_returnerror(pwsc,404,"Not found");
 	config_set_status(pwsc,0,NULL);
@@ -480,7 +480,7 @@ void config_handler(WS_CONNINFO *pwsc) {
 	    }
 
 	    if(!config_file_is_readonly()) {
-		DPRINTF(ERR_INFO,"Updating config file\n");
+		DPRINTF(E_INF,L_CONF|L_WS,"Updating config file\n");
 		config_write(pwsc);
 	    }
 	}
@@ -496,7 +496,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     }
 
     r_close(file_fd);
-    DPRINTF(ERR_DEBUG,"Thread %d: Served successfully\n",pwsc->threadno);
+    DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Served successfully\n",pwsc->threadno);
     config_set_status(pwsc,0,NULL);
     return;
 }
@@ -734,7 +734,7 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
 
     char *page, *true, *false;
 
-    DPRINTF(ERR_DEBUG,"Splitting arg %s\n",arg);
+    DPRINTF(E_DBG,L_CONF|L_WS,"Splitting arg %s\n",arg);
 
     first=last=arg;
     strsep(&last,":");
@@ -761,7 +761,7 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
 
 
-    DPRINTF(ERR_DEBUG,"page: %s, uri: %s\n",page,pwsc->uri);
+    DPRINTF(E_DBG,L_CONF|L_WS,"page: %s, uri: %s\n",page,pwsc->uri);
 
     if((strlen(page) > strlen(pwsc->uri)) ||
        (strcasecmp(page,(char*)&pwsc->uri[strlen(pwsc->uri) - strlen(page)]) != 0)) {
@@ -831,12 +831,12 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     int file_fd;
     struct stat sb;
 
-    DPRINTF(ERR_DEBUG,"Preparing to include %s\n",arg);
+    DPRINTF(E_DBG,L_CONF|L_WS,"Preparing to include %s\n",arg);
     
     snprintf(path,PATH_MAX,"%s/%s",config.web_root,arg);
     if(!realpath(path,resolved_path)) {
 	pwsc->error=errno;
-	DPRINTF(ERR_WARN,"Cannot resolve %s\n",path);
+	DPRINTF(E_WARN,L_CONF|L_WS,"Cannot resolve %s\n",path);
 	ws_writefd(pwsc,"<hr><i>error: cannot find %s</i><hr>",arg);
 	return;
     }
@@ -849,13 +849,13 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
 
 
-    DPRINTF(ERR_DEBUG,"Thread %d: Preparing to serve %s\n",
+    DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Preparing to serve %s\n",
 	    pwsc->threadno, resolved_path);
 
     if(strncmp(resolved_path,config.web_root,
 	       strlen(config.web_root))) {
 	pwsc->error=EINVAL;
-	DPRINTF(ERR_WARN,"Thread %d: Requested file %s out of root\n",
+	DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
 		pwsc->threadno,resolved_path);
 	ws_writefd(pwsc,"<hr><i>error: %s out of web root</i><hr>",arg);
 	return;
@@ -864,7 +864,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     file_fd=r_open2(resolved_path,O_RDONLY);
     if(file_fd == -1) {
 	pwsc->error=errno;
-	DPRINTF(ERR_WARN,"Thread %d: Error opening %s: %s\n",
+	DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
 		pwsc->threadno,resolved_path,strerror(errno));
 	ws_writefd(pwsc,"<hr><i>error: cannot open %s: %s</i><hr>",arg,strerror(errno));
 	return;
@@ -873,7 +873,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     config_subst_stream(pwsc, file_fd);
 
     r_close(file_fd);
-    DPRINTF(ERR_DEBUG,"Thread %d: included successfully\n",pwsc->threadno);
+    DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: included successfully\n",pwsc->threadno);
     return;
 }
 
@@ -887,11 +887,11 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     va_list ap;
     SCAN_STATUS *pfirst, *plast;
 
-    DPRINTF(ERR_DEBUG,"Entering config_set_status\n");
+    DPRINTF(E_DBG,L_CONF,"Entering config_set_status\n");
 
     if(config_mutex_lock()) {
 	/* we should really shutdown the app here... */
-	DPRINTF(ERR_FATAL,"Error acquiring config mutex\n");
+	DPRINTF(E_FATAL,L_CONF,"Error acquiring config mutex\n");
     }
 
     pfirst=plast=scan_status.next;
@@ -923,7 +923,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     } else {
 	if(!pfirst) {
 	    config_mutex_unlock();
-	    DPRINTF(ERR_DEBUG,"Exiting config_set_status\n");
+	    DPRINTF(E_DBG,L_CONF,"Exiting config_set_status\n");
 	    return;
 	}
 
@@ -941,7 +941,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     }
 
     config_mutex_unlock();
-    DPRINTF(ERR_DEBUG,"Exiting config_set_status\n");
+    DPRINTF(E_DBG,L_CONF,"Exiting config_set_status\n");
 }
 
 /*
@@ -1021,5 +1021,9 @@ void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg) {
 
 #ifdef WITH_HOWL
     ws_writefd(pwsc,"%s ","--enable-howl");
+#endif
+
+#ifdef NSLU2
+    ws_writefd(pwsc,"%s ","--enable-nslu2");
 #endif
 }

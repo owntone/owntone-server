@@ -120,7 +120,7 @@ time_t l_convertyyyymmdd(char *date) {
     strncpy(month,date+5,2);
     strncpy(day,date+8,2);
 
-    DPRINTF(ERR_INFO,"Converting %d-%d-%d\n",atoi(year),atoi(month),atoi(day));
+    DPRINTF(E_INF,L_PL,"Converting %d-%d-%d\n",atoi(year),atoi(month),atoi(day));
     return l_converttime(atoi(day), atoi(month), atoi(year));
 }
 
@@ -141,7 +141,7 @@ int yywrap(void) {
 
 void yyerror(char *msg) {
     pl_error=1;
-    DPRINTF(ERR_LOG,"Playlist error, line %d: %s\n",yylineno, msg);
+    DPRINTF(E_LOG,L_PL,"Playlist error, line %d: %s\n",yylineno, msg);
 }
 
 

@@ -86,7 +86,7 @@ int da_get_image_fd(char *filename) {
     strcpy(path_end+1,config.artfilename);
     fd = open(buffer,O_RDONLY);
     if(fd != -1) 
-	DPRINTF(ERR_INFO,"Found image file %s (fd %d)\n",buffer,fd);
+	DPRINTF(E_INF,L_ART,"Found image file %s (fd %d)\n",buffer,fd);
 
     return fd;
 }
@@ -137,7 +137,7 @@ int da_attach_image(int img_fd, int out_fd, int mp3_fd, int offset)
     fstat(img_fd,&sb);
     img_size=sb.st_size;
 
-    DPRINTF(ERR_INFO,"Image appears to be %ld bytes\n",img_size);
+    DPRINTF(E_INF,L_ART,"Image appears to be %ld bytes\n",img_size);
     if(img_size < 1) {
 	r_close(img_fd);
 	return 0;
@@ -152,7 +152,7 @@ int da_attach_image(int img_fd, int out_fd, int mp3_fd, int offset)
     tag_info = da_get_current_tag_info(mp3_fd);
     tag_size = tag_info[1];
 
-    DPRINTF(ERR_INFO,"Current tag size is %d bytes\n",tag_size);
+    DPRINTF(E_INF,L_ART,"Current tag size is %d bytes\n",tag_size);
 
     if (tag_info[0] == 3) {
 	r_write(out_fd,"ID3\x03\0\0",6);
@@ -187,7 +187,7 @@ int da_attach_image(int img_fd, int out_fd, int mp3_fd, int offset)
     }
     lseek(img_fd,0,SEEK_SET);
     copyfile(img_fd,out_fd);
-    DPRINTF(ERR_INFO,"Done copying IMG %ld\n",img_size);
+    DPRINTF(E_INF,L_ART,"Done copying IMG %ld\n",img_size);
     r_close(img_fd);
     free(tag_info);
     return 0;
@@ -202,63 +202,63 @@ int da_attach_image(int img_fd, int out_fd, int mp3_fd, int offset)
 off_t da_aac_rewrite_stco_atom(off_t extra_size, int out_fd, FILE *aac_fp,
                                off_t last_pos)
 {
-  int           aac_fd;
-  struct stat   sb;
-  unsigned char buffer[4];
-  off_t         file_size;
-  int           atom_offset;
-  int           atom_length;
-  off_t         cur_pos;
-  off_t         old_pos;
-  int           i;
-  unsigned int  num_entries;
-  unsigned int  offset_entry;
+    int           aac_fd;
+    struct stat   sb;
+    unsigned char buffer[4];
+    off_t         file_size;
+    int           atom_offset;
+    int           atom_length;
+    off_t         cur_pos;
+    off_t         old_pos;
+    int           i;
+    unsigned int  num_entries;
+    unsigned int  offset_entry;
 
-  aac_fd = fileno(aac_fp);
+    aac_fd = fileno(aac_fp);
 
-  fstat(aac_fd, &sb);
-  file_size = sb.st_size;
+    fstat(aac_fd, &sb);
+    file_size = sb.st_size;
 
-  /* Drill down to the 'stco' atom which contains offsets to chunks in
-     the 'mdat' section. These offsets need to be readjusted. */
-  atom_offset = aac_drilltoatom(aac_fp, "moov:trak:mdia:minf:stbl:stco",
-                                &atom_length);
-  if (atom_offset != -1) {
-    /* Skip flags */
-    fseek(aac_fp, 4, SEEK_CUR);
+    /* Drill down to the 'stco' atom which contains offsets to chunks in
+       the 'mdat' section. These offsets need to be readjusted. */
+    atom_offset = aac_drilltoatom(aac_fp, "moov:trak:mdia:minf:stbl:stco",
+				  &atom_length);
+    if (atom_offset != -1) {
+	/* Skip flags */
+	fseek(aac_fp, 4, SEEK_CUR);
 
-    old_pos = last_pos;
-    cur_pos = ftell(aac_fp);
+	old_pos = last_pos;
+	cur_pos = ftell(aac_fp);
 
-    /* Copy from last point to this point. */
-    fseek(aac_fp, old_pos, SEEK_SET);
-    fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
+	/* Copy from last point to this point. */
+	fseek(aac_fp, old_pos, SEEK_SET);
+	fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
 
-    /* Read number of entries */
-    fread(buffer, 1, 4, aac_fp);
-    r_write(out_fd, buffer, 4);
+	/* Read number of entries */
+	fread(buffer, 1, 4, aac_fp);
+	r_write(out_fd, buffer, 4);
 
-    num_entries = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
+	num_entries = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
 
-    DPRINTF(ERR_DEBUG, "Readjusting %d 'stco' table offsets.\n", num_entries);
-    /* PENDING: Error check on num_entries? */
-    for (i = 0; i < num_entries; i++) {
-        fread(buffer, 1, 4, aac_fp);
-        offset_entry = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
-        /* Adjust chunk offset. */
-        offset_entry += extra_size;
-        buffer[3] = offset_entry & 0xFF;
-        buffer[2] = (offset_entry >> 8) & 0xFF;
-        buffer[1] = (offset_entry >> 16) & 0xFF;
-        buffer[0] = (offset_entry >> 24) & 0xFF;
-        r_write(out_fd, buffer, 4);
-        offset_entry = 0;
+	DPRINTF(E_DBG, L_ART,"Readjusting %d 'stco' table offsets.\n", num_entries);
+	/* PENDING: Error check on num_entries? */
+	for (i = 0; i < num_entries; i++) {
+	    fread(buffer, 1, 4, aac_fp);
+	    offset_entry = (buffer[0] << 24) | (buffer[1] << 16) | (buffer[2] << 8) | buffer[3];
+	    /* Adjust chunk offset. */
+	    offset_entry += extra_size;
+	    buffer[3] = offset_entry & 0xFF;
+	    buffer[2] = (offset_entry >> 8) & 0xFF;
+	    buffer[1] = (offset_entry >> 16) & 0xFF;
+	    buffer[0] = (offset_entry >> 24) & 0xFF;
+	    r_write(out_fd, buffer, 4);
+	    offset_entry = 0;
+	}
+	return ftell(aac_fp);
+    } else {
+	DPRINTF(E_LOG, L_ART,"No 'stco' atom found.\n");
     }
-    return ftell(aac_fp);
-  } else {
-      DPRINTF(ERR_LOG, "No 'stco' atom found.\n");
-  }
-  return last_pos;
+    return last_pos;
 }
 
 /**
@@ -268,159 +268,159 @@ off_t da_aac_rewrite_stco_atom(off_t extra_size, int out_fd, FILE *aac_fp,
 off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
                               off_t last_pos, off_t file_size, int img_fd)
 {
-  int           aac_fd;
-  struct stat   sb;
-  off_t         old_pos;
-  unsigned char buffer[4];
-  int           atom_offset;
-  int           atom_length;
-  off_t         cur_pos;
-  char          *cp;
-  unsigned char img_type_flag = 0;
+    int           aac_fd;
+    struct stat   sb;
+    off_t         old_pos;
+    unsigned char buffer[4];
+    int           atom_offset;
+    int           atom_length;
+    off_t         cur_pos;
+    char          *cp;
+    unsigned char img_type_flag = 0;
 
-  /* Figure out image file type since this needs to be encoded in the atom. */
-  cp = strrchr(config.artfilename, '.');
-  if (cp) {
-    if (!strcasecmp(cp, ".jpeg") || !strcasecmp(cp, ".jpg")) {
-      img_type_flag = 0x0d;
-    }
-    else if (!strcasecmp(cp, ".png")) {
-      img_type_flag = 0x0e;
+    /* Figure out image file type since this needs to be encoded in the atom. */
+    cp = strrchr(config.artfilename, '.');
+    if (cp) {
+	if (!strcasecmp(cp, ".jpeg") || !strcasecmp(cp, ".jpg")) {
+	    img_type_flag = 0x0d;
+	}
+	else if (!strcasecmp(cp, ".png")) {
+	    img_type_flag = 0x0e;
+	} else {
+	    DPRINTF(E_LOG,L_ART, "Image type '%s' not supported.\n", cp);
+	    return 0;
+	}
     } else {
-      DPRINTF(ERR_LOG, "Image type '%s' not supported.\n", cp);
-      return 0;
+	DPRINTF(E_LOG, L_ART, "No file extension for image file.\n");
     }
-  } else {
-    DPRINTF(ERR_LOG, "No file extension for image file.\n");
-  }
 
-  aac_fd = fileno(aac_fp);
-  fstat(aac_fd, &sb);
-  file_size = sb.st_size;
-  rewind(aac_fp);
+    aac_fd = fileno(aac_fp);
+    fstat(aac_fd, &sb);
+    file_size = sb.st_size;
+    rewind(aac_fp);
 
-  atom_offset = scan_aac_findatom(aac_fp, file_size, "moov", &atom_length);
-  if (atom_offset != -1) {
-    atom_offset = scan_aac_findatom(aac_fp, atom_length - 8, "udta", &atom_length);
+    atom_offset = scan_aac_findatom(aac_fp, file_size, "moov", &atom_length);
     if (atom_offset != -1) {
-      old_pos = last_pos;
-      cur_pos = ftell(aac_fp) - 8;
-      DPRINTF(ERR_INFO,"Found udta atom at %ld.\n", cur_pos);
-      fseek(aac_fp, old_pos, SEEK_SET);
-      fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
+	atom_offset = scan_aac_findatom(aac_fp, atom_length - 8, "udta", &atom_length);
+	if (atom_offset != -1) {
+	    old_pos = last_pos;
+	    cur_pos = ftell(aac_fp) - 8;
+	    DPRINTF(E_INF,L_ART,"Found udta atom at %ld.\n", cur_pos);
+	    fseek(aac_fp, old_pos, SEEK_SET);
+	    fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
 
-      /* Write out new length */
-      atom_length += extra_size;
-      buffer[3] = atom_length & 0xFF;
-      buffer[2] = ( atom_length >> 8 ) & 0xFF;
-      buffer[1] = ( atom_length >> 16 ) & 0xFF;
-      buffer[0] = ( atom_length >> 24 ) & 0xFF;
-      r_write(out_fd, buffer, 4);
+	    /* Write out new length */
+	    atom_length += extra_size;
+	    buffer[3] = atom_length & 0xFF;
+	    buffer[2] = ( atom_length >> 8 ) & 0xFF;
+	    buffer[1] = ( atom_length >> 16 ) & 0xFF;
+	    buffer[0] = ( atom_length >> 24 ) & 0xFF;
+	    r_write(out_fd, buffer, 4);
 
-      cur_pos += 4;
-      fseek(aac_fp, 8, SEEK_CUR);
+	    cur_pos += 4;
+	    fseek(aac_fp, 8, SEEK_CUR);
 
-      atom_offset = scan_aac_findatom(aac_fp, atom_length - 8, "meta", &atom_length);
-      if (atom_offset != -1) {
-        old_pos = cur_pos;
-        cur_pos = ftell(aac_fp) - 8;
-        DPRINTF(ERR_INFO,"Found meta atom at %ld.\n", cur_pos);
-        fseek(aac_fp, old_pos, SEEK_SET);
-        fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
+	    atom_offset = scan_aac_findatom(aac_fp, atom_length - 8, "meta", &atom_length);
+	    if (atom_offset != -1) {
+		old_pos = cur_pos;
+		cur_pos = ftell(aac_fp) - 8;
+		DPRINTF(E_INF,L_ART,"Found meta atom at %ld.\n", cur_pos);
+		fseek(aac_fp, old_pos, SEEK_SET);
+		fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
 
-        /* Write out new length */
-        atom_length += extra_size;
-        buffer[3] = atom_length & 0xFF;
-        buffer[2] = ( atom_length >> 8 ) & 0xFF;
-        buffer[1] = ( atom_length >> 16 ) & 0xFF;
-        buffer[0] = ( atom_length >> 24 ) & 0xFF;
-        r_write(out_fd, buffer, 4);
+		/* Write out new length */
+		atom_length += extra_size;
+		buffer[3] = atom_length & 0xFF;
+		buffer[2] = ( atom_length >> 8 ) & 0xFF;
+		buffer[1] = ( atom_length >> 16 ) & 0xFF;
+		buffer[0] = ( atom_length >> 24 ) & 0xFF;
+		r_write(out_fd, buffer, 4);
 
-        cur_pos += 4;
-        fseek(aac_fp, 12, SEEK_CUR); /* "meta" atom hack. */
+		cur_pos += 4;
+		fseek(aac_fp, 12, SEEK_CUR); /* "meta" atom hack. */
 
-        atom_offset = scan_aac_findatom(aac_fp, atom_length - 8, "ilst", &atom_length);
-        if (atom_offset != -1) {
-          old_pos = cur_pos;
-          cur_pos = ftell(aac_fp) - 8;
-          DPRINTF(ERR_INFO,"Found ilst atom at %ld.\n", cur_pos);
-          fseek(aac_fp, old_pos, SEEK_SET);
-          fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
+		atom_offset = scan_aac_findatom(aac_fp, atom_length - 8, "ilst", &atom_length);
+		if (atom_offset != -1) {
+		    old_pos = cur_pos;
+		    cur_pos = ftell(aac_fp) - 8;
+		    DPRINTF(E_INF,L_ART,"Found ilst atom at %ld.\n", cur_pos);
+		    fseek(aac_fp, old_pos, SEEK_SET);
+		    fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
 
-          old_pos = cur_pos + 4;
-          cur_pos += atom_length;
+		    old_pos = cur_pos + 4;
+		    cur_pos += atom_length;
 
-          /* Write out new length */
-          atom_length += extra_size;
-          buffer[3] = atom_length & 0xFF;
-          buffer[2] = ( atom_length >> 8 ) & 0xFF;
-          buffer[1] = ( atom_length >> 16 ) & 0xFF;
-          buffer[0] = ( atom_length >> 24 ) & 0xFF;
-          r_write(out_fd, buffer, 4);
+		    /* Write out new length */
+		    atom_length += extra_size;
+		    buffer[3] = atom_length & 0xFF;
+		    buffer[2] = ( atom_length >> 8 ) & 0xFF;
+		    buffer[1] = ( atom_length >> 16 ) & 0xFF;
+		    buffer[0] = ( atom_length >> 24 ) & 0xFF;
+		    r_write(out_fd, buffer, 4);
 
-          /* Copy all 'ilst' children (all the MP4 'tags'). We will append
-             at the end. */
-          fseek(aac_fp, old_pos, SEEK_SET);
-          fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
-          cur_pos = ftell(aac_fp);
+		    /* Copy all 'ilst' children (all the MP4 'tags'). We will append
+		       at the end. */
+		    fseek(aac_fp, old_pos, SEEK_SET);
+		    fcopyblock(aac_fp, out_fd, cur_pos - old_pos);
+		    cur_pos = ftell(aac_fp);
 
-          /* Write out 'covr' atom */
-          atom_length = extra_size;
-          buffer[3] = atom_length & 0xFF;
-          buffer[2] = ( atom_length >> 8 ) & 0xFF;
-          buffer[1] = ( atom_length >> 16 ) & 0xFF;
-          buffer[0] = ( atom_length >> 24 ) & 0xFF;
-          r_write(out_fd, buffer, 4);
+		    /* Write out 'covr' atom */
+		    atom_length = extra_size;
+		    buffer[3] = atom_length & 0xFF;
+		    buffer[2] = ( atom_length >> 8 ) & 0xFF;
+		    buffer[1] = ( atom_length >> 16 ) & 0xFF;
+		    buffer[0] = ( atom_length >> 24 ) & 0xFF;
+		    r_write(out_fd, buffer, 4);
             
-          r_write(out_fd, "covr", 4);
+		    r_write(out_fd, "covr", 4);
 
-          /* Write out 'data' atom */
-          atom_length = extra_size - 8;
-          buffer[3] = atom_length & 0xFF;
-          buffer[2] = ( atom_length >> 8 ) & 0xFF;
-          buffer[1] = ( atom_length >> 16 ) & 0xFF;
-          buffer[0] = ( atom_length >> 24 ) & 0xFF;
-          r_write(out_fd, buffer, 4);
+		    /* Write out 'data' atom */
+		    atom_length = extra_size - 8;
+		    buffer[3] = atom_length & 0xFF;
+		    buffer[2] = ( atom_length >> 8 ) & 0xFF;
+		    buffer[1] = ( atom_length >> 16 ) & 0xFF;
+		    buffer[0] = ( atom_length >> 24 ) & 0xFF;
+		    r_write(out_fd, buffer, 4);
 
-          r_write(out_fd, "data", 4);
+		    r_write(out_fd, "data", 4);
 
-          /* Write out 'data' flags */
-          buffer[3] = img_type_flag;
-          buffer[2] = 0;
-          buffer[1] = 0;
-          buffer[0] = 0;
-          r_write(out_fd, buffer, 4);
+		    /* Write out 'data' flags */
+		    buffer[3] = img_type_flag;
+		    buffer[2] = 0;
+		    buffer[1] = 0;
+		    buffer[0] = 0;
+		    r_write(out_fd, buffer, 4);
 
-          /* Reserved? Zero in any case. */
-          buffer[3] = 0;
-          buffer[2] = 0;
-          buffer[1] = 0;
-          buffer[0] = 0;
+		    /* Reserved? Zero in any case. */
+		    buffer[3] = 0;
+		    buffer[2] = 0;
+		    buffer[1] = 0;
+		    buffer[0] = 0;
 
-          r_write(out_fd, buffer, 4);
+		    r_write(out_fd, buffer, 4);
 
-          /* Now ready for the image stream. Copy it over. */
-          lseek(img_fd,0,SEEK_SET);
-          copyfile(img_fd,out_fd);
-          last_pos = cur_pos;
-        } else {
-          DPRINTF(ERR_LOG, "No 'ilst' atom found.\n");
-        }
-     } else {
-        DPRINTF(ERR_LOG, "No 'meta' atom found.\n");
-     }
+		    /* Now ready for the image stream. Copy it over. */
+		    lseek(img_fd,0,SEEK_SET);
+		    copyfile(img_fd,out_fd);
+		    last_pos = cur_pos;
+		} else {
+		    DPRINTF(E_LOG, L_ART,"No 'ilst' atom found.\n");
+		}
+	    } else {
+		DPRINTF(E_LOG,L_ART, "No 'meta' atom found.\n");
+	    }
+	} else {
+	    DPRINTF(E_LOG,L_ART, "No 'udta' atom found.\n");
+	}
     } else {
-      DPRINTF(ERR_LOG, "No 'udta' atom found.\n");
+	DPRINTF(E_LOG,L_ART, "No 'moov' atom found.\n");
     }
-  } else {
-    DPRINTF(ERR_LOG, "No 'moov' atom found.\n");
-  }
 
-  /* Seek to position right after 'udta' atom. Let main() stream out the
-     rest. */
-  lseek(aac_fd, last_pos, SEEK_SET);
+    /* Seek to position right after 'udta' atom. Let main() stream out the
+       rest. */
+    lseek(aac_fd, last_pos, SEEK_SET);
 
-  return last_pos;
+    return last_pos;
 }
 
 /*
@@ -433,147 +433,147 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
  */
 off_t da_aac_attach_image(int img_fd, int out_fd, int aac_fd, int offset)
 {
-  off_t         img_size;
-  int           atom_length;
-  unsigned int  extra_size;
-  off_t         file_size;
-  unsigned char buffer[4];
-  struct stat   sb;
-  FILE          *aac_fp;
-  off_t         stco_atom_pos;
-  off_t         ilst_atom_pos;
-  off_t         last_pos;
+    off_t         img_size;
+    int           atom_length;
+    unsigned int  extra_size;
+    off_t         file_size;
+    unsigned char buffer[4];
+    struct stat   sb;
+    FILE          *aac_fp;
+    off_t         stco_atom_pos;
+    off_t         ilst_atom_pos;
+    off_t         last_pos;
 
-  fstat(img_fd, &sb);
-  img_size = sb.st_size;
+    fstat(img_fd, &sb);
+    img_size = sb.st_size;
 
-  DPRINTF(ERR_INFO,"Image size (in bytes): %ld.\n", img_size);
+    DPRINTF(E_INF,L_ART,"Image size (in bytes): %ld.\n", img_size);
 
-  /* PENDING: We can be stricter here by checking the shortest header between
-     PNG and JPG and using that length. */
-  if (img_size < 1) {
-    r_close(img_fd);
-    return 0;
-  }
-
-  /* Include extra bytes for 'covr' atom length (4) and type (4) and its
-     'data' item length (4) and type (4) plus 4 bytes for the 'data' atom's
-     flags and 4 reserved(?) bytes. */
-  extra_size = img_size + 24;
-
-  fstat(aac_fd, &sb);
-  file_size = sb.st_size;
-
-  aac_fp = fdopen(dup(aac_fd), "r");
-
-  stco_atom_pos = aac_drilltoatom(aac_fp, "moov:trak:mdia:minf:stbl:stco",
-                                  &atom_length);
-  ilst_atom_pos = aac_drilltoatom(aac_fp, "moov:udta:meta:ilst",
-                                  &atom_length);
-  last_pos = aac_drilltoatom(aac_fp, "mdat", &atom_length);
-
-  if (last_pos != -1) {
-    if (offset >= last_pos) {
-      /* Offset is in the actual music data so don't bother processing 
-         meta data. */
-      return 0;
+    /* PENDING: We can be stricter here by checking the shortest header between
+       PNG and JPG and using that length. */
+    if (img_size < 1) {
+	r_close(img_fd);
+	return 0;
     }
-  } else {
-    DPRINTF(ERR_LOG, "No 'mdat' atom.\n");
-    return 0;
-  }
 
-  rewind(aac_fp);
+    /* Include extra bytes for 'covr' atom length (4) and type (4) and its
+       'data' item length (4) and type (4) plus 4 bytes for the 'data' atom's
+       flags and 4 reserved(?) bytes. */
+    extra_size = img_size + 24;
 
-  /* Re-adjust length of 'moov' atom. */
-  last_pos = scan_aac_findatom(aac_fp, file_size, "moov", &atom_length);
-  if (last_pos != -1) {
-    /* Copy everything from up to this atom */
+    fstat(aac_fd, &sb);
+    file_size = sb.st_size;
+
+    aac_fp = fdopen(dup(aac_fd), "r");
+
+    stco_atom_pos = aac_drilltoatom(aac_fp, "moov:trak:mdia:minf:stbl:stco",
+				    &atom_length);
+    ilst_atom_pos = aac_drilltoatom(aac_fp, "moov:udta:meta:ilst",
+				    &atom_length);
+    last_pos = aac_drilltoatom(aac_fp, "mdat", &atom_length);
+
+    if (last_pos != -1) {
+	if (offset >= last_pos) {
+	    /* Offset is in the actual music data so don't bother processing 
+	       meta data. */
+	    return 0;
+	}
+    } else {
+	DPRINTF(E_LOG,L_ART, "No 'mdat' atom.\n");
+	return 0;
+    }
+
     rewind(aac_fp);
-    fcopyblock(aac_fp, out_fd, last_pos);
 
-    /* Write out new length. */
-    atom_length += extra_size;
-    buffer[3] = atom_length & 0xFF;
-    buffer[2] = ( atom_length >> 8 ) & 0xFF;
-    buffer[1] = ( atom_length >> 16 ) & 0xFF;
-    buffer[0] = ( atom_length >> 24 ) & 0xFF;
-    r_write(out_fd, buffer, 4);
+    /* Re-adjust length of 'moov' atom. */
+    last_pos = scan_aac_findatom(aac_fp, file_size, "moov", &atom_length);
+    if (last_pos != -1) {
+	/* Copy everything from up to this atom */
+	rewind(aac_fp);
+	fcopyblock(aac_fp, out_fd, last_pos);
 
-    last_pos += 4;
-  } else {
-    DPRINTF(ERR_LOG, "Could not find 'moov' atom.\n");
-    return 0;
-  }
+	/* Write out new length. */
+	atom_length += extra_size;
+	buffer[3] = atom_length & 0xFF;
+	buffer[2] = ( atom_length >> 8 ) & 0xFF;
+	buffer[1] = ( atom_length >> 16 ) & 0xFF;
+	buffer[0] = ( atom_length >> 24 ) & 0xFF;
+	r_write(out_fd, buffer, 4);
 
-  if (stco_atom_pos < ilst_atom_pos) {
-    last_pos = da_aac_rewrite_stco_atom(extra_size, out_fd, aac_fp, last_pos);
-    last_pos = da_aac_insert_covr_atom(extra_size, out_fd, aac_fp, last_pos,
-                                       file_size, img_fd);
-  } else {
-    last_pos = da_aac_insert_covr_atom(extra_size, out_fd, aac_fp, last_pos,
-                                       file_size, img_fd);
-    last_pos = da_aac_rewrite_stco_atom(extra_size, out_fd, aac_fp, last_pos);
-  }
+	last_pos += 4;
+    } else {
+	DPRINTF(E_LOG,L_ART, "Could not find 'moov' atom.\n");
+	return 0;
+    }
 
-  /* Seek to position right after last atom. Let main() stream out the rest. */
-  lseek(aac_fd, last_pos, SEEK_SET);
+    if (stco_atom_pos < ilst_atom_pos) {
+	last_pos = da_aac_rewrite_stco_atom(extra_size, out_fd, aac_fp, last_pos);
+	last_pos = da_aac_insert_covr_atom(extra_size, out_fd, aac_fp, last_pos,
+					   file_size, img_fd);
+    } else {
+	last_pos = da_aac_insert_covr_atom(extra_size, out_fd, aac_fp, last_pos,
+					   file_size, img_fd);
+	last_pos = da_aac_rewrite_stco_atom(extra_size, out_fd, aac_fp, last_pos);
+    }
 
-  r_close(img_fd);
-  fclose(aac_fp);
+    /* Seek to position right after last atom. Let main() stream out the rest. */
+    lseek(aac_fd, last_pos, SEEK_SET);
 
-  return last_pos;
+    r_close(img_fd);
+    fclose(aac_fp);
+
+    return last_pos;
 }
 
 int copyblock(int fromfd, int tofd, size_t size) {
-  char buf[BLKSIZE];
-  int  bytesread;
-  int  totalbytes = 0;
-  int  blocksize = BLKSIZE;
-  int  bytesleft;
+    char buf[BLKSIZE];
+    int  bytesread;
+    int  totalbytes = 0;
+    int  blocksize = BLKSIZE;
+    int  bytesleft;
 
-  while (totalbytes < size) {
-    bytesleft = size - totalbytes;
-    if (bytesleft < BLKSIZE) {
-      blocksize = bytesleft;
-    } else {
-      blocksize = BLKSIZE;
+    while (totalbytes < size) {
+	bytesleft = size - totalbytes;
+	if (bytesleft < BLKSIZE) {
+	    blocksize = bytesleft;
+	} else {
+	    blocksize = BLKSIZE;
+	}
+	if ((bytesread = r_read(fromfd, buf, blocksize)) < 0)
+	    return -1;
+	if (bytesread == 0)
+	    return totalbytes;
+	if (r_write(tofd, buf, bytesread) < 0)
+	    return -1;
+	totalbytes += bytesread;
     }
-    if ((bytesread = r_read(fromfd, buf, blocksize)) < 0)
-      return -1;
-    if (bytesread == 0)
-      return totalbytes;
-    if (r_write(tofd, buf, bytesread) < 0)
-      return -1;
-    totalbytes += bytesread;
-  }
-  return totalbytes;
+    return totalbytes;
 }
 
 int fcopyblock(FILE *fromfp, int tofd, size_t size) {
-  char buf[BLKSIZE];
-  int  bytesread;
-  int  totalbytes = 0;
-  int  blocksize = BLKSIZE;
-  int  bytesleft;
+    char buf[BLKSIZE];
+    int  bytesread;
+    int  totalbytes = 0;
+    int  blocksize = BLKSIZE;
+    int  bytesleft;
 
-  while (totalbytes < size) {
-    bytesleft = size - totalbytes;
-    if (bytesleft < BLKSIZE) {
-      blocksize = bytesleft;
-    } else {
-      blocksize = BLKSIZE;
-    }
-    if ((bytesread = fread(buf, 1, blocksize, fromfp)) < blocksize) {
-      if (ferror(fromfp))
-        return -1;
-    }
-    if (r_write(tofd, buf, bytesread) < 0)
-      return -1;
+    while (totalbytes < size) {
+	bytesleft = size - totalbytes;
+	if (bytesleft < BLKSIZE) {
+	    blocksize = bytesleft;
+	} else {
+	    blocksize = BLKSIZE;
+	}
+	if ((bytesread = fread(buf, 1, blocksize, fromfp)) < blocksize) {
+	    if (ferror(fromfp))
+		return -1;
+	}
+	if (r_write(tofd, buf, bytesread) < 0)
+	    return -1;
 
-    if (feof(fromfp))
-      return 0;
-    totalbytes += bytesread;
-  }
-  return totalbytes;
+	if (feof(fromfp))
+	    return 0;
+	totalbytes += bytesread;
+    }
+    return totalbytes;
 }

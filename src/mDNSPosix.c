@@ -36,6 +36,9 @@
 	Change History (most recent first):
 
 $Log$
+Revision 1.3  2004/11/13 07:14:26  rpedde
+modularize debugging statements
+
 Revision 1.2  2004/10/25 04:51:54  rpedde
 tune down some of the logging
 
@@ -189,7 +192,7 @@ mDNSexport void debugf_(const char *format, ...)
 	buffer[mDNS_vsnprintf((char *)buffer, sizeof(buffer), format, ptr)] = 0;
 	va_end(ptr);
 
-	DPRINTF(ERR_DEBUG-1,"%s\n",buffer);
+	DPRINTF(E_INF,L_REND,"%s\n",buffer);
 	}
 
 mDNSexport void verbosedebugf_(const char *format, ...)
@@ -199,7 +202,7 @@ mDNSexport void verbosedebugf_(const char *format, ...)
 	va_start(ptr,format);
 	buffer[mDNS_vsnprintf((char *)buffer, sizeof(buffer), format, ptr)] = 0;
 	va_end(ptr);
-	DPRINTF(ERR_DEBUG,"%s\n",buffer);
+	DPRINTF(E_DBG,L_REND,"%s\n",buffer);
 	}
 
 mDNSexport void LogMsg(const char *format, ...)
@@ -209,7 +212,7 @@ mDNSexport void LogMsg(const char *format, ...)
 	va_start(ptr,format);
 	buffer[mDNS_vsnprintf((char *)buffer, sizeof(buffer), format, ptr)] = 0;
 	va_end(ptr);
-	DPRINTF(ERR_WARN,"%s\n",buffer);
+	DPRINTF(E_WARN,L_REND,"%s\n",buffer);
 	}
 
 #define PosixErrorToStatus(errNum) ((errNum) == 0 ? mStatus_NoError : mStatus_UnknownErr)
@@ -379,7 +382,7 @@ static void SocketDataReady(mDNS *const m, PosixNetworkInterface *intf, int skt)
 			num_pkts_rejected++;
 			if (num_pkts_rejected > (num_pkts_accepted + 1) * (num_registered_interfaces + 1) * 2)
 				{
-				    DPRINTF(ERR_LOG,
+				    DPRINTF(E_LOG,L_REND,
 					"*** WARNING: Received %d packets; Accepted %d packets; Rejected %d packets because of interface mismatch\n",
 					num_pkts_accepted + num_pkts_rejected, num_pkts_accepted, num_pkts_rejected);
 				num_pkts_accepted = 0;
@@ -462,7 +465,7 @@ static void ClearInterfaceList(mDNS *const m)
 		{
 		PosixNetworkInterface *intf = (PosixNetworkInterface*)(m->HostInterfaces);
 		mDNS_DeregisterInterface(m, &intf->coreIntf);
-		if (gMDNSPlatformPosixVerboseLevel > 0) DPRINTF(ERR_LOG, "Deregistered interface %s\n", intf->intfName);
+		if (gMDNSPlatformPosixVerboseLevel > 0) DPRINTF(E_LOG,L_REND, "Deregistered interface %s\n", intf->intfName);
 		FreePosixNetworkInterface(intf);
 		}
 	num_registered_interfaces = 0;
@@ -575,7 +578,7 @@ static int SetupSocket(struct sockaddr *intfAddr, mDNSIPPort port, int interface
 			err = bind(*sktPtr, (struct sockaddr *) &bindAddr, sizeof(bindAddr));
 			if (err < 0) { 
 			    err = errno; 
-			    DPRINTF(ERR_LOG,"bind: %s\n",strerror(errno));
+			    DPRINTF(E_LOG,L_REND,"bind: %s\n",strerror(errno));
 			}
 			}
 		} // endif (intfAddr->sa_family == AF_INET)
@@ -739,7 +742,7 @@ static int SetupOneInterface(mDNS *const m, struct sockaddr *intfAddr, const cha
 		num_registered_interfaces++;
 		debugf("SetupOneInterface: %s %#a Registered", intf->intfName, &intf->coreIntf.ip);
 		if (gMDNSPlatformPosixVerboseLevel > 0)
-			DPRINTF(ERR_LOG, "Registered interface %s\n", intf->intfName);
+		    DPRINTF(E_LOG,L_REND, "Registered interface %s\n", intf->intfName);
 		}
 	else
 		{

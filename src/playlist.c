@@ -226,10 +226,10 @@ void pl_register(void) {
     SMART_PLAYLIST *pcurrent;
 
     /* register the playlists */
-    DPRINTF(ERR_INFO,"Finished loading smart playlists\n");
+    DPRINTF(E_INF,L_PL,"Finished loading smart playlists\n");
     pcurrent=pl_smart.next;
     while(pcurrent) {
-	DPRINTF(ERR_INFO,"Adding smart playlist %s as %d\n",pcurrent->name,pcurrent->id)
+	DPRINTF(E_INF,L_PL,"Adding smart playlist %s as %d\n",pcurrent->name,pcurrent->id)
 	    db_add_playlist(pcurrent->id, pcurrent->name,1);
 	pcurrent=pcurrent->next;
     }
@@ -246,7 +246,7 @@ void pl_eval(MP3FILE *pmp3) {
     pcurrent=pl_smart.next;
     while(pcurrent) {
 	if(pl_eval_node(pmp3,pcurrent->root)) {
-	    DPRINTF(ERR_DEBUG,"Matched song to playlist %s (%d)\n",pcurrent->name,pcurrent->id);
+	    DPRINTF(E_DBG,L_PL,"Match song to playlist %s (%d)\n",pcurrent->name,pcurrent->id);
 	    db_add_playlist_song(pcurrent->id, pmp3->id);
 	}
 
@@ -326,7 +326,7 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	ival=pmp3->time_added;
 	break;
     default:
-	DPRINTF(ERR_FATAL,"Unknown token in playlist.  This can't happen!\n\n");
+	DPRINTF(E_FATAL,L_PL,"Unknown token in playlist.  This can't happen!\n\n");
 	break;
     }
 
@@ -338,7 +338,7 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	if(!cval) 
 	    cval = "";
 
-	DPRINTF(ERR_DEBUG,"Matching %s to %s\n",cval,pnode->arg2.cval);
+	DPRINTF(E_DBG,L_PL,"Matching %s to %s\n",cval,pnode->arg2.cval);
 
 	switch(boolarg) {
 	case IS:
@@ -353,7 +353,7 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
     }
 
     if(pnode->type==T_DATE) {
-	DPRINTF(ERR_DEBUG,"Comparing (datewise) %d to %d\n",ival,pnode->arg2.ival);
+	DPRINTF(E_DBG,L_PL,"Comparing (datewise) %d to %d\n",ival,pnode->arg2.ival);
 	switch(boolarg) {
 	case BEFORE:
 	    r_arg=(ival < pnode->arg2.ival);
@@ -366,7 +366,7 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
     }
 
     if(pnode->type==T_INT) {
-	DPRINTF(ERR_DEBUG,"Comparing %d to %d\n",ival,pnode->arg2.ival);
+	DPRINTF(E_DBG,L_PL,"Comparing %d to %d\n",ival,pnode->arg2.ival);
 
 	switch(boolarg) {
 	case EQUALS:
@@ -388,7 +388,7 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	retval = not? !r_arg : r_arg;
     }
 
-    DPRINTF(ERR_DEBUG,"Returning %d\n",retval);
+    DPRINTF(E_DBG,L_PL,"Returning %d\n",retval);
     return retval;
 }
 

@@ -97,11 +97,11 @@ int rend_running(void) {
     REND_MESSAGE msg;
     int result;
 
-    DPRINTF(ERR_DEBUG,"Status inquiry\n");
+    DPRINTF(E_DBG,L_REND,"Status inquiry\n");
     memset((void*)&msg,0x00,sizeof(msg));
     msg.cmd=REND_MSG_TYPE_STATUS;
     result=rend_send_message(&msg);
-    DPRINTF(ERR_DEBUG,"Returning status %d\n",result);
+    DPRINTF(E_DBG,L_REND,"Returning status %d\n",result);
     return result;
 }
 
@@ -126,7 +126,7 @@ int rend_register(char *name, char *type, int port) {
     REND_MESSAGE msg;
 
     if((strlen(name)+1 > MAX_NAME_LEN) || (strlen(type)+1 > MAX_NAME_LEN)) {
-	DPRINTF(ERR_FATAL,"Registration failed: name or type too long\n");
+	DPRINTF(E_FATAL,L_REND,"Registration failed: name or type too long\n");
 	return -1;
     }
 

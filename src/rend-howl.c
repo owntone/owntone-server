@@ -60,7 +60,7 @@ static sw_result rend_howl_reply(sw_rendezvous_publish_handler handler,
 	"invalid"
     };
 
-    DPRINTF(ERR_DEBUG,"Publish reply: %s\n",status_text[status]);
+    DPRINTF(E_DBG,L_REND,"Publish reply: %s\n",status_text[status]);
     return SW_OKAY;
 }
 
@@ -73,11 +73,11 @@ static sw_result rend_howl_reply(sw_rendezvous_publish_handler handler,
 int rend_private_init(char *user) {
     sw_result result;
     
-    DPRINTF(ERR_DEBUG,"Starting rendezvous services\n");
+    DPRINTF(E_DBG,L_REND,"Starting rendezvous services\n");
     signal(SIGHUP,  SIG_IGN);           // SIGHUP might happen from a request to reload the daap server
 
     if(sw_rendezvous_init(&rend_handle) != SW_OKAY) {
-	DPRINTF(ERR_WARN,"Error initializing rendezvous\n");
+	DPRINTF(E_WARN,L_REND,"Error initializing rendezvous\n");
 	errno=EINVAL;
 	return -1;
     }
@@ -85,19 +85,19 @@ int rend_private_init(char *user) {
     if(drop_privs(user)) 
 	return -1;
 
-    DPRINTF(ERR_DEBUG,"Starting polling thread\n");
+    DPRINTF(E_DBG,L_REND,"Starting polling thread\n");
     
     if(pthread_create(&rend_tid,NULL,rend_pipe_monitor,NULL)) {
-	DPRINTF(ERR_FATAL,"Could not start thread.  Terminating\n");
+	DPRINTF(E_FATAL,L_REND,"Could not start thread.  Terminating\n");
 	/* should kill parent, too */
 	exit(EXIT_FAILURE);
     }
 
-    DPRINTF(ERR_DEBUG,"Entering runloop\n");
+    DPRINTF(E_DBG,L_REND,"Entering runloop\n");
 
     sw_rendezvous_run(rend_handle);
 
-    DPRINTF(ERR_DEBUG,"Exiting runloop\n");
+    DPRINTF(E_DBG,L_REND,"Exiting runloop\n");
 
     return 0;
 }
@@ -111,7 +111,7 @@ void *rend_pipe_monitor(void* arg) {
     int result;
 
     while(1) {
-	DPRINTF(ERR_DEBUG,"Waiting for data\n");
+	DPRINTF(E_DBG,L_REND,"Waiting for data\n");
 	FD_ZERO(&rset);
 	FD_SET(rend_pipe_to[RD_SIDE],&rset);
 
@@ -119,12 +119,12 @@ void *rend_pipe_monitor(void* arg) {
 	while(((result=select(rend_pipe_to[RD_SIDE] + 1,&rset,NULL,NULL,NULL)) != -1) &&
 	    errno != EINTR) {
 	    if(FD_ISSET(rend_pipe_to[RD_SIDE],&rset)) {
-		DPRINTF(ERR_DEBUG,"Received a message from daap server\n");
+		DPRINTF(E_DBG,L_REND,"Received a message from daap server\n");
 		rend_callback();
 	    }
 	}
 
-	DPRINTF(ERR_DEBUG,"Select error!\n");
+	DPRINTF(E_DBG,L_REND,"Select error!\n");
 	/* should really bail here */
     }
 }
@@ -144,33 +144,33 @@ void rend_callback(void) {
     /* here, we've seen the message, now we have to process it */
 
     if(rend_read_message(&msg) != sizeof(msg)) {
-	DPRINTF(ERR_FATAL,"Error reading rendezvous message\n");
+	DPRINTF(E_FATAL,L_REND,"Error reading rendezvous message\n");
 	exit(EXIT_FAILURE);
     }
 
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
-	DPRINTF(ERR_DEBUG,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
+	DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
 	if((result=sw_rendezvous_publish(rend_handle,msg.name,msg.type,NULL,NULL,msg.port,NULL,0,
 					 NULL,rend_howl_reply,NULL,&rend_id)) != SW_OKAY) {
-	    DPRINTF(ERR_WARN,"Error registering name\n");
+	    DPRINTF(E_WARN,L_REND,"Error registering name\n");
 	    rend_send_response(-1);
 	} else {
 	    rend_send_response(0); /* success */
 	}
 	break;
     case REND_MSG_TYPE_UNREGISTER:
-	DPRINTF(ERR_WARN,"Unsupported function: UNREGISTER\n");
+	DPRINTF(E_WARN,L_REND,"Unsupported function: UNREGISTER\n");
 	rend_send_response(-1); /* error */
 	break;
     case REND_MSG_TYPE_STOP:
-	DPRINTF(ERR_DEBUG,"Stopping mDNS\n");
+	DPRINTF(E_DBG,L_REND,"Stopping mDNS\n");
 	rend_send_response(0);
 	//sw_rendezvous_stop_publish(rend_handle);
 	sw_rendezvous_fina(rend_handle);
 	break;
     case REND_MSG_TYPE_STATUS:
-	DPRINTF(ERR_DEBUG,"Status inquiry -- returning 0\n");
+	DPRINTF(E_DBG,L_REND,"Status inquiry -- returning 0\n");
 	rend_send_response(0); /* success */
 	break;
     default:

@@ -55,7 +55,7 @@ static void rend_stoprunloop(void) {
  * rend_sigint
  */
 static void rend_sigint(int sigraised) {
-    DPRINTF(ERR_INFO,"SIGINT\n");
+    DPRINTF(E_INF,L_REND,"SIGINT\n");
     rend_stoprunloop();
 }
 
@@ -95,13 +95,13 @@ static int rend_addtorunloop(dns_service_discovery_ref client) {
 static void rend_reply(DNSServiceRegistrationReplyErrorType errorCode, void *context) {
     switch(errorCode) {
     case kDNSServiceDiscoveryNoError:
-	DPRINTF(ERR_DEBUG,"Registered successfully\n");
+	DPRINTF(E_DBG,L_REND,"Registered successfully\n");
 	break;
     case kDNSServiceDiscoveryNameConflict:
-	DPRINTF(ERR_WARN,"Error - name in use\n");
+	DPRINTF(E_WARN,L_REND,"Error - name in use\n");
 	break;
     default:
-	DPRINTF(ERR_WARN,"Error %d\n",errorCode);
+	DPRINTF(E_WARN,L_REND,"Error %d\n",errorCode);
 	break;
     }
 }
@@ -115,7 +115,7 @@ void *rend_pipe_monitor(void* arg) {
 
 
     while(1) {
-	DPRINTF(ERR_DEBUG,"Waiting for data\n");
+	DPRINTF(E_DBG,L_REND,"Waiting for data\n");
 	FD_ZERO(&rset);
 	FD_SET(rend_pipe_to[RD_SIDE],&rset);
 
@@ -123,14 +123,14 @@ void *rend_pipe_monitor(void* arg) {
 	while(((result=select(rend_pipe_to[RD_SIDE] + 1,&rset,NULL,NULL,NULL)) != -1) &&
 	    errno != EINTR) {
 	    if(FD_ISSET(rend_pipe_to[RD_SIDE],&rset)) {
-		DPRINTF(ERR_DEBUG,"Received a message from daap server\n");
+		DPRINTF(E_DBG,L_REND,"Received a message from daap server\n");
 		CFRunLoopSourceSignal(rend_rls);
 		CFRunLoopWakeUp(rend_runloop);
 		sleep(1);  /* force a reschedule, hopefully */
 	    }
 	}
 
-	DPRINTF(ERR_DEBUG,"Select error!\n");
+	DPRINTF(E_DBG,L_REND,"Select error!\n");
 	/* should really bail here */
     }
 }
@@ -150,33 +150,33 @@ void rend_callback(void *info) {
     /* here, we've seen the message, now we have to process it */
 
     if(rend_read_message(&msg) != sizeof(msg)) {
-	DPRINTF(ERR_FATAL,"Error reading rendezvous message\n");
+	DPRINTF(E_FATAL,L_REND,"Error reading rendezvous message\n");
 	exit(EXIT_FAILURE);
     }
 
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
-	DPRINTF(ERR_DEBUG,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
+	DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
 	usPort=msg.port;
 	dns_ref=DNSServiceRegistrationCreate(msg.name,msg.type,"",usPort,"",rend_reply,nil);
 	if(rend_addtorunloop(dns_ref)) {
-	    DPRINTF(ERR_WARN,"Add to runloop failed\n");
+	    DPRINTF(E_WARN,L_REND,"Add to runloop failed\n");
 	    rend_send_response(-1);
 	} else {
 	    rend_send_response(0); /* success */
 	}
 	break;
     case REND_MSG_TYPE_UNREGISTER:
-	DPRINTF(ERR_WARN,"Unsupported function: UNREGISTER\n");
+	DPRINTF(E_WARN,L_REND,"Unsupported function: UNREGISTER\n");
 	rend_send_response(-1); /* error */
 	break;
     case REND_MSG_TYPE_STOP:
-	DPRINTF(ERR_DEBUG,"Stopping mDNS\n");
+	DPRINTF(E_DBG,L_REND,"Stopping mDNS\n");
 	rend_send_response(0);
 	rend_stoprunloop();
 	break;
     case REND_MSG_TYPE_STATUS:
-	DPRINTF(ERR_DEBUG,"Status inquiry -- returning 0\n");
+	DPRINTF(E_DBG,L_REND,"Status inquiry -- returning 0\n");
 	rend_send_response(0); /* success */
 	break;
     default:
@@ -196,7 +196,7 @@ int rend_private_init(char *user) {
 	return -1;
 
     /* need a sigint handler */
-    DPRINTF(ERR_DEBUG,"Starting rendezvous services\n");
+    DPRINTF(E_DBG,L_REND,"Starting rendezvous services\n");
 
     memset((void*)&context,0,sizeof(context));
     context.perform = rend_callback;
@@ -205,19 +205,19 @@ int rend_private_init(char *user) {
     rend_rls = CFRunLoopSourceCreate(NULL,0,&context);
     CFRunLoopAddSource(CFRunLoopGetCurrent(),rend_rls,kCFRunLoopDefaultMode);
 
-    DPRINTF(ERR_DEBUG,"Starting polling thread\n");
+    DPRINTF(E_DBG,L_REND,"Starting polling thread\n");
     
     if(pthread_create(&rend_tid,NULL,rend_pipe_monitor,NULL)) {
-	DPRINTF(ERR_FATAL,"Could not start thread.  Terminating\n");
+	DPRINTF(E_FATAL,L_REND,"Could not start thread.  Terminating\n");
 	/* should kill parent, too */
 	exit(EXIT_FAILURE);
     }
 
-    DPRINTF(ERR_DEBUG,"Starting runloop\n");
+    DPRINTF(E_DBG,L_REND,"Starting runloop\n");
 
     CFRunLoopRun();
 
-    DPRINTF(ERR_DEBUG,"Exiting runloop\n");
+    DPRINTF(E_DBG,L_REND,"Exiting runloop\n");
 
     CFRelease(rend_rls);
     pthread_cancel(rend_tid);

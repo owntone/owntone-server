@@ -305,7 +305,7 @@ int scan_init(char *path) {
     if(db_start_initial_update()) 
 	return -1;
 
-    DPRINTF(ERR_DEBUG,"%s scanning for MP3s in %s\n",
+    DPRINTF(E_DBG,L_SCAN,"%s scanning for MP3s in %s\n",
 	    scan_mode_foreground ? "Foreground" : "Background",
 	    path);
 
@@ -339,7 +339,7 @@ int scan_path(char *path) {
 
     while(1) {
 	if(config.stop) {
-	    DPRINTF(ERR_WARN,"Stop detected.  Aborting scan of %s.\n",path);
+	    DPRINTF(E_WARN,L_SCAN,"Stop detected.  Aborting scan of %s.\n",path);
 	    return 0;
 	}
 
@@ -347,7 +347,7 @@ int scan_path(char *path) {
 
 	err=readdir_r(current_dir,(struct dirent *)de,&pde);
 	if(err == -1) {
-	    DPRINTF(ERR_DEBUG,"Error on readdir_r: %s\n",strerror(errno));
+	    DPRINTF(E_DBG,L_SCAN,"Error on readdir_r: %s\n",strerror(errno));
 	    err=errno;
 	    closedir(current_dir);
 	    errno=err;
@@ -361,12 +361,12 @@ int scan_path(char *path) {
 	    continue;
 
 	snprintf(mp3_path,PATH_MAX,"%s/%s",path,pde->d_name);
-	DPRINTF(ERR_DEBUG,"Found %s\n",mp3_path);
+	DPRINTF(E_DBG,L_SCAN,"Found %s\n",mp3_path);
 	if(stat(mp3_path,&sb)) {
-	    DPRINTF(ERR_WARN,"Error statting: %s\n",strerror(errno));
+	    DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
 	} else {
 	    if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
-		DPRINTF(ERR_DEBUG,"Found dir %s... recursing\n",pde->d_name);
+		DPRINTF(E_DBG,L_SCAN,"Found dir %s... recursing\n",pde->d_name);
 		scan_path(mp3_path);
 	    } else {
 		/* process the file */
@@ -380,14 +380,14 @@ int scan_path(char *path) {
 			
 			/* only scan if it's been changed, or empty db */
 			modified_time=sb.st_mtime;
-			DPRINTF(ERR_DEBUG,"FS Modified time: %d\n",modified_time);
-			DPRINTF(ERR_DEBUG,"DB Modified time: %d\n",db_last_modified(sb.st_ino));
+			DPRINTF(E_DBG,L_SCAN,"FS Mod time: %d\n",modified_time);
+			DPRINTF(E_DBG,L_SCAN,"DB Mod time: %d\n",db_last_modified(sb.st_ino));
 			if((scan_mode_foreground) || 
 			   !db_exists(sb.st_ino) ||
 			   db_last_modified(sb.st_ino) < modified_time) {
 			    scan_music_file(path,pde,&sb);
 			} else {
-			    DPRINTF(ERR_DEBUG,"Skipping file... not modified\n");
+			    DPRINTF(E_DBG,L_SCAN,"Skipping file... not modified\n");
 			}
 		    }
 		}
@@ -412,7 +412,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     int playlistid;
     struct stat sb;
 
-    DPRINTF(ERR_WARN,"Processing static playlist: %s\n",pde->d_name);
+    DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",pde->d_name);
     strcpy(m3u_path,pde->d_name);
     snprintf(playlist_path,sizeof(playlist_path),"%s/%s",path,pde->d_name);
     m3u_path[strlen(pde->d_name) - 4] = '\0';
@@ -420,7 +420,7 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     fd=open(playlist_path,O_RDONLY);
     if(fd != -1) {
 	db_add_playlist(playlistid,m3u_path,0);
-	DPRINTF(ERR_INFO,"Added playlist as id %d\n",playlistid);
+	DPRINTF(E_INF,L_SCAN|L_PL,"Added playlist as id %d\n",playlistid);
 
 	memset(linebuffer,0x00,sizeof(linebuffer));
 	while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
@@ -440,21 +440,21 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 		snprintf(m3u_path,sizeof(m3u_path),"%s/%s",path,linebuffer);
 	    }
 
-	    DPRINTF(ERR_DEBUG,"Checking %s\n",m3u_path);
+	    DPRINTF(E_DBG,L_SCAN|L_PL,"Checking %s\n",m3u_path);
 
 	    /* might be valid, might not... */
 	    if(!stat(m3u_path,&sb)) {
 		/* FIXME: check to see if valid inode! */
 		db_add_playlist_song(playlistid,sb.st_ino);
 	    } else {
-		DPRINTF(ERR_WARN,"Playlist entry %s bad: %s\n",
+		DPRINTF(E_WARN,L_SCAN|L_PL,"Playlist entry %s bad: %s\n",
 			m3u_path,strerror(errno));
 	    }
 	}
 	close(fd);
     }
 
-    DPRINTF(ERR_WARN,"Done processing playlist\n");
+    DPRINTF(E_WARN,L_SCAN|L_PL,"Done processing playlist\n");
 }
 
 /*
@@ -469,7 +469,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     snprintf(mp3_path,sizeof(mp3_path),"%s/%s",path,pde->d_name);
 
     /* we found an mp3 file */
-    DPRINTF(ERR_INFO,"Found music file: %s\n",pde->d_name);
+    DPRINTF(E_INF,L_SCAN,"Found music file: %s\n",pde->d_name);
     
     memset((void*)&mp3file,0,sizeof(mp3file));
     mp3file.path=mp3_path;
@@ -496,12 +496,12 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 	    mp3file.time_added=psb->st_ctime;
 	mp3file.time_modified=time(NULL);
 
-	DPRINTF(ERR_DEBUG," Date Added: %d\n",mp3file.time_added);
+	DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 
 	db_add(&mp3file);
 	pl_eval(&mp3file); /* FIXME: move to db_add? */
     } else {
-	DPRINTF(ERR_WARN,"Skipping %s - scan_gettags failed\n",pde->d_name);
+	DPRINTF(E_WARN,L_SCAN,"Skipping %s - scan_gettags failed\n",pde->d_name);
     }
     
     scan_freetags(&mp3file);
@@ -560,7 +560,7 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
     int len;
 
     if(!(fin=fopen(file,"rb"))) {
-	DPRINTF(ERR_INFO,"Cannot open file %s for reading\n",file);
+	DPRINTF(E_INF,L_SCAN,"Cannot open file %s for reading\n",file);
 	return -1;
     }
 
@@ -700,7 +700,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
-	DPRINTF(ERR_WARN,"Cannot open %s\n",file);
+	DPRINTF(E_WARN,L_SCAN,"Cannot open %s\n",file);
 	return -1;
     }
 
@@ -710,7 +710,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 	err=errno;
 	id3_file_close(pid3file);
 	errno=err;
-	DPRINTF(ERR_WARN,"Cannot get ID3 tag for %s\n",file);
+	DPRINTF(E_WARN,L_SCAN,"Cannot get ID3 tag for %s\n",file);
 	return -1;
     }
 
@@ -724,7 +724,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 
 	if(!strcmp(pid3frame->id,"YTCP")) { /* for id3v2.2 */
 	    pmp3->compilation = 1;
-	    DPRINTF(ERR_DEBUG, "Compilation: %d\n", pmp3->compilation);
+	    DPRINTF(E_DBG,L_SCAN,"Compilation: %d\n", pmp3->compilation);
 	}
 
 	if(((pid3frame->id[0] == 'T')||(strcmp(pid3frame->id,"COMM")==0)) &&
@@ -742,36 +742,36 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 		if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
 		    used=1;
 		    pmp3->title = utf8_text;
-		    DPRINTF(ERR_DEBUG," Title: %s\n",utf8_text);
+		    DPRINTF(E_DBG,L_SCAN," Title: %s\n",utf8_text);
 		} else if(!strcmp(pid3frame->id,"TPE1")) {
 		    used=1;
 		    pmp3->artist = utf8_text;
-		    DPRINTF(ERR_DEBUG," Artist: %s\n",utf8_text);
+		    DPRINTF(E_DBG,L_SCAN," Artist: %s\n",utf8_text);
 		} else if(!strcmp(pid3frame->id,"TALB")) {
 		    used=1;
 		    pmp3->album = utf8_text;
-		    DPRINTF(ERR_DEBUG," Album: %s\n",utf8_text);
+		    DPRINTF(E_DBG,L_SCAN," Album: %s\n",utf8_text);
 		} else if(!strcmp(pid3frame->id,"TCOM")) {
 		    used=1;
 		    pmp3->composer = utf8_text;
-		    DPRINTF(ERR_DEBUG," Composer: %s\n",utf8_text);
+		    DPRINTF(E_DBG,L_SCAN," Composer: %s\n",utf8_text);
 		} else if(!strcmp(pid3frame->id,"TIT1")) {
 		    used=1;
 		    pmp3->grouping = utf8_text;
-		    DPRINTF(ERR_DEBUG," Grouping: %s\n",utf8_text);
+		    DPRINTF(E_DBG,L_SCAN," Grouping: %s\n",utf8_text);
 		} else if(!strcmp(pid3frame->id,"TPE2")) {
 		    used=1;
 		    pmp3->orchestra = utf8_text;
-		    DPRINTF(ERR_DEBUG," Orchestra: %s\n",utf8_text);
+		    DPRINTF(E_DBG,L_SCAN," Orchestra: %s\n",utf8_text);
 		} else if(!strcmp(pid3frame->id,"TPE3")) {
 		    used=1;
 		    pmp3->conductor = utf8_text;
-		    DPRINTF(ERR_DEBUG," Conductor: %s\n",utf8_text);
+		    DPRINTF(E_DBG,L_SCAN," Conductor: %s\n",utf8_text);
 		} else if(!strcmp(pid3frame->id,"TCON")) {
 		    used=1;
 		    pmp3->genre = utf8_text;
 		    got_numeric_genre=0;
-		    DPRINTF(ERR_DEBUG," Genre: %s\n",utf8_text);
+		    DPRINTF(E_DBG,L_SCAN," Genre: %s\n",utf8_text);
 		    if(pmp3->genre) {
 			if(!strlen(pmp3->genre)) {
 			    genre=WINAMP_GENRE_UNKNOWN;
@@ -794,7 +794,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 		} else if(!strcmp(pid3frame->id,"COMM")) {
 		    used=1;
 		    pmp3->comment = utf8_text;
-		    DPRINTF(ERR_DEBUG," Comment: %s\n",pmp3->comment);
+		    DPRINTF(E_DBG,L_SCAN," Comment: %s\n",pmp3->comment);
 		} else if(!strcmp(pid3frame->id,"TPOS")) {
 		    tmp=(char*)utf8_text;
 		    strsep(&tmp,"/");
@@ -802,7 +802,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 			pmp3->total_discs=atoi(tmp);
 		    }
 		    pmp3->disc=atoi((char*)utf8_text);
-		    DPRINTF(ERR_DEBUG," Disc %d of %d\n",pmp3->disc,pmp3->total_discs);
+		    DPRINTF(E_DBG,L_SCAN," Disc %d of %d\n",pmp3->disc,pmp3->total_discs);
 		} else if(!strcmp(pid3frame->id,"TRCK")) {
 		    tmp=(char*)utf8_text;
 		    strsep(&tmp,"/");
@@ -810,19 +810,19 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 			pmp3->total_tracks=atoi(tmp);
 		    }
 		    pmp3->track=atoi((char*)utf8_text);
-		    DPRINTF(ERR_DEBUG," Track %d of %d\n",pmp3->track,pmp3->total_tracks);
+		    DPRINTF(E_DBG,L_SCAN," Track %d of %d\n",pmp3->track,pmp3->total_tracks);
 		} else if(!strcmp(pid3frame->id,"TDRC")) {
 		    pmp3->year = atoi(utf8_text);
-		    DPRINTF(ERR_DEBUG," Year: %d\n",pmp3->year);
+		    DPRINTF(E_DBG,L_SCAN," Year: %d\n",pmp3->year);
 		} else if(!strcmp(pid3frame->id,"TLEN")) {
 		    pmp3->song_length = atoi(utf8_text) / 1000;
-		    DPRINTF(ERR_DEBUG, " Length: %d\n", pmp3->song_length);
+		    DPRINTF(E_DBG,L_SCAN," Length: %d\n", pmp3->song_length);
 		} else if(!strcmp(pid3frame->id,"TBPM")) {
 		    pmp3->bpm = atoi(utf8_text);
-		    DPRINTF(ERR_DEBUG, "BPM: %d\n", pmp3->bpm);
+		    DPRINTF(E_DBG,L_SCAN,"BPM: %d\n", pmp3->bpm);
 		} else if(!strcmp(pid3frame->id,"TCMP")) { /* for id3v2.3 */
                     pmp3->compilation = (char)atoi(utf8_text);
-                    DPRINTF(ERR_DEBUG, "Compilation: %d\n", pmp3->compilation);
+                    DPRINTF(E_DBG,L_SCAN,"Compilation: %d\n", pmp3->compilation);
                 }
 	    }
 	}
@@ -835,7 +835,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
     }
 
     id3_file_close(pid3file);
-    DPRINTF(ERR_DEBUG,"Got id3 tag successfully\n");
+    DPRINTF(E_DBG,L_SCAN,"Got id3 tag successfully\n");
     return 0;
 }
 
@@ -882,7 +882,7 @@ int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
 
     /* a file we don't know anything about... ogg or aiff maybe */
     if(!(infile=fopen(file,"rb"))) {
-	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
+	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
 	return -1;
     }
 
@@ -936,7 +936,7 @@ off_t aac_drilltoatom(FILE *aac_fp, char *atom_path, unsigned int *atom_length)
 		{
 		    return -1;
 		}
-	    DPRINTF(ERR_DEBUG, "Found %s atom at offset %ld.\n", atom_name, ftell(aac_fp) - 8);
+	    DPRINTF(E_DBG,L_SCAN,"Found %s atom at off %ld.\n", atom_name, ftell(aac_fp) - 8);
 	    cur_p = strchr(cur_p, ':');
 	    if (cur_p != NULL)
 		{
@@ -968,10 +968,10 @@ int scan_get_urlfileinfo(char *file, MP3FILE *pmp3) {
     char *head, *tail;
     char linebuffer[256];
 
-    DPRINTF(ERR_DEBUG,"Getting URL file info\n");
+    DPRINTF(E_DBG,L_SCAN,"Getting URL file info\n");
 
     if(!(infile=fopen(file,"rb"))) {
-	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
+	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
 	return -1;
     }
 
@@ -984,7 +984,7 @@ int scan_get_urlfileinfo(char *file, MP3FILE *pmp3) {
     head=linebuffer;
     tail=strchr(head,',');
     if(!tail) {
-	DPRINTF(ERR_LOG,"Badly formatted .url file - must be bitrate,descr,url\n");
+	DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
 	fclose(infile);
 	return -1;
     }
@@ -993,7 +993,7 @@ int scan_get_urlfileinfo(char *file, MP3FILE *pmp3) {
     head=++tail;
     tail=strchr(head,',');
     if(!tail) {
-	DPRINTF(ERR_LOG,"Badly formatted .url file - must be bitrate,descr,url\n");
+	DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
 	fclose(infile);
 	return -1;
     }
@@ -1004,9 +1004,9 @@ int scan_get_urlfileinfo(char *file, MP3FILE *pmp3) {
     pmp3->url=strdup(tail);
     fclose(infile);
 
-    DPRINTF(ERR_DEBUG,"  Title:    %s\n",pmp3->title);
-    DPRINTF(ERR_DEBUG,"  Bitrate:  %d\n",pmp3->bitrate);
-    DPRINTF(ERR_DEBUG,"  URL:      %s\n",pmp3->url);
+    DPRINTF(E_DBG,L_SCAN,"  Title:    %s\n",pmp3->title);
+    DPRINTF(E_DBG,L_SCAN,"  Bitrate:  %d\n",pmp3->bitrate);
+    DPRINTF(E_DBG,L_SCAN,"  URL:      %s\n",pmp3->url);
 
     return 0;
 }
@@ -1027,10 +1027,10 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
     int ms;
     unsigned char buffer[2];
 
-    DPRINTF(ERR_DEBUG,"Getting AAC file info\n");
+    DPRINTF(E_DBG,L_SCAN,"Getting AAC file info\n");
 
     if(!(infile=fopen(file,"rb"))) {
-	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
+	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
 	return -1;
     }
 
@@ -1060,7 +1060,7 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 	/* DWB: use ms time instead of sec */
 	pmp3->song_length=(int)((samples * ms) / sample_size);
 
-	DPRINTF(ERR_DEBUG,"Song length: %d seconds\n", pmp3->song_length / 1000);
+	DPRINTF(E_DBG,L_SCAN,"Song length: %d seconds\n", pmp3->song_length / 1000);
     }
 
     pmp3->bitrate = 0;
@@ -1093,17 +1093,17 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 
 	    pmp3->bitrate = ntohl(bit_rate) / 1000;
 	} else {
-	    DPRINTF(ERR_DEBUG, "Could not find 'esds' atom to determine bit rate.\n");
+	    DPRINTF(E_DBG,L_SCAN, "Could not find 'esds' atom to determine bit rate.\n");
 	}
       
     } else {
-	DPRINTF(ERR_DEBUG, "Could not find 'mp4a' atom to determine sample rate.\n");
+	DPRINTF(E_DBG,L_SCAN, "Could not find 'mp4a' atom to determine sample rate.\n");
     }
 
     /* Fallback if we can't find the info in the atoms. */
     if (pmp3->bitrate == 0) {
 	/* calculate bitrate from song length... Kinda cheesy */
-	DPRINTF(ERR_DEBUG, "Could not find 'esds' atom. Calculating bit rate.\n");
+	DPRINTF(E_DBG,L_SCAN, "Could not find 'esds' atom. Calculating bit rate.\n");
 
 	atom_offset=aac_drilltoatom(infile,"mdat",&atom_length);
 
@@ -1141,7 +1141,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     int stereo=0;
 
     if(!(infile=fopen(file,"rb"))) {
-	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
+	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
 	return -1;
     }
 
@@ -1153,9 +1153,9 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
     if(fread(buffer,1,sizeof(buffer),infile) != sizeof(buffer)) {
 	if(ferror(infile)) {
-	    DPRINTF(ERR_LOG,"Error reading: %s\n",strerror(errno));
+	    DPRINTF(E_LOG,L_SCAN,"Error reading: %s\n",strerror(errno));
 	} else {
-	    DPRINTF(ERR_LOG,"Short file: %s\n",file);
+	    DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
 	}
 	return -1;
     }
@@ -1164,18 +1164,18 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     
     if(strncmp(pid3->id,"ID3",3)==0) {
 	/* found an ID3 header... */
-	DPRINTF(ERR_DEBUG,"Found ID3 header\n");
+	DPRINTF(E_DBG,L_SCAN,"Found ID3 header\n");
 	size = (pid3->size[0] << 21 | pid3->size[1] << 14 | 
 		pid3->size[2] << 7 | pid3->size[3]);
 	fp_size=size + sizeof(SCAN_ID3HEADER);
-	DPRINTF(ERR_DEBUG,"Header length: %d\n",size);
+	DPRINTF(E_DBG,L_SCAN,"Header length: %d\n",size);
     }
 
     file_size -= fp_size;
 
     fseek(infile,fp_size,SEEK_SET);
     if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
-	DPRINTF(ERR_LOG,"Short file: %s\n",file);
+	DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
 	return -1;
     }
 
@@ -1186,7 +1186,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     }
 
     if(index) {
-	DPRINTF(ERR_DEBUG,"Scanned forward %d bytes to find frame header\n",index);
+	DPRINTF(E_DBG,L_SCAN,"Scanned forward %d bytes to find frame header\n",index);
     }
 
     if((buffer[index] == 0xFF)&&(buffer[index+1] >= 224)) {
@@ -1223,12 +1223,12 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	}
 
 	if((layer_index < 0) || (layer_index > 4)) {
-	    DPRINTF(ERR_LOG,"Bad mp3 header in %s: bad layer_index\n",file);
+	    DPRINTF(E_LOG,L_SCAN,"Bad mp3 header in %s: bad layer_index\n",file);
 	    return -1;
 	}
 
 	if((sample_index < 0) || (sample_index > 2)) {
-	    DPRINTF(ERR_LOG,"Bad mp3 header in %s: bad sample_index\n",file);
+	    DPRINTF(E_LOG,L_SCAN,"Bad mp3 header in %s: bad sample_index\n",file);
 	    return -1;
 	}
 
@@ -1243,10 +1243,10 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	    stereo=0;
 	else
 	    stereo=1;
-	DPRINTF(ERR_DEBUG," MPEG Version: %s\n",ver == 3 ? "1" : (ver == 2 ? "2" : "2.5"));
-	DPRINTF(ERR_DEBUG," Layer: %d\n",4-layer);
-	DPRINTF(ERR_DEBUG," Sample Rate: %d\n",samplerate);
-	DPRINTF(ERR_DEBUG," Bit Rate: %d\n",bitrate);
+	DPRINTF(E_DBG,L_SCAN," MPEG Version: %s\n",ver == 3 ? "1" : (ver == 2 ? "2" : "2.5"));
+	DPRINTF(E_DBG,L_SCAN," Layer: %d\n",4-layer);
+	DPRINTF(E_DBG,L_SCAN," Sample Rate: %d\n",samplerate);
+	DPRINTF(E_DBG,L_SCAN," Bit Rate: %d\n",bitrate);
 
 	/* guesstimate the file length */
 	if(!pmp3->song_length) /* could have gotten it from the tag */
@@ -1263,7 +1263,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     } else {
 	/* FIXME: should really scan forward to next sync frame */
 	fclose(infile);
-	DPRINTF(ERR_DEBUG,"Could not find sync frame\n");
+	DPRINTF(E_DBG,L_SCAN,"Could not find sync frame\n");
 	return 0;
     }
     

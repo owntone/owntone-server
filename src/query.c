@@ -62,7 +62,7 @@ query_node_t* query_build(const char* query, const query_field_t* fields)
 	case ' ':	join = qot_and;		break;
 	case ',':	join = qot_or;		break;
 	default:
-	    DPRINTF(ERR_LOG, "Illegal character '%c' (0%o) at index %d: %s\n",
+	    DPRINTF(E_LOG,L_QRY, "Illegal character '%c' (0%o) at index %d: %s\n",
 		    *cursor, *cursor, cursor - raw, raw);
 	    goto error;
 	}
@@ -104,7 +104,7 @@ static query_node_t*	match_specifier(const char* query,
     case '(':		return group_match(query, cursor, fields);
     }
 
-    DPRINTF(ERR_LOG, "Illegal character '%c' (0%o) at index %d: %s\n",
+    DPRINTF(E_LOG,L_QRY,"Illegal character '%c' (0%o) at index %d: %s\n",
 	    **cursor, **cursor, *cursor - query, query);
     return NULL;
 }
@@ -137,7 +137,7 @@ static query_node_t*	group_match(const char* query,
 	break;
 
     default:
-	DPRINTF(ERR_LOG, "Illegal character '%c' (0%o) at index %d: %s\n",
+	DPRINTF(E_LOG,L_QRY,"Illegal character '%c' (0%o) at index %d: %s\n",
 		*cursor, *cursor, cursor - query, query);
 	goto error;
     }
@@ -147,7 +147,7 @@ static query_node_t*	group_match(const char* query,
 
     if(*cursor != ')')
     {
-	DPRINTF(ERR_LOG, "Illegal character '%c' (0%o) at index %d: %s\n",
+	DPRINTF(E_LOG,L_QRY,"Illegal character '%c' (0%o) at index %d: %s\n",
 		*cursor, *cursor, cursor - query, query);
 	goto error;
     }
@@ -200,14 +200,14 @@ static query_node_t*	single_match(const char* query,
     }
     else
     {
-	DPRINTF(ERR_LOG, "Illegal Operator: %c (0%o) at index %d: %s\n",
+	DPRINTF(E_LOG,L_QRY,"Illegal Operator: %c (0%o) at index %d: %s\n",
 		**pcursor, **pcursor, *pcursor - query, query);
 	return NULL;
     }
 
     if(0 == (field = find_field(fname, fields)))
     {
-	DPRINTF(ERR_LOG, "Unknown field: %s\n", fname);
+	DPRINTF(E_LOG,L_QRY,"Unknown field: %s\n", fname);
 	return NULL;
     }
 
@@ -223,13 +223,13 @@ static query_node_t*	single_match(const char* query,
 	break;
 
     default:
-	DPRINTF(ERR_LOG, "Invalid field type: %d\n", field->type);
+	DPRINTF(E_LOG,L_QRY,"Invalid field type: %d\n", field->type);
 	break;
     }
 
     if(**pcursor != '\'')
     {
-	DPRINTF(ERR_LOG, "Illegal Character: %c (0%o) index %d: %s\n",
+	DPRINTF(E_LOG,L_QRY,"Illegal Character: %c (0%o) index %d: %s\n",
 		**pcursor, **pcursor, *pcursor - query, query);
 	query_free(node);
 	node = 0;
@@ -254,7 +254,7 @@ static int		get_field_name(const char** pcursor,
     {
 	if(--len <= 0)
 	{
-	    DPRINTF(ERR_LOG, "token length exceeded at offset %d: %s\n",
+	    DPRINTF(E_LOG,L_QRY,"token length exceeded at offset %d: %s\n",
 		    cursor - query, query);
 	    return 0;
 	}
@@ -304,7 +304,7 @@ static query_node_t*	match_number(const query_field_t* field,
 
     if(**pcursor != '\'')
     {
-	DPRINTF(ERR_LOG, "Illegal char in number '%c' (0%o) at index %d: %s\n",
+	DPRINTF(E_LOG,L_QRY,"Illegal char in number '%c' (0%o) at index %d: %s\n",
 		**pcursor, **pcursor, *pcursor - query, query);
 	free(node);
 	return 0;
@@ -327,7 +327,7 @@ static query_node_t*	match_string(const query_field_t* field,
 
     if(opcode != ':')
     {
-	DPRINTF(ERR_LOG, "Illegal operation on string: %c at index %d: %s\n",
+	DPRINTF(E_LOG,L_QRY,"Illegal operation on string: %c at index %d: %s\n",
 		opcode, cursor - query - 1);
 	return NULL;
     }
@@ -342,7 +342,7 @@ static query_node_t*	match_string(const query_field_t* field,
     {
 	if(--left == 0)
 	{
-	    DPRINTF(ERR_LOG, "string too long at index %d: %s\n",
+	    DPRINTF(E_LOG,L_QRY,"string too long at index %d: %s\n",
 		    cursor - query, query);
 	    return NULL;
 	}
@@ -357,7 +357,7 @@ static query_node_t*	match_string(const query_field_t* field,
 		*dst++ = *cursor++;
 		break;
 	    default:
-		DPRINTF(ERR_LOG, "Illegal escape: %c (0%o) at index %d: %s\n",
+		DPRINTF(E_LOG,L_QRY,"Illegal escape: %c (0%o) at index %d: %s\n",
 			*cursor, *cursor, cursor - query, query);
 		return NULL;
 	    }
@@ -464,7 +464,7 @@ void query_free(query_node_t* query)
 	    break;
 	    
 	default:
-	    DPRINTF(ERR_LOG, "Illegal query type: %d\n", query->type);
+	    DPRINTF(E_LOG,L_QRY,"Illegal query type: %d\n", query->type);
 	    break;
 	}
 
@@ -479,7 +479,7 @@ static const query_field_t* find_field(const char* name, const query_field_t* fi
 
     if(fields->name == 0)
     {
-	DPRINTF(ERR_LOG, "Illegal query field: %s\n", name);
+	DPRINTF(E_LOG,L_QRY,"Illegal query field: %s\n", name);
 	return NULL;
     }
 
@@ -507,7 +507,7 @@ static int arith_query(query_node_t* query, void* target)
 	    case qot_ge:	return tv >= 0;
 	    case qot_gt:	return tv > 0;
 	    default:
-		DPRINTF(ERR_LOG, "illegal query type: %d\n", query->type);
+		DPRINTF(E_LOG,L_QRY,"illegal query type: %d\n", query->type);
 		break;
 	    }
 	}
@@ -528,14 +528,14 @@ static int arith_query(query_node_t* query, void* target)
 	    case qot_ge:	return tv >= 0;
 	    case qot_gt:	return tv > 0;
 	    default:
-		DPRINTF(ERR_LOG, "illegal query type: %d\n", query->type);
+		DPRINTF(E_LOG,L_QRY,"illegal query type: %d\n", query->type);
 		break;
 	    }
 	}
 	break;
 
     default:
-	DPRINTF(ERR_LOG, "illegal field type: %d\n", field->type);
+	DPRINTF(E_LOG,L_QRY,"illegal field type: %d\n", field->type);
 	break;
     }
     
@@ -549,7 +549,7 @@ static int string_query(query_node_t* query, void* target)
 
     if(field->type != qft_string)
     {
-	DPRINTF(ERR_LOG, "illegal field type: %d\n", field->type);
+	DPRINTF(E_LOG,L_QRY,"illegal field type: %d\n", field->type);
 	return 0;
     }
 
@@ -580,7 +580,7 @@ static int string_query(query_node_t* query, void* target)
 	return (int) strcasestr(ts, query->right.str); /* returns null if not found */
 
     default:
-	DPRINTF(ERR_LOG, "Illegal query type: %d\n", query->type);
+	DPRINTF(E_LOG,L_QRY,"Illegal query type: %d\n", query->type);
 	break;
     }
 

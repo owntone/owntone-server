@@ -185,7 +185,7 @@ void db_readlock(void) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"cannot lock rdlock: %s\n",strerror(err));
+	DPRINTF(E_FATAL,L_DB,"cannot lock rdlock: %s\n",strerror(err));
     }
 }
 
@@ -198,7 +198,7 @@ void db_writelock(void) {
     int err;
 
     if((err=pthread_rwlock_wrlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"cannot lock rwlock: %s\n",strerror(err));
+	DPRINTF(E_FATAL,L_DB,"cannot lock rwlock: %s\n",strerror(err));
     }
 }
 
@@ -251,7 +251,7 @@ int db_open(char *parameters, int reload) {
     db_songs=gdbm_open(db_path, 0, reload | GDBM_SYNC | GDBM_NOLOCK,
 		       0600,NULL);
     if(!db_songs) {
-	DPRINTF(ERR_FATAL,"Could not open songs database (%s)\n",
+	DPRINTF(E_FATAL,L_DB,"Could not open songs database (%s)\n",
 		db_path);
 	return -1;
     }
@@ -275,7 +275,7 @@ int db_init(void) {
     db_version_no=1;
     db_song_count=0;
 
-    DPRINTF(ERR_DEBUG,"Building playlists\n");
+    DPRINTF(E_DBG,L_DB|L_PL,"Building playlists\n");
 
     /* count the actual songs and build the playlists */
     tmp_key=gdbm_firstkey(db_songs);
@@ -302,7 +302,7 @@ int db_init(void) {
 	db_song_count++;
     }
 
-    DPRINTF(ERR_DEBUG,"Loaded database... found %d songs\n",db_song_count);
+    DPRINTF(E_DBG,L_DB,"Loaded database... found %d songs\n",db_song_count);
 
     /* and the playlists */
     return 0;
@@ -410,13 +410,13 @@ int db_end_initial_update(void) {
 
     db_update_mode=0;
 
-    DPRINTF(ERR_DEBUG,"Initial update over.  Removing stale items\n");
+    DPRINTF(E_DBG,L_DB|L_SCAN,"Initial update over.  Removing stale items\n");
     for(val=rblookup(RB_LUFIRST,NULL,db_removed); val != NULL; 
 	val=rblookup(RB_LUNEXT,val,db_removed)) {
 	db_delete(*((int*)val));
     }
 
-    DPRINTF(ERR_DEBUG,"Done removing stale items\n");
+    DPRINTF(E_DBG,L_DB|L_SCAN,"Done removing stale items\n");
 
     rbdestroy(db_removed);
 
@@ -465,14 +465,14 @@ int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
 	return -1;
     }
 
-    DPRINTF(ERR_DEBUG,"Adding new playlist %s\n",name);
+    DPRINTF(E_DBG,L_DB|L_PL,"Adding new playlist %s\n",name);
 
     pnew->next=db_playlists.next;
     db_playlists.next=pnew;
 
     db_version_no++;
 
-    DPRINTF(ERR_DEBUG,"Added playlist\n");
+    DPRINTF(E_DBG,L_DB|L_PL,"Added playlist\n");
     return 0;
 }
 
@@ -496,14 +496,14 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
     pnew->id=itemid;
     pnew->next=NULL;
 
-    DPRINTF(ERR_DEBUG,"Adding item %d to %d\n",itemid,playlistid); 
+    DPRINTF(E_DBG,L_DB|L_PL,"Adding item %d to %d\n",itemid,playlistid); 
 
     current=db_playlists.next;
     while(current && (current->id != playlistid))
 	current=current->next;
 
     if(!current) {
-	DPRINTF(ERR_WARN,"Could not find playlist attempting to add to\n");
+	DPRINTF(E_WARN,L_DB|L_PL,"Could not find playlist attempting to add to\n");
 	if(!db_update_mode)
 	    db_unlock();
 	db_unlock();
@@ -515,13 +515,13 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
 	db_playlist_count++;
 
     current->songs++;
-    DPRINTF(ERR_DEBUG,"Playlist now has %d entries\n",current->songs);
+    DPRINTF(E_DBG,L_DB|L_PL,"Playlist now has %d entries\n",current->songs);
     pnew->next = current->nodes;
     current->nodes = pnew;
 
     db_version_no++;
 
-    DPRINTF(ERR_DEBUG,"Added playlist item\n");
+    DPRINTF(E_DBG,L_DB|L_PL,"Added playlist item\n");
     return 0;
 }
 
@@ -677,7 +677,7 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
     ppacked=(MP3PACKED*)pdatum->dptr;
 
     if(ppacked->version != DB_VERSION) 
-	DPRINTF(ERR_FATAL,"ON-DISK DATABASE VERSION HAS CHANGED\n"
+	DPRINTF(E_FATAL,L_DB,"ON-DISK DATABASE VERSION HAS CHANGED\n"
 		"Delete your songs.gdb and restart.\n");
 
     pmp3->bitrate=ppacked->bitrate;
@@ -772,7 +772,7 @@ int db_add(MP3FILE *pmp3) {
     MP3PACKED *ppacked;
     unsigned int id;
 
-    DPRINTF(ERR_DEBUG,"Adding %s\n",pmp3->path);
+    DPRINTF(E_DBG,L_DB,"Adding %s\n",pmp3->path);
 
     if(!(pnew=db_packrecord(pmp3))) {
 	errno=ENOMEM;
@@ -791,16 +791,16 @@ int db_add(MP3FILE *pmp3) {
     ppacked->time_played=0; /* do we want to keep track of this? */
 
     if(gdbm_store(db_songs,dkey,*pnew,GDBM_REPLACE)) {
-	DPRINTF(ERR_FATAL,"Error inserting file %s in database\n",pmp3->fname);
+	DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database\n",pmp3->fname);
     }
 
-    DPRINTF(ERR_DEBUG,"Testing for %d\n",pmp3->id);
+    DPRINTF(E_DBG,L_DB,"Testing for %d\n",pmp3->id);
     id=pmp3->id;
     dkey.dptr=(void*)&id;
     dkey.dsize=sizeof(unsigned int);
 
     if(!gdbm_exists(db_songs,dkey)) {
-	DPRINTF(ERR_FATAL,"Error.. could not find just added file\n");
+	DPRINTF(E_FATAL,L_DB,"Error.. could not find just added file\n");
     }
 
     free(pnew->dptr);
@@ -810,7 +810,7 @@ int db_add(MP3FILE *pmp3) {
 
     db_song_count++;
     
-    DPRINTF(ERR_DEBUG,"Added file\n");
+    DPRINTF(E_DBG,L_DB,"Added file\n");
     return 0;
 }
 
@@ -903,10 +903,10 @@ ENUMHANDLE db_enum_begin(void) {
 
 	data = gdbm_fetch(db_songs, key);
 	if(!data.dptr)
-	    DPRINTF(ERR_FATAL, "Cannot find item... corrupt database?\n");
+	    DPRINTF(E_FATAL,L_DB, "Cannot find item... corrupt database?\n");
 
 	if(db_unpackrecord(&data, &entry->mp3file))
-	    DPRINTF(ERR_FATAL, "Cannot unpack item... corrupt database?\n");
+	    DPRINTF(E_FATAL,L_DB, "Cannot unpack item... corrupt database?\n");
 
 	for(root = &helper->root ; *root ; root = &(**root).next)
 	{
@@ -998,10 +998,10 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
     if(pkey->dptr) {
 	data=gdbm_fetch(db_songs,*pkey);
 	if(!data.dptr)
-	    DPRINTF(ERR_FATAL, "Cannot find item.... corrupt database?\n");
+	    DPRINTF(E_FATAL,L_DB, "Cannot find item.... corrupt database?\n");
 
 	if(db_unpackrecord(&data,&mp3))
-	    DPRINTF(ERR_FATAL,"Cannot unpack item... corrupt database?\n");
+	    DPRINTF(E_FATAL,L_DB,"Cannot unpack item... corrupt database?\n");
 
 	free(data.dptr);
 
@@ -1274,14 +1274,14 @@ int db_exists(int id) {
     MP3FILE *pmp3;
     datum key,content;
 
-    DPRINTF(ERR_DEBUG,"Checking if node %d in db\n",id);
+    DPRINTF(E_DBG,L_DB,"Checking if node %d in db\n",id);
     key.dptr=(char*)&id;
     key.dsize=sizeof(int);
 
     content=gdbm_fetch(db_songs,key);
     MEMNOTIFY(content.dptr);
     if(!content.dptr) {
-	DPRINTF(ERR_DEBUG,"Nope!  Not in DB\n");
+	DPRINTF(E_DBG,L_DB,"Nope!  Not in DB\n");
 	return 0;
     }
 
@@ -1289,13 +1289,13 @@ int db_exists(int id) {
 	/* knock it off the maybe list */
 	node = (int*)rbdelete((void*)&id,db_removed);
 	if(node) {
-	    DPRINTF(ERR_DEBUG,"Knocked node %d from the list\n",*node);
+	    DPRINTF(E_DBG,L_DB,"Knocked node %d from the list\n",*node);
 	    free(node);
 	}
     }
 
     free(content.dptr);
-    DPRINTF(ERR_DEBUG,"Yup, in database\n");
+    DPRINTF(E_DBG,L_DB,"Yup, in database\n");
     return 1;
 }
 
@@ -1337,7 +1337,7 @@ int db_delete(int id) {
     DB_PLAYLIST *pcurrent;
     DB_PLAYLISTENTRY *phead, *ptail;
 
-    DPRINTF(ERR_DEBUG,"Removing item %d\n",id);
+    DPRINTF(E_DBG,L_DB,"Removing item %d\n",id);
 
     if(db_exists(id)) {
 	key.dptr=(void*)&id;
@@ -1356,7 +1356,7 @@ int db_delete(int id) {
 	    }
 
 	    if(phead) { /* found it */
-		DPRINTF(ERR_DEBUG,"Removing from playlist %d\n",
+		DPRINTF(E_DBG,L_DB|L_PL,"Removing from playlist %d\n",
 			pcurrent->id);
 		if(phead == pcurrent->nodes) {
 		    pcurrent->nodes=phead->next;
@@ -1366,7 +1366,7 @@ int db_delete(int id) {
 		free(phead);
 
 		if(pcurrent->nodes == NULL) {
-		    DPRINTF(ERR_DEBUG,"Empty Playlist!\n");
+		    DPRINTF(E_DBG,L_DB|L_PL,"Empty Playlist!\n");
 		    db_playlist_count--;
 		}
 	    }

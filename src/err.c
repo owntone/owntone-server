@@ -54,12 +54,12 @@ int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
 static int err_logdestination=LOGDEST_STDERR; /**< current log destination */
 static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
 static pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER; /**< for serializing log messages */
-
+static unsigned int err_debugmask=0xFFFF; /**< what modules to debug, see \ref log_categories */
 #ifdef DEBUG_MEMORY
 
 /**
  * Nodes for a linked list of in-use memory.  Any malloc/strdup/etc
- * calls get a new node of this type added to the ::err_leak list.
+ * calls get a new node of this type added to the #err_leak list.
  */
 typedef struct tag_err_leak {
     void *ptr;
@@ -89,7 +89,7 @@ static int err_unlock_mutex(void);
  * \param level Level at which to log \ref log_levels
  * \param fmt printf-style 
  */
-void log_err(int level, char *fmt, ...)
+void log_err(int level, unsigned int cat, char *fmt, ...)
 {
     va_list ap;
     char timebuf[256];
@@ -97,8 +97,13 @@ void log_err(int level, char *fmt, ...)
     struct tm tm_now;
     time_t tt_now;
 
-    if(level > err_debuglevel)
-	return;
+    if(level) {
+	if(level > err_debuglevel)
+	    return;
+
+	if(!(cat && err_debugmask))
+	    return;
+    } /* we'll *always* process a log level 0 */
 
     va_start(ap, fmt);
     vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
@@ -222,10 +227,10 @@ void err_notify(char *file, int line, void *ptr) {
 
     pnew=(ERR_LEAK*)malloc(sizeof(ERR_LEAK));
     if(!pnew) 
-	log_err(1,"Error: cannot allocate leak struct\n");
+	DPRINTF(E_FATAL,L_MISC,"Error: cannot allocate leak struct\n");
 
     if(err_lock_mutex()) 
-	log_err(1,"Error: cannot lock error mutex\n");
+	DPRINTF(E_FATAL,L_MISC,"Error: cannot lock error mutex\n");
 	
     pnew->file=file;
     pnew->line=line;
@@ -251,10 +256,10 @@ void *err_malloc(char *file, int line, size_t size) {
 
     pnew=(ERR_LEAK*)malloc(sizeof(ERR_LEAK));
     if(!pnew) 
-	log_err(1,"Error: cannot allocate leak struct\n");
+	DPRINTF(E_FATAL,L_MISC,"Error: cannot allocate leak struct\n");
 
     if(err_lock_mutex()) 
-	log_err(1,"Error: cannot lock error mutex\n");
+	DPRINTF(E_FATAL,L_MISC,"Error: cannot lock error mutex\n");
 	
     pnew->file=file;
     pnew->line=line;
@@ -283,7 +288,7 @@ char *err_strdup(char *file, int line, const char *str) {
 
     pnew=err_malloc(file,line,strlen(str) + 1);
     if(!pnew) 
-	log_err(1,"Cannot malloc enough space for strdup\n");
+	DPRINTF(E_FATAL,L_MISC,"Cannot malloc enough space for strdup\n");
 
     memcpy(pnew,str,strlen(str)+1);
     return pnew;
@@ -301,7 +306,7 @@ void err_free(char *file, int line, void *ptr) {
     ERR_LEAK *current,*last;
 
     if(err_lock_mutex()) 
-	log_err(1,"Error: cannot lock error mutex\n");
+        DPRINTF(E_FATAL,L_MISC,"Error: cannot lock error mutex\n");
 
     last=&err_leak;
     current=last->next;
@@ -312,7 +317,7 @@ void err_free(char *file, int line, void *ptr) {
     }
 
     if(!current) {
-	log_err(1,"Attempt to free unallocated memory: %s, %d\n",file,line);
+	DPRINTF(E_FATAL,L_MISC,"Attempt to free unallocated memory: %s, %d\n",file,line);
     } else {
 	free(current->ptr);
 	last->next=current->next;
@@ -331,7 +336,7 @@ void err_leakcheck(void) {
     ERR_LEAK *current;
 
     if(err_lock_mutex()) 
-	log_err(1,"Error: cannot lock error mutex\n");
+	DPRINTF(E_FATAL,L_MISC,"Error: cannot lock error mutex\n");
 
     current=err_leak.next;
     while(current) {

@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.19  2004/11/13 07:14:26  rpedde
+  modularize debugging statements
+
   Revision 1.18  2004/04/19 06:19:46  rpedde
   Starting to fix signal stuff
 
@@ -203,7 +206,7 @@ static void HandleSigInt(int sigraised)
 {
     assert(sigraised == SIGINT);
 
-    DPRINTF(ERR_INFO,"SIGINT\n");
+    DPRINTF(E_INF,L_REND,"SIGINT\n");
     gStopNow = mDNStrue;
 }
 
@@ -216,7 +219,7 @@ static void HandleSigQuit(int sigraised)
 {
     assert(sigraised == SIGQUIT);
 
-    DPRINTF(ERR_INFO,"SIGQUIT\n");
+    DPRINTF(E_INF,L_REND,"SIGQUIT\n");
 
     mDNS_Close(&mDNSStorage);
     exit(0);
@@ -249,13 +252,13 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
     switch (status) {
 
     case mStatus_NoError:      
-	DPRINTF(ERR_DEBUG,"Callback: Name Registered\n");
+	DPRINTF(E_DBG,L_REND,"Callback: Name Registered\n");
 	// Do nothing; our name was successfully registered.  We may 
 	// get more call backs in the future.
 	break;
 
     case mStatus_NameConflict: 
-	DPRINTF(ERR_WARN,"Callback: Name Conflict\n");
+	DPRINTF(E_WARN,L_REND,"Callback: Name Conflict\n");
 
 	// In the event of a conflict, this sample RegistrationCallback 
 	// just calls mDNS_RenameAndReregisterService to automatically 
@@ -273,7 +276,7 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
 	break;
 
     case mStatus_MemFree:      
-	DPRINTF(ERR_WARN,"Callback: Memory Free\n");
+	DPRINTF(E_WARN,L_REND,"Callback: Memory Free\n");
             
 	// When debugging is enabled, make sure that thisRegistration 
 	// is not on our gServiceList.
@@ -293,7 +296,7 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
 	break;
 
     default:                   
-	DPRINTF(ERR_WARN,"Callback: Unknown Status %d\n",status); 
+	DPRINTF(E_WARN,L_REND,"Callback: Unknown Status %d\n",status); 
 	break;
     }
 }
@@ -342,7 +345,7 @@ static mStatus RegisterOneService(const char *  richTextHostName,
         thisServ->next = gServiceList;
         gServiceList = thisServ;
 
-	DPRINTF(ERR_DEBUG,
+	DPRINTF(E_DBG,L_REND,
 		"Registered service %d, name '%s', type '%s', domain '%s', port %ld\n", 
 		thisServ->serviceID, 
 		richTextHostName,
@@ -370,7 +373,7 @@ static void DeregisterOurServices(void)
         
         mDNS_DeregisterService(&mDNSStorage, &thisServ->coreServ);
 
-	DPRINTF(ERR_DEBUG,"Deregistered service %d\n",
+	DPRINTF(E_DBG,L_REND,"Deregistered service %d\n",
 		thisServ->serviceID);
     }
 }
@@ -385,21 +388,21 @@ void rend_callback(void) {
     int result;
     int err;
 
-    DPRINTF(ERR_DEBUG,"Processing rendezvous message\n");
+    DPRINTF(E_DBG,L_REND,"Processing rendezvous message\n");
 
     /* here, we've seen the message, now we have to process it */
 
     if((result=rend_read_message(&msg)) != sizeof(msg)) {
 	err=errno;
-	DPRINTF(ERR_DEBUG,"Expected %d, got %d\n",sizeof(msg),result);
-	DPRINTF(ERR_FATAL,"Rendezvous pipe closed... Exiting\n");
+	DPRINTF(E_DBG,L_REND,"Expected %d, got %d\n",sizeof(msg),result);
+	DPRINTF(E_FATAL,L_REND,"Rendezvous pipe closed... Exiting\n");
 	gStopNow=mDNStrue;
 	return;
     }
 
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
-	DPRINTF(ERR_DEBUG,"Registering %s.%s (%d)\n",msg.name,msg.type,msg.port);
+	DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.name,msg.type,msg.port);
 	RegisterOneService(msg.name,msg.type,"local.",NULL,0,msg.port);
 	rend_send_response(0); /* success */
 	break;
@@ -407,7 +410,7 @@ void rend_callback(void) {
 	rend_send_response(1); /* error */
 	break;
     case REND_MSG_TYPE_STOP:
-	DPRINTF(ERR_INFO,"Stopping mDNS\n");
+	DPRINTF(E_INF,L_REND,"Stopping mDNS\n");
 	gStopNow = mDNStrue;
 	rend_send_response(0);
 	break;
@@ -431,7 +434,7 @@ int rend_private_init(char *user) {
 		       mDNS_Init_NoInitCallback, mDNS_Init_NoInitCallbackContext);
     
     if (status != mStatus_NoError) {
-	DPRINTF(ERR_FATAL,"mDNS Error %d\n",status);
+	DPRINTF(E_FATAL,L_REND,"mDNS Error %d\n",status);
 	return(-1);
     }
 
@@ -464,13 +467,13 @@ int rend_private_init(char *user) {
 	mDNSPosixGetFDSet(&mDNSStorage, &nfds, &readfds, &timeout);
 	
 	// 4. Call select as normal
-	DPRINTF(ERR_DEBUG,"select(%d, %d.%06d)\n", nfds, 
+	DPRINTF(E_DBG,L_REND,"select(%d, %d.%06d)\n", nfds, 
 		timeout.tv_sec, timeout.tv_usec);
 	
 	result = select(nfds, &readfds, NULL, NULL, &timeout);
 	
 	if (result < 0) {
-	    DPRINTF(ERR_WARN,"select() returned %d errno %d\n", result, errno);
+	    DPRINTF(E_WARN,L_REND,"select() returned %d errno %d\n", result, errno);
 	    if (errno != EINTR) gStopNow = mDNStrue;
 	} else {
 	    // 5. Call mDNSPosixProcessFDSet to let the mDNSPosix layer do its work
@@ -485,7 +488,7 @@ int rend_private_init(char *user) {
 	}
     }
     
-    DPRINTF(ERR_DEBUG,"Exiting\n");
+    DPRINTF(E_DBG,L_REND,"Exiting\n");
     
     DeregisterOurServices();
     mDNS_Close(&mDNSStorage);
@@ -495,7 +498,7 @@ int rend_private_init(char *user) {
     } else {
         result = 2;
     }
-    DPRINTF(ERR_DEBUG, "Finished with status %ld, result %d\n", 
+    DPRINTF(E_DBG,L_REND, "Finished with status %ld, result %d\n", 
 	    status, result);
 
     exit(result);
