@@ -93,6 +93,7 @@ static int err_unlock_mutex(void);
  * used, rather it should be used via the #DPRINTF macro.
  *
  * \param level Level at which to log \ref log_levels
+ * \param cat the category to log \ref log_categories
  * \param fmt printf-style 
  */
 void err_log(int level, unsigned int cat, char *fmt, ...)
