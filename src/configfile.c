@@ -88,6 +88,9 @@ int config_read(char *file, CONFIG *pconfig) {
 		} else if(!strcasecmp(buffer,"admin_password")) {
 		    pconfig->adminpassword=strdup(value);
 		    DPRINTF(ERR_DEBUG,"Admin pw: %s\n",value);
+		} else if(!strcasecmp(buffer,"mp3_dir")) {
+		    pconfig->mp3dir=strdup(value);
+		    DPRINTF(ERR_DEBUG,"MP3 Dir: %s\n",value);
 		} else {
 		    DPRINTF(ERR_INFO,"Bad config directive: %s\n",buffer);
 		}
@@ -111,6 +114,12 @@ int config_read(char *file, CONFIG *pconfig) {
 
     if(!pconfig->port) {
 	fprintf(stderr,"Config: missing port entry\n");
+	errno=EINVAL;
+	err=-1;
+    }
+
+    if(!pconfig->mp3dir) {
+	fprintf(stderr,"Config: missing mp3_dir entry\n");
 	errno=EINVAL;
 	err=-1;
     }

@@ -19,7 +19,9 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "daap-proto.h"
 #include "daap.h"
@@ -119,6 +121,11 @@ DAAP_ITEMS taglist[] = {
 	{ 0x00, NULL,   NULL }
 };
 
+/* Forwards */
+DAAP_BLOCK *daap_response_songlist(void);
+DAAP_BLOCK *daap_response_playlists(void);
+DAAP_BLOCK *daap_response_dbinfo(void);
+DAAP_BLOCK *daap_response_playlist_items(int playlist);
 
 int daap_add_mdcl(DAAP_BLOCK *root, char *tag, char *name, short int number) {
     DAAP_BLOCK *mdcl;
@@ -148,7 +155,6 @@ DAAP_BLOCK *daap_response_content_codes(void) {
     DAAP_BLOCK *root;
     DAAP_ITEMS *current=taglist;
     int g=1;
-    
 
     root=daap_add_empty(NULL,"mccr");
     if(root) {
@@ -196,6 +202,35 @@ DAAP_BLOCK *daap_response_login(void) {
 }
 
 /*
+ * daap_response_songlist
+ *
+ * handle the daap block for the /databases/x/items URI
+ */
+
+DAAP_BLOCK *daap_response_songlist(void) {
+    DAAP_BLOCK *root;
+    int g=1;
+    
+
+    root=daap_add_empty(NULL,"adbs");
+    if(root) {
+	g = (int)daap_add_int(root,"mstt",200);
+	g = g && daap_add_char(root,"muty",0);
+	g = g && daap_add_int(root,"mtco",0);
+	g = g && daap_add_int(root,"mrco",0);
+	g = g && daap_add_empty(root,"mlcl");
+    }
+
+    if(!g) {
+	daap_free(root);
+	return NULL;
+    }
+
+    return root;
+}
+
+
+/*
  * daap_response_update
  *
  * handle the daap block for the /update URI
@@ -226,7 +261,141 @@ DAAP_BLOCK *daap_response_update(void) {
  * handle the daap block for the /databases URI
  */
 
-DAAP_BLOCK *daap_response_databases(void) {
+DAAP_BLOCK *daap_response_databases(char *path) {
+    char *uri;
+    int db_index;
+    int playlist_index;
+    char *first, *last;
+
+    if(strcmp(path,"/databases")==0) {
+	return daap_response_dbinfo();
+    }
+
+
+    uri = strdup(path);
+    first=(char*)&uri[11];
+    last=first;
+    while((*last) && (*last != '/')) {
+	last++;
+    }
+    
+    if(*last != '/') {
+	return NULL;
+    }
+    
+    *last='\0';
+    db_index=atoi(first);
+    
+    /* now we have the db id.  Next, we have to figure out
+     * if it's a container request or a 
+     * items request
+     *
+     * note we generally don't care about the DB index, since we only
+     * support 1 db.
+     */
+    
+    /* the /databases/ uri will either be
+     *
+     * /databases, which returns an AVDB,
+     * /databases/id/items, which returns items in a db
+     * /databases/id/containers, which returns a container
+     * /databases/id/containers/id/items, which returns playlist elements
+     * /databases/id/items/id.mp3, to spool an mp3
+     */
+
+    last++;
+
+    if(strncasecmp(last,"items/",6)==0) {
+	/* streaming */
+	free(uri);
+	return NULL;
+    }
+
+    if(strncasecmp(last,"items",5)==0) {
+	/* songlist */
+	free(uri);
+	return daap_response_songlist();
+    }
+
+    if(strncasecmp(last,"containers/",11)==0) {
+	/* playlist elements */
+	first=last + 11;
+	last=first;
+	while((*last) && (*last != '/')) {
+	    last++;
+	}
+	
+	if(*last != '/') {
+	    return NULL;
+	}
+	
+	*last='\0';
+	playlist_index=atoi(first);
+
+	free(uri);
+
+	return daap_response_playlist_items(playlist_index);
+    }
+
+    if(strncasecmp(last,"containers",10)==0) {
+	/* list of playlists */
+	free(uri);
+	return daap_response_playlists();
+	return NULL;
+    }
+
+    free(uri);
+    return NULL;
+
+}
+
+/*
+ * daap_response_playlists
+ *
+ * handle the daap block for the /databases/containers URI
+ */
+DAAP_BLOCK *daap_response_playlists(void) {
+    DAAP_BLOCK *root;
+    DAAP_BLOCK *mlcl;
+    DAAP_BLOCK *mlit;
+    int g=1;
+    
+    root=daap_add_empty(NULL,"aply");
+    if(root) {
+	g = (int)daap_add_int(root,"mstt",200);
+	g = g && daap_add_char(root,"muty",0); 
+	g = g && daap_add_int(root,"mtco",1);
+	g = g && daap_add_int(root,"mrco",1);
+	mlcl=daap_add_empty(root,"mlcl");
+	if(mlcl) {
+	    mlit=daap_add_empty(mlcl,"mlit");
+	    if(mlit) {
+		g = g && daap_add_int(mlit,"miid",0x1);
+		g = g && daap_add_long(mlit,"mper",0,2);
+		g = g && daap_add_string(mlit,"minm","daapd music");
+		g = g && daap_add_int(mlit,"mimc",0x0);
+	    }
+	}
+    }
+
+    g = g && mlcl && mlit;
+
+    if(!g) {
+	DPRINTF(ERR_INFO,"Memory problem.  Bailing\n");
+	daap_free(root);
+	return NULL;
+    }
+
+    return root;
+}
+
+/*
+ * daap_response_dbinfo
+ *
+ * handle the daap block for the /databases URI
+ */
+
+DAAP_BLOCK *daap_response_dbinfo(void) {
     DAAP_BLOCK *root;
     DAAP_BLOCK *mlcl;
     DAAP_BLOCK *mlit;
@@ -245,8 +414,8 @@ DAAP_BLOCK *daap_response_databases(void) {
 		g = g && daap_add_int(mlit,"miid",0x20);
 		g = g && daap_add_long(mlit,"mper",0,1);
 		g = g && daap_add_string(mlit,"minm","daapd music");
-		g = g && daap_add_int(mlit,"mimc",0x10);
-		g = g && daap_add_int(mlit,"mctc",0x1);
+		g = g && daap_add_int(mlit,"mimc",0x0); /* songs */
+		g = g && daap_add_int(mlit,"mctc",0x1); /* playlists */
 	    }
 	}
     }
@@ -289,6 +458,34 @@ DAAP_BLOCK *daap_response_server_info(void) {
 	g = g && daap_add_char(root,"msix",0); /* indexing? */
 	g = g && daap_add_char(root,"msrs",0); /* resolve?  req. persist id */
         g = g && daap_add_int(root,"msdc",1); /* database count */
+    }
+
+    if(!g) {
+	daap_free(root);
+	return NULL;
+    }
+
+    return root;
+}
+
+
+/* 
+ * daap_response_playlist_items
+ *
+ * given a playlist number, return the items on the playlist
+ */
+DAAP_BLOCK *daap_response_playlist_items(int playlist) {
+    DAAP_BLOCK *root;
+    int g=1;
+    
+
+    root=daap_add_empty(NULL,"apso");
+    if(root) {
+	g = (int)daap_add_int(root,"mstt",200);
+	g = g && daap_add_char(root,"muty",0);
+	g = g && daap_add_int(root,"mtco",0);
+	g = g && daap_add_int(root,"mrco",0);
+	g = g && daap_add_empty(root,"mlcl");
     }
 
     if(!g) {

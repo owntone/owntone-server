@@ -79,18 +79,22 @@ void daap_handler(WS_CONNINFO *pwsc) {
     } else if (!strcasecmp(pwsc->uri,"/update")) {
 	root=daap_response_update();
     } else if (!strcasecmp(pwsc->uri,"/databases")) {
-	root=daap_response_databases();
+	root=daap_response_databases(pwsc->uri);
     } else if (!strcasecmp(pwsc->uri,"/logout")) {
 	ws_returnerror(pwsc,204,"Logout Successful");
 	return;
+    } else if (!strncasecmp(pwsc->uri,"/databases/",11)) {
+	root=daap_response_databases(pwsc->uri);
     } else {
 	DPRINTF(ERR_WARN,"Bad handler!  Can't find uri handler for %s\n",
 		pwsc->uri);
 	return;
     }
 
-    if(!root)
+    if(!root) {
+	ws_returnerror(pwsc,400,"Invalid Request");
 	return;
+    }
 
     pwsc->close=close;
 
@@ -169,6 +173,8 @@ void config_handler(WS_CONNINFO *pwsc) {
 	/* we need to update stuff */
 	argptr=ws_getvar(pwsc,"adminpw");
 	if(argptr) {
+	    if(config.adminpassword)
+		free(config.adminpassword);
 	    config.adminpassword=strdup(argptr);
 	}
     }
@@ -195,6 +201,8 @@ void config_handler(WS_CONNINFO *pwsc) {
 		    ws_writefd(pwsc,"%s",config.adminpassword);
 		} else if (strcasecmp(argbuffer,"RELEASE") == 0) {
 		    ws_writefd(pwsc,"mt-daapd %s\n",VERSION);
+		} else if (strcasecmp(argbuffer,"MP3DIR") == 0) {
+		    ws_writefd(pwsc,"%s",config.mp3dir);
 		} else {
 		    ws_writefd(pwsc,"@ERR@");
 		}
@@ -311,6 +319,7 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(server,"^/update$",daap_handler,NULL,0);
     ws_registerhandler(server,"^/databases$",daap_handler,NULL,0);
     ws_registerhandler(server,"^/logout$",daap_handler,NULL,0);
+    ws_registerhandler(server,"^/databases/.*",daap_handler,NULL,0);
 
     if(use_mdns)
 	rend_init(&rendezvous_pid);

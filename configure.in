@@ -24,6 +24,7 @@ esac
 
 dnl Checks for libraries.
 AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
+AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
 
 dnl Checks for header files.
 AC_HEADER_STDC
