@@ -46,7 +46,7 @@
 /*
  * Defines
  */
-#define DB_VERSION 4
+#define DB_VERSION 5
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
@@ -121,7 +121,7 @@ typedef struct tag_mp3packed {
     int conductor_len;
     int grouping_len;
 
-    /* DB VERSION 4 AND ABOVE GO HERE! */
+    int url_len;  /* DB Version 4 */
     char data[1];
 } MP3PACKED;
 
@@ -549,6 +549,7 @@ datum *db_packrecord(MP3FILE *pmp3) {
     len += STRLEN(pmp3->orchestra);
     len += STRLEN(pmp3->conductor);
     len += STRLEN(pmp3->grouping);
+    len += STRLEN(pmp3->url);
 
     result = (datum*) malloc(sizeof(datum));
     if(!result)
@@ -598,6 +599,7 @@ datum *db_packrecord(MP3FILE *pmp3) {
     ppacked->orchestra_len=STRLEN(pmp3->orchestra);
     ppacked->conductor_len=STRLEN(pmp3->conductor);
     ppacked->grouping_len=STRLEN(pmp3->grouping);
+    ppacked->url_len=STRLEN(pmp3->url);
 
     offset=0;
     if(pmp3->path)
@@ -647,6 +649,11 @@ datum *db_packrecord(MP3FILE *pmp3) {
     if(pmp3->grouping)
 	memcpy(&ppacked->data[offset],pmp3->grouping,ppacked->grouping_len);
     offset+=ppacked->grouping_len;
+
+    if(pmp3->url)
+	memcpy(&ppacked->data[offset],pmp3->url,ppacked->url_len);
+    offset+=ppacked->url_len;
+
 
     /* whew */
     return result;
@@ -737,6 +744,10 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
     if(ppacked->grouping_len > 1)
 	pmp3->grouping=strdup(&ppacked->data[offset]);
     offset += ppacked->grouping_len;
+
+    if(ppacked->url_len > 1)
+	pmp3->url=strdup(&ppacked->data[offset]);
+    offset += ppacked->url_len;
     
     /* shouldn't this have been done when scanning? */
     make_composite_tags(pmp3);
@@ -822,6 +833,7 @@ void db_freefile(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->conductor);
     MAYBEFREE(pmp3->grouping);
     MAYBEFREE(pmp3->description);
+    MAYBEFREE(pmp3->url);
 }
 
 static int nullstrcmp(const char* a, const char* b)

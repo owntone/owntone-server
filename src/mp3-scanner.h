@@ -37,7 +37,7 @@ typedef struct tag_mp3file {
     char *orchestra; /* TPE2 */
     char *conductor; /* TPE3 */
     char *grouping;  /* TIT1 */
-
+    char *url;       /* daap.songdataurl (asul) */
 
     int bitrate;
     int samplerate;
@@ -63,6 +63,7 @@ typedef struct tag_mp3file {
     /* generated fields */
     char* description;		/* long file type */
     int item_kind;		/* song or movie */
+    int data_kind;              /* dmap.datakind (asdk) */
 
   char compilation;
 } MP3FILE;

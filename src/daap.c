@@ -147,8 +147,8 @@ static query_field_t	song_fields[] = {
     { qft_string,	"daap.songcomment",	OFFSET_OF(MP3FILE, comment) },
     { qft_i32,  	"daap.songcompilation",	OFFSET_OF(MP3FILE, compilation) },
     { qft_string,	"daap.songcomposer",	OFFSET_OF(MP3FILE, composer) },
-    //    { qft_i32_const,	"daap.songdatakind", 0 },
-    //    { qft_string,	"daap.songdataurl",	OFFSET_OF(MP3FILE, url) },
+    { qft_i32,  	"daap.songdatakind",    OFFSET_OF(MP3FILE, data_kind) },
+    { qft_string,	"daap.songdataurl",	OFFSET_OF(MP3FILE, url) },
     { qft_i32,		"daap.songdateadded",	OFFSET_OF(MP3FILE, time_added) },
     { qft_i32,		"daap.songdatemodified",OFFSET_OF(MP3FILE, time_modified) },
     { qft_string,	"daap.songdescription",	OFFSET_OF(MP3FILE, description) },
@@ -410,6 +410,8 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
     query_node_t*	filter = 0;
     int			songs = 0;
 
+    DPRINTF(ERR_DEBUG,"enter daap_response_songlist\n");
+
     // if the meta tag is specified, encode it, if it's not specified
     // we're given the latitude to select our own subset, for
     // simplicity we just include everything.
@@ -429,7 +431,7 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
 
     henum=db_enum_begin();
     if((!henum) && (db_get_song_count())) {
-	DPRINTF(ERR_DEBUG,"Can't get enum handle\n");
+	DPRINTF(ERR_DEBUG,"Can't get enum handle - exiting daap_response_songlist\n");
 	return NULL;
     }
 
@@ -462,7 +464,7 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
 	query_free(filter);
 
     if(!g) {
-	DPRINTF(ERR_DEBUG,"Error enumerating database\n");
+	DPRINTF(ERR_DEBUG,"Error enumerating database - exiting daap_response_songlist\n");
 	daap_free(root);
 	return NULL;
     }
@@ -472,6 +474,7 @@ DAAP_BLOCK *daap_response_songlist(char* metaStr, char* query) {
     daap_set_int(root, "mtco", songs);
     daap_set_int(root, "mrco", songs);
 
+    DPRINTF(ERR_DEBUG,"Exiting daap_response_songlist\n");
     return root;
 }
 
@@ -491,7 +494,10 @@ DAAP_BLOCK* daap_add_song_entry(DAAP_BLOCK* mlcl, MP3FILE* song, MetaField_t met
 	    g = g && daap_add_char(mlit,"mikd",song->item_kind); /* audio */
 
 	if(wantsMeta(meta, metaSongDataKind))
-	    g = g && daap_add_char(mlit,"asdk",0); /* local file */
+	    g = g && daap_add_char(mlit,"asdk",song->data_kind); /* local file */
+
+	if(wantsMeta(meta, metaSongDataURL))
+	    g = g && daap_add_string(mlit,"asul",song->url);
 
 	if(song->album && (wantsMeta(meta, metaSongAlbum)))
 	    g = g && daap_add_string(mlit,"asal",song->album);

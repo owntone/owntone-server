@@ -252,9 +252,12 @@ int scan_path(char *path);
 int scan_gettags(char *file, MP3FILE *pmp3);
 int scan_get_mp3tags(char *file, MP3FILE *pmp3);
 int scan_get_aactags(char *file, MP3FILE *pmp3);
+int scan_get_nultags(char *file, MP3FILE *pmp3) { return 0; };
 int scan_get_fileinfo(char *file, MP3FILE *pmp3);
 int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3);
 int scan_get_aacfileinfo(char *file, MP3FILE *pmp3);
+int scan_get_nulfileinfo(char *file, MP3FILE *pmp3) { return 0; };
+int scan_get_urlfileinfo(char *file, MP3FILE *pmp3);
 
 int scan_freetags(MP3FILE *pmp3);
 void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
@@ -267,12 +270,14 @@ typedef struct {
     int		(*tags)(char* file, MP3FILE* pmp3);
     int		(*files)(char* file, MP3FILE* pmp3);
 } taghandler;
+
 static taghandler taghandlers[] = {
     { "aac", scan_get_aactags, scan_get_aacfileinfo },
     { "mp4", scan_get_aactags, scan_get_aacfileinfo },
     { "m4a", scan_get_aactags, scan_get_aacfileinfo },
     { "m4p", scan_get_aactags, scan_get_aacfileinfo },
     { "mp3", scan_get_mp3tags, scan_get_mp3fileinfo },
+    { "url", scan_get_nultags, scan_get_urlfileinfo },
     { NULL, 0 }
 };
 
@@ -472,7 +477,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     if(strlen(pde->d_name) > 4)
 	mp3file.type=strdup(strrchr(pde->d_name, '.') + 1);
     
-    /* FIXME; assumes that st_ino is a u_int_32 
+    /* FIXME: assumes that st_ino is a u_int_32 
        DWB: also assumes that the library is contained entirely within
        one file system 
     */
@@ -954,6 +959,59 @@ off_t aac_drilltoatom(FILE *aac_fp, char *atom_path, unsigned int *atom_length)
 }
 
 /*
+ * scan_get_urlfileinfo
+ *
+ * Get info from a "url" file -- a media stream file
+ */
+int scan_get_urlfileinfo(char *file, MP3FILE *pmp3) {
+    FILE *infile;
+    char *head, *tail;
+    char linebuffer[256];
+
+    DPRINTF(ERR_DEBUG,"Getting URL file info\n");
+
+    if(!(infile=fopen(file,"rb"))) {
+	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
+	return -1;
+    }
+
+    fgets(linebuffer,sizeof(linebuffer),infile);
+    while((linebuffer[strlen(linebuffer)-1] == '\n') ||
+	  (linebuffer[strlen(linebuffer)-1] == '\r')) {
+	linebuffer[strlen(linebuffer)-1] = '\0';
+    }
+
+    head=linebuffer;
+    tail=strchr(head,',');
+    if(!tail) {
+	DPRINTF(ERR_LOG,"Badly formatted .url file - must be bitrate,descr,url\n");
+	fclose(infile);
+	return -1;
+    }
+
+    pmp3->bitrate=atoi(head);
+    head=++tail;
+    tail=strchr(head,',');
+    if(!tail) {
+	DPRINTF(ERR_LOG,"Badly formatted .url file - must be bitrate,descr,url\n");
+	fclose(infile);
+	return -1;
+    }
+
+    *tail++='\0';
+    
+    pmp3->title=strdup(head);
+    pmp3->url=strdup(tail);
+    fclose(infile);
+
+    DPRINTF(ERR_DEBUG,"  Title:    %s\n",pmp3->title);
+    DPRINTF(ERR_DEBUG,"  Bitrate:  %d\n",pmp3->bitrate);
+    DPRINTF(ERR_DEBUG,"  URL:      %s\n",pmp3->url);
+
+    return 0;
+}
+
+/*
  * scan_get_aacfileinfo
  *
  * Get info from the actual aac headers
@@ -1248,6 +1306,13 @@ void make_composite_tags(MP3FILE *song)
 
 	sprintf(fdescr,"%s audio file",song->type);
 	song->description = strdup(fdescr);
+    }
+
+    if(song->url) {
+	song->description = strdup("Playlist URL");
+	song->data_kind=1;
+    } else {
+	song->data_kind=0;
     }
 
     if(!song->title)
