@@ -966,17 +966,15 @@ ENUMHANDLE db_enum_begin(void) {
     if(!pkey)
 	return NULL;
 
-    static datum key;
-
     db_writelock();
 
     *pkey=gdbm_firstkey(db_songs);
-
     return (ENUMHANDLE)pkey;
 }
 
 MP3FILE *db_enum(ENUMHANDLE *current) {
     datum *pkey = *current;
+    datum next;
     datum data;
     static MP3FILE mp3;
 
@@ -988,8 +986,11 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
 	if(db_unpackrecord(&data,&mp3))
 	    DPRINTF(ERR_FATAL,"Cannot unpack item... corrupt database?\n");
 
+	free(data.dptr);
+
+	next = gdbm_nextkey(db_songs,*pkey);
 	free(pkey->dptr);
-	*pkey = gdbm_nextkey(db_songs,*pkey);
+	*pkey=next;
 
 	return &mp3;
     }
@@ -998,7 +999,14 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
 }
 
 int db_enum_end(ENUMHANDLE handle) {
+    datum *pkey = handle;
+
+    if(pkey->dptr)
+	free(pkey->dptr);
+
     db_unlock();
+    free(pkey);
+
     return 0;
 }
 
