@@ -46,6 +46,7 @@ void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 int config_mutex_lock(void);
 int config_mutex_unlock(void);
@@ -77,6 +78,7 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"include",(void*)NULL,config_emit_include },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"threadstat",(void*)NULL,config_emit_threadstatus },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"ispage",(void*)NULL,config_emit_ispage },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"session-count",(void*)NULL,config_emit_session_count },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -388,6 +390,40 @@ void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg) {
  */
 void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%d",*((int*)value));
+}
+
+/*
+ * config_emit_session_count
+ *
+ * emit the number of unique hosts (with a session)
+ */
+void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg) {
+    SCAN_STATUS *pcurrent, *pcheck;
+    int count=0;
+
+    if(config_mutex_lock())
+	return;
+
+    pcurrent=scan_status.next;
+
+    while(pcurrent) {
+	if(pcurrent->session != 0) {
+	    /* check to see if there is another one before this one */
+	    pcheck=scan_status.next;
+	    while(pcheck != pcurrent) {
+		if(pcheck->session == pcurrent->session) 
+		    break;
+		pcheck=pcheck->next;
+	    }
+
+	    if(pcheck == pcurrent)
+		count++;
+	}
+	pcurrent=pcurrent->next;
+    }
+
+    ws_writefd(pwsc,"%d",count);
+    config_mutex_unlock();
 }
 
 /*
