@@ -37,7 +37,7 @@ typedef struct tag_mp3file {
     int file_size;
 
     int got_id3;
-    int id;
+    unsigned int id;
 } MP3FILE;
 
 extern int scan_init(char *path);

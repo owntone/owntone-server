@@ -300,6 +300,9 @@ int scan_foreground(char *path) {
 		    memset((void*)&mp3file,0,sizeof(mp3file));
 		    mp3file.path=mp3_path;
 		    mp3file.fname=de.d_name;
+
+		    /* FIXME; assumes that st_ino is a u_int_32 */
+		    mp3file.id=sb.st_ino;
 		    
 		    /* Do the tag lookup here */
 		    if(!scan_gettags(mp3file.path,&mp3file) && 
