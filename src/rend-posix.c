@@ -73,6 +73,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.2  2003/11/14 04:54:55  ron
+  Use port 53
+
   Revision 1.1  2003/10/30 22:41:56  ron
   Initial checkin
 
@@ -289,7 +292,7 @@ enum {
     kDefaultPortNumber = 80
 };
 
-static   mDNSBool  gAvoidPort53      = mDNStrue;
+static   mDNSBool  gAvoidPort53      = mDNSfalse;
 static const char *gRichTextHostName = "";
 static const char *gServiceType      = kDefaultServiceType;
 static mDNSu8      gServiceText[sizeof(RDataBody)];
