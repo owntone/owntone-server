@@ -4,7 +4,7 @@ dnl Process this file with autoconf to produce a configure script.
 AC_INIT(config.h.in)
 
 AM_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(mt-daapd,0.2.1-pre1)
+AM_INIT_AUTOMAKE(mt-daapd,0.2.1-pre2)
 
 dnl Checks for programs.
 AC_PROG_CC
