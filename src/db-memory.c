@@ -90,6 +90,7 @@ int db_enum_end(void);
 DB_PLAYLIST *db_playlist_enum_begin(void);
 int db_playlist_enum(DB_PLAYLIST **current);
 int db_playlist_enum_end(void);
+int db_scanning(void);
 
 DB_PLAYLISTENTRY *db_playlist_items_enum_begin(int playlistid);
 int db_playlist_items_enum(DB_PLAYLISTENTRY **current);
@@ -184,6 +185,15 @@ int db_deinit(void) {
  */
 int db_version(void) {
     return db_version_no;
+}
+
+/*
+ * db_scanning
+ *
+ * is the db doing a background scan?
+ */
+int db_scanning(void) {
+    return 0;
 }
 
 /*
@@ -732,4 +742,5 @@ int db_exists(int id) {
 int db_last_modified(int id) {
     return 0;
 }
+
 

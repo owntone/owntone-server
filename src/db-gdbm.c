@@ -118,6 +118,7 @@ typedef struct tag_mp3packed {
     int conductor_len;
     int grouping_len;
 
+    /* DB VERSION 4 AND ABOVE GO HERE! */
     char data[1];
 } MP3PACKED;
 
@@ -133,8 +134,9 @@ int db_version_no;
 int db_update_mode=0;
 int db_song_count;
 int db_playlist_count=0;
+int db_last_scan;
 DB_PLAYLIST db_playlists;
-pthread_rwlock_t db_rwlock; /* OSX doesn't have PTHREAD_RWLOCK_INITIALIZER */
+pthread_rwlock_t db_rwlock; /* OSX doesn't have PTHREAD_RWLOCK_INITIALIZER (?!?!?!?!) */
 pthread_once_t db_initlock=PTHREAD_ONCE_INIT;
 GDBM_FILE db_songs;
 struct rbtree *db_removed;
@@ -155,6 +157,7 @@ int db_delete(int id);
 int db_add_playlist(unsigned int playlistid, char *name, int is_smart);
 int db_add_playlist_song(unsigned int playlistid, unsigned int itemid);
 int db_unpackrecord(datum *pdatum, MP3FILE *pmp3);
+int db_scanning(void);
 datum *db_packrecord(MP3FILE *pmp3);
 
 int db_get_song_count(void);
@@ -167,6 +170,44 @@ MP3FILE *db_find(int id);
 
 void db_freefile(MP3FILE *pmp3);
 int db_compare_rb_nodes(const void *pa, const void *pb, const void *cfg);
+
+
+/* 
+ * db_readlock
+ *
+ * If this fails, something is so amazingly hosed, we might just as well 
+ * terminate.  
+ */
+void db_readlock(void) {
+    int err;
+
+    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
+	DPRINTF(ERR_FATAL,"cannot lock rdlock: %s\n",strerror(err));
+    }
+}
+
+/* 
+ * db_writelock
+ * 
+ * same as above
+ */
+void db_writelock(void) {
+    int err;
+
+    if((err=pthread_rwlock_wrlock(&db_rwlock))) {
+	DPRINTF(ERR_FATAL,"cannot lock rwlock: %s\n",strerror(err));
+    }
+}
+
+/*
+ * db_unlock
+ * 
+ * useless, but symmetrical 
+ */
+int db_unlock(void) {
+    return pthread_rwlock_unlock(&db_rwlock);
+}
+
 
 /*
  * db_compare_rb_nodes
@@ -292,12 +333,30 @@ int db_deinit(void) {
 }
 
 /*
+ * db_scanning
+ *
+ * is the db currently in scanning mode?
+ */
+int db_scanning(void) {
+    return db_update_mode;
+}
+
+/*
  * db_version
  *
  * return the db version
  */
 int db_version(void) {
-    return db_version_no;
+    int version;
+    int err;
+
+    db_readlock();
+
+    version=db_version_no;
+    
+    db_unlock();
+
+    return version;
 }
 
 /*
@@ -307,6 +366,10 @@ int db_version(void) {
  */
 int db_start_initial_update(void) {
     datum tmp_key,tmp_nextkey;
+    int err;
+
+    /* we need a write lock on the db -- stop enums from happening */
+    db_writelock();
 
     if((db_removed=rbinit(db_compare_rb_nodes,NULL)) == NULL) {
 	errno=ENOMEM;
@@ -357,7 +420,7 @@ int db_end_initial_update(void) {
 
     rbdestroy(db_removed);
 
-    db_version_no++;
+    db_unlock();
 
     return 0;
 }
@@ -378,6 +441,9 @@ int db_is_empty(void) {
  * db_add_playlist
  *
  * Add a new playlist
+ *
+ * FIXME: this assume we are in db_update mode... if this is called at random,
+ * then we have to get a write lock.
  */
 int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
     int err;
@@ -400,24 +466,11 @@ int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
 
     DPRINTF(ERR_DEBUG,"Adding new playlist %s\n",name);
 
-    if((err=pthread_rwlock_wrlock(&db_rwlock))) {
-	DPRINTF(ERR_WARN,"cannot lock wrlock in db_add\n");
-	free(pnew->name);
-	free(pnew);
-	errno=err;
-	return -1;
-    }
-
-    /* we'll update playlist count when we add a song! */
-    //    db_playlist_count++;
     pnew->next=db_playlists.next;
     db_playlists.next=pnew;
 
-    if(!db_update_mode) {
-	db_version_no++;
-    }
+    db_version_no++;
 
-    pthread_rwlock_unlock(&db_rwlock);
     DPRINTF(ERR_DEBUG,"Added playlist\n");
     return 0;
 }
@@ -426,6 +479,9 @@ int db_add_playlist(unsigned int playlistid, char *name, int is_smart) {
  * db_add_playlist_song
  *
  * Add a song to a particular playlist
+ *
+ * FIXME: as db_add playlist, this assumes we already have a writelock from
+ * db_udpate_mode.
  */
 int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
     DB_PLAYLIST *current;
@@ -441,20 +497,15 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
 
     DPRINTF(ERR_DEBUG,"Adding item %d to %d\n",itemid,playlistid); 
 
-    if((err=pthread_rwlock_wrlock(&db_rwlock))) {
-	DPRINTF(ERR_WARN,"cannot lock wrlock in db_add\n");
-	free(pnew);
-	errno=err;
-	return -1;
-    }
-
     current=db_playlists.next;
     while(current && (current->id != playlistid))
 	current=current->next;
 
     if(!current) {
 	DPRINTF(ERR_WARN,"Could not find playlist attempting to add to\n");
-	pthread_rwlock_unlock(&db_rwlock);
+	if(!db_update_mode)
+	    db_unlock();
+	db_unlock();
 	free(pnew);
 	return -1;
     }
@@ -462,17 +513,13 @@ int db_add_playlist_song(unsigned int playlistid, unsigned int itemid) {
     if(!current->songs)
 	db_playlist_count++;
 
-
     current->songs++;
     DPRINTF(ERR_DEBUG,"Playlist now has %d entries\n",current->songs);
     pnew->next = current->nodes;
     current->nodes = pnew;
 
-    if(!db_update_mode) {
-	db_version_no++;
-    }
+    db_version_no++;
 
-    pthread_rwlock_unlock(&db_rwlock);
     DPRINTF(ERR_DEBUG,"Added playlist item\n");
     return 0;
 }
@@ -698,6 +745,9 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
  * db_add
  *
  * add an MP3 file to the database.
+ *
+ * FIXME: Like the playlist adds, this assumes that this will only be called
+ * during a db_update... that the writelock is already held
  */
 int db_add(MP3FILE *pmp3) {
     int err;
@@ -710,14 +760,6 @@ int db_add(MP3FILE *pmp3) {
 
     if(!(pnew=db_packrecord(pmp3))) {
 	errno=ENOMEM;
-	return -1;
-    }
-
-    if((err=pthread_rwlock_wrlock(&db_rwlock))) {
-	DPRINTF(ERR_WARN,"cannot lock wrlock in db_add\n");
-	free(pnew->dptr);
-	free(pnew);
-	errno=err;
 	return -1;
     }
 
@@ -748,13 +790,10 @@ int db_add(MP3FILE *pmp3) {
     free(pnew->dptr);
     free(pnew);
 
-    if(!db_update_mode) {
-	db_version_no++;
-    }
+    db_version_no++;
 
     db_song_count++;
     
-    pthread_rwlock_unlock(&db_rwlock);
     DPRINTF(ERR_DEBUG,"Added file\n");
     return 0;
 }
@@ -827,11 +866,7 @@ ENUMHANDLE db_enum_begin(void) {
     MP3HELPER* helper;
     datum	key, next;
 
-    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
-	errno=err;
-	return NULL;
-    }
+    db_readlock();
 
     helper = calloc(1, sizeof(MP3HELPER));
     
@@ -863,7 +898,7 @@ ENUMHANDLE db_enum_begin(void) {
 
     helper->next = helper->root;
 
-    pthread_rwlock_unlock(&db_rwlock);
+    db_unlock();
 
     return helper;
 }
@@ -877,11 +912,7 @@ ENUMHANDLE db_playlist_enum_begin(void) {
     int err;
     DB_PLAYLIST *current;
 
-    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
-	errno=err;
-	return NULL;
-    }
+    db_readlock();
 
     /* find first playlist with a song in it! */
     current=db_playlists.next;
@@ -900,11 +931,7 @@ ENUMHANDLE db_playlist_items_enum_begin(int playlistid) {
     DB_PLAYLIST *current;
     int err;
 
-    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
-	errno=err;
-	return NULL;
-    }
+    db_readlock();
 
     current=db_playlists.next;
     while(current && (current->id != playlistid))
@@ -1016,7 +1043,7 @@ int db_enum_end(ENUMHANDLE handle) {
  * quit walking the database
  */
 int db_playlist_enum_end(ENUMHANDLE handle) {
-    return pthread_rwlock_unlock(&db_rwlock);
+    return db_unlock();
 }
 
 /*
@@ -1025,7 +1052,7 @@ int db_playlist_enum_end(ENUMHANDLE handle) {
  * Quit walking the database
  */
 int db_playlist_items_enum_end(ENUMHANDLE handle) {
-    return pthread_rwlock_unlock(&db_rwlock);
+    return db_unlock();
 }
 
 
@@ -1090,11 +1117,7 @@ int db_get_playlist_is_smart(int playlistid) {
     int err;
     int result;
 
-    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
-	errno=err;
-	return -1;	
-    }
+    db_readlock();
 
     current=db_playlists.next;
     while(current && (current->id != playlistid))
@@ -1106,7 +1129,7 @@ int db_get_playlist_is_smart(int playlistid) {
 	result=current->is_smart;
     }
 
-    pthread_rwlock_unlock(&db_rwlock);
+    db_unlock();
     return result;
 }
 
@@ -1120,11 +1143,7 @@ int db_get_playlist_entry_count(int playlistid) {
     DB_PLAYLIST *current;
     int err;
 
-    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
-	errno=err;
-	return -1;	
-    }
+    db_readlock();
 
     current=db_playlists.next;
     while(current && (current->id != playlistid))
@@ -1136,7 +1155,7 @@ int db_get_playlist_entry_count(int playlistid) {
 	count = current->songs;
     }
 
-    pthread_rwlock_unlock(&db_rwlock);
+    db_unlock();
     return count;
 }
 
@@ -1152,11 +1171,7 @@ char *db_get_playlist_name(int playlistid) {
     DB_PLAYLIST *current;
     int err;
 
-    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
-	errno=err;
-	return NULL;
-    }
+    db_readlock();
 
     current=db_playlists.next;
     while(current && (current->id != playlistid))
@@ -1168,7 +1183,7 @@ char *db_get_playlist_name(int playlistid) {
 	name = current->name;
     }
 
-    pthread_rwlock_unlock(&db_rwlock);
+    db_unlock();
     return name;
 }
 
@@ -1183,12 +1198,6 @@ int db_exists(int id) {
     int err;
     MP3FILE *pmp3;
 
-    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
-	errno=err;
-	return -1;	
-    }
-
     /* this is wrong and expensive */
 
     pmp3=db_find(id);
@@ -1202,7 +1211,6 @@ int db_exists(int id) {
 	}
     }
     
-    pthread_rwlock_unlock(&db_rwlock);
     return pmp3 ? 1 : 0;
 }
 
@@ -1217,12 +1225,6 @@ int db_last_modified(int id) {
     MP3FILE *pmp3;
     int err;
 
-    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
-	errno=err;
-	return -1;	
-    }
-
     pmp3=db_find(id);
     if(!pmp3) {
 	retval=0;
@@ -1231,7 +1233,6 @@ int db_last_modified(int id) {
     }
 
 
-    pthread_rwlock_unlock(&db_rwlock);
     return retval;
 }
 
@@ -1249,19 +1250,12 @@ int db_delete(int id) {
 
     DPRINTF(ERR_DEBUG,"Removing item %d\n",id);
 
-    if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(ERR_FATAL,"Cannot lock rwlock\n");
-	errno=err;
-	return -1;	
-    }
-
     if(db_exists(id)) {
 	key.dptr=(void*)&id;
 	key.dsize=sizeof(int);
 	gdbm_delete(db_songs,key);
 	db_song_count--;
-	if(!db_update_mode) 
-	    db_version_no++;
+	db_version_no++;
 
 	/* walk the playlists and remove the item */
 	pcurrent=db_playlists.next;
@@ -1291,6 +1285,7 @@ int db_delete(int id) {
 	}
     }
 
-    pthread_rwlock_unlock(&db_rwlock);
+    db_version_no++;
+
     return 0;
 }
