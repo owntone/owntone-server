@@ -1,16 +1,9 @@
-<HTML>
-  <HEAD>
-    <TITLE>mt-daapd administration</TITLE>
-  </HEAD>
-  <BODY>
-    <CENTER>
-      <A HREF="config.html">Configure</A> | 
-      <A HREF="status.html">Status</A> | 
-      <A HREF="services.html">Services</A>
-    </CENTER>
+@include hdr.html@
 
-    <HR>
-    <CENTER><h1>Config</h1></CENTER>
+<h1>Configuration</h1>
+
+<div class="stx">
+
     <FORM METHOD="POST" ACTION="/config-update.html">
       <TABLE>
 	<TR>
@@ -36,7 +29,6 @@
       </TABLE>
       <INPUT TYPE="SUBMIT" NAME="SUBMIT" VALUE="Submit">
     </FORM>
-    <HR>
-    <i>@RELEASE@</i>
-  </BODY>
-</HTML>
+</div>
+
+@include ftr.html@

@@ -1,43 +1,38 @@
-<HTML>
-  <HEAD>
-    <TITLE>mt-daapd administration</TITLE>
-  </HEAD>
-  <BODY>
-    <CENTER>
-      <A HREF="config.html">Configure</A> | 
-      <A HREF="status.html">Status</A> | 
-      <A HREF="services.html">Services</A>
-    </CENTER>
+@include hdr.html@
 
-    <HR>
+<h1>Welcome</h1>
 
-    <CENTER><H1>Welcome</H1></CENTER>
+<div class="description">
+  This is the administrative web interface for
+  mt-daapd
+</div>
 
-    <P>
-      Welcome to mt-daapd (better name pending), a pthreads
-      implementation of Apple's DAAP, including a multicast DNS
-      responder for iTunes.  
-    </P>
-      
-    <P>
-      This server is provided under the terms of the GPL.  See the
-      file <a href="LICENSE">LICENSE</A> in the root directory of this
-      distribution for more information on the rights provided to you
-      by the GPL.  For newest versions of this software, check the
-      SourceForge web site at <A
-      HREF="http://xxx.sourceforge.net">http://xxx.sourceforge.net</A>.
-    </P>
+<div class="stx">
 
-    <P>
-      Portions of this work (the MDNS responder) are Copyright (C)
-      1999-2001 Apple Computer, Inc.  All rights reserved.  See the
-      file <A HREF="APPLE_LICENSE">APPLE_LICENSE</A> in
-      the <tt>admin-root</tt> directory for more information on the
-      rights provided to you by the ASPL.
-    </P>
+<h3>About</h3>
+mt-daapd is a multi-threaded pthreads implementation of Apple's DAAP
+server.  It works for me, it might work for you, too.  No promises
+though.  See the section below titled "No Warranty".  This work,
+although released under the GNU General Public License, is Copyright
+(C) 2003 Ron Pedde.  All Rights reserved.  See the link labeled "GPL
+License" for more information.
 
-    <HR>
-    Copyright (C) 2003 Ron Pedde.  All Rights reserved.
-    <I>@RELEASE@</I>
-  </BODY>
-</HTML>
+<h3>Legal Crap</h3> Portions of this program are Copyright (c)
+1999-2001 Apple Computer, Inc. All Rights Reserved.  See the link
+labeled "ASPL License" for more information.
+
+<h3>No Warranty</h3>
+BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO WARRANTY
+FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW.  EXCEPT WHEN
+OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
+PROVIDE THE PROGRAM "AS IS" WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED
+OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE ENTIRE RISK AS
+TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU.  SHOULD THE
+PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING,
+REPAIR OR CORRECTION.
+
+</div>
+
+
+@include ftr.html@
