@@ -579,7 +579,7 @@ static int string_query(query_node_t* query, void* target)
 	}
 	
     case qot_contains:
-	return !strcasestr(ts, query->right.str);
+	return (int) strcasestr(ts, query->right.str); /* returns null if not found */
 
     default:
 	DPRINTF(ERR_LOG, "Illegal query type: %d\n", query->type);
