@@ -263,6 +263,20 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
 void make_composite_tags(MP3FILE *pmp3);
 
+typedef struct {
+    char*	suffix;
+    int		(*tags)(char* file, MP3FILE* pmp3);
+    int		(*files)(char* file, MP3FILE* pmp3);
+} taghandler;
+static taghandler taghandlers[] = {
+    { "aac", scan_get_aactags, scan_get_aacfileinfo },
+    { "mp4", scan_get_aactags, scan_get_aacfileinfo },
+    { "m4a", scan_get_aactags, scan_get_aacfileinfo },
+    { "m4p", scan_get_aactags, scan_get_aacfileinfo },
+    { "mp3", scan_get_mp3tags, scan_get_mp3fileinfo },
+    { NULL, 0 }
+};
+
 /*
  * scan_init
  *
@@ -629,18 +643,15 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
  * Scan an mp3 file for id3 tags using libid3tag
  */
 int scan_gettags(char *file, MP3FILE *pmp3) {
+    taghandler *hdl;
+
     /* dispatch to appropriate tag handler */
+    for(hdl = taghandlers ; hdl->suffix ; ++hdl)
+	if(!strcmp(hdl->suffix, pmp3->type))
+	    break;
 
-    /* perhaps it would be better to just blindly try each
-     * in turn, just in case the extensions are wrong/lying
-     */
-
-    if(strcasestr("aacm4a4pmp4",pmp3->type))
-	return scan_get_aactags(file,pmp3);
-
-    /* should handle mp3 in the same way */
-    if(!strcasecmp(pmp3->type,"mp3"))
-	return scan_get_mp3tags(file,pmp3);
+    if(hdl->tags)
+	return hdl->tags(file, pmp3);
 
     /* maybe this is an extension that we've manually
      * specified in the config file, but don't know how
@@ -830,12 +841,16 @@ int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
     off_t file_size;
 
-    if(strcasestr("aacm4am4pmp4",pmp3->type))
-	return scan_get_aacfileinfo(file,pmp3);
-       
-    if(!strcasecmp(pmp3->type,"mp3"))
-	return scan_get_mp3fileinfo(file,pmp3);
-    
+    taghandler *hdl;
+
+    /* dispatch to appropriate tag handler */
+    for(hdl = taghandlers ; hdl->suffix ; ++hdl)
+	if(!strcmp(hdl->suffix, pmp3->type))
+	    break;
+
+    if(hdl->files)
+	return hdl->files(file, pmp3);
+
     /* a file we don't know anything about... ogg or aiff maybe */
     if(!(infile=fopen(file,"rb"))) {
 	DPRINTF(ERR_WARN,"Could not open %s for reading\n",file);
