@@ -608,7 +608,7 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
     }
 
-    if((config.logfile) && (!parseonly)) {
+    if((config.logfile) && (!parseonly) && (!foreground)) {
 	log_setdest(config.logfile,LOGDEST_LOGFILE);	
     } else {
 	if(!foreground) {
