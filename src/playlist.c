@@ -95,6 +95,9 @@ void pl_dump_node(PL_NODE *pnode, int indent) {
     case GENRE:
 	printf("GENRE ");
 	break;
+    case PATH:
+	printf("PATH ");
+	break;
     case YEAR:
 	printf("YEAR ");
 	break;
@@ -242,6 +245,9 @@ int pl_eval_node(MP3FILE *pmp3, PL_NODE *pnode) {
 	break;
     case GENRE:
 	cval=pmp3->genre;
+	break;
+    case PATH:
+	cval=pmp3->path;
 	break;
     case YEAR:
 	ival=pmp3->year;

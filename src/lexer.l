@@ -45,6 +45,7 @@ qstring \"[^\"\n]*[\"\n]
 artist                   { yylval.ival=ARTIST; return(ARTIST); }
 album                    { yylval.ival=ALBUM; return(ALBUM); }
 genre                    { yylval.ival=GENRE; return(GENRE); }
+path                     { yylval.ival=PATH; return(PATH); }
 
 year                     { yylval.ival=YEAR; return(YEAR); }
 

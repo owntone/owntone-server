@@ -14,7 +14,8 @@
 # Where valid ID3-tag-names are:
 #   Artist (string)
 #   Album (string)
-#   Genre (string)
+#   Genre (string) 
+#   Path (string) -- full path to song, including filename
 #   Year (int)
 #
 # Valid operators include:

@@ -35,8 +35,6 @@ dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
 case $host in
 *solaris*)
-	AM_CONDITIONAL(COND_NEED_STRCASESTR,true)
-	AM_CONDITIONAL(COND_NEED_STRSEP,true)
 	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN -D_XPG4_2 "
 	CPPFLAGS="$CPPFLAGS -D__EXTENSIONS__ -DHAVE_BROKEN_RECVIF_NAME"
 	LDFLAGS="$LDFLAGS -lnsl -lsocket";;	
@@ -94,6 +92,9 @@ AC_ARG_WITH(id3tag,
 
 dnl AC_CHECK_HEADERS(zlib.h,LDFLAGS="${LDFLAGS} -lz",[
 dnl  AC_MSG_ERROR([zlib.h not found... try --with-zlib=dir])])
+
+AC_CHECK_FUNC(strcasestr,,AM_CONDITIONAL(COND_NEED_STRCASESTR,true))
+AC_CHECK_FUNC(strsep,,AM_CONDITIONAL(COND_NEED_STRSEP,true))
 
 AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
   AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
