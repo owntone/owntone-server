@@ -1,6 +1,6 @@
 Summary: A multi-threaded implementation of Apple's DAAP server
 Name: mt-daapd
-Version: 0.2.0
+Version: 0.2.1
 Release: 1
 License: GPL
 Group: Development/Networking
@@ -20,6 +20,7 @@ daemon.
 
 %build
 ./configure --prefix=$RPM_BUILD_ROOT/usr
+
 make RPM_OPT_FLAGS="$RPM_OPT_FLAGS"
 
 %install
@@ -50,6 +51,9 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %changelog
+* Tue Jan 18 2005 ron <ron@pedde.com>
+- Update to 0.2.1, add oggvorbis
+
 * Tue Jun 01 2004 ron <ron@pedde.com>
 - Update to 0.2.0
 
