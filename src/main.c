@@ -506,10 +506,15 @@ void usage(char *program) {
     printf("Usage: %s [options]\n\n",program);
     printf("Options:\n");
     printf("  -d <number>    Debuglevel (0-9)\n");
+    printf("  -D <mod,mod..> Debug modules\n");
     printf("  -m             Disable mDNS\n");
     printf("  -c <file>      Use configfile specified");
     printf("  -p             Parse playlist file\n");
     printf("  -f             Run in foreground\n");
+    printf("\n\n");
+    printf("Valid debug modules:\n");
+    printf(" config,webserver,database,scan,query,index,browse\n");
+    printf(" playlist,art,daap,main,rend,misc\n");
     printf("\n\n");
 }
 
@@ -673,10 +678,16 @@ int main(int argc, char *argv[]) {
     config.use_mdns=1;
     err_debuglevel=1;
 
-    while((option=getopt(argc,argv,"d:c:mpfr")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:mpfr")) != -1) {
 	switch(option) {
 	case 'd':
 	    err_debuglevel=atoi(optarg);
+	    break;
+	case 'D':
+	    if(err_setdebugmask(optarg)) {
+		usage(argv[0]);
+		exit(-1);
+	    }
 	    break;
 	case 'f':
 	    foreground=1;
@@ -717,10 +728,10 @@ int main(int argc, char *argv[]) {
     }
 
     if((config.logfile) && (!parseonly) && (!foreground)) {
-	log_setdest(config.logfile,LOGDEST_LOGFILE);	
+	err_setdest(config.logfile,LOGDEST_LOGFILE);	
     } else {
 	if(!foreground) {
-	    log_setdest("mt-daapd",LOGDEST_SYSLOG);
+	    err_setdest("mt-daapd",LOGDEST_SYSLOG);
 	}
     }
 
@@ -872,7 +883,7 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG,L_MAIN,"Done!\n");
 
-    log_setdest(NULL,LOGDEST_STDERR);
+    err_setdest(NULL,LOGDEST_STDERR);
 
     return EXIT_SUCCESS;
 }

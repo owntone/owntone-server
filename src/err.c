@@ -54,9 +54,15 @@ int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
 static int err_logdestination=LOGDEST_STDERR; /**< current log destination */
 static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
 static pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER; /**< for serializing log messages */
-static unsigned int err_debugmask=0xFFFF; /**< what modules to debug, see \ref log_categories */
-#ifdef DEBUG_MEMORY
+static unsigned int err_debugmask=0xFFFFFFFF; /**< modules to debug, see \ref log_categories */
 
+/** text list of modules to match for setting debug mask */
+static char *err_categorylist[] = {
+    "config","webserver","database","scan","query","index","browse",
+    "playlist","art","daap","main","rend",NULL
+};
+
+#ifdef DEBUG_MEMORY
 /**
  * Nodes for a linked list of in-use memory.  Any malloc/strdup/etc
  * calls get a new node of this type added to the #err_leak list.
@@ -83,13 +89,13 @@ static int err_unlock_mutex(void);
 /**
  * Write a printf-style formatted message to the log destination.
  * This can be stderr, syslog, or a logfile, as determined by 
- * log_setdest().  Note that this function should not be directly
+ * err_setdest().  Note that this function should not be directly
  * used, rather it should be used via the #DPRINTF macro.
  *
  * \param level Level at which to log \ref log_levels
  * \param fmt printf-style 
  */
-void log_err(int level, unsigned int cat, char *fmt, ...)
+void err_log(int level, unsigned int cat, char *fmt, ...)
 {
     va_list ap;
     char timebuf[256];
@@ -101,7 +107,7 @@ void log_err(int level, unsigned int cat, char *fmt, ...)
 	if(level > err_debuglevel)
 	    return;
 
-	if(!(cat && err_debugmask))
+	if(!(cat & err_debugmask))
 	    return;
     } /* we'll *always* process a log level 0 */
 
@@ -121,7 +127,7 @@ void log_err(int level, unsigned int cat, char *fmt, ...)
 	fflush(err_file);
 	break;
     case LOGDEST_STDERR:
-        fprintf(stderr, "%s", errbuf);
+        fprintf(stderr, "%s",errbuf);
 	if(!level) fprintf(stderr,"Aborting\n");
         break;
     case LOGDEST_SYSLOG:
@@ -143,7 +149,7 @@ void log_err(int level, unsigned int cat, char *fmt, ...)
  * \param app appname (used only for syslog destination)
  * \param destination where to log to \ref log_dests "as defined in err.h"
  */
-void log_setdest(char *app, int destination) {
+void err_setdest(char *app, int destination) {
     if(err_logdestination == destination)
 	return;
 
@@ -171,7 +177,46 @@ void log_setdest(char *app, int destination) {
 
     err_logdestination=destination;
 }
+/**
+ * Set the debug mask.  Given a comma separated list, this walks
+ * through the err_categorylist and sets the bitfields for the
+ * requested log modules.
+ *
+ * \param list comma separated list of modules to debug.  
+ */
+extern int err_setdebugmask(char *list) {
+    char **pcurrent=err_categorylist;
+    unsigned int rack;
+    char *token, *str, *last;
 
+    err_debugmask=0x80000000; /* always log L_MISC! */
+    str=list;
+
+    while(1) {
+	token=strtok_r(str,",",&last);
+	str=NULL;
+
+	if(token) {
+	    rack=1;
+	    while((*pcurrent) && (strcasecmp(*pcurrent,token))) {
+		rack <<= 1;
+		pcurrent++;
+	    }
+
+	    if(!pcurrent) {
+		DPRINTF(E_LOG,L_MISC,"Unknown module: %s\n",token);
+		return 1;
+	    } else {
+		DPRINTF(E_DBG,L_MISC,"Adding module %s to debug list (0x%08x)\n",token,rack);
+		err_debugmask |= rack;
+	    }
+	} else break; /* !token */
+    }
+
+    DPRINTF(E_LOG,L_MISC,"Debug mask is 0x%08x\n",err_debugmask);
+
+    return 0;
+}
 
 /**
  * Lock the error mutex.  This is used to serialize

@@ -59,18 +59,18 @@
 
 extern int err_debuglevel;
 
-extern void log_err(int level, unsigned int cat, char *fmt, ...);
-extern void log_setdest(char *app, int destination);
-
+extern void err_log(int level, unsigned int cat, char *fmt, ...);
+extern void err_setdest(char *app, int destination);
+extern int err_setdebugmask(char *list);
 /**
  * Print a debugging or log message
  */
 #ifdef DEBUG
 # define DPRINTF(level, cat, fmt, arg...)				\
-    { log_err(level,cat,"%s, %d: ",__FILE__,__LINE__); log_err(level,cat,fmt,##arg); }
+    { err_log(level,cat,"%s, %d: ",__FILE__,__LINE__); err_log(level,cat,fmt,##arg); }
 #else
 # define DPRINTF(level, cat, fmt, arg...)	\
-    { log_err(level,cat,fmt,##arg); }
+    { err_log(level,cat,fmt,##arg); }
 #endif
 
 #ifdef DEBUG_MEMORY
