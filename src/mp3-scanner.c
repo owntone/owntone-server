@@ -2,6 +2,13 @@
  * $Id$
  * Implementation file for mp3 scanner and monitor
  *
+ * Ironically, this now scans file types other than mp3 files,
+ * but the name is the same for historical purposes, not to mention
+ * the fact that sf.net makes it virtually impossible to manage a cvs
+ * root reasonably.  Perhaps one day soon they will move to subversion.
+ * 
+ * /me crosses his fingers
+ *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
  *
  * This program is free software; you can redistribute it and/or modify
@@ -221,6 +228,8 @@ char *scan_winamp_genre[] = {
  */
 int scan_foreground(char *path);
 int scan_gettags(char *file, MP3FILE *pmp3);
+int scan_get_mp3tags(char *file, MP3FILE *pmp3);
+int scan_get_aactags(char *file, MP3FILE *pmp3);
 int scan_getfileinfo(char *file, MP3FILE *pmp3);
 int scan_freetags(MP3FILE *pmp3);
 void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
@@ -412,6 +421,139 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     scan_freetags(&mp3file);
 }
 
+/*
+ * scan_aac_findatom
+ *
+ * Find an AAC atom
+ */
+long scan_aac_findatom(FILE *fin, long max_offset, char *which_atom, int *atom_size) {
+    long current_offset=0;
+    int size;
+    char atom[4];
+
+    while(current_offset < max_offset) {
+	if(fread((void*)&size,1,sizeof(int),fin) != sizeof(int))
+	    return -1;
+
+	size=ntohl(size);
+
+	if(size < 0) /* something not right */
+	    return -1;
+
+	if(fread(atom,1,4,fin) != 4) 
+	    return -1;
+
+	if(strncasecmp(atom,which_atom,4) == 0) {
+	    *atom_size=size;
+	    return current_offset;
+	}
+
+	fseek(fin,size-8,SEEK_CUR);
+	current_offset+=size;
+    }
+
+    return -1;
+}
+
+/*
+ * scan_get_aactags
+ *
+ * Get tags from an AAC (m4a) file
+ */
+int scan_get_aactags(char *file, MP3FILE *pmp3) {
+    FILE *fin;
+    long atom_offset;
+    int atom_length;
+    long file_size;
+
+    long current_offset=0;
+    int current_size;
+    char current_atom[4];
+    char *current_data;
+    unsigned short us_data;
+
+    if(!(fin=fopen(file,"rb"))) {
+	DPRINTF(ERR_INFO,"Cannot open file %s for reading\n",file);
+	return -1;
+    }
+
+    fseek(fin,0,SEEK_END);
+    file_size=ftell(fin);
+    fseek(fin,0,SEEK_SET);
+
+    atom_offset=scan_aac_findatom(fin,file_size,"moov",&atom_length);
+    if(atom_offset != -1) {
+	atom_offset=scan_aac_findatom(fin,atom_length - 8,"udta",&atom_length);
+	if(atom_offset != -1) {
+	    atom_offset=scan_aac_findatom(fin,atom_length - 8, "meta", &atom_length);
+	    if(atom_offset != -1) { 
+		fseek(fin,4,SEEK_CUR);   /* ???? */
+		atom_offset=scan_aac_findatom(fin, atom_length - 8, "ilst", &atom_length);
+		if(atom_offset != -1) {
+		    /* found the tag section - need to walk through now */
+
+		    while(current_offset < atom_length) {
+			if(fread((void*)&current_size,1,sizeof(int),fin) != sizeof(int))
+			    break;
+			
+			current_size=ntohl(current_size);
+			
+			if(current_size < 0) /* something not right */
+			    break;
+
+			if(fread(current_atom,1,4,fin) != 4) 
+			    break;
+			
+			current_data=(char*)malloc(current_size - 7);  /* extra byte */
+			memset(current_data,0x00,current_size - 7);
+
+			if(fread(current_data,1,current_size-8,fin) != current_size-8) 
+			    break;
+
+			if(!memcmp(current_atom,"\xA9" "nam",4)) { /* Song name */
+			    pmp3->title=strdup((char*)&current_data[16]);
+			} else if(!memcmp(current_atom,"\xA9" "ART",4)) {
+			    pmp3->artist=strdup((char*)&current_data[16]);
+			} else if(!memcmp(current_atom,"\xA9" "alb",4)) {
+			    pmp3->album=strdup((char*)&current_data[16]);
+			} else if(!memcmp(current_atom,"\xA9" "gen",4)) {
+			    /* can this be a winamp genre??? */
+			    pmp3->genre=strdup((char*)&current_data[16]);
+			} else if(!memcmp(current_atom,"trkn",4)) {
+			    us_data=*((unsigned short *)&current_data[18]);
+			    us_data=htons(us_data);
+
+			    pmp3->track=us_data;
+
+			    us_data=*((unsigned short *)&current_data[20]);
+			    us_data=htons(us_data);
+
+			    pmp3->total_tracks=us_data;
+			} else if(!memcmp(current_atom,"disk",4)) {
+			    us_data=*((unsigned short *)&current_data[18]);
+			    us_data=htons(us_data);
+
+			    pmp3->disc=us_data;
+
+			    us_data=*((unsigned short *)&current_data[20]);
+			    us_data=htons(us_data);
+
+			    pmp3->total_discs=us_data;
+			} else if(!memcmp(current_atom,"\xA9" "day",4)) {
+			    pmp3->year=atoi((char*)&current_data[16]);
+			}
+
+			free(current_data);
+			current_offset+=current_size;
+		    }
+		}
+	    }
+	}
+    }
+
+    fclose(fin);
+    return 0;  /* we'll return as much as we got. */
+}
 
 
 /*
@@ -420,6 +562,32 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
  * Scan an mp3 file for id3 tags using libid3tag
  */
 int scan_gettags(char *file, MP3FILE *pmp3) {
+    /* dispatch to appropriate tag handler */
+
+    /* perhaps it would be better to just blindly try each
+     * in turn, just in case the extensions are wrong/lying
+     */
+
+    if(!strcasecmp(pmp3->type,".aac")) 
+	return scan_get_aactags(file,pmp3);
+
+    if(!strcasecmp(pmp3->type,".m4a"))
+	return scan_get_aactags(file,pmp3);
+
+    /* should handle mp3 in the same way */
+    if(!strcasecmp(pmp3->type,".mp3"))
+	return scan_get_mp3tags(file,pmp3);
+
+    /* maybe this is an extension that we've manually
+     * specified in the config file, but don't know how
+     * to extract tags from.  Ogg, maybe.
+     */
+
+    return 0;
+}
+
+
+int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
     struct id3_file *pid3file;
     struct id3_tag *pid3tag;
     struct id3_frame *pid3frame;
@@ -432,6 +600,9 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     int have_text;
     id3_ucs4_t const *native_text;
     char *tmp;
+
+
+
 
     if(strcasecmp(pmp3->type,".mp3"))  /* can't get tags for non-mp3 */
 	return 0;
@@ -638,7 +809,8 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
 
 	/* guesstimate the file length */
 	time_seconds = ((int)(file_size * 8)) / (bitrate * 1024);
-	pmp3->song_length=time_seconds;
+	if(!pmp3->song_length) /* could have gotten it from the tag */
+	    pmp3->song_length=time_seconds;
     } else {
 	/* should really scan forward to next sync frame */
 	fclose(infile);
