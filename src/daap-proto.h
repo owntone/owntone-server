@@ -51,6 +51,7 @@ typedef struct daap_block_tag {
     char svalue[4]; /* for statics up to 4 bytes */
     struct daap_block_tag *parent;
     struct daap_block_tag *children;
+    struct daap_block_tag *last_child;
     struct daap_block_tag *next;
 } DAAP_BLOCK;
 

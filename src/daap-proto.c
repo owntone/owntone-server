@@ -159,6 +159,7 @@ DAAP_BLOCK *daap_get_new(void) {
     pnew->value=NULL;
     pnew->parent=NULL;
     pnew->children=NULL;
+    pnew->last_child=NULL;
     pnew->next=NULL;
 
     return pnew;
@@ -198,17 +199,13 @@ DAAP_BLOCK *daap_add_formatted(DAAP_BLOCK *parent, char *tag,
 
     /* walk the child list and put it at the end */
     if(parent) {
-	current=last=parent->children;
-	while(current) {
-	    last=current;
-	    current=current->next;
-	}
-	
-	if(last) { /* some there already */
-	    last->next=pnew;
-	} else {
-	    parent->children=pnew;
-	}
+        last = parent->last_child;
+        if (last) {
+          last->next = pnew;
+        } else {
+          parent->children   = pnew;
+        } 
+        parent->last_child = pnew;
     }
 
     /* now, walk the chain and update sizes */
