@@ -816,22 +816,6 @@ void db_freefile(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->description);
 }
 
-/*
- * db_enum_begin
- *
- * Begin to walk through an enum of the database.  In order to retain
- * some sanity in song ordering we scan all the songs and perform an
- * insertion sort based on album, track, record id.
- *
- * Since the list is built entirely within this routine, it's also
- * safe to release the lock once the list is built.
- *
- * Also we eliminate the static db_enum_helper which allows (the
- * admittedly unnecessary) possibility of reentrance.
- *
- * this should be done quickly, as we'll be holding
- * a reader lock on the db
- */
 static int nullstrcmp(const char* a, const char* b)
 {
     if(a == 0)
@@ -858,6 +842,22 @@ int compare(MP3RECORD* a, MP3RECORD* b)
     return a->mp3file.id - b->mp3file.id;
 }
 
+/*
+ * db_enum_begin
+ *
+ * Begin to walk through an enum of the database.  In order to retain
+ * some sanity in song ordering we scan all the songs and perform an
+ * insertion sort based on album, track, record id.
+ *
+ * Since the list is built entirely within this routine, it's also
+ * safe to release the lock once the list is built.
+ *
+ * Also we eliminate the static db_enum_helper which allows (the
+ * admittedly unnecessary) possibility of reentrance.
+ *
+ * this should be done quickly, as we'll be holding
+ * a reader lock on the db
+ */
 ENUMHANDLE db_enum_begin(void) {
     int err;
     MP3HELPER* helper;
