@@ -887,9 +887,11 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     va_list ap;
     SCAN_STATUS *pfirst, *plast;
 
+    DPRINTF(ERR_DEBUG,"Entering config_set_status\n");
+
     if(config_mutex_lock()) {
 	/* we should really shutdown the app here... */
-	exit(EXIT_FAILURE);
+	DPRINTF(ERR_FATAL,"Error acquiring config mutex\n");
     }
 
     pfirst=plast=scan_status.next;
@@ -921,6 +923,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     } else {
 	if(!pfirst) {
 	    config_mutex_unlock();
+	    DPRINTF(ERR_DEBUG,"Exiting config_set_status\n");
 	    return;
 	}
 
@@ -938,6 +941,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     }
 
     config_mutex_unlock();
+    DPRINTF(ERR_DEBUG,"Exiting config_set_status\n");
 }
 
 /*

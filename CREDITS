@@ -43,3 +43,6 @@ Paul Kim (mrpickles@users.sourceforge.net)
  * Various AAC meta-info cleanups
  * Compilation tag support (aac and mp3)
 
+Stephen Lee (slee@nis.net)
+ * Patches for proper url decoding
+

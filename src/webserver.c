@@ -616,19 +616,18 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
 int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
     char *new_string;
     char *first, *last, *middle;
+    char *key, *value;
     int done;
 
     DPRINTF(ERR_DEBUG,"Thread %d: Original string: %s\n",
 	    pwsc->threadno,string);
-
-    new_string=ws_urldecode(string);
 
     DPRINTF(ERR_DEBUG,"Thread %d: Processing GET/POSTs from %s\n",
 	    pwsc->threadno,string);
 
     done=0;
 
-    first=new_string;
+    first=string;
     
     while((!done) && (first)) {
 	last=middle=first;
@@ -639,9 +638,15 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
 	    DPRINTF(ERR_WARN,"Thread %d: Bad arg: %s\n",
 		    pwsc->threadno,first);
 	} else {
+	    key=ws_urldecode(first);
+	    value=ws_urldecode(middle);
+	    
 	    DPRINTF(ERR_DEBUG,"Thread %d: Adding arg %s = %s\n",
-		    pwsc->threadno,first,middle);
-	    ws_addarg(&pwsc->request_vars,first,"%s",middle);
+		    pwsc->threadno,key,value);
+	    ws_addarg(&pwsc->request_vars,key,"%s",value);
+
+	    free(key);
+	    free(value);
 	}
 	
 	if(!last) {
@@ -653,7 +658,6 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
 	}
     }
 
-    free(new_string);
     return 0;
 }
 
