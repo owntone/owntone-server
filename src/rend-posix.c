@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.9  2004/01/04 05:02:23  rpedde
+  fix segfault on dropping privs
+
   Revision 1.8  2003/12/29 23:39:18  ron
   add priv dropping
 
@@ -548,7 +551,7 @@ static void DeregisterOurServices(void)
 
 #pragma mark **** Main
 
-int rend_init(pid_t *pid,char *name, int port, char user) {
+int rend_init(pid_t *pid,char *name, int port, char *user) {
     mStatus status;
     mDNSBool result;
     struct passwd *pw=NULL;
