@@ -70,7 +70,8 @@ int daemon_start(int reap_children);
  * Auth handler for the daap server
  */
 int daap_auth(char *username, char *password) {
-    if((password == NULL) && (config.readpassword == NULL))
+    if((password == NULL) && 
+       ((config.readpassword == NULL) || (strlen(config.readpassword)==0)))
 	return 1;
 
     if(password == NULL)
