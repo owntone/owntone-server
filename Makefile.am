@@ -1,6 +1,6 @@
 # $Id$
 #
-EXTRA_DIST = reconf configure CREDITS
+EXTRA_DIST = configure CREDITS
 SUBDIRS=src admin-root contrib debian
 
 
