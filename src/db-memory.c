@@ -20,9 +20,12 @@
  */
 
 #include <errno.h>
-#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
+
+
+#define __USE_UNIX98
+#include <pthread.h>
 
 #include "err.h"
 #include "mp3-scanner.h"

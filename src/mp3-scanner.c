@@ -20,6 +20,7 @@
  */
 
 #include <dirent.h>
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -58,7 +59,7 @@ int scan_init(char *path) {
 	    return -1;
     } else {
 	/* do deferred updating */
-	return ENOTIMPL;
+	return ENOTSUP;
     }
 
     return 0;
@@ -71,7 +72,7 @@ int scan_init(char *path) {
  */
 int scan_foreground(char *path) {
     MP3FILE mp3file;
-    DIR *current;
+    DIR *current_dir;
     struct dirent de;
     struct dirent *pde;
     int err;
@@ -85,7 +86,7 @@ int scan_foreground(char *path) {
 	err=readdir_r(current_dir,&de,&pde);
 	if(err == -1) {
 	    err=errno;
-	    closedir(current);
+	    closedir(current_dir);
 	    errno=err;
 	    return -1;
 	}
@@ -94,19 +95,19 @@ int scan_foreground(char *path) {
 	    break;
 
 	/* process the file */
-	if(de.d_namelen > 4) {
-	    if(strcasecmp(".mp3",de.d_name[de.d_namelen - 4]) == 0) {
+	if(strlen(de.d_name) > 4) {
+	    if(strcasecmp(".mp3",de.d_name[strlen(de.d_name) - 4]) == 0) {
 		/* we found an mp3 file */
 		sprintf(mp3_path,"%s/%s",path,de.d_name);
-		memset(mp3file,0,sizeof(mp3file));
-		mp3file->path=mp3_path;
-		mp3file->fname=de.d_name;
+		memset((void*)&mp3file,0,sizeof(mp3file));
+		mp3file.path=mp3_path;
+		mp3file.fname=de.d_name;
 
 		db_add(&mp3file);
 	    }
 	}
     }
 
-    closedir(current);
+    closedir(current_dir);
 }
 
