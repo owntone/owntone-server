@@ -20,7 +20,8 @@ AC_ARG_ENABLE(efence,Enable electric fence,LDFLAGS="$LDFLAGS -lefence")
 
 AC_ARG_ENABLE(howl,[  --enable-howl      Use the howl mDNS library],
 		      [ case "${enableval}" in
-                        yes) rend_howl=true; LDFLAGS="${LDFLAGS} -lrendezvous -lcorby -lsalt";;
+                        yes) rend_howl=true; LDFLAGS="${LDFLAGS} -lrendezvous -lcorby -lsalt";
+			CPPFLAGS="${CPPFLAGS} -DWITH_HOWL";;
 		        no)  rend_howl=false;;
 		        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-howl);;
 		      esac ],[rend_howl=false])
@@ -33,6 +34,9 @@ AM_CONDITIONAL(COND_NEED_STRSEP,false)
 
 dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
+CPPFLAGS="$CPPFLAGS -DHOST='\"$host\"'"
+
+
 case $host in
 *solaris*)
 	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN -D_XPG4_2 "
@@ -57,7 +61,7 @@ AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
 AC_ARG_WITH(gdbm,
         [--with-gdbm                           store music info in gdbm databases],
 	[ case "${withval}" in
-	  yes) use_gdbm=true; LDFLAGS="${LDFLAGS} -lgdbm"; CFLAGS="${CFLAGS} -DWITH_GDBM";;
+	  yes) use_gdbm=true; LDFLAGS="${LDFLAGS} -lgdbm"; CPPFLAGS="${CPPFLAGS} -DWITH_GDBM";;
           no) use_gdbm=false;;
           *)   AC_MSG_ERROR(bad value ${withval} for --with-gdbm);;
           esac ], [use_gdbm=false])
@@ -67,7 +71,7 @@ AC_ARG_WITH(gdbm-includes,
 	[--with-gdbm-includes[[=DIR]]          use gdbm include files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-	 CPPFLAGS="${CPPFLAGS} -I$withval"
+	 CLAGS="${CPPFLAGS} -I$withval"
 	fi
 ])
 

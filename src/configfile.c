@@ -58,6 +58,8 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg);
+void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg);
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 int config_file_is_readonly(void);
 int config_mutex_lock(void);
@@ -105,6 +107,8 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"user",(void*)NULL,config_emit_user },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"readonly",(void*)NULL,config_emit_readonly },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"version",(void*)NULL,config_emit_version },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"system",(void*)NULL,config_emit_system },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"flags",(void*)NULL,config_emit_flags },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -923,5 +927,31 @@ int config_get_next_session(void) {
  * Thow out the version info
  */
 void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg) {
-    ws_writefd(pwsc,"Version %s",VERSION);
+    ws_writefd(pwsc,"%s",VERSION);
+}
+
+
+/*
+ * config_emit_system
+ *
+ * Thow out the system info
+ */
+void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg) {
+    ws_writefd(pwsc,"%s",HOST);
+}
+
+
+/*
+ * config_emit_flags
+ *
+ * Thow out the configure flag info
+ */
+void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg) {
+#ifdef WITH_GDBM
+    ws_writefd(pwsc,"%s ","--with-gdbm");
+#endif
+
+#ifdef WITH_HOWL
+    ws_writefd(pwsc,"%s ","--enable-howl");
+#endif
 }

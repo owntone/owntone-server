@@ -38,8 +38,15 @@
 #include "playlist.h"
 #include "redblack.h"
 
+
+/*
+ * Defines
+ */
 #define DB_VERSION 2
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
+#define MAYBEFREE(a) { if((a)) free((a)); };
+
+
 /*
  * Typedefs
  */
@@ -98,8 +105,6 @@ typedef struct tag_mp3packed {
     char data[1];
 } MP3PACKED;
 
-
-#define MAYBEFREE(a) { if((a)) free((a)); };
 
 /*
  * Globals 
@@ -307,7 +312,8 @@ int db_end_initial_update(void) {
     db_update_mode=0;
 
     DPRINTF(ERR_DEBUG,"Initial update over.  Removing stale items\n");
-    for(val=rblookup(RB_LUFIRST,NULL,db_removed); val != NULL; val=rblookup(RB_LUNEXT,val,db_removed)) {
+    for(val=rblookup(RB_LUFIRST,NULL,db_removed); val != NULL; 
+	val=rblookup(RB_LUNEXT,val,db_removed)) {
 	db_delete(*((int*)val));
 	free(val);
     }
@@ -443,7 +449,7 @@ datum *db_packrecord(MP3FILE *pmp3) {
     MP3PACKED *ppacked;
     int offset;
 
-    len=sizeof(MP3PACKED)-1;  /* minus the data char... */
+    len=sizeof(MP3PACKED); 
     len += STRLEN(pmp3->path);
     len += STRLEN(pmp3->fname);
     len += STRLEN(pmp3->title);
@@ -504,51 +510,51 @@ datum *db_packrecord(MP3FILE *pmp3) {
 
     offset=0;
     if(pmp3->path)
-	strncpy(&ppacked->data[offset],pmp3->path,ppacked->path_len);
+	memcpy(&ppacked->data[offset],pmp3->path,ppacked->path_len);
     offset+=ppacked->path_len;
 
     if(pmp3->fname)
-	strncpy(&ppacked->data[offset],pmp3->fname,ppacked->fname_len);
+	memcpy(&ppacked->data[offset],pmp3->fname,ppacked->fname_len);
     offset+=ppacked->fname_len;
 
     if(pmp3->title)
-	strncpy(&ppacked->data[offset],pmp3->title,ppacked->title_len);
+	memcpy(&ppacked->data[offset],pmp3->title,ppacked->title_len);
     offset+=ppacked->title_len;
 
     if(pmp3->artist)
-	strncpy(&ppacked->data[offset],pmp3->artist,ppacked->artist_len);
+	memcpy(&ppacked->data[offset],pmp3->artist,ppacked->artist_len);
     offset+=ppacked->artist_len;
 
     if(pmp3->album)
-	strncpy(&ppacked->data[offset],pmp3->album,ppacked->album_len);
+	memcpy(&ppacked->data[offset],pmp3->album,ppacked->album_len);
     offset+=ppacked->album_len;
 
     if(pmp3->genre)
-	strncpy(&ppacked->data[offset],pmp3->genre,ppacked->genre_len);
+	memcpy(&ppacked->data[offset],pmp3->genre,ppacked->genre_len);
     offset+=ppacked->genre_len;
 
     if(pmp3->comment)
-	strncpy(&ppacked->data[offset],pmp3->comment,ppacked->comment_len);
+	memcpy(&ppacked->data[offset],pmp3->comment,ppacked->comment_len);
     offset+=ppacked->comment_len;
 
     if(pmp3->type)
-	strncpy(&ppacked->data[offset],pmp3->type,ppacked->type_len);
+	memcpy(&ppacked->data[offset],pmp3->type,ppacked->type_len);
     offset+=ppacked->type_len;
 
     if(pmp3->composer)
-	strncpy(&ppacked->data[offset],pmp3->composer,ppacked->composer_len);
+	memcpy(&ppacked->data[offset],pmp3->composer,ppacked->composer_len);
     offset+=ppacked->composer_len;
 
     if(pmp3->orchestra)
-	strncpy(&ppacked->data[offset],pmp3->orchestra,ppacked->orchestra_len);
+	memcpy(&ppacked->data[offset],pmp3->orchestra,ppacked->orchestra_len);
     offset+=ppacked->orchestra_len;
 
     if(pmp3->conductor)
-	strncpy(&ppacked->data[offset],pmp3->conductor,ppacked->conductor_len);
+	memcpy(&ppacked->data[offset],pmp3->conductor,ppacked->conductor_len);
     offset+=ppacked->conductor_len;
 
     if(pmp3->grouping)
-	strncpy(&ppacked->data[offset],pmp3->grouping,ppacked->grouping_len);
+	memcpy(&ppacked->data[offset],pmp3->grouping,ppacked->grouping_len);
     offset+=ppacked->grouping_len;
 
     /* whew */
@@ -573,7 +579,7 @@ int db_unpackrecord(datum *pdatum, MP3FILE *pmp3) {
     ppacked=(MP3PACKED*)pdatum->dptr;
 
     if(ppacked->version != DB_VERSION) 
-	log_err(1,"ON-DISK DATABASE VERSION HAS CHANGED!  Delete your songs.gdb and restart.\n");
+	log_err(1,"ON-DISK DATABASE VERSION HAS CHANGED\nDelete your songs.gdb and restart.\n");
 
     pmp3->bitrate=ppacked->bitrate;
     pmp3->samplerate=ppacked->samplerate;
