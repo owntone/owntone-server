@@ -27,7 +27,7 @@
 #include "parser.h"
 
 /* Globals */
-SMART_PLAYLIST pl_smart = { NULL, NULL, NULL };
+SMART_PLAYLIST pl_smart = { NULL, 0, NULL, NULL };
 int pl_error=0;
 
 /* Forwards */
