@@ -94,6 +94,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
 #endif
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
+    { 1,0,0,CONFIG_TYPE_INT,"rescan_interval",(void*)&config.rescan_interval,config_emit_int },
     { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
@@ -167,6 +168,7 @@ int config_read(char *file) {
     config.runas=NULL;
     config.artfilename=NULL;
     config.logfile=NULL;
+    config.rescan_interval=0;
 
     /* DWB: use alloced space so it can be freed without errors */
     config.extensions=strdup(".mp3");
@@ -309,6 +311,7 @@ int config_write(WS_CONNINFO *pwsc) {
     fprintf(configfile,"password\t%s\n",ws_getvar(pwsc,"password"));
     fprintf(configfile,"extensions\t%s\n",ws_getvar(pwsc,"extensions"));
     fprintf(configfile,"db_dir\t\t%s\n",ws_getvar(pwsc,"db_dir"));
+    fprintf(configfile,"rescan_interval\t%s\n",ws_getvar(pwsc,"rescan_interval"));
 
     fclose(configfile);
     return 0;
@@ -444,6 +447,9 @@ void config_handler(WS_CONNINFO *pwsc) {
 	    if (strcasecmp(pw,"stopdaap")==0) {
 		config.stop=1;
 	    }
+	    if (strcasecmp(pw,"rescan")==0) {
+		config.reload=1;
+	    }
 	} else {
 	    /* we need to update stuff */
 	    pw=ws_getvar(pwsc,"admin_pw");
@@ -458,6 +464,11 @@ void config_handler(WS_CONNINFO *pwsc) {
 		if(config.readpassword)
 		    free(config.readpassword);
 		config.readpassword=strdup(pw);
+	    }
+
+	    pw=ws_getvar(pwsc,"rescan_interval");
+	    if(pw) {
+		config.rescan_interval=atoi(pw);
 	    }
 
 	    if(!config_file_is_readonly()) {
@@ -528,6 +539,7 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     char *html;
     char buf[256];
     int r_days, r_hours, r_mins, r_secs;
+    int scanning;
 
     ws_writefd(pwsc,"<TABLE><TR><TH ALIGN=LEFT>Service</TH>");
     ws_writefd(pwsc,"<TH ALIGN=LEFT>Status</TH><TH ALIGN=LEFT>Control</TH></TR>\n");
@@ -537,9 +549,9 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
 	mdns_running=!rend_running();
 
 	if(mdns_running) {
-	    html="<a href=\"config-update.html?action=stopmdns\">Stop MDNS responder</a>";
+	    html="<a href=\"config-update.html?action=stopmdns\">Stop MDNS Server</a>";
 	} else {
-	    html="<a href=\"config-update.html?action=startmdns\">Start MDNS responder</a>";
+	    html="<a href=\"config-update.html?action=startmdns\">Start MDNS Server</a>";
 	}
 
 	ws_writefd(pwsc,"<TD>%s</TD><TD>%s</TD></TR>\n",mdns_running ? "Running":"Stopped",
@@ -552,7 +564,15 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(config.stop) {
 	ws_writefd(pwsc,"<TD>Wait...</TD></TR>\n");
     } else {
-	ws_writefd(pwsc,"<TD><a href=\"config-update.html?action=stopdaap\">Stop DAAP Server</a>");
+	ws_writefd(pwsc,"<TD><a href=\"config-update.html?action=stopdaap\">Stop DAAP Server</a></TD></TR>");
+    }
+
+    scanning = db_scanning();
+    ws_writefd(pwsc,"<TR><TD>Background scanner</TD><TD>%s</TD>",scanning ? "Running":"Idle");
+    if(scanning) {
+	ws_writefd(pwsc,"<TD>Wait...</TD></TR>");
+    } else {
+	ws_writefd(pwsc,"<TD><A HREF=\"config-update.html?action=rescan\">Start Scan</A></TD></TR>");
     }
 
     ws_writefd(pwsc,"</TABLE>\n");
@@ -599,6 +619,11 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"<TR>\n");
     ws_writefd(pwsc," <TH>Songs Served</TH>\n");
     ws_writefd(pwsc," <TD>%d</TD>\n",config.stats.songs_served);
+    ws_writefd(pwsc,"</TR>\n");
+
+    ws_writefd(pwsc,"<TR>\n");
+    ws_writefd(pwsc," <TH>DB Version</TH>\n");
+    ws_writefd(pwsc," <TD>%d</TD>\n",db_version());
     ws_writefd(pwsc,"</TR>\n");
 
     /*
