@@ -49,6 +49,10 @@
 
 #define DEFAULT_CONFIGFILE "/etc/mt-daapd.conf"
 
+#ifndef SIGCLD
+# define SIGCLD SIGCHLD
+#endif
+
 /*
  * Globals
  */
