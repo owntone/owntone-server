@@ -225,6 +225,10 @@ function addOptions(el,label,xmldoc) {
   } else {
     el.removeAttribute('selected');
   }
+  if ('album' == label) {
+    //### All other boxes are updated, this is the last one, now get the songs
+    getSongs();
+  }
 }
 function addPlaylists(el,xmldoc) {
   //items = xmldoc.getElementsByTagName('dmap.listingitem');
@@ -343,7 +347,6 @@ function genreSelect(event) {
   }
   g_requestor.addRequest('databases/1/browse/artists' + filter);
   g_requestor.addRequest('databases/1/browse/albums' + filter);
-  getSongs();
 }
 
 function artistSelect(event) {
@@ -379,29 +382,35 @@ function artistSelect(event) {
 	  filter = '?filter=' + filter.join(',');
   }
 	g_requestor.addRequest('databases/1/browse/albums' + filter);
-	getSongs();
+}
+
+function albumSelect(event) {
+  // just get the songs, the only box changed is this one
+  getSongs();
 }
 function getSongs() {
   genre = document.getElementById('genre').value;
   artist = document.getElementById('artist').value;
   album = document.getElementById('album').value;
+  //alert("genre: "+genre +"\nartist: "+ artist + "\nalbum:"+ album);
   query = Array();
   if (genre != '1') {
-    query.push('\'daap.songgenre:' + genre +"'");
+    query.push('\'daap.songgenre:' + genre.myEncodeURI() +"'");
   }
   if (artist != '1') {
-    query.push('\'daap.songartist:' + artist +"'");
+    query.push('\'daap.songartist:' + artist.myEncodeURI() +"'");
   }
   if (album != '1') {
-    query.push('\'daap.songalbum:' + album +"'");
+    query.push('\'daap.songalbum:' + album.myEncodeURI() +"'");
   }
-  if (0 == filter.length) {
+  if (0 == query.length) {
       // If filter array is empty then "All genres" is selected
       // so set filter to empty
     query = '';
   } else {
     query = '&query=' + query.join(',');
   }
+  //alert(query);
   g_requestor.addRequest('databases/1/items' +
   '?meta=dmap.itemname,daap.songalbum,daap.songartist,daap.songgenre,daap.songtime'+query);
   ///items?meta=dmap.itemname,daap.songalbum,daap.songartist,daap.songgenre,daap.songtime&output=xml
