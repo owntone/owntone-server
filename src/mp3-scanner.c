@@ -440,7 +440,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     snprintf(mp3_path,sizeof(mp3_path),"%s/%s",path,pde->d_name);
 
     /* we found an mp3 file */
-    DPRINTF(ERR_DEBUG,"Found music file: %s\n",pde->d_name);
+    DPRINTF(ERR_INFO,"Found music file: %s\n",pde->d_name);
     
     memset((void*)&mp3file,0,sizeof(mp3file));
     mp3file.path=mp3_path;
@@ -479,7 +479,7 @@ long scan_aac_findatom(FILE *fin, long max_offset, char *which_atom, int *atom_s
 
 	size=ntohl(size);
 
-	if(size < 0) /* something not right */
+	if(size <= 7) /* something not right */
 	    return -1;
 
 	if(fread(atom,1,4,fin) != 4) 
@@ -542,7 +542,7 @@ int scan_get_aactags(char *file, MP3FILE *pmp3) {
 			
 			current_size=ntohl(current_size);
 			
-			if(current_size < 0) /* something not right */
+			if(current_size <= 7) /* something not right */
 			    break;
 
 			if(fread(current_atom,1,4,fin) != 4) 
@@ -624,16 +624,7 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
      * in turn, just in case the extensions are wrong/lying
      */
 
-    if(!strcasecmp(pmp3->type,".aac")) 
-	return scan_get_aactags(file,pmp3);
-
-    if(!strcasecmp(pmp3->type,".m4a"))
-	return scan_get_aactags(file,pmp3);
-
-    if(!strcasecmp(pmp3->type,".m4p"))
-	return scan_get_aactags(file,pmp3);
-
-    if(!strcasecmp(pmp3->type,".mp4"))
+    if(strcasestr(".aac.m4a.m4p.mp4",pmp3->type))
 	return scan_get_aactags(file,pmp3);
 
     /* should handle mp3 in the same way */
@@ -1007,7 +998,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	    DPRINTF(ERR_DEBUG," Bit Rate: %d\n",bitrate);
 	} else {
 	    /* not an mp3... */
-	    DPRINTF(ERR_DEBUG,"File is not a MPEG file\n");
+	    DPRINTF(ERR_WARN,"%s is not a MPEG file... skipping\n",file);
 	    return -1;
 	}
 
