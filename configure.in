@@ -15,8 +15,10 @@ AC_CANONICAL_HOST
 
 AM_CONDITIONAL(COND_REND_OSX,false)
 
-AC_ARG_ENABLE(debug,Enable debugging features,CPPFLAGS="$CPPFLAGS -DDEBUG_MEMORY -g -Wall")
-AC_ARG_ENABLE(efence,Enable electric fence,LDFLAGS="$LDFLAGS -lefence")
+STATIC_LIBS=no
+
+AC_ARG_ENABLE(debug,Enable debugging features,CPPFLAGS="${CPPFLAGS} -DDEBUG_MEMORY -g -Wall")
+AC_ARG_ENABLE(efence,Enable electric fence,LDFLAGS="${LDFLAGS} -lefence")
 
 AC_ARG_ENABLE(howl,[  --enable-howl      Use the howl mDNS library],
 		      [ case "${enableval}" in
@@ -58,14 +60,19 @@ esac
 dnl Checks for libraries.
 AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
 
-dnl no with gdbm anymore
-LDFLAGS="${LDFLAGS} -lgdbm";
-        
+AC_ARG_WITH(static-libs,
+	[--with-static-libs[[=DIR]]            use static libs in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+	 STATIC_LIBS="$withval"
+	fi
+])
+
 AC_ARG_WITH(gdbm-includes,
 	[--with-gdbm-includes[[=DIR]]          use gdbm include files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-	 CLAGS="${CPPFLAGS} -I$withval"
+	 CPPFLAGS="${CPPFLAGS} -I$withval"
 	fi
 ])
 
@@ -105,17 +112,34 @@ AC_ARG_WITH(id3tag,
 
 AC_CHECK_HEADERS(gdbm.h,, [
  AC_MSG_ERROR([gdbm.h not found... try --with-gdmb-includes=dir])])
-AC_CHECK_LIB(gdbm,gdbm_open,, echo "Must have gdbm";exit)
+AC_CHECK_LIB(gdbm,gdbm_open,echo "Have gdbm", echo "Must have gdbm";exit)
 
-AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
+if test "$STATIC_LIBS" != "no"; then
+  LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libgdbm.a"
+  echo "Adding static libgdbm"
+else
+  LDFLAGS="${LDFLAGS} -lgdbm"
+  echo "Adding dynamic libgdbm"
+fi
+
+AC_CHECK_HEADERS(id3tag.h,, [
  AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
-AC_CHECK_LIB(id3tag,id3_file_open,LDFLAGS="$LDFLAGS -lid3tag",echo "Must have libid3tag";exit)
+AC_CHECK_LIB(id3tag,id3_file_open,echo "Have id3tag",echo "Must have libid3tag";exit)
+
+if test "$STATIC_LIBS" != "no"; then
+  LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libid3tag.a"
+  echo "Adding static libid3tag"
+else
+  LDFLAGS="${LDFLAGS} -lid3tag"
+  echo "Adding dynamic libid3tag"
+fi
 
 AC_REPLACE_FUNCS(strcasestr)
 AC_REPLACE_FUNCS(strsep)
 
-AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
+LDFLAGS="${LDFLAGS} -lz"
 
+AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
 
 dnl Checks for header files.
 AC_HEADER_STDC
