@@ -144,7 +144,7 @@ static pthread_once_t db_initlock=PTHREAD_ONCE_INIT; /**< to initialize the rwlo
 static GDBM_FILE db_songs; /**< Database that holds the mp3 info */
 static struct rbtree *db_removed; /**< rbtree to do quick searchs to do background scans */
 static MP3FILE gdbm_mp3; /**< used during enumerations */
-static int gdbm_mustfree=0;  /**< is the data in #gdbm_mp3 valid? Should it be freed? */
+static int gdbm_mp3_mustfree=0;  /**< is the data in #gdbm_mp3 valid? Should it be freed? */
 
 /*
  * Forwards
@@ -988,7 +988,7 @@ ENUMHANDLE db_enum_begin(void) {
     db_writelock();
 
     if(gdbm_mp3_mustfree) {
-	db_dispose(gdbm_mp3);
+	db_dispose(&gdbm_mp3);
     }
     gdbm_mp3_mustfree=0;
 
@@ -1002,7 +1002,7 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
     datum data;
 
     if(gdbm_mp3_mustfree) {
-	db_dispose(gdbm_mp3);
+	db_dispose(&gdbm_mp3);
     }
     gdbm_mp3_mustfree=0;
 
@@ -1011,7 +1011,7 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
 	if(!data.dptr)
 	    DPRINTF(E_FATAL,L_DB, "Cannot find item.... corrupt database?\n");
 
-	if(db_unpackrecord(&data,&mp3))
+	if(db_unpackrecord(&data,&gdbm_mp3))
 	    DPRINTF(E_FATAL,L_DB,"Cannot unpack item... corrupt database?\n");
 
 	free(data.dptr);
@@ -1020,7 +1020,7 @@ MP3FILE *db_enum(ENUMHANDLE *current) {
 	free(pkey->dptr);
 	*pkey=next;
 
-	return &mp3;
+	return &gdbm_mp3;
     }
 
     return NULL;
@@ -1030,7 +1030,7 @@ int db_enum_end(ENUMHANDLE handle) {
     datum *pkey = handle;
 
     if(gdbm_mp3_mustfree) {
-	db_dispose(gdbm_mp3);
+	db_dispose(&gdbm_mp3);
     }
     gdbm_mp3_mustfree=0;
 
