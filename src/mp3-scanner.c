@@ -929,15 +929,21 @@ off_t aac_drilltoatom(FILE *aac_fp, char *atom_path, unsigned int *atom_length)
       return -1;
     }
     DPRINTF(ERR_DEBUG, "Found %s atom at offset %ld.\n", atom_name, ftell(aac_fp) - 8);
-    /* Hack to deal with 'meta' atom which has 4 bytes of crud after it. */
-    if (!strcmp(atom_name, "meta"))
-    {
-      fseek(aac_fp, 4, SEEK_CUR);
-    }
     cur_p = strchr(cur_p, ':');
     if (cur_p != NULL)
     {
       cur_p++;
+
+      /* PENDING: Hack to deal with atoms that have extra data in addition
+         to having child atoms. This should be dealt in a better fashion
+         than this (table with skip offsets or an actual real mp4 parser.) */
+      if (!strcmp(atom_name, "meta")) {
+          fseek(aac_fp, 4, SEEK_CUR);
+      } else if (!strcmp(atom_name, "stsd")) {
+        fseek(aac_fp, 8, SEEK_CUR);
+      } else if (!strcmp(atom_name, "mp4a")) {
+        fseek(aac_fp, 28, SEEK_CUR);
+      }
     }
   }
 
@@ -955,9 +961,10 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
     int atom_length;
     int sample_size;
     int samples;
+    unsigned int bit_rate;
     off_t file_size;
     int ms;
-    char buffer[10];
+    unsigned char buffer[2];
 
     DPRINTF(ERR_DEBUG,"Getting AAC file info\n");
 
@@ -995,10 +1002,53 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
 	DPRINTF(ERR_DEBUG,"Song length: %d seconds\n", pmp3->song_length / 1000);
     }
 
-    /* calculate bitrate from song length... Kinda cheesy */
-    atom_offset=aac_drilltoatom(infile,"mdat",&atom_length);
-    if(atom_offset != -1) {
-	pmp3->bitrate = atom_length / ((pmp3->song_length / 1000) * 128);
+    pmp3->bitrate = 0;
+
+    /* Get the sample rate from the 'mp4a' atom (timescale). This is also
+       found in the 'mdhd' atom which is a bit closer but we need to 
+       navigate to the 'mp4a' atom anyways to get to the 'esds' atom. */
+    atom_offset = aac_drilltoatom(infile, "moov:trak:mdia:minf:stbl:stsd:mp4a", &atom_length);
+    if (atom_offset != -1) {
+      fseek(infile, atom_offset + 32, SEEK_SET);
+
+      /* Timescale here seems to be 2 bytes here (the 2 bytes before it are
+         "reserved") though the timescale in the 'mdhd' atom is 4. Not sure how
+         this is dealt with when sample rate goes higher than 64K. */
+      fread(buffer, sizeof(unsigned char), 2, infile);
+
+      pmp3->samplerate = (buffer[0] << 8) | (buffer[1]);
+
+      /* Seek to end of atom. */
+      fseek(infile, 2, SEEK_CUR);
+
+      /* Get the bit rate from the 'esds' atom. We are already positioned
+         in the parent atom so just scan ahead. */
+      atom_offset = scan_aac_findatom(infile, atom_length - (ftell(infile) - atom_offset), "esds", &atom_length);
+
+      if (atom_offset != -1) {
+        fseek(infile, atom_offset + 22, SEEK_CUR);
+
+        fread((void *)&bit_rate, sizeof(unsigned int), 1, infile);
+
+        pmp3->bitrate = ntohl(bit_rate) / 1000;
+      } else {
+        DPRINTF(ERR_LOG, "Could not find 'esds' atom to determine bit rate.\n");
+      }
+      
+    } else {
+      DPRINTF(ERR_LOG, "Could not find 'mp4a' atom to determine sample rate.\n");
+    }
+
+    /* Fallback if we can't find the info in the atoms. */
+    if (pmp3->bitrate == 0) {
+      /* calculate bitrate from song length... Kinda cheesy */
+      DPRINTF(ERR_LOG, "Could not find 'esds' atom. Calculating bit rate.\n");
+
+      atom_offset=aac_drilltoatom(infile,"mdat",&atom_length);
+
+      if (atom_offset != -1) {
+        pmp3->bitrate = atom_length / ((pmp3->song_length / 1000) * 128);
+      }
     }
 
     fclose(infile);

@@ -145,7 +145,7 @@ static query_field_t	song_fields[] = {
     { qft_string,	"daap.songartist",	OFFSET_OF(MP3FILE, artist) },
     { qft_i32,		"daap.songbitrate",	OFFSET_OF(MP3FILE, bitrate) },
     { qft_string,	"daap.songcomment",	OFFSET_OF(MP3FILE, comment) },
-    //     { qft_i32_const,	"daap.songcompilation",	0 },
+    { qft_i32,  	"daap.songcompilation",	OFFSET_OF(MP3FILE, compilation) },
     { qft_string,	"daap.songcomposer",	OFFSET_OF(MP3FILE, composer) },
     //    { qft_i32_const,	"daap.songdatakind", 0 },
     //    { qft_string,	"daap.songdataurl",	OFFSET_OF(MP3FILE, url) },

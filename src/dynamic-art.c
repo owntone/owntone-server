@@ -276,7 +276,7 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
   int           atom_length;
   off_t         cur_pos;
   char          *cp;
-  unsigned char img_type_flag;
+  unsigned char img_type_flag = 0;
 
   /* Figure out image file type since this needs to be encoded in the atom. */
   cp = strrchr(config.artfilename, '.');
@@ -286,10 +286,12 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
     }
     else if (!strcasecmp(cp, ".png")) {
       img_type_flag = 0x0e;
+    } else {
+      DPRINTF(ERR_LOG, "Image type '%s' not supported.\n", cp);
+      return 0;
     }
   } else {
-    DPRINTF(ERR_LOG, "Image type '%s' not supported.\n", cp);
-    return 0;
+    DPRINTF(ERR_LOG, "No file extension for image file.\n");
   }
 
   aac_fd = fileno(aac_fp);
