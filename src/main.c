@@ -414,6 +414,7 @@ int main(int argc, char *argv[]) {
     /* read the configfile, if specified, otherwise
      * try defaults */
     config.stats.start_time=start_time=time(NULL);
+    config.stop=0;
 
     if(config_read(configfile)) {
 	fprintf(stderr,"Error reading config file (%s)\n",configfile);
@@ -523,8 +524,6 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG,L_MAIN,"Scanned %d songs in  %d seconds\n",db_get_song_count(),
 	    end_time-start_time);
-
-    config.stop=0;
 
     while(!config.stop) {
 	if((config.rescan_interval) && (rescan_counter > config.rescan_interval)) {
