@@ -89,6 +89,9 @@
   Change History (most recent first):
 
  $Log$
+ Revision 1.22  2004/12/09 05:05:54  rpedde
+ Logging fixes
+
  Revision 1.21  2004/11/30 04:17:32  rpedde
  use pascal packed string to avoid invalid rdata error
 
@@ -400,8 +403,7 @@ void rend_callback(void) {
 
     if((result=rend_read_message(&msg)) != sizeof(msg)) {
 	err=errno;
-	DPRINTF(E_DBG,L_REND,"Expected %d, got %d\n",sizeof(msg),result);
-	DPRINTF(E_FATAL,L_REND,"Rendezvous pipe closed... Exiting\n");
+	DPRINTF(E_FATAL,L_REND,"Rendezvous socket closed (daap server crashed?) Aborting.\n");
 	gStopNow=mDNStrue;
 	return;
     }

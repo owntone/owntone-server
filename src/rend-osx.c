@@ -161,7 +161,7 @@ void rend_callback(void *info) {
 
     /* here, we've seen the message, now we have to process it */
     if(rend_read_message(&msg) != sizeof(msg)) {
-	DPRINTF(E_FATAL,L_REND,"Error reading rendezvous message\n");
+	DPRINTF(E_FATAL,L_REND,"Rendezvous socket closed (daap server crashed?)  Aborting.\n");
 	exit(EXIT_FAILURE);
     }
 
