@@ -48,7 +48,7 @@
 #include "mp3-scanner.h"
 #include "playlist.h"
 
-#ifdef NEED_STRCASESTR
+#ifndef HAVE_STRCASESTR
 # include "strcasestr.h"
 #endif
 
