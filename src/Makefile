@@ -82,7 +82,7 @@ install_sh = /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/install-sh
 #
 sbin_PROGRAMS = mt-daapd
 
-mt_daapd_SOURCES = main.c uici.c webserver.c configfile.c err.c restart.c
+mt_daapd_SOURCES = main.c rend.c uici.c webserver.c configfile.c err.c restart.c mdns/mDNS.c mdns/mDNSClientAPI.h mdns/mDNSDebug.h mdns/mDNSPosix.c mdns/mDNSUNP.c
 subdir = src
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
@@ -90,8 +90,10 @@ CONFIG_CLEAN_FILES =
 sbin_PROGRAMS = mt-daapd$(EXEEXT)
 PROGRAMS = $(sbin_PROGRAMS)
 
-am_mt_daapd_OBJECTS = main.$(OBJEXT) uici.$(OBJEXT) webserver.$(OBJEXT) \
-	configfile.$(OBJEXT) err.$(OBJEXT) restart.$(OBJEXT)
+am_mt_daapd_OBJECTS = main.$(OBJEXT) rend.$(OBJEXT) uici.$(OBJEXT) \
+	webserver.$(OBJEXT) configfile.$(OBJEXT) err.$(OBJEXT) \
+	restart.$(OBJEXT) mDNS.$(OBJEXT) mDNSPosix.$(OBJEXT) \
+	mDNSUNP.$(OBJEXT)
 mt_daapd_OBJECTS = $(am_mt_daapd_OBJECTS)
 mt_daapd_LDADD = $(LDADD)
 mt_daapd_DEPENDENCIES =
@@ -99,13 +101,15 @@ mt_daapd_LDFLAGS =
 
 DEFS = -DHAVE_CONFIG_H
 DEFAULT_INCLUDES =  -I. -I$(srcdir) -I$(top_builddir)
-CPPFLAGS =  -DDEBUG -g -no-cpp-precomp
+CPPFLAGS =  -DDEBUG -g -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN
 LDFLAGS =  -lpthread
 LIBS = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 DEP_FILES = ./$(DEPDIR)/configfile.Po ./$(DEPDIR)/err.Po \
-	./$(DEPDIR)/main.Po ./$(DEPDIR)/restart.Po \
+	./$(DEPDIR)/mDNS.Po ./$(DEPDIR)/mDNSPosix.Po \
+	./$(DEPDIR)/mDNSUNP.Po ./$(DEPDIR)/main.Po \
+	./$(DEPDIR)/rend.Po ./$(DEPDIR)/restart.Po \
 	./$(DEPDIR)/uici.Po ./$(DEPDIR)/webserver.Po
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
@@ -149,6 +153,9 @@ uninstall-sbinPROGRAMS:
 
 clean-sbinPROGRAMS:
 	-test -z "$(sbin_PROGRAMS)" || rm -f $(sbin_PROGRAMS)
+mDNS.$(OBJEXT): mdns/mDNS.c
+mDNSPosix.$(OBJEXT): mdns/mDNSPosix.c
+mDNSUNP.$(OBJEXT): mdns/mDNSUNP.c
 mt-daapd$(EXEEXT): $(mt_daapd_OBJECTS) $(mt_daapd_DEPENDENCIES) 
 	@rm -f mt-daapd$(EXEEXT)
 	$(LINK) $(mt_daapd_LDFLAGS) $(mt_daapd_OBJECTS) $(mt_daapd_LDADD) $(LIBS)
@@ -161,7 +168,11 @@ distclean-compile:
 
 include ./$(DEPDIR)/configfile.Po
 include ./$(DEPDIR)/err.Po
+include ./$(DEPDIR)/mDNS.Po
+include ./$(DEPDIR)/mDNSPosix.Po
+include ./$(DEPDIR)/mDNSUNP.Po
 include ./$(DEPDIR)/main.Po
+include ./$(DEPDIR)/rend.Po
 include ./$(DEPDIR)/restart.Po
 include ./$(DEPDIR)/uici.Po
 include ./$(DEPDIR)/webserver.Po
@@ -180,6 +191,42 @@ distclean-depend:
 	depfile='$(DEPDIR)/$*.Po' tmpdepfile='$(DEPDIR)/$*.TPo' \
 	$(CCDEPMODE) $(depcomp) \
 	$(COMPILE) -c `cygpath -w $<`
+
+mDNS.o: mdns/mDNS.c
+	source='mdns/mDNS.c' object='mDNS.o' libtool=no \
+	depfile='$(DEPDIR)/mDNS.Po' tmpdepfile='$(DEPDIR)/mDNS.TPo' \
+	$(CCDEPMODE) $(depcomp) \
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o mDNS.o `test -f 'mdns/mDNS.c' || echo '$(srcdir)/'`mdns/mDNS.c
+
+mDNS.obj: mdns/mDNS.c
+	source='mdns/mDNS.c' object='mDNS.obj' libtool=no \
+	depfile='$(DEPDIR)/mDNS.Po' tmpdepfile='$(DEPDIR)/mDNS.TPo' \
+	$(CCDEPMODE) $(depcomp) \
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o mDNS.obj `cygpath -w mdns/mDNS.c`
+
+mDNSPosix.o: mdns/mDNSPosix.c
+	source='mdns/mDNSPosix.c' object='mDNSPosix.o' libtool=no \
+	depfile='$(DEPDIR)/mDNSPosix.Po' tmpdepfile='$(DEPDIR)/mDNSPosix.TPo' \
+	$(CCDEPMODE) $(depcomp) \
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o mDNSPosix.o `test -f 'mdns/mDNSPosix.c' || echo '$(srcdir)/'`mdns/mDNSPosix.c
+
+mDNSPosix.obj: mdns/mDNSPosix.c
+	source='mdns/mDNSPosix.c' object='mDNSPosix.obj' libtool=no \
+	depfile='$(DEPDIR)/mDNSPosix.Po' tmpdepfile='$(DEPDIR)/mDNSPosix.TPo' \
+	$(CCDEPMODE) $(depcomp) \
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o mDNSPosix.obj `cygpath -w mdns/mDNSPosix.c`
+
+mDNSUNP.o: mdns/mDNSUNP.c
+	source='mdns/mDNSUNP.c' object='mDNSUNP.o' libtool=no \
+	depfile='$(DEPDIR)/mDNSUNP.Po' tmpdepfile='$(DEPDIR)/mDNSUNP.TPo' \
+	$(CCDEPMODE) $(depcomp) \
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o mDNSUNP.o `test -f 'mdns/mDNSUNP.c' || echo '$(srcdir)/'`mdns/mDNSUNP.c
+
+mDNSUNP.obj: mdns/mDNSUNP.c
+	source='mdns/mDNSUNP.c' object='mDNSUNP.obj' libtool=no \
+	depfile='$(DEPDIR)/mDNSUNP.Po' tmpdepfile='$(DEPDIR)/mDNSUNP.TPo' \
+	$(CCDEPMODE) $(depcomp) \
+	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o mDNSUNP.obj `cygpath -w mdns/mDNSUNP.c`
 CCDEPMODE = depmode=gcc
 uninstall-info-am:
 

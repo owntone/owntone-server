@@ -34,6 +34,7 @@
 
 #include "configfile.h"
 #include "err.h"
+#include "rend.h"
 #include "webserver.h"
 
 // 3689
@@ -172,6 +173,8 @@ int main(int argc, char *argv[]) {
     char *configfile=NULL;
     WSCONFIG ws_config;
     WSHANDLE server;
+    pid_t rendezvous_pid;
+
 #ifdef DEBUG
     char *optval="d:c:";
 #else
@@ -229,6 +232,8 @@ int main(int argc, char *argv[]) {
     }
 
     ws_registerhandler(server, "^.*$",config_handler,config_auth);
+
+    rend_init(&rendezvous_pid);
 
     while(1) {
 	sleep(20);

@@ -648,7 +648,7 @@ void *ws_dispatcher(void *arg) {
 		if(!can_dispatch) { /* auth failed, or need auth */
 		    ws_addarg(&pwsc->response_headers,"Connection","close");
 		    ws_addarg(&pwsc->response_headers,"WWW-Authenticate",
-			      "Basic");
+			      "Basic realm=\"webserver\"");
 		    pwsc->close=1;
 		    ws_returnerror(pwsc,401,"Unauthorized");
 		    return NULL;

@@ -3,28 +3,53 @@
     <TITLE>mt-daapd administration</TITLE>
   </HEAD>
   <BODY>
-    <h1>Config</h1>
-    <FORM METHOD="POST" ACTION="/config-update.html">
-      <TABLE>
-	<TR>
-	  <TD>Web Root</TD>
-	  <TD><INPUT TYPE="TEXT" NAME="WEB_ROOT" READONLY
-	  VALUE="@WEB_ROOT@"></TD>
-	</TR>
-	<TR>
-	  <TD>Port</TD>
-	  <TD><INPUT TYPE="TEXT" NAME="PORT" READONLY
-	  VALUE="@PORT@"></TD>
-	</TR>
-	<TR>
-	  <TD>Admin Password</TD>
-	  <TD><INPUT TYPE="TEXT" NAME="ADMINPW"
-	  VALUE="@ADMINPW@"></TD>
-	</TR>
-      </TABLE>
-      <INPUT TYPE="SUBMIT" NAME="SUBMIT" VALUE="Submit">
-    </FORM>
+    <CENTER>
+      <A HREF="config.html">Configure</A> | 
+      <A HREF="status.html">Status</A> | 
+      <A HREF="services.html">Services</A>
+    </CENTER>
+
     <HR>
-    <i>@RELEASE@</i>
+
+    <CENTER><H1>Welcome</H1></CENTER>
+
+    <P>
+      Welcome to mt-daapd (better name pending), a pthreads
+      implementation of Apple's DAAP, including a multicast DNS
+      responder for iTunes.  
+    </P>
+      
+    <P>
+      This server is provided under the terms of the GPL.  See the
+      file LICENSE in the root directory of this distribution for more
+      information on the rights provided to you by the GPL.  For newest
+      versions of this software, check the SourceForge web site at <A
+      HREF="http://xxx.sourceforge.net">http://xxx.sourceforge.net</A>.
+    </P>
+
+    <P>
+      Portions of this work (the MDNS responder) are Copyright (C)
+      1999-2001 Apple Computer, Inc.  All rights reserved.  See the
+      file APPLE_LICENSE in the root directory for more information
+      on the rights provided to you by the ASPL.
+    </P>
+
+    <P>
+      <B>WARNING:  NO WARRANTY</B><BR>
+      BECAUSE THE PROGRAM IS LICENSED FREE OF CHARGE, THERE IS NO
+      WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE
+      LAW.  EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT
+      HOLDERS AND/OR OTHER PARTIES PROVIDE THE PROGRAM "AS IS"
+      WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED,
+      INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+      MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.  THE
+      ENTIRE RISK AS TO THE QUALITY AND PERFORMANCE OF THE PROGRAM IS
+      WITH YOU.  SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE
+      COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
+    </P>
+
+    <HR>
+
+    <I>@RELEASE@</I>
   </BODY>
 </HTML>
