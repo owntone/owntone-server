@@ -28,7 +28,10 @@ case $host in
 *linux*)
 	CPPFLAGS="$CPPFLAGS -DHAVE_SOCKLEN_T"; LDFLAGS="$LDFLAGS -lefence";;
 *darwin*)
-	CPPFLAGS="$CPPFLAGS -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN -DHAVE_SOCKLEN_T";;
+	CPPFLAGS="$CPPFLAGS -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN -DHAVE_SOCKLEN_T";
+	CONDITIONAL(COND_REND_OSX,true);
+	CONDITIONAL(COND_REND_HOWL,false);
+	CONDITIONAL(COND_REND_POSIX,false);;
 esac
 
 dnl Checks for libraries.
