@@ -87,12 +87,13 @@ int scan_foreground(char *path) {
 	pde=&de;
 	err=readdir_r(current_dir,&de,&pde);
 	if(err == -1) {
+	    DPRINTF(ERR_DEBUG,"Error on readdir_r: %s\n",strerror(errno));
 	    err=errno;
 	    closedir(current_dir);
 	    errno=err;
 	    return -1;
 	}
-	
+
 	if(!pde)
 	    break;
 
@@ -105,6 +106,8 @@ int scan_foreground(char *path) {
 		memset((void*)&mp3file,0,sizeof(mp3file));
 		mp3file.path=mp3_path;
 		mp3file.fname=de.d_name;
+
+	        /* Do the tag lookup here */
 
 		db_add(&mp3file);
 	    }

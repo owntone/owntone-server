@@ -272,11 +272,13 @@ int daap_serialmem(DAAP_BLOCK *root, char *where) {
 
 	where+=root->size;
     }
-
-    if(daap_serialmem(root->children,where))
-	return -1;
-
-    where += root->reported_size;
+    
+    if(root->children) {
+	if(daap_serialmem(root->children,where))
+	    return -1;
+	
+	where += root->reported_size;
+    }
 
     if(daap_serialmem(root->next,where))
 	return -1;
@@ -301,7 +303,7 @@ int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
     int err;
 
     uncompressed_len = root->reported_size + 8;
-    uncompressed=(char*)malloc(uncompressed_len);
+    uncompressed=(char*)malloc(uncompressed_len+1);
     if(!uncompressed) {
 	DPRINTF(ERR_INFO,"Error allocating serialization block\n");
 	return -1;
