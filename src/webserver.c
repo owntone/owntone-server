@@ -66,7 +66,10 @@ typedef struct tag_ws_private {
     int stop;
     int running;
     int threadno;
+    int dispatch_threads;
     pthread_t server_tid;
+    pthread_cond_t exit_cond;
+    pthread_mutex_t exit_mutex;
 } WS_PRIVATE;
 
 /*
@@ -101,7 +104,8 @@ int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
 /*
  * Globals
  */
-pthread_mutex_t munsafe=PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t ws_unsafe=PTHREAD_MUTEX_INITIALIZER;
+
 char *ws_dow[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 char *ws_moy[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
 		   "Aug", "Sep", "Oct", "Nov", "Dec" };
@@ -117,7 +121,7 @@ char *ws_moy[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
 int ws_lock_unsafe(void) {
     int err;
 
-    if(err=pthread_mutex_lock(&munsafe)) {
+    if(err=pthread_mutex_lock(&ws_unsafe)) {
 	errno=err;
 	return -1;
     }
@@ -136,7 +140,7 @@ int ws_lock_unsafe(void) {
 int ws_unlock_unsafe(void) {
     int err;
 
-    if(err=pthread_mutex_unlock(&munsafe)) {
+    if(err=pthread_mutex_unlock(&ws_unsafe)) {
 	errno=err;
 	return -1;
     }
@@ -168,7 +172,18 @@ WSHANDLE ws_start(WSCONFIG *config) {
     memcpy(&pwsp->wsconfig,config,sizeof(WS_PRIVATE));
     pwsp->running=0;
     pwsp->threadno=0;
+    pwsp->dispatch_threads=0;
     pwsp->handlers.next=NULL;
+
+    if(err=pthread_cond_init(&pwsp->exit_cond, NULL)) {
+	errno=err;
+	return NULL;
+    }
+
+    if(err=pthread_mutex_init(&pwsp->exit_mutex,NULL)) {
+	errno=err;
+	return NULL;
+    }
 
     DPRINTF(ERR_INFO,"Preparing to listen on port %d\n",pwsp->wsconfig.port);
 
@@ -198,10 +213,23 @@ WSHANDLE ws_start(WSCONFIG *config) {
  *
  * Stop the web server and all the child threads
  */
-int ws_stop(WSHANDLE arg) {
-    WS_PRIVATE *pwsp = (WS_PRIVATE*)arg;
+extern int ws_stop(WSHANDLE ws) {
+    WS_PRIVATE *pwsp = (WS_PRIVATE*)ws;
 
     /* free the ws_handlers */
+    pwsp->stop=1;
+
+    /* Wait for all the threads to die */
+    if(pthread_mutex_lock(&pwsp->exit_mutex))
+	log_err(1,"Cannot lock condition mutex\n");
+
+    /* wait for condition */
+    while(pwsp->dispatch_threads) {
+	pthread_cond_wait(&pwsp->exit_cond, &pwsp->exit_mutex);
+    }
+
+    pthread_mutex_unlock(&pwsp->exit_mutex);
+    
     return 0;
 }
 
@@ -257,13 +285,19 @@ void *ws_mainthread(void *arg) {
 	ws_unlock_unsafe();
 
 	/* now, throw off a dispatch thread */
+	if(pthread_mutex_lock(&pwsp->exit_mutex))
+	    log_err(1,"Cannot lock condition mutex\n");
+
 	if(err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc)) {
 	    pwsc->error=err;
 	    DPRINTF(ERR_WARN,"Could not spawn thread: %s\n",strerror(err));
+	    pthread_mutex_unlock(&pwsp->exit_mutex);
 	    ws_close(pwsc);
+	} else {
+	    pwsp->dispatch_threads++;
+	    pthread_mutex_unlock(&pwsp->exit_mutex);
+	    pthread_detach(tid);
 	}
-
-	pthread_detach(tid);
     }
 }
 
@@ -280,6 +314,8 @@ void *ws_mainthread(void *arg) {
  * allocated memory has been freed
  */
 void ws_close(WS_CONNINFO *pwsc) {
+    WS_PRIVATE *pwsp = (WS_PRIVATE *)pwsc->pwsp;
+
     DPRINTF(ERR_DEBUG,"Thread %d: Terminating\n",pwsc->threadno);
     DPRINTF(ERR_DEBUG,"Thread %d: Freeing request headers\n",pwsc->threadno);
     ws_freearglist(&pwsc->request_headers);
@@ -292,6 +328,20 @@ void ws_close(WS_CONNINFO *pwsc) {
 	DPRINTF(ERR_DEBUG,"Thread %d: Closing fd\n",pwsc->threadno);
 	close(pwsc->fd);
 	free(pwsc->hostname);
+	
+	/* this thread is done */
+	if(pthread_mutex_lock(&pwsp->exit_mutex)) 
+	    log_err(1,"Error: cannot lock condition mutex\n");
+
+	if(!pwsp->dispatch_threads) {
+	    log_err(1,"Error: Bad dispatch thread count!\n");
+	} else {
+	    pwsp->dispatch_threads--;
+	    if(pthread_cond_signal(&pwsp->exit_cond))
+		log_err(1,"Error: cannot signal condition\n");
+	}
+	pthread_mutex_unlock(&pwsp->exit_mutex);
+
 	free(pwsc);
     }
 }
@@ -673,8 +723,10 @@ void *ws_dispatcher(void *arg) {
 		ws_defaulthandler(pwsp,pwsc);		
 	}
 
-	if((pwsc->close)||(pwsc->error))
+	if((pwsc->close) || (pwsc->error) || (pwsp->stop)) {
+	    pwsc->close=1;
 	    connection_done=1;
+	}
 	ws_close(pwsc);
     }
     return NULL;

@@ -22,14 +22,34 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <errno.h>
+#include <pthread.h>
 #include <syslog.h>
 #include <stdlib.h>
 
+#define __IN_ERR__
 #include "err.h"
 
 
+typedef struct tag_err_leak {
+    void *ptr;
+    char *file;
+    int line;
+    int size;
+    struct tag_err_leak *next;
+} ERR_LEAK;
+
 int err_debuglevel=0;
 int err_logdestination=LOGDEST_STDERR;
+
+pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER;
+ERR_LEAK err_leak = { NULL, NULL, 0, 0, NULL };
+
+/*
+ * Forwards
+ */
+
+int err_lock_mutex(void);
+int err_unlock_mutex(void);
 
 /****************************************************
  * log_err
@@ -62,6 +82,7 @@ void log_err(int quit, char *fmt, ...)
  ****************************************************/
 void log_setdest(char *app, int destination) {
     switch(destination) {
+
     case LOGDEST_SYSLOG:
 	if(err_logdestination != LOGDEST_SYSLOG) {
 	    openlog(app,LOG_PID,LOG_DAEMON);
@@ -75,3 +96,153 @@ void log_setdest(char *app, int destination) {
 	break;
     }
 }
+
+#ifdef DEBUG
+
+/*
+ * err_lock
+ *
+ * Lock the error mutex
+ */
+int err_lock_mutex(void) {
+    int err;
+
+    if(err=pthread_mutex_lock(&err_mutex)) {
+	errno=err;
+	return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * err_unlock
+ *
+ * Unlock the error mutex
+ *
+ * returns 0 on success,
+ * returns -1 on failure, with errno set
+ */
+int err_unlock_mutex(void) {
+    int err;
+
+    if(err=pthread_mutex_unlock(&err_mutex)) {
+	errno=err;
+	return -1;
+    }
+
+    return 0;
+}
+
+/*
+ * err_malloc
+ *
+ * safe malloc
+ */
+void *err_malloc(char *file, int line, size_t size) {
+    ERR_LEAK *pnew;
+
+    DPRINTF(ERR_DEBUG,"Mallocing %d bytes\n",size);
+    err_leakcheck();
+    DPRINTF(ERR_DEBUG,"---\n");
+
+    pnew=(ERR_LEAK*)malloc(sizeof(pnew));
+    if(!pnew) 
+	log_err(1,"Error: cannot allocate leak struct\n");
+
+    if(err_lock_mutex()) 
+	log_err(1,"Error: cannot lock error mutex\n");
+	
+    pnew->file=file;
+    pnew->line=line;
+    pnew->size=size;
+    pnew->ptr=malloc(size);
+
+    pnew->next=err_leak.next;
+    err_leak.next=pnew;
+
+    err_unlock_mutex();
+
+    DPRINTF(ERR_DEBUG,"Malloced at %x\n",pnew->ptr);
+    err_leakcheck();
+    DPRINTF(ERR_DEBUG,"---\n");
+
+    return pnew->ptr;
+}
+
+
+/*
+ * err_strdup
+ *
+ * safe strdup
+ */
+char *err_strdup(char *file, int line, const char *str) {
+    void *pnew;
+
+    pnew=err_malloc(file,line,strlen(str) + 1);
+    if(!pnew) 
+	log_err(1,"Cannot malloc enough space for strdup\n");
+
+    memcpy(pnew,str,strlen(str)+1);
+    return pnew;
+}
+
+/*
+ * err_free
+ *
+ * safe free
+ */
+void err_free(char *file, int line, void *ptr) {
+    ERR_LEAK *current,*last;
+
+    DPRINTF(ERR_DEBUG,"Freeing %x\n",ptr);
+    err_leakcheck();
+    DPRINTF(ERR_DEBUG,"---\n");
+
+    if(err_lock_mutex()) 
+	log_err(1,"Error: cannot lock error mutex\n");
+
+    last=&err_leak;
+    current=last->next;
+
+    while((current) && (current->ptr != ptr)) {
+	last=current;
+	current=current->next;
+    }
+
+    if(!current) {
+	log_err(0,"Attempt to free unallocated memory: %s, %d\n",file,line);
+    } else {
+	free(current->ptr);
+	last->next=current->next;
+	free(current);
+    }
+
+    err_unlock_mutex();
+
+    DPRINTF(ERR_DEBUG,"Freed\n");
+    err_leakcheck();
+    DPRINTF(ERR_DEBUG,"---\n");
+}
+
+/*
+ * void err_leakcheck
+ *
+ * Walk through the list of memory
+ */
+void err_leakcheck(void) {
+    ERR_LEAK *current;
+
+    if(err_lock_mutex()) 
+	log_err(1,"Error: cannot lock error mutex\n");
+
+    current=err_leak.next;
+    while(current) {
+	printf("%s: %d - %d bytes at %x\n",current->file, current->line, current->size,
+	       current->ptr);
+	current=current->next;
+    }
+
+    err_unlock_mutex();
+}
+#endif

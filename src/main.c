@@ -349,8 +349,12 @@ int main(int argc, char *argv[]) {
 	rend_init(&rendezvous_pid,config.servername, config.port);
 
     while(1) {
-	sleep(20);
+	sleep(100);
     }
+
+#ifdef DEBUG
+    err_leakcheck();
+#endif
 
     return EXIT_SUCCESS;
 }
