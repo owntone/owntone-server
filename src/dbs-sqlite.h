@@ -38,5 +38,6 @@ extern MP3FILE *db_sqlite_fetch_item(int id);
 extern MP3FILE *db_sqlite_fetch_path(char *path);
 extern void db_sqlite_dispose_item(MP3FILE *pmp3);
 extern int db_sqlite_add_playlist(char *name, int type, char *clause, int *playlistid);
+extern int db_sqlite_add_playlist_item(int playlistid, int songid);
 
 #endif /* _DBS_SQLITE_H_ */

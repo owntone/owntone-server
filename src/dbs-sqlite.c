@@ -189,6 +189,11 @@ int db_sqlite_get_int(int loglevel, int *result, char *fmt, ...) {
 	return DB_E_SQL_ERROR;
     }
 
+    if(rows==0) {
+	sqlite_free_table(resarray);
+	return DB_E_NOROWS;
+    }
+
     *result=atoi(resarray[cols]);
 
     sqlite_free_table(resarray);
@@ -333,6 +338,45 @@ int db_sqlite_add_playlist(char *name, int type, char *clause, int *playlistid) 
 
     return result;
 }
+
+/**
+ * add a song to a static playlist
+ *
+ * \param playlistid playlist to add song to
+ * \param songid song to add
+ * \returns 0 on success, otherwise a DB_E error code
+ */
+int db_sqlite_add_playlist_item(int playlistid, int songid) {
+    int result;
+    int playlist_type;
+    int count;
+
+    /* first, check the playlist */
+    result=db_sqlite_get_int(E_DBG,&playlist_type,
+			     "select smart from playlists where id=%d",playlistid);
+
+    if(result != DB_E_SUCCESS) {
+	if(result == DB_E_NOROWS)
+	    return DB_E_INVALID_PLAYLIST;
+	return result;
+    }
+
+    if(playlist_type == 1)       /* can't add to smart playlists */
+	return DB_E_INVALIDTYPE;
+
+    /* make sure the songid is valid */
+    result=db_sqlite_get_int(E_DBG,&count,"select count(*) from songs where id=%d",songid);
+    if(result != DB_E_SUCCESS) {
+	if(result == DB_E_NOROWS)
+	    return DB_E_INVALID_SONGID;
+	return result;
+    }
+
+    /* looks valid, so lets add the item */
+    result=db_sqlite_exec(E_DBG,"insert into playlistitems values (%d,%d)",playlistid,songid);
+    return result;
+}
+
 
 /**
  * add a database item

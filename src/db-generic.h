@@ -156,6 +156,7 @@ extern int db_exists(char *path);
 extern int db_scanning(void);
 
 extern int db_add_playlist(char *name, int type, char *clause, int *playlistid);
+extern int db_add_playlist_item(int playlistid, int songid);
 
 extern MP3FILE *db_fetch_item(int id);
 extern MP3FILE *db_fetch_path(char *path);
@@ -184,7 +185,9 @@ extern void db_dispose_item(MP3FILE *pmp3);
 #define DB_E_SQL_ERROR               1 /**< some kind of sql error - typically bad syntax */
 #define DB_E_DUPLICATE_PLAYLIST      2 /**< playlist already exists when adding */
 #define DB_E_NOCLAUSE                3 /**< adding smart playlist with no clause */
-
-
+#define DB_E_INVALIDTYPE             4 /**< trying to add playlist items to invalid type */
+#define DB_E_NOROWS                  5 /**< sql query returned no rows */
+#define DB_E_INVALID_PLAYLIST        6 /**< bad playlist id */
+#define DB_E_INVALID_SONGID          7 /**< bad song id */
 
 #endif /* _DB_GENERIC_H_ */
