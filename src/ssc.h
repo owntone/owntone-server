@@ -27,7 +27,9 @@
 
 extern int server_side_convert_set(MP3FILE *pmp3);
 extern char *server_side_convert_path(char *path);
-extern FILE *server_side_convert_open(char *path, off_t offset);
+extern FILE *server_side_convert_open(char *path,
+				      off_t offset,
+				      unsigned long len_ms);
 extern void server_side_convert_close(FILE *f);
 
 #endif /* _SCC_H_ */

@@ -1263,6 +1263,10 @@ void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s ","--enable-oggvorbis");
 #endif
 
+#ifdef FLAC
+    ws_writefd(pwsc,"%s ","--enable-flac");
+#endif
+
 #ifdef WITH_GDBM
     ws_writefd(pwsc,"%s ","--with-gdbm");
 #endif

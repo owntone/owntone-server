@@ -281,6 +281,7 @@ static int scan_get_nultags(char *file, MP3FILE *pmp3) { return 0; };
 static int scan_get_fileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_aacfileinfo(char *file, MP3FILE *pmp3);
+static int scan_get_wavfileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_nulfileinfo(char *file, MP3FILE *pmp3) { return 0; };
 static int scan_get_urlfileinfo(char *file, MP3FILE *pmp3);
 
@@ -293,6 +294,11 @@ static time_t mac_to_unix_time(int t);
 
 #ifdef OGGVORBIS
 extern int scan_get_oggfileinfo(char *filename, MP3FILE *pmp3);
+#endif
+
+#ifdef FLAC
+extern int scan_get_flacfileinfo(char *filename, MP3FILE *pmp3);
+extern int scan_get_flactags(char *filename, MP3FILE *pmp3);
 #endif
 
 /* 
@@ -311,9 +317,14 @@ static taghandler taghandlers[] = {
     { "m4a", scan_get_aactags, scan_get_aacfileinfo },
     { "m4p", scan_get_aactags, scan_get_aacfileinfo },
     { "mp3", scan_get_mp3tags, scan_get_mp3fileinfo },
+    { "wav", scan_get_nultags, scan_get_wavfileinfo },
     { "url", scan_get_nultags, scan_get_urlfileinfo },
 #ifdef OGGVORBIS
     { "ogg", scan_get_nultags, scan_get_oggfileinfo },
+#endif
+#ifdef FLAC
+    { "flac", scan_get_flactags, scan_get_flacfileinfo },
+    { "fla", scan_get_flactags, scan_get_flacfileinfo },
 #endif
     { NULL, 0 }
 };
@@ -1228,6 +1239,84 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
     }
 
     fclose(infile);
+    return 0;
+}
+
+#define GET_WAV_INT32(p) ((((unsigned long)((p)[3])) << 24) |	\
+		          (((unsigned long)((p)[2])) << 16) |	\
+		          (((unsigned long)((p)[1])) << 8) |	\
+		          (((unsigned long)((p)[0]))))
+
+#define GET_WAV_INT16(p) ((((unsigned long)((p)[1])) << 8) |	\
+		          (((unsigned long)((p)[0]))))
+
+/*
+ * scan_get_wavfileinfo
+ *
+ * Get info from the actual wav headers
+ */
+int scan_get_wavfileinfo(char *file, MP3FILE *pmp3) {
+    FILE *infile;
+    size_t rl;
+    unsigned char hdr[44];
+    unsigned long chunk_data_length;
+    unsigned long format_data_length;
+    unsigned long compression_code;
+    unsigned long channel_count;
+    unsigned long sample_rate;
+    unsigned long sample_bit_length;
+    unsigned long bit_rate;
+    unsigned long data_length;
+    unsigned long sec, ms;
+
+    DPRINTF(E_DBG,L_SCAN,"Getting WAV file info\n");
+
+    if(!(infile=fopen(file,"rb"))) {
+	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
+	return -1;
+    }
+
+    fseek(infile,0,SEEK_END);
+    pmp3->file_size = ftell(infile);
+    fseek(infile,0,SEEK_SET);
+
+    rl = fread(hdr, 1, 44, infile);
+    fclose(infile);
+    if (rl != 44) {
+	DPRINTF(E_WARN,L_SCAN,"Could not read wav header from %s\n",file);
+        return -1;
+    }
+
+    if (strncmp(hdr + 0, "RIFF", 4) ||
+	strncmp(hdr + 8, "WAVE", 4) ||
+	strncmp(hdr + 12, "fmt ", 4) ||
+	strncmp(hdr + 36, "data", 4)) {
+	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",file);
+        return -1;
+    }
+
+    chunk_data_length = GET_WAV_INT32(hdr + 4);
+    format_data_length = GET_WAV_INT32(hdr + 16);
+    compression_code = GET_WAV_INT16(hdr + 20);
+    channel_count = GET_WAV_INT16(hdr + 22);
+    sample_rate = GET_WAV_INT32(hdr + 24);
+    sample_bit_length = GET_WAV_INT16(hdr + 34);
+    data_length = GET_WAV_INT32(hdr + 40);
+
+    if ((format_data_length != 16) ||
+	(compression_code != 1) ||
+	(channel_count < 1)) {
+	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",file);
+        return -1;
+    }
+
+    bit_rate = sample_rate * channel_count * ((sample_bit_length + 7) / 8) * 8;
+    pmp3->bitrate = bit_rate / 1000;
+    pmp3->samplerate = sample_rate;
+    sec = data_length / (bit_rate / 8);
+    ms = ((data_length % (bit_rate / 8)) * 1000) / (bit_rate / 8);
+    pmp3->song_length = (sec * 1000) + ms;
+
     return 0;
 }
 

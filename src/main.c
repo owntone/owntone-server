@@ -392,7 +392,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	    // The file should be converted in the server side.
 	    DPRINTF(E_WARN,L_WS,"Thread %d: Autoconvert file %s for client\n",
 		    pwsc->threadno,real_path);
-	    file_ptr=server_side_convert_open(real_path,offset);
+	    file_ptr = server_side_convert_open(real_path,
+						offset,
+						pmp3->song_length);
 	    if (file_ptr) {
 		file_fd = fileno(file_ptr);
 	    } else {

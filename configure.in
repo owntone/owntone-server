@@ -49,12 +49,16 @@ AC_ARG_ENABLE(howl,[  --enable-howl       Use howl 0.9.2 or later],
 
 AC_ARG_ENABLE(oggvorbis,[  --enable-oggvorbis      Enable Ogg/Vorbis support],
                            use_oggvorbis=true;
-#                           LDFLAGS="${LDFLAGS} -logg -lvorbis";
                            CPPFLAGS="${CPPFLAGS} -DOGGVORBIS")
+
+AC_ARG_ENABLE(flac,[  --enable-flac      Enable FLAC support],
+                      use_flac=true;
+                      CPPFLAGS="${CPPFLAGS} -DFLAC")
 
 AM_CONDITIONAL(COND_REND_HOWL, test x$rend_howl = xtrue)
 AM_CONDITIONAL(COND_REND_POSIX, test x$rend_posix = xtrue)
 AM_CONDITIONAL(COND_OGGVORBIS, test x$use_oggvorbis = xtrue)
+AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 
 AM_CONDITIONAL(COND_NEED_STRCASESTR,false)
 AM_CONDITIONAL(COND_NEED_STRSEP,false)
@@ -184,16 +188,32 @@ if test x$use_oggvorbis = xtrue; then
   AC_CHECK_HEADERS(vorbis/codec.h,, [
    AC_MSG_ERROR([vorbis/codec.h not found... Must have libvorbis installed for Ogg/Vorbis support])])
   AC_CHECK_LIB(vorbis,vorbis_info_init,echo "Have vorbis",echo "Must have libvorbis for Ogg/Vorbis support";exit)
+  AC_CHECK_LIB(vorbisfile,ov_open,echo "Have vorbisfile",echo "Must have libvorbisfile for Ogg/Vorbis support";exit)
 
   if test x"$STATIC_LIBS" != x"no"; then
-    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libvorbis.a"
+    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libvorbis.a ${STATIC_LIBS}/libvorbisfile.a"
     echo "Adding static libvorbis"
   else
-    LDFLAGS="${LDFLAGS} -lvorbis"
+    LDFLAGS="${LDFLAGS} -lvorbis -lvorbisfile"
     echo "Adding dynamic libvorbis"
   fi
 fi
 
+echo USE_FLAC is $use_flac
+
+if test x$use_flac = xtrue; then
+  AC_CHECK_HEADERS(FLAC/metadata.h,, [
+   AC_MSG_ERROR([FLAC/metadata.h not found... Must have libFLAC installed for FLAC support])])
+  AC_CHECK_LIB(FLAC,FLAC__metadata_chain_read,echo "Have FLAC",echo "Must have libFLAC for FLAC support";exit)
+
+  if test x"$STATIC_LIBS" != x"no"; then
+    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libFLAC.a"
+    echo "Adding static libFLAC"
+  else
+    LDFLAGS="${LDFLAGS} -lFLAC"
+    echo "Adding dynamic libFLAC"
+  fi
+fi
 
 AC_REPLACE_FUNCS(strcasestr)
 AC_REPLACE_FUNCS(strsep)

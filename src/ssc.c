@@ -134,7 +134,7 @@ int server_side_convert_set(MP3FILE *pmp3)
  * @param path char * to the real filename.
  * @param offset off_t to the point in file where the streaming starts.
  */
-FILE *server_side_convert_open(char *path, off_t offset)
+FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms)
 {
     char *cmd;
     FILE *f;
@@ -142,8 +142,8 @@ FILE *server_side_convert_open(char *path, off_t offset)
     cmd=(char *)malloc(strlen(config.ssc_prog) +
 		       strlen(path) +
 		       64);
-    sprintf(cmd, "%s \"%s\" %ld",
-	    config.ssc_prog, path, (long)offset);
+    sprintf(cmd, "%s \"%s\" %ld %lu.%03lu",
+	    config.ssc_prog, path, (long)offset, len_ms / 1000, len_ms % 1000);
     f = popen(cmd, "r");
     return f;
 }
