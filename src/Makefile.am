@@ -7,21 +7,21 @@ AM_YFLAGS=-d
 sbin_PROGRAMS = mt-daapd
 
 if COND_REND_POSIX
-PRENDSRC=mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c mDNSUNP.c rend-posix.c mDNSPlatformFunctions.h
+PRENDSRC=mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c mDNSUNP.c rend-posix.c mDNSPlatformFunctions.h rend-unix.c
 endif
 
 if COND_REND_HOWL
-HRENDSRC=rend-howl.c
+HRENDSRC=rend-howl.c rend-unix.c
 endif
 
 if COND_REND_OSX
-ORENDSRC=rend-osx.c
+ORENDSRC=rend-osx.c rend-unix.c
 endif
 
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	daap-proto.c daap-proto.h daap.c daap.h db-gdbm.c db-memory.h \
-	mp3-scanner.h mp3-scanner.c playlist.c playlist.h rend-unix.c \
+	mp3-scanner.h mp3-scanner.c playlist.c playlist.h \
 	rend-unix.h lexer.l parser.y strcasestr.c strcasestr.h strsep.c \
 	redblack.c redblack.h dynamic-art.c dynamic-art.h query.c query.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC)

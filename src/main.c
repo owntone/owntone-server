@@ -46,10 +46,14 @@
 #include "daap-proto.h"
 #include "err.h"
 #include "mp3-scanner.h"
-#include "rend.h"
 #include "webserver.h"
 #include "playlist.h"
 #include "dynamic-art.h"
+
+#ifndef WITHOUT_MDNS
+# include "rend.h"
+#endif
+
 
 #ifndef DEFAULT_CONFIGFILE
 #ifdef NSLU2
@@ -652,12 +656,14 @@ int main(int argc, char *argv[]) {
     }
 
 
+#ifndef WITHOUT_MDNS
     if((config.use_mdns) && (!parseonly)) {
 	DPRINTF(ERR_LOG,"Starting rendezvous daemon\n");
 	if(rend_init(config.runas)) {
 	    DPRINTF(ERR_FATAL,"Error in rend_init: %s\n",strerror(errno));
 	}
     }
+#endif
 
     /* DWB: we want to detach before we drop privs so the pid file can
        be created with the original permissions.  This has the
@@ -731,11 +737,13 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(server,"^/logout$",daap_handler,NULL,0);
     ws_registerhandler(server,"^/databases/.*",daap_handler,NULL,0);
 
+#ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
 	DPRINTF(ERR_LOG,"Registering rendezvous names\n");
 	rend_register(config.servername,"_daap._tcp",config.port);
 	rend_register(config.servername,"_http._tcp",config.port);
     }
+#endif
 
     end_time=time(NULL);
 
@@ -773,10 +781,12 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(ERR_LOG,"Stopping gracefully\n");
 
+#ifndef WITHOUT_MDNS
     if(config.use_mdns) {
 	DPRINTF(ERR_LOG,"Stopping rendezvous daemon\n");
 	rend_stop();
     }
+#endif
 
     DPRINTF(ERR_LOG,"Stopping web server\n");
     ws_stop(server);

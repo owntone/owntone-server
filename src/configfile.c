@@ -28,7 +28,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
-#include <rend.h>
 #include <restart.h>
 #include <signal.h>
 #include <stdarg.h>
@@ -42,6 +41,10 @@
 
 #include "configfile.h"
 #include "err.h"
+
+#ifndef WITHOUT_MDNS
+# include "rend.h"
+#endif
 
 
 /*
@@ -550,6 +553,7 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"<TH ALIGN=LEFT>Status</TH><TH ALIGN=LEFT>Control</TH></TR>\n");
 
     ws_writefd(pwsc,"<TR><TD>Rendezvous</TD>");
+#ifndef WITHOUT_MDNS
     if(config.use_mdns) {
 	mdns_running=!rend_running();
 
@@ -564,6 +568,9 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     } else {
 	ws_writefd(pwsc,"<TD>Not configured</TD><TD>&nbsp;</TD></TR>\n");
     }
+#else
+    ws_writefd(pwsc,"<TD>No Support</TD><TD>&nbsp;</TD></TR>\n");
+#endif
 
     ws_writefd(pwsc,"<TR><TD>DAAP Server</TD><TD>%s</TD>",config.stop ? "Stopping":"Running");
     if(config.stop) {
