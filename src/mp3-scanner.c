@@ -953,8 +953,10 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
     long atom_offset;
     int atom_length;
-    int temp_int;
+    int sample_size;
+    int samples;
     off_t file_size;
+    int ms;
 
     DPRINTF(ERR_DEBUG,"Getting AAC file info\n");
 
@@ -972,13 +974,24 @@ int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
     /* now, hunt for the mvhd atom */
     atom_offset = aac_drilltoatom(infile, "moov:mvhd", &atom_length);
     if(atom_offset != -1) {
-      fseek(infile,16,SEEK_CUR);
-      fread((void*)&temp_int,1,sizeof(int),infile);
-      temp_int=ntohl(temp_int);
-      /* DWB: use ms time instead of sec */
-      pmp3->song_length=temp_int * 1000 / 600;
+	fseek(infile,12,SEEK_CUR);
+	fread((void*)&sample_size,1,sizeof(int),infile);
+	fread((void*)&samples,1,sizeof(int),infile);
 
-      DPRINTF(ERR_DEBUG,"Song length: %d seconds\n", pmp3->song_length / 1000);
+	sample_size=ntohl(sample_size);
+	samples=ntohl(samples);
+
+	/* avoid overflowing on large sample_sizes (90000) */
+	ms=1000;
+	while((ms > 9) && (!(sample_size % 10))) {
+	    sample_size /= 10;
+	    ms /= 10;
+	}
+
+	/* DWB: use ms time instead of sec */
+	pmp3->song_length=(int)((samples * ms) / sample_size);
+
+	DPRINTF(ERR_DEBUG,"Song length: %d seconds\n", pmp3->song_length / 1000);
     }
     fclose(infile);
     return 0;

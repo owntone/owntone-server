@@ -46,7 +46,7 @@
 /*
  * Defines
  */
-#define DB_VERSION 3
+#define DB_VERSION 4
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
