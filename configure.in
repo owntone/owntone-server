@@ -11,7 +11,7 @@ AC_PROG_CC
 
 AC_CANONICAL_HOST
 
-AC_ARG_ENABLE(debug,Enable debugging features,CPPFLAGS="$CPPFLAGS -DDEBUG -g";LDFLAGS="$LDFLAGS -lefence")
+AC_ARG_ENABLE(debug,Enable debugging features,CPPFLAGS="$CPPFLAGS -DDEBUG -g")
 
 dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
@@ -24,7 +24,35 @@ esac
 
 dnl Checks for libraries.
 AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="$LDFLAGS -lpthread")
-AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
+
+AC_ARG_WITH(zlib,
+	[--with-zlib[[=DIR]]             use zlib in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	  Z_DIR=$withval
+	  CPPFLAGS="${CPPFLAGS} -I$withval/include"
+	  LDFLAGS="${LDFLAGS} -L$withval/lib"
+	fi
+])
+	
+AC_ARG_WITH(id3tag,
+	[--with-id3tag[[=DIR]]           use id3tag in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	  Z_DIR=$withval
+	  CPPFLAGS="${CPPFLAGS} -I$withval/include"
+	  LDFLAGS="${LDFLAGS} -L$withval/lib"
+	fi
+])
+
+AC_CHECK_HEADERS(zlib.h,LDFLAGS="${LDFLAGS} -lz",[
+  AC_MSG_ERROR([zlib.h not found... try --with-zlib=dir])])
+
+AC_CHECK_HEADERS(id3tag.h,LDFLAGS="${LDFLAGS} -lid3tag",[
+  AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
+
+
+
+dnl AC_CHECK_LIB(id3tag,id3_file_open,LDFLAGS="$LDFLAGS -lid3tag",echo "Must have libid3tag";exit)
+dnl AC_CHECK_LIB(z,compress,LDFLAGS="$LDFLAGS -lz",echo "Must have zlib";exit)
 
 dnl Checks for header files.
 AC_HEADER_STDC
