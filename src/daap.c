@@ -263,7 +263,7 @@ DAAP_BLOCK *daap_response_songlist(void) {
 			if(current->conductor)
 			    artist_len += strlen(current->conductor);
 
-			artist_len += 3;
+			artist_len += 4;
 
 			artist=(char*)malloc(artist_len);
 			if(artist) {
