@@ -203,6 +203,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	*/
 
 	daap_serialize(root,pwsc->fd,0);
+	daap_free(root);
     } else {
 	/* stream out the song */
 	pwsc->close=1;
