@@ -285,15 +285,13 @@ void daap_handler(WS_CONNINFO *pwsc) {
 		if(!offset)
 		    config.stats.songs_served++; /* FIXME: remove stat races */
 
-		if((config.artfilename) && (img_fd=da_get_image_fd(pmp3->path)) && (!offset)) {
-		    DPRINTF(ERR_INFO,"Dynamically attaching artwork to %s\n",pmp3->fname);
+		if((config.artfilename) && (img_fd=da_get_image_fd(pmp3->path))) {
+		    DPRINTF(ERR_INFO,"Dynamically attaching artwork to %s (fd %d)\n",
+			    pmp3->fname, img_fd);
 		    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
-		    r_close(img_fd);
-		} else {
-		    if(offset) {
+		} else if(offset) {
 			DPRINTF(ERR_INFO,"Seeking to offset %d\n",offset);
 			lseek(file_fd,offset,SEEK_SET);
-		    }
 		}
 
 		if(copyfile(file_fd,pwsc->fd)) {

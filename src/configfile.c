@@ -227,9 +227,11 @@ int config_read(char *file) {
     err=0;
     while((pce->config_element != -1)) {
 	if(pce->required && pce->config_element && !pce->changed) {
-	    fprintf(stderr,"Required config entry '%s' not specified\n",pce->name);
+	    DPRINTF(ERR_LOG,"Required config entry '%s' not specified\n",pce->name);
 	    err=-1;
 	}
+
+	/* too much spam on startup
 	if((pce->config_element) && (pce->changed)) {
 	    switch(pce->type) {
 	    case CONFIG_TYPE_STRING:
@@ -240,6 +242,7 @@ int config_read(char *file) {
 		break;
 	    }
 	}
+	*/
 
 	pce->changed=0;
 	pce++;
