@@ -416,6 +416,7 @@ int main(int argc, char *argv[]) {
     WSHANDLE server;
     int parseonly=0;
     int foreground=0;
+
     config.use_mdns=1;
 
     fprintf(stderr,"mt-daapd: version %s\n",VERSION);

@@ -19,12 +19,11 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#define _XOPEN_SOURCE 600
+
 #include <errno.h>
 #include <stdio.h>
 #include <string.h>
-
-
-#define __USE_UNIX98
 #include <pthread.h>
 
 #include "err.h"

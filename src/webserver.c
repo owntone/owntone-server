@@ -918,9 +918,11 @@ int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value) {
  *
  */
 int ws_testarg(ARGLIST *root, char *key, char *value) {
+    char *retval;
+
     DPRINTF(ERR_DEBUG,"Checking to see if %s matches %s\n",key,value);
 
-    char *retval=ws_getarg(root,key);
+    retval=ws_getarg(root,key);
     if(!retval)
 	return 0;
 

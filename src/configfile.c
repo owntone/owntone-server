@@ -127,11 +127,10 @@ int config_session=0;
 int config_read(char *file) {
     FILE *fin;
     char *buffer;
-    int err;
+    int err=0;
     char *value;
     char *comment;
     char path_buffer[PATH_MAX];
-    err=0;
     CONFIGELEMENT *pce;
     int handled;
 
