@@ -41,11 +41,16 @@ DAAP_BLOCK *daap_add_formatted(DAAP_BLOCK *parent, char *tag,
 
 GZIP_STREAM *gzip_alloc(void) {
     GZIP_STREAM *gz = malloc(sizeof(GZIP_STREAM));
-    gz->in_size = GZIP_CHUNK;
-    gz->in = malloc(gz->in_size);
-    gz->bytes_in = 0;
-    gz->out = NULL;
-    gz->bytes_out = 0;
+
+    if(gz) {
+	memset(gz,0x00,sizeof(GZIP_STREAM));
+
+	gz->in_size = GZIP_CHUNK;
+	gz->in = malloc(gz->in_size);
+	gz->bytes_in = 0;
+	gz->out = NULL;
+	gz->bytes_out = 0;
+    }
     return gz;
 }
 
@@ -94,6 +99,8 @@ int gzip_compress(GZIP_STREAM *gz) {
 	return -1;
     }
 
+    memset((void*)&strm,0x00,sizeof(strm));
+
     strm.zalloc = Z_NULL;
     strm.zfree = Z_NULL;
     strm.opaque = Z_NULL;
@@ -101,7 +108,7 @@ int gzip_compress(GZIP_STREAM *gz) {
     strm.avail_in = gz->bytes_in;
     strm.next_out = gz->out;
     strm.avail_out = out_size;
-    deflateInit2(&strm,GZIP_COMPRESSION_LEVEL,Z_DEFLATED,31,8,Z_DEFAULT_STRATEGY);
+    deflateInit2(&strm,GZIP_COMPRESSION_LEVEL,Z_DEFLATED,24,8,Z_DEFAULT_STRATEGY);
     while ((status = deflate(&strm,Z_FINISH)) == Z_OK)
 	;
     if (status != Z_STREAM_END) {

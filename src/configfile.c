@@ -42,6 +42,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <zlib.h>
 
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -386,6 +387,15 @@ int config_read(char *file) {
 		    config.dbdir,strerror(errno));
 	}
     }
+
+    /* must have zlib 1.2 or better for gzip encoding support */
+    if(!strncmp(ZLIB_VERSION,"0.",2) ||
+       !strncmp(ZLIB_VERSION,"1.0",3) ||
+       !strncmp(ZLIB_VERSION,"1.1",3)) {
+	config.compress=0;
+	DPRINTF(E_LOG,L_CONF,"Must have zlib > 1.2.0 to use gzip content encoding.  You have %s.  Sucks, huh?\n",ZLIB_VERSION);
+    }
+
 
     return err;
 }
