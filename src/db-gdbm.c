@@ -46,7 +46,7 @@
 /*
  * Defines
  */
-#define DB_VERSION 7
+#define DB_VERSION 8
 #define STRLEN(a) (a) ? strlen((a)) + 1 : 1 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
@@ -75,7 +75,7 @@ typedef struct tag_playlistentry {
 } DB_PLAYLISTENTRY;
 
 typedef struct tag_playlist {
-	unsigned long int	id;
+    unsigned long int	id;
     int songs;
     int is_smart;
     int found;
@@ -278,17 +278,40 @@ void db_init_once(void) {
  */
 int db_open(char *parameters, int reload) {
     char db_path[PATH_MAX + 1];
+    datum tmp_key,tmp_value;
+    int current_db_version;
 
     if(pthread_once(&db_initlock,db_init_once))
 	return -1;
 
     snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs.gdb");
-
+    
     reload = reload ? GDBM_NEWDB : GDBM_WRCREAT;
 
     db_gdbmlock();
     db_songs=gdbm_open(db_path, 0, reload | GDBM_SYNC | GDBM_NOLOCK,
 		       0600,NULL);
+
+    if((reload == GDBM_WRCREAT) && (db_songs)) {
+	/* check the version number... reloading if necessary */
+	tmp_key=gdbm_firstkey(db_songs);
+	if(tmp_key.dptr) {
+	    tmp_value=gdbm_fetch(db_songs,tmp_key);
+	    if(tmp_value.dptr) {
+		current_db_version=*((int*)tmp_value.dptr);
+		if(current_db_version != DB_VERSION) {
+		    DPRINTF(E_LOG,L_DB,"Database version changed... updating database\n");
+		    gdbm_close(db_songs);
+		    db_songs=gdbm_open(db_path,0,GDBM_NEWDB|GDBM_SYNC|GDBM_NOLOCK,0600,NULL);
+		} else {
+		    DPRINTF(E_LOG,L_DB,"Current database version: %d\n",DB_VERSION);
+		}
+		free(tmp_value.dptr);
+	    }
+	    free(tmp_key.dptr);
+	}
+    }
+
     db_gdbmunlock();
 
     if(!db_songs) {
