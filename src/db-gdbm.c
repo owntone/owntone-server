@@ -1057,7 +1057,7 @@ int db_playlist_items_enum_end(ENUMHANDLE handle) {
  * Find a MP3FILE entry based on file id  
  */
 MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
-    static MP3FILE *pmp3=NULL;
+    MP3FILE *pmp3=NULL;
     datum key, content;
 
     key.dptr=(char*)&id;
@@ -1068,16 +1068,12 @@ MP3FILE *db_find(int id) {  /* FIXME: Not reentrant */
     if(!content.dptr)
 	return NULL;
 
-    if(pmp3) {
-	db_freefile(pmp3);
-	free(pmp3);
-    }
-
     pmp3=(MP3FILE*)malloc(sizeof(MP3FILE));
     if(!pmp3)
 	return NULL;
 
     db_unpackrecord(&content,pmp3);
+    free(content.dptr);
     return pmp3;
 }
 
@@ -1194,7 +1190,7 @@ int db_exists(int id) {
     MP3FILE *pmp3;
     datum key,content;
 
-    DPRINTF(ERR_DEBUG,"Checking if node %d in db\n");
+    DPRINTF(ERR_DEBUG,"Checking if node %d in db\n",id);
     key.dptr=(char*)&id;
     key.dsize=sizeof(int);
 
@@ -1237,6 +1233,10 @@ int db_last_modified(int id) {
 	retval=pmp3->time_modified;
     }
 
+    if(pmp3) {
+	db_freefile(pmp3);
+	free(pmp3);
+    }
 
     return retval;
 }
