@@ -33,6 +33,9 @@
  * Typedefs
  */
 
+
+typedef void* WSHANDLE;
+
 typedef struct tag_wsconfig {
     char *web_root;
     char *id;
@@ -46,6 +49,7 @@ typedef struct tag_arglist {
 } ARGLIST;
 
 typedef struct tag_ws_conninfo {
+    WSHANDLE pwsp;
     int threadno;
     int error;
     int fd;
@@ -57,8 +61,6 @@ typedef struct tag_ws_conninfo {
     ARGLIST response_headers;
     ARGLIST request_vars;
 } WS_CONNINFO;
-
-typedef void* WSHANDLE;
 
 /*
  * Externs
@@ -81,4 +83,5 @@ extern int ws_addresponseheader(WS_CONNINFO *pwsc, char *header, char *fmt, ...)
 extern int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...);
 extern char *ws_getvar(WS_CONNINFO *pwsc, char *var);
 extern int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
+
 #endif /* _WEBSERVER_H_ */

@@ -69,11 +69,6 @@ typedef struct tag_ws_private {
     pthread_t server_tid;
 } WS_PRIVATE;
 
-typedef struct tag_ws_dispatchinfo {
-    WS_PRIVATE *pwsp;
-    WS_CONNINFO *pwsc;
-} WS_DISPATCHINFO;
-
 /*
  * Forwards
  */
@@ -226,7 +221,6 @@ void *ws_mainthread(void *arg) {
     int fd;
     int err;
     WS_PRIVATE *pwsp = (WS_PRIVATE*)arg;
-    WS_DISPATCHINFO *pwsd;
     WS_CONNINFO *pwsc;
     pthread_t tid;
     char hostname[MAX_HOSTNAME];
@@ -250,37 +244,26 @@ void *ws_mainthread(void *arg) {
 
 	pwsc->hostname=strdup(hostname);
 	pwsc->fd=fd;
+	pwsc->pwsp = pwsp;
 
 	/* Spawn off a dispatcher to decide what to do with
 	 * the request
 	 */
-	pwsd=(WS_DISPATCHINFO*)malloc(sizeof(WS_DISPATCHINFO));
-	if(!pwsd) {
-	    /* keep on trucking until we crash bigger */
-	    pwsc->error=EINVAL;
-	    DPRINTF(ERR_FATAL,"Error: %s\n",strerror(errno));
-	    free(pwsd);
+
+	/* don't really care if it locks or not */
+	ws_lock_unsafe();
+	pwsc->threadno=pwsp->threadno;
+	pwsp->threadno++;
+	ws_unlock_unsafe();
+
+	/* now, throw off a dispatch thread */
+	if(err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc)) {
+	    pwsc->error=err;
+	    DPRINTF(ERR_WARN,"Could not spawn thread: %s\n",strerror(err));
 	    ws_close(pwsc);
-	} else {
-	    pwsd->pwsp=pwsp;
-	    pwsd->pwsc=pwsc;
-
-	    /* don't really care if it locks or not */
-	    ws_lock_unsafe();
-	    pwsc->threadno=pwsp->threadno;
-	    pwsp->threadno++;
-	    ws_unlock_unsafe();
-
-	    /* now, throw off a dispatch thread */
-	    if(err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsd)) {
-		pwsc->error=err;
-		DPRINTF(ERR_WARN,"Could not spawn thread: %s\n",strerror(err));
-		free(pwsd);
-		ws_close(pwsc);
-	    }
-
-	    pthread_detach(tid);
 	}
+
+	pthread_detach(tid);
     }
 }
 
@@ -514,9 +497,8 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
  * then decides what function should service the request
  */
 void *ws_dispatcher(void *arg) {
-    WS_DISPATCHINFO *pwsd=(WS_DISPATCHINFO *)arg;
-    WS_PRIVATE *pwsp=pwsd->pwsp;
-    WS_CONNINFO *pwsc=pwsd->pwsc;
+    WS_CONNINFO *pwsc=(WS_CONNINFO*)arg;
+    WS_PRIVATE *pwsp=pwsc->pwsp;
     char buffer[MAX_LINEBUFFER];
     char *buffp;
     char *first;
@@ -531,8 +513,6 @@ void *ws_dispatcher(void *arg) {
     struct tm now_tm;
     void (*req_handler)(WS_CONNINFO*);
     int(*auth_handler)(char *, char *);
-
-    free(pwsd);
 
     DPRINTF(ERR_DEBUG,"Thread %d: Connection from %s\n",pwsc->threadno,
 	    pwsc->hostname);

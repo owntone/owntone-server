@@ -73,6 +73,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.4  2003/11/20 21:58:22  ron
+  More diag logging, move WS_PRIVATE into the WS_CONNINFO
+
   Revision 1.3  2003/11/17 16:40:09  ron
   add support for named db
 
@@ -295,7 +298,7 @@ enum {
     kDefaultPortNumber = 80
 };
 
-static   mDNSBool  gAvoidPort53      = mDNSfalse;
+static   mDNSBool  gAvoidPort53      = mDNStrue;
 static const char *gRichTextHostName = "";
 static const char *gServiceType      = kDefaultServiceType;
 static mDNSu8      gServiceText[sizeof(RDataBody)];

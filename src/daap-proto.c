@@ -351,6 +351,8 @@ int daap_serialize(DAAP_BLOCK *root, int fd, int gzip) {
 	}
 	free(uncompressed);
     }
+
+    DPRINTF(ERR_DEBUG,"Finished serializing\n");
     return 0;
 }
 
@@ -400,8 +402,12 @@ int daap_free(DAAP_BLOCK *root) {
     if(!root)
 	return;
 
-    if((root->size)&&(root->free))
-	free(root->value);
+    DPRINTF(ERR_DEBUG,"Freeing %c%c%c%c\n",root->tag[0],root->tag[1],
+	    root->tag[2],root->tag[3]);
+
+    if((root->size) && (root->free))
+	free(root->value); /* otherwise, static value */
+
     daap_free(root->children);
     daap_free(root->next);
     free(root);

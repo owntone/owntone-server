@@ -218,7 +218,7 @@ DAAP_BLOCK *daap_response_songlist(void) {
     DPRINTF(ERR_DEBUG,"Preparing to send db items\n");
 
     henum=db_enum_begin();
-    if(!henum) {
+    if((!henum) && (db_get_song_count())) {
 	DPRINTF(ERR_DEBUG,"Can't get enum handle\n");
 	return NULL;
     }

@@ -229,6 +229,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	}
     }
 
+    DPRINTF(ERR_DEBUG,"Finished serving DAAP response\n");
+
     return;
 }
 
@@ -255,7 +257,7 @@ int main(int argc, char *argv[]) {
     WSCONFIG ws_config;
     WSHANDLE server;
     pid_t rendezvous_pid;
-    int use_mdns=1;
+    int use_mdns=0;
     ENUMHANDLE handle;
     MP3FILE *pmp3;
 
