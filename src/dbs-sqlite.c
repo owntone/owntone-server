@@ -810,6 +810,8 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 	size += 12; /* mimc */
 	size += 9;  /* aeSP */
 	size += (8 + strlen(valarray[1])); /* minm */
+	if((valarray[2]) && atoi(valarray[2])) /* MSPS */
+	    size += (8 + strlen(valarray[4]));
 	return size;
 	break;
     case queryTypeItems:
@@ -963,6 +965,8 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
 	current += db_dmap_add_int(current,"mimc",atoi(valarray[3]));
 	current += db_dmap_add_char(current,"aeSP",atoi(valarray[2]));
 	current += db_dmap_add_string(current,"minm",valarray[1]);
+	if((valarray[2]) && atoi(valarray[2]))
+	    current += db_dmap_add_string(current,"MSPS",valarray[4]);
 	break;
     case queryTypeItems:
     case queryTypePlaylistItems:  /* essentially the same query */

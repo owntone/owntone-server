@@ -171,7 +171,7 @@ DAAP_ITEMS taglist[] = {
     { 0x01, "aeSP", "com.apple.itunes.smart-playlist" },
     /* iTunes 4.5+ */
     { 0x01, "msas", "dmap.authenticationschemes" },
-    { 0x05, "ascd", "daap.songcodectype" },
+    { 0x05, "ascd", "daap.songcodectype" }, /* there is a songcodec subtype, too */
     { 0x09, "agrp", "daap.songgrouping" },
     { 0x05, "aeSV", "com.apple.itunes.music-sharing-version" },
     { 0x05, "aePI", "com.apple.itunes.itms-playlistid" },
@@ -179,6 +179,10 @@ DAAP_ITEMS taglist[] = {
     { 0x05, "aeGI", "com.apple.iTunes.itms-genreid" },
     { 0x05, "aeAI", "com.apple.iTunes.itms-artistid" },
     { 0x05, "aeSI", "com.apple.iTunes.itms-songid" },
+
+    /* mt-daapd specific */
+    { 0x09, "MSPS", "org.mt-daapd.smart-playlist-spec" },
+
     { 0x00, NULL,   NULL }
 };
 
@@ -220,6 +224,8 @@ static METAMAP	db_metamap[] = {
     { "daap.songtracknumber",	metaSongTrackNumber },
     { "daap.songuserrating",	metaSongUserRating },
     { "daap.songyear",		metaSongYear },
+    /* mt-daapd specific */
+    { "org.mt-daapd.smart-playlist-spec", metaMTDSmartPlaylistSpec },
     { 0,			0 }
 };
 

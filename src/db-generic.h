@@ -64,7 +64,10 @@ typedef enum {
     metaSongTrackCount,
     metaSongTrackNumber,
     metaSongUserRating,
-    metaSongYear
+    metaSongYear,
+
+    /* mt-daapd specific */
+    metaMTDSmartPlaylistSpec
 } MetaFieldName_t;
 
 typedef enum {
