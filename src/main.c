@@ -796,13 +796,13 @@ int main(int argc, char *argv[]) {
 
     /* open the pidfile, so it can be written once we detach */
     if(!foreground) {
-	daemon_start();
-
 	if(-1 == (pid_fd = open(PIDFILE,O_CREAT | O_WRONLY | O_TRUNC, 0644)))
 	    DPRINTF(E_FATAL,L_MAIN,"Error opening pidfile (%s): %s\n",PIDFILE,strerror(errno));
 
 	if(0 == (pid_fp = fdopen(pid_fd, "w")))
 	    DPRINTF(E_FATAL,L_MAIN,"fdopen: %s\n",strerror(errno));
+
+	daemon_start();
 
 	fprintf(pid_fp,"%d\n",getpid());
 	fclose(pid_fp);
