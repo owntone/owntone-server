@@ -89,6 +89,9 @@
   Change History (most recent first):
 
   $Log$
+  Revision 1.15  2004/03/02 01:35:31  rpedde
+  fix domain
+
   Revision 1.14  2004/03/02 00:03:37  rpedde
   Merge new rendezvous code
 
@@ -335,10 +338,11 @@ static mStatus RegisterOneService(const char *  richTextHostName,
         gServiceList = thisServ;
 
 	DPRINTF(ERR_DEBUG,
-		"Registered service %d, name '%s', type '%s', port %ld\n", 
+		"Registered service %d, name '%s', type '%s', domain '%s', port %ld\n", 
 		thisServ->serviceID, 
 		richTextHostName,
 		serviceType,
+		serviceDomain,
 		portNumber);
     } else {
         if (thisServ != NULL) {
@@ -390,8 +394,8 @@ void rend_callback(void) {
 
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
-	DPRINTF(ERR_DEBUG,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
-	RegisterOneService(msg.name,msg.type,".local",NULL,0,msg.port);
+	DPRINTF(ERR_DEBUG,"Registering %s.%s (%d)\n",msg.name,msg.type,msg.port);
+	RegisterOneService(msg.name,msg.type,"local.",NULL,0,msg.port);
 	rend_send_response(0); /* success */
 	break;
     case REND_MSG_TYPE_UNREGISTER:
@@ -475,7 +479,7 @@ int rend_private_init(char *user) {
 	}
     }
     
-    DPRINTF(ERR_DEBUG,"Exiting");
+    DPRINTF(ERR_DEBUG,"Exiting\n");
     
     DeregisterOurServices();
     mDNS_Close(&mDNSStorage);
