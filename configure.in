@@ -14,9 +14,10 @@ AC_CANONICAL_HOST
 AC_ARG_ENABLE(debug,Enable debugging features,CPPFLAGS="$CPPFLAGS -DDEBUG -g")
 
 dnl Darwin's stupid cpp preprocessor....
+echo Host type is $host
 case $host in
 *darwin*)
-	CPPFLAGS="$CPPFLAGS -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN";;
+	CPPFLAGS="$CPPFLAGS -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN -DHAVE_SOCKLEN_T";;
 esac
 
 dnl Checks for libraries.

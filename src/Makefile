@@ -38,10 +38,10 @@ pkglibdir = $(libdir)/mt-daapd
 pkgincludedir = $(includedir)/mt-daapd
 top_builddir = ..
 
-ACLOCAL = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run aclocal-1.6
-AUTOCONF = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run autoconf
-AUTOMAKE = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run automake-1.6
-AUTOHEADER = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run autoheader
+ACLOCAL = aclocal-1.6
+AUTOCONF = autoconf
+AUTOMAKE = automake-1.6
+AUTOHEADER = autoheader
 
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
 INSTALL = /sw/bin/install -c
@@ -60,12 +60,12 @@ NORMAL_UNINSTALL = :
 PRE_UNINSTALL = :
 POST_UNINSTALL = :
 host_alias = 
-host_triplet = powerpc-apple-darwin6.8
+host_triplet = powerpc-apple-darwin7.0.0
 
 EXEEXT = 
 OBJEXT = o
 PATH_SEPARATOR = :
-AMTAR = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run tar
+AMTAR = tar
 AWK = awk
 CC = gcc
 DEPDIR = .deps
@@ -76,7 +76,7 @@ VERSION = 0.1.0
 V_NETLIBS = 
 am__include = include
 am__quote = 
-install_sh = /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/install-sh
+install_sh = /Users/ron/Documents/School/cs4953 - Concurrency/mt-daapd/install-sh
 
 # $Id$
 #
@@ -101,7 +101,7 @@ mt_daapd_LDFLAGS =
 
 DEFS = -DHAVE_CONFIG_H
 DEFAULT_INCLUDES =  -I. -I$(srcdir) -I$(top_builddir)
-CPPFLAGS =  -DDEBUG -g -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN
+CPPFLAGS =  -DDEBUG -g -no-cpp-precomp -DHAVE_SOCKADDR_SA_LEN -DHAVE_SOCKLEN_T
 LDFLAGS =  -lpthread
 LIBS = 
 depcomp = $(SHELL) $(top_srcdir)/depcomp
@@ -227,7 +227,7 @@ mDNSUNP.obj: mdns/mDNSUNP.c
 	depfile='$(DEPDIR)/mDNSUNP.Po' tmpdepfile='$(DEPDIR)/mDNSUNP.TPo' \
 	$(CCDEPMODE) $(depcomp) \
 	$(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS) -c -o mDNSUNP.obj `cygpath -w mdns/mDNSUNP.c`
-CCDEPMODE = depmode=gcc
+CCDEPMODE = depmode=gcc3
 uninstall-info-am:
 
 ETAGS = etags
