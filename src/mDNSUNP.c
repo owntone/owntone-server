@@ -23,8 +23,8 @@
     Change History (most recent first):
 
 $Log$
-Revision 1.3  2005/02/21 08:10:34  rpedde
-integrate server-side conversion patches, -Wall cleanups, AMD64 fixes, and xml-rpc cleanups
+Revision 1.4  2005/03/05 06:37:37  rpedde
+Roll back patch - breaks fbsd
 
 Revision 1.2  2005/01/10 01:07:01  rpedde
 Synchronize mDNS to Apples 58.8 drop
@@ -154,7 +154,8 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
     for (ptr = buf; ptr < buf + ifc.ifc_len; ) {
         ifr = (struct ifreq *) ptr;
 
-        ptr += sizeof(*ifr);
+		len = GET_SA_LEN(ifr->ifr_addr);
+        ptr += sizeof(ifr->ifr_name) + len; /* for next one in buffer */
     
 //        fprintf(stderr, "intf %d name=%s AF=%d\n", index, ifr->ifr_name, ifr->ifr_addr.sa_family);
         
