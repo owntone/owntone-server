@@ -190,7 +190,7 @@ DAAP_BLOCK *daap_response_login(void) {
     root=daap_add_empty(NULL,"mlog");
     if(root) {
 	g = (int)daap_add_int(root,"mstt",200);
-	g = g && daap_add_int(root,"mlid",7);  /* static id! */
+	g = g && daap_add_int(root,"mlid",config_get_next_session());
     }
 
     if(!g) {
