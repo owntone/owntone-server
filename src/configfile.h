@@ -22,8 +22,9 @@
 #ifndef _CONFIGFILE_H_
 #define _CONFIGFILE_H_
 
-extern int config_read(char *file);
-extern int config_write(void);
-extern int config_change(void);
+#include "daapd.h"
+
+extern int config_read(char *file, CONFIG *pconfig);
+extern int config_write(CONFIG *pconfig);
 
 #endif /* _CONFIGFILE_H_ */

@@ -19,6 +19,7 @@ pid_t r_waitpid(pid_t pid, int *stat_loc, int options);
 ssize_t r_write(int fd, void *buf, size_t size);
 ssize_t readblock(int fd, void *buf, size_t size);
 int readline(int fd, char *buf, int nbytes);
+int readlinetimed(int fd, char *buf, int nbytes, double seconds);
 ssize_t readtimed(int fd, void *buf, size_t nbyte, double seconds);
 int readwrite(int fromfd, int tofd);
 int readwriteblock(int fromfd, int tofd, char *buf, int size);

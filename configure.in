@@ -44,4 +44,4 @@ AC_CHECK_LIB(socket,socket,V_NETLIBS="-lsocket $V_NETLIBS",,)
 
 AC_SUBST(V_NETLIBS)
 
-AC_OUTPUT(src/Makefile Makefile)
+AC_OUTPUT(src/Makefile docs/Makefile Makefile)

@@ -22,7 +22,6 @@
 #ifndef _WEBSERVER_H_
 #define _WEBSERVER_H_
 
-
 /*
  * Defines
  */
@@ -47,10 +46,13 @@ typedef struct tag_arglist {
 } ARGLIST;
 
 typedef struct tag_ws_conninfo {
+    int threadno;
+    int error;
     int fd;
     int request_type;
     char *uri;
     char *hostname;
+    int close;
     ARGLIST request_headers;
     ARGLIST response_headers;
     ARGLIST request_vars;
@@ -62,9 +64,19 @@ typedef void* WSHANDLE;
  * Externs
  */
 
+#define WS_REQ_HANDLER void (*)(WS_CONNINFO *)
+#define WS_AUTH_HANDLER int (*)(char *, char *)
+
 extern WSHANDLE ws_start(WSCONFIG *config);
 extern int ws_stop(WSHANDLE ws);
+extern int ws_registerhandler(WSHANDLE ws, char *regex, 
+			      void(*handler)(WS_CONNINFO*),
+			      int(*auth)(char *, char *));
+
+/* for handlers */
 extern void ws_close(WS_CONNINFO *pwsc);
 extern int ws_returnerror(WS_CONNINFO *pwsc, int error, char *description);
-
+extern int ws_addresponseheader(WS_CONNINFO *pwsc, char *header, char *val);
+extern int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...);
+extern char *ws_getvar(WS_CONNINFO *pwsc, char *var);
 #endif /* _WEBSERVER_H_ */

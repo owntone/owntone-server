@@ -38,10 +38,10 @@ pkglibdir = $(libdir)/mt-daapd
 pkgincludedir = $(includedir)/mt-daapd
 top_builddir = ..
 
-ACLOCAL = aclocal-1.6
-AUTOCONF = autoconf
-AUTOMAKE = automake-1.6
-AUTOHEADER = autoheader
+ACLOCAL = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run aclocal-1.6
+AUTOCONF = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run autoconf
+AUTOMAKE = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run automake-1.6
+AUTOHEADER = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run autoheader
 
 am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
 INSTALL = /sw/bin/install -c
@@ -65,7 +65,7 @@ host_triplet = powerpc-apple-darwin6.8
 EXEEXT = 
 OBJEXT = o
 PATH_SEPARATOR = :
-AMTAR = tar
+AMTAR = ${SHELL} /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/missing --run tar
 AWK = awk
 CC = gcc
 DEPDIR = .deps
@@ -76,13 +76,13 @@ VERSION = 0.1.0
 V_NETLIBS = 
 am__include = include
 am__quote = 
-install_sh = /Users/ron/Documents/School/cs4953 - Concurrency/mt-daapd/install-sh
+install_sh = /Users/ron/Documents/School/cs4953-Concurrency/mt-daapd/install-sh
 
 # $Id$
 #
 sbin_PROGRAMS = mt-daapd
 
-mt_daapd_SOURCES = main.c uici.c webserver.c configfile.c err.c
+mt_daapd_SOURCES = main.c uici.c webserver.c configfile.c err.c restart.c
 subdir = src
 mkinstalldirs = $(SHELL) $(top_srcdir)/mkinstalldirs
 CONFIG_HEADER = $(top_builddir)/config.h
@@ -91,7 +91,7 @@ sbin_PROGRAMS = mt-daapd$(EXEEXT)
 PROGRAMS = $(sbin_PROGRAMS)
 
 am_mt_daapd_OBJECTS = main.$(OBJEXT) uici.$(OBJEXT) webserver.$(OBJEXT) \
-	configfile.$(OBJEXT) err.$(OBJEXT)
+	configfile.$(OBJEXT) err.$(OBJEXT) restart.$(OBJEXT)
 mt_daapd_OBJECTS = $(am_mt_daapd_OBJECTS)
 mt_daapd_LDADD = $(LDADD)
 mt_daapd_DEPENDENCIES =
@@ -105,8 +105,8 @@ LIBS =
 depcomp = $(SHELL) $(top_srcdir)/depcomp
 am__depfiles_maybe = depfiles
 DEP_FILES = ./$(DEPDIR)/configfile.Po ./$(DEPDIR)/err.Po \
-	./$(DEPDIR)/main.Po ./$(DEPDIR)/uici.Po \
-	./$(DEPDIR)/webserver.Po
+	./$(DEPDIR)/main.Po ./$(DEPDIR)/restart.Po \
+	./$(DEPDIR)/uici.Po ./$(DEPDIR)/webserver.Po
 COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
 	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 CCLD = $(CC)
@@ -162,6 +162,7 @@ distclean-compile:
 include ./$(DEPDIR)/configfile.Po
 include ./$(DEPDIR)/err.Po
 include ./$(DEPDIR)/main.Po
+include ./$(DEPDIR)/restart.Po
 include ./$(DEPDIR)/uici.Po
 include ./$(DEPDIR)/webserver.Po
 
@@ -322,10 +323,6 @@ uninstall-am: uninstall-info-am uninstall-sbinPROGRAMS
 	mostlyclean-generic tags uninstall uninstall-am \
 	uninstall-info-am uninstall-sbinPROGRAMS
 
-#netview_LDADD = -ldotconf -lpcap -lncurses
-
-# This should be autoconfiscated
-#INCLUDES = -I/usr/include/pcap
 # Tell versions [3.59,3.63) of GNU make to not export all variables.
 # Otherwise a system limit (for SysV at least) may be exceeded.
 .NOEXPORT:

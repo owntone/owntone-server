@@ -19,27 +19,111 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "configfile.h"
+#include "err.h"
+
+/*
+ * Defines
+ */
+
+#define MAX_LINE 1024
+
 
 /*
  * config_read
  *
- * Read the specified config file.  
+ * Read the specified config file, padding the config structure
+ * appropriately.
  *
  * This function returns 0 on success, errorcode on failure
  */
-int config_read(char *file);
+int config_read(char *file, CONFIG *pconfig) {
+    FILE *fin;
+    char *buffer;
+    int err;
+    char *value;
+    char *comment;
+    err=0;
+
+    buffer=(char*)malloc(MAX_LINE);
+    if(!buffer)
+	return -1;
+
+    if((fin=fopen(file,"r")) == NULL) {
+	err=errno;
+	free(buffer);
+	errno=err;
+	return -1;
+    }
+
+    memset(pconfig,0,sizeof(CONFIG));
+
+    pconfig->configfile=strdup(file);
+
+    while(fgets(buffer,MAX_LINE,fin)) {
+	if(*buffer != '#') {
+	    value=buffer;
+	    strsep(&value,"\t ");
+	    if(value) {
+		while((*value==' ')||(*value=='\t'))
+		    value++;
+
+		comment=value;
+		strsep(&comment,"#");
+
+		if(value[strlen(value)-1] == '\n')
+		    value[strlen(value)-1] = '\0';
+
+		if(!strcasecmp(buffer,"web_root")) {
+		    pconfig->web_root=strdup(value);
+		    DPRINTF(ERR_DEBUG,"Web root: %s\n",value);
+		} else if(!strcasecmp(buffer,"port")) {
+		    pconfig->port=atoi(value);
+		    DPRINTF(ERR_DEBUG,"Port: %d\n",pconfig->port);
+		} else if(!strcasecmp(buffer,"admin_password")) {
+		    pconfig->adminpassword=strdup(value);
+		    DPRINTF(ERR_DEBUG,"Admin pw: %s\n",value);
+		} else {
+		    DPRINTF(ERR_INFO,"Bad config directive: %s\n",buffer);
+		}
+	    }
+	}
+    }
+
+    fclose(fin);
+
+    if(!pconfig->web_root) {
+	fprintf(stderr,"Config: missing web_root entry\n");
+	errno=EINVAL;
+	err=-1;
+    }
+
+    if(!pconfig->adminpassword) {
+	fprintf(stderr,"Config: missing admin_password entry\n");
+	errno=EINVAL;
+	err=-1;
+    }
+
+    if(!pconfig->port) {
+	fprintf(stderr,"Config: missing port entry\n");
+	errno=EINVAL;
+	err=-1;
+    }
+
+    return err;
+}
+
 
 /*
  * config_write
  *
  */
-int config_write(void);
+int config_write(CONFIG *pconfig) {
+    return 0;
+}
 
-/*
- * config_change
- *
- */
-int config_change(void);

@@ -31,6 +31,7 @@ typedef struct tag_songentry {
 
 typedef struct tag_config {
     char *configfile;
+    char *web_root;
     int port;
     char *adminpassword;
     char *readpassword;
