@@ -5,6 +5,7 @@ BUILT_SOURCES=parser.h
 AM_YFLAGS=-d
 
 sbin_PROGRAMS = mt-daapd
+bin_PROGRAMS = wavstreamer
 
 if COND_REND_POSIX
 PRENDSRC=mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c mDNSUNP.c rend-posix.c mDNSPlatformFunctions.h rend-unix.c
@@ -25,6 +26,8 @@ endif
 if COND_FLAC
 FLACSRC=flac.c
 endif
+
+wavstreamer_SOURCES = wavstreamer.c
 
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
