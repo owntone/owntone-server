@@ -282,6 +282,27 @@ int config_read(char *file) {
     }
     
 
+    /* sanity check the paths */
+    sprintf(path_buffer,"%s/index.html",config.web_root);
+    if((fin=fopen(path_buffer,"r")) == NULL) {
+	err=-1;
+	DPRINTF(E_LOG,L_CONF,"Invalid web_root\n");
+
+	/* check for the common error */
+	if(strcasecmp(config.web_root,"/usr/share/mt-daapd/admin-root") == 0) {
+	    /* see if /usr/local is any better */
+	    if((fin=fopen("/usr/local/share/mt-daapd/admin-root","r")) != NULL) {
+		fclose(fin);
+		DPRINTF(E_LOG,L_CONF,"Should it be /usr/local/share/mt-daapd/admin-root?");
+	    }
+	}
+    } else {
+	fclose(fin);
+    }
+
+    /* should really check the mp3 path */
+
+
     return err;
 }
 
