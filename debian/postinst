@@ -1,0 +1,12 @@
+#!/bin/sh -e
+
+action="$1"
+CONF=/etc/mt-daapd.conf
+PLAY=/etc/mt-daapd.playlist
+
+case "$1" in
+    configure)
+        if [ ! -f $CONF ] ; then cp /usr/share/doc/mt-daapd/mt-daapd.conf $CONF; fi
+        if [ ! -f $PLAY ] ; then cp /usr/share/doc/mt-daapd/mt-daapd.playlist $PLAY; fi
+    ;;
+esac
