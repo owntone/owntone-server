@@ -149,10 +149,12 @@ int scan_foreground(char *path) {
 		    mp3file.fname=de.d_name;
 		    
 		    /* Do the tag lookup here */
-		    scan_gettags(mp3file.path,&mp3file);
-		    scan_getfileinfo(mp3file.path,&mp3file);
-		    
-		    db_add(&mp3file);
+		    if(!scan_gettags(mp3file.path,&mp3file) && 
+		       !scan_getfileinfo(mp3file.path,&mp3file)) {
+			db_add(&mp3file);
+		    } else {
+			DPRINTF(ERR_INFO,"Skipping %s\n",de.d_name);
+		    }
 		    
 		    scan_freetags(&mp3file);
 		}
@@ -259,8 +261,8 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     FILE *infile;
     SCAN_ID3HEADER *pid3;
     unsigned int size=0;
-    fpos_t fp_size=0;
-    fpos_t file_size;
+    long fp_size;
+    long file_size;
     unsigned char buffer[256];
     int time_seconds;
 
@@ -292,8 +294,6 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
     fread(buffer,1,sizeof(buffer),infile);
 
     if((buffer[0] == 0xFF)&&(buffer[1] >= 224)) {
-	printf("Found sync frame\n");
-
 	ver=(buffer[1] & 0x18) >> 3;
 	layer=(buffer[1] & 0x6) >> 1;
 	if((ver==3) && (layer==1)) { /* MPEG1, Layer 3 */
@@ -313,6 +313,9 @@ int scan_getfileinfo(char *file, MP3FILE *pmp3) {
 	    }
 	    pmp3->bitrate=bitrate;
 	    pmp3->samplerate=samplerate;
+	} else {
+	    /* not an mp3... */
+	    return -1;
 	}
 
 	/* guesstimate the file length */
