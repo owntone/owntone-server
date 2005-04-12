@@ -692,6 +692,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 	       ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
 		fstat(img_fd, &sb);
 		img_size = sb.st_size;
+		r_close(img_fd);
 		
 		if (strncasecmp(pmp3->type,"mp3",4) ==0) {
                     /*PENDING*/
