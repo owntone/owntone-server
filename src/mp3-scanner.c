@@ -312,6 +312,9 @@ extern int scan_get_flacfileinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_flactags(char *filename, MP3FILE *pmp3);
 #endif
 
+/** \see wma.c */
+int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
+
 
 /* For known types, I'm gong to use the "official" apple
  * daap.songformat, daap.songdescription, and daap.songcodecsubtype.
@@ -340,6 +343,7 @@ static TAGHANDLER taghandlers[] = {
     { "m4p", scan_get_aactags, scan_get_aacfileinfo, "m4p", "mp4a", "AAC audio file" },
     { "mp3", scan_get_mp3tags, scan_get_mp3fileinfo, "mp3", "mpeg", "MPEG audio file" },
     { "wav", scan_get_nultags, scan_get_wavfileinfo, "wav", "wav", "WAV audio file" },
+    { "wma", scan_get_nultags, scan_get_wmainfo, "wma", "wma", "WMA audio file" },
     { "url", scan_get_nultags, scan_get_urlfileinfo, "pls", NULL, "Playlist URL" },
     { "pls", scan_get_nultags, scan_get_urlfileinfo, "pls", NULL, "Playlist URL" },
 #ifdef OGGVORBIS
