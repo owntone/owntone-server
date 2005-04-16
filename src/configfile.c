@@ -94,8 +94,8 @@ typedef struct tag_contenttypes {
 } CONTENTTYPES;
 
 CONTENTTYPES config_default_types[] = {
-    { ".css", "text/css" },
-    { ".txt", "text/plain" },
+    { ".css", "text/css; charset=utf-8" },
+    { ".txt", "text/plain; charset=utf-8" },
     { NULL, NULL }
 };
 
