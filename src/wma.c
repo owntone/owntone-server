@@ -248,6 +248,7 @@ unsigned long long wma_convert_ll(unsigned char *src);
 unsigned char *wma_utf16toutf8(char *utf16, int len);
 int wma_parse_content_description(int fd,int size, MP3FILE *pmp3);
 int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3);
+int wma_parse_file_properteis(int fd,int size, MP3FILE *pmp3);
 
 
 /**
@@ -488,6 +489,42 @@ int wma_parse_content_description(int fd,int size, MP3FILE *pmp3) {
 }
 
 /**
+ * parse the file properties object.  this is an object that
+ * contains playtime and bitrate, primarily.
+ *
+ * \param fd fd of the file we are reading from -- positioned at start
+ * \param size size of the content description block
+ * \param pmp3 the mp3 struct we are filling with gleaned data
+ */
+int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
+    long long play_duration;
+    int max_bitrate;
+
+    /* skip guid (16 bytes), filesize (8), creation time (8),
+     * data packets (8) 
+     */
+    lseek(fd,40,SEEK_CUR);
+
+    /* we'll ignore the preroll */
+    if(!wma_file_read_ll(fd, &play_duration))
+	return -1;
+
+    pmp3->song_length = (int) (play_duration / 10000);
+    
+    /* skip send_duration (8), preroll (8), flags(4),
+     * min_packet_size (4), max_packet_size(4)
+     */
+
+    lseek(fd,28,SEEK_CUR);
+    if(!wma_file_read_int(fd,&max_bitrate))
+	return -1;
+
+    pmp3->bitrate = max_bitrate/1000;
+
+    return 0;
+}
+
+/**
  * convert utf16 string to utf8.  This is a bit naive, but...
  * Since utf-8 can't expand past 4 bytes per code point, and
  * we're converting utf-16, we can't be more than 2n+1 bytes, so
@@ -497,7 +534,7 @@ int wma_parse_content_description(int fd,int size, MP3FILE *pmp3) {
  * always work.  Besides, these are small strings, and will be freed
  * after the db insert.
  *
- * We assume this is utf-16LE
+ * We assume this is utf-16LE, as it comes from windows
  *
  * \param utf16 utf-16 to convert
  * \param len length of utf-16 string
@@ -536,9 +573,9 @@ unsigned char *wma_utf16toutf8(char *utf16, int len) {
 	    }
 
 	    /* get bottom 10 of each */
-	    w1 = w1 & 0x3FFF;
+	    w1 = w1 & 0x03FF;
 	    w1 = w1 << 10;
-	    w1 = w1 | (w2 & 0x3FFF);
+	    w1 = w1 | (w2 & 0x03FF);
 
 	    /* add back the 0x10000 */
 	    w1 += 0x10000;
@@ -648,6 +685,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     long offset=0;
     int item;
     int err;
+    int res=0;
 
     wma_fd = r_open2(filename,O_RDONLY);
     if(wma_fd == -1) {
@@ -704,9 +742,11 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 	if(pguid) {
 	    DPRINTF(E_DBG,L_SCAN,"Found subheader: %s\n",pguid->name);
 	    if(strcmp(pguid->name,"ASF_Content_Description_Object")==0) {
-		wma_parse_content_description(wma_fd,subhdr.size,pmp3);
+		res |= wma_parse_content_description(wma_fd,subhdr.size,pmp3);
 	    } else if (strcmp(pguid->name,"ASF_Extended_Content_Description_Object")==0) {
-		wma_parse_extended_content_description(wma_fd,subhdr.size,pmp3);
+		res |= wma_parse_extended_content_description(wma_fd,subhdr.size,pmp3);
+	    } else if (strcmp(pguid->name,"ASF_File_Properties_Object")==0) {
+		res |= wma_parse_file_properties(wma_fd,subhdr.size,pmp3);
 	    }
 	} else {
 	    DPRINTF(E_DBG,L_SCAN,"Unknown subheader: %02hhx%02hhx%02hhx%02hhx-"
@@ -726,8 +766,14 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     }
 
 
-    DPRINTF(E_DBG,L_SCAN,"Successfully parsed file\n");
+    if(res) {
+	DPRINTF(E_INF,L_SCAN,"Error reading meta info for file %s\n",
+		filename);
+    } else {
+	DPRINTF(E_DBG,L_SCAN,"Successfully parsed file\n");
+    }
+
     r_close(wma_fd);
     
-    return 0;
+    return res;
 }
