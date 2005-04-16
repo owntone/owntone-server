@@ -471,10 +471,10 @@ int scan_path(char *path) {
 			if((!pmp3) || (pmp3->db_timestamp < modified_time) || 
 			   (pmp3->force_update)) {
 			    scan_music_file(path,pde,&sb);
-			    db_dispose_item(pmp3);
 			} else {
 			    DPRINTF(E_DBG,L_SCAN,"Skipping file... not modified\n");
 			}
+			db_dispose_item(pmp3);
 		    }
 		}
 	    }

@@ -30,6 +30,7 @@
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <netinet/in.h>
 
 #include "db-generic.h"
 #include "configfile.h"
