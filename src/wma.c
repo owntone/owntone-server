@@ -413,6 +413,14 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
 	    MAYBEFREE(pmp3->artist);
 	    pmp3->artist = descriptor_byte_value;
 	    descriptor_byte_value = NULL;
+	} else if(!strcasecmp(descriptor_name,"wm/contengroupdescription")==0) {
+	    MAYBEFREE(pmp3->grouping);
+	    pmp3->grouping = descriptor_byte_value;
+	    descriptor_byte_value = NULL;
+	} else if(!strcasecmp(descriptor_name,"comment")==0) {
+	    MAYBEFREE(pmp3->comment);
+	    pmp3->comment = descriptor_byte_value;
+	    descriptor_byte_value = NULL;
 	}
 
 	/* cleanup - done with this round */
