@@ -30,7 +30,8 @@
  * externs
  */
 extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
-
+extern int scan_get_ogginfo(char *filename, MP3FILE *pmp3);
+extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
 
 /* 
  * Typedefs
@@ -46,6 +47,9 @@ typedef struct scannerlist_tag {
  */
 SCANNERLIST scanner_list[] = {
     { "wma",scan_get_wmainfo },
+    { "flac",scan_get_flacinfo },
+    { "fla",scan_get_flacinfo },
+    { "ogg",scan_get_ogginfo },
     { NULL, NULL }
 };
 char *av0;

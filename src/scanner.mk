@@ -1,6 +1,7 @@
 CC=gcc
-CFLAGS=-g
+CFLAGS := $(CFLAGS) -g
+LDFLAGS := $(LDFLAGS) -logg -lvorbisfile -lFLAC
 
-scanner:	scanner-driver.o restart.o wma.o err.o
-	$(CC) -o scanner scanner-driver.o restart.o wma.o err.o
+scanner:	scanner-driver.o restart.o wma.o err.o flac.o ogg.o
+	$(CC) -o scanner $(LDFLAGS) scanner-driver.o restart.o wma.o err.o flac.o ogg.o
 
