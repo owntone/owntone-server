@@ -26,6 +26,7 @@
 #define _XOPEN_SOURCE 500
 
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -37,6 +38,7 @@
 #include "mp3-scanner.h"
 #include "db-generic.h"
 #include "dbs-sqlite.h"
+#include "restart.h"
 #include "ssc.h"
 
 /* Globals */
@@ -45,6 +47,8 @@ static pthread_mutex_t db_sqlite_mutex = PTHREAD_MUTEX_INITIALIZER; /**< sqlite 
 static sqlite_vm *db_sqlite_pvm;
 static int db_sqlite_in_scan=0;
 static int db_sqlite_reload=0;
+
+static char db_path[PATH_MAX + 1];
 
 /* Forwards */
 int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray);
@@ -205,9 +209,8 @@ int db_sqlite_get_int(int loglevel, int *result, char *fmt, ...) {
  * open sqlite database
  */
 int db_sqlite_open(char *parameters) {
-    char db_path[PATH_MAX + 1];
     char *perr;
-    
+
     snprintf(db_path,sizeof(db_path),"%s/songs.db",parameters);
     
     db_sqlite_lock();
@@ -313,9 +316,9 @@ int db_sqlite_end_scan(void) {
  * \param type playlist type: 0 - static, 1 - smart, 2 - m3u
  * \param clause: "where" clause for smart playlist
  */
-int db_sqlite_add_playlist(char *name, int type, char *clause, int *playlistid) {
+int db_sqlite_add_playlist(char *name, int type, char *clause, char *path, int *playlistid) {
     int cnt=0;
-    int result;
+    int result=DB_E_SUCCESS;
 
     db_sqlite_get_int(E_DBG,&cnt,"select count(*) from playlists where "
 		      "upper(title)=upper('%q')",name);
@@ -324,14 +327,20 @@ int db_sqlite_add_playlist(char *name, int type, char *clause, int *playlistid) 
     if((type == 1) && (!clause)) return DB_E_NOCLAUSE;
 
     /* Let's throw it in  */
-    if(type == 1) {
+    switch(type) {
+    case 0: /* static, maintained in web interface */
+    case 2: /* static, from file */
+	result = db_sqlite_exec(E_LOG,"insert into playlists "
+				"(title,type,items,query,db_timestamp,path) "
+				"values ('%q',0,0,NULL,%d)",name,time(NULL),path);
+	break;
+    case 1: /* smart */
 	result=db_sqlite_get_int(E_DBG,&cnt,"select count (*) from songs where %s",clause);
 	if(result != DB_E_SUCCESS) return result;
-	result = db_sqlite_exec(E_LOG,"insert into playlists (title,smart,items,query) "
-				"values ('%q',1,%d,'%q')",name,cnt,clause);
-    } else {
-	result = db_sqlite_exec(E_LOG,"insert into playlists (title,smart,items,query) "
-				"values ('%q',0,0,NULL)",name);
+	result = db_sqlite_exec(E_LOG,"insert into playlists "
+				"(title,type,items,query,db_timestamp) "
+				"values ('%q',1,%d,'%q',%d)",name,cnt,clause,time(NULL));
+	break;
     }
 
     if(result)
@@ -357,7 +366,7 @@ int db_sqlite_add_playlist_item(int playlistid, int songid) {
 
     /* first, check the playlist */
     result=db_sqlite_get_int(E_DBG,&playlist_type,
-			     "select smart from playlists where id=%d",playlistid);
+			     "select type from playlists where id=%d",playlistid);
 
     if(result != DB_E_SUCCESS) {
 	if(result == DB_E_NOROWS)
@@ -365,7 +374,7 @@ int db_sqlite_add_playlist_item(int playlistid, int songid) {
 	return result;
     }
 
-    if(playlist_type == 1)       /* can't add to smart playlists */
+    if(playlist_type != 0)       /* can't add to smart playlists, or static */
 	return DB_E_INVALIDTYPE;
 
     /* make sure the songid is valid */
@@ -591,7 +600,7 @@ int db_sqlite_update_playlists(void) {
 
     for(index=1;index <= rows; index ++) {
 	DPRINTF(E_DBG,L_DB,"Updating playlist counts for %s\n",resarray[cols * index + 1]);
-	if(atoi(resarray[cols * index + 2])) { // is a smart playlist
+	if(atoi(resarray[cols * index + 2]) == 1) { // is a smart playlist
 	    db_sqlite_exec(E_FATAL,"UPDATE playlists SET items=(SELECT COUNT(*) "
 			   "FROM songs WHERE %s) WHERE id=%s",resarray[cols * index + 4],
 			   resarray[cols * index]);
@@ -649,7 +658,7 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
 
     case queryTypePlaylistItems:  /* Figure out if it's smart or dull */
 	db_sqlite_lock();
-	sprintf(scratch,"SELECT smart,query FROM playlists WHERE id=%d",pinfo->playlist_id);
+	sprintf(scratch,"SELECT type,query FROM playlists WHERE id=%d",pinfo->playlist_id);
 	DPRINTF(E_DBG,L_DB,"Executing %s\n",scratch);
 	err=sqlite_get_table(db_sqlite_songs,scratch,&resarray,&rows,&cols,&perr);
 	if(err != SQLITE_OK) {
@@ -657,7 +666,7 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
 	    db_sqlite_unlock();
 	    return -1;
 	}
-	is_smart=atoi(resarray[2]); 
+	is_smart=(atoi(resarray[2]) == 1); 
 	have_clause=1;
 	if(is_smart) {
 	    sprintf(query_select,"SELECT * FROM songs ");
@@ -1506,7 +1515,7 @@ char *db_sqlite_upgrade_scripts[] = {
     "CREATE TABLE playlists (\n"
     "   id    	       INTEGER PRIMARY KEY NOT NULL,\n"
     "   title	       VARCHAR(255) NOT NULL,\n"
-    "   smart	       INTEGER NOT NULL,\n"
+    "   type	       INTEGER NOT NULL,\n"
     "   items	       INTEGER NOT NULL,\n"
     "   query	       VARCHAR(1024)\n"
     "   db_timestamp   INTEGER NOT NULL,\n"
@@ -1524,6 +1533,11 @@ char *db_sqlite_upgrade_scripts[] = {
  * \param from_version the current version of the database
  */
 int db_sqlite_update_version(int from_version) {
+    char db_new_path[PATH_MAX + 1];
+    int from_fd, to_fd;
+    int copied=0;
+    int result;
+
     if(from_version > (sizeof(db_sqlite_upgrade_scripts)/sizeof(char*))) {
 	DPRINTF(E_FATAL,L_DB,"Database version too new (time machine, maybe?)\n");
     }
@@ -1531,9 +1545,42 @@ int db_sqlite_update_version(int from_version) {
     while(db_sqlite_upgrade_scripts[from_version]) {
 	DPRINTF(E_LOG,L_DB,"Upgrading database from version %d to version %d\n",from_version,
 		from_version+1);
-	db_sqlite_exec(E_FATAL,db_sqlite_upgrade_scripts[from_version]);
+
+	if(!copied) {
+	    /* copy original version */
+	    sprintf(db_new_path,"%s.version-%02d",db_path,from_version);
+	    from_fd=r_open2(db_path,O_RDONLY);
+	    to_fd=r_open2(db_new_path,O_RDWR);
+
+	    if((from_fd == -1) || (to_fd == -1)) {
+		DPRINTF(E_FATAL,L_DB,"Could not make backup copy of database (%s).  Check write permissions for runas user.\n",db_new_path);
+	    }
+
+	    while((result=readwrite(from_fd, to_fd) > 0));
+	    
+	    if(result == -1) {
+		DPRINTF(E_FATAL,L_DB,"Could not make backup copy of database (%s)\n",
+			strerror(errno));
+	    }
+
+	    r_close(from_fd);
+	    r_close(to_fd);
+	    
+	    copied=1;
+	}
+
+	if(db_sqlite_exec(E_LOG,db_sqlite_upgrade_scripts[from_version])!=DB_E_SUCCESS) {
+	    DPRINTF(E_FATAL,L_DB,"Error upgrading database.  A backup copy of your "
+		    "original database is located at %s.  Please save it somewhere "
+		    "and report to the forums at www.mt-daapd.org.  Thanks.",
+		    db_new_path);
+	}
 	from_version++;
     }
+
+    /* removed our backup file */
+    if(copied)   
+	unlink(db_new_path);
 
     return 0;
 }

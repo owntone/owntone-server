@@ -835,7 +835,7 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     name=ws_getvar(pwsc,"dmap.itemname");
     query=ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
 
-    retval=db_add_playlist(name,type,query,&playlistid);
+    retval=db_add_playlist(name,type,query,NULL,&playlistid);
     if(retval != DB_E_SUCCESS) {
 	DPRINTF(E_LOG,L_DAAP,"error adding playlist.  aborting\n");
 	ws_returnerror(pwsc,500,"error adding playlist");
