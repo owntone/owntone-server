@@ -230,6 +230,8 @@ int db_sqlite_init(int reload) {
     int items;
     int rescan=0;
 
+    /* make sure we have an index... might not if aborted during scan */
+    db_sqlite_exec(E_DBG,"CREATE INDEX idx_path ON songs(path)");
     db_sqlite_update_version(db_sqlite_get_version());
     db_sqlite_get_int(E_DBG,&rescan,"SELECT value FROM config WHERE term='rescan'");
 
@@ -899,9 +901,10 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 	if(db_wantsmeta(pinfo->meta, metaItunesSmartPlaylist))
 	    size += 9;  /* aeSP */
 	if(db_wantsmeta(pinfo->meta, metaItemName))
-	    size += (8 + strlen(valarray[1])); /* minm */
-	if(valarray[2] && atoi(valarray[2]) && db_wantsmeta(pinfo->meta, metaMPlaylistSpec))
-	    size += (8 + strlen(valarray[4])); /* MSPS */
+	    size += (8 + strlen(valarray[plTitle])); /* minm */
+	if(valarray[plType] && (atoi(valarray[plType])==1) && 
+	   db_wantsmeta(pinfo->meta, metaMPlaylistSpec))
+	    size += (8 + strlen(valarray[plQuery])); /* MSPS */
 	if(db_wantsmeta(pinfo->meta, metaMPlaylistType)) 
 	    size += 9; /* MPTY */
 	return size;
@@ -1045,6 +1048,7 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
     unsigned char *current = presult;
     int transcode;
     int samplerate=0;
+    int smart;
 
     switch(pinfo->query_type) {
     case queryTypeBrowseArtists: /* simple 'mlit' entry */
@@ -1056,16 +1060,21 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
 	/* do I want to include the mlit? */
 	current += db_dmap_add_container(current,"mlit",len - 8);
 	if(db_wantsmeta(pinfo->meta,metaItemId))
-	    current += db_dmap_add_int(current,"miid",atoi(valarray[0]));
-	current += db_dmap_add_int(current,"mimc",atoi(valarray[3]));
-	if(db_wantsmeta(pinfo->meta,metaItunesSmartPlaylist))
-	    current += db_dmap_add_char(current,"aeSP",atoi(valarray[2]));
+	    current += db_dmap_add_int(current,"miid",atoi(valarray[plID]));
+	current += db_dmap_add_int(current,"mimc",atoi(valarray[plItems]));
+	if(db_wantsmeta(pinfo->meta,metaItunesSmartPlaylist)) {
+	    smart=0;
+	    if(atoi(valarray[plType]) == 1)
+		smart=1;
+	    current += db_dmap_add_char(current,"aeSP",smart);
+	}
 	if(db_wantsmeta(pinfo->meta,metaItemName)) 
-	    current += db_dmap_add_string(current,"minm",valarray[1]);
-	if((valarray[2]) && atoi(valarray[2]) && db_wantsmeta(pinfo->meta, metaMPlaylistSpec))
-	    current += db_dmap_add_string(current,"MSPS",valarray[4]);
+	    current += db_dmap_add_string(current,"minm",valarray[plTitle]);
+	if((valarray[plType]) && (atoi(valarray[plType])==1) && 
+	   db_wantsmeta(pinfo->meta, metaMPlaylistSpec))
+	    current += db_dmap_add_string(current,"MSPS",valarray[plQuery]);
 	if(db_wantsmeta(pinfo->meta, metaMPlaylistType))
-	    current += db_dmap_add_char(current,"MPTY",atoi(valarray[2]));
+	    current += db_dmap_add_char(current,"MPTY",atoi(valarray[plType]));
 	break;
     case queryTypeItems:
     case queryTypePlaylistItems:  /* essentially the same query */
@@ -1489,6 +1498,23 @@ char *db_sqlite_upgrade_scripts[] = {
     "create index idx_path on songs(path);\n"
     "drop table tempsongs;\n"
     "update config set value=3 where term='version';\n",
+    
+    /* version 3 -> version 4 */
+    /* add db_timestamp and path to playlist table */
+    "create temp table tempplaylists as select * from playlists;\n"
+    "drop table playlists;\n"
+    "CREATE TABLE playlists (\n"
+    "   id    	       INTEGER PRIMARY KEY NOT NULL,\n"
+    "   title	       VARCHAR(255) NOT NULL,\n"
+    "   smart	       INTEGER NOT NULL,\n"
+    "   items	       INTEGER NOT NULL,\n"
+    "   query	       VARCHAR(1024)\n"
+    "   db_timestamp   INTEGER NOT NULL,\n"
+    "   path           VARCHAR(4096)\n"
+    ");\n"
+    "insert into playlists select *,0,NULL from tempplaylists;\n"
+    "drop table tempplaylists;\n"
+    "update config set value=4 where term='version';\n",
     NULL /* No more versions! */
 };
 
@@ -1498,6 +1524,10 @@ char *db_sqlite_upgrade_scripts[] = {
  * \param from_version the current version of the database
  */
 int db_sqlite_update_version(int from_version) {
+    if(from_version > (sizeof(db_sqlite_upgrade_scripts)/sizeof(char*))) {
+	DPRINTF(E_FATAL,L_DB,"Database version too new (time machine, maybe?)\n");
+    }
+
     while(db_sqlite_upgrade_scripts[from_version]) {
 	DPRINTF(E_LOG,L_DB,"Upgrading database from version %d to version %d\n",from_version,
 		from_version+1);
@@ -1507,6 +1537,4 @@ int db_sqlite_update_version(int from_version) {
 
     return 0;
 }
-
-
 

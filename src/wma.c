@@ -364,7 +364,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
 	switch(descriptor_value_type) {
 	case 0x0000: /* string */
 	    if(!wma_file_read_utf16(fd,descriptor_value_len,&descriptor_byte_value)) fail=1;
-	    DPRINTF(E_DBG,L_SCAN,"Type: string, value (%s)\n",descriptor_byte_value);
+	    DPRINTF(E_DBG,L_SCAN,"Type: string, value: %s\n",descriptor_byte_value);
 	    break;
 	case 0x0001: /* byte array */
 	    if(!wma_file_read_bytes(fd,descriptor_value_len,&descriptor_byte_value)) fail=1;
@@ -391,33 +391,33 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
 	}
 
 	/* do stuff with what we found */
-	if(!strcasecmp(descriptor_name,"wm/genre")==0) {
+	if(strcasecmp(descriptor_name,"wm/genre")==0) {
 	    MAYBEFREE(pmp3->genre);
 	    pmp3->genre = descriptor_byte_value;
 	    descriptor_byte_value = NULL; /* don't free it! */
-	} else if(!strcasecmp(descriptor_name,"wm/albumtitle")==0) {
+	} else if(strcasecmp(descriptor_name,"wm/albumtitle")==0) {
 	    MAYBEFREE(pmp3->album);
 	    pmp3->album = descriptor_byte_value;
 	    descriptor_byte_value = NULL;
-	} else if(!strcasecmp(descriptor_name,"wm/track")==0) {
+	} else if(strcasecmp(descriptor_name,"wm/track")==0) {
 	    pmp3->track = descriptor_int_value + 1;
-	} else if(!strcasecmp(descriptor_name,"wm/tracknumber")==0) {
+	} else if(strcasecmp(descriptor_name,"wm/tracknumber")==0) {
 	    pmp3->track = descriptor_int_value;
-	} else if(!strcasecmp(descriptor_name,"wm/year")==0) {
-	    pmp3->track = atoi(descriptor_byte_value);
-	} else if(!strcasecmp(descriptor_name,"wm/composer")==0) {
+	} else if(strcasecmp(descriptor_name,"wm/year")==0) {
+	    pmp3->year = atoi(descriptor_byte_value);
+	} else if(strcasecmp(descriptor_name,"wm/composer")==0) {
 	    MAYBEFREE(pmp3->composer);
 	    pmp3->composer = descriptor_byte_value;
 	    descriptor_byte_value = NULL;
-	} else if(!strcasecmp(descriptor_name,"wm/albumartist")==0) {
+	} else if(strcasecmp(descriptor_name,"wm/albumartist")==0) {
 	    MAYBEFREE(pmp3->artist);
 	    pmp3->artist = descriptor_byte_value;
 	    descriptor_byte_value = NULL;
-	} else if(!strcasecmp(descriptor_name,"wm/contengroupdescription")==0) {
+	} else if(strcasecmp(descriptor_name,"wm/contengroupdescription")==0) {
 	    MAYBEFREE(pmp3->grouping);
 	    pmp3->grouping = descriptor_byte_value;
 	    descriptor_byte_value = NULL;
-	} else if(!strcasecmp(descriptor_name,"comment")==0) {
+	} else if(strcasecmp(descriptor_name,"comment")==0) {
 	    MAYBEFREE(pmp3->comment);
 	    pmp3->comment = descriptor_byte_value;
 	    descriptor_byte_value = NULL;
@@ -506,6 +506,9 @@ int wma_parse_content_description(int fd,int size, MP3FILE *pmp3) {
  */
 int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
     long long play_duration;
+    long long send_duration;
+    long long preroll;
+    
     int max_bitrate;
 
     /* skip guid (16 bytes), filesize (8), creation time (8),
@@ -513,17 +516,26 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
      */
     lseek(fd,40,SEEK_CUR);
 
-    /* we'll ignore the preroll */
     if(!wma_file_read_ll(fd, &play_duration))
 	return -1;
 
-    pmp3->song_length = (int) (play_duration / 10000);
+    if(!wma_file_read_ll(fd, &send_duration))
+	return -1;
+
+    if(!wma_file_read_ll(fd, &preroll))
+	return -1;
+
+    /* I'm not entirely certain what preroll is, but it seems
+     * to make it match up with what windows thinks is the song
+     * length.
+     */
+    pmp3->song_length = ((int) (play_duration / 10000)) - preroll;
     
-    /* skip send_duration (8), preroll (8), flags(4),
+    /* skip flags(4),
      * min_packet_size (4), max_packet_size(4)
      */
 
-    lseek(fd,28,SEEK_CUR);
+    lseek(fd,12,SEEK_CUR);
     if(!wma_file_read_int(fd,&max_bitrate))
 	return -1;
 
@@ -549,7 +561,7 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
  */
 unsigned char *wma_utf16toutf8(char *utf16, int len) {
     char *utf8;
-    char *src=utf16;;
+    char *src=utf16;
     char *dst;
     unsigned int w1, w2;
     int bytes;

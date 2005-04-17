@@ -40,4 +40,56 @@ extern void db_sqlite_dispose_item(MP3FILE *pmp3);
 extern int db_sqlite_add_playlist(char *name, int type, char *clause, int *playlistid);
 extern int db_sqlite_add_playlist_item(int playlistid, int songid);
 
+
+typedef enum {
+    songID,
+    songPath,
+    songFname,
+    songTitle,
+    songArtist,
+    songAlbum,
+    songGenre,
+    songComment,
+    songType,
+    songComposer,
+    songOrchestra,
+    songGrouping,
+    songURL,
+    songBitrate,
+    songSampleRate,
+    songLength,
+    songFilesize,
+    songYear,
+    songTrack,
+    songTotalTracks,
+    songDisc,
+    songTotalDiscs,
+    songBPM,
+    songCompilation,
+    songRating,
+    songPlayCount,
+    songDataKind,
+    songItemKind,
+    songDescription,
+    songTimeAdded,
+    songTimeModified,
+    songTimePlayed,
+    songDBTimestamp,
+    songDisabled,
+    songSampleCount,
+    songForceUpdate,
+    songCodecType
+} SongField_t;
+
+typedef enum {
+    plID,
+    plTitle,
+    plType,
+    plItems,
+    plQuery,
+    plDBTimestamp,
+    plPath
+} PlaylistField_t;
+
+
 #endif /* _DBS_SQLITE_H_ */
