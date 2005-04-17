@@ -29,7 +29,6 @@
 #include <fcntl.h>
 #include <id3tag.h>
 #include <limits.h>
-#include <restart.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -38,6 +37,7 @@
 #include <sys/stat.h>
 #include <dirent.h>      /* why here?  For osx 10.2, of course! */
 
+#include "restart.h"
 #include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
@@ -81,19 +81,19 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
     chain = FLAC__metadata_chain_new();
     if (! chain) {
 	DPRINTF(E_WARN,L_SCAN,"Cannot allocate FLAC metadata chain\n");
-        return rv;
+        return -1;
     }
     if (! FLAC__metadata_chain_read(chain, filename)) {
 	DPRINTF(E_WARN,L_SCAN,"Cannot read FLAC metadata from %s\n", filename);
 	FLAC__metadata_chain_delete(chain);
-	return rv;
+	return -1;
     }
 
     iterator = FLAC__metadata_iterator_new();
     if (! iterator) {
 	DPRINTF(E_WARN,L_SCAN,"Cannot allocate FLAC metadata iterator\n");
 	FLAC__metadata_chain_delete(chain);
-	return rv;
+	return -1;
     }
 
     FLAC__metadata_iterator_init(iterator, chain);
