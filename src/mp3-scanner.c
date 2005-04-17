@@ -304,12 +304,11 @@ static time_t mac_to_unix_time(int t);
 static TAGHANDLER *scan_gethandler(char *type);
 
 #ifdef OGGVORBIS
-extern int scan_get_oggfileinfo(char *filename, MP3FILE *pmp3);
+extern int scan_get_ogginfo(char *filename, MP3FILE *pmp3);
 #endif
 
 #ifdef FLAC
-extern int scan_get_flacfileinfo(char *filename, MP3FILE *pmp3);
-extern int scan_get_flactags(char *filename, MP3FILE *pmp3);
+extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
 #endif
 
 /** \see wma.c */
@@ -347,11 +346,11 @@ static TAGHANDLER taghandlers[] = {
     { "url", scan_get_nultags, scan_get_urlfileinfo, "pls", NULL, "Playlist URL" },
     { "pls", scan_get_nultags, scan_get_urlfileinfo, "pls", NULL, "Playlist URL" },
 #ifdef OGGVORBIS
-    { "ogg", scan_get_nultags, scan_get_oggfileinfo, "ogg", "ogg", "Ogg Vorbis audio file" },
+    { "ogg", scan_get_nultags, scan_get_ogginfo, "ogg", "ogg", "Ogg Vorbis audio file" },
 #endif
 #ifdef FLAC
-    { "flac", scan_get_flactags, scan_get_flacfileinfo, "flac","flac", "FLAC audio file" },
-    { "fla", scan_get_flactags, scan_get_flacfileinfo,  "flac","flac", "FLAC audio file" },
+    { "flac", scan_get_nulags, scan_get_flacinfo, "flac","flac", "FLAC audio file" },
+    { "fla", scan_get_nultags, scan_get_flacinfo,  "flac","flac", "FLAC audio file" },
 #endif
     { NULL, NULL, NULL, NULL, NULL, NULL }
 };

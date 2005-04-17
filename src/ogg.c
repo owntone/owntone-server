@@ -15,7 +15,7 @@
 #include "err.h"
 #include "mp3-scanner.h"
 
-int scan_get_oggfileinfo(char *filename, MP3FILE *pmp3) {
+int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
     FILE *f;
     OggVorbis_File vf;
     vorbis_comment *comment = NULL;

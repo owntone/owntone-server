@@ -48,15 +48,27 @@
 
 #include <FLAC/metadata.h>
 
-int scan_get_flacfileinfo(char *filename, MP3FILE *pmp3)
-{
+
+#define GET_VORBIS_COMMENT(comment, name, len)				\
+        (((strncasecmp(name, (comment).entry, strlen(name)) == 0) &&	\
+	  ((comment).entry[strlen(name)] == '=')) ?			\
+	 ((*(len) = (comment).length - (strlen(name) + 1)),		\
+	  (&((comment).entry[strlen(name) + 1]))) :			\
+	 NULL)
+
+int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
     FLAC__Metadata_Chain *chain;
     FLAC__Metadata_Iterator *iterator;
     FLAC__StreamMetadata *block;
-    int rv = -1;
+    int found=0;
     unsigned int sec, ms;
     FILE *f;
+    int i;
+    char *val;
+    size_t len;
+    char tmp;
 
+    /* get file length */
     if (!(f = fopen(filename, "rb"))) {
 	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n", filename);
 	return -1;
@@ -98,59 +110,9 @@ int scan_get_flacfileinfo(char *filename, MP3FILE *pmp3)
 	    pmp3->song_length = (sec * 1000) + ms;
 	    pmp3->bitrate = (pmp3->file_size) / (((sec * 1000) + ms) / 8);
 	    pmp3->samplerate = block->data.stream_info.sample_rate;
-	    rv = 0;
+	    found=1;
 	    break;
 	}
-    } while (FLAC__metadata_iterator_next(iterator));
-
-    if (rv < 0) {
-	DPRINTF(E_WARN,L_SCAN,"Cannot find FLAC metadata in %s\n", filename);
-    }
-
-    FLAC__metadata_iterator_delete(iterator);
-    FLAC__metadata_chain_delete(chain);
-    return rv;
-}
-
-#define GET_VORBIS_COMMENT(comment, name, len)				\
-        (((strncasecmp(name, (comment).entry, strlen(name)) == 0) &&	\
-	  ((comment).entry[strlen(name)] == '=')) ?			\
-	 ((*(len) = (comment).length - (strlen(name) + 1)),		\
-	  (&((comment).entry[strlen(name) + 1]))) :			\
-	 NULL)
-
-int scan_get_flactags(char *filename, MP3FILE *pmp3)
-{
-    FLAC__Metadata_Chain *chain;
-    FLAC__Metadata_Iterator *iterator;
-    FLAC__StreamMetadata *block;
-    int i;
-    char *val;
-    size_t len;
-    char tmp;
-    int found = 0;
-
-    chain = FLAC__metadata_chain_new();
-    if (! chain) {
-	DPRINTF(E_WARN,L_SCAN,"Cannot allocate FLAC metadata chain\n");
-        return 0;
-    }
-    if (! FLAC__metadata_chain_read(chain, filename)) {
-	DPRINTF(E_WARN,L_SCAN,"Cannot read FLAC metadata from %s\n", filename);
-	FLAC__metadata_chain_delete(chain);
-	return 0;
-    }
-
-    iterator = FLAC__metadata_iterator_new();
-    if (! iterator) {
-	DPRINTF(E_WARN,L_SCAN,"Cannot allocate FLAC metadata iterator\n");
-	FLAC__metadata_chain_delete(chain);
-	return 0;
-    }
-
-    FLAC__metadata_iterator_init(iterator, chain);
-    do {
-	block = FLAC__metadata_iterator_get_block(iterator);
 	if (block->type == FLAC__METADATA_TYPE_VORBIS_COMMENT) {
 	    {
 		for (i = 0; i < block->data.vorbis_comment.num_comments; i++) {
@@ -204,7 +166,7 @@ int scan_get_flactags(char *filename, MP3FILE *pmp3)
 	}
     } while (FLAC__metadata_iterator_next(iterator));
 
-    if (! found) {
+    if (!found) {
 	DPRINTF(E_WARN,L_SCAN,"Cannot find FLAC metadata in %s\n", filename);
     }
 
