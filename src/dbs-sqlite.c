@@ -1517,7 +1517,7 @@ char *db_sqlite_upgrade_scripts[] = {
     "   title	       VARCHAR(255) NOT NULL,\n"
     "   type	       INTEGER NOT NULL,\n"
     "   items	       INTEGER NOT NULL,\n"
-    "   query	       VARCHAR(1024)\n"
+    "   query	       VARCHAR(1024),\n"
     "   db_timestamp   INTEGER NOT NULL,\n"
     "   path           VARCHAR(4096)\n"
     ");\n"
@@ -1550,7 +1550,7 @@ int db_sqlite_update_version(int from_version) {
 	    /* copy original version */
 	    sprintf(db_new_path,"%s.version-%02d",db_path,from_version);
 	    from_fd=r_open2(db_path,O_RDONLY);
-	    to_fd=r_open2(db_new_path,O_RDWR);
+	    to_fd=r_open3(db_new_path,O_RDWR | O_CREAT,0666);
 
 	    if((from_fd == -1) || (to_fd == -1)) {
 		DPRINTF(E_FATAL,L_DB,"Could not make backup copy of database (%s).  Check write permissions for runas user.\n",db_new_path);
