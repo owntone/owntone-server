@@ -349,7 +349,7 @@ static TAGHANDLER taghandlers[] = {
     { "ogg", scan_get_nultags, scan_get_ogginfo, "ogg", "ogg", "Ogg Vorbis audio file" },
 #endif
 #ifdef FLAC
-    { "flac", scan_get_nulags, scan_get_flacinfo, "flac","flac", "FLAC audio file" },
+    { "flac", scan_get_nultags, scan_get_flacinfo, "flac","flac", "FLAC audio file" },
     { "fla", scan_get_nultags, scan_get_flacinfo,  "flac","flac", "FLAC audio file" },
 #endif
     { NULL, NULL, NULL, NULL, NULL, NULL }

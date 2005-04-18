@@ -1572,7 +1572,7 @@ int db_sqlite_update_version(int from_version) {
 	if(db_sqlite_exec(E_LOG,db_sqlite_upgrade_scripts[from_version])!=DB_E_SUCCESS) {
 	    DPRINTF(E_FATAL,L_DB,"Error upgrading database.  A backup copy of your "
 		    "original database is located at %s.  Please save it somewhere "
-		    "and report to the forums at www.mt-daapd.org.  Thanks.",
+		    "and report to the forums at www.mt-daapd.org.  Thanks.\n",
 		    db_new_path);
 	}
 	from_version++;
