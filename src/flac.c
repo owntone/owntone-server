@@ -99,6 +99,7 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
     FLAC__metadata_iterator_init(iterator, chain);
     do {
 	block = FLAC__metadata_iterator_get_block(iterator);
+
 	if (block->type == FLAC__METADATA_TYPE_STREAMINFO) {
 	    sec = (unsigned int)(block->data.stream_info.total_samples /
 				 block->data.stream_info.sample_rate);
@@ -110,59 +111,67 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
 	    pmp3->song_length = (sec * 1000) + ms;
 	    pmp3->bitrate = (pmp3->file_size) / (((sec * 1000) + ms) / 8);
 	    pmp3->samplerate = block->data.stream_info.sample_rate;
-	    found=1;
-	    break;
-	}
-	if (block->type == FLAC__METADATA_TYPE_VORBIS_COMMENT) {
-	    {
-		for (i = 0; i < block->data.vorbis_comment.num_comments; i++) {
-		    if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-						  "ARTIST", &len))) {
-			if ((pmp3->artist = calloc(len + 1, 1)) != NULL)
-			    strncpy(pmp3->artist, val, len);
-		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							 "TITLE", &len))) {
-			if ((pmp3->title = calloc(len + 1, 1)) != NULL)
-			    strncpy(pmp3->title, val, len);
-		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							 "ALBUM", &len))) {
-			if ((pmp3->album = calloc(len + 1, 1)) != NULL)
-			    strncpy(pmp3->album, val, len);
-		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							 "GENRE", &len))) {
-			if ((pmp3->genre = calloc(len + 1, 1)) != NULL)
-			    strncpy(pmp3->genre, val, len);
-		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							 "COMPOSER", &len))) {
-			if ((pmp3->composer = calloc(len + 1, 1)) != NULL)
-			    strncpy(pmp3->composer, val, len);
-		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							 "COMMENT", &len))) {
-			if ((pmp3->comment = calloc(len + 1, 1)) != NULL)
-			    strncpy(pmp3->comment, val, len);
-		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							 "TRACKNUMBER", &len))) {
-			tmp = *(val + len);
-			*(val + len) = '\0';
-			pmp3->track = atoi(val);
-			*(val + len) = tmp;
-		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							 "DISCNUMBER", &len))) {
-			tmp = *(val + len);
-			*(val + len) = '\0';
-			pmp3->disc = atoi(val);
-			*(val + len) = tmp;
-		    } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
-							 "YEAR", &len))) {
-			tmp = *(val + len);
-			*(val + len) = '\0';
-			pmp3->year = atoi(val);
-			*(val + len) = tmp;
-		    }
-		}
+
+	    found |= 1;
+	    if(found == 3)
 		break;
+	}
+
+	if (block->type == FLAC__METADATA_TYPE_VORBIS_COMMENT) {
+	    for (i = 0; i < block->data.vorbis_comment.num_comments; i++) {
+		if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+					      "ARTIST", &len))) {
+		    if ((pmp3->artist = calloc(len + 1, 1)) != NULL)
+			strncpy(pmp3->artist, val, len);
+		} else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						     "TITLE", &len))) {
+		    if ((pmp3->title = calloc(len + 1, 1)) != NULL)
+			strncpy(pmp3->title, val, len);
+		} else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						     "ALBUM", &len))) {
+		    if ((pmp3->album = calloc(len + 1, 1)) != NULL)
+			strncpy(pmp3->album, val, len);
+		} else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						     "GENRE", &len))) {
+		    if ((pmp3->genre = calloc(len + 1, 1)) != NULL)
+			strncpy(pmp3->genre, val, len);
+		} else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						     "COMPOSER", &len))) {
+		    if ((pmp3->composer = calloc(len + 1, 1)) != NULL)
+			strncpy(pmp3->composer, val, len);
+		} else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						     "COMMENT", &len))) {
+		    if ((pmp3->comment = calloc(len + 1, 1)) != NULL)
+			strncpy(pmp3->comment, val, len);
+		} else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						     "TRACKNUMBER", &len))) {
+		    tmp = *(val + len);
+		    *(val + len) = '\0';
+		    pmp3->track = atoi(val);
+		    *(val + len) = tmp;
+		} else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						     "DISCNUMBER", &len))) {
+		    tmp = *(val + len);
+		    *(val + len) = '\0';
+		    pmp3->disc = atoi(val);
+		    *(val + len) = tmp;
+		} else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						     "YEAR", &len))) {
+		    tmp = *(val + len);
+		    *(val + len) = '\0';
+		    pmp3->year = atoi(val);
+		    *(val + len) = tmp;
+		} else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+						     "DATE", &len))) {
+		    tmp = *(val + len);
+		    *(val + len) = '\0';
+		    pmp3->year = atoi(val);
+		    *(val + len) = tmp;
+		}
 	    }
-	    found = 1;
+	    found |= 2;
+	    if(found == 3)
+		break;
 	}
     } while (FLAC__metadata_iterator_next(iterator));
 
