@@ -1194,7 +1194,19 @@ char *db_sqlite_strdup(const char *what) {
     return what ? (strlen(what) ? strdup(what) : NULL) : NULL;
 }
 
+void db_sqlite_build_m3ufile(char **valarray, M3UFILE *pm3u) {
+    memset(pm3u,0x00,sizeof(M3UFILE));
 
+    pm3u->id=db_sqlite_atoi(valarray[0]);
+    pm3u->title=db_sqlite_strdup(valarray[1]);
+    pm3u->type=db_sqlite_atoi(valarray[2]);
+    pm3u->items=db_sqlite_atoi(valarray[3]);
+    pm3u->query=db_sqlite_strdup(valarray[4]);
+    pm3u->db_timestamp=db_sqlite_atoi(valarray[5]);
+    pm3u->path=db_sqlite_strdup(valarray[6]);
+    pm3u->index=db_sqlite_atoi(valarray[7]);
+    return;
+}
 void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3) {
     memset(pmp3,0x00,sizeof(MP3FILE));
     pmp3->id=db_sqlite_atoi(valarray[0]);
@@ -1235,6 +1247,40 @@ void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3) {
     pmp3->sample_count=db_sqlite_atoi(valarray[35]);
     pmp3->force_update=db_sqlite_atoi(valarray[36]);
     pmp3->codectype=db_sqlite_strdup(valarray[37]);
+}
+
+/**
+ * fetch a playlist by path
+ *
+ * \param path path to fetch
+ */
+M3UFILE *db_sqlite_fetch_playlist(char *path) {
+    int rows,cols;
+    char **resarray;
+    int result;
+    M3UFILE *pm3u;
+
+    result = db_sqlite_get_table(E_DBG,&resarray,&rows,&cols,
+				 "select * from playlists where path='%q'",path);
+
+    if(result != DB_E_SUCCESS) 
+	return NULL;
+
+    if(rows != 0) {
+	pm3u=(M3UFILE*)malloc(sizeof(M3UFILE));
+	if(!pm3u)
+	    DPRINTF(E_FATAL,L_MISC,"malloc error in db_sqlite_fetch_playlist\n");
+	
+	db_sqlite_build_m3ufile((char**)&resarray[cols],pm3u);
+    }
+    
+    db_sqlite_free_table(resarray);
+
+    if((rows) && (db_sqlite_in_scan) && (!db_sqlite_reload)) {
+	//	db_sqlite_exec(E_FATAL,"insert into updatedplaylists values (%d)",pm3u->id);
+    }
+
+    return pm3u;
 }
 
 /**
