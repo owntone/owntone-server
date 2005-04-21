@@ -354,7 +354,7 @@ int db_sqlite_add_playlist(char *name, int type, char *clause, char *path, int *
     case 2: /* static, from file */
 	result = db_sqlite_exec(E_LOG,"insert into playlists "
 				"(title,type,items,query,db_timestamp,path) "
-				"values ('%q',0,0,NULL,%d)",name,time(NULL),path);
+				"values ('%q',0,0,NULL,%d,'%q')",name,time(NULL),path);
 	break;
     case 1: /* smart */
 	result=db_sqlite_get_int(E_DBG,&cnt,"select count (*) from songs where %s",clause);
@@ -929,8 +929,10 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 	size += 12; /* mimc - you get it whether you want it or not */
 	if(db_wantsmeta(pinfo->meta, metaItemId))
 	    size += 12; /* miid */
-	if(db_wantsmeta(pinfo->meta, metaItunesSmartPlaylist))
-	    size += 9;  /* aeSP */
+	if(db_wantsmeta(pinfo->meta, metaItunesSmartPlaylist)) {
+	    if(valarray[plType] && (atoi(valarray[plType])==1))
+		size += 9;  /* aeSP */
+	}
 	if(db_wantsmeta(pinfo->meta, metaItemName))
 	    size += (8 + strlen(valarray[plTitle])); /* minm */
 	if(valarray[plType] && (atoi(valarray[plType])==1) && 
@@ -1079,7 +1081,6 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
     unsigned char *current = presult;
     int transcode;
     int samplerate=0;
-    int smart;
 
     switch(pinfo->query_type) {
     case queryTypeBrowseArtists: /* simple 'mlit' entry */
@@ -1094,10 +1095,8 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
 	    current += db_dmap_add_int(current,"miid",atoi(valarray[plID]));
 	current += db_dmap_add_int(current,"mimc",atoi(valarray[plItems]));
 	if(db_wantsmeta(pinfo->meta,metaItunesSmartPlaylist)) {
-	    smart=0;
-	    if(atoi(valarray[plType]) == 1)
-		smart=1;
-	    current += db_dmap_add_char(current,"aeSP",smart);
+	    if(valarray[plType] && (atoi(valarray[plType]) == 1))
+		current += db_dmap_add_char(current,"aeSP",1);
 	}
 	if(db_wantsmeta(pinfo->meta,metaItemName)) 
 	    current += db_dmap_add_string(current,"minm",valarray[plTitle]);

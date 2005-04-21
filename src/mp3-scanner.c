@@ -295,7 +295,7 @@ static int scan_get_wavfileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_urlfileinfo(char *file, MP3FILE *pmp3);
 
 static int scan_freetags(MP3FILE *pmp3);
-static void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
+static void scan_static_playlist(char *path);
 static void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
 static int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi);
@@ -355,6 +355,56 @@ static TAGHANDLER taghandlers[] = {
     { NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
+typedef struct tag_playlistlist {
+    char *path;
+    struct tag_playlistlist *next;
+} PLAYLISTLIST;
+
+static PLAYLISTLIST scan_playlistlist = { NULL, NULL };
+
+
+/**
+ * add a playlist to the playlistlist.  The playlistlist is a
+ * list of playlists that need to be processed once the current
+ * scan is done.  THIS IS NOT REENTRANT, and it meant to be 
+ * called only inside the rescan loop.  
+ *
+ * \param path path of the playlist to add
+ */
+void scan_add_playlistlist(char *path) {
+    PLAYLISTLIST *plist;
+
+    DPRINTF(E_DBG,L_SCAN,"Adding %s for deferred processing.\n",path);
+
+    plist=(PLAYLISTLIST*)malloc(sizeof(PLAYLISTLIST));
+    if(!plist) {
+	DPRINTF(E_FATAL,L_SCAN,"Malloc error\n");
+	return;
+    }
+
+    plist->path=strdup(path);
+    plist->next=scan_playlistlist.next;
+    scan_playlistlist.next=plist;
+}
+
+/**
+ * process the playlistlist
+ *
+ */
+void scan_process_playlistlist(void) {
+    PLAYLISTLIST *pnext;
+
+    while(scan_playlistlist.next) {
+	pnext=scan_playlistlist.next;
+	scan_static_playlist(pnext->path);
+	free(pnext->path);
+	scan_playlistlist.next=pnext->next;
+	free(pnext);
+    }
+}
+
+
+
 /**
  * Convert mac time to unix time (different epochs)
  *
@@ -391,8 +441,10 @@ int scan_init(char *path) {
 
     DPRINTF(E_DBG,L_SCAN,"Scanning for MP3s in %s\n",path);
 
+    scan_playlistlist.next=NULL;
     err=scan_path(path);
-
+    scan_process_playlistlist();
+    
     if(db_end_scan())
 	return -1;
 
@@ -409,6 +461,7 @@ int scan_path(char *path) {
     char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* overcommit for solaris */
     struct dirent *pde;
     int err;
+    char relative_path[PATH_MAX];
     char mp3_path[PATH_MAX];
     struct stat sb;
     int modified_time;
@@ -444,8 +497,10 @@ int scan_path(char *path) {
 	if(pde->d_name[0] == '.') /* skip hidden and directories */
 	    continue;
 
-	snprintf(mp3_path,PATH_MAX,"%s/%s",path,pde->d_name);
-	DPRINTF(E_DBG,L_SCAN,"Found %s\n",mp3_path);
+	snprintf(relative_path,PATH_MAX,"%s/%s",path,pde->d_name);
+	mp3_path[0] = '\x0';
+	realpath(relative_path,mp3_path);
+	DPRINTF(E_DBG,L_SCAN,"Found %s\n",relative_path);
 	if(stat(mp3_path,&sb)) {
 	    DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
 	} else {
@@ -458,9 +513,7 @@ int scan_path(char *path) {
 		    if((strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) &&
 		       config.process_m3u){
 			/* we found an m3u file */
-			DPRINTF(E_LOG,L_SCAN,"Oops... no playlists.. Sorry: %s\n",
-				mp3_path);
-			//			scan_static_playlist(path, pde, &sb);
+			scan_add_playlistlist(mp3_path);
 		    } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
 			       (strcasestr(config.extensions, ext))) {
 			/* only scan if it's been changed, or empty db */
@@ -490,38 +543,59 @@ int scan_path(char *path) {
  * Scan a file as a static playlist
  */
 
-void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
-    char playlist_path[PATH_MAX];
-    char m3u_path[PATH_MAX];
+void scan_static_playlist(char *path) {
+    char base_path[PATH_MAX];
+    char file_path[PATH_MAX];
+    char real_path[PATH_MAX];
     char linebuffer[PATH_MAX];
     int fd;
     int playlistid;
     M3UFILE *pm3u;
     MP3FILE *pmp3;
+    struct stat sb;
+    char *current;
 
-    DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",pde->d_name);
-    snprintf(playlist_path,sizeof(playlist_path),"%s/%s",path,pde->d_name);
+    DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",path);
+    if(stat(path,&sb)) {
+	DPRINTF(E_WARN,L_SCAN,"Error statting %s: %s\n",path,strerror(errno));
+	return;
+    }
 
-    pm3u = db_fetch_playlist(playlist_path,0);
-    if(pm3u && (pm3u->db_timestamp > psb->st_mtime)) {
+    if((current=strrchr(path,'/')) == NULL) {
+	current = path;
+    } else {
+	current++;
+    }
+
+    /* temporarily use base_path for m3u name */
+    strcpy(base_path,current);
+    if((current=strrchr(base_path,'.'))) {
+	*current='\x0';
+    }
+
+    pm3u = db_fetch_playlist(path,0);
+    if(pm3u && (pm3u->db_timestamp > sb.st_mtime)) {
 	/* already up-to-date */
 	db_dispose_playlist(pm3u);
 	return;
     }
 
-    strcpy(m3u_path,pde->d_name);
-    m3u_path[strlen(pde->d_name) - 4] = '\0';
-
     if(pm3u) 
 	db_delete_playlist(pm3u->id);
 
-    fd=open(playlist_path,O_RDONLY);
+    fd=open(path,O_RDONLY);
     if(fd != -1) {
-	if(db_add_playlist(m3u_path,2,NULL,playlist_path,&playlistid) != DB_E_SUCCESS) {
-	    DPRINTF(E_LOG,L_SCAN,"Error adding m3u playlist %s\n",playlist_path);
+	if(db_add_playlist(base_path,2,NULL,path,&playlistid) != DB_E_SUCCESS) {
+	    DPRINTF(E_LOG,L_SCAN,"Error adding m3u playlist %s\n",path);
 	    db_dispose_playlist(pm3u);
 	    return;
 	}
+	/* now get the *real* base_path */
+	strcpy(base_path,path);
+	if((current=strrchr(base_path,'/'))) {
+	    *(current+1) = '\x0';
+	} /* else something is fubar */
+
 	DPRINTF(E_INF,L_SCAN|L_PL,"Added playlist as id %d\n",playlistid);
 
 	memset(linebuffer,0x00,sizeof(linebuffer));
@@ -537,20 +611,21 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 
 	    // otherwise, assume it is a path
 	    if(linebuffer[0] == '/') {
-		strcpy(m3u_path,linebuffer);
+		strcpy(file_path,linebuffer);
 	    } else {
-		snprintf(m3u_path,sizeof(m3u_path),"%s/%s",path,linebuffer);
+		snprintf(file_path,sizeof(file_path),"%s%s",base_path,linebuffer);
 	    }
 
-	    DPRINTF(E_DBG,L_SCAN|L_PL,"Checking %s\n",m3u_path);
+	    realpath(file_path,real_path);
+	    DPRINTF(E_DBG,L_SCAN|L_PL,"Checking %s\n",real_path);
 
 	    // might be valid, might not...
-	    if((pmp3=db_fetch_path(m3u_path))) {
+	    if((pmp3=db_fetch_path(real_path))) {
 		db_add_playlist_item(playlistid,pmp3->id);
 		db_dispose_item(pmp3);
 	    } else {
 		DPRINTF(E_WARN,L_SCAN|L_PL,"Playlist entry %s bad: %s\n",
-			m3u_path,strerror(errno));
+			path,strerror(errno));
 	    }
 	}
 	close(fd);
