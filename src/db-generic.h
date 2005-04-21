@@ -157,9 +157,12 @@ extern int db_scanning(void);
 
 extern int db_add_playlist(char *name, int type, char *clause, char *path,int *playlistid);
 extern int db_add_playlist_item(int playlistid, int songid);
+extern int db_delete_playlist(int playlistid);
+extern int db_delete_playlist_item(int playlistid, int songid);
 
 extern MP3FILE *db_fetch_item(int id);
 extern MP3FILE *db_fetch_path(char *path);
+extern M3UFILE *db_fetch_playlist(char *path, int index);
 
 
 /* metatag parsing */
@@ -180,6 +183,7 @@ extern int db_dmap_add_container(char *where, char *tag, int size);
 extern int db_get_song_count(void); 
 extern int db_get_playlist_count(void);
 extern void db_dispose_item(MP3FILE *pmp3);
+extern void db_dispose_playlist(M3UFILE *pm3u);
 
 
 #define DB_E_SUCCESS                 0

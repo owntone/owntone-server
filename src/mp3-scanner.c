@@ -295,7 +295,7 @@ static int scan_get_wavfileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_urlfileinfo(char *file, MP3FILE *pmp3);
 
 static int scan_freetags(MP3FILE *pmp3);
-//static void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
+static void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb);
 static void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
 static int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi);
@@ -489,30 +489,39 @@ int scan_path(char *path) {
  *
  * Scan a file as a static playlist
  */
-/*
+
 void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
     char playlist_path[PATH_MAX];
     char m3u_path[PATH_MAX];
     char linebuffer[PATH_MAX];
     int fd;
     int playlistid;
-    struct stat sb;
+    M3UFILE *pm3u;
+    MP3FILE *pmp3;
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",pde->d_name);
-    
-  
-    if(db_playlist_last_modified(psb->st_ino) == psb->st_mtime)
-	return;
+    snprintf(playlist_path,sizeof(playlist_path),"%s/%s",path,pde->d_name);
 
-    db_delete_playlist(psb->st_ino);
+    pm3u = db_fetch_playlist(playlist_path,0);
+    if(pm3u && (pm3u->db_timestamp > psb->st_mtime)) {
+	/* already up-to-date */
+	db_dispose_playlist(pm3u);
+	return;
+    }
 
     strcpy(m3u_path,pde->d_name);
-    snprintf(playlist_path,sizeof(playlist_path),"%s/%s",path,pde->d_name);
     m3u_path[strlen(pde->d_name) - 4] = '\0';
-    playlistid=psb->st_ino;
+
+    if(pm3u) 
+	db_delete_playlist(pm3u->id);
+
     fd=open(playlist_path,O_RDONLY);
     if(fd != -1) {
-	db_add_playlist(playlistid,m3u_path,psb->st_mtime,0);
+	if(db_add_playlist(m3u_path,2,NULL,playlist_path,&playlistid) != DB_E_SUCCESS) {
+	    DPRINTF(E_LOG,L_SCAN,"Error adding m3u playlist %s\n",playlist_path);
+	    db_dispose_playlist(pm3u);
+	    return;
+	}
 	DPRINTF(E_INF,L_SCAN|L_PL,"Added playlist as id %d\n",playlistid);
 
 	memset(linebuffer,0x00,sizeof(linebuffer));
@@ -536,9 +545,9 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 	    DPRINTF(E_DBG,L_SCAN|L_PL,"Checking %s\n",m3u_path);
 
 	    // might be valid, might not...
-	    if(!stat(m3u_path,&sb)) {
-		// FIXME: check to see if valid inode!
-		db_add_playlist_song(playlistid,sb.st_ino);
+	    if((pmp3=db_fetch_path(m3u_path))) {
+		db_add_playlist_item(playlistid,pmp3->id);
+		db_dispose_item(pmp3);
 	    } else {
 		DPRINTF(E_WARN,L_SCAN|L_PL,"Playlist entry %s bad: %s\n",
 			m3u_path,strerror(errno));
@@ -547,9 +556,10 @@ void scan_static_playlist(char *path, struct dirent *pde, struct stat *psb) {
 	close(fd);
     }
 
+    db_dispose_playlist(pm3u);
     DPRINTF(E_WARN,L_SCAN|L_PL,"Done processing playlist\n");
 }
-*/
+
 
 /*
  * scan_music_file

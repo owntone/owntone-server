@@ -48,6 +48,7 @@ typedef struct tag_db_functions {
     int(*dbs_add)(MP3FILE*);
     int(*dbs_add_playlist)(char *, int, char *,char *, int *);
     int(*dbs_add_playlist_item)(int, int);
+    int(*dbs_delete_playlist)(int);
     int(*dbs_enum_start)(DBQUERYINFO *);
     int(*dbs_enum_size)(DBQUERYINFO *, int *);
     int(*dbs_enum_fetch)(DBQUERYINFO *, unsigned char **);
@@ -58,7 +59,9 @@ typedef struct tag_db_functions {
     int(*dbs_get_count)(CountType_t);
     MP3FILE*(*dbs_fetch_item)(int);
     MP3FILE*(*dbs_fetch_path)(char *);
+    M3UFILE*(*dbs_fetch_playlist)(char *, int);
     void(*dbs_dispose_item)(MP3FILE*);
+    void(*dbs_dispose_playlist)(M3UFILE*);
 }DB_FUNCTIONS;
 
 /** All supported backend databases, and pointers to the db specific implementations */
@@ -72,6 +75,7 @@ DB_FUNCTIONS db_functions[] = {
 	db_sqlite_add,
 	db_sqlite_add_playlist,
 	db_sqlite_add_playlist_item,
+	db_sqlite_delete_playlist,
 	db_sqlite_enum_start,
 	db_sqlite_enum_size,
 	db_sqlite_enum_fetch,
@@ -82,7 +86,9 @@ DB_FUNCTIONS db_functions[] = {
 	db_sqlite_get_count,
 	db_sqlite_fetch_item,
 	db_sqlite_fetch_path,
-	db_sqlite_dispose_item
+	db_sqlite_fetch_playlist,
+	db_sqlite_dispose_item,
+	db_sqlite_dispose_playlist
     },
 #endif
     { NULL,NULL }
@@ -499,6 +505,23 @@ int db_add_playlist_item(int playlistid, int songid) {
     return retval;
 }
 
+/**
+ * delete a playlist
+ *
+ * \param playlistid id of the playlist to delete
+ * \returns 0 on success, error code otherwise 
+ */
+int db_delete_playlist(int playlistid) {
+    int retval;
+
+    db_writelock();
+    retval=db_current->dbs_delete_playlist(playlistid);
+    if(retval == DB_E_SUCCESS)
+	db_revision_no++;
+    db_unlock();
+
+    return retval;
+}
 
 /**
  * start a db enumeration, based info in the DBQUERYINFO struct
@@ -588,6 +611,16 @@ MP3FILE *db_fetch_path(char *path) {
     return retval;
 }
 
+M3UFILE *db_fetch_playlist(char *path, int index) {
+    M3UFILE *retval;
+
+    db_readlock();
+    retval=db_current->dbs_fetch_playlist(path,index);
+    db_unlock();
+
+    return retval;
+}
+
 int db_start_scan(void) {
     int retval;
 
@@ -612,6 +645,10 @@ int db_end_scan(void) {
     
 void db_dispose_item(MP3FILE *pmp3) {
     return db_current->dbs_dispose_item(pmp3);
+}
+
+void db_dispose_playlist(M3UFILE *pm3u) {
+    return db_current->dbs_dispose_playlist(pm3u);
 }
 
 int db_get_count(CountType_t type) {

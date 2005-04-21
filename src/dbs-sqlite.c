@@ -308,6 +308,28 @@ int db_sqlite_end_scan(void) {
     return 0;
 }
 
+/**
+ * delete a playlist
+ *
+ * \param playlistid playlist to delete
+ */
+int db_sqlite_delete_playlist(int playlistid) {
+    int type;
+    int result;
+
+    result=db_sqlite_get_int(E_DBG,&type,"select type from playlists where id=%d",playlistid);
+    if(result != DB_E_SUCCESS) {
+	if(result == DB_E_NOROWS)
+	    return DB_E_INVALID_PLAYLIST;
+	return result;
+    }
+
+    /* got a good playlist, now do what we need to do */
+    db_sqlite_exec(E_FATAL,"delete from playlists where id=%d",playlistid);
+    db_sqlite_exec(E_FATAL,"delete from playlistitems where id=%d",playlistid);
+
+    return DB_E_SUCCESS;
+}
 
 /**
  * add a playlist
@@ -1254,11 +1276,11 @@ void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3) {
  *
  * \param path path to fetch
  */
-M3UFILE *db_sqlite_fetch_playlist(char *path) {
+M3UFILE *db_sqlite_fetch_playlist(char *path, int index) {
     int rows,cols;
     char **resarray;
     int result;
-    M3UFILE *pm3u;
+    M3UFILE *pm3u=NULL;
 
     result = db_sqlite_get_table(E_DBG,&resarray,&rows,&cols,
 				 "select * from playlists where path='%q'",path);
@@ -1367,6 +1389,16 @@ void db_sqlite_dispose_item(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->url);
     MAYBEFREE(pmp3->codectype);
     free(pmp3);
+}
+
+void db_sqlite_dispose_playlist(M3UFILE *pm3u) {
+    if(!pm3u)
+	return;
+
+    MAYBEFREE(pm3u->title);
+    MAYBEFREE(pm3u->query);
+    MAYBEFREE(pm3u->path);
+    free(pm3u);
 }
 
 /**
