@@ -49,6 +49,7 @@ typedef struct tag_db_functions {
     int(*dbs_add_playlist)(char *, int, char *,char *, int *);
     int(*dbs_add_playlist_item)(int, int);
     int(*dbs_delete_playlist)(int);
+    int(*dbs_delete_playlist_item)(int, int);
     int(*dbs_enum_start)(DBQUERYINFO *);
     int(*dbs_enum_size)(DBQUERYINFO *, int *);
     int(*dbs_enum_fetch)(DBQUERYINFO *, unsigned char **);
@@ -76,6 +77,7 @@ DB_FUNCTIONS db_functions[] = {
 	db_sqlite_add_playlist,
 	db_sqlite_add_playlist_item,
 	db_sqlite_delete_playlist,
+	db_sqlite_delete_playlist_item,
 	db_sqlite_enum_start,
 	db_sqlite_enum_size,
 	db_sqlite_enum_fetch,
@@ -516,6 +518,25 @@ int db_delete_playlist(int playlistid) {
 
     db_writelock();
     retval=db_current->dbs_delete_playlist(playlistid);
+    if(retval == DB_E_SUCCESS)
+	db_revision_no++;
+    db_unlock();
+
+    return retval;
+}
+
+/**
+ * delete an item from a playlist
+ *
+ * \param playlistid id of the playlist to delete
+ * \param songid id of the song to delete
+ * \returns 0 on success, error code otherwise 
+ */
+int db_delete_playlist_item(int playlistid, int songid) {
+    int retval;
+
+    db_writelock();
+    retval=db_current->dbs_delete_playlist_item(playlistid,songid);
     if(retval == DB_E_SUCCESS)
 	db_revision_no++;
     db_unlock();

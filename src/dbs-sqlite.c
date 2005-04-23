@@ -332,6 +332,46 @@ int db_sqlite_delete_playlist(int playlistid) {
 }
 
 /**
+ * delete a song from a playlist
+ *
+ * \param playlistid playlist to delete item from
+ * \param songid song to delete from playlist
+ */
+extern int db_sqlite_delete_playlist_item(int playlistid, int songid) {
+    int result;
+    int playlist_type;
+    int count;
+
+    /* first, check the playlist */
+    result=db_sqlite_get_int(E_DBG,&playlist_type,
+			     "select type from playlists where id=%d",playlistid);
+
+    if(result != DB_E_SUCCESS) {
+	if(result == DB_E_NOROWS)
+	    return DB_E_INVALID_PLAYLIST;
+	return result;
+    }
+
+    if(playlist_type == 1)       /* can't delete from a smart playlist */
+	return DB_E_INVALIDTYPE;
+
+    /* make sure the songid is valid */
+    result=db_sqlite_get_int(E_DBG,&count,"select count(*) from playlistitems where id=%d "
+			     "and songid=%d",playlistid,songid);
+    if(result != DB_E_SUCCESS) {
+	if(result == DB_E_NOROWS)
+	    return DB_E_INVALID_SONGID;
+	return result;
+    }
+
+    /* looks valid, so lets add the item */
+    result=db_sqlite_exec(E_DBG,"delete from playlistitems where id=%d and songid=%d",
+			  playlistid,songid);
+    return result;
+}
+
+
+/**
  * add a playlist
  *
  * \param name name of the playlist
@@ -396,7 +436,7 @@ int db_sqlite_add_playlist_item(int playlistid, int songid) {
 	return result;
     }
 
-    if(playlist_type != 0)       /* can't add to smart playlists, or static */
+    if(playlist_type == 1)       /* can't add to smart playlists, or static */
 	return DB_E_INVALIDTYPE;
 
     /* make sure the songid is valid */
