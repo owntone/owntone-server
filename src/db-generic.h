@@ -151,6 +151,7 @@ extern int db_enum_fetch(DBQUERYINFO *pinfo, unsigned char **pdmap);
 extern int db_enum_reset(DBQUERYINFO *pinfo);
 extern int db_enum_end(void);
 extern int db_start_scan(void);
+extern int db_end_song_scan(void);
 extern int db_end_scan(void);
 extern int db_exists(char *path);
 extern int db_scanning(void);

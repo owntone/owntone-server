@@ -83,6 +83,11 @@ typedef struct tag_m3ufile {
     int index;           /**< index of playlist for paths with multiple playlists */
 } M3UFILE;
 
+#define PL_STATICWEB  0
+#define PL_SMART      1
+#define PL_STATICFILE 2
+#define PL_STATICXML  3
+
 extern int scan_init(char *path);
 extern void make_composite_tags(MP3FILE *song);
 

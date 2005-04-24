@@ -443,6 +443,10 @@ int scan_init(char *path) {
 
     scan_playlistlist.next=NULL;
     err=scan_path(path);
+
+    if(db_end_song_scan())
+	return -1;
+
     scan_process_playlistlist();
     
     if(db_end_scan())
@@ -585,7 +589,7 @@ void scan_static_playlist(char *path) {
 
     fd=open(path,O_RDONLY);
     if(fd != -1) {
-	if(db_add_playlist(base_path,2,NULL,path,&playlistid) != DB_E_SUCCESS) {
+	if(db_add_playlist(base_path,PL_STATICFILE,NULL,path,&playlistid) != DB_E_SUCCESS) {
 	    DPRINTF(E_LOG,L_SCAN,"Error adding m3u playlist %s\n",path);
 	    db_dispose_playlist(pm3u);
 	    return;

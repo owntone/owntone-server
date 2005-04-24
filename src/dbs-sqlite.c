@@ -117,6 +117,7 @@ int db_sqlite_exec(int loglevel, char *fmt, ...) {
 	return err;
     }
 
+    DPRINTF(E_DBG,L_DB,"Affected rows: %d\n",sqlite_changes(db_sqlite_songs));
     return 0;
 }
 
@@ -271,14 +272,15 @@ int db_sqlite_deinit(void) {
  * start a background scan
  */
 int db_sqlite_start_scan(void) {
-
     if(db_sqlite_reload) {
 	db_sqlite_exec(E_FATAL,"PRAGMA synchronous = OFF");
 	db_sqlite_exec(E_FATAL,"BEGIN TRANSACTION");
     } else {
 	/* if not a full reload, we'll be doing update checks */
-	db_sqlite_exec(E_DBG,"DROP TABLE updated");
-	db_sqlite_exec(E_FATAL,"CREATE TEMP TABLE updated (id int)");
+	db_sqlite_exec(E_DBG,"drop table updated");
+	db_sqlite_exec(E_FATAL,"create temp table updated (id int)");
+	db_sqlite_exec(E_DBG,"drop table plupdated");
+	db_sqlite_exec(E_FATAL,"create temp table plupdated(id int)");
     }
 
     db_sqlite_in_scan=1;
@@ -286,19 +288,34 @@ int db_sqlite_start_scan(void) {
 }
 
 /**
+ * end song scan -- start playlist scan
+ */
+int db_sqlite_end_song_scan(void) {
+    if(db_sqlite_reload) {
+	db_sqlite_exec(E_FATAL,"commit transaction");
+	db_sqlite_exec(E_FATAL,"create index idx_path on songs(path)");
+	db_sqlite_exec(E_DBG,"delete from config where term='rescan'");
+    } else {
+	db_sqlite_exec(E_FATAL,"delete from songs where id not in (select id from updated)");
+	db_sqlite_exec(E_FATAL,"update songs set force_update=0");
+	db_sqlite_exec(E_FATAL,"drop table updated");
+    }
+
+    return 0;
+}
+
+/**
  * stop a db scan
  */
 int db_sqlite_end_scan(void) {
-
     if(db_sqlite_reload) {
-	db_sqlite_exec(E_FATAL,"COMMIT TRANSACTION");
-	db_sqlite_exec(E_FATAL,"CREATE INDEX idx_path ON songs(path)");
-	db_sqlite_exec(E_DBG,"DELETE FROM config WHERE term='rescan'");
-	db_sqlite_exec(E_FATAL,"PRAGMA synchronous=NORMAL");
+	db_sqlite_exec(E_FATAL,"pragma synchronous=normal");
     } else {
-	db_sqlite_exec(E_FATAL,"DELETE FROM songs WHERE id NOT IN (SELECT id FROM updated)");
-	db_sqlite_exec(E_FATAL,"UPDATE songs SET force_update=0");
-	db_sqlite_exec(E_FATAL,"DROP TABLE updated");
+	db_sqlite_exec(E_FATAL,"delete from playlists where ((type=%d) OR (type=%d))and "
+		       "id not in (select id from plupdated)",PL_STATICFILE,PL_STATICXML);
+	db_sqlite_exec(E_FATAL,"delete from playlistitems where id not in (select distinct "
+		       "id from playlists)");
+	db_sqlite_exec(E_FATAL,"drop table plupdated");
     }
 
     db_sqlite_update_playlists();
@@ -352,7 +369,7 @@ extern int db_sqlite_delete_playlist_item(int playlistid, int songid) {
 	return result;
     }
 
-    if(playlist_type == 1)       /* can't delete from a smart playlist */
+    if(playlist_type == PL_SMART)       /* can't delete from a smart playlist */
 	return DB_E_INVALIDTYPE;
 
     /* make sure the songid is valid */
@@ -386,22 +403,22 @@ int db_sqlite_add_playlist(char *name, int type, char *clause, char *path, int *
 		      "upper(title)=upper('%q')",name);
 
     if(cnt) return DB_E_DUPLICATE_PLAYLIST;
-    if((type == 1) && (!clause)) return DB_E_NOCLAUSE;
+    if((type == PL_SMART) && (!clause)) return DB_E_NOCLAUSE;
 
     /* Let's throw it in  */
     switch(type) {
-    case 0: /* static, maintained in web interface */
-    case 2: /* static, from file */
+    case PL_STATICWEB: /* static, maintained in web interface */
+    case PL_STATICFILE: /* static, from file */
 	result = db_sqlite_exec(E_LOG,"insert into playlists "
 				"(title,type,items,query,db_timestamp,path) "
-				"values ('%q',0,0,NULL,%d,'%q')",name,time(NULL),path);
+				"values ('%q',%d,0,NULL,%d,'%q')",name,type,time(NULL),path);
 	break;
-    case 1: /* smart */
+    case PL_SMART: /* smart */
 	result=db_sqlite_get_int(E_DBG,&cnt,"select count (*) from songs where %s",clause);
 	if(result != DB_E_SUCCESS) return result;
 	result = db_sqlite_exec(E_LOG,"insert into playlists "
 				"(title,type,items,query,db_timestamp) "
-				"values ('%q',1,%d,'%q',%d)",name,cnt,clause,time(NULL));
+				"values ('%q',%d,%d,'%q',%d)",name,PL_SMART,cnt,clause,time(NULL));
 	break;
     }
 
@@ -410,6 +427,11 @@ int db_sqlite_add_playlist(char *name, int type, char *clause, char *path, int *
 
     result = db_sqlite_get_int(E_LOG,playlistid,
 			       "select id from playlists where title='%q'", name);
+
+    if(((type==PL_STATICFILE)||(type==PL_STATICXML)) 
+	&& (db_sqlite_in_scan) && (!db_sqlite_reload)) {
+	db_sqlite_exec(E_FATAL,"insert into plupdated values (%d)",*playlistid);
+    }
 
     return result;
 }
@@ -1265,7 +1287,7 @@ void db_sqlite_build_m3ufile(char **valarray, M3UFILE *pm3u) {
     pm3u->query=db_sqlite_strdup(valarray[4]);
     pm3u->db_timestamp=db_sqlite_atoi(valarray[5]);
     pm3u->path=db_sqlite_strdup(valarray[6]);
-    pm3u->index=db_sqlite_atoi(valarray[7]);
+    pm3u->index=0; //db_sqlite_atoi(valarray[7]);
     return;
 }
 void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3) {
@@ -1338,7 +1360,7 @@ M3UFILE *db_sqlite_fetch_playlist(char *path, int index) {
     db_sqlite_free_table(resarray);
 
     if((rows) && (db_sqlite_in_scan) && (!db_sqlite_reload)) {
-	//	db_sqlite_exec(E_FATAL,"insert into updatedplaylists values (%d)",pm3u->id);
+	db_sqlite_exec(E_FATAL,"insert into plupdated values (%d)",pm3u->id);
     }
 
     return pm3u;

@@ -56,6 +56,7 @@ typedef struct tag_db_functions {
     int(*dbs_enum_reset)(DBQUERYINFO *);
     int(*dbs_enum_end)(void);
     int(*dbs_start_scan)(void);
+    int(*dbs_end_song_scan)(void);
     int(*dbs_end_scan)(void);
     int(*dbs_get_count)(CountType_t);
     MP3FILE*(*dbs_fetch_item)(int);
@@ -84,6 +85,7 @@ DB_FUNCTIONS db_functions[] = {
 	db_sqlite_enum_reset,
 	db_sqlite_enum_end,
 	db_sqlite_start_scan,
+	db_sqlite_end_song_scan,
 	db_sqlite_end_scan,
 	db_sqlite_get_count,
 	db_sqlite_fetch_item,
@@ -650,6 +652,16 @@ int db_start_scan(void) {
     db_writelock();
     retval=db_current->dbs_start_scan();
     db_is_scanning=1;
+    db_unlock();
+    
+    return retval;
+}
+
+int db_end_song_scan(void) {
+    int retval;
+
+    db_writelock();
+    retval=db_current->dbs_end_song_scan();
     db_unlock();
     
     return retval;
