@@ -55,6 +55,8 @@ static void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_playlists(WS_CONNINFO *pqsc, DBQUERYINFO *pqi);
 static void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
+static void dispatch_deleteplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
+static void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_logout(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 
@@ -203,7 +205,11 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	       (!strcasecmp(pqi->uri_sections[3],"add")))
 		/* /databases/id/containers/add */
 		return dispatch_addplaylist(pwsc,pqi);
-	    
+	    if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+	       (!strcasecmp(pqi->uri_sections[3],"del")))
+		/* /databases/id/containers/del */
+		return dispatch_deleteplaylist(pwsc,pqi);
+
 	    pwsc->close=1;
 	    free(pqi);
 	    ws_returnerror(pwsc,404,"Page not found");
@@ -214,6 +220,12 @@ void daap_handler(WS_CONNINFO *pwsc) {
 	       (!strcasecmp(pqi->uri_sections[4],"items"))) {
 		pqi->playlist_id=atoi(pqi->uri_sections[3]);
 		return dispatch_playlistitems(pwsc,pqi);
+	    }
+	    if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+	       (!strcasecmp(pqi->uri_sections[4],"del"))) {
+		/* /databases/id/containers/id/del */
+		pqi->playlist_id=atoi(pqi->uri_sections[3]);
+		return dispatch_deleteplaylistitems(pwsc,pqi);
 	    }
 	}
 	if(pqi->uri_count == 6) {
@@ -803,6 +815,75 @@ void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     /* success(ish)... spool out a dmap block */
     current = playlist_response;
     current += db_dmap_add_container(current,"MAPI",12);
+    current += db_dmap_add_int(current,"mstt",200);         /* 12 */
+
+    dispatch_output_start(pwsc,pqi,20);
+    dispatch_output_write(pwsc,pqi,playlist_response,20);
+    dispatch_output_end(pwsc,pqi);
+
+    pwsc->close=1;
+
+    return;
+}
+
+/**
+ * delete a playlist
+ */
+void dispatch_deleteplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
+    char playlist_response[20];
+    char *current;
+
+    if(!ws_getvar(pwsc,"dmap.itemid")) {
+	DPRINTF(E_LOG,L_DAAP,"attempt to delete playlist with no dmap.itemid\n");
+	ws_returnerror(pwsc,500,"no itemid specified");
+	return;
+    }
+
+    db_delete_playlist(atoi(ws_getvar(pwsc,"dmap.itemid")));
+
+    /* success(ish)... spool out a dmap block */
+    current = playlist_response;
+    current += db_dmap_add_container(current,"MDPR",12);
+    current += db_dmap_add_int(current,"mstt",200);         /* 12 */
+
+    dispatch_output_start(pwsc,pqi,20);
+    dispatch_output_write(pwsc,pqi,playlist_response,20);
+    dispatch_output_end(pwsc,pqi);
+
+    pwsc->close=1;
+
+    return;
+}
+
+/**
+ * delete a playlist item
+ */
+void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
+    char playlist_response[20];
+    char *current;
+    char *tempstring;
+    char *token;
+
+    if(!ws_getvar(pwsc,"dmap.itemid")) {
+	DPRINTF(E_LOG,L_DAAP,"attempt to delete playlist items with no dmap.itemid\n");
+	ws_returnerror(pwsc,500,"no itemid specified");
+	return;
+    }
+
+    tempstring=strdup(ws_getvar(pwsc,"dmap.itemid"));
+    current=tempstring;
+
+    while((token=strsep(&current,","))) {
+	if(token) {
+	    db_delete_playlist_item(pqi->playlist_id,atoi(token));
+	}
+    }
+    
+    free(tempstring);
+
+    /* success(ish)... spool out a dmap block */
+    current = playlist_response;
+    current += db_dmap_add_container(current,"MDPI",12);
     current += db_dmap_add_int(current,"mstt",200);         /* 12 */
 
     dispatch_output_start(pwsc,pqi,20);

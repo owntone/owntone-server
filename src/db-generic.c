@@ -199,6 +199,8 @@ DAAP_ITEMS taglist[] = {
     { 0x01, "MPTY", "org.mt-daapd.playlist-type" },
     { 0x0C, "MAPR", "org.mt-daapd.addplaylist" },
     { 0x0C, "MAPI", "org.mt-daapd.addplaylistitem" },
+    { 0x0C, "MDPR", "org.mt-daapd.delplaylist" },
+    { 0x0C, "MDPI", "org.mt-daapd.delplaylistitem" },
     { 0x00, NULL,   NULL }
 };
 
