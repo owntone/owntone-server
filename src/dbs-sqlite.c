@@ -47,6 +47,7 @@ static pthread_mutex_t db_sqlite_mutex = PTHREAD_MUTEX_INITIALIZER; /**< sqlite 
 static sqlite_vm *db_sqlite_pvm;
 static int db_sqlite_in_scan=0;
 static int db_sqlite_reload=0;
+static int db_sqlite_in_playlist_scan=0;
 
 static char db_path[PATH_MAX + 1];
 
@@ -284,6 +285,7 @@ int db_sqlite_start_scan(void) {
     }
 
     db_sqlite_in_scan=1;
+    db_sqlite_in_playlist_scan=0;
     return 0;
 }
 
@@ -300,6 +302,9 @@ int db_sqlite_end_song_scan(void) {
 	db_sqlite_exec(E_FATAL,"update songs set force_update=0");
 	db_sqlite_exec(E_FATAL,"drop table updated");
     }
+
+    db_sqlite_in_scan=0;
+    db_sqlite_in_playlist_scan=1;
 
     return 0;
 }
@@ -319,9 +324,8 @@ int db_sqlite_end_scan(void) {
     }
 
     db_sqlite_update_playlists();
-
     db_sqlite_reload=0;
-    db_sqlite_in_scan=0;
+
     return 0;
 }
 
@@ -583,7 +587,7 @@ int db_sqlite_add(MP3FILE *pmp3) {
 	db_sqlite_exec(E_FATAL,"INSERT INTO updated VALUES (last_insert_rowid())");
     }
 
-    if(!db_sqlite_in_scan) 
+    if((!db_sqlite_in_scan)  && (!db_sqlite_in_playlist_scan))
 	db_sqlite_update_playlists();
 
     DPRINTF(E_SPAM,L_DB,"Exiting db_sqlite_add\n");
@@ -627,6 +631,7 @@ int db_sqlite_update(MP3FILE *pmp3) {
 		       "time_modified=%d,"    // time_modified
 		       "db_timestamp=%d,"    // db_timestamp
 		       "bpm=%d,"    // bpm
+		       "disabled=%d," // disabled
 		       "compilation=%d,"    // compilation
 		       "rating=%d,"    // rating
 		       "sample_count=%d," // sample_count
@@ -655,6 +660,7 @@ int db_sqlite_update(MP3FILE *pmp3) {
 		       pmp3->time_modified,
 		       pmp3->db_timestamp,
 		       pmp3->bpm,
+		       pmp3->disabled,
 		       pmp3->compilation,
 		       pmp3->rating,
 		       pmp3->sample_count,
@@ -666,7 +672,7 @@ int db_sqlite_update(MP3FILE *pmp3) {
 		       pmp3->path);
     }
 
-    if(!db_sqlite_in_scan) 
+    if((!db_sqlite_in_scan) && (!db_sqlite_in_playlist_scan))
 	db_sqlite_update_playlists();
 
     return 0;

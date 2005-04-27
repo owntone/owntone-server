@@ -35,6 +35,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	mp3-scanner.h mp3-scanner.c rend-unix.h strcasestr.c strcasestr.h strsep.c \
 	dynamic-art.c dynamic-art.h query.c query.h ssc.c ssc.h \
 	db-generic.c db-generic.h dispatch.c dispatch.h wma.c \
+	scan-xml.c ezxml.c ezxml.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
 	$(SQLITEDB)
 

@@ -1,7 +1,9 @@
 CC=gcc
-CFLAGS := $(CFLAGS) -g
-LDFLAGS := $(LDFLAGS) -logg -lvorbisfile -lFLAC
+CFLAGS := $(CFLAGS) -g -I/sw/include -DHAVE_CONFIG_H -I. -I..
+LDFLAGS := $(LDFLAGS) -L/sw/lib -logg -lvorbisfile -lFLAC -lvorbis
 
-scanner:	scanner-driver.o restart.o wma.o err.o flac.o ogg.o
-	$(CC) -o scanner $(LDFLAGS) scanner-driver.o restart.o wma.o err.o flac.o ogg.o
+OBJECTS=scanner-driver.o restart.o wma.o err.o flac.o ogg.o
+
+scanner:	$(OBJECTS)
+	$(CC) -o scanner $(LDFLAGS) $(OBJECTS)
 

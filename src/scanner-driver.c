@@ -19,6 +19,11 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+
+#ifdef HAVE_CONFIG_H
+#include "config.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -33,6 +38,7 @@ extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_ogginfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
 
+
 /* 
  * Typedefs
  */
@@ -40,7 +46,6 @@ typedef struct scannerlist_tag {
     char *ext;
     int (*scanner)(char *file, MP3FILE *pmp3);
 } SCANNERLIST;
-
 
 /*
  * Globals
@@ -53,8 +58,13 @@ SCANNERLIST scanner_list[] = {
     { NULL, NULL }
 };
 char *av0;
-    
 
+
+/**
+ * dump a mp3 file
+ *
+ * \param pmp3 mp3 file to dump
+ */
 void dump_mp3(MP3FILE *pmp3) {
     int min,sec;
 
@@ -86,6 +96,11 @@ void dump_mp3(MP3FILE *pmp3) {
 
     printf("compilation...:  %d\n",pmp3->compilation);
 }
+
+
+/*
+ * dump suage
+ */
 
 void usage(int errorcode) {
     fprintf(stderr,"Usage: %s [options] input-file\n\n",av0);
@@ -138,11 +153,12 @@ int main(int argc, char *argv[]) {
 	plist++;
     }
 
-    if(!plist->ext) {
-	fprintf(stderr,"Cannot find dispatch for file of type %s\n",ext);
+    if(plist->ext) {
+	fprintf(stderr,"dispatching as single-file metatag parser\n");
+	plist->scanner(argv[0],&mp3);
+	dump_mp3(&mp3);
+    } else {
+	fprintf(stderr,"unknown file extension: %s\n",ext);
 	exit(-1);
     }
-
-    plist->scanner(argv[0],&mp3);
-    dump_mp3(&mp3);
 }

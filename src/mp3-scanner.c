@@ -314,6 +314,11 @@ extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
 /** \see wma.c */
 int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
 
+/* playlist scanners */
+/** \see scan-xml.c */
+int scan_xml_playlist(char *filename);
+
+
 
 /* For known types, I'm gong to use the "official" apple
  * daap.songformat, daap.songdescription, and daap.songcodecsubtype.
@@ -393,10 +398,24 @@ void scan_add_playlistlist(char *path) {
  */
 void scan_process_playlistlist(void) {
     PLAYLISTLIST *pnext;
+    char *ext;
 
     while(scan_playlistlist.next) {
 	pnext=scan_playlistlist.next;
-	scan_static_playlist(pnext->path);
+
+	ext=pnext->path;
+	if(strrchr(pnext->path,'.')) {
+	    ext = strrchr(pnext->path,'.');
+	}
+
+	if(strcasecmp(ext,".xml") == 0) {
+	    scan_xml_playlist(pnext->path);
+	} else if(strcasecmp(ext,".m3u") == 0) {
+	    scan_static_playlist(pnext->path);
+	} else {
+	    DPRINTF(E_LOG,L_SCAN,"Unknown playlist type: %s\n",ext);
+	}
+
 	free(pnext->path);
 	scan_playlistlist.next=pnext->next;
 	free(pnext);
@@ -517,6 +536,8 @@ int scan_path(char *path) {
 		    if((strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) &&
 		       config.process_m3u){
 			/* we found an m3u file */
+			scan_add_playlistlist(mp3_path);
+		    } else if((strcasecmp(pde->d_name,"iTunes Music Library.xml")==0)) {
 			scan_add_playlistlist(mp3_path);
 		    } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
 			       (strcasestr(config.extensions, ext))) {
