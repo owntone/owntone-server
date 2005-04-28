@@ -303,6 +303,8 @@ int db_sqlite_end_song_scan(void) {
 	db_sqlite_exec(E_FATAL,"drop table updated");
     }
 
+    db_sqlite_exec(E_FATAL,"begin transaction");
+
     db_sqlite_in_scan=0;
     db_sqlite_in_playlist_scan=1;
 
@@ -313,10 +315,12 @@ int db_sqlite_end_song_scan(void) {
  * stop a db scan
  */
 int db_sqlite_end_scan(void) {
+    db_sqlite_exec(E_FATAL,"end transaction");
+
     if(db_sqlite_reload) {
 	db_sqlite_exec(E_FATAL,"pragma synchronous=normal");
     } else {
-	db_sqlite_exec(E_FATAL,"delete from playlists where ((type=%d) OR (type=%d))and "
+	db_sqlite_exec(E_FATAL,"delete from playlists where ((type=%d) OR (type=%d)) and "
 		       "id not in (select id from plupdated)",PL_STATICFILE,PL_STATICXML);
 	db_sqlite_exec(E_FATAL,"delete from playlistitems where id not in (select distinct "
 		       "id from playlists)");
@@ -325,6 +329,7 @@ int db_sqlite_end_scan(void) {
 
     db_sqlite_update_playlists();
     db_sqlite_reload=0;
+    db_sqlite_in_playlist_scan=0;
 
     return 0;
 }
