@@ -285,8 +285,10 @@ int scan_xml_playlist(char *filename) {
     for(key = ezxml_child(maindict,"key"); key; key=key->next) {
 	DPRINTF(E_SPAM,L_SCAN,"Found key %s\n",key->txt);
 	value = key->ordered;
-	if(!value)  /* badly formed xml file */
+	if(!value) {  /* badly formed xml file */
+	    ezxml_free(itpl);
 	    return -1;
+	}
 
 	if(!scan_xml_itunes_version && (strcasecmp(key->txt,"Application Version") == 0)) {
 	    scan_xml_itunes_version=strdup(value->txt);
@@ -301,6 +303,7 @@ int scan_xml_playlist(char *filename) {
 	}
     }
 
+    ezxml_free(itpl);
     return 0;
 }
 
