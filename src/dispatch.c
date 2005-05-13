@@ -642,9 +642,17 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 	    config_set_status(pwsc,pqi->session_id,NULL);
 	    db_dispose_item(pmp3);
 	} else {
+	    // The type should really be determined by the transcoding
+	    // function -- it's possible that you want to transcode
+	    // to a lower-bitrate mp3 or something... but for now,
+	    // we'll just assume .wav
+	    ws_addresponseheader(pwsc,"Content-Type","audio/wav");
+
+	    /*
 	    if(pmp3->type)
 		ws_addresponseheader(pwsc,"Content-Type","audio/%s",
 				     pmp3->type);
+	    */
 	    // Also content-length -heade would be nice, but since
 	    // we don't really know it here, so let's leave it out.
 	    ws_addresponseheader(pwsc,"Connection","Close");
