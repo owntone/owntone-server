@@ -373,19 +373,6 @@ int config_read(char *file) {
     fclose(fin);
     free(buffer);
 
-    /* Set the directory components to realpaths */
-    realpath(config.web_root,path_buffer);
-    free(config.web_root);
-    config.web_root=strdup(path_buffer);
-
-    realpath(config.mp3dir,path_buffer);
-    free(config.mp3dir);
-    config.mp3dir=strdup(path_buffer);
-
-    realpath(config.dbdir,path_buffer);
-    free(config.dbdir);
-    config.dbdir=strdup(path_buffer);
-
     /* check to see if all required elements are satisfied */
     pce=config_elements;
     err=0;
@@ -412,6 +399,19 @@ int config_read(char *file) {
 	pce++;
     }
     
+    /* Set the directory components to realpaths */
+    realpath(config.web_root,path_buffer);
+    free(config.web_root);
+    config.web_root=strdup(path_buffer);
+
+    realpath(config.mp3dir,path_buffer);
+    free(config.mp3dir);
+    config.mp3dir=strdup(path_buffer);
+
+    realpath(config.dbdir,path_buffer);
+    free(config.dbdir);
+    config.dbdir=strdup(path_buffer);
+
 
     /* sanity check the paths */
     sprintf(path_buffer,"%s/index.html",config.web_root);
