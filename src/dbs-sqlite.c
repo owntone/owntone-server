@@ -105,21 +105,18 @@ int db_sqlite_exec(int loglevel, char *fmt, ...) {
 
     db_sqlite_lock();
     err=sqlite_exec(db_sqlite_songs,query,NULL,NULL,&perr);
-    if(err == SQLITE_OK) 
-	sqlite_freemem(query);
-    db_sqlite_unlock();
-
     if(err != SQLITE_OK) {
-	DPRINTF(loglevel == E_FATAL ? E_LOG : loglevel,L_DB,"Query: %s\n",query);
+	DPRINTF(loglevel == E_FATAL ? E_LOG : loglevel,L_DB,"Query: %s\n",
+		query);
         DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
-	db_sqlite_lock();
-	sqlite_freemem(query);
-	db_sqlite_unlock();
-	return err;
+	sqlite_freemem(perr);
+    } else {
+	DPRINTF(E_DBG,L_DB,"Rows: %d\n",sqlite_changes(db_sqlite_songs));
     }
+    sqlite_freemem(query);
 
-    DPRINTF(E_DBG,L_DB,"Affected rows: %d\n",sqlite_changes(db_sqlite_songs));
-    return 0;
+    db_sqlite_unlock();
+    return err;
 }
 
 /**
@@ -149,6 +146,7 @@ int db_sqlite_get_table(int loglevel, char ***resarray, int *rows, int *cols, ch
         DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
 	db_sqlite_lock();
 	sqlite_freemem(query);
+	sqlite_freemem(perr);
 	db_sqlite_unlock();
 	return err;
     }
@@ -191,6 +189,7 @@ int db_sqlite_get_int(int loglevel, int *result, char *fmt, ...) {
         DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
 	db_sqlite_lock();
 	sqlite_freemem(query);
+	sqlite_freemem(perr);
 	db_sqlite_unlock();
 	return DB_E_SQL_ERROR;
     }
@@ -217,8 +216,10 @@ int db_sqlite_open(char *parameters) {
     
     db_sqlite_lock();
     db_sqlite_songs=sqlite_open(db_path,0666,&perr);
-    if(!db_sqlite_songs)
+    if(!db_sqlite_songs) {
 	DPRINTF(E_FATAL,L_DB,"db_sqlite_open: %s (%s)\n",perr,db_path);
+	sqlite_freemem(perr);
+    }
 
     sqlite_busy_timeout(db_sqlite_songs,30000);  /* 30 seconds */
 
@@ -758,6 +759,7 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
 	err=sqlite_get_table(db_sqlite_songs,scratch,&resarray,&rows,&cols,&perr);
 	if(err != SQLITE_OK) {
 	    DPRINTF(E_LOG,L_DB|L_DAAP,"Error: %s\n",perr);
+	    sqlite_freemem(perr);
 	    db_sqlite_unlock();
 	    return -1;
 	}
@@ -834,6 +836,7 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
 	if(err != SQLITE_OK) {
 	    db_sqlite_unlock();
 	    DPRINTF(E_LOG,L_DB,"Error in results query: %s\n",perr);
+	    sqlite_freemem(perr);
 	    return -1;
 	}
 
@@ -884,6 +887,7 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
 
     if(err != SQLITE_OK) {
 	DPRINTF(E_LOG,L_DB,"Could not compile query: %s\n",query);
+	sqlite_freemem(perr);
 	return -1;
     }
 
@@ -913,8 +917,9 @@ int db_sqlite_enum_size(DBQUERYINFO *pinfo, int *count) {
 
     if(err != SQLITE_DONE) {
 	sqlite_finalize(db_sqlite_pvm,&perr);
-	db_sqlite_unlock();
 	DPRINTF(E_FATAL,L_DB,"sqlite_step: %s\n",perr);
+	sqlite_freemem(perr);
+	db_sqlite_unlock();
     }
 
     db_sqlite_unlock();
@@ -959,9 +964,10 @@ int db_sqlite_enum_fetch(DBQUERYINFO *pinfo, unsigned char **pdmap) {
 
     db_sqlite_lock();
     sqlite_finalize(db_sqlite_pvm,&perr);
+    DPRINTF(E_FATAL,L_DB,"sqlite_step: %s\n",perr);
+    sqlite_freemem(perr);
     db_sqlite_unlock();
 
-    DPRINTF(E_FATAL,L_DB,"sqlite_step: %s\n",perr);
     return 0;
 }
 
@@ -978,10 +984,13 @@ int db_sqlite_enum_reset(DBQUERYINFO *pinfo) {
  * stop the enum
  */
 int db_sqlite_enum_end(void) {
-    char *perr;
+    char *perr=NULL;
 
     db_sqlite_lock();
     sqlite_finalize(db_sqlite_pvm,&perr);
+    if(perr) {
+	sqlite_freemem(perr);
+    }
     db_sqlite_unlock();
 
     return 0;

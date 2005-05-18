@@ -47,8 +47,10 @@ static char *scan_xml_itunes_base_path = NULL;
 static char *scan_xml_itunes_decoded_base_path = NULL;
 static char *scan_xml_real_base_path = NULL;
 
-#define MAYBECOPY(a) if(!mp3.a) mp3.a = pmp3->a
-#define MAYBEFREE(a) if((a)) free((a))
+#define MAYBECOPY(a) if(mp3.a) pmp3->a = mp3.a
+#define MAYBECOPYSTRING(a) if(mp3.a) { free(pmp3->a); pmp3->a = mp3.a; }
+
+#define MAYBEFREE(a) if((a)) { free((a)); (a)=NULL; }
 
 static char *scan_xml_track_tags[] = {
     "Name",
@@ -418,52 +420,31 @@ int scan_xml_tracks_section(int action, char *info) {
 		realpath(physical_path,real_path);
 		pmp3=db_fetch_path(real_path);
 		if(pmp3) {
-		    MAYBECOPY(title);
-		    MAYBECOPY(artist);
-		    MAYBECOPY(album);
-		    MAYBECOPY(genre);
-		    MAYBECOPY(comment);
-		    MAYBECOPY(type);
-		    MAYBECOPY(composer);
-		    MAYBECOPY(orchestra);
-		    MAYBECOPY(conductor);
-		    MAYBECOPY(grouping);
-		    MAYBECOPY(url);
-		    MAYBECOPY(bitrate);
-		    MAYBECOPY(samplerate);
+		    /* Update the existing record with the
+		     * updated stuff we got from the iTunes xml file
+		     */
+		    MAYBECOPYSTRING(title);
+		    MAYBECOPYSTRING(artist);
+		    MAYBECOPYSTRING(album);
+		    MAYBECOPYSTRING(genre);
 		    MAYBECOPY(song_length);
-		    MAYBECOPY(file_size);
-		    MAYBECOPY(year);
 		    MAYBECOPY(track);
 		    MAYBECOPY(total_tracks);
-		    MAYBECOPY(disc);
-		    MAYBECOPY(total_discs);
-		    MAYBECOPY(time_added);
-		    MAYBECOPY(time_modified);
-		    MAYBECOPY(time_played);
+		    MAYBECOPY(year);
+		    MAYBECOPY(bitrate);
+		    MAYBECOPY(samplerate);
 		    MAYBECOPY(play_count);
 		    MAYBECOPY(rating);
-		    MAYBECOPY(db_timestamp);
-		    MAYBECOPY(disabled);
-		    MAYBECOPY(bpm);
-		    MAYBECOPY(id);
-		    MAYBECOPY(description);
-		    MAYBECOPY(codectype);
-		    MAYBECOPY(item_kind);
-		    MAYBECOPY(data_kind);
-		    MAYBECOPY(force_update);
-		    MAYBECOPY(sample_count);
-		    MAYBECOPY(compilation);
+		    MAYBECOPY(disc);
+		    MAYBECOPY(total_discs);
 
-		    db_add(&mp3);
+		    db_add(pmp3);
 		    db_dispose_item(pmp3);
+
+		    memset((void*)&mp3,0,sizeof(MP3FILE));
+		    MAYBEFREE(song_path);
 		}
 	    }
-	    MAYBEFREE(mp3.title);
-	    MAYBEFREE(mp3.artist);
-	    MAYBEFREE(mp3.album);
-	    MAYBEFREE(mp3.genre);
-	    MAYBEFREE(song_path);
 	} else {
 	    return XML_STATE_ERROR;
 	}

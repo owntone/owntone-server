@@ -897,7 +897,7 @@ int db_utf8_validate_string(char *string) {
     if(!string)
 	return 0;
 
-    while(*current) {
+     while(*current) {
 	if(!((*current) & 0x80)) {
 	    current++;
 	} else {
