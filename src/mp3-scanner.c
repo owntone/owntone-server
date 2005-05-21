@@ -326,17 +326,18 @@ int scan_xml_playlist(char *filename);
  * way we currently are:  using extension or whatver.  
  *
  * This means that you can test to see if something is, say, an un-drmed
- * aac file by just testing for ->type "m4a", rather than checking every different
- * flavor of file extension.
+ * aac file by just testing for ->type "m4a", rather than checking every
+ * different flavor of file extension.
  * 
- * NOTE: Although they are represented here as strings, the codectype is *really*
- * an unsigned short.  So when it gets serialized, it gets serialized as a short int.
- * If you put something other than 3 or 4 characters as your codectype, you'll see
- * strange results.
+ * NOTE: Although they are represented here as strings, the codectype is
+ * *really* an unsigned short.  So when it gets serialized, it gets 
+ * serialized as a short int. If you put something other than 3 or 4 
+ * characters as your codectype, you'll see strange results.
  *
  * FIXME: url != pls -- this method of dispatching handlers based on file type
- * is completely wrong.  There needs to be a separate type that gets carried around
- * with it, at least outside the database that says where the info CAME FROM.
+ * is completely wrong.  There needs to be a separate type that gets carried 
+ * around with it, at least outside the database that says where the info 
+ * CAME FROM.
  *
  * This system is broken, and won't work with something like a .cue file
  */
@@ -481,7 +482,7 @@ int scan_init(char *path) {
  */
 int scan_path(char *path) {
     DIR *current_dir;
-    char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* overcommit for solaris */
+    char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* extra for solaris */
     struct dirent *pde;
     int err;
     char relative_path[PATH_MAX];
@@ -498,7 +499,7 @@ int scan_path(char *path) {
 
     while(1) {
 	if(config.stop) {
-	    DPRINTF(E_WARN,L_SCAN,"Stop detected.  Aborting scan of %s.\n",path);
+	    DPRINTF(E_WARN,L_SCAN,"Stop req.  Aborting scan of %s.\n",path);
 	    closedir(current_dir);
 	    return 0;
 	}
@@ -610,7 +611,7 @@ void scan_static_playlist(char *path) {
 
     fd=open(path,O_RDONLY);
     if(fd != -1) {
-	if(db_add_playlist(base_path,PL_STATICFILE,NULL,path,&playlistid) != DB_E_SUCCESS) {
+	if(db_add_playlist(base_path,PL_STATICFILE,NULL,path,0,&playlistid) != DB_E_SUCCESS) {
 	    DPRINTF(E_LOG,L_SCAN,"Error adding m3u playlist %s\n",path);
 	    db_dispose_playlist(pm3u);
 	    return;

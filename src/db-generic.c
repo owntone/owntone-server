@@ -46,7 +46,7 @@ typedef struct tag_db_functions {
     int(*dbs_init)(int);
     int(*dbs_deinit)(void);
     int(*dbs_add)(MP3FILE*);
-    int(*dbs_add_playlist)(char *, int, char *,char *, int *);
+    int(*dbs_add_playlist)(char *, int, char *,char *, int, int *);
     int(*dbs_add_playlist_item)(int, int);
     int(*dbs_delete_playlist)(int);
     int(*dbs_delete_playlist_item)(int, int);
@@ -480,11 +480,11 @@ int db_add(MP3FILE *pmp3) {
  * \param playlistid returns the id of the playlist created
  * \returns 0 on success, error code otherwise 
  */
-int db_add_playlist(char *name, int type, char *clause, char *path, int *playlistid) {
+int db_add_playlist(char *name, int type, char *clause, char *path, int index, int *playlistid) {
     int retval;
 
     db_writelock();
-    retval=db_current->dbs_add_playlist(name,type,clause,path,playlistid);
+    retval=db_current->dbs_add_playlist(name,type,clause,path,index,playlistid);
     if(retval == DB_E_SUCCESS)
 	db_revision_no++;
     db_unlock();

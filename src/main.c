@@ -421,6 +421,8 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
     }
 
+    DPRINTF(E_LOG,"Starting with debuglevel %d\n",err_debuglevel);
+
     if(!foreground) {
 	if(config.logfile) {
 	    err_setdest(config.logfile,LOGDEST_LOGFILE);

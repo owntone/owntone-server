@@ -33,6 +33,7 @@
 #include "err.h"
 #include "mp3-scanner.h"
 #include "rxml.h"
+#include "redblack.h"
 
 /* Forwards */
 int scan_xml_playlist(char *filename);
@@ -40,18 +41,21 @@ void scan_xml_handler(int action,void* puser,char* info);
 int scan_xml_preamble_section(int action,char *info);
 int scan_xml_tracks_section(int action,char *info);
 int scan_xml_playlists_section(int action,char *info);
+void scan_xml_add_lookup(int itunes_index, int mtd_index);
 
 /* Globals */
 static char *scan_xml_itunes_version = NULL;
 static char *scan_xml_itunes_base_path = NULL;
 static char *scan_xml_itunes_decoded_base_path = NULL;
 static char *scan_xml_real_base_path = NULL;
+static char *scan_xml_file; /** < The actual file we are scanning */
+static struct rbtree *scan_xml_db;
 
 #define MAYBECOPY(a) if(mp3.a) pmp3->a = mp3.a
 #define MAYBECOPYSTRING(a) if(mp3.a) { free(pmp3->a); pmp3->a = mp3.a; }
-
 #define MAYBEFREE(a) if((a)) { free((a)); (a)=NULL; }
 
+/** iTunes xml values we are interested in */
 static char *scan_xml_track_tags[] = {
     "Name",
     "Artist",
@@ -73,6 +77,7 @@ static char *scan_xml_track_tags[] = {
     NULL
 };
 
+/** Indexes to the iTunes xml fields we are interested in */
 #define SCAN_XML_T_UNKNOWN     -1
 #define SCAN_XML_T_NAME         0
 #define SCAN_XML_T_ARTIST       1
@@ -91,6 +96,82 @@ static char *scan_xml_track_tags[] = {
 #define SCAN_XML_T_DISCCOUNT   14
 #define SCAN_XML_T_COMPILATION 15
 #define SCAN_XML_T_LOCATION    16
+
+
+#ifndef TRUE
+# define TRUE  1
+# define FALSE 0
+#endif
+
+typedef struct scan_xml_rb_t {
+    int itunes_index;
+    int mtd_index;
+} SCAN_XML_RB;
+
+/**
+ * comparison for the red-black tree.  @see redblack.c
+ * 
+ * @param pa one node to compare
+ * @param pb other node to compare
+ * @param cfg I have no idea
+ */
+int scan_xml_rb_compare(const void *pa, const void *pb, const void *cfg) {
+    if(((SCAN_XML_RB*)pa)->itunes_index < ((SCAN_XML_RB*)pb)->itunes_index) 
+	return -1;
+    if(((SCAN_XML_RB*)pb)->itunes_index < ((SCAN_XML_RB*)pa)->itunes_index)
+	return 1;
+    return 0;
+}
+
+/**
+ * add a mapping from iTunes song index to the mt-daapd song
+ * index.  This is so we can add resolve mt-daapd song indexes
+ * when it comes time to build the iTunes playlist
+ *
+ * @param itunes_index the index from the itunes xml file
+ * @param mtd_index the index from db_fetch_path
+ */
+void scan_xml_add_lookup(int itunes_index, int mtd_index) {
+    SCAN_XML_RB *pnew;
+    const void *val;
+
+    pnew=(SCAN_XML_RB*)malloc(sizeof(SCAN_XML_RB));
+    if(!pnew)
+	DPRINTF(E_FATAL,L_SCAN,"malloc error in scan_xml_add_lookup\n");
+    
+    pnew->itunes_index = itunes_index;
+    pnew->mtd_index = mtd_index;
+
+    val = rbsearch((const void*)pnew,scan_xml_db);
+    if(!val) {
+	/* couldn't alloc the rb tree structure -- if we don't
+	 * die now, we are going to soon enough*/
+	DPRINTF(E_FATAL,L_SCAN,"redblack tree insert error\n");
+    }
+}
+
+/**
+ * Find the mt-daapd index that corresponds with a particular
+ * itunes song id
+ *
+ * @param itunes_index index from the iTunes xml file
+ * @returns the mt-daapd index
+ */
+int scan_xml_get_index(int itunes_index, int *mtd_index) {
+    SCAN_XML_RB rb;
+    SCAN_XML_RB *prb;
+
+    rb.itunes_index = itunes_index;
+    prb = (SCAN_XML_RB*) rbfind((void*)&rb,scan_xml_db);
+    if(prb) {
+	*mtd_index = prb->mtd_index;
+	DPRINTF(E_SPAM,L_SCAN,"Matching %d to %d\n",itunes_index,*mtd_index);
+	return TRUE;
+    }
+
+    return FALSE;
+}
+
 
 /**
  * get the tag index of a particular tag
@@ -177,6 +258,10 @@ char *scan_xml_urldecode(char *string, int space_as_plus) {
  */
 int scan_xml_playlist(char *filename) {
     char *working_base;
+    const void *val;
+    SCAN_XML_RB *lookup_ptr;
+    SCAN_XML_RB lookup_val;
+
     RXMLHANDLE xml_handle;
 
     MAYBEFREE(scan_xml_itunes_version);
@@ -184,6 +269,13 @@ int scan_xml_playlist(char *filename) {
     MAYBEFREE(scan_xml_itunes_decoded_base_path);
     MAYBEFREE(scan_xml_real_base_path);
 
+    scan_xml_file = filename;
+
+    /* initialize the redblack tree */
+    if((scan_xml_db = rbinit(scan_xml_rb_compare,NULL)) == NULL) {
+	DPRINTF(E_LOG,L_SCAN,"Could not initialize red/black tree\n");
+	return 0;
+    }
 
     /* find the base dir of the itunes playlist itself */
     working_base = strdup(filename);
@@ -208,6 +300,18 @@ int scan_xml_playlist(char *filename) {
     }
 
     rxml_close(xml_handle);
+
+    /* destroy the redblack tree */
+    val = rblookup(RB_LUFIRST,NULL,scan_xml_db);
+    while(val) {
+	lookup_val.itunes_index = ((SCAN_XML_RB*)val)->itunes_index;
+	lookup_ptr = (SCAN_XML_RB *)rbdelete((void*)&lookup_val,scan_xml_db);
+	if(lookup_ptr)
+	    free(lookup_ptr);
+	val = rblookup(RB_LUFIRST,NULL,scan_xml_db);
+    }
+
+    rbdestroy(scan_xml_db);
     return 0;
 }
 
@@ -261,10 +365,11 @@ void scan_xml_handler(int action,void* puser,char* info) {
     }
 }
 
-#define SCAN_XML_PRE_NOTHING  0
-#define SCAN_XML_PRE_VERSION  1
-#define SCAN_XML_PRE_PATH     2
-#define SCAN_XML_PRE_DONE     3
+#define SCAN_XML_PRE_NOTHING   0
+#define SCAN_XML_PRE_VERSION   1
+#define SCAN_XML_PRE_PATH      2
+#define SCAN_XML_PRE_TRACKS    3
+#define SCAN_XML_PRE_PLAYLISTS 4
 
 /**
  * collect preamble data... version, library id, etc.
@@ -283,8 +388,16 @@ int scan_xml_preamble_section(int action, char *info) {
 	break;
 
     case RXML_EVT_END:
-	if(expecting_next == SCAN_XML_PRE_DONE) /* end of tracks tag */
+	if(expecting_next == SCAN_XML_PRE_TRACKS) { /* end of tracks tag */
+	    expecting_next=0;
+	    DPRINTF(E_DBG,L_SCAN,"Scanning tracks\n");
 	    return XML_STATE_TRACKS;
+	}
+	if(expecting_next == SCAN_XML_PRE_PLAYLISTS) {
+	    expecting_next=0;
+	    DPRINTF(E_DBG,L_SCAN,"Scanning playlists\n");
+	    return XML_STATE_PLAYLISTS;
+	}
 	break;
 
     case RXML_EVT_TEXT: /* scan for the tags we expect */
@@ -294,7 +407,9 @@ int scan_xml_preamble_section(int action, char *info) {
 	    } else if (strcmp(info,"Music Folder") == 0) {
 		expecting_next = SCAN_XML_PRE_PATH;
 	    } else if (strcmp(info,"Tracks") == 0) {
-		expecting_next = SCAN_XML_PRE_DONE;
+		expecting_next = SCAN_XML_PRE_TRACKS;
+	    } else if (strcmp(info,"Playlists") == 0) {
+		expecting_next = SCAN_XML_PRE_PLAYLISTS;
 	    }
 	} else {
 	    /* we were expecting someting! */
@@ -333,7 +448,6 @@ int scan_xml_preamble_section(int action, char *info) {
 #define XML_TRACK_ST_EXPECTING_TRACK_DICT  3
 #define XML_TRACK_ST_TRACK_INFO            4
 #define XML_TRACK_ST_TRACK_DATA            5
-#define XML_TRACK_ST_EXPECTING_PLAYLISTS   6
 
 /**
  * collect track data for each track in the itunes playlist
@@ -341,10 +455,9 @@ int scan_xml_preamble_section(int action, char *info) {
  * @param action xml action (RXML_EVT_TEXT, etc)
  * @param info text data associated with event
  */
-#define MAYBESETSTATE(a,b,c) { if((action==(a)) && \
+#define MAYBESETSTATE_TR(a,b,c) { if((action==(a)) && \
                                   (strcmp(info,(b)) == 0)) { \
                                    state = (c); \
-                                   DPRINTF(E_SPAM,L_SCAN,"New state: %d\n",state); \
                                    return XML_STATE_TRACKS; \
                              }}
                              
@@ -353,7 +466,7 @@ int scan_xml_tracks_section(int action, char *info) {
     static int current_track_id;
     static int current_field;
     static MP3FILE mp3;
-    static char *song_path;
+    static char *song_path=NULL;
     char physical_path[PATH_MAX];
     char real_path[PATH_MAX];
     MP3FILE *pmp3;
@@ -369,21 +482,23 @@ int scan_xml_tracks_section(int action, char *info) {
     switch(state) {
     case XML_TRACK_ST_INITIAL:
 	/* expection only a <dict> */
-	MAYBESETSTATE(RXML_EVT_BEGIN,"dict",XML_TRACK_ST_MAIN_DICT);
+	MAYBESETSTATE_TR(RXML_EVT_BEGIN,"dict",XML_TRACK_ST_MAIN_DICT);
 	return XML_STATE_ERROR;
 	break;
 
     case XML_TRACK_ST_MAIN_DICT:
 	/* either get a <key>, or a </dict> */
-	MAYBESETSTATE(RXML_EVT_BEGIN,"key",XML_TRACK_ST_EXPECTING_TRACK_ID);
-	MAYBESETSTATE(RXML_EVT_END,"dict",XML_TRACK_ST_EXPECTING_PLAYLISTS);
+	MAYBESETSTATE_TR(RXML_EVT_BEGIN,"key",XML_TRACK_ST_EXPECTING_TRACK_ID);
+	if ((action == RXML_EVT_END) && (strcasecmp(info,"dict") == 0)) {
+	    return XML_STATE_PREAMBLE;
+	}
 	return XML_STATE_ERROR;
 	break;
 
     case XML_TRACK_ST_EXPECTING_TRACK_ID:
 	/* this is somewhat loose  - <key>id</key> */
-	MAYBESETSTATE(RXML_EVT_BEGIN,"key",XML_TRACK_ST_EXPECTING_TRACK_ID);
-	MAYBESETSTATE(RXML_EVT_END,"key",XML_TRACK_ST_EXPECTING_TRACK_DICT);
+	MAYBESETSTATE_TR(RXML_EVT_BEGIN,"key",XML_TRACK_ST_EXPECTING_TRACK_ID);
+	MAYBESETSTATE_TR(RXML_EVT_END,"key",XML_TRACK_ST_EXPECTING_TRACK_DICT);
 	if (action == RXML_EVT_TEXT) {
 	    current_track_id = atoi(info);
 	    DPRINTF(E_DBG,L_SCAN,"Scanning iTunes id #%d\n",current_track_id);
@@ -394,14 +509,14 @@ int scan_xml_tracks_section(int action, char *info) {
 
     case XML_TRACK_ST_EXPECTING_TRACK_DICT:
 	/* waiting for a dict */
-	MAYBESETSTATE(RXML_EVT_BEGIN,"dict",XML_TRACK_ST_TRACK_INFO);
+	MAYBESETSTATE_TR(RXML_EVT_BEGIN,"dict",XML_TRACK_ST_TRACK_INFO);
 	return XML_STATE_ERROR;
 	break;
 
     case XML_TRACK_ST_TRACK_INFO:
 	/* again, kind of loose */
-	MAYBESETSTATE(RXML_EVT_BEGIN,"key",XML_TRACK_ST_TRACK_INFO);
-	MAYBESETSTATE(RXML_EVT_END,"key",XML_TRACK_ST_TRACK_DATA);
+	MAYBESETSTATE_TR(RXML_EVT_BEGIN,"key",XML_TRACK_ST_TRACK_INFO);
+	MAYBESETSTATE_TR(RXML_EVT_END,"key",XML_TRACK_ST_TRACK_DATA);
 	if(action == RXML_EVT_TEXT) {
 	    current_field=scan_xml_get_tagindex(info);
 	    if(current_field == SCAN_XML_T_DISABLED) {
@@ -437,6 +552,9 @@ int scan_xml_tracks_section(int action, char *info) {
 		    MAYBECOPY(rating);
 		    MAYBECOPY(disc);
 		    MAYBECOPY(total_discs);
+
+		    /* must add to the red-black tree */
+		    scan_xml_add_lookup(current_track_id,pmp3->id);
 
 		    db_add(pmp3);
 		    db_dispose_item(pmp3);
@@ -498,6 +616,23 @@ int scan_xml_tracks_section(int action, char *info) {
     return XML_STATE_TRACKS;
 }
 
+
+#define XML_PL_ST_INITIAL                0
+#define XML_PL_ST_EXPECTING_PL           1
+#define XML_PL_ST_EXPECTING_PL_DATA      2
+#define XML_PL_ST_EXPECTING_PL_VALUE     3
+#define XML_PL_ST_EXPECTING_PL_TRACKLIST 4
+
+#define XML_PL_NEXT_VALUE_NONE          0
+#define XML_PL_NEXT_VALUE_NAME          1
+#define XML_PL_NEXT_VALUE_ID            2
+
+#define MAYBESETSTATE_PL(a,b,c) { if((action==(a)) && \
+                                  (strcmp(info,(b)) == 0)) { \
+                                   state = (c); \
+                                   return XML_STATE_PLAYLISTS; \
+                             }}
+                             
 /**
  * collect playlist data for each playlist in the itunes xml file
  *
@@ -505,6 +640,111 @@ int scan_xml_tracks_section(int action, char *info) {
  * @param info text data associated with event
  */
 int scan_xml_playlists_section(int action, char *info) {
+    static int state = XML_PL_ST_INITIAL; 
+    static int next_value=0;         /** < what's next song info id or name */
+    static int native_plid=0;        /** < the iTunes playlist id */
+    static int current_id=0;         /** < the mt-daapd playlist id */
+    static char *current_name=NULL;  /** < the iTunes playlist name */
+    int native_track_id;             /** < the iTunes id of the track */
+    int track_id;                    /** < the mt-daapd track id */
+    M3UFILE *pm3u;
+
+    /* do initialization */
+    if(action == RXML_EVT_OPEN) {
+	state = XML_PL_ST_INITIAL;
+	if(current_name)
+	    free(current_name);
+	current_name = NULL;
+	return 0;
+    }
+
+    switch(state) {
+    case XML_PL_ST_INITIAL:
+	/* expecting <array> or error */
+	MAYBESETSTATE_PL(RXML_EVT_BEGIN,"array",XML_PL_ST_EXPECTING_PL);
+	return XML_STATE_ERROR;
+    case XML_PL_ST_EXPECTING_PL:
+	/* either a new playlist, or end of playlist list */
+	MAYBESETSTATE_PL(RXML_EVT_BEGIN,"dict",XML_PL_ST_EXPECTING_PL_DATA);
+	if((action == RXML_EVT_END) && (strcasecmp(info,"array") == 0))
+	    return XML_STATE_PREAMBLE;
+	return XML_STATE_ERROR;
+    case XML_PL_ST_EXPECTING_PL_DATA:
+	/* either a key/data pair, or an array, signaling start of playlist
+	 * or the end of the dict (end of playlist data) */
+	MAYBESETSTATE_PL(RXML_EVT_BEGIN,"key",XML_PL_ST_EXPECTING_PL_DATA);
+	MAYBESETSTATE_PL(RXML_EVT_END,"key",XML_PL_ST_EXPECTING_PL_VALUE);
+	MAYBESETSTATE_PL(RXML_EVT_END,"dict",XML_PL_ST_EXPECTING_PL);
+	if(action == RXML_EVT_TEXT) {
+	    next_value=XML_PL_NEXT_VALUE_NONE;
+	    if(strcasecmp(info,"Name") == 0) {
+		next_value = XML_PL_NEXT_VALUE_NAME;
+	    } else if(strcasecmp(info,"Playlist ID") == 0) {
+		next_value = XML_PL_NEXT_VALUE_ID;
+	    } 
+	    return XML_STATE_PLAYLISTS;
+	}
+	return XML_STATE_ERROR;
+    case XML_PL_ST_EXPECTING_PL_VALUE:
+	/* any tag, value we are looking for, any close tag */
+	if((action == RXML_EVT_BEGIN) && (strcasecmp(info,"array") == 0)) {
+	    /* we are about to get track list... must register the playlist */
+	    DPRINTF(E_DBG,L_SCAN,"Creating playlist for %s\n",current_name);
+	    /* delete the old one first */
+	    pm3u = db_fetch_playlist(scan_xml_file,native_plid);
+	    if(pm3u) {
+		db_delete_playlist(pm3u->id);
+		db_dispose_playlist(pm3u);
+	    }
+	    if(db_add_playlist(current_name,PL_STATICXML,NULL,scan_xml_file,
+			       native_plid,&current_id) != DB_E_SUCCESS) {
+		DPRINTF(E_LOG,L_SCAN,"err adding playlist %s\n",current_name);
+		current_id=0;
+	    }
+	    state=XML_PL_ST_EXPECTING_PL_TRACKLIST;
+	    return XML_STATE_PLAYLISTS;
+	}
+	if(action == RXML_EVT_BEGIN)
+	    return XML_STATE_PLAYLISTS;
+	if(action == RXML_EVT_END) {
+	    state = XML_PL_ST_EXPECTING_PL_DATA;
+	    return XML_STATE_PLAYLISTS;
+	}
+	if(action == RXML_EVT_TEXT) {
+	    /* got the value we were hoping for */
+	    if(next_value == XML_PL_NEXT_VALUE_NAME) {
+		if(current_name)
+		    free(current_name);
+		current_name = strdup(info);
+	    } else if(next_value == XML_PL_NEXT_VALUE_ID) {
+		native_plid = atoi(info);
+	    }
+	    return XML_STATE_PLAYLISTS;
+	}
+	return XML_STATE_ERROR;
+
+    case XML_PL_ST_EXPECTING_PL_TRACKLIST:
+	if((strcasecmp(info,"dict") == 0) || (strcasecmp(info,"key") == 0))
+	    return XML_STATE_PLAYLISTS;
+	MAYBESETSTATE_PL(RXML_EVT_END,"array",XML_PL_ST_EXPECTING_PL_DATA);
+        if(action == RXML_EVT_TEXT) {
+	    if(strcasecmp(info,"Track ID") != 0) {
+		native_track_id = atoi(info);
+		DPRINTF(E_DBG,L_SCAN,"Adding itunes track #%s\n",info);
+		/* add it to the current playlist (current_id) */
+		if(current_id && scan_xml_get_index(native_track_id, &track_id)) {
+		    db_add_playlist_item(current_id,track_id);
+		}
+	    }
+
+	    return XML_STATE_PLAYLISTS;
+	}
+	return XML_STATE_PLAYLISTS;
+
+    default:
+	return XML_STATE_ERROR;
+    }
+    
     return XML_STATE_PLAYLISTS;
 }
 

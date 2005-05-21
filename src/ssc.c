@@ -113,7 +113,7 @@ int server_side_convert(char *fname) {
 int server_side_convert_set(MP3FILE *pmp3)
 {
     char *fname, *path, *description, *ext;
-    DPRINTF(E_DBG,L_SCAN,"Checking for ssc: %s\n",pmp3->fname);
+    DPRINTF(E_SPAM,L_SCAN,"Checking for ssc: %s\n",pmp3->fname);
     if ((!config.ssc_extensions) ||
 	(!config.ssc_extensions[0]) ||
 	(!config.ssc_prog) ||
@@ -126,11 +126,11 @@ int server_side_convert_set(MP3FILE *pmp3)
 		 strlen(pmp3->fname) -
 		 strlen(SERVER_SIDE_CONVERT_SUFFIX),
 		 SERVER_SIDE_CONVERT_SUFFIX) == 0))) {
-	DPRINTF(E_DBG,L_SCAN,"Nope\n");
+	DPRINTF(E_SPAM,L_SCAN,"Nope\n");
 	return 0;
     }
 
-    DPRINTF(E_DBG,L_SCAN,"Yup\n");
+    DPRINTF(E_SPAM,L_SCAN,"Yup\n");
     if (((ext = strrchr(pmp3->path, '.')) != NULL) &&
 	(strcasestr(config.ssc_extensions, ext))) {
 	fname = (char *)malloc(strlen(pmp3->fname) +
