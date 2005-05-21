@@ -122,6 +122,7 @@ CONFIGELEMENT config_elements[] = {
 #else
     { 1,0,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
 #endif
+    { 1,0,0,CONFIG_TYPE_INT,"debuglevel",(void*)&err_debuglevel,config_emit_int },
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
     { 1,0,0,CONFIG_TYPE_INT,"rescan_interval",(void*)&config.rescan_interval,config_emit_int },
     { 1,0,0,CONFIG_TYPE_INT,"always_scan",(void*)&config.always_scan,config_emit_int },
