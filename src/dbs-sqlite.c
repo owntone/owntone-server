@@ -1089,6 +1089,9 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
 	if(valarray[22] && atoi(valarray[22]) && db_wantsmeta(pinfo->meta, metaSongDiscCount))
 	    /* asdc */
 	    size += 10;
+	if(valarray[21] && atoi(valarray[21]) && db_wantsmeta(pinfo->meta, metaSongDiscNumber))
+		size += 10;
+		/* asdn */	
 	if(ISSTR(valarray[6]) && db_wantsmeta(pinfo->meta, metaSongGenre))
 	    /* asgn */
 	    size += (8 + strlen(valarray[6]));
@@ -1241,6 +1244,8 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int
 	    current += db_dmap_add_int(current,"asdm",(int)atoi(valarray[31]));
 	if(valarray[22] && atoi(valarray[22]) && db_wantsmeta(pinfo->meta, metaSongDiscCount))
 	    current += db_dmap_add_short(current,"asdc",(short)atoi(valarray[22]));
+	if(valarray[21] && atoi(valarray[21]) && db_wantsmeta(pinfo->meta, metaSongDiscNumber))
+	    current += db_dmap_add_short(current,"asdn",(short)atoi(valarray[21]));
 	if(ISSTR(valarray[6]) && db_wantsmeta(pinfo->meta, metaSongGenre))
 	    current += db_dmap_add_string(current,"asgn",valarray[6]);
 	if(db_wantsmeta(pinfo->meta,metaItemId))
