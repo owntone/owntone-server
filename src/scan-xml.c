@@ -635,6 +635,8 @@ int scan_xml_tracks_section(int action, char *info) {
                              
 /**
  * collect playlist data for each playlist in the itunes xml file
+ * this again is implemented as a sloppy state machine, and assumes
+ * that the playlist items are after all the playlist metainfo.
  *
  * @param action xml action (RXML_EVT_TEXT, etc)
  * @param info text data associated with event
@@ -645,8 +647,10 @@ int scan_xml_playlists_section(int action, char *info) {
     static int native_plid=0;        /** < the iTunes playlist id */
     static int current_id=0;         /** < the mt-daapd playlist id */
     static char *current_name=NULL;  /** < the iTunes playlist name */
+    static int dont_scan=0;          /** < playlist we don't want */
     int native_track_id;             /** < the iTunes id of the track */
     int track_id;                    /** < the mt-daapd track id */
+
     M3UFILE *pm3u;
 
     /* do initialization */
@@ -655,6 +659,7 @@ int scan_xml_playlists_section(int action, char *info) {
 	if(current_name)
 	    free(current_name);
 	current_name = NULL;
+	dont_scan=0;
 	return 0;
     }
 
@@ -681,7 +686,10 @@ int scan_xml_playlists_section(int action, char *info) {
 		next_value = XML_PL_NEXT_VALUE_NAME;
 	    } else if(strcasecmp(info,"Playlist ID") == 0) {
 		next_value = XML_PL_NEXT_VALUE_ID;
-	    } 
+	    } else if(strcasecmp(info,"Master") == 0) {
+		/* No point adding the master library... we have one */
+		dont_scan=1;
+	    }
 	    return XML_STATE_PLAYLISTS;
 	}
 	return XML_STATE_ERROR;
@@ -689,18 +697,22 @@ int scan_xml_playlists_section(int action, char *info) {
 	/* any tag, value we are looking for, any close tag */
 	if((action == RXML_EVT_BEGIN) && (strcasecmp(info,"array") == 0)) {
 	    /* we are about to get track list... must register the playlist */
-	    DPRINTF(E_DBG,L_SCAN,"Creating playlist for %s\n",current_name);
-	    /* delete the old one first */
-	    pm3u = db_fetch_playlist(scan_xml_file,native_plid);
-	    if(pm3u) {
-		db_delete_playlist(pm3u->id);
-		db_dispose_playlist(pm3u);
+	    current_id=0;
+	    if(dont_scan == 0) {
+		DPRINTF(E_DBG,L_SCAN,"Creating playlist for %s\n",current_name);
+		/* delete the old one first */
+		pm3u = db_fetch_playlist(scan_xml_file,native_plid);
+		if(pm3u) {
+		    db_delete_playlist(pm3u->id);
+		    db_dispose_playlist(pm3u);
+		}
+		if(db_add_playlist(current_name,PL_STATICXML,NULL,scan_xml_file,
+				   native_plid,&current_id) != DB_E_SUCCESS) {
+		    DPRINTF(E_LOG,L_SCAN,"err adding playlist %s\n",current_name);
+		    current_id=0;
+		}
 	    }
-	    if(db_add_playlist(current_name,PL_STATICXML,NULL,scan_xml_file,
-			       native_plid,&current_id) != DB_E_SUCCESS) {
-		DPRINTF(E_LOG,L_SCAN,"err adding playlist %s\n",current_name);
-		current_id=0;
-	    }
+	    dont_scan=0;
 	    state=XML_PL_ST_EXPECTING_PL_TRACKLIST;
 	    return XML_STATE_PLAYLISTS;
 	}
@@ -716,6 +728,10 @@ int scan_xml_playlists_section(int action, char *info) {
 		if(current_name)
 		    free(current_name);
 		current_name = strdup(info);
+		/* disallow specific playlists */
+		if(strcasecmp(current_name,"Party Shuffle") == 0) {
+		    dont_scan=1;
+		}
 	    } else if(next_value == XML_PL_NEXT_VALUE_ID) {
 		native_plid = atoi(info);
 	    }
