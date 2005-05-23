@@ -81,7 +81,7 @@ char *server_side_convert_path(char *path)
 int server_side_convert(char *fname) {
     char *ext;
 
-    DPRINTF(E_DBG,L_SCAN,"Checking for ssc: %s\n",fname);
+    DPRINTF(E_SPAM,L_SCAN,"Checking for ssc: %s\n",fname);
 
     if ((!config.ssc_extensions) ||
 	(!config.ssc_extensions[0]) ||

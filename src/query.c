@@ -115,13 +115,18 @@ char *query_build_sql(char *query) {
     char *sqlptr=sql;
     int size=sizeof(sql);
 
+    DPRINTF(E_DBG,L_QRY,"Building query for %s\n",query);
     pquery=query_build(query);
     if(pquery) {
 	if(!query_build_clause(pquery,&sqlptr,&size)) {
 	    query_free(pquery);
+	    DPRINTF(E_DBG,L_QRY,"Built query: %s\n",sql);
 	    return strdup(sql);
 	}
+	DPRINTF(E_DBG,L_QRY,"Error converting query to SQL\n");
 	query_free(pquery);
+    } else {
+	DPRINTF(E_DBG,L_QRY,"Error building query\n");
     }
     return NULL;
 }
