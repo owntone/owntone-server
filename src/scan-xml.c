@@ -113,7 +113,7 @@ typedef struct scan_xml_rb_t {
  * 
  * @param pa one node to compare
  * @param pb other node to compare
- * @param cfg I have no idea
+ * @param cfg opaque pointer I'm not using
  */
 int scan_xml_rb_compare(const void *pa, const void *pb, const void *cfg) {
     if(((SCAN_XML_RB*)pa)->itunes_index < ((SCAN_XML_RB*)pb)->itunes_index) 
