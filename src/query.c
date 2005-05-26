@@ -283,7 +283,7 @@ static query_node_t*	single_match(const char* query,
 	++(*pcursor);
     }
 
-    if(strchr(":+-", **pcursor))
+    if(strchr(":+- ", **pcursor))
     {
 	op = **pcursor;
 	++(*pcursor);
