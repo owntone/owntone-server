@@ -276,7 +276,8 @@ static int db_unlock(void);
 static void db_init_once(void);
 static void db_utf8_validate(MP3FILE *pmp3);
 static int db_utf8_validate_string(char *string);
-
+static void db_trim_strings(MP3FILE *pmp3);
+static void db_trim_string(char *string);
 /**
  * encode a string meta request into a MetaField_t
  *
@@ -464,6 +465,7 @@ int db_add(MP3FILE *pmp3) {
 
     db_writelock();
     db_utf8_validate(pmp3);
+    db_trim_strings(pmp3);
     retval=db_current->dbs_add(pmp3);
     db_revision_no++;
     db_unlock();
@@ -932,4 +934,39 @@ int db_utf8_validate_string(char *string) {
     return retval;
 }
 
+/**
+ * Trim the spaces off the string values.  It throws off
+ * browsing when there are some with and without spaces.
+ * This should probably be better fixed by having clean tags,
+ * but seemed simple enough, and it does make sense that
+ * while we are cleaning tags for, say, utf-8 hygene we might
+ * as well get this too.
+ *
+ * @param pmp3 mp3 struct to fix
+ */
+void db_trim_strings(MP3FILE *pmp3) {
+    db_trim_string(pmp3->title);
+    db_trim_string(pmp3->artist);
+    db_trim_string(pmp3->album);
+    db_trim_string(pmp3->genre);
+    db_trim_string(pmp3->comment);
+    db_trim_string(pmp3->composer);
+    db_trim_string(pmp3->orchestra);
+    db_trim_string(pmp3->conductor);
+    db_trim_string(pmp3->grouping);
+    db_trim_string(pmp3->url);
+}
+
+/**
+ * trim trailing spaces in a string.  Used by db_trim_strings
+ *
+ * @param string string to trim
+ */
+void db_trim_string(char *string) {
+    if(!string)
+	return;
+
+    while(strlen(string) && (string[strlen(string) - 1] == ' '))
+	string[strlen(string) - 1] = '\0';
+}
 
