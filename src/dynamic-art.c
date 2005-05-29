@@ -35,6 +35,7 @@
 #include "err.h"
 #include "restart.h"
 #include "mp3-scanner.h"
+#include "scan-aac.h"
 
 #define BLKSIZE PIPE_BUF
 
@@ -224,7 +225,7 @@ off_t da_aac_rewrite_stco_atom(off_t extra_size, int out_fd, FILE *aac_fp,
 
     /* Drill down to the 'stco' atom which contains offsets to chunks in
        the 'mdat' section. These offsets need to be readjusted. */
-    atom_offset = aac_drilltoatom(aac_fp, "moov:trak:mdia:minf:stbl:stco",
+    atom_offset = scan_aac_drilltoatom(aac_fp, "moov:trak:mdia:minf:stbl:stco",
 				  &atom_length);
     if (atom_offset != -1) {
 	/* Skip flags */
@@ -469,11 +470,12 @@ off_t da_aac_attach_image(int img_fd, int out_fd, int aac_fd, int offset)
 
     aac_fp = fdopen(dup(aac_fd), "r");
 
-    stco_atom_pos = aac_drilltoatom(aac_fp, "moov:trak:mdia:minf:stbl:stco",
-				    &atom_length);
-    ilst_atom_pos = aac_drilltoatom(aac_fp, "moov:udta:meta:ilst",
-				    &atom_length);
-    last_pos = aac_drilltoatom(aac_fp, "mdat", &atom_length);
+    stco_atom_pos = scan_aac_drilltoatom(aac_fp, 
+					 "moov:trak:mdia:minf:stbl:stco",
+					 &atom_length);
+    ilst_atom_pos = scan_aac_drilltoatom(aac_fp, "moov:udta:meta:ilst",
+					 &atom_length);
+    last_pos = scan_aac_drilltoatom(aac_fp, "mdat", &atom_length);
 
     if (last_pos != -1) {
 	if (offset >= last_pos) {

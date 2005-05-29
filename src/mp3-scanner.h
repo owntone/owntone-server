@@ -88,10 +88,10 @@ typedef struct tag_m3ufile {
 #define PL_STATICFILE 2
 #define PL_STATICXML  3
 
+#define WINAMP_GENRE_UNKNOWN 148
+
+extern char *scan_winamp_genre[];
 extern int scan_init(char *path);
 extern void make_composite_tags(MP3FILE *song);
 
-/* FIXME: this should be refactored out of here... */
-extern off_t aac_drilltoatom(FILE *aac_fp, char *atom_path, unsigned int *atom_length);
-extern long scan_aac_findatom(FILE *fin, long max_offset, char *which_atom, int *atom_size);
 #endif /* _MP3_SCANNER_H_ */

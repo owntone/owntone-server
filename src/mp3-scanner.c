@@ -262,8 +262,6 @@ char *scan_winamp_genre[] = {
     "Unknown"
 };
 
-#define WINAMP_GENRE_UNKNOWN 148
-
 /* 
  * Typedefs
  */
@@ -299,25 +297,33 @@ static void scan_static_playlist(char *path);
 static void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
 static int scan_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi);
-static time_t mac_to_unix_time(int t);
+
 
 static TAGHANDLER *scan_gethandler(char *type);
 
+
+/* EXTERNAL SCANNERS */
+
 #ifdef OGGVORBIS
+/** @see scan-ogg.c */
 extern int scan_get_ogginfo(char *filename, MP3FILE *pmp3);
 #endif
 
 #ifdef FLAC
+/** @see scan-flac.c */
 extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
 #endif
 
-/** \see wma.c */
-int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
+/** @see scan-wma.c */
+extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
+
+/** @see scan-aac.c */
+extern int scan_get_aacinfo(char *filename, MP3FILE *pmp3);
+
 
 /* playlist scanners */
-/** \see scan-xml.c */
+/** @see scan-xml.c */
 int scan_xml_playlist(char *filename);
-
 
 
 /* For known types, I'm gong to use the "official" apple
@@ -342,10 +348,10 @@ int scan_xml_playlist(char *filename);
  * This system is broken, and won't work with something like a .cue file
  */
 static TAGHANDLER taghandlers[] = {
-    { "aac", scan_get_aactags, scan_get_aacfileinfo, "m4a", "mp4a", "AAC audio file" },
-    { "mp4", scan_get_aactags, scan_get_aacfileinfo, "m4a", "mp4a", "AAC audio file" },
-    { "m4a", scan_get_aactags, scan_get_aacfileinfo, "m4a", "mp4a", "AAC audio file" },
-    { "m4p", scan_get_aactags, scan_get_aacfileinfo, "m4p", "mp4a", "AAC audio file" },
+    { "aac", scan_get_nultags, scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
+    { "mp4", scan_get_nultags, scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
+    { "m4a", scan_get_nultags, scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
+    { "m4p", scan_get_nultags, scan_get_aacinfo, "m4p", "mp4a", "AAC audio file" },
     { "mp3", scan_get_mp3tags, scan_get_mp3fileinfo, "mp3", "mpeg", "MPEG audio file" },
     { "wav", scan_get_nultags, scan_get_wavfileinfo, "wav", "wav", "WAV audio file" },
     { "wma", scan_get_nultags, scan_get_wmainfo, "wma", "wma", "WMA audio file" },
@@ -424,21 +430,6 @@ void scan_process_playlistlist(void) {
 }
 
 
-
-/**
- * Convert mac time to unix time (different epochs)
- *
- * param t time since mac epoch
- */
-time_t mac_to_unix_time(int t) {
-  struct timeval        tv;
-  struct timezone       tz;
-  
-  gettimeofday(&tv, &tz);
-  
-  return (t - (365L * 66L * 24L * 60L * 60L + 17L * 60L * 60L * 24L) +
-          (tz.tz_minuteswest * 60));
-}
 
 /*
  * scan_init
@@ -740,154 +731,6 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     
     scan_freetags(&mp3file);
 }
-
-/*
- * scan_aac_findatom
- *
- * Find an AAC atom
- */
-long scan_aac_findatom(FILE *fin, long max_offset, char *which_atom, int *atom_size) {
-    long current_offset=0;
-    int size;
-    char atom[4];
-
-    while(current_offset < max_offset) {
-	if(fread((void*)&size,1,sizeof(int),fin) != sizeof(int))
-	    return -1;
-
-	size=ntohl(size);
-
-	if(size <= 7) /* something not right */
-	    return -1;
-
-	if(fread(atom,1,4,fin) != 4) 
-	    return -1;
-
-	if(strncasecmp(atom,which_atom,4) == 0) {
-	    *atom_size=size;
-	    return current_offset;
-	}
-
-	fseek(fin,size-8,SEEK_CUR);
-	current_offset+=size;
-    }
-
-    return -1;
-}
-
-/*
- * scan_get_aactags
- *
- * Get tags from an AAC (m4a) file
- */
-int scan_get_aactags(char *file, MP3FILE *pmp3) {
-    FILE *fin;
-    long atom_offset;
-    int atom_length;
-
-    long current_offset=0;
-    int current_size;
-    char current_atom[4];
-    char *current_data;
-    unsigned short us_data;
-    int genre;
-    int len;
-
-    if(!(fin=fopen(file,"rb"))) {
-	DPRINTF(E_INF,L_SCAN,"Cannot open file %s for reading\n",file);
-	return -1;
-    }
-
-    fseek(fin,0,SEEK_SET);
-
-    atom_offset = aac_drilltoatom(fin, "moov:udta:meta:ilst", &atom_length);
-    if(atom_offset != -1) {
-	/* found the tag section - need to walk through now */
-      
-	while(current_offset < atom_length) {
-	    if(fread((void*)&current_size,1,sizeof(int),fin) != sizeof(int))
-		break;
-			
-	    current_size=ntohl(current_size);
-			
-	    if(current_size <= 7) /* something not right */
-		break;
-
-	    if(fread(current_atom,1,4,fin) != 4) 
-		break;
-			
-	    len=current_size-7;  /* for ill-formed too-short tags */
-	    if(len < 22)
-		len=22;
-
-	    current_data=(char*)malloc(len);  /* extra byte */
-	    memset(current_data,0x00,len);
-
-	    if(fread(current_data,1,current_size-8,fin) != current_size-8) 
-		break;
-
-	    if(!memcmp(current_atom,"\xA9" "nam",4)) { /* Song name */
-		pmp3->title=strdup((char*)&current_data[16]);
-	    } else if(!memcmp(current_atom,"\xA9" "ART",4)) {
-		pmp3->artist=strdup((char*)&current_data[16]);
-	    } else if(!memcmp(current_atom,"\xA9" "alb",4)) {
-		pmp3->album=strdup((char*)&current_data[16]);
-	    } else if(!memcmp(current_atom,"\xA9" "cmt",4)) {
-		pmp3->comment=strdup((char*)&current_data[16]);
-	    } else if(!memcmp(current_atom,"\xA9" "wrt",4)) {
-		pmp3->composer=strdup((char*)&current_data[16]);
-	    } else if(!memcmp(current_atom,"\xA9" "grp",4)) {
-		pmp3->grouping=strdup((char*)&current_data[16]);
-	    } else if(!memcmp(current_atom,"\xA9" "gen",4)) {
-		/* can this be a winamp genre??? */
-		pmp3->genre=strdup((char*)&current_data[16]);
-	    } else if(!memcmp(current_atom,"tmpo",4)) {
-		us_data=*((unsigned short *)&current_data[16]);
-		us_data=ntohs(us_data);
-		pmp3->bpm=us_data;
-	    } else if(!memcmp(current_atom,"trkn",4)) {
-		us_data=*((unsigned short *)&current_data[18]);
-		us_data=ntohs(us_data);
-
-		pmp3->track=us_data;
-
-		us_data=*((unsigned short *)&current_data[20]);
-		us_data=ntohs(us_data);
-
-		pmp3->total_tracks=us_data;
-	    } else if(!memcmp(current_atom,"disk",4)) {
-		us_data=*((unsigned short *)&current_data[18]);
-		us_data=ntohs(us_data);
-
-		pmp3->disc=us_data;
-
-		us_data=*((unsigned short *)&current_data[20]);
-		us_data=ntohs(us_data);
-
-		pmp3->total_discs=us_data;
-	    } else if(!memcmp(current_atom,"\xA9" "day",4)) {
-		pmp3->year=atoi((char*)&current_data[16]);
-	    } else if(!memcmp(current_atom,"gnre",4)) {
-		genre=(int)(*((char*)&current_data[17]));
-		genre--;
-			    
-		if((genre < 0) || (genre > WINAMP_GENRE_UNKNOWN))
-		    genre=WINAMP_GENRE_UNKNOWN;
-
-		pmp3->genre=strdup(scan_winamp_genre[genre]);
-	    } else if (!memcmp(current_atom, "cpil", 4)) {
-		pmp3->compilation = current_data[16];
-	    }
-
-	    free(current_data);
-	    current_offset+=current_size;
-	}
-    }
-
-    fclose(fin);
-    return 0;  /* we'll return as much as we got. */
-}
-
 
 /**
  * fetch the taghandler for this file type
@@ -1196,67 +1039,6 @@ int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
 }
 
 /*
- * aac_drilltoatom
- *
- * Returns the offset of the atom specified by the given path or -1 if
- * not found. atom_path is a colon separated list of atoms specifying
- * a path from parent node to the target node. All paths must be specified
- * from the root.
- */
-off_t aac_drilltoatom(FILE *aac_fp, char *atom_path, unsigned int *atom_length)
-{
-    long          atom_offset;
-    off_t         file_size;
-    char          *cur_p, *end_p;
-    char          atom_name[5];
-
-    fseek(aac_fp, 0, SEEK_END);
-    file_size = ftell(aac_fp);
-    rewind(aac_fp);
-
-    end_p = atom_path;
-    while (*end_p != '\0')
-	{
-	    end_p++;
-	}
-    atom_name[4] = '\0';
-    cur_p = atom_path;
-
-    while (cur_p != NULL)
-	{
-	    if ((end_p - cur_p) < 4)
-		{
-		    return -1;
-		}
-	    strncpy(atom_name, cur_p, 4);
-	    atom_offset = scan_aac_findatom(aac_fp, file_size, atom_name, atom_length);
-	    if (atom_offset == -1)
-		{
-		    return -1;
-		}
-	    DPRINTF(E_DBG,L_SCAN,"Found %s atom at off %ld.\n", atom_name, ftell(aac_fp) - 8);
-	    cur_p = strchr(cur_p, ':');
-	    if (cur_p != NULL)
-		{
-		    cur_p++;
-
-		    /* PENDING: Hack to deal with atoms that have extra data in addition
-		       to having child atoms. This should be dealt in a better fashion
-		       than this (table with skip offsets or an actual real mp4 parser.) */
-		    if (!strcmp(atom_name, "meta")) {
-			fseek(aac_fp, 4, SEEK_CUR);
-		    } else if (!strcmp(atom_name, "stsd")) {
-			fseek(aac_fp, 8, SEEK_CUR);
-		    } else if (!strcmp(atom_name, "mp4a")) {
-			fseek(aac_fp, 28, SEEK_CUR);
-		    }
-		}
-	}
-
-    return ftell(aac_fp) - 8;
-}
-
-/*
  * scan_get_urlfileinfo
  *
  * Get info from a "url" file -- a media stream file
@@ -1306,139 +1088,6 @@ int scan_get_urlfileinfo(char *file, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN,"  Bitrate:  %d\n",pmp3->bitrate);
     DPRINTF(E_DBG,L_SCAN,"  URL:      %s\n",pmp3->url);
 
-    return 0;
-}
-
-/*
- * scan_get_aacfileinfo
- *
- * Get info from the actual aac headers
- */
-int scan_get_aacfileinfo(char *file, MP3FILE *pmp3) {
-    FILE *infile;
-    long atom_offset;
-    int atom_length;
-    int sample_size;
-    int samples;
-    unsigned int bit_rate;
-    off_t file_size;
-    int ms;
-    unsigned char buffer[2];
-    int time = 0;
-
-    DPRINTF(E_DBG,L_SCAN,"Getting AAC file info\n");
-
-    if(!(infile=fopen(file,"rb"))) {
-	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
-	return -1;
-    }
-
-    fseek(infile,0,SEEK_END);
-    file_size=ftell(infile);
-    fseek(infile,0,SEEK_SET);
-
-    pmp3->file_size=file_size;
-
-
-    /* now, hunt for the mvhd atom */
-    atom_offset = aac_drilltoatom(infile, "moov:mvhd", &atom_length);
-    if(atom_offset != -1) {
-        fseek(infile, 4, SEEK_CUR);
-        fread((void *)&time, sizeof(int), 1, infile);
-        time = ntohl(time);
-        pmp3->time_added = mac_to_unix_time(time);
-
-        fread((void *)&time, sizeof(int), 1, infile);
-        time = ntohl(time);
-        pmp3->time_modified = mac_to_unix_time(time);
-	fread((void*)&sample_size,1,sizeof(int),infile);
-	fread((void*)&samples,1,sizeof(int),infile);
-
-	sample_size=ntohl(sample_size);
-	samples=ntohl(samples);
-
-	/* avoid overflowing on large sample_sizes (90000) */
-	ms=1000;
-	while((ms > 9) && (!(sample_size % 10))) {
-	    sample_size /= 10;
-	    ms /= 10;
-	}
-
-	/* DWB: use ms time instead of sec */
-	pmp3->song_length=(int)((samples * ms) / sample_size);
-
-	DPRINTF(E_DBG,L_SCAN,"Song length: %d seconds\n", pmp3->song_length / 1000);
-    }
-
-    pmp3->bitrate = 0;
-
-
-    /* see if it is aac or alac */
-    atom_offset = aac_drilltoatom(infile, "moov:trak:mdia:minf:stbl:stsd:alac", &atom_length);
-    if(atom_offset != -1) {
-	/* should we still pull samplerate, etc from the this atom? */
-	if(pmp3->codectype) {
-	    free(pmp3->codectype);
-	}
-	pmp3->codectype=strdup("alac");
-    }
-
-    /* Get the sample rate from the 'mp4a' atom (timescale). This is also
-       found in the 'mdhd' atom which is a bit closer but we need to 
-       navigate to the 'mp4a' atom anyways to get to the 'esds' atom. */
-    atom_offset = aac_drilltoatom(infile, "moov:trak:mdia:minf:stbl:stsd:mp4a", &atom_length);
-    if (atom_offset != -1) {
-	fseek(infile, atom_offset + 32, SEEK_SET);
-
-	/* Timescale here seems to be 2 bytes here (the 2 bytes before it are
-	   "reserved") though the timescale in the 'mdhd' atom is 4. Not sure how
-	   this is dealt with when sample rate goes higher than 64K. */
-	fread(buffer, sizeof(unsigned char), 2, infile);
-
-	pmp3->samplerate = (buffer[0] << 8) | (buffer[1]);
-
-	/* Seek to end of atom. */
-	fseek(infile, 2, SEEK_CUR);
-
-	/* Get the bit rate from the 'esds' atom. We are already positioned
-	   in the parent atom so just scan ahead. */
-	atom_offset = scan_aac_findatom(infile, atom_length - (ftell(infile) - atom_offset), "esds", &atom_length);
-
-	if (atom_offset != -1) {
-	    fseek(infile, atom_offset + 22, SEEK_CUR);
-
-	    fread((void *)&bit_rate, sizeof(unsigned int), 1, infile);
-
-	    pmp3->bitrate = ntohl(bit_rate) / 1000;
-
-	    DPRINTF(E_DBG,L_SCAN,"esds bitrate: %d\n",pmp3->bitrate);
-
-	    if(pmp3->bitrate > 320) {
-		DPRINTF(E_LOG,L_SCAN,"Capping AAC bitrate.  Please report this "
-			"message to the forums on www.mt-daapd.org.  Thx.\n");
-		pmp3->bitrate = 320;
-	    }
-	} else {
-	    DPRINTF(E_DBG,L_SCAN, "Could not find 'esds' atom to determine bit rate.\n");
-	}
-      
-    } else {
-	DPRINTF(E_DBG,L_SCAN, "Could not find 'mp4a' atom to determine sample rate.\n");
-    }
-
-    /* Fallback if we can't find the info in the atoms. */
-    if (pmp3->bitrate == 0) {
-	/* calculate bitrate from song length... Kinda cheesy */
-	DPRINTF(E_DBG,L_SCAN, "Could not find 'esds' atom. Calculating bit rate.\n");
-
-	atom_offset=aac_drilltoatom(infile,"mdat",&atom_length);
-
-	if ((atom_offset != -1) && (pmp3->song_length)) {
-	    pmp3->bitrate = atom_length / ((pmp3->song_length / 1000) * 128);
-	}
-    }
-
-    fclose(infile);
     return 0;
 }
 
