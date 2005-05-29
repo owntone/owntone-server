@@ -67,7 +67,7 @@ unsigned char *read_hdr(FILE *f, size_t *hdr_len)
     if (fread(hdr, 44, 1, f) != 1)
 	goto fail;
 
-    if (strncmp(hdr + 12, "fmt ", 4))
+    if (strncmp((char*)hdr + 12, "fmt ", 4))
 	goto fail;
 
     format_data_length = GET_WAV_INT32(hdr + 16);
@@ -108,14 +108,14 @@ size_t parse_hdr(unsigned char *hdr, size_t hdr_len,
     unsigned long sample_bit_length;
     unsigned long data_length;
 
-    if (strncmp(hdr + 0, "RIFF", 4) ||
-	strncmp(hdr + 8, "WAVE", 4) ||
-	strncmp(hdr + 12, "fmt ", 4))
+    if (strncmp((char*)hdr + 0, "RIFF", 4) ||
+	strncmp((char*)hdr + 8, "WAVE", 4) ||
+	strncmp((char*)hdr + 12, "fmt ", 4))
 	return 0;
 
     format_data_length = GET_WAV_INT32(hdr + 16);
 
-    if (strncmp(hdr + 20 + format_data_length, "data", 4))
+    if (strncmp((char*)hdr + 20 + format_data_length, "data", 4))
 	return 0;
 
     chunk_data_length = GET_WAV_INT32(hdr + 4);
