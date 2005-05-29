@@ -923,6 +923,22 @@ int scan_gettags(char *file, MP3FILE *pmp3) {
     return 0;
 }
 
+/**
+ * decide if a string is numeric or not... 
+ *
+ * @param str string to evaluate
+ * @returns 1 if number, 0 otherwise
+ */
+int scan_is_numeric(char *str) {
+    char *ptr=str;
+
+    while(*ptr) {
+	if(!isdigit(*ptr))
+	    return 0;
+	ptr++;
+    }
+    return 1;
+}
 
 int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
     struct id3_file *pid3file;
@@ -1021,7 +1037,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 			if(!strlen(pmp3->genre)) {
 			    genre=WINAMP_GENRE_UNKNOWN;
 			    got_numeric_genre=1;
-			} else if (isdigit(pmp3->genre[0])) {
+			} else if (scan_is_numeric(pmp3->genre)) {
 			    genre=atoi(pmp3->genre);
 			    got_numeric_genre=1;
 			} else if ((pmp3->genre[0] == '(') && (isdigit(pmp3->genre[1]))) {
