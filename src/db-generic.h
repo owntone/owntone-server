@@ -171,12 +171,12 @@ extern MetaField_t db_encode_meta(char *meta);
 extern int db_wantsmeta(MetaField_t meta, MetaFieldName_t fieldNo);
 
 /* dmap helper functions */
-extern int db_dmap_add_char(char *where, char *tag, char value);
-extern int db_dmap_add_short(char *where, char *tag, short value);
-extern int db_dmap_add_int(char *where, char *tag, int value);
-extern int db_dmap_add_string(char *where, char *tag, char *value);
-extern int db_dmap_add_literal(char *where, char *tag, char *value, int size);
-extern int db_dmap_add_container(char *where, char *tag, int size);
+extern int db_dmap_add_char(unsigned char *where, char *tag, char value);
+extern int db_dmap_add_short(unsigned char *where, char *tag, short value);
+extern int db_dmap_add_int(unsigned char *where, char *tag, int value);
+extern int db_dmap_add_string(unsigned char *where, char *tag, char *value);
+extern int db_dmap_add_literal(unsigned char *where, char *tag, char *value, int size);
+extern int db_dmap_add_container(unsigned char *where, char *tag, int size);
 
 /* Holdover functions from old db interface...
  * should these be removed?  Refactored?

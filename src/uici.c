@@ -135,7 +135,7 @@ int u_open(u_port_t port) {
  * If hostn is NULL or hostnsize <= 0, no hostname is copied.
  */
 int u_accept(int fd, char *hostn, int hostnsize) {
-   int len = sizeof(struct sockaddr);
+   socklen_t len = sizeof(struct sockaddr);
    struct sockaddr_in netclient;
    int retval;
 

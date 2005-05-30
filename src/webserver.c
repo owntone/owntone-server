@@ -1418,7 +1418,7 @@ int ws_decodepassword(char *header, char **username, char **password) {
     memset(decodebuffer,0,strlen(header));
     len=0;
     pout=decodebuffer;
-    pin=header;
+    pin=(unsigned char *)header;
 
     /* this is more than a little sloppy */
     while(pin[rack]) {
@@ -1465,7 +1465,7 @@ int ws_decodepassword(char *header, char **username, char **password) {
     /* we now have the decoded string */
     DPRINTF(E_DBG,L_WS,"Decoded %s\n",decodebuffer);
 
-    *username = decodebuffer;
+    *username = (char*)decodebuffer;
     *password = *username;
 
     strsep(password,":");

@@ -723,7 +723,7 @@ int db_get_playlist_count() {
  * \tag what four byte tag
  * \value what character value
  */
-int db_dmap_add_char(char *where, char *tag, char value) {
+int db_dmap_add_char(unsigned char *where, char *tag, char value) {
     /* tag */
     memcpy(where,tag,4);
 
@@ -743,7 +743,7 @@ int db_dmap_add_char(char *where, char *tag, char value) {
  * \tag what four byte tag
  * \value what character value
  */
-int db_dmap_add_short(char *where, char *tag, short value) {
+int db_dmap_add_short(unsigned char *where, char *tag, short value) {
     /* tag */
     memcpy(where,tag,4);
 
@@ -766,7 +766,7 @@ int db_dmap_add_short(char *where, char *tag, short value) {
  * \value what character value
  */
 
-int db_dmap_add_int(char *where, char *tag, int value) {
+int db_dmap_add_int(unsigned char *where, char *tag, int value) {
     /* tag */
     memcpy(where,tag,4);
     /* len */
@@ -790,7 +790,7 @@ int db_dmap_add_int(char *where, char *tag, int value) {
  * \value what character value
  */
 
-int db_dmap_add_string(char *where, char *tag, char *value) {
+int db_dmap_add_string(unsigned char *where, char *tag, char *value) {
     int len=strlen(value);
 
     /* tag */
@@ -802,7 +802,7 @@ int db_dmap_add_string(char *where, char *tag, char *value) {
     where[6]=(len >> 8) & 0xFF;
     where[7]=len & 0xFF;
 
-    strncpy(where+8,value,strlen(value));
+    strncpy((char*)where+8,value,strlen(value));
     return 8 + strlen(value);
 }
 
@@ -814,7 +814,8 @@ int db_dmap_add_string(char *where, char *tag, char *value) {
  * \param value what to put there
  * \param size how much data to cram in there
  */
-int db_dmap_add_literal(char *where, char *tag, char *value, int size) {
+int db_dmap_add_literal(unsigned char *where, char *tag, 
+			char *value, int size) {
     /* tag */
     memcpy(where,tag,4);
 
@@ -837,7 +838,7 @@ int db_dmap_add_literal(char *where, char *tag, char *value, int size) {
  * \value what character value
  */
 
-int db_dmap_add_container(char *where, char *tag, int size) {
+int db_dmap_add_container(unsigned char *where, char *tag, int size) {
     int len=size;
 
     /* tag */

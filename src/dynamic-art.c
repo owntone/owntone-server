@@ -82,10 +82,10 @@ int fcopyblock(FILE *fromfp, int tofd, size_t size);
  * Get a file descriptor for a piece of cover art. 
  */
 int da_get_image_fd(char *filename) {
-    unsigned char buffer[255];
+    char buffer[PATH_MAX];
     char *path_end;
     int fd;
-    strncpy(buffer,filename,255);
+    strncpy(buffer,filename,sizeof(buffer));
     path_end = strrchr(buffer,'/');
     strcpy(path_end+1,config.artfilename);
     fd = open(buffer,O_RDONLY);
@@ -109,7 +109,7 @@ int *da_get_current_tag_info(int file_fd) {
     tag_info = (int *) calloc(2,sizeof(int));
 	
     r_read(file_fd,buffer,10);
-    if ( strncmp(buffer,"ID3", 3) == 0 ) {
+    if (strncmp((char*)buffer,"ID3", 3) == 0 ) {
 	tag_info[0] = buffer[3];
 	tag_info[1] = ( buffer[6] << 21 ) + ( buffer[7] << 14 ) + ( buffer[8] << 7 ) + buffer[9];
 	return tag_info;
@@ -211,7 +211,7 @@ off_t da_aac_rewrite_stco_atom(off_t extra_size, int out_fd, FILE *aac_fp,
     unsigned char buffer[4];
     off_t         file_size;
     int           atom_offset;
-    int           atom_length;
+    unsigned int  atom_length;
     off_t         cur_pos;
     off_t         old_pos;
     int           i;
@@ -277,7 +277,7 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
     off_t         old_pos;
     unsigned char buffer[4];
     int           atom_offset;
-    int           atom_length;
+    unsigned int  atom_length;
     off_t         cur_pos;
     char          *cp;
     unsigned char img_type_flag = 0;
@@ -438,7 +438,7 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
 off_t da_aac_attach_image(int img_fd, int out_fd, int aac_fd, int offset)
 {
     off_t         img_size;
-    int           atom_length;
+    unsigned int  atom_length;
     unsigned int  extra_size;
     off_t         file_size;
     unsigned char buffer[4];

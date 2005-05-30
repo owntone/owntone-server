@@ -61,12 +61,12 @@ static void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_logout(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 
 static int dispatch_output_start(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, int content_length);
-static int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, int len);
+static int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *block, int len);
 static int dispatch_output_end(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 
 static DAAP_ITEMS *dispatch_xml_lookup_tag(char *tag);
 static char *dispatch_xml_encode(char *original, int len);
-static int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, int len);
+static int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *block, int len);
 
 
 /** 
@@ -300,7 +300,7 @@ int dispatch_output_start(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, int content_lengt
  * \param pblock block of data to write
  * \param len length of block to write
  */
-int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, int len) {
+int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *block, int len) {
     OUTPUT_INFO *poi=(pqi->output_info);
     int result;
 
@@ -324,9 +324,9 @@ int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, int 
  * \param pblock block of data to write
  * \param len length of block to write
  */
-int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, int len) {
+int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *block, int len) {
     OUTPUT_INFO *poi = pqi->output_info;
-    char *current=block;
+    unsigned char *current=block;
     char block_tag[5];
     int block_len;
     int len_left;
@@ -414,7 +414,7 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, 
 	    r_fdprintf(pwsc->fd,"%ll",ivalue);
 	    break;
 	case 0x09: /* string */
-	    encoded_string=dispatch_xml_encode(data,block_len);
+	    encoded_string=dispatch_xml_encode((char*)data,block_len);
 	    r_fdprintf(pwsc->fd,"%s",encoded_string);
 	    free(encoded_string);
 	    break;
@@ -429,7 +429,7 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *block, 
 
 	case 0x0C:
 	    if((poi->browse_response)&&(strcmp(block_tag,"mlit") ==0)) {
-		encoded_string=dispatch_xml_encode(data,block_len);
+		encoded_string=dispatch_xml_encode((char*)data,block_len);
 		r_fdprintf(pwsc->fd,"%s",encoded_string);
 		free(encoded_string);
 	    } else {
@@ -798,8 +798,8 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
  * add songs to an existing playlist
  */
 void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char playlist_response[20];
-    char *current;
+    unsigned char playlist_response[20];
+    unsigned char *current;
     char *tempstring;
     char *token;
 
@@ -810,9 +810,9 @@ void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
 
     tempstring=strdup(ws_getvar(pwsc,"dmap.itemid"));
-    current=tempstring;
+    current=(unsigned char*)tempstring;
 
-    while((token=strsep(&current,","))) {
+    while((token=strsep((char**)&current,","))) {
 	if(token) {
 	    db_add_playlist_item(pqi->playlist_id,atoi(token));
 	}
@@ -838,8 +838,8 @@ void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
  * delete a playlist
  */
 void dispatch_deleteplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char playlist_response[20];
-    char *current;
+    unsigned char playlist_response[20];
+    unsigned char *current;
 
     if(!ws_getvar(pwsc,"dmap.itemid")) {
 	DPRINTF(E_LOG,L_DAAP,"attempt to delete playlist with no dmap.itemid\n");
@@ -867,8 +867,8 @@ void dispatch_deleteplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
  * delete a playlist item
  */
 void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char playlist_response[20];
-    char *current;
+    unsigned char playlist_response[20];
+    unsigned char *current;
     char *tempstring;
     char *token;
 
@@ -879,9 +879,9 @@ void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
 
     tempstring=strdup(ws_getvar(pwsc,"dmap.itemid"));
-    current=tempstring;
+    current=(unsigned char *)tempstring;
 
-    while((token=strsep(&current,","))) {
+    while((token=strsep((char**)&current,","))) {
 	if(token) {
 	    db_delete_playlist_item(pqi->playlist_id,atoi(token));
 	}
@@ -907,8 +907,8 @@ void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
  * add a playlist
  */
 void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char playlist_response[32];
-    char *current=playlist_response;
+    unsigned char playlist_response[32];
+    unsigned char *current=playlist_response;
     char *name, *query;
     int type;
     int retval, playlistid;
@@ -949,8 +949,8 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
  * enumerate and return playlistitems
  */
 void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char items_response[61];
-    char *current=items_response;
+    unsigned char items_response[61];
+    unsigned char *current=items_response;
     int song_count;
     int list_length;
     unsigned char *block;
@@ -1002,8 +1002,8 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char browse_response[52];
-    char *current=browse_response;
+    unsigned char browse_response[52];
+    unsigned char *current=browse_response;
     int item_count;
     int list_length;
     unsigned char *block;
@@ -1068,8 +1068,8 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char playlist_response[61];
-    char *current=playlist_response;
+    unsigned char playlist_response[61];
+    unsigned char *current=playlist_response;
     int pl_count;
     int list_length;
     unsigned char *block;
@@ -1122,8 +1122,8 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char items_response[61];
-    char *current=items_response;
+    unsigned char items_response[61];
+    unsigned char *current=items_response;
     int song_count;
     int list_length;
     unsigned char *block;
@@ -1171,12 +1171,12 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char update_response[32];
+    unsigned char update_response[32];
+    unsigned char *current=update_response;
     int clientver=1;
     fd_set rset;
     struct timeval tv;
     int result;
-    char *current=update_response;
 
     DPRINTF(E_DBG,L_DAAP,"Preparing to send update response\n");
 
@@ -1213,8 +1213,8 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char dbinfo_response[255];  /* FIXME */
-    char *current = dbinfo_response;
+    unsigned char dbinfo_response[255];  /* FIXME */
+    unsigned char *current = dbinfo_response;
     int namelen;
 
     namelen=strlen(config.servername);
@@ -1246,8 +1246,8 @@ void dispatch_logout(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
 
 void dispatch_login(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char login_response[32];
-    char *current = login_response;
+    unsigned char login_response[32];
+    unsigned char *current = login_response;
     int session;
     
     session = config_get_next_session();
@@ -1263,12 +1263,11 @@ void dispatch_login(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char content_codes[20];
-    char mdcl[256];  /* FIXME: Don't make this static */
+    unsigned char content_codes[20];
+    unsigned char *current=content_codes;
+    unsigned char mdcl[256];  /* FIXME: Don't make this static */
     int len;
     DAAP_ITEMS *dicurrent;
-
-    char *current=content_codes;
 
     dicurrent=taglist;
     len=0;
@@ -1300,8 +1299,8 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    char server_info[256]; /* FIXME: Don't make this static */
-    char *current = server_info;
+    unsigned char server_info[256]; /* FIXME: Don't make this static */
+    unsigned char *current = server_info;
     char *client_version;
     int mpro = 2 << 16;
     int apro = 3 << 16;

@@ -53,7 +53,7 @@ static char db_path[PATH_MAX + 1];
 
 /* Forwards */
 int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray);
-int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int len);
+int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presult, int len);
 void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3);
 int db_sqlite_exec(int fatal, char *fmt, ...);
 int db_sqlite_get_table(int fatal, char ***resarray, int *rows, int *cols, char *fmt, ...);
@@ -1163,7 +1163,7 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
     return 0;
 }
 
-int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, char *presult, int len) {
+int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presult, int len) {
     unsigned char *current = presult;
     int transcode;
     int samplerate=0;

@@ -283,11 +283,9 @@ typedef struct {
 static int scan_path(char *path);
 static int scan_gettags(char *file, MP3FILE *pmp3);
 static int scan_get_mp3tags(char *file, MP3FILE *pmp3);
-static int scan_get_aactags(char *file, MP3FILE *pmp3);
 static int scan_get_nultags(char *file, MP3FILE *pmp3) { return 0; };
 static int scan_get_fileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3);
-static int scan_get_aacfileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_wavfileinfo(char *file, MP3FILE *pmp3);
 //static int scan_get_nulfileinfo(char *file, MP3FILE *pmp3) { return 0; };
 static int scan_get_urlfileinfo(char *file, MP3FILE *pmp3);
@@ -790,7 +788,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
     int err;
     int index;
     int used;
-    unsigned char *utf8_text;
+    char *utf8_text;
     int genre=WINAMP_GENRE_UNKNOWN;
     int have_utf8;
     int have_text;
@@ -835,11 +833,16 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 	    native_text=id3_field_getstrings(&pid3frame->fields[1],0);
 
 	    if(native_text) {
+		/* FIXME: I didn't understand what was happening here.
+		 * this should really be a switch to evaluate latin1
+		 * tags as native codepage.  Not only is this hackish,
+		 * it's just plain wrong.
+		 */
 		have_utf8=1;
 		if(config.latin1_tags) {
-		    utf8_text=id3_ucs4_latin1duplicate(native_text);
+		    utf8_text=(char *)id3_ucs4_latin1duplicate(native_text);
 		} else {
-		    utf8_text=id3_ucs4_utf8duplicate(native_text);
+		    utf8_text=(char *)id3_ucs4_utf8duplicate(native_text);
 		}
 		MEMNOTIFY(utf8_text);
 
@@ -900,20 +903,20 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 		    pmp3->comment = utf8_text;
 		    DPRINTF(E_DBG,L_SCAN," Comment: %s\n",pmp3->comment);
 		} else if(!strcmp(pid3frame->id,"TPOS")) {
-		    tmp=(char*)utf8_text;
+		    tmp=utf8_text;
 		    strsep(&tmp,"/");
 		    if(tmp) {
 			pmp3->total_discs=atoi(tmp);
 		    }
-		    pmp3->disc=atoi((char*)utf8_text);
+		    pmp3->disc=atoi(utf8_text);
 		    DPRINTF(E_DBG,L_SCAN," Disc %d of %d\n",pmp3->disc,pmp3->total_discs);
 		} else if(!strcmp(pid3frame->id,"TRCK")) {
-		    tmp=(char*)utf8_text;
+		    tmp=utf8_text;
 		    strsep(&tmp,"/");
 		    if(tmp) {
 			pmp3->total_tracks=atoi(tmp);
 		    }
-		    pmp3->track=atoi((char*)utf8_text);
+		    pmp3->track=atoi(utf8_text);
 		    DPRINTF(E_DBG,L_SCAN," Track %d of %d\n",pmp3->track,pmp3->total_tracks);
 		} else if(!strcmp(pid3frame->id,"TDRC")) {
 		    pmp3->year = atoi(utf8_text);
@@ -948,7 +951,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 	     */
 	    native_text=id3_field_getstring(&pid3frame->fields[2]);
 	    if(native_text) {
-		utf8_text=id3_ucs4_utf8duplicate(native_text);
+		utf8_text=(char*)id3_ucs4_utf8duplicate(native_text);
 		if((utf8_text) && (strncasecmp(utf8_text,"iTun",4) != 0)) {
 		    /* it's a real comment */
 		    if(utf8_text)
@@ -958,7 +961,7 @@ int scan_get_mp3tags(char *file, MP3FILE *pmp3) {
 		    if(native_text) {
 			if(pmp3->comment)
 			    free(pmp3->comment);
-			utf8_text=id3_ucs4_utf8duplicate(native_text);
+			utf8_text=(char*)id3_ucs4_utf8duplicate(native_text);
 			if(utf8_text) {
 			    pmp3->comment=utf8_text;
 			    MEMNOTIFY(pmp3->comment);
@@ -1136,10 +1139,10 @@ int scan_get_wavfileinfo(char *file, MP3FILE *pmp3) {
         return -1;
     }
 
-    if (strncmp(hdr + 0, "RIFF", 4) ||
-	strncmp(hdr + 8, "WAVE", 4) ||
-	strncmp(hdr + 12, "fmt ", 4) ||
-	strncmp(hdr + 36, "data", 4)) {
+    if (strncmp((char*)hdr + 0, "RIFF", 4) ||
+	strncmp((char*)hdr + 8, "WAVE", 4) ||
+	strncmp((char*)hdr + 12, "fmt ", 4) ||
+	strncmp((char*)hdr + 36, "data", 4)) {
 	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",file);
         return -1;
     }
@@ -1502,7 +1505,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     found=0;
     fp_size=0;
 
-    if(strncmp(pid3->id,"ID3",3)==0) {
+    if(strncmp((char*)pid3->id,"ID3",3)==0) {
 	/* found an ID3 header... */
 	DPRINTF(E_DBG,L_SCAN,"Found ID3 header\n");
 	size = (pid3->size[0] << 21 | pid3->size[1] << 14 | 
@@ -1558,7 +1561,7 @@ int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 		    DPRINTF(E_DBG,L_SCAN,"Checking at %04x\n",(int)fp_size+index+fi.frame_length);
 		    fseek(infile,fp_size + index + fi.frame_length,SEEK_SET);
 		    if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
-			if(!scan_decode_mp3_frame(frame_buffer,&fi)) {
+			if(!scan_decode_mp3_frame((u_char*)frame_buffer,&fi)) {
 			    found=1;
 			    fp_size += index;
 			} 

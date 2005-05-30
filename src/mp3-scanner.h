@@ -63,8 +63,8 @@ typedef struct tag_mp3file {
     int got_id3;
     unsigned int id;
 
-    char *description;		/* long file type */
-    char *codectype;            /* song.codectype */
+    char *description;	/* long file type */
+    char *codectype;          /* song.codectype */
     int item_kind;		/* song or movie */
     int data_kind;              /* dmap.datakind (asdk) */
     int force_update;
@@ -74,12 +74,12 @@ typedef struct tag_mp3file {
 
 typedef struct tag_m3ufile {
     int id;              /**< integer id (miid) */
-    char *title;         /**< playlist name as displayed in iTunes (minm) */
+    char *title;       /**< playlist name as displayed in iTunes (minm) */
     int type;            /**< 0=static webmanaged, 1=smart, 2=static m3u (aeSP/MPTY) */
     int items;           /**< number of items (mimc) */
-    char *query;         /**< where clause if type 1 (MSPS) */
+    char *query;       /**< where clause if type 1 (MSPS) */
     int db_timestamp;    /**< time last updated */
-    char *path;          /**< path of underlying playlist (if type 2) */
+    char *path;        /**< path of underlying playlist (if type 2) */
     int index;           /**< index of playlist for paths with multiple playlists */
 } M3UFILE;
 

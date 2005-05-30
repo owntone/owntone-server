@@ -49,8 +49,8 @@
 #include <FLAC/metadata.h>
 
 
-#define GET_VORBIS_COMMENT(comment, name, len)				\
-        (((strncasecmp(name, (comment).entry, strlen(name)) == 0) &&	\
+#define GET_VORBIS_COMMENT(comment, name, len)	(char*)			\
+        (((strncasecmp(name, (char*)(comment).entry, strlen(name)) == 0) && \
 	  ((comment).entry[strlen(name)] == '=')) ?			\
 	 ((*(len) = (comment).length - (strlen(name) + 1)),		\
 	  (&((comment).entry[strlen(name) + 1]))) :			\
