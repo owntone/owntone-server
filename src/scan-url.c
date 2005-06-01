@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "err.h"
 #include "mp3-scanner.h"
