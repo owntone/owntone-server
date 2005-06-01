@@ -286,7 +286,6 @@ static int scan_get_mp3tags(char *file, MP3FILE *pmp3);
 static int scan_get_nultags(char *file, MP3FILE *pmp3) { return 0; };
 static int scan_get_fileinfo(char *file, MP3FILE *pmp3);
 static int scan_get_mp3fileinfo(char *file, MP3FILE *pmp3);
-static int scan_get_wavfileinfo(char *file, MP3FILE *pmp3);
 //static int scan_get_nulfileinfo(char *file, MP3FILE *pmp3) { return 0; };
 static int scan_get_urlfileinfo(char *file, MP3FILE *pmp3);
 
@@ -318,6 +317,8 @@ extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
 /** @see scan-aac.c */
 extern int scan_get_aacinfo(char *filename, MP3FILE *pmp3);
 
+/** @see scan-wav.c */
+extern int scan_get_wavinfo(char *file, MP3FILE *pmp3);
 
 /* playlist scanners */
 /** @see scan-xml.c */
@@ -351,7 +352,7 @@ static TAGHANDLER taghandlers[] = {
     { "m4a", scan_get_nultags, scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
     { "m4p", scan_get_nultags, scan_get_aacinfo, "m4p", "mp4a", "AAC audio file" },
     { "mp3", scan_get_mp3tags, scan_get_mp3fileinfo, "mp3", "mpeg", "MPEG audio file" },
-    { "wav", scan_get_nultags, scan_get_wavfileinfo, "wav", "wav", "WAV audio file" },
+    { "wav", scan_get_nultags, scan_get_wavinfo, "wav", "wav", "WAV audio file" },
     { "wma", scan_get_nultags, scan_get_wmainfo, "wma", "wma", "WMA audio file" },
     { "url", scan_get_nultags, scan_get_urlfileinfo, "pls", NULL, "Playlist URL" },
     { "pls", scan_get_nultags, scan_get_urlfileinfo, "pls", NULL, "Playlist URL" },
@@ -1090,84 +1091,6 @@ int scan_get_urlfileinfo(char *file, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN,"  Title:    %s\n",pmp3->title);
     DPRINTF(E_DBG,L_SCAN,"  Bitrate:  %d\n",pmp3->bitrate);
     DPRINTF(E_DBG,L_SCAN,"  URL:      %s\n",pmp3->url);
-
-    return 0;
-}
-
-#define GET_WAV_INT32(p) ((((unsigned long)((p)[3])) << 24) |	\
-		          (((unsigned long)((p)[2])) << 16) |	\
-		          (((unsigned long)((p)[1])) << 8) |	\
-		          (((unsigned long)((p)[0]))))
-
-#define GET_WAV_INT16(p) ((((unsigned long)((p)[1])) << 8) |	\
-		          (((unsigned long)((p)[0]))))
-
-/*
- * scan_get_wavfileinfo
- *
- * Get info from the actual wav headers
- */
-int scan_get_wavfileinfo(char *file, MP3FILE *pmp3) {
-    FILE *infile;
-    size_t rl;
-    unsigned char hdr[44];
-    unsigned long chunk_data_length;
-    unsigned long format_data_length;
-    unsigned long compression_code;
-    unsigned long channel_count;
-    unsigned long sample_rate;
-    unsigned long sample_bit_length;
-    unsigned long bit_rate;
-    unsigned long data_length;
-    unsigned long sec, ms;
-
-    DPRINTF(E_DBG,L_SCAN,"Getting WAV file info\n");
-
-    if(!(infile=fopen(file,"rb"))) {
-	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
-	return -1;
-    }
-
-    fseek(infile,0,SEEK_END);
-    pmp3->file_size = ftell(infile);
-    fseek(infile,0,SEEK_SET);
-
-    rl = fread(hdr, 1, 44, infile);
-    fclose(infile);
-    if (rl != 44) {
-	DPRINTF(E_WARN,L_SCAN,"Could not read wav header from %s\n",file);
-        return -1;
-    }
-
-    if (strncmp((char*)hdr + 0, "RIFF", 4) ||
-	strncmp((char*)hdr + 8, "WAVE", 4) ||
-	strncmp((char*)hdr + 12, "fmt ", 4) ||
-	strncmp((char*)hdr + 36, "data", 4)) {
-	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",file);
-        return -1;
-    }
-
-    chunk_data_length = GET_WAV_INT32(hdr + 4);
-    format_data_length = GET_WAV_INT32(hdr + 16);
-    compression_code = GET_WAV_INT16(hdr + 20);
-    channel_count = GET_WAV_INT16(hdr + 22);
-    sample_rate = GET_WAV_INT32(hdr + 24);
-    sample_bit_length = GET_WAV_INT16(hdr + 34);
-    data_length = GET_WAV_INT32(hdr + 40);
-
-    if ((format_data_length != 16) ||
-	(compression_code != 1) ||
-	(channel_count < 1)) {
-	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",file);
-        return -1;
-    }
-
-    bit_rate = sample_rate * channel_count * ((sample_bit_length + 7) / 8) * 8;
-    pmp3->bitrate = bit_rate / 1000;
-    pmp3->samplerate = sample_rate;
-    sec = data_length / (bit_rate / 8);
-    ms = ((data_length % (bit_rate / 8)) * 1000) / (bit_rate / 8);
-    pmp3->song_length = (sec * 1000) + ms;
 
     return 0;
 }
