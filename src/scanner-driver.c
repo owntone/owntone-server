@@ -29,6 +29,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
 
@@ -40,6 +41,8 @@ extern int scan_get_ogginfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_wavinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_aacinfo(char *filename, MP3FILE *pmp3);
+extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
+extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
 
 /* 
  * Typedefs
@@ -61,9 +64,13 @@ SCANNERLIST scanner_list[] = {
     { "m4p",scan_get_aacinfo },
     { "mp4",scan_get_aacinfo },
     { "wav",scan_get_wavinfo },
+    { "url",scan_get_urlinfo },
+    { "mp3",scan_get_mp3info },
     { NULL, NULL }
 };
 char *av0;
+
+CONFIG config;
 
 
 /**
@@ -123,6 +130,9 @@ int main(int argc, char *argv[]) {
     int option;
     char *ext;
     
+    config.scan_type=0;
+    config.latin1_tags=0;
+
     memset((void*)&mp3,0x00,sizeof(MP3FILE));
 
     if(strchr(argv[0],'/')) {
