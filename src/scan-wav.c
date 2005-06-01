@@ -43,10 +43,10 @@
  * metainfo in .wav files (or at least know standard I
  * know about), this merely gets duration, bitrate, etc.
  *
- * @param file file to scan
+ * @param filename file to scan
  * @param pmp3 MP3FILE struct to be filled
  */
-int scan_get_wavinfo(char *file, MP3FILE *pmp3) {
+int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     FILE *infile;
     size_t rl;
     unsigned char hdr[44];
@@ -62,8 +62,8 @@ int scan_get_wavinfo(char *file, MP3FILE *pmp3) {
 
     DPRINTF(E_DBG,L_SCAN,"Getting WAV file info\n");
 
-    if(!(infile=fopen(file,"rb"))) {
-	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
+    if(!(infile=fopen(filename,"rb"))) {
+	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
 	return -1;
     }
 
@@ -74,7 +74,7 @@ int scan_get_wavinfo(char *file, MP3FILE *pmp3) {
     rl = fread(hdr, 1, 44, infile);
     fclose(infile);
     if (rl != 44) {
-	DPRINTF(E_WARN,L_SCAN,"Could not read wav header from %s\n",file);
+	DPRINTF(E_WARN,L_SCAN,"Could not read wav header from %s\n",filename);
         return -1;
     }
 
@@ -82,7 +82,7 @@ int scan_get_wavinfo(char *file, MP3FILE *pmp3) {
 	strncmp((char*)hdr + 8, "WAVE", 4) ||
 	strncmp((char*)hdr + 12, "fmt ", 4) ||
 	strncmp((char*)hdr + 36, "data", 4)) {
-	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",file);
+	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",filename);
         return -1;
     }
 
@@ -97,7 +97,7 @@ int scan_get_wavinfo(char *file, MP3FILE *pmp3) {
     if ((format_data_length != 16) ||
 	(compression_code != 1) ||
 	(channel_count < 1)) {
-	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",file);
+	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",filename);
         return -1;
     }
 

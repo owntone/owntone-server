@@ -26,6 +26,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <unistd.h>
 
 #include "err.h"
@@ -37,7 +38,8 @@
 extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_ogginfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
-
+extern int scan_get_wavinfo(char *filename, MP3FILE *pmp3);
+extern int scan_get_aacinfo(char *filename, MP3FILE *pmp3);
 
 /* 
  * Typedefs
@@ -55,6 +57,10 @@ SCANNERLIST scanner_list[] = {
     { "flac",scan_get_flacinfo },
     { "fla",scan_get_flacinfo },
     { "ogg",scan_get_ogginfo },
+    { "m4a",scan_get_aacinfo },
+    { "m4p",scan_get_aacinfo },
+    { "mp4",scan_get_aacinfo },
+    { "wav",scan_get_wavinfo },
     { NULL, NULL }
 };
 char *av0;
