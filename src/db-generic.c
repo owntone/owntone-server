@@ -60,7 +60,7 @@ typedef struct tag_db_functions {
     int(*dbs_end_scan)(void);
     int(*dbs_get_count)(CountType_t);
     MP3FILE*(*dbs_fetch_item)(int);
-    MP3FILE*(*dbs_fetch_path)(char *);
+    MP3FILE*(*dbs_fetch_path)(char *,int);
     M3UFILE*(*dbs_fetch_playlist)(char *, int);
     void(*dbs_dispose_item)(MP3FILE*);
     void(*dbs_dispose_playlist)(M3UFILE*);
@@ -628,11 +628,11 @@ MP3FILE *db_fetch_item(int id) {
     return retval;
 }
 
-MP3FILE *db_fetch_path(char *path) {
+MP3FILE *db_fetch_path(char *path,int index) {
     MP3FILE *retval;
     
     db_readlock();
-    retval=db_current->dbs_fetch_path(path);
+    retval=db_current->dbs_fetch_path(path, index);
     db_unlock();
 
     return retval;

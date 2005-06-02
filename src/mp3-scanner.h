@@ -26,6 +26,7 @@
 
 typedef struct tag_mp3file {
     char *path;
+    int index;
     char *fname;
     char *title;     /* TIT2 */
     char *artist;    /* TPE1 */

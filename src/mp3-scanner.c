@@ -311,7 +311,7 @@ int scan_path(char *path) {
 			       (strcasestr(config.extensions, ext))) {
 			/* only scan if it's been changed, or empty db */
 			modified_time=sb.st_mtime;
-			pmp3=db_fetch_path(mp3_path);
+			pmp3=db_fetch_path(mp3_path,0);
 
 			if((!pmp3) || (pmp3->db_timestamp < modified_time) || 
 			   (pmp3->force_update)) {
@@ -413,7 +413,7 @@ int scan_static_playlist(char *path) {
 	    DPRINTF(E_DBG,L_SCAN|L_PL,"Checking %s\n",real_path);
 
 	    // might be valid, might not...
-	    if((pmp3=db_fetch_path(real_path))) {
+	    if((pmp3=db_fetch_path(real_path,0))) {
 		db_add_playlist_item(playlistid,pmp3->id);
 		db_dispose_item(pmp3);
 	    } else {

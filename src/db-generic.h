@@ -162,7 +162,7 @@ extern int db_delete_playlist(int playlistid);
 extern int db_delete_playlist_item(int playlistid, int songid);
 
 extern MP3FILE *db_fetch_item(int id);
-extern MP3FILE *db_fetch_path(char *path);
+extern MP3FILE *db_fetch_path(char *path, int index);
 extern M3UFILE *db_fetch_playlist(char *path, int index);
 
 

@@ -36,7 +36,7 @@ extern int db_sqlite_end_song_scan(void);
 extern int db_sqlite_end_scan(void);
 extern int db_sqlite_get_count(CountType_t type);
 extern MP3FILE *db_sqlite_fetch_item(int id);
-extern MP3FILE *db_sqlite_fetch_path(char *path);
+extern MP3FILE *db_sqlite_fetch_path(char *path,int index);
 extern M3UFILE *db_sqlite_fetch_playlist(char *path, int index);
 extern void db_sqlite_dispose_item(MP3FILE *pmp3);
 extern void db_sqlite_dispose_playlist(M3UFILE *pm3u);

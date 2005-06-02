@@ -538,7 +538,7 @@ int scan_xml_tracks_section(int action, char *info) {
 			scan_xml_real_base_path,
 			(char*)&song_path[strlen(scan_xml_itunes_decoded_base_path)]);
 		realpath(physical_path,real_path);
-		pmp3=db_fetch_path(real_path);
+		pmp3=db_fetch_path(real_path,0);
 		if(pmp3) {
 		    /* Update the existing record with the
 		     * updated stuff we got from the iTunes xml file

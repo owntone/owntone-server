@@ -364,7 +364,7 @@ int db_sqlite_delete_playlist(int playlistid) {
  * \param playlistid playlist to delete item from
  * \param songid song to delete from playlist
  */
-extern int db_sqlite_delete_playlist_item(int playlistid, int songid) {
+int db_sqlite_delete_playlist_item(int playlistid, int songid) {
     int result;
     int playlist_type;
     int count;
@@ -509,6 +509,7 @@ int db_sqlite_add(MP3FILE *pmp3) {
     err=db_sqlite_exec(E_DBG,"INSERT INTO songs VALUES "
 		       "(NULL,"   // id
 		       "'%q',"  // path
+		       "'%d',"  // index
 		       "'%q',"  // fname
 		       "'%q',"  // title
 		       "'%q',"  // artist
@@ -546,6 +547,7 @@ int db_sqlite_add(MP3FILE *pmp3) {
 		       "0,"     // force_update    
 		       "'%q')", // codectype
 		       STR(pmp3->path),
+		       pmp3->index,
 		       STR(pmp3->fname),
 		       STR(pmp3->title),
 		       STR(pmp3->artist),
@@ -1316,6 +1318,7 @@ void db_sqlite_build_m3ufile(char **valarray, M3UFILE *pm3u) {
     pm3u->index=db_sqlite_atoi(valarray[7]);
     return;
 }
+
 void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3) {
     memset(pmp3,0x00,sizeof(MP3FILE));
     pmp3->id=db_sqlite_atoi(valarray[0]);
@@ -1356,6 +1359,7 @@ void db_sqlite_build_mp3file(char **valarray, MP3FILE *pmp3) {
     pmp3->sample_count=db_sqlite_atoi(valarray[35]);
     pmp3->force_update=db_sqlite_atoi(valarray[36]);
     pmp3->codectype=db_sqlite_strdup(valarray[37]);
+    pmp3->index=db_sqlite_atoi(valarray[38]);
 }
 
 /**
@@ -1428,13 +1432,14 @@ MP3FILE *db_sqlite_fetch_item(int id) {
  *
  * \param path path of the file to retreive
  */
-MP3FILE *db_sqlite_fetch_path(char *path) {
+MP3FILE *db_sqlite_fetch_path(char *path, int index) {
     int rows,cols;
     char **resarray;
     MP3FILE *pmp3=NULL;
 
     db_sqlite_get_table(E_DBG,&resarray,&rows,&cols,
-			"SELECT * FROM songs WHERE path='%q'",path);
+			"SELECT * FROM songs WHERE path='%q' and idx=%d",
+			path,index);
 
     if(rows != 0) {
 	pmp3=(MP3FILE*)malloc(sizeof(MP3FILE));
@@ -1712,6 +1717,57 @@ char *db_sqlite_upgrade_scripts[] = {
     "drop table tempplaylists;\n"
     "update config set value=5 where term='version';\n",
 
+    /* version 5 -> version 6 */
+    "drop index idx_path;\n"
+    "create temp table tempsongs as select * from songs;\n"
+    "drop table songs;\n"
+    "CREATE TABLE songs (\n"
+    "   id		INTEGER PRIMARY KEY NOT NULL,\n"
+    "   path		VARCHAR(4096) UNIQUE NOT NULL,\n"
+    "   fname		VARCHAR(255) NOT NULL,\n"
+    "   title		VARCHAR(1024) DEFAULT NULL,\n"
+    "   artist 		VARCHAR(1024) DEFAULT NULL,\n"
+    "   album		VARCHAR(1024) DEFAULT NULL,\n"
+    "   genre		VARCHAR(255) DEFAULT NULL,\n"
+    "   comment 	VARCHAR(4096) DEFAULT NULL,\n"
+    "   type		VARCHAR(255) DEFAULT NULL,\n"
+    "   composer	VARCHAR(1024) DEFAULT NULL,\n"
+    "   orchestra	VARCHAR(1024) DEFAULT NULL,\n"
+    "   conductor	VARCHAR(1024) DEFAULT NULL,\n"
+    "   grouping	VARCHAR(1024) DEFAULT NULL,\n"
+    "   url		VARCHAR(1024) DEFAULT NULL,\n"
+    "   bitrate		INTEGER DEFAULT 0,\n"
+    "   samplerate	INTEGER DEFAULT 0,\n"
+    "   song_length	INTEGER DEFAULT 0,\n"
+    "   file_size	INTEGER DEFAULT 0,\n"
+    "   year		INTEGER DEFAULT 0,\n"
+    "   track		INTEGER DEFAULT 0,\n"
+    "   total_tracks	INTEGER DEFAULT 0,\n"
+    "   disc		INTEGER DEFAULT 0,\n"
+    "   total_discs	INTEGER DEFAULT 0,\n"
+    "   bpm		INTEGER DEFAULT 0,\n"
+    "   compilation	INTEGER DEFAULT 0,\n"
+    "   rating		INTEGER DEFAULT 0,\n"
+    "   play_count	INTEGER DEFAULT 0,\n"
+    "   data_kind	INTEGER DEFAULT 0,\n"
+    "   item_kind	INTEGER DEFAULT 0,\n"
+    "   description	INTEGER DEFAULT 0,\n"
+    "   time_added	INTEGER DEFAULT 0,\n"
+    "   time_modified	INTEGER DEFAULT 0,\n"
+    "   time_played	INTEGER	DEFAULT 0,\n"
+    "   db_timestamp	INTEGER DEFAULT 0,\n"
+    "   disabled        INTEGER DEFAULT 0,\n"
+    "   sample_count    INTEGER DEFAULT 0,\n"
+    "   force_update	INTEGER DEFAULT 0,\n"
+    "   codectype       VARCHAR(5) DEFAULT NULL,\n"
+    "   idx             INTEGER NOT NULL\n"
+    ");\n"
+    "begin transaction;\n"
+    "insert into songs select *,0 from tempsongs;\n"
+    "commit transaction;\n"
+    "create index idx_path on songs(path);\n"
+    "drop table tempsongs;\n"
+    "update config set value=6 where term='version';\n",
     NULL /* No more versions! */
 };
 
