@@ -37,6 +37,7 @@
  * 
  * @param filename .url file to process
  * @param pmp3 MP3FILE structure that must be filled
+ * @returns TRUE if file should be added to db, FALSE otherwise
  */
 int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     FILE *infile;
@@ -47,7 +48,7 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
 
     if(!(infile=fopen(filename,"rb"))) {
 	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
-	return -1;
+	return FALSE;
     }
 
     fgets(linebuffer,sizeof(linebuffer),infile);
@@ -61,7 +62,7 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     if(!tail) {
 	DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
 	fclose(infile);
-	return -1;
+	return FALSE;
     }
 
     pmp3->bitrate=atoi(head);
@@ -70,7 +71,7 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     if(!tail) {
 	DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
 	fclose(infile);
-	return -1;
+	return FALSE;
     }
 
     *tail++='\0';
@@ -83,6 +84,6 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN,"  Bitrate:  %d\n",pmp3->bitrate);
     DPRINTF(E_DBG,L_SCAN,"  URL:      %s\n",pmp3->url);
 
-    return 0;
+    return TRUE;
 }
 

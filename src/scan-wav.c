@@ -45,6 +45,7 @@
  *
  * @param filename file to scan
  * @param pmp3 MP3FILE struct to be filled
+ * @returns TRUE if song should be added to database, FALSE otherwise
  */
 int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     FILE *infile;
@@ -64,7 +65,7 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
 
     if(!(infile=fopen(filename,"rb"))) {
 	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
-	return -1;
+	return FALSE;
     }
 
     fseek(infile,0,SEEK_END);
@@ -75,7 +76,7 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     fclose(infile);
     if (rl != 44) {
 	DPRINTF(E_WARN,L_SCAN,"Could not read wav header from %s\n",filename);
-        return -1;
+        return FALSE;
     }
 
     if (strncmp((char*)hdr + 0, "RIFF", 4) ||
@@ -83,7 +84,7 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
 	strncmp((char*)hdr + 12, "fmt ", 4) ||
 	strncmp((char*)hdr + 36, "data", 4)) {
 	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",filename);
-        return -1;
+        return FALSE;
     }
 
     chunk_data_length = GET_WAV_INT32(hdr + 4);
@@ -98,7 +99,7 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
 	(compression_code != 1) ||
 	(channel_count < 1)) {
 	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",filename);
-        return -1;
+        return FALSE;
     }
 
     bit_rate = sample_rate * channel_count * ((sample_bit_length + 7) / 8) * 8;
@@ -108,6 +109,6 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     ms = ((data_length % (bit_rate / 8)) * 1000) / (bit_rate / 8);
     pmp3->song_length = (sec * 1000) + ms;
 
-    return 0;
+    return TRUE;
 }
 

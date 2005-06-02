@@ -94,4 +94,10 @@ extern char *scan_winamp_genre[];
 extern int scan_init(char *path);
 extern void make_composite_tags(MP3FILE *song);
 
+#ifndef TRUE
+# define TRUE  1
+# define FALSE 0
+#endif
+
+
 #endif /* _MP3_SCANNER_H_ */

@@ -157,7 +157,7 @@ long scan_aac_findatom(FILE *fin, long max_offset,
  *
  * @param filename file to scan
  * @param pmp3 pointer to the MP3FILE to fill with data
- * @returns -1 if file should not be added to database, 0 otherwise
+ * @returns FALSE if file should not be added to database, TRUE otherwise
  */
 int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     FILE *fin;
@@ -182,7 +182,7 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
 
     if(!(fin=fopen(filename,"rb"))) {
 	DPRINTF(E_INF,L_SCAN,"Cannot open file %s for reading\n",filename);
-	return -1;
+	return FALSE;
     }
 
     fseek(fin,0,SEEK_END);
@@ -374,5 +374,5 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     }
 
     fclose(fin);
-    return 0;  /* we'll return as much as we got. */
+    return TRUE;  /* we'll return as much as we got. */
 }

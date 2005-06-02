@@ -56,6 +56,13 @@
 	  (&((comment).entry[strlen(name) + 1]))) :			\
 	 NULL)
 
+/**
+ * scan a flac file for metainfo.  
+ *
+ * @param filename file to read metainfo for
+ * @param pmp3 MP3FILE structure to fill
+ * @returns TRUE if file should be added to DB, FALSE otherwise
+ */
 int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
     FLAC__Metadata_Chain *chain;
     FLAC__Metadata_Iterator *iterator;
@@ -71,7 +78,7 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
     /* get file length */
     if (!(f = fopen(filename, "rb"))) {
 	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n", filename);
-	return -1;
+	return FALSE;
     }
     fseek(f, 0, SEEK_END);
     pmp3->file_size = ftell(f);
@@ -81,19 +88,19 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
     chain = FLAC__metadata_chain_new();
     if (! chain) {
 	DPRINTF(E_WARN,L_SCAN,"Cannot allocate FLAC metadata chain\n");
-        return -1;
+        return FALSE;
     }
     if (! FLAC__metadata_chain_read(chain, filename)) {
 	DPRINTF(E_WARN,L_SCAN,"Cannot read FLAC metadata from %s\n", filename);
 	FLAC__metadata_chain_delete(chain);
-	return -1;
+	return FALSE;
     }
 
     iterator = FLAC__metadata_iterator_new();
     if (! iterator) {
 	DPRINTF(E_WARN,L_SCAN,"Cannot allocate FLAC metadata iterator\n");
 	FLAC__metadata_chain_delete(chain);
-	return -1;
+	return FALSE;
     }
 
     FLAC__metadata_iterator_init(iterator, chain);
@@ -181,5 +188,5 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
 
     FLAC__metadata_iterator_delete(iterator);
     FLAC__metadata_chain_delete(chain);
-    return 0;
+    return TRUE;
 }

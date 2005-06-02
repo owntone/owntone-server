@@ -255,10 +255,14 @@ char *scan_xml_urldecode(char *string, int space_as_plus) {
 /**
  * scan an iTunes xml music database file, augmenting
  * the metainfo with that found in the xml file
+ *
+ * @param filename xml file to parse
+ * @returns TRUE if playlist parsed successfully, FALSE otherwise
  */
 int scan_xml_playlist(char *filename) {
     char *working_base;
     const void *val;
+    int retval=TRUE;
     SCAN_XML_RB *lookup_ptr;
     SCAN_XML_RB lookup_val;
 
@@ -274,7 +278,7 @@ int scan_xml_playlist(char *filename) {
     /* initialize the redblack tree */
     if((scan_xml_db = rbinit(scan_xml_rb_compare,NULL)) == NULL) {
 	DPRINTF(E_LOG,L_SCAN,"Could not initialize red/black tree\n");
-	return 0;
+	return FALSE;
     }
 
     /* find the base dir of the itunes playlist itself */
@@ -294,6 +298,7 @@ int scan_xml_playlist(char *filename) {
 		filename,rxml_errorstring(xml_handle));
     } else {
 	if(!rxml_parse(xml_handle)) {
+	    retval=FALSE;
 	    DPRINTF(E_LOG,L_SCAN,"Error parsing xml file %s: %s\n",
 		    filename,rxml_errorstring(xml_handle));
 	}
@@ -312,7 +317,7 @@ int scan_xml_playlist(char *filename) {
     }
 
     rbdestroy(scan_xml_db);
-    return 0;
+    return retval;
 }
 
 

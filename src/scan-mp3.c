@@ -250,11 +250,12 @@ static void scan_mp3_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi);
  *
  * @param filename file to scan
  * @param pmp3 MP3FILE structure to fill
+ * @returns TRUE if file should be added to DB, FALSE otherwise
  */
 int scan_get_mp3info(char *filename, MP3FILE *pmp3) {
-    if(!scan_mp3_get_mp3tags(filename, pmp3))
+    if(scan_mp3_get_mp3tags(filename, pmp3))
 	return scan_mp3_get_mp3fileinfo(filename,pmp3);
-    return -1;
+    return FALSE;
 }
 
 /**
@@ -292,7 +293,7 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
 	DPRINTF(E_WARN,L_SCAN,"Cannot open %s\n",file);
-	return -1;
+	return FALSE;
     }
 
     pid3tag=id3_file_tag(pid3file);
@@ -302,7 +303,7 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
 	id3_file_close(pid3file);
 	errno=err;
 	DPRINTF(E_WARN,L_SCAN,"Cannot get ID3 tag for %s\n",file);
-	return -1;
+	return FALSE;
     }
 
     index=0;
@@ -472,7 +473,7 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
 
     id3_file_close(pid3file);
     DPRINTF(E_DBG,L_SCAN,"Got id3 tag successfully\n");
-    return 0;
+    return TRUE;
 }
 
 /**
@@ -781,7 +782,7 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
     if(!(infile=fopen(file,"rb"))) {
 	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
-	return -1;
+	return FALSE;
     }
 
     memset((void*)&fi,0x00,sizeof(fi));
@@ -799,7 +800,7 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	    DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
 	}
 	fclose(infile);
-	return -1;
+	return FALSE;
     }
 
     pid3=(SCAN_ID3HEADER*)buffer;
@@ -829,7 +830,7 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
 	    DPRINTF(E_LOG,L_SCAN,"Short read: %s\n",file);
 	    fclose(infile);
-	    return 0;
+	    return TRUE;
 	}
 
 	index=0;
@@ -905,7 +906,7 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 	DPRINTF(E_LOG,L_SCAN,"If this is a valid mp3 file that plays in "
 		"other applications, please email me at rpedde@users.sourceforge.net "
 		"and tell me you got this error.  Thanks");
-	return 0;
+	return TRUE;
     }
 
     DPRINTF(E_DBG,L_SCAN," MPEG Version: %0.1g\n",fi.version);
@@ -963,6 +964,6 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN," Song Length: %d\n",pmp3->song_length);
 
     fclose(infile);
-    return 0;
+    return TRUE;
 }
 

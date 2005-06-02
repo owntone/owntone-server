@@ -15,6 +15,14 @@
 #include "err.h"
 #include "mp3-scanner.h"
 
+
+/**
+ * get ogg metainfo
+ *
+ * @param filename file to read metainfo for
+ * @param pmp3 MP3FILE struct to fill with metainfo
+ * @returns TRUE if file should be added to DB, FALSE otherwise
+ */
 int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
     FILE *f;
     OggVorbis_File vf;
@@ -27,7 +35,7 @@ int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
         DPRINTF(E_FATAL, L_SCAN,
 		"Error opening input file \"%s\": %s\n", filename,
 		strerror(errno));
-        return 0;
+        return FALSE;
     }
 
     if(!fseek(f,0,SEEK_END)) {
@@ -39,7 +47,7 @@ int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
 	fclose(f);
         DPRINTF(E_FATAL, L_SCAN,
 		"Error opening Vorbis stream in \"%s\"\n", filename);
-        return 0;
+        return FALSE;
     }
 
     vi=ov_info(&vf,-1);
@@ -83,5 +91,5 @@ int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
     }
     ov_clear(&vf);
     /*fclose(f);*/
-    return 0;
+    return TRUE;
 }

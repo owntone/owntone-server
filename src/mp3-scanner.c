@@ -65,8 +65,7 @@
 
 typedef struct {
     char *suffix;
-    int	(*tags)(char* file, MP3FILE* pmp3);
-    int	(*files)(char* file, MP3FILE* pmp3);
+    int	(*scanner)(char* file, MP3FILE* pmp3);
     char *type;         /* daap.songformat */
     char *codectype;    /* song.codectype */
     char *description;  /* daap.songdescription */
@@ -79,12 +78,9 @@ typedef struct {
  * Forwards
  */
 static int scan_path(char *path);
-static int scan_gettags(char *file, MP3FILE *pmp3);
-static int scan_get_nultags(char *file, MP3FILE *pmp3) { return 0; };
-static int scan_get_fileinfo(char *file, MP3FILE *pmp3);
+static int scan_get_info(char *file, MP3FILE *pmp3);
 static int scan_freetags(MP3FILE *pmp3);
-
-static void scan_static_playlist(char *path);
+static int scan_static_playlist(char *path);
 static void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
 
 static TAGHANDLER *scan_gethandler(char *type);
@@ -131,23 +127,23 @@ int scan_xml_playlist(char *filename);
  * This system is broken, and won't work with something like a .cue file
  */
 static TAGHANDLER taghandlers[] = {
-    { "aac", scan_get_nultags, scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
-    { "mp4", scan_get_nultags, scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
-    { "m4a", scan_get_nultags, scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
-    { "m4p", scan_get_nultags, scan_get_aacinfo, "m4p", "mp4a", "AAC audio file" },
-    { "mp3", scan_get_nultags, scan_get_mp3info, "mp3", "mpeg", "MPEG audio file" },
-    { "wav", scan_get_nultags, scan_get_wavinfo, "wav", "wav", "WAV audio file" },
-    { "wma", scan_get_nultags, scan_get_wmainfo, "wma", "wma", "WMA audio file" },
-    { "url", scan_get_nultags, scan_get_urlinfo, "pls", NULL, "Playlist URL" },
-    { "pls", scan_get_nultags, scan_get_urlinfo, "pls", NULL, "Playlist URL" },
+    { "aac", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
+    { "mp4", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
+    { "m4a", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
+    { "m4p", scan_get_aacinfo, "m4p", "mp4a", "AAC audio file" },
+    { "mp3", scan_get_mp3info, "mp3", "mpeg", "MPEG audio file" },
+    { "wav", scan_get_wavinfo, "wav", "wav", "WAV audio file" },
+    { "wma", scan_get_wmainfo, "wma", "wma", "WMA audio file" },
+    { "url", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
+    { "pls", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
 #ifdef OGGVORBIS
-    { "ogg", scan_get_nultags, scan_get_ogginfo, "ogg", "ogg", "Ogg Vorbis audio file" },
+    { "ogg", scan_get_ogginfo, "ogg", "ogg", "Ogg Vorbis audio file" },
 #endif
 #ifdef FLAC
-    { "flac", scan_get_nultags, scan_get_flacinfo, "flac","flac", "FLAC audio file" },
-    { "fla", scan_get_nultags, scan_get_flacinfo,  "flac","flac", "FLAC audio file" },
+    { "flac", scan_get_flacinfo, "flac","flac", "FLAC audio file" },
+    { "fla", scan_get_flacinfo,  "flac","flac", "FLAC audio file" },
 #endif
-    { NULL, NULL, NULL, NULL, NULL, NULL }
+    { NULL, NULL, NULL, NULL, NULL }
 };
 
 typedef struct tag_playlistlist {
@@ -334,13 +330,13 @@ int scan_path(char *path) {
     return 0;
 }
 
-/*
- * scan_static_playlist
- *
+/**
  * Scan a file as a static playlist
+ *
+ * @param path path to playlist
  */
 
-void scan_static_playlist(char *path) {
+int scan_static_playlist(char *path) {
     char base_path[PATH_MAX];
     char file_path[PATH_MAX];
     char real_path[PATH_MAX];
@@ -355,7 +351,7 @@ void scan_static_playlist(char *path) {
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",path);
     if(stat(path,&sb)) {
 	DPRINTF(E_WARN,L_SCAN,"Error statting %s: %s\n",path,strerror(errno));
-	return;
+	return FALSE;
     }
 
     if((current=strrchr(path,'/')) == NULL) {
@@ -374,7 +370,7 @@ void scan_static_playlist(char *path) {
     if(pm3u && (pm3u->db_timestamp > sb.st_mtime)) {
 	/* already up-to-date */
 	db_dispose_playlist(pm3u);
-	return;
+	return TRUE;
     }
 
     if(pm3u) 
@@ -385,7 +381,7 @@ void scan_static_playlist(char *path) {
 	if(db_add_playlist(base_path,PL_STATICFILE,NULL,path,0,&playlistid) != DB_E_SUCCESS) {
 	    DPRINTF(E_LOG,L_SCAN,"Error adding m3u playlist %s\n",path);
 	    db_dispose_playlist(pm3u);
-	    return;
+	    return FALSE;
 	}
 	/* now get the *real* base_path */
 	strcpy(base_path,path);
@@ -430,6 +426,7 @@ void scan_static_playlist(char *path) {
 
     db_dispose_playlist(pm3u);
     DPRINTF(E_WARN,L_SCAN|L_PL,"Done processing playlist\n");
+    return TRUE;
 }
 
 
@@ -488,8 +485,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
     }
     
     /* Do the tag lookup here */
-    if(!scan_gettags(mp3file.path,&mp3file) && 
-       !scan_get_fileinfo(mp3file.path,&mp3file)) {
+    if(scan_get_info(mp3file.path,&mp3file)) {
 	make_composite_tags(&mp3file);
 	/* fill in the time_added.  I'm not sure of the logic in this.
 	   My thinking is to use time created, but what is that?  Best
@@ -506,7 +502,7 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 
 	db_add(&mp3file);
     } else {
-	DPRINTF(E_WARN,L_SCAN,"Skipping %s - scan_gettags failed\n",pde->d_name);
+	DPRINTF(E_WARN,L_SCAN,"Skipping %s - scan failed\n",mp3file.path);
     }
     
     scan_freetags(&mp3file);
@@ -525,25 +521,6 @@ TAGHANDLER *scan_gethandler(char *type) {
 	return phdl;
 
     return NULL;
-}
-
-
-/**
- * Dispatch the appropriate handler to get specific tag metainfomation
- *
- * \param file file to get tag info for
- * \param pmp3 mp3 file struct to fill info into
- */
-int scan_gettags(char *file, MP3FILE *pmp3) {
-    TAGHANDLER *hdl;
-
-    /* dispatch to appropriate tag handler */
-    hdl = scan_gethandler(pmp3->type);
-    if(hdl && hdl->tags)
-	return hdl->tags(file,pmp3);
-
-    /* otherwise, it's a file type we don't understand yet */
-    return 0;
 }
 
 /*
@@ -574,10 +551,10 @@ int scan_freetags(MP3FILE *pmp3) {
 /**
  * Dispatch to actual file info handlers
  *
- * \param file file to read file metainfo for
- * \param pmp3 struct to stuff with info gleaned
+ * @param file file to read file metainfo for
+ * @param pmp3 struct to stuff with info gleaned
  */
-int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
+int scan_get_info(char *file, MP3FILE *pmp3) {
     FILE *infile;
     off_t file_size;
 
@@ -585,13 +562,13 @@ int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
 
     /* dispatch to appropriate tag handler */
     hdl = scan_gethandler(pmp3->type);
-    if(hdl && hdl->files)
-	return hdl->files(file,pmp3);
+    if(hdl && hdl->scanner)
+	return hdl->scanner(file,pmp3);
 
     /* a file we don't know anything about... ogg or aiff maybe */
     if(!(infile=fopen(file,"rb"))) {
 	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
-	return -1;
+	return FALSE;
     }
 
     /* we can at least get this */
@@ -602,7 +579,7 @@ int scan_get_fileinfo(char *file, MP3FILE *pmp3) {
     pmp3->file_size=file_size;
 
     fclose(infile);
-    return 0;
+    return TRUE;
 }
 
 

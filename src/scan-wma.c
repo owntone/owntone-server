@@ -323,9 +323,9 @@ int wma_file_read_bytes(int fd,int len, unsigned char **data) {
  * parse the extended content description object.  this is an object that
  * has ad-hoc tags, basically.
  *
- * \param fd fd of the file we are reading from -- positioned at start
- * \param size size of the content description block
- * \param pmp3 the mp3 struct we are filling with gleaned data
+ * @param fd fd of the file we are reading from -- positioned at start
+ * @param size size of the content description block
+ * @param pmp3 the mp3 struct we are filling with gleaned data
  */
 int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
     unsigned short descriptor_count;
@@ -344,18 +344,18 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN,"Reading extended content description object\n");
 
     if(!wma_file_read_short(fd, &descriptor_count))
-	return -1;
+	return FALSE;
 
     for(index = 0; index < descriptor_count; index++) {
 	if(!wma_file_read_short(fd,&descriptor_name_len)) return -1;
 	if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name)) return -1;
 	if(!wma_file_read_short(fd,&descriptor_value_type)) { 
 	    free(descriptor_name);
-	    return -1;
+	    return FALSE;
 	}
 	if(!wma_file_read_short(fd,&descriptor_value_len)) {
 	    free(descriptor_name);
-	    return -1;
+	    return FALSE;
 	}
 
 	DPRINTF(E_DBG,L_SCAN,"Found descriptor: %s\n", descriptor_name);
@@ -393,7 +393,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
 
 	if(fail) {
 	    free(descriptor_name);
-	    return -1;
+	    return FALSE;
 	}
 
 	/* do stuff with what we found */
@@ -438,7 +438,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
 	free(descriptor_name);
     }
     
-    return 0;
+    return TRUE;
 }
 
 /**
@@ -446,9 +446,9 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
  * contains lengths of title, author, copyright, descr, and rating
  * then the utf-16le strings for each.
  *
- * \param fd fd of the file we are reading from -- positioned at start
- * \param size size of the content description block
- * \param pmp3 the mp3 struct we are filling with gleaned data
+ * @param fd fd of the file we are reading from -- positioned at start
+ * @param size size of the content description block
+ * @param pmp3 the mp3 struct we are filling with gleaned data
  */
 int wma_parse_content_description(int fd,int size, MP3FILE *pmp3) {
     unsigned short sizes[5];
@@ -456,17 +456,17 @@ int wma_parse_content_description(int fd,int size, MP3FILE *pmp3) {
     char *utf8;
 
     if(size < 10) /* must be at least enough room for the size block */
-	return -1;
+	return FALSE;
 
     for(index=0; index < 5; index++) {
 	if(!wma_file_read_short(fd,&sizes[index]))
-	    return -1;
+	    return FALSE;
     }
 
     for(index=0;index<5;index++) {
 	if(sizes[index]) {
 	    if(!wma_file_read_utf16(fd,sizes[index],&utf8))
-		return -1;
+		return FALSE;
 
 	    DPRINTF(E_DBG,L_SCAN,"Got item of length %d: %s\n",sizes[index],utf8);
 	    
@@ -499,16 +499,16 @@ int wma_parse_content_description(int fd,int size, MP3FILE *pmp3) {
 	}
     }
 
-    return 0;
+    return TRUE;
 }
 
 /**
  * parse the file properties object.  this is an object that
  * contains playtime and bitrate, primarily.
  *
- * \param fd fd of the file we are reading from -- positioned at start
- * \param size size of the content description block
- * \param pmp3 the mp3 struct we are filling with gleaned data
+ * @param fd fd of the file we are reading from -- positioned at start
+ * @param size size of the content description block
+ * @param pmp3 the mp3 struct we are filling with gleaned data
  */
 int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
     unsigned long long play_duration;
@@ -523,13 +523,13 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
     lseek(fd,40,SEEK_CUR);
 
     if(!wma_file_read_ll(fd, &play_duration))
-	return -1;
+	return FALSE;
 
     if(!wma_file_read_ll(fd, &send_duration))
-	return -1;
+	return FALSE;
 
     if(!wma_file_read_ll(fd, &preroll))
-	return -1;
+	return FALSE;
 
     /* I'm not entirely certain what preroll is, but it seems
      * to make it match up with what windows thinks is the song
@@ -543,11 +543,11 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
 
     lseek(fd,12,SEEK_CUR);
     if(!wma_file_read_int(fd,&max_bitrate))
-	return -1;
+	return FALSE;
 
     pmp3->bitrate = max_bitrate/1000;
 
-    return 0;
+    return TRUE;
 }
 
 /**
@@ -562,8 +562,8 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
  *
  * We assume this is utf-16LE, as it comes from windows
  *
- * \param utf16 utf-16 to convert
- * \param len length of utf-16 string
+ * @param utf16 utf-16 to convert
+ * @param len length of utf-16 string
  */
 char *wma_utf16toutf8(unsigned char *utf16, int len) {
     char *utf8;
@@ -634,7 +634,7 @@ char *wma_utf16toutf8(unsigned char *utf16, int len) {
 /**
  * lookup a guid by character
  *
- * \param guid 16 byte guid to look up
+ * @param guid 16 byte guid to look up
  */
 WMA_GUID *wma_find_guid(unsigned char *guid) {
     WMA_GUID *pguid = wma_guidlist;
@@ -652,7 +652,7 @@ WMA_GUID *wma_find_guid(unsigned char *guid) {
 /**
  * convert a short int in wrong-endian format to host-endian
  *
- * \param src pointer to 16-bit wrong-endian int
+ * @param src pointer to 16-bit wrong-endian int
  */
 unsigned short wma_convert_short(unsigned char *src) {
     return src[1] << 8 |
@@ -662,7 +662,7 @@ unsigned short wma_convert_short(unsigned char *src) {
 /**
  * convert an int in wrong-endian format to host-endian
  *
- * \param src pointer to 32-bit wrong-endian int
+ * @param src pointer to 32-bit wrong-endian int
  */
 unsigned int wma_convert_int(unsigned char *src) {
     return src[3] << 24 |
@@ -674,7 +674,7 @@ unsigned int wma_convert_int(unsigned char *src) {
 /**
  * convert a long long wrong-endian format to host-endian
  *
- * \param src pointer to 64-bit wrong-endian int
+ * @param src pointer to 64-bit wrong-endian int
  */
 
 unsigned long long wma_convert_ll(unsigned char *src) {
@@ -700,8 +700,8 @@ unsigned long long wma_convert_ll(unsigned char *src) {
 /**
  * get metainfo about a wma file
  *
- * \param filename full path to file to scan
- * \param pmp3 MP3FILE struct to be filled with with metainfo
+ * @param filename full path to file to scan
+ * @param pmp3 MP3FILE struct to be filled with with metainfo
  */
 int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     int wma_fd;
@@ -711,27 +711,27 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     long offset=0;
     int item;
     int err;
-    int res=0;
+    int res=TRUE;
 
     wma_fd = r_open2(filename,O_RDONLY);
     if(wma_fd == -1) {
 	DPRINTF(E_INF,L_SCAN,"Error opening WMA file (%s): %s\n",filename,
 		strerror(errno));
-	return -1;
+	return FALSE;
     }
 
     if(read(wma_fd,(void*)&hdr,sizeof(hdr)) != sizeof(hdr)) {
 	DPRINTF(E_INF,L_SCAN,"Error reading from %s: %s\n",filename,
 		strerror(errno));
 	r_close(wma_fd);
-	return -1;
+	return FALSE;
     }
 
     pguid = wma_find_guid(hdr.objectid);
     if(!pguid) {
 	DPRINTF(E_INF,L_SCAN,"Could not find header in %s\n",filename);
 	r_close(wma_fd);
-	return -1;
+	return FALSE;
     }
 
     hdr.objects=wma_convert_int((unsigned char *)&hdr.objects);
@@ -751,7 +751,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 	if(lseek(wma_fd,offset,SEEK_SET) == (off_t)-1) {
 	    DPRINTF(E_INF,L_SCAN,"Error seeking in %s\n",filename);
 	    r_close(wma_fd);
-	    return -1;
+	    return FALSE;
 	}
 
 	if(r_read(wma_fd,(void*)&subhdr,sizeof(subhdr)) != sizeof(subhdr)) {
@@ -759,7 +759,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 	    DPRINTF(E_INF,L_SCAN,"Error reading from %s: %s\n",filename,
 		    strerror(err));
 	    r_close(wma_fd);
-	    return -1;
+	    return FALSE;
 	}
 
 	subhdr.size=wma_convert_ll((unsigned char *)&subhdr.size);
@@ -768,11 +768,11 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 	if(pguid) {
 	    DPRINTF(E_DBG,L_SCAN,"Found subheader: %s\n",pguid->name);
 	    if(strcmp(pguid->name,"ASF_Content_Description_Object")==0) {
-		res |= wma_parse_content_description(wma_fd,subhdr.size,pmp3);
+		res &= wma_parse_content_description(wma_fd,subhdr.size,pmp3);
 	    } else if (strcmp(pguid->name,"ASF_Extended_Content_Description_Object")==0) {
-		res |= wma_parse_extended_content_description(wma_fd,subhdr.size,pmp3);
+		res &= wma_parse_extended_content_description(wma_fd,subhdr.size,pmp3);
 	    } else if (strcmp(pguid->name,"ASF_File_Properties_Object")==0) {
-		res |= wma_parse_file_properties(wma_fd,subhdr.size,pmp3);
+		res &= wma_parse_file_properties(wma_fd,subhdr.size,pmp3);
 	    }
 	} else {
 	    DPRINTF(E_DBG,L_SCAN,"Unknown subheader: %02hhx%02hhx%02hhx%02hhx-"
@@ -792,7 +792,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     }
 
 
-    if(res) {
+    if(!res) {
 	DPRINTF(E_INF,L_SCAN,"Error reading meta info for file %s\n",
 		filename);
     } else {
