@@ -58,11 +58,6 @@
 /*
  * Typedefs
  */
-
-/* 
- * Typedefs
- */
-
 typedef struct {
     char *suffix;
     int	(*scanner)(char* file, MP3FILE* pmp3);
@@ -70,6 +65,7 @@ typedef struct {
     char *codectype;    /* song.codectype */
     char *description;  /* daap.songdescription */
 } TAGHANDLER;
+
 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 
@@ -80,9 +76,7 @@ typedef struct {
 static int scan_path(char *path);
 static int scan_get_info(char *file, MP3FILE *pmp3);
 static int scan_freetags(MP3FILE *pmp3);
-static int scan_static_playlist(char *path);
 static void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
-
 static TAGHANDLER *scan_gethandler(char *type);
 
 
@@ -103,7 +97,8 @@ extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
 
 /* playlist scanners */
-int scan_xml_playlist(char *filename);
+extern int scan_xml_playlist(char *filename);
+static int scan_static_playlist(char *path);
 
 /* For known types, I'm gong to use the "official" apple
  * daap.songformat, daap.songdescription, and daap.songcodecsubtype.

@@ -306,6 +306,8 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
 	return FALSE;
     }
 
+    DPRINTF(E_SPAM,L_SCAN,"Starting mp3 tag scan\n");
+
     index=0;
     while((pid3frame=id3_tag_findframe(pid3tag,"",index))) {
 	used=0;
@@ -313,6 +315,8 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
 	native_text=NULL;
 	have_utf8=0;
 	have_text=0;
+
+	DPRINTF(E_SPAM,L_SCAN,"Found tag %s\n",pid3frame->id);
 
 	if(!strcmp(pid3frame->id,"YTCP")) { /* for id3v2.2 */
 	    pmp3->compilation = 1;
