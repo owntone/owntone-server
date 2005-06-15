@@ -73,6 +73,7 @@ static void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 static int config_file_is_readonly(void);
 static int config_mutex_lock(void);
@@ -136,6 +137,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_STRING,"ssc_prog",(void*)&config.ssc_prog,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"logfile",(void*)&config.logfile, config_emit_string },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"host",(void*)NULL,config_emit_host },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"package",(void*)PACKAGE,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"include",(void*)NULL,config_emit_include },
@@ -737,6 +739,33 @@ int config_auth(char *user, char *password) {
     return !strcmp(password,config.adminpassword);
 }
 
+
+/**
+ * emit the host value passed by the client web server.  This
+ * is really used to autoconfig the java client
+ *
+ * \param pwsc web connection
+ * \param value the variable that was requested
+ * \param arg any args passwd with the meta command
+ */
+void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg) {
+    char *host;
+    char *port;
+    
+    if(ws_getrequestheader(pwsc,"host")) {
+	host = strdup(ws_getrequestheader(pwsc,"host"));
+	if((port = strrchr(host,':'))) {
+	    *port = '\0';
+	}
+	ws_writefd(pwsc,"%s",host);
+	free(host);
+    } else {
+	DPRINTF(E_LOG,L_CONF,"Didn't get a host header!\n");
+	ws_writefd(pwsc,"localhost");
+    }
+
+    return;
+}
 
 /**
  * Used to emit a string configuration value to an admin page
