@@ -468,7 +468,6 @@ void config_close(void) {
     CONFIGELEMENT *pce;
     int err;
 
-    /* check to see if all required elements are satisfied */
     free(config.configfile);
     pce=config_elements;
     err=0;
@@ -677,12 +676,12 @@ void config_handler(WS_CONNINFO *pwsc) {
 	    /* ignore stopmdns and startmdns */
 	    if (strcasecmp(pw,"stopdaap")==0) {
 		config.stop=1;
-	    }
-	    if (strcasecmp(pw,"rescan")==0) {
+	    } else if (strcasecmp(pw,"rescan")==0) {
 		config.reload=1;
 	    }
-	} else {
-	    /* we need to update stuff */
+	} else if (ws_getvar(pwsc,"web_root") != NULL) {
+	    /* Make sure we got here from a post, and then
+	     * we need to update stuff */
 	    pw=ws_getvar(pwsc,"admin_pw");
 	    if(pw) {
 		if(config.adminpassword)
