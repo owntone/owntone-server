@@ -6,10 +6,11 @@
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     <link rel="stylesheet" type="text/css" href="mt-daapd.css" />
     @ispage status.html:<meta http-equiv="refresh" content="10" />:@
+    @ispage smart.html:<script type="text/javascript" src="smart.js" />:@
     @ispage playlist.html:<script type="text/javascript" src="playlist.js" />:@
   </head>
 
-  <body @ispage playlist.html:onload="init()":@>
+  <body @ispage playlist.html:onload="init()":@ @ispage smart.html:onload="init()":@>
 @ispage playlist.html:<!--:@
     <div>
       <table border="0" width="100%">
@@ -24,7 +25,9 @@
       <a href="config.html" class="@ispage config.html:selected:plain@">Config</a>
       <a href="status.html" class="@ispage status.html:selected:plain@">Status</a>
       <a href="playlist.html" class="@ispage playlist.html:selected:plain@">Playlist</a>
-      <a href="feedback.html" class="@ispage feedback.html:selected:plain@">Feedback</a>
+      <a href="feedback.html" class="@ispage
+      feedback.html:selected:plain@">Feedback</a>
+      <a href="smart.html" class="@ispage smart.html:selected:plain@">Smart</a>
       <a href="thanks.html" class="@ispage thanks.html:selected:plain@">Thanks</a>
     </div>
 

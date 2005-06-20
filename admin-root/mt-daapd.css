@@ -28,7 +28,10 @@
 /*  */
 
 
- 
+table.hovertable tr:hover {
+    background-color: #8CACBB;
+}
+
 body {
     font: 0.7em Verdana, Helvetica, Arial, sans-serif;
     background: White;
@@ -44,6 +47,7 @@ body {
     scrollbar-shadow-color: #8CACBB;
     scrollbar-arrow-color: #436976;
 }
+
 
 table {
     font-size: 100%;
