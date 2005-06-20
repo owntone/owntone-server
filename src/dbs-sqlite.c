@@ -509,7 +509,6 @@ int db_sqlite_add(MP3FILE *pmp3) {
     err=db_sqlite_exec(E_DBG,"INSERT INTO songs VALUES "
 		       "(NULL,"   // id
 		       "'%q',"  // path
-		       "'%d',"  // index
 		       "'%q',"  // fname
 		       "'%q',"  // title
 		       "'%q',"  // artist
@@ -545,9 +544,9 @@ int db_sqlite_add(MP3FILE *pmp3) {
 		       "%d,"    // disabled
 		       "%d,"    // sample_count
 		       "0,"     // force_update    
-		       "'%q')", // codectype
+		       "'%q',"  // codectype
+		       "%d)",   // index
 		       STR(pmp3->path),
-		       pmp3->index,
 		       STR(pmp3->fname),
 		       STR(pmp3->title),
 		       STR(pmp3->artist),
@@ -581,7 +580,8 @@ int db_sqlite_add(MP3FILE *pmp3) {
 		       pmp3->db_timestamp,
 		       pmp3->disabled,
 		       pmp3->sample_count,
-		       STR(pmp3->codectype));
+		       STR(pmp3->codectype),
+		       pmp3->index);
     
     if(err == SQLITE_CONSTRAINT) {
 	/* probably because the path already exists... */

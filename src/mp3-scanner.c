@@ -364,6 +364,7 @@ int scan_static_playlist(char *path) {
     pm3u = db_fetch_playlist(path,0);
     if(pm3u && (pm3u->db_timestamp > sb.st_mtime)) {
 	/* already up-to-date */
+	DPRINTF(E_DBG,L_SCAN,"Playlist already up-to-date\n");
 	db_dispose_playlist(pm3u);
 	return TRUE;
     }
