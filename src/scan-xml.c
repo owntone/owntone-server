@@ -28,6 +28,8 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "db-generic.h"
 #include "err.h"
@@ -121,6 +123,89 @@ int scan_xml_rb_compare(const void *pa, const void *pb, const void *cfg) {
     if(((SCAN_XML_RB*)pb)->itunes_index < ((SCAN_XML_RB*)pa)->itunes_index)
 	return 1;
     return 0;
+}
+
+
+
+/**
+ * check to see if a file exists
+ *
+ * @param path path of file to test
+ * @returns 1 if file exists, 0 otherwise
+ */
+int scan_xml_is_file(char *path) {
+    struct stat sb;
+
+    if(stat(path,&sb))
+	return 0;
+
+    if(sb.st_mode & S_IFREG)
+	return 1;
+
+    return 0;
+}
+
+/**
+ * convert an iTunes XML path to a physical path.  Note that
+ * the supplied buffer (ppnew) must be PATH_MAX, or badness
+ * could occur.
+ *
+ * @param pold the iTunes XML path
+ * @param ppnew where the real physical path goes
+ * @returns 1 on success, 0 on failure
+ */
+int scan_xml_translate_path(char *pold, char *pnew) {
+    static int path_found=0;
+    static int discard;
+    char base_path[PATH_MAX];
+    char working_path[PATH_MAX];
+    char *current = pold + strlen(pold);
+    char *pbase;
+
+    if((!pold)||(!strlen(pold)))
+	return FALSE;
+
+    if(!path_found) {
+	strcpy(working_path,pold);
+
+	DPRINTF(E_DBG,L_SCAN,"Translating %s\n",pold);
+
+	/* let's try to find the path by brute force.
+	 * We'll assume that it is under the xml file somewhere
+	 */
+	while(!path_found && ((current = strrchr(working_path,'/')))) {
+	    strcpy(base_path,scan_xml_file);
+	    pbase = strrchr(base_path,'/');
+	    if(!pbase) return FALSE;
+
+	    strcpy(pbase,pold + (current-working_path));
+	    if(base_path[strlen(base_path)-1] == '/')
+		base_path[strlen(base_path)-1] = '\0';
+
+	    DPRINTF(E_DBG,L_SCAN,"Trying %s\n",base_path);
+	    if(scan_xml_is_file(base_path)) {
+		path_found=1;
+		discard = (current - working_path);
+		DPRINTF(E_DBG,L_SCAN,"Found it!\n");
+	    }
+	    *current='\0';
+	}
+	if(!current)
+	    return FALSE;
+    }
+
+    strcpy(base_path,scan_xml_file);
+    pbase = strrchr(base_path,'/');
+    if(!pbase) return FALSE;
+    strcpy(pbase,pold + discard);
+
+    if(base_path[strlen(base_path)-1] == '/')
+	base_path[strlen(base_path)-1] = '\0';
+
+    realpath(base_path,pnew);
+
+    DPRINTF(E_DBG,L_SCAN,"Mapping %s to %s\n",pold,pnew);
+    return TRUE;
 }
 
 /**
@@ -472,7 +557,6 @@ int scan_xml_tracks_section(int action, char *info) {
     static int current_field;
     static MP3FILE mp3;
     static char *song_path=NULL;
-    char physical_path[PATH_MAX];
     char real_path[PATH_MAX];
     MP3FILE *pmp3;
 
@@ -532,12 +616,7 @@ int scan_xml_tracks_section(int action, char *info) {
 	} else if((action == RXML_EVT_END) && (strcmp(info,"dict")==0)) {
 	    state = XML_TRACK_ST_MAIN_DICT;
 	    /* but more importantly, we gotta process the track */
-	    if(song_path && (strlen(song_path) > 
-			     strlen(scan_xml_itunes_decoded_base_path))) {
-		sprintf(physical_path,"%siTunes Music/%s",
-			scan_xml_real_base_path,
-			(char*)&song_path[strlen(scan_xml_itunes_decoded_base_path)]);
-		realpath(physical_path,real_path);
+	    if(scan_xml_translate_path(song_path,real_path)) {
 		pmp3=db_fetch_path(real_path,0);
 		if(pmp3) {
 		    /* Update the existing record with the

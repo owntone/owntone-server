@@ -300,7 +300,7 @@ int scan_path(char *path) {
 		       config.process_m3u){
 			/* we found an m3u file */
 			scan_add_playlistlist(mp3_path);
-		    } else if((strcasecmp(pde->d_name,"iTunes Music Library.xml")==0)) {
+		    } else if((strcasecmp(".xml",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0)) {
 			scan_add_playlistlist(mp3_path);
 		    } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
 			       (strcasestr(config.extensions, ext))) {
