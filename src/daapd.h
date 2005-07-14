@@ -48,12 +48,12 @@ typedef struct tag_config {
     int stop;             /**< Time to exit? */
     int reload;           /**< Time to reload and/or rescan the database? */
     char *configfile;     /**< path to config file */
-    char *web_root;       /**< path to the directory containing the admin-root files */
+    char *web_root;       /**< path to the dir containing the web files */
     int port;             /**< port to listen on */
-    int rescan_interval;  /**< How often to do a background rescan of the file system */
+    int rescan_interval;  /**< How often to do a background fs rescan */
     int always_scan;      /**< 0 to minimize disk usage (embedded devices) */
     int process_m3u;      /**< Should we process m3u files? */
-    int scan_type;        /**< How hard to search mp3 files. see scan_get_mp3fileinfo() */
+    int scan_type;        /**< Method for finding playtime. see scan-mp3.c */
     int compress;         /**< Should we compress? */
     int pid;              /**< pid that will accept INT to terminate */
     int latin1_tags;      /**< interpret all tags as latin1 rather than utf8 */
@@ -69,6 +69,8 @@ typedef struct tag_config {
     char *ssc_prog;       /**< Server side music format converter prog */
     char *artfilename;    /**< What filename to merge coverart with */
     char *logfile;        /**< What file to use as a logfile */
+    char *compdirs;       /**< Compilations directories */
+    char **complist;      /**< list of compilation directories */
     STATS stats;          /**< Stats structure (see above) */
 } CONFIG;
 

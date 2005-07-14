@@ -76,7 +76,7 @@ typedef struct {
 static int scan_path(char *path);
 static int scan_get_info(char *file, MP3FILE *pmp3);
 static int scan_freetags(MP3FILE *pmp3);
-static void scan_music_file(char *path, struct dirent *pde, struct stat *psb);
+static void scan_music_file(char *path, struct dirent *pde, struct stat *psb, int is_compdir);
 static TAGHANDLER *scan_gethandler(char *type);
 
 
@@ -237,6 +237,28 @@ int scan_init(char *path) {
     return err;
 }
 
+/**
+ * check to see if a particular path is a complation path
+ *
+ * @param path path to check
+ * @returns 1 if it is a compilation path, 0 otherwise
+ */
+int scan_is_compdir(char *path) {
+    int current=0;
+
+    if(!config.complist)
+	return 0;
+
+    while(config.complist[current]) {
+	if(strcasestr(path,config.complist[current]))
+	    return 1;
+	current++;
+    }
+
+    return 0;
+}
+
+
 /*
  * scan_path
  *
@@ -253,11 +275,14 @@ int scan_path(char *path) {
     int modified_time;
     char *ext;
     MP3FILE *pmp3;
+    int is_compdir;
 
     if((current_dir=opendir(path)) == NULL) {
 	DPRINTF(E_WARN,L_SCAN,"opendir: %s\n",strerror(errno));
 	return -1;
     }
+
+    is_compdir=scan_is_compdir(path);
 
     while(1) {
 	if(config.stop) {
@@ -310,7 +335,7 @@ int scan_path(char *path) {
 
 			if((!pmp3) || (pmp3->db_timestamp < modified_time) || 
 			   (pmp3->force_update)) {
-			    scan_music_file(path,pde,&sb);
+			    scan_music_file(path,pde,&sb,is_compdir);
 			} else {
 			    DPRINTF(E_DBG,L_SCAN,"Skipping file... not modified\n");
 			}
@@ -431,7 +456,8 @@ int scan_static_playlist(char *path) {
  *
  * scan a particular file as a music file
  */
-void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
+void scan_music_file(char *path, struct dirent *pde, 
+		     struct stat *psb, int is_compdir) {
     MP3FILE mp3file;
     char mp3_path[PATH_MAX];
     char *current=NULL;
@@ -495,6 +521,9 @@ void scan_music_file(char *path, struct dirent *pde, struct stat *psb) {
 	DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 
 	DPRINTF(E_DBG,L_SCAN," Codec: %s\n",mp3file.codectype);
+
+	if(is_compdir)
+	    mp3file.compilation = 1;
 
 	db_add(&mp3file);
     } else {

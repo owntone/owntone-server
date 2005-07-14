@@ -136,6 +136,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_STRING,"ssc_extensions",(void*)&config.ssc_extensions,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"ssc_prog",(void*)&config.ssc_prog,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
+    { 1,0,0,CONFIG_TYPE_STRING,"compdirs",(void*)&config.compdirs, config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"logfile",(void*)&config.logfile, config_emit_string },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"host",(void*)NULL,config_emit_host },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
@@ -270,6 +271,9 @@ int config_read(char *file) {
     CONFIGELEMENT *pce;
     int handled;
     char *term;
+    int compterms=0,currentterm;
+    char *term_begin, *term_end;
+    char *compdirs;
 
     buffer=(char*)malloc(MAX_LINE+1);
     if(!buffer)
@@ -309,6 +313,8 @@ int config_read(char *file) {
     config.scan_type=0;
     config.compress=0;
     config.latin1_tags=0;
+    config.compdirs=NULL;
+    config.complist = NULL;
 
     /* DWB: use alloced space so it can be freed without errors */
     config.extensions=strdup(".mp3");
@@ -459,6 +465,52 @@ int config_read(char *file) {
 	}
     }
 
+    /* See how many compilation dirs we have */
+    compterms=0;
+    term_begin=config.compdirs;
+    while(term_begin) {
+	compterms++;
+	term_begin=strchr(term_begin,',');
+	if(term_begin)
+	    term_begin++;
+    }
+
+    /* Now allocate comp dirs */
+    if(compterms) {
+	config.complist=(char**)malloc((compterms+1) * sizeof(char*));
+	if(!config.complist)
+	    DPRINTF(E_FATAL,L_MISC,"Alloc error.\n");
+
+	currentterm=0;
+	
+	term_begin=config.compdirs;
+	while(*term_begin && *term_begin ==' ')
+	    term_begin++;
+
+	compdirs = strdup(term_begin);
+	term_begin = term_end = compdirs;
+
+	while(term_end) {
+	    term_end = strchr(term_begin,',');
+	    while((*term_begin)&&(*term_begin == ' '))
+		term_begin++;
+
+	    if(term_end)
+		*term_end='\0';
+
+	    while(strlen(term_begin) && term_begin[strlen(term_begin)-1]==' ')
+			    term_begin[strlen(term_begin)-1] == '\0';
+
+	    if(strlen(term_begin)) {
+		config.complist[currentterm++] = term_begin;
+	    }
+
+	    term_begin = term_end + 1;
+	}
+
+	config.complist[currentterm] = NULL;
+    }
+
     return err;
 }
 
@@ -469,6 +521,12 @@ int config_read(char *file) {
 void config_close(void) {
     CONFIGELEMENT *pce;
     int err;
+
+    if(config.complist) {
+	if(config.complist[0])
+	    free(config.complist[0]);
+	free(config.complist);
+    }
 
     free(config.configfile);
     pce=config_elements;
@@ -530,6 +588,9 @@ int config_write(WS_CONNINFO *pwsc) {
 	fprintf(configfile,"logfile\t\t%s\n",ws_getvar(pwsc,"logfile"));
     fprintf(configfile,"process_m3u\t%s\n",ws_getvar(pwsc,"process_m3u"));    
     fprintf(configfile,"compress\t%s\n",ws_getvar(pwsc,"compress"));
+    
+    fprintf(configfile,"debuglevel\t%s\n",ws_getvar(pwsc,"debuglevel"));
+    fprintf(configfile,"compdirs\t%s\n",ws_getvar(pwsc,"compdirs"));
 
     fclose(configfile);
     return 0;
