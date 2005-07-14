@@ -55,6 +55,7 @@
 #define L_MAIN    0x00000400 /**< setup, teardown, signals - main.c */
 #define L_REND    0x00000800 /**< rendezvous -- rend-unix.c, rend-posix.c, etc */
 #define L_XML     0x00002000 /**< xml - xml-rpc.c */
+#define L_PARSE   0x00004000 /**< smart playlist parser */
 #define L_MISC    0x80000000 /**< anything else */
 
 extern int err_debuglevel;
