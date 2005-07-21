@@ -23,6 +23,9 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.3  2005/07/21 03:40:07  rpedde
+Crank up mdns debug messages
+
 Revision 1.2  2005/01/10 01:07:01  rpedde
 Synchronize mDNS to Apples 58.8 drop
 
@@ -60,7 +63,7 @@ Merge in license terms from Quinn's copy, in preparation for Darwin release
 // Set MDNS_DEBUGMSGS to 2 to generate verbose debugging messages
 // MDNS_DEBUGMSGS is normally set in the project options (or makefile) but can also be set here if desired
 
-//#define MDNS_DEBUGMSGS 2
+#define MDNS_DEBUGMSGS 2
 
 // Set MDNS_CHECK_PRINTF_STYLE_FUNCTIONS to 1 to enable extra GCC compiler warnings
 // Note: You don't normally want to do this, because it generates a bunch of
