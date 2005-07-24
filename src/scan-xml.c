@@ -30,6 +30,7 @@
 #include <string.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #include "db-generic.h"
 #include "err.h"
@@ -76,6 +77,7 @@ static char *scan_xml_track_tags[] = {
     "Disc Count",
     "Compilation",
     "Location",
+    "Date Added",
     NULL
 };
 
@@ -98,6 +100,7 @@ static char *scan_xml_track_tags[] = {
 #define SCAN_XML_T_DISCCOUNT   14
 #define SCAN_XML_T_COMPILATION 15
 #define SCAN_XML_T_LOCATION    16
+#define SCAN_XML_T_DATE_ADDED  17
 
 
 #ifndef TRUE
@@ -109,6 +112,22 @@ typedef struct scan_xml_rb_t {
     int itunes_index;
     int mtd_index;
 } SCAN_XML_RB;
+
+
+/**
+ * translate an ISO 8601 iTunes xml to unix epoch format
+ *
+ * @param string iSO8601 format string to translate
+ * @returns time in unix epoch format
+ */
+int scan_xml_datedecode(char *string) {
+    struct tm date_time;
+    time_t seconds;
+
+    strptime(string,"%Y-%m-%dT%H:%M:%SZ",&date_time);
+    seconds = timegm(&date_time);
+    return seconds;
+}
 
 /**
  * comparison for the red-black tree.  @see redblack.c
@@ -636,6 +655,7 @@ int scan_xml_tracks_section(int action, char *info) {
 		    MAYBECOPY(rating);
 		    MAYBECOPY(disc);
 		    MAYBECOPY(total_discs);
+		    MAYBECOPY(time_added);
 
 		    /* must add to the red-black tree */
 		    scan_xml_add_lookup(current_track_id,pmp3->id);
@@ -686,6 +706,8 @@ int scan_xml_tracks_section(int action, char *info) {
 		mp3.total_discs = atoi(info);
 	    } else if(current_field == SCAN_XML_T_LOCATION) {
 		song_path = scan_xml_urldecode(info,0);
+	    } else if(current_field == SCAN_XML_T_DATE_ADDED) {
+		mp3.time_added = scan_xml_datedecode(info);
 	    }
 	} else if(action == RXML_EVT_END) {
 	    state = XML_TRACK_ST_TRACK_INFO;
