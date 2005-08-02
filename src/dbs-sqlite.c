@@ -1390,7 +1390,7 @@ M3UFILE *db_sqlite_fetch_playlist(char *path, int index) {
     
     db_sqlite_free_table(resarray);
 
-    if((rows) && (db_sqlite_in_scan) && (!db_sqlite_reload)) {
+    if((rows) && (db_sqlite_in_playlist_scan) && (!db_sqlite_reload)) {
 	db_sqlite_exec(E_FATAL,"insert into plupdated values (%d)",pm3u->id);
     }
 

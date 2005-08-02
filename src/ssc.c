@@ -94,11 +94,11 @@ int server_side_convert(char *fname) {
 
     if(((ext = strrchr(fname, '.')) != NULL) && 
        (strcasestr(config.ssc_extensions, ext))) {
-	DPRINTF(E_DBG,L_SCAN,"Yup\n");
+	DPRINTF(E_SPAM,L_SCAN,"Yup\n");
 	return 1;
     }
 
-    DPRINTF(E_DBG,L_SCAN,"Nope\n");
+    DPRINTF(E_SPAM,L_SCAN,"Nope\n");
     return 0;
 }
 
