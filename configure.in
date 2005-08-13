@@ -57,8 +57,12 @@ AC_ARG_ENABLE(howl,[  --enable-howl       Use howl 0.9.2 or later],
 		      esac ])
 
 AC_ARG_ENABLE(oggvorbis,[  --enable-oggvorbis      Enable Ogg/Vorbis support],
-                           use_oggvorbis=true;
-                           CPPFLAGS="${CPPFLAGS} -DOGGVORBIS")
+			   [ case "${enableval}" in
+			   yes) use_oggvorbis=true;
+                           CPPFLAGS="${CPPFLAGS} -DOGGVORBIS";;
+			   no) use_oggvorbis=false;;
+			   *) AC_MSG_ERROR(bad value ${enableval} for --enable-oggvorbis);;
+			   esac ])
 
 AC_ARG_ENABLE(flac,[  --enable-flac      Enable FLAC support],
                       use_flac=true;
