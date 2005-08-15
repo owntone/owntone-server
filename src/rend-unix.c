@@ -159,7 +159,7 @@ int rend_stop(void) {
  *
  * register a rendezvous name
  */
-int rend_register(char *name, char *type, int port) {
+int rend_register(char *name, char *type, int port, char *interface) {
     REND_MESSAGE msg;
 
     if((strlen(name)+1 > MAX_NAME_LEN) || (strlen(type)+1 > MAX_NAME_LEN)) {
@@ -169,8 +169,11 @@ int rend_register(char *name, char *type, int port) {
 
     memset((void*)&msg,0x00,sizeof(msg)); /* shut valgrind up */
     msg.cmd=REND_MSG_TYPE_REGISTER;
-    strcpy(msg.name,name);
-    strcpy(msg.type,type);
+    strncpy(msg.name,name,MAX_NAME_LEN-1);
+    strncpy(msg.type,type,MAX_NAME_LEN-1);
+    if(interface)
+	strncpy(msg.interface,interface,MAX_IFACE_NAME_LEN-1);
+
     msg.port=port;
 
     return rend_send_message(&msg);

@@ -89,6 +89,9 @@
   Change History (most recent first):
 
  $Log$
+ Revision 1.24  2005/08/15 03:16:54  rpedde
+ specify interface to register
+
  Revision 1.23  2005/01/07 06:57:59  rpedde
  fix minor errno problem
 
@@ -320,7 +323,8 @@ static mStatus RegisterOneService(const char *  richTextHostName,
 				  const char *  serviceDomain,
                                   const mDNSu8  text[],
                                   mDNSu16       textLen,
-                                  long          portNumber)
+                                  long          portNumber,
+				  mDNSInterfaceID id)
 {
     mStatus             status;
     PosixService *      thisServ;
@@ -347,7 +351,7 @@ static mStatus RegisterOneService(const char *  richTextHostName,
 				      port, 
 				      text, textLen,
 				      NULL, 0,
-				      mDNSInterface_Any,
+				      id,
 				      RegistrationCallback, thisServ);
     }
     if (status == mStatus_NoError) {
@@ -390,6 +394,23 @@ static void DeregisterOurServices(void)
     }
 }
 
+
+mDNSInterfaceID rend__get_interface_id(char *iface) {
+    PosixNetworkInterface *pni;
+
+    if(!iface)
+	return mDNSInterface_Any;
+
+    /* we'll cheat and get the underlying posix interface */
+    pni = SearchForInterfaceByName(mDNSStorage, iface);
+    if(!pni) {
+	DPRINTF(E_LOG,L_REND,"Could not find interface %s - ignoring\n");
+	return mDNSInterface_Any;
+    }
+
+    return pni->coreIntf.mDNSInterfaceID;
+}
+
 /*
  * rend_callback
  *
@@ -399,6 +420,7 @@ void rend_callback(void) {
     REND_MESSAGE msg;
     int result;
     int err;
+    mDNSInterfaceID id;
 
     DPRINTF(E_DBG,L_REND,"Processing rendezvous message\n");
 
@@ -413,9 +435,10 @@ void rend_callback(void) {
 
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
+	id=rend_get_interface_id(msg.interface);
 	DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.name,msg.type,msg.port);
 	RegisterOneService(msg.name,msg.type,"local.","\034Database ID=beddab1edeadbea7",29,
-			   msg.port);
+			   msg.port,id);
 	rend_send_response(0); /* success */
 	break;
     case REND_MSG_TYPE_UNREGISTER:

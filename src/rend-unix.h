@@ -23,12 +23,16 @@
 #define _REND_UNIX_H_
 
 #define MAX_NAME_LEN 256
+/* Is there a posixly correct constant for this? */
+#define MAX_IFACE_NAME_LEN 20
+
 
 typedef struct tag_rend_message {
     int cmd;
     int port;
     char name[MAX_NAME_LEN];
     char type[MAX_NAME_LEN];
+    char interface[MAX_IFACE_NAME_LEN];
 } REND_MESSAGE;
 
 #define REND_MSG_TYPE_REGISTER     0
