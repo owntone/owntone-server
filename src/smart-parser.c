@@ -16,6 +16,25 @@
 
 #include "err.h"
 
+
+typedef struct tag_tokens {
+    int token_id;
+    int token_type;
+    union {
+	char *cvalue;
+	int ivalue;
+    } data;
+} SP_TOKENS;
+
+#define T_ID 0
+
+#define TT_INT 0
+
+
+SP_TOKENS sp_tokenlist[] = {
+    { T_ID, TT_INT, { "id" } }
+};
+
 typedef struct tag_parsetree {
     char *term;
     int token;
@@ -24,6 +43,9 @@ typedef struct tag_parsetree {
 
 #define SP_TOK_EOF     0
 
+int sp_scan(PARSETREE tree) {
+    return SP_TOK_EOF;
+}
 
 
 /**
@@ -57,6 +79,8 @@ int sp_parse(PARSETREE tree, char *term) {
 
 	/* otherwise, keep scanning until done or error */
     }
+
+    return 0;
 }
 
 /**
