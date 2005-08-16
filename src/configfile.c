@@ -133,6 +133,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_INT,"compress",(void*)&config.compress,config_emit_int },
     { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },
+    { 1,0,0,CONFIG_TYPE_STRING,"interface",(void*)&config.iface,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"ssc_extensions",(void*)&config.ssc_extensions,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"ssc_prog",(void*)&config.ssc_prog,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
@@ -303,6 +304,7 @@ int config_read(char *file) {
     config.web_root=NULL;
     config.adminpassword=NULL;
     config.readpassword=NULL;
+    config.iface=NULL;
     config.mp3dir=NULL;
     config.playlist=NULL;
     config.runas=NULL;

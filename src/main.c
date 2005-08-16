@@ -517,8 +517,8 @@ int main(int argc, char *argv[]) {
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
 	DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
-	rend_register(config.servername,"_daap._tcp",config.port);
-	rend_register(config.servername,"_http._tcp",config.port);
+	rend_register(config.servername,"_daap._tcp",config.port,config.iface);
+	rend_register(config.servername,"_http._tcp",config.port,config.iface);
     }
 #endif
 

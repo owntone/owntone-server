@@ -22,7 +22,7 @@
 #ifndef _REND_UNIX_H_
 #define _REND_UNIX_H_
 
-#define MAX_NAME_LEN 256
+#define MAX_NAME_LEN 200
 /* Is there a posixly correct constant for this? */
 #define MAX_IFACE_NAME_LEN 20
 

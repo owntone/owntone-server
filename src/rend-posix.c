@@ -89,6 +89,9 @@
   Change History (most recent first):
 
  $Log$
+ Revision 1.25  2005/08/16 02:26:32  rpedde
+ Add interface directive to config file -- fix stderr logging on rendezvous child
+
  Revision 1.24  2005/08/15 03:16:54  rpedde
  specify interface to register
 
@@ -194,6 +197,21 @@
 #include "err.h"
 #include "rend.h"
 #include "rend-unix.h"
+
+
+/*
+ * I'll take some extra hackishness, please...
+ */
+typedef struct PosixNetworkInterface PosixNetworkInterface;
+
+struct PosixNetworkInterface {
+	NetworkInterfaceInfo    coreIntf;
+	const char *            intfName;
+	PosixNetworkInterface * aliasIntf;
+	int                     index;
+	int                     multicastSocket;
+	int                     multicastSocketv6;
+};
 
 
 static mDNS mDNSStorage;       // mDNS core uses this to store its globals
@@ -394,21 +412,30 @@ static void DeregisterOurServices(void)
     }
 }
 
-
-mDNSInterfaceID rend__get_interface_id(char *iface) {
+mDNSInterfaceID rend_get_interface_id(char *iface) {
     PosixNetworkInterface *pni;
 
     if(!iface)
 	return mDNSInterface_Any;
 
-    /* we'll cheat and get the underlying posix interface */
-    pni = SearchForInterfaceByName(mDNSStorage, iface);
-    if(!pni) {
-	DPRINTF(E_LOG,L_REND,"Could not find interface %s - ignoring\n");
+    if(!strlen(iface))
 	return mDNSInterface_Any;
+
+    DPRINTF(E_LOG,L_REND,"Searching for interface %s\n",iface);
+
+    pni=(PosixNetworkInterface*)mDNSStorage.HostInterfaces;
+    while(pni) {
+	DPRINTF(E_INF,L_REND,"Found interface %s, index %d\n",pni->intfName,
+		pni->index);
+	if(strcasecmp(pni->intfName,iface) == 0) {
+	    DPRINTF(E_INF,L_REND,"Found interface id: %d\n",pni->coreIntf.InterfaceID);
+	    return pni->coreIntf.InterfaceID;
+	}
+	pni=(PosixNetworkInterface*)(pni->coreIntf.next);
     }
 
-    return pni->coreIntf.mDNSInterfaceID;
+    DPRINTF(E_INF,L_REND,"Could not find interface.\n");
+    return mDNSInterface_Any;
 }
 
 /*
@@ -462,6 +489,9 @@ void rend_callback(void) {
 int rend_private_init(char *user) {
     mStatus status;
     mDNSBool result;
+
+
+    fprintf(stderr,"w00t\n");
 
     status = mDNS_Init(&mDNSStorage, &PlatformStorage,
 		       mDNS_Init_NoCache, mDNS_Init_ZeroCacheSize,

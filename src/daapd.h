@@ -49,6 +49,7 @@ typedef struct tag_config {
     int reload;           /**< Time to reload and/or rescan the database? */
     char *configfile;     /**< path to config file */
     char *web_root;       /**< path to the dir containing the web files */
+    char *iface;          /**< interface to advertise on */
     int port;             /**< port to listen on */
     int rescan_interval;  /**< How often to do a background fs rescan */
     int always_scan;      /**< 0 to minimize disk usage (embedded devices) */
