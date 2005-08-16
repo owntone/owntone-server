@@ -26,13 +26,41 @@ typedef struct tag_tokens {
     } data;
 } SP_TOKENS;
 
-#define T_ID 0
+#define T_ID           0x00
+#define T_PATH         0x01
+#define T_TITLE        0x02
+#define T_ARTIST       0x03
+#define T_ALBUM        0x04
+#define T_GENRE        0x05
+#define T_COMMENT      0x06
+#define T_TYPE         0x07
+#define T_COMPOSER     0x08
+#define T_ORCHESTRA    0x09
+#define T_GROUPING     0x0a
+#define T_URL          0x0b
+#define T_BITRATE      0x0c
+#define T_SAMPLERATE   0x0d
+#define T_SONG_LENGTH  0x0e
+#define T_FILE_SIZE    0x0f
+#define T_YEAR         0x10
+#define T_TRACK        0x11
+#define T_TOTAL_TRACKS 0x12
+#define T_DISC         0x13
+#define T_TOTAL_DISCS  0x14
+#define T_BPM          0x15
+#define T_COMPILATION  0x16
+#define T_RATING       0x17
+#define T_PLAYCOUNT    0x18
+#define T_DATA_KIND    0x19
+#define T_ITEM_KIND    0x1a
+#define T_DESCRIPTION  0x1b
 
-#define TT_INT 0
-
+#define TT_INT      0
+#define TT_STRING   1
 
 SP_TOKENS sp_tokenlist[] = {
     { T_ID, TT_INT, { "id" } }
+    
 };
 
 typedef struct tag_parsetree {
