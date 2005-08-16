@@ -59,11 +59,6 @@ a {
     background-color: transparent;
 }
 
-table {
-
-}
-
-
 img {
     border: none;
 	vertical-align: middle;
@@ -226,6 +221,7 @@ select {
     font: 100% Verdana, Helvetica, Arial, sans-serif;
     border: 1px solid #8cacbb;  
     vertical-align: top;
+    width: 100%;
 }
 
 abbr, acronym, .explain {
@@ -948,20 +944,21 @@ table.calendar td.todaynoevent {
   border-bottom: 0px;
 }
 .mytbody {
-  height: 300px;
-  overflow: auto;
-  font: icon; !important
+  /*height: 300px;
+  overflow: auto;*/
+  font: icon !important;
 }
 #browse {
-  font: icon; !important
+  font: icon !important;
+  width: 100%;
 }
 .mytable {
     /* The default table for document listings. Contains name, document types, modification times etc in a file-browser-like fashion */
     border-collapse: collapse;
-    border-left: 1px solid #8CACBB;
-    border-bottom: 1px solid #8CACBB;
+    border: 1px solid #8CACBB;
     margin: 1em 0em 1em 0em;
-    font: icon; !important;
+    font: icon !important;
+    width: 100%;
     clear: both;
 }
 
@@ -978,6 +975,8 @@ table.calendar td.todaynoevent {
 }
 .mytable td {
   padding-left: 2px;
+  padding-right: 2px;
+  border-right: 1px solid #BCDCDF;
 }
 
 /*  */

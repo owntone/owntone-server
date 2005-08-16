@@ -123,13 +123,13 @@ function Requestor_queChecker() {
 }
 
 function response(xmldoc) {
-      if ('daap.databaseplaylists' == xmldoc.firstChild.nodeName) {
+      if ('daap.databaseplaylists' == xmldoc.documentElement.nodeName) {
         el = document.getElementById('source');
         addPlaylists(el,xmldoc);
-      } else if ('daap.databasebrowse' == xmldoc.firstChild.nodeName) {
+      } else if ('daap.databasebrowse' == xmldoc.documentElement.nodeName) {
         // Ok we have response from a browse query
       
-        switch (xmldoc.firstChild.childNodes[3].nodeName) {
+        switch (xmldoc.documentElement.childNodes[3].nodeName) {
           case 'daap.browsegenrelisting':
                 el = document.getElementById('genre');
                 addOptions(el,'genre',xmldoc);
@@ -147,7 +147,8 @@ function response(xmldoc) {
           default:
                 // We got something else back...
         }
-      } else if ('daap.databasesongs' == xmldoc.firstChild.nodeName) {
+      } else if ( ('daap.databasesongs' == xmldoc.documentElement.nodeName) ||
+                  ('daap.playlistsongs' == xmldoc.documentElement.nodeName) ) {
         // Songlist
         addSongs(xmldoc);
       }
@@ -176,7 +177,7 @@ function addOptions(el,label,xmldoc) {
   while(el.hasChildNodes()) {
     el.removeChild(el.firstChild);
   }
-  itemCnt = xmldoc.getElementsByTagName('dmap.specifiedtotalcount').item(0).textContent;
+  itemCnt = xmldoc.getElementsByTagName('dmap.specifiedtotalcount').item(0).firstChild.data;
   if (parseInt(itemCnt) > 1) {
     plural = 's';
   } else {
@@ -192,7 +193,7 @@ function addOptions(el,label,xmldoc) {
   selectAll = true;
   for (i=0; i<items.length; i++) {
     option = document.createElement('option');
-    itemName = items[i].textContent;
+    itemName = items[i].firstChild.data;
     option.value = itemName;
     switch (label) {
       case 'genre': 
@@ -242,12 +243,12 @@ function addOptions(el,label,xmldoc) {
 
 function addPlaylists(el,xmldoc) {
   //items = xmldoc.getElementsByTagName('dmap.listingitem');
-  list = xmldoc.childNodes[0].childNodes[4];
+  list = xmldoc.documentElement.childNodes[4];
   // Start on 1 since the first node is the name of the daap server
   for (i=1; i < list.childNodes.length; i++) {
     option = document.createElement('option');
-    listNumber = list.childNodes[i].childNodes[0].textContent;
-    listName = list.childNodes[i].childNodes[2].textContent;
+    listNumber = list.childNodes[i].childNodes[0].firstChild.data;
+    listName = list.childNodes[i].childNodes[2].firstChild.data;
     option.appendChild(document.createTextNode(listName));
     option.setAttribute('value',listNumber);
     el.appendChild(option);
@@ -256,7 +257,10 @@ function addPlaylists(el,xmldoc) {
 
 function playlistSelect(event) {
   table = document.getElementById('songs');
-  tableBody = removeRows(table);
+  if (tableBody = table.getElementsByTagName('tbody').item(0))
+  	table.removeChild(tableBody);
+  document.getElementById('busymsg').style.visibility='visible';
+
   playlistNumber = document.getElementById('source').value;
   browse = document.getElementById('browse');
   if (1 == playlistNumber) {
@@ -264,44 +268,10 @@ function playlistSelect(event) {
   } else {
     browse.style.display = 'none';
   }
-  g_req.open('get',baseUrl + 'databases/1/containers/' + playlistNumber +
-        '/items?meta=dmap.itemname,daap.songalbum,daap.songartist,daap.songgenre,daap.songtime&output=xml',false);
-  g_req.send(null);
-  
-  items = g_req.responseXML.getElementsByTagName('dmap.listingitem');
-  className = 'odd';
-  for (i=0; i < items.length; i++) {
-    // Have to check if the tag really was returned from the server
-    if (song = items[i].getElementsByTagName('dmap.itemname').item(0)) {
-      song = song.textContent;
-    } else {
-      song = '';
-    }
-    time = ''; //items[i].getElementsByTagName('daap.songtime').item(0).textContent;
-    if (artist = items[i].getElementsByTagName('daap.songartist').item(0)) {
-      artist = artist.textContent;
-    } else {
-      artist = '';
-    }
-    if (album = items[i].getElementsByTagName('daap.songalbum').item(0)) {
-      album = album.textContent;
-    } else {
-      album = '';
-    }
-    if (genre = items[i].getElementsByTagName('daap.songgenre').item(0)) {
-      genre = genre.textContent;
-    } else {
-      genre = '';
-    }
-    if ('odd' == className) {
-      className = 'even';
-    } else {
-      className = 'odd';
-    }
-    addRow(tableBody,className,song,time,artist,album,genre);
-  }
-  
+  g_requestor.addRequest('databases/1/containers/' + playlistNumber +
+        '/items?meta=dmap.itemname,daap.songalbum,daap.songartist,daap.songgenre,daap.songtime&output=xml');
 }
+
 function addRow(tbody,className,song,time,artist,album,genre) {
   row = document.createElement("tr");
   row.setAttribute('class',className);
@@ -336,7 +306,9 @@ function removeRows(table) {
   table.appendChild(tableBody);
   return tableBody;
 }
+
 function genreSelect(event) {
+  document.getElementById('busymsg').style.visibility='visible';
   selectObject = event.target;
   if (selectObject.options[0].selected) {
     filter = '';
@@ -393,6 +365,7 @@ function artistSelect(event) {
 	// If all is selected then search on all artists but honor genre
 	  filter = '?filter=' + filter.join(',');
   }
+  document.getElementById('busymsg').style.visibility='visible';
 	g_requestor.addRequest('databases/1/browse/albums' + filter);
 }
 
@@ -423,6 +396,7 @@ function getSongs() {
     query = '&query=' + query.join(' ');
   }
   //alert(query);
+  document.getElementById('busymsg').style.visibility='visible';
   g_requestor.addRequest('databases/1/items' +
   '?meta=dmap.itemname,daap.songalbum,daap.songartist,daap.songgenre,daap.songtime'+query);
   ///items?meta=dmap.itemname,daap.songalbum,daap.songartist,daap.songgenre,daap.songtime&output=xml
@@ -432,28 +406,33 @@ function addSongs(xmldoc) {
   items = xmldoc.getElementsByTagName('dmap.listingitem');
   className = 'odd';
   table = document.getElementById('songs');
-  tableBody = removeRows(table);
+  if(tableBody = table.getElementsByTagName('tbody').item(0))
+	  table.removeChild(tableBody);
+  tableBody = document.createElement('tbody');
+  tableBody.setAttribute('class','mytbody');
 
-  for (i=0; i < items.length; i++) {
+  var count = items.length;
+  for (i=0; i < count; i++) {
+    item = items[i];
     // Have to check if the tag really was returned from the server
-    if (song = items[i].getElementsByTagName('dmap.itemname').item(0)) {
-      song = song.textContent;
+    if (song = item.getElementsByTagName('dmap.itemname').item(0)) {
+      song = song.firstChild.data;
     } else {
       song = '';
     }
-    time = ''; //items[i].getElementsByTagName('daap.songtime').item(0).textContent;
-    if (artist = items[i].getElementsByTagName('daap.songartist').item(0)) {
-      artist = artist.textContent;
+    time = ''; //item.getElementsByTagName('daap.songtime').item(0).textContent;
+    if (artist = item.getElementsByTagName('daap.songartist').item(0)) {
+      artist = artist.firstChild.data;
     } else {
       artist = '';
     }
-    if (album = items[i].getElementsByTagName('daap.songalbum').item(0)) {
-      album = album.textContent;
+    if (album = item.getElementsByTagName('daap.songalbum').item(0)) {
+      album = album.firstChild.data;
     } else {
       album = '';
     }
-    if (genre = items[i].getElementsByTagName('daap.songgenre').item(0)) {
-      genre = genre.textContent;
+    if (genre = item.getElementsByTagName('daap.songgenre').item(0)) {
+      genre = genre.firstChild.data;
     } else {
       genre = '';
     }
@@ -464,5 +443,7 @@ function addSongs(xmldoc) {
     }
     addRow(tableBody,className,song,time,artist,album,genre);
   }
+  table.appendChild(tableBody);
+  document.getElementById('busymsg').style.visibility='hidden';
 
 }

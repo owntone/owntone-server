@@ -1,30 +1,31 @@
 @include hdr.html@
-<table>
+<table style="width:100%;">
 <tr>
-<td valign="top">
+<td valign="top" style="width:20%;">
   Source<br />
   <select id="source" name="select" size="20">
     <option value="1">Library</option>
   </select>
+<div id="busymsg" style="text-align:center;color:red;">Busy ...</div>
 </td>
 
-<td valign="top">
+<td valign="top" style="width:80%;" >
 
 <table id="browse">
   <tr>
-  <td>
+  <td style="width:30%;" >
   Genre<br />
   <select id="genre" name="select" multiple="multiple" size="10">
     
   </select>
   </td>
-  <td>
+  <td style="width:35%;">
 Artist<br />
   <select id="artist" name="select" multiple="multiple" size="10">
     
   </select>
   </td>
-  <td>
+  <td style="width:35%;">
 Album<br />
   <select id="album" name="select" multiple="multiple" size="10">
 
