@@ -23,6 +23,9 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.5  2005/09/23 05:26:52  rpedde
+commit the iTunes 5 fixes
+
 Revision 1.4  2005/03/05 06:37:37  rpedde
 Roll back patch - breaks fbsd
 
@@ -82,6 +85,8 @@ First checkin
 #include <unistd.h>
 #include <stdio.h>
 
+#include "err.h"
+
 /* Solaris defined SIOCGIFCONF etc in <sys/sockio.h> but 
    other platforms don't even have that include file.  So, 
    if we haven't yet got a definition, let's try to find 
@@ -114,6 +119,8 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
 #if defined(AF_INET6) && defined(HAVE_IPV6)
     struct sockaddr_in6 *sinptr6;
 #endif
+
+    DPRINTF(E_DBG,L_REND,"get_ifi_info\n");
 
     sockfd = -1;
     buf = NULL;
@@ -155,9 +162,22 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
         ifr = (struct ifreq *) ptr;
 
 		len = GET_SA_LEN(ifr->ifr_addr);
-        ptr += sizeof(ifr->ifr_name) + len; /* for next one in buffer */
+
+		/* This is completely whacked, and I really need to
+		 * find out why this is the case, but I need to
+		 * release a 0.2.2, and as the next stable won't
+		 * have the apple mDNS included, I guess it's a
+		 * small price to pay.
+		 */
+#ifdef FREEBSD
+		    ptr += sizeof(ifr->ifr_name) + len; /* for next one in buffer */
+		//		ptr += sizeof(*ifr);
+#else
+
+		    ptr += sizeof(struct ifreq); /* for next one in buffer */
+#endif
     
-//        fprintf(stderr, "intf %d name=%s AF=%d\n", index, ifr->ifr_name, ifr->ifr_addr.sa_family);
+	DPRINTF(E_DBG,L_REND,"intf %d name=%s AF=%d, flags=%08x\n", index, ifr->ifr_name, ifr->ifr_addr.sa_family,ifr->ifr_flags);
         
         if (ifr->ifr_addr.sa_family != family)
             continue;   /* ignore if not desired address family */
