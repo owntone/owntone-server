@@ -172,7 +172,7 @@ void rend_callback(void *info) {
 	DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
 	usPort=msg.port;
 	dns_ref=DNSServiceRegistrationCreate(msg.name,msg.type,"",usPort,
-					     "Database ID=bedabb1edeadbea7",rend_reply,nil);
+					     "txtvers=1\001Database ID=bedabb1edeadbea7",rend_reply,nil);
 	if(rend_addtorunloop(dns_ref)) {
 	    DPRINTF(E_WARN,L_REND,"Add to runloop failed\n");
 	    rend_send_response(-1);

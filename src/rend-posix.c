@@ -89,6 +89,9 @@
   Change History (most recent first):
 
  $Log$
+ Revision 1.26  2005/09/23 07:03:19  rpedde
+ view persistence fixes for iTunes 5
+
  Revision 1.25  2005/08/16 02:26:32  rpedde
  Add interface directive to config file -- fix stderr logging on rendezvous child
 
@@ -464,7 +467,7 @@ void rend_callback(void) {
     case REND_MSG_TYPE_REGISTER:
 	id=rend_get_interface_id(msg.interface);
 	DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.name,msg.type,msg.port);
-	RegisterOneService(msg.name,msg.type,"local.","\034Database ID=beddab1edeadbea7",29,
+	RegisterOneService(msg.name,msg.type,"local.","\011txtvers=1\034Database ID=beddab1edeadbea7",39,
 			   msg.port,id);
 	rend_send_response(0); /* success */
 	break;
