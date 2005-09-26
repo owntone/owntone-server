@@ -323,7 +323,7 @@ int db_sqlite_end_scan(void) {
     } else {
 	db_sqlite_exec(E_FATAL,"delete from playlists where ((type=%d) OR (type=%d)) and "
 		       "id not in (select id from plupdated)",PL_STATICFILE,PL_STATICXML);
-	db_sqlite_exec(E_FATAL,"delete from playlistitems where id not in (select distinct "
+	db_sqlite_exec(E_FATAL,"delete from playlistitems where playlistid not in (select distinct "
 		       "id from playlists)");
 	db_sqlite_exec(E_FATAL,"drop table plupdated");
     }
@@ -353,7 +353,7 @@ int db_sqlite_delete_playlist(int playlistid) {
 
     /* got a good playlist, now do what we need to do */
     db_sqlite_exec(E_FATAL,"delete from playlists where id=%d",playlistid);
-    db_sqlite_exec(E_FATAL,"delete from playlistitems where id=%d",playlistid);
+    db_sqlite_exec(E_FATAL,"delete from playlistitems where playlistid=%d",playlistid);
 
     return DB_E_SUCCESS;
 }
@@ -383,7 +383,7 @@ int db_sqlite_delete_playlist_item(int playlistid, int songid) {
 	return DB_E_INVALIDTYPE;
 
     /* make sure the songid is valid */
-    result=db_sqlite_get_int(E_DBG,&count,"select count(*) from playlistitems where id=%d "
+    result=db_sqlite_get_int(E_DBG,&count,"select count(*) from playlistitems where playlistid=%d "
 			     "and songid=%d",playlistid,songid);
     if(result != DB_E_SUCCESS) {
 	if(result == DB_E_NOROWS)
@@ -392,7 +392,7 @@ int db_sqlite_delete_playlist_item(int playlistid, int songid) {
     }
 
     /* looks valid, so lets add the item */
-    result=db_sqlite_exec(E_DBG,"delete from playlistitems where id=%d and songid=%d",
+    result=db_sqlite_exec(E_DBG,"delete from playlistitems where playlistid=%d and songid=%d",
 			  playlistid,songid);
     return result;
 }
@@ -481,7 +481,7 @@ int db_sqlite_add_playlist_item(int playlistid, int songid) {
     }
 
     /* looks valid, so lets add the item */
-    result=db_sqlite_exec(E_DBG,"insert into playlistitems values (%d,%d)",playlistid,songid);
+    result=db_sqlite_exec(E_DBG,"insert into playlistitems (playlistid, songid) values (%d,%d)",playlistid,songid);
     return result;
 }
 
@@ -705,7 +705,7 @@ int db_sqlite_update_playlists(void) {
 			   resarray[cols * index]);
 	} else {
 	    db_sqlite_exec(E_FATAL,"UPDATE playlists SET items=(SELECT COUNT(*) "
-			   "FROM playlistitems WHERE id=%s) WHERE id=%s",
+			   "FROM playlistitems WHERE playlistid=%s) WHERE id=%s",
 			   resarray[cols * index], resarray[cols * index]);
 	}
     }
@@ -773,9 +773,9 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
 	    sprintf(query_count,"SELECT COUNT(id) FROM songs ");
 	    sprintf(query_rest,"WHERE (%s)",resarray[3]);
 	} else {
-	    sprintf(query_select,"SELECT * FROM songs ");
+	    sprintf(query_select,"SELECT * FROM songs,playlistitems ");
 	    sprintf(query_count,"SELECT COUNT(id) FROM songs ");
-	    sprintf(query_rest,"WHERE (id IN (SELECT songid FROM playlistitems WHERE id=%d))",
+	    sprintf(query_rest,"WHERE (songs.id=playlistitems.songid and playlistitems.playlistid=%d) ORDER BY playlistitems.id",
 		    pinfo->playlist_id);
 	}
 	sqlite_free_table(resarray);
@@ -1768,6 +1768,18 @@ char *db_sqlite_upgrade_scripts[] = {
     "create index idx_path on songs(path);\n"
     "drop table tempsongs;\n"
     "update config set value=6 where term='version';\n",
+
+    /* version 6 -> version 7 */
+    "create temp table tempitems as select * from playlistitems;\n"
+    "drop table playlistitems;\n"
+    "CREATE TABLE playlistitems (\n"
+    "   id	       INTEGER PRIMARY KEY NOT NULL,\n"
+    "   playlistid     INTEGER NOT NULL,\n"
+    "   songid	       INTEGER NOT NULL\n"
+    ");\n"
+    "insert into playlistitems (playlistid, songid) select * from tempitems;\n"
+    "drop table tempitems;\n"
+    "update config set value=7 where term='version';\n",
     NULL /* No more versions! */
 };
 
