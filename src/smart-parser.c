@@ -26,41 +26,79 @@ typedef struct tag_tokens {
     } data;
 } SP_TOKENS;
 
-#define T_ID           0x00
-#define T_PATH         0x01
-#define T_TITLE        0x02
-#define T_ARTIST       0x03
-#define T_ALBUM        0x04
-#define T_GENRE        0x05
-#define T_COMMENT      0x06
-#define T_TYPE         0x07
-#define T_COMPOSER     0x08
-#define T_ORCHESTRA    0x09
-#define T_GROUPING     0x0a
-#define T_URL          0x0b
-#define T_BITRATE      0x0c
-#define T_SAMPLERATE   0x0d
-#define T_SONG_LENGTH  0x0e
-#define T_FILE_SIZE    0x0f
-#define T_YEAR         0x10
-#define T_TRACK        0x11
-#define T_TOTAL_TRACKS 0x12
-#define T_DISC         0x13
-#define T_TOTAL_DISCS  0x14
-#define T_BPM          0x15
-#define T_COMPILATION  0x16
-#define T_RATING       0x17
-#define T_PLAYCOUNT    0x18
-#define T_DATA_KIND    0x19
-#define T_ITEM_KIND    0x1a
-#define T_DESCRIPTION  0x1b
+#define T_ID            0x00
+#define T_PATH          0x01
+#define T_TITLE         0x02
+#define T_ARTIST        0x03
+#define T_ALBUM         0x04
+#define T_GENRE         0x05
+#define T_COMMENT       0x06
+#define T_TYPE          0x07
+#define T_COMPOSER      0x08
+#define T_ORCHESTRA     0x09
+#define T_GROUPING      0x0a
+#define T_URL           0x0b
+#define T_BITRATE       0x0c
+#define T_SAMPLERATE    0x0d
+#define T_SONG_LENGTH   0x0e
+#define T_FILE_SIZE     0x0f
+#define T_YEAR          0x10
+#define T_TRACK         0x11
+#define T_TOTAL_TRACKS  0x12
+#define T_DISC          0x13
+#define T_TOTAL_DISCS   0x14
+#define T_BPM           0x15
+#define T_COMPILATION   0x16
+#define T_RATING        0x17
+#define T_PLAYCOUNT     0x18
+#define T_DATA_KIND     0x19
+#define T_ITEM_KIND     0x1a
+#define T_DESCRIPTION   0x1b
+#define T_TIME_ADDED    0x1c
+#define T_TIME_MODIFIED 0x0d
+#define T_TIME_PLAYED   0x1d
+#define T_TIME_STAMP    0x1e
+#define T_DISABLED      0x1f
+#define T_SAMPLE_COUNT  0x1e
+#define T_FORCE_UPDATE  0x1f
+#define T_CODECTYPE     0x20
+#define T_IDX           0x21
+
 
 #define TT_INT      0
 #define TT_STRING   1
+#define TT_DATE     2
 
 SP_TOKENS sp_tokenlist[] = {
-    { T_ID, TT_INT, { "id" } }
-    
+    { T_ID, TT_INT, { "id" } },
+    { T_PATH, TT_STRING, { "path" } },
+    { T_TITLE, TT_STRING, { "title" } },
+    { T_ARTIST, TT_STRING, { "artist" } },
+    { T_ALBUM, TT_STRING, { "album" } },
+    { T_GENRE, TT_STRING, { "genre" } },
+    { T_COMMENT, TT_STRING, { "comment" } },
+    { T_TYPE, TT_STRING, { "type" } },
+    { T_COMPOSER, TT_STRING, { "composer" } },
+    { T_ORCHESTRA, TT_STRING, { "orchestra" } },
+    { T_GROUPING, TT_STRING, { "grouping" } },
+    { T_URL, TT_STRING, { "url" } },
+    { T_BITRATE, TT_INT, { "bitrate" } },
+    { T_SAMPLERATE, TT_INT, { "samplerate" } },
+    { T_SONG_LENGTH, TT_INT, { "songlength" } },
+    { T_FILE_SIZE, TT_INT, { "filesize" } },
+    { T_YEAR, TT_INT, { "year" } },
+    { T_TRACK, TT_INT, { "track" } },
+    { T_TOTAL_TRACKS, TT_INT, { "totaltracks" } },
+    { T_DISC, TT_INT, { "disc" } },
+    { T_TOTAL_DISCS, TT_INT, { "totaldiscs" } },
+    { T_BPM, TT_INT, { "bpm" } },
+    { T_COMPILATION, TT_INT, { "compilation" } },
+    { T_RATING, TT_INT, { "rating" } },
+    { T_PLAYCOUNT, TT_INT, { "playcount"} },
+    { T_DATA_KIND, TT_INT, { "datakind" } },
+    { T_ITEM_KIND, TT_INT, { "itemkind" } },
+    { T_DESCRIPTION, TT_STRING, { "description" } },
+    { 0, 0, { NULL } }
 };
 
 typedef struct tag_parsetree {
