@@ -101,16 +101,38 @@ SP_TOKENS sp_tokenlist[] = {
     { 0, 0, { NULL } }
 };
 
-typedef struct tag_parsetree {
+typedef struct tag_parsetree {    
     char *term;
+    char *current;
     int token;
     int next_token;
 } PARSESTRUCT, *PARSETREE;
 
-#define SP_TOK_EOF     0
+#define SP_TOK_BOF     0x0
+#define SP_TOK_EOF     0x1
 
 int sp_scan(PARSETREE tree) {
-    return SP_TOK_EOF;
+    char *tail;
+    int done=0;
+
+    tree->token=tree->next_token;
+
+    if(tree->token == SP_TOK_EOF)
+	return SP_TOK_EOF;
+
+    /* keep advancing until we have a token */
+    while(strchr(" \t\n\r",*current))
+	current++;
+	
+    if(!current) {
+	tree->next_token = SP_TOK_EOF;
+	return tree->token;
+    }
+
+    /* check singletons */
+
+    
+    return tree->token;
 }
 
 
@@ -139,11 +161,15 @@ PARSETREE sp_init(void) {
  */
 int sp_parse(PARSETREE tree, char *term) {
     tree->term = strdup(term); /* will be destroyed by parsing */
+    tree->current=tree->term;
+    tree->token=SP_TOK_BOF;
+    tree->next_token=SP_TOK_BOF;
     while(sp_scan(tree)) {
 	if(tree->token == SP_TOK_EOF)
 	    return 1; /* valid tree! */
 
 	/* otherwise, keep scanning until done or error */
+
     }
 
     return 0;
