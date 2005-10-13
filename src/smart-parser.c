@@ -16,16 +16,15 @@
 
 #include "err.h"
 
-
-typedef struct tag_tokens {
+typedef struct tag_token {
     int token_id;
-    int token_type;
     union {
-	char *cvalue;
-	int ivalue;
+        char *cvalue;
+        int ivalue;
     } data;
-} SP_TOKENS;
+} SP_TOKEN;
 
+/*
 #define T_ID            0x00
 #define T_PATH          0x01
 #define T_TITLE         0x02
@@ -63,76 +62,186 @@ typedef struct tag_tokens {
 #define T_FORCE_UPDATE  0x1f
 #define T_CODECTYPE     0x20
 #define T_IDX           0x21
+*/
 
+/** 
+ * high 4 bits:
+ *
+ * 0x8000 - 
+ * 0x4000 -
+ * 0x2000 - data is string
+ * 0x1000 - data is int
+ */
 
-#define TT_INT      0
-#define TT_STRING   1
-#define TT_DATE     2
+#define T_STRING        0x2001
+#define T_INT_FIELD     0x1002
+#define T_STRING_FIELD  0x2003
+#define T_DATE_FIELD    0x1004
 
-SP_TOKENS sp_tokenlist[] = {
-    { T_ID, TT_INT, { "id" } },
-    { T_PATH, TT_STRING, { "path" } },
-    { T_TITLE, TT_STRING, { "title" } },
-    { T_ARTIST, TT_STRING, { "artist" } },
-    { T_ALBUM, TT_STRING, { "album" } },
-    { T_GENRE, TT_STRING, { "genre" } },
-    { T_COMMENT, TT_STRING, { "comment" } },
-    { T_TYPE, TT_STRING, { "type" } },
-    { T_COMPOSER, TT_STRING, { "composer" } },
-    { T_ORCHESTRA, TT_STRING, { "orchestra" } },
-    { T_GROUPING, TT_STRING, { "grouping" } },
-    { T_URL, TT_STRING, { "url" } },
-    { T_BITRATE, TT_INT, { "bitrate" } },
-    { T_SAMPLERATE, TT_INT, { "samplerate" } },
-    { T_SONG_LENGTH, TT_INT, { "songlength" } },
-    { T_FILE_SIZE, TT_INT, { "filesize" } },
-    { T_YEAR, TT_INT, { "year" } },
-    { T_TRACK, TT_INT, { "track" } },
-    { T_TOTAL_TRACKS, TT_INT, { "totaltracks" } },
-    { T_DISC, TT_INT, { "disc" } },
-    { T_TOTAL_DISCS, TT_INT, { "totaldiscs" } },
-    { T_BPM, TT_INT, { "bpm" } },
-    { T_COMPILATION, TT_INT, { "compilation" } },
-    { T_RATING, TT_INT, { "rating" } },
-    { T_PLAYCOUNT, TT_INT, { "playcount"} },
-    { T_DATA_KIND, TT_INT, { "datakind" } },
-    { T_ITEM_KIND, TT_INT, { "itemkind" } },
-    { T_DESCRIPTION, TT_STRING, { "description" } },
-    { 0, 0, { NULL } }
+#define T_OPENPAREN     0x0005
+#define T_CLOSEPAREN    0x0006
+#define T_QUOTE         0x0007
+#define T_LESS          0x0008
+#define T_LESSEQUAL     0x0009
+#define T_GREATER       0x000A
+#define T_GREATEREQUAL  0x000B
+#define T_EQUAL         0x000C
+
+#define T_EOF           0x000D
+#define T_BOF           0x000E
+
+typedef struct tag_fieldlookup {
+    int type;
+    char *name;
+} FIELDLOOKUP;
+
+FIELDLOOKUP sp_fields[] = {
+    { T_INT_FIELD, "id" },
+    { T_STRING_FIELD, "path" },
+    { T_STRING_FIELD, "title" },
+    { T_STRING_FIELD, "artist" },
+    { T_STRING_FIELD, "album" },
+    { T_STRING_FIELD, "genre" },
+    { T_STRING_FIELD, "comment" },
+    { T_STRING_FIELD, "type" },
+    { T_STRING_FIELD, "composer" },
+    { T_STRING_FIELD, "orchestra" },
+    { T_STRING_FIELD, "grouping" },
+    { T_STRING_FIELD, "url" },
+    { T_INT_FIELD, "bitrate" },
+    { T_INT_FIELD, "samplerate" },
+    { T_INT_FIELD, "songlength" },
+    { T_INT_FIELD, "filesize" },
+    { T_INT_FIELD, "year" },
+    { T_INT_FIELD, "track" },
+    { T_INT_FIELD, "totaltracks" },
+    { T_INT_FIELD, "disc" },
+    { T_INT_FIELD, "totaldiscs" },
+    { T_INT_FIELD, "bpm" },
+    { T_INT_FIELD, "compilation" },
+    { T_INT_FIELD, "rating" },
+    { T_INT_FIELD, "playcount" },
+    { T_INT_FIELD, "datakind" },
+    { T_INT_FIELD, "itemkind" },
+    { T_STRING_FIELD, "description" },
+    { 0, NULL },
 };
 
 typedef struct tag_parsetree {    
     char *term;
     char *current;
-    int token;
-    int next_token;
+    SP_TOKEN token;
+    SP_TOKEN next_token;
 } PARSESTRUCT, *PARSETREE;
 
-#define SP_TOK_BOF     0x0
-#define SP_TOK_EOF     0x1
-
+/**
+ * scan the input, returning the next available token.
+ *
+ * @param tree current working parse tree.
+ * @returns next token (token, not the value)
+ */
 int sp_scan(PARSETREE tree) {
     char *tail;
-    int done=0;
+    int advance=0;
+    FIELDLOOKUP *pfield=sp_fields;
+    int len;
+
+    if(tree->token.token_id & 0x2000) {
+	if(tree->token.data.cvalue)
+	    free(tree->token.data.cvalue);
+    }
 
     tree->token=tree->next_token;
 
-    if(tree->token == SP_TOK_EOF)
-	return SP_TOK_EOF;
+    if(tree->token.token_id == T_EOF)
+        return T_EOF;
 
     /* keep advancing until we have a token */
-    while(strchr(" \t\n\r",*current))
-	current++;
-	
-    if(!current) {
-	tree->next_token = SP_TOK_EOF;
-	return tree->token;
+    while(strchr(" \t\n\r",*(tree->current)))
+        tree->current++;
+        
+    if(!*(tree->current)) {
+        tree->next_token.token_id = T_EOF;
+        return tree->token.token_id;
     }
 
     /* check singletons */
+    switch(*(tree->current)) {
+    case '=':
+        advance=1;
+        tree->next_token.token_id = T_EQUAL;
+        break;
+    case '<':
+        if((*(tree->current + 1)) == '=') {
+            advance = 2;
+            tree->next_token.token_id = T_LESSEQUAL;
+        } else {
+            advance = 1;
+            tree->next_token.token_id = T_LESS;
+        }
+        break;
+    case '>':
+        if((*(tree->current + 1)) == '=') {
+            advance = 2;
+            tree->next_token.token_id = T_GREATEREQUAL;
+        } else {
+            advance = 1;
+            tree->next_token.token_id = T_GREATER;
+        }
+        break;
 
+    case '(':
+        advance=1;
+        tree->next_token.token_id = T_OPENPAREN;
+        break;
+
+    case ')':
+        advance=1;
+        tree->next_token.token_id = T_CLOSEPAREN;
+        break;
+
+    case '"':
+        advance=1;
+        tree->next_token.token_id = T_QUOTE;
+        break;
+    }
+
+    if(advance) {
+        tree->current += advance;
+    } else { /* either a keyword token or a quoted string */
+        /* walk to a terminator */
+        tail = tree->current;
+        while((*tail) && (!strchr(" \t\n\r\"=()",*tail))) {
+            tail++;
+        }
+
+        tree->current = tail;
+
+        /* let's see what we have... */
+        pfield=sp_fields;
+        len = tail - tree->current;
+        while(pfield->name) {
+            if(strlen(pfield->name) == len) {
+                if(strncasecmp(pfield->name,tree->current,len) == 0)
+                    break;
+            }
+            pfield++;
+        }
+        
+        if(pfield->name) {
+            tree->next_token.token_id = pfield->type;
+            tree->next_token.data.cvalue = malloc(len + 1);
+            if(!tree->next_token.data.cvalue) {
+                /* fail on malloc error */
+                DPRINTF(E_FATAL,L_PARSE,"Malloc error.\n");
+            }
+            strncpy(tree->next_token.data.cvalue,tree->current,len);
+            tree->next_token.data.cvalue[len] = '\x0';
+        }
+
+    }
     
-    return tree->token;
+    return tree->token.token_id;
 }
 
 
@@ -146,7 +255,7 @@ PARSETREE sp_init(void) {
 
     ptree = (PARSETREE)malloc(sizeof(PARSESTRUCT));
     if(!ptree) 
-	DPRINTF(E_FATAL,L_PARSE,"Alloc error\n");
+        DPRINTF(E_FATAL,L_PARSE,"Alloc error\n");
 
     memset(ptree,0,sizeof(PARSESTRUCT));
     return ptree;
@@ -162,13 +271,13 @@ PARSETREE sp_init(void) {
 int sp_parse(PARSETREE tree, char *term) {
     tree->term = strdup(term); /* will be destroyed by parsing */
     tree->current=tree->term;
-    tree->token=SP_TOK_BOF;
-    tree->next_token=SP_TOK_BOF;
+    tree->token.token_id=T_BOF;
+    tree->next_token.token_id=T_BOF;
     while(sp_scan(tree)) {
-	if(tree->token == SP_TOK_EOF)
-	    return 1; /* valid tree! */
+        if((tree->token.token_id = T_EOF))
+            return 1; /* valid tree! */
 
-	/* otherwise, keep scanning until done or error */
+        /* otherwise, keep scanning until done or error */
 
     }
 
@@ -183,7 +292,7 @@ int sp_parse(PARSETREE tree, char *term) {
  */
 int sp_dispose(PARSETREE tree) {
     if(tree->term)
-	free(tree->term);
+        free(tree->term);
 
     free(tree);
     return 1;
