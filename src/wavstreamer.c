@@ -34,18 +34,17 @@
 #include <string.h>
 #include <unistd.h>
 
-#ifdef HAVE_GETOPT_H
-#include <getopt.h>
-#endif
-
 char *av0;
 
+#if 0 
+/* need better longopt detection in configure.in */
 struct option longopts[] =
     { { "help",    0, NULL, 'h' },
       { "samples", 1, NULL, 's' },
       { "length",  1, NULL, 'l' },
       { "offset",  1, NULL, '0' },
       { NULL,      0, NULL,  0  } };
+#endif
 
 #define GET_WAV_INT32(p) ((((unsigned long)((p)[3])) << 24) |   \
                           (((unsigned long)((p)[2])) << 16) |   \
@@ -233,9 +232,9 @@ static void usage(int exitval)
     fprintf(stderr,
 	    "--samples and --length are mutually exclusive.\n");
 
-#ifndef HAVE_GETOPT_H
+#if 1
     fprintf(stderr,
-	    "\n\nLong options are not availabl eon this system.\n");
+	    "\n\nLong options are not available on this system.\n");
 #endif
 
     exit(exitval);
@@ -259,7 +258,7 @@ int main(int argc, char **argv)
     else
 	av0 = argv[0];
 
-#ifdef HAVE_GETOPT_H
+#if 0
     while ((c = getopt_long(argc, argv, "+hl:o:s:", longopts, NULL)) != EOF) {
 #else
     while ((c = getopt(argc, argv, "hl:o:s:")) != -1) {
@@ -288,10 +287,12 @@ int main(int argc, char **argv)
 		us = 0;
 	    }
 
+	    /*
 	    if ((sec == 0) && (us == 0)) {
 		fprintf(stderr, "%s: Invalid -l argument (zero is not acceptable).\n", av0);
 		exit(-1);
 	    }
+	    */
 
 	    if (samples != 0) {
 		fprintf(stderr, "%s: Parameters -s and -l are mutually exclusive.\n", av0);
