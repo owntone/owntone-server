@@ -74,9 +74,9 @@ typedef struct tag_token {
  */
 
 #define T_STRING        0x2001
-#define T_INT_FIELD     0x1002
+#define T_INT_FIELD     0x2002
 #define T_STRING_FIELD  0x2003
-#define T_DATE_FIELD    0x1004
+#define T_DATE_FIELD    0x2004
 
 #define T_OPENPAREN     0x0005
 #define T_CLOSEPAREN    0x0006
@@ -157,13 +157,16 @@ int sp_scan(PARSETREE tree) {
         return T_EOF;
 
     /* keep advancing until we have a token */
-    while(strchr(" \t\n\r",*(tree->current)))
+    while(*(tree->current) && strchr(" \t\n\r",*(tree->current)))
         tree->current++;
         
     if(!*(tree->current)) {
         tree->next_token.token_id = T_EOF;
         return tree->token.token_id;
     }
+    
+    DPRINTF(E_SPAM,L_PARSE,"Current offset: %d, char: %c\n",
+        tree->current - tree->term, *(tree->current));
 
     /* check singletons */
     switch(*(tree->current)) {
@@ -209,17 +212,18 @@ int sp_scan(PARSETREE tree) {
     if(advance) {
         tree->current += advance;
     } else { /* either a keyword token or a quoted string */
+        DPRINTF(E_SPAM,L_PARSE,"keyword or string!\n");
+        
         /* walk to a terminator */
         tail = tree->current;
-        while((*tail) && (!strchr(" \t\n\r\"=()",*tail))) {
+        while((*tail) && (!strchr(" \t\n\r\"<>=()",*tail))) {
             tail++;
         }
-
-        tree->current = tail;
 
         /* let's see what we have... */
         pfield=sp_fields;
         len = tail - tree->current;
+        DPRINTF(E_SPAM,L_PARSE,"Len is %d\n",len);
         while(pfield->name) {
             if(strlen(pfield->name) == len) {
                 if(strncasecmp(pfield->name,tree->current,len) == 0)
@@ -230,15 +234,18 @@ int sp_scan(PARSETREE tree) {
         
         if(pfield->name) {
             tree->next_token.token_id = pfield->type;
-            tree->next_token.data.cvalue = malloc(len + 1);
-            if(!tree->next_token.data.cvalue) {
-                /* fail on malloc error */
-                DPRINTF(E_FATAL,L_PARSE,"Malloc error.\n");
-            }
-            strncpy(tree->next_token.data.cvalue,tree->current,len);
-            tree->next_token.data.cvalue[len] = '\x0';
+        } else {
+            tree->next_token.token_id = T_STRING;
         }
+        tree->next_token.data.cvalue = malloc(len + 1);
+        if(!tree->next_token.data.cvalue) {
+            /* fail on malloc error */
+            DPRINTF(E_FATAL,L_PARSE,"Malloc error.\n");
+        }
+        strncpy(tree->next_token.data.cvalue,tree->current,len);
+        tree->next_token.data.cvalue[len] = '\x0';
 
+        tree->current=tail;
     }
     
     return tree->token.token_id;
@@ -273,8 +280,17 @@ int sp_parse(PARSETREE tree, char *term) {
     tree->current=tree->term;
     tree->token.token_id=T_BOF;
     tree->next_token.token_id=T_BOF;
+    sp_scan(tree);
     while(sp_scan(tree)) {
-        if((tree->token.token_id = T_EOF))
+        DPRINTF(E_SPAM,L_PARSE,"Got token %04X\n",tree->token.token_id);
+        if(tree->token.token_id & 0x2000) {
+            DPRINTF(E_SPAM,L_PARSE,"  Str val: %s\n",tree->token.data.cvalue);
+        } else if(tree->token.token_id & 0x1000) {
+            DPRINTF(E_SPAM,L_PARSE,"  Int val: %d (0x%04X)\n",
+                tree->token.data.ivalue,tree->token.data.ivalue);
+        }
+        
+        if((tree->token.token_id == T_EOF))
             return 1; /* valid tree! */
 
         /* otherwise, keep scanning until done or error */
