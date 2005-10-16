@@ -271,6 +271,19 @@ PARSETREE sp_init(void) {
 /**
  * parse a term or phrase into a tree.
  *
+ * I'm not a language expert, so I'd suggestions on the
+ * following production rules:
+ *
+ * phrase -> aexpr T_EOF
+ * aexpr -> oexpr { T_AND oexpr }
+ * oexpr -> expr { T_OR expr } 
+ * expr -> T_OPENPAREN aexpr T_CLOSEPAREN | criteria
+ * criteria -> field op value
+ *
+ * field -> T_STRINGFIELD, T_INTFIELD, T_DATEFIELD
+ * op -> T_EQUAL, T_GREATEREQUAL, etc
+ * value -> T_NUMBER, T_STRING, or T_DATE, as appropriate
+ *
  * @param tree parsetree previously created with sp_init
  * @param term term or phrase to parse
  * @returns 1 if successful, 0 if not
@@ -281,6 +294,9 @@ int sp_parse(PARSETREE tree, char *term) {
     tree->token.token_id=T_BOF;
     tree->next_token.token_id=T_BOF;
     sp_scan(tree);
+    sp_scan(tree);
+    
+    
     while(sp_scan(tree)) {
         DPRINTF(E_SPAM,L_PARSE,"Got token %04X\n",tree->token.token_id);
         if(tree->token.token_id & 0x2000) {
@@ -300,6 +316,89 @@ int sp_parse(PARSETREE tree, char *term) {
     return 0;
 }
 
+
+/**
+ * parse for a phrase
+ *
+ * phrase -> aexpr T_EOF
+ *
+ * @param tree tree we are parsing (and building)
+ * @returns 1 if successful, 0 otherwise
+ */
+ 
+int sp_parse_phrase(PARSETREE tree) {
+    int result=0;
+    
+    DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_phrase\n");
+
+    if(sp_parse_aexpr(tree) && (tree->token->token_id == T_EOF))
+        result=1;
+        
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_phrase: %s\n",result ?
+        "success" : "fail");
+        
+    return result;        
+}
+ 
+/**
+ * parse for an ANDed expression
+ *
+ * aexpr -> oexpr { T_AND oexpr }
+ *
+ * @param tree tree we are building
+ * @returns 1 if successful, 0 otherwise
+ */
+int sp_parse_aexpr(PARSETREE tree) {
+    int result=0;
+    
+    DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_aexpr\n");
+    
+    while(1) {
+        result = sp_parse_oexpr(tree);
+        if((!result) || (tree->token->token_id != T_AND)) break;
+    }
+
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_aexpr: %s\n",result ?
+        "success" : "fail");
+        
+    return result;
+}
+
+/**
+ * parse for an ORed expression
+ *
+ * oexpr -> expr { T_OR expr }
+ *
+ * @param tree tree we are building
+ * @returns 1 if successful, 0 otherwise
+ */
+int sp_parse_oexpr(PARSETREE tree) {
+    int result=0;
+    
+    DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_oexpr\n");
+    
+    while(1) {
+        result = sp_parse_expr(tree);
+        if((!result) || (tree->token->token_id != T_OR)) break;
+    }
+
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_oexpr: %s\n",result ?
+        "success" : "fail");
+        
+    return result;
+}
+
+/**
+ * parse for an expression
+ *
+ * expr -> T_OPENPAREN aexpr T_CLOSEPAREN | criteria
+ * 
+ * @param tree tree we are building
+ * @returns 1 if successful, 0 otherwise
+ */
+int sp_parse_expr(PARSETREE tree) {
+}
+ 
 /**
  * dispose of an initialized tree
  *
