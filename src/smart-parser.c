@@ -71,6 +71,11 @@ typedef struct tag_token {
  * 0x4000 -
  * 0x2000 - data is string
  * 0x1000 - data is int
+ *
+ * 0x0800 -  
+ * 0x0400 -
+ * 0x0200 -
+ * 0x0100 -
  */
 
 #define T_STRING        0x2001
@@ -80,15 +85,39 @@ typedef struct tag_token {
 
 #define T_OPENPAREN     0x0005
 #define T_CLOSEPAREN    0x0006
-#define T_QUOTE         0x0007
-#define T_LESS          0x0008
-#define T_LESSEQUAL     0x0009
-#define T_GREATER       0x000A
-#define T_GREATEREQUAL  0x000B
-#define T_EQUAL         0x000C
+#define T_LESS          0x0007
+#define T_LESSEQUAL     0x0008
+#define T_GREATER       0x0009
+#define T_GREATEREQUAL  0x000a
+#define T_EQUAL         0x000b
+#define T_OR            0x000c
+#define T_AND           0x000d
+#define T_QUOTE         0x000e
+#define T_NUMBER        0x000f
+#define T_LAST          0x0010
 
-#define T_EOF           0x000D
-#define T_BOF           0x000E
+#define T_EOF           0x00fd
+#define T_BOF           0x00fe
+#define T_ERROR         0x00ff
+
+char *sp_token_descr[] = {
+    "unknown",
+    "literal string",
+    "integer field",
+    "string field",
+    "date field",
+    "(",
+    ")",
+    "<",
+    "<=",
+    ">",
+    ">=",
+    "=",
+    "or",
+    "and",
+    "quote",
+    "number"
+};
 
 typedef struct tag_fieldlookup {
     int type;
@@ -124,6 +153,12 @@ FIELDLOOKUP sp_fields[] = {
     { T_INT_FIELD, "datakind" },
     { T_INT_FIELD, "itemkind" },
     { T_STRING_FIELD, "description" },
+    
+    /* end of db fields */
+    { T_OR, "or" },
+    { T_AND, "and" },
+    
+    /* end */
     { 0, NULL },
 };
 
@@ -134,6 +169,16 @@ typedef struct tag_parsetree {
     SP_TOKEN next_token;
 } PARSESTRUCT, *PARSETREE;
 
+/* Forwards */
+int sp_parse_phrase(PARSETREE tree);
+int sp_parse_aexpr(PARSETREE tree);
+int sp_parse_oexpr(PARSETREE tree);
+int sp_parse_expr(PARSETREE tree);
+int sp_parse_criterion(PARSETREE tree);
+int sp_parse_string_criterion(PARSETREE tree);
+int sp_parse_int_criterion(PARSETREE tree);
+int sp_parse_date_criterion(PARSETREE tree);
+
 /**
  * scan the input, returning the next available token.
  *
@@ -141,20 +186,25 @@ typedef struct tag_parsetree {
  * @returns next token (token, not the value)
  */
 int sp_scan(PARSETREE tree) {
+    int is_string=0;
+    char *terminator=NULL;
     char *tail;
     int advance=0;
     FIELDLOOKUP *pfield=sp_fields;
     int len;
+    int found;
 
     if(tree->token.token_id & 0x2000) {
-	if(tree->token.data.cvalue)
-	    free(tree->token.data.cvalue);
+        if(tree->token.data.cvalue)
+            free(tree->token.data.cvalue);
     }
 
     tree->token=tree->next_token;
 
-    if(tree->token.token_id == T_EOF)
+    if(tree->token.token_id == T_EOF) {
+        DPRINTF(E_SPAM,L_PARSE,"Returning token T_EOF\n");
         return T_EOF;
+    }
 
     /* keep advancing until we have a token */
     while(*(tree->current) && strchr(" \t\n\r",*(tree->current)))
@@ -162,6 +212,7 @@ int sp_scan(PARSETREE tree) {
         
     if(!*(tree->current)) {
         tree->next_token.token_id = T_EOF;
+        DPRINTF(E_SPAM,L_PARSE,"Returning token %04x\n",tree->token.token_id);
         return tree->token.token_id;
     }
     
@@ -170,10 +221,25 @@ int sp_scan(PARSETREE tree) {
 
     /* check singletons */
     switch(*(tree->current)) {
+    case '|':
+        if((*(tree->current + 1) == '|')) {
+            advance = 2;
+            tree->next_token.token_id = T_OR;
+        }
+        break;
+
+    case '&':
+        if((*(tree->current + 1) == '&')) {
+            advance = 2;
+            tree->next_token.token_id = T_AND;
+        }
+        break;
+
     case '=':
         advance=1;
         tree->next_token.token_id = T_EQUAL;
         break;
+         
     case '<':
         if((*(tree->current + 1)) == '=') {
             advance = 2;
@@ -183,6 +249,7 @@ int sp_scan(PARSETREE tree) {
             tree->next_token.token_id = T_LESS;
         }
         break;
+         
     case '>':
         if((*(tree->current + 1)) == '=') {
             advance = 2;
@@ -209,44 +276,68 @@ int sp_scan(PARSETREE tree) {
         break;
     }
 
-    if(advance) {
+    if(advance) { /* singleton */
         tree->current += advance;
     } else { /* either a keyword token or a quoted string */
         DPRINTF(E_SPAM,L_PARSE,"keyword or string!\n");
         
         /* walk to a terminator */
         tail = tree->current;
-        while((*tail) && (!strchr(" \t\n\r\"<>=()",*tail))) {
+        
+        terminator = " \t\n\r\"<>=()|&";
+        if(tree->token.token_id == T_QUOTE) {
+            is_string=1;
+            terminator="\"";
+        }
+        
+        while((*tail) && (!strchr(terminator,*tail))) {
             tail++;
         }
 
-        /* let's see what we have... */
-        pfield=sp_fields;
+        found=0;
         len = tail - tree->current;
-        DPRINTF(E_SPAM,L_PARSE,"Len is %d\n",len);
-        while(pfield->name) {
-            if(strlen(pfield->name) == len) {
-                if(strncasecmp(pfield->name,tree->current,len) == 0)
-                    break;
+
+        if(!is_string) {
+            /* find it in the token list */
+            pfield=sp_fields;
+            DPRINTF(E_SPAM,L_PARSE,"Len is %d\n",len);
+            while(pfield->name) {
+                if(strlen(pfield->name) == len) {
+                    if(strncasecmp(pfield->name,tree->current,len) == 0) {
+                        found=1;
+                        break;
+                    }
+                }
+                pfield++;
             }
-            pfield++;
         }
         
-        if(pfield->name) {
+        if(found) {
             tree->next_token.token_id = pfield->type;
         } else {
             tree->next_token.token_id = T_STRING;
         }
-        tree->next_token.data.cvalue = malloc(len + 1);
-        if(!tree->next_token.data.cvalue) {
-            /* fail on malloc error */
-            DPRINTF(E_FATAL,L_PARSE,"Malloc error.\n");
-        }
-        strncpy(tree->next_token.data.cvalue,tree->current,len);
-        tree->next_token.data.cvalue[len] = '\x0';
 
+        if(tree->next_token.token_id & 0x2000) {
+            tree->next_token.data.cvalue = malloc(len + 1);
+            if(!tree->next_token.data.cvalue) {
+                /* fail on malloc error */
+                DPRINTF(E_FATAL,L_PARSE,"Malloc error.\n");
+            }
+            strncpy(tree->next_token.data.cvalue,tree->current,len);
+            tree->next_token.data.cvalue[len] = '\x0';
+        }
+        
+        /* check for numberic? */
+        
         tree->current=tail;
     }
+    
+    DPRINTF(E_SPAM,L_PARSE,"Returning token %04x\n",tree->token.token_id);
+    if(tree->token.token_id & 0x2000)
+        DPRINTF(E_SPAM,L_PARSE,"String val: %s\n",tree->token.data.cvalue);
+    if(tree->token.token_id & 0x1000)
+        DPRINTF(E_SPAM,L_PARSE,"Int val: %d\n",tree->token.data.ivalue);
     
     return tree->token.token_id;
 }
@@ -271,14 +362,14 @@ PARSETREE sp_init(void) {
 /**
  * parse a term or phrase into a tree.
  *
- * I'm not a language expert, so I'd suggestions on the
+ * I'm not a language expert, so I'd welcome suggestions on the
  * following production rules:
  *
  * phrase -> aexpr T_EOF
  * aexpr -> oexpr { T_AND oexpr }
  * oexpr -> expr { T_OR expr } 
- * expr -> T_OPENPAREN aexpr T_CLOSEPAREN | criteria
- * criteria -> field op value
+ * expr -> T_OPENPAREN aexpr T_CLOSEPAREN | criterion
+ * criterion -> field op value
  *
  * field -> T_STRINGFIELD, T_INTFIELD, T_DATEFIELD
  * op -> T_EQUAL, T_GREATEREQUAL, etc
@@ -296,24 +387,13 @@ int sp_parse(PARSETREE tree, char *term) {
     sp_scan(tree);
     sp_scan(tree);
     
-    
-    while(sp_scan(tree)) {
-        DPRINTF(E_SPAM,L_PARSE,"Got token %04X\n",tree->token.token_id);
-        if(tree->token.token_id & 0x2000) {
-            DPRINTF(E_SPAM,L_PARSE,"  Str val: %s\n",tree->token.data.cvalue);
-        } else if(tree->token.token_id & 0x1000) {
-            DPRINTF(E_SPAM,L_PARSE,"  Int val: %d (0x%04X)\n",
-                tree->token.data.ivalue,tree->token.data.ivalue);
-        }
-        
-        if((tree->token.token_id == T_EOF))
-            return 1; /* valid tree! */
-
-        /* otherwise, keep scanning until done or error */
-
+    if(sp_parse_phrase(tree)) {
+        DPRINTF(E_SPAM,L_PARSE,"Parsed successfully\n");
+    } else {
+        DPRINTF(E_SPAM,L_PARSE,"Parsing error\n");
     }
 
-    return 0;
+    return 1;
 }
 
 
@@ -331,7 +411,7 @@ int sp_parse_phrase(PARSETREE tree) {
     
     DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_phrase\n");
 
-    if(sp_parse_aexpr(tree) && (tree->token->token_id == T_EOF))
+    if(sp_parse_aexpr(tree) && (tree->token.token_id == T_EOF))
         result=1;
         
     DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_phrase: %s\n",result ?
@@ -355,7 +435,7 @@ int sp_parse_aexpr(PARSETREE tree) {
     
     while(1) {
         result = sp_parse_oexpr(tree);
-        if((!result) || (tree->token->token_id != T_AND)) break;
+        if((!result) || (tree->token.token_id != T_AND)) break;
     }
 
     DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_aexpr: %s\n",result ?
@@ -379,7 +459,7 @@ int sp_parse_oexpr(PARSETREE tree) {
     
     while(1) {
         result = sp_parse_expr(tree);
-        if((!result) || (tree->token->token_id != T_OR)) break;
+        if((!result) || (tree->token.token_id != T_OR)) break;
     }
 
     DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_oexpr: %s\n",result ?
@@ -397,7 +477,183 @@ int sp_parse_oexpr(PARSETREE tree) {
  * @returns 1 if successful, 0 otherwise
  */
 int sp_parse_expr(PARSETREE tree) {
+    int result=0;
+    
+    DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_expr\n");
+    if(tree->token.token_id == T_OPENPAREN) {
+        sp_scan(tree);
+        result = sp_parse_aexpr(tree);
+        if((result) && (tree->token.token_id == T_OPENPAREN)) {
+            sp_scan(tree);
+        } else {
+            /* Error: expecting close paren */
+            result=0;
+        }
+    } else {
+        result = sp_parse_criterion(tree);
+    }
+    
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_expr: %s\n",result ?
+        "success" : "fail");
+        
+    return result;
 }
+ 
+/**
+ * parse for a criterion
+ *
+ * criterion -> field op value
+ *
+ * @param tree tree we are building
+ * @returns 1 if successful, 0 otherwise
+ */
+int sp_parse_criterion(PARSETREE tree) {
+    int result=0;
+
+    DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_criterion\n");
+
+    switch(tree->token.token_id) {
+    case T_STRING_FIELD:
+        result = sp_parse_string_criterion(tree);
+        break;
+        
+    case T_INT_FIELD:
+        result = sp_parse_int_criterion(tree);
+        break;
+        
+    case T_DATE_FIELD:
+        result = sp_parse_date_criterion(tree);
+        break;
+        
+    default:
+        /* Error: expecting field */
+        result = 0;
+        break;
+    }
+
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_criterion: %s\n",result ?
+        "success" : "fail");
+        
+    return result;
+}
+
+/**
+ * parse for a string criterion
+ *
+ * @param tree tree we are building
+ * @returns 1 if successful, 0 otherwise
+ */
+ int sp_parse_string_criterion(PARSETREE tree) {
+    int result=0;
+
+    DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_string_criterion\n");
+
+    sp_scan(tree); /* scan past the string field we know is there */
+
+    switch(tree->token.token_id) {
+    case T_EQUAL:
+        result = 1;
+        break;
+    default:
+        /* Error: expecting legal string comparison operator */
+        break;
+    }
+    
+    if(result) {
+        sp_scan(tree);
+        /* should be sitting on quote literal string quote */
+
+        if(tree->token.token_id == T_QUOTE) {
+            sp_scan(tree);
+            if(tree->token.token_id == T_STRING) {
+                sp_scan(tree);
+                if(tree->token.token_id == T_QUOTE) {
+                    result=1;
+                    sp_scan(tree);
+                } else {
+                    DPRINTF(E_SPAM,L_PARSE,"Expecting closign quote\n");
+                }
+            } else {
+                DPRINTF(E_SPAM,L_PARSE,"Expecting literal string\n");
+            }
+        } else {
+            DPRINTF(E_SPAM,L_PARSE,"Expecting opening quote\n");
+        }
+    }
+
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_string_criterion: %s\n",result ?
+        "success" : "fail");
+        
+    return result;
+ }
+ 
+/**
+ * parse for an int criterion
+ *
+ * @param tree tree we are building
+ * @returns 1 if successful, 0 otherwise
+ */
+ int sp_parse_int_criterion(PARSETREE tree) {
+    int result=0;
+
+    DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_int_criterion\n");
+
+    sp_scan(tree); /* scan past the int field we know is there */
+
+    switch(tree->token.token_id) {
+    case T_LESSEQUAL:
+    case T_LESS:
+    case T_GREATEREQUAL:
+    case T_GREATER:
+    case T_EQUAL:
+        result = 1;
+        break;
+    default:
+        /* Error: expecting legal string comparison operator */
+        DPRINTF(E_LOG,L_PARSE,"Expecting string comparison op, got %04X\n",
+            tree->token.token_id);
+        break;
+    }
+    
+    if(result) {
+        sp_scan(tree);
+        /* should be sitting on a literal string */
+        if(tree->token.token_id == T_NUMBER) {
+            result = 1;
+            sp_scan(tree);
+        } else {
+            /* Error: Expecting literal string */
+            DPRINTF(E_LOG,L_PARSE,"Expecting string literal, got %04X\n",
+                tree->token.token_id);
+            result = 0;
+        }
+    }
+
+
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_int_criterion: %s\n",result ?
+        "success" : "fail");
+        
+    return result;
+ }
+
+
+/**
+ * parse for a date criterion
+ *
+ * @param tree tree we are building
+ * @returns 1 if successful, 0 otherwise
+ */
+ int sp_parse_date_criterion(PARSETREE tree) {
+    int result=0;
+
+    DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_date_criterion\n");
+
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_date_criterion: %s\n",result ?
+        "success" : "fail");
+        
+    return result;
+ }
+ 
  
 /**
  * dispose of an initialized tree
