@@ -31,6 +31,7 @@ typedef struct tag_sp_node {
     } left;
 
     int op;
+    int op_type;
 
     union {
         struct tag_sp_node *node;
@@ -38,6 +39,12 @@ typedef struct tag_sp_node {
         char *cvalue;
     } right;
 } SP_NODE;
+
+
+#define SP_OPTYPE_ANDOR  0
+#define SP_OPTYPE_STRING 1
+#define SP_OPTYPE_INT    2
+#define SP_OPTYPE_DATE   3
 
 /*
 #define T_ID            0x00
@@ -182,17 +189,36 @@ typedef struct tag_parsetree {
     char *current;
     SP_TOKEN token;
     SP_TOKEN next_token;
+    SP_NODE *tree;
 } PARSESTRUCT, *PARSETREE;
 
 /* Forwards */
-int sp_parse_phrase(PARSETREE tree);
-int sp_parse_aexpr(PARSETREE tree);
-int sp_parse_oexpr(PARSETREE tree);
-int sp_parse_expr(PARSETREE tree);
-int sp_parse_criterion(PARSETREE tree);
-int sp_parse_string_criterion(PARSETREE tree);
-int sp_parse_int_criterion(PARSETREE tree);
-int sp_parse_date_criterion(PARSETREE tree);
+SP_NODE *sp_parse_phrase(PARSETREE tree);
+SP_NODE *sp_parse_aexpr(PARSETREE tree);
+SP_NODE *sp_parse_oexpr(PARSETREE tree);
+SP_NODE *sp_parse_expr(PARSETREE tree);
+SP_NODE *sp_parse_criterion(PARSETREE tree);
+SP_NODE *sp_parse_string_criterion(PARSETREE tree);
+SP_NODE *sp_parse_int_criterion(PARSETREE tree);
+SP_NODE *sp_parse_date_criterion(PARSETREE tree);
+void sp_free_node(SP_NODE *);
+
+/**
+ * see if a string is actually a number
+ *
+ * @param string string to check
+ * @returns 1 if the string is numeric, 0 otherwise
+ */
+int sp_isnumber(char *string) {
+    char *current=string;
+    
+    while(*current && (*current >= '0') && (*current <= '9')) { 
+        current++;
+    }
+        
+    return *current ? 0 : 1;
+}
+
 
 /**
  * scan the input, returning the next available token.
@@ -208,6 +234,7 @@ int sp_scan(PARSETREE tree) {
     FIELDLOOKUP *pfield=sp_fields;
     int len;
     int found;
+    int numval;
 
     if(tree->token.token_id & 0x2000) {
         if(tree->token.data.cvalue)
@@ -344,7 +371,15 @@ int sp_scan(PARSETREE tree) {
         }
 
         /* check for numberic? */
-
+        if(tree->next_token.token_id == T_STRING && 
+            sp_isnumber(tree->next_token.data.cvalue)) {
+            /* woops! */
+            numval = atoi(tree->next_token.data.cvalue);
+            free(tree->next_token.data.cvalue);
+            tree->next_token.data.ivalue = numval;
+            tree->next_token.token_id = T_NUMBER;
+        }
+        
         tree->current=tail;
     }
 
@@ -402,13 +437,18 @@ int sp_parse(PARSETREE tree, char *term) {
     sp_scan(tree);
     sp_scan(tree);
 
-    if(sp_parse_phrase(tree)) {
+    if(tree->tree) 
+        sp_free_node(tree->tree);
+        
+    tree->tree = sp_parse_phrase(tree);
+
+    if(tree->tree) {
         DPRINTF(E_SPAM,L_PARSE,"Parsed successfully\n");
     } else {
         DPRINTF(E_SPAM,L_PARSE,"Parsing error\n");
     }
 
-    return 1;
+    return tree->tree ? 1 : 0;
 }
 
 
@@ -418,21 +458,24 @@ int sp_parse(PARSETREE tree, char *term) {
  * phrase -> aexpr T_EOF
  *
  * @param tree tree we are parsing (and building)
- * @returns 1 if successful, 0 otherwise
+ * @returns new SP_NODE * if successful, NULL otherwise
  */
 
-int sp_parse_phrase(PARSETREE tree) {
-    int result=0;
+SP_NODE *sp_parse_phrase(PARSETREE tree) {
+    SP_NODE *expr;
 
     DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_phrase\n");
 
-    if(sp_parse_aexpr(tree) && (tree->token.token_id == T_EOF))
-        result=1;
+    expr = sp_parse_aexpr(tree);
+    if((!expr) || (tree->token.token_id != T_EOF)) {
+        sp_free_node(expr);
+        expr = NULL;
+    }
 
-    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_phrase: %s\n",result ?
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_phrase: %s\n",expr ?
         "success" : "fail");
 
-    return result;
+    return expr;
 }
 
 /**
@@ -441,22 +484,42 @@ int sp_parse_phrase(PARSETREE tree) {
  * aexpr -> oexpr { T_AND oexpr }
  *
  * @param tree tree we are building
- * @returns 1 if successful, 0 otherwise
+ * @returns new SP_NODE pointer if successful, NULL otherwise
  */
-int sp_parse_aexpr(PARSETREE tree) {
-    int result=0;
-
+SP_NODE *sp_parse_aexpr(PARSETREE tree) {
+    SP_NODE *expr;
+    SP_NODE *pnew;
+    
     DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_aexpr\n");
 
-    while(1) {
-        result = sp_parse_oexpr(tree);
-        if((!result) || (tree->token.token_id != T_AND)) break;
+    expr = sp_parse_expr(tree);
+    
+    while(expr && (tree->token.token_id == T_AND)) {
+        pnew = (SP_NODE*)malloc(sizeof(SP_NODE));
+        if(!pnew) {
+            DPRINTF(E_FATAL,L_PARSE,"Malloc error\n");
+        }
+        
+        memset(pnew,0x00,sizeof(SP_NODE));
+        pnew->op=T_AND;
+        pnew->op_type = SP_OPTYPE_ANDOR;
+        
+        pnew->left.node = expr;
+        sp_scan(tree);
+        pnew->right.node = sp_parse_expr(tree);
+    
+        if(!pnew->right.node) {
+            sp_free_node(pnew);
+            pnew=NULL;
+        }
+        
+        expr=pnew;
     }
 
-    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_aexpr: %s\n",result ?
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_aexpr: %s\n",expr ?
         "success" : "fail");
 
-    return result;
+    return expr;
 }
 
 /**
@@ -465,22 +528,42 @@ int sp_parse_aexpr(PARSETREE tree) {
  * oexpr -> expr { T_OR expr }
  *
  * @param tree tree we are building
- * @returns 1 if successful, 0 otherwise
+ * @returns new SP_NODE pointer if successful, NULL otherwise
  */
-int sp_parse_oexpr(PARSETREE tree) {
-    int result=0;
-
+SP_NODE *sp_parse_oexpr(PARSETREE tree) {
+    SP_NODE *expr;
+    SP_NODE *pnew;
+    
     DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_oexpr\n");
 
-    while(1) {
-        result = sp_parse_expr(tree);
-        if((!result) || (tree->token.token_id != T_OR)) break;
+    expr = sp_parse_expr(tree);
+    
+    while(expr && (tree->token.token_id == T_OR)) {
+        pnew = (SP_NODE*)malloc(sizeof(SP_NODE));
+        if(!pnew) {
+            DPRINTF(E_FATAL,L_PARSE,"Malloc error\n");
+        }
+        
+        memset(pnew,0x00,sizeof(SP_NODE));
+        pnew->op=T_OR;
+        pnew->op_type = SP_OPTYPE_ANDOR;
+        
+        pnew->left.node = expr;
+        sp_scan(tree);
+        pnew->right.node = sp_parse_expr(tree);
+    
+        if(!pnew->right.node) {
+            sp_free_node(pnew);
+            pnew=NULL;
+        }
+        
+        expr=pnew;
     }
 
-    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_oexpr: %s\n",result ?
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_oexpr: %s\n",expr ?
         "success" : "fail");
 
-    return result;
+    return expr;
 }
 
 /**
@@ -489,29 +572,30 @@ int sp_parse_oexpr(PARSETREE tree) {
  * expr -> T_OPENPAREN aexpr T_CLOSEPAREN | criteria
  *
  * @param tree tree we are building
- * @returns 1 if successful, 0 otherwise
+ * @returns pointer to new SP_NODE if successful, NULL otherwise
  */
-int sp_parse_expr(PARSETREE tree) {
-    int result=0;
+SP_NODE *sp_parse_expr(PARSETREE tree) {
+    SP_NODE *expr;
 
     DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_expr\n");
     if(tree->token.token_id == T_OPENPAREN) {
         sp_scan(tree);
-        result = sp_parse_aexpr(tree);
-        if((result) && (tree->token.token_id == T_OPENPAREN)) {
+        expr = sp_parse_aexpr(tree);
+        if((expr) && (tree->token.token_id == T_CLOSEPAREN)) {
             sp_scan(tree);
         } else {
             /* Error: expecting close paren */
-            result=0;
+            sp_free_node(expr);
+            expr=NULL;
         }
     } else {
-        result = sp_parse_criterion(tree);
+        expr = sp_parse_criterion(tree);
     }
 
-    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_expr: %s\n",result ?
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_expr: %s\n",expr ?
         "success" : "fail");
 
-    return result;
+    return expr;
 }
 
 /**
@@ -520,53 +604,63 @@ int sp_parse_expr(PARSETREE tree) {
  * criterion -> field op value
  *
  * @param tree tree we are building
- * @returns 1 if successful, 0 otherwise
+ * @returns pointer to new SP_NODE if successful, NULL otherwise.
  */
-int sp_parse_criterion(PARSETREE tree) {
-    int result=0;
-
+SP_NODE *sp_parse_criterion(PARSETREE tree) {
+    SP_NODE *expr=NULL;
+    
     DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_criterion\n");
 
     switch(tree->token.token_id) {
     case T_STRING_FIELD:
-        result = sp_parse_string_criterion(tree);
+        expr = sp_parse_string_criterion(tree);
         break;
 
     case T_INT_FIELD:
-        result = sp_parse_int_criterion(tree);
+        expr = sp_parse_int_criterion(tree);
         break;
 
     case T_DATE_FIELD:
-        result = sp_parse_date_criterion(tree);
+        expr = sp_parse_date_criterion(tree);
         break;
 
     default:
         /* Error: expecting field */
-        result = 0;
+        expr = NULL;
         break;
     }
 
-    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_criterion: %s\n",result ?
+    DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_criterion: %s\n",expr ?
         "success" : "fail");
 
-    return result;
+    return expr;
 }
 
 /**
  * parse for a string criterion
  *
  * @param tree tree we are building
- * @returns 1 if successful, 0 otherwise
+ * @returns pointer to new SP_NODE if successful, NULL otherwise
  */
- int sp_parse_string_criterion(PARSETREE tree) {
+ SP_NODE *sp_parse_string_criterion(PARSETREE tree) {
     int result=0;
+    SP_NODE *pnew = NULL;
 
     DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_string_criterion\n");
+
+    pnew = malloc(sizeof(SP_NODE));
+    if(!pnew) {
+        DPRINTF(E_FATAL,L_PARSE,"Malloc Error\n");
+    }
+    memset(pnew,0x00,sizeof(SP_NODE));
+    pnew->left.field = strdup(tree->token.data.cvalue);
 
     sp_scan(tree); /* scan past the string field we know is there */
 
     switch(tree->token.token_id) {
     case T_EQUAL:
+        pnew->op=tree->token.token_id;
+        pnew->op_type = SP_OPTYPE_STRING;
         result = 1;
         break;
     default:
@@ -581,6 +675,7 @@ int sp_parse_criterion(PARSETREE tree) {
         if(tree->token.token_id == T_QUOTE) {
             sp_scan(tree);
             if(tree->token.token_id == T_STRING) {
+                pnew->right.cvalue=strdup(tree->token.data.cvalue);
                 sp_scan(tree);
                 if(tree->token.token_id == T_QUOTE) {
                     result=1;
@@ -596,22 +691,35 @@ int sp_parse_criterion(PARSETREE tree) {
         }
     }
 
+
+    if(!result) {
+        sp_free_node(pnew);
+        pnew=NULL;        
+    }
+
     DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_string_criterion: %s\n",result ?
         "success" : "fail");
 
-    return result;
+    return pnew;
  }
 
 /**
  * parse for an int criterion
  *
  * @param tree tree we are building
- * @returns 1 if successful, 0 otherwise
+ * @returns address of new SP_NODE if successful, NULL otherwise
  */
- int sp_parse_int_criterion(PARSETREE tree) {
+ SP_NODE *sp_parse_int_criterion(PARSETREE tree) {
     int result=0;
-
+    SP_NODE *pnew = NULL;
+    
     DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_int_criterion\n");
+    pnew = malloc(sizeof(SP_NODE));
+    if(!pnew) {
+        DPRINTF(E_FATAL,L_PARSE,"Malloc Error\n");
+    }
+    memset(pnew,0x00,sizeof(SP_NODE));
+    pnew->left.field = strdup(tree->token.data.cvalue);
 
     sp_scan(tree); /* scan past the int field we know is there */
 
@@ -622,6 +730,8 @@ int sp_parse_criterion(PARSETREE tree) {
     case T_GREATER:
     case T_EQUAL:
         result = 1;
+        pnew->op=tree->token.token_id;
+        pnew->op_type = SP_OPTYPE_INT;
         break;
     default:
         /* Error: expecting legal string comparison operator */
@@ -635,20 +745,25 @@ int sp_parse_criterion(PARSETREE tree) {
         /* should be sitting on a literal string */
         if(tree->token.token_id == T_NUMBER) {
             result = 1;
+            pnew->right.ivalue=tree->token.data.ivalue;
             sp_scan(tree);
         } else {
-            /* Error: Expecting literal string */
-            DPRINTF(E_LOG,L_PARSE,"Expecting string literal, got %04X\n",
+            /* Error: Expecting number */
+            DPRINTF(E_LOG,L_PARSE,"Expecting number, got %04X\n",
                 tree->token.token_id);
             result = 0;
         }
     }
 
-
+    if(!result) {
+        sp_free_node(pnew);
+        pnew=NULL;
+    }
+        
     DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_int_criterion: %s\n",result ?
         "success" : "fail");
 
-    return result;
+    return pnew;
  }
 
 
@@ -656,18 +771,56 @@ int sp_parse_criterion(PARSETREE tree) {
  * parse for a date criterion
  *
  * @param tree tree we are building
- * @returns 1 if successful, 0 otherwise
+ * @returns pointer to new SP_NODE if successful, NULL otherwise
  */
- int sp_parse_date_criterion(PARSETREE tree) {
+ SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
     int result=0;
+    SP_NODE *pnew=NULL;
 
     DPRINTF(E_SPAM,L_PARSE,"Entering sp_parse_date_criterion\n");
 
     DPRINTF(E_SPAM,L_PARSE,"Exiting sp_parse_date_criterion: %s\n",result ?
         "success" : "fail");
 
-    return result;
+    return pnew;
  }
+
+/**
+ * free a node, and all left/right subnodes
+ *
+ * @param node node to free
+ */
+void sp_free_node(SP_NODE *node) {
+    if(!node)
+        return;
+
+    if(node->op_type == SP_OPTYPE_ANDOR) {
+        if(node->left.node) {
+            sp_free_node(node->left.node);
+            node->left.node = NULL;
+        }            
+        
+        if(node->right.node) {
+            sp_free_node(node->right.node);
+            node->right.node = NULL;
+        }
+    } else {
+        if(node->left.field) {
+            free(node->left.field);
+            node->left.field = NULL;
+        }
+        
+        if(node->op_type == SP_OPTYPE_STRING) {
+            if(node->right.cvalue) {
+                free(node->right.cvalue);
+                node->right.cvalue = NULL;
+            }
+        }
+    }
+
+
+    free(node);
+}
 
 
 /**
@@ -679,6 +832,12 @@ int sp_parse_criterion(PARSETREE tree) {
 int sp_dispose(PARSETREE tree) {
     if(tree->term)
         free(tree->term);
+        
+    if(tree->token.token_id & 0x2000)
+        free(tree->token.data.cvalue);
+        
+    if(tree->next_token.token_id & 0x2000)
+        free(tree->next_token.data.cvalue);
 
     free(tree);
     return 1;
@@ -689,7 +848,8 @@ int sp_dispose(PARSETREE tree) {
  * if there was an error in a previous action (parsing?)
  * then return that error to the client.  This does not
  * clear the error condition -- multiple calls to sp_geterror
- * will return the same value.
+ * will return the same value.  Also, if you want to keep an error,
+ * you must strdup it before it disposing the parse tree...
  *
  * memory handling is done on the smart-parser side.
  *
