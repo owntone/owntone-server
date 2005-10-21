@@ -35,6 +35,9 @@ int main(int argc, char *argv[]) {
 
     pt=sp_init();
     sp_parse(pt,argv[optind]);
+
+    printf("SQL: %s\n",sp_sql_clause(pt));
+
     sp_dispose(pt);
 
     printf("Done!\n");

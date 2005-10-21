@@ -202,6 +202,7 @@ SP_NODE *sp_parse_string_criterion(PARSETREE tree);
 SP_NODE *sp_parse_int_criterion(PARSETREE tree);
 SP_NODE *sp_parse_date_criterion(PARSETREE tree);
 void sp_free_node(SP_NODE *);
+int sp_node_size(SP_NODE *);
 
 /**
  * see if a string is actually a number
@@ -842,6 +843,97 @@ int sp_dispose(PARSETREE tree) {
     free(tree);
     return 1;
 }
+
+/**
+ * calculate the size required to render the tree as a 
+ * sql query.
+ *
+ * @parameter node node/tree to calculate
+ * @returns size in bytes of sql "where" clause
+ */
+int sp_node_size(SP_NODE *node) {
+    int size;
+    
+    if(node->op_type == SP_OPTYPE_ANDOR) {
+        size = sp_node_size(node->left.node);
+        size += sp_node_size(node->right.node);
+        size += 7; /* (xxx AND xxx) */
+    } else {
+        size = 4; /* parens, plus spaces around op */
+        size += strlen(node->left.field);
+        if((node->op & 0x0FFF) > T_LAST) {
+            DPRINTF(E_FATAL,L_PARSE,"Can't determine node size:  op %04x\n",
+                node->op);
+        } else {
+            size += strlen(sp_token_descr[node->op & 0x0FFF]);
+        }
+        if(node->op_type == SP_OPTYPE_STRING)
+            size += (2 + strlen(node->right.cvalue));
+        if(node->op_type == SP_OPTYPE_INT)
+            size += ((node->right.ivalue/10) + 1);
+    }
+     
+    return size;
+}
+
+/**
+ * serialize node into pre-allocated string
+ *
+ * @param node node to serialize
+ * @param string string to generate
+ */
+void sp_serialize_sql(SP_NODE *node, char *string) {
+    char buffer[40];
+    
+    if(node->op_type == SP_OPTYPE_ANDOR) {
+        strcat(string,"(");
+        sp_serialize_sql(node->left.node,string);
+        if(node->op == T_AND) strcat(string," and ");
+        if(node->op == T_OR) strcat(string," or ");
+        sp_serialize_sql(node->right.node,string);
+        strcat(string,")");
+    } else {
+        strcat(string,"(");
+        strcat(string,node->left.field);
+        strcat(string," ");
+        strcat(string,sp_token_descr[node->op & 0x0FFF]);
+        strcat(string," ");
+        if(node->op_type == SP_OPTYPE_STRING) {
+            strcat(string,"'");
+            strcat(string,node->right.cvalue);
+            strcat(string,"'");
+        }
+        
+        if(node->op_type == SP_OPTYPE_INT) {
+            sprintf(buffer,"%d",node->right.ivalue);
+            strcat(string,buffer);
+        }
+        strcat(string,")");
+        
+    }
+}
+
+
+
+/**
+ * generate sql "where" clause
+ *
+ * @param node node/tree to calculate
+ * @returns sql string.  Must be freed by caller
+ */
+char *sp_sql_clause(PARSETREE tree) {
+    int size;
+    char *sql;
+
+    size = sp_node_size(tree->tree);
+    sql = (char*)malloc(size+1);
+    
+    memset(sql,0x00,size+1);
+    sp_serialize_sql(tree->tree,sql);
+    
+    return sql;
+}
+
 
 
 /**
