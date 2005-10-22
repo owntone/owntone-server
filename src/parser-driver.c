@@ -34,9 +34,11 @@ int main(int argc, char *argv[]) {
     printf("Parsing %s\n",argv[optind]);
 
     pt=sp_init();
-    sp_parse(pt,argv[optind]);
-
-    printf("SQL: %s\n",sp_sql_clause(pt));
+    if(!sp_parse(pt,argv[optind])) {
+        printf("%s\n",sp_get_error(pt));
+    } else {
+        printf("SQL: %s\n",sp_sql_clause(pt));
+    }
 
     sp_dispose(pt);
 
