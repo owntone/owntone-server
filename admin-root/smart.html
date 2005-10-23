@@ -2,14 +2,44 @@
 
 <div class="stx">
 
-<table class="hovertable" width="400">
-<thead><th>ID</th><th>Playlist Name</th><th>Type</th></thead>
+<h2>Smart Playlists</h2>
+
+<table width="400">
+<thead><th>ID</th><th>Playlist Name</th><th>Type</th><th>Action</th></thead>
 <tbody id="playlists">
 </tbody>
 </table>
+<a href="javascript:pl_new();">Add new playlist</a>
 
 <div id="pl_data">
 </div>
+
+<div id="pl_editor" style="display:none">
+<h3>Playlist Spec</h3>
+<form name="pl_form">
+<input type="hidden" name="playlist_id">
+<table width="400">
+<tr>
+<th>Name</th>
+<td><input type="text" name="playlist_name"></td>
+</tr>
+
+<tr>
+<th>Playlist Criteria</th>
+<td><textarea rows="5" name="playlist_spec"></textarea></td>
+</tr>
+</table>
+
+<input type="button" onclick="javascript:pl_update();" name="submit_button" value="Submit">
+<input type="button" value="Cancel">
+</form>
+</div>
+
+<div id="pl_warning" class="message" style="display:none">
+Error Messages Go here
+</div>
+
+
 
 </div>
 

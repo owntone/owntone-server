@@ -1,26 +1,98 @@
 var req;
 var playlist_info={};
 
-function selectPlaylist(e) {
-    var targ;
-    
-    if(!e) var e=window.event;
-    if(e.target) targ=e.target;
-    else if (e.srcElement) targ=e.srcElement;
-    if(targ.nodeType == 3)
-        targ = targ.parentNode;
+function pl_errormsg(msg) {
+    var msgdiv = document.getElementById("pl_warning");
+
+    if(!msgdiv)
+        return;
         
-    while(targ.previousSibling)
-        targ=targ.previousSibling;
-    
-    
-    pl_id = targ.firstChild.nodeValue;
-
-
-    alert(playlist_info[pl_id]['name']);   
+    msgdiv.innerHTML = msg + "\n";
+    msgdiv.style.display="block";
 }
 
-function processPlaylists() {
+function pl_displayresults(xmldoc) {
+}
+
+function pl_update() {
+    /* this is either update or create, depending... */
+    var id, name, spec;
+    var pleditor=document.getElementById("pl_editor");
+
+    id = document.forms['pl_form']['playlist_id'].value;
+    name = encodeURIComponent(document.forms['pl_form']['playlist_name'].value);
+    spec = encodeURIComponent(document.forms['pl_form']['playlist_spec'].value);
+    
+    if(id == '0') {
+        /* new playlist... post it! */
+        var url = '/databases/1/containers/add?output=xml&org.mt-daapd.playlist-type=1&dmap.itemname=' + name + '&org.mt-daapd.smart-playlist-spec=' + spec;
+        result = pl_exec(url,false);
+    } else {
+        pl_errormsg("Can't yet update existing playlists.. sorry.");
+    }
+    
+    init();
+    pleditor.style.display="none";    
+}
+
+function pl_new() {
+    var msgdiv = document.getElementById("pl_warning");
+    var pleditor=document.getElementById("pl_editor");
+
+    if((!msgdiv)||(!pleditor))
+        return;
+
+    msgdiv.style.display="none";
+    
+    document.forms['pl_form']['playlist_id'].value='0';
+    document.forms['pl_form']['playlist_name'].value = 'New Playlist';
+    document.forms['pl_form']['playlist_spec'].value = '';
+    document.forms['pl_form']['submit_button'].value = 'Create';
+    
+    pleditor.style.display="block";
+}
+
+function pl_delete(pl_id) {
+    if(confirm('Are you sure you want to delete playlist "' + playlist_info[pl_id]['name'] + '"?')) {
+        result=pl_exec("/databases/1/containers/del?output=xml&dmap.itemid=" + pl_id,false);
+        init();
+    }
+}
+
+
+function pl_edit(pl_id) {
+    var msgdiv = document.getElementById("pl_warning");
+    var pleditor=document.getElementById("pl_editor");
+
+    if((!msgdiv)||(!pleditor))
+        return;
+        
+    msgdiv.style.display="none";
+    pleditor.style.display="none";
+    
+    if(pl_id == 1) {
+        msgdiv.innerHTML="Cannot edit library playlist";
+        msgdiv.style.display="block";
+        return;
+    }
+    
+    if(playlist_info[pl_id]['type'] != 1) {
+        msgdiv.innerHTML="Can only edit smart playlists";
+        msgdiv.style.display="block";
+        return;
+    }
+    
+    document.forms['pl_form']['playlist_id'].value = pl_id;
+    document.forms['pl_form']['playlist_name'].value = playlist_info[pl_id]['name'];
+    document.forms['pl_form']['playlist_spec'].value = playlist_info[pl_id]['spec'];
+    document.forms['pl_form']['submit_button'].value = 'Update';
+    
+    pleditor.style.display="block";
+    
+    //alert(playlist_info[pl_id]['name']);   
+}
+
+function pl_process() {
     var xmldoc = req.responseXML;
     var playlists = xmldoc.getElementsByTagName("dmap.listingitem");
     var pl_table = document.getElementById("playlists");
@@ -50,56 +122,63 @@ function processPlaylists() {
                 pl_type = "Smart";
                 break;
             case "2":
-                pl_type = "Static&nbsp;(File)";
+                pl_type = "Static&nbsp;(m3u/pls file)";
                 break;
             case "3":
-                pl_type = "Static&nbsp;(iTunes)";
+                pl_type = "Static&nbsp;(iTunes xml file)";
                 break;
         }
-        var row = document.createElement("tr");
-        row.onclick=selectPlaylist;
-        if(row.captureEvents) row.captureEvents(Event.CLICK);
-        var td1 = document.createElement("td");
-        var td2 = document.createElement("td");
-        var td3 = document.createElement("td");
-        td1.innerHTML=pl_id;
-        td2.innerHTML=pl_name + "\n";
-        td3.innerHTML=pl_type + "\n";
-        row.appendChild(td1);
-        row.appendChild(td2);
-        row.appendChild(td3);
-        pl_table.appendChild(row);
+
+        if(playlist_info[pl_id]['type'] == 1) {
+            var row = document.createElement("tr");
+            var td1 = document.createElement("td");
+            var td2 = document.createElement("td");
+            var td3 = document.createElement("td");
+            var td4 = document.createElement("td");
+            td1.innerHTML=pl_id + '\n';
+            td2.innerHTML=pl_name + '\n';
+            td3.innerHTML=pl_type + '\n';
+            td4.innerHTML='<a href="javascript:pl_edit(' + pl_id + ')">Edit</a>';
+            if(pl_id != 1) {
+                td4.innerHTML = td4.innerHTML + '&nbsp;<a href="javascript:pl_delete(' + pl_id + ')">Delete</a>';
+            }
+        
+            row.appendChild(td1);
+            row.appendChild(td2);
+            row.appendChild(td3);
+            row.appendChild(td4);
+            pl_table.appendChild(row);
+        }
     }
 }
 
 
-function processReqChange() {
+function pl_state_change() {
     if(req.readyState == 4) {
         if(req.status == 200) {
-            processPlaylists();
+            pl_process();
         }
     }
 }
 
 function init() {
-    loadXMLDoc("/databases/1/containers?output=xml&meta=dmap.itemid,dmap.itemname,org.mt-daapd.playlist-type,org.mt-daapd.smart-playlist-spec","playlists");        
+    pl_exec("/databases/1/containers?output=xml&meta=dmap.itemid,dmap.itemname,org.mt-daapd.playlist-type,org.mt-daapd.smart-playlist-spec",true);        
 }
 
-
-function loadXMLDoc(url) {
+function pl_exec(url, async) {
     // branch for native XMLHttpRequest object
     if (window.XMLHttpRequest) {
         req = new XMLHttpRequest();
-        req.onreadystatechange = processReqChange;
-        req.open("GET", url, true);
-        req.send(null);
+        req.onreadystatechange = pl_state_change;
+        req.open("GET", url, async);
+        return req.send(null);
     // branch for IE/Windows ActiveX version
     } else if (window.ActiveXObject) {
         req = new ActiveXObject("Microsoft.XMLHTTP");
         if (req) {
-            req.onreadystatechange = processReqChange;
-            req.open("GET", url, true);
-            req.send();
+            req.onreadystatechange = pl_state_change;
+            req.open("GET", url, async);
+            return req.send();
         }
     }
 }
