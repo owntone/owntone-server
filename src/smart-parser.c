@@ -609,7 +609,7 @@ SP_NODE *sp_parse_oexpr(PARSETREE tree) {
         expr=pnew;
     }
 
-    sp_enter_exit(tree,"sp_parse_oexptr",0,expr);
+    sp_enter_exit(tree,"sp_parse_oexpr",0,expr);
     return expr;
 }
 
