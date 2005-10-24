@@ -438,6 +438,7 @@ int db_sqlite_delete_playlist_item(int playlistid, int songid) {
 int db_sqlite_add_playlist(char *name, int type, char *clause, char *path, int index, int *playlistid) {
     int cnt=0;
     int result=DB_E_SUCCESS;
+    char *criteria;
 
     db_sqlite_get_int(E_DBG,&cnt,"select count(*) from playlists where "
                       "upper(title)=upper('%q')",name);
@@ -455,11 +456,13 @@ int db_sqlite_add_playlist(char *name, int type, char *clause, char *path, int i
                                 "values ('%q',%d,0,NULL,%d,'%q',%d)",name,type,time(NULL),path,index);
         break;
     case PL_SMART: /* smart */
-        result=db_sqlite_get_int(E_DBG,&cnt,"select count (*) from songs where %s",clause);
-        if(result != DB_E_SUCCESS) return result;
+        criteria = db_sqlite_parse_smart(clause);
+        if(!criteria)
+            return DB_E_PARSE;
         result = db_sqlite_exec(E_LOG,"insert into playlists "
                                 "(title,type,items,query,db_timestamp,idx) "
                                 "values ('%q',%d,%d,'%q',%d,0)",name,PL_SMART,cnt,clause,time(NULL));
+        free(criteria);
         break;
     }
 
