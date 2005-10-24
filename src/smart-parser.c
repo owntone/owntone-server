@@ -116,7 +116,8 @@ typedef struct tag_sp_node {
 #define T_AND           0x000d
 #define T_QUOTE         0x000e
 #define T_NUMBER        0x000f
-#define T_LAST          0x0010
+#define T_INCLUDES      0x0010
+#define T_LAST          0x0011
 
 #define T_EOF           0x00fd
 #define T_BOF           0x00fe
@@ -138,7 +139,8 @@ char *sp_token_descr[] = {
     "or",
     "and",
     "quote",
-    "number"
+    "number",
+    "like"
 };
 
 typedef struct tag_fieldlookup {
@@ -179,6 +181,7 @@ FIELDLOOKUP sp_fields[] = {
     /* end of db fields */
     { T_OR, "or" },
     { T_AND, "and" },
+    { T_INCLUDES, "includes" },
 
     /* end */
     { 0, NULL },
@@ -705,6 +708,7 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
 
     switch(tree->token.token_id) {
     case T_EQUAL:
+    case T_INCLUDES:
         pnew->op=tree->token.token_id;
         pnew->op_type = SP_OPTYPE_STRING;
         result = 1;
@@ -913,8 +917,12 @@ int sp_node_size(SP_NODE *node) {
         } else {
             size += strlen(sp_token_descr[node->op & 0x0FFF]);
         }
-        if(node->op_type == SP_OPTYPE_STRING)
+        if(node->op_type == SP_OPTYPE_STRING) {
             size += (2 + strlen(node->right.cvalue));
+            if(node->op == T_INCLUDES) {
+                size += 2; /* extra %'s */
+            }
+        }
         if(node->op_type == SP_OPTYPE_INT)
             size += ((node->right.ivalue/10) + 1);
     }
@@ -946,7 +954,11 @@ void sp_serialize_sql(SP_NODE *node, char *string) {
         strcat(string," ");
         if(node->op_type == SP_OPTYPE_STRING) {
             strcat(string,"'");
+            if(node->op == T_INCLUDES)
+                strcat(string,"%");
             strcat(string,node->right.cvalue);
+            if(node->op == T_INCLUDES)
+                strcat(string,"%");
             strcat(string,"'");
         }
         
