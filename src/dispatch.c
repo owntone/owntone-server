@@ -348,7 +348,8 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
 	/* set up block */
 	memcpy(block_tag,current,4);
 	block_tag[4] = '\0';
-	block_len = ntohl(*((int*)&current[4]));
+	block_len = current[4] << 24 | current[5] << 16 |
+	    current[6] << 8 | current[7];
 	data = &current[8];
 
 	if(strncmp(block_tag,"abro",4) ==0 ) {
@@ -357,6 +358,7 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
 	}
 
 	/* lookup and serialize */
+	DPRINTF(E_SPAM,L_DAAP,"%*s %s: %d\n",poi->stack_height,"",block_tag,block_len);
 	pitem=dispatch_xml_lookup_tag(block_tag);
 	if(poi->readable) 
 	    r_fdprintf(pwsc->fd,"%*s",poi->stack_height,"");
