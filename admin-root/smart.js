@@ -1,14 +1,34 @@
 var req;
 var playlist_info={};
 
+
+function pl_editor_state(state) {
+    var pleditor = document.getElementById("pl_editor");
+    if(!pleditor)
+        return;
+        
+    if(state) {
+        pleditor.style.display="block";
+    } else {
+        pleditor.style.display="none";
+    }
+
+    return;
+}
+
 function pl_errormsg(msg) {
     var msgdiv = document.getElementById("pl_warning");
 
     if(!msgdiv)
         return;
-        
+    
     msgdiv.innerHTML = msg + "\n";
-    msgdiv.style.display="block";
+    
+    if(msg == "") {
+        msgdiv.style.display="none";
+    } else {
+        msgdiv.style.display="block";
+    }
 }
 
 function pl_displayresults(xmldoc) {
@@ -17,7 +37,6 @@ function pl_displayresults(xmldoc) {
 function pl_update() {
     /* this is either update or create, depending... */
     var id, name, spec;
-    var pleditor=document.getElementById("pl_editor");
 
     id = document.forms['pl_form']['playlist_id'].value;
     name = encodeURIComponent(document.forms['pl_form']['playlist_name'].value);
@@ -32,24 +51,26 @@ function pl_update() {
     }
     
     init();
-    pleditor.style.display="none";    
+    pl_editor_state(false);   
+}
+
+function pl_cancel() {
+    pl_errormsg("Cancelled");
+    pl_editor_state(false);
 }
 
 function pl_new() {
     var msgdiv = document.getElementById("pl_warning");
     var pleditor=document.getElementById("pl_editor");
 
-    if((!msgdiv)||(!pleditor))
-        return;
-
-    msgdiv.style.display="none";
+    pl_errormsg("");
     
     document.forms['pl_form']['playlist_id'].value='0';
     document.forms['pl_form']['playlist_name'].value = 'New Playlist';
     document.forms['pl_form']['playlist_spec'].value = '';
     document.forms['pl_form']['submit_button'].value = 'Create';
     
-    pleditor.style.display="block";
+    pl_editor_state(true);
 }
 
 function pl_delete(pl_id) {
@@ -101,13 +122,20 @@ function pl_process() {
     while(pl_table.childNodes.length > 0) {
         pl_table.removeChild(pl_table.lastChild);
     }
-        
     for(var x=0; x < playlists.length; x++) {
-        var pl_id=playlists[x].getElementsByTagName("dmap.itemid")[0].firstChild.nodeValue;
-        var pl_name=playlists[x].getElementsByTagName("dmap.itemname")[0].firstChild.nodeValue;
-        var pl_type=playlists[x].getElementsByTagName("org.mt-daapd.playlist-type")[0].firstChild.nodeValue;
+        var pl_id;
+        var pl_name;
+        var pl_type;
+        
+        pl_id=playlists[x].getElementsByTagName("dmap.itemid")[0].firstChild.nodeValue;
+        if(playlists[x].getElementsByTagName("dmap.itemname")[0].firstChild) {
+            pl_name=playlists[x].getElementsByTagName("dmap.itemname")[0].firstChild.nodeValue;
+        } else {
+            pl_name = "";
+        }
+        pl_type=playlists[x].getElementsByTagName("org.mt-daapd.playlist-type")[0].firstChild.nodeValue;
 
-
+        
         playlist_info[String(pl_id)] = { 'name': pl_name, 'type': pl_type };
         if(pl_type == 1) {
             var pl_spec=playlists[x].getElementsByTagName("org.mt-daapd.smart-playlist-spec")[0].firstChild.nodeValue;
@@ -129,26 +157,27 @@ function pl_process() {
                 break;
         }
 
-        if(playlist_info[pl_id]['type'] == 1) {
-            var row = document.createElement("tr");
-            var td1 = document.createElement("td");
-            var td2 = document.createElement("td");
-            var td3 = document.createElement("td");
-            var td4 = document.createElement("td");
-            td1.innerHTML=pl_id + '\n';
-            td2.innerHTML=pl_name + '\n';
-            td3.innerHTML=pl_type + '\n';
+
+        var row = document.createElement("tr");
+        var td1 = document.createElement("td");
+        var td2 = document.createElement("td");
+        var td3 = document.createElement("td");
+        var td4 = document.createElement("td");
+        td1.innerHTML=pl_id + '\n';
+        td2.innerHTML=pl_name + '\n';
+        td3.innerHTML=pl_type + '\n';
+        if((pl_id != 1) && (playlist_info[pl_id]['type'] == 1)) {
             td4.innerHTML='<a href="javascript:pl_edit(' + pl_id + ')">Edit</a>';
-            if(pl_id != 1) {
-                td4.innerHTML = td4.innerHTML + '&nbsp;<a href="javascript:pl_delete(' + pl_id + ')">Delete</a>';
-            }
-        
-            row.appendChild(td1);
-            row.appendChild(td2);
-            row.appendChild(td3);
-            row.appendChild(td4);
-            pl_table.appendChild(row);
+            td4.innerHTML = td4.innerHTML + '&nbsp;<a href="javascript:pl_delete(' + pl_id + ')">Delete</a>';
+        } else {
+            td4.innerHTML="&nbsp;";
         }
+        
+        row.appendChild(td1);
+        row.appendChild(td2);
+        row.appendChild(td3);
+        row.appendChild(td4);
+        pl_table.appendChild(row);
     }
 }
 

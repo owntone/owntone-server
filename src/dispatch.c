@@ -414,9 +414,11 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
 	    r_fdprintf(pwsc->fd,"%ll",ivalue);
 	    break;
 	case 0x09: /* string */
-	    encoded_string=dispatch_xml_encode((char*)data,block_len);
-	    r_fdprintf(pwsc->fd,"%s",encoded_string);
-	    free(encoded_string);
+	    if(block_len) {
+		encoded_string=dispatch_xml_encode((char*)data,block_len);
+		r_fdprintf(pwsc->fd,"%s",encoded_string);
+		free(encoded_string);
+	    }
 	    break;
 	case 0x0B: /* version? */
 	    if(block_len != 4) {
@@ -429,9 +431,11 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
 
 	case 0x0C:
 	    if((poi->browse_response)&&(strcmp(block_tag,"mlit") ==0)) {
-		encoded_string=dispatch_xml_encode((char*)data,block_len);
-		r_fdprintf(pwsc->fd,"%s",encoded_string);
-		free(encoded_string);
+		if(block_len) {
+		    encoded_string=dispatch_xml_encode((char*)data,block_len);
+		    r_fdprintf(pwsc->fd,"%s",encoded_string);
+		    free(encoded_string);
+		}
 	    } else {
 		/* we'll need to stack this up and try and remember where we
 		 * came from.  Make it an extra 8 so that it gets fixed to
@@ -545,7 +549,7 @@ char *dispatch_xml_encode(char *original, int len) {
     } else {
 	truelen=strlen(original);
     }
-    
+
     destsize = 6*truelen+1;
     new=(char *)malloc(destsize);
     if(!new) return NULL;

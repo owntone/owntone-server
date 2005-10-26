@@ -91,6 +91,7 @@ Mark Woehrer
  
 Stefan Bruns
  * Speedups for javascript in playlist page, konq fixes, css fixes
+ * Fixes for mlit -> xml serialization when block len = 0
 
 blech (from the forums)
  * Fixes for iTunes 5 view persistence
@@ -100,5 +101,4 @@ Phil Packer
 
 Diego Penneno
  * Patches for multiple PID files to facilitate gentoo init scripts
-
 
