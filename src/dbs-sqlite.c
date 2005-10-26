@@ -817,10 +817,16 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
             sprintf(query_rest,"WHERE (%s)",where_clause);
             free(where_clause);
         } else {
-            sprintf(query_select,"SELECT * FROM songs,playlistitems ");
             sprintf(query_count,"SELECT COUNT(id) FROM songs ");
+
+#ifdef NSLU2
+	    sprintf(query_select,"select * from songs ");
+	    sprintf(query_rest,"where songs.id in (select songid from playlistitems where playlistid=%d)",pinfo->playlist_id);
+#else
+            sprintf(query_select,"SELECT * FROM songs,playlistitems ");
             sprintf(query_rest,"WHERE (songs.id=playlistitems.songid and playlistitems.playlistid=%d) ORDER BY playlistitems.id",
                     pinfo->playlist_id);
+#endif
         }
         sqlite_free_table(resarray);
         db_sqlite_unlock();
