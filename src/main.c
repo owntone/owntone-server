@@ -188,6 +188,7 @@ void usage(char *program) {
     printf("  -D <mod,mod..> Debug modules\n");
     printf("  -m             Disable mDNS\n");
     printf("  -c <file>      Use configfile specified\n");
+    printf("  -P <file>      Write the PID ot specified file\n");
     printf("  -f             Run in foreground\n");
     printf("  -y             Yes, go ahead and run as non-root user\n");
     printf("\n\n");
@@ -345,6 +346,7 @@ int start_signal_handler(pthread_t *handler_tid) {
 int main(int argc, char *argv[]) {
     int option;
     char *configfile=DEFAULT_CONFIGFILE;
+    char *pidfile=PIDFILE;
     WSCONFIG ws_config;
     WSHANDLE server;
     int foreground=0;
@@ -363,7 +365,7 @@ int main(int argc, char *argv[]) {
     config.use_mdns=1;
     err_debuglevel=1;
 
-    while((option=getopt(argc,argv,"D:d:c:mfrys")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:mfrys")) != -1) {
 	switch(option) {
 	case 'd':
 	    err_debuglevel=atoi(optarg);
@@ -384,6 +386,10 @@ int main(int argc, char *argv[]) {
 
 	case 'm':
 	    config.use_mdns=0;
+	    break;
+
+	case 'P':
+	    pidfile=optarg;
 	    break;
 
 	case 'r':
@@ -442,8 +448,8 @@ int main(int argc, char *argv[]) {
 
     /* open the pidfile, so it can be written once we detach */
     if((!foreground) && (!force_non_root)) {
-	if(-1 == (pid_fd = open(PIDFILE,O_CREAT | O_WRONLY | O_TRUNC, 0644)))
-	    DPRINTF(E_FATAL,L_MAIN,"Error opening pidfile (%s): %s\n",PIDFILE,strerror(errno));
+	if(-1 == (pid_fd = open(pidfile,O_CREAT | O_WRONLY | O_TRUNC, 0644)))
+	    DPRINTF(E_FATAL,L_MAIN,"Error opening pidfile (%s): %s\n",pidfile,strerror(errno));
 
 	if(0 == (pid_fp = fdopen(pid_fd, "w")))
 	    DPRINTF(E_FATAL,L_MAIN,"fdopen: %s\n",strerror(errno));

@@ -98,4 +98,7 @@ blech (from the forums)
 Phil Packer
  * Patches for returning static playlists in order
 
+Diego Penneno
+ * Patches for multiple PID files to facilitate gentoo init scripts
+
 
