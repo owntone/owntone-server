@@ -13,6 +13,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include "err.h"
 
@@ -21,6 +22,7 @@ typedef struct tag_token {
     union {
         char *cvalue;
         int ivalue;
+        time_t tvalue;
     } data;
 } SP_TOKEN;
 
@@ -37,6 +39,7 @@ typedef struct tag_sp_node {
         struct tag_sp_node *node;
         int ivalue;
         char *cvalue;
+        time_t tvalue;
     } right;
 } SP_NODE;
 
@@ -117,7 +120,17 @@ typedef struct tag_sp_node {
 #define T_QUOTE         0x000e
 #define T_NUMBER        0x000f
 #define T_INCLUDES      0x0010
-#define T_LAST          0x0011
+#define T_BEFORE        0x0011
+#define T_AFTER         0x0012
+#define T_AGO           0x0013
+#define T_TODAY         0x0014
+#define T_THE           0x0015
+#define T_DAY           0x0016
+#define T_WEEK          0x0017
+#define T_MONTH         0x0018
+#define T_YEAR          0x0019
+#define T_DATE          0x001a
+#define T_LAST          0x001b
 
 #define T_EOF           0x00fd
 #define T_BOF           0x00fe
@@ -140,7 +153,17 @@ char *sp_token_descr[] = {
     "and",
     "quote",
     "number",
-    "like"
+    "like",
+    "before",
+    "after",
+    "ago",
+    "today",
+    "the",
+    "day(s)",
+    "week(s)",
+    "month(s)",
+    "year(s)",
+    "date"
 };
 
 typedef struct tag_fieldlookup {
@@ -151,6 +174,7 @@ typedef struct tag_fieldlookup {
 FIELDLOOKUP sp_fields[] = {
     { T_INT_FIELD, "id" },
     { T_STRING_FIELD, "path" },
+    { T_STRING_FIELD, "fname" },
     { T_STRING_FIELD, "title" },
     { T_STRING_FIELD, "artist" },
     { T_STRING_FIELD, "album" },
@@ -163,26 +187,47 @@ FIELDLOOKUP sp_fields[] = {
     { T_STRING_FIELD, "url" },
     { T_INT_FIELD, "bitrate" },
     { T_INT_FIELD, "samplerate" },
-    { T_INT_FIELD, "songlength" },
-    { T_INT_FIELD, "filesize" },
+    { T_INT_FIELD, "song_length" },
+    { T_INT_FIELD, "file_size" },
     { T_INT_FIELD, "year" },
     { T_INT_FIELD, "track" },
-    { T_INT_FIELD, "totaltracks" },
+    { T_INT_FIELD, "total_tracks" },
     { T_INT_FIELD, "disc" },
-    { T_INT_FIELD, "totaldiscs" },
+    { T_INT_FIELD, "total_discs" },
     { T_INT_FIELD, "bpm" },
     { T_INT_FIELD, "compilation" },
     { T_INT_FIELD, "rating" },
-    { T_INT_FIELD, "playcount" },
-    { T_INT_FIELD, "datakind" },
-    { T_INT_FIELD, "itemkind" },
+    { T_INT_FIELD, "play_count" },
+    { T_INT_FIELD, "data_kind" },
+    { T_INT_FIELD, "item_kind" },
     { T_STRING_FIELD, "description" },
-
+    { T_DATE_FIELD, "time_added" },
+    { T_DATE_FIELD, "time_modified" },
+    { T_DATE_FIELD, "time_played" },
+    { T_DATE_FIELD, "db_timestamp" },
+    { T_INT_FIELD, "sample_count" },
+    { T_INT_FIELD, "force_update" },
+    { T_STRING_FIELD, "codectype" },
+    { T_INT_FIELD, "idx" },
+    
     /* end of db fields */
     { T_OR, "or" },
     { T_AND, "and" },
     { T_INCLUDES, "includes" },
-
+    { T_BEFORE, "before" },
+    { T_AFTER, "after" },
+    { T_AGO, "ago" },
+    { T_TODAY, "today" },
+    { T_THE, "the" },
+    { T_DAY, "days" },
+    { T_DAY, "day" },
+    { T_WEEK, "weeks" },
+    { T_WEEK, "week" },
+    { T_MONTH, "months" },
+    { T_MONTH, "month" },
+    { T_YEAR, "years" },
+    { T_YEAR, "year" },
+    
     /* end */
     { 0, NULL },
 };
@@ -198,15 +243,19 @@ typedef struct tag_parsetree {
     char level;
 } PARSESTRUCT, *PARSETREE;
 
-#define SP_E_SUCCESS       0
-#define SP_E_CLOSE         1
-#define SP_E_FIELD         2
-#define SP_E_STRCMP        3
-#define SP_E_CLOSEQUOTE    4
-#define SP_E_STRING        5
-#define SP_E_OPENQUOTE     6
-#define SP_E_INTCMP        7
-#define SP_E_NUMBER        8
+#define SP_E_SUCCESS       0x00
+#define SP_E_CLOSE         0x01
+#define SP_E_FIELD         0x02
+#define SP_E_STRCMP        0x03
+#define SP_E_CLOSEQUOTE    0x04
+#define SP_E_STRING        0x05
+#define SP_E_OPENQUOTE     0x06
+#define SP_E_INTCMP        0x07
+#define SP_E_NUMBER        0x08
+#define SP_E_DATECMP       0x09
+#define SP_E_BEFOREAFTER   0x0a
+#define SP_E_TIMEINTERVAL  0x0b
+#define SP_E_DATE          0x0c
 
 char *sp_errorstrings[] = {
     "Success",
@@ -217,7 +266,11 @@ char *sp_errorstrings[] = {
     "Expecting literal string",
     "Expecting '\"' (opening quote)",
     "Expecting integer comparison operator (=,<,>, etc)",    
-    "Expecting integer"
+    "Expecting integer",
+    "Expecting date comparison operator (<,<=,>,>=)",
+    "Expecting interval comparison (before, after)",
+    "Expecting time interval (days, weeks, months, years)",
+    "Expecting date"
 };
 
 /* Forwards */
@@ -229,6 +282,8 @@ SP_NODE *sp_parse_criterion(PARSETREE tree);
 SP_NODE *sp_parse_string_criterion(PARSETREE tree);
 SP_NODE *sp_parse_int_criterion(PARSETREE tree);
 SP_NODE *sp_parse_date_criterion(PARSETREE tree);
+time_t sp_parse_date(PARSETREE tree);
+time_t sp_parse_date_interval(PARSETREE tree);
 void sp_free_node(SP_NODE *node);
 int sp_node_size(SP_NODE *node);
 void sp_set_error(PARSETREE tree,int error);
@@ -570,7 +625,7 @@ SP_NODE *sp_parse_aexpr(PARSETREE tree) {
         expr=pnew;
     }
 
-    sp_enter_exit(tree,"sp_parse_aexpr",0,NULL);
+    sp_enter_exit(tree,"sp_parse_aexpr",0,expr);
     return expr;
 }
 
@@ -826,15 +881,177 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
  * @param tree tree we are building
  * @returns pointer to new SP_NODE if successful, NULL otherwise
  */
- SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
+SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
     SP_NODE *pnew=NULL;
-
+    int result=0;
+    
     sp_enter_exit(tree,"sp_parse_date_criterion",1,pnew);
+    pnew = malloc(sizeof(SP_NODE));
+    if(!pnew) {
+        DPRINTF(E_FATAL,L_PARSE,"Malloc Error\n");
+    }
+    memset(pnew,0x00,sizeof(SP_NODE));
+    pnew->left.field = strdup(tree->token.data.cvalue);
+
+    sp_scan(tree); /* scan past the date field we know is there */
+
+    switch(tree->token.token_id) {
+    case T_LESSEQUAL:
+    case T_LESS:
+    case T_GREATEREQUAL:
+    case T_GREATER:
+        result = 1;
+        pnew->op=tree->token.token_id;
+        pnew->op_type = SP_OPTYPE_DATE;
+        break;
+    case T_BEFORE:
+        result = 1;
+        pnew->op_type = SP_OPTYPE_DATE;
+        pnew->op=T_LESS;
+        break;
+    case T_AFTER:
+        result = 1;
+        pnew->op_type = SP_OPTYPE_DATE;
+        pnew->op=T_GREATER;
+        break;
+    default:
+        /* Error: expecting legal int comparison operator */
+        sp_set_error(tree,SP_E_DATECMP);
+        DPRINTF(E_LOG,L_PARSE,"Expecting int comparison op, got %04X\n",
+            tree->token.token_id);
+        break;
+    }
+
+    if(result) {
+        sp_scan(tree);
+        /* should be sitting on a date */
+        if((pnew->right.tvalue = sp_parse_date(tree))) {
+            result=1;
+        } else {
+            sp_set_error(tree,SP_E_DATE);
+            result=0;
+        }
+    }
+
+    if(!result) {
+        sp_free_node(pnew);
+        pnew=NULL;
+    }
+        
 
     sp_enter_exit(tree,"sp_parse_date_criterion",0,pnew);
 
     return pnew;
  }
+
+/**
+ * parse a date value for a date field comparison
+ *
+ * date -> T_TODAY | T_DATE | 
+ *         date_interval T_BEFORE date | date_interval T_AFTER date
+ * date_interval -> T_NUMBER ( T_DAY | T_WEEK | T_MONTH | T_YEAR)
+ *                  (T_BEFORE | T_AFTER) date
+ *
+ * @param tree tree we are building/parsing
+ * @returns time_t of date, or 0 if failure
+ */
+time_t sp_parse_date(PARSETREE tree) {
+    time_t result=0;
+    time_t interval;
+    int before;
+    
+    sp_enter_exit(tree,"sp_parse_date",1,(void*)result);
+
+    switch(tree->token.token_id) {
+    case T_TODAY:
+        result = time(NULL);
+        sp_scan(tree);
+        break;
+    case T_DATE:
+        result = tree->token.data.tvalue;
+        sp_scan(tree);
+        break;
+    }
+    
+    if(!result) {
+        /* must be an interval */
+        interval = sp_parse_date_interval(tree);
+        if(!interval) {
+            result = 0;
+        } else if((tree->token.token_id != T_BEFORE) &&
+                (tree->token.token_id != T_AFTER)) {
+            sp_set_error(tree,SP_E_BEFOREAFTER);
+            result=0;
+        } else {
+            before = 1;
+            if(tree->token.token_id == T_AFTER)
+                before = 0;
+                
+            sp_scan(tree);
+            result = sp_parse_date(tree);
+            if(result) {
+                if(before) {
+                    result -= interval;
+                } else {
+                    result += interval;
+                }
+            }
+        }
+    }
+    
+    sp_enter_exit(tree,"sp_parse_date_criterion",0,(void*)result);
+
+    return result;
+}
+
+/**
+ * parse a date inteval
+ *
+ * date_interval -> T_NUMBER (T_DAY | T_WEEK | T_MONTH | T_YEAR)
+ * @param tree tree we are parsing/building
+ * @returns time_t seconds in interval, or 0 if error
+ */
+time_t sp_parse_date_interval(PARSETREE tree) {
+    time_t result=0;
+    int count;
+    
+    sp_enter_exit(tree,"sp_parse_date_interval",1,(void*)result);
+
+    if(tree->token.token_id != T_NUMBER) {
+        result=0;
+        sp_set_error(tree,SP_E_NUMBER);        
+    } else {
+        count = tree->token.data.ivalue;
+        sp_scan(tree);
+        switch(tree->token.token_id) {
+        case T_DAY:
+            result = count * 3600 * 24;
+            sp_scan(tree);
+            break;
+        case T_WEEK:
+            result = count * 3600 * 24 * 7;
+            sp_scan(tree);
+            break;
+        case T_MONTH:
+            result = count * 3600 * 24 * 30;
+            sp_scan(tree);
+            break;
+        case T_YEAR:
+            result = count * 3600 * 24 * 365;
+            sp_scan(tree);
+            break;
+        default:
+            result=0;
+            sp_set_error(tree, SP_E_TIMEINTERVAL);
+            break;
+        }
+    }
+    
+    sp_enter_exit(tree,"sp_parse_date_interval",0,(void*)result);
+    return result;
+}
+
+ 
 
 /**
  * free a node, and all left/right subnodes
@@ -917,14 +1134,17 @@ int sp_node_size(SP_NODE *node) {
         } else {
             size += strlen(sp_token_descr[node->op & 0x0FFF]);
         }
+        
         if(node->op_type == SP_OPTYPE_STRING) {
             size += (2 + strlen(node->right.cvalue));
             if(node->op == T_INCLUDES) {
                 size += 2; /* extra %'s */
             }
         }
-        if(node->op_type == SP_OPTYPE_INT)
-            size += ((node->right.ivalue/10) + 1);
+        
+        if((node->op_type == SP_OPTYPE_INT) || (node->op_type == SP_OPTYPE_DATE)) {
+            size += 40; /* what *is* the max size of int64? */
+        }
     }
      
     return size;
@@ -964,6 +1184,11 @@ void sp_serialize_sql(SP_NODE *node, char *string) {
         
         if(node->op_type == SP_OPTYPE_INT) {
             sprintf(buffer,"%d",node->right.ivalue);
+            strcat(string,buffer);
+        }
+        
+        if(node->op_type == SP_OPTYPE_DATE) {
+            sprintf(buffer,"%d",(int)node->right.tvalue);
             strcat(string,buffer);
         }
         strcat(string,")");
