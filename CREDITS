@@ -101,4 +101,9 @@ Phil Packer
 
 Diego Penneno
  * Patches for multiple PID files to facilitate gentoo init scripts
+ 
+Paul Forgey
+ * Fixes for alignment problems in XING header parsing
+ 
+
 

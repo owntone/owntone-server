@@ -254,7 +254,7 @@ static void scan_mp3_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi);
  */
 int scan_get_mp3info(char *filename, MP3FILE *pmp3) {
     if(scan_mp3_get_mp3tags(filename, pmp3))
-	return scan_mp3_get_mp3fileinfo(filename,pmp3);
+        return scan_mp3_get_mp3fileinfo(filename,pmp3);
     return FALSE;
 }
 
@@ -268,9 +268,9 @@ int scan_mp3_is_numeric(char *str) {
     char *ptr=str;
 
     while(*ptr) {
-	if(!isdigit(*ptr))
-	    return 0;
-	ptr++;
+        if(!isdigit(*ptr))
+            return 0;
+        ptr++;
     }
     return 1;
 }
@@ -292,187 +292,187 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
-	DPRINTF(E_WARN,L_SCAN,"Cannot open %s\n",file);
-	return FALSE;
+        DPRINTF(E_WARN,L_SCAN,"Cannot open %s\n",file);
+        return FALSE;
     }
 
     pid3tag=id3_file_tag(pid3file);
     
     if(!pid3tag) {
-	err=errno;
-	id3_file_close(pid3file);
-	errno=err;
-	DPRINTF(E_WARN,L_SCAN,"Cannot get ID3 tag for %s\n",file);
-	return FALSE;
+        err=errno;
+        id3_file_close(pid3file);
+        errno=err;
+        DPRINTF(E_WARN,L_SCAN,"Cannot get ID3 tag for %s\n",file);
+        return FALSE;
     }
 
     DPRINTF(E_SPAM,L_SCAN,"Starting mp3 tag scan\n");
 
     index=0;
     while((pid3frame=id3_tag_findframe(pid3tag,"",index))) {
-	used=0;
-	utf8_text=NULL;
-	native_text=NULL;
-	have_utf8=0;
-	have_text=0;
+        used=0;
+        utf8_text=NULL;
+        native_text=NULL;
+        have_utf8=0;
+        have_text=0;
 
-	DPRINTF(E_SPAM,L_SCAN,"Found tag %s\n",pid3frame->id);
+        DPRINTF(E_SPAM,L_SCAN,"Found tag %s\n",pid3frame->id);
 
-	if(!strcmp(pid3frame->id,"YTCP")) { /* for id3v2.2 */
-	    pmp3->compilation = 1;
-	    DPRINTF(E_DBG,L_SCAN,"Compilation: %d\n", pmp3->compilation);
-	}
+        if(!strcmp(pid3frame->id,"YTCP")) { /* for id3v2.2 */
+            pmp3->compilation = 1;
+            DPRINTF(E_DBG,L_SCAN,"Compilation: %d\n", pmp3->compilation);
+        }
 
-	if(((pid3frame->id[0] == 'T')||(strcmp(pid3frame->id,"COMM")==0)) &&
-	   (id3_field_getnstrings(&pid3frame->fields[1]))) 
-	    have_text=1;
+        if(((pid3frame->id[0] == 'T')||(strcmp(pid3frame->id,"COMM")==0)) &&
+           (id3_field_getnstrings(&pid3frame->fields[1]))) 
+            have_text=1;
 
-	if(have_text) {
-	    native_text=id3_field_getstrings(&pid3frame->fields[1],0);
+        if(have_text) {
+            native_text=id3_field_getstrings(&pid3frame->fields[1],0);
 
-	    if(native_text) {
-		/* FIXME: I didn't understand what was happening here.
-		 * this should really be a switch to evaluate latin1
-		 * tags as native codepage.  Not only is this hackish,
-		 * it's just plain wrong.
-		 */
-		have_utf8=1;
-		if(config.latin1_tags) {
-		    utf8_text=(char *)id3_ucs4_latin1duplicate(native_text);
-		} else {
-		    utf8_text=(char *)id3_ucs4_utf8duplicate(native_text);
-		}
-		MEMNOTIFY(utf8_text);
+            if(native_text) {
+                /* FIXME: I didn't understand what was happening here.
+                 * this should really be a switch to evaluate latin1
+                 * tags as native codepage.  Not only is this hackish,
+                 * it's just plain wrong.
+                 */
+                have_utf8=1;
+                if(config.latin1_tags) {
+                    utf8_text=(char *)id3_ucs4_latin1duplicate(native_text);
+                } else {
+                    utf8_text=(char *)id3_ucs4_utf8duplicate(native_text);
+                }
+                MEMNOTIFY(utf8_text);
 
-		if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
-		    used=1;
-		    pmp3->title = utf8_text;
-		    DPRINTF(E_DBG,L_SCAN," Title: %s\n",utf8_text);
-		} else if(!strcmp(pid3frame->id,"TPE1")) {
-		    used=1;
-		    pmp3->artist = utf8_text;
-		    DPRINTF(E_DBG,L_SCAN," Artist: %s\n",utf8_text);
-		} else if(!strcmp(pid3frame->id,"TALB")) {
-		    used=1;
-		    pmp3->album = utf8_text;
-		    DPRINTF(E_DBG,L_SCAN," Album: %s\n",utf8_text);
-		} else if(!strcmp(pid3frame->id,"TCOM")) {
-		    used=1;
-		    pmp3->composer = utf8_text;
-		    DPRINTF(E_DBG,L_SCAN," Composer: %s\n",utf8_text);
-		} else if(!strcmp(pid3frame->id,"TIT1")) {
-		    used=1;
-		    pmp3->grouping = utf8_text;
-		    DPRINTF(E_DBG,L_SCAN," Grouping: %s\n",utf8_text);
-		} else if(!strcmp(pid3frame->id,"TPE2")) {
-		    used=1;
-		    pmp3->orchestra = utf8_text;
-		    DPRINTF(E_DBG,L_SCAN," Orchestra: %s\n",utf8_text);
-		} else if(!strcmp(pid3frame->id,"TPE3")) {
-		    used=1;
-		    pmp3->conductor = utf8_text;
-		    DPRINTF(E_DBG,L_SCAN," Conductor: %s\n",utf8_text);
-		} else if(!strcmp(pid3frame->id,"TCON")) {
-		    used=1;
-		    pmp3->genre = utf8_text;
-		    got_numeric_genre=0;
-		    DPRINTF(E_DBG,L_SCAN," Genre: %s\n",utf8_text);
-		    if(pmp3->genre) {
-			if(!strlen(pmp3->genre)) {
-			    genre=WINAMP_GENRE_UNKNOWN;
-			    got_numeric_genre=1;
-			} else if (scan_mp3_is_numeric(pmp3->genre)) {
-			    genre=atoi(pmp3->genre);
-			    got_numeric_genre=1;
-			} else if ((pmp3->genre[0] == '(') && (isdigit(pmp3->genre[1]))) {
-			    genre=atoi((char*)&pmp3->genre[1]);
-			    got_numeric_genre=1;
-			} 
+                if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
+                    used=1;
+                    pmp3->title = utf8_text;
+                    DPRINTF(E_DBG,L_SCAN," Title: %s\n",utf8_text);
+                } else if(!strcmp(pid3frame->id,"TPE1")) {
+                    used=1;
+                    pmp3->artist = utf8_text;
+                    DPRINTF(E_DBG,L_SCAN," Artist: %s\n",utf8_text);
+                } else if(!strcmp(pid3frame->id,"TALB")) {
+                    used=1;
+                    pmp3->album = utf8_text;
+                    DPRINTF(E_DBG,L_SCAN," Album: %s\n",utf8_text);
+                } else if(!strcmp(pid3frame->id,"TCOM")) {
+                    used=1;
+                    pmp3->composer = utf8_text;
+                    DPRINTF(E_DBG,L_SCAN," Composer: %s\n",utf8_text);
+                } else if(!strcmp(pid3frame->id,"TIT1")) {
+                    used=1;
+                    pmp3->grouping = utf8_text;
+                    DPRINTF(E_DBG,L_SCAN," Grouping: %s\n",utf8_text);
+                } else if(!strcmp(pid3frame->id,"TPE2")) {
+                    used=1;
+                    pmp3->orchestra = utf8_text;
+                    DPRINTF(E_DBG,L_SCAN," Orchestra: %s\n",utf8_text);
+                } else if(!strcmp(pid3frame->id,"TPE3")) {
+                    used=1;
+                    pmp3->conductor = utf8_text;
+                    DPRINTF(E_DBG,L_SCAN," Conductor: %s\n",utf8_text);
+                } else if(!strcmp(pid3frame->id,"TCON")) {
+                    used=1;
+                    pmp3->genre = utf8_text;
+                    got_numeric_genre=0;
+                    DPRINTF(E_DBG,L_SCAN," Genre: %s\n",utf8_text);
+                    if(pmp3->genre) {
+                        if(!strlen(pmp3->genre)) {
+                            genre=WINAMP_GENRE_UNKNOWN;
+                            got_numeric_genre=1;
+                        } else if (scan_mp3_is_numeric(pmp3->genre)) {
+                            genre=atoi(pmp3->genre);
+                            got_numeric_genre=1;
+                        } else if ((pmp3->genre[0] == '(') && (isdigit(pmp3->genre[1]))) {
+                            genre=atoi((char*)&pmp3->genre[1]);
+                            got_numeric_genre=1;
+                        } 
 
-			if(got_numeric_genre) {
-			    if((genre < 0) || (genre > WINAMP_GENRE_UNKNOWN))
-				genre=WINAMP_GENRE_UNKNOWN;
-			    free(pmp3->genre);
-			    pmp3->genre=strdup(scan_winamp_genre[genre]);
-			}
-		    }
-		} else if(!strcmp(pid3frame->id,"COMM")) {
-		    used=1;
-		    pmp3->comment = utf8_text;
-		    DPRINTF(E_DBG,L_SCAN," Comment: %s\n",pmp3->comment);
-		} else if(!strcmp(pid3frame->id,"TPOS")) {
-		    tmp=utf8_text;
-		    strsep(&tmp,"/");
-		    if(tmp) {
-			pmp3->total_discs=atoi(tmp);
-		    }
-		    pmp3->disc=atoi(utf8_text);
-		    DPRINTF(E_DBG,L_SCAN," Disc %d of %d\n",pmp3->disc,pmp3->total_discs);
-		} else if(!strcmp(pid3frame->id,"TRCK")) {
-		    tmp=utf8_text;
-		    strsep(&tmp,"/");
-		    if(tmp) {
-			pmp3->total_tracks=atoi(tmp);
-		    }
-		    pmp3->track=atoi(utf8_text);
-		    DPRINTF(E_DBG,L_SCAN," Track %d of %d\n",pmp3->track,pmp3->total_tracks);
-		} else if(!strcmp(pid3frame->id,"TDRC")) {
-		    pmp3->year = atoi(utf8_text);
-		    DPRINTF(E_DBG,L_SCAN," Year: %d\n",pmp3->year);
-		} else if(!strcmp(pid3frame->id,"TLEN")) {
-		    pmp3->song_length = atoi(utf8_text); /* now in ms */
-		    DPRINTF(E_DBG,L_SCAN," Length: %d\n", pmp3->song_length);
-		} else if(!strcmp(pid3frame->id,"TBPM")) {
-		    pmp3->bpm = atoi(utf8_text);
-		    DPRINTF(E_DBG,L_SCAN,"BPM: %d\n", pmp3->bpm);
-		} else if(!strcmp(pid3frame->id,"TCMP")) { /* for id3v2.3 */
+                        if(got_numeric_genre) {
+                            if((genre < 0) || (genre > WINAMP_GENRE_UNKNOWN))
+                                genre=WINAMP_GENRE_UNKNOWN;
+                            free(pmp3->genre);
+                            pmp3->genre=strdup(scan_winamp_genre[genre]);
+                        }
+                    }
+                } else if(!strcmp(pid3frame->id,"COMM")) {
+                    used=1;
+                    pmp3->comment = utf8_text;
+                    DPRINTF(E_DBG,L_SCAN," Comment: %s\n",pmp3->comment);
+                } else if(!strcmp(pid3frame->id,"TPOS")) {
+                    tmp=utf8_text;
+                    strsep(&tmp,"/");
+                    if(tmp) {
+                        pmp3->total_discs=atoi(tmp);
+                    }
+                    pmp3->disc=atoi(utf8_text);
+                    DPRINTF(E_DBG,L_SCAN," Disc %d of %d\n",pmp3->disc,pmp3->total_discs);
+                } else if(!strcmp(pid3frame->id,"TRCK")) {
+                    tmp=utf8_text;
+                    strsep(&tmp,"/");
+                    if(tmp) {
+                        pmp3->total_tracks=atoi(tmp);
+                    }
+                    pmp3->track=atoi(utf8_text);
+                    DPRINTF(E_DBG,L_SCAN," Track %d of %d\n",pmp3->track,pmp3->total_tracks);
+                } else if(!strcmp(pid3frame->id,"TDRC")) {
+                    pmp3->year = atoi(utf8_text);
+                    DPRINTF(E_DBG,L_SCAN," Year: %d\n",pmp3->year);
+                } else if(!strcmp(pid3frame->id,"TLEN")) {
+                    pmp3->song_length = atoi(utf8_text); /* now in ms */
+                    DPRINTF(E_DBG,L_SCAN," Length: %d\n", pmp3->song_length);
+                } else if(!strcmp(pid3frame->id,"TBPM")) {
+                    pmp3->bpm = atoi(utf8_text);
+                    DPRINTF(E_DBG,L_SCAN,"BPM: %d\n", pmp3->bpm);
+                } else if(!strcmp(pid3frame->id,"TCMP")) { /* for id3v2.3 */
                     pmp3->compilation = (char)atoi(utf8_text);
                     DPRINTF(E_DBG,L_SCAN,"Compilation: %d\n", pmp3->compilation);
                 }
-	    }
-	}
+            }
+        }
 
-	/* can check for non-text tags here */
-	if((!used) && (have_utf8) && (utf8_text))
-	    free(utf8_text);
+        /* can check for non-text tags here */
+        if((!used) && (have_utf8) && (utf8_text))
+            free(utf8_text);
 
-	/* v2 COMM tags are a bit different than v1 */
-	if((!strcmp(pid3frame->id,"COMM")) && (pid3frame->nfields == 4)) {
-	    /* Make sure it isn't a application-specific comment...
-	     * This currently includes the following:
-	     *
-	     * iTunes_CDDB_IDs
-	     * iTunNORM
-	     * 
-	     * If other apps stuff crap into comment fields, then we'll ignore them
-	     * here.
-	     */
-	    native_text=id3_field_getstring(&pid3frame->fields[2]);
-	    if(native_text) {
-		utf8_text=(char*)id3_ucs4_utf8duplicate(native_text);
-		if((utf8_text) && (strncasecmp(utf8_text,"iTun",4) != 0)) {
-		    /* it's a real comment */
-		    if(utf8_text)
-			free(utf8_text);
+        /* v2 COMM tags are a bit different than v1 */
+        if((!strcmp(pid3frame->id,"COMM")) && (pid3frame->nfields == 4)) {
+            /* Make sure it isn't a application-specific comment...
+             * This currently includes the following:
+             *
+             * iTunes_CDDB_IDs
+             * iTunNORM
+             * 
+             * If other apps stuff crap into comment fields, then we'll ignore them
+             * here.
+             */
+            native_text=id3_field_getstring(&pid3frame->fields[2]);
+            if(native_text) {
+                utf8_text=(char*)id3_ucs4_utf8duplicate(native_text);
+                if((utf8_text) && (strncasecmp(utf8_text,"iTun",4) != 0)) {
+                    /* it's a real comment */
+                    if(utf8_text)
+                        free(utf8_text);
 
-		    native_text=id3_field_getfullstring(&pid3frame->fields[3]);
-		    if(native_text) {
-			if(pmp3->comment)
-			    free(pmp3->comment);
-			utf8_text=(char*)id3_ucs4_utf8duplicate(native_text);
-			if(utf8_text) {
-			    pmp3->comment=utf8_text;
-			    MEMNOTIFY(pmp3->comment);
-			}
-		    }
-		} else {
-		    if(utf8_text)
-			free(utf8_text);
-		}
-	    }
-	}
+                    native_text=id3_field_getfullstring(&pid3frame->fields[3]);
+                    if(native_text) {
+                        if(pmp3->comment)
+                            free(pmp3->comment);
+                        utf8_text=(char*)id3_ucs4_utf8duplicate(native_text);
+                        if(utf8_text) {
+                            pmp3->comment=utf8_text;
+                            MEMNOTIFY(pmp3->comment);
+                        }
+                    }
+                } else {
+                    if(utf8_text)
+                        free(utf8_text);
+                }
+            }
+        }
 
-	index++;
+        index++;
     }
 
     id3_file_close(pid3file);
@@ -496,8 +496,8 @@ int scan_mp3_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi) {
     int samplerate_index;
 
     if((frame[0] != 0xFF) || (frame[1] < 224)) {
-	pfi->is_valid=0;
-	return -1;
+        pfi->is_valid=0;
+        return -1;
     }
 
     ver=(frame[1] & 0x18) >> 3;
@@ -508,105 +508,105 @@ int scan_mp3_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi) {
 
     switch(ver) {
     case 0:
-	pfi->version = 2.5;
-	sample_index=2;
-	if(pfi->layer == 1)
-	    layer_index = 3;
-	if((pfi->layer == 2) || (pfi->layer == 3))
-	    layer_index = 4;
-	break;
+        pfi->version = 2.5;
+        sample_index=2;
+        if(pfi->layer == 1)
+            layer_index = 3;
+        if((pfi->layer == 2) || (pfi->layer == 3))
+            layer_index = 4;
+        break;
     case 2:                 
-	pfi->version = 2.0;
-	sample_index=1;
-	if(pfi->layer == 1)
-	    layer_index=3;
-	if((pfi->layer == 2) || (pfi->layer == 3))
-	    layer_index=4;
-	break;
+        pfi->version = 2.0;
+        sample_index=1;
+        if(pfi->layer == 1)
+            layer_index=3;
+        if((pfi->layer == 2) || (pfi->layer == 3))
+            layer_index=4;
+        break;
     case 3:
-	pfi->version = 1.0;
-	sample_index=0;
-	if(pfi->layer == 1)
-	    layer_index = 0;
-	if(pfi->layer == 2)
-	    layer_index = 1;
-	if(pfi->layer == 3)
-	    layer_index = 2;
-	break;
+        pfi->version = 1.0;
+        sample_index=0;
+        if(pfi->layer == 1)
+            layer_index = 0;
+        if(pfi->layer == 2)
+            layer_index = 1;
+        if(pfi->layer == 3)
+            layer_index = 2;
+        break;
     }
 
     if((layer_index < 0) || (layer_index > 4)) {
-	pfi->is_valid=0;
-	return -1;
+        pfi->is_valid=0;
+        return -1;
     }
 
     if((sample_index < 0) || (sample_index > 2)) {
-	pfi->is_valid=0;
-	return -1;
+        pfi->is_valid=0;
+        return -1;
     }
 
     if(pfi->layer==1) pfi->samples_per_frame=384;
     if(pfi->layer==2) pfi->samples_per_frame=1152;
     if(pfi->layer==3) {
-	if(pfi->version == 1.0) {
-	    pfi->samples_per_frame=1152;
-	} else {
-	    pfi->samples_per_frame=576;
-	}
+        if(pfi->version == 1.0) {
+            pfi->samples_per_frame=1152;
+        } else {
+            pfi->samples_per_frame=576;
+        }
     }
 
     bitrate_index=(frame[2] & 0xF0) >> 4;
     samplerate_index=(frame[2] & 0x0C) >> 2;
 
     if((bitrate_index == 0xF) || (bitrate_index==0x0)) {
-	pfi->is_valid=0;
-	return -1;
+        pfi->is_valid=0;
+        return -1;
     }
 
     if(samplerate_index == 3) {
-	pfi->is_valid=0;
-	return -1;
+        pfi->is_valid=0;
+        return -1;
     }
-	
+        
     pfi->bitrate = scan_br_table[layer_index][bitrate_index];
     pfi->samplerate = scan_sample_table[sample_index][samplerate_index];
 
     if((frame[3] & 0xC0 >> 6) == 3) 
-	pfi->stereo = 0;
+        pfi->stereo = 0;
     else
-	pfi->stereo = 1;
+        pfi->stereo = 1;
 
     if(frame[2] & 0x02) { /* Padding bit set */
-	pfi->padding=1;
+        pfi->padding=1;
     } else {
-	pfi->padding=0;
+        pfi->padding=0;
     }
 
     if(pfi->version == 1.0) {
-	if(pfi->stereo) {
-	    pfi->xing_offset=32;
-	} else {
-	    pfi->xing_offset=17;
-	}
+        if(pfi->stereo) {
+            pfi->xing_offset=32;
+        } else {
+            pfi->xing_offset=17;
+        }
     } else {
-	if(pfi->stereo) {
-	    pfi->xing_offset=17;
-	} else {
-	    pfi->xing_offset=9;
-	}
+        if(pfi->stereo) {
+            pfi->xing_offset=17;
+        } else {
+            pfi->xing_offset=9;
+        }
     }
 
     pfi->crc_protected=(frame[1] & 0xFE);
 
     if(pfi->layer == 1) {
-	pfi->frame_length = (12 * pfi->bitrate * 1000 / pfi->samplerate + pfi->padding) * 4;
+        pfi->frame_length = (12 * pfi->bitrate * 1000 / pfi->samplerate + pfi->padding) * 4;
     } else {
-	pfi->frame_length = 144 * pfi->bitrate * 1000 / pfi->samplerate + pfi->padding;
+        pfi->frame_length = 144 * pfi->bitrate * 1000 / pfi->samplerate + pfi->padding;
     }
 
     if((pfi->frame_length > 2880) || (pfi->frame_length <= 0)) {
-	pfi->is_valid=0;
-	return -1;
+        pfi->is_valid=0;
+        return -1;
     }
 
     pfi->is_valid=1;
@@ -642,50 +642,50 @@ void scan_mp3_get_average_bitrate(FILE *infile, SCAN_FRAMEINFO *pfi) {
     /* now, find the first frame */
     fseek(infile,pos,SEEK_SET);
     if(fread(frame_buffer,1,sizeof(frame_buffer),infile) != sizeof(frame_buffer)) 
-	return;
+        return;
 
     while(!found) {
-	while((frame_buffer[index] != 0xFF) && (index < (sizeof(frame_buffer)-4)))
-	    index++;
+        while((frame_buffer[index] != 0xFF) && (index < (sizeof(frame_buffer)-4)))
+            index++;
 
-	if(index >= (sizeof(frame_buffer)-4)) { /* largest mp3 frame is 2880 bytes */
-	    DPRINTF(E_DBG,L_SCAN,"Could not find frame... quitting\n");
-	    return;
-	}
-	    
-	if(!scan_mp3_decode_mp3_frame(&frame_buffer[index],&fi)) { 
-	    /* see if next frame is valid */
-	    fseek(infile,pos + index + fi.frame_length,SEEK_SET);
-	    if(fread(header,1,sizeof(header),infile) != sizeof(header)) {
-		DPRINTF(E_DBG,L_SCAN,"Could not read frame header\n");
-		return;
-	    }
+        if(index >= (sizeof(frame_buffer)-4)) { /* largest mp3 frame is 2880 bytes */
+            DPRINTF(E_DBG,L_SCAN,"Could not find frame... quitting\n");
+            return;
+        }
+            
+        if(!scan_mp3_decode_mp3_frame(&frame_buffer[index],&fi)) { 
+            /* see if next frame is valid */
+            fseek(infile,pos + index + fi.frame_length,SEEK_SET);
+            if(fread(header,1,sizeof(header),infile) != sizeof(header)) {
+                DPRINTF(E_DBG,L_SCAN,"Could not read frame header\n");
+                return;
+            }
 
-	    if(!scan_mp3_decode_mp3_frame(header,&fi))
-		found=1;
-	}
-	
-	if(!found)
-	    index++;
+            if(!scan_mp3_decode_mp3_frame(header,&fi))
+                found=1;
+        }
+        
+        if(!found)
+            index++;
     }
 
     pos += index;
 
     /* found first frame.  Let's move */
     while(frame_count < 10) {
-	fseek(infile,pos,SEEK_SET);
-	if(fread(header,1,sizeof(header),infile) != sizeof(header)) {
-	    DPRINTF(E_DBG,L_SCAN,"Could not read frame header\n");
-	    return;
-	}
-	if(scan_mp3_decode_mp3_frame(header,&fi)) {
-	    DPRINTF(E_DBG,L_SCAN,"Invalid frame header while averaging\n");
-	    return;
-	}
+        fseek(infile,pos,SEEK_SET);
+        if(fread(header,1,sizeof(header),infile) != sizeof(header)) {
+            DPRINTF(E_DBG,L_SCAN,"Could not read frame header\n");
+            return;
+        }
+        if(scan_mp3_decode_mp3_frame(header,&fi)) {
+            DPRINTF(E_DBG,L_SCAN,"Invalid frame header while averaging\n");
+            return;
+        }
     
-	bitrate_total += fi.bitrate;
-	frame_count++;
-	pos += fi.frame_length;
+        bitrate_total += fi.bitrate;
+        frame_count++;
+        pos += fi.frame_length;
     }
 
     DPRINTF(E_DBG,L_SCAN,"Old bitrate: %d\n",pfi->bitrate);
@@ -723,40 +723,40 @@ void scan_mp3_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi) {
     pos=pfi->frame_offset;
 
     while(1) {
-	err=1;
-	DPRINTF(E_SPAM,L_SCAN,"Seeking to %d\n",pos);
+        err=1;
+        DPRINTF(E_SPAM,L_SCAN,"Seeking to %d\n",pos);
 
-	fseek(infile,pos,SEEK_SET);
-	if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
-	    /* check for valid frame */
-	    if(!scan_mp3_decode_mp3_frame(frame_buffer,&fi)) {
-		frames++;
-		pos += fi.frame_length;
-		err=0;
+        fseek(infile,pos,SEEK_SET);
+        if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
+            /* check for valid frame */
+            if(!scan_mp3_decode_mp3_frame(frame_buffer,&fi)) {
+                frames++;
+                pos += fi.frame_length;
+                err=0;
 
-		if((last_bitrate) && (fi.bitrate != last_bitrate))
-		    cbr=0;
-		last_bitrate=fi.bitrate;
+                if((last_bitrate) && (fi.bitrate != last_bitrate))
+                    cbr=0;
+                last_bitrate=fi.bitrate;
 
-		/* no point in brute scan of a cbr file... */
-		if(cbr && (frames > 100)) {
-		    DPRINTF(E_DBG,L_SCAN,"File appears to be CBR... quitting frame count\n");
-		    return;
-		}
-	    }
-	}
+                /* no point in brute scan of a cbr file... */
+                if(cbr && (frames > 100)) {
+                    DPRINTF(E_DBG,L_SCAN,"File appears to be CBR... quitting frame count\n");
+                    return;
+                }
+            }
+        }
 
-	if(err) {
-	    if(pos > (file_size - 4096)) {  /* probably good enough */
-		pfi->number_of_frames=frames;
-		DPRINTF(E_DBG,L_SCAN,"Estimated frame count: %d\n",frames);
-		return;
-	    } else {
-		DPRINTF(E_DBG,L_SCAN,"Frame count aborted on error.  Pos=%d, Count=%d\n",
-			pos, frames);
-		return;
-	    }
-	}
+        if(err) {
+            if(pos > (file_size - 4096)) {  /* probably good enough */
+                pfi->number_of_frames=frames;
+                DPRINTF(E_DBG,L_SCAN,"Estimated frame count: %d\n",frames);
+                return;
+            } else {
+                DPRINTF(E_DBG,L_SCAN,"Frame count aborted on error.  Pos=%d, Count=%d\n",
+                        pos, frames);
+                return;
+            }
+        }
     }
 }
 
@@ -785,8 +785,8 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     char frame_buffer[4];
 
     if(!(infile=fopen(file,"rb"))) {
-	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
-	return FALSE;
+        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
+        return FALSE;
     }
 
     memset((void*)&fi,0x00,sizeof(fi));
@@ -798,13 +798,13 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     pmp3->file_size=file_size;
 
     if(fread(buffer,1,sizeof(buffer),infile) != sizeof(buffer)) {
-	if(ferror(infile)) {
-	    DPRINTF(E_LOG,L_SCAN,"Error reading: %s\n",strerror(errno));
-	} else {
-	    DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
-	}
-	fclose(infile);
-	return FALSE;
+        if(ferror(infile)) {
+            DPRINTF(E_LOG,L_SCAN,"Error reading: %s\n",strerror(errno));
+        } else {
+            DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
+        }
+        fclose(infile);
+        return FALSE;
     }
 
     pid3=(SCAN_ID3HEADER*)buffer;
@@ -813,13 +813,13 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     fp_size=0;
 
     if(strncmp((char*)pid3->id,"ID3",3)==0) {
-	/* found an ID3 header... */
-	DPRINTF(E_DBG,L_SCAN,"Found ID3 header\n");
-	size = (pid3->size[0] << 21 | pid3->size[1] << 14 | 
-		pid3->size[2] << 7 | pid3->size[3]);
-	fp_size=size + sizeof(SCAN_ID3HEADER);
-	first_check=1;
-	DPRINTF(E_DBG,L_SCAN,"Header length: %d\n",size);
+        /* found an ID3 header... */
+        DPRINTF(E_DBG,L_SCAN,"Found ID3 header\n");
+        size = (pid3->size[0] << 21 | pid3->size[1] << 14 | 
+                pid3->size[2] << 7 | pid3->size[3]);
+        fp_size=size + sizeof(SCAN_ID3HEADER);
+        first_check=1;
+        DPRINTF(E_DBG,L_SCAN,"Header length: %d\n",size);
     }
 
     index = 0;
@@ -829,123 +829,127 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
      */
 
     while(!found) {
-	fseek(infile,fp_size,SEEK_SET);
-	DPRINTF(E_DBG,L_SCAN,"Reading in new block at %d\n",(int)fp_size);
-	if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
-	    DPRINTF(E_LOG,L_SCAN,"Short read: %s\n",file);
-	    fclose(infile);
-	    return TRUE;
-	}
+        fseek(infile,fp_size,SEEK_SET);
+        DPRINTF(E_DBG,L_SCAN,"Reading in new block at %d\n",(int)fp_size);
+        if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
+            DPRINTF(E_LOG,L_SCAN,"Short read: %s\n",file);
+            fclose(infile);
+            return TRUE;
+        }
 
-	index=0;
-	while(!found) {
-	    while((buffer[index] != 0xFF) && (index < (sizeof(buffer)-50)))
-		index++;
+        index=0;
+        while(!found) {
+            while((buffer[index] != 0xFF) && (index < (sizeof(buffer)-50)))
+                index++;
 
-	    if((first_check) && (index)) {
-		fp_size=0;
-		DPRINTF(E_DBG,L_SCAN,"Bad header... dropping back for full frame search\n");
-		first_check=0;
-		break;
-	    }
+            if((first_check) && (index)) {
+                fp_size=0;
+                DPRINTF(E_DBG,L_SCAN,"Bad header... dropping back for full frame search\n");
+                first_check=0;
+                break;
+            }
 
-	    if(index > sizeof(buffer) - 50) {
-		fp_size += index;
-		DPRINTF(E_DBG,L_SCAN,"Block exhausted\n");
-		break;
-	    }
+            if(index > sizeof(buffer) - 50) {
+                fp_size += index;
+                DPRINTF(E_DBG,L_SCAN,"Block exhausted\n");
+                break;
+            }
 
-	    if(!scan_mp3_decode_mp3_frame(&buffer[index],&fi)) {
-		DPRINTF(E_DBG,L_SCAN,"valid header at %d\n",index);
-		if(strncasecmp((char*)&buffer[index+fi.xing_offset+4],"XING",4) == 0) {
-		    /* no need to check further... if there is a xing header there,
-		     * this is definately a valid frame */
-		    found=1;
-		    fp_size += index;
-		} else {
-		    /* No Xing... check for next frame */
-		    DPRINTF(E_DBG,L_SCAN,"Found valid frame at %04x\n",(int)fp_size+index);
-		    DPRINTF(E_DBG,L_SCAN,"Checking at %04x\n",(int)fp_size+index+fi.frame_length);
-		    fseek(infile,fp_size + index + fi.frame_length,SEEK_SET);
-		    if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
-			if(!scan_mp3_decode_mp3_frame((u_char*)frame_buffer,&fi)) {
-			    found=1;
-			    fp_size += index;
-			} 
-		    } else {
-			DPRINTF(E_LOG,L_SCAN,"Could not read frame header: %s\n",file);
-			fclose(infile);
-			return 0;
-		    }
+            if(!scan_mp3_decode_mp3_frame(&buffer[index],&fi)) {
+                DPRINTF(E_DBG,L_SCAN,"valid header at %d\n",index);
+                if(strncasecmp((char*)&buffer[index+fi.xing_offset+4],"XING",4) == 0) {
+                    /* no need to check further... if there is a xing header there,
+                     * this is definately a valid frame */
+                    found=1;
+                    fp_size += index;
+                } else {
+                    /* No Xing... check for next frame */
+                    DPRINTF(E_DBG,L_SCAN,"Found valid frame at %04x\n",(int)fp_size+index);
+                    DPRINTF(E_DBG,L_SCAN,"Checking at %04x\n",(int)fp_size+index+fi.frame_length);
+                    fseek(infile,fp_size + index + fi.frame_length,SEEK_SET);
+                    if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
+                        if(!scan_mp3_decode_mp3_frame((u_char*)frame_buffer,&fi)) {
+                            found=1;
+                            fp_size += index;
+                        } 
+                    } else {
+                        DPRINTF(E_LOG,L_SCAN,"Could not read frame header: %s\n",file);
+                        fclose(infile);
+                        return 0;
+                    }
 
-		    if(!found) {
-			DPRINTF(E_DBG,L_SCAN,"Didn't pan out.\n");
-		    }
-		}
-	    }
-	    
-	    if(!found) {
-		index++;
-		if (first_check) {
-		    /* if the header info was wrong about where the data started,
-		     * then start a brute-force scan from the beginning of the file.
-		     * don't want to just scan forward, because we might have already 
-		     * missed the xing header
-		     */
-		    DPRINTF(E_DBG,L_SCAN,"Bad header... dropping back for full frame search\n");
-		    first_check=0;
-		    fp_size=0;
-		    break;
-		}
-	    }
-	}
+                    if(!found) {
+                        DPRINTF(E_DBG,L_SCAN,"Didn't pan out.\n");
+                    }
+                }
+            }
+            
+            if(!found) {
+                index++;
+                if (first_check) {
+                    /* if the header info was wrong about where the data started,
+                     * then start a brute-force scan from the beginning of the file.
+                     * don't want to just scan forward, because we might have already 
+                     * missed the xing header
+                     */
+                    DPRINTF(E_DBG,L_SCAN,"Bad header... dropping back for full frame search\n");
+                    first_check=0;
+                    fp_size=0;
+                    break;
+                }
+            }
+        }
     }
 
     file_size -= fp_size;
     fi.frame_offset=fp_size;
 
     if(scan_mp3_decode_mp3_frame(&buffer[index],&fi)) {
-	fclose(infile);
-	DPRINTF(E_LOG,L_SCAN,"Could not find sync frame: %s\n",file);
-	DPRINTF(E_LOG,L_SCAN,"If this is a valid mp3 file that plays in "
-		"other applications, please email me at rpedde@users.sourceforge.net "
-		"and tell me you got this error.  Thanks");
-	return TRUE;
+        fclose(infile);
+        DPRINTF(E_LOG,L_SCAN,"Could not find sync frame: %s\n",file);
+        DPRINTF(E_LOG,L_SCAN,"If this is a valid mp3 file that plays in "
+                "other applications, please email me at rpedde@users.sourceforge.net "
+                "and tell me you got this error.  Thanks");
+        return TRUE;
     }
 
     DPRINTF(E_DBG,L_SCAN," MPEG Version: %0.1g\n",fi.version);
     DPRINTF(E_DBG,L_SCAN," Layer: %d\n",fi.layer);
     DPRINTF(E_DBG,L_SCAN," Sample Rate: %d\n",fi.samplerate);
     DPRINTF(E_DBG,L_SCAN," Bit Rate: %d\n",fi.bitrate);
-	
+        
     /* now check for an XING header */
     if(strncasecmp((char*)&buffer[index+fi.xing_offset+4],"XING",4) == 0) {
-	DPRINTF(E_DBG,L_SCAN,"Found Xing header\n");
-	xing_flags=*((int*)&buffer[index+fi.xing_offset+4+4]);
-	xing_flags=ntohs(xing_flags);
+        DPRINTF(E_DBG,L_SCAN,"Found Xing header\n");
+        xing_flags = buffer[index+fi.xing_offset+4+4] << 24 |
+           buffer[index+fi.xing_offset+4+5] << 16 |
+           buffer[index+fi.xing_offset+4+6] << 8 |
+           buffer[index+fi.xing_offset+4+7];
+           
+        DPRINTF(E_DBG,L_SCAN,"Xing Flags: %02X\n",xing_flags);
 
-	DPRINTF(E_DBG,L_SCAN,"Xing Flags: %02X\n",xing_flags);
-
-	if(xing_flags & 0x1) {
-	    /* Frames field is valid... */
-	    fi.number_of_frames=*((int*)&buffer[index+fi.xing_offset+4+8]);
-	    fi.number_of_frames=ntohs(fi.number_of_frames);
-	}
+        if(xing_flags & 0x1) {
+            /* Frames field is valid... */
+            fi.number_of_frames=buffer[index+fi.xing_offset+4+8] << 24 |
+                buffer[index+fi.xing_offset+4+9] << 16 |
+                buffer[index+fi.xing_offset+4+10] << 8 |
+                buffer[index+fi.xing_offset+4+11];
+        }
     }
 
     if((config.scan_type != 0) &&
        (fi.number_of_frames == 0) &&
        (!pmp3->song_length)) {
-	/* We have no good estimate of song time, and we want more
-	 * aggressive scanning */
-	DPRINTF(E_DBG,L_SCAN,"Starting aggressive file length scan\n");
-	if(config.scan_type == 1) {
-	    /* get average bitrate */
-	    scan_mp3_get_average_bitrate(infile, &fi);
-	} else {
-	    /* get full frame count */
-	    scan_mp3_get_frame_count(infile, &fi);
-	}
+        /* We have no good estimate of song time, and we want more
+         * aggressive scanning */
+        DPRINTF(E_DBG,L_SCAN,"Starting aggressive file length scan\n");
+        if(config.scan_type == 1) {
+            /* get average bitrate */
+            scan_mp3_get_average_bitrate(infile, &fi);
+        } else {
+            /* get full frame count */
+            scan_mp3_get_frame_count(infile, &fi);
+        }
     }
 
     pmp3->bitrate=fi.bitrate;
@@ -953,16 +957,16 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     
     /* guesstimate the file length */
     if(!pmp3->song_length) { /* could have gotten it from the tag */
-	/* DWB: use ms time instead of seconds, use doubles to
-	   avoid overflow */
-	if(!fi.number_of_frames) { /* not vbr */
-	    pmp3->song_length = (int) ((double) file_size * 8. /
-				       (double) fi.bitrate);
+        /* DWB: use ms time instead of seconds, use doubles to
+           avoid overflow */
+        if(!fi.number_of_frames) { /* not vbr */
+            pmp3->song_length = (int) ((double) file_size * 8. /
+                                       (double) fi.bitrate);
 
-	} else {
-	    pmp3->song_length = (int) ((double)(fi.number_of_frames*fi.samples_per_frame*1000.)/
-				       (double) fi.samplerate);
-	}
+        } else {
+            pmp3->song_length = (int) ((double)(fi.number_of_frames*fi.samples_per_frame*1000.)/
+                                       (double) fi.samplerate);
+        }
 
     }
     DPRINTF(E_DBG,L_SCAN," Song Length: %d\n",pmp3->song_length);
