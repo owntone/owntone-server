@@ -819,7 +819,11 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
         } else {
             sprintf(query_count,"SELECT COUNT(id) FROM songs ");
 
-#ifdef NSLU2
+	    /* We need to fix playlist queries to stop
+	     * pulling the whole song db... the performance
+	     * of these playlist queries sucks.
+	     */
+#if 1
             sprintf(query_select,"select * from songs ");
             sprintf(query_rest,"where songs.id in (select songid from playlistitems where playlistid=%d)",pinfo->playlist_id);
 #else
@@ -1830,6 +1834,12 @@ char *db_sqlite_upgrade_scripts[] = {
     "insert into playlistitems (playlistid, songid) select * from tempitems;\n"
     "drop table tempitems;\n"
     "update config set value=7 where term='version';\n",
+    
+    /* version 7 -> version 8 */
+    "create index idx_songid on playlistitems(songid);\n"
+    "create index idx_playlistid on playlistitems(playlistid);\n"
+    "update config set value=8 where term='version';\n",
+
     NULL /* No more versions! */
 };
 
