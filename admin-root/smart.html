@@ -3,9 +3,8 @@
 <div class="stx">
 
 <h2>Smart Playlists</h2>
-
 <table width="400">
-<thead><th>ID</th><th>Playlist Name</th><th>Type</th><th>Action</th></thead>
+<thead><tr><th>ID</th><th>Playlist Name</th><th>Type</th><th>Action</th></tr></thead>
 <tbody id="playlists">
 </tbody>
 </table>
@@ -16,12 +15,12 @@
 
 <div id="pl_editor" style="display:none">
 <h3>Playlist Spec</h3>
-<form name="pl_form">
-<input type="hidden" name="playlist_id">
+<form name="pl_form" action="">
+<input type="hidden" name="playlist_id"/>
 <table width="400">
 <tr>
 <th>Name</th>
-<td><input type="text" name="playlist_name"></td>
+<td><input type="text" name="playlist_name"/></td>
 </tr>
 
 <tr>
@@ -30,8 +29,9 @@
 </tr>
 </table>
 
-<input type="button" onclick="javascript:pl_update();" name="submit_button" value="Submit">
-<input type="button" onclick="javascript:pl_cancel();" value="Cancel">
+<input type="button" onclick="javascript:pl_update();" name="submit_button" value="Submit"/>
+<input type="button" onclick="javascript:pl_cancel();" value="Cancel"/>
+<input type="button" onclick="javascript:pl_popup('smartpopup.html');" value="Wizard"/>
 </form>
 </div>
 

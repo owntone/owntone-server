@@ -1,4 +1,4 @@
-/* $Id$ */
+* $Id$ */
 
 I've received lots of help from people on this project.
 
@@ -110,6 +110,5 @@ Phil Packer
 Diego Penneno
  * Patches for multiple PID files to facilitate gentoo init scripts
  
- 
-
-
+Patrick Kolla
+ * Popup "wizard" for smart playlists

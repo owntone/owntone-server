@@ -2,6 +2,12 @@ var req;
 var playlist_info={};
 
 
+function pl_popup(URL) {
+    day = new Date();
+    id = day.getTime();
+    eval("pagemtdaapdplPop = window.open(URL, 'mtdaapdple', 'toolbar=0,scrollbars=1,location=0,statusbar=0,menubar=0,resizable=1,width=500,height=240,left = 320,top = 448');");
+}
+
 function pl_editor_state(state) {
     var pleditor = document.getElementById("pl_editor");
     if(!pleditor)
