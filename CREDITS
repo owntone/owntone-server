@@ -6,6 +6,12 @@ These are the people who have contributed to whatever
 small success this project enjoys (in order of
 contribution).  If I've forgotten anyone, I apologize.
 
+Dr. Steve Robbins
+ * uici stuff
+
+The Plone project
+ * css files for the admin interface
+
 Aubin Paul
  * Patches for Debian package generation
  * Precompiled Debian binaries
@@ -13,6 +19,7 @@ Aubin Paul
 Paul Forgey
  * Tons of troubleshooting on Solaris
  * Fixes for readdir_r
+ * Fixes for alignment problems in XING header parsing
 
 Paul Hubbard
  * T/S and patch testing to resolve scanning bugs
@@ -102,8 +109,6 @@ Phil Packer
 Diego Penneno
  * Patches for multiple PID files to facilitate gentoo init scripts
  
-Paul Forgey
- * Fixes for alignment problems in XING header parsing
  
 
 

@@ -14,5 +14,5 @@ EXTRA_DIST = ftr.html linkOpaque.gif status.html aspl-license.txt \
 	mt-daapd.css mt-daapd.png config.html index.html required.gif \
 	gpl-license.html aspl-license.html thanks.html feedback.html \
 	playlist.html playlist.js smart.html smart.js DAAPApplet-0.1.jar \
-	applet.html
+	applet.html CREDITS
 

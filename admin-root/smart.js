@@ -150,10 +150,10 @@ function pl_process() {
                 pl_type = "Smart";
                 break;
             case "2":
-                pl_type = "Static&nbsp;(m3u/pls file)";
+                pl_type = "Static&nbsp;(m3u/pls&nbsp;file)";
                 break;
             case "3":
-                pl_type = "Static&nbsp;(iTunes xml file)";
+                pl_type = "Static&nbsp;(iTunes&nbsp;xml)";
                 break;
         }
 
