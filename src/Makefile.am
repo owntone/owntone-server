@@ -25,6 +25,10 @@ if COND_FLAC
 FLACSRC=scan-flac.c
 endif
 
+if COND_MUSEPACK
+MUSEPACKSRC=scan-mpc.c
+endif
+
 if COND_SQLITE
 SQLITEDB=dbs-sqlite.c dbs-sqlite.h
 endif
@@ -40,9 +44,9 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \
 	smart-parser.c smart-parser.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
-	$(SQLITEDB)
+	$(MUSEPACKSRC) $(SQLITEDB)
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
-	rend-howl.c rend-posix.c rend-osx.c \
+	rend-howl.c rend-posix.c rend-osx.c scan-mpc.c \
 	strcasestr.h scan-ogg.c scan-flac.c dbs-sqlite.c dbs-sqlite.h

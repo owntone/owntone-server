@@ -39,6 +39,7 @@
 extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_ogginfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
+extern int scan_get_mpcinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_wavinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_aacinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
@@ -59,6 +60,9 @@ SCANNERLIST scanner_list[] = {
     { "wma",scan_get_wmainfo },
     { "flac",scan_get_flacinfo },
     { "fla",scan_get_flacinfo },
+    { "mpc",scan_get_mpcinfo },
+    { "mpp",scan_get_mpcinfo },
+    { "mp+",scan_get_mpcinfo },
     { "ogg",scan_get_ogginfo },
     { "m4a",scan_get_aacinfo },
     { "m4p",scan_get_aacinfo },

@@ -1392,6 +1392,10 @@ void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s ","--enable-flac");
 #endif
 
+#ifdef MUSEPACK
+    ws_writefd(pwsc,"%s ","--enable-musepack");
+#endif
+
 #ifdef WITH_GDBM
     ws_writefd(pwsc,"%s ","--with-gdbm");
 #endif

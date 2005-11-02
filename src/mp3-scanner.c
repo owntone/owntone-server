@@ -90,6 +90,10 @@ extern int scan_get_ogginfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
 #endif
 
+#ifdef MUSEPACK
+extern int scan_get_mpcinfo(char *filename, MP3FILE *pmp3);
+#endif
+
 extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_aacinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_wavinfo(char *filename, MP3FILE *pmp3);
@@ -137,6 +141,11 @@ static TAGHANDLER taghandlers[] = {
 #ifdef FLAC
     { "flac", scan_get_flacinfo, "flac","flac", "FLAC audio file" },
     { "fla", scan_get_flacinfo,  "flac","flac", "FLAC audio file" },
+#endif
+#ifdef MUSEPACK
+    { "mpc", scan_get_mpcinfo, "mpc", "mpc", "Musepack audio file" },
+    { "mpp", scan_get_mpcinfo, "mpc", "mpc", "Musepack audio file" },
+    { "mp+", scan_get_mpcinfo, "mpc", "mpc", "Musepack audio file" },
 #endif
     { NULL, NULL, NULL, NULL, NULL }
 };
