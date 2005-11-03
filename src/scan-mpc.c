@@ -22,13 +22,14 @@
 #ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
-#include "mp3-scanner.h"
-#include "err.h"
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <taglib/tag_c.h>
+
+#include "mp3-scanner.h"
+#include "err.h"
 
 /**
  * scan a musepack file for metainfo.  
@@ -41,7 +42,7 @@ int scan_get_mpcinfo(char *filename, MP3FILE *pmp3) {
     FILE *f;
     TagLib_File *file;
     TagLib_Tag *tag;
-    TagLib_AudioProperties *properties;
+    const TagLib_AudioProperties *properties;
     char *val;
     int len;
     unsigned int i;
