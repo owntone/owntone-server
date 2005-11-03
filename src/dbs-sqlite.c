@@ -304,6 +304,8 @@ int db_sqlite_deinit(void) {
  * start a background scan
  */
 int db_sqlite_start_scan(void) {
+    DPRINTF(E_DBG,L_DB,"Starting db scan\n");
+
     if(db_sqlite_reload) {
         db_sqlite_exec(E_FATAL,"PRAGMA synchronous = OFF");
         db_sqlite_exec(E_FATAL,"BEGIN TRANSACTION");
@@ -426,6 +428,24 @@ int db_sqlite_delete_playlist_item(int playlistid, int songid) {
                           playlistid,songid);
     return result;
 }
+
+/**
+ * edit a playlist.  The only things worth changing are the name
+ * and the "where" clause.
+ *
+ * @param id id of the playlist to alter
+ * @param name new name of the playlist
+ * @param where new where clause
+ */
+int db_sqlite_edit_playlist(int id, char *name, char *clause) {
+    int result;
+    
+    result = db_sqlite_exec(E_LOG,"update playlists set title='%q',query='%q' where id=%d",
+        name, clause, id);
+
+    return result;
+}
+
 
 
 /**

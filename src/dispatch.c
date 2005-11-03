@@ -55,6 +55,7 @@ static void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_playlists(WS_CONNINFO *pqsc, DBQUERYINFO *pqi);
 static void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
+static void dispatch_editplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_deleteplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
@@ -105,10 +106,10 @@ typedef struct tag_output_info {
 int daap_auth(char *username, char *password) {
     if((password == NULL) && 
        ((config.readpassword == NULL) || (strlen(config.readpassword)==0)))
-	return 1;
+        return 1;
 
     if(password == NULL)
-	return 0;
+        return 0;
 
     return !strcasecmp(password,config.readpassword);
 }
@@ -125,8 +126,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     pqi=(DBQUERYINFO*)malloc(sizeof(DBQUERYINFO));
     if(!pqi) {
-	ws_returnerror(pwsc,500,"Internal server error: out of memory!");
-	return;
+        ws_returnerror(pwsc,500,"Internal server error: out of memory!");
+        return;
     }
 
     memset(pqi,0x00,sizeof(DBQUERYINFO));
@@ -134,8 +135,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
     query=ws_getvar(pwsc,"query");
     if(!query) query=ws_getvar(pwsc,"filter");
     if(query) {
-	DPRINTF(E_DBG,L_DAAP,"Getting sql clause for %s\n",query);
-	pqi->whereclause = query_build_sql(query);
+        DPRINTF(E_DBG,L_DAAP,"Getting sql clause for %s\n",query);
+        pqi->whereclause = query_build_sql(query);
     }
 
     /* Add some default headers */
@@ -144,30 +145,30 @@ void daap_handler(WS_CONNINFO *pwsc) {
     ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
     
     if(ws_getvar(pwsc,"session-id"))
-	pqi->session_id = atoi(ws_getvar(pwsc,"session-id"));
+        pqi->session_id = atoi(ws_getvar(pwsc,"session-id"));
     
     /* tokenize the uri for easier decoding */
     string=(pwsc->uri)+1;
     while((token=strtok_r(string,"/",&save))) {
-	string=NULL;
-	pqi->uri_sections[pqi->uri_count++] = token;
+        string=NULL;
+        pqi->uri_sections[pqi->uri_count++] = token;
     }
     
     /* Start dispatching */
     if(!strcasecmp(pqi->uri_sections[0],"server-info"))
-	return dispatch_server_info(pwsc,pqi);
+        return dispatch_server_info(pwsc,pqi);
     
     if(!strcasecmp(pqi->uri_sections[0],"content-codes"))
-	return dispatch_content_codes(pwsc,pqi);
+        return dispatch_content_codes(pwsc,pqi);
 
     if(!strcasecmp(pqi->uri_sections[0],"login"))
-     	return dispatch_login(pwsc,pqi);
+        return dispatch_login(pwsc,pqi);
 
     if(!strcasecmp(pqi->uri_sections[0],"update"))
-	return dispatch_update(pwsc,pqi);
+        return dispatch_update(pwsc,pqi);
 
     if(!strcasecmp(pqi->uri_sections[0],"logout"))
-	return dispatch_logout(pwsc,pqi);
+        return dispatch_logout(pwsc,pqi);
 
     /*
      * /databases/id/items
@@ -177,65 +178,68 @@ void daap_handler(WS_CONNINFO *pwsc) {
      * /databases/id/items/id.mp3
      */
     if(!strcasecmp(pqi->uri_sections[0],"databases")) {
-	if(pqi->uri_count == 1) {
-	    return dispatch_dbinfo(pwsc,pqi);
-	}
-	pqi->db_id=atoi(pqi->uri_sections[1]);
-	if(pqi->uri_count == 3) {
-	    if(!strcasecmp(pqi->uri_sections[2],"items")) 
-		/* /databases/id/items */
-		return dispatch_items(pwsc,pqi);
-	    if(!strcasecmp(pqi->uri_sections[2],"containers"))
-		/* /databases/id/containers */		
-		return dispatch_playlists(pwsc,pqi);
-	    
-	    pwsc->close=1;
-	    free(pqi);
-	    ws_returnerror(pwsc,404,"Page not found");
-	    return;
-	}
-	if(pqi->uri_count == 4) {
-	    if(!strcasecmp(pqi->uri_sections[2],"browse"))
-		/* /databases/id/browse/something */
-		return dispatch_browse(pwsc,pqi);
-	    if(!strcasecmp(pqi->uri_sections[2],"items"))
-		/* /databases/id/items/id.mp3 */
-		return dispatch_stream(pwsc,pqi);
-	    if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
-	       (!strcasecmp(pqi->uri_sections[3],"add")))
-		/* /databases/id/containers/add */
-		return dispatch_addplaylist(pwsc,pqi);
-	    if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
-	       (!strcasecmp(pqi->uri_sections[3],"del")))
-		/* /databases/id/containers/del */
-		return dispatch_deleteplaylist(pwsc,pqi);
-
-	    pwsc->close=1;
-	    free(pqi);
-	    ws_returnerror(pwsc,404,"Page not found");
-	    return;
-	}
-	if(pqi->uri_count == 5) {
-	    if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
-	       (!strcasecmp(pqi->uri_sections[4],"items"))) {
-		pqi->playlist_id=atoi(pqi->uri_sections[3]);
-		return dispatch_playlistitems(pwsc,pqi);
-	    }
-	    if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
-	       (!strcasecmp(pqi->uri_sections[4],"del"))) {
-		/* /databases/id/containers/id/del */
-		pqi->playlist_id=atoi(pqi->uri_sections[3]);
-		return dispatch_deleteplaylistitems(pwsc,pqi);
-	    }
-	}
-	if(pqi->uri_count == 6) {
-	    if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
-	       (!strcasecmp(pqi->uri_sections[4],"items")) &&
-	       (!strcasecmp(pqi->uri_sections[5],"add"))) {
-		pqi->playlist_id=atoi(pqi->uri_sections[3]);
-		return dispatch_addplaylistitems(pwsc,pqi);
-	    }
-	}
+        if(pqi->uri_count == 1) {
+            return dispatch_dbinfo(pwsc,pqi);
+        }
+        pqi->db_id=atoi(pqi->uri_sections[1]);
+        if(pqi->uri_count == 3) {
+            if(!strcasecmp(pqi->uri_sections[2],"items")) 
+                /* /databases/id/items */
+                return dispatch_items(pwsc,pqi);
+            if(!strcasecmp(pqi->uri_sections[2],"containers"))
+                /* /databases/id/containers */          
+                return dispatch_playlists(pwsc,pqi);
+            
+            pwsc->close=1;
+            free(pqi);
+            ws_returnerror(pwsc,404,"Page not found");
+            return;
+        }
+        if(pqi->uri_count == 4) {
+            if(!strcasecmp(pqi->uri_sections[2],"browse"))
+                /* /databases/id/browse/something */
+                return dispatch_browse(pwsc,pqi);
+            if(!strcasecmp(pqi->uri_sections[2],"items"))
+                /* /databases/id/items/id.mp3 */
+                return dispatch_stream(pwsc,pqi);
+            if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+               (!strcasecmp(pqi->uri_sections[3],"add")))
+                /* /databases/id/containers/add */
+                return dispatch_addplaylist(pwsc,pqi);
+            if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+               (!strcasecmp(pqi->uri_sections[3],"del")))
+                /* /databases/id/containers/del */
+                return dispatch_deleteplaylist(pwsc,pqi);
+            if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+                (!strcasecmp(pqi->uri_sections[3],"edit")))
+                /* /databases/id/contaienrs/edit */
+                return dispatch_editplaylist(pwsc,pqi);
+            pwsc->close=1;
+            free(pqi);
+            ws_returnerror(pwsc,404,"Page not found");
+            return;
+        }
+        if(pqi->uri_count == 5) {
+            if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+               (!strcasecmp(pqi->uri_sections[4],"items"))) {
+                pqi->playlist_id=atoi(pqi->uri_sections[3]);
+                return dispatch_playlistitems(pwsc,pqi);
+            }
+            if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+               (!strcasecmp(pqi->uri_sections[4],"del"))) {
+                /* /databases/id/containers/id/del */
+                pqi->playlist_id=atoi(pqi->uri_sections[3]);
+                return dispatch_deleteplaylistitems(pwsc,pqi);
+            }
+        }
+        if(pqi->uri_count == 6) {
+            if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+               (!strcasecmp(pqi->uri_sections[4],"items")) &&
+               (!strcasecmp(pqi->uri_sections[5],"add"))) {
+                pqi->playlist_id=atoi(pqi->uri_sections[3]);
+                return dispatch_addplaylistitems(pwsc,pqi);
+            }
+        }
     }
     
     pwsc->close=1;
@@ -258,27 +262,27 @@ int dispatch_output_start(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, int content_lengt
 
     poi=(OUTPUT_INFO*)calloc(1,sizeof(OUTPUT_INFO));
     if(!poi) {
-	DPRINTF(E_LOG,L_DAAP,"Malloc error in dispatch_ouput_start\n");
-	return -1;
+        DPRINTF(E_LOG,L_DAAP,"Malloc error in dispatch_ouput_start\n");
+        return -1;
     }
 
     pqi->output_info = (void*) poi;
     poi->dmap_response_length = content_length;
 
     if(ws_getvar(pwsc,"output")) {
-	if(strcasecmp(ws_getvar(pwsc,"output"),"readable") == 0)
-	    poi->readable=1;
+        if(strcasecmp(ws_getvar(pwsc,"output"),"readable") == 0)
+            poi->readable=1;
 
-	poi->xml_output=1;
-	ws_addresponseheader(pwsc,"Content-Type","text/xml");
-	ws_addresponseheader(pwsc,"Connection","Close");
-	pwsc->close=1;
-	ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-	ws_emitheaders(pwsc);
-	ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
-	if(poi->readable)
-	    ws_writefd(pwsc,"\n");
-	return 0;
+        poi->xml_output=1;
+        ws_addresponseheader(pwsc,"Content-Type","text/xml");
+        ws_addresponseheader(pwsc,"Connection","Close");
+        pwsc->close=1;
+        ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+        ws_emitheaders(pwsc);
+        ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+        if(poi->readable)
+            ws_writefd(pwsc,"\n");
+        return 0;
     }
 
     ws_addresponseheader(pwsc,"Content-Length","%d",poi->dmap_response_length);
@@ -305,12 +309,12 @@ int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *bl
     int result;
 
     if(poi->xml_output) 
-	return dispatch_output_xml_write(pwsc, pqi, block, len);
+        return dispatch_output_xml_write(pwsc, pqi, block, len);
 
     result=r_write(pwsc->fd,block,len);
 
     if(result != len)
-	return -1;
+        return -1;
 
     return 0;
 }
@@ -339,161 +343,161 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
     char *encoded_string;
 
     while(current < (block + len)) {
-	block_done=1;
-	len_left=(block+len) - current;
-	if(len_left < 8) {
-	    DPRINTF(E_FATAL,L_DAAP,"Badly formatted dmap block - frag size: %d",len_left);
-	}
+        block_done=1;
+        len_left=(block+len) - current;
+        if(len_left < 8) {
+            DPRINTF(E_FATAL,L_DAAP,"Badly formatted dmap block - frag size: %d",len_left);
+        }
 
-	/* set up block */
-	memcpy(block_tag,current,4);
-	block_tag[4] = '\0';
-	block_len = current[4] << 24 | current[5] << 16 |
-	    current[6] << 8 | current[7];
-	data = &current[8];
+        /* set up block */
+        memcpy(block_tag,current,4);
+        block_tag[4] = '\0';
+        block_len = current[4] << 24 | current[5] << 16 |
+            current[6] << 8 | current[7];
+        data = &current[8];
 
-	if(strncmp(block_tag,"abro",4) ==0 ) {
-	    /* browse queries treat mlit as a string, not container */
-	    poi->browse_response=1;
-	}
+        if(strncmp(block_tag,"abro",4) ==0 ) {
+            /* browse queries treat mlit as a string, not container */
+            poi->browse_response=1;
+        }
 
-	/* lookup and serialize */
-	DPRINTF(E_SPAM,L_DAAP,"%*s %s: %d\n",poi->stack_height,"",block_tag,block_len);
-	pitem=dispatch_xml_lookup_tag(block_tag);
-	if(poi->readable) 
-	    r_fdprintf(pwsc->fd,"%*s",poi->stack_height,"");
-	r_fdprintf(pwsc->fd,"<%s>",pitem->description);
-	switch(pitem->type) {
-	case 0x01: /* byte */
-	    if(block_len != 1) {
-		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 1\n",block_tag,	block_len);
-	    }
-	    r_fdprintf(pwsc->fd,"%d",*((char *)data));
-	    break;
+        /* lookup and serialize */
+        DPRINTF(E_SPAM,L_DAAP,"%*s %s: %d\n",poi->stack_height,"",block_tag,block_len);
+        pitem=dispatch_xml_lookup_tag(block_tag);
+        if(poi->readable) 
+            r_fdprintf(pwsc->fd,"%*s",poi->stack_height,"");
+        r_fdprintf(pwsc->fd,"<%s>",pitem->description);
+        switch(pitem->type) {
+        case 0x01: /* byte */
+            if(block_len != 1) {
+                DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 1\n",block_tag, block_len);
+            }
+            r_fdprintf(pwsc->fd,"%d",*((char *)data));
+            break;
 
-	case 0x02: /* unsigned byte */
-	    if(block_len != 1) {
-		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 1\n",block_tag, block_len);
-	    }
-	    r_fdprintf(pwsc->fd,"%ud",*((char *)data));
-	    break;
+        case 0x02: /* unsigned byte */
+            if(block_len != 1) {
+                DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 1\n",block_tag, block_len);
+            }
+            r_fdprintf(pwsc->fd,"%ud",*((char *)data));
+            break;
 
-	case 0x03: /* short */
-	    if(block_len != 2) {
-		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 2\n",block_tag, block_len);
-	    }
+        case 0x03: /* short */
+            if(block_len != 2) {
+                DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 2\n",block_tag, block_len);
+            }
 
-	    ivalue = data[0] << 8 | data[1];
-	    r_fdprintf(pwsc->fd,"%d",ivalue);
-	    break;
+            ivalue = data[0] << 8 | data[1];
+            r_fdprintf(pwsc->fd,"%d",ivalue);
+            break;
 
-	case 0x05: /* int */
-	case 0x0A: /* epoch */
-	    if(block_len != 4) {
-		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 4\n",block_tag, block_len);
-	    }
-	    ivalue = data[0] << 24 |
-		data[1] << 16 |
-		data[2] << 8 |
-		data[3];
-	    r_fdprintf(pwsc->fd,"%d",ivalue);
-	    break;
-	case 0x07: /* long long */
-	    if(block_len != 8) {
-		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 8\n",block_tag, block_len);
-	    }
+        case 0x05: /* int */
+        case 0x0A: /* epoch */
+            if(block_len != 4) {
+                DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 4\n",block_tag, block_len);
+            }
+            ivalue = data[0] << 24 |
+                data[1] << 16 |
+                data[2] << 8 |
+                data[3];
+            r_fdprintf(pwsc->fd,"%d",ivalue);
+            break;
+        case 0x07: /* long long */
+            if(block_len != 8) {
+                DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 8\n",block_tag, block_len);
+            }
 
-	    ivalue = data[0] << 24 |
-		data[1] << 16 |
-		data[2] << 8 |
-		data[3];
-	    lvalue=ivalue;
-	    ivalue = data[4] << 24 |
-		data[5] << 16 |
-		data[6] << 8 |
-		data[7];
-	    lvalue = (lvalue << 32) | ivalue;
-	    r_fdprintf(pwsc->fd,"%ll",ivalue);
-	    break;
-	case 0x09: /* string */
-	    if(block_len) {
-		encoded_string=dispatch_xml_encode((char*)data,block_len);
-		r_fdprintf(pwsc->fd,"%s",encoded_string);
-		free(encoded_string);
-	    }
-	    break;
-	case 0x0B: /* version? */
-	    if(block_len != 4) {
-		DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 4\n",block_tag, block_len);
-	    }
+            ivalue = data[0] << 24 |
+                data[1] << 16 |
+                data[2] << 8 |
+                data[3];
+            lvalue=ivalue;
+            ivalue = data[4] << 24 |
+                data[5] << 16 |
+                data[6] << 8 |
+                data[7];
+            lvalue = (lvalue << 32) | ivalue;
+            r_fdprintf(pwsc->fd,"%ll",ivalue);
+            break;
+        case 0x09: /* string */
+            if(block_len) {
+                encoded_string=dispatch_xml_encode((char*)data,block_len);
+                r_fdprintf(pwsc->fd,"%s",encoded_string);
+                free(encoded_string);
+            }
+            break;
+        case 0x0B: /* version? */
+            if(block_len != 4) {
+                DPRINTF(E_FATAL,L_DAAP,"tag %s, size %d, wanted 4\n",block_tag, block_len);
+            }
 
-	    ivalue=data[0] << 8 | data[1];
-	    r_fdprintf(pwsc->fd,"%d.%d.%d",ivalue,data[2],data[3]);
-	    break;
+            ivalue=data[0] << 8 | data[1];
+            r_fdprintf(pwsc->fd,"%d.%d.%d",ivalue,data[2],data[3]);
+            break;
 
-	case 0x0C:
-	    if((poi->browse_response)&&(strcmp(block_tag,"mlit") ==0)) {
-		if(block_len) {
-		    encoded_string=dispatch_xml_encode((char*)data,block_len);
-		    r_fdprintf(pwsc->fd,"%s",encoded_string);
-		    free(encoded_string);
-		}
-	    } else {
-		/* we'll need to stack this up and try and remember where we
-		 * came from.  Make it an extra 8 so that it gets fixed to
-		 * the *right* amount when the stacks are juggled below
-		 */
+        case 0x0C:
+            if((poi->browse_response)&&(strcmp(block_tag,"mlit") ==0)) {
+                if(block_len) {
+                    encoded_string=dispatch_xml_encode((char*)data,block_len);
+                    r_fdprintf(pwsc->fd,"%s",encoded_string);
+                    free(encoded_string);
+                }
+            } else {
+                /* we'll need to stack this up and try and remember where we
+                 * came from.  Make it an extra 8 so that it gets fixed to
+                 * the *right* amount when the stacks are juggled below
+                 */
 
-		poi->stack[poi->stack_height].bytes_left=block_len + 8;
-		memcpy(poi->stack[poi->stack_height].tag,block_tag,5);
-		poi->stack_height++;
-		if(poi->stack_height == 10) {
-		    DPRINTF(E_FATAL,L_DAAP,"Stack overflow\n");
-		}
-		block_done=0;
-	    }
-	    break;
+                poi->stack[poi->stack_height].bytes_left=block_len + 8;
+                memcpy(poi->stack[poi->stack_height].tag,block_tag,5);
+                poi->stack_height++;
+                if(poi->stack_height == 10) {
+                    DPRINTF(E_FATAL,L_DAAP,"Stack overflow\n");
+                }
+                block_done=0;
+            }
+            break;
 
-	default:
-	    DPRINTF(E_FATAL,L_DAAP,"Bad dmap type: %d, %s\n",
-		    pitem->type, pitem->description);
-	    break;
-	}
+        default:
+            DPRINTF(E_FATAL,L_DAAP,"Bad dmap type: %d, %s\n",
+                    pitem->type, pitem->description);
+            break;
+        }
 
-	if(block_done) {
-	    r_fdprintf(pwsc->fd,"</%s>",pitem->description);
-	    if(poi->readable)
-		r_fdprintf(pwsc->fd,"\n");
+        if(block_done) {
+            r_fdprintf(pwsc->fd,"</%s>",pitem->description);
+            if(poi->readable)
+                r_fdprintf(pwsc->fd,"\n");
 
-	    block_len += 8;
-	} else {
-	    /* must be a container */
-	    block_len = 8;
-	    if(poi->readable)
-		r_fdprintf(pwsc->fd,"\n");
-	}
+            block_len += 8;
+        } else {
+            /* must be a container */
+            block_len = 8;
+            if(poi->readable)
+                r_fdprintf(pwsc->fd,"\n");
+        }
 
-	current += block_len;
+        current += block_len;
 
-	if(poi->stack_height) {
-	    stack_ptr=poi->stack_height;
-	    while(stack_ptr--) {
-		poi->stack[stack_ptr].bytes_left -= block_len;
-		if(poi->stack[stack_ptr].bytes_left < 0) {
-		    DPRINTF(E_FATAL,L_DAAP,"negative container\n");
-		}
-		
-		if(!poi->stack[stack_ptr].bytes_left) {
-		    poi->stack_height--;
-		    pitem=dispatch_xml_lookup_tag(poi->stack[stack_ptr].tag);
-		    if(poi->readable) 
-			r_fdprintf(pwsc->fd,"%*s",poi->stack_height,"");
-		    r_fdprintf(pwsc->fd,"</%s>",pitem->description);
-		    if(poi->readable)
-			r_fdprintf(pwsc->fd,"\n");
-		}
-	    }
-	}
+        if(poi->stack_height) {
+            stack_ptr=poi->stack_height;
+            while(stack_ptr--) {
+                poi->stack[stack_ptr].bytes_left -= block_len;
+                if(poi->stack[stack_ptr].bytes_left < 0) {
+                    DPRINTF(E_FATAL,L_DAAP,"negative container\n");
+                }
+                
+                if(!poi->stack[stack_ptr].bytes_left) {
+                    poi->stack_height--;
+                    pitem=dispatch_xml_lookup_tag(poi->stack[stack_ptr].tag);
+                    if(poi->readable) 
+                        r_fdprintf(pwsc->fd,"%*s",poi->stack_height,"");
+                    r_fdprintf(pwsc->fd,"</%s>",pitem->description);
+                    if(poi->readable)
+                        r_fdprintf(pwsc->fd,"\n");
+                }
+            }
+        }
     }
 
     return 0;
@@ -511,7 +515,7 @@ int dispatch_output_end(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     OUTPUT_INFO *poi = pqi->output_info;
 
     if((poi) && (poi->xml_output) && (poi->stack_height)) {
-	DPRINTF(E_LOG,L_DAAP,"Badly formed xml -- still stack\n");
+        DPRINTF(E_LOG,L_DAAP,"Badly formed xml -- still stack\n");
     }
 
     config_set_status(pwsc,pqi->session_id,NULL);
@@ -527,11 +531,11 @@ DAAP_ITEMS *dispatch_xml_lookup_tag(char *tag) {
 
     pitem=taglist;
     while((pitem->tag) && (strncmp(tag,pitem->tag,4))) {
-	pitem++;
+        pitem++;
     }
 
     if(!pitem->tag)
-	DPRINTF(E_FATAL,L_DAAP,"Unknown daap tag: %c%c%c%c\n",tag[0],tag[1],tag[2],tag[3]);
+        DPRINTF(E_FATAL,L_DAAP,"Unknown daap tag: %c%c%c%c\n",tag[0],tag[1],tag[2],tag[3]);
 
     return pitem;
 }
@@ -547,9 +551,9 @@ char *dispatch_xml_encode(char *original, int len) {
 
     /* this is about stupid */
     if(len) {
-	truelen=len;
+        truelen=len;
     } else {
-	truelen=strlen(original);
+        truelen=strlen(original);
     }
 
     destsize = 6*truelen+1;
@@ -562,35 +566,35 @@ char *dispatch_xml_encode(char *original, int len) {
     d=new;
 
     while(s < (original+truelen)) {
-	switch(*s) {
-	case '>':
-	    strcat(d,"&gt;");
-	    d += 4;
-	    s++;
-	    break;
-	case '<':
-	    strcat(d,"&lt;");
-	    d += 4;
-	    s++;
-	    break;
-	case '"':
-	    strcat(d,"&quot;");
-	    d += 6;
-	    s++;
-	    break;
-	case '\'':
-	    strcat(d,"&apos;");
-	    d += 6;
-	    s++;
-	    break;
-	case '&':
-	    strcat(d,"&amp;");
-	    d += 5;
-	    s++;
-	    break;
-	default:
-	    *d++ = *s++;
-	}
+        switch(*s) {
+        case '>':
+            strcat(d,"&gt;");
+            d += 4;
+            s++;
+            break;
+        case '<':
+            strcat(d,"&lt;");
+            d += 4;
+            s++;
+            break;
+        case '"':
+            strcat(d,"&quot;");
+            d += 6;
+            s++;
+            break;
+        case '\'':
+            strcat(d,"&apos;");
+            d += 6;
+            s++;
+            break;
+        case '&':
+            strcat(d,"&amp;");
+            d += 5;
+            s++;
+            break;
+        default:
+            *d++ = *s++;
+        }
     }
 
     return new;
@@ -615,185 +619,185 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     item=atoi(pqi->uri_sections[3]);
 
     if(ws_getrequestheader(pwsc,"range")) { 
-	offset=(off_t)atol(ws_getrequestheader(pwsc,"range") + 6);
+        offset=(off_t)atol(ws_getrequestheader(pwsc,"range") + 6);
     }
 
     pmp3=db_fetch_item(item);
     if(!pmp3) {
-	DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
-	ws_returnerror(pwsc,404,"File Not Found");
+        DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
+        ws_returnerror(pwsc,404,"File Not Found");
     } else if (server_side_convert(pmp3->fname)) {
-	/************************
-	 * Server side conversion
-	 ************************/
-	DPRINTF(E_WARN,L_WS,"Thread %d: Autoconvert file %s for client\n",
-		pwsc->threadno,pmp3->path);
-	file_ptr = server_side_convert_open(pmp3->path,
-					    offset,
-					    pmp3->song_length);
-	if (file_ptr) {
-	    file_fd = fileno(file_ptr);
-	} else {
-	    file_fd = -1;
-	}
-	if(file_fd == -1) {
-	    if (file_ptr) {
-		server_side_convert_close(file_ptr);
-	    }
-	    pwsc->error=errno;
-	    DPRINTF(E_WARN,L_WS,
-		    "Thread %d: Error opening %s for conversion\n",
-		    pwsc->threadno,pmp3->path);
-	    ws_returnerror(pwsc,404,"Not found");
-	    config_set_status(pwsc,pqi->session_id,NULL);
-	    db_dispose_item(pmp3);
-	} else {
-	    // The type should really be determined by the transcoding
-	    // function -- it's possible that you want to transcode
-	    // to a lower-bitrate mp3 or something... but for now,
-	    // we'll just assume .wav
-	    ws_addresponseheader(pwsc,"Content-Type","audio/wav");
+        /************************
+         * Server side conversion
+         ************************/
+        DPRINTF(E_WARN,L_WS,"Thread %d: Autoconvert file %s for client\n",
+                pwsc->threadno,pmp3->path);
+        file_ptr = server_side_convert_open(pmp3->path,
+                                            offset,
+                                            pmp3->song_length);
+        if (file_ptr) {
+            file_fd = fileno(file_ptr);
+        } else {
+            file_fd = -1;
+        }
+        if(file_fd == -1) {
+            if (file_ptr) {
+                server_side_convert_close(file_ptr);
+            }
+            pwsc->error=errno;
+            DPRINTF(E_WARN,L_WS,
+                    "Thread %d: Error opening %s for conversion\n",
+                    pwsc->threadno,pmp3->path);
+            ws_returnerror(pwsc,404,"Not found");
+            config_set_status(pwsc,pqi->session_id,NULL);
+            db_dispose_item(pmp3);
+        } else {
+            // The type should really be determined by the transcoding
+            // function -- it's possible that you want to transcode
+            // to a lower-bitrate mp3 or something... but for now,
+            // we'll just assume .wav
+            ws_addresponseheader(pwsc,"Content-Type","audio/wav");
 
-	    /*
-	    if(pmp3->type)
-		ws_addresponseheader(pwsc,"Content-Type","audio/%s",
-				     pmp3->type);
-	    */
-	    // Also content-length -heade would be nice, but since
-	    // we don't really know it here, so let's leave it out.
-	    ws_addresponseheader(pwsc,"Connection","Close");
+            /*
+            if(pmp3->type)
+                ws_addresponseheader(pwsc,"Content-Type","audio/%s",
+                                     pmp3->type);
+            */
+            // Also content-length -heade would be nice, but since
+            // we don't really know it here, so let's leave it out.
+            ws_addresponseheader(pwsc,"Connection","Close");
 
-	    if(!offset)
-		ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-	    else {
-		// This is actually against the protocol, since
-		// range MUST be explicit according to HTTP-standard
-		// Seems to work at least with iTunes.
-		ws_addresponseheader(pwsc,
-				     "Content-Range","bytes %ld-*/*",
-				     (long)offset);
-		ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
-	    }
+            if(!offset)
+                ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+            else {
+                // This is actually against the protocol, since
+                // range MUST be explicit according to HTTP-standard
+                // Seems to work at least with iTunes.
+                ws_addresponseheader(pwsc,
+                                     "Content-Range","bytes %ld-*/*",
+                                     (long)offset);
+                ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
+            }
 
-	    ws_emitheaders(pwsc);
+            ws_emitheaders(pwsc);
 
-	    config_set_status(pwsc,pqi->session_id,
-			      "Streaming file via convert filter '%s'",
-			      pmp3->fname);
-	    DPRINTF(E_LOG,L_WS,
-		    "Session %d: Streaming file '%s' to %s (offset %ld)\n",
-		    pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
-		
-	    if(!offset)
-		config.stats.songs_served++; /* FIXME: remove stat races */
-	    if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
-		DPRINTF(E_INF,L_WS,
-			"Error copying converted file to remote... %s\n",
-			strerror(errno));
-	    } else {
-		DPRINTF(E_INF,L_WS,
-			"Finished streaming converted file to remote\n");
-	    }
-	    server_side_convert_close(file_ptr);
-	    config_set_status(pwsc,pqi->session_id,NULL);
-	    db_dispose_item(pmp3);
-	}
+            config_set_status(pwsc,pqi->session_id,
+                              "Streaming file via convert filter '%s'",
+                              pmp3->fname);
+            DPRINTF(E_LOG,L_WS,
+                    "Session %d: Streaming file '%s' to %s (offset %ld)\n",
+                    pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
+                
+            if(!offset)
+                config.stats.songs_served++; /* FIXME: remove stat races */
+            if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
+                DPRINTF(E_INF,L_WS,
+                        "Error copying converted file to remote... %s\n",
+                        strerror(errno));
+            } else {
+                DPRINTF(E_INF,L_WS,
+                        "Finished streaming converted file to remote\n");
+            }
+            server_side_convert_close(file_ptr);
+            config_set_status(pwsc,pqi->session_id,NULL);
+            db_dispose_item(pmp3);
+        }
     } else {
-	/**********************
-	 * stream file normally
-	 **********************/
-	file_fd=r_open2(pmp3->path,O_RDONLY);
-	if(file_fd == -1) {
-	    pwsc->error=errno;
-	    DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: %s\n",
-		    pwsc->threadno,pmp3->path,strerror(errno));
-	    ws_returnerror(pwsc,404,"Not found");
-	    config_set_status(pwsc,pqi->session_id,NULL);
-	    db_dispose_item(pmp3);
-	} else {
-	    real_len=lseek(file_fd,0,SEEK_END);
-	    lseek(file_fd,0,SEEK_SET);
+        /**********************
+         * stream file normally
+         **********************/
+        file_fd=r_open2(pmp3->path,O_RDONLY);
+        if(file_fd == -1) {
+            pwsc->error=errno;
+            DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: %s\n",
+                    pwsc->threadno,pmp3->path,strerror(errno));
+            ws_returnerror(pwsc,404,"Not found");
+            config_set_status(pwsc,pqi->session_id,NULL);
+            db_dispose_item(pmp3);
+        } else {
+            real_len=lseek(file_fd,0,SEEK_END);
+            lseek(file_fd,0,SEEK_SET);
 
-	    /* Re-adjust content length for cover art */
-	    if((config.artfilename) &&
-	       ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
-		fstat(img_fd, &sb);
-		img_size = sb.st_size;
-		r_close(img_fd);
-		
-		if (strncasecmp(pmp3->type,"mp3",4) ==0) {
+            /* Re-adjust content length for cover art */
+            if((config.artfilename) &&
+               ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
+                fstat(img_fd, &sb);
+                img_size = sb.st_size;
+                r_close(img_fd);
+                
+                if (strncasecmp(pmp3->type,"mp3",4) ==0) {
                     /*PENDING*/
-		} else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
+                } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
                     real_len += img_size + 24;
-		    
+                    
                     if (offset > img_size + 24) {
-			offset -= img_size + 24;
+                        offset -= img_size + 24;
                     }
-		}
-	    }
-	    
-	    file_len = real_len - offset;
-	    
-	    DPRINTF(E_DBG,L_WS,"Thread %d: Length of file (remaining) is %ld\n",
-		    pwsc->threadno,(long)file_len);
-	    
-	    // DWB:  fix content-type to correctly reflect data
-	    // content type (dmap tagged) should only be used on
-	    // dmap protocol requests, not the actually song data
-	    if(pmp3->type) 
-		ws_addresponseheader(pwsc,"Content-Type","audio/%s",pmp3->type);
-	    
-	    ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
-	    ws_addresponseheader(pwsc,"Connection","Close");
-	    
-	    
-	    if(!offset)
-		ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-	    else {
-		ws_addresponseheader(pwsc,"Content-Range","bytes %ld-%ld/%ld",
-				     (long)offset,(long)real_len,
-				     (long)real_len+1);
-		ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
-	    }
-	    
-	    ws_emitheaders(pwsc);
-	    
-	    config_set_status(pwsc,pqi->session_id,"Streaming file '%s'",pmp3->fname);
-	    DPRINTF(E_LOG,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
-		    pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
-	    
-	    if(!offset)
-		config.stats.songs_served++; /* FIXME: remove stat races */
-	    
-	    if((config.artfilename) &&
-	       (!offset) &&
-	       ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
-		if (strncasecmp(pmp3->type,"mp3",4) ==0) {
-		    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n",
-			    pmp3->fname, img_fd);
-		    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
-		} else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
-		    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n", 
-			    pmp3->fname, img_fd);
-		    da_aac_attach_image(img_fd, pwsc->fd, file_fd, offset);
-		}
-	    } else if(offset) {
-		DPRINTF(E_INF,L_WS,"Seeking to offset %ld\n",(long)offset);
-		lseek(file_fd,offset,SEEK_SET);
-	    }
-	    
-	    if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
-		DPRINTF(E_INF,L_WS,"Error copying file to remote... %s\n",
-			strerror(errno));
-	    } else {
-		DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
-			bytes_copied);
-	    }
-	    
-	    config_set_status(pwsc,pqi->session_id,NULL);
-	    r_close(file_fd);
-	    db_dispose_item(pmp3);
-	}
+                }
+            }
+            
+            file_len = real_len - offset;
+            
+            DPRINTF(E_DBG,L_WS,"Thread %d: Length of file (remaining) is %ld\n",
+                    pwsc->threadno,(long)file_len);
+            
+            // DWB:  fix content-type to correctly reflect data
+            // content type (dmap tagged) should only be used on
+            // dmap protocol requests, not the actually song data
+            if(pmp3->type) 
+                ws_addresponseheader(pwsc,"Content-Type","audio/%s",pmp3->type);
+            
+            ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
+            ws_addresponseheader(pwsc,"Connection","Close");
+            
+            
+            if(!offset)
+                ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+            else {
+                ws_addresponseheader(pwsc,"Content-Range","bytes %ld-%ld/%ld",
+                                     (long)offset,(long)real_len,
+                                     (long)real_len+1);
+                ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
+            }
+            
+            ws_emitheaders(pwsc);
+            
+            config_set_status(pwsc,pqi->session_id,"Streaming file '%s'",pmp3->fname);
+            DPRINTF(E_LOG,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
+                    pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
+            
+            if(!offset)
+                config.stats.songs_served++; /* FIXME: remove stat races */
+            
+            if((config.artfilename) &&
+               (!offset) &&
+               ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
+                if (strncasecmp(pmp3->type,"mp3",4) ==0) {
+                    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n",
+                            pmp3->fname, img_fd);
+                    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
+                } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
+                    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n", 
+                            pmp3->fname, img_fd);
+                    da_aac_attach_image(img_fd, pwsc->fd, file_fd, offset);
+                }
+            } else if(offset) {
+                DPRINTF(E_INF,L_WS,"Seeking to offset %ld\n",(long)offset);
+                lseek(file_fd,offset,SEEK_SET);
+            }
+            
+            if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
+                DPRINTF(E_INF,L_WS,"Error copying file to remote... %s\n",
+                        strerror(errno));
+            } else {
+                DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
+                        bytes_copied);
+            }
+            
+            config_set_status(pwsc,pqi->session_id,NULL);
+            r_close(file_fd);
+            db_dispose_item(pmp3);
+        }
     }
 
     free(pqi);
@@ -810,18 +814,18 @@ void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char *token;
 
     if(!ws_getvar(pwsc,"dmap.itemid")) {
-	DPRINTF(E_LOG,L_DAAP,"attempt to add playlist items with no dmap.itemid\n");
-	ws_returnerror(pwsc,500,"no itemid specified");
-	return;
+        DPRINTF(E_LOG,L_DAAP,"attempt to add playlist items with no dmap.itemid\n");
+        ws_returnerror(pwsc,500,"no itemid specified");
+        return;
     }
 
     tempstring=strdup(ws_getvar(pwsc,"dmap.itemid"));
     current=(unsigned char*)tempstring;
 
     while((token=strsep((char**)&current,","))) {
-	if(token) {
-	    db_add_playlist_item(pqi->playlist_id,atoi(token));
-	}
+        if(token) {
+            db_add_playlist_item(pqi->playlist_id,atoi(token));
+        }
     }
     
     free(tempstring);
@@ -848,9 +852,9 @@ void dispatch_deleteplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char *current;
 
     if(!ws_getvar(pwsc,"dmap.itemid")) {
-	DPRINTF(E_LOG,L_DAAP,"attempt to delete playlist with no dmap.itemid\n");
-	ws_returnerror(pwsc,500,"no itemid specified");
-	return;
+        DPRINTF(E_LOG,L_DAAP,"attempt to delete playlist with no dmap.itemid\n");
+        ws_returnerror(pwsc,500,"no itemid specified");
+        return;
     }
 
     db_delete_playlist(atoi(ws_getvar(pwsc,"dmap.itemid")));
@@ -879,18 +883,18 @@ void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char *token;
 
     if(!ws_getvar(pwsc,"dmap.itemid")) {
-	DPRINTF(E_LOG,L_DAAP,"attempt to delete playlist items with no dmap.itemid\n");
-	ws_returnerror(pwsc,500,"no itemid specified");
-	return;
+        DPRINTF(E_LOG,L_DAAP,"attempt to delete playlist items with no dmap.itemid\n");
+        ws_returnerror(pwsc,500,"no itemid specified");
+        return;
     }
 
     tempstring=strdup(ws_getvar(pwsc,"dmap.itemid"));
     current=(unsigned char *)tempstring;
 
     while((token=strsep((char**)&current,","))) {
-	if(token) {
-	    db_delete_playlist_item(pqi->playlist_id,atoi(token));
-	}
+        if(token) {
+            db_delete_playlist_item(pqi->playlist_id,atoi(token));
+        }
     }
     
     free(tempstring);
@@ -921,9 +925,9 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     if((!ws_getvar(pwsc,"org.mt-daapd.playlist-type")) ||
        (!ws_getvar(pwsc,"dmap.itemname"))) {
-	DPRINTF(E_LOG,L_DAAP,"attempt to add playlist with invalid type\n");
-	ws_returnerror(pwsc,500,"bad playlist info specified");
-	return;
+        DPRINTF(E_LOG,L_DAAP,"attempt to add playlist with invalid type\n");
+        ws_returnerror(pwsc,500,"bad playlist info specified");
+        return;
     }
 
     type=atoi(ws_getvar(pwsc,"org.mt-daapd.playlist-type"));
@@ -932,9 +936,9 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     retval=db_add_playlist(name,type,query,NULL,0,&playlistid);
     if(retval != DB_E_SUCCESS) {
-	DPRINTF(E_LOG,L_DAAP,"error adding playlist.  aborting\n");
-	ws_returnerror(pwsc,500,"error adding playlist");
-	return;
+        DPRINTF(E_LOG,L_DAAP,"error adding playlist.  aborting\n");
+        ws_returnerror(pwsc,500,"error adding playlist");
+        return;
     }
 
     /* success... spool out a dmap block */
@@ -952,6 +956,48 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 /**
+ * edit an existing playlist (by id)
+ */
+void dispatch_editplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
+    unsigned char edit_response[20];
+    unsigned char *current = edit_response;
+    
+    char *name, *query;
+    int id;
+    
+    int retval;
+   
+    if((!ws_getvar(pwsc,"dmap.itemname")) ||
+        (!ws_getvar(pwsc,"dmap.itemid"))) {
+        DPRINTF(E_LOG,L_DAAP,"Missing name on playlist edit");
+        ws_returnerror(pwsc,500,"missing playlist name");
+        return;
+    }
+    
+    name=ws_getvar(pwsc,"dmap.itemname");
+    query=ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
+    id=atoi(ws_getvar(pwsc,"dmap.itemid"));
+    
+    retval=db_edit_playlist(id,name,query);
+    if(retval != DB_E_SUCCESS) {
+        DPRINTF(E_LOG,L_DAAP,"error editing playlist.");
+        ws_returnerror(pwsc,500,"Error editing playlist");
+        return;
+    }
+    
+    current += db_dmap_add_container(current,"MEPR",12); 
+    current += db_dmap_add_int(current,"mstt",200);      /* 12 */
+    
+    dispatch_output_start(pwsc,pqi,20);
+    dispatch_output_write(pwsc,pqi,edit_response,20);
+    dispatch_output_end(pwsc,pqi);
+    
+    pwsc->close=1;
+    return;
+}
+
+
+/**
  * enumerate and return playlistitems
  */
 void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
@@ -962,21 +1008,21 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char *block;
 
     if(ws_getvar(pwsc,"meta")) {
-	pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
+        pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
     } else {
-	pqi->meta = ((1ll << metaItemId) |
-		     (1ll << metaItemName) |
-		     (1ll << metaItemKind) |
-		     (1ll << metaContainerItemId) |
-		     (1ll << metaParentContainerId));
+        pqi->meta = ((1ll << metaItemId) |
+                     (1ll << metaItemName) |
+                     (1ll << metaItemKind) |
+                     (1ll << metaContainerItemId) |
+                     (1ll << metaParentContainerId));
     }
 
     pqi->query_type = queryTypePlaylistItems;
     pqi->index_type=indexTypeNone;
     if(db_enum_start(pqi)) {
-	DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
-	ws_returnerror(pwsc,500,"Internal server error: out of memory!");
-	return;
+        DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
+        ws_returnerror(pwsc,500,"Internal server error: out of memory!");
+        return;
     }
     
     list_length=db_enum_size(pqi,&song_count);
@@ -994,9 +1040,9 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_write(pwsc,pqi,items_response,61);
 
     while((list_length=db_enum_fetch(pqi,&block)) > 0) {
-	DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
-	dispatch_output_write(pwsc,pqi,block,list_length);
-	free(block);
+        DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
+        dispatch_output_write(pwsc,pqi,block,list_length);
+        free(block);
     }
 
     DPRINTF(E_DBG,L_DAAP,"Done enumerating.\n");
@@ -1016,31 +1062,31 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char *response_type;
 
     if(!strcmp(pqi->uri_sections[3],"artists")) {
-	response_type = "abar";
-	pqi->query_type=queryTypeBrowseArtists;
+        response_type = "abar";
+        pqi->query_type=queryTypeBrowseArtists;
     } else if(!strcmp(pqi->uri_sections[3],"genres")) {
-	response_type = "abgn";
-	pqi->query_type=queryTypeBrowseGenres;
+        response_type = "abgn";
+        pqi->query_type=queryTypeBrowseGenres;
     } else if(!strcmp(pqi->uri_sections[3],"albums")) {
-	response_type = "abal";
-	pqi->query_type=queryTypeBrowseAlbums;
+        response_type = "abal";
+        pqi->query_type=queryTypeBrowseAlbums;
     } else if(!strcmp(pqi->uri_sections[3],"composers")) {
-	response_type = "abcp";
-	pqi->query_type=queryTypeBrowseComposers;
+        response_type = "abcp";
+        pqi->query_type=queryTypeBrowseComposers;
     } else {
-	DPRINTF(E_WARN,L_DAAP|L_BROW,"Invalid browse request type %s\n",pqi->uri_sections[3]);
-	ws_returnerror(pwsc,404,"Invalid browse type");
-	config_set_status(pwsc,pqi->session_id,NULL);
-	free(pqi);
-	return;
+        DPRINTF(E_WARN,L_DAAP|L_BROW,"Invalid browse request type %s\n",pqi->uri_sections[3]);
+        ws_returnerror(pwsc,404,"Invalid browse type");
+        config_set_status(pwsc,pqi->session_id,NULL);
+        free(pqi);
+        return;
     }
 
     pqi->index_type = indexTypeNone;
 
     if(db_enum_start(pqi)) {
-	DPRINTF(E_LOG,L_DAAP|L_BROW,"Could not start enum\n");
-	ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
-	return;
+        DPRINTF(E_LOG,L_DAAP|L_BROW,"Could not start enum\n");
+        ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
+        return;
     }
     
     DPRINTF(E_DBG,L_DAAP|L_BROW,"Getting enum size.\n");
@@ -1048,7 +1094,7 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     list_length=db_enum_size(pqi,&item_count);
 
     DPRINTF(E_DBG,L_DAAP|L_BROW,"Item enum: got %d items, dmap size: %d\n",
-	    item_count,list_length);
+            item_count,list_length);
 
     current += db_dmap_add_container(current,"abro",list_length + 44);
     current += db_dmap_add_int(current,"mstt",200);                       /* 12 */
@@ -1060,9 +1106,9 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_write(pwsc,pqi,browse_response,52);
 
     while((list_length=db_enum_fetch(pqi,&block)) > 0) {
-	DPRINTF(E_SPAM,L_DAAP|L_BROW,"Got block of size %d\n",list_length);
-	dispatch_output_write(pwsc,pqi,block,list_length);
-	free(block);
+        DPRINTF(E_SPAM,L_DAAP|L_BROW,"Got block of size %d\n",list_length);
+        dispatch_output_write(pwsc,pqi,block,list_length);
+        free(block);
     }
 
     DPRINTF(E_DBG,L_DAAP|L_BROW,"Done enumerating\n");
@@ -1082,21 +1128,21 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     /* currently, this is ignored for playlist queries */
     if(ws_getvar(pwsc,"meta")) {
-	pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
+        pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
     } else {
-	pqi->meta = ((1ll << metaItemId) |
-		     (1ll << metaItemName) |
-		     (1ll << metaPersistentId) |
-		     (1ll << metaItunesSmartPlaylist));
+        pqi->meta = ((1ll << metaItemId) |
+                     (1ll << metaItemName) |
+                     (1ll << metaPersistentId) |
+                     (1ll << metaItunesSmartPlaylist));
     }
 
 
     pqi->query_type = queryTypePlaylists;
     pqi->index_type = indexTypeNone;
     if(db_enum_start(pqi)) {
-	DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
-	ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
-	return;
+        DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
+        ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
+        return;
     }
     
     list_length=db_enum_size(pqi,&pl_count);
@@ -1114,9 +1160,9 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_write(pwsc,pqi,playlist_response,61);
 
     while((list_length=db_enum_fetch(pqi,&block)) > 0) {
-	DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
-	dispatch_output_write(pwsc,pqi,block,list_length);
-	free(block);
+        DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
+        dispatch_output_write(pwsc,pqi,block,list_length);
+        free(block);
     }
 
     DPRINTF(E_DBG,L_DAAP,"Done enumerating.\n");
@@ -1135,17 +1181,17 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char *block;
 
     if(ws_getvar(pwsc,"meta")) {
-	pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
+        pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
     } else {
-	pqi->meta = (MetaField_t) -1ll;
+        pqi->meta = (MetaField_t) -1ll;
     }
 
     pqi->query_type = queryTypeItems;
     pqi->index_type=indexTypeNone;
     if(db_enum_start(pqi)) {
-	DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
-	ws_returnerror(pwsc,500,"Internal server error: out of memory!");
-	return;
+        DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
+        ws_returnerror(pwsc,500,"Internal server error: out of memory!");
+        return;
     }
     
     list_length=db_enum_size(pqi,&song_count);
@@ -1163,9 +1209,9 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_write(pwsc,pqi,items_response,61);
 
     while((list_length=db_enum_fetch(pqi,&block)) > 0) {
-	DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
-	dispatch_output_write(pwsc,pqi,block,list_length);
-	free(block);
+        DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
+        dispatch_output_write(pwsc,pqi,block,list_length);
+        free(block);
     }
 
     DPRINTF(E_DBG,L_DAAP,"Done enumerating.\n");
@@ -1187,23 +1233,23 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     DPRINTF(E_DBG,L_DAAP,"Preparing to send update response\n");
 
     if(ws_getvar(pwsc,"revision-number")) {
-	clientver=atoi(ws_getvar(pwsc,"revision-number"));
+        clientver=atoi(ws_getvar(pwsc,"revision-number"));
     }
 
     while(clientver == db_revision()) {
-	FD_ZERO(&rset);
-	FD_SET(pwsc->fd,&rset);
+        FD_ZERO(&rset);
+        FD_SET(pwsc->fd,&rset);
 
-	tv.tv_sec=30;
-	tv.tv_usec=0;
+        tv.tv_sec=30;
+        tv.tv_usec=0;
 
-	result=select(pwsc->fd+1,&rset,NULL,NULL,&tv);
-	if(FD_ISSET(pwsc->fd,&rset)) {
-	    /* can't be ready for read, must be error */
-	    DPRINTF(E_DBG,L_DAAP,"Socket closed?\n");
-	    
-	    return;
-	}
+        result=select(pwsc->fd+1,&rset,NULL,NULL,&tv);
+        if(FD_ISSET(pwsc->fd,&rset)) {
+            /* can't be ready for read, must be error */
+            DPRINTF(E_DBG,L_DAAP,"Socket closed?\n");
+            
+            return;
+        }
     }
 
     /* otherwise, send the info about this version */
@@ -1278,8 +1324,8 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dicurrent=taglist;
     len=0;
     while(dicurrent->type) {
-	len += (8 + 12 + 10 + 8 + strlen(dicurrent->description));
-	dicurrent++;
+        len += (8 + 12 + 10 + 8 + strlen(dicurrent->description));
+        dicurrent++;
     }
 
     current += db_dmap_add_container(current,"mccr",len + 12);
@@ -1290,14 +1336,14 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     dicurrent=taglist;
     while(dicurrent->type) {
-	current=mdcl;
-	len = 12 + 10 + 8 + strlen(dicurrent->description);
-	current += db_dmap_add_container(current,"mdcl",len);
-	current += db_dmap_add_string(current,"mcnm",dicurrent->tag);         /* 12 */
-	current += db_dmap_add_string(current,"mcna",dicurrent->description); /* 8 + descr */
-	current += db_dmap_add_short(current,"mcty",dicurrent->type);         /* 10 */
-	dispatch_output_write(pwsc,pqi,mdcl,len+8);
-	dicurrent++;
+        current=mdcl;
+        len = 12 + 10 + 8 + strlen(dicurrent->description);
+        current += db_dmap_add_container(current,"mdcl",len);
+        current += db_dmap_add_string(current,"mcnm",dicurrent->tag);         /* 12 */
+        current += db_dmap_add_string(current,"mcna",dicurrent->description); /* 8 + descr */
+        current += db_dmap_add_short(current,"mcty",dicurrent->type);         /* 10 */
+        dispatch_output_write(pwsc,pqi,mdcl,len+8);
+        dicurrent++;
     }
     
     dispatch_output_end(pwsc,pqi);
@@ -1314,7 +1360,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int actual_length=130 + strlen(config.servername);
 
     if(actual_length > sizeof(server_info)) {
-	DPRINTF(E_FATAL,L_DAAP,"Server name too long.\n");
+        DPRINTF(E_FATAL,L_DAAP,"Server name too long.\n");
     }
 
     client_version=ws_getrequestheader(pwsc,"Client-DAAP-Version");
@@ -1323,13 +1369,13 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mstt",200);        /* 12 */
 
     if((client_version) && (!strcmp(client_version,"1.0"))) {
-	mpro = 1 << 16;
-	apro = 1 << 16;
+        mpro = 1 << 16;
+        apro = 1 << 16;
     }
 
     if((client_version) && (!strcmp(client_version,"2.0"))) {
-	mpro = 1 << 16;
-	apro = 2 << 16;
+        mpro = 1 << 16;
+        apro = 2 << 16;
     }
 
     current += db_dmap_add_int(current,"mpro",mpro);       /* 12 */
@@ -1338,7 +1384,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_string(current,"minm",config.servername); /* 8 + strlen(name) */
 
     current += db_dmap_add_char(current,"msau",            /* 9 */
-				config.readpassword != NULL ? 2 : 0); 
+                                config.readpassword != NULL ? 2 : 0); 
     current += db_dmap_add_char(current,"msex",0);         /* 9 */
     current += db_dmap_add_char(current,"msix",0);         /* 9 */
     current += db_dmap_add_char(current,"msbr",0);         /* 9 */

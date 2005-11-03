@@ -53,7 +53,8 @@ function pl_update() {
         var url = '/databases/1/containers/add?output=xml&org.mt-daapd.playlist-type=1&dmap.itemname=' + name + '&org.mt-daapd.smart-playlist-spec=' + spec;
         result = pl_exec(url,false);
     } else {
-        pl_errormsg("Can't yet update existing playlists.. sorry.");
+        var url='/databases/1/containers/edit?output=xml&dmap.itemid=' + id + '&dmap.itemname=' + name + '&org.mt-daapd.smart-playlist-spec=' + spec;
+        result = pl_exec(url,false);
     }
     
     init();

@@ -50,6 +50,7 @@ typedef struct tag_db_functions {
     int(*dbs_add_playlist_item)(int, int);
     int(*dbs_delete_playlist)(int);
     int(*dbs_delete_playlist_item)(int, int);
+    int(*dbs_edit_playlist)(int, char*, char*);    
     int(*dbs_enum_start)(DBQUERYINFO *);
     int(*dbs_enum_size)(DBQUERYINFO *, int *);
     int(*dbs_enum_fetch)(DBQUERYINFO *, unsigned char **);
@@ -79,6 +80,7 @@ DB_FUNCTIONS db_functions[] = {
 	db_sqlite_add_playlist_item,
 	db_sqlite_delete_playlist,
 	db_sqlite_delete_playlist_item,
+	db_sqlite_edit_playlist,
 	db_sqlite_enum_start,
 	db_sqlite_enum_size,
 	db_sqlite_enum_fetch,
@@ -203,6 +205,7 @@ DAAP_ITEMS taglist[] = {
     { 0x0C, "MAPI", "org.mt-daapd.addplaylistitem" },
     { 0x0C, "MDPR", "org.mt-daapd.delplaylist" },
     { 0x0C, "MDPI", "org.mt-daapd.delplaylistitem" },
+    { 0x0C, "MEPR", "org.mt-daapd.editplaylist" },
     { 0x00, NULL,   NULL }
 };
 
@@ -549,6 +552,24 @@ int db_delete_playlist_item(int playlistid, int songid) {
 
     return retval;
 }
+
+/**
+ * edit a playlist
+ *
+ * @param id playlist id to edit
+ * @param name new name of playlist
+ * @param clause new where clause
+ */
+int db_edit_playlist(int id, char *name, char *clause) {
+    int retval;
+    
+    db_writelock();
+    
+    retval = db_current->dbs_edit_playlist(id, name, clause);
+    db_unlock();
+    return retval;
+}
+
 
 /**
  * start a db enumeration, based info in the DBQUERYINFO struct

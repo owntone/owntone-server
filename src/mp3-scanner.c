@@ -60,7 +60,7 @@
  */
 typedef struct {
     char *suffix;
-    int	(*scanner)(char* file, MP3FILE* pmp3);
+    int (*scanner)(char* file, MP3FILE* pmp3);
     char *type;         /* daap.songformat */
     char *codectype;    /* song.codectype */
     char *description;  /* daap.songdescription */
@@ -172,8 +172,8 @@ void scan_add_playlistlist(char *path) {
 
     plist=(PLAYLISTLIST*)malloc(sizeof(PLAYLISTLIST));
     if(!plist) {
-	DPRINTF(E_FATAL,L_SCAN,"Malloc error\n");
-	return;
+        DPRINTF(E_FATAL,L_SCAN,"Malloc error\n");
+        return;
     }
 
     plist->path=strdup(path);
@@ -190,24 +190,24 @@ void scan_process_playlistlist(void) {
     char *ext;
 
     while(scan_playlistlist.next) {
-	pnext=scan_playlistlist.next;
+        pnext=scan_playlistlist.next;
 
-	ext=pnext->path;
-	if(strrchr(pnext->path,'.')) {
-	    ext = strrchr(pnext->path,'.');
-	}
+        ext=pnext->path;
+        if(strrchr(pnext->path,'.')) {
+            ext = strrchr(pnext->path,'.');
+        }
 
-	if(strcasecmp(ext,".xml") == 0) {
-	    scan_xml_playlist(pnext->path);
-	} else if(strcasecmp(ext,".m3u") == 0) {
-	    scan_static_playlist(pnext->path);
-	} else {
-	    DPRINTF(E_LOG,L_SCAN,"Unknown playlist type: %s\n",ext);
-	}
+        if(strcasecmp(ext,".xml") == 0) {
+            scan_xml_playlist(pnext->path);
+        } else if(strcasecmp(ext,".m3u") == 0) {
+            scan_static_playlist(pnext->path);
+        } else {
+            DPRINTF(E_LOG,L_SCAN,"Unknown playlist type: %s\n",ext);
+        }
 
-	free(pnext->path);
-	scan_playlistlist.next=pnext->next;
-	free(pnext);
+        free(pnext->path);
+        scan_playlistlist.next=pnext->next;
+        free(pnext);
     }
 }
 
@@ -227,8 +227,12 @@ void scan_process_playlistlist(void) {
 int scan_init(char *path) {
     int err=0;
 
-    if(db_start_scan()) 
-	return -1;
+    DPRINTF(E_DBG,L_SCAN,"Starting scan_init\n");
+
+    if(db_start_scan()) {
+        DPRINTF(E_DBG,L_SCAN,"Error in db_start_scan()\n");
+        return -1;
+    }
 
     DPRINTF(E_DBG,L_SCAN,"Scanning for MP3s in %s\n",path);
 
@@ -236,12 +240,12 @@ int scan_init(char *path) {
     err=scan_path(path);
 
     if(db_end_song_scan())
-	return -1;
+        return -1;
 
     scan_process_playlistlist();
     
     if(db_end_scan())
-	return -1;
+        return -1;
 
     return err;
 }
@@ -256,12 +260,12 @@ int scan_is_compdir(char *path) {
     int current=0;
 
     if(!config.complist)
-	return 0;
+        return 0;
 
     while(config.complist[current]) {
-	if(strcasestr(path,config.complist[current]))
-	    return 1;
-	current++;
+        if(strcasestr(path,config.complist[current]))
+            return 1;
+        current++;
     }
 
     return 0;
@@ -287,72 +291,72 @@ int scan_path(char *path) {
     int is_compdir;
 
     if((current_dir=opendir(path)) == NULL) {
-	DPRINTF(E_WARN,L_SCAN,"opendir: %s\n",strerror(errno));
-	return -1;
+        DPRINTF(E_WARN,L_SCAN,"opendir: %s\n",strerror(errno));
+        return -1;
     }
 
     is_compdir=scan_is_compdir(path);
 
     while(1) {
-	if(config.stop) {
-	    DPRINTF(E_WARN,L_SCAN,"Stop req.  Aborting scan of %s.\n",path);
-	    closedir(current_dir);
-	    return 0;
-	}
+        if(config.stop) {
+            DPRINTF(E_WARN,L_SCAN,"Stop req.  Aborting scan of %s.\n",path);
+            closedir(current_dir);
+            return 0;
+        }
 
-	pde=(struct dirent *)&de;
+        pde=(struct dirent *)&de;
 
-	err=readdir_r(current_dir,(struct dirent *)de,&pde);
-	if(err == -1) {
-	    DPRINTF(E_DBG,L_SCAN,"Error on readdir_r: %s\n",strerror(errno));
-	    err=errno;
-	    closedir(current_dir);
-	    errno=err;
-	    return -1;
-	}
+        err=readdir_r(current_dir,(struct dirent *)de,&pde);
+        if(err == -1) {
+            DPRINTF(E_DBG,L_SCAN,"Error on readdir_r: %s\n",strerror(errno));
+            err=errno;
+            closedir(current_dir);
+            errno=err;
+            return -1;
+        }
 
-	if(!pde)
-	    break;
-	
-	if(pde->d_name[0] == '.') /* skip hidden and directories */
-	    continue;
+        if(!pde)
+            break;
+        
+        if(pde->d_name[0] == '.') /* skip hidden and directories */
+            continue;
 
-	snprintf(relative_path,PATH_MAX,"%s/%s",path,pde->d_name);
-	mp3_path[0] = '\x0';
-	realpath(relative_path,mp3_path);
-	DPRINTF(E_DBG,L_SCAN,"Found %s\n",relative_path);
-	if(stat(mp3_path,&sb)) {
-	    DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
-	} else {
-	    if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
-		DPRINTF(E_DBG,L_SCAN,"Found dir %s... recursing\n",pde->d_name);
-		scan_path(mp3_path);
-	    } else {
-		/* process the file */
-		if(strlen(pde->d_name) > 4) {
-		    if((strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) &&
-		       config.process_m3u){
-			/* we found an m3u file */
-			scan_add_playlistlist(mp3_path);
-		    } else if((strcasecmp(".xml",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0)) {
-			scan_add_playlistlist(mp3_path);
-		    } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
-			       (strcasestr(config.extensions, ext))) {
-			/* only scan if it's been changed, or empty db */
-			modified_time=sb.st_mtime;
-			pmp3=db_fetch_path(mp3_path,0);
+        snprintf(relative_path,PATH_MAX,"%s/%s",path,pde->d_name);
+        mp3_path[0] = '\x0';
+        realpath(relative_path,mp3_path);
+        DPRINTF(E_DBG,L_SCAN,"Found %s\n",relative_path);
+        if(stat(mp3_path,&sb)) {
+            DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
+        } else {
+            if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
+                DPRINTF(E_DBG,L_SCAN,"Found dir %s... recursing\n",pde->d_name);
+                scan_path(mp3_path);
+            } else {
+                /* process the file */
+                if(strlen(pde->d_name) > 4) {
+                    if((strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) &&
+                       config.process_m3u){
+                        /* we found an m3u file */
+                        scan_add_playlistlist(mp3_path);
+                    } else if((strcasecmp(".xml",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0)) {
+                        scan_add_playlistlist(mp3_path);
+                    } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
+                               (strcasestr(config.extensions, ext))) {
+                        /* only scan if it's been changed, or empty db */
+                        modified_time=sb.st_mtime;
+                        pmp3=db_fetch_path(mp3_path,0);
 
-			if((!pmp3) || (pmp3->db_timestamp < modified_time) || 
-			   (pmp3->force_update)) {
-			    scan_music_file(path,pde,&sb,is_compdir);
-			} else {
-			    DPRINTF(E_DBG,L_SCAN,"Skipping file... not modified\n");
-			}
-			db_dispose_item(pmp3);
-		    }
-		}
-	    }
-	}
+                        if((!pmp3) || (pmp3->db_timestamp < modified_time) || 
+                           (pmp3->force_update)) {
+                            scan_music_file(path,pde,&sb,is_compdir);
+                        } else {
+                            DPRINTF(E_DBG,L_SCAN,"Skipping file... not modified\n");
+                        }
+                        db_dispose_item(pmp3);
+                    }
+                }
+            }
+        }
     }
 
     closedir(current_dir);
@@ -379,79 +383,79 @@ int scan_static_playlist(char *path) {
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",path);
     if(stat(path,&sb)) {
-	DPRINTF(E_WARN,L_SCAN,"Error statting %s: %s\n",path,strerror(errno));
-	return FALSE;
+        DPRINTF(E_WARN,L_SCAN,"Error statting %s: %s\n",path,strerror(errno));
+        return FALSE;
     }
 
     if((current=strrchr(path,'/')) == NULL) {
-	current = path;
+        current = path;
     } else {
-	current++;
+        current++;
     }
 
     /* temporarily use base_path for m3u name */
     strcpy(base_path,current);
     if((current=strrchr(base_path,'.'))) {
-	*current='\x0';
+        *current='\x0';
     }
 
     pm3u = db_fetch_playlist(path,0);
     if(pm3u && (pm3u->db_timestamp > sb.st_mtime)) {
-	/* already up-to-date */
-	DPRINTF(E_DBG,L_SCAN,"Playlist already up-to-date\n");
-	db_dispose_playlist(pm3u);
-	return TRUE;
+        /* already up-to-date */
+        DPRINTF(E_DBG,L_SCAN,"Playlist already up-to-date\n");
+        db_dispose_playlist(pm3u);
+        return TRUE;
     }
 
     if(pm3u) 
-	db_delete_playlist(pm3u->id);
+        db_delete_playlist(pm3u->id);
 
     fd=open(path,O_RDONLY);
     if(fd != -1) {
-	if(db_add_playlist(base_path,PL_STATICFILE,NULL,path,0,&playlistid) != DB_E_SUCCESS) {
-	    DPRINTF(E_LOG,L_SCAN,"Error adding m3u playlist %s\n",path);
-	    db_dispose_playlist(pm3u);
-	    return FALSE;
-	}
-	/* now get the *real* base_path */
-	strcpy(base_path,path);
-	if((current=strrchr(base_path,'/'))) {
-	    *(current+1) = '\x0';
-	} /* else something is fubar */
+        if(db_add_playlist(base_path,PL_STATICFILE,NULL,path,0,&playlistid) != DB_E_SUCCESS) {
+            DPRINTF(E_LOG,L_SCAN,"Error adding m3u playlist %s\n",path);
+            db_dispose_playlist(pm3u);
+            return FALSE;
+        }
+        /* now get the *real* base_path */
+        strcpy(base_path,path);
+        if((current=strrchr(base_path,'/'))) {
+            *(current+1) = '\x0';
+        } /* else something is fubar */
 
-	DPRINTF(E_INF,L_SCAN|L_PL,"Added playlist as id %d\n",playlistid);
+        DPRINTF(E_INF,L_SCAN|L_PL,"Added playlist as id %d\n",playlistid);
 
-	memset(linebuffer,0x00,sizeof(linebuffer));
-	while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
-	    while((linebuffer[strlen(linebuffer)-1] == '\n') ||
-		  (linebuffer[strlen(linebuffer)-1] == '\r')) 
-		linebuffer[strlen(linebuffer)-1] = '\0';
+        memset(linebuffer,0x00,sizeof(linebuffer));
+        while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
+            while((linebuffer[strlen(linebuffer)-1] == '\n') ||
+                  (linebuffer[strlen(linebuffer)-1] == '\r')) 
+                linebuffer[strlen(linebuffer)-1] = '\0';
 
-	    if((linebuffer[0] == ';') || (linebuffer[0] == '#'))
-		continue;
+            if((linebuffer[0] == ';') || (linebuffer[0] == '#'))
+                continue;
 
-	    // FIXME - should chomp trailing comments
+            // FIXME - should chomp trailing comments
 
-	    // otherwise, assume it is a path
-	    if(linebuffer[0] == '/') {
-		strcpy(file_path,linebuffer);
-	    } else {
-		snprintf(file_path,sizeof(file_path),"%s%s",base_path,linebuffer);
-	    }
+            // otherwise, assume it is a path
+            if(linebuffer[0] == '/') {
+                strcpy(file_path,linebuffer);
+            } else {
+                snprintf(file_path,sizeof(file_path),"%s%s",base_path,linebuffer);
+            }
 
-	    realpath(file_path,real_path);
-	    DPRINTF(E_DBG,L_SCAN|L_PL,"Checking %s\n",real_path);
+            realpath(file_path,real_path);
+            DPRINTF(E_DBG,L_SCAN|L_PL,"Checking %s\n",real_path);
 
-	    // might be valid, might not...
-	    if((pmp3=db_fetch_path(real_path,0))) {
-		db_add_playlist_item(playlistid,pmp3->id);
-		db_dispose_item(pmp3);
-	    } else {
-		DPRINTF(E_WARN,L_SCAN|L_PL,"Playlist entry %s bad: %s\n",
-			path,strerror(errno));
-	    }
-	}
-	close(fd);
+            // might be valid, might not...
+            if((pmp3=db_fetch_path(real_path,0))) {
+                db_add_playlist_item(playlistid,pmp3->id);
+                db_dispose_item(pmp3);
+            } else {
+                DPRINTF(E_WARN,L_SCAN|L_PL,"Playlist entry %s bad: %s\n",
+                        path,strerror(errno));
+            }
+        }
+        close(fd);
     }
 
     db_dispose_playlist(pm3u);
@@ -466,7 +470,7 @@ int scan_static_playlist(char *path) {
  * scan a particular file as a music file
  */
 void scan_music_file(char *path, struct dirent *pde, 
-		     struct stat *psb, int is_compdir) {
+                     struct stat *psb, int is_compdir) {
     MP3FILE mp3file;
     char mp3_path[PATH_MAX];
     char *current=NULL;
@@ -483,60 +487,60 @@ void scan_music_file(char *path, struct dirent *pde,
     mp3file.path=strdup(mp3_path);
     mp3file.fname=strdup(pde->d_name);
     if(strlen(pde->d_name) > 4) {
-	type = strrchr(pde->d_name, '.') + 1;
-	if(type) {
-	    /* see if there is "official" format and info for it */
-	    ptaghandler=scan_gethandler(type);
-	    if(ptaghandler) {
-		/* yup, use the official format */
-		mp3file.type=strdup(ptaghandler->type);
-		if(ptaghandler->description)
-		    mp3file.description=strdup(ptaghandler->description);
+        type = strrchr(pde->d_name, '.') + 1;
+        if(type) {
+            /* see if there is "official" format and info for it */
+            ptaghandler=scan_gethandler(type);
+            if(ptaghandler) {
+                /* yup, use the official format */
+                mp3file.type=strdup(ptaghandler->type);
+                if(ptaghandler->description)
+                    mp3file.description=strdup(ptaghandler->description);
 
-		if(ptaghandler->codectype)
-		    mp3file.codectype=strdup(ptaghandler->codectype);
+                if(ptaghandler->codectype)
+                    mp3file.codectype=strdup(ptaghandler->codectype);
 
-		DPRINTF(E_DBG,L_SCAN,"Codec type: %s\n",mp3file.codectype);
-	    } else {
-		/* just dummy up songformat, codectype and description */
-		mp3file.type=strdup(type);
+                DPRINTF(E_DBG,L_SCAN,"Codec type: %s\n",mp3file.codectype);
+            } else {
+                /* just dummy up songformat, codectype and description */
+                mp3file.type=strdup(type);
 
-		/* upper-case types cause some problems */
-		current=mp3file.type;
-		while(*current) {
-		    *current=tolower(*current);
-		    current++;
-		}
-		
-		sprintf(fdescr,"%s audio file",mp3file.type);
-		mp3file.description = strdup(fdescr);
-		/* we'll just dodge the codectype */
-	    }
-	}
+                /* upper-case types cause some problems */
+                current=mp3file.type;
+                while(*current) {
+                    *current=tolower(*current);
+                    current++;
+                }
+                
+                sprintf(fdescr,"%s audio file",mp3file.type);
+                mp3file.description = strdup(fdescr);
+                /* we'll just dodge the codectype */
+            }
+        }
     }
     
     /* Do the tag lookup here */
     if(scan_get_info(mp3file.path,&mp3file)) {
-	make_composite_tags(&mp3file);
-	/* fill in the time_added.  I'm not sure of the logic in this.
-	   My thinking is to use time created, but what is that?  Best
-	   guess would be earliest of st_mtime and st_ctime...
-	*/
-	mp3file.time_added=psb->st_mtime;
-	if(psb->st_ctime < mp3file.time_added)
-	    mp3file.time_added=psb->st_ctime;
+        make_composite_tags(&mp3file);
+        /* fill in the time_added.  I'm not sure of the logic in this.
+           My thinking is to use time created, but what is that?  Best
+           guess would be earliest of st_mtime and st_ctime...
+        */
+        mp3file.time_added=psb->st_mtime;
+        if(psb->st_ctime < mp3file.time_added)
+            mp3file.time_added=psb->st_ctime;
         mp3file.time_modified=psb->st_mtime;
 
-	DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
+        DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 
-	DPRINTF(E_DBG,L_SCAN," Codec: %s\n",mp3file.codectype);
+        DPRINTF(E_DBG,L_SCAN," Codec: %s\n",mp3file.codectype);
 
-	if(is_compdir)
-	    mp3file.compilation = 1;
+        if(is_compdir)
+            mp3file.compilation = 1;
 
-	db_add(&mp3file);
+        db_add(&mp3file);
     } else {
-	DPRINTF(E_WARN,L_SCAN,"Skipping %s - scan failed\n",mp3file.path);
+        DPRINTF(E_WARN,L_SCAN,"Skipping %s - scan failed\n",mp3file.path);
     }
     
     scan_freetags(&mp3file);
@@ -549,10 +553,10 @@ TAGHANDLER *scan_gethandler(char *type) {
     TAGHANDLER *phdl = taghandlers;
 
     while((phdl->suffix) && (strcasecmp(phdl->suffix,type)))
-	phdl++;
+        phdl++;
 
     if(phdl->suffix)
-	return phdl;
+        return phdl;
 
     return NULL;
 }
@@ -597,12 +601,12 @@ int scan_get_info(char *file, MP3FILE *pmp3) {
     /* dispatch to appropriate tag handler */
     hdl = scan_gethandler(pmp3->type);
     if(hdl && hdl->scanner)
-	return hdl->scanner(file,pmp3);
+        return hdl->scanner(file,pmp3);
 
     /* a file we don't know anything about... ogg or aiff maybe */
     if(!(infile=fopen(file,"rb"))) {
-	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
-	return FALSE;
+        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
+        return FALSE;
     }
 
     /* we can at least get this */
@@ -631,34 +635,34 @@ void make_composite_tags(MP3FILE *song) {
     len=0;
 
     if(!song->artist && (song->orchestra || song->conductor)) {
-	if(song->orchestra)
-	    len += strlen(song->orchestra);
-	if(song->conductor)
-	    len += strlen(song->conductor);
+        if(song->orchestra)
+            len += strlen(song->orchestra);
+        if(song->conductor)
+            len += strlen(song->conductor);
 
-	len += 3;
+        len += 3;
 
-	song->artist=(char*)calloc(len, 1);
-	if(song->artist) {
-	    if(song->orchestra)
-		strcat(song->artist,song->orchestra);
+        song->artist=(char*)calloc(len, 1);
+        if(song->artist) {
+            if(song->orchestra)
+                strcat(song->artist,song->orchestra);
 
-	    if(song->orchestra && song->conductor)
-		strcat(song->artist," - ");
+            if(song->orchestra && song->conductor)
+                strcat(song->artist," - ");
 
-	    if(song->conductor)
-		strcat(song->artist,song->conductor);
-	}
+            if(song->conductor)
+                strcat(song->artist,song->conductor);
+        }
     }
 
     if(song->url) {
-	song->data_kind=1;
+        song->data_kind=1;
     } else {
-	song->data_kind=0;
+        song->data_kind=0;
     }
 
     if(!song->title)
-	song->title = strdup(song->fname);
+        song->title = strdup(song->fname);
 
     song->item_kind = 2; /* music, I think. */
 }

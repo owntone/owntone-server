@@ -493,7 +493,7 @@ int main(int argc, char *argv[]) {
     }
 
     if(!skip_initial) {
-	DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
+	DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan of %s\n",config.mp3dir);
 	if(scan_init(config.mp3dir)) {
 	    DPRINTF(E_FATAL,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
 	}

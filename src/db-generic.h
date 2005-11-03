@@ -158,6 +158,7 @@ extern int db_scanning(void);
 
 extern int db_add_playlist(char *name, int type, char *clause, char *path, int index, int *playlistid);
 extern int db_add_playlist_item(int playlistid, int songid);
+extern int db_edit_playlist(int id, char *name, char *clause);
 extern int db_delete_playlist(int playlistid);
 extern int db_delete_playlist_item(int playlistid, int songid);
 
