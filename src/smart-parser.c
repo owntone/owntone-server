@@ -34,6 +34,7 @@ typedef struct tag_sp_node {
 
     int op;
     int op_type;
+    int not_flag;
 
     union {
         struct tag_sp_node *node;
@@ -130,7 +131,8 @@ typedef struct tag_sp_node {
 #define T_MONTH         0x0018
 #define T_YEAR          0x0019
 #define T_DATE          0x001a
-#define T_LAST          0x001b
+#define T_NOT           0x001b
+#define T_LAST          0x001c
 
 #define T_EOF           0x00fd
 #define T_BOF           0x00fe
@@ -163,7 +165,8 @@ char *sp_token_descr[] = {
     "week(s)",
     "month(s)",
     "year(s)",
-    "date"
+    "date",
+    "not"
 };
 
 typedef struct tag_fieldlookup {
@@ -227,6 +230,7 @@ FIELDLOOKUP sp_fields[] = {
     { T_MONTH, "month" },
     { T_YEAR, "years" },
     { T_YEAR, "year" },
+    { T_NOT, "not" },
     
     /* end */
     { 0, NULL },
@@ -326,6 +330,24 @@ int sp_isnumber(char *string) {
     return *current ? 0 : 1;
 }
 
+/**
+ * see if a string is actually a date in the date format
+ * YYYY-MM-DD
+ *
+ * @param string string to check
+ * @returns time_t of date, or 0 if not a date
+ */
+time_t sp_isdate(char *string) {
+    struct tm date_time;
+    time_t seconds=0;
+    
+    memset((void*)&date_time,0,sizeof(date_time));
+    if(strptime(string,"%Y-%m-%d",&date_time)) {
+        seconds=timegm(&date_time);
+    }
+    
+    return seconds;
+}
 
 /**
  * scan the input, returning the next available token.
@@ -341,6 +363,7 @@ int sp_scan(PARSETREE tree) {
     int len;
     int found;
     int numval;
+    time_t tval;
 
     if(tree->token.token_id & 0x2000) {
         if(tree->token.data.cvalue)
@@ -419,7 +442,13 @@ int sp_scan(PARSETREE tree) {
             advance=1;
             tree->token.token_id = T_CLOSEPAREN;
             break;
+
+        case '!':
+            advance=1;
+            tree->token.token_id = T_NOT;
+            break;
         }
+        
     } 
 
     if(*tree->current == '"') {
@@ -436,7 +465,7 @@ int sp_scan(PARSETREE tree) {
         /* walk to a terminator */
         tail = tree->current;
 
-        terminator = " \t\n\r\"<>=()|&";
+        terminator = " \t\n\r\"<>=()|&!";
         if(tree->in_string) {
             terminator="\"";
         }
@@ -488,6 +517,14 @@ int sp_scan(PARSETREE tree) {
             tree->token.data.ivalue = numval;
             tree->token.token_id = T_NUMBER;
         }
+        
+        if(tree->token.token_id == T_STRING &&
+            (tval=sp_isdate(tree->token.data.cvalue))) {
+            free(tree->token.data.cvalue);
+            tree->token.data.tvalue = tval;
+            tree->token.token_id = T_DATE;
+        }
+            
         
         tree->current=tail;
     }
@@ -761,6 +798,11 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
 
     sp_scan(tree); /* scan past the string field we know is there */
 
+    if(tree->token.token_id == T_NOT) {
+        pnew->not_flag=1;
+        sp_scan(tree);
+    }
+    
     switch(tree->token.token_id) {
     case T_EQUAL:
     case T_INCLUDES:
@@ -830,6 +872,11 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
 
     sp_scan(tree); /* scan past the int field we know is there */
 
+    if(tree->token.token_id == T_NOT) {
+        pnew->not_flag=1;
+        sp_scan(tree);
+    }
+
     switch(tree->token.token_id) {
     case T_LESSEQUAL:
     case T_LESS:
@@ -894,6 +941,11 @@ SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
     pnew->left.field = strdup(tree->token.data.cvalue);
 
     sp_scan(tree); /* scan past the date field we know is there */
+
+    if(tree->token.token_id == T_NOT) {
+        pnew->not_flag=1;
+        sp_scan(tree);
+    }
 
     switch(tree->token.token_id) {
     case T_LESSEQUAL:
@@ -1145,6 +1197,10 @@ int sp_node_size(SP_NODE *node) {
         if((node->op_type == SP_OPTYPE_INT) || (node->op_type == SP_OPTYPE_DATE)) {
             size += 40; /* what *is* the max size of int64? */
         }
+        
+        if(node->not_flag) {
+            size += 5; /* " not " */
+        }
     }
      
     return size;
@@ -1170,6 +1226,9 @@ void sp_serialize_sql(SP_NODE *node, char *string) {
         strcat(string,"(");
         strcat(string,node->left.field);
         strcat(string," ");
+        if(node->not_flag) {
+            strcat(string,"not ");
+        }
         strcat(string,sp_token_descr[node->op & 0x0FFF]);
         strcat(string," ");
         if(node->op_type == SP_OPTYPE_STRING) {
