@@ -31,6 +31,8 @@
 #ifndef _DAAPD_H_
 #define _DAAPD_H_
 
+#include "webserver.h"
+
 /** Simple struct for holding stat info.
  * \todo wire up the tag_stats#bytes_served stuff into r_write() in restart.c
  */
@@ -73,6 +75,7 @@ typedef struct tag_config {
     char *compdirs;       /**< Compilations directories */
     char **complist;      /**< list of compilation directories */
     STATS stats;          /**< Stats structure (see above) */
+    WSHANDLE server;      /**< webserver handle */    
 } CONFIG;
 
 extern CONFIG config;

@@ -35,6 +35,7 @@
 
 
 typedef void* WSHANDLE;
+typedef void* WSTHREADENUM;
 
 typedef struct tag_wsconfig {
     char *web_root;
@@ -57,6 +58,8 @@ typedef struct tag_ws_conninfo {
     char *uri;
     char *hostname;
     int close;
+    void *local_storage;
+    void (*storage_callback)(void*);
     ARGLIST request_headers;
     ARGLIST response_headers;
     ARGLIST request_vars;
@@ -75,6 +78,12 @@ extern int ws_registerhandler(WSHANDLE ws, char *regex,
 			      void(*handler)(WS_CONNINFO*),
 			      int(*auth)(char *, char *),
 			      int addheaders);
+
+extern void *ws_get_local_storage(WS_CONNINFO *pwsc);
+extern void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *));
+
+extern WS_CONNINFO *ws_thread_enum_first(WSHANDLE, WSTHREADENUM *);
+extern WS_CONNINFO *ws_thread_enum_next(WSHANDLE, WSTHREADENUM *);
 
 /* for handlers */
 extern void ws_close(WS_CONNINFO *pwsc);

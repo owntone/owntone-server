@@ -96,7 +96,7 @@
 
 /** Where to dump the pidfile */
 #ifndef PIDFILE
-#define PIDFILE	"/var/run/mt-daapd.pid"
+#define PIDFILE "/var/run/mt-daapd.pid"
 #endif
 
 /** You say po-tay-to, I say po-tat-o */
@@ -137,10 +137,10 @@ int daemon_start(void) {
 
     // Fork and exit
     if ((childpid = fork()) < 0) {
-	fprintf(stderr, "Can't fork!\n");
-	return -1;
+        fprintf(stderr, "Can't fork!\n");
+        return -1;
     } else if (childpid > 0)
-	exit(0);
+        exit(0);
 
 #ifdef SETPGRP_VOID
     setpgrp();
@@ -150,22 +150,22 @@ int daemon_start(void) {
 
 #ifdef TIOCNOTTY
     if ((fd = open("/dev/tty", O_RDWR)) >= 0) {
-	ioctl(fd, TIOCNOTTY, (char *) NULL);
-	close(fd);
+        ioctl(fd, TIOCNOTTY, (char *) NULL);
+        close(fd);
     }
 #endif
 
     if((fd = open("/dev/null", O_RDWR, 0)) != -1) {
-	dup2(fd, STDIN_FILENO);
-	dup2(fd, STDOUT_FILENO);
-	dup2(fd, STDERR_FILENO); 
-	if (fd > 2)
-	    close(fd);
+        dup2(fd, STDIN_FILENO);
+        dup2(fd, STDOUT_FILENO);
+        dup2(fd, STDERR_FILENO); 
+        if (fd > 2)
+            close(fd);
     }
 
     /*
     for (fd = 0; fd < FOPEN_MAX; fd++)
-	close(fd);
+        close(fd);
     */
 
     errno = 0;
@@ -212,28 +212,28 @@ int drop_privs(char *user) {
 
     /* drop privs */
     if(getuid() == (uid_t)0) {
-	if(atoi(user)) {
-	    pw=getpwuid((uid_t)atoi(user)); /* doh! */
-	} else {
-	    pw=getpwnam(config.runas);
-	}
+        if(atoi(user)) {
+            pw=getpwuid((uid_t)atoi(user)); /* doh! */
+        } else {
+            pw=getpwnam(config.runas);
+        }
 
-	if(pw) {
-	    if(initgroups(user,pw->pw_gid) != 0 || 
-	       setgid(pw->pw_gid) != 0 ||
-	       setuid(pw->pw_uid) != 0) {
-		err=errno;
-		fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
-			user,pw->pw_gid, pw->pw_uid);
-		errno=err;
-		return -1;
-	    }
-	} else {
-	    err=errno;
-	    fprintf(stderr,"Couldn't lookup user %s\n",user);
-	    errno=err;
-	    return -1;
-	}
+        if(pw) {
+            if(initgroups(user,pw->pw_gid) != 0 || 
+               setgid(pw->pw_gid) != 0 ||
+               setuid(pw->pw_uid) != 0) {
+                err=errno;
+                fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
+                        user,pw->pw_gid, pw->pw_uid);
+                errno=err;
+                return -1;
+            }
+        } else {
+            err=errno;
+            fprintf(stderr,"Couldn't lookup user %s\n",user);
+            errno=err;
+            return -1;
+        }
     }
 
     return 0;
@@ -261,34 +261,34 @@ void *signal_handler(void *arg) {
     DPRINTF(E_WARN,L_MAIN,"Signal handler started\n");
 
     while(!config.stop) {
-	if((sigemptyset(&intmask) == -1) ||
-	   (sigaddset(&intmask, SIGCLD) == -1) ||
-	   (sigaddset(&intmask, SIGINT) == -1) ||
-	   (sigaddset(&intmask, SIGHUP) == -1) ||
-	   (sigwait(&intmask, &sig) == -1)) {
-	    DPRINTF(E_FATAL,L_MAIN,"Error waiting for signals.  Aborting\n");
-	} else {
-	    /* process the signal */
-	    switch(sig) {
-	    case SIGCLD:
-		DPRINTF(E_LOG,L_MAIN,"Got CLD signal.  Reaping\n");
-		while (wait3(&status, WNOHANG, NULL) > 0) {
-		}
-		break;
-	    case SIGINT:
-		DPRINTF(E_LOG,L_MAIN,"Got INT signal. Notifying daap server.\n");
-		config.stop=1;
-		return NULL;
-		break;
-	    case SIGHUP:
-		DPRINTF(E_LOG,L_MAIN,"Got HUP signal. Notifying daap server.\n");
-		config.reload=1;
-		break;
-	    default:
-		DPRINTF(E_LOG,L_MAIN,"What am I doing here?\n");
-		break;
-	    }
-	}
+        if((sigemptyset(&intmask) == -1) ||
+           (sigaddset(&intmask, SIGCLD) == -1) ||
+           (sigaddset(&intmask, SIGINT) == -1) ||
+           (sigaddset(&intmask, SIGHUP) == -1) ||
+           (sigwait(&intmask, &sig) == -1)) {
+            DPRINTF(E_FATAL,L_MAIN,"Error waiting for signals.  Aborting\n");
+        } else {
+            /* process the signal */
+            switch(sig) {
+            case SIGCLD:
+                DPRINTF(E_LOG,L_MAIN,"Got CLD signal.  Reaping\n");
+                while (wait3(&status, WNOHANG, NULL) > 0) {
+                }
+                break;
+            case SIGINT:
+                DPRINTF(E_LOG,L_MAIN,"Got INT signal. Notifying daap server.\n");
+                config.stop=1;
+                return NULL;
+                break;
+            case SIGHUP:
+                DPRINTF(E_LOG,L_MAIN,"Got HUP signal. Notifying daap server.\n");
+                config.reload=1;
+                break;
+            default:
+                DPRINTF(E_LOG,L_MAIN,"What am I doing here?\n");
+                break;
+            }
+        }
     }
 
     return NULL;
@@ -310,14 +310,14 @@ int start_signal_handler(pthread_t *handler_tid) {
        (sigaddset(&set,SIGHUP) == -1) ||
        (sigaddset(&set,SIGCLD) == -1) ||
        (sigprocmask(SIG_BLOCK, &set, NULL) == -1)) {
-	DPRINTF(E_LOG,L_MAIN,"Error setting signal set\n");
-	return -1;
+        DPRINTF(E_LOG,L_MAIN,"Error setting signal set\n");
+        return -1;
     }
 
     if((error=pthread_create(handler_tid, NULL, signal_handler, NULL))) {
-	errno=error;
-	DPRINTF(E_LOG,L_MAIN,"Error creating signal_handler thread\n");
-	return -1;
+        errno=error;
+        DPRINTF(E_LOG,L_MAIN,"Error creating signal_handler thread\n");
+        return -1;
     }
 
     /* we'll not detach this... let's join it */
@@ -348,7 +348,6 @@ int main(int argc, char *argv[]) {
     char *configfile=DEFAULT_CONFIGFILE;
     char *pidfile=PIDFILE;
     WSCONFIG ws_config;
-    WSHANDLE server;
     int foreground=0;
     int reload=0;
     int start_time;
@@ -366,55 +365,55 @@ int main(int argc, char *argv[]) {
     err_debuglevel=1;
 
     while((option=getopt(argc,argv,"D:d:c:P:mfrys")) != -1) {
-	switch(option) {
-	case 'd':
-	    err_debuglevel=atoi(optarg);
-	    break;
-	case 'D':
-	    if(err_setdebugmask(optarg)) {
-		usage(argv[0]);
-		exit(EXIT_FAILURE);
-	    }
-	    break;
-	case 'f':
-	    foreground=1;
-	    break;
+        switch(option) {
+        case 'd':
+            err_debuglevel=atoi(optarg);
+            break;
+        case 'D':
+            if(err_setdebugmask(optarg)) {
+                usage(argv[0]);
+                exit(EXIT_FAILURE);
+            }
+            break;
+        case 'f':
+            foreground=1;
+            break;
 
-	case 'c':
-	    configfile=optarg;
-	    break;
+        case 'c':
+            configfile=optarg;
+            break;
 
-	case 'm':
-	    config.use_mdns=0;
-	    break;
+        case 'm':
+            config.use_mdns=0;
+            break;
 
-	case 'P':
-	    pidfile=optarg;
-	    break;
+        case 'P':
+            pidfile=optarg;
+            break;
 
-	case 'r':
-	    reload=1;
-	    break;
+        case 'r':
+            reload=1;
+            break;
 
-	case 's':
-	    skip_initial=1;
-	    break;
+        case 's':
+            skip_initial=1;
+            break;
 
-	case 'y':
-	    force_non_root=1;
-	    break;
+        case 'y':
+            force_non_root=1;
+            break;
 
-	default:
-	    usage(argv[0]);
-	    exit(EXIT_FAILURE);
-	    break;
-	}
+        default:
+            usage(argv[0]);
+            exit(EXIT_FAILURE);
+            break;
+        }
     }
 
     if((getuid()) && (!force_non_root)) {
-	fprintf(stderr,"You are not root.  This is almost certainly wrong.  If you are\n"
-		"sure you want to do this, use the -y command-line switch\n");
-	exit(EXIT_FAILURE);
+        fprintf(stderr,"You are not root.  This is almost certainly wrong.  If you are\n"
+                "sure you want to do this, use the -y command-line switch\n");
+        exit(EXIT_FAILURE);
     }
 
     /* read the configfile, if specified, otherwise
@@ -423,80 +422,80 @@ int main(int argc, char *argv[]) {
     config.stop=0;
 
     if(config_read(configfile)) {
-	fprintf(stderr,"Error reading config file (%s)\n",configfile);
-	exit(EXIT_FAILURE);
+        fprintf(stderr,"Error reading config file (%s)\n",configfile);
+        exit(EXIT_FAILURE);
     }
 
     DPRINTF(E_LOG,L_MAIN,"Starting with debuglevel %d\n",err_debuglevel);
 
     if(!foreground) {
-	if(config.logfile) {
-	    err_setdest(config.logfile,LOGDEST_LOGFILE);
-	} else {
-	    err_setdest("mt-daapd",LOGDEST_SYSLOG);
-	}
+        if(config.logfile) {
+            err_setdest(config.logfile,LOGDEST_LOGFILE);
+        } else {
+            err_setdest("mt-daapd",LOGDEST_SYSLOG);
+        }
     }
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) {
-	DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
-	if(rend_init(config.runas)) {
-	    DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",strerror(errno));
-	}
+        DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
+        if(rend_init(config.runas)) {
+            DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",strerror(errno));
+        }
     }
 #endif
 
     /* open the pidfile, so it can be written once we detach */
     if((!foreground) && (!force_non_root)) {
-	if(-1 == (pid_fd = open(pidfile,O_CREAT | O_WRONLY | O_TRUNC, 0644)))
-	    DPRINTF(E_FATAL,L_MAIN,"Error opening pidfile (%s): %s\n",pidfile,strerror(errno));
+        if(-1 == (pid_fd = open(pidfile,O_CREAT | O_WRONLY | O_TRUNC, 0644)))
+            DPRINTF(E_FATAL,L_MAIN,"Error opening pidfile (%s): %s\n",pidfile,strerror(errno));
 
-	if(0 == (pid_fp = fdopen(pid_fd, "w")))
-	    DPRINTF(E_FATAL,L_MAIN,"fdopen: %s\n",strerror(errno));
+        if(0 == (pid_fp = fdopen(pid_fd, "w")))
+            DPRINTF(E_FATAL,L_MAIN,"fdopen: %s\n",strerror(errno));
 
-	/* just to be on the safe side... */
-	config.pid=0;
+        /* just to be on the safe side... */
+        config.pid=0;
 
-	daemon_start();
+        daemon_start();
     }
 
     // Drop privs here
     if(drop_privs(config.runas)) {
-	DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
+        DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
     }
 
     /* block signals and set up the signal handling thread */
     DPRINTF(E_LOG,L_MAIN,"Starting signal handler\n");
     if(start_signal_handler(&signal_tid)) {
-	DPRINTF(E_FATAL,L_MAIN,"Error starting signal handler %s\n",strerror(errno));
+        DPRINTF(E_FATAL,L_MAIN,"Error starting signal handler %s\n",strerror(errno));
     }
 
 
     if(pid_fp) {
-	/* wait to for config.pid to be set by the signal handler */
-	while(!config.pid) {
-	    sleep(1);
-	}
+        /* wait to for config.pid to be set by the signal handler */
+        while(!config.pid) {
+            sleep(1);
+        }
 
-	fprintf(pid_fp,"%d\n",config.pid);
-	fclose(pid_fp);
+        fprintf(pid_fp,"%d\n",config.pid);
+        fclose(pid_fp);
     }
 
     /* this will require that the db be readable by the runas user */
     if(db_open(config.dbdir))
-	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
+        DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
 
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
     if(db_init(reload)) {
-	DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
+        DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
 
     if(!skip_initial) {
-	DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan of %s\n",config.mp3dir);
-	if(scan_init(config.mp3dir)) {
-	    DPRINTF(E_FATAL,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
-	}
+        DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan of %s\n",config.mp3dir);
+        if(scan_init(config.mp3dir)) {
+            DPRINTF(E_FATAL,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
+        }
     }
 
     /* start up the web server */
@@ -504,76 +503,76 @@ int main(int argc, char *argv[]) {
     ws_config.port=config.port;
 
     DPRINTF(E_LOG,L_MAIN|L_WS,"Starting web server from %s on port %d\n",
-	    config.web_root, config.port);
+            config.web_root, config.port);
 
-    server=ws_start(&ws_config);
-    if(!server) {
-	DPRINTF(E_FATAL,L_MAIN|L_WS,"Error staring web server: %s\n",strerror(errno));
+    config.server=ws_start(&ws_config);
+    if(!config.server) {
+        DPRINTF(E_FATAL,L_MAIN|L_WS,"Error staring web server: %s\n",strerror(errno));
     }
 
-    ws_registerhandler(server, "^.*$",config_handler,config_auth,1);
-    ws_registerhandler(server, "^/server-info$",daap_handler,NULL,0);
-    ws_registerhandler(server, "^/content-codes$",daap_handler,NULL,0);
-    ws_registerhandler(server,"^/login$",daap_handler,daap_auth,0);
-    ws_registerhandler(server,"^/update$",daap_handler,daap_auth,0);
-    ws_registerhandler(server,"^/databases$",daap_handler,daap_auth,0);
-    ws_registerhandler(server,"^/logout$",daap_handler,NULL,0);
-    ws_registerhandler(server,"^/databases/.*",daap_handler,NULL,0);
+    ws_registerhandler(config.server, "^.*$",config_handler,config_auth,1);
+    ws_registerhandler(config.server, "^/server-info$",daap_handler,NULL,0);
+    ws_registerhandler(config.server, "^/content-codes$",daap_handler,NULL,0);
+    ws_registerhandler(config.server,"^/login$",daap_handler,daap_auth,0);
+    ws_registerhandler(config.server,"^/update$",daap_handler,daap_auth,0);
+    ws_registerhandler(config.server,"^/databases$",daap_handler,daap_auth,0);
+    ws_registerhandler(config.server,"^/logout$",daap_handler,NULL,0);
+    ws_registerhandler(config.server,"^/databases/.*",daap_handler,NULL,0);
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
-	DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
-	rend_register(config.servername,"_daap._tcp",config.port,config.iface);
-	rend_register(config.servername,"_http._tcp",config.port,config.iface);
+        DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
+        rend_register(config.servername,"_daap._tcp",config.port,config.iface);
+        rend_register(config.servername,"_http._tcp",config.port,config.iface);
     }
 #endif
 
     end_time=time(NULL);
 
     DPRINTF(E_LOG,L_MAIN,"Scanned %d songs in  %d seconds\n",db_get_song_count(),
-	    end_time-start_time);
+            end_time-start_time);
 
     while(!config.stop) {
-	if((config.rescan_interval) && (rescan_counter > config.rescan_interval)) {
-	    if((config.always_scan) || (config_get_session_count())) {
-		config.reload=1;
-	    } else {
-		DPRINTF(E_DBG,L_MAIN|L_SCAN|L_DB,"Skipped bground scan... no users\n");
-	    }
-	    rescan_counter=0;
-	}
+        if((config.rescan_interval) && (rescan_counter > config.rescan_interval)) {
+            if((config.always_scan) || (config_get_session_count())) {
+                config.reload=1;
+            } else {
+                DPRINTF(E_DBG,L_MAIN|L_SCAN|L_DB,"Skipped bground scan... no users\n");
+            }
+            rescan_counter=0;
+        }
 
-	if(config.reload) {
-	    old_song_count = db_get_song_count();
-	    start_time=time(NULL);
+        if(config.reload) {
+            old_song_count = db_get_song_count();
+            start_time=time(NULL);
 
-	    DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
-	    if(scan_init(config.mp3dir)) {
-		DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... exiting\n");
-		config.stop=1;
-	    }
-	    config.reload=0;
-	    DPRINTF(E_INF,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in %d seconds\n",
-		    db_get_song_count(),old_song_count,time(NULL)-start_time);
-	}
+            DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
+            if(scan_init(config.mp3dir)) {
+                DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... exiting\n");
+                config.stop=1;
+            }
+            config.reload=0;
+            DPRINTF(E_INF,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in %d seconds\n",
+                    db_get_song_count(),old_song_count,time(NULL)-start_time);
+        }
 
-	sleep(MAIN_SLEEP_INTERVAL);
-	rescan_counter += MAIN_SLEEP_INTERVAL;
+        sleep(MAIN_SLEEP_INTERVAL);
+        rescan_counter += MAIN_SLEEP_INTERVAL;
     }
 
     DPRINTF(E_LOG,L_MAIN,"Stopping gracefully\n");
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) {
-	DPRINTF(E_LOG,L_MAIN|L_REND,"Stopping rendezvous daemon\n");
-	rend_stop();
+        DPRINTF(E_LOG,L_MAIN|L_REND,"Stopping rendezvous daemon\n");
+        rend_stop();
     }
 #endif
 
 
     DPRINTF(E_LOG,L_MAIN,"Stopping signal handler\n");
     if(!pthread_kill(signal_tid,SIGINT)) {
-	pthread_join(signal_tid,NULL);
+        pthread_join(signal_tid,NULL);
     }
 
     /* Got to find a cleaner way to stop the web server.
@@ -581,7 +580,7 @@ int main(int argc, char *argv[]) {
      * cause the accept to fail on some libcs.
      *
     DPRINTF(E_LOG,L_MAIN|L_WS,"Stopping web server\n");
-    ws_stop(server);
+    ws_stop(config.server);
     */
 
     config_close();

@@ -50,7 +50,7 @@
 #include "configfile.h"
 #include "db-generic.h"
 #include "err.h"
-//#include "xml-rpc.h"
+#include "xml-rpc.h"
 
 #ifndef WITHOUT_MDNS
 # include "rend.h"
@@ -76,8 +76,6 @@ static void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 static int config_file_is_readonly(void);
-static int config_mutex_lock(void);
-static int config_mutex_unlock(void);
 static int config_existdir(char *path);
 static int config_makedir(char *path);
 static void config_content_type(WS_CONNINFO *pwsc, char *path);
@@ -156,17 +154,6 @@ CONFIGELEMENT config_elements[] = {
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
-/** table of thread status -- as displayed on the status page */
-typedef struct tag_scan_status {
-    int session;
-    int thread;
-    char *what;
-    char *host;
-    struct tag_scan_status *next;
-} SCAN_STATUS;
-
-SCAN_STATUS scan_status = { 0,0,NULL,NULL };            /**< root of status list */
-pthread_mutex_t scan_mutex = PTHREAD_MUTEX_INITIALIZER; /**< status list mutex */
 int config_session=0;                                   /**< session counter */
 
 #define MAX_LINE 1024
@@ -180,12 +167,12 @@ void config_content_type(WS_CONNINFO *pwsc, char *path) {
 
     extension=strrchr(path,'.');
     if(extension) {
-	while((pct->extension) && (strcasecmp(pct->extension,extension)))
-	    pct++;
+        while((pct->extension) && (strcasecmp(pct->extension,extension)))
+            pct++;
 
-	if(pct->extension) {
-	    ws_addresponseheader(pwsc,"Content-Type",pct->contenttype);
-	}
+        if(pct->extension) {
+            ws_addresponseheader(pwsc,"Content-Type",pct->contenttype);
+        }
     }
 }
 
@@ -206,27 +193,27 @@ int config_makedir(char *path) {
 
     pathdup=strdup(path);
     if(!pathdup) {
-	return -1;
+        return -1;
     }
 
     next_token=pathdup+1;
     memset(path_buffer,0,sizeof(path_buffer));
 
     while((token=strsep(&next_token,"/"))) {
-	if((strlen(path_buffer) + strlen(token)) < PATH_MAX) {
-	    strcat(path_buffer,"/");
-	    strcat(path_buffer,token);
-	    DPRINTF(E_DBG,L_CONF,"Making %s\n",path_buffer);
-	    if((mkdir(path_buffer,0700)) && (errno != EEXIST)) {
-		err=errno;
-		free(pathdup);
-		errno=err;
-		return -1;  
-	    }
-	} else {
-	    errno=ENAMETOOLONG;
-	    return -1; 
-	}
+        if((strlen(path_buffer) + strlen(token)) < PATH_MAX) {
+            strcat(path_buffer,"/");
+            strcat(path_buffer,token);
+            DPRINTF(E_DBG,L_CONF,"Making %s\n",path_buffer);
+            if((mkdir(path_buffer,0700)) && (errno != EEXIST)) {
+                err=errno;
+                free(pathdup);
+                errno=err;
+                return -1;  
+            }
+        } else {
+            errno=ENAMETOOLONG;
+            return -1; 
+        }
     }
 
     free(pathdup);
@@ -244,11 +231,11 @@ int config_existdir(char *path) {
     DPRINTF(E_DBG,L_CONF,"Checking existence of %s\n",path);
 
     if(stat(path,&sb)) {
-	return 0;
+        return 0;
     }
 
     if(sb.st_mode & S_IFDIR)
-	return 1;
+        return 1;
 
     errno=ENOTDIR;
     return 0;
@@ -278,20 +265,20 @@ int config_read(char *file) {
 
     buffer=(char*)malloc(MAX_LINE+1);
     if(!buffer)
-	return -1;
+        return -1;
 
     if((fin=fopen(file,"r")) == NULL) {
-	err=errno;
-	free(buffer);
+        err=errno;
+        free(buffer);
 
-	if(ENOENT == err) {
-	    DPRINTF(E_LOG,L_CONF,"Whoops!  Can't find the config file!  If you are running this for the first\n");
-	    DPRINTF(E_LOG,L_CONF,"time, then perhaps you've forgotten to copy the sample config in the \n");
-	    DPRINTF(E_LOG,L_CONF,"contrib directory into /etc/mt-daapd.conf.  Just a suggestion...\n\n");
-	}
+        if(ENOENT == err) {
+            DPRINTF(E_LOG,L_CONF,"Whoops!  Can't find the config file!  If you are running this for the first\n");
+            DPRINTF(E_LOG,L_CONF,"time, then perhaps you've forgotten to copy the sample config in the \n");
+            DPRINTF(E_LOG,L_CONF,"contrib directory into /etc/mt-daapd.conf.  Just a suggestion...\n\n");
+        }
 
-	errno=err;
-	return -1;
+        errno=err;
+        return -1;
     }
 
 #ifdef NSLU2    
@@ -327,58 +314,58 @@ int config_read(char *file) {
     config.servername=strdup("mt-daapd " VERSION);
 
     while(fgets(buffer,MAX_LINE,fin)) {
-	buffer[MAX_LINE] = '\0';
+        buffer[MAX_LINE] = '\0';
 
-	comment=strchr(buffer,'#');
-	if(comment)
-	    *comment = '\0';
+        comment=strchr(buffer,'#');
+        if(comment)
+            *comment = '\0';
 
-	while(strlen(buffer) && (strchr("\n\r ",buffer[strlen(buffer)-1])))
-	    buffer[strlen(buffer)-1] = '\0';
+        while(strlen(buffer) && (strchr("\n\r ",buffer[strlen(buffer)-1])))
+            buffer[strlen(buffer)-1] = '\0';
 
-	term=buffer;
+        term=buffer;
 
-	while((*term=='\t') || (*term==' '))
-	    term++;
+        while((*term=='\t') || (*term==' '))
+            term++;
 
-	value=term;
+        value=term;
 
-	strsep(&value,"\t ");
-	if((value) && (term) && (strlen(term))) {
-	    while(strlen(value) && (strchr("\t ",*value)))
-		value++;
-	    
-	    pce=config_elements;
-	    handled=0;
-	    while((!handled) && (pce->config_element != -1)) {
-		if((strcasecmp(term,pce->name)==0) && (pce->config_element)) {
-		    /* valid config directive */
-		    handled=1;
-		    pce->changed=1;
-		    
-		    DPRINTF(E_DBG,L_CONF,"Read %s: %s\n",pce->name,value);
-		    
-		    switch(pce->type) {
-		    case CONFIG_TYPE_STRING:
-			/* DWB: free space to prevent small leak */
-			if(*((char **)(pce->var)))
-			    free(*((char **)(pce->var)));
-			*((char **)(pce->var)) = (void*)strdup(value);
-			break;
-		    case CONFIG_TYPE_INT:
-			*((int*)(pce->var)) = atoi(value);
-			break;
-		    }
-		}
-		pce++;
-	    }
-	    
-	    if(!handled) {
-		fprintf(stderr,"Invalid config directive: %s\n",buffer);
-		fclose(fin);
-		return -1;
-	    }
-	}
+        strsep(&value,"\t ");
+        if((value) && (term) && (strlen(term))) {
+            while(strlen(value) && (strchr("\t ",*value)))
+                value++;
+            
+            pce=config_elements;
+            handled=0;
+            while((!handled) && (pce->config_element != -1)) {
+                if((strcasecmp(term,pce->name)==0) && (pce->config_element)) {
+                    /* valid config directive */
+                    handled=1;
+                    pce->changed=1;
+                    
+                    DPRINTF(E_DBG,L_CONF,"Read %s: %s\n",pce->name,value);
+                    
+                    switch(pce->type) {
+                    case CONFIG_TYPE_STRING:
+                        /* DWB: free space to prevent small leak */
+                        if(*((char **)(pce->var)))
+                            free(*((char **)(pce->var)));
+                        *((char **)(pce->var)) = (void*)strdup(value);
+                        break;
+                    case CONFIG_TYPE_INT:
+                        *((int*)(pce->var)) = atoi(value);
+                        break;
+                    }
+                }
+                pce++;
+            }
+            
+            if(!handled) {
+                fprintf(stderr,"Invalid config directive: %s\n",buffer);
+                fclose(fin);
+                return -1;
+            }
+        }
     }
 
     fclose(fin);
@@ -388,26 +375,26 @@ int config_read(char *file) {
     pce=config_elements;
     err=0;
     while((pce->config_element != -1)) {
-	if(pce->required && pce->config_element && !pce->changed) {
-	    DPRINTF(E_LOG,L_CONF,"Required config entry '%s' not specified\n",pce->name);
-	    err=-1;
-	}
+        if(pce->required && pce->config_element && !pce->changed) {
+            DPRINTF(E_LOG,L_CONF,"Required config entry '%s' not specified\n",pce->name);
+            err=-1;
+        }
 
-	/* too much spam on startup
-	if((pce->config_element) && (pce->changed)) {
-	    switch(pce->type) {
-	    case CONFIG_TYPE_STRING:
-		DPRINTF(E_INF,"%s: %s\n",pce->name,*((char**)pce->var));
-		break;
-	    case CONFIG_TYPE_INT:
-		DPRINTF(E_INF,"%s: %d\n",pce->name,*((int*)pce->var));
-		break;
-	    }
-	}
-	*/
+        /* too much spam on startup
+        if((pce->config_element) && (pce->changed)) {
+            switch(pce->type) {
+            case CONFIG_TYPE_STRING:
+                DPRINTF(E_INF,"%s: %s\n",pce->name,*((char**)pce->var));
+                break;
+            case CONFIG_TYPE_INT:
+                DPRINTF(E_INF,"%s: %d\n",pce->name,*((int*)pce->var));
+                break;
+            }
+        }
+        */
 
-	pce->changed=0;
-	pce++;
+        pce->changed=0;
+        pce++;
     }
     
     /* Set the directory components to realpaths */
@@ -427,90 +414,90 @@ int config_read(char *file) {
     /* sanity check the paths */
     sprintf(path_buffer,"%s/index.html",config.web_root);
     if((fin=fopen(path_buffer,"r")) == NULL) {
-	err=-1;
-	DPRINTF(E_LOG,L_CONF,"Invalid web_root\n");
+        err=-1;
+        DPRINTF(E_LOG,L_CONF,"Invalid web_root\n");
 
-	/* check for the common error */
-	if(strcasecmp(config.web_root,"/usr/share/mt-daapd/admin-root") == 0) {
-	    /* see if /usr/local is any better */
-	    if((fin=fopen("/usr/local/share/mt-daapd/admin-root","r")) != NULL) {
-		fclose(fin);
-		DPRINTF(E_LOG,L_CONF,"Should it be /usr/local/share/mt-daapd/admin-root?");
-	    }
-	}
+        /* check for the common error */
+        if(strcasecmp(config.web_root,"/usr/share/mt-daapd/admin-root") == 0) {
+            /* see if /usr/local is any better */
+            if((fin=fopen("/usr/local/share/mt-daapd/admin-root","r")) != NULL) {
+                fclose(fin);
+                DPRINTF(E_LOG,L_CONF,"Should it be /usr/local/share/mt-daapd/admin-root?");
+            }
+        }
     } else {
-	fclose(fin);
+        fclose(fin);
     }
 
     /* should really check the mp3 path */
     if(!config_existdir(config.mp3dir)) {
-	DPRINTF(E_LOG,L_CONF,"Bad mp3 directory (%s): %s\n",config.mp3dir,strerror(errno));
-	return -1;
+        DPRINTF(E_LOG,L_CONF,"Bad mp3 directory (%s): %s\n",config.mp3dir,strerror(errno));
+        return -1;
     }
 
     if(!config_existdir(config.dbdir)) {
-	/* try to make it */
-	if(config_makedir(config.dbdir)) {
-	    DPRINTF(E_LOG,L_CONF,"Database dir %s does not exist, cannot create: %s\n",
-		    config.dbdir,strerror(errno));
-	    return -1;
-	}
+        /* try to make it */
+        if(config_makedir(config.dbdir)) {
+            DPRINTF(E_LOG,L_CONF,"Database dir %s does not exist, cannot create: %s\n",
+                    config.dbdir,strerror(errno));
+            return -1;
+        }
     }
 
     /* must have zlib 1.2 or better for gzip encoding support */
     if(!strncmp(ZLIB_VERSION,"0.",2) ||
        !strncmp(ZLIB_VERSION,"1.0",3) ||
        !strncmp(ZLIB_VERSION,"1.1",3)) {
-	if(config.compress) {
-	    config.compress=0;
-	    DPRINTF(E_LOG,L_CONF,"Must have zlib > 1.2.0 to use gzip content encoding.  You have %s.  Disabling.\n",ZLIB_VERSION);
-	}
+        if(config.compress) {
+            config.compress=0;
+            DPRINTF(E_LOG,L_CONF,"Must have zlib > 1.2.0 to use gzip content encoding.  You have %s.  Disabling.\n",ZLIB_VERSION);
+        }
     }
 
     /* See how many compilation dirs we have */
     compterms=0;
     term_begin=config.compdirs;
     while(term_begin) {
-	compterms++;
-	term_begin=strchr(term_begin,',');
-	if(term_begin)
-	    term_begin++;
+        compterms++;
+        term_begin=strchr(term_begin,',');
+        if(term_begin)
+            term_begin++;
     }
 
     /* Now allocate comp dirs */
     if(compterms) {
-	config.complist=(char**)malloc((compterms+1) * sizeof(char*));
-	if(!config.complist)
-	    DPRINTF(E_FATAL,L_MISC,"Alloc error.\n");
+        config.complist=(char**)malloc((compterms+1) * sizeof(char*));
+        if(!config.complist)
+            DPRINTF(E_FATAL,L_MISC,"Alloc error.\n");
 
-	currentterm=0;
-	
-	term_begin=config.compdirs;
-	while(*term_begin && *term_begin ==' ')
-	    term_begin++;
+        currentterm=0;
+        
+        term_begin=config.compdirs;
+        while(*term_begin && *term_begin ==' ')
+            term_begin++;
 
-	compdirs = strdup(term_begin);
-	term_begin = term_end = compdirs;
+        compdirs = strdup(term_begin);
+        term_begin = term_end = compdirs;
 
-	while(term_end) {
-	    term_end = strchr(term_begin,',');
-	    while((*term_begin)&&(*term_begin == ' '))
-		term_begin++;
+        while(term_end) {
+            term_end = strchr(term_begin,',');
+            while((*term_begin)&&(*term_begin == ' '))
+                term_begin++;
 
-	    if(term_end)
-		*term_end='\0';
+            if(term_end)
+                *term_end='\0';
 
-	    while(strlen(term_begin) && term_begin[strlen(term_begin)-1]==' ')
-			    term_begin[strlen(term_begin)-1] == '\0';
+            while(strlen(term_begin) && term_begin[strlen(term_begin)-1]==' ')
+                            term_begin[strlen(term_begin)-1] == '\0';
 
-	    if(strlen(term_begin)) {
-		config.complist[currentterm++] = term_begin;
-	    }
+            if(strlen(term_begin)) {
+                config.complist[currentterm++] = term_begin;
+            }
 
-	    term_begin = term_end + 1;
-	}
+            term_begin = term_end + 1;
+        }
 
-	config.complist[currentterm] = NULL;
+        config.complist[currentterm] = NULL;
     }
 
     return err;
@@ -525,22 +512,22 @@ void config_close(void) {
     int err;
 
     if(config.complist) {
-	if(config.complist[0])
-	    free(config.complist[0]);
-	free(config.complist);
+        if(config.complist[0])
+            free(config.complist[0]);
+        free(config.complist);
     }
 
     free(config.configfile);
     pce=config_elements;
     err=0;
     while((pce->config_element != -1)) {
-	if((pce->config_element) && 
-	   (pce->type == CONFIG_TYPE_STRING) && 
-	   (*((char**)pce->var))) {
-	    DPRINTF(E_DBG,L_CONF,"Freeing %s\n",pce->name);
-	    free(*((char**)pce->var));
-	}
-	pce++;
+        if((pce->config_element) && 
+           (pce->type == CONFIG_TYPE_STRING) && 
+           (*((char**)pce->var))) {
+            DPRINTF(E_DBG,L_CONF,"Freeing %s\n",pce->name);
+            free(*((char**)pce->var));
+        }
+        pce++;
     }
 }
 
@@ -558,7 +545,7 @@ int config_write(WS_CONNINFO *pwsc) {
 
     configfile=fopen(config.configfile,"w");
     if(!configfile)
-	return -1;
+        return -1;
 
     now=time(NULL);
     ctime_r(&now,ctime_buf);
@@ -575,7 +562,7 @@ int config_write(WS_CONNINFO *pwsc) {
     fprintf(configfile,"runas\t\t%s\n",ws_getvar(pwsc,"runas"));
     fprintf(configfile,"playlist\t%s\n",ws_getvar(pwsc,"playlist"));
     if(ws_getvar(pwsc,"password") && strlen(ws_getvar(pwsc,"password")))
-	fprintf(configfile,"password\t%s\n",ws_getvar(pwsc,"password"));
+        fprintf(configfile,"password\t%s\n",ws_getvar(pwsc,"password"));
     fprintf(configfile,"extensions\t%s\n",ws_getvar(pwsc,"extensions"));
     fprintf(configfile,"ssc_extensions\t%s\n",ws_getvar(pwsc,"ssc_extensions"));
     fprintf(configfile,"ssc_prog\t%s\n",ws_getvar(pwsc,"ssc_prog"));
@@ -583,11 +570,11 @@ int config_write(WS_CONNINFO *pwsc) {
     fprintf(configfile,"rescan_interval\t%s\n",ws_getvar(pwsc,"rescan_interval"));
     fprintf(configfile,"scan_type\t%s\n",ws_getvar(pwsc,"scan_type"));
     if(ws_getvar(pwsc,"always_scan") && strlen(ws_getvar(pwsc,"always_scan")))
-	fprintf(configfile,"always_scan\t%s\n",ws_getvar(pwsc,"always_scan"));
+        fprintf(configfile,"always_scan\t%s\n",ws_getvar(pwsc,"always_scan"));
     if(ws_getvar(pwsc,"art_filename") && strlen(ws_getvar(pwsc,"art_filename")))
-	fprintf(configfile,"art_filename\t%s\n",ws_getvar(pwsc,"art_filename"));
+        fprintf(configfile,"art_filename\t%s\n",ws_getvar(pwsc,"art_filename"));
     if(ws_getvar(pwsc,"logfile") && strlen(ws_getvar(pwsc,"logfile")))
-	fprintf(configfile,"logfile\t\t%s\n",ws_getvar(pwsc,"logfile"));
+        fprintf(configfile,"logfile\t\t%s\n",ws_getvar(pwsc,"logfile"));
     fprintf(configfile,"process_m3u\t%s\n",ws_getvar(pwsc,"process_m3u"));    
     fprintf(configfile,"compress\t%s\n",ws_getvar(pwsc,"compress"));
     
@@ -620,48 +607,48 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
     argptr=argbuffer;
 
     while(1) {
-	if(r_read(fd_src,&next,1) <= 0)
-	    break;
+        if(r_read(fd_src,&next,1) <= 0)
+            break;
 
-	if(in_arg) {
-	    if((next == '@') && (strlen(argbuffer) > 0)) {
-		in_arg=0;
+        if(in_arg) {
+            if((next == '@') && (strlen(argbuffer) > 0)) {
+                in_arg=0;
 
-		DPRINTF(E_DBG,L_CONF,"Got directive %s\n",argbuffer);
+                DPRINTF(E_DBG,L_CONF,"Got directive %s\n",argbuffer);
 
-		/* see if there are args */
-		first=last=argbuffer;
-		strsep(&last," ");
+                /* see if there are args */
+                first=last=argbuffer;
+                strsep(&last," ");
 
-		pce=config_elements;
-		while(pce->config_element != -1) {
-		    if(strcasecmp(first,pce->name) == 0) {
-			pce->emit(pwsc, pce->var,last);
-			break;
-		    }
-		    pce++;
-		}
+                pce=config_elements;
+                while(pce->config_element != -1) {
+                    if(strcasecmp(first,pce->name) == 0) {
+                        pce->emit(pwsc, pce->var,last);
+                        break;
+                    }
+                    pce++;
+                }
 
-		if(pce->config_element == -1) { /* bad subst */
-		    ws_writefd(pwsc,"@%s@",argbuffer);
-		}
-	    } else if(next == '@') {
-		ws_writefd(pwsc,"@");
-		in_arg=0;
-	    } else {
-		if((argptr - argbuffer) < (sizeof(argbuffer)-1))
-		    *argptr++ = next;
-	    }
-	} else {
-	    if(next == '@') {
-		argptr=argbuffer;
-		memset(argbuffer,0,sizeof(argbuffer));
-		in_arg=1;
-	    } else {
-		if(r_write(pwsc->fd,&next,1) == -1)
-		    break;
-	    }
-	}
+                if(pce->config_element == -1) { /* bad subst */
+                    ws_writefd(pwsc,"@%s@",argbuffer);
+                }
+            } else if(next == '@') {
+                ws_writefd(pwsc,"@");
+                in_arg=0;
+            } else {
+                if((argptr - argbuffer) < (sizeof(argbuffer)-1))
+                    *argptr++ = next;
+            }
+        } else {
+            if(next == '@') {
+                argptr=argbuffer;
+                memset(argbuffer,0,sizeof(argbuffer));
+                in_arg=1;
+            } else {
+                if(r_write(pwsc->fd,&next,1) == -1)
+                    break;
+            }
+        }
     }
 }
 
@@ -685,92 +672,91 @@ void config_handler(WS_CONNINFO *pwsc) {
     pwsc->close=1;
     ws_addresponseheader(pwsc,"Connection","close");
 
-    /*
     if(strcasecmp(pwsc->uri,"/xml-rpc")==0) {
-	// perhaps this should get a separate handler 
-	config_set_status(pwsc,0,"Serving xml-rpc method");
-	xml_handle(pwsc);
-	DPRINTF(E_DBG,L_CONF|L_XML,"Thread %d: xml-rpc served\n",pwsc->threadno);
-	config_set_status(pwsc,0,NULL);
-	return;
+        // perhaps this should get a separate handler 
+        config_set_status(pwsc,0,"Serving xml-rpc method");
+        xml_handle(pwsc);
+        DPRINTF(E_DBG,L_CONF|L_XML,"Thread %d: xml-rpc served\n",pwsc->threadno);
+        config_set_status(pwsc,0,NULL);
+        return;
     }
-    */
+
     snprintf(path,PATH_MAX,"%s/%s",config.web_root,pwsc->uri);
     if(!realpath(path,resolved_path)) {
-	pwsc->error=errno;
-	DPRINTF(E_WARN,L_CONF|L_WS,"Cannot resolve %s\n",path);
-	ws_returnerror(pwsc,404,"Not found");
-	config_set_status(pwsc,0,NULL);
-	return;
+        pwsc->error=errno;
+        DPRINTF(E_WARN,L_CONF|L_WS,"Cannot resolve %s\n",path);
+        ws_returnerror(pwsc,404,"Not found");
+        config_set_status(pwsc,0,NULL);
+        return;
     }
 
     /* this should really return a 302:Found */
     stat(resolved_path,&sb);
     if(sb.st_mode & S_IFDIR)
-	strcat(resolved_path,"/index.html");
+        strcat(resolved_path,"/index.html");
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Preparing to serve %s\n",
-	    pwsc->threadno, resolved_path);
+            pwsc->threadno, resolved_path);
 
     if(strncmp(resolved_path,config.web_root,
-	       strlen(config.web_root))) {
-	pwsc->error=EINVAL;
-	DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
-		pwsc->threadno,resolved_path);
-	ws_returnerror(pwsc,403,"Forbidden");
-	config_set_status(pwsc,0,NULL);
-	return;
+               strlen(config.web_root))) {
+        pwsc->error=EINVAL;
+        DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
+                pwsc->threadno,resolved_path);
+        ws_returnerror(pwsc,403,"Forbidden");
+        config_set_status(pwsc,0,NULL);
+        return;
     }
 
     file_fd=r_open2(resolved_path,O_RDONLY);
     if(file_fd == -1) {
-	pwsc->error=errno;
-	DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
-		pwsc->threadno,resolved_path,strerror(errno));
-	ws_returnerror(pwsc,404,"Not found");
-	config_set_status(pwsc,0,NULL);
-	return;
+        pwsc->error=errno;
+        DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
+                pwsc->threadno,resolved_path,strerror(errno));
+        ws_returnerror(pwsc,404,"Not found");
+        config_set_status(pwsc,0,NULL);
+        return;
     }
     
     if(strcasecmp(pwsc->uri,"/config-update.html")==0) {
-	/* don't update (and turn everything to (null)) the
-	   configuration file if what the user's really trying to do is
-	   stop the server */
-	pw=ws_getvar(pwsc,"action");
-	if(pw) {
-	    /* ignore stopmdns and startmdns */
-	    if (strcasecmp(pw,"stopdaap")==0) {
-		config.stop=1;
-	    } else if (strcasecmp(pw,"rescan")==0) {
-		config.reload=1;
-	    }
-	} else if (ws_getvar(pwsc,"web_root") != NULL) {
-	    /* Make sure we got here from a post, and then
-	     * we need to update stuff */
-	    pw=ws_getvar(pwsc,"admin_pw");
-	    if(pw) {
-		if(config.adminpassword)
-		    free(config.adminpassword);
-		config.adminpassword=strdup(pw);
-	    }
+        /* don't update (and turn everything to (null)) the
+           configuration file if what the user's really trying to do is
+           stop the server */
+        pw=ws_getvar(pwsc,"action");
+        if(pw) {
+            /* ignore stopmdns and startmdns */
+            if (strcasecmp(pw,"stopdaap")==0) {
+                config.stop=1;
+            } else if (strcasecmp(pw,"rescan")==0) {
+                config.reload=1;
+            }
+        } else if (ws_getvar(pwsc,"web_root") != NULL) {
+            /* Make sure we got here from a post, and then
+             * we need to update stuff */
+            pw=ws_getvar(pwsc,"admin_pw");
+            if(pw) {
+                if(config.adminpassword)
+                    free(config.adminpassword);
+                config.adminpassword=strdup(pw);
+            }
 
-	    pw=ws_getvar(pwsc,"password");
-	    if(pw) {
-		if(config.readpassword)
-		    free(config.readpassword);
-		config.readpassword=strdup(pw);
-	    }
+            pw=ws_getvar(pwsc,"password");
+            if(pw) {
+                if(config.readpassword)
+                    free(config.readpassword);
+                config.readpassword=strdup(pw);
+            }
 
-	    pw=ws_getvar(pwsc,"rescan_interval");
-	    if(pw) {
-		config.rescan_interval=atoi(pw);
-	    }
+            pw=ws_getvar(pwsc,"rescan_interval");
+            if(pw) {
+                config.rescan_interval=atoi(pw);
+            }
 
-	    if(!config_file_is_readonly()) {
-		DPRINTF(E_INF,L_CONF|L_WS,"Updating config file\n");
-		config_write(pwsc);
-	    }
-	}
+            if(!config_file_is_readonly()) {
+                DPRINTF(E_INF,L_CONF|L_WS,"Updating config file\n");
+                config_write(pwsc);
+            }
+        }
     }
 
     config_content_type(pwsc, resolved_path);
@@ -779,9 +765,9 @@ void config_handler(WS_CONNINFO *pwsc) {
     ws_emitheaders(pwsc);
     
     if(strcasecmp(&resolved_path[strlen(resolved_path) - 5],".html") == 0) {
-	config_subst_stream(pwsc, file_fd);
+        config_subst_stream(pwsc, file_fd);
     } else { 
-	copyfile(file_fd,pwsc->fd);
+        copyfile(file_fd,pwsc->fd);
     }
 
     r_close(file_fd);
@@ -798,7 +784,7 @@ void config_handler(WS_CONNINFO *pwsc) {
  */
 int config_auth(char *user, char *password) {
     if((!password)||(!config.adminpassword))
-	return 0;
+        return 0;
     return !strcmp(password,config.adminpassword);
 }
 
@@ -816,15 +802,15 @@ void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg) {
     char *port;
     
     if(ws_getrequestheader(pwsc,"host")) {
-	host = strdup(ws_getrequestheader(pwsc,"host"));
-	if((port = strrchr(host,':'))) {
-	    *port = '\0';
-	}
-	ws_writefd(pwsc,"%s",host);
-	free(host);
+        host = strdup(ws_getrequestheader(pwsc,"host"));
+        if((port = strrchr(host,':'))) {
+            *port = '\0';
+        }
+        ws_writefd(pwsc,"%s",host);
+        free(host);
     } else {
-	DPRINTF(E_LOG,L_CONF,"Didn't get a host header!\n");
-	ws_writefd(pwsc,"localhost");
+        DPRINTF(E_LOG,L_CONF,"Didn't get a host header!\n");
+        ws_writefd(pwsc,"localhost");
     }
 
     return;
@@ -839,7 +825,7 @@ void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg) {
  */
 void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(*((char**)value))
-	ws_writefd(pwsc,"%s",*((char**)value));
+        ws_writefd(pwsc,"%s",*((char**)value));
 }
 
 /**
@@ -889,18 +875,18 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"<tr><td>Rendezvous</td>");
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) {
-	mdns_running=!rend_running();
+        mdns_running=!rend_running();
 
-	if(mdns_running) {
-	    html="<a href=\"config-update.html?action=stopmdns\">Stop MDNS Server</a>";
-	} else {
-	    html="<a href=\"config-update.html?action=startmdns\">Start MDNS Server</a>";
-	}
+        if(mdns_running) {
+            html="<a href=\"config-update.html?action=stopmdns\">Stop MDNS Server</a>";
+        } else {
+            html="<a href=\"config-update.html?action=startmdns\">Start MDNS Server</a>";
+        }
 
-	ws_writefd(pwsc,"<td>%s</td><td>%s</td></tr>\n",mdns_running ? "Running":"Stopped",
-		   html);
+        ws_writefd(pwsc,"<td>%s</td><td>%s</td></tr>\n",mdns_running ? "Running":"Stopped",
+                   html);
     } else {
-	ws_writefd(pwsc,"<td>Not configured</td><td>&nbsp;</td></tr>\n");
+        ws_writefd(pwsc,"<td>Not configured</td><td>&nbsp;</td></tr>\n");
     }
 #else
     ws_writefd(pwsc,"<td>No Support</td><td>&nbsp;</td></tr>\n");
@@ -908,17 +894,17 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
 
     ws_writefd(pwsc,"<tr><td>DAAP Server</td><td>%s</td>",config.stop ? "Stopping":"Running");
     if(config.stop) {
-	ws_writefd(pwsc,"<td>Wait...</td></tr>\n");
+        ws_writefd(pwsc,"<td>Wait...</td></tr>\n");
     } else {
-	ws_writefd(pwsc,"<td><a href=\"config-update.html?action=stopdaap\">Stop DAAP Server</a></td></tr>");
+        ws_writefd(pwsc,"<td><a href=\"config-update.html?action=stopdaap\">Stop DAAP Server</a></td></tr>");
     }
 
     scanning = config.reload;
     ws_writefd(pwsc,"<tr><td>Background scanner</td><td>%s</td>",scanning ? "Running":"Idle");
     if(scanning) {
-	ws_writefd(pwsc,"<td>Wait...</td></tr>");
+        ws_writefd(pwsc,"<td>Wait...</td></tr>");
     } else {
-	ws_writefd(pwsc,"<td><a href=\"config-update.html?action=rescan\">Start Scan</a></td></tr>");
+        ws_writefd(pwsc,"<td><a href=\"config-update.html?action=rescan\">Start Scan</a></td></tr>");
     }
 
     ws_writefd(pwsc,"</table>\n");
@@ -940,19 +926,19 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
 
     memset(buf,0x0,sizeof(buf));
     if(r_days) 
-	sprintf((char*)&buf[strlen(buf)],"%d day%s, ", r_days,
-		r_days == 1 ? "" : "s");
+        sprintf((char*)&buf[strlen(buf)],"%d day%s, ", r_days,
+                r_days == 1 ? "" : "s");
 
     if(r_days || r_hours) 
-	sprintf((char*)&buf[strlen(buf)],"%d hour%s, ", r_hours,
-		r_hours == 1 ? "" : "s");
+        sprintf((char*)&buf[strlen(buf)],"%d hour%s, ", r_hours,
+                r_hours == 1 ? "" : "s");
 
     if(r_days || r_hours || r_mins)
-	sprintf((char*)&buf[strlen(buf)],"%d minute%s, ", r_mins,
-		r_mins == 1 ? "" : "s");
+        sprintf((char*)&buf[strlen(buf)],"%d minute%s, ", r_mins,
+                r_mins == 1 ? "" : "s");
 
     sprintf((char*)&buf[strlen(buf)],"%d second%s ", r_secs,
-	    r_secs == 1 ? "" : "s");
+            r_secs == 1 ? "" : "s");
     
     ws_writefd(pwsc," <td>%s</td>\n",buf);
     ws_writefd(pwsc,"</tr>\n");
@@ -968,10 +954,10 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"</tr>\n");
 
     if(!scanning) {
-	ws_writefd(pwsc,"<tr>\n");
-	ws_writefd(pwsc," <th>DB Version</th>\n");
-	ws_writefd(pwsc," <td>%d</td>\n",db_revision());
-	ws_writefd(pwsc,"</tr>\n");
+        ws_writefd(pwsc,"<tr>\n");
+        ws_writefd(pwsc," <th>DB Version</th>\n");
+        ws_writefd(pwsc," <td>%d</td>\n",db_revision());
+        ws_writefd(pwsc,"</tr>\n");
     }
 
     /*
@@ -994,30 +980,16 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
  * \returns connected user count
  */
 int config_get_session_count(void) {
-    SCAN_STATUS *pcurrent, *pcheck;
+    WSTHREADENUM wste;
+    WS_CONNINFO *pwsc;
     int count=0;
 
-    if(config_mutex_lock()) {
-	return 0;
+    pwsc = ws_thread_enum_first(config.server,&wste);
+    while(pwsc) {
+        count++;
+        pwsc = ws_thread_enum_next(config.server,&wste);
     }
 
-    pcurrent=scan_status.next;
-
-    while(pcurrent) {
-	pcheck=scan_status.next;
-	while(pcheck != pcurrent) {
-	    if(strcmp(pcheck->host,pcurrent->host) == 0)
-		break;
-	    pcheck=pcheck->next;
-	}
-	
-	if(pcheck == pcurrent)
-	    count++;
-
-	pcurrent=pcurrent->next;
-    }
-
-    config_mutex_unlock();
     return count;
 }
 
@@ -1043,25 +1015,26 @@ void config_emit_session_count(WS_CONNINFO *pwsc, void *value, char *arg) {
  * \param arg any args passwd with the meta command.  Also unused
  */
 void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg) {
+    WS_CONNINFO *pci;
     SCAN_STATUS *pss;
+    WSTHREADENUM wste;
     
-    if(config_mutex_lock())
-	return;
-
     ws_writefd(pwsc,"<table><tr><th align=\"left\">Thread</th>");
     ws_writefd(pwsc,"<th align=\"left\">Session</th><th align=\"left\">Host</th>");
     ws_writefd(pwsc,"<th align=\"left\">Action</th></tr>\n");
 
 
-    pss=scan_status.next;
-    while(pss) {
-	ws_writefd(pwsc,"<tr><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>\n",
-		   pss->thread,pss->session,pss->host,pss->what);
-	pss=pss->next;
+    pci = ws_thread_enum_first(config.server,&wste);
+    while(pci) {
+        pss = ws_get_local_storage(pci);
+        if(pss) {
+            ws_writefd(pwsc,"<tr><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>\n",
+                       pss->thread,pss->session,pss->host,pss->what);
+        }
+        pci=ws_thread_enum_next(config.server,&wste);
     }
 
     ws_writefd(pwsc,"</table>\n");
-    config_mutex_unlock();
 }
 
 
@@ -1087,24 +1060,24 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
     strsep(&last,":");
     
     if(last) {
-	page=strdup(first);
-	if(!page)
-	    return;
-	first=last;
-	strsep(&last,":");
-	if(last) {
-	    true=strdup(first);
-	    false=strdup(last);
-	    if((!true)||(!false))
-		return;
-	} else {
-	    true=strdup(first);
-	    if(!true)
-		return;
-	    false=NULL;
-	}
+        page=strdup(first);
+        if(!page)
+            return;
+        first=last;
+        strsep(&last,":");
+        if(last) {
+            true=strdup(first);
+            false=strdup(last);
+            if((!true)||(!false))
+                return;
+        } else {
+            true=strdup(first);
+            if(!true)
+                return;
+            false=NULL;
+        }
     } else {
-	return;
+        return;
     }
 
 
@@ -1112,20 +1085,20 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
 
     if((strlen(page) > strlen(pwsc->uri)) ||
        (strcasecmp(page,(char*)&pwsc->uri[strlen(pwsc->uri) - strlen(page)]) != 0)) {
-	ws_writefd(pwsc,"%s",false);
+        ws_writefd(pwsc,"%s",false);
     } else {
-	ws_writefd(pwsc,"%s",true);
+        ws_writefd(pwsc,"%s",true);
     }
 
 
     if(page)
-	free(page);
+        free(page);
 
     if(true)
-	free(true);
+        free(true);
 
     if(false)
-	free(false);
+        free(false);
 }
 
 /**
@@ -1137,7 +1110,7 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
  */
 void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(ws_getvar(pwsc, "HTTP_USER")) {
-	ws_writefd(pwsc,"%s",ws_getvar(pwsc, "HTTP_USER"));
+        ws_writefd(pwsc,"%s",ws_getvar(pwsc, "HTTP_USER"));
     }
     return;
 }
@@ -1152,7 +1125,7 @@ int config_file_is_readonly(void) {
 
     fin=fopen(config.configfile,"r+");
     if(!fin) {
-	return 1;
+        return 1;
     }
 
     fclose(fin);
@@ -1170,7 +1143,7 @@ int config_file_is_readonly(void) {
  */
 void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg) {
     if(config_file_is_readonly()) {
-	ws_writefd(pwsc,"readonly=\"readonly\"");
+        ws_writefd(pwsc,"readonly=\"readonly\"");
     }
 }
 
@@ -1192,39 +1165,39 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     
     snprintf(path,PATH_MAX,"%s/%s",config.web_root,arg);
     if(!realpath(path,resolved_path)) {
-	pwsc->error=errno;
-	DPRINTF(E_WARN,L_CONF|L_WS,"Cannot resolve %s\n",path);
-	ws_writefd(pwsc,"<hr><i>error: cannot find %s</i><hr>",arg);
-	return;
+        pwsc->error=errno;
+        DPRINTF(E_WARN,L_CONF|L_WS,"Cannot resolve %s\n",path);
+        ws_writefd(pwsc,"<hr><i>error: cannot find %s</i><hr>",arg);
+        return;
     }
 
     /* this should really return a 302:Found */
     stat(resolved_path,&sb);
     if(sb.st_mode & S_IFDIR) {
-	ws_writefd(pwsc,"<hr><i>error: cannot include director %s</i><hr>",arg);
-	return;
+        ws_writefd(pwsc,"<hr><i>error: cannot include director %s</i><hr>",arg);
+        return;
     }
 
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Preparing to serve %s\n",
-	    pwsc->threadno, resolved_path);
+            pwsc->threadno, resolved_path);
 
     if(strncmp(resolved_path,config.web_root,
-	       strlen(config.web_root))) {
-	pwsc->error=EINVAL;
-	DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
-		pwsc->threadno,resolved_path);
-	ws_writefd(pwsc,"<hr><i>error: %s out of web root</i><hr>",arg);
-	return;
+               strlen(config.web_root))) {
+        pwsc->error=EINVAL;
+        DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
+                pwsc->threadno,resolved_path);
+        ws_writefd(pwsc,"<hr><i>error: %s out of web root</i><hr>",arg);
+        return;
     }
 
     file_fd=r_open2(resolved_path,O_RDONLY);
     if(file_fd == -1) {
-	pwsc->error=errno;
-	DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
-		pwsc->threadno,resolved_path,strerror(errno));
-	ws_writefd(pwsc,"<hr><i>error: cannot open %s: %s</i><hr>",arg,strerror(errno));
-	return;
+        pwsc->error=errno;
+        DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
+                pwsc->threadno,resolved_path,strerror(errno));
+        ws_writefd(pwsc,"<hr><i>error: cannot open %s: %s</i><hr>",arg,strerror(errno));
+        return;
     }
     
     config_subst_stream(pwsc, file_fd);
@@ -1235,11 +1208,27 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
 }
 
 /**
- * Update the status info for a particuarl thread.  The thread
+ * free a SCAN_STATUS block 
+ *
+ * @param vp pointer to SCAN_STATUS block
+ */
+void config_freescan(void *vp) {
+    SCAN_STATUS *pss = (SCAN_STATUS*)vp;
+    
+    if(pss) {
+        if(pss->what)
+            free(pss->what);
+        if(pss->host)
+            free(pss->host);
+        free(pss);
+    }
+}
+
+/**
+ * Update the status info for a particular thread.  The thread
  * status is the string displayed in the THREADSTAT block of the
  * admin page.  That string is set with the function, which take
- * a printf-style format specifier.  Setting the status to NULL
- * will remove the thread from the config table.
+ * a printf-style format specifier.
  *
  * \param pwsc the web connection of the thread to update
  * \param session the session id of that thread
@@ -1248,106 +1237,56 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
 void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     char buffer[1024];
     va_list ap;
-    SCAN_STATUS *pfirst, *plast;
-
+    SCAN_STATUS *pfirst;
+    char *newmsg = NULL;
+    
     DPRINTF(E_DBG,L_CONF,"Entering config_set_status\n");
 
-    if(config_mutex_lock()) {
-	/* we should really shutdown the app here... */
-	DPRINTF(E_FATAL,L_CONF,"Error acquiring config mutex\n");
-    }
-
-    pfirst=plast=scan_status.next;
-    while((pfirst) && (pfirst->thread != pwsc->threadno)) {
-	plast=pfirst;
-	pfirst=pfirst->next;
-    }
-
     if(fmt) {
-	va_start(ap, fmt);
-	vsnprintf(buffer, 1024, fmt, ap);
-	va_end(ap);
+        va_start(ap, fmt);
+        vsnprintf(buffer, 1024, fmt, ap);
+        va_end(ap);
 
-	if(pfirst) { /* already there */
-	    free(pfirst->what);
-	    pfirst->what = strdup(buffer);
-	    pfirst->session = session; /* this might change! */
-	} else {
-	    pfirst=(SCAN_STATUS*)malloc(sizeof(SCAN_STATUS));
-	    if(pfirst) {
-		pfirst->what = strdup(buffer);
-		pfirst->session = session;
-		pfirst->thread = pwsc->threadno;
-		pfirst->next = scan_status.next;
-		pfirst->host = strdup(pwsc->hostname);
-		scan_status.next=pfirst;
-	    }
-	}
-    } else {
-	if(!pfirst) {
-	    config_mutex_unlock();
-	    DPRINTF(E_DBG,L_CONF,"Exiting config_set_status\n");
-	    return;
-	}
-
-	if(pfirst==plast) { 
-	    scan_status.next=pfirst->next;
-	    free(pfirst->what);
-	    free(pfirst->host);
-	    free(pfirst);
-	} else {
-	    plast->next = pfirst->next;
-	    free(pfirst->what);
-	    free(pfirst->host);
-	    free(pfirst);
-	}
+        newmsg = strdup(buffer);
     }
 
-    config_mutex_unlock();
+    if(!(pfirst = ws_get_local_storage(pwsc))) {
+        /* new info */
+        pfirst=(SCAN_STATUS*)malloc(sizeof(SCAN_STATUS));
+        if(pfirst) {
+            pfirst->what = strdup(buffer);
+            pfirst->session = session;
+            pfirst->thread = pwsc->threadno;
+            pfirst->host = strdup(pwsc->hostname);
+            ws_set_local_storage(pwsc,pfirst,config_freescan);            
+        } else {
+            if(newmsg)
+                free(newmsg);
+            return;
+        }
+    }
+    
+    /* just update */
+    if(pfirst->what) {
+        free(pfirst->what);
+    }
+    pfirst->what=newmsg;
+    pfirst->session=session;
+    
     DPRINTF(E_DBG,L_CONF,"Exiting config_set_status\n");
 }
 
 /**
- * Lock the config mutex.  This is the mutex that provides
- * thread safety around the threadstat list.
- */
-int config_mutex_lock(void) {
-    int err;
-
-    if((err=pthread_mutex_lock(&scan_mutex))) {
-	errno=err;
-	return - 1;
-    }
-
-    return 0;
-}
-
-/**
- * Unlock the config mutex.  This is the mutex that provides
- * thread safety for the threadstat list
- */
-int config_mutex_unlock(void) {
-    int err;
-
-    if((err=pthread_mutex_unlock(&scan_mutex))) {
-	errno=err;
-	return -1;
-    }
-
-    return 0;
-}
-
-/**
  * Get the next available session id.
- *
- * \returns duh... the next available session id
+ * This is vulnerable to races, but we don't track sessions,
+ * so there really isn't a point anyway.
+ * 
+ * @returns duh... the next available session id
  */
 int config_get_next_session(void) {
     int session;
-    config_mutex_lock();
 
     session=++config_session;
-    config_mutex_unlock();
 
     return session;
 }

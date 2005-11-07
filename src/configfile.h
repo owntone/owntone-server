@@ -34,4 +34,12 @@ extern int config_get_session_count(void);
 extern int config_get_next_session(void);
 extern void config_close(void);
 
+/** thread local storage */
+typedef struct tag_scan_status {
+    int session;
+    int thread;
+    char *what;
+    char *host;
+} SCAN_STATUS;
+
 #endif /* _CONFIGFILE_H_ */
