@@ -70,7 +70,7 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     while(pci) {
         pss = ws_get_local_storage(pci);
         if(pss) {
-            ws_writefd(pwsc,"<id>%d</id><sourceip>%s</sourceip><action>%s</action>",
+            ws_writefd(pwsc,"<thread><id>%d</id><sourceip>%s</sourceip><action>%s</action></thread>",
                        pss->thread,pss->host,pss->what);
         }
         pci=ws_thread_enum_next(config.server,&wste);
