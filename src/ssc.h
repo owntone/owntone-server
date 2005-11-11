@@ -25,7 +25,7 @@
 #define SERVER_SIDE_CONVERT_SUFFIX ".-*-ssc-*-.wav"
 #define SERVER_SIDE_CONVERT_DESCR  " (converted to WAV)"
 
-extern int server_side_convert(char *fname);
+extern int server_side_convert(char *codectype);
 extern int server_side_convert_set(MP3FILE *pmp3);
 extern char *server_side_convert_path(char *path);
 extern FILE *server_side_convert_open(char *path,

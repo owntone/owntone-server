@@ -1104,7 +1104,7 @@ int db_sqlite_get_size(DBQUERYINFO *pinfo, char **valarray) {
     case queryTypeItems:
     case queryTypePlaylistItems:  /* essentially the same query */
         /* see if this is going to be transcoded */
-        transcode = server_side_convert(valarray[2]);
+        transcode = server_side_convert(valarray[37]);
         
         /* Items that get changed by transcode:
          *
@@ -1271,7 +1271,7 @@ int db_sqlite_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *pre
     case queryTypeItems:
     case queryTypePlaylistItems:  /* essentially the same query */
         /* see if this is going to be transcoded */
-        transcode = server_side_convert(valarray[2]);
+        transcode = server_side_convert(valarray[37]);
         
         /* Items that get changed by transcode:
          *

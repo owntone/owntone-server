@@ -143,6 +143,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
     ws_addresponseheader(pwsc,"Accept-Ranges","bytes");
     ws_addresponseheader(pwsc,"DAAP-Server","mt-daapd/" VERSION);
     ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
+    ws_addresponseheader(pwsc,"Cache-Control","no-cache");  /* anti-ie defense */
+    ws_addresponseheader(pwsc,"Expires","-1");
     
     if(ws_getvar(pwsc,"session-id"))
         pqi->session_id = atoi(ws_getvar(pwsc,"session-id"));
@@ -626,7 +628,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     if(!pmp3) {
         DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
         ws_returnerror(pwsc,404,"File Not Found");
-    } else if (server_side_convert(pmp3->fname)) {
+    } else if (server_side_convert(pmp3->codectype)) {
         /************************
          * Server side conversion
          ************************/

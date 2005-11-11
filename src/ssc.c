@@ -49,119 +49,30 @@
 #endif
 
 /**
- * If path is server side convertable, return the path to real file.
- *
- * @param path char * to the path in the database.
- */
-char *server_side_convert_path(char *path)
-{
-    char *r = NULL;
-
-    if (path &&
-	(strlen(path) > strlen(SERVER_SIDE_CONVERT_SUFFIX)) &&
-	(strcmp(path + strlen(path) - strlen(SERVER_SIDE_CONVERT_SUFFIX),
-		SERVER_SIDE_CONVERT_SUFFIX) == 0)) {
-	/* Lose the artificial suffix.  Could use strndup here.*/
-	r = strdup(path);
-	r[strlen(path) - strlen(SERVER_SIDE_CONVERT_SUFFIX)] = '\0';
-    }
-
-    return r;
-}
-
-
-/**
  * Check if the file specified by fname should be converted in
  * server to wav.  Currently it does this by file extension, but
  * could in the future decided to transcode based on user agent.
  *
- * @param fname file name of file to check for conversion
+ * @param codectype codec type of the file we are checking for conversion
  * @returns 1 if should be converted.  0 if not
  */
-int server_side_convert(char *fname) {
-    char *ext;
-
-    DPRINTF(E_SPAM,L_SCAN,"Checking for ssc: %s\n",fname);
-
-    if ((!config.ssc_extensions) ||
-	(!config.ssc_extensions[0]) ||
-	(!config.ssc_prog) ||
-	(!config.ssc_prog[0]) ||
-	(!fname)) {
-	DPRINTF(E_DBG,L_SCAN,"Nope\n");
-	return 0;
+int server_side_convert(char *codectype) {
+    if ((!config.ssc_codectypes) ||
+        (!config.ssc_codectypes[0]) ||
+        (!config.ssc_prog) ||
+        (!config.ssc_prog[0]) ||
+        (!codectype)) {
+        DPRINTF(E_DBG,L_SCAN,"Nope\n");
+        return 0;
     }
 
-    if(((ext = strrchr(fname, '.')) != NULL) && 
-       (strcasestr(config.ssc_extensions, ext))) {
-	DPRINTF(E_SPAM,L_SCAN,"Yup\n");
-	return 1;
+    if(strcasestr(config.ssc_codectypes, codectype)) {
+        return 1;
     }
 
-    DPRINTF(E_SPAM,L_SCAN,"Nope\n");
     return 0;
 }
 
-/**
- * Check if the file entry (otherwise complete) is such that
- * file should be converted in server end to wav-format.
- * If so, the info is modified accordingly and non-zero return
- * value is returned.
- *
- * @param song MP3FILE of the file to possibly set to server side conversion
- */
-int server_side_convert_set(MP3FILE *pmp3)
-{
-    char *fname, *path, *description, *ext;
-    DPRINTF(E_SPAM,L_SCAN,"Checking for ssc: %s\n",pmp3->fname);
-    if ((!config.ssc_extensions) ||
-	(!config.ssc_extensions[0]) ||
-	(!config.ssc_prog) ||
-	(!config.ssc_prog[0]) ||
-	(!pmp3->fname) ||
-	(!pmp3->path) ||
-	(!pmp3->type) ||
-	((strlen(pmp3->fname) > strlen(SERVER_SIDE_CONVERT_SUFFIX)) &&
-	 (strcmp(pmp3->fname +
-		 strlen(pmp3->fname) -
-		 strlen(SERVER_SIDE_CONVERT_SUFFIX),
-		 SERVER_SIDE_CONVERT_SUFFIX) == 0))) {
-	DPRINTF(E_SPAM,L_SCAN,"Nope\n");
-	return 0;
-    }
-
-    DPRINTF(E_SPAM,L_SCAN,"Yup\n");
-    if (((ext = strrchr(pmp3->path, '.')) != NULL) &&
-	(strcasestr(config.ssc_extensions, ext))) {
-	fname = (char *)malloc(strlen(pmp3->fname) +
-			       strlen(SERVER_SIDE_CONVERT_SUFFIX) + 1);
-	path = (char *)malloc(strlen(pmp3->path) +
-			      strlen(SERVER_SIDE_CONVERT_SUFFIX) + 1);
-	description = (char *)malloc(strlen(pmp3->description) +
-				     strlen(SERVER_SIDE_CONVERT_DESCR) + 1);
-	strcpy(fname, pmp3->fname);
-	strcat(fname, SERVER_SIDE_CONVERT_SUFFIX);
-	free(pmp3->fname);
-	pmp3->fname = fname;
-	strcpy(path, pmp3->path);
-	strcat(path, SERVER_SIDE_CONVERT_SUFFIX);
-	free(pmp3->path);
-	pmp3->path = path;
-	strcpy(description, pmp3->description);
-	strcat(description, SERVER_SIDE_CONVERT_DESCR);
-	free(pmp3->description);
-	pmp3->description = description;
-	free(pmp3->type);
-	pmp3->type = strdup("wav");
-	if (pmp3->samplerate > 0) {
-	    // Here we guess that it's always 16 bit stereo samples,
-	    // which is accurate enough for now.
-	    pmp3->bitrate = (pmp3->samplerate * 4 * 8) / 1000;
-	}
-	return 1;
-    }
-    return 0;
-}
 
 /**
  * Open the source file with convert fiter.
@@ -169,17 +80,49 @@ int server_side_convert_set(MP3FILE *pmp3)
  * @param path char * to the real filename.
  * @param offset off_t to the point in file where the streaming starts.
  */
-FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms)
-{
+FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms) {
     char *cmd;
     FILE *f;
+    char *newpath;
+    char *metachars = "\"();"; /* More?? */
+    char metacount = 0;
+    char *src,*dst;
+    
+    src=path;
+    while(*src) {
+        if(strchr(metachars,*src))
+            metacount++;
+        src++;
+    }
+    
+    if(metachars) {
+        newpath = (char*)malloc(strlen(path) + metacount + 1);
+        if(!newpath) {
+            DPRINTF(E_FATAL,L_SCAN,"Malloc error.\n");
+        }
+        src=path;
+        dst=newpath;
+        
+        while(*src) {
+            if(strchr(metachars,*src))
+                *dst++='\\';
+             *dst++=*src++;
+        }
+        *dst='\0';
+    } else {
+        newpath = strdup(path); /* becuase it will be freed... */
+    }
 
+    /* FIXME: is 64 enough? is there a better way to determine this? */
     cmd=(char *)malloc(strlen(config.ssc_prog) +
-		       strlen(path) +
-		       64);
+                       strlen(path) +
+                       64);
     sprintf(cmd, "%s \"%s\" %ld %lu.%03lu",
-	    config.ssc_prog, path, (long)offset, len_ms / 1000, len_ms % 1000);
+            config.ssc_prog, newpath, (long)offset, len_ms / 1000, len_ms % 1000);
+    DPRINTF(E_INF,L_SCAN,"Executing %s\n",cmd);
     f = popen(cmd, "r");
+    free(newpath);
+    free(cmd);  /* should really have in-place expanded the path */
     return f;
 }
 
@@ -191,7 +134,7 @@ FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms)
 void server_side_convert_close(FILE *f)
 {
     if (f)
-	pclose(f);
+        pclose(f);
     return;
 }
 

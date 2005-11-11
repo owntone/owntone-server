@@ -15,9 +15,24 @@
 #include "mp3-scanner.h"
 #include "webserver.h"
 
+/* typedefs */
+typedef struct tag_xmlstruct {
+} XMLSTRUCT;
+
 /* Forwards */
 void xml_get_stats(WS_CONNINFO *pwsc);
 char *xml_entity_encode(char *original);
+
+/**
+ * create an xml response structure, a helper struct for
+ * building xml responses.
+ *
+ * @returns XMLSTRUCT on success, or NULL if failure
+ */
+XMLSTRUCT *xml_init(void) {
+}
+
+ 
 
 /**
  * main entrypoint for the xmlrpc functions.
