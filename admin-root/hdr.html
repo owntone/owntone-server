@@ -1,131 +1,46 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
-  <head>
-    <title>.: m t - d a a p d :.</title>
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <link rel="stylesheet" type="text/css" href="mt-daapd.css" />
-    @ispage status.html:<meta http-equiv="refresh" content="10" />:@
-    @ispage smart.html:<script type="text/javascript" src="smart.js"></script>:@
-    @ispage playlist.html:<script type="text/javascript" src="playlist.js"></script>:@
-  </head>
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en" dir="ltr">
+<head>
+  <title>mt-daapd</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <link rel="stylesheet" type="text/css" href="mt-daapd.css" />
+  @ispage status.html:<meta http-equiv="refresh" content="10" />:@
+  @ispage smart.html:<script type="text/javascript" src="smart.js" />:@
+  <script type="text/javascript" src="mt-daapd.js" />
+</head>
+<body @ispage playlist.html:onload="init();":@ @ispage smart.html:onload="init()":@>
 
-  <body @ispage playlist.html:onload="init()":@ @ispage smart.html:onload="init()":@>
-@ispage playlist.html:<!--:@
-    <div>
-      <table border="0" width="100%">
-	<tr><td style="width: 90%;">&nbsp;</td><td align="center"><img src="mt-daapd.png" alt="mt-daap logo"/>
-  <br />Version @VERSION@</td></tr>
-	</table>
-    </div>
-@ispage playlist.html:-->:@
-    <!--    <hr size="" class="netscape4"> -->
-    <div class="tabs">
-      <a href="index.html" class="@ispage index.html:selected:plain@">Home</a>
-      <a href="config.html" class="@ispage config.html:selected:plain@">Config</a>
-      <a href="status.html" class="@ispage status.html:selected:plain@">Status</a>
-      <!-- <a href="playlist.html" class="@ispage
-      playlist.html:selected:plain@">Playlist</a> -->
-      <a href="feedback.html" class="@ispage
-      feedback.html:selected:plain@">Feedback</a>
-      <a href="smart.html" class="@ispage smart.html:selected:plain@">Smart</a>
-      <a href="thanks.html" class="@ispage thanks.html:selected:plain@">Thanks</a>
-    </div>
+<table class="main" border="0" width="100%" summary="Main navigation"><tr>
+<td class="navi" width="182">
 
-    <div class="personalBar">&nbsp;
-      <span>@session-count@ Connected Users</span>
-    </div>
+<img src="mt-daapd.png" width="182" height="71" alt="mt-daap logo"/>
 
-    <div class="pathBar">
-      Welcome, @user@
-    </div>
+<div class="ministatus">Version @VERSION@</div>
 
-    <table class="columns">
-      <tbody>
-	<tr>
-@ispage playlist.html:<!--:@
-	  <td class="left">
-	    <div class="box">
-	      <h5>Links</h5>
-	      <div class="body">
-		<div style="white-space: nowrap;">
-		  <span>
-                    &nbsp;
-                    <a href="http://mt-daapd.sourceforge.net" 
-                       class="plain" title="Home Page">
-                      
-                      &nbsp;mt-daapd&nbsp;Home
-                    </a>
-		  </span>
-		</div>
+<div class="naviheader">Welcome, @user@</div>
+<div class="navibox">
+ <div class="navilink"><a class="@ispage index.html:naviselected:navi@" href="index.html">home</a></div>
+ <div class="navilink"><a class="@ispage config.html:naviselected:navi@" href="config.html">config</a></div>
+ <div class="navilink"><a class="@ispage status.html:naviselected:navi@" href="status.html">status</a></div>
+ <div class="navilink"><a class="@ispage smart.html:naviselected:navi@" href="smart.html">smart</a></div>
+ <div class="navilink"><a class="@ispage feedback.html:naviselected:navi@" href="feedback.html">feedback</a></div>
+ <div class="navilink"><a class="@ispage thanks.html:naviselected:navi@" href="thanks.html">thanks</a></div>
+</div>
 
-		<div style="white-space: nowrap;">
-		  <span>
-                    &nbsp;
-                    <a href="http://cvs.sourceforge.net/viewcvs.py/mt-daapd/"
-                       class="plain" title="CVS">
-                      
-                      &nbsp;mt-daapd&nbsp;CVS
-                    </a>
-		  </span>
-		</div>
+<div class="naviheader">Experimental</div>
+<div class="navibox">
+ <div class="navilink"><a class="@ispage playlist.html:naviselected:navi@" href="playlist.html">playlist</a></div>
+ <div class="navilink"><a class="@ispage applet.html:naviselected:navi@" href="applet.html">applet</a></div>
+</div>
 
-		<div style="white-space: nowrap;">
-		  <span>
-                    &nbsp;
-                    <a href="gpl-license.html"
-                       class="plain" title="GPL License">
-                      
-                      &nbsp;GPL&nbsp;License
-                    </a>
-		  </span>
-		</div>
-		
-		<div style="white-space: nowrap;">
-		  <span>
-                    &nbsp;
-                    <a href="aspl-license.html"
-                       class="plain" title="ASPL License">
-                      
-                      &nbsp;ASPL&nbsp;License
-                    </a>
-		  </span>
-		</div>
+<div class="naviheader">Links</div>
+<div class="navibox">
+ <div class="navilink"><a class="navi" href="http://mt-daapd.sourceforge.net/">mt-daapd home</a></div>
+ <div class="navilink"><a class="navi" href="http://cvs.sourceforge.net/viewcvs.py/mt-daapd/">mt-daapd cvs</a></div>
+ <div class="navilink"><a class="@ispage gpl-license.html:naviselected:navi@" href="gpl-license.html">GPL license</a></div>
+ <div class="navilink"><a class="@ispage aspl-license.html:naviselected:navi@" href="aspl-license.html">ASPL license</a></div>
+</div>
 
-		
+<div class="ministatus">@session-count@ Connected Users</div>
 
-	      </div>
-	    </div>
-
-	    <div class="box">
-	      <h5>Experimental</h5>
-	      <div class="body">
-		<div style="white-space: nowrap;">
-		  <span>
-                    &nbsp;
-                    <a href="playlist.html" 
-                       class="plain" title="Playlist page">
-                      
-                      &nbsp;Playlist&nbsp;Page
-                    </a>
-		  </span>
-		</div>
-
-		<div style="white-space: nowrap;">
-		  <span>
-                    &nbsp;
-                    <a href="applet.html"
-                       class="plain" title="Java Applet">
-                      
-                      &nbsp;Java&nbsp;Applet
-                    </a>
-		  </span>
-		</div>
-	      </div>
-	    </div>
-
-
-	  </td>
-@ispage playlist.html:-->:@
-	  <td class="main">
-	    <div class="document">
-	      <div> 
+</td><td class="main">

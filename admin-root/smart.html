@@ -1,7 +1,5 @@
 @include hdr.html@
 
-<div class="stx">
-
 <h2>Smart Playlists</h2>
 <table width="400">
 <thead><tr><th>ID</th><th>Playlist Name</th><th>Type</th><th>Action</th></tr></thead>
@@ -14,29 +12,31 @@
 </div>
 
 <div id="pl_editor" style="display:none">
-<h3>Playlist Spec</h3>
+<h2>Please specify new playlist</h2>
 <form name="pl_form" action="">
 <input type="hidden" name="playlist_id"/>
 <table width="400">
 <tr>
-<th>Name</th>
-<td><input type="text" name="playlist_name"/></td>
-</tr>
-
-<tr>
-<th>Playlist Criteria</th>
-<td><textarea rows="5" name="playlist_spec"></textarea></td>
-</tr>
-</table>
-
+  <th>New playlist</th>
+  <th>
 <input type="button" onclick="javascript:pl_update();" name="submit_button" value="Submit"/>
 <input type="button" onclick="javascript:pl_cancel();" value="Cancel"/>
-<input type="button" onclick="javascript:pl_popup('smartpopup.html');" value="Wizard"/>
+<input type="button" onclick="javascript:popUp('smartpopup.html');" value="Wizard"/>
+  </th>
+<tr>
+  <td>Name</td>
+  <td><input class="playlistfield" type="text" name="playlist_name"/></td>
+</tr>
+<tr>
+  <td>Playlist criteria</td>
+  <td><textarea class="playlistfield" rows="5" name="playlist_spec"></textarea></td>
+</tr>
+</table>
 </form>
 </div>
 
 <div id="pl_warning" class="message" style="display:none">
-Error Messages Go here
+Error messages go here...
 </div>
 
 

@@ -1,5 +1,10 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html><head><title>mt-daapd playlist wizard</title></head>
+<html>
+<head>
+  <title>mt-daapd playlist wizard</title>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+  <link rel="stylesheet" type="text/css" href="mt-daapd.css" />
+</head>
 <script language="JavaScript" type="text/javascript">
 
 function loadOpenerCriteria()
@@ -103,8 +108,8 @@ function plRowShow(x)
 function plOutputRow(x,vis)
 { document.write('<tr id="rowcrit',x,'" style="visibility:');
   document.write(vis?'visible':'hidden');
-  document.write(';"><th>Criterion ',x,':<\/th>',
-'<td><select name="playlist_crit',x,'field" style="width:100%" onChange="javascript:plUpdateComp(\'',x,'\');plTemplateWizard()">',
+  document.write(';"><td>Criterion ',x,':<\/td>',
+'<td><select class="playlistfield" name="playlist_crit',x,'field" style="width:100%" onChange="javascript:plUpdateComp(\'',x,'\');plTemplateWizard()">',
 '<optgroup label="Basic">',
 '<option value="title">Title<\/option>',
 '<option value="artist">Artist<\/option>',
@@ -136,10 +141,10 @@ function plOutputRow(x,vis)
 '<option value="compilation">Compilation<\/option>',
 '<\/optgroup>',
 '<\/select><\/td>',
-'<td><select name="playlist_crit',x,'comp" style="width:100%" onChange="javascript:plTemplateWizard()">',
+'<td><select class="playlistfield" name="playlist_crit',x,'comp" style="width:100%" onChange="javascript:plTemplateWizard()">',
 '<option value="=">=<\/option>',
 '<\/select><\/td>',
-'<td><input name="playlist_crit',x,'data" onChange="javascript:plTemplateWizard()" style="width:100%"/><\/td>');
+'<td><input class="playlistfield" name="playlist_crit',x,'data" onChange="javascript:plTemplateWizard()" style="width:100%"/><\/td>');
   document.write('<\/tr>');
 }
 
@@ -199,6 +204,7 @@ function plUpdateComp(x)
   objComp = document.getElementsByName("playlist_crit"+x+"comp");
   objComp[0].options.length = 0;
   objComp[0].options[0] = new Option('=','=');
+  objComp[0].options[1] = new Option('not =','not =');
   if ((objField[0].value=='artist') 
    || (objField[0].value=='title')
    || (objField[0].value=='album')
@@ -211,12 +217,12 @@ function plUpdateComp(x)
    || (objField[0].value=='grouping')
    || (objField[0].value=='url')
    || (objField[0].value=='codectype'))
-  { objComp[0].options[1] = new Option('includes','includes');
+  { objComp[0].options[2] = new Option('includes','includes');
   } else
-  { objComp[0].options[1] = new Option('>','>');
-    objComp[0].options[2] = new Option('>=','>=');
-    objComp[0].options[3] = new Option('<','<');
-    objComp[0].options[4] = new Option('<=','<=');
+  { objComp[0].options[2] = new Option('>','>');
+    objComp[0].options[3] = new Option('>=','>=');
+    objComp[0].options[4] = new Option('<','<');
+    objComp[0].options[5] = new Option('<=','<=');
   }
 }
 
@@ -305,11 +311,11 @@ function plTemplatePlaylist()
 <body onLoad="loadOpenerCriteria();">
 <form name="pleditor" action="">
 <input type="hidden" name="playlist_id"/>
-<table style="border:1px solid black;" width="100%">
+<table width="100%">
 
-<tr><th colspan="4">Wizard</th></tr>
-<tr><th>Template:</th>
-<td colspan="3"><select name="playlist_template" style="width:100%" onChange="javascript:plTemplatePlaylist()">
+<tr><th>Wizard</th><th colspan="3"></th></tr>
+<tr><td>Template:</td>
+<td colspan="3"><select class="playlistfield" name="playlist_template" style="width:100%" onChange="javascript:plTemplatePlaylist()">
 <option value="" selected="SELECTED">Custom playlist</option>
 <option value="60s">Music from the 60's</option>
 <option value="70s">Music from the 70's</option>
@@ -328,7 +334,7 @@ plOutputRow(4,true);
 plOutputRow(5,true);
 </script>
 
-<tr><th>Combine:</th>
+<tr><td>Combine:</td>
 <td colspan="3">
 <input type="radio" name="playlist_combine" value=" AND " checked="CHECKED" onChange="javascript:plTemplateWizard()"> match all 
 <input type="radio" name="playlist_combine" value=" OR " onChange="javascript:plTemplateWizard()"> match some 
