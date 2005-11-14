@@ -267,6 +267,17 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     if(pthread_mutex_lock(&pwsp->exit_mutex))
         DPRINTF(E_FATAL,L_WS,"Cannot lock condition mutex\n");
 
+    /* Get rid of the local storage */
+    if(pwsc->local_storage) {
+        if(pwsc->storage_callback) {
+            pwsc->storage_callback(pwsc->local_storage);
+            pwsc->local_storage=NULL;
+        } else {
+            free(pwsc->local_storage);
+            pwsc->local_storage=NULL;
+        }
+    }
+    
     pTail=&(pwsp->connlist);
     pHead=pwsp->connlist.next;
 
@@ -477,16 +488,6 @@ void ws_close(WS_CONNINFO *pwsc) {
 
     DPRINTF(E_SPAM,L_WS,"Entering ws_close\n");
 
-    if(pwsc->local_storage) {
-        if(pwsc->storage_callback) {
-            pwsc->storage_callback(pwsc->local_storage);
-            pwsc->local_storage=NULL;
-        } else {
-            free(pwsc->local_storage);
-            pwsc->local_storage=NULL;
-        }
-    }
-    
     DPRINTF(E_DBG,L_WS,"Thread %d: Terminating\n",pwsc->threadno);
     DPRINTF(E_DBG,L_WS,"Thread %d: Freeing request headers\n",pwsc->threadno);
     ws_freearglist(&pwsc->request_headers);
@@ -1522,12 +1523,34 @@ char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header) {
 }
 
 /**
- * get the local storage pointer
+ * get the local storage pointer.
  *
  * @param pwsc connection to get local storage for
  */
 void *ws_get_local_storage(WS_CONNINFO *pwsc) {
     return pwsc->local_storage;
+}
+
+
+/**
+ * lock the local storage pointer.  This is sort of wrong, as
+ * the all operations manipulating local storage are locked,
+ * not just the one you are working on.
+ * 
+ * @param pwsc connection you are working with
+ */
+void ws_lock_local_storage(WS_CONNINFO *pwsc) {
+    WS_PRIVATE *pwsp;
+    
+    pwsp = (WS_PRIVATE *)pwsc->pwsp;
+    ws_lock_connlist(pwsp);
+}
+
+void ws_unlock_local_storage(WS_CONNINFO *pwsc) {
+    WS_PRIVATE *pwsp;
+    
+    pwsp = (WS_PRIVATE *)pwsc->pwsp;
+    ws_unlock_connlist(pwsp);
 }
 
 /**

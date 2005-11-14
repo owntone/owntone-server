@@ -1254,6 +1254,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
         newmsg = strdup(buffer);
     }
 
+    ws_lock_local_storage(pwsc);
     if(!(pfirst = ws_get_local_storage(pwsc))) {
         /* new info */
         pfirst=(SCAN_STATUS*)malloc(sizeof(SCAN_STATUS));
@@ -1266,6 +1267,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
         } else {
             if(newmsg)
                 free(newmsg);
+            ws_unlock_local_storage(pwsc);
             return;
         }
     }
@@ -1277,6 +1279,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     pfirst->what=newmsg;
     pfirst->session=session;
     
+    ws_unlock_local_storage(pwsc);
     DPRINTF(E_DBG,L_CONF,"Exiting config_set_status\n");
 }
 

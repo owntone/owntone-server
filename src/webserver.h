@@ -79,6 +79,8 @@ extern int ws_registerhandler(WSHANDLE ws, char *regex,
 			      int(*auth)(char *, char *),
 			      int addheaders);
 
+extern void ws_lock_local_storage(WS_CONNINFO *pwsc);
+extern void ws_unlock_local_storage(WS_CONNINFO *pwsc);
 extern void *ws_get_local_storage(WS_CONNINFO *pwsc);
 extern void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *));
 
