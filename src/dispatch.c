@@ -145,6 +145,11 @@ void daap_handler(WS_CONNINFO *pwsc) {
     ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
     ws_addresponseheader(pwsc,"Cache-Control","no-cache");  /* anti-ie defense */
     ws_addresponseheader(pwsc,"Expires","-1");
+
+    /* This we should put in a quirks file or something, but here might
+     * be a decent workaround for various failures on different clients */
+     pwsc->close=0;
+
     
     if(ws_getvar(pwsc,"session-id"))
         pqi->session_id = atoi(ws_getvar(pwsc,"session-id"));
