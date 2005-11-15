@@ -1573,14 +1573,16 @@ void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *)
  */
 WS_CONNINFO *ws_thread_enum_first(WSHANDLE wsh, WSTHREADENUM *vpp) {
     WS_PRIVATE *pwsp;
-    WS_CONNINFO *pwsc;
+    WS_CONNINFO *pwsc = NULL;
     WS_CONNLIST *pconlist;
     
     pwsp = (WS_PRIVATE *)wsh;
     ws_lock_connlist(pwsp);
     
     pconlist = pwsp->connlist.next;
-    pwsc = pconlist->pwsc;
+    if(pconlist) {
+	pwsc = pconlist->pwsc;
+    }
     *vpp = (WSTHREADENUM)pconlist;
     
     if(pwsc == NULL) {
