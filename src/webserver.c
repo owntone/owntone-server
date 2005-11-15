@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $id: webserver.c,v 1.39 2005/11/15 06:43:31 rpedde Exp $
  * Webserver library
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
@@ -484,7 +484,6 @@ void *ws_mainthread(void *arg) {
  */
 void ws_close(WS_CONNINFO *pwsc) {
     WS_PRIVATE *pwsp = (WS_PRIVATE *)pwsc->pwsp;
-
 
     DPRINTF(E_SPAM,L_WS,"Entering ws_close\n");
 
@@ -1557,6 +1556,9 @@ void ws_unlock_local_storage(WS_CONNINFO *pwsc) {
  * set the local storage pointer (and callback)
  */
 void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *)) {
+    if(!pwsc)
+	return;
+
     if(pwsc->local_storage) {
         if(pwsc->storage_callback) {
             pwsc->storage_callback(pwsc->local_storage);
