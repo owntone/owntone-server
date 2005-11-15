@@ -1029,7 +1029,7 @@ void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg) {
         pss = ws_get_local_storage(pci);
         if(pss) {
             ws_writefd(pwsc,"<tr><td>%d</td><td>%d</td><td>%s</td><td>%s</td></tr>\n",
-                       pss->thread,pss->session,pss->host,pss->what);
+                       pss->thread,pss->session,pss->host,pss->what ? pss->what : "Idle");
         }
         pci=ws_thread_enum_next(config.server,&wste);
     }
