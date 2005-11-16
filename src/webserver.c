@@ -65,7 +65,6 @@ typedef struct tag_ws_handler {
 
 typedef struct tag_ws_connlist {
     WS_CONNINFO *pwsc;
-    char *status;
     struct tag_ws_connlist *next;
 } WS_CONNLIST;
 
@@ -293,8 +292,6 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
 
         pTail->next = pHead->next;
         
-        if(pHead->status)
-            free(pHead->status);
         free(pHead);
 
         /* signal condition in case something is waiting */
@@ -319,7 +316,6 @@ void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     pNew=(WS_CONNLIST*)malloc(sizeof(WS_CONNLIST));
     pNew->next=NULL;
     pNew->pwsc=pwsc;
-    pNew->status=strdup("Initializing");
 
     if(!pNew)
         DPRINTF(E_FATAL,L_WS,"Malloc: %s\n",strerror(errno));
@@ -1557,9 +1553,10 @@ void ws_unlock_local_storage(WS_CONNINFO *pwsc) {
  */
 void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *)) {
     if(!pwsc)
-	return;
+        return;
 
     if(pwsc->local_storage) {
+        DPRINTF(E_FATAL,L_WS,"ls already allocated");
         if(pwsc->storage_callback) {
             pwsc->storage_callback(pwsc->local_storage);
             pwsc->local_storage=NULL;
@@ -1579,11 +1576,12 @@ WS_CONNINFO *ws_thread_enum_first(WSHANDLE wsh, WSTHREADENUM *vpp) {
     WS_CONNLIST *pconlist;
     
     pwsp = (WS_PRIVATE *)wsh;
+    
     ws_lock_connlist(pwsp);
     
     pconlist = pwsp->connlist.next;
     if(pconlist) {
-	pwsc = pconlist->pwsc;
+        pwsc = pconlist->pwsc;
     }
     *vpp = (WSTHREADENUM)pconlist;
     
@@ -1600,7 +1598,7 @@ WS_CONNINFO *ws_thread_enum_next(WSHANDLE wsh, WSTHREADENUM *vpp) {
     WS_CONNLIST *pconlist;
     
     pwsp = (WS_PRIVATE *)wsh;
-
+    
     pconlist = (WS_CONNLIST*)*vpp;
     if((!pconlist) || (!pconlist->next)) {
         ws_unlock_connlist(pwsp);

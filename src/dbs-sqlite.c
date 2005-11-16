@@ -825,6 +825,11 @@ int db_sqlite_enum_start(DBQUERYINFO *pinfo) {
             db_sqlite_unlock();
             return -1;
         }
+	if(!rows) {
+	    DPRINTF(E_LOG,L_DB|L_DAAP,"Could not find playlist %d\n",pinfo->playlist_id);
+	    return -1;
+	}
+
         is_smart=(atoi(resarray[2]) == 1); 
         have_clause=1;
         if(is_smart) {

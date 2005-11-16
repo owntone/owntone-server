@@ -1259,7 +1259,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
         /* new info */
         pfirst=(SCAN_STATUS*)malloc(sizeof(SCAN_STATUS));
         if(pfirst) {
-	    pfirst->what = NULL;
+            pfirst->what = NULL;
             pfirst->thread = pwsc->threadno;
             pfirst->host = strdup(pwsc->hostname);
             ws_set_local_storage(pwsc,pfirst,config_freescan);            
