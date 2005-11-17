@@ -175,8 +175,6 @@ int ws_unlock_unsafe(void) {
 void ws_lock_connlist(WS_PRIVATE *pwsp) {
     if(pthread_mutex_lock(&pwsp->exit_mutex))
         DPRINTF(E_FATAL,L_WS,"Cannot lock condition mutex\n");
-
-    return;
 }
 
 void ws_unlock_connlist(WS_PRIVATE *pwsp) {
@@ -263,20 +261,8 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
 
     DPRINTF(E_SPAM,L_WS,"Entering ws_remove_dispatch_thread\n");
 
-    if(pthread_mutex_lock(&pwsp->exit_mutex))
-        DPRINTF(E_FATAL,L_WS,"Cannot lock condition mutex\n");
+    ws_lock_connlist(pwsp);
 
-    /* Get rid of the local storage */
-    if(pwsc->local_storage) {
-        if(pwsc->storage_callback) {
-            pwsc->storage_callback(pwsc->local_storage);
-            pwsc->local_storage=NULL;
-        } else {
-            free(pwsc->local_storage);
-            pwsc->local_storage=NULL;
-        }
-    }
-    
     pTail=&(pwsp->connlist);
     pHead=pwsp->connlist.next;
 
@@ -298,7 +284,7 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
         pthread_cond_signal(&pwsp->exit_cond);
     }
 
-    pthread_mutex_unlock(&pwsp->exit_mutex);
+    ws_unlock_connlist(pwsp);
     DPRINTF(E_SPAM,L_WS,"Exiting ws_remote_dispatch_thread\n");
 }
 
@@ -320,15 +306,14 @@ void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     if(!pNew)
         DPRINTF(E_FATAL,L_WS,"Malloc: %s\n",strerror(errno));
     
-    if(pthread_mutex_lock(&pwsp->exit_mutex))
-        DPRINTF(E_FATAL,L_WS,"Cannot lock condition mutex\n");
+    ws_lock_connlist(pwsp);
 
     /* list is locked... */
     pwsp->dispatch_threads++;
     pNew->next = pwsp->connlist.next;
     pwsp->connlist.next = pNew;
 
-    pthread_mutex_unlock(&pwsp->exit_mutex);
+    ws_unlock_connlist(pwsp);
     DPRINTF(E_SPAM,L_WS,"Exiting ws_add_dispatch_thread\n");
 }
 
@@ -364,8 +349,7 @@ extern int ws_stop(WSHANDLE ws) {
     pthread_join(pwsp->server_tid,&result);
 
     /* Give the threads an extra push */
-    if(pthread_mutex_lock(&pwsp->exit_mutex))
-        DPRINTF(E_FATAL,L_WS,"Cannot lock condition mutex\n");
+    ws_lock_connlist(pwsp);
 
     pcl=pwsp->connlist.next;
 
@@ -386,7 +370,7 @@ extern int ws_stop(WSHANDLE ws) {
         pthread_cond_wait(&pwsp->exit_cond, &pwsp->exit_mutex);
     }
 
-    pthread_mutex_unlock(&pwsp->exit_mutex);
+    ws_unlock_connlist(pwsp);
 
     free(pwsp);
 
@@ -450,7 +434,7 @@ void *ws_mainthread(void *arg) {
         ws_lock_unsafe();
         pwsc->threadno=pwsp->threadno;
         pwsp->threadno++;
-        ws_unlock_unsafe();
+	/* we'll hold the unsafe until the dispatch thread is registered */
 
         /* now, throw off a dispatch thread */
         if((err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc))) {
@@ -461,6 +445,7 @@ void *ws_mainthread(void *arg) {
             ws_add_dispatch_thread(pwsp,pwsc);
             pthread_detach(tid);
         }
+	ws_unlock_unsafe();
     }
 
     DPRINTF(E_SPAM,L_WS,"Exiting ws_mainthred\n");
@@ -499,11 +484,21 @@ void ws_close(WS_CONNINFO *pwsc) {
         DPRINTF(E_DBG,L_WS,"Thread %d: Closing fd\n",pwsc->threadno);
         shutdown(pwsc->fd,SHUT_RDWR);
         r_close(pwsc->fd);
-        free(pwsc->hostname);
-        
         /* this thread is done */
         ws_remove_dispatch_thread(pwsp, pwsc);
 
+	/* Get rid of the local storage */
+
+	if(pwsc->local_storage) {
+	    if(pwsc->storage_callback) {
+		pwsc->storage_callback(pwsc->local_storage);
+		pwsc->local_storage=NULL;
+		pwsc->storage_callback=NULL;
+	    }
+	}
+    
+        free(pwsc->hostname);
+	memset(pwsc,0x00,sizeof(WS_CONNINFO));
         free(pwsc);
         DPRINTF(E_SPAM,L_WS,"Exiting ws_close (thread terminating)\n");
         pthread_exit(NULL);
@@ -766,6 +761,10 @@ void *ws_dispatcher(void *arg) {
 
     DPRINTF(E_DBG,L_WS,"Thread %d: Entering ws_dispatcher (Connection from %s)\n",
             pwsc->threadno, pwsc->hostname);
+
+    /* quick fence to ensure that we have been registered on the thread list */
+    ws_lock_unsafe();
+    ws_unlock_unsafe();
         
     while(!connection_done) {
         /* Now, get the request from the other end
@@ -1006,7 +1005,7 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
     /* we'll force a close here unless the user agent is
        iTunes, which seems to get pissy about it */
     useragent = ws_getarg(&pwsc->request_headers,"User-Agent");
-    if(useragent && (strncmp(useragent,"iTunes",6))) {
+    if((!useragent) || (strncmp(useragent,"iTunes",6))) {
         pwsc->close=1;
         ws_addarg(&pwsc->response_headers,"Connection","close");
     }
@@ -1557,10 +1556,6 @@ void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *)
 
     if(pwsc->local_storage) {
         DPRINTF(E_FATAL,L_WS,"ls already allocated");
-        if(pwsc->storage_callback) {
-            pwsc->storage_callback(pwsc->local_storage);
-            pwsc->local_storage=NULL;
-        }
     }
     
     pwsc->storage_callback = callback;

@@ -1254,7 +1254,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
         newmsg = strdup(buffer);
     }
 
-    ws_lock_local_storage(pwsc);
+    ws_lock_local_storage(config.server);
     if(!(pfirst = ws_get_local_storage(pwsc))) {
         /* new info */
         pfirst=(SCAN_STATUS*)malloc(sizeof(SCAN_STATUS));
@@ -1264,21 +1264,23 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
             pfirst->host = strdup(pwsc->hostname);
             ws_set_local_storage(pwsc,pfirst,config_freescan);            
         } else {
-            if(newmsg)
-                free(newmsg);
-            ws_unlock_local_storage(pwsc);
-            return;
+	DPRINTF(E_FATAL,L_CONF,"Malloc Error\n");
         }
     }
     
-    /* just update */
-    if(pfirst->what) {
-        free(pfirst->what);
+    if(pfirst) {
+	/* just update */
+	if(pfirst->what) {
+	    free(pfirst->what);
+	}
+	pfirst->what=newmsg;
+	pfirst->session=session;
+    } else {
+	if(newmsg)
+	    free(newmsg);
     }
-    pfirst->what=newmsg;
-    pfirst->session=session;
     
-    ws_unlock_local_storage(pwsc);
+    ws_unlock_local_storage(config.server);
     DPRINTF(E_DBG,L_CONF,"Exiting config_set_status\n");
 }
 
