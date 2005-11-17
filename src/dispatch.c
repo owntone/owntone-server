@@ -148,10 +148,12 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     /* This we should put in a quirks file or something, but here might
      * be a decent workaround for various failures on different clients */
+    /* nm... backing this out.  Really do need a "quirks" mode
     pwsc->close=0;
     if(ws_testrequestheader(pwsc,"Connection","Close")) {
 	pwsc->close = 1;
     }
+    */
     
     if(ws_getvar(pwsc,"session-id"))
         pqi->session_id = atoi(ws_getvar(pwsc,"session-id"));
