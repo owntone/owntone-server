@@ -464,7 +464,7 @@ void *ws_mainthread(void *arg) {
  * allocated memory has been freed
  */
 void ws_close(WS_CONNINFO *pwsc) {
-    WS_PRIVATE *pwsp = (WS_PRIVATE *)pwsc->pwsp;
+    WS_PRIVATE *pwsp = (WS_PRIVATE *)(pwsc->pwsp);
 
     DPRINTF(E_SPAM,L_WS,"Entering ws_close\n");
 
@@ -485,10 +485,10 @@ void ws_close(WS_CONNINFO *pwsc) {
         shutdown(pwsc->fd,SHUT_RDWR);
         r_close(pwsc->fd);
         /* this thread is done */
+
         ws_remove_dispatch_thread(pwsp, pwsc);
 
 	/* Get rid of the local storage */
-
 	if(pwsc->local_storage) {
 	    if(pwsc->storage_callback) {
 		pwsc->storage_callback(pwsc->local_storage);
@@ -1566,33 +1566,27 @@ void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *)
  * walk through the connection list and enumerate all the items
  */
 WS_CONNINFO *ws_thread_enum_first(WSHANDLE wsh, WSTHREADENUM *vpp) {
-    WS_PRIVATE *pwsp;
+    WS_PRIVATE *pwsp = (WS_PRIVATE *)wsh;
     WS_CONNINFO *pwsc = NULL;
     WS_CONNLIST *pconlist;
-    
-    pwsp = (WS_PRIVATE *)wsh;
     
     ws_lock_connlist(pwsp);
     
     pconlist = pwsp->connlist.next;
+    *vpp = (WSTHREADENUM)pconlist;
     if(pconlist) {
         pwsc = pconlist->pwsc;
-    }
-    *vpp = (WSTHREADENUM)pconlist;
-    
-    if(pwsc == NULL) {
-        ws_unlock_connlist(pwsp);
+    } else {
+	ws_unlock_connlist(pwsp);
     }
     
     return pwsc;
 }
 
 WS_CONNINFO *ws_thread_enum_next(WSHANDLE wsh, WSTHREADENUM *vpp) {
-    WS_PRIVATE *pwsp;
+    WS_PRIVATE *pwsp = (WS_PRIVATE *)wsh;
     WS_CONNINFO *pwsc = NULL;
     WS_CONNLIST *pconlist;
-    
-    pwsp = (WS_PRIVATE *)wsh;
     
     pconlist = (WS_CONNLIST*)*vpp;
     if((!pconlist) || (!pconlist->next)) {
