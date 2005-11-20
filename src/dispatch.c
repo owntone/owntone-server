@@ -645,7 +645,8 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
                 pwsc->threadno,pmp3->path);
         file_ptr = server_side_convert_open(pmp3->path,
                                             offset,
-                                            pmp3->song_length);
+                                            pmp3->song_length,
+                    					    pmp3->codectype);
         if (file_ptr) {
             file_fd = fileno(file_ptr);
         } else {

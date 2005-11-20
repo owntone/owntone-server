@@ -80,18 +80,18 @@ int server_side_convert(char *codectype) {
  * @param path char * to the real filename.
  * @param offset off_t to the point in file where the streaming starts.
  */
-FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms) {
+FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms, char *codectype) {
     char *cmd;
     FILE *f;
     char *newpath;
-    char *metachars = "\"$`\\"; /* More?? */
+    char *metachars = "\"\\!(){}#*?&<>`"; /* More?? */
     char metacount = 0;
     char *src,*dst;
     
     src=path;
     while(*src) {
         if(strchr(metachars,*src))
-            metacount++;
+            metacount+=5;
         src++;
     }
     
@@ -104,9 +104,15 @@ FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms) {
         dst=newpath;
         
         while(*src) {
-            if(strchr(metachars,*src))
-                *dst++='\\';
-             *dst++=*src++;
+            if(strchr(metachars,*src)) {
+                *dst++='"';
+                *dst++='\'';
+                *dst++=*src++;
+                *dst++='\'';
+                *dst++='"';
+            } else {
+                *dst++=*src++;
+            }
         }
         *dst='\0';
     } else {
@@ -117,8 +123,9 @@ FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms) {
     cmd=(char *)malloc(strlen(config.ssc_prog) +
                        strlen(path) +
                        64);
-    sprintf(cmd, "%s \"%s\" %ld %lu.%03lu",
-            config.ssc_prog, newpath, (long)offset, len_ms / 1000, len_ms % 1000);
+    sprintf(cmd, "%s \"%s\" %ld %lu.%03lu \"%s\"",
+            config.ssc_prog, newpath, (long)offset, len_ms / 1000,
+            len_ms % 1000, (codectype && *codectype) ? codectype : "*");
     DPRINTF(E_INF,L_SCAN,"Executing %s\n",cmd);
     f = popen(cmd, "r");
     free(newpath);
