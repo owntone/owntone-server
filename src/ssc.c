@@ -84,7 +84,7 @@ FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms, c
     char *cmd;
     FILE *f;
     char *newpath;
-    char *metachars = "\"\\!(){}#*?&<>`"; /* More?? */
+    char *metachars = "\"\\!(){}#*?$&<>`"; /* More?? */
     char metacount = 0;
     char *src,*dst;
     
