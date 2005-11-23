@@ -11,9 +11,11 @@
 #include <time.h>
 
 #include "configfile.h"
+#include "db-generic.h"
 #include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
+#include "rend.h"
 #include "webserver.h"
 
 /* typedefs */
@@ -192,6 +194,33 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     xml_push(pxml,"status");
 
     xml_push(pxml,"service_status");
+
+    xml_push(pxml,"service");
+    
+    xml_output(pxml,"name","Rendezvous");
+    
+#ifndef WITHOUT_MDNS
+    if(config.use_mdns) {
+        xml_output(pxml,"status",rend_running() ? "Stopped" : "Running"); /* ??? */
+    } else {
+        xml_output(pxml,"status","Disabled");
+    }
+#else
+
+    ws_writefd(pwsc,"<td>No Support</td><td>&nbsp;</td></tr>\n");
+#endif
+    xml_pop(pxml); /* service */
+
+    xml_push(pxml,"service");
+    xml_output(pxml,"name","DAAP Server");
+    xml_output(pxml,"status",config.stop ? "Stopping" : "Running");
+    xml_pop(pxml); /* service */
+
+    xml_push(pxml,"service");
+    xml_output(pxml,"name","File Scanner");
+    xml_output(pxml,"status",config.reload ? "Running" : "Idle");
+    xml_pop(pxml); /* service */
+
     xml_pop(pxml); /* service_status */
     
     xml_push(pxml,"thread_status");
@@ -244,6 +273,17 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     xml_output(pxml,"name","Uptime");
     xml_output(pxml,"value","%s",buf);
     xml_pop(pxml); /* stat */
+    
+    xml_push(pxml,"stat");
+    xml_output(pxml,"name","Songs");
+    xml_output(pxml,"value","%d",db_get_song_count());
+    xml_pop(pxml); /* stat */
+    
+    xml_push(pxml,"stat");
+    xml_output(pxml,"name","Songs Served");
+    xml_output(pxml,"value","%d",config.stats.songs_served);
+    xml_pop(pxml); /* stat */
+    
     xml_pop(pxml); /* statistics */
     xml_pop(pxml); /* status */
 
