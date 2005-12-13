@@ -132,7 +132,9 @@ typedef struct tag_sp_node {
 #define T_YEAR          0x0019
 #define T_DATE          0x001a
 #define T_NOT           0x001b
-#define T_LAST          0x001c
+#define T_STARTSWITH    0x001c
+#define T_ENDSWITH      0x001d
+#define T_LAST          0x001e
 
 #define T_EOF           0x00fd
 #define T_BOF           0x00fe
@@ -166,7 +168,9 @@ char *sp_token_descr[] = {
     "month(s)",
     "year(s)",
     "date",
-    "not"
+    "not",
+    "like",
+    "like"
 };
 
 typedef struct tag_fieldlookup {
@@ -212,7 +216,7 @@ FIELDLOOKUP sp_fields[] = {
     { T_INT_FIELD, "force_update" },
     { T_STRING_FIELD, "codectype" },
     { T_INT_FIELD, "idx" },
-    
+
     /* end of db fields */
     { T_OR, "or" },
     { T_AND, "and" },
@@ -231,7 +235,9 @@ FIELDLOOKUP sp_fields[] = {
     { T_YEAR, "years" },
     { T_YEAR, "year" },
     { T_NOT, "not" },
-    
+    { T_STARTSWITH, "startswith" },
+    { T_ENDSWITH, "endswith" },
+
     /* end */
     { 0, NULL },
 };
@@ -269,7 +275,7 @@ char *sp_errorstrings[] = {
     "Expecting '\"' (closing quote)",
     "Expecting literal string",
     "Expecting '\"' (opening quote)",
-    "Expecting integer comparison operator (=,<,>, etc)",    
+    "Expecting integer comparison operator (=,<,>, etc)",
     "Expecting integer",
     "Expecting date comparison operator (<,<=,>,>=)",
     "Expecting interval comparison (before, after)",
@@ -312,8 +318,8 @@ void sp_enter_exit(PARSETREE tree, char *function, int enter, void *result) {
         tree->level--;
     }
 }
-    
-    
+
+
 /**
  * see if a string is actually a number
  *
@@ -322,11 +328,11 @@ void sp_enter_exit(PARSETREE tree, char *function, int enter, void *result) {
  */
 int sp_isnumber(char *string) {
     char *current=string;
-    
-    while(*current && (*current >= '0') && (*current <= '9')) { 
+
+    while(*current && (*current >= '0') && (*current <= '9')) {
         current++;
     }
-        
+
     return *current ? 0 : 1;
 }
 
@@ -340,12 +346,12 @@ int sp_isnumber(char *string) {
 time_t sp_isdate(char *string) {
     struct tm date_time;
     time_t seconds=0;
-    
+
     memset((void*)&date_time,0,sizeof(date_time));
     if(strptime(string,"%Y-%m-%d",&date_time)) {
         seconds=timegm(&date_time);
     }
-    
+
     return seconds;
 }
 
@@ -448,8 +454,8 @@ int sp_scan(PARSETREE tree) {
             tree->token.token_id = T_NOT;
             break;
         }
-        
-    } 
+
+    }
 
     if(*tree->current == '"') {
         advance = 1;
@@ -509,7 +515,8 @@ int sp_scan(PARSETREE tree) {
         }
 
         /* check for numberic? */
-        if(tree->token.token_id == T_STRING && 
+        if(tree->token.token_id == T_STRING &&
+           (!tree->in_string) &&
             sp_isnumber(tree->token.data.cvalue)) {
             /* woops! */
             numval = atoi(tree->token.data.cvalue);
@@ -517,15 +524,16 @@ int sp_scan(PARSETREE tree) {
             tree->token.data.ivalue = numval;
             tree->token.token_id = T_NUMBER;
         }
-        
+
         if(tree->token.token_id == T_STRING &&
+           (!tree->in_string) &&
             (tval=sp_isdate(tree->token.data.cvalue))) {
             free(tree->token.data.cvalue);
             tree->token.data.tvalue = tval;
             tree->token.token_id = T_DATE;
         }
-            
-        
+
+
         tree->current=tail;
     }
 
@@ -581,9 +589,9 @@ int sp_parse(PARSETREE tree, char *term) {
     tree->current=tree->term;
     tree->token.token_id=T_BOF;
 
-    if(tree->tree) 
+    if(tree->tree)
         sp_free_node(tree->tree);
-        
+
     sp_scan(tree);
     tree->tree = sp_parse_phrase(tree);
 
@@ -610,10 +618,10 @@ SP_NODE *sp_parse_phrase(PARSETREE tree) {
     SP_NODE *expr;
 
     sp_enter_exit(tree,"sp_parse_phrase",1,NULL);
-    
+
     DPRINTF(E_SPAM,L_PARSE,"%*s Entering sp_parse_phrase\n",tree->level," ");
     tree->level++;
-    
+
     expr = sp_parse_oexpr(tree);
     if((!expr) || (tree->token.token_id != T_EOF)) {
         sp_free_node(expr);
@@ -635,30 +643,30 @@ SP_NODE *sp_parse_phrase(PARSETREE tree) {
 SP_NODE *sp_parse_aexpr(PARSETREE tree) {
     SP_NODE *expr;
     SP_NODE *pnew;
-    
+
     sp_enter_exit(tree,"sp_parse_aexpr",1,NULL);
 
     expr = sp_parse_expr(tree);
-    
+
     while(expr && (tree->token.token_id == T_AND)) {
         pnew = (SP_NODE*)malloc(sizeof(SP_NODE));
         if(!pnew) {
             DPRINTF(E_FATAL,L_PARSE,"Malloc error\n");
         }
-        
+
         memset(pnew,0x00,sizeof(SP_NODE));
         pnew->op=T_AND;
         pnew->op_type = SP_OPTYPE_ANDOR;
-        
+
         pnew->left.node = expr;
         sp_scan(tree);
         pnew->right.node = sp_parse_expr(tree);
-    
+
         if(!pnew->right.node) {
             sp_free_node(pnew);
             pnew=NULL;
         }
-        
+
         expr=pnew;
     }
 
@@ -677,30 +685,30 @@ SP_NODE *sp_parse_aexpr(PARSETREE tree) {
 SP_NODE *sp_parse_oexpr(PARSETREE tree) {
     SP_NODE *expr;
     SP_NODE *pnew;
-    
+
     sp_enter_exit(tree,"sp_parse_oexpr",1,NULL);
-    
+
     expr = sp_parse_aexpr(tree);
-    
+
     while(expr && (tree->token.token_id == T_OR)) {
         pnew = (SP_NODE*)malloc(sizeof(SP_NODE));
         if(!pnew) {
             DPRINTF(E_FATAL,L_PARSE,"Malloc error\n");
         }
-        
+
         memset(pnew,0x00,sizeof(SP_NODE));
         pnew->op=T_OR;
         pnew->op_type = SP_OPTYPE_ANDOR;
-        
+
         pnew->left.node = expr;
         sp_scan(tree);
         pnew->right.node = sp_parse_aexpr(tree);
-    
+
         if(!pnew->right.node) {
             sp_free_node(pnew);
             pnew=NULL;
         }
-        
+
         expr=pnew;
     }
 
@@ -720,7 +728,7 @@ SP_NODE *sp_parse_expr(PARSETREE tree) {
     SP_NODE *expr;
 
     sp_enter_exit(tree,"sp_parse_expr",1,NULL);
-    
+
     if(tree->token.token_id == T_OPENPAREN) {
         sp_scan(tree);
         expr = sp_parse_oexpr(tree);
@@ -750,9 +758,9 @@ SP_NODE *sp_parse_expr(PARSETREE tree) {
  */
 SP_NODE *sp_parse_criterion(PARSETREE tree) {
     SP_NODE *expr=NULL;
-    
+
     sp_enter_exit(tree,"sp_parse_criterion",1,expr);
-    
+
     switch(tree->token.token_id) {
     case T_STRING_FIELD:
         expr = sp_parse_string_criterion(tree);
@@ -788,7 +796,7 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
     SP_NODE *pnew = NULL;
 
     sp_enter_exit(tree,"sp_parse_string_criterion",1,NULL);
-    
+
     pnew = malloc(sizeof(SP_NODE));
     if(!pnew) {
         DPRINTF(E_FATAL,L_PARSE,"Malloc Error\n");
@@ -802,10 +810,12 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
         pnew->not_flag=1;
         sp_scan(tree);
     }
-    
+
     switch(tree->token.token_id) {
     case T_EQUAL:
     case T_INCLUDES:
+    case T_STARTSWITH:
+    case T_ENDSWITH:
         pnew->op=tree->token.token_id;
         pnew->op_type = SP_OPTYPE_STRING;
         result = 1;
@@ -845,7 +855,7 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
 
     if(!result) {
         sp_free_node(pnew);
-        pnew=NULL;        
+        pnew=NULL;
     }
 
     sp_enter_exit(tree,"sp_parse_string_criterion",0,pnew);
@@ -861,7 +871,7 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
  SP_NODE *sp_parse_int_criterion(PARSETREE tree) {
     int result=0;
     SP_NODE *pnew = NULL;
-    
+
     sp_enter_exit(tree,"sp_parse_int_criterion",1,pnew);
     pnew = malloc(sizeof(SP_NODE));
     if(!pnew) {
@@ -915,7 +925,7 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
         sp_free_node(pnew);
         pnew=NULL;
     }
-        
+
     sp_enter_exit(tree,"sp_parse_int_criterion",0,pnew);
 
     return pnew;
@@ -931,7 +941,7 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
 SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
     SP_NODE *pnew=NULL;
     int result=0;
-    
+
     sp_enter_exit(tree,"sp_parse_date_criterion",1,pnew);
     pnew = malloc(sizeof(SP_NODE));
     if(!pnew) {
@@ -989,7 +999,7 @@ SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
         sp_free_node(pnew);
         pnew=NULL;
     }
-        
+
 
     sp_enter_exit(tree,"sp_parse_date_criterion",0,pnew);
 
@@ -999,7 +1009,7 @@ SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
 /**
  * parse a date value for a date field comparison
  *
- * date -> T_TODAY | T_DATE | 
+ * date -> T_TODAY | T_DATE |
  *         date_interval T_BEFORE date | date_interval T_AFTER date
  * date_interval -> T_NUMBER ( T_DAY | T_WEEK | T_MONTH | T_YEAR)
  *                  (T_BEFORE | T_AFTER) date
@@ -1011,7 +1021,7 @@ time_t sp_parse_date(PARSETREE tree) {
     time_t result=0;
     time_t interval;
     int before;
-    
+
     sp_enter_exit(tree,"sp_parse_date",1,(void*)result);
 
     switch(tree->token.token_id) {
@@ -1024,7 +1034,7 @@ time_t sp_parse_date(PARSETREE tree) {
         sp_scan(tree);
         break;
     }
-    
+
     if(!result) {
         /* must be an interval */
         interval = sp_parse_date_interval(tree);
@@ -1038,7 +1048,7 @@ time_t sp_parse_date(PARSETREE tree) {
             before = 1;
             if(tree->token.token_id == T_AFTER)
                 before = 0;
-                
+
             sp_scan(tree);
             result = sp_parse_date(tree);
             if(result) {
@@ -1050,7 +1060,7 @@ time_t sp_parse_date(PARSETREE tree) {
             }
         }
     }
-    
+
     sp_enter_exit(tree,"sp_parse_date_criterion",0,(void*)result);
 
     return result;
@@ -1066,12 +1076,12 @@ time_t sp_parse_date(PARSETREE tree) {
 time_t sp_parse_date_interval(PARSETREE tree) {
     time_t result=0;
     int count;
-    
+
     sp_enter_exit(tree,"sp_parse_date_interval",1,(void*)result);
 
     if(tree->token.token_id != T_NUMBER) {
         result=0;
-        sp_set_error(tree,SP_E_NUMBER);        
+        sp_set_error(tree,SP_E_NUMBER);
     } else {
         count = tree->token.data.ivalue;
         sp_scan(tree);
@@ -1098,12 +1108,12 @@ time_t sp_parse_date_interval(PARSETREE tree) {
             break;
         }
     }
-    
+
     sp_enter_exit(tree,"sp_parse_date_interval",0,(void*)result);
     return result;
 }
 
- 
+
 
 /**
  * free a node, and all left/right subnodes
@@ -1118,8 +1128,8 @@ void sp_free_node(SP_NODE *node) {
         if(node->left.node) {
             sp_free_node(node->left.node);
             node->left.node = NULL;
-        }            
-        
+        }
+
         if(node->right.node) {
             sp_free_node(node->right.node);
             node->right.node = NULL;
@@ -1129,7 +1139,7 @@ void sp_free_node(SP_NODE *node) {
             free(node->left.field);
             node->left.field = NULL;
         }
-        
+
         if(node->op_type == SP_OPTYPE_STRING) {
             if(node->right.cvalue) {
                 free(node->right.cvalue);
@@ -1152,19 +1162,19 @@ void sp_free_node(SP_NODE *node) {
 int sp_dispose(PARSETREE tree) {
     if(tree->term)
         free(tree->term);
-        
+
     if(tree->token.token_id & 0x2000)
         free(tree->token.data.cvalue);
-        
+
     if(tree->error)
         free(tree->error);
-        
+
     free(tree);
     return 1;
 }
 
 /**
- * calculate the size required to render the tree as a 
+ * calculate the size required to render the tree as a
  * sql query.
  *
  * @parameter node node/tree to calculate
@@ -1172,7 +1182,7 @@ int sp_dispose(PARSETREE tree) {
  */
 int sp_node_size(SP_NODE *node) {
     int size;
-    
+
     if(node->op_type == SP_OPTYPE_ANDOR) {
         size = sp_node_size(node->left.node);
         size += sp_node_size(node->right.node);
@@ -1186,23 +1196,26 @@ int sp_node_size(SP_NODE *node) {
         } else {
             size += strlen(sp_token_descr[node->op & 0x0FFF]);
         }
-        
+
         if(node->op_type == SP_OPTYPE_STRING) {
             size += (2 + strlen(node->right.cvalue));
             if(node->op == T_INCLUDES) {
                 size += 2; /* extra %'s */
             }
+            if((node->op == T_STARTSWITH)||(node->op == T_ENDSWITH)) {
+                size += 1;
+            }
         }
-        
+
         if((node->op_type == SP_OPTYPE_INT) || (node->op_type == SP_OPTYPE_DATE)) {
             size += 40; /* what *is* the max size of int64? */
         }
-        
+
         if(node->not_flag) {
             size += 5; /* " not " */
         }
     }
-     
+
     return size;
 }
 
@@ -1214,7 +1227,7 @@ int sp_node_size(SP_NODE *node) {
  */
 void sp_serialize_sql(SP_NODE *node, char *string) {
     char buffer[40];
-    
+
     if(node->op_type == SP_OPTYPE_ANDOR) {
         strcat(string,"(");
         sp_serialize_sql(node->left.node,string);
@@ -1224,34 +1237,34 @@ void sp_serialize_sql(SP_NODE *node, char *string) {
         strcat(string,")");
     } else {
         strcat(string,"(");
-        strcat(string,node->left.field);
-        strcat(string," ");
         if(node->not_flag) {
             strcat(string,"not ");
         }
+        strcat(string,node->left.field);
+        strcat(string," ");
         strcat(string,sp_token_descr[node->op & 0x0FFF]);
         strcat(string," ");
         if(node->op_type == SP_OPTYPE_STRING) {
             strcat(string,"'");
-            if(node->op == T_INCLUDES)
+            if((node->op == T_INCLUDES) || (node->op == T_ENDSWITH))
                 strcat(string,"%");
             strcat(string,node->right.cvalue);
-            if(node->op == T_INCLUDES)
+            if((node->op == T_INCLUDES) || (node->op == T_STARTSWITH))
                 strcat(string,"%");
             strcat(string,"'");
         }
-        
+
         if(node->op_type == SP_OPTYPE_INT) {
             sprintf(buffer,"%d",node->right.ivalue);
             strcat(string,buffer);
         }
-        
+
         if(node->op_type == SP_OPTYPE_DATE) {
             sprintf(buffer,"%d",(int)node->right.tvalue);
             strcat(string,buffer);
         }
         strcat(string,")");
-        
+
     }
 }
 
@@ -1269,10 +1282,10 @@ char *sp_sql_clause(PARSETREE tree) {
 
     size = sp_node_size(tree->tree);
     sql = (char*)malloc(size+1);
-    
+
     memset(sql,0x00,size+1);
     sp_serialize_sql(tree->tree,sql);
-    
+
     return sql;
 }
 
@@ -1302,17 +1315,17 @@ char *sp_get_error(PARSETREE tree) {
  */
 void sp_set_error(PARSETREE tree, int error) {
     int len;
-    
+
     if(tree->error)
         free(tree->error);
-        
+
     len = 10 + (tree->token_pos / 10) + 1 + strlen(sp_errorstrings[error]) + 1;
     tree->error = (char*)malloc(len);
     if(!tree->error) {
         DPRINTF(E_FATAL,L_PARSE,"Malloc error");
         return;
     }
-    
+
     sprintf(tree->error,"Offset %d:  %s",tree->token_pos + 1,sp_errorstrings[error]);
     return;
 }
