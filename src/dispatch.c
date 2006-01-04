@@ -70,7 +70,7 @@ static char *dispatch_xml_encode(char *original, int len);
 static int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *block, int len);
 
 
-/** 
+/**
  * Hold the inf for the output serializer
  */
 typedef struct tag_xml_stack {
@@ -90,11 +90,11 @@ typedef struct tag_output_info {
 
 /**
  * Handles authentication for the daap server.  This isn't the
- * authenticator for the web admin page, but rather the iTunes 
+ * authenticator for the web admin page, but rather the iTunes
  * authentication when trying to connect to the server.  Note that most
  * of this is actually handled in the web server registration, which
  * decides when to apply the authentication or not.  If you mess with
- * when and where the webserver applies auth or not, you'll likely 
+ * when and where the webserver applies auth or not, you'll likely
  * break something.  It seems that some requests must be authed, and others
  * not.  If you apply authentication somewhere that iTunes doesn't expect
  * it, it happily disconnects.
@@ -104,7 +104,7 @@ typedef struct tag_output_info {
  * \returns 1 if auth successful, 0 otherwise
  */
 int daap_auth(char *username, char *password) {
-    if((password == NULL) && 
+    if((password == NULL) &&
        ((config.readpassword == NULL) || (strlen(config.readpassword)==0)))
         return 1;
 
@@ -151,24 +151,24 @@ void daap_handler(WS_CONNINFO *pwsc) {
     /* nm... backing this out.  Really do need a "quirks" mode
     pwsc->close=0;
     if(ws_testrequestheader(pwsc,"Connection","Close")) {
-	pwsc->close = 1;
+        pwsc->close = 1;
     }
     */
-    
+
     if(ws_getvar(pwsc,"session-id"))
         pqi->session_id = atoi(ws_getvar(pwsc,"session-id"));
-    
+
     /* tokenize the uri for easier decoding */
     string=(pwsc->uri)+1;
     while((token=strtok_r(string,"/",&save))) {
         string=NULL;
         pqi->uri_sections[pqi->uri_count++] = token;
     }
-    
+
     /* Start dispatching */
     if(!strcasecmp(pqi->uri_sections[0],"server-info"))
         return dispatch_server_info(pwsc,pqi);
-    
+
     if(!strcasecmp(pqi->uri_sections[0],"content-codes"))
         return dispatch_content_codes(pwsc,pqi);
 
@@ -194,13 +194,13 @@ void daap_handler(WS_CONNINFO *pwsc) {
         }
         pqi->db_id=atoi(pqi->uri_sections[1]);
         if(pqi->uri_count == 3) {
-            if(!strcasecmp(pqi->uri_sections[2],"items")) 
+            if(!strcasecmp(pqi->uri_sections[2],"items"))
                 /* /databases/id/items */
                 return dispatch_items(pwsc,pqi);
             if(!strcasecmp(pqi->uri_sections[2],"containers"))
-                /* /databases/id/containers */          
+                /* /databases/id/containers */
                 return dispatch_playlists(pwsc,pqi);
-            
+
             pwsc->close=1;
             free(pqi);
             ws_returnerror(pwsc,404,"Page not found");
@@ -252,7 +252,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
             }
         }
     }
-    
+
     pwsc->close=1;
     free(pqi);
     ws_returnerror(pwsc,404,"Page not found");
@@ -319,7 +319,7 @@ int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *bl
     OUTPUT_INFO *poi=(pqi->output_info);
     int result;
 
-    if(poi->xml_output) 
+    if(poi->xml_output)
         return dispatch_output_xml_write(pwsc, pqi, block, len);
 
     result=r_write(pwsc->fd,block,len);
@@ -375,7 +375,7 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
         /* lookup and serialize */
         DPRINTF(E_SPAM,L_DAAP,"%*s %s: %d\n",poi->stack_height,"",block_tag,block_len);
         pitem=dispatch_xml_lookup_tag(block_tag);
-        if(poi->readable) 
+        if(poi->readable)
             r_fdprintf(pwsc->fd,"%*s",poi->stack_height,"");
         r_fdprintf(pwsc->fd,"<%s>",pitem->description);
         switch(pitem->type) {
@@ -497,11 +497,11 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
                 if(poi->stack[stack_ptr].bytes_left < 0) {
                     DPRINTF(E_FATAL,L_DAAP,"negative container\n");
                 }
-                
+
                 if(!poi->stack[stack_ptr].bytes_left) {
                     poi->stack_height--;
                     pitem=dispatch_xml_lookup_tag(poi->stack[stack_ptr].tag);
-                    if(poi->readable) 
+                    if(poi->readable)
                         r_fdprintf(pwsc->fd,"%*s",poi->stack_height,"");
                     r_fdprintf(pwsc->fd,"</%s>",pitem->description);
                     if(poi->readable)
@@ -518,8 +518,8 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
 /**
  * finish streaming output to the client, freeing any allocated
  * memory, and cleaning up
- * 
- * \param pwsc current conninfo struct 
+ *
+ * \param pwsc current conninfo struct
  * \param pqi current dbquery struct
  */
 int dispatch_output_end(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
@@ -629,11 +629,12 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     item=atoi(pqi->uri_sections[3]);
 
-    if(ws_getrequestheader(pwsc,"range")) { 
+    if(ws_getrequestheader(pwsc,"range")) {
         offset=(off_t)atol(ws_getrequestheader(pwsc,"range") + 6);
     }
 
-    pmp3=db_fetch_item(item);
+    /* FIXME: error handling */
+    pmp3=db_fetch_item(NULL,item);
     if(!pmp3) {
         DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
         ws_returnerror(pwsc,404,"File Not Found");
@@ -646,7 +647,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         file_ptr = server_side_convert_open(pmp3->path,
                                             offset,
                                             pmp3->song_length,
-                    					    pmp3->codectype);
+                                                            pmp3->codectype);
         if (file_ptr) {
             file_fd = fileno(file_ptr);
         } else {
@@ -699,7 +700,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
             DPRINTF(E_LOG,L_WS,
                     "Session %d: Streaming file '%s' to %s (offset %ld)\n",
                     pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
-                
+
             if(!offset)
                 config.stats.songs_served++; /* FIXME: remove stat races */
             if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
@@ -736,33 +737,33 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
                 fstat(img_fd, &sb);
                 img_size = sb.st_size;
                 r_close(img_fd);
-                
+
                 if (strncasecmp(pmp3->type,"mp3",4) ==0) {
                     /*PENDING*/
                 } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
                     real_len += img_size + 24;
-                    
+
                     if (offset > img_size + 24) {
                         offset -= img_size + 24;
                     }
                 }
             }
-            
+
             file_len = real_len - offset;
-            
+
             DPRINTF(E_DBG,L_WS,"Thread %d: Length of file (remaining) is %ld\n",
                     pwsc->threadno,(long)file_len);
-            
+
             // DWB:  fix content-type to correctly reflect data
             // content type (dmap tagged) should only be used on
             // dmap protocol requests, not the actually song data
-            if(pmp3->type) 
+            if(pmp3->type)
                 ws_addresponseheader(pwsc,"Content-Type","audio/%s",pmp3->type);
-            
+
             ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
             ws_addresponseheader(pwsc,"Connection","Close");
-            
-            
+
+
             if(!offset)
                 ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
             else {
@@ -771,16 +772,16 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
                                      (long)real_len+1);
                 ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
             }
-            
+
             ws_emitheaders(pwsc);
-            
+
             config_set_status(pwsc,pqi->session_id,"Streaming file '%s'",pmp3->fname);
             DPRINTF(E_LOG,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
                     pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
-            
+
             if(!offset)
                 config.stats.songs_served++; /* FIXME: remove stat races */
-            
+
             if((config.artfilename) &&
                (!offset) &&
                ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
@@ -789,7 +790,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
                             pmp3->fname, img_fd);
                     da_attach_image(img_fd, pwsc->fd, file_fd, offset);
                 } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
-                    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n", 
+                    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n",
                             pmp3->fname, img_fd);
                     da_aac_attach_image(img_fd, pwsc->fd, file_fd, offset);
                 }
@@ -797,7 +798,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
                 DPRINTF(E_INF,L_WS,"Seeking to offset %ld\n",(long)offset);
                 lseek(file_fd,offset,SEEK_SET);
             }
-            
+
             if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
                 DPRINTF(E_INF,L_WS,"Error copying file to remote... %s\n",
                         strerror(errno));
@@ -805,7 +806,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
                 DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
                         bytes_copied);
             }
-            
+
             config_set_status(pwsc,pqi->session_id,NULL);
             r_close(file_fd);
             db_dispose_item(pmp3);
@@ -836,10 +837,11 @@ void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     while((token=strsep((char**)&current,","))) {
         if(token) {
-            db_add_playlist_item(pqi->playlist_id,atoi(token));
+            /* FIXME:  error handling */
+            db_add_playlist_item(NULL,pqi->playlist_id,atoi(token));
         }
     }
-    
+
     free(tempstring);
 
     /* success(ish)... spool out a dmap block */
@@ -869,7 +871,8 @@ void dispatch_deleteplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         return;
     }
 
-    db_delete_playlist(atoi(ws_getvar(pwsc,"dmap.itemid")));
+    /* FIXME: error handling */
+    db_delete_playlist(NULL,atoi(ws_getvar(pwsc,"dmap.itemid")));
 
     /* success(ish)... spool out a dmap block */
     current = playlist_response;
@@ -905,10 +908,11 @@ void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     while((token=strsep((char**)&current,","))) {
         if(token) {
-            db_delete_playlist_item(pqi->playlist_id,atoi(token));
+            /* FIXME: Error handling */
+            db_delete_playlist_item(NULL,pqi->playlist_id,atoi(token));
         }
     }
-    
+
     free(tempstring);
 
     /* success(ish)... spool out a dmap block */
@@ -946,7 +950,8 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     name=ws_getvar(pwsc,"dmap.itemname");
     query=ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
 
-    retval=db_add_playlist(name,type,query,NULL,0,&playlistid);
+    /* FIXME: Error handling */
+    retval=db_add_playlist(NULL,name,type,query,NULL,0,&playlistid);
     if(retval != DB_E_SUCCESS) {
         DPRINTF(E_LOG,L_DAAP,"error adding playlist.  aborting\n");
         ws_returnerror(pwsc,500,"error adding playlist");
@@ -973,37 +978,38 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 void dispatch_editplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char edit_response[20];
     unsigned char *current = edit_response;
-    
+
     char *name, *query;
     int id;
-    
+
     int retval;
-   
+
     if((!ws_getvar(pwsc,"dmap.itemname")) ||
         (!ws_getvar(pwsc,"dmap.itemid"))) {
         DPRINTF(E_LOG,L_DAAP,"Missing name on playlist edit");
         ws_returnerror(pwsc,500,"missing playlist name");
         return;
     }
-    
+
     name=ws_getvar(pwsc,"dmap.itemname");
     query=ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
     id=atoi(ws_getvar(pwsc,"dmap.itemid"));
-    
-    retval=db_edit_playlist(id,name,query);
+
+    /* FIXME: Error handling */
+    retval=db_edit_playlist(NULL,id,name,query);
     if(retval != DB_E_SUCCESS) {
         DPRINTF(E_LOG,L_DAAP,"error editing playlist.");
         ws_returnerror(pwsc,500,"Error editing playlist");
         return;
     }
-    
-    current += db_dmap_add_container(current,"MEPR",12); 
+
+    current += db_dmap_add_container(current,"MEPR",12);
     current += db_dmap_add_int(current,"mstt",200);      /* 12 */
-    
+
     dispatch_output_start(pwsc,pqi,20);
     dispatch_output_write(pwsc,pqi,edit_response,20);
     dispatch_output_end(pwsc,pqi);
-    
+
     pwsc->close=1;
     return;
 }
@@ -1031,13 +1037,16 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     pqi->query_type = queryTypePlaylistItems;
     pqi->index_type=indexTypeNone;
-    if(db_enum_start(pqi)) {
+
+    /* FIXME: Error handling */
+    if(db_enum_start(NULL,pqi)) {
         DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
         ws_returnerror(pwsc,500,"Internal server error: out of memory!");
         return;
     }
-    
-    list_length=db_enum_size(pqi,&song_count);
+
+    /* FIXME: Error handling */
+    db_enum_size(NULL,pqi,&song_count,&list_length);
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d songs, dmap size: %d\n",song_count,list_length);
 
@@ -1046,12 +1055,14 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_char(current,"muty",0);          /*  9 */
     current += db_dmap_add_int(current,"mtco",song_count);  /* 12 */
     current += db_dmap_add_int(current,"mrco",song_count);  /* 12 */
-    current += db_dmap_add_container(current,"mlcl",list_length);  
+    current += db_dmap_add_container(current,"mlcl",list_length);
 
     dispatch_output_start(pwsc,pqi,61+list_length);
     dispatch_output_write(pwsc,pqi,items_response,61);
 
-    while((list_length=db_enum_fetch(pqi,&block)) > 0) {
+    while((db_enum_fetch(NULL,pqi,&list_length,&block) == DB_E_SUCCESS) &&
+          (list_length))
+    {
         DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
         dispatch_output_write(pwsc,pqi,block,list_length);
         free(block);
@@ -1059,7 +1070,7 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     DPRINTF(E_DBG,L_DAAP,"Done enumerating.\n");
 
-    db_enum_end();
+    db_enum_end(NULL);
 
     dispatch_output_end(pwsc,pqi);
     return;
@@ -1095,15 +1106,16 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     pqi->index_type = indexTypeNone;
 
-    if(db_enum_start(pqi)) {
+    if(db_enum_start(NULL,pqi)) {
         DPRINTF(E_LOG,L_DAAP|L_BROW,"Could not start enum\n");
         ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
         return;
     }
-    
+
     DPRINTF(E_DBG,L_DAAP|L_BROW,"Getting enum size.\n");
 
-    list_length=db_enum_size(pqi,&item_count);
+    /* FIXME: Error handling */
+    db_enum_size(NULL,pqi,&item_count,&list_length);
 
     DPRINTF(E_DBG,L_DAAP|L_BROW,"Item enum: got %d items, dmap size: %d\n",
             item_count,list_length);
@@ -1117,15 +1129,17 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_start(pwsc,pqi,52+list_length);
     dispatch_output_write(pwsc,pqi,browse_response,52);
 
-    while((list_length=db_enum_fetch(pqi,&block)) > 0) {
+    while((db_enum_fetch(NULL,pqi,&list_length,&block) == DB_E_SUCCESS) &&
+          (list_length))
+    {
         DPRINTF(E_SPAM,L_DAAP|L_BROW,"Got block of size %d\n",list_length);
         dispatch_output_write(pwsc,pqi,block,list_length);
         free(block);
     }
 
     DPRINTF(E_DBG,L_DAAP|L_BROW,"Done enumerating\n");
-    
-    db_enum_end();
+
+    db_enum_end(NULL);
 
     dispatch_output_end(pwsc,pqi);
     return;
@@ -1151,13 +1165,14 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     pqi->query_type = queryTypePlaylists;
     pqi->index_type = indexTypeNone;
-    if(db_enum_start(pqi)) {
+    if(db_enum_start(NULL,pqi)) {
         DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
         ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
         return;
     }
-    
-    list_length=db_enum_size(pqi,&pl_count);
+
+    /* FIXME: Error handling */
+    db_enum_size(NULL,pqi,&pl_count,&list_length);
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d playlists, dmap size: %d\n",pl_count,list_length);
 
@@ -1166,12 +1181,14 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_char(current,"muty",0);          /*  9 */
     current += db_dmap_add_int(current,"mtco",pl_count);    /* 12 */
     current += db_dmap_add_int(current,"mrco",pl_count);    /* 12 */
-    current += db_dmap_add_container(current,"mlcl",list_length);  
+    current += db_dmap_add_container(current,"mlcl",list_length);
 
     dispatch_output_start(pwsc,pqi,61+list_length);
     dispatch_output_write(pwsc,pqi,playlist_response,61);
 
-    while((list_length=db_enum_fetch(pqi,&block)) > 0) {
+    while((db_enum_fetch(NULL,pqi,&list_length,&block) == DB_E_SUCCESS) &&
+          (list_length))
+    {
         DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
         dispatch_output_write(pwsc,pqi,block,list_length);
         free(block);
@@ -1179,7 +1196,7 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     DPRINTF(E_DBG,L_DAAP,"Done enumerating.\n");
 
-    db_enum_end();
+    db_enum_end(NULL);
 
     dispatch_output_end(pwsc,pqi);
     return;
@@ -1200,13 +1217,14 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     pqi->query_type = queryTypeItems;
     pqi->index_type=indexTypeNone;
-    if(db_enum_start(pqi)) {
+    if(db_enum_start(NULL,pqi)) {
         DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
         ws_returnerror(pwsc,500,"Internal server error: out of memory!");
         return;
     }
-    
-    list_length=db_enum_size(pqi,&song_count);
+
+    /* FIXME: Error handling */
+    db_enum_size(NULL,pqi,&song_count,&list_length);
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d songs, dmap size: %d\n",song_count,list_length);
 
@@ -1215,12 +1233,14 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_char(current,"muty",0);          /*  9 */
     current += db_dmap_add_int(current,"mtco",song_count);  /* 12 */
     current += db_dmap_add_int(current,"mrco",song_count);  /* 12 */
-    current += db_dmap_add_container(current,"mlcl",list_length);  
+    current += db_dmap_add_container(current,"mlcl",list_length);
 
     dispatch_output_start(pwsc,pqi,61+list_length);
     dispatch_output_write(pwsc,pqi,items_response,61);
 
-    while((list_length=db_enum_fetch(pqi,&block)) > 0) {
+    while((db_enum_fetch(NULL,pqi,&list_length,&block) == DB_E_SUCCESS) &&
+          (list_length))
+    {
         DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
         dispatch_output_write(pwsc,pqi,block,list_length);
         free(block);
@@ -1228,7 +1248,7 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     DPRINTF(E_DBG,L_DAAP,"Done enumerating.\n");
 
-    db_enum_end();
+    db_enum_end(NULL);
 
     dispatch_output_end(pwsc,pqi);
     return;
@@ -1259,7 +1279,7 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         if(FD_ISSET(pwsc->fd,&rset)) {
             /* can't be ready for read, must be error */
             DPRINTF(E_DBG,L_DAAP,"Socket closed?\n");
-            
+
             return;
         }
     }
@@ -1280,6 +1300,7 @@ void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char dbinfo_response[255];  /* FIXME */
     unsigned char *current = dbinfo_response;
     int namelen;
+    int count;
 
     namelen=strlen(config.servername);
 
@@ -1289,11 +1310,13 @@ void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mtco",1);                        /* 12 */
     current += db_dmap_add_int(current,"mrco",1);                        /* 12 */
     current += db_dmap_add_container(current,"mlcl",52 + namelen);
-    current += db_dmap_add_container(current,"mlit",44 + namelen); 
+    current += db_dmap_add_container(current,"mlit",44 + namelen);
     current += db_dmap_add_int(current,"miid",1);                        /* 12 */
     current += db_dmap_add_string(current,"minm",config.servername);     /* 8 + namelen */
-    current += db_dmap_add_int(current,"mimc",db_get_song_count());      /* 12 */
-    current += db_dmap_add_int(current,"mctc",db_get_playlist_count());  /* 12 */
+    db_get_song_count(NULL,&count);
+    current += db_dmap_add_int(current,"mimc",count);                    /* 12 */
+    db_get_playlist_count(NULL,&count);
+    current += db_dmap_add_int(current,"mctc",count);                    /* 12 */
 
     dispatch_output_start(pwsc,pqi,113+namelen);
     dispatch_output_write(pwsc,pqi,dbinfo_response,113+namelen);
@@ -1313,7 +1336,7 @@ void dispatch_login(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char login_response[32];
     unsigned char *current = login_response;
     int session;
-    
+
     session = config_get_next_session();
 
     current += db_dmap_add_container(current,"mlog",24);
@@ -1342,7 +1365,7 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     current += db_dmap_add_container(current,"mccr",len + 12);
     current += db_dmap_add_int(current,"mstt",200);
-    
+
     dispatch_output_start(pwsc,pqi,len+20);
     dispatch_output_write(pwsc,pqi,content_codes,20);
 
@@ -1357,7 +1380,7 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         dispatch_output_write(pwsc,pqi,mdcl,len+8);
         dicurrent++;
     }
-    
+
     dispatch_output_end(pwsc,pqi);
     return;
 }
@@ -1376,7 +1399,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
 
     client_version=ws_getrequestheader(pwsc,"Client-DAAP-Version");
-    
+
     current += db_dmap_add_container(current,"msrv",actual_length - 8);
     current += db_dmap_add_int(current,"mstt",200);        /* 12 */
 
@@ -1396,7 +1419,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_string(current,"minm",config.servername); /* 8 + strlen(name) */
 
     current += db_dmap_add_char(current,"msau",            /* 9 */
-                                config.readpassword != NULL ? 2 : 0); 
+                                config.readpassword != NULL ? 2 : 0);
     current += db_dmap_add_char(current,"msex",0);         /* 9 */
     current += db_dmap_add_char(current,"msix",0);         /* 9 */
     current += db_dmap_add_char(current,"msbr",0);         /* 9 */

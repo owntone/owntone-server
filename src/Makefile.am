@@ -30,7 +30,7 @@ MUSEPACKSRC=scan-mpc.c
 endif
 
 if COND_SQLITE
-SQLITEDB=dbs-sqlite.c dbs-sqlite.h
+SQLITEDB=db-sql.c db-sql.h db-sql-sqlite2.c db-sql-sqlite2.h
 endif
 
 wavstreamer_SOURCES = wavstreamer.c

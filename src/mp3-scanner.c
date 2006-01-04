@@ -6,7 +6,7 @@
  * but the name is the same for historical purposes, not to mention
  * the fact that sf.net makes it virtually impossible to manage a cvs
  * root reasonably.  Perhaps one day soon they will move to subversion.
- * 
+ *
  * /me crosses his fingers
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
@@ -107,20 +107,20 @@ static int scan_static_playlist(char *path);
 /* For known types, I'm gong to use the "official" apple
  * daap.songformat, daap.songdescription, and daap.songcodecsubtype.
  * If I we don't have "official" ones, we can make them up the
- * way we currently are:  using extension or whatver.  
+ * way we currently are:  using extension or whatver.
  *
  * This means that you can test to see if something is, say, an un-drmed
  * aac file by just testing for ->type "m4a", rather than checking every
  * different flavor of file extension.
- * 
+ *
  * NOTE: Although they are represented here as strings, the codectype is
- * *really* an unsigned short.  So when it gets serialized, it gets 
- * serialized as a short int. If you put something other than 3 or 4 
+ * *really* an unsigned short.  So when it gets serialized, it gets
+ * serialized as a short int. If you put something other than 3 or 4
  * characters as your codectype, you'll see strange results.
  *
  * FIXME: url != pls -- this method of dispatching handlers based on file type
- * is completely wrong.  There needs to be a separate type that gets carried 
- * around with it, at least outside the database that says where the info 
+ * is completely wrong.  There needs to be a separate type that gets carried
+ * around with it, at least outside the database that says where the info
  * CAME FROM.
  *
  * This system is broken, and won't work with something like a .cue file
@@ -160,8 +160,8 @@ static PLAYLISTLIST scan_playlistlist = { NULL, NULL };
 /**
  * add a playlist to the playlistlist.  The playlistlist is a
  * list of playlists that need to be processed once the current
- * scan is done.  THIS IS NOT REENTRANT, and it meant to be 
- * called only inside the rescan loop.  
+ * scan is done.  THIS IS NOT REENTRANT, and it meant to be
+ * called only inside the rescan loop.
  *
  * \param path path of the playlist to add
  */
@@ -243,7 +243,7 @@ int scan_init(char *path) {
         return -1;
 
     scan_process_playlistlist();
-    
+
     if(db_end_scan())
         return -1;
 
@@ -317,7 +317,7 @@ int scan_path(char *path) {
 
         if(!pde)
             break;
-        
+
         if(pde->d_name[0] == '.') /* skip hidden and directories */
             continue;
 
@@ -344,9 +344,9 @@ int scan_path(char *path) {
                                (strcasestr(config.extensions, ext))) {
                         /* only scan if it's been changed, or empty db */
                         modified_time=sb.st_mtime;
-                        pmp3=db_fetch_path(mp3_path,0);
+                        pmp3=db_fetch_path(NULL,mp3_path,0);
 
-                        if((!pmp3) || (pmp3->db_timestamp < modified_time) || 
+                        if((!pmp3) || (pmp3->db_timestamp < modified_time) ||
                            (pmp3->force_update)) {
                             scan_music_file(path,pde,&sb,is_compdir);
                         } else {
@@ -380,6 +380,7 @@ int scan_static_playlist(char *path) {
     MP3FILE *pmp3;
     struct stat sb;
     char *current;
+    char *perr;
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",path);
     if(stat(path,&sb)) {
@@ -399,7 +400,7 @@ int scan_static_playlist(char *path) {
         *current='\x0';
     }
 
-    pm3u = db_fetch_playlist(path,0);
+    pm3u = db_fetch_playlist(NULL,path,0);
     if(pm3u && (pm3u->db_timestamp > sb.st_mtime)) {
         /* already up-to-date */
         DPRINTF(E_DBG,L_SCAN,"Playlist already up-to-date\n");
@@ -407,13 +408,15 @@ int scan_static_playlist(char *path) {
         return TRUE;
     }
 
-    if(pm3u) 
-        db_delete_playlist(pm3u->id);
+    if(pm3u)
+        db_delete_playlist(NULL,pm3u->id);
 
     fd=open(path,O_RDONLY);
     if(fd != -1) {
-        if(db_add_playlist(base_path,PL_STATICFILE,NULL,path,0,&playlistid) != DB_E_SUCCESS) {
-            DPRINTF(E_LOG,L_SCAN,"Error adding m3u playlist %s\n",path);
+        if(db_add_playlist(&perr,base_path,PL_STATICFILE,NULL,path,
+                           0,&playlistid) != DB_E_SUCCESS) {
+            DPRINTF(E_LOG,L_SCAN,"Error adding m3u %s: %s\n",path,perr);
+            free(perr);
             db_dispose_playlist(pm3u);
             return FALSE;
         }
@@ -428,7 +431,7 @@ int scan_static_playlist(char *path) {
         memset(linebuffer,0x00,sizeof(linebuffer));
         while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
             while((linebuffer[strlen(linebuffer)-1] == '\n') ||
-                  (linebuffer[strlen(linebuffer)-1] == '\r')) 
+                  (linebuffer[strlen(linebuffer)-1] == '\r'))
                 linebuffer[strlen(linebuffer)-1] = '\0';
 
             if((linebuffer[0] == ';') || (linebuffer[0] == '#'))
@@ -447,12 +450,14 @@ int scan_static_playlist(char *path) {
             DPRINTF(E_DBG,L_SCAN|L_PL,"Checking %s\n",real_path);
 
             // might be valid, might not...
-            if((pmp3=db_fetch_path(real_path,0))) {
-                db_add_playlist_item(playlistid,pmp3->id);
+            if((pmp3=db_fetch_path(&perr,real_path,0))) {
+                /* FIXME:  better error handling */
+                db_add_playlist_item(NULL,playlistid,pmp3->id);
                 db_dispose_item(pmp3);
             } else {
                 DPRINTF(E_WARN,L_SCAN|L_PL,"Playlist entry %s bad: %s\n",
-                        path,strerror(errno));
+                        path,perr);
+                free(perr);
             }
         }
         close(fd);
@@ -469,7 +474,7 @@ int scan_static_playlist(char *path) {
  *
  * scan a particular file as a music file
  */
-void scan_music_file(char *path, struct dirent *pde, 
+void scan_music_file(char *path, struct dirent *pde,
                      struct stat *psb, int is_compdir) {
     MP3FILE mp3file;
     char mp3_path[PATH_MAX];
@@ -482,7 +487,7 @@ void scan_music_file(char *path, struct dirent *pde,
 
     /* we found an mp3 file */
     DPRINTF(E_INF,L_SCAN,"Found music file: %s\n",pde->d_name);
-    
+
     memset((void*)&mp3file,0,sizeof(mp3file));
     mp3file.path=strdup(mp3_path);
     mp3file.fname=strdup(pde->d_name);
@@ -511,14 +516,14 @@ void scan_music_file(char *path, struct dirent *pde,
                     *current=tolower(*current);
                     current++;
                 }
-                
+
                 sprintf(fdescr,"%s audio file",mp3file.type);
                 mp3file.description = strdup(fdescr);
                 /* we'll just dodge the codectype */
             }
         }
     }
-    
+
     /* Do the tag lookup here */
     if(scan_get_info(mp3file.path,&mp3file)) {
         make_composite_tags(&mp3file);
@@ -538,11 +543,12 @@ void scan_music_file(char *path, struct dirent *pde,
         if(is_compdir)
             mp3file.compilation = 1;
 
-        db_add(&mp3file);
+        /* FIXME: error handling */
+        db_add(NULL,&mp3file);
     } else {
         DPRINTF(E_WARN,L_SCAN,"Skipping %s - scan failed\n",mp3file.path);
     }
-    
+
     scan_freetags(&mp3file);
 }
 
@@ -624,7 +630,7 @@ int scan_get_info(char *file, MP3FILE *pmp3) {
 
 /**
  * Manually build tags.  Set artist to computer/orchestra
- * if there is already no artist.  Perhaps this could be 
+ * if there is already no artist.  Perhaps this could be
  * done better, but I'm not sure what else to do here.
  *
  * @param song MP3FILE of the file to build composite tags for

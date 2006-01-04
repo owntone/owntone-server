@@ -27,7 +27,7 @@ typedef struct tag_xmlstack {
 typedef struct tag_xmlstruct {
     WS_CONNINFO *pwsc;
     int stack_level;
-    XMLSTACK stack;    
+    XMLSTACK stack;
 } XMLSTRUCT;
 
 /* Forwards */
@@ -50,16 +50,16 @@ void xml_deinit(XMLSTRUCT *pxml);
  */
 XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
     XMLSTRUCT *pxml;
-    
+
     pxml=(XMLSTRUCT*)malloc(sizeof(XMLSTRUCT));
     if(!pxml) {
         DPRINTF(E_FATAL,L_XML,"Malloc error\n");
     }
-    
+
     memset(pxml,0,sizeof(XMLSTRUCT));
-    
+
     pxml->pwsc = pwsc;
-    
+
     if(emit_header) {
         ws_addresponseheader(pwsc,"Content-Type","text/xml; charset=utf-8");
         ws_writefd(pwsc,"HTTP/1.0 200 OK\r\n");
@@ -67,7 +67,7 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
 
         ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
     }
-    
+
     return pxml;
 }
 
@@ -75,16 +75,16 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
  * push a new term on the stack
  *
  * @param pxml xml struct obtained from xml_init
- * @param term next xlm section to start 
+ * @param term next xlm section to start
  */
 void xml_push(XMLSTRUCT *pxml, char *term) {
     XMLSTACK *pstack;
-    
+
     pstack = (XMLSTACK *)malloc(sizeof(XMLSTACK));
     pstack->next=pxml->stack.next;
     pstack->tag=strdup(term);
     pxml->stack.next=pstack;
-    
+
     pxml->stack_level++;
 
     ws_writefd(pxml->pwsc,"<%s>",term);
@@ -97,19 +97,19 @@ void xml_push(XMLSTRUCT *pxml, char *term) {
  */
 void xml_pop(XMLSTRUCT *pxml) {
     XMLSTACK *pstack;
-    
+
     pstack=pxml->stack.next;
     if(!pstack) {
         DPRINTF(E_LOG,L_XML,"xml_pop: tried to pop an empty stack\n");
         return;
     }
-    
+
     pxml->stack.next = pstack->next;
-    
+
     ws_writefd(pxml->pwsc,"</%s>",pstack->tag);
     free(pstack->tag);
     free(pstack);
-    
+
     pxml->stack_level--;
 }
 
@@ -143,11 +143,11 @@ void xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...) {
  */
 void xml_deinit(XMLSTRUCT *pxml) {
     XMLSTACK *pstack;
-    
+
     if(pxml->stack.next) {
         DPRINTF(E_LOG,L_XML,"xml_deinit: entries still on stack (%s)\n",pxml->stack.next->tag);
     }
-    
+
     while((pstack=pxml->stack.next)) {
         pxml->stack.next=pstack->next;
         free(pstack->tag);
@@ -187,18 +187,18 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     WS_CONNINFO *pci;
     SCAN_STATUS *pss;
     WSTHREADENUM wste;
-    
+    int count;
     XMLSTRUCT *pxml;
-    
+
     pxml=xml_init(pwsc,1);
     xml_push(pxml,"status");
 
     xml_push(pxml,"service_status");
 
     xml_push(pxml,"service");
-    
+
     xml_output(pxml,"name","Rendezvous");
-    
+
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) {
         xml_output(pxml,"status",rend_running() ? "Stopped" : "Running"); /* ??? */
@@ -222,7 +222,7 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     xml_pop(pxml); /* service */
 
     xml_pop(pxml); /* service_status */
-    
+
     xml_push(pxml,"thread_status");
 
     pci = ws_thread_enum_first(config.server,&wste);
@@ -237,11 +237,11 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
         }
         pci=ws_thread_enum_next(config.server,&wste);
     }
-    
+
     xml_pop(pxml); /* thread_status */
 
     xml_push(pxml,"statistics");
-   
+
     r_secs=time(NULL)-config.stats.start_time;
 
     r_days=r_secs/(3600 * 24);
@@ -254,36 +254,37 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     r_secs -= 60 * r_mins;
 
     memset(buf,0x0,sizeof(buf));
-    if(r_days) 
-	sprintf((char*)&buf[strlen(buf)],"%d day%s, ", r_days,
-		r_days == 1 ? "" : "s");
+    if(r_days)
+        sprintf((char*)&buf[strlen(buf)],"%d day%s, ", r_days,
+                r_days == 1 ? "" : "s");
 
-    if(r_days || r_hours) 
-	sprintf((char*)&buf[strlen(buf)],"%d hour%s, ", r_hours,
-		r_hours == 1 ? "" : "s");
+    if(r_days || r_hours)
+        sprintf((char*)&buf[strlen(buf)],"%d hour%s, ", r_hours,
+                r_hours == 1 ? "" : "s");
 
     if(r_days || r_hours || r_mins)
-	sprintf((char*)&buf[strlen(buf)],"%d minute%s, ", r_mins,
-		r_mins == 1 ? "" : "s");
+        sprintf((char*)&buf[strlen(buf)],"%d minute%s, ", r_mins,
+                r_mins == 1 ? "" : "s");
 
     sprintf((char*)&buf[strlen(buf)],"%d second%s ", r_secs,
-	    r_secs == 1 ? "" : "s");
-    
+            r_secs == 1 ? "" : "s");
+
     xml_push(pxml,"stat");
     xml_output(pxml,"name","Uptime");
     xml_output(pxml,"value","%s",buf);
     xml_pop(pxml); /* stat */
-    
+
     xml_push(pxml,"stat");
     xml_output(pxml,"name","Songs");
-    xml_output(pxml,"value","%d",db_get_song_count());
+    db_get_song_count(NULL,&count);
+    xml_output(pxml,"value","%d",count);
     xml_pop(pxml); /* stat */
-    
+
     xml_push(pxml,"stat");
     xml_output(pxml,"name","Songs Served");
     xml_output(pxml,"value","%d",config.stats.songs_served);
     xml_pop(pxml); /* stat */
-    
+
     xml_pop(pxml); /* statistics */
     xml_pop(pxml); /* status */
 

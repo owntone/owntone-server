@@ -22,7 +22,7 @@
 
 /**
  * \file configfile.c
- * 
+ *
  * Configfile and web interface handling.
  */
 
@@ -178,7 +178,7 @@ void config_content_type(WS_CONNINFO *pwsc, char *path) {
 
 /**
  * Try and create a directory, including parents.
- * 
+ *
  * \param path path to make
  * \returns 0 on success, -1 otherwise, with errno set
  */
@@ -208,11 +208,11 @@ int config_makedir(char *path) {
                 err=errno;
                 free(pathdup);
                 errno=err;
-                return -1;  
+                return -1;
             }
         } else {
             errno=ENAMETOOLONG;
-            return -1; 
+            return -1;
         }
     }
 
@@ -281,7 +281,7 @@ int config_read(char *file) {
         return -1;
     }
 
-#ifdef NSLU2    
+#ifdef NSLU2
     config.always_scan=0;
 #else
     config.always_scan=1;
@@ -334,7 +334,7 @@ int config_read(char *file) {
         if((value) && (term) && (strlen(term))) {
             while(strlen(value) && (strchr("\t ",*value)))
                 value++;
-            
+
             pce=config_elements;
             handled=0;
             while((!handled) && (pce->config_element != -1)) {
@@ -342,9 +342,9 @@ int config_read(char *file) {
                     /* valid config directive */
                     handled=1;
                     pce->changed=1;
-                    
+
                     DPRINTF(E_DBG,L_CONF,"Read %s: %s\n",pce->name,value);
-                    
+
                     switch(pce->type) {
                     case CONFIG_TYPE_STRING:
                         /* DWB: free space to prevent small leak */
@@ -359,7 +359,7 @@ int config_read(char *file) {
                 }
                 pce++;
             }
-            
+
             if(!handled) {
                 fprintf(stderr,"Invalid config directive: %s\n",buffer);
                 fclose(fin);
@@ -396,7 +396,7 @@ int config_read(char *file) {
         pce->changed=0;
         pce++;
     }
-    
+
     /* Set the directory components to realpaths */
     realpath(config.web_root,path_buffer);
     free(config.web_root);
@@ -471,7 +471,7 @@ int config_read(char *file) {
             DPRINTF(E_FATAL,L_MISC,"Alloc error.\n");
 
         currentterm=0;
-        
+
         term_begin=config.compdirs;
         while(*term_begin && *term_begin ==' ')
             term_begin++;
@@ -521,8 +521,8 @@ void config_close(void) {
     pce=config_elements;
     err=0;
     while((pce->config_element != -1)) {
-        if((pce->config_element) && 
-           (pce->type == CONFIG_TYPE_STRING) && 
+        if((pce->config_element) &&
+           (pce->type == CONFIG_TYPE_STRING) &&
            (*((char**)pce->var))) {
             DPRINTF(E_DBG,L_CONF,"Freeing %s\n",pce->name);
             free(*((char**)pce->var));
@@ -575,9 +575,9 @@ int config_write(WS_CONNINFO *pwsc) {
         fprintf(configfile,"art_filename\t%s\n",ws_getvar(pwsc,"art_filename"));
     if(ws_getvar(pwsc,"logfile") && strlen(ws_getvar(pwsc,"logfile")))
         fprintf(configfile,"logfile\t\t%s\n",ws_getvar(pwsc,"logfile"));
-    fprintf(configfile,"process_m3u\t%s\n",ws_getvar(pwsc,"process_m3u"));    
+    fprintf(configfile,"process_m3u\t%s\n",ws_getvar(pwsc,"process_m3u"));
     fprintf(configfile,"compress\t%s\n",ws_getvar(pwsc,"compress"));
-    
+
     fprintf(configfile,"debuglevel\t%s\n",ws_getvar(pwsc,"debuglevel"));
     fprintf(configfile,"compdirs\t%s\n",ws_getvar(pwsc,"compdirs"));
 
@@ -668,12 +668,12 @@ void config_handler(WS_CONNINFO *pwsc) {
     DPRINTF(E_DBG,L_CONF|L_WS,"Entering config_handler\n");
 
     config_set_status(pwsc,0,"Serving admin pages");
-    
+
     pwsc->close=1;
     ws_addresponseheader(pwsc,"Connection","close");
 
     if(strcasecmp(pwsc->uri,"/xml-rpc")==0) {
-        // perhaps this should get a separate handler 
+        // perhaps this should get a separate handler
         config_set_status(pwsc,0,"Serving xml-rpc method");
         xml_handle(pwsc);
         DPRINTF(E_DBG,L_CONF|L_XML,"Thread %d: xml-rpc served\n",pwsc->threadno);
@@ -717,7 +717,7 @@ void config_handler(WS_CONNINFO *pwsc) {
         config_set_status(pwsc,0,NULL);
         return;
     }
-    
+
     if(strcasecmp(pwsc->uri,"/config-update.html")==0) {
         /* don't update (and turn everything to (null)) the
            configuration file if what the user's really trying to do is
@@ -763,10 +763,10 @@ void config_handler(WS_CONNINFO *pwsc) {
 
     ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
     ws_emitheaders(pwsc);
-    
+
     if(strcasecmp(&resolved_path[strlen(resolved_path) - 5],".html") == 0) {
         config_subst_stream(pwsc, file_fd);
-    } else { 
+    } else {
         copyfile(file_fd,pwsc->fd);
     }
 
@@ -800,7 +800,7 @@ int config_auth(char *user, char *password) {
 void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg) {
     char *host;
     char *port;
-    
+
     if(ws_getrequestheader(pwsc,"host")) {
         host = strdup(ws_getrequestheader(pwsc,"host"));
         if((port = strrchr(host,':'))) {
@@ -868,6 +868,7 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     char buf[256];
     int r_days, r_hours, r_mins, r_secs;
     int scanning;
+    int song_count;
 
     ws_writefd(pwsc,"<table><tr><th align=\"left\">Service</th>");
     ws_writefd(pwsc,"<th align=\"left\">Status</th><th align=\"left\">Control</th></tr>\n");
@@ -925,11 +926,11 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     r_secs -= 60 * r_mins;
 
     memset(buf,0x0,sizeof(buf));
-    if(r_days) 
+    if(r_days)
         sprintf((char*)&buf[strlen(buf)],"%d day%s, ", r_days,
                 r_days == 1 ? "" : "s");
 
-    if(r_days || r_hours) 
+    if(r_days || r_hours)
         sprintf((char*)&buf[strlen(buf)],"%d hour%s, ", r_hours,
                 r_hours == 1 ? "" : "s");
 
@@ -939,13 +940,14 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
 
     sprintf((char*)&buf[strlen(buf)],"%d second%s ", r_secs,
             r_secs == 1 ? "" : "s");
-    
+
     ws_writefd(pwsc," <td>%s</td>\n",buf);
     ws_writefd(pwsc,"</tr>\n");
-    
+
     ws_writefd(pwsc,"<tr>\n");
     ws_writefd(pwsc," <th>Songs</th>\n");
-    ws_writefd(pwsc," <td>%d</td>\n",db_get_song_count());
+    db_get_song_count(NULL,&song_count);
+    ws_writefd(pwsc," <td>%d</td>\n",song_count);
     ws_writefd(pwsc,"</tr>\n");
 
     ws_writefd(pwsc,"<tr>\n");
@@ -975,7 +977,7 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
  * Get the count of connected users.  This is actually not totally accurate,
  * as there may be a "connected" host that is in between requesting songs.
  * It's marginally close though.  It is really the number of connections
- * with non-zero session numbers.  
+ * with non-zero session numbers.
  *
  * \returns connected user count
  */
@@ -1018,7 +1020,7 @@ void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg) {
     WS_CONNINFO *pci;
     SCAN_STATUS *pss;
     WSTHREADENUM wste;
-    
+
     ws_writefd(pwsc,"<table><tr><th align=\"left\">Thread</th>");
     ws_writefd(pwsc,"<th align=\"left\">Session</th><th align=\"left\">Host</th>");
     ws_writefd(pwsc,"<th align=\"left\">Action</th></tr>\n");
@@ -1058,7 +1060,7 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
 
     first=last=arg;
     strsep(&last,":");
-    
+
     if(last) {
         page=strdup(first);
         if(!page)
@@ -1152,7 +1154,7 @@ void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg) {
 }
 
 /**
- * implement the INCLUDE command.  This is essentially a server 
+ * implement the INCLUDE command.  This is essentially a server
  * side include.
  *
  * \param pwsc web connection
@@ -1166,7 +1168,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     struct stat sb;
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Preparing to include %s\n",arg);
-    
+
     snprintf(path,PATH_MAX,"%s/%s",config.web_root,arg);
     if(!realpath(path,resolved_path)) {
         pwsc->error=errno;
@@ -1203,7 +1205,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
         ws_writefd(pwsc,"<hr><i>error: cannot open %s: %s</i><hr>",arg,strerror(errno));
         return;
     }
-    
+
     config_subst_stream(pwsc, file_fd);
 
     r_close(file_fd);
@@ -1212,13 +1214,13 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
 }
 
 /**
- * free a SCAN_STATUS block 
+ * free a SCAN_STATUS block
  *
  * @param vp pointer to SCAN_STATUS block
  */
 void config_freescan(void *vp) {
     SCAN_STATUS *pss = (SCAN_STATUS*)vp;
-    
+
     if(pss) {
         if(pss->what)
             free(pss->what);
@@ -1243,7 +1245,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
     va_list ap;
     SCAN_STATUS *pfirst;
     char *newmsg = NULL;
-    
+
     DPRINTF(E_DBG,L_CONF,"Entering config_set_status\n");
 
     if(fmt) {
@@ -1262,24 +1264,24 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
             pfirst->what = NULL;
             pfirst->thread = pwsc->threadno;
             pfirst->host = strdup(pwsc->hostname);
-            ws_set_local_storage(pwsc,pfirst,config_freescan);            
+            ws_set_local_storage(pwsc,pfirst,config_freescan);
         } else {
             DPRINTF(E_FATAL,L_CONF,"Malloc Error\n");
         }
     }
-    
+
     if(pfirst) {
-	/* just update */
-	if(pfirst->what) {
-	    free(pfirst->what);
-	}
-	pfirst->what=newmsg;
-	pfirst->session=session;
+        /* just update */
+        if(pfirst->what) {
+            free(pfirst->what);
+        }
+        pfirst->what=newmsg;
+        pfirst->session=session;
     } else {
-	if(newmsg)
-	    free(newmsg);
+        if(newmsg)
+            free(newmsg);
     }
-    
+
     ws_unlock_local_storage(pwsc);
     DPRINTF(E_DBG,L_CONF,"Exiting config_set_status\n");
 }
@@ -1288,7 +1290,7 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
  * Get the next available session id.
  * This is vulnerable to races, but we don't track sessions,
  * so there really isn't a point anyway.
- * 
+ *
  * @returns duh... the next available session id
  */
 int config_get_next_session(void) {

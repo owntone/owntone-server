@@ -27,6 +27,7 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -34,7 +35,7 @@
 #include "err.h"
 #include "mp3-scanner.h"
 
-#include "dbs-sqlite.h"
+#include "db-sql.h"
 
 #define DB_VERSION 1
 #define MAYBEFREE(a) { if((a)) free((a)); };
@@ -42,61 +43,59 @@
 /** pointers to database-specific functions */
 typedef struct tag_db_functions {
     char *name;
-    int(*dbs_open)(char *);
+    int(*dbs_open)(char **, char *);
     int(*dbs_init)(int);
     int(*dbs_deinit)(void);
-    int(*dbs_add)(MP3FILE*);
-    int(*dbs_add_playlist)(char *, int, char *,char *, int, int *);
-    int(*dbs_add_playlist_item)(int, int);
-    int(*dbs_delete_playlist)(int);
-    int(*dbs_delete_playlist_item)(int, int);
-    int(*dbs_edit_playlist)(int, char*, char*);    
-    int(*dbs_enum_start)(DBQUERYINFO *);
-    int(*dbs_enum_size)(DBQUERYINFO *, int *);
-    int(*dbs_enum_fetch)(DBQUERYINFO *, unsigned char **);
-    int(*dbs_enum_reset)(DBQUERYINFO *);
-    int(*dbs_enum_end)(void);
+    int(*dbs_add)(char **, MP3FILE*);
+    int(*dbs_add_playlist)(char **, char *, int, char *,char *, int, int *);
+    int(*dbs_add_playlist_item)(char **, int, int);
+    int(*dbs_delete_playlist)(char **, int);
+    int(*dbs_delete_playlist_item)(char **, int, int);
+    int(*dbs_edit_playlist)(char **, int, char*, char*);
+    int(*dbs_enum_start)(char **, DBQUERYINFO *);
+    int(*dbs_enum_size)(char **, DBQUERYINFO *, int *, int *);
+    int(*dbs_enum_fetch)(char **, DBQUERYINFO *, int *, unsigned char **);
+    int(*dbs_enum_reset)(char **, DBQUERYINFO *);
+    int(*dbs_enum_end)(char **);
     int(*dbs_start_scan)(void);
     int(*dbs_end_song_scan)(void);
     int(*dbs_end_scan)(void);
-    int(*dbs_get_count)(CountType_t);
-    MP3FILE*(*dbs_fetch_item)(int);
-    MP3FILE*(*dbs_fetch_path)(char *,int);
-    M3UFILE*(*dbs_fetch_playlist)(char *, int);
+    int(*dbs_get_count)(char **, int *, CountType_t);
+    MP3FILE*(*dbs_fetch_item)(char **, int);
+    MP3FILE*(*dbs_fetch_path)(char **, char *,int);
+    M3UFILE*(*dbs_fetch_playlist)(char **, char *, int);
     void(*dbs_dispose_item)(MP3FILE*);
     void(*dbs_dispose_playlist)(M3UFILE*);
 }DB_FUNCTIONS;
 
 /** All supported backend databases, and pointers to the db specific implementations */
 DB_FUNCTIONS db_functions[] = {
-#ifdef HAVE_LIBSQLITE
     {
-	"sqlite",
-	db_sqlite_open,
-	db_sqlite_init,
-	db_sqlite_deinit,
-	db_sqlite_add,
-	db_sqlite_add_playlist,
-	db_sqlite_add_playlist_item,
-	db_sqlite_delete_playlist,
-	db_sqlite_delete_playlist_item,
-	db_sqlite_edit_playlist,
-	db_sqlite_enum_start,
-	db_sqlite_enum_size,
-	db_sqlite_enum_fetch,
-	db_sqlite_enum_reset,
-	db_sqlite_enum_end,
-	db_sqlite_start_scan,
-	db_sqlite_end_song_scan,
-	db_sqlite_end_scan,
-	db_sqlite_get_count,
-	db_sqlite_fetch_item,
-	db_sqlite_fetch_path,
-	db_sqlite_fetch_playlist,
-	db_sqlite_dispose_item,
-	db_sqlite_dispose_playlist
+        "sql",
+        db_sql_open,
+        db_sql_init,
+        db_sql_deinit,
+        db_sql_add,
+        db_sql_add_playlist,
+        db_sql_add_playlist_item,
+        db_sql_delete_playlist,
+        db_sql_delete_playlist_item,
+        db_sql_edit_playlist,
+        db_sql_enum_start,
+        db_sql_enum_size,
+        db_sql_enum_fetch,
+        db_sql_enum_reset,
+        db_sql_enum_end,
+        db_sql_start_scan,
+        db_sql_end_song_scan,
+        db_sql_end_scan,
+        db_sql_get_count,
+        db_sql_fetch_item,
+        db_sql_fetch_path,
+        db_sql_fetch_playlist,
+        db_sql_dispose_item,
+        db_sql_dispose_playlist
     },
-#endif
     { NULL,NULL }
 };
 
@@ -152,11 +151,11 @@ DAAP_ITEMS taglist[] = {
     { 0x0C, "adbs", "daap.databasesongs" },
     { 0x09, "asal", "daap.songalbum" },
     { 0x09, "asar", "daap.songartist" },
-    { 0x03, "asbt", "daap.songbeatsperminute" }, 
+    { 0x03, "asbt", "daap.songbeatsperminute" },
     { 0x03, "asbr", "daap.songbitrate" },
-    { 0x09, "ascm", "daap.songcomment" }, 
-    { 0x01, "asco", "daap.songcompilation" }, 
-    { 0x09, "ascp", "daap.songcomposer" }, 
+    { 0x09, "ascm", "daap.songcomment" },
+    { 0x01, "asco", "daap.songcompilation" },
+    { 0x09, "ascp", "daap.songcomposer" },
     { 0x0A, "asda", "daap.songdateadded" },
     { 0x0A, "asdm", "daap.songdatemodified" },
     { 0x03, "asdc", "daap.songdisccount" },
@@ -210,43 +209,43 @@ DAAP_ITEMS taglist[] = {
 };
 
 /** map the string names specified in the meta= tag to bit numbers */
-static METAMAP	db_metamap[] = {
-    { "dmap.itemid",		           metaItemId },
-    { "dmap.itemname",		           metaItemName },
-    { "dmap.itemkind",		           metaItemKind },
-    { "dmap.persistentid", 	           metaPersistentId },
+static METAMAP  db_metamap[] = {
+    { "dmap.itemid",                       metaItemId },
+    { "dmap.itemname",                     metaItemName },
+    { "dmap.itemkind",                     metaItemKind },
+    { "dmap.persistentid",                 metaPersistentId },
     { "dmap.containeritemid",              metaContainerItemId },
-    { "dmap.parentcontainerid",	           metaParentContainerId },
+    { "dmap.parentcontainerid",            metaParentContainerId },
     /* end generics */
-    { "daap.songalbum",		           metaSongAlbum },
-    { "daap.songartist",	           metaSongArtist },
-    { "daap.songbitrate",	           metaSongBitRate },
+    { "daap.songalbum",                    metaSongAlbum },
+    { "daap.songartist",                   metaSongArtist },
+    { "daap.songbitrate",                  metaSongBitRate },
     { "daap.songbeatsperminute",           metaSongBPM },
-    { "daap.songcomment",	           metaSongComment },
-    { "daap.songcompilation",	           metaSongCompilation },
-    { "daap.songcomposer",	           metaSongComposer },
-    { "daap.songdatakind",	           metaSongDataKind },
+    { "daap.songcomment",                  metaSongComment },
+    { "daap.songcompilation",              metaSongCompilation },
+    { "daap.songcomposer",                 metaSongComposer },
+    { "daap.songdatakind",                 metaSongDataKind },
     { "daap.songdataurl",                  metaSongDataURL },
-    { "daap.songdateadded",	           metaSongDateAdded },
-    { "daap.songdatemodified",	           metaSongDateModified },
-    { "daap.songdescription",	           metaSongDescription },
-    { "daap.songdisabled",	           metaSongDisabled },
-    { "daap.songdisccount",	           metaSongDiscCount },
-    { "daap.songdiscnumber",	           metaSongDiscNumber },
-    { "daap.songeqpreset",	           metaSongEqPreset },
-    { "daap.songformat",	           metaSongFormat },
-    { "daap.songgenre",		           metaSongGenre },
-    { "daap.songgrouping",	           metaSongGrouping },
+    { "daap.songdateadded",                metaSongDateAdded },
+    { "daap.songdatemodified",             metaSongDateModified },
+    { "daap.songdescription",              metaSongDescription },
+    { "daap.songdisabled",                 metaSongDisabled },
+    { "daap.songdisccount",                metaSongDiscCount },
+    { "daap.songdiscnumber",               metaSongDiscNumber },
+    { "daap.songeqpreset",                 metaSongEqPreset },
+    { "daap.songformat",                   metaSongFormat },
+    { "daap.songgenre",                    metaSongGenre },
+    { "daap.songgrouping",                 metaSongGrouping },
     { "daap.songrelativevolume",           metaSongRelativeVolume },
-    { "daap.songsamplerate",	           metaSongSampleRate },
-    { "daap.songsize",		           metaSongSize },
-    { "daap.songstarttime",	           metaSongStartTime },
-    { "daap.songstoptime",	           metaSongStopTime },
-    { "daap.songtime",		           metaSongTime },
-    { "daap.songtrackcount",	           metaSongTrackCount },
-    { "daap.songtracknumber",	           metaSongTrackNumber },
-    { "daap.songuserrating",	           metaSongUserRating },
-    { "daap.songyear",		           metaSongYear },
+    { "daap.songsamplerate",               metaSongSampleRate },
+    { "daap.songsize",                     metaSongSize },
+    { "daap.songstarttime",                metaSongStartTime },
+    { "daap.songstoptime",                 metaSongStopTime },
+    { "daap.songtime",                     metaSongTime },
+    { "daap.songtrackcount",               metaSongTrackCount },
+    { "daap.songtracknumber",              metaSongTrackNumber },
+    { "daap.songuserrating",               metaSongUserRating },
+    { "daap.songyear",                     metaSongYear },
     /* iTunes 4.5+ (forgot exactly when) */
     { "daap.songcodectype",                metaSongCodecType },
     { "daap.songcodecsubtype",             metaSongCodecSubType },
@@ -261,9 +260,20 @@ static METAMAP	db_metamap[] = {
     /* mt-daapd specific */
     { "org.mt-daapd.smart-playlist-spec",  metaMPlaylistSpec },
     { "org.mt-daapd.playlist-type",        metaMPlaylistType },
-    { 0,			           0 }
+    { 0,                                   0 }
 };
 
+char *db_error_list[] = {
+    "Success",
+    "Misc SQL Error: %s",
+    "Duplicate Playlist: %s",
+    "Missing playlist spec",
+    "Cannot add playlist items to a playlist of that type",
+    "No rows returned",
+    "Invalid playlist id: %d",
+    "Invalid song id: %d",
+    "Parse error"
+};
 
 /* Globals */
 static DB_FUNCTIONS *db_current=&db_functions[0];     /**< current database backend */
@@ -287,30 +297,30 @@ static void db_trim_string(char *string);
  * \param meta meta string variable from GET request
  */
 MetaField_t db_encode_meta(char *meta) {
-    MetaField_t	bits = 0;
+    MetaField_t bits = 0;
     char *start;
     char *end;
     METAMAP *m;
 
     for(start = meta ; *start ; start = end) {
-	int	len;
+        int     len;
 
-	if(0 == (end = strchr(start, ',')))
-	    end = start + strlen(start);
+        if(0 == (end = strchr(start, ',')))
+            end = start + strlen(start);
 
-	len = end - start;
+        len = end - start;
 
-	if(*end != 0)
-	    end++;
+        if(*end != 0)
+            end++;
 
-	for(m = db_metamap ; m->tag ; ++m)
-	    if(!strncmp(m->tag, start, len))
-		break;
+        for(m = db_metamap ; m->tag ; ++m)
+            if(!strncmp(m->tag, start, len))
+                break;
 
-	if(m->tag)
-	    bits |= (((MetaField_t) 1) << m->bit);
-	else
-	    DPRINTF(E_WARN,L_DAAP,"Unknown meta code: %.*s\n", len, start);
+        if(m->tag)
+            bits |= (((MetaField_t) 1) << m->bit);
+        else
+            DPRINTF(E_WARN,L_DAAP,"Unknown meta code: %.*s\n", len, start);
     }
 
     DPRINTF(E_DBG, L_DAAP, "meta codes: %llu\n", bits);
@@ -329,42 +339,58 @@ int db_wantsmeta(MetaField_t meta, MetaFieldName_t fieldNo) {
 }
 
 
-/* 
+/*
  * db_readlock
  *
- * If this fails, something is so amazingly hosed, we might just as well 
- * terminate.  
+ * If this fails, something is so amazingly hosed, we might just as well
+ * terminate.
  */
 void db_readlock(void) {
     int err;
 
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
-	DPRINTF(E_FATAL,L_DB,"cannot lock rdlock: %s\n",strerror(err));
+        DPRINTF(E_FATAL,L_DB,"cannot lock rdlock: %s\n",strerror(err));
     }
 }
 
-/* 
+/*
  * db_writelock
- * 
+ *
  * same as above
  */
 void db_writelock(void) {
     int err;
 
     if((err=pthread_rwlock_wrlock(&db_rwlock))) {
-	DPRINTF(E_FATAL,L_DB,"cannot lock rwlock: %s\n",strerror(err));
+        DPRINTF(E_FATAL,L_DB,"cannot lock rwlock: %s\n",strerror(err));
     }
 }
 
 /*
  * db_unlock
- * 
- * useless, but symmetrical 
+ *
+ * useless, but symmetrical
  */
 int db_unlock(void) {
     return pthread_rwlock_unlock(&db_rwlock);
 }
 
+/**
+ * Build an error string
+ */
+void db_get_error(char **pe, int error, ...) {
+    va_list ap;
+    char errbuf[1024];
+
+    if(!pe)
+        return;
+
+    va_start(ap, error);
+    vsnprintf(errbuf, sizeof(errbuf), db_error_list[error], ap);
+    va_end(ap);
+
+    *pe = strdup(errbuf);
+}
 
 /**
  * Must dynamically initialize the rwlock, as Mac OSX 10.3 (at least)
@@ -385,17 +411,17 @@ extern int db_set_backend(char *type) {
     DPRINTF(E_DBG,L_DB,"Setting backend database to %s\n",type);
 
     if(!db_functions[0].name) {
-	DPRINTF(E_FATAL,L_DB,"No database backends are available.  Install sqlite!\n");
+        DPRINTF(E_FATAL,L_DB,"No database backends are available.  Install sqlite!\n");
     }
-    
+
     db_current=&db_functions[0];
     while((db_current->name) && (strcasecmp(db_current->name,type))) {
-	db_current++;
+        db_current++;
     }
 
     if(!db_current->name) {
-	DPRINTF(E_WARN,L_DB,"Could not find db backend %s.  Aborting.\n",type);
-	return -1;
+        DPRINTF(E_WARN,L_DB,"Could not find db backend %s.  Aborting.\n",type);
+        return -1;
     }
 
     DPRINTF(E_DBG,L_DB,"Backend database set\n");
@@ -409,15 +435,15 @@ extern int db_set_backend(char *type) {
  *
  * \param parameters This is backend-specific (mysql, sqlite, etc)
  */
-int db_open(char *parameters) {
+int db_open(char **pe, char *parameters) {
     int result;
 
     DPRINTF(E_DBG,L_DB,"Opening database\n");
 
     if(pthread_once(&db_initlock,db_init_once))
-	return -1;
+        return -1;
 
-    result=db_current->dbs_open(parameters);
+    result=db_current->dbs_open(pe, parameters);
 
     DPRINTF(E_DBG,L_DB,"Results: %d\n",result);
     return result;
@@ -463,13 +489,13 @@ int db_scanning(void) {
 /**
  * add (or update) a file
  */
-int db_add(MP3FILE *pmp3) {
+int db_add(char **pe, MP3FILE *pmp3) {
     int retval;
 
     db_writelock();
     db_utf8_validate(pmp3);
     db_trim_strings(pmp3);
-    retval=db_current->dbs_add(pmp3);
+    retval=db_current->dbs_add(pe,pmp3);
     db_revision_no++;
     db_unlock();
 
@@ -483,15 +509,15 @@ int db_add(MP3FILE *pmp3) {
  * \param type type of playlist to add: 0 - static, 1 - smart, 2 - m3u
  * \param clause where clause (if type 1)
  * \param playlistid returns the id of the playlist created
- * \returns 0 on success, error code otherwise 
+ * \returns 0 on success, error code otherwise
  */
-int db_add_playlist(char *name, int type, char *clause, char *path, int index, int *playlistid) {
+int db_add_playlist(char **pe, char *name, int type, char *clause, char *path, int index, int *playlistid) {
     int retval;
 
     db_writelock();
-    retval=db_current->dbs_add_playlist(name,type,clause,path,index,playlistid);
+    retval=db_current->dbs_add_playlist(pe,name,type,clause,path,index,playlistid);
     if(retval == DB_E_SUCCESS)
-	db_revision_no++;
+        db_revision_no++;
     db_unlock();
 
     return retval;
@@ -504,13 +530,13 @@ int db_add_playlist(char *name, int type, char *clause, char *path, int index, i
  * \param songid song to add to playlist
  * \returns 0 on success, DB_E_ code otherwise
  */
-int db_add_playlist_item(int playlistid, int songid) {
+int db_add_playlist_item(char **pe, int playlistid, int songid) {
     int retval;
 
     db_writelock();
-    retval=db_current->dbs_add_playlist_item(playlistid,songid);
+    retval=db_current->dbs_add_playlist_item(pe,playlistid,songid);
     if(retval == DB_E_SUCCESS)
-	db_revision_no++;
+        db_revision_no++;
     db_unlock();
 
     return retval;
@@ -520,15 +546,15 @@ int db_add_playlist_item(int playlistid, int songid) {
  * delete a playlist
  *
  * \param playlistid id of the playlist to delete
- * \returns 0 on success, error code otherwise 
+ * \returns 0 on success, error code otherwise
  */
-int db_delete_playlist(int playlistid) {
+int db_delete_playlist(char **pe, int playlistid) {
     int retval;
 
     db_writelock();
-    retval=db_current->dbs_delete_playlist(playlistid);
+    retval=db_current->dbs_delete_playlist(pe,playlistid);
     if(retval == DB_E_SUCCESS)
-	db_revision_no++;
+        db_revision_no++;
     db_unlock();
 
     return retval;
@@ -539,15 +565,15 @@ int db_delete_playlist(int playlistid) {
  *
  * \param playlistid id of the playlist to delete
  * \param songid id of the song to delete
- * \returns 0 on success, error code otherwise 
+ * \returns 0 on success, error code otherwise
  */
-int db_delete_playlist_item(int playlistid, int songid) {
+int db_delete_playlist_item(char **pe, int playlistid, int songid) {
     int retval;
 
     db_writelock();
-    retval=db_current->dbs_delete_playlist_item(playlistid,songid);
+    retval=db_current->dbs_delete_playlist_item(pe,playlistid,songid);
     if(retval == DB_E_SUCCESS)
-	db_revision_no++;
+        db_revision_no++;
     db_unlock();
 
     return retval;
@@ -560,12 +586,12 @@ int db_delete_playlist_item(int playlistid, int songid) {
  * @param name new name of playlist
  * @param clause new where clause
  */
-int db_edit_playlist(int id, char *name, char *clause) {
+int db_edit_playlist(char **pe, int id, char *name, char *clause) {
     int retval;
-    
+
     db_writelock();
-    
-    retval = db_current->dbs_edit_playlist(id, name, clause);
+
+    retval = db_current->dbs_edit_playlist(pe, id, name, clause);
     db_unlock();
     return retval;
 }
@@ -577,15 +603,15 @@ int db_edit_playlist(int id, char *name, char *clause) {
  * \param pinfo pointer to DBQUERYINFO struction
  * \returns 0 on success, -1 on failure
  */
-int db_enum_start(DBQUERYINFO *pinfo) {
+int db_enum_start(char **pe, DBQUERYINFO *pinfo) {
     int retval;
 
     db_writelock();
-    retval=db_current->dbs_enum_start(pinfo);
+    retval=db_current->dbs_enum_start(pe, pinfo);
 
     if(retval) {
-	db_unlock();
-	return retval;
+        db_unlock();
+        return retval;
     }
 
     return 0;
@@ -596,8 +622,8 @@ int db_enum_start(DBQUERYINFO *pinfo) {
  * db_<dbase>_enum_reset, so it should be positioned at the head
  * of the list of returned items.
  */
-int db_enum_size(DBQUERYINFO *pinfo, int *count) {
-    return db_current->dbs_enum_size(pinfo,count);
+int db_enum_size(char **pe, DBQUERYINFO *pinfo, int *size, int *count) {
+    return db_current->dbs_enum_size(pe,pinfo,size,count);
 }
 
 
@@ -607,27 +633,29 @@ int db_enum_size(DBQUERYINFO *pinfo, int *count) {
  * the dmap item.
  *
  * \param plen length of the dmap item returned
- * \returns dmap item 
+ * \returns dmap item
  */
-int db_enum_fetch(DBQUERYINFO *pinfo, unsigned char **pdmap) {
-    return db_current->dbs_enum_fetch(pinfo,pdmap);
+int db_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size,
+                  unsigned char **pdmap)
+{
+    return db_current->dbs_enum_fetch(pe,pinfo,size,pdmap);
 }
 
 
 /**
  * reset the enum, without coming out the the db_writelock
  */
-int db_enum_reset(DBQUERYINFO *pinfo) {
-    return db_current->dbs_enum_reset(pinfo);
+int db_enum_reset(char **pe, DBQUERYINFO *pinfo) {
+    return db_current->dbs_enum_reset(pe,pinfo);
 }
 
 /**
  * finish the enumeration
  */
-int db_enum_end(void) {
+int db_enum_end(char **pe) {
     int retval;
 
-    retval=db_current->dbs_enum_end();
+    retval=db_current->dbs_enum_end(pe);
     db_unlock();
     return retval;
 }
@@ -638,32 +666,32 @@ int db_enum_end(void) {
  * mostly only by the web interface, and when streaming a song
  *
  * \param id id of the item to get details for
- */ 
-MP3FILE *db_fetch_item(int id) {
+ */
+MP3FILE *db_fetch_item(char **pe, int id) {
     MP3FILE *retval;
-    
+
     db_readlock();
-    retval=db_current->dbs_fetch_item(id);
+    retval=db_current->dbs_fetch_item(pe, id);
     db_unlock();
 
     return retval;
 }
 
-MP3FILE *db_fetch_path(char *path,int index) {
+MP3FILE *db_fetch_path(char **pe, char *path,int index) {
     MP3FILE *retval;
-    
+
     db_readlock();
-    retval=db_current->dbs_fetch_path(path, index);
+    retval=db_current->dbs_fetch_path(pe,path, index);
     db_unlock();
 
     return retval;
 }
 
-M3UFILE *db_fetch_playlist(char *path, int index) {
+M3UFILE *db_fetch_playlist(char **pe, char *path, int index) {
     M3UFILE *retval;
 
     db_readlock();
-    retval=db_current->dbs_fetch_playlist(path,index);
+    retval=db_current->dbs_fetch_playlist(pe,path,index);
     db_unlock();
 
     return retval;
@@ -676,7 +704,7 @@ int db_start_scan(void) {
     retval=db_current->dbs_start_scan();
     db_is_scanning=1;
     db_unlock();
-    
+
     return retval;
 }
 
@@ -686,7 +714,7 @@ int db_end_song_scan(void) {
     db_writelock();
     retval=db_current->dbs_end_song_scan();
     db_unlock();
-    
+
     return retval;
 }
 
@@ -697,10 +725,10 @@ int db_end_scan(void) {
     retval=db_current->dbs_end_scan();
     db_is_scanning=0;
     db_unlock();
-    
+
     return retval;
 }
-    
+
 void db_dispose_item(MP3FILE *pmp3) {
     return db_current->dbs_dispose_item(pmp3);
 }
@@ -709,26 +737,26 @@ void db_dispose_playlist(M3UFILE *pm3u) {
     return db_current->dbs_dispose_playlist(pm3u);
 }
 
-int db_get_count(CountType_t type) {
-    int retval; 
+int db_get_count(char **pe, int *count, CountType_t type) {
+    int retval;
 
     db_readlock();
-    retval=db_current->dbs_get_count(type);
+    retval=db_current->dbs_get_count(pe,count,type);
     db_unlock();
 
     return retval;
 }
-    
 
-/* 
+
+/*
  * FIXME: clearly a stub
  */
-int db_get_song_count() {
-    return db_get_count(countSongs);
+int db_get_song_count(char **pe, int *count) {
+    return db_get_count(pe, count, countSongs);
 }
 
-int db_get_playlist_count() {
-    return db_get_count(countPlaylists);
+int db_get_playlist_count(char **pe, int *count) {
+    return db_get_count(pe, count, countPlaylists);
 }
 
 
@@ -799,7 +827,7 @@ int db_dmap_add_int(unsigned char *where, char *tag, int value) {
     where[9] = (value >> 16) & 0xFF;
     where[10] = (value >> 8) & 0xFF;
     where[11] = value & 0xFF;
-    
+
     return 12;
 }
 
@@ -835,8 +863,8 @@ int db_dmap_add_string(unsigned char *where, char *tag, char *value) {
  * \param value what to put there
  * \param size how much data to cram in there
  */
-int db_dmap_add_literal(unsigned char *where, char *tag, 
-			char *value, int size) {
+int db_dmap_add_literal(unsigned char *where, char *tag,
+                        char *value, int size) {
     /* tag */
     memcpy(where,tag,4);
 
@@ -885,7 +913,7 @@ void db_utf8_validate(MP3FILE *pmp3) {
     int is_invalid=0;
 
     /* we won't bother with path and fname... those were culled with the
-     * scan.  Even if they are invalid (_could_ they be?), then we 
+     * scan.  Even if they are invalid (_could_ they be?), then we
      * won't be able to open the file if we change them.  Likewise,
      * we won't do type or description, as these can't be bad, or they
      * wouldn't have been scanned */
@@ -902,7 +930,7 @@ void db_utf8_validate(MP3FILE *pmp3) {
     is_invalid |= db_utf8_validate_string(pmp3->url);
 
     if(is_invalid) {
-	DPRINTF(E_LOG,L_SCAN,"Invalid UTF-8 in %s\n",pmp3->path);
+        DPRINTF(E_LOG,L_SCAN,"Invalid UTF-8 in %s\n",pmp3->path);
     }
 }
 
@@ -919,38 +947,38 @@ int db_utf8_validate_string(char *string) {
     int retval=0;
 
     if(!string)
-	return 0;
+        return 0;
 
      while(*current) {
-	if(!((*current) & 0x80)) {
-	    current++;
-	} else {
-	    run=0;
+        if(!((*current) & 0x80)) {
+            current++;
+        } else {
+            run=0;
 
-	    /* it's a lead utf-8 character */
-	    if((*current & 0xE0) == 0xC0) run=1;
-	    if((*current & 0xF0) == 0xE0) run=2;
-	    if((*current & 0xF8) == 0xF0) run=3;
+            /* it's a lead utf-8 character */
+            if((*current & 0xE0) == 0xC0) run=1;
+            if((*current & 0xF0) == 0xE0) run=2;
+            if((*current & 0xF8) == 0xF0) run=3;
 
-	    if(!run) {
-		/* high bit set, but invalid */
-		*current++='?';
-		retval=1;
-	    } else {
-		r_current=0;
-		while((r_current != run) && (*(current + r_current + 1)) &&
-		      ((*(current + r_current + 1) & 0xC0) == 0x80)) {
-		    r_current++;
-		}
+            if(!run) {
+                /* high bit set, but invalid */
+                *current++='?';
+                retval=1;
+            } else {
+                r_current=0;
+                while((r_current != run) && (*(current + r_current + 1)) &&
+                      ((*(current + r_current + 1) & 0xC0) == 0x80)) {
+                    r_current++;
+                }
 
-		if(r_current != run) {
-		    *current++ = '?';
-		    retval=1;
-		} else {
-		    current += (1 + run);
-		}
-	    }
-	}
+                if(r_current != run) {
+                    *current++ = '?';
+                    retval=1;
+                } else {
+                    current += (1 + run);
+                }
+            }
+        }
     }
 
     return retval;
@@ -986,9 +1014,9 @@ void db_trim_strings(MP3FILE *pmp3) {
  */
 void db_trim_string(char *string) {
     if(!string)
-	return;
+        return;
 
     while(strlen(string) && (string[strlen(string) - 1] == ' '))
-	string[strlen(string) - 1] = '\0';
+        string[strlen(string) - 1] = '\0';
 }
 

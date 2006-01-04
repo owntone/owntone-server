@@ -117,7 +117,7 @@
  */
 CONFIG config; /**< Main configuration structure, as read from configfile */
 
-/* 
+/*
  * Forwards
  */
 static int daemon_start(void);
@@ -158,7 +158,7 @@ int daemon_start(void) {
     if((fd = open("/dev/null", O_RDWR, 0)) != -1) {
         dup2(fd, STDIN_FILENO);
         dup2(fd, STDOUT_FILENO);
-        dup2(fd, STDERR_FILENO); 
+        dup2(fd, STDERR_FILENO);
         if (fd > 2)
             close(fd);
     }
@@ -219,7 +219,7 @@ int drop_privs(char *user) {
         }
 
         if(pw) {
-            if(initgroups(user,pw->pw_gid) != 0 || 
+            if(initgroups(user,pw->pw_gid) != 0 ||
                setgid(pw->pw_gid) != 0 ||
                setuid(pw->pw_uid) != 0) {
                 err=errno;
@@ -353,13 +353,14 @@ int main(int argc, char *argv[]) {
     int start_time;
     int end_time;
     int rescan_counter=0;
-    int old_song_count;
+    int old_song_count, song_count;
     int force_non_root=0;
     int skip_initial=0;
     pthread_t signal_tid;
 
     int pid_fd;
     FILE *pid_fp=NULL;
+    char *perr;
 
     config.use_mdns=1;
     err_debuglevel=1;
@@ -482,8 +483,8 @@ int main(int argc, char *argv[]) {
     }
 
     /* this will require that the db be readable by the runas user */
-    if(db_open(config.dbdir))
-        DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",strerror(errno));
+    if(db_open(&perr,config.dbdir))
+        DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",perr);
 
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
@@ -529,7 +530,8 @@ int main(int argc, char *argv[]) {
 
     end_time=time(NULL);
 
-    DPRINTF(E_LOG,L_MAIN,"Scanned %d songs in  %d seconds\n",db_get_song_count(),
+    db_get_song_count(NULL,&song_count);
+    DPRINTF(E_LOG,L_MAIN,"Scanned %d songs in  %d seconds\n",song_count,
             end_time-start_time);
 
     while(!config.stop) {
@@ -543,7 +545,7 @@ int main(int argc, char *argv[]) {
         }
 
         if(config.reload) {
-            old_song_count = db_get_song_count();
+            old_song_count = song_count;
             start_time=time(NULL);
 
             DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
@@ -552,8 +554,10 @@ int main(int argc, char *argv[]) {
                 config.stop=1;
             }
             config.reload=0;
-            DPRINTF(E_INF,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in %d seconds\n",
-                    db_get_song_count(),old_song_count,time(NULL)-start_time);
+            db_get_song_count(NULL,&song_count);
+            DPRINTF(E_INF,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in "
+                    "%d seconds\n",song_count,old_song_count,
+                    time(NULL)-start_time);
         }
 
         sleep(MAIN_SLEEP_INTERVAL);

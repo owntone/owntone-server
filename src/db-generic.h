@@ -32,7 +32,7 @@ typedef enum {
     metaPersistentId,
     metaContainerItemId,
     metaParentContainerId,
-    
+
     firstTypeSpecificMetaId,
 
     // song meta data
@@ -123,7 +123,7 @@ typedef struct tag_dbqueryinfo {
 } DBQUERYINFO;
 
 typedef struct {
-    const char*	tag;
+    const char* tag;
     MetaFieldName_t bit;
 } METAMAP;
 
@@ -137,34 +137,36 @@ extern DAAP_ITEMS taglist[];
 
 extern int db_set_backend(char *type);
 
-extern int db_open(char *parameters); 
+extern int db_open(char **pe, char *parameters);
 extern int db_init(int reload);
 extern int db_deinit(void);
 
 extern int db_revision(void);
 
-extern int db_add(MP3FILE *pmp3);
+extern int db_add(char **pe, MP3FILE *pmp3);
 
-extern int db_enum_start(DBQUERYINFO *pinfo);
-extern int db_enum_size(DBQUERYINFO *pinfo, int *count);
-extern int db_enum_fetch(DBQUERYINFO *pinfo, unsigned char **pdmap);
-extern int db_enum_reset(DBQUERYINFO *pinfo);
-extern int db_enum_end(void);
+extern int db_enum_start(char **pe, DBQUERYINFO *pinfo);
+extern int db_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size);
+extern int db_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size, unsigned char **pdmap);
+extern int db_enum_reset(char **pe, DBQUERYINFO *pinfo);
+extern int db_enum_end(char **pe);
 extern int db_start_scan(void);
 extern int db_end_song_scan(void);
 extern int db_end_scan(void);
 extern int db_exists(char *path);
 extern int db_scanning(void);
 
-extern int db_add_playlist(char *name, int type, char *clause, char *path, int index, int *playlistid);
-extern int db_add_playlist_item(int playlistid, int songid);
-extern int db_edit_playlist(int id, char *name, char *clause);
-extern int db_delete_playlist(int playlistid);
-extern int db_delete_playlist_item(int playlistid, int songid);
+extern int db_add_playlist(char **pe, char *name, int type, char *clause, char *path, int index, int *playlistid);
+extern int db_add_playlist_item(char **pe, int playlistid, int songid);
+extern int db_edit_playlist(char **pe, int id, char *name, char *clause);
+extern int db_delete_playlist(char **pe, int playlistid);
+extern int db_delete_playlist_item(char **pe, int playlistid, int songid);
 
-extern MP3FILE *db_fetch_item(int id);
-extern MP3FILE *db_fetch_path(char *path, int index);
-extern M3UFILE *db_fetch_playlist(char *path, int index);
+extern void db_get_error(char **pe, int err, ...);
+
+extern MP3FILE *db_fetch_item(char **pe, int id);
+extern MP3FILE *db_fetch_path(char **pe, char *path, int index);
+extern M3UFILE *db_fetch_playlist(char **pe, char *path, int index);
 
 
 /* metatag parsing */
@@ -182,8 +184,9 @@ extern int db_dmap_add_container(unsigned char *where, char *tag, int size);
 /* Holdover functions from old db interface...
  * should these be removed?  Refactored?
  */
-extern int db_get_song_count(void); 
-extern int db_get_playlist_count(void);
+
+extern int db_get_song_count(char **pe, int *count);
+extern int db_get_playlist_count(char **pe, int *count);
 extern void db_dispose_item(MP3FILE *pmp3);
 extern void db_dispose_playlist(M3UFILE *pm3u);
 
