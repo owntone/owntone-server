@@ -136,19 +136,18 @@ int db_sqlite2_open(char **pe, char *dsn) {
     }
 
     sqlite_busy_timeout(db_sqlite2_songs,30000);  /* 30 seconds */
+    db_sqlite2_unlock();
 
-    err = db_sql_fetch_int(pe,&ver,"select value from config where term='version'");
+    err = db_sql_fetch_int(pe,&ver,"select value from config where "
+                           "term='version'");
     if(err != DB_E_SUCCESS) {
-        free(*pe);
-        /* create the table */
-        DPRINTF(E_FATAL,L_DB,"Can't create table yet!\n");
-    }
-
-    if(ver != DB_SQLITE2_VERSION) {
+        if(pe) { free(*pe); }
+        /* we'll catch this on the init */
+        DPRINTF(E_LOG,L_DB,"Can't get db version. New database?\n");
+    } else if(ver != DB_SQLITE2_VERSION) {
         DPRINTF(E_FATAL,L_DB,"Can't upgrade database!\n");
     }
 
-    db_sqlite2_unlock();
     return DB_E_SUCCESS;
 }
 
@@ -221,10 +220,11 @@ int db_sqlite2_enum_begin(char **pe, char *fmt, ...) {
         va_end(ap);
     }
 
-    DPRINTF(E_DBG,L_DB,"Executing :%s\n",db_sqlite2_enum_query);
+    DPRINTF(E_DBG,L_DB,"Executing: %s\n",db_sqlite2_enum_query);
     db_sqlite2_in_enum=1;
 
-    err=sqlite_compile(db_sqlite2_songs,db_sqlite2_enum_query,&ptail,&db_sqlite2_pvm,&perr);
+    err=sqlite_compile(db_sqlite2_songs,db_sqlite2_enum_query,
+                       &ptail,&db_sqlite2_pvm,&perr);
 
     if(err != SQLITE_OK) {
         db_get_error(pe,DB_E_SQL_ERROR,perr);
@@ -315,9 +315,9 @@ int db_sqlite2_event(int event_type) {
         break;
 
     case DB_SQL_EVENT_FULLRELOAD: /* either a fresh load or force load */
-        db_sqlite2_exec(NULL,E_DBG,"delete index idx_path");
-        db_sqlite2_exec(NULL,E_DBG,"delete index idx_songid");
-        db_sqlite2_exec(NULL,E_DBG,"delete index idx_playlistid");
+        db_sqlite2_exec(NULL,E_DBG,"drop index idx_path");
+        db_sqlite2_exec(NULL,E_DBG,"drop index idx_songid");
+        db_sqlite2_exec(NULL,E_DBG,"drop index idx_playlistid");
 
         db_sqlite2_exec(NULL,E_DBG,"drop table songs");
         db_sqlite2_exec(NULL,E_DBG,"drop table playlists");
@@ -447,7 +447,7 @@ char *db_initial =
     "   path           VARCHAR(4096),\n"
     "   idx            INTEGER NOT NULL\n"
     ");\n"
-    "insert into config values ('version','','1');\n"
+    "insert into config values ('version','','8');\n"
     "insert into playlists values (1,'Library',1,0,'1',0,'',0);\n"
     "create index idx_path on songs(path);\n"
     "create index idx_songid on playlistitems(songid);\n"

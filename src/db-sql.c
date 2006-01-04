@@ -72,7 +72,9 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
     char *query;
     va_list ap;
 
+
     db_sql_need_dispose = 0;
+    *row=NULL;
 
     va_start(ap,fmt);
     query=db_sqlite2_vmquery(fmt,ap);
@@ -80,7 +82,6 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
 
     err=db_sqlite2_enum_begin(pe,query);
     db_sqlite2_vmfree(query);
-
 
     if(err != DB_E_SUCCESS) {
         return err;
@@ -92,7 +93,7 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
         return err;
     }
 
-    if(!row) {
+    if(!(*row)) {
         db_sqlite2_enum_end(NULL);
         db_get_error(pe,DB_E_NOROWS);
         return DB_E_NOROWS;
@@ -298,7 +299,7 @@ int db_sql_delete_playlist(char **pe, int playlistid) {
 
     if(result != DB_E_SUCCESS) {
         if(result == DB_E_NOROWS) { /* Override the generic error */
-            free(*pe);
+            if(pe) { free(*pe); };
             db_get_error(pe,DB_E_INVALID_PLAYLIST);
             return DB_E_INVALID_PLAYLIST;
         }
@@ -332,7 +333,7 @@ int db_sql_delete_playlist_item(char **pe, int playlistid, int songid) {
 
     if(result != DB_E_SUCCESS) {
         if(result == DB_E_NOROWS) { /* Override generic error */
-            free(*pe);
+            if(pe) { free(*pe); };
             db_get_error(pe,DB_E_INVALID_PLAYLIST);
             return DB_E_INVALID_PLAYLIST;
         }
@@ -351,7 +352,7 @@ int db_sql_delete_playlist_item(char **pe, int playlistid, int songid) {
 
     if(result != DB_E_SUCCESS) {
         if(result == DB_E_NOROWS) { /* Override generic error */
-            free(*pe);
+            if(pe) { free(*pe); };
             db_get_error(pe,DB_E_INVALID_SONGID);
             return DB_E_INVALID_SONGID;
         }
@@ -384,7 +385,7 @@ int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
 
     if(result != DB_E_SUCCESS) {
         if(result == DB_E_NOROWS) { /* Override generic error */
-            free(*pe);
+            if(pe) { free(*pe); };
             db_get_error(pe,DB_E_INVALID_PLAYLIST);
             return DB_E_INVALID_PLAYLIST;
         }
@@ -419,7 +420,7 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
                             "upper(title)=upper('%q')",name);
 
     if(result == DB_E_NOROWS) { /* good playlist name */
-        free(*pe);
+        if(pe) { free(*pe); };
     } else {
         if(result != DB_E_SUCCESS) {
             return result;
@@ -493,7 +494,7 @@ int db_sql_add_playlist_item(char **pe, int playlistid, int songid) {
 
     if(result != DB_E_SUCCESS) {
         if(result == DB_E_NOROWS) { /* Override generic error */
-            free(*pe);
+            if(pe) { free(*pe); };
             db_get_error(pe,DB_E_INVALID_PLAYLIST);
             return DB_E_INVALID_PLAYLIST;
         }
@@ -511,7 +512,7 @@ int db_sql_add_playlist_item(char **pe, int playlistid, int songid) {
 
     if(result != DB_E_SUCCESS) {
         if(result == DB_E_NOROWS) { /* Override generic error */
-            free(*pe);
+            if(pe) { free(*pe); };
             db_get_error(pe,DB_E_INVALID_SONGID);
             return DB_E_INVALID_SONGID;
         }
@@ -1514,7 +1515,7 @@ MP3FILE *db_sql_fetch_item(char **pe, int id) {
     err=db_sql_fetch_row(pe,&row,"select * from songs where id=%d",id);
     if(err != DB_E_SUCCESS) {
         if(err == DB_E_NOROWS) { /* Override generic error */
-            free(*pe);
+            if(pe) { free(*pe); };
             db_get_error(pe,DB_E_INVALID_SONGID);
             return NULL;
         }
@@ -1549,7 +1550,7 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
     err=db_sql_fetch_row(pe,&row,"select * from songs where path='%q'",path);
     if(err != DB_E_SUCCESS) {
         if(err == DB_E_NOROWS) { /* Override generic error */
-            free(*pe);
+            if(pe) { free(*pe); };
             db_get_error(pe,DB_E_INVALID_SONGID);
             return NULL;
         }

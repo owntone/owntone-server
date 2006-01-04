@@ -389,6 +389,8 @@ void db_get_error(char **pe, int error, ...) {
     vsnprintf(errbuf, sizeof(errbuf), db_error_list[error], ap);
     va_end(ap);
 
+    DPRINTF(E_SPAM,L_MISC,"Raising error: %s\n",errbuf);
+
     *pe = strdup(errbuf);
 }
 
