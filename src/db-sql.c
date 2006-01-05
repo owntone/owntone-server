@@ -29,19 +29,22 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sqlite.h>
 
 #include "err.h"
 #include "mp3-scanner.h"
 #include "db-generic.h"
 #include "db-sql.h"
-#include "db-sql-sqlite2.h"
 #include "restart.h"
 #include "ssc.h"
 #include "smart-parser.h"
+
+#ifdef HAVE_LIBSQLITE
+#include "db-sql-sqlite2.h"
+#endif
 
 /* Globals */
 static int db_sql_reload=0;
@@ -64,6 +67,39 @@ char *db_sql_parse_smart(char *phrase);
 
 
 /**
+ * functions for the specific db backend
+ */
+int (*db_sql_open_fn)(char **pe, char *dsn) = NULL;
+int (*db_sql_close_fn)(void) = NULL;
+int (*db_sql_exec_fn)(char **pe, int loglevel, char *fmt, ...) = NULL;
+char* (*db_sql_vmquery_fn)(char *fmt,va_list ap) = NULL;
+void (*db_sql_vmfree_fn)(char *query) = NULL;
+int (*db_sql_enum_begin_fn)(char **pe, char *fmt, ...) = NULL;
+int (*db_sql_enum_fetch_fn)(char **pe, SQL_ROW *pr) = NULL;
+int (*db_sql_enum_end_fn)(char **pe) = NULL;
+int (*db_sql_enum_restart_fn)(char **pe);
+int (*db_sql_event_fn)(int event_type);
+
+
+#ifdef HAVE_LIBSQLITE
+int db_sql_open_sqlite2(char **pe, char *parameters) {
+    /* first, set our external links to sqlite2 */
+    db_sql_open_fn = db_sqlite2_open;
+    db_sql_close_fn = db_sqlite2_close;
+    db_sql_exec_fn = db_sqlite2_exec;
+    db_sql_vmquery_fn = db_sqlite2_vmquery;
+    db_sql_vmfree_fn = db_sqlite2_vmfree;
+    db_sql_enum_begin_fn = db_sqlite2_enum_begin;
+    db_sql_enum_fetch_fn = db_sqlite2_enum_fetch;
+    db_sql_enum_end_fn = db_sqlite2_enum_end;
+    db_sql_enum_restart_fn = db_sqlite2_enum_restart;
+    db_sql_event_fn = db_sqlite2_event;
+
+    return db_sql_open(pe,parameters);
+}
+#endif
+
+/**
  * fetch a single row, using the underlying database enum
  * functions
  */
@@ -77,24 +113,24 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
     *row=NULL;
 
     va_start(ap,fmt);
-    query=db_sqlite2_vmquery(fmt,ap);
+    query=db_sql_vmquery_fn(fmt,ap);
     va_end(ap);
 
-    err=db_sqlite2_enum_begin(pe,query);
-    db_sqlite2_vmfree(query);
+    err=db_sql_enum_begin_fn(pe,query);
+    db_sql_vmfree_fn(query);
 
     if(err != DB_E_SUCCESS) {
         return err;
     }
 
-    err=db_sqlite2_enum_fetch(pe, row);
+    err=db_sql_enum_fetch_fn(pe, row);
     if(err != DB_E_SUCCESS) {
-        db_sqlite2_enum_end(NULL);
+        db_sql_enum_end_fn(NULL);
         return err;
     }
 
     if(!(*row)) {
-        db_sqlite2_enum_end(NULL);
+        db_sql_enum_end_fn(NULL);
         db_get_error(pe,DB_E_NOROWS);
         return DB_E_NOROWS;
     }
@@ -110,10 +146,12 @@ int db_sql_fetch_int(char **pe, int *result, char *fmt, ...) {
     SQL_ROW row;
 
     va_start(ap,fmt);
-    query=db_sqlite2_vmquery(fmt,ap);
+    query=db_sql_vmquery_fn(fmt,ap);
     va_end(ap);
 
     err = db_sql_fetch_row(pe, &row, query);
+    db_sql_vmfree_fn(query);
+
     if(err != DB_E_SUCCESS)
         return err;
 
@@ -129,7 +167,7 @@ int db_sql_fetch_char(char **pe, char **result, char *fmt, ...) {
     SQL_ROW row;
 
     va_start(ap,fmt);
-    query=db_sqlite2_vmquery(fmt,ap);
+    query=db_sql_vmquery_fn(fmt,ap);
     va_end(ap);
 
     err = db_sql_fetch_row(pe, &row, query);
@@ -146,7 +184,7 @@ int db_sql_dispose_row(void) {
 
     /* don't really need the row */
     if(db_sql_need_dispose) {
-        err=db_sqlite2_enum_end(NULL);
+        err=db_sql_enum_end_fn(NULL);
         db_sql_need_dispose=0;
     }
 
@@ -189,7 +227,7 @@ char *db_sql_parse_smart(char *phrase) {
  * @returns DB_E_SUCCESS on success, error code otherwise
  */
 int db_sql_open(char **pe, char *parameters) {
-    return db_sqlite2_open(pe, parameters);
+    return db_sql_open_fn(pe, parameters);
 }
 
 /**
@@ -220,10 +258,10 @@ int db_sql_init(int reload) {
 
     if(reload || (!items)) {
         DPRINTF(E_LOG,L_DB,"Full reload...\n");
-        db_sqlite2_event(DB_SQL_EVENT_FULLRELOAD);
+        db_sql_event_fn(DB_SQL_EVENT_FULLRELOAD);
         db_sql_reload=1;
     } else {
-        db_sqlite2_event(DB_SQL_EVENT_STARTUP);
+        db_sql_event_fn(DB_SQL_EVENT_STARTUP);
         db_sql_reload=0;
     }
 
@@ -235,7 +273,7 @@ int db_sql_init(int reload) {
  * @returns DB_E_SUCCESS on success, error code otherwise
  */
 int db_sql_deinit(void) {
-    return db_sqlite2_close();
+    return db_sql_close_fn();
 }
 
 /**
@@ -245,7 +283,7 @@ int db_sql_deinit(void) {
  */
 int db_sql_start_scan(void) {
     DPRINTF(E_DBG,L_DB,"Starting db scan\n");
-    db_sqlite2_event(DB_SQL_EVENT_SONGSCANSTART);
+    db_sql_event_fn(DB_SQL_EVENT_SONGSCANSTART);
 
     db_sql_in_scan=1;
     db_sql_in_playlist_scan=0;
@@ -260,8 +298,8 @@ int db_sql_start_scan(void) {
 int db_sql_end_song_scan(void) {
     DPRINTF(E_DBG,L_DB,"Ending song scan\n");
 
-    db_sqlite2_event(DB_SQL_EVENT_SONGSCANEND);
-    db_sqlite2_event(DB_SQL_EVENT_PLSCANSTART);
+    db_sql_event_fn(DB_SQL_EVENT_SONGSCANEND);
+    db_sql_event_fn(DB_SQL_EVENT_PLSCANSTART);
 
     db_sql_in_scan=0;
     db_sql_in_playlist_scan=1;
@@ -275,7 +313,7 @@ int db_sql_end_song_scan(void) {
  * @returns DB_E_SUCCESS on success, error code otherwise
  */
 int db_sql_end_scan(void) {
-    db_sqlite2_event(DB_SQL_EVENT_PLSCANEND);
+    db_sql_event_fn(DB_SQL_EVENT_PLSCANEND);
 
     db_sql_update_playlists(NULL);
     db_sql_reload=0;
@@ -308,8 +346,8 @@ int db_sql_delete_playlist(char **pe, int playlistid) {
     }
 
     /* got a good playlist, now do what we need to do */
-    db_sqlite2_exec(pe,E_FATAL,"delete from playlists where id=%d",playlistid);
-    db_sqlite2_exec(pe,E_FATAL,"delete from playlistitems where playlistid=%d",playlistid);
+    db_sql_exec_fn(pe,E_FATAL,"delete from playlists where id=%d",playlistid);
+    db_sql_exec_fn(pe,E_FATAL,"delete from playlistitems where playlistid=%d",playlistid);
 
     return DB_E_SUCCESS;
 }
@@ -360,7 +398,7 @@ int db_sql_delete_playlist_item(char **pe, int playlistid, int songid) {
     }
 
     /* looks valid, so lets add the item */
-    result=db_sqlite2_exec(pe,E_DBG,"delete from playlistitems where "
+    result=db_sql_exec_fn(pe,E_DBG,"delete from playlistitems where "
                            "playlistid=%d and songid=%d",playlistid,songid);
 
     return result;
@@ -395,11 +433,11 @@ int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
     /* TODO: check for duplicate names here */
 
     if(playlist_type != PL_SMART) { /* Ignore the clause */
-        return db_sqlite2_exec(pe,E_LOG,"update playlists set title='%q' "
+        return db_sql_exec_fn(pe,E_LOG,"update playlists set title='%q' "
                                "where id=%d",name,id);
     }
 
-    return db_sqlite2_exec(pe,E_LOG,"update playlists set title='%q',"
+    return db_sql_exec_fn(pe,E_LOG,"update playlists set title='%q',"
                            "query='%q' where id=%d",name, clause, id);
 }
 
@@ -440,7 +478,7 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
     case PL_STATICWEB: /* static, maintained in web interface */
     case PL_STATICFILE: /* static, from file */
     case PL_STATICXML: /* from iTunes XML file */
-        result = db_sqlite2_exec(pe,E_LOG,"insert into playlists "
+        result = db_sql_exec_fn(pe,E_LOG,"insert into playlists "
                                  "(title,type,items,query,db_timestamp,path,idx) "
                                  "values ('%q',%d,0,NULL,%d,'%q',%d)",
                                  name,type,time(NULL),path,index);
@@ -453,7 +491,7 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
         }
         free(criteria);
 
-        result = db_sqlite2_exec(pe,E_LOG,"insert into playlists "
+        result = db_sql_exec_fn(pe,E_LOG,"insert into playlists "
                                  "(title,type,items,query,db_timestamp,idx) "
                                  "values ('%q',%d,%d,'%q',%d,0)",
                                  name,PL_SMART,cnt,clause,time(NULL));
@@ -469,7 +507,7 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
 
     if(((type==PL_STATICFILE)||(type==PL_STATICXML))
         && (db_sql_in_playlist_scan) && (!db_sql_reload)) {
-        db_sqlite2_exec(NULL,E_FATAL,"insert into plupdated values (%d)",*playlistid);
+        db_sql_exec_fn(NULL,E_FATAL,"insert into plupdated values (%d)",*playlistid);
     }
 
     return result;
@@ -520,7 +558,7 @@ int db_sql_add_playlist_item(char **pe, int playlistid, int songid) {
     }
 
     /* looks valid, so lets add the item */
-    result=db_sqlite2_exec(pe,E_DBG,"insert into playlistitems "
+    result=db_sql_exec_fn(pe,E_DBG,"insert into playlistitems "
                            "(playlistid, songid) values (%d,%d)",
                            playlistid,songid);
     return result;
@@ -559,7 +597,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3) {
     pmp3->play_count=0;
     pmp3->time_played=0;
 
-    err=db_sqlite2_exec(pe,E_DBG,"INSERT INTO songs VALUES "
+    err=db_sql_exec_fn(pe,E_DBG,"INSERT INTO songs VALUES "
                         "(NULL,"   // id
                         "'%q',"  // path
                         "'%q',"  // fname
@@ -641,7 +679,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3) {
 
     if((db_sql_in_scan)&&(!db_sql_reload)) {
         /* FIXME: this is sqlite-specific */
-        db_sqlite2_exec(NULL,E_FATAL,"insert into updated values (last_insert_rowid())");
+        db_sql_exec_fn(NULL,E_FATAL,"insert into updated values (last_insert_rowid())");
     }
 
     if((!db_sql_in_scan) && (!db_sql_in_playlist_scan))
@@ -664,7 +702,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3) {
 
     pmp3->db_timestamp = (int)time(NULL);
 
-    err=db_sqlite2_exec(pe,E_LOG,"UPDATE songs SET "
+    err=db_sql_exec_fn(pe,E_LOG,"UPDATE songs SET "
                         "title='%q',"  // title
                         "artist='%q',"  // artist
                         "album='%q',"  // album
@@ -729,7 +767,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3) {
         DPRINTF(E_FATAL,L_DB,"Error updating file: %s\n",pmp3->fname);
 
     if((db_sql_in_scan) && (!db_sql_reload)) {
-        db_sqlite2_exec(NULL,E_FATAL,"INSERT INTO updated (id) select id from songs where path='%q'",
+        db_sql_exec_fn(NULL,E_FATAL,"INSERT INTO updated (id) select id from songs where path='%q'",
                        pmp3->path);
     }
 
@@ -771,13 +809,13 @@ int db_sql_update_playlists(char **pe) {
     }
 
     /* now, let's walk through the table */
-    err = db_sqlite2_enum_begin(pe,"select * from playlists");
+    err = db_sql_enum_begin_fn(pe,"select * from playlists");
     if(err != DB_E_SUCCESS)
         return err;
 
     /* otherwise, walk the table */
     index=0;
-    while((db_sqlite2_enum_fetch(pe, &row) == DB_E_SUCCESS) && (row) &&
+    while((db_sql_enum_fetch_fn(pe, &row) == DB_E_SUCCESS) && (row) &&
           (index < playlists))
     {
         /* process row */
@@ -786,7 +824,7 @@ int db_sql_update_playlists(char **pe) {
         pinfo[index].clause=strdup(STR(row[2]));
         index++;
     }
-    db_sqlite2_enum_end(pe);
+    db_sql_enum_end_fn(pe);
     if(index != playlists) {
         DPRINTF(E_FATAL,L_DB,"Playlist count mismatch -- transaction problem?\n");
     }
@@ -796,11 +834,11 @@ int db_sql_update_playlists(char **pe) {
         if(atoi(pinfo[index].type) == 1) {
             /* smart */
             where_clause = db_sql_parse_smart(pinfo[index].clause);
-            db_sqlite2_exec(NULL,E_FATAL,"update playlists set items=("
+            db_sql_exec_fn(NULL,E_FATAL,"update playlists set items=("
                             "select count(*) from songs where %s) "
                             "where id=%s",where_clause,pinfo[index].plid);
         } else {
-            db_sqlite2_exec(NULL,E_FATAL,"update playlists set items=("
+            db_sql_exec_fn(NULL,E_FATAL,"update playlists set items=("
                             "select count(*) from playlistitems where "
                             "playlistid=%s) where id=%s",
                             pinfo[index].plid, pinfo[index].plid);
@@ -853,22 +891,22 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         break;
 
     case queryTypePlaylistItems:  /* Figure out if it's smart or dull */
-        err = db_sqlite2_enum_begin(pe, "select type,query from playlists "
+        err = db_sql_enum_begin_fn(pe, "select type,query from playlists "
                                    "where id=%d",pinfo->playlist_id);
 
         if(err != DB_E_SUCCESS)
             return err;
 
-        err = db_sqlite2_enum_fetch(pe,&temprow);
+        err = db_sql_enum_fetch_fn(pe,&temprow);
 
         if(err != DB_E_SUCCESS) {
-            db_sqlite2_enum_end(NULL);
+            db_sql_enum_end_fn(NULL);
             return err;
         }
 
         if(!temprow) { /* bad playlist */
             db_get_error(pe,DB_E_INVALID_PLAYLIST);
-            db_sqlite2_enum_end(NULL);
+            db_sql_enum_end_fn(NULL);
             return DB_E_INVALID_PLAYLIST;
         }
 
@@ -877,7 +915,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         if(is_smart) {
             where_clause=db_sql_parse_smart(temprow[1]);
             if(!where_clause) {
-                db_sqlite2_enum_end(NULL);
+                db_sql_enum_end_fn(NULL);
                 db_get_error(pe,DB_E_PARSE);
                 return DB_E_PARSE;
             }
@@ -905,7 +943,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
 #endif
         }
 
-        db_sqlite2_enum_end(NULL);
+        db_sql_enum_end_fn(NULL);
         break;
 
         /* Note that sqlite doesn't support COUNT(DISTINCT x) */
@@ -1002,7 +1040,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         strcat(query,scratch);
 
     /* start fetching... */
-    err=db_sqlite2_enum_begin(pe,query);
+    err=db_sql_enum_begin_fn(pe,query);
     return err;
 }
 
@@ -1022,7 +1060,7 @@ int db_sql_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size)
     *count=0;
     *total_size = 0;
 
-    while(((err=db_sqlite2_enum_fetch(pe,&row)) == DB_E_SUCCESS) && (row)) {
+    while(((err=db_sql_enum_fetch_fn(pe,&row)) == DB_E_SUCCESS) && (row)) {
         if((record_size = db_sql_get_size(pinfo,row))) {
             *total_size += record_size;
             *count = *count + 1;
@@ -1030,11 +1068,11 @@ int db_sql_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size)
     }
 
     if(err != DB_E_SUCCESS) {
-        db_sqlite2_enum_end(NULL);
+        db_sql_enum_end_fn(NULL);
         return err;
     }
 
-    err=db_sqlite2_enum_restart(pe);
+    err=db_sql_enum_restart_fn(pe);
 
     DPRINTF(E_DBG,L_DB,"Got size: %d\n",*total_size);
     return err;
@@ -1050,9 +1088,9 @@ int db_sql_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size, unsigned char **
     unsigned char *presult;
     SQL_ROW row;
 
-    err=db_sqlite2_enum_fetch(pe, &row);
+    err=db_sql_enum_fetch_fn(pe, &row);
     if(err != DB_E_SUCCESS) {
-        db_sqlite2_enum_end(NULL);
+        db_sql_enum_end_fn(NULL);
         return err;
     }
 
@@ -1079,7 +1117,7 @@ int db_sql_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size, unsigned char **
  * start the enum again
  */
 int db_sql_enum_reset(char **pe, DBQUERYINFO *pinfo) {
-    return db_sqlite2_enum_restart(pe);
+    return db_sql_enum_restart_fn(pe);
 }
 
 
@@ -1087,7 +1125,7 @@ int db_sql_enum_reset(char **pe, DBQUERYINFO *pinfo) {
  * stop the enum
  */
 int db_sql_enum_end(char **pe) {
-    return db_sqlite2_enum_end(pe);
+    return db_sql_enum_end_fn(pe);
 }
 
 /**
@@ -1466,20 +1504,20 @@ M3UFILE *db_sql_fetch_playlist(char **pe, char *path, int index) {
     M3UFILE *pm3u=NULL;
     SQL_ROW row;
 
-    result = db_sqlite2_enum_begin(pe,"select * from playlists where "
+    result = db_sql_enum_begin_fn(pe,"select * from playlists where "
                                    "path='%q' and idx=%d",path,index);
 
     if(result != DB_E_SUCCESS)
         return NULL;
 
-    result = db_sqlite2_enum_fetch(pe, &row);
+    result = db_sql_enum_fetch_fn(pe, &row);
     if(result != DB_E_SUCCESS) {
-        db_sqlite2_enum_end(NULL);
+        db_sql_enum_end_fn(NULL);
         return NULL;
     }
 
     if(!row) {
-        db_sqlite2_enum_end(NULL);
+        db_sql_enum_end_fn(NULL);
         db_get_error(pe,DB_E_INVALID_PLAYLIST);
         return NULL;
     }
@@ -1491,11 +1529,11 @@ M3UFILE *db_sql_fetch_playlist(char **pe, char *path, int index) {
     db_sql_build_m3ufile(row,pm3u);
 
     if((db_sql_in_playlist_scan) && (!db_sql_reload)) {
-        db_sqlite2_exec(NULL,E_FATAL,"insert into plupdated values (%d)",
+        db_sql_exec_fn(NULL,E_FATAL,"insert into plupdated values (%d)",
                         pm3u->id);
     }
 
-    db_sqlite2_enum_end(NULL);
+    db_sql_enum_end_fn(NULL);
     return pm3u;
 }
 
@@ -1531,7 +1569,7 @@ MP3FILE *db_sql_fetch_item(char **pe, int id) {
     db_sql_dispose_row();
 
     if ((db_sql_in_scan) && (!db_sql_reload)) {
-        db_sqlite2_exec(pe,E_FATAL,"INSERT INTO updated VALUES (%d)",id);
+        db_sql_exec_fn(pe,E_FATAL,"INSERT INTO updated VALUES (%d)",id);
     }
 
     return pmp3;
@@ -1566,7 +1604,7 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
     db_sql_dispose_row();
 
     if ((db_sql_in_scan) && (!db_sql_reload)) {
-        db_sqlite2_exec(pe,E_FATAL,"INSERT INTO updated VALUES (%d)",pmp3->id);
+        db_sql_exec_fn(pe,E_FATAL,"INSERT INTO updated VALUES (%d)",pmp3->id);
     }
 
     return pmp3;

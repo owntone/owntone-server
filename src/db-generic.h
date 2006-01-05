@@ -201,4 +201,13 @@ extern void db_dispose_playlist(M3UFILE *pm3u);
 #define DB_E_INVALID_SONGID          0x07 /**< bad song id */
 #define DB_E_PARSE                   0x08 /**< could not parse result */
 
+/* describes the individual database handlers */
+typedef struct tag_dbinfo {
+    char *handler_name;
+    char *description;
+    int stores_playlists;
+} DB_INFO;
+
+
+
 #endif /* _DB_GENERIC_H_ */

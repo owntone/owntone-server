@@ -71,8 +71,9 @@ typedef struct tag_db_functions {
 /** All supported backend databases, and pointers to the db specific implementations */
 DB_FUNCTIONS db_functions[] = {
     {
-        "sql",
-        db_sql_open,
+#ifdef HAVE_LIBSQLITE
+        "sqlite",
+        db_sql_open_sqlite2,
         db_sql_init,
         db_sql_deinit,
         db_sql_add,
@@ -96,6 +97,9 @@ DB_FUNCTIONS db_functions[] = {
         db_sql_dispose_item,
         db_sql_dispose_playlist
     },
+#endif
+#ifdef HAVE_LIBSQLITE3
+#endif
     { NULL,NULL }
 };
 

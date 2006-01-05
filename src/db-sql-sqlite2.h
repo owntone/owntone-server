@@ -36,7 +36,7 @@ extern int db_sqlite2_enum_fetch(char **pe, SQL_ROW *pr);
 extern int db_sqlite2_enum_end(char **pe);
 extern int db_sqlite2_enum_restart(char **pe);
 
-int db_sqlite2_event(int event_type);
+extern int db_sqlite2_event(int event_type);
 
 #endif /* _DB_SQL_SQLITE2_ */
 
