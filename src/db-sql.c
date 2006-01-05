@@ -771,7 +771,7 @@ int db_sql_update_playlists(char **pe) {
     }
 
     /* now, let's walk through the table */
-    err = db_sqlite2_enum_begin(pe,"select * from playlistitems");
+    err = db_sqlite2_enum_begin(pe,"select * from playlists");
     if(err != DB_E_SUCCESS)
         return err;
 
