@@ -32,10 +32,6 @@ AC_ARG_ENABLE(sqlite,[  --enable-sqlite         Enable the sqlite db backend],
 			*) AC_MSG_ERROR(bad value ${enableval} for --enable-sqlite);;
 			esac ])
 
-AC_ARG_ENABLE(debug,[  --enable-debug          Enable debugging features],
-		       CPPFLAGS="${CPPFLAGS} -Wall")
-AC_ARG_ENABLE(debug-memory,[  --enable-debug-memory   Enable mem leak debugging],
-			      CPPFLAGS="${CPPFLAGS} -DDEBUG_MEMORY")
 AC_ARG_ENABLE(mdns,[  --enable-mdns           Enable mDNS support],
 		      [ case "${enableval}" in
 		      yes) ;;
@@ -43,8 +39,6 @@ AC_ARG_ENABLE(mdns,[  --enable-mdns           Enable mDNS support],
 		      *) AC_MSG_ERROR(bad value ${enableval} for --disable-mdns);;
 		      esac ])
 
-AC_ARG_ENABLE(efence,[  --enable-efence         Enable electric fence],
-			LDFLAGS="${LDFLAGS} -lefence")
 AC_ARG_ENABLE(nslu2,[  --enable-nslu2          Build for NSLU2/uNSLUng], 
 		       CFLAGS="${CFLAGS} -DNSLU2")
 
