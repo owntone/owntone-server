@@ -70,7 +70,7 @@ static char db_sqlite2_path[PATH_MAX + 1];
 /* Forwards */
 void db_sqlite2_lock(void);
 void db_sqlite2_unlock(void);
-extern char *db_initial;
+extern char *db_sqlite2_initial;
 
 /**
  * lock the db_mutex
@@ -326,7 +326,7 @@ int db_sqlite2_event(int event_type) {
 
         db_sqlite2_exec(NULL,E_DBG,"vacuum");
 
-        db_sqlite2_exec(NULL,E_DBG,db_initial);
+        db_sqlite2_exec(NULL,E_DBG,db_sqlite2_initial);
         db_sqlite2_reload=1;
         break;
 
@@ -385,7 +385,7 @@ int db_sqlite2_event(int event_type) {
     return DB_E_SUCCESS;
 }
 
-char *db_initial =
+char *db_sqlite2_initial =
 "create table songs (\n"
 "   id              INTEGER PRIMARY KEY NOT NULL,\n"
 "   path            VARCHAR(4096) UNIQUE NOT NULL,\n"

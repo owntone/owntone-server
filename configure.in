@@ -17,6 +17,7 @@ AM_CONDITIONAL(COND_REND_OSX,false)
 
 rend_posix=true
 db_sqlite=true
+db_sqlite3=false
 
 STATIC_LIBS=no
 CPPFLAGS="${CPPFLAGS} -g -Wall"
@@ -30,6 +31,13 @@ AC_ARG_ENABLE(sqlite,[  --enable-sqlite         Enable the sqlite db backend],
 			yes) db_sqlite=true;;
 			no) db_sqlite=false;;
 			*) AC_MSG_ERROR(bad value ${enableval} for --enable-sqlite);;
+			esac ])
+
+AC_ARG_ENABLE(sqlite3,[  --enable-sqlite3        Enable sqlite3 db backend],
+			[ case "${enableval}" in
+			yes) db_sqlite3=true;;
+			no) db_sqlite3=false;;
+			*) AC_MSG_ERROR(bad value ${enableval} for --enable-sqlite3);;
 			esac ])
 
 AC_ARG_ENABLE(mdns,[  --enable-mdns           Enable mDNS support],
@@ -72,8 +80,13 @@ AM_CONDITIONAL(COND_OGGVORBIS, test x$use_oggvorbis = xtrue)
 AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 AM_CONDITIONAL(COND_SQLITE,test x$db_sqlite = xtrue)
+AM_CONDITIONAL(COND_SQLITE3,test x$db_sqlite3 = xtrue)
 AM_CONDITIONAL(COND_NEED_STRCASESTR,false)
 AM_CONDITIONAL(COND_NEED_STRSEP,false)
+
+if test x$db_sqlite = xtrue -o x$db_sqlite3 = xtrue; then
+   AM_CONDITIONAL(COND_SQL,true)
+fi
 
 dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
@@ -166,6 +179,19 @@ if test x$db_sqlite = xtrue; then
     LDFLAGS="${LDFLAGS} -lsqlite"
   fi
 fi
+
+if test x$db_sqlite3 = xtrue; then
+  AC_CHECK_HEADERS(sqlite3.h,, [
+   AC_MSG_ERROR([sqlite3.h not found... Must have sqlite3 headers installed])])
+  AC_CHECK_LIB(sqlite3,sqlite3_open,,echo "Must have sqlite3 libraries installed";exit)
+
+  if test x"$STATIC_LIBS" != x"no"; then
+    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libsqlite3.a"
+  else
+    LDFLAGS="${LDFLAGS} -lsqlite3"
+  fi
+fi
+
 
 if test x$use_oggvorbis = xtrue; then
   AC_CHECK_HEADERS(ogg/ogg.h,, [

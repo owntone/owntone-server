@@ -46,6 +46,10 @@
 #include "db-sql-sqlite2.h"
 #endif
 
+#ifdef HAVE_LIBSQLITE3
+#include "db-sql-sqlite3.h"
+#endif
+
 /* Globals */
 static int db_sql_reload=0;
 static int db_sql_in_playlist_scan=0;
@@ -98,6 +102,25 @@ int db_sql_open_sqlite2(char **pe, char *parameters) {
     return db_sql_open(pe,parameters);
 }
 #endif
+
+#ifdef HAVE_LIBSQLITE3
+int db_sql_open_sqlite3(char **pe, char *parameters) {
+    /* first, set our external links to sqlite2 */
+    db_sql_open_fn = db_sqlite3_open;
+    db_sql_close_fn = db_sqlite3_close;
+    db_sql_exec_fn = db_sqlite3_exec;
+    db_sql_vmquery_fn = db_sqlite3_vmquery;
+    db_sql_vmfree_fn = db_sqlite3_vmfree;
+    db_sql_enum_begin_fn = db_sqlite3_enum_begin;
+    db_sql_enum_fetch_fn = db_sqlite3_enum_fetch;
+    db_sql_enum_end_fn = db_sqlite3_enum_end;
+    db_sql_enum_restart_fn = db_sqlite3_enum_restart;
+    db_sql_event_fn = db_sqlite3_event;
+
+    return db_sql_open(pe,parameters);
+}
+#endif
+
 
 /**
  * fetch a single row, using the underlying database enum

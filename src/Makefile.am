@@ -30,8 +30,17 @@ MUSEPACKSRC=scan-mpc.c
 endif
 
 if COND_SQLITE
-SQLITEDB=db-sql.c db-sql.h db-sql-sqlite2.c db-sql-sqlite2.h
+SQLITEDB=db-sql-sqlite2.c db-sql-sqlite2.h
 endif
+
+if COND_SQLITE3
+SQLITE3DB=db-sql-sqlite3.c db-sql-sqlite3.h
+endif
+
+if COND_SQL
+SQLDB=db-sql.c db-sql.h
+endif
+
 
 wavstreamer_SOURCES = wavstreamer.c
 
@@ -44,9 +53,12 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
-	$(MUSEPACKSRC) $(SQLITEDB)
+	$(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB)
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
 	rend-howl.c rend-posix.c rend-osx.c scan-mpc.c \
-	strcasestr.h scan-ogg.c scan-flac.c dbs-sqlite.c dbs-sqlite.h
+	strcasestr.h scan-ogg.c scan-flac.c db-sql.c db-sql.h \
+	db-sql-sqlite2.h db-sql-sqlite2.c \
+	db-sql-sqlite3.h db-sql-sqlite3.c
+
