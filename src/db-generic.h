@@ -135,9 +135,7 @@ typedef struct tag_daap_items {
 
 extern DAAP_ITEMS taglist[];
 
-extern int db_set_backend(char *type);
-
-extern int db_open(char **pe, char *parameters);
+extern int db_open(char **pe, char *type, char *parameters);
 extern int db_init(int reload);
 extern int db_deinit(void);
 
@@ -200,6 +198,7 @@ extern void db_dispose_playlist(M3UFILE *pm3u);
 #define DB_E_INVALID_PLAYLIST        0x06 /**< bad playlist id */
 #define DB_E_INVALID_SONGID          0x07 /**< bad song id */
 #define DB_E_PARSE                   0x08 /**< could not parse result */
+#define DB_E_BADPROVIDER             0x09 /**< requested db backend not there */
 
 /* describes the individual database handlers */
 typedef struct tag_dbinfo {

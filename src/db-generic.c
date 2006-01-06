@@ -276,7 +276,8 @@ char *db_error_list[] = {
     "No rows returned",
     "Invalid playlist id: %d",
     "Invalid song id: %d",
-    "Parse error"
+    "Parse error",
+    "No backend database support for type: %s"
 };
 
 /* Globals */
@@ -406,34 +407,6 @@ void db_init_once(void) {
     pthread_rwlock_init(&db_rwlock,NULL);
 }
 
-
-/**
- * Set the database backend. This should show a friendly error about
- * what databse types are supported.
- *
- * \param type what database backend to use (by friendly name)
- */
-extern int db_set_backend(char *type) {
-    DPRINTF(E_DBG,L_DB,"Setting backend database to %s\n",type);
-
-    if(!db_functions[0].name) {
-        DPRINTF(E_FATAL,L_DB,"No database backends are available.  Install sqlite!\n");
-    }
-
-    db_current=&db_functions[0];
-    while((db_current->name) && (strcasecmp(db_current->name,type))) {
-        db_current++;
-    }
-
-    if(!db_current->name) {
-        DPRINTF(E_WARN,L_DB,"Could not find db backend %s.  Aborting.\n",type);
-        return -1;
-    }
-
-    DPRINTF(E_DBG,L_DB,"Backend database set\n");
-    return 0;
-}
-
 /**
  * Open the database.  This is done before we drop privs, that
  * way if the database only has root perms, then it can still
@@ -441,7 +414,7 @@ extern int db_set_backend(char *type) {
  *
  * \param parameters This is backend-specific (mysql, sqlite, etc)
  */
-int db_open(char **pe, char *parameters) {
+int db_open(char **pe, char *type, char *parameters) {
     int result;
 
     DPRINTF(E_DBG,L_DB,"Opening database\n");
@@ -449,7 +422,21 @@ int db_open(char **pe, char *parameters) {
     if(pthread_once(&db_initlock,db_init_once))
         return -1;
 
+    db_current = &db_functions[0];
+    if(type) {
+        while((db_current->name) && (strcasecmp(db_current->name,type))) {
+            db_current++;
+        }
+
+        if(!db_current->name) {
+            /* end of list -- no match */
+            db_get_error(pe,DB_E_BADPROVIDER,type);
+            return DB_E_BADPROVIDER;
+        }
+    }
+
     result=db_current->dbs_open(pe, parameters);
+
 
     DPRINTF(E_DBG,L_DB,"Results: %d\n",result);
     return result;

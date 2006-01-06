@@ -360,6 +360,7 @@ int main(int argc, char *argv[]) {
 
     int pid_fd;
     FILE *pid_fp=NULL;
+    int err;
     char *perr;
 
     config.use_mdns=1;
@@ -483,7 +484,13 @@ int main(int argc, char *argv[]) {
     }
 
     /* this will require that the db be readable by the runas user */
-    if(db_open(&perr,config.dbdir))
+    if(config.dbtype) {
+        err=db_open(&perr,config.dbtype,config.dbparms);
+    } else {
+        err=db_open(&perr,NULL,config.dbdir);
+    }
+
+    if(err)
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",perr);
 
     /* Initialize the database before starting */

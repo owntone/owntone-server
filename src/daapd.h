@@ -39,7 +39,7 @@
 typedef struct tag_stats {
     time_t start_time;          /**< When the server was started */
     int songs_served;           /**< How many songs have been served */
- 
+
     unsigned int gb_served;     /**< How many gigs of data have been served (unused) */
     unsigned int bytes_served;  /**< How many bytes of data served (unused) */
 } STATS;
@@ -73,9 +73,11 @@ typedef struct tag_config {
     char *artfilename;    /**< What filename to merge coverart with */
     char *logfile;        /**< What file to use as a logfile */
     char *compdirs;       /**< Compilations directories */
+    char *dbtype;         /**< db backend type */
+    char *dbparms;        /**< parameters for the db backend */
     char **complist;      /**< list of compilation directories */
     STATS stats;          /**< Stats structure (see above) */
-    WSHANDLE server;      /**< webserver handle */    
+    WSHANDLE server;      /**< webserver handle */
 } CONFIG;
 
 extern CONFIG config;

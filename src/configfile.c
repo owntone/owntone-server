@@ -116,11 +116,9 @@ CONFIGELEMENT config_elements[] = {
     { 1,1,0,CONFIG_TYPE_INT,"port",(void*)&config.port,config_emit_int },
     { 1,1,0,CONFIG_TYPE_STRING,"admin_pw",(void*)&config.adminpassword,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"mp3_dir",(void*)&config.mp3dir,config_emit_string },
-#ifdef WITH_GDBM
-    { 1,1,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
-#else
     { 1,0,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
-#endif
+    { 1,0,0,CONFIG_TYPE_STRING,"db_type",(void*)&config.dbtype,config_emit_string },
+    { 1,0,0,CONFIG_TYPE_STRING,"db_parms",(void*)&config.dbparms,config_emit_string },
     { 1,0,0,CONFIG_TYPE_INT,"debuglevel",(void*)&err_debuglevel,config_emit_int },
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
     { 1,0,0,CONFIG_TYPE_INT,"rescan_interval",(void*)&config.rescan_interval,config_emit_int },
