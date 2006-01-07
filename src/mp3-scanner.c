@@ -418,6 +418,7 @@ int scan_static_playlist(char *path) {
             DPRINTF(E_LOG,L_SCAN,"Error adding m3u %s: %s\n",path,perr);
             free(perr);
             db_dispose_playlist(pm3u);
+	    close(fd);
             return FALSE;
         }
         /* now get the *real* base_path */
