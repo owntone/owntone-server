@@ -404,9 +404,14 @@ int config_read(char *file) {
     free(config.mp3dir);
     config.mp3dir=strdup(path_buffer);
 
-    realpath(config.dbdir,path_buffer);
-    free(config.dbdir);
-    config.dbdir=strdup(path_buffer);
+    if(config.dbdir) {
+	DPRINTF(E_LOG,L_MISC,"You are using db_dir rather than "
+		"db_type/db_parms.  This will stop working at "
+		"some point.  Please fix your config");
+	realpath(config.dbdir,path_buffer);
+	free(config.dbdir);
+	config.dbdir=strdup(path_buffer);
+    }
 
 
     /* sanity check the paths */
@@ -433,7 +438,7 @@ int config_read(char *file) {
         return -1;
     }
 
-    if(!config_existdir(config.dbdir)) {
+    if((config.dbdir)&&(!config_existdir(config.dbdir))) {
         /* try to make it */
         if(config_makedir(config.dbdir)) {
             DPRINTF(E_LOG,L_CONF,"Database dir %s does not exist, cannot create: %s\n",
