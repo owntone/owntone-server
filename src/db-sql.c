@@ -608,7 +608,8 @@ int db_sql_add(char **pe, MP3FILE *pmp3) {
     pmp3->db_timestamp = (int)time(NULL);
 
 
-    if(!db_sql_reload) { /* if we are in a reload, then no need to check */
+    /* Always an add if in song scan on full reload */
+    if((!db_sql_reload)||(!db_sql_in_scan)) { 
         err=db_sql_fetch_int(NULL,&count,"select count(*) from songs where "
                              "path='%q'",pmp3->path);
 
