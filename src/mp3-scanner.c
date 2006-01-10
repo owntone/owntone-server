@@ -408,8 +408,11 @@ int scan_static_playlist(char *path) {
         return TRUE;
     }
 
-    if(pm3u)
-        db_delete_playlist(NULL,pm3u->id);
+    if(pm3u) {
+	DPRINTF(E_DBG,L_SCAN,"Playlist needs updated\n");
+	/* welcome to texas, y'all */
+	db_delete_playlist(NULL,pm3u->id);
+    }
 
     fd=open(path,O_RDONLY);
     if(fd != -1) {

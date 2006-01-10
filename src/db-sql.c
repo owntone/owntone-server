@@ -480,15 +480,13 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
     result=db_sql_fetch_int(pe,&cnt,"select count(*) from playlists where "
                             "upper(title)=upper('%q')",name);
 
-    if(result == DB_E_NOROWS) { /* good playlist name */
-        if(pe) { free(*pe); };
-    } else {
-        if(result != DB_E_SUCCESS) {
-            return result;
-        } else {
-            db_get_error(pe,DB_E_DUPLICATE_PLAYLIST);
-            return DB_E_DUPLICATE_PLAYLIST;
-        }
+    if(result != DB_E_SUCCESS) {
+	return result;
+    }
+
+    if(cnt != 0) { /* duplicate */
+	db_get_error(pe,DB_E_DUPLICATE_PLAYLIST,name);
+	return DB_E_DUPLICATE_PLAYLIST;
     }
 
     if((type == PL_SMART) && (!clause)) {
