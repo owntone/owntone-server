@@ -60,7 +60,7 @@ static int db_sql_need_dispose=0;
 int db_sql_get_size(DBQUERYINFO *pinfo, char **valarray);
 int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presult, int len);
 void db_sql_build_mp3file(char **valarray, MP3FILE *pmp3);
-int db_sql_update(char **pe, MP3FILE *pmp3);
+int db_sql_update(char **pe, MP3FILE *pmp3, int *id);
 int db_sql_update_playlists(char **pe);
 char *db_sql_parse_smart(char *phrase);
 
@@ -83,7 +83,7 @@ int (*db_sql_enum_fetch_fn)(char **pe, SQL_ROW *pr) = NULL;
 int (*db_sql_enum_end_fn)(char **pe) = NULL;
 int (*db_sql_enum_restart_fn)(char **pe);
 int (*db_sql_event_fn)(int event_type);
-
+int (*db_sql_insert_id_fn)(void);
 
 #ifdef HAVE_LIBSQLITE
 int db_sql_open_sqlite2(char **pe, char *parameters) {
@@ -98,6 +98,7 @@ int db_sql_open_sqlite2(char **pe, char *parameters) {
     db_sql_enum_end_fn = db_sqlite2_enum_end;
     db_sql_enum_restart_fn = db_sqlite2_enum_restart;
     db_sql_event_fn = db_sqlite2_event;
+    db_sql_insert_id_fn = db_sqlite2_insert_id;
 
     return db_sql_open(pe,parameters);
 }
@@ -116,6 +117,7 @@ int db_sql_open_sqlite3(char **pe, char *parameters) {
     db_sql_enum_end_fn = db_sqlite3_enum_end;
     db_sql_enum_restart_fn = db_sqlite3_enum_restart;
     db_sql_event_fn = db_sqlite3_event;
+    db_sql_insert_id_fn = db_sqlite3_insert_id;
 
     return db_sql_open(pe,parameters);
 }
@@ -591,9 +593,10 @@ int db_sql_add_playlist_item(char **pe, int playlistid, int songid) {
  *
  * @param pmp3 mp3 file to add
  */
-int db_sql_add(char **pe, MP3FILE *pmp3) {
+int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     int err;
     int count;
+    int insertid;
 
     DPRINTF(E_SPAM,L_DB,"Entering db_sql_add\n");
 
@@ -612,7 +615,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3) {
                              "path='%q'",pmp3->path);
 
         if((err == DB_E_SUCCESS) && (count == 1)) { /* we should update */
-            return db_sql_update(pe,pmp3);
+            return db_sql_update(pe,pmp3,id);
         }
     }
 
@@ -699,14 +702,18 @@ int db_sql_add(char **pe, MP3FILE *pmp3) {
     if(err != DB_E_SUCCESS)
         DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database\n",pmp3->fname);
 
+    insertid = db_sql_insert_id_fn();
     if((db_sql_in_scan)&&(!db_sql_reload)) {
-        /* FIXME: this is sqlite-specific */
-        db_sql_exec_fn(NULL,E_FATAL,"insert into updated values (last_insert_rowid())");
+        db_sql_exec_fn(NULL,E_FATAL,"insert into updated values (%d)",
+		       insertid);
     }
 
     if((!db_sql_in_scan) && (!db_sql_in_playlist_scan))
         db_sql_update_playlists(NULL);
 
+    if(id)
+        *id = insertid;
+        
     DPRINTF(E_SPAM,L_DB,"Exiting db_sql_add\n");
     return DB_E_SUCCESS;
 }
@@ -716,7 +723,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3) {
  *
  * @param pmp3 mp3 file to update
  */
-int db_sql_update(char **pe, MP3FILE *pmp3) {
+int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
     int err;
 
     if(!pmp3->time_modified)
@@ -788,9 +795,20 @@ int db_sql_update(char **pe, MP3FILE *pmp3) {
     if(err != DB_E_SUCCESS)
         DPRINTF(E_FATAL,L_DB,"Error updating file: %s\n",pmp3->fname);
 
+    if(id) { /* we need the insert/update id */
+        err=db_sql_fetch_int(pe,id,"select id from songs where path='%q'",pmp3->path);
+        if(err != DB_E_SUCCESS)
+            return err;
+    }
+
     if((db_sql_in_scan) && (!db_sql_reload)) {
-        db_sql_exec_fn(NULL,E_FATAL,"INSERT INTO updated (id) select id from songs where path='%q'",
-                       pmp3->path);
+        if(id) {
+            db_sql_exec_fn(NULL,E_FATAL,"insert into updated (id) values (%d)",*id);
+        } else {
+            db_sql_exec_fn(NULL,E_FATAL,"insert into updated (id) "
+                           "select id from songs where path='%q'",
+                           pmp3->path);
+        }
     }
 
     if((!db_sql_in_scan) && (!db_sql_in_playlist_scan))

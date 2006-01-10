@@ -385,6 +385,17 @@ int db_sqlite2_event(int event_type) {
     return DB_E_SUCCESS;
 }
 
+/**
+ * get the id of the last auto_update inserted item
+ *
+ * @returns autoupdate value
+ */
+ 
+int db_sqlite2_insert_id(void) {
+    return sqlite_last_insert_rowid(db_sqlite2_songs);
+}
+
+
 char *db_sqlite2_initial =
 "create table songs (\n"
 "   id              INTEGER PRIMARY KEY NOT NULL,\n"

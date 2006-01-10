@@ -38,5 +38,7 @@ extern int db_sqlite2_enum_restart(char **pe);
 
 extern int db_sqlite2_event(int event_type);
 
+extern int db_sqlite2_insert_id(void);
+
 #endif /* _DB_SQL_SQLITE2_ */
 

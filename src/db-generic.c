@@ -46,7 +46,7 @@ typedef struct tag_db_functions {
     int(*dbs_open)(char **, char *);
     int(*dbs_init)(int);
     int(*dbs_deinit)(void);
-    int(*dbs_add)(char **, MP3FILE*);
+    int(*dbs_add)(char **, MP3FILE*, int*);
     int(*dbs_add_playlist)(char **, char *, int, char *,char *, int, int *);
     int(*dbs_add_playlist_item)(char **, int, int);
     int(*dbs_delete_playlist)(char **, int);
@@ -508,13 +508,13 @@ int db_scanning(void) {
 /**
  * add (or update) a file
  */
-int db_add(char **pe, MP3FILE *pmp3) {
+int db_add(char **pe, MP3FILE *pmp3, int *id) {
     int retval;
 
     db_writelock();
     db_utf8_validate(pmp3);
     db_trim_strings(pmp3);
-    retval=db_current->dbs_add(pe,pmp3);
+    retval=db_current->dbs_add(pe,pmp3,id);
     db_revision_no++;
     db_unlock();
 

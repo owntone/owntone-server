@@ -34,7 +34,7 @@ extern int db_sql_open_sqlite3(char **pe, char *parameters);
 extern int db_sql_open(char **pe, char *parameters);
 extern int db_sql_init(int reload);
 extern int db_sql_deinit(void);
-extern int db_sql_add(char **pe, MP3FILE *pmp3);
+extern int db_sql_add(char **pe, MP3FILE *pmp3, int *id);
 extern int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo);
 extern int db_sql_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size);
 extern int db_sql_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size, unsigned char **pdmap);

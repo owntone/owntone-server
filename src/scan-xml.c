@@ -661,7 +661,7 @@ int scan_xml_tracks_section(int action, char *info) {
                     /* must add to the red-black tree */
                     scan_xml_add_lookup(current_track_id,pmp3->id);
 
-                    db_add(NULL,pmp3);
+                    db_add(NULL,pmp3,NULL);
                     db_dispose_item(pmp3);
 
                     memset((void*)&mp3,0,sizeof(MP3FILE));

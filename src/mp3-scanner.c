@@ -548,7 +548,7 @@ void scan_music_file(char *path, struct dirent *pde,
             mp3file.compilation = 1;
 
         /* FIXME: error handling */
-        db_add(NULL,&mp3file);
+        db_add(NULL,&mp3file,NULL);
     } else {
         DPRINTF(E_WARN,L_SCAN,"Skipping %s - scan failed\n",mp3file.path);
     }

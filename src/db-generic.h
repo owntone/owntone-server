@@ -141,7 +141,7 @@ extern int db_deinit(void);
 
 extern int db_revision(void);
 
-extern int db_add(char **pe, MP3FILE *pmp3);
+extern int db_add(char **pe, MP3FILE *pmp3, int *id);
 
 extern int db_enum_start(char **pe, DBQUERYINFO *pinfo);
 extern int db_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size);

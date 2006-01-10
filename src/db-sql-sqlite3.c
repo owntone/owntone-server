@@ -406,6 +406,18 @@ int db_sqlite3_event(int event_type) {
     return DB_E_SUCCESS;
 }
 
+/**
+ * get the id of the last auto_update inserted item
+ *
+ * @returns autoupdate value
+ */
+ 
+int db_sqlite3_insert_id(void) {
+    return (int)sqlite3_last_insert_rowid(db_sqlite3_songs);
+}
+
+
+
 char *db_sqlite3_initial =
 "create table songs (\n"
 "   id              INTEGER PRIMARY KEY NOT NULL,\n"
