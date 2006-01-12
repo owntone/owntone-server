@@ -145,7 +145,11 @@ int db_sqlite2_open(char **pe, char *dsn) {
         /* we'll catch this on the init */
         DPRINTF(E_LOG,L_DB,"Can't get db version. New database?\n");
     } else if(ver != DB_SQLITE2_VERSION) {
-        DPRINTF(E_FATAL,L_DB,"Can't upgrade database!\n");
+        DPRINTF(E_LOG,L_DB,"Old database version -- forcing rescan\n");
+        err=db_sqlite2_exec(pe,E_FATAL,"insert into config (term,value) values "
+                        "('rescan','1')");
+        if(err != DB_E_SUCCESS)
+            return err;
     }
 
     return DB_E_SUCCESS;
@@ -320,7 +324,8 @@ int db_sqlite2_event(int event_type) {
         db_sqlite2_exec(NULL,E_DBG,"drop index idx_playlistid");
 
         db_sqlite2_exec(NULL,E_DBG,"drop table songs");
-        db_sqlite2_exec(NULL,E_DBG,"drop table playlists");
+	//        db_sqlite2_exec(NULL,E_DBG,"drop table playlists");
+        db_sqlite2_exec(NULL,E_DBG,"delete from playlists where not type=1");
         db_sqlite2_exec(NULL,E_DBG,"drop table playlistitems");
         db_sqlite2_exec(NULL,E_DBG,"drop table config");
 
