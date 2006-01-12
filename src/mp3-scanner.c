@@ -318,7 +318,7 @@ int scan_path(char *path) {
         if(!pde)
             break;
 
-        if(pde->d_name[0] == '.') /* skip hidden and directories */
+        if(!strcmp(pde->d_name,".") || !strcmp(pde->d_name,".."))
             continue;
 
         snprintf(relative_path,PATH_MAX,"%s/%s",path,pde->d_name);
