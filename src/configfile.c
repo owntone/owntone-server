@@ -407,7 +407,7 @@ int config_read(char *file) {
     if(config.dbdir) {
 	DPRINTF(E_LOG,L_MISC,"You are using db_dir rather than "
 		"db_type/db_parms.  This will stop working at "
-		"some point.  Please fix your config");
+		"some point.  Please fix your config\n");
 	realpath(config.dbdir,path_buffer);
 	free(config.dbdir);
 	config.dbdir=strdup(path_buffer);
