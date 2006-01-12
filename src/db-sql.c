@@ -1544,36 +1544,32 @@ M3UFILE *db_sql_fetch_playlist(char **pe, char *path, int index) {
     M3UFILE *pm3u=NULL;
     SQL_ROW row;
 
-    result = db_sql_enum_begin_fn(pe,"select * from playlists where "
-                                   "path='%q' and idx=%d",path,index);
 
-    if(result != DB_E_SUCCESS)
-        return NULL;
+    result = db_sql_fetch_row(pe, &row, "select * from playlists where "
+                              "path='%q' and idx=%d",path,index);
 
-    result = db_sql_enum_fetch_fn(pe, &row);
     if(result != DB_E_SUCCESS) {
-        db_sql_enum_end_fn(NULL);
-        return NULL;
+        if(result == DB_E_NOROWS) {
+            if(pe) { free(*pe); };
+            db_get_error(pe,DB_E_INVALID_PLAYLIST);
+            return NULL;
+        }
+        
+        return NULL; /* sql error or something */
     }
-
-    if(!row) {
-        db_sql_enum_end_fn(NULL);
-        db_get_error(pe,DB_E_INVALID_PLAYLIST);
-        return NULL;
-    }
-
+        
     pm3u=(M3UFILE*)malloc(sizeof(M3UFILE));
     if(!pm3u)
         DPRINTF(E_FATAL,L_MISC,"malloc error: db_sql_fetch_playlist\n");
 
     db_sql_build_m3ufile(row,pm3u);
+    db_sql_dispose_row();
 
     if((db_sql_in_playlist_scan) && (!db_sql_reload)) {
         db_sql_exec_fn(NULL,E_FATAL,"insert into plupdated values (%d)",
                         pm3u->id);
     }
 
-    db_sql_enum_end_fn(NULL);
     return pm3u;
 }
 
