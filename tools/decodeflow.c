@@ -117,6 +117,7 @@ DAAP_ITEMS taglist[] = {
     { 0x05, "aeAI", "com.apple.iTunes.itms-artistid" },
     { 0x05, "aeSI", "com.apple.iTunes.itms-songid" },
     { 0x05, "aeSF", "com.apple.iTunes.itms-storefrontid" },
+
 	/* iTunes 5.0+ */
 	{ 0x01, "ascr", "daap.songcontentrating" },
 	{ 0x05, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* wtf - content codes says it's 1 */
@@ -129,7 +130,9 @@ DAAP_ITEMS taglist[] = {
     { 0x01, "MPTY", "org.mt-daapd.playlist-type" },
     { 0x0C, "MAPR", "org.mt-daapd.addplaylist" },
     { 0x0C, "MAPI", "org.mt-daapd.addplaylistitem" },
-
+    { 0x0C, "MDPR", "org.mt-daapd.delplaylist" },
+    { 0x0C, "MDPI", "org.mt-daapd.delplaylistitem" },
+    { 0x0C, "MEPR", "org.mt-daapd.editplaylist" },
     { 0x00, NULL,   NULL }
 };
 
