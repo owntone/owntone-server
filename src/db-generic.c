@@ -214,6 +214,7 @@ DAAP_ITEMS taglist[] = {
     { 0x0C, "arif", "daap.resolveinfo" },
     { 0x05, "aeNV", "com.apple.itunes.norm-volume" },
     { 0x01, "aeSP", "com.apple.itunes.smart-playlist" },
+
     /* iTunes 4.5+ */
     { 0x01, "msas", "dmap.authenticationschemes" },
     { 0x05, "ascd", "daap.songcodectype" },
@@ -227,6 +228,13 @@ DAAP_ITEMS taglist[] = {
     { 0x05, "aeSI", "com.apple.iTunes.itms-songid" },
     { 0x05, "aeSF", "com.apple.iTunes.itms-storefrontid" },
 
+	/* iTunes 5.0+ */
+	{ 0x01, "ascr", "daap.songcontentrating" },
+	{ 0x05, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* wtf - content codes says it's 1 */
+	
+	/* iTunes 6.0.2+ */
+	{ 0x01, "aeHV", "com.apple.itunes.has-video" },
+
     /* mt-daapd specific */
     { 0x09, "MSPS", "org.mt-daapd.smart-playlist-spec" },
     { 0x01, "MPTY", "org.mt-daapd.playlist-type" },
@@ -235,6 +243,7 @@ DAAP_ITEMS taglist[] = {
     { 0x0C, "MDPR", "org.mt-daapd.delplaylist" },
     { 0x0C, "MDPI", "org.mt-daapd.delplaylistitem" },
     { 0x0C, "MEPR", "org.mt-daapd.editplaylist" },
+
     { 0x00, NULL,   NULL }
 };
 
@@ -276,6 +285,7 @@ static METAMAP  db_metamap[] = {
     { "daap.songtracknumber",              metaSongTrackNumber },
     { "daap.songuserrating",               metaSongUserRating },
     { "daap.songyear",                     metaSongYear },
+
     /* iTunes 4.5+ (forgot exactly when) */
     { "daap.songcodectype",                metaSongCodecType },
     { "daap.songcodecsubtype",             metaSongCodecSubType },
@@ -287,9 +297,18 @@ static METAMAP  db_metamap[] = {
     { "com.apple.itunes.itms-genreid",     metaItmsGenreId },
     { "com.apple.itunes.itms-storefrontid",metaItmsStorefrontId },
     { "com.apple.itunes.smart-playlist",   metaItunesSmartPlaylist },
+    
+    /* iTunes 5.0+ */
+    { "daap.songcontentrating",            metaSongContentRating },
+    { "dmap.haschildcontainers",           metaHasChildContainers },
+    
+    /* iTunes 6.0.2+ */
+    { "com.apple.itunes.has-video",        metaItunesHasVideo },
+
     /* mt-daapd specific */
     { "org.mt-daapd.smart-playlist-spec",  metaMPlaylistSpec },
     { "org.mt-daapd.playlist-type",        metaMPlaylistType },
+
     { 0,                                   0 }
 };
 

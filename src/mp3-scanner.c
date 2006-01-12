@@ -99,6 +99,7 @@ extern int scan_get_aacinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_wavinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
+extern int scan_get_mp4info(char *filename, MP3FILE *pmp3);
 
 /* playlist scanners */
 extern int scan_xml_playlist(char *filename);
@@ -135,6 +136,7 @@ static TAGHANDLER taghandlers[] = {
     { "wma", scan_get_wmainfo, "wma", "wma", "WMA audio file" },
     { "url", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
     { "pls", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
+	{ "m4v", scan_get_mp4info, "m4v", "mp4v", "MPEG-4 video file" },
 #ifdef OGGVORBIS
     { "ogg", scan_get_ogginfo, "ogg", "ogg", "Ogg Vorbis audio file" },
 #endif

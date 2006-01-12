@@ -77,6 +77,13 @@ typedef enum {
     metaItmsGenreId,
     metaItmsStorefrontId,
     metaItunesSmartPlaylist,
+    
+    /* iTunes 5.0 + */
+    metaSongContentRating,
+    metaHasChildContainers,
+    
+    /* iTunes 6.0.2+ */
+    metaItunesHasVideo,
 
     /* mt-daapd specific */
     metaMPlaylistSpec,

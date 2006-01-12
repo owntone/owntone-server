@@ -623,7 +623,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     pmp3->time_played=0;
 
     err=db_sql_exec_fn(pe,E_DBG,"INSERT INTO songs VALUES "
-                        "(NULL,"   // id
+                        "(NULL," // id
                         "'%q',"  // path
                         "'%q',"  // fname
                         "'%q',"  // title
@@ -661,7 +661,9 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
                         "%d,"    // sample_count
                         "0,"     // force_update
                         "'%q',"  // codectype
-                        "%d)",   // index
+                        "%d,"    // index
+                        "%d,"    // has_video
+                        "%d)",   // contentrating
                         STR(pmp3->path),
                         STR(pmp3->fname),
                         STR(pmp3->title),
@@ -697,7 +699,9 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
                         pmp3->disabled,
                         pmp3->sample_count,
                         STR(pmp3->codectype),
-                        pmp3->index);
+                        pmp3->index,
+                        pmp3->has_video,
+                        pmp3->contentrating);
 
     if(err != DB_E_SUCCESS)
         DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database\n",pmp3->fname);
@@ -731,6 +735,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
 
     pmp3->db_timestamp = (int)time(NULL);
 
+	/* FIXME: this should update all fields */
     err=db_sql_exec_fn(pe,E_LOG,"UPDATE songs SET "
                         "title='%q',"  // title
                         "artist='%q',"  // artist
@@ -1327,6 +1332,14 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
         if(ISSTR(valarray[37]) && db_wantsmeta(pinfo->meta, metaSongCodecType))
             /* ascd */
             size += 12;
+            
+        if(db_wantsmeta(pinfo->meta,metaSongContentRating))
+            /* ascr */
+            size += 9;
+        if(db_wantsmeta(pinfo->meta,metaItunesHasVideo))
+        	/* aeHV */
+        	size += 9;
+        	
         return size;
         break;
 
@@ -1460,6 +1473,10 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
             current += db_dmap_add_literal(current,"ascd",valarray[37],4);
         if(db_wantsmeta(pinfo->meta, metaContainerItemId))
             current += db_dmap_add_int(current,"mcti",atoi(valarray[0]));
+        if(db_wantsmeta(pinfo->meta, metaItunesHasVideo))
+            current += db_dmap_add_char(current,"aeHV",atoi(valarray[39]));
+        if(db_wantsmeta(pinfo->meta, metaSongContentRating))
+        	current += db_dmap_add_char(current,"ascr",atoi(valarray[40]));
         return 0;
         break;
 
@@ -1532,6 +1549,8 @@ void db_sql_build_mp3file(SQL_ROW valarray, MP3FILE *pmp3) {
     pmp3->force_update=db_sql_atoi(valarray[36]);
     pmp3->codectype=db_sql_strdup(valarray[37]);
     pmp3->index=db_sql_atoi(valarray[38]);
+    pmp3->has_video=db_sql_atoi(valarray[39]);
+    pmp3->contentrating=db_sql_atoi(valarray[40]);
 }
 
 /**

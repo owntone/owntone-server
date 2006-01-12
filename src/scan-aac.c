@@ -33,7 +33,7 @@
 #include "scan-aac.h"
 
 /* Forwards */
-static time_t scan_aac_mac_to_unix_time(int t);
+time_t scan_aac_mac_to_unix_time(int t);
 
 /**
  * Convert mac time to unix time (different epochs)

@@ -71,6 +71,12 @@ typedef struct tag_mp3file {
     int force_update;
     int sample_count;
     char compilation;
+    
+    /* iTunes 5+ */
+    int contentrating;
+    
+    /* iTunes 6.0.2 */
+    int has_video;
 } MP3FILE;
 
 typedef struct tag_m3ufile {

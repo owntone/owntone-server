@@ -65,13 +65,14 @@ static char **db_sqlite3_row = NULL;
 
 static char db_sqlite3_path[PATH_MAX + 1];
 
-#define DB_SQLITE3_VERSION 8
+#define DB_SQLITE3_VERSION 9
 
 
 /* Forwards */
 void db_sqlite3_lock(void);
 void db_sqlite3_unlock(void);
-extern char *db_sqlite3_initial;
+extern char *db_sqlite3_initial1;
+extern char *db_sqlite3_initial2;
 
 /**
  * lock the db_mutex
@@ -352,7 +353,8 @@ int db_sqlite3_event(int event_type) {
 
         db_sqlite3_exec(NULL,E_DBG,"vacuum");
 
-        db_sqlite3_exec(NULL,E_DBG,db_sqlite3_initial);
+        db_sqlite3_exec(NULL,E_DBG,db_sqlite3_initial1);
+        db_sqlite3_exec(NULL,E_DBG,db_sqlite3_initial2);
         db_sqlite3_reload=1;
         break;
 
@@ -402,6 +404,7 @@ int db_sqlite3_event(int event_type) {
                                          "id from playlists)");
             db_sqlite3_exec(NULL,E_FATAL,"drop table plupdated");
         }
+        db_sqlite3_reload=0;
         break;
 
     default:
@@ -423,7 +426,7 @@ int db_sqlite3_insert_id(void) {
 
 
 
-char *db_sqlite3_initial =
+char *db_sqlite3_initial1 =
 "create table songs (\n"
 "   id              INTEGER PRIMARY KEY NOT NULL,\n"
 "   path            VARCHAR(4096) UNIQUE NOT NULL,\n"
@@ -463,18 +466,23 @@ char *db_sqlite3_initial =
 "   sample_count    INTEGER DEFAULT 0,\n"
 "   force_update    INTEGER DEFAULT 0,\n"
 "   codectype       VARCHAR(5) DEFAULT NULL,\n"
-"   idx             INTEGER NOT NULL\n"
-");\n"
-"create table config (\n"
-"   term            VARCHAR(255)    NOT NULL,\n"
-"   subterm         VARCHAR(255)    DEFAULT NULL,\n"
-"   value           VARCHAR(1024)   NOT NULL\n"
+"   idx             INTEGER NOT NULL,\n"
+"   has_video       INTEGER DEFAULT 0,\n"
+"   contentrating   INTEGER DEFAULT 0\n"
 ");\n"
 "create table playlistitems (\n"
 "   id             INTEGER PRIMARY KEY NOT NULL,\n"
 "   playlistid     INTEGER NOT NULL,\n"
 "   songid         INTEGER NOT NULL\n"
 ");\n"
+"create table config (\n"
+"   term            VARCHAR(255)    NOT NULL,\n"
+"   subterm         VARCHAR(255)    DEFAULT NULL,\n"
+"   value           VARCHAR(1024)   NOT NULL\n"
+");\n"
+"insert into config values ('version','','9');\n";
+
+char *db_sqlite3_initial2 =
 "create table playlists (\n"
 "   id             INTEGER PRIMARY KEY NOT NULL,\n"
 "   title          VARCHAR(255) NOT NULL,\n"
@@ -485,7 +493,6 @@ char *db_sqlite3_initial =
 "   path           VARCHAR(4096),\n"
 "   idx            INTEGER NOT NULL\n"
 ");\n"
-"insert into config values ('version','','8');\n"
 "insert into playlists values (1,'Library',1,0,'1',0,'',0);\n";
 
 
