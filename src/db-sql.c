@@ -141,7 +141,7 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
     query=db_sql_vmquery_fn(fmt,ap);
     va_end(ap);
 
-    err=db_sql_enum_begin_fn(pe,query);
+    err=db_sql_enum_begin_fn(pe,"%s",query);
     db_sql_vmfree_fn(query);
 
     if(err != DB_E_SUCCESS) {
@@ -174,7 +174,7 @@ int db_sql_fetch_int(char **pe, int *result, char *fmt, ...) {
     query=db_sql_vmquery_fn(fmt,ap);
     va_end(ap);
 
-    err = db_sql_fetch_row(pe, &row, query);
+    err = db_sql_fetch_row(pe, &row, "%s", query);
     db_sql_vmfree_fn(query);
 
     if(err != DB_E_SUCCESS)
@@ -195,7 +195,7 @@ int db_sql_fetch_char(char **pe, char **result, char *fmt, ...) {
     query=db_sql_vmquery_fn(fmt,ap);
     va_end(ap);
 
-    err = db_sql_fetch_row(pe, &row, query);
+    err = db_sql_fetch_row(pe, &row, "%s", query);
     if(err != DB_E_SUCCESS)
         return err;
 
@@ -616,7 +616,11 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
 
         if((err == DB_E_SUCCESS) && (count == 1)) { /* we should update */
             return db_sql_update(pe,pmp3,id);
+        } else if((err != DB_E_SUCCESS) && (err != DB_E_NOROWS)) {
+            DPRINTF(E_LOG,L_DB,"Error: %s\n",pe);
+            return err;
         }
+        
     }
 
     pmp3->play_count=0;
