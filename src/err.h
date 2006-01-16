@@ -58,6 +58,11 @@
 #define L_PARSE   0x00004000 /**< smart playlist parser */
 #define L_MISC    0x80000000 /**< anything else */
 
+#ifndef TRUE
+# define TRUE 1
+# define FALSE 0
+#endif
+
 extern int err_debuglevel;
 
 extern void err_log(int level, unsigned int cat, char *fmt, ...);
