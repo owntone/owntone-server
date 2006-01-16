@@ -109,6 +109,7 @@ Phil Packer
 
 Diego Penneno
  * Patches for multiple PID files to facilitate gentoo init scripts
+ * configure patches
  
 Patrick Kolla
  * Popup "wizard" for smart playlists
