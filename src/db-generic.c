@@ -321,7 +321,7 @@ char *db_error_list[] = {
     "No rows returned",
     "Invalid playlist id: %d",
     "Invalid song id: %d",
-    "Parse error",
+    "Parse error: %s",
     "No backend database support for type: %s"
 };
 
