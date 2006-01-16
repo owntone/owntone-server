@@ -60,7 +60,7 @@ static void dispatch_deleteplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
 static void dispatch_logout(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
-
+static void dispatch_error(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *container, char *error);
 static int dispatch_output_start(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, int content_length);
 static int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *block, int len);
 static int dispatch_output_end(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
@@ -938,11 +938,12 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char *name, *query;
     int type;
     int retval, playlistid;
+    char *estring = NULL;
 
     if((!ws_getvar(pwsc,"org.mt-daapd.playlist-type")) ||
        (!ws_getvar(pwsc,"dmap.itemname"))) {
         DPRINTF(E_LOG,L_DAAP,"attempt to add playlist with invalid type\n");
-        ws_returnerror(pwsc,500,"bad playlist info specified");
+        dispatch_error(pwsc,pqi,"MAPR","bad playlist info specified");
         return;
     }
 
@@ -950,11 +951,11 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     name=ws_getvar(pwsc,"dmap.itemname");
     query=ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
 
-    /* FIXME: Error handling */
-    retval=db_add_playlist(NULL,name,type,query,NULL,0,&playlistid);
+    retval=db_add_playlist(&estring,name,type,query,NULL,0,&playlistid);
     if(retval != DB_E_SUCCESS) {
-        DPRINTF(E_LOG,L_DAAP,"error adding playlist.  aborting\n");
-        ws_returnerror(pwsc,500,"error adding playlist");
+        dispatch_error(pwsc,pqi,"MAPR",estring);
+        DPRINTF(E_LOG,L_DAAP,"error adding playlist %s: %s\n",name,estring);
+        free(estring);
         return;
     }
 
@@ -968,7 +969,6 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_end(pwsc,pqi);
 
     pwsc->close=1;
-
     return;
 }
 
@@ -1433,4 +1433,34 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     return;
 }
+
+/**
+ * throw out an error, xml style.  This throws  out a dmap block, but with a
+ * mstt of 500, and a msts as specified
+ */
+void dispatch_error(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *container, char *error) {
+    unsigned char *block, *current;
+    int len;
+    
+    len = 12 + 8 + 8 + strlen(error);
+    block = (unsigned char *)malloc(len);
+    
+    if(!block)
+        DPRINTF(E_FATAL,L_DAAP,"Malloc error\n");
+    
+    current = block;
+    current += db_dmap_add_container(current,container,len - 8);
+    current += db_dmap_add_int(current,"mstt",500);
+    current += db_dmap_add_string(current,"msts",error);
+    
+    dispatch_output_start(pwsc,pqi,len);
+    dispatch_output_write(pwsc,pqi,block,len);
+    dispatch_output_end(pwsc,pqi);
+    
+    free(block);
+    
+    pwsc->close=1;
+}
+
+
 

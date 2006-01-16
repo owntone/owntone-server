@@ -62,8 +62,7 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
 void db_sql_build_mp3file(char **valarray, MP3FILE *pmp3);
 int db_sql_update(char **pe, MP3FILE *pmp3, int *id);
 int db_sql_update_playlists(char **pe);
-char *db_sql_parse_smart(char *phrase);
-
+int db_sql_parse_smart(char **pe, char **clause, char *phrase);
 
 #define STR(a) (a) ? (a) : ""
 #define ISSTR(a) ((a) && strlen((a)))
@@ -223,29 +222,35 @@ int db_sql_dispose_row(void) {
  * @param phrase playlist spec to be converted
  * @returns sql where clause if successful, NULL otherwise
  */
-char *db_sql_parse_smart(char *phrase) {
+int db_sql_parse_smart(char **pe, char **clause, char *phrase) {
     PARSETREE pt;
-    char *result = NULL;
 
-    if(strcmp(phrase,"1") == 0)
-        return strdup("1");
-
-    pt=sp_init();
-    if(!pt)
-        return NULL;
-
-    if(!sp_parse(pt,phrase)) {
-        DPRINTF(E_LOG,L_DB,"Error parsing smart playlist: %s\n",sp_get_error(pt));
-        sp_dispose(pt);
-        return strdup("0");
-    } else {
-        result = sp_sql_clause(pt);
+    if(strcmp(phrase,"1") == 0) {
+        *clause = strdup("1");
+        return TRUE;
     }
-
+    
+    pt=sp_init();
+    if(!pt) {
+        if(pe) *pe = strdup("Could not initialize parse tree");
+        return FALSE;
+    }
+    
+    if(!sp_parse(pt,phrase)) {
+        if(pe) *pe = strdup(sp_get_error(pt));
+	
+        DPRINTF(E_LOG,L_DB,"Error parsing playlist: %s\n",sp_get_error(pt));
+	
+        sp_dispose(pt);
+        return FALSE;
+    } else {
+        *clause = sp_sql_clause(pt);
+    }
+    
     sp_dispose(pt);
-    return result;
+    return TRUE;
 }
-
+ 
 /**
  * open sqlite database
  *
@@ -478,17 +483,18 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
     int cnt=0;
     int result=DB_E_SUCCESS;
     char *criteria;
+    char *estring;
 
     result=db_sql_fetch_int(pe,&cnt,"select count(*) from playlists where "
                             "upper(title)=upper('%q')",name);
 
     if(result != DB_E_SUCCESS) {
-	return result;
+        return result;
     }
 
     if(cnt != 0) { /* duplicate */
-	db_get_error(pe,DB_E_DUPLICATE_PLAYLIST,name);
-	return DB_E_DUPLICATE_PLAYLIST;
+        db_get_error(pe,DB_E_DUPLICATE_PLAYLIST,name);
+        return DB_E_DUPLICATE_PLAYLIST;
     }
 
     if((type == PL_SMART) && (!clause)) {
@@ -507,9 +513,9 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
                                  name,type,time(NULL),path,index);
         break;
     case PL_SMART: /* smart */
-        criteria = db_sql_parse_smart(clause);
-        if(!criteria) {
-            db_get_error(pe,DB_E_PARSE);
+        if(!db_sql_parse_smart(&estring,&criteria,clause)) {
+            db_get_error(pe,DB_E_PARSE,estring);
+            free(estring);
             return DB_E_PARSE;
         }
         free(criteria);
@@ -713,7 +719,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     insertid = db_sql_insert_id_fn();
     if((db_sql_in_scan)&&(!db_sql_reload)) {
         db_sql_exec_fn(NULL,E_FATAL,"insert into updated values (%d)",
-		       insertid);
+                       insertid);
     }
 
     if((!db_sql_in_scan) && (!db_sql_in_playlist_scan))
@@ -739,7 +745,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
 
     pmp3->db_timestamp = (int)time(NULL);
 
-	/* FIXME: this should update all fields */
+        /* FIXME: this should update all fields */
     err=db_sql_exec_fn(pe,E_LOG,"UPDATE songs SET "
                         "title='%q',"  // title
                         "artist='%q',"  // artist
@@ -882,10 +888,14 @@ int db_sql_update_playlists(char **pe) {
     for(index=0;index < playlists; index++) {
         if(atoi(pinfo[index].type) == 1) {
             /* smart */
-            where_clause = db_sql_parse_smart(pinfo[index].clause);
+            if(!db_sql_parse_smart(NULL,&where_clause,pinfo[index].clause)) {
+                DPRINTF(E_LOG,L_DB,"Playlist %d bad syntax",pinfo[index].plid);
+                where_clause = strdup("0");
+            }
             db_sql_exec_fn(NULL,E_FATAL,"update playlists set items=("
                             "select count(*) from songs where %s) "
                             "where id=%s",where_clause,pinfo[index].plid);
+            free(where_clause);
         } else {
             db_sql_exec_fn(NULL,E_FATAL,"update playlists set items=("
                             "select count(*) from playlistitems where "
@@ -962,12 +972,15 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         is_smart=(atoi(temprow[0]) == 1);
         have_clause=1;
         if(is_smart) {
-            where_clause=db_sql_parse_smart(temprow[1]);
+            if(!db_sql_parse_smart(NULL,&where_clause,temprow[1]))
+                where_clause = strdup("0");
+                
             if(!where_clause) {
                 db_sql_enum_end_fn(NULL);
                 db_get_error(pe,DB_E_PARSE);
                 return DB_E_PARSE;
             }
+            
             sprintf(query_select,"SELECT * FROM songs ");
             sprintf(query_count,"SELECT COUNT(id) FROM songs ");
             sprintf(query_rest,"WHERE (%s)",where_clause);
@@ -1341,9 +1354,9 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
             /* ascr */
             size += 9;
         if(db_wantsmeta(pinfo->meta,metaItunesHasVideo))
-        	/* aeHV */
-        	size += 9;
-        	
+                /* aeHV */
+                size += 9;
+                
         return size;
         break;
 
@@ -1480,7 +1493,7 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
         if(db_wantsmeta(pinfo->meta, metaItunesHasVideo))
             current += db_dmap_add_char(current,"aeHV",atoi(valarray[39]));
         if(db_wantsmeta(pinfo->meta, metaSongContentRating))
-        	current += db_dmap_add_char(current,"ascr",atoi(valarray[40]));
+                current += db_dmap_add_char(current,"ascr",atoi(valarray[40]));
         return 0;
         break;
 
