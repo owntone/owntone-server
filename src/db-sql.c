@@ -235,7 +235,7 @@ char *db_sql_parse_smart(char *phrase) {
         return NULL;
 
     if(!sp_parse(pt,phrase)) {
-        DPRINTF(E_LOG,L_DB,"Error parsing smart playlist: %s",sp_get_error(pt));
+        DPRINTF(E_LOG,L_DB,"Error parsing smart playlist: %s\n",sp_get_error(pt));
         sp_dispose(pt);
         return strdup("0");
     } else {
