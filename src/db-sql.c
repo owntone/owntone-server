@@ -1050,7 +1050,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
             strcat(scratch,")");
 
 
-        err = db_sql_fetch_int(pe,&results,scratch);
+        err = db_sql_fetch_int(pe,&results,"%s",scratch);
         if(err != DB_E_SUCCESS)
             return err;
 
@@ -1089,7 +1089,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         strcat(query,scratch);
 
     /* start fetching... */
-    err=db_sql_enum_begin_fn(pe,query);
+    err=db_sql_enum_begin_fn(pe,"%s",query);
     return err;
 }
 

@@ -23,8 +23,8 @@ STATIC_LIBS=no
 CPPFLAGS="${CPPFLAGS} -g -Wall"
 
 dnl fix freebsd's broken (?) libpthread
-AC_CHECK_LIB(c_r,pthread_creat,LDFLAGS="${LDFLAGS} -lc_r", [
-  AC_CHECK_LIB(pthread,pthread_create,LDFLAGS="${LDFLAGS} -lpthread") ])
+AC_CHECK_LIB(c_r,pthread_creat,LIBS="${LIBS} -lc_r", [
+  AC_CHECK_LIB(pthread,pthread_create,LIBS="${LIBS} -lpthread") ])
 
 AC_ARG_ENABLE(sqlite,[  --enable-sqlite         Enable the sqlite db backend],
 			[ case "${enableval}" in
@@ -52,7 +52,7 @@ AC_ARG_ENABLE(nslu2,[  --enable-nslu2          Build for NSLU2/uNSLUng],
 
 AC_ARG_ENABLE(howl,[  --enable-howl       Use howl 0.9.2 or later],
 		      [ case "${enableval}" in
-                        yes) rend_howl=true; rend_posix=false; LDFLAGS="${LDFLAGS} -lhowl";
+                        yes) rend_howl=true; rend_posix=false; LIBS="${LIBS} -lhowl";
 			CPPFLAGS="${CPPFLAGS} -DWITH_HOWL";;
 		        no)  rend_howl=false;;
 		        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-howl);;
@@ -101,7 +101,7 @@ case $host in
 	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN -D_XPG4_2"
 	CPPFLAGS="$CPPFLAGS -D__EXTENSIONS__ -DHAVE_BROKEN_RECVIF_NAME"
 	CPPFLAGS="$CPPFLAGS -D_POSIX_PTHREAD_SEMANTICS"
-	LDFLAGS="$LDFLAGS -lnsl -lsocket";;	
+	LIBS="${LIBS} -lnsl -lsocket";;	
 *freebsd*)
 	CPPFLAGS="$CPPFLAGS -DFREEBSD";;
 *linux*)
@@ -162,9 +162,9 @@ CFLAGS="$CFLAGS -lz"
 AC_CHECK_LIB(id3tag,id3_file_open,,echo "no libid3tag. Try --with-id3tag=dir";exit)
 
 if test "$STATIC_LIBS" != "no"; then
-  LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libid3tag.a -lz"
+  LIBS="${LIBS} ${STATIC_LIBS}/libid3tag.a -lz"
 else
-  LDFLAGS="${LDFLAGS} -lid3tag -lz"
+  LIBS="${LIBS} -lid3tag -lz"
 fi
 CFLAGS=$oldcflags
 
@@ -174,9 +174,9 @@ if test x$db_sqlite = xtrue; then
   AC_CHECK_LIB(sqlite,sqlite_open,,echo "Must have sqlite libraries installed";exit)
 
   if test x"$STATIC_LIBS" != x"no"; then
-    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libsqlite.a"
+    LIBS="${LIBS} ${STATIC_LIBS}/libsqlite.a"
   else
-    LDFLAGS="${LDFLAGS} -lsqlite"
+    LIBS="${LIBS} -lsqlite"
   fi
 fi
 
@@ -186,9 +186,9 @@ if test x$db_sqlite3 = xtrue; then
   AC_CHECK_LIB(sqlite3,sqlite3_open,,echo "Must have sqlite3 libraries installed";exit)
 
   if test x"$STATIC_LIBS" != x"no"; then
-    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libsqlite3.a"
+    LIBS="${LIBS} ${STATIC_LIBS}/libsqlite3.a"
   else
-    LDFLAGS="${LDFLAGS} -lsqlite3"
+    LIBS="${LIBS} -lsqlite3"
   fi
 fi
 
@@ -199,9 +199,9 @@ if test x$use_oggvorbis = xtrue; then
   AC_CHECK_LIB(ogg,ogg_sync_init,,echo "Must have libogg for Ogg/Vorbis support";exit)
 
   if test x"$STATIC_LIBS" != x"no"; then
-    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libogg.a"
+    LIBS="${LIBS} ${STATIC_LIBS}/libogg.a"
   else
-    LDFLAGS="${LDFLAGS} -logg"
+    LIBS="${LIBS} -logg"
   fi
 
   AC_CHECK_HEADERS(vorbis/codec.h,, [
@@ -209,16 +209,16 @@ if test x$use_oggvorbis = xtrue; then
   AC_CHECK_LIB(vorbis,vorbis_info_init,,echo "Must have libvorbis for Ogg/Vorbis support";exit)
 
   if test x"$STATIC_LIBS" != x"no"; then
-    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libvorbis.a"
+    LIBS="${LIBS} ${STATIC_LIBS}/libvorbis.a"
   else
-    LDFLAGS="${LDFLAGS} -lvorbis"
+    LIBS="${LIBS} -lvorbis"
   fi
 
   AC_CHECK_LIB(vorbisfile,ov_open,,echo "Must have libvorbisfile for Ogg/Vorbis support";exit)
   if test x"$STATIC_LIBS" != x"no"; then
-    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libvorbisfile.a"
+    LIBS="${LIBS} ${STATIC_LIBS}/libvorbisfile.a"
   else
-    LDFLAGS="${LDFLAGS} -lvorbisfile"
+    LIBS="${LIBS} -lvorbisfile"
   fi
 fi
 
@@ -228,9 +228,9 @@ if test x$use_flac = xtrue; then
   AC_CHECK_LIB(FLAC,FLAC__metadata_chain_read,,echo "Must have libFLAC for FLAC support";exit)
 
   if test x"$STATIC_LIBS" != x"no"; then
-    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libFLAC.a"
+    LIBS="${LIBS} ${STATIC_LIBS}/libFLAC.a"
   else
-    LDFLAGS="${LDFLAGS} -lFLAC"
+    LIBS="${LIBS} -lFLAC"
   fi
 fi
 
@@ -246,9 +246,9 @@ dnl        AC_MSG_ERROR(['Taglib C bindings are not installed'])
 dnl  fi
 
   if test x"$STATIC_LIBS" != x"no"; then
-    LDFLAGS="${LDFLAGS} ${STATIC_LIBS}/libtag_c.a"
+    LIBS="${LIBS} ${STATIC_LIBS}/libtag_c.a"
   else
-    LDFLAGS="${LDFLAGS} -ltag_c"
+    LIBS="${LIBS} -ltag_c"
   fi
 fi
 
