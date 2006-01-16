@@ -16,7 +16,7 @@ AC_CANONICAL_HOST
 AM_CONDITIONAL(COND_REND_OSX,false)
 
 rend_posix=true
-db_sqlite=true
+db_sqlite=false
 db_sqlite3=false
 
 STATIC_LIBS=no
@@ -86,6 +86,11 @@ AM_CONDITIONAL(COND_NEED_STRSEP,false)
 
 if test x$db_sqlite = xtrue -o x$db_sqlite3 = xtrue; then
    AM_CONDITIONAL(COND_SQL,true)
+fi
+
+if test x$db_sqlite = xfalse -a x$db_sqlite3 = xfalse; then
+    echo "Must use either --enable-sqlite or --enable-sqlite3"
+    exit;
 fi
 
 dnl Darwin's stupid cpp preprocessor....

@@ -31,7 +31,40 @@ function pl_errormsg(msg) {
     }
 }
 
-function pl_displayresults(xmldoc) {
+function pl_displayresults(xmldoc,query) {
+    var status_string;
+    var status;
+    
+    if(!xmldoc) {
+        pl_errormsg("No xmldoc!");
+        return;
+    }
+    
+    if(!xmldoc.getElementsByTagName("dmap.status")) {
+        pl_errormsg("No dmap.status??");
+        return;
+    }
+
+    status = xmldoc.getElementsByTagName("dmap.status")[0].firstChild.nodeValue;
+    
+    if(!status)
+        return;
+
+    status = status * 1;
+    
+    if(status != 200) {
+        status_string = "Error " + status + ": ";
+    
+        if(xmldoc.getElementsByTagName("dmap.statusstring")) {
+            status_string = status_string + xmldoc.getElementsByTagName("dmap.statusstring")[0].firstChild.nodeValue;
+        } else {
+            status_string = status_string + "Unspecified error";
+        }
+    
+        pl_errormsg(status_string);
+    } else {
+        pl_errormsg("Success");
+    }
 }
 
 function pl_update() {
@@ -50,7 +83,9 @@ function pl_update() {
         var url='/databases/1/containers/edit?output=xml&dmap.itemid=' + id + '&dmap.itemname=' + name + '&org.mt-daapd.smart-playlist-spec=' + spec;
         result = pl_exec(url,false);
     }
-    
+
+    pl_displayresults(req.responseXML);
+
     init();
     pl_editor_state(false);   
 }
