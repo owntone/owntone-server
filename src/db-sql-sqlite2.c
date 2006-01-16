@@ -256,7 +256,7 @@ int db_sqlite2_enum_begin(char **pe, char *fmt, ...) {
  */
 int db_sqlite2_enum_fetch(char **pe, SQL_ROW *pr) {
     int err;
-    char *perr=NULL;;
+    char *perr=NULL;
     const char **colarray;
     int cols;
     int counter=10;
