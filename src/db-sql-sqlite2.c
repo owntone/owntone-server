@@ -60,7 +60,6 @@ static pthread_mutex_t db_sqlite2_mutex = PTHREAD_MUTEX_INITIALIZER; /**< sqlite
 static sqlite_vm *db_sqlite2_pvm;
 static int db_sqlite2_reload=0;
 static char *db_sqlite2_enum_query;
-static int db_sqlite2_in_enum=0;
 
 static char db_sqlite2_path[PATH_MAX + 1];
 
@@ -72,6 +71,7 @@ void db_sqlite2_lock(void);
 void db_sqlite2_unlock(void);
 extern char *db_sqlite2_initial1;
 extern char *db_sqlite2_initial2;
+int db_sqlite2_enum_begin_helper(char **pe);
 
 /**
  * lock the db_mutex
@@ -214,19 +214,21 @@ int db_sqlite2_exec(char **pe, int loglevel, char *fmt, ...) {
  */
 int db_sqlite2_enum_begin(char **pe, char *fmt, ...) {
     va_list ap;
+
+    va_start(ap, fmt);
+    db_sqlite2_lock();
+    db_sqlite2_enum_query = sqlite_vmprintf(fmt,ap);
+    va_end(ap);
+
+    return db_sqlite2_enum_begin_helper(pe);
+}
+
+int db_sqlite2_enum_begin_helper(char **pe) {
     int err;
     char *perr;
     const char *ptail;
 
-    if(!db_sqlite2_in_enum) {
-        va_start(ap, fmt);
-        db_sqlite2_lock();
-        db_sqlite2_enum_query = sqlite_vmprintf(fmt,ap);
-        va_end(ap);
-    }
-
     DPRINTF(E_DBG,L_DB,"Executing: %s\n",db_sqlite2_enum_query);
-    db_sqlite2_in_enum=1;
 
     err=sqlite_compile(db_sqlite2_songs,db_sqlite2_enum_query,
                        &ptail,&db_sqlite2_pvm,&perr);
@@ -234,7 +236,6 @@ int db_sqlite2_enum_begin(char **pe, char *fmt, ...) {
     if(err != SQLITE_OK) {
         db_get_error(pe,DB_E_SQL_ERROR,perr);
         sqlite_freemem(perr);
-        db_sqlite2_in_enum=0;
         db_sqlite2_unlock();
         sqlite_freemem(db_sqlite2_enum_query);
         return DB_E_SQL_ERROR;
@@ -243,6 +244,7 @@ int db_sqlite2_enum_begin(char **pe, char *fmt, ...) {
     /* otherwise, we leave the db locked while we walk through the enums */
     return DB_E_SUCCESS;
 }
+
 
 /**
  * fetch the next row
@@ -288,7 +290,6 @@ int db_sqlite2_enum_end(char **pe) {
     int err;
     char *perr;
 
-    db_sqlite2_in_enum=0;
     sqlite_freemem(db_sqlite2_enum_query);
 
     err = sqlite_finalize(db_sqlite2_pvm,&perr);
@@ -307,7 +308,7 @@ int db_sqlite2_enum_end(char **pe) {
  * restart the enumeration
  */
 int db_sqlite2_enum_restart(char **pe) {
-    return db_sqlite2_enum_begin(pe,NULL);
+    return db_sqlite2_enum_begin_helper(pe);
 }
 
 
@@ -325,7 +326,7 @@ int db_sqlite2_event(int event_type) {
         db_sqlite2_exec(NULL,E_DBG,"drop index idx_playlistid");
 
         db_sqlite2_exec(NULL,E_DBG,"drop table songs");
-	//        db_sqlite2_exec(NULL,E_DBG,"drop table playlists");
+        //        db_sqlite2_exec(NULL,E_DBG,"drop table playlists");
         db_sqlite2_exec(NULL,E_DBG,"delete from playlists where not type=1");
         db_sqlite2_exec(NULL,E_DBG,"drop table playlistitems");
         db_sqlite2_exec(NULL,E_DBG,"drop table config");
@@ -399,7 +400,7 @@ int db_sqlite2_event(int event_type) {
  *
  * @returns autoupdate value
  */
- 
+
 int db_sqlite2_insert_id(void) {
     return sqlite_last_insert_rowid(db_sqlite2_songs);
 }

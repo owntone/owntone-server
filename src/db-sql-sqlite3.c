@@ -60,7 +60,6 @@ static pthread_mutex_t db_sqlite3_mutex = PTHREAD_MUTEX_INITIALIZER; /**< sqlite
 static sqlite3_stmt *db_sqlite3_stmt;
 static int db_sqlite3_reload=0;
 static char *db_sqlite3_enum_query;
-static int db_sqlite3_in_enum=0;
 static char **db_sqlite3_row = NULL;
 
 static char db_sqlite3_path[PATH_MAX + 1];
@@ -73,6 +72,7 @@ void db_sqlite3_lock(void);
 void db_sqlite3_unlock(void);
 extern char *db_sqlite3_initial1;
 extern char *db_sqlite3_initial2;
+int db_sqlite3_enum_begin_helper(char **pe);
 
 /**
  * lock the db_mutex
@@ -212,25 +212,25 @@ int db_sqlite3_exec(char **pe, int loglevel, char *fmt, ...) {
  */
 int db_sqlite3_enum_begin(char **pe, char *fmt, ...) {
     va_list ap;
+
+    db_sqlite3_lock();
+    va_start(ap, fmt);
+    db_sqlite3_enum_query = sqlite3_vmprintf(fmt,ap);
+    va_end(ap);
+
+    return db_sqlite3_enum_begin_helper(pe);
+}
+
+int db_sqlite3_enum_begin_helper(char **pe) {
     int err;
     const char *ptail;
 
-    if(!db_sqlite3_in_enum) {
-        va_start(ap, fmt);
-        db_sqlite3_lock();
-        db_sqlite3_enum_query = sqlite3_vmprintf(fmt,ap);
-        va_end(ap);
-    }
-
     DPRINTF(E_DBG,L_DB,"Executing: %s\n",db_sqlite3_enum_query);
-    db_sqlite3_in_enum=1;
-
     err=sqlite3_prepare(db_sqlite3_songs,db_sqlite3_enum_query,0,
                         &db_sqlite3_stmt,&ptail);
 
     if(err != SQLITE_OK) {
         db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
-        db_sqlite3_in_enum=0;
         db_sqlite3_unlock();
         sqlite3_free(db_sqlite3_enum_query);
         return DB_E_SQL_ERROR;
@@ -242,6 +242,7 @@ int db_sqlite3_enum_begin(char **pe, char *fmt, ...) {
     db_sqlite3_row=NULL;
 
     return DB_E_SUCCESS;
+
 }
 
 /**
@@ -307,7 +308,6 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
 int db_sqlite3_enum_end(char **pe) {
     int err;
 
-    db_sqlite3_in_enum=0;
     if(db_sqlite3_row)
         free(db_sqlite3_row);
     db_sqlite3_row = NULL;
@@ -328,7 +328,7 @@ int db_sqlite3_enum_end(char **pe) {
  * restart the enumeration
  */
 int db_sqlite3_enum_restart(char **pe) {
-    return db_sqlite3_enum_begin(pe,NULL);
+    return db_sqlite3_enum_begin_helper(pe);
 }
 
 
@@ -419,7 +419,7 @@ int db_sqlite3_event(int event_type) {
  *
  * @returns autoupdate value
  */
- 
+
 int db_sqlite3_insert_id(void) {
     return (int)sqlite3_last_insert_rowid(db_sqlite3_songs);
 }
