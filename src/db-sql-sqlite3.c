@@ -123,7 +123,7 @@ int db_sqlite3_open(char **pe, char *dsn) {
     int ver;
     int err;
 
-    snprintf(db_sqlite3_path,sizeof(db_sqlite3_path),"%s/songs.db",dsn);
+    snprintf(db_sqlite3_path,sizeof(db_sqlite3_path),"%s/songs3.db",dsn);
 
     db_sqlite3_lock();
     if(sqlite3_open(db_sqlite3_path,&db_sqlite3_songs) != SQLITE_OK) {
