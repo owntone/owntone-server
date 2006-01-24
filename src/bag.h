@@ -29,14 +29,25 @@
 
 #define BAG_E_SUCCESS   0
 #define BAG_E_MALLOC    1
+#define BAG_E_NOKEY     2
+
+#define BAG_FLAG_HONORCASE  1 /** Make keys case sensitive */
+#define BAG_FLAG_HEADINSERT 2 /** Insert at head, rather than tail */
 
 
 typedef struct _BAG *BAG_HANDLE;
-typedef struct _BAGITEM *BAG_ITEMHANDLE;
 
-extern int bag_create(BAG_HANDLE *bpp);
-extern int bag_destroy(BAG_HANDLE bp);
-extern int bag_add_item(BAG_HANDLE bp, void* vpval, int ival, int type);
+extern int bag_create(BAG_HANDLE *ppb);
+extern int bag_destroy(BAG_HANDLE pb);
+
+extern int bag_add_string(BAG_HANDLE pb, char *cval);
+extern int bag_add_int(BAG_HANDLE pb, int ival);
+extern int bag_add_bag(BAG_HANDLE pb, BAG_HANDLE pnew);
+
+extern int bag_set_flags(BAG_HANDLE pb, unsigned int flags);
+extern int bag_get_flags(BAG_HANDLE pb, unsigned int *flags);
+
+extern int bag_get_type(BAG_HANDLE pb, char *key, int *type);
 
 #endif /* _BAG_H_ */
 
