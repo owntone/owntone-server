@@ -190,6 +190,7 @@ extern int db_dmap_add_container(unsigned char *where, char *tag, int size);
  * should these be removed?  Refactored?
  */
 
+extern int db_playcount_increment(char **pe, int id);
 extern int db_get_song_count(char **pe, int *count);
 extern int db_get_playlist_count(char **pe, int *count);
 extern void db_dispose_item(MP3FILE *pmp3);

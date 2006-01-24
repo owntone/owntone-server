@@ -1745,3 +1745,18 @@ int db_sql_get_count(char **pe, int *count, CountType_t type) {
     return err;
 }
 
+/**
+ * increment the play_count and time_played
+ *
+ * @param pe error string
+ * @param id id of the song to increment
+ * @returns DB_E_SUCCESS on success, error code otherwise
+ */
+int db_sql_playcount_increment(char **pe, int id) {
+    time_t now = time(NULL);
+    
+    return db_sql_exec_fn(pe,E_INF,"update songs set play_count=play_count + 1"
+        ", time_played=%d where id=%d",now,id);
+}
+
+

@@ -54,6 +54,7 @@ extern int db_sql_add_playlist_item(char **pe, int playlistid, int songid);
 extern int db_sql_edit_playlist(char **pe, int id, char *name, char *clause);
 extern int db_sql_delete_playlist(char **pe, int playlistid);
 extern int db_sql_delete_playlist_item(char **pe, int playlistid, int songid);
+extern int db_sql_playcount_increment(char **pe, int id);
 
 extern int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...);
 extern int db_sql_fetch_int(char **pe, int *result, char *fmt, ...);

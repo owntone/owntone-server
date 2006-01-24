@@ -52,6 +52,7 @@ typedef struct tag_db_functions {
     int(*dbs_delete_playlist)(char **, int);
     int(*dbs_delete_playlist_item)(char **, int, int);
     int(*dbs_edit_playlist)(char **, int, char*, char*);
+    int(*dbs_playcount_increment)(char **, int);
     int(*dbs_enum_start)(char **, DBQUERYINFO *);
     int(*dbs_enum_size)(char **, DBQUERYINFO *, int *, int *);
     int(*dbs_enum_fetch)(char **, DBQUERYINFO *, int *, unsigned char **);
@@ -82,6 +83,7 @@ DB_FUNCTIONS db_functions[] = {
         db_sql_delete_playlist,
         db_sql_delete_playlist_item,
         db_sql_edit_playlist,
+        db_sql_playcount_increment,
         db_sql_enum_start,
         db_sql_enum_size,
         db_sql_enum_fetch,
@@ -110,6 +112,7 @@ DB_FUNCTIONS db_functions[] = {
         db_sql_delete_playlist,
         db_sql_delete_playlist_item,
         db_sql_edit_playlist,
+        db_sql_playcount_increment,
         db_sql_enum_start,
         db_sql_enum_size,
         db_sql_enum_fetch,
@@ -634,6 +637,24 @@ int db_edit_playlist(char **pe, int id, char *name, char *clause) {
     return retval;
 }
 
+
+/**
+ * increment the playcount info for a particular song
+ * (play_count and time_played).
+ *
+ * @param pe error string
+ * @param id id of song to incrmrent
+ * @returns DB_E_SUCCESS on success, error code otherwise
+ */
+int db_playcount_increment(char **pe, int id) {
+    int retval;
+    
+    db_writelock();
+    retval = db_current->dbs_playcount_increment(pe, id);
+    db_unlock();
+    
+    return retval;
+}
 
 /**
  * start a db enumeration, based info in the DBQUERYINFO struct

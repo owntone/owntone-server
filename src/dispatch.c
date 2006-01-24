@@ -710,6 +710,8 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
             } else {
                 DPRINTF(E_INF,L_WS,
                         "Finished streaming converted file to remote\n");
+                db_playcount_increment(NULL,pmp3->id);
+
             }
             server_side_convert_close(file_ptr);
             config_set_status(pwsc,pqi->session_id,NULL);
@@ -805,6 +807,8 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
             } else {
                 DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
                         bytes_copied);
+                /* update play counts */
+                db_playcount_increment(NULL,pmp3->id);
             }
 
             config_set_status(pwsc,pqi->session_id,NULL);
