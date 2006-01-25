@@ -37,7 +37,8 @@
 #include "daap.h"
 
 /** Globals */
-
+int ecode;
+BAG_HANDLE config_main;
 
 /**
  * read a configfile into a bag
@@ -46,11 +47,24 @@
  * @returns TRUE if successful, FALSE otherwise
  */
 int config_read(char *file) {
+    FILE *fin;
+    int err;
 
-}
+    fin=fopen(file,"r");
+    if(!fin) {
+        ecode = errno;
+        return CONFIG_E_FOPEN;
+    }
 
-int config_write(WS_CONNINFO *pwsc) {
+    if((err=bag_create(&config_main)) != BAG_E_SUCCESS) {
+        DPRINTF(E_LOG,L_CONF,"Error creating bag: %d\n",err);
+        return CONFIG_E_UNKNOWN;
+    }
 
+
+
+    fclose(fin);
+    return CONFIG_E_SUCCESS;
 }
 
 int config_close(void) {
