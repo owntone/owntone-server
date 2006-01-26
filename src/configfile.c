@@ -405,12 +405,12 @@ int config_read(char *file) {
     config.mp3dir=strdup(path_buffer);
 
     if(config.dbdir) {
-	DPRINTF(E_LOG,L_MISC,"You are using db_dir rather than "
-		"db_type/db_parms.  This will stop working at "
-		"some point.  Please fix your config\n");
-	realpath(config.dbdir,path_buffer);
-	free(config.dbdir);
-	config.dbdir=strdup(path_buffer);
+        DPRINTF(E_LOG,L_MISC,"You are using db_dir rather than "
+                "db_type/db_parms.  This will stop working at "
+                "some point.  Please fix your config\n");
+        realpath(config.dbdir,path_buffer);
+        free(config.dbdir);
+        config.dbdir=strdup(path_buffer);
     }
 
 
@@ -912,6 +912,8 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
 
     ws_writefd(pwsc,"</table>\n");
+
+    ws_writefd(pwsc,"<br />\n");
 
     ws_writefd(pwsc,"<table>\n");
     ws_writefd(pwsc,"<tr>\n");
