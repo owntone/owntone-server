@@ -31,6 +31,7 @@
 #ifndef _DAAPD_H_
 #define _DAAPD_H_
 
+#include <time.h>
 #include "webserver.h"
 
 /** Simple struct for holding stat info.

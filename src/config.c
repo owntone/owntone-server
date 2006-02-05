@@ -32,13 +32,15 @@
 
 #include <stdio.h>
 
-
-#include "bag.h"
-#include "daap.h"
+#include "err.h"
+#include "ll.h"
+#include "daapd.h"
 
 /** Globals */
 int ecode;
-BAG_HANDLE config_main;
+LL_HANDLE config_main=NULL;
+
+#define CONFIG_LINEBUFFER 128
 
 /**
  * read a configfile into a bag
@@ -49,25 +51,94 @@ BAG_HANDLE config_main;
 int config_read(char *file) {
     FILE *fin;
     int err;
+    LL_HANDLE pllnew, plltemp;
+    char linebuffer[CONFIG_LINEBUFFER+1];
+    char *comment, *term, *value, *delim;
+    int compat_mode=1;
 
     fin=fopen(file,"r");
     if(!fin) {
-        ecode = errno;
         return CONFIG_E_FOPEN;
     }
 
-    if((err=bag_create(&config_main)) != BAG_E_SUCCESS) {
-        DPRINTF(E_LOG,L_CONF,"Error creating bag: %d\n",err);
+    if((err=ll_create(&pllnew)) != LL_E_SUCCESS) {
+        DPRINTF(E_LOG,L_CONF,"Error creating linked list: %d\n",err);
+        fclose(fin);
         return CONFIG_E_UNKNOWN;
     }
 
+    /* got what will be the root of the config tree, now start walking through
+     * the input file, populating the tree
+     */
+    while(fgets(linebuffer,CONFIG_LINEBUFFER,fin)) {
+        linebuffer[CONFIG_LINEBUFFER] = '\0';
 
+        comment=strchr(linebuffer,'#');
+        if(comment) {
+            /* we should really preserve these in another tree*/
+            *comment = '\0';
+        }
+
+        while(strlen(linebuffer) && (strchr("\n\r ",linebuffer[strlen(linebuffer)-1])))
+            linebuffer[strlen(linebuffer)-1] = '\0';
+
+        if(linebuffer[0] == '[') {
+            /* section header */
+            compat_mode=0;
+            term=&linebuffer[1];
+            value = strchr(term,']');
+            if(!value) {
+                ll_destroy(pllnew);
+                fclose(fin);
+                return CONFIG_E_BADHEADER;
+            }
+            *value = '\0';
+
+            if((err = ll_create(&plltemp)) != LL_E_SUCCESS) {
+                ll_destroy(pllnew);
+                fclose(fin);
+                return CONFIG_E_UNKNOWN;
+            }
+
+            ll_add_ll(pllnew,term,plltemp);
+        } else {
+            /* k/v pair */
+            term=&linebuffer[0];
+
+            while((*term=='\t') || (*term==' '))
+                term++;
+
+            value=term;
+
+            if(compat_mode) {
+                delim="\t ";
+            } else {
+                delim="=";
+            }
+
+            strsep(&value,delim);
+            if((value) && (term) && (strlen(term))) {
+                while(strlen(value) && (strchr("\t ",*value)))
+                    value++;
+
+                ll_add_string(pllnew,term,value);
+            }
+        }
+    }
 
     fclose(fin);
+
+    /*  Sanity check */
+    ll_dump(pllnew);
+    ll_destroy(pllnew);
+
     return CONFIG_E_SUCCESS;
 }
 
 int config_close(void) {
+    if(config_main)
+        ll_destroy(config_main);
 
+    return CONFIG_E_SUCCESS;
 }
 
