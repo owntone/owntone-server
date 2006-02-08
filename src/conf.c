@@ -32,18 +32,75 @@
 
 #include <stdio.h>
 
+#include "conf.h"
 #include "err.h"
 #include "ll.h"
 #include "daapd.h"
 
 /** Globals */
-int ecode;
-LL_HANDLE config_main=NULL;
+static int ecode;
+static LL_HANDLE config_main=NULL;
 
 #define CONFIG_LINEBUFFER 128
 
+#define CONF_T_INT          0
+#define CONF_T_STRING       1
+
+/** Forwards */
+static int _ll_verify(LL_HANDLE pll);
+
+
+
+typedef struct _CONF_ELEMENTS {
+    int required;
+    int deprecated;
+    int type;
+    char *section;
+    char *term;
+} CONF_ELEMENTS;
+
+static CONF_ELEMENTS conf_elements[] = {
+    { 1, 0, CONF_T_STRING,"general","runas" },
+    { 1, 0, CONF_T_STRING,"general","web_root" },
+    { 1, 0, CONF_T_INT,"general","port" },
+    { 1, 0, CONF_T_STRING,"general","admin_pw" },
+    { 1, 0, CONF_T_STRING,"general","mp3_dir" },
+    { 0, 1, CONF_T_STRING,"general","db_dir" },
+    { 0, 0, CONF_T_STRING,"general","db_type" },
+    { 0, 0, CONF_T_STRING,"general","db_parms" },
+    { 0, 0, CONF_T_INT,"general","debuglevel" },
+    { 1, 0, CONF_T_STRING,"general","servername" },
+    { 0, 0, CONF_T_INT,"general","rescan_interval" },
+    { 0, 0, CONF_T_INT,"general","always_scan" },
+    { 0, 1, CONF_T_INT,"general","latin1_tags" },
+    { 0, 0, CONF_T_INT,"general","process_m3u" },
+    { 0, 0, CONF_T_INT,"general","scan_type" },
+    { 0, 1, CONF_T_INT,"general","compress" },
+    { 0, 0, CONF_T_STRING,"general","playlist" },
+    { 0, 0, CONF_T_STRING,"general","extensions" },
+    { 0, 0, CONF_T_STRING,"general","interface" },
+    { 0, 0, CONF_T_STRING,"general","ssc_codectypes" },
+    { 0, 0, CONF_T_STRING,"general","ssc_prog" },
+    { 0, 0, CONF_T_STRING,"general","password" },
+    { 0, 0, CONF_T_STRING,"general","compdirs" },
+    { 0, 0, CONF_T_STRING,"general","logfile" }
+};
+
 /**
- * read a configfile into a bag
+ * check a tree and make sure it doesn't have any obviously bad
+ * configuration information
+ *
+ * @param pll tree to check
+ */
+int _ll_verify(LL_HANDLE pll) {
+
+
+    return LL_E_SUCCESS;
+}
+
+
+/**
+ * read a configfile into a tree
  *
  * @param file file to read
  * @returns TRUE if successful, FALSE otherwise
@@ -51,26 +108,30 @@ LL_HANDLE config_main=NULL;
 int config_read(char *file) {
     FILE *fin;
     int err;
-    LL_HANDLE pllnew, plltemp;
+    LL_HANDLE pllnew, plltemp, pllcurrent;
     char linebuffer[CONFIG_LINEBUFFER+1];
     char *comment, *term, *value, *delim;
     int compat_mode=1;
+    int line=0;
 
     fin=fopen(file,"r");
     if(!fin) {
-        return CONFIG_E_FOPEN;
+        return CONF_E_FOPEN;
     }
 
     if((err=ll_create(&pllnew)) != LL_E_SUCCESS) {
         DPRINTF(E_LOG,L_CONF,"Error creating linked list: %d\n",err);
         fclose(fin);
-        return CONFIG_E_UNKNOWN;
+        return CONF_E_UNKNOWN;
     }
+
+    pllcurrent=NULL;
 
     /* got what will be the root of the config tree, now start walking through
      * the input file, populating the tree
      */
     while(fgets(linebuffer,CONFIG_LINEBUFFER,fin)) {
+        line++;
         linebuffer[CONFIG_LINEBUFFER] = '\0';
 
         comment=strchr(linebuffer,'#');
@@ -90,17 +151,18 @@ int config_read(char *file) {
             if(!value) {
                 ll_destroy(pllnew);
                 fclose(fin);
-                return CONFIG_E_BADHEADER;
+                return CONF_E_BADHEADER;
             }
             *value = '\0';
 
             if((err = ll_create(&plltemp)) != LL_E_SUCCESS) {
                 ll_destroy(pllnew);
                 fclose(fin);
-                return CONFIG_E_UNKNOWN;
+                return CONF_E_UNKNOWN;
             }
 
             ll_add_ll(pllnew,term,plltemp);
+            pllcurrent = plltemp;
         } else {
             /* k/v pair */
             term=&linebuffer[0];
@@ -121,7 +183,23 @@ int config_read(char *file) {
                 while(strlen(value) && (strchr("\t ",*value)))
                     value++;
 
-                ll_add_string(pllnew,term,value);
+                if(!pllcurrent) {
+                    /* we are definately in compat mode -- add a general section */
+                    if((err=ll_create(&plltemp)) != LL_E_SUCCESS) {
+                        DPRINTF(E_LOG,L_CONF,"Error creating linked list: %d\n",err);
+                        ll_destroy(pllnew);
+                        fclose(fin);
+                        return CONF_E_UNKNOWN;
+                    }
+                    ll_add_ll(pllnew,"general",plltemp);
+                    pllcurrent = plltemp;
+                }
+                ll_add_string(pllcurrent,term,value);
+            }
+            if(((term) && (strlen(term))) && (!value)) {
+                DPRINTF(E_LOG,L_CONF,"Error in config file on line %d\n",line);
+                ll_destroy(pllnew);
+                return CONF_E_PARSE;
             }
         }
     }
@@ -129,16 +207,18 @@ int config_read(char *file) {
     fclose(fin);
 
     /*  Sanity check */
+    _ll_verify(pllnew);
+
     ll_dump(pllnew);
     ll_destroy(pllnew);
 
-    return CONFIG_E_SUCCESS;
+    return CONF_E_SUCCESS;
 }
 
 int config_close(void) {
     if(config_main)
         ll_destroy(config_main);
 
-    return CONFIG_E_SUCCESS;
+    return CONF_E_SUCCESS;
 }
 

@@ -34,6 +34,7 @@
 /** Internal functions  */
 
 int _ll_add_item(LL *pl, char *key, void *vpval, int ival, int type);
+void _ll_dump(LL *pl, int depth);
 
 /**
  * create a ll
@@ -47,6 +48,9 @@ int ll_create(LL **ppl) {
         return LL_E_MALLOC;
 
     memset(*ppl,0x0,sizeof(struct _LL));
+
+    /* set default flags */
+    (*ppl)->flags = LL_FLAG_NODUPS | LL_FLAG_INHERIT;
     return LL_E_SUCCESS;
 }
 
@@ -88,7 +92,7 @@ int ll_destroy(LL *pl) {
  * thin wrapper for _ll_add_item
  */
 int ll_add_string(LL *pl, char *key, char *cval) {
-    return _ll_add_item(pl,cval,key,0,LL_TYPE_STRING);
+    return _ll_add_item(pl,key,cval,0,LL_TYPE_STRING);
 }
 
 /**
@@ -102,7 +106,15 @@ int ll_add_int(LL *pl, char *key, int ival) {
  * thin wrapper for _ll_add_item
  */
 int ll_add_ll(LL *pl, char *key, LL *pnew) {
-    return _ll_add_item(pl,key,(void*)pnew,0,LL_TYPE_LL);
+    int result;
+
+    result = _ll_add_item(pl,key,(void*)pnew,0,LL_TYPE_LL);
+    if(result == LL_E_SUCCESS) {
+        if(pl->flags & LL_FLAG_INHERIT) {
+            pnew->flags = pl->flags;
+        }
+    }
+    return result;
 }
 
 /**
@@ -110,6 +122,11 @@ int ll_add_ll(LL *pl, char *key, LL *pnew) {
  */
 int _ll_add_item(LL *pl, char *key, void* vpval, int ival, int type) {
     LL_ITEM *pli;
+
+    if(pl->flags & LL_FLAG_NODUPS) {
+        if(ll_fetch_item(pl,key))
+            return LL_E_DUP;
+    }
 
     pli=(LL_ITEM *)malloc(sizeof(LL_ITEM));
     if(!pli) {
@@ -138,7 +155,11 @@ int _ll_add_item(LL *pl, char *key, void* vpval, int ival, int type) {
         pl->itemlist.next = pli;
     } else {
         pli->next = NULL;
-        pl->tailptr->next = pli;
+        if(pl->tailptr) {
+            pl->tailptr->next = pli;
+        } else {
+            pl->itemlist.next = pli;
+        }
         pl->tailptr = pli;
     }
 
@@ -160,10 +181,11 @@ LL_ITEM *ll_fetch_item(LL *pl, char *key) {
     current = pl->itemlist.next;
     while(current) {
         if(pl->flags & LL_FLAG_HONORCASE) {
-            if(!strcasecmp(current->key,key))
-                break;
             if(!strcmp(current->key,key))
-                break;
+                return current;
+        } else {
+            if(!strcasecmp(current->key,key))
+                return current;
         }
         current = current->next;
     }
@@ -198,7 +220,35 @@ int ll_get_flags(LL *pl, unsigned int *flags) {
  *
  * @parm pl linked list to dump
  */
-extern void ll_dump(LL *pl) {
+void ll_dump(LL *pl) {
+    _ll_dump(pl,0);
 
 }
 
+/**
+ * Internal support function for dumping linked list that
+ * carries depth.
+ *
+ * @param pl linked list to dump
+ * @param depth depth of list
+ */
+
+void _ll_dump(LL *pl, int depth) {
+    LL_ITEM *pli;
+    pli = pl->itemlist.next;
+    while(pli) {
+        switch(pli->type) {
+        case LL_TYPE_INT:
+            printf("%*s%s (int): %d\n",depth*2,"",pli->key,pli->value.as_int);
+            break;
+        case LL_TYPE_STRING:
+            printf("%*s%s (string): %s\n",depth*2,"",pli->key,pli->value.as_string);
+            break;
+        case LL_TYPE_LL:
+            printf("%*s%s (list)\n",depth*2,"",pli->key);
+            _ll_dump(pli->value.as_ll,depth+1);
+            break;
+        }
+        pli = pli->next;
+    }
+}

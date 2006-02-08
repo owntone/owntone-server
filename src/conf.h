@@ -22,10 +22,11 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
-#define CONFIG_E_SUCCESS    0
-#define CONFIG_E_FOPEN      1
-#define CONFIG_E_UNKNOWN    2
-#define CONFIG_E_BADHEADER  3
+#define CONF_E_SUCCESS    0
+#define CONF_E_FOPEN      1
+#define CONF_E_UNKNOWN    2
+#define CONF_E_BADHEADER  3
+#define CONF_E_PARSE      4
 
 
 extern int config_read(char *file);
