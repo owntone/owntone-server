@@ -31,6 +31,7 @@
 #endif
 
 #include <stdio.h>
+#include <string.h>
 
 #include "conf.h"
 #include "err.h"
@@ -47,7 +48,8 @@ static LL_HANDLE config_main=NULL;
 #define CONF_T_STRING       1
 
 /** Forwards */
-static int _ll_verify(LL_HANDLE pll);
+static int _conf_verify(LL_HANDLE pll);
+static int _conf_exists(LL_HANDLE pll, char *section, char *term);
 
 
 
@@ -83,19 +85,59 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_STRING,"general","ssc_prog" },
     { 0, 0, CONF_T_STRING,"general","password" },
     { 0, 0, CONF_T_STRING,"general","compdirs" },
-    { 0, 0, CONF_T_STRING,"general","logfile" }
+    { 0, 0, CONF_T_STRING,"general","logfile" },
+    { 0, 0, CONF_T_INT, NULL, NULL }
 };
 
+int _conf_exists(LL_HANDLE pll, char *section, char *term) {
+    LL_ITEM *pitem;
+    
+    if(!(pitem = ll_fetch_item(pll,section)))
+        return FALSE;
+        
+    if(!ll_fetch_item(pitem->value.as_ll,term))
+        return FALSE;
+        
+    return TRUE;
+}
+
+
 /**
- * check a tree and make sure it doesn't have any obviously bad
- * configuration information
+ * Verify that the configuration isn't obviously wrong.
+ * Type checking has already been done, this just checks
+ * required stuff isn't missing.
  *
  * @param pll tree to check
+ * @returns TRUE if configuration appears valid, FALSE otherwise
  */
-int _ll_verify(LL_HANDLE pll) {
+int _conf_verify(LL_HANDLE pll) {
+    LL_ITEM *pi = NULL;
+    CONF_ELEMENTS *pce;
+    int is_valid=TRUE;
+    
+    /* first, walk through the elements and make sure
+     * all required elements are there */
+    pce = &conf_elements[0];
+    while(pce->section) {
+        if(pce->required) {
+            if(!_conf_exists(pll,pce->section, pce->term))
+                DPRINTF(E_LOG,L_CONF,"Missing configuration entry "
+                    " %s/%s.  Please review the sample config\n",
+                    pce->section, pce->term);
+            is_valid=FALSE;
+        }
+        if(pce->deprecated) {
+            DPRINTF(E_LOG,L_CONF,"Config entry %s/%s is deprecated.  Please "
+                "review the sample config\n",
+                pce->section, pce->term);
+        }
+        pce++;
+    }
+    
+    /* here we would walk through derived sections, if there
+     * were any */
 
-
-    return LL_E_SUCCESS;
+    return is_valid;
 }
 
 
@@ -207,7 +249,7 @@ int config_read(char *file) {
     fclose(fin);
 
     /*  Sanity check */
-    _ll_verify(pllnew);
+    _conf_verify(pllnew);
 
     ll_dump(pllnew);
     ll_destroy(pllnew);

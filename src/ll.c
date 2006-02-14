@@ -252,3 +252,21 @@ void _ll_dump(LL *pl, int depth) {
         pli = pli->next;
     }
 }
+
+
+/**
+ * Given an item (or NULL for first item), fetch
+ * the next item
+ * 
+ * @param pl ll to fetch from
+ * @param prev last item we fetched
+ */
+LL_ITEM *ll_get_next(LL *pl, LL_ITEM *prev) {
+    if(!pl)
+        return NULL;
+   
+    if(!prev)
+        return pl->itemlist.next;
+        
+    return prev->next;
+}

@@ -67,6 +67,7 @@ extern int ll_set_flags(LL *pl, unsigned int flags);
 extern int ll_get_flags(LL *pl, unsigned int *flags);
 
 extern LL_ITEM *ll_fetch_item(LL *pl, char *key);
+extern LL_ITEM *ll_get_next(LL *pl, LL_ITEM *prev);
 
 extern void ll_dump(LL *pl);
 
