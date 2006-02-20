@@ -89,6 +89,9 @@
   Change History (most recent first):
 
  $Log$
+ Revision 1.27  2006/02/20 03:36:57  rpedde
+ Annoying fprintf
+
  Revision 1.26  2005/09/23 07:03:19  rpedde
  view persistence fixes for iTunes 5
 
@@ -492,9 +495,6 @@ void rend_callback(void) {
 int rend_private_init(char *user) {
     mStatus status;
     mDNSBool result;
-
-
-    fprintf(stderr,"w00t\n");
 
     status = mDNS_Init(&mDNSStorage, &PlatformStorage,
 		       mDNS_Init_NoCache, mDNS_Init_ZeroCacheSize,
