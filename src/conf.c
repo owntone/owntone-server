@@ -49,6 +49,7 @@ static LL_HANDLE config_main=NULL;
 
 /** Forwards */
 static int _conf_verify(LL_HANDLE pll);
+static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term);
 static int _conf_exists(LL_HANDLE pll, char *section, char *term);
 
 
@@ -89,15 +90,43 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_INT, NULL, NULL }
 };
 
-int _conf_exists(LL_HANDLE pll, char *section, char *term) {
+/**
+ * fetch item based on section/term basis, rather than just a single
+ * level deep, like ll_fetch_item does
+ * 
+ * @param pll top level linked list to test (config tree)
+ * @param section section to term (key) is in
+ * @param term term/key to look for
+ * @returns LL_ITEM of the key, or NULL
+ */
+LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term) {
+    LL_ITEM *psection;
     LL_ITEM *pitem;
-    
-    if(!(pitem = ll_fetch_item(pll,section)))
-        return FALSE;
-        
-    if(!ll_fetch_item(pitem->value.as_ll,term))
-        return FALSE;
-        
+
+    if(!(psection = ll_fetch_item(pll,section)))
+	return NULL;
+
+    if(psection->type != LL_TYPE_LL)
+	return NULL;
+
+    if(!(pitem = ll_fetch_item(psection->value.as_ll,term)))
+	return NULL;
+
+    return pitem;
+}
+
+/**
+ * simple test to see if a particular section/key value exists
+ *
+ * @param pll config tree to test
+ * @param section section to find the term under
+ * @param term key to search for under the specified section
+ * @returns TRUE if key exists, FALSE otherwise
+ */
+int _conf_exists(LL_HANDLE pll, char *section, char *term) {
+    if(!_conf_fetch_item(pll,section,term))
+	return FALSE;
+
     return TRUE;
 }
 
@@ -257,6 +286,9 @@ int config_read(char *file) {
     return CONF_E_SUCCESS;
 }
 
+/**
+ * do final config file shutdown
+ */
 int config_close(void) {
     if(config_main)
         ll_destroy(config_main);
@@ -264,3 +296,17 @@ int config_close(void) {
     return CONF_E_SUCCESS;
 }
 
+
+/**
+ * read a value from the CURRENT config tree as an integer
+ *
+ * @param section section name to search in
+ * @param key key to search for
+ * @param default default value to return if key not found
+ * @returns value as integer if found, default value otherwise
+ */
+int config_get_int(char *section, char *key, int default) {
+    LL_ITEM *pitem;
+
+
+}

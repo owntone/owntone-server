@@ -31,5 +31,8 @@
 
 extern int config_read(char *file);
 extern int config_close(void);
+extern int config_get_int(char *section, char *key, int default);
+extern int config_get_string(char *section, char *key, char *default,
+			     char *out, int size);
 
 #endif /* _CONFIG_H_ */
