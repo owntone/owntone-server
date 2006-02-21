@@ -28,7 +28,7 @@
 #define CONF_E_BADHEADER  3
 #define CONF_E_PARSE      4
 #define CONF_E_OVERFLOW   5  /** <Buffer passed too small */
-
+#define CONF_E_NOCONF     6  /** <No open config file */
 
 
 extern int conf_read(char *file);
@@ -36,5 +36,10 @@ extern int conf_close(void);
 extern int conf_get_int(char *section, char *key, int dflt);
 extern int conf_get_string(char *section, char *key, char *dflt,
                              char *out, int *size);
+extern int conf_set_int(char *section, char *key, int value);
+extern int conf_set_string(char *section, char *key, char *value);
+
+extern int conf_iswritable(void);
+extern int conf_write(void);
 
 #endif /* _CONFIG_H_ */

@@ -1,5 +1,5 @@
 /*
- * $Id$
+ * $idx: conf.c,v 1.4 2006/02/21 03:08:14 rpedde Exp $
  * Functions for reading and writing the config file
  *
  * Copyright (C) 2006 Ron Pedde (ron@pedde.com)
@@ -42,6 +42,7 @@
 /** Globals */
 static int ecode;
 static LL_HANDLE conf_main=NULL;
+static char *conf_main_file = NULL;
 static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define conf_LINEBUFFER 128
@@ -55,7 +56,7 @@ static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term);
 static int _conf_exists(LL_HANDLE pll, char *section, char *term);
 static void _conf_lock(void);
 static void _conf_unlock(void);
-
+static int _conf_write(FILE *fp, LL *pll, int sublevel);
 
 typedef struct _CONF_ELEMENTS {
     int required;
@@ -98,7 +99,7 @@ static CONF_ELEMENTS conf_elements[] = {
  */
 void _conf_lock() {
     int err;
-    
+
     if((err=pthread_mutex_lock(&conf_mutex))) {
         DPRINTF(E_FATAL,L_CONF,"Cannot lock configuration mutex: %s\n",
             strerror(err));
@@ -110,7 +111,7 @@ void _conf_lock() {
  */
 void _conf_unlock() {
     int err;
-    
+
     if((err = pthread_mutex_unlock(&conf_mutex))) {
         DPRINTF(E_FATAL,L_CONF,"Cannot unlock configuration mutex %s\n",
             strerror(err));
@@ -120,7 +121,7 @@ void _conf_unlock() {
 /**
  * fetch item based on section/term basis, rather than just a single
  * level deep, like ll_fetch_item does
- * 
+ *
  * @param pll top level linked list to test (config tree)
  * @param section section to term (key) is in
  * @param term term/key to look for
@@ -170,7 +171,7 @@ int _conf_verify(LL_HANDLE pll) {
     LL_ITEM *pi = NULL;
     CONF_ELEMENTS *pce;
     int is_valid=TRUE;
-    
+
     /* first, walk through the elements and make sure
      * all required elements are there */
     pce = &conf_elements[0];
@@ -190,7 +191,7 @@ int _conf_verify(LL_HANDLE pll) {
         }
         pce++;
     }
-    
+
     /* here we would walk through derived sections, if there
      * were any */
 
@@ -212,6 +213,12 @@ int conf_read(char *file) {
     char *comment, *term, *value, *delim;
     int compat_mode=1;
     int line=0;
+
+    if(conf_main_file) {
+        conf_close();
+    }
+
+    conf_main_file = strdup(file);
 
     fin=fopen(file,"r");
     if(!fin) {
@@ -326,8 +333,15 @@ int conf_read(char *file) {
  * do final config file shutdown
  */
 int conf_close(void) {
-    if(conf_main)
+    if(conf_main) {
         ll_destroy(conf_main);
+        conf_main = NULL;
+    }
+
+    if(conf_main_file) {
+        free(conf_main_file);
+        conf_main_file = NULL;
+    }
 
     return CONF_E_SUCCESS;
 }
@@ -353,7 +367,7 @@ int conf_get_int(char *section, char *key, int dflt) {
         retval = atoi(pitem->value.as_string);
     }
     _conf_unlock();
-    
+
     return retval;
 }
 
@@ -372,7 +386,7 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
     LL_ITEM *pitem;
     char *result;
     int len;
-    
+
     _conf_lock();
     pitem = _conf_fetch_item(conf_main,section,key);
     if((!pitem) || (pitem->type != LL_TYPE_STRING)) {
@@ -380,9 +394,9 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
     } else {
         result = pitem->value.as_string;
     }
-    
+
     len = strlen(result) + 1;
-    
+
     if(len <= *size) {
         *size = len;
         strcpy(out,result);
@@ -391,7 +405,166 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
         *size = len;
         return CONF_E_OVERFLOW;
     }
-    
+
     _conf_unlock();
-    return CONF_E_SUCCESS;    
+    return CONF_E_SUCCESS;
 }
+
+/**
+ * set (update) the config tree with a particular value.
+ * this accepts an int, but it actually adds it as a string.
+ * in that sense, it's really just a wrapper for conf_set_string
+ *
+ * @param section section that the key is in
+ * @param key key to update
+ * @param value value to set it to
+ * @returns E_CONF_SUCCESS on success, error code otherwise
+ */
+int conf_set_int(char *section, char *key, int value) {
+    char buffer[40]; /* ?? */
+    snprintf(buffer,sizeof(buffer),"%d",value);
+
+    return conf_set_string(section, key, buffer);
+}
+
+/**
+ * set (update) the config tree with a particular string value
+ *
+ * @param section section that the key is in
+ * @param key key to update
+ * @param value value to set it to
+ * @returns E_CONF_SUCCESS on success, error code otherwise
+ */
+int conf_set_string(char *section, char *key, char *value) {
+    LL_ITEM *pitem;
+    LL_ITEM *psection;
+    LL *section_ll;
+    int err;
+
+    _conf_lock();
+    pitem = _conf_fetch_item(conf_main,section,key);
+    if(!pitem) {
+        /* fetch the section and add it to that list */
+        if(!(psection = ll_fetch_item(conf_main,section))) {
+            /* that subkey doesn't exist yet... */
+            if((err = ll_create(&section_ll)) != LL_E_SUCCESS) {
+                DPRINTF(E_LOG,L_CONF,"Could not create linked list: %d\n",err);
+                _conf_unlock();
+                return CONF_E_UNKNOWN;
+            }
+            if((err=ll_add_ll(conf_main,section,section_ll)) != LL_E_SUCCESS) {
+                DPRINTF(E_LOG,L_CONF,"Error inserting new subkey: %d\n",err);
+                _conf_unlock();
+                return CONF_E_UNKNOWN;
+            }
+        } else {
+            section_ll = psection->value.as_ll;
+        }
+        /* have the section, now add it */
+        if((err = ll_add_string(section_ll,key,value)) != LL_E_SUCCESS) {
+            DPRINTF(E_LOG,L_CONF,"Error in conf_set_string: "
+                    "(%s/%s)\n",section,key);
+            _conf_unlock();
+            return CONF_E_UNKNOWN;
+        }
+    } else {
+        /* we have the item, let's update it */
+        ll_update_string(pitem,value);
+    }
+
+    _conf_unlock();
+    return CONF_E_SUCCESS;
+}
+
+/**
+ * determine if the configuration file is writable
+ *
+ * @returns TRUE if writable, FALSE otherwise
+ */
+int conf_iswritable(void) {
+    FILE *fp;
+    int retval = FALSE;
+
+    /* don't want configfile reopened under us */
+    _conf_lock();
+
+    if(!conf_main_file)
+        return FALSE;
+
+    if((fp = fopen(conf_main_file,"r+")) != NULL) {
+        fclose(fp);
+        retval = TRUE;
+    }
+
+    _conf_unlock();
+    return retval;
+}
+
+/**
+ * write the current config tree back to the config file
+ *
+ */
+int conf_write(void) {
+    int retval = FALSE;
+    FILE *fp;
+
+    if(!conf_main_file) {
+        return CONF_E_NOCONF;
+    }
+
+    _conf_lock();
+    if((fp = fopen(conf_main_file,"w+")) != NULL) {
+        retval = _conf_write(fp,conf_main,0);
+        fclose(fp);
+    }
+    _conf_unlock();
+
+    return retval;
+}
+
+/**
+ * do the actual work of writing the config file
+ *
+ * @param fp file we are writing the config file to
+ * @param pll list we are dumping k/v pairs for
+ * @param sublevel whether this is the root, or a subkey
+ * @returns TRUE on success, FALSE otherwise
+ */
+int _conf_write(FILE *fp, LL *pll, int sublevel) {
+    LL_ITEM *pli;
+    int retval;
+
+    if(!pll)
+        return TRUE;
+
+    /* write all the solo keys, first! */
+    pli = pll->itemlist.next;
+    while(pli) {
+        switch(pli->type) {
+        case LL_TYPE_LL:
+            if(sublevel) {
+                /* something wrong! */
+                DPRINTF(E_LOG,L_CONF,"LL in sublevel: %s\n",pli->key);
+            } else {
+                fprintf(fp,"[%s]\n",pli->key);
+                if(!_conf_write(fp, pli->value.as_ll, 1))
+                   return FALSE;
+            }
+            break;
+        case LL_TYPE_INT:
+            fprintf(fp,"%s=%d\n",pli->key,pli->value.as_int);
+            break;
+
+        case LL_TYPE_STRING:
+            fprintf(fp,"%s=%s\n",pli->key,pli->value.as_string);
+            break;
+        }
+
+        pli = pli->next;
+    }
+
+    return TRUE;
+}
+
+
+

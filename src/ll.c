@@ -35,6 +35,7 @@
 /** Internal functions  */
 
 int _ll_add_item(LL *pl, char *key, void *vpval, int ival, int type);
+int _ll_update_item(LL_ITEM *pli, void *vpval, int ival, int type);
 void _ll_dump(LL *pl, int depth);
 
 /**
@@ -168,6 +169,73 @@ int _ll_add_item(LL *pl, char *key, void* vpval, int ival, int type) {
 }
 
 /**
+ * thin wrapper for _ll_update_item
+ */
+int ll_update_string(LL_ITEM *pli, char *cval) {
+    return _ll_update_item(pli,cval,0,LL_TYPE_STRING);
+}
+
+/**
+ * thin wrapper for _ll_update_item
+ */
+int ll_update_int(LL_ITEM *pli, int ival) {
+    return _ll_update_item(pli,NULL,ival,LL_TYPE_INT);
+}
+
+/**
+ * thin wrapper for _ll_update_item.
+ *
+ * NOTE: There is a reasonable case to be made about
+ * what should happen to flags on an update.  We'll just
+ * leave that to the caller, though.
+ */
+int ll_update_ll(LL_ITEM *pli, LL *pnew) {
+    int result;
+
+    result = _ll_update_item(pli,(void*)pnew,0,LL_TYPE_LL);
+    return result;
+}
+
+
+/**
+ * update an item, given an item pointer
+ */
+int _ll_update_item(LL_ITEM *pli, void* vpval, int ival, int type) {
+
+    /* dispose of what used to be there*/
+    switch(pli->type) {
+    case LL_TYPE_LL:
+        ll_destroy(pli->value.as_ll);
+        break;
+    case LL_TYPE_STRING:
+        free(pli->value.as_string);
+        break;
+    case LL_TYPE_INT: /* fallthrough */
+    default:
+        break;
+    }
+
+    pli->type = type;
+
+    switch(pli->type) {
+    case LL_TYPE_INT:
+        pli->value.as_int = ival;
+        break;
+    case LL_TYPE_LL:
+        pli->value.as_ll = (LL *)vpval;
+        break;
+    case LL_TYPE_STRING:
+        pli->value.as_string = strdup((char*)vpval);
+        break;
+    default:
+        break;
+    }
+
+    return LL_E_SUCCESS;
+}
+
+
+/**
  * internal function to get the ll item associated with
  * a specific key, using the case sensitivity specified
  * by the ll flags.  This assumes that the lock is held!
@@ -258,16 +326,16 @@ void _ll_dump(LL *pl, int depth) {
 /**
  * Given an item (or NULL for first item), fetch
  * the next item
- * 
+ *
  * @param pl ll to fetch from
  * @param prev last item we fetched
  */
 LL_ITEM *ll_get_next(LL *pl, LL_ITEM *prev) {
     if(!pl)
         return NULL;
-   
+
     if(!prev)
         return pl->itemlist.next;
-        
+
     return prev->next;
 }
