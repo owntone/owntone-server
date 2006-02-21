@@ -26,10 +26,11 @@
  * Config file reading and writing
  */
 
-#ifdef HAVE_CONFIG_H
+#ifdef HAVE_conf_H
 #  include "config.h"
 #endif
 
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -40,9 +41,10 @@
 
 /** Globals */
 static int ecode;
-static LL_HANDLE config_main=NULL;
+static LL_HANDLE conf_main=NULL;
+static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define CONFIG_LINEBUFFER 128
+#define conf_LINEBUFFER 128
 
 #define CONF_T_INT          0
 #define CONF_T_STRING       1
@@ -51,7 +53,8 @@ static LL_HANDLE config_main=NULL;
 static int _conf_verify(LL_HANDLE pll);
 static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term);
 static int _conf_exists(LL_HANDLE pll, char *section, char *term);
-
+static void _conf_lock(void);
+static void _conf_unlock(void);
 
 
 typedef struct _CONF_ELEMENTS {
@@ -91,6 +94,30 @@ static CONF_ELEMENTS conf_elements[] = {
 };
 
 /**
+ * lock the conf mutex
+ */
+void _conf_lock() {
+    int err;
+    
+    if((err=pthread_mutex_lock(&conf_mutex))) {
+        DPRINTF(E_FATAL,L_CONF,"Cannot lock configuration mutex: %s\n",
+            strerror(err));
+    }
+}
+
+/**
+ * unlock the conf mutex
+ */
+void _conf_unlock() {
+    int err;
+    
+    if((err = pthread_mutex_unlock(&conf_mutex))) {
+        DPRINTF(E_FATAL,L_CONF,"Cannot unlock configuration mutex %s\n",
+            strerror(err));
+    }
+}
+
+/**
  * fetch item based on section/term basis, rather than just a single
  * level deep, like ll_fetch_item does
  * 
@@ -104,13 +131,13 @@ LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term) {
     LL_ITEM *pitem;
 
     if(!(psection = ll_fetch_item(pll,section)))
-	return NULL;
+        return NULL;
 
     if(psection->type != LL_TYPE_LL)
-	return NULL;
+        return NULL;
 
     if(!(pitem = ll_fetch_item(psection->value.as_ll,term)))
-	return NULL;
+        return NULL;
 
     return pitem;
 }
@@ -125,7 +152,7 @@ LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term) {
  */
 int _conf_exists(LL_HANDLE pll, char *section, char *term) {
     if(!_conf_fetch_item(pll,section,term))
-	return FALSE;
+           return FALSE;
 
     return TRUE;
 }
@@ -149,11 +176,12 @@ int _conf_verify(LL_HANDLE pll) {
     pce = &conf_elements[0];
     while(pce->section) {
         if(pce->required) {
-            if(!_conf_exists(pll,pce->section, pce->term))
+            if(!_conf_exists(pll,pce->section, pce->term)) {
                 DPRINTF(E_LOG,L_CONF,"Missing configuration entry "
                     " %s/%s.  Please review the sample config\n",
                     pce->section, pce->term);
-            is_valid=FALSE;
+                is_valid=FALSE;
+            }
         }
         if(pce->deprecated) {
             DPRINTF(E_LOG,L_CONF,"Config entry %s/%s is deprecated.  Please "
@@ -176,11 +204,11 @@ int _conf_verify(LL_HANDLE pll) {
  * @param file file to read
  * @returns TRUE if successful, FALSE otherwise
  */
-int config_read(char *file) {
+int conf_read(char *file) {
     FILE *fin;
     int err;
     LL_HANDLE pllnew, plltemp, pllcurrent;
-    char linebuffer[CONFIG_LINEBUFFER+1];
+    char linebuffer[conf_LINEBUFFER+1];
     char *comment, *term, *value, *delim;
     int compat_mode=1;
     int line=0;
@@ -201,9 +229,9 @@ int config_read(char *file) {
     /* got what will be the root of the config tree, now start walking through
      * the input file, populating the tree
      */
-    while(fgets(linebuffer,CONFIG_LINEBUFFER,fin)) {
+    while(fgets(linebuffer,conf_LINEBUFFER,fin)) {
         line++;
-        linebuffer[CONFIG_LINEBUFFER] = '\0';
+        linebuffer[conf_LINEBUFFER] = '\0';
 
         comment=strchr(linebuffer,'#');
         if(comment) {
@@ -278,10 +306,18 @@ int config_read(char *file) {
     fclose(fin);
 
     /*  Sanity check */
-    _conf_verify(pllnew);
-
-    ll_dump(pllnew);
-    ll_destroy(pllnew);
+    if(_conf_verify(pllnew)) {
+        DPRINTF(E_INF,L_CONF,"Loading new config file.\n");
+        _conf_lock();
+        if(conf_main) {
+            ll_destroy(conf_main);
+        }
+        conf_main = pllnew;
+        _conf_unlock();
+    } else {
+        ll_destroy(pllnew);
+        DPRINTF(E_LOG,L_CONF,"Could not validate config file.  Ignoring\n");
+    }
 
     return CONF_E_SUCCESS;
 }
@@ -289,9 +325,9 @@ int config_read(char *file) {
 /**
  * do final config file shutdown
  */
-int config_close(void) {
-    if(config_main)
-        ll_destroy(config_main);
+int conf_close(void) {
+    if(conf_main)
+        ll_destroy(conf_main);
 
     return CONF_E_SUCCESS;
 }
@@ -302,11 +338,60 @@ int config_close(void) {
  *
  * @param section section name to search in
  * @param key key to search for
- * @param default default value to return if key not found
- * @returns value as integer if found, default value otherwise
+ * @param dflt default value to return if key not found
+ * @returns value as integer if found, dflt value otherwise
  */
-int config_get_int(char *section, char *key, int default) {
+int conf_get_int(char *section, char *key, int dflt) {
     LL_ITEM *pitem;
+    int retval;
 
+    _conf_lock();
+    pitem = _conf_fetch_item(conf_main,section,key);
+    if((!pitem) || (pitem->type != LL_TYPE_STRING)) {
+        retval = dflt;
+    } else {
+        retval = atoi(pitem->value.as_string);
+    }
+    _conf_unlock();
+    
+    return retval;
+}
 
+/**
+ * read a value from the CURRENT config tree as a string
+ *
+ * @param section section name to search in
+ * @param key key to search for
+ * @param dflt default value to return if key not found
+ * @param out buffer to put resulting string in
+ * @param size pointer to size of buffer
+ * @returns CONF_E_SUCCESS with out filled on success,
+ *          or CONF_E_OVERFLOW, with size set to required buffer size
+ */
+int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) {
+    LL_ITEM *pitem;
+    char *result;
+    int len;
+    
+    _conf_lock();
+    pitem = _conf_fetch_item(conf_main,section,key);
+    if((!pitem) || (pitem->type != LL_TYPE_STRING)) {
+        result = dflt;
+    } else {
+        result = pitem->value.as_string;
+    }
+    
+    len = strlen(result) + 1;
+    
+    if(len <= *size) {
+        *size = len;
+        strcpy(out,result);
+    } else {
+        _conf_unlock();
+        *size = len;
+        return CONF_E_OVERFLOW;
+    }
+    
+    _conf_unlock();
+    return CONF_E_SUCCESS;    
 }

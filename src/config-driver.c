@@ -14,10 +14,10 @@ int main(int argc, char *argv[]) {
 
     printf("Reading %s\n",argv[1]);
 
-    if((err=config_read(argv[1])) != CONF_E_SUCCESS) {
+    if((err=conf_read(argv[1])) != CONF_E_SUCCESS) {
         printf("Error reading config: %d\n",err);
     } else {
         printf("Read config!\n");
     }
-    config_close();
+    conf_close();
 }

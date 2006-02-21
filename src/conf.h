@@ -27,12 +27,14 @@
 #define CONF_E_UNKNOWN    2
 #define CONF_E_BADHEADER  3
 #define CONF_E_PARSE      4
+#define CONF_E_OVERFLOW   5  /** <Buffer passed too small */
 
 
-extern int config_read(char *file);
-extern int config_close(void);
-extern int config_get_int(char *section, char *key, int default);
-extern int config_get_string(char *section, char *key, char *default,
-			     char *out, int size);
+
+extern int conf_read(char *file);
+extern int conf_close(void);
+extern int conf_get_int(char *section, char *key, int dflt);
+extern int conf_get_string(char *section, char *key, char *dflt,
+                             char *out, int *size);
 
 #endif /* _CONFIG_H_ */
