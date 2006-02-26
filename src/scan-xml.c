@@ -37,6 +37,7 @@
 #include "mp3-scanner.h"
 #include "rxml.h"
 #include "redblack.h"
+#include "strptime.h"
 
 /* Forwards */
 int scan_xml_playlist(char *filename);
@@ -126,7 +127,7 @@ int scan_xml_datedecode(char *string) {
 
     strptime(string,"%Y-%m-%dT%H:%M:%SZ",&date_time);
     seconds = timegm(&date_time);
-    return seconds;
+    return (int)seconds;
 }
 
 /**
@@ -204,7 +205,7 @@ int scan_xml_translate_path(char *pold, char *pnew) {
             DPRINTF(E_DBG,L_SCAN,"Trying %s\n",base_path);
             if(scan_xml_is_file(base_path)) {
                 path_found=1;
-                discard = (current - working_path);
+                discard = (int)(current - working_path);
                 DPRINTF(E_DBG,L_SCAN,"Found it!\n");
             }
             *current='\0';

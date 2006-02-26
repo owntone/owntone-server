@@ -23,6 +23,12 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.6  2006/02/26 08:46:24  rpedde
+Merged win32-branch
+
+Revision 1.5.2.1  2006/02/26 08:28:35  rpedde
+unix fixes from win32 port
+
 Revision 1.5  2005/09/23 05:26:52  rpedde
 commit the iTunes 5 fixes
 
@@ -161,23 +167,23 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
     for (ptr = buf; ptr < buf + ifc.ifc_len; ) {
         ifr = (struct ifreq *) ptr;
 
-		len = GET_SA_LEN(ifr->ifr_addr);
+                len = GET_SA_LEN(ifr->ifr_addr);
 
-		/* This is completely whacked, and I really need to
-		 * find out why this is the case, but I need to
-		 * release a 0.2.2, and as the next stable won't
-		 * have the apple mDNS included, I guess it's a
-		 * small price to pay.
-		 */
+                /* This is completely whacked, and I really need to
+                 * find out why this is the case, but I need to
+                 * release a 0.2.2, and as the next stable won't
+                 * have the apple mDNS included, I guess it's a
+                 * small price to pay.
+                 */
 #ifdef FREEBSD
-		    ptr += sizeof(ifr->ifr_name) + len; /* for next one in buffer */
-		//		ptr += sizeof(*ifr);
+                    ptr += sizeof(ifr->ifr_name) + len; /* for next one in buffer */
+                //              ptr += sizeof(*ifr);
 #else
 
-		    ptr += sizeof(struct ifreq); /* for next one in buffer */
+                    ptr += sizeof(struct ifreq); /* for next one in buffer */
 #endif
     
-	DPRINTF(E_DBG,L_REND,"intf %d name=%s AF=%d, flags=%08x\n", index, ifr->ifr_name, ifr->ifr_addr.sa_family,ifr->ifr_flags);
+        DPRINTF(E_DBG,L_REND,"intf %d name=%s AF=%d, flags=%08x\n", index, ifr->ifr_name, ifr->ifr_addr.sa_family,ifr->ifr_flags);
         
         if (ifr->ifr_addr.sa_family != family)
             continue;   /* ignore if not desired address family */
@@ -267,7 +273,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
                 /* Some platforms (*BSD) inject the prefix in IPv6LL addresses */
                 /* We need to strip that out */
                 if (IN6_IS_ADDR_LINKLOCAL(&sinptr6->sin6_addr))
-                	sinptr6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
+                        sinptr6->sin6_addr.__u6_addr.__u6_addr16[1] = 0;
                 memcpy(ifi->ifi_addr, sinptr6, sizeof(struct sockaddr_in6));
             }
             break;
@@ -364,7 +370,7 @@ recvfrom_flags(int fd, void *ptr, size_t nbytes, int *flagsp,
 
 /* include recvfrom_flags2 */
 #ifndef CMSG_FIRSTHDR
-	#warning CMSG_FIRSTHDR not defined. Will not be able to determine destination address, received interface, etc.
+        #warning CMSG_FIRSTHDR not defined. Will not be able to determine destination address, received interface, etc.
     *flagsp = 0;                    /* pass back results */
     return(n);
 #else
@@ -431,15 +437,15 @@ struct in_pktinfo
         if (cmptr->cmsg_level == IPPROTO_IPV6 && 
             cmptr->cmsg_type == IPV6_PKTINFO) {
             struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&pktp->ipi_addr;
-			struct in6_pktinfo *ip6_info = (struct in6_pktinfo*)CMSG_DATA(cmptr);
-			
+                        struct in6_pktinfo *ip6_info = (struct in6_pktinfo*)CMSG_DATA(cmptr);
+                        
             sin6->sin6_family   = AF_INET6;
             sin6->sin6_len      = sizeof(*sin6);
             sin6->sin6_addr     = ip6_info->ipi6_addr;
             sin6->sin6_flowinfo = 0;
             sin6->sin6_scope_id = 0;
             sin6->sin6_port     = 0;
-			pktp->ipi_ifindex   = ip6_info->ipi6_ifindex;
+                        pktp->ipi_ifindex   = ip6_info->ipi6_ifindex;
             continue;
         }
 #endif

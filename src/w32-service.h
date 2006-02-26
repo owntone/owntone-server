@@ -1,8 +1,10 @@
+
 /*
  * $Id$
- * Rendezvous stuff
  *
- * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
+ * simple service management functions
+ *
+ * Copyright (C) 2005 Ron Pedde (ron.pedde@firstmarkcu.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,13 +21,12 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef _REND_H_
-#define _REND_H_
+#ifndef _SERVICE_H_
+#define _SERVICE_H_
 
-extern int rend_init(char *user);
-extern int rend_running(void);
-extern int rend_stop(void);
-extern int rend_register(char *name, char *type, int port, char *iface);
-extern int rend_unregister(char *name, char *type, int port);
+extern void *service_startup(void *);
+extern void service_shutdown(int);
+extern void service_register(void);
+extern void service_unregister(void);
 
-#endif /* _REND_H_ */
+#endif /* _SERVICE_H_ */

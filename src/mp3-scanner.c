@@ -27,7 +27,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#  include "config.h"
+# include "config.h"
 #endif
 
 #define _POSIX_PTHREAD_SEMANTICS
@@ -36,19 +36,21 @@
 #include <fcntl.h>
 #include <id3tag.h>
 #include <limits.h>
-#include <restart.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef WIN32
 #include <netinet/in.h>  /* htons and friends */
-#include <sys/stat.h>
 #include <dirent.h>      /* why here?  For osx 10.2, of course! */
+#endif
+#include <sys/stat.h>
 
 #include "daapd.h"
 #include "db-generic.h"
 #include "err.h"
 #include "mp3-scanner.h"
+#include "restart.h"
 #include "ssc.h"
 
 #ifndef HAVE_STRCASESTR
@@ -136,7 +138,7 @@ static TAGHANDLER taghandlers[] = {
     { "wma", scan_get_wmainfo, "wma", "wma", "WMA audio file" },
     { "url", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
     { "pls", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
-	{ "m4v", scan_get_mp4info, "m4v", "mp4v", "MPEG-4 video file" },
+        { "m4v", scan_get_mp4info, "m4v", "mp4v", "MPEG-4 video file" },
 #ifdef OGGVORBIS
     { "ogg", scan_get_ogginfo, "ogg", "ogg", "Ogg Vorbis audio file" },
 #endif
@@ -345,7 +347,7 @@ int scan_path(char *path) {
                     } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
                                (strcasestr(config.extensions, ext))) {
                         /* only scan if it's been changed, or empty db */
-                        modified_time=sb.st_mtime;
+                        modified_time=(int) sb.st_mtime;
                         pmp3=db_fetch_path(NULL,mp3_path,0);
 
                         if((!pmp3) || (pmp3->db_timestamp < modified_time) ||
@@ -411,9 +413,9 @@ int scan_static_playlist(char *path) {
     }
 
     if(pm3u) {
-	DPRINTF(E_DBG,L_SCAN,"Playlist needs updated\n");
-	/* welcome to texas, y'all */
-	db_delete_playlist(NULL,pm3u->id);
+        DPRINTF(E_DBG,L_SCAN,"Playlist needs updated\n");
+        /* welcome to texas, y'all */
+        db_delete_playlist(NULL,pm3u->id);
     }
 
     fd=open(path,O_RDONLY);
@@ -423,7 +425,7 @@ int scan_static_playlist(char *path) {
             DPRINTF(E_LOG,L_SCAN,"Error adding m3u %s: %s\n",path,perr);
             free(perr);
             db_dispose_playlist(pm3u);
-	    close(fd);
+            close(fd);
             return FALSE;
         }
         /* now get the *real* base_path */
@@ -483,13 +485,15 @@ int scan_static_playlist(char *path) {
 void scan_music_file(char *path, struct dirent *pde,
                      struct stat *psb, int is_compdir) {
     MP3FILE mp3file;
+    char tmp_path[PATH_MAX];
     char mp3_path[PATH_MAX];
     char *current=NULL;
     char *type;
     TAGHANDLER *ptaghandler;
     char fdescr[50];
 
-    snprintf(mp3_path,sizeof(mp3_path),"%s/%s",path,pde->d_name);
+    snprintf(tmp_path,sizeof(mp3_path),"%s/%s",path,pde->d_name);
+    realpath(tmp_path,mp3_path);
 
     /* we found an mp3 file */
     DPRINTF(E_INF,L_SCAN,"Found music file: %s\n",pde->d_name);
@@ -537,10 +541,10 @@ void scan_music_file(char *path, struct dirent *pde,
            My thinking is to use time created, but what is that?  Best
            guess would be earliest of st_mtime and st_ctime...
         */
-        mp3file.time_added=psb->st_mtime;
+        mp3file.time_added=(int) psb->st_mtime;
         if(psb->st_ctime < mp3file.time_added)
-            mp3file.time_added=psb->st_ctime;
-        mp3file.time_modified=psb->st_mtime;
+            mp3file.time_added=(int) psb->st_ctime;
+        mp3file.time_modified=(int) psb->st_mtime;
 
         DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 
@@ -648,9 +652,9 @@ void make_composite_tags(MP3FILE *song) {
 
     if(!song->artist && (song->orchestra || song->conductor)) {
         if(song->orchestra)
-            len += strlen(song->orchestra);
+            len += (int) strlen(song->orchestra);
         if(song->conductor)
-            len += strlen(song->conductor);
+            len += (int) strlen(song->conductor);
 
         len += 3;
 

@@ -10,10 +10,16 @@
  *
  */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
+#include "strptime.h"
 
 #include "err.h"
 
@@ -385,7 +391,7 @@ int sp_scan(PARSETREE tree) {
     while(*(tree->current) && strchr(" \t\n\r",*(tree->current)))
         tree->current++;
 
-    tree->token_pos = tree->current - tree->term;
+    tree->token_pos = (int) (tree->current - tree->term);
 
     if(!*(tree->current)) {
         tree->token.token_id = T_EOF;
@@ -481,7 +487,7 @@ int sp_scan(PARSETREE tree) {
         }
 
         found=0;
-        len = tail - tree->current;
+        len = (int) (tail - tree->current);
 
         if(!tree->in_string) {
             /* find it in the token list */
@@ -1189,16 +1195,16 @@ int sp_node_size(SP_NODE *node) {
         size += 7; /* (xxx AND xxx) */
     } else {
         size = 4; /* parens, plus spaces around op */
-        size += strlen(node->left.field);
+        size += (int) strlen(node->left.field);
         if((node->op & 0x0FFF) > T_LAST) {
             DPRINTF(E_FATAL,L_PARSE,"Can't determine node size:  op %04x\n",
                 node->op);
         } else {
-            size += strlen(sp_token_descr[node->op & 0x0FFF]);
+            size += (int) strlen(sp_token_descr[node->op & 0x0FFF]);
         }
 
         if(node->op_type == SP_OPTYPE_STRING) {
-            size += (2 + strlen(node->right.cvalue));
+            size += (2 + (int) strlen(node->right.cvalue));
             if(node->op == T_INCLUDES) {
                 size += 2; /* extra %'s */
             }
@@ -1319,7 +1325,7 @@ void sp_set_error(PARSETREE tree, int error) {
     if(tree->error)
         free(tree->error);
 
-    len = 10 + (tree->token_pos / 10) + 1 + strlen(sp_errorstrings[error]) + 1;
+    len = 10 + (tree->token_pos / 10) + 1 + (int) strlen(sp_errorstrings[error]) + 1;
     tree->error = (char*)malloc(len);
     if(!tree->error) {
         DPRINTF(E_FATAL,L_PARSE,"Malloc error");

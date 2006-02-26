@@ -47,31 +47,31 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN,"Getting URL file info\n");
 
     if(!(infile=fopen(filename,"rb"))) {
-	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
-	return FALSE;
+        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
+        return FALSE;
     }
 
     fgets(linebuffer,sizeof(linebuffer),infile);
     while((linebuffer[strlen(linebuffer)-1] == '\n') ||
-	  (linebuffer[strlen(linebuffer)-1] == '\r')) {
-	linebuffer[strlen(linebuffer)-1] = '\0';
+          (linebuffer[strlen(linebuffer)-1] == '\r')) {
+        linebuffer[strlen(linebuffer)-1] = '\0';
     }
 
     head=linebuffer;
     tail=strchr(head,',');
     if(!tail) {
-	DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
-	fclose(infile);
-	return FALSE;
+        DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
+        fclose(infile);
+        return FALSE;
     }
 
     pmp3->bitrate=atoi(head);
     head=++tail;
     tail=strchr(head,',');
     if(!tail) {
-	DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
-	fclose(infile);
-	return FALSE;
+        DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
+        fclose(infile);
+        return FALSE;
     }
 
     *tail++='\0';

@@ -1,8 +1,8 @@
 /*
  * $Id$
- * Rendezvous stuff
+ * Abstract os interface for non-unix platforms
  *
- * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
+ * Copyright (C) 2006 Ron Pedde (rpedde@users.sourceforge.net)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,13 +19,23 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef _REND_H_
-#define _REND_H_
+#ifndef _OS_H_
+#define _OS_H_
 
-extern int rend_init(char *user);
-extern int rend_running(void);
-extern int rend_stop(void);
-extern int rend_register(char *name, char *type, int port, char *iface);
-extern int rend_unregister(char *name, char *type, int port);
 
-#endif /* _REND_H_ */
+/* backgrounding, signal handling, etc */
+extern int os_init(int foreground);
+extern void os_deinit(void);
+
+/* system native logging functions */
+extern int os_opensyslog(void);
+extern int os_closesyslog(void);
+extern int os_syslog(int level, char *msg);
+
+#ifdef WIN32
+# include "os-win32.h"
+#else
+# include "os-unix.h"
+#endif
+
+#endif

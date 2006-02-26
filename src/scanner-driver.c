@@ -140,28 +140,28 @@ int main(int argc, char *argv[]) {
     memset((void*)&mp3,0x00,sizeof(MP3FILE));
 
     if(strchr(argv[0],'/')) {
-	av0 = strrchr(argv[0],'/')+1;
+        av0 = strrchr(argv[0],'/')+1;
     } else {
-	av0 = argv[0];
+        av0 = argv[0];
     }
     
     while((option = getopt(argc, argv, "d:")) != -1) {
-	switch(option) {
-	case 'd':
-	    err_debuglevel = atoi(optarg);
-	    break;
-	default:
-	    fprintf(stderr,"Error: unknown option (%c)\n\n",option);
-	    usage(-1);
-	}
+        switch(option) {
+        case 'd':
+            err_debuglevel = atoi(optarg);
+            break;
+        default:
+            fprintf(stderr,"Error: unknown option (%c)\n\n",option);
+            usage(-1);
+        }
     }
     
     argc -= optind;
     argv += optind;
 
     if(argc == 0) {
-	fprintf(stderr,"Error: Must specifiy file name\n\n");
-	usage(-1);
+        fprintf(stderr,"Error: Must specifiy file name\n\n");
+        usage(-1);
     }
 
     printf("Getting info for %s\n",argv[0]);
@@ -170,15 +170,15 @@ int main(int argc, char *argv[]) {
     plist=scanner_list;
 
     while(plist->ext && (strcasecmp(plist->ext,ext) != 0)) {
-	plist++;
+        plist++;
     }
 
     if(plist->ext) {
-	fprintf(stderr,"dispatching as single-file metatag parser\n");
-	plist->scanner(argv[0],&mp3);
-	dump_mp3(&mp3);
+        fprintf(stderr,"dispatching as single-file metatag parser\n");
+        plist->scanner(argv[0],&mp3);
+        dump_mp3(&mp3);
     } else {
-	fprintf(stderr,"unknown file extension: %s\n",ext);
-	exit(-1);
+        fprintf(stderr,"unknown file extension: %s\n",ext);
+        exit(-1);
     }
 }

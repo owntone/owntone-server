@@ -6,6 +6,10 @@ body
   color: #3C5C6B;
 }
 
+img
+{ border: 0px;
+}
+
 table.main
 { border: 0px;
 

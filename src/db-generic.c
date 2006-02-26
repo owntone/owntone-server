@@ -231,12 +231,12 @@ DAAP_ITEMS taglist[] = {
     { 0x05, "aeSI", "com.apple.iTunes.itms-songid" },
     { 0x05, "aeSF", "com.apple.iTunes.itms-storefrontid" },
 
-	/* iTunes 5.0+ */
-	{ 0x01, "ascr", "daap.songcontentrating" },
-	{ 0x05, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* wtf - content codes says it's 1 */
-	
-	/* iTunes 6.0.2+ */
-	{ 0x01, "aeHV", "com.apple.itunes.has-video" },
+        /* iTunes 5.0+ */
+        { 0x01, "ascr", "daap.songcontentrating" },
+        { 0x05, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* wtf - content codes says it's 1 */
+        
+        /* iTunes 6.0.2+ */
+        { 0x01, "aeHV", "com.apple.itunes.has-video" },
 
     /* mt-daapd specific */
     { 0x09, "MSPS", "org.mt-daapd.smart-playlist-spec" },
@@ -361,7 +361,7 @@ MetaField_t db_encode_meta(char *meta) {
         if(0 == (end = strchr(start, ',')))
             end = start + strlen(start);
 
-        len = end - start;
+        len = (int)(end - start);
 
         if(*end != 0)
             end++;
@@ -789,11 +789,11 @@ int db_end_scan(void) {
 }
 
 void db_dispose_item(MP3FILE *pmp3) {
-    return db_current->dbs_dispose_item(pmp3);
+    db_current->dbs_dispose_item(pmp3);
 }
 
 void db_dispose_playlist(M3UFILE *pm3u) {
-    return db_current->dbs_dispose_playlist(pm3u);
+    db_current->dbs_dispose_playlist(pm3u);
 }
 
 int db_get_count(char **pe, int *count, CountType_t type) {
@@ -899,7 +899,7 @@ int db_dmap_add_int(unsigned char *where, char *tag, int value) {
  */
 
 int db_dmap_add_string(unsigned char *where, char *tag, char *value) {
-    int len=strlen(value);
+    int len=(int)strlen(value);
 
     /* tag */
     memcpy(where,tag,4);
@@ -911,7 +911,7 @@ int db_dmap_add_string(unsigned char *where, char *tag, char *value) {
     where[7]=len & 0xFF;
 
     strncpy((char*)where+8,value,strlen(value));
-    return 8 + strlen(value);
+    return 8 + (int) strlen(value);
 }
 
 /**

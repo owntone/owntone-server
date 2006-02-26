@@ -20,10 +20,10 @@
  */
 
 /*
- * This file handles sqlite2 databases.  SQLite2 databases
+ * This file handles sqlite3 databases.  SQLite3 databases
  * should have a dsn of:
  *
- * sqlite2:/path/to/folder
+ * sqlite3:/path/to/folder
  *
  * The actual db will be appended to the passed path.
  */
@@ -41,7 +41,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sqlite3.h>
-#include <unistd.h>
+
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 
 #include "err.h"
 #include "db-generic.h"
@@ -287,7 +290,7 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
         }
 
         for(idx=0; idx < cols; idx++) {
-            db_sqlite3_row[idx] = sqlite3_column_text(db_sqlite3_stmt,idx);
+            db_sqlite3_row[idx] = (char*) sqlite3_column_text(db_sqlite3_stmt,idx);
         }
 
         *pr = db_sqlite3_row;

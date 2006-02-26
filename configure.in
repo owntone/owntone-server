@@ -13,6 +13,9 @@ dnl AM_PROG_LEX
 
 AC_CANONICAL_HOST
 
+AC_CHECK_HEADERS([sys/wait.h])
+AC_CHECK_FUNCS(strptime)
+AC_CHECK_FUNCS(strtok_r)
 AM_CONDITIONAL(COND_REND_OSX,false)
 
 rend_posix=true

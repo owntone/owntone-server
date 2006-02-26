@@ -2,6 +2,9 @@
  * $Id$
  */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
 #include <ctype.h>
 #include <errno.h>
 #include <stdio.h>
@@ -72,42 +75,42 @@ int rxml_decode_string(char *string) {
     src=dst=string;
 
     while(*src) {
-	if((*src) == '&') {
-	    len = strlen(src);
-	    if((len > 3) && (strncmp(src,"&gt;",4) == 0)) {
-		*dst++ = '>';
-		src += 4;
-	    } else if((len > 3) && (strncmp(src,"&lt;",4) == 0)) {
-		*dst++ = '<';
-		src += 4;
-	    } else if((len > 4) && (strncmp(src,"&amp;",5) == 0)) {
-		*dst++ = '&';
-		src += 5;
-	    } else if((len > 5) && (strncmp(src,"&quot;",6) == 0)) {
-		*dst++ = '"';
-		src += 6;
-	    } else if((len > 5) && (strncmp(src,"&apos;",6) == 0)) {
-		*dst ++ = '\'';
-		src += 6;
-	    } else {
-		/* &#xx; */
-		if(!sscanf((char*)&src[2],"%d;",&cval))
-		    return FALSE;
+        if((*src) == '&') {
+            len = (int)strlen(src);
+            if((len > 3) && (strncmp(src,"&gt;",4) == 0)) {
+                *dst++ = '>';
+                src += 4;
+            } else if((len > 3) && (strncmp(src,"&lt;",4) == 0)) {
+                *dst++ = '<';
+                src += 4;
+            } else if((len > 4) && (strncmp(src,"&amp;",5) == 0)) {
+                *dst++ = '&';
+                src += 5;
+            } else if((len > 5) && (strncmp(src,"&quot;",6) == 0)) {
+                *dst++ = '"';
+                src += 6;
+            } else if((len > 5) && (strncmp(src,"&apos;",6) == 0)) {
+                *dst ++ = '\'';
+                src += 6;
+            } else {
+                /* &#xx; */
+                if(!sscanf((char*)&src[2],"%d;",&cval))
+                    return FALSE;
 
-		*dst++ = cval;
-		if(src[3] == ';') {
-		    src += 4;
-		} else if(src[4] == ';') {
-		    src += 5;
-		} else if(src[5] == ';') {
-		    src += 6;
-		} else {
-		    return FALSE;
-		}
-	    }
-	} else {
-	    *dst++=*src++;
-	}
+                *dst++ = cval;
+                if(src[3] == ';') {
+                    src += 4;
+                } else if(src[4] == ';') {
+                    src += 5;
+                } else if(src[5] == ';') {
+                    src += 6;
+                } else {
+                    return FALSE;
+                }
+            }
+        } else {
+            *dst++=*src++;
+        }
     }
 
     *dst = '\0';
@@ -123,13 +126,13 @@ int rxml_decode_string(char *string) {
  * @param udata opaque data structure to pass to the callback
  */
 int rxml_open(RXMLHANDLE *vp, char *file, 
-	      RXML_EVTHANDLER handler, void *udata) {
+              RXML_EVTHANDLER handler, void *udata) {
     RXML *pnew;
 
     pnew=(RXML*)malloc(sizeof(RXML));
     if(!pnew) {
-	*vp = NULL;
-	return FALSE;
+        *vp = NULL;
+        return FALSE;
     }
 
     memset(pnew,0x0,sizeof(RXML));
@@ -142,10 +145,10 @@ int rxml_open(RXMLHANDLE *vp, char *file,
     pnew->line = 0;
 
     if(!pnew->fhandle)
-	RXML_ERROR(pnew,E_RXML_OPEN);
+        RXML_ERROR(pnew,E_RXML_OPEN);
 
     if(pnew->handler)
-	pnew->handler(RXML_EVT_OPEN, pnew->udata, pnew->fname);
+        pnew->handler(RXML_EVT_OPEN, pnew->udata, pnew->fname);
 
     return TRUE;
 }
@@ -177,31 +180,31 @@ char *rxml_errorstring(RXMLHANDLE vp) {
     char *estring=NULL;
 
     if(!ph) {
-	return "Malloc error";
+        return "Malloc error";
     }
 
     if(ph->estring) free(ph->estring);
 
-    len = strlen(rxml_estrings[ph->ecode]) + 16;
+    len = (int)strlen(rxml_estrings[ph->ecode]) + 16;
     if((ph->ecode & 0x80)) {
-	estring=strerror(ph->stdio_errno);
-	len += strlen(estring);
+        estring=strerror(ph->stdio_errno);
+        len += (int)strlen(estring);
     }
 
     ph->estring=(char*)malloc(len);
     if(!ph->estring)
-	return "Double-fault malloc error";
+        return "Double-fault malloc error";
 
 
     if((ph->ecode & 0x80)) {
-	snprintf(ph->estring,len,"%s%s",rxml_estrings[ph->ecode],estring);
+        snprintf(ph->estring,len,"%s%s",rxml_estrings[ph->ecode],estring);
     } else {
-	if(strncmp(rxml_estrings[ph->ecode],"Parse",5)==0) {
-	    snprintf(ph->estring, len, "%s (Line:%d)",
-		     rxml_estrings[ph->ecode], ph->line);
-	} else {
-	    snprintf(ph->estring,len, "%s", rxml_estrings[ph->ecode]);
-	}
+        if(strncmp(rxml_estrings[ph->ecode],"Parse",5)==0) {
+            snprintf(ph->estring, len, "%s (Line:%d)",
+                     rxml_estrings[ph->ecode], ph->line);
+        } else {
+            snprintf(ph->estring,len, "%s", rxml_estrings[ph->ecode]);
+        }
     }
 
     return ph->estring;
@@ -234,94 +237,94 @@ int rxml_parse(RXMLHANDLE vp) {
 
     /* walk through and read row by row */
     while(fgets(linebuffer,sizeof(linebuffer),ph->fhandle) != NULL) {
-	ph->line++;
-	offset=0;
-	size=strlen(linebuffer);
-	in_text=0;
-	text_offset=0;
-	while(offset < size) {
-	    switch(linebuffer[offset]) {
-	    case '<':
-		if(in_tag)
-		    RXML_ERROR(ph, E_RXML_NEST);
+        ph->line++;
+        offset=0;
+        size=(int)strlen(linebuffer);
+        in_text=0;
+        text_offset=0;
+        while(offset < size) {
+            switch(linebuffer[offset]) {
+            case '<':
+                if(in_tag)
+                    RXML_ERROR(ph, E_RXML_NEST);
 
-		in_tag=TRUE;
-		tag_start=offset+1;
-		tag_end=FALSE;
-		if(linebuffer[tag_start] == '/') {
-		    tag_end = TRUE;
-		    offset++;
-		    tag_start++;
-		}
+                in_tag=TRUE;
+                tag_start=offset+1;
+                tag_end=FALSE;
+                if(linebuffer[tag_start] == '/') {
+                    tag_end = TRUE;
+                    offset++;
+                    tag_start++;
+                }
 
-		offset++;
+                offset++;
 
-		in_text=0;
-		break;
+                in_text=0;
+                break;
 
-	    case '>':
-		if(!in_tag)
-		    RXML_ERROR(ph, E_RXML_CLOSE);
+            case '>':
+                if(!in_tag)
+                    RXML_ERROR(ph, E_RXML_CLOSE);
 
-		in_tag=FALSE;
-		if((offset - tag_start) > RXML_MAX_TAG)
-		    RXML_ERROR(ph, E_RXML_TAGSIZE);
+                in_tag=FALSE;
+                if((offset - tag_start) > RXML_MAX_TAG)
+                    RXML_ERROR(ph, E_RXML_TAGSIZE);
 
-		strncpy(tagbuffer,&linebuffer[tag_start],offset-tag_start);
-		tagbuffer[offset-tag_start] = '\0';
+                strncpy(tagbuffer,&linebuffer[tag_start],offset-tag_start);
+                tagbuffer[offset-tag_start] = '\0';
 
-		if(tag_end) {
-		    /* send the text before the tag end */
-		    if((ph->handler) && (strlen(textbuffer))) {
-			if(!rxml_decode_string(textbuffer))
-			    RXML_ERROR(ph,E_RXML_ENTITY);
+                if(tag_end) {
+                    /* send the text before the tag end */
+                    if((ph->handler) && (strlen(textbuffer))) {
+                        if(!rxml_decode_string(textbuffer))
+                            RXML_ERROR(ph,E_RXML_ENTITY);
 
-			ph->handler(RXML_EVT_TEXT,ph->udata,textbuffer);
-		    }
-		}
+                        ph->handler(RXML_EVT_TEXT,ph->udata,textbuffer);
+                    }
+                }
 
-		in_text=1; 
-		text_offset=0;
-		textbuffer[0] = '\0';
+                in_text=1; 
+                text_offset=0;
+                textbuffer[0] = '\0';
 
-		single_tag=0;
-		if(tagbuffer[strlen(tagbuffer)-1] == '/') {
-		    tagbuffer[strlen(tagbuffer)-1] = '\0';
-		    single_tag=1;
-		}
+                single_tag=0;
+                if(tagbuffer[strlen(tagbuffer)-1] == '/') {
+                    tagbuffer[strlen(tagbuffer)-1] = '\0';
+                    single_tag=1;
+                }
 
-		if(ph->handler)
-		    ph->handler(tag_end ? RXML_EVT_END : RXML_EVT_BEGIN,
-				ph->udata,tagbuffer);
+                if(ph->handler)
+                    ph->handler(tag_end ? RXML_EVT_END : RXML_EVT_BEGIN,
+                                ph->udata,tagbuffer);
 
-		/* send a follow-up end on a <tag/> - style tag */
-		if((single_tag) && (ph->handler)) 
-		    ph->handler(RXML_EVT_END,ph->udata,tagbuffer);
+                /* send a follow-up end on a <tag/> - style tag */
+                if((single_tag) && (ph->handler)) 
+                    ph->handler(RXML_EVT_END,ph->udata,tagbuffer);
 
-		offset++;
-		break;
+                offset++;
+                break;
 
-	    default:
-		if((in_text) && (text_offset < (sizeof(textbuffer)-1))) {
-		    /* get rid of EOL */
-		    if((linebuffer[offset] != '\r') && 
-		       (linebuffer[offset] != '\n')) {
-			textbuffer[text_offset] = linebuffer[offset];
-			text_offset++;
-			textbuffer[text_offset] = '\x0';
-		    }
-		} else if (in_text) {
-		    /* should warn of an overflow */
-		}
-		offset++;
-		break;
-	    }
-	}
+            default:
+                if((in_text) && (text_offset < (sizeof(textbuffer)-1))) {
+                    /* get rid of EOL */
+                    if((linebuffer[offset] != '\r') && 
+                       (linebuffer[offset] != '\n')) {
+                        textbuffer[text_offset] = linebuffer[offset];
+                        text_offset++;
+                        textbuffer[text_offset] = '\x0';
+                    }
+                } else if (in_text) {
+                    /* should warn of an overflow */
+                }
+                offset++;
+                break;
+            }
+        }
     }
 
     ph->stdio_errno=errno;
     if(ferror(ph->fhandle))
-	RXML_ERROR(ph,E_RXML_READ);
+        RXML_ERROR(ph,E_RXML_READ);
 
     return TRUE;
 }

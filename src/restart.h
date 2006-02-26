@@ -32,9 +32,20 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif
+
 #include <fcntl.h>
-#include <unistd.h>
-#include <sys/time.h>
+
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
+#endif
+
 #include <sys/types.h>
 
 #ifndef ETIME
@@ -47,10 +58,7 @@ int r_fdprintf(int fd, char *fmt, ...);
 int r_close(int fildes);
 int r_dup2(int fildes, int fildes2);
 int r_open2(const char *path, int oflag);
-int r_open3(const char *path, int oflag, mode_t mode);
 ssize_t r_read(int fd, void *buf, size_t size);
-pid_t r_wait(int *stat_loc);
-pid_t r_waitpid(pid_t pid, int *stat_loc, int options);
 ssize_t r_write(int fd, void *buf, size_t size);
 ssize_t readblock(int fd, void *buf, size_t size);
 int readline(int fd, char *buf, int nbytes);

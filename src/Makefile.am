@@ -52,13 +52,17 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	rxml.c rxml.h redblack.c redblack.h scan-mp3.c scan-mp4.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
+	os.h strptime.c strptime.h \
+	strtok_r.c strtok_r.h os-unix.h os-unix.c os.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
 	$(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB)
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
 	rend-howl.c rend-posix.c rend-osx.c scan-mpc.c \
-	strcasestr.h scan-ogg.c scan-flac.c db-sql.c db-sql.h \
+	scan-ogg.c scan-flac.c db-sql.c db-sql.h \
 	db-sql-sqlite2.h db-sql-sqlite2.c \
-	db-sql-sqlite3.h db-sql-sqlite3.c
+	db-sql-sqlite3.h db-sql-sqlite3.c \
+	w32-eventlog.c w32-eventlog.h w32-service.c w32-service.h \
+	os-win32.h os-win32.c win32.h
 

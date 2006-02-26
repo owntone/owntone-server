@@ -41,25 +41,25 @@ typedef struct query_field_ query_field_t;
 struct query_field_
 {
     query_type_t type;
-    const char*	name;
+    const char* name;
     const char* fieldname;
 };
 
 typedef struct query_node_ query_node_t;
 struct query_node_
 {
-    query_type_t		type;
+    query_type_t                type;
     union {
-	query_node_t*		node;
-	const query_field_t*	field;
-	int			constant;
-    }				left;
+        query_node_t*           node;
+        const query_field_t*    field;
+        int                     constant;
+    }                           left;
     union {
-	query_node_t*		node;
-	int			i32;
-	long long		i64;
-	char*			str;
-    }				right;
+        query_node_t*           node;
+        int                     i32;
+        long long               i64;
+        char*                   str;
+    }                           right;
 };
 
 extern char *query_build_sql(char *query);

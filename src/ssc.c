@@ -34,9 +34,12 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifndef WIN32
 #include <netinet/in.h>  /* htons and friends */
-#include <sys/stat.h>
 #include <dirent.h>      /* why here?  For osx 10.2, of course! */
+#endif 
+
+#include <sys/stat.h>
 
 #include "daapd.h"
 #include "db-generic.h"

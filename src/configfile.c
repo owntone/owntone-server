@@ -35,7 +35,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
-#include <restart.h>
 #include <signal.h>
 #include <stdarg.h>
 #include <stdio.h>
@@ -45,11 +44,14 @@
 #include <zlib.h>
 
 #include <sys/stat.h>
-#include <sys/wait.h>
+#ifdef HAVE_SYS_WAIT_H
+# include <sys/wait.h>
+#endif
 
 #include "configfile.h"
 #include "db-generic.h"
 #include "err.h"
+#include "restart.h"
 #include "xml-rpc.h"
 
 #ifndef WITHOUT_MDNS
@@ -71,6 +73,7 @@ static void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg
 static void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_debuglevel(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg);
@@ -119,7 +122,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"db_type",(void*)&config.dbtype,config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"db_parms",(void*)&config.dbparms,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_INT,"debuglevel",(void*)&err_debuglevel,config_emit_int },
+    { 1,0,0,CONFIG_TYPE_INT,"debuglevel",(void*)NULL,config_emit_debuglevel },
     { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
     { 1,0,0,CONFIG_TYPE_INT,"rescan_interval",(void*)&config.rescan_interval,config_emit_int },
     { 1,0,0,CONFIG_TYPE_INT,"always_scan",(void*)&config.always_scan,config_emit_int },
@@ -491,7 +494,7 @@ int config_read(char *file) {
                 *term_end='\0';
 
             while(strlen(term_begin) && term_begin[strlen(term_begin)-1]==' ')
-                            term_begin[strlen(term_begin)-1] == '\0';
+                            term_begin[strlen(term_begin)-1] = '\0';
 
             if(strlen(term_begin)) {
                 config.complist[currentterm++] = term_begin;
@@ -866,8 +869,10 @@ void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg) {
  * \param arg any args passwd with the meta command.  Also unused
  */
 void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
+#ifndef WITHOUT_MDNS
     int mdns_running;
     char *html;
+#endif
     char buf[256];
     int r_days, r_hours, r_mins, r_secs;
     int scanning;
@@ -919,7 +924,7 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"<tr>\n");
     ws_writefd(pwsc," <th>Uptime</th>\n");
 
-    r_secs=time(NULL)-config.stats.start_time;
+    r_secs=(int)(time(NULL)-config.stats.start_time);
 
     r_days=r_secs/(3600 * 24);
     r_secs -= ((3600 * 24) * r_days);
@@ -1317,6 +1322,16 @@ void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s",VERSION);
 }
 
+/**
+ * implement the DEBUGLEVEL command
+ *
+ * @param pwsc web connection
+ * @param value the variable that was requested. Unused.
+ * @param arg any args passed with the meta command. Unused.
+ */
+void config_emit_debuglevel(WS_CONNINFO *pwsc, void *value, char *arg) {
+    ws_writefd(pwsc,"%d",err_getlevel());
+}
 
 /**
  * implement the SYSTEM command.

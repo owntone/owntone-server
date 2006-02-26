@@ -238,9 +238,9 @@ int db_sql_parse_smart(char **pe, char **clause, char *phrase) {
     
     if(!sp_parse(pt,phrase)) {
         if(pe) *pe = strdup(sp_get_error(pt));
-	
+        
         DPRINTF(E_LOG,L_DB,"Error parsing playlist: %s\n",sp_get_error(pt));
-	
+        
         sp_dispose(pt);
         return FALSE;
     } else {
@@ -1202,7 +1202,7 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
     case queryTypeBrowseAlbums:
     case queryTypeBrowseGenres:
     case queryTypeBrowseComposers:
-        return valarray[0] ? (8 + strlen(valarray[0])) : 0;
+        return valarray[0] ? (8 + (int) strlen(valarray[0])) : 0;
     case queryTypePlaylists:
         size = 8;   /* mlit */
         size += 12; /* mimc - you get it whether you want it or not */
@@ -1213,10 +1213,10 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
                 size += 9;  /* aeSP */
         }
         if(db_wantsmeta(pinfo->meta, metaItemName))
-            size += (8 + strlen(valarray[plTitle])); /* minm */
+            size += (8 + (int) strlen(valarray[plTitle])); /* minm */
         if(valarray[plType] && (atoi(valarray[plType])==1) &&
            db_wantsmeta(pinfo->meta, metaMPlaylistSpec))
-            size += (8 + strlen(valarray[plQuery])); /* MSPS */
+            size += (8 + (int) strlen(valarray[plQuery])); /* MSPS */
         if(db_wantsmeta(pinfo->meta, metaMPlaylistType))
             size += 9; /* MPTY */
         return size;
@@ -1244,13 +1244,13 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
             size += 9;
         if(ISSTR(valarray[13]) && db_wantsmeta(pinfo->meta, metaSongDataURL))
             /* asul */
-            size += (8 + strlen(valarray[13]));
+            size += (8 + (int) strlen(valarray[13]));
         if(ISSTR(valarray[5]) && db_wantsmeta(pinfo->meta, metaSongAlbum))
             /* asal */
-            size += (8 + strlen(valarray[5]));
+            size += (8 + (int) strlen(valarray[5]));
         if(ISSTR(valarray[4]) && db_wantsmeta(pinfo->meta, metaSongArtist))
             /* asar */
-            size += (8 + strlen(valarray[4]));
+            size += (8 + (int) strlen(valarray[4]));
         if(valarray[23] && atoi(valarray[23]) && db_wantsmeta(pinfo->meta, metaSongBPM))
             /* asbt */
             size += 10;
@@ -1266,16 +1266,16 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
         }
         if(ISSTR(valarray[7]) && db_wantsmeta(pinfo->meta, metaSongComment))
             /* ascm */
-            size += (8 + strlen(valarray[7]));
+            size += (8 + (int) strlen(valarray[7]));
         if(valarray[24] && atoi(valarray[24]) && db_wantsmeta(pinfo->meta,metaSongCompilation))
             /* asco */
             size += 9;
         if(ISSTR(valarray[9]) && db_wantsmeta(pinfo->meta, metaSongComposer))
             /* ascp */
-            size += (8 + strlen(valarray[9]));
+            size += (8 + (int) strlen(valarray[9]));
         if(ISSTR(valarray[12]) && db_wantsmeta(pinfo->meta, metaSongGrouping))
             /* agrp */
-            size += (8 + strlen(valarray[12]));
+            size += (8 + (int) strlen(valarray[12]));
         if(valarray[30] && atoi(valarray[30]) && db_wantsmeta(pinfo->meta, metaSongDateAdded))
             /* asda */
             size += 12;
@@ -1290,7 +1290,7 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
                 /* asdn */
         if(ISSTR(valarray[6]) && db_wantsmeta(pinfo->meta, metaSongGenre))
             /* asgn */
-            size += (8 + strlen(valarray[6]));
+            size += (8 + (int) strlen(valarray[6]));
         if(db_wantsmeta(pinfo->meta,metaItemId))
             /* miid */
             size += 12;
@@ -1299,7 +1299,7 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
             if(transcode) {
                 size += 11;   /* 'wav' */
             } else {
-                size += (8 + strlen(valarray[8]));
+                size += (8 + (int) strlen(valarray[8]));
             }
         }
         if(ISSTR(valarray[29]) && db_wantsmeta(pinfo->meta,metaSongDescription)) {
@@ -1307,12 +1307,12 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
             if(transcode) {
                 size += 22;  /* 'wav audio file' */
             } else {
-                size += (8 + strlen(valarray[29]));
+                size += (8 + (int) strlen(valarray[29]));
             }
         }
         if(ISSTR(valarray[3]) && db_wantsmeta(pinfo->meta,metaItemName))
             /* minm */
-            size += (8 + strlen(valarray[3]));
+            size += (8 + (int) strlen(valarray[3]));
         if(valarray[34] && atoi(valarray[34]) && db_wantsmeta(pinfo->meta,metaSongDisabled))
             /* asdb */
             size += 9;

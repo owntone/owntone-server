@@ -39,18 +39,11 @@
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
-#include <syslog.h>
 
-
-/* don't want to redefine malloc -- if doing memory debugging,
- * this is the only file that *shouldn't* be redefining malloc and
- * friends.  Hence the define.
- */
-#define __IN_ERR__
 #include "err.h"
+#include "os.h"
 
-
-int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
+static int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
 static int err_logdestination=LOGDEST_STDERR; /**< current log destination */
 static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
 static pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER; /**< for serializing log messages */
@@ -62,33 +55,16 @@ static char *err_categorylist[] = {
     "playlist","art","daap","main","rend","xml","parse",NULL
 };
 
-#ifdef DEBUG_MEMORY
-/**
- * Nodes for a linked list of in-use memory.  Any malloc/strdup/etc
- * calls get a new node of this type added to the #err_leak list.
- */
-typedef struct tag_err_leak {
-    void *ptr;
-    char *file;
-    int line;
-    int size;
-    struct tag_err_leak *next;
-} ERR_LEAK;
-
-/** head of linked list of in-use memory */
-ERR_LEAK err_leak = { NULL, NULL, 0, 0, NULL };
-#endif
-
 /*
  * Forwards
  */
 
-static int err_lock_mutex(void);
-static int err_unlock_mutex(void);
+static int _err_lock(void);
+static int _err_unlock(void);
 
 /**
  * Write a printf-style formatted message to the log destination.
- * This can be stderr, syslog, or a logfile, as determined by 
+ * This can be stderr, syslog/eventviewer, or a logfile, as determined by 
  * err_setdest().  Note that this function should not be directly
  * used, rather it should be used via the #DPRINTF macro.
  *
@@ -105,49 +81,60 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     time_t tt_now;
 
     if(level) {
-	if(level > err_debuglevel)
-	    return;
+        if(level > err_debuglevel)
+            return;
 
-	if(!(cat & err_debugmask))
-	    return;
+        if(!(cat & err_debugmask))
+            return;
     } /* we'll *always* process a log level 0 */
 
     va_start(ap, fmt);
     vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
     va_end(ap);
  
-    err_lock_mutex(); /* atomic file writes */
+    _err_lock(); /* atomic file writes */
 
     if((!level) && (err_logdestination != LOGDEST_STDERR)) {
-	fprintf(stderr,"%s",errbuf);
-	fprintf(stderr,"Aborting\n");
-	fflush(stderr); /* shouldn't have to do this? */
+        fprintf(stderr,"%s",errbuf);
+        fprintf(stderr,"Aborting\n");
+        fflush(stderr); /* shouldn't have to do this? */
     }
 
     switch(err_logdestination) {
     case LOGDEST_LOGFILE:
-	tt_now=time(NULL);
-	localtime_r(&tt_now,&tm_now);
-	strftime(timebuf,sizeof(timebuf),"%Y-%m-%d %T",&tm_now);
-	fprintf(err_file,"%s: %s",timebuf,errbuf);
-	if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
-	fflush(err_file);
-	break;
+        tt_now=time(NULL);
+        localtime_r(&tt_now,&tm_now);
+        strftime(timebuf,sizeof(timebuf),"%Y-%m-%d %T",&tm_now);
+        fprintf(err_file,"%s: %s",timebuf,errbuf);
+        if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
+        fflush(err_file);
+        break;
     case LOGDEST_STDERR:
         fprintf(stderr, "%s",errbuf);
-	if(!level) fprintf(stderr,"Aborting\n");
+        if(!level) fprintf(stderr,"Aborting\n");
         break;
     case LOGDEST_SYSLOG:
-        syslog(LOG_NOTICE, "%s", errbuf);
-	if(!level) syslog(LOG_INFO, "Aborting\n");
+        os_syslog(level,errbuf);
+        if(!level) os_syslog(0, "Fatal error... Aborting\n");
         break;
     }
 
-    err_unlock_mutex();
+    _err_unlock();
 
     if(!level) {
-        exit(EXIT_FAILURE);
+        exit(EXIT_FAILURE);      /* this should go to an OS-specific exit routine */
     }
+}
+
+/*
+ * simple get/set interface to debuglevel to avoid global 
+ */
+void err_setlevel(int level) {
+    err_debuglevel = level;
+}
+
+int err_getlevel(void) {
+    return err_debuglevel;
 }
 
 /**
@@ -156,30 +143,30 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
  * \param app appname (used only for syslog destination)
  * \param destination where to log to \ref log_dests "as defined in err.h"
  */
-void err_setdest(char *app, int destination) {
+void err_setdest(char *cvalue, int destination) {
     if(err_logdestination == destination)
-	return;
+        return;
 
     switch(err_logdestination) {
     case LOGDEST_SYSLOG:
-	closelog();
-	break;
+        os_closesyslog();
+        break;
     case LOGDEST_LOGFILE:
-	fclose(err_file);
-	break;
+        fclose(err_file);
+        break;
     }
 
     switch(destination) {
     case LOGDEST_LOGFILE:
-	err_file=fopen(app,"a");
-	if(err_file==NULL) {
-	    fprintf(stderr,"Error opening %s: %s\n",app,strerror(errno));
-	    exit(EXIT_FAILURE);
-	}
-	break;
+        err_file=fopen(cvalue,"a");
+        if(err_file==NULL) {
+            fprintf(stderr,"Error opening %s: %s\n",cvalue,strerror(errno));
+            exit(EXIT_FAILURE);
+        }
+        break;
     case LOGDEST_SYSLOG:
-	openlog(app,LOG_PID,LOG_DAEMON);
-	break;
+        os_opensyslog(); // (app,LOG_PID,LOG_DAEMON);
+        break;
     }
 
     err_logdestination=destination;
@@ -200,26 +187,26 @@ extern int err_setdebugmask(char *list) {
     str=list;
 
     while(1) {
-	token=strtok_r(str,",",&last);
-	str=NULL;
+        token=strtok_r(str,",",&last);
+        str=NULL;
 
-	if(token) {
-	    rack=1;
-	    index=0;
-	    while((err_categorylist[index]) && 
-		  (strcasecmp(err_categorylist[index],token))) {
-		rack <<= 1;
-		index++;
-	    }
+        if(token) {
+            rack=1;
+            index=0;
+            while((err_categorylist[index]) && 
+                  (strcasecmp(err_categorylist[index],token))) {
+                rack <<= 1;
+                index++;
+            }
 
-	    if(!err_categorylist[index]) {
-		DPRINTF(E_LOG,L_MISC,"Unknown module: %s\n",token);
-		return 1;
-	    } else {
-		DPRINTF(E_DBG,L_MISC,"Adding module %s to debug list (0x%08x)\n",token,rack);
-		err_debugmask |= rack;
-	    }
-	} else break; /* !token */
+            if(!err_categorylist[index]) {
+                DPRINTF(E_LOG,L_MISC,"Unknown module: %s\n",token);
+                return 1;
+            } else {
+                DPRINTF(E_DBG,L_MISC,"Adding module %s to debug list (0x%08x)\n",token,rack);
+                err_debugmask |= rack;
+            }
+        } else break; /* !token */
     }
 
     DPRINTF(E_INF,L_MISC,"Debug mask is 0x%08x\n",err_debugmask);
@@ -234,12 +221,12 @@ extern int err_setdebugmask(char *list) {
  *
  * \returns 0 on success, otherwise -1 with errno set
  */
-int err_lock_mutex(void) {
+int _err_lock(void) {
     int err;
 
     if((err=pthread_mutex_lock(&err_mutex))) {
-	errno=err;
-	return -1;
+        errno=err;
+        return -1;
     }
 
     return 0;
@@ -250,155 +237,14 @@ int err_lock_mutex(void) {
  *
  * \returns 0 on success, otherwise -1 with errno set
  */
-int err_unlock_mutex(void) {
+int _err_unlock(void) {
     int err;
 
     if((err=pthread_mutex_unlock(&err_mutex))) {
-	errno=err;
-	return -1;
+        errno=err;
+        return -1;
     }
 
     return 0;
 }
 
-#ifdef DEBUG_MEMORY
-
-/**
- * Let the leak detector know about a chunk of memory
- * that needs to be freed, but came from an external library.
- * Example: gdbm functions.  Note that this should only
- * be called via the #MEMNOTIFY macro.
- *
- * \param file filled in from the #MEMNOTIFY macro with __FILE__
- * \param line filled in from the #MEMNOTIFY macro with __LINE__
- * \param ptr ptr to block of memory which must be freed
- */
-void err_notify(char *file, int line, void *ptr) {
-    ERR_LEAK *pnew;
-
-    if(!ptr)
-	return;
-
-    pnew=(ERR_LEAK*)malloc(sizeof(ERR_LEAK));
-    if(!pnew) 
-	DPRINTF(E_FATAL,L_MISC,"Error: cannot allocate leak struct\n");
-
-    if(err_lock_mutex()) 
-	DPRINTF(E_FATAL,L_MISC,"Error: cannot lock error mutex\n");
-	
-    pnew->file=file;
-    pnew->line=line;
-    pnew->size=0;
-    pnew->ptr=ptr;
-
-    pnew->next=err_leak.next;
-    err_leak.next=pnew;
-
-    err_unlock_mutex();
-}
-
-/**
- * malloc wrapper for leak checking.  This never gets
- * called directly, only via malloc.
- *
- * \param file filled in via macro with __FILE__
- * \param line filled in via macro with __LINE__
- * \param size size of block to allocate
- */
-void *err_malloc(char *file, int line, size_t size) {
-    ERR_LEAK *pnew;
-
-    pnew=(ERR_LEAK*)malloc(sizeof(ERR_LEAK));
-    if(!pnew) 
-	DPRINTF(E_FATAL,L_MISC,"Error: cannot allocate leak struct\n");
-
-    if(err_lock_mutex()) 
-	DPRINTF(E_FATAL,L_MISC,"Error: cannot lock error mutex\n");
-	
-    pnew->file=file;
-    pnew->line=line;
-    pnew->size=size;
-    pnew->ptr=malloc(size);
-
-    pnew->next=err_leak.next;
-    err_leak.next=pnew;
-
-    err_unlock_mutex();
-
-    return pnew->ptr;
-}
-
-
-/**
- * Memory check wrapper for strdup.  This should not
- * be called directly
- *
- * \param file filled in via macro with __FILE__
- * \param line filled in via macro with __LINE__
- * \param str str to strdup
- */
-char *err_strdup(char *file, int line, const char *str) {
-    void *pnew;
-
-    pnew=err_malloc(file,line,strlen(str) + 1);
-    if(!pnew) 
-	DPRINTF(E_FATAL,L_MISC,"Cannot malloc enough space for strdup\n");
-
-    memcpy(pnew,str,strlen(str)+1);
-    return pnew;
-}
-
-/**
- * Memory checking wrapper for free. This should not be
- * called direclty.
- *
- * \param file filled in by macro with __FILE__
- * \param line filled in by macro with __LINE__
- * \param ptr block of memory to free
- */
-void err_free(char *file, int line, void *ptr) {
-    ERR_LEAK *current,*last;
-
-    if(err_lock_mutex()) 
-        DPRINTF(E_FATAL,L_MISC,"Error: cannot lock error mutex\n");
-
-    last=&err_leak;
-    current=last->next;
-
-    while((current) && (current->ptr != ptr)) {
-	last=current;
-	current=current->next;
-    }
-
-    if(!current) {
-	DPRINTF(E_FATAL,L_MISC,"Attempt to free unallocated memory: %s, %d\n",file,line);
-    } else {
-	free(current->ptr);
-	last->next=current->next;
-	free(current);
-    }
-
-    err_unlock_mutex();
-}
-
-/**
- * Dumps the list of in-use memory.  This walks the linked
- * list created by the malloc and strdup wrappers, and dumps
- * them to stdout.
- */
-void err_leakcheck(void) {
-    ERR_LEAK *current;
-
-    if(err_lock_mutex()) 
-	DPRINTF(E_FATAL,L_MISC,"Error: cannot lock error mutex\n");
-
-    current=err_leak.next;
-    while(current) {
-	printf("%s: %d - %d bytes at %p\n",current->file, current->line, current->size,
-	       current->ptr);
-	current=current->next;
-    }
-
-    err_unlock_mutex();
-}
-#endif

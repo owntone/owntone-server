@@ -4,6 +4,10 @@
  * This really isn't xmlrpc.  It's xmlrpc-ish.  Emphasis on -ish.
  */
 
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -242,7 +246,7 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
 
     xml_push(pxml,"statistics");
 
-    r_secs=time(NULL)-config.stats.start_time;
+    r_secs=(int)(time(NULL)-config.stats.start_time);
 
     r_days=r_secs/(3600 * 24);
     r_secs -= ((3600 * 24) * r_days);
@@ -300,7 +304,7 @@ char *xml_entity_encode(char *original) {
     char *s, *d;
     int destsize;
 
-    destsize = 6*strlen(original)+1;
+    destsize = 6*(int)strlen(original)+1;
     new=(char *)malloc(destsize);
     if(!new) return NULL;
 

@@ -23,6 +23,12 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.3  2006/02/26 08:46:24  rpedde
+Merged win32-branch
+
+Revision 1.2.4.1  2006/02/26 08:28:35  rpedde
+unix fixes from win32 port
+
 Revision 1.2  2005/01/10 01:07:01  rpedde
 Synchronize mDNS to Apples 58.8 drop
 
@@ -74,10 +80,10 @@ First checkin
 extern int gMDNSPlatformPosixVerboseLevel;
 
 struct mDNS_PlatformSupport_struct
-	{
+        {
     // No additional data required for Posix at this time
-	long dummy[1];	// Some compilers don't like empty structures
-	};
+        long dummy[1];  // Some compilers don't like empty structures
+        };
 
 extern mStatus mDNSPlatformPosixRefreshInterfaceList(mDNS *const m);
     // See comment in implementation.

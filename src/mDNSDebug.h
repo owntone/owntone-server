@@ -23,6 +23,12 @@
     Change History (most recent first):
 
 $Log$
+Revision 1.4  2006/02/26 08:46:24  rpedde
+Merged win32-branch
+
+Revision 1.3.2.1  2006/02/26 08:28:35  rpedde
+unix fixes from win32 port
+
 Revision 1.3  2005/07/21 03:40:07  rpedde
 Crank up mdns debug messages
 
@@ -78,41 +84,41 @@ Merge in license terms from Quinn's copy, in preparation for Darwin release
 #define IS_A_PRINTF_STYLE_FUNCTION(F,A)
 #endif
 
-#ifdef	__cplusplus
-	extern "C" {
+#ifdef  __cplusplus
+        extern "C" {
 #endif
 
 #if MDNS_DEBUGMSGS
 #define debugf debugf_
 extern void debugf_(const char *format, ...) IS_A_PRINTF_STYLE_FUNCTION(1,2);
 #else // If debug breaks are off, use a preprocessor trick to optimize those calls out of the code
-	#if( defined( __GNUC__ ) )
-		#define	debugf( ARGS... ) ((void)0)
-	#elif( defined( __MWERKS__ ) )
-		#define	debugf( ... )
-	#else
-		#define debugf 1 ? ((void)0) : (void)
-	#endif
+        #if( defined( __GNUC__ ) )
+                #define debugf( ARGS... ) ((void)0)
+        #elif( defined( __MWERKS__ ) )
+                #define debugf( ... )
+        #else
+                #define debugf 1 ? ((void)0) : (void)
+        #endif
 #endif
 
 #if MDNS_DEBUGMSGS > 1
 #define verbosedebugf verbosedebugf_
 extern void verbosedebugf_(const char *format, ...) IS_A_PRINTF_STYLE_FUNCTION(1,2);
 #else
-	#if( defined( __GNUC__ ) )
-		#define	verbosedebugf( ARGS... ) ((void)0)
-	#elif( defined( __MWERKS__ ) )
-		#define	verbosedebugf( ... )
-	#else
-		#define verbosedebugf 1 ? ((void)0) : (void)
-	#endif
+        #if( defined( __GNUC__ ) )
+                #define verbosedebugf( ARGS... ) ((void)0)
+        #elif( defined( __MWERKS__ ) )
+                #define verbosedebugf( ... )
+        #else
+                #define verbosedebugf 1 ? ((void)0) : (void)
+        #endif
 #endif
 
 // LogMsg is used even in shipping code, to write truly serious error messages to syslog (or equivalent)
 extern void LogMsg(const char *format, ...) IS_A_PRINTF_STYLE_FUNCTION(1,2);
 
-#ifdef	__cplusplus
-	}
+#ifdef  __cplusplus
+        }
 #endif
 
 #endif

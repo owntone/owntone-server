@@ -89,6 +89,15 @@
   Change History (most recent first):
 
  $Log$
+ Revision 1.28  2006/02/26 08:46:24  rpedde
+ Merged win32-branch
+
+ Revision 1.27.2.2  2006/02/26 08:28:35  rpedde
+ unix fixes from win32 port
+
+ Revision 1.27.2.1  2006/02/23 03:19:40  rpedde
+ First pass at win32 port.
+
  Revision 1.27  2006/02/20 03:36:57  rpedde
  Annoying fprintf
 
@@ -188,11 +197,11 @@
 #include "mDNSPosix.h"    // Defines the specific types needed to run mDNS on this platform
 
 #include <assert.h>
-#include <stdio.h>			// For printf()
-#include <stdlib.h>			// For exit() etc.
-#include <string.h>			// For strlen() etc.
-#include <unistd.h>			// For select()
-#include <errno.h>			// For errno, EINTR
+#include <stdio.h>                      // For printf()
+#include <stdlib.h>                     // For exit() etc.
+#include <string.h>                     // For strlen() etc.
+#include <unistd.h>                     // For select()
+#include <errno.h>                      // For errno, EINTR
 #include <signal.h>
 #include <fcntl.h>
 #include <pwd.h>
@@ -201,6 +210,7 @@
 #define __IN_ERR__
 #include "daapd.h"
 #include "err.h"
+#include "os-unix.h"
 #include "rend.h"
 #include "rend-unix.h"
 
@@ -211,12 +221,12 @@
 typedef struct PosixNetworkInterface PosixNetworkInterface;
 
 struct PosixNetworkInterface {
-	NetworkInterfaceInfo    coreIntf;
-	const char *            intfName;
-	PosixNetworkInterface * aliasIntf;
-	int                     index;
-	int                     multicastSocket;
-	int                     multicastSocketv6;
+        NetworkInterfaceInfo    coreIntf;
+        const char *            intfName;
+        PosixNetworkInterface * aliasIntf;
+        int                     index;
+        int                     multicastSocket;
+        int                     multicastSocketv6;
 };
 
 
@@ -291,52 +301,52 @@ static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegi
     switch (status) {
 
     case mStatus_NoError:      
-	DPRINTF(E_DBG,L_REND,"Callback: Name Registered\n");
-	// Do nothing; our name was successfully registered.  We may 
-	// get more call backs in the future.
-	break;
+        DPRINTF(E_DBG,L_REND,"Callback: Name Registered\n");
+        // Do nothing; our name was successfully registered.  We may 
+        // get more call backs in the future.
+        break;
 
     case mStatus_NameConflict: 
-	DPRINTF(E_WARN,L_REND,"Callback: Name Conflict\n");
+        DPRINTF(E_WARN,L_REND,"Callback: Name Conflict\n");
 
-	// In the event of a conflict, this sample RegistrationCallback 
-	// just calls mDNS_RenameAndReregisterService to automatically 
-	// pick a new unique name for the service. For a device such as a 
-	// printer, this may be appropriate.  For a device with a user 
-	// interface, and a screen, and a keyboard, the appropriate response 
-	// may be to prompt the user and ask them to choose a new name for 
-	// the service.
-	//
-	// Also, what do we do if mDNS_RenameAndReregisterService returns an 
-	// error.  Right now I have no place to send that error to.
+        // In the event of a conflict, this sample RegistrationCallback 
+        // just calls mDNS_RenameAndReregisterService to automatically 
+        // pick a new unique name for the service. For a device such as a 
+        // printer, this may be appropriate.  For a device with a user 
+        // interface, and a screen, and a keyboard, the appropriate response 
+        // may be to prompt the user and ask them to choose a new name for 
+        // the service.
+        //
+        // Also, what do we do if mDNS_RenameAndReregisterService returns an 
+        // error.  Right now I have no place to send that error to.
             
-	status = mDNS_RenameAndReregisterService(m, thisRegistration, mDNSNULL);
-	assert(status == mStatus_NoError);
-	break;
+        status = mDNS_RenameAndReregisterService(m, thisRegistration, mDNSNULL);
+        assert(status == mStatus_NoError);
+        break;
 
     case mStatus_MemFree:      
-	DPRINTF(E_WARN,L_REND,"Callback: Memory Free\n");
+        DPRINTF(E_WARN,L_REND,"Callback: Memory Free\n");
             
-	// When debugging is enabled, make sure that thisRegistration 
-	// is not on our gServiceList.
+        // When debugging is enabled, make sure that thisRegistration 
+        // is not on our gServiceList.
             
 #if defined(DEBUG)
-	{
-	    PosixService *cursor;
+        {
+            PosixService *cursor;
                     
-	    cursor = gServiceList;
-	    while (cursor != NULL) {
-		assert(&cursor->coreServ != thisRegistration);
-		cursor = cursor->next;
-	    }
-	}
+            cursor = gServiceList;
+            while (cursor != NULL) {
+                assert(&cursor->coreServ != thisRegistration);
+                cursor = cursor->next;
+            }
+        }
 #endif
-	free(thisRegistration);
-	break;
+        free(thisRegistration);
+        break;
 
     default:                   
-	DPRINTF(E_WARN,L_REND,"Callback: Unknown Status %d\n",status); 
-	break;
+        DPRINTF(E_WARN,L_REND,"Callback: Unknown Status %d\n",status); 
+        break;
     }
 }
 
@@ -344,11 +354,11 @@ static int gServiceID = 0;
 
 static mStatus RegisterOneService(const char *  richTextHostName, 
                                   const char *  serviceType, 
-				  const char *  serviceDomain,
+                                  const char *  serviceDomain,
                                   const mDNSu8  text[],
                                   mDNSu16       textLen,
                                   long          portNumber,
-				  mDNSInterfaceID id)
+                                  mDNSInterfaceID id)
 {
     mStatus             status;
     PosixService *      thisServ;
@@ -370,13 +380,13 @@ static mStatus RegisterOneService(const char *  richTextHostName,
         port.b[0] = (portNumber >> 8) & 0x0FF;
         port.b[1] = (portNumber >> 0) & 0x0FF;;
         status = mDNS_RegisterService(&mDNSStorage, &thisServ->coreServ,
-				      &name, &type, &domain,
-				      NULL,
-				      port, 
-				      text, textLen,
-				      NULL, 0,
-				      id,
-				      RegistrationCallback, thisServ);
+                                      &name, &type, &domain,
+                                      NULL,
+                                      port, 
+                                      text, textLen,
+                                      NULL, 0,
+                                      id,
+                                      RegistrationCallback, thisServ);
     }
     if (status == mStatus_NoError) {
         thisServ->serviceID = gServiceID;
@@ -385,13 +395,13 @@ static mStatus RegisterOneService(const char *  richTextHostName,
         thisServ->next = gServiceList;
         gServiceList = thisServ;
 
-	DPRINTF(E_DBG,L_REND,
-		"Registered service %d, name '%s', type '%s', domain '%s', port %ld\n", 
-		thisServ->serviceID, 
-		richTextHostName,
-		serviceType,
-		serviceDomain,
-		portNumber);
+        DPRINTF(E_DBG,L_REND,
+                "Registered service %d, name '%s', type '%s', domain '%s', port %ld\n", 
+                thisServ->serviceID, 
+                richTextHostName,
+                serviceType,
+                serviceDomain,
+                portNumber);
     } else {
         if (thisServ != NULL) {
             free(thisServ);
@@ -413,8 +423,8 @@ static void DeregisterOurServices(void)
         
         mDNS_DeregisterService(&mDNSStorage, &thisServ->coreServ);
 
-	DPRINTF(E_DBG,L_REND,"Deregistered service %d\n",
-		thisServ->serviceID);
+        DPRINTF(E_DBG,L_REND,"Deregistered service %d\n",
+                thisServ->serviceID);
     }
 }
 
@@ -422,22 +432,22 @@ mDNSInterfaceID rend_get_interface_id(char *iface) {
     PosixNetworkInterface *pni;
 
     if(!iface)
-	return mDNSInterface_Any;
+        return mDNSInterface_Any;
 
     if(!strlen(iface))
-	return mDNSInterface_Any;
+        return mDNSInterface_Any;
 
     DPRINTF(E_LOG,L_REND,"Searching for interface %s\n",iface);
 
     pni=(PosixNetworkInterface*)mDNSStorage.HostInterfaces;
     while(pni) {
-	DPRINTF(E_INF,L_REND,"Found interface %s, index %d\n",pni->intfName,
-		pni->index);
-	if(strcasecmp(pni->intfName,iface) == 0) {
-	    DPRINTF(E_INF,L_REND,"Found interface id: %d\n",pni->coreIntf.InterfaceID);
-	    return pni->coreIntf.InterfaceID;
-	}
-	pni=(PosixNetworkInterface*)(pni->coreIntf.next);
+        DPRINTF(E_INF,L_REND,"Found interface %s, index %d\n",pni->intfName,
+                pni->index);
+        if(strcasecmp(pni->intfName,iface) == 0) {
+            DPRINTF(E_INF,L_REND,"Found interface id: %d\n",pni->coreIntf.InterfaceID);
+            return pni->coreIntf.InterfaceID;
+        }
+        pni=(PosixNetworkInterface*)(pni->coreIntf.next);
     }
 
     DPRINTF(E_INF,L_REND,"Could not find interface.\n");
@@ -460,33 +470,33 @@ void rend_callback(void) {
     /* here, we've seen the message, now we have to process it */
 
     if((result=rend_read_message(&msg)) != sizeof(msg)) {
-	err=errno;
-	DPRINTF(E_FATAL,L_REND,"Rendezvous socket closed (daap server crashed?) Aborting.\n");
-	gStopNow=mDNStrue;
-	return;
+        err=errno;
+        DPRINTF(E_FATAL,L_REND,"Rendezvous socket closed (daap server crashed?) Aborting.\n");
+        gStopNow=mDNStrue;
+        return;
     }
 
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
-	id=rend_get_interface_id(msg.interface);
-	DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.name,msg.type,msg.port);
-	RegisterOneService(msg.name,msg.type,"local.","\011txtvers=1\034Database ID=beddab1edeadbea7",39,
-			   msg.port,id);
-	rend_send_response(0); /* success */
-	break;
+        id=rend_get_interface_id(msg.iface);
+        DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.name,msg.type,msg.port);
+        RegisterOneService(msg.name,msg.type,"local.","\011txtvers=1\034Database ID=beddab1edeadbea7",39,
+                           msg.port,id);
+        rend_send_response(0); /* success */
+        break;
     case REND_MSG_TYPE_UNREGISTER:
-	rend_send_response(1); /* error */
-	break;
+        rend_send_response(1); /* error */
+        break;
     case REND_MSG_TYPE_STOP:
-	DPRINTF(E_INF,L_REND,"Stopping mDNS\n");
-	gStopNow = mDNStrue;
-	rend_send_response(0);
-	break;
+        DPRINTF(E_INF,L_REND,"Stopping mDNS\n");
+        gStopNow = mDNStrue;
+        rend_send_response(0);
+        break;
     case REND_MSG_TYPE_STATUS:
-	rend_send_response(1);
-	break;
+        rend_send_response(1);
+        break;
     default:
-	break;
+        break;
     }
 }
 
@@ -497,63 +507,63 @@ int rend_private_init(char *user) {
     mDNSBool result;
 
     status = mDNS_Init(&mDNSStorage, &PlatformStorage,
-		       mDNS_Init_NoCache, mDNS_Init_ZeroCacheSize,
-		       mDNS_Init_AdvertiseLocalAddresses,
-		       mDNS_Init_NoInitCallback, mDNS_Init_NoInitCallbackContext);
+                       mDNS_Init_NoCache, mDNS_Init_ZeroCacheSize,
+                       mDNS_Init_AdvertiseLocalAddresses,
+                       mDNS_Init_NoInitCallback, mDNS_Init_NoInitCallbackContext);
     
     if (status != mStatus_NoError) {
-	DPRINTF(E_FATAL,L_REND,"mDNS Error %d\n",status);
-	return(-1);
+        DPRINTF(E_FATAL,L_REND,"mDNS Error %d\n",status);
+        return(-1);
     }
 
-    if(drop_privs(user))
-	return -1;
+    if(os_drop_privs(user))
+        return -1;
 
     signal(SIGINT,  HandleSigInt);      // SIGINT is what you get for a Ctrl-C
     signal(SIGQUIT, HandleSigQuit);     // SIGQUIT is what you get for a Ctrl-\ (indeed)
     signal(SIGHUP,  SIG_IGN);           // SIGHUP might happen from a request to reload the daap server
 
     while (!gStopNow) {
-	int nfds = 1;
-	fd_set readfds;
-	struct timeval timeout;
-	int result;
-	
-	// 1. Set up the fd_set as usual here.
-	// This example client has no file descriptors of its own,
-	// but a real application would call FD_SET to add them to the set here
-	FD_ZERO(&readfds);
-	FD_SET(rend_pipe_to[RD_SIDE],&readfds);
-	
-	// 2. Set up the timeout.
-	// This example client has no other work it needs to be doing,
-	// so we set an effectively infinite timeout
-	timeout.tv_sec = 0x3FFFFFFF;
-	timeout.tv_usec = 0;
-	
-	// 3. Give the mDNSPosix layer a chance to add its information to the fd_set and timeout
-	mDNSPosixGetFDSet(&mDNSStorage, &nfds, &readfds, &timeout);
-	
-	// 4. Call select as normal
-	DPRINTF(E_DBG,L_REND,"select(%d, %d.%06d)\n", nfds, 
-		timeout.tv_sec, timeout.tv_usec);
-	
-	result = select(nfds, &readfds, NULL, NULL, &timeout);
-	
-	if (result < 0) {
-	    if (errno != EINTR) gStopNow = mDNStrue;
-	    DPRINTF(E_WARN,L_REND,"select() returned %d errno %d\n", result, errno);
-	} else {
-	    // 5. Call mDNSPosixProcessFDSet to let the mDNSPosix layer do its work
-	    mDNSPosixProcessFDSet(&mDNSStorage, &readfds);
-	    
-	    // 6. This example client has no other work it needs to be doing,
-	    // but a real client would do its work here
-	    // ... (do work) ...
-	    if(FD_ISSET(rend_pipe_to[RD_SIDE],&readfds)) {
-		rend_callback();
-	    }
-	}
+        int nfds = 1;
+        fd_set readfds;
+        struct timeval timeout;
+        int result;
+        
+        // 1. Set up the fd_set as usual here.
+        // This example client has no file descriptors of its own,
+        // but a real application would call FD_SET to add them to the set here
+        FD_ZERO(&readfds);
+        FD_SET(rend_pipe_to[RD_SIDE],&readfds);
+        
+        // 2. Set up the timeout.
+        // This example client has no other work it needs to be doing,
+        // so we set an effectively infinite timeout
+        timeout.tv_sec = 0x3FFFFFFF;
+        timeout.tv_usec = 0;
+        
+        // 3. Give the mDNSPosix layer a chance to add its information to the fd_set and timeout
+        mDNSPosixGetFDSet(&mDNSStorage, &nfds, &readfds, &timeout);
+        
+        // 4. Call select as normal
+        DPRINTF(E_DBG,L_REND,"select(%d, %d.%06d)\n", nfds, 
+                timeout.tv_sec, timeout.tv_usec);
+        
+        result = select(nfds, &readfds, NULL, NULL, &timeout);
+        
+        if (result < 0) {
+            if (errno != EINTR) gStopNow = mDNStrue;
+            DPRINTF(E_WARN,L_REND,"select() returned %d errno %d\n", result, errno);
+        } else {
+            // 5. Call mDNSPosixProcessFDSet to let the mDNSPosix layer do its work
+            mDNSPosixProcessFDSet(&mDNSStorage, &readfds);
+            
+            // 6. This example client has no other work it needs to be doing,
+            // but a real client would do its work here
+            // ... (do work) ...
+            if(FD_ISSET(rend_pipe_to[RD_SIDE],&readfds)) {
+                rend_callback();
+            }
+        }
     }
     
     DPRINTF(E_DBG,L_REND,"Exiting\n");
@@ -567,7 +577,7 @@ int rend_private_init(char *user) {
         result = 2;
     }
     DPRINTF(E_DBG,L_REND, "Finished with status %ld, result %d\n", 
-	    status, result);
+            status, result);
 
     exit(result);
 }

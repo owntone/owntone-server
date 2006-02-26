@@ -27,10 +27,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 #include <sys/types.h>
 #include <sys/stat.h>
+
+#ifndef WIN32
 #include <netinet/in.h>
+#endif
 
 #include "db-generic.h"
 #include "configfile.h"
@@ -40,8 +45,10 @@
 #include "ssc.h"
 #include "dynamic-art.h"
 #include "restart.h"
+#include "strtok_r.h"
 #include "daapd.h"
 #include "query.h"
+
 
 /* Forwards */
 static void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi);
@@ -166,20 +173,30 @@ void daap_handler(WS_CONNINFO *pwsc) {
     }
 
     /* Start dispatching */
-    if(!strcasecmp(pqi->uri_sections[0],"server-info"))
-        return dispatch_server_info(pwsc,pqi);
+    if(!strcasecmp(pqi->uri_sections[0],"server-info")) {
+        dispatch_server_info(pwsc,pqi);
+        return;
+    }
 
-    if(!strcasecmp(pqi->uri_sections[0],"content-codes"))
-        return dispatch_content_codes(pwsc,pqi);
+    if(!strcasecmp(pqi->uri_sections[0],"content-codes")) {
+        dispatch_content_codes(pwsc,pqi);
+        return;
+    }
 
-    if(!strcasecmp(pqi->uri_sections[0],"login"))
-        return dispatch_login(pwsc,pqi);
+    if(!strcasecmp(pqi->uri_sections[0],"login")) {
+        dispatch_login(pwsc,pqi);
+        return;
+    }
 
-    if(!strcasecmp(pqi->uri_sections[0],"update"))
-        return dispatch_update(pwsc,pqi);
+    if(!strcasecmp(pqi->uri_sections[0],"update")) {
+        dispatch_update(pwsc,pqi);
+        return;
+    }
 
-    if(!strcasecmp(pqi->uri_sections[0],"logout"))
-        return dispatch_logout(pwsc,pqi);
+    if(!strcasecmp(pqi->uri_sections[0],"logout")) {
+        dispatch_logout(pwsc,pqi);
+        return;
+    }
 
     /*
      * /databases/id/items
@@ -190,16 +207,21 @@ void daap_handler(WS_CONNINFO *pwsc) {
      */
     if(!strcasecmp(pqi->uri_sections[0],"databases")) {
         if(pqi->uri_count == 1) {
-            return dispatch_dbinfo(pwsc,pqi);
+            dispatch_dbinfo(pwsc,pqi);
+            return;
         }
         pqi->db_id=atoi(pqi->uri_sections[1]);
         if(pqi->uri_count == 3) {
-            if(!strcasecmp(pqi->uri_sections[2],"items"))
+            if(!strcasecmp(pqi->uri_sections[2],"items")) {
                 /* /databases/id/items */
-                return dispatch_items(pwsc,pqi);
-            if(!strcasecmp(pqi->uri_sections[2],"containers"))
+                dispatch_items(pwsc,pqi);
+                return;
+            }
+            if(!strcasecmp(pqi->uri_sections[2],"containers")) {
                 /* /databases/id/containers */
-                return dispatch_playlists(pwsc,pqi);
+                dispatch_playlists(pwsc,pqi);
+                return;
+            }
 
             pwsc->close=1;
             free(pqi);
@@ -207,24 +229,35 @@ void daap_handler(WS_CONNINFO *pwsc) {
             return;
         }
         if(pqi->uri_count == 4) {
-            if(!strcasecmp(pqi->uri_sections[2],"browse"))
+            if(!strcasecmp(pqi->uri_sections[2],"browse")) {
                 /* /databases/id/browse/something */
-                return dispatch_browse(pwsc,pqi);
-            if(!strcasecmp(pqi->uri_sections[2],"items"))
+                dispatch_browse(pwsc,pqi);
+                return;
+            }
+            if(!strcasecmp(pqi->uri_sections[2],"items")) {
                 /* /databases/id/items/id.mp3 */
-                return dispatch_stream(pwsc,pqi);
+                dispatch_stream(pwsc,pqi);
+                return;
+            }
             if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
-               (!strcasecmp(pqi->uri_sections[3],"add")))
-                /* /databases/id/containers/add */
-                return dispatch_addplaylist(pwsc,pqi);
+                (!strcasecmp(pqi->uri_sections[3],"add"))) {
+                 /* /databases/id/containers/add */
+                 dispatch_addplaylist(pwsc,pqi);
+                 return;
+            }
             if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
-               (!strcasecmp(pqi->uri_sections[3],"del")))
-                /* /databases/id/containers/del */
-                return dispatch_deleteplaylist(pwsc,pqi);
+                (!strcasecmp(pqi->uri_sections[3],"del"))) {
+                 /* /databases/id/containers/del */
+                dispatch_deleteplaylist(pwsc,pqi);
+                return;
+            }
             if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
-                (!strcasecmp(pqi->uri_sections[3],"edit")))
+                (!strcasecmp(pqi->uri_sections[3],"edit"))) {
                 /* /databases/id/contaienrs/edit */
-                return dispatch_editplaylist(pwsc,pqi);
+                dispatch_editplaylist(pwsc,pqi);
+                return;
+            }
+
             pwsc->close=1;
             free(pqi);
             ws_returnerror(pwsc,404,"Page not found");
@@ -234,13 +267,15 @@ void daap_handler(WS_CONNINFO *pwsc) {
             if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
                (!strcasecmp(pqi->uri_sections[4],"items"))) {
                 pqi->playlist_id=atoi(pqi->uri_sections[3]);
-                return dispatch_playlistitems(pwsc,pqi);
+                dispatch_playlistitems(pwsc,pqi);
+                return;
             }
             if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
                (!strcasecmp(pqi->uri_sections[4],"del"))) {
                 /* /databases/id/containers/id/del */
                 pqi->playlist_id=atoi(pqi->uri_sections[3]);
-                return dispatch_deleteplaylistitems(pwsc,pqi);
+                dispatch_deleteplaylistitems(pwsc,pqi);
+                return;
             }
         }
         if(pqi->uri_count == 6) {
@@ -248,7 +283,8 @@ void daap_handler(WS_CONNINFO *pwsc) {
                (!strcasecmp(pqi->uri_sections[4],"items")) &&
                (!strcasecmp(pqi->uri_sections[5],"add"))) {
                 pqi->playlist_id=atoi(pqi->uri_sections[3]);
-                return dispatch_addplaylistitems(pwsc,pqi);
+                dispatch_addplaylistitems(pwsc,pqi);
+                return;
             }
         }
     }
@@ -355,7 +391,7 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
 
     while(current < (block + len)) {
         block_done=1;
-        len_left=(block+len) - current;
+        len_left=(int)((block+len) - current);
         if(len_left < 8) {
             DPRINTF(E_FATAL,L_DAAP,"Badly formatted dmap block - frag size: %d",len_left);
         }
@@ -564,7 +600,7 @@ char *dispatch_xml_encode(char *original, int len) {
     if(len) {
         truelen=len;
     } else {
-        truelen=strlen(original);
+        truelen=(int) strlen(original);
     }
 
     destsize = 6*truelen+1;
@@ -1306,7 +1342,7 @@ void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int namelen;
     int count;
 
-    namelen=strlen(config.servername);
+    namelen=(int) strlen(config.servername);
 
     current += db_dmap_add_container(current,"avdb",105 + namelen);
     current += db_dmap_add_int(current,"mstt",200);                      /* 12 */
@@ -1363,7 +1399,7 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dicurrent=taglist;
     len=0;
     while(dicurrent->type) {
-        len += (8 + 12 + 10 + 8 + strlen(dicurrent->description));
+        len += (8 + 12 + 10 + 8 + (int) strlen(dicurrent->description));
         dicurrent++;
     }
 
@@ -1376,7 +1412,7 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dicurrent=taglist;
     while(dicurrent->type) {
         current=mdcl;
-        len = 12 + 10 + 8 + strlen(dicurrent->description);
+        len = 12 + 10 + 8 + (int) strlen(dicurrent->description);
         current += db_dmap_add_container(current,"mdcl",len);
         current += db_dmap_add_string(current,"mcnm",dicurrent->tag);         /* 12 */
         current += db_dmap_add_string(current,"mcna",dicurrent->description); /* 8 + descr */
@@ -1396,7 +1432,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int mpro = 2 << 16;
     int apro = 3 << 16;
 
-    int actual_length=130 + strlen(config.servername);
+    int actual_length=130 + (int) strlen(config.servername);
 
     if(actual_length > sizeof(server_info)) {
         DPRINTF(E_FATAL,L_DAAP,"Server name too long.\n");
@@ -1446,7 +1482,7 @@ void dispatch_error(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *container, char *
     unsigned char *block, *current;
     int len;
     
-    len = 12 + 8 + 8 + strlen(error);
+    len = 12 + 8 + 8 + (int) strlen(error);
     block = (unsigned char *)malloc(len);
     
     if(!block)

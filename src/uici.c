@@ -175,12 +175,12 @@ int u_connect(u_port_t port, char *hostn) {
    if(inet_addr(hostn) == INADDR_NONE) {
        phe=gethostbyname(hostn);
        if(phe == NULL) {
-	   errno = EINVAL;
-	   return -1;
+           errno = EINVAL;
+           return -1;
        }
 
        memcpy((char*)&server.sin_addr,(char*)(phe->h_addr_list[0]),
-	      sizeof(struct in_addr));
+              sizeof(struct in_addr));
    } else {
        server.sin_addr.s_addr=inet_addr(hostn);
    }

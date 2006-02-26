@@ -32,7 +32,7 @@ typedef struct tag_rend_message {
     int port;
     char name[MAX_NAME_LEN];
     char type[MAX_NAME_LEN];
-    char interface[MAX_IFACE_NAME_LEN];
+    char iface[MAX_IFACE_NAME_LEN];
 } REND_MESSAGE;
 
 #define REND_MSG_TYPE_REGISTER     0

@@ -75,9 +75,9 @@ typedef struct tag_ws_conninfo {
 extern WSHANDLE ws_start(WSCONFIG *config);
 extern int ws_stop(WSHANDLE ws);
 extern int ws_registerhandler(WSHANDLE ws, char *regex, 
-			      void(*handler)(WS_CONNINFO*),
-			      int(*auth)(char *, char *),
-			      int addheaders);
+                              void(*handler)(WS_CONNINFO*),
+                              int(*auth)(char *, char *),
+                              int addheaders);
 
 extern void ws_lock_local_storage(WS_CONNINFO *pwsc);
 extern void ws_unlock_local_storage(WS_CONNINFO *pwsc);

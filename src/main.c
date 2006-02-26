@@ -20,7 +20,7 @@
  */
 
 /**
- * \file main.c
+ * @file main.c
  *
  * Driver for mt-daapd, including the main() function.  This
  * is responsible for kicking off the initial mp3 scan, starting
@@ -31,21 +31,19 @@
  * It also contains the daap handling callback for the webserver.
  * This should almost certainly be somewhere else, and is in
  * desparate need of refactoring, but somehow continues to be in
- * this file.
- *
- * \todo Refactor daap_handler()
+ * this files.
  */
 
-/** \mainpage mt-daapd
- * \section about_section About
+/** @mainpage mt-daapd
+ * @section about_section About
  *
  * This is mt-daapd, an attempt to create an iTunes server for
  * linux and other POSIXish systems.  Maybe even Windows with cygwin,
  * eventually.
  *
  * You might check these locations for more info:
+ * - <a href="http://www.mt-daapd.org">Home page</a>
  * - <a href="http://sf.net/projects/mt-daapd">Project page on SourceForge</a>
- * - <a href="http://mt-daapd.sf.net">Home page</a>
  *
  */
 
@@ -55,29 +53,36 @@
 
 #include <errno.h>
 #include <fcntl.h>
-#include <grp.h>
 #include <limits.h>
 #include <pthread.h>
-#include <pwd.h>
-#include <restart.h>
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 
 #include <sys/stat.h>
 #include <sys/types.h>
+#ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
+#endif
 
 #include "configfile.h"
 #include "dispatch.h"
 #include "err.h"
 #include "mp3-scanner.h"
 #include "webserver.h"
+#include "restart.h"
 #include "ssc.h"
 #include "dynamic-art.h"
 #include "db-generic.h"
+#include "os.h"
+
+#ifdef HAVE_GETOPT_H
+# include "getopt.h"
+#endif
 
 #ifndef WITHOUT_MDNS
 # include "rend.h"
@@ -92,16 +97,6 @@
 #else
 #define DEFAULT_CONFIGFILE "/etc/mt-daapd.conf"
 #endif
-#endif
-
-/** Where to dump the pidfile */
-#ifndef PIDFILE
-#define PIDFILE "/var/run/mt-daapd.pid"
-#endif
-
-/** You say po-tay-to, I say po-tat-o */
-#ifndef SIGCLD
-# define SIGCLD SIGCHLD
 #endif
 
 /** Seconds to sleep before checking for a shutdown or reload */
@@ -120,61 +115,7 @@ CONFIG config; /**< Main configuration structure, as read from configfile */
 /*
  * Forwards
  */
-static int daemon_start(void);
 static void usage(char *program);
-static void *signal_handler(void *arg);
-static int start_signal_handler(pthread_t *handler_tid);
-
-/**
- * Fork and exit.  Stolen pretty much straight from Stevens.
- */
-int daemon_start(void) {
-    int childpid, fd;
-
-    signal(SIGTTOU, SIG_IGN);
-    signal(SIGTTIN, SIG_IGN);
-    signal(SIGTSTP, SIG_IGN);
-
-    // Fork and exit
-    if ((childpid = fork()) < 0) {
-        fprintf(stderr, "Can't fork!\n");
-        return -1;
-    } else if (childpid > 0)
-        exit(0);
-
-#ifdef SETPGRP_VOID
-    setpgrp();
-#else
-    setpgrp(0,0);
-#endif
-
-#ifdef TIOCNOTTY
-    if ((fd = open("/dev/tty", O_RDWR)) >= 0) {
-        ioctl(fd, TIOCNOTTY, (char *) NULL);
-        close(fd);
-    }
-#endif
-
-    if((fd = open("/dev/null", O_RDWR, 0)) != -1) {
-        dup2(fd, STDIN_FILENO);
-        dup2(fd, STDOUT_FILENO);
-        dup2(fd, STDERR_FILENO);
-        if (fd > 2)
-            close(fd);
-    }
-
-    /*
-    for (fd = 0; fd < FOPEN_MAX; fd++)
-        close(fd);
-    */
-
-    errno = 0;
-
-    chdir("/");
-    umask(0);
-
-    return 0;
-}
 
 /**
  * Print usage information to stdout
@@ -199,133 +140,6 @@ void usage(char *program) {
 }
 
 /**
- * Drop privs.  This allows mt-daapd to run as a non-privileged user.
- * Hopefully this will limit the damage it could do if exploited
- * remotely.  Note that only the user need be specified.  GID
- * is set to the primary group of the user.
- *
- * \param user user to run as (or UID)
- */
-int drop_privs(char *user) {
-    int err;
-    struct passwd *pw=NULL;
-
-    /* drop privs */
-    if(getuid() == (uid_t)0) {
-        if(atoi(user)) {
-            pw=getpwuid((uid_t)atoi(user)); /* doh! */
-        } else {
-            pw=getpwnam(config.runas);
-        }
-
-        if(pw) {
-            if(initgroups(user,pw->pw_gid) != 0 ||
-               setgid(pw->pw_gid) != 0 ||
-               setuid(pw->pw_uid) != 0) {
-                err=errno;
-                fprintf(stderr,"Couldn't change to %s, gid=%d, uid=%d\n",
-                        user,pw->pw_gid, pw->pw_uid);
-                errno=err;
-                return -1;
-            }
-        } else {
-            err=errno;
-            fprintf(stderr,"Couldn't lookup user %s\n",user);
-            errno=err;
-            return -1;
-        }
-    }
-
-    return 0;
-}
-
-/**
- * Wait for signals and flag the main process.  This is
- * a thread handler for the signal processing thread.  It
- * does absolutely nothing except wait for signals.  The rest
- * of the threads are running with signals blocked, so this thread
- * is guaranteed to catch all the signals.  It sets flags in
- * the config structure that the main thread looks for.  Specifically,
- * the stop flag (from an INT signal), and the reload flag (from HUP).
- * \param arg NULL, but required of a thread procedure
- */
-void *signal_handler(void *arg) {
-    sigset_t intmask;
-    int sig;
-    int status;
-
-    config.stop=0;
-    config.reload=0;
-    config.pid=getpid();
-
-    DPRINTF(E_WARN,L_MAIN,"Signal handler started\n");
-
-    while(!config.stop) {
-        if((sigemptyset(&intmask) == -1) ||
-           (sigaddset(&intmask, SIGCLD) == -1) ||
-           (sigaddset(&intmask, SIGINT) == -1) ||
-           (sigaddset(&intmask, SIGHUP) == -1) ||
-           (sigwait(&intmask, &sig) == -1)) {
-            DPRINTF(E_FATAL,L_MAIN,"Error waiting for signals.  Aborting\n");
-        } else {
-            /* process the signal */
-            switch(sig) {
-            case SIGCLD:
-                DPRINTF(E_LOG,L_MAIN,"Got CLD signal.  Reaping\n");
-                while (wait3(&status, WNOHANG, NULL) > 0) {
-                }
-                break;
-            case SIGINT:
-                DPRINTF(E_LOG,L_MAIN,"Got INT signal. Notifying daap server.\n");
-                config.stop=1;
-                return NULL;
-                break;
-            case SIGHUP:
-                DPRINTF(E_LOG,L_MAIN,"Got HUP signal. Notifying daap server.\n");
-                config.reload=1;
-                break;
-            default:
-                DPRINTF(E_LOG,L_MAIN,"What am I doing here?\n");
-                break;
-            }
-        }
-    }
-
-    return NULL;
-}
-
-/**
- * Block signals, then start the signal handler.  The
- * signal handler started by spawning a new thread on
- * signal_handler().
- *
- * \returns 0 on success, -1 on failure with errno set
- */
-int start_signal_handler(pthread_t *handler_tid) {
-    int error;
-    sigset_t set;
-
-    if((sigemptyset(&set) == -1) ||
-       (sigaddset(&set,SIGINT) == -1) ||
-       (sigaddset(&set,SIGHUP) == -1) ||
-       (sigaddset(&set,SIGCLD) == -1) ||
-       (sigprocmask(SIG_BLOCK, &set, NULL) == -1)) {
-        DPRINTF(E_LOG,L_MAIN,"Error setting signal set\n");
-        return -1;
-    }
-
-    if((error=pthread_create(handler_tid, NULL, signal_handler, NULL))) {
-        errno=error;
-        DPRINTF(E_LOG,L_MAIN,"Error creating signal_handler thread\n");
-        return -1;
-    }
-
-    /* we'll not detach this... let's join it */
-    //pthread_detach(handler_tid);
-    return 0;
-}
-
-/**
  * Kick off the daap server and wait for events.
  *
  * This starts the initial db scan, sets up the signal
@@ -346,7 +160,6 @@ int start_signal_handler(pthread_t *handler_tid) {
 int main(int argc, char *argv[]) {
     int option;
     char *configfile=DEFAULT_CONFIGFILE;
-    char *pidfile=PIDFILE;
     WSCONFIG ws_config;
     int foreground=0;
     int reload=0;
@@ -356,20 +169,17 @@ int main(int argc, char *argv[]) {
     int old_song_count, song_count;
     int force_non_root=0;
     int skip_initial=0;
-    pthread_t signal_tid;
 
-    int pid_fd;
-    FILE *pid_fp=NULL;
     int err;
     char *perr;
 
     config.use_mdns=1;
-    err_debuglevel=1;
+    err_setlevel(1);
 
-    while((option=getopt(argc,argv,"D:d:c:P:mfrys")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:mfrysiu")) != -1) {
         switch(option) {
         case 'd':
-            err_debuglevel=atoi(optarg);
+            err_setlevel(atoi(optarg));
             break;
         case 'D':
             if(err_setdebugmask(optarg)) {
@@ -389,10 +199,11 @@ int main(int argc, char *argv[]) {
             config.use_mdns=0;
             break;
 
+#ifndef WIN32
         case 'P':
-            pidfile=optarg;
+            os_set_pidfile(optarg);
             break;
-
+#endif
         case 'r':
             reload=1;
             break;
@@ -404,6 +215,18 @@ int main(int argc, char *argv[]) {
         case 'y':
             force_non_root=1;
             break;
+
+#ifdef WIN32
+        case 'i':
+            os_register();
+            exit(EXIT_SUCCESS);
+            break;
+
+        case 'u':
+            os_unregister();
+            exit(EXIT_SUCCESS);
+            break;
+#endif
 
         default:
             usage(argv[0]);
@@ -420,7 +243,7 @@ int main(int argc, char *argv[]) {
 
     /* read the configfile, if specified, otherwise
      * try defaults */
-    config.stats.start_time=start_time=time(NULL);
+    config.stats.start_time=start_time=(int)time(NULL);
     config.stop=0;
 
     if(config_read(configfile)) {
@@ -428,7 +251,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    DPRINTF(E_LOG,L_MAIN,"Starting with debuglevel %d\n",err_debuglevel);
+    DPRINTF(E_LOG,L_MAIN,"Starting with debuglevel %d\n",err_getlevel());
 
     if(!foreground) {
         if(config.logfile) {
@@ -447,48 +270,14 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-    /* open the pidfile, so it can be written once we detach */
-    if((!foreground) && (!force_non_root)) {
-        if(-1 == (pid_fd = open(pidfile,O_CREAT | O_WRONLY | O_TRUNC, 0644)))
-            DPRINTF(E_FATAL,L_MAIN,"Error opening pidfile (%s): %s\n",pidfile,strerror(errno));
-
-        if(0 == (pid_fp = fdopen(pid_fd, "w")))
-            DPRINTF(E_FATAL,L_MAIN,"fdopen: %s\n",strerror(errno));
-
-        /* just to be on the safe side... */
-        config.pid=0;
-
-        daemon_start();
-    }
-
-    // Drop privs here
-    if(drop_privs(config.runas)) {
-        DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
-    }
-
-    /* block signals and set up the signal handling thread */
-    DPRINTF(E_LOG,L_MAIN,"Starting signal handler\n");
-    if(start_signal_handler(&signal_tid)) {
-        DPRINTF(E_FATAL,L_MAIN,"Error starting signal handler %s\n",strerror(errno));
-    }
-
-
-    if(pid_fp) {
-        /* wait to for config.pid to be set by the signal handler */
-        while(!config.pid) {
-            sleep(1);
-        }
-
-        fprintf(pid_fp,"%d\n",config.pid);
-        fclose(pid_fp);
+    if(!os_init(foreground)) {
+        DPRINTF(E_LOG,L_MAIN,"Could not initialize server\n");
+        os_deinit();
+        exit(EXIT_FAILURE);
     }
 
     /* this will require that the db be readable by the runas user */
-    if(config.dbtype) {
-        err=db_open(&perr,config.dbtype,config.dbparms);
-    } else {
-        err=db_open(&perr,NULL,config.dbdir);
-    }
+    err=db_open(&perr,config.dbtype,config.dbparms);
 
     if(err)
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",perr);
@@ -535,7 +324,7 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-    end_time=time(NULL);
+    end_time=(int) time(NULL);
 
     db_get_song_count(NULL,&song_count);
     DPRINTF(E_LOG,L_MAIN,"Scanned %d songs in  %d seconds\n",song_count,
@@ -553,7 +342,7 @@ int main(int argc, char *argv[]) {
 
         if(config.reload) {
             old_song_count = song_count;
-            start_time=time(NULL);
+            start_time=(int) time(NULL);
 
             DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
             if(scan_init(config.mp3dir)) {
@@ -581,11 +370,6 @@ int main(int argc, char *argv[]) {
 #endif
 
 
-    DPRINTF(E_LOG,L_MAIN,"Stopping signal handler\n");
-    if(!pthread_kill(signal_tid,SIGINT)) {
-        pthread_join(signal_tid,NULL);
-    }
-
     /* Got to find a cleaner way to stop the web server.
      * Closing the fd of the socking accepting doesn't necessarily
      * cause the accept to fail on some libcs.
@@ -599,15 +383,11 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN|L_DB,"Closing database\n");
     db_deinit();
 
-#ifdef DEBUG_MEMORY
-    fprintf(stderr,"Leaked memory:\n");
-    err_leakcheck();
-#endif
-
     DPRINTF(E_LOG,L_MAIN,"Done!\n");
 
     err_setdest(NULL,LOGDEST_STDERR);
 
+    os_deinit();
     return EXIT_SUCCESS;
 }
 

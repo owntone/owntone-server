@@ -39,10 +39,10 @@
  * compiled in, RB_CMP only needs to take two arguments.  If your
  * content type is not a pointer, define INLINE to get direct access.
  */
-#define rbdata_t	void
-#define RB_CMP(s, t, e)	(*rbinfo->rb_cmp)(s, t, e)
+#define rbdata_t        void
+#define RB_CMP(s, t, e) (*rbinfo->rb_cmp)(s, t, e)
 #undef RB_INLINE
-#define RB_ENTRY(name)	rb##name
+#define RB_ENTRY(name)  rb##name
 #endif /* RB_CUSTOMIZE */
 
 #ifndef RB_STATIC
@@ -50,16 +50,16 @@
 #endif
 
 /* Modes for rblookup */
-#define RB_NONE -1	    /* None of those below */
-#define RB_LUEQUAL 0	/* Only exact match */
-#define RB_LUGTEQ 1		/* Exact match or greater */
-#define RB_LULTEQ 2		/* Exact match or less */
-#define RB_LULESS 3		/* Less than key (not equal to) */
-#define RB_LUGREAT 4	/* Greater than key (not equal to) */
-#define RB_LUNEXT 5		/* Next key after current */
-#define RB_LUPREV 6		/* Prev key before current */
-#define RB_LUFIRST 7	/* First key in index */
-#define RB_LULAST 8		/* Last key in index */
+#define RB_NONE -1          /* None of those below */
+#define RB_LUEQUAL 0    /* Only exact match */
+#define RB_LUGTEQ 1             /* Exact match or greater */
+#define RB_LULTEQ 2             /* Exact match or less */
+#define RB_LULESS 3             /* Less than key (not equal to) */
+#define RB_LUGREAT 4    /* Greater than key (not equal to) */
+#define RB_LUNEXT 5             /* Next key after current */
+#define RB_LUPREV 6             /* Prev key before current */
+#define RB_LUFIRST 7    /* First key in index */
+#define RB_LULAST 8             /* Last key in index */
 
 /* For rbwalk - pinched from search.h */
 typedef enum
@@ -80,18 +80,18 @@ const struct RB_ENTRY(node) *nextp;
 
 struct RB_ENTRY(tree) {
 #ifndef RB_CUSTOMIZE
-		/* comparison routine */
+                /* comparison routine */
 int (*rb_cmp)(const void *, const void *, const void *);
-		/* config data to be passed to rb_cmp */
+                /* config data to be passed to rb_cmp */
 const void *rb_config;
-		/* root of tree */
+                /* root of tree */
 #endif /* RB_CUSTOMIZE */
 struct RB_ENTRY(node) *rb_root;
 };
 
 #ifndef RB_CUSTOMIZE
 RB_STATIC struct RB_ENTRY(tree) *rbinit(int (*)(const void *, const void *, const void *),
-		 const void *);
+                 const void *);
 #else
 RB_STATIC struct RB_ENTRY(tree) *RB_ENTRY(init)(void);
 #endif /* RB_CUSTOMIZE */
@@ -118,8 +118,8 @@ RB_STATIC void RB_ENTRY(destroy)(struct RB_ENTRY(tree) *);
 
 #ifndef no_walk
 RB_STATIC void RB_ENTRY(walk)(const struct RB_ENTRY(tree) *,
-		void (*)(const RB_ENTRY(data_t) *, const VISIT, const int, void *),
-		void *); 
+                void (*)(const RB_ENTRY(data_t) *, const VISIT, const int, void *),
+                void *); 
 #endif
 
 #ifndef no_readlist
@@ -138,6 +138,12 @@ RB_STATIC void RB_ENTRY(closelist)(RBLIST *);
 /*
  *
  * $Log$
+ * Revision 1.4  2006/02/26 08:46:24  rpedde
+ * Merged win32-branch
+ *
+ * Revision 1.3.2.1  2006/02/26 08:28:35  rpedde
+ * unix fixes from win32 port
+ *
  * Revision 1.3  2005/05/21 05:56:09  rpedde
  * for quick translation from itunes song id to mt-daapd song id
  *

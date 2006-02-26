@@ -30,7 +30,7 @@
 
 /** @anchor log_dests */
 #define LOGDEST_STDERR       0  /**< Log to stderr */
-#define LOGDEST_SYSLOG       1  /**< Log to syslog */
+#define LOGDEST_SYSLOG       1  /**< Log to syslog/eventviewer */
 #define LOGDEST_LOGFILE      2  /**< Log to logfile */
 
 /** @anchor log_levels */
@@ -63,40 +63,15 @@
 # define FALSE 0
 #endif
 
-extern int err_debuglevel;
-
 extern void err_log(int level, unsigned int cat, char *fmt, ...);
-extern void err_setdest(char *app, int destination);
+extern void err_setdest(char *cvalue, int destination);
+extern void err_setlevel(int level);
+extern int err_getlevel(void);
 extern int err_setdebugmask(char *list);
 /**
  * Print a debugging or log message
  */
-#ifdef DEBUG
-# define DPRINTF(level, cat, fmt, arg...)				\
-    { err_log(level,cat,"%s, %d: ",__FILE__,__LINE__); err_log(level,cat,fmt,##arg); }
-#else
-# define DPRINTF(level, cat, fmt, arg...)	\
-    { err_log(level,cat,fmt,##arg); }
-#endif
 
-#ifdef DEBUG_MEMORY
-# ifndef __IN_ERR__
-#  define malloc(x) err_malloc(__FILE__,__LINE__,x)
-#  define strdup(x) err_strdup(__FILE__,__LINE__,x)
-#  define free(x) err_free(__FILE__,__LINE__,x)
-# endif /* __IN_ERR__ */
+#define DPRINTF err_log
 
-# define MEMNOTIFY(x) err_notify(__FILE__,__LINE__,x)
-
-extern void *err_malloc(char *file, int line, size_t size);
-extern char *err_strdup(char *file, int line, const char *str);
-extern void err_free(char *file, int line, void *ptr);
-extern void err_notify(char *file, int line, void *ptr);
-extern void err_leakcheck(void);
-#else
-/**
- * Notify the leak checking system of externally allocated memory.
- */
-# define MEMNOTIFY(x)
-#endif /* DEBUG_MEMORY */
 #endif /* __ERR_H__ */

@@ -26,7 +26,9 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
+#endif
 
 #include "err.h"
 #include "mp3-scanner.h"
@@ -84,7 +86,7 @@ int scan_get_mp4info(char *filename, MP3FILE *pmp3) {
     if(atom_offset != -1) {
         /* found the tag section - need to walk through now */
       
-        while(current_offset < atom_length) {
+        while(current_offset < (long) atom_length) {
             if(fread((void*)&current_size,1,sizeof(int),fin) != sizeof(int))
                 break;
                         
@@ -170,11 +172,11 @@ int scan_get_mp4info(char *filename, MP3FILE *pmp3) {
         fseek(fin, 4, SEEK_CUR);
         fread((void *)&time, sizeof(int), 1, fin);
         time = ntohl(time);
-        pmp3->time_added = scan_aac_mac_to_unix_time(time);
+        pmp3->time_added = (int) scan_aac_mac_to_unix_time(time);
 
         fread((void *)&time, sizeof(int), 1, fin);
         time = ntohl(time);
-        pmp3->time_modified = scan_aac_mac_to_unix_time(time);
+        pmp3->time_modified = (int) scan_aac_mac_to_unix_time(time);
         fread((void*)&sample_size,1,sizeof(int),fin);
         fread((void*)&samples,1,sizeof(int),fin);
 

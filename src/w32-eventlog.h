@@ -1,8 +1,9 @@
 /*
  * $Id$
- * Rendezvous stuff
  *
- * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
+ * eventlog messages utility functions
+ *
+ * Copyright (C) 2005 Ron Pedde (ron.pedde@firstmarkcu.org)
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,13 +20,13 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef _REND_H_
-#define _REND_H_
+#ifndef _EVENTLOG_H_
+#define _EVENTLOG_H_
 
-extern int rend_init(char *user);
-extern int rend_running(void);
-extern int rend_stop(void);
-extern int rend_register(char *name, char *type, int port, char *iface);
-extern int rend_unregister(char *name, char *type, int port);
+extern int elog_register(void);
+extern int elog_unregister(void);
+extern int elog_init(void);
+extern int elog_deinit(void);
+extern int elog_message(int level, char *msg);
 
-#endif /* _REND_H_ */
+#endif /* _EVENTLOG_H_ */

@@ -9,8 +9,8 @@
  * matching */
 char * strcasestr(char* haystack, char* needle) {
   int i;
-  int nlength = strlen (needle);
-  int hlength = strlen (haystack);
+  int nlength = (int) strlen (needle);
+  int hlength = (int) strlen (haystack);
 
   if (nlength > hlength) return NULL;
   if (hlength <= 0) return NULL;

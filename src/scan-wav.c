@@ -30,13 +30,13 @@
 #include "err.h"
 #include "mp3-scanner.h"
 
-#define GET_WAV_INT32(p) ((((unsigned long)((p)[3])) << 24) |	\
-		          (((unsigned long)((p)[2])) << 16) |	\
-		          (((unsigned long)((p)[1])) << 8) |	\
-		          (((unsigned long)((p)[0]))))
+#define GET_WAV_INT32(p) ((((unsigned long)((p)[3])) << 24) |   \
+                          (((unsigned long)((p)[2])) << 16) |   \
+                          (((unsigned long)((p)[1])) << 8) |    \
+                          (((unsigned long)((p)[0]))))
 
-#define GET_WAV_INT16(p) ((((unsigned long)((p)[1])) << 8) |	\
-		          (((unsigned long)((p)[0]))))
+#define GET_WAV_INT16(p) ((((unsigned long)((p)[1])) << 8) |    \
+                          (((unsigned long)((p)[0]))))
 
 /**
  * Get info from the actual wav headers.  Since there is no
@@ -64,8 +64,8 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN,"Getting WAV file info\n");
 
     if(!(infile=fopen(filename,"rb"))) {
-	DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
-	return FALSE;
+        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
+        return FALSE;
     }
 
     fseek(infile,0,SEEK_END);
@@ -75,15 +75,15 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     rl = fread(hdr, 1, 44, infile);
     fclose(infile);
     if (rl != 44) {
-	DPRINTF(E_WARN,L_SCAN,"Could not read wav header from %s\n",filename);
+        DPRINTF(E_WARN,L_SCAN,"Could not read wav header from %s\n",filename);
         return FALSE;
     }
 
     if (strncmp((char*)hdr + 0, "RIFF", 4) ||
-	strncmp((char*)hdr + 8, "WAVE", 4) ||
-	strncmp((char*)hdr + 12, "fmt ", 4) ||
-	strncmp((char*)hdr + 36, "data", 4)) {
-	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",filename);
+        strncmp((char*)hdr + 8, "WAVE", 4) ||
+        strncmp((char*)hdr + 12, "fmt ", 4) ||
+        strncmp((char*)hdr + 36, "data", 4)) {
+        DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",filename);
         return FALSE;
     }
 
@@ -96,9 +96,9 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     data_length = GET_WAV_INT32(hdr + 40);
 
     if ((format_data_length != 16) ||
-	(compression_code != 1) ||
-	(channel_count < 1)) {
-	DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",filename);
+        (compression_code != 1) ||
+        (channel_count < 1)) {
+        DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",filename);
         return FALSE;
     }
 

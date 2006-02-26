@@ -221,22 +221,28 @@ WMA_GUID wma_guidlist[] = {
     { NULL, NULL, "\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0" }
 };
 
-#define PACKED __attribute__((packed))
+#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
+# define _PACKED __attribute((packed))
+#else
+# define _PACKED
+#endif
 #define MAYBEFREE(x) { free((x)); }
 
+#pragma pack(1)
 typedef struct tag_wma_header {
     unsigned char objectid[16];
     unsigned long long size;
     unsigned int objects;
     char reserved1;
     char reserved2;
-} PACKED WMA_HEADER;
-			  
-			  
+} _PACKED WMA_HEADER;
+                          
+                          
 typedef struct tag_wma_subheader {
     unsigned char objectid[16];
     long long size;
-} PACKED WMA_SUBHEADER;
+} _PACKED WMA_SUBHEADER;
+#pragma pack()
 
 /*
  * Forwards
@@ -256,7 +262,7 @@ int wma_parse_file_properteis(int fd,int size, MP3FILE *pmp3);
  */
 int wma_file_read_short(int fd, unsigned short int *psi) {
     if(r_read(fd,(void*)psi,sizeof(unsigned short int)) != sizeof(unsigned short int)) {
-	return 0;
+        return 0;
     }
 
     *psi = wma_convert_short((unsigned char *)psi);
@@ -268,7 +274,7 @@ int wma_file_read_short(int fd, unsigned short int *psi) {
  */
 int wma_file_read_int(int fd, unsigned int *pi) {
     if(r_read(fd,(void*)pi,sizeof(unsigned int)) != sizeof(unsigned int)) {
-	return 0;
+        return 0;
     }
 
     *pi = wma_convert_int((unsigned char *)pi);
@@ -280,7 +286,7 @@ int wma_file_read_int(int fd, unsigned int *pi) {
  */
 int wma_file_read_ll(int fd, unsigned long long *pll) {
     if(r_read(fd,(void*)pll,sizeof(unsigned long long)) != sizeof(unsigned long long)) {
-	return 0;
+        return 0;
     }
 
     *pll = wma_convert_ll((unsigned char *)pll);
@@ -296,10 +302,10 @@ int wma_file_read_utf16(int fd, int len, char **utf8) {
 
     utf16=(unsigned char*)malloc(len);
     if(!utf16)
-	return 0;
+        return 0;
 
     if(r_read(fd,utf16,len) != len) 
-	return 0;
+        return 0;
 
     out = wma_utf16toutf8(utf16,len);
     *utf8 = out;
@@ -311,10 +317,10 @@ int wma_file_read_utf16(int fd, int len, char **utf8) {
 int wma_file_read_bytes(int fd,int len, unsigned char **data) {
     *data = (unsigned char *)malloc(len);
     if(!*data)
-	return 0;
+        return 0;
 
     if(r_read(fd,*data,len) != len)
-	return 0;
+        return 0;
 
     return 1;
 }
@@ -344,98 +350,98 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN,"Reading extended content description object\n");
 
     if(!wma_file_read_short(fd, &descriptor_count))
-	return FALSE;
+        return FALSE;
 
     for(index = 0; index < descriptor_count; index++) {
-	if(!wma_file_read_short(fd,&descriptor_name_len)) return -1;
-	if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name)) return -1;
-	if(!wma_file_read_short(fd,&descriptor_value_type)) { 
-	    free(descriptor_name);
-	    return FALSE;
-	}
-	if(!wma_file_read_short(fd,&descriptor_value_len)) {
-	    free(descriptor_name);
-	    return FALSE;
-	}
+        if(!wma_file_read_short(fd,&descriptor_name_len)) return -1;
+        if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name)) return -1;
+        if(!wma_file_read_short(fd,&descriptor_value_type)) { 
+            free(descriptor_name);
+            return FALSE;
+        }
+        if(!wma_file_read_short(fd,&descriptor_value_len)) {
+            free(descriptor_name);
+            return FALSE;
+        }
 
-	DPRINTF(E_DBG,L_SCAN,"Found descriptor: %s\n", descriptor_name);
+        DPRINTF(E_DBG,L_SCAN,"Found descriptor: %s\n", descriptor_name);
 
-	/* see what kind it is */
-	switch(descriptor_value_type) {
-	case 0x0000: /* string */
-	    if(!wma_file_read_utf16(fd,descriptor_value_len,
-				    &descriptor_byte_value)) {
-		fail=1;
-	    }
-	    DPRINTF(E_DBG,L_SCAN,"Type: string, value: %s\n",descriptor_byte_value);
-	    break;
-	case 0x0001: /* byte array */
-	    if(!wma_file_read_bytes(fd,descriptor_value_len,
-				    (unsigned char **)&descriptor_byte_value)){
-		fail=1;
-	    }
-	    DPRINTF(E_DBG,L_SCAN,"Type: bytes\n");
-	    break;
-	case 0x0002: /* bool - dropthru */
-	case 0x0003: /* dword */
-	    if(!wma_file_read_int(fd,&descriptor_int_value)) fail=1;
-	    DPRINTF(E_DBG,L_SCAN,"Type: int, value: %d\n",descriptor_int_value);
-	    break;
-	case 0x0004: /* qword */
-	    if(!wma_file_read_ll(fd,&descriptor_ll_value)) fail=1;
-	    DPRINTF(E_DBG,L_SCAN,"Type: ll, value: %lld\n",descriptor_ll_value);
-	    break;
-	case 0x0005: /* word */
-	    if(!wma_file_read_short(fd,&descriptor_short_value)) fail=1;
-	    DPRINTF(E_DBG,L_SCAN,"type: short, value %d\n",descriptor_short_value);
-	    break;
-	}
+        /* see what kind it is */
+        switch(descriptor_value_type) {
+        case 0x0000: /* string */
+            if(!wma_file_read_utf16(fd,descriptor_value_len,
+                                    &descriptor_byte_value)) {
+                fail=1;
+            }
+            DPRINTF(E_DBG,L_SCAN,"Type: string, value: %s\n",descriptor_byte_value);
+            break;
+        case 0x0001: /* byte array */
+            if(!wma_file_read_bytes(fd,descriptor_value_len,
+                                    (unsigned char **)&descriptor_byte_value)){
+                fail=1;
+            }
+            DPRINTF(E_DBG,L_SCAN,"Type: bytes\n");
+            break;
+        case 0x0002: /* bool - dropthru */
+        case 0x0003: /* dword */
+            if(!wma_file_read_int(fd,&descriptor_int_value)) fail=1;
+            DPRINTF(E_DBG,L_SCAN,"Type: int, value: %d\n",descriptor_int_value);
+            break;
+        case 0x0004: /* qword */
+            if(!wma_file_read_ll(fd,&descriptor_ll_value)) fail=1;
+            DPRINTF(E_DBG,L_SCAN,"Type: ll, value: %lld\n",descriptor_ll_value);
+            break;
+        case 0x0005: /* word */
+            if(!wma_file_read_short(fd,&descriptor_short_value)) fail=1;
+            DPRINTF(E_DBG,L_SCAN,"type: short, value %d\n",descriptor_short_value);
+            break;
+        }
 
-	if(fail) {
-	    free(descriptor_name);
-	    return FALSE;
-	}
+        if(fail) {
+            free(descriptor_name);
+            return FALSE;
+        }
 
-	/* do stuff with what we found */
-	if(strcasecmp(descriptor_name,"wm/genre")==0) {
-	    MAYBEFREE(pmp3->genre);
-	    pmp3->genre = descriptor_byte_value;
-	    descriptor_byte_value = NULL; /* don't free it! */
-	} else if(strcasecmp(descriptor_name,"wm/albumtitle")==0) {
-	    MAYBEFREE(pmp3->album);
-	    pmp3->album = descriptor_byte_value;
-	    descriptor_byte_value = NULL;
-	} else if(strcasecmp(descriptor_name,"wm/track")==0) {
-	    pmp3->track = descriptor_int_value + 1;
-	} else if(strcasecmp(descriptor_name,"wm/tracknumber")==0) {
-	    pmp3->track = descriptor_int_value;
-	} else if(strcasecmp(descriptor_name,"wm/year")==0) {
-	    pmp3->year = atoi(descriptor_byte_value);
-	} else if(strcasecmp(descriptor_name,"wm/composer")==0) {
-	    MAYBEFREE(pmp3->composer);
-	    pmp3->composer = descriptor_byte_value;
-	    descriptor_byte_value = NULL;
-	} else if(strcasecmp(descriptor_name,"wm/albumartist")==0) {
-	    MAYBEFREE(pmp3->artist);
-	    pmp3->artist = descriptor_byte_value;
-	    descriptor_byte_value = NULL;
-	} else if(strcasecmp(descriptor_name,"wm/contengroupdescription")==0) {
-	    MAYBEFREE(pmp3->grouping);
-	    pmp3->grouping = descriptor_byte_value;
-	    descriptor_byte_value = NULL;
-	} else if(strcasecmp(descriptor_name,"comment")==0) {
-	    MAYBEFREE(pmp3->comment);
-	    pmp3->comment = descriptor_byte_value;
-	    descriptor_byte_value = NULL;
-	}
+        /* do stuff with what we found */
+        if(strcasecmp(descriptor_name,"wm/genre")==0) {
+            MAYBEFREE(pmp3->genre);
+            pmp3->genre = descriptor_byte_value;
+            descriptor_byte_value = NULL; /* don't free it! */
+        } else if(strcasecmp(descriptor_name,"wm/albumtitle")==0) {
+            MAYBEFREE(pmp3->album);
+            pmp3->album = descriptor_byte_value;
+            descriptor_byte_value = NULL;
+        } else if(strcasecmp(descriptor_name,"wm/track")==0) {
+            pmp3->track = descriptor_int_value + 1;
+        } else if(strcasecmp(descriptor_name,"wm/tracknumber")==0) {
+            pmp3->track = descriptor_int_value;
+        } else if(strcasecmp(descriptor_name,"wm/year")==0) {
+            pmp3->year = atoi(descriptor_byte_value);
+        } else if(strcasecmp(descriptor_name,"wm/composer")==0) {
+            MAYBEFREE(pmp3->composer);
+            pmp3->composer = descriptor_byte_value;
+            descriptor_byte_value = NULL;
+        } else if(strcasecmp(descriptor_name,"wm/albumartist")==0) {
+            MAYBEFREE(pmp3->artist);
+            pmp3->artist = descriptor_byte_value;
+            descriptor_byte_value = NULL;
+        } else if(strcasecmp(descriptor_name,"wm/contengroupdescription")==0) {
+            MAYBEFREE(pmp3->grouping);
+            pmp3->grouping = descriptor_byte_value;
+            descriptor_byte_value = NULL;
+        } else if(strcasecmp(descriptor_name,"comment")==0) {
+            MAYBEFREE(pmp3->comment);
+            pmp3->comment = descriptor_byte_value;
+            descriptor_byte_value = NULL;
+        }
 
-	/* cleanup - done with this round */
-	if(descriptor_byte_value) {
-	    free(descriptor_byte_value);
-	    descriptor_byte_value = NULL;
-	}
+        /* cleanup - done with this round */
+        if(descriptor_byte_value) {
+            free(descriptor_byte_value);
+            descriptor_byte_value = NULL;
+        }
 
-	free(descriptor_name);
+        free(descriptor_name);
     }
     
     return TRUE;
@@ -456,47 +462,47 @@ int wma_parse_content_description(int fd,int size, MP3FILE *pmp3) {
     char *utf8;
 
     if(size < 10) /* must be at least enough room for the size block */
-	return FALSE;
+        return FALSE;
 
     for(index=0; index < 5; index++) {
-	if(!wma_file_read_short(fd,&sizes[index]))
-	    return FALSE;
+        if(!wma_file_read_short(fd,&sizes[index]))
+            return FALSE;
     }
 
     for(index=0;index<5;index++) {
-	if(sizes[index]) {
-	    if(!wma_file_read_utf16(fd,sizes[index],&utf8))
-		return FALSE;
+        if(sizes[index]) {
+            if(!wma_file_read_utf16(fd,sizes[index],&utf8))
+                return FALSE;
 
-	    DPRINTF(E_DBG,L_SCAN,"Got item of length %d: %s\n",sizes[index],utf8);
-	    
-	    switch(index) {
-	    case 0: /* title */
-		if(pmp3->title)
-		    free(pmp3->title);
-		pmp3->title = utf8;
-		break;
-	    case 1: /* author */
-		if(pmp3->artist)
-		    free(pmp3->artist);
-		pmp3->artist = utf8;
-		break;
-	    case 2: /* copyright - dontcare */
-		free(utf8);  
-	    break;
-	    case 3: /* description */
-		if(pmp3->comment)
-		    free(pmp3->comment);
-		pmp3->comment = utf8;
-		break;
-	    case 4: /* rating - dontcare */
-		free(utf8);
-		break;
-	    default: /* can't get here */
-		DPRINTF(E_FATAL,L_SCAN,"This is not my beautiful wife.\n");
-		break;
-	    }
-	}
+            DPRINTF(E_DBG,L_SCAN,"Got item of length %d: %s\n",sizes[index],utf8);
+            
+            switch(index) {
+            case 0: /* title */
+                if(pmp3->title)
+                    free(pmp3->title);
+                pmp3->title = utf8;
+                break;
+            case 1: /* author */
+                if(pmp3->artist)
+                    free(pmp3->artist);
+                pmp3->artist = utf8;
+                break;
+            case 2: /* copyright - dontcare */
+                free(utf8);  
+            break;
+            case 3: /* description */
+                if(pmp3->comment)
+                    free(pmp3->comment);
+                pmp3->comment = utf8;
+                break;
+            case 4: /* rating - dontcare */
+                free(utf8);
+                break;
+            default: /* can't get here */
+                DPRINTF(E_FATAL,L_SCAN,"This is not my beautiful wife.\n");
+                break;
+            }
+        }
     }
 
     return TRUE;
@@ -523,19 +529,19 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
     lseek(fd,40,SEEK_CUR);
 
     if(!wma_file_read_ll(fd, &play_duration))
-	return FALSE;
+        return FALSE;
 
     if(!wma_file_read_ll(fd, &send_duration))
-	return FALSE;
+        return FALSE;
 
     if(!wma_file_read_ll(fd, &preroll))
-	return FALSE;
+        return FALSE;
 
     /* I'm not entirely certain what preroll is, but it seems
      * to make it match up with what windows thinks is the song
      * length.
      */
-    pmp3->song_length = ((int) (play_duration / 10000)) - preroll;
+    pmp3->song_length = ((int)play_duration / 10000) - (int)preroll;
     
     /* skip flags(4),
      * min_packet_size (4), max_packet_size(4)
@@ -543,7 +549,7 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
 
     lseek(fd,12,SEEK_CUR);
     if(!wma_file_read_int(fd,&max_bitrate))
-	return FALSE;
+        return FALSE;
 
     pmp3->bitrate = max_bitrate/1000;
 
@@ -573,59 +579,59 @@ char *wma_utf16toutf8(unsigned char *utf16, int len) {
     int bytes;
 
     if(!len)
-	return NULL;
+        return NULL;
 
     utf8=(char *)malloc(len*2 + 1);
     if(!utf8)
-	return NULL;
+        return NULL;
 
     memset(utf8,0x0,len*2 + 1);
     dst=utf8;
 
     while((src+2) <= utf16+len) {
-	w1=src[1] << 8 | src[0];
-	src += 2;
-	if((w1 & 0xFC00) == 0xD800) { /* could be surrogate pair */
-	    if(src+2 > utf16+len) {
-		DPRINTF(E_INF,L_SCAN,"Invalid utf-16 in file\n");
-		free(utf8);
-		return NULL;
-	    }
-	    w2 = src[3] << 8 | src[2];
-	    if((w2 & 0xFC00) != 0xDC00) {
-		DPRINTF(E_INF,L_SCAN,"Invalid utf-16 in file\n");
-		free(utf8);
-		return NULL;
-	    }
+        w1=src[1] << 8 | src[0];
+        src += 2;
+        if((w1 & 0xFC00) == 0xD800) { /* could be surrogate pair */
+            if(src+2 > utf16+len) {
+                DPRINTF(E_INF,L_SCAN,"Invalid utf-16 in file\n");
+                free(utf8);
+                return NULL;
+            }
+            w2 = src[3] << 8 | src[2];
+            if((w2 & 0xFC00) != 0xDC00) {
+                DPRINTF(E_INF,L_SCAN,"Invalid utf-16 in file\n");
+                free(utf8);
+                return NULL;
+            }
 
-	    /* get bottom 10 of each */
-	    w1 = w1 & 0x03FF;
-	    w1 = w1 << 10;
-	    w1 = w1 | (w2 & 0x03FF);
+            /* get bottom 10 of each */
+            w1 = w1 & 0x03FF;
+            w1 = w1 << 10;
+            w1 = w1 | (w2 & 0x03FF);
 
-	    /* add back the 0x10000 */
-	    w1 += 0x10000;
-	}
+            /* add back the 0x10000 */
+            w1 += 0x10000;
+        }
 
-	/* now encode the original code point in utf-8 */
-	if (w1 < 0x80) {
-	    *dst++ = w1;
-	    bytes=0;
-	} else if (w1 < 0x800) {
-	    *dst++ = 0xC0 | (w1 >> 6);
-	    bytes=1;
-	} else if (w1 < 0x10000) {
-	    *dst++ = 0xE0 | (w1 >> 12);
-	    bytes=2;
-	} else {
-	    *dst++ = 0xF0 | (w1 >> 18);
-	    bytes=3;
-	}
+        /* now encode the original code point in utf-8 */
+        if (w1 < 0x80) {
+            *dst++ = w1;
+            bytes=0;
+        } else if (w1 < 0x800) {
+            *dst++ = 0xC0 | (w1 >> 6);
+            bytes=1;
+        } else if (w1 < 0x10000) {
+            *dst++ = 0xE0 | (w1 >> 12);
+            bytes=2;
+        } else {
+            *dst++ = 0xF0 | (w1 >> 18);
+            bytes=3;
+        }
 
-	while(bytes) {
-	    *dst++ = 0x80 | ((w1 >> (6*bytes)) & 0x3f);
-	    bytes--;
-	}
+        while(bytes) {
+            *dst++ = 0x80 | ((w1 >> (6*bytes)) & 0x3f);
+            bytes--;
+        }
     }
 
     return utf8;
@@ -640,11 +646,11 @@ WMA_GUID *wma_find_guid(unsigned char *guid) {
     WMA_GUID *pguid = wma_guidlist;
 
     while((pguid->name) && (memcmp(guid,pguid->value,16) != 0)) {
-	pguid++;
+        pguid++;
     }
 
     if(!pguid->name)
-	return NULL;
+        return NULL;
 
     return pguid;
 }
@@ -656,7 +662,7 @@ WMA_GUID *wma_find_guid(unsigned char *guid) {
  */
 unsigned short wma_convert_short(unsigned char *src) {
     return src[1] << 8 |
-	src[0];
+        src[0];
 }
 
 /**
@@ -666,9 +672,9 @@ unsigned short wma_convert_short(unsigned char *src) {
  */
 unsigned int wma_convert_int(unsigned char *src) {
     return src[3] << 24 |
-	src[2] << 16 |
-	src[1] << 8 |
-	src[0];
+        src[2] << 16 |
+        src[1] << 8 |
+        src[0];
 }
 
 /**
@@ -682,14 +688,14 @@ unsigned long long wma_convert_ll(unsigned char *src) {
     unsigned long long retval;
 
     tmp_hi = src[7] << 24 |
-	src[6] << 16 |
-	src[5] << 8 |
-	src[4];
+        src[6] << 16 |
+        src[5] << 8 |
+        src[4];
 
     tmp_lo = src[3] << 24 |
-	src[2] << 16 |
-	src[1] << 8 |
-	src[0];
+        src[2] << 16 |
+        src[1] << 8 |
+        src[0];
 
     retval = tmp_hi;
     retval = (retval << 32) | tmp_lo;
@@ -715,23 +721,23 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
     wma_fd = r_open2(filename,O_RDONLY);
     if(wma_fd == -1) {
-	DPRINTF(E_INF,L_SCAN,"Error opening WMA file (%s): %s\n",filename,
-		strerror(errno));
-	return FALSE;
+        DPRINTF(E_INF,L_SCAN,"Error opening WMA file (%s): %s\n",filename,
+                strerror(errno));
+        return FALSE;
     }
 
     if(read(wma_fd,(void*)&hdr,sizeof(hdr)) != sizeof(hdr)) {
-	DPRINTF(E_INF,L_SCAN,"Error reading from %s: %s\n",filename,
-		strerror(errno));
-	r_close(wma_fd);
-	return FALSE;
+        DPRINTF(E_INF,L_SCAN,"Error reading from %s: %s\n",filename,
+                strerror(errno));
+        r_close(wma_fd);
+        return FALSE;
     }
 
     pguid = wma_find_guid(hdr.objectid);
     if(!pguid) {
-	DPRINTF(E_INF,L_SCAN,"Could not find header in %s\n",filename);
-	r_close(wma_fd);
-	return FALSE;
+        DPRINTF(E_INF,L_SCAN,"Could not find header in %s\n",filename);
+        r_close(wma_fd);
+        return FALSE;
     }
 
     hdr.objects=wma_convert_int((unsigned char *)&hdr.objects);
@@ -747,56 +753,56 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
      * find anything interesting
      */
     
-    for(item=0; item < hdr.objects; item++) {
-	if(lseek(wma_fd,offset,SEEK_SET) == (off_t)-1) {
-	    DPRINTF(E_INF,L_SCAN,"Error seeking in %s\n",filename);
-	    r_close(wma_fd);
-	    return FALSE;
-	}
+    for(item=0; item < (int) hdr.objects; item++) {
+        if(lseek(wma_fd,offset,SEEK_SET) == (off_t)-1) {
+            DPRINTF(E_INF,L_SCAN,"Error seeking in %s\n",filename);
+            r_close(wma_fd);
+            return FALSE;
+        }
 
-	if(r_read(wma_fd,(void*)&subhdr,sizeof(subhdr)) != sizeof(subhdr)) {
-	    err=errno;
-	    DPRINTF(E_INF,L_SCAN,"Error reading from %s: %s\n",filename,
-		    strerror(err));
-	    r_close(wma_fd);
-	    return FALSE;
-	}
+        if(r_read(wma_fd,(void*)&subhdr,sizeof(subhdr)) != sizeof(subhdr)) {
+            err=errno;
+            DPRINTF(E_INF,L_SCAN,"Error reading from %s: %s\n",filename,
+                    strerror(err));
+            r_close(wma_fd);
+            return FALSE;
+        }
 
-	subhdr.size=wma_convert_ll((unsigned char *)&subhdr.size);
+        subhdr.size=wma_convert_ll((unsigned char *)&subhdr.size);
 
-	pguid = wma_find_guid(subhdr.objectid);
-	if(pguid) {
-	    DPRINTF(E_DBG,L_SCAN,"Found subheader: %s\n",pguid->name);
-	    if(strcmp(pguid->name,"ASF_Content_Description_Object")==0) {
-		res &= wma_parse_content_description(wma_fd,subhdr.size,pmp3);
-	    } else if (strcmp(pguid->name,"ASF_Extended_Content_Description_Object")==0) {
-		res &= wma_parse_extended_content_description(wma_fd,subhdr.size,pmp3);
-	    } else if (strcmp(pguid->name,"ASF_File_Properties_Object")==0) {
-		res &= wma_parse_file_properties(wma_fd,subhdr.size,pmp3);
-	    }
-	} else {
-	    DPRINTF(E_DBG,L_SCAN,"Unknown subheader: %02hhx%02hhx%02hhx%02hhx-"
-	    "%02hhx%02hhx-%02hhx%02hhx-%02hhx%02hhx-"
-	    "%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx\n",
-	    subhdr.objectid[3],subhdr.objectid[2],
-	    subhdr.objectid[1],subhdr.objectid[0],
-	    subhdr.objectid[5],subhdr.objectid[4],
-	    subhdr.objectid[7],subhdr.objectid[6],
-	    subhdr.objectid[8],subhdr.objectid[9],
-	    subhdr.objectid[10],subhdr.objectid[11],
-	    subhdr.objectid[12],subhdr.objectid[13],
-	    subhdr.objectid[14],subhdr.objectid[15]);
+        pguid = wma_find_guid(subhdr.objectid);
+        if(pguid) {
+            DPRINTF(E_DBG,L_SCAN,"Found subheader: %s\n",pguid->name);
+            if(strcmp(pguid->name,"ASF_Content_Description_Object")==0) {
+                res &= wma_parse_content_description(wma_fd,(int)subhdr.size,pmp3);
+            } else if (strcmp(pguid->name,"ASF_Extended_Content_Description_Object")==0) {
+                res &= wma_parse_extended_content_description(wma_fd,(int)subhdr.size,pmp3);
+            } else if (strcmp(pguid->name,"ASF_File_Properties_Object")==0) {
+                res &= wma_parse_file_properties(wma_fd,(int)subhdr.size,pmp3);
+            }
+        } else {
+            DPRINTF(E_DBG,L_SCAN,"Unknown subheader: %02hhx%02hhx%02hhx%02hhx-"
+            "%02hhx%02hhx-%02hhx%02hhx-%02hhx%02hhx-"
+            "%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx\n",
+            subhdr.objectid[3],subhdr.objectid[2],
+            subhdr.objectid[1],subhdr.objectid[0],
+            subhdr.objectid[5],subhdr.objectid[4],
+            subhdr.objectid[7],subhdr.objectid[6],
+            subhdr.objectid[8],subhdr.objectid[9],
+            subhdr.objectid[10],subhdr.objectid[11],
+            subhdr.objectid[12],subhdr.objectid[13],
+            subhdr.objectid[14],subhdr.objectid[15]);
 
-	}
-	offset += subhdr.size;
+        }
+        offset += (long) subhdr.size;
     }
 
 
     if(!res) {
-	DPRINTF(E_INF,L_SCAN,"Error reading meta info for file %s\n",
-		filename);
+        DPRINTF(E_INF,L_SCAN,"Error reading meta info for file %s\n",
+                filename);
     } else {
-	DPRINTF(E_DBG,L_SCAN,"Successfully parsed file\n");
+        DPRINTF(E_DBG,L_SCAN,"Successfully parsed file\n");
     }
 
     r_close(wma_fd);

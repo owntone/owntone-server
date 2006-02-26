@@ -59,7 +59,6 @@ typedef struct tag_config {
     int process_m3u;      /**< Should we process m3u files? */
     int scan_type;        /**< Method for finding playtime. see scan-mp3.c */
     int compress;         /**< Should we compress? */
-    int pid;              /**< pid that will accept INT to terminate */
     int latin1_tags;      /**< interpret all tags as latin1 rather than utf8 */
     char *adminpassword;  /**< Password to web management pages */
     char *readpassword;   /**< iTunes password */
@@ -82,8 +81,5 @@ typedef struct tag_config {
 } CONFIG;
 
 extern CONFIG config;
-
-/* Forwards */
-extern int drop_privs(char *user);
 
 #endif /* _DAAPD_H_ */

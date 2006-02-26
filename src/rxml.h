@@ -15,7 +15,7 @@ typedef void* RXMLHANDLE;
 typedef void(*RXML_EVTHANDLER)(int,void*,char*);
 
 extern int rxml_open(RXMLHANDLE *handle, char *file, 
-		     RXML_EVTHANDLER handler, void* udata);
+                     RXML_EVTHANDLER handler, void* udata);
 extern int rxml_close(RXMLHANDLE handle);
 extern char *rxml_errorstring(RXMLHANDLE handle);
 extern int rxml_parse(RXMLHANDLE handle);

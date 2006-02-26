@@ -54,31 +54,31 @@ int rend_init(char *user) {
     int fd;
 
     if(pipe((int*)&rend_pipe_to) == -1)
-	return -1;
+        return -1;
 
     if(pipe((int*)&rend_pipe_from) == -1) {
-	err=errno;
-	close(rend_pipe_to[RD_SIDE]);
-	close(rend_pipe_to[WR_SIDE]);
-	errno=err;
-	return -1;
+        err=errno;
+        close(rend_pipe_to[RD_SIDE]);
+        close(rend_pipe_to[WR_SIDE]);
+        errno=err;
+        return -1;
     }
 
     rend_pid=fork();
     if(rend_pid==-1) {
-	err=errno;
-	close(rend_pipe_to[RD_SIDE]);
-	close(rend_pipe_to[WR_SIDE]);
-	close(rend_pipe_from[RD_SIDE]);
-	close(rend_pipe_from[WR_SIDE]);
-	errno=err;
-	return -1;
+        err=errno;
+        close(rend_pipe_to[RD_SIDE]);
+        close(rend_pipe_to[WR_SIDE]);
+        close(rend_pipe_from[RD_SIDE]);
+        close(rend_pipe_from[WR_SIDE]);
+        errno=err;
+        return -1;
     }
 
     if(rend_pid) { /* parent */
-	close(rend_pipe_to[RD_SIDE]);
-	close(rend_pipe_from[WR_SIDE]);
-	return 0;
+        close(rend_pipe_to[RD_SIDE]);
+        close(rend_pipe_from[WR_SIDE]);
+        return 0;
     }
 
     /* child */
@@ -100,17 +100,17 @@ int rend_init(char *user) {
 
 #ifdef TIOCNOTTY
     if ((fd = open("/dev/tty", O_RDWR)) >= 0) {
-	ioctl(fd, TIOCNOTTY, (char *) NULL);
-	close(fd);
+        ioctl(fd, TIOCNOTTY, (char *) NULL);
+        close(fd);
     }
 #endif
 
     if((fd = open("/dev/null", O_RDWR, 0)) != -1) {
-	dup2(fd, STDIN_FILENO);
-	dup2(fd, STDOUT_FILENO);
-	//	dup2(fd, STDERR_FILENO); 
-	if (fd > 2)
-	    close(fd);
+        dup2(fd, STDIN_FILENO);
+        dup2(fd, STDOUT_FILENO);
+        //      dup2(fd, STDERR_FILENO); 
+        if (fd > 2)
+            close(fd);
     }
 
     errno = 0;
@@ -159,20 +159,20 @@ int rend_stop(void) {
  *
  * register a rendezvous name
  */
-int rend_register(char *name, char *type, int port, char *interface) {
+int rend_register(char *name, char *type, int port, char *iface) {
     REND_MESSAGE msg;
 
     if((strlen(name)+1 > MAX_NAME_LEN) || (strlen(type)+1 > MAX_NAME_LEN)) {
-	DPRINTF(E_FATAL,L_REND,"Registration failed: name or type too long\n");
-	return -1;
+        DPRINTF(E_FATAL,L_REND,"Registration failed: name or type too long\n");
+        return -1;
     }
 
     memset((void*)&msg,0x00,sizeof(msg)); /* shut valgrind up */
     msg.cmd=REND_MSG_TYPE_REGISTER;
     strncpy(msg.name,name,MAX_NAME_LEN-1);
     strncpy(msg.type,type,MAX_NAME_LEN-1);
-    if(interface)
-	strncpy(msg.interface,interface,MAX_IFACE_NAME_LEN-1);
+    if(iface)
+        strncpy(msg.iface,iface,MAX_IFACE_NAME_LEN-1);
 
     msg.port=port;
 
@@ -197,10 +197,10 @@ int rend_send_message(REND_MESSAGE *pmsg) {
     int retval;
 
     if(r_write(rend_pipe_to[WR_SIDE],pmsg,sizeof(REND_MESSAGE)) == -1)
-	return -1;
+        return -1;
 
     if((retval=r_read(rend_pipe_from[RD_SIDE],&retval,sizeof(int)) == -1))
-	return -1;
+        return -1;
 
     return retval;
 }

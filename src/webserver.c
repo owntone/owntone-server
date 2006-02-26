@@ -20,7 +20,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#  include "config.h"
+# include "config.h"
 #endif
 
 #include <ctype.h>
@@ -29,20 +29,26 @@
 #include <limits.h>
 #include <pthread.h>
 #include <regex.h>
-#include <restart.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <uici.h>
 
-#include <sys/param.h>
-#include <sys/types.h>
-#include <sys/socket.h>
+#ifndef WIN32
+# include <sys/param.h>
+# include <sys/types.h>
+# include <sys/socket.h>
+#endif
 
 #include "err.h"
+#include "restart.h"
 #include "webserver.h"
+
+#ifndef WIN32  /* FIXME: the uici stuff should be moved into os-win32 and os-unix
+                * as os_opensocket, os_accept, etc */
+# include "uici.h"
+#endif
 
 /*
  * Defines
@@ -343,7 +349,7 @@ extern int ws_stop(WSHANDLE ws) {
 
     DPRINTF(E_DBG,L_WS,"ws_stop: closing the server fd\n");
     shutdown(pwsp->server_fd,SHUT_RDWR);
-    r_close(pwsp->server_fd); /* this should tick off the listener */
+    r_close(pwsp->server_fd);
     
     /* wait for the server thread to terminate.  SHould be quick! */
     pthread_join(pwsp->server_tid,&result);
@@ -434,7 +440,7 @@ void *ws_mainthread(void *arg) {
         ws_lock_unsafe();
         pwsc->threadno=pwsp->threadno;
         pwsp->threadno++;
-	/* we'll hold the unsafe until the dispatch thread is registered */
+        /* we'll hold the unsafe until the dispatch thread is registered */
 
         /* now, throw off a dispatch thread */
         if((err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc))) {
@@ -445,7 +451,7 @@ void *ws_mainthread(void *arg) {
             ws_add_dispatch_thread(pwsp,pwsc);
             pthread_detach(tid);
         }
-	ws_unlock_unsafe();
+        ws_unlock_unsafe();
     }
 
     DPRINTF(E_SPAM,L_WS,"Exiting ws_mainthred\n");
@@ -488,17 +494,17 @@ void ws_close(WS_CONNINFO *pwsc) {
 
         ws_remove_dispatch_thread(pwsp, pwsc);
 
-	/* Get rid of the local storage */
-	if(pwsc->local_storage) {
-	    if(pwsc->storage_callback) {
-		pwsc->storage_callback(pwsc->local_storage);
-		pwsc->local_storage=NULL;
-		pwsc->storage_callback=NULL;
-	    }
-	}
+        /* Get rid of the local storage */
+        if(pwsc->local_storage) {
+            if(pwsc->storage_callback) {
+                pwsc->storage_callback(pwsc->local_storage);
+                pwsc->local_storage=NULL;
+                pwsc->storage_callback=NULL;
+            }
+        }
     
         free(pwsc->hostname);
-	memset(pwsc,0x00,sizeof(WS_CONNINFO));
+        memset(pwsc,0x00,sizeof(WS_CONNINFO));
         free(pwsc);
         DPRINTF(E_SPAM,L_WS,"Exiting ws_close (thread terminating)\n");
         pthread_exit(NULL);
@@ -1033,14 +1039,14 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
  * and serves it up
  */
 void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
-    char path[MAXPATHLEN];
-    char resolved_path[MAXPATHLEN];
+    char path[PATH_MAX];
+    char resolved_path[PATH_MAX];
     int file_fd;
     off_t len;
     
     DPRINTF(E_SPAM,L_WS,"Entering ws_defaulthandler\n");
 
-    snprintf(path,MAXPATHLEN,"%s/%s",pwsp->wsconfig.web_root,pwsc->uri);
+    snprintf(path,PATH_MAX,"%s/%s",pwsp->wsconfig.web_root,pwsc->uri);
     if(!realpath(path,resolved_path)) {
         pwsc->error=errno;
         DPRINTF(E_WARN,L_WS,"Exiting ws_defaulthandler: Cannot resolve %s\n",path);
@@ -1577,7 +1583,7 @@ WS_CONNINFO *ws_thread_enum_first(WSHANDLE wsh, WSTHREADENUM *vpp) {
     if(pconlist) {
         pwsc = pconlist->pwsc;
     } else {
-	ws_unlock_connlist(pwsp);
+        ws_unlock_connlist(pwsp);
     }
     
     return pwsc;

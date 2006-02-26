@@ -35,6 +35,12 @@
 #include "err.h"
 #include "mp3-scanner.h"
 
+#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
+# define _PACKED __attribute((packed))
+#else
+# define _PACKED
+#endif
+
 /**
  * Struct to keep info about the information gleaned from
  * the mp3 frame header.
@@ -59,13 +65,15 @@ typedef struct tag_scan_frameinfo {
     int is_valid;
 } SCAN_FRAMEINFO;
 
-
+/* This should take take of win32 and gcc, any others? */
+#pragma pack(1)
 typedef struct tag_scan_id3header {
     unsigned char id[3];
     unsigned char version[2];
     unsigned char flags;
     unsigned char size[4];
-} __attribute((packed)) SCAN_ID3HEADER;
+} _PACKED SCAN_ID3HEADER;
+#pragma pack()
 
 /*
  * Globals
@@ -342,7 +350,6 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
                 } else {
                     utf8_text=(char *)id3_ucs4_utf8duplicate(native_text);
                 }
-                MEMNOTIFY(utf8_text);
 
                 if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
                     used=1;
@@ -462,7 +469,6 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
                         utf8_text=(char*)id3_ucs4_utf8duplicate(native_text);
                         if(utf8_text) {
                             pmp3->comment=utf8_text;
-                            MEMNOTIFY(pmp3->comment);
                         }
                     }
                 } else {
