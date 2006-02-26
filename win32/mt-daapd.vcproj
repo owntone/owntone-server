@@ -36,6 +36,7 @@
 				AdditionalDependencies="zlib.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib"
 				OutputFile="$(OutDir)/mt-daapd.exe"
 				LinkIncremental="2"
+				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames="LIBC"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile="$(OutDir)/mt-daapd.pdb"
@@ -50,7 +51,8 @@
 			<Tool
 				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCResourceCompilerTool"/>
+				Name="VCResourceCompilerTool"
+				AdditionalIncludeDirectories="C:\working\projects\win32\include"/>
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
@@ -84,6 +86,7 @@
 				AdditionalDependencies="zlib.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib"
 				OutputFile="$(OutDir)/mt-daapd.exe"
 				LinkIncremental="1"
+				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames=""
 				GenerateDebugInformation="TRUE"
 				SubSystem="1"
@@ -99,7 +102,8 @@
 			<Tool
 				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCResourceCompilerTool"/>
+				Name="VCResourceCompilerTool"
+				AdditionalIncludeDirectories="C:\working\projects\win32\include"/>
 			<Tool
 				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
@@ -129,9 +133,6 @@
 				RelativePath="..\src\db-sql-sqlite2.c">
 			</File>
 			<File
-				RelativePath="..\src\db-sql-sqlite3.c">
-			</File>
-			<File
 				RelativePath="..\src\db-sql.c">
 			</File>
 			<File
@@ -144,7 +145,7 @@
 				RelativePath="..\src\err.c">
 			</File>
 			<File
-				RelativePath=".\getopt.c">
+				RelativePath="..\src\getopt.c">
 			</File>
 			<File
 				RelativePath="..\src\main.c">
@@ -207,6 +208,12 @@
 				RelativePath="..\src\strtok_r.c">
 			</File>
 			<File
+				RelativePath="..\src\w32-eventlog.c">
+			</File>
+			<File
+				RelativePath="..\src\w32-service.c">
+			</File>
+			<File
 				RelativePath="..\src\webserver.c">
 			</File>
 			<File
@@ -221,10 +228,22 @@
 				RelativePath=".\config.h">
 			</File>
 			<File
+				RelativePath="..\src\daapd.h">
+			</File>
+			<File
+				RelativePath="..\src\err.h">
+			</File>
+			<File
 				RelativePath="..\src\os-win32.h">
 			</File>
 			<File
+				RelativePath="..\src\os.h">
+			</File>
+			<File
 				RelativePath="..\src\rend.h">
+			</File>
+			<File
+				RelativePath=".\resource.h">
 			</File>
 			<File
 				RelativePath="..\src\strptime.h">
@@ -236,6 +255,12 @@
 				RelativePath="..\src\uici.h">
 			</File>
 			<File
+				RelativePath="..\src\w32-eventlog.h">
+			</File>
+			<File
+				RelativePath="..\src\w32-service.h">
+			</File>
+			<File
 				RelativePath="..\src\win32.h">
 			</File>
 		</Filter>
@@ -243,7 +268,41 @@
 			Name="Resource Files"
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}">
+			<File
+				RelativePath=".\mt-daapd.rc">
+				<FileConfiguration
+					Name="Debug|Win32">
+					<Tool
+						Name="VCResourceCompilerTool"
+						AdditionalIncludeDirectories=".;res"/>
+				</FileConfiguration>
+				<FileConfiguration
+					Name="Release|Win32">
+					<Tool
+						Name="VCResourceCompilerTool"
+						AdditionalIncludeDirectories=".;res;.."/>
+				</FileConfiguration>
+			</File>
 		</Filter>
+		<File
+			RelativePath=".\messages.mc">
+			<FileConfiguration
+				Name="Debug|Win32">
+				<Tool
+					Name="VCCustomBuildTool"
+					CommandLine="mc.exe -A $(InputDir)$(InputName).mc -r $(InputDir)res -h $(InputDir)
+"
+					Outputs="$(InputDir)res\$(InputName).rc;$(InputDir)$(InputName).h"/>
+			</FileConfiguration>
+			<FileConfiguration
+				Name="Release|Win32">
+				<Tool
+					Name="VCCustomBuildTool"
+					CommandLine="mc.exe -A $(InputDir)$(InputName).mc -r $(InputDir)res -h $(InputDir)
+"
+					Outputs="$(InputDir)res\$(InputName).rc;$(InputDir)$(InputName).h"/>
+			</FileConfiguration>
+		</File>
 		<File
 			RelativePath=".\ReadMe.txt">
 		</File>
