@@ -1443,10 +1443,11 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int apro = 3 << 16;
     char servername[80];
     int size;
+    int actual_length;
 
     conf_get_string("general","servername","mt-daapd",servername,&size);
 
-    int actual_length=130 + (int) strlen(servername);
+    actual_length=130 + (int) strlen(servername);
 
     if(actual_length > sizeof(server_info)) {
         DPRINTF(E_FATAL,L_DAAP,"Server name too long.\n");
