@@ -395,7 +395,7 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
         result = pitem->value.as_string;
     }
 
-    len = strlen(result) + 1;
+    len = (int) strlen(result) + 1;
 
     if(len <= *size) {
         *size = len;
@@ -532,7 +532,6 @@ int conf_write(void) {
  */
 int _conf_write(FILE *fp, LL *pll, int sublevel) {
     LL_ITEM *pli;
-    int retval;
 
     if(!pll)
         return TRUE;
