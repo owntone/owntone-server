@@ -567,4 +567,23 @@ int _conf_write(FILE *fp, LL *pll, int sublevel) {
 }
 
 
+/**
+ * determine if a configuration entry is actually set
+ *
+ * @param section section to test
+ * @key key to check
+ * @return TRUE if set, FALSE otherwise
+ */
+int conf_isset(char *section, char *key) {
+    int retval = FALSE;
+
+    _conf_lock();
+    if(_conf_fetch_item(conf_main,section,key)) {
+        retval = TRUE;
+    }
+    _conf_unlock();
+
+    return retval;
+}
+
 

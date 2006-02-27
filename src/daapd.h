@@ -50,6 +50,8 @@ typedef struct tag_config {
     int use_mdns;         /**< Should we do rendezvous advertisements? */
     int stop;             /**< Time to exit? */
     int reload;           /**< Time to reload and/or rescan the database? */
+
+#if 0
     char *configfile;     /**< path to config file */
     char *web_root;       /**< path to the dir containing the web files */
     char *iface;          /**< interface to advertise on */
@@ -76,6 +78,8 @@ typedef struct tag_config {
     char *dbtype;         /**< db backend type */
     char *dbparms;        /**< parameters for the db backend */
     char **complist;      /**< list of compilation directories */
+#endif
+
     STATS stats;          /**< Stats structure (see above) */
     WSHANDLE server;      /**< webserver handle */
 } CONFIG;

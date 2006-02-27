@@ -37,10 +37,11 @@
 #ifndef WIN32
 #include <netinet/in.h>  /* htons and friends */
 #include <dirent.h>      /* why here?  For osx 10.2, of course! */
-#endif 
+#endif
 
 #include <sys/stat.h>
 
+#include "conf.h"
 #include "daapd.h"
 #include "db-generic.h"
 #include "err.h"
@@ -60,16 +61,21 @@
  * @returns 1 if should be converted.  0 if not
  */
 int server_side_convert(char *codectype) {
-    if ((!config.ssc_codectypes) ||
-        (!config.ssc_codectypes[0]) ||
-        (!config.ssc_prog) ||
-        (!config.ssc_prog[0]) ||
+    char ssc_codectypes[PATH_MAX];
+    int size;
+
+    size = sizeof(ssc_codectypes);
+    conf_get_string("general","ssc_codectypes","ogg,flac,wma,alac",
+                    ssc_codectypes,&size);
+
+    if ((!conf_isset("general","ssc_codectypes")) ||
+        (!conf_isset("general","ssc_prog")) ||
         (!codectype)) {
         DPRINTF(E_DBG,L_SCAN,"Nope\n");
         return 0;
     }
 
-    if(strcasestr(config.ssc_codectypes, codectype)) {
+    if(strcasestr(ssc_codectypes, codectype)) {
         return 1;
     }
 
@@ -90,14 +96,23 @@ FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms, c
     char *metachars = "\"\\!(){}#*?$&<>`"; /* More?? */
     char metacount = 0;
     char *src,*dst;
-    
+    char ssc_prog[PATH_MAX];
+    int size;
+
+    size = sizeof(ssc_prog);
+    conf_get_string("general","ssc_prog","",ssc_prog,&size);
+
+    if(ssc_prog[0] == '\0') { /* can't happen */
+        return NULL;
+    }
+
     src=path;
     while(*src) {
         if(strchr(metachars,*src))
             metacount+=5;
         src++;
     }
-    
+
     if(metachars) {
         newpath = (char*)malloc(strlen(path) + metacount + 1);
         if(!newpath) {
@@ -105,7 +120,7 @@ FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms, c
         }
         src=path;
         dst=newpath;
-        
+
         while(*src) {
             if(strchr(metachars,*src)) {
                 *dst++='"';
@@ -123,11 +138,11 @@ FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms, c
     }
 
     /* FIXME: is 64 enough? is there a better way to determine this? */
-    cmd=(char *)malloc(strlen(config.ssc_prog) +
+    cmd=(char *)malloc(strlen(ssc_prog) +
                        strlen(path) +
                        64);
     sprintf(cmd, "%s \"%s\" %ld %lu.%03lu \"%s\"",
-            config.ssc_prog, newpath, (long)offset, len_ms / 1000,
+            ssc_prog, newpath, (long)offset, len_ms / 1000,
             len_ms % 1000, (codectype && *codectype) ? codectype : "*");
     DPRINTF(E_INF,L_SCAN,"Executing %s\n",cmd);
     f = popen(cmd, "r");

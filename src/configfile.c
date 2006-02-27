@@ -48,6 +48,7 @@
 # include <sys/wait.h>
 #endif
 
+#include "conf.h"
 #include "configfile.h"
 #include "db-generic.h"
 #include "err.h"
@@ -62,9 +63,7 @@
 /*
  * Forwards
  */
-static void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg);
-static void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_threadstatus(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg);
@@ -73,14 +72,10 @@ static void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg
 static void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg);
-static void config_emit_debuglevel(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
-static int config_file_is_readonly(void);
-static int config_existdir(char *path);
-static int config_makedir(char *path);
 static void config_content_type(WS_CONNINFO *pwsc, char *path);
 
 /*
@@ -114,6 +109,7 @@ typedef struct tag_configelement {
 
 /** List of all valid config entries and web interface directives */
 CONFIGELEMENT config_elements[] = {
+    /*
     { 1,1,0,CONFIG_TYPE_STRING,"runas",(void*)&config.runas,config_emit_string },
     { 1,1,0,CONFIG_TYPE_STRING,"web_root",(void*)&config.web_root,config_emit_string },
     { 1,1,0,CONFIG_TYPE_INT,"port",(void*)&config.port,config_emit_int },
@@ -138,6 +134,8 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"compdirs",(void*)&config.compdirs, config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"logfile",(void*)&config.logfile, config_emit_string },
+    { 1,0,0,CONFIG_TYPE_STRING,"art_filename",(void*)&config.artfilename,config_emit_string },
+    */
     { 0,0,0,CONFIG_TYPE_SPECIAL,"host",(void*)NULL,config_emit_host },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"package",(void*)PACKAGE,config_emit_literal },
@@ -150,7 +148,6 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"readonly",(void*)NULL,config_emit_readonly },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"version",(void*)NULL,config_emit_version },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"system",(void*)NULL,config_emit_system },
-    { 1,0,0,CONFIG_TYPE_STRING,"art_filename",(void*)&config.artfilename,config_emit_string },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"flags",(void*)NULL,config_emit_flags },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
@@ -177,6 +174,7 @@ void config_content_type(WS_CONNINFO *pwsc, char *path) {
     }
 }
 
+#if 0
 /**
  * Try and create a directory, including parents.
  *
@@ -241,355 +239,7 @@ int config_existdir(char *path) {
     errno=ENOTDIR;
     return 0;
 }
-
-
-/**
- * Read the specified config file, padding the config structure
- * appropriately.
- *
- * \param file config file to process
- * \returns 0 on success, -1 otherwise with errno set
- */
-int config_read(char *file) {
-    FILE *fin;
-    char *buffer;
-    int err=0;
-    char *value;
-    char *comment;
-    char path_buffer[PATH_MAX];
-    CONFIGELEMENT *pce;
-    int handled;
-    char *term;
-    int compterms=0,currentterm;
-    char *term_begin, *term_end;
-    char *compdirs;
-
-    buffer=(char*)malloc(MAX_LINE+1);
-    if(!buffer)
-        return -1;
-
-    if((fin=fopen(file,"r")) == NULL) {
-        err=errno;
-        free(buffer);
-
-        if(ENOENT == err) {
-            DPRINTF(E_LOG,L_CONF,"Whoops!  Can't find the config file!  If you are running this for the first\n");
-            DPRINTF(E_LOG,L_CONF,"time, then perhaps you've forgotten to copy the sample config in the \n");
-            DPRINTF(E_LOG,L_CONF,"contrib directory into /etc/mt-daapd.conf.  Just a suggestion...\n\n");
-        }
-
-        errno=err;
-        return -1;
-    }
-
-#ifdef NSLU2
-    config.always_scan=0;
-#else
-    config.always_scan=1;
 #endif
-
-    config.configfile=strdup(file);
-    config.web_root=NULL;
-    config.adminpassword=NULL;
-    config.readpassword=NULL;
-    config.iface=NULL;
-    config.mp3dir=NULL;
-    config.playlist=NULL;
-    config.runas=NULL;
-    config.artfilename=NULL;
-    config.logfile=NULL;
-    config.rescan_interval=0;
-    config.process_m3u=0;
-    config.scan_type=0;
-    config.compress=0;
-    config.latin1_tags=0;
-    config.compdirs=NULL;
-    config.complist = NULL;
-
-    /* DWB: use alloced space so it can be freed without errors */
-    config.extensions=strdup(".mp3");
-    config.ssc_codectypes=strdup("");
-    config.ssc_prog=strdup("");
-
-    /* DWB: use alloced space so it can be freed without errors */
-    config.servername=strdup("mt-daapd " VERSION);
-
-    while(fgets(buffer,MAX_LINE,fin)) {
-        buffer[MAX_LINE] = '\0';
-
-        comment=strchr(buffer,'#');
-        if(comment)
-            *comment = '\0';
-
-        while(strlen(buffer) && (strchr("\n\r ",buffer[strlen(buffer)-1])))
-            buffer[strlen(buffer)-1] = '\0';
-
-        term=buffer;
-
-        while((*term=='\t') || (*term==' '))
-            term++;
-
-        value=term;
-
-        strsep(&value,"\t ");
-        if((value) && (term) && (strlen(term))) {
-            while(strlen(value) && (strchr("\t ",*value)))
-                value++;
-
-            pce=config_elements;
-            handled=0;
-            while((!handled) && (pce->config_element != -1)) {
-                if((strcasecmp(term,pce->name)==0) && (pce->config_element)) {
-                    /* valid config directive */
-                    handled=1;
-                    pce->changed=1;
-
-                    DPRINTF(E_DBG,L_CONF,"Read %s: %s\n",pce->name,value);
-
-                    switch(pce->type) {
-                    case CONFIG_TYPE_STRING:
-                        /* DWB: free space to prevent small leak */
-                        if(*((char **)(pce->var)))
-                            free(*((char **)(pce->var)));
-                        *((char **)(pce->var)) = (void*)strdup(value);
-                        break;
-                    case CONFIG_TYPE_INT:
-                        *((int*)(pce->var)) = atoi(value);
-                        break;
-                    }
-                }
-                pce++;
-            }
-
-            if(!handled) {
-                fprintf(stderr,"Invalid config directive: %s\n",buffer);
-                fclose(fin);
-                return -1;
-            }
-        }
-    }
-
-    fclose(fin);
-    free(buffer);
-
-    /* check to see if all required elements are satisfied */
-    pce=config_elements;
-    err=0;
-    while((pce->config_element != -1)) {
-        if(pce->required && pce->config_element && !pce->changed) {
-            DPRINTF(E_LOG,L_CONF,"Required config entry '%s' not specified\n",pce->name);
-            err=-1;
-        }
-
-        /* too much spam on startup
-        if((pce->config_element) && (pce->changed)) {
-            switch(pce->type) {
-            case CONFIG_TYPE_STRING:
-                DPRINTF(E_INF,"%s: %s\n",pce->name,*((char**)pce->var));
-                break;
-            case CONFIG_TYPE_INT:
-                DPRINTF(E_INF,"%s: %d\n",pce->name,*((int*)pce->var));
-                break;
-            }
-        }
-        */
-
-        pce->changed=0;
-        pce++;
-    }
-
-    /* Set the directory components to realpaths */
-    realpath(config.web_root,path_buffer);
-    free(config.web_root);
-    config.web_root=strdup(path_buffer);
-
-    realpath(config.mp3dir,path_buffer);
-    free(config.mp3dir);
-    config.mp3dir=strdup(path_buffer);
-
-    if(config.dbdir) {
-        DPRINTF(E_LOG,L_MISC,"You are using db_dir rather than "
-                "db_type/db_parms.  This will stop working at "
-                "some point.  Please fix your config\n");
-        realpath(config.dbdir,path_buffer);
-        free(config.dbdir);
-        config.dbdir=strdup(path_buffer);
-    }
-
-
-    /* sanity check the paths */
-    sprintf(path_buffer,"%s/index.html",config.web_root);
-    if((fin=fopen(path_buffer,"r")) == NULL) {
-        err=-1;
-        DPRINTF(E_LOG,L_CONF,"Invalid web_root\n");
-
-        /* check for the common error */
-        if(strcasecmp(config.web_root,"/usr/share/mt-daapd/admin-root") == 0) {
-            /* see if /usr/local is any better */
-            if((fin=fopen("/usr/local/share/mt-daapd/admin-root","r")) != NULL) {
-                fclose(fin);
-                DPRINTF(E_LOG,L_CONF,"Should it be /usr/local/share/mt-daapd/admin-root?");
-            }
-        }
-    } else {
-        fclose(fin);
-    }
-
-    /* should really check the mp3 path */
-    if(!config_existdir(config.mp3dir)) {
-        DPRINTF(E_LOG,L_CONF,"Bad mp3 directory (%s): %s\n",config.mp3dir,strerror(errno));
-        return -1;
-    }
-
-    if((config.dbdir)&&(!config_existdir(config.dbdir))) {
-        /* try to make it */
-        if(config_makedir(config.dbdir)) {
-            DPRINTF(E_LOG,L_CONF,"Database dir %s does not exist, cannot create: %s\n",
-                    config.dbdir,strerror(errno));
-            return -1;
-        }
-    }
-
-    /* must have zlib 1.2 or better for gzip encoding support */
-    if(!strncmp(ZLIB_VERSION,"0.",2) ||
-       !strncmp(ZLIB_VERSION,"1.0",3) ||
-       !strncmp(ZLIB_VERSION,"1.1",3)) {
-        if(config.compress) {
-            config.compress=0;
-            DPRINTF(E_LOG,L_CONF,"Must have zlib > 1.2.0 to use gzip content encoding.  You have %s.  Disabling.\n",ZLIB_VERSION);
-        }
-    }
-
-    /* See how many compilation dirs we have */
-    compterms=0;
-    term_begin=config.compdirs;
-    while(term_begin) {
-        compterms++;
-        term_begin=strchr(term_begin,',');
-        if(term_begin)
-            term_begin++;
-    }
-
-    /* Now allocate comp dirs */
-    if(compterms) {
-        config.complist=(char**)malloc((compterms+1) * sizeof(char*));
-        if(!config.complist)
-            DPRINTF(E_FATAL,L_MISC,"Alloc error.\n");
-
-        currentterm=0;
-
-        term_begin=config.compdirs;
-        while(*term_begin && *term_begin ==' ')
-            term_begin++;
-
-        compdirs = strdup(term_begin);
-        term_begin = term_end = compdirs;
-
-        while(term_end) {
-            term_end = strchr(term_begin,',');
-            while((*term_begin)&&(*term_begin == ' '))
-                term_begin++;
-
-            if(term_end)
-                *term_end='\0';
-
-            while(strlen(term_begin) && term_begin[strlen(term_begin)-1]==' ')
-                            term_begin[strlen(term_begin)-1] = '\0';
-
-            if(strlen(term_begin)) {
-                config.complist[currentterm++] = term_begin;
-            }
-
-            term_begin = term_end + 1;
-        }
-
-        config.complist[currentterm] = NULL;
-    }
-
-    return err;
-}
-
-
-/**
- * free up any memory used
- */
-void config_close(void) {
-    CONFIGELEMENT *pce;
-    int err;
-
-    if(config.complist) {
-        if(config.complist[0])
-            free(config.complist[0]);
-        free(config.complist);
-    }
-
-    free(config.configfile);
-    pce=config_elements;
-    err=0;
-    while((pce->config_element != -1)) {
-        if((pce->config_element) &&
-           (pce->type == CONFIG_TYPE_STRING) &&
-           (*((char**)pce->var))) {
-            DPRINTF(E_DBG,L_CONF,"Freeing %s\n",pce->name);
-            free(*((char**)pce->var));
-        }
-        pce++;
-    }
-}
-
-/**
- * Write the config specified in the web post to a file.  This
- * doesn't change the running config, just updates the config
- * file.
- *
- * \param pwsc the connection struct from the config-update url
- */
-int config_write(WS_CONNINFO *pwsc) {
-    FILE *configfile;
-    char ctime_buf[27];
-    time_t now;
-
-    configfile=fopen(config.configfile,"w");
-    if(!configfile)
-        return -1;
-
-    now=time(NULL);
-    ctime_r(&now,ctime_buf);
-    fprintf(configfile,"#\n# mt-daapd.conf\n#\n");
-    fprintf(configfile,"# Edited: %s",ctime_buf);
-    fprintf(configfile,"# By:     %s\n",ws_getvar(pwsc,"HTTP_USER"));
-    fprintf(configfile,"#\n");
-
-    fprintf(configfile,"web_root\t%s\n",ws_getvar(pwsc,"web_root"));
-    fprintf(configfile,"port\t\t%s\n",ws_getvar(pwsc,"port"));
-    fprintf(configfile,"admin_pw\t%s\n",ws_getvar(pwsc,"admin_pw"));
-    fprintf(configfile,"mp3_dir\t\t%s\n",ws_getvar(pwsc,"mp3_dir"));
-    fprintf(configfile,"servername\t%s\n",ws_getvar(pwsc,"servername"));
-    fprintf(configfile,"runas\t\t%s\n",ws_getvar(pwsc,"runas"));
-    fprintf(configfile,"playlist\t%s\n",ws_getvar(pwsc,"playlist"));
-    if(ws_getvar(pwsc,"password") && strlen(ws_getvar(pwsc,"password")))
-        fprintf(configfile,"password\t%s\n",ws_getvar(pwsc,"password"));
-    fprintf(configfile,"extensions\t%s\n",ws_getvar(pwsc,"extensions"));
-    fprintf(configfile,"ssc_codectypes\t%s\n",ws_getvar(pwsc,"ssc_codectypes"));
-    fprintf(configfile,"ssc_prog\t%s\n",ws_getvar(pwsc,"ssc_prog"));
-    fprintf(configfile,"db_dir\t\t%s\n",ws_getvar(pwsc,"db_dir"));
-    fprintf(configfile,"rescan_interval\t%s\n",ws_getvar(pwsc,"rescan_interval"));
-    fprintf(configfile,"scan_type\t%s\n",ws_getvar(pwsc,"scan_type"));
-    if(ws_getvar(pwsc,"always_scan") && strlen(ws_getvar(pwsc,"always_scan")))
-        fprintf(configfile,"always_scan\t%s\n",ws_getvar(pwsc,"always_scan"));
-    if(ws_getvar(pwsc,"art_filename") && strlen(ws_getvar(pwsc,"art_filename")))
-        fprintf(configfile,"art_filename\t%s\n",ws_getvar(pwsc,"art_filename"));
-    if(ws_getvar(pwsc,"logfile") && strlen(ws_getvar(pwsc,"logfile")))
-        fprintf(configfile,"logfile\t\t%s\n",ws_getvar(pwsc,"logfile"));
-    fprintf(configfile,"process_m3u\t%s\n",ws_getvar(pwsc,"process_m3u"));
-    fprintf(configfile,"compress\t%s\n",ws_getvar(pwsc,"compress"));
-
-    fprintf(configfile,"debuglevel\t%s\n",ws_getvar(pwsc,"debuglevel"));
-    fprintf(configfile,"compdirs\t%s\n",ws_getvar(pwsc,"compdirs"));
-
-    fclose(configfile);
-    return 0;
-}
 
 /**
  * walk through a stream doing substitution on the
@@ -670,6 +320,13 @@ void config_handler(WS_CONNINFO *pwsc) {
     int file_fd;
     struct stat sb;
     char *pw;
+    char web_root[PATH_MAX];
+    int size;
+
+    size = PATH_MAX;
+    if(!conf_get_string("general","web_root","",web_root,&size))
+        DPRINTF(E_FATAL,L_CONF,"No web root!\n"); /* shouldnt' happen */
+
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Entering config_handler\n");
 
@@ -687,7 +344,7 @@ void config_handler(WS_CONNINFO *pwsc) {
         return;
     }
 
-    snprintf(path,PATH_MAX,"%s/%s",config.web_root,pwsc->uri);
+    snprintf(path,PATH_MAX,"%s/%s",web_root,pwsc->uri);
     if(!realpath(path,resolved_path)) {
         pwsc->error=errno;
         DPRINTF(E_WARN,L_CONF|L_WS,"Cannot resolve %s\n",path);
@@ -704,8 +361,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Preparing to serve %s\n",
             pwsc->threadno, resolved_path);
 
-    if(strncmp(resolved_path,config.web_root,
-               strlen(config.web_root))) {
+    if(strncmp(resolved_path,web_root,strlen(web_root))) {
         pwsc->error=EINVAL;
         DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
                 pwsc->threadno,resolved_path);
@@ -736,32 +392,6 @@ void config_handler(WS_CONNINFO *pwsc) {
             } else if (strcasecmp(pw,"rescan")==0) {
                 config.reload=1;
             }
-        } else if (ws_getvar(pwsc,"web_root") != NULL) {
-            /* Make sure we got here from a post, and then
-             * we need to update stuff */
-            pw=ws_getvar(pwsc,"admin_pw");
-            if(pw) {
-                if(config.adminpassword)
-                    free(config.adminpassword);
-                config.adminpassword=strdup(pw);
-            }
-
-            pw=ws_getvar(pwsc,"password");
-            if(pw) {
-                if(config.readpassword)
-                    free(config.readpassword);
-                config.readpassword=strdup(pw);
-            }
-
-            pw=ws_getvar(pwsc,"rescan_interval");
-            if(pw) {
-                config.rescan_interval=atoi(pw);
-            }
-
-            if(!config_file_is_readonly()) {
-                DPRINTF(E_INF,L_CONF|L_WS,"Updating config file\n");
-                config_write(pwsc);
-            }
         }
     }
 
@@ -789,9 +419,17 @@ void config_handler(WS_CONNINFO *pwsc) {
  * \param password password passed in the auth request
  */
 int config_auth(char *user, char *password) {
-    if((!password)||(!config.adminpassword))
-        return 0;
-    return !strcmp(password,config.adminpassword);
+    char adminpassword[80];
+    int size = sizeof(adminpassword);
+
+    if(!conf_get_string("general","admin_pw","",adminpassword,&size)) {
+        return FALSE;
+    }
+
+    if(!password)
+        return FALSE;
+
+    return !strcmp(password,adminpassword);
 }
 
 
@@ -823,18 +461,6 @@ void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg) {
 }
 
 /**
- * Used to emit a string configuration value to an admin page
- *
- * \param pwsc web connection
- * \param value the variable that was requested
- * \param arg any args passwd with the meta command
- */
-void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg) {
-    if(*((char**)value))
-        ws_writefd(pwsc,"%s",*((char**)value));
-}
-
-/**
  * Emit a string to the admin page.  This is an actual string,
  * not a pointer to a string pointer, like emit_string.
  *
@@ -844,18 +470,6 @@ void config_emit_string(WS_CONNINFO *pwsc, void *value, char *arg) {
  */
 void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s",(char*)value);
-}
-
-
-/**
- * Emit an integer valut to the web page.
- *
- * \param pwsc web connection
- * \param value the variable that was requested
- * \param arg any args passwd with the meta command
- */
-void config_emit_int(WS_CONNINFO *pwsc, void *value, char *arg) {
-    ws_writefd(pwsc,"%d",*((int*)value));
 }
 
 /**
@@ -1130,24 +744,6 @@ void config_emit_user(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
     return;
 }
-
-/**
- * Check to see if the config file is read only
- *
- * \returns 1 if the file is readonly, 0 otherwise
- */
-int config_file_is_readonly(void) {
-    FILE *fin;
-
-    fin=fopen(config.configfile,"r+");
-    if(!fin) {
-        return 1;
-    }
-
-    fclose(fin);
-    return 0;
-}
-
 /**
  * implement the READONLY command.  This is really a hack so
  * that the html config form isn't editable if the config file
@@ -1158,7 +754,7 @@ int config_file_is_readonly(void) {
  * \param arg any args passwd with the meta command.  Unused
  */
 void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg) {
-    if(config_file_is_readonly()) {
+    if(!conf_iswritable()) {
         ws_writefd(pwsc,"readonly=\"readonly\"");
     }
 }
@@ -1176,10 +772,17 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     char path[PATH_MAX];
     int file_fd;
     struct stat sb;
+    char web_root[PATH_MAX];
+    int size;
+
+    size = sizeof(web_root);
+    if(!conf_get_string("general","web_root","/tmp",web_root,&size)) {
+        DPRINTF(E_FATAL,L_WS,"No web root!\n");
+    }
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Preparing to include %s\n",arg);
 
-    snprintf(path,PATH_MAX,"%s/%s",config.web_root,arg);
+    snprintf(path,PATH_MAX,"%s/%s",web_root,arg);
     if(!realpath(path,resolved_path)) {
         pwsc->error=errno;
         DPRINTF(E_WARN,L_CONF|L_WS,"Cannot resolve %s\n",path);
@@ -1198,8 +801,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Preparing to serve %s\n",
             pwsc->threadno, resolved_path);
 
-    if(strncmp(resolved_path,config.web_root,
-               strlen(config.web_root))) {
+    if(strncmp(resolved_path,web_root,strlen(web_root))) {
         pwsc->error=EINVAL;
         DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
                 pwsc->threadno,resolved_path);
@@ -1320,17 +922,6 @@ int config_get_next_session(void) {
  */
 void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s",VERSION);
-}
-
-/**
- * implement the DEBUGLEVEL command
- *
- * @param pwsc web connection
- * @param value the variable that was requested. Unused.
- * @param arg any args passed with the meta command. Unused.
- */
-void config_emit_debuglevel(WS_CONNINFO *pwsc, void *value, char *arg) {
-    ws_writefd(pwsc,"%d",err_getlevel());
 }
 
 /**

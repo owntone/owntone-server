@@ -25,14 +25,11 @@
 #include "daapd.h"
 #include "webserver.h"
 
-extern int config_read(char *file);
-extern int config_write(WS_CONNINFO *pwsc);
 extern int config_auth(char *user, char *password);
 extern void config_handler(WS_CONNINFO *pwsc);
 extern void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...);
 extern int config_get_session_count(void);
 extern int config_get_next_session(void);
-extern void config_close(void);
 
 /** thread local storage */
 typedef struct tag_scan_status {

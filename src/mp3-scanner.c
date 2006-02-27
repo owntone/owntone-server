@@ -46,6 +46,7 @@
 #endif
 #include <sys/stat.h>
 
+#include "conf.h"
 #include "daapd.h"
 #include "db-generic.h"
 #include "err.h"
@@ -261,6 +262,7 @@ int scan_init(char *path) {
  * @returns 1 if it is a compilation path, 0 otherwise
  */
 int scan_is_compdir(char *path) {
+#if 0
     int current=0;
 
     if(!config.complist)
@@ -271,7 +273,7 @@ int scan_is_compdir(char *path) {
             return 1;
         current++;
     }
-
+#endif
     return 0;
 }
 
@@ -293,6 +295,11 @@ int scan_path(char *path) {
     char *ext;
     MP3FILE *pmp3;
     int is_compdir;
+
+    char extensions[PATH_MAX];
+    int size = sizeof(extensions);
+
+    conf_get_string("general","extensions",".mp3,.m4a,.m4p",extensions,&size);
 
     if((current_dir=opendir(path)) == NULL) {
         DPRINTF(E_WARN,L_SCAN,"opendir: %s\n",strerror(errno));
@@ -339,13 +346,13 @@ int scan_path(char *path) {
                 /* process the file */
                 if(strlen(pde->d_name) > 4) {
                     if((strcasecmp(".m3u",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0) &&
-                       config.process_m3u){
+                       conf_get_int("general","process_m3u",0)){
                         /* we found an m3u file */
                         scan_add_playlistlist(mp3_path);
                     } else if((strcasecmp(".xml",(char*)&pde->d_name[strlen(pde->d_name) - 4]) == 0)) {
                         scan_add_playlistlist(mp3_path);
                     } else if (((ext = strrchr(pde->d_name, '.')) != NULL) &&
-                               (strcasestr(config.extensions, ext))) {
+                               (strcasestr(extensions, ext))) {
                         /* only scan if it's been changed, or empty db */
                         modified_time=(int) sb.st_mtime;
                         pmp3=db_fetch_path(NULL,mp3_path,0);

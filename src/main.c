@@ -69,6 +69,7 @@
 #include <sys/wait.h>
 #endif
 
+#include "conf.h"
 #include "configfile.h"
 #include "dispatch.h"
 #include "err.h"
@@ -170,6 +171,16 @@ int main(int argc, char *argv[]) {
     int force_non_root=0;
     int skip_initial=0;
 
+    int size;
+    char logfile[PATH_MAX];
+    char db_type[40];
+    char db_parms[PATH_MAX];
+    char mp3_dir[PATH_MAX];
+    char web_root[PATH_MAX];
+    char runas[40];
+    char servername[PATH_MAX];
+    char iface[20];
+
     int err;
     char *perr;
 
@@ -246,7 +257,7 @@ int main(int argc, char *argv[]) {
     config.stats.start_time=start_time=(int)time(NULL);
     config.stop=0;
 
-    if(config_read(configfile)) {
+    if(conf_read(configfile) != CONF_E_SUCCESS) {
         fprintf(stderr,"Error reading config file (%s)\n",configfile);
         exit(EXIT_FAILURE);
     }
@@ -254,8 +265,9 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN,"Starting with debuglevel %d\n",err_getlevel());
 
     if(!foreground) {
-        if(config.logfile) {
-            err_setdest(config.logfile,LOGDEST_LOGFILE);
+        size = PATH_MAX;
+        if(conf_get_string("general","logfile",NULL,logfile,&size)) {
+            err_setdest(logfile,LOGDEST_LOGFILE);
         } else {
             err_setdest("mt-daapd",LOGDEST_SYSLOG);
         }
@@ -264,7 +276,9 @@ int main(int argc, char *argv[]) {
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) {
         DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
-        if(rend_init(config.runas)) {
+        size = sizeof(runas);
+        conf_get_string("general","runas","nobody",runas,&size);
+        if(rend_init(runas)) {
             DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",strerror(errno));
         }
     }
@@ -277,10 +291,16 @@ int main(int argc, char *argv[]) {
     }
 
     /* this will require that the db be readable by the runas user */
-    err=db_open(&perr,config.dbtype,config.dbparms);
+    size = sizeof(db_type);
+    conf_get_string("general","db_type","sqlite",db_type,&size);
+    size = sizeof(db_parms);
+    conf_get_string("general","db_parms","/var/cache/mt-daapd",db_parms,&size);
+    err=db_open(&perr,db_type,db_parms);
 
-    if(err)
-        DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_open: %s\n",perr);
+    if(err) {
+        DPRINTF(E_FATAL,L_MAIN|L_DB,"Error: db_open %s/%s: %s\n",
+                db_type,db_parms,perr);
+    }
 
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
@@ -288,19 +308,24 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
 
+    size = sizeof(mp3_dir);
+    conf_get_string("general","mp3_dir","/mnt/mp3",mp3_dir,&size);
     if(!skip_initial) {
-        DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan of %s\n",config.mp3dir);
-        if(scan_init(config.mp3dir)) {
+        DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan of %s\n",mp3_dir);
+
+        if(scan_init(mp3_dir)) {
             DPRINTF(E_FATAL,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
         }
     }
 
     /* start up the web server */
-    ws_config.web_root=config.web_root;
-    ws_config.port=config.port;
+    size = sizeof(web_root);
+    conf_get_string("general","web_root",NULL,web_root,&size);
+    ws_config.web_root=web_root;
+    ws_config.port=conf_get_int("general","port",3689);
 
     DPRINTF(E_LOG,L_MAIN|L_WS,"Starting web server from %s on port %d\n",
-            config.web_root, config.port);
+            ws_config.web_root, ws_config.port);
 
     config.server=ws_start(&ws_config);
     if(!config.server) {
@@ -319,8 +344,12 @@ int main(int argc, char *argv[]) {
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
         DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
-        rend_register(config.servername,"_daap._tcp",config.port,config.iface);
-        rend_register(config.servername,"_http._tcp",config.port,config.iface);
+        size = sizeof(servername);
+        conf_get_string("general","servername","mt-daapd",servername,&size);
+        size = sizeof(iface);
+        conf_get_string("general","interface","",iface,&size);
+        rend_register(servername,"_daap._tcp",ws_config.port,iface);
+        rend_register(servername,"_http._tcp",ws_config.port,iface);
     }
 #endif
 
@@ -331,8 +360,10 @@ int main(int argc, char *argv[]) {
             end_time-start_time);
 
     while(!config.stop) {
-        if((config.rescan_interval) && (rescan_counter > config.rescan_interval)) {
-            if((config.always_scan) || (config_get_session_count())) {
+        if((conf_get_int("general","rescan_interval",0) &&
+            (rescan_counter > conf_get_int("general","rescan_interval",0)))) {
+            if((conf_get_int("general","always_scan",0)) ||
+                (config_get_session_count())) {
                 config.reload=1;
             } else {
                 DPRINTF(E_DBG,L_MAIN|L_SCAN|L_DB,"Skipped bground scan... no users\n");
@@ -345,7 +376,9 @@ int main(int argc, char *argv[]) {
             start_time=(int) time(NULL);
 
             DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
-            if(scan_init(config.mp3dir)) {
+            size = PATH_MAX;
+            conf_get_string("general","mp3_dir","/mnt/mp3",mp3_dir,&size);
+            if(scan_init(mp3_dir)) {
                 DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... exiting\n");
                 config.stop=1;
             }
@@ -378,7 +411,7 @@ int main(int argc, char *argv[]) {
     ws_stop(config.server);
     */
 
-    config_close();
+    conf_close();
 
     DPRINTF(E_LOG,L_MAIN|L_DB,"Closing database\n");
     db_deinit();

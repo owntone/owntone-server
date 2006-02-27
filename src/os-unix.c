@@ -33,6 +33,8 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <syslog.h>
+#include <wait.h>
+
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
@@ -44,6 +46,7 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
+#include "conf.h"
 #include "err.h"
 #include "daapd.h"
 #include "os-unix.h"
@@ -71,13 +74,17 @@ char *_os_pidfile = PIDFILE;
 /**
  * this initializes the platform... sets up signal handlers, forks to the
  * background, etc
- * 
+ *
  * @param foreground whether to run in fg or fork to bg
  * @returns TRUE on success, FALSE otherwise
  */
 int os_init(int foreground) {
     int pid_fd;
     FILE *pid_fp=NULL;
+    char runas[80];
+    int size = sizeof(runas);
+
+    conf_get_string("general","runas","nobody",runas,&size);
 
     /* open the pidfile, so it can be written once we detach */
     if(!foreground) {
@@ -94,7 +101,7 @@ int os_init(int foreground) {
     }
 
     // Drop privs here
-    if(os_drop_privs(config.runas)) {
+    if(os_drop_privs(runas)) {
         DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
     }
 
@@ -113,7 +120,7 @@ int os_init(int foreground) {
         fprintf(pid_fp,"%d\n",_os_signal_pid);
         fclose(pid_fp);
     }
-    
+
     return TRUE;
 }
 
@@ -129,7 +136,7 @@ void os_deinit(void) {
 
 /**
  * start syslogging
- * 
+ *
  * @returns TRUE on success, FALSE otherwise
  */
 int os_opensyslog(void) {
@@ -140,7 +147,7 @@ int os_opensyslog(void) {
 
 /**
  * stop syslogging
- * 
+ *
  * @returns TRUE on success, FALSE otherwise
  */
 int os_closesyslog(void) {
@@ -150,7 +157,7 @@ int os_closesyslog(void) {
 
 /**
  * log a syslog message
- * 
+ *
  * @param level log level (1-9: 1=fatal, 9=debug)
  * @param msg message to log to the syslog
  * @returns TRUE on success, FALSE otherwise
@@ -258,7 +265,7 @@ int os_drop_privs(char *user) {
         if(atoi(user)) {
             pw=getpwuid((uid_t)atoi(user)); /* doh! */
         } else {
-            pw=getpwnam(config.runas);
+            pw=getpwnam(user);
         }
 
         if(pw) {
@@ -376,4 +383,4 @@ int _os_start_signal_handler(pthread_t *handler_tid) {
  void os_set_pidfile(char *file) {
     _os_pidfile = file;
  }
- 
+

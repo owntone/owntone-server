@@ -37,6 +37,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "conf.h"
 #include "configfile.h"
 #include "err.h"
 #include "restart.h"
@@ -85,17 +86,26 @@ int fcopyblock(FILE *fromfp, int tofd, size_t size);
 /*
  * get_image_fd
  *
- * Get a file descriptor for a piece of cover art. 
+ * Get a file descriptor for a piece of cover art.
  */
 int da_get_image_fd(char *filename) {
     char buffer[PATH_MAX];
     char *path_end;
     int fd;
+    char artfilename[PATH_MAX];
+    int size;
+
+    size = sizeof(artfilename);
+    if(!conf_get_string("general","art_filename","_folderOpenImage.jpg",
+                        artfilename,&size)) {
+        return -1;
+    }
+
     strncpy(buffer,filename,sizeof(buffer));
     path_end = strrchr(buffer,'/');
-    strcpy(path_end+1,config.artfilename);
+    strcpy(path_end+1,artfilename);
     fd = open(buffer,O_RDONLY);
-    if(fd != -1) 
+    if(fd != -1)
         DPRINTF(E_INF,L_ART,"Found image file %s (fd %d)\n",buffer,fd);
 
     return fd;
@@ -104,16 +114,16 @@ int da_get_image_fd(char *filename) {
 /*
  * get_current_tag_info
  *
- * Get the current tag from the file. We need to do this to determine whether we 
- * are dealing with an id3v2.2 or id3v2.3 tag so we can decide which artwork to 
+ * Get the current tag from the file. We need to do this to determine whether we
+ * are dealing with an id3v2.2 or id3v2.3 tag so we can decide which artwork to
  * attach to the song
  */
 int *da_get_current_tag_info(int file_fd) {
     unsigned char buffer[10];
     int *tag_info;
-        
+
     tag_info = (int *) calloc(2,sizeof(int));
-        
+
     r_read(file_fd,buffer,10);
     if (strncmp((char*)buffer,"ID3", 3) == 0 ) {
         tag_info[0] = buffer[3];
@@ -176,9 +186,9 @@ int da_attach_image(int img_fd, int out_fd, int mp3_fd, int offset)
     buffer[2] = ( tag_size & 0x3F80 ) >> 7;
     buffer[1] = ( tag_size & 0x1FC000 ) >> 14;
     buffer[0] = ( tag_size & 0xFE00000 ) >> 21;
-        
+
     r_write(out_fd,buffer,4);
-        
+
     if (tag_info[0] == 3) {
         r_write(out_fd,"APIC\0",5);
         img_size = id3v3_image_size(img_size);
@@ -288,8 +298,17 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
     char          *cp;
     unsigned char img_type_flag = 0;
 
+    char artfilename[PATH_MAX];
+    int size;
+
+    size = sizeof(artfilename);
+    if(!conf_get_string("general","art_filename","_folderOpenImage.jpg",
+                        artfilename,&size)) {
+        return 0;
+    }
+
     /* Figure out image file type since this needs to be encoded in the atom. */
-    cp = strrchr(config.artfilename, '.');
+    cp = strrchr(artfilename, '.');
     if (cp) {
         if (!strcasecmp(cp, ".jpeg") || !strcasecmp(cp, ".jpg")) {
             img_type_flag = 0x0d;
@@ -381,7 +400,7 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
                     buffer[1] = ( atom_length >> 16 ) & 0xFF;
                     buffer[0] = ( atom_length >> 24 ) & 0xFF;
                     r_write(out_fd, buffer, 4);
-            
+
                     r_write(out_fd, "covr", 4);
 
                     /* Write out 'data' atom */
@@ -476,7 +495,7 @@ off_t da_aac_attach_image(int img_fd, int out_fd, int aac_fd, int offset)
 
     aac_fp = fdopen(dup(aac_fd), "r");
 
-    stco_atom_pos = scan_aac_drilltoatom(aac_fp, 
+    stco_atom_pos = scan_aac_drilltoatom(aac_fp,
                                          "moov:trak:mdia:minf:stbl:stco",
                                          &atom_length);
     ilst_atom_pos = scan_aac_drilltoatom(aac_fp, "moov:udta:meta:ilst",
@@ -485,7 +504,7 @@ off_t da_aac_attach_image(int img_fd, int out_fd, int aac_fd, int offset)
 
     if (last_pos != -1) {
         if (offset >= last_pos) {
-            /* Offset is in the actual music data so don't bother processing 
+            /* Offset is in the actual music data so don't bother processing
                meta data. */
             return 0;
         }

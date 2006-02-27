@@ -37,6 +37,7 @@
 #include <netinet/in.h>
 #endif
 
+#include "conf.h"
 #include "db-generic.h"
 #include "configfile.h"
 #include "err.h"
@@ -111,14 +112,19 @@ typedef struct tag_output_info {
  * \returns 1 if auth successful, 0 otherwise
  */
 int daap_auth(char *username, char *password) {
+    char readpassword[40];
+    int size = sizeof(readpassword);
+
+    conf_get_string("general","password","",readpassword,&size);
+
     if((password == NULL) &&
-       ((config.readpassword == NULL) || (strlen(config.readpassword)==0)))
+       ((readpassword == NULL) || (strlen(readpassword)==0)))
         return 1;
 
     if(password == NULL)
         return 0;
 
-    return !strcasecmp(password,config.readpassword);
+    return !strcasecmp(password,readpassword);
 }
 
 /**
@@ -770,7 +776,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
             lseek(file_fd,0,SEEK_SET);
 
             /* Re-adjust content length for cover art */
-            if((config.artfilename) &&
+            if((conf_isset("general","art_filename")) &&
                ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
                 fstat(img_fd, &sb);
                 img_size = sb.st_size;
@@ -820,7 +826,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
             if(!offset)
                 config.stats.songs_served++; /* FIXME: remove stat races */
 
-            if((config.artfilename) &&
+            if((conf_isset("general","art_filenaem")) &&
                (!offset) &&
                ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
                 if (strncasecmp(pmp3->type,"mp3",4) ==0) {
@@ -1341,8 +1347,12 @@ void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char *current = dbinfo_response;
     int namelen;
     int count;
+    char servername[80];
+    int size;
 
-    namelen=(int) strlen(config.servername);
+    conf_get_string("general","servername","mt-daapd",servername,&size);
+
+    namelen=(int) strlen(servername);
 
     current += db_dmap_add_container(current,"avdb",105 + namelen);
     current += db_dmap_add_int(current,"mstt",200);                      /* 12 */
@@ -1352,7 +1362,7 @@ void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_container(current,"mlcl",52 + namelen);
     current += db_dmap_add_container(current,"mlit",44 + namelen);
     current += db_dmap_add_int(current,"miid",1);                        /* 12 */
-    current += db_dmap_add_string(current,"minm",config.servername);     /* 8 + namelen */
+    current += db_dmap_add_string(current,"minm",servername);     /* 8 + namelen */
     db_get_song_count(NULL,&count);
     current += db_dmap_add_int(current,"mimc",count);                    /* 12 */
     db_get_playlist_count(NULL,&count);
@@ -1431,8 +1441,12 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char *client_version;
     int mpro = 2 << 16;
     int apro = 3 << 16;
+    char servername[80];
+    int size;
 
-    int actual_length=130 + (int) strlen(config.servername);
+    conf_get_string("general","servername","mt-daapd",servername,&size);
+
+    int actual_length=130 + (int) strlen(servername);
 
     if(actual_length > sizeof(server_info)) {
         DPRINTF(E_FATAL,L_DAAP,"Server name too long.\n");
@@ -1456,10 +1470,10 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_int(current,"mpro",mpro);       /* 12 */
     current += db_dmap_add_int(current,"apro",apro);       /* 12 */
     current += db_dmap_add_int(current,"mstm",1800);       /* 12 */
-    current += db_dmap_add_string(current,"minm",config.servername); /* 8 + strlen(name) */
+    current += db_dmap_add_string(current,"minm",servername); /* 8 + strlen(name) */
 
     current += db_dmap_add_char(current,"msau",            /* 9 */
-                                config.readpassword != NULL ? 2 : 0);
+                                conf_isset("general","password") ? 2 : 0);
     current += db_dmap_add_char(current,"msex",0);         /* 9 */
     current += db_dmap_add_char(current,"msix",0);         /* 9 */
     current += db_dmap_add_char(current,"msbr",0);         /* 9 */
@@ -1481,24 +1495,24 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 void dispatch_error(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *container, char *error) {
     unsigned char *block, *current;
     int len;
-    
+
     len = 12 + 8 + 8 + (int) strlen(error);
     block = (unsigned char *)malloc(len);
-    
+
     if(!block)
         DPRINTF(E_FATAL,L_DAAP,"Malloc error\n");
-    
+
     current = block;
     current += db_dmap_add_container(current,container,len - 8);
     current += db_dmap_add_int(current,"mstt",500);
     current += db_dmap_add_string(current,"msts",error);
-    
+
     dispatch_output_start(pwsc,pqi,len);
     dispatch_output_write(pwsc,pqi,block,len);
     dispatch_output_end(pwsc,pqi);
-    
+
     free(block);
-    
+
     pwsc->close=1;
 }
 

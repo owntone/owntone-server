@@ -39,6 +39,7 @@ extern int conf_get_string(char *section, char *key, char *dflt,
 extern int conf_set_int(char *section, char *key, int value);
 extern int conf_set_string(char *section, char *key, char *value);
 
+extern int conf_isset(char *section, char *key);
 extern int conf_iswritable(void);
 extern int conf_write(void);
 

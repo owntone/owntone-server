@@ -247,6 +247,9 @@ int _ll_update_item(LL_ITEM *pli, void* vpval, int ival, int type) {
 LL_ITEM *ll_fetch_item(LL *pl, char *key) {
     LL_ITEM *current;
 
+    if(!pl)
+        return NULL;
+
     current = pl->itemlist.next;
     while(current) {
         if(pl->flags & LL_FLAG_HONORCASE) {
