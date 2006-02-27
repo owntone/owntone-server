@@ -266,7 +266,7 @@ int main(int argc, char *argv[]) {
 
     if(!foreground) {
         size = PATH_MAX;
-        if(conf_get_string("general","logfile",NULL,logfile,&size)) {
+        if(conf_get_string("general","logfile",NULL,logfile,&size) == CONF_E_SUCCESS) {
             err_setdest(logfile,LOGDEST_LOGFILE);
         } else {
             err_setdest("mt-daapd",LOGDEST_SYSLOG);

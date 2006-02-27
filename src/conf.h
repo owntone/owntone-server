@@ -29,6 +29,7 @@
 #define CONF_E_PARSE      4
 #define CONF_E_OVERFLOW   5  /** <Buffer passed too small */
 #define CONF_E_NOCONF     6  /** <No open config file */
+#define CONF_E_NOTFOUND   7
 
 
 extern int conf_read(char *file);

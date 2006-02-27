@@ -395,6 +395,11 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
         result = pitem->value.as_string;
     }
 
+    if(!result) {
+        _conf_unlock();
+        return CONF_E_NOTFOUND;
+    }
+
     len = (int) strlen(result) + 1;
 
     if(len <= *size) {
