@@ -63,7 +63,7 @@ extern int ll_add_string(LL *pl, char *key, char *cval);
 extern int ll_add_int(LL *pl, char *key, int ival);
 extern int ll_add_ll(LL *pl, char *key, LL *pnew);
 
-extern int ll_udpate_string(LL_ITEM *pli, char *cval);
+extern int ll_update_string(LL_ITEM *pli, char *cval);
 extern int ll_update_int(LL_ITEM *pli, int ival);
 extern int ll_update_ll(LL_ITEM *pli, LL *pnew);
 
