@@ -26,6 +26,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
+#include <limits.h>
 #include <pthread.h>
 #include <pwd.h>
 #include <signal.h>
@@ -33,14 +34,13 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <syslog.h>
-#include <wait.h>
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
 #include <sys/types.h>
 #include <sys/stat.h>
-#ifdef HAVE_SYS_WAIT
+#ifdef HAVE_SYS_WAIT_H
 # include <sys/wait.h>
 #endif
 #include <sys/time.h>
