@@ -542,6 +542,7 @@ int os_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
         dirp->dir_find_handle = FindFirstFile (filename, &dirp->dir_find_data);
 
         if (dirp->dir_find_handle == INVALID_HANDLE_VALUE) {
+            *result=NULL;
             return 2;
         }
     } else {
