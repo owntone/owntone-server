@@ -96,8 +96,8 @@ int da_get_image_fd(char *filename) {
     int size;
 
     size = sizeof(artfilename);
-    if(!conf_get_string("general","art_filename","_folderOpenImage.jpg",
-                        artfilename,&size)) {
+    if(conf_get_string("general","art_filename","_folderOpenImage.jpg",
+                       artfilename,&size) != CONF_E_SUCCESS) {
         return -1;
     }
 
@@ -302,8 +302,8 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
     int size;
 
     size = sizeof(artfilename);
-    if(!conf_get_string("general","art_filename","_folderOpenImage.jpg",
-                        artfilename,&size)) {
+    if(conf_get_string("general","art_filename","_folderOpenImage.jpg",
+                       artfilename,&size) != CONF_E_SUCCESS) {
         return 0;
     }
 

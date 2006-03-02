@@ -324,8 +324,10 @@ void config_handler(WS_CONNINFO *pwsc) {
     int size;
 
     size = PATH_MAX;
-    if(!conf_get_string("general","web_root","",web_root,&size))
-        DPRINTF(E_FATAL,L_CONF,"No web root!\n"); /* shouldnt' happen */
+    if(conf_get_string("general","web_root",NULL,
+                       web_root,&size) != CONF_E_SUCCESS) {
+        DPRINTF(E_FATAL,L_CONF,"No web root!\n");
+    }
 
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Entering config_handler\n");
@@ -422,7 +424,8 @@ int config_auth(char *user, char *password) {
     char adminpassword[80];
     int size = sizeof(adminpassword);
 
-    if(!conf_get_string("general","admin_pw","",adminpassword,&size)) {
+    if(conf_get_string("general","admin_pw","",adminpassword,
+                       &size) != CONF_E_SUCCESS) {
         return FALSE;
     }
 
@@ -776,7 +779,8 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     int size;
 
     size = sizeof(web_root);
-    if(!conf_get_string("general","web_root","/tmp",web_root,&size)) {
+    if(conf_get_string("general","web_root",NULL,web_root,
+                       &size) != CONF_E_SUCCESS) {
         DPRINTF(E_FATAL,L_WS,"No web root!\n");
     }
 
