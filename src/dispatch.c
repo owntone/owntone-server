@@ -113,8 +113,9 @@ typedef struct tag_output_info {
  */
 int daap_auth(char *username, char *password) {
     char readpassword[40];
-    int size = sizeof(readpassword);
+    int size;
 
+    size = sizeof(readpassword);
     conf_get_string("general","password","",readpassword,&size);
 
     if((password == NULL) &&
@@ -1350,8 +1351,8 @@ void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char servername[80];
     int size;
 
+    size = sizeof(servername);
     conf_get_string("general","servername","mt-daapd",servername,&size);
-
     namelen=(int) strlen(servername);
 
     current += db_dmap_add_container(current,"avdb",105 + namelen);
@@ -1445,6 +1446,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int size;
     int actual_length;
 
+    size = sizeof(servername);
     conf_get_string("general","servername","mt-daapd",servername,&size);
 
     actual_length=130 + (int) strlen(servername);

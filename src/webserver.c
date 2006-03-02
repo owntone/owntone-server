@@ -55,7 +55,7 @@
  */
 
 #define MAX_HOSTNAME 256
-#define MAX_LINEBUFFER 1024
+#define MAX_LINEBUFFER 2048
 
 /*
  * Local (private) typedefs
