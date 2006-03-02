@@ -231,12 +231,27 @@ DAAP_ITEMS taglist[] = {
     { 0x05, "aeSI", "com.apple.iTunes.itms-songid" },
     { 0x05, "aeSF", "com.apple.iTunes.itms-storefrontid" },
 
-        /* iTunes 5.0+ */
-        { 0x01, "ascr", "daap.songcontentrating" },
-        { 0x05, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* wtf - content codes says it's 1 */
-        
-        /* iTunes 6.0.2+ */
-        { 0x01, "aeHV", "com.apple.itunes.has-video" },
+    /* iTunes 5.0+ */
+    { 0x01, "ascr", "daap.songcontentrating" },
+    { 0x05, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* wtf - content codes says it's 1 */
+    
+    /* iTunes 6.0.2+ */
+    { 0x01, "aeHV", "com.apple.itunes.has-video" },
+    
+    /* iTunes 6.0.4+ */
+    /*
+      daap.songcategory
+      daap.songcontentdescription
+      daap.songkeywords
+      com.apple.itunes.is-podcast
+      com.apple.itunes.mediakind
+      com.apple.itunes.series-name
+      com.apple.itunes.network-name
+      com.apple.itunes.episode-num-str
+      com.apple.itunes.episode-sort
+      com.apple.itunes.season-num
+      com.apple.itunes.is-podcast-playlist
+    */
 
     /* mt-daapd specific */
     { 0x09, "MSPS", "org.mt-daapd.smart-playlist-spec" },
