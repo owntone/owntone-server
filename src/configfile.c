@@ -426,8 +426,11 @@ int config_auth(char *user, char *password) {
 
     if(conf_get_string("general","admin_pw","",adminpassword,
                        &size) != CONF_E_SUCCESS) {
+        DPRINTF(E_LOG,L_CONF,"c_g_s: not success\n");
         return FALSE;
     }
+
+    DPRINTF(E_LOG,L_CONF,"Admin pw: %s\n",adminpassword);
 
     if(!password)
         return FALSE;

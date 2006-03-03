@@ -32,7 +32,10 @@
 
 #include <pthread.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
+
+#include <sys/param.h>
 
 #include "conf.h"
 #include "err.h"
@@ -40,7 +43,7 @@
 #include "daapd.h"
 
 /** Globals */
-static int ecode;
+//static int ecode;
 static LL_HANDLE conf_main=NULL;
 static char *conf_main_file = NULL;
 static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -49,6 +52,7 @@ static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define CONF_T_INT          0
 #define CONF_T_STRING       1
+#define CONF_T_EXISTPATH    2
 
 /** Forwards */
 static int _conf_verify(LL_HANDLE pll);
@@ -68,11 +72,11 @@ typedef struct _CONF_ELEMENTS {
 
 static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","runas" },
-    { 1, 0, CONF_T_STRING,"general","web_root" },
+    { 1, 0, CONF_T_EXISTPATH,"general","web_root" },
     { 1, 0, CONF_T_INT,"general","port" },
     { 1, 0, CONF_T_STRING,"general","admin_pw" },
     { 1, 0, CONF_T_STRING,"general","mp3_dir" },
-    { 0, 1, CONF_T_STRING,"general","db_dir" },
+    { 0, 1, CONF_T_EXISTPATH,"general","db_dir" },
     { 0, 0, CONF_T_STRING,"general","db_type" },
     { 0, 0, CONF_T_STRING,"general","db_parms" },
     { 0, 0, CONF_T_INT,"general","debuglevel" },
@@ -171,6 +175,7 @@ int _conf_verify(LL_HANDLE pll) {
     LL_ITEM *pi = NULL;
     CONF_ELEMENTS *pce;
     int is_valid=TRUE;
+    char resolved_path[PATH_MAX];
 
     /* first, walk through the elements and make sure
      * all required elements are there */
@@ -188,6 +193,19 @@ int _conf_verify(LL_HANDLE pll) {
             DPRINTF(E_LOG,L_CONF,"Config entry %s/%s is deprecated.  Please "
                 "review the sample config\n",
                 pce->section, pce->term);
+        }
+        if(pce->type == CONF_T_EXISTPATH) {
+            /* first, need to resolve */
+            pi = _conf_fetch_item(pll,pce->section, pce->term);
+            if(pi) {
+                memset(resolved_path,0,sizeof(resolved_path));
+                if(pi->value.as_string) {
+                    realpath(pi->value.as_string,resolved_path);
+                    free(pi->value.as_string);
+                    pi->value.as_string = strdup(resolved_path);
+                }
+                /* now, should verify it exists */
+            }
         }
         pce++;
     }
