@@ -851,7 +851,9 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
                 DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
                         bytes_copied);
                 /* update play counts */
-                db_playcount_increment(NULL,pmp3->id);
+                if(bytes_copied == real_len) {
+                    db_playcount_increment(NULL,pmp3->id);
+                }
             }
 
             config_set_status(pwsc,pqi->session_id,NULL);
