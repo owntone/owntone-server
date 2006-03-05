@@ -162,7 +162,6 @@ int main(int argc, char *argv[]) {
     int option;
     char *configfile=DEFAULT_CONFIGFILE;
     WSCONFIG ws_config;
-    int foreground=0;
     int reload=0;
     int start_time;
     int end_time;
@@ -187,6 +186,7 @@ int main(int argc, char *argv[]) {
     config.use_mdns=1;
     err_setlevel(1);
 
+    config.foreground=0;
     while((option=getopt(argc,argv,"D:d:c:P:mfrysiu")) != -1) {
         switch(option) {
         case 'd':
@@ -199,7 +199,7 @@ int main(int argc, char *argv[]) {
             }
             break;
         case 'f':
-            foreground=1;
+            config.foreground=1;
             break;
 
         case 'c':
@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG,L_MAIN,"Starting with debuglevel %d\n",err_getlevel());
 
-    if(!foreground) {
+    if(!config.foreground) {
         size = PATH_MAX;
         if(conf_get_string("general","logfile",NULL,logfile,&size) == CONF_E_SUCCESS) {
             err_setdest(logfile,LOGDEST_LOGFILE);
@@ -284,7 +284,7 @@ int main(int argc, char *argv[]) {
     }
 #endif
 
-    if(!os_init(foreground)) {
+    if(!os_init(config.foreground)) {
         DPRINTF(E_LOG,L_MAIN,"Could not initialize server\n");
         os_deinit();
         exit(EXIT_FAILURE);
