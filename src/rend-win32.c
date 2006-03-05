@@ -136,7 +136,7 @@ int rend_stop(void) {
  * @param iface interface to register with (ignored)
  * @returns TRUE if registered, FALSE otherwise
  */
-int rend_register(char *name, char *type, int port, char *iface) {
+int rend_register(char *name, char *type, int port, char *iface, char *txt) {
     int err;
     uint16_t port_netorder = htons((unsigned short)port);
 
@@ -144,7 +144,7 @@ int rend_register(char *name, char *type, int port, char *iface) {
             name, type, port);
 
     DNSServiceRegister(&rend_client,0,kDNSServiceInterfaceIndexAny,name,type,"local",NULL,
-        htons((unsigned short)port),0,NULL,rend_reg_reply, NULL);
+        htons((unsigned short)port),strlen(txt),txt,rend_reg_reply, NULL);
     
     /* throw off a new thread work this */
     if(!rend_count) {

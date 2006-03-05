@@ -161,6 +161,8 @@ void rend_callback(void *info) {
     REND_MESSAGE msg;
     unsigned short usPort;
     dns_service_discovery_ref dns_ref=NULL;
+    char *src,*dst;
+    int len;
 
     /* here, we've seen the message, now we have to process it */
     if(rend_read_message(&msg) != sizeof(msg)) {
@@ -168,12 +170,24 @@ void rend_callback(void *info) {
         exit(EXIT_FAILURE);
     }
 
+    src=dst=msg.txt;
+    while(src && (*src)) {
+        len = (*src);
+        memmove(dst,src+1,len);
+        dst += len;
+        src += len + 1;
+        if(*src) {
+            *dst++ = '\001';
+        } else {
+            *dst='\0';
+        }
+    }
+
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
         DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
         usPort=htons(msg.port);
-        dns_ref=DNSServiceRegistrationCreate(msg.name,msg.type,"",usPort,
-                                             "txtvers=1\001Database ID=bedabb1edeadbea7",rend_reply,nil);
+        dns_ref=DNSServiceRegistrationCreate(msg.name,msg.type,"",usPort,msg.txt,rend_reply,nil);
         if(rend_addtorunloop(dns_ref)) {
             DPRINTF(E_WARN,L_REND,"Add to runloop failed\n");
             rend_send_response(-1);

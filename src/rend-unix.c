@@ -161,10 +161,11 @@ int rend_stop(void) {
  *
  * register a rendezvous name
  */
-int rend_register(char *name, char *type, int port, char *iface) {
+int rend_register(char *name, char *type, int port, char *iface, char *txt) {
     REND_MESSAGE msg;
 
-    if((strlen(name)+1 > MAX_NAME_LEN) || (strlen(type)+1 > MAX_NAME_LEN)) {
+    if((strlen(name)+1 > MAX_NAME_LEN) || (strlen(type)+1 > MAX_NAME_LEN) ||
+        (strlen(txt)+1 > MAX_TEXT_LEN)) {
         DPRINTF(E_FATAL,L_REND,"Registration failed: name or type too long\n");
         return -1;
     }
@@ -175,7 +176,7 @@ int rend_register(char *name, char *type, int port, char *iface) {
     strncpy(msg.type,type,MAX_NAME_LEN-1);
     if(iface)
         strncpy(msg.iface,iface,MAX_IFACE_NAME_LEN-1);
-
+    strncpy(msg.txt,txt,MAX_NAME_LEN-1);
     msg.port=port;
 
     return rend_send_message(&msg);

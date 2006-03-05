@@ -89,6 +89,9 @@
   Change History (most recent first):
 
  $Log$
+ Revision 1.29  2006/03/05 08:09:27  rpedde
+ fix up txt records to show password info, mtd-version, and itunes version
+
  Revision 1.28  2006/02/26 08:46:24  rpedde
  Merged win32-branch
 
@@ -480,7 +483,7 @@ void rend_callback(void) {
     case REND_MSG_TYPE_REGISTER:
         id=rend_get_interface_id(msg.iface);
         DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.name,msg.type,msg.port);
-        RegisterOneService(msg.name,msg.type,"local.","\011txtvers=1\034Database ID=beddab1edeadbea7",39,
+        RegisterOneService(msg.name,msg.type,"local.",msg.txt,strlen(msg.txt),
                            msg.port,id);
         rend_send_response(0); /* success */
         break;

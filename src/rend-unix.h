@@ -25,7 +25,7 @@
 #define MAX_NAME_LEN 200
 /* Is there a posixly correct constant for this? */
 #define MAX_IFACE_NAME_LEN 20
-
+#define MAX_TEXT_LEN 255
 
 typedef struct tag_rend_message {
     int cmd;
@@ -33,6 +33,7 @@ typedef struct tag_rend_message {
     char name[MAX_NAME_LEN];
     char type[MAX_NAME_LEN];
     char iface[MAX_IFACE_NAME_LEN];
+    char txt[MAX_TEXT_LEN];
 } REND_MESSAGE;
 
 #define REND_MSG_TYPE_REGISTER     0

@@ -25,7 +25,7 @@
 extern int rend_init(char *user);
 extern int rend_running(void);
 extern int rend_stop(void);
-extern int rend_register(char *name, char *type, int port, char *iface);
+extern int rend_register(char *name, char *type, int port, char *iface, char *txt);
 extern int rend_unregister(char *name, char *type, int port);
 
 #endif /* _REND_H_ */

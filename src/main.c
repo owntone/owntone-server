@@ -56,6 +56,7 @@
 #include <limits.h>
 #include <pthread.h>
 #include <signal.h>
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -117,6 +118,31 @@ CONFIG config; /**< Main configuration structure, as read from configfile */
  * Forwards
  */
 static void usage(char *program);
+static void txt_add(char *txtrecord, char *fmt, ...);
+
+
+/**
+ * build a dns text string
+ *
+ * @param txtrecord buffer to append text record string to
+ * @param fmt sprintf-style format
+ */
+void txt_add(char *txtrecord, char *fmt, ...) {
+    va_list ap;
+    char buff[256];
+    int len;
+    char *end;
+
+    va_start(ap, fmt);
+    vsnprintf(buff, sizeof(buff), fmt, ap);
+    va_end(ap);
+    
+    len = strlen(buff);
+    end = txtrecord + strlen(txtrecord);
+    *end = len;
+    strcpy(end+1,buff);
+}
+
 
 /**
  * Print usage information to stdout
@@ -169,7 +195,6 @@ int main(int argc, char *argv[]) {
     int old_song_count, song_count;
     int force_non_root=0;
     int skip_initial=0;
-
     int size;
     char logfile[PATH_MAX];
     char db_type[40];
@@ -180,6 +205,8 @@ int main(int argc, char *argv[]) {
     char servername[PATH_MAX];
     char iface[20];
 
+    char txtrecord[255];
+    
     int err;
     char *perr;
 
@@ -343,13 +370,24 @@ int main(int argc, char *argv[]) {
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
-        DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
         size = sizeof(servername);
         conf_get_string("general","servername","mt-daapd",servername,&size);
+
+        memset(txtrecord,0,sizeof(txtrecord));
+        txt_add(txtrecord,"txtvers=1");
+        txt_add(txtrecord,"Database ID=beddab1edeadbea7");
+        txt_add(txtrecord,"Machine ID=f00f00f00");
+        txt_add(txtrecord,"Machine Name=%s",servername);
+        txt_add(txtrecord,"mtd-version=" VERSION);
+        txt_add(txtrecord,"iTSh Version=131073");
+        txt_add(txtrecord,"Version=196610");
+        txt_add(txtrecord,"Password=%s",conf_isset("general","password") ? "true" : "false");
+    
+        DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
         size = sizeof(iface);
         conf_get_string("general","interface","",iface,&size);
-        rend_register(servername,"_daap._tcp",ws_config.port,iface);
-        rend_register(servername,"_http._tcp",ws_config.port,iface);
+        rend_register(servername,"_daap._tcp",ws_config.port,iface,txtrecord);
+        rend_register(servername,"_http._tcp",ws_config.port,iface,txtrecord);
     }
 #endif
 
