@@ -183,13 +183,14 @@ int db_sqlite3_exec(char **pe, int loglevel, char *fmt, ...) {
     int err;
     char *perr;
 
+    db_sqlite3_lock();
+
     va_start(ap,fmt);
     query=sqlite3_vmprintf(fmt,ap);
     va_end(ap);
 
     DPRINTF(E_DBG,L_DB,"Executing: %s\n",query);
 
-    db_sqlite3_lock();
     err=sqlite3_exec(db_sqlite3_songs,query,NULL,NULL,&perr);
     if(err != SQLITE_OK) {
         db_get_error(pe,DB_E_SQL_ERROR,perr);
@@ -424,7 +425,13 @@ int db_sqlite3_event(int event_type) {
  */
 
 int db_sqlite3_insert_id(void) {
-    return (int)sqlite3_last_insert_rowid(db_sqlite3_songs);
+    int result;
+    
+    db_sqlite3_lock();
+    result = (int)sqlite3_last_insert_rowid(db_sqlite3_songs);
+    db_sqlite3_unlock();
+    
+    return result;
 }
 
 

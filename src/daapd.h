@@ -50,6 +50,7 @@ typedef struct tag_config {
     int use_mdns;         /**< Should we do rendezvous advertisements? */
     int stop;             /**< Time to exit? */
     int reload;           /**< Time to reload and/or rescan the database? */
+    int foreground;       /**< Whether or not we are running in foreground */
 
 #if 0
     char *configfile;     /**< path to config file */
