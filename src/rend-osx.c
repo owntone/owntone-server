@@ -171,7 +171,7 @@ void rend_callback(void *info) {
     switch(msg.cmd) {
     case REND_MSG_TYPE_REGISTER:
         DPRINTF(E_DBG,L_REND,"Registering %s.%s (%d)\n",msg.type,msg.name,msg.port);
-        usPort=msg.port;
+        usPort=htons(msg.port);
         dns_ref=DNSServiceRegistrationCreate(msg.name,msg.type,"",usPort,
                                              "txtvers=1\001Database ID=bedabb1edeadbea7",rend_reply,nil);
         if(rend_addtorunloop(dns_ref)) {
