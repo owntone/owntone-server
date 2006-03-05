@@ -654,6 +654,7 @@ int scan_get_info(char *file, MP3FILE *pmp3) {
  */
 void make_composite_tags(MP3FILE *song) {
     int len;
+    char *ptmp;
 
     len=0;
 
@@ -675,6 +676,18 @@ void make_composite_tags(MP3FILE *song) {
 
             if(song->conductor)
                 strcat(song->artist,song->conductor);
+        }
+    }
+
+    if((conf_get_int("scanning","concat compilations",0)) && 
+       song->artist &&
+       song->title) {
+        len = strlen(song->artist) + strlen(song->title);
+        ptmp = (char*)malloc(len + 4);
+        if(ptmp) {
+            sprintf(ptmp,"%s - %s",song->artist, song->title);
+            free(song->title);
+            song->title = ptmp;
         }
     }
 
