@@ -26,7 +26,7 @@
  * Config file reading and writing
  */
 
-#ifdef HAVE_conf_H
+#ifdef HAVE_CONFIG_H
 #  include "config.h"
 #endif
 
