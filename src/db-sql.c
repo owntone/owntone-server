@@ -179,7 +179,7 @@ int db_sql_fetch_int(char **pe, int *result, char *fmt, ...) {
     db_sql_vmfree_fn(query);
 
     if(err != DB_E_SUCCESS) {
-        DPRINTF(E_SPAM,L_DB,"fetch_row failed in fetch_int: %s\n",*pe);
+        DPRINTF(E_SPAM,L_DB,"fetch_row failed in fetch_int: %s\n",pe ? *pe : NULL);
         return err;
     }
 
