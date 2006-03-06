@@ -54,6 +54,7 @@ Section "MainSection" SEC01
   File "..\..\..\win32\dll\gnu_regex.dll"
   File "..\..\..\win32\dll\pthreadVC2.dll"
   File "..\..\..\win32\dll\sqlite.dll"
+  File "..\..\..\win32\dll\sqlite3.dll"
   File "..\..\..\win32\dll\zlib.dll"
 
   SetOutPath "$INSTDIR\admin-root"
