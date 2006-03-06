@@ -77,6 +77,8 @@ extern char *db_sqlite3_initial1;
 extern char *db_sqlite3_initial2;
 int db_sqlite3_enum_begin_helper(char **pe);
 
+
+
 /**
  * lock the db_mutex
  */
@@ -313,6 +315,8 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
     db_sqlite3_row = NULL;
 
     db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
+    sqlite3_finalize(db_sqlite3_stmt);
+
     return DB_E_SQL_ERROR;
 }
 
