@@ -144,11 +144,13 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
     db_sql_vmfree_fn(query);
 
     if(err != DB_E_SUCCESS) {
+        DPRINTF(E_SPAM,L_DB,"Error: enum_begin failed: %s\n",*pe);
         return err;
     }
 
     err=db_sql_enum_fetch_fn(pe, row);
     if(err != DB_E_SUCCESS) {
+        DPRINTF(E_SPAM,L_DB,"Error: enum_fetch failed: %s\n",*pe);
         db_sql_enum_end_fn(NULL);
         return err;
     }
@@ -176,8 +178,10 @@ int db_sql_fetch_int(char **pe, int *result, char *fmt, ...) {
     err = db_sql_fetch_row(pe, &row, "%s", query);
     db_sql_vmfree_fn(query);
 
-    if(err != DB_E_SUCCESS)
+    if(err != DB_E_SUCCESS) {
+        DPRINTF(E_SPAM,L_DB,"fetch_row failed in fetch_int: %s\n",*pe);
         return err;
+    }
 
     *result = atoi(row[0]);
     db_sql_dispose_row();

@@ -393,7 +393,11 @@ int main(int argc, char *argv[]) {
 
     end_time=(int) time(NULL);
 
-    db_get_song_count(NULL,&song_count);
+    db_get_song_count(&perr,&song_count);
+    if(perr) {
+        DPRINTF(E_FATAL,L_MISC,"Error getting song count: %s\n",perr);
+    }
+
     DPRINTF(E_LOG,L_MAIN,"Scanned %d songs in  %d seconds\n",song_count,
             end_time-start_time);
 
