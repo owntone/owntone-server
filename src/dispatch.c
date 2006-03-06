@@ -1257,6 +1257,7 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int song_count;
     int list_length;
     unsigned char *block;
+    char *pe;
 
     if(ws_getvar(pwsc,"meta")) {
         pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
@@ -1273,7 +1274,12 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
 
     /* FIXME: Error handling */
-    db_enum_size(NULL,pqi,&song_count,&list_length);
+    if(db_enum_size(&pe,pqi,&song_count,&list_length) != DB_E_SUCCESS) {
+        DPRINTF(E_LOG,L_DAAP,"Error getting dmap size: %s\n",pe);
+        song_count=0;
+        list_length=0;
+        free(pe);
+    }
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d songs, dmap size: %d\n",song_count,list_length);
 
@@ -1287,17 +1293,20 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_start(pwsc,pqi,61+list_length);
     dispatch_output_write(pwsc,pqi,items_response,61);
 
+    pe=NULL;
     while((db_enum_fetch(NULL,pqi,&list_length,&block) == DB_E_SUCCESS) &&
-          (list_length))
-    {
+          (list_length)) {
         DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
         dispatch_output_write(pwsc,pqi,block,list_length);
         free(block);
     }
-
     DPRINTF(E_DBG,L_DAAP,"Done enumerating.\n");
-
     db_enum_end(NULL);
+
+    if(pe) {
+        DPRINTF(E_LOG,L_DAAP,"Error enumerating items: %s\n",pe);
+        free(pe);
+    }
 
     dispatch_output_end(pwsc,pqi);
     return;
@@ -1478,7 +1487,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_string(current,"minm",servername); /* 8 + strlen(name) */
 
     current += db_dmap_add_char(current,"msau",            /* 9 */
-                                conf_isset("general","password") ? 2 : 0);
+                                conf_isset("general","password") ? 1 : 0);
     current += db_dmap_add_char(current,"msex",0);         /* 9 */
     current += db_dmap_add_char(current,"msix",0);         /* 9 */
     current += db_dmap_add_char(current,"msbr",0);         /* 9 */

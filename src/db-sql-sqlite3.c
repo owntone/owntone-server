@@ -62,7 +62,7 @@ static sqlite3 *db_sqlite3_songs; /**< Database that holds the mp3 info */
 static pthread_mutex_t db_sqlite3_mutex = PTHREAD_MUTEX_INITIALIZER; /**< sqlite not reentrant */
 static sqlite3_stmt *db_sqlite3_stmt;
 static int db_sqlite3_reload=0;
-static char *db_sqlite3_enum_query;
+static char *db_sqlite3_enum_query=NULL;
 static char **db_sqlite3_row = NULL;
 
 static char db_sqlite3_path[PATH_MAX + 1];
@@ -229,6 +229,10 @@ int db_sqlite3_enum_begin_helper(char **pe) {
     int err;
     const char *ptail;
 
+    if(!db_sqlite3_enum_query)
+        *((int*)NULL) = 1;
+        
+    
     DPRINTF(E_DBG,L_DB,"Executing: %s\n",db_sqlite3_enum_query);
     err=sqlite3_prepare(db_sqlite3_songs,db_sqlite3_enum_query,0,
                         &db_sqlite3_stmt,&ptail);
@@ -237,6 +241,7 @@ int db_sqlite3_enum_begin_helper(char **pe) {
         db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
         db_sqlite3_unlock();
         sqlite3_free(db_sqlite3_enum_query);
+        db_sqlite3_enum_query=NULL;
         return DB_E_SQL_ERROR;
     }
 
@@ -250,7 +255,9 @@ int db_sqlite3_enum_begin_helper(char **pe) {
 }
 
 /**
- * fetch the next row
+ * fetch the next row.  This will return DB_E_SUCCESS if it got a 
+ * row, or it's done.  If it's done, the row will be empty, otherwise
+ * it will be full of data.  Either way, if fetch fails, you must close.
  *
  * @param pe error string, if result isn't DB_E_SUCCESS
  * @param pr pointer to a row struct
@@ -264,6 +271,9 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
     int cols;
     int idx;
     int counter=10;
+
+    if(!db_sqlite3_enum_query)
+        *((int*)NULL) = 1;
 
     while(counter--) {
         err=sqlite3_step(db_sqlite3_stmt);
@@ -312,10 +322,14 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
 int db_sqlite3_enum_end(char **pe) {
     int err;
 
+    if(!db_sqlite3_enum_query)
+        *((int*)NULL) = 1;
+
     if(db_sqlite3_row)
         free(db_sqlite3_row);
     db_sqlite3_row = NULL;
     sqlite3_free(db_sqlite3_enum_query);
+    db_sqlite3_enum_query = NULL;
 
     err = sqlite3_finalize(db_sqlite3_stmt);
     if(err != SQLITE_OK) {
