@@ -144,7 +144,7 @@ int rend_register(char *name, char *type, int port, char *iface, char *txt) {
             name, type, port);
 
     DNSServiceRegister(&rend_client,0,kDNSServiceInterfaceIndexAny,name,type,"local",NULL,
-        htons((unsigned short)port),strlen(txt),txt,rend_reg_reply, NULL);
+        port_netorder,(uint16_t)strlen(txt),txt,rend_reg_reply, NULL);
     
     /* throw off a new thread work this */
     if(!rend_count) {

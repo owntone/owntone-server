@@ -35,7 +35,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <sys/param.h>
+#ifdef HAVE_SYS_PARAM_H
+# include <sys/param.h>
+#endif
 
 #include "conf.h"
 #include "err.h"

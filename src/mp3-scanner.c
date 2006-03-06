@@ -682,7 +682,7 @@ void make_composite_tags(MP3FILE *song) {
     if((conf_get_int("scanning","concat compilations",0)) && 
        song->artist &&
        song->title) {
-        len = strlen(song->artist) + strlen(song->title);
+        len = (int)strlen(song->artist) + (int)strlen(song->title);
         ptmp = (char*)malloc(len + 4);
         if(ptmp) {
             sprintf(ptmp,"%s - %s",song->artist, song->title);
