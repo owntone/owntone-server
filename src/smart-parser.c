@@ -184,7 +184,35 @@ typedef struct tag_fieldlookup {
     char *name;
 } FIELDLOOKUP;
 
-FIELDLOOKUP sp_fields[] = {
+/* normal terminators, in-string terminators, escapes */
+char *sp_terminators[2][3] = {
+    { " \t\n\r\"<>=()|&!", "\"","\"" },
+    { "()'+: -,", "')", "\\*'" }
+};
+
+FIELDLOOKUP sp_symbols_0[] = {
+    { T_OR, "||" },
+    { T_AND, "&&" },
+    { T_EQUAL, "=" },
+    { T_LESSEQUAL, "<=" },
+    { T_LESS, "<" },
+    { T_GREATEREQUAL, ">=" },
+    { T_GREATER, ">" },
+    { T_OPENPAREN, "(" },
+    { T_CLOSEPAREN, ")" },
+    { T_NOT, "!" },
+    { 0, NULL }
+};
+
+FIELDLOOKUP sp_symbols_1[] = {
+    { 0, NULL }
+};
+
+FIELDLOOKUP *sp_symbols[2] = {
+    sp_symbols_0, sp_symbols_1
+};
+
+FIELDLOOKUP sp_fields_0[] = {
     { T_INT_FIELD, "id" },
     { T_STRING_FIELD, "path" },
     { T_STRING_FIELD, "fname" },
@@ -245,11 +273,20 @@ FIELDLOOKUP sp_fields[] = {
     { T_ENDSWITH, "endswith" },
 
     /* end */
-    { 0, NULL },
+    { 0, NULL }
+};
+
+FIELDLOOKUP sp_fields_1[] = {
+    { 0, NULL }
+};
+
+FIELDLOOKUP *sp_fields[2] = {
+    sp_fields_0, sp_fields_1
 };
 
 typedef struct tag_parsetree {
     int in_string;
+    int token_list;
     char *term;
     char *current;
     SP_TOKEN token;
@@ -371,11 +408,12 @@ int sp_scan(PARSETREE tree) {
     char *terminator=NULL;
     char *tail;
     int advance=0;
-    FIELDLOOKUP *pfield=sp_fields;
+    FIELDLOOKUP *pfield=sp_fields[tree->token_list];
     int len;
     int found;
     int numval;
     time_t tval;
+    int found_symbol;
 
     if(tree->token.token_id & 0x2000) {
         if(tree->token.data.cvalue)
@@ -404,84 +442,40 @@ int sp_scan(PARSETREE tree) {
         tree->token_pos, *(tree->current));
 
     /* check singletons */
+    found_symbol=0;
+
     if(!tree->in_string) {
-        switch(*(tree->current)) {
-        case '|':
-            if((*(tree->current + 1) == '|')) {
-                advance = 2;
-                tree->token.token_id = T_OR;
+        pfield=sp_symbols[tree->token_list];
+        while((pfield->name) && (!found_symbol)) {
+            if(!strncmp(pfield->name,tree->current,strlen(pfield->name))) {
+                /* that's a match */
+                tree->current += strlen(pfield->name);
+                tree->token.token_id = pfield->type;
+                found_symbol = 1;
             }
-            break;
-
-        case '&':
-            if((*(tree->current + 1) == '&')) {
-                advance = 2;
-                tree->token.token_id = T_AND;
-            }
-            break;
-
-        case '=':
-            advance=1;
-            tree->token.token_id = T_EQUAL;
-            break;
-
-        case '<':
-            if((*(tree->current + 1)) == '=') {
-                advance = 2;
-                tree->token.token_id = T_LESSEQUAL;
-            } else {
-                advance = 1;
-                tree->token.token_id = T_LESS;
-            }
-            break;
-
-        case '>':
-            if((*(tree->current + 1)) == '=') {
-                advance = 2;
-                tree->token.token_id = T_GREATEREQUAL;
-            } else {
-                advance = 1;
-                tree->token.token_id = T_GREATER;
-            }
-            break;
-
-        case '(':
-            advance=1;
-            tree->token.token_id = T_OPENPAREN;
-            break;
-
-        case ')':
-            advance=1;
-            tree->token.token_id = T_CLOSEPAREN;
-            break;
-
-        case '!':
-            advance=1;
-            tree->token.token_id = T_NOT;
-            break;
+            pfield++;
         }
-
     }
 
-    if(*tree->current == '"') {
-        advance = 1;
+    if((!found_symbol) && (*tree->current == '"')) {
+        tree->current++;
         tree->in_string = !tree->in_string;
         tree->token.token_id = T_QUOTE;
     }
 
-    if(advance) { /* singleton */
-        tree->current += advance;
-    } else { /* either a keyword token or a quoted string */
+    if(!found_symbol) { /* either a keyword token or a quoted string */
         DPRINTF(E_SPAM,L_PARSE,"keyword or string!\n");
 
         /* walk to a terminator */
         tail = tree->current;
 
-        terminator = " \t\n\r\"<>=()|&!";
-        if(tree->in_string) {
-            terminator="\"";
+        /* out-of-string terminator */
+        terminator = sp_terminators[tree->token_list][0];
+        if(tree->in_string) { /* in-string terminator */
+            terminator=sp_terminators[tree->token_list][1];
         }
 
+        /* FIXME: escaped characters */
         while((*tail) && (!strchr(terminator,*tail))) {
             tail++;
         }
@@ -491,7 +485,7 @@ int sp_scan(PARSETREE tree) {
 
         if(!tree->in_string) {
             /* find it in the token list */
-            pfield=sp_fields;
+            pfield=sp_fields[tree->token_list];
             DPRINTF(E_SPAM,L_PARSE,"Len is %d\n",len);
             while(pfield->name) {
                 if(strlen(pfield->name) == len) {
@@ -567,6 +561,9 @@ PARSETREE sp_init(void) {
         DPRINTF(E_FATAL,L_PARSE,"Alloc error\n");
 
     memset(ptree,0,sizeof(PARSESTRUCT));
+
+    /* this sets the default token list as well (0) */
+
     return ptree;
 }
 

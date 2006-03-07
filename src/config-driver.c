@@ -5,12 +5,10 @@
 #include <stdio.h>
 
 #include "conf.h"
-#include "err.h"
+
 
 int main(int argc, char *argv[]) {
     int err;
-
-    err_debuglevel = 9;
 
     printf("Reading %s\n",argv[1]);
 
