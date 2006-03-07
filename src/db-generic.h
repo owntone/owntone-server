@@ -207,7 +207,7 @@ extern void db_dispose_playlist(M3UFILE *pm3u);
 #define DB_E_INVALID_SONGID          0x07 /**< bad song id */
 #define DB_E_PARSE                   0x08 /**< could not parse result */
 #define DB_E_BADPROVIDER             0x09 /**< requested db backend not there */
-
+#define DB_E_PROC                    0x0A /**< could not start threadpool */
 /* describes the individual database handlers */
 typedef struct tag_dbinfo {
     char *handler_name;

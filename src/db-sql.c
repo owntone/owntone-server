@@ -144,7 +144,7 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
     db_sql_vmfree_fn(query);
 
     if(err != DB_E_SUCCESS) {
-        DPRINTF(E_SPAM,L_DB,"Error: enum_begin failed: %s\n",*pe);
+        DPRINTF(E_SPAM,L_DB,"Error: enum_begin failed: %s\n",(pe) ? *pe : "?");
         return err;
     }
 
@@ -881,6 +881,8 @@ int db_sql_update_playlists(char **pe) {
         pinfo[index].plid=strdup(STR(row[0]));
         pinfo[index].type=strdup(STR(row[1]));
         pinfo[index].clause=strdup(STR(row[2]));
+        DPRINTF(E_SPAM,L_DB,"Found playlist %s: type %s, clause %s\n",pinfo[index].plid,
+            pinfo[index].type,pinfo[index].clause);
         index++;
     }
     db_sql_enum_end_fn(pe);
@@ -944,13 +946,13 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
 
     switch(pinfo->query_type) {
     case queryTypeItems:
-        strcpy(query_select,"SELECT * FROM songs ");
-        strcpy(query_count,"SELECT COUNT(*) FROM songs ");
+        strcpy(query_select,"select * from songs ");
+        strcpy(query_count,"select count (*) from songs ");
         break;
 
     case queryTypePlaylists:
-        strcpy(query_select,"SELECT * FROM playlists ");
-        strcpy(query_count,"SELECT COUNT (*) FROM playlists ");
+        strcpy(query_select,"select * from playlists ");
+        strcpy(query_count,"select count (*) from playlists ");
         break;
 
     case queryTypePlaylistItems:  /* Figure out if it's smart or dull */
@@ -985,12 +987,12 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
                 return DB_E_PARSE;
             }
             
-            sprintf(query_select,"SELECT * FROM songs ");
-            sprintf(query_count,"SELECT COUNT(id) FROM songs ");
-            sprintf(query_rest,"WHERE (%s)",where_clause);
+            sprintf(query_select,"select * from songs ");
+            sprintf(query_count,"select count(id) from songs ");
+            sprintf(query_rest,"where (%s)",where_clause);
             free(where_clause);
         } else {
-            sprintf(query_count,"SELECT COUNT(id) FROM songs ");
+            sprintf(query_count,"select count(id) from songs ");
 
             /* We need to fix playlist queries to stop
              * pulling the whole song db... the performance
@@ -1048,9 +1050,9 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     /* Apply the query/filter */
     if(pinfo->whereclause) {
         if(have_clause)
-            strcat(query_rest," AND ");
+            strcat(query_rest," and ");
         else
-            strcpy(query_rest," WHERE ");
+            strcpy(query_rest," where ");
 
         strcat(query_rest,"(");
         strcat(query_rest,pinfo->whereclause);
@@ -1081,17 +1083,17 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     /* Apply any index */
     switch(pinfo->index_type) {
     case indexTypeFirst:
-        sprintf(scratch," LIMIT %d",pinfo->index_high);
+        sprintf(scratch," limit %d",pinfo->index_high);
         break;
     case indexTypeLast:
         if(pinfo->index_low >= results) {
-            sprintf(scratch," LIMIT %d",pinfo->index_low); /* unnecessary */
+            sprintf(scratch," limit %d",pinfo->index_low); /* unnecessary */
         } else {
-            sprintf(scratch," LIMIT %d OFFSET %d",pinfo->index_low, results-pinfo->index_low);
+            sprintf(scratch," limit %d offset %d",pinfo->index_low, results-pinfo->index_low);
         }
         break;
     case indexTypeSub:
-        sprintf(scratch," LIMIT %d OFFSET %d",pinfo->index_high - pinfo->index_low,
+        sprintf(scratch," limit %d offset %d",pinfo->index_high - pinfo->index_low,
                 pinfo->index_low);
         break;
     case indexTypeNone:
@@ -1745,7 +1747,7 @@ int db_sql_get_count(char **pe, int *count, CountType_t type) {
         break;
     }
 
-    err=db_sql_fetch_int(pe,count,"SELECT COUNT(*) FROM '%q'", table);
+    err=db_sql_fetch_int(pe,count,"select count(*) FROM %q", table);
     return err;
 }
 

@@ -208,7 +208,7 @@ int main(int argc, char *argv[]) {
     char txtrecord[255];
     
     int err;
-    char *perr;
+    char *perr=NULL;
 
     config.use_mdns=1;
     err_setlevel(1);
@@ -393,8 +393,8 @@ int main(int argc, char *argv[]) {
 
     end_time=(int) time(NULL);
 
-    db_get_song_count(&perr,&song_count);
-    if(perr) {
+    err=db_get_song_count(&perr,&song_count);
+    if(err != DB_E_SUCCESS) {
         DPRINTF(E_FATAL,L_MISC,"Error getting song count: %s\n",perr);
     }
 

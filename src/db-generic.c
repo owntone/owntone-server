@@ -340,7 +340,8 @@ char *db_error_list[] = {
     "Invalid playlist id: %d",
     "Invalid song id: %d",
     "Parse error: %s",
-    "No backend database support for type: %s"
+    "No backend database support for type: %s",
+    "Could not initialize thread pool"
 };
 
 /* Globals */
