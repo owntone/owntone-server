@@ -361,7 +361,7 @@ int main(int argc, char *argv[]) {
 
     ws_registerhandler(config.server, "^.*$",config_handler,config_auth,1);
     ws_registerhandler(config.server, "^/server-info$",daap_handler,NULL,0);
-    ws_registerhandler(config.server, "^/content-codes$",daap_handler,NULL,0);
+    ws_registerhandler(config.server, "^/content-codes$",daap_handler,daap_auth,0); /* iTunes 6.0.4+? */
     ws_registerhandler(config.server,"^/login$",daap_handler,daap_auth,0);
     ws_registerhandler(config.server,"^/update$",daap_handler,daap_auth,0);
     ws_registerhandler(config.server,"^/databases$",daap_handler,daap_auth,0);
