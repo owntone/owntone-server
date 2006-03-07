@@ -125,7 +125,13 @@ int daap_auth(char *username, char *password) {
     if(password == NULL)
         return 0;
 
-    return !strcasecmp(password,readpassword);
+    if(strcasecmp(password,readpassword)) {
+        DPRINTF(E_LOG,L_DAAP | L_WS,"Bad password attempt\n"); 
+        return 0;
+    }
+
+    DPRINTF(E_DBG,L_DAAP | L_WS, "good password.\n");
+    return 1;
 }
 
 /**
@@ -1487,7 +1493,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_string(current,"minm",servername); /* 8 + strlen(name) */
 
     current += db_dmap_add_char(current,"msau",            /* 9 */
-                                conf_isset("general","password") ? 1 : 0);
+                                conf_isset("general","password") ? 2 : 0);
     current += db_dmap_add_char(current,"msex",0);         /* 9 */
     current += db_dmap_add_char(current,"msix",0);         /* 9 */
     current += db_dmap_add_char(current,"msbr",0);         /* 9 */
