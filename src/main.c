@@ -137,7 +137,7 @@ void txt_add(char *txtrecord, char *fmt, ...) {
     vsnprintf(buff, sizeof(buff), fmt, ap);
     va_end(ap);
     
-    len = strlen(buff);
+    len = (int)strlen(buff);
     end = txtrecord + strlen(txtrecord);
     *end = len;
     strcpy(end+1,buff);
