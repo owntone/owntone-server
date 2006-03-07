@@ -434,6 +434,9 @@ char *os_realpath(const char *pathname, char *resolved_path) {
         ptr++;
     }
 
+    while(strlen(resolved_path) && (resolved_path[strlen(resolved_path)-1] == '\\'))
+        resolved_path[strlen(resolved_path)-1] = '\0';
+
     return &resolved_path[0];
 }
 
