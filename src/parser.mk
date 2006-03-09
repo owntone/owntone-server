@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS := $(CFLAGS) -g -I/sw/include -DHAVE_CONFIG_H -I. -I.. -Wall
+CFLAGS := $(CFLAGS) -g -I/sw/include -DHAVE_CONFIG_H -I. -I.. -Wall -DERR_LEAN
 TARGET=parser
 OBJECTS=parser-driver.o smart-parser.o err.o
 

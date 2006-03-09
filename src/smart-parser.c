@@ -56,6 +56,11 @@ typedef struct tag_sp_node {
 #define SP_OPTYPE_INT    2
 #define SP_OPTYPE_DATE   3
 
+#define SP_HINT_NONE     0
+#define SP_HINT_STRING   1
+#define SP_HINT_INT      2
+#define SP_HINT_DATE     3
+
 /*
 #define T_ID            0x00
 #define T_PATH          0x01
@@ -184,10 +189,10 @@ typedef struct tag_fieldlookup {
     char *name;
 } FIELDLOOKUP;
 
-/* normal terminators, in-string terminators, escapes */
-char *sp_terminators[2][3] = {
-    { " \t\n\r\"<>=()|&!", "\"","\"" },
-    { "()'+: -,", "')", "\\*'" }
+/* normal terminators, in-string terminators, escapes, quotes */
+char *sp_terminators[2][4] = {
+    { " \t\n\r\"<>=()|&!", "\"","\"","\"" },
+    { "()'+: -,", "')", "\\*'","" }
 };
 
 FIELDLOOKUP sp_symbols_0[] = {
@@ -404,16 +409,16 @@ time_t sp_isdate(char *string) {
  * @param tree current working parse tree.
  * @returns next token (token, not the value)
  */
-int sp_scan(PARSETREE tree) {
+int sp_scan(PARSETREE tree, int hint) {
     char *terminator=NULL;
     char *tail;
-    int advance=0;
     FIELDLOOKUP *pfield=sp_fields[tree->token_list];
     int len;
     int found;
     int numval;
+    int is_qstr;
     time_t tval;
-    int found_symbol;
+    char *qstr;
 
     if(tree->token.token_id & 0x2000) {
         if(tree->token.data.cvalue)
@@ -441,100 +446,122 @@ int sp_scan(PARSETREE tree) {
     DPRINTF(E_SPAM,L_PARSE,"Current offset: %d, char: %c\n",
         tree->token_pos, *(tree->current));
 
-    /* check singletons */
-    found_symbol=0;
+    if(hint == SP_HINT_STRING) {
+        terminator=sp_terminators[tree->token_list][1];
+        tree->in_string = 1;
+    } else {
+        terminator = sp_terminators[tree->token_list][0];
+        tree->in_string = 0;
+    }
 
+    /* check symbols */
     if(!tree->in_string) {
         pfield=sp_symbols[tree->token_list];
-        while((pfield->name) && (!found_symbol)) {
+        while(pfield->name) {
             if(!strncmp(pfield->name,tree->current,strlen(pfield->name))) {
                 /* that's a match */
                 tree->current += strlen(pfield->name);
                 tree->token.token_id = pfield->type;
-                found_symbol = 1;
+                return pfield->type;
             }
             pfield++;
         }
     }
 
-    if((!found_symbol) && (*tree->current == '"')) {
-        tree->current++;
-        tree->in_string = !tree->in_string;
-        tree->token.token_id = T_QUOTE;
+    qstr = sp_terminators[tree->token_list][3];
+    is_qstr = (strstr(qstr,tree->current) != NULL);
+    if(strlen(qstr)) { /* strings ARE quoted */
+        if(hint == SP_HINT_STRING) { /* MUST be a quote */
+            if(!is_qstr)
+                return T_ERROR;
+        } else {
+            tree->in_string = 1; /* guess we're in a string */
+            tree->current++;
+        }
     }
 
-    if(!found_symbol) { /* either a keyword token or a quoted string */
-        DPRINTF(E_SPAM,L_PARSE,"keyword or string!\n");
+    DPRINTF(E_SPAM,L_PARSE,"keyword or string!\n");
 
-        /* walk to a terminator */
-        tail = tree->current;
+    /* walk to a terminator */
+    tail = tree->current;
 
-        /* out-of-string terminator */
-        terminator = sp_terminators[tree->token_list][0];
-        if(tree->in_string) { /* in-string terminator */
-            terminator=sp_terminators[tree->token_list][1];
-        }
+    /* FIXME: escaped characters */
+    while((*tail) && (!strchr(terminator,*tail))) {
+        tail++;
+    }
 
-        /* FIXME: escaped characters */
-        while((*tail) && (!strchr(terminator,*tail))) {
-            tail++;
-        }
+    found=0;
+    len = (int) (tail - tree->current);
 
-        found=0;
-        len = (int) (tail - tree->current);
-
-        if(!tree->in_string) {
-            /* find it in the token list */
-            pfield=sp_fields[tree->token_list];
-            DPRINTF(E_SPAM,L_PARSE,"Len is %d\n",len);
-            while(pfield->name) {
-                if(strlen(pfield->name) == len) {
-                    if(strncasecmp(pfield->name,tree->current,len) == 0) {
-                        found=1;
-                        break;
-                    }
+    if(!tree->in_string) {
+        /* find it in the token list */
+        pfield=sp_fields[tree->token_list];
+        DPRINTF(E_SPAM,L_PARSE,"Len is %d\n",len);
+        while(pfield->name) {
+            if(strlen(pfield->name) == len) {
+                if(strncasecmp(pfield->name,tree->current,len) == 0) {
+                    DPRINTF(E_DBG,L_PARSE,"%*s Returning token %04x (%s)\n",
+                            tree->level," ", tree->token.token_id,
+                            pfield->name);
+                    found=1;
+                    break;
                 }
-                pfield++;
             }
+            pfield++;
         }
+    }
 
-        if(found) {
-            tree->token.token_id = pfield->type;
-        } else {
-            tree->token.token_id = T_STRING;
+    if(found) {
+        tree->token.token_id = pfield->type;
+    } else {
+        tree->token.token_id = T_STRING;
+    }
+
+    if(tree->token.token_id & 0x2000) {
+        tree->token.data.cvalue = malloc(len + 1);
+        if(!tree->token.data.cvalue) {
+            /* fail on malloc error */
+            DPRINTF(E_FATAL,L_PARSE,"Malloc error.\n");
         }
+        strncpy(tree->token.data.cvalue,tree->current,len);
+        tree->token.data.cvalue[len] = '\x0';
+    }
 
-        if(tree->token.token_id & 0x2000) {
-            tree->token.data.cvalue = malloc(len + 1);
-            if(!tree->token.data.cvalue) {
-                /* fail on malloc error */
-                DPRINTF(E_FATAL,L_PARSE,"Malloc error.\n");
-            }
-            strncpy(tree->token.data.cvalue,tree->current,len);
-            tree->token.data.cvalue[len] = '\x0';
-        }
-
-        /* check for numberic? */
+    if((hint == SP_HINT_NONE) || (hint == SP_HINT_INT)) {
+        /* check for numeric? */
         if(tree->token.token_id == T_STRING &&
            (!tree->in_string) &&
-            sp_isnumber(tree->token.data.cvalue)) {
+           sp_isnumber(tree->token.data.cvalue)) {
             /* woops! */
             numval = atoi(tree->token.data.cvalue);
             free(tree->token.data.cvalue);
             tree->token.data.ivalue = numval;
             tree->token.token_id = T_NUMBER;
         }
+    }
 
+    if((hint == SP_HINT_NONE) || (hint == SP_HINT_DATE)) {
         if(tree->token.token_id == T_STRING &&
            (!tree->in_string) &&
-            (tval=sp_isdate(tree->token.data.cvalue))) {
+           (tval=sp_isdate(tree->token.data.cvalue))) {
             free(tree->token.data.cvalue);
             tree->token.data.tvalue = tval;
             tree->token.token_id = T_DATE;
         }
+    }
 
+    tree->current=tail;
 
-        tree->current=tail;
+    /* if we are in_string, and we have quoted strings, ensure we
+     * have a quote */
+
+    is_qstr = (strstr(qstr,tree->current) != NULL);
+    if((!found) && strlen(qstr) && (!is_qstr) && (tree->in_string)) {
+        DPRINTF(E_INF,L_PARSE,"Missing closing quotes\n");
+        if(tree->token.token_id & 0x2000) {
+            free(tree->token.data.cvalue);
+        }
+        tree->token.token_id = T_ERROR;
     }
 
     DPRINTF(E_DBG,L_PARSE,"%*s Returning token %04x\n",tree->level," ",
@@ -595,7 +622,7 @@ int sp_parse(PARSETREE tree, char *term) {
     if(tree->tree)
         sp_free_node(tree->tree);
 
-    sp_scan(tree);
+    sp_scan(tree,SP_HINT_NONE);
     tree->tree = sp_parse_phrase(tree);
 
     if(tree->tree) {
@@ -662,7 +689,7 @@ SP_NODE *sp_parse_aexpr(PARSETREE tree) {
         pnew->op_type = SP_OPTYPE_ANDOR;
 
         pnew->left.node = expr;
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
         pnew->right.node = sp_parse_expr(tree);
 
         if(!pnew->right.node) {
@@ -704,7 +731,7 @@ SP_NODE *sp_parse_oexpr(PARSETREE tree) {
         pnew->op_type = SP_OPTYPE_ANDOR;
 
         pnew->left.node = expr;
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
         pnew->right.node = sp_parse_aexpr(tree);
 
         if(!pnew->right.node) {
@@ -733,10 +760,10 @@ SP_NODE *sp_parse_expr(PARSETREE tree) {
     sp_enter_exit(tree,"sp_parse_expr",1,NULL);
 
     if(tree->token.token_id == T_OPENPAREN) {
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
         expr = sp_parse_oexpr(tree);
         if((expr) && (tree->token.token_id == T_CLOSEPAREN)) {
-            sp_scan(tree);
+            sp_scan(tree,SP_HINT_NONE);
         } else {
             /* Error: expecting close paren */
             sp_set_error(tree,SP_E_CLOSE);
@@ -807,11 +834,11 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
     memset(pnew,0x00,sizeof(SP_NODE));
     pnew->left.field = strdup(tree->token.data.cvalue);
 
-    sp_scan(tree); /* scan past the string field we know is there */
+    sp_scan(tree,SP_HINT_NONE);/* scan past the string field we know is there */
 
     if(tree->token.token_id == T_NOT) {
         pnew->not_flag=1;
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
     }
 
     switch(tree->token.token_id) {
@@ -830,28 +857,17 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
     }
 
     if(result) {
-        sp_scan(tree);
-        /* should be sitting on quote literal string quote */
-
-        if(tree->token.token_id == T_QUOTE) {
-            sp_scan(tree);
-            if(tree->token.token_id == T_STRING) {
-                pnew->right.cvalue=strdup(tree->token.data.cvalue);
-                sp_scan(tree);
-                if(tree->token.token_id == T_QUOTE) {
-                    result=1;
-                    sp_scan(tree);
-                } else {
-                    sp_set_error(tree,SP_E_CLOSEQUOTE);
-                    DPRINTF(E_SPAM,L_PARSE,"Expecting closign quote\n");
-                }
-            } else {
-                sp_set_error(tree,SP_E_STRING);
-                DPRINTF(E_SPAM,L_PARSE,"Expecting literal string\n");
-            }
+        sp_scan(tree,SP_HINT_NONE);
+        /* should be sitting on string literal */
+        if(tree->token.token_id == T_STRING) {
+            result = 1;
+            pnew->right.cvalue=strdup(tree->token.data.cvalue);
+            sp_scan(tree,SP_HINT_NONE);
         } else {
             sp_set_error(tree,SP_E_OPENQUOTE);
-            DPRINTF(E_SPAM,L_PARSE,"Expecting opening quote\n");
+            DPRINTF(E_SPAM,L_PARSE,"Expecting string, got %04X\n",
+                    tree->token.token_id);
+            result = 0;
         }
     }
 
@@ -883,11 +899,11 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
     memset(pnew,0x00,sizeof(SP_NODE));
     pnew->left.field = strdup(tree->token.data.cvalue);
 
-    sp_scan(tree); /* scan past the int field we know is there */
+    sp_scan(tree,SP_HINT_NONE); /* scan past the int field we know is there */
 
     if(tree->token.token_id == T_NOT) {
         pnew->not_flag=1;
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
     }
 
     switch(tree->token.token_id) {
@@ -909,12 +925,12 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
     }
 
     if(result) {
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
         /* should be sitting on a literal string */
         if(tree->token.token_id == T_NUMBER) {
             result = 1;
             pnew->right.ivalue=tree->token.data.ivalue;
-            sp_scan(tree);
+            sp_scan(tree,SP_HINT_NONE);
         } else {
             /* Error: Expecting number */
             sp_set_error(tree,SP_E_NUMBER);
@@ -953,11 +969,11 @@ SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
     memset(pnew,0x00,sizeof(SP_NODE));
     pnew->left.field = strdup(tree->token.data.cvalue);
 
-    sp_scan(tree); /* scan past the date field we know is there */
+    sp_scan(tree,SP_HINT_NONE); /* scan past the date field we know is there */
 
     if(tree->token.token_id == T_NOT) {
         pnew->not_flag=1;
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
     }
 
     switch(tree->token.token_id) {
@@ -988,7 +1004,7 @@ SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
     }
 
     if(result) {
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
         /* should be sitting on a date */
         if((pnew->right.tvalue = sp_parse_date(tree))) {
             result=1;
@@ -1030,11 +1046,11 @@ time_t sp_parse_date(PARSETREE tree) {
     switch(tree->token.token_id) {
     case T_TODAY:
         result = time(NULL);
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
         break;
     case T_DATE:
         result = tree->token.data.tvalue;
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
         break;
     }
 
@@ -1052,7 +1068,7 @@ time_t sp_parse_date(PARSETREE tree) {
             if(tree->token.token_id == T_AFTER)
                 before = 0;
 
-            sp_scan(tree);
+            sp_scan(tree,SP_HINT_NONE);
             result = sp_parse_date(tree);
             if(result) {
                 if(before) {
@@ -1087,23 +1103,23 @@ time_t sp_parse_date_interval(PARSETREE tree) {
         sp_set_error(tree,SP_E_NUMBER);
     } else {
         count = tree->token.data.ivalue;
-        sp_scan(tree);
+        sp_scan(tree,SP_HINT_NONE);
         switch(tree->token.token_id) {
         case T_DAY:
             result = count * 3600 * 24;
-            sp_scan(tree);
+            sp_scan(tree,SP_HINT_NONE);
             break;
         case T_WEEK:
             result = count * 3600 * 24 * 7;
-            sp_scan(tree);
+            sp_scan(tree,SP_HINT_NONE);
             break;
         case T_MONTH:
             result = count * 3600 * 24 * 30;
-            sp_scan(tree);
+            sp_scan(tree,SP_HINT_NONE);
             break;
         case T_YEAR:
             result = count * 3600 * 24 * 365;
-            sp_scan(tree);
+            sp_scan(tree,SP_HINT_NONE);
             break;
         default:
             result=0;

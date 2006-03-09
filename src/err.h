@@ -74,4 +74,10 @@ extern int err_setdebugmask(char *list);
 
 #define DPRINTF err_log
 
+#ifdef ERR_LEAN
+# define os_syslog(a,b)
+# define os_opensyslog(a)
+# define os_closesyslog(a)
+#endif
+
 #endif /* __ERR_H__ */

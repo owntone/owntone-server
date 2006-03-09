@@ -4,7 +4,12 @@
 
 #include <stdio.h>
 
+#define os_opensyslog()
+#define os_syslog(a,b)
+#define os_closesyslog()
+
 #include "conf.h"
+#include "err.h"
 
 
 int main(int argc, char *argv[]) {

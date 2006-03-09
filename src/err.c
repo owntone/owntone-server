@@ -41,7 +41,9 @@
 #include <string.h>
 
 #include "err.h"
-#include "os.h"
+#ifndef ERR_LEAN
+# include "os.h"
+#endif
 
 static int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
 static int err_logdestination=LOGDEST_STDERR; /**< current log destination */
@@ -64,13 +66,13 @@ static int _err_unlock(void);
 
 /**
  * Write a printf-style formatted message to the log destination.
- * This can be stderr, syslog/eventviewer, or a logfile, as determined by 
+ * This can be stderr, syslog/eventviewer, or a logfile, as determined by
  * err_setdest().  Note that this function should not be directly
  * used, rather it should be used via the #DPRINTF macro.
  *
  * \param level Level at which to log \ref log_levels
  * \param cat the category to log \ref log_categories
- * \param fmt printf-style 
+ * \param fmt printf-style
  */
 void err_log(int level, unsigned int cat, char *fmt, ...)
 {
@@ -91,7 +93,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     va_start(ap, fmt);
     vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
     va_end(ap);
- 
+
     _err_lock(); /* atomic file writes */
 
     if((!level) && (err_logdestination != LOGDEST_STDERR)) {
@@ -127,7 +129,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
 }
 
 /*
- * simple get/set interface to debuglevel to avoid global 
+ * simple get/set interface to debuglevel to avoid global
  */
 void err_setlevel(int level) {
     err_debuglevel = level;
@@ -176,7 +178,7 @@ void err_setdest(char *cvalue, int destination) {
  * through the err_categorylist and sets the bitfields for the
  * requested log modules.
  *
- * \param list comma separated list of modules to debug.  
+ * \param list comma separated list of modules to debug.
  */
 extern int err_setdebugmask(char *list) {
     unsigned int rack;
@@ -193,7 +195,7 @@ extern int err_setdebugmask(char *list) {
         if(token) {
             rack=1;
             index=0;
-            while((err_categorylist[index]) && 
+            while((err_categorylist[index]) &&
                   (strcasecmp(err_categorylist[index],token))) {
                 rack <<= 1;
                 index++;

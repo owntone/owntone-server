@@ -22,7 +22,7 @@ int main(int argc, char *argv[]) {
     while((option = getopt(argc, argv, "d:")) != -1) {
         switch(option) {
         case 'd':
-            err_debuglevel = atoi(optarg);
+            err_setlevel(atoi(optarg));
             break;
         default:
             fprintf(stderr,"Error: unknown option (%c)\n\n",option);
