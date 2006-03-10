@@ -187,6 +187,7 @@ char *sp_token_descr[] = {
 typedef struct tag_fieldlookup {
     int type;
     char *name;
+    char *xlat;
 } FIELDLOOKUP;
 
 /* normal terminators, in-string terminators, escapes, quotes */
@@ -196,21 +197,21 @@ char *sp_terminators[2][4] = {
 };
 
 FIELDLOOKUP sp_symbols_0[] = {
-    { T_OR, "||" },
-    { T_AND, "&&" },
-    { T_EQUAL, "=" },
-    { T_LESSEQUAL, "<=" },
-    { T_LESS, "<" },
-    { T_GREATEREQUAL, ">=" },
-    { T_GREATER, ">" },
-    { T_OPENPAREN, "(" },
-    { T_CLOSEPAREN, ")" },
-    { T_NOT, "!" },
-    { 0, NULL }
+    { T_OR, "||", NULL },
+    { T_AND, "&&", NULL },
+    { T_EQUAL, "=", NULL },
+    { T_LESSEQUAL, "<=", NULL },
+    { T_LESS, "<", NULL },
+    { T_GREATEREQUAL, ">=", NULL },
+    { T_GREATER, ">", NULL },
+    { T_OPENPAREN, "(", NULL },
+    { T_CLOSEPAREN, ")", NULL },
+    { T_NOT, "!", NULL },
+    { 0, NULL, NULL }
 };
 
 FIELDLOOKUP sp_symbols_1[] = {
-    { 0, NULL }
+    { 0, NULL, NULL }
 };
 
 FIELDLOOKUP *sp_symbols[2] = {
@@ -218,71 +219,97 @@ FIELDLOOKUP *sp_symbols[2] = {
 };
 
 FIELDLOOKUP sp_fields_0[] = {
-    { T_INT_FIELD, "id" },
-    { T_STRING_FIELD, "path" },
-    { T_STRING_FIELD, "fname" },
-    { T_STRING_FIELD, "title" },
-    { T_STRING_FIELD, "artist" },
-    { T_STRING_FIELD, "album" },
-    { T_STRING_FIELD, "genre" },
-    { T_STRING_FIELD, "comment" },
-    { T_STRING_FIELD, "type" },
-    { T_STRING_FIELD, "composer" },
-    { T_STRING_FIELD, "orchestra" },
-    { T_STRING_FIELD, "grouping" },
-    { T_STRING_FIELD, "url" },
-    { T_INT_FIELD, "bitrate" },
-    { T_INT_FIELD, "samplerate" },
-    { T_INT_FIELD, "song_length" },
-    { T_INT_FIELD, "file_size" },
-    { T_INT_FIELD, "year" },
-    { T_INT_FIELD, "track" },
-    { T_INT_FIELD, "total_tracks" },
-    { T_INT_FIELD, "disc" },
-    { T_INT_FIELD, "total_discs" },
-    { T_INT_FIELD, "bpm" },
-    { T_INT_FIELD, "compilation" },
-    { T_INT_FIELD, "rating" },
-    { T_INT_FIELD, "play_count" },
-    { T_INT_FIELD, "data_kind" },
-    { T_INT_FIELD, "item_kind" },
-    { T_STRING_FIELD, "description" },
-    { T_DATE_FIELD, "time_added" },
-    { T_DATE_FIELD, "time_modified" },
-    { T_DATE_FIELD, "time_played" },
-    { T_DATE_FIELD, "db_timestamp" },
-    { T_INT_FIELD, "sample_count" },
-    { T_INT_FIELD, "force_update" },
-    { T_STRING_FIELD, "codectype" },
-    { T_INT_FIELD, "idx" },
+    { T_INT_FIELD, "id", NULL },
+    { T_STRING_FIELD, "path", NULL },
+    { T_STRING_FIELD, "fname", NULL },
+    { T_STRING_FIELD, "title", NULL },
+    { T_STRING_FIELD, "artist", NULL },
+    { T_STRING_FIELD, "album", NULL },
+    { T_STRING_FIELD, "genre", NULL },
+    { T_STRING_FIELD, "comment", NULL },
+    { T_STRING_FIELD, "type", NULL },
+    { T_STRING_FIELD, "composer", NULL },
+    { T_STRING_FIELD, "orchestra", NULL },
+    { T_STRING_FIELD, "grouping", NULL },
+    { T_STRING_FIELD, "url", NULL },
+    { T_INT_FIELD, "bitrate", NULL },
+    { T_INT_FIELD, "samplerate", NULL },
+    { T_INT_FIELD, "song_length", NULL },
+    { T_INT_FIELD, "file_size", NULL },
+    { T_INT_FIELD, "year", NULL },
+    { T_INT_FIELD, "track", NULL },
+    { T_INT_FIELD, "total_tracks", NULL },
+    { T_INT_FIELD, "disc", NULL },
+    { T_INT_FIELD, "total_discs", NULL },
+    { T_INT_FIELD, "bpm", NULL },
+    { T_INT_FIELD, "compilation", NULL },
+    { T_INT_FIELD, "rating", NULL },
+    { T_INT_FIELD, "play_count", NULL },
+    { T_INT_FIELD, "data_kind", NULL },
+    { T_INT_FIELD, "item_kind", NULL },
+    { T_STRING_FIELD, "description", NULL },
+    { T_DATE_FIELD, "time_added", NULL },
+    { T_DATE_FIELD, "time_modified", NULL },
+    { T_DATE_FIELD, "time_played", NULL },
+    { T_DATE_FIELD, "db_timestamp", NULL },
+    { T_INT_FIELD, "sample_count", NULL },
+    { T_INT_FIELD, "force_update", NULL },
+    { T_STRING_FIELD, "codectype", NULL },
+    { T_INT_FIELD, "idx", NULL },
 
     /* end of db fields */
-    { T_OR, "or" },
-    { T_AND, "and" },
-    { T_INCLUDES, "includes" },
-    { T_BEFORE, "before" },
-    { T_AFTER, "after" },
-    { T_AGO, "ago" },
-    { T_TODAY, "today" },
-    { T_THE, "the" },
-    { T_DAY, "days" },
-    { T_DAY, "day" },
-    { T_WEEK, "weeks" },
-    { T_WEEK, "week" },
-    { T_MONTH, "months" },
-    { T_MONTH, "month" },
-    { T_YEAR, "years" },
-    { T_YEAR, "year" },
-    { T_NOT, "not" },
-    { T_STARTSWITH, "startswith" },
-    { T_ENDSWITH, "endswith" },
+    { T_OR, "or", NULL },
+    { T_AND, "and", NULL },
+    { T_INCLUDES, "includes", NULL },
+    { T_BEFORE, "before", NULL },
+    { T_AFTER, "after", NULL },
+    { T_AGO, "ago", NULL },
+    { T_TODAY, "today", NULL },
+    { T_THE, "the", NULL },
+    { T_DAY, "days", NULL },
+    { T_DAY, "day", NULL },
+    { T_WEEK, "weeks", NULL },
+    { T_WEEK, "week", NULL },
+    { T_MONTH, "months", NULL },
+    { T_MONTH, "month", NULL },
+    { T_YEAR, "years", NULL },
+    { T_YEAR, "year", NULL },
+    { T_NOT, "not", NULL },
+    { T_STARTSWITH, "startswith", NULL },
+    { T_ENDSWITH, "endswith", NULL },
 
     /* end */
-    { 0, NULL }
+    { 0, NULL, NULL }
 };
 
 FIELDLOOKUP sp_fields_1[] = {
-    { 0, NULL }
+    { T_STRING_FIELD,       "dmap.itemname",        "title" },
+    { T_INT_FIELD,          "dmap.itemid",          "id" },
+    { T_STRING_FIELD,       "daap.songalbum",       "album" },
+    { T_STRING_FIELD,       "daap.songartist",      "artist" },
+    { T_INT_FIELD,          "daap.songbitrate",     "bitrate" },
+    { T_STRING_FIELD,       "daap.songcomment",     "comment" },
+    { T_INT_FIELD,          "daap.songcompilation", "compilation" },
+    { T_STRING_FIELD,       "daap.songcomposer",    "composer" },
+    { T_INT_FIELD,          "daap.songdatakind",    "data_kind" },
+    { T_STRING_FIELD,       "daap.songdataurl",     "url" },
+    { T_INT_FIELD,          "daap.songdateadded",   "time_added" },
+    { T_INT_FIELD,          "daap.songdatemodified","time_modified" },
+    { T_STRING_FIELD,       "daap.songdescription", "description" },
+    { T_INT_FIELD,          "daap.songdisccount",   "total_discs" },
+    { T_INT_FIELD,          "daap.songdiscnumber",  "disc" },
+    { T_STRING_FIELD,       "daap.songformat",      "type" },
+    { T_STRING_FIELD,       "daap.songgenre",       "genre" },
+    { T_INT_FIELD,          "daap.songsamplerate",  "samplerate" },
+    { T_INT_FIELD,          "daap.songsize",        "file_size" },
+    //    { T_INT_FIELD,    "daap.songstarttime",   0 },
+    { T_INT_FIELD,          "daap.songstoptime",    "song_length" },
+    { T_INT_FIELD,          "daap.songtime",        "song_length" },
+    { T_INT_FIELD,          "daap.songtrackcount",  "total_tracks" },
+    { T_INT_FIELD,          "daap.songtracknumber", "track" },
+    { T_INT_FIELD,          "daap.songyear",        "year" },
+
+    { 0, NULL, NULL }
 };
 
 FIELDLOOKUP *sp_fields[2] = {
