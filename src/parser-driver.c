@@ -11,18 +11,22 @@
 #include "smart-parser.h"
 
 void usage(void) {
-    printf("Usage:\n\n  parser [-d <debug level>] \"phrase\"\n\n");
+    printf("Usage:\n\n  parser [-t <type (0/1)>] [-d <debug level>] \"phrase\"\n\n");
     exit(0);
 }
 
 int main(int argc, char *argv[]) {
     int option;
+    int type=0;
     PARSETREE pt;
 
-    while((option = getopt(argc, argv, "d:")) != -1) {
+    while((option = getopt(argc, argv, "d:t:")) != -1) {
         switch(option) {
         case 'd':
             err_setlevel(atoi(optarg));
+            break;
+        case 't':
+            type = atoi(optarg);
             break;
         default:
             fprintf(stderr,"Error: unknown option (%c)\n\n",option);
@@ -34,7 +38,7 @@ int main(int argc, char *argv[]) {
     printf("Parsing %s\n",argv[optind]);
 
     pt=sp_init();
-    if(!sp_parse(pt,argv[optind])) {
+    if(!sp_parse(pt,argv[optind],type)) {
         printf("%s\n",sp_get_error(pt));
     } else {
         printf("SQL: %s\n",sp_sql_clause(pt));

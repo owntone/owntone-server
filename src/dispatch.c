@@ -126,7 +126,7 @@ int daap_auth(char *username, char *password) {
         return 0;
 
     if(strcasecmp(password,readpassword)) {
-        DPRINTF(E_LOG,L_DAAP | L_WS,"Bad password attempt\n"); 
+        DPRINTF(E_LOG,L_DAAP | L_WS,"Bad password attempt\n");
         return 0;
     }
 
@@ -152,12 +152,19 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     memset(pqi,0x00,sizeof(DBQUERYINFO));
 
+    /* we could really pre-parse this to make sure it works */
     query=ws_getvar(pwsc,"query");
     if(!query) query=ws_getvar(pwsc,"filter");
     if(query) {
-        DPRINTF(E_DBG,L_DAAP,"Getting sql clause for %s\n",query);
-        pqi->whereclause = query_build_sql(query);
+        pqi->pt = sp_init();
+        if(!sp_parse(&pqi->pt,query,SP_TYPE_QUERY)) {
+            DPRINTF(E_LOG,L_DAAP,"Ignoring bad query/filter (%s): %s\n",
+                    query,sp_get_error(pqi->pt));
+            sp_dispose(pqi->pt);
+            pqi->pt = NULL;
+        }
     }
+
 
     /* Add some default headers */
     ws_addresponseheader(pwsc,"Accept-Ranges","bytes");

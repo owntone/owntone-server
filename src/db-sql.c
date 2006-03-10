@@ -233,28 +233,28 @@ int db_sql_parse_smart(char **pe, char **clause, char *phrase) {
         *clause = strdup("1");
         return TRUE;
     }
-    
+
     pt=sp_init();
     if(!pt) {
         if(pe) *pe = strdup("Could not initialize parse tree");
         return FALSE;
     }
-    
-    if(!sp_parse(pt,phrase)) {
+
+    if(!sp_parse(pt,phrase,SP_TYPE_PLAYLIST)) {
         if(pe) *pe = strdup(sp_get_error(pt));
-        
+
         DPRINTF(E_LOG,L_DB,"Error parsing playlist: %s\n",sp_get_error(pt));
-        
+
         sp_dispose(pt);
         return FALSE;
     } else {
         *clause = sp_sql_clause(pt);
     }
-    
+
     sp_dispose(pt);
     return TRUE;
 }
- 
+
 /**
  * open sqlite database
  *
@@ -620,7 +620,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
 
 
     /* Always an add if in song scan on full reload */
-    if((!db_sql_reload)||(!db_sql_in_scan)) { 
+    if((!db_sql_reload)||(!db_sql_in_scan)) {
         err=db_sql_fetch_int(NULL,&count,"select count(*) from songs where "
                              "path='%q'",pmp3->path);
 
@@ -630,7 +630,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
             DPRINTF(E_LOG,L_DB,"Error: %s\n",pe);
             return err;
         }
-        
+
     }
 
     pmp3->play_count=0;
@@ -731,7 +731,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
 
     if(id)
         *id = insertid;
-        
+
     DPRINTF(E_SPAM,L_DB,"Exiting db_sql_add\n");
     return DB_E_SUCCESS;
 }
@@ -931,6 +931,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     char query_count[255];
     char query_rest[4096];
     char *where_clause;
+    char *filter;
 
     int is_smart;
     int have_clause=0;
@@ -980,13 +981,13 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         if(is_smart) {
             if(!db_sql_parse_smart(NULL,&where_clause,temprow[1]))
                 where_clause = strdup("0");
-                
+
             if(!where_clause) {
                 db_sql_enum_end_fn(NULL);
                 db_get_error(pe,DB_E_PARSE);
                 return DB_E_PARSE;
             }
-            
+
             sprintf(query_select,"select * from songs ");
             sprintf(query_count,"select count(id) from songs ");
             sprintf(query_rest,"where (%s)",where_clause);
@@ -1048,17 +1049,24 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     }
 
     /* Apply the query/filter */
-    if(pinfo->whereclause) {
-        if(have_clause)
-            strcat(query_rest," and ");
-        else
-            strcpy(query_rest," where ");
+    if(pinfo->pt) {
+        filter = sp_sql_clause(pinfo->pt);
 
-        strcat(query_rest,"(");
-        strcat(query_rest,pinfo->whereclause);
-        strcat(query_rest,")");
+        if(filter) {
+            if(have_clause) {
+                strcat(query_rest," and ");
+            } else {
+                strcpy(query_rest," where ");
+            }
+            strcat(query_rest,"(");
+
+            strcat(query_rest,filter);
+            strcat(query_rest,")");
+            free(filter);
+        } else {
+            DPRINTF(E_LOG,L_DB,"Error getting sql for parse tree\n");
+        }
     }
-
 
     if(pinfo->index_type == indexTypeLast) {
         /* We don't really care how many items unless we are
@@ -1355,14 +1363,14 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
         if(ISSTR(valarray[37]) && db_wantsmeta(pinfo->meta, metaSongCodecType))
             /* ascd */
             size += 12;
-            
+
         if(db_wantsmeta(pinfo->meta,metaSongContentRating))
             /* ascr */
             size += 9;
         if(db_wantsmeta(pinfo->meta,metaItunesHasVideo))
                 /* aeHV */
                 size += 9;
-                
+
         return size;
         break;
 
@@ -1596,10 +1604,10 @@ M3UFILE *db_sql_fetch_playlist(char **pe, char *path, int index) {
             db_get_error(pe,DB_E_INVALID_PLAYLIST);
             return NULL;
         }
-        
+
         return NULL; /* sql error or something */
     }
-        
+
     pm3u=(M3UFILE*)malloc(sizeof(M3UFILE));
     if(!pm3u)
         DPRINTF(E_FATAL,L_MISC,"malloc error: db_sql_fetch_playlist\n");
@@ -1760,7 +1768,7 @@ int db_sql_get_count(char **pe, int *count, CountType_t type) {
  */
 int db_sql_playcount_increment(char **pe, int id) {
     time_t now = time(NULL);
-    
+
     return db_sql_exec_fn(pe,E_INF,"update songs set play_count=play_count + 1"
         ", time_played=%d where id=%d",now,id);
 }

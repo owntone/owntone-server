@@ -147,6 +147,10 @@ typedef struct tag_sp_node {
 #define T_ENDSWITH      0x001d
 #define T_LAST          0x001e
 
+/* specific to query extensions */
+#define T_GREATERAND    0x001f
+#define T_EXPRQUOTE     0x0020
+
 #define T_EOF           0x00fd
 #define T_BOF           0x00fe
 #define T_ERROR         0x00ff
@@ -211,6 +215,15 @@ FIELDLOOKUP sp_symbols_0[] = {
 };
 
 FIELDLOOKUP sp_symbols_1[] = {
+    { T_OPENPAREN, "(", NULL },
+    { T_CLOSEPAREN, ")", NULL },
+    { T_EXPRQUOTE, "'", NULL },
+    { T_GREATERAND, "+", NULL },
+    { T_GREATERAND, " ", NULL },
+    { T_LESS,"-", NULL },
+    { T_OR, ",", NULL },
+    { T_EQUAL, ":", NULL },
+    { T_NOT, "!", NULL },
     { 0, NULL, NULL }
 };
 
@@ -283,31 +296,31 @@ FIELDLOOKUP sp_fields_0[] = {
 };
 
 FIELDLOOKUP sp_fields_1[] = {
-    { T_STRING_FIELD,       "dmap.itemname",        "title" },
-    { T_INT_FIELD,          "dmap.itemid",          "id" },
-    { T_STRING_FIELD,       "daap.songalbum",       "album" },
-    { T_STRING_FIELD,       "daap.songartist",      "artist" },
-    { T_INT_FIELD,          "daap.songbitrate",     "bitrate" },
-    { T_STRING_FIELD,       "daap.songcomment",     "comment" },
-    { T_INT_FIELD,          "daap.songcompilation", "compilation" },
-    { T_STRING_FIELD,       "daap.songcomposer",    "composer" },
-    { T_INT_FIELD,          "daap.songdatakind",    "data_kind" },
-    { T_STRING_FIELD,       "daap.songdataurl",     "url" },
-    { T_INT_FIELD,          "daap.songdateadded",   "time_added" },
-    { T_INT_FIELD,          "daap.songdatemodified","time_modified" },
-    { T_STRING_FIELD,       "daap.songdescription", "description" },
-    { T_INT_FIELD,          "daap.songdisccount",   "total_discs" },
-    { T_INT_FIELD,          "daap.songdiscnumber",  "disc" },
-    { T_STRING_FIELD,       "daap.songformat",      "type" },
-    { T_STRING_FIELD,       "daap.songgenre",       "genre" },
-    { T_INT_FIELD,          "daap.songsamplerate",  "samplerate" },
-    { T_INT_FIELD,          "daap.songsize",        "file_size" },
+    { T_STRING_FIELD, "dmap.itemname", "title" },
+    { T_INT_FIELD, "dmap.itemid", "id" },
+    { T_STRING_FIELD, "daap.songalbum", "album" },
+    { T_STRING_FIELD, "daap.songartist", "artist" },
+    { T_INT_FIELD, "daap.songbitrate", "bitrate" },
+    { T_STRING_FIELD, "daap.songcomment", "comment" },
+    { T_INT_FIELD, "daap.songcompilation", "compilation" },
+    { T_STRING_FIELD, "daap.songcomposer", "composer" },
+    { T_INT_FIELD, "daap.songdatakind", "data_kind" },
+    { T_STRING_FIELD, "daap.songdataurl", "url" },
+    { T_INT_FIELD, "daap.songdateadded", "time_added" },
+    { T_INT_FIELD, "daap.songdatemodified", "time_modified" },
+    { T_STRING_FIELD, "daap.songdescription", "description" },
+    { T_INT_FIELD, "daap.songdisccount", "total_discs" },
+    { T_INT_FIELD, "daap.songdiscnumber", "disc" },
+    { T_STRING_FIELD, "daap.songformat", "type" },
+    { T_STRING_FIELD, "daap.songgenre", "genre" },
+    { T_INT_FIELD, "daap.songsamplerate", "samplerate" },
+    { T_INT_FIELD, "daap.songsize", "file_size" },
     //    { T_INT_FIELD,    "daap.songstarttime",   0 },
-    { T_INT_FIELD,          "daap.songstoptime",    "song_length" },
-    { T_INT_FIELD,          "daap.songtime",        "song_length" },
-    { T_INT_FIELD,          "daap.songtrackcount",  "total_tracks" },
-    { T_INT_FIELD,          "daap.songtracknumber", "track" },
-    { T_INT_FIELD,          "daap.songyear",        "year" },
+    { T_INT_FIELD, "daap.songstoptime", "song_length" },
+    { T_INT_FIELD, "daap.songtime", "song_length" },
+    { T_INT_FIELD, "daap.songtrackcount", "total_tracks" },
+    { T_INT_FIELD, "daap.songtracknumber", "track" },
+    { T_INT_FIELD, "daap.songyear", "year" },
 
     { 0, NULL, NULL }
 };
@@ -341,6 +354,7 @@ typedef struct tag_parsetree {
 #define SP_E_BEFOREAFTER   0x0a
 #define SP_E_TIMEINTERVAL  0x0b
 #define SP_E_DATE          0x0c
+#define SP_E_EXPRQUOTE     0x0d
 
 char *sp_errorstrings[] = {
     "Success",
@@ -355,7 +369,8 @@ char *sp_errorstrings[] = {
     "Expecting date comparison operator (<,<=,>,>=)",
     "Expecting interval comparison (before, after)",
     "Expecting time interval (days, weeks, months, years)",
-    "Expecting date"
+    "Expecting date",
+    "Expecting ' (single quote)\n"
 };
 
 /* Forwards */
@@ -431,7 +446,10 @@ time_t sp_isdate(char *string) {
 }
 
 /**
- * scan the input, returning the next available token.
+ * scan the input, returning the next available token.  This is
+ * kind of a mess, and looking at it with new eyes would probably
+ * yield a better way of tokenizing the stream, but this seems to
+ * work.
  *
  * @param tree current working parse tree.
  * @returns next token (token, not the value)
@@ -446,6 +464,7 @@ int sp_scan(PARSETREE tree, int hint) {
     int is_qstr;
     time_t tval;
     char *qstr;
+    char *token_string;
 
     if(tree->token.token_id & 0x2000) {
         if(tree->token.data.cvalue)
@@ -483,7 +502,7 @@ int sp_scan(PARSETREE tree, int hint) {
 
 
     DPRINTF(E_SPAM,L_PARSE,"Starting scan - in_string: %d, hint: %d\n",
-	    tree->in_string, hint);
+            tree->in_string, hint);
 
     /* check symbols */
     if(!tree->in_string) {
@@ -501,17 +520,21 @@ int sp_scan(PARSETREE tree, int hint) {
 
     qstr = sp_terminators[tree->token_list][3];
     is_qstr = (strchr(qstr,*(tree->current)) != NULL);
+
+    DPRINTF(E_SPAM,L_PARSE,"qstr: %s -- is_quoted: %d\n",qstr,is_qstr);
+
     if(strlen(qstr)) { /* strings ARE quoted */
         if(hint == SP_HINT_STRING) { /* MUST be a quote */
             if(!is_qstr) {
+                tree->token.token_id = T_ERROR;
                 return T_ERROR;
-	    }
+            }
         } else {
-	    if(is_qstr) {
-		tree->in_string = 1; /* guess we're in a string */
-		terminator=sp_terminators[tree->token_list][1];
-		tree->current++;
-	    }
+            if(is_qstr) {
+                tree->in_string = 1; /* guess we're in a string */
+                terminator=sp_terminators[tree->token_list][1];
+                tree->current++;
+            }
         }
     }
 
@@ -534,7 +557,7 @@ int sp_scan(PARSETREE tree, int hint) {
         /* find it in the token list */
         pfield=sp_fields[tree->token_list];
         while(pfield->name) {
-	    DPRINTF(E_SPAM,L_PARSE,"Comparing to %s\n",pfield->name);
+            DPRINTF(E_SPAM,L_PARSE,"Comparing to %s\n",pfield->name);
             if(strlen(pfield->name) == len) {
                 if(strncasecmp(pfield->name,tree->current,len) == 0) {
                     found=1;
@@ -552,12 +575,20 @@ int sp_scan(PARSETREE tree, int hint) {
     }
 
     if(tree->token.token_id & 0x2000) {
+        token_string=tree->current;
+        if(found) {
+            if(pfield->xlat) {
+                len = strlen(pfield->xlat);
+                token_string = pfield->xlat;
+            }
+        }
+
         tree->token.data.cvalue = malloc(len + 1);
         if(!tree->token.data.cvalue) {
             /* fail on malloc error */
             DPRINTF(E_FATAL,L_PARSE,"Malloc error.\n");
         }
-        strncpy(tree->token.data.cvalue,tree->current,len);
+        strncpy(tree->token.data.cvalue,token_string,len);
         tree->token.data.cvalue[len] = '\x0';
     }
 
@@ -591,15 +622,15 @@ int sp_scan(PARSETREE tree, int hint) {
 
     is_qstr = (strchr(qstr,*tree->current) != NULL);
     if((!found) && strlen(qstr) && (tree->in_string)) {
-	if(is_qstr) {
-	    tree->current++; /* absorb it */
-	} else {
-	    DPRINTF(E_INF,L_PARSE,"Missing closing quotes\n");
-	    if(tree->token.token_id & 0x2000) {
-		free(tree->token.data.cvalue);
-	    }
-	    tree->token.token_id = T_ERROR;
-	}
+        if(is_qstr) {
+            tree->current++; /* absorb it */
+        } else {
+            DPRINTF(E_INF,L_PARSE,"Missing closing quotes\n");
+            if(tree->token.token_id & 0x2000) {
+                free(tree->token.data.cvalue);
+            }
+            tree->token.token_id = T_ERROR;
+        }
     }
 
     DPRINTF(E_DBG,L_PARSE,"%*s Returning token %04x\n",tree->level," ",
@@ -652,10 +683,11 @@ PARSETREE sp_init(void) {
  * @param term term or phrase to parse
  * @returns 1 if successful, 0 if not
  */
-int sp_parse(PARSETREE tree, char *term) {
+int sp_parse(PARSETREE tree, char *term, int type) {
     tree->term = strdup(term); /* will be destroyed by parsing */
     tree->current=tree->term;
     tree->token.token_id=T_BOF;
+    tree->token_list = type;
 
     if(tree->tree)
         sp_free_node(tree->tree);
@@ -716,7 +748,8 @@ SP_NODE *sp_parse_aexpr(PARSETREE tree) {
 
     expr = sp_parse_expr(tree);
 
-    while(expr && (tree->token.token_id == T_AND)) {
+    while(expr && ((tree->token.token_id == T_AND) ||
+                   (tree->token.token_id == T_GREATERAND))) {
         pnew = (SP_NODE*)malloc(sizeof(SP_NODE));
         if(!pnew) {
             DPRINTF(E_FATAL,L_PARSE,"Malloc error\n");
@@ -829,6 +862,15 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
 
     sp_enter_exit(tree,"sp_parse_criterion",1,expr);
 
+    if(tree->token_list == 1) {
+        if(tree->token.token_id != T_EXPRQUOTE) {
+            sp_set_error(tree,SP_E_EXPRQUOTE);
+            return NULL;
+        } else {
+            sp_scan(tree,SP_HINT_NONE);
+        }
+    }
+
     switch(tree->token.token_id) {
     case T_STRING_FIELD:
         expr = sp_parse_string_criterion(tree);
@@ -847,6 +889,16 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
         sp_set_error(tree,SP_E_FIELD);
         expr = NULL;
         break;
+    }
+
+    if(tree->token_list == 1) {
+        if(tree->token.token_id != T_EXPRQUOTE) {
+            sp_set_error(tree,SP_E_EXPRQUOTE);
+            sp_free_node(expr);
+            return NULL;
+        } else {
+            sp_scan(tree,SP_HINT_NONE);
+        }
     }
 
     sp_enter_exit(tree,"sp_parse_criterion",0,expr);
@@ -872,7 +924,7 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
     memset(pnew,0x00,sizeof(SP_NODE));
     pnew->left.field = strdup(tree->token.data.cvalue);
 
-    sp_scan(tree,SP_HINT_NONE);/* scan past the string field we know is there */
+    sp_scan(tree,SP_HINT_NONE); /* scan past the string field we know is there */
 
     if(tree->token.token_id == T_NOT) {
         pnew->not_flag=1;
@@ -895,11 +947,22 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
     }
 
     if(result) {
-        sp_scan(tree,SP_HINT_NONE);
+        sp_scan(tree,SP_HINT_STRING);
         /* should be sitting on string literal */
         if(tree->token.token_id == T_STRING) {
             result = 1;
             pnew->right.cvalue=strdup(tree->token.data.cvalue);
+            if(tree->token_list == 1) {
+                if(pnew->right.cvalue[0]=='*') {
+                    pnew->op = T_ENDSWITH;
+                    memcpy(pnew->right.cvalue,&pnew->right.cvalue[1],
+                           (int)strlen(pnew->right.cvalue)); /* with zt */
+                }
+                if(pnew->right.cvalue[strlen(pnew->right.cvalue)-1] == '*') {
+                    pnew->op = (pnew->op==T_ENDSWITH)?T_INCLUDES:T_STARTSWITH;
+                    pnew->right.cvalue[strlen(pnew->right.cvalue)-1] = '\0';
+                }
+            }
             sp_scan(tree,SP_HINT_NONE);
         } else {
             sp_set_error(tree,SP_E_OPENQUOTE);
@@ -954,6 +1017,11 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
         pnew->op=tree->token.token_id;
         pnew->op_type = SP_OPTYPE_INT;
         break;
+    case T_GREATERAND:
+        result = 1;
+        pnew->op = T_GREATER;
+        pnew->op_type = SP_OPTYPE_INT;
+        break;
     default:
         /* Error: expecting legal int comparison operator */
         sp_set_error(tree,SP_E_INTCMP);
@@ -963,7 +1031,7 @@ SP_NODE *sp_parse_criterion(PARSETREE tree) {
     }
 
     if(result) {
-        sp_scan(tree,SP_HINT_NONE);
+        sp_scan(tree,SP_HINT_INT);
         /* should be sitting on a literal string */
         if(tree->token.token_id == T_NUMBER) {
             result = 1;
@@ -1023,6 +1091,11 @@ SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
         pnew->op=tree->token.token_id;
         pnew->op_type = SP_OPTYPE_DATE;
         break;
+    case T_GREATERAND:
+        result = 1;
+        pnew->op=T_GREATER;
+        pnew->op_type = SP_OPTYPE_DATE;
+        break;
     case T_BEFORE:
         result = 1;
         pnew->op_type = SP_OPTYPE_DATE;
@@ -1042,7 +1115,7 @@ SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
     }
 
     if(result) {
-        sp_scan(tree,SP_HINT_NONE);
+        sp_scan(tree,SP_HINT_DATE);
         /* should be sitting on a date */
         if((pnew->right.tvalue = sp_parse_date(tree))) {
             result=1;

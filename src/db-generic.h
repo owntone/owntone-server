@@ -23,6 +23,7 @@
 #define _DB_GENERIC_H_
 
 #include "mp3-scanner.h" /** for MP3FILE */
+#include "smart-parser.h" /** for PARSETREE */
 
 typedef enum {
     // generic meta data
@@ -77,11 +78,11 @@ typedef enum {
     metaItmsGenreId,
     metaItmsStorefrontId,
     metaItunesSmartPlaylist,
-    
+
     /* iTunes 5.0 + */
     metaSongContentRating,
     metaHasChildContainers,
-    
+
     /* iTunes 6.0.2+ */
     metaItunesHasVideo,
 
@@ -125,7 +126,7 @@ typedef struct tag_dbqueryinfo {
     int session_id;
     int uri_count;
     char *uri_sections[10];
-    char *whereclause;
+    PARSETREE pt;
     void *output_info;
 } DBQUERYINFO;
 
