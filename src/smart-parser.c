@@ -454,6 +454,10 @@ int sp_scan(PARSETREE tree, int hint) {
         tree->in_string = 0;
     }
 
+
+    DPRINTF(E_SPAM,L_PARSE,"Starting scan - in_string: %d, hint: %d\n",
+	    tree->in_string, hint);
+
     /* check symbols */
     if(!tree->in_string) {
         pfield=sp_symbols[tree->token_list];
@@ -469,14 +473,18 @@ int sp_scan(PARSETREE tree, int hint) {
     }
 
     qstr = sp_terminators[tree->token_list][3];
-    is_qstr = (strstr(qstr,tree->current) != NULL);
+    is_qstr = (strchr(qstr,*(tree->current)) != NULL);
     if(strlen(qstr)) { /* strings ARE quoted */
         if(hint == SP_HINT_STRING) { /* MUST be a quote */
-            if(!is_qstr)
+            if(!is_qstr) {
                 return T_ERROR;
+	    }
         } else {
-            tree->in_string = 1; /* guess we're in a string */
-            tree->current++;
+	    if(is_qstr) {
+		tree->in_string = 1; /* guess we're in a string */
+		terminator=sp_terminators[tree->token_list][1];
+		tree->current++;
+	    }
         }
     }
 
@@ -493,16 +501,15 @@ int sp_scan(PARSETREE tree, int hint) {
     found=0;
     len = (int) (tail - tree->current);
 
+    DPRINTF(E_SPAM,L_PARSE,"Len: %d, in_string: %d\n",len,tree->in_string);
+
     if(!tree->in_string) {
         /* find it in the token list */
         pfield=sp_fields[tree->token_list];
-        DPRINTF(E_SPAM,L_PARSE,"Len is %d\n",len);
         while(pfield->name) {
+	    DPRINTF(E_SPAM,L_PARSE,"Comparing to %s\n",pfield->name);
             if(strlen(pfield->name) == len) {
                 if(strncasecmp(pfield->name,tree->current,len) == 0) {
-                    DPRINTF(E_DBG,L_PARSE,"%*s Returning token %04x (%s)\n",
-                            tree->level," ", tree->token.token_id,
-                            pfield->name);
                     found=1;
                     break;
                 }
@@ -555,13 +562,17 @@ int sp_scan(PARSETREE tree, int hint) {
     /* if we are in_string, and we have quoted strings, ensure we
      * have a quote */
 
-    is_qstr = (strstr(qstr,tree->current) != NULL);
-    if((!found) && strlen(qstr) && (!is_qstr) && (tree->in_string)) {
-        DPRINTF(E_INF,L_PARSE,"Missing closing quotes\n");
-        if(tree->token.token_id & 0x2000) {
-            free(tree->token.data.cvalue);
-        }
-        tree->token.token_id = T_ERROR;
+    is_qstr = (strchr(qstr,*tree->current) != NULL);
+    if((!found) && strlen(qstr) && (tree->in_string)) {
+	if(is_qstr) {
+	    tree->current++; /* absorb it */
+	} else {
+	    DPRINTF(E_INF,L_PARSE,"Missing closing quotes\n");
+	    if(tree->token.token_id & 0x2000) {
+		free(tree->token.data.cvalue);
+	    }
+	    tree->token.token_id = T_ERROR;
+	}
     }
 
     DPRINTF(E_DBG,L_PARSE,"%*s Returning token %04x\n",tree->level," ",
