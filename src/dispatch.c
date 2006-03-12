@@ -897,7 +897,7 @@ void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     tempstring=strdup(ws_getvar(pwsc,"dmap.itemid"));
     current=(unsigned char*)tempstring;
 
-    while((token=strsep((char**)&current,","))) {
+    while((token=strsep((char**)(char*)&current,","))) {
         if(token) {
             /* FIXME:  error handling */
             db_add_playlist_item(NULL,pqi->playlist_id,atoi(token));
@@ -968,7 +968,8 @@ void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     tempstring=strdup(ws_getvar(pwsc,"dmap.itemid"));
     current=(unsigned char *)tempstring;
 
-    while((token=strsep((char**)&current,","))) {
+    /* this looks strange, but gets rid of gcc 4 warnings */
+    while((token=strsep((char**)(char*)&current,","))) {
         if(token) {
             /* FIXME: Error handling */
             db_delete_playlist_item(NULL,pqi->playlist_id,atoi(token));
