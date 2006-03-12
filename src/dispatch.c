@@ -101,6 +101,12 @@ typedef struct tag_output_info {
  * do cleanup on the pqi structure... free any allocated memory, etc
  */
 void dispatch_cleanup(DBQUERYINFO *pqi) {
+    if(!pqi)
+        return;
+
+    if(pqi->output_info)
+        free(pqi->output_info);
+
     if(pqi->pt) {
         sp_dispose(pqi->pt);
     }
@@ -606,8 +612,6 @@ int dispatch_output_end(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
 
     config_set_status(pwsc,pqi->session_id,NULL);
-    free(poi);
-    free(pqi);
 
     return 0;
 }
