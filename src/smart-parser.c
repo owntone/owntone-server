@@ -535,7 +535,7 @@ int sp_scan(PARSETREE tree, int hint) {
                 tree->token.token_id = T_ERROR;
                 return T_ERROR;
             }
-	    tree->current++; /* absorb it*/
+            tree->current++; /* absorb it*/
         } else {
             if(is_qstr) {
                 tree->in_string = 1; /* guess we're in a string */

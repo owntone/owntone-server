@@ -51,7 +51,7 @@ static LL_HANDLE conf_main=NULL;
 static char *conf_main_file = NULL;
 static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define conf_LINEBUFFER 128
+#define CONF_LINEBUFFER 128
 
 #define CONF_T_INT          0
 #define CONF_T_STRING       1
@@ -229,11 +229,13 @@ int _conf_verify(LL_HANDLE pll) {
 int conf_read(char *file) {
     FILE *fin;
     int err;
-    LL_HANDLE pllnew, plltemp, pllcurrent;
-    char linebuffer[conf_LINEBUFFER+1];
+    LL_HANDLE pllnew, plltemp, pllcurrent, pllcomment;
+    char linebuffer[CONF_LINEBUFFER+1];
     char *comment, *term, *value, *delim;
+    char *running_comment=NULL;
     int compat_mode=1;
     int line=0;
+
 
     if(conf_main_file) {
         conf_close();
@@ -252,19 +254,21 @@ int conf_read(char *file) {
         return CONF_E_UNKNOWN;
     }
 
+    ll_create(&pllcomment);  /* don't care if we lose comments */
+    comment = NULL;
     pllcurrent=NULL;
 
     /* got what will be the root of the config tree, now start walking through
      * the input file, populating the tree
      */
-    while(fgets(linebuffer,conf_LINEBUFFER,fin)) {
+    while(fgets(linebuffer,CONF_LINEBUFFER,fin)) {
         line++;
-        linebuffer[conf_LINEBUFFER] = '\0';
+        linebuffer[CONF_LINEBUFFER] = '\0';
 
         comment=strchr(linebuffer,'#');
         if(comment) {
-            /* we should really preserve these in another tree*/
             *comment = '\0';
+            comment++;
         }
 
         while(strlen(linebuffer) && (strchr("\n\r ",linebuffer[strlen(linebuffer)-1])))
