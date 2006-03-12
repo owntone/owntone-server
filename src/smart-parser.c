@@ -23,6 +23,11 @@
 
 #include "err.h"
 
+#ifdef HAVE_SQL
+extern int db_sql_escape(char *buffer, int *size, char *fmt, ...);
+#endif
+
+
 typedef struct tag_token {
     int token_id;
     union {
@@ -197,7 +202,7 @@ typedef struct tag_fieldlookup {
 /* normal terminators, in-string terminators, escapes, quotes */
 char *sp_terminators[2][4] = {
     { " \t\n\r\"<>=()|&!", "\"","\"","\"" },
-    { "()'+: -,", "')", "\\*'","" }
+    { "()'+: -,", "'", "\\*'","" }
 };
 
 FIELDLOOKUP sp_symbols_0[] = {
@@ -465,6 +470,7 @@ int sp_scan(PARSETREE tree, int hint) {
     time_t tval;
     char *qstr;
     char *token_string;
+    char *dst, *src;
 
     if(tree->token.token_id & 0x2000) {
         if(tree->token.data.cvalue)
@@ -544,8 +550,10 @@ int sp_scan(PARSETREE tree, int hint) {
     /* walk to a terminator */
     tail = tree->current;
 
-    /* FIXME: escaped characters */
     while((*tail) && (!strchr(terminator,*tail))) {
+        /* skip escaped characters -- will be unescaped later */
+        if((*tail == '\\')&&(*(tail+1) != '\0'))
+            tail++;
         tail++;
     }
 
@@ -632,6 +640,19 @@ int sp_scan(PARSETREE tree, int hint) {
             }
             tree->token.token_id = T_ERROR;
         }
+    }
+
+    /* escape string */
+    if(tree->token.token_id == T_STRING) {
+        src = dst = tree->token.data.cvalue;
+        while(*src) {
+            if(*src != '\\') {
+                *dst++ = *src++;
+            } else {
+                src++;
+            }
+        }
+        *dst = '\0';
     }
 
     DPRINTF(E_DBG,L_PARSE,"%*s Returning token %04x\n",tree->level," ",
@@ -1304,6 +1325,7 @@ int sp_dispose(PARSETREE tree) {
     return 1;
 }
 
+#ifdef HAVE_SQL
 /**
  * calculate the size required to render the tree as a
  * sql query.
@@ -1313,6 +1335,7 @@ int sp_dispose(PARSETREE tree) {
  */
 int sp_node_size(SP_NODE *node) {
     int size;
+    int string_size;
 
     if(node->op_type == SP_OPTYPE_ANDOR) {
         size = sp_node_size(node->left.node);
@@ -1329,7 +1352,9 @@ int sp_node_size(SP_NODE *node) {
         }
 
         if(node->op_type == SP_OPTYPE_STRING) {
-            size += (2 + (int) strlen(node->right.cvalue));
+            string_size = 0;
+            db_sql_escape(NULL,&string_size,"%q",node->right.cvalue);
+            size += (2 + string_size);
             if(node->op == T_INCLUDES) {
                 size += 2; /* extra %'s */
             }
@@ -1358,6 +1383,7 @@ int sp_node_size(SP_NODE *node) {
  */
 void sp_serialize_sql(SP_NODE *node, char *string) {
     char buffer[40];
+    int size;
 
     if(node->op_type == SP_OPTYPE_ANDOR) {
         strcat(string,"(");
@@ -1379,7 +1405,15 @@ void sp_serialize_sql(SP_NODE *node, char *string) {
             strcat(string,"'");
             if((node->op == T_INCLUDES) || (node->op == T_ENDSWITH))
                 strcat(string,"%");
-            strcat(string,node->right.cvalue);
+            size = 0;
+            db_sql_escape(NULL,&size,"%q",node->right.cvalue);
+            
+            /* we don't have a way to verify we have that much 
+             * room, but we must... we allocated it earlier.
+             */
+            db_sql_escape(&string[strlen(string)],&size,"%q",node->right.cvalue);
+            
+//            strcat(string,node->right.cvalue);
             if((node->op == T_INCLUDES) || (node->op == T_STARTSWITH))
                 strcat(string,"%");
             strcat(string,"'");
@@ -1411,15 +1445,20 @@ char *sp_sql_clause(PARSETREE tree) {
     int size;
     char *sql;
 
+    DPRINTF(E_DBG,L_PARSE,"Fetching sql statement size\n");
     size = sp_node_size(tree->tree);
+    DPRINTF(E_DBG,L_PARSE,"Size: %d\n",size);
+
     sql = (char*)malloc(size+1);
 
     memset(sql,0x00,size+1);
     sp_serialize_sql(tree->tree,sql);
 
+    DPRINTF(E_DBG,L_PARSE,"Serialized to : %s\n",sql);
+
     return sql;
 }
-
+#endif /* HAVE_SQL */
 
 
 /**

@@ -45,7 +45,6 @@
 #ifdef HAVE_LIBSQLITE
 #include "db-sql-sqlite2.h"
 #endif
-
 #ifdef HAVE_LIBSQLITE3
 #include "db-sql-sqlite3.h"
 #endif
@@ -121,6 +120,38 @@ int db_sql_open_sqlite3(char **pe, char *parameters) {
     return db_sql_open(pe,parameters);
 }
 #endif
+
+/**
+ * escape a sql string, returning it the supplied buffer.
+ * note that this uses the sqlite escape format -- use %q for quoted
+ * sql.
+ * 
+ * @param buffer buffer to throw the escaped sql into
+ * @param size size of buffer (or size required, if DB_E_SIZE)
+ * @param fmt printf style format
+ * @returns DB_E_SUCCESS with buffer filled, or DB_E_SIZE, with size
+ * set to the required size
+ */
+int db_sql_escape(char *buffer, int *size, char *fmt, ...) {
+    va_list ap;
+    char *escaped;
+
+    va_start(ap,fmt);
+    escaped = db_sql_vmquery_fn(fmt,ap);
+    va_end(ap);
+
+    if(*size < (int)strlen(escaped)) {
+        *size = strlen(escaped) + 1;
+        db_sql_vmfree_fn(escaped);
+        return DB_E_SIZE;
+    }
+
+    strcpy(buffer,escaped);
+    *size = strlen(escaped);
+    db_sql_vmfree_fn(escaped);
+
+    return DB_E_SUCCESS;
+}
 
 
 /**
@@ -1050,8 +1081,8 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
 
     /* Apply the query/filter */
     if(pinfo->pt) {
+        DPRINTF(E_DBG,L_DB,"Got query/filter\n");
         filter = sp_sql_clause(pinfo->pt);
-
         if(filter) {
             if(have_clause) {
                 strcat(query_rest," and ");
@@ -1059,13 +1090,14 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
                 strcpy(query_rest," where ");
             }
             strcat(query_rest,"(");
-
             strcat(query_rest,filter);
             strcat(query_rest,")");
             free(filter);
         } else {
             DPRINTF(E_LOG,L_DB,"Error getting sql for parse tree\n");
         }
+    } else {
+        DPRINTF(E_DBG,L_DB,"No query/filter\n");
     }
 
     if(pinfo->index_type == indexTypeLast) {

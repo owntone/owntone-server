@@ -341,7 +341,8 @@ char *db_error_list[] = {
     "Invalid song id: %d",
     "Parse error: %s",
     "No backend database support for type: %s",
-    "Could not initialize thread pool"
+    "Could not initialize thread pool",
+    "Passed buffer too small for result"
 };
 
 /* Globals */

@@ -77,6 +77,7 @@ static DAAP_ITEMS *dispatch_xml_lookup_tag(char *tag);
 static char *dispatch_xml_encode(char *original, int len);
 static int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *block, int len);
 
+static void dispatch_cleanup(DBQUERYINFO *pqi);
 
 /**
  * Hold the inf for the output serializer
@@ -94,6 +95,17 @@ typedef struct tag_output_info {
     int stack_height;
     XML_STACK stack[10];
 } OUTPUT_INFO;
+
+
+/**
+ * do cleanup on the pqi structure... free any allocated memory, etc
+ */
+void dispatch_cleanup(DBQUERYINFO *pqi) {
+    if(pqi->pt) {
+        sp_dispose(pqi->pt);
+    }
+    free(pqi);
+}
 
 
 /**
@@ -157,12 +169,13 @@ void daap_handler(WS_CONNINFO *pwsc) {
     if(!query) query=ws_getvar(pwsc,"filter");
     if(query) {
         pqi->pt = sp_init();
-        if(!sp_parse(&pqi->pt,query,SP_TYPE_QUERY)) {
+        if(!sp_parse(pqi->pt,query,SP_TYPE_QUERY)) {
             DPRINTF(E_LOG,L_DAAP,"Ignoring bad query/filter (%s): %s\n",
                     query,sp_get_error(pqi->pt));
             sp_dispose(pqi->pt);
             pqi->pt = NULL;
         }
+        DPRINTF(E_DBG,L_DAAP,"Parsed query successfully\n");
     }
 
 
@@ -172,15 +185,6 @@ void daap_handler(WS_CONNINFO *pwsc) {
     ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
     ws_addresponseheader(pwsc,"Cache-Control","no-cache");  /* anti-ie defense */
     ws_addresponseheader(pwsc,"Expires","-1");
-
-    /* This we should put in a quirks file or something, but here might
-     * be a decent workaround for various failures on different clients */
-    /* nm... backing this out.  Really do need a "quirks" mode
-    pwsc->close=0;
-    if(ws_testrequestheader(pwsc,"Connection","Close")) {
-        pwsc->close = 1;
-    }
-    */
 
     if(ws_getvar(pwsc,"session-id"))
         pqi->session_id = atoi(ws_getvar(pwsc,"session-id"));
@@ -195,26 +199,31 @@ void daap_handler(WS_CONNINFO *pwsc) {
     /* Start dispatching */
     if(!strcasecmp(pqi->uri_sections[0],"server-info")) {
         dispatch_server_info(pwsc,pqi);
+        dispatch_cleanup(pqi);
         return;
     }
 
     if(!strcasecmp(pqi->uri_sections[0],"content-codes")) {
         dispatch_content_codes(pwsc,pqi);
+        dispatch_cleanup(pqi);
         return;
     }
 
     if(!strcasecmp(pqi->uri_sections[0],"login")) {
         dispatch_login(pwsc,pqi);
+        dispatch_cleanup(pqi);
         return;
     }
 
     if(!strcasecmp(pqi->uri_sections[0],"update")) {
         dispatch_update(pwsc,pqi);
+        dispatch_cleanup(pqi);
         return;
     }
 
     if(!strcasecmp(pqi->uri_sections[0],"logout")) {
         dispatch_logout(pwsc,pqi);
+        dispatch_cleanup(pqi);
         return;
     }
 
@@ -228,6 +237,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
     if(!strcasecmp(pqi->uri_sections[0],"databases")) {
         if(pqi->uri_count == 1) {
             dispatch_dbinfo(pwsc,pqi);
+            dispatch_cleanup(pqi);
             return;
         }
         pqi->db_id=atoi(pqi->uri_sections[1]);
@@ -235,16 +245,18 @@ void daap_handler(WS_CONNINFO *pwsc) {
             if(!strcasecmp(pqi->uri_sections[2],"items")) {
                 /* /databases/id/items */
                 dispatch_items(pwsc,pqi);
+                dispatch_cleanup(pqi);
                 return;
             }
             if(!strcasecmp(pqi->uri_sections[2],"containers")) {
                 /* /databases/id/containers */
                 dispatch_playlists(pwsc,pqi);
+                dispatch_cleanup(pqi);
                 return;
             }
 
             pwsc->close=1;
-            free(pqi);
+            dispatch_cleanup(pqi);
             ws_returnerror(pwsc,404,"Page not found");
             return;
         }
@@ -252,34 +264,39 @@ void daap_handler(WS_CONNINFO *pwsc) {
             if(!strcasecmp(pqi->uri_sections[2],"browse")) {
                 /* /databases/id/browse/something */
                 dispatch_browse(pwsc,pqi);
+                dispatch_cleanup(pqi);
                 return;
             }
             if(!strcasecmp(pqi->uri_sections[2],"items")) {
                 /* /databases/id/items/id.mp3 */
                 dispatch_stream(pwsc,pqi);
+                dispatch_cleanup(pqi);
                 return;
             }
             if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
                 (!strcasecmp(pqi->uri_sections[3],"add"))) {
                  /* /databases/id/containers/add */
                  dispatch_addplaylist(pwsc,pqi);
+                 dispatch_cleanup(pqi);
                  return;
             }
             if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
                 (!strcasecmp(pqi->uri_sections[3],"del"))) {
                  /* /databases/id/containers/del */
                 dispatch_deleteplaylist(pwsc,pqi);
+                dispatch_cleanup(pqi);
                 return;
             }
             if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
                 (!strcasecmp(pqi->uri_sections[3],"edit"))) {
                 /* /databases/id/contaienrs/edit */
                 dispatch_editplaylist(pwsc,pqi);
+                dispatch_cleanup(pqi);
                 return;
             }
 
             pwsc->close=1;
-            free(pqi);
+            dispatch_cleanup(pqi);
             ws_returnerror(pwsc,404,"Page not found");
             return;
         }
@@ -288,6 +305,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
                (!strcasecmp(pqi->uri_sections[4],"items"))) {
                 pqi->playlist_id=atoi(pqi->uri_sections[3]);
                 dispatch_playlistitems(pwsc,pqi);
+                dispatch_cleanup(pqi);
                 return;
             }
             if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
@@ -295,6 +313,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
                 /* /databases/id/containers/id/del */
                 pqi->playlist_id=atoi(pqi->uri_sections[3]);
                 dispatch_deleteplaylistitems(pwsc,pqi);
+                dispatch_cleanup(pqi);
                 return;
             }
         }
@@ -304,13 +323,14 @@ void daap_handler(WS_CONNINFO *pwsc) {
                (!strcasecmp(pqi->uri_sections[5],"add"))) {
                 pqi->playlist_id=atoi(pqi->uri_sections[3]);
                 dispatch_addplaylistitems(pwsc,pqi);
+                dispatch_cleanup(pqi);
                 return;
             }
         }
     }
 
     pwsc->close=1;
-    free(pqi);
+    dispatch_cleanup(pqi);
     ws_returnerror(pwsc,404,"Page not found");
     return;
 }

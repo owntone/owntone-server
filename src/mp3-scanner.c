@@ -203,7 +203,9 @@ void scan_process_playlistlist(void) {
         }
 
         if(strcasecmp(ext,".xml") == 0) {
-            scan_xml_playlist(pnext->path);
+            if(conf_get_int("scanning","process xml",1)) {
+                scan_xml_playlist(pnext->path);
+            }
         } else if(strcasecmp(ext,".m3u") == 0) {
             scan_static_playlist(pnext->path);
         } else {

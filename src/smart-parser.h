@@ -8,7 +8,7 @@
 typedef void* PARSETREE;
 
 extern PARSETREE sp_init(void);
-extern int sp_parse(PARSETREE *tree, char *term, int type);
+extern int sp_parse(PARSETREE tree, char *term, int type);
 extern int sp_dispose(PARSETREE tree);
 extern char *sp_get_error(PARSETREE tree);
 extern char *sp_sql_clause(PARSETREE tree);
