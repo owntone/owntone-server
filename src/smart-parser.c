@@ -529,6 +529,7 @@ int sp_scan(PARSETREE tree, int hint) {
                 tree->token.token_id = T_ERROR;
                 return T_ERROR;
             }
+	    tree->current++; /* absorb it*/
         } else {
             if(is_qstr) {
                 tree->in_string = 1; /* guess we're in a string */
@@ -820,7 +821,7 @@ SP_NODE *sp_parse_oexpr(PARSETREE tree) {
 /**
  * parse for an expression
  *
- * expr -> T_OPENPAREN oexpr T_CLOSEPAREN | criteria
+ * expr -> T_OPENPAREN phrase T_CLOSEPAREN | criteria
  *
  * @param tree tree we are building
  * @returns pointer to new SP_NODE if successful, NULL otherwise
