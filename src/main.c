@@ -196,6 +196,7 @@ int main(int argc, char *argv[]) {
     int force_non_root=0;
     int skip_initial=0;
     int size;
+    int convert_conf=0;
     char logfile[PATH_MAX];
     char db_type[40];
     char db_parms[PATH_MAX];
@@ -214,7 +215,7 @@ int main(int argc, char *argv[]) {
     err_setlevel(1);
 
     config.foreground=0;
-    while((option=getopt(argc,argv,"D:d:c:P:mfrysiu")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:mfrysiuv")) != -1) {
         switch(option) {
         case 'd':
             err_setlevel(atoi(optarg));
@@ -265,6 +266,9 @@ int main(int argc, char *argv[]) {
             exit(EXIT_SUCCESS);
             break;
 #endif
+        case 'v':
+            convert_conf=1;
+            break;
 
         default:
             usage(argv[0]);
@@ -273,7 +277,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if((getuid()) && (!force_non_root)) {
+    if((getuid()) && (!force_non_root) && (!convert_conf)) {
         fprintf(stderr,"You are not root.  This is almost certainly wrong.  If you are\n"
                 "sure you want to do this, use the -y command-line switch\n");
         exit(EXIT_FAILURE);
@@ -287,6 +291,15 @@ int main(int argc, char *argv[]) {
     if(conf_read(configfile) != CONF_E_SUCCESS) {
         fprintf(stderr,"Error reading config file (%s)\n",configfile);
         exit(EXIT_FAILURE);
+    }
+
+    if(convert_conf) {
+        fprintf(stderr,"Converting config file...\n");
+        if(!conf_write()) {
+            fprintf(stderr,"Error writing config file.\n");
+            exit(EXIT_FAILURE);
+        }
+        exit(EXIT_SUCCESS);
     }
 
     DPRINTF(E_LOG,L_MAIN,"Starting with debuglevel %d\n",err_getlevel());

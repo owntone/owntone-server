@@ -48,6 +48,8 @@
 /** Globals */
 //static int ecode;
 static LL_HANDLE conf_main=NULL;
+static LL_HANDLE conf_comments=NULL;
+
 static char *conf_main_file = NULL;
 static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -63,7 +65,7 @@ static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term);
 static int _conf_exists(LL_HANDLE pll, char *section, char *term);
 static void _conf_lock(void);
 static void _conf_unlock(void);
-static int _conf_write(FILE *fp, LL *pll, int sublevel);
+static int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent);
 
 typedef struct _CONF_ELEMENTS {
     int required;
@@ -193,9 +195,11 @@ int _conf_verify(LL_HANDLE pll) {
             }
         }
         if(pce->deprecated) {
-            DPRINTF(E_LOG,L_CONF,"Config entry %s/%s is deprecated.  Please "
-                "review the sample config\n",
-                pce->section, pce->term);
+            if(_conf_exists(pll,pce->section,pce->term)) {
+                DPRINTF(E_LOG,L_CONF,"Config entry %s/%s is deprecated.  Please "
+                        "review the sample config\n",
+                        pce->section, pce->term);
+            }
         }
         if(pce->type == CONF_T_EXISTPATH) {
             /* first, need to resolve */
@@ -231,11 +235,14 @@ int conf_read(char *file) {
     int err;
     LL_HANDLE pllnew, plltemp, pllcurrent, pllcomment;
     char linebuffer[CONF_LINEBUFFER+1];
+    char keybuffer[256];
     char *comment, *term, *value, *delim;
-    char *running_comment=NULL;
+    char *section_name=NULL;
+    char *prev_comments=NULL;
+    int prev_comment_length=20;
     int compat_mode=1;
     int line=0;
-
+    int ws=0;
 
     if(conf_main_file) {
         conf_close();
@@ -248,6 +255,9 @@ int conf_read(char *file) {
         return CONF_E_FOPEN;
     }
 
+    prev_comments = (char*)malloc(prev_comment_length);
+    prev_comments[0] = '\0';
+
     if((err=ll_create(&pllnew)) != LL_E_SUCCESS) {
         DPRINTF(E_LOG,L_CONF,"Error creating linked list: %d\n",err);
         fclose(fin);
@@ -255,6 +265,7 @@ int conf_read(char *file) {
     }
 
     ll_create(&pllcomment);  /* don't care if we lose comments */
+
     comment = NULL;
     pllcurrent=NULL;
 
@@ -264,6 +275,7 @@ int conf_read(char *file) {
     while(fgets(linebuffer,CONF_LINEBUFFER,fin)) {
         line++;
         linebuffer[CONF_LINEBUFFER] = '\0';
+        ws=0;
 
         comment=strchr(linebuffer,'#');
         if(comment) {
@@ -271,7 +283,8 @@ int conf_read(char *file) {
             comment++;
         }
 
-        while(strlen(linebuffer) && (strchr("\n\r ",linebuffer[strlen(linebuffer)-1])))
+        while(strlen(linebuffer) && 
+              (strchr("\n\r ",linebuffer[strlen(linebuffer)-1])))
             linebuffer[strlen(linebuffer)-1] = '\0';
 
         if(linebuffer[0] == '[') {
@@ -293,7 +306,27 @@ int conf_read(char *file) {
             }
 
             ll_add_ll(pllnew,term,plltemp);
+
+            /* set current section and name */
             pllcurrent = plltemp;
+            if(section_name)
+                free(section_name);
+            section_name = strdup(term);
+
+            /* set precomments */
+            if(prev_comments[0] != '\0') {
+                /* we had some preceding comments */
+                snprintf(keybuffer,sizeof(keybuffer),"pre_%s",section_name);
+                ll_add_string(pllcomment,keybuffer,prev_comments);
+                prev_comments[0] = '\0';
+            }
+            if(comment) {
+                /* we had some preceding comments */
+                snprintf(keybuffer,sizeof(keybuffer),"in_%s",section_name);
+                ll_add_string(pllcomment,keybuffer,comment);
+                prev_comments[0] = '\0';
+                comment = NULL;
+            }
         } else {
             /* k/v pair */
             term=&linebuffer[0];
@@ -311,28 +344,106 @@ int conf_read(char *file) {
 
             strsep(&value,delim);
             if((value) && (term) && (strlen(term))) {
+                while((strlen(term) && (strchr("\t ",term[strlen(term)-1]))))
+                      term[strlen(term)-1] = '\0';
                 while(strlen(value) && (strchr("\t ",*value)))
                     value++;
+                while((strlen(value) && (strchr("\t ",value[strlen(value)-1]))))
+                      value[strlen(value)-1] = '\0';
 
                 if(!pllcurrent) {
-                    /* we are definately in compat mode -- add a general section */
+                    /* in compat mode -- add a general section */
                     if((err=ll_create(&plltemp)) != LL_E_SUCCESS) {
-                        DPRINTF(E_LOG,L_CONF,"Error creating linked list: %d\n",err);
+                        DPRINTF(E_LOG,L_CONF,"Error creating list: %d\n",err);
                         ll_destroy(pllnew);
                         fclose(fin);
                         return CONF_E_UNKNOWN;
                     }
                     ll_add_ll(pllnew,"general",plltemp);
                     pllcurrent = plltemp;
+                    
+                    if(section_name) 
+                        free(section_name); /* shouldn't ahppen */
+                    section_name = strdup("general");
+
+                    /* no inline comments, just precomments */
+                    if(prev_comments[0] != '\0') {
+                        /* we had some preceding comments */
+                        ll_add_string(pllcomment,"pre_general",prev_comments);
+                        prev_comments[0] = '\0';
+                    }
+
                 }
                 ll_add_string(pllcurrent,term,value);
+
+                if(comment) {
+                    /* this is an inline comment */
+                    snprintf(keybuffer,sizeof(keybuffer),"in_%s_%s",
+                             section_name,term);
+                    DPRINTF(E_SPAM,L_CONF,"Adding %s: %s\n",keybuffer,comment);
+                    ll_add_string(pllcomment,keybuffer,comment);
+                    comment = NULL;
+                }
+
+                if(prev_comments[0] != '\0') {
+                    /* we had some preceding comments */
+                    snprintf(keybuffer,sizeof(keybuffer),"pre_%s_%s",
+                             section_name, term);
+                    DPRINTF(E_SPAM,L_CONF,"Adding %s: %s\n",keybuffer,
+                                prev_comments);
+                    ll_add_string(pllcomment,keybuffer,prev_comments);
+                    prev_comments[0] = '\0';
+                }
+            } else {
+                ws=1;
             }
+
             if(((term) && (strlen(term))) && (!value)) {
                 DPRINTF(E_LOG,L_CONF,"Error in config file on line %d\n",line);
                 ll_destroy(pllnew);
                 return CONF_E_PARSE;
             }
         }
+
+        if((comment)||(ws)) {
+            if(!comment)
+                comment = "";
+
+            DPRINTF(E_SPAM,L_CONF,"found comment: %s\n",comment);
+
+            /* add to prev comments */
+            if((int)strlen(comment) + 2 >= 
+               (prev_comment_length - (int)strlen(prev_comments))) {
+                /* need to expand the buffer */
+                if(prev_comment_length < 32768) {
+                    prev_comment_length *= 2;
+                    DPRINTF(E_SPAM,L_CONF,"Expanding precomments to %d\n",
+                            prev_comment_length);
+                    prev_comments=realloc(prev_comments,prev_comment_length);
+                    if(!prev_comments)
+                        DPRINTF(E_FATAL,L_CONF,"Malloc error\n");
+                }
+            }
+
+            if(strlen(comment)) {
+                strcat(prev_comments,"#");
+                strcat(prev_comments,comment);
+            } else {
+                strcat(prev_comments,"\n");
+            }
+
+            DPRINTF(E_SPAM,L_CONF,"Current comment block: \n%s\n",prev_comments);
+        }
+    }
+    
+    if(section_name)
+        free(section_name);
+   
+    if(prev_comments) {
+        if(prev_comments[0] != '\0') {
+            ll_add_string(pllcomment,"end",prev_comments);
+        }
+        free(prev_comments);
     }
 
     fclose(fin);
@@ -344,10 +455,17 @@ int conf_read(char *file) {
         if(conf_main) {
             ll_destroy(conf_main);
         }
+
+        if(conf_comments) {
+            ll_destroy(conf_comments);
+        }
+
         conf_main = pllnew;
+        conf_comments = pllcomment;
         _conf_unlock();
     } else {
         ll_destroy(pllnew);
+        ll_destroy(pllcomment);
         DPRINTF(E_LOG,L_CONF,"Could not validate config file.  Ignoring\n");
     }
 
@@ -361,6 +479,11 @@ int conf_close(void) {
     if(conf_main) {
         ll_destroy(conf_main);
         conf_main = NULL;
+    }
+
+    if(conf_comments) {
+        ll_destroy(conf_comments);
+        conf_comments = NULL;
     }
 
     if(conf_main_file) {
@@ -544,7 +667,7 @@ int conf_write(void) {
 
     _conf_lock();
     if((fp = fopen(conf_main_file,"w+")) != NULL) {
-        retval = _conf_write(fp,conf_main,0);
+        retval = _conf_write(fp,conf_main,0,NULL);
         fclose(fp);
     }
     _conf_unlock();
@@ -560,8 +683,10 @@ int conf_write(void) {
  * @param sublevel whether this is the root, or a subkey
  * @returns TRUE on success, FALSE otherwise
  */
-int _conf_write(FILE *fp, LL *pll, int sublevel) {
+int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
     LL_ITEM *pli;
+    LL_ITEM *ppre, *pin;
+    char keybuffer[256];
 
     if(!pll)
         return TRUE;
@@ -569,27 +694,65 @@ int _conf_write(FILE *fp, LL *pll, int sublevel) {
     /* write all the solo keys, first! */
     pli = pll->itemlist.next;
     while(pli) {
+        /* if there is a PRE there, then let's emit that*/
+        if(sublevel) {
+            snprintf(keybuffer,sizeof(keybuffer),"pre_%s_%s",parent,pli->key);
+            ppre=ll_fetch_item(conf_comments,keybuffer);
+            snprintf(keybuffer,sizeof(keybuffer),"in_%s_%s",parent,pli->key);
+            pin = ll_fetch_item(conf_comments,keybuffer);
+        } else {
+            snprintf(keybuffer,sizeof(keybuffer),"pre_%s",pli->key);
+            ppre=ll_fetch_item(conf_comments,keybuffer);
+            snprintf(keybuffer,sizeof(keybuffer),"in_%s",pli->key);
+            pin = ll_fetch_item(conf_comments,keybuffer);
+        }
+
+        if(ppre) {
+            fprintf(fp,"%s",ppre->value.as_string);
+        }
+
         switch(pli->type) {
         case LL_TYPE_LL:
             if(sublevel) {
                 /* something wrong! */
                 DPRINTF(E_LOG,L_CONF,"LL in sublevel: %s\n",pli->key);
             } else {
-                fprintf(fp,"[%s]\n",pli->key);
-                if(!_conf_write(fp, pli->value.as_ll, 1))
+                fprintf(fp,"[%s]",pli->key);
+                if(pin) {
+                    fprintf(fp," #%s",pin->value.as_string);
+                }
+                fprintf(fp,"\n");
+
+                if(!_conf_write(fp, pli->value.as_ll, 1, pli->key))
                    return FALSE;
             }
             break;
+
         case LL_TYPE_INT:
-            fprintf(fp,"%s=%d\n",pli->key,pli->value.as_int);
+            fprintf(fp,"%s = %d",pli->key,pli->value.as_int);
+            if(pin) {
+                fprintf(fp," #%s",pin->value.as_string);
+            }
+            fprintf(fp,"\n");
             break;
 
         case LL_TYPE_STRING:
-            fprintf(fp,"%s=%s\n",pli->key,pli->value.as_string);
+            fprintf(fp,"%s = %s",pli->key,pli->value.as_string);
+            if(pin) {
+                fprintf(fp," #%s",pin->value.as_string);
+            }
+            fprintf(fp,"\n");
             break;
         }
 
         pli = pli->next;
+    }
+
+    if(!sublevel) {
+        pin = ll_fetch_item(conf_comments,"end");
+        if(pin) {
+            fprintf(fp,"%s",pin->value.as_string);
+        }
     }
 
     return TRUE;
@@ -605,13 +768,13 @@ int _conf_write(FILE *fp, LL *pll, int sublevel) {
  */
 int conf_isset(char *section, char *key) {
     int retval = FALSE;
-
+    
     _conf_lock();
     if(_conf_fetch_item(conf_main,section,key)) {
         retval = TRUE;
     }
     _conf_unlock();
-
+    
     return retval;
 }
 
