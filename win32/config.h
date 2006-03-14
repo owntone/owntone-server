@@ -145,7 +145,10 @@
 /* Define to 1 if you can safely include both <sys/time.h> and <time.h>. */
 #define TIME_WITH_SYS_TIME 1
 
+/* */
+#define HAVE_SQL
+
 /* Version number of package */
-#define VERSION "cvs-win32-afu"
+#define VERSION "cvs-win32-20060313"
 
 #include "win32.h"

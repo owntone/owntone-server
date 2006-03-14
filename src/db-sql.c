@@ -141,13 +141,13 @@ int db_sql_escape(char *buffer, int *size, char *fmt, ...) {
     va_end(ap);
 
     if(*size < (int)strlen(escaped)) {
-        *size = strlen(escaped) + 1;
+        *size = (int)strlen(escaped) + 1;
         db_sql_vmfree_fn(escaped);
         return DB_E_SIZE;
     }
 
     strcpy(buffer,escaped);
-    *size = strlen(escaped);
+    *size = (int)strlen(escaped);
     db_sql_vmfree_fn(escaped);
 
     return DB_E_SUCCESS;

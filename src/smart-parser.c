@@ -587,7 +587,7 @@ int sp_scan(PARSETREE tree, int hint) {
         token_string=tree->current;
         if(found) {
             if(pfield->xlat) {
-                len = strlen(pfield->xlat);
+                len = (int)strlen(pfield->xlat);
                 token_string = pfield->xlat;
             }
         }
