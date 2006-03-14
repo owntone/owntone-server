@@ -233,26 +233,28 @@ DAAP_ITEMS taglist[] = {
 
     /* iTunes 5.0+ */
     { 0x01, "ascr", "daap.songcontentrating" },
-    { 0x05, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* wtf - content codes says it's 1 */
+    { 0x01, "f" "\x8d" "ch", "dmap.haschildcontainers" },
     
     /* iTunes 6.0.2+ */
     { 0x01, "aeHV", "com.apple.itunes.has-video" },
     
     /* iTunes 6.0.4+ */
-    /*
-      daap.songcategory
-      daap.songcontentdescription
-      daap.songkeywords
-      com.apple.itunes.is-podcast
-      com.apple.itunes.mediakind
-      com.apple.itunes.series-name
-      com.apple.itunes.network-name
-      com.apple.itunes.episode-num-str
-      com.apple.itunes.episode-sort
-      com.apple.itunes.season-num
-      com.apple.itunes.is-podcast-playlist
-    */
-
+    { 0x05, "msas", "dmap.authenticationschemes" },
+    { 0x09, "asct", "daap.songcategory" },
+    { 0x09, "ascn", "daap.songcontentdescription" },
+    { 0x09, "aslc", "daap.songlongcontentdescription" },
+    { 0x09, "asky", "daap.songkeywords" },
+    { 0x01, "apsm", "daap.playlistshufflemode" },
+    { 0x01, "aprm", "daap.playlistrepeatmode" },
+    { 0x01, "aePC", "com.apple.itunes.is-podcast" },
+    { 0x01, "aePP", "com.apple.itunes.is-podcast-playlist" },
+    { 0x01, "aeMK", "com.apple.itunes.mediakind" },
+    { 0x09, "aeSN", "com.apple.itunes.series-name" },
+    { 0x09, "aeNN", "com.apple.itunes.network-name" },
+    { 0x09, "aeEN", "com.apple.itunes.episode-num-str" },
+    { 0x05, "aeES", "com.apple.itunes.episode-sort" },
+    { 0x05, "aeSU", "com.apple.itunes.season-num" },
+    
     /* mt-daapd specific */
     { 0x09, "MSPS", "org.mt-daapd.smart-playlist-spec" },
     { 0x01, "MPTY", "org.mt-daapd.playlist-type" },

@@ -118,13 +118,30 @@ DAAP_ITEMS taglist[] = {
     { 0x05, "aeSI", "com.apple.iTunes.itms-songid" },
     { 0x05, "aeSF", "com.apple.iTunes.itms-storefrontid" },
 
-	/* iTunes 5.0+ */
-	{ 0x01, "ascr", "daap.songcontentrating" },
-	{ 0x05, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* wtf - content codes says it's 1 */
-	
-	/* iTunes 6.0.2+ */
-	{ 0x01, "aeHV", "com.apple.itunes.has-video" },
+    /* iTunes 5.0+ */
+    { 0x01, "ascr", "daap.songcontentrating" },
+    { 0x01, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* was 5? */
+    
+    /* iTunes 6.0.2+ */
+    { 0x01, "aeHV", "com.apple.itunes.has-video" },
 
+    /* iTunes 6.0.4+ */
+    { 0x05, "msas", "dmap.authenticationschemes" },
+    { 0x09, "asct", "daap.songcategory" },
+    { 0x09, "ascn", "daap.songcontentdescription" },
+    { 0x09, "aslc", "daap.songlongcontentdescription" },
+    { 0x09, "asky", "daap.songkeywords" },
+    { 0x01, "apsm", "daap.playlistshufflemode" },
+    { 0x01, "aprm", "daap.playlistrepeatmode" },
+    { 0x01, "aePC", "com.apple.itunes.is-podcast" },
+    { 0x01, "aePP", "com.apple.itunes.is-podcast-playlist" },
+    { 0x01, "aeMK", "com.apple.itunes.mediakind" },
+    { 0x09, "aeSN", "com.apple.itunes.series-name" },
+    { 0x09, "aeNN", "com.apple.itunes.network-name" },
+    { 0x09, "aeEN", "com.apple.itunes.episode-num-str" },
+    { 0x05, "aeES", "com.apple.itunes.episode-sort" },
+    { 0x05, "aeSU", "com.apple.itunes.season-num" },
+    
     /* mt-daapd specific */
     { 0x09, "MSPS", "org.mt-daapd.smart-playlist-spec" },
     { 0x01, "MPTY", "org.mt-daapd.playlist-type" },
@@ -140,13 +157,13 @@ int lookup_tag(char *tag, char *descr, int *type) {
     DAAP_ITEMS *current = taglist;
 
     while((current->tag) && (strcasecmp(current->tag,tag))) {
-	current++;
+        current++;
     }
 
     if(current->tag) {
-	strcpy(descr,current->description);
-	*type = current->type;
-	return 1;
+        strcpy(descr,current->description);
+        *type = current->type;
+        return 1;
     } 
 
     return 0;
@@ -163,125 +180,134 @@ int decode_tag(FILE *fout, char *current, int level, int len) {
     char templine[4096];
 
     while(len) {
-	memset(tag,0,sizeof(tag));
-	memcpy(tag,current,4);
-	current += 4;
-	len -= 4;
+        memset(tag,0,sizeof(tag));
+        memcpy(tag,current,4);
+        current += 4;
+        len -= 4;
 
-	memcpy((char*)&subtag_len,current,4);
-	current += 4;
-	len -= 4;
+        memcpy((char*)&subtag_len,current,4);
+        current += 4;
+        len -= 4;
 
-	if(lookup_tag(tag,descr,&type)) {
-	    memset(line,' ',sizeof(line));
-	    sprintf((char*)&line[level * 2],"%02x %s (%s) - ",
-		    type,tag,descr);
+        if(lookup_tag(tag,descr,&type)) {
+            memset(line,' ',sizeof(line));
+            sprintf((char*)&line[level * 2],"%02x %s (%s) - ",
+                    type,tag,descr);
 
-	    switch(type) {
-	    case 0x01: /* byte */
-	    case 0x02: /* unsigned byte */
-		if(subtag_len != 1) {
-		    printf("Foo!  %s should have tag len 1, has %d\n",
-			   tag,subtag_len);
-		    exit(EXIT_FAILURE);
-		}
-		sprintf(templine,"%02x (%d)\n",*((char*)current),(int)(*((char*)current)));
-		current += 1;
-		len -= 1;
-		break;
+            switch(type) {
+            case 0x01: /* byte */
+            case 0x02: /* unsigned byte */
+                if(subtag_len != 1) {
+                    printf("Foo!  %s should have tag len 1, has %d\n",
+                           tag,subtag_len);
+                    exit(EXIT_FAILURE);
+                }
+                sprintf(templine,"%02x (%d)\n",*((char*)current),(int)(*((char*)current)));
+                current += 1;
+                len -= 1;
+                break;
 
-	    case 0x03:
-		if(subtag_len != 2) {
-		    printf("Foo!  %s should have tag len 2, has %d\n",
-			   tag,subtag_len);
-		    exit(EXIT_FAILURE);
-		}
-		sprintf(templine,"%02x %d\n",*((short int*)current),(int)(*((short int *)current)));
-		current += 2;
-		len -= 2;
-		break;
-		
-		break;
+            case 0x03:
+                if(subtag_len != 2) {
+                    printf("Foo!  %s should have tag len 2, has %d\n",
+                           tag,subtag_len);
+                    exit(EXIT_FAILURE);
+                }
+                sprintf(templine,"%02x %d\n",*((short int*)current),(int)(*((short int *)current)));
+                current += 2;
+                len -= 2;
+                break;
+                
+                break;
 
-	    case 0x0A:
-	    case 0x05:
-		if(subtag_len != 4) {
-		    printf("Foo!  %s should have tag len 4, has %d\n",
-			   tag,subtag_len);
-		    exit(EXIT_FAILURE);
-		}
+            case 0x0A:
+            case 0x05:
+                if(subtag_len != 4) {
+                    printf("Foo!  %s should have tag len 4, has %d\n",
+                           tag,subtag_len);
+                    exit(EXIT_FAILURE);
+                }
 
-		sprintf(templine,"%04x (%d)\n",*((int*)current),*((int*)current));
-		current += 4;
-		len -= 4;
-		break;
+                if(strcmp(tag,"mcnm") == 0) {
+                    sprintf(templine,"%c%c%c%c (%04x)\n",
+                            *((char*)current),
+                            *((char*)current+1),
+                            *((char*)current+2),
+                            *((char*)current+3),
+                            *((int*)current));
+                } else {
+                    sprintf(templine,"%04x (%d)\n",*((int*)current),*((int*)current));
+                }
+                current += 4;
+                len -= 4;
+                break;
 
-	    case 0x07:
-		if(subtag_len != 8) {
-		    printf("Foo!  %s should have tag len 8, has %d\n",
-			   tag,subtag_len);
-		    exit(EXIT_FAILURE);
-		}
+            case 0x07:
+                if(subtag_len != 8) {
+                    printf("Foo!  %s should have tag len 8, has %d\n",
+                           tag,subtag_len);
+                    exit(EXIT_FAILURE);
+                }
 
-		sprintf(templine,"%04x%04x (%lu)\n",*((int*)current),*((int*)current+4),*((long long*)current));
-		current += 8;
-		len -= 8;
-		break;
+                sprintf(templine,"%04x%04x (%lu)\n",*((int*)current),*((int*)current+4),*((long long*)current));
+                current += 8;
+                len -= 8;
+                break;
 
-	    case 0x09:
-		if(subtag_len == 0) {
-		    strcpy(templine,"(empty)\n");
-		} else {
-		    memset(templine,0,sizeof(templine));
-		    memcpy(templine,current,subtag_len);
-		    strcat(templine,"\n");
-		}
-		current += subtag_len;
-		len -= subtag_len;
-		break;
+            case 0x09:
+                if(subtag_len == 0) {
+                    strcpy(templine,"(empty)\n");
+                } else {
+                    memset(templine,0,sizeof(templine));
+                    memcpy(templine,current,subtag_len);
+                    strcat(templine,"\n");
+                }
+                current += subtag_len;
+                len -= subtag_len;
+                break;
 
-	    case 0x0B:
-		if(subtag_len != 4) {
-		    printf("Foo!  %s should have tag len 4, has %d\n",
-			   tag,subtag_len);
-		    exit(EXIT_FAILURE);
-		}
+            case 0x0B:
+                if(subtag_len != 4) {
+                    printf("Foo!  %s should have tag len 4, has %d\n",
+                           tag,subtag_len);
+                    exit(EXIT_FAILURE);
+                }
 
-		tempint = *((int*)current);
-		sprintf(templine,"%d.%d\n",tempint >> 16 & 0xFFFF,
-			tempint & 0xFFFF);
+                tempint = *((int*)current);
+                sprintf(templine,"%d.%d\n",tempint >> 16 & 0xFFFF,
+                        tempint & 0xFFFF);
 
-		current += 4;
-		len -= 4;
-		break;
-		
-	    case 0x0C:
-		sprintf(templine,"<container>\n");
-		break;
+                current += 4;
+                len -= 4;
+                break;
+                
+            case 0x0C:
+                sprintf(templine,"<container>\n");
+                break;
 
-	    default:
-		printf("Foo!  Bad tag: type %d\n",type);
-		exit(EXIT_FAILURE);
-	    }
+            default:
+                printf("Foo!  Bad tag: type %d\n",type);
+                exit(EXIT_FAILURE);
+            }
 
 
-	    fprintf(fout,"%s%s",line,templine);
+            fprintf(fout,"%s%s",line,templine);
 
-	    if(type == 0x0c) {
-		if(decode_tag(fout, current,level+1,subtag_len)) {
-		    current += subtag_len;
-		    len -= subtag_len;
-		} else {
-		    return 0;
-		}
-	    }
-	} else {
-	    printf("Bad tag: %s (%02x%02x%02x%02x)\n",tag,(unsigned char)tag[0],(unsigned char)tag[1],
-	           (unsigned char)tag[2],(unsigned char)tag[3]);
-	    exit(EXIT_FAILURE);
-	    return 0;
-	}
-	
+            if(type == 0x0c) {
+                if(decode_tag(fout, current,level+1,subtag_len)) {
+                    current += subtag_len;
+                    len -= subtag_len;
+                } else {
+                    return 0;
+                }
+            }
+        } else {
+            printf("Bad tag: %s (%02x%02x%02x%02x)\n",tag,(unsigned char)tag[0],(unsigned char)tag[1],
+                   (unsigned char)tag[2],(unsigned char)tag[3]);
+            exit(EXIT_FAILURE);
+            return 0;
+        }
+        
     }
     
     return 1;
@@ -297,7 +323,7 @@ void decode_dmap(int conv, char *uncompressed, long uncompressed_size) {
     fout=fopen(buffer,"w");
 
     if(!decode_tag(fout,uncompressed,0,uncompressed_size)) {
-	printf("Foo!  All screwed up!\n");
+        printf("Foo!  All screwed up!\n");
     }
     fclose(fout);
 }
@@ -309,16 +335,16 @@ int readline(int fd, char *buffer) {
 
     current=buffer;
     while(read(fd,&inchar,1) == 1) {
-	switch(inchar) {
-	case '\r':
-	    break;
-	case '\n':
-	    *current='\0';
-	    return 0;
-	default:
-	    *current++ = inchar;
-	    break;
-	}
+        switch(inchar) {
+        case '\r':
+            break;
+        case '\n':
+            *current='\0';
+            return 0;
+        default:
+            *current++ = inchar;
+            break;
+        }
     }
 
     return -1;
@@ -352,148 +378,148 @@ int main(int argc, char *argv[]) {
     int dmap=0;
 
     while((option=getopt(argc, argv, "d")) != -1) {
-	switch(option) {
-	case 'd':
-	    dmap=1;
-	    break;
-	default:
-	    usage();
-	    break;
-	}
+        switch(option) {
+        case 'd':
+            dmap=1;
+            break;
+        default:
+            usage();
+            break;
+        }
     }
     
 
     if(optind == argc) {
-	usage();
+        usage();
     }
 
     fd=open(argv[optind],O_RDONLY);
     if(fd == -1) {
-	perror("open");
-	exit(EXIT_FAILURE);
+        perror("open");
+        exit(EXIT_FAILURE);
     }
 
     if(dmap) {
-	out=fdopen(STDOUT_FILENO,"w");
-	uncompressed_size=lseek(fd,0,SEEK_END);
-	lseek(fd,0,SEEK_SET);
-	uncompressed=(char*)malloc(uncompressed_size);
-	read(fd,uncompressed,uncompressed_size);
-	decode_tag(out,uncompressed,0,uncompressed_size);
-	exit(EXIT_SUCCESS);
+        out=fdopen(STDOUT_FILENO,"w");
+        uncompressed_size=lseek(fd,0,SEEK_END);
+        lseek(fd,0,SEEK_SET);
+        uncompressed=(char*)malloc(uncompressed_size);
+        read(fd,uncompressed,uncompressed_size);
+        decode_tag(out,uncompressed,0,uncompressed_size);
+        exit(EXIT_SUCCESS);
     }
 
 
     while(!done) {
-	/* read in the headers */
-	is_compressed=0;
-	printf("Reading headers for conv %d\n",conversation);
-	while(1) {
-	    if(readline(fd,buffer)) {
-		done=1;
-		break;
-	    }
-		
-	    printf("got %s\n",buffer);
-		
-	    if(!strlen(buffer)) 
-		break;
-		
-	    if(strncasecmp(buffer,"Content-Encoding:",17) == 0) {
-		loc=buffer+17;
-		while(*loc==' ') {
-		    loc++;
-		}
-		
-		if(strncasecmp(loc,"gzip",4) == 0) {
-		    is_compressed=1;
-		}
-	    }
-		
-	    if(strncasecmp(buffer,"Content-Length:",15) == 0) {
-		compressed_size=atol((char*)&buffer[15]);
-		printf("Size of conv %d is %d\n",conversation,compressed_size);
-	    }
-	}
-	    
-	if(done)
-	    break;
+        /* read in the headers */
+        is_compressed=0;
+        printf("Reading headers for conv %d\n",conversation);
+        while(1) {
+            if(readline(fd,buffer)) {
+                done=1;
+                break;
+            }
+                
+            printf("got %s\n",buffer);
+                
+            if(!strlen(buffer)) 
+                break;
+                
+            if(strncasecmp(buffer,"Content-Encoding:",17) == 0) {
+                loc=buffer+17;
+                while(*loc==' ') {
+                    loc++;
+                }
+                
+                if(strncasecmp(loc,"gzip",4) == 0) {
+                    is_compressed=1;
+                }
+            }
+                
+            if(strncasecmp(buffer,"Content-Length:",15) == 0) {
+                compressed_size=atol((char*)&buffer[15]);
+                printf("Size of conv %d is %d\n",conversation,compressed_size);
+            }
+        }
+            
+        if(done)
+            break;
 
-	printf("Headers complete for conversation %d\n",conversation);
-	printf("Flow %s compressed\n",is_compressed ? "IS" : "IS NOT");
-	    
-	uncompressed_size = 10 * compressed_size;
-	    
-	compressed=(char*)malloc(compressed_size);
-	uncompressed=(char*)malloc(uncompressed_size);
-	    
-	if((!compressed) || (!uncompressed)) {
-	    perror("malloc");
-	    exit(EXIT_FAILURE);
-	}
-	    
-	if(read(fd,compressed,compressed_size) != compressed_size) {
-	    perror("read");
-	    exit(EXIT_FAILURE);
-	}
-	    
-	/* dump the compressed data */
-	sprintf(file,"compressed.%d",conversation);
-	out_fd=open(file,O_CREAT | O_RDWR,0666);
-	if(out_fd == -1) {
-	    perror("open");
-	    exit(EXIT_FAILURE);
-	}
-	    
-	write(out_fd,compressed,compressed_size);
-	close(out_fd);
-	    
-	if(is_compressed) {
-	    sprintf(file,"/sw/bin/zcat compressed.%d",conversation);
-	    stream=popen(file,"r");
-	    if(!stream) {
-		perror("popen");
-		exit(EXIT_FAILURE);
-	    }
-		
-		
-	    err=fread(uncompressed,1,uncompressed_size,stream);
-	    if(err == -1) {
-		perror("fread");
-		exit(EXIT_FAILURE);
-	    }
-		
-	    if(err == uncompressed_size) {
-		printf("Error: buffer too small\n");
-		exit(EXIT_FAILURE);
-	    }
-		
-	    uncompressed_size = err;
-	    pclose(stream);
-	} else {
-	    uncompressed_size=compressed_size;
-	    memcpy(uncompressed,compressed,compressed_size);
-	}
+        printf("Headers complete for conversation %d\n",conversation);
+        printf("Flow %s compressed\n",is_compressed ? "IS" : "IS NOT");
+            
+        uncompressed_size = 10 * compressed_size;
+            
+        compressed=(char*)malloc(compressed_size);
+        uncompressed=(char*)malloc(uncompressed_size);
+            
+        if((!compressed) || (!uncompressed)) {
+            perror("malloc");
+            exit(EXIT_FAILURE);
+        }
+            
+        if(read(fd,compressed,compressed_size) != compressed_size) {
+            perror("read");
+            exit(EXIT_FAILURE);
+        }
+            
+        /* dump the compressed data */
+        sprintf(file,"compressed.%d",conversation);
+        out_fd=open(file,O_CREAT | O_RDWR,0666);
+        if(out_fd == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
+            
+        write(out_fd,compressed,compressed_size);
+        close(out_fd);
+            
+        if(is_compressed) {
+            sprintf(file,"/sw/bin/zcat compressed.%d",conversation);
+            stream=popen(file,"r");
+            if(!stream) {
+                perror("popen");
+                exit(EXIT_FAILURE);
+            }
+                
+                
+            err=fread(uncompressed,1,uncompressed_size,stream);
+            if(err == -1) {
+                perror("fread");
+                exit(EXIT_FAILURE);
+            }
+                
+            if(err == uncompressed_size) {
+                printf("Error: buffer too small\n");
+                exit(EXIT_FAILURE);
+            }
+                
+            uncompressed_size = err;
+            pclose(stream);
+        } else {
+            uncompressed_size=compressed_size;
+            memcpy(uncompressed,compressed,compressed_size);
+        }
 
-	/* dump the uncompressed data */
-	sprintf(file,"uncompressed.%d",conversation);
-	out_fd=open(file,O_CREAT | O_RDWR,0666);
-	if(out_fd == -1) {
-	    perror("open");
-	    exit(EXIT_FAILURE);
-	}
+        /* dump the uncompressed data */
+        sprintf(file,"uncompressed.%d",conversation);
+        out_fd=open(file,O_CREAT | O_RDWR,0666);
+        if(out_fd == -1) {
+            perror("open");
+            exit(EXIT_FAILURE);
+        }
 
-	write(out_fd,uncompressed,uncompressed_size);
-	close(out_fd);
+        write(out_fd,uncompressed,uncompressed_size);
+        close(out_fd);
 
-	printf("Uncompressed size: %d\n",uncompressed_size);
+        printf("Uncompressed size: %d\n",uncompressed_size);
 
-	/* now decode and print */
-	decode_dmap(conversation, uncompressed, uncompressed_size);
-	
-	free(compressed);
-	free(uncompressed);
-	conversation++;
+        /* now decode and print */
+        decode_dmap(conversation, uncompressed, uncompressed_size);
+        
+        free(compressed);
+        free(uncompressed);
+        conversation++;
     }
 
     printf("Done");
