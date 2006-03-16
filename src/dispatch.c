@@ -48,7 +48,6 @@
 #include "restart.h"
 #include "strtok_r.h"
 #include "daapd.h"
-#include "query.h"
 
 
 /* Forwards */
