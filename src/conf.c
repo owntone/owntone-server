@@ -239,8 +239,10 @@ int conf_read(char *file) {
     char *comment, *term, *value, *delim;
     char *section_name=NULL;
     char *prev_comments=NULL;
-    int prev_comment_length=20;
+    int total_comment_length=CONF_LINEBUFFER;
+    int current_comment_length=0;
     int compat_mode=1;
+    int warned_truncate=0;
     int line=0;
     int ws=0;
 
@@ -255,7 +257,9 @@ int conf_read(char *file) {
         return CONF_E_FOPEN;
     }
 
-    prev_comments = (char*)malloc(prev_comment_length);
+    prev_comments = (char*)malloc(total_comment_length);
+    if(!prev_comments) 
+        DPRINTF(E_FATAL,L_CONF,"Malloc error\n");
     prev_comments[0] = '\0';
 
     if((err=ll_create(&pllnew)) != LL_E_SUCCESS) {
@@ -319,12 +323,14 @@ int conf_read(char *file) {
                 snprintf(keybuffer,sizeof(keybuffer),"pre_%s",section_name);
                 ll_add_string(pllcomment,keybuffer,prev_comments);
                 prev_comments[0] = '\0';
+                current_comment_length=0;
             }
             if(comment) {
                 /* we had some preceding comments */
                 snprintf(keybuffer,sizeof(keybuffer),"in_%s",section_name);
                 ll_add_string(pllcomment,keybuffer,comment);
                 prev_comments[0] = '\0';
+                current_comment_length=0;
                 comment = NULL;
             }
         } else {
@@ -371,6 +377,7 @@ int conf_read(char *file) {
                         /* we had some preceding comments */
                         ll_add_string(pllcomment,"pre_general",prev_comments);
                         prev_comments[0] = '\0';
+                        current_comment_length=0;
                     }
 
                 }
@@ -393,6 +400,7 @@ int conf_read(char *file) {
                                 prev_comments);
                     ll_add_string(pllcomment,keybuffer,prev_comments);
                     prev_comments[0] = '\0';
+                    current_comment_length=0;
                 }
             } else {
                 ws=1;
@@ -412,24 +420,30 @@ int conf_read(char *file) {
             DPRINTF(E_SPAM,L_CONF,"found comment: %s\n",comment);
 
             /* add to prev comments */
-            if((int)strlen(comment) + 2 >= 
-               (prev_comment_length - (int)strlen(prev_comments))) {
-                /* need to expand the buffer */
-                if(prev_comment_length < 32768) {
-                    prev_comment_length *= 2;
-                    DPRINTF(E_SPAM,L_CONF,"Expanding precomments to %d\n",
-                            prev_comment_length);
-                    prev_comments=realloc(prev_comments,prev_comment_length);
-                    if(!prev_comments)
-                        DPRINTF(E_FATAL,L_CONF,"Malloc error\n");
-                }
+            while((current_comment_length + (int)strlen(comment) + 2 >=
+                   total_comment_length) && (total_comment_length < 32768)) {
+                total_comment_length *= 2;
+                DPRINTF(E_DBG,L_CONF,"Expanding precomments to %d\n",
+                        total_comment_length);
+                prev_comments=realloc(prev_comments,total_comment_length);
+                if(!prev_comments)
+                    DPRINTF(E_FATAL,L_CONF,"Malloc error\n");
             }
 
-            if(strlen(comment)) {
-                strcat(prev_comments,"#");
-                strcat(prev_comments,comment);
+            if(current_comment_length + (int)strlen(comment)+2 >=
+               total_comment_length) {
+                if(!warned_truncate)
+                    DPRINTF(E_LOG,L_CONF,"Truncating comments in config\n");
+                warned_truncate=1;
             } else {
-                strcat(prev_comments,"\n");
+                if(strlen(comment)) {
+                    strcat(prev_comments,"#");
+                    strcat(prev_comments,comment);
+                    current_comment_length += ((int) strlen(comment) + 1);
+                } else {
+                    strcat(prev_comments,"\n");
+                    current_comment_length += 2; /* windows, worst case */
+                }
             }
 
             DPRINTF(E_SPAM,L_CONF,"Current comment block: \n%s\n",prev_comments);
