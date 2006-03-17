@@ -125,6 +125,11 @@ int ll_add_ll(LL *pl, char *key, LL *pnew) {
 int _ll_add_item(LL *pl, char *key, void* vpval, int ival, int type) {
     LL_ITEM *pli;
 
+    if(!key) {
+        DPRINTF(E_LOG,L_MISC,"_ll_add_item: passed null key\n");
+        return LL_E_BADPARAM;
+    }
+
     if(pl->flags & LL_FLAG_NODUPS) {
         if(ll_fetch_item(pl,key))
             return LL_E_DUP;
@@ -146,6 +151,11 @@ int _ll_add_item(LL *pl, char *key, void* vpval, int ival, int type) {
         pli->value.as_ll = (LL *)vpval;
         break;
     case LL_TYPE_STRING:
+        if(!vpval) {
+            DPRINTF(E_LOG,L_MISC,"_ll_add_item: passed null value\n");
+            free(pli);
+            return LL_E_BADPARAM;
+        }
         pli->value.as_string = strdup((char*)vpval);
         break;
     default:

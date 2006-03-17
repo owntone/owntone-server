@@ -31,6 +31,7 @@
 #define LL_E_MALLOC    1
 #define LL_E_NOKEY     2
 #define LL_E_DUP       3
+#define LL_E_BADPARAM  4
 
 #define LL_FLAG_HONORCASE  1 /** Make keys case sensitive */
 #define LL_FLAG_HEADINSERT 2 /** Insert at head, rather than tail */
