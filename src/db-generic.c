@@ -918,7 +918,10 @@ int db_dmap_add_int(unsigned char *where, char *tag, int value) {
  */
 
 int db_dmap_add_string(unsigned char *where, char *tag, char *value) {
-    int len=(int)strlen(value);
+    int len=0;
+
+    if(value)
+        len = (int)strlen(value);
 
     /* tag */
     memcpy(where,tag,4);
@@ -929,8 +932,9 @@ int db_dmap_add_string(unsigned char *where, char *tag, char *value) {
     where[6]=(len >> 8) & 0xFF;
     where[7]=len & 0xFF;
 
-    strncpy((char*)where+8,value,strlen(value));
-    return 8 + (int) strlen(value);
+    if(len) 
+        strncpy((char*)where+8,value,len);
+    return 8 + len;
 }
 
 /**

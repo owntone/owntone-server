@@ -119,6 +119,7 @@ typedef struct tag_dbqueryinfo {
     QueryType_t query_type;
     IndexType_t index_type;
     MetaField_t meta;
+    int zero_length; /* emit zero-length strings? */
     int index_low;
     int index_high;
     int playlist_id;

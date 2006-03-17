@@ -168,6 +168,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
     }
 
     memset(pqi,0x00,sizeof(DBQUERYINFO));
+    pqi->zero_length = conf_get_int("daap","empty_strings",0);
 
     /* we could really pre-parse this to make sure it works */
     query=ws_getvar(pwsc,"query");
@@ -898,7 +899,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         }
     }
 
-    free(pqi);
+    //    free(pqi);
 }
 
 

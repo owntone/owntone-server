@@ -66,7 +66,9 @@ int db_sql_parse_smart(char **pe, char **clause, char *phrase);
 #define STR(a) (a) ? (a) : ""
 #define ISSTR(a) ((a) && strlen((a)))
 #define MAYBEFREE(a) { if((a)) free((a)); };
-
+#define DMAPLEN(a) (((a) && strlen(a)) ? (8+(int)strlen((a))) : \
+                                         ((pinfo->zero_length) ? 8 : 0))
+#define EMIT(a) (pinfo->zero_length ? 1 : ((a) && strlen((a))))
 
 /**
  * functions for the specific db backend
@@ -1248,7 +1250,7 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
     case queryTypeBrowseAlbums:
     case queryTypeBrowseGenres:
     case queryTypeBrowseComposers:
-        return valarray[0] ? (8 + (int) strlen(valarray[0])) : 0;
+        return DMAPLEN(valarray[0]);
     case queryTypePlaylists:
         size = 8;   /* mlit */
         size += 12; /* mimc - you get it whether you want it or not */
@@ -1288,15 +1290,15 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
         if(db_wantsmeta(pinfo->meta, metaSongDataKind))
             /* asdk */
             size += 9;
-        if(ISSTR(valarray[13]) && db_wantsmeta(pinfo->meta, metaSongDataURL))
+        if(db_wantsmeta(pinfo->meta, metaSongDataURL))
             /* asul */
-            size += (8 + (int) strlen(valarray[13]));
-        if(ISSTR(valarray[5]) && db_wantsmeta(pinfo->meta, metaSongAlbum))
+            size += DMAPLEN(valarray[13]);
+        if(db_wantsmeta(pinfo->meta, metaSongAlbum))
             /* asal */
-            size += (8 + (int) strlen(valarray[5]));
-        if(ISSTR(valarray[4]) && db_wantsmeta(pinfo->meta, metaSongArtist))
+            size += DMAPLEN(valarray[5]);
+        if(db_wantsmeta(pinfo->meta, metaSongArtist))
             /* asar */
-            size += (8 + (int) strlen(valarray[4]));
+            size += DMAPLEN(valarray[4]);
         if(valarray[23] && atoi(valarray[23]) && db_wantsmeta(pinfo->meta, metaSongBPM))
             /* asbt */
             size += 10;
@@ -1310,18 +1312,18 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
                     size += 10;
             }
         }
-        if(ISSTR(valarray[7]) && db_wantsmeta(pinfo->meta, metaSongComment))
+        if(db_wantsmeta(pinfo->meta, metaSongComment))
             /* ascm */
-            size += (8 + (int) strlen(valarray[7]));
+            size += DMAPLEN(valarray[7]);
         if(valarray[24] && atoi(valarray[24]) && db_wantsmeta(pinfo->meta,metaSongCompilation))
             /* asco */
             size += 9;
-        if(ISSTR(valarray[9]) && db_wantsmeta(pinfo->meta, metaSongComposer))
+        if(db_wantsmeta(pinfo->meta, metaSongComposer))
             /* ascp */
-            size += (8 + (int) strlen(valarray[9]));
-        if(ISSTR(valarray[12]) && db_wantsmeta(pinfo->meta, metaSongGrouping))
+            size += DMAPLEN(valarray[9]);
+        if(db_wantsmeta(pinfo->meta, metaSongGrouping))
             /* agrp */
-            size += (8 + (int) strlen(valarray[12]));
+            size += DMAPLEN(valarray[12]);
         if(valarray[30] && atoi(valarray[30]) && db_wantsmeta(pinfo->meta, metaSongDateAdded))
             /* asda */
             size += 12;
@@ -1332,33 +1334,33 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
             /* asdc */
             size += 10;
         if(valarray[21] && atoi(valarray[21]) && db_wantsmeta(pinfo->meta, metaSongDiscNumber))
-                size += 10;
-                /* asdn */
-        if(ISSTR(valarray[6]) && db_wantsmeta(pinfo->meta, metaSongGenre))
+            /* asdn */
+            size += 10;
+        if(db_wantsmeta(pinfo->meta, metaSongGenre))
             /* asgn */
-            size += (8 + (int) strlen(valarray[6]));
+            size += DMAPLEN(valarray[6]);
         if(db_wantsmeta(pinfo->meta,metaItemId))
             /* miid */
             size += 12;
-        if(ISSTR(valarray[8]) && db_wantsmeta(pinfo->meta,metaSongFormat)) {
+        if(db_wantsmeta(pinfo->meta,metaSongFormat)) {
             /* asfm */
             if(transcode) {
                 size += 11;   /* 'wav' */
             } else {
-                size += (8 + (int) strlen(valarray[8]));
+                size += DMAPLEN(valarray[8]);
             }
         }
-        if(ISSTR(valarray[29]) && db_wantsmeta(pinfo->meta,metaSongDescription)) {
+        if(db_wantsmeta(pinfo->meta,metaSongDescription)) {
             /* asdt */
             if(transcode) {
                 size += 22;  /* 'wav audio file' */
             } else {
-                size += (8 + (int) strlen(valarray[29]));
+                size += DMAPLEN(valarray[29]);
             }
         }
-        if(ISSTR(valarray[3]) && db_wantsmeta(pinfo->meta,metaItemName))
+        if(db_wantsmeta(pinfo->meta,metaItemName))
             /* minm */
-            size += (8 + (int) strlen(valarray[3]));
+            size += DMAPLEN(valarray[3]);
         if(valarray[34] && atoi(valarray[34]) && db_wantsmeta(pinfo->meta,metaSongDisabled))
             /* asdb */
             size += 9;
@@ -1400,8 +1402,8 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
             /* ascr */
             size += 9;
         if(db_wantsmeta(pinfo->meta,metaItunesHasVideo))
-                /* aeHV */
-                size += 9;
+            /* aeHV */
+            size += 9;
 
         return size;
         break;
@@ -1461,11 +1463,11 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
             current += db_dmap_add_char(current,"mikd",(char)atoi(valarray[28]));
         if(db_wantsmeta(pinfo->meta, metaSongDataKind))
             current += db_dmap_add_char(current,"asdk",(char)atoi(valarray[27]));
-        if(ISSTR(valarray[13]) && db_wantsmeta(pinfo->meta, metaSongDataURL))
+        if(EMIT(valarray[13]) && db_wantsmeta(pinfo->meta, metaSongDataURL))
             current += db_dmap_add_string(current,"asul",valarray[13]);
-        if(ISSTR(valarray[5]) && db_wantsmeta(pinfo->meta, metaSongAlbum))
+        if(EMIT(valarray[5]) && db_wantsmeta(pinfo->meta, metaSongAlbum))
             current += db_dmap_add_string(current,"asal",valarray[5]);
-        if(ISSTR(valarray[4]) && db_wantsmeta(pinfo->meta, metaSongArtist))
+        if(EMIT(valarray[4]) && db_wantsmeta(pinfo->meta, metaSongArtist))
             current += db_dmap_add_string(current,"asar",valarray[4]);
         if(valarray[23] && atoi(valarray[23]) && db_wantsmeta(pinfo->meta, metaSongBPM))
             current += db_dmap_add_short(current,"asbt",(short)atoi(valarray[23]));
@@ -1480,13 +1482,13 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
                 current += db_dmap_add_short(current,"asbr",(short)atoi(valarray[14]));
             }
         }
-        if(ISSTR(valarray[7]) && db_wantsmeta(pinfo->meta, metaSongComment))
+        if(EMIT(valarray[7]) && db_wantsmeta(pinfo->meta, metaSongComment))
             current += db_dmap_add_string(current,"ascm",valarray[7]);
         if(valarray[24] && atoi(valarray[24]) && db_wantsmeta(pinfo->meta,metaSongCompilation))
             current += db_dmap_add_char(current,"asco",(char)atoi(valarray[24]));
-        if(ISSTR(valarray[9]) && db_wantsmeta(pinfo->meta, metaSongComposer))
+        if(EMIT(valarray[9]) && db_wantsmeta(pinfo->meta, metaSongComposer))
             current += db_dmap_add_string(current,"ascp",valarray[9]);
-        if(ISSTR(valarray[12]) && db_wantsmeta(pinfo->meta, metaSongGrouping))
+        if(EMIT(valarray[12]) && db_wantsmeta(pinfo->meta, metaSongGrouping))
             current += db_dmap_add_string(current,"agrp",valarray[12]);
         if(valarray[30] && atoi(valarray[30]) && db_wantsmeta(pinfo->meta, metaSongDateAdded))
             current += db_dmap_add_int(current,"asda",(int)atoi(valarray[30]));
@@ -1496,25 +1498,25 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
             current += db_dmap_add_short(current,"asdc",(short)atoi(valarray[22]));
         if(valarray[21] && atoi(valarray[21]) && db_wantsmeta(pinfo->meta, metaSongDiscNumber))
             current += db_dmap_add_short(current,"asdn",(short)atoi(valarray[21]));
-        if(ISSTR(valarray[6]) && db_wantsmeta(pinfo->meta, metaSongGenre))
+        if(EMIT(valarray[6]) && db_wantsmeta(pinfo->meta, metaSongGenre))
             current += db_dmap_add_string(current,"asgn",valarray[6]);
         if(db_wantsmeta(pinfo->meta,metaItemId))
             current += db_dmap_add_int(current,"miid",(int)atoi(valarray[0]));
-        if(ISSTR(valarray[8]) && db_wantsmeta(pinfo->meta,metaSongFormat)) {
+        if(EMIT(valarray[8]) && db_wantsmeta(pinfo->meta,metaSongFormat)) {
             if(transcode) {
                 current += db_dmap_add_string(current,"asfm","wav");
             } else {
                 current += db_dmap_add_string(current,"asfm",valarray[8]);
             }
         }
-        if(ISSTR(valarray[29]) && db_wantsmeta(pinfo->meta,metaSongDescription)) {
+        if(EMIT(valarray[29]) && db_wantsmeta(pinfo->meta,metaSongDescription)) {
             if(transcode) {
                 current += db_dmap_add_string(current,"asdt","wav audio file");
             } else {
                 current += db_dmap_add_string(current,"asdt",valarray[29]);
             }
         }
-        if(ISSTR(valarray[3]) && db_wantsmeta(pinfo->meta,metaItemName))
+        if(EMIT(valarray[3]) && db_wantsmeta(pinfo->meta,metaItemName))
             current += db_dmap_add_string(current,"minm",valarray[3]);
         if(valarray[34] && atoi(valarray[34]) && db_wantsmeta(pinfo->meta,metaSongDisabled))
             current += db_dmap_add_char(current,"asdb",(char)atoi(valarray[34]));
@@ -1532,7 +1534,7 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
             current += db_dmap_add_char(current,"asur",(char)atoi(valarray[25]));
         if(valarray[18] && atoi(valarray[18]) && db_wantsmeta(pinfo->meta, metaSongYear))
             current += db_dmap_add_short(current,"asyr",(short)atoi(valarray[18]));
-        if(ISSTR(valarray[37]) && db_wantsmeta(pinfo->meta, metaSongCodecType))
+        if(EMIT(valarray[37]) && db_wantsmeta(pinfo->meta, metaSongCodecType))
             current += db_dmap_add_literal(current,"ascd",valarray[37],4);
         if(db_wantsmeta(pinfo->meta, metaContainerItemId))
             current += db_dmap_add_int(current,"mcti",atoi(valarray[0]));
