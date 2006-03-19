@@ -28,7 +28,9 @@ int main(int argc, char *argv[]) {
     int size;
     int err;
     char *perr;
-    
+
+    err_setdebugmask("parser");
+
     while((option = getopt(argc, argv, "d:t:c:")) != -1) {
         switch(option) {
         case 'c':
