@@ -1250,7 +1250,7 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
     case queryTypeBrowseAlbums:
     case queryTypeBrowseGenres:
     case queryTypeBrowseComposers:
-        return DMAPLEN(valarray[0]);
+	return valarray[0] ? (8 + (int) strlen(valarray[0])) : 0;
     case queryTypePlaylists:
         size = 8;   /* mlit */
         size += 12; /* mimc - you get it whether you want it or not */
