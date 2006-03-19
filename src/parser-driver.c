@@ -29,8 +29,6 @@ int main(int argc, char *argv[]) {
     int err;
     char *perr;
 
-    err_setdebugmask("parser");
-
     while((option = getopt(argc, argv, "d:t:c:")) != -1) {
         switch(option) {
         case 'c':
@@ -47,6 +45,8 @@ int main(int argc, char *argv[]) {
             usage();
         }
     }
+
+    err_setdebugmask("parse");
 
     if(conf_read(configfile) != CONF_E_SUCCESS) {
         fprintf(stderr,"could not read config file: %s\n",configfile);

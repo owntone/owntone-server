@@ -1137,7 +1137,7 @@ SP_NODE *sp_parse_date_criterion(PARSETREE tree) {
     }
 
     if(result) {
-        sp_scan(tree,SP_HINT_DATE);
+        sp_scan(tree,SP_HINT_NONE);
         /* should be sitting on a date */
         if((pnew->right.tvalue = sp_parse_date(tree))) {
             result=1;
