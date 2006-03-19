@@ -545,6 +545,8 @@ void scan_music_file(char *path, struct dirent *pde,
 
     /* Do the tag lookup here */
     if(scan_get_info(mp3file.path,&mp3file)) {
+        if(is_compdir)
+            mp3file.compilation = 1;
         make_composite_tags(&mp3file);
         /* fill in the time_added.  I'm not sure of the logic in this.
            My thinking is to use time created, but what is that?  Best
@@ -558,9 +560,6 @@ void scan_music_file(char *path, struct dirent *pde,
         DPRINTF(E_DBG,L_SCAN," Date Added: %d\n",mp3file.time_added);
 
         DPRINTF(E_DBG,L_SCAN," Codec: %s\n",mp3file.codectype);
-
-        if(is_compdir)
-            mp3file.compilation = 1;
 
         /* FIXME: error handling */
         db_add(NULL,&mp3file,NULL);
@@ -645,8 +644,6 @@ int scan_get_info(char *file, MP3FILE *pmp3) {
     return TRUE;
 }
 
-
-
 /**
  * Manually build tags.  Set artist to computer/orchestra
  * if there is already no artist.  Perhaps this could be
@@ -657,47 +654,51 @@ int scan_get_info(char *file, MP3FILE *pmp3) {
 void make_composite_tags(MP3FILE *song) {
     int len;
     char *ptmp;
+    char *sep = " - ";
+    char *va_artist = "Various Artists";
 
-    len=0;
-
-    if(!song->artist && (song->orchestra || song->conductor)) {
-        if(song->orchestra)
-            len += (int) strlen(song->orchestra);
-        if(song->conductor)
-            len += (int) strlen(song->conductor);
-
-        len += 3;
-
-        song->artist=(char*)calloc(len, 1);
-        if(song->artist) {
-            if(song->orchestra)
-                strcat(song->artist,song->orchestra);
-
-            if(song->orchestra && song->conductor)
-                strcat(song->artist," - ");
-
-            if(song->conductor)
-                strcat(song->artist,song->conductor);
+    if(!song->artist) {
+        if (song->orchestra && song->conductor) {
+            len = (int)strlen(song->orchestra) + 
+                  (int)strlen(sep) +
+                  (int)strlen(song->conductor);
+            ptmp = (char*)malloc(len + 1);
+            if(ptmp) {
+                sprintf(ptmp,"%s%s%s",song->orchestra, sep, song->conductor);
+                song->artist = ptmp;
+            }
+        } else if(song->orchestra) {
+            song->artist = strdup(song->orchestra);
+        } else if (song->conductor) {
+            song->artist = strdup(song->conductor);
         }
     }
 
-    if((conf_get_int("scanning","concat compilations",0)) && 
-       song->artist &&
-       song->title) {
-        len = (int)strlen(song->artist) + (int)strlen(song->title);
-        ptmp = (char*)malloc(len + 4);
+    if(song->compilation && song->artist && song->title &&
+       (conf_get_int("scanning","concat compilations",0))) {
+        len = (int)strlen(song->artist) +
+              (int)strlen(sep) +
+              (int)strlen(song->title);
+        ptmp = (char*)malloc(len + 1);
         if(ptmp) {
-            sprintf(ptmp,"%s - %s",song->artist, song->title);
+            sprintf(ptmp,"%s%s%s",song->artist, sep, song->title);
             free(song->title);
             song->title = ptmp;
+    
+            if(va_artist) {
+                ptmp = strdup(va_artist);
+                if(ptmp) {
+                    free(song->artist);
+                    song->artist = ptmp;
+                }
+            }
         }
     }
-
-    if(song->url) {
+    
+    if(song->url)
         song->data_kind=1;
-    } else {
+    else
         song->data_kind=0;
-    }
 
     if(!song->title)
         song->title = strdup(song->fname);
