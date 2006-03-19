@@ -57,15 +57,8 @@ static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define CONF_T_INT          0
 #define CONF_T_STRING       1
-#define CONF_T_EXISTPATH    2
-
-/** Forwards */
-static int _conf_verify(LL_HANDLE pll);
-static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term);
-static int _conf_exists(LL_HANDLE pll, char *section, char *term);
-static void _conf_lock(void);
-static void _conf_unlock(void);
-static int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent);
+#define CONF_T_EXISTPATH    2  /** a path that must exist */
+#define CONF_T_MULTICOMMA   3  /** multiple entries separated by commas */
 
 typedef struct _CONF_ELEMENTS {
     int required;
@@ -74,6 +67,15 @@ typedef struct _CONF_ELEMENTS {
     char *section;
     char *term;
 } CONF_ELEMENTS;
+
+/** Forwards */
+static int _conf_verify(LL_HANDLE pll);
+static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term);
+static int _conf_exists(LL_HANDLE pll, char *section, char *term);
+static void _conf_lock(void);
+static void _conf_unlock(void);
+static int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent);
+static CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key);
 
 static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","runas" },
@@ -98,10 +100,39 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_STRING,"general","ssc_codectypes" },
     { 0, 0, CONF_T_STRING,"general","ssc_prog" },
     { 0, 0, CONF_T_STRING,"general","password" },
-    { 0, 0, CONF_T_STRING,"general","compdirs" },
+    { 0, 0, CONF_T_MULTICOMMA,"general","compdirs" },
     { 0, 0, CONF_T_STRING,"general","logfile" },
     { 0, 0, CONF_T_INT, NULL, NULL }
 };
+
+
+/**
+ * given a section and key, get the conf_element for it.
+ * right now this is simple, but eventually there might
+ * be more difficult mateches to be made
+ *
+ * @param section section the key was found ind
+ * @param key key we are searching for info on
+ * @returns the CONF_ELEMENT that is the closest match, or
+ *          NULL if no match was found.
+ */
+CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key) {
+    CONF_ELEMENTS *pcurrent;
+    int found=0;
+
+    pcurrent = &conf_elements[0];
+    while(pcurrent->section && pcurrent->term) {
+	if((strcasecmp(section,pcurrent->section) != 0) ||
+	   (strcasecmp(key,pcurrent->term) != 0)) {
+	    pcurrent++;
+	} else {
+	    found = 1;
+	    break;
+	}
+    }
+
+    return found ? pcurrent : NULL;
+}
 
 /**
  * lock the conf mutex
@@ -245,6 +276,8 @@ int conf_read(char *file) {
     int warned_truncate=0;
     int line=0;
     int ws=0;
+    CONF_ELEMENTS *pce;
+    int key_type;
 
     if(conf_main_file) {
         conf_close();
@@ -381,7 +414,24 @@ int conf_read(char *file) {
                     }
 
                 }
-                ll_add_string(pllcurrent,term,value);
+
+		/* see what kind this is, and act accordingly */
+		pce = _conf_get_keyinfo(section_name,term);
+		key_type = CONF_T_STRING;
+		if(pce)
+		    key_type = pce->type;
+
+		switch(key_type) {
+		case CONF_T_MULTICOMMA:
+		    break;
+		case CONF_T_INT:
+		case CONF_T_STRING:
+		case CONF_T_EXISTPATH:
+		default:
+		    ll_add_string(pllcurrent,term,value);
+		    break;
+		}
+
 
                 if(comment) {
                     /* this is an inline comment */
