@@ -122,13 +122,13 @@ CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key) {
 
     pcurrent = &conf_elements[0];
     while(pcurrent->section && pcurrent->term) {
-	if((strcasecmp(section,pcurrent->section) != 0) ||
-	   (strcasecmp(key,pcurrent->term) != 0)) {
-	    pcurrent++;
-	} else {
-	    found = 1;
-	    break;
-	}
+        if((strcasecmp(section,pcurrent->section) != 0) ||
+           (strcasecmp(key,pcurrent->term) != 0)) {
+            pcurrent++;
+        } else {
+            found = 1;
+            break;
+        }
     }
 
     return found ? pcurrent : NULL;
@@ -291,7 +291,7 @@ int conf_read(char *file) {
     }
 
     prev_comments = (char*)malloc(total_comment_length);
-    if(!prev_comments) 
+    if(!prev_comments)
         DPRINTF(E_FATAL,L_CONF,"Malloc error\n");
     prev_comments[0] = '\0';
 
@@ -320,7 +320,7 @@ int conf_read(char *file) {
             comment++;
         }
 
-        while(strlen(linebuffer) && 
+        while(strlen(linebuffer) &&
               (strchr("\n\r ",linebuffer[strlen(linebuffer)-1])))
             linebuffer[strlen(linebuffer)-1] = '\0';
 
@@ -400,8 +400,8 @@ int conf_read(char *file) {
                     }
                     ll_add_ll(pllnew,"general",plltemp);
                     pllcurrent = plltemp;
-                    
-                    if(section_name) 
+
+                    if(section_name)
                         free(section_name); /* shouldn't ahppen */
                     section_name = strdup("general");
 
@@ -415,22 +415,22 @@ int conf_read(char *file) {
 
                 }
 
-		/* see what kind this is, and act accordingly */
-		pce = _conf_get_keyinfo(section_name,term);
-		key_type = CONF_T_STRING;
-		if(pce)
-		    key_type = pce->type;
+                /* see what kind this is, and act accordingly */
+                pce = _conf_get_keyinfo(section_name,term);
+                key_type = CONF_T_STRING;
+                if(pce)
+                    key_type = pce->type;
 
-		switch(key_type) {
-		case CONF_T_MULTICOMMA:
-		    break;
-		case CONF_T_INT:
-		case CONF_T_STRING:
-		case CONF_T_EXISTPATH:
-		default:
-		    ll_add_string(pllcurrent,term,value);
-		    break;
-		}
+                switch(key_type) {
+                case CONF_T_MULTICOMMA:
+                    break;
+                case CONF_T_INT:
+                case CONF_T_STRING:
+                case CONF_T_EXISTPATH:
+                default:
+                    ll_add_string(pllcurrent,term,value);
+                    break;
+                }
 
 
                 if(comment) {
@@ -499,10 +499,10 @@ int conf_read(char *file) {
             DPRINTF(E_SPAM,L_CONF,"Current comment block: \n%s\n",prev_comments);
         }
     }
-    
+
     if(section_name)
         free(section_name);
-   
+
     if(prev_comments) {
         if(prev_comments[0] != '\0') {
             ll_add_string(pllcomment,"end",prev_comments);
@@ -832,14 +832,62 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
  */
 int conf_isset(char *section, char *key) {
     int retval = FALSE;
-    
+
     _conf_lock();
     if(_conf_fetch_item(conf_main,section,key)) {
         retval = TRUE;
     }
     _conf_unlock();
-    
+
     return retval;
 }
 
+/**
+ * split a string on delimiter boundaries, filling
+ * a string-pointer array.
+ *
+ * The user must free both the first element in the array,
+ * and the array itself.
+ *
+ * @param s string to split
+ * @param delimiters boundaries to split on
+ * @param argvp an argv array to be filled
+ * @returns number of tokens
+ */
+int _conf_split(char *s, char *delimiters, char ***argvp) {
+    int i;
+    int numtokens;
+    const char *snew;
+    char *t;
+    char *tokptr;
 
+    if ((s == NULL) || (delimiters == NULL) || (argvp == NULL))
+        return -1;
+    *argvp = NULL;
+    snew = s + strspn(s, delimiters);
+    if ((t = malloc(strlen(snew) + 1)) == NULL)
+        return -1;
+
+    strcpy(t, snew);
+    numtokens = 0;
+    tokptr = NULL;
+    while(strtok_r(t,delimiters,&tokptr) != NULL)
+        numtokens++;
+
+    if ((*argvp = malloc((numtokens + 1)*sizeof(char *))) == NULL) {
+        free(t);
+        return -1;
+    }
+
+    if (numtokens == 0)
+        free(t);
+    else {
+        strcpy(t, snew);
+        tokptr = NULL;
+        for (i = 0; i < numtokens; i++)
+            *((*argvp) + i) = strtok_r(t, delimiters, &tokptr);
+    }
+
+    *((*argvp) + numtokens) = NULL;
+    return numtokens;
+}
