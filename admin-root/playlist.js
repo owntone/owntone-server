@@ -1,27 +1,274 @@
-/*
- * $Id$
- * Javascript for playlist.html
- *
- * Copyright (C) 2005 Anders Betnér (andbe611@users.sourceforge.net)
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License as published by
- * the Free Software Foundation; either version 2 of the License, or
- * (at your option) any later version.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- *
- * You should have received a copy of the GNU General Public License
- * along with this program; if not, write to the Free Software
- * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
- */
-/* Detta script finns att hämta på http://www.jojoxx.net och 
-   får användas fritt så länge som dessa rader står kvar. */ 
+Event.observe(window,'load',initPlaylist);
+var MAX_SONGS= 400;
+Ajax.Responders.register({  onCreate: function () {$('busymsg').style.visibility='visible';},
+                          onComplete: function () {$('busymsg').style.visibility='hidden';}});
+function initPlaylist() {
+  new Ajax.Request('/databases/1/containers?output=xml',{method: 'get',onComplete:rsSource});
+  Query.send('genres');
+  Query.send('artists');
+  Query.send('albums');
+
+  Event.observe('source','change',sourceChange);
+  Event.observe('genres','change',genresArtistsAlbumsChange);
+  Event.observe('artists','change',genresArtistsAlbumsChange);
+  Event.observe('albums','change',genresArtistsAlbumsChange);
+}
+var Query = {
+   genres: new Array(),
+   artists:new Array(),
+   albums: new Array(),
+   clearSelections: function (type) {
+     this[type] = new Array();
+     if ('genres' == type) {
+       this.artists = new Array();
+       this.albums = new Array();  
+     }
+     if ('artists' == type) {
+       this.albums = new Array();  
+     }
+   },
+   addSelection: function (type,value){
+     this[type].push(value);
+   },
+   getUrl: function (type) {
+     var query=new Array();
+     switch (type) {
+       case 'artists':
+         if (this.genres.length > 0) {
+           query = this.genres.collect(function(value){return "'daap.songgenre:"+value.encode()+"'";});  
+         }
+         break;
+      case 'albums':
+         if (this.artists.length > 0) {
+           query = this.artists.collect(function(value){return "'daap.songartist:"+value.encode()+"'";});  
+         } else if (this.genres.length > 0) {
+           query = this.genres.collect(function(value){return "'daap.songgenre:"+value.encode()+"'";});    
+         }
+         break;
+      case 'songs':
+         if (this.albums.length > 0) {
+           query = this.albums.collect(function(value){return "'daap.songalbum:"+value.encode()+"'";});  
+         } else if (this.artists.length > 0) {
+           query = this.artists.collect(function(value){return "'daap.songartist:"+value.encode()+"'";});  
+         } else if (this.genres.length > 0) {
+           query = this.genres.collect(function(value){return "'daap.songgenre:"+value.encode()+"'";});    
+         }
+         break;
+     }
+     if (query.length > 0) {
+       return '&query=' + query.join(',');
+     } else {
+       return ''; 
+     }
+   },
+   send: function (type) {
+     var url;
+     var handler;
+     var meta = '';
+     switch (type) {
+       case 'genres':
+         url = '/databases/1/browse/genres';
+         handler = rsGenresArtistsAlbums;
+         break;
+       case 'artists':
+         url = '/databases/1/browse/artists';
+         handler = rsGenresArtistsAlbums;
+         break;
+       case 'albums':
+         url = '/databases/1/browse/albums';
+         handler = rsGenresArtistsAlbums;
+         break;
+       case 'songs':
+         url = '/databases/1/items';
+         meta = '&meta=daap.songalbum,daap.songartist,daap.songgenre,dmap.itemid,daap.songtime,dmap.itemname';
+         handler = rsSongs;
+        break;
+     }
+     url = url + '?output=xml' + meta + this.getUrl(type);
+     new Ajax.Request(url ,{method: 'get',onComplete:handler});
+   }
+};
+
+
+function rsSource(request) {
+  var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
+  var sourceSelect = $('source');
+  var smartPlaylists = new Array();
+  var staticPlaylists = new Array();
+  Element.removeChildren(sourceSelect);
+
+  items.each(function (item,index) {
+    if (0 === index) {
+      // Skip Library
+      return;
+    }  
+  
+    if (item.getElementsByTagName('com.apple.itunes.smart-playlist').length > 0) {
+      smartPlaylists.push({name: Element.textContent(item.getElementsByTagName('dmap.itemname')[0]),
+                             id: Element.textContent(item.getElementsByTagName('dmap.itemid')[0])});  
+    } else {
+      staticPlaylists.push({name: Element.textContent(item.getElementsByTagName('dmap.itemname')[0]),
+                              id: Element.textContent(item.getElementsByTagName('dmap.itemid')[0])});
+    }
+  });
+  sourceSelect.appendChild(Builder.node('option',{value: '1'},'Library'));
+  if (smartPlaylists.length > 0) {
+    optgroup = Builder.node('optgroup',{label: 'Smart playlists'});
+    smartPlaylists.each(function (item) {
+      var option = document.createElement('option');
+      optgroup.appendChild(Builder.node('option',{value: item.id},item.name));
+    });
+    sourceSelect.appendChild(optgroup);
+  }
+  if (staticPlaylists.length > 0) {
+    optgroup = Builder.node('optgroup',{label: 'Static playlists'});
+    staticPlaylists.each(function (item) {
+      var option = document.createElement('option');
+      optgroup.appendChild(Builder.node('option',{value: item.id},item.name));
+    });
+    sourceSelect.appendChild(optgroup);
+  }
+  // Select Library
+  sourceSelect.value = 1;
+}
+
+function genresArtistsAlbumsChange(e) {
+  var type = Event.element(e).id;
+  var options = $A($(type).options);
+  Query.clearSelections(type);
+  if ($(type).value != 'all') {
+    options.each(function (option) {
+      if (option.selected) {
+         Query.addSelection(type,option.value);
+      }
+    });
+  }
+  switch (type) {
+    case 'genres':
+      Query.send('artists');
+      Query.send('albums');
+      Query.send('songs');
+      break;
+    case 'artists':
+      Query.send('albums');
+      Query.send('songs');
+      break;
+    case 'albums':
+      Query.send('songs');
+      break;
+  }
+}
+function rsGenresArtistsAlbums(request) {
+  var type;
+  if (request.responseXML.getElementsByTagName('daap.browsegenrelisting').length > 0) {
+    type = 'genres';
+  }
+  if (request.responseXML.getElementsByTagName('daap.browseartistlisting').length > 0) {
+    type = 'artists';
+  }
+  if (request.responseXML.getElementsByTagName('daap.browsealbumlisting').length > 0) {
+    type = 'albums';
+  }
+  
+  var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
+  items = items.collect(function (el) {
+    return Element.textContent(el);
+  }).sort();
+  var select = $(type);
+  Element.removeChildren(select);
+
+  var o = document.createElement('option');
+  o.value = 'all';
+  o.appendChild(document.createTextNode('All (' + items.length + ' ' + type + ')'));
+  select.appendChild(o);
+  addOptions(select,items);
+  select.value='all';
+}
+
+function rsSongs(request) {
+  var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
+  var songsTable = $('songs_data');
+  Element.removeChildren(songsTable);
+  if (items.length > MAX_SONGS) {
+    var tr = document.createElement('tr');
+    tr.appendChild(Builder.node('td',{colspan: '5'},'Search returned > '+MAX_SONGS+' results'));
+    songsTable.appendChild(tr);
+    return;
+  }
+  items.each(function (item) {
+    var tr = document.createElement('tr');
+    var time = parseInt(Element.textContent(item.getElementsByTagName('daap.songtime')[0]));
+    time = Math.round(time / 1000);
+    var seconds = time % 60;
+
+    seconds = (seconds < 10) ? '0'+seconds : seconds;
+    timeString =  Math.floor(time/60)+ ':' + seconds;
+
+    tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('dmap.itemname')[0])));
+    tr.appendChild(Builder.node('td',{style:'width: 50px;'},timeString));
+    tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('daap.songartist')[0])));
+    tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('daap.songalbum')[0])));
+    tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('daap.songgenre')[0])));    
+
+    songsTable.appendChild(tr);
+  }); 
+}
+function addOptions(element,options) {
+  options.each(function (option) {
+    var node;
+    var text = option.truncate(25);
+    if (option.length != text.length) {
+      node = Builder.node('option',{value: option, title: option},option.truncate(25));
+    } else {
+      node = Builder.node('option',{value: option},option.truncate(25));
+    }
+    node.selected = false;
+    element.appendChild(node);
+  });
+}
+function sourceChange(e) {
+  alert('Playlist id:'+$('source').value);  
+}
+Object.extend(Element, {
+  removeChildren: function(element) {
+  while(element.hasChildNodes()) {
+    element.removeChild(element.firstChild);
+  }
+  },
+  textContent: function(node) {
+  if ((!node) || !node.hasChildNodes()) {
+    // Empty text node
+    return '';
+  } else {
+    if (node.textContent) {
+    // W3C ?
+    return node.textContent;
+    } else if (node.text) {
+    // IE
+    return node.text;
+    }
+  }
+  // We shouldn't end up here;
+  return '';
+  }
+});
+String.prototype.encode = function () {
+  return encodeURIComponent(this).replace(/\'/,"\\'");
+};
+// Stolen from prototype 1.5
+String.prototype.truncate = function(length, truncation) {
+  length = length || 30;
+  truncation = truncation === undefined ? '...' : truncation;
+  var ret = (this.length > length) ? this.slice(0, length - truncation.length) + truncation : this;
+  return '' + ret;
+};
+function add() {
+    alert('add');
+}
+/* Detta script finns att hamta pa http://www.jojoxx.net och 
+   far anvandas fritt sa lange som dessa rader star kvar. */ 
 function DataDumper(obj,n,prefix){
-	var str=""; prefix=(prefix)?prefix:""; n=(n)?n+1:1; var ind=""; for(var i=0;i<n;i++){ ind+="    "; }
+	var str=""; prefix=(prefix)?prefix:""; n=(n)?n+1:1; var ind=""; for(var i=0;i<n;i++){ ind+="  "; }
 	if(typeof(obj)=="string"){
 		str+=ind+prefix+"String:\""+obj+"\"\n";
 	} else if(typeof(obj)=="number"){
@@ -29,7 +276,7 @@ function DataDumper(obj,n,prefix){
 	} else if(typeof(obj)=="function"){
 		str+=ind+prefix+"Function:"+obj+"\n";
 	} else if(typeof(obj) == 'boolean') {
-    str+=ind+prefix+"Boolean:" + obj + "\n";
+       str+=ind+prefix+"Boolean:" + obj + "\n";
 	} else {
 		var type="Array";
 		for(var i in obj){ type=(type=="Array"&&i==parseInt(i))?"Array":"Object" }
@@ -42,408 +289,4 @@ function DataDumper(obj,n,prefix){
 		str+=ind+"]\n";
 	}
 	return str;
-}
-
-//var g_req;
-var g_requestor;
-var g_selectedGenres = Array();
-var g_selectedAlbums = Array();
-var g_selectedArtists = Array();
-
-var baseUrl = window.location.toString();
-baseUrl = baseUrl.substr(0,baseUrl.length-13);
-String.prototype.myEncodeURI = function () {
-  s = encodeURI(this);
-  s = s.replace(/\'/,'%27');
-  return s.replace(/&/,'%26');
-};
-
-Requestor = function(baseUrl) {
-  g_requestor = this;
-  this.req = ''; // holds the request
-  this.responseHandler;
-  this.baseUrl = baseUrl;
-  this.que = Array();
-
-    // All browsers but IE
-  if (window.XMLHttpRequest) {
-    this.req = new XMLHttpRequest();
-    // MS IE
-  } else if (window.ActiveXObject) {
-    this.req = new ActiveXObject("Microsoft.XMLHTTP");
-  }
-  this.busy = false;
-
-};
-Requestor.prototype.setResponseHandler = function(resp) {
-  this.responseHandler = resp;
-};
-Requestor.prototype.addRequest = function(url) {
-  if (this.busy) {
-    this.que.push(url);
-  } else {
-    this._openRequest(url);
-  }
-};
-
-Requestor.prototype._openRequest = function(url) {
-    this.busy = true;
-    if (url.search(/\?/)> -1) {
-      url += '&output=xml';
-    } else {
-      url += '?output=xml';
-    }
-    this.req.open('get',this.baseUrl+url,true);
-    this.req.onreadystatechange = Requestor_handleRequest;
-    this.req.send(null);
-};
-Requestor_handleRequest = function() {
-  // readystate 4 means the whole document is loaded
-  if (4   == g_requestor.req.readyState) {
-      // Only try to parse the response if we got
-      // ok from the server
-    if (200 == g_requestor.req.status) {
-      // send the recieved document off to the handler
-      g_requestor.responseHandler(g_requestor.req.responseXML);
-    }
-    // Check if there are requests qued up
-    if (g_requestor.que.length > 0) {
-      // Just to be able to pull ourseves up by our boot straps
-      window.setTimeout(Requestor_queChecker,5);
-      return;
-    } else {
-      g_requestor.busy = false;
-    }
-  }
-};
-function Requestor_queChecker() {
-  if (url = g_requestor.que.shift()) {
-    g_requestor._openRequest(url);
-  }
-}
-
-function response(xmldoc) {
-      if ('daap.databaseplaylists' == xmldoc.documentElement.nodeName) {
-        el = document.getElementById('source');
-        addPlaylists(el,xmldoc);
-      } else if ('daap.databasebrowse' == xmldoc.documentElement.nodeName) {
-        // Ok we have response from a browse query
-      
-        switch (xmldoc.documentElement.childNodes[3].nodeName) {
-          case 'daap.browsegenrelisting':
-                el = document.getElementById('genre');
-                addOptions(el,'genre',xmldoc);
-                break;
-          case 'daap.browseartistlisting':
-                el = document.getElementById('artist');
-                addOptions(el,'artist',xmldoc);
-                break;
-          case 'daap.browsealbumlisting':
-                el = document.getElementById('album');
-                addOptions(el,'album',xmldoc);
-                // All other boxes are updated, now get the songs
-                getSongs();
-                break;                    
-          default:
-                // We got something else back...
-        }
-      } else if ( ('daap.databasesongs' == xmldoc.documentElement.nodeName) ||
-                  ('daap.playlistsongs' == xmldoc.documentElement.nodeName) ) {
-        // Songlist
-        addSongs(xmldoc);
-      }
-}
-function init() {
-  req = new Requestor(baseUrl);
-  req.setResponseHandler(response);
-  req.addRequest('databases/1/containers');
-  req.addRequest('databases/1/browse/genres');
-  req.addRequest('databases/1/browse/artists');
-  req.addRequest('databases/1/browse/albums');
-  el = document.getElementById('source');
-  el.addEventListener('change',playlistSelect,true);
-
-  el = document.getElementById('genre');
-  el.addEventListener('change',genreSelect,true);
-
-  el = document.getElementById('artist');
-  el.addEventListener('change',artistSelect,true);
-
-  el = document.getElementById('album');
-  el.addEventListener('change',albumSelect,true);
-}
-
-function addOptions(el,label,xmldoc) {
-  while(el.hasChildNodes()) {
-    el.removeChild(el.firstChild);
-  }
-  itemCnt = xmldoc.getElementsByTagName('dmap.specifiedtotalcount').item(0).firstChild.data;
-  if (parseInt(itemCnt) > 1) {
-    plural = 's';
-  } else {
-    plural = '';
-  }
-  option = document.createElement('option');
-  option.value = '1';
-  option.selected = false;
-  option.appendChild(document.createTextNode('All ('+itemCnt+' '+label +plural+')'));
-  el.appendChild(option);
-
-  items = xmldoc.getElementsByTagName('dmap.listingitem');
-  selectAll = true;
-  for (i=0; i<items.length; i++) {
-    option = document.createElement('option');
-    itemName = items[i].firstChild.data;
-    option.value = itemName;
-    switch (label) {
-      case 'genre': 
-        if (g_selectedGenres[itemName]) {
-          option.selected = true;
-          selectAll = false;
-        }
-        break;
-      case 'artist':
-        if (g_selectedArtists[itemName]) {
-          option.selected = true;
-          selectAll = false;
-        }
-        break;
-      case 'album':
-        if (g_selectedAlbums[itemName]) {
-          option.selected = true;
-          selectAll = false;
-        }
-      default: // if we get here something is wrong
-               // silently ignore it    
-    }
-    //###FIXME do some kind of itelligent truncation of the string
-    option.appendChild(document.createTextNode(itemName.substr(0,30)));
-    el.appendChild(option);
-  }
-  if (selectAll) {
-    // clear the global selections arrays
-    el.options[0].selected = true;
-    switch (label) {
-      case 'genre':
-        g_selectedGenres = Array();
-        break;
-      case 'artist':
-        g_selectedArtists = Array();
-        break;
-      case 'album':
-        g_selectedAlbums = Array();
-        break;
-      default:
-        // Can't get here    
-    }
-  } else {
-    el.options[0].selected = false;
-  }
-}
-
-function addPlaylists(el,xmldoc) {
-  //items = xmldoc.getElementsByTagName('dmap.listingitem');
-  list = xmldoc.documentElement.childNodes[4];
-  // Start on 1 since the first node is the name of the daap server
-  for (i=1; i < list.childNodes.length; i++) {
-    option = document.createElement('option');
-    listNumber = list.childNodes[i].childNodes[0].firstChild.data;
-    listName = list.childNodes[i].childNodes[2].firstChild.data;
-    option.appendChild(document.createTextNode(listName));
-    option.setAttribute('value',listNumber);
-    el.appendChild(option);
-  }
-}
-
-function playlistSelect(event) {
-  table = document.getElementById('songs');
-  if (tableBody = table.getElementsByTagName('tbody').item(0))
-  	table.removeChild(tableBody);
-  document.getElementById('busymsg').style.visibility='visible';
-
-  playlistNumber = document.getElementById('source').value;
-  browse = document.getElementById('browse');
-  if (1 == playlistNumber) {
-    browse.style.display = 'block';
-  } else {
-    browse.style.display = 'none';
-  }
-  g_requestor.addRequest('databases/1/containers/' + playlistNumber +
-        '/items?meta=dmap.itemname,daap.songalbum,daap.songartist,daap.songgenre,daap.songtime&output=xml');
-}
-
-function addRow(tbody,className,song,time,artist,album,genre) {
-  row = document.createElement("tr");
-  row.setAttribute('class',className);
-  cell = document.createElement("td");
-  cell.appendChild(document.createTextNode(song));
-  row.appendChild(cell);
-
-  cell = document.createElement("td");
-  cell.appendChild(document.createTextNode(time));
-  row.appendChild(cell);
-
-  cell = document.createElement("td");
-  //###FIXME do some kind of itelligent truncation of the string
-  cell.appendChild(document.createTextNode(artist.substring(0,30)));
-  row.appendChild(cell);
-
-  cell = document.createElement("td");
-  cell.appendChild(document.createTextNode(album));
-  row.appendChild(cell);
-  
-  cell = document.createElement("td");
-  cell.appendChild(document.createTextNode(genre));
-  row.appendChild(cell);
-  tbody.appendChild(row);
-}
-
-function removeRows(table) {
-  tableBody = table.getElementsByTagName('tbody').item(0);
-  table.removeChild(tableBody);
-  tableBody = document.createElement('tbody');
-  tableBody.setAttribute('class','mytbody');
-  table.appendChild(tableBody);
-  return tableBody;
-}
-
-function genreSelect(event) {
-  document.getElementById('busymsg').style.visibility='visible';
-  selectObject = event.target;
-  if (selectObject.options[0].selected) {
-    filter = '';
-    g_selectedGenres = Array();
-    //###FIXME must dselect all others
-  } else {
-    filter = Array();
-    //###FIXME if there is just the all genre there will be an error here
-    for (i=1; i<selectObject.options.length; i++) {
-      genre = selectObject.options[i].value;
-		  if (selectObject.options[i].selected) {
-			  filter.push("'daap.songgenre:" + genre.myEncodeURI() + "'");
-			  g_selectedGenres[genre] = true;
-		  } else {
-        g_selectedGenres[genre] = false;
-      }
-	  }
-	  filter = '?filter=' + filter.join(',');
-  }
-//dump(DataDumper(g_selectedGenres));
-  g_requestor.addRequest('databases/1/browse/artists' + filter);
-  g_requestor.addRequest('databases/1/browse/albums' + filter);
-}
-
-function artistSelect(event) {
-  selectObject = event.target;
-  filter = '';
-  if (selectObject.options[0].selected) {
-    // All selected, sort according to genre
-    filter = Array();
-    for (genre in g_selectedGenres) {
-      if (g_selectedGenres[genre]) {
-        filter.push("'daap.songgenre:" + genre.myEncodeURI() + "'");
-      }
-    }
-    if (0 == filter.length) {
-      // If filter array is empty then "All genres" is selected
-      // so set filter to empty
-      filter = '';
-    } else {
-      filter = '?filter=' + filter.join(',');
-    }
-  } else {
-    filter = Array();
-    for (i=1; i<selectObject.options.length; i++) {
-      artist = selectObject.options[i].value;
-		  if (selectObject.options[i].selected) {
-			  filter.push("'daap.songartist:" + artist.myEncodeURI() + "'");
-			  g_selectedArtists[artist] = true;
-		  } else {
-        g_selectedArtists[artist] = false;
-      }
-	  }
-	// If all is selected then search on all artists but honor genre
-	  filter = '?filter=' + filter.join(',');
-  }
-  document.getElementById('busymsg').style.visibility='visible';
-	g_requestor.addRequest('databases/1/browse/albums' + filter);
-}
-
-function albumSelect(event) {
-  // just get the songs, the only box changed is this one
-  getSongs();
-}
-function getSongs() {
-  genre = document.getElementById('genre').value;
-  artist = document.getElementById('artist').value;
-  album = document.getElementById('album').value;
-  //alert("genre: "+genre +"\nartist: "+ artist + "\nalbum:"+ album);
-  query = Array();
-  if (genre != '1') {
-    query.push('\'daap.songgenre:' + genre.myEncodeURI() +"'");
-  }
-  if (artist != '1') {
-    query.push('\'daap.songartist:' + artist.myEncodeURI() +"'");
-  }
-  if (album != '1') {
-    query.push('\'daap.songalbum:' + album.myEncodeURI() +"'");
-  }
-  if (0 == query.length) {
-      // If filter array is empty then "All genres" is selected
-      // so set filter to empty
-    query = '';
-  } else {
-    query = '&query=' + query.join(' ');
-  }
-  //alert(query);
-  document.getElementById('busymsg').style.visibility='visible';
-  g_requestor.addRequest('databases/1/items' +
-  '?meta=dmap.itemname,daap.songalbum,daap.songartist,daap.songgenre,daap.songtime'+query);
-  ///items?meta=dmap.itemname,daap.songalbum,daap.songartist,daap.songgenre,daap.songtime&output=xml
-  
-}
-function addSongs(xmldoc) {
-  items = xmldoc.getElementsByTagName('dmap.listingitem');
-  className = 'odd';
-  table = document.getElementById('songs');
-  if(tableBody = table.getElementsByTagName('tbody').item(0))
-	  table.removeChild(tableBody);
-  tableBody = document.createElement('tbody');
-  tableBody.setAttribute('class','mytbody');
-
-  var count = items.length;
-  for (i=0; i < count; i++) {
-    item = items[i];
-    // Have to check if the tag really was returned from the server
-    if (song = item.getElementsByTagName('dmap.itemname').item(0)) {
-      song = song.firstChild.data;
-    } else {
-      song = '';
-    }
-    time = ''; //item.getElementsByTagName('daap.songtime').item(0).textContent;
-    if (artist = item.getElementsByTagName('daap.songartist').item(0)) {
-      artist = artist.firstChild.data;
-    } else {
-      artist = '';
-    }
-    if (album = item.getElementsByTagName('daap.songalbum').item(0)) {
-      album = album.firstChild.data;
-    } else {
-      album = '';
-    }
-    if (genre = item.getElementsByTagName('daap.songgenre').item(0)) {
-      genre = genre.firstChild.data;
-    } else {
-      genre = '';
-    }
-    if ('odd' == className) {
-      className = 'even';
-    } else {
-      className = 'odd';
-    }
-    addRow(tableBody,className,song,time,artist,album,genre);
-  }
-  table.appendChild(tableBody);
-  document.getElementById('busymsg').style.visibility='hidden';
-
 }
