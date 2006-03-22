@@ -2,6 +2,7 @@
 <style type="text/css">
 select {
   font: icon;
+  width: 30ex;
 }
 #songs th {
   text-align: center;
@@ -9,10 +10,37 @@ select {
 #songs_data td {
   text-align: left;
 }
+#genre_div {
+  float: left;
+  padding-left: 2ex;
+}
+#artist_div {
+  float: left;
+  padding-left: 2ex;
+}
+#album_div {
+  float: left;
+  padding-left: 2ex;
+}
+#search_div {
+  float: right;
+}
+#source_div {
+  float: left;
+  clear: both;
+}
+#songs_div {
+  float: left;
+  padding-left: 2ex;
+  padding-top: 1ex;
+}
 </style>
-<table style="width:100%;">
-<tr>
-<td valign="top" style="width:20%;">
+<div id="search_div">
+<label for="search">search</label>
+<input type="text" name="search" id="search" size="30" />
+</div>
+<div style="clear: both;"><!-- buggy IE div --></div>
+<div id="source_div">
   Source<br />
   <select id="source" name="select" size="20">
 
@@ -20,53 +48,41 @@ select {
   </select>
 <div id="busymsg" style="text-align:center;color:red; visibility: hidden;">Busy ...</div>
 <a href="javascript:add()">Add static playlist</a>
-</td>
-
-<td valign="top" style="width:80%;" >
-
-<table id="browse">
-  <tr>
-  <td style="width:30%;" >
+</div>
+<div id="genre_div">
   Genre<br />
 
   <select id="genres" name="select" multiple="multiple" size="15">
     <option value="all">all</option>
   </select>
-  </td>
-  <td style="width:35%;">
+</div> 
+<div id="artist_div"> 
 Artist<br />
   <select id="artists" name="select" multiple="multiple" size="15">
         <option value="all">all</option>
   </select>
-  </td>
-  <td style="width:35%;">
-
+</div>
+<div id="album_div">
 Album<br />
   <select id="albums" name="select" multiple="multiple" size="15">
     <option value="all">all</option>
   </select>
-  </td>
-  </tr>
-</table>  
-
-<div style="clear: both; width:469px;">
-  <table id="songs" style="width:450px;" border="0" cellspacing="0" cellpadding="0">
+</div>
+<div id="songs_div" style="float: left; width:549px;">
+  <table id="songs" style="width:530px;" border="0" cellspacing="0" cellpadding="0">
     <tr>
-      <th style="width: 100px;">Song</th>
+      <th style="width: 140px;">Song</th>
       <th style="width: 50px;">Time</th>
-      <th style="width: 100px;">Artist</th>
-      <th style="width: 100px;">Album</th>
+      <th style="width: 120px;">Artist</th>
+      <th style="width: 120px;">Album</th>
       <th style="width: 100px;">Genre</th>
 
     </tr>
   </table>
-<div style="height: 400px; overflow: auto; width: 469px;">
-  <table id="songs_data" style="width:450px;" border="0" cellspacing="0" cellpadding="0">  
+<div style="height: 400px; overflow: auto; width: 549px;">
+  <table id="songs_data" style="width:530px;" border="0" cellspacing="0" cellpadding="0">  
     <tr><td>hej</td><td></td><td></td><td></td><td></td></tr>
   </table>
 </div>
 </div>
-</td>
-</tr>
-</table>
 @include ftr.html@

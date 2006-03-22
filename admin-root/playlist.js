@@ -204,10 +204,10 @@ function rsSongs(request) {
     seconds = (seconds < 10) ? '0'+seconds : seconds;
     timeString =  Math.floor(time/60)+ ':' + seconds;
 
-    tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('dmap.itemname')[0])));
+    tr.appendChild(Builder.node('td',{style:'width: 140px;'},Element.textContent(item.getElementsByTagName('dmap.itemname')[0])));
     tr.appendChild(Builder.node('td',{style:'width: 50px;'},timeString));
-    tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('daap.songartist')[0])));
-    tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('daap.songalbum')[0])));
+    tr.appendChild(Builder.node('td',{style:'width: 120px;'},Element.textContent(item.getElementsByTagName('daap.songartist')[0])));
+    tr.appendChild(Builder.node('td',{style:'width: 120px;'},Element.textContent(item.getElementsByTagName('daap.songalbum')[0])));
     tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('daap.songgenre')[0])));    
 
     songsTable.appendChild(tr);
