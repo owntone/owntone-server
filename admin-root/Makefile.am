@@ -1,5 +1,6 @@
 # $Id$
 #
+SUBDIRS=lib-js
 
 adminrootdir = ${pkgdatadir}/admin-root
 adminroot_DATA = ftr.html linkOpaque.gif status.html aspl-license.txt \
