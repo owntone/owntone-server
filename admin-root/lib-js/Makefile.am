@@ -2,7 +2,7 @@
 #
 SUBDIRS=script.aculo.us
 
-jslibdir = ${pkgdatadir}/lib-js
+jslibdir = ${pkgdatadir}/admin-root/lib-js
 jslib_DATA = prototype.js
 EXTRA_DIST = prototype.js
 
