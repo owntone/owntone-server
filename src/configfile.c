@@ -253,7 +253,7 @@ int config_existdir(char *path) {
 void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
     int in_arg;
     char *argptr;
-    char argbuffer[80];
+    char argbuffer[256];
     char next;
     CONFIGELEMENT *pce;
     char *first, *last;

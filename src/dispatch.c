@@ -1187,7 +1187,6 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         DPRINTF(E_WARN,L_DAAP|L_BROW,"Invalid browse request type %s\n",pqi->uri_sections[3]);
         ws_returnerror(pwsc,404,"Invalid browse type");
         config_set_status(pwsc,pqi->session_id,NULL);
-        free(pqi);
         return;
     }
 
@@ -1427,7 +1426,6 @@ void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
 void dispatch_logout(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     config_set_status(pwsc,pqi->session_id,NULL);
-    free(pqi);
     ws_returnerror(pwsc,204,"Logout Successful");
 }
 
