@@ -10,15 +10,7 @@ select {
 #songs_data td {
   text-align: left;
 }
-#genre_div {
-  float: left;
-  padding-left: 2ex;
-}
-#artist_div {
-  float: left;
-  padding-left: 2ex;
-}
-#album_div {
+#genre_div, #artist_div, #album_div {
   float: left;
   padding-left: 2ex;
 }
@@ -37,11 +29,11 @@ select {
 </style>
 <div id="search_div">
 <label for="search">search</label>
-<input type="text" name="search" id="search" size="30" />
+<input type="text" name="search" id="search" size="30" title="search songs, artists, albums, genres" />
 </div>
 <div style="clear: both;"><!-- buggy IE div --></div>
 <div id="source_div">
-  Source<br />
+  <label for="source">Source<br /></label>
   <select id="source" name="select" size="20">
 
     <option value="1">Library</option>

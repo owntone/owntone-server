@@ -5,33 +5,67 @@ Ajax.Responders.register({  onCreate: function () {$('busymsg').style.visibility
 function initPlaylist() {
   new Ajax.Request('/databases/1/containers?output=xml',{method: 'get',onComplete:rsSource});
   Query.send('genres');
-  Query.send('artists');
-  Query.send('albums');
-
-  Event.observe('source','change',sourceChange);
-  Event.observe('genres','change',genresArtistsAlbumsChange);
-  Event.observe('artists','change',genresArtistsAlbumsChange);
-  Event.observe('albums','change',genresArtistsAlbumsChange);
+  Event.observe('search','keypress',Search.keyPress);
+  Event.observe('source','change',EventHandler.sourceChange);
+  Event.observe('genres','change',EventHandler.genresChange);
+  Event.observe('artists','change',EventHandler.artistsChange);
+  Event.observe('albums','change',EventHandler.albumsChange);
+}
+var Search = {
+  keyPress:  function (e) {
+    if (e.keyCode == Event.KEY_RETURN) {
+      EventHandler.search();  
+    }
+  }
+}
+var EventHandler = {
+  sourceChange: function (e) {
+    alert('Playlist id:'+$('source').value);  
+  },
+  search: function () {
+    Query.setSearchString($('search').value);
+    Query.send('genres'); 
+  },
+  genresChange: function (e) {
+    EventHandler.setSelected('genres');
+    Query.send('artists');
+  },
+  artistsChange: function (e) {
+    EventHandler.setSelected('artists');
+    Query.send('albums');
+  },
+  albumsChange: function (e) {
+    EventHandler.setSelected('albums');
+    Query.send('songs');
+  },
+  setSelected: function (type) {
+    var options = $A($(type).options);
+    Query.clearSelection(type);
+    if ($(type).value != 'all') {
+      options.each(function (option) {
+        if (option.selected) {
+           Query.addSelection(type,option.value);
+        }
+      });
+    }
+  }
 }
 var Query = {
-   genres: new Array(),
-   artists:new Array(),
-   albums: new Array(),
-   clearSelections: function (type) {
-     this[type] = new Array();
-     if ('genres' == type) {
-       this.artists = new Array();
-       this.albums = new Array();  
-     }
-     if ('artists' == type) {
-       this.albums = new Array();  
-     }
+   genres: [],
+   artists:[],
+   albums: [],
+   searchString: 'blue',
+   clearSelection: function (type) {
+     this[type] = [];
    },
    addSelection: function (type,value){
      this[type].push(value);
    },
+   setSearchString: function (string) {
+     this.searchString = string;  
+   },
    getUrl: function (type) {
-     var query=new Array();
+     var query=[];
      switch (type) {
        case 'artists':
          if (this.genres.length > 0) {
@@ -55,10 +89,18 @@ var Query = {
          }
          break;
      }
-     if (query.length > 0) {
-       return '&query=' + query.join(',');
-     } else {
-       return ''; 
+     if (this.searchString) {
+       var search = [];
+       var string = this.searchString;
+       ['daap.songgenre','daap.songartist','daap.songalbum','dmap.itemname'].each(function (item) {
+         search.push("'" + item +':*' + string + "*'");  
+       });
+       if (query.length > 0) {
+//           alert('&query=(' +search.join(',') +')+(' + query.join(',')+ ')');
+         return '&query=(' +search.join(',') +')+(' + query.join(',')+ ')';
+       } else {
+         return '&query=' + search.join(','); 
+       }
      }
    },
    send: function (type) {
@@ -68,15 +110,15 @@ var Query = {
      switch (type) {
        case 'genres':
          url = '/databases/1/browse/genres';
-         handler = rsGenresArtistsAlbums;
+         handler = ResponseHandler.genreAlbumArtist;
          break;
        case 'artists':
          url = '/databases/1/browse/artists';
-         handler = rsGenresArtistsAlbums;
+         handler = ResponseHandler.genreAlbumArtist;
          break;
        case 'albums':
          url = '/databases/1/browse/albums';
-         handler = rsGenresArtistsAlbums;
+         handler = ResponseHandler.genreAlbumArtist;
          break;
        case 'songs':
          url = '/databases/1/items';
@@ -88,13 +130,51 @@ var Query = {
      new Ajax.Request(url ,{method: 'get',onComplete:handler});
    }
 };
+var ResponseHandler = {
+  genreAlbumArtist: function (request) {
+    var type;
+    if (request.responseXML.getElementsByTagName('daap.browsegenrelisting').length > 0) {
+      type = 'genres';
+    }
+    if (request.responseXML.getElementsByTagName('daap.browseartistlisting').length > 0) {
+      type = 'artists';
+    }
+    if (request.responseXML.getElementsByTagName('daap.browsealbumlisting').length > 0) {
+      type = 'albums';
+    }
+  
+    var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
+    items = items.collect(function (el) {
+      return Element.textContent(el);
+    }).sort();
+    var select = $(type);
+    Element.removeChildren(select);
 
+    var o = document.createElement('option');
+    o.value = 'all';
+    o.appendChild(document.createTextNode('All (' + items.length + ' ' + type + ')'));
+    select.appendChild(o);
+    addOptions(select,items);
+    select.value='all';
+    switch (type) {
+      case 'genres':
+        Query.send('artists');
+        break;
+      case 'artists':
+        Query.send('albums');
+        break;
+      case 'albums':
+        Query.send('songs');
+        break;
+    }
+  }
+}
 
 function rsSource(request) {
   var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
   var sourceSelect = $('source');
-  var smartPlaylists = new Array();
-  var staticPlaylists = new Array();
+  var smartPlaylists = [];
+  var staticPlaylists = [];
   Element.removeChildren(sourceSelect);
 
   items.each(function (item,index) {
@@ -130,59 +210,6 @@ function rsSource(request) {
   }
   // Select Library
   sourceSelect.value = 1;
-}
-
-function genresArtistsAlbumsChange(e) {
-  var type = Event.element(e).id;
-  var options = $A($(type).options);
-  Query.clearSelections(type);
-  if ($(type).value != 'all') {
-    options.each(function (option) {
-      if (option.selected) {
-         Query.addSelection(type,option.value);
-      }
-    });
-  }
-  switch (type) {
-    case 'genres':
-      Query.send('artists');
-      Query.send('albums');
-      Query.send('songs');
-      break;
-    case 'artists':
-      Query.send('albums');
-      Query.send('songs');
-      break;
-    case 'albums':
-      Query.send('songs');
-      break;
-  }
-}
-function rsGenresArtistsAlbums(request) {
-  var type;
-  if (request.responseXML.getElementsByTagName('daap.browsegenrelisting').length > 0) {
-    type = 'genres';
-  }
-  if (request.responseXML.getElementsByTagName('daap.browseartistlisting').length > 0) {
-    type = 'artists';
-  }
-  if (request.responseXML.getElementsByTagName('daap.browsealbumlisting').length > 0) {
-    type = 'albums';
-  }
-  
-  var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
-  items = items.collect(function (el) {
-    return Element.textContent(el);
-  }).sort();
-  var select = $(type);
-  Element.removeChildren(select);
-
-  var o = document.createElement('option');
-  o.value = 'all';
-  o.appendChild(document.createTextNode('All (' + items.length + ' ' + type + ')'));
-  select.appendChild(o);
-  addOptions(select,items);
-  select.value='all';
 }
 
 function rsSongs(request) {
@@ -225,9 +252,6 @@ function addOptions(element,options) {
     node.selected = false;
     element.appendChild(node);
   });
-}
-function sourceChange(e) {
-  alert('Playlist id:'+$('source').value);  
 }
 Object.extend(Element, {
   removeChildren: function(element) {
