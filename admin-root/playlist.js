@@ -11,6 +11,11 @@ function initPlaylist() {
   Event.observe('artists','change',EventHandler.artistsChange);
   Event.observe('albums','change',EventHandler.albumsChange);
 }
+// TODO busy message
+// timeout on search box
+// move stuff to responsehandler
+// handle source change events
+// FIX broken browse
 var Search = {
   keyPress:  function (e) {
     if (e.keyCode == Event.KEY_RETURN) {
@@ -54,7 +59,7 @@ var Query = {
    genres: [],
    artists:[],
    albums: [],
-   searchString: 'blue',
+   searchString: '',
    clearSelection: function (type) {
      this[type] = [];
    },
@@ -100,6 +105,12 @@ var Query = {
          return '&query=(' +search.join(',') +')+(' + query.join(',')+ ')';
        } else {
          return '&query=' + search.join(','); 
+       }
+     } else {
+       if (query.length > 0) {
+         return '&query=' + query.join(',');
+       } else {
+         return '';
        }
      }
    },
