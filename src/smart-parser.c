@@ -1353,7 +1353,9 @@ int sp_node_size(SP_NODE *node) {
 
         if(node->op_type == SP_OPTYPE_STRING) {
             string_size = 0;
-            db_sql_escape(NULL,&string_size,"%q",node->right.cvalue);
+            if((node->right.cvalue) && (strlen(node->right.cvalue)))
+                db_sql_escape(NULL,&string_size,"%q",node->right.cvalue);
+
             size += (2 + string_size);
             if(node->op == T_INCLUDES) {
                 size += 2; /* extra %'s */
@@ -1406,13 +1408,16 @@ void sp_serialize_sql(SP_NODE *node, char *string) {
             if((node->op == T_INCLUDES) || (node->op == T_ENDSWITH))
                 strcat(string,"%");
             size = 0;
-            db_sql_escape(NULL,&size,"%q",node->right.cvalue);
-            
-            /* we don't have a way to verify we have that much 
+            if((node->right.cvalue) && (strlen(node->right.cvalue)))
+                db_sql_escape(NULL,&size,"%q",node->right.cvalue);
+
+            /* we don't have a way to verify we have that much
              * room, but we must... we allocated it earlier.
              */
-            db_sql_escape(&string[strlen(string)],&size,"%q",node->right.cvalue);
-            
+            if((node->right.cvalue) && (strlen(node->right.cvalue)))
+                db_sql_escape(&string[strlen(string)],&size,"%q",
+                              node->right.cvalue);
+
 //            strcat(string,node->right.cvalue);
             if((node->op == T_INCLUDES) || (node->op == T_STARTSWITH))
                 strcat(string,"%");
