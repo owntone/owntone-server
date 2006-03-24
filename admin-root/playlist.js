@@ -10,12 +10,14 @@ function initPlaylist() {
   Event.observe('genres','change',EventHandler.genresChange);
   Event.observe('artists','change',EventHandler.artistsChange);
   Event.observe('albums','change',EventHandler.albumsChange);
+  // Firefox remebers the search box value on page reload
+  $('search').value='';
 }
 // TODO busy message
 // timeout on search box
 // move stuff to responsehandler
 // handle source change events
-// FIX broken browse
+
 var Search = {
   keyPress:  function (e) {
     if (e.keyCode == Event.KEY_RETURN) {
@@ -96,13 +98,12 @@ var Query = {
      }
      if (this.searchString) {
        var search = [];
-       var string = this.searchString;
+       var string = this.searchString.encode();
        ['daap.songgenre','daap.songartist','daap.songalbum','dmap.itemname'].each(function (item) {
          search.push("'" + item +':*' + string + "*'");  
        });
        if (query.length > 0) {
-//           alert('&query=(' +search.join(',') +')+(' + query.join(',')+ ')');
-         return '&query=(' +search.join(',') +')+(' + query.join(',')+ ')';
+         return '&query=(' +search.join(',') + ')+('.encode() + query.join(',')+ ')';
        } else {
          return '&query=' + search.join(','); 
        }
