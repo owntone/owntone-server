@@ -1,7 +1,8 @@
 Event.observe(window,'load',initPlaylist);
 var MAX_SONGS= 400;
+var SEARCH_DELAY = 500; // # ms without typing before the search box searches
 Ajax.Responders.register({  onCreate: function () {$('busymsg').style.visibility='visible';},
-                          onComplete: function () {$('busymsg').style.visibility='hidden';}});
+                          onComplete: function () {if (!Query.busy) {$('busymsg').style.visibility='hidden';}}});
 function initPlaylist() {
   new Ajax.Request('/databases/1/containers?output=xml',{method: 'get',onComplete:rsSource});
   Query.send('genres');
@@ -11,7 +12,7 @@ function initPlaylist() {
   Event.observe('artists','change',EventHandler.artistsChange);
   Event.observe('albums','change',EventHandler.albumsChange);
   // Firefox remebers the search box value on page reload
-  $('search').value='';
+  Field.clear('search');
 }
 // TODO busy message
 // timeout on search box
@@ -19,9 +20,15 @@ function initPlaylist() {
 // handle source change events
 
 var Search = {
+  timeOut: '',
   keyPress:  function (e) {
     if (e.keyCode == Event.KEY_RETURN) {
       EventHandler.search();  
+    } else {
+      if (this.timeOut) {
+        window.clearTimeout(this.timeOut);
+      }
+      this.timeOut = window.setTimeout(EventHandler.search,SEARCH_DELAY);
     }
   }
 }
@@ -61,6 +68,7 @@ var Query = {
    genres: [],
    artists:[],
    albums: [],
+   busy: '',
    searchString: '',
    clearSelection: function (type) {
      this[type] = [];
@@ -116,6 +124,7 @@ var Query = {
      }
    },
    send: function (type) {
+     this.busy = true;
      var url;
      var handler;
      var meta = '';
@@ -232,6 +241,7 @@ function rsSongs(request) {
     var tr = document.createElement('tr');
     tr.appendChild(Builder.node('td',{colspan: '5'},'Search returned > '+MAX_SONGS+' results'));
     songsTable.appendChild(tr);
+    Query.busy = false;
     return;
   }
   items.each(function (item) {
@@ -250,7 +260,8 @@ function rsSongs(request) {
     tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('daap.songgenre')[0])));    
 
     songsTable.appendChild(tr);
-  }); 
+  });
+  Query.busy = false; 
 }
 function addOptions(element,options) {
   options.each(function (option) {
