@@ -159,7 +159,8 @@ int daap_auth(char *username, char *password) {
 void daap_handler(WS_CONNINFO *pwsc) {
     DBQUERYINFO *pqi;
     char *token, *string, *save;
-    char *query;
+    char *query, *index, *ptr;
+    int l,h;
 
     pqi=(DBQUERYINFO*)malloc(sizeof(DBQUERYINFO));
     if(!pqi) {
@@ -184,6 +185,42 @@ void daap_handler(WS_CONNINFO *pwsc) {
         DPRINTF(E_DBG,L_DAAP,"Parsed query successfully\n");
     }
 
+    /* set up the index stuff -- this will be in the format
+     * index = l, index=l-h, index=l- or index=-h
+     */
+
+    pqi->index_type=indexTypeNone;
+
+    index=ws_getvar(pwsc,"index");
+    if(index) {
+        DPRINTF(E_DBG,L_DAAP,"Indexed query: %s\n",index);
+
+        /* we have some kind of index string... */
+        l=strtol(index,&ptr,10);
+        if(l<0) { /* "-h"... tail range, last "h" entries */
+            pqi->index_type = indexTypeLast;
+            pqi->index_low = l * -1;
+            DPRINTF(E_DBG,L_DAAP,"Index type last %d\n",l);
+        } else if(*ptr == '\0') { /* single item */
+            pqi->index_type = indexTypeSub;
+            pqi->index_low = l;
+            pqi->index_high = l;
+            DPRINTF(E_DBG,L_DAAP,"Index type single item %d\n",l);
+        } else if(*ptr == '-') {
+            pqi->index_type = indexTypeSub;
+            pqi->index_low = l;
+
+            if(*++ptr == '\0') { /* l- */
+                /* we don't handle this */
+                DPRINTF(E_LOG,L_DAAP,"unhandled index: %s\n",index);
+                pqi->index_high = 999999;
+            } else {
+                h = strtol(ptr, &ptr, 10);
+                pqi->index_high=h;
+            }
+            DPRINTF(E_DBG,L_DAAP,"Index type range %d-%d\n",l,h);
+        }
+    }
 
     /* Add some default headers */
     ws_addresponseheader(pwsc,"Accept-Ranges","bytes");
@@ -1123,7 +1160,6 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
 
     pqi->query_type = queryTypePlaylistItems;
-    pqi->index_type=indexTypeNone;
 
     /* FIXME: Error handling */
     if(db_enum_start(NULL,pqi)) {
@@ -1190,7 +1226,6 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         return;
     }
 
-    pqi->index_type = indexTypeNone;
 
     if(db_enum_start(NULL,pqi)) {
         DPRINTF(E_LOG,L_DAAP|L_BROW,"Could not start enum\n");
@@ -1250,7 +1285,7 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
 
     pqi->query_type = queryTypePlaylists;
-    pqi->index_type = indexTypeNone;
+
     if(db_enum_start(NULL,pqi)) {
         DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
         ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
@@ -1303,7 +1338,7 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
 
     pqi->query_type = queryTypeItems;
-    pqi->index_type=indexTypeNone;
+
     if(db_enum_start(NULL,pqi)) {
         DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
         ws_returnerror(pwsc,500,"Internal server error: out of memory!");

@@ -127,7 +127,7 @@ int db_sql_open_sqlite3(char **pe, char *parameters) {
  * escape a sql string, returning it the supplied buffer.
  * note that this uses the sqlite escape format -- use %q for quoted
  * sql.
- * 
+ *
  * @param buffer buffer to throw the escaped sql into
  * @param size size of buffer (or size required, if DB_E_SIZE)
  * @param fmt printf style format
@@ -1125,7 +1125,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     /* Apply any index */
     switch(pinfo->index_type) {
     case indexTypeFirst:
-        sprintf(scratch," limit %d",pinfo->index_high);
+        sprintf(scratch," limit %d",pinfo->index_low);
         break;
     case indexTypeLast:
         if(pinfo->index_low >= results) {
@@ -1135,7 +1135,8 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         }
         break;
     case indexTypeSub:
-        sprintf(scratch," limit %d offset %d",pinfo->index_high - pinfo->index_low,
+        sprintf(scratch," limit %d offset %d",
+                pinfo->index_high - pinfo->index_low + 1,
                 pinfo->index_low);
         break;
     case indexTypeNone:
@@ -1250,7 +1251,7 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
     case queryTypeBrowseAlbums:
     case queryTypeBrowseGenres:
     case queryTypeBrowseComposers:
-	return valarray[0] ? (8 + (int) strlen(valarray[0])) : 0;
+        return valarray[0] ? (8 + (int) strlen(valarray[0])) : 0;
     case queryTypePlaylists:
         size = 8;   /* mlit */
         size += 12; /* mimc - you get it whether you want it or not */
