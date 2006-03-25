@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <syslog.h>
+#include <string.h>
 
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -78,13 +79,9 @@ char *_os_pidfile = PIDFILE;
  * @param foreground whether to run in fg or fork to bg
  * @returns TRUE on success, FALSE otherwise
  */
-int os_init(int foreground) {
+int os_init(int foreground, char *runas) {
     int pid_fd;
     FILE *pid_fp=NULL;
-    char runas[80];
-    int size = sizeof(runas);
-
-    conf_get_string("general","runas","nobody",runas,&size);
 
     /* open the pidfile, so it can be written once we detach */
     if(!foreground) {

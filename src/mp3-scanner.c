@@ -294,17 +294,15 @@ int scan_path(char *path) {
     char mp3_path[PATH_MAX];
     struct stat sb;
     int modified_time;
-    char *ext;
+    char *ext,*extensions;
     MP3FILE *pmp3;
     int is_compdir;
 
-    char extensions[PATH_MAX];
-    int size = sizeof(extensions);
-
-    conf_get_string("general","extensions",".mp3,.m4a,.m4p",extensions,&size);
+    extensions = conf_alloc_string("general","extensions",".mp3,.m4a,.m4p");
 
     if((current_dir=opendir(path)) == NULL) {
         DPRINTF(E_WARN,L_SCAN,"opendir: %s\n",strerror(errno));
+        free(extensions);
         return -1;
     }
 
@@ -314,6 +312,7 @@ int scan_path(char *path) {
         if(config.stop) {
             DPRINTF(E_WARN,L_SCAN,"Stop req.  Aborting scan of %s.\n",path);
             closedir(current_dir);
+            free(extensions);
             return 0;
         }
 
@@ -324,6 +323,7 @@ int scan_path(char *path) {
             DPRINTF(E_DBG,L_SCAN,"Error on readdir_r: %s\n",strerror(errno));
             err=errno;
             closedir(current_dir);
+            free(extensions);
             errno=err;
             return -1;
         }
@@ -373,6 +373,7 @@ int scan_path(char *path) {
     }
 
     closedir(current_dir);
+    free(extensions);
     return 0;
 }
 

@@ -628,6 +628,32 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
 }
 
 /**
+ * return the value from the CURRENT config tree as an allocated string
+ *
+ * @param section section name to search in
+ * @param key key to search for
+ * @param dflt default value to return if key not found
+ * @returns a pointer to an allocated string containing the required
+ *          configuration key
+ */
+char *conf_alloc_string (char *section, char *key, char *dflt) {
+  int size = -1;
+  char *out;
+
+  conf_get_string(section, key, dflt, NULL, &size);
+  out = (char *)malloc(size * sizeof(char));
+
+  if(!out)
+      DPRINTF(E_FATAL,L_CONF,"Malloc failure\n");
+
+  if(conf_get_string (section, key, dflt, out, &size) != CONF_E_SUCCESS)
+      return NULL;
+
+  return out;
+}
+
+
+/**
  * set (update) the config tree with a particular value.
  * this accepts an int, but it actually adds it as a string.
  * in that sense, it's really just a wrapper for conf_set_string

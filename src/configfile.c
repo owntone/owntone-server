@@ -317,18 +317,17 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
 void config_handler(WS_CONNINFO *pwsc) {
     char path[PATH_MAX];
     char resolved_path[PATH_MAX];
+    char web_root[PATH_MAX];
     int file_fd;
     struct stat sb;
-    char *pw;
-    char web_root[PATH_MAX];
+    char *pw, *web_root;
     int size;
 
-    size = PATH_MAX;
-    if(conf_get_string("general","web_root",NULL,
-                       web_root,&size) != CONF_E_SUCCESS) {
-        DPRINTF(E_FATAL,L_CONF,"No web root!\n");
+    size = sizeof(web_root);
+    if(conf_get_string("general","web_root",NULL,web_root,
+                       &size) == CONF_E_NOTFOUND) {
+        DPRINTF(E_FATAL,L_WS,"No web root!\n");
     }
-
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Entering config_handler\n");
 
@@ -421,21 +420,16 @@ void config_handler(WS_CONNINFO *pwsc) {
  * \param password password passed in the auth request
  */
 int config_auth(char *user, char *password) {
-    char adminpassword[80];
-    int size = sizeof(adminpassword);
+    char *adminpassword;
+    int res;
 
-    if(conf_get_string("general","admin_pw","",adminpassword,
-                       &size) != CONF_E_SUCCESS) {
-        DPRINTF(E_LOG,L_CONF,"c_g_s: not success\n");
-        return FALSE;
-    }
-
-    DPRINTF(E_LOG,L_CONF,"Admin pw: %s\n",adminpassword);
-
-    if(!password)
+    if((!password) ||
+       ((adminpassword=conf_alloc_string("general","admin_pw",NULL))==NULL))
         return FALSE;
 
-    return !strcmp(password,adminpassword);
+    res = !strcmp(password,adminpassword);
+    free(adminpassword);
+    return res;
 }
 
 
@@ -776,14 +770,14 @@ void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg) {
 void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     char resolved_path[PATH_MAX];
     char path[PATH_MAX];
+    char web_root[PATH_MAX];
     int file_fd;
     struct stat sb;
-    char web_root[PATH_MAX];
     int size;
 
     size = sizeof(web_root);
     if(conf_get_string("general","web_root",NULL,web_root,
-                       &size) != CONF_E_SUCCESS) {
+                       &size) == CONF_E_NOTFOUND) {
         DPRINTF(E_FATAL,L_WS,"No web root!\n");
     }
 
@@ -800,7 +794,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     /* this should really return a 302:Found */
     stat(resolved_path,&sb);
     if(sb.st_mode & S_IFDIR) {
-        ws_writefd(pwsc,"<hr><i>error: cannot include director %s</i><hr>",arg);
+        ws_writefd(pwsc,"<hr><i>error: cannot include dir %s</i><hr>",arg);
         return;
     }
 

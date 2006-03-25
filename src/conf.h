@@ -37,6 +37,7 @@ extern int conf_close(void);
 extern int conf_get_int(char *section, char *key, int dflt);
 extern int conf_get_string(char *section, char *key, char *dflt,
                              char *out, int *size);
+extern char *conf_alloc_string(char *section, char *key, char *dflt);
 extern int conf_set_int(char *section, char *key, int value);
 extern int conf_set_string(char *section, char *key, char *value);
 

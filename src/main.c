@@ -195,16 +195,9 @@ int main(int argc, char *argv[]) {
     int old_song_count, song_count;
     int force_non_root=0;
     int skip_initial=0;
-    int size;
     int convert_conf=0;
-    char logfile[PATH_MAX];
-    char db_type[40];
-    char db_parms[PATH_MAX];
-    char mp3_dir[PATH_MAX];
-    char web_root[PATH_MAX];
-    char runas[40];
-    char servername[PATH_MAX];
-    char iface[20];
+    char *logfile,*db_type,*db_parms,*mp3_dir,*web_root,*runas;
+    char *servername,*iface;
 
     char txtrecord[255];
     
@@ -305,36 +298,37 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN,"Starting with debuglevel %d\n",err_getlevel());
 
     if(!config.foreground) {
-        size = PATH_MAX;
-        if(conf_get_string("general","logfile",NULL,logfile,&size) == CONF_E_SUCCESS) {
+        if((logfile = conf_alloc_string("general","logfile",NULL)) != NULL) {
             err_setdest(logfile,LOGDEST_LOGFILE);
+            free(logfile);
         } else {
             err_setdest("mt-daapd",LOGDEST_SYSLOG);
         }
     }
 
+    runas = conf_alloc_string("general","runas","nobody");
+
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) {
         DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
-        size = sizeof(runas);
-        conf_get_string("general","runas","nobody",runas,&size);
         if(rend_init(runas)) {
-            DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",strerror(errno));
+            DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",
+                    strerror(errno));
         }
     }
 #endif
 
-    if(!os_init(config.foreground)) {
+    if(!os_init(config.foreground,runas)) {
         DPRINTF(E_LOG,L_MAIN,"Could not initialize server\n");
         os_deinit();
         exit(EXIT_FAILURE);
     }
 
+    free(runas);
+
     /* this will require that the db be readable by the runas user */
-    size = sizeof(db_type);
-    conf_get_string("general","db_type","sqlite",db_type,&size);
-    size = sizeof(db_parms);
-    conf_get_string("general","db_parms","/var/cache/mt-daapd",db_parms,&size);
+    db_type = conf_alloc_string("general","db_type","sqlite");
+    db_parms = conf_alloc_string("general","db_parms","/var/cache/mt-daapd");
     err=db_open(&perr,db_type,db_parms);
 
     if(err) {
@@ -342,14 +336,16 @@ int main(int argc, char *argv[]) {
                 db_type,db_parms,perr);
     }
 
+    free(db_type);
+    free(db_parms);
+
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
     if(db_init(reload)) {
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
 
-    size = sizeof(mp3_dir);
-    conf_get_string("general","mp3_dir","/mnt/mp3",mp3_dir,&size);
+    mp3_dir = conf_alloc_string("general","mp3_dir","/mnt/mp3");
     if(!skip_initial) {
         DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan of %s\n",mp3_dir);
 
@@ -357,10 +353,10 @@ int main(int argc, char *argv[]) {
             DPRINTF(E_FATAL,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
         }
     }
+    free(mp3_dir);
 
     /* start up the web server */
-    size = sizeof(web_root);
-    conf_get_string("general","web_root",NULL,web_root,&size);
+    web_root = conf_alloc_string("general","web_root",NULL);
     ws_config.web_root=web_root;
     ws_config.port=conf_get_int("general","port",3689);
 
@@ -383,24 +379,25 @@ int main(int argc, char *argv[]) {
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
-        size = sizeof(servername);
-        conf_get_string("general","servername","mt-daapd",servername,&size);
+        /* FIXME: get default name from hostname (os_hostname()?) */
+        servername = conf_alloc_string("general","servername","mt-daapd");
 
         memset(txtrecord,0,sizeof(txtrecord));
         txt_add(txtrecord,"txtvers=1");
-        txt_add(txtrecord,"Database ID=beddab1edeadbea7");
-        txt_add(txtrecord,"Machine ID=f00f00f00");
+        txt_add(txtrecord,"Database ID=beddab1edeadbea7"); /* FIXME: config */
+        txt_add(txtrecord,"Machine ID=f00f00f00"); /* ?? */
         txt_add(txtrecord,"Machine Name=%s",servername);
         txt_add(txtrecord,"mtd-version=" VERSION);
-        txt_add(txtrecord,"iTSh Version=131073");
-        txt_add(txtrecord,"Version=196610");
+        txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */
+        txt_add(txtrecord,"Version=196610");      /* iTunes 6.0.4 */
         txt_add(txtrecord,"Password=%s",conf_isset("general","password") ? "true" : "false");
     
         DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
-        size = sizeof(iface);
-        conf_get_string("general","interface","",iface,&size);
+        iface = conf_alloc_string("general","interface","");
         rend_register(servername,"_daap._tcp",ws_config.port,iface,txtrecord);
         rend_register(servername,"_http._tcp",ws_config.port,iface,txtrecord);
+        free(servername);
+        free(iface);
     }
 #endif
 
@@ -431,12 +428,13 @@ int main(int argc, char *argv[]) {
             start_time=(int) time(NULL);
 
             DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
-            size = PATH_MAX;
-            conf_get_string("general","mp3_dir","/mnt/mp3",mp3_dir,&size);
+            /* FIXME: move mp3_dir to scanner */
+            mp3_dir = conf_alloc_string("general","mp3_dir","/mnt/mp3");
             if(scan_init(mp3_dir)) {
                 DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... exiting\n");
                 config.stop=1;
             }
+            free(mp3_dir);
             config.reload=0;
             db_get_song_count(NULL,&song_count);
             DPRINTF(E_INF,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in "
@@ -465,7 +463,7 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN|L_WS,"Stopping web server\n");
     ws_stop(config.server);
     */
-
+    free(web_root);
     conf_close();
 
     DPRINTF(E_LOG,L_MAIN|L_DB,"Closing database\n");

@@ -189,7 +189,7 @@ extern int err_setdebugmask(char *list) {
     err_debugmask=0x80000000; /* always log L_MISC! */
     str=tmpstr=strdup(list);
     if(!str)
-	return 0;
+        return 0;
     
     while(1) {
         token=strtok_r(str,",",&last);
@@ -206,7 +206,7 @@ extern int err_setdebugmask(char *list) {
 
             if(!err_categorylist[index]) {
                 DPRINTF(E_LOG,L_MISC,"Unknown module: %s\n",token);
-		free(tmpstr);
+                free(tmpstr);
                 return 1;
             } else {
                 DPRINTF(E_DBG,L_MISC,"Adding module %s to debug list (0x%08x)\n",token,rack);

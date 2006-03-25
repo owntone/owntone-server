@@ -58,9 +58,10 @@ char os_config_file[_MAX_PATH];
  * signal handlers (or ctrl-c handlers), etc
  *
  * @param background whether or not to start in background (service)
+ * @param runas we'll ignore this, as it's a unix thang
  * @returns TRUE on success, FALSE otherwise
  */
-int os_init(int foreground) {
+int os_init(int foreground, char *runas) {
     int err;
 
     _os_socket_startup();

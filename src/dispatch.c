@@ -124,37 +124,39 @@ void dispatch_cleanup(DBQUERYINFO *pqi) {
  * not.  If you apply authentication somewhere that iTunes doesn't expect
  * it, it happily disconnects.
  *
- * \param username The username passed by iTunes
- * \param password The password passed by iTunes
- * \returns 1 if auth successful, 0 otherwise
+ * @param username The username passed by iTunes
+ * @param password The password passed by iTunes
+ * @returns 1 if auth successful, 0 otherwise
  */
 int daap_auth(char *username, char *password) {
-    char readpassword[40];
-    int size;
+    char *readpassword;
 
-    size = sizeof(readpassword);
-    conf_get_string("general","password","",readpassword,&size);
+    readpassword = conf_alloc_string("general","password",NULL);
 
-    if((password == NULL) &&
-       ((readpassword == NULL) || (strlen(readpassword)==0)))
-        return 1;
-
-    if(password == NULL)
-        return 0;
-
-    if(strcasecmp(password,readpassword)) {
-        DPRINTF(E_LOG,L_DAAP | L_WS,"Bad password attempt\n");
-        return 0;
+    if(password == NULL) {
+        if(readpassword == NULL) {
+            return TRUE;
+        } else {
+            free(readpassword);
+            return FALSE;
+        }
+    } else {
+        if(strcasecmp(password,readpassword)) {
+            free(readpassword);
+            return FALSE;
+        } else {
+            free(readpassword);
+            return TRUE;
+        }
     }
 
-    DPRINTF(E_DBG,L_DAAP | L_WS, "good password.\n");
-    return 1;
+    return TRUE; /* not used */
 }
 
 /**
  * decodes the request and hands it off to the appropriate dispatcher
  *
- * \param pwsc the current web connection info
+ * @param pwsc the current web connection info
  */
 void daap_handler(WS_CONNINFO *pwsc) {
     DBQUERYINFO *pqi;
@@ -383,9 +385,9 @@ void daap_handler(WS_CONNINFO *pwsc) {
  * set up whatever necessary to begin streaming the output
  * to the client.
  *
- * \param pwsc pointer to the current conninfo struct
- * \param pqi pointer to the current dbquery struct
- * \param content_length content_length (assuming dmap) of the output
+ * @param pwsc pointer to the current conninfo struct
+ * @param pqi pointer to the current dbquery struct
+ * @param content_length content_length (assuming dmap) of the output
  */
 int dispatch_output_start(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, int content_length) {
     OUTPUT_INFO *poi;
@@ -429,10 +431,10 @@ int dispatch_output_start(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, int content_lengt
  * dmap blocks out to the client.  In more complex cases, it convert
  * them to xml, or compresses them.
  *
- * \param pqi pointer to the current dbquery info struct
- * \param pwsc pointer to the current conninfo struct
- * \param pblock block of data to write
- * \param len length of block to write
+ * @param pqi pointer to the current dbquery info struct
+ * @param pwsc pointer to the current conninfo struct
+ * @param pblock block of data to write
+ * @param len length of block to write
  */
 int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *block, int len) {
     OUTPUT_INFO *poi=(pqi->output_info);
@@ -453,10 +455,10 @@ int dispatch_output_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *bl
  * this is the serializer for xml.  This assumes that (with the exception of
  * containers) blocks are complete dmap blocks
  *
- * \param pqi pointer to the current dbquery info struct
- * \param pwsc pointer to the current conninfo struct
- * \param pblock block of data to write
- * \param len length of block to write
+ * @param pqi pointer to the current dbquery info struct
+ * @param pwsc pointer to the current conninfo struct
+ * @param pblock block of data to write
+ * @param len length of block to write
  */
 int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char *block, int len) {
     OUTPUT_INFO *poi = pqi->output_info;
@@ -638,8 +640,8 @@ int dispatch_output_xml_write(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, unsigned char
  * finish streaming output to the client, freeing any allocated
  * memory, and cleaning up
  *
- * \param pwsc current conninfo struct
- * \param pqi current dbquery struct
+ * @param pwsc current conninfo struct
+ * @param pqi current dbquery struct
  */
 int dispatch_output_end(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     OUTPUT_INFO *poi = pqi->output_info;
@@ -1427,35 +1429,34 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    unsigned char dbinfo_response[255];  /* FIXME */
+    unsigned char dbinfo_response[255];  /* FIXME: servername limit 255-113 */
     unsigned char *current = dbinfo_response;
     int namelen;
     int count;
-    char servername[80];
-    int size;
+    char *servername;
 
-    size = sizeof(servername);
-    conf_get_string("general","servername","mt-daapd",servername,&size);
+    servername = conf_alloc_string("general","servername","mt-daapd");
     namelen=(int) strlen(servername);
 
     current += db_dmap_add_container(current,"avdb",105 + namelen);
-    current += db_dmap_add_int(current,"mstt",200);                      /* 12 */
-    current += db_dmap_add_char(current,"muty",0);                       /*  9 */
-    current += db_dmap_add_int(current,"mtco",1);                        /* 12 */
-    current += db_dmap_add_int(current,"mrco",1);                        /* 12 */
+    current += db_dmap_add_int(current,"mstt",200);                    /* 12 */
+    current += db_dmap_add_char(current,"muty",0);                     /*  9 */
+    current += db_dmap_add_int(current,"mtco",1);                      /* 12 */
+    current += db_dmap_add_int(current,"mrco",1);                      /* 12 */
     current += db_dmap_add_container(current,"mlcl",52 + namelen);
     current += db_dmap_add_container(current,"mlit",44 + namelen);
-    current += db_dmap_add_int(current,"miid",1);                        /* 12 */
-    current += db_dmap_add_string(current,"minm",servername);     /* 8 + namelen */
+    current += db_dmap_add_int(current,"miid",1);                      /* 12 */
+    current += db_dmap_add_string(current,"minm",servername); /* 8 + namelen */
     db_get_song_count(NULL,&count);
-    current += db_dmap_add_int(current,"mimc",count);                    /* 12 */
+    current += db_dmap_add_int(current,"mimc",count);                  /* 12 */
     db_get_playlist_count(NULL,&count);
-    current += db_dmap_add_int(current,"mctc",count);                    /* 12 */
+    current += db_dmap_add_int(current,"mctc",count);                  /* 12 */
 
     dispatch_output_start(pwsc,pqi,113+namelen);
     dispatch_output_write(pwsc,pqi,dbinfo_response,113+namelen);
     dispatch_output_end(pwsc,pqi);
 
+    free(servername);
     return;
 }
 
@@ -1519,17 +1520,15 @@ void dispatch_content_codes(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 }
 
 void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    unsigned char server_info[256]; /* FIXME: Don't make this static */
+    unsigned char server_info[256];
     unsigned char *current = server_info;
     char *client_version;
     int mpro = 2 << 16;
     int apro = 3 << 16;
-    char servername[80];
-    int size;
+    char *servername;
     int actual_length;
 
-    size = sizeof(servername);
-    conf_get_string("general","servername","mt-daapd",servername,&size);
+    servername = conf_alloc_string("general","servername","mt-daapd");
 
     actual_length=130 + (int) strlen(servername);
 
@@ -1570,6 +1569,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_write(pwsc,pqi,server_info,actual_length);
     dispatch_output_end(pwsc,pqi);
 
+    free(servername);
     return;
 }
 

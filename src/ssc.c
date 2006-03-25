@@ -61,24 +61,25 @@
  * @returns 1 if should be converted.  0 if not
  */
 int server_side_convert(char *codectype) {
-    char ssc_codectypes[PATH_MAX];
-    int size;
+    char *ssc_codectypes;
 
-    size = sizeof(ssc_codectypes);
-    conf_get_string("general","ssc_codectypes","ogg,flac,wma,alac",
-                    ssc_codectypes,&size);
+    ssc_codectypes = conf_alloc_string("general","ssc_codectypes",
+                                       "ogg,flac,wma,alac");
 
     if ((!conf_isset("general","ssc_codectypes")) ||
         (!conf_isset("general","ssc_prog")) ||
         (!codectype)) {
         DPRINTF(E_DBG,L_SCAN,"Nope\n");
+	free(ssc_codectypes);
         return 0;
     }
 
     if(strcasestr(ssc_codectypes, codectype)) {
+        free(ssc_codectypes);
         return 1;
     }
 
+    free(ssc_codectypes);
     return 0;
 }
 
@@ -95,14 +96,12 @@ FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms, c
     char *newpath;
     char *metachars = "\"\\!(){}#*?$&<>`"; /* More?? */
     char metacount = 0;
-    char *src,*dst;
-    char ssc_prog[PATH_MAX];
-    int size;
+    char *src,*dst,*ssc_prog;
 
-    size = sizeof(ssc_prog);
-    conf_get_string("general","ssc_prog","",ssc_prog,&size);
+    ssc_prog = conf_alloc_string("general","ssc_prog","");
 
     if(ssc_prog[0] == '\0') { /* can't happen */
+        free(ssc_prog);
         return NULL;
     }
 
@@ -148,6 +147,7 @@ FILE *server_side_convert_open(char *path, off_t offset, unsigned long len_ms, c
     f = popen(cmd, "r");
     free(newpath);
     free(cmd);  /* should really have in-place expanded the path */
+    free(ssc_prog);
     return f;
 }
 

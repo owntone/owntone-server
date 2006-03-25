@@ -30,6 +30,10 @@
 #include <sys/time.h>
 #endif
 
+#ifndef WIN32
+#include <netinet/in.h>
+#endif
+
 #include "err.h"
 #include "mp3-scanner.h"
 #include "scan-aac.h"

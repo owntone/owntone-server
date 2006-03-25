@@ -70,8 +70,6 @@ static sw_result rend_howl_reply(sw_discovery discovery,
  * Initialize howl and start runloop
  */
 int rend_private_init(char *user) {
-    sw_result result;
-    
     DPRINTF(E_DBG,L_REND,"Starting rendezvous services\n");
     signal(SIGHUP,  SIG_IGN);           // SIGHUP might happen from a request to reload the daap server
 
@@ -106,7 +104,6 @@ int rend_private_init(char *user) {
  */
 void *rend_pipe_monitor(void* arg) {
     fd_set rset;
-    struct timeval tv;
     int result;
 
     while(1) {
@@ -157,7 +154,7 @@ void rend_callback(void) {
                                         NULL, /* domain */
                                         NULL, /* host */
                                         msg.port,
-                                        msg.txt,
+                                        (sw_octets) msg.txt,
                                         strlen(msg.txt),
                                         rend_howl_reply,
                                         NULL,

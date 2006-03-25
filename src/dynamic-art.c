@@ -90,20 +90,17 @@ int fcopyblock(FILE *fromfp, int tofd, size_t size);
  */
 int da_get_image_fd(char *filename) {
     char buffer[PATH_MAX];
-    char *path_end;
+    char *path_end, *artfilename;
     int fd;
-    char artfilename[PATH_MAX];
-    int size;
 
-    size = sizeof(artfilename);
-    if(conf_get_string("general","art_filename","_folderOpenImage.jpg",
-                       artfilename,&size) != CONF_E_SUCCESS) {
+    if((artfilename = conf_alloc_string("general","art_filename","_folderOpenImage.jpg")) == NULL) {
         return -1;
     }
 
     strncpy(buffer,filename,sizeof(buffer));
     path_end = strrchr(buffer,'/');
     strcpy(path_end+1,artfilename);
+    free(artfilename);
     fd = open(buffer,O_RDONLY);
     if(fd != -1)
         DPRINTF(E_INF,L_ART,"Found image file %s (fd %d)\n",buffer,fd);
@@ -298,12 +295,9 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
     char          *cp;
     unsigned char img_type_flag = 0;
 
-    char artfilename[PATH_MAX];
-    int size;
+    char *artfilename;
 
-    size = sizeof(artfilename);
-    if(conf_get_string("general","art_filename","_folderOpenImage.jpg",
-                       artfilename,&size) != CONF_E_SUCCESS) {
+    if((artfilename = conf_alloc_string("general","art_filename","_folderOpenImage.jpg")) == NULL) {
         return 0;
     }
 
@@ -322,6 +316,7 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
     } else {
         DPRINTF(E_LOG, L_ART, "No file extension for image file.\n");
     }
+    free(artfilename);
 
     aac_fd = fileno(aac_fp);
     fstat(aac_fd, &sb);
