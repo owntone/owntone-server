@@ -1,5 +1,5 @@
 /*
- * $idx: conf.c,v 1.4 2006/02/21 03:08:14 rpedde Exp $
+ * $Id$
  * Functions for reading and writing the config file
  *
  * Copyright (C) 2006 Ron Pedde (ron@pedde.com)
@@ -76,6 +76,8 @@ static void _conf_lock(void);
 static void _conf_unlock(void);
 static int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent);
 static CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key);
+static int _conf_makedir(char *path);
+static int _conf_existdir(char *path);
 
 static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","runas" },
@@ -105,6 +107,77 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_INT, NULL, NULL }
 };
 
+
+/**
+ * Try and create a directory, including parents (probably
+ * in response to a config file entry that does not exist).
+ *
+ * @param path path to make
+ * @returns TRUE on success, FALSE otherwise
+ */
+
+int _conf_makedir(char *path) {
+    char *token, *next_token;
+    char *pathdup;
+    char path_buffer[PATH_MAX];
+    int err;
+    int retval = FALSE;
+
+    DPRINTF(E_DBG,L_CONF,"Creating %s\n",path);
+
+    pathdup=strdup(path);
+    if(!pathdup) {
+	DPRINTF(E_FATAL,L_CONF,"Malloc error\n");
+    }
+
+    next_token=pathdup+1;
+    memset(path_buffer,0,sizeof(path_buffer));
+
+    while((token=strsep(&next_token,"/"))) {
+        if((strlen(path_buffer) + strlen(token)) < PATH_MAX) {
+            strcat(path_buffer,"/");
+            strcat(path_buffer,token);
+	    
+	    /* FIXME: this is wrong -- it should really be 0700 owned by
+	     * the runas user.  That would require some os_ indirection
+	     */
+            DPRINTF(E_DBG,L_CONF,"Making %s\n",path_buffer);
+            if((mkdir(path_buffer,0777)) && (errno != EEXIST)) {
+                err=errno;
+                free(pathdup);
+                errno=err;
+		DPRINTF(E_LOG,L_CONF,"Could not make dirctory %s: %s\n",
+			path_buffer,strerror(errno));
+		return FALSE;
+            }
+	    retval = TRUE;
+	}
+    }
+
+    free(pathdup);
+    return retval;
+}
+
+/**
+ * Determine if a particular directory exists or not
+ *
+ * @param path directory to test for existence
+ * @returns true if path exists, false otherwise
+ */
+int _conf_existdir(char *path) {
+    struct stat sb;
+
+    DPRINTF(E_DBG,L_CONF,"Checking existence of %s\n",path);
+
+    if(stat(path,&sb)) {
+        return FALSE;
+    }
+
+    if(sb.st_mode & S_IFDIR)
+        return TRUE;
+
+    return FALSE;
+}
 
 /**
  * given a section and key, get the conf_element for it.
@@ -243,6 +316,13 @@ int _conf_verify(LL_HANDLE pll) {
                     pi->value.as_string = strdup(resolved_path);
                 }
                 /* now, should verify it exists */
+		if(!_conf_existdir(resolved_path)) {
+		    if(!_conf_makedir(resolved_path)) {
+			is_valid=0;
+			DPRINTF(E_LOG,L_CONF,"Can't make path %s, invalid config.\n",
+				resolved_path);
+		    }
+		}
             }
         }
         pce++;
