@@ -320,7 +320,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     char web_root[PATH_MAX];
     int file_fd;
     struct stat sb;
-    char *pw, *web_root;
+    char *pw;
     int size;
 
     size = sizeof(web_root);

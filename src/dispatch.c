@@ -192,7 +192,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
      */
 
     pqi->index_type=indexTypeNone;
-
+    l = h = 0;
     index=ws_getvar(pwsc,"index");
     if(index) {
         DPRINTF(E_DBG,L_DAAP,"Indexed query: %s\n",index);

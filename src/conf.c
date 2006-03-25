@@ -640,6 +640,7 @@ char *conf_alloc_string (char *section, char *key, char *dflt) {
   int size = -1;
   char *out;
 
+  /* FIXME: races */
   conf_get_string(section, key, dflt, NULL, &size);
   out = (char *)malloc(size * sizeof(char));
 
