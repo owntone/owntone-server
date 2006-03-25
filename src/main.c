@@ -350,7 +350,7 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan of %s\n",mp3_dir);
 
         if(scan_init(mp3_dir)) {
-            DPRINTF(E_FATAL,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
+            DPRINTF(E_LOG,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
         }
     }
     free(mp3_dir);
@@ -431,8 +431,7 @@ int main(int argc, char *argv[]) {
             /* FIXME: move mp3_dir to scanner */
             mp3_dir = conf_alloc_string("general","mp3_dir","/mnt/mp3");
             if(scan_init(mp3_dir)) {
-                DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... exiting\n");
-                config.stop=1;
+                DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... bad path?\n");
             }
             free(mp3_dir);
             config.reload=0;
