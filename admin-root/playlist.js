@@ -1,6 +1,7 @@
 Event.observe(window,'load',initPlaylist);
-var MAX_SONGS= 400;
+
 var SEARCH_DELAY = 500; // # ms without typing before the search box searches
+var BROWSE_TEXT_LEN = 30; // Length to truncate genre/artist/album select boxes
 Ajax.Responders.register({  onCreate: function () {$('busymsg').style.visibility='visible';},
                           onComplete: function () {if (!Query.busy) {$('busymsg').style.visibility='hidden';}}});
 function initPlaylist() {
@@ -22,12 +23,12 @@ function initPlaylist() {
 var Search = {
   timeOut: '',
   keyPress:  function (e) {
+    if (this.timeOut) {
+      window.clearTimeout(this.timeOut);
+    }
     if (e.keyCode == Event.KEY_RETURN) {
       EventHandler.search();  
     } else {
-      if (this.timeOut) {
-        window.clearTimeout(this.timeOut);
-      }
       this.timeOut = window.setTimeout(EventHandler.search,SEARCH_DELAY);
     }
   }
@@ -128,6 +129,7 @@ var Query = {
      var url;
      var handler;
      var meta = '';
+     var index = '';
      switch (type) {
        case 'genres':
          url = '/databases/1/browse/genres';
@@ -144,10 +146,11 @@ var Query = {
        case 'songs':
          url = '/databases/1/items';
          meta = '&meta=daap.songalbum,daap.songartist,daap.songgenre,dmap.itemid,daap.songtime,dmap.itemname';
+         index = '&index=0-50';
          handler = rsSongs;
         break;
      }
-     url = url + '?output=xml' + meta + this.getUrl(type);
+     url = url + '?output=xml' + index + meta + this.getUrl(type);
      new Ajax.Request(url ,{method: 'get',onComplete:handler});
    }
 };
@@ -175,6 +178,7 @@ var ResponseHandler = {
     o.value = 'all';
     o.appendChild(document.createTextNode('All (' + items.length + ' ' + type + ')'));
     select.appendChild(o);
+    Query.clearSelection(type);
     addOptions(select,items);
     select.value='all';
     switch (type) {
@@ -237,13 +241,6 @@ function rsSongs(request) {
   var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
   var songsTable = $('songs_data');
   Element.removeChildren(songsTable);
-  if (items.length > MAX_SONGS) {
-    var tr = document.createElement('tr');
-    tr.appendChild(Builder.node('td',{colspan: '5'},'Search returned > '+MAX_SONGS+' results'));
-    songsTable.appendChild(tr);
-    Query.busy = false;
-    return;
-  }
   items.each(function (item) {
     var tr = document.createElement('tr');
     var time = parseInt(Element.textContent(item.getElementsByTagName('daap.songtime')[0]));
@@ -266,11 +263,11 @@ function rsSongs(request) {
 function addOptions(element,options) {
   options.each(function (option) {
     var node;
-    var text = option.truncate(25);
+    var text = option.truncate(BROWSE_TEXT_LEN);
     if (option.length != text.length) {
-      node = Builder.node('option',{value: option, title: option},option.truncate(25));
+      node = Builder.node('option',{value: option, title: option},text);
     } else {
-      node = Builder.node('option',{value: option},option.truncate(25));
+      node = Builder.node('option',{value: option},text);
     }
     node.selected = false;
     element.appendChild(node);
