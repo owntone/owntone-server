@@ -30,6 +30,7 @@
 #  include "config.h"
 #endif
 
+#include <errno.h>
 #include <limits.h>
 #include <pthread.h>
 #include <stdio.h>
@@ -39,6 +40,8 @@
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
 #endif
+#include <sys/stat.h>
+#include <sys/types.h>
 
 #include "conf.h"
 #include "err.h"
