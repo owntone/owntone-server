@@ -103,7 +103,7 @@ fi
 
 dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
-CPPFLAGS="$CPPFLAGS -DHOST='\"$host\"'"
+CPPFLAGS="$CPPFLAGS -DHOST='\"$host\"' -DPREFIX=$prefix"
 
 dnl
 dnl The apple mDNS stuff wants these compile flags.
@@ -129,6 +129,7 @@ case $host in
 	AM_CONDITIONAL(COND_REND_HOWL,false)
 	AM_CONDITIONAL(COND_REND_POSIX,false);;
 esac
+
 
 dnl Checks for libraries.
 AC_ARG_WITH(static-libs,
