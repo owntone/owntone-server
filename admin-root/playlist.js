@@ -107,7 +107,7 @@ var Query = {
          }
          break;
       default:
-         alert("Shouldn't happen 1");
+         // Do nothing
          break;
      }
      if (this.searchString) {
