@@ -193,7 +193,7 @@ int os_syslog(int level, char *msg) {
 /**
  * os-specific chown
  *
- * 
+ *
  */
 extern int os_chown(char *path, char *user) {
     struct passwd *pw=NULL;
@@ -210,7 +210,7 @@ extern int os_chown(char *path, char *user) {
 
         if(pw) {
             if(initgroups(user,pw->pw_gid) != 0 ||
-	       chown(path, pw->pw_uid, pw->pw_gid) != 0) {
+               chown(path, pw->pw_uid, pw->pw_gid) != 0) {
                 DPRINTF(E_LOG,L_MISC,"Couldn't chown %s, gid=%d, uid=%d\n",
                         user,pw->pw_gid, pw->pw_uid);
                 return FALSE;
