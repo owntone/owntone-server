@@ -978,18 +978,10 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     query_count[0] = '\0';
     query_rest[0] = '\0';
 
-    switch(pinfo->query_type) {
-    case queryTypeItems:
-        strcpy(query_select,"select * from songs ");
-        strcpy(query_count,"select count (*) from songs ");
-        break;
 
-    case queryTypePlaylists:
-        strcpy(query_select,"select * from playlists ");
-        strcpy(query_count,"select count (*) from playlists ");
-        break;
 
-    case queryTypePlaylistItems:  /* Figure out if it's smart or dull */
+    /* get the where qualifier to filter based on playlist, if there */
+    if((pinfo->playlist_id) && (pinfo->playlist_id != 1)) {
         err = db_sql_enum_begin_fn(pe, "select type,query from playlists "
                                    "where id=%d",pinfo->playlist_id);
 
@@ -1010,7 +1002,6 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         }
 
         is_smart=(atoi(temprow[0]) == 1);
-        have_clause=1;
         if(is_smart) {
             if(!db_sql_parse_smart(NULL,&where_clause,temprow[1]))
                 where_clause = strdup("0");
@@ -1021,31 +1012,43 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
                 return DB_E_PARSE;
             }
 
-            sprintf(query_select,"select * from songs ");
-            sprintf(query_count,"select count(id) from songs ");
-            sprintf(query_rest,"where (%s)",where_clause);
+            snprintf(query_rest,sizeof(query_rest)," where (%s)",where_clause);
             free(where_clause);
         } else {
-            sprintf(query_count,"select count(id) from songs ");
 
             /* We need to fix playlist queries to stop
              * pulling the whole song db... the performance
              * of these playlist queries sucks.
              */
-#if 1
-            sprintf(query_select,"select * from songs ");
-            sprintf(query_rest,"where songs.id in (select songid from "
-                               "playlistitems where playlistid=%d)",
-                               pinfo->playlist_id);
-#else
-            sprintf(query_select,"select * from songs,playlistitems ");
-            sprintf(query_rest,"where (songs.id=playlistitems.songid and "
-                               "playlistitems.playlistid=%d) order by "
-                               "playlistitems.id",pinfo->playlist_id);
-#endif
-        }
 
+            sprintf(query_rest," where (songs.id in (select songid from "
+                    "playlistitems where playlistid=%d))",
+                    pinfo->playlist_id);
+            /*
+            sprintf(query_playlist,"(songs.id=playlistitems.songid and "
+                    "playlistitems.playlistid=%d) order by "
+                    "playlistitems.id",pinfo->playlist_id);
+            */
+        }
+        have_clause=1;
         db_sql_enum_end_fn(NULL);
+    }
+
+    switch(pinfo->query_type) {
+    case queryTypeItems:
+        strcpy(query_select,"select * from songs ");
+        strcpy(query_count,"select count (*) from songs ");
+        break;
+
+    case queryTypePlaylists:
+        strcpy(query_select,"select * from playlists ");
+        strcpy(query_count,"select count (*) from playlists ");
+        //        sprintf(query_rest,"where (%s)",query_playlist);
+        break;
+
+    case queryTypePlaylistItems:  /* Figure out if it's smart or dull */
+        sprintf(query_select,"select * from songs ");
+        sprintf(query_count,"select count(id) from songs ");
         break;
 
         /* Note that sqlite doesn't support COUNT(DISTINCT x) */

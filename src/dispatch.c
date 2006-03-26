@@ -308,6 +308,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
         if(pqi->uri_count == 4) {
             if(!strcasecmp(pqi->uri_sections[2],"browse")) {
                 /* /databases/id/browse/something */
+                pqi->playlist_id=1; /* browse the library */
                 dispatch_browse(pwsc,pqi);
                 dispatch_cleanup(pqi);
                 return;
@@ -368,6 +369,13 @@ void daap_handler(WS_CONNINFO *pwsc) {
                (!strcasecmp(pqi->uri_sections[5],"add"))) {
                 pqi->playlist_id=atoi(pqi->uri_sections[3]);
                 dispatch_addplaylistitems(pwsc,pqi);
+                dispatch_cleanup(pqi);
+                return;
+            }
+            if((!strcasecmp(pqi->uri_sections[2],"containers")) &&
+               (!strcasecmp(pqi->uri_sections[4],"browse"))) {
+                pqi->playlist_id=atoi(pqi->uri_sections[3]);
+                dispatch_browse(pwsc,pqi);
                 dispatch_cleanup(pqi);
                 return;
             }
@@ -1208,17 +1216,22 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int list_length;
     unsigned char *block;
     char *response_type;
+    int which_field=5;
 
-    if(!strcmp(pqi->uri_sections[3],"artists")) {
+    if(strcasecmp(pqi->uri_sections[2],"browse") == 0) {
+        which_field = 3;
+    }
+
+    if(!strcmp(pqi->uri_sections[which_field],"artists")) {
         response_type = "abar";
         pqi->query_type=queryTypeBrowseArtists;
-    } else if(!strcmp(pqi->uri_sections[3],"genres")) {
+    } else if(!strcmp(pqi->uri_sections[which_field],"genres")) {
         response_type = "abgn";
         pqi->query_type=queryTypeBrowseGenres;
-    } else if(!strcmp(pqi->uri_sections[3],"albums")) {
+    } else if(!strcmp(pqi->uri_sections[which_field],"albums")) {
         response_type = "abal";
         pqi->query_type=queryTypeBrowseAlbums;
-    } else if(!strcmp(pqi->uri_sections[3],"composers")) {
+    } else if(!strcmp(pqi->uri_sections[which_field],"composers")) {
         response_type = "abcp";
         pqi->query_type=queryTypeBrowseComposers;
     } else {
