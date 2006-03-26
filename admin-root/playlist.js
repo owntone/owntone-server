@@ -33,7 +33,7 @@ var Search = {
       this.timeOut = window.setTimeout(EventHandler.search,SEARCH_DELAY);
     }
   }
-}
+};
 var EventHandler = {
   sourceChange: function (e) {
     alert('Playlist id:'+$('source').value);  
@@ -65,7 +65,7 @@ var EventHandler = {
       });
     }
   }
-}
+};
 
 var Query = {
    genres: [],
@@ -105,6 +105,9 @@ var Query = {
          } else if (this.genres.length > 0) {
            query = this.genres.collect(function(value){return "'daap.songgenre:"+value.encode()+"'";});    
          }
+         break;
+      default:
+         alert("Shouldn't happen 1");
          break;
      }
      if (this.searchString) {
@@ -151,6 +154,9 @@ var Query = {
          index = '&index=0-50';
          handler = rsSongs;
         break;
+       default:
+         alert("Shouldn't happen 2");
+         break;
      }
      url = url + '?output=xml' + index + meta + this.getUrl(type);
      new Ajax.Request(url ,{method: 'get',onComplete:handler});
@@ -198,9 +204,12 @@ var ResponseHandler = {
       case 'albums':
         Query.send('songs');
         break;
+      default:
+        alert("Shouldn't happen 3");
+        break;  
     }
   }
-}
+};
 function addOptions(type,options,selected) {
   el = $(type);
   var nothingSelected = true;
@@ -345,7 +354,7 @@ function DataDumper(obj,n,prefix){
        str+=ind+prefix+"Boolean:" + obj + "\n";
 	} else {
 		var type="Array";
-		for(var i in obj){ type=(type=="Array"&&i==parseInt(i))?"Array":"Object" }
+		for(var i in obj){ type=(type=="Array"&&i==parseInt(i))?"Array":"Object"; }
 		str+=ind+prefix+type+"[\n";
 		if(type=="Array"){
 			for(var i in obj){ str+=DataDumper(obj[i],n,i+"=>"); }
