@@ -70,7 +70,7 @@ int server_side_convert(char *codectype) {
         (!conf_isset("general","ssc_prog")) ||
         (!codectype)) {
         DPRINTF(E_DBG,L_SCAN,"Nope\n");
-	free(ssc_codectypes);
+        free(ssc_codectypes);
         return 0;
     }
 
