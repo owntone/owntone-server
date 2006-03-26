@@ -126,6 +126,14 @@ int os_syslog(int level, char *msg) {
     return elog_message(level, msg);
 }
 
+/**
+ * change the owner of a file to a specific user.  This is
+ * ignored on windows
+ */
+extern int os_chown(char *path, char *user) {
+    return TRUE;
+}
+
 
 int os_register(void) {
     service_register();

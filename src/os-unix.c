@@ -190,6 +190,40 @@ int os_syslog(int level, char *msg) {
 }
 
 
+/**
+ * os-specific chown
+ *
+ * 
+ */
+extern int os_chown(char *path, char *user) {
+    struct passwd *pw=NULL;
+
+    DPRINTF(E_DBG,L_MISC,"Chowning %s to %s\n",path,user);
+
+    /* drop privs */
+    if(getuid() == (uid_t)0) {
+        if(atoi(user)) {
+            pw=getpwuid((uid_t)atoi(user)); /* doh! */
+        } else {
+            pw=getpwnam(user);
+        }
+
+        if(pw) {
+            if(initgroups(user,pw->pw_gid) != 0 ||
+	       chown(path, pw->pw_uid, pw->pw_gid) != 0) {
+                DPRINTF(E_LOG,L_MISC,"Couldn't chown %s, gid=%d, uid=%d\n",
+                        user,pw->pw_gid, pw->pw_uid);
+                return FALSE;
+            }
+        } else {
+            DPRINTF(E_LOG,L_MISC,"Couldn't lookup user %s for chown\n",user);
+            return FALSE;
+        }
+    }
+
+    DPRINTF(E_DBG,L_MISC,"Success!\n");
+    return TRUE;
+}
 
 /**
  * Fork and exit.  Stolen pretty much straight from Stevens.

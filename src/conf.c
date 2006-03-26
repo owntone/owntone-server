@@ -47,6 +47,7 @@
 #include "err.h"
 #include "ll.h"
 #include "daapd.h"
+#include "os.h"
 
 /** Globals */
 //static int ecode;
@@ -79,7 +80,7 @@ static void _conf_lock(void);
 static void _conf_unlock(void);
 static int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent);
 static CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key);
-static int _conf_makedir(char *path);
+static int _conf_makedir(char *path, char *user);
 static int _conf_existdir(char *path);
 
 static CONF_ELEMENTS conf_elements[] = {
@@ -90,7 +91,7 @@ static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","mp3_dir" },
     { 0, 1, CONF_T_EXISTPATH,"general","db_dir" },
     { 0, 0, CONF_T_STRING,"general","db_type" },
-    { 0, 0, CONF_T_STRING,"general","db_parms" },
+    { 0, 0, CONF_T_EXISTPATH,"general","db_parms" }, /* this isn't right */
     { 0, 0, CONF_T_INT,"general","debuglevel" },
     { 1, 0, CONF_T_STRING,"general","servername" },
     { 0, 0, CONF_T_INT,"general","rescan_interval" },
@@ -119,11 +120,10 @@ static CONF_ELEMENTS conf_elements[] = {
  * @returns TRUE on success, FALSE otherwise
  */
 
-int _conf_makedir(char *path) {
+int _conf_makedir(char *path,char *user) {
     char *token, *next_token;
     char *pathdup;
     char path_buffer[PATH_MAX];
-    int err;
     int retval = FALSE;
 
     DPRINTF(E_DBG,L_CONF,"Creating %s\n",path);
@@ -140,19 +140,20 @@ int _conf_makedir(char *path) {
         if((strlen(path_buffer) + strlen(token)) < PATH_MAX) {
             strcat(path_buffer,"/");
             strcat(path_buffer,token);
-	    
-	    /* FIXME: this is wrong -- it should really be 0700 owned by
-	     * the runas user.  That would require some os_ indirection
-	     */
-            DPRINTF(E_DBG,L_CONF,"Making %s\n",path_buffer);
-            if((mkdir(path_buffer,0777)) && (errno != EEXIST)) {
-                err=errno;
-                free(pathdup);
-                errno=err;
-		DPRINTF(E_LOG,L_CONF,"Could not make dirctory %s: %s\n",
-			path_buffer,strerror(errno));
-		return FALSE;
-            }
+
+	    if(!_conf_existdir(path_buffer)) {
+		/* FIXME: this is wrong -- it should really be 0700 owned by
+		 * the runas user.  That would require some os_ indirection
+		 */
+		DPRINTF(E_DBG,L_CONF,"Making %s\n",path_buffer);
+		if((mkdir(path_buffer,0700)) && (errno != EEXIST)) {
+		    free(pathdup);
+		    DPRINTF(E_LOG,L_CONF,"Could not make dirctory %s: %s\n",
+			    path_buffer,strerror(errno));
+		    return FALSE;
+		}
+		os_chown(path_buffer,user);
+	    }
 	    retval = TRUE;
 	}
     }
@@ -285,9 +286,11 @@ int _conf_exists(LL_HANDLE pll, char *section, char *term) {
  */
 int _conf_verify(LL_HANDLE pll) {
     LL_ITEM *pi = NULL;
+    LL_ITEM *ptemp = NULL;
     CONF_ELEMENTS *pce;
     int is_valid=TRUE;
     char resolved_path[PATH_MAX];
+    char *user;
 
     /* first, walk through the elements and make sure
      * all required elements are there */
@@ -309,21 +312,35 @@ int _conf_verify(LL_HANDLE pll) {
             }
         }
         if(pce->type == CONF_T_EXISTPATH) {
-            /* first, need to resolve */
+	    /* first, need to resolve */
             pi = _conf_fetch_item(pll,pce->section, pce->term);
             if(pi) {
                 memset(resolved_path,0,sizeof(resolved_path));
                 if(pi->value.as_string) {
-                    realpath(pi->value.as_string,resolved_path);
-                    free(pi->value.as_string);
-                    pi->value.as_string = strdup(resolved_path);
-                }
-                /* now, should verify it exists */
-		if(!_conf_existdir(resolved_path)) {
-		    if(!_conf_makedir(resolved_path)) {
-			is_valid=0;
-			DPRINTF(E_LOG,L_CONF,"Can't make path %s, invalid config.\n",
-				resolved_path);
+		    DPRINTF(E_SPAM,L_CONF,"Found %s/%s as %s... checking\n",
+			    pce->section, pce->term, pi->value.as_string);
+
+		    /* verify it exists, creating it if necessary */
+		    if(!_conf_existdir(pi->value.as_string)) {
+			user = "nobody";
+			ptemp = _conf_fetch_item(pll, "general", "runas");
+			if(ptemp) {
+			    user = ptemp->value.as_string;
+			}
+			
+			if(!_conf_makedir(pi->value.as_string,user)) {
+			    is_valid=0;
+			    DPRINTF(E_LOG,L_CONF,"Can't make path %s, invalid config.\n",
+				    resolved_path);
+			}
+		    }
+
+		    if(_conf_existdir(pi->value.as_string)) {
+			realpath(pi->value.as_string,resolved_path);
+			free(pi->value.as_string);
+			pi->value.as_string = strdup(resolved_path);
+
+			DPRINTF(E_SPAM,L_CONF,"Resolved to %s\n",resolved_path);
 		    }
 		}
             }
@@ -520,7 +537,6 @@ int conf_read(char *file) {
                     /* this is an inline comment */
                     snprintf(keybuffer,sizeof(keybuffer),"in_%s_%s",
                              section_name,term);
-                    DPRINTF(E_SPAM,L_CONF,"Adding %s: %s\n",keybuffer,comment);
                     ll_add_string(pllcomment,keybuffer,comment);
                     comment = NULL;
                 }
@@ -529,8 +545,6 @@ int conf_read(char *file) {
                     /* we had some preceding comments */
                     snprintf(keybuffer,sizeof(keybuffer),"pre_%s_%s",
                              section_name, term);
-                    DPRINTF(E_SPAM,L_CONF,"Adding %s: %s\n",keybuffer,
-                                prev_comments);
                     ll_add_string(pllcomment,keybuffer,prev_comments);
                     prev_comments[0] = '\0';
                     current_comment_length=0;
@@ -550,7 +564,6 @@ int conf_read(char *file) {
             if(!comment)
                 comment = "";
 
-            DPRINTF(E_SPAM,L_CONF,"found comment: %s\n",comment);
 
             /* add to prev comments */
             while((current_comment_length + (int)strlen(comment) + 2 >=
@@ -578,8 +591,6 @@ int conf_read(char *file) {
                     current_comment_length += 2; /* windows, worst case */
                 }
             }
-
-            DPRINTF(E_SPAM,L_CONF,"Current comment block: \n%s\n",prev_comments);
         }
     }
 
@@ -726,9 +737,6 @@ char *conf_alloc_string (char *section, char *key, char *dflt) {
   /* FIXME: races */
   conf_get_string(section, key, dflt, NULL, &size);
   out = (char *)malloc(size * sizeof(char));
-
-  if(!out)
-      DPRINTF(E_FATAL,L_CONF,"Malloc failure\n");
 
   if(conf_get_string (section, key, dflt, out, &size) != CONF_E_SUCCESS)
       return NULL;

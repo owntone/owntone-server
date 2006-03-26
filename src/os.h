@@ -31,6 +31,7 @@ extern void os_deinit(void);
 extern int os_opensyslog(void);
 extern int os_closesyslog(void);
 extern int os_syslog(int level, char *msg);
+extern int os_chown(char *path, char *user);
 
 #ifdef WIN32
 # include "os-win32.h"

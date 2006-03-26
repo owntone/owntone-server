@@ -103,7 +103,7 @@ fi
 
 dnl Darwin's stupid cpp preprocessor....
 echo Host type is $host
-CPPFLAGS="$CPPFLAGS -DHOST='\"$host\"' -DPREFIX=$prefix"
+CPPFLAGS="$CPPFLAGS -DHOST='\"$host\"'"
 
 dnl
 dnl The apple mDNS stuff wants these compile flags.
