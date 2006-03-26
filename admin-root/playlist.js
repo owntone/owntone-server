@@ -15,8 +15,9 @@ function initPlaylist() {
   // Firefox remebers the search box value on page reload
   Field.clear('search');
 }
-// TODO busy message
-// timeout on search box
+// TODO
+// Find a decent spinner instad of the busy text
+// Handle 'all' in select boxes
 // move stuff to responsehandler
 // handle source change events
 
@@ -65,6 +66,7 @@ var EventHandler = {
     }
   }
 }
+
 var Query = {
    genres: [],
    artists:[],
@@ -85,7 +87,7 @@ var Query = {
      switch (type) {
        case 'artists':
          if (this.genres.length > 0) {
-           query = this.genres.collect(function(value){return "'daap.songgenre:"+value.encode()+"'";});  
+           query = this.genres.collect(function(value){return "'daap.songgenre:"+value.encode()+"'";});
          }
          break;
       case 'albums':
@@ -178,9 +180,14 @@ var ResponseHandler = {
     o.value = 'all';
     o.appendChild(document.createTextNode('All (' + items.length + ' ' + type + ')'));
     select.appendChild(o);
-    Query.clearSelection(type);
-    addOptions(select,items);
-    select.value='all';
+    var selected = {};
+    Query[type].each(function(item) {
+      selected[item] = true; 
+    });
+    Query.clearSelection(type); 
+    if (addOptions(type,items,selected)) {
+      select.value='all';
+    }
     switch (type) {
       case 'genres':
         Query.send('artists');
@@ -193,6 +200,33 @@ var ResponseHandler = {
         break;
     }
   }
+}
+function addOptions(type,options,selected) {
+  el = $(type);
+  var nothingSelected = true;
+  options.each(function (option) {
+    var node;
+    //###FIXME I have no idea why the Builder.node can't create options
+    // with the selected state I want.
+    var o = document.createElement('option');
+    o.value = option;
+    var text = option.truncate(BROWSE_TEXT_LEN);
+    if (option.length != text.length) {
+      o.title = option;
+      o.appendChild(document.createTextNode(text));
+    } else {
+      o.appendChild(document.createTextNode(option));
+    }
+    if (selected[option]) {
+      o.selected = true;
+      nothingSelected = false;
+      Query.addSelection(type,option);
+    } else {
+      o.selected = false;
+    }
+    el.appendChild(o);
+  });
+  return nothingSelected;
 }
 
 function rsSource(request) {
@@ -260,19 +294,7 @@ function rsSongs(request) {
   });
   Query.busy = false; 
 }
-function addOptions(element,options) {
-  options.each(function (option) {
-    var node;
-    var text = option.truncate(BROWSE_TEXT_LEN);
-    if (option.length != text.length) {
-      node = Builder.node('option',{value: option, title: option},text);
-    } else {
-      node = Builder.node('option',{value: option},text);
-    }
-    node.selected = false;
-    element.appendChild(node);
-  });
-}
+
 Object.extend(Element, {
   removeChildren: function(element) {
   while(element.hasChildNodes()) {
@@ -297,7 +319,7 @@ Object.extend(Element, {
   }
 });
 String.prototype.encode = function () {
-  return encodeURIComponent(this).replace(/\'/,"\\'");
+  return encodeURIComponent(this).replace(/\'/g,"\\'");
 };
 // Stolen from prototype 1.5
 String.prototype.truncate = function(length, truncation) {
