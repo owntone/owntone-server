@@ -45,4 +45,7 @@ extern int conf_isset(char *section, char *key);
 extern int conf_iswritable(void);
 extern int conf_write(void);
 
+extern char *conf_implode(char *section, char *key, char *delimiter);
+extern int conf_get_array(char *section, char *key, char ***argvp);
+extern void conf_dispose_array(char **argv);
 #endif /* _CONFIG_H_ */

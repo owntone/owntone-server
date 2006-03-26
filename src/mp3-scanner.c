@@ -261,22 +261,24 @@ int scan_init(char *path) {
  * check to see if a particular path is a complation path
  *
  * @param path path to check
- * @returns 1 if it is a compilation path, 0 otherwise
+ * @returns TRUE if it is a compilation path, FALSE otherwise
  */
 int scan_is_compdir(char *path) {
-#if 0
     int current=0;
+    char **compdirs;
 
-    if(!config.complist)
-        return 0;
+    if(!conf_get_array("general","compdirs",&compdirs))
+        return FALSE;
 
-    while(config.complist[current]) {
-        if(strcasestr(path,config.complist[current]))
-            return 1;
+    while(compdirs[current]) {
+        if(strcasestr(path,compdirs[current])) {
+            conf_dispose_array(compdirs);
+            return TRUE;
+        }
         current++;
     }
-#endif
-    return 0;
+    conf_dispose_array(compdirs);
+    return FALSE;
 }
 
 
@@ -660,7 +662,7 @@ void make_composite_tags(MP3FILE *song) {
 
     if(!song->artist) {
         if (song->orchestra && song->conductor) {
-            len = (int)strlen(song->orchestra) + 
+            len = (int)strlen(song->orchestra) +
                   (int)strlen(sep) +
                   (int)strlen(song->conductor);
             ptmp = (char*)malloc(len + 1);
@@ -685,7 +687,7 @@ void make_composite_tags(MP3FILE *song) {
             sprintf(ptmp,"%s%s%s",song->artist, sep, song->title);
             free(song->title);
             song->title = ptmp;
-    
+
             if(va_artist) {
                 ptmp = strdup(va_artist);
                 if(ptmp) {
@@ -695,7 +697,7 @@ void make_composite_tags(MP3FILE *song) {
             }
         }
     }
-    
+
     if(song->url)
         song->data_kind=1;
     else

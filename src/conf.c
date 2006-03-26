@@ -74,14 +74,16 @@ typedef struct _CONF_ELEMENTS {
 
 /** Forwards */
 static int _conf_verify(LL_HANDLE pll);
-static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term);
-static int _conf_exists(LL_HANDLE pll, char *section, char *term);
+static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *key);
+static int _conf_exists(LL_HANDLE pll, char *section, char *key);
 static void _conf_lock(void);
 static void _conf_unlock(void);
 static int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent);
 static CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key);
 static int _conf_makedir(char *path, char *user);
 static int _conf_existdir(char *path);
+static int _conf_split(char *s, char *delimiters, char ***argvp);
+static void _conf_dispose_split(char **argv);
 
 static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","runas" },
@@ -130,7 +132,7 @@ int _conf_makedir(char *path,char *user) {
 
     pathdup=strdup(path);
     if(!pathdup) {
-	DPRINTF(E_FATAL,L_CONF,"Malloc error\n");
+        DPRINTF(E_FATAL,L_CONF,"Malloc error\n");
     }
 
     next_token=pathdup+1;
@@ -141,21 +143,21 @@ int _conf_makedir(char *path,char *user) {
             strcat(path_buffer,"/");
             strcat(path_buffer,token);
 
-	    if(!_conf_existdir(path_buffer)) {
-		/* FIXME: this is wrong -- it should really be 0700 owned by
-		 * the runas user.  That would require some os_ indirection
-		 */
-		DPRINTF(E_DBG,L_CONF,"Making %s\n",path_buffer);
-		if((mkdir(path_buffer,0700)) && (errno != EEXIST)) {
-		    free(pathdup);
-		    DPRINTF(E_LOG,L_CONF,"Could not make dirctory %s: %s\n",
-			    path_buffer,strerror(errno));
-		    return FALSE;
-		}
-		os_chown(path_buffer,user);
-	    }
-	    retval = TRUE;
-	}
+            if(!_conf_existdir(path_buffer)) {
+                /* FIXME: this is wrong -- it should really be 0700 owned by
+                 * the runas user.  That would require some os_ indirection
+                 */
+                DPRINTF(E_DBG,L_CONF,"Making %s\n",path_buffer);
+                if((mkdir(path_buffer,0700)) && (errno != EEXIST)) {
+                    free(pathdup);
+                    DPRINTF(E_LOG,L_CONF,"Could not make dirctory %s: %s\n",
+                            path_buffer,strerror(errno));
+                    return FALSE;
+                }
+                os_chown(path_buffer,user);
+            }
+            retval = TRUE;
+        }
     }
 
     free(pathdup);
@@ -241,10 +243,10 @@ void _conf_unlock() {
  *
  * @param pll top level linked list to test (config tree)
  * @param section section to term (key) is in
- * @param term term/key to look for
+ * @param key key to look for
  * @returns LL_ITEM of the key, or NULL
  */
-LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term) {
+LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *key) {
     LL_ITEM *psection;
     LL_ITEM *pitem;
 
@@ -254,7 +256,7 @@ LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term) {
     if(psection->type != LL_TYPE_LL)
         return NULL;
 
-    if(!(pitem = ll_fetch_item(psection->value.as_ll,term)))
+    if(!(pitem = ll_fetch_item(psection->value.as_ll,key)))
         return NULL;
 
     return pitem;
@@ -265,11 +267,11 @@ LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *term) {
  *
  * @param pll config tree to test
  * @param section section to find the term under
- * @param term key to search for under the specified section
+ * @param key key to search for under the specified section
  * @returns TRUE if key exists, FALSE otherwise
  */
-int _conf_exists(LL_HANDLE pll, char *section, char *term) {
-    if(!_conf_fetch_item(pll,section,term))
+int _conf_exists(LL_HANDLE pll, char *section, char *key) {
+    if(!_conf_fetch_item(pll,section,key))
            return FALSE;
 
     return TRUE;
@@ -312,37 +314,37 @@ int _conf_verify(LL_HANDLE pll) {
             }
         }
         if(pce->type == CONF_T_EXISTPATH) {
-	    /* first, need to resolve */
+            /* first, need to resolve */
             pi = _conf_fetch_item(pll,pce->section, pce->term);
             if(pi) {
                 memset(resolved_path,0,sizeof(resolved_path));
                 if(pi->value.as_string) {
-		    DPRINTF(E_SPAM,L_CONF,"Found %s/%s as %s... checking\n",
-			    pce->section, pce->term, pi->value.as_string);
+                    DPRINTF(E_SPAM,L_CONF,"Found %s/%s as %s... checking\n",
+                            pce->section, pce->term, pi->value.as_string);
 
-		    /* verify it exists, creating it if necessary */
-		    if(!_conf_existdir(pi->value.as_string)) {
-			user = "nobody";
-			ptemp = _conf_fetch_item(pll, "general", "runas");
-			if(ptemp) {
-			    user = ptemp->value.as_string;
-			}
-			
-			if(!_conf_makedir(pi->value.as_string,user)) {
-			    is_valid=0;
-			    DPRINTF(E_LOG,L_CONF,"Can't make path %s, invalid config.\n",
-				    resolved_path);
-			}
-		    }
+                    /* verify it exists, creating it if necessary */
+                    if(!_conf_existdir(pi->value.as_string)) {
+                        user = "nobody";
+                        ptemp = _conf_fetch_item(pll, "general", "runas");
+                        if(ptemp) {
+                            user = ptemp->value.as_string;
+                        }
 
-		    if(_conf_existdir(pi->value.as_string)) {
-			realpath(pi->value.as_string,resolved_path);
-			free(pi->value.as_string);
-			pi->value.as_string = strdup(resolved_path);
+                        if(!_conf_makedir(pi->value.as_string,user)) {
+                            is_valid=0;
+                            DPRINTF(E_LOG,L_CONF,"Can't make path %s, invalid config.\n",
+                                    resolved_path);
+                        }
+                    }
 
-			DPRINTF(E_SPAM,L_CONF,"Resolved to %s\n",resolved_path);
-		    }
-		}
+                    if(_conf_existdir(pi->value.as_string)) {
+                        realpath(pi->value.as_string,resolved_path);
+                        free(pi->value.as_string);
+                        pi->value.as_string = strdup(resolved_path);
+
+                        DPRINTF(E_SPAM,L_CONF,"Resolved to %s\n",resolved_path);
+                    }
+                }
             }
         }
         pce++;
@@ -365,6 +367,7 @@ int conf_read(char *file) {
     FILE *fin;
     int err;
     LL_HANDLE pllnew, plltemp, pllcurrent, pllcomment;
+    LL_ITEM *pli;
     char linebuffer[CONF_LINEBUFFER+1];
     char keybuffer[256];
     char *comment, *term, *value, *delim;
@@ -378,6 +381,8 @@ int conf_read(char *file) {
     int ws=0;
     CONF_ELEMENTS *pce;
     int key_type;
+    char **valuearray;
+    int index;
 
     if(conf_main_file) {
         conf_close();
@@ -523,6 +528,30 @@ int conf_read(char *file) {
 
                 switch(key_type) {
                 case CONF_T_MULTICOMMA:
+                    /* first, see if we already have a tree... */
+                    pli = ll_fetch_item(pllcurrent,term);
+                    if(!pli) {
+                        if((ll_create(&plltemp) != LL_E_SUCCESS)) {
+                            DPRINTF(E_FATAL,L_CONF,"Could not create "
+                                    "linked list.\n");
+                        }
+                        ll_add_ll(pllcurrent,term,plltemp);
+                        ll_set_flags(plltemp,0); /* allow dups */
+                    } else {
+                        plltemp = pli->value.as_ll;
+                    }
+
+                    /* got list, break comma sep and add */
+                    if(_conf_split(value,",",&valuearray) >= 0) {
+                        index = 0;
+                        while(valuearray[index]) {
+                            ll_add_string(plltemp,term,valuearray[index]);
+                            index++;
+                        }
+                        _conf_dispose_split(valuearray);
+                    } else {
+                        ll_add_string(plltemp,term,value);
+                    }
                     break;
                 case CONF_T_INT:
                 case CONF_T_STRING:
@@ -730,18 +759,31 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
  * @returns a pointer to an allocated string containing the required
  *          configuration key
  */
-char *conf_alloc_string (char *section, char *key, char *dflt) {
-  int size = -1;
-  char *out;
+char *conf_alloc_string(char *section, char *key, char *dflt) {
+    LL_ITEM *pitem;
+    char *result;
+    char *retval;
 
-  /* FIXME: races */
-  conf_get_string(section, key, dflt, NULL, &size);
-  out = (char *)malloc(size * sizeof(char));
+    _conf_lock();
+    pitem = _conf_fetch_item(conf_main,section,key);
+    if((!pitem) || (pitem->type != LL_TYPE_STRING)) {
+        result = dflt;
+    } else {
+        result = pitem->value.as_string;
+    }
 
-  if(conf_get_string (section, key, dflt, out, &size) != CONF_E_SUCCESS)
-      return NULL;
+    if(result == NULL) {
+        _conf_unlock();
+        return NULL;
+    }
 
-  return out;
+    retval = strdup(result);
+
+    if(!retval) {
+        DPRINTF(E_FATAL,L_CONF,"Malloc error in conf_alloc_string\n");
+    }
+    _conf_unlock();
+    return retval;
 }
 
 
@@ -868,6 +910,8 @@ int conf_write(void) {
 int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
     LL_ITEM *pli;
     LL_ITEM *ppre, *pin;
+    LL_ITEM *plitemp;
+
     char keybuffer[256];
 
     if(!pll)
@@ -896,8 +940,11 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
         switch(pli->type) {
         case LL_TYPE_LL:
             if(sublevel) {
-                /* something wrong! */
-                DPRINTF(E_LOG,L_CONF,"LL in sublevel: %s\n",pli->key);
+                /* must be multivalued */
+                plitemp = NULL;
+                while((plitemp = ll_get_next(pli->value.as_ll,plitemp))) {
+                    fprintf(fp,"%s = %s\n",pli->key,plitemp->value.as_string);
+                }
             } else {
                 fprintf(fp,"[%s]",pli->key);
                 if(pin) {
@@ -978,6 +1025,7 @@ int _conf_split(char *s, char *delimiters, char ***argvp) {
     const char *snew;
     char *t;
     char *tokptr;
+    char *tmp;
 
     if ((s == NULL) || (delimiters == NULL) || (argvp == NULL))
         return -1;
@@ -989,8 +1037,13 @@ int _conf_split(char *s, char *delimiters, char ***argvp) {
     strcpy(t, snew);
     numtokens = 0;
     tokptr = NULL;
-    while(strtok_r(t,delimiters,&tokptr) != NULL)
+    tmp = t;
+    while(strtok_r(tmp,delimiters,&tokptr) != NULL) {
+        tmp=NULL;
         numtokens++;
+    }
+
+    DPRINTF(E_DBG,L_CONF,"Found %d tokens in %s\n",numtokens,s);
 
     if ((*argvp = malloc((numtokens + 1)*sizeof(char *))) == NULL) {
         free(t);
@@ -1002,10 +1055,157 @@ int _conf_split(char *s, char *delimiters, char ***argvp) {
     else {
         strcpy(t, snew);
         tokptr = NULL;
-        for (i = 0; i < numtokens; i++)
-            *((*argvp) + i) = strtok_r(t, delimiters, &tokptr);
+        tmp = t;
+        for (i = 0; i < numtokens; i++) {
+            *((*argvp) + i) = strtok_r(tmp, delimiters, &tokptr);
+            tmp=NULL;
+            DPRINTF(E_DBG,L_CONF,"Token %d: %s\n",i+1,(*argvp)[i]);
+        }
     }
 
     *((*argvp) + numtokens) = NULL;
     return numtokens;
+}
+
+/**
+ * implode a multivalued term in a perl sense.
+ *
+ * @param section section of term to implode
+ * @param key key of term to implode
+ * @pararm delimiter what to "glue" them with
+ * @returns imploded string (preallocated), or NULL
+ */
+char *conf_implode(char *section, char *key, char *delimiter) {
+    LL_ITEM *pitem;
+    LL_ITEM *penum;
+    int count;
+    int len;
+    char *retval;
+
+    _conf_lock();
+    pitem = _conf_fetch_item(conf_main,section,key);
+    if((!pitem) || (pitem->type != LL_TYPE_LL)) {
+        _conf_unlock();
+        return NULL;
+    }
+
+    /* otherwise, alloc a string and go */
+    count = len = 0;
+    penum = NULL;
+    while((penum = ll_get_next(pitem->value.as_ll,penum))) {
+        if(penum->type != LL_TYPE_STRING) {
+            DPRINTF(E_FATAL,L_CONF,"multivalued property not a string?\n");
+        }
+        len += strlen(penum->value.as_string);
+        count++;
+    }
+
+    if(!count) {
+        _conf_unlock();
+        return NULL;
+    }
+
+    len += (strlen(delimiter) * (count-1));
+    retval = (char*)malloc(len + 1);
+    if(!retval) {
+        DPRINTF(E_FATAL,L_CONF,"conf_implode: malloc\n");
+    }
+
+    memset(retval,0,len+1);
+    penum = NULL;
+    while((penum = ll_get_next(pitem->value.as_ll,penum))) {
+        strcat(retval,penum->value.as_string);
+        if(--count) {
+            strcat(retval,delimiter);
+        }
+    }
+
+    _conf_unlock();
+    return retval;
+}
+
+/**
+ * dispose of the argv set that was created in _conf_split
+ *
+ * @param argv string array to delete
+ */
+void _conf_dispose_split(char **argv) {
+    if(!argv)
+        return;
+
+    if(argv[0])
+        free(argv[0]);
+
+    free(argv);
+}
+
+
+/**
+ * return a multi-valued item as an array (values)
+ *
+ * @param section section to fetch
+ * @param key multivalued key to get from array
+ * @returns TRUE on success, FALSE on failure
+ */
+int conf_get_array(char *section, char *key, char ***argvp) {
+    LL_ITEM *pitem, *penum;
+    int count;
+    int len;
+
+    _conf_lock();
+    pitem = _conf_fetch_item(conf_main,section,key);
+    if((!pitem) || (pitem->type != LL_TYPE_LL)) {
+        _conf_unlock();
+        return FALSE;
+    }
+
+    /* otherwise, alloc a string and go */
+    count = 0;
+    penum = NULL;
+    while((penum = ll_get_next(pitem->value.as_ll,penum))) {
+        if(penum->type != LL_TYPE_STRING) {
+            DPRINTF(E_FATAL,L_CONF,"multivalued property not a string?\n");
+        }
+        count++;
+    }
+
+    /* now we have a count, alloc an argv */
+    len = (count+1) * sizeof(char*);
+    *(argvp) = (char**)malloc(len);
+    if(!*(argvp)) {
+        DPRINTF(E_FATAL,L_CONF,"conf_get_array: malloc\n");
+    }
+
+    memset(*(argvp),0,len);
+
+    count=0;
+    penum=NULL;
+    while((penum = ll_get_next(pitem->value.as_ll,penum))) {
+        (*argvp)[count] = strdup(penum->value.as_string);
+        if(!(*argvp)[count]) {
+            DPRINTF(E_FATAL,L_CONF,"conf_get_array: malloc\n");
+        }
+        count++;
+    }
+
+    _conf_unlock();
+    return TRUE;
+}
+
+/**
+ * dispose of the array created above
+ *
+ * @param argv argv pointer created
+ */
+void conf_dispose_array(char **argv) {
+    int index=0;
+
+    if(!argv)
+        return;
+
+
+    while(argv[index]) {
+        free(argv[index]);
+        index++;
+    }
 }
