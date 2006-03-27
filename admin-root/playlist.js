@@ -20,17 +20,17 @@ function initPlaylist() {
   Field.clear('search');
 }
 var GlobalEvents = {
-  _listeners: [],
+  _clickListeners: [],
   click: function (e) {
-    GlobalEvents._listeners.each(function (name) {
+    GlobalEvents._clickListeners.each(function (name) {
       name.click(e);  
     });  
   },
-  addListener: function (el) {
-    this._listeners.push(el);  
+  addClickListener: function (el) {
+    this._clickListeners.push(el);  
   },
-  removeListener: function (el) {
-    this._listeners = this._listeners.findAll(function (element) {
+  removeClickListener: function (el) {
+    this._clickListeners = this._clickListeners.findAll(function (element) {
       return (element != el);
     });
   }
@@ -71,6 +71,11 @@ var EditPlaylistName = {
       EditPlaylistName.save();
     }
   },
+  add: function () {
+    var url = '/databases/1/containers/add?output=xml';
+    url += '&org.mt-daapd.playlist-type=0&dmap.itemname=new%20playlist';
+    new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.responseAdd});  
+  },
   save: function () {
     input = $('edit_playlist_name');  
     var url = '/databases/1/containers/edit?output=xml';
@@ -83,19 +88,37 @@ var EditPlaylistName = {
   },
   show: function () {
     input = $('edit_playlist_name');
-    input.style.top = RicoUtil.toDocumentPosition(el).y+ 'px';
+    input.style.top = RicoUtil.toDocumentPosition(EditPlaylistName._getOptionElement()).y+ 'px';
     input.value = this.playlistName;
     input.style.display = 'block';
     Field.activate(input);
-    GlobalEvents.addListener(this);
+    GlobalEvents.addClickListener(this);
   },
   hide: function () {
     $('edit_playlist_name').style.display = 'none';
     EditPlaylistName.playlistId = '';
-    GlobalEvents.removeListener(this);
+    GlobalEvents.removeClickListener(this);
   },
   response: function (request) {
     // Check that the save gave response 200 OK
+  },
+  responseAdd: function(request) {
+    var status = Element.textContent(request.responseXML.getElementsByTagName('dmap.status')[0]);
+    if ('200' != status) {
+      alert(status);
+      alert('Something went wrong');
+      return;
+    }
+    EditPlaylistName.playlistId = Element.textContent(request.responseXML.getElementsByTagName('dmap.itemid')[0]);
+    EditPlaylistName.playlistName = 'new playlist';
+    var o = document.createElement('option');
+    o.value = EditPlaylistName.playlistId;
+    o.text = EditPlaylistName.playlistName;
+    $('static_playlists').appendChild(o);
+    $('source').value = EditPlaylistName.playlistId;
+    EditPlaylistName.show();
+    Query.setSource(EditPlaylistName.playlistId);
+    Query.send('genres');
   },
   click: function (e) {
     var x = Event.pointerX(e);
@@ -139,17 +162,9 @@ var EventHandler = {
   },
   sourceChange: function (e) {
     EventHandler.sourceClickCount = [];
-    Query.clearSelection('genres');
-    Query.clearSelection('artists');
-    Query.clearSelection('albums');
-    Query.setSearchString('');
     Field.clear('search');    
     var playlistId = $('source').value;
-    if (1 == playlistId) {
-      Query.playlistUrl = '';
-    } else {
-      Query.playlistUrl = 'containers/' + playlistId + '/';
-    }
+    Query.setSource(playlistId);
     Query.send('genres');
   },
   search: function () {
@@ -197,6 +212,17 @@ var Query = {
    },
    setSearchString: function (string) {
      this.searchString = string;  
+   },
+   setSource: function (playlistId) {
+    Query.clearSelection('genres');
+    Query.clearSelection('artists');
+    Query.clearSelection('albums');
+    Query.setSearchString('');
+    if (1 == playlistId) {
+      Query.playlistUrl = '';
+    } else {
+      Query.playlistUrl = 'containers/' + playlistId + '/';
+    }
    },
    getUrl: function (type) {
      var query=[];
@@ -385,7 +411,7 @@ function rsSource(request) {
     sourceSelect.appendChild(optgroup);
   }
   if (staticPlaylists.length > 0) {
-    optgroup = Builder.node('optgroup',{label: 'Static playlists'});
+    optgroup = Builder.node('optgroup',{label: 'Static playlists',id: 'static_playlists'});
     staticPlaylists.each(function (item) {
       var option = document.createElement('option');
       optgroup.appendChild(Builder.node('option',{value: item.id},item.name));
