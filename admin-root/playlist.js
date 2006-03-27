@@ -10,6 +10,7 @@ function initPlaylist() {
   Event.observe('search','keypress',Search.keyPress);
   Event.observe('source','change',EventHandler.sourceChange);
   Event.observe('source','click',EventHandler.sourceClick);
+  Event.observe('source','keypress',EventHandler.sourceKeyPress);
   Event.observe('genres','change',EventHandler.genresChange);
   Event.observe('artists','change',EventHandler.artistsChange);
   Event.observe('albums','change',EventHandler.albumsChange);
@@ -40,6 +41,8 @@ var GlobalEvents = {
 // Handle 'all' in select boxes
 // move stuff to responsehandler
 // handle source change events
+// navigate source with arrow keys and then click selected should initiate edit
+// new playlist twice gives server response 500
 
 var Search = {
   timeOut: '',
@@ -57,9 +60,9 @@ var Search = {
 var EditPlaylistName = {
   playlistId: '',
   playlistName: '',
-  _getOptionElement: function () {
+  _getOptionElement: function (id) {
      return option = $A($('source').getElementsByTagName('option')).find(function (el) {
-       return (el.value == EditPlaylistName.playlistId);
+       return (el.value == (id || EditPlaylistName.playlistId));
      });
   },
   keyPress: function (e) {
@@ -75,6 +78,15 @@ var EditPlaylistName = {
     var url = '/databases/1/containers/add?output=xml';
     url += '&org.mt-daapd.playlist-type=0&dmap.itemname=new%20playlist';
     new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.responseAdd});  
+  },
+  remove: function () {
+    if (window.confirm('Really delete playlist?')) {
+      var url = '/databases/1/containers/del?output=xml';
+      url += '&dmap.itemid=' + $('source').value;
+      new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.response});
+      var option = EditPlaylistName._getOptionElement($('source').value);
+      Element.remove(option);
+    } 
   },
   save: function () {
     input = $('edit_playlist_name');  
@@ -166,6 +178,11 @@ var EventHandler = {
     var playlistId = $('source').value;
     Query.setSource(playlistId);
     Query.send('genres');
+  },
+  sourceKeyPress: function (e) {
+    if (e.keyCode == Event.KEY_DELETE) {
+      EditPlaylistName.remove();  
+    }
   },
   search: function () {
     Query.setSearchString($('search').value);
