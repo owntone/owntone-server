@@ -83,7 +83,7 @@ var EditPlaylistName = {
   },
   show: function () {
     input = $('edit_playlist_name');
-    input.style.top = RicoUtil.toViewportPosition(el).y+ 'px';
+    input.style.top = RicoUtil.toDocumentPosition(el).y+ 'px';
     input.value = this.playlistName;
     input.style.display = 'block';
     Field.activate(input);
@@ -95,10 +95,20 @@ var EditPlaylistName = {
     GlobalEvents.removeListener(this);
   },
   response: function (request) {
+    // Check that the save gave response 200 OK
   },
   click: function (e) {
+    var x = Event.pointerX(e);
+    var y = Event.pointerY(e);
+    var el = $('edit_playlist_name');
+    var pos = RicoUtil.toViewportPosition(el);
+    if ((x > pos.x) && (x < pos.x + el.offsetWidth) &&
+        (y > pos.y) && (y < pos.y + el.offsetHeight)) {
+      // Click was in input box  
+      return;
+    }
     if (EditPlaylistName.playlistId) {
-//      EditPlaylistName.save();
+      EditPlaylistName.save();
     }
   }  
 }
