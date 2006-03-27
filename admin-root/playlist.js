@@ -36,7 +36,18 @@ var Search = {
 };
 var EventHandler = {
   sourceChange: function (e) {
-    alert('Playlist id:'+$('source').value);  
+    Query.clearSelection('genres');
+    Query.clearSelection('artists');
+    Query.clearSelection('albums');
+    Query.setSearchString('');
+    Field.clear('search');    
+    var playlistId = $('source').value;
+    if (1 == playlistId) {
+      Query.playlistUrl = '';
+    } else {
+      Query.playlistUrl = 'containers/' + playlistId + '/';
+    }
+    Query.send('genres');
   },
   search: function () {
     Query.setSearchString($('search').value);
@@ -68,6 +79,8 @@ var EventHandler = {
 };
 
 var Query = {
+   baseUrl: '/databases/1/',
+   playlistUrl: '',
    genres: [],
    artists:[],
    albums: [],
@@ -137,19 +150,19 @@ var Query = {
      var index = '';
      switch (type) {
        case 'genres':
-         url = '/databases/1/browse/genres';
+         url = 'browse/genres';
          handler = ResponseHandler.genreAlbumArtist;
          break;
        case 'artists':
-         url = '/databases/1/browse/artists';
+         url = 'browse/artists';
          handler = ResponseHandler.genreAlbumArtist;
          break;
        case 'albums':
-         url = '/databases/1/browse/albums';
+         url = 'browse/albums';
          handler = ResponseHandler.genreAlbumArtist;
          break;
        case 'songs':
-         url = '/databases/1/items';
+         url = 'items';
          meta = '&meta=daap.songalbum,daap.songartist,daap.songgenre,dmap.itemid,daap.songtime,dmap.itemname';
          index = '&index=0-50';
          handler = rsSongs;
@@ -158,7 +171,7 @@ var Query = {
          alert("Shouldn't happen 2");
          break;
      }
-     url = url + '?output=xml' + index + meta + this.getUrl(type);
+     url = this.baseUrl + this.playlistUrl + url + '?output=xml' + index + meta + this.getUrl(type);
      new Ajax.Request(url ,{method: 'get',onComplete:handler});
    }
 };
