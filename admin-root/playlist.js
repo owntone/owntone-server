@@ -9,11 +9,31 @@ function initPlaylist() {
   Query.send('genres');
   Event.observe('search','keypress',Search.keyPress);
   Event.observe('source','change',EventHandler.sourceChange);
+  Event.observe('source','click',EventHandler.sourceClick);
   Event.observe('genres','change',EventHandler.genresChange);
   Event.observe('artists','change',EventHandler.artistsChange);
   Event.observe('albums','change',EventHandler.albumsChange);
+  
+  Event.observe(document,'click',GlobalEvents.click);
+  Event.observe('edit_playlist_name','keypress',EditPlaylistName.keyPress);
   // Firefox remebers the search box value on page reload
   Field.clear('search');
+}
+var GlobalEvents = {
+  _listeners: [],
+  click: function (e) {
+    GlobalEvents._listeners.each(function (name) {
+      name.click(e);  
+    });  
+  },
+  addListener: function (el) {
+    this._listeners.push(el);  
+  },
+  removeListener: function (el) {
+    this._listeners = this._listeners.findAll(function (element) {
+      return (element != el);
+    });
+  }
 }
 // TODO
 // Find a decent spinner instad of the busy text
@@ -34,8 +54,81 @@ var Search = {
     }
   }
 };
+var EditPlaylistName = {
+  playlistId: '',
+  playlistName: '',
+  _getOptionElement: function () {
+     return option = $A($('source').getElementsByTagName('option')).find(function (el) {
+       return (el.value == EditPlaylistName.playlistId);
+     });
+  },
+  keyPress: function (e) {
+    input = $('edit_playlist_name');  
+    if (e.keyCode == Event.KEY_ESC) {
+      EditPlaylistName.hide();
+    }
+    if (e.keyCode == Event.KEY_RETURN) {
+      EditPlaylistName.save();
+    }
+  },
+  save: function () {
+    input = $('edit_playlist_name');  
+    var url = '/databases/1/containers/edit?output=xml';
+    url += '&dmap.itemid=' + EditPlaylistName.playlistId;
+    url += '&dmap.itemname=' + input.value.encode(); 
+    new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.response});
+    var option = EditPlaylistName._getOptionElement();
+    option.text = input.value;
+    EditPlaylistName.hide();
+  },
+  show: function () {
+    input = $('edit_playlist_name');
+    input.style.top = RicoUtil.toViewportPosition(el).y+ 'px';
+    input.value = this.playlistName;
+    input.style.display = 'block';
+    Field.activate(input);
+    GlobalEvents.addListener(this);
+  },
+  hide: function () {
+    $('edit_playlist_name').style.display = 'none';
+    EditPlaylistName.playlistId = '';
+    GlobalEvents.removeListener(this);
+  },
+  response: function (request) {
+  },
+  click: function (e) {
+    if (EditPlaylistName.playlistId) {
+//      EditPlaylistName.save();
+    }
+  }  
+}
 var EventHandler = {
+  sourceClickCount: [],
+  sourceClick: function (e) {
+    var playlistId = Event.element(e).value;
+    if (1 == playlistId) {
+      // do nothing for Library
+      return;
+    }
+    if (EventHandler.sourceClickCount[playlistId]) {
+      EventHandler.sourceClickCount[playlistId]++
+    } else {
+      EventHandler.sourceClickCount[playlistId] = 1;
+    }
+    if (EventHandler.sourceClickCount[playlistId] > 1) {
+      el = Event.element(e);
+      if (!el.text) {
+        // Firefox generates and event when clicking in and empty area
+        // of the select box
+        return;  
+      }
+      EditPlaylistName.playlistId = el.value;
+      EditPlaylistName.playlistName = el.text;
+      EditPlaylistName.show();
+    }
+  },
   sourceChange: function (e) {
+    EventHandler.sourceClickCount = [];
     Query.clearSelection('genres');
     Query.clearSelection('artists');
     Query.clearSelection('albums');

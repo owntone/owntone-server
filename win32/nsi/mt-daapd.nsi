@@ -87,6 +87,7 @@ Section "MainSection" SEC01
   File "..\..\admin-root\applet.html"
   SetOutPath "$INSTDIR\admin-root\lib-js"
   File "..\..\admin-root\lib-js\prototype.js"
+  File "..\..\admin-root\lib-js\rico.js"
   SetOutPath "$INSTDIR\admin-root\lib-js\script.aculo.us"
   File "..\..\admin-root\lib-js\script.aculo.us\builder.js"
   File "..\..\admin-root\lib-js\script.aculo.us\controls.js"

@@ -30,6 +30,12 @@
   padding-left: 2ex;
   padding-top: 1ex;
 }
+#edit_playlist_name {
+  position: absolute;
+  font: icon;
+  width: 25ex;
+  display: none;
+}  
 </style>
 <div id="search_div">
 <label for="search">search</label>
@@ -41,7 +47,8 @@
   <select id="source" name="select" size="20">
 
     <option value="1">Library</option>
-  </select>
+  </select><br />
+<input type="text" id="edit_playlist_name" value="" />
 <div id="busymsg" style="text-align:center;color:red; visibility: hidden;">Busy ...</div>
 <a href="javascript:add()">Add static playlist</a>
 </div>
