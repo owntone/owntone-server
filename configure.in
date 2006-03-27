@@ -78,6 +78,11 @@ AC_ARG_ENABLE(musepack,[  --enable-musepack       Enable Musepack support],
                       use_musepack=true;
                       CPPFLAGS="${CPPFLAGS} -DMUSEPACK")
 
+AC_ARG_ENABLE(gdbm,[  --enable-gdbm       Enable gdbm support],
+                      use_gdbm=true;
+                      CPPFLAGS="${CPPFLAGS} -DGDBM")
+
+
 AM_CONDITIONAL(COND_REND_HOWL, test x$rend_howl = xtrue)
 AM_CONDITIONAL(COND_REND_POSIX, test x$rend_posix = xtrue)
 AM_CONDITIONAL(COND_OGGVORBIS, test x$use_oggvorbis = xtrue)
@@ -85,6 +90,7 @@ AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 AM_CONDITIONAL(COND_SQLITE,test x$db_sqlite = xtrue)
 AM_CONDITIONAL(COND_SQLITE3,test x$db_sqlite3 = xtrue)
+AM_CONDITIONAL(COND_GDBM,test x$use_gdbm = xtrue)
 AM_CONDITIONAL(COND_NEED_STRCASESTR,false)
 AM_CONDITIONAL(COND_NEED_STRSEP,false)
 
@@ -156,6 +162,22 @@ AC_ARG_WITH(howl-libs,
 	fi
 ])
 
+AC_ARG_WITH(gdbm-includes,
+	[--with-gdbm-includes[[=DIR]]          use gdbm include files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+         CPPFLAGS="${CPPFLAGS} -I$withval"
+	fi
+])
+
+AC_ARG_WITH(gdbm-libs,
+	[--with-gdbm-libs[[=DIR]]          use gdbm lib files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+         LDFLAGS="${LDFLAGS} -L$withval"
+	fi
+])
+
 AC_ARG_WITH(id3tag,
 	[--with-id3tag[[=DIR]]           use id3tag in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
@@ -181,6 +203,18 @@ else
   LIBS="${LIBS} -lid3tag -lz"
 fi
 CFLAGS=$oldcflags
+
+if test x$use_gdbm = xtrue; then
+  AC_CHECK_HEADERS(gdbm.h,, [
+   AC_MSG_ERROR([gdbm.h not found... Must have gdbm headers installed])])
+  AC_CHECK_LIB(gdbm,gdbm_open,,echo "Must have gdbm libraries installed";exit)
+
+  if test x"$STATIC_LIBS" != x"no"; then
+    LIBS="${LIBS} ${STATIC_LIBS}/libgdbm.a"
+  else
+    LIBS="${LIBS} -lgdbm"
+  fi
+fi
 
 if test x$db_sqlite = xtrue; then
   AC_CHECK_HEADERS(sqlite.h,, [

@@ -41,6 +41,9 @@ if COND_SQL
 SQLDB=db-sql.c db-sql.h
 endif
 
+if COND_GDBM
+GDBM=db-gdbm.c db-gdbm.h
+endif
 
 wavstreamer_SOURCES = wavstreamer.c
 
@@ -55,7 +58,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	os.h strptime.c strptime.h ll.c ll.h conf.c conf.h \
 	strtok_r.c strtok_r.h os-unix.h os-unix.c os.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
-	$(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB)
+	$(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM)
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
@@ -64,5 +67,4 @@ EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	db-sql-sqlite2.h db-sql-sqlite2.c \
 	db-sql-sqlite3.h db-sql-sqlite3.c \
 	w32-eventlog.c w32-eventlog.h w32-service.c w32-service.h \
-	os-win32.h os-win32.c win32.h
-
+	os-win32.h os-win32.c win32.h db-gdbm.c db-gdbm.h
