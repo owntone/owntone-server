@@ -15,10 +15,10 @@
 struct tag_xmlstruct;
 
 extern void xml_handle(WS_CONNINFO *pwsc);
-extern struct tag_xmlstruct *xml_init(WS_CONNINFO *pwsc, int emit_header, 
+extern struct tag_xmlstruct *xml_init(WS_CONNINFO *pwsc, int emit_header,
                                       int flags);
-extern void xml_push(struct tag_xmlstruct *pxml, char *term);
-extern void xml_pop(struct tag_xmlstruct *pxml);
+extern void xml_push(struct tag_xmlstruct *pxml, char *term, int container);
+extern void xml_pop(struct tag_xmlstruct *pxml, int container);
 extern void xml_output(struct tag_xmlstruct *pxml, char *section, char *fmt, ...);
 extern void xml_deinit(struct tag_xmlstruct *pxml);
 
