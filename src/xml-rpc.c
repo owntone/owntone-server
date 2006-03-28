@@ -21,6 +21,7 @@
 #include "mp3-scanner.h"
 #include "rend.h"
 #include "webserver.h"
+#include "xml-rpc.h"
 
 /* typedefs */
 typedef struct tag_xmlstack {
@@ -31,18 +32,13 @@ typedef struct tag_xmlstack {
 typedef struct tag_xmlstruct {
     WS_CONNINFO *pwsc;
     int stack_level;
+    int flags;
     XMLSTACK stack;
 } XMLSTRUCT;
 
 /* Forwards */
 void xml_get_stats(WS_CONNINFO *pwsc);
 char *xml_entity_encode(char *original);
-
-XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header);
-void xml_push(XMLSTRUCT *pxml, char *term);
-void xml_pop(XMLSTRUCT *pxml);
-void xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...);
-void xml_deinit(XMLSTRUCT *pxml);
 
 /**
  * create an xml response structure, a helper struct for
@@ -52,7 +48,7 @@ void xml_deinit(XMLSTRUCT *pxml);
  * @param emit_header whether or not to throw out html headers and xml header
  * @returns XMLSTRUCT on success, or NULL if failure
  */
-XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
+XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header, int flags) {
     XMLSTRUCT *pxml;
 
     pxml=(XMLSTRUCT*)malloc(sizeof(XMLSTRUCT));
@@ -63,13 +59,20 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
     memset(pxml,0,sizeof(XMLSTRUCT));
 
     pxml->pwsc = pwsc;
+    pxml->flags = flags;
 
     if(emit_header) {
-        ws_addresponseheader(pwsc,"Content-Type","text/xml; charset=utf-8");
+        if(flags & XML_FLAG_JSON) {
+            ws_addresponseheader(pwsc,"Content-Type","text/json");
+        } else {
+            ws_addresponseheader(pwsc,"Content-Type","text/xml; charset=utf-8");
+        }
         ws_writefd(pwsc,"HTTP/1.0 200 OK\r\n");
         ws_emitheaders(pwsc);
 
-        ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+        if(!(flags & XML_FLAG_JSON)) {
+            ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+        }
     }
 
     return pxml;
@@ -89,9 +92,16 @@ void xml_push(XMLSTRUCT *pxml, char *term) {
     pstack->tag=strdup(term);
     pxml->stack.next=pstack;
 
-    pxml->stack_level++;
+    if(pxml->flags & XML_FLAG_READABLE)
+        ws_writefd(pxml->pwsc,"\n%*s",pxml->stack_level,"");
 
-    ws_writefd(pxml->pwsc,"<%s>",term);
+    if(pxml->flags & XML_FLAG_JSON) {
+        ws_writefd(pxml->pwsc,"{ \"%s\": ",term);
+    } else {
+        ws_writefd(pxml->pwsc,"<%s>",term);
+    }
+
+    pxml->stack_level++;
 }
 
 /**
@@ -110,11 +120,22 @@ void xml_pop(XMLSTRUCT *pxml) {
 
     pxml->stack.next = pstack->next;
 
-    ws_writefd(pxml->pwsc,"</%s>",pstack->tag);
+    pxml->stack_level--;
+
+    if(pxml->flags & XML_FLAG_READABLE)
+        ws_writefd(pxml->pwsc,"\n%*s",pxml->stack_level,"");
+
+    if(pxml->flags & XML_FLAG_JSON) {
+        ws_writefd(pxml->pwsc,"}",pstack->tag);
+    } else {
+        ws_writefd(pxml->pwsc,"</%s>",pstack->tag);
+    }
+
+    if(pxml->flags & XML_FLAG_READABLE)
+        ws_writefd(pxml->pwsc,"%*s",pxml->stack_level,"");
+
     free(pstack->tag);
     free(pstack);
-
-    pxml->stack_level--;
 }
 
 /**
@@ -124,20 +145,32 @@ void xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...) {
     va_list ap;
     char buf[256];
     char *output;
+    int oldflags;
 
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
 
-    output = xml_entity_encode(buf);
     if(section) {
         xml_push(pxml,section);
     }
-    ws_writefd(pxml->pwsc,"%s",output);
+
+    output = xml_entity_encode(buf);
+    if(pxml->flags & XML_FLAG_JSON) {
+        ws_writefd(pxml->pwsc,"\"%s\" ",output);
+        
+    } else {
+        ws_writefd(pxml->pwsc,"%s",output);
+    }
+
     free(output);
+
+    oldflags = pxml->flags;
+    pxml->flags = pxml->flags & ~XML_FLAG_READABLE;
     if(section) {
         xml_pop(pxml);
     }
+    pxml->flags = oldflags;
 }
 
 /**
@@ -187,6 +220,7 @@ void xml_handle(WS_CONNINFO *pwsc) {
  */
 void xml_get_stats(WS_CONNINFO *pwsc) {
     int r_secs, r_days, r_hours, r_mins;
+    int flag=0;
     char buf[80];
     WS_CONNINFO *pci;
     SCAN_STATUS *pss;
@@ -194,13 +228,20 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     int count;
     XMLSTRUCT *pxml;
 
-    pxml=xml_init(pwsc,1);
+    /* check output... */
+    if(ws_getvar(pwsc,"output") == NULL) {
+        flag = XML_FLAG_NONE;
+    } else if(strcasecmp(ws_getvar(pwsc,"output"),"json") == 0) {
+        flag = XML_FLAG_JSON | XML_FLAG_READABLE;
+    } else if(strcasecmp(ws_getvar(pwsc,"output"),"readable") == 0) {
+        flag = XML_FLAG_READABLE;
+    }
+
+    pxml=xml_init(pwsc,1,flag);
+
     xml_push(pxml,"status");
-
     xml_push(pxml,"service_status");
-
     xml_push(pxml,"service");
-
     xml_output(pxml,"name","Rendezvous");
 
 #ifndef WITHOUT_MDNS
