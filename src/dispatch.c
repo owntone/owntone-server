@@ -1131,7 +1131,7 @@ void dispatch_editplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     /* FIXME: Error handling */
     retval=db_edit_playlist(NULL,id,name,query);
     if(retval != DB_E_SUCCESS) {
-        DPRINTF(E_LOG,L_DAAP,"error editing playlist.");
+        DPRINTF(E_LOG,L_DAAP,"error editing playlist.\n");
         ws_returnerror(pwsc,500,"Error editing playlist");
         return;
     }
