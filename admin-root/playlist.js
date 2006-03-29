@@ -1,3 +1,13 @@
+// TODO
+// Find a decent spinner instad of the busy text
+// Handle 'all' in select boxes
+// move stuff to responsehandler
+// handle source change events
+// navigate source with arrow keys and then click selected should initiate edit
+// new playlist twice gives server response 500
+// After playlist name edit, it should be activated again.
+// After playlist delete, select another one
+
 Event.observe(window,'load',initPlaylist);
 
 var SEARCH_DELAY = 500; // # ms without typing before the search box searches
@@ -36,13 +46,6 @@ var GlobalEvents = {
     });
   }
 }
-// TODO
-// Find a decent spinner instad of the busy text
-// Handle 'all' in select boxes
-// move stuff to responsehandler
-// handle source change events
-// navigate source with arrow keys and then click selected should initiate edit
-// new playlist twice gives server response 500
 
 var Search = {
   timeOut: '',
@@ -76,7 +79,7 @@ var EditPlaylistName = {
   },
   add: function () {
     var url = '/databases/1/containers/add?output=xml';
-    url += '&org.mt-daapd.playlist-type=0&dmap.itemname=new%20playlist';
+    url += '&org.mt-daapd.playlist-type=0&dmap.itemname=untitled%20playlist';
     new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.responseAdd});  
   },
   remove: function () {
@@ -117,12 +120,11 @@ var EditPlaylistName = {
   responseAdd: function(request) {
     var status = Element.textContent(request.responseXML.getElementsByTagName('dmap.status')[0]);
     if ('200' != status) {
-      alert(status);
-      alert('Something went wrong');
+      alert('There is a playlist with that name, write some code to handle this');
       return;
     }
     EditPlaylistName.playlistId = Element.textContent(request.responseXML.getElementsByTagName('dmap.itemid')[0]);
-    EditPlaylistName.playlistName = 'new playlist';
+    EditPlaylistName.playlistName = 'untitled playlist';
     var o = document.createElement('option');
     o.value = EditPlaylistName.playlistId;
     o.text = EditPlaylistName.playlistName;
@@ -182,6 +184,10 @@ var EventHandler = {
   sourceKeyPress: function (e) {
     if (e.keyCode == Event.KEY_DELETE) {
       EditPlaylistName.remove();  
+    }
+    if (113 == e.keyCode) {
+      // F2 
+//TODO edit playist, what is the key on a mac?
     }
   },
   search: function () {
