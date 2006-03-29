@@ -537,11 +537,15 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
     if(!wma_file_read_ll(fd, &preroll))
         return FALSE;
 
+    DPRINTF(E_DBG,L_SCAN,"play_duration: %lld, "
+            "send_duration: %lld, preroll: %lld\n",
+            play_duration, send_duration, preroll);
+
     /* I'm not entirely certain what preroll is, but it seems
      * to make it match up with what windows thinks is the song
      * length.
      */
-    pmp3->song_length = ((int)play_duration / 10000) - (int)preroll;
+    pmp3->song_length = (int)((play_duration / 10000) - preroll);
     
     /* skip flags(4),
      * min_packet_size (4), max_packet_size(4)

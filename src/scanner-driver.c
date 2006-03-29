@@ -29,6 +29,7 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "conf.h"
 #include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
@@ -123,6 +124,7 @@ void usage(int errorcode) {
     fprintf(stderr,"Usage: %s [options] input-file\n\n",av0);
     fprintf(stderr,"options:\n\n");
     fprintf(stderr,"  -d level    set debuglevel (9 is highest)\n");
+    fprintf(stderr,"  -c config   read config file\n");
     
     fprintf(stderr,"\n\n");
     exit(errorcode);
@@ -133,9 +135,7 @@ int main(int argc, char *argv[]) {
     SCANNERLIST *plist;
     int option;
     char *ext;
-    
-    config.scan_type=0;
-    config.latin1_tags=0;
+    char *configfile;
 
     memset((void*)&mp3,0x00,sizeof(MP3FILE));
 
@@ -145,11 +145,15 @@ int main(int argc, char *argv[]) {
         av0 = argv[0];
     }
     
-    while((option = getopt(argc, argv, "d:")) != -1) {
+    while((option = getopt(argc, argv, "d:c:")) != -1) {
         switch(option) {
         case 'd':
-            err_debuglevel = atoi(optarg);
+            err_setlevel(atoi(optarg));
             break;
+        case 'c':
+            configfile=optarg;
+            break;
+            
         default:
             fprintf(stderr,"Error: unknown option (%c)\n\n",option);
             usage(-1);
@@ -164,7 +168,15 @@ int main(int argc, char *argv[]) {
         usage(-1);
     }
 
+    printf("Reading config file %s\n",configfile);
+    if(conf_read(configfile) != CONF_E_SUCCESS) {
+        fprintf(stderr,"Bummer.\n");
+        exit(EXIT_FAILURE);
+    }
+
     printf("Getting info for %s\n",argv[0]);
+
+
 
     ext = strrchr(argv[0],'.')+1;
     plist=scanner_list;
