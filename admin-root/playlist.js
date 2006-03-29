@@ -95,7 +95,7 @@ var EditPlaylistName = {
     input = $('edit_playlist_name');  
     var url = '/databases/1/containers/edit?output=xml';
     url += '&dmap.itemid=' + EditPlaylistName.playlistId;
-    url += '&dmap.itemname=' + input.value.encode(); 
+    url += '&dmap.itemname=' + encodeURIComponent(input.value);
     new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.response});
     var option = EditPlaylistName._getOptionElement();
     option.text = input.value;
