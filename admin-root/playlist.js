@@ -19,16 +19,17 @@ Ajax.Responders.register({  onCreate: function () {$('busymsg').style.visibility
 function initPlaylist() {
   new Ajax.Request('/databases/1/containers?output=xml',{method: 'get',onComplete:rsSource});
   Query.send('genres');
-  Event.observe('search','keypress',Search.keyPress);
+  Event.observe('search','keypress',EventHandler.searchKeyPress);
   Event.observe('source','change',EventHandler.sourceChange);
   Event.observe('source','click',EventHandler.sourceClick);
   Event.observe('source','keypress',EventHandler.sourceKeyPress);
   Event.observe('genres','change',EventHandler.genresChange);
   Event.observe('artists','change',EventHandler.artistsChange);
   Event.observe('albums','change',EventHandler.albumsChange);
+  Event.observe('add_playlist_href','click',EventHandler.addPlaylistHrefClick);
   
   Event.observe(document,'click',GlobalEvents.click);
-  Event.observe('edit_playlist_name','keypress',EditPlaylistName.keyPress);
+  Event.observe('edit_playlist_name','keypress',EventHandler.editPlaylistNameKeyPress);
   // Firefox remebers the search box value on page reload
   Field.clear('search');
 }
@@ -49,37 +50,15 @@ var GlobalEvents = {
   }
 }
 
-var Search = {
-  timeOut: '',
-  keyPress:  function (e) {
-    if (this.timeOut) {
-      window.clearTimeout(this.timeOut);
-    }
-    if (e.keyCode == Event.KEY_RETURN) {
-      EventHandler.search();  
-    } else {
-      this.timeOut = window.setTimeout(EventHandler.search,SEARCH_DELAY);
-    }
-  }
-};
-var EditPlaylistName = {
+var Source = {
   playlistId: '',
   playlistName: '',
   _getOptionElement: function (id) {
      return option = $A($('source').getElementsByTagName('option')).find(function (el) {
-       return (el.value == (id || EditPlaylistName.playlistId));
+       return (el.value == id);
      });
   },
-  keyPress: function (e) {
-    input = $('edit_playlist_name');  
-    if (e.keyCode == Event.KEY_ESC) {
-      EditPlaylistName.hide();
-    }
-    if (e.keyCode == Event.KEY_RETURN) {
-      EditPlaylistName.save();
-    }
-  },
-  add: function () {
+  addPlaylist: function () {
     var url = '/databases/1/containers/add?output=xml';
     var name= 'untitled playlist';
     if (this._playlistExists(name)) {
@@ -91,45 +70,45 @@ var EditPlaylistName = {
     }
     this.playlistName = name;
     url += '&org.mt-daapd.playlist-type=0&dmap.itemname=' + encodeURIComponent(name);
-    new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.responseAdd});  
+    new Ajax.Request(url ,{method: 'get',onComplete:this.responseAdd});  
   },
   _playlistExists: function (name) {
-     return $A($('source').getElementsByTagName('option')).collect(function (el) {
-      return el.firstChild.nodeValue;
-    }).find(function (el) {
-      return el == name;
+     return $A($('source').getElementsByTagName('option')).pluck('firstChild').find(function (el) {
+      return el.nodeValue == name;
     });
   },
-  remove: function () {
+  removePlaylist: function () {
     if (window.confirm('Really delete playlist?')) {
       var url = '/databases/1/containers/del?output=xml';
       url += '&dmap.itemid=' + $('source').value;
-      new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.response});
-      var option = EditPlaylistName._getOptionElement($('source').value);
+      new Ajax.Request(url ,{method: 'get',onComplete:this.response});
+      var option = this._getOptionElement($('source').value);
       Element.remove(option);
     } 
   },
-  save: function () {
+  savePlaylistName: function () {
     input = $('edit_playlist_name');  
     var url = '/databases/1/containers/edit?output=xml';
-    url += '&dmap.itemid=' + EditPlaylistName.playlistId;
+    url += '&dmap.itemid=' + Source.playlistId;
     url += '&dmap.itemname=' + encodeURIComponent(input.value);
-    new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.response});
-    var option = EditPlaylistName._getOptionElement();
+    new Ajax.Request(url ,{method: 'get',onComplete:this.response});
+    var option = this._getOptionElement(Source.playlistId);
     option.text = input.value;
-    EditPlaylistName.hide();
+    this.hideEditPlaylistName();
   },
-  show: function () {
+  editPlaylistName: function () {
     input = $('edit_playlist_name');
-    input.style.top = RicoUtil.toDocumentPosition(EditPlaylistName._getOptionElement()).y+ 'px';
-    input.value = this.playlistName;
+    Source.playlistId = $('source').value;
+    playlistName = this._getOptionElement(Source.playlistId).firstChild.nodeValue;
+    input.style.top = RicoUtil.toDocumentPosition(this._getOptionElement(Source.playlistId)).y+ 'px';
+    input.value = playlistName;
     input.style.display = 'block';
     Field.activate(input);
     GlobalEvents.addClickListener(this);
   },
-  hide: function () {
+  hideEditPlaylistName: function () {
     $('edit_playlist_name').style.display = 'none';
-    EditPlaylistName.playlistId = '';
+    Source.playlistId = '';
     GlobalEvents.removeClickListener(this);
   },
   response: function (request) {
@@ -143,14 +122,14 @@ var EditPlaylistName = {
       alert('There is a playlist with that name, write some code to handle this');
       return;
     }
-    EditPlaylistName.playlistId = Element.textContent(request.responseXML.getElementsByTagName('dmap.itemid')[0]);
+    Source.playlistId = Element.textContent(request.responseXML.getElementsByTagName('dmap.itemid')[0]);
     var o = document.createElement('option');
-    o.value = EditPlaylistName.playlistId;
-    o.text = EditPlaylistName.playlistName;
+    o.value = Source.playlistId;
+    o.text = Source.playlistName;
     $('static_playlists').appendChild(o);
-    $('source').value = EditPlaylistName.playlistId;
-    EditPlaylistName.show();
-    Query.setSource(EditPlaylistName.playlistId);
+    $('source').value = Source.playlistId;
+    Source.editPlaylistName();
+    Query.setSource(Source.playlistId);
     Query.send('genres');
   },
   click: function (e) {
@@ -163,12 +142,11 @@ var EditPlaylistName = {
       // Click was in input box  
       return;
     }
-    if (EditPlaylistName.playlistId) {
-      EditPlaylistName.save();
-    }
+    Source.savePlaylistName();
   }  
 }
 var EventHandler = {
+  searchTimeOut: '',
   sourceClickCount: [],
   sourceClick: function (e) {
     var playlistId = Event.element(e).value;
@@ -188,9 +166,7 @@ var EventHandler = {
         // of the select box
         return;  
       }
-      EditPlaylistName.playlistId = el.value;
-      EditPlaylistName.playlistName = el.text;
-      EditPlaylistName.show();
+      Source.editPlaylistName();
     }
   },
   sourceChange: function (e) {
@@ -202,30 +178,52 @@ var EventHandler = {
   },
   sourceKeyPress: function (e) {
     if (e.keyCode == Event.KEY_DELETE) {
-      EditPlaylistName.remove();  
+      Source.removePlaylist();  
     }
     if (113 == e.keyCode) {
       // F2 
 //TODO edit playist, what is the key on a mac?
     }
   },
-  search: function () {
+  editPlaylistNameKeyPress: function (e) {
+    input = $('edit_playlist_name');  
+    if (e.keyCode == Event.KEY_ESC) {
+      Source.hideEditPlaylistName();
+    }
+    if (e.keyCode == Event.KEY_RETURN) {
+      Source.savePlaylistName();
+    }
+  },
+  addPlaylistHrefClick: function (e) {
+    Source.addPlaylist();  
+  },
+  searchKeyPress: function (e) {
+    if (EventHandler.searchTimeOut) {
+      window.clearTimeout(EventHandler.searchTimeOut);
+    }
+    if (e.keyCode == Event.KEY_RETURN) {
+      EventHandler._search();  
+    } else {
+      EventHandler.searchTimeOut = window.setTimeout(EventHandler._search,SEARCH_DELAY);
+    }
+  },
+  _search: function () {
     Query.setSearchString($('search').value);
     Query.send('genres'); 
   },
   genresChange: function (e) {
-    EventHandler.setSelected('genres');
+    EventHandler._setSelected('genres');
     Query.send('artists');
   },
   artistsChange: function (e) {
-    EventHandler.setSelected('artists');
+    EventHandler._setSelected('artists');
     Query.send('albums');
   },
   albumsChange: function (e) {
-    EventHandler.setSelected('albums');
+    EventHandler._setSelected('albums');
     Query.send('songs');
   },
-  setSelected: function (type) {
+  _setSelected: function (type) {
     var options = $A($(type).options);
     Query.clearSelection(type);
     if ($(type).value != 'all') {
@@ -375,7 +373,7 @@ var ResponseHandler = {
       selected[item] = true; 
     });
     Query.clearSelection(type); 
-    if (addOptions(type,items,selected)) {
+    if (ResponseHandler._addOptions(type,items,selected)) {
       select.value='all';
     }
     switch (type) {
@@ -392,35 +390,35 @@ var ResponseHandler = {
         alert("Shouldn't happen 3");
         break;  
     }
+  },
+  _addOptions: function (type,options,selected) {
+    el = $(type);
+    var nothingSelected = true;
+    options.each(function (option) {
+      var node;
+      //###FIXME I have no idea why the Builder.node can't create options
+      // with the selected state I want.
+      var o = document.createElement('option');
+      o.value = option;
+      var text = option.truncate(BROWSE_TEXT_LEN);
+      if (option.length != text.length) {
+        o.title = option;
+        o.appendChild(document.createTextNode(text));
+      } else {
+        o.appendChild(document.createTextNode(option));
+      }
+      if (selected[option]) {
+        o.selected = true;
+        nothingSelected = false;
+        Query.addSelection(type,option);
+      } else {
+        o.selected = false;
+      }
+      el.appendChild(o);
+    });
+    return nothingSelected;
   }
 };
-function addOptions(type,options,selected) {
-  el = $(type);
-  var nothingSelected = true;
-  options.each(function (option) {
-    var node;
-    //###FIXME I have no idea why the Builder.node can't create options
-    // with the selected state I want.
-    var o = document.createElement('option');
-    o.value = option;
-    var text = option.truncate(BROWSE_TEXT_LEN);
-    if (option.length != text.length) {
-      o.title = option;
-      o.appendChild(document.createTextNode(text));
-    } else {
-      o.appendChild(document.createTextNode(option));
-    }
-    if (selected[option]) {
-      o.selected = true;
-      nothingSelected = false;
-      Query.addSelection(type,option);
-    } else {
-      o.selected = false;
-    }
-    el.appendChild(o);
-  });
-  return nothingSelected;
-}
 
 function rsSource(request) {
   var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
@@ -521,9 +519,6 @@ String.prototype.truncate = function(length, truncation) {
   var ret = (this.length > length) ? this.slice(0, length - truncation.length) + truncation : this;
   return '' + ret;
 };
-function add() {
-    alert('add');
-}
 /* Detta script finns att hamta pa http://www.jojoxx.net och 
    far anvandas fritt sa lange som dessa rader star kvar. */ 
 function DataDumper(obj,n,prefix){
