@@ -1,13 +1,15 @@
 // TODO
 // Find a decent spinner instad of the busy text
-// Handle 'all' in select boxes
+// Handle 'all' in select boxes (click on all should deselect everything else)
 // move stuff to responsehandler
-// handle source change events
+// Refactor EditPlaylistName => Source
+// handle source change events (keyPress etc)
 // navigate source with arrow keys and then click selected should initiate edit
 // new playlist twice gives server response 500
+// handle duplicate playlist names use pluck(firstChild.nodeValue?)
 // After playlist name edit, it should be activated again.
 // After playlist delete, select another one
-
+// If playlist is empty don't confirm delete
 Event.observe(window,'load',initPlaylist);
 
 var SEARCH_DELAY = 500; // # ms without typing before the search box searches
@@ -79,8 +81,24 @@ var EditPlaylistName = {
   },
   add: function () {
     var url = '/databases/1/containers/add?output=xml';
-    url += '&org.mt-daapd.playlist-type=0&dmap.itemname=untitled%20playlist';
+    var name= 'untitled playlist';
+    if (this._playlistExists(name)) {
+      var i=1;
+      while (this._playlistExists(name +' ' + i)) {
+        i++;
+      }
+      name += ' ' +i;
+    }
+    this.playlistName = name;
+    url += '&org.mt-daapd.playlist-type=0&dmap.itemname=' + encodeURIComponent(name);
     new Ajax.Request(url ,{method: 'get',onComplete:EditPlaylistName.responseAdd});  
+  },
+  _playlistExists: function (name) {
+     return $A($('source').getElementsByTagName('option')).collect(function (el) {
+      return el.firstChild.nodeValue;
+    }).find(function (el) {
+      return el == name;
+    });
   },
   remove: function () {
     if (window.confirm('Really delete playlist?')) {
@@ -120,11 +138,12 @@ var EditPlaylistName = {
   responseAdd: function(request) {
     var status = Element.textContent(request.responseXML.getElementsByTagName('dmap.status')[0]);
     if ('200' != status) {
+//###FIXME if someone else adds a playlist with the same name
+// as mine, (before My page is refreshed) won't happen that often
       alert('There is a playlist with that name, write some code to handle this');
       return;
     }
     EditPlaylistName.playlistId = Element.textContent(request.responseXML.getElementsByTagName('dmap.itemid')[0]);
-    EditPlaylistName.playlistName = 'untitled playlist';
     var o = document.createElement('option');
     o.value = EditPlaylistName.playlistId;
     o.text = EditPlaylistName.playlistName;
