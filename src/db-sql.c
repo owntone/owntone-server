@@ -476,13 +476,17 @@ int db_sql_delete_playlist_item(char **pe, int playlistid, int songid) {
  * and the "where" clause.
  *
  * @param id id of the playlist to alter
- * @param name new name of the playlist
- * @param where new where clause
+ * @param name new name of the playlist (or NULL)
+ * @param where new where clause (or NULL)
  * @returns DB_E_SUCCESS on success, error code otherwise
  */
 int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
     int result;
     int playlist_type;
+    int cnt;
+
+    if((name == NULL) && (clause == NULL))
+        return DB_E_SUCCESS;  /* I guess?? */
 
     /* first, check the playlist */
     result=db_sql_fetch_int(pe,&playlist_type,
@@ -498,14 +502,31 @@ int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
     }
 
     /* TODO: check for duplicate names here */
+    if(name) {
+        result = db_sql_fetch_int(pe,&cnt,"select count(*) from playlists "
+                                  "where upper(title)=upper('%q')",name);
 
-    if(playlist_type != PL_SMART) { /* Ignore the clause */
+        if(result != DB_E_SUCCESS)
+            return result;
+
+        if(cnt) {
+            db_get_error(pe,DB_E_DUPLICATE_PLAYLIST,name);
+            return DB_E_DUPLICATE_PLAYLIST;
+        }
+
+        if((playlist_type == PL_SMART)&&(clause))
+            return db_sql_exec_fn(pe,E_LOG,"update playlists set title='%q', "
+                                  "query='%q' where id=%d",name,clause,id);
+
         return db_sql_exec_fn(pe,E_LOG,"update playlists set title='%q' "
-                               "where id=%d",name,id);
+                              "where id=%d",name,id);
     }
 
-    return db_sql_exec_fn(pe,E_LOG,"update playlists set title='%q',"
-                           "query='%q' where id=%d",name, clause, id);
+    if((playlist_type == PL_SMART) && (clause))
+        return db_sql_exec_fn(pe,E_LOG,"update playlists set query='%q' "
+                              "where id=%d",clause,id);
+
+    return DB_E_SUCCESS;  /* ?? */
 }
 
 /**

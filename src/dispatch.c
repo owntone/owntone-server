@@ -1118,10 +1118,9 @@ void dispatch_editplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     int retval;
 
-    if((!ws_getvar(pwsc,"dmap.itemname")) ||
-        (!ws_getvar(pwsc,"dmap.itemid"))) {
-        DPRINTF(E_LOG,L_DAAP,"Missing name on playlist edit");
-        ws_returnerror(pwsc,500,"missing playlist name");
+    if(!ws_getvar(pwsc,"dmap.itemid")) {
+        DPRINTF(E_LOG,L_DAAP,"Missing itemid on playlist edit");
+        ws_returnerror(pwsc,500,"missing itemid on playlist name");
         return;
     }
 
