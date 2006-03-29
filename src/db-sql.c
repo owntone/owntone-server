@@ -488,6 +488,11 @@ int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
     if((name == NULL) && (clause == NULL))
         return DB_E_SUCCESS;  /* I guess?? */
 
+    if(id == 1) { /* can't edit the library query */
+        db_get_error(pe,DB_E_INVALID_PLAYLIST);
+        reuturn DB_E_INVALID_PLAYLIST;
+    }
+
     /* first, check the playlist */
     result=db_sql_fetch_int(pe,&playlist_type,
                             "select type from playlists where id=%d",id);
