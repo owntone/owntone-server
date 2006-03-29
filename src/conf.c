@@ -1096,7 +1096,7 @@ char *conf_implode(char *section, char *key, char *delimiter) {
         if(penum->type != LL_TYPE_STRING) {
             DPRINTF(E_FATAL,L_CONF,"multivalued property not a string?\n");
         }
-        len += strlen(penum->value.as_string);
+        len += (int)strlen(penum->value.as_string);
         count++;
     }
 
@@ -1105,7 +1105,7 @@ char *conf_implode(char *section, char *key, char *delimiter) {
         return NULL;
     }
 
-    len += (strlen(delimiter) * (count-1));
+    len += ((int)strlen(delimiter) * (count-1));
     retval = (char*)malloc(len + 1);
     if(!retval) {
         DPRINTF(E_FATAL,L_CONF,"conf_implode: malloc\n");

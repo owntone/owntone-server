@@ -451,7 +451,7 @@ static struct RB_ENTRY(node) *
 RB_ENTRY(_lookup)(int mode, const RB_ENTRY(data_t) *key, struct RB_ENTRY(tree) *rbinfo)
 {
         struct RB_ENTRY(node) *x,*y;
-        int cmp=0;;
+        int cmp=0;
         int found=0;
 
         y=RBNULL; /* points to the parent of x */
