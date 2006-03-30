@@ -960,8 +960,8 @@ void dispatch_addplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char *token;
 
     if(!ws_getvar(pwsc,"dmap.itemid")) {
-        DPRINTF(E_LOG,L_DAAP,"attempt to add playlist items with no dmap.itemid\n");
-        ws_returnerror(pwsc,500,"no itemid specified");
+        DPRINTF(E_LOG,L_DAAP,"Attempt to add playlist item w/o dmap.itemid\n");
+        dispatch_error(pwsc,pqi,"MAPI","No item id specified (dmap.itemid)");
         return;
     }
 
@@ -999,8 +999,8 @@ void dispatch_deleteplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char *current;
 
     if(!ws_getvar(pwsc,"dmap.itemid")) {
-        DPRINTF(E_LOG,L_DAAP,"attempt to delete playlist with no dmap.itemid\n");
-        ws_returnerror(pwsc,500,"no itemid specified");
+        DPRINTF(E_LOG,L_DAAP,"Attempt to delete playlist w/o dmap.itemid\n");
+        dispatch_error(pwsc,pqi,"MDPR","No playlist id specified");
         return;
     }
 
@@ -1031,8 +1031,8 @@ void dispatch_deleteplaylistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char *token;
 
     if(!ws_getvar(pwsc,"dmap.itemid")) {
-        DPRINTF(E_LOG,L_DAAP,"attempt to delete playlist items with no dmap.itemid\n");
-        ws_returnerror(pwsc,500,"no itemid specified");
+        DPRINTF(E_LOG,L_DAAP,"Delete playlist item w/o dmap.itemid\n");
+        dispatch_error(pwsc,pqi,"MDPI","No playlist item specified");
         return;
     }
 
@@ -1112,7 +1112,7 @@ void dispatch_addplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 void dispatch_editplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char edit_response[20];
     unsigned char *current = edit_response;
-
+    char *pe = NULL;
     char *name, *query;
     int id;
 
@@ -1120,7 +1120,7 @@ void dispatch_editplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     if(!ws_getvar(pwsc,"dmap.itemid")) {
         DPRINTF(E_LOG,L_DAAP,"Missing itemid on playlist edit");
-        ws_returnerror(pwsc,500,"missing itemid on playlist name");
+        dispatch_error(pwsc,pqi,"MEPR","No itemid specified");
         return;
     }
 
@@ -1129,10 +1129,11 @@ void dispatch_editplaylist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     id=atoi(ws_getvar(pwsc,"dmap.itemid"));
 
     /* FIXME: Error handling */
-    retval=db_edit_playlist(NULL,id,name,query);
+    retval=db_edit_playlist(&pe,id,name,query);
     if(retval != DB_E_SUCCESS) {
         DPRINTF(E_LOG,L_DAAP,"error editing playlist.\n");
-        ws_returnerror(pwsc,500,"Error editing playlist");
+        dispatch_error(pwsc,pqi,"MEPR",pe);
+        if(pe) free(pe);
         return;
     }
 
@@ -1157,6 +1158,7 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int song_count;
     int list_length;
     unsigned char *block;
+    char *pe = NULL;
 
     if(ws_getvar(pwsc,"meta")) {
         pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
@@ -1170,15 +1172,19 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     pqi->query_type = queryTypePlaylistItems;
 
-    /* FIXME: Error handling */
-    if(db_enum_start(NULL,pqi)) {
-        DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
-        ws_returnerror(pwsc,500,"Internal server error: out of memory!");
+    if(db_enum_start(&pe,pqi) != DB_E_SUCCESS) {
+        DPRINTF(E_LOG,L_DAAP,"Could not start enum: %s\n",pe);
+        dispatch_error(pwsc,pqi,"apso",pe);
+        if(pe) free(pe);
         return;
     }
 
-    /* FIXME: Error handling */
-    db_enum_size(NULL,pqi,&song_count,&list_length);
+    if(db_enum_size(&pe,pqi,&song_count,&list_length) != DB_E_SUCCESS) {
+        DPRINTF(E_LOG,L_DAAP,"Could not enum size: %s\n",pe);
+        dispatch_error(pwsc,pqi,"apso",pe);
+        if(pe) free(pe);
+        return;
+    }
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d songs, dmap size: %d\n",song_count,list_length);
 
@@ -1192,9 +1198,9 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_start(pwsc,pqi,61+list_length);
     dispatch_output_write(pwsc,pqi,items_response,61);
 
+    /* FIXME: Error checking */
     while((db_enum_fetch(NULL,pqi,&list_length,&block) == DB_E_SUCCESS) &&
-          (list_length))
-    {
+          (list_length)) {
         DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
         dispatch_output_write(pwsc,pqi,block,list_length);
         free(block);
@@ -1216,6 +1222,7 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     unsigned char *block;
     char *response_type;
     int which_field=5;
+    char *pe = NULL;
 
     if(strcasecmp(pqi->uri_sections[2],"browse") == 0) {
         which_field = 3;
@@ -1235,15 +1242,15 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         pqi->query_type=queryTypeBrowseComposers;
     } else {
         DPRINTF(E_WARN,L_DAAP|L_BROW,"Invalid browse request type %s\n",pqi->uri_sections[3]);
-        ws_returnerror(pwsc,404,"Invalid browse type");
+        dispatch_error(pwsc,pqi,"abro","Invalid browse type");
         config_set_status(pwsc,pqi->session_id,NULL);
         return;
     }
 
-
-    if(db_enum_start(NULL,pqi)) {
-        DPRINTF(E_LOG,L_DAAP|L_BROW,"Could not start enum\n");
-        ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
+    if(db_enum_start(&pe,pqi) != DB_E_SUCCESS) {
+        DPRINTF(E_LOG,L_DAAP|L_BROW,"Could not start enum: %s\n",pe);
+        dispatch_error(pwsc,pqi,"abro",pe);
+        if(pe) free(pe);
         return;
     }
 
@@ -1286,6 +1293,7 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int pl_count;
     int list_length;
     unsigned char *block;
+    char *pe = NULL;
 
     /* currently, this is ignored for playlist queries */
     if(ws_getvar(pwsc,"meta")) {
@@ -1300,14 +1308,19 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     pqi->query_type = queryTypePlaylists;
 
-    if(db_enum_start(NULL,pqi)) {
-        DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
-        ws_returnerror(pwsc,500,"Internal server error: out of memory!\n");
+    if(db_enum_start(&pe,pqi) != DB_E_SUCCESS) {
+        DPRINTF(E_LOG,L_DAAP,"Could not start enum: %s\n",pe);
+        dispatch_error(pwsc,pqi,"aply",pe);
+        if(pe) free(pe);
         return;
     }
 
-    /* FIXME: Error handling */
-    db_enum_size(NULL,pqi,&pl_count,&list_length);
+    if(db_enum_size(NULL,pqi,&pl_count,&list_length) != DB_E_SUCCESS) {
+        DPRINTF(E_LOG,L_DAAP,"error in enumerating size: %s\n",pe);
+        dispatch_error(pwsc,pqi,"aply",pe);
+        if(pe) free(pe);
+        return;
+    }
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d playlists, dmap size: %d\n",pl_count,list_length);
 
@@ -1321,6 +1334,7 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_start(pwsc,pqi,61+list_length);
     dispatch_output_write(pwsc,pqi,playlist_response,61);
 
+    /* FIXME: error checking */
     while((db_enum_fetch(NULL,pqi,&list_length,&block) == DB_E_SUCCESS) &&
           (list_length))
     {
@@ -1343,7 +1357,7 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int song_count;
     int list_length;
     unsigned char *block;
-    char *pe;
+    char *pe = NULL;
 
     if(ws_getvar(pwsc,"meta")) {
         pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
@@ -1353,18 +1367,19 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     pqi->query_type = queryTypeItems;
 
-    if(db_enum_start(NULL,pqi)) {
-        DPRINTF(E_LOG,L_DAAP,"Could not start enum\n");
-        ws_returnerror(pwsc,500,"Internal server error: out of memory!");
+    if(db_enum_start(&pe,pqi)) {
+        DPRINTF(E_LOG,L_DAAP,"Could not start enum: %s\n",pe);
+        dispatch_error(pwsc,pqi,"adbs",pe);
+        if(pe) free(pe);
         return;
     }
 
     /* FIXME: Error handling */
     if(db_enum_size(&pe,pqi,&song_count,&list_length) != DB_E_SUCCESS) {
         DPRINTF(E_LOG,L_DAAP,"Error getting dmap size: %s\n",pe);
-        song_count=0;
-        list_length=0;
-        free(pe);
+        dispatch_error(pwsc,pqi,"adbs",pe);
+        if(pe) free(pe);
+        return;
     }
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d songs, dmap size: %d\n",song_count,list_length);
@@ -1379,7 +1394,7 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     dispatch_output_start(pwsc,pqi,61+list_length);
     dispatch_output_write(pwsc,pqi,items_response,61);
 
-    pe=NULL;
+    /* FIXME: check errors */
     while((db_enum_fetch(NULL,pqi,&list_length,&block) == DB_E_SUCCESS) &&
           (list_length)) {
         DPRINTF(E_SPAM,L_DAAP,"Got block of size %d\n",list_length);
@@ -1388,12 +1403,6 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
     DPRINTF(E_DBG,L_DAAP,"Done enumerating.\n");
     db_enum_end(NULL);
-
-    if(pe) {
-        DPRINTF(E_LOG,L_DAAP,"Error enumerating items: %s\n",pe);
-        free(pe);
-    }
-
     dispatch_output_end(pwsc,pqi);
     return;
 }
