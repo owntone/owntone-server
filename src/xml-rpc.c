@@ -21,7 +21,6 @@
 #include "mp3-scanner.h"
 #include "rend.h"
 #include "webserver.h"
-#include "xml-rpc.h"
 
 /* typedefs */
 typedef struct tag_xmlstack {
@@ -32,14 +31,18 @@ typedef struct tag_xmlstack {
 typedef struct tag_xmlstruct {
     WS_CONNINFO *pwsc;
     int stack_level;
-    int suppress_lead;
-    int flags;
     XMLSTACK stack;
 } XMLSTRUCT;
 
 /* Forwards */
 void xml_get_stats(WS_CONNINFO *pwsc);
 char *xml_entity_encode(char *original);
+
+XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header);
+void xml_push(XMLSTRUCT *pxml, char *term);
+void xml_pop(XMLSTRUCT *pxml);
+void xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...);
+void xml_deinit(XMLSTRUCT *pxml);
 
 /**
  * create an xml response structure, a helper struct for
@@ -49,7 +52,7 @@ char *xml_entity_encode(char *original);
  * @param emit_header whether or not to throw out html headers and xml header
  * @returns XMLSTRUCT on success, or NULL if failure
  */
-XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header, int flags) {
+XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
     XMLSTRUCT *pxml;
 
     pxml=(XMLSTRUCT*)malloc(sizeof(XMLSTRUCT));
@@ -60,20 +63,13 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header, int flags) {
     memset(pxml,0,sizeof(XMLSTRUCT));
 
     pxml->pwsc = pwsc;
-    pxml->flags = flags;
 
     if(emit_header) {
-        if(flags & XML_FLAG_JSON) {
-            ws_addresponseheader(pwsc,"Content-Type","text/json");
-        } else {
-            ws_addresponseheader(pwsc,"Content-Type","text/xml; charset=utf-8");
-        }
+        ws_addresponseheader(pwsc,"Content-Type","text/xml; charset=utf-8");
         ws_writefd(pwsc,"HTTP/1.0 200 OK\r\n");
         ws_emitheaders(pwsc);
 
-        if(!(flags & XML_FLAG_JSON)) {
-            ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
-        }
+        ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
     }
 
     return pxml;
@@ -85,55 +81,17 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header, int flags) {
  * @param pxml xml struct obtained from xml_init
  * @param term next xlm section to start
  */
-void xml_push(XMLSTRUCT *pxml, char *term, int container) {
+void xml_push(XMLSTRUCT *pxml, char *term) {
     XMLSTACK *pstack;
-    int is_array=0;
-    int parent_is_array=0;
-    int suppress_nl=0;
-    char *parent_term;
 
     pstack = (XMLSTACK *)malloc(sizeof(XMLSTACK));
     pstack->next=pxml->stack.next;
     pstack->tag=strdup(term);
     pxml->stack.next=pstack;
 
-    if((strlen(term) > 5)&&(strcasecmp(&term[strlen(term)-5],"array") == 0)) {
-        is_array=1;
-    }
-
-    if(pstack->next) {
-        parent_term = pstack->next->tag;
-        if((strlen(parent_term) > 5) &&
-           (strcasecmp(&parent_term[strlen(parent_term)-5],"array") == 0)) {
-            parent_is_array=1;
-        }
-    }
-
-    if((pxml->flags & XML_FLAG_READABLE) && (!pxml->suppress_lead))
-        ws_writefd(pxml->pwsc,"%*s",pxml->stack_level,"");
-
-    if(pxml->flags & XML_FLAG_JSON) {
-        if(pxml->suppress_lead) {
-            ws_writefd(pxml->pwsc,", ");
-        }
-        if(!parent_is_array) {
-            ws_writefd(pxml->pwsc,"\"%s\": ",term);
-        } else {
-            suppress_nl=1;
-        }
-        if(is_array) {
-            ws_writefd(pxml->pwsc,"[");
-        } else if(container) {
-            ws_writefd(pxml->pwsc,"{");
-        }
-    } else {
-        ws_writefd(pxml->pwsc,"<%s>",term);
-    }
-
-    if((container) && (pxml->flags & XML_FLAG_READABLE)&&(!suppress_nl))
-        ws_writefd(pxml->pwsc,"\n");
-
     pxml->stack_level++;
+
+    ws_writefd(pxml->pwsc,"<%s>",term);
 }
 
 /**
@@ -141,14 +99,9 @@ void xml_push(XMLSTRUCT *pxml, char *term, int container) {
  *
  * @param pxml xml struct we are working with
  */
-void xml_pop(XMLSTRUCT *pxml, int container) {
+void xml_pop(XMLSTRUCT *pxml) {
     XMLSTACK *pstack;
-    int is_array=0;
-    int parent_is_array=0;
-    char *term;
-    char *parent_term;
 
-    int suppress_nl = 0;
     pstack=pxml->stack.next;
     if(!pstack) {
         DPRINTF(E_LOG,L_XML,"xml_pop: tried to pop an empty stack\n");
@@ -157,43 +110,11 @@ void xml_pop(XMLSTRUCT *pxml, int container) {
 
     pxml->stack.next = pstack->next;
 
-    pxml->stack_level--;
-
-    term = pstack->tag;
-    if((strlen(term) > 5)&&(strcasecmp(&term[strlen(term)-5],"array") == 0)) {
-        is_array=1;
-    }
-
-    if(pxml->stack.next) {
-        parent_term = pxml->stack.next->tag;
-        if((strlen(parent_term) > 5) &&
-           (strcasecmp(&parent_term[strlen(parent_term)-5],"array") == 0)) {
-            parent_is_array=1;
-        }
-    }
-
-    if((container) && (pxml->flags & XML_FLAG_READABLE))
-        ws_writefd(pxml->pwsc,"%*s",pxml->stack_level,"");
-
-    if(pxml->flags & XML_FLAG_JSON) {
-        pxml->suppress_lead=0;
-        if(is_array) {
-            ws_writefd(pxml->pwsc,"]");
-        } else if(container) {
-            ws_writefd(pxml->pwsc,"}");
-        } else {
-            suppress_nl = 1;
-            pxml->suppress_lead=1;
-        }
-    } else {
-        ws_writefd(pxml->pwsc,"</%s>",pstack->tag);
-    }
-
-    if((pxml->flags & XML_FLAG_READABLE)&&(!suppress_nl))
-        ws_writefd(pxml->pwsc,"\n");
-
+    ws_writefd(pxml->pwsc,"</%s>",pstack->tag);
     free(pstack->tag);
     free(pstack);
+
+    pxml->stack_level--;
 }
 
 /**
@@ -208,22 +129,14 @@ void xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...) {
     vsnprintf(buf, sizeof(buf), fmt, ap);
     va_end(ap);
 
-    if(section) {
-        xml_push(pxml,section,FALSE);
-    }
-
     output = xml_entity_encode(buf);
-    if(pxml->flags & XML_FLAG_JSON) {
-        ws_writefd(pxml->pwsc,"\"%s\"",output);
-
-    } else {
-        ws_writefd(pxml->pwsc,"%s",output);
-    }
-
-    free(output);
-
     if(section) {
-        xml_pop(pxml,FALSE);
+        xml_push(pxml,section);
+    }
+    ws_writefd(pxml->pwsc,"%s",output);
+    free(output);
+    if(section) {
+        xml_pop(pxml);
     }
 }
 
@@ -274,7 +187,6 @@ void xml_handle(WS_CONNINFO *pwsc) {
  */
 void xml_get_stats(WS_CONNINFO *pwsc) {
     int r_secs, r_days, r_hours, r_mins;
-    int flag=0;
     char buf[80];
     WS_CONNINFO *pci;
     SCAN_STATUS *pss;
@@ -282,20 +194,13 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     int count;
     XMLSTRUCT *pxml;
 
-    /* check output... */
-    if(ws_getvar(pwsc,"output") == NULL) {
-        flag = XML_FLAG_NONE;
-    } else if(strcasecmp(ws_getvar(pwsc,"output"),"json") == 0) {
-        flag = XML_FLAG_JSON | XML_FLAG_READABLE;
-    } else if(strcasecmp(ws_getvar(pwsc,"output"),"readable") == 0) {
-        flag = XML_FLAG_READABLE;
-    }
+    pxml=xml_init(pwsc,1);
+    xml_push(pxml,"status");
 
-    pxml=xml_init(pwsc,1,flag);
+    xml_push(pxml,"service_status");
 
-    xml_push(pxml,"status",TRUE);
-    xml_push(pxml,"service_array",TRUE);
-    xml_push(pxml,"service",TRUE);
+    xml_push(pxml,"service");
+
     xml_output(pxml,"name","Rendezvous");
 
 #ifndef WITHOUT_MDNS
@@ -308,38 +213,38 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
 
     ws_writefd(pwsc,"<td>No Support</td><td>&nbsp;</td></tr>\n");
 #endif
-    xml_pop(pxml,TRUE); /* service */
+    xml_pop(pxml); /* service */
 
-    xml_push(pxml,"service",TRUE);
+    xml_push(pxml,"service");
     xml_output(pxml,"name","DAAP Server");
     xml_output(pxml,"status",config.stop ? "Stopping" : "Running");
-    xml_pop(pxml,TRUE); /* service */
+    xml_pop(pxml); /* service */
 
-    xml_push(pxml,"service",TRUE);
+    xml_push(pxml,"service");
     xml_output(pxml,"name","File Scanner");
     xml_output(pxml,"status",config.reload ? "Running" : "Idle");
-    xml_pop(pxml,TRUE); /* service */
+    xml_pop(pxml); /* service */
 
-    xml_pop(pxml,TRUE); /* service_status */
+    xml_pop(pxml); /* service_status */
 
-    xml_push(pxml,"thread_array",TRUE);
+    xml_push(pxml,"thread_status");
 
     pci = ws_thread_enum_first(config.server,&wste);
     while(pci) {
         pss = ws_get_local_storage(pci);
         if(pss) {
-            xml_push(pxml,"thread",TRUE);
+            xml_push(pxml,"thread");
             xml_output(pxml,"id","%d",pss->thread);
             xml_output(pxml,"sourceip","%s",pss->host);
             xml_output(pxml,"action","%s",pss->what);
-            xml_pop(pxml,TRUE); /* thread */
+            xml_pop(pxml); /* thread */
         }
         pci=ws_thread_enum_next(config.server,&wste);
     }
 
-    xml_pop(pxml,TRUE); /* thread_status */
+    xml_pop(pxml); /* thread_status */
 
-    xml_push(pxml,"stat_array",TRUE);
+    xml_push(pxml,"statistics");
 
     r_secs=(int)(time(NULL)-config.stats.start_time);
 
@@ -368,24 +273,24 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     sprintf((char*)&buf[strlen(buf)],"%d second%s ", r_secs,
             r_secs == 1 ? "" : "s");
 
-    xml_push(pxml,"stat",TRUE);
+    xml_push(pxml,"stat");
     xml_output(pxml,"name","Uptime");
     xml_output(pxml,"value","%s",buf);
-    xml_pop(pxml,TRUE); /* stat */
+    xml_pop(pxml); /* stat */
 
-    xml_push(pxml,"stat",TRUE);
+    xml_push(pxml,"stat");
     xml_output(pxml,"name","Songs");
     db_get_song_count(NULL,&count);
     xml_output(pxml,"value","%d",count);
-    xml_pop(pxml,TRUE); /* stat */
+    xml_pop(pxml); /* stat */
 
-    xml_push(pxml,"stat",TRUE);
+    xml_push(pxml,"stat");
     xml_output(pxml,"name","Songs Served");
     xml_output(pxml,"value","%d",config.stats.songs_served);
-    xml_pop(pxml,TRUE); /* stat */
+    xml_pop(pxml); /* stat */
 
-    xml_pop(pxml,TRUE); /* statistics */
-    xml_pop(pxml,TRUE); /* status */
+    xml_pop(pxml); /* statistics */
+    xml_pop(pxml); /* status */
 
     xml_deinit(pxml);
     return;
