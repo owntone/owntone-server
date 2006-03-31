@@ -64,6 +64,10 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
 
     pxml->pwsc = pwsc;
 
+    /* the world would be a wonderful place without ie */
+    ws_addresponseheader(pwsc,"Cache-Control","no-cache");
+    ws_addresponseheader(pwsc,"Expires","-1");
+
     if(emit_header) {
         ws_addresponseheader(pwsc,"Content-Type","text/xml; charset=utf-8");
         ws_writefd(pwsc,"HTTP/1.0 200 OK\r\n");
