@@ -303,7 +303,7 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
         }
 
         for(idx=0; idx < cols; idx++) {
-            db_sqlite3_row[idx] = (char*) sqlite3_column_text(db_sqlite3_stmt,idx);
+            db_sqlite3_row[idx] = (char*) sqlite3_column_blob(db_sqlite3_stmt,idx);
         }
 
         *pr = db_sqlite3_row;
