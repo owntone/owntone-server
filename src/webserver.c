@@ -1011,10 +1011,16 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
     /* we'll force a close here unless the user agent is
        iTunes, which seems to get pissy about it */
     useragent = ws_getarg(&pwsc->request_headers,"User-Agent");
-    if((!useragent) || (strncmp(useragent,"iTunes",6))) {
-        pwsc->close=1;
-        ws_addarg(&pwsc->response_headers,"Connection","close");
+    if((useragent) && (strncmp(useragent,"iTunes",6) == 0) && (error == 401)) {
+        ws_addarg(&pwsc->response_headers,"Connection","keep-alive");
+        ws_addarg(&pwsc->response_headers,"Content-Length","2");
+        ws_emitheaders(pwsc);
+        ws_writefd(pwsc,"\r\n");
+        return 0;
     }
+
+    pwsc->close=1;
+    ws_addarg(&pwsc->response_headers,"Connection","close");
 
     ws_emitheaders(pwsc);
 
