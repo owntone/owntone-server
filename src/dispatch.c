@@ -1416,6 +1416,7 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int result;
 
     DPRINTF(E_DBG,L_DAAP,"Preparing to send update response\n");
+    config_set_status(pwsc,pqi->session_id,"Waiting for DB update");
 
     if(ws_getvar(pwsc,"revision-number")) {
         clientver=atoi(ws_getvar(pwsc,"revision-number"));
