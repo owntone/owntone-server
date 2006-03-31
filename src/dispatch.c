@@ -822,8 +822,8 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
             ws_emitheaders(pwsc);
 
             config_set_status(pwsc,pqi->session_id,
-                              "Streaming file via convert filter '%s'",
-                              pmp3->fname);
+                              "Transcoding '%s' (id %d)",
+                              pmp3->title,pmp3->id);
             DPRINTF(E_LOG,L_WS,
                     "Session %d: Streaming file '%s' to %s (offset %ld)\n",
                     pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
@@ -904,7 +904,8 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
             ws_emitheaders(pwsc);
 
-            config_set_status(pwsc,pqi->session_id,"Streaming file '%s'",pmp3->fname);
+            config_set_status(pwsc,pqi->session_id,"Streaming '%s' (id %d)",
+                              pmp3->title, pmp3->id);
             DPRINTF(E_LOG,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
                     pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
 
