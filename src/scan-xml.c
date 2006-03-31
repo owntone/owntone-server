@@ -188,19 +188,24 @@ int scan_xml_translate_path(char *pold, char *pnew) {
     if(!path_found) {
         strcpy(working_path,pold);
 
-        DPRINTF(E_DBG,L_SCAN,"Translating %s\n",pold);
+        DPRINTF(E_DBG,L_SCAN,"Translating %s, base %s\n",pold,scan_xml_file);
 
         /* let's try to find the path by brute force.
          * We'll assume that it is under the xml file somewhere
          */
         while(!path_found && ((current = strrchr(working_path,'/')))) {
-            strcpy(base_path,scan_xml_file);
+            realpath(scan_xml_file,base_path);
+            DPRINTF(E_DBG,L_SCAN,"New base: %s\n",base_path);
+//            strcpy(base_path,scan_xml_file);
             pbase = strrchr(base_path,'/');
+            if(!pbase) pbase = strrchr(base_path,'\\');
             if(!pbase) return FALSE;
 
             strcpy(pbase,pold + (current-working_path));
-            if(base_path[strlen(base_path)-1] == '/')
+            if((base_path[strlen(base_path)-1] == '/') ||
+                (base_path[strlen(base_path)-1] == '\\')) {
                 base_path[strlen(base_path)-1] = '\0';
+            }
 
             DPRINTF(E_DBG,L_SCAN,"Trying %s\n",base_path);
             if(scan_xml_is_file(base_path)) {
@@ -216,11 +221,14 @@ int scan_xml_translate_path(char *pold, char *pnew) {
 
     strcpy(base_path,scan_xml_file);
     pbase = strrchr(base_path,'/');
+    if(!pbase) pbase = strrchr(base_path,'\\');
     if(!pbase) return FALSE;
     strcpy(pbase,pold + discard);
 
-    if(base_path[strlen(base_path)-1] == '/')
+    if((base_path[strlen(base_path)-1] == '/') ||
+        (base_path[strlen(base_path)-1] == '\\')) {
         base_path[strlen(base_path)-1] = '\0';
+    }
 
     realpath(base_path,pnew);
 
