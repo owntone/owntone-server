@@ -96,6 +96,7 @@ Section "MainSection" SEC01
   File "..\..\admin-root\aspl-license.txt"
   File "..\..\admin-root\aspl-license.html"
   File "..\..\admin-root\applet.html"
+  File "..\..\admin-root\smart.js"
   SetOutPath "$INSTDIR\admin-root\lib-js"
   File "..\..\admin-root\lib-js\prototype.js"
   File "..\..\admin-root\lib-js\rico.js"

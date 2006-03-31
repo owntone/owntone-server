@@ -1,12 +1,80 @@
 @include hdr.html@
-
+<style type="text/css">
+table {
+  margin-top: 2ex;
+}
+#service, #stat {
+  width: 60ex;
+}
+#thread {
+  width: 80ex;
+}
+#service td, #thread td {
+  text-align: left;
+}
+#service th, #thread th {
+  text-align: left;
+}
+</style>
 <h1>Status</h1>
-<p>
-@THREADSTAT@
-</p>
-
-<p>
-@SERVICE-STATUS@
-</p>
+<table id="service">
+<thead>
+  <tr>
+    <th>Service</th>
+    <th>Status</th>
+    <th>Control</th>
+  </tr>
+</thead>
+<tbody>
+  <tr>
+    <td>Rendezvous</td>
+    <td id="rendezvous">Running</td>
+    <td><!-- <a href="config-update.html?action=stopmdns">Stop MDNS Server</a> --></td>
+  </tr>
+  <tr>
+    <td>DAAP Server</td>
+    <td id="daap_server">Running</td>
+    <td><!-- <a href="config-update.html?action=stopdaap">Stop DAAP Server</a> --></td>
+  </tr>
+  <tr>
+    <td>File scanner</td>
+    <td id="file_scanner">Idle</td>
+    <td><a href="config-update.html?action=rescan">Start Scan</a></td>
+  </tr>
+</tbody>
+</table>  
+<table id="stat">
+  <col style="width: 20ex;" />
+  <col />
+  <tr>
+    <th>Uptime</th>
+    <td id="uptime"> </td>
+  </tr>
+  <tr>
+    <th>Songs</th>
+    <td id="songs"> </td>
+  </tr>
+  <tr>
+   <th>Songs Served</th>
+   <td id="songs_served"> </td>
+  </tr>
+  <tr>
+    <th>DB Version</th>
+    <td>2</td>
+  </tr>
+</table>
+<table id="thread">
+  <col style="width: 20ex;" />
+  <col />
+<thead>
+  <tr>
+    <th>Host</th>
+    <th>Action</th>
+  </tr>
+</thead>
+<tbody>
+  <tr><td></td><td></td></tr>
+</tbody>  
+</table>
 
 @include ftr.html@
