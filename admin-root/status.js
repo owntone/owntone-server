@@ -3,10 +3,10 @@ Event.observe(window,'load',initStatus);
 var UPDATE_FREQUENCY = 5000; // number of ms between updates
 
 function initStatus(e) {
-  new Ajax.Request('xml-rpc?method=stats',{method: 'get',onComplete:rsStats});
+  new Ajax.Request('xml-rpc?method=stats&iefix='+Math.random(),{method: 'get',onComplete:rsStats});
 
   window.setInterval(function () {
-    new Ajax.Request('xml-rpc?method=stats',{method: 'get',onComplete:rsStats});
+    new Ajax.Request('xml-rpc?method=stats&iefix='+Math.random(),{method: 'get',onComplete:rsStats});
   },UPDATE_FREQUENCY);
 
 }
