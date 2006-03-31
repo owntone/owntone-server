@@ -14,7 +14,6 @@
 
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
-!include "servicelib.nsh"
 
 ; MUI Settings
 !define MUI_ABORTWARNING
@@ -46,6 +45,18 @@ InstallDir "$PROGRAMFILES\mt-daapd"
 InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
 ShowUnInstDetails show
+
+Section -Pre
+  nsSCM::QueryStatus "Bonjour Service"
+  Pop $0
+  Pop $1
+
+  StrCmp $0 "success" lbl_got_bonjour
+  MessageBox MB_OK "Bonjour for Windows service not found.  Please install Apple's Bonjour for Windows."
+  Quit
+
+  lbl_got_bonjour:
+SectionEnd
 
 Section "MainSection" SEC01
   SetOutPath "$INSTDIR"
@@ -120,8 +131,17 @@ Section -Post
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
-  ExecWait "$INSTDIR\mt-daapd.exe -i"
-;  !insertmacro SERVICE "create" "${PRODUCT_SERVICE}" "path=$INSTDIR\mt-daapd.exe;autostart=1;interact=0;shortname=mt-daapd;"
+;  ExecWait "$INSTDIR\mt-daapd.exe -i"
+
+  nsSCM::Install "${PRODUCT_NAME}" "${PRODUCT_SERVICE}" 16 2 "$INSTDIR\mt-daapd.exe" "" "Bonjour Service" "" ""
+  Pop $0
+  Pop $1
+
+  StrCmp $0 "success" lbl_install_success
+  IntCmp $1 1073 lbl_install_success  ; service already exists
+  MessageBox MB_OK "Error installing service: $1"
+
+  lbl_install_success:
 SectionEnd
 
 
@@ -136,21 +156,15 @@ Function un.onInit
 FunctionEnd
 
 Section Uninstall
-;  !undef UN
-;  !define UN "un."
-;  !insertmacro SERVICE "running" "${PRODUCT_SERVICE}" ""
-;  IntCmp $0 0 lbl_check_install
-;  !insertmacro SERVICE "stop" "${PRODUCT_SERVICE}" ""
-  
-;  lbl_check_install:
-;  !insertmacro SERVICE "installed" "${PRODUCT_SERVICE}" ""
-;  IntCmp $0 0 lbl_svc_done
-;  !insertmacro SERVICE "uninstall" "${PRODUCT_SERVICE}" ""
-  
-;  lbl_svc_done:
+  nsSCM::Stop "${PRODUCT_NAME}"
+  nsSCM::Remove "${PRODUCT_NAME}"
 
-  ExecWait "net stop mt-daapd"
-  ExecWait "$INSTDIR\mt-daapd.exe -u"
+  Pop $0
+  StrCmp $0 "success" lbl_continue_uninstall
+
+  MessageBox MB_OK "Error Uninstalling service: $1"  
+
+  lbl_continue_uninstall:
   Delete "$INSTDIR\${PRODUCT_NAME}.url"
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\gnu_regex.dll"
