@@ -1,14 +1,6 @@
 // TODO
-// Find a decent spinner instad of the busy text
-// Handle 'all' in select boxes (click on all should deselect everything else)
 // move stuff to responsehandler
-// Refactor EditPlaylistName => Source
 // handle source change events (keyPress etc)
-// navigate source with arrow keys and then click selected should initiate edit
-// new playlist twice gives server response 500
-// handle duplicate playlist names use pluck(firstChild.nodeValue?)
-// After playlist name edit, it should be activated again.
-// After playlist delete, select another one
 // If playlist is empty don't confirm delete
 Event.observe(window,'load',initPlaylist);
 
@@ -108,6 +100,7 @@ var Source = {
   },
   hideEditPlaylistName: function () {
     $('edit_playlist_name').style.display = 'none';
+    Field.activate('source');
     Source.playlistId = '';
     GlobalEvents.removeClickListener(this);
   },
