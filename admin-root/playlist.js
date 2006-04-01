@@ -92,7 +92,7 @@ var Source = {
     input = $('edit_playlist_name');
     Source.playlistId = $('source').value;
     playlistName = this._getOptionElement(Source.playlistId).firstChild.nodeValue;
-    input.style.top = RicoUtil.toDocumentPosition(this._getOptionElement(Source.playlistId)).y+ 'px';
+    input.style.top = RicoUtil.toDocumentPosition(this._getOptionElement(Source.playlistId)).y + 'px';
     input.value = playlistName;
     input.style.display = 'block';
     Field.activate(input);
@@ -154,7 +154,8 @@ var EventHandler = {
     }
     if (EventHandler.sourceClickCount[playlistId] > 1) {
       el = Event.element(e);
-      if (!el.text) {
+      if (!document.all && !el.text) {
+        // IE sends the select in the event, not the option
         // Firefox generates and event when clicking in and empty area
         // of the select box
         return;  
