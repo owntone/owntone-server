@@ -153,7 +153,8 @@ void xml_deinit(XMLSTRUCT *pxml) {
     XMLSTACK *pstack;
 
     if(pxml->stack.next) {
-        DPRINTF(E_LOG,L_XML,"xml_deinit: entries still on stack (%s)\n",pxml->stack.next->tag);
+        DPRINTF(E_LOG,L_XML,"xml_deinit: entries still on stack (%s)\n",
+                pxml->stack.next->tag);
     }
 
     while((pstack=pxml->stack.next)) {
