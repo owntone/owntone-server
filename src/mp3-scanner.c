@@ -531,6 +531,8 @@ void scan_music_file(char *path, struct dirent *pde,
             } else {
                 /* just dummy up songformat, codectype and description */
                 mp3file.type=strdup(type);
+                mp3file.codectype = strdup("unkn");
+                mp3file.song_length = 10 * 60 * 1000; /* 10 min */
 
                 /* upper-case types cause some problems */
                 current=mp3file.type;
