@@ -1424,8 +1424,8 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
         if(db_wantsmeta(pinfo->meta, metaContainerItemId))
             /* mcti */
             size += 12;
-	if((valarray[37]) && (strlen(valarray[37]) == 4) && 
-	   db_wantsmeta(pinfo->meta,metaSongCodecType)) 
+        if((valarray[37]) && (strlen(valarray[37]) == 4) && 
+           db_wantsmeta(pinfo->meta,metaSongCodecType)) 
             /* ascd */
             size += 12;
 
@@ -1565,8 +1565,8 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
             current += db_dmap_add_char(current,"asur",(char)atoi(valarray[25]));
         if(valarray[18] && atoi(valarray[18]) && db_wantsmeta(pinfo->meta, metaSongYear))
             current += db_dmap_add_short(current,"asyr",(short)atoi(valarray[18]));
-	if((valarray[37]) && (strlen(valarray[37]) == 4) && 
-	   db_wantsmeta(pinfo->meta,metaSongCodecType))
+        if((valarray[37]) && (strlen(valarray[37]) == 4) && 
+           db_wantsmeta(pinfo->meta,metaSongCodecType))
             current += db_dmap_add_literal(current,"ascd",valarray[37],4);
         if(db_wantsmeta(pinfo->meta, metaContainerItemId))
             current += db_dmap_add_int(current,"mcti",atoi(valarray[0]));
