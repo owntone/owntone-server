@@ -48,6 +48,8 @@
 #include "ll.h"
 #include "daapd.h"
 #include "os.h"
+#include "webserver.h"
+#include "xml-rpc.h"
 
 /** Globals */
 //static int ecode;
@@ -84,6 +86,7 @@ static int _conf_makedir(char *path, char *user);
 static int _conf_existdir(char *path);
 static int _conf_split(char *s, char *delimiters, char ***argvp);
 static void _conf_dispose_split(char **argv);
+static int _conf_xml_dump(XMLSTRUCT *pxml,LL *pll,int sublevel,char *parent);
 
 static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","runas" },
@@ -1208,4 +1211,86 @@ void conf_dispose_array(char **argv) {
         free(argv[index]);
         index++;
     }
+}
+
+/* FIXME: this belongs in xml-rpc, but need config enumerating fns */
+
+/**
+ * dump the config to xml
+ * 
+ * @param pwsc web connection to dump to
+ * @returns TRUE on success, FALSE otherwise
+ */
+int conf_xml_dump(WS_CONNINFO *pwsc) {
+    XMLSTRUCT *pxml;
+    int retval;
+
+    if(!conf_main_file) {
+        return FALSE; /* CONF_E_NOCONF */
+    }
+
+    pxml = xml_init(pwsc,1);
+    xml_push(pxml,"config");
+
+    _conf_lock();
+
+    retval = _conf_xml_dump(pxml,conf_main,0,NULL);
+
+    _conf_unlock();
+
+    xml_pop(pxml);
+    xml_deinit(pxml);
+
+    return retval;
+}
+
+/**
+ * do the actual work of dumping the config file
+ *
+ * @param pwsc web connection we are writing the config file to
+ * @param pll list we are dumping k/v pairs for
+ * @param sublevel whether this is the root, or a subkey
+ * @returns TRUE on success, FALSE otherwise
+ */
+int _conf_xml_dump(XMLSTRUCT *pxml, LL *pll, int sublevel, char *parent) {
+    LL_ITEM *pli;
+    LL_ITEM *plitemp;
+
+    if(!pll)
+        return TRUE;
+
+    /* write all the solo keys, first! */
+    pli = pll->itemlist.next;
+    while(pli) {
+        switch(pli->type) {
+        case LL_TYPE_LL:
+            if(sublevel) {
+                /* must be multivalued */
+                plitemp = NULL;
+                xml_push(pxml,"array");
+                while((plitemp = ll_get_next(pli->value.as_ll,plitemp))) {
+                    xml_output(pxml,pli->key,"%s",plitemp->value.as_string);
+                }
+                xml_pop(pxml);
+            } else {
+                xml_push(pxml,pli->key);
+                if(!_conf_xml_dump(pxml, pli->value.as_ll, 1, pli->key))
+                   return FALSE;
+                xml_pop(pxml);
+            }
+            break;
+
+        case LL_TYPE_INT:
+            xml_output(pxml,pli->key,"%d",pli->value.as_int);
+            break;
+
+        case LL_TYPE_STRING:
+            xml_output(pxml,pli->key,"%s",pli->value.as_string);
+            break;
+        }
+
+        pli = pli->next;
+    }
+
+    return TRUE;
 }

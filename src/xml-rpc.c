@@ -15,12 +15,14 @@
 #include <time.h>
 
 #include "configfile.h"
+#include "conf.h"
 #include "db-generic.h"
 #include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
 #include "rend.h"
 #include "webserver.h"
+#include "xml-rpc.h"
 
 /* typedefs */
 typedef struct tag_xmlstack {
@@ -28,21 +30,15 @@ typedef struct tag_xmlstack {
     struct tag_xmlstack *next;
 } XMLSTACK;
 
-typedef struct tag_xmlstruct {
+struct tag_xmlstruct {
     WS_CONNINFO *pwsc;
     int stack_level;
     XMLSTACK stack;
-} XMLSTRUCT;
+};
 
 /* Forwards */
 void xml_get_stats(WS_CONNINFO *pwsc);
 char *xml_entity_encode(char *original);
-
-XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header);
-void xml_push(XMLSTRUCT *pxml, char *term);
-void xml_pop(XMLSTRUCT *pxml);
-void xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...);
-void xml_deinit(XMLSTRUCT *pxml);
 
 /**
  * create an xml response structure, a helper struct for
@@ -180,6 +176,11 @@ void xml_handle(WS_CONNINFO *pwsc) {
 
     if(strcasecmp(method,"stats") == 0) {
         xml_get_stats(pwsc);
+        return;
+    }
+
+    if(strcasecmp(method,"config") == 0) {
+        conf_xml_dump(pwsc);
         return;
     }
 

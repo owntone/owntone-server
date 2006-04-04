@@ -48,4 +48,9 @@ extern int conf_write(void);
 extern char *conf_implode(char *section, char *key, char *delimiter);
 extern int conf_get_array(char *section, char *key, char ***argvp);
 extern void conf_dispose_array(char **argv);
+
+/* FIXME: get enum functions and move to xml-rpc */
+#include "webserver.h"
+extern int conf_xml_dump(WS_CONNINFO *pwsc);
+
 #endif /* _CONFIG_H_ */
