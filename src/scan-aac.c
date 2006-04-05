@@ -75,6 +75,8 @@ off_t scan_aac_drilltoatom(FILE *aac_fp,char *atom_path,
     char          *cur_p, *end_p;
     char          atom_name[5];
 
+    DPRINTF(E_SPAM,L_SCAN,"Searching for %s\n",atom_path);
+
     fseek(aac_fp, 0, SEEK_END);
     file_size = ftell(aac_fp);
     rewind(aac_fp);
@@ -203,80 +205,91 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
         while(current_offset < (long)atom_length) {
             if(fread((void*)&current_size,1,sizeof(int),fin) != sizeof(int))
                 break;
-                        
+
+            DPRINTF(E_SPAM,L_SCAN,"Current size: %d\n");
+
             current_size=ntohl(current_size);
-                        
+                                    
             if(current_size <= 7) /* something not right */
                 break;
 
             if(fread(current_atom,1,4,fin) != 4) 
                 break;
-                        
-            len=current_size-7;  /* for ill-formed too-short tags */
-            if(len < 22)
-                len=22;
+            
+            DPRINTF(E_SPAM,L_SCAN,"Current Atom: %c%c%c%c\n",
+                    current_atom[0],current_atom[1],current_atom[2],
+                    current_atom[3]);
 
-            current_data=(char*)malloc(len);  /* extra byte */
-            memset(current_data,0x00,len);
+            if(current_size > 4096) { /* Does this break anything? */
+                /* too big!  cover art, maybe? */
+                fseek(fin,current_size - 8 - 7,SEEK_CUR);
+            } else {
+                len=current_size-7;  /* for ill-formed too-short tags */
+                if(len < 22)
+                    len=22;
+                
+                current_data=(char*)malloc(len);  /* extra byte */
+                memset(current_data,0x00,len);
+                
+                if(fread(current_data,1,current_size-8,fin) != current_size-8) 
+                    break;
+                
+                if(!memcmp(current_atom,"\xA9" "nam",4)) { /* Song name */
+                    pmp3->title=strdup((char*)&current_data[16]);
+                } else if(!memcmp(current_atom,"\xA9" "ART",4)) {
+                    pmp3->artist=strdup((char*)&current_data[16]);
+                } else if(!memcmp(current_atom,"\xA9" "alb",4)) {
+                    pmp3->album=strdup((char*)&current_data[16]);
+                } else if(!memcmp(current_atom,"\xA9" "cmt",4)) {
+                    pmp3->comment=strdup((char*)&current_data[16]);
+                } else if(!memcmp(current_atom,"\xA9" "wrt",4)) {
+                    pmp3->composer=strdup((char*)&current_data[16]);
+                } else if(!memcmp(current_atom,"\xA9" "grp",4)) {
+                    pmp3->grouping=strdup((char*)&current_data[16]);
+                } else if(!memcmp(current_atom,"\xA9" "gen",4)) {
+                    /* can this be a winamp genre??? */
+                    pmp3->genre=strdup((char*)&current_data[16]);
+                } else if(!memcmp(current_atom,"tmpo",4)) {
+                    us_data=*((unsigned short *)&current_data[16]);
+                    us_data=ntohs(us_data);
+                    pmp3->bpm=us_data;
+                } else if(!memcmp(current_atom,"trkn",4)) {
+                    us_data=*((unsigned short *)&current_data[18]);
+                    us_data=ntohs(us_data);
+                    
+                    pmp3->track=us_data;
 
-            if(fread(current_data,1,current_size-8,fin) != current_size-8) 
-                break;
+                    us_data=*((unsigned short *)&current_data[20]);
+                    us_data=ntohs(us_data);
 
-            if(!memcmp(current_atom,"\xA9" "nam",4)) { /* Song name */
-                pmp3->title=strdup((char*)&current_data[16]);
-            } else if(!memcmp(current_atom,"\xA9" "ART",4)) {
-                pmp3->artist=strdup((char*)&current_data[16]);
-            } else if(!memcmp(current_atom,"\xA9" "alb",4)) {
-                pmp3->album=strdup((char*)&current_data[16]);
-            } else if(!memcmp(current_atom,"\xA9" "cmt",4)) {
-                pmp3->comment=strdup((char*)&current_data[16]);
-            } else if(!memcmp(current_atom,"\xA9" "wrt",4)) {
-                pmp3->composer=strdup((char*)&current_data[16]);
-            } else if(!memcmp(current_atom,"\xA9" "grp",4)) {
-                pmp3->grouping=strdup((char*)&current_data[16]);
-            } else if(!memcmp(current_atom,"\xA9" "gen",4)) {
-                /* can this be a winamp genre??? */
-                pmp3->genre=strdup((char*)&current_data[16]);
-            } else if(!memcmp(current_atom,"tmpo",4)) {
-                us_data=*((unsigned short *)&current_data[16]);
-                us_data=ntohs(us_data);
-                pmp3->bpm=us_data;
-            } else if(!memcmp(current_atom,"trkn",4)) {
-                us_data=*((unsigned short *)&current_data[18]);
-                us_data=ntohs(us_data);
-
-                pmp3->track=us_data;
-
-                us_data=*((unsigned short *)&current_data[20]);
-                us_data=ntohs(us_data);
-
-                pmp3->total_tracks=us_data;
-            } else if(!memcmp(current_atom,"disk",4)) {
-                us_data=*((unsigned short *)&current_data[18]);
-                us_data=ntohs(us_data);
-
-                pmp3->disc=us_data;
-
-                us_data=*((unsigned short *)&current_data[20]);
-                us_data=ntohs(us_data);
-
-                pmp3->total_discs=us_data;
-            } else if(!memcmp(current_atom,"\xA9" "day",4)) {
-                pmp3->year=atoi((char*)&current_data[16]);
-            } else if(!memcmp(current_atom,"gnre",4)) {
-                genre=(int)(*((char*)&current_data[17]));
-                genre--;
-                            
-                if((genre < 0) || (genre > WINAMP_GENRE_UNKNOWN))
-                    genre=WINAMP_GENRE_UNKNOWN;
-
-                pmp3->genre=strdup(scan_winamp_genre[genre]);
-            } else if (!memcmp(current_atom, "cpil", 4)) {
-                pmp3->compilation = current_data[16];
+                    pmp3->total_tracks=us_data;
+                } else if(!memcmp(current_atom,"disk",4)) {
+                    us_data=*((unsigned short *)&current_data[18]);
+                    us_data=ntohs(us_data);
+                    
+                    pmp3->disc=us_data;
+                    
+                    us_data=*((unsigned short *)&current_data[20]);
+                    us_data=ntohs(us_data);
+                    
+                    pmp3->total_discs=us_data;
+                } else if(!memcmp(current_atom,"\xA9" "day",4)) {
+                    pmp3->year=atoi((char*)&current_data[16]);
+                } else if(!memcmp(current_atom,"gnre",4)) {
+                    genre=(int)(*((char*)&current_data[17]));
+                    genre--;
+                    
+                    if((genre < 0) || (genre > WINAMP_GENRE_UNKNOWN))
+                        genre=WINAMP_GENRE_UNKNOWN;
+                    
+                    pmp3->genre=strdup(scan_winamp_genre[genre]);
+                } else if (!memcmp(current_atom, "cpil", 4)) {
+                    pmp3->compilation = current_data[16];
+                }
+                
+                free(current_data);
+                current_offset+=current_size;
             }
-
-            free(current_data);
-            current_offset+=current_size;
         }
     }
 
@@ -331,6 +344,12 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     atom_offset=scan_aac_drilltoatom(fin, 
                                      "moov:trak:mdia:minf:stbl:stsd:mp4a", 
                                      &atom_length);
+    if(atom_offset == -1) {
+        atom_offset=scan_aac_drilltoatom(fin,
+                                         "moov:trak:mdia:minf:stbl:stsd:drms",
+                                         &atom_length);
+    }
+
     if (atom_offset != -1) {
         fseek(fin, atom_offset + 32, SEEK_SET);
 
