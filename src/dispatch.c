@@ -1550,10 +1550,14 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int apro = 3 << 16;
     char *servername;
     int actual_length;
+    int supports_update;
 
     servername = conf_alloc_string("general","servername","mt-daapd");
+    supports_update = conf_get_int("daap","supports_update",1);
 
     actual_length=130 + (int) strlen(servername);
+    if(!supports_update)
+        actual_length -= 9;
 
     if(actual_length > sizeof(server_info)) {
         DPRINTF(E_FATAL,L_DAAP,"Server name too long.\n");
@@ -1585,8 +1589,10 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     current += db_dmap_add_char(current,"msix",0);         /* 9 */
     current += db_dmap_add_char(current,"msbr",0);         /* 9 */
     current += db_dmap_add_char(current,"msqy",0);         /* 9 */
-    current += db_dmap_add_char(current,"msup",0);         /* 9 */
     current += db_dmap_add_int(current,"msdc",1);          /* 12 */
+
+    if(supports_update)
+        current += db_dmap_add_char(current,"msup",0);         /* 9 */
 
     dispatch_output_start(pwsc,pqi,actual_length);
     dispatch_output_write(pwsc,pqi,server_info,actual_length);
