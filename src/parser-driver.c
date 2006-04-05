@@ -12,6 +12,9 @@
 #include "db-generic.h"
 #include "err.h"
 #include "smart-parser.h"
+#include "daapd.h"
+
+CONFIG config;
 
 void usage(void) {
     printf("Usage:\n\n  parser [-t <type (0/1)>] [-d <debug level>] \"phrase\"\n\n");
