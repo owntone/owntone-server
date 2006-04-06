@@ -1,14 +1,53 @@
 Event.observe(window,'load',initStatus);
 
-var UPDATE_FREQUENCY = 5000; // number of ms between updates
+var UPDATE_FREQUENCY = 5; // number of seconds between updates
 
 function initStatus(e) {
-  new Ajax.Request('xml-rpc?method=stats',{method: 'get',onComplete:rsStats});
-
-  window.setInterval(function () {
-    new Ajax.Request('xml-rpc?method=stats',{method: 'get',onComplete:rsStats});
-  },UPDATE_FREQUENCY);
-
+  Event.observe('update','keyup',Updater.keyUp);
+  Updater.start();
+}
+var Updater = {
+  start: function () {
+    if (f = Cookie.getVar('update_frequency')) {
+      this.frequency = f;
+    } else {
+      this.frequency = UPDATE_FREQUENCY;
+    }
+    $('update').value = this.frequency;
+    new Ajax.Request('xml-rpc?method=stats',{method: 'get',onComplete: rsStats});          
+  },
+  update: function () {
+    $('update_timer').style.width = 100 + 'px';
+    if (Updater.stop) {
+      return;
+    }
+    Updater.effect = new Effect.Scale('update_timer',0,{scaleY: false,duration: Updater.frequency,
+      afterFinish: function() {
+        new Ajax.Request('xml-rpc?method=stats',{method: 'get',onComplete: rsStats});          
+      }});
+  },
+  keyUp: function (e) {
+    var val = $('update').value;
+    if (Updater.oldVal == val) {
+      return;
+    }
+    Updater.oldVal = val;
+    if (Updater.effect) {
+      Updater.effect.cancel();
+    }
+    if (('' == val) || /^\d+$/.test(val)) {
+      Cookie.setVar('update_frequency',val,30);
+      if ('' == val) {
+        Element.removeClassName('update','input_error');
+        return;
+      }
+      Updater.frequency = val;
+      Element.removeClassName('update','input_error');
+      Updater.update();
+    } else {
+      Element.addClassName('update','input_error');
+    }
+  } 
 }
 function rsStats(request) {
   ['service','stat'].each(function (tag) {
@@ -26,6 +65,7 @@ function rsStats(request) {
     row.push(element.childNodes[2].firstChild.nodeValue);
     threadTable.addTbodyRow(row);    
   });
+  Updater.update();
 }
 
 Table = Class.create();
@@ -68,4 +108,27 @@ Object.extend(Element, {
   // We shouldn't end up here;
   return '';
   }
-});    
+});
+var Cookie = {
+  getVar: function(name) {
+    var cookie = document.cookie;
+    if (cookie.length > 0) {
+      cookie += ';';
+    }
+    re = new RegExp(name + '\=(.*?);' );
+    if (cookie.match(re)) {
+      return RegExp.$1;
+    } else {
+      return '';
+    }
+  },
+  setVar: function(name,value,days) {
+    days = days || 30;
+    var expire = new Date(new Date().getTime() + days*86400);
+    document.cookie = name + '=' + value +';expires=' + expire.toUTCString();
+  },
+  removeVar: function(name) {
+    var date = new Date(12);
+    document.cookie = name + '=;expires=' + date.toUTCString();
+  }
+};

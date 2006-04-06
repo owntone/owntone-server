@@ -15,8 +15,21 @@ table {
 #service th, #thread th {
   text-align: left;
 }
+input {
+  font: icon;
+}
+.timer {
+  background-color: #8CACBB;
+  width: 100px;
+}
+.input_error {
+  border: 1px solid #ff0000;
+}
 </style>
 <h1>Status</h1>
+Next update <div class="timer" id="update_timer"><br></div>
+Update this page every
+<input type="text" id="update" size="3" value="" /> seconds
 <table id="service">
 <thead>
   <tr>
