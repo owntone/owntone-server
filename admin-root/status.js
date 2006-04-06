@@ -1,6 +1,6 @@
 Event.observe(window,'load',initStatus);
 
-var UPDATE_FREQUENCY = 5; // number of seconds between updates
+var UPDATE_FREQUENCY = 5; // default number of seconds between updates if no cookie set
 
 function initStatus(e) {
   Event.observe('update','keyup',Updater.keyUp);
@@ -59,12 +59,15 @@ function rsStats(request) {
   var thread = $A(request.responseXML.getElementsByTagName('thread'));
   var threadTable = new Table('thread');
   threadTable.removeTBodyRows();
+  var users = 0;
   thread.each(function (element) {
+    users++;
     row = [];
     row.push(element.childNodes[1].firstChild.nodeValue);
     row.push(element.childNodes[2].firstChild.nodeValue);
     threadTable.addTbodyRow(row);    
   });
+  $('session_count').replaceChild(document.createTextNode(users + ' Connected Users'),$('session_count').firstChild);
   Updater.update();
 }
 
