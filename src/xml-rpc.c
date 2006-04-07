@@ -38,7 +38,24 @@ struct tag_xmlstruct {
 
 /* Forwards */
 void xml_get_stats(WS_CONNINFO *pwsc);
+void xml_set_config(WS_CONNINFO *pwsc);
+void xml_return_error(WS_CONNINFO *pwsc, int errno, char *errstr);
 char *xml_entity_encode(char *original);
+
+void xml_return_error(WS_CONNINFO *pwsc, int errno, char *errstr) {
+    XMLSTRUCT *pxml;
+
+    pxml=xml_init(pwsc,TRUE);
+    xml_push(pxml,"results");
+    
+    xml_output(pxml,"status","%d",errno);
+    xml_output(pxml,"statusstring","%s",errstr);
+
+    xml_pop(pxml); /* results */
+    xml_deinit(pxml);
+    return;
+}
+
 
 /**
  * create an xml response structure, a helper struct for
@@ -73,6 +90,37 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
     }
 
     return pxml;
+}
+
+
+/**
+ * post settings back to the config file
+ *
+ * @param pwsc connection do dump results back to
+ */
+void xml_set_config(WS_CONNINFO *pwsc) {
+    char *section;
+    char *key;
+    char *value;
+    int err;
+
+    section = ws_getvar(pwsc,"section");
+    key = ws_getvar(pwsc,"key");
+    value = ws_getvar(pwsc,"value");
+
+    if((!section) || (!key) || (!value)) {
+        xml_return_error(pwsc,500,"Missing section, key, or value");
+        return;
+    }
+
+    if((err=conf_set_string(section,key,value) != CONF_E_SUCCESS)) {
+        /* should return text error from conf_ */
+        xml_return_error(pwsc,500,"conf_set_string: error");
+        return;
+    }
+
+    xml_return_error(pwsc,200,"Success");
+    return;
 }
 
 /**
@@ -181,6 +229,11 @@ void xml_handle(WS_CONNINFO *pwsc) {
 
     if(strcasecmp(method,"config") == 0) {
         conf_xml_dump(pwsc);
+        return;
+    }
+
+    if(strcasecmp(method,"setconfig") == 0) {
+        xml_set_config(pwsc);
         return;
     }
 
@@ -296,6 +349,12 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     xml_pop(pxml); /* stat */
 
     xml_pop(pxml); /* statistics */
+
+
+    xml_push(pxml,"misc");
+    xml_output(pxml,"writable_config","%d",conf_iswritable());
+    xml_pop(pxml); /* misc */
+
     xml_pop(pxml); /* status */
 
     xml_deinit(pxml);
