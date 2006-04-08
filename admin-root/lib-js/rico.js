@@ -1984,7 +1984,7 @@ Rico.LiveGridBuffer.prototype = {
             seconds = (seconds < 10) ? '0'+seconds : seconds;
             row.push(Math.floor(time/60)+ ':' + seconds);   
           } else {
-            row.push(el.getElementsByTagName(name)[0].firstChild.nodeValue);  
+            row.push(el.getElementsByTagName(name)[0].firstChild.nodeValue.truncate(10));  
           }
         });
         newRows.push(row);
@@ -2421,6 +2421,10 @@ Rico.LiveGrid.prototype = {
    ajaxUpdate: function(ajaxResponse) {
       try {
          clearTimeout( this.timeoutHandler );
+         var totalRows = ajaxResponse.responseXML.getElementsByTagName('dmap.specifiedtotalcount')[0].firstChild.nodeValue;
+         if (this.metaData.getTotalRows() != totalRows) {
+           this.setTotalRows(totalRows);
+         }
          this.buffer.update(ajaxResponse,this.processingRequest.bufferOffset);
          this.viewPort.bufferChanged();
       }
