@@ -24,6 +24,7 @@ function initPlaylist() {
   Event.observe('edit_playlist_name','keypress',EventHandler.editPlaylistNameKeyPress);
   // Firefox remebers the search box value on page reload
   Field.clear('search');
+  new Rico.LiveGrid('songs_data',20,1000,'',{prefetchBuffer: true});
 }
 var GlobalEvents = {
   _clickListeners: [],
@@ -92,6 +93,7 @@ var Source = {
     input = $('edit_playlist_name');
     Source.playlistId = $('source').value;
     playlistName = this._getOptionElement(Source.playlistId).firstChild.nodeValue;
+    //###FIXME use prototype Position instead
     input.style.top = RicoUtil.toDocumentPosition(this._getOptionElement(Source.playlistId)).y + 'px';
     input.value = playlistName;
     input.style.display = 'block';
@@ -126,6 +128,7 @@ var Source = {
     Query.send('genres');
   },
   click: function (e) {
+    //###FIXME use prototype Position instead
     var x = Event.pointerX(e);
     var y = Event.pointerY(e);
     var el = $('edit_playlist_name');
@@ -305,37 +308,39 @@ var Query = {
        }
      }
    },
-   send: function (type) {
+   getFullUrl: function (type) {
      this.busy = true;
      var url;
      var handler;
      var meta = '';
-     var index = '';
      switch (type) {
        case 'genres':
          url = 'browse/genres';
-         handler = ResponseHandler.genreAlbumArtist;
          break;
        case 'artists':
          url = 'browse/artists';
-         handler = ResponseHandler.genreAlbumArtist;
          break;
        case 'albums':
          url = 'browse/albums';
-         handler = ResponseHandler.genreAlbumArtist;
          break;
        case 'songs':
          url = 'items';
          meta = '&meta=daap.songalbum,daap.songartist,daap.songgenre,dmap.itemid,daap.songtime,dmap.itemname';
-         index = '&index=0-50';
-         handler = rsSongs;
         break;
        default:
          alert("Shouldn't happen 2");
          break;
      }
-     url = this.baseUrl + this.playlistUrl + url + '?output=xml' + index + meta + this.getUrl(type);
-     new Ajax.Request(url ,{method: 'get',onComplete:handler});
+     return this.baseUrl + this.playlistUrl + url + '?output=xml' + meta + this.getUrl(type);
+   },
+   send: function(type) {
+     if (('genres' == type) || ('artists' == type) || ('albums' == type)) {
+       handler = ResponseHandler.genreAlbumArtist;
+     } else {
+       return;
+     //  handler = rsSongs;  
+     }
+     new Ajax.Request(this.getFullUrl(type), {method: 'get',onComplete:handler});
    }
 };
 var ResponseHandler = {
@@ -378,7 +383,7 @@ var ResponseHandler = {
         Query.send('albums');
         break;
       case 'albums':
-        Query.send('songs');
+//        Query.send('songs');
         break;
       default:
         alert("Shouldn't happen 3");

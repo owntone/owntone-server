@@ -1972,6 +1972,17 @@ Rico.LiveGridBuffer.prototype = {
    },
 
    loadRows: function(ajaxResponse) {
+      var newRows = [];
+      $A(ajaxResponse.responseXML.getElementsByTagName('dmap.listingitem')).each(function (el) {
+        var row = [];
+        //,dmap.itemid,,dmap.itemname']
+        ['dmap.itemname','daap.songtime','daap.songartist','daap.songalbum','daap.songgenre'].each(function (name) {
+          row.push(el.getElementsByTagName(name)[0].firstChild.nodeValue);  
+        });
+        newRows.push(row);
+      });
+      return newRows;
+      
       var rowsElement = ajaxResponse.getElementsByTagName('rows')[0];
       this.updateUI = rowsElement.getAttribute("update_ui") == "true"
       var newRows = new Array()
@@ -2381,8 +2392,9 @@ Rico.LiveGrid.prototype = {
             queryString = queryString+'&sort_col='+escape(this.sortCol)+'&sort_dir='+this.sortDir;
 
         this.ajaxOptions.parameters = queryString;
-
-       ajaxEngine.sendRequest( this.tableId + '_request', this.ajaxOptions );
+       var end = bufferStartPos+fetchSize;
+       new Ajax.Request(Query.getFullUrl('songs')+'&index='+bufferStartPos+'-'+end,{method: 'get',onComplete: this.ajaxUpdate.bind(this)});
+//       ajaxEngine.sendRequest( this.tableId + '_request', this.ajaxOptions );
 
        this.timeoutHandler = setTimeout( this.handleTimedOut.bind(this), this.options.bufferTimeout);
 
