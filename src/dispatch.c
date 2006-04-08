@@ -1160,6 +1160,7 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int list_length;
     unsigned char *block;
     char *pe = NULL;
+    int mtco;
 
     if(ws_getvar(pwsc,"meta")) {
         pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
@@ -1189,10 +1190,14 @@ void dispatch_playlistitems(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d songs, dmap size: %d\n",song_count,list_length);
 
+    mtco = song_count;
+    if(pqi->index_type != indexTypeNone)
+        mtco = pqi->specifiedtotalcount;
+
     current += db_dmap_add_container(current,"apso",list_length + 53);
     current += db_dmap_add_int(current,"mstt",200);         /* 12 */
     current += db_dmap_add_char(current,"muty",0);          /*  9 */
-    current += db_dmap_add_int(current,"mtco",song_count);  /* 12 */
+    current += db_dmap_add_int(current,"mtco",mtco);        /* 12 */
     current += db_dmap_add_int(current,"mrco",song_count);  /* 12 */
     current += db_dmap_add_container(current,"mlcl",list_length);
 
@@ -1224,6 +1229,7 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     char *response_type;
     int which_field=5;
     char *pe = NULL;
+    int mtco;
 
     if(strcasecmp(pqi->uri_sections[2],"browse") == 0) {
         which_field = 3;
@@ -1263,11 +1269,15 @@ void dispatch_browse(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     DPRINTF(E_DBG,L_DAAP|L_BROW,"Item enum: got %d items, dmap size: %d\n",
             item_count,list_length);
 
+    mtco = item_count;
+    if(pqi->index_type != indexTypeNone)
+        mtco = pqi->specifiedtotalcount;
+
     current += db_dmap_add_container(current,"abro",list_length + 44);
-    current += db_dmap_add_int(current,"mstt",200);                       /* 12 */
-    current += db_dmap_add_int(current,"mtco",item_count);                /* 12 */
-    current += db_dmap_add_int(current,"mrco",item_count);                /* 12 */
-    current += db_dmap_add_container(current,response_type,list_length);  /*  8 + length */
+    current += db_dmap_add_int(current,"mstt",200);                    /* 12 */
+    current += db_dmap_add_int(current,"mtco",mtco);                   /* 12 */
+    current += db_dmap_add_int(current,"mrco",item_count);             /* 12 */
+    current += db_dmap_add_container(current,response_type,list_length); /* 8+ */
 
     dispatch_output_start(pwsc,pqi,52+list_length);
     dispatch_output_write(pwsc,pqi,browse_response,52);
@@ -1295,6 +1305,7 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int list_length;
     unsigned char *block;
     char *pe = NULL;
+    int mtco;
 
     /* currently, this is ignored for playlist queries */
     if(ws_getvar(pwsc,"meta")) {
@@ -1325,10 +1336,14 @@ void dispatch_playlists(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d playlists, dmap size: %d\n",pl_count,list_length);
 
+    mtco = pl_count;
+    if(pqi->index_type != indexTypeNone)
+        mtco = pqi->specifiedtotalcount;
+
     current += db_dmap_add_container(current,"aply",list_length + 53);
     current += db_dmap_add_int(current,"mstt",200);         /* 12 */
     current += db_dmap_add_char(current,"muty",0);          /*  9 */
-    current += db_dmap_add_int(current,"mtco",pl_count);    /* 12 */
+    current += db_dmap_add_int(current,"mtco",mtco);        /* 12 */
     current += db_dmap_add_int(current,"mrco",pl_count);    /* 12 */
     current += db_dmap_add_container(current,"mlcl",list_length);
 
@@ -1359,6 +1374,7 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int list_length;
     unsigned char *block;
     char *pe = NULL;
+    int mtco;
 
     if(ws_getvar(pwsc,"meta")) {
         pqi->meta = db_encode_meta(ws_getvar(pwsc,"meta"));
@@ -1385,10 +1401,14 @@ void dispatch_items(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
 
     DPRINTF(E_DBG,L_DAAP,"Item enum:  got %d songs, dmap size: %d\n",song_count,list_length);
 
+    mtco = song_count;
+    if(pqi->index_type != indexTypeNone)
+        mtco = pqi->specifiedtotalcount;
+
     current += db_dmap_add_container(current,"adbs",list_length + 53);
     current += db_dmap_add_int(current,"mstt",200);         /* 12 */
     current += db_dmap_add_char(current,"muty",0);          /*  9 */
-    current += db_dmap_add_int(current,"mtco",song_count);  /* 12 */
+    current += db_dmap_add_int(current,"mtco",mtco);        /* 12 */
     current += db_dmap_add_int(current,"mrco",song_count);  /* 12 */
     current += db_dmap_add_container(current,"mlcl",list_length);
 

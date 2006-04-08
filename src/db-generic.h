@@ -125,6 +125,7 @@ typedef struct tag_dbqueryinfo {
     int playlist_id;
     int db_id;
     int session_id;
+    int specifiedtotalcount;
     int uri_count;
     char *uri_sections[10];
     PARSETREE pt;

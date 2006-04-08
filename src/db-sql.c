@@ -1005,7 +1005,6 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     query_rest[0] = '\0';
 
 
-
     /* get the where qualifier to filter based on playlist, if there */
     if((pinfo->playlist_id) && (pinfo->playlist_id != 1)) {
         err = db_sql_enum_begin_fn(pe, "select type,query from playlists "
@@ -1131,20 +1130,20 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         DPRINTF(E_DBG,L_DB,"No query/filter\n");
     }
 
-    if(pinfo->index_type == indexTypeLast) {
-        /* We don't really care how many items unless we are
-         * doing a "last n items" query */
+
+    if(pinfo->index_type != indexTypeNone) {
+        /* the only time returned count is not specifiedtotalcount
+         * is if we have an index. */
         strcpy(scratch,query_count);
         strcat(scratch,query_rest);
         if(browse)
             strcat(scratch,")");
-
-
+        
         err = db_sql_fetch_int(pe,&results,"%s",scratch);
         if(err != DB_E_SUCCESS)
             return err;
-
         DPRINTF(E_DBG,L_DB,"Number of results: %d\n",results);
+        pinfo->specifiedtotalcount = results;
     }
 
     strcpy(query,query_select);
