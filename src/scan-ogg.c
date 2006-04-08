@@ -32,7 +32,7 @@ int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
 
     f = fopen(filename, "rb");
     if (f == NULL) {
-        DPRINTF(E_FATAL, L_SCAN,
+        DPRINTF(E_LOG, L_SCAN,
                 "Error opening input file \"%s\": %s\n", filename,
                 strerror(errno));
         return FALSE;
@@ -45,7 +45,7 @@ int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
 
     if (ov_open(f, &vf, NULL, 0) != 0) {
         fclose(f);
-        DPRINTF(E_FATAL, L_SCAN,
+        DPRINTF(E_LOG, L_SCAN,
                 "Error opening Vorbis stream in \"%s\"\n", filename);
         return FALSE;
     }
