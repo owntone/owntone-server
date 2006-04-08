@@ -6,6 +6,7 @@ Event.observe(window,'load',initPlaylist);
 
 var SEARCH_DELAY = 500; // # ms without typing before the search box searches
 var BROWSE_TEXT_LEN = 30; // Length to truncate genre/artist/album select boxes
+var g_myLiveGrid; // the live grid;
 Ajax.Responders.register({  onCreate: function () {$('busymsg').style.visibility='visible';},
                           onComplete: function () {if (!Query.busy) {$('busymsg').style.visibility='hidden';}}});
 function initPlaylist() {
@@ -24,7 +25,7 @@ function initPlaylist() {
   Event.observe('edit_playlist_name','keypress',EventHandler.editPlaylistNameKeyPress);
   // Firefox remebers the search box value on page reload
   Field.clear('search');
-  new Rico.LiveGrid('songs_data',20,1000,'',{prefetchBuffer: true});
+  g_myLiveGrid = new Rico.LiveGrid('songs_data',20,1000,'',{prefetchBuffer: false});
 }
 var GlobalEvents = {
   _clickListeners: [],
@@ -218,7 +219,9 @@ var EventHandler = {
   },
   albumsChange: function (e) {
     EventHandler._setSelected('albums');
-    Query.send('songs');
+    g_myLiveGrid.resetContents();
+    g_myLiveGrid.requestContentRefresh(0);
+//    Query.send('songs');
   },
   _setSelected: function (type) {
     var options = $A($(type).options);
@@ -383,6 +386,8 @@ var ResponseHandler = {
         Query.send('albums');
         break;
       case 'albums':
+        g_myLiveGrid.resetContents();
+        g_myLiveGrid.requestContentRefresh(0);
 //        Query.send('songs');
         break;
       default:
