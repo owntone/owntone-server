@@ -90,17 +90,6 @@
 # include "rend.h"
 #endif
 
-/**
- * Where the default configfile is.  On the NSLU2 running unslung,
- * thats in /opt, not /etc. */
-#ifndef DEFAULT_CONFIGFILE
-#ifdef NSLU2
-#define DEFAULT_CONFIGFILE "/opt/etc/mt-daapd/mt-daapd.conf"
-#else
-#define DEFAULT_CONFIGFILE "/etc/mt-daapd.conf"
-#endif
-#endif
-
 /** Seconds to sleep before checking for a shutdown or reload */
 #define MAIN_SLEEP_INTERVAL  2
 
@@ -186,7 +175,7 @@ void usage(char *program) {
  */
 int main(int argc, char *argv[]) {
     int option;
-    char *configfile=DEFAULT_CONFIGFILE;
+    char *configfile=CONFFILE;
     WSCONFIG ws_config;
     int reload=0;
     int start_time;

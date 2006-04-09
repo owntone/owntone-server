@@ -19,6 +19,15 @@ AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
 AM_CONDITIONAL(COND_REND_OSX,false)
 
+if test "x$prefix" != xNONE; then
+   CONFFILE="$prefix/etc/mt-daapd.conf"
+else
+   CONFFILE="/etc/mt-daapd.conf"
+fi
+
+
+AC_DEFINE_UNQUOTED(CONFFILE,"${CONFFILE}",Where the config file is)
+
 rend_posix=true
 db_sqlite=false
 db_sqlite3=false
