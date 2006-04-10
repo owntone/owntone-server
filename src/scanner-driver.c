@@ -84,10 +84,11 @@ CONFIG config;
  * \param pmp3 mp3 file to dump
  */
 void dump_mp3(MP3FILE *pmp3) {
-    int min,sec;
+    int min,sec,msec;
 
     min=(pmp3->song_length/1000) / 60;
     sec = (pmp3->song_length/1000) - (60 * min);
+    msec = pmp3->song_length - ((pmp3->song_length/1000)*1000);
 
     printf("path..........:  %s\n",pmp3->path);
     printf("fname.........:  %s\n",pmp3->fname);
@@ -106,7 +107,7 @@ void dump_mp3(MP3FILE *pmp3) {
 
     printf("bitrate.......:  %dkb\n",pmp3->bitrate);
     printf("samplerate....:  %d\n",pmp3->samplerate);
-    printf("length........:  %dms (%d:%02d)\n",pmp3->song_length,min,sec);
+    printf("length........:  %dms (%d:%02d.%03d)\n",pmp3->song_length,min,sec,msec);
     printf("size..........:  %d\n",pmp3->file_size);
 
     printf("track.........:  %d of %d\n",pmp3->track,pmp3->total_tracks);
