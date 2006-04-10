@@ -819,9 +819,18 @@ int conf_set_string(char *section, char *key, char *value) {
     LL_ITEM *pitem;
     LL_ITEM *psection;
     LL *section_ll;
+    LL *temp_ll;
+    CONF_ELEMENTS *pce;
+    int key_type = CONF_T_STRING;
+    char **valuearray;
+    int index;
     int err;
 
     _conf_lock();
+    pce = _conf_get_keyinfo(section,key);
+    if(pce)
+        key_type = pce->type;
+
     pitem = _conf_fetch_item(conf_main,section,key);
     if(!pitem) {
         /* fetch the section and add it to that list */
@@ -841,19 +850,53 @@ int conf_set_string(char *section, char *key, char *value) {
             section_ll = psection->value.as_ll;
         }
         /* have the section, now add it */
-        if((err = ll_add_string(section_ll,key,value)) != LL_E_SUCCESS) {
-            DPRINTF(E_LOG,L_CONF,"Error in conf_set_string: "
-                    "(%s/%s)\n",section,key);
-            _conf_unlock();
-            return CONF_E_UNKNOWN;
+        if(key_type == CONF_T_MULTICOMMA) {
+            if((err = ll_create(&temp_ll)) != LL_E_SUCCESS) {
+                DPRINTF(E_FATAL,L_CONF,"conf_set_string: could not create ll\n");
+            }
+            ll_add_ll(section_ll,key,temp_ll);
+            ll_set_flags(temp_ll,0); /* allow dups */
+            if(_conf_split(value,",",&valuearray) >= 0) {
+                index = 0;
+                while(valuearray[index]) {
+                    ll_add_string(temp_ll,key,valuearray[index]);
+                    index++;
+                }
+                _conf_dispose_split(valuearray);
+            }
+        } else { 
+            if((err = ll_add_string(section_ll,key,value)) != LL_E_SUCCESS) {
+                DPRINTF(E_LOG,L_CONF,"Error in conf_set_string: "
+                        "(%s/%s)\n",section,key);
+                _conf_unlock();
+                return CONF_E_UNKNOWN;
+            }
         }
     } else {
         /* we have the item, let's update it */
-        ll_update_string(pitem,value);
+        if(key_type == CONF_T_MULTICOMMA) {
+            /* delete whatever is there, then add from commas */
+            ll_destroy(pitem->value.as_ll);
+            if(ll_create(&pitem->value.as_ll) != LL_E_SUCCESS) {
+                DPRINTF(E_FATAL,L_CONF,
+                        "conf_set_string: could not create ll\n");
+            }
+            ll_set_flags(pitem->value.as_ll,0); /* allow dups */
+            if(_conf_split(value,",",&valuearray) >= 0) {
+                index = 0;
+                while(valuearray[index]) {
+                    ll_add_string(pitem->value.as_ll,key,valuearray[index]);
+                    index++;
+                }
+                _conf_dispose_split(valuearray);
+            }
+        } else {
+            ll_update_string(pitem,value);
+        }
     }
 
     _conf_unlock();
-    return CONF_E_SUCCESS;
+    return conf_write();
 }
 
 /**
@@ -885,7 +928,7 @@ int conf_iswritable(void) {
  *
  */
 int conf_write(void) {
-    int retval = FALSE;
+    int retval = CONF_E_NOTWRITABLE;
     FILE *fp;
 
     if(!conf_main_file) {
@@ -899,7 +942,7 @@ int conf_write(void) {
     }
     _conf_unlock();
 
-    return retval;
+    return retval ? CONF_E_SUCCESS : CONF_E_NOTWRITABLE;
 }
 
 /**
@@ -1267,9 +1310,9 @@ int _conf_xml_dump(XMLSTRUCT *pxml, LL *pll, int sublevel, char *parent) {
             if(sublevel) {
                 /* must be multivalued */
                 plitemp = NULL;
-                xml_push(pxml,"array");
+                xml_push(pxml,pli->key);
                 while((plitemp = ll_get_next(pli->value.as_ll,plitemp))) {
-                    xml_output(pxml,pli->key,"%s",plitemp->value.as_string);
+                    xml_output(pxml,"item","%s",plitemp->value.as_string);
                 }
                 xml_pop(pxml);
             } else {

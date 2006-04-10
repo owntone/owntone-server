@@ -22,15 +22,15 @@
 #ifndef _CONFIG_H_
 #define _CONFIG_H_
 
-#define CONF_E_SUCCESS    0
-#define CONF_E_FOPEN      1
-#define CONF_E_UNKNOWN    2
-#define CONF_E_BADHEADER  3
-#define CONF_E_PARSE      4
-#define CONF_E_OVERFLOW   5  /** <Buffer passed too small */
-#define CONF_E_NOCONF     6  /** <No open config file */
-#define CONF_E_NOTFOUND   7
-
+#define CONF_E_SUCCESS     0
+#define CONF_E_FOPEN       1
+#define CONF_E_UNKNOWN     2
+#define CONF_E_BADHEADER   3
+#define CONF_E_PARSE       4
+#define CONF_E_OVERFLOW    5  /** <Buffer passed too small */
+#define CONF_E_NOCONF      6  /** <No open config file */
+#define CONF_E_NOTFOUND    7
+#define CONF_E_NOTWRITABLE 8
 
 extern int conf_read(char *file);
 extern int conf_close(void);
