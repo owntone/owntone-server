@@ -55,16 +55,16 @@ typedef struct tag_sp_node {
     } right;
 } SP_NODE;
 
+#define SP_OPTYPE_INVALID 0
+#define SP_OPTYPE_ANDOR   1
+#define SP_OPTYPE_STRING  2
+#define SP_OPTYPE_INT     3
+#define SP_OPTYPE_DATE    4
 
-#define SP_OPTYPE_ANDOR  0
-#define SP_OPTYPE_STRING 1
-#define SP_OPTYPE_INT    2
-#define SP_OPTYPE_DATE   3
-
-#define SP_HINT_NONE     0
-#define SP_HINT_STRING   1
-#define SP_HINT_INT      2
-#define SP_HINT_DATE     3
+#define SP_HINT_NONE      0
+#define SP_HINT_STRING    1
+#define SP_HINT_INT       2
+#define SP_HINT_DATE      3
 
 /*
 #define T_ID            0x00
