@@ -19,10 +19,14 @@ AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
 AM_CONDITIONAL(COND_REND_OSX,false)
 
-if test "x$prefix" != xNONE; then
-   CONFFILE="$prefix/etc/mt-daapd.conf"
-else
-   CONFFILE="/etc/mt-daapd.conf"
+if test "x$prefix" != xNONE -a "x$prefix" != "x/usr"; then
+    CONFFILE="$prefix/etc/mt-daapd.conf"
+else 
+    if test "x$prefix" == "xNONE"; then
+        CONFFILE="/usr/local/etc/mt-daapd.conf"
+    else
+        CONFFILE="/etc/mt-daapd.conf"
+    fi
 fi
 
 
