@@ -19,6 +19,8 @@ AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
 AM_CONDITIONAL(COND_REND_OSX,false)
 
+AC_FUNC_SETPGRP
+
 if test "x$prefix" != xNONE -a "x$prefix" != "x/usr"; then
     CONFFILE="$prefix/etc/mt-daapd.conf"
 else 
@@ -328,7 +330,6 @@ AC_HEADER_TIME
 
 dnl Checks for library functions.
 AC_PROG_GCC_TRADITIONAL
-AC_FUNC_SETPGRP
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(select socket strdup strerror)
 
