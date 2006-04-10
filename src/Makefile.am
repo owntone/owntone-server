@@ -45,12 +45,12 @@ if COND_GDBM
 GDBM=db-gdbm.c db-gdbm.h
 endif
 
-mtd_update_SOURCES = mtd-update.c db-sql-sqlite2.c db-sql-sqlite2.h \
-	db-sql-sqlite3.c db-sql-sqlite3.h conf.c conf.h ll.c ll.h \
+mtd_update_SOURCES = mtd-update.c conf.c conf.h ll.c ll.h \
 	db-sql.c db-sql.h db-generic.c db-generic.h smart-parser.c \
 	smart-parser.h err.c err.h os-unix.c os.h xml-rpc.c xml-rpc.h \
 	restart.c restart.h uici.c uici.h ssc.c ssc.h \
-	webserver.c webserver.h $(PRENDSRC) $(ORENDSRC) $(HRENDSRC)
+	webserver.c webserver.h $(PRENDSRC) $(ORENDSRC) $(HRENDSRC) \
+	$(SQLITEDB) $(SQLITE3DB)
 
 wavstreamer_SOURCES = wavstreamer.c
 
