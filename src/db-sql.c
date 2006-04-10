@@ -294,7 +294,10 @@ int db_sql_parse_smart(char **pe, char **clause, char *phrase) {
  * @returns DB_E_SUCCESS on success, error code otherwise
  */
 int db_sql_open(char **pe, char *parameters) {
-    return db_sql_open_fn(pe, parameters);
+    int result;
+
+    result = db_sql_open_fn(pe,parameters);
+    return result;
 }
 
 /**

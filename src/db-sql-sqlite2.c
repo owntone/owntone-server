@@ -148,11 +148,9 @@ int db_sqlite2_open(char **pe, char *dsn) {
         /* we'll catch this on the init */
         DPRINTF(E_LOG,L_DB,"Can't get db version. New database?\n");
     } else if(ver != DB_SQLITE2_VERSION) {
+        /* we'll deal with this in the db handler */
         DPRINTF(E_LOG,L_DB,"Old database version -- forcing rescan\n");
-        err=db_sqlite2_exec(pe,E_FATAL,"insert into config (term,value) values "
-                        "('rescan','1')");
-        if(err != DB_E_SUCCESS)
-            return err;
+        return DB_E_WRONGVERSION;
     }
 
     return DB_E_SUCCESS;
@@ -476,5 +474,3 @@ char *db_sqlite2_initial2 =
 "   idx            INTEGER NOT NULL\n"
 ");\n"
 "insert into playlists values (1,'Library',1,0,'1',0,'',0);\n";
-
-

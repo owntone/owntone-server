@@ -349,7 +349,8 @@ char *db_error_list[] = {
     "Parse error: %s",
     "No backend database support for type: %s",
     "Could not initialize thread pool",
-    "Passed buffer too small for result"
+    "Passed buffer too small for result",
+    "Wrong database version.  Try using mt-dbupdate to update the db"
 };
 
 /* Globals */
