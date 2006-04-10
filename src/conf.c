@@ -138,18 +138,20 @@ int _conf_makedir(char *path,char *user) {
         DPRINTF(E_FATAL,L_CONF,"Malloc error\n");
     }
 
-    next_token=pathdup+1;
+    next_token=pathdup;
+    while(*next_token && (*next_token != PATHSEP))
+        next_token++;
+    if(*next_token)
+        next_token++;
+
     memset(path_buffer,0,sizeof(path_buffer));
 
-    while((token=strsep(&next_token,"/"))) {
+    while((token=strsep(&next_token,PATHSEP_STR))) {
         if((strlen(path_buffer) + strlen(token)) < PATH_MAX) {
-            strcat(path_buffer,"/");
+            strcat(path_buffer,PATHSEP_STR);
             strcat(path_buffer,token);
 
             if(!_conf_existdir(path_buffer)) {
-                /* FIXME: this is wrong -- it should really be 0700 owned by
-                 * the runas user.  That would require some os_ indirection
-                 */
                 DPRINTF(E_DBG,L_CONF,"Making %s\n",path_buffer);
                 if((mkdir(path_buffer,0700)) && (errno != EEXIST)) {
                     free(pathdup);

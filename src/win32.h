@@ -71,7 +71,7 @@
 #define HOST "unknown-windows-ick"
 #define SERVICENAME "Multithreaded DAAP Server"
 
-#define DEFAULT_CONFIGFILE os_configpath()
+#define CONFFILE os_configpath()
 
 extern char *os_configpath(void);
 

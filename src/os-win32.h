@@ -12,7 +12,8 @@
 
 #define MAXNAMLEN 255
 #define DIRBLKSIZ 512
-
+#define PATHSEP '\\'
+#define PATHSEP_STR "\\"
 
 struct timezone {
     int tz_minuteswest;
