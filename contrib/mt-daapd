@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 #
 # chkconfig: 2345 85 15
 # description: mt-daapd is a multi-threaded DAAP server for iTunes
