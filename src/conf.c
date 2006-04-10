@@ -864,7 +864,7 @@ int conf_set_string(char *section, char *key, char *value) {
                 }
                 _conf_dispose_split(valuearray);
             }
-        } else { 
+        } else {
             if((err = ll_add_string(section_ll,key,value)) != LL_E_SUCCESS) {
                 DPRINTF(E_LOG,L_CONF,"Error in conf_set_string: "
                         "(%s/%s)\n",section,key);
@@ -1260,7 +1260,7 @@ void conf_dispose_array(char **argv) {
 
 /**
  * dump the config to xml
- * 
+ *
  * @param pwsc web connection to dump to
  * @returns TRUE on success, FALSE otherwise
  */
@@ -1336,4 +1336,13 @@ int _conf_xml_dump(XMLSTRUCT *pxml, LL *pll, int sublevel, char *parent) {
     }
 
     return TRUE;
+}
+
+/**
+ * get the filename of the currently runnig config file
+ *
+ * @returns path if it exists, or NULL if no config file opened
+ */
+char *conf_get_filename(void) {
+    return conf_main_file;
 }

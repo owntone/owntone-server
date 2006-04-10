@@ -47,7 +47,7 @@ void xml_return_error(WS_CONNINFO *pwsc, int errno, char *errstr) {
 
     pxml=xml_init(pwsc,TRUE);
     xml_push(pxml,"results");
-    
+
     xml_output(pxml,"status","%d",errno);
     xml_output(pxml,"statusstring","%s",errstr);
 
@@ -353,6 +353,8 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
 
     xml_push(pxml,"misc");
     xml_output(pxml,"writable_config","%d",conf_iswritable());
+    xml_output(pxml,"config_path","%s",conf_get_filename());
+    xml_output(pxml,"version","%s",VERSION);
     xml_pop(pxml); /* misc */
 
     xml_pop(pxml); /* status */
