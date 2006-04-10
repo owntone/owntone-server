@@ -149,7 +149,8 @@ int db_sqlite2_open(char **pe, char *dsn) {
         DPRINTF(E_LOG,L_DB,"Can't get db version. New database?\n");
     } else if(ver != DB_SQLITE2_VERSION) {
         /* we'll deal with this in the db handler */
-        DPRINTF(E_LOG,L_DB,"Old database version -- forcing rescan\n");
+        DPRINTF(E_LOG,L_DB,"Old database version.\n");
+        db_get_error(pe,DB_E_WRONGVERSION);
         return DB_E_WRONGVERSION;
     }
 

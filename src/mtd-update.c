@@ -54,7 +54,6 @@ extern int db_sql_fetch_int(char **pe, int *result, char *fmt, ...);
 # define SQLITE3_UPDATES db_error_updates
 #endif
 
-
 extern char *db_sqlite_updates[];
 char *db_error_updates[] = {
     NULL

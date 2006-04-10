@@ -321,8 +321,14 @@ int main(int argc, char *argv[]) {
     err=db_open(&perr,db_type,db_parms);
 
     if(err) {
-        DPRINTF(E_FATAL,L_MAIN|L_DB,"Error: db_open %s/%s: %s\n",
-                db_type,db_parms,perr);
+        DPRINTF(E_LOG,L_MAIN|L_DB,"Error opening db: %s\n",perr);
+#ifndef WITHOUT_MDNS
+        if(config.use_mdns) {
+            rend_stop();
+        }
+#endif
+        os_deinit();
+        exit(EXIT_FAILURE);
     }
 
     free(db_type);

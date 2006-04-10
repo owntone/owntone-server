@@ -350,7 +350,7 @@ char *db_error_list[] = {
     "No backend database support for type: %s",
     "Could not initialize thread pool",
     "Passed buffer too small for result",
-    "Wrong database version.  Try using mt-dbupdate to update the db"
+    "Wrong db schema.  Use mtd-update to upgrade the db."
 };
 
 /* Globals */
