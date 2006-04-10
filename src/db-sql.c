@@ -486,7 +486,7 @@ int db_sql_delete_playlist_item(char **pe, int playlistid, int songid) {
 int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
     int result;
     int playlist_type;
-    int cnt;
+    int dup_id=id;
 
     if((name == NULL) && (clause == NULL))
         return DB_E_SUCCESS;  /* I guess?? */
@@ -511,13 +511,16 @@ int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
 
     /* TODO: check for duplicate names here */
     if(name) {
-        result = db_sql_fetch_int(pe,&cnt,"select count(*) from playlists "
+        result = db_sql_fetch_int(pe,&dup_id,"select id from playlists "
                                   "where upper(title)=upper('%q')",name);
 
-        if(result != DB_E_SUCCESS)
+        if((result != DB_E_SUCCESS) && (result != DB_E_NOROWS))
             return result;
 
-        if(cnt) {
+        if(result == DB_E_NOROWS)
+            if(pe) free(*pe);
+
+        if(dup_id != id) {
             db_get_error(pe,DB_E_DUPLICATE_PLAYLIST,name);
             return DB_E_DUPLICATE_PLAYLIST;
         }
