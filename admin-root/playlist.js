@@ -93,7 +93,7 @@ var Source = {
   editPlaylistName: function () {
     input = $('edit_playlist_name');
     Source.playlistId = $('source').value;
-    playlistName = this._getOptionElement(Source.playlistId).firstChild.nodeValue;
+    playlistName = Element.textContent(this._getOptionElement(Source.playlistId));
     //###FIXME use prototype Position instead
     input.style.top = RicoUtil.toDocumentPosition(this._getOptionElement(Source.playlistId)).y + 'px';
     input.value = playlistName;

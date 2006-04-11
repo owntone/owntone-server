@@ -1978,13 +1978,13 @@ Rico.LiveGridBuffer.prototype = {
         //,dmap.itemid,,dmap.itemname']
         ['dmap.itemname','daap.songtime','daap.songartist','daap.songalbum','daap.songgenre'].each(function (name) {
           if ('daap.songtime' == name) {
-            var time = parseInt(el.getElementsByTagName(name)[0].firstChild.nodeValue);
+            var time = parseInt(Element.textContent(el.getElementsByTagName(name)[0]));
             time = Math.round(time / 1000);
             var seconds = time % 60;
             seconds = (seconds < 10) ? '0'+seconds : seconds;
             row.push(Math.floor(time/60)+ ':' + seconds);   
           } else {
-            row.push(el.getElementsByTagName(name)[0].firstChild.nodeValue.truncate(10));  
+            row.push(Element.textContent(el.getElementsByTagName(name)[0]).truncate(10));  
           }
         });
         newRows.push(row);

@@ -52,8 +52,8 @@ var Updater = {
 function rsStats(request) {
   ['service','stat'].each(function (tag) {
     $A(request.responseXML.getElementsByTagName(tag)).each(function (element) {
-      var node = $(element.firstChild.firstChild.nodeValue.toLowerCase().replace(/\ /,'_'));  
-      node.replaceChild(document.createTextNode(element.childNodes[1].firstChild.nodeValue),node.firstChild);
+      var node = $(Element.textContent(element.firstChild).toLowerCase().replace(/\ /,'_'));  
+      node.replaceChild(document.createTextNode(Element.textContent(element.childNodes[1])),node.firstChild);
     });
   });  
   var thread = $A(request.responseXML.getElementsByTagName('thread'));
@@ -63,8 +63,8 @@ function rsStats(request) {
   thread.each(function (element) {
     users++;
     row = [];
-    row.push(element.childNodes[1].firstChild.nodeValue);
-    row.push(element.childNodes[2].firstChild.nodeValue);
+    row.push(Element.textContent(element.childNodes[1]));
+    row.push(Element.textContent(element.childNodes[2]));
     threadTable.addTbodyRow(row);    
   });
   $('session_count').replaceChild(document.createTextNode(users + ' Connected Users'),$('session_count').firstChild);
