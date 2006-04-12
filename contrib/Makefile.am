@@ -9,7 +9,7 @@ bin_SCRIPTS=mt-daapd-ssc.sh
 dbdir="/var/cache/mt-daapd"
 
 mt-daapd.conf: mt-daapd.conf.templ ../config.h
-	if [ "$(prefix)" == "/usr" ]; then \
+	if [ "$(prefix)" = "/usr" ]; then \
 		sed -e s,[@]prefix[@],$(prefix),g -e s,[@]dbdir[@],/var/cache/mt-daapd,g $< >$@; \
 	else \
 		sed -e s,[@]prefix[@],$(prefix),g -e s,[@]dbdir[@],$(prefix)/var/cache/mt-daapd,g  $< >$@; \
