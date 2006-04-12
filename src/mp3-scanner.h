@@ -98,7 +98,7 @@ typedef struct tag_m3ufile {
 #define WINAMP_GENRE_UNKNOWN 148
 
 extern char *scan_winamp_genre[];
-extern int scan_init(char *path);
+extern int scan_init(char **patharray);
 extern void make_composite_tags(MP3FILE *song);
 
 #ifndef TRUE

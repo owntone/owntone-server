@@ -185,7 +185,8 @@ int main(int argc, char *argv[]) {
     int force_non_root=0;
     int skip_initial=0;
     int convert_conf=0;
-    char *logfile,*db_type,*db_parms,*mp3_dir,*web_root,*runas;
+    char *logfile,*db_type,*db_parms,*web_root,*runas;
+    char **mp3_dir_array;
     char *servername,*iface;
 
     char txtrecord[255];
@@ -340,15 +341,16 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
 
-    mp3_dir = conf_alloc_string("general","mp3_dir","/mnt/mp3");
-    if(!skip_initial) {
-        DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan of %s\n",mp3_dir);
+    if(conf_get_array("general","mp3_dir",&mp3_dir_array)) {
+        if(!skip_initial) {
+            DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
 
-        if(scan_init(mp3_dir)) {
-            DPRINTF(E_LOG,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
+            if(scan_init(mp3_dir_array)) {
+                DPRINTF(E_LOG,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
+            }
         }
+        conf_dispose_array(mp3_dir_array);
     }
-    free(mp3_dir);
 
     /* start up the web server */
     web_root = conf_alloc_string("general","web_root",NULL);
@@ -423,12 +425,13 @@ int main(int argc, char *argv[]) {
             start_time=(int) time(NULL);
 
             DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
-            /* FIXME: move mp3_dir to scanner */
-            mp3_dir = conf_alloc_string("general","mp3_dir","/mnt/mp3");
-            if(scan_init(mp3_dir)) {
-                DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... bad path?\n");
+            
+            if(conf_get_array("general","mp3_dir",&mp3_dir_array)) {
+                if(scan_init(mp3_dir_array)) {
+                    DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... bad path?\n");
+                }
+                conf_dispose_array(mp3_dir_array);
             }
-            free(mp3_dir);
             config.reload=0;
             db_get_song_count(NULL,&song_count);
             DPRINTF(E_INF,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in "

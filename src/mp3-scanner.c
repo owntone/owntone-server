@@ -231,8 +231,9 @@ void scan_process_playlistlist(void) {
  * and update files on a file-by-file basis
  */
 
-int scan_init(char *path) {
+int scan_init(char **patharray) {
     int err=0;
+    int index=0;
 
     DPRINTF(E_DBG,L_SCAN,"Starting scan_init\n");
 
@@ -241,10 +242,13 @@ int scan_init(char *path) {
         return -1;
     }
 
-    DPRINTF(E_DBG,L_SCAN,"Scanning for MP3s in %s\n",path);
-
     scan_playlistlist.next=NULL;
-    err=scan_path(path);
+
+    while(patharray[index] != NULL) {
+        DPRINTF(E_DBG,L_SCAN,"Scanning for MP3s in %s\n",patharray[index]);
+        err=scan_path(patharray[index]);
+        index++;
+    }
 
     if(db_end_song_scan())
         return -1;
