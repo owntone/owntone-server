@@ -79,7 +79,10 @@ This is work in progress. no changes saved, some fields not updated, some not ev
   <label for="playlist">Playlist File</label>
   <input class="text" type="text" id="playlist" size="80" value="" /><br />
   <label for="process_m3u">Process .m3u Files</label>
-  <input class="text" type="text" id="process_m3u" value="" />
+  <select id="process_m3u" size="1">
+    <option value="1">Yes</option>
+    <option value="0" selected="selected">No</option>
+  </select>
     Should m3u files be processed as playlists?<br />
   <label for="compdirs">Compilation Directories</label>
   <input class="text" type="text" id="compdirs" size="80" value="" /><br />
@@ -107,7 +110,10 @@ This is work in progress. no changes saved, some fields not updated, some not ev
   <input class="text" type="text" id="rescan" value="" />
     &nbsp;How often should mt-daapd look for new files? In seconds.<br />
   <label for="always">Always Scan</label>
-  <input class="text" type="text" id="always" value="" /><br />
+  <select id="always" size="1">
+    <option value="1">Yes</option>
+    <option value="0" selected="selected">No</option>
+  </select><br />
 
 </div>
 <div class="naviheader">Transcoding</div>
