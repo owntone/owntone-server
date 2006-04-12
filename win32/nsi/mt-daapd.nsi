@@ -93,6 +93,7 @@ Section "MainSection" SEC01
   File "..\..\admin-root\CREDITS"
   File "..\..\admin-root\config-update.html"
   File "..\..\admin-root\config.html"
+  File "..\..\admin-root\config.js"
   File "..\..\admin-root\aspl-license.txt"
   File "..\..\admin-root\aspl-license.html"
   File "..\..\admin-root\applet.html"

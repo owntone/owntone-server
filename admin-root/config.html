@@ -1,105 +1,122 @@
 @include hdr.html@
-
+<style type="text/css">
+label {
+  float: left;
+  width: 11em;
+  font: icon;
+  padding-top: .3em;
+  padding-left: 1em;
+}
+input {
+  font: icon;
+}
+select {
+  font: icon;
+}
+</style>
 <h1>Configuration</h1>
 
 <p class="description">
-Note that the following fields will only be editable if the
+<!-- Note that the following fields will only be editable if the
 configuration file itself is writable by the mt-daapd server.  If you
 make changes to these settings, they will not be reflected in the
-running server.  The server must be restarted for these values to
-take effect.</p>
+running server. The server must be restarted for these values to
+take effect.-->
+This is work in progress. no changes saved, some fields not updated, some not even in mt-daapd.conf</p>
 
-<form method="post" action="/config-update.html">
-<table>
-  <tr>
-    <th>mt-daapd.conf</th>
-    <th class="config"><input type="submit" name="SUBMIT" value="Submit"/></th>
-  </tr>
-	<tr>
-	  <td class="configname">Web Root</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="WEB_ROOT" size="80" value="@WEB_ROOT@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Playlist File</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="PLAYLIST" size="80" value="@PLAYLIST@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">MP3 Directory</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="MP3_DIR" size="80" value="@MP3_DIR@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Database Directory</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="DB_DIR" size="80" value="@DB_DIR@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Compilation Directories</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="COMPDIRS" size="80" value="@COMPDIRS@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Logfile</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="LOGFILE" size="80" value="@LOGFILE@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Art Filename</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="ART_FILENAME" size="80" value="@ART_FILENAME@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Port</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="PORT" value="@PORT@" />
-	  &nbsp;The port the server should run at; default is 3689.</td>
-	</tr>
-	<tr>
-	  <td class="configname">Server Name</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="SERVERNAME" value="@SERVERNAME@" />
-	  &nbsp;the name iTunes and other daap clients should see.</td>
-	</tr>
-	<tr>
-	  <td class="configname">Run As</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="RUNAS" value="@RUNAS@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Admin Password</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="ADMIN_PW" value="@ADMIN_PW@" />
-	  &nbsp;The password for this administration interface.</td>
-	</tr>
-	<tr>
-	  <td class="configname">MP3 Password</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="PASSWORD" value="@PASSWORD@" />
-	  &nbsp;The password clients need to access this server.</td>
-	</tr>
-	<tr>
-	  <td class="configname">Extensions</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="EXTENSIONS" value="@EXTENSIONS@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Rescan Interval</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="RESCAN_INTERVAL" value="@RESCAN_INTERVAL@" />
-	  &nbsp;How often should mt-daapd look for new files? In seconds.</td>
-	</tr>
-	<tr>
-	  <td class="configname">Scan Type</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="SCAN_TYPE" value="@SCAN_TYPE@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Always Scan</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="ALWAYS_SCAN" value="@ALWAYS_SCAN@" /></td>
-	</tr>
-	<tr>
-	  <td class="configname">Compress</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="COMPRESS" value="@COMPRESS@" />
-	  &nbsp;Should browsing data be compressed on the way to the client?</td>
-	</tr>
-	<tr>
-	  <td class="configname">Process .m3u Files</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="PROCESS_M3U" value="@PROCESS_M3U@" />
-	  Should m3u files be processed as playlists?</td>
-	</tr>
-	<tr>
-	  <td class="configname">Debug Level</td>
-	  <td class="configdata"><input class="text" type="text" @READONLY@ name="DEBUGLEVEL" value="@DEBUGLEVEL@" />
-	  &nbsp;Possible values are 0 to 9, 9 being the most detailed debug level.</td>
-	</tr>
-</table>
+<form method="get" action="#">
+<div class="naviheader">Server</div>
+<div class="navibox">
+  <span style="float: left; width: 11em; font:icon;padding-top: .3em; padding-left: 1em;">Config File</span>
+  <span id="config_path"></span><br />
+  <div style="clear: both;"></div>
+  <label for="servername">Server Name</label>
+  <input class="text" type="text" id="servername" value="" />
+    &nbsp;the name iTunes and other daap clients should see.<br />
+  <label for="web_root">Web Root</label>
+  <input class="text" type="text" id="web_root" size="80" value="" /><br />
+  <label for="port">Port</label>
+  <input class="text" type="text" id="port" value="" />
+    &nbsp;The port the server should run at; default is 3689.<br />
+  <label for="logfile">Logfile</label>
+  <input class="text" type="text" id="logfile" size="80" value="" /><br />
+  <label for="runas">Run As</label>
+  <input class="text" type="text" id="runas" value="" /><br />
+  <label for="admin_pw">Admin Password</label>
+  <input class="text" type="text" id="admin_pw" value="" />
+    &nbsp;The password for this administration interface.<br />
+  <label for="password">MP3 Password</label>
+  <input class="text" type="text" id="password" value="" />
+    &nbsp;The password clients need to access this server.<br />
+  <label for="compress">Compress</label>
+  <select id="compress" size="1">
+    <option value="1">Yes</option>
+    <option value="0" selected="selected">No</option>
+  </select>
+    &nbsp;Should browsing data be compressed on the way to the client?<br />
+  <label for="debug">Debug Level</label>
+  <select id="debug" size="1">
+    <option value="0">0</option>
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+    <option value="6">6</option>
+    <option value="7">7</option>
+    <option value="8">8</option>
+    <option value="9">9</option>
+  </select>
+    &nbsp;Possible values are 0 to 9, 9 being the most detailed debug level.<br />
+
+</div>
+<div class="naviheader">Music Files</div>
+<div class="navibox">
+  <label for="mp3_dir">MP3 Directory</label>
+  <input class="text" type="text" id="mp3_dir" size="80" value="" /><br />
+  <label for="extensions">Extensions</label>
+  <input class="text" type="text" id="extensions" size="80" value="" /><br />
+  <label for="playlist">Playlist File</label>
+  <input class="text" type="text" id="playlist" size="80" value="" /><br />
+  <label for="process_m3u">Process .m3u Files</label>
+  <input class="text" type="text" id="process_m3u" value="" />
+    Should m3u files be processed as playlists?<br />
+  <label for="compdirs">Compilation Directories</label>
+  <input class="text" type="text" id="compdirs" size="80" value="" /><br />
+  <label for="art_filename">Art Filename</label>
+  <input class="text" type="text" id="art_filename" size="80" value="" /><br />
+
+</div>
+<div class="naviheader">Database</div>
+<div class="navibox">
+  <label for="db_type">Database Type</label>
+  <select id="db_type" size="1">
+    <option value="sqlite">sqlite</option>
+    <option value="sqlite3">sqlite3</option>
+  </select><br />
+  <label for="db_parms">Database Directory</label>
+  <input class="text" type="text" id="db_parms" size="80" value="" /><br />
+
+  <label for="scan_type">Scan Type</label>
+  <select id="scan_type" size="1">
+    <option value="0">0 - Normal</option>
+    <option value="1">1 - Aggressive</option>
+    <option value="2">2 - Painfully aggressive</option>
+  </select><br />
+  <label for="rescan">Rescan Interval</label>
+  <input class="text" type="text" id="rescan" value="" />
+    &nbsp;How often should mt-daapd look for new files? In seconds.<br />
+  <label for="always">Always Scan</label>
+  <input class="text" type="text" id="always" value="" /><br />
+
+</div>
+<div class="naviheader">Transcoding</div>
+<div class="navibox">
+  <label for="ssc_prog">SSC prog</label>
+  <input class="text" type="text" id="ssc_prog" size="80" value="" /><br />
+  <label for="ssc_codectypes">SSC codec types</label>
+  <input class="text" type="text" id="ssc_codectypes" size="80" value="" /><br />
+</div>
 </form>
 
 @include ftr.html@
