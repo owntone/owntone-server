@@ -239,10 +239,10 @@ DAAP_ITEMS taglist[] = {
     /* iTunes 5.0+ */
     { 0x01, "ascr", "daap.songcontentrating" },
     { 0x01, "f" "\x8d" "ch", "dmap.haschildcontainers" },
-    
+
     /* iTunes 6.0.2+ */
     { 0x01, "aeHV", "com.apple.itunes.has-video" },
-    
+
     /* iTunes 6.0.4+ */
     { 0x05, "msas", "dmap.authenticationschemes" },
     { 0x09, "asct", "daap.songcategory" },
@@ -259,7 +259,7 @@ DAAP_ITEMS taglist[] = {
     { 0x09, "aeEN", "com.apple.itunes.episode-num-str" },
     { 0x05, "aeES", "com.apple.itunes.episode-sort" },
     { 0x05, "aeSU", "com.apple.itunes.season-num" },
-    
+
     /* mt-daapd specific */
     { 0x09, "MSPS", "org.mt-daapd.smart-playlist-spec" },
     { 0x01, "MPTY", "org.mt-daapd.playlist-type" },
@@ -322,11 +322,11 @@ static METAMAP  db_metamap[] = {
     { "com.apple.itunes.itms-genreid",     metaItmsGenreId },
     { "com.apple.itunes.itms-storefrontid",metaItmsStorefrontId },
     { "com.apple.itunes.smart-playlist",   metaItunesSmartPlaylist },
-    
+
     /* iTunes 5.0+ */
     { "daap.songcontentrating",            metaSongContentRating },
     { "dmap.haschildcontainers",           metaHasChildContainers },
-    
+
     /* iTunes 6.0.2+ */
     { "com.apple.itunes.has-video",        metaItunesHasVideo },
 
@@ -350,7 +350,8 @@ char *db_error_list[] = {
     "No backend database support for type: %s",
     "Could not initialize thread pool",
     "Passed buffer too small for result",
-    "Wrong db schema.  Use mtd-update to upgrade the db."
+    "Wrong db schema.  Use mtd-update to upgrade the db.",
+    "Database error: %s"
 };
 
 /* Globals */
@@ -673,11 +674,11 @@ int db_edit_playlist(char **pe, int id, char *name, char *clause) {
  */
 int db_playcount_increment(char **pe, int id) {
     int retval;
-    
+
     db_writelock();
     retval = db_current->dbs_playcount_increment(pe, id);
     db_unlock();
-    
+
     return retval;
 }
 
@@ -938,7 +939,7 @@ int db_dmap_add_string(unsigned char *where, char *tag, char *value) {
     where[6]=(len >> 8) & 0xFF;
     where[7]=len & 0xFF;
 
-    if(len) 
+    if(len)
         strncpy((char*)where+8,value,len);
     return 8 + len;
 }

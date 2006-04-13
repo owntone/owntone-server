@@ -45,7 +45,7 @@ typedef struct tag_mp3file {
     int song_length;
     int file_size;
     int year;        /* TDRC */
-    
+
     int track;       /* TRCK */
     int total_tracks;
 
@@ -71,10 +71,10 @@ typedef struct tag_mp3file {
     int force_update;
     int sample_count;
     char compilation;
-    
+
     /* iTunes 5+ */
     int contentrating;
-    
+
     /* iTunes 6.0.2 */
     int has_video;
 } MP3FILE;
@@ -89,6 +89,50 @@ typedef struct tag_m3ufile {
     char *path;        /**< path of underlying playlist (if type 2) */
     int index;           /**< index of playlist for paths with multiple playlists */
 } M3UFILE;
+
+typedef struct tag_packed_mp3file {
+    char *id;
+    char *path;
+    char *fname;
+    char *title;
+    char *artist;
+    char *album;
+    char *genre;
+    char *comment;
+    char *type;
+    char *composer;
+    char *orchestra;
+    char *conductor;
+    char *grouping;
+    char *url;
+    char *bitrate;
+    char *samplerate;
+    char *song_length;
+    char *file_size;
+    char *year;
+    char *track;
+    char *total_tracks;
+    char *disc;
+    char *total_discs;
+    char *bpm;
+    char *compilation;
+    char *rating;
+    char *play_count;
+    char *data_kind;
+    char *item_kind;
+    char *description;
+    char *time_added;
+    char *time_modified;
+    char *time_played;
+    char *db_timestamp;
+    char *disabled;
+    char *sample_count;
+    char *force_update;
+    char *codectype;
+    char *idx;
+    char *has_video;
+    char *contentrating;
+} PACKED_MP3FILE;
 
 #define PL_STATICWEB  0
 #define PL_SMART      1

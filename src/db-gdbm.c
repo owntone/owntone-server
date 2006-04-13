@@ -36,6 +36,7 @@
 #include "err.h"
 #include "mp3-scanner.h"
 #include "redblack.h"
+#include "db-generic.h"
 #include "db-gdbm.h"
 
 #ifndef GDBM_SYNC
@@ -89,6 +90,7 @@ void _gdbm_unlock(void) {
  */
 int db_gdbm_open(char **pe, char *parameters) {
     char db_path[PATH_MAX + 1];
+    int result = DB_E_SUCCESS;
 
     snprintf(db_path,sizeof(db_path),"%s/%s",parameters,"songs.gdb");
 
@@ -103,16 +105,14 @@ int db_gdbm_open(char **pe, char *parameters) {
                                 0600,NULL);
     }
 
-    _gdbm_unlock();
     if(!_gdbm_songs) {
         DPRINTF(E_FATAL,L_DB,"Could not open songs database (%s): %s\n",
                 db_path,strerror(errno));
-        return FALSE;
+        db_get_error(pe,DB_E_DB_ERROR,gdbm_strerror(gdbm_errno));
+        result = DB_E_DB_ERROR;
     }
-
-    return TRUE;
-
-
+    _gdbm_unlock();
+    return result;
 }
 
 /**
@@ -130,5 +130,77 @@ int db_gdbm_deinit(void) {
     gdbm_close(_gdbm_songs);
     _gdbm_unlock();
     return TRUE;
+}
+
+/**
+ * given an id, fetch the associated MP3FILE
+ *
+ * @param pe error buffer
+ * @param id id of item to fetch
+ * @returns pointer to MP3FILE.  Must be disposed of with db_dispose
+ */
+PACKED_MP3FILE *db_gdbm_fetch_item(char **pe, int id) {
+    datum key, content;
+    int content_size;
+    PACKED_MP3FILE *ppmp3;
+    char **char_array;
+    char *element_ptr;
+    int done=0;
+
+    /* pull a row that looks like a sql row out of the table */
+    key.dptr = (void*)&id;
+    key.dsize = sizeof(unsigned int);
+
+    _gdbm_lock();
+    content = gdbm_fetch(_gdbm_songs,key);
+    _gdbm_unlock();
+
+    if(content.dptr) {
+        /* have a "packed" row.... let's unpack it */
+        ppmp3=(PACKED_MP3FILE*)malloc(sizeof(PACKED_MP3FILE));
+        if(!ppmp3) {
+            DPRINTF(E_FATAL,L_DB,"db_gdbm_fetch_item: malloc\n");
+            return NULL;  /* lol */
+        }
+        memset(ppmp3,0x0,sizeof(PACKED_MP3FILE));
+        content_size = content.dsize;
+        element_ptr = content.dptr;
+        char_array = (char**)(ppmp3);
+
+        /* walk through and set each element */
+        while(!done) {
+
+        }
+
+
+    }
+
+    return NULL;
+}
+/**
+ * start a full scan through the database
+ *
+ * @parm pe error buffer
+ * @returns DB_E_SUCCESS or DB_E* on failure
+ */
+int db_gdbm_enum_start(char **pe) {
+    return DB_E_DB_ERROR;
+}
+
+PACKED_MP3FILE *db_gdbm_enum_fetch(char **pe) {
+    return NULL;
+}
+
+int db_gdbm_enum_end(char **pe) {
+    return DB_E_DB_ERROR;
+}
+
+/* Required for read-write (fs scanning) support */
+int db_gdbm_add(char **pe, MP3FILE *pmp3) {
+    return DB_E_DB_ERROR;
+}
+
+extern int db_gdbm_delete(char **pe, int id) {
+    return DB_E_DB_ERROR;
 }
 
