@@ -1976,7 +1976,7 @@ Rico.LiveGridBuffer.prototype = {
       $A(ajaxResponse.responseXML.getElementsByTagName('dmap.listingitem')).each(function (el) {
         var row = [];
         //,dmap.itemid,,dmap.itemname']
-        ['dmap.itemname','daap.songtime','daap.songartist','daap.songalbum','daap.songgenre'].each(function (name) {
+        ['dmap.itemname','daap.songtime','daap.songartist','daap.songalbum'].each(function (name) {
           if ('daap.songtime' == name) {
             var time = parseInt(Element.textContent(el.getElementsByTagName(name)[0]));
             time = Math.round(time / 1000);
@@ -1984,7 +1984,7 @@ Rico.LiveGridBuffer.prototype = {
             seconds = (seconds < 10) ? '0'+seconds : seconds;
             row.push(Math.floor(time/60)+ ':' + seconds);   
           } else {
-            row.push(Element.textContent(el.getElementsByTagName(name)[0]).truncate(10));  
+            row.push(Element.textContent(el.getElementsByTagName(name)[0]));  
           }
         });
         newRows.push(row);

@@ -35,6 +35,13 @@
   font: icon;
   width: 25ex;
   display: none;
+}
+#songs_data {
+  table-layout: fixed;
+}
+#songs_data td {
+  overflow: hidden;
+  white-space: nowrap;
 }  
 </style>
 <div id="search_div">
@@ -87,19 +94,17 @@ Album<br />
 <div id="songs_div" style="float: left; width:549px;">
   <table id="songs" style="width:530px;" border="0" cellspacing="0" cellpadding="0">
     <tr>
-      <th style="width: 140px;">Song</th>
+      <th style="width: 240px;">Song</th>
       <th style="width: 50px;">Time</th>
       <th style="width: 120px;">Artist</th>
       <th style="width: 120px;">Album</th>
-      <th style="width: 100px;">Genre</th>
     </tr>
   </table>
   <table id="songs_data" style="width:530px;" border="0" cellspacing="0" cellpadding="0">
-      <col style="width: 140px;" />
+      <col style="width: 240px;" />
       <col style="width: 50px;" />
       <col style="width: 120px;" />
       <col style="width: 120px;" />
-      <col style="width: 100px;" />
     <tr><td>&#x00a0;</td><td></td><td></td><td></td><td></td></tr>
     <tr><td>&#x00a0;</td><td></td><td></td><td></td><td></td></tr>
     <tr><td>&#x00a0;</td><td></td><td></td><td></td><td></td></tr>
