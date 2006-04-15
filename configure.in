@@ -24,7 +24,7 @@ AC_FUNC_SETPGRP
 if test "x$prefix" != xNONE -a "x$prefix" != "x/usr"; then
     CONFFILE="$prefix/etc/mt-daapd.conf"
 else 
-    if test "x$prefix" == "xNONE"; then
+    if test "x$prefix" = "xNONE"; then
         CONFFILE="/usr/local/etc/mt-daapd.conf"
     else
         CONFFILE="/etc/mt-daapd.conf"
