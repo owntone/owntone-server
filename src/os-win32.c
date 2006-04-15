@@ -2,11 +2,15 @@
  *
  */
 
-#include <errno.h>
-#include <pthread.h>
-#include <stdlib.h>
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <time.h>
+#include <pthread.h>
 
 #include "daapd.h"
 #include "win32.h"

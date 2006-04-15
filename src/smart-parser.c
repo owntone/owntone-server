@@ -19,6 +19,7 @@
 #include <string.h>
 #include <time.h>
 
+#include "daapd.h"
 #include "err.h"
 
 #ifdef HAVE_SQL

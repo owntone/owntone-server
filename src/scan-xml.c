@@ -32,6 +32,7 @@
 #include <sys/stat.h>
 #include <time.h>
 
+#include "daapd.h"
 #include "db-generic.h"
 #include "err.h"
 #include "mp3-scanner.h"

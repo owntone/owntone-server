@@ -124,6 +124,9 @@
 			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
 			<File
+				RelativePath="..\src\compat.c">
+			</File>
+			<File
 				RelativePath="..\src\conf.c">
 			</File>
 			<File
@@ -205,15 +208,6 @@
 				RelativePath="..\src\ssc.c">
 			</File>
 			<File
-				RelativePath="..\src\strcasestr.c">
-			</File>
-			<File
-				RelativePath="..\src\strptime.c">
-			</File>
-			<File
-				RelativePath="..\src\strtok_r.c">
-			</File>
-			<File
 				RelativePath="..\src\w32-eventlog.c">
 			</File>
 			<File
@@ -230,6 +224,9 @@
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
 			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
+			<File
+				RelativePath="..\src\conf.h">
+			</File>
 			<File
 				RelativePath=".\config.h">
 			</File>

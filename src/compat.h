@@ -6,15 +6,16 @@
 #endif
 
 #ifndef HAVE_STRCASESTR
-extern char * strcasestr(char* haystack, char* needle);
+extern char *strcasestr(char* haystack, char* needle);
 #endif
 
 #ifndef HAVE_STRPTIME
-char * strptime( char *buf, char *fmt, struct tm *tm );
+extern char *strptime(char *buf, char *fmt, struct tm *tm );
 #endif
 
 #ifndef HAVE_STRTOK_R
-extern char *strtok_r(char *s, const char *delim, char **last);
+#undef strtok_r /* defend against win32 pthreads */
+extern char *strtok_r(char *s, char *delim, char **last);
 #endif
 
 #ifndef HAVE_TIMEGM
