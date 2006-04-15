@@ -36,6 +36,7 @@
 #include <stdarg.h>
 #include <time.h>
 #include <errno.h>
+#include <limits.h>
 #include <pthread.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,8 +46,13 @@
 # include "os.h"
 #endif
 
+#ifndef PACKAGE
+# define PACKAGE "unknown daemon"
+#endif
+
 static int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
 static int err_logdestination=LOGDEST_STDERR; /**< current log destination */
+static char err_filename[PATH_MAX + 1];
 static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
 static pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER; /**< for serializing log messages */
 static unsigned int err_debugmask=0xFFFFFFFF; /**< modules to debug, see \ref log_categories */
@@ -63,6 +69,32 @@ static char *err_categorylist[] = {
 
 static int _err_lock(void);
 static int _err_unlock(void);
+
+
+/**
+ * if we are logging to a file, then re-open the file.  This
+ * would help for log rotation
+ */
+void err_reopen(void) {
+    int err;
+
+    if(err_logdestination != LOGDEST_LOGFILE)
+        return;
+    
+    fclose(err_file);
+    err_file = fopen(err_filename,"a");
+    if(!err_file) {
+        /* what to do when you lose your logging mechanism?  Keep
+         * going?
+         */
+        err = errno;
+        err_setdest(PACKAGE,LOGDEST_SYSLOG);
+        DPRINTF(E_LOG,L_MISC,"Could not rotate log file: %s\n",
+                strerror(err));
+    } else {
+        DPRINTF(E_LOG,L_MISC,"Rotated logs\n");
+    }
+}
 
 /**
  * Write a printf-style formatted message to the log destination.
@@ -160,7 +192,8 @@ void err_setdest(char *cvalue, int destination) {
 
     switch(destination) {
     case LOGDEST_LOGFILE:
-        err_file=fopen(cvalue,"a");
+        strncpy(err_filename,cvalue,PATH_MAX);
+        err_file=fopen(err_filename,"a");
         if(err_file==NULL) {
             fprintf(stderr,"Error opening %s: %s\n",cvalue,strerror(errno));
             exit(EXIT_FAILURE);

@@ -64,6 +64,7 @@
 #endif
 
 extern void err_log(int level, unsigned int cat, char *fmt, ...);
+extern void err_reopen(void); /** rotate logfile */
 extern void err_setdest(char *cvalue, int destination);
 extern void err_setlevel(int level);
 extern int err_getlevel(void);

@@ -361,6 +361,14 @@ int _conf_verify(LL_HANDLE pll) {
     return is_valid;
 }
 
+/**
+ * reload the existing config file.
+ * 
+ * @returns CONF_E_SUCCESS on success
+ */
+int conf_reload(void) {
+    return conf_read(conf_main_file);
+}
 
 /**
  * read a configfile into a tree

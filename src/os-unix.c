@@ -363,6 +363,11 @@ void *_os_signal_handler(void *arg) {
                 break;
             case SIGHUP:
                 DPRINTF(E_LOG,L_MAIN,"Got HUP signal. Notifying daap server.\n");
+                /* if we can't reload, it keeps the old config file,
+                 * so no real damage */
+                conf_reload();
+                err_reopen();
+
                 config.reload=1;
                 break;
             default:
