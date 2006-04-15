@@ -461,7 +461,7 @@ sub mplayer_proc
 	       '-vo', 'null',
 	       '-nomouseinput', '-nojoystick', '-nolirc',
 	       '-noconsolecontrols', '-nortc',
-	       '-aofile', "$tf", '-ao', 'pcm', "$fn");
+	       '-ao', "pcm:file=$tf", "$fn");
 
   # Wait just to see, if the decoding starts.
   # If the resulting wav is less than 512 bytes,
