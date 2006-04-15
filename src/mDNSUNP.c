@@ -121,6 +121,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
     struct ifconf       ifc;
     struct ifreq        *ifr, ifrcopy;
     struct sockaddr_in  *sinptr;
+    int index;
     
 #if defined(AF_INET6) && defined(HAVE_IPV6)
     struct sockaddr_in6 *sinptr6;

@@ -46,7 +46,6 @@
 #include "ssc.h"
 #include "dynamic-art.h"
 #include "restart.h"
-#include "strtok_r.h"
 #include "daapd.h"
 
 

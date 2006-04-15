@@ -54,10 +54,6 @@
 #include "restart.h"
 #include "ssc.h"
 
-#ifndef HAVE_STRCASESTR
-# include "strcasestr.h"
-#endif
-
 /*
  * Typedefs
  */

@@ -17,6 +17,8 @@ AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
 AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
+AC_CHECK_FUNCS(timegm)
+
 AM_CONDITIONAL(COND_REND_OSX,false)
 
 AC_FUNC_SETPGRP
@@ -173,7 +175,7 @@ AC_ARG_WITH(howl-libs,
 	[--with-howl-libs[[=DIR]]          use howl lib files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval"
+         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
 	fi
 ])
 
@@ -189,7 +191,39 @@ AC_ARG_WITH(gdbm-libs,
 	[--with-gdbm-libs[[=DIR]]          use gdbm lib files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval"
+         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
+	fi
+])
+
+AC_ARG_WITH(sqlite-includes,
+	[--with-sqlite-includes[[=DIR]]        use sqlite include files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+         CPPFLAGS="${CPPFLAGS} -I$withval -R$withval"
+	fi
+])
+
+AC_ARG_WITH(sqlite-libs,
+	[--with-sqlite-libs[[=DIR]]          use sqlite lib files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+         LDFLAGS="${LDFLAGS} -L$withval -R$withval" 
+	fi
+])
+
+AC_ARG_WITH(sqlite3-includes,
+	[--with-sqlite3-includes[[=DIR]]       use sqlite3 include files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+         CPPFLAGS="${CPPFLAGS} -I$withval"
+	fi
+])
+
+AC_ARG_WITH(sqlite3-libs,
+	[--with-sqlite3-libs[[=DIR]]       use sqlite3 lib files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
 	fi
 ])
 
@@ -198,7 +232,7 @@ AC_ARG_WITH(id3tag,
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	  Z_DIR=$withval
 	  CPPFLAGS="${CPPFLAGS} -I$withval/include"
-	  LDFLAGS="${LDFLAGS} -L$withval/lib"
+	  LDFLAGS="${LDFLAGS} -L$withval/lib -R$withval/lib"
 	fi
 ])
 

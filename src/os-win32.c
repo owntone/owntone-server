@@ -490,24 +490,6 @@ void _os_socket_shutdown(void) {
 }
 
 /* COMPAT FUNCTIONS */
-time_t timegm(struct tm *tm) {
-    time_t ret;
-    char *tz;
-    char buffer[255];
-
-    tz = getenv("TZ");
-    _putenv("TZ=UTC0");
-    _tzset();
-    ret = mktime(tm);
-    
-    if(tz)
-        sprintf(buffer,"TZ=%s",tz);
-    else
-        strcpy(buffer,"TZ=");
-    _putenv(buffer);
-    _tzset();
-    return ret;
-}
 
 /* opendir/closedir/readdir emulation taken from emacs. Thanks.  :) */
 DIR *os_opendir(char *filename) {

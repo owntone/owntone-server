@@ -37,7 +37,6 @@
 #include "mp3-scanner.h"
 #include "rxml.h"
 #include "redblack.h"
-#include "strptime.h"
 
 /* Forwards */
 int scan_xml_playlist(char *filename);

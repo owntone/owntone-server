@@ -42,10 +42,6 @@
 #include "err.h"
 #include "mp3-scanner.h"
 
-#ifndef HAVE_STRCASESTR
-# include "strcasestr.h"
-#endif
-
 #include <FLAC/metadata.h>
 
 

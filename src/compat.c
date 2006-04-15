@@ -1,3 +1,36 @@
+#ifdef HAVE_CONFIG_H
+# include "config.h"
+#endif
+
+#include <string.h>
+#include <ctype.h>
+#include <time.h>
+#include <string.h>
+#include <stdio.h>
+
+#if !HAVE_STRCASESTR
+/* case-independent string matching, similar to strstr but
+ * matching */
+char * strcasestr(char* haystack, char* needle) {
+  int i;
+  int nlength = (int) strlen (needle);
+  int hlength = (int) strlen (haystack);
+
+  if (nlength > hlength) return NULL;
+  if (hlength <= 0) return NULL;
+  if (nlength <= 0) return haystack;
+  /* hlength and nlength > 0, nlength <= hlength */
+  for (i = 0; i <= (hlength - nlength); i++) {
+    if (strncasecmp (haystack + i, needle, nlength) == 0) {
+      return haystack + i;
+    }
+  }
+  /* substring not found */
+  return NULL;
+}
+
+#endif /* !HAVE_STRCASESTR */
+
 /*
  * Copyright (c) 1994 Powerdog Industries.  All rights reserved.
  *
@@ -29,16 +62,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE,
  * EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
-
-#ifdef HAVE_CONFIG_H
-# include "config.h"
-#endif
-
 #ifndef HAVE_STRPTIME
-#include <ctype.h>
-#include <time.h>
-#include <string.h>
 
 #define asizeof(a)      (sizeof (a) / sizeof ((a)[0]))
 
@@ -371,3 +395,122 @@ char    *strptime(char *buf, char *fmt, struct tm *tm) {
 }
 
 #endif   /* ndef HAVE_STRPTIME */
+
+/* Compliments of Jay Freeman <saurik@saurik.com> */
+
+#if !HAVE_STRSEP
+char *strsep(char **stringp, const char *delim) {
+        char *ret = *stringp;
+        if (ret == NULL) return(NULL); /* grrr */
+        if ((*stringp = strpbrk(*stringp, delim)) != NULL) {
+                *((*stringp)++) = '\0';
+        }
+        return(ret);
+}
+#endif /* !HAVE_STRSEP */
+
+/* Reentrant string tokenizer.  Generic version.
+   Copyright (C) 1991,1996-1999,2001,2004 Free Software Foundation, Inc.
+   This file is part of the GNU C Library.
+
+   This program is free software; you can redistribute it and/or modify
+   it under the terms of the GNU General Public License as published by
+   the Free Software Foundation; either version 2, or (at your option)
+   any later version.
+
+   This program is distributed in the hope that it will be useful,
+   but WITHOUT ANY WARRANTY; without even the implied warranty of
+   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+   GNU General Public License for more details.
+
+   You should have received a copy of the GNU General Public License along
+   with this program; if not, write to the Free Software Foundation,
+   Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.  */
+
+#ifndef HAVE_STRTOK_R
+
+#include <stdio.h>
+
+/* Parse S into tokens separated by characters in DELIM.
+   If S is NULL, the saved pointer in SAVE_PTR is used as
+   the next starting point.  For example:
+        char s[] = "-abc-=-def";
+        char *sp;
+        x = strtok_r(s, "-", &sp);      // x = "abc", sp = "=-def"
+        x = strtok_r(NULL, "-=", &sp);  // x = "def", sp = NULL
+        x = strtok_r(NULL, "=", &sp);   // x = NULL
+                // s = "abc\0-def\0"
+*/
+char *strtok_r(char *s, const char *delim, char **last)
+{
+  char *spanp;
+  int c, sc;
+  char *tok;
+
+  if (s == NULL && (s = *last) == NULL) {
+    return NULL;
+  }
+
+  /*
+   * Skip (span) leading delimiters (s += strspn(s, delim), sort of).
+   */
+ cont:
+  c = *s++;
+  for (spanp = (char *)delim; (sc = *spanp++) != 0; ) {
+    if (c == sc) {
+      goto cont;
+    }
+  }
+
+  if (c == 0) {         /* no non-delimiter characters */
+    *last = NULL;
+    return NULL;
+  }
+  tok = s - 1;
+  
+  /*
+   * Scan token (scan for delimiters: s += strcspn(s, delim), sort of).
+   * Note that delim must have one NUL; we stop if we see that, too.
+   */
+  for (;;) {
+    c = *s++;
+    spanp = (char *)delim;
+    do {
+      if ((sc = *spanp++) == c) {
+        if (c == 0) {
+          s = NULL;
+        }
+        else {
+          char *w = s - 1;
+          *w = '\0';
+        }
+        *last = s;
+        return tok;
+      }
+    }
+    while (sc != 0);
+  }
+  /* NOTREACHED */
+}
+#endif
+
+#ifndef HAVE_TIMEGM
+time_t timegm(struct tm *tm) {
+    time_t ret;
+    char *tz;
+    char buffer[255];
+
+    tz = getenv("TZ");
+    _putenv("TZ=UTC0");
+    _tzset();
+    ret = mktime(tm);
+    
+    if(tz)
+        sprintf(buffer,"TZ=%s",tz);
+    else
+        strcpy(buffer,"TZ=");
+    _putenv(buffer);
+    _tzset();
+    return ret;
+}
+#endif

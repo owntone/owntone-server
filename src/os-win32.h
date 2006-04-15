@@ -61,7 +61,6 @@ extern int os_gettimeofday (struct timeval *tv, struct timezone* tz);
 extern int os_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result);
 extern void os_closedir(DIR *dirp);
 extern DIR *os_opendir(char *filename);
-extern time_t timegm(struct tm *tm);
 extern char *os_strerror (int error_no);
 
 #endif /* _OS_WIN32_H_ */

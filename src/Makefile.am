@@ -49,21 +49,22 @@ mtd_update_SOURCES = mtd-update.c conf.c conf.h ll.c ll.h \
 	db-sql.c db-sql.h db-generic.c db-generic.h smart-parser.c \
 	smart-parser.h err.c err.h os-unix.c os.h xml-rpc.c xml-rpc.h \
 	restart.c restart.h uici.c uici.h ssc.c ssc.h \
-	webserver.c webserver.h $(PRENDSRC) $(ORENDSRC) $(HRENDSRC) \
+	webserver.c webserver.h compat.c compat.h \
+	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) \
 	$(SQLITEDB) $(SQLITE3DB)
 
 wavstreamer_SOURCES = wavstreamer.c
 
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
-	mp3-scanner.h mp3-scanner.c rend-unix.h strcasestr.c strcasestr.h \
-	strsep.c dynamic-art.c dynamic-art.h ssc.c ssc.h \
+	mp3-scanner.h mp3-scanner.c rend-unix.h \
+	dynamic-art.c dynamic-art.h ssc.c ssc.h \
 	db-generic.c db-generic.h dispatch.c dispatch.h \
 	rxml.c rxml.h redblack.c redblack.h scan-mp3.c scan-mp4.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
-	os.h strptime.c strptime.h ll.c ll.h conf.c conf.h \
-	strtok_r.c strtok_r.h os-unix.h os-unix.c os.h \
+	os.h ll.c ll.h conf.c conf.h compat.c compat.h \
+	os-unix.h os-unix.c os.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
 	$(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM)
 

@@ -48,10 +48,6 @@
 #include "mp3-scanner.h"
 #include "ssc.h"
 
-#ifndef HAVE_STRCASESTR
-# include "strcasestr.h"
-#endif
-
 /**
  * Check if the file specified by fname should be converted in
  * server to wav.  Currently it does this by file extension, but
