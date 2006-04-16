@@ -6,6 +6,6 @@
 #define _DISPATCH_H_
 
 extern void daap_handler(WS_CONNINFO *pwsc);
-extern int daap_auth(char *username, char *password);
+extern int daap_auth(char *hostname, char *username, char *password);
 
 #endif

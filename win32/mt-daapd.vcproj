@@ -237,6 +237,9 @@
 				RelativePath="..\src\daapd.h">
 			</File>
 			<File
+				RelativePath="..\src\dispatch.h">
+			</File>
+			<File
 				RelativePath="..\src\err.h">
 			</File>
 			<File
