@@ -134,7 +134,7 @@ int u_open(u_port_t port) {
  * into the buffer.
  * If hostn is NULL or hostnsize <= 0, no hostname is copied.
  */
-int u_accept(int fd, char *hostn, int hostnsize) {
+int u_accept(int fd, char *hostn, strcut in_addr *hostaddr) {
    socklen_t len = sizeof(struct sockaddr);
    struct sockaddr_in netclient;
    int retval;
@@ -146,7 +146,7 @@ int u_accept(int fd, char *hostn, int hostnsize) {
    if ((retval == -1) || (hostn == NULL) || (hostnsize <= 0))
       return retval;
    
-   strncpy(hostn,inet_ntoa(netclient.sin_addr),hostnsize);
+   *hostaddr = netclient.sin_addr;
    return retval;
 }
 

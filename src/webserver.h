@@ -70,13 +70,13 @@ typedef struct tag_ws_conninfo {
  */
 
 #define WS_REQ_HANDLER void (*)(WS_CONNINFO *)
-#define WS_AUTH_HANDLER int (*)(char *, char *)
+#define WS_AUTH_HANDLER int (*)(char *, char *, char *)
 
 extern WSHANDLE ws_start(WSCONFIG *config);
 extern int ws_stop(WSHANDLE ws);
 extern int ws_registerhandler(WSHANDLE ws, char *regex, 
                               void(*handler)(WS_CONNINFO*),
-                              int(*auth)(char *, char *),
+                              int(*auth)(char *, char *, char *),
                               int addheaders);
 
 extern void ws_lock_local_storage(WS_CONNINFO *pwsc);

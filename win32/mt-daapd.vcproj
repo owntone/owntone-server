@@ -231,6 +231,9 @@
 				RelativePath=".\config.h">
 			</File>
 			<File
+				RelativePath="..\src\configfile.h">
+			</File>
+			<File
 				RelativePath="..\src\daapd.h">
 			</File>
 			<File
@@ -265,6 +268,9 @@
 			</File>
 			<File
 				RelativePath="..\src\w32-service.h">
+			</File>
+			<File
+				RelativePath="..\src\webserver.h">
 			</File>
 			<File
 				RelativePath="..\src\win32.h">

@@ -25,7 +25,7 @@
 #include "daapd.h"
 #include "webserver.h"
 
-extern int config_auth(char *user, char *password);
+extern int config_auth(char *hostname, char *user, char *password);
 extern void config_handler(WS_CONNINFO *pwsc);
 extern void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...);
 extern int config_get_session_count(void);

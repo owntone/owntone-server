@@ -42,10 +42,11 @@ typedef struct {
 extern int os_register(void);
 extern int os_unregister(void);
 extern char *os_configpath(void);
+extern int os_islocaladdr(char *hostaddr);
 
 /* replacements for socket functions */
 extern int os_opensocket(unsigned short port);
-extern int os_acceptsocket(int fd, char *hostn, int hostnsize);
+extern int os_acceptsocket(int fd, struct in_addr *hostaddr);
 extern int os_shutdown(int fd, int how);
 extern int os_waitfdtimed(int fd, struct timeval end);
 extern int os_close(int fd);

@@ -352,9 +352,14 @@ void config_handler(WS_CONNINFO *pwsc) {
  * \param user username passed in the auth request
  * \param password password passed in the auth request
  */
-int config_auth(char *user, char *password) {
+int config_auth(char *hostname, char *user, char *password) {
     char *adminpassword;
     int res;
+
+#ifdef WIN32
+    if((hostname) && (os_islocaladdr(hostname)))
+        return TRUE;
+#endif
 
     if((!password) ||
        ((adminpassword=conf_alloc_string("general","admin_pw",NULL))==NULL))

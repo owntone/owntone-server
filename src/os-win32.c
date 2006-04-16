@@ -203,7 +203,7 @@ int _os_sock_to_fd(SOCKET sock) {
     return fd + MAXDESC;
 }
 
-int os_acceptsocket(int fd, char *hostn, int hostnsize) {
+int os_acceptsocket(int fd, struct in_addr *hostaddr) {
     socklen_t len = sizeof(struct sockaddr);
     struct sockaddr_in netclient;
     SOCKET retval;
@@ -219,12 +219,12 @@ int os_acceptsocket(int fd, char *hostn, int hostnsize) {
         accept(REALSOCK,(struct sockaddr *)(&netclient), &len)) == SOCKET_ERROR) &&
                (WSAGetLastError() == WSAEINTR));  
 
-    if ((retval == INVALID_SOCKET) || (hostn == NULL) || (hostnsize <= 0)) {
+    if (retval == INVALID_SOCKET) {
         DPRINTF(E_LOG,L_MISC,"Error accepting...\n");
         return _os_sock_to_fd(retval);
     }
    
-    strncpy(hostn,inet_ntoa(netclient.sin_addr),hostnsize);
+    *hostaddr = netclient.sin_addr;
     return _os_sock_to_fd(retval);
 }
 
@@ -617,6 +617,39 @@ char *os_configpath(void) {
     DPRINTF(E_DBG,L_MISC,"Using config file %s\n",os_config_file);
     return os_config_file;
 }
+
+/**
+ * Determine if an address is local or not
+ *
+ * @param hostaddr the address to test for locality
+ */
+int os_islocaladdr(char *hostaddr) {
+    char hostname[256];
+    struct hostent *ht;
+    int index;
+
+    DPRINTF(E_DBG,L_MISC,"Checking if %s is local\n",hostaddr);
+
+    gethostname(hostname, sizeof(hostname));
+    ht=gethostbyname(hostname);
+
+    index=0;
+    while(ht->h_addr_list[index] != NULL) {
+/*
+        if(memcmp(&hostaddr,h_addr_list[index],4) == 0)
+            return TRUE;
+*/
+        if(strcmp(inet_ntoa(*(struct in_addr *)ht->h_addr_list[index]),hostaddr) == 0) {
+            DPRINTF(E_DBG,L_MISC,"Yup!\n");
+            return TRUE;
+        }
+        index++;
+    }
+    
+    DPRINTF(E_DBG,L_MISC,"Nope!\n");
+    return FALSE;
+}
+
 
 /**
  * Lock the mutex.  This is used for initialization stuff, among
