@@ -374,4 +374,4 @@ AC_CHECK_LIB(socket,socket,V_NETLIBS="-lsocket $V_NETLIBS",,)
 
 AC_SUBST(V_NETLIBS)
 
-AC_OUTPUT(src/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile debian/Makefile Makefile)
+AC_OUTPUT(src/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile debian/Makefile Makefile)

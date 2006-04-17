@@ -119,3 +119,5 @@ Patrick Kolla
 slomo (from the forums)
  * Musepack tag parsing support.
 
+dtln
+ * fix for newer mplayer

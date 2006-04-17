@@ -1,10 +1,12 @@
 # $Id$
 #
-EXTRA_DIST = README mt-daapd.spec mt-daapd.conf.templ mt-daapd.playlist mt-daapd mt-daapd-gentoo mt-daapd-ssc.sh mt-daapd-ssc.pl mt-daapd-ssc.pl mt-daapd-ssc.sh
+SUBDIRS = init.d
+
+EXTRA_DIST = README mt-daapd.spec mt-daapd.conf.templ mt-daapd-ssc.sh mt-daapd-ssc.pl
 
 BUILT_SOURCES = mt-daapd.conf
 sysconf_DATA = mt-daapd.conf
-bin_SCRIPTS=mt-daapd-ssc.sh
+bin_SCRIPTS = mt-daapd-ssc.sh
 
 dbdir="/var/cache/mt-daapd"
 
