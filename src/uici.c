@@ -134,7 +134,7 @@ int u_open(u_port_t port) {
  * into the buffer.
  * If hostn is NULL or hostnsize <= 0, no hostname is copied.
  */
-int u_accept(int fd, char *hostn, strcut in_addr *hostaddr) {
+int u_accept(int fd, struct in_addr *hostaddr) {
    socklen_t len = sizeof(struct sockaddr);
    struct sockaddr_in netclient;
    int retval;
@@ -143,7 +143,7 @@ int u_accept(int fd, char *hostn, strcut in_addr *hostaddr) {
            accept(fd, (struct sockaddr *)(&netclient), &len)) == -1) &&
           (errno == EINTR))
       ;  
-   if ((retval == -1) || (hostn == NULL) || (hostnsize <= 0))
+   if (retval == -1)
       return retval;
    
    *hostaddr = netclient.sin_addr;

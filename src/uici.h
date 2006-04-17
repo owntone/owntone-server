@@ -37,6 +37,12 @@
 /*   Prototypes for the three public UICI functions                  */  
 /*********************************************************************/
 #define UPORT
+
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+
 typedef unsigned short u_port_t;
 int u_open(u_port_t port);
 int u_accept(int fd, struct in_addr *hostaddr);
