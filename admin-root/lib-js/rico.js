@@ -1976,7 +1976,9 @@ Rico.LiveGridBuffer.prototype = {
       $A(ajaxResponse.responseXML.getElementsByTagName('dmap.listingitem')).each(function (el) {
         var row = [];
         //,dmap.itemid,,dmap.itemname']
-        ['dmap.itemname','daap.songtime','daap.songartist','daap.songalbum'].each(function (name) {
+        row.push({id:Element.textContent(el.getElementsByTagName('dmap.itemid')[0]),
+                  name: Element.textContent(el.getElementsByTagName('dmap.itemname')[0])});
+        ['daap.songtime','daap.songartist','daap.songalbum'].each(function (name) {
           if ('daap.songtime' == name) {
             var time = parseInt(Element.textContent(el.getElementsByTagName(name)[0]));
             time = Math.round(time / 1000);
@@ -2160,7 +2162,15 @@ Rico.GridViewPort.prototype = {
    },
 
    populateRow: function(htmlRow, row) {
-      for (var j=0; j < row.length; j++) {
+      if (typeof(row[0]) == 'object') {
+        htmlRow.cells[0].innerHTML = row[0].name;
+        htmlRow.setAttribute('songid',row[0].id);
+      } else {
+        // empty row
+        htmlRow.cells[0].innerHTML = '';
+        htmlRow.removeAttribute('songid');
+      }
+      for (var j=1; j < row.length; j++) {
          htmlRow.cells[j].innerHTML = row[j]
       }
    },
