@@ -42,12 +42,21 @@
 #songs_data td {
   overflow: hidden;
   white-space: nowrap;
-}  
+}
+.row_selected {
+  background-color: #8CACBB;
+}
+#spinner {
+  float: right;
+  margin-right: 2em;
+  visibility: hidden;
+}
 </style>
 <div id="search_div">
 <label for="search">search</label>
 <input type="text" name="search" id="search" size="30" title="search songs, artists, albums, genres" />
 </div>
+<img id="spinner" src="/spinner.gif" />
 <div style="clear: both;"><!-- buggy IE div --></div>
 <div id="source_div">
   <label for="source">Source<br /></label>

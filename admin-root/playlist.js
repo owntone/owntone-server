@@ -7,9 +7,10 @@ Event.observe(window,'load',initPlaylist);
 var SEARCH_DELAY = 500; // # ms without typing before the search box searches
 var BROWSE_TEXT_LEN = 30; // Length to truncate genre/artist/album select boxes
 var g_myLiveGrid; // the live grid;
-Ajax.Responders.register({  onCreate: function () {$('busymsg').style.visibility='visible';},
-                          onComplete: function () {if (!Query.busy) {$('busymsg').style.visibility='hidden';}}});
 function initPlaylist() {
+Ajax.Responders.register({  onCreate: Spinner.incRequestCount,
+                          onComplete: Spinner.decRequestCount});
+
   new Ajax.Request('/databases/1/containers?output=xml',{method: 'get',onComplete:rsSource});
   Query.send('genres');
   Event.observe('search','keypress',EventHandler.searchKeyPress);
@@ -23,9 +24,24 @@ function initPlaylist() {
   
   Event.observe(document,'click',GlobalEvents.click);
   Event.observe('edit_playlist_name','keypress',EventHandler.editPlaylistNameKeyPress);
+  Event.observe('songs_data','click',SelectedRows.click);
   // Firefox remebers the search box value on page reload
   Field.clear('search');
   g_myLiveGrid = new Rico.LiveGrid('songs_data',20,1000,'',{prefetchBuffer: false});
+}
+var Spinner = {
+  count: 0,
+  incRequestCount: function () {
+    Spinner.count++;
+    $('spinner').style.visibility = 'visible';
+  },
+  decRequestCount: function () {
+    Spinner.count--;
+    if (Spinner.count <= 0) {
+      Spinner.count = 0;
+      $('spinner').style.visibility = 'hidden';
+    }
+  }  
 }
 var GlobalEvents = {
   _clickListeners: [],
@@ -466,30 +482,20 @@ function rsSource(request) {
   sourceSelect.value = 1;
 }
 
-function rsSongs(request) {
-  var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
-  var songsTable = $('songs_data');
-  Element.removeChildren(songsTable);
-  items.each(function (item) {
-    var tr = document.createElement('tr');
-    var time = parseInt(Element.textContent(item.getElementsByTagName('daap.songtime')[0]));
-    time = Math.round(time / 1000);
-    var seconds = time % 60;
-
-    seconds = (seconds < 10) ? '0'+seconds : seconds;
-    timeString =  Math.floor(time/60)+ ':' + seconds;
-
-    tr.appendChild(Builder.node('td',{style:'width: 140px;'},Element.textContent(item.getElementsByTagName('dmap.itemname')[0])));
-    tr.appendChild(Builder.node('td',{style:'width: 50px;'},timeString));
-    tr.appendChild(Builder.node('td',{style:'width: 120px;'},Element.textContent(item.getElementsByTagName('daap.songartist')[0])));
-    tr.appendChild(Builder.node('td',{style:'width: 120px;'},Element.textContent(item.getElementsByTagName('daap.songalbum')[0])));
-    tr.appendChild(Builder.node('td',{style:'width: 100px;'},Element.textContent(item.getElementsByTagName('daap.songgenre')[0])));    
-
-    songsTable.appendChild(tr);
-  });
-  Query.busy = false; 
+SelectedRows = {
+  songId: [],
+  click: function(e) {
+    var tr = Event.findElement(e,'tr');
+    if (tr.hasAttribute('songid')) {
+      SelectedRows.songId[tr.getAttribute('songid')] = 1;
+      tr.style.backgroundColor = '#8CACBB';
+    }
+    Event.stop(e);
+  },
+  isSelected: function (songId) {
+    return SelectedRows.songId[songId];
+  }
 }
-
 Object.extend(Element, {
   removeChildren: function(element) {
   while(element.hasChildNodes()) {

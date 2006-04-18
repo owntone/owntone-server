@@ -2162,13 +2162,20 @@ Rico.GridViewPort.prototype = {
    },
 
    populateRow: function(htmlRow, row) {
+      var songId = '';
       if (typeof(row[0]) == 'object') {
         htmlRow.cells[0].innerHTML = row[0].name;
         htmlRow.setAttribute('songid',row[0].id);
+        songId = row[0].id;
       } else {
         // empty row
         htmlRow.cells[0].innerHTML = '';
         htmlRow.removeAttribute('songid');
+      }
+      if (SelectedRows.isSelected(songId)) {
+        htmlRow.style.backgroundColor = '#8CACBB';
+      } else {
+        htmlRow.style.backgroundColor = '';
       }
       for (var j=1; j < row.length; j++) {
          htmlRow.cells[j].innerHTML = row[j]
