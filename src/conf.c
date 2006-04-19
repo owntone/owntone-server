@@ -113,6 +113,8 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_STRING,"general","password" },
     { 0, 0, CONF_T_MULTICOMMA,"general","compdirs" },
     { 0, 0, CONF_T_STRING,"general","logfile" },
+    { 0, 0, CONF_T_EXISTPATH,"plugins","plugin_dir" },
+    { 0, 0, CONF_T_MULTICOMMA,"plugins","plugins" },
     { 0, 0, CONF_T_INT, NULL, NULL }
 };
 

@@ -81,6 +81,7 @@
 #include "dynamic-art.h"
 #include "db-generic.h"
 #include "os.h"
+#include "plugin.h"
 
 #ifdef HAVE_GETOPT_H
 # include "getopt.h"
@@ -188,9 +189,14 @@ int main(int argc, char *argv[]) {
     char *logfile,*db_type,*db_parms,*web_root,*runas;
     char **mp3_dir_array;
     char *servername,*iface;
+    int index;
 
     char txtrecord[255];
-    
+
+    char *plugindir;
+    char plugin[PATH_MAX];
+    char **pluginarray;
+
     int err;
     char *perr=NULL;
 
@@ -293,6 +299,26 @@ int main(int argc, char *argv[]) {
             free(logfile);
         } else {
             err_setdest("mt-daapd",LOGDEST_SYSLOG);
+        }
+    }
+
+    /* load plugins before we drop privs?  Maybe... let the 
+     * plugins do stuff they might need to */
+    if((plugindir=conf_alloc_string("plugins","plugin_dir",NULL)) != NULL) {
+        if(conf_get_array("plugins","plugins",&pluginarray)==TRUE) {
+            index = 0;
+            while(pluginarray[index]) {
+                sprintf(plugin,"%s/%s",plugindir,pluginarray[index]);
+                if(plugin_load(&perr,plugin) != PLUGIN_E_SUCCESS) {
+                    DPRINTF(E_LOG,L_MAIN,"Error loading plugin %s: %s\n",
+                            plugin, perr);
+                    free(perr);
+                    perr = NULL;
+                }
+                index++;
+            }
+        } else {
+            free(plugindir);
         }
     }
 

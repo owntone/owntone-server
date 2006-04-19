@@ -60,7 +60,7 @@ static unsigned int err_debugmask=0xFFFFFFFF; /**< modules to debug, see \ref lo
 /** text list of modules to match for setting debug mask */
 static char *err_categorylist[] = {
     "config","webserver","database","scan","query","index","browse",
-    "playlist","art","daap","main","rend","xml","parse",NULL
+    "playlist","art","daap","main","rend","xml","parse","plugin",NULL
 };
 
 /*

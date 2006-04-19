@@ -49,7 +49,7 @@ mtd_update_SOURCES = mtd-update.c conf.c conf.h ll.c ll.h \
 	db-sql.c db-sql.h db-generic.c db-generic.h smart-parser.c \
 	smart-parser.h err.c err.h os-unix.c os.h xml-rpc.c xml-rpc.h \
 	restart.c restart.h uici.c uici.h ssc.c ssc.h \
-	webserver.c webserver.h compat.c compat.h \
+	webserver.c webserver.h compat.c compat.h plugin.c plugin.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) \
 	$(SQLITEDB) $(SQLITE3DB)
 
@@ -64,7 +64,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
 	os.h ll.c ll.h conf.c conf.h compat.c compat.h \
-	os-unix.h os-unix.c os.h \
+	os-unix.h os-unix.c os.h plugin.c plugin.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
 	$(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM)
 

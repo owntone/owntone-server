@@ -23,6 +23,7 @@
 # include "config.h"
 #endif
 
+#include <dlfcn.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <grp.h>
@@ -419,4 +420,23 @@ int _os_start_signal_handler(pthread_t *handler_tid) {
  void os_set_pidfile(char *file) {
     _os_pidfile = file;
  }
+
+
+
+/**
+ * load a shared library
+ *
+ * @param
+ */
+void *os_loadlib(char *path) {
+    return dlopen(path,RTLD_LAZY);
+}
+
+void *os_libfunc(void *handle, char *function) {
+    return dlsym(handle,function);
+}
+
+int *os_unload(void *handle) {
+    return dlclose(handle);
+}
 
