@@ -31,18 +31,18 @@ Ajax.Responders.register({  onCreate: Spinner.incRequestCount,
 }
 var Spinner = {
   count: 0,
-  incRequestCount: function () {
+  incRequestCount: function (ca) {
     Spinner.count++;
     $('spinner').style.visibility = 'visible';
   },
-  decRequestCount: function () {
+  decRequestCount: function (caller) {
     Spinner.count--;
-    if (Spinner.count <= 0) {
+    if (/index/.test(caller.url)) {
       Spinner.count = 0;
       $('spinner').style.visibility = 'hidden';
     }
   }  
-}
+};
 var GlobalEvents = {
   _clickListeners: [],
   click: function (e) {
@@ -58,7 +58,7 @@ var GlobalEvents = {
       return (element != el);
     });
   }
-}
+};
 
 var Source = {
   playlistId: '',
@@ -157,7 +157,8 @@ var Source = {
     }
     Source.savePlaylistName();
   }  
-}
+};
+
 var EventHandler = {
   searchTimeOut: '',
   sourceClickCount: [],
@@ -168,7 +169,7 @@ var EventHandler = {
       return;
     }
     if (EventHandler.sourceClickCount[playlistId]) {
-      EventHandler.sourceClickCount[playlistId]++
+      EventHandler.sourceClickCount[playlistId]++;
     } else {
       EventHandler.sourceClickCount[playlistId] = 1;
     }
@@ -235,6 +236,7 @@ var EventHandler = {
   },
   albumsChange: function (e) {
     EventHandler._setSelected('albums');
+    SelectedRows.clearAll();
     g_myLiveGrid.resetContents();
     g_myLiveGrid.requestContentRefresh(0);
 //    Query.send('songs');
@@ -402,6 +404,7 @@ var ResponseHandler = {
         Query.send('albums');
         break;
       case 'albums':
+        SelectedRows.clearAll();
         g_myLiveGrid.resetContents();
         g_myLiveGrid.requestContentRefresh(0);
 //        Query.send('songs');
@@ -487,15 +490,60 @@ SelectedRows = {
   click: function(e) {
     var tr = Event.findElement(e,'tr');
     if (tr.hasAttribute('songid')) {
-      SelectedRows.songId[tr.getAttribute('songid')] = 1;
-      tr.style.backgroundColor = '#8CACBB';
+      var id = tr.getAttribute('songid');
+    } else {
+      return;
     }
-    Event.stop(e);
+    if (e.ctrlKey) {
+      if (SelectedRows.isSelected(tr)) {
+        SelectedRows.unsetSelected(tr);
+      } else {
+        SelectedRows.setSelected(tr);
+      }
+      return;
+    }
+    if (e.shiftKey) {
+      return;
+    }
+    if (SelectedRows.isSelected(tr)) {
+      SelectedRows.clearAll();
+    } else {
+      SelectedRows.clearAll();
+      SelectedRows.setSelected(tr);
+    }
   },
-  isSelected: function (songId) {
-    return SelectedRows.songId[songId];
+  isSelected: function (tr) {
+    return SelectedRows.songId[tr.getAttribute('songid')];
+  },
+  setSelected: function (tr) {
+    SelectedRows.songId[tr.getAttribute('songid')] = tr.getAttribute('index');
+    tr.style.backgroundColor = '#8CACBB';
+  },
+  unsetSelected: function (tr) {
+    SelectedRows.songId[tr.getAttribute('songid')] = '';
+    tr.style.backgroundColor = '';
+  },
+  clearAll: function () {
+    SelectedRows.songId = [];
+    $A($('songs_data').getElementsByTagName('tr')).each(SelectedRows.unsetSelected);
+ },
+  updateState: function (tr,songId,index) {
+    if (songId && index) {
+      tr.setAttribute('songid',songId);
+      tr.setAttribute('index',index);
+      if (SelectedRows.isSelected(tr)) {
+        SelectedRows.setSelected(tr);
+      } else {
+        SelectedRows.unsetSelected(tr);  
+      }
+    } else {
+      tr.removeAttribute('songid');
+      tr.removeAttribute('index');
+      SelectedRows.unsetSelected(tr);  
+    }
   }
-}
+};
+
 Object.extend(Element, {
   removeChildren: function(element) {
   while(element.hasChildNodes()) {

@@ -1965,7 +1965,8 @@ Rico.LiveGridBuffer.prototype = {
    getBlankRow: function() {
       if (!this.blankRow ) {
          this.blankRow = new Array();
-         for ( var i=0; i < this.metaData.columnCount ; i++ ) 
+         this.blankRow[0] = {name: '&nbsp;',id: ''};
+         for ( var i=1; i < this.metaData.columnCount ; i++ ) 
             this.blankRow[i] = "&nbsp;";
      }
      return this.blankRow;
@@ -1975,7 +1976,6 @@ Rico.LiveGridBuffer.prototype = {
       var newRows = [];
       $A(ajaxResponse.responseXML.getElementsByTagName('dmap.listingitem')).each(function (el) {
         var row = [];
-        //,dmap.itemid,,dmap.itemname']
         row.push({id:Element.textContent(el.getElementsByTagName('dmap.itemid')[0]),
                   name: Element.textContent(el.getElementsByTagName('dmap.itemname')[0])});
         ['daap.songtime','daap.songartist','daap.songalbum'].each(function (name) {
@@ -2162,21 +2162,7 @@ Rico.GridViewPort.prototype = {
    },
 
    populateRow: function(htmlRow, row) {
-      var songId = '';
-      if (typeof(row[0]) == 'object') {
-        htmlRow.cells[0].innerHTML = row[0].name;
-        htmlRow.setAttribute('songid',row[0].id);
-        songId = row[0].id;
-      } else {
-        // empty row
-        htmlRow.cells[0].innerHTML = '';
-        htmlRow.removeAttribute('songid');
-      }
-      if (SelectedRows.isSelected(songId)) {
-        htmlRow.style.backgroundColor = '#8CACBB';
-      } else {
-        htmlRow.style.backgroundColor = '';
-      }
+      htmlRow.cells[0].innerHTML = row[0].name;
       for (var j=1; j < row.length; j++) {
          htmlRow.cells[j].innerHTML = row[j]
       }
@@ -2225,9 +2211,11 @@ Rico.GridViewPort.prototype = {
       var contentOffset = viewPrecedesBuffer ? blankSize: 0;
 
       for (var i=0; i < rows.length; i++) {//initialize what we have
+        SelectedRows.updateState(this.table.rows[i + contentOffset],rows[i][0].id,startPos+i);
         this.populateRow(this.table.rows[i + contentOffset], rows[i]);
       }
       for (var i=0; i < blankSize; i++) {// blank out the rest 
+        SelectedRows.updateState(this.table.rows[i + contentOffset]);
         this.populateRow(this.table.rows[i + blankOffset], this.buffer.getBlankRow());
       }
       this.isPartialBlank = blankSize > 0;
