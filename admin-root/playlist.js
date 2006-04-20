@@ -489,9 +489,8 @@ SelectedRows = {
   songId: [],
   click: function(e) {
     var tr = Event.findElement(e,'tr');
-    if (tr.hasAttribute('songid')) {
-      var id = tr.getAttribute('songid');
-    } else {
+    var id = tr.getAttribute('songid');
+    if (!id) {
       return;
     }
     if (e.ctrlKey) {
