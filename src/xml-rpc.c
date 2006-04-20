@@ -165,6 +165,8 @@ void xml_pop(XMLSTRUCT *pxml) {
     pxml->stack_level--;
 }
 
+/* FIXME: Fixed at 256?  And can't I get an expandable sprintf/cat? */
+
 /**
  * output a string
  */

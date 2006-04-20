@@ -428,12 +428,22 @@ int _os_start_signal_handler(pthread_t *handler_tid) {
  *
  * @param
  */
-void *os_loadlib(char *path) {
-    return dlopen(path,RTLD_LAZY);
+void *os_loadlib(char **pe, char *path) {
+    void *retval;
+
+    if(!(retval = dlopen(path,RTLD_NOW)))
+        *pe = strdup(dlerror());
+
+    return retval;
 }
 
-void *os_libfunc(void *handle, char *function) {
-    return dlsym(handle,function);
+void *os_libfunc(char **pe, void *handle, char *function) {
+    void *retval;
+
+    if(!(retval = dlsym(handle,function)))
+        *pe = strdup(dlerror());
+
+    return retval;
 }
 
 int *os_unload(void *handle) {

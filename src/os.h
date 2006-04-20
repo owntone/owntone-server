@@ -34,8 +34,8 @@ extern int os_syslog(int level, char *msg);
 extern int os_chown(char *path, char *user);
 
 /* library loading functions */
-extern void *os_loadlib(char *path);
-extern void *os_libfunc(void *handle, char *function);
+extern void *os_loadlib(char **pe, char *path);
+extern void *os_libfunc(char **pe, void *handle, char *function);
 extern void *os_unload(void *handle);
 
 #ifdef WIN32

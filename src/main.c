@@ -109,7 +109,7 @@ CONFIG config; /**< Main configuration structure, as read from configfile */
  */
 static void usage(char *program);
 static void txt_add(char *txtrecord, char *fmt, ...);
-
+static void main_handler(WS_CONNINFO *pwsc);
 
 /**
  * build a dns text string
@@ -132,6 +132,18 @@ void txt_add(char *txtrecord, char *fmt, ...) {
     *end = len;
     strcpy(end+1,buff);
 }
+
+void main_handler(WS_CONNINFO *pwsc) {
+    if(plugin_url_candispatch(pwsc)) {
+        DPRINTF(E_DBG,L_MAIN,"Dispatching %s to plugin\n",pwsc->uri);
+        plugin_url_handle(pwsc);
+        return;
+    }
+
+    DPRINTF(E_DBG,L_MAIN,"Dispatching %s to config handler\n",pwsc->uri);
+    config_handler(pwsc);
+}
+
 
 
 /**
@@ -391,7 +403,7 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_FATAL,L_MAIN|L_WS,"Error staring web server: %s\n",strerror(errno));
     }
 
-    ws_registerhandler(config.server, "^.*$",config_handler,config_auth,1);
+    ws_registerhandler(config.server, "^.*$",main_handler,config_auth,1);
     ws_registerhandler(config.server, "^/server-info$",daap_handler,NULL,0);
     ws_registerhandler(config.server, "^/content-codes$",daap_handler,daap_auth,0); /* iTunes 6.0.4+? */
     ws_registerhandler(config.server,"^/login$",daap_handler,daap_auth,0);

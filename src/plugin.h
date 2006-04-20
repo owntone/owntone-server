@@ -22,11 +22,38 @@
 #ifndef _PLUGIN_H_
 #define _PLUGIN_H_
 
+#include "webserver.h"
+
 extern int plugin_load(char **pe, char *path);
+
+/* Interfaces for web */
+extern int plugin_url_candispatch(WS_CONNINFO *pwsc);
+extern void plugin_url_handle(WS_CONNINFO *pwsc);
 
 #define PLUGIN_E_SUCCESS     0
 #define PLUGIN_E_NOLOAD      1
 #define PLUGIN_E_BADFUNCS    2
+
+#define PLUGIN_OUTPUT    0
+#define PLUGIN_SCANNER   1
+#define PLUGIN_DATABASE  2
+#define PLUGIN_OTHER     3
+
+#define PLUGIN_VERSION 1
+
+
+typedef struct tag_plugin_output_fn {
+    void(*handler)(WS_CONNINFO *pwsc);
+} PLUGIN_OUTPUT_FN;
+
+/* version 1 plugin info */
+typedef struct tag_plugin_info {
+    int version;
+    int type;
+    char *server;
+    char *url;      /* for output plugins */
+    void *handler_functions;
+} PLUGIN_INFO;
 
 
 #endif /* _PLUGIN_H_ */

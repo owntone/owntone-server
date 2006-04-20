@@ -1268,10 +1268,6 @@ char *ws_urldecode(char *string, int space_as_plus) {
 
     while(*src) {
         switch(*src) {
-            /* DWB - space gets converted to %20, not +, this definitely breaks compatibility with iTunes */
-            /* But the browsers encode space as plus, so when using the web interface,
-             * anything with a plus is broken.  This will end up having to be sniffed
-             * by remote agent */
         case '+':
             if(space_as_plus) {
                 *dst++=' ';
