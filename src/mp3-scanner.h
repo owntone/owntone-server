@@ -90,6 +90,17 @@ typedef struct tag_m3ufile {
     int index;           /**< index of playlist for paths with multiple playlists */
 } M3UFILE;
 
+typedef struct tag_packed_m3ufile {
+    char *id;
+    char *title;
+    char *type;
+    char *items;
+    char *query;
+    char *db_timestamp;
+    char *path;
+    char *index;
+} PACKED_M3UFILE;
+
 typedef struct tag_packed_mp3file {
     char *id;
     char *path;

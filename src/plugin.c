@@ -31,9 +31,13 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "conf.h"
+#include "db-generic.h"
+#include "dispatch.h"
 #include "err.h"
 #include "os.h"
 #include "plugin.h"
+#include "smart-parser.h"
 #include "xml-rpc.h"
 #include "webserver.h"
 
@@ -217,8 +221,6 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
                 /* so functions must be a tag_plugin_output_fn */
                 disp_fn=(((PLUGIN_OUTPUT_FN*)ppi->functions)->handler);
                 disp_fn(pwsc);
-
-                ws_returnerror(pwsc,404,"Wtf!");
                 _plugin_unlock();
                 return;
             }
@@ -263,5 +265,80 @@ void pi_xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...) {
 }
 
 void pi_xml_deinit(XMLSTRUCT *pxml) {
-    return xml_deinit(pxml);
+    xml_deinit(pxml);
+}
+
+char *pi_ws_uri(WS_CONNINFO *pwsc) {
+    return pwsc->uri;
+}
+
+void pi_ws_close(WS_CONNINFO *pwsc) {
+    pwsc->close=1;
+}
+
+void pi_ws_returnerror(WS_CONNINFO *pwsc, int error, char *description) {
+    ws_returnerror(pwsc,error,description);
+}
+
+char *pi_ws_getvar(WS_CONNINFO *pwsc, char *var) {
+    return ws_getvar(pwsc,var);
+}
+
+void pi_log(int level, char *fmt, ...) {
+    char buf[256];
+    va_list ap;
+
+    va_start(ap,fmt);
+    vsnprintf(buf,sizeof(buf),fmt,ap);
+    va_end(ap);
+    
+    DPRINTF(level,L_PLUG,"%s",buf);
+}
+
+char *pi_server_ver(void) {
+    return VERSION;
+}
+
+int pi_server_name(char *name, int *len) {
+    return conf_get_string("general","servername","unknown",name, len);
+}
+
+int pi_db_count(void) {
+    int count;
+    db_get_song_count(NULL, &count);
+
+    return count;
+}
+
+int pi_db_enum_start(char **pe, DBQUERYINFO *pinfo) {
+    return db_enum_start(pe, pinfo);
+}
+
+int pi_db_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo) {
+    return db_enum_fetch_row(pe, row, pinfo);
+}
+
+int pi_db_enum_end(char **pe) {
+    return db_enum_end(pe);
+}
+
+PARSETREE pi_sp_init(void) {
+    return sp_init();
+}
+
+int pi_sp_parse(PARSETREE tree, char *term) {
+    return sp_parse(tree,term,0);
+}
+
+int pi_sp_dispose(PARSETREE tree) {
+    return sp_dispose(tree);
+}
+
+char *pi_sp_get_error(PARSETREE tree) {
+    return sp_get_error(tree);
+}
+
+void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
+    dispatch_stream_id(pwsc, pqi,id);
+    return;
 }

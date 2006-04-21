@@ -125,6 +125,7 @@ typedef struct tag_dbqueryinfo {
     int playlist_id;
     int db_id;
     int session_id;
+    int want_count;
     int specifiedtotalcount;
     int uri_count;
     char *uri_sections[10];
@@ -156,6 +157,7 @@ extern int db_add(char **pe, MP3FILE *pmp3, int *id);
 extern int db_enum_start(char **pe, DBQUERYINFO *pinfo);
 extern int db_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size);
 extern int db_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size, unsigned char **pdmap);
+extern int db_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo);
 extern int db_enum_reset(char **pe, DBQUERYINFO *pinfo);
 extern int db_enum_end(char **pe);
 extern int db_start_scan(void);

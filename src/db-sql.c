@@ -1136,8 +1136,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         DPRINTF(E_DBG,L_DB,"No query/filter\n");
     }
 
-
-    if(pinfo->index_type != indexTypeNone) {
+    if((pinfo->index_type != indexTypeNone) || (pinfo->want_count)) {
         /* the only time returned count is not specifiedtotalcount
          * is if we have an index. */
         strcpy(scratch,query_count);
@@ -1223,6 +1222,21 @@ int db_sql_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size)
     return err;
 }
 
+
+/**
+ * fetch the next row in raw row format
+ */
+int db_sql_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo) {
+    int err;
+
+    err=db_sql_enum_fetch_fn(pe, (char***)row);
+    if(err != DB_E_SUCCESS) {
+        db_sql_enum_end_fn(NULL);
+        return err;
+    }
+
+    return DB_E_SUCCESS;
+}
 
 /**
  * fetch the next record from the enum

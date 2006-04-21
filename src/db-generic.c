@@ -61,6 +61,7 @@ typedef struct tag_db_functions {
     int(*dbs_enum_start)(char **, DBQUERYINFO *);
     int(*dbs_enum_size)(char **, DBQUERYINFO *, int *, int *);
     int(*dbs_enum_fetch)(char **, DBQUERYINFO *, int *, unsigned char **);
+    int(*dbs_enum_fetch_row)(char **, PACKED_MP3FILE *, DBQUERYINFO *);    
     int(*dbs_enum_reset)(char **, DBQUERYINFO *);
     int(*dbs_enum_end)(char **);
     int(*dbs_start_scan)(void);
@@ -92,6 +93,7 @@ DB_FUNCTIONS db_functions[] = {
         db_sql_enum_start,
         db_sql_enum_size,
         db_sql_enum_fetch,
+        db_sql_enum_fetch_row,
         db_sql_enum_reset,
         db_sql_enum_end,
         db_sql_start_scan,
@@ -121,6 +123,7 @@ DB_FUNCTIONS db_functions[] = {
         db_sql_enum_start,
         db_sql_enum_size,
         db_sql_enum_fetch,
+        db_sql_enum_fetch_row,
         db_sql_enum_reset,
         db_sql_enum_end,
         db_sql_start_scan,
@@ -724,6 +727,15 @@ int db_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size,
                   unsigned char **pdmap)
 {
     return db_current->dbs_enum_fetch(pe,pinfo,size,pdmap);
+}
+
+
+/**
+ * fetch the next item int he result set started by the db enum.  this
+ * will be in native packed row format 
+ */
+int db_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo) {
+    return db_current->dbs_enum_fetch_row(pe, row, pinfo);
 }
 
 

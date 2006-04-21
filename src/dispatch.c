@@ -235,7 +235,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     /* tokenize the uri for easier decoding */
     string=(pwsc->uri)+1;
-    while((token=strtok_r(string,"/",&save))) {
+    while((pqi->uri_count < 9) && (token=strtok_r(string,"/",&save))) {
         string=NULL;
         pqi->uri_sections[pqi->uri_count++] = token;
     }
@@ -737,7 +737,7 @@ char *dispatch_xml_encode(char *original, int len) {
     return new;
 }
 
-void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
+void dispatch_stream_id(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
     MP3FILE *pmp3;
     FILE *file_ptr;
     int file_fd;
@@ -753,7 +753,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     /* stream out the song */
     pwsc->close=1;
 
-    item=atoi(pqi->uri_sections[3]);
+    item = atoi(id);
 
     if(ws_getrequestheader(pwsc,"range")) {
         offset=(off_t)atol(ws_getrequestheader(pwsc,"range") + 6);
@@ -763,6 +763,7 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     pmp3=db_fetch_item(NULL,item);
     if(!pmp3) {
         DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
+        config_set_status(pwsc,pqi->session_id,NULL);
         ws_returnerror(pwsc,404,"File Not Found");
     } else if (server_side_convert(pmp3->codectype)) {
         /************************
@@ -788,7 +789,6 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
                     "Thread %d: Error opening %s for conversion\n",
                     pwsc->threadno,pmp3->path);
             ws_returnerror(pwsc,404,"Not found");
-            config_set_status(pwsc,pqi->session_id,NULL);
             db_dispose_item(pmp3);
         } else {
             // The type should really be determined by the transcoding
@@ -949,6 +949,9 @@ void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     //    free(pqi);
 }
 
+void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
+    dispatch_stream_id(pwsc, pqi, pqi->uri_sections[3]);
+}
 
 /**
  * add songs to an existing playlist
