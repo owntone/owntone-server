@@ -54,7 +54,7 @@ typedef struct tag_pluginentry {
 static PLUGIN_ENTRY _plugin_list;
 static int _plugin_initialized = 0;
 
-static pthread_rwlock_t _plugin_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_rwlock_t _plugin_lock;
 
 static char* _plugin_error_list[] = {
     "Success.",
@@ -322,11 +322,13 @@ XMLSTRUCT *pi_xml_init(WS_CONNINFO *pwsc, int emit_header) {
 }
 
 void pi_xml_push(XMLSTRUCT *pxml, char *term) {
-    return xml_push(pxml, term);
+    xml_push(pxml, term);
+    return;
 }
 
 void pi_xml_pop(XMLSTRUCT *pxml) {
-    return xml_pop(pxml);
+    xml_pop(pxml);
+    return;
 }
 
 /* FIXME: 256? */

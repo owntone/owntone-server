@@ -446,7 +446,7 @@ void *os_libfunc(char **pe, void *handle, char *function) {
     return retval;
 }
 
-int *os_unload(void *handle) {
+int os_unload(void *handle) {
     return dlclose(handle);
 }
 

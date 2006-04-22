@@ -169,6 +169,9 @@
 				RelativePath="..\src\os-win32.c">
 			</File>
 			<File
+				RelativePath="..\src\plugin.c">
+			</File>
+			<File
 				RelativePath="..\src\redblack.c">
 			</File>
 			<File

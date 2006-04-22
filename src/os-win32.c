@@ -674,4 +674,32 @@ void _os_unlock(void) {
     }
 }
 
+/**
+ * load a loadable library
+ */
+void *os_loadlib(char **pe, char *path) {
+    void *retval;
+
+    retval = (void*)LoadLibrary(path);
+    if(!retval) {
+        if(pe) *pe = strdup(os_strerror(0));
+    }
+    return retval;
+}
+
+void *os_libfunc(char **pe, void *handle, char *function) {
+    void *retval;
+
+    retval = GetProcAddress((HMODULE)handle, function);
+    if(!retval) {
+        if(pe) *pe = strdup(os_strerror(0));
+    }
+    return retval;
+}
+
+int os_unload(void *handle) {
+    FreeLibrary(handle);
+    return TRUE;
+}
+
 
