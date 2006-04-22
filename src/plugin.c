@@ -267,6 +267,50 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
     return;
 } 
 
+/**
+ * Test password for the handled namespace
+ *
+ * @param pwsc the connection info (including uri) to check
+ * @param username user attempting to login
+ * @param pw password attempting
+ * @returns TRUE if we want to handle it 
+ */
+int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
+    PLUGIN_ENTRY *ppi;
+    int (*auth_fn)(WS_CONNINFO *pwsc, char *username, char *pw);
+    int result;
+
+    _plugin_readlock();
+    ppi = _plugin_list.next;
+    while(ppi) {
+        if(ppi->type == PLUGIN_OUTPUT) {
+            if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
+                /* we have a winner */
+                DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", pwsc->uri,
+                        ppi->versionstring);
+
+                /* so functions must be a tag_plugin_output_fn */
+                auth_fn=(((PLUGIN_OUTPUT_FN*)ppi->functions)->auth);
+		if(auth_fn) {
+		    result=auth_fn(pwsc,username,pw);
+		    _plugin_unlock();
+		    return result;
+		} else {
+		    _plugin_unlock();
+		    return TRUE;
+		}
+            }
+            ppi = ppi->next;
+        }
+    }
+
+    /* should 500 here or something */
+    ws_returnerror(pwsc, 500, "Can't find plugin handler");
+    _plugin_unlock();
+    return FALSE;
+}
+
+
 /* plugin wrappers for utility functions & stuff
  * 
  * these functions need to be wrapped so we can maintain a stable

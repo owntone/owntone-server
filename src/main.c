@@ -110,6 +110,7 @@ CONFIG config; /**< Main configuration structure, as read from configfile */
 static void usage(char *program);
 static void txt_add(char *txtrecord, char *fmt, ...);
 static void main_handler(WS_CONNINFO *pwsc);
+static int main_auth(WS_CONNINFO *pwsc, char *username, char *password);
 
 /**
  * build a dns text string
@@ -144,6 +145,15 @@ void main_handler(WS_CONNINFO *pwsc) {
     config_handler(pwsc);
 }
 
+int main_auth(WS_CONNINFO *pwsc, char *username, char *password) {
+    if(plugin_url_candispatch(pwsc)) {
+        DPRINTF(E_DBG,L_MAIN,"Dispatching auth for %s to plugin\n",pwsc->uri);
+        return plugin_auth_handle(pwsc,username,password);
+    }
+
+    DPRINTF(E_DBG,L_MAIN,"Dispatching auth for %s to config auth\n",pwsc->uri);
+    return config_auth(pwsc, username, password);
+}
 
 
 /**
@@ -404,7 +414,7 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_FATAL,L_MAIN|L_WS,"Error staring web server: %s\n",strerror(errno));
     }
 
-    ws_registerhandler(config.server, "^.*$",main_handler,config_auth,1);
+    ws_registerhandler(config.server, "^.*$",main_handler,main_auth,1);
     ws_registerhandler(config.server, "^/server-info$",daap_handler,NULL,0);
     ws_registerhandler(config.server, "^/content-codes$",daap_handler,daap_auth,0); /* iTunes 6.0.4+? */
     ws_registerhandler(config.server,"^/login$",daap_handler,daap_auth,0);

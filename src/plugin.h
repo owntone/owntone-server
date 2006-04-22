@@ -31,6 +31,7 @@ extern int plugin_deinit(void);
 /* Interfaces for web */
 extern int plugin_url_candispatch(WS_CONNINFO *pwsc);
 extern void plugin_url_handle(WS_CONNINFO *pwsc);
+extern int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw);
 
 #define PLUGIN_E_SUCCESS     0
 #define PLUGIN_E_NOLOAD      1
@@ -46,6 +47,7 @@ extern void plugin_url_handle(WS_CONNINFO *pwsc);
 
 typedef struct tag_plugin_output_fn {
     void(*handler)(WS_CONNINFO *pwsc);
+    int(*auth)(WS_CONNINFO *pwsc, char *username, char *pw);
 } PLUGIN_OUTPUT_FN;
 
 /* version 1 plugin info */
