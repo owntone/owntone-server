@@ -5,7 +5,8 @@
 Event.observe(window,'load',initPlaylist);
 
 var SEARCH_DELAY = 500; // # ms without typing before the search box searches
-var BROWSE_TEXT_LEN = 30; // Length to truncate genre/artist/album select boxes
+var BROWSE_TEXT_LEN = 30; // genres/artists/albums select options longer than this will have
+                          // a title attribute (to show a tool tip for items that doesn't fit the box
 var g_myLiveGrid; // the live grid;
 function initPlaylist() {
 Ajax.Responders.register({  onCreate: Spinner.incRequestCount,
@@ -423,13 +424,10 @@ var ResponseHandler = {
       // with the selected state I want.
       var o = document.createElement('option');
       o.value = option;
-      var text = option.truncate(BROWSE_TEXT_LEN);
-      if (option.length != text.length) {
+      if (option.length >= BROWSE_TEXT_LEN) {
         o.title = option;
-        o.appendChild(document.createTextNode(text));
-      } else {
-        o.appendChild(document.createTextNode(option));
       }
+      o.appendChild(document.createTextNode(option));
       if (selected[option]) {
         o.selected = true;
         nothingSelected = false;
