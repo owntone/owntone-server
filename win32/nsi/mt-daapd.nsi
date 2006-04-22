@@ -23,9 +23,20 @@
 ; Welcome page
 !insertmacro MUI_PAGE_WELCOME
 ; License page
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE LicensePost
 !insertmacro MUI_PAGE_LICENSE "..\..\admin-root\gpl-license.txt"
 ; Directory page
+!define MUI_PAGE_CUSTOMFUNCTION_PRE DirectoryPre
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryLeave
 !insertmacro MUI_PAGE_DIRECTORY
+
+; Music Directory Page
+!define MUI_PAGE_CUSTOMFUNCTION_PRE DirectoryPre
+!define MUI_PAGE_CUSTOMFUNCTION_SHOW DirectoryShow
+!define MUI_PAGE_CUSTOMFUNCTION_LEAVE DirectoryLeave
+!insertmacro MUI_PAGE_DIRECTORY
+
 ; Instfiles page
 !insertmacro MUI_PAGE_INSTFILES
 ; Finish page
@@ -46,6 +57,7 @@ InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
 ShowUnInstDetails show
 
+
 Section -Pre
   nsSCM::QueryStatus "Bonjour Service"
   Pop $0
@@ -59,7 +71,7 @@ Section -Pre
 SectionEnd
 
 Section "MainSection" SEC01
-  SetOutPath "$INSTDIR"
+  SetOutPath "$2"
   SetOverwrite ifnewer
   File "..\Release\mt-daapd.exe"
   File "..\..\..\win32\dll\gnu_regex.dll"
@@ -68,7 +80,7 @@ Section "MainSection" SEC01
   File "..\..\..\win32\dll\sqlite3.dll"
   File "..\..\..\win32\dll\zlib.dll"
 
-  SetOutPath "$INSTDIR\admin-root"
+  SetOutPath "$2\admin-root"
   File "..\..\admin-root\thanks.html"
   File "..\..\admin-root\status.html"
   File "..\..\admin-root\smartpopup.html"
@@ -98,10 +110,10 @@ Section "MainSection" SEC01
   File "..\..\admin-root\aspl-license.html"
   File "..\..\admin-root\applet.html"
   File "..\..\admin-root\smart.js"
-  SetOutPath "$INSTDIR\admin-root\lib-js"
+  SetOutPath "$2\admin-root\lib-js"
   File "..\..\admin-root\lib-js\prototype.js"
   File "..\..\admin-root\lib-js\rico.js"
-  SetOutPath "$INSTDIR\admin-root\lib-js\script.aculo.us"
+  SetOutPath "$2\admin-root\lib-js\script.aculo.us"
   File "..\..\admin-root\lib-js\script.aculo.us\builder.js"
   File "..\..\admin-root\lib-js\script.aculo.us\controls.js"
   File "..\..\admin-root\lib-js\script.aculo.us\dragdrop.js"
@@ -109,33 +121,37 @@ Section "MainSection" SEC01
   File "..\..\admin-root\lib-js\script.aculo.us\scriptaculous.js"
   File "..\..\admin-root\lib-js\script.aculo.us\slider.js"
   File "..\..\admin-root\lib-js\script.aculo.us\unittest.js"
-  SetOutPath "$INSTDIR"
+  SetOutPath "$2"
   File "mt-daapd-example.conf"
+  IfFileExists "$2\mt-daapd.conf" HasConf
   SetOverwrite off
-  CopyFiles "$INSTDIR\mt-daapd-example.conf" "$INSTDIR\mt-daapd.conf"
+  CopyFiles "$2\mt-daapd-example.conf" "$2\mt-daapd.conf"
+HasConf:
+  WriteINIStr "$2\mt-daapd.conf" "general" "mp3_dir" $3
+  SetAutoClose False
 SectionEnd
 
 Section -AdditionalIcons
-  WriteIniStr "$INSTDIR\${PRODUCT_NAME}.url" "InternetShortcut" "URL" "${PRODUCT_WEB_SITE}"
+  WriteIniStr "$2\${PRODUCT_NAME}.url" "InternetShortcut" "URL" "${PRODUCT_WEB_SITE}"
   CreateDirectory "$SMPROGRAMS\mt-daapd"
-  CreateShortCut "$SMPROGRAMS\mt-daapd\Website.lnk" "$INSTDIR\${PRODUCT_NAME}.url"
-  CreateShortCut "$SMPROGRAMS\mt-daapd\Uninstall.lnk" "$INSTDIR\uninst.exe"
-  CreateShortCut "$SMPROGRAMS\mt-daapd\Debug Mode.lnk" "$INSTDIR\mt-daapd.exe" "-d9 -f"
-  CreateShortCut "$SMPROGRAMS\mt-daapd\Config File.lnk" "notepad.exe" "$INSTDIR\mt-daapd.conf"
+  CreateShortCut "$SMPROGRAMS\mt-daapd\Website.lnk" "$2\${PRODUCT_NAME}.url"
+  CreateShortCut "$SMPROGRAMS\mt-daapd\Uninstall.lnk" "$2\uninst.exe"
+  CreateShortCut "$SMPROGRAMS\mt-daapd\Debug Mode.lnk" "$2\mt-daapd.exe" "-d9 -f"
+  CreateShortCut "$SMPROGRAMS\mt-daapd\Config File.lnk" "notepad.exe" "$2\mt-daapd.conf"
 SectionEnd
 
 Section -Post
-  WriteUninstaller "$INSTDIR\uninst.exe"
-  WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$INSTDIR\mt-daapd.exe"
+  WriteUninstaller "$2\uninst.exe"
+  WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$2\mt-daapd.exe"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayName" "$(^Name)"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString" "$INSTDIR\uninst.exe"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$INSTDIR\mt-daapd.exe"
+  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString" "$2\uninst.exe"
+  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$2\mt-daapd.exe"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
-;  ExecWait "$INSTDIR\mt-daapd.exe -i"
+;  ExecWait "$2\mt-daapd.exe -i"
 
-  nsSCM::Install "${PRODUCT_NAME}" "${PRODUCT_SERVICE}" 16 2 "$INSTDIR\mt-daapd.exe" "" "Bonjour Service" "" ""
+  nsSCM::Install "${PRODUCT_NAME}" "${PRODUCT_SERVICE}" 16 2 "$2\mt-daapd.exe" "" "Bonjour Service" "" ""
   Pop $0
   Pop $1
 
@@ -157,6 +173,117 @@ Function un.onInit
   Abort
 FunctionEnd
 
+Function .onInit
+; Must set $INSTDIR here to avoid adding ${PRODUCT_NAME} to the end of the
+; path when user selects a new directory using the 'Browse' button.
+  StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCT_NAME}"
+FunctionEnd
+
+Function LicensePost
+  StrCpy $9 "0"
+FunctionEnd
+
+Function DirectoryPre
+  StrCmp $9 "0" OK
+    ;Skip 2nd (Music) Directory Page if conf file Exists
+    IfFileExists "$2\mt-daapd.conf" "" OK
+      Abort
+OK:
+FunctionEnd
+
+
+Function DirectoryShow
+  StrCmp $9 "0" AppDirectoryPage
+  StrCmp $9 "1" MusicDirectoryPage
+
+AppDirectoryPage:
+  StrCpy $9 "1"
+  !insertmacro MUI_INNERDIALOG_TEXT 1041 "Destination Folder"
+  !insertmacro MUI_INNERDIALOG_TEXT 1019 "$PROGRAMFILES\${PRODUCT_NAME}\"
+  !insertmacro MUI_INNERDIALOG_TEXT 1006 "Setup will install ${PRODUCT_NAME} in the following folder.$\r$\n$\r$\nTo install in a different folder, click Browse and select another folder. Click Next to continue."
+  Goto EndDirectoryShow
+
+MusicDirectoryPage:
+  StrCpy $9 "2"
+  !insertmacro MUI_HEADER_TEXT "Choose Music Location" "Choose the folder containing music to share."
+  !insertmacro MUI_INNERDIALOG_TEXT 1041 "Music Folder"
+  !insertmacro MUI_INNERDIALOG_TEXT 1019 "C:\Documents and Settings"
+  !insertmacro MUI_INNERDIALOG_TEXT 1006 "Setup will share the music in the following folder.$\r$\n$\r$\nTo share a different folder, click Browse and select another folder. Click Install to start the installation."
+EndDirectoryShow:
+FunctionEnd
+
+Function DirectoryLeave
+  StrCmp $9 "1" SaveInstallDir
+  StrCmp $9 "2" SaveMusicDir
+  Goto EndDirectoryLeave
+
+SaveInstallDir:
+  StrCpy $2 $INSTDIR
+  Goto EndDirectoryLeave
+
+SaveMusicDir:
+  StrCpy $3 $INSTDIR
+
+EndDirectoryLeave:
+FunctionEnd
+
+Function .onVerifyInstDir
+  StrCmp $9 "2" DataPath All
+
+DataPath:
+;all valid if UNC
+  StrCpy $R2 $INSTDIR 2
+  StrCmp $R2 "\\" PathOK
+
+All:
+; Invalid path if root
+  Push $INSTDIR
+  call GetRoot
+  Pop $R1
+  StrCmp $R1 $INSTDIR "" PathOK
+  Abort
+
+PathOK:
+FunctionEnd
+
+;--------------------------------
+;Helper Functions
+
+Function GetRoot
+  Exch $0
+  Push $1
+  Push $2
+  Push $3
+  Push $4
+
+  StrCpy $1 $0 2
+  StrCmp $1 "\\" UNC
+    StrCpy $0 $1
+    Goto done
+
+UNC:
+  StrCpy $2 3
+  StrLen $3 $0
+  loop:
+    IntCmp $2 $3 "" "" loopend
+    StrCpy $1 $0 1 $2
+    IntOp $2 $2 + 1
+    StrCmp $1 "\" loopend loop
+  loopend:
+    StrCmp $4 "1" +3
+      StrCpy $4 1
+      Goto loop
+    IntOp $2 $2 - 1
+    StrCpy $0 $0 $2
+
+done:
+  Pop $4
+  Pop $3
+  Pop $2
+  Pop $1
+  Exch $0
+FunctionEnd
+
 Section Uninstall
   nsSCM::Stop "${PRODUCT_NAME}"
   nsSCM::Remove "${PRODUCT_NAME}"
@@ -164,43 +291,60 @@ Section Uninstall
   Pop $0
   StrCmp $0 "success" lbl_continue_uninstall
 
-  MessageBox MB_OK "Error Uninstalling service: $1"  
+  MessageBox MB_OK "Error Uninstalling service: $1"
 
   lbl_continue_uninstall:
+
   Delete "$INSTDIR\${PRODUCT_NAME}.url"
   Delete "$INSTDIR\uninst.exe"
   Delete "$INSTDIR\gnu_regex.dll"
   Delete "$INSTDIR\pthreadVC2.dll"
   Delete "$INSTDIR\sqlite.dll"
+  Delete "$INSTDIR\sqlie3.dll"
+  Delete "$INSTDIR\mt-daapd.conf"
   Delete "$INSTDIR\zlib.dll"
   Delete "$INSTDIR\mt-daapd-example.conf"
-  Delete "$INSTDIR/admin-root\applet.html"
-  Delete "$INSTDIR/admin-root\aspl-license.html"
-  Delete "$INSTDIR/admin-root\aspl-license.txt"
-  Delete "$INSTDIR/admin-root\config.html"
-  Delete "$INSTDIR/admin-root\config-update.html"
-  Delete "$INSTDIR/admin-root\CREDITS"
-  Delete "$INSTDIR/admin-root\DAAPApplet-0.1.jar"
-  Delete "$INSTDIR/admin-root\favicon.ico"
-  Delete "$INSTDIR/admin-root\feedback.html"
-  Delete "$INSTDIR/admin-root\ftr.html"
-  Delete "$INSTDIR/admin-root\gpl-license.html"
-  Delete "$INSTDIR/admin-root\gpl-license.txt"
-  Delete "$INSTDIR/admin-root\hdr.html"
-  Delete "$INSTDIR/admin-root\index.html"
-  Delete "$INSTDIR/admin-root\linkOpaque.gif"
-  Delete "$INSTDIR/admin-root\linkTransparent.gif"
-  Delete "$INSTDIR/admin-root\mt-daapd.css"
-  Delete "$INSTDIR/admin-root\mt-daapd.js"
-  Delete "$INSTDIR/admin-root\mt-daapd.png"
-  Delete "$INSTDIR/admin-root\playlist.html"
-  Delete "$INSTDIR/admin-root\playlist.js"
-  Delete "$INSTDIR/admin-root\required.gif"
-  Delete "$INSTDIR/admin-root\smart.html"
-  Delete "$INSTDIR/admin-root\smart.js"
-  Delete "$INSTDIR/admin-root\smartpopup.html"
-  Delete "$INSTDIR/admin-root\status.html"
-  Delete "$INSTDIR/admin-root\thanks.html"
+  Delete "$INSTDIR\admin-root\applet.html"
+  Delete "$INSTDIR\admin-root\aspl-license.html"
+  Delete "$INSTDIR\admin-root\aspl-license.txt"
+  Delete "$INSTDIR\admin-root\config.html"
+  Delete "$INSTDIR\admin-root\config-update.html"
+  Delete "$INSTDIR\admin-root\CREDITS"
+  Delete "$INSTDIR\admin-root\DAAPApplet-0.1.jar"
+  Delete "$INSTDIR\admin-root\favicon.ico"
+  Delete "$INSTDIR\admin-root\feedback.html"
+  Delete "$INSTDIR\admin-root\ftr.html"
+  Delete "$INSTDIR\admin-root\gpl-license.html"
+  Delete "$INSTDIR\admin-root\gpl-license.txt"
+  Delete "$INSTDIR\admin-root\hdr.html"
+  Delete "$INSTDIR\admin-root\index.html"
+  Delete "$INSTDIR\admin-root\linkOpaque.gif"
+  Delete "$INSTDIR\admin-root\linkTransparent.gif"
+  Delete "$INSTDIR\admin-root\mt-daapd.css"
+  Delete "$INSTDIR\admin-root\mt-daapd.js"
+  Delete "$INSTDIR\admin-root\mt-daapd.png"
+  Delete "$INSTDIR\admin-root\playlist.html"
+  Delete "$INSTDIR\admin-root\playlist.js"
+  Delete "$INSTDIR\admin-root\required.gif"
+  Delete "$INSTDIR\admin-root\smart.html"
+  Delete "$INSTDIR\admin-root\smart.js"
+  Delete "$INSTDIR\admin-root\smartpopup.html"
+  Delete "$INSTDIR\admin-root\status.html"
+  Delete "$INSTDIR\admin-root\thanks.html"
+  Delete "$INSTDIR\admin-root\config.js"
+  Delete "$INSTDIR\admin-root\lib-js\prototype.js"
+  Delete "$INSTDIR\admin-root\lib-js\rico.js"
+  Delete "$INSTDIR\admin-root\lib-js\script.aculo.us\builder.js"
+  Delete "$INSTDIR\admin-root\lib-js\script.aculo.us\controls.js"
+  Delete "$INSTDIR\admin-root\lib-js\script.aculo.us\dragdrop.js"
+  Delete "$INSTDIR\admin-root\lib-js\script.aculo.us\effects.js"
+  Delete "$INSTDIR\admin-root\lib-js\script.aculo.us\scriptaculous.js"
+  Delete "$INSTDIR\admin-root\lib-js\script.aculo.us\slider.js"
+  Delete "$INSTDIR\admin-root\lib-js\script.aculo.us\unittest.js"
+  RMDir  "$INSTDIR\admin-root\lib-js\script.aculo.us"
+  RMDir  "$INSTDIR\admin-root\lib-js"
+  RMDir  "$INSTDIR\admin-root"
+
   Delete "$INSTDIR\mt-daapd.exe"
 
   Delete "$SMPROGRAMS\mt-daapd\Uninstall.lnk"
@@ -209,10 +353,9 @@ Section Uninstall
   Delete "$SMPROGRAMS\mt-daapd\Debug Mode.lnk"
 
   RMDir "$SMPROGRAMS\mt-daapd"
-  RMDir "$INSTDIR/admin-root"
   RMDir "$INSTDIR"
 
   DeleteRegKey ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}"
   DeleteRegKey HKLM "${PRODUCT_DIR_REGKEY}"
-  SetAutoClose true
+  SetAutoClose false
 SectionEnd
