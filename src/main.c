@@ -316,6 +316,7 @@ int main(int argc, char *argv[]) {
 
     /* load plugins before we drop privs?  Maybe... let the 
      * plugins do stuff they might need to */
+    plugin_init();
     if((plugindir=conf_alloc_string("plugins","plugin_dir",NULL)) != NULL) {
         if(conf_get_array("plugins","plugins",&pluginarray)==TRUE) {
             index = 0;

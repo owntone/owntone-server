@@ -127,7 +127,7 @@ void dispatch_cleanup(DBQUERYINFO *pqi) {
  * @param password The password passed by iTunes
  * @returns 1 if auth successful, 0 otherwise
  */
-int daap_auth(char *hostname, char *username, char *password) {
+int daap_auth(WS_CONNINFO *pwsc, char *username, char *password) {
     char *readpassword;
 
     readpassword = conf_alloc_string("general","password",NULL);

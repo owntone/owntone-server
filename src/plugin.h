@@ -24,7 +24,9 @@
 
 #include "webserver.h"
 
+extern int plugin_init(void);
 extern int plugin_load(char **pe, char *path);
+extern int plugin_deinit(void);
 
 /* Interfaces for web */
 extern int plugin_url_candispatch(WS_CONNINFO *pwsc);

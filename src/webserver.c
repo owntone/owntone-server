@@ -64,7 +64,7 @@
 typedef struct tag_ws_handler {
     regex_t regex;
     void (*req_handler)(WS_CONNINFO*);
-    int(*auth_handler)(char *, char *, char *);
+    int(*auth_handler)(WS_CONNINFO*, char *, char *);
     int addheaders;
     struct tag_ws_handler *next;
 } WS_HANDLER;
@@ -107,11 +107,11 @@ char *ws_getarg(ARGLIST *root, char *key);
 int ws_testarg(ARGLIST *root, char *key, char *value);
 int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc, 
                    void(**preq)(WS_CONNINFO*),
-                   int(**pauth)(char *, char *, char *),
+                   int(**pauth)(WS_CONNINFO*, char *, char *),
                    int *addheaders);
 int ws_registerhandler(WSHANDLE ws, char *regex, 
                        void(*handler)(WS_CONNINFO*),
-                       int(*auth)(char *, char *, char *),
+                       int(*auth)(WS_CONNINFO*, char *, char *),
                        int addheaders);
 int ws_decodepassword(char *header, char **username, char **password);
 int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
@@ -766,7 +766,7 @@ void *ws_dispatcher(void *arg) {
     time_t now;
     struct tm now_tm;
     void (*req_handler)(WS_CONNINFO*);
-    int(*auth_handler)(char *, char *, char *);
+    int(*auth_handler)(WS_CONNINFO*, char *, char *);
 
     DPRINTF(E_DBG,L_WS,"Thread %d: Entering ws_dispatcher (Connection from %s)\n",
             pwsc->threadno, pwsc->hostname);
@@ -933,12 +933,12 @@ void *ws_dispatcher(void *arg) {
              * username and password of NULL, then don't bother 
              * authing. 
              */
-            if((auth_handler) && (auth_handler(pwsc->hostname,NULL,NULL)==0)) {
+            if((auth_handler) && (auth_handler(pwsc,NULL,NULL)==0)) {
                 /* do the auth thing */
                 auth=ws_getarg(&pwsc->request_headers,"Authorization");
                 if(auth) {
                     ws_decodepassword(auth,&username,&password);
-                    if(auth_handler(pwsc->hostname,username,password))
+                    if(auth_handler(pwsc,username,password))
                         can_dispatch=1;
                     ws_addarg(&pwsc->request_vars,"HTTP_USER",username);
                     ws_addarg(&pwsc->request_vars,"HTTP_PASSWD",password);
@@ -1320,7 +1320,7 @@ char *ws_urldecode(char *string, int space_as_plus) {
  */
 int ws_registerhandler(WSHANDLE ws, char *regex, 
                        void(*handler)(WS_CONNINFO*),
-                       int(*auth)(char *, char *, char *),
+                       int(*auth)(WS_CONNINFO *, char *, char *),
                        int addheaders) {
     WS_HANDLER *phandler;
     WS_PRIVATE *pwsp = (WS_PRIVATE *)ws;
@@ -1357,7 +1357,7 @@ int ws_registerhandler(WSHANDLE ws, char *regex,
  */
 int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc, 
                    void(**preq)(WS_CONNINFO*),
-                   int(**pauth)(char *, char *, char *),
+                   int(**pauth)(WS_CONNINFO *, char *, char *),
                    int *addheaders) {
     WS_HANDLER *phandler=pwsp->handlers.next;
 
