@@ -54,7 +54,8 @@ typedef struct tag_pluginentry {
 static PLUGIN_ENTRY _plugin_list;
 static int _plugin_initialized = 0;
 
-static pthread_mutex_t _plugin_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_rwlock_t _plugin_lock = PTHREAD_MUTEX_INITIALIZER;
+
 static char* _plugin_error_list[] = {
     "Success.",
     "Could not load plugin: %s",
@@ -62,17 +63,49 @@ static char* _plugin_error_list[] = {
 };
 
 /* Forwards */
-void _plugin_lock(void);
+void _plugin_readlock(void);
+void _plugin_writelock(void);
 void _plugin_unlock(void);
 int _plugin_error(char **pe, int error, ...);
 
 /**
+ * initialize stuff for plugins
+ *
+ * @returns TRUE on success, FALSE otherwise
+ */
+int plugin_init(void) {
+    pthread_rwlock_init(&_plugin_lock,NULL);
+    return TRUE;
+}
+
+/**
+ * deinitialize stuff for plugins
+ *
+ * @returns TRUE on success, FALSE otherwise
+ */
+int plugin_deinit(void) {
+    return TRUE;
+}
+
+
+/**
  * lock the plugin_mutex
  */
-void _plugin_lock(void) {
+void _plugin_readlock(void) {
     int err;
 
-    if((err=pthread_mutex_lock(&_plugin_mutex))) {
+    if((err=pthread_rwlock_rdlock(&_plugin_lock))) {
+        DPRINTF(E_FATAL,L_PLUG,"cannot lock plugin lock: %s\n",strerror(err));
+    }
+}
+
+/**
+ * lock the plugin_mutex
+ */
+void _plugin_writelock(void) {
+    int err;
+
+    if((err=pthread_rwlock_wrlock(&_plugin_lock))) {
         DPRINTF(E_FATAL,L_PLUG,"cannot lock plugin lock: %s\n",strerror(err));
     }
 }
@@ -83,7 +116,7 @@ void _plugin_lock(void) {
 void _plugin_unlock(void) {
     int err;
 
-    if((err=pthread_mutex_unlock(&_plugin_mutex))) {
+    if((err=pthread_rwlock_unlock(&_plugin_lock))) {
         DPRINTF(E_FATAL,L_PLUG,"cannot unlock plugin lock: %s\n",strerror(err));
     }
 }
@@ -159,7 +192,7 @@ int plugin_load(char **pe, char *path) {
 
     DPRINTF(E_INF,L_PLUG,"Loaded plugin %s (%s)\n",path,ppi->versionstring);
     
-    _plugin_lock();
+    _plugin_writelock();
     if(!_plugin_initialized) {
         _plugin_initialized = 1;
         memset((void*)&_plugin_list,0,sizeof(_plugin_list));
@@ -182,7 +215,7 @@ int plugin_load(char **pe, char *path) {
 int plugin_url_candispatch(WS_CONNINFO *pwsc) {
     PLUGIN_ENTRY *ppi;
 
-    _plugin_lock();
+    _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
         if(ppi->type == PLUGIN_OUTPUT) {
@@ -209,7 +242,7 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
     PLUGIN_ENTRY *ppi;
     void (*disp_fn)(WS_CONNINFO *pwsc);
 
-    _plugin_lock();
+    _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
         if(ppi->type == PLUGIN_OUTPUT) {
