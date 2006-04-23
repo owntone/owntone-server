@@ -23,6 +23,7 @@
 #define _PLUGIN_H_
 
 #include "webserver.h"
+#include "xml-rpc.h"
 
 extern int plugin_init(void);
 extern int plugin_load(char **pe, char *path);
@@ -57,7 +58,39 @@ typedef struct tag_plugin_info {
     char *server;
     char *url;      /* for output plugins */
     void *handler_functions;
+    void *pi; /* exported functions */
 } PLUGIN_INFO;
 
+/* version 1 plugin imports */
+typedef struct tag_plugin_input_fn {
+    /* xml helpers */ 
+    XMLSTRUCT* (*xml_init)(WS_CONNINFO *, int);
+    void (*xml_push)(XMLSTRUCT *, char *);
+    void (*xml_pop)(XMLSTRUCT *);
+    void (*xml_output)(XMLSTRUCT *, char *, char *, ...);
+    void (*xml_deinit)(XMLSTRUCT *);
+
+    /* webserver helpers */
+    char* (*ws_uri)(WS_CONNINFO *);
+    void (*ws_close)(WS_CONNINFO *);
+    int (*ws_returnerror)(WS_CONNINFO *, int, char *);
+    char* (*ws_getvar)(WS_CONNINFO *, char *);
+
+    /* misc helpers */
+    char* (*server_ver)(void);
+    int (*server_name)(char *, int *);
+    void (*log)(int, char *, ...);
+
+    int (*db_count)(void);
+    int (*db_enum_start)(char **, DBQUERYINFO *);
+    int (*db_enum_fetch_row)(char **, char ***, DBQUERYINFO *);
+    int (*db_enum_end)(char **);
+    void (*stream)(WS_CONNINFO *, DBQUERYINFO *, char *);
+
+    PARSETREE (*sp_init)(void);
+    int (*sp_parse)(PARSETREE tree, char *term);
+    int (*sp_dispose)(PARSETREE tree);
+    char* (*sp_get_error)(PARSETREE tree);
+} PLUGIN_INPUT_FN;
 
 #endif /* _PLUGIN_H_ */

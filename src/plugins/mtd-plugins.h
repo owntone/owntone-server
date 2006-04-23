@@ -12,8 +12,14 @@
 
 #define PLUGIN_VERSION   1
 
-struct tag_wsconninfo;
-typedef struct tag_wsconninfo WS_CONNINFO;
+
+typedef void* PARSETREE;
+
+struct tag_ws_conninfo;
+typedef struct tag_ws_conninfo WS_CONNINFO;
+
+struct tag_xmlstruct;
+typedef struct tag_xmlstruct XMLSTRUCT;
 
 typedef struct tag_plugin_output_fn {
     void (*handler)(WS_CONNINFO *pwsc);
@@ -25,41 +31,16 @@ typedef struct tag_plugin_info {
     char *server;
     char *url;     /* regex of namespace to handle if OUTPUT type */
     void *handler_functions;
+    void *input_functions;
 } PLUGIN_INFO;
 
-/* these are the functions that must be exported by the plugin */
-PLUGIN_INFO *plugin_info(void);
-
 /* xml helpers for output plugins */
-struct tag_xmlstruct;
-typedef struct tag_xmlstruct XMLSTRUCT;
-typedef void *PARSETREE;
-
-extern XMLSTRUCT *pi_xml_init(WS_CONNINFO *pwsc, int emit_header);
-extern void pi_xml_push(XMLSTRUCT *pxml, char *term);
-extern void pi_xml_pop(XMLSTRUCT *pxml);
-extern void pi_xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...);
-extern void pi_xml_deinit(XMLSTRUCT *pxml);
-
-/* webserver helpers for output plugins */
-extern char *pi_ws_uri(WS_CONNINFO *pwsc);
-extern void pi_ws_close(WS_CONNINFO *pwsc);
-extern int pi_ws_returnerror(WS_CONNINFO *pwsc, int error, char *description);
-extern char *pi_ws_getvar(WS_CONNINFO *pwsc, char *var);
-
-/* misc helpers */
-extern char *pi_server_ver(void);
-extern int pi_server_name(char *, int *);
 
 /* logging */
 #define E_FATAL 0
 #define E_LOG   1
 #define E_INF   5
 #define E_DBG   9
-
-void pi_log(int level, char *fmt, ...);
-
-
 
 /* db stuff */
 typedef enum {
@@ -165,19 +146,40 @@ typedef struct tag_dbqueryinfo {
     void *output_info;
 } DBQUERYINFO;
 
+typedef struct tag_plugin_input_fn {
+    /* xml helpers */ 
+    XMLSTRUCT* (*xml_init)(WS_CONNINFO *, int);
+    void (*xml_push)(XMLSTRUCT *, char *);
+    void (*xml_pop)(XMLSTRUCT *);
+    void (*xml_output)(XMLSTRUCT *, char *, char *, ...);
+    void (*xml_deinit)(XMLSTRUCT *);
 
-/* db helpers */
-extern int pi_db_count(void);
-extern int pi_db_enum_start(char **pe, DBQUERYINFO *pinfo);
-extern int pi_db_enum_fetch_row(char **pe, char ***row, DBQUERYINFO *pinfo);
-extern int pi_db_enum_end(char **pe);
-extern void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id);
+    /* webserver helpers */
+    char* (*ws_uri)(WS_CONNINFO *);
+    void (*ws_close)(WS_CONNINFO *);
+    int (*ws_returnerror)(WS_CONNINFO *, int, char *);
+    char* (*ws_getvar)(WS_CONNINFO *, char *);
 
-/* smart parser helpers */
-extern PARSETREE pi_sp_init(void);
-extern int pi_sp_parse(PARSETREE tree, char *term);
-extern int pi_sp_dispose(PARSETREE tree);
-extern char *pi_sp_get_error(PARSETREE tree);
+    /* misc helpers */
+    char* (*server_ver)(void);
+    int (*server_name)(char *, int *);
+    void (*log)(int, char *, ...);
+
+    int (*db_count)(void);
+    int (*db_enum_start)(char **, DBQUERYINFO *);
+    int (*db_enum_fetch_row)(char **, char ***, DBQUERYINFO *);
+    int (*db_enum_end)(char **);
+    void (*stream)(WS_CONNINFO *, DBQUERYINFO *, char *);
+
+    PARSETREE (*sp_init)(void);
+    int (*sp_parse)(PARSETREE tree, char *term);
+    int (*sp_dispose)(PARSETREE tree);
+    char* (*sp_get_error)(PARSETREE tree);
+} PLUGIN_INPUT_FN;
+
+
+/* these are the functions that must be exported by the plugin */
+PLUGIN_INFO *plugin_info(void);
 
 
 #endif /* _MTD_PLUGINS_H_ */

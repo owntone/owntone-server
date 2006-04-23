@@ -68,6 +68,65 @@ void _plugin_writelock(void);
 void _plugin_unlock(void);
 int _plugin_error(char **pe, int error, ...);
 
+/* Helpers */
+XMLSTRUCT *pi_xml_init(WS_CONNINFO *pwsc, int emit_header);
+void pi_xml_push(XMLSTRUCT *pxml, char *term);
+void pi_xml_pop(XMLSTRUCT *pxml);
+void pi_xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...);
+void pi_xml_deinit(XMLSTRUCT *pxml);
+
+/* webserver helpers */
+char *pi_ws_uri(WS_CONNINFO *pwsc);
+void pi_ws_close(WS_CONNINFO *pwsc);
+int pi_ws_returnerror(WS_CONNINFO *pwsc, int error, char *description);
+char *pi_ws_getvar(WS_CONNINFO *pwsc, char *var);
+
+/* misc helpers */
+char *pi_server_ver(void);
+int pi_server_name(char *, int *);
+void pi_log(int, char *, ...);
+
+/* db helpers */
+int pi_db_count(void);
+int pi_db_enum_start(char **pe, DBQUERYINFO *pinfo);
+int pi_db_enum_fetch_row(char **pe, char ***row, DBQUERYINFO *pinfo);
+int pi_db_enum_end(char **pe);
+void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id);
+
+/* smart parser helpers */
+PARSETREE pi_sp_init(void);
+int pi_sp_parse(PARSETREE tree, char *term);
+int pi_sp_dispose(PARSETREE tree);
+char *pi_sp_get_error(PARSETREE tree);
+
+PLUGIN_INPUT_FN pi = {
+    pi_xml_init,
+    pi_xml_push,
+    pi_xml_pop,
+    pi_xml_output,
+    pi_xml_deinit,
+
+    pi_ws_uri,
+    pi_ws_close,
+    pi_ws_returnerror,
+    pi_ws_getvar,
+
+    pi_server_ver,
+    pi_server_name,
+    pi_log,
+
+    pi_db_count,
+    pi_db_enum_start,
+    pi_db_enum_fetch_row,
+    pi_db_enum_end,
+    pi_stream,
+
+    pi_sp_init,
+    pi_sp_parse,
+    pi_sp_dispose,
+    pi_sp_get_error
+};
+
 /**
  * initialize stuff for plugins
  *
@@ -191,6 +250,7 @@ int plugin_load(char **pe, char *path) {
     ppi->functions = pinfo->handler_functions;
 
     DPRINTF(E_INF,L_PLUG,"Loaded plugin %s (%s)\n",path,ppi->versionstring);
+    pinfo->pi = (void*)&pi;
     
     _plugin_writelock();
     if(!_plugin_initialized) {
@@ -355,8 +415,8 @@ void pi_ws_close(WS_CONNINFO *pwsc) {
     pwsc->close=1;
 }
 
-void pi_ws_returnerror(WS_CONNINFO *pwsc, int error, char *description) {
-    ws_returnerror(pwsc,error,description);
+int pi_ws_returnerror(WS_CONNINFO *pwsc, int error, char *description) {
+    return ws_returnerror(pwsc,error,description);
 }
 
 char *pi_ws_getvar(WS_CONNINFO *pwsc, char *var) {
