@@ -89,7 +89,7 @@ void pi_log(int, char *, ...);
 /* db helpers */
 int pi_db_count(void);
 int pi_db_enum_start(char **pe, DBQUERYINFO *pinfo);
-int pi_db_enum_fetch_row(char **pe, char ***row, DBQUERYINFO *pinfo);
+int pi_db_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo);
 int pi_db_enum_end(char **pe);
 void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id);
 

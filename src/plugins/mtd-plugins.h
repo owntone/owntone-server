@@ -22,7 +22,8 @@ struct tag_xmlstruct;
 typedef struct tag_xmlstruct XMLSTRUCT;
 
 typedef struct tag_plugin_output_fn {
-    void (*handler)(WS_CONNINFO *pwsc);
+    void(*handler)(WS_CONNINFO *pwsc);
+    int(*auth)(WS_CONNINFO *pwsc, char *username, char *pw);
 } PLUGIN_OUTPUT_FN;
 
 typedef struct tag_plugin_info {
@@ -31,7 +32,7 @@ typedef struct tag_plugin_info {
     char *server;
     char *url;     /* regex of namespace to handle if OUTPUT type */
     void *handler_functions;
-    void *input_functions;
+    void *fn; /* input functions*/
 } PLUGIN_INFO;
 
 /* xml helpers for output plugins */
