@@ -68,18 +68,10 @@ void _plugin_writelock(void);
 void _plugin_unlock(void);
 int _plugin_error(char **pe, int error, ...);
 
-/* Helpers */
-XMLSTRUCT *pi_xml_init(WS_CONNINFO *pwsc, int emit_header);
-void pi_xml_push(XMLSTRUCT *pxml, char *term);
-void pi_xml_pop(XMLSTRUCT *pxml);
-void pi_xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...);
-void pi_xml_deinit(XMLSTRUCT *pxml);
-
 /* webserver helpers */
 char *pi_ws_uri(WS_CONNINFO *pwsc);
 void pi_ws_close(WS_CONNINFO *pwsc);
-int pi_ws_returnerror(WS_CONNINFO *pwsc, int error, char *description);
-char *pi_ws_getvar(WS_CONNINFO *pwsc, char *var);
+int pi_ws_fd(WS_CONNINFO *pwsc);
 
 /* misc helpers */
 char *pi_server_ver(void);
@@ -89,27 +81,22 @@ void pi_log(int, char *, ...);
 /* db helpers */
 int pi_db_count(void);
 int pi_db_enum_start(char **pe, DBQUERYINFO *pinfo);
-int pi_db_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo);
+int pi_db_enum_fetch_row(char **pe, char ***row, DBQUERYINFO *pinfo);
 int pi_db_enum_end(char **pe);
 void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id);
 
-/* smart parser helpers */
-PARSETREE pi_sp_init(void);
 int pi_sp_parse(PARSETREE tree, char *term);
-int pi_sp_dispose(PARSETREE tree);
-char *pi_sp_get_error(PARSETREE tree);
 
 PLUGIN_INPUT_FN pi = {
-    pi_xml_init,
-    pi_xml_push,
-    pi_xml_pop,
-    pi_xml_output,
-    pi_xml_deinit,
-
     pi_ws_uri,
     pi_ws_close,
-    pi_ws_returnerror,
-    pi_ws_getvar,
+    ws_returnerror,
+    ws_getvar,
+    ws_writefd,
+    ws_addresponseheader,
+    ws_emitheaders,
+    pi_ws_fd,
+    ws_getrequestheader,
 
     pi_server_ver,
     pi_server_name,
@@ -121,10 +108,10 @@ PLUGIN_INPUT_FN pi = {
     pi_db_enum_end,
     pi_stream,
 
-    pi_sp_init,
+    sp_init,
     pi_sp_parse,
-    pi_sp_dispose,
-    pi_sp_get_error
+    sp_dispose,
+    sp_get_error
 };
 
 /**
@@ -377,36 +364,6 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
  * interface to older plugins even if we get newer functions or apis
  * upstream... it's a binary compatibility layer.
  */
-XMLSTRUCT *pi_xml_init(WS_CONNINFO *pwsc, int emit_header) {
-    return xml_init(pwsc, emit_header);
-}
-
-void pi_xml_push(XMLSTRUCT *pxml, char *term) {
-    xml_push(pxml, term);
-    return;
-}
-
-void pi_xml_pop(XMLSTRUCT *pxml) {
-    xml_pop(pxml);
-    return;
-}
-
-/* FIXME: 256? */
-void pi_xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...) {
-    char buf[256];
-    va_list ap;
-
-    va_start(ap,fmt);
-    vsnprintf(buf,sizeof(buf),fmt,ap);
-    va_end(ap);
-
-    xml_output(pxml,section,"%s",buf);
-}
-
-void pi_xml_deinit(XMLSTRUCT *pxml) {
-    xml_deinit(pxml);
-}
-
 char *pi_ws_uri(WS_CONNINFO *pwsc) {
     return pwsc->uri;
 }
@@ -415,12 +372,8 @@ void pi_ws_close(WS_CONNINFO *pwsc) {
     pwsc->close=1;
 }
 
-int pi_ws_returnerror(WS_CONNINFO *pwsc, int error, char *description) {
-    return ws_returnerror(pwsc,error,description);
-}
-
-char *pi_ws_getvar(WS_CONNINFO *pwsc, char *var) {
-    return ws_getvar(pwsc,var);
+int pi_ws_fd(WS_CONNINFO *pwsc) {
+    return pwsc->fd;
 }
 
 void pi_log(int level, char *fmt, ...) {
@@ -453,31 +406,19 @@ int pi_db_enum_start(char **pe, DBQUERYINFO *pinfo) {
     return db_enum_start(pe, pinfo);
 }
 
-int pi_db_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo) {
-    return db_enum_fetch_row(pe, row, pinfo);
+int pi_db_enum_fetch_row(char **pe, char ***row, DBQUERYINFO *pinfo) {
+    return db_enum_fetch_row(pe, (PACKED_MP3FILE*)row, pinfo);
 }
 
 int pi_db_enum_end(char **pe) {
     return db_enum_end(pe);
 }
 
-PARSETREE pi_sp_init(void) {
-    return sp_init();
-}
-
-int pi_sp_parse(PARSETREE tree, char *term) {
-    return sp_parse(tree,term,0);
-}
-
-int pi_sp_dispose(PARSETREE tree) {
-    return sp_dispose(tree);
-}
-
-char *pi_sp_get_error(PARSETREE tree) {
-    return sp_get_error(tree);
-}
-
 void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
     dispatch_stream_id(pwsc, pqi,id);
     return;
+}
+
+int pi_sp_parse(PARSETREE tree, char *term) {
+    return sp_parse(tree, term, 0);
 }

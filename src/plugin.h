@@ -63,18 +63,16 @@ typedef struct tag_plugin_info {
 
 /* version 1 plugin imports */
 typedef struct tag_plugin_input_fn {
-    /* xml helpers */ 
-    XMLSTRUCT* (*xml_init)(WS_CONNINFO *, int);
-    void (*xml_push)(XMLSTRUCT *, char *);
-    void (*xml_pop)(XMLSTRUCT *);
-    void (*xml_output)(XMLSTRUCT *, char *, char *, ...);
-    void (*xml_deinit)(XMLSTRUCT *);
-
     /* webserver helpers */
     char* (*ws_uri)(WS_CONNINFO *);
     void (*ws_close)(WS_CONNINFO *);
     int (*ws_returnerror)(WS_CONNINFO *, int, char *);
     char* (*ws_getvar)(WS_CONNINFO *, char *);
+    int (*ws_writefd)(WS_CONNINFO *, char *, ...);
+    int (*ws_addresponseheader)(WS_CONNINFO *, char *, char *, ...);
+    void (*ws_emitheaders)(WS_CONNINFO *);
+    int (*ws_fd)(WS_CONNINFO *);
+    char* (*ws_getrequestheader)(WS_CONNINFO *, char *);
 
     /* misc helpers */
     char* (*server_ver)(void);
