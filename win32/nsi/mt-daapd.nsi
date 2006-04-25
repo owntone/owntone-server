@@ -57,6 +57,10 @@ InstallDirRegKey HKLM "${PRODUCT_DIR_REGKEY}" ""
 ShowInstDetails show
 ShowUnInstDetails show
 
+!define PROJROOT "..\..\.."
+!define MTD_SOURCE "${PROJROOT}\mt-daapd\win32\Release"
+!define DLL_SOURCE "${PROJROOT}\win32\dll"
+!define ADMIN_ROOT "${PROJROOT}\mt-daapd\admin-root"
 
 Section -Pre
   nsSCM::QueryStatus "Bonjour Service"
@@ -73,61 +77,61 @@ SectionEnd
 Section "MainSection" SEC01
   SetOutPath "$2"
   SetOverwrite ifnewer
-  File "..\Release\mt-daapd.exe"
-  File "..\..\..\win32\dll\gnu_regex.dll"
-  File "..\..\..\win32\dll\pthreadVC2.dll"
-  File "..\..\..\win32\dll\sqlite.dll"
-  File "..\..\..\win32\dll\sqlite3.dll"
-  File "..\..\..\win32\dll\zlib.dll"
+  File "${MTD_SOURCE}\mt-daapd.exe"
+  File "${DLL_SOURCE}\gnu_regex.dll"
+  File "${DLL_SOURCE}\pthreadVC2.dll"
+  File "${DLL_SOURCE}\sqlite.dll"
+  File "${DLL_SOURCE}\sqlite3.dll"
+  File "${DLL_SOURCE}\zlib1.dll"
 
   SetOutPath "$2\admin-root"
-  File "..\..\admin-root\thanks.html"
-  File "..\..\admin-root\status.html"
-  File "..\..\admin-root\smartpopup.html"
-  File "..\..\admin-root\smart.js"
-  File "..\..\admin-root\smart.html"
-  File "..\..\admin-root\required.gif"
-  File "..\..\admin-root\playlist.js"
-  File "..\..\admin-root\playlist.html"
-  File "..\..\admin-root\mt-daapd.png"
-  File "..\..\admin-root\mt-daapd.js"
-  File "..\..\admin-root\mt-daapd.css"
-  File "..\..\admin-root\linkTransparent.gif"
-  File "..\..\admin-root\linkOpaque.gif"
-  File "..\..\admin-root\index.html"
-  File "..\..\admin-root\hdr.html"
-  File "..\..\admin-root\gpl-license.txt"
-  File "..\..\admin-root\gpl-license.html"
-  File "..\..\admin-root\ftr.html"
-  File "..\..\admin-root\feedback.html"
-  File "..\..\admin-root\favicon.ico"
-  File "..\..\admin-root\DAAPApplet-0.1.jar"
-  File "..\..\admin-root\CREDITS"
-  File "..\..\admin-root\config-update.html"
-  File "..\..\admin-root\config.html"
-  File "..\..\admin-root\config.js"
-  File "..\..\admin-root\aspl-license.txt"
-  File "..\..\admin-root\aspl-license.html"
-  File "..\..\admin-root\applet.html"
-  File "..\..\admin-root\smart.js"
+  File "${ADMIN_ROOT}\thanks.html"
+  File "${ADMIN_ROOT}\status.html"
+  File "${ADMIN_ROOT}\smartpopup.html"
+  File "${ADMIN_ROOT}\smart.js"
+  File "${ADMIN_ROOT}\smart.html"
+  File "${ADMIN_ROOT}\required.gif"
+  File "${ADMIN_ROOT}\playlist.js"
+  File "${ADMIN_ROOT}\playlist.html"
+  File "${ADMIN_ROOT}\mt-daapd.png"
+  File "${ADMIN_ROOT}\mt-daapd.js"
+  File "${ADMIN_ROOT}\mt-daapd.css"
+  File "${ADMIN_ROOT}\linkTransparent.gif"
+  File "${ADMIN_ROOT}\linkOpaque.gif"
+  File "${ADMIN_ROOT}\index.html"
+  File "${ADMIN_ROOT}\hdr.html"
+  File "${ADMIN_ROOT}\gpl-license.txt"
+  File "${ADMIN_ROOT}\gpl-license.html"
+  File "${ADMIN_ROOT}\ftr.html"
+  File "${ADMIN_ROOT}\feedback.html"
+  File "${ADMIN_ROOT}\favicon.ico"
+  File "${ADMIN_ROOT}\DAAPApplet-0.1.jar"
+  File "${ADMIN_ROOT}\CREDITS"
+  File "${ADMIN_ROOT}\config-update.html"
+  File "${ADMIN_ROOT}\config.html"
+  File "${ADMIN_ROOT}\config.js"
+  File "${ADMIN_ROOT}\aspl-license.txt"
+  File "${ADMIN_ROOT}\aspl-license.html"
+  File "${ADMIN_ROOT}\applet.html"
+  File "${ADMIN_ROOT}\smart.js"
   SetOutPath "$2\admin-root\lib-js"
-  File "..\..\admin-root\lib-js\prototype.js"
-  File "..\..\admin-root\lib-js\rico.js"
+  File "${ADMIN_ROOT}\lib-js\prototype.js"
+  File "${ADMIN_ROOT}\lib-js\rico.js"
   SetOutPath "$2\admin-root\lib-js\script.aculo.us"
-  File "..\..\admin-root\lib-js\script.aculo.us\builder.js"
-  File "..\..\admin-root\lib-js\script.aculo.us\controls.js"
-  File "..\..\admin-root\lib-js\script.aculo.us\dragdrop.js"
-  File "..\..\admin-root\lib-js\script.aculo.us\effects.js"
-  File "..\..\admin-root\lib-js\script.aculo.us\scriptaculous.js"
-  File "..\..\admin-root\lib-js\script.aculo.us\slider.js"
-  File "..\..\admin-root\lib-js\script.aculo.us\unittest.js"
+  File "${ADMIN_ROOT}\lib-js\script.aculo.us\builder.js"
+  File "${ADMIN_ROOT}\lib-js\script.aculo.us\controls.js"
+  File "${ADMIN_ROOT}\lib-js\script.aculo.us\dragdrop.js"
+  File "${ADMIN_ROOT}\lib-js\script.aculo.us\effects.js"
+  File "${ADMIN_ROOT}\lib-js\script.aculo.us\scriptaculous.js"
+  File "${ADMIN_ROOT}\lib-js\script.aculo.us\slider.js"
+  File "${ADMIN_ROOT}\lib-js\script.aculo.us\unittest.js"
   SetOutPath "$2"
   File "mt-daapd-example.conf"
   IfFileExists "$2\mt-daapd.conf" HasConf
   SetOverwrite off
   CopyFiles "$2\mt-daapd-example.conf" "$2\mt-daapd.conf"
-HasConf:
   WriteINIStr "$2\mt-daapd.conf" "general" "mp3_dir" $3
+HasConf:
   SetAutoClose False
 SectionEnd
 
@@ -160,6 +164,8 @@ Section -Post
   MessageBox MB_OK "Error installing service: $1"
 
   lbl_install_success:
+  nsSCM::Start "${PRODUCT_NAME}"
+
 SectionEnd
 
 
@@ -207,7 +213,7 @@ MusicDirectoryPage:
   StrCpy $9 "2"
   !insertmacro MUI_HEADER_TEXT "Choose Music Location" "Choose the folder containing music to share."
   !insertmacro MUI_INNERDIALOG_TEXT 1041 "Music Folder"
-  !insertmacro MUI_INNERDIALOG_TEXT 1019 "C:\Documents and Settings"
+  !insertmacro MUI_INNERDIALOG_TEXT 1019 "$DOCUMENTS\My Music"
   !insertmacro MUI_INNERDIALOG_TEXT 1006 "Setup will share the music in the following folder.$\r$\n$\r$\nTo share a different folder, click Browse and select another folder. Click Install to start the installation."
 EndDirectoryShow:
 FunctionEnd
@@ -222,7 +228,9 @@ SaveInstallDir:
   Goto EndDirectoryLeave
 
 SaveMusicDir:
-  StrCpy $3 $INSTDIR
+  Push $INSTDIR
+  Call GetParent
+  Pop $3
 
 EndDirectoryLeave:
 FunctionEnd
@@ -248,6 +256,44 @@ FunctionEnd
 
 ;--------------------------------
 ;Helper Functions
+
+; GetParent
+; input, top of stack  (e.g. C:\Program Files\Poop)
+; output, top of stack (replaces, with e.g. C:\Program Files)
+; modifies no other variables.
+;
+; Usage:
+;   Push "C:\Program Files\Directory\Whatever"
+;   Call GetParent
+;   Pop $R0
+;   ; at this point $R0 will equal "C:\Program Files\Directory"
+Function GetParent
+ 
+  Exch $R0
+  Push $R1
+  Push $R2
+  Push $R3
+  
+  StrCpy $R1 0
+  StrLen $R2 $R0
+   
+  loop:
+    IntOp $R1 $R1 + 1
+    IntCmp $R1 $R2 get 0 get
+    StrCpy $R3 $R0 1 -$R1
+    StrCmp $R3 "\" get
+    Goto loop
+   
+  get:
+    StrCpy $R0 $R0 -$R1
+     
+    Pop $R3
+    Pop $R2
+    Pop $R1
+    Exch $R0
+     
+FunctionEnd
+
 
 Function GetRoot
   Exch $0
@@ -300,9 +346,9 @@ Section Uninstall
   Delete "$INSTDIR\gnu_regex.dll"
   Delete "$INSTDIR\pthreadVC2.dll"
   Delete "$INSTDIR\sqlite.dll"
-  Delete "$INSTDIR\sqlie3.dll"
+  Delete "$INSTDIR\sqlite3.dll"
   Delete "$INSTDIR\mt-daapd.conf"
-  Delete "$INSTDIR\zlib.dll"
+  Delete "$INSTDIR\zlib1.dll"
   Delete "$INSTDIR\mt-daapd-example.conf"
   Delete "$INSTDIR\admin-root\applet.html"
   Delete "$INSTDIR\admin-root\aspl-license.html"

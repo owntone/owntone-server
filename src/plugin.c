@@ -37,6 +37,7 @@
 #include "err.h"
 #include "os.h"
 #include "plugin.h"
+#include "rend.h"
 #include "smart-parser.h"
 #include "xml-rpc.h"
 #include "webserver.h"
@@ -47,6 +48,7 @@ typedef struct tag_pluginentry {
     char *versionstring;
     regex_t regex;
     void *functions;
+    PLUGIN_REND_INFO **rend_info;
     struct tag_pluginentry *next;
 } PLUGIN_ENTRY;
 
@@ -236,6 +238,7 @@ int plugin_load(char **pe, char *path) {
         }
     }
     ppi->functions = pinfo->handler_functions;
+    ppi->rend_info = pinfo->rend_info;
 
     DPRINTF(E_INF,L_PLUG,"Loaded plugin %s (%s)\n",path,ppi->versionstring);
     pinfo->pi = (void*)&pi;
@@ -305,8 +308,8 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
                 _plugin_unlock();
                 return;
             }
-            ppi = ppi->next;
         }
+        ppi = ppi->next;
     }
 
     /* should 500 here or something */
@@ -314,6 +317,35 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
     _plugin_unlock();
     return;
 } 
+
+/**
+ * walk through the plugins and register whatever rendezvous
+ * names the clients want
+ */
+int plugin_rend_register(char *name, int port, char *iface) {
+    PLUGIN_ENTRY *ppi;
+    PLUGIN_REND_INFO *pri;
+
+    _plugin_readlock();
+    ppi = _plugin_list.next;
+
+    while(ppi) {
+        DPRINTF(E_DBG,L_PLUG,"Checking %s\n",ppi->versionstring);
+        if(ppi->rend_info) {
+            pri = *(ppi->rend_info);
+            while(pri->type) {
+                DPRINTF(E_DBG,L_PLUG,"Registering %s\n",pri->type);
+                rend_register(name,pri->type,port,iface,pri->txt);
+                pri++;
+            }
+        }
+        ppi=ppi->next;
+    }
+
+    _plugin_unlock();
+
+    return TRUE;
+}
 
 /**
  * Test password for the handled namespace
@@ -348,8 +380,8 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
 		    return TRUE;
 		}
             }
-            ppi = ppi->next;
         }
+        ppi = ppi->next;
     }
 
     /* should 500 here or something */

@@ -442,6 +442,9 @@ int main(int argc, char *argv[]) {
         iface = conf_alloc_string("general","interface","");
         rend_register(servername,"_daap._tcp",ws_config.port,iface,txtrecord);
         rend_register(servername,"_http._tcp",ws_config.port,iface,txtrecord);
+        
+        plugin_rend_register(servername,ws_config.port,iface);
+        
         free(servername);
         free(iface);
     }

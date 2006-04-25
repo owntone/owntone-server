@@ -23,6 +23,11 @@ typedef struct tag_plugin_output_fn {
     int(*auth)(WS_CONNINFO *pwsc, char *username, char *pw);
 } PLUGIN_OUTPUT_FN;
 
+typedef struct tag_plugin_rend_info {
+    char *type;
+    char *txt;
+} PLUGIN_REND_INFO;
+
 typedef struct tag_plugin_info {
     int version;
     int type;
@@ -30,6 +35,7 @@ typedef struct tag_plugin_info {
     char *url;     /* regex of namespace to handle if OUTPUT type */
     void *handler_functions;
     void *fn; /* input functions*/
+    PLUGIN_REND_INFO **rend_info;
 } PLUGIN_INFO;
 
 /* xml helpers for output plugins */

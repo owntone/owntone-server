@@ -255,6 +255,9 @@
 				RelativePath="..\src\os.h">
 			</File>
 			<File
+				RelativePath="..\src\plugin.h">
+			</File>
+			<File
 				RelativePath="..\src\rend.h">
 			</File>
 			<File

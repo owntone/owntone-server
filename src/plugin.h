@@ -33,6 +33,8 @@ extern int plugin_deinit(void);
 extern int plugin_url_candispatch(WS_CONNINFO *pwsc);
 extern void plugin_url_handle(WS_CONNINFO *pwsc);
 extern int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw);
+extern int plugin_rend_register(char *name, int port, char *iface);
+
 
 #define PLUGIN_E_SUCCESS     0
 #define PLUGIN_E_NOLOAD      1
@@ -52,6 +54,11 @@ typedef struct tag_plugin_output_fn {
 } PLUGIN_OUTPUT_FN;
 
 /* version 1 plugin info */
+typedef struct tag_plugin_rend_info {
+    char *type;
+    char *txt;
+} PLUGIN_REND_INFO;
+
 typedef struct tag_plugin_info {
     int version;
     int type;
@@ -59,6 +66,7 @@ typedef struct tag_plugin_info {
     char *url;      /* for output plugins */
     void *handler_functions;
     void *pi; /* exported functions */
+    PLUGIN_REND_INFO **rend_info;
 } PLUGIN_INFO;
 
 /* version 1 plugin imports */
