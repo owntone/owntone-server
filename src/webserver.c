@@ -994,6 +994,14 @@ int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
     return r_write(pwsc->fd,buffer,strlen(buffer));
 }
 
+/**
+* write a blob od data to the connfd
+*/
+int ws_writebinary(WS_CONNINFO *pwsc, char *data, int len) {
+    return r_write(pwsc->fd,data,len);
+}
+
+
 
 /*
  * ws_returnerror

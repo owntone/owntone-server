@@ -97,6 +97,7 @@ PLUGIN_INPUT_FN pi = {
     ws_emitheaders,
     pi_ws_fd,
     ws_getrequestheader,
+    ws_writebinary,
 
     pi_server_ver,
     pi_server_name,

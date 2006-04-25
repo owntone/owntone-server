@@ -73,6 +73,7 @@ typedef struct tag_plugin_input_fn {
     void (*ws_emitheaders)(WS_CONNINFO *);
     int (*ws_fd)(WS_CONNINFO *);
     char* (*ws_getrequestheader)(WS_CONNINFO *, char *);
+    int (*ws_writebinary)(WS_CONNINFO *, char *, int);
 
     /* misc helpers */
     char* (*server_ver)(void);

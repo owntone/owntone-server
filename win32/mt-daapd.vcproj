@@ -33,7 +33,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="zlib.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib"
+				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib"
 				OutputFile="$(OutDir)/mt-daapd.exe"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
@@ -83,7 +83,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="zlib.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib"
+				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib"
 				OutputFile="$(OutDir)/mt-daapd.exe"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
