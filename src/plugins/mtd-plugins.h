@@ -35,7 +35,7 @@ typedef struct tag_plugin_info {
     char *url;     /* regex of namespace to handle if OUTPUT type */
     void *handler_functions;
     void *fn; /* input functions*/
-    PLUGIN_REND_INFO **rend_info;
+    PLUGIN_REND_INFO *rend_info;
 } PLUGIN_INFO;
 
 /* xml helpers for output plugins */

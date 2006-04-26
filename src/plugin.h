@@ -66,7 +66,7 @@ typedef struct tag_plugin_info {
     char *url;      /* for output plugins */
     void *handler_functions;
     void *pi; /* exported functions */
-    PLUGIN_REND_INFO **rend_info;
+    PLUGIN_REND_INFO *rend_info;
 } PLUGIN_INFO;
 
 /* version 1 plugin imports */

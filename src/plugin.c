@@ -48,7 +48,7 @@ typedef struct tag_pluginentry {
     char *versionstring;
     regex_t regex;
     void *functions;
-    PLUGIN_REND_INFO **rend_info;
+    PLUGIN_REND_INFO *rend_info;
     struct tag_pluginentry *next;
 } PLUGIN_ENTRY;
 
@@ -325,6 +325,7 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
 int plugin_rend_register(char *name, int port, char *iface) {
     PLUGIN_ENTRY *ppi;
     PLUGIN_REND_INFO *pri;
+    char *txt;
 
     _plugin_readlock();
     ppi = _plugin_list.next;
@@ -332,10 +333,14 @@ int plugin_rend_register(char *name, int port, char *iface) {
     while(ppi) {
         DPRINTF(E_DBG,L_PLUG,"Checking %s\n",ppi->versionstring);
         if(ppi->rend_info) {
-            pri = *(ppi->rend_info);
+            pri = ppi->rend_info;
             while(pri->type) {
+                txt = pri->txt;
+                if(!pri->txt)
+                    txt = "";
+
                 DPRINTF(E_DBG,L_PLUG,"Registering %s\n",pri->type);
-                rend_register(name,pri->type,port,iface,pri->txt);
+                rend_register(name,pri->type,port,iface,txt);
                 pri++;
             }
         }
