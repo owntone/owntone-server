@@ -357,8 +357,14 @@ int scan_path(char *path) {
             DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
         } else {
             if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
-                DPRINTF(E_DBG,L_SCAN,"Found dir %s... recursing\n",pde->d_name);
-                scan_path(mp3_path);
+                if(conf_get_int("general","ignore_appledouble",1) && 
+                   ((strcasecmp(pde->d_name,".AppleDouble") == 0) ||
+                    (strcasecmp(pde->d_name,".AppleDesktop") == 0))) {
+                    DPRINTF(E_DBG,L_SCAN,"Skipping appledouble folder\n");
+                } else {
+                    DPRINTF(E_DBG,L_SCAN,"Found %s.. recursing\n",pde->d_name);
+                    scan_path(mp3_path);
+                }
             } else {
                 scan_filename(mp3_path, is_compdir, extensions);
             }
@@ -515,6 +521,19 @@ void scan_filename(char *path, int compdir, char *extensions) {
     } else {
         fname++;
     }
+
+    if(conf_get_int("scanning","ignore_dotfiles",0)) {
+        if(fname[0] == '.')
+            return;
+        if(strncmp(fname,":2e",3) == 0)
+           return;
+    }
+
+    if(conf_get_int("scanning","ignore_appledouble",1)) {
+        if(strncmp(fname,"._",2) == 0)
+            return;
+    }
+
 
     if(stat(mp3_path,&sb)) {
         DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
