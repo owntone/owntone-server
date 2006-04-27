@@ -357,10 +357,13 @@ int scan_path(char *path) {
             DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
         } else {
             if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
-                if(conf_get_int("general","ignore_appledouble",1) && 
+                if(conf_get_int("scanning","ignore_appledouble",1) && 
                    ((strcasecmp(pde->d_name,".AppleDouble") == 0) ||
                     (strcasecmp(pde->d_name,".AppleDesktop") == 0))) {
                     DPRINTF(E_DBG,L_SCAN,"Skipping appledouble folder\n");
+                } else if(conf_get_int("scanning","ignore_dotfiles",0) &&
+                          pde->d_name[0] == '.') {
+                    DPRINTF(E_DBG,L_SCAN,"Skipping dotfile\n");
                 } else {
                     DPRINTF(E_DBG,L_SCAN,"Found %s.. recursing\n",pde->d_name);
                     scan_path(mp3_path);
