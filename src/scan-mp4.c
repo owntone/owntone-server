@@ -110,7 +110,7 @@ int scan_get_mp4info(char *filename, MP3FILE *pmp3) {
 
             if(current_size > 4096) { /* Does this break anything? */
                 /* too big!  cover art, maybe? */
-                fseek(fin,current_size - 8 - 7,SEEK_CUR);
+                fseek(fin,current_size - 8,SEEK_CUR);
             } else {
                 len=current_size-7;  /* for ill-formed too-short tags */
                 if(len < 22)

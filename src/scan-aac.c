@@ -197,7 +197,6 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     pmp3->file_size = ftell(fin);
     fseek(fin,0,SEEK_SET);
 
-
     atom_offset=scan_aac_drilltoatom(fin, "moov:udta:meta:ilst", &atom_length);
     if(atom_offset != -1) {
         /* found the tag section - need to walk through now */
@@ -222,7 +221,7 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
 
             if(current_size > 4096) { /* Does this break anything? */
                 /* too big!  cover art, maybe? */
-                fseek(fin,current_size - 8 - 7,SEEK_CUR);
+                fseek(fin,current_size - 8,SEEK_CUR);
             } else {
                 len=current_size-7;  /* for ill-formed too-short tags */
                 if(len < 22)
