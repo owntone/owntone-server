@@ -150,7 +150,13 @@ typedef struct tag_packed_mp3file {
 #define PL_STATICFILE 2
 #define PL_STATICXML  3
 
+#define SCAN_NOT_COMPDIR  0
+#define SCAN_IS_COMPDIR   1
+#define SCAN_TEST_COMPDIR 2
+
 #define WINAMP_GENRE_UNKNOWN 148
+
+extern void scan_filename(char *path, int compdir, char *extensions);
 
 extern char *scan_winamp_genre[];
 extern int scan_init(char **patharray);

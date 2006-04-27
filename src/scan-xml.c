@@ -185,6 +185,23 @@ int scan_xml_translate_path(char *pold, char *pnew) {
     if((!pold)||(!strlen(pold)))
         return FALSE;
 
+    /* see if it's a valid out-of-root path */
+    if(strncmp(pold,"file://localhost/",17)==0) {
+        /* it's a local path.. is it a valid one? */
+        if(pold[18] == ':') {
+            /* windows */
+            realpath((char*)&pold[17],working_path);
+        } else {
+            realpath((char*)&pold[16],working_path);
+        }
+
+        if(scan_xml_is_file(working_path)) {
+            strcpy(pnew,working_path);
+            return TRUE;
+        }
+        /* not a real file... go ahead and brute force it */
+    }
+
     if(!path_found) {
         strcpy(working_path,pold);
 
@@ -647,6 +664,11 @@ int scan_xml_tracks_section(int action, char *info) {
             if(scan_xml_translate_path(song_path,real_path)) {
                 /* FIXME: Error handling */
                 pmp3=db_fetch_path(NULL,real_path,0);
+                if(!pmp3) { 
+                    /* file doesn't exist... let's add it? */
+                    scan_filename(real_path,SCAN_TEST_COMPDIR,NULL);
+                    pmp3=db_fetch_path(NULL,real_path,0);
+                }
                 if(pmp3) {
                     /* Update the existing record with the
                      * updated stuff we got from the iTunes xml file
