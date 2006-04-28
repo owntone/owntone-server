@@ -629,6 +629,8 @@ int os_islocaladdr(char *hostaddr) {
     int index;
 
     DPRINTF(E_DBG,L_MISC,"Checking if %s is local\n",hostaddr);
+    if(strncmp(hostaddr,"127.",4) == 0)
+        return TRUE;
 
     gethostname(hostname, sizeof(hostname));
     ht=gethostbyname(hostname);
