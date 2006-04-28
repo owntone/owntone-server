@@ -23,6 +23,8 @@
 #include "config.h"
 #endif
 
+#define _XOPEN_SOURCE 500  /** unix98?  pthread_once_t, etc */
+
 #include <errno.h>
 #include <pthread.h>
 #include <regex.h>

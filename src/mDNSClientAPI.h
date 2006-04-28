@@ -534,9 +534,6 @@ typedef   signed short mDNSs16;
 typedef unsigned short mDNSu16;
 #include <sys/types.h>
 typedef int32_t    mDNSs32;
-#ifndef u_int32_t
-# define u_int32_t uint32_t
-#endif
 typedef u_int32_t  mDNSu32;
 
 // To enforce useful type checking, we make mDNSInterfaceID be a pointer to a dummy struct

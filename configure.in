@@ -369,6 +369,8 @@ AC_CHECK_FUNCS(select socket strdup strerror)
 
 dnl check to see if we need -lsocket (solaris)
 
+AC_CHECK_LIB(dl,dlsym)
+
 V_NETLIBS=""
 AC_CHECK_LIB(socket,socket,V_NETLIBS="-lsocket $V_NETLIBS",,)
 
