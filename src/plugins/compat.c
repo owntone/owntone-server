@@ -441,7 +441,7 @@ char *strsep(char **stringp, const char *delim) {
         x = strtok_r(NULL, "=", &sp);   // x = NULL
                 // s = "abc\0-def\0"
 */
-char *strtok_r(char *s, const char *delim, char **last)
+char *strtok_r(char *s, char *delim, char **last)
 {
   char *spanp;
   int c, sc;

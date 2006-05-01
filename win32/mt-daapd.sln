@@ -1,0 +1,29 @@
+Microsoft Visual Studio Solution File, Format Version 8.00
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "mt-daapd", "mt-daapd.vcproj", "{CB40C666-11D7-456B-B774-BCA42F675BB5}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rsp", "rsp.vcproj", "{68CCEA19-503F-4894-8AE3-B1673FDEA920}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Global
+	GlobalSection(SolutionConfiguration) = preSolution
+		Debug = Debug
+		Release = Release
+	EndGlobalSection
+	GlobalSection(ProjectConfiguration) = postSolution
+		{CB40C666-11D7-456B-B774-BCA42F675BB5}.Debug.ActiveCfg = Debug|Win32
+		{CB40C666-11D7-456B-B774-BCA42F675BB5}.Debug.Build.0 = Debug|Win32
+		{CB40C666-11D7-456B-B774-BCA42F675BB5}.Release.ActiveCfg = Release|Win32
+		{CB40C666-11D7-456B-B774-BCA42F675BB5}.Release.Build.0 = Release|Win32
+		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Debug.ActiveCfg = Debug|Win32
+		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Debug.Build.0 = Debug|Win32
+		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Release.ActiveCfg = Release|Win32
+		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Release.Build.0 = Release|Win32
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+	EndGlobalSection
+	GlobalSection(ExtensibilityAddIns) = postSolution
+	EndGlobalSection
+EndGlobal

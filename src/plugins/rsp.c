@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "compat.h"
 #include "mtd-plugins.h"
 #include "rsp.h"
 #include "xml-rpc.h"
@@ -27,13 +28,19 @@ void rsp_error(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, int eno, char *estr);
 
 /* Globals */
 PLUGIN_OUTPUT_FN _pofn = { plugin_handler, plugin_auth };
+PLUGIN_REND_INFO _pri[] = {
+    { "_rsp._tcp", NULL },
+    { NULL, NULL }
+};
+
 PLUGIN_INFO _pi = { 
     PLUGIN_VERSION, 
     PLUGIN_OUTPUT, 
     "rsp/" RSP_VERSION, 
     "/rsp/.*",
     &_pofn,
-    NULL
+    NULL,
+    _pri
 };
 
 typedef struct tag_response {

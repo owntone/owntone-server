@@ -1,0 +1,5 @@
+LIBRARY	rsp
+
+EXPORTS
+	plugin_info
+	

@@ -15,6 +15,7 @@
 #include <time.h>
 #include <zlib.h>
 
+#include "compat.h"
 #include "mtd-plugins.h"
 #include "rsp.h"
 #include "xml-rpc.h"
@@ -27,7 +28,6 @@ typedef struct tag_xmlstack {
 
 #define XML_STREAM_BLOCK 4096
 typedef struct tag_xml_streambuffer {
-    int fd;
     z_stream strm;
     unsigned char *in_buffer;
     unsigned char *out_buffer;
@@ -46,9 +46,9 @@ void xml_set_config(WS_CONNINFO *pwsc);
 void xml_return_error(WS_CONNINFO *pwsc, int errno, char *errstr);
 char *xml_entity_encode(char *original);
 
-XML_STREAMBUFFER *xml_stream_open(int fd);
-int xml_stream_write(XML_STREAMBUFFER *psb, char *out);
-int xml_stream_close(XML_STREAMBUFFER *psb);
+XML_STREAMBUFFER *xml_stream_open(void);
+int xml_stream_write(XMLSTRUCT *pxml, char *out);
+int xml_stream_close(XMLSTRUCT *pxml);
 
 void xml_write(XMLSTRUCT *pxml, char *fmt, ...) {
     char buffer[1024];
@@ -59,8 +59,7 @@ void xml_write(XMLSTRUCT *pxml, char *fmt, ...) {
     va_end(ap);
 
     if(pxml->psb) {
-        infn->log(E_DBG,"Writing %d bytes to output\n",strlen(buffer));
-        xml_stream_write(pxml->psb, buffer);
+        xml_stream_write(pxml, buffer);
     } else {
         infn->ws_writefd(pxml->pwsc,"%s",buffer);
     }
@@ -84,7 +83,7 @@ void xml_return_error(WS_CONNINFO *pwsc, int errno, char *errstr) {
 /**
  * open a gzip stream
  */
-XML_STREAMBUFFER *xml_stream_open(int fd) {
+XML_STREAMBUFFER *xml_stream_open(void) {
     XML_STREAMBUFFER *psb;
 
     psb = (XML_STREAMBUFFER*) malloc(sizeof(XML_STREAMBUFFER));
@@ -92,7 +91,6 @@ XML_STREAMBUFFER *xml_stream_open(int fd) {
         infn->log(E_FATAL,"xml_stream_open: malloc\n");
     }
 
-    psb->fd = fd;
     psb->out_buffer = (unsigned char*) malloc(XML_STREAM_BLOCK);
     psb->in_buffer = (unsigned char*) malloc(XML_STREAM_BLOCK);
 
@@ -115,10 +113,10 @@ XML_STREAMBUFFER *xml_stream_open(int fd) {
 /**
  * write a block to the stream
  */
-int xml_stream_write(XML_STREAMBUFFER *psb, char *out) {
-    int bytes = strlen(out);
+int xml_stream_write(XMLSTRUCT *pxml, char *out) {
     int done = 0;
     int result;
+    XML_STREAMBUFFER *psb = pxml->psb;
 
     if((!out)||(!strlen(out)))
         return TRUE;
@@ -126,8 +124,8 @@ int xml_stream_write(XML_STREAMBUFFER *psb, char *out) {
     if(strlen(out) > 1024)
         return TRUE;
 
-    memcpy(psb->in_buffer,out,strlen(out));
-    psb->strm.avail_in = strlen(out);
+    memcpy(psb->in_buffer,out,(int)strlen(out));
+    psb->strm.avail_in = (int)strlen(out);
     psb->strm.next_in = psb->in_buffer;
     psb->strm.next_out = psb->out_buffer;
     psb->strm.avail_out = XML_STREAM_BLOCK;
@@ -137,11 +135,7 @@ int xml_stream_write(XML_STREAMBUFFER *psb, char *out) {
         if(result != Z_OK) {
             infn->log(E_FATAL,"Error in zlib: %d\n",result);
         }
-        /* FIXME: error handling */
-        infn->log(E_DBG,"Writing %d bytes compressed info (avail: %d)\n",
-                  XML_STREAM_BLOCK-psb->strm.avail_out,
-                  psb->strm.avail_out);
-        write(psb->fd,psb->out_buffer,XML_STREAM_BLOCK-psb->strm.avail_out);
+        infn->ws_writebinary(pxml->pwsc,psb->out_buffer,XML_STREAM_BLOCK-psb->strm.avail_out);
         if(psb->strm.avail_out != 0) {
             done=1;
         } else {
@@ -155,8 +149,9 @@ int xml_stream_write(XML_STREAMBUFFER *psb, char *out) {
 /**
  * close the stream
  */
-int xml_stream_close(XML_STREAMBUFFER *psb) {
+int xml_stream_close(XMLSTRUCT *pxml) {
     int done = 0;
+    XML_STREAMBUFFER *psb = pxml->psb;
 
     /* flush what's left */
     while(!done) {
@@ -166,7 +161,7 @@ int xml_stream_close(XML_STREAMBUFFER *psb) {
         psb->strm.next_in = psb->in_buffer;
         
         deflate(&psb->strm,Z_FINISH);
-        write(psb->fd,psb->out_buffer,XML_STREAM_BLOCK - psb->strm.avail_out);
+        infn->ws_writebinary(pxml->pwsc,psb->out_buffer,XML_STREAM_BLOCK - psb->strm.avail_out);
 
         if(psb->strm.avail_out != 0)
             done=1;
@@ -179,6 +174,8 @@ int xml_stream_close(XML_STREAMBUFFER *psb) {
     if(psb->in_buffer != NULL)
         free(psb->in_buffer);
     free(psb);
+
+    return TRUE;
 }
 
 /**
@@ -209,7 +206,7 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
 
     if((!nogzip) && (accept) && (strcasestr(accept,"gzip"))) {
         infn->log(E_LOG,"Gzipping output\n");
-        pxml->psb = xml_stream_open(infn->ws_fd(pwsc));
+        pxml->psb = xml_stream_open();
         if(pxml->psb) {
             infn->ws_addresponseheader(pwsc,"Content-Encoding","gzip");
             infn->ws_addresponseheader(pwsc,"Vary","Accept-Encoding");
@@ -321,7 +318,7 @@ void xml_deinit(XMLSTRUCT *pxml) {
     }
     
     if(pxml->psb) {
-        xml_stream_close(pxml->psb);
+        xml_stream_close(pxml);
     }
 
     free(pxml);
