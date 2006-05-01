@@ -24,14 +24,14 @@ depend() {
 # won't let us run multiple copies.
 start() {
 	ebegin "Starting mt-daapd DAAP server"
-	start-stop-daemon --start --quiet --exec /usr/local/sbin/mt-daapd
+	start-stop-daemon --start --quiet --exec @prefix@/sbin/mt-daapd
 	eend $?
 }
 
 # stop the daemon
 stop() {
 	ebegin "Stopping mt-daapd DAAP server"
-#	start-stop-daemon --stop --quiet --exec /usr/local/sbin/mt-daapd
+#	start-stop-daemon --stop --quiet --exec @prefix@/sbin/mt-daapd
 # 	I dunno if this works... try it:
 	start-stop-daemon --stop --quiet --pidfile /var/run/mt-daapd.pid --signal 2
 	eend $?

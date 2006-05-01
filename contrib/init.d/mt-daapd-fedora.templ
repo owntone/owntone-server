@@ -8,13 +8,13 @@
 
 # source function library
 . /etc/init.d/functions
-[ -e /etc/daapd.conf ]
+[ -e @prefix@/etc/daapd.conf ]
 
 RETVAL=0
 
 start() {
 	echo -n $"Starting DAAP server: "
-	daemon mt-daapd 
+	daemon @prefix@/sbin/mt-daapd 
 	RETVAL=$?
 	echo
 	[ $RETVAL -eq 0 ] && touch /var/lock/subsys/mt-daapd
