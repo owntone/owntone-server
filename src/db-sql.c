@@ -304,13 +304,13 @@ int db_sql_open(char **pe, char *parameters) {
  * initialize the sqlite database, reloading if requested
  *
  * @param reload whether or not to do a full reload on the db
+ *        on return, reload is set to 1 if the db MUST be rescanned
  * @returns DB_E_SUCCESS on success, error code otherwise
  */
-int db_sql_init(int reload) {
+int db_sql_init(int *reload) {
     int items;
     int rescan = 0;
     int err;
-
 
     err=db_sql_get_count(NULL,&items, countSongs);
     if(err != DB_E_SUCCESS)
@@ -321,18 +321,20 @@ int db_sql_init(int reload) {
                         "term='rescan'") == DB_E_SUCCESS)
     {
         if(rescan)
-            reload=1;
+            *reload=1;
     }
 
 
 
-    if(reload || (!items)) {
+    if(*reload || (!items)) {
         DPRINTF(E_LOG,L_DB,"Full reload...\n");
         db_sql_event_fn(DB_SQL_EVENT_FULLRELOAD);
         db_sql_reload=1;
+        *reload=1;
     } else {
         db_sql_event_fn(DB_SQL_EVENT_STARTUP);
         db_sql_reload=0;
+        *reload=0;
     }
 
     return DB_E_SUCCESS;

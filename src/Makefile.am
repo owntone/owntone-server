@@ -1,5 +1,6 @@
 # $Id$
 #
+SUBDIRS=plugins
 
 sbin_PROGRAMS = mt-daapd
 bin_PROGRAMS = wavstreamer mtd-update

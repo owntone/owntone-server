@@ -147,7 +147,7 @@ typedef struct tag_daap_items {
 extern DAAP_ITEMS taglist[];
 
 extern int db_open(char **pe, char *type, char *parameters);
-extern int db_init(int reload);
+extern int db_init(int *reload);
 extern int db_deinit(void);
 
 extern int db_revision(void);

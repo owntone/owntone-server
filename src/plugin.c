@@ -328,6 +328,8 @@ int plugin_rend_register(char *name, int port, char *iface) {
     PLUGIN_ENTRY *ppi;
     PLUGIN_REND_INFO *pri;
     char *txt;
+    char *new_name;
+
 
     _plugin_readlock();
     ppi = _plugin_list.next;
@@ -342,7 +344,17 @@ int plugin_rend_register(char *name, int port, char *iface) {
                     txt = "";
 
                 DPRINTF(E_DBG,L_PLUG,"Registering %s\n",pri->type);
-                rend_register(name,pri->type,port,iface,txt);
+
+                new_name=(char*)malloc(strlen(name) + 3 + 
+                                       strlen(ppi->versionstring));
+                if(conf_get_int("plugins","mangle_rendezvous",1)) {
+                    sprintf(new_name,"%s (%s)",name,ppi->versionstring);
+                } else {
+                    sprintf(new_name,"%s",name);
+                }
+                rend_register(new_name,pri->type,port,iface,txt);
+                free(new_name);
+
                 pri++;
             }
         }

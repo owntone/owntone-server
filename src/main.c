@@ -206,7 +206,7 @@ int main(int argc, char *argv[]) {
     int rescan_counter=0;
     int old_song_count, song_count;
     int force_non_root=0;
-    int skip_initial=0;
+    int skip_initial=1;
     int convert_conf=0;
     char *logfile,*db_type,*db_parms,*web_root,*runas;
     char **mp3_dir_array;
@@ -259,7 +259,7 @@ int main(int argc, char *argv[]) {
             break;
 
         case 's':
-            skip_initial=1;
+            skip_initial=0;
             break;
 
         case 'y':
@@ -386,12 +386,12 @@ int main(int argc, char *argv[]) {
 
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
-    if(db_init(reload)) {
+    if(db_init(&reload)) {
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
 
     if(conf_get_array("general","mp3_dir",&mp3_dir_array)) {
-        if(!skip_initial) {
+        if((!skip_initial) || (reload)) {
             DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
 
             if(scan_init(mp3_dir_array)) {
