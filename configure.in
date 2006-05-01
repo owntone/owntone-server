@@ -10,8 +10,7 @@ dnl Checks for programs.
 AC_PROG_CC
 dnl AC_PROG_YACC
 dnl AM_PROG_LEX
-
-AC_CANONICAL_HOST
+AC_PROG_LIBTOOL
 
 AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
@@ -376,4 +375,4 @@ AC_CHECK_LIB(socket,socket,V_NETLIBS="-lsocket $V_NETLIBS",,)
 
 AC_SUBST(V_NETLIBS)
 
-AC_OUTPUT(src/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile debian/Makefile Makefile)
+AC_OUTPUT(src/Makefile src/plugins/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile debian/Makefile Makefile)
