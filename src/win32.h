@@ -66,10 +66,10 @@
 #define SHUT_RDWR 2
 #define MAX_NAME_LEN _MAX_PATH
 #define ETIME 101
-#define PATH_MAX _MAX_PATH
+#define PATH_MAX 512 /* it's clearly not _MAX_PATH... other projects seem to use 512 */
 
 #define HOST "unknown-windows-ick"
-#define SERVICENAME "Multithreaded DAAP Server"
+#define SERVICENAME "Firefly Media Server"
 
 #define CONFFILE os_configpath()
 
