@@ -7,6 +7,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rsp", "rsp.vcproj", "{68CCE
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FireflyConfig", "FireflyConfig\FireflyConfig.csproj", "{842826B0-521A-4296-B2B4-5746BF1C91C2}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfiguration) = preSolution
 		Debug = Debug
@@ -21,6 +25,10 @@ Global
 		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Debug.Build.0 = Debug|Win32
 		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Release.ActiveCfg = Release|Win32
 		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Release.Build.0 = Release|Win32
+		{842826B0-521A-4296-B2B4-5746BF1C91C2}.Debug.ActiveCfg = Debug|.NET
+		{842826B0-521A-4296-B2B4-5746BF1C91C2}.Debug.Build.0 = Debug|.NET
+		{842826B0-521A-4296-B2B4-5746BF1C91C2}.Release.ActiveCfg = Release|.NET
+		{842826B0-521A-4296-B2B4-5746BF1C91C2}.Release.Build.0 = Release|.NET
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection
