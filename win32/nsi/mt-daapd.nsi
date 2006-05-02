@@ -5,7 +5,7 @@
 !define PRODUCT_NAME "Firefly Media Server"
 !define PRODUCT_SERVICE "Firefly Media Server"
 !define /date DATEVER "%Y%m%d"
-!define PRODUCT_VERSION "Beta 1"
+!define PRODUCT_VERSION "svn-1004"
 !define PRODUCT_PUBLISHER "Ron Pedde"
 !define PRODUCT_WEB_SITE "http://www.fireflymediaserver.org"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\firefly.exe"
@@ -15,6 +15,7 @@
 !define PROJROOT "..\..\.."
 !define MTD_SOURCE "${PROJROOT}\mt-daapd\win32\Release"
 !define DLL_SOURCE "${PROJROOT}\win32\dll"
+!define CONFIG_SOURCE "${PROJROOT}\mt-daapd\win32\FireflyConfig\bin\Release"
 !define ADMIN_ROOT "${PROJROOT}\mt-daapd\admin-root"
 
 ; MUI 1.67 compatible ------
@@ -63,6 +64,11 @@ ShowInstDetails show
 ShowUnInstDetails show
 
 Section -Pre
+  nsSCM::Stop "${PRODUCT_NAME}"
+  
+  !include WinMessages.nsh
+  FindWindow $0 "" "Configuration"
+  SendMessage $0 ${WM_CLOSE} 0 0 
   nsSCM::QueryStatus "Bonjour Service"
   Pop $0
   Pop $1
@@ -72,17 +78,21 @@ Section -Pre
   Quit
 
   lbl_got_bonjour:
+
 SectionEnd
 
 Section "MainSection" SEC01
   SetOutPath "$2"
   SetOverwrite ifnewer
-  File /oname=firefly.exe "${MTD_SOURCE}\mt-daapd.exe" 
+  File /oname=firefly.exe "${MTD_SOURCE}\mt-daapd.exe"
+  File "${CONFIG_SOURCE}\FireflyConfig.exe" 
   File "${DLL_SOURCE}\gnu_regex.dll"
   File "${DLL_SOURCE}\pthreadVC2.dll"
   File "${DLL_SOURCE}\sqlite.dll"
   File "${DLL_SOURCE}\sqlite3.dll"
   File "${DLL_SOURCE}\zlib1.dll"
+
+  SetOutPath "$2\plugins"
   File "..\Release\rsp.dll"
 
   SetOutPath "$2\admin-root"
@@ -142,7 +152,9 @@ Section -AdditionalIcons
   CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Website.lnk" "$2\${PRODUCT_NAME}.url"
   CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk" "$2\uninst.exe"
   CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Debug Mode.lnk" "$2\firefly.exe" "-d9 -f"
-  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Configure Media Server.lnk" "notepad.exe" "$2\mt-daapd.conf"
+  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Firefly Configuration.lnk" "$2\FireflyConfig.exe"
+  CreateShortCut "$SMPROGRAMS\${PRODUCT_NAME}\Advanced Configuration.lnk" "notepad.exe" "$2\mt-daapd.conf"
+  CreateShortCut "$SMPROGRAMS\Startup\Firefly Config.lnk" "$2\FireflyConfig.exe"
 SectionEnd
 
 Section -Post
@@ -166,7 +178,7 @@ Section -Post
 
   lbl_install_success:
   nsSCM::Start "${PRODUCT_NAME}"
-
+  Exec "$2\FireflyConfig"
 SectionEnd
 
 
@@ -351,7 +363,7 @@ Section Uninstall
   Delete "$INSTDIR\sqlite3.dll"
   Delete "$INSTDIR\mt-daapd.conf"
   Delete "$INSTDIR\zlib1.dll"
-  Delete "$INSTDIR\rsp.dll"
+  Delete "$INSTDIR\plugins\rsp.dll"
   Delete "$INSTDIR\songs.db"
   Delete "$INSTDIR\songs3.db"
   Delete "$INSTDIR\mt-daapd-example.conf"
@@ -395,14 +407,17 @@ Section Uninstall
   RMDir  "$INSTDIR\admin-root\lib-js\script.aculo.us"
   RMDir  "$INSTDIR\admin-root\lib-js"
   RMDir  "$INSTDIR\admin-root"
-
+  RMDir  "$INSTDIR\plugins"
+  
   Delete "$INSTDIR\firefly.exe"
-
+  Delete "$INSTDIR\FireflyConfig.exe"
+  
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Website.lnk"
-  Delete "$SMPROGRAMS\${PRODUCT_NAME}\Configure Media Server.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Debug Mode.lnk"
-  
+  Delete "$SMPROGRAMS\Startup\Firefly Config.lnk"
+  Delete "$SMPROGRAMS\${PRODUCT_NAME}\Firefly Configuration.lnk"
+  Delete "$SMPROGRAMS\${PRODUCT_NAME}\Advanced Configuration.lnk"
 
   RMDir "$SMPROGRAMS\${PRODUCT_NAME}"
   RMDir "$INSTDIR"
