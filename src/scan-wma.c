@@ -346,6 +346,9 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
     unsigned long long descriptor_ll_value;
     unsigned short int descriptor_short_value;
     int fail=0;
+    int track, tracknumber;
+
+    track = tracknumber = 0;
 
     DPRINTF(E_DBG,L_SCAN,"Reading extended content description object\n");
 
@@ -412,9 +415,17 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
             pmp3->album = descriptor_byte_value;
             descriptor_byte_value = NULL;
         } else if(strcasecmp(descriptor_name,"wm/track")==0) {
-            pmp3->track = descriptor_int_value + 1;
+            if(descriptor_value_type == 3) {
+                track = descriptor_int_value + 1;
+            } else if(descriptor_value_type == 0) {
+                track = atoi(descriptor_byte_value) + 1;
+            }
         } else if(strcasecmp(descriptor_name,"wm/tracknumber")==0) {
-            pmp3->track = descriptor_int_value;
+            if(descriptor_value_type == 3) {
+                tracknumber = descriptor_int_value;
+            } else if(descriptor_value_type == 0) {
+                tracknumber = atoi(descriptor_byte_value);
+            }
         } else if(strcasecmp(descriptor_name,"wm/year")==0) {
             pmp3->year = atoi(descriptor_byte_value);
         } else if(strcasecmp(descriptor_name,"wm/composer")==0) {
@@ -442,6 +453,12 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
         }
 
         free(descriptor_name);
+    }
+
+    if(track) {
+        pmp3->track = track;
+    } else if(tracknumber) {
+        pmp3->track = tracknumber;
     }
     
     return TRUE;
