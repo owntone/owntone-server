@@ -650,7 +650,7 @@ char *wma_utf16toutf8(unsigned char *utf16, int len) {
         }
 
         while(bytes) {
-            *dst++ = 0x80 | ((w1 >> (6*bytes)) & 0x3f);
+            *dst++ = 0x80 | ((w1 >> (6*(bytes-1))) & 0x3f);
             bytes--;
         }
     }
