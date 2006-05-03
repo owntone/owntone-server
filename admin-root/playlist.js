@@ -256,8 +256,8 @@ var EventHandler = {
 };
 
 var Query = {
-   baseUrl: '/databases/1/',
-   playlistUrl: '',
+   baseUrl: '/rsp/db/',
+   playlistId: '1',
    genres: [],
    artists:[],
    albums: [],
@@ -277,34 +277,30 @@ var Query = {
     Query.clearSelection('artists');
     Query.clearSelection('albums');
     Query.setSearchString('');
-    if (1 == playlistId) {
-      Query.playlistUrl = '';
-    } else {
-      Query.playlistUrl = 'containers/' + playlistId + '/';
-    }
+    Query.playlistId = playlistId;
    },
    getUrl: function (type) {
      var query=[];
      switch (type) {
        case 'artists':
          if (this.genres.length > 0) {
-           query = this.genres.collect(function(value){return "'daap.songgenre:"+value.encode()+"'";});
+           query = this.genres.collect(function(value){return 'genre%3D"'+value.encode()+'"';});
          }
          break;
       case 'albums':
          if (this.artists.length > 0) {
-           query = this.artists.collect(function(value){return "'daap.songartist:"+value.encode()+"'";});  
+           query = this.artists.collect(function(value){return 'artist%3D"'+value.encode()+'"';});  
          } else if (this.genres.length > 0) {
-           query = this.genres.collect(function(value){return "'daap.songgenre:"+value.encode()+"'";});    
+           query = this.genres.collect(function(value){return 'genre%3D"'+value.encode()+'"';});    
          }
          break;
       case 'songs':
          if (this.albums.length > 0) {
-           query = this.albums.collect(function(value){return "'daap.songalbum:"+value.encode()+"'";});  
+           query = this.albums.collect(function(value){return 'album%3D"'+value.encode()+'"';});  
          } else if (this.artists.length > 0) {
-           query = this.artists.collect(function(value){return "'daap.songartist:"+value.encode()+"'";});  
+           query = this.artists.collect(function(value){return 'artist%3D"'+value.encode()+'"';});  
          } else if (this.genres.length > 0) {
-           query = this.genres.collect(function(value){return "'daap.songgenre:"+value.encode()+"'";});    
+           query = this.genres.collect(function(value){return 'genre%3D"'+value.encode()+'"';});    
          }
          break;
       default:
@@ -314,17 +310,17 @@ var Query = {
      if (this.searchString) {
        var search = [];
        var string = this.searchString.encode();
-       ['daap.songgenre','daap.songartist','daap.songalbum','dmap.itemname'].each(function (item) {
-         search.push("'" + item +':*' + string + "*'");  
+       ['genre','artist','album','title'].each(function (item) {
+         search.push(item +' includes "' + string + '"');  
        });
        if (query.length > 0) {
-         return '&query=(' +search.join(',') + ')+('.encode() + query.join(',')+ ')';
+         return '&query=(' + search.join(' or ') + ') and ('.encode() + query.join(' or ')+ ')';
        } else {
-         return '&query=' + search.join(','); 
+         return '&query=' + search.join(' or '); 
        }
      } else {
        if (query.length > 0) {
-         return '&query=' + query.join(',');
+         return '&query=' + query.join(' or ');
        } else {
          return '';
        }
@@ -337,27 +333,27 @@ var Query = {
      var meta = '';
      switch (type) {
        case 'genres':
-         url = 'browse/genres';
+         url = '/genre';
          break;
        case 'artists':
-         url = 'browse/artists';
+         url = '/artist';
          break;
        case 'albums':
-         url = 'browse/albums';
+         url = '/album';
          break;
        case 'songs':
-         url = 'items';
-         meta = '&meta=daap.songalbum,daap.songartist,daap.songgenre,dmap.itemid,daap.songtime,dmap.itemname';
+         url = '';
+         meta = '&type=browse';
         break;
        default:
          alert("Shouldn't happen 2");
          break;
      }
-     return this.baseUrl + this.playlistUrl + url + '?output=xml' + meta + this.getUrl(type);
+     return this.baseUrl + this.playlistId + url + '?dummy=' + meta + this.getUrl(type);
    },
    send: function(type) {
      if (('genres' == type) || ('artists' == type) || ('albums' == type)) {
-       handler = ResponseHandler.genreAlbumArtist;
+       handler = ResponseHandler[type];
      } else {
        return;
      //  handler = rsSongs;  
@@ -366,19 +362,17 @@ var Query = {
    }
 };
 var ResponseHandler = {
-  genreAlbumArtist: function (request) {
-    var type;
-    if (request.responseXML.getElementsByTagName('daap.browsegenrelisting').length > 0) {
-      type = 'genres';
-    }
-    if (request.responseXML.getElementsByTagName('daap.browseartistlisting').length > 0) {
-      type = 'artists';
-    }
-    if (request.responseXML.getElementsByTagName('daap.browsealbumlisting').length > 0) {
-      type = 'albums';
-    }
-  
-    var items = $A(request.responseXML.getElementsByTagName('dmap.listingitem'));
+  genres: function (request) {
+    ResponseHandler._genreAlbumArtist(request,'genres');
+  },
+  artists: function (request) {
+    ResponseHandler._genreAlbumArtist(request,'artists');
+  },
+  albums: function (request) {
+    ResponseHandler._genreAlbumArtist(request,'albums');
+  },
+  _genreAlbumArtist: function (request,type) {
+    var items = $A(request.responseXML.getElementsByTagName('item'));
     items = items.collect(function (el) {
       return Element.textContent(el);
     }).sort();

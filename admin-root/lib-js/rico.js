@@ -1974,12 +1974,12 @@ Rico.LiveGridBuffer.prototype = {
 
    loadRows: function(ajaxResponse) {
       var newRows = [];
-      $A(ajaxResponse.responseXML.getElementsByTagName('dmap.listingitem')).each(function (el) {
+      $A(ajaxResponse.responseXML.getElementsByTagName('item')).each(function (el) {
         var row = [];
-        row.push({id:Element.textContent(el.getElementsByTagName('dmap.itemid')[0]),
-                  name: Element.textContent(el.getElementsByTagName('dmap.itemname')[0])});
-        ['daap.songtime','daap.songartist','daap.songalbum'].each(function (name) {
-          if ('daap.songtime' == name) {
+        row.push({id:Element.textContent(el.getElementsByTagName('id')[0]),
+                  name: Element.textContent(el.getElementsByTagName('title')[0])});
+        ['disc','artist','album'].each(function (name) {
+          if ('disc' == name) {
             var time = parseInt(Element.textContent(el.getElementsByTagName(name)[0]));
             time = Math.round(time / 1000);
             var seconds = time % 60;
@@ -2406,7 +2406,7 @@ Rico.LiveGrid.prototype = {
 
         this.ajaxOptions.parameters = queryString;
        var end = bufferStartPos+fetchSize;
-       new Ajax.Request(Query.getFullUrl('songs')+'&index='+bufferStartPos+'-'+end,{method: 'get',onComplete: this.ajaxUpdate.bind(this)});
+       new Ajax.Request(Query.getFullUrl('songs')+'&offset='+bufferStartPos+'&limit='+fetchSize,{method: 'get',onComplete: this.ajaxUpdate.bind(this)});
 //       ajaxEngine.sendRequest( this.tableId + '_request', this.ajaxOptions );
 
        this.timeoutHandler = setTimeout( this.handleTimedOut.bind(this), this.options.bufferTimeout);
@@ -2426,7 +2426,7 @@ Rico.LiveGrid.prototype = {
    ajaxUpdate: function(ajaxResponse) {
       try {
          clearTimeout( this.timeoutHandler );
-         var totalRows = ajaxResponse.responseXML.getElementsByTagName('dmap.specifiedtotalcount')[0].firstChild.nodeValue;
+         var totalRows = ajaxResponse.responseXML.getElementsByTagName('totalrecords')[0].firstChild.nodeValue;
          if (this.metaData.getTotalRows() != totalRows) {
            this.setTotalRows(totalRows);
          }
