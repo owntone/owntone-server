@@ -2175,8 +2175,10 @@ Rico.GridViewPort.prototype = {
    clearRows: function() {
       if (!this.isBlank) {
          this.liveGrid.table.className = this.liveGrid.options.loadingClass;
-         for (var i=0; i < this.visibleRows; i++)
+         for (var i=0; i < this.visibleRows; i++) {
+            SelectedRows.updateState(this.table.rows[i]);
             this.populateRow(this.table.rows[i], this.buffer.getBlankRow());
+         }
          this.isBlank = true;
       }
    },
@@ -2215,7 +2217,7 @@ Rico.GridViewPort.prototype = {
         this.populateRow(this.table.rows[i + contentOffset], rows[i]);
       }
       for (var i=0; i < blankSize; i++) {// blank out the rest 
-        SelectedRows.updateState(this.table.rows[i + contentOffset]);
+        SelectedRows.updateState(this.table.rows[i + blankOffset]);
         this.populateRow(this.table.rows[i + blankOffset], this.buffer.getBlankRow());
       }
       this.isPartialBlank = blankSize > 0;

@@ -38,7 +38,7 @@ var Spinner = {
   },
   decRequestCount: function (caller) {
     Spinner.count--;
-    if (/index/.test(caller.url)) {
+    if (/type=browse/.test(caller.url)) {
       Spinner.count = 0;
       $('spinner').style.visibility = 'hidden';
     }
@@ -519,7 +519,8 @@ SelectedRows = {
     $A($('songs_data').getElementsByTagName('tr')).each(SelectedRows.unsetSelected);
  },
   updateState: function (tr,songId,index) {
-    if (songId && index) {
+    if (songId && (index || 0 === index)) {
+      // 0 == false but we want to catch index == 0
       tr.setAttribute('songid',songId);
       tr.setAttribute('index',index);
       if (SelectedRows.isSelected(tr)) {
@@ -528,8 +529,8 @@ SelectedRows = {
         SelectedRows.unsetSelected(tr);  
       }
     } else {
-      tr.removeAttribute('songid');
-      tr.removeAttribute('index');
+      tr.setAttribute('songid','');
+      tr.setAttribute('index','');
       SelectedRows.unsetSelected(tr);  
     }
   }
