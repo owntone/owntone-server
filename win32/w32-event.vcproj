@@ -4,6 +4,7 @@
 	Version="7.10"
 	Name="w32-event"
 	ProjectGUID="{E60F90F1-A1E5-49D8-A565-B990CA4BA860}"
+	RootNamespace="w32-event"
 	Keyword="Win32Proj">
 	<Platforms>
 		<Platform
@@ -34,6 +35,7 @@
 				Name="VCLinkerTool"
 				OutputFile="$(OutDir)/w32-event.dll"
 				LinkIncremental="2"
+				ModuleDefinitionFile="w32-event.def"
 				GenerateDebugInformation="TRUE"
 				ProgramDatabaseFile="$(OutDir)/w32-event.pdb"
 				SubSystem="2"
@@ -81,6 +83,7 @@
 				Name="VCLinkerTool"
 				OutputFile="$(OutDir)/w32-event.dll"
 				LinkIncremental="1"
+				ModuleDefinitionFile="w32-event.def"
 				GenerateDebugInformation="TRUE"
 				SubSystem="2"
 				OptimizeReferences="2"

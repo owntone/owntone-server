@@ -93,8 +93,9 @@ Section "MainSection" SEC01
   File "${DLL_SOURCE}\zlib1.dll"
 
   SetOutPath "$2\plugins"
-  File "..\Release\rsp.dll"
-
+  File "${MTD_SOURCE}\rsp.dll"
+  File "${MTD_SOURCE}\w32-event.dll"
+  
   SetOutPath "$2\admin-root"
   File "${ADMIN_ROOT}\thanks.html"
   File "${ADMIN_ROOT}\status.html"
@@ -143,6 +144,8 @@ Section "MainSection" SEC01
   CopyFiles "$2\mt-daapd-example.conf" "$2\mt-daapd.conf"
   WriteINIStr "$2\mt-daapd.conf" "general" "mp3_dir" $3
 HasConf:
+  WriteINIStr "$2\mt-daapd.conf" "plugins" "plugin_dir" "plugins"
+  WriteINIStr "$2\mt-daapd.conf" "plugins" "plugins" "rsp.dll,w32-event.dll"
   SetAutoClose False
 SectionEnd
 
@@ -364,6 +367,7 @@ Section Uninstall
   Delete "$INSTDIR\mt-daapd.conf"
   Delete "$INSTDIR\zlib1.dll"
   Delete "$INSTDIR\plugins\rsp.dll"
+  Delete "$INSTDIR\plugins\w32-event.dll"
   Delete "$INSTDIR\songs.db"
   Delete "$INSTDIR\songs3.db"
   Delete "$INSTDIR\mt-daapd-example.conf"
