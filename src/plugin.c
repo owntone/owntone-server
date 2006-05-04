@@ -49,7 +49,8 @@ typedef struct tag_pluginentry {
     int type;
     char *versionstring;
     regex_t regex;
-    void *functions;
+    PLUGIN_OUTPUT_FN *output_fns;
+    PLUGIN_EVENT_FN *event_fns;
     PLUGIN_REND_INFO *rend_info;
     struct tag_pluginentry *next;
 } PLUGIN_ENTRY;
@@ -233,13 +234,14 @@ int plugin_load(char **pe, char *path) {
 
     ppi->type = pinfo->type;
     ppi->versionstring = pinfo->server;
-    if(ppi->type == PLUGIN_OUTPUT) {
+    if(ppi->type & PLUGIN_OUTPUT) {
         /* build the regex */
         if(regcomp(&ppi->regex,pinfo->url,REG_EXTENDED | REG_NOSUB)) {
             DPRINTF(E_LOG,L_PLUG,"Bad regex in %s: %s\n",path,pinfo->url);
         }
     }
-    ppi->functions = pinfo->handler_functions;
+    ppi->output_fns = pinfo->output_fns;
+    ppi->event_fns = pinfo->event_fns;
     ppi->rend_info = pinfo->rend_info;
 
     DPRINTF(E_INF,L_PLUG,"Loaded plugin %s (%s)\n",path,ppi->versionstring);
@@ -271,7 +273,7 @@ int plugin_url_candispatch(WS_CONNINFO *pwsc) {
     _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
-        if(ppi->type == PLUGIN_OUTPUT) {
+        if(ppi->type & PLUGIN_OUTPUT) {
             if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
                 /* we have a winner */
                 _plugin_unlock();
@@ -298,14 +300,14 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
     _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
-        if(ppi->type == PLUGIN_OUTPUT) {
+        if(ppi->type & PLUGIN_OUTPUT) {
             if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
                 /* we have a winner */
                 DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", pwsc->uri,
                         ppi->versionstring);
 
                 /* so functions must be a tag_plugin_output_fn */
-                disp_fn=(((PLUGIN_OUTPUT_FN*)ppi->functions)->handler);
+                disp_fn=(ppi->output_fns)->handler;
                 disp_fn(pwsc);
                 _plugin_unlock();
                 return;
@@ -382,14 +384,14 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
     _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
-        if(ppi->type == PLUGIN_OUTPUT) {
+        if(ppi->type & PLUGIN_OUTPUT) {
             if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
                 /* we have a winner */
                 DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", pwsc->uri,
                         ppi->versionstring);
 
                 /* so functions must be a tag_plugin_output_fn */
-                auth_fn=(((PLUGIN_OUTPUT_FN*)ppi->functions)->auth);
+                auth_fn=(ppi->output_fns)->auth;
 		if(auth_fn) {
 		    result=auth_fn(pwsc,username,pw);
 		    _plugin_unlock();
@@ -408,6 +410,30 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
     _plugin_unlock();
     return FALSE;
 }
+
+/**
+ * send an event to a plugin... this can be a connection, disconnection, etc.
+ */
+void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
+    PLUGIN_ENTRY *ppi;
+
+    _plugin_readlock();
+    ppi = _plugin_list.next;
+    while(ppi) {
+        if(ppi->type & PLUGIN_EVENT) {
+            DPRINTF(E_DBG,L_PLUG,"Dispatching event %d to %s\n",
+                event_id,ppi->versionstring);
+
+            if((ppi->event_fns) && (ppi->event_fns->handler)) {
+                ppi->event_fns->handler(event_id, intval, vp, len);
+            }
+        }
+        ppi=ppi->next;
+    }
+    _plugin_unlock();
+}
+
+
 
 
 /* plugin wrappers for utility functions & stuff

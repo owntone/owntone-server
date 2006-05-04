@@ -5,13 +5,21 @@
 #ifndef _MTD_PLUGINS_H_
 #define _MTD_PLUGINS_H_
 
-#define PLUGIN_OUTPUT    0
-#define PLUGIN_SCANNER   1
-#define PLUGIN_DATABASE  2
-#define PLUGIN_OTHER     3
+#define PLUGIN_OUTPUT    1
+#define PLUGIN_SCANNER   2
+#define PLUGIN_DATABASE  4
+#define PLUGIN_EVENT     8
 
 #define PLUGIN_VERSION   1
 
+#define PLUGIN_EVENT_LOG            0
+#define PLUGIN_EVENT_FULLSCAN_START 1
+#define PLUGIN_EVENT_FULLSCAN_END   2
+#define PLUGIN_EVENT_STARTING       3
+#define PLUGIN_EVENT_SHUTDOWN       4
+#define PLUGIN_EVENT_STARTSTREAM    5
+#define PLUGIN_EVENT_ABORTSTREAM    6
+#define PLUGIN_EVENT_ENDSTREAM      7
 
 typedef void* PARSETREE;
 
@@ -23,6 +31,10 @@ typedef struct tag_plugin_output_fn {
     int(*auth)(WS_CONNINFO *pwsc, char *username, char *pw);
 } PLUGIN_OUTPUT_FN;
 
+typedef struct tag_plugin_event_fn {
+    void(*handler)(int event_id, int intval, void *vp, int len);
+} PLUGIN_EVENT_FN;
+
 typedef struct tag_plugin_rend_info {
     char *type;
     char *txt;
@@ -33,8 +45,9 @@ typedef struct tag_plugin_info {
     int type;
     char *server;
     char *url;     /* regex of namespace to handle if OUTPUT type */
-    void *handler_functions;
-    void *fn; /* input functions*/
+    PLUGIN_OUTPUT_FN *output_fns;
+    PLUGIN_EVENT_FN *event_fns;
+    void *pi; /* exported functions */
     PLUGIN_REND_INFO *rend_info;
 } PLUGIN_INFO;
 
