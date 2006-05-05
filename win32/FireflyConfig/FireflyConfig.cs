@@ -1,6 +1,8 @@
 using System;
+using System.IO;
 using System.Drawing;
 using System.Collections;
+using System.Threading;
 using System.ComponentModel;
 using System.Windows.Forms;
 using System.Data;
@@ -27,11 +29,33 @@ namespace FireflyConfig
 		
 	public class FireflyConfig : System.Windows.Forms.Form
 	{
+		[DllImport("Kernel32.dll")]
+		static extern IntPtr CreateFile(
+			string filename,
+			[MarshalAs(UnmanagedType.U4)]FileAccess fileaccess,
+			[MarshalAs(UnmanagedType.U4)]FileShare fileshare,
+			int securityattributes,
+			[MarshalAs(UnmanagedType.U4)]FileMode creationdisposition,
+			int flags,
+			IntPtr template);
+		[DllImport("Kernel32.dll")]
+		static extern IntPtr CreateNamedPipe(
+			string filename,
+			int openmode,
+			int pipemode,
+			int maxinstances,
+			int outbuffersize,
+			int inbuffersize,
+			uint defaulttimeout,
+			int securityattributes);
+
+		private System.Threading.Thread PipeThread;
+
 		private System.Drawing.Icon icnRunning;
 		private System.Drawing.Icon icnStopped;
 		private System.Drawing.Icon icnUnknown;
 
-		private Timer timerRefresh;
+		private System.Windows.Forms.Timer timerRefresh;
 		
 		private System.ServiceProcess.ServiceController scFirefly;
 		private ServiceStatus iState = ServiceStatus.Unintialized;
@@ -41,6 +65,10 @@ namespace FireflyConfig
 		private string strServerName;
 		private string strMusicDir;
 		private string strPassword;
+
+		private System.IntPtr PipeHandle;
+		private System.IO.FileStream mPipeStream;
+		private byte[] PipeBuffer;
 		
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.Label label2;
@@ -137,7 +165,7 @@ namespace FireflyConfig
 			scFirefly = new System.ServiceProcess.ServiceController("Firefly Media Server");
 
 			/* set up the poller for service state */
-			timerRefresh = new Timer();
+			timerRefresh = new System.Windows.Forms.Timer();
 			timerRefresh.Interval = 5000;
 			timerRefresh.Enabled=true;
 			timerRefresh.Start();
@@ -145,6 +173,39 @@ namespace FireflyConfig
 
 			this.Visible=false;
 
+			/* start chewing on the pipe */
+			/*
+			PipeHandle = NamedPipeNative.CreateFile(
+				@"\\." + @"\pipe\" + "firefly", 
+				NamedPipeNative.GENERIC_READ | NamedPipeNative.GENERIC_WRITE, 
+				0, 
+				null, 
+				NamedPipeNative.CREATE_ALWAYS,
+				0x40000000, 
+				0);
+*/				
+/*
+			PipeHandle = CreateFile("\\\\.\\pipe\\firefly",
+				FileAccess.ReadWrite, FileShare.ReadWrite,
+				0, FileMode.Create,0x40000000,IntPtr.Zero);
+*/
+			PipeHandle = CreateNamedPipe("\\\\.\\pipe\\firefly",
+				3,0,10,4096,4096,0xffffffff,0);
+			mPipeStream = new System.IO.FileStream(PipeHandle, System.IO.FileAccess.ReadWrite);
+			PipeBuffer = new byte[4096];
+
+			PipeThread = new Thread(new ThreadStart(PipeThreadFunction));
+			PipeThread.Start();
+
+		}
+
+		public void PipeThreadFunction() 
+		{
+			int bytesRead;
+			while((bytesRead = mPipeStream.Read(PipeBuffer,0,4096)) > 0) 
+			{
+				MessageBox.Show("woot");
+			}
 		}
 
 		/// <summary>
@@ -203,7 +264,6 @@ namespace FireflyConfig
 		/// </summary>
 		private void InitializeComponent()
 		{
-			this.components = new System.ComponentModel.Container();
 			System.Resources.ResourceManager resources = new System.Resources.ResourceManager(typeof(FireflyConfig));
 			this.label1 = new System.Windows.Forms.Label();
 			this.label2 = new System.Windows.Forms.Label();
@@ -387,10 +447,9 @@ namespace FireflyConfig
 			// 
 			// FireflyConfig
 			// 
-			this.AcceptButton = this.buttonOK;
 			this.AutoScaleBaseSize = new System.Drawing.Size(5, 13);
-			this.CancelButton = this.buttonCancel;
 			this.ClientSize = new System.Drawing.Size(256, 246);
+			this.ControlBox = false;
 			this.Controls.Add(this.buttonCancel);
 			this.Controls.Add(this.buttonOK);
 			this.Controls.Add(this.buttonBrowseDir);
@@ -403,14 +462,12 @@ namespace FireflyConfig
 			this.Controls.Add(this.label1);
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.MaximizeBox = false;
-			this.MinimizeBox = false;
 			this.Name = "FireflyConfig";
 			this.ShowInTaskbar = false;
 			this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
 			this.Text = "Configuration";
 			this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
 			this.Resize += new System.EventHandler(this.FireflyConfig_Resize);
-			this.Closing += new System.ComponentModel.CancelEventHandler(this.FireflyConfig_Closing);
 			this.Load += new System.EventHandler(this.FireflyConfig_Load);
 			this.groupBox1.ResumeLayout(false);
 			this.ResumeLayout(false);
@@ -433,19 +490,6 @@ namespace FireflyConfig
 			Show();
 			WindowState = FormWindowState.Normal;
 			ShowInTaskbar = true;	
-		}
-
-		private void FireflyConfig_Closing(object sender, System.ComponentModel.CancelEventArgs e)
-		{
-			if(!closeFromMenu) 
-			{
-				e.Cancel=true;
-				this.WindowState = FormWindowState.Minimized;
-			} 
-			else 
-			{
-				notifyIcon.Visible = false;
-			}
 		}
 
 		private void FireflyConfig_Resize(object sender, System.EventArgs e)
@@ -568,6 +612,32 @@ namespace FireflyConfig
 			}
 		}
 
+	}
+
+	[StructLayout(LayoutKind.Sequential)]
+	public class SecurityAttributes 
+	{
+	}
+
+
+	public class NamedPipeNative
+	{
+		[DllImport("kernel32.dll", SetLastError=true)]
+		public static extern IntPtr CreateFile(
+			String lpFileName, // file name
+			uint dwDesiredAccess, // access mode
+			uint dwShareMode, // share mode
+			SecurityAttributes attr, // SD
+			uint dwCreationDisposition, // how to create
+			uint dwFlagsAndAttributes, // file attributes
+			uint hTemplateFile); // handle to template file
+
+
+		public const uint GENERIC_READ = (0x80000000);
+		public const uint GENERIC_WRITE = (0x40000000);
+		public const uint CREATE_NEW = 1;
+		public const uint CREATE_ALWAYS = 2;
+		public const uint OPEN_EXISTING = 3;
 	}
 
 	public class IniFile

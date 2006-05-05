@@ -114,6 +114,12 @@
                     AssemblyName = "CrystalDecisions.ReportSource"
                     HintPath = "..\..\..\windows\assembly\gac\crystaldecisions.reportsource\9.1.5000.0__692fbea5521e1304\crystaldecisions.reportsource.dll"
                 />
+                <Reference
+                    Name = "CrystalDecisions.Windows.Forms"
+                    AssemblyName = "CrystalDecisions.Windows.Forms"
+                    HintPath = "..\..\..\..\..\Program Files\Common Files\Crystal Decisions\1.1\Managed\CrystalDecisions.Windows.Forms.dll"
+                    AssemblyFolderKey = "hklm\crystal.net"
+                />
             </References>
         </Build>
         <Files>
