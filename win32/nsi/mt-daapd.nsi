@@ -64,7 +64,20 @@ ShowInstDetails show
 ShowUnInstDetails show
 
 Section -Pre
+  nsSCM::QueryStatus "${PRODUCT_NAME}"
+  Pop $0
+  Pop $1
+  
+  StrCmp $0 "success" lbl_stop_service
+  goto lbl_continue
+  
+  lbl_stop_service:
+  DetailPrint "Stopping Service..."
   nsSCM::Stop "${PRODUCT_NAME}"
+  Sleep 3000
+  
+  lbl_continue:
+  ; should really loop until service stops...
   
   !include WinMessages.nsh
   FindWindow $0 "" "Configuration"

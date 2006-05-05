@@ -135,6 +135,7 @@ void txt_add(char *txtrecord, char *fmt, ...) {
 }
 
 void main_handler(WS_CONNINFO *pwsc) {
+    DPRINTF(E_DBG,L_MAIN,"in main_handler\n");
     if(plugin_url_candispatch(pwsc)) {
         DPRINTF(E_DBG,L_MAIN,"Dispatching %s to plugin\n",pwsc->uri);
         plugin_url_handle(pwsc);
@@ -146,6 +147,7 @@ void main_handler(WS_CONNINFO *pwsc) {
 }
 
 int main_auth(WS_CONNINFO *pwsc, char *username, char *password) {
+    DPRINTF(E_DBG,L_MAIN,"in main_auth\n");
     if(plugin_url_candispatch(pwsc)) {
         DPRINTF(E_DBG,L_MAIN,"Dispatching auth for %s to plugin\n",pwsc->uri);
         return plugin_auth_handle(pwsc,username,password);

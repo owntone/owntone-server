@@ -56,6 +56,7 @@ typedef struct tag_pluginentry {
 } PLUGIN_ENTRY;
 
 /* Globals */
+static pthread_key_t _plugin_lock_key;
 static PLUGIN_ENTRY _plugin_list;
 static int _plugin_initialized = 0;
 
@@ -72,6 +73,7 @@ void _plugin_readlock(void);
 void _plugin_writelock(void);
 void _plugin_unlock(void);
 int _plugin_error(char **pe, int error, ...);
+void _plugin_free(int *pi);
 
 /* webserver helpers */
 char *pi_ws_uri(WS_CONNINFO *pwsc);
@@ -127,7 +129,17 @@ PLUGIN_INPUT_FN pi = {
  */
 int plugin_init(void) {
     pthread_rwlock_init(&_plugin_lock,NULL);
+    pthread_key_create(&_plugin_lock_key, (void*)_plugin_free);
+
     return TRUE;
+}
+
+/**
+ * free the tls
+ */
+void _plugin_free(int *pi) {
+    if(pi)
+        free(pi);
 }
 
 /**
@@ -141,13 +153,38 @@ int plugin_deinit(void) {
 
 
 /**
- * lock the plugin_mutex
+ * lock the plugin_mutex.  As it turns out, there might be one thread that calls
+ * multiple plug-ins.  So we need to be able to just get one readlock, rather than
+ * multiple.  so we'll keep a tls counter.
+ *
+ * NO DPRINTFING IN HERE!
  */
 void _plugin_readlock(void) {
     int err;
+    int *current_count;
 
-    if((err=pthread_rwlock_rdlock(&_plugin_lock))) {
-        DPRINTF(E_FATAL,L_PLUG,"cannot lock plugin lock: %s\n",strerror(err));
+    current_count = pthread_getspecific(_plugin_lock_key);
+    if(!current_count) {
+        current_count = (int*)malloc(sizeof(int));
+        if(!current_count) {
+            /* hrm */
+            DPRINTF(E_FATAL,L_PLUG,"Malloc error in _plugin_readlock\n");
+        }
+
+        *current_count = 0;
+    }
+
+    DPRINTF(E_DBG,L_PLUG,"Current lock level: %d\n",*current_count);
+    if(!(*current_count)) {
+        (*current_count)++;
+        pthread_setspecific(_plugin_lock_key,(void*)current_count);
+
+        if((err=pthread_rwlock_rdlock(&_plugin_lock))) {
+            DPRINTF(E_FATAL,L_PLUG,"cannot lock plugin lock: %s\n",strerror(err));
+        }
+    } else {
+        (*current_count)++;
+        pthread_setspecific(_plugin_lock_key,(void*)current_count);
     }
 }
 
@@ -156,9 +193,30 @@ void _plugin_readlock(void) {
  */
 void _plugin_writelock(void) {
     int err;
+    int *current_count;
 
-    if((err=pthread_rwlock_wrlock(&_plugin_lock))) {
-        DPRINTF(E_FATAL,L_PLUG,"cannot lock plugin lock: %s\n",strerror(err));
+    current_count = pthread_getspecific(_plugin_lock_key);
+    if(!current_count) {
+        current_count = (int*)malloc(sizeof(int));
+        if(!current_count) {
+            DPRINTF(E_FATAL,L_PLUG,"Malloc error in _plugin_readlock\n");
+        }
+
+        *current_count = 0;
+    }
+    
+    DPRINTF(E_DBG,L_PLUG,"Current lock level: %d\n",*current_count);
+
+    if(!(*current_count)) {
+        (*current_count)++;
+        pthread_setspecific(_plugin_lock_key,(void*)current_count);
+
+        if((err=pthread_rwlock_wrlock(&_plugin_lock))) {
+            DPRINTF(E_FATAL,L_PLUG,"cannot lock plugin lock: %s\n",strerror(err));
+        }
+    } else {
+        (*current_count)++;
+        pthread_setspecific(_plugin_lock_key,(void*)current_count);
     }
 }
 
@@ -167,9 +225,22 @@ void _plugin_writelock(void) {
  */
 void _plugin_unlock(void) {
     int err;
+    int *current_count;
 
-    if((err=pthread_rwlock_unlock(&_plugin_lock))) {
-        DPRINTF(E_FATAL,L_PLUG,"cannot unlock plugin lock: %s\n",strerror(err));
+    current_count = pthread_getspecific(_plugin_lock_key);
+    if(!current_count) {
+        DPRINTF(E_FATAL,L_PLUG,"_plug_unlock without tls.  wtf?\n");
+    }
+
+    (*current_count)--;
+
+    if(!(*current_count)) {
+        pthread_setspecific(_plugin_lock_key,(void*)current_count);
+        if((err=pthread_rwlock_unlock(&_plugin_lock))) {
+            DPRINTF(E_FATAL,L_PLUG,"cannot unlock plugin lock: %s\n",strerror(err));
+        }
+    } else {
+        pthread_setspecific(_plugin_lock_key,(void*)current_count);
     }
 }
 
@@ -269,6 +340,8 @@ int plugin_load(char **pe, char *path) {
  */
 int plugin_url_candispatch(WS_CONNINFO *pwsc) {
     PLUGIN_ENTRY *ppi;
+    
+    DPRINTF(E_DBG,L_PLUG,"Entering candispatch\n");
 
     _plugin_readlock();
     ppi = _plugin_list.next;
@@ -279,8 +352,8 @@ int plugin_url_candispatch(WS_CONNINFO *pwsc) {
                 _plugin_unlock();
                 return TRUE;
             }
-            ppi = ppi->next;
         }
+        ppi = ppi->next;
     }
     _plugin_unlock();
     return FALSE;
@@ -417,12 +490,15 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
 void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
     PLUGIN_ENTRY *ppi;
 
-    _plugin_readlock();
+    fprintf(stderr,"entering plugin_event_dispatch\n");
+
+//    _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
+        fprintf(stderr,"Checking %s\n",ppi->versionstring);
         if(ppi->type & PLUGIN_EVENT) {
-            DPRINTF(E_DBG,L_PLUG,"Dispatching event %d to %s\n",
-                event_id,ppi->versionstring);
+/*            DPRINTF(E_DBG,L_PLUG,"Dispatching event %d to %s\n",
+                event_id,ppi->versionstring); */
 
             if((ppi->event_fns) && (ppi->event_fns->handler)) {
                 ppi->event_fns->handler(event_id, intval, vp, len);
@@ -430,7 +506,7 @@ void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
         }
         ppi=ppi->next;
     }
-    _plugin_unlock();
+//    _plugin_unlock();
 }
 
 

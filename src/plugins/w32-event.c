@@ -48,7 +48,7 @@ void plugin_handler(int event_id, int intval, void *vp, int len) {
 
     pmsg = (PLUGIN_MSG*)malloc(total_len);
     if(!pmsg) {
-        infn->log(E_LOG,"Malloc error in w32-event.c/plugin_handler\n");
+//        infn->log(E_LOG,"Malloc error in w32-event.c/plugin_handler\n");
         return;
     }
 
