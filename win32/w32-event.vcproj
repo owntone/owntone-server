@@ -33,6 +33,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="wsock32.lib"
 				OutputFile="$(OutDir)/w32-event.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile="w32-event.def"
@@ -81,6 +82,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="wsock32.lib"
 				OutputFile="$(OutDir)/w32-event.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="w32-event.def"

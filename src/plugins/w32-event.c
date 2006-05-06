@@ -2,9 +2,9 @@
  * $Id: $
  */
 
-#ifdef HAVE_CONFIG_H
-#include "config.h"
-#endif
+//#ifdef HAVE_CONFIG_H
+//#include "config.h"
+//#endif
 
 #include "compat.h"
 #include "mtd-plugins.h"
@@ -45,6 +45,9 @@ PLUGIN_INFO *plugin_info(void) {
 void plugin_handler(int event_id, int intval, void *vp, int len) {
     int total_len = 3 * sizeof(int) + len + 1;
     PLUGIN_MSG *pmsg;
+    int port = 9999;
+    SOCKET sock;
+    struct sockaddr_in servaddr;
 
     pmsg = (PLUGIN_MSG*)malloc(total_len);
     if(!pmsg) {
@@ -58,8 +61,17 @@ void plugin_handler(int event_id, int intval, void *vp, int len) {
     pmsg->intval = intval;
     memcpy(&pmsg->vp,vp,len);
 
-    CallNamedPipe("\\\\.\\pipe\\firefly",NULL,0,pmsg,total_len,NULL,NMPWAIT_NOWAIT);
+    sock = socket(AF_INET,SOCK_DGRAM,0);
+    if(sock == INVALID_SOCKET)
+        return;
 
+    servaddr.sin_family = AF_INET;
+    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
+    servaddr.sin_port = htons(port);
+
+    sendto(sock,(char*)pmsg,total_len,0,(struct sockaddr *)&servaddr,sizeof(servaddr));
+
+    closesocket(sock);
     free(pmsg);
     return;
 }

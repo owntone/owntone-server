@@ -396,9 +396,11 @@ int main(int argc, char *argv[]) {
         if((!skip_initial) || (reload)) {
             DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
 
+            plugin_event_dispatch(PLUGIN_EVENT_FULLSCAN_START,0,NULL,0);
             if(scan_init(mp3_dir_array)) {
                 DPRINTF(E_LOG,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
             }
+            plugin_event_dispatch(PLUGIN_EVENT_FULLSCAN_END,0,NULL,0);
         }
         conf_dispose_array(mp3_dir_array);
     }

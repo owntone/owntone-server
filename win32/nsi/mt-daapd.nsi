@@ -74,14 +74,26 @@ Section -Pre
   lbl_stop_service:
   DetailPrint "Stopping Service..."
   nsSCM::Stop "${PRODUCT_NAME}"
-  Sleep 3000
+
+  lbl_wait_stop:
+  Sleep 200
+  nsSCM::QueryStatus "${PRODUCT_NAME}"
+  Pop $0
+  Pop $1
+
+  StrCmp $0 "success" lbl_check_status
+  goto lbl_continue
+  
+  lbl_check_status: 
+  IntCmp $1 1 lbl_continue lbl_wait_stop lbl_wait_stop
   
   lbl_continue:
   ; should really loop until service stops...
+  DetailPrint "Service is stopped..."
   
   !include WinMessages.nsh
-  FindWindow $0 "" "Configuration"
-  SendMessage $0 ${WM_CLOSE} 0 0 
+  FindWindow $0 "" "Firefly Config"
+  SendMessage $0 ${WM_USER} 0 0 
   nsSCM::QueryStatus "Bonjour Service"
   Pop $0
   Pop $1
@@ -159,6 +171,11 @@ Section "MainSection" SEC01
 HasConf:
   WriteINIStr "$2\mt-daapd.conf" "plugins" "plugin_dir" "plugins"
   WriteINIStr "$2\mt-daapd.conf" "plugins" "plugins" "rsp.dll,w32-event.dll"
+  ReadINIStr $0 "$2\mt-daapd.conf" "general" "rescan_interval"
+  StrCmp $0 "" rescan_set rescan_skip
+ rescan_set:
+  WriteINIStr "$2\mt-daapd.conf" "general" "rescan_interval" "600" 
+ rescan_skip:
   SetAutoClose False
 SectionEnd
 

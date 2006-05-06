@@ -9,6 +9,8 @@ using System.Data;
 using System.ServiceProcess;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Net;
+using System.Net.Sockets;
 using JCMLib;
 
 namespace FireflyConfig
@@ -29,27 +31,7 @@ namespace FireflyConfig
 		
 	public class FireflyConfig : System.Windows.Forms.Form
 	{
-		[DllImport("Kernel32.dll")]
-		static extern IntPtr CreateFile(
-			string filename,
-			[MarshalAs(UnmanagedType.U4)]FileAccess fileaccess,
-			[MarshalAs(UnmanagedType.U4)]FileShare fileshare,
-			int securityattributes,
-			[MarshalAs(UnmanagedType.U4)]FileMode creationdisposition,
-			int flags,
-			IntPtr template);
-		[DllImport("Kernel32.dll")]
-		static extern IntPtr CreateNamedPipe(
-			string filename,
-			int openmode,
-			int pipemode,
-			int maxinstances,
-			int outbuffersize,
-			int inbuffersize,
-			uint defaulttimeout,
-			int securityattributes);
-
-		private System.Threading.Thread PipeThread;
+		private System.Threading.Thread UDPThread;
 
 		private System.Drawing.Icon icnRunning;
 		private System.Drawing.Icon icnStopped;
@@ -67,10 +49,6 @@ namespace FireflyConfig
 
 		private bool ForceExit = false;
 
-		private System.IntPtr PipeHandle;
-		private System.IO.FileStream mPipeStream;
-		private byte[] PipeBuffer;
-		
 		private System.Windows.Forms.Label label1;
 		private System.Windows.Forms.Label label2;
 		private System.Windows.Forms.Label label3;
@@ -92,6 +70,10 @@ namespace FireflyConfig
 		private System.Windows.Forms.Button buttonCancel;
 		private System.Windows.Forms.TextBox textBoxPassword;
 		private System.Windows.Forms.CheckBox checkBoxPassword;
+		private System.Windows.Forms.TabControl tabControl1;
+		private System.Windows.Forms.TabPage ConfigPage;
+		private System.Windows.Forms.TabPage LogPage;
+		private System.Windows.Forms.TextBox logBox;
 		private System.ComponentModel.IContainer components;
 
 		protected override void WndProc(ref Message msg) 
@@ -99,8 +81,17 @@ namespace FireflyConfig
 			if(msg.Msg == 0x11) // WM_QUERYENDSESSION
 			{
 				ForceExit = true;
-			}
-			base.WndProc(ref msg);
+			} 
+			else if (msg.Msg == 0x400)  // WM_USER
+			{
+				ForceExit = true;
+				Close();
+			} 
+			else if(msg.Msg == 0x0401) // WM_USER + 1 (show config page)
+			{ 
+				Show();
+			}	
+		base.WndProc(ref msg);
 		}
 
 		public void ServiceStatusUpdate() 
@@ -183,38 +174,82 @@ namespace FireflyConfig
 
 			this.Visible=false;
 
-			/* start chewing on the pipe */
-			/*
-			PipeHandle = NamedPipeNative.CreateFile(
-				@"\\." + @"\pipe\" + "firefly", 
-				NamedPipeNative.GENERIC_READ | NamedPipeNative.GENERIC_WRITE, 
-				0, 
-				null, 
-				NamedPipeNative.CREATE_ALWAYS,
-				0x40000000, 
-				0);
-*/				
-/*
-			PipeHandle = CreateFile("\\\\.\\pipe\\firefly",
-				FileAccess.ReadWrite, FileShare.ReadWrite,
-				0, FileMode.Create,0x40000000,IntPtr.Zero);
-*/
-			PipeHandle = CreateNamedPipe("\\\\.\\pipe\\firefly",
-				3,0,10,4096,4096,0xffffffff,0);
-			mPipeStream = new System.IO.FileStream(PipeHandle, System.IO.FileAccess.ReadWrite);
-			PipeBuffer = new byte[4096];
+			logBox.AppendText("Configurator Started\r\n");
 
-			PipeThread = new Thread(new ThreadStart(PipeThreadFunction));
-			PipeThread.Start();
+			UDPThread = new Thread(new ThreadStart(UDPThreadFunction));
+			UDPThread.IsBackground=true;
+			UDPThread.Start();
 
 		}
 
-		public void PipeThreadFunction() 
+		public void UDPThreadFunction() 
 		{
-			int bytesRead;
-			while((bytesRead = mPipeStream.Read(PipeBuffer,0,4096)) > 0) 
+			Socket sockUDP;
+			System.Text.ASCIIEncoding  encoding=new System.Text.ASCIIEncoding();
+
+			try 
 			{
-				MessageBox.Show("woot");
+				sockUDP = new Socket(AddressFamily.InterNetwork, SocketType.Dgram,ProtocolType.Udp);
+				IPAddress local = IPAddress.Parse("127.0.0.1");
+
+				IPEndPoint localIpEndPoint = new IPEndPoint(local,9999);
+				sockUDP.Bind(localIpEndPoint);
+				while(true) 
+				{
+					Byte[] received = new Byte[4096];
+					IPEndPoint tmpIpEndPoint = new IPEndPoint(local,9999);
+					EndPoint remoteEP = (tmpIpEndPoint);
+					int bytesReceived = sockUDP.ReceiveFrom(received,ref remoteEP);
+					if(bytesReceived != 0) 
+					{
+						int size;
+						int id;
+						int intval;
+
+						size = received[0] | 
+							(received[1] << 8) |
+							(received[2] << 16) |
+							(received[3] << 24);
+
+						id = received[4] | 
+							(received[5] << 8) |
+							(received[6] << 16) |
+							(received[7] << 24);
+
+						intval = received[8] | 
+							(received[9] << 8) |
+							(received[10] << 16) |
+							(received[11] << 24);
+						
+						string strval = encoding.GetString(received,12,bytesReceived < size ? bytesReceived - 12 : size - 12).Replace("\n","\r\n");
+						if(id == 0) 
+						{
+							/* log message */
+							logBox.AppendText(String.Format("{0}{1}",intval == 0 ? "FATAL: " : "",strval));
+							if(intval == 0) 
+							{ /* fatal error */
+								notifyIcon.ShowBalloon("Fatal Error",strval,JCMLib.NotifyIconEx.NotifyInfoFlags.Error,5000);
+							}
+						} 
+						else if(id == 1) 
+						{
+							notifyIcon.ShowBalloon("Firefly Server","Starting music scan...\r\nThis may take some time.",JCMLib.NotifyIconEx.NotifyInfoFlags.Info,5000);
+						} 
+						else if (id == 2) 
+						{
+							notifyIcon.ShowBalloon("Firefly Server","Music scan complete",JCMLib.NotifyIconEx.NotifyInfoFlags.Info,5000);
+						}
+					} 
+				}
+			} 
+			catch(ThreadAbortException) 
+			{
+				/* should clean up gracefully here */
+				return;
+			}
+			finally 
+			{
+				MessageBox.Show("Socket Error.  Ignoring server events");
 			}
 		}
 
@@ -295,12 +330,19 @@ namespace FireflyConfig
 			this.menuItemExit = new System.Windows.Forms.MenuItem();
 			this.notifyIcon = new JCMLib.NotifyIconEx();
 			this.folderBrowserDialog = new System.Windows.Forms.FolderBrowserDialog();
+			this.tabControl1 = new System.Windows.Forms.TabControl();
+			this.ConfigPage = new System.Windows.Forms.TabPage();
+			this.LogPage = new System.Windows.Forms.TabPage();
+			this.logBox = new System.Windows.Forms.TextBox();
 			this.groupBox1.SuspendLayout();
+			this.tabControl1.SuspendLayout();
+			this.ConfigPage.SuspendLayout();
+			this.LogPage.SuspendLayout();
 			this.SuspendLayout();
 			// 
 			// label1
 			// 
-			this.label1.Location = new System.Drawing.Point(8, 18);
+			this.label1.Location = new System.Drawing.Point(8, 12);
 			this.label1.Name = "label1";
 			this.label1.Size = new System.Drawing.Size(80, 16);
 			this.label1.TabIndex = 0;
@@ -308,7 +350,7 @@ namespace FireflyConfig
 			// 
 			// label2
 			// 
-			this.label2.Location = new System.Drawing.Point(8, 79);
+			this.label2.Location = new System.Drawing.Point(8, 76);
 			this.label2.Name = "label2";
 			this.label2.Size = new System.Drawing.Size(88, 23);
 			this.label2.TabIndex = 4;
@@ -316,7 +358,7 @@ namespace FireflyConfig
 			// 
 			// label3
 			// 
-			this.label3.Location = new System.Drawing.Point(8, 47);
+			this.label3.Location = new System.Drawing.Point(8, 44);
 			this.label3.Name = "label3";
 			this.label3.Size = new System.Drawing.Size(80, 23);
 			this.label3.TabIndex = 2;
@@ -344,9 +386,9 @@ namespace FireflyConfig
 			this.groupBox1.Controls.Add(this.textBoxPassword);
 			this.groupBox1.Controls.Add(this.checkBoxPassword);
 			this.groupBox1.Controls.Add(this.label4);
-			this.groupBox1.Location = new System.Drawing.Point(8, 112);
+			this.groupBox1.Location = new System.Drawing.Point(9, 104);
 			this.groupBox1.Name = "groupBox1";
-			this.groupBox1.Size = new System.Drawing.Size(240, 80);
+			this.groupBox1.Size = new System.Drawing.Size(247, 80);
 			this.groupBox1.TabIndex = 7;
 			this.groupBox1.TabStop = false;
 			this.groupBox1.Text = "Passsword";
@@ -355,13 +397,13 @@ namespace FireflyConfig
 			// 
 			this.textBoxPassword.Location = new System.Drawing.Point(80, 48);
 			this.textBoxPassword.Name = "textBoxPassword";
-			this.textBoxPassword.Size = new System.Drawing.Size(144, 20);
+			this.textBoxPassword.Size = new System.Drawing.Size(160, 20);
 			this.textBoxPassword.TabIndex = 2;
 			this.textBoxPassword.Text = "";
 			// 
 			// textBoxPort
 			// 
-			this.textBoxPort.Location = new System.Drawing.Point(96, 16);
+			this.textBoxPort.Location = new System.Drawing.Point(104, 8);
 			this.textBoxPort.Name = "textBoxPort";
 			this.textBoxPort.Size = new System.Drawing.Size(48, 20);
 			this.textBoxPort.TabIndex = 1;
@@ -369,7 +411,7 @@ namespace FireflyConfig
 			// 
 			// textBoxServerName
 			// 
-			this.textBoxServerName.Location = new System.Drawing.Point(96, 48);
+			this.textBoxServerName.Location = new System.Drawing.Point(104, 40);
 			this.textBoxServerName.Name = "textBoxServerName";
 			this.textBoxServerName.Size = new System.Drawing.Size(152, 20);
 			this.textBoxServerName.TabIndex = 3;
@@ -377,7 +419,7 @@ namespace FireflyConfig
 			// 
 			// textBoxMusicDir
 			// 
-			this.textBoxMusicDir.Location = new System.Drawing.Point(96, 80);
+			this.textBoxMusicDir.Location = new System.Drawing.Point(104, 72);
 			this.textBoxMusicDir.Name = "textBoxMusicDir";
 			this.textBoxMusicDir.Size = new System.Drawing.Size(120, 20);
 			this.textBoxMusicDir.TabIndex = 5;
@@ -385,7 +427,7 @@ namespace FireflyConfig
 			// 
 			// buttonBrowseDir
 			// 
-			this.buttonBrowseDir.Location = new System.Drawing.Point(224, 80);
+			this.buttonBrowseDir.Location = new System.Drawing.Point(232, 72);
 			this.buttonBrowseDir.Name = "buttonBrowseDir";
 			this.buttonBrowseDir.Size = new System.Drawing.Size(24, 20);
 			this.buttonBrowseDir.TabIndex = 6;
@@ -395,7 +437,7 @@ namespace FireflyConfig
 			// buttonOK
 			// 
 			this.buttonOK.DialogResult = System.Windows.Forms.DialogResult.OK;
-			this.buttonOK.Location = new System.Drawing.Point(8, 216);
+			this.buttonOK.Location = new System.Drawing.Point(8, 240);
 			this.buttonOK.Name = "buttonOK";
 			this.buttonOK.Size = new System.Drawing.Size(80, 24);
 			this.buttonOK.TabIndex = 8;
@@ -405,7 +447,7 @@ namespace FireflyConfig
 			// buttonCancel
 			// 
 			this.buttonCancel.DialogResult = System.Windows.Forms.DialogResult.Cancel;
-			this.buttonCancel.Location = new System.Drawing.Point(168, 216);
+			this.buttonCancel.Location = new System.Drawing.Point(200, 240);
 			this.buttonCancel.Name = "buttonCancel";
 			this.buttonCancel.Size = new System.Drawing.Size(80, 24);
 			this.buttonCancel.TabIndex = 9;
@@ -455,32 +497,75 @@ namespace FireflyConfig
 			this.notifyIcon.Visible = true;
 			this.notifyIcon.DoubleClick += new System.EventHandler(this.notifyIcon_DoubleClick);
 			// 
+			// tabControl1
+			// 
+			this.tabControl1.Controls.Add(this.ConfigPage);
+			this.tabControl1.Controls.Add(this.LogPage);
+			this.tabControl1.ItemSize = new System.Drawing.Size(74, 18);
+			this.tabControl1.Location = new System.Drawing.Point(8, 8);
+			this.tabControl1.Name = "tabControl1";
+			this.tabControl1.SelectedIndex = 0;
+			this.tabControl1.Size = new System.Drawing.Size(272, 224);
+			this.tabControl1.TabIndex = 10;
+			// 
+			// ConfigPage
+			// 
+			this.ConfigPage.Controls.Add(this.label1);
+			this.ConfigPage.Controls.Add(this.label2);
+			this.ConfigPage.Controls.Add(this.label3);
+			this.ConfigPage.Controls.Add(this.groupBox1);
+			this.ConfigPage.Controls.Add(this.textBoxPort);
+			this.ConfigPage.Controls.Add(this.textBoxServerName);
+			this.ConfigPage.Controls.Add(this.textBoxMusicDir);
+			this.ConfigPage.Controls.Add(this.buttonBrowseDir);
+			this.ConfigPage.Location = new System.Drawing.Point(4, 22);
+			this.ConfigPage.Name = "ConfigPage";
+			this.ConfigPage.Size = new System.Drawing.Size(264, 198);
+			this.ConfigPage.TabIndex = 0;
+			this.ConfigPage.Text = "Configuration";
+			// 
+			// LogPage
+			// 
+			this.LogPage.Controls.Add(this.logBox);
+			this.LogPage.Location = new System.Drawing.Point(4, 22);
+			this.LogPage.Name = "LogPage";
+			this.LogPage.Size = new System.Drawing.Size(264, 198);
+			this.LogPage.TabIndex = 1;
+			this.LogPage.Text = "Log";
+			// 
+			// logBox
+			// 
+			this.logBox.Location = new System.Drawing.Point(0, 0);
+			this.logBox.Multiline = true;
+			this.logBox.Name = "logBox";
+			this.logBox.ReadOnly = true;
+			this.logBox.ScrollBars = System.Windows.Forms.ScrollBars.Both;
+			this.logBox.Size = new System.Drawing.Size(264, 200);
+			this.logBox.TabIndex = 0;
+			this.logBox.Text = "";
+			// 
 			// FireflyConfig
 			// 
 			this.AutoScaleBaseSize = new System.Drawing.Size(5, 13);
-			this.ClientSize = new System.Drawing.Size(256, 246);
+			this.ClientSize = new System.Drawing.Size(288, 270);
 			this.ControlBox = false;
 			this.Controls.Add(this.buttonCancel);
 			this.Controls.Add(this.buttonOK);
-			this.Controls.Add(this.buttonBrowseDir);
-			this.Controls.Add(this.textBoxMusicDir);
-			this.Controls.Add(this.textBoxServerName);
-			this.Controls.Add(this.textBoxPort);
-			this.Controls.Add(this.groupBox1);
-			this.Controls.Add(this.label3);
-			this.Controls.Add(this.label2);
-			this.Controls.Add(this.label1);
+			this.Controls.Add(this.tabControl1);
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.MaximizeBox = false;
 			this.Name = "FireflyConfig";
 			this.ShowInTaskbar = false;
 			this.SizeGripStyle = System.Windows.Forms.SizeGripStyle.Hide;
-			this.Text = "Configuration";
+			this.Text = "Firefly Config";
 			this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
 			this.Resize += new System.EventHandler(this.FireflyConfig_Resize);
 			this.Closing += new System.ComponentModel.CancelEventHandler(this.FireflyConfig_Closing);
 			this.Load += new System.EventHandler(this.FireflyConfig_Load);
 			this.groupBox1.ResumeLayout(false);
+			this.tabControl1.ResumeLayout(false);
+			this.ConfigPage.ResumeLayout(false);
+			this.LogPage.ResumeLayout(false);
 			this.ResumeLayout(false);
 
 		}
@@ -625,37 +710,20 @@ namespace FireflyConfig
 
 		private void FireflyConfig_Closing(object sender, System.ComponentModel.CancelEventArgs e)
 		{
-			if(!ForceExit)
+			if(!ForceExit) 
+			{
 				e.Cancel = true;
+			}
+			else 
+			{
+				e.Cancel=false;
+				UDPThread.Abort();
+				Application.Exit();
+			}
 		}
 
 	}
 
-	[StructLayout(LayoutKind.Sequential)]
-	public class SecurityAttributes 
-	{
-	}
-
-
-	public class NamedPipeNative
-	{
-		[DllImport("kernel32.dll", SetLastError=true)]
-		public static extern IntPtr CreateFile(
-			String lpFileName, // file name
-			uint dwDesiredAccess, // access mode
-			uint dwShareMode, // share mode
-			SecurityAttributes attr, // SD
-			uint dwCreationDisposition, // how to create
-			uint dwFlagsAndAttributes, // file attributes
-			uint hTemplateFile); // handle to template file
-
-
-		public const uint GENERIC_READ = (0x80000000);
-		public const uint GENERIC_WRITE = (0x40000000);
-		public const uint CREATE_NEW = 1;
-		public const uint CREATE_ALWAYS = 2;
-		public const uint OPEN_EXISTING = 3;
-	}
 
 	public class IniFile
 	{
