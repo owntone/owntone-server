@@ -26,7 +26,6 @@ PLUGIN_INFO _pi = {
     NULL,
     &_pefn,
     NULL,
-    NULL,
     NULL
 };
 
