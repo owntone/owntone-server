@@ -455,10 +455,10 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
         free(descriptor_name);
     }
 
-    if(track) {
-        pmp3->track = track;
-    } else if(tracknumber) {
+    if(tracknumber) {
         pmp3->track = tracknumber;
+    } else if(track) {
+        pmp3->track = track;
     }
     
     return TRUE;
