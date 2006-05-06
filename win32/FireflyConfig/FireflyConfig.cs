@@ -59,12 +59,13 @@ namespace FireflyConfig
 		
 		private System.ServiceProcess.ServiceController scFirefly;
 		private ServiceStatus iState = ServiceStatus.Unintialized;
-		private bool closeFromMenu = false;
 
 		private string strPort;
 		private string strServerName;
 		private string strMusicDir;
 		private string strPassword;
+
+		private bool ForceExit = false;
 
 		private System.IntPtr PipeHandle;
 		private System.IO.FileStream mPipeStream;
@@ -92,6 +93,15 @@ namespace FireflyConfig
 		private System.Windows.Forms.TextBox textBoxPassword;
 		private System.Windows.Forms.CheckBox checkBoxPassword;
 		private System.ComponentModel.IContainer components;
+
+		protected override void WndProc(ref Message msg) 
+		{
+			if(msg.Msg == 0x11) // WM_QUERYENDSESSION
+			{
+				ForceExit = true;
+			}
+			base.WndProc(ref msg);
+		}
 
 		public void ServiceStatusUpdate() 
 		{
@@ -468,6 +478,7 @@ namespace FireflyConfig
 			this.Text = "Configuration";
 			this.WindowState = System.Windows.Forms.FormWindowState.Minimized;
 			this.Resize += new System.EventHandler(this.FireflyConfig_Resize);
+			this.Closing += new System.ComponentModel.CancelEventHandler(this.FireflyConfig_Closing);
 			this.Load += new System.EventHandler(this.FireflyConfig_Load);
 			this.groupBox1.ResumeLayout(false);
 			this.ResumeLayout(false);
@@ -502,7 +513,7 @@ namespace FireflyConfig
 
 		private void menuItemExit_Click(object sender, System.EventArgs e)
 		{
-			closeFromMenu = true;
+			ForceExit = true;
 			Close();
 		}
 
@@ -610,6 +621,12 @@ namespace FireflyConfig
 			{
 				Hide();
 			}
+		}
+
+		private void FireflyConfig_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+		{
+			if(!ForceExit)
+				e.Cancel = true;
 		}
 
 	}
