@@ -40,6 +40,7 @@ PLUGIN_INFO _pi = {
     "/rsp/.*",
     &_pofn,
     NULL,
+    NULL,
     _pri
 };
 
