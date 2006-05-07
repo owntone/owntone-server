@@ -74,6 +74,7 @@ namespace FireflyConfig
 		private System.Windows.Forms.TabPage ConfigPage;
 		private System.Windows.Forms.TabPage LogPage;
 		private System.Windows.Forms.TextBox logBox;
+		private System.Windows.Forms.Label versionLabel;
 		private System.ComponentModel.IContainer components;
 
 		protected override void WndProc(ref Message msg) 
@@ -173,6 +174,9 @@ namespace FireflyConfig
 			timerRefresh.Tick += new EventHandler(timerRefresh_Tick);
 
 			this.Visible=false;
+
+			Version vrs = new Version(Application.ProductVersion);
+			versionLabel.Text = "Build " + vrs.Build;
 
 			logBox.AppendText("Configurator Started\r\n");
 
@@ -334,6 +338,7 @@ namespace FireflyConfig
 			this.ConfigPage = new System.Windows.Forms.TabPage();
 			this.LogPage = new System.Windows.Forms.TabPage();
 			this.logBox = new System.Windows.Forms.TextBox();
+			this.versionLabel = new System.Windows.Forms.Label();
 			this.groupBox1.SuspendLayout();
 			this.tabControl1.SuspendLayout();
 			this.ConfigPage.SuspendLayout();
@@ -544,6 +549,16 @@ namespace FireflyConfig
 			this.logBox.TabIndex = 0;
 			this.logBox.Text = "";
 			// 
+			// versionLabel
+			// 
+			this.versionLabel.ForeColor = System.Drawing.SystemColors.GrayText;
+			this.versionLabel.Location = new System.Drawing.Point(96, 243);
+			this.versionLabel.Name = "versionLabel";
+			this.versionLabel.Size = new System.Drawing.Size(96, 16);
+			this.versionLabel.TabIndex = 11;
+			this.versionLabel.Text = "Version 1.0";
+			this.versionLabel.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
+			// 
 			// FireflyConfig
 			// 
 			this.AutoScaleBaseSize = new System.Drawing.Size(5, 13);
@@ -551,6 +566,7 @@ namespace FireflyConfig
 			this.ControlBox = false;
 			this.Controls.Add(this.buttonCancel);
 			this.Controls.Add(this.buttonOK);
+			this.Controls.Add(this.versionLabel);
 			this.Controls.Add(this.tabControl1);
 			this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
 			this.MaximizeBox = false;
