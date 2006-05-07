@@ -278,6 +278,13 @@ namespace FireflyConfig
 							(received[10] << 16) |
 							(received[11] << 24);
 						
+						/* we are clearly running... */
+						iState = ServiceStatus.Running;
+						menuItemStart.Enabled = false;
+						menuItemStop.Enabled = true;
+						notifyIcon.Icon = icnRunning;
+						notifyIcon.Text = "Firefly Media Server is running";
+
 						string strval = encoding.GetString(received,12,bytesReceived < size ? bytesReceived - 12 : size - 12).Replace("\n","\r\n");
 						if(id == 0) 
 						{
