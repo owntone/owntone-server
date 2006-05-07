@@ -6,6 +6,7 @@ using System.Threading;
 using System.ComponentModel;
 using System.Windows.Forms;
 using System.Data;
+using System.Diagnostics;
 using System.ServiceProcess;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -31,7 +32,17 @@ namespace FireflyConfig
 		
 	public class FireflyConfig : System.Windows.Forms.Form
 	{
+		[DllImport("Kernel32.dll", CharSet=CharSet.Auto)]
+		private static extern IntPtr OpenEvent(UInt32 
+			dwDesiredAccess, Boolean bInheritHandle, String lpName);
+		[DllImport("Kernel32.dll", CharSet=CharSet.Auto)]
+		private static extern IntPtr CreateEvent(UInt32 dwDesiredAccess,
+			Boolean bManualReset, Boolean bInitialState, String lpName);
+		[DllImport("user32.dll", EntryPoint="PostMessageA")]
+		static extern int PostMessage(IntPtr hwnd, int wMsg, int wParam, int lParam);
+
 		private System.Threading.Thread UDPThread;
+		private System.Threading.Thread EventThread;
 
 		private System.Drawing.Icon icnRunning;
 		private System.Drawing.Icon icnStopped;
@@ -77,6 +88,14 @@ namespace FireflyConfig
 		private System.Windows.Forms.Label versionLabel;
 		private System.ComponentModel.IContainer components;
 
+		public void ShowConfigWindow() 
+		{
+			LoadIni();
+			Show();
+			WindowState = FormWindowState.Normal;
+			ShowInTaskbar = true;	
+		}
+
 		protected override void WndProc(ref Message msg) 
 		{
 			if(msg.Msg == 0x11) // WM_QUERYENDSESSION
@@ -89,8 +108,8 @@ namespace FireflyConfig
 				Close();
 			} 
 			else if(msg.Msg == 0x0401) // WM_USER + 1 (show config page)
-			{ 
-				Show();
+			{
+				ShowConfigWindow();
 			}	
 		base.WndProc(ref msg);
 		}
@@ -184,6 +203,40 @@ namespace FireflyConfig
 			UDPThread.IsBackground=true;
 			UDPThread.Start();
 
+			EventThread = new Thread(new ThreadStart(EventThreadFunction));
+			EventThread.IsBackground = true;
+			EventThread.Start();
+		}
+		
+		/* Wait for an event */
+		public void EventThreadFunction() 
+		{
+			IntPtr hEvent = IntPtr.Zero;
+			
+			hEvent = CreateEvent(0,false,false,"FFCONFIG");
+			if(IntPtr.Zero == hEvent) 
+			{
+				return;
+			}
+			AutoResetEvent arEvent = new AutoResetEvent(false);
+			arEvent.Handle = hEvent;
+
+			WaitHandle[] waitHandles;
+			waitHandles = new WaitHandle[1];
+			waitHandles[0] = arEvent;
+
+			while(arEvent.WaitOne()) 
+			{
+				try 
+				{
+					PostMessage( this.Handle, 0x0401, 0, 0);
+					arEvent.Reset();
+				}
+				catch(ThreadAbortException) 
+				{
+					return;
+				}
+			}
 		}
 
 		public void UDPThreadFunction() 
@@ -593,7 +646,28 @@ namespace FireflyConfig
 		[STAThread]
 		static void Main() 
 		{
-			Application.Run(new FireflyConfig());
+			Process aProcess = Process.GetCurrentProcess();
+			string aProcName = aProcess.ProcessName;
+
+			Process[] processList;
+			IntPtr hEvent;
+			processList = Process.GetProcessesByName(aProcName);
+
+			if (processList.Length > 1)
+			{
+				hEvent = OpenEvent(2031619,false,"FFCONFIG");
+				if(IntPtr.Zero != hEvent) 
+				{
+					AutoResetEvent arEvent = new AutoResetEvent(false);
+					arEvent.Handle = hEvent;
+					arEvent.Set();
+				}
+				Application.Exit();
+			} 
+			else 
+			{
+				Application.Run(new FireflyConfig());
+			}
 		}
 
 		private void notifyIcon_DoubleClick(object sender, System.EventArgs e)
