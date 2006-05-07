@@ -205,7 +205,7 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
     accept = infn->ws_getrequestheader(pwsc,"accept-encoding");
 
     if((!nogzip) && (accept) && (strcasestr(accept,"gzip"))) {
-        infn->log(E_LOG,"Gzipping output\n");
+        infn->log(E_DBG,"Gzipping output\n");
         pxml->psb = xml_stream_open();
         if(pxml->psb) {
             infn->ws_addresponseheader(pwsc,"Content-Encoding","gzip");
