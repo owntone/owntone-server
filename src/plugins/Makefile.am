@@ -2,7 +2,7 @@
 #
 rspdir = ${pkgdatadir}/plugins
 
-lib_LTLIBRARIES=rsp.la
+rsp_LTLIBRARIES=rsp.la
 rsp_la_LDFLAGS=-module -avoid-version
 rsp_la_SOURCES = compat.c rsp.c xml-rpc.c
 
