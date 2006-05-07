@@ -5,7 +5,7 @@
 !define PRODUCT_NAME "Firefly Media Server"
 !define PRODUCT_SERVICE "Firefly Media Server"
 !define /date DATEVER "%Y%m%d"
-!define PRODUCT_VERSION "svn-1004"
+!define PRODUCT_VERSION "svn-$WCREV$"
 !define PRODUCT_PUBLISHER "Ron Pedde"
 !define PRODUCT_WEB_SITE "http://www.fireflymediaserver.org"
 !define PRODUCT_DIR_REGKEY "Software\Microsoft\Windows\CurrentVersion\App Paths\firefly.exe"
@@ -90,6 +90,7 @@ Section -Pre
   lbl_continue:
   ; should really loop until service stops...
   DetailPrint "Service is stopped..."
+  Sleep 1000
   
   !include WinMessages.nsh
   FindWindow $0 "" "Firefly Config"
@@ -210,6 +211,8 @@ Section -Post
   MessageBox MB_OK "Error installing service: $1"
 
   lbl_install_success:
+  ExecWait 'netsh firewall add allowedprogram "$2\firefly.exe" "${PRODUCT_NAME}" enable'  
+
   nsSCM::Start "${PRODUCT_NAME}"
   Exec "$2\FireflyConfig"
 SectionEnd

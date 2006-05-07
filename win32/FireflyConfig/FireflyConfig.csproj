@@ -16,7 +16,7 @@
                 DefaultTargetSchema = "IE50"
                 DelaySign = "false"
                 OutputType = "WinExe"
-                PreBuildEvent = ""
+                PreBuildEvent = "..\..\..\versionize.bat"
                 PostBuildEvent = ""
                 RootNamespace = "FireflyConfig"
                 RunPostBuildEvent = "OnBuildSuccess"
