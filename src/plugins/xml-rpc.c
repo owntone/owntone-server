@@ -167,7 +167,7 @@ int xml_stream_close(XMLSTRUCT *pxml) {
             done=1;
     }
 
-    infn->log(E_INF,"Done sending xml stream\n");
+    infn->log(E_DBG,"Done sending xml stream\n");
     deflateEnd(&psb->strm);
     if(psb->out_buffer != NULL)
         free(psb->out_buffer);
