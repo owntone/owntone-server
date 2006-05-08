@@ -8,11 +8,17 @@
 # include "config.h"
 #endif
 
+#include <dirent.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+#include <unistd.h>
+
+#include <sys/types.h>
 
 #include "configfile.h"
 #include "conf.h"
@@ -20,6 +26,7 @@
 #include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
+#include "os.h"
 #include "rend.h"
 #include "webserver.h"
 #include "xml-rpc.h"
@@ -39,10 +46,11 @@ struct tag_xmlstruct {
 /* Forwards */
 void xml_get_stats(WS_CONNINFO *pwsc);
 void xml_set_config(WS_CONNINFO *pwsc);
-void xml_return_error(WS_CONNINFO *pwsc, int errno, char *errstr);
+void xml_browse_path(WS_CONNINFO *pwsc);
+void xml_return_error(WS_CONNINFO *pwsc, int err, char *errstr);
 char *xml_entity_encode(char *original);
 
-void xml_return_error(WS_CONNINFO *pwsc, int errno, char *errstr) {
+void xml_return_error(WS_CONNINFO *pwsc, int err, char *errstr) {
     XMLSTRUCT *pxml;
 
     pxml=xml_init(pwsc,TRUE);
@@ -239,8 +247,94 @@ void xml_handle(WS_CONNINFO *pwsc) {
         return;
     }
 
+    if(strcasecmp(method,"browse_path") == 0) {
+	xml_browse_path(pwsc);
+	return;
+    }
+
     ws_returnerror(pwsc,500,"Invalid method");
     return;
+}
+
+/**
+ * Given a base directory, walk through the directory and enumerate
+ * all folders underneath it.
+ *
+ * @param pwsc connection over which to dump the result
+ */
+void xml_browse_path(WS_CONNINFO *pwsc) {
+    XMLSTRUCT *pxml;
+    DIR *pd;
+    char *base_path;
+    char de[sizeof(struct dirent) + MAXNAMLEN + 1];
+    struct dirent *pde;
+    int readable, writable;
+    char full_path[PATH_MAX+1];
+    char resolved_path[PATH_MAX];
+    int err;
+    int ignore_dotfiles=1;
+
+    base_path = ws_getvar(pwsc, "path");
+    if(!base_path)
+	base_path = PATHSEP_STR;
+
+
+    if(ws_getvar(pwsc,"show_dotfiles"))
+	ignore_dotfiles = 0;
+
+    pd = opendir(base_path);
+    if(!pd) {
+	xml_return_error(pwsc,500,"Bad path");
+	return;
+    }
+
+    pxml=xml_init(pwsc,1);
+    xml_push(pxml,"results");
+
+    /* get rid of trailing slash */
+    while(1) {
+	pde = (struct dirent *)&de;
+	err = readdir_r(pd,(struct dirent *)de, &pde);
+
+	if(err == -1) {
+	    DPRINTF(E_LOG,L_SCAN,"Error in readdir_r: %s\n",
+		    strerror(errno));
+	    break;
+	}
+
+	if(!pde)
+	    break;
+
+	if((!strcmp(pde->d_name,".")) || (!strcmp(pde->d_name,"..")))
+	    continue;
+
+	if(!(pde->d_type & DT_DIR))
+	    continue;
+
+	if((ignore_dotfiles) && (pde->d_name) && (pde->d_name[0] == '.'))
+	    continue;
+
+	snprintf(full_path,PATH_MAX,"%s%c%s",base_path,PATHSEP,pde->d_name);
+	realpath(full_path,resolved_path);
+	readable = !access(resolved_path,R_OK);
+	writable = !access(resolved_path,W_OK);
+
+
+	xml_push(pxml,"directory");
+	xml_output(pxml,"name",pde->d_name);
+	xml_output(pxml,"full_path",resolved_path);
+	xml_output(pxml,"readable","%d",readable);
+	xml_output(pxml,"writable","%d",writable);
+
+	xml_pop(pxml); /* directory */
+
+    }
+
+
+    xml_pop(pxml);
+    xml_deinit(pxml);
+
+    closedir(pd);
 }
 
 /**
