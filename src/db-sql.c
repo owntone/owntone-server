@@ -1138,6 +1138,35 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         DPRINTF(E_DBG,L_DB,"No query/filter\n");
     }
 
+    /* disable empty */
+    if(browse) {
+        if((have_clause) || (pinfo->pt)) {
+	    strcat(query_rest," and (");
+	} else {
+	    strcpy(query_rest," where (");
+	}
+	
+	switch(pinfo->query_type) {
+	case queryTypeBrowseAlbums:
+	    strcat(query_rest,"album");
+	    break;
+	case queryTypeBrowseArtists:
+	    strcat(query_rest,"artist");
+	    break;
+	case queryTypeBrowseGenres:
+	    strcat(query_rest,"genre");
+	    break;
+	case queryTypeBrowseComposers:
+	    strcat(query_rest,"composer");
+	    break;
+	default: /* ?? */
+	    strcat(query_rest,"album");
+	    break;
+	}
+
+	strcat(query_rest, " !='')");
+    }
+
     if((pinfo->index_type != indexTypeNone) || (pinfo->want_count)) {
         /* the only time returned count is not specifiedtotalcount
          * is if we have an index. */
