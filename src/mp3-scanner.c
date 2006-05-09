@@ -404,7 +404,7 @@ int scan_static_playlist(char *path) {
         return FALSE;
     }
 
-    if((current=strrchr(path,'/')) == NULL) {
+    if((current=strrchr(path,PATHSEP)) == NULL) {
         current = path;
     } else {
         current++;
@@ -442,7 +442,7 @@ int scan_static_playlist(char *path) {
         }
         /* now get the *real* base_path */
         strcpy(base_path,path);
-        if((current=strrchr(base_path,'/'))) {
+        if((current=strrchr(base_path,PATHSEP))) {
             *(current+1) = '\x0';
         } /* else something is fubar */
 
@@ -460,7 +460,7 @@ int scan_static_playlist(char *path) {
             // FIXME - should chomp trailing comments
 
             // otherwise, assume it is a path
-            if(linebuffer[0] == '/') {
+            if((linebuffer[0] == PATHSEP) || (linebuffer[1] == ':')) {
                 strcpy(file_path,linebuffer);
             } else {
                 snprintf(file_path,sizeof(file_path),"%s%s",base_path,linebuffer);

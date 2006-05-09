@@ -34,6 +34,7 @@
 #define popen _popen
 #define pclose _pclose
 #define strtoll strtol 
+#define access _access
 
 #define realpath os_realpath
 #define close os_close

@@ -561,6 +561,11 @@ int os_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
         entry->d_namlen - entry->d_namlen % 4;
     strcpy (entry->d_name, dirp->dir_find_data.cFileName);
 
+    entry->d_type = 0;
+    if(dirp->dir_find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
+        entry->d_type |= DT_DIR;
+    }
+
     /*
     if (dir_is_fat)
         _strlwr (dir_static.d_name);

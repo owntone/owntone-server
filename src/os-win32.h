@@ -20,11 +20,17 @@ struct timezone {
     int tz_dsttime;
 };
 
+#define DT_DIR 1
+
+#define W_OK 2
+#define R_OK 4
+
 struct dirent {                         /* data from readdir() */
 
     long                d_ino;          /* inode number of entry */
     unsigned short      d_reclen;       /* length of this record */
     unsigned short      d_namlen;       /* length of string in d_name */
+    int                 d_type;         /* flags */
     char                d_name[MAXNAMLEN+1];    /* name of file */
 };
 
