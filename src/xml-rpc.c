@@ -8,7 +8,9 @@
 # include "config.h"
 #endif
 
-#include <dirent.h>
+#ifndef WIN32
+#include <dirent.h>  /* c'mon, config for this */
+#endif
 #include <errno.h>
 #include <limits.h>
 #include <stdio.h>
@@ -16,7 +18,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <unistd.h>
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 
 #include <sys/types.h>
 
@@ -318,7 +322,6 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
 	realpath(full_path,resolved_path);
 	readable = !access(resolved_path,R_OK);
 	writable = !access(resolved_path,W_OK);
-
 
 	xml_push(pxml,"directory");
 	xml_output(pxml,"name",pde->d_name);
