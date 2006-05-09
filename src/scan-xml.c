@@ -181,6 +181,7 @@ int scan_xml_translate_path(char *pold, char *pnew) {
     char working_path[PATH_MAX];
     char *current = pold + strlen(pold);
     char *pbase;
+    char *ptemp;
 
     if((!pold)||(!strlen(pold)))
         return FALSE;
@@ -202,15 +203,22 @@ int scan_xml_translate_path(char *pold, char *pnew) {
         /* not a real file... go ahead and brute force it */
     }
 
-    if(!path_found) {
-        strcpy(working_path,pold);
+    ptemp = pold;
+    while(*ptemp) {
+        if(*ptemp == '/')
+            *ptemp = PATHSEP;
 
+        ptemp++;
+    }
+    strcpy(working_path,pold);
+    
+    if(!path_found) {
         DPRINTF(E_DBG,L_SCAN,"Translating %s, base %s\n",pold,scan_xml_file);
 
         /* let's try to find the path by brute force.
          * We'll assume that it is under the xml file somewhere
          */
-        while(!path_found && ((current = strrchr(working_path,'/')))) {
+        while(!path_found && ((current = strrchr(working_path,'/')) || (current = strrchr(working_path,'\\')))) {
             realpath(scan_xml_file,base_path);
             DPRINTF(E_DBG,L_SCAN,"New base: %s\n",base_path);
 //            strcpy(base_path,scan_xml_file);
@@ -738,6 +746,7 @@ int scan_xml_tracks_section(int action, char *info) {
                 mp3.total_discs = atoi(info);
             } else if(current_field == SCAN_XML_T_LOCATION) {
                 song_path = scan_xml_urldecode(info,0);
+                DPRINTF(E_DBG,L_SCAN,"scan_path: %s\n",song_path);
             } else if(current_field == SCAN_XML_T_DATE_ADDED) {
                 mp3.time_added = scan_xml_datedecode(info);
             }
@@ -808,6 +817,7 @@ int scan_xml_playlists_section(int action, char *info) {
         return XML_STATE_ERROR;
     case XML_PL_ST_EXPECTING_PL:
         /* either a new playlist, or end of playlist list */
+        dont_scan=0;
         MAYBESETSTATE_PL(RXML_EVT_BEGIN,"dict",XML_PL_ST_EXPECTING_PL_DATA);
         if((action == RXML_EVT_END) && (strcasecmp(info,"array") == 0))
             return XML_STATE_PREAMBLE;
@@ -852,7 +862,7 @@ int scan_xml_playlists_section(int action, char *info) {
                     DPRINTF(E_LOG,L_SCAN,"err adding playlist %s\n",current_name);
                     current_id=0;
                 }
-            }
+            } 
             dont_scan=0;
             state=XML_PL_ST_EXPECTING_PL_TRACKLIST;
             return XML_STATE_PLAYLISTS;
@@ -869,6 +879,7 @@ int scan_xml_playlists_section(int action, char *info) {
                 if(current_name)
                     free(current_name);
                 current_name = strdup(info);
+                DPRINTF(E_DBG,L_SCAN,"Found playlist: %s\n",current_name);
                 /* disallow specific playlists */
                 if(strcasecmp(current_name,"Party Shuffle") == 0) {
                     dont_scan=1;
