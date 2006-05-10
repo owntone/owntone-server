@@ -47,12 +47,25 @@ var Config = {
       $('theform').appendChild(body);
     });  
   },
-  _getConfigOptionValue: function(id) {
-    var value = Config.configOptionValues.getElementsByTagName(id);
-    if (value.length > 0) {
-      return Element.textContent(value[0]);
+  _getConfigOptionValue: function(id,multiple) {
+    if (multiple) {
+      var ret = [];
+      var option = Config.configOptionValues.getElementsByTagName(id);
+      if (option.length > 0) { 
+        $A(option[0].getElementsByTagName('item')).each(function (item) {
+          ret.push(Element.textContent(item));
+        });
+      } else {
+        ret.push('');
+      }
+      return ret;
     } else {
-      return '';
+      var value = Config.configOptionValues.getElementsByTagName(id);
+      if (value.length > 0) {
+        return Element.textContent(value[0]);
+      } else {
+        return '';
+      }
     }
   },
   _buildItem: function(item) {
@@ -73,7 +86,28 @@ var Config = {
                                  Config._getConfigOptionValue(itemId),80,
                                  Element.textContent(item.getElementsByTagName('short_description')[0]),                                     
                                  '');
-        break;                             
+        break;
+      case 'short_text_multiple':
+        ret = document.createDocumentFragment();
+        Config._getConfigOptionValue(itemId,true).each(function (value,i) {
+          ret.appendChild(BuildElement.input(itemId+i,
+                                             Element.textContent(item.getElementsByTagName('name')[0]),
+                                             value,20,
+                                             Element.textContent(item.getElementsByTagName('short_description')[0])
+          ));
+        });
+        break;                                  
+      case 'long_text_multiple':
+//###TODO Do something smart instead of just copying
+        ret = document.createDocumentFragment();
+        Config._getConfigOptionValue(itemId,true).each(function (value,i) {
+          ret.appendChild(BuildElement.input(itemId+i,
+                                             Element.textContent(item.getElementsByTagName('name')[0]),
+                                             value,80,
+                                             Element.textContent(item.getElementsByTagName('short_description')[0])
+          ));
+        });
+        break;                                  
       case 'select':
         ret = BuildElement.select(itemId,
                                   Element.textContent(item.getElementsByTagName('name')[0]),

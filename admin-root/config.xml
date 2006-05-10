@@ -7,9 +7,9 @@
                 The name iTunes and other daap clients should see
             </short_description>
             <long_description>
-                This is both the name of the server as advertised via
-                rendezvous, and the name of the database exported via
-                DAAP. Also know as "What shows up in iTunes".
+                This is both the name of the server as advertised via rendezvous, and the
+                name of the database exported via DAAP. Also know as "What shows up in
+                iTunes".
             </long_description>
             <type>short_text</type>
         </item>
@@ -83,7 +83,7 @@
         <item id="mp3_dir">
             <name>MP3 Directory</name>
             <short_description></short_description>
-            <type>long_text</type>
+            <type>long_text_multiple</type>
         </item>
         <item id="extensions">
             <name>Extensions</name>
@@ -108,7 +108,7 @@
         <item id="compdirs">
             <name>Compilation Directories</name>
             <short_description></short_description>
-            <type>long_text</type>
+            <type>long_text_multiple</type>
         </item>
         <item id="art_filename">
             <name>Art Filename</name>
@@ -154,6 +154,19 @@
             <option value="0">No</option>
             <option value="1">Yes</option>
             <default_value>0</default_value>
+        </item>
+    </section>
+
+    <section name="Plugins">
+        <item id="plugin_dir">
+            <name>Plugin Directory</name>
+            <short_description></short_description>
+            <type>long_text</type>
+        </item>
+        <item id="plugins">
+            <name>Plugins</name>
+            <short_description></short_description>
+            <type>short_text_multiple</type>
         </item>
     </section>
 
