@@ -13,6 +13,13 @@ input {
 select {
   font: icon;
 }
+#config_path {
+  float: left;
+  width: 11em;
+  font:icon;
+  padding-top: .3em;
+  padding-left: 1em;
+}
 </style>
 <h1>Configuration</h1>
 
@@ -24,105 +31,7 @@ running server. The server must be restarted for these values to
 take effect.-->
 This is work in progress. no changes saved, some fields not updated, some not even in mt-daapd.conf</p>
 
-<form method="get" action="#">
-<div class="naviheader">Server</div>
-<div class="navibox">
-  <span style="float: left; width: 11em; font:icon;padding-top: .3em; padding-left: 1em;">Config File</span>
-  <span id="config_path"></span><br />
-  <div style="clear: both;"></div>
-  <label for="servername">Server Name</label>
-  <input class="text" type="text" id="servername" value="" />
-    &nbsp;the name iTunes and other daap clients should see.<br />
-  <label for="web_root">Web Root</label>
-  <input class="text" type="text" id="web_root" size="80" value="" /><br />
-  <label for="port">Port</label>
-  <input class="text" type="text" id="port" value="" />
-    &nbsp;The port the server should run at; default is 3689.<br />
-  <label for="logfile">Logfile</label>
-  <input class="text" type="text" id="logfile" size="80" value="" /><br />
-  <label for="runas">Run As</label>
-  <input class="text" type="text" id="runas" value="" /><br />
-  <label for="admin_pw">Admin Password</label>
-  <input class="text" type="text" id="admin_pw" value="" />
-    &nbsp;The password for this administration interface.<br />
-  <label for="password">MP3 Password</label>
-  <input class="text" type="text" id="password" value="" />
-    &nbsp;The password clients need to access this server.<br />
-  <label for="compress">Compress</label>
-  <select id="compress" size="1">
-    <option value="1">Yes</option>
-    <option value="0" selected="selected">No</option>
-  </select>
-    &nbsp;Should browsing data be compressed on the way to the client?<br />
-  <label for="debug">Debug Level</label>
-  <select id="debug" size="1">
-    <option value="0">0</option>
-    <option value="1">1</option>
-    <option value="2">2</option>
-    <option value="3">3</option>
-    <option value="4">4</option>
-    <option value="5">5</option>
-    <option value="6">6</option>
-    <option value="7">7</option>
-    <option value="8">8</option>
-    <option value="9">9</option>
-  </select>
-    &nbsp;Possible values are 0 to 9, 9 being the most detailed debug level.<br />
-
-</div>
-<div class="naviheader">Music Files</div>
-<div class="navibox">
-  <label for="mp3_dir">MP3 Directory</label>
-  <input class="text" type="text" id="mp3_dir" size="80" value="" /><br />
-  <label for="extensions">Extensions</label>
-  <input class="text" type="text" id="extensions" size="80" value="" /><br />
-  <label for="playlist">Playlist File</label>
-  <input class="text" type="text" id="playlist" size="80" value="" /><br />
-  <label for="process_m3u">Process .m3u Files</label>
-  <select id="process_m3u" size="1">
-    <option value="1">Yes</option>
-    <option value="0" selected="selected">No</option>
-  </select>
-    Should m3u files be processed as playlists?<br />
-  <label for="compdirs">Compilation Directories</label>
-  <input class="text" type="text" id="compdirs" size="80" value="" /><br />
-  <label for="art_filename">Art Filename</label>
-  <input class="text" type="text" id="art_filename" size="80" value="" /><br />
-
-</div>
-<div class="naviheader">Database</div>
-<div class="navibox">
-  <label for="db_type">Database Type</label>
-  <select id="db_type" size="1">
-    <option value="sqlite">sqlite</option>
-    <option value="sqlite3">sqlite3</option>
-  </select><br />
-  <label for="db_parms">Database Directory</label>
-  <input class="text" type="text" id="db_parms" size="80" value="" /><br />
-
-  <label for="scan_type">Scan Type</label>
-  <select id="scan_type" size="1">
-    <option value="0">0 - Normal</option>
-    <option value="1">1 - Aggressive</option>
-    <option value="2">2 - Painfully aggressive</option>
-  </select><br />
-  <label for="rescan">Rescan Interval</label>
-  <input class="text" type="text" id="rescan" value="" />
-    &nbsp;How often should mt-daapd look for new files? In seconds.<br />
-  <label for="always">Always Scan</label>
-  <select id="always" size="1">
-    <option value="1">Yes</option>
-    <option value="0" selected="selected">No</option>
-  </select><br />
-
-</div>
-<div class="naviheader">Transcoding</div>
-<div class="navibox">
-  <label for="ssc_prog">SSC prog</label>
-  <input class="text" type="text" id="ssc_prog" size="80" value="" /><br />
-  <label for="ssc_codectypes">SSC codec types</label>
-  <input class="text" type="text" id="ssc_codectypes" size="80" value="" /><br />
-</div>
+<form id="theform" method="get" action="#">
 </form>
 
 @include ftr.html@
