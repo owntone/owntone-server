@@ -420,6 +420,16 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
             } else if(descriptor_value_type == 0) {
                 track = atoi(descriptor_byte_value) + 1;
             }
+        } else if(strcasecmp(descriptor_name,"wm/shareduserrating")==0) {
+            /* what a strange rating strategy */
+            pmp3->rating = atoi(descriptor_int_value);
+            if(pmp3->rating == 99) {
+                pmp3->rating = 100;
+            } else {
+                if(pmp3->rating) {
+                    pmp3->rating = (pmp3->rating / 25) + 1;
+                }
+            }
         } else if(strcasecmp(descriptor_name,"wm/tracknumber")==0) {
             if(descriptor_value_type == 3) {
                 tracknumber = descriptor_int_value;
@@ -429,13 +439,22 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
         } else if(strcasecmp(descriptor_name,"wm/year")==0) {
             pmp3->year = atoi(descriptor_byte_value);
         } else if(strcasecmp(descriptor_name,"wm/composer")==0) {
-            MAYBEFREE(pmp3->composer);
-            pmp3->composer = descriptor_byte_value;
-            descriptor_byte_value = NULL;
+            /* get first one only */
+            if(!pmp3->composer) {
+                pmp3->composer = descriptor_byte_value;
+                descriptor_byte_value = NULL;
+            }
         } else if(strcasecmp(descriptor_name,"wm/albumartist")==0) {
-            MAYBEFREE(pmp3->artist);
-            pmp3->artist = descriptor_byte_value;
-            descriptor_byte_value = NULL;
+            /* get first one only */
+            if(!pmp3->composer) {
+                pmp3->composer = descriptor_byte_value;
+                descriptor_byte_value = NULL;
+            }
+        } else if(strcasecmp(descriptor_name,"author") == 0) {
+            if(!pmp3->artist) {
+                pmp3->artist = descriptor_byte_value;
+                descriptor_byte_value = NULL;
+            }
         } else if(strcasecmp(descriptor_name,"wm/contengroupdescription")==0) {
             MAYBEFREE(pmp3->grouping);
             pmp3->grouping = descriptor_byte_value;
@@ -460,7 +479,15 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
     } else if(track) {
         pmp3->track = track;
     }
-    
+
+    if((!pmp3->artist) && (pmp3->composer)) {
+        pmp3->artist = strdup(pmp3->composer);
+    }
+
+    if((pmp3->artist) && (!pmp3->composer)) {
+        pmp3->composer = pmp3->artist;
+    }
+
     return TRUE;
 }
 
