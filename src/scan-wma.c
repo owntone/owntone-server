@@ -446,11 +446,12 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
             }
         } else if(strcasecmp(descriptor_name,"wm/albumartist")==0) {
             /* get first one only */
-            if(!pmp3->composer) {
-                pmp3->composer = descriptor_byte_value;
+            if(!pmp3->orchestra) {
+                pmp3->orchestra = descriptor_byte_value;
                 descriptor_byte_value = NULL;
             }
         } else if(strcasecmp(descriptor_name,"author") == 0) {
+            /* get first one only */
             if(!pmp3->artist) {
                 pmp3->artist = descriptor_byte_value;
                 descriptor_byte_value = NULL;
@@ -480,12 +481,12 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
         pmp3->track = track;
     }
 
-    if((!pmp3->artist) && (pmp3->composer)) {
-        pmp3->artist = strdup(pmp3->composer);
+    if((!pmp3->artist) && (pmp3->orchestra)) {
+        pmp3->artist = strdup(pmp3->orchestra);
     }
 
-    if((pmp3->artist) && (!pmp3->composer)) {
-        pmp3->composer = pmp3->artist;
+    if((pmp3->artist) && (!pmp3->orchestra)) {
+        pmp3->orchestra = pmp3->artist;
     }
 
     return TRUE;
