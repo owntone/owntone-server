@@ -88,12 +88,13 @@ static void config_content_type(WS_CONNINFO *pwsc, char *path);
 typedef struct tag_contenttypes {
     char *extension;
     char *contenttype;
+    int decache;
 } CONTENTTYPES;
 
 CONTENTTYPES config_default_types[] = {
-    { ".css", "text/css; charset=utf-8" },
-    { ".txt", "text/plain; charset=utf-8" },
-    { ".xml", "text/xml; charset=utf-8" },
+    { ".css", "text/css; charset=utf-8", 0 },
+    { ".txt", "text/plain; charset=utf-8", 0 },
+    { ".xml", "text/xml; charset=utf-8", 1 },
     { NULL, NULL }
 };
 
@@ -171,6 +172,11 @@ void config_content_type(WS_CONNINFO *pwsc, char *path) {
 
         if(pct->extension) {
             ws_addresponseheader(pwsc,"Content-Type",pct->contenttype);
+        }
+
+        if(pct->decache) {
+            ws_addresponseheader(pwsc,"Cache-Control","no-cache");
+            ws_addresponseheader(pwsc,"Expires","-1");
         }
     }
 }
