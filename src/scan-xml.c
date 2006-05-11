@@ -36,6 +36,7 @@
 #include "db-generic.h"
 #include "err.h"
 #include "mp3-scanner.h"
+#include "os.h"
 #include "rxml.h"
 #include "redblack.h"
 
