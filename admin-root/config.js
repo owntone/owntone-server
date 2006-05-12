@@ -109,10 +109,14 @@ var Config = {
         });
         break;                                  
       case 'select':
+        var value = Config._getConfigOptionValue(itemId);
+        if (!value) {
+          value = Element.textContent(item.getElementsByTagName('default_value')[0]);
+        }
         ret = BuildElement.select(itemId,
                                   Element.textContent(item.getElementsByTagName('name')[0]),
                                   item.getElementsByTagName('option'),
-                                  Config._getConfigOptionValue(itemId),
+                                  value,
                                   Element.textContent(item.getElementsByTagName('short_description')[0])
                                     );
         break;
@@ -135,6 +139,7 @@ var BuildElement = {
     frag.appendChild(document.createTextNode('\u00a0'));                                              
     frag.appendChild(document.createTextNode(short_description));
     frag.appendChild(Builder.node('br'));
+
     return frag;
   },
   select: function(id,displayName,options,value,short_description,long_description) {
@@ -149,10 +154,12 @@ var BuildElement = {
       select.appendChild(Builder.node('option',{value: option.getAttribute('value')},
                                       Element.textContent(option)));
     });
+    select.value = value;
     frag.appendChild(select);
     frag.appendChild(document.createTextNode('\u00a0'));                                              
     frag.appendChild(document.createTextNode(short_description));
     frag.appendChild(Builder.node('br'));
+
     return frag;
   }
     
