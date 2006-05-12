@@ -84,6 +84,7 @@
             <name>MP3 Directory</name>
             <short_description></short_description>
             <type>long_text_multiple</type>
+            <add_item_text>Add Directory</add_item_text>
         </item>
         <item id="extensions">
             <name>Extensions</name>
@@ -109,6 +110,7 @@
             <name>Compilation Directories</name>
             <short_description></short_description>
             <type>long_text_multiple</type>
+            <add_item_text>Add Directory</add_item_text>
         </item>
         <item id="art_filename">
             <name>Art Filename</name>
@@ -167,6 +169,7 @@
             <name>Plugins</name>
             <short_description></short_description>
             <type>short_text_multiple</type>
+            <add_item_text>Add Plugin</add_item_text>
         </item>
     </section>
 

@@ -69,9 +69,10 @@ var Config = {
     }
   },
   _buildItem: function(item) {
-
     var ret;
     var itemId = item.getAttribute('id');
+    var href;
+    var span;
     switch(Element.textContent(item.getElementsByTagName('type')[0])) {
       case 'short_text':
         ret = BuildElement.input(itemId,
@@ -90,23 +91,37 @@ var Config = {
       case 'short_text_multiple':
         ret = document.createDocumentFragment();
         Config._getConfigOptionValue(itemId,true).each(function (value,i) {
-          ret.appendChild(BuildElement.input(itemId+i,
+          var span = document.createElement('span');
+          span.appendChild(BuildElement.input(itemId+i,
                                              Element.textContent(item.getElementsByTagName('name')[0]),
                                              value,20,
                                              Element.textContent(item.getElementsByTagName('short_description')[0])
           ));
+          ret.appendChild(span);                                   
         });
+        href = Builder.node('a',{href:'javascript://',className:'addItemHref'},
+                                     Element.textContent(item.getElementsByTagName('add_item_text')[0]));
+        ret.appendChild(href);
+        Event.observe(href,'click',Config._addItem);
+        ret.appendChild(Builder.node('div',{style:'clear: both'}));
         break;                                  
       case 'long_text_multiple':
 //###TODO Do something smart instead of just copying
         ret = document.createDocumentFragment();
         Config._getConfigOptionValue(itemId,true).each(function (value,i) {
-          ret.appendChild(BuildElement.input(itemId+i,
+          var span = document.createElement('span');
+          span.appendChild(BuildElement.input(itemId+i,
                                              Element.textContent(item.getElementsByTagName('name')[0]),
                                              value,80,
                                              Element.textContent(item.getElementsByTagName('short_description')[0])
           ));
+          ret.appendChild(span);                                             
         });
+        href = Builder.node('a',{href:'javascript://',className:'addItemHref'},
+                                     Element.textContent(item.getElementsByTagName('add_item_text')[0]));
+        ret.appendChild(href);
+        Event.observe(href,'click',Config._addItem);
+        ret.appendChild(Builder.node('div',{style:'clear: both'}));
         break;                                  
       case 'select':
         var value = Config._getConfigOptionValue(itemId);
@@ -122,6 +137,21 @@ var Config = {
         break;
     }
     return ret;
+  },
+  _addItem: function(e) {
+    var span = Event.element(e);
+    while (span.nodeName.toLowerCase() != 'span') {
+      span = span.previousSibling;
+    }
+    var frag = document.createDocumentFragment();
+    span = span.cloneNode(true);
+    span.getElementsByTagName('label')[0].setAttribute('for','hej');
+    span.getElementsByTagName('input')[0].id = 'hej';
+    span.getElementsByTagName('input')[0].value = '';
+    
+    var src = Event.element(e);
+    src.parentNode.insertBefore(span,src);
+    
   }
 }
 var BuildElement = {
