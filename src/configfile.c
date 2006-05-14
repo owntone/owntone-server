@@ -198,9 +198,15 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
     CONFIGELEMENT *pce;
     char *first, *last;
 
+    char outbuffer[1024];
+    int out_index;
+
+
+
     /* now throw out the file, with replacements */
     in_arg=0;
     argptr=argbuffer;
+    out_index=0;
 
     while(1) {
         if(r_read(fd_src,&next,1) <= 0)
@@ -240,11 +246,26 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
                 argptr=argbuffer;
                 memset(argbuffer,0,sizeof(argbuffer));
                 in_arg=1;
+
+                /* flush whatever is in the buffer */
+                if(out_index) {
+                    r_write(pwsc->fd,outbuffer,out_index);
+                    out_index=0;
+                }
             } else {
-                if(r_write(pwsc->fd,&next,1) == -1)
-                    break;
+                outbuffer[out_index] = next;
+                out_index++;
+                
+                if(out_index == sizeof(outbuffer)) {
+                    r_write(pwsc->fd,outbuffer,out_index);
+                    out_index=0;
+                }
             }
         }
+    }
+    if(out_index) {
+        r_write(pwsc->fd,outbuffer,out_index);
+        out_index=0;
     }
 }
 
