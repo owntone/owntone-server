@@ -169,7 +169,7 @@
             <name>Plugins</name>
             <short_description></short_description>
             <type>short_text_multiple</type>
-            <add_item_text>Add Plugin</add_item_text>
+            <add_item_text>Add plugin</add_item_text>
         </item>
     </section>
 

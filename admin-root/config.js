@@ -190,7 +190,7 @@ var Config = {
     if ('Netscape' == navigator.appName) {
       // Firefox et al doesn't copy registered events on an element deep clone
       // Don't know if that is w3c or if IE has it right
-      if (hrefs.legth == 1) {
+      if (hrefs.length == 1) {
         Event.observe(hrefs[0],'click',Config._removeItem);
       } else {
         Event.observe(hrefs[0],'click',Config._browse);          
