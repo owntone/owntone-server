@@ -286,6 +286,51 @@ int _conf_exists(LL_HANDLE pll, char *section, char *key) {
 
 
 /**
+ * verify a specific element, that is, see if changing a specific
+ * element, in a vacuum, would be problematic
+ *
+ * @param section section to test
+ * @param key key to test
+ * @param value value to test
+ * @returns CONF_E_SUCCESS on success
+ */
+
+int _conf_verify_element(char *section, char *key, char *value) {
+    CONF_ELEMENTS *pce;
+
+    pce = _conf_get_keyinfo(section, key);
+    if(!pce) {
+        return CONF_E_BADELEMENT;
+    }
+
+    switch(pce->conf_elements) {
+    case CONF_T_MULTICOMMA: /* can't really check these */
+    case CONF_T_STRING:
+        return CONF_E_SUCCESS;
+        break;
+
+    case CONF_T_INT:
+        if((atoi(value) || (strcmp(value,"0")==0)))
+           return CONF_E_SUCCESS;
+        return CONF_E_INTEXPECTED;
+        break;
+
+    case CONF_T_EXISTPATH:
+        if(!_conf_existdir(value))
+            return CONF_E_PATHEXPECTED;
+        return CONF_E_SUCCESS;
+        break;
+
+    default:
+        DPRINTF(E_LOG,L_CONF,"Bad config type: %d\n",pce->type);
+        break;
+
+    }
+
+    return CONF_E_SUCCESS;
+}
+
+/**
  * Verify that the configuration isn't obviously wrong.
  * Type checking has already been done, this just checks
  * required stuff isn't missing.
@@ -839,6 +884,9 @@ int conf_set_string(char *section, char *key, char *value) {
     int err;
 
     _conf_lock();
+
+    /* verify the item */
+
     pce = _conf_get_keyinfo(section,key);
     if(pce)
         key_type = pce->type;

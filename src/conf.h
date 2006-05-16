@@ -1,4 +1,4 @@
-/*
+o/*
  * $Id$
  * Functions for reading and writing the config file
  *
@@ -31,6 +31,9 @@
 #define CONF_E_NOCONF      6  /** <No open config file */
 #define CONF_E_NOTFOUND    7
 #define CONF_E_NOTWRITABLE 8
+#define CONF_E_BADELEMENT  9
+#define CONF_E_PATHEXPECTED 10
+#define CONF_E_INTEXPECTED  11
 
 extern int conf_read(char *file);
 extern int conf_reload(void);
@@ -55,5 +58,6 @@ extern char *conf_get_filename(void);
 /* FIXME: get enum functions and move to xml-rpc */
 #include "webserver.h"
 extern int conf_xml_dump(WS_CONNINFO *pwsc);
+extern int conf_verify_element(char *section, char *key, char *value);
 
 #endif /* _CONFIG_H_ */
