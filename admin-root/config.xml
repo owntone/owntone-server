@@ -84,7 +84,7 @@
             <name>MP3 Directory</name>
             <short_description></short_description>
             <type>long_text_multiple</type>
-            <add_item_text>Add Directory</add_item_text>
+            <add_item_text>Add mp3 directory</add_item_text>
         </item>
         <item id="extensions" config_section="general">
             <name>Extensions</name>
@@ -110,7 +110,7 @@
             <name>Compilation Directories</name>
             <short_description></short_description>
             <type>long_text_multiple</type>
-            <add_item_text>Add Directory</add_item_text>
+            <add_item_text>Add compilation directory</add_item_text>
         </item>
         <item id="art_filename" config_section="general">
             <name>Art Filename</name>
