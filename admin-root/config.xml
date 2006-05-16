@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <config>
     <section name="Server">
-        <item id="servername">
+        <item id="servername" config_section="general">
             <name>Server Name</name>
             <short_description>
                 The name iTunes and other daap clients should see
@@ -13,43 +13,43 @@
             </long_description>
             <type>short_text</type>
         </item>
-        <item id="web_root">
+        <item id="web_root" config_section="general">
             <name>Web Root</name>
             <short_description></short_description>
             <type>long_text</type>
         </item>
-        <item id="port">
+        <item id="port" config_section="general">
             <name>Port</name>
             <short_description>
                 The port the server should run at; default is 3689
             </short_description>
             <type>short_text</type>
         </item>
-        <item id="logfile">
+        <item id="logfile" config_section="general">
             <name>Logfile</name>
             <short_description></short_description>
             <type>long_text</type>
         </item>
-        <item id="runas">
+        <item id="runas" config_section="general">
             <name>Run As</name>
             <short_description></short_description>
             <type>short_text</type>
         </item>
-        <item id="admin_pw">
+        <item id="admin_pw" config_section="general">
             <name>Admin password</name>
             <short_description>
                 The password for this administration interface.
             </short_description>
             <type>short_text</type>
         </item>
-        <item id="password">
+        <item id="password" config_section="general">
             <name>MP3 Password</name>
             <short_description>
                 The password clients need to access this server.
             </short_description>
             <type>short_text</type>
         </item>
-        <item id="compress">
+        <item id="compress" config_section="general">
             <name>Compress</name>
             <short_description>
                 Should browsing data be compressed on the way to the client?
@@ -59,7 +59,7 @@
             <option value="1">Yes</option>
             <default_value>0</default_value>
         </item>
-        <item id="debug">
+        <item id="debug" config_section="general">
             <name>Debug Level</name>
             <short_description>
                 Possible values are 0 to 9, 9 being the most detailed debug level.
@@ -79,24 +79,24 @@
         </item>
     </section>
 
-    <section name="Music Files">
+    <section name="Music_Files" config_section="general">
         <item id="mp3_dir">
             <name>MP3 Directory</name>
             <short_description></short_description>
             <type>long_text_multiple</type>
             <add_item_text>Add Directory</add_item_text>
         </item>
-        <item id="extensions">
+        <item id="extensions" config_section="general">
             <name>Extensions</name>
             <short_description></short_description>
             <type>short_text</type>
         </item>
-        <item id="playlist">
+        <item id="playlist" config_section="general">
             <name>Playlist File</name>
             <short_description></short_description>
             <type>long_text</type>
         </item>
-        <item id="process_m3u">
+        <item id="process_m3u" config_section="general">
             <name>Process .m3u Files</name>
             <short_description>
                 Should m3u files be processed as playlists?
@@ -106,20 +106,20 @@
             <option value="1">Yes</option>
             <default_value>0</default_value>
         </item>
-        <item id="compdirs">
+        <item id="compdirs" config_section="general">
             <name>Compilation Directories</name>
             <short_description></short_description>
             <type>long_text_multiple</type>
             <add_item_text>Add Directory</add_item_text>
         </item>
-        <item id="art_filename">
+        <item id="art_filename" config_section="general">
             <name>Art Filename</name>
             <short_description></short_description>
             <type>long_text</type>
         </item>
     </section>
 
-    <section name="Database">
+    <section name="Database" config_section="general">
         <item id="db_type">
             <name>Database Type</name>
             <short_description></short_description>
@@ -128,12 +128,12 @@
             <option value="sqlite3">sqlite3</option>
             <default_value>sqlite</default_value>
         </item>
-        <item id="db_parms">
+        <item id="db_parms" config_section="general">
             <name>Database Directory</name>
             <short_description></short_description>
             <type>long_text</type>
         </item>
-        <item id="scan_type">
+        <item id="scan_type" config_section="general">
             <name>Scan Type</name>
             <short_description></short_description>
             <type>select</type>
@@ -142,14 +142,14 @@
             <option value="2">2 - Painfully aggressive</option>
             <default_value>2</default_value>
         </item>
-        <item id="rescan_interval">
+        <item id="rescan_interval" config_section="general">
             <name>Rescan Interval</name>
             <short_description>
                 How often should mt-daapd look for new files? In seconds.
             </short_description>
             <type>short_text</type>
         </item>
-        <item id="always_scan">
+        <item id="always_scan" config_section="general">
             <name>Always Scan</name>
             <short_description></short_description>
             <type>select</type>
@@ -159,13 +159,13 @@
         </item>
     </section>
 
-    <section name="Plugins">
+    <section name="Plugins" config_section="plugins">
         <item id="plugin_dir">
             <name>Plugin Directory</name>
             <short_description></short_description>
             <type>long_text</type>
         </item>
-        <item id="plugins">
+        <item id="plugins" config_section="plugins">
             <name>Plugins</name>
             <short_description></short_description>
             <type>short_text_multiple</type>
@@ -173,13 +173,13 @@
         </item>
     </section>
 
-    <section name="Transcoding">
+    <section name="Transcoding" config_section="general">
         <item id="ssc_prog">
             <name>SSC Program</name>
             <short_description></short_description>
             <type>long_text</type>
         </item>
-        <item id="ssc_codectypes">
+        <item id="ssc_codectypes" config_section="general">
             <name>SSC Codec Types</name>
             <short_description></short_description>
             <type>long_text</type>

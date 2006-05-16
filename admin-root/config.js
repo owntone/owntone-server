@@ -6,9 +6,50 @@ Event.observe(window,'load',function (e) {Config.init();});
 function init() {
   Config.init();
 }
-
+function hej() {
+  alert(Form.serialize('theform'));
+    
+}
+var ConfigXML = {
+  config: [],
+  getOption: function (section,id) {
+    return this.config[section][id];
+  },
+  getSections: function () {
+    return $H(this.config).keys();
+  },
+  getItems: function(section) {
+    return $H(this.config[section]).keys();
+  },
+  parseXML: function(xmlDoc) {
+    $A(xmlDoc.getElementsByTagName('section')).each(function (section) {
+      var items = {};
+      var option;
+      $A(section.getElementsByTagName('item')).each(function (item) {
+        option = {config_section: item.getAttribute('config_section'),
+                            name: Element.textContent(item.getElementsByTagName('name')[0]),
+               short_description: Element.textContent(item.getElementsByTagName('short_description')[0]),
+                            type: Element.textContent(item.getElementsByTagName('type')[0])};
+        if ('select' == option.type) {
+          var options = [];
+          $A(item.getElementsByTagName('option')).each(function (option) {
+            options.push({value: option.getAttribute('value'),
+                          label: Element.textContent(option)});
+          });
+          option.options = options;
+          option.default_value = Element.textContent(item.getElementsByTagName('default_value')[0]);
+        }
+        if (('short_text_multiple' == option.type) ||
+            ('long_text_multiple' == option.type)) {
+          option.add_item_text = Element.textContent(item.getElementsByTagName('add_item_text')[0]);  
+        }
+        items[item.getAttribute('id')] = option;
+      });
+      ConfigXML.config[section.getAttribute('name')] = items;
+    });
+  }
+};
 var Config = {
-  layout: '',
   configPath: '',
   configOptionValues: '',
   init: function () {
@@ -16,6 +57,7 @@ var Config = {
   },
   storeConfigLayout: function (request) {
     Config.layout = request.responseXML;
+    ConfigXML.parseXML(request.responseXML);
     new Ajax.Request('/xml-rpc?method=stats',{method: 'get',onComplete: Config.updateStatus});
   },
   updateStatus: function (request) {
@@ -27,21 +69,21 @@ var Config = {
   },
   showConfig: function (request) {
     Config.configOptionValues = request.responseXML;
-    var sections = $A(Config.layout.getElementsByTagName('section'));
+    var sections = ConfigXML.getSections();
     sections.each(function (section) {
       var head = document.createElement('div');
       head.className= 'naviheader';
-      head.appendChild(document.createTextNode(section.getAttribute('name')));
+      head.appendChild(document.createTextNode(section));
       var body = document.createElement('div');
       body.className = 'navibox';
-      if ('Server' == section.getAttribute('name')) {
+      if ('Server' == section) {
         body.appendChild(Builder.node('span',{id:'config_path'},'Config File'));
         body.appendChild(document.createTextNode(Config.configPath));
         body.appendChild(Builder.node('br'));
         body.appendChild(Builder.node('div',{style: 'clear: both;'}));
       }
-      $A(section.getElementsByTagName('item')).each(function (item) {
-        body.appendChild(Config._buildItem(item));
+      ConfigXML.getItems(section).each(function (itemId) {
+        body.appendChild(Config._buildItem(section,itemId));
       });
       $('theform').appendChild(head);
       $('theform').appendChild(body);
@@ -68,39 +110,40 @@ var Config = {
       }
     }
   },
-  _buildItem: function(item) {
+  _buildItem: function(section,itemId) {
     var ret;
-    var itemId = item.getAttribute('id');
     var href;
     var span;
-    switch(Element.textContent(item.getElementsByTagName('type')[0])) {
+    var item = ConfigXML.getOption(section,itemId);
+    var postId = item.config_section + ':' + itemId;
+    switch(item.type) {
       case 'short_text':
-        ret = BuildElement.input(itemId,
-                                 Element.textContent(item.getElementsByTagName('name')[0]),
+        ret = BuildElement.input(postId,
+                                 item.name,
                                  Config._getConfigOptionValue(itemId),20,
-                                 Element.textContent(item.getElementsByTagName('short_description')[0]),
+                                 item.short_description,
                                  '');
         break;
       case 'long_text':
-        ret = BuildElement.input(itemId,
-                                 Element.textContent(item.getElementsByTagName('name')[0]),
+        ret = BuildElement.input(postId,
+                                 item.name,
                                  Config._getConfigOptionValue(itemId),80,
-                                 Element.textContent(item.getElementsByTagName('short_description')[0]),                                     
+                                 item.short_description,                                     
                                  '');
         break;
       case 'short_text_multiple':
         ret = document.createDocumentFragment();
         Config._getConfigOptionValue(itemId,true).each(function (value,i) {
           var span = document.createElement('span');
-          span.appendChild(BuildElement.input(itemId+i,
-                                             Element.textContent(item.getElementsByTagName('name')[0]),
+          span.appendChild(BuildElement.input(postId+i,
+                                             item.name,
                                              value,20,
-                                             Element.textContent(item.getElementsByTagName('short_description')[0])
+                                             item.short_description
           ));
           ret.appendChild(span);                                   
         });
         href = Builder.node('a',{href:'javascript://',className:'addItemHref'},
-                                     Element.textContent(item.getElementsByTagName('add_item_text')[0]));
+                                     item.add_item_text);
         ret.appendChild(href);
         Event.observe(href,'click',Config._addItem);
         ret.appendChild(Builder.node('div',{style:'clear: both'}));
@@ -110,15 +153,15 @@ var Config = {
         ret = document.createDocumentFragment();
         Config._getConfigOptionValue(itemId,true).each(function (value,i) {
           var span = document.createElement('span');
-          span.appendChild(BuildElement.input(itemId+i,
-                                             Element.textContent(item.getElementsByTagName('name')[0]),
+          span.appendChild(BuildElement.input(postId+i,
+                                             item.name,
                                              value,80,
-                                             Element.textContent(item.getElementsByTagName('short_description')[0])
+                                             item.short_description
           ));
           ret.appendChild(span);                                             
         });
         href = Builder.node('a',{href:'javascript://',className:'addItemHref'},
-                                     Element.textContent(item.getElementsByTagName('add_item_text')[0]));
+                                     item.add_item_text);
         ret.appendChild(href);
         Event.observe(href,'click',Config._addItem);
         ret.appendChild(Builder.node('div',{style:'clear: both'}));
@@ -126,13 +169,13 @@ var Config = {
       case 'select':
         var value = Config._getConfigOptionValue(itemId);
         if (!value) {
-          value = Element.textContent(item.getElementsByTagName('default_value')[0]);
+          value = item.default_value;
         }
-        ret = BuildElement.select(itemId,
-                                  Element.textContent(item.getElementsByTagName('name')[0]),
-                                  item.getElementsByTagName('option'),
+        ret = BuildElement.select(postId,
+                                  item.name,
+                                  item.options,
                                   value,
-                                  Element.textContent(item.getElementsByTagName('short_description')[0])
+                                  item.short_description
                                     );
         break;
     }
@@ -164,7 +207,7 @@ var BuildElement = {
     label.appendChild(document.createTextNode(displayName));
     frag.appendChild(label);
 
-    frag.appendChild(Builder.node('input',{id:id,name:id,className: 'text',
+    frag.appendChild(Builder.node('input',{id: id,name: id,className: 'text',
                                            value: value,size: size}));
     frag.appendChild(document.createTextNode('\u00a0'));                                              
     frag.appendChild(document.createTextNode(short_description));
@@ -179,10 +222,10 @@ var BuildElement = {
     label.appendChild(document.createTextNode(displayName));
     frag.appendChild(label);
     
-    var select = Builder.node('select',{id: id,name: id, size: 1});
+    var select = Builder.node('select',{id: id,name: id,size: 1});
     $A(options).each(function (option) {
-      select.appendChild(Builder.node('option',{value: option.getAttribute('value')},
-                                      Element.textContent(option)));
+      select.appendChild(Builder.node('option',{value: option.value},
+                                                option.label));
     });
     select.value = value;
     frag.appendChild(select);
