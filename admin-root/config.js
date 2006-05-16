@@ -111,75 +111,70 @@ var Config = {
     }
   },
   _buildItem: function(section,itemId) {
-    var ret;
+    var frag = document.createDocumentFragment();
     var href;
     var span;
     var item = ConfigXML.getOption(section,itemId);
     var postId = item.config_section + ':' + itemId;
+    var inputSize = 80;
+    var noBrowse = false;
     switch(item.type) {
       case 'short_text':
-        ret = BuildElement.input(postId,
-                                 item.name,
-                                 Config._getConfigOptionValue(itemId),20,
-                                 item.short_description,
-                                 '');
-        break;
+        inputSize = 20;
+        // Yes, we're falling through
       case 'long_text':
-        ret = BuildElement.input(postId,
+        frag.appendChild(BuildElement.input(postId,
                                  item.name,
-                                 Config._getConfigOptionValue(itemId),80,
+                                 Config._getConfigOptionValue(itemId),
+                                 inputSize,
                                  item.short_description,                                     
-                                 '');
+                                 ''));
+        frag.appendChild(Builder.node('br'));
         break;
       case 'short_text_multiple':
-        ret = document.createDocumentFragment();
-        Config._getConfigOptionValue(itemId,true).each(function (value,i) {
-          var span = document.createElement('span');
-          span.appendChild(BuildElement.input(postId+i,
-                                             item.name,
-                                             value,20,
-                                             item.short_description
-          ));
-          ret.appendChild(span);                                   
-        });
-        href = Builder.node('a',{href:'javascript://',className:'addItemHref'},
-                                     item.add_item_text);
-        ret.appendChild(href);
-        Event.observe(href,'click',Config._addItem);
-        ret.appendChild(Builder.node('div',{style:'clear: both'}));
-        break;                                  
+        inputSize = 20;
+        noBrowse = true;
+        // Yes, we're falling through
       case 'long_text_multiple':
-//###TODO Do something smart instead of just copying
-        ret = document.createDocumentFragment();
         Config._getConfigOptionValue(itemId,true).each(function (value,i) {
           var span = document.createElement('span');
           span.appendChild(BuildElement.input(postId+i,
                                              item.name,
-                                             value,80,
+                                             value,inputSize,
                                              item.short_description
           ));
-          ret.appendChild(span);                                             
+          if (!noBrowse) {
+            href = Builder.node('a',{href: 'javascript://'},'Browse');
+            Event.observe(href,'click',Config._browse);          
+            span.appendChild(href);
+          }
+          span.appendChild(document.createTextNode('\u00a0\u00a0'));
+          href = Builder.node('a',{href: 'javascript://'},'Remove');
+          Event.observe(href,'click',Config._removeItem);
+          span.appendChild(href);
+          span.appendChild(Builder.node('br'));
+          frag.appendChild(span);                                             
         });
         href = Builder.node('a',{href:'javascript://',className:'addItemHref'},
                                      item.add_item_text);
-        ret.appendChild(href);
+        frag.appendChild(href);
         Event.observe(href,'click',Config._addItem);
-        ret.appendChild(Builder.node('div',{style:'clear: both'}));
+        frag.appendChild(Builder.node('div',{style:'clear: both'}));
         break;                                  
       case 'select':
         var value = Config._getConfigOptionValue(itemId);
         if (!value) {
           value = item.default_value;
         }
-        ret = BuildElement.select(postId,
+        frag.appendChild(BuildElement.select(postId,
                                   item.name,
                                   item.options,
                                   value,
-                                  item.short_description
-                                    );
+                                  item.short_description));
+        frag.appendChild(Builder.node('br'));
         break;
     }
-    return ret;
+    return frag;
   },
   _addItem: function(e) {
     var span = Event.element(e);
@@ -191,10 +186,34 @@ var Config = {
     span.getElementsByTagName('label')[0].setAttribute('for','hej');
     span.getElementsByTagName('input')[0].id = 'hej';
     span.getElementsByTagName('input')[0].value = '';
-    
+    var hrefs = span.getElementsByTagName('a');
+    if ('Netscape' == navigator.appName) {
+      // Firefox et al doesn't copy registered events on an element deep clone
+      // Don't know if that is w3c or if IE has it right
+      if (hrefs.legth == 1) {
+        Event.observe(hrefs[0],'click',Config._removeItem);
+      } else {
+        Event.observe(hrefs[0],'click',Config._browse);          
+        Event.observe(hrefs[1],'click',Config._removeItem);        
+      }
+    }
     var src = Event.element(e);
     src.parentNode.insertBefore(span,src);
-    
+  },
+  _removeItem: function(e) {
+    var span = Event.element(e);
+    while (span.nodeName.toLowerCase() != 'span') {
+      span = span.parentNode;
+    }
+    if ((span.previousSibling && span.previousSibling.nodeName.toLowerCase() == 'span')||
+        (span.nextSibling.nodeName.toLowerCase() == 'span'))  {
+      Element.remove(span);
+    } else {
+      span.getElementsByTagName('input')[0].value='';
+    }
+  },
+  _browse: function(e) {
+    alert('Browse directories');
   }
 }
 var BuildElement = {
@@ -211,7 +230,6 @@ var BuildElement = {
                                            value: value,size: size}));
     frag.appendChild(document.createTextNode('\u00a0'));                                              
     frag.appendChild(document.createTextNode(short_description));
-    frag.appendChild(Builder.node('br'));
 
     return frag;
   },
@@ -231,7 +249,6 @@ var BuildElement = {
     frag.appendChild(select);
     frag.appendChild(document.createTextNode('\u00a0'));                                              
     frag.appendChild(document.createTextNode(short_description));
-    frag.appendChild(Builder.node('br'));
 
     return frag;
   }
