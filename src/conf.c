@@ -87,6 +87,7 @@ static int _conf_existdir(char *path);
 static int _conf_split(char *s, char *delimiters, char ***argvp);
 static void _conf_dispose_split(char **argv);
 static int _conf_xml_dump(XMLSTRUCT *pxml,LL *pll,int sublevel,char *parent);
+static int _conf_verify_element(char *section, char *key, char *value);
 
 static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","runas" },
@@ -303,7 +304,7 @@ int _conf_verify_element(char *section, char *key, char *value) {
         return CONF_E_BADELEMENT;
     }
 
-    switch(pce->conf_elements) {
+    switch(pce->type) {
     case CONF_T_MULTICOMMA: /* can't really check these */
     case CONF_T_STRING:
         return CONF_E_SUCCESS;
@@ -857,11 +858,11 @@ char *conf_alloc_string(char *section, char *key, char *dflt) {
  * @param value value to set it to
  * @returns E_CONF_SUCCESS on success, error code otherwise
  */
-int conf_set_int(char *section, char *key, int value) {
+int conf_set_int(char *section, char *key, int value, int verify) {
     char buffer[40]; /* ?? */
     snprintf(buffer,sizeof(buffer),"%d",value);
 
-    return conf_set_string(section, key, buffer);
+    return conf_set_string(section, key, buffer, verify);
 }
 
 /**
@@ -872,7 +873,7 @@ int conf_set_int(char *section, char *key, int value) {
  * @param value value to set it to
  * @returns E_CONF_SUCCESS on success, error code otherwise
  */
-int conf_set_string(char *section, char *key, char *value) {
+int conf_set_string(char *section, char *key, char *value, int verify) {
     LL_ITEM *pitem;
     LL_ITEM *psection;
     LL *section_ll;
@@ -886,6 +887,16 @@ int conf_set_string(char *section, char *key, char *value) {
     _conf_lock();
 
     /* verify the item */
+    err=_conf_verify_element(section,key,value);
+    if(err != CONF_E_SUCCESS) {
+        _conf_unlock();
+        return err;
+    }
+
+    if(verify) {
+        _conf_unlock();
+        return CONF_E_SUCCESS;
+    }
 
     pce = _conf_get_keyinfo(section,key);
     if(pce)

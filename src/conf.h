@@ -1,4 +1,4 @@
-o/*
+/*
  * $Id$
  * Functions for reading and writing the config file
  *
@@ -19,19 +19,19 @@ o/*
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-#ifndef _CONFIG_H_
-#define _CONFIG_H_
+#ifndef _CONF_H_
+#define _CONF_H_
 
-#define CONF_E_SUCCESS     0
-#define CONF_E_FOPEN       1
-#define CONF_E_UNKNOWN     2
-#define CONF_E_BADHEADER   3
-#define CONF_E_PARSE       4
-#define CONF_E_OVERFLOW    5  /** <Buffer passed too small */
-#define CONF_E_NOCONF      6  /** <No open config file */
-#define CONF_E_NOTFOUND    7
-#define CONF_E_NOTWRITABLE 8
-#define CONF_E_BADELEMENT  9
+#define CONF_E_SUCCESS      0
+#define CONF_E_FOPEN        1
+#define CONF_E_UNKNOWN      2
+#define CONF_E_BADHEADER    3
+#define CONF_E_PARSE        4
+#define CONF_E_OVERFLOW     5  /** <Buffer passed too small */
+#define CONF_E_NOCONF       6  /** <No open config file */
+#define CONF_E_NOTFOUND     7
+#define CONF_E_NOTWRITABLE  8
+#define CONF_E_BADELEMENT   9
 #define CONF_E_PATHEXPECTED 10
 #define CONF_E_INTEXPECTED  11
 
@@ -42,8 +42,8 @@ extern int conf_get_int(char *section, char *key, int dflt);
 extern int conf_get_string(char *section, char *key, char *dflt,
                              char *out, int *size);
 extern char *conf_alloc_string(char *section, char *key, char *dflt);
-extern int conf_set_int(char *section, char *key, int value);
-extern int conf_set_string(char *section, char *key, char *value);
+extern int conf_set_int(char *section, char *key, int value, int verify);
+extern int conf_set_string(char *section, char *key, char *value, int verify);
 
 extern int conf_isset(char *section, char *key);
 extern int conf_iswritable(void);
@@ -58,6 +58,5 @@ extern char *conf_get_filename(void);
 /* FIXME: get enum functions and move to xml-rpc */
 #include "webserver.h"
 extern int conf_xml_dump(WS_CONNINFO *pwsc);
-extern int conf_verify_element(char *section, char *key, char *value);
 
-#endif /* _CONFIG_H_ */
+#endif /* _CONF_H_ */

@@ -114,18 +114,25 @@ void xml_set_config(WS_CONNINFO *pwsc) {
     char *section;
     char *key;
     char *value;
+    int verify_only;
     int err;
 
     section = ws_getvar(pwsc,"section");
     key = ws_getvar(pwsc,"key");
     value = ws_getvar(pwsc,"value");
 
+    verify_only=0;
+    if(ws_getvar(pwsc,"verify_only")) {
+        verify_only = 1;
+    }
+
+
     if((!section) || (!key) || (!value)) {
         xml_return_error(pwsc,500,"Missing section, key, or value");
         return;
     }
 
-    if((err=conf_set_string(section,key,value) != CONF_E_SUCCESS)) {
+    if((err=conf_set_string(section,key,value,verify_only)!=CONF_E_SUCCESS)) {
         /* should return text error from conf_ */
         xml_return_error(pwsc,500,"conf_set_string: error");
         return;
