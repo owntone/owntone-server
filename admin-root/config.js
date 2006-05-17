@@ -1,14 +1,11 @@
-Event.observe(window,'load',function (e) {Config.init();});
+Event.observe(window,'load',init);
 
 // Config isn't defined until after the Event.observe above
 // I could have put it below Config = ... but I want all window.load events
 // at the start of the file
 function init() {
   Config.init();
-}
-function hej() {
-  alert(Form.serialize('theform'));
-    
+  Event.observe($('button_save'),'click',saveForm);
 }
 var ConfigXML = {
   config: [],
@@ -47,7 +44,6 @@ var ConfigXML = {
       });
       ConfigXML.config[section.getAttribute('name')] = items;
     });
-    a=12;
   }
 };
 var Config = {
@@ -254,6 +250,21 @@ var BuildElement = {
     return frag;
   }
     
+}
+function saved(req) {
+  alert(req.responseText);
+}
+function saveForm() {
+  var getString = [];
+  $A($('theform').getElementsByTagName('input')).each(function (input,i) {
+    if ((i > 10) && (i < 17)) {
+      getString.push(Form.Element.serialize(input.id));  
+    }
+  });
+  getString = getString.join('&');
+  new Ajax.Request('/xml-rpc?method=updateconfig&'+getString,{method: 'get',
+                                               onComplete: saved
+                                                 });
 }
 Object.extend(Element, {
   removeChildren: function(element) {
