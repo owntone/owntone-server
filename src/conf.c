@@ -116,6 +116,8 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_STRING,"general","logfile" },
     { 0, 0, CONF_T_EXISTPATH,"plugins","plugin_dir" },
     { 0, 0, CONF_T_MULTICOMMA,"plugins","plugins" },
+    { 0, 0, CONF_T_INT,"daap","empty_strings" },
+    { 0, 0, CONF_T_INT,"daap","supports_browse" },
     { 0, 0, CONF_T_INT, NULL, NULL }
 };
 

@@ -60,7 +60,7 @@ void xml_return_error(WS_CONNINFO *pwsc, int err, char *errstr) {
     pxml=xml_init(pwsc,TRUE);
     xml_push(pxml,"results");
 
-    xml_output(pxml,"status","%d",errno);
+    xml_output(pxml,"status","%d",err);
     xml_output(pxml,"statusstring","%s",errstr);
 
     xml_pop(pxml); /* results */
@@ -156,7 +156,6 @@ void xml_set_config(WS_CONNINFO *pwsc) {
     if(ws_getvar(pwsc,"verify_only")) {
         verify_only = 1;
     }
-
 
     if((!section) || (!key) || (!value)) {
         xml_return_error(pwsc,500,"Missing section, key, or value");
