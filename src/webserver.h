@@ -32,8 +32,6 @@
 /* 
  * Typedefs
  */
-
-
 typedef void* WSHANDLE;
 typedef void* WSTHREADENUM;
 
@@ -97,5 +95,8 @@ extern char *ws_getvar(WS_CONNINFO *pwsc, char *var);
 extern char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header);
 extern int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
 extern void ws_emitheaders(WS_CONNINFO *pwsc);
+
+extern void *ws_enum_var(WS_CONNINFO *pwsc, char **key, char **value, void *last);
+
 
 #endif /* _WEBSERVER_H_ */

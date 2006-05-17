@@ -104,6 +104,37 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
     return pxml;
 }
 
+/**
+ * bulk set config
+ */
+void xml_update_config(WS_CONNINFO *pwsc) {
+    char *arg, *value, *duparg;
+    char *ptmp;
+    void *handle;
+
+    int err;
+
+    handle = NULL;
+
+    while((handle=ws_enum_var(pwsc,&arg,&value,handle)) != NULL) {
+        /* arg will be section:value */
+        duparg = strdup(arg);
+        ptmp = strchr(duparg,':');
+        if(ptmp) {
+            *ptmp++ = '\0';
+            /* this is stupidly inefficient */
+            err = conf_set_string(duparg,ptmp,value,FALSE);
+            if(err != CONF_E_SUCCESS) {
+                free(duparg);
+                xml_return_error(pwsc,500,"Bad values");
+                return;
+            }
+        }
+        free(duparg);
+    }
+
+    xml_return_error(pwsc,200,"Success");
+}
 
 /**
  * post settings back to the config file
@@ -270,6 +301,11 @@ void xml_handle(WS_CONNINFO *pwsc) {
 
     if(strcasecmp(method,"setconfig") == 0) {
         xml_set_config(pwsc);
+        return;
+    }
+
+    if(strcasecmp(method,"updateconfig") == 0) {
+        xml_update_config(pwsc);
         return;
     }
 

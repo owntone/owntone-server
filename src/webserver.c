@@ -1619,3 +1619,19 @@ WS_CONNINFO *ws_thread_enum_next(WSHANDLE wsh, WSTHREADENUM *vpp) {
     return pwsc;
 }
 
+void *ws_enum_var(WS_CONNINFO *pwsc, char **key, char **value, void *last) {
+    ARGLIST *plist = (ARGLIST *)last;
+
+    if(!plist) {
+        plist = pwsc->request_vars.next;
+    } else {
+        plist = plist->next;
+    }
+
+    if(plist) {
+        if(key) *key = plist->key;
+        if(value) *value = plist->value;
+    }
+
+    return plist;
+}
