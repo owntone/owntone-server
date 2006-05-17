@@ -422,7 +422,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
             }
         } else if(strcasecmp(descriptor_name,"wm/shareduserrating")==0) {
             /* what a strange rating strategy */
-            pmp3->rating = atoi(descriptor_int_value);
+            pmp3->rating = descriptor_int_value;
             if(pmp3->rating == 99) {
                 pmp3->rating = 100;
             } else {
