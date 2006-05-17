@@ -47,6 +47,7 @@ var ConfigXML = {
       });
       ConfigXML.config[section.getAttribute('name')] = items;
     });
+    a=12;
   }
 };
 var Config = {
@@ -123,7 +124,7 @@ var Config = {
         inputSize = 20;
         // Yes, we're falling through
       case 'long_text':
-        frag.appendChild(BuildElement.input(postId,
+        frag.appendChild(BuildElement.input(postId,postId,
                                  item.name,
                                  Config._getConfigOptionValue(itemId),
                                  inputSize,
@@ -138,7 +139,7 @@ var Config = {
       case 'long_text_multiple':
         Config._getConfigOptionValue(itemId,true).each(function (value,i) {
           var span = document.createElement('span');
-          span.appendChild(BuildElement.input(postId+i,
+          span.appendChild(BuildElement.input(postId+i,postId,
                                              item.name,
                                              value,inputSize,
                                              item.short_description
@@ -217,7 +218,7 @@ var Config = {
   }
 }
 var BuildElement = {
-  input: function(id,displayName,value,size,short_description,long_description) {
+  input: function(id,name,displayName,value,size,short_description,long_description) {
 
     var frag = document.createDocumentFragment();
     var label = document.createElement('label');
@@ -226,7 +227,7 @@ var BuildElement = {
     label.appendChild(document.createTextNode(displayName));
     frag.appendChild(label);
 
-    frag.appendChild(Builder.node('input',{id: id,name: id,className: 'text',
+    frag.appendChild(Builder.node('input',{id: id,name: name,className: 'text',
                                            value: value,size: size}));
     frag.appendChild(document.createTextNode('\u00a0'));                                              
     frag.appendChild(document.createTextNode(short_description));

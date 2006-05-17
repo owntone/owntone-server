@@ -79,8 +79,8 @@
         </item>
     </section>
 
-    <section name="Music_Files" config_section="general">
-        <item id="mp3_dir">
+    <section name="Music_Files">
+        <item id="mp3_dir" config_section="general">
             <name>MP3 Directory</name>
             <short_description></short_description>
             <type>long_text_multiple</type>
@@ -119,8 +119,8 @@
         </item>
     </section>
 
-    <section name="Database" config_section="general">
-        <item id="db_type">
+    <section name="Database">
+        <item id="db_type" config_section="general">
             <name>Database Type</name>
             <short_description></short_description>
             <type>select</type>
@@ -159,8 +159,8 @@
         </item>
     </section>
 
-    <section name="Plugins" config_section="plugins">
-        <item id="plugin_dir">
+    <section name="Plugins">
+        <item id="plugin_dir" config_section="plugins">
             <name>Plugin Directory</name>
             <short_description></short_description>
             <type>long_text</type>
@@ -173,8 +173,8 @@
         </item>
     </section>
 
-    <section name="Transcoding" config_section="general">
-        <item id="ssc_prog">
+    <section name="Transcoding">
+        <item id="ssc_prog" config_section="general">
             <name>SSC Program</name>
             <short_description></short_description>
             <type>long_text</type>
