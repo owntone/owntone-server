@@ -134,7 +134,22 @@ void xml_set_config(WS_CONNINFO *pwsc) {
 
     if((err=conf_set_string(section,key,value,verify_only)!=CONF_E_SUCCESS)) {
         /* should return text error from conf_ */
-        xml_return_error(pwsc,500,"conf_set_string: error");
+        switch(err) {
+        case CONF_E_BADELEMENT:
+            xml_return_error(pwsc,500,"Unknown section/key pair");
+            break;
+        case CONF_E_PATHEXPECTED:
+            xml_return_error(pwsc,500,"Expecting valid path");
+            break;
+        case CONF_E_INTEXPECTED:
+            xml_return_error(pwsc,500,"Expecting integer value");
+            break;
+        case CONF_E_NOTWRITABLE:
+            xml_return_error(pwsc,500,"Config file not writable");
+            break;
+        default:
+            xml_return_error(pwsc,500,"conf_set_string: error");
+        }
         return;
     }
 
