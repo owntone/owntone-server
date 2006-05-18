@@ -42,6 +42,7 @@ PLUGIN_INFO *plugin_info(void) {
     return &_pi;
 }
 
+/** NO LOG IN HERE!  We'll go into an endless loop.  :) */
 void plugin_handler(int event_id, int intval, void *vp, int len) {
     int total_len = 3 * sizeof(int) + len + 1;
     PLUGIN_MSG *pmsg;
@@ -62,8 +63,10 @@ void plugin_handler(int event_id, int intval, void *vp, int len) {
     memcpy(&pmsg->vp,vp,len);
 
     sock = socket(AF_INET,SOCK_DGRAM,0);
-    if(sock == INVALID_SOCKET)
+    if(sock == INVALID_SOCKET) {
+        free(pmsg);
         return;
+    }
 
     servaddr.sin_family = AF_INET;
     servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
