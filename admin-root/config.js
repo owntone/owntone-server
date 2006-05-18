@@ -1,14 +1,39 @@
 Event.observe(window,'load',init);
-
+//###TODO
+//Check if writable
+//Disable/enable save/cancel
+//swap buttons if navigator.platform == mac
+/*   platform = window.navigator.platform.toLowerCase();
+    if (platform.indexOf('win') != -1)
+      navigator.OS = 'win';
+    else if (platform.indexOf('mac') != -1)
+      navigator.OS = 'mac';
+    else if (platform.indexOf('unix') != -1 || platform.indexOf('linux') != -1 || platform.indexOf('sun') != -1)
+      navigator.OS = 'nix';*/
+//Inform user if server restart needed
+//config.xml: Add browse file/dir button, add multiple, add textbox size?
+//
+      
 // Config isn't defined until after the Event.observe above
 // I could have put it below Config = ... but I want all window.load events
 // at the start of the file
+
 function init() {
   Config.init();
   Event.observe($('button_save'),'click',saveForm);
 }
 var ConfigXML = {
   config: [],
+  getOptionFromElementName: function (name) {
+    var id = name.replace(/.*:/,'');    
+    return Try.these(
+      function () {ConfigXml.config['Server'][id];},
+      function () {ConfigXml.config['Music_Files'][id];},
+      function () {ConfigXml.config['Database'][id];},
+      function () {ConfigXml.config['Plugins'][id];},
+      function () {ConfigXml.config['Transcoding'][id];}
+    );
+  },
   getOption: function (section,id) {
     return this.config[section][id];
   },
@@ -59,6 +84,7 @@ var Config = {
   },
   updateStatus: function (request) {
     Config.configPath = Element.textContent(request.responseXML.getElementsByTagName('config_path')[0]);
+    Config.isWritable = Element.textContent(request.responseXML.getElementsByTagName('writable_config')[0]) == '1';
 //    $('config_path').appendChild(document.createTextNode(
       
 //    );
@@ -84,7 +110,27 @@ var Config = {
       });
       $('theform').appendChild(head);
       $('theform').appendChild(body);
-    });  
+    });
+    if (!Config.isWritable) {
+      Effect.Appear('config_not_writable_warning');
+    } else {
+      // Create save and cancel buttons
+      var save = Builder.node('button',{id: 'button_save', disabled: 'disabled'},'Save');
+      var cancel = Builder.node('button',{id: 'button_cancel'},'Cancel');
+      var spacer = document.createTextNode('\u00a0\u00a0');
+      var buttons = $('buttons');
+      if (navigator.platform.indexOf('mac') != -1) {
+        // We're on mac
+        buttons.appendChild(cancel);
+        buttons.appendChild(spacer);
+        buttons.appendChild(save);
+      } else {
+        // What about all them unix variants?
+        buttons.appendChild(save);
+        buttons.appendChild(spacer);
+        buttons.appendChild(cancel);
+      }
+    }
   },
   _getConfigOptionValue: function(id,multiple) {
     if (multiple) {
@@ -257,9 +303,9 @@ function saved(req) {
 function saveForm() {
   var getString = [];
   $A($('theform').getElementsByTagName('input')).each(function (input,i) {
-    if ((i > 10) && (i < 17)) {
-      getString.push(Form.Element.serialize(input.id));  
-    }
+    if (input.value != '') {
+      getString.push(Form.Element.serialize(input.id));
+    }  
   });
   getString = getString.join('&');
   new Ajax.Request('/xml-rpc?method=updateconfig&'+getString,{method: 'get',

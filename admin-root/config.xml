@@ -112,11 +112,6 @@
             <type>long_text_multiple</type>
             <add_item_text>Add compilation directory</add_item_text>
         </item>
-        <item id="art_filename" config_section="general">
-            <name>Art Filename</name>
-            <short_description></short_description>
-            <type>long_text</type>
-        </item>
     </section>
 
     <section name="Database">
