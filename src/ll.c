@@ -119,6 +119,36 @@ int ll_add_ll(LL *pl, char *key, LL *pnew) {
     return result;
 }
 
+int ll_del_item(LL *pl, char *key) {
+    LL_ITEM *phead, *ptail;
+
+    ptail = &pl->itemlist;
+    phead = pl->itemlist.next;
+
+    while(phead) {
+        if((pl->flags & LL_FLAG_HONORCASE) && 
+           (strcmp(phead->key,key)==0))
+            break;
+        if((!(pl->flags & LL_FLAG_HONORCASE) && 
+            (strcasecmp(phead->key,key)==0))) 
+            break;
+
+        ptail=phead;
+        phead=phead->next;
+    }
+
+    if(phead) {
+        /* found the item... */
+        if(pl->tailptr == phead)
+            pl->tailptr = ptail;
+        ptail->next = phead->next;
+    } else {
+        /* no matching item */
+        return LL_E_NOKEY;
+    }
+    return LL_E_SUCCESS;
+}
+
 /**
  * add an item to a ll
  */

@@ -306,6 +306,12 @@ int _conf_verify_element(char *section, char *key, char *value) {
         return CONF_E_BADELEMENT;
     }
 
+    if(strcmp(value,"") == 0) {
+        if(!pce->required) {
+            return CONF_E_SUCCESS;
+        }
+    }
+
     switch(pce->type) {
     case CONF_T_MULTICOMMA: /* can't really check these */
     case CONF_T_STRING:
@@ -903,6 +909,29 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
     pce = _conf_get_keyinfo(section,key);
     if(pce)
         key_type = pce->type;
+
+    if(strcmp(value,"") == 0) {
+        /* deleting the item */
+        pitem = ll_fetch_item(conf_main,section);
+        if(!pitem) {
+            _conf_unlock();
+            return CONF_E_SUCCESS;
+        }
+
+        section_ll = pitem->value.as_ll;
+        if(!section_ll) {
+            _conf_unlock();
+            return CONF_E_SUCCESS; /* ?? deleting an already deleted item */
+        }
+
+        if(ll_del_item(section_ll,key) == LL_E_SUCCESS) {
+            _conf_unlock();
+            return CONF_E_SUCCESS;
+        }
+
+        _conf_unlock();
+        return CONF_E_UNKNOWN;
+    }
 
     pitem = _conf_fetch_item(conf_main,section,key);
     if(!pitem) {
