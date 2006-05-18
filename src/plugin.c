@@ -404,6 +404,7 @@ int plugin_rend_register(char *name, int port, char *iface) {
     PLUGIN_REND_INFO *pri;
     char *txt;
     char *new_name;
+    int name_len;
 
 
     _plugin_readlock();
@@ -420,12 +421,17 @@ int plugin_rend_register(char *name, int port, char *iface) {
 
                 DPRINTF(E_DBG,L_PLUG,"Registering %s\n",pri->type);
 
-                new_name=(char*)malloc(strlen(name) + 3 + 
-                                       strlen(ppi->versionstring));
+                name_len = (int)strlen(name) + 4 + (int)strlen(ppi->versionstring);
+                new_name=(char*)malloc(name_len);
+                if(!new_name)
+                    DPRINTF(E_FATAL,L_PLUG,"plugin_rend_register: malloc");
+
+                memset(new_name,0,name_len);
+
                 if(conf_get_int("plugins","mangle_rendezvous",1)) {
-                    sprintf(new_name,"%s (%s)",name,ppi->versionstring);
+                    snprintf(new_name,name_len,"%s (%s)",name,ppi->versionstring);
                 } else {
-                    sprintf(new_name,"%s",name);
+                    snprintf(new_name,name_len,"%s",name);
                 }
                 rend_register(new_name,pri->type,port,iface,txt);
                 free(new_name);
