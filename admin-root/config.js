@@ -1,8 +1,6 @@
 Event.observe(window,'load',init);
 //###TODO
-//Check if writable
 //Disable/enable save/cancel
-//swap buttons if navigator.platform == mac
 /*   platform = window.navigator.platform.toLowerCase();
     if (platform.indexOf('win') != -1)
       navigator.OS = 'win';
@@ -20,7 +18,7 @@ Event.observe(window,'load',init);
 
 function init() {
   Config.init();
-  Event.observe($('button_save'),'click',saveForm);
+
 }
 var ConfigXML = {
   config: [],
@@ -71,6 +69,34 @@ var ConfigXML = {
     });
   }
 };
+var ConfigInitialValues = {
+  values: {},
+  getValues: function () {
+    return $H(this.values);
+  },
+  parseXML: function (xmldoc) {
+    // IE and w3c treat xmldoc differently make shore firstChild is firstchild of <config>
+    if (xmldoc.childNodes[1] && xmldoc.childNodes[1].nodeName == 'config') {
+      sections = $A(xmldoc.childNodes[1].childNodes);
+    } else {  
+      sections = $A(xmldoc.firstChild.childNodes);
+    }
+    sections.each(function (section) {
+      var sectionName = section.nodeName;
+      $A(section.childNodes).each(function (node) {
+        if (node.childNodes.length > 1) {
+          var values = [];
+          $A(node.childNodes).each(function (n) {
+            values.push(Element.textContent(n));
+          });
+          ConfigInitialValues.values[sectionName+':'+node.nodeName] = values;
+        } else {
+          ConfigInitialValues.values[sectionName+':'+node.nodeName] = Element.textContent(node);
+        }
+      });
+    });
+  } 
+};
 var Config = {
   configPath: '',
   configOptionValues: '',
@@ -78,7 +104,6 @@ var Config = {
     new Ajax.Request('/config.xml',{method: 'get',onComplete: Config.storeConfigLayout});
   },
   storeConfigLayout: function (request) {
-    Config.layout = request.responseXML;
     ConfigXML.parseXML(request.responseXML);
     new Ajax.Request('/xml-rpc?method=stats',{method: 'get',onComplete: Config.updateStatus});
   },
@@ -91,6 +116,7 @@ var Config = {
     new Ajax.Request('/xml-rpc?method=config',{method: 'get',onComplete: Config.showConfig});  
   },
   showConfig: function (request) {
+    ConfigInitialValues.parseXML(request.responseXML);
     Config.configOptionValues = request.responseXML;
     var sections = ConfigXML.getSections();
     sections.each(function (section) {
@@ -115,8 +141,11 @@ var Config = {
       Effect.Appear('config_not_writable_warning');
     } else {
       // Create save and cancel buttons
-      var save = Builder.node('button',{id: 'button_save', disabled: 'disabled'},'Save');
+//      var save = Builder.node('button',{id: 'button_save', disabled: 'disabled'},'Save');
+      var save = Builder.node('button',{id: 'button_save'},'Save');
+      Event.observe(save,'click',saveForm);
       var cancel = Builder.node('button',{id: 'button_cancel'},'Cancel');
+      Event.observe(cancel,'click',cancelForm);
       var spacer = document.createTextNode('\u00a0\u00a0');
       var buttons = $('buttons');
       if (navigator.platform.indexOf('mac') != -1) {
@@ -131,6 +160,9 @@ var Config = {
         buttons.appendChild(cancel);
       }
     }
+  },
+  _parseConfigOptionValues: function (xmldoc) {
+      
   },
   _getConfigOptionValue: function(id,multiple) {
     if (multiple) {
@@ -311,6 +343,23 @@ function saveForm() {
   new Ajax.Request('/xml-rpc?method=updateconfig&'+getString,{method: 'get',
                                                onComplete: saved
                                                  });
+}
+function cancelForm() {
+    //###TODO Handle default values for elements not returned by method=config
+  ConfigInitialValues.getValues().each(function (option) {
+    if (typeof (option.value) == 'object') {
+        //###TODO what if user removed one of the multiplevalued options?
+      if (option.value != '') {  
+        option.value.each(function (val,i) {
+          $(option.key + i).value = val;
+        });   
+      }
+    }
+    var el = $(option.key);
+    if (el) {
+      el.value = option.value;
+    }
+  });
 }
 Object.extend(Element, {
   removeChildren: function(element) {
