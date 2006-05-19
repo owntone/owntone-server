@@ -924,13 +924,10 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
             return CONF_E_SUCCESS; /* ?? deleting an already deleted item */
         }
 
-        if(ll_del_item(section_ll,key) == LL_E_SUCCESS) {
-            _conf_unlock();
-            return CONF_E_SUCCESS;
-        }
-
+        /* don't care about item... might already be gone! */
+        ll_del_item(section_ll,key);
         _conf_unlock();
-        return CONF_E_UNKNOWN;
+        return CONF_E_SUCCESS;
     }
 
     pitem = _conf_fetch_item(conf_main,section,key);
