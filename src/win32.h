@@ -7,12 +7,23 @@
 #ifndef _WIN32_H_
 #define _WIN32_H_
 
+// Visual C++ 2005 has a secure CRT that generates oodles of warnings when unbounded
+// C library functions are used. Disable this feature for the time being.
+#if defined(_MSC_VER)
+# if _MSC_VER >= 1400
+#  define _CRT_SECURE_NO_DEPRECATE 1
+# endif
+#endif
+
+// Must include all these before defining the non-underscore versions
+// otherwise the prototypes will go awry.
 #include <windows.h>
 //#include <winsock2.h>
 #include <io.h>
 #include <stddef.h>
 #include <fcntl.h>
 #include <direct.h>
+#include <stdio.h>
 
 #include "os-win32.h"
 
@@ -28,13 +39,19 @@
 #define sleep(a) Sleep((a) * 1000)
 #define read(a,b,c) os_read((a),(b),(int)(c))
 #define write(a,b,c) os_write((a),(b),(int)(c))
-#define strncasecmp strnicmp
-#define strcasecmp stricmp
+#define strncasecmp _strnicmp
+#define strcasecmp _stricmp
 #define mkdir(a,b) _mkdir((a))
 #define popen _popen
 #define pclose _pclose
 #define strtoll strtol 
 #define access _access
+#define strdup _strdup
+#define dup _dup
+#define fdopen _fdopen
+#define lseek _lseek
+#define dup2 _dup2
+#define fileno _fileno
 
 #define realpath os_realpath
 #define close os_close
