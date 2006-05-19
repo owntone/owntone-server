@@ -21,6 +21,8 @@ struct timezone {
 };
 
 #define DT_DIR 1
+#define DT_REG 2
+#define DT_LNK 4
 
 #define W_OK 2
 #define R_OK 4

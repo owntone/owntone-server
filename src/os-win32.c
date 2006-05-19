@@ -564,6 +564,8 @@ int os_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
     entry->d_type = 0;
     if(dirp->dir_find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
         entry->d_type |= DT_DIR;
+    } else if(dirp->dir_find_data.dwFileAttributes & FILE_ATTRIBUTE_NORMAL) {
+        entry->d_type |= DT_REG;
     }
 
     /*
