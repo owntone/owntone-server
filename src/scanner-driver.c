@@ -102,8 +102,10 @@ void dump_mp3(MP3FILE *pmp3) {
     printf("orchestra.....:  %s\n",pmp3->orchestra);
     printf("conductor.....:  %s\n",pmp3->conductor);
     printf("grouping......:  %s\n",pmp3->grouping);
-    printf("year..........:  %d\n",pmp3->year);
     printf("url...........:  %s\n",pmp3->url);
+    printf("description...:  %s\n",pmp3->description);
+    printf("codectype.....:  %s\n",pmp3->codectype);
+    printf("year..........:  %d\n",pmp3->year);
 
     printf("bitrate.......:  %dkb\n",pmp3->bitrate);
     printf("samplerate....:  %d\n",pmp3->samplerate);
@@ -114,6 +116,11 @@ void dump_mp3(MP3FILE *pmp3) {
     printf("disc..........:  %d of %d\n",pmp3->disc,pmp3->total_discs);
 
     printf("compilation...:  %d\n",pmp3->compilation);
+
+    printf("rating........:  %d\n",pmp3->rating);
+    printf("disabled......:  %d\n",pmp3->disabled);
+    printf("bpm...........:  %d\n",pmp3->bpm);
+    printf("has_video.....:  %d\n",pmp3->has_video);
 }
 
 

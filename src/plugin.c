@@ -91,7 +91,7 @@ int pi_db_enum_start(char **pe, DBQUERYINFO *pinfo);
 int pi_db_enum_fetch_row(char **pe, char ***row, DBQUERYINFO *pinfo);
 int pi_db_enum_end(char **pe);
 void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id);
-
+void pi_conf_dispose_string(char *str);
 int pi_sp_parse(PARSETREE tree, char *term);
 
 PLUGIN_INPUT_FN pi = {
@@ -119,8 +119,12 @@ PLUGIN_INPUT_FN pi = {
     sp_init,
     pi_sp_parse,
     sp_dispose,
-    sp_get_error
+    sp_get_error,
+
+    conf_alloc_string,
+    pi_conf_dispose_string
 };
+
 
 /**
  * initialize stuff for plugins
@@ -581,4 +585,8 @@ void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
 
 int pi_sp_parse(PARSETREE tree, char *term) {
     return sp_parse(tree, term, 0);
+}
+
+void pi_conf_dispose_string(char *str) {
+    free(str);
 }

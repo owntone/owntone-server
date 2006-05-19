@@ -115,6 +115,9 @@ typedef struct tag_plugin_input_fn {
     int (*sp_parse)(PARSETREE tree, char *term);
     int (*sp_dispose)(PARSETREE tree);
     char* (*sp_get_error)(PARSETREE tree);
+
+    char *(*conf_alloc_string)(char *section, char *key, char *dflt);
+    void (*conf_dispose_string)(char *str);
 } PLUGIN_INPUT_FN;
 
 #endif /* _PLUGIN_H_ */

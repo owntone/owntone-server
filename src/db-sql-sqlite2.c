@@ -409,47 +409,47 @@ int db_sqlite2_insert_id(void) {
 
 char *db_sqlite2_initial1 =
 "create table songs (\n"
-"   id              INTEGER PRIMARY KEY NOT NULL,\n"
+"   id              INTEGER PRIMARY KEY NOT NULL,\n"      /* 0 */
 "   path            VARCHAR(4096) UNIQUE NOT NULL,\n"
 "   fname           VARCHAR(255) NOT NULL,\n"
 "   title           VARCHAR(1024) DEFAULT NULL,\n"
 "   artist          VARCHAR(1024) DEFAULT NULL,\n"
-"   album           VARCHAR(1024) DEFAULT NULL,\n"
+"   album           VARCHAR(1024) DEFAULT NULL,\n"        /* 5 */
 "   genre           VARCHAR(255) DEFAULT NULL,\n"
 "   comment         VARCHAR(4096) DEFAULT NULL,\n"
 "   type            VARCHAR(255) DEFAULT NULL,\n"
 "   composer        VARCHAR(1024) DEFAULT NULL,\n"
-"   orchestra       VARCHAR(1024) DEFAULT NULL,\n"
+"   orchestra       VARCHAR(1024) DEFAULT NULL,\n"      /* 10 */
 "   conductor       VARCHAR(1024) DEFAULT NULL,\n"
 "   grouping        VARCHAR(1024) DEFAULT NULL,\n"
 "   url             VARCHAR(1024) DEFAULT NULL,\n"
 "   bitrate         INTEGER DEFAULT 0,\n"
-"   samplerate      INTEGER DEFAULT 0,\n"
+"   samplerate      INTEGER DEFAULT 0,\n"               /* 15 */
 "   song_length     INTEGER DEFAULT 0,\n"
 "   file_size       INTEGER DEFAULT 0,\n"
 "   year            INTEGER DEFAULT 0,\n"
 "   track           INTEGER DEFAULT 0,\n"
-"   total_tracks    INTEGER DEFAULT 0,\n"
+"   total_tracks    INTEGER DEFAULT 0,\n"               /* 20 */
 "   disc            INTEGER DEFAULT 0,\n"
 "   total_discs     INTEGER DEFAULT 0,\n"
 "   bpm             INTEGER DEFAULT 0,\n"
 "   compilation     INTEGER DEFAULT 0,\n"
-"   rating          INTEGER DEFAULT 0,\n"
+"   rating          INTEGER DEFAULT 0,\n"               /* 25 */
 "   play_count      INTEGER DEFAULT 0,\n"
 "   data_kind       INTEGER DEFAULT 0,\n"
 "   item_kind       INTEGER DEFAULT 0,\n"
 "   description     INTEGER DEFAULT 0,\n"
-"   time_added      INTEGER DEFAULT 0,\n"
+"   time_added      INTEGER DEFAULT 0,\n"               /* 30 */
 "   time_modified   INTEGER DEFAULT 0,\n"
 "   time_played     INTEGER DEFAULT 0,\n"
 "   db_timestamp    INTEGER DEFAULT 0,\n"
 "   disabled        INTEGER DEFAULT 0,\n"
-"   sample_count    INTEGER DEFAULT 0,\n"
+"   sample_count    INTEGER DEFAULT 0,\n"               /* 35 */
 "   force_update    INTEGER DEFAULT 0,\n"
 "   codectype       VARCHAR(5) DEFAULT NULL,\n"
 "   idx             INTEGER NOT NULL,\n"
 "   has_video       INTEGER DEFAULT 0,\n"
-"   contentrating   INTEGER DEFAULT 0\n"
+"   contentrating   INTEGER DEFAULT 0\n"                /* 40 */
 ");\n"
 "create table playlistitems (\n"
 "   id             INTEGER PRIMARY KEY NOT NULL,\n"

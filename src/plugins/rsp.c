@@ -323,6 +323,23 @@ void rsp_playlist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int type;
     char *query;
     char *estr = NULL;
+    char *transcode_codecs;
+    int transcode;
+    int samplerate;
+    //    char *user_agent;
+
+    /*
+    user_agent = infn->ws_getrequestheader(pwsc,"user-agent");
+    if(user_agent) {
+        if(strncmp(user_agent,"iTunes",6)==0) {
+            trancode_codecs = "wma,ogg,flac,mpc";
+        } else if(strncmp(user_agent,"Roku",4)==0) {
+            transcode_codecs = "ogg,flac,mpc,alac";
+        } else {
+            transcode_codecs = "wma,ogg,flac,mpc,alac";
+        }
+    }
+    */
 
     query = infn->ws_getvar(pwsc,"query");
     if(query) {
@@ -381,6 +398,8 @@ void rsp_playlist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
             returned = pqi->specifiedtotalcount - pqi->index_low;
     }
 
+    transcode_codecs = infn->conf_alloc_string("general","ssc_codectypes","");
+
     xml_push(pxml,"response");
     xml_push(pxml,"status");
     xml_output(pxml,"errorcode","0");
@@ -394,11 +413,43 @@ void rsp_playlist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     while((infn->db_enum_fetch_row(NULL,&row,pqi) == 0) && (row)) {
         xml_push(pxml,"item");
         rowindex=0;
+        transcode = 0;
+        if(strstr(transcode_codecs,row[37])) /* FIXME: ticket #21 */
+            transcode = 1;
+
         while(rsp_fields[rowindex].name) {
             if((rsp_fields[rowindex].flags & type) &&
                (row[rowindex] && strlen(row[rowindex]))) {
-                xml_output(pxml,rsp_fields[rowindex].name,"%s",
-                              row[rowindex]);
+                if(transcode) {
+                    switch(rowindex) {
+                    case 8:
+                        xml_output(pxml,rsp_fields[rowindex].name,"%s","wav");
+                        break;
+                    case 29:
+                        xml_output(pxml,rsp_fields[rowindex].name,"%s",
+                                   "wav audio file");
+                        break;
+                    case 15:
+                        samplerate = atoi(row[15]);
+                        if(samplerate) {
+                            samplerate = (samplerate * 4 * 8)/1000;
+                        }
+                        xml_output(pxml,rsp_fields[rowindex].name,"%d",
+                                   samplerate);
+                        break;
+                    case 37:
+                        xml_output(pxml,rsp_fields[rowindex].name,"%s","wav");
+                        break;
+                    default:
+                        xml_output(pxml,rsp_fields[rowindex].name,"%s",
+                                   row[rowindex]);
+                        break;
+                    }
+                } else {
+                    xml_output(pxml,rsp_fields[rowindex].name,"%s",
+                               row[rowindex]);
+                }
+
             }
             rowindex++;
         }
@@ -406,6 +457,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
 
     infn->db_enum_end(NULL);
+    infn->conf_dispose_string(transcode_codecs);
 
     xml_pop(pxml); /* items */
     xml_pop(pxml); /* response */
