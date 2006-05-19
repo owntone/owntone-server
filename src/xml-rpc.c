@@ -334,6 +334,7 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
     char resolved_path[PATH_MAX];
     int err;
     int ignore_dotfiles=1;
+    int ignore_files=1;
 
     base_path = ws_getvar(pwsc, "path");
     if(!base_path)
@@ -342,6 +343,9 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
 
     if(ws_getvar(pwsc,"show_dotfiles"))
 	ignore_dotfiles = 0;
+
+    if(ws_getvar(pwsc,"show_files"))
+        ignore_files = 0;
 
     pd = opendir(base_path);
     if(!pd) {
@@ -369,7 +373,11 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
 	if((!strcmp(pde->d_name,".")) || (!strcmp(pde->d_name,"..")))
 	    continue;
 
-	if(!(pde->d_type & DT_DIR))
+        if((pde->d_type & DT_REG) && (ignore_files))
+            continue;
+
+	if((!(pde->d_type & DT_DIR)) && 
+           (!(pde->d_type & DT_REG)))
 	    continue;
 
 	if((ignore_dotfiles) && (pde->d_name) && (pde->d_name[0] == '.'))
@@ -380,7 +388,13 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
 	readable = !access(resolved_path,R_OK);
 	writable = !access(resolved_path,W_OK);
 
-	xml_push(pxml,"directory");
+        if(pde->d_type & DT_DIR) {
+            xml_push(pxml,"directory");
+        } else if((pde->d_type & DT_LNK) == DT_LNK) {
+            xml_push(pxml,"symlink");
+        } else {
+            xml_push(pxml,"file");
+        }
 	xml_output(pxml,"name",pde->d_name);
 	xml_output(pxml,"full_path",resolved_path);
 	xml_output(pxml,"readable","%d",readable);
