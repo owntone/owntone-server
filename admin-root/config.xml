@@ -11,71 +11,73 @@
                 name of the database exported via DAAP. Also know as "What shows up in
                 iTunes".
             </long_description>
-            <type>short_text</type>
+            <type size="20">text</type>
         </item>
         <item id="web_root" config_section="general">
             <name>Web Root</name>
             <short_description></short_description>
-            <type>long_text</type>
+            <type size="80" browse="directory">text</type>
         </item>
         <item id="port" config_section="general">
             <name>Port</name>
             <short_description>
                 The port the server should run at; default is 3689
             </short_description>
-            <type>short_text</type>
+            <type size="20">text</type>
         </item>
         <item id="logfile" config_section="general">
             <name>Logfile</name>
             <short_description></short_description>
-            <type>long_text</type>
+            <type size="80" browse="file">text</type>
         </item>
         <item id="runas" config_section="general">
             <name>Run As</name>
             <short_description></short_description>
-            <type>short_text</type>
+            <type size="20">text</type>
         </item>
         <item id="admin_pw" config_section="general">
             <name>Admin password</name>
             <short_description>
                 The password for this administration interface.
             </short_description>
-            <type>short_text</type>
+            <type size="20">text</type>
         </item>
         <item id="password" config_section="general">
             <name>MP3 Password</name>
             <short_description>
                 The password clients need to access this server.
             </short_description>
-            <type>short_text</type>
+            <type size="20">text</type>
         </item>
         <item id="compress" config_section="general">
             <name>Compress</name>
             <short_description>
                 Should browsing data be compressed on the way to the client?
             </short_description>
-            <type>select</type>
-            <option value="0">No</option>
-            <option value="1">Yes</option>
-            <default_value>0</default_value>
+            <type default_value="0">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
         </item>
         <item id="debug" config_section="general">
             <name>Debug Level</name>
             <short_description>
                 Possible values are 0 to 9, 9 being the most detailed debug level.
             </short_description>
-            <type>select</type>
-            <option value="0">0</option>
-            <option value="1">1</option>
-            <option value="2">2</option>
-            <option value="3">3</option>
-            <option value="4">4</option>
-            <option value="5">5</option>
-            <option value="6">6</option>
-            <option value="7">7</option>
-            <option value="8">8</option>
-            <option value="9">9</option>
-            <default_value>0</default_value>
+            <type default_value="0">select</type>
+            <options>
+                <option value="0">0</option>
+                <option value="1">1</option>
+                <option value="2">2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5</option>
+                <option value="6">6</option>
+                <option value="7">7</option>
+                <option value="8">8</option>
+                <option value="9">9</option>
+            </options>
         </item>
     </section>
 
@@ -83,34 +85,33 @@
         <item id="mp3_dir" config_section="general">
             <name>MP3 Directory</name>
             <short_description></short_description>
-            <type>long_text_multiple</type>
-            <add_item_text>Add mp3 directory</add_item_text>
+            <type size="80" multiple="true" add_item_label="Add mp3 directory" browse="directory">text</type>
         </item>
         <item id="extensions" config_section="general">
             <name>Extensions</name>
             <short_description></short_description>
-            <type>short_text</type>
+            <type size="20">text</type>
         </item>
         <item id="playlist" config_section="general">
             <name>Playlist File</name>
             <short_description></short_description>
-            <type>long_text</type>
+            <type size="80" browse="file">text</type>
         </item>
         <item id="process_m3u" config_section="general">
             <name>Process .m3u Files</name>
             <short_description>
                 Should m3u files be processed as playlists?
             </short_description>
-            <type>select</type>
-            <option value="0">No</option>
-            <option value="1">Yes</option>
-            <default_value>0</default_value>
+            <type default_value="0">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
         </item>
         <item id="compdirs" config_section="general">
             <name>Compilation Directories</name>
             <short_description></short_description>
-            <type>long_text_multiple</type>
-            <add_item_text>Add compilation directory</add_item_text>
+            <type size="80" multiple="true" add_item_label="Add compilation directory" browse="directory">text</type>
         </item>
     </section>
 
@@ -118,39 +119,42 @@
         <item id="db_type" config_section="general">
             <name>Database Type</name>
             <short_description></short_description>
-            <type>select</type>
-            <option value="sqlite">sqlite</option>
-            <option value="sqlite3">sqlite3</option>
-            <default_value>sqlite</default_value>
+            <type default="sqlite">select</type>
+            <options>
+                <option value="sqlite">sqlite</option>
+                <option value="sqlite3">sqlite3</option>
+            </options>
         </item>
         <item id="db_parms" config_section="general">
             <name>Database Directory</name>
             <short_description></short_description>
-            <type>long_text</type>
+            <type size="80" browse="directory">text</type>
         </item>
         <item id="scan_type" config_section="general">
             <name>Scan Type</name>
             <short_description></short_description>
-            <type>select</type>
-            <option value="0">0 - Normal</option>
-            <option value="1">1 - Aggressive</option>
-            <option value="2">2 - Painfully aggressive</option>
-            <default_value>2</default_value>
+            <type default="2">select</type>
+            <options>
+                <option value="0">0 - Normal</option>
+                <option value="1">1 - Aggressive</option>
+                <option value="2">2 - Painfully aggressive</option>
+            </options>
         </item>
         <item id="rescan_interval" config_section="general">
             <name>Rescan Interval</name>
             <short_description>
                 How often should mt-daapd look for new files? In seconds.
             </short_description>
-            <type>short_text</type>
+            <type size="20">text</type>
         </item>
         <item id="always_scan" config_section="general">
             <name>Always Scan</name>
             <short_description></short_description>
-            <type>select</type>
-            <option value="0">No</option>
-            <option value="1">Yes</option>
-            <default_value>0</default_value>
+            <type default="0">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
         </item>
     </section>
 
@@ -158,13 +162,12 @@
         <item id="plugin_dir" config_section="plugins">
             <name>Plugin Directory</name>
             <short_description></short_description>
-            <type>long_text</type>
+            <type size="80" browse="directory">text</type>
         </item>
         <item id="plugins" config_section="plugins">
             <name>Plugins</name>
             <short_description></short_description>
-            <type>short_text_multiple</type>
-            <add_item_text>Add plugin</add_item_text>
+            <type size="20" multiple="true" add_item_label="Add plugin">text</type>
         </item>
     </section>
 
@@ -172,12 +175,12 @@
         <item id="ssc_prog" config_section="general">
             <name>SSC Program</name>
             <short_description></short_description>
-            <type>long_text</type>
+            <type size="80" browse="file">text</type>
         </item>
         <item id="ssc_codectypes" config_section="general">
             <name>SSC Codec Types</name>
             <short_description></short_description>
-            <type>long_text</type>
+            <type size="80">text</type>
         </item>
     </section>
 </config>

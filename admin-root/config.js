@@ -9,11 +9,10 @@ Event.observe(window,'load',init);
     else if (platform.indexOf('unix') != -1 || platform.indexOf('linux') != -1 || platform.indexOf('sun') != -1)
       navigator.OS = 'nix';*/
 //Inform user if server restart needed
-//config.xml: Add browse file/dir button, add multiple, add textbox size?
 //disable all page elements when read only
 //better errormessage for not writable config
 //make tabs?
-//add browse to all path and file options
+//create the path/file browser
       
 // Config isn't defined until after the Event.observe above
 // I could have put it below Config = ... but I want all window.load events
@@ -47,26 +46,31 @@ var ConfigXML = {
   parseXML: function(xmlDoc) {
     $A(xmlDoc.getElementsByTagName('section')).each(function (section) {
       var items = {};
-      var option;
       $A(section.getElementsByTagName('item')).each(function (item) {
-        option = {config_section: item.getAttribute('config_section'),
-                            name: Element.textContent(item.getElementsByTagName('name')[0]),
-               short_description: Element.textContent(item.getElementsByTagName('short_description')[0]),
-                            type: Element.textContent(item.getElementsByTagName('type')[0])};
-        if ('select' == option.type) {
-          var options = [];
-          $A(item.getElementsByTagName('option')).each(function (option) {
-            options.push({value: option.getAttribute('value'),
-                          label: Element.textContent(option)});
-          });
-          option.options = options;
-          option.default_value = Element.textContent(item.getElementsByTagName('default_value')[0]);
-        }
-        if (('short_text_multiple' == option.type) ||
-            ('long_text_multiple' == option.type)) {
-          option.add_item_text = Element.textContent(item.getElementsByTagName('add_item_text')[0]);  
-        }
-        items[item.getAttribute('id')] = option;
+        var returnItem = {};
+        returnItem['config_section'] = item.getAttribute('config_section');
+        returnItem['id'] = item.getAttribute('id');
+        $A(item.childNodes).each(function (node) {
+          if (Element.textContent(node) == '') {
+            return;
+          }
+          if ('options' == node.nodeName) {
+            var options = [];
+            $A(item.getElementsByTagName('option')).each(function (option) {
+              options.push({value: option.getAttribute('value'),
+                            label: Element.textContent(option)});
+            });
+            returnItem['options'] = options;     
+          } else {
+            returnItem[node.nodeName] = Element.textContent(node);
+          }
+          if (node.hasAttributes) {
+            $A(node.attributes).each(function (attr) {
+              returnItem[attr.name] = attr.value;  
+            });
+          }
+        });
+        items[item.getAttribute('id')] = returnItem;
       });
       ConfigXML.config[section.getAttribute('name')] = items;
     });
@@ -76,6 +80,9 @@ var ConfigInitialValues = {
   values: {},
   getValues: function () {
     return $H(this.values);
+  },
+  getValue: function (section,id) {
+    return this.values[section+':'+id];
   },
   parseXML: function (xmldoc) {
     // IE and w3c treat xmldoc differently make shore firstChild is firstchild of <config>
@@ -87,7 +94,7 @@ var ConfigInitialValues = {
     sections.each(function (section) {
       var sectionName = section.nodeName;
       $A(section.childNodes).each(function (node) {
-        if (node.childNodes.length > 1) {
+        if (node.firstChild.hasChildNodes()) {
           var values = [];
           $A(node.childNodes).each(function (n) {
             values.push(Element.textContent(n));
@@ -157,34 +164,10 @@ var Config = {
         buttons.appendChild(spacer);
         buttons.appendChild(save);
       } else {
-        // What about all them unix variants?
+        //###TODO What about all them unix variants?
         buttons.appendChild(save);
         buttons.appendChild(spacer);
         buttons.appendChild(cancel);
-      }
-    }
-  },
-  _parseConfigOptionValues: function (xmldoc) {
-      
-  },
-  _getConfigOptionValue: function(id,multiple) {
-    if (multiple) {
-      var ret = [];
-      var option = Config.configOptionValues.getElementsByTagName(id);
-      if (option.length > 0) { 
-        $A(option[0].getElementsByTagName('item')).each(function (item) {
-          ret.push(Element.textContent(item));
-        });
-      } else {
-        ret.push('');
-      }
-      return ret;
-    } else {
-      var value = Config.configOptionValues.getElementsByTagName(id);
-      if (value.length > 0) {
-        return Element.textContent(value[0]);
-      } else {
-        return '';
       }
     }
   },
@@ -194,60 +177,59 @@ var Config = {
     var span;
     var item = ConfigXML.getOption(section,itemId);
     var postId = item.config_section + ':' + itemId;
-    var inputSize = 80;
     var noBrowse = false;
     switch(item.type) {
-      case 'short_text':
-        inputSize = 20;
-        // Yes, we're falling through
-      case 'long_text':
-        frag.appendChild(BuildElement.input(postId,postId,
-                                 item.name,
-                                 Config._getConfigOptionValue(itemId),
-                                 inputSize,
-                                 item.short_description,                                     
-                                 ''));
-        frag.appendChild(Builder.node('br'));
-        break;
-      case 'short_text_multiple':
-        inputSize = 20;
-        noBrowse = true;
-        // Yes, we're falling through
-      case 'long_text_multiple':
-        Config._getConfigOptionValue(itemId,true).each(function (value,i) {
-          var span = document.createElement('span');
-          span.appendChild(BuildElement.input(postId+i,postId,
-                                             item.name,
-                                             value,inputSize,
-                                             item.short_description
-          ));
-          if (!noBrowse) {
+      case 'text':
+        if (item.multiple) {
+          var values = ConfigInitialValues.getValue(item.config_section,item.id);
+          if (!values || values.length == 0) {
+            values = [];
+            values.push('');
+          }
+          values.each(function (val,i) {
+            var span = document.createElement('span');
+            span.appendChild(BuildElement.input(postId+i,postId,
+                                     item.name,
+                                     val || item.default_value || '',
+                                     item.size || 20,
+                                     item.short_description,                                     
+                                     ''));
+            if (item.browse) {
+              href = Builder.node('a',{href: 'javascript://'},'Browse');
+              Event.observe(href,'click',Config._browse);          
+              span.appendChild(href);
+            }
+            span.appendChild(document.createTextNode('\u00a0\u00a0'));
+            href = Builder.node('a',{href: 'javascript://'},'Remove');
+            Event.observe(href,'click',Config._removeItem);
+            span.appendChild(href);
+            span.appendChild(Builder.node('br'));
+            frag.appendChild(span);
+          });
+          href = Builder.node('a',{href:'javascript://',className:'addItemHref'},item.add_item_label);
+          frag.appendChild(href);
+          Event.observe(href,'click',Config._addItem);
+          frag.appendChild(Builder.node('div',{style:'clear: both'}));
+        } else {
+          frag.appendChild(BuildElement.input(postId,postId,
+                                   item.name,
+                                   ConfigInitialValues.getValue(item.config_section,item.id) || item.default_value || '',
+                                   item.size || 20,
+                                   item.short_description,                                     
+                                   ''));
+          if (item.browse) {
             href = Builder.node('a',{href: 'javascript://'},'Browse');
             Event.observe(href,'click',Config._browse);          
-            span.appendChild(href);
+            frag.appendChild(href);
           }
-          span.appendChild(document.createTextNode('\u00a0\u00a0'));
-          href = Builder.node('a',{href: 'javascript://'},'Remove');
-          Event.observe(href,'click',Config._removeItem);
-          span.appendChild(href);
-          span.appendChild(Builder.node('br'));
-          frag.appendChild(span);                                             
-        });
-        href = Builder.node('a',{href:'javascript://',className:'addItemHref'},
-                                     item.add_item_text);
-        frag.appendChild(href);
-        Event.observe(href,'click',Config._addItem);
-        frag.appendChild(Builder.node('div',{style:'clear: both'}));
-        break;                                  
-      case 'select':
-        var value = Config._getConfigOptionValue(itemId);
-        if (!value) {
-          value = item.default_value;
+          frag.appendChild(Builder.node('br'));
         }
+        break;
+      case 'select':
         frag.appendChild(BuildElement.select(postId,
                                   item.name,
                                   item.options,
-                                  value,
+                                  ConfigInitialValues.getValue(item.config_section,item.id) || item.default_value,
                                   item.short_description));
         frag.appendChild(Builder.node('br'));
         break;
@@ -291,7 +273,7 @@ var Config = {
     }
   },
   _browse: function(e) {
-    alert('Browse directories');
+    alert('Browse');
   }
 }
 var BuildElement = {
@@ -310,8 +292,10 @@ var BuildElement = {
       frag.appendChild(Builder.node('input',{id: id,name: name,className: 'text',
                                              value: value,size: size, disabled: 'disabled'}));
     }
-    frag.appendChild(document.createTextNode('\u00a0'));                                              
-    frag.appendChild(document.createTextNode(short_description));
+    frag.appendChild(document.createTextNode('\u00a0'));
+    if (short_description) {                                              
+      frag.appendChild(document.createTextNode(short_description));
+    }
 
     return frag;
   },
