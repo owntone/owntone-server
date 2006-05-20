@@ -10,7 +10,10 @@ Event.observe(window,'load',init);
       navigator.OS = 'nix';*/
 //Inform user if server restart needed
 //config.xml: Add browse file/dir button, add multiple, add textbox size?
-//
+//disable all page elements when read only
+//better errormessage for not writable config
+//make tabs?
+//add browse to all path and file options
       
 // Config isn't defined until after the Event.observe above
 // I could have put it below Config = ... but I want all window.load events
@@ -148,7 +151,7 @@ var Config = {
       Event.observe(cancel,'click',cancelForm);
       var spacer = document.createTextNode('\u00a0\u00a0');
       var buttons = $('buttons');
-      if (navigator.platform.indexOf('mac') != -1) {
+      if (navigator.platform.toLowerCase().indexOf('mac') != -1) {
         // We're on mac
         buttons.appendChild(cancel);
         buttons.appendChild(spacer);
@@ -300,9 +303,13 @@ var BuildElement = {
     label.setAttribute('for',id);
     label.appendChild(document.createTextNode(displayName));
     frag.appendChild(label);
-
-    frag.appendChild(Builder.node('input',{id: id,name: name,className: 'text',
-                                           value: value,size: size}));
+    if (Config.isWritable) {
+      frag.appendChild(Builder.node('input',{id: id,name: name,className: 'text',
+                                             value: value,size: size}));
+    } else {
+      frag.appendChild(Builder.node('input',{id: id,name: name,className: 'text',
+                                             value: value,size: size, disabled: 'disabled'}));
+    }
     frag.appendChild(document.createTextNode('\u00a0'));                                              
     frag.appendChild(document.createTextNode(short_description));
 
@@ -316,6 +323,9 @@ var BuildElement = {
     frag.appendChild(label);
     
     var select = Builder.node('select',{id: id,name: id,size: 1});
+    if (!Config.isWritable) {
+      select.disabled = 'disabled';
+    }
     $A(options).each(function (option) {
       select.appendChild(Builder.node('option',{value: option.value},
                                                 option.label));
