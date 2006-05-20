@@ -119,7 +119,7 @@
         <item id="db_type" config_section="general">
             <name>Database Type</name>
             <short_description></short_description>
-            <type default="sqlite">select</type>
+            <type default_value="sqlite">select</type>
             <options>
                 <option value="sqlite">sqlite</option>
                 <option value="sqlite3">sqlite3</option>
@@ -133,7 +133,7 @@
         <item id="scan_type" config_section="general">
             <name>Scan Type</name>
             <short_description></short_description>
-            <type default="2">select</type>
+            <type default_value="2">select</type>
             <options>
                 <option value="0">0 - Normal</option>
                 <option value="1">1 - Aggressive</option>
@@ -150,7 +150,7 @@
         <item id="always_scan" config_section="general">
             <name>Always Scan</name>
             <short_description></short_description>
-            <type default="0">select</type>
+            <type default_value="0">select</type>
             <options>
                 <option value="0">No</option>
                 <option value="1">Yes</option>

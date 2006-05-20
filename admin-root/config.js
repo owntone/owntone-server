@@ -200,14 +200,14 @@ var Config = {
             }
             span.appendChild(document.createTextNode('\u00a0\u00a0'));
             href = Builder.node('a',{href: 'javascript://'},'Remove');
-            Event.observe(href,'click',Config._removeItem);
+            Event.observe(href,'click',Config._removeItemEvent);
             span.appendChild(href);
             span.appendChild(Builder.node('br'));
             frag.appendChild(span);
           });
           href = Builder.node('a',{href:'javascript://',className:'addItemHref'},item.add_item_label);
           frag.appendChild(href);
-          Event.observe(href,'click',Config._addItem);
+          Event.observe(href,'click',Config._addItemEvent);
           frag.appendChild(Builder.node('div',{style:'clear: both'}));
         } else {
           frag.appendChild(BuildElement.input(postId,postId,
@@ -235,40 +235,44 @@ var Config = {
     }
     return frag;
   },
-  _addItem: function(e) {
+  _addItemEvent: function (e) {
     var span = Event.element(e);
     while (span.nodeName.toLowerCase() != 'span') {
       span = span.previousSibling;
     }
-    var frag = document.createDocumentFragment();
-    span = span.cloneNode(true);
-    var id = span.getElementsByTagName('input')[0].id;
+    Config._addItem(span);      
+  },
+  _addItem: function(span) {
+    var newSpan = span.cloneNode(true);
+    var id = newSpan.getElementsByTagName('input')[0].id;
     var num = parseInt(id.match(/\d+$/));
     num++;
     var id = id.replace(/\d+$/,'') + num;
 
-    span.getElementsByTagName('label')[0].setAttribute('for',id);
-    span.getElementsByTagName('input')[0].id = id;
-    span.getElementsByTagName('input')[0].value = '';
-    var hrefs = span.getElementsByTagName('a');
+    newSpan.getElementsByTagName('label')[0].setAttribute('for',id);
+    newSpan.getElementsByTagName('input')[0].id = id;
+    newSpan.getElementsByTagName('input')[0].value = '';
+    var hrefs = newSpan.getElementsByTagName('a');
     if ('Netscape' == navigator.appName) {
       // Firefox et al doesn't copy registered events on an element deep clone
       // Don't know if that is w3c or if IE has it right
       if (hrefs.length == 1) {
-        Event.observe(hrefs[0],'click',Config._removeItem);
+        Event.observe(hrefs[0],'click',Config._removeItemEvent);
       } else {
         Event.observe(hrefs[0],'click',Config._browse);          
-        Event.observe(hrefs[1],'click',Config._removeItem);        
+        Event.observe(hrefs[1],'click',Config._removeItemEvent);        
       }
     }
-    var src = Event.element(e);
-    src.parentNode.insertBefore(span,src);
+    span.parentNode.insertBefore(newSpan,span.nextSibling);
   },
-  _removeItem: function(e) {
+  _removeItemEvent: function (e) {
     var span = Event.element(e);
     while (span.nodeName.toLowerCase() != 'span') {
       span = span.parentNode;
     }
+    Config._removeItem(span);
+  },
+  _removeItem: function(span) {
     if ((span.previousSibling && span.previousSibling.nodeName.toLowerCase() == 'span')||
         (span.nextSibling.nodeName.toLowerCase() == 'span'))  {
       Element.remove(span);
@@ -343,7 +347,19 @@ function saveForm() {
                                                  });
 }
 function cancelForm() {
-    //###TODO Handle default values for elements not returned by method=config
+  ConfigXML.getSections().each(function (section){
+    ConfigXML.getItems(section).each(function (itemId) {
+      var item = ConfigXML.getOption(section,itemId);
+      var itemConfigId = item.config_section + ':' + item.id;
+      if (item.multiple) {
+          // do the multiple thing
+      } else {
+          //###TODO potential error a select without a default value
+        $(itemConfigId).value = ConfigInitialValues.getValue(item.config_section,item.id) || item.default_value || '';
+      }
+    });
+  });
+  return;
   ConfigInitialValues.getValues().each(function (option) {
     if (typeof (option.value) == 'object') {
         //###TODO what if user removed one of the multiplevalued options?
