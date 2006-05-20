@@ -9,7 +9,6 @@ Event.observe(window,'load',init);
     else if (platform.indexOf('unix') != -1 || platform.indexOf('linux') != -1 || platform.indexOf('sun') != -1)
       navigator.OS = 'nix';*/
 //Inform user if server restart needed
-//disable all page elements when read only
 //better errormessage for not writable config
 //make tabs?
 //create the path/file browser
@@ -243,8 +242,13 @@ var Config = {
     }
     var frag = document.createDocumentFragment();
     span = span.cloneNode(true);
-    span.getElementsByTagName('label')[0].setAttribute('for','hej');
-    span.getElementsByTagName('input')[0].id = 'hej';
+    var id = span.getElementsByTagName('input')[0].id;
+    var num = parseInt(id.match(/\d+$/));
+    num++;
+    var id = id.replace(/\d+$/,'') + num;
+
+    span.getElementsByTagName('label')[0].setAttribute('for',id);
+    span.getElementsByTagName('input')[0].id = id;
     span.getElementsByTagName('input')[0].value = '';
     var hrefs = span.getElementsByTagName('a');
     if ('Netscape' == navigator.appName) {
