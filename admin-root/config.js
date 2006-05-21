@@ -36,11 +36,9 @@ var ConfigXML = {
       var items = {};
       $A(section.getElementsByTagName('item')).each(function (item) {
         var returnItem = {};
-        if (item.hasAttributes()) {
-            $A(item.attributes).each(function (attr) {
-              returnItem[attr.name] = attr.value;  
-            });
-        }
+        $A(item.attributes).each(function (attr) {
+          returnItem[attr.name] = attr.value;  
+        });
         $A(item.childNodes).each(function (node) {
           if (Element.textContent(node) == '') {
             return;
@@ -55,11 +53,9 @@ var ConfigXML = {
           } else {
             returnItem[node.nodeName] = Element.textContent(node);
           }
-          if (node.hasAttributes()) {
-            $A(node.attributes).each(function (attr) {
-              returnItem[attr.name] = attr.value;  
-            });
-          }
+          $A(node.attributes).each(function (attr) {
+            returnItem[attr.name] = attr.value;  
+          });
         });
         // Double index everything one as [section][id]
         // and one as [config_section:id]
