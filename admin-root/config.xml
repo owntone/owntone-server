@@ -60,7 +60,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="debug" config_section="general">
+        <item id="debuglevel" config_section="general">
             <name>Debug Level</name>
             <short_description>
                 Possible values are 0 to 9, 9 being the most detailed debug level.

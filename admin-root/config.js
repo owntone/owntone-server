@@ -17,16 +17,10 @@ function init() {
   Config.init();
 }
 var ConfigXML = {
-  config: [],
+  config: {},
+  configIndex: {},
   getOptionFromElementName: function (name) {
-    var id = name.replace(/.*:/,'');    
-    return Try.these(
-      function () {ConfigXml.config['Server'][id];},
-      function () {ConfigXml.config['Music_Files'][id];},
-      function () {ConfigXml.config['Database'][id];},
-      function () {ConfigXml.config['Plugins'][id];},
-      function () {ConfigXml.config['Transcoding'][id];}
-    );
+    return this.configIndex[name];
   },
   getOption: function (section,id) {
     return this.config[section][id];
@@ -67,7 +61,10 @@ var ConfigXML = {
             });
           }
         });
+        // Double index everything one as [section][id]
+        // and one as [config_section:id]
         items[item.getAttribute('id')] = returnItem;
+        ConfigXML.configIndex[returnItem.config_section+ ':' +returnItem.id] = returnItem;
       });
       ConfigXML.config[section.getAttribute('name')] = items;
     });
@@ -334,15 +331,29 @@ function saved(req) {
   alert(req.responseText);
 }
 function saveForm() {
-  var getString = [];
-  $A($('theform').getElementsByTagName('input')).each(function (input,i) {
-    if (input.value != '') {
-      getString.push(Form.Element.serialize(input.id));
-    }  
+  var postVars = [];
+  var multiple = {};
+  $A($('theform').getElementsByTagName('select')).each(function (select) {
+    postVars.push(Form.Element.serialize(select.id));
   });
-  getString = getString.join('&');
-  new Ajax.Request('/xml-rpc?method=updateconfig&'+getString,{method: 'get',
-                                               onComplete: saved
+  $A($('theform').getElementsByTagName('input')).each(function (input) {
+    if (ConfigXML.getOptionFromElementName(input.name).multiple) {
+      if (multiple[input.name]) {
+        multiple[input.name].push(encodeURIComponent(input.value));
+      } else {
+        multiple[input.name] = [input.value];
+      }
+    } else {
+      postVars.push(Form.Element.serialize(input.id));       
+    };
+  });
+  $H(multiple).each(function (item) {
+    postVars.push(item.key + '=' + item.value.join(','));
+  });
+  new Ajax.Request('/xml-rpc?method=updateconfig',
+                                                   {method: 'post',
+                                                parameters: postVars.join('&'),
+                                                onComplete: saved
                                                  });
 }
 function cancelForm() {
