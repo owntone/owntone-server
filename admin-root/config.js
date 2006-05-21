@@ -1,17 +1,13 @@
 Event.observe(window,'load',init);
 //###TODO
-//Disable/enable save/cancel
-/*   platform = window.navigator.platform.toLowerCase();
-    if (platform.indexOf('win') != -1)
-      navigator.OS = 'win';
-    else if (platform.indexOf('mac') != -1)
-      navigator.OS = 'mac';
-    else if (platform.indexOf('unix') != -1 || platform.indexOf('linux') != -1 || platform.indexOf('sun') != -1)
-      navigator.OS = 'nix';*/
-//Inform user if server restart needed
-//better errormessage for not writable config
-//make tabs?
-//create the path/file browser
+// * Fix cancel for multiple, create a span holding all multiple elements
+// * Disable/enable save/cancel, Add key and onchange listeners keep a note on changed items
+// * create the path/file browser
+// * Inform user if server restart needed, ask Ron which options
+// * Show required options in UI check with Ron if conf.c is correct
+// * better errormessage for not writable config
+// * make tabs?
+// * add warning if leaving page without saving
       
 // Config isn't defined until after the Event.observe above
 // I could have put it below Config = ... but I want all window.load events
@@ -19,7 +15,6 @@ Event.observe(window,'load',init);
 
 function init() {
   Config.init();
-
 }
 var ConfigXML = {
   config: [],
@@ -47,8 +42,11 @@ var ConfigXML = {
       var items = {};
       $A(section.getElementsByTagName('item')).each(function (item) {
         var returnItem = {};
-        returnItem['config_section'] = item.getAttribute('config_section');
-        returnItem['id'] = item.getAttribute('id');
+        if (item.hasAttributes()) {
+            $A(item.attributes).each(function (attr) {
+              returnItem[attr.name] = attr.value;  
+            });
+        }
         $A(item.childNodes).each(function (node) {
           if (Element.textContent(node) == '') {
             return;
@@ -63,7 +61,7 @@ var ConfigXML = {
           } else {
             returnItem[node.nodeName] = Element.textContent(node);
           }
-          if (node.hasAttributes) {
+          if (node.hasAttributes()) {
             $A(node.attributes).each(function (attr) {
               returnItem[attr.name] = attr.value;  
             });
@@ -182,8 +180,7 @@ var Config = {
         if (item.multiple) {
           var values = ConfigInitialValues.getValue(item.config_section,item.id);
           if (!values || values.length == 0) {
-            values = [];
-            values.push('');
+            values = [''];
           }
           values.each(function (val,i) {
             var span = document.createElement('span');
@@ -324,8 +321,10 @@ var BuildElement = {
     });
     select.value = value;
     frag.appendChild(select);
-    frag.appendChild(document.createTextNode('\u00a0'));                                              
-    frag.appendChild(document.createTextNode(short_description));
+    frag.appendChild(document.createTextNode('\u00a0'));
+    if (short_description) {
+      frag.appendChild(document.createTextNode(short_description));
+    }
 
     return frag;
   }
@@ -352,7 +351,11 @@ function cancelForm() {
       var item = ConfigXML.getOption(section,itemId);
       var itemConfigId = item.config_section + ':' + item.id;
       if (item.multiple) {
-          // do the multiple thing
+        var values = ConfigInitialValues.getValue(itemConfigId);
+        if (!values || values.length == 0) {
+          values = [''];
+        }
+          //###TODO do the multiple thing
       } else {
           //###TODO potential error a select without a default value
         $(itemConfigId).value = ConfigInitialValues.getValue(item.config_section,item.id) || item.default_value || '';
