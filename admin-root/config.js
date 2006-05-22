@@ -357,6 +357,8 @@ function saveForm() {
                                                  });
 }
 function cancelForm() {
+  alert("Cancel doesn't work, reload the page to revert your changes");
+return;
   ConfigXML.getSections().each(function (section){
     ConfigXML.getItems(section).each(function (itemId) {
       var item = ConfigXML.getOption(section,itemId);
