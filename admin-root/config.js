@@ -324,7 +324,11 @@ var BuildElement = {
     
 }
 function saved(req) {
-  alert(req.responseText);
+  if ('200' == Element.textContent(req.responseXML.getElementsByTagName('status')[0])) {
+    alert('Saved');
+  } else {
+    alert("Couldn't save and if this weren't a beta I'd tell you why");
+  }
 }
 function saveForm() {
   var postVars = [];

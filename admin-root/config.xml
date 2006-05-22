@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <config>
     <section name="Server">
-        <item id="servername" config_section="general">
+        <item id="servername" config_section="general" restart="true">
             <name>Server Name</name>
             <short_description>
                 The name iTunes and other daap clients should see
@@ -13,12 +13,12 @@
             </long_description>
             <type size="20">text</type>
         </item>
-        <item id="web_root" config_section="general">
+        <item id="web_root" config_section="general" required="true" restart="true">
             <name>Web Root</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="port" config_section="general">
+        <item id="port" config_section="general" required="true" restart="true">
             <name>Port</name>
             <short_description>
                 The port the server should run at; default is 3689
@@ -30,12 +30,12 @@
             <short_description></short_description>
             <type size="80" browse="file">text</type>
         </item>
-        <item id="runas" config_section="general">
+        <item id="runas" config_section="general" required="true" restart="true">
             <name>Run As</name>
             <short_description></short_description>
             <type size="20">text</type>
         </item>
-        <item id="admin_pw" config_section="general">
+        <item id="admin_pw" config_section="general" required="true">
             <name>Admin password</name>
             <short_description>
                 The password for this administration interface.
@@ -82,7 +82,7 @@
     </section>
 
     <section name="Music_Files">
-        <item id="mp3_dir" config_section="general">
+        <item id="mp3_dir" config_section="general" required="true">
             <name>MP3 Directory</name>
             <short_description></short_description>
             <type size="80" multiple="true" add_item_label="Add mp3 directory" browse="directory">text</type>
@@ -116,7 +116,7 @@
     </section>
 
     <section name="Database">
-        <item id="db_type" config_section="general">
+        <item id="db_type" config_section="general" restart="true">
             <name>Database Type</name>
             <short_description></short_description>
             <type default_value="sqlite">select</type>
@@ -125,12 +125,12 @@
                 <option value="sqlite3">sqlite3</option>
             </options>
         </item>
-        <item id="db_parms" config_section="general">
+        <item id="db_parms" config_section="general" restart="true">
             <name>Database Directory</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="scan_type" config_section="general">
+        <item id="scan_type" config_section="general" restart="true">
             <name>Scan Type</name>
             <short_description></short_description>
             <type default_value="2">select</type>
@@ -140,14 +140,14 @@
                 <option value="2">2 - Painfully aggressive</option>
             </options>
         </item>
-        <item id="rescan_interval" config_section="general">
+        <item id="rescan_interval" config_section="general" restart="true">
             <name>Rescan Interval</name>
             <short_description>
                 How often should mt-daapd look for new files? In seconds.
             </short_description>
             <type size="20">text</type>
         </item>
-        <item id="always_scan" config_section="general">
+        <item id="always_scan" config_section="general" restart="true">
             <name>Always Scan</name>
             <short_description></short_description>
             <type default_value="0">select</type>
@@ -159,12 +159,12 @@
     </section>
 
     <section name="Plugins">
-        <item id="plugin_dir" config_section="plugins">
+        <item id="plugin_dir" config_section="plugins" restart="true">
             <name>Plugin Directory</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="plugins" config_section="plugins">
+        <item id="plugins" config_section="plugins" restart="true">
             <name>Plugins</name>
             <short_description></short_description>
             <type size="20" multiple="true" add_item_label="Add plugin">text</type>
