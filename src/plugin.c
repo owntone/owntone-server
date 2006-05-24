@@ -403,10 +403,10 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
  * walk through the plugins and register whatever rendezvous
  * names the clients want
  */
-int plugin_rend_register(char *name, int port, char *iface) {
+int plugin_rend_register(char *name, int port, char *iface, char *txt) {
     PLUGIN_ENTRY *ppi;
     PLUGIN_REND_INFO *pri;
-    char *txt;
+    char *supplied_txt;
     char *new_name;
     int name_len;
 
@@ -419,9 +419,9 @@ int plugin_rend_register(char *name, int port, char *iface) {
         if(ppi->rend_info) {
             pri = ppi->rend_info;
             while(pri->type) {
-                txt = pri->txt;
+                supplied_txt = pri->txt;
                 if(!pri->txt)
-                    txt = "";
+                    supplied_txt = txt;
 
                 DPRINTF(E_DBG,L_PLUG,"Registering %s\n",pri->type);
 
@@ -437,7 +437,7 @@ int plugin_rend_register(char *name, int port, char *iface) {
                 } else {
                     snprintf(new_name,name_len,"%s",name);
                 }
-                rend_register(new_name,pri->type,port,iface,txt);
+                rend_register(new_name,pri->type,port,iface,supplied_txt);
                 free(new_name);
 
                 pri++;

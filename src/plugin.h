@@ -34,7 +34,7 @@ extern int plugin_deinit(void);
 extern int plugin_url_candispatch(WS_CONNINFO *pwsc);
 extern void plugin_url_handle(WS_CONNINFO *pwsc);
 extern int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw);
-extern int plugin_rend_register(char *name, int port, char *iface);
+extern int plugin_rend_register(char *name, int port, char *iface, char *txt);
 extern void plugin_event_dispatch(int event_id, int intval, void *vp, int len);
 
 

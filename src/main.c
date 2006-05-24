@@ -108,9 +108,9 @@ CONFIG config; /**< Main configuration structure, as read from configfile */
  * Forwards
  */
 static void usage(char *program);
-static void txt_add(char *txtrecord, char *fmt, ...);
 static void main_handler(WS_CONNINFO *pwsc);
 static int main_auth(WS_CONNINFO *pwsc, char *username, char *password);
+static void txt_add(char *txtrecord, char *fmt, ...);
 
 /**
  * build a dns text string
@@ -440,13 +440,15 @@ int main(int argc, char *argv[]) {
         txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */
         txt_add(txtrecord,"Version=196610");      /* iTunes 6.0.4 */
         txt_add(txtrecord,"Password=%s",conf_isset("general","password") ? "true" : "false");
+        srand(time(NULL));
+        txt_add(txtrecord,"ffid=%08x",rand());
     
         DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
         iface = conf_alloc_string("general","interface","");
         rend_register(servername,"_daap._tcp",ws_config.port,iface,txtrecord);
         rend_register(servername,"_http._tcp",ws_config.port,iface,txtrecord);
         
-        plugin_rend_register(servername,ws_config.port,iface);
+        plugin_rend_register(servername,ws_config.port,iface,txtrecord);
         
         free(servername);
         free(iface);
