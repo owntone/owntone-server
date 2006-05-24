@@ -1,11 +1,8 @@
 Event.observe(window,'load',init);
 //###TODO
-// * Fix cancel for multiple, create a span holding all multiple elements
 // * Disable/enable save/cancel, Add key and onchange listeners keep a note on changed items
 // * create the path/file browser
-// * Inform user if server restart needed, ask Ron which options
-// * Show required options in UI check with Ron if conf.c is correct
-// * better errormessage for not writable config
+// * better errormessage for non writable config
 // * make tabs?
 // * add warning if leaving page without saving
       
@@ -126,7 +123,7 @@ var Config = {
       var body = document.createElement('div');
       body.className = 'navibox';
       if ('Server' == section) {
-        body.appendChild(Builder.node('span',{id:'config_path'},'Config File'));
+        body.appendChild(Builder.node('span',{id:'config_path'},'Config File Location'));
         body.appendChild(document.createTextNode(Config.configPath));
         body.appendChild(Builder.node('br'));
         body.appendChild(Builder.node('div',{style: 'clear: both;'}));
@@ -164,7 +161,6 @@ var Config = {
   _buildItem: function(section,itemId) {
     var frag = document.createDocumentFragment();
     var href;
-    var span;
     var item = ConfigXML.getOption(section,itemId);
     var postId = item.config_section + ':' + itemId;
     var noBrowse = false;
@@ -177,8 +173,8 @@ var Config = {
           }
           var parentSpan = Builder.node('span');
           values.each(function (val,i) {
-            var span = document.createElement('span');
-            span.appendChild(BuildElement.input(postId+i,postId,
+            var div = document.createElement('div');
+            div.appendChild(BuildElement.input(postId+i,postId,
                                      item.name,
                                      val || item.default_value || '',
                                      item.size || 20,
@@ -187,14 +183,14 @@ var Config = {
             if (item.browse) {
               href = Builder.node('a',{href: 'javascript://'},'Browse');
               Event.observe(href,'click',Config._browse);          
-              span.appendChild(href);
+              div.appendChild(href);
             }
-            span.appendChild(document.createTextNode('\u00a0\u00a0'));
+            div.appendChild(document.createTextNode('\u00a0\u00a0'));
             href = Builder.node('a',{href: 'javascript://'},'Remove');
             Event.observe(href,'click',Config._removeItemEvent);
-            span.appendChild(href);
-            span.appendChild(Builder.node('br'));
-            parentSpan.appendChild(span);
+            div.appendChild(href);
+            div.appendChild(Builder.node('br'));
+            parentSpan.appendChild(div);
           });
           // This is used by cancelForm to find out how
           // many options a multiple group has
@@ -230,11 +226,11 @@ var Config = {
     return frag;
   },
   _addItemEvent: function (e) {
-    var span = Event.element(e).previousSibling.lastChild;
-    Config._addItem(span);      
+    var div = Event.element(e).previousSibling.lastChild;
+    Config._addItem(div);      
   },
-  _addItem: function(span) {
-    var newSpan = span.cloneNode(true);
+  _addItem: function(div) {
+    var newSpan = div.cloneNode(true);
     var id = newSpan.getElementsByTagName('input')[0].id;
     var num = parseInt(id.match(/\d+$/));
     num++;
@@ -243,6 +239,7 @@ var Config = {
     newSpan.getElementsByTagName('label')[0].setAttribute('for',id);
     newSpan.getElementsByTagName('input')[0].id = id;
     newSpan.getElementsByTagName('input')[0].value = '';
+    newSpan.style.display = 'none';
     var hrefs = newSpan.getElementsByTagName('a');
     if ('Netscape' == navigator.appName) {
       // Firefox et al doesn't copy registered events on an element deep clone
@@ -254,20 +251,21 @@ var Config = {
         Event.observe(hrefs[1],'click',Config._removeItemEvent);        
       }
     }
-    span.parentNode.insertBefore(newSpan,span.nextSibling);
+    div.parentNode.insertBefore(newSpan,div.nextSibling);
+    Effect.BlindDown(newSpan,{duration: 0.2});
   },
   _removeItemEvent: function (e) {
-    var span = Event.element(e);
-    while (span.nodeName.toLowerCase() != 'span') {
-      span = span.parentNode;
+    var div = Event.element(e);
+    while (div.nodeName.toLowerCase() != 'div') {
+      div = div.parentNode;
     }
-    Config._removeItem(span);
+    Config._removeItem(div);
   },
-  _removeItem: function(span) {
-    if (span.parentNode.childNodes.length > 1) {
-      Element.remove(span);
+  _removeItem: function(div) {
+    if (div.parentNode.childNodes.length > 1) {
+      Effect.BlindUp(div,{duration: 0.2, afterFinish: function (){Element.remove(div);}});
     } else {
-      span.getElementsByTagName('input')[0].value='';
+      div.getElementsByTagName('input')[0].value='';
     }
   },
   _browse: function(e) {
