@@ -429,8 +429,7 @@ int main(int argc, char *argv[]) {
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
-        /* FIXME: get default name from hostname (os_hostname()?) */
-        servername = conf_alloc_string("general","servername","mt-daapd");
+        servername = conf_get_servername();
 
         memset(txtrecord,0,sizeof(txtrecord));
         txt_add(txtrecord,"txtvers=1");

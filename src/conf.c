@@ -37,6 +37,10 @@
 #include <stdlib.h>
 #include <string.h>
 
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
+
 #ifdef HAVE_SYS_PARAM_H
 # include <sys/param.h>
 #endif
@@ -50,6 +54,11 @@
 #include "os.h"
 #include "webserver.h"
 #include "xml-rpc.h"
+
+
+#ifndef HOST_NAME_MAX
+# define HOST_NAME_MAX 255
+#endif
 
 /** Globals */
 //static int ecode;
@@ -99,7 +108,7 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_STRING,"general","db_type" },
     { 0, 0, CONF_T_EXISTPATH,"general","db_parms" }, /* this isn't right */
     { 0, 0, CONF_T_INT,"general","debuglevel" },
-    { 1, 0, CONF_T_STRING,"general","servername" },
+    { 0, 0, CONF_T_STRING,"general","servername" },
     { 0, 0, CONF_T_INT,"general","rescan_interval" },
     { 0, 0, CONF_T_INT,"general","always_scan" },
     { 0, 1, CONF_T_INT,"general","latin1_tags" },
@@ -1444,4 +1453,28 @@ int _conf_xml_dump(XMLSTRUCT *pxml, LL *pll, int sublevel, char *parent) {
  */
 char *conf_get_filename(void) {
     return conf_main_file;
+}
+
+
+/**
+ * this is an ugly block of crap to carry around every
+ * time one wants the servername. 
+ */
+char *conf_get_servername(void) {
+    char *retval;
+    char newname[HOST_NAME_MAX + 1 + 16]; /* " Firefly Server" */
+
+    gethostname(newname,HOST_NAME_MAX);
+    retval = strchr(newname,'.');
+    if(retval) *retval = '\0';
+
+    retval = newname;
+    while(*retval) {
+        *retval = tolower(*retval);
+        retval++;
+    }
+
+    strcat(newname," Firefly Server");
+
+    return conf_alloc_string("general","servername",newname);
 }

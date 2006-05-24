@@ -1480,7 +1480,7 @@ void dispatch_dbinfo(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int count;
     char *servername;
 
-    servername = conf_alloc_string("general","servername","mt-daapd");
+    servername = conf_get_servername();
     namelen=(int) strlen(servername);
 
     current += db_dmap_add_container(current,"avdb",105 + namelen);
@@ -1574,7 +1574,7 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int actual_length;
     int supports_update;
 
-    servername = conf_alloc_string("general","servername","mt-daapd");
+    servername = conf_get_servername();
     supports_update = conf_get_int("daap","supports_update",1);
 
     actual_length=130 + (int) strlen(servername);

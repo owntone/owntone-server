@@ -59,4 +59,8 @@ extern char *conf_get_filename(void);
 #include "webserver.h"
 extern int conf_xml_dump(WS_CONNINFO *pwsc);
 
+/* FIXME: well used config reading stuff... */
+extern char *conf_get_servername(void);
+
+
 #endif /* _CONF_H_ */

@@ -556,7 +556,18 @@ char *pi_server_ver(void) {
 }
 
 int pi_server_name(char *name, int *len) {
-    return conf_get_string("general","servername","unknown",name, len);
+    char *servername;
+
+    servername = conf_get_servername();
+    if((servername) && (strlen(servername) < (size_t)len)) {
+        strcpy(name,servername);
+    } else {
+        if((size_t)len > strlen("Firefly Media Server"))
+            strcpy(name,"Firefly Media Server");
+    }
+
+    free(servername);
+    return CONF_E_SUCCESS;
 }
 
 int pi_db_count(void) {
