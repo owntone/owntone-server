@@ -69,10 +69,10 @@ var ConfigXML = {
 var ConfigInitialValues = {
   values: {},
   getValues: function () {
-    return $H(this.values);
+    return $H(ConfigInitialValues.values);
   },
   getValue: function (section,id) {
-    return this.values[section+':'+id];
+    return ConfigInitialValues.values[section+':'+id];
   },
   parseXML: function (xmldoc) {
     // IE and w3c treat xmldoc differently make shore firstChild is firstchild of <config>
@@ -175,6 +175,7 @@ var Config = {
           if (!values || values.length == 0) {
             values = [''];
           }
+          var parentSpan = Builder.node('span');
           values.each(function (val,i) {
             var span = document.createElement('span');
             span.appendChild(BuildElement.input(postId+i,postId,
@@ -193,8 +194,11 @@ var Config = {
             Event.observe(href,'click',Config._removeItemEvent);
             span.appendChild(href);
             span.appendChild(Builder.node('br'));
-            frag.appendChild(span);
+            parentSpan.appendChild(span);
           });
+          // This is used by cancelForm to find out how
+          // many options a multiple group has
+          frag.appendChild(parentSpan);
           href = Builder.node('a',{href:'javascript://',className:'addItemHref'},item.add_item_label);
           frag.appendChild(href);
           Event.observe(href,'click',Config._addItemEvent);
@@ -226,10 +230,7 @@ var Config = {
     return frag;
   },
   _addItemEvent: function (e) {
-    var span = Event.element(e);
-    while (span.nodeName.toLowerCase() != 'span') {
-      span = span.previousSibling;
-    }
+    var span = Event.element(e).previousSibling.lastChild;
     Config._addItem(span);      
   },
   _addItem: function(span) {
@@ -263,8 +264,7 @@ var Config = {
     Config._removeItem(span);
   },
   _removeItem: function(span) {
-    if ((span.previousSibling && span.previousSibling.nodeName.toLowerCase() == 'span')||
-        (span.nextSibling.nodeName.toLowerCase() == 'span'))  {
+    if (span.parentNode.childNodes.length > 1) {
       Element.remove(span);
     } else {
       span.getElementsByTagName('input')[0].value='';
@@ -351,24 +351,42 @@ function saveForm() {
     postVars.push(item.key + '=' + item.value.join(','));
   });
   new Ajax.Request('/xml-rpc?method=updateconfig',
-                                                   {method: 'post',
-                                                parameters: postVars.join('&'),
-                                                onComplete: saved
-                                                 });
+                   {method: 'post',
+                parameters: postVars.join('&'),
+                onComplete: saved});
 }
 function cancelForm() {
-  alert("Cancel doesn't work, reload the page to revert your changes");
-return;
   ConfigXML.getSections().each(function (section){
     ConfigXML.getItems(section).each(function (itemId) {
       var item = ConfigXML.getOption(section,itemId);
       var itemConfigId = item.config_section + ':' + item.id;
       if (item.multiple) {
-        var values = ConfigInitialValues.getValue(itemConfigId);
+        var values = ConfigInitialValues.getValue(item.config_section,itemId);
         if (!values || values.length == 0) {
           values = [''];
         }
-          //###TODO do the multiple thing
+        var initialValuesCount = values.length;
+        var currentElements = document.getElementsByName(itemConfigId);
+var i=0;
+        while (initialValuesCount < currentElements.length) {
+          i++;
+          if (i > 10) {
+              alert('Getting dizy; too many turns in this loop (silly errormessage 1');
+              return;
+          }
+          Config._removeItem(currentElements[0].parentNode);
+       }
+        while (initialValuesCount > currentElements.length) {
+          i++;
+          if (i > 10) {
+              alert('An important part came off (silly errormessage 2');
+              return;
+          }
+          Config._addItem(currentElements[currentElements.length-1].parentNode);
+        }
+        values.each(function (val,i){
+          currentElements[i].value = val;
+        });
       } else {
           //###TODO potential error a select without a default value
         $(itemConfigId).value = ConfigInitialValues.getValue(item.config_section,item.id) || item.default_value || '';
