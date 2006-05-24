@@ -486,7 +486,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
     }
 
     if((pmp3->artist) && (!pmp3->orchestra)) {
-        pmp3->orchestra = pmp3->artist;
+        pmp3->orchestra = strdup(pmp3->artist);
     }
 
     return TRUE;
