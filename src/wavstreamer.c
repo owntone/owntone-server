@@ -32,7 +32,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+
+#ifdef HAVE_GETOPT_H
+# include "getopt.h"
+#endif
+
+#ifdef HAVE_UNISTD_H
+# include <unistd.h>
+#endif
 
 char *av0;
 
@@ -271,7 +278,7 @@ int main(int argc, char **argv)
             
         case 'l':
             sec = strtoul(optarg, &end, 10);
-            if ((*optarg == '-') || (end == optarg) || ((*end != '\0') && (*end != '.'))) {
+            if ((optarg[0] == '-') || (end == optarg) || ((end[0] != '\0') && (end[0] != '.'))) {
                 fprintf(stderr, "%s: Invalid -l argument.\n", av0);
                 exit(-1);
             } else if (*end == '.') {
@@ -302,7 +309,7 @@ int main(int argc, char **argv)
             
         case 's':
             samples = strtoul(optarg, &end, 10);
-            if ((*optarg == '-') || (end == optarg) || (*end != '\0')) {
+            if ((optarg[0] == '-') || (end == optarg) || (end[0] != '\0')) {
                 fprintf(stderr, "%s: Invalid -s argument.\n", av0);
                 exit(-1);
             }
