@@ -168,7 +168,7 @@ var Config = {
       case 'text':
         if (item.multiple) {
           var values = ConfigInitialValues.getValue(item.config_section,item.id);
-          if (!values || values.length == 0) {
+          if (!values || values.length === 0) {
             values = [''];
           }
           var parentSpan = Builder.node('span');
@@ -222,6 +222,9 @@ var Config = {
                                   item.short_description));
         frag.appendChild(Builder.node('br'));
         break;
+      default:
+        alert('This should not happen (1)');
+        break;
     }
     return frag;
   },
@@ -234,7 +237,7 @@ var Config = {
     var id = newSpan.getElementsByTagName('input')[0].id;
     var num = parseInt(id.match(/\d+$/));
     num++;
-    var id = id.replace(/\d+$/,'') + num;
+    id = id.replace(/\d+$/,'') + num;
 
     newSpan.getElementsByTagName('label')[0].setAttribute('for',id);
     newSpan.getElementsByTagName('input')[0].id = id;
@@ -271,7 +274,7 @@ var Config = {
   _browse: function(e) {
     alert('Browse');
   }
-}
+};
 var BuildElement = {
   input: function(id,name,displayName,value,size,short_description,long_description) {
 
@@ -319,8 +322,8 @@ var BuildElement = {
 
     return frag;
   }
-    
-}
+};
+
 function saved(req) {
   if ('200' == Element.textContent(req.responseXML.getElementsByTagName('status')[0])) {
     alert('Saved');
@@ -343,7 +346,7 @@ function saveForm() {
       }
     } else {
       postVars.push(Form.Element.serialize(input.id));       
-    };
+    }
   });
   $H(multiple).each(function (item) {
     postVars.push(item.key + '=' + item.value.join(','));
@@ -360,7 +363,7 @@ function cancelForm() {
       var itemConfigId = item.config_section + ':' + item.id;
       if (item.multiple) {
         var values = ConfigInitialValues.getValue(item.config_section,itemId);
-        if (!values || values.length == 0) {
+        if (!values || values.length === 0) {
           values = [''];
         }
         var initialValuesCount = values.length;
@@ -392,20 +395,6 @@ var i=0;
     });
   });
   return;
-  ConfigInitialValues.getValues().each(function (option) {
-    if (typeof (option.value) == 'object') {
-        //###TODO what if user removed one of the multiplevalued options?
-      if (option.value != '') {  
-        option.value.each(function (val,i) {
-          $(option.key + i).value = val;
-        });   
-      }
-    }
-    var el = $(option.key);
-    if (el) {
-      el.value = option.value;
-    }
-  });
 }
 Object.extend(Element, {
   removeChildren: function(element) {
