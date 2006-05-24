@@ -397,6 +397,7 @@ int scan_static_playlist(char *path) {
     struct stat sb;
     char *current;
     char *perr;
+    char *ptr;
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",path);
     if(stat(path,&sb)) {
@@ -404,7 +405,8 @@ int scan_static_playlist(char *path) {
         return FALSE;
     }
 
-    if((current=strrchr(path,PATHSEP)) == NULL) {
+    if(((current=strrchr(path,'/')) == NULL) &&
+       ((current=strrchr(path,'\\')) == NULL)) {
         current = path;
     } else {
         current++;
@@ -442,7 +444,14 @@ int scan_static_playlist(char *path) {
         }
         /* now get the *real* base_path */
         strcpy(base_path,path);
-        if((current=strrchr(base_path,PATHSEP))) {
+        ptr = base_path;
+        while(*ptr) {
+            if((*ptr == '/') || (*ptr == '\\')) 
+                *ptr = PATHSEP;
+            ptr++;
+        }
+        
+        if((current=strrchr(base_path,PATHSEP))){
             *(current+1) = '\x0';
         } /* else something is fubar */
 
@@ -458,6 +467,13 @@ int scan_static_playlist(char *path) {
                 continue;
 
             // FIXME - should chomp trailing comments
+
+            ptr = linebuffer;
+            while(*ptr) {
+                if((*ptr == '/') || (*ptr == '\\')) 
+                    *ptr = PATHSEP;
+                ptr++;
+            }
 
             // otherwise, assume it is a path
             if((linebuffer[0] == PATHSEP) || (linebuffer[1] == ':')) {
