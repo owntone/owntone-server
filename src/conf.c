@@ -102,7 +102,7 @@ static int _conf_verify_element(char *section, char *key, char *value);
 static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","runas" },
     { 1, 0, CONF_T_EXISTPATH,"general","web_root" },
-    { 1, 0, CONF_T_INT,"general","port" },
+    { 0, 0, CONF_T_INT,"general","port" },
     { 1, 0, CONF_T_STRING,"general","admin_pw" },
     { 1, 0, CONF_T_MULTICOMMA,"general","mp3_dir" },
     { 0, 1, CONF_T_EXISTPATH,"general","db_dir" },
@@ -733,6 +733,7 @@ int conf_read(char *file) {
         ll_destroy(pllnew);
         ll_destroy(pllcomment);
         DPRINTF(E_LOG,L_CONF,"Could not validate config file.  Ignoring\n");
+        return CONF_E_BADCONFIG;
     }
 
     return CONF_E_SUCCESS;

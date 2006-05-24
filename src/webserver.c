@@ -203,6 +203,8 @@ void ws_unlock_connlist(WS_PRIVATE *pwsp) {
  */
 WSHANDLE ws_start(WSCONFIG *config) {
     int err;
+    int ephemeral = 0;
+
     WS_PRIVATE *pwsp;
 
     DPRINTF(E_SPAM,L_WS,"Entering ws_start\n");
@@ -232,14 +234,37 @@ WSHANDLE ws_start(WSCONFIG *config) {
         return NULL;
     }
 
-    DPRINTF(E_INF,L_WS,"Preparing to listen on port %d\n",pwsp->wsconfig.port);
+    /* this is kind of stupid, but is easier to fix once here
+     * rather than mucking with differences in sockets on windows/unix
+     */
 
-    if((pwsp->server_fd = u_open(pwsp->wsconfig.port)) == -1) {
-        err=errno;
-        DPRINTF(E_LOG,L_WS,"Could not open port: %s\n",strerror(errno));
-        errno=err;
-        return NULL;
+    if(pwsp->wsconfig.port == 0) {
+        pwsp->wsconfig.port = 1024; /* start with default port */
+        ephemeral = 1;
     }
+
+    while(1) {
+        DPRINTF(E_INF,L_WS,"Listening on port %d\n",pwsp->wsconfig.port);
+        pwsp->server_fd = u_open(pwsp->wsconfig.port);
+        if(pwsp->server_fd == -1) {
+            if((!ephemeral) || (errno != EADDRINUSE)) {
+                err = errno;
+                DPRINTF(E_LOG,L_WS,"Listen port: %s\n",strerror(errno));
+                errno = err;
+                return NULL;
+            }
+        } else {
+            break;
+        }
+
+        pwsp->wsconfig.port++;
+        if(!pwsp->wsconfig.port) {
+            DPRINTF(E_LOG,L_WS,"Exhausted ports\n");
+            return NULL;
+        }
+    }
+
+    config->port = pwsp->wsconfig.port;
 
     DPRINTF(E_INF,L_WS,"Starting server thread\n");
     if((err=pthread_create(&pwsp->server_tid,NULL,ws_mainthread,(void*)pwsp))) {

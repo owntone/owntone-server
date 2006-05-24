@@ -34,6 +34,7 @@
 #define CONF_E_BADELEMENT   9
 #define CONF_E_PATHEXPECTED 10
 #define CONF_E_INTEXPECTED  11
+#define CONF_E_BADCONFIG    12
 
 extern int conf_read(char *file);
 extern int conf_reload(void);

@@ -408,7 +408,7 @@ int main(int argc, char *argv[]) {
     /* start up the web server */
     web_root = conf_alloc_string("general","web_root",NULL);
     ws_config.web_root=web_root;
-    ws_config.port=conf_get_int("general","port",3689);
+    ws_config.port=conf_get_int("general","port",0);
 
     DPRINTF(E_LOG,L_MAIN|L_WS,"Starting web server from %s on port %d\n",
             ws_config.web_root, ws_config.port);
