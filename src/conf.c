@@ -30,6 +30,7 @@
 #  include "config.h"
 #endif
 
+#include <ctype.h>
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>

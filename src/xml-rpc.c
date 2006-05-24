@@ -313,7 +313,7 @@ void xml_handle(WS_CONNINFO *pwsc) {
 	return;
     }
 
-    ws_returnerror(pwsc,500,"Invalid method");
+    xml_return_error(pwsc,500,"Invalid method");
     return;
 }
 
