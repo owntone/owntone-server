@@ -84,7 +84,7 @@ var ConfigInitialValues = {
     sections.each(function (section) {
       var sectionName = section.nodeName;
       $A(section.childNodes).each(function (node) {
-        if (node.firstChild.hasChildNodes()) {
+        if (node.firstChild && node.firstChild.hasChildNodes()) {
           var values = [];
           $A(node.childNodes).each(function (n) {
             values.push(Element.textContent(n));
