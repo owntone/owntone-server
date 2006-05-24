@@ -346,7 +346,7 @@ int os_opensocket(unsigned short port) {
         (listen(sock, MAXBACKLOG) == -1)) {
         error = errno;
         while ((closesocket(sock) == SOCKET_ERROR) && (WSAGetLastError() == WSAEINTR)); 
-        errno = EINVAL; /* should be addrinuse or somethign */
+        errno = WSAGetLastError();
         return -1;
     }
 

@@ -85,6 +85,7 @@
 #define MAX_NAME_LEN _MAX_PATH
 #define ETIME 101
 #define PATH_MAX 512 /* it's clearly not _MAX_PATH... other projects seem to use 512 */
+#define EADDRINUSE WSAEADDRINUSE
 
 #define HOST "unknown-windows-ick"
 #define SERVICENAME "Firefly Media Server"
