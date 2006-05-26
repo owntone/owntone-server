@@ -155,9 +155,21 @@ var Config = {
         buttons.appendChild(cancel);
       }
     }
+    var advanced = Builder.node('a',{href: 'javascript://',id:'basic_config_button'},'Show basic config');
+    Event.observe(advanced,'click',Config._showBasicConfig);  
+    var basic = Builder.node('a',{href: 'javascript://',id:'advanced_config_button'},'Show advanced config');
+    Event.observe(basic,'click',Config._showAdvancedConfig);  
+    if (Cookie.getVar('show_advanced_config')) {
+      basic.style.display = 'none';
+    } else {
+      advanced.style.display = 'none';
+    }
+    var div = $('toggle_basic_advanced');
+    div.appendChild(advanced);
+    div.appendChild(basic);
   },
   _buildItem: function(section,itemId) {
-    var frag = document.createDocumentFragment();
+    var frag = document.createElement('div');
     var href;
     var item = ConfigXML.getOption(section,itemId);
     var postId = item.config_section + ':' + itemId;
@@ -169,7 +181,7 @@ var Config = {
           if (!values || values.length === 0) {
             values = [''];
           }
-          var parentSpan = Builder.node('span');
+//          var parentSpan = Builder.node('span');
           values.each(function (val,i) {
             var div = document.createElement('div');
             div.appendChild(BuildElement.input(postId+i,postId,
@@ -188,11 +200,11 @@ var Config = {
             Event.observe(href,'click',Config._removeItemEvent);
             div.appendChild(href);
             div.appendChild(Builder.node('br'));
-            parentSpan.appendChild(div);
+            frag.appendChild(div);
           });
           // This is used by cancelForm to find out how
           // many options a multiple group has
-          frag.appendChild(parentSpan);
+//          frag.appendChild(parentSpan);
           href = Builder.node('a',{href:'javascript://',className:'addItemHref'},item.add_item_label);
           frag.appendChild(href);
           Event.observe(href,'click',Config._addItemEvent);
@@ -223,6 +235,9 @@ var Config = {
       default:
         alert('This should not happen (1)');
         break;
+    }
+    if (!Cookie.getVar('show_advanced_config') && item.advanced) {
+      frag.style.display = 'none';
     }
     return frag;
   },
@@ -277,6 +292,42 @@ var Config = {
   },
   _browse: function(e) {
     alert('Browse');
+  },
+  _showAdvancedConfig: function (e) {
+    Element.toggle('advanced_config_button');
+    Element.toggle('basic_config_button');
+    Cookie.setVar('show_advanced_config','true',30);
+    $H(ConfigXML.configIndex).each(function (item) {
+      if (item.value.advanced) {
+        var element = $(item.key);
+        if (!element) {
+          // Handle options with multiple values
+          $A(document.getElementsByName(item.key)).each(function (el) {
+            Effect.BlindDown(el.parentNode.parentNode);  
+          });
+        } else {
+          Effect.BlindDown(element.parentNode);
+        }
+      }
+    });
+  },
+  _showBasicConfig: function (e) {
+    Element.toggle('advanced_config_button');
+    Element.toggle('basic_config_button');
+    Cookie.removeVar('show_advanced_config');
+    $H(ConfigXML.configIndex).each(function (item) {
+      if (item.value.advanced) {
+        var element = $(item.key);
+        if (!element) {
+          // Handle options with multiple values
+          $A(document.getElementsByName(item.key)).each(function (el) {
+            Effect.BlindUp(el.parentNode.parentNode);  
+          });
+        } else {
+          Effect.BlindUp($(item.key).parentNode);
+        }
+      }
+    });
   }
 };
 var BuildElement = {
@@ -384,7 +435,7 @@ var i=0;
         while (initialValuesCount > currentElements.length) {
           i++;
           if (i > 10) {
-              alert('An important part came off (silly errormessage 2');
+              alert('An important part came off (silly errormessage 2)');
               return;
           }
           Config._addItem(currentElements[currentElements.length-1].parentNode);
@@ -448,3 +499,26 @@ function DataDumper(obj,n,prefix){
 	}
 	return str;
 }
+var Cookie = {
+  getVar: function(name) {
+    var cookie = document.cookie;
+    if (cookie.length > 0) {
+      cookie += ';';
+    }
+    re = new RegExp(name + '\=(.*?);' );
+    if (cookie.match(re)) {
+      return RegExp.$1;
+    } else {
+      return '';
+    }
+  },
+  setVar: function(name,value,days) {
+    days = days || 30;
+    var expire = new Date(new Date().getTime() + days*86400);
+    document.cookie = name + '=' + value +';expires=' + expire.toUTCString();
+  },
+  removeVar: function(name) {
+    var date = new Date(12);
+    document.cookie = name + '=;expires=' + date.toUTCString();
+  }
+};

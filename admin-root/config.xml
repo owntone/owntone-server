@@ -13,12 +13,12 @@
             </long_description>
             <type size="20">text</type>
         </item>
-        <item id="web_root" config_section="general" required="true" restart="true">
+        <item id="web_root" advanced="true" config_section="general" required="true" restart="true">
             <name>Web Root</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="port" config_section="general" required="true" restart="true">
+        <item id="port" advanced="true" config_section="general" required="true" restart="true">
             <name>Port</name>
             <short_description>
                 The port the server should run at; default is 3689
@@ -30,7 +30,7 @@
             <short_description></short_description>
             <type size="80" browse="file">text</type>
         </item>
-        <item id="runas" config_section="general" required="true" restart="true">
+        <item id="runas" advanced="true" config_section="general" required="true" restart="true">
             <name>Run As</name>
             <short_description></short_description>
             <type size="20">text</type>
@@ -49,7 +49,7 @@
             </short_description>
             <type size="20">text</type>
         </item>
-        <item id="compress" config_section="general">
+        <item id="compress" advanced="true" config_section="general">
             <name>Compress</name>
             <short_description>
                 Should browsing data be compressed on the way to the client?
@@ -60,7 +60,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="debuglevel" config_section="general">
+        <item id="debuglevel" advanced="true" config_section="general">
             <name>Debug Level</name>
             <short_description>
                 Possible values are 0 to 9, 9 being the most detailed debug level.
@@ -108,7 +108,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="compdirs" config_section="general">
+        <item id="compdirs" advanced="true" config_section="general">
             <name>Compilation Directories</name>
             <short_description></short_description>
             <type size="80" multiple="true" add_item_label="Add compilation directory" browse="directory">text</type>
@@ -116,7 +116,7 @@
     </section>
 
     <section name="Database">
-        <item id="db_type" config_section="general" restart="true">
+        <item id="db_type" advanced="true" config_section="general" restart="true">
             <name>Database Type</name>
             <short_description></short_description>
             <type default_value="sqlite">select</type>
@@ -125,7 +125,7 @@
                 <option value="sqlite3">sqlite3</option>
             </options>
         </item>
-        <item id="db_parms" config_section="general" restart="true">
+        <item id="db_parms" advanced="true" config_section="general" restart="true">
             <name>Database Directory</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
@@ -159,12 +159,12 @@
     </section>
 
     <section name="Plugins">
-        <item id="plugin_dir" config_section="plugins" restart="true">
+        <item id="plugin_dir" advanced="true" config_section="plugins" restart="true">
             <name>Plugin Directory</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="plugins" config_section="plugins" restart="true">
+        <item id="plugins" advanced="true" config_section="plugins" restart="true">
             <name>Plugins</name>
             <short_description></short_description>
             <type size="20" multiple="true" add_item_label="Add plugin">text</type>
@@ -172,12 +172,12 @@
     </section>
 
     <section name="Transcoding">
-        <item id="ssc_prog" config_section="general">
+        <item id="ssc_prog" advanced="true" config_section="general">
             <name>SSC Program</name>
             <short_description></short_description>
             <type size="80" browse="file">text</type>
         </item>
-        <item id="ssc_codectypes" config_section="general">
+        <item id="ssc_codectypes" advanced="true" config_section="general">
             <name>SSC Codec Types</name>
             <short_description></short_description>
             <type size="80">text</type>
