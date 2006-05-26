@@ -2,6 +2,154 @@
 // move stuff to responsehandler
 // handle source change events (keyPress etc)
 // If playlist is empty don't confirm delete
+var CustomDraggable = Class.create();
+CustomDraggable.removeOnDrop = false;
+CustomDraggable.revereNamesOnDrop = true;
+
+CustomDraggable.prototype = (new Rico.Draggable()).extend( {
+
+   initialize: function( htmlElement, name ) {
+      this.type        = 'Custom';
+      this.htmlElement = htmlElement;
+      this.name        = name;
+   },
+
+   log: function(str) {
+//      alert(str);
+   },
+
+   select: function() {
+      this.selected = true;
+   },
+
+   deselect: function() {
+      this.selected = false;
+   },
+
+   startDrag: function() {
+      var el = this.htmlElement;
+      this.log("startDrag: [" + this.name +"]");
+   },
+
+   cancelDrag: function() {
+      var el = this.htmlElement;
+      this.log("cancelDrag: [" + this.name +"]");
+   },
+
+   endDrag: function() {
+      var el = this.htmlElement;
+      this.log("endDrag: [" + this.name +"]");
+      if ( CustomDraggable.removeOnDrop )
+         this.htmlElement.style.display = 'none';
+
+   },
+
+   getSingleObjectDragGUI: function() {
+      var el = this.htmlElement;
+
+      var div = document.createElement("div");
+      div.className = 'customDraggable';
+      div.style.width = (this.htmlElement.offsetWidth - 10) + "px";
+      new Insertion.Top( div, "some songs" );
+      return div;
+   },
+
+   getMultiObjectDragGUI: function( draggables ) {
+      var el = this.htmlElement;
+
+      var names = "";
+      names = "some song(s)";
+     
+      var div = document.createElement("div");
+      div.className = 'customDraggable';
+      div.style.width = (this.htmlElement.offsetWidth - 10) + "px";
+      new Insertion.Top( div, names );
+      return div;
+   },
+
+   getDroppedGUI: function() {
+      var el = this.htmlElement;
+
+      var div = document.createElement("div");
+      var names = this.name.split(",");
+      if ( CustomDraggable.revereNamesOnDrop )
+         new Insertion.Top( div, "<span class='nameSpan'>[" + names[1].substring(1) + " " + names[0]+ "]</span>" );
+      else
+         new Insertion.Top( div, "<span class='nameSpan'>[" + this.name + "]</span>" );
+      return div;
+   },
+
+   toString: function() {
+      return this.name;
+   }
+} );
+
+
+var CustomDropzone = Class.create();
+CustomDropzone.prototype = (new Rico.Dropzone()).extend( {
+   initialize: function( htmlElement, header) {
+      this.htmlElement  = htmlElement;
+      this.header       = header;
+      this.absoluteRect = null;
+      this.acceptedObjects = [];
+
+      this.offset = navigator.userAgent.toLowerCase().indexOf("msie") >= 0 ? 0 : 1;
+   },
+
+   activate: function() {
+   },
+
+   deactivate: function() {
+   },
+
+   showHover: function() {
+      if ( this.showingHover )
+         return;
+      this.header.style.color = "#1111bb";
+      this.showingHover = true;
+   },
+
+   hideHover: function() {
+      if ( !this.showingHover )
+         return;
+      this.header.style.color = "#000000";
+      this.showingHover = false;
+   },
+
+   accept: function(draggableObjects) {
+      var songids = '';
+      for (var i = SelectedRows.songId.length - 1; i >= 0; --i) {
+          if (SelectedRows.songId[i]) {
+              if (songids != '') {
+                 songids += ",";
+              }
+              songids += i;
+          }
+      }
+
+      this._insert(songids);
+   },
+
+   _insert: function(songids) {
+      var url = '/databases/1/containers/' + this.htmlElement.value + "/items/add?output=xml&dmap.itemid=" + songids;
+      new Ajax.Request(url ,{method: 'get',onComplete:this.responseAdd});  
+   },
+
+  responseAdd: function(request) {
+    var status = Element.textContent(request.responseXML.getElementsByTagName('dmap.status')[0]);
+    if ('200' != status) {
+      alert("Couldn't add songs to playlist");
+      return;
+    }
+    alert("Added songs to playlist");
+  },
+
+   canAccept: function(draggableObjects) {
+      return true;
+   }
+} );
+
+
 Event.observe(window,'load',initPlaylist);
 
 var SEARCH_DELAY = 500; // # ms without typing before the search box searches
@@ -29,6 +177,10 @@ Ajax.Responders.register({  onCreate: Spinner.incRequestCount,
   // Firefox remebers the search box value on page reload
   Field.clear('search');
   g_myLiveGrid = new Rico.LiveGrid('songs_data',20,1000,'',{prefetchBuffer: false});
+
+  for (var i = $('songs_data').rows.length - 1; i >= 0; --i) {
+    dndMgr.registerDraggable(new CustomDraggable($('songs_data').rows[i], "bob " + i));
+  }
 }
 var Spinner = {
   count: 0,
@@ -472,6 +624,12 @@ function rsSource(request) {
       optgroup.appendChild(Builder.node('option',{value: item.id},item.name));
     });
     sourceSelect.appendChild(optgroup);
+
+
+    var options = $('static_playlists').getElementsByTagName("option");
+    for (var j = 0; j < options.length; j++) {
+      dndMgr.registerDropZone(new CustomDropzone(options[j], $('static_playlists')));
+    }
   }
   // Select Library
   sourceSelect.value = 1;
