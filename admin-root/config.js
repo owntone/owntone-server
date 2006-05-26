@@ -96,7 +96,6 @@ var ConfigInitialValues = {
 };
 var Config = {
   configPath: '',
-  configOptionValues: '',
   init: function () {
     new Ajax.Request('/config.xml',{method: 'get',onComplete: Config.storeConfigLayout});
   },
@@ -114,7 +113,6 @@ var Config = {
   },
   showConfig: function (request) {
     ConfigInitialValues.parseXML(request.responseXML);
-    Config.configOptionValues = request.responseXML;
     var sections = ConfigXML.getSections();
     sections.each(function (section) {
       var head = document.createElement('div');
@@ -264,9 +262,15 @@ var Config = {
     }
     Config._removeItem(div);
   },
-  _removeItem: function(div) {
+  _removeItem: function(div,noAnimation) {
     if (div.parentNode.childNodes.length > 1) {
-      Effect.BlindUp(div,{duration: 0.2, afterFinish: function (){Element.remove(div);}});
+      if (noAnimation) {
+        // cancelForm uses a loop to delete elements, the loop can't wait
+        // for Effect.BlindUp to finish
+        Element.remove(div);
+      } else {
+        Effect.BlindUp(div,{duration: 0.2, afterFinish: function (){Element.remove(div);}});
+      }
     } else {
       div.getElementsByTagName('input')[0].value='';
     }
@@ -372,10 +376,10 @@ var i=0;
         while (initialValuesCount < currentElements.length) {
           i++;
           if (i > 10) {
-              alert('Getting dizy; too many turns in this loop (silly errormessage 1');
-              return;
+            alert('Getting dizzy; too many turns in this loop (silly errormessage 1)');
+            return;
           }
-          Config._removeItem(currentElements[0].parentNode);
+          Config._removeItem(currentElements[0].parentNode,'noAnimation');
        }
         while (initialValuesCount > currentElements.length) {
           i++;

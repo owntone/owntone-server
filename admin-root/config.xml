@@ -81,7 +81,7 @@
         </item>
     </section>
 
-    <section name="Music_Files">
+    <section name="Music Files">
         <item id="mp3_dir" config_section="general" required="true">
             <name>MP3 Directory</name>
             <short_description></short_description>
