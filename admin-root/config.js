@@ -242,7 +242,7 @@ var Config = {
     return frag;
   },
   _addItemEvent: function (e) {
-    var div = Event.element(e).previousSibling.lastChild;
+    var div = Event.element(e).previousSibling;
     Config._addItem(div);      
   },
   _addItem: function(div) {
