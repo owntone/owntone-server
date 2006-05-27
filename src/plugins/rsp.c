@@ -42,7 +42,7 @@ PLUGIN_REND_INFO _pri[] = {
 PLUGIN_INFO _pi = { 
     PLUGIN_VERSION,      /* version */
     PLUGIN_OUTPUT,       /* type */
-    "rsp/" RSP_VERSION,  /* server */
+    "rsp/" VERSION,      /* server */
     "/rsp/.*",           /* url */
     &_pofn,              /* output fns */
     NULL,                /* event fns */

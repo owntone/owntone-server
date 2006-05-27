@@ -406,6 +406,8 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
     PLUGIN_REND_INFO *pri;
     char *supplied_txt;
     char *new_name;
+    char *ver;
+    char *slash;
     int name_len;
 
 
@@ -431,7 +433,12 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
                 memset(new_name,0,name_len);
 
                 if(conf_get_int("plugins","mangle_rendezvous",1)) {
-                    snprintf(new_name,name_len,"%s (%s)",name,ppi->versionstring);
+                    ver = strdup(ppi->versionstring);
+                    if(strchr(ver,'/')) {
+                        *strchr(ver,'/') = '\0'; 
+                    }
+                    snprintf(new_name,name_len,"%s (%s)",name,ver);
+                    free(ver);
                 } else {
                     snprintf(new_name,name_len,"%s",name);
                 }
