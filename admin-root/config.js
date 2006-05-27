@@ -271,14 +271,11 @@ var Config = {
     Effect.BlindDown(newSpan,{duration: 0.2});
   },
   _removeItemEvent: function (e) {
-    var div = Event.element(e);
-    while (div.nodeName.toLowerCase() != 'div') {
-      div = div.parentNode;
-    }
+    var div = Event.element(e).parentNode;
     Config._removeItem(div);
   },
   _removeItem: function(div,noAnimation) {
-    if (div.parentNode.childNodes.length > 1) {
+    if (div.parentNode.getElementsByTagName('input').length > 1) {
       if (noAnimation) {
         // cancelForm uses a loop to delete elements, the loop can't wait
         // for Effect.BlindUp to finish
