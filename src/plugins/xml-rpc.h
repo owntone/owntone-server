@@ -5,10 +5,11 @@
 #ifndef _XMLRPC_H_
 #define _XMLRPC_H_
 
-#include "mtd-plugins.h"
+#include "ff-plugins.h"
 
 struct tag_xmlstruct;
 typedef struct tag_xmlstruct XMLSTRUCT;
+typedef struct tag_ws_conninfo WS_CONNINFO;
 
 extern XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header);
 extern void xml_push(XMLSTRUCT *pxml, char *term);

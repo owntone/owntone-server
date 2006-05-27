@@ -717,9 +717,9 @@ int sp_parse(PARSETREE tree, char *term, int type) {
     tree->tree = sp_parse_phrase(tree);
 
     if(tree->tree) {
-        DPRINTF(E_SPAM,L_PARSE,"Parsed successfully\n");
+        DPRINTF(E_SPAM,L_PARSE,"Parsed successfully (type %d)\n",type);
     } else {
-        DPRINTF(E_SPAM,L_PARSE,"Parsing error\n");
+        DPRINTF(E_SPAM,L_PARSE,"Parsing error (type %d)\n",type);
     }
 
     return tree->tree ? 1 : 0;

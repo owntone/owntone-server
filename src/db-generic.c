@@ -354,7 +354,8 @@ char *db_error_list[] = {
     "Could not initialize thread pool",
     "Passed buffer too small for result",
     "Wrong db schema.  Use mtd-update to upgrade the db.",
-    "Database error: %s"
+    "Database error: %s",
+    "Malloc error"
 };
 
 /* Globals */

@@ -737,7 +737,7 @@ char *dispatch_xml_encode(char *original, int len) {
     return new;
 }
 
-void dispatch_stream_id(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
+void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
     MP3FILE *pmp3;
     FILE *file_ptr;
     int file_fd;
@@ -763,7 +763,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
     pmp3=db_fetch_item(NULL,item);
     if(!pmp3) {
         DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
-        config_set_status(pwsc,pqi->session_id,NULL);
+        config_set_status(pwsc,session,NULL);
         ws_returnerror(pwsc,404,"File Not Found");
     } else if (server_side_convert(pmp3->codectype)) {
         /************************
@@ -820,12 +820,12 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
 
             ws_emitheaders(pwsc);
 
-            config_set_status(pwsc,pqi->session_id,
+            config_set_status(pwsc,session,
                               "Transcoding '%s' (id %d)",
                               pmp3->title,pmp3->id);
             DPRINTF(E_LOG,L_WS,
                     "Session %d: Streaming file '%s' to %s (offset %ld)\n",
-                    pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
+                    session,pmp3->fname, pwsc->hostname,(long)offset);
 
             if(!offset)
                 config.stats.songs_served++; /* FIXME: remove stat races */
@@ -840,7 +840,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
 
             }
             server_side_convert_close(file_ptr);
-            config_set_status(pwsc,pqi->session_id,NULL);
+            config_set_status(pwsc,session,NULL);
             db_dispose_item(pmp3);
         }
     } else {
@@ -853,7 +853,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
             DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: %s\n",
                     pwsc->threadno,pmp3->path,strerror(errno));
             ws_returnerror(pwsc,404,"Not found");
-            config_set_status(pwsc,pqi->session_id,NULL);
+            config_set_status(pwsc,session,NULL);
             db_dispose_item(pmp3);
         } else {
             real_len=lseek(file_fd,0,SEEK_END);
@@ -903,10 +903,10 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
 
             ws_emitheaders(pwsc);
 
-            config_set_status(pwsc,pqi->session_id,"Streaming '%s' (id %d)",
+            config_set_status(pwsc,session,"Streaming '%s' (id %d)",
                               pmp3->title, pmp3->id);
             DPRINTF(E_LOG,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
-                    pqi->session_id,pmp3->fname, pwsc->hostname,(long)offset);
+                    session,pmp3->fname, pwsc->hostname,(long)offset);
 
             if(!offset)
                 config.stats.songs_served++; /* FIXME: remove stat races */
@@ -940,7 +940,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
                 }
             }
 
-            config_set_status(pwsc,pqi->session_id,NULL);
+            config_set_status(pwsc,session,NULL);
             r_close(file_fd);
             db_dispose_item(pmp3);
         }
@@ -950,7 +950,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
 }
 
 void dispatch_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
-    dispatch_stream_id(pwsc, pqi, pqi->uri_sections[3]);
+    dispatch_stream_id(pwsc, pqi->session_id, pqi->uri_sections[3]);
 }
 
 /**

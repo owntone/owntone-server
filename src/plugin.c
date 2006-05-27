@@ -43,6 +43,7 @@
 #include "smart-parser.h"
 #include "xml-rpc.h"
 #include "webserver.h"
+#include "ff-plugins.h"
 
 typedef struct tag_pluginentry {
     void *phandle;
@@ -87,12 +88,13 @@ void pi_log(int, char *, ...);
 
 /* db helpers */
 int pi_db_count(void);
-int pi_db_enum_start(char **pe, DBQUERYINFO *pinfo);
-int pi_db_enum_fetch_row(char **pe, char ***row, DBQUERYINFO *pinfo);
+int pi_db_enum_start(char **pe, DB_QUERY *pinfo);
+int pi_db_enum_fetch_row(char **pe, char ***row, DB_QUERY *pinfo);
 int pi_db_enum_end(char **pe);
-void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id);
+void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo);
+void pi_stream(WS_CONNINFO *pwsc, char *id);
+
 void pi_conf_dispose_string(char *str);
-int pi_sp_parse(PARSETREE tree, char *term);
 
 PLUGIN_INPUT_FN pi = {
     pi_ws_uri,
@@ -114,12 +116,8 @@ PLUGIN_INPUT_FN pi = {
     pi_db_enum_start,
     pi_db_enum_fetch_row,
     pi_db_enum_end,
+    pi_db_enum_dispose,
     pi_stream,
-
-    sp_init,
-    pi_sp_parse,
-    sp_dispose,
-    sp_get_error,
 
     conf_alloc_string,
     pi_conf_dispose_string
@@ -577,25 +575,99 @@ int pi_db_count(void) {
     return count;
 }
 
-int pi_db_enum_start(char **pe, DBQUERYINFO *pinfo) {
-    return db_enum_start(pe, pinfo);
+int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
+    DBQUERYINFO *pqi;
+    int result;
+    
+    pqi = (DBQUERYINFO*)malloc(sizeof(DBQUERYINFO));
+    if(!pqi) {
+        if(pe) *pe = strdup("Malloc error");
+        return DB_E_MALLOC;
+    }
+    memset(pqi,0,sizeof(DBQUERYINFO));
+    pinfo->private = (void*)pqi;
+
+    if(pinfo->filter) {
+        pqi->pt = sp_init();
+        if(!sp_parse(pqi->pt,pinfo->filter,pinfo->filter_type)) {
+            DPRINTF(E_LOG,L_PLUG,"Ignoring bad query (%s): %s\n",
+                    pinfo->filter,sp_get_error(pqi->pt));
+            sp_dispose(pqi->pt);
+            pqi->pt = NULL;
+        }
+    }
+
+    if((pinfo->limit) || (pinfo->offset)) {
+        pqi->index_low = pinfo->offset;
+        pqi->index_high = pinfo->offset + pinfo->limit - 1;
+        if(pqi->index_high < pqi->index_low)
+            pqi->index_high = 9999999;
+
+        pqi->index_type = indexTypeSub;
+    } else {
+        pqi->index_type = indexTypeNone;
+    }
+
+    pqi->want_count = 1;
+
+    switch(pinfo->query_type) {
+    case QUERY_TYPE_PLAYLISTS:
+        pqi->query_type = queryTypePlaylists;
+        break;
+    case QUERY_TYPE_DISTINCT:
+        if((strcmp(pinfo->distinct_field,"artist") == 0)) {
+            pqi->query_type = queryTypeBrowseArtists;
+        } else if((strcmp(pinfo->distinct_field,"genre") == 0)) {
+            pqi->query_type = queryTypeBrowseGenres;
+        } else if((strcmp(pinfo->distinct_field,"album") == 0)) {
+            pqi->query_type = queryTypeBrowseAlbums;
+        } else if((strcmp(pinfo->distinct_field,"composer") == 0)) {
+            pqi->query_type = queryTypeBrowseComposers;
+        } else {
+            if(pe) *pe = strdup("Unsupported browse type");
+            sp_dispose(pqi->pt);
+            pqi->pt = NULL;
+            return -1; /* not really a db error for this */
+        }
+        break;
+    case QUERY_TYPE_ITEMS:
+    default:
+        pqi->query_type = queryTypePlaylistItems;
+        break;
+    }
+
+    pqi->playlist_id = pinfo->playlist_id;
+    result =  db_enum_start(pe, pqi);
+    pinfo->totalcount = pqi->specifiedtotalcount;
 }
 
-int pi_db_enum_fetch_row(char **pe, char ***row, DBQUERYINFO *pinfo) {
-    return db_enum_fetch_row(pe, (PACKED_MP3FILE*)row, pinfo);
+int pi_db_enum_fetch_row(char **pe, char ***row, DB_QUERY *pinfo) {
+    return db_enum_fetch_row(pe, (PACKED_MP3FILE*)row, 
+                             (DBQUERYINFO*)pinfo->private);
 }
 
 int pi_db_enum_end(char **pe) {
     return db_enum_end(pe);
 }
 
-void pi_stream(WS_CONNINFO *pwsc, DBQUERYINFO *pqi, char *id) {
-    dispatch_stream_id(pwsc, pqi,id);
+void pi_stream(WS_CONNINFO *pwsc, char *id) {
+    dispatch_stream_id(pwsc, 0, id);
     return;
 }
 
-int pi_sp_parse(PARSETREE tree, char *term) {
-    return sp_parse(tree, term, 0);
+void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo) {
+    DBQUERYINFO *pqi;
+
+    if(!pinfo)
+        return;
+
+    if(pinfo->private) {
+        pqi = (DBQUERYINFO *)pinfo->private;
+        if(pqi->pt) {
+            sp_dispose(pqi->pt);
+            pqi->pt = NULL;
+        }
+    }
 }
 
 void pi_conf_dispose_string(char *str) {

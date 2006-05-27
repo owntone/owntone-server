@@ -16,9 +16,10 @@
 #include <zlib.h>
 
 #include "compat.h"
-#include "mtd-plugins.h"
+#include "ff-plugins.h"
 #include "rsp.h"
 #include "xml-rpc.h"
+
 
 /* typedefs */
 typedef struct tag_xmlstack {
@@ -135,7 +136,8 @@ int xml_stream_write(XMLSTRUCT *pxml, char *out) {
         if(result != Z_OK) {
             infn->log(E_FATAL,"Error in zlib: %d\n",result);
         }
-        infn->ws_writebinary(pxml->pwsc,psb->out_buffer,XML_STREAM_BLOCK-psb->strm.avail_out);
+        infn->ws_writebinary(pxml->pwsc,(char*)psb->out_buffer,
+                             XML_STREAM_BLOCK-psb->strm.avail_out);
         if(psb->strm.avail_out != 0) {
             done=1;
         } else {
@@ -161,7 +163,8 @@ int xml_stream_close(XMLSTRUCT *pxml) {
         psb->strm.next_in = psb->in_buffer;
         
         deflate(&psb->strm,Z_FINISH);
-        infn->ws_writebinary(pxml->pwsc,psb->out_buffer,XML_STREAM_BLOCK - psb->strm.avail_out);
+        infn->ws_writebinary(pxml->pwsc,(char*)psb->out_buffer,
+                             XML_STREAM_BLOCK - psb->strm.avail_out);
 
         if(psb->strm.avail_out != 0)
             done=1;
