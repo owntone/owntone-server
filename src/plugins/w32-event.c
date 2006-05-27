@@ -2,12 +2,8 @@
  * $Id: $
  */
 
-//#ifdef HAVE_CONFIG_H
-//#include "config.h"
-//#endif
-
 #include "compat.h"
-#include "mtd-plugins.h"
+#include "ff-plugins.h"
 
 /* Forwards */
 PLUGIN_INFO *plugin_info(void);
@@ -19,14 +15,16 @@ void plugin_handler(int, int, void *, int);
 PLUGIN_EVENT_FN _pefn = { plugin_handler };
 
 PLUGIN_INFO _pi = { 
-    PLUGIN_VERSION, 
-    PLUGIN_EVENT, 
-    "w32-event/1.0",
-    NULL,
-    NULL,
-    &_pefn,
-    NULL,
-    NULL
+    PLUGIN_VERSION,        /* version */
+    PLUGIN_EVENT,          /* type */
+    "w32-event/" VERSION,  /* server */
+    NULL,                  /* url */
+    NULL,                  /* output fns */
+    &_pefn,                /* event fns */
+    NULL,                  /* transocde fns */
+    NULL,                  /* fns exported by ff */
+    NULL,                  /* rend info */
+    NULL                   /* codec list */
 };
 
 typedef struct tag_plugin_msg {
