@@ -38,6 +38,7 @@ AC_DEFINE_UNQUOTED(CONFFILE,"${CONFFILE}",Where the config file is)
 rend_posix=true
 db_sqlite=false
 db_sqlite3=false
+use_ffmpeg=false;
 
 STATIC_LIBS=no
 CPPFLAGS="${CPPFLAGS} -g -Wall"
@@ -98,6 +99,8 @@ AC_ARG_ENABLE(gdbm,[  --enable-gdbm       Enable gdbm support],
                       use_gdbm=true;
                       CPPFLAGS="${CPPFLAGS} -DGDBM")
 
+AC_ARG_ENABLE(ffmpeg,[  --enable-ffmpeg     Enable ffmpeg transcode support],
+                      use_ffmpeg=true;)
 
 AM_CONDITIONAL(COND_REND_HOWL, test x$rend_howl = xtrue)
 AM_CONDITIONAL(COND_REND_POSIX, test x$rend_posix = xtrue)
@@ -107,8 +110,10 @@ AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 AM_CONDITIONAL(COND_SQLITE,test x$db_sqlite = xtrue)
 AM_CONDITIONAL(COND_SQLITE3,test x$db_sqlite3 = xtrue)
 AM_CONDITIONAL(COND_GDBM,test x$use_gdbm = xtrue)
+AM_CONDITIONAL(COND_FFMPEG,test x$use_ffmpeg = xtrue)
 AM_CONDITIONAL(COND_NEED_STRCASESTR,false)
 AM_CONDITIONAL(COND_NEED_STRSEP,false)
+
 
 if test x$have_sql = xtrue; then
    CPPFLAGS="${CPPFLAGS} -DHAVE_SQL"
@@ -226,6 +231,22 @@ AC_ARG_WITH(sqlite3-libs,
 	fi
 ])
 
+AC_ARG_WITH(ffmpeg-includes,
+	[--with-ffmpeg-includes[[=DIR]]        use ffmpeg include files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+         CPPFLAGS="${CPPFLAGS} -I$withval"
+	fi
+])
+
+AC_ARG_WITH(ffmpeg-libs,
+	[--with-ffmpeg-libs[[=DIR]]        use ffmpeg lib files in DIR],[
+	if test "$withval" != "no" -a "$withval" != "yes"; then
+	 Z_DIR=$withval
+         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
+	fi
+])
+
 AC_ARG_WITH(id3tag,
 	[--with-id3tag[[=DIR]]           use id3tag in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
@@ -327,6 +348,18 @@ if test x$use_flac = xtrue; then
     LIBS="${LIBS} ${STATIC_LIBS}/libFLAC.a"
   else
     LIBS="${LIBS} -lFLAC"
+  fi
+fi
+
+if test x$use_ffmpeg = xtrue; then
+  AC_CHECK_HEADERS(avcodec.h,, [
+   AC_MSG_ERROR([avcodec.h not found... Must have ffmpeg installed])])
+dnl  AC_CHECK_LIB(avcodec,avcodec_find_decoder,,echo "Must have libavcodec";exit)
+
+  if test x"$STATIC_LIBS" != x"no"; then
+    LIBS="${LIBS} ${STATIC_LIBS}/libavcodec.a ${STATIC_LIBS}/libavformat.a ${STATIC_LIBS}/libavutil.a"
+  else
+    LIBS="${LIBS} -lavcodec -lavformat -lavutil"
   fi
 fi
 
