@@ -8,7 +8,6 @@
 #define RSP_VERSION "1.0"
 
 extern PLUGIN_INFO _pi;
-#define infn ((PLUGIN_INPUT_FN *)(_pi.pi))
 
 #ifndef TRUE
 # define TRUE 1

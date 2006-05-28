@@ -40,6 +40,8 @@ typedef struct tag_ssc_handle {
     int buf_remainder_len;
     int first_frame;
 
+    int duration;
+
     int total_decoded;
     int total_written;
 
@@ -64,19 +66,27 @@ typedef struct tag_ssc_handle {
 #define SSC_FFMPEG_E_FILEOPEN     3
 #define SSC_FFMPEG_E_NOSTREAM     4
 #define SSC_FFMPEG_E_NOAUDIO      5
-#define SSC_FFMPEG_E_BADFORMAT    6
+
+char *ssc_ffmpeg_errors[] = {
+    "Success",
+    "Don't have appropriate codec",
+    "Can't open codec",
+    "Cannot open file",
+    "Cannot find any streams",
+    "No audio streams"
+};
+    
 
 
 /* Forwards */
 void *ssc_ffmpeg_init(void);
 void ssc_ffmpeg_deinit(void *pv);
-int ssc_ffmpeg_open(void *pv, char *file, char *codec);
+int ssc_ffmpeg_open(void *pv, char *file, char *codec, int duration);
 int ssc_ffmpeg_close(void *pv);
 int ssc_ffmpeg_read(void *pv, char *buffer, int len);
+char *ssc_ffmpeg_error(void *pv);
 
-PLUGIN_INFO *plugin_info(void);
-
-#define infn ((PLUGIN_INPUT_FN *)(_pi.pi))
+PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN*);
 
 /* Globals */
 PLUGIN_TRANSCODE_FN _ptfn = {
@@ -84,8 +94,11 @@ PLUGIN_TRANSCODE_FN _ptfn = {
     ssc_ffmpeg_deinit,
     ssc_ffmpeg_open,
     ssc_ffmpeg_close,
-    ssc_ffmpeg_read
+    ssc_ffmpeg_read,
+    ssc_ffmpeg_error
 };
+
+PLUGIN_INPUT_FN *_ppi;
 
 PLUGIN_INFO _pi = {
     PLUGIN_VERSION,        /* version */
@@ -95,12 +108,18 @@ PLUGIN_INFO _pi = {
     NULL,                  /* output fns */
     NULL,                  /* event fns */
     &_ptfn,                /* fns */
-    NULL,                  /* functions exported by ff */
     NULL,                  /* rend info */
     "flac,alac,ogg,wma"    /* codeclist */
 };
 
-PLUGIN_INFO *plugin_info(void) {
+char *ssc_ffmpeg_error(void *pv) {
+    SSCHANDLE *handle = (SSCHANDLE*)pv;
+
+    return ssc_ffmpeg_errors[handle->errno];
+}
+
+PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
+    _ppi = ppi;
     av_register_all();
 
     return &_pi;
@@ -127,7 +146,7 @@ void ssc_ffmpeg_deinit(void *vp) {
     return;
 }
 
-int ssc_ffmpeg_open(void *vp, char *file, char *codec) {
+int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
     int i;
     enum CodecID id=CODEC_ID_FLAC;
     SSCHANDLE *handle = (SSCHANDLE*)vp;
@@ -135,10 +154,11 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec) {
     if(!handle)
         return FALSE;
 
+    handle->duration = duration;
     handle->first_frame = 1;
     handle->raw=0;
 
-    infn->log(E_DBG,"opening %s\n",file);
+    _ppi->log(E_DBG,"opening %s\n",file);
 
     if(strcasecmp(codec,"flac") == 0) {
         handle->raw=1;
@@ -146,6 +166,7 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec) {
     }
 
     if(handle->raw) {
+        _ppi->log(E_DBG,"opening file raw\n");
         handle->pCodec = avcodec_find_decoder(id);
         if(!handle->pCodec) {
             handle->errno = SSC_FFMPEG_E_BADCODEC;
@@ -166,7 +187,8 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec) {
 
         return TRUE;
     }
-
+    
+    _ppi->log(E_DBG,"opening file with format\n");
     if(av_open_input_file(&handle->pFmtCtx,file,handle->pFormat,0,NULL) < 0) {
         handle->errno = SSC_FFMPEG_E_FILEOPEN;
         return FALSE;
@@ -178,7 +200,7 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec) {
         return FALSE;
     }
 
-    dump_format(handle->pFmtCtx,0,file,FALSE);
+    //    dump_format(handle->pFmtCtx,0,file,FALSE);
 
     handle->audio_stream = -1;
     for(i=0; i < handle->pFmtCtx->nb_streams; i++) {
@@ -226,8 +248,10 @@ int ssc_ffmpeg_close(void *vp) {
     if(handle->pFrame)
         av_free(handle->pFrame);
 
-    if(handle->pCodecCtx)
-        avcodec_close(handle->pCodecCtx);
+    if(handle->raw) {
+        if(handle->pCodecCtx)
+            avcodec_close(handle->pCodecCtx);
+    }
 
     if(handle->pFmtCtx) 
         av_close_input_file(handle->pFmtCtx);
@@ -393,14 +417,17 @@ int ssc_ffmpeg_read(void *vp, char *buffer, int len) {
             handle->swab = (bits_per_sample == 16) && 
                 (memcmp((void*)&test1,test2,2) == 0);
 
-            data_len = (bits_per_sample * sample_rate * channels * (duration/1000));
+            if(handle->duration)
+                duration = handle->duration;
+
+            data_len = ((bits_per_sample * sample_rate * channels / 8) * (duration/1000));
             byte_rate = sample_rate * channels * bits_per_sample / 8;
             block_align = channels * bits_per_sample / 8;
 
-            infn->log(E_DBG,"Channels.......: %d\n",channels);
-            infn->log(E_DBG,"Sample rate....: %d\n",sample_rate);
-            infn->log(E_DBG,"Bits/Sample....: %d\n",bits_per_sample);
-            infn->log(E_DBG,"Swab...........: %d\n",handle->swab);
+            _ppi->log(E_DBG,"Channels.......: %d\n",channels);
+            _ppi->log(E_DBG,"Sample rate....: %d\n",sample_rate);
+            _ppi->log(E_DBG,"Bits/Sample....: %d\n",bits_per_sample);
+            _ppi->log(E_DBG,"Swab...........: %d\n",handle->swab);
 
             memcpy(&handle->wav_header[0],"RIFF",4);
             _ssc_ffmpeg_le32(&handle->wav_header[4],36 + data_len);

@@ -42,8 +42,8 @@
 #include "configfile.h"
 #include "err.h"
 #include "mp3-scanner.h"
+#include "plugin.h"
 #include "webserver.h"
-#include "ssc.h"
 #include "dynamic-art.h"
 #include "restart.h"
 #include "daapd.h"
@@ -739,7 +739,6 @@ char *dispatch_xml_encode(char *original, int len) {
 
 void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
     MP3FILE *pmp3;
-    FILE *file_ptr;
     int file_fd;
     int bytes_copied;
     off_t real_len;
@@ -765,84 +764,23 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
         DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
         config_set_status(pwsc,session,NULL);
         ws_returnerror(pwsc,404,"File Not Found");
-    } else if (server_side_convert(pmp3->codectype)) {
+    } else if (plugin_ssc_can_transcode(pmp3->codectype)) {
         /************************
          * Server side conversion
          ************************/
-        DPRINTF(E_WARN,L_WS,"Thread %d: Autoconvert file %s for client\n",
-                pwsc->threadno,pmp3->path);
-        file_ptr = server_side_convert_open(pmp3->path,
-                                            offset,
-                                            pmp3->song_length,
-                                                            pmp3->codectype);
-        if (file_ptr) {
-            file_fd = fileno(file_ptr);
-        } else {
-            file_fd = -1;
-        }
-        if(file_fd == -1) {
-            if (file_ptr) {
-                server_side_convert_close(file_ptr);
-            }
-            pwsc->error=errno;
-            DPRINTF(E_WARN,L_WS,
-                    "Thread %d: Error opening %s for conversion\n",
-                    pwsc->threadno,pmp3->path);
-            ws_returnerror(pwsc,404,"Not found");
-            db_dispose_item(pmp3);
-        } else {
-            // The type should really be determined by the transcoding
-            // function -- it's possible that you want to transcode
-            // to a lower-bitrate mp3 or something... but for now,
-            // we'll just assume .wav
-            ws_addresponseheader(pwsc,"Content-Type","audio/wav");
+        config_set_status(pwsc,session,
+                          "Transcoding '%s' (id %d)",
+                          pmp3->title,pmp3->id);
 
-            /*
-            if(pmp3->type)
-                ws_addresponseheader(pwsc,"Content-Type","audio/%s",
-                                     pmp3->type);
-            */
-            // Also content-length -heade would be nice, but since
-            // we don't really know it here, so let's leave it out.
-            ws_addresponseheader(pwsc,"Connection","Close");
+        DPRINTF(E_LOG,L_WS,
+                "Session %d: Streaming file '%s' to %s (offset %ld)\n",
+                session,pmp3->fname, pwsc->hostname,(long)offset);
 
-            if(!offset)
-                ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-            else {
-                // This is actually against the protocol, since
-                // range MUST be explicit according to HTTP-standard
-                // Seems to work at least with iTunes.
-                ws_addresponseheader(pwsc,
-                                     "Content-Range","bytes %ld-*/*",
-                                     (long)offset);
-                ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
-            }
+        bytes_copied =  plugin_ssc_transcode(pwsc,pmp3->path,pmp3->codectype,
+                                             pmp3->song_length,offset);
 
-            ws_emitheaders(pwsc);
-
-            config_set_status(pwsc,session,
-                              "Transcoding '%s' (id %d)",
-                              pmp3->title,pmp3->id);
-            DPRINTF(E_LOG,L_WS,
-                    "Session %d: Streaming file '%s' to %s (offset %ld)\n",
-                    session,pmp3->fname, pwsc->hostname,(long)offset);
-
-            if(!offset)
-                config.stats.songs_served++; /* FIXME: remove stat races */
-            if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
-                DPRINTF(E_INF,L_WS,
-                        "Error copying converted file to remote... %s\n",
-                        strerror(errno));
-            } else {
-                DPRINTF(E_INF,L_WS,
-                        "Finished streaming converted file to remote\n");
-                db_playcount_increment(NULL,pmp3->id);
-
-            }
-            server_side_convert_close(file_ptr);
-            config_set_status(pwsc,session,NULL);
-            db_dispose_item(pmp3);
-        }
+        config_set_status(pwsc,session,NULL);
+        db_dispose_item(pmp3);
     } else {
         /**********************
          * stream file normally

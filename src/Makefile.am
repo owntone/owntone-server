@@ -3,7 +3,7 @@
 SUBDIRS=plugins
 
 sbin_PROGRAMS = mt-daapd
-bin_PROGRAMS = wavstreamer mtd-update
+bin_PROGRAMS = wavstreamer
 
 if COND_REND_POSIX
 PRENDSRC=mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c mDNSUNP.c \
@@ -46,20 +46,12 @@ if COND_GDBM
 GDBM=db-gdbm.c db-gdbm.h
 endif
 
-mtd_update_SOURCES = mtd-update.c conf.c conf.h ll.c ll.h \
-	db-sql.c db-sql.h db-generic.c db-generic.h smart-parser.c \
-	smart-parser.h err.c err.h os-unix.c os.h xml-rpc.c xml-rpc.h \
-	restart.c restart.h uici.c uici.h ssc.c ssc.h \
-	webserver.c webserver.h compat.c compat.h \
-	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) \
-	$(SQLITEDB) $(SQLITE3DB)
-
 wavstreamer_SOURCES = wavstreamer.c
 
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	mp3-scanner.h mp3-scanner.c rend-unix.h \
-	dynamic-art.c dynamic-art.h ssc.c ssc.h \
+	dynamic-art.c dynamic-art.h \
 	db-generic.c db-generic.h dispatch.c dispatch.h \
 	rxml.c rxml.h redblack.c redblack.h scan-mp3.c scan-mp4.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \

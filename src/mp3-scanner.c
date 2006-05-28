@@ -53,7 +53,6 @@
 #include "mp3-scanner.h"
 #include "os.h"
 #include "restart.h"
-#include "ssc.h"
 
 /*
  * Typedefs

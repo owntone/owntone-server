@@ -37,6 +37,10 @@ extern int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw);
 extern int plugin_rend_register(char *name, int port, char *iface, char *txt);
 extern void plugin_event_dispatch(int event_id, int intval, void *vp, int len);
 
+/* these should really get rows */
+extern int plugin_ssc_can_transcode(char *codec);
+extern int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset);
+
 #define PLUGIN_E_SUCCESS     0
 #define PLUGIN_E_NOLOAD      1
 #define PLUGIN_E_BADFUNCS    2

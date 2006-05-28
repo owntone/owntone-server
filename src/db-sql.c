@@ -39,8 +39,8 @@
 #include "db-generic.h"
 #include "db-sql.h"
 #include "restart.h"
-#include "ssc.h"
 #include "smart-parser.h"
+#include "plugin.h"
 
 #ifdef HAVE_LIBSQLITE
 #include "db-sql-sqlite2.h"
@@ -1354,7 +1354,7 @@ int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
     case queryTypeItems:
     case queryTypePlaylistItems:  /* essentially the same query */
         /* see if this is going to be transcoded */
-        transcode = server_side_convert(valarray[37]);
+        transcode = plugin_ssc_can_transcode(valarray[37]);
 
         /* Items that get changed by transcode:
          *
@@ -1530,7 +1530,7 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
     case queryTypeItems:
     case queryTypePlaylistItems:  /* essentially the same query */
         /* see if this is going to be transcoded */
-        transcode = server_side_convert(valarray[37]);
+        transcode = plugin_ssc_can_transcode(valarray[37]);
 
         /* Items that get changed by transcode:
          *

@@ -47,12 +47,8 @@
 
 typedef struct tag_pluginentry {
     void *phandle;
-    int type;
-    char *versionstring;
     regex_t regex;
-    PLUGIN_OUTPUT_FN *output_fns;
-    PLUGIN_EVENT_FN *event_fns;
-    PLUGIN_REND_INFO *rend_info;
+    PLUGIN_INFO *pinfo;
     struct tag_pluginentry *next;
 } PLUGIN_ENTRY;
 
@@ -60,7 +56,7 @@ typedef struct tag_pluginentry {
 static pthread_key_t _plugin_lock_key;
 static PLUGIN_ENTRY _plugin_list;
 static int _plugin_initialized = 0;
-
+static char *_plugin_ssc_codecs = NULL;
 static pthread_rwlock_t _plugin_lock;
 
 static char* _plugin_error_list[] = {
@@ -75,6 +71,7 @@ void _plugin_writelock(void);
 void _plugin_unlock(void);
 int _plugin_error(char **pe, int error, ...);
 void _plugin_free(int *pi);
+void _plugin_recalc_codecs(void);
 
 /* webserver helpers */
 char *pi_ws_uri(WS_CONNINFO *pwsc);
@@ -271,6 +268,53 @@ int _plugin_error(char **pe, int error, ...) {
 }
 
 /**
+ * walk through the installed plugins and recalculate
+ * the codec string
+ */
+void _plugin_recalc_codecs(void) {
+    PLUGIN_ENTRY *ppi;
+    int size=0;
+
+    _plugin_writelock();
+
+    ppi = _plugin_list.next;
+    while(ppi) {
+        if(ppi->pinfo->type & PLUGIN_TRANSCODE) {
+            if(size) size++;
+            size += strlen(ppi->pinfo->codeclist);
+        }
+        ppi=ppi->next;
+    }
+
+    if(_plugin_ssc_codecs) {
+        free(_plugin_ssc_codecs);
+    }
+
+    _plugin_ssc_codecs = (char*)malloc(size+1);
+    if(!_plugin_ssc_codecs) {
+        DPRINTF(E_FATAL,L_PLUG,"_plugin_recalc_codecs: malloc\n");
+    }
+    
+    memset(_plugin_ssc_codecs,0,size+1);
+
+    ppi = _plugin_list.next;
+    while(ppi) {
+        if(ppi->pinfo->type & PLUGIN_TRANSCODE) {
+            if(strlen(_plugin_ssc_codecs)) {
+                strcat(_plugin_ssc_codecs,",");
+            }
+            strcat(_plugin_ssc_codecs,ppi->pinfo->codeclist);
+        }
+        ppi=ppi->next;
+    }
+
+    DPRINTF(E_DBG,L_PLUG,"New transcode codec list: %s\n",_plugin_ssc_codecs);
+    _plugin_unlock();
+    return;
+
+}
+
+/**
  * load a specified plugin.
  *
  * @param pe pointer to error string returned (if error)
@@ -281,7 +325,7 @@ int _plugin_error(char **pe, int error, ...) {
 int plugin_load(char **pe, char *path) {
     PLUGIN_ENTRY *ppi;
     void *phandle;
-    PLUGIN_INFO *(*info_func)(void);
+    PLUGIN_INFO *(*info_func)(PLUGIN_INPUT_FN *);
     PLUGIN_INFO *pinfo;
 
     DPRINTF(E_DBG,L_PLUG,"Attempting to load plugin %s\n",path);
@@ -297,30 +341,35 @@ int plugin_load(char **pe, char *path) {
 
     ppi->phandle = phandle;
 
-    info_func = (PLUGIN_INFO*(*)(void)) os_libfunc(pe, phandle,"plugin_info");
+    info_func = (PLUGIN_INFO*(*)(PLUGIN_INPUT_FN*)) os_libfunc(pe, phandle,"plugin_info");
     if(info_func == NULL) {
         DPRINTF(E_INF,L_PLUG,"Couldn't get info_func for %s\n",path);
+        os_unload(phandle);
+        free(ppi);
         return PLUGIN_E_BADFUNCS;
     }
     
-    pinfo = info_func();
+    pinfo = info_func(&pi);
+    ppi->pinfo = pinfo;
 
-    ppi->type = pinfo->type;
-    ppi->versionstring = pinfo->server;
-    if(ppi->type & PLUGIN_OUTPUT) {
+    if(!pinfo) {
+        if(pe) *pe = strdup("plugin declined to load");
+        os_unload(phandle);
+        free(ppi);
+        return PLUGIN_E_NOLOAD;
+    }
+
+    if(pinfo->type & PLUGIN_OUTPUT) {
         /* build the regex */
         if(regcomp(&ppi->regex,pinfo->url,REG_EXTENDED | REG_NOSUB)) {
             DPRINTF(E_LOG,L_PLUG,"Bad regex in %s: %s\n",path,pinfo->url);
         }
     }
-    ppi->output_fns = pinfo->output_fns;
-    ppi->event_fns = pinfo->event_fns;
-    ppi->rend_info = pinfo->rend_info;
 
-    DPRINTF(E_INF,L_PLUG,"Loaded plugin %s (%s)\n",path,ppi->versionstring);
-    pinfo->pi = (void*)&pi;
-    
+    DPRINTF(E_INF,L_PLUG,"Loaded plugin %s (%s)\n",path,pinfo->server);
+
     _plugin_writelock();
+
     if(!_plugin_initialized) {
         _plugin_initialized = 1;
         memset((void*)&_plugin_list,0,sizeof(_plugin_list));
@@ -331,6 +380,7 @@ int plugin_load(char **pe, char *path) {
     
     _plugin_unlock();
     
+    _plugin_recalc_codecs();
     return PLUGIN_E_SUCCESS;
 }
 
@@ -348,7 +398,7 @@ int plugin_url_candispatch(WS_CONNINFO *pwsc) {
     _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
-        if(ppi->type & PLUGIN_OUTPUT) {
+        if(ppi->pinfo->type & PLUGIN_OUTPUT) {
             if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
                 /* we have a winner */
                 _plugin_unlock();
@@ -375,14 +425,14 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
     _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
-        if(ppi->type & PLUGIN_OUTPUT) {
+        if(ppi->pinfo->type & PLUGIN_OUTPUT) {
             if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
                 /* we have a winner */
                 DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", pwsc->uri,
-                        ppi->versionstring);
+                        ppi->pinfo->server);
 
                 /* so functions must be a tag_plugin_output_fn */
-                disp_fn=(ppi->output_fns)->handler;
+                disp_fn=(ppi->pinfo->output_fns)->handler;
                 disp_fn(pwsc);
                 _plugin_unlock();
                 return;
@@ -407,7 +457,6 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
     char *supplied_txt;
     char *new_name;
     char *ver;
-    char *slash;
     int name_len;
 
 
@@ -415,9 +464,9 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
     ppi = _plugin_list.next;
 
     while(ppi) {
-        DPRINTF(E_DBG,L_PLUG,"Checking %s\n",ppi->versionstring);
-        if(ppi->rend_info) {
-            pri = ppi->rend_info;
+        DPRINTF(E_DBG,L_PLUG,"Checking %s\n",ppi->pinfo->server);
+        if(ppi->pinfo->rend_info) {
+            pri = ppi->pinfo->rend_info;
             while(pri->type) {
                 supplied_txt = pri->txt;
                 if(!pri->txt)
@@ -425,7 +474,7 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
 
                 DPRINTF(E_DBG,L_PLUG,"Registering %s\n",pri->type);
 
-                name_len = (int)strlen(name) + 4 + (int)strlen(ppi->versionstring);
+                name_len = (int)strlen(name) + 4 + (int)strlen(ppi->pinfo->server);
                 new_name=(char*)malloc(name_len);
                 if(!new_name)
                     DPRINTF(E_FATAL,L_PLUG,"plugin_rend_register: malloc");
@@ -433,7 +482,7 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
                 memset(new_name,0,name_len);
 
                 if(conf_get_int("plugins","mangle_rendezvous",1)) {
-                    ver = strdup(ppi->versionstring);
+                    ver = strdup(ppi->pinfo->server);
                     if(strchr(ver,'/')) {
                         *strchr(ver,'/') = '\0'; 
                     }
@@ -472,14 +521,14 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
     _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
-        if(ppi->type & PLUGIN_OUTPUT) {
+        if(ppi->pinfo->type & PLUGIN_OUTPUT) {
             if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
                 /* we have a winner */
                 DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", pwsc->uri,
-                        ppi->versionstring);
+                        ppi->pinfo->server);
 
                 /* so functions must be a tag_plugin_output_fn */
-                auth_fn=(ppi->output_fns)->auth;
+                auth_fn=(ppi->pinfo->output_fns)->auth;
 		if(auth_fn) {
 		    result=auth_fn(pwsc,username,pw);
 		    _plugin_unlock();
@@ -505,27 +554,150 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
 void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
     PLUGIN_ENTRY *ppi;
 
-    fprintf(stderr,"entering plugin_event_dispatch\n");
-
-//    _plugin_readlock();
+    _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
-        fprintf(stderr,"Checking %s\n",ppi->versionstring);
-        if(ppi->type & PLUGIN_EVENT) {
+        fprintf(stderr,"Checking %s\n",ppi->pinfo->server);
+        if(ppi->pinfo->type & PLUGIN_EVENT) {
 /*            DPRINTF(E_DBG,L_PLUG,"Dispatching event %d to %s\n",
                 event_id,ppi->versionstring); */
 
-            if((ppi->event_fns) && (ppi->event_fns->handler)) {
-                ppi->event_fns->handler(event_id, intval, vp, len);
+            if((ppi->pinfo->event_fns) && (ppi->pinfo->event_fns->handler)) {
+                ppi->pinfo->event_fns->handler(event_id, intval, vp, len);
             }
         }
         ppi=ppi->next;
     }
-//    _plugin_unlock();
+    _plugin_unlock();
+}
+
+/**
+ * check to see if we can transcode
+ * 
+ * @param codec the codec we are trying to serve
+ * @returns TRUE if we can transcode, FALSE otherwise
+ */
+int plugin_ssc_can_transcode(char *codec) {
+    int result;
+
+    _plugin_readlock();
+    result = FALSE;
+    if(strstr(_plugin_ssc_codecs,codec)) {
+        result = TRUE;
+    }
+    _plugin_unlock();
+    return result;
 }
 
 
+/**
+ * stupid helper to copy transcode stream to the fd
+ */
+int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn, 
+                     void *vp,int offset) {
+    int bytes_read;
+    int bytes_to_read;
+    int total_bytes_read = 0;
+    char buffer[1024];
 
+    /* first, skip past the offset */
+    while(offset) {
+        bytes_to_read = sizeof(buffer);
+        if(bytes_to_read > offset)
+            bytes_to_read = offset;
+
+        bytes_read = pfn->read(vp,buffer,bytes_to_read);
+        if(bytes_read <= 0)
+            return bytes_read;
+        
+        offset -= bytes_read;
+    }
+
+    while((bytes_read=pfn->read(vp,buffer,sizeof(buffer))) > 0) {
+        total_bytes_read += bytes_read;
+        ws_writebinary(pwsc,buffer,bytes_read);
+    }
+
+    if(bytes_read < 0)
+        return bytes_read;
+
+    return total_bytes_read;
+}
+
+/**
+ * do the transcode, emitting the headers, content type,
+ * and shoving the file down the wire
+ *
+ * @param pwsc connection to transcode to
+ * @param file file to transcode
+ * @param codec source codec
+ * @param duration time in ms
+ * @returns bytes transferred, or -1 on error
+ */
+int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset) {
+    PLUGIN_ENTRY *ppi, *ptc=NULL;
+    PLUGIN_TRANSCODE_FN *pfn = NULL;
+    void *vp_ssc;
+    int post_error = 1;
+    int result = -1;
+
+    /* first, find the plugin that will do the conversion */
+
+    _plugin_readlock();
+
+    ppi = _plugin_list.next;
+    while((ppi) && (!pfn)) {
+        if(ppi->pinfo->type & PLUGIN_TRANSCODE) {
+            if(strstr(ppi->pinfo->codeclist,codec)) {
+                ptc = ppi;
+                pfn = ppi->pinfo->transcode_fns;
+            }
+        }
+        ppi = ppi->next;
+    }
+
+    if(pfn) {
+        DPRINTF(E_DBG,L_PLUG,"Transcoding %s with %s\n",file,
+                ptc->pinfo->server);
+
+        vp_ssc = pfn->init();
+        if(vp_ssc) {
+            if(pfn->open(vp_ssc,file,codec,duration)) {
+                /* start reading and throwing */
+                ws_addresponseheader(pwsc,"Content-Type","audio/wav");
+                ws_addresponseheader(pwsc,"Connection","Close");
+                if(!offset) {
+                    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+                } else {
+                    ws_addresponseheader(pwsc,"Content-Range","bytes %ld-*/*",
+                                         (long)offset);
+                    ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
+                }
+                ws_emitheaders(pwsc);
+
+                /* start reading/writing */
+                result = _plugin_ssc_copy(pwsc,pfn,vp_ssc,offset);
+                post_error = 0;
+                pfn->close(vp_ssc);
+            } else {
+                DPRINTF(E_LOG,L_PLUG,"Error opening %s for ssc: %s\n",
+                        file,pfn->error(vp_ssc));
+            }
+            pfn->deinit(vp_ssc);
+        } else {
+            DPRINTF(E_LOG,L_PLUG,"Error initializing transcoder: %s\n",
+                    ptc->pinfo->server);
+        }
+    }
+
+    if(post_error) {
+        pwsc->error = EPERM; /* ?? */
+        ws_returnerror(pwsc,500,"Internal error");
+    }
+
+    _plugin_unlock();
+    return result;
+}
 
 /* plugin wrappers for utility functions & stuff
  * 
@@ -646,6 +818,8 @@ int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
     pqi->playlist_id = pinfo->playlist_id;
     result =  db_enum_start(pe, pqi);
     pinfo->totalcount = pqi->specifiedtotalcount;
+
+    return DB_E_SUCCESS;
 }
 
 int pi_db_enum_fetch_row(char **pe, char ***row, DB_QUERY *pinfo) {
