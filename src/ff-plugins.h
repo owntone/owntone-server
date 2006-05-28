@@ -144,4 +144,4 @@ typedef struct tag_plugin_input_fn {
 } PLUGIN_INPUT_FN;
 
 
-#endif _FF_PLUGINS_
+#endif /* _FF_PLUGINS_ */

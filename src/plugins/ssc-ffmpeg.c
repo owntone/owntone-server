@@ -394,15 +394,8 @@ int ssc_ffmpeg_read(void *vp, char *buffer, int len) {
                 channels = handle->pCodecCtx->channels;
                 sample_rate = handle->pCodecCtx->sample_rate;
                 switch(handle->pCodecCtx->sample_fmt) {
-                case SAMPLE_FMT_U8:
-                    bits_per_sample = 8;
-                    break;
                 case SAMPLE_FMT_S16:
                     bits_per_sample = 16;
-                    break;
-                case SAMPLE_FMT_S24:
-                    /* BROKEN */
-                    bits_per_sample = 24;
                     break;
                 case SAMPLE_FMT_S32:
                     /* BROKEN */
