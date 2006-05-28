@@ -203,7 +203,7 @@ void scan_process_playlistlist(void) {
     while(scan_playlistlist.next) {
         pnext=scan_playlistlist.next;
 
-        DPRINTF(E_DBG,L_SCAN,"About to scan %S\n",pnext->path);
+        DPRINTF(E_DBG,L_SCAN,"About to scan %s\n",pnext->path);
         ext=pnext->path;
         if(strrchr(pnext->path,'.')) {
             ext = strrchr(pnext->path,'.');

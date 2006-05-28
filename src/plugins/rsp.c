@@ -339,23 +339,25 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     int returned;
     char *browse_type;
     int type;
-    char *transcode_codecs;
     int transcode;
     int samplerate;
-    //    char *user_agent;
 
-    /*
-    user_agent = _ppi->ws_getrequestheader(pwsc,"user-agent");
-    if(user_agent) {
-        if(strncmp(user_agent,"iTunes",6)==0) {
-            trancode_codecs = "wma,ogg,flac,mpc";
-        } else if(strncmp(user_agent,"Roku",4)==0) {
-            transcode_codecs = "ogg,flac,mpc,alac";
-        } else {
-            transcode_codecs = "wma,ogg,flac,mpc,alac";
+    char *user_agent;
+    char *native_codecs;
+
+    native_codecs = _ppi->ws_getrequestheader(pwsc,"accept-codecs");
+    if(!native_codecs) {
+        user_agent = _ppi->ws_getrequestheader(pwsc,"user-agent");
+        if(user_agent) {
+            if(strncmp(user_agent,"iTunes",6)==0) {
+                native_codecs = "mpeg,mp4a,wav,mp4v";
+            } else if(strncmp(user_agent,"Roku",4)==0) {
+                native_codecs = "mpeg,mp4a,wav,wma";
+            } else {
+                native_codecs = "mpeg,mp4a,wav";
+            }
         }
     }
-    */
 
     ppi->dq.filter = _ppi->ws_getvar(pwsc,"query");
     ppi->dq.filter_type = FILTER_TYPE_FIREFLY;
@@ -397,8 +399,6 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
             returned = ppi->dq.totalcount - ppi->dq.offset;
     }
 
-    transcode_codecs = _ppi->conf_alloc_string("general","ssc_codectypes","");
-
     xml_push(pxml,"response");
     xml_push(pxml,"status");
     xml_output(pxml,"errorcode","0");
@@ -413,8 +413,12 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         xml_push(pxml,"item");
         rowindex=0;
         transcode = 0;
-        if(strstr(transcode_codecs,row[37])) /* FIXME: ticket #21 */
-            transcode = 1;
+
+        if(!strstr(native_codecs,row[37])) {
+            if(_ppi->can_transcode(row[37])) {
+                transcode = 1;
+            }
+        }
 
         while(rsp_fields[rowindex].name) {
             if((rsp_fields[rowindex].flags & type) &&
@@ -438,6 +442,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
                         break;
                     case 37:
                         xml_output(pxml,rsp_fields[rowindex].name,"%s","wav");
+                        xml_output(pxml,"original_codec","%s",row[37]);
                         break;
                     default:
                         xml_output(pxml,rsp_fields[rowindex].name,"%s",
@@ -456,7 +461,6 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     }
 
     _ppi->db_enum_end(NULL);
-    _ppi->conf_dispose_string(transcode_codecs);
 
     xml_pop(pxml); /* items */
     xml_pop(pxml); /* response */

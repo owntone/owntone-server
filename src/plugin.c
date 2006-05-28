@@ -108,6 +108,7 @@ PLUGIN_INPUT_FN pi = {
     pi_server_ver,
     pi_server_name,
     pi_log,
+    plugin_ssc_can_transcode,
 
     pi_db_count,
     pi_db_enum_start,
