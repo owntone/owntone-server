@@ -33,9 +33,12 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <netinet/in.h>  /* htons and friends */
+#ifndef WIN32
+# include <netinet/in.h>  /* htons and friends */
+# include <dirent.h>      /* why here?  For osx 10.2, of course! */
+#endif
+
 #include <sys/stat.h>
-#include <dirent.h>      /* why here?  For osx 10.2, of course! */
 
 #include "restart.h"
 #include "daapd.h"

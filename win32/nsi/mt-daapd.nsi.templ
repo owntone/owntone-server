@@ -120,6 +120,7 @@ Section "MainSection" SEC01
   File "${DLL_SOURCE}\avutil.dll"
   File "${DLL_SOURCE}\avcodec.dll"
   File "${DLL_SOURCE}\avformat.dll"
+  File "${DLL_SOURCE}\libFLAC.dll"
 
   SetOutPath "$2\plugins"
   File "${MTD_SOURCE}\rsp.dll"
@@ -409,6 +410,7 @@ Section Uninstall
   Delete "$INSTDIR\avutil.dll"
   Delete "$INSTDIR\avcodec.dll"
   Delete "$INSTDIR\avformat.dll"
+  Delete "$INSTDIR\libFLAC.dll"
   Delete "$INSTDIR\plugins\rsp.dll"
   Delete "$INSTDIR\plugins\w32-event.dll"
   Delete "$INSTDIR\plugins\ssc-ffmpeg.dll"

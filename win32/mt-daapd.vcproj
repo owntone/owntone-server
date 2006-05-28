@@ -21,7 +21,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="$(InputDir),..\src,.,.."
-				PreprocessorDefinitions="HAVE_CONFIG_H;ZLIB_DLL;_WINDOWS"
+				PreprocessorDefinitions="HAVE_CONFIG_H;ZLIB_DLL;_WINDOWS;FLAC"
 				MinimalRebuild="TRUE"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="5"
@@ -33,7 +33,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib"
+				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib"
 				OutputFile="$(OutDir)/mt-daapd.exe"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
@@ -74,7 +74,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="$(InputDir),..\src,.,.."
-				PreprocessorDefinitions="HAVE_CONFIG_H;ZLIB_DLL;_WINDOWS"
+				PreprocessorDefinitions="HAVE_CONFIG_H;ZLIB_DLL;_WINDOWS;FLAC"
 				RuntimeLibrary="4"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -84,7 +84,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib"
+				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib"
 				OutputFile="$(OutDir)/mt-daapd.exe"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -187,6 +187,9 @@
 			</File>
 			<File
 				RelativePath="..\src\scan-aac.c">
+			</File>
+			<File
+				RelativePath="..\src\scan-flac.c">
 			</File>
 			<File
 				RelativePath="..\src\scan-mp3.c">
