@@ -62,12 +62,12 @@ typedef struct tag_plugin_event_fn {
 } PLUGIN_EVENT_FN;
 
 typedef struct tag_plugin_transcode_fn {
-    void *(*init)(void);
-    void (*deinit)(void*);
-    int (*open)(void*, char *, char*, int);
-    int (*close)(void*);
-    int (*read)(void*, char*, int);
-    char *(*error)(void*);
+    void *(*ssc_init)(void);
+    void (*ssc_deinit)(void*);
+    int (*ssc_open)(void*, char *, char*, int);
+    int (*ssc_close)(void*);
+    int (*ssc_read)(void*, char*, int);
+    char *(*ssc_error)(void*);
 } PLUGIN_TRANSCODE_FN;
 
 /* info for rendezvous advertising */

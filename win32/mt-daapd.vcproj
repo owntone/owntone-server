@@ -210,9 +210,6 @@
 				RelativePath="..\src\smart-parser.c">
 			</File>
 			<File
-				RelativePath="..\src\ssc.c">
-			</File>
-			<File
 				RelativePath="..\src\w32-eventlog.c">
 			</File>
 			<File
@@ -246,6 +243,9 @@
 			</File>
 			<File
 				RelativePath="..\src\err.h">
+			</File>
+			<File
+				RelativePath="..\src\ff-plugins.h">
 			</File>
 			<File
 				RelativePath="..\src\ll.h">

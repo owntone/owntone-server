@@ -439,7 +439,7 @@ int main(int argc, char *argv[]) {
         txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */
         txt_add(txtrecord,"Version=196610");      /* iTunes 6.0.4 */
         txt_add(txtrecord,"Password=%s",conf_isset("general","password") ? "true" : "false");
-        srand(time(NULL));
+        srand((unsigned int)time(NULL));
         txt_add(txtrecord,"ffid=%08x",rand());
     
         DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");

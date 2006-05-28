@@ -45,7 +45,7 @@ typedef struct tag_ssc_handle {
     int total_decoded;
     int total_written;
 
-    int errno;
+    int errnum;
     int swab;
 
     char *error;
@@ -115,7 +115,7 @@ PLUGIN_INFO _pi = {
 char *ssc_ffmpeg_error(void *pv) {
     SSCHANDLE *handle = (SSCHANDLE*)pv;
 
-    return ssc_ffmpeg_errors[handle->errno];
+    return ssc_ffmpeg_errors[handle->errnum];
 }
 
 PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
@@ -169,19 +169,19 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
         _ppi->log(E_DBG,"opening file raw\n");
         handle->pCodec = avcodec_find_decoder(id);
         if(!handle->pCodec) {
-            handle->errno = SSC_FFMPEG_E_BADCODEC;
+            handle->errnum = SSC_FFMPEG_E_BADCODEC;
             return FALSE;
         }
 
         handle->pCodecCtx = avcodec_alloc_context();
         if(avcodec_open(handle->pCodecCtx,handle->pCodec) < 0) {
-            handle->errno = SSC_FFMPEG_E_CODECOPEN;
+            handle->errnum = SSC_FFMPEG_E_CODECOPEN;
             return FALSE;
         }
 
         handle->fin = fopen(file,"rb");
         if(!handle->fin) {
-            handle->errno = SSC_FFMPEG_E_FILEOPEN;
+            handle->errnum = SSC_FFMPEG_E_FILEOPEN;
             return FALSE;
         }
 
@@ -190,13 +190,13 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
     
     _ppi->log(E_DBG,"opening file with format\n");
     if(av_open_input_file(&handle->pFmtCtx,file,handle->pFormat,0,NULL) < 0) {
-        handle->errno = SSC_FFMPEG_E_FILEOPEN;
+        handle->errnum = SSC_FFMPEG_E_FILEOPEN;
         return FALSE;
     }
 
     /* find the streams */
     if(av_find_stream_info(handle->pFmtCtx) < 0) {
-        handle->errno = SSC_FFMPEG_E_NOSTREAM;
+        handle->errnum = SSC_FFMPEG_E_NOSTREAM;
         return FALSE;
     }
 
@@ -211,7 +211,7 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
     }
 
     if(handle->audio_stream == -1) {
-        handle->errno = SSC_FFMPEG_E_NOAUDIO;
+        handle->errnum = SSC_FFMPEG_E_NOAUDIO;
         return FALSE;
     }
      
@@ -219,7 +219,7 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
 
     handle->pCodec = avcodec_find_decoder(handle->pCodecCtx->codec_id);
     if(!handle->pCodec) {
-        handle->errno = SSC_FFMPEG_E_BADCODEC;
+        handle->errnum = SSC_FFMPEG_E_BADCODEC;
         return FALSE;
     }
 
@@ -227,7 +227,7 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
         handle->pCodecCtx->flags |= CODEC_FLAG_TRUNCATED;
 
     if(avcodec_open(handle->pCodecCtx, handle->pCodec) < 0) {
-        handle->errno = SSC_FFMPEG_E_CODECOPEN;
+        handle->errnum = SSC_FFMPEG_E_CODECOPEN;
         return FALSE;
     }
 
@@ -272,7 +272,7 @@ int _ssc_ffmpeg_read_frame(void *vp, char *buffer, int len) {
             if(!handle->file_bytes_read) {
                 /* need to grab a new chunk */
                 handle->file_buffer_ptr = handle->file_buffer;
-                handle->file_bytes_read = fread(handle->file_buffer,
+                handle->file_bytes_read = (int)fread(handle->file_buffer,
                                                 1, sizeof(handle->file_buffer),
                                                 handle->fin);
                 handle->file_buffer_ptr = handle->file_buffer;

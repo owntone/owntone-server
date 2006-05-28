@@ -1,5 +1,5 @@
 /*
- * $id: webserver.c,v 1.39 2005/11/15 06:43:31 rpedde Exp $
+ * $Id$
  * Webserver library
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)

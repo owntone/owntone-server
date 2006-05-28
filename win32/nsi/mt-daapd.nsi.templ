@@ -117,10 +117,14 @@ Section "MainSection" SEC01
   File "${DLL_SOURCE}\sqlite.dll"
   File "${DLL_SOURCE}\sqlite3.dll"
   File "${DLL_SOURCE}\zlib1.dll"
+  File "${DLL_SOURCE}\avutil.dll"
+  File "${DLL_SOURCE}\avcodec.dll"
+  File "${DLL_SOURCE}\avformat.dll"
 
   SetOutPath "$2\plugins"
   File "${MTD_SOURCE}\rsp.dll"
   File "${MTD_SOURCE}\w32-event.dll"
+  File "${MTD_SOURCE}\ssc-ffmpeg.dll"
   
   SetOutPath "$2\admin-root"
   File "${ADMIN_ROOT}\thanks.html"
@@ -174,7 +178,7 @@ Section "MainSection" SEC01
   WriteINIStr "$2\mt-daapd.conf" "general" "mp3_dir" $3
 HasConf:
   WriteINIStr "$2\mt-daapd.conf" "plugins" "plugin_dir" "plugins"
-  WriteINIStr "$2\mt-daapd.conf" "plugins" "plugins" "rsp.dll,w32-event.dll"
+  WriteINIStr "$2\mt-daapd.conf" "plugins" "plugins" "rsp.dll,w32-event.dll,ssc-ffmpeg.dll"
   ReadINIStr $0 "$2\mt-daapd.conf" "general" "rescan_interval"
   StrCmp $0 "" rescan_set rescan_skip
  rescan_set:
@@ -402,8 +406,12 @@ Section Uninstall
   Delete "$INSTDIR\sqlite3.dll"
   Delete "$INSTDIR\mt-daapd.conf"
   Delete "$INSTDIR\zlib1.dll"
+  Delete "$INSTDIR\avutil.dll"
+  Delete "$INSTDIR\avcodec.dll"
+  Delete "$INSTDIR\avformat.dll"
   Delete "$INSTDIR\plugins\rsp.dll"
   Delete "$INSTDIR\plugins\w32-event.dll"
+  Delete "$INSTDIR\plugins\ssc-ffmpeg.dll"
   Delete "$INSTDIR\songs.db"
   Delete "$INSTDIR\songs3.db"
   Delete "$INSTDIR\mt-daapd-example.conf"

@@ -273,7 +273,7 @@ int _plugin_error(char **pe, int error, ...) {
  */
 void _plugin_recalc_codecs(void) {
     PLUGIN_ENTRY *ppi;
-    int size=0;
+    size_t size=0;
 
     _plugin_writelock();
 
@@ -606,14 +606,14 @@ int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn,
         if(bytes_to_read > offset)
             bytes_to_read = offset;
 
-        bytes_read = pfn->read(vp,buffer,bytes_to_read);
+        bytes_read = pfn->ssc_read(vp,buffer,bytes_to_read);
         if(bytes_read <= 0)
             return bytes_read;
         
         offset -= bytes_read;
     }
 
-    while((bytes_read=pfn->read(vp,buffer,sizeof(buffer))) > 0) {
+    while((bytes_read=pfn->ssc_read(vp,buffer,sizeof(buffer))) > 0) {
         total_bytes_read += bytes_read;
         ws_writebinary(pwsc,buffer,bytes_read);
     }
@@ -660,9 +660,9 @@ int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duratio
         DPRINTF(E_DBG,L_PLUG,"Transcoding %s with %s\n",file,
                 ptc->pinfo->server);
 
-        vp_ssc = pfn->init();
+        vp_ssc = pfn->ssc_init();
         if(vp_ssc) {
-            if(pfn->open(vp_ssc,file,codec,duration)) {
+            if(pfn->ssc_open(vp_ssc,file,codec,duration)) {
                 /* start reading and throwing */
                 ws_addresponseheader(pwsc,"Content-Type","audio/wav");
                 ws_addresponseheader(pwsc,"Connection","Close");
@@ -678,12 +678,12 @@ int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duratio
                 /* start reading/writing */
                 result = _plugin_ssc_copy(pwsc,pfn,vp_ssc,offset);
                 post_error = 0;
-                pfn->close(vp_ssc);
+                pfn->ssc_close(vp_ssc);
             } else {
                 DPRINTF(E_LOG,L_PLUG,"Error opening %s for ssc: %s\n",
-                        file,pfn->error(vp_ssc));
+                        file,pfn->ssc_error(vp_ssc));
             }
-            pfn->deinit(vp_ssc);
+            pfn->ssc_deinit(vp_ssc);
         } else {
             DPRINTF(E_LOG,L_PLUG,"Error initializing transcoder: %s\n",
                     ptc->pinfo->server);

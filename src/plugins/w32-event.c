@@ -6,13 +6,14 @@
 #include "ff-plugins.h"
 
 /* Forwards */
-PLUGIN_INFO *plugin_info(void);
+PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi);
 void plugin_handler(int, int, void *, int);
 
 #define PIPE_BUFFER_SIZE 4096
 
 /* Globals */
 PLUGIN_EVENT_FN _pefn = { plugin_handler };
+PLUGIN_INPUT_FN *_ppi;
 
 PLUGIN_INFO _pi = { 
     PLUGIN_VERSION,        /* version */
@@ -22,7 +23,6 @@ PLUGIN_INFO _pi = {
     NULL,                  /* output fns */
     &_pefn,                /* event fns */
     NULL,                  /* transocde fns */
-    NULL,                  /* fns exported by ff */
     NULL,                  /* rend info */
     NULL                   /* codec list */
 };
@@ -34,9 +34,9 @@ typedef struct tag_plugin_msg {
     char vp[1];
 } PLUGIN_MSG;
 
-#define infn ((PLUGIN_INPUT_FN *)(_pi.pi))
 
-PLUGIN_INFO *plugin_info(void) {
+PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
+    _ppi = ppi;
     return &_pi;
 }
 
@@ -50,7 +50,7 @@ void plugin_handler(int event_id, int intval, void *vp, int len) {
 
     pmsg = (PLUGIN_MSG*)malloc(total_len);
     if(!pmsg) {
-//        infn->log(E_LOG,"Malloc error in w32-event.c/plugin_handler\n");
+//        _ppi->log(E_LOG,"Malloc error in w32-event.c/plugin_handler\n");
         return;
     }
 
