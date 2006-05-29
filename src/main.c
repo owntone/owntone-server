@@ -111,6 +111,23 @@ static void main_handler(WS_CONNINFO *pwsc);
 static int main_auth(WS_CONNINFO *pwsc, char *username, char *password);
 static void txt_add(char *txtrecord, char *fmt, ...);
 
+
+/**
+ * simple hash generator
+ *
+ * @param str string to hash
+ * @returns hash
+ */
+unsigned long djb_hash(char *str) {
+    unsigned long hash = 5381;
+    int c;
+    unsigned char *pstr = (unsigned char *)str;
+
+    while((c = *pstr++))
+        hash = ((hash << 5) + hash) + c;
+    return hash;
+}
+
 /**
  * build a dns text string
  *
@@ -211,7 +228,7 @@ int main(int argc, char *argv[]) {
     int convert_conf=0;
     char *logfile,*db_type,*db_parms,*web_root,*runas;
     char **mp3_dir_array;
-    char *servername,*iface;
+    char *servername, *iface;
     int index;
 
     char txtrecord[255];
@@ -432,8 +449,8 @@ int main(int argc, char *argv[]) {
 
         memset(txtrecord,0,sizeof(txtrecord));
         txt_add(txtrecord,"txtvers=1");
-        txt_add(txtrecord,"Database ID=beddab1edeadbea7"); /* FIXME: config */
-        txt_add(txtrecord,"Machine ID=f00f00f00"); /* ?? */
+        txt_add(txtrecord,"Database ID=%0X",djb_hash(servername));
+        txt_add(txtrecord,"Machine ID=%0X",djb_hash(servername));
         txt_add(txtrecord,"Machine Name=%s",servername);
         txt_add(txtrecord,"mtd-version=" VERSION);
         txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */
