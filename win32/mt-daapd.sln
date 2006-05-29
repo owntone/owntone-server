@@ -7,15 +7,15 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "rsp", "rsp.vcproj", "{68CCE
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FireflyConfig", "FireflyConfig\FireflyConfig.csproj", "{842826B0-521A-4296-B2B4-5746BF1C91C2}"
-	ProjectSection(ProjectDependencies) = postProject
-	EndProjectSection
-EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "w32-event", "w32-event.vcproj", "{E60F90F1-A1E5-49D8-A565-B990CA4BA860}"
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssc-ffmpeg", "ssc-ffmpeg.vcproj", "{DA27D6F4-7E9F-40CA-AC5C-480DC81A1C56}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShell", "FireflyShell\FireflyShell.vcproj", "{ED38F171-854B-4EA3-B3A0-7681648969FC}"
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
@@ -33,10 +33,6 @@ Global
 		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Debug.Build.0 = Debug|Win32
 		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Release.ActiveCfg = Release|Win32
 		{68CCEA19-503F-4894-8AE3-B1673FDEA920}.Release.Build.0 = Release|Win32
-		{842826B0-521A-4296-B2B4-5746BF1C91C2}.Debug.ActiveCfg = Debug|.NET
-		{842826B0-521A-4296-B2B4-5746BF1C91C2}.Debug.Build.0 = Debug|.NET
-		{842826B0-521A-4296-B2B4-5746BF1C91C2}.Release.ActiveCfg = Release|.NET
-		{842826B0-521A-4296-B2B4-5746BF1C91C2}.Release.Build.0 = Release|.NET
 		{E60F90F1-A1E5-49D8-A565-B990CA4BA860}.Debug.ActiveCfg = Debug|Win32
 		{E60F90F1-A1E5-49D8-A565-B990CA4BA860}.Debug.Build.0 = Debug|Win32
 		{E60F90F1-A1E5-49D8-A565-B990CA4BA860}.Release.ActiveCfg = Release|Win32
@@ -45,6 +41,10 @@ Global
 		{DA27D6F4-7E9F-40CA-AC5C-480DC81A1C56}.Debug.Build.0 = Debug|Win32
 		{DA27D6F4-7E9F-40CA-AC5C-480DC81A1C56}.Release.ActiveCfg = Release|Win32
 		{DA27D6F4-7E9F-40CA-AC5C-480DC81A1C56}.Release.Build.0 = Release|Win32
+		{ED38F171-854B-4EA3-B3A0-7681648969FC}.Debug.ActiveCfg = Debug|Win32
+		{ED38F171-854B-4EA3-B3A0-7681648969FC}.Debug.Build.0 = Debug|Win32
+		{ED38F171-854B-4EA3-B3A0-7681648969FC}.Release.ActiveCfg = Release|Win32
+		{ED38F171-854B-4EA3-B3A0-7681648969FC}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection

@@ -257,6 +257,9 @@
 				RelativePath="..\src\ll.h">
 			</File>
 			<File
+				RelativePath=".\mt-daapd-res.h">
+			</File>
+			<File
 				RelativePath="..\src\os-win32.h">
 			</File>
 			<File
@@ -267,9 +270,6 @@
 			</File>
 			<File
 				RelativePath="..\src\rend.h">
-			</File>
-			<File
-				RelativePath=".\resource.h">
 			</File>
 			<File
 				RelativePath="..\src\strptime.h">
@@ -297,6 +297,9 @@
 			Name="Resource Files"
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}">
+			<File
+				RelativePath=".\ff.ico">
+			</File>
 			<File
 				RelativePath=".\mt-daapd.rc">
 				<FileConfiguration

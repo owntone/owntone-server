@@ -1,194 +1,112 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="8.00"
+	Version="7.10"
 	Name="FireflyShell"
-	ProjectGUID="{FC91423E-33F6-4037-95AC-A8BAD7DF599F}"
-	RootNamespace="FireflyShell"
-	>
+	ProjectGUID="{ED38F171-854B-4EA3-B3A0-7681648969FC}"
+	Keyword="Win32Proj">
 	<Platforms>
 		<Platform
-			Name="Win32"
-		/>
+			Name="Win32"/>
 	</Platforms>
-	<ToolFiles>
-	</ToolFiles>
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
-			OutputDirectory="../Debug"
+			OutputDirectory="Debug"
 			IntermediateDirectory="Debug"
 			ConfigurationType="1"
-			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-				CommandLine="..\versionize.bat"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				PreprocessorDefinitions="_DEBUG"
-				MkTypLibCompatible="false"
-				TargetEnvironment="1"
-				GenerateStublessProxies="true"
-				TypeLibraryName="$(IntDir)/FireflyShell.tlb"
-				HeaderFileName="FireflyShell.h"
-				DLLDataFileName=""
-				InterfaceIdentifierFileName="FireflyShell_i.c"
-				ProxyFileName="FireflyShell_p.c"
-			/>
+			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				PreprocessorDefinitions="WIN32;_WINDOWS;STRICT;_DEBUG"
-				MinimalRebuild="true"
+				PreprocessorDefinitions="WIN32;_DEBUG;_WINDOWS"
+				MinimalRebuild="TRUE"
 				BasicRuntimeChecks="3"
-				RuntimeLibrary="1"
-				UsePrecompiledHeader="2"
+				RuntimeLibrary="3"
+				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				DebugInformationFormat="4"
-			/>
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="4"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="_DEBUG"
-				Culture="1033"
-				AdditionalIncludeDirectories="$(IntDir)"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="version.lib"
+				OutputFile="$(OutDir)/FireflyShell.exe"
 				LinkIncremental="2"
-				GenerateDebugInformation="true"
+				GenerateDebugInformation="TRUE"
+				ProgramDatabaseFile="$(OutDir)/FireflyShell.pdb"
 				SubSystem="2"
-				TargetMachine="1"
-			/>
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
+				Name="VCMIDLTool"/>
 			<Tool
-				Name="VCManifestTool"
-			/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCXDCMakeTool"
-			/>
+				Name="VCPreBuildEventTool"
+				CommandLine="..\versionize.bat"/>
 			<Tool
-				Name="VCBscMakeTool"
-			/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCFxCopTool"
-			/>
+				Name="VCResourceCompilerTool"/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
+				Name="VCXMLDataGeneratorTool"/>
 			<Tool
-				Name="VCPostBuildEventTool"
-			/>
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
-			OutputDirectory="../Release"
+			OutputDirectory="Release"
 			IntermediateDirectory="Release"
 			ConfigurationType="1"
-			UseOfATL="1"
-			ATLMinimizesCRunTimeLibraryUsage="false"
-			CharacterSet="2"
-			>
-			<Tool
-				Name="VCPreBuildEventTool"
-				CommandLine="..\versionize.bat"
-			/>
-			<Tool
-				Name="VCCustomBuildTool"
-			/>
-			<Tool
-				Name="VCXMLDataGeneratorTool"
-			/>
-			<Tool
-				Name="VCWebServiceProxyGeneratorTool"
-			/>
-			<Tool
-				Name="VCMIDLTool"
-				PreprocessorDefinitions="NDEBUG"
-				MkTypLibCompatible="false"
-				TargetEnvironment="1"
-				GenerateStublessProxies="true"
-				TypeLibraryName="$(IntDir)/FireflyShell.tlb"
-				HeaderFileName="FireflyShell.h"
-				DLLDataFileName=""
-				InterfaceIdentifierFileName="FireflyShell_i.c"
-				ProxyFileName="FireflyShell_p.c"
-			/>
+			CharacterSet="2">
 			<Tool
 				Name="VCCLCompilerTool"
-				PreprocessorDefinitions="WIN32;_WINDOWS;STRICT;NDEBUG"
-				ExceptionHandling="1"
-				RuntimeLibrary="0"
-				UsePrecompiledHeader="2"
+				PreprocessorDefinitions="WIN32;NDEBUG;_WINDOWS"
+				RuntimeLibrary="2"
+				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				DebugInformationFormat="0"
-			/>
+				Detect64BitPortabilityProblems="TRUE"
+				DebugInformationFormat="3"/>
 			<Tool
-				Name="VCManagedResourceCompilerTool"
-			/>
-			<Tool
-				Name="VCResourceCompilerTool"
-				PreprocessorDefinitions="NDEBUG"
-				Culture="1033"
-				AdditionalIncludeDirectories="$(IntDir)"
-			/>
-			<Tool
-				Name="VCPreLinkEventTool"
-			/>
+				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="version.lib"
+				OutputFile="$(OutDir)/FireflyShell.exe"
 				LinkIncremental="1"
+				GenerateDebugInformation="TRUE"
 				SubSystem="2"
-				TargetMachine="1"
-			/>
+				OptimizeReferences="2"
+				EnableCOMDATFolding="2"
+				TargetMachine="1"/>
 			<Tool
-				Name="VCALinkTool"
-			/>
+				Name="VCMIDLTool"/>
 			<Tool
-				Name="VCManifestTool"
-			/>
+				Name="VCPostBuildEventTool"/>
 			<Tool
-				Name="VCXDCMakeTool"
-			/>
+				Name="VCPreBuildEventTool"
+				CommandLine="..\versionize.bat"/>
 			<Tool
-				Name="VCBscMakeTool"
-			/>
+				Name="VCPreLinkEventTool"/>
 			<Tool
-				Name="VCFxCopTool"
-			/>
+				Name="VCResourceCompilerTool"/>
 			<Tool
-				Name="VCAppVerifierTool"
-			/>
+				Name="VCWebServiceProxyGeneratorTool"/>
 			<Tool
-				Name="VCWebDeploymentTool"
-			/>
+				Name="VCXMLDataGeneratorTool"/>
 			<Tool
-				Name="VCPostBuildEventTool"
-			/>
+				Name="VCWebDeploymentTool"/>
+			<Tool
+				Name="VCManagedWrapperGeneratorTool"/>
+			<Tool
+				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
 		</Configuration>
 	</Configurations>
 	<References>
@@ -196,173 +114,105 @@
 	<Files>
 		<Filter
 			Name="Source Files"
-			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm"
-			>
+			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
+			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
 			<File
-				RelativePath=".\AboutPage.cpp"
-				>
+				RelativePath=".\AboutPage.cpp">
 			</File>
 			<File
-				RelativePath=".\AdvancedPage.cpp"
-				>
+				RelativePath=".\AdvancedPage.cpp">
 			</File>
 			<File
-				RelativePath=".\ConfigPage.cpp"
-				>
+				RelativePath=".\ConfigPage.cpp">
 			</File>
 			<File
-				RelativePath=".\DosPath.cpp"
-				>
+				RelativePath=".\DosPath.cpp">
 			</File>
 			<File
-				RelativePath=".\FireflyShell.cpp"
-				>
+				RelativePath=".\FireflyShell.cpp">
 			</File>
 			<File
-				RelativePath=".\LogPage.cpp"
-				>
+				RelativePath=".\LogPage.cpp">
 			</File>
 			<File
-				RelativePath=".\MainDlg.cpp"
-				>
+				RelativePath=".\MainDlg.cpp">
 			</File>
 			<File
-				RelativePath=".\NotifyIcon.cpp"
-				>
+				RelativePath=".\NotifyIcon.cpp">
 			</File>
 			<File
-				RelativePath=".\ServerEvents.cpp"
-				>
+				RelativePath=".\ServerEvents.cpp">
 			</File>
 			<File
-				RelativePath=".\ServiceControl.cpp"
-				>
+				RelativePath=".\ServiceControl.cpp">
 			</File>
 			<File
-				RelativePath=".\stdafx.cpp"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="1"
-					/>
-				</FileConfiguration>
-				<FileConfiguration
-					Name="Release|Win32"
-					>
-					<Tool
-						Name="VCCLCompilerTool"
-						UsePrecompiledHeader="1"
-					/>
-				</FileConfiguration>
+				RelativePath=".\stdafx.cpp">
 			</File>
 			<File
-				RelativePath=".\VersionInfo.cpp"
-				>
+				RelativePath=".\VersionInfo.cpp">
 			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
-			Filter="h;hpp;hxx;hm;inl;inc"
-			>
+			Filter="h;hpp;hxx;hm;inl;inc;xsd"
+			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
 			<File
-				RelativePath=".\AboutPage.h"
-				>
+				RelativePath=".\AboutPage.h">
 			</File>
 			<File
-				RelativePath=".\AdvancedPage.h"
-				>
+				RelativePath=".\AdvancedPage.h">
 			</File>
 			<File
-				RelativePath=".\ConfigPage.h"
-				>
+				RelativePath=".\ConfigPage.h">
 			</File>
 			<File
-				RelativePath=".\DosPath.h"
-				>
+				RelativePath=".\DosPath.h">
 			</File>
 			<File
-				RelativePath=".\FireflyShell.h"
-				>
+				RelativePath=".\FireflyShell.h">
 			</File>
 			<File
-				RelativePath=".\IniFile.h"
-				>
+				RelativePath=".\IniFile.h">
 			</File>
 			<File
-				RelativePath=".\LogPage.h"
-				>
+				RelativePath=".\LogPage.h">
 			</File>
 			<File
-				RelativePath=".\MainDlg.h"
-				>
+				RelativePath=".\MainDlg.h">
 			</File>
 			<File
-				RelativePath=".\NotifyIcon.h"
-				>
+				RelativePath=".\NotifyIcon.h">
 			</File>
 			<File
-				RelativePath=".\resource.h"
-				>
+				RelativePath=".\resource.h">
 			</File>
 			<File
-				RelativePath=".\ServerEvents.h"
-				>
+				RelativePath=".\ServerEvents.h">
 			</File>
 			<File
-				RelativePath=".\ServiceControl.h"
-				>
+				RelativePath=".\ServiceControl.h">
 			</File>
 			<File
-				RelativePath=".\singleton.h"
-				>
+				RelativePath=".\singleton.h">
 			</File>
 			<File
-				RelativePath=".\stdafx.h"
-				>
+				RelativePath=".\stdafx.h">
 			</File>
 			<File
-				RelativePath=".\VersionInfo.h"
-				>
+				RelativePath=".\VersionInfo.h">
 			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"
-			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;jpg;jpeg;jpe;manifest"
-			>
+			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
+			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}">
 			<File
-				RelativePath=".\res\FireflyShell.ico"
-				>
-			</File>
-			<File
-				RelativePath=".\FireflyShell.rc"
-				>
-			</File>
-			<File
-				RelativePath=".\res\shellrunning.ico"
-				>
-			</File>
-			<File
-				RelativePath=".\res\shellstopped.ico"
-				>
-			</File>
-			<File
-				RelativePath=".\version.rc"
-				>
-				<FileConfiguration
-					Name="Debug|Win32"
-					>
-					<Tool
-						Name="VCResourceCompilerTool"
-					/>
-				</FileConfiguration>
+				RelativePath=".\FireflyShell.rc">
 			</File>
 		</Filter>
 		<File
-			RelativePath=".\README.txt"
-			>
+			RelativePath=".\README.txt">
 		</File>
 	</Files>
 	<Globals>
