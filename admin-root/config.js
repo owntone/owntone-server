@@ -9,6 +9,7 @@ Event.observe(window,'load',init);
 // Config isn't defined until after the Event.observe above
 // I could have put it below Config = ... but I want all window.load events
 // at the start of the file
+var DEBUG = window.location.toString().match(/debug/);
 
 function init() {
   Config.init();
@@ -387,9 +388,15 @@ function saved(req) {
 function saveForm() {
   var postVars = [];
   var multiple = {};
+
   $A($('theform').getElementsByTagName('select')).each(function (select) {
-    postVars.push(Form.Element.serialize(select.id));
+    if (DEBUG) {
+      debug(select.id,select.value);
+    } else {
+      postVars.push(Form.Element.serialize(select.id));
+    }
   });
+
   $A($('theform').getElementsByTagName('input')).each(function (input) {
     if (ConfigXML.getOptionFromElementName(input.name).multiple) {
       if (multiple[input.name]) {
@@ -398,16 +405,43 @@ function saveForm() {
         multiple[input.name] = [input.value];
       }
     } else {
-      postVars.push(Form.Element.serialize(input.id));       
+      if (DEBUG) {
+        debug(input.id,input.value);
+      } else {
+        postVars.push(Form.Element.serialize(input.id));
+      }
     }
   });
+
   $H(multiple).each(function (item) {
-    postVars.push(item.key + '=' + item.value.join(','));
+    if (DEBUG) {
+      debug(item.key,item.value.join(','));
+    } else {
+      postVars.push(item.key + '=' + item.value.join(','));
+    }
   });
+  if (DEBUG) {
+    return;
+  }
   new Ajax.Request('/xml-rpc?method=updateconfig',
                    {method: 'post',
                 parameters: postVars.join('&'),
                 onComplete: saved});
+  function debug(id,value) {
+    var getArr = [];
+    var a = id.split(':');
+    getArr.push('section='+encodeURIComponent(a[0]));
+    getArr.push('key='+encodeURIComponent(a[1]));
+    getArr.push('value='+encodeURIComponent(value));
+    getArr.push('verify_only=1');
+    var url = a[1] + '=' + value;
+    new Ajax.Request('/xml-rpc?method=setconfig&' + getArr.join('&'),
+                     {method: 'get',
+                  onComplete: function(req){console.log(url + ' => ' +
+                         Element.textContent(req.responseXML.getElementsByTagName('statusstring')[0]));
+                  } });
+      
+  }
 }
 function cancelForm() {
   ConfigXML.getSections().each(function (section){
