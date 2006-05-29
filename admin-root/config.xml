@@ -114,7 +114,52 @@
             <type size="80" multiple="true" add_item_label="Add compilation directory" browse="directory">text</type>
         </item>
     </section>
-
+    <section name="Scanning">
+        <item id="process_xml" advanced="true" config_section="scanning">
+            <name>Process xmlFiles</name>
+            <short_description>
+                Should iTunes xml-files be processed?
+            </short_description>
+            <type default_value="1">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+        <item id="ignore_appledouble" advanced="true" config_section="scanning">
+            <name>Ignore appledouble</name>
+            <short_description>
+                Skip appledouble files when scanning
+            </short_description>
+            <type default_value="1">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+        <item id="ignore_dotfiles" advanced="true" config_section="scanning">
+            <name>Ignore dotfiles</name>
+            <short_description>
+                Ignore unix hidden dot files
+            </short_description>
+            <type default_value="0">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+        <item id="concat_compilations" advanced="true" config_section="scanning">
+            <name>Group compilations</name>
+            <short_description>
+                Compilations are grouped under &amp;Various artists&amp;
+            </short_description>
+            <type default_value="0">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+    </section>
     <section name="Database">
         <item id="db_type" advanced="true" config_section="general" restart="true">
             <name>Database Type</name>
@@ -157,7 +202,26 @@
             </options>
         </item>
     </section>
-
+    <section name="Daap">
+        <item id="empty_strings" advanced="true" config_section="general">
+            <name>Empty strings</name>
+            <short_description></short_description>
+            <type default_value="0">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+        <item id="supports_update" advanced="true" config_section="general">
+            <name>Supports update</name>
+            <short_description></short_description>
+            <type default_value="1">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+    </section>
     <section name="Plugins">
         <item id="plugin_dir" advanced="true" config_section="plugins" restart="true">
             <name>Plugin Directory</name>
