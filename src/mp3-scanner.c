@@ -210,7 +210,7 @@ void scan_process_playlistlist(void) {
         }
 
         if(strcasecmp(ext,".xml") == 0) {
-            if(conf_get_int("scanning","process xml",1)) {
+            if(conf_get_int("scanning","process_xml",1)) {
                 DPRINTF(E_LOG,L_SCAN,"Scanning %s\n",pnext->path);
                 scan_xml_playlist(pnext->path);
             }
@@ -772,7 +772,7 @@ void make_composite_tags(MP3FILE *song) {
     }
 
     if(song->compilation && song->artist && song->title &&
-       (conf_get_int("scanning","concat compilations",0))) {
+       (conf_get_int("scanning","concat_compilations",0))) {
         len = (int)strlen(song->artist) +
               (int)strlen(sep) +
               (int)strlen(song->title);

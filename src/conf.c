@@ -462,6 +462,7 @@ int conf_read(char *file) {
     int key_type;
     char **valuearray;
     int index;
+    char *temp;
 
     if(conf_main_file) {
         conf_close();
@@ -513,6 +514,15 @@ int conf_read(char *file) {
             compat_mode=0;
             term=&linebuffer[1];
             value = strchr(term,']');
+
+            /* convert spaces to underscores in headings */
+            temp = term;
+            while(*temp) {
+                if(*temp == ' ')
+                    *temp = '_';
+                temp++;
+            }
+
             if(!value) {
                 ll_destroy(pllnew);
                 fclose(fin);
@@ -573,6 +583,14 @@ int conf_read(char *file) {
                     value++;
                 while((strlen(value) && (strchr("\t ",value[strlen(value)-1]))))
                       value[strlen(value)-1] = '\0';
+
+                /* convert spaces to underscores in key */
+                temp = term;
+                while(*temp) {
+                    if(*temp == ' ')
+                        *temp = '_';
+                    temp++;
+                }
 
                 if(!pllcurrent) {
                     /* in compat mode -- add a general section */
