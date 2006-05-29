@@ -18,7 +18,7 @@ ssc_script_LTLIBRARIES=ssc-script.la
 ssc_script_la_LDFLAGS=-module -avoid-version
 ssc_script_la_SOURCES=ssc-script.c
 
-EXTRA_DIST = compat.h rsp.h mtd-plugins.h xml-rpc.h ssc-ffmpeg.c ssc-script.c
+EXTRA_DIST = compat.h rsp.h xml-rpc.h ssc-ffmpeg.c ssc-script.c
 
 AM_CFLAGS = -I..
 
