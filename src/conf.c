@@ -1085,6 +1085,7 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
     LL_ITEM *pli;
     LL_ITEM *ppre, *pin;
     LL_ITEM *plitemp;
+    int first;
 
     char keybuffer[256];
 
@@ -1116,9 +1117,15 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
             if(sublevel) {
                 /* must be multivalued */
                 plitemp = NULL;
+                first = 1;
+                fprintf(fp,"%s = ",pli->key);
                 while((plitemp = ll_get_next(pli->value.as_ll,plitemp))) {
-                    fprintf(fp,"%s = %s\n",pli->key,plitemp->value.as_string);
+                    if(!first)
+                        fprintf(fp,",");
+                    first=0;
+                    fprintf(fp,"%s",plitemp->value.as_string);
                 }
+                fprintf(fp,"\n");
             } else {
                 fprintf(fp,"[%s]",pli->key);
                 if(pin) {
