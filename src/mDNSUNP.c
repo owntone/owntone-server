@@ -121,7 +121,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
     struct ifconf       ifc;
     struct ifreq        *ifr, ifrcopy;
     struct sockaddr_in  *sinptr;
-    int index;
+    //    int index;
     
 #if defined(AF_INET6) && defined(HAVE_IPV6)
     struct sockaddr_in6 *sinptr6;
@@ -184,7 +184,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
                     ptr += sizeof(struct ifreq); /* for next one in buffer */
 #endif
     
-        DPRINTF(E_DBG,L_REND,"intf %d name=%s AF=%d, flags=%08x\n", index, ifr->ifr_name, ifr->ifr_addr.sa_family,ifr->ifr_flags);
+        DPRINTF(E_DBG,L_REND,"intf name=%s AF=%d, flags=%08x\n", ifr->ifr_name, ifr->ifr_addr.sa_family,ifr->ifr_flags);
         
         if (ifr->ifr_addr.sa_family != family)
             continue;   /* ignore if not desired address family */
