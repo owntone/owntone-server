@@ -260,13 +260,13 @@ void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     /* info block */
     xml_push(pxml,"info");
     xml_output(pxml,"count","%d",_ppi->db_count());
-    xml_output(pxml,"rsp-version",RSP_VERSION);
+    xml_output(pxml,"rsp-version","%s",RSP_VERSION);
 
-    xml_output(pxml,"server-version",_ppi->server_ver());
+    xml_output(pxml,"server-version","%s",_ppi->server_ver());
 
     size = sizeof(servername);
     _ppi->server_name(servername,&size);
-    xml_output(pxml,"name",servername);
+    xml_output(pxml,"name","%s",servername);
     xml_pop(pxml); /* info */
 
     xml_pop(pxml); /* response */
@@ -517,7 +517,7 @@ void rsp_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     xml_push(pxml,"items");
 
     while((_ppi->db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) && (row)) {
-        xml_output(pxml,"item",row[0]);
+        xml_output(pxml,"item","%s",row[0]);
     }
 
     _ppi->db_enum_end(NULL);
