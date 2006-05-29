@@ -374,11 +374,6 @@ char *xml_entity_encode(char *original) {
             d += 5;
             s++;
             break;
-        case '%':
-            strcat(d,"&#37;");
-            d += 5;
-            s++;
-            break;
         default:
             *d++ = *s++;
         }
