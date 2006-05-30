@@ -94,8 +94,6 @@ void Application::Exit()
 	if (m_dlg)
 	{
 		m_dlg->DestroyWindow();
-		delete m_dlg;
-		m_dlg = NULL;
 	}
 	::PostQuitMessage(0);
 }
