@@ -45,6 +45,7 @@ class CNotifyIcon
 		MESSAGE_HANDLER(WM_SERVEREVENT, OnServerEvent)
 		MESSAGE_HANDLER(WM_WTSSESSION_CHANGE, OnSessionChange)
 		MSG_WM_TIMER(OnTimer)
+		MSG_WM_CLOSE(OnClose)
 	END_MSG_MAP()
 
 	// Message handlers
@@ -56,6 +57,7 @@ class CNotifyIcon
 	LRESULT OnServerEvent(UINT, WPARAM, LPARAM, BOOL &bHandled);
 	LRESULT OnSessionChange(UINT, WPARAM, LPARAM, BOOL &bHandled);
 	void OnTimer(UINT id, TIMERPROC proc);
+	void OnClose();
 
 	void PopupBalloon(UINT title_id, UINT text_id, DWORD flags = NIIF_INFO);
 

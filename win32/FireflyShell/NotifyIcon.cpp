@@ -71,6 +71,14 @@ void CNotifyIcon::Destroy()
 	base::DestroyWindow();
 }
 
+void CNotifyIcon::OnClose()
+{
+	// The only time this should happen is if something else explicitly
+	// sends us the message (such as the installer). We'll just
+	// exit completely.
+	GetApplication()->Exit();
+}
+
 void CNotifyIcon::PopupBalloon(UINT title_id, UINT text_id, DWORD flags)
 {
 	CString title, text;
