@@ -581,6 +581,9 @@ void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
 int plugin_ssc_can_transcode(char *codec) {
     int result;
 
+    if(!_plugin_ssc_codecs)
+        return FALSE;
+
     _plugin_readlock();
     result = FALSE;
     if(strstr(_plugin_ssc_codecs,codec)) {
