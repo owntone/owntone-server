@@ -27,7 +27,7 @@ bool VersionInfo::Open(const TCHAR *filename)
 	{
 		m_buffer = operator new(m_size);
 		::ZeroMemory(m_buffer, m_size);
-		if (GetFileVersionInfo(filename, 0, m_size, m_buffer))
+		if (GetFileVersionInfo(filename, 0, static_cast<DWORD>(m_size), m_buffer))
 		{
 			return IdentifySubBlock();
 		}
