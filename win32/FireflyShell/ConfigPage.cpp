@@ -48,8 +48,7 @@ void CConfigPage::EnableControls()
 
 	const bool enable_password = (m_protect_checkbox.GetCheck() != 0) && enable;
 	GetDlgItem(IDC_PASSWORD).EnableWindow(enable_password);
-	GetDlgItem(IDC_PASSWORD_PROMPT).EnableWindow(enable_password);
-
+	//GetDlgItem(IDC_PASSWORD_PROMPT).EnableWindow(enable_password);
 }
 
 int CConfigPage::OnApply()
