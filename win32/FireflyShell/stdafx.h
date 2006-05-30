@@ -25,6 +25,16 @@
 #define _UNICODE
 #define UNICODE
 
+// Visual C++ 2005's new secure string operations and deprecation
+#define USE_SECURE 0
+#if defined(_MSC_VER)
+#if _MSC_VER >= 1400
+#undef USE_SECURE
+#define USE_SECURE 1
+#define _CRT_SECURE_NO_DEPRECATE
+#endif // _MSC_VER >= 1400
+#endif // defined(_MSC_VER)
+
 #include <atlbase.h>
 #include <atlapp.h>
 
@@ -56,15 +66,6 @@ extern CAppModule _Module;
 #else
   #pragma comment(linker, "/manifestdependency:\"type='win32' name='Microsoft.Windows.Common-Controls' version='6.0.0.0' processorArchitecture='*' publicKeyToken='6595b64144ccf1df' language='*'\"")
 #endif
-
-// Visual C++ 2005's new secure string operations
-#define USE_SECURE 0
-#if defined(_MSC_VER)
-#if _MSC_VER >= 1400
-#undef USE_SECURE
-#define USE_SECURE 1
-#endif // _MSC_VER >= 1400
-#endif // defined(_MSC_VER)
 
 inline void SafeStringCopy(TCHAR *dest, const TCHAR *source, size_t len)
 {
