@@ -77,7 +77,7 @@ int Application::Run(LPCTSTR lpstrCmdLine, int nCmdShow)
 	EnableServerEvents(true);
 
 	if (ShowDialogAtStart(lpstrCmdLine, nCmdShow))
-		Configure();
+		Configure(false);
 
 	int nRet = theLoop.Run();
 
@@ -100,7 +100,7 @@ void Application::Exit()
 	::PostQuitMessage(0);
 }
 
-void Application::Configure()
+void Application::Configure(bool move_window)
 {
 	if (m_dlg)
 	{
@@ -112,7 +112,7 @@ void Application::Configure()
 		CheckCanConfigure();
 
 		// Other people may need to talk to the dialog while it exists.
-		CMainDlg dlg;
+		CMainDlg dlg(move_window);
 		m_dlg = &dlg;
 		dlg.DoModal();
 		m_dlg = NULL;

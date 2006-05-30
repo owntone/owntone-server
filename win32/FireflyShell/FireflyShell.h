@@ -74,8 +74,9 @@ public:
 		return m_registered_activation_message;
 	}
 
-	// User actions
-	void Configure();
+	// Pass true to move the window so it is near the mouse
+	// cursor.
+	void Configure(bool move_window);
 	void Exit();
 
 	// Service control

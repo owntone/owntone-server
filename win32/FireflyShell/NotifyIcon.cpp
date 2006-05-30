@@ -139,7 +139,7 @@ LRESULT CNotifyIcon::OnNotifyIconMessage(UINT uMsg, WPARAM wParam, LPARAM lParam
 	switch (lParam)
 	{
 	case WM_LBUTTONDBLCLK:
-		GetApplication()->Configure();
+		GetApplication()->Configure(true);
 		bHandled = true;
 		return 0L;
 	case WM_RBUTTONDOWN:
@@ -175,7 +175,7 @@ void CNotifyIcon::OnContextMenu()
 
 LRESULT CNotifyIcon::OnConfigure(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
-	GetApplication()->Configure();
+	GetApplication()->Configure(true);
 	return 0;
 }
 
@@ -190,7 +190,7 @@ LRESULT CNotifyIcon::OnRegisteredActivation(UINT, WPARAM, LPARAM, BOOL &bHandled
 {
 	ATLTRACE(_T("Activate\n"));
 	bHandled = true;
-	GetApplication()->Configure();
+	GetApplication()->Configure(false);
 
 	// We return a magic number so that the caller knows we've been found
 	// and can give up.

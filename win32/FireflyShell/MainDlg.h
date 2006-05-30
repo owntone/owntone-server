@@ -32,16 +32,23 @@ class CMainDlg : public CPropertySheetImpl<CMainDlg>
 	CAdvancedPage m_pageAdvanced;
 	CLogPage m_pageLog;
 	CAboutPage m_pageAbout;
+	bool m_window_move_required;
 
 	BEGIN_MSG_MAP(CMainDlg)
 		MESSAGE_HANDLER(WM_COMMAND, OnCommand)
+		MSG_WM_MOVE(OnMove)
 		CHAIN_MSG_MAP(base)
 	END_MSG_MAP()
 
 	LRESULT OnCommand(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled);
+	void OnMove(CPoint);
+	void PositionWindow();
 
 public:
-	CMainDlg();
+	// Pass true if you want the window to be moved to near the mouse pointer.
+	// This is usually only the case if the window is displayed as a result of
+	// clicking on the shell notification icon.
+	CMainDlg(bool move_window);
 };
 
 #endif // MAINDLG_H
