@@ -133,3 +133,14 @@ LRESULT CAboutPage::OnCopy(WORD, WORD, HWND, BOOL &)
 	}
 	return 0;
 }
+
+LRESULT CAboutPage::OnCtlColorStatic(HDC hdc, HWND hwnd)
+{
+	if (GetDlgItem(IDC_LOGO) == hwnd)
+	{
+		HBRUSH brush = (HBRUSH)::GetStockObject(WHITE_BRUSH);
+		return (LRESULT)brush;
+	}
+	else
+		return 0;
+}

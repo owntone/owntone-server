@@ -63,18 +63,17 @@ IDI_SHELL_STOPPED       ICON                    "res\\shellstopped.ico"
 // Dialog
 //
 
-IDD_PAGE_ABOUT DIALOGEX 0, 0, 300, 223
+IDD_PAGE_ABOUT DIALOGEX 0, 0, 300, 228
 STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About"
 FONT 8, "MS Sans Serif", 0, 0, 0x0
 BEGIN
-    ICON            IDR_MAINFRAME,IDC_STATIC,139,18,21,20
-    CTEXT           "Firefly Media Server",IDC_STATIC,7,41,287,11
-    LTEXT           "For help, tips and troubleshooting advice visit the Firefly Media Server website.",IDC_STATIC,12,79,197,23
-    PUSHBUTTON      "Visit &Website...",IDC_WEBSITE,218,82,70,14
-    GROUPBOX        "Version information",IDC_STATIC,6,114,288,102
-    CONTROL         "",IDC_VERSIONLIST,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,12,126,276,63
-    PUSHBUTTON      "&Copy to Clipboard",IDC_COPY,218,194,70,14
+    LTEXT           "For help, tips and troubleshooting advice visit the Firefly Media Server website.",IDC_STATIC,12,92,197,23
+    PUSHBUTTON      "Visit &Website...",IDC_WEBSITE,218,95,70,14
+    GROUPBOX        "Version information",IDC_STATIC,6,125,288,96
+    CONTROL         "",IDC_VERSIONLIST,"SysListView32",LVS_REPORT | LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,12,137,276,63
+    PUSHBUTTON      "&Copy to Clipboard",IDC_COPY,218,203,70,14
+    CONTROL         208,IDC_LOGO,"Static",SS_BITMAP | SS_CENTERIMAGE | SS_SUNKEN | WS_BORDER,6,7,288,73
 END
 
 IDD_PAGE_BASIC DIALOGEX 0, 0, 300, 230
@@ -142,7 +141,7 @@ BEGIN
         VERTGUIDE, 218
         VERTGUIDE, 288
         TOPMARGIN, 7
-        BOTTOMMARGIN, 216
+        BOTTOMMARGIN, 221
     END
 
     IDD_PAGE_BASIC, DIALOG
@@ -335,6 +334,25 @@ BEGIN
 END
 
 #endif    // English (U.S.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.K.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENG)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_UK
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Bitmap
+//
+
+IDB_LOGO                BITMAP                  "res\\logo.bmp"
+#endif    // English (U.K.) resources
 /////////////////////////////////////////////////////////////////////////////
 
 

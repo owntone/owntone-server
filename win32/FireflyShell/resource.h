@@ -26,6 +26,7 @@
 #define IDD_PAGE_LOG                    203
 #define IDD_PAGE_ABOUT                  204
 #define IDI_SHELL_STOPPED               207
+#define IDB_LOGO                        208
 #define IDC_SERVERNAME                  1000
 #define IDC_PATH                        1001
 #define IDC_BROWSE                      1002
@@ -48,15 +49,16 @@
 #define IDC_VERSIONLIST                 1015
 #define IDC_COPY                        1016
 #define IDC_REFRESH                     1018
+#define IDC_LOGO                        1019
 #define ID_SHELLNOTIFY                  4242
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        208
+#define _APS_NEXT_RESOURCE_VALUE        209
 #define _APS_NEXT_COMMAND_VALUE         32773
-#define _APS_NEXT_CONTROL_VALUE         1019
+#define _APS_NEXT_CONTROL_VALUE         1020
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

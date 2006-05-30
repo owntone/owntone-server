@@ -52,6 +52,7 @@ private:
 		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
 		COMMAND_ID_HANDLER(IDC_WEBSITE, OnWebsite)
 		COMMAND_ID_HANDLER(IDC_COPY, OnCopy)
+		MSG_WM_CTLCOLORSTATIC(OnCtlColorStatic)
 		CHAIN_MSG_MAP(base)
 	END_MSG_MAP()
 
@@ -62,6 +63,7 @@ private:
 	LRESULT OnInitDialog(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
 	LRESULT OnWebsite(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnCopy(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+	LRESULT OnCtlColorStatic(HDC, HWND);
 
 	void FillVersionList();
 	void AddEntry(const TCHAR *path, const TCHAR *fallback_description);
