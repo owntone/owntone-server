@@ -51,7 +51,7 @@
 #endif
 
 static int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
-static int err_logdestination=LOGDEST_STDERR; /**< current log destination */
+static int err_logdest=0; /**< current log destination */
 static char err_filename[PATH_MAX + 1];
 static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
 static pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER; /**< for serializing log messages */
@@ -78,22 +78,27 @@ static int _err_unlock(void);
 void err_reopen(void) {
     int err;
 
-    if(err_logdestination != LOGDEST_LOGFILE)
+    if(!(err_logdest & LOGDEST_LOGFILE))
         return;
     
+    _err_lock();
     fclose(err_file);
     err_file = fopen(err_filename,"a");
     if(!err_file) {
         /* what to do when you lose your logging mechanism?  Keep
          * going?
          */
+        _err_unlock();
         err = errno;
-        err_setdest(PACKAGE,LOGDEST_SYSLOG);
+        err_setdest(err_logdest & (~LOGDEST_LOGFILE));
+        err_setdest(err_logdest | LOGDEST_SYSLOG);
+
         DPRINTF(E_LOG,L_MISC,"Could not rotate log file: %s\n",
                 strerror(err));
-    } else {
-        DPRINTF(E_LOG,L_MISC,"Rotated logs\n");
+        return;
     }
+    _err_unlock();
+    DPRINTF(E_LOG,L_MISC,"Rotated logs\n");
 }
 
 /**
@@ -114,13 +119,13 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     struct tm tm_now;
     time_t tt_now;
 
-    if(level) {
+    if(level > 1) {
         if(level > err_debuglevel)
             return;
 
         if(!(cat & err_debugmask))
             return;
-    } /* we'll *always* process a log level 0 */
+    } /* we'll *always* process a log level 0 or 1 */
 
     va_start(ap, fmt);
     vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
@@ -128,47 +133,95 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
 
     _err_lock(); /* atomic file writes */
 
-    if((!level) && (err_logdestination != LOGDEST_STDERR)) {
-        fprintf(stderr,"%s",errbuf);
-        fprintf(stderr,"Aborting\n");
-        fflush(stderr); /* shouldn't have to do this? */
-    }
-
-    switch(err_logdestination) {
-    case LOGDEST_LOGFILE:
+    if((err_logdest & LOGDEST_LOGFILE) && err_file) {
         tt_now=time(NULL);
         localtime_r(&tt_now,&tm_now);
         strftime(timebuf,sizeof(timebuf),"%Y-%m-%d %T",&tm_now);
         fprintf(err_file,"%s: %s",timebuf,errbuf);
         if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
         fflush(err_file);
-        break;
-    case LOGDEST_STDERR:
+    }
+    
+    /* always log to stderr on fatal error */
+    if((err_logdest & LOGDEST_STDERR) || (!level)) {
         fprintf(stderr, "%s",errbuf);
         if(!level) fprintf(stderr,"Aborting\n");
-        break;
-    case LOGDEST_SYSLOG:
-        os_syslog(level,errbuf);
-        if(!level) os_syslog(0, "Fatal error... Aborting\n");
-        break;
     }
-
+    
+    /* alwyas log fatals to syslog */
+    if(!level) {
+        os_opensyslog(); // (app,LOG_PID,LOG_DAEMON);
+        os_syslog(level,errbuf);
+        os_closesyslog();
+    }
+    
     _err_unlock();
-
+    
     if(!level) {
         exit(EXIT_FAILURE);      /* this should go to an OS-specific exit routine */
     }
 }
-
-/*
+ 
+/**
  * simple get/set interface to debuglevel to avoid global
  */
 void err_setlevel(int level) {
+    _err_lock();
     err_debuglevel = level;
+    _err_unlock();
 }
 
+/**
+ * get current debug level
+ */
 int err_getlevel(void) {
-    return err_debuglevel;
+    int level;
+    _err_lock();
+    level = err_debuglevel;
+    _err_unlock();
+
+    return level;
+}
+
+
+/**
+ * get the logfile destination
+ */
+int err_getdest(void) {
+    int dest;
+    
+    _err_lock();
+    dest=err_logdest;
+    _err_unlock();
+
+    return dest;
+}
+
+
+int err_setlogfile(char *file) {
+    _err_lock();
+
+    if(err_logdest & LOGDEST_LOGFILE) {
+        fclose(err_file);
+    }
+
+    memset(err_filename,0,sizeof(err_filename));
+    strncpy(err_filename,file,sizeof(err_filename)-1);
+
+    err_file = fopen(err_filename,"a");
+    if(err_file == NULL) {
+        err_logdest &= ~LOGDEST_LOGFILE;
+
+        os_opensyslog(); // (app,LOG_PID,LOG_DAEMON);
+        os_syslog(1,"Error opening logfile");
+        os_closesyslog();
+        
+        _err_unlock();
+        return FALSE;
+    }
+
+    _err_unlock();
+    return TRUE;
 }
 
 /**
@@ -177,34 +230,21 @@ int err_getlevel(void) {
  * \param app appname (used only for syslog destination)
  * \param destination where to log to \ref log_dests "as defined in err.h"
  */
-void err_setdest(char *cvalue, int destination) {
-    if(err_logdestination == destination)
+void err_setdest(int destination) {
+    fprintf(stderr,"setting dest to %d\n",destination);
+
+    if(err_logdest == destination)
         return;
 
-    switch(err_logdestination) {
-    case LOGDEST_SYSLOG:
-        os_closesyslog();
-        break;
-    case LOGDEST_LOGFILE:
+    _err_lock();
+    if((err_logdest & LOGDEST_LOGFILE) &&
+       (!(destination & LOGDEST_LOGFILE))) {
+        /* used to be logging to file, not any more */
         fclose(err_file);
-        break;
     }
 
-    switch(destination) {
-    case LOGDEST_LOGFILE:
-        strncpy(err_filename,cvalue,PATH_MAX);
-        err_file=fopen(err_filename,"a");
-        if(err_file==NULL) {
-            fprintf(stderr,"Error opening %s: %s\n",cvalue,strerror(errno));
-            exit(EXIT_FAILURE);
-        }
-        break;
-    case LOGDEST_SYSLOG:
-        os_opensyslog(); // (app,LOG_PID,LOG_DAEMON);
-        break;
-    }
-
-    err_logdestination=destination;
+    err_logdest=destination;
+    _err_unlock();
 }
 /**
  * Set the debug mask.  Given a comma separated list, this walks
@@ -224,6 +264,7 @@ extern int err_setdebugmask(char *list) {
     if(!str)
         return 0;
     
+    _err_lock();
     while(1) {
         token=strtok_r(str,",",&last);
         str=NULL;
@@ -250,6 +291,7 @@ extern int err_setdebugmask(char *list) {
 
     DPRINTF(E_INF,L_MISC,"Debug mask is 0x%08x\n",err_debugmask);
     free(tmpstr);
+    _err_unlock();
 
     return 0;
 }

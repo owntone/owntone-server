@@ -270,6 +270,9 @@ LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *key) {
     LL_ITEM *psection;
     LL_ITEM *pitem;
 
+    if(!pll)
+        return NULL;
+
     if(!(psection = ll_fetch_item(pll,section)))
         return NULL;
 
@@ -426,6 +429,78 @@ int _conf_verify(LL_HANDLE pll) {
 
     return is_valid;
 }
+
+
+/**
+ * apply an element
+ */
+void _conf_apply_element(char *section, char *key, char *cold, char *cnew) {
+    if((strcmp(section,"general")==0) && (strcmp(key,"logfile")==0)) {
+        /* logfile changed */
+        if((cnew) && strlen(cnew)) {
+            err_setlogfile(cnew);
+            err_setdest(err_getdest() | LOGDEST_LOGFILE);
+        } else {
+            err_setdest(err_getdest() & ~LOGDEST_LOGFILE);
+        }
+    }
+
+    if((strcmp(section,"general")==0) && (strcmp(key,"loglevel")==0)) {
+        /* loglevel changed */
+        err_setlevel(atoi(cnew));
+    }
+}
+
+/**
+ * apply a new config.  This should really be called locked
+ * just prior to applying the config.
+ *
+ * @param pll the "about to be applied" config
+ */
+void _conf_apply(LL_HANDLE pll) {
+    LL_ITEM *psection;
+    LL_ITEM *pitem, *polditem;
+    char *oldvalue;
+    char *newvalue;
+
+    /* get all new and changed items */
+    psection = NULL;
+    while((psection=ll_get_next(pll, psection))) {
+        /* walk through sections */
+        pitem = NULL;
+        while((pitem=ll_get_next(psection->value.as_ll,pitem))) {
+            if(pitem->type == LL_TYPE_STRING) {
+                newvalue = pitem->value.as_string;
+                polditem = _conf_fetch_item(conf_main,
+                                            psection->key,
+                                            pitem->key);
+                oldvalue = NULL;
+                if(polditem)
+                    oldvalue = polditem->value.as_string;
+
+                _conf_apply_element(psection->key, pitem->key,
+                                    oldvalue, newvalue);
+            }
+        }
+    }
+
+    /* now, get deleted items */
+    psection = NULL;
+    while((psection=ll_get_next(conf_main, psection))) {
+        /* walk through sections */
+        pitem = NULL;
+        while((pitem=ll_get_next(psection->value.as_ll,pitem))) {
+            if(pitem->type == LL_TYPE_STRING) {
+                oldvalue = pitem->value.as_string;
+                if(!_conf_fetch_item(pll,psection->key, pitem->key)) {
+                    _conf_apply_element(psection->key, pitem->key,
+                                        oldvalue,NULL);
+                }
+            }
+        }
+    }
+}
+
 
 /**
  * reload the existing config file.
@@ -736,6 +811,7 @@ int conf_read(char *file) {
     if(_conf_verify(pllnew)) {
         DPRINTF(E_INF,L_CONF,"Loading new config file.\n");
         _conf_lock();
+        _conf_apply(pllnew);
         if(conf_main) {
             ll_destroy(conf_main);
         }
@@ -920,6 +996,8 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
     char **valuearray;
     int index;
     int err;
+    char *oldvalue=NULL;
+    LL_ITEM *polditem;
 
     _conf_lock();
 
@@ -938,6 +1016,15 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
     pce = _conf_get_keyinfo(section,key);
     if(pce)
         key_type = pce->type;
+
+    /* apply the config change, if necessary */
+    if(key_type != CONF_T_MULTICOMMA) {
+        /* let's apply it */
+        polditem = _conf_fetch_item(conf_main,section,key);
+        if(polditem)
+            oldvalue = polditem->value.as_string;
+        _conf_apply_element(section,key,oldvalue,value);
+    }
 
     if(strcmp(value,"") == 0) {
         /* deleting the item */

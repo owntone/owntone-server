@@ -226,7 +226,7 @@ int main(int argc, char *argv[]) {
     int force_non_root=0;
     int skip_initial=1;
     int convert_conf=0;
-    char *logfile,*db_type,*db_parms,*web_root,*runas;
+    char *db_type,*db_parms,*web_root,*runas;
     char **mp3_dir_array;
     char *servername, *iface;
     int index;
@@ -257,6 +257,7 @@ int main(int argc, char *argv[]) {
             break;
         case 'f':
             config.foreground=1;
+            err_setdest(err_getdest() | LOGDEST_STDERR);
             break;
 
         case 'c':
@@ -332,15 +333,6 @@ int main(int argc, char *argv[]) {
     }
 
     DPRINTF(E_LOG,L_MAIN,"Starting with debuglevel %d\n",err_getlevel());
-
-    if(!config.foreground) {
-        if((logfile = conf_alloc_string("general","logfile",NULL)) != NULL) {
-            err_setdest(logfile,LOGDEST_LOGFILE);
-            free(logfile);
-        } else {
-            err_setdest("mt-daapd",LOGDEST_SYSLOG);
-        }
-    }
 
     /* load plugins before we drop privs?  Maybe... let the 
      * plugins do stuff they might need to */
@@ -542,8 +534,6 @@ int main(int argc, char *argv[]) {
     db_deinit();
 
     DPRINTF(E_LOG,L_MAIN,"Done!\n");
-
-    err_setdest(NULL,LOGDEST_STDERR);
 
     os_deinit();
     return EXIT_SUCCESS;

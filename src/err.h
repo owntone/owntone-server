@@ -29,9 +29,9 @@
 #define __ERR_H__
 
 /** @anchor log_dests */
-#define LOGDEST_STDERR       0  /**< Log to stderr */
-#define LOGDEST_SYSLOG       1  /**< Log to syslog/eventviewer */
-#define LOGDEST_LOGFILE      2  /**< Log to logfile */
+#define LOGDEST_STDERR       1  /**< Log to stderr */
+#define LOGDEST_SYSLOG       2  /**< Log to syslog/eventviewer */
+#define LOGDEST_LOGFILE      4  /**< Log to logfile */
 
 /** @anchor log_levels */
 #define E_SPAM         10   /**< Logorrhea! */
@@ -66,10 +66,13 @@
 
 extern void err_log(int level, unsigned int cat, char *fmt, ...);
 extern void err_reopen(void); /** rotate logfile */
-extern void err_setdest(char *cvalue, int destination);
+extern void err_setdest(int destination);
+extern int err_getdest(void);
 extern void err_setlevel(int level);
 extern int err_getlevel(void);
 extern int err_setdebugmask(char *list);
+extern int err_setlogfile(char *file);
+
 /**
  * Print a debugging or log message
  */
