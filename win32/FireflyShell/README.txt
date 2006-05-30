@@ -1,7 +1,7 @@
 The FireflyShell source code is distributed under the terms of the GNU
 General Public License Version 2 as published by the Free Software
-Foundation. You can find a copy of this license in the LICENSE.txt
-file.
+Foundation. You can find a copy of this license in the
+admin-root/gpl-license.txt file.
 
 This program uses the Microsoft Windows Template Library which is released 
 under the Common Public License. The copyright holders of FireflyShell 
