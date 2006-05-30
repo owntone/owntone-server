@@ -434,12 +434,15 @@ function saveForm() {
     getArr.push('key='+encodeURIComponent(a[1]));
     getArr.push('value='+encodeURIComponent(value));
     getArr.push('verify_only=1');
-    var url = a[1] + '=' + value;
+    var output = a[0] + ':' + a[1] + '=' + value;
     new Ajax.Request('/xml-rpc?method=setconfig&' + getArr.join('&'),
                      {method: 'get',
-                  onComplete: function(req){console.log(url + ' => ' +
-                         Element.textContent(req.responseXML.getElementsByTagName('statusstring')[0]));
-                  } });
+                  onComplete: function(req){
+                         var errorString = Element.textContent(req.responseXML.getElementsByTagName('statusstring')[0]);
+                         if (errorString != 'Success') {
+                           console.log(output + ' => ' + errorString);
+                         }
+                  }});
       
   }
 }

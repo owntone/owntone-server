@@ -202,8 +202,9 @@
             </options>
         </item>
     </section>
+
     <section name="Daap">
-        <item id="empty_strings" advanced="true" config_section="general">
+        <item id="empty_strings" advanced="true" config_section="daap">
             <name>Empty strings</name>
             <short_description></short_description>
             <type default_value="0">select</type>
@@ -212,7 +213,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="supports_update" advanced="true" config_section="general">
+        <item id="supports_update" advanced="true" config_section="daap">
             <name>Supports update</name>
             <short_description></short_description>
             <type default_value="1">select</type>
@@ -222,6 +223,7 @@
             </options>
         </item>
     </section>
+
     <section name="Plugins">
         <item id="plugin_dir" advanced="true" config_section="plugins" restart="true">
             <name>Plugin Directory</name>
