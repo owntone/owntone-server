@@ -19,6 +19,8 @@
 #define IDS_VERSIONINFO_PATH            142
 #define IDS_FAILED_CONFIGURE_SERVICE    143
 #define IDS_FAILED_CONFIGURE_STARTUP    144
+#define IDS_LOG_NOLOG                   145
+#define IDS_LOG_OPENFAILED              146
 #define IDD_PAGE_BASIC                  201
 #define IDD_PAGE_ADVANCED               202
 #define IDD_PAGE_LOG                    203
@@ -45,6 +47,7 @@
 #define IDC_WEBSITE                     1014
 #define IDC_VERSIONLIST                 1015
 #define IDC_COPY                        1016
+#define IDC_REFRESH                     1018
 #define ID_SHELLNOTIFY                  4242
 
 // Next default values for new objects
@@ -53,7 +56,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        208
 #define _APS_NEXT_COMMAND_VALUE         32773
-#define _APS_NEXT_CONTROL_VALUE         1017
+#define _APS_NEXT_CONTROL_VALUE         1019
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

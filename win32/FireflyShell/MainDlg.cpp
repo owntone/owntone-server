@@ -24,7 +24,7 @@ CMainDlg::CMainDlg()
 {
 	this->AddPage(m_pageConfig);
 	this->AddPage(m_pageAdvanced);
-	//this->AddPage(m_pageLog);
+	this->AddPage(m_pageLog);
 	this->AddPage(m_pageAbout);
 
 	ATLVERIFY(m_strTitle.LoadString(IDR_MAINFRAME));

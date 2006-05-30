@@ -32,10 +32,15 @@ private:
 	// Message Handlers
 	BEGIN_MSG_MAP(CLogPage)
 		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
+		COMMAND_HANDLER(IDC_REFRESH, BN_CLICKED, OnRefresh)
 		CHAIN_MSG_MAP(base)
 	END_MSG_MAP()
 
 	LRESULT OnInitDialog(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
+	LRESULT OnRefresh(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
+
+	void LoadLog();
+
 };
 
 #endif // LOGPAGE_H

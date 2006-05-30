@@ -100,7 +100,8 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION | WS_SYSM
 CAPTION "Log"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    EDITTEXT        IDC_LOG,4,4,214,212,ES_AUTOHSCROLL | ES_READONLY
+    EDITTEXT        IDC_LOG,6,6,210,189,ES_MULTILINE | ES_AUTOHSCROLL | ES_READONLY | WS_VSCROLL | WS_HSCROLL
+    PUSHBUTTON      "&Refresh",IDC_REFRESH,166,200,50,14
 END
 
 IDD_PAGE_ADVANCED DIALOGEX 0, 0, 222, 220
@@ -143,6 +144,14 @@ BEGIN
         VERTGUIDE, 209
         TOPMARGIN, 7
         BOTTOMMARGIN, 216
+    END
+
+    IDD_PAGE_LOG, DIALOG
+    BEGIN
+        VERTGUIDE, 6
+        VERTGUIDE, 216
+        HORZGUIDE, 6
+        HORZGUIDE, 214
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -293,6 +302,8 @@ END
 STRINGTABLE 
 BEGIN
     IDS_FAILED_CONFIGURE_STARTUP "Failed to reconfigure startup application."
+    IDS_LOG_NOLOG           "Firefly server logging is not enabled."
+    IDS_LOG_OPENFAILED      "Failed to open server log file '%s'."
 END
 
 #endif    // English (U.S.) resources
