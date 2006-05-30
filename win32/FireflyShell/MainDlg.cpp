@@ -32,6 +32,16 @@ CMainDlg::CMainDlg(bool move_window)
 	this->SetTitle(m_strTitle);
 }
 
+void CMainDlg::OnSheetInitialized()
+{
+   HICON hIcon = (HICON)::LoadImage(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME),
+           IMAGE_ICON, ::GetSystemMetrics(SM_CXICON), ::GetSystemMetrics(SM_CYICON), LR_DEFAULTCOLOR);
+   SetIcon(hIcon, TRUE);
+   HICON hIconSmall = (HICON)::LoadImage(_Module.GetResourceInstance(), MAKEINTRESOURCE(IDR_MAINFRAME),
+           IMAGE_ICON, ::GetSystemMetrics(SM_CXSMICON), ::GetSystemMetrics(SM_CYSMICON), LR_DEFAULTCOLOR);
+   SetIcon(hIconSmall, FALSE);
+}
+
 LRESULT CMainDlg::OnCommand(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL &bHandled)
 {
 	bool restart_service = false;

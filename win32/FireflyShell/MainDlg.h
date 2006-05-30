@@ -44,6 +44,8 @@ class CMainDlg : public CPropertySheetImpl<CMainDlg>
 	void OnMove(CPoint);
 	void PositionWindow();
 
+	void OnSheetInitialized();
+
 public:
 	// Pass true if you want the window to be moved to near the mouse pointer.
 	// This is usually only the case if the window is displayed as a result of
