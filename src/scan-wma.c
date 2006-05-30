@@ -347,6 +347,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
     unsigned short int descriptor_short_value;
     int fail=0;
     int track, tracknumber;
+    char numbuff[40];
 
     track = tracknumber = 0;
 
@@ -376,6 +377,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
                                     &descriptor_byte_value)) {
                 fail=1;
             }
+            descriptor_int_value=atoi(descriptor_byte_value);
             DPRINTF(E_DBG,L_SCAN,"Type: string, value: %s\n",descriptor_byte_value);
             break;
         case 0x0001: /* byte array */
@@ -389,14 +391,22 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
         case 0x0003: /* dword */
             if(!wma_file_read_int(fd,&descriptor_int_value)) fail=1;
             DPRINTF(E_DBG,L_SCAN,"Type: int, value: %d\n",descriptor_int_value);
+            snprintf(numbuff,sizeof(numbuff)-1,"%d",descriptor_int_value);
+            descriptor_byte_value = strdup(numbuff);
             break;
         case 0x0004: /* qword */
             if(!wma_file_read_ll(fd,&descriptor_ll_value)) fail=1;
             DPRINTF(E_DBG,L_SCAN,"Type: ll, value: %lld\n",descriptor_ll_value);
+            snprintf(numbuff,sizeof(numbuff)-1,"%lld",descriptor_ll_value);
+            descriptor_byte_value = strdup(numbuff);
             break;
         case 0x0005: /* word */
             if(!wma_file_read_short(fd,&descriptor_short_value)) fail=1;
             DPRINTF(E_DBG,L_SCAN,"type: short, value %d\n",descriptor_short_value);
+            snprintf(numbuff,sizeof(numbuff)-1,"%d",descriptor_short_value);
+            descriptor_byte_value = strdup(numbuff);
+            break;
+
             break;
         }
 
@@ -415,11 +425,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
             pmp3->album = descriptor_byte_value;
             descriptor_byte_value = NULL;
         } else if(strcasecmp(descriptor_name,"wm/track")==0) {
-            if(descriptor_value_type == 3) {
-                track = descriptor_int_value + 1;
-            } else if(descriptor_value_type == 0) {
-                track = atoi(descriptor_byte_value) + 1;
-            }
+            track = descriptor_int_value + 1;
         } else if(strcasecmp(descriptor_name,"wm/shareduserrating")==0) {
             /* what a strange rating strategy */
             pmp3->rating = descriptor_int_value;
@@ -431,11 +437,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
                 }
             }
         } else if(strcasecmp(descriptor_name,"wm/tracknumber")==0) {
-            if(descriptor_value_type == 3) {
-                tracknumber = descriptor_int_value;
-            } else if(descriptor_value_type == 0) {
-                tracknumber = atoi(descriptor_byte_value);
-            }
+            tracknumber = descriptor_int_value;
         } else if(strcasecmp(descriptor_name,"wm/year")==0) {
             pmp3->year = atoi(descriptor_byte_value);
         } else if(strcasecmp(descriptor_name,"wm/composer")==0) {
