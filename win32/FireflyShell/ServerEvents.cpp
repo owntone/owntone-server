@@ -117,7 +117,7 @@ void ServerEvents::OnEvent(const void *buffer, size_t bytes_received)
 		UINT32 id = received[4] | (received[5] << 8) | (received[6] << 16) | (received[7] << 24);
 		UINT32 intval = received[8] | (received[9] << 8) | (received[10] << 16) | (received[11] << 24);
 
-		size_t string_length = bytes_received - 12;
+		int string_length = static_cast<int>(bytes_received) - 12;
 
 		if ((packet_size < bytes_received) && (packet_size >= 12))
 			string_length = packet_size - 12;

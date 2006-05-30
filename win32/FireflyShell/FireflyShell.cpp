@@ -176,7 +176,7 @@ BOOL CALLBACK Application::StaticWindowSearcher(HWND hwnd, LPARAM lparam)
 {
 	DWORD result;
     LRESULT ok = ::SendMessageTimeout(hwnd,
-                                      lparam,
+                                      static_cast<UINT>(lparam),
                                       0, 0, 
                                       SMTO_BLOCK |
                                       SMTO_ABORTIFHUNG,
