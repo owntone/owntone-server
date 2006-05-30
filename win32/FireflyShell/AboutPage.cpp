@@ -32,6 +32,8 @@ LRESULT CAboutPage::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lPar
 
 void CAboutPage::FillVersionList()
 {
+	CWaitCursor wait;
+
 	m_versions.Empty();
 
 	// Initialise the list control

@@ -21,6 +21,8 @@
 
 LRESULT CAdvancedPage::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
 {
+	CWaitCursor wait;
+
 	IniFile ini(GetApplication()->GetConfigPath());
 	m_server_port = ini.GetInteger(_T("general"), _T("port"), 9999);
 
@@ -108,6 +110,8 @@ void CAdvancedPage::UpdateControls(Service::Status status)
 
 int CAdvancedPage::OnApply()
 {
+	CWaitCursor wait;
+
 	ATLTRACE("CAdvancedPage::OnApply\n");
 
 	if (!DoDataExchange(true))
@@ -149,6 +153,8 @@ LRESULT CAdvancedPage::OnStopService(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*
 
 LRESULT CAdvancedPage::OnWebAdmin(WORD /*wNotifyCode*/, WORD /*wID*/, HWND /*hWndCtl*/, BOOL& /*bHandled*/)
 {
+	CWaitCursor wait;
+
 	// Go to the config file because we might not have committed a change yet.
 	IniFile ini(GetApplication()->GetConfigPath());
 	unsigned int port = ini.GetInteger(_T("general"), _T("port"), 9999);

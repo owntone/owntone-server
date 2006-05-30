@@ -21,6 +21,8 @@
 
 LRESULT CConfigPage::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
 {
+	CWaitCursor wait;
+
 	IniFile ini(GetApplication()->GetConfigPath());
 	
 	m_server_name = ini.GetString(_T("general"), _T("servername"), _T("Firefly media server"));
@@ -52,6 +54,8 @@ void CConfigPage::EnableControls()
 
 int CConfigPage::OnApply()
 {
+	CWaitCursor wait;
+
 	ATLTRACE("CConfigPage::OnApply\n");
 	if (!DoDataExchange(true))
 		return false;
