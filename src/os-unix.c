@@ -450,3 +450,16 @@ int os_unload(void *handle) {
     return dlclose(handle);
 }
 
+/**
+ * Determine if an address is local or not
+ *
+ * @param hostaddr the address to test for locality
+ */
+int os_islocaladdr(char *hostaddr) {
+    /* how can we check interfaces without something like libnet? */
+
+    if(strncmp(hostaddr,"127.",4) == 0)
+        return TRUE;
+    
+    return FALSE;
+}

@@ -38,6 +38,10 @@ extern void *os_loadlib(char **pe, char *path);
 extern void *os_libfunc(char **pe, void *handle, char *function);
 extern int os_unload(void *handle);
 
+/* misc */
+extern int os_islocaladdr(char *hostaddr);
+
+
 #ifdef WIN32
 # include "os-win32.h"
 #else

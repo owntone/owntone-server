@@ -52,6 +52,7 @@
 #include "configfile.h"
 #include "db-generic.h"
 #include "err.h"
+#include "os.h"
 #include "restart.h"
 #include "xml-rpc.h"
 
@@ -384,13 +385,11 @@ int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
     char *adminpassword;
     int res;
 
-#ifdef WIN32
     if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname)))
         return TRUE;
-#endif
 
-    if((!password) ||
-       ((adminpassword=conf_alloc_string("general","admin_pw",NULL))==NULL))
+    adminpassword=conf_alloc_string("general","admin_pw",NULL);
+    if(!adminpassword)
         return FALSE;
 
     res = !strcmp(password,adminpassword);

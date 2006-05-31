@@ -50,7 +50,6 @@ typedef struct {
 extern int os_register(void);
 extern int os_unregister(void);
 extern char *os_configpath(void);
-extern int os_islocaladdr(char *hostaddr);
 
 /* replacements for socket functions */
 extern int os_opensocket(unsigned short port);
