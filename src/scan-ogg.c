@@ -66,7 +66,7 @@ int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
         pmp3->samplerate=vi->rate;
     }
 
-    pmp3->song_length=ov_time_total(&vf,-1) * 1000;
+    pmp3->song_length=(int)ov_time_total(&vf,-1) * 1000;
 
     comment = ov_comment(&vf, -1);
     if (comment != NULL) {

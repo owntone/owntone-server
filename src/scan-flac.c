@@ -124,7 +124,7 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
         }
 
         if (block->type == FLAC__METADATA_TYPE_VORBIS_COMMENT) {
-            for (i = 0; i < block->data.vorbis_comment.num_comments; i++) {
+            for (i = 0; i < (int)block->data.vorbis_comment.num_comments; i++) {
                 if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
                                               "ARTIST", &len))) {
                     if ((pmp3->artist = calloc(len + 1, 1)) != NULL)
