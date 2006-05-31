@@ -108,7 +108,7 @@ PLUGIN_INPUT_FN pi = {
     pi_server_ver,
     pi_server_name,
     pi_log,
-    plugin_ssc_can_transcode,
+    plugin_ssc_should_transcode,
 
     pi_db_count,
     pi_db_enum_start,
@@ -578,10 +578,33 @@ void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
  * @param codec the codec we are trying to serve
  * @returns TRUE if we can transcode, FALSE otherwise
  */
-int plugin_ssc_can_transcode(char *codec) {
+int plugin_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
     int result;
+    char *native_codecs=NULL;
+    char *user_agent=NULL;
 
+    if(pwsc) {
+        /* see if the headers give us any guidance */
+        native_codecs = ws_getrequestheader(pwsc,"accept-codecs");
+        if(!native_codecs) {
+            user_agent = ws_getrequestheader(pwsc,"user-agent");
+            if(strncmp(user_agent,"iTunes",6)==0) {
+                native_codecs = "mpeg,mp4a,wav,mp4v";
+            } else if(strncmp(user_agent,"Roku",4)==0) {
+                native_codecs = "mpeg,mp4a,wav";
+            }
+        }
+    }
+
+    if(!native_codecs) {
+        native_codecs = "mpeg,wav";
+    }
+
+    /* can't transcode it if we can't transcode it */
     if(!_plugin_ssc_codecs)
+        return FALSE;
+
+    if(strstr(native_codecs,codec))
         return FALSE;
 
     _plugin_readlock();

@@ -171,6 +171,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     memset(pqi,0x00,sizeof(DBQUERYINFO));
     pqi->zero_length = conf_get_int("daap","empty_strings",0);
+    pqi->pwsc = pwsc;
 
     /* we could really pre-parse this to make sure it works */
     query=ws_getvar(pwsc,"query");
@@ -764,7 +765,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
         DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
         config_set_status(pwsc,session,NULL);
         ws_returnerror(pwsc,404,"File Not Found");
-    } else if (plugin_ssc_can_transcode(pmp3->codectype)) {
+    } else if (plugin_ssc_should_transcode(pwsc,pmp3->codectype)) {
         /************************
          * Server side conversion
          ************************/

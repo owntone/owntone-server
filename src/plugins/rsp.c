@@ -342,23 +342,6 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     int transcode;
     int samplerate;
 
-    char *user_agent;
-    char *native_codecs;
-
-    native_codecs = _ppi->ws_getrequestheader(pwsc,"accept-codecs");
-    if(!native_codecs) {
-        user_agent = _ppi->ws_getrequestheader(pwsc,"user-agent");
-        if(user_agent) {
-            if(strncmp(user_agent,"iTunes",6)==0) {
-                native_codecs = "mpeg,mp4a,wav,mp4v";
-            } else if(strncmp(user_agent,"Roku",4)==0) {
-                native_codecs = "mpeg,mp4a,wav,wma";
-            } else {
-                native_codecs = "mpeg,mp4a,wav";
-            }
-        }
-    }
-
     ppi->dq.filter = _ppi->ws_getvar(pwsc,"query");
     ppi->dq.filter_type = FILTER_TYPE_FIREFLY;
 
@@ -414,11 +397,9 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         rowindex=0;
         transcode = 0;
 
-        if(!strstr(native_codecs,row[37])) {
-            if(_ppi->can_transcode(row[37])) {
-                transcode = 1;
-            }
-        }
+        transcode = _ppi->should_transcode(pwsc,row[37]);
+
+        _ppi->log(E_DBG,"Transcode: %d, %s: %s\n",transcode,row[37],row[2]);
 
         while(rsp_fields[rowindex].name) {
             if((rsp_fields[rowindex].flags & type) &&

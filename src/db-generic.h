@@ -24,6 +24,7 @@
 
 #include "mp3-scanner.h" /** for MP3FILE */
 #include "smart-parser.h" /** for PARSETREE */
+#include "webserver.h" /** for WS_CONNINFO */
 
 typedef enum {
     // generic meta data
@@ -131,6 +132,7 @@ typedef struct tag_dbqueryinfo {
     char *uri_sections[10];
     PARSETREE pt;
     void *output_info;
+    WS_CONNINFO *pwsc;
 } DBQUERYINFO;
 
 typedef struct {

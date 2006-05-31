@@ -130,7 +130,7 @@ typedef struct tag_plugin_input_fn {
     char* (*server_ver)(void);
     int (*server_name)(char *, int *);
     void (*log)(int, char *, ...);
-    int (*can_transcode)(char *);
+    int (*should_transcode)(struct tag_ws_conninfo *, char *);
 
     int (*db_count)(void);
     int (*db_enum_start)(char **, DB_QUERY *);
