@@ -128,6 +128,11 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_MULTICOMMA,"plugins","plugins" },
     { 0, 0, CONF_T_INT,"daap","empty_strings" },
     { 0, 0, CONF_T_INT,"daap","supports_browse" },
+    { 0, 0, CONF_T_INT,"daap","supports_update" },
+    { 0, 0, CONF_T_INT,"scanning","process_xml" },
+    { 0, 0, CONF_T_INT,"scanning","ignore_appledouble" },
+    { 0, 0, CONF_T_INT,"scanning","ignore_dotfiles" },
+    { 0, 0, CONF_T_INT,"scanning","concat_compilations" },
     { 0, 0, CONF_T_INT, NULL, NULL }
 };
 
@@ -541,6 +546,7 @@ int conf_read(char *file) {
 
     if(conf_main_file) {
         conf_close();
+        free(conf_main_file);
     }
 
     conf_main_file = strdup(file);
@@ -1129,10 +1135,7 @@ int conf_iswritable(void) {
     if(!conf_main_file)
         return FALSE;
 
-    if((fp = fopen(conf_main_file,"r+")) != NULL) {
-        fclose(fp);
-        retval = TRUE;
-    }
+    retval = !access(conf_main_file,W_OK);
 
     _conf_unlock();
     return retval;

@@ -110,11 +110,14 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
 void xml_update_config(WS_CONNINFO *pwsc) {
     char *arg, *value, *duparg;
     char *ptmp;
+    char *badparms=NULL;
     void *handle;
-
+    int has_error=0;
+    int badparms_len=0;
     int err;
 
     handle = NULL;
+
 
     while((handle=ws_enum_var(pwsc,&arg,&value,handle)) != NULL) {
         /* arg will be section:value */
@@ -123,10 +126,51 @@ void xml_update_config(WS_CONNINFO *pwsc) {
         if(ptmp) {
             *ptmp++ = '\0';
             /* this is stupidly inefficient */
+
+            err = conf_set_string(duparg,ptmp,value,TRUE);
+            if(err != CONF_E_SUCCESS) {
+                has_error = TRUE;
+                if(!badparms) {
+                    badparms_len = (int)strlen(arg) + 1;
+                    badparms = (char*)malloc(badparms_len);
+                    if(!badparms) {
+                        DPRINTF(E_FATAL,L_MISC,"xml_update_config: malloc\n");
+                    }
+                    strcpy(badparms,arg);
+                } else {
+                    badparms_len += strlen(arg) + 1;
+                    badparms = (char*)realloc(badparms,badparms_len);
+                    if(!badparms) {
+                        DPRINTF(E_FATAL,L_MISC,"xml_update_config: malloc\n");
+                    }
+                    strcat(badparms,",");
+                    strcat(badparms,arg);
+                }
+            }
+        }
+        free(duparg);
+    }
+
+    if(has_error) {
+        DPRINTF(E_INF,L_MISC,"Bad parms; %s\n",badparms);
+        xml_return_error(pwsc,500,badparms);
+        free(badparms);
+        return;
+    }
+
+    /* now set! */
+    while((handle=ws_enum_var(pwsc,&arg,&value,handle)) != NULL) {
+        /* arg will be section:value */
+        duparg = strdup(arg);
+        ptmp = strchr(duparg,':');
+        if(ptmp) {
+            *ptmp++ = '\0';
+            /* this is stupidly inefficient */
+
             err = conf_set_string(duparg,ptmp,value,FALSE);
             if(err != CONF_E_SUCCESS) {
-                free(duparg);
-                xml_return_error(pwsc,500,"Bad values");
+                /* shouldn't happen */
+                xml_return_error(pwsc,500,arg);
                 return;
             }
         }
