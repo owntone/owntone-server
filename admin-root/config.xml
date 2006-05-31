@@ -222,6 +222,16 @@
                 <option value="1">Yes</option>
             </options>
         </item>
+        <item id="supports_browse" advanced="true" config_section="daap">
+            <name>Supports browse</name>
+            <short_description></short_description>
+            <type default_value="1">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+        
     </section>
 
     <section name="Plugins">
