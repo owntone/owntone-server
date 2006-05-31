@@ -296,7 +296,7 @@ void xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...) {
     if(section) {
         xml_push(pxml,section);
     }
-    _ppi->log(E_DBG,"Converting %s -> %s\n",buf,output);
+
     xml_write(pxml,"%s",output);
     free(output);
     if(section) {
