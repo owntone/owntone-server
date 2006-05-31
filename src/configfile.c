@@ -392,6 +392,9 @@ int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
     if(!adminpassword)
         return FALSE;
 
+    if(!password)
+        return FALSE;
+
     res = !strcmp(password,adminpassword);
     free(adminpassword);
     return res;
