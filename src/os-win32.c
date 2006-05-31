@@ -128,7 +128,6 @@ int os_closesyslog(void) {
  * @return TRUE on success, FALSE otherwise
  */
 int os_syslog(int level, char *msg) {
-    plugin_event_dispatch(PLUGIN_EVENT_LOG, level, msg, (int)strlen(msg)+1);
     return elog_message(level, msg);
 }
 

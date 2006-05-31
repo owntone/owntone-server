@@ -44,6 +44,7 @@
 #include "err.h"
 #ifndef ERR_LEAN
 # include "os.h"
+# include "plugin.h"
 #endif
 
 #ifndef PACKAGE
@@ -154,7 +155,11 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         os_syslog(level,errbuf);
         os_closesyslog();
     }
-    
+
+#ifndef ERR_LEAN
+    plugin_event_dispatch(PLUGIN_EVENT_LOG, level, errbuf, (int)strlen(errbuf)+1);
+#endif
+
     _err_unlock();
     
     if(!level) {

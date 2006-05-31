@@ -11,9 +11,6 @@ void plugin_handler(int, int, void *, int);
 
 #define PIPE_BUFFER_SIZE 4096
 
-#define USE_UDP 0
-#define USE_MAILSLOT 1
-
 /* Globals */
 PLUGIN_EVENT_FN _pefn = { plugin_handler };
 PLUGIN_INPUT_FN *_ppi;
@@ -43,46 +40,6 @@ PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
     return &_pi;
 }
 
-#if USE_UDP
-/** NO LOG IN HERE!  We'll go into an endless loop.  :) */
-void plugin_handler(int event_id, int intval, void *vp, int len) {
-    int total_len = 3 * sizeof(int) + len + 1;
-    PLUGIN_MSG *pmsg;
-    int port = 9999;
-    SOCKET sock;
-    struct sockaddr_in servaddr;
-
-    pmsg = (PLUGIN_MSG*)malloc(total_len);
-    if(!pmsg) {
-//        _ppi->log(E_LOG,"Malloc error in w32-event.c/plugin_handler\n");
-        return;
-    }
-
-    memset(pmsg,0,total_len);
-    pmsg->size = total_len;
-    pmsg->event_id = event_id;
-    pmsg->intval = intval;
-    memcpy(&pmsg->vp,vp,len);
-
-    sock = socket(AF_INET,SOCK_DGRAM,0);
-    if(sock == INVALID_SOCKET) {
-        free(pmsg);
-        return;
-    }
-
-    servaddr.sin_family = AF_INET;
-    servaddr.sin_addr.s_addr = inet_addr("127.0.0.1");
-    servaddr.sin_port = htons(port);
-
-    sendto(sock,(char*)pmsg,total_len,0,(struct sockaddr *)&servaddr,sizeof(servaddr));
-
-    closesocket(sock);
-    free(pmsg);
-    return;
-}
-#endif /* USE_UDP */
-
-#if USE_MAILSLOT
 #define MAILSLOT_NAME "\\\\.\\mailslot\\FireflyMediaServer--67A72768-4154-417e-BFA0-FA9B50C342DE"
 /** NO LOG IN HERE!  We'll go into an endless loop.  :) */
 void plugin_handler(int event_id, int intval, void *vp, int len) {
@@ -120,4 +77,3 @@ void plugin_handler(int event_id, int intval, void *vp, int len) {
 		CloseHandle(h);
 	}
 }
-#endif /* USE_MAILSLOT */

@@ -555,10 +555,10 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
 void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
     PLUGIN_ENTRY *ppi;
 
-    _plugin_readlock();
+    /* FIXME:  Something is wrong is readlock deadlocks... */        
+//    _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
-        fprintf(stderr,"Checking %s\n",ppi->pinfo->server);
         if(ppi->pinfo->type & PLUGIN_EVENT) {
 /*            DPRINTF(E_DBG,L_PLUG,"Dispatching event %d to %s\n",
                 event_id,ppi->versionstring); */
@@ -569,7 +569,7 @@ void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
         }
         ppi=ppi->next;
     }
-    _plugin_unlock();
+//    _plugin_unlock();
 }
 
 /**

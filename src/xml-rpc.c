@@ -138,7 +138,7 @@ void xml_update_config(WS_CONNINFO *pwsc) {
                     }
                     strcpy(badparms,arg);
                 } else {
-                    badparms_len += strlen(arg) + 1;
+                    badparms_len += (int)strlen(arg) + 1;
                     badparms = (char*)realloc(badparms,badparms_len);
                     if(!badparms) {
                         DPRINTF(E_FATAL,L_MISC,"xml_update_config: malloc\n");
