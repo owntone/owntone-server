@@ -9,8 +9,10 @@ Event.observe(window,'load',init);
 // Config isn't defined until after the Event.observe above
 // I could have put it below Config = ... but I want all window.load events
 // at the start of the file
-var DEBUG = window.location.toString().match(/debug/);
-
+var DEBUG = window.location.toString().match(/debug.*/);
+if ('debug=validate' == DEBUG) {
+  DEBUG = 'validate';
+}
 function init() {
   Config.init();
 }
@@ -427,15 +429,23 @@ function saveForm() {
                    {method: 'post',
                 parameters: postVars.join('&'),
                 onComplete: saved});
+
   function debug(id,value) {
     var getArr = [];
-    var a = id.split(':');
-    getArr.push('section='+encodeURIComponent(a[0]));
-    getArr.push('key='+encodeURIComponent(a[1]));
-    getArr.push('value='+encodeURIComponent(value));
-    getArr.push('verify_only=1');
-    var output = a[0] + ':' + a[1] + '=' + value;
-    new Ajax.Request('/xml-rpc?method=setconfig&' + getArr.join('&'),
+    var getString;
+    if ('validate' == DEBUG) {
+      var a = id.split(':');
+      getArr.push('section='+encodeURIComponent(a[0]));
+      getArr.push('key='+encodeURIComponent(a[1]));
+      getArr.push('value='+encodeURIComponent(value));
+      getArr.push('verify_only=1');
+      getString = '/xml-rpc?method=setconfig&' + getArr.join('&');
+
+    } else {
+      getString = '/xml-rpc?method=updateconfig&' + Form.Element.serialize(id);
+    }
+    var output = id + '=' + value;    
+    new Ajax.Request(getString,
                      {method: 'get',
                   onComplete: function(req){
                          var errorString = Element.textContent(req.responseXML.getElementsByTagName('statusstring')[0]);
@@ -443,6 +453,7 @@ function saveForm() {
                            console.log(output + ' => ' + errorString);
                          }
                   }});
+  
       
   }
 }
