@@ -1126,7 +1126,6 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
  * @returns TRUE if writable, FALSE otherwise
  */
 int conf_iswritable(void) {
-    FILE *fp;
     int retval = FALSE;
 
     /* don't want configfile reopened under us */
@@ -1297,6 +1296,7 @@ int _conf_split(char *s, char *delimiters, char ***argvp) {
     char *t;
     char *tokptr;
     char *tmp;
+    char *fix_src, *fix_dst;
 
     if ((s == NULL) || (delimiters == NULL) || (argvp == NULL))
         return -1;
@@ -1306,12 +1306,20 @@ int _conf_split(char *s, char *delimiters, char ***argvp) {
         return -1;
 
     strcpy(t, snew);
-    numtokens = 0;
+    numtokens = 1;
     tokptr = NULL;
     tmp = t;
-    while(strtok_r(tmp,delimiters,&tokptr) != NULL) {
-        tmp=NULL;
-        numtokens++;
+
+    tmp = s;
+    while(*tmp) {
+        if(strchr(delimiters,*tmp) && (*(tmp+1) == *tmp)) {
+            tmp += 2;
+        } else if(strchr(delimiters,*tmp)) {
+            numtokens++;
+            tmp++;
+        } else {
+            tmp++;
+        }
     }
 
     DPRINTF(E_DBG,L_CONF,"Found %d tokens in %s\n",numtokens,s);
@@ -1324,12 +1332,32 @@ int _conf_split(char *s, char *delimiters, char ***argvp) {
     if (numtokens == 0)
         free(t);
     else {
-        strcpy(t, snew);
-        tokptr = NULL;
+        tokptr = t;
         tmp = t;
         for (i = 0; i < numtokens; i++) {
-            *((*argvp) + i) = strtok_r(tmp, delimiters, &tokptr);
-            tmp=NULL;
+            while(*tmp) {
+                if(strchr(delimiters,*tmp) && (*(tmp+1) != *tmp))
+                    break;
+                if(strchr(delimiters,*tmp)) {
+                    tmp += 2; 
+                } else {
+                    tmp++;
+                }
+            }
+            *tmp = '\0';
+            tmp++;
+            (*argvp)[i] = tokptr;
+            
+            fix_src = fix_dst = tokptr;
+            while(*fix_src) {
+                if(strchr(delimiters,*fix_src) && (*(fix_src+1) == *fix_src)) {
+                    fix_src++;
+                }
+                *fix_dst++ = *fix_src++;
+            }
+            *fix_dst = '\0';
+
+            tokptr = tmp;
             DPRINTF(E_DBG,L_CONF,"Token %d: %s\n",i+1,(*argvp)[i]);
         }
     }
