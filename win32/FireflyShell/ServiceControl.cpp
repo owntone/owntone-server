@@ -112,6 +112,7 @@ bool Service::StopAndWait()
 
 bool Service::WaitPending(Status *status, DWORD existing_state)
 {
+	ATLTRACE(_T("Enter Service::WaitPending\n"));
 	if (GetStatus(status))
 	{
 		DWORD dwStartTickCount = GetTickCount();
@@ -119,31 +120,42 @@ bool Service::WaitPending(Status *status, DWORD existing_state)
 
 		while (status->dwCurrentState == existing_state)
 		{
-			ATLTRACE(_T("WaitPending\n"));
+			ATLTRACE(_T("Service::WaitPending in loop\n"));
 			DWORD dwWaitTime = status->dwWaitHint / 10;
 			if (dwWaitTime < 1000)
 				dwWaitTime = 1000;
 			else if (dwWaitTime > 10000)
 				dwWaitTime = 10000;
 
+			ATLTRACE(_T("Sleeping\n"));
 			::Sleep(dwWaitTime);
 
 			if (!GetStatus(status))
-				return false;
-
-			if (status->dwCheckPoint != dwOldCheckPoint)
 			{
-				// The service is making progress
-				dwStartTickCount = GetTickCount();
-				dwOldCheckPoint = status->dwCheckPoint;
+				ATLTRACE(_T("Service::WaitPending - Failed to get status\n"));
+				return false;
 			}
-			else if (GetTickCount() - dwStartTickCount > status->dwWaitHint)
+
+			// If we haven't changed state yet then check to see that the
+			// service is actually making progress.
+			if (status->dwCurrentState == existing_state)
 			{
-				/// Hmm. No progress
-				return false;
+				if (status->dwCheckPoint != dwOldCheckPoint)
+				{
+					// The service is making progress
+					dwStartTickCount = GetTickCount();
+					dwOldCheckPoint = status->dwCheckPoint;
+				}
+				else if (GetTickCount() - dwStartTickCount > status->dwWaitHint)
+				{
+					ATLTRACE(_T("Service::WaitPending - No progress\n"));
+					/// Hmm. No progress
+					return false;
+				}
 			}
 		}
 	}
+	ATLTRACE(_T("Service::WaitPending success\n"));
 	return true;
 }
 
