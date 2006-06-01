@@ -450,7 +450,7 @@ void _conf_apply_element(char *section, char *key, char *cold, char *cnew) {
         }
     }
 
-    if((strcmp(section,"general")==0) && (strcmp(key,"loglevel")==0)) {
+    if((strcmp(section,"general")==0) && (strcmp(key,"debuglevel")==0)) {
         /* loglevel changed */
         err_setlevel(atoi(cnew));
     }
