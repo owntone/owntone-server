@@ -75,6 +75,7 @@ static void config_emit_readonly(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_conffile(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 static void config_content_type(WS_CONNINFO *pwsc, char *path);
@@ -139,6 +140,7 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_STRING,"logfile",(void*)&config.logfile, config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"art_filename",(void*)&config.artfilename,config_emit_string },
     */
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"conffile",(void*)NULL,config_emit_conffile },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"host",(void*)NULL,config_emit_host },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"package",(void*)PACKAGE,config_emit_literal },
@@ -425,6 +427,22 @@ void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg) {
         ws_writefd(pwsc,"localhost");
     }
 
+    return;
+}
+
+
+/**
+ * emit the path to the current config file
+ *
+ * \param pwsc web connection
+ * \param value the variable that was requested
+ * \param arg any args passwd with the meta command
+ */
+void config_emit_conffile(WS_CONNINFO *pwsc, void *value, char *arg) {
+    char fullpath[PATH_MAX];
+
+    realpath(conf_get_filename(),fullpath);
+    ws_writefd(pwsc,"%s",fullpath);
     return;
 }
 
