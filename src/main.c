@@ -408,7 +408,9 @@ int main(int argc, char *argv[]) {
             if(scan_init(mp3_dir_array)) {
                 DPRINTF(E_LOG,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
             }
-            plugin_event_dispatch(PLUGIN_EVENT_FULLSCAN_END,0,NULL,0);
+            if(!confog.stop) { /* don't send popup when shutting down on scan */
+                plugin_event_dispatch(PLUGIN_EVENT_FULLSCAN_END,0,NULL,0);
+            }
         }
         conf_dispose_array(mp3_dir_array);
     }
