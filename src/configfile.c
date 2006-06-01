@@ -287,6 +287,26 @@ void config_handler(WS_CONNINFO *pwsc) {
     char *pw;
     int size;
 
+    if(!pwsc->hostname) { /* ?? */
+        ws_returnerror(pwsc,500,"Couldn't determine remote hostname");
+        pwsc->close=1;
+        return;
+    }
+
+    if(!os_islocaladdr(pwsc->hostname)) {
+        pw=conf_alloc_string("general","admin_pw",NULL);
+        if((!pw) || (strlen(pw) == 0)) {
+            if(pw) free(pw);
+            /* if we aren't getting the no_access.html page, we should */
+            if(strcmp(pwsc->uri,"/no_access.html") != 0) {
+                ws_addresponseheader(pwsc,"location","/no_access.html");
+                ws_returnerror(pwsc,302,"Moved Temporarily");
+                pwsc->close=1;
+                return;
+            }
+        }
+    }
+
     size = sizeof(web_root);
     if(conf_get_string("general","web_root",NULL,web_root,
                        &size) == CONF_E_NOTFOUND) {
@@ -391,8 +411,11 @@ int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
         return TRUE;
 
     adminpassword=conf_alloc_string("general","admin_pw",NULL);
-    if(!adminpassword)
-        return FALSE;
+    if((!adminpassword) || (strlen(adminpassword)==0)) {
+        /* we'll handle this later */
+        if(adminpassword) free(adminpassword);
+        return TRUE;
+    }
 
     if(!password)
         return FALSE;

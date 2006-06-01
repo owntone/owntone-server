@@ -103,7 +103,7 @@ static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","runas" },
     { 1, 0, CONF_T_EXISTPATH,"general","web_root" },
     { 0, 0, CONF_T_INT,"general","port" },
-    { 1, 0, CONF_T_STRING,"general","admin_pw" },
+    { 0, 0, CONF_T_STRING,"general","admin_pw" },
     { 1, 0, CONF_T_MULTICOMMA,"general","mp3_dir" },
     { 0, 1, CONF_T_EXISTPATH,"general","db_dir" },
     { 0, 0, CONF_T_STRING,"general","db_type" },
