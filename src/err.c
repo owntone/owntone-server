@@ -204,9 +204,12 @@ int err_getdest(void) {
 
 
 int err_setlogfile(char *file) {
+    if(strcmp(file,err_filename) == 0)
+        return TRUE;
+
     _err_lock();
 
-    if(err_logdest & LOGDEST_LOGFILE) {
+    if(err_file) {
         fclose(err_file);
     }
 
