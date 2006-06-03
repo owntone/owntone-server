@@ -75,10 +75,10 @@ PLUGIN_RESPONSE rsp_uri_map[] = {
 #define T_INT    1
 #define T_DATE   2
 
-#define F_FULL   1
-#define F_BROWSE 2
-#define F_ID     4
-
+#define F_FULL     1
+#define F_BROWSE   2
+#define F_ID       4
+#define F_DETAILED 8
 
 typedef struct tag_fieldspec {
     char *name;
@@ -87,59 +87,59 @@ typedef struct tag_fieldspec {
 } FIELDSPEC;
 
 FIELDSPEC rsp_playlist_fields[] = {
-    { "id"           , 7, T_INT    },
-    { "title"        , 3, T_STRING },
-    { "type"         , 0, T_INT    },
-    { "items"        , 3, T_INT    },
-    { "query"        , 0, T_STRING },
-    { "db_timestamp" , 0, T_DATE   },
-    { "path"         , 0, T_STRING },
-    { "index"        , 0, T_INT    },
+    { "id"           , 15, T_INT    },
+    { "title"        , 11, T_STRING },
+    { "type"         , 8, T_INT    },
+    { "items"        , 11, T_INT    },
+    { "query"        , 8, T_STRING },
+    { "db_timestamp" , 8, T_DATE   },
+    { "path"         , 8, T_STRING },
+    { "index"        , 8, T_INT    },
     { NULL           , 0, 0        }
 };
 
 FIELDSPEC rsp_fields[] = {
-    { "id"           , 7, T_INT    },
-    { "path"         , 0, T_STRING },
-    { "fname"        , 0, T_STRING },
-    { "title"        , 7, T_STRING },
-    { "artist"       , 3, T_STRING },
-    { "album"        , 3, T_STRING },
-    { "genre"        , 1, T_STRING },
-    { "comment"      , 0, T_STRING },
-    { "type"         , 1, T_STRING },
-    { "composer"     , 1, T_STRING },
-    { "orchestra"    , 1, T_STRING },
-    { "conductor"    , 1, T_STRING },
+    { "id"           , 15, T_INT    },
+    { "path"         , 8, T_STRING },
+    { "fname"        , 8, T_STRING },
+    { "title"        , 15, T_STRING },
+    { "artist"       , 11, T_STRING },
+    { "album"        , 11, T_STRING },
+    { "genre"        , 9, T_STRING },
+    { "comment"      , 9, T_STRING },
+    { "type"         , 9, T_STRING },
+    { "composer"     , 9, T_STRING },
+    { "orchestra"    , 9, T_STRING },
+    { "conductor"    , 9, T_STRING },
     { "grouping"     , 0, T_STRING },
-    { "url"          , 1, T_STRING },
-    { "bitrate"      , 1, T_INT    },
-    { "samplerate"   , 1, T_INT    },
-    { "song_length"  , 1, T_INT    },
-    { "file_size"    , 1, T_INT    },
-    { "year"         , 1, T_INT    },
-    { "track"        , 3, T_INT    },
-    { "total_tracks" , 1, T_INT    },
-    { "disc"         , 3, T_INT    },
-    { "total_discs"  , 1, T_INT    },
-    { "bpm"          , 1, T_INT    },
-    { "compilation"  , 1, T_INT    },
-    { "rating"       , 1, T_INT    },
-    { "play_count"   , 1, T_INT    },
-    { "data_kind"    , 0, T_INT    },
-    { "item_kind"    , 0, T_INT    },
-    { "description"  , 1, T_STRING },
-    { "time_added"   , 1, T_DATE   },
-    { "time_modified", 1, T_DATE   },
-    { "time_played"  , 1, T_DATE   },
-    { "db_timestamp" , 0, T_DATE   },
-    { "disabled"     , 1, T_INT    },
-    { "sample_count" , 0, T_INT    },
-    { "force_update" , 0, T_INT    },
-    { "codectype"    , 7, T_INT    },
-    { "idx"          , 0, T_INT    },
-    { "has_video"    , 0, T_INT    },
-    { "contentrating", 0, T_INT    },
+    { "url"          , 9, T_STRING },
+    { "bitrate"      , 9, T_INT    },
+    { "samplerate"   , 9, T_INT    },
+    { "song_length"  , 9, T_INT    },
+    { "file_size"    , 9, T_INT    },
+    { "year"         , 9, T_INT    },
+    { "track"        , 11, T_INT    },
+    { "total_tracks" , 9, T_INT    },
+    { "disc"         , 11, T_INT    },
+    { "total_discs"  , 9, T_INT    },
+    { "bpm"          , 9, T_INT    },
+    { "compilation"  , 9, T_INT    },
+    { "rating"       , 9, T_INT    },
+    { "play_count"   , 9, T_INT    },
+    { "data_kind"    , 8, T_INT    },
+    { "item_kind"    , 8, T_INT    },
+    { "description"  , 9, T_STRING },
+    { "time_added"   , 9, T_DATE   },
+    { "time_modified", 9, T_DATE   },
+    { "time_played"  , 9, T_DATE   },
+    { "db_timestamp" , 8, T_DATE   },
+    { "disabled"     , 9, T_INT    },
+    { "sample_count" , 8, T_INT    },
+    { "force_update" , 8, T_INT    },
+    { "codectype"    , 15, T_INT    },
+    { "idx"          , 8, T_INT    },
+    { "has_video"    , 8, T_INT    },
+    { "contentrating", 8, T_INT    },
     { NULL           , 0 }
 };
 
@@ -360,8 +360,11 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
             type = F_BROWSE;
         } else if(strcasecmp(browse_type,"id") == 0) {
             type = F_ID;
+        } else if(strcasecmp(browse_type,"detailed") ==0) {
+            type = F_DETAILED;
         }
     }
+
     ppi->dq.query_type = QUERY_TYPE_ITEMS;
     ppi->dq.playlist_id = atoi(ppi->uri_sections[2]);
 
