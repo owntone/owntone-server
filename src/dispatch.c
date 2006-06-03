@@ -134,6 +134,7 @@ int daap_auth(WS_CONNINFO *pwsc, char *username, char *password) {
 
     if(password == NULL) {
         if((readpassword == NULL)||(strlen(readpassword) == 0)) {
+            if(readpassword) free(readpassword);
             return TRUE;
         } else {
             free(readpassword);

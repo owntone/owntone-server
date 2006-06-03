@@ -24,7 +24,7 @@ typedef struct tag_rsp_privinfo {
 /* Forwards */
 PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *);
 void plugin_handler(WS_CONNINFO *pwsc);
-int plugin_auth(WS_CONNINFO *pwsc, char *username, char *pw);
+int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password);
 void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi);
 void rsp_db(WS_CONNINFO *pwsc, PRIVINFO *ppi);
 void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi);
@@ -153,11 +153,31 @@ PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
 
 
 /**
- * check for auth
+ * check for auth.  Kind of a ham-handed implementation, but
+ * works.
  */
-int plugin_auth(WS_CONNINFO *pwsc, char *username, char *pw) {
-    /* disable passwords for now */
-    return 1;
+int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password) {
+    char *readpassword;
+
+    readpassword = _ppi->conf_alloc_string("general","password",NULL);
+    if(password == NULL) { /* testing to see if we need a pw */
+        if((readpassword == NULL) || (strlen(readpassword)==0)) {
+            if(readpassword) free(readpassword);
+            return TRUE;
+        } else {
+            free(readpassword);
+            return FALSE;
+        }
+    } else {
+        if(strcasecmp(password,readpassword)) {
+            free(readpassword);
+            return FALSE;
+        } else {
+            free(readpassword);
+            return TRUE;
+        }
+    }
+    return TRUE; /* ?? */
 }
 
 /**
