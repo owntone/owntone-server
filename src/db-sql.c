@@ -1559,7 +1559,7 @@ int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presul
                 if(valarray[15]) samplerate=atoi(valarray[15]);
                 if(samplerate) {
                     current += db_dmap_add_short(current,"asbr",
-                                                 (short)(samplerate * 4 * 8)/1000);
+                                                 (short)(samplerate / 250 * 8));
                 }
             } else {
                 current += db_dmap_add_short(current,"asbr",(short)atoi(valarray[14]));

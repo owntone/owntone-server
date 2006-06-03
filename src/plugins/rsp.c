@@ -360,7 +360,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     char *browse_type;
     int type;
     int transcode;
-    int samplerate;
+    unsigned int samplerate;
 
     ppi->dq.filter = _ppi->ws_getvar(pwsc,"query");
     ppi->dq.filter_type = FILTER_TYPE_FIREFLY;
@@ -436,10 +436,12 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
                         xml_output(pxml,rsp_fields[rowindex].name,"%s",
                                    "wav audio file");
                         break;
-                    case 15:
+                    case 14: /* bitrate */
                         samplerate = atoi(row[15]);
                         if(samplerate) {
-                            samplerate = (samplerate * 4 * 8)/1000;
+                            samplerate = (samplerate * 8) / 250;
+                        } else {
+                            samplerate = 1411;
                         }
                         xml_output(pxml,rsp_fields[rowindex].name,"%d",
                                    samplerate);
