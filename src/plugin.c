@@ -174,7 +174,7 @@ void _plugin_readlock(void) {
         *current_count = 0;
     }
 
-    DPRINTF(E_DBG,L_PLUG,"Current lock level: %d\n",*current_count);
+    DPRINTF(E_SPAM,L_PLUG,"Current lock level: %d\n",*current_count);
     if(!(*current_count)) {
         (*current_count)++;
         pthread_setspecific(_plugin_lock_key,(void*)current_count);
@@ -205,7 +205,7 @@ void _plugin_writelock(void) {
         *current_count = 0;
     }
     
-    DPRINTF(E_DBG,L_PLUG,"Current lock level: %d\n",*current_count);
+    DPRINTF(E_SPAM,L_PLUG,"Current lock level: %d\n",*current_count);
 
     if(!(*current_count)) {
         (*current_count)++;
