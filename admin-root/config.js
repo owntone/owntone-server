@@ -79,6 +79,9 @@ var ConfigInitialValues = {
   getValue: function (id) {
     return ConfigInitialValues.values[id];
   },
+  setValue: function (id,value) {
+    this.values[id] = value;
+  },
   parseXML: function (xmldoc) {
     // IE and w3c treat xmldoc differently make shore firstChild is firstchild of <config>
     if (xmldoc.childNodes[1] && xmldoc.childNodes[1].nodeName == 'config') {
@@ -141,6 +144,14 @@ var Config ={
     // Need to store this until showConfig is run
     Config.tmpConfigXML = request.responseXML;
     ConfigXML.parseXML(request.responseXML);
+    ConfigXML.getAllItems().each(function (item) {
+      if (item.multiple) {
+        //###FIXME default values on item.multiple="true" not possible
+        ConfigInitialValues.setValue(item.id,[]);
+      } else {
+        ConfigInitialValues.setValue(item.id,item.default_value || ''); 
+      }
+    });
     new Ajax.Request('/xml-rpc?method=stats',{method: 'get',onComplete: Config.updateStatus});
   },
   updateStatus: function (request) {
@@ -440,7 +451,9 @@ function saveForm() {
     if (DEBUG) {
       debug(select.id,select.value);
     } else {
-      postVars.push(Form.Element.serialize(select.id));
+      if (select.value != ConfigInitialValues.getValue(select.id)) {
+        postVars.push(Form.Element.serialize(select.id));
+      }
     }
   });
 
@@ -456,7 +469,10 @@ function saveForm() {
       if (DEBUG) {
         debug(input.id,input.value);
       } else {
-        postVars.push(Form.Element.serialize(input.id));
+        if (input.value != ConfigInitialValues.getValue(input.id)) {
+          postVars.push(Form.Element.serialize(input.id));
+          ConfigInitialValues.setValue(input.id,input.value);
+        }
       }
     }
   });
@@ -465,16 +481,27 @@ function saveForm() {
     if (DEBUG) {
       debug(item.key,item.value.join(','));
     } else {
-      postVars.push(item.key + '=' + item.value.join(','));
+      var currentValue = item.value.join(',');
+      var initialValue = ConfigInitialValues.getValue(item.key).collect(function (value) {
+        return encodeURIComponent(value.replace(/,/g,',,'));
+      });
+      if (currentValue != initialValue) {
+        postVars.push(item.key + '=' + currentValue);
+        ConfigInitialValues.setValue(item.key,item.value.collect(function (value) {
+          return decodeURIComponent(value).replace(/,,/g,',');
+        }));
+     }
     }
   });
   if (DEBUG) {
     return;
   }
-  new Ajax.Request('/xml-rpc?method=updateconfig',
-                   {method: 'post',
-                parameters: postVars.join('&'),
-                onComplete: saved});
+  if (postVars.length > 0 ) {
+    new Ajax.Request('/xml-rpc?method=updateconfig',
+                     {method: 'post',
+                  parameters: postVars.join('&'),
+                  onComplete: saved});
+  }
 
   function debug(id,value) {
     var getArr = [];
