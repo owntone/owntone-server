@@ -157,7 +157,9 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     }
 
 #ifndef ERR_LEAN
-    plugin_event_dispatch(PLUGIN_EVENT_LOG, level, errbuf, (int)strlen(errbuf)+1);
+    if(level < 2) { /* only event level fatals and log level */
+        plugin_event_dispatch(PLUGIN_EVENT_LOG, level, errbuf, (int)strlen(errbuf)+1);
+    }
 #endif
 
     _err_unlock();
