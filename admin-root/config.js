@@ -86,6 +86,7 @@ var ConfigInitialValues = {
     } else {  
       sections = $A(xmldoc.firstChild.childNodes);
     }
+    var missingItems = [];
     sections.each(function (section) {
       var sectionName = section.nodeName;
       $A(section.childNodes).each(function (node) {
@@ -100,10 +101,35 @@ var ConfigInitialValues = {
           ConfigInitialValues.values[itemId] = Element.textContent(node);
         }
         if (!ConfigXML.getItem(itemId)) {
-          //###TODO tell the user these are missing
+          missingItems.push(itemId);
         }
       });
-   });
+    });
+    if (missingItems.length > 0) {
+      //###FIXME A bit ugly, but add a section with values from mt-daapd.conf that aren't
+      // in config.xml
+      ConfigXML.addAdvancedSection('missing_items');
+      var frag = document.createDocumentFragment();
+      missingItems.each(function (el){
+        frag.appendChild(document.createTextNode(el));
+        frag.appendChild(document.createElement('br'));
+      });
+      var outerDiv = Builder.node('div',{id: ConfigXML.getSectionId('missing_items'),className: 'warning_color'});
+      outerDiv.appendChild(Builder.node('div',{className: 'naviheader'},'Options missing from config.xml'));
+      var contentDiv = Builder.node('div',{className: 'navibox'});
+      contentDiv.appendChild(document.createTextNode('The options below are in your mt-daapd.conf and Firefly uses them,'));
+      contentDiv.appendChild(document.createElement('br'));
+      contentDiv.appendChild(document.createTextNode("but this web page can't handle them until they are added to config.xml"));
+      contentDiv.appendChild(document.createElement('br'));
+      contentDiv.appendChild(document.createElement('br'));
+      contentDiv.style.paddingLeft = '1em';
+      contentDiv.appendChild(frag);
+      outerDiv.appendChild(contentDiv);
+      if (!Cookie.getVar('show_advanced_config')) {
+        outerDiv.style.display = 'none';
+      }
+      $('theform').appendChild(outerDiv);
+    }
   } 
 };
 var Config ={
