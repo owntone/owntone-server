@@ -18,22 +18,14 @@ function init() {
 }
 var ConfigXML = {
   config: {},
-  configIndex: {},
-  getOptionFromElementName: function (name) {
-    return this.configIndex[name];
+  getItem: function (id) {
+    return this.config[id];
   },
-  getOption: function (section,id) {
-    return this.config[section][id];
-  },
-  getSections: function () {
-    return $H(this.config).keys();
-  },
-  getItems: function(section) {
-    return $H(this.config[section]).keys();
+  getAllItems: function () {
+    return $H(this.config);
   },
   parseXML: function(xmlDoc) {
     $A(xmlDoc.getElementsByTagName('section')).each(function (section) {
-      var items = {};
       $A(section.getElementsByTagName('item')).each(function (item) {
         var returnItem = {};
         $A(item.attributes).each(function (attr) {
@@ -58,22 +50,15 @@ var ConfigXML = {
             returnItem[attr.name] = attr.value;  
           });
         });
-        // Double index everything one as [section][id]
-        // and one as [config_section:id]
-        items[item.getAttribute('id')] = returnItem;
-        ConfigXML.configIndex[returnItem.config_section+ ':' +returnItem.id] = returnItem;
+        ConfigXML.config[returnItem.id] = returnItem;
       });
-      ConfigXML.config[section.getAttribute('name')] = items;
     });
   }
 };
 var ConfigInitialValues = {
   values: {},
-  getValues: function () {
-    return $H(ConfigInitialValues.values);
-  },
-  getValue: function (section,id) {
-    return ConfigInitialValues.values[section+':'+id];
+  getValue: function (id) {
+    return ConfigInitialValues.values[id];
   },
   parseXML: function (xmldoc) {
     // IE and w3c treat xmldoc differently make shore firstChild is firstchild of <config>
@@ -104,38 +89,39 @@ var Config = {
     new Ajax.Request('/config.xml',{method: 'get',onComplete: Config.storeConfigLayout});
   },
   storeConfigLayout: function (request) {
+    // Need to store this until showConfig is run
+    Config.tmpConfigXML = request.responseXML;
     ConfigXML.parseXML(request.responseXML);
     new Ajax.Request('/xml-rpc?method=stats',{method: 'get',onComplete: Config.updateStatus});
   },
   updateStatus: function (request) {
     Config.configPath = Element.textContent(request.responseXML.getElementsByTagName('config_path')[0]);
     Config.isWritable = Element.textContent(request.responseXML.getElementsByTagName('writable_config')[0]) == '1';
-//    $('config_path').appendChild(document.createTextNode(
-      
-//    );
     new Ajax.Request('/xml-rpc?method=config',{method: 'get',onComplete: Config.showConfig});  
   },
   showConfig: function (request) {
     ConfigInitialValues.parseXML(request.responseXML);
-    var sections = ConfigXML.getSections();
-    sections.each(function (section) {
+    $A(Config.tmpConfigXML.getElementsByTagName('section')).each(function (section) {
       var head = document.createElement('div');
       head.className= 'naviheader';
-      head.appendChild(document.createTextNode(section));
+      var sectionName = section.getAttribute('name');
+      head.appendChild(document.createTextNode(sectionName));
       var body = document.createElement('div');
       body.className = 'navibox';
-      if ('Server' == section) {
+      if ('Server' == sectionName) {
         body.appendChild(Builder.node('span',{id:'config_path'},'Config File Location'));
         body.appendChild(document.createTextNode(Config.configPath));
         body.appendChild(Builder.node('br'));
         body.appendChild(Builder.node('div',{style: 'clear: both;'}));
       }
-      ConfigXML.getItems(section).each(function (itemId) {
-        body.appendChild(Config._buildItem(section,itemId));
+      $A(section.getElementsByTagName('item')).each(function (item) {
+        body.appendChild(Config._buildItem(item.getAttribute('id')));
       });
       $('theform').appendChild(head);
       $('theform').appendChild(body);
     });
+    // Won't be using the config.xml XML doc anymore get rid of it
+    Config.tmpConfigXML = '';
     if (!Config.isWritable) {
       Effect.Appear('config_not_writable_warning');
     } else {
@@ -172,23 +158,21 @@ var Config = {
     div.appendChild(advanced);
     div.appendChild(basic);
   },
-  _buildItem: function(section,itemId) {
+  _buildItem: function(itemId) {
     var frag = document.createElement('div');
     var href;
-    var item = ConfigXML.getOption(section,itemId);
-    var postId = item.config_section + ':' + itemId;
-    var noBrowse = false;
+    var item = ConfigXML.getItem(itemId);
     switch(item.type) {
       case 'text':
         if (item.multiple) {
-          var values = ConfigInitialValues.getValue(item.config_section,item.id);
+          var values = ConfigInitialValues.getValue(itemId);
           if (!values || values.length === 0) {
             values = [''];
           }
 //          var parentSpan = Builder.node('span');
           values.each(function (val,i) {
             var div = document.createElement('div');
-            div.appendChild(BuildElement.input(postId+i,postId,
+            div.appendChild(BuildElement.input(itemId+i,itemId,
                                      item.name,
                                      val || item.default_value || '',
                                      item.size || 20,
@@ -214,9 +198,9 @@ var Config = {
           Event.observe(href,'click',Config._addItemEvent);
           frag.appendChild(Builder.node('div',{style:'clear: both'}));
         } else {
-          frag.appendChild(BuildElement.input(postId,postId,
+          frag.appendChild(BuildElement.input(itemId,itemId,
                                    item.name,
-                                   ConfigInitialValues.getValue(item.config_section,item.id) || item.default_value || '',
+                                   ConfigInitialValues.getValue(itemId) || item.default_value || '',
                                    item.size || 20,
                                    item.short_description,                                     
                                    ''));
@@ -229,10 +213,10 @@ var Config = {
         }
         break;
       case 'select':
-        frag.appendChild(BuildElement.select(postId,
+        frag.appendChild(BuildElement.select(itemId,
                                   item.name,
                                   item.options,
-                                  ConfigInitialValues.getValue(item.config_section,item.id) || item.default_value,
+                                  ConfigInitialValues.getValue(itemId) || item.default_value,
                                   item.short_description));
         frag.appendChild(Builder.node('br'));
         break;
@@ -298,7 +282,7 @@ var Config = {
     Element.toggle('advanced_config_button');
     Element.toggle('basic_config_button');
     Cookie.setVar('show_advanced_config','true',30);
-    $H(ConfigXML.configIndex).each(function (item) {
+    ConfigXML.getAllItems().each(function (item) {
       if (item.value.advanced) {
         var element = $(item.key);
         if (!element) {
@@ -316,7 +300,7 @@ var Config = {
     Element.toggle('advanced_config_button');
     Element.toggle('basic_config_button');
     Cookie.removeVar('show_advanced_config');
-    $H(ConfigXML.configIndex).each(function (item) {
+    ConfigXML.getAllItems().each(function (item) {
       if (item.value.advanced) {
         var element = $(item.key);
         if (!element) {
@@ -400,7 +384,7 @@ function saveForm() {
   });
 
   $A($('theform').getElementsByTagName('input')).each(function (input) {
-    if (ConfigXML.getOptionFromElementName(input.name).multiple) {
+    if (ConfigXML.getItem(input.name).multiple) {
       if (multiple[input.name]) {
         multiple[input.name].push(encodeURIComponent(input.value));
       } else {
@@ -458,42 +442,40 @@ function saveForm() {
   }
 }
 function cancelForm() {
-  ConfigXML.getSections().each(function (section){
-    ConfigXML.getItems(section).each(function (itemId) {
-      var item = ConfigXML.getOption(section,itemId);
-      var itemConfigId = item.config_section + ':' + item.id;
-      if (item.multiple) {
-        var values = ConfigInitialValues.getValue(item.config_section,itemId);
-        if (!values || values.length === 0) {
-          values = [''];
-        }
-        var initialValuesCount = values.length;
-        var currentElements = document.getElementsByName(itemConfigId);
-var i=0;
-        while (initialValuesCount < currentElements.length) {
-          i++;
-          if (i > 10) {
-            alert('Getting dizzy; too many turns in this loop (silly errormessage 1)');
-            return;
-          }
-          Config._removeItem(currentElements[0].parentNode,'noAnimation');
-       }
-        while (initialValuesCount > currentElements.length) {
-          i++;
-          if (i > 10) {
-              alert('An important part came off (silly errormessage 2)');
-              return;
-          }
-          Config._addItem(currentElements[currentElements.length-1].parentNode);
-        }
-        values.each(function (val,i){
-          currentElements[i].value = val;
-        });
-      } else {
-          //###TODO potential error a select without a default value
-        $(itemConfigId).value = ConfigInitialValues.getValue(item.config_section,item.id) || item.default_value || '';
+  ConfigXML.getAllItems().each(function (item) {
+    // this is from a hash $H hence use value
+    item = item.value;
+    if (item.multiple) {
+      var values = ConfigInitialValues.getValue(item.id);
+      if (!values || values.length === 0) {
+        values = [''];
       }
-    });
+      var initialValuesCount = values.length;
+      var currentElements = document.getElementsByName(item.id);
+var i=0;
+      while (initialValuesCount < currentElements.length) {
+        i++;
+        if (i > 10) {
+          alert('Getting dizzy; too many turns in this loop (silly errormessage 1)');
+          return;
+        }
+        Config._removeItem(currentElements[0].parentNode,'noAnimation');
+      }
+      while (initialValuesCount > currentElements.length) {
+        i++;
+        if (i > 10) {
+            alert('An important part came off (silly errormessage 2)');
+            return;
+        }
+        Config._addItem(currentElements[currentElements.length-1].parentNode);
+      }
+      values.each(function (val,i){
+        currentElements[i].value = val;
+      });
+    } else {
+        //###TODO potential error a select without a default value
+      $(item.id).value = ConfigInitialValues.getValue(item.id) || item.default_value || '';
+    }
   });
   return;
 }

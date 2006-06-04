@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <config>
     <section name="Server">
-        <item id="servername" config_section="general" restart="true">
+        <item id="general:servername" restart="true">
             <name>Server Name</name>
             <short_description>
                 The name iTunes and other daap clients should see
@@ -13,43 +13,43 @@
             </long_description>
             <type size="20">text</type>
         </item>
-        <item id="web_root" advanced="true" config_section="general" required="true" restart="true">
+        <item id="general:web_root" advanced="true" required="true" restart="true">
             <name>Web Root</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="port" advanced="true" config_section="general" required="true" restart="true">
+        <item id="general:port" advanced="true" required="true" restart="true">
             <name>Port</name>
             <short_description>
                 The port the server should run at; default is 3689
             </short_description>
             <type size="20">text</type>
         </item>
-        <item id="logfile" config_section="general">
+        <item id="general:logfile">
             <name>Logfile</name>
             <short_description></short_description>
             <type size="80" browse="file">text</type>
         </item>
-        <item id="runas" advanced="true" config_section="general" required="true" restart="true">
+        <item id="general:runas" advanced="true" required="true" restart="true">
             <name>Run As</name>
             <short_description></short_description>
             <type size="20">text</type>
         </item>
-        <item id="admin_pw" config_section="general" required="true">
+        <item id="general:admin_pw" required="true">
             <name>Admin password</name>
             <short_description>
                 The password for this administration interface.
             </short_description>
             <type size="20">text</type>
         </item>
-        <item id="password" config_section="general">
+        <item id="general:password">
             <name>MP3 Password</name>
             <short_description>
                 The password clients need to access this server.
             </short_description>
             <type size="20">text</type>
         </item>
-        <item id="compress" advanced="true" config_section="general">
+        <item id="general:compress" advanced="true">
             <name>Compress</name>
             <short_description>
                 Should browsing data be compressed on the way to the client?
@@ -60,7 +60,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="debuglevel" advanced="true" config_section="general">
+        <item id="general:debuglevel" advanced="true">
             <name>Debug Level</name>
             <short_description>
                 Possible values are 0 to 9, 9 being the most detailed debug level.
@@ -82,22 +82,22 @@
     </section>
 
     <section name="Music Files">
-        <item id="mp3_dir" config_section="general" required="true">
+        <item id="general:mp3_dir" required="true">
             <name>MP3 Directory</name>
             <short_description></short_description>
             <type size="80" multiple="true" add_item_label="Add mp3 directory" browse="directory">text</type>
         </item>
-        <item id="extensions" config_section="general">
+        <item id="general:extensions">
             <name>Extensions</name>
             <short_description></short_description>
             <type size="20">text</type>
         </item>
-        <item id="playlist" config_section="general">
+        <item id="general:playlist">
             <name>Playlist File</name>
             <short_description></short_description>
             <type size="80" browse="file">text</type>
         </item>
-        <item id="process_m3u" config_section="general">
+        <item id="general:process_m3u">
             <name>Process .m3u Files</name>
             <short_description>
                 Should m3u files be processed as playlists?
@@ -108,14 +108,14 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="compdirs" advanced="true" config_section="general">
+        <item id="general:compdirs" advanced="true">
             <name>Compilation Directories</name>
             <short_description></short_description>
             <type size="80" multiple="true" add_item_label="Add compilation directory" browse="directory">text</type>
         </item>
     </section>
     <section name="Scanning">
-        <item id="process_xml" advanced="true" config_section="scanning">
+        <item id="scanning:process_xml" advanced="true">
             <name>Process xmlFiles</name>
             <short_description>
                 Should iTunes xml-files be processed?
@@ -126,7 +126,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="ignore_appledouble" advanced="true" config_section="scanning">
+        <item id="scanning:ignore_appledouble" advanced="true">
             <name>Ignore appledouble</name>
             <short_description>
                 Skip appledouble files when scanning
@@ -137,7 +137,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="ignore_dotfiles" advanced="true" config_section="scanning">
+        <item id="scanning:ignore_dotfiles" advanced="true">
             <name>Ignore dotfiles</name>
             <short_description>
                 Ignore unix hidden dot files
@@ -148,7 +148,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="concat_compilations" advanced="true" config_section="scanning">
+        <item id="scanning:concat_compilations" advanced="true">
             <name>Group compilations</name>
             <short_description>
                 Compilations are grouped under &amp;Various artists&amp;
@@ -161,7 +161,7 @@
         </item>
     </section>
     <section name="Database">
-        <item id="db_type" advanced="true" config_section="general" restart="true">
+        <item id="general:db_type" advanced="true" restart="true">
             <name>Database Type</name>
             <short_description></short_description>
             <type default_value="sqlite">select</type>
@@ -170,12 +170,12 @@
                 <option value="sqlite3">sqlite3</option>
             </options>
         </item>
-        <item id="db_parms" advanced="true" config_section="general" restart="true">
+        <item id="general:db_parms" advanced="true" restart="true">
             <name>Database Directory</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="scan_type" config_section="general" restart="true">
+        <item id="general:scan_type" restart="true">
             <name>Scan Type</name>
             <short_description></short_description>
             <type default_value="2">select</type>
@@ -185,14 +185,14 @@
                 <option value="2">2 - Painfully aggressive</option>
             </options>
         </item>
-        <item id="rescan_interval" config_section="general" restart="true">
+        <item id="general:rescan_interval" restart="true">
             <name>Rescan Interval</name>
             <short_description>
                 How often should mt-daapd look for new files? In seconds.
             </short_description>
             <type size="20">text</type>
         </item>
-        <item id="always_scan" config_section="general" restart="true">
+        <item id="general:always_scan" restart="true">
             <name>Always Scan</name>
             <short_description></short_description>
             <type default_value="0">select</type>
@@ -204,7 +204,7 @@
     </section>
 
     <section name="Daap">
-        <item id="empty_strings" advanced="true" config_section="daap">
+        <item id="daap:empty_strings" advanced="true">
             <name>Empty strings</name>
             <short_description></short_description>
             <type default_value="0">select</type>
@@ -213,7 +213,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="supports_update" advanced="true" config_section="daap">
+        <item id="daap:supports_update" advanced="true">
             <name>Supports update</name>
             <short_description></short_description>
             <type default_value="1">select</type>
@@ -222,7 +222,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="supports_browse" advanced="true" config_section="daap">
+        <item id="daap:supports_browse" advanced="true">
             <name>Supports browse</name>
             <short_description></short_description>
             <type default_value="1">select</type>
@@ -235,12 +235,12 @@
     </section>
 
     <section name="Plugins">
-        <item id="plugin_dir" advanced="true" config_section="plugins" restart="true">
+        <item id="plugins:plugin_dir" advanced="true" config_section="plugins" restart="true">
             <name>Plugin Directory</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="plugins" advanced="true" config_section="plugins" restart="true">
+        <item id="plugins:plugins" advanced="true" config_section="plugins" restart="true">
             <name>Plugins</name>
             <short_description></short_description>
             <type size="20" multiple="true" add_item_label="Add plugin">text</type>
@@ -248,12 +248,12 @@
     </section>
 
     <section name="Transcoding">
-        <item id="ssc_prog" advanced="true" config_section="general">
+        <item id="general:ssc_prog" advanced="true">
             <name>SSC Program</name>
             <short_description></short_description>
             <type size="80" browse="file">text</type>
         </item>
-        <item id="ssc_codectypes" advanced="true" config_section="general">
+        <item id="general:ssc_codectypes" advanced="true">
             <name>SSC Codec Types</name>
             <short_description></short_description>
             <type size="80">text</type>
