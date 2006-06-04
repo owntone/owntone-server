@@ -37,7 +37,7 @@ var ConfigXML = {
     return this.advancedSections;
   },
   getSectionId: function (sectionName) {
-    return 'firefly_'+sectionName.replace(/\ /,'').toLowerCase();
+    return 'firefly_'+sectionName.replace(/\ /g,'').toLowerCase();
   },
   parseXML: function(xmlDoc) {
     $A(xmlDoc.getElementsByTagName('section')).each(function (section) {
@@ -446,11 +446,13 @@ function saveForm() {
 
   $A($('theform').getElementsByTagName('input')).each(function (input) {
     if (ConfigXML.getItem(input.name).multiple) {
+      var value = encodeURIComponent(input.value.replace(/,/g,',,'));
       if (multiple[input.name]) {
-        multiple[input.name].push(encodeURIComponent(input.value));
+        multiple[input.name].push(value);
       } else {
-        multiple[input.name] = [input.value];
+        multiple[input.name] = [value];
       }
+      alert(value);
     } else {
       if (DEBUG) {
         debug(input.id,input.value);
