@@ -331,7 +331,7 @@ var Config ={
     }
   },
   _browse: function(e) {
-    alert('Browse');
+    alert('Here goes UI to browse for files and dirs');
   },
   _showAdvancedConfig: function (e) {
     Element.toggle('advanced_config_button');
@@ -452,7 +452,6 @@ function saveForm() {
       } else {
         multiple[input.name] = [value];
       }
-      alert(value);
     } else {
       if (DEBUG) {
         debug(input.id,input.value);
