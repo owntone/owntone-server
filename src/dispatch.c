@@ -779,7 +779,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
                 session,pmp3->fname, pwsc->hostname,(long)offset);
 
         bytes_copied =  plugin_ssc_transcode(pwsc,pmp3->path,pmp3->codectype,
-                                             pmp3->song_length,offset);
+                                             pmp3->song_length,offset,1);
 
         config_set_status(pwsc,session,NULL);
         db_dispose_item(pmp3);

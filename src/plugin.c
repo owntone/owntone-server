@@ -661,7 +661,7 @@ int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn,
  * @param duration time in ms
  * @returns bytes transferred, or -1 on error
  */
-int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset) {
+int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset, int headers) {
     PLUGIN_ENTRY *ppi, *ptc=NULL;
     PLUGIN_TRANSCODE_FN *pfn = NULL;
     void *vp_ssc;
@@ -691,16 +691,19 @@ int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duratio
         if(vp_ssc) {
             if(pfn->ssc_open(vp_ssc,file,codec,duration)) {
                 /* start reading and throwing */
-                ws_addresponseheader(pwsc,"Content-Type","audio/wav");
-                ws_addresponseheader(pwsc,"Connection","Close");
-                if(!offset) {
-                    ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-                } else {
-                    ws_addresponseheader(pwsc,"Content-Range","bytes %ld-*/*",
-                                         (long)offset);
-                    ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
+                if(headers) {
+                    ws_addresponseheader(pwsc,"Content-Type","audio/wav");
+                    ws_addresponseheader(pwsc,"Connection","Close");
+                    if(!offset) {
+                        ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+                    } else {
+                        ws_addresponseheader(pwsc,"Content-Range","bytes %ld-*/*",
+                                             (long)offset);
+                        ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
+                    }
+                    ws_emitheaders(pwsc);
                 }
-                ws_emitheaders(pwsc);
+
 
                 /* start reading/writing */
                 result = _plugin_ssc_copy(pwsc,pfn,vp_ssc,offset);
