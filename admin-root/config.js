@@ -18,14 +18,30 @@ function init() {
 }
 var ConfigXML = {
   config: {},
+  advancedSections: [],
   getItem: function (id) {
     return this.config[id];
   },
   getAllItems: function () {
     return $H(this.config);
   },
+  isAdvancedSection: function (sectionName) {
+    return this.advancedSections.find(function (name) {
+      return name == sectionName
+    });
+  },
+  getAllAdvancedSections: function () {
+    return this.advancedSections;
+  },
+  getSectionId: function (sectionName) {
+    return 'firefly_'+sectionName.replace(/\ /,'').toLowerCase();
+  },
   parseXML: function(xmlDoc) {
     $A(xmlDoc.getElementsByTagName('section')).each(function (section) {
+      if ('true' == section.getAttribute('advanced')) {
+        // Only used by Config._showAdvancedConfig, Config._showBasicConfig
+        ConfigXML.advancedSections.push(section.getAttribute('name'));
+      }
       $A(section.getElementsByTagName('item')).each(function (item) {
         var returnItem = {};
         $A(item.attributes).each(function (attr) {
@@ -70,21 +86,25 @@ var ConfigInitialValues = {
     sections.each(function (section) {
       var sectionName = section.nodeName;
       $A(section.childNodes).each(function (node) {
+        var itemId = sectionName + ':' + node.nodeName;
         if (node.firstChild && node.firstChild.hasChildNodes()) {
           var values = [];
           $A(node.childNodes).each(function (n) {
             values.push(Element.textContent(n));
           });
-          ConfigInitialValues.values[sectionName+':'+node.nodeName] = values;
+          ConfigInitialValues.values[itemId] = values;
         } else {
-          ConfigInitialValues.values[sectionName+':'+node.nodeName] = Element.textContent(node);
+          ConfigInitialValues.values[itemId] = Element.textContent(node);
+        }
+        if (!ConfigXML.getItem(itemId)) {
+          //###TODO tell the user these are missing
         }
       });
-    });
+   });
   } 
 };
-var Config = {
-  configPath: '',
+var Config ={
+ configPath: '',
   init: function () {
     new Ajax.Request('/config.xml',{method: 'get',onComplete: Config.storeConfigLayout});
   },
@@ -117,8 +137,14 @@ var Config = {
       $A(section.getElementsByTagName('item')).each(function (item) {
         body.appendChild(Config._buildItem(item.getAttribute('id')));
       });
-      $('theform').appendChild(head);
-      $('theform').appendChild(body);
+      var div = document.createElement('div');
+      div.id = ConfigXML.getSectionId(sectionName);
+      if (ConfigXML.isAdvancedSection(sectionName)) {
+        div.style.display = 'none';
+      }
+      div.appendChild(head);
+      div.appendChild(body);
+      $('theform').appendChild(div);
     });
     // Won't be using the config.xml XML doc anymore get rid of it
     Config.tmpConfigXML = '';
@@ -282,6 +308,9 @@ var Config = {
     Element.toggle('advanced_config_button');
     Element.toggle('basic_config_button');
     Cookie.setVar('show_advanced_config','true',30);
+    ConfigXML.getAllAdvancedSections().each(function (sectionName) {
+      Effect.BlindDown(ConfigXML.getSectionId(sectionName));
+    });
     ConfigXML.getAllItems().each(function (item) {
       if (item.value.advanced) {
         var element = $(item.key);
@@ -300,6 +329,9 @@ var Config = {
     Element.toggle('advanced_config_button');
     Element.toggle('basic_config_button');
     Cookie.removeVar('show_advanced_config');
+    ConfigXML.getAllAdvancedSections().each(function (sectionName) {
+      Effect.BlindUp(ConfigXML.getSectionId(sectionName));
+    });
     ConfigXML.getAllItems().each(function (item) {
       if (item.value.advanced) {
         var element = $(item.key);

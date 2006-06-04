@@ -114,8 +114,8 @@
             <type size="80" multiple="true" add_item_label="Add compilation directory" browse="directory">text</type>
         </item>
     </section>
-    <section name="Scanning">
-        <item id="scanning:process_xml" advanced="true">
+    <section name="Scanning" advanced="true">
+        <item id="scanning:process_xml">
             <name>Process xmlFiles</name>
             <short_description>
                 Should iTunes xml-files be processed?
@@ -126,7 +126,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="scanning:ignore_appledouble" advanced="true">
+        <item id="scanning:ignore_appledouble">
             <name>Ignore appledouble</name>
             <short_description>
                 Skip appledouble files when scanning
@@ -137,7 +137,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="scanning:ignore_dotfiles" advanced="true">
+        <item id="scanning:ignore_dotfiles">
             <name>Ignore dotfiles</name>
             <short_description>
                 Ignore unix hidden dot files
@@ -148,7 +148,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="scanning:concat_compilations" advanced="true">
+        <item id="scanning:concat_compilations">
             <name>Group compilations</name>
             <short_description>
                 Compilations are grouped under &amp;Various artists&amp;
@@ -203,8 +203,8 @@
         </item>
     </section>
 
-    <section name="Daap">
-        <item id="daap:empty_strings" advanced="true">
+    <section name="Daap" advanced="true">
+        <item id="daap:empty_strings">
             <name>Empty strings</name>
             <short_description></short_description>
             <type default_value="0">select</type>
@@ -213,7 +213,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="daap:supports_update" advanced="true">
+        <item id="daap:supports_update">
             <name>Supports update</name>
             <short_description></short_description>
             <type default_value="1">select</type>
@@ -222,7 +222,7 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="daap:supports_browse" advanced="true">
+        <item id="daap:supports_browse">
             <name>Supports browse</name>
             <short_description></short_description>
             <type default_value="1">select</type>
@@ -234,26 +234,26 @@
         
     </section>
 
-    <section name="Plugins">
-        <item id="plugins:plugin_dir" advanced="true" config_section="plugins" restart="true">
+    <section name="Plugins" advanced="true">
+        <item id="plugins:plugin_dir" config_section="plugins" restart="true">
             <name>Plugin Directory</name>
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="plugins:plugins" advanced="true" config_section="plugins" restart="true">
+        <item id="plugins:plugins" config_section="plugins" restart="true">
             <name>Plugins</name>
             <short_description></short_description>
             <type size="20" multiple="true" add_item_label="Add plugin">text</type>
         </item>
     </section>
 
-    <section name="Transcoding">
-        <item id="general:ssc_prog" advanced="true">
+    <section name="Transcoding" advanced="true">
+        <item id="general:ssc_prog">
             <name>SSC Program</name>
             <short_description></short_description>
             <type size="80" browse="file">text</type>
         </item>
-        <item id="general:ssc_codectypes" advanced="true">
+        <item id="general:ssc_codectypes">
             <name>SSC Codec Types</name>
             <short_description></short_description>
             <type size="80">text</type>
