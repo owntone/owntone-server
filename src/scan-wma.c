@@ -242,6 +242,16 @@ typedef struct tag_wma_subheader {
     unsigned char objectid[16];
     long long size;
 } _PACKED WMA_SUBHEADER;
+
+typedef struct tag_wma_stream_properties {
+    unsigned char stream_type[16];
+    unsigned char codec_type[16];
+    char time_offset[8];
+    unsigned int tsdl;
+    unsigned int ecdl;
+    unsigned short int flags;
+    unsigned int reserved;
+} _PACKED WMA_STREAM_PROP;
 #pragma pack()
 
 /*
@@ -255,7 +265,8 @@ char *wma_utf16toutf8(unsigned char *utf16, int len);
 int wma_parse_content_description(int fd,int size, MP3FILE *pmp3);
 int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3);
 int wma_parse_file_properteis(int fd,int size, MP3FILE *pmp3);
-
+int wma_parse_audio_media(int fd, int size, MP3FILE *pmp3);
+int wma_parse_stream_properties(int fd, int size, MP3FILE *pmp3);
 
 /**
  * read an unsigned short int from the fd
@@ -323,6 +334,70 @@ int wma_file_read_bytes(int fd,int len, unsigned char **data) {
         return 0;
 
     return 1;
+}
+
+
+/**
+ * another try to get stream codec type
+ *
+ * @param fd fd of the file we are reading from -- positioned at start
+ * @param size size of the content description block
+ * @param pmp3 the mp3 struct we are filling with gleaned data
+ */
+int wma_parse_stream_properties(int fd, int size, MP3FILE *pmp3) {
+    WMA_STREAM_PROP sp;
+    WMA_GUID *pguid;
+
+    if(r_read(fd,&sp,sizeof(sp)) != sizeof(sp))
+        return FALSE;
+
+    pguid = wma_find_guid(sp.stream_type);
+    if(!pguid)
+        return TRUE;
+
+    if(strcmp(pguid->name,"ASF_Audio_Media") != 0) 
+        return TRUE;
+
+    /* it is an audio stream... find codec.  The Type-Specific
+     * data should be a WAVEFORMATEX... so we'll leverage
+     * wma_parse_audio_media
+     */
+    return wma_parse_audio_media(fd,size - sizeof(WMA_STREAM_PROP),pmp3);
+}
+
+/**
+ * parse the audio media section... This is essentially a 
+ * WAVFORMATEX structure.  Generally we only care about the
+ * codec type.
+ *
+ * @param fd fd of the file we are reading from -- positioned at start
+ * @param size size of the content description block
+ * @param pmp3 the mp3 struct we are filling with gleaned data
+ */
+int wma_parse_audio_media(int fd, int size, MP3FILE *pmp3) {
+    unsigned short int codec;
+
+    if(size < 2)
+        return TRUE; /* we'll leave it wma.  will work or not! */
+
+    if(!wma_file_read_short(fd,&codec)) {
+        return FALSE;
+    }
+
+    DPRINTF(E_DBG,L_SCAN,"WMA Codec Type: %02X\n",codec);
+
+    switch(codec) {
+    case 0x162:
+        MAYBEFREE(pmp3->codectype);
+        pmp3->codectype = strdup("wmap"); /* pro */
+        break;
+    case 0x163:
+        MAYBEFREE(pmp3->codectype);
+        pmp3->codectype = strdup("wmal"); /* lossless */
+        break;
+    }
+
+    return TRUE;
 }
 
 /**
@@ -830,6 +905,10 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
                 res &= wma_parse_extended_content_description(wma_fd,(int)subhdr.size,pmp3);
             } else if (strcmp(pguid->name,"ASF_File_Properties_Object")==0) {
                 res &= wma_parse_file_properties(wma_fd,(int)subhdr.size,pmp3);
+            } else if (strcmp(pguid->name,"ASF_Audio_Media")==0) {
+                res &= wma_parse_audio_media(wma_fd,(int)subhdr.size,pmp3);
+            } else if (strcmp(pguid->name,"ASF_Stream_Properties_Object")==0) {
+                res &= wma_parse_stream_properties(wma_fd,(int)subhdr.size,pmp3);
             }
         } else {
             DPRINTF(E_DBG,L_SCAN,"Unknown subheader: %02hhx%02hhx%02hhx%02hhx-"

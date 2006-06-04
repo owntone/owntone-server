@@ -143,7 +143,8 @@ int main(int argc, char *argv[]) {
     SCANNERLIST *plist;
     int option;
     char *ext;
-    char *configfile;
+    char *configfile = "mt-daapd.conf";
+    int debuglevel=1;
 
     memset((void*)&mp3,0x00,sizeof(MP3FILE));
 
@@ -156,7 +157,7 @@ int main(int argc, char *argv[]) {
     while((option = getopt(argc, argv, "d:c:")) != -1) {
         switch(option) {
         case 'd':
-            err_setlevel(atoi(optarg));
+            debuglevel = atoi(optarg);
             break;
         case 'c':
             configfile=optarg;
@@ -182,9 +183,9 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
+    err_setdest(LOGDEST_STDERR);
+    err_setlevel(debuglevel);
     printf("Getting info for %s\n",argv[0]);
-
-
 
     ext = strrchr(argv[0],'.')+1;
     plist=scanner_list;

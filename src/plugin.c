@@ -20,7 +20,7 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#include "config.h"
+# include "config.h"
 #endif
 
 #define _XOPEN_SOURCE 500  /** unix98?  pthread_once_t, etc */
