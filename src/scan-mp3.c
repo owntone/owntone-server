@@ -942,6 +942,7 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
                 buffer[index+fi.xing_offset+4+10] << 8 |
                 buffer[index+fi.xing_offset+4+11];
         }
+        fi.bitrate = 0;
     }
 
     if((conf_get_int("general","scan_type",0) != 0) &&
@@ -974,6 +975,10 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
             pmp3->song_length = (int) ((double)(fi.number_of_frames*fi.samples_per_frame*1000.)/
                                        (double) fi.samplerate);
         }
+
+        /* back-calculate bitrate from duration */
+        pmp3->bitrate = ((pmp3->file_size / 1000) * 8) / 
+            (pmp3->song_length / 1000);
 
     }
     DPRINTF(E_DBG,L_SCAN," Song Length: %d\n",pmp3->song_length);
