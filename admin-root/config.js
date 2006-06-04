@@ -23,7 +23,10 @@ var ConfigXML = {
     return this.config[id];
   },
   getAllItems: function () {
-    return $H(this.config);
+    return $H(this.config).pluck('value');
+  },
+  addAdvancedSection: function (sectionName) {
+    this.advancedSections.push(sectionName);
   },
   isAdvancedSection: function (sectionName) {
     return this.advancedSections.find(function (name) {
@@ -40,7 +43,7 @@ var ConfigXML = {
     $A(xmlDoc.getElementsByTagName('section')).each(function (section) {
       if ('true' == section.getAttribute('advanced')) {
         // Only used by Config._showAdvancedConfig, Config._showBasicConfig
-        ConfigXML.advancedSections.push(section.getAttribute('name'));
+        ConfigXML.addAdvancedSection(section.getAttribute('name'));
       }
       $A(section.getElementsByTagName('item')).each(function (item) {
         var returnItem = {};
@@ -312,11 +315,11 @@ var Config ={
       Effect.BlindDown(ConfigXML.getSectionId(sectionName));
     });
     ConfigXML.getAllItems().each(function (item) {
-      if (item.value.advanced) {
-        var element = $(item.key);
+      if (item.advanced) {
+        var element = $(item.id);
         if (!element) {
           // Handle options with multiple values
-          $A(document.getElementsByName(item.key)).each(function (el) {
+          $A(document.getElementsByName(item.id)).each(function (el) {
             Effect.BlindDown(el.parentNode.parentNode);  
           });
         } else {
@@ -333,15 +336,15 @@ var Config ={
       Effect.BlindUp(ConfigXML.getSectionId(sectionName));
     });
     ConfigXML.getAllItems().each(function (item) {
-      if (item.value.advanced) {
-        var element = $(item.key);
+      if (item.advanced) {
+        var element = $(item.id);
         if (!element) {
           // Handle options with multiple values
-          $A(document.getElementsByName(item.key)).each(function (el) {
+          $A(document.getElementsByName(item.id)).each(function (el) {
             Effect.BlindUp(el.parentNode.parentNode);  
           });
         } else {
-          Effect.BlindUp($(item.key).parentNode);
+          Effect.BlindUp(element.parentNode);
         }
       }
     });
@@ -475,8 +478,6 @@ function saveForm() {
 }
 function cancelForm() {
   ConfigXML.getAllItems().each(function (item) {
-    // this is from a hash $H hence use value
-    item = item.value;
     if (item.multiple) {
       var values = ConfigInitialValues.getValue(item.id);
       if (!values || values.length === 0) {
