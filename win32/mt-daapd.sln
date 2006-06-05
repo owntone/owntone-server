@@ -19,6 +19,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShell", "FireflyShel
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssc-wma", "ssc-wma\ssc-wma.vcproj", "{C1EF5133-DFB3-4FEC-B999-3655DBB14785}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfiguration) = preSolution
 		Debug = Debug
@@ -45,6 +49,10 @@ Global
 		{ED38F171-854B-4EA3-B3A0-7681648969FC}.Debug.Build.0 = Debug|Win32
 		{ED38F171-854B-4EA3-B3A0-7681648969FC}.Release.ActiveCfg = Release|Win32
 		{ED38F171-854B-4EA3-B3A0-7681648969FC}.Release.Build.0 = Release|Win32
+		{C1EF5133-DFB3-4FEC-B999-3655DBB14785}.Debug.ActiveCfg = Debug|Win32
+		{C1EF5133-DFB3-4FEC-B999-3655DBB14785}.Debug.Build.0 = Debug|Win32
+		{C1EF5133-DFB3-4FEC-B999-3655DBB14785}.Release.ActiveCfg = Release|Win32
+		{C1EF5133-DFB3-4FEC-B999-3655DBB14785}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection

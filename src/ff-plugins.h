@@ -108,7 +108,7 @@ typedef struct tag_db_query {
 
     int playlist_id;            /* for items query */
     int totalcount;             /* returned total count */
-    void *private;
+    void *priv;
 } DB_QUERY;
 
 

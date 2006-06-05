@@ -530,14 +530,14 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
 
                 /* so functions must be a tag_plugin_output_fn */
                 auth_fn=(ppi->pinfo->output_fns)->auth;
-		if(auth_fn) {
-		    result=auth_fn(pwsc,username,pw);
-		    _plugin_unlock();
-		    return result;
-		} else {
-		    _plugin_unlock();
-		    return TRUE;
-		}
+                if(auth_fn) {
+                    result=auth_fn(pwsc,username,pw);
+                    _plugin_unlock();
+                    return result;
+                } else {
+                    _plugin_unlock();
+                    return TRUE;
+                }
             }
         }
         ppi = ppi->next;
@@ -642,7 +642,9 @@ int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn,
 
     while((bytes_read=pfn->ssc_read(vp,buffer,sizeof(buffer))) > 0) {
         total_bytes_read += bytes_read;
-        ws_writebinary(pwsc,buffer,bytes_read);
+        if(ws_writebinary(pwsc,buffer,bytes_read) != bytes_read) {
+            return total_bytes_read;
+        }
     }
 
     if(bytes_read < 0)
@@ -794,7 +796,7 @@ int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
         return DB_E_MALLOC;
     }
     memset(pqi,0,sizeof(DBQUERYINFO));
-    pinfo->private = (void*)pqi;
+    pinfo->priv = (void*)pqi;
 
     if(pinfo->filter) {
         pqi->pt = sp_init();
@@ -854,7 +856,7 @@ int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
 
 int pi_db_enum_fetch_row(char **pe, char ***row, DB_QUERY *pinfo) {
     return db_enum_fetch_row(pe, (PACKED_MP3FILE*)row, 
-                             (DBQUERYINFO*)pinfo->private);
+                             (DBQUERYINFO*)pinfo->priv);
 }
 
 int pi_db_enum_end(char **pe) {
@@ -872,8 +874,8 @@ void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo) {
     if(!pinfo)
         return;
 
-    if(pinfo->private) {
-        pqi = (DBQUERYINFO *)pinfo->private;
+    if(pinfo->priv) {
+        pqi = (DBQUERYINFO *)pinfo->priv;
         if(pqi->pt) {
             sp_dispose(pqi->pt);
             pqi->pt = NULL;

@@ -162,18 +162,18 @@ int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password) {
     readpassword = _ppi->conf_alloc_string("general","password",NULL);
     if(password == NULL) { /* testing to see if we need a pw */
         if((readpassword == NULL) || (strlen(readpassword)==0)) {
-            if(readpassword) free(readpassword);
+            if(readpassword) _ppi->conf_dispose_string(readpassword);
             return TRUE;
         } else {
-            free(readpassword);
+            _ppi->conf_dispose_string(readpassword);
             return FALSE;
         }
     } else {
         if(strcasecmp(password,readpassword)) {
-            free(readpassword);
+            _ppi->conf_dispose_string(readpassword);
             return FALSE;
         } else {
-            free(readpassword);
+            _ppi->conf_dispose_string(readpassword);
             return TRUE;
         }
     }
@@ -190,9 +190,12 @@ void plugin_handler(WS_CONNINFO *pwsc) {
     int index, part;
     int found;
 
+    _ppi->log(E_DBG,"Getting uri...\n");
+
     string = _ppi->ws_uri(pwsc);
     string++;
     
+    _ppi->log(E_DBG,"Mallocing privinfo...\n");
     ppi = (PRIVINFO *)malloc(sizeof(PRIVINFO));
     if(ppi) {
         memset(ppi,0,sizeof(PRIVINFO));
