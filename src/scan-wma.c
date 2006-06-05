@@ -387,6 +387,10 @@ int wma_parse_audio_media(int fd, int size, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN,"WMA Codec Type: %02X\n",codec);
 
     switch(codec) {
+    case 0x0A:
+        MAYBEFREE(pmp3->codectype);
+        pmp3->codectype = strdup("wmav"); /* voice */
+        break;
     case 0x162:
         MAYBEFREE(pmp3->codectype);
         pmp3->codectype = strdup("wmap"); /* pro */
