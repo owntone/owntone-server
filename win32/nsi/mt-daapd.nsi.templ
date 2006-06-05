@@ -17,6 +17,7 @@
 !define DLL_SOURCE "${PROJROOT}\win32\dll"
 !define CONFIG_SOURCE "${PROJROOT}\mt-daapd\win32\FireflyShell\Release"
 !define ADMIN_ROOT "${PROJROOT}\mt-daapd\admin-root"
+!define REDIST_SOURCE "${PROJROOT}\win32\redist"
 
 ; MUI 1.67 compatible ------
 !include "MUI.nsh"
@@ -125,10 +126,14 @@ Section "MainSection" SEC01
   File "${DLL_SOURCE}\avformat.dll"
   File "${DLL_SOURCE}\libFLAC.dll"
 
+  File "${REDIST_SOURCE}\msvcp71.dll"
+  File "${REDIST_SOURCE}\msvcr71.dll"
+
   SetOutPath "$2\plugins"
   File "${MTD_SOURCE}\rsp.dll"
   File "${MTD_SOURCE}\w32-event.dll"
   File "${MTD_SOURCE}\ssc-ffmpeg.dll"
+  File "${MTD_SOURCE}\ssc-wma.dll"
   
   SetOutPath "$2\admin-root"
   File "${ADMIN_ROOT}\thanks.html"
@@ -184,7 +189,7 @@ Section "MainSection" SEC01
   WriteINIStr "$2\mt-daapd.conf" "general" "mp3_dir" $3
 HasConf:
   WriteINIStr "$2\mt-daapd.conf" "plugins" "plugin_dir" "plugins"
-  WriteINIStr "$2\mt-daapd.conf" "plugins" "plugins" "rsp.dll,w32-event.dll,ssc-ffmpeg.dll"
+  WriteINIStr "$2\mt-daapd.conf" "plugins" "plugins" "rsp.dll,w32-event.dll,ssc-ffmpeg.dll,ssc-wma.dll"
   ReadINIStr $0 "$2\mt-daapd.conf" "general" "rescan_interval"
   StrCmp $0 "" rescan_set rescan_skip
  rescan_set:
@@ -431,8 +436,13 @@ Section Uninstall
   Delete "$INSTDIR\plugins\rsp.dll"
   Delete "$INSTDIR\plugins\w32-event.dll"
   Delete "$INSTDIR\plugins\ssc-ffmpeg.dll"
+  Delete "$INSTDIR\plugins\ssc-wma.dll"
   Delete "$INSTDIR\songs.db"
   Delete "$INSTDIR\songs3.db"
+  
+  Delete "$INSTDIR\msvcp71.dll"
+  Delete "$INSTDIR\msvcr71.dll"
+  
   Delete "$INSTDIR\mt-daapd-example.conf"
   Delete "$INSTDIR\admin-root\applet.html"
   Delete "$INSTDIR\admin-root\aspl-license.html"
