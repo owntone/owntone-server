@@ -206,7 +206,19 @@
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
 			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}">
 			<File
+				RelativePath=".\res\FireflyShell.ico">
+			</File>
+			<File
 				RelativePath=".\FireflyShell.rc">
+			</File>
+			<File
+				RelativePath=".\res\logo.bmp">
+			</File>
+			<File
+				RelativePath=".\res\ShellRunning.ico">
+			</File>
+			<File
+				RelativePath=".\res\ShellStopped.ico">
 			</File>
 		</Filter>
 		<File
@@ -214,5 +226,8 @@
 		</File>
 	</Files>
 	<Globals>
+		<Global
+			Name="RESOURCE_FILE"
+			Value="FireflyShell.rc"/>
 	</Globals>
 </VisualStudioProject>

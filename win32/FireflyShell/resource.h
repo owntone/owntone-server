@@ -50,6 +50,9 @@
 #define IDC_COPY                        1016
 #define IDC_REFRESH                     1018
 #define IDC_LOGO                        1019
+#define IDC_FIREFLYLINK                 1020
+#define IDC_FIREFLYLINK2                1021
+#define IDC_ROKULINK                    1021
 #define ID_SHELLNOTIFY                  4242
 
 // Next default values for new objects
@@ -58,7 +61,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        209
 #define _APS_NEXT_COMMAND_VALUE         32773
-#define _APS_NEXT_CONTROL_VALUE         1020
+#define _APS_NEXT_CONTROL_VALUE         1022
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -34,6 +34,9 @@ class CAboutPage :
 	};
 
 	int m_column_widths[SUBITEM_COUNT];
+    
+    CHyperLink m_roku_link;
+    CHyperLink m_firefly_link;
 
 	// String version of information ready to write to the clipboard
 	CString m_versions;
