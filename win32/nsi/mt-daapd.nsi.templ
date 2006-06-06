@@ -57,7 +57,7 @@
 
 ; MUI end ------
 
-Name "${PRODUCT_NAME} ${PRODUCT_VERSION}"
+Name "${PRODUCT_NAME}"
 Icon "..\ff.ico"
 UninstallIcon "..\ff.ico"
 OutFile "${PRODUCT_NAME} (${PRODUCT_VERSION}).exe"
@@ -67,6 +67,22 @@ ShowInstDetails show
 ShowUnInstDetails show
 
 Section -Pre
+  !include WinMessages.nsh
+  FindWindow $0 "" "FireflyShellNotifyIconHidden"
+  SendMessage $0 ${WM_CLOSE} 0 0 
+
+  nsSCM::QueryStatus "Bonjour Service"
+  Pop $0
+  Pop $1
+
+  StrCmp $0 "success" lbl_got_bonjour
+  MessageBox MB_OK "Bonjour for Windows service not found.  Please install Apple's Bonjour for Windows."
+  Quit
+
+  lbl_got_bonjour:
+
+  IntOp $9 0 + 0
+  
   nsSCM::QueryStatus "${PRODUCT_NAME}"
   Pop $0
   Pop $1
@@ -89,25 +105,17 @@ Section -Pre
   
   lbl_check_status: 
   IntCmp $1 1 lbl_continue lbl_wait_stop lbl_wait_stop
-  
+
   lbl_continue:
   ; should really loop until service stops...
   DetailPrint "Sent stop message... waiting for stop"
-  Sleep 5000
-
-  
-  !include WinMessages.nsh
-  FindWindow $0 "" "FireflyShellNotifyIconHidden"
-  SendMessage $0 ${WM_CLOSE} 0 0 
-  nsSCM::QueryStatus "Bonjour Service"
-  Pop $0
-  Pop $1
-
-  StrCmp $0 "success" lbl_got_bonjour
-  MessageBox MB_OK "Bonjour for Windows service not found.  Please install Apple's Bonjour for Windows."
-  Quit
-
-  lbl_got_bonjour:
+   
+  Sleep 1000
+  Delete $2\firefly.exe
+  IntOp $9 $9 + 1
+  IntCmp $9 10 +1 +2
+  IfErrors lbl_continue
+ 
 
 SectionEnd
 
@@ -116,6 +124,7 @@ Section "MainSection" SEC01
   SetOverwrite ifnewer
   File /oname=firefly.exe "${MTD_SOURCE}\mt-daapd.exe"
   File "${CONFIG_SOURCE}\FireflyShell.exe" 
+  File "${CONFIG_SOURCE}\..\FireflyShell.exe.manifest"
   File "${DLL_SOURCE}\gnu_regex.dll"
   File "${DLL_SOURCE}\pthreadVC2.dll"
   File "${DLL_SOURCE}\sqlite.dll"
@@ -202,7 +211,16 @@ HasConf:
  logfile_set:
   WriteINIStr "$2\mt-daapd.conf" "general" "logfile" "firefly.log"
  logfile_skip:
- 
+  
+  ; Check for default exts
+  ReadINIStr $0 "$2\mt-daapd.conf" "general" "extensions"
+  StrCmp $0 ".mp3,.m4a,.m4p" ext_set ext_skip
+  
+ ext_set:
+   WriteINIStr "$2\mt-daapd.conf" "general" "extensions" ".mp3,.m4a,.m4p,.wma"
+
+  ext_skip:
+  
   SetAutoClose False
 SectionEnd
 
@@ -494,6 +512,7 @@ Section Uninstall
   
   Delete "$INSTDIR\firefly.exe"
   Delete "$INSTDIR\FireflyShell.exe"
+  Delete "$INSTDIR\FireflyShell.exe.manifest"
   
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Website.lnk"
