@@ -53,7 +53,6 @@ private:
 	// Message Handlers
 	BEGIN_MSG_MAP(CAboutPage)
 		MESSAGE_HANDLER(WM_INITDIALOG, OnInitDialog)
-		COMMAND_ID_HANDLER(IDC_WEBSITE, OnWebsite)
 		COMMAND_ID_HANDLER(IDC_COPY, OnCopy)
 		MSG_WM_CTLCOLORSTATIC(OnCtlColorStatic)
 		CHAIN_MSG_MAP(base)
@@ -64,7 +63,6 @@ private:
 	END_DDX_MAP()
 
 	LRESULT OnInitDialog(UINT uMsg, WPARAM wParam, LPARAM lParam, BOOL& bHandled);
-	LRESULT OnWebsite(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnCopy(WORD /*wNotifyCode*/, WORD wID, HWND /*hWndCtl*/, BOOL& /*bHandled*/);
 	LRESULT OnCtlColorStatic(HDC, HWND);
 

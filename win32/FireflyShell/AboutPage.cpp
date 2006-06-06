@@ -109,13 +109,6 @@ void CAboutPage::AddItem(int item, int subitem, const TCHAR *text)
 		m_column_widths[subitem] = width;
 }
 
-LRESULT CAboutPage::OnWebsite(WORD, WORD, HWND, BOOL &)
-{
-	const TCHAR *url = _T("http://www.fireflymediaserver.org/");
-	::ShellExecute(m_hWnd, _T("open"), url, NULL, NULL, SW_SHOWNORMAL);
-	return 0;
-}
-
 LRESULT CAboutPage::OnCopy(WORD, WORD, HWND, BOOL &)
 {
 	if (OpenClipboard())
