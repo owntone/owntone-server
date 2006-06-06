@@ -32,6 +32,7 @@ Application::Application()
 	: m_dlg(NULL), m_server_events(&m_icon)
 {
 	CDosPath path = CDosPath::AppPath();
+    SetCurrentDirectory(path.GetPath());
 	CDosPath filename(_T("mt-daapd.conf"));
 	filename |= path;
 	m_config_path = filename.GetPath();
