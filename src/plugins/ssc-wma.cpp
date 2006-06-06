@@ -90,7 +90,7 @@ PLUGIN_INFO _pi = {
     NULL,                  /* event fns */
     &_ptfn,                /* fns */
     NULL,                  /* rend info */
-    "wma,wmal,wmap,wmav"   /* codeclist */
+    "wma,wmal,wmap"        /* codeclist */
 };
 
 /**
@@ -289,7 +289,7 @@ int ssc_wma_read(void *vp, char *buffer, int len) {
             return -1;
         }
 
-        _ppi->log(E_DBG,"Read %d bytes\n",handle->data_len);
+//        _ppi->log(E_SPAM,"Read %d bytes\n",handle->data_len);
 
         bytes_returned = handle->data_len;
         if(bytes_returned > len)
