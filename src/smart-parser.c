@@ -359,6 +359,8 @@ typedef struct tag_parsetree {
 #define SP_E_TIMEINTERVAL  0x0b
 #define SP_E_DATE          0x0c
 #define SP_E_EXPRQUOTE     0x0d
+#define SP_E_EOS           0x0e
+#define SP_E_UNKNOWN       0x0f
 
 char *sp_errorstrings[] = {
     "Success",
@@ -374,7 +376,9 @@ char *sp_errorstrings[] = {
     "Expecting interval comparison (before, after)",
     "Expecting time interval (days, weeks, months, years)",
     "Expecting date",
-    "Expecting ' (single quote)\n"
+    "Expecting ' (single quote)\n",
+    "Expecting end of statement\n",
+    "Unknown Error.  Help?\n"
 };
 
 /* Forwards */
@@ -745,6 +749,7 @@ SP_NODE *sp_parse_phrase(PARSETREE tree) {
 
     expr = sp_parse_oexpr(tree);
     if((!expr) || (tree->token.token_id != T_EOF)) {
+        sp_set_error(tree,SP_E_EOS);
         sp_free_node(expr);
         expr = NULL;
     }
@@ -1478,6 +1483,9 @@ char *sp_sql_clause(PARSETREE tree) {
  * @returns text of the last error
  */
 char *sp_get_error(PARSETREE tree) {
+    if(tree->error == NULL) {
+        sp_set_error(tree,SP_E_UNKNOWN);
+    }
     return tree->error;
 }
 
