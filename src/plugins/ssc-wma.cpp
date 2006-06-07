@@ -37,6 +37,10 @@ typedef struct tag_ssc_handle {
     BYTE *pdata;
     DWORD data_len;
     int offset;
+
+    DWORD channels;
+    DWORD sample_rate;
+    WORD bits_per_sample;
 } SSCHANDLE;
 
 #define STATE_DONE        0
@@ -90,7 +94,7 @@ PLUGIN_INFO _pi = {
     NULL,                  /* event fns */
     &_ptfn,                /* fns */
     NULL,                  /* rend info */
-    "wma,wmal,wmap"        /* codeclist */
+    "wma,wmal,wmap,wmav"   /* codeclist */
 };
 
 /**
@@ -141,12 +145,14 @@ int ssc_wma_open(void *vp, char *file, char *codec, int duration) {
     SSCHANDLE *handle = (SSCHANDLE*)vp;
     HRESULT hr = S_OK;
     WCHAR fname[PATH_MAX];
+    DWORD byte_count;
 
     if(!handle)
         return FALSE;
 
     handle->state = STATE_DONE;
     handle->duration = duration;
+    handle->errnum = SSC_WMA_E_OPEN;
 
     hr = WMCreateSyncReader(NULL,0,&handle->pReader);
     if(FAILED(hr)) {
@@ -161,7 +167,6 @@ int ssc_wma_open(void *vp, char *file, char *codec, int duration) {
     hr = handle->pReader->Open(fname);
     if(FAILED(hr)) {
         _ppi->log(E_INF,"Could not open file.  Error code: 0x%08X\n",hr);
-        handle->errnum = SSC_WMA_E_OPEN;
         return FALSE;
     }
     handle->state=STATE_OPEN;
@@ -169,17 +174,52 @@ int ssc_wma_open(void *vp, char *file, char *codec, int duration) {
     hr = handle->pReader->SetRange(0,0);
     if(FAILED(hr)) {
         _ppi->log(E_INF,"Could not set range.  Error code: 0x%08X\n",hr);
-        handle->errnum = SSC_WMA_E_OPEN;
         return FALSE;
     }
 
     hr = handle->pReader->SetReadStreamSamples(1,0);
     if(FAILED(hr)) {
         _ppi->log(E_INF,"Could not stream samples.  Error code: 0x%08X\n",hr);
-        handle->errnum = SSC_WMA_E_OPEN;
         return FALSE;
     }
 
+    handle->channels = 2;
+    handle->bits_per_sample = 16;
+    handle->sample_rate = 44100;
+
+    IWMOutputMediaProps *pprops;
+    hr = handle->pReader->GetOutputFormat(0,0,&pprops);
+    if(FAILED(hr)) {
+        _ppi->log(E_LOG,"Could not get output format for %s\n",file);
+        return TRUE; /* we'll assume 44100/16/2 */
+    }
+
+    hr = pprops->GetMediaType(NULL,&byte_count);
+    if(FAILED(hr)) {
+        _ppi->log(E_LOG,"Could not get media type for %s\n",file);
+        return TRUE;
+    }
+
+    WM_MEDIA_TYPE *ptype = (WM_MEDIA_TYPE*)calloc(byte_count,1);
+    if(!ptype) {
+        _ppi->log(E_FATAL,"ssc_wma_open: malloc\n");
+    }
+
+    hr = pprops->GetMediaType(ptype, &byte_count);
+    if(FAILED(hr)) {
+        free(ptype);
+        return TRUE;
+    }
+
+    /* now get sample info */
+    if(ptype->formattype == WMFORMAT_WaveFormatEx) {
+        WAVEFORMATEX *pformat = (WAVEFORMATEX*)ptype->pbFormat;
+        handle->channels = pformat->nChannels;
+        handle->sample_rate = pformat->nSamplesPerSec;
+        handle->bits_per_sample = pformat->wBitsPerSample;
+    }
+
+    free(ptype);
 
     return TRUE;
 }
@@ -221,9 +261,9 @@ int ssc_wma_read(void *vp, char *buffer, int len) {
         /* still have some to send */
         if(!handle->wav_offset) {
             /* Should pull this from format info in the wma file */
-            channels = 2;
-            sample_rate = 44100;
-            bits_per_sample = 16;
+            channels = handle->channels;
+            sample_rate = handle->sample_rate;
+            bits_per_sample = handle->bits_per_sample;
 
             if(handle->duration)
                 duration = handle->duration;
