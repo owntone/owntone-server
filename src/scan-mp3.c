@@ -978,8 +978,7 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
         /* back-calculate bitrate from duration */
         if(pmp3->song_length) { /* could still be unknown */
-            pmp3->bitrate = ((file_size / 1000) * 8) / 
-                (pmp3->song_length / 1000);
+            pmp3->bitrate = (file_size / pmp3->song_length) * 8;
         }
 
     }

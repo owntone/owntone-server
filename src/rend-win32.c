@@ -93,7 +93,7 @@ void *rend_mainthread(void *arg) {
              
 //            myTimerCallBack();
         } else {
-            DPRINTF(E_LOG,L_REND,"select() returned %d errno %d %s\n", result, errno, strerror(errno));
+            DPRINTF(E_INF,L_REND,"select() returned %d errno %d %s\n", result, errno, strerror(errno));
             if (errno != EINTR) rend_stop_flag = 1;
         }
     }

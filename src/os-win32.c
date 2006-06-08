@@ -110,6 +110,7 @@ void os_deinit(void) {
  * open the syslog (eventlog)
  */
 int os_opensyslog(void) {
+    elog_register();
     return elog_init();
 }
 
