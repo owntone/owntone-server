@@ -95,11 +95,12 @@ Section -Pre
   nsSCM::Stop "${PRODUCT_NAME}"
 
   lbl_wait_stop:
-  Sleep 200
+  Sleep 1000
   nsSCM::QueryStatus "${PRODUCT_NAME}"
   Pop $0
   Pop $1
 
+  DetailPrint $0
   StrCmp $0 "success" lbl_check_status
   goto lbl_continue
   
@@ -108,20 +109,22 @@ Section -Pre
 
   lbl_continue:
   ; should really loop until service stops...
-  DetailPrint "Sent stop message... waiting for stop"
+  DetailPrint "Waiting for service stop ($9)"
    
-  Sleep 1000
-  Delete $2\firefly.exe
   IntOp $9 $9 + 1
-  IntCmp $9 10 +1 +2
+  IntCmp $9 10 +1 +1 lbl_done_pre
+
+  Sleep 1500
+  Delete $2\firefly.exe
   IfErrors lbl_continue
  
+ lbl_done_pre:
 
 SectionEnd
 
 Section "MainSection" SEC01
   SetOutPath "$2"
-  SetOverwrite ifnewer
+  SetOverwrite on
   File /oname=firefly.exe "${MTD_SOURCE}\mt-daapd.exe"
   File "${CONFIG_SOURCE}\FireflyShell.exe" 
   File "${CONFIG_SOURCE}\..\FireflyShell.exe.manifest"
