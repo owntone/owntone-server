@@ -119,3 +119,11 @@ Patrick Kolla
 slomo (from the forums)
  * Musepack tag parsing support.
 
+Anders Betner
+ * Web interface mojo -- ajaxy web config and playlist editor
+
+MikeC
+ * Win32 panel configurator
+
+MikeK
+ * OSX Preference pane/helper, and OSX packaging

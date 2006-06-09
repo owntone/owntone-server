@@ -127,7 +127,7 @@ int os_init(int foreground, char *runas) {
  */
 void os_deinit(void) {
     DPRINTF(E_LOG,L_MAIN,"Stopping signal handler\n");
-    if(!pthread_kill(_os_signal_tid,SIGINT)) {
+    if(!pthread_kill(_os_signal_tid,SIGTERM)) {
         pthread_join(_os_signal_tid,NULL);
     }
 }
@@ -347,6 +347,7 @@ void *_os_signal_handler(void *arg) {
            (sigaddset(&intmask, SIGCLD) == -1) ||
            (sigaddset(&intmask, SIGINT) == -1) ||
            (sigaddset(&intmask, SIGHUP) == -1) ||
+           (sigaddset(&intmask, SIGTERM) == -1) ||
            (sigwait(&intmask, &sig) == -1)) {
             DPRINTF(E_FATAL,L_MAIN,"Error waiting for signals.  Aborting\n");
         } else {
@@ -357,8 +358,9 @@ void *_os_signal_handler(void *arg) {
                 while (wait3(&status, WNOHANG, NULL) > 0) {
                 }
                 break;
+            case SIGTERM:
             case SIGINT:
-                DPRINTF(E_LOG,L_MAIN,"Got INT signal. Notifying daap server.\n");
+                DPRINTF(E_LOG,L_MAIN,"Got shutdown signal. Notifying daap server.\n");
                 config.stop=1;
                 return NULL;
                 break;
@@ -395,7 +397,8 @@ int _os_start_signal_handler(pthread_t *handler_tid) {
     if((sigemptyset(&set) == -1) ||
        (sigaddset(&set,SIGINT) == -1) ||
        (sigaddset(&set,SIGHUP) == -1) ||
-       (sigaddset(&set,SIGCLD) == -1) ||
+       (sigaddset(&set,SIGCLD) == -1) || 
+       (sigaddset(&set,SIGTERM) == -1) ||
        (sigprocmask(SIG_BLOCK, &set, NULL) == -1)) {
         DPRINTF(E_LOG,L_MAIN,"Error setting signal set\n");
         return -1;
