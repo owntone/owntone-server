@@ -7,7 +7,7 @@
                 The name iTunes and other daap clients should see
             </short_description>
             <long_description>
-                This is both the name of the server as advertised via rendezvous, and the
+                This is both the name of the server as advertised via Bonjour, and the
                 name of the database exported via DAAP. Also know as "What shows up in
                 iTunes".
             </long_description>
@@ -43,7 +43,7 @@
             <type size="20">text</type>
         </item>
         <item id="general:password">
-            <name>MP3 Password</name>
+            <name>Music Password</name>
             <short_description>
                 The password clients need to access this server.
             </short_description>
@@ -83,9 +83,9 @@
 
     <section name="Music Files">
         <item id="general:mp3_dir" required="true">
-            <name>MP3 Directory</name>
+            <name>Music Folder</name>
             <short_description></short_description>
-            <type size="80" multiple="true" add_item_label="Add mp3 directory" browse="directory">text</type>
+            <type size="80" multiple="true" add_item_label="Add music folder" browse="directory">text</type>
         </item>
         <item id="general:extensions">
             <name>Extensions</name>
