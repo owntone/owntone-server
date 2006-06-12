@@ -589,7 +589,7 @@ int plugin_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
         if(!native_codecs) {
             user_agent = ws_getrequestheader(pwsc,"user-agent");
             if(strncmp(user_agent,"iTunes",6)==0) {
-                native_codecs = "mpeg,mp4a,wav,mp4v";
+                native_codecs = "mpeg,mp4a,wav,mp4v,alac";
             } else if(strncmp(user_agent,"Roku",4)==0) {
                 native_codecs = "mpeg,mp4a,wav";
             }
