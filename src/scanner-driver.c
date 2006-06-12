@@ -45,6 +45,7 @@ extern int scan_get_wavinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_aacinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
 extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
+extern int scan_get_aifinfo(char *filename, MP3FILE *pmp3);
 
 /* 
  * Typedefs
@@ -71,6 +72,8 @@ SCANNERLIST scanner_list[] = {
     { "wav",scan_get_wavinfo },
     { "url",scan_get_urlinfo },
     { "mp3",scan_get_mp3info },
+    { "aif",scan_get_aifinfo },
+    { "aiff",scan_get_aifinfo },
     { NULL, NULL }
 };
 char *av0;

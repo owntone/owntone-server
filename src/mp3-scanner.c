@@ -100,6 +100,7 @@ extern int scan_get_wavinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
 extern int scan_get_mp4info(char *filename, MP3FILE *pmp3);
+extern int scan_get_aifinfo(char *filename, MP3FILE *pmp3);
 
 /* playlist scanners */
 extern int scan_xml_playlist(char *filename);
@@ -133,6 +134,8 @@ static TAGHANDLER taghandlers[] = {
     { "m4p", scan_get_aacinfo, "m4p", "mp4a", "AAC audio file" },
     { "mp3", scan_get_mp3info, "mp3", "mpeg", "MPEG audio file" },
     { "wav", scan_get_wavinfo, "wav", "wav", "WAV audio file" },
+    { "aif", scan_get_aifinfo, "aif", "aif", "AIFF audio file" },
+    { "aiff",scan_get_aifinfo, "aif", "aif", "AIFF audio file" },
     { "wma", scan_get_wmainfo, "wma", "wma", "WMA audio file" },
     { "url", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
     { "pls", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
