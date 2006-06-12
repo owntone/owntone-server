@@ -93,9 +93,9 @@ int da_get_image_fd(char *filename) {
     char *path_end, *artfilename;
     int fd;
 
-    if((artfilename = conf_alloc_string("general","art_filename","_folderOpenImage.jpg")) == NULL) {
+    artfilename = conf_alloc_string("general","art_filename",NULL);
+    if(!artfilename)
         return -1;
-    }
 
     strncpy(buffer,filename,sizeof(buffer));
     path_end = strrchr(buffer,'/');
@@ -297,7 +297,7 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
 
     char *artfilename;
 
-    if((artfilename = conf_alloc_string("general","art_filename","_folderOpenImage.jpg")) == NULL) {
+    if((artfilename = conf_alloc_string("general","art_filename",NULL)) == NULL) {
         return 0;
     }
 
@@ -311,6 +311,7 @@ off_t da_aac_insert_covr_atom(off_t extra_size, int out_fd, FILE *aac_fp,
             img_type_flag = 0x0e;
         } else {
             DPRINTF(E_LOG,L_ART, "Image type '%s' not supported.\n", cp);
+            free(artfilename);
             return 0;
         }
     } else {

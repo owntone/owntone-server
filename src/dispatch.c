@@ -851,7 +851,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
             if(!offset)
                 config.stats.songs_served++; /* FIXME: remove stat races */
 
-            if((conf_isset("general","art_filenaem")) &&
+            if((conf_isset("general","art_filename")) &&
                (!offset) &&
                ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
                 if (strncasecmp(pmp3->type,"mp3",4) ==0) {
