@@ -264,8 +264,10 @@ AC_CHECK_HEADERS(id3tag.h,, [
 oldcflags=$CFLAGS
 
 CFLAGS="$CFLAGS -lz"
+OLDLIBS=$LIBS
 AC_CHECK_LIB(id3tag,id3_file_open,,echo "no libid3tag. Try --with-id3tag=dir";exit)
 
+LIBS=$OLDLIBS
 if test "$STATIC_LIBS" != "no"; then
   LIBS="${LIBS} ${STATIC_LIBS}/libid3tag.a -lz"
 else
@@ -285,11 +287,13 @@ if test x$use_gdbm = xtrue; then
   fi
 fi
 
+OLDLIBS=$LIBS
 if test x$db_sqlite = xtrue; then
   AC_CHECK_HEADERS(sqlite.h,, [
    AC_MSG_ERROR([sqlite.h not found... Must have sqlite headers installed])])
   AC_CHECK_LIB(sqlite,sqlite_open,,echo "Must have sqlite libraries installed";exit)
 
+  LIBS=$OLDLIBS
   if test x"$STATIC_LIBS" != x"no"; then
     LIBS="${LIBS} ${STATIC_LIBS}/libsqlite.a"
   else
@@ -297,18 +301,19 @@ if test x$db_sqlite = xtrue; then
   fi
 fi
 
+OLDLIBS=$LIBS
 if test x$db_sqlite3 = xtrue; then
   AC_CHECK_HEADERS(sqlite3.h,, [
    AC_MSG_ERROR([sqlite3.h not found... Must have sqlite3 headers installed])])
   AC_CHECK_LIB(sqlite3,sqlite3_open,,echo "Must have sqlite3 libraries installed";exit)
 
+  LIBS=$OLDLIBS
   if test x"$STATIC_LIBS" != x"no"; then
     LIBS="${LIBS} ${STATIC_LIBS}/libsqlite3.a"
   else
     LIBS="${LIBS} -lsqlite3"
   fi
 fi
-
 
 if test x$use_oggvorbis = xtrue; then
   AC_CHECK_HEADERS(ogg/ogg.h,, [
