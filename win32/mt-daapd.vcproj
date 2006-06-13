@@ -187,6 +187,9 @@
 				RelativePath="..\src\scan-aac.c">
 			</File>
 			<File
+				RelativePath="..\src\scan-aif.c">
+			</File>
+			<File
 				RelativePath="..\src\scan-flac.c">
 			</File>
 			<File

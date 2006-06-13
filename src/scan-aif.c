@@ -27,6 +27,8 @@
 #include <string.h>
 #include <fcntl.h>
 
+#include <sys/types.h>
+
 #include "err.h"
 #include "mp3-scanner.h"
 
@@ -122,7 +124,7 @@ int scan_get_aifinfo(char *filename, MP3FILE *pmp3) {
     int done=0;
     AIF_CHUNK_HEADER chunk;
     AIF_IFF_HEADER iff_header;
-    size_t current_pos = 0;
+    long current_pos = 0;
 
     DPRINTF(E_DBG,L_SCAN,"Getting AIFF file info\n");
 
