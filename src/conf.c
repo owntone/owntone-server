@@ -75,6 +75,7 @@ static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
 #define CONF_T_STRING       1
 #define CONF_T_EXISTPATH    2  /** a path that must exist */
 #define CONF_T_MULTICOMMA   3  /** multiple entries separated by commas */
+#define CONF_T_MULTIPATH    4  /** multiple comma separated paths */
 
 typedef struct _CONF_ELEMENTS {
     int required;
@@ -104,7 +105,7 @@ static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_EXISTPATH,"general","web_root" },
     { 0, 0, CONF_T_INT,"general","port" },
     { 0, 0, CONF_T_STRING,"general","admin_pw" },
-    { 1, 0, CONF_T_MULTICOMMA,"general","mp3_dir" },
+    { 1, 0, CONF_T_MULTIPATH,"general","mp3_dir" },
     { 0, 1, CONF_T_EXISTPATH,"general","db_dir" },
     { 0, 0, CONF_T_STRING,"general","db_type" },
     { 0, 0, CONF_T_EXISTPATH,"general","db_parms" }, /* this isn't right */
@@ -318,6 +319,8 @@ int _conf_exists(LL_HANDLE pll, char *section, char *key) {
 
 int _conf_verify_element(char *section, char *key, char *value) {
     CONF_ELEMENTS *pce;
+    int index;
+    char **valuearray;
 
     pce = _conf_get_keyinfo(section, key);
     if(!pce) {
@@ -340,6 +343,20 @@ int _conf_verify_element(char *section, char *key, char *value) {
         if((atoi(value) || (strcmp(value,"0")==0)))
            return CONF_E_SUCCESS;
         return CONF_E_INTEXPECTED;
+        break;
+        
+    case CONF_T_MULTIPATH:
+        if(_conf_split(value,",",&valuearray) >= 0) {
+            index = 0;
+            while(valuearray[index]) {
+                if(!_conf_existdir(valuearray[index])) {
+                    _conf_dispose_split(valuearray);
+                    return CONF_E_PATHEXPECTED;
+                }
+                index++;
+            }
+            _conf_dispose_split(valuearray);
+        }
         break;
 
     case CONF_T_EXISTPATH:
@@ -705,6 +722,7 @@ int conf_read(char *file) {
                     key_type = pce->type;
 
                 switch(key_type) {
+                case CONF_T_MULTIPATH:
                 case CONF_T_MULTICOMMA:
                     /* first, see if we already have a tree... */
                     pli = ll_fetch_item(pllcurrent,term);
@@ -1024,7 +1042,7 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
         key_type = pce->type;
 
     /* apply the config change, if necessary */
-    if(key_type != CONF_T_MULTICOMMA) {
+    if((key_type != CONF_T_MULTICOMMA) && (key_type != CONF_T_MULTIPATH)) {
         /* let's apply it */
         polditem = _conf_fetch_item(conf_main,section,key);
         if(polditem)
@@ -1071,7 +1089,7 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
             section_ll = psection->value.as_ll;
         }
         /* have the section, now add it */
-        if(key_type == CONF_T_MULTICOMMA) {
+        if((key_type == CONF_T_MULTICOMMA) || (key_type == CONF_T_MULTIPATH)) {
             if((err = ll_create(&temp_ll)) != LL_E_SUCCESS) {
                 DPRINTF(E_FATAL,L_CONF,"conf_set_string: could not create ll\n");
             }
@@ -1095,7 +1113,7 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
         }
     } else {
         /* we have the item, let's update it */
-        if(key_type == CONF_T_MULTICOMMA) {
+        if((key_type == CONF_T_MULTICOMMA) || (key_type = CONF_T_MULTIPATH)) {
             /* delete whatever is there, then add from commas */
             ll_destroy(pitem->value.as_ll);
             if(ll_create(&pitem->value.as_ll) != LL_E_SUCCESS) {

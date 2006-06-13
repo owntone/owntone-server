@@ -182,6 +182,7 @@ int main_auth(WS_CONNINFO *pwsc, char *username, char *password) {
 void usage(char *program) {
     printf("Usage: %s [options]\n\n",program);
     printf("Options:\n");
+    printf("  -a             Set cwd to app dir before starting\n");
     printf("  -d <number>    Debuglevel (0-9)\n");
     printf("  -D <mod,mod..> Debug modules\n");
     printf("  -m             Disable mDNS\n");
@@ -230,6 +231,7 @@ int main(int argc, char *argv[]) {
     char **mp3_dir_array;
     char *servername, *iface;
     int index;
+    int appdir = 0;
 
     char txtrecord[255];
 
@@ -239,13 +241,17 @@ int main(int argc, char *argv[]) {
 
     int err;
     char *perr=NULL;
+    char *apppath;
 
     config.use_mdns=1;
     err_setlevel(1);
 
     config.foreground=0;
-    while((option=getopt(argc,argv,"D:d:c:P:mfrysiuv")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:mfrysiuva")) != -1) {
         switch(option) {
+        case 'a':
+            appdir = 1;
+            break;
         case 'd':
             err_setlevel(atoi(optarg));
             break;
@@ -317,6 +323,15 @@ int main(int argc, char *argv[]) {
      * try defaults */
     config.stats.start_time=start_time=(int)time(NULL);
     config.stop=0;
+
+    /* set appdir first, that way config resolves relative to appdir */
+    if(appdir) {
+        apppath = os_apppath(argv[0]);
+        DPRINTF(E_INF,L_MAIN,"Changing cwd to %s\n",apppath);
+        chdir(apppath);
+        free(apppath);
+        configfile="mt-daapd.conf";
+    }
 
     if(conf_read(configfile) != CONF_E_SUCCESS) {
         fprintf(stderr,"Error reading config file (%s)\n",configfile);

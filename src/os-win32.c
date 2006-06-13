@@ -628,6 +628,18 @@ char *os_configpath(void) {
 }
 
 /**
+ * get the path of the executable.  Caller must free.
+ *
+ */
+char *os_apppath(char *junk) {
+    char app_path[MAX_PATH];
+
+    GetModuleFileName(NULL,app_path,MAX_PATH);
+    return strdup(app_path);
+}
+
+
+/**
  * Determine if an address is local or not
  *
  * @param hostaddr the address to test for locality

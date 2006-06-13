@@ -40,6 +40,7 @@ extern int os_unload(void *handle);
 
 /* misc */
 extern int os_islocaladdr(char *hostaddr);
+extern char *os_apppath(char *parm);
 
 
 #ifdef WIN32
