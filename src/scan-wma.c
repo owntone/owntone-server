@@ -512,7 +512,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
                 pmp3->rating = 100;
             } else {
                 if(pmp3->rating) {
-                    pmp3->rating = (pmp3->rating / 25) + 1;
+                    pmp3->rating = ((pmp3->rating / 25) + 1) * 20;
                 }
             }
         } else if(strcasecmp(descriptor_name,"wm/tracknumber")==0) {
