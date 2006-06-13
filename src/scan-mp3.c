@@ -298,6 +298,7 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
     id3_ucs4_t const *native_text;
     char *tmp;
     int got_numeric_genre;
+    int rating;
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
@@ -443,6 +444,21 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
         /* can check for non-text tags here */
         if((!used) && (have_utf8) && (utf8_text))
             free(utf8_text);
+
+        if((!strcmp(pid3frame->id,"POPM")) && (pid3frame->nfields == 3)) {
+            rating = id3_field_getint(&pid3frame->fields[1]);
+            if(rating >= 0x01)
+                pmp3->rating = 20;
+            if(rating >= 0x40)
+                pmp3->rating = 40;
+            if(rating >= 0x80)
+                pmp3->rating = 60;
+            if(rating >= 0xC4)
+                pmp3->rating = 80;
+            if(rating >= 0xFF)
+                pmp3->rating = 100;
+        }
+
 
         /* v2 COMM tags are a bit different than v1 */
         if((!strcmp(pid3frame->id,"COMM")) && (pid3frame->nfields == 4)) {
