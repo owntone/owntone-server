@@ -57,6 +57,7 @@ static char err_filename[PATH_MAX + 1];
 static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
 static pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER; /**< for serializing log messages */
 static unsigned int err_debugmask=0xFFFFFFFF; /**< modules to debug, see \ref log_categories */
+static int err_truncate = 0;
 
 /** text list of modules to match for setting debug mask */
 static char *err_categorylist[] = {
@@ -205,20 +206,42 @@ int err_getdest(void) {
 }
 
 
-int err_setlogfile(char *file) {
-    if(strcmp(file,err_filename) == 0)
+int err_settruncate(int truncate) {
+    char *file;
+
+    if(err_truncate == truncate)
         return TRUE;
 
+    err_truncate = truncate;
+    if((err_truncate) && (err_filename)) {
+        file=strdup(err_filename);
+        err_setlogfile(err_filename);
+        if(file) free(file);
+    }
+
+    return TRUE;
+}
+
+int err_setlogfile(char *file) {
+    char *mode;
+
+/*
+    if(strcmp(file,err_filename) == 0)
+        return TRUE;
+*/
     _err_lock();
 
     if(err_file) {
         fclose(err_file);
     }
 
+    mode = "a";
+    if(err_truncate) mode = "w";
+
     memset(err_filename,0,sizeof(err_filename));
     strncpy(err_filename,file,sizeof(err_filename)-1);
 
-    err_file = fopen(err_filename,"a");
+    err_file = fopen(err_filename,mode);
     if(err_file == NULL) {
         err_logdest &= ~LOGDEST_LOGFILE;
 

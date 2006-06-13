@@ -471,6 +471,10 @@ void _conf_apply_element(char *section, char *key, char *cold, char *cnew) {
         /* loglevel changed */
         err_setlevel(atoi(cnew));
     }
+
+    if((strcmp(section,"general")==0) && (strcmp(key,"truncate")==0)) {
+        err_settruncate(atoi(cnew));
+    }
 }
 
 /**
@@ -521,6 +525,8 @@ void _conf_apply(LL_HANDLE pll) {
             }
         }
     }
+
+    /* special check for config file */
 }
 
 
