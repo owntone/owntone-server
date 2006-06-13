@@ -244,11 +244,11 @@ var Config ={
                                      item.size || 20,
                                      item.short_description,                                     
                                      ''));
-            if (item.browse) {
-              href = Builder.node('a',{href: 'javascript://'},'Browse');
-              Event.observe(href,'click',Config._browse);          
-              div.appendChild(href);
-            }
+//            if (item.browse) {
+//              href = Builder.node('a',{href: 'javascript://'},'Browse');
+//              Event.observe(href,'click',Config._browse);          
+//              div.appendChild(href);
+//            }
             div.appendChild(document.createTextNode('\u00a0\u00a0'));
             href = Builder.node('a',{href: 'javascript://'},'Remove');
             Event.observe(href,'click',Config._removeItemEvent);
@@ -270,11 +270,11 @@ var Config ={
                                    item.size || 20,
                                    item.short_description,                                     
                                    ''));
-          if (item.browse) {
-            href = Builder.node('a',{href: 'javascript://'},'Browse');
-            Event.observe(href,'click',Config._browse);          
-            frag.appendChild(href);
-          }
+//          if (item.browse) {
+//            href = Builder.node('a',{href: 'javascript://'},'Browse');
+//            Event.observe(href,'click',Config._browse);          
+//            frag.appendChild(href);
+//          }
           frag.appendChild(Builder.node('br'));
         }
         break;
