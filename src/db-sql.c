@@ -790,7 +790,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
         DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database\n",pmp3->fname);
 
     insertid = db_sql_insert_id_fn();
-    if((db_sql_in_scan)&&(!db_sql_reload)) {
+    if((db_sql_in_scan || db_sql_in_playlist_scan)&&(!db_sql_reload)) {
         db_sql_exec_fn(NULL,E_FATAL,"insert into updated values (%d)",
                        insertid);
     }
@@ -889,7 +889,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
             return err;
     }
 
-    if((db_sql_in_scan) && (!db_sql_reload)) {
+    if((db_sql_in_scan || db_sql_in_playlist_scan) && (!db_sql_reload)) {
         if(id) {
             db_sql_exec_fn(NULL,E_FATAL,"insert into updated (id) values (%d)",*id);
         } else {
@@ -1772,7 +1772,7 @@ MP3FILE *db_sql_fetch_item(char **pe, int id) {
 
     db_sql_dispose_row();
 
-    if ((db_sql_in_scan) && (!db_sql_reload)) {
+    if ((db_sql_in_scan || db_sql_in_playlist_scan) && (!db_sql_reload)) {
         db_sql_exec_fn(pe,E_FATAL,"INSERT INTO updated VALUES (%d)",id);
     }
 
@@ -1807,7 +1807,7 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
 
     db_sql_dispose_row();
 
-    if ((db_sql_in_scan) && (!db_sql_reload)) {
+    if ((db_sql_in_scan || db_sql_in_playlist_scan) && (!db_sql_reload)) {
         db_sql_exec_fn(pe,E_FATAL,"INSERT INTO updated VALUES (%d)",pmp3->id);
     }
 

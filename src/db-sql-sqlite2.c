@@ -357,10 +357,6 @@ int db_sqlite2_event(int event_type) {
             db_sqlite2_exec(NULL,E_FATAL,"commit transaction");
             db_sqlite2_exec(NULL,E_FATAL,"create index idx_path on songs(path)");
             db_sqlite2_exec(NULL,E_DBG,"delete from config where term='rescan'");
-        } else {
-            db_sqlite2_exec(NULL,E_FATAL,"delete from songs where id not in (select id from updated)");
-            db_sqlite2_exec(NULL,E_FATAL,"update songs set force_update=0");
-            db_sqlite2_exec(NULL,E_FATAL,"drop table updated");
         }
         break;
 
@@ -377,6 +373,10 @@ int db_sqlite2_event(int event_type) {
             db_sqlite2_exec(NULL,E_FATAL,"create index idx_playlistid on playlistitems(playlistid)");
 
         } else {
+            db_sqlite2_exec(NULL,E_FATAL,"delete from songs where id not in (select id from updated)");
+            db_sqlite2_exec(NULL,E_FATAL,"update songs set force_update=0");
+            db_sqlite2_exec(NULL,E_FATAL,"drop table updated");
+
             db_sqlite2_exec(NULL,E_FATAL,"delete from playlists where "
                                          "((type=%d) OR (type=%d)) and "
                                          "id not in (select id from plupdated)",
