@@ -257,6 +257,7 @@ AC_ARG_WITH(id3tag,
 ])
 
 AC_CHECK_HEADERS(getopt.h,,)
+AC_CHECK_HEADERS(stdint.h,,)
 
 AC_CHECK_HEADERS(id3tag.h,, [
  AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
