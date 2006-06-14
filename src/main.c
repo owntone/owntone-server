@@ -490,7 +490,8 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN,"Scanned %d songs in  %d seconds\n",song_count,
             end_time-start_time);
 
-    config.reload = 1; /* force a reload on start */
+    if(conf_get_int("general","rescan_interval",0))
+        config.reload = 1; /* force a reload on start */
 
     while(!config.stop) {
         if((conf_get_int("general","rescan_interval",0) &&
