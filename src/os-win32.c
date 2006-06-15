@@ -612,7 +612,7 @@ char *os_configpath(void) {
     char dir[_MAX_DIR];
     char working_dir[_MAX_PATH];
 
-    GetModuleFileName(NULL,os_config_file,MAX_PATH);
+    GetModuleFileName(NULL,os_config_file,_MAX_PATH);
     _splitpath(os_config_file,drive,dir,NULL,NULL);
     _makepath(os_config_file,drive,dir,"mt-daapd","conf");
     _makepath(working_dir,drive,dir,NULL,NULL);
@@ -632,9 +632,9 @@ char *os_configpath(void) {
  *
  */
 char *os_apppath(char *junk) {
-    char app_path[MAX_PATH];
+    char app_path[_MAX_PATH];
 
-    GetModuleFileName(NULL,app_path,MAX_PATH);
+    GetModuleFileName(NULL,app_path,_MAX_PATH);
     return strdup(app_path);
 }
 

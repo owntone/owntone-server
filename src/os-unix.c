@@ -483,7 +483,7 @@ char *os_apppath(char *parm) {
 }
 #else
 char *os_apppath(char *parm) {
-    char path[MAX_PATH];
+    char path[PATH_MAX];
 
     realpath(param,path);
     if(strrchr(path,'/')) {
