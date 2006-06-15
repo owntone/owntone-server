@@ -350,12 +350,20 @@ int db_sql_deinit(void) {
     return db_sql_close_fn();
 }
 
+
+/**
+ * force a rescan
+ */
+int db_sql_force_rescan(char **pe) {
+    return db_sql_exec_fn(pe,E_LOG,"update songs set force_update=1");
+}
+
 /**
  * start a background scan
  *
  * @returns DB_E_SUCCESS on success, error code otherwise
  */
-int db_sql_start_scan(void) {
+int db_sql_start_scan() {
     DPRINTF(E_DBG,L_DB,"Starting db scan\n");
     db_sql_event_fn(DB_SQL_EVENT_SONGSCANSTART);
 

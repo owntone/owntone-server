@@ -64,6 +64,7 @@ typedef struct tag_db_functions {
     int(*dbs_enum_fetch_row)(char **, PACKED_MP3FILE *, DBQUERYINFO *);    
     int(*dbs_enum_reset)(char **, DBQUERYINFO *);
     int(*dbs_enum_end)(char **);
+    int(*dbs_force_rescan)(char **);
     int(*dbs_start_scan)(void);
     int(*dbs_end_song_scan)(void);
     int(*dbs_end_scan)(void);
@@ -96,6 +97,7 @@ DB_FUNCTIONS db_functions[] = {
         db_sql_enum_fetch_row,
         db_sql_enum_reset,
         db_sql_enum_end,
+        db_sql_force_rescan,
         db_sql_start_scan,
         db_sql_end_song_scan,
         db_sql_end_scan,
@@ -126,6 +128,7 @@ DB_FUNCTIONS db_functions[] = {
         db_sql_enum_fetch_row,
         db_sql_enum_reset,
         db_sql_enum_end,
+        db_sql_force_rescan,
         db_sql_start_scan,
         db_sql_end_song_scan,
         db_sql_end_scan,
@@ -790,6 +793,15 @@ M3UFILE *db_fetch_playlist(char **pe, char *path, int index) {
 
     db_readlock();
     retval=db_current->dbs_fetch_playlist(pe,path,index);
+    db_unlock();
+
+    return retval;
+}
+
+int db_force_rescan(char **pe) {
+    int retval;
+    db_writelock();
+    retval = db_current->dbs_force_rescan(pe);
     db_unlock();
 
     return retval;

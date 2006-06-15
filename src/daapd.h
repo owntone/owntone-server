@@ -52,6 +52,7 @@ typedef struct tag_config {
     int stop;             /**< Time to exit? */
     int reload;           /**< Time to reload and/or rescan the database? */
     int foreground;       /**< Whether or not we are running in foreground */
+    int full_reload;      /**< Whether the reload should be a full one */
 
 #if 0
     char *configfile;     /**< path to config file */

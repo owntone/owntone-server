@@ -51,6 +51,7 @@ struct tag_xmlstruct {
 void xml_get_stats(WS_CONNINFO *pwsc);
 void xml_set_config(WS_CONNINFO *pwsc);
 void xml_browse_path(WS_CONNINFO *pwsc);
+void xml_rescan(WS_CONNINFO *pwsc);
 void xml_return_error(WS_CONNINFO *pwsc, int err, char *errstr);
 char *xml_entity_encode(char *original);
 
@@ -176,6 +177,19 @@ void xml_update_config(WS_CONNINFO *pwsc) {
         }
         free(duparg);
     }
+
+    xml_return_error(pwsc,200,"Success");
+}
+
+/**
+ * rescan the database
+ */
+void xml_rescan(WS_CONNINFO *pwsc) {
+    if(ws_getvar(pwsc,"full")) {
+        config.full_reload=1;
+    }
+
+    config.reload=1;
 
     xml_return_error(pwsc,200,"Success");
 }
@@ -355,6 +369,11 @@ void xml_handle(WS_CONNINFO *pwsc) {
     if(strcasecmp(method,"browse_path") == 0) {
 	xml_browse_path(pwsc);
 	return;
+    }
+
+    if(strcasecmp(method,"rescan") == 0) {
+        xml_rescan(pwsc);
+        return;
     }
 
     xml_return_error(pwsc,500,"Invalid method");

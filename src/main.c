@@ -512,6 +512,11 @@ int main(int argc, char *argv[]) {
             DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
             
             if(conf_get_array("general","mp3_dir",&mp3_dir_array)) {
+                if(config.full_reload) {
+                    config.full_reload=0;
+                    db_force_rescan(NULL);
+                }
+
                 if(scan_init(mp3_dir_array)) {
                     DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... bad path?\n");
                 }

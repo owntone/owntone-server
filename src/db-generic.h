@@ -202,7 +202,7 @@ extern int db_get_song_count(char **pe, int *count);
 extern int db_get_playlist_count(char **pe, int *count);
 extern void db_dispose_item(MP3FILE *pmp3);
 extern void db_dispose_playlist(M3UFILE *pm3u);
-
+extern int db_force_rescan(char **pe);
 
 #define DB_E_SUCCESS                 0x00
 #define DB_E_SQL_ERROR               0x01 /**< some kind of sql error - typically bad syntax */
