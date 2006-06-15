@@ -67,7 +67,7 @@ function rsStats(request) {
     row.push(Element.textContent(element.childNodes[2]));
     threadTable.addTbodyRow(row);    
   });
-  $('session_count').replaceChild(document.createTextNode(users + ' Connected Users'),$('session_count').firstChild);
+ // $('session_count').replaceChild(document.createTextNode(users + ' Connected Users'),$('session_count').firstChild);
   Updater.update();
 }
 
