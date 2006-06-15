@@ -364,6 +364,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     int type;
     int transcode;
     unsigned int samplerate;
+    int done = 0;
 
     ppi->dq.filter = _ppi->ws_getvar(pwsc,"query");
     ppi->dq.filter_type = FILTER_TYPE_FIREFLY;
@@ -418,7 +419,8 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     xml_push(pxml,"items");
 
-    while((_ppi->db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) && (row)) {
+    while((!done) && (_ppi->db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) && 
+          (row)) {
         xml_push(pxml,"item");
         rowindex=0;
         transcode = 0;
@@ -459,8 +461,10 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
                         break;
                     }
                 } else {
-                    xml_output(pxml,rsp_fields[rowindex].name,"%s",
-                               row[rowindex]);
+                    /* check for pushing against closed socket */
+                    if(xml_output(pxml,rsp_fields[rowindex].name,"%s",
+                                  row[rowindex]) == -1)
+                        done=1;
                 }
 
             }

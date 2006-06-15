@@ -53,19 +53,24 @@ XML_STREAMBUFFER *xml_stream_open(void);
 int xml_stream_write(XMLSTRUCT *pxml, char *out);
 int xml_stream_close(XMLSTRUCT *pxml);
 
-void xml_write(XMLSTRUCT *pxml, char *fmt, ...) {
+int xml_write(XMLSTRUCT *pxml, char *fmt, ...) {
     char buffer[1024];
     va_list ap;
+    int result=0;
 
     va_start(ap, fmt);
     vsnprintf(buffer, 1024, fmt, ap);
     va_end(ap);
 
     if(pxml->psb) {
-        xml_stream_write(pxml, buffer);
+        result=xml_stream_write(pxml, buffer);
+        if(!result)
+            result = -1;
     } else {
-        _ppi->ws_writefd(pxml->pwsc,"%s",buffer);
+        result=_ppi->ws_writefd(pxml->pwsc,"%s",buffer);
     }
+
+    return result;
 }
 
 void xml_return_error(WS_CONNINFO *pwsc, int errno, char *errstr) {
@@ -283,10 +288,11 @@ void xml_pop(XMLSTRUCT *pxml) {
 /**
  * output a string
  */
-void xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...) {
+int xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...) {
     va_list ap;
     char buf[256];
     char *output;
+    int result=0;
 
     va_start(ap, fmt);
     vsnprintf(buf, sizeof(buf), fmt, ap);
@@ -297,11 +303,13 @@ void xml_output(XMLSTRUCT *pxml, char *section, char *fmt, ...) {
         xml_push(pxml,section);
     }
 
-    xml_write(pxml,"%s",output);
+    result = xml_write(pxml,"%s",output);
     free(output);
     if(section) {
         xml_pop(pxml);
     }
+
+    return result;
 }
 
 /**
