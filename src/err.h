@@ -72,7 +72,7 @@ extern void err_setlevel(int level);
 extern int err_getlevel(void);
 extern int err_setdebugmask(char *list);
 extern int err_setlogfile(char *file);
-extern int err_settruncate(char *truncate);
+extern int err_settruncate(int truncate);
 
 /**
  * Print a debugging or log message
