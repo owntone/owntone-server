@@ -225,6 +225,16 @@ HasConf:
 
   ext_skip:
   
+  ; Check for truncate
+  ReadINIStr $0 "$2\mt-daapd.conf" "general" "truncate"
+  StrCmp $0 "" trunc_set trunc_skip
+
+  trunc_set:
+  WriteINIStr "$2\mt-daapd.conf" "general" "truncate" "1"
+  
+  trunc_skip:
+  
+  
   SetAutoClose False
 SectionEnd
 
