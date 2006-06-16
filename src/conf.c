@@ -1119,7 +1119,7 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
         }
     } else {
         /* we have the item, let's update it */
-        if((key_type == CONF_T_MULTICOMMA) || (key_type = CONF_T_MULTIPATH)) {
+        if((key_type == CONF_T_MULTICOMMA) || (key_type == CONF_T_MULTIPATH)) {
             /* delete whatever is there, then add from commas */
             ll_destroy(pitem->value.as_ll);
             if(ll_create(&pitem->value.as_ll) != LL_E_SUCCESS) {
