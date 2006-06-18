@@ -376,6 +376,12 @@ void xml_handle(WS_CONNINFO *pwsc) {
         return;
     }
 
+    if(strcasecmp(method,"shutdown") == 0) {
+        config.stop=1;
+        xml_return_error(pwsc,200,"Success");
+        return;
+    }
+
     xml_return_error(pwsc,500,"Invalid method");
     return;
 }
