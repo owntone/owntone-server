@@ -172,6 +172,7 @@ void daap_handler(WS_CONNINFO *pwsc) {
 
     memset(pqi,0x00,sizeof(DBQUERYINFO));
     pqi->zero_length = conf_get_int("daap","empty_strings",0);
+    pqi->correct_order = conf_get_int("scan","correct_order",0);
     pqi->pwsc = pwsc;
 
     /* we could really pre-parse this to make sure it works */

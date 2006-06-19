@@ -609,10 +609,12 @@ int scan_xml_tracks_section(int action, char *info) {
     static int state;
     static int current_track_id;
     static int current_field;
+    static int is_streaming;
     static MP3FILE mp3;
     static char *song_path=NULL;
     char real_path[PATH_MAX];
     MP3FILE *pmp3;
+    int added_id;
 
     if(action == RXML_EVT_OPEN) {
         state = XML_TRACK_ST_INITIAL;
@@ -670,7 +672,11 @@ int scan_xml_tracks_section(int action, char *info) {
         } else if((action == RXML_EVT_END) && (strcmp(info,"dict")==0)) {
             state = XML_TRACK_ST_MAIN_DICT;
             /* but more importantly, we gotta process the track */
-            if(scan_xml_translate_path(song_path,real_path)) {
+            is_streaming = 0;
+            if(strncasecmp(song_path,"http://",7) == 0)
+                is_streaming = 1;
+
+            if((!is_streaming)&&scan_xml_translate_path(song_path,real_path)) {
                 /* FIXME: Error handling */
                 pmp3=db_fetch_path(NULL,real_path,0);
                 if(!pmp3) { 
@@ -697,6 +703,7 @@ int scan_xml_tracks_section(int action, char *info) {
                     MAYBECOPY(disc);
                     MAYBECOPY(total_discs);
                     MAYBECOPY(time_added);
+                    MAYBECOPY(disabled);
 
                     /* must add to the red-black tree */
                     scan_xml_add_lookup(current_track_id,pmp3->id);
@@ -707,6 +714,50 @@ int scan_xml_tracks_section(int action, char *info) {
                     memset((void*)&mp3,0,sizeof(MP3FILE));
                     MAYBEFREE(song_path);
                 }
+            } else if(is_streaming) {
+                /* add/update a http:// url */
+                pmp3=db_fetch_path(NULL,scan_xml_file,current_track_id);
+                if(!pmp3) {
+                    /* gotta add it! */
+                    DPRINTF(E_DBG,L_SCAN,"Adding %s\n",song_path);
+                    pmp3 = calloc(sizeof(MP3FILE),1);
+
+                    if(!pmp3) 
+                        DPRINTF(E_FATAL,L_SCAN,
+                                "malloc: scan_xml_tracks_section\n");
+                } else {
+                    DPRINTF(E_DBG,L_SCAN,"updating %s\n",song_path);
+                }
+                pmp3->url = strdup(song_path);
+                pmp3->type = strdup("pls");
+                pmp3->description = strdup("Playlist URL");
+                pmp3->data_kind = 1;
+                pmp3->item_kind = 2;
+
+                pmp3->path = strdup(scan_xml_file);
+                pmp3->index = current_track_id;
+
+                MAYBECOPYSTRING(title);
+                MAYBECOPYSTRING(artist);
+                MAYBECOPYSTRING(album);
+                MAYBECOPYSTRING(genre);
+                MAYBECOPY(bitrate);
+                MAYBECOPY(samplerate);
+                MAYBECOPY(play_count);
+                MAYBECOPY(rating);
+                MAYBECOPY(time_added);
+                MAYBECOPY(disabled);
+                    
+                if(db_add(NULL,pmp3,&added_id) == DB_E_SUCCESS) {
+                    scan_xml_add_lookup(current_track_id,added_id);
+                    DPRINTF(E_DBG,L_SCAN,"Added %s\n",song_path);
+                } else {
+                    DPRINTF(E_DBG,L_SCAN,"Error adding %s\n",song_path);
+                }
+
+                db_dispose_item(pmp3);
+                memset((void*)&mp3,0,sizeof(MP3FILE));
+                MAYBEFREE(song_path);
             }
         } else {
             return XML_STATE_ERROR;

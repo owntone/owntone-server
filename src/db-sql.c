@@ -699,7 +699,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     /* Always an add if in song scan on full reload */
     if((!db_sql_reload)||(!db_sql_in_scan)) {
         err=db_sql_fetch_int(NULL,&count,"select count(*) from songs where "
-                             "path='%q'",pmp3->path);
+                             "path='%q' and idx=%d",pmp3->path,pmp3->index);
 
         if((err == DB_E_SUCCESS) && (count == 1)) { /* we should update */
             return db_sql_update(pe,pmp3,id);
@@ -856,7 +856,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
                         "rating=%d,"    // rating
                         "sample_count=%d," // sample_count
                         "codectype='%q'"   // codec
-                        " WHERE path='%q'",
+                        " WHERE path='%q' and idx=%d",
                         STR(pmp3->title),
                         STR(pmp3->artist),
                         STR(pmp3->album),
@@ -885,14 +885,15 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
                         pmp3->rating,
                         pmp3->sample_count,
                         STR(pmp3->codectype),
-                        pmp3->path);
-
+                        pmp3->path,
+                        pmp3->index);
 
     if(err != DB_E_SUCCESS)
         DPRINTF(E_FATAL,L_DB,"Error updating file: %s\n",pmp3->fname);
 
     if(id) { /* we need the insert/update id */
-        err=db_sql_fetch_int(pe,id,"select id from songs where path='%q'",pmp3->path);
+        err=db_sql_fetch_int(pe,id,"select id from songs where path='%q' and "
+                             "idx=%d",pmp3->path,pmp3->index);
         if(err != DB_E_SUCCESS)
             return err;
     }
@@ -902,8 +903,8 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
             db_sql_exec_fn(NULL,E_FATAL,"insert into updated (id) values (%d)",*id);
         } else {
             db_sql_exec_fn(NULL,E_FATAL,"insert into updated (id) "
-                           "select id from songs where path='%q'",
-                           pmp3->path);
+                           "select id from songs where path='%q' and idx=%d",
+                           pmp3->path,pmp3->index);
         }
     }
 
@@ -1064,14 +1065,15 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
              * of these playlist queries sucks.
              */
 
-            sprintf(query_rest," where (songs.id in (select songid from "
-                    "playlistitems where playlistid=%d))",
-                    pinfo->playlist_id);
-            /*
-            sprintf(query_playlist,"(songs.id=playlistitems.songid and "
-                    "playlistitems.playlistid=%d) order by "
-                    "playlistitems.id",pinfo->playlist_id);
-            */
+            if(pinfo->correct_order) {
+                sprintf(query_rest," where (songs.id=playlistitems.songid and "
+                        "playlistitems.playlistid=%d) order by "
+                        "playlistitems.id",pinfo->playlist_id);
+            } else {
+                sprintf(query_rest," where (songs.id in (select songid from "
+                        "playlistitems where playlistid=%d))",
+                        pinfo->playlist_id);
+            }
         }
         have_clause=1;
         db_sql_enum_end_fn(NULL);
@@ -1797,7 +1799,8 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
     MP3FILE *pmp3=NULL;
     int err;
 
-    err=db_sql_fetch_row(pe,&row,"select * from songs where path='%q'",path);
+    err=db_sql_fetch_row(pe,&row,"select * from songs where path='%q' "
+                         "and idx=%d",path,index);
     if(err != DB_E_SUCCESS) {
         if(err == DB_E_NOROWS) { /* Override generic error */
             if(pe) { free(*pe); };

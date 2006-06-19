@@ -455,7 +455,7 @@ int db_sqlite3_insert_id(void) {
 char *db_sqlite3_initial1 =
 "create table songs (\n"
 "   id              INTEGER PRIMARY KEY NOT NULL,\n"
-"   path            VARCHAR(4096) UNIQUE NOT NULL,\n"
+"   path            VARCHAR(4096) NOT NULL,\n"
 "   fname           VARCHAR(255) NOT NULL,\n"
 "   title           VARCHAR(1024) DEFAULT NULL,\n"
 "   artist          VARCHAR(1024) DEFAULT NULL,\n"

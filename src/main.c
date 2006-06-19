@@ -243,8 +243,10 @@ int main(int argc, char *argv[]) {
     char *perr=NULL;
     char *apppath;
 
+    int debuglevel=0;
+
     config.use_mdns=1;
-    err_setlevel(1);
+    err_setlevel(debuglevel);
 
     config.foreground=0;
     while((option=getopt(argc,argv,"D:d:c:P:mfrysiuva")) != -1) {
@@ -253,7 +255,8 @@ int main(int argc, char *argv[]) {
             appdir = 1;
             break;
         case 'd':
-            err_setlevel(atoi(optarg));
+            debuglevel = atoi(optarg);
+            err_setlevel(debuglevel);
             break;
         case 'D':
             if(err_setdebugmask(optarg)) {
@@ -337,6 +340,10 @@ int main(int argc, char *argv[]) {
         fprintf(stderr,"Error reading config file (%s)\n",configfile);
         exit(EXIT_FAILURE);
     }
+
+    
+    if(debuglevel) /* was specified, should override the config file */
+        err_setlevel(debuglevel);
 
     if(convert_conf) {
         fprintf(stderr,"Converting config file...\n");
