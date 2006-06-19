@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
     int force_non_root=0;
     int skip_initial=1;
     int convert_conf=0;
-    char *db_type,*db_parms,*web_root,*runas;
+    char *db_type,*db_parms,*web_root,*runas, *tmp;
     char **mp3_dir_array;
     char *servername, *iface;
     int index;
@@ -471,7 +471,12 @@ int main(int argc, char *argv[]) {
         txt_add(txtrecord,"mtd-version=" VERSION);
         txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */
         txt_add(txtrecord,"Version=196610");      /* iTunes 6.0.4 */
-        txt_add(txtrecord,"Password=%s",conf_isset("general","password") ? "true" : "false");
+        tmp = conf_alloc_string("general","password",NULL);
+        if(tmp && (strlen(tmp)==0)) tmp=NULL;
+            
+        txt_add(txtrecord,"Password=%s",tmp ? "true" : "false");
+        if(tmp) free(tmp);
+
         srand((unsigned int)time(NULL));
         txt_add(txtrecord,"ffid=%08x",rand());
     
