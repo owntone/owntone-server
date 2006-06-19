@@ -58,6 +58,7 @@ static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
 static pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER; /**< for serializing log messages */
 static unsigned int err_debugmask=0xFFFFFFFF; /**< modules to debug, see \ref log_categories */
 static int err_truncate = 0;
+static int err_syslog_open = 0;
 
 /** text list of modules to match for setting debug mask */
 static char *err_categorylist[] = {
@@ -150,11 +151,12 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         if(!level) fprintf(stderr,"Aborting\n");
     }
     
-    /* alwyas log fatals to syslog */
-    if(!level) {
-        os_opensyslog(); // (app,LOG_PID,LOG_DAEMON);
+    /* always log fatals and level 1 to syslog */
+    if(level <= 1) {
+        if(!err_syslog_open)
+            os_opensyslog();
+        err_syslog_open=1;
         os_syslog(level,errbuf);
-        os_closesyslog();
     }
 
     _err_unlock();
