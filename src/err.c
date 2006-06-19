@@ -157,13 +157,14 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         os_closesyslog();
     }
 
+    _err_unlock();
+
 #ifndef ERR_LEAN
     if(level < 2) { /* only event level fatals and log level */
         plugin_event_dispatch(PLUGIN_EVENT_LOG, level, errbuf, (int)strlen(errbuf)+1);
     }
 #endif
 
-    _err_unlock();
     
     if(!level) {
         exit(EXIT_FAILURE);      /* this should go to an OS-specific exit routine */
