@@ -338,10 +338,15 @@ void config_handler(WS_CONNINFO *pwsc) {
         return;
     }
 
-    /* this should really return a 302:Found */
+    /* this is quite broken, but will work */
     stat(resolved_path,&sb);
-    if(sb.st_mode & S_IFDIR)
-        strcat(resolved_path,"/index.html");
+    if(sb.st_mode & S_IFDIR) {
+        ws_addresponseheader(pwsc,"Location","/index.html");
+        ws_returnerror(pwsc,302,"Moved");
+        config_set_status(pwsc,0,NULL);
+        pwsc->close=1;
+        return;
+    }
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Preparing to serve %s\n",
             pwsc->threadno, resolved_path);
