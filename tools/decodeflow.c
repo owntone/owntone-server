@@ -448,7 +448,7 @@ int main(int argc, char *argv[]) {
         printf("Headers complete for conversation %d\n",conversation);
         printf("Flow %s compressed\n",is_compressed ? "IS" : "IS NOT");
             
-        uncompressed_size = 10 * compressed_size;
+        uncompressed_size = 20 * compressed_size;
             
         compressed=(char*)malloc(compressed_size);
         uncompressed=(char*)malloc(uncompressed_size);
