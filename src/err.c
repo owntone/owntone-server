@@ -227,6 +227,7 @@ int err_settruncate(int truncate) {
 
 int err_setlogfile(char *file) {
     char *mode;
+    int result=TRUE;
 
 /*
     if(strcmp(file,err_filename) == 0)
@@ -241,23 +242,21 @@ int err_setlogfile(char *file) {
     mode = "a";
     if(err_truncate) mode = "w";
 
-    memset(err_filename,0,sizeof(err_filename));
     strncpy(err_filename,file,sizeof(err_filename)-1);
 
     err_file = fopen(err_filename,mode);
     if(err_file == NULL) {
         err_logdest &= ~LOGDEST_LOGFILE;
 
-        os_opensyslog(); // (app,LOG_PID,LOG_DAEMON);
+        if(!err_syslog_open)
+            os_opensyslog();
         os_syslog(1,"Error opening logfile");
-        os_closesyslog();
         
-        _err_unlock();
-        return FALSE;
+        result=FALSE;
     }
 
     _err_unlock();
-    return TRUE;
+    return result;
 }
 
 /**
