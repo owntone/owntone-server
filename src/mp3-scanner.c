@@ -490,11 +490,13 @@ int scan_static_playlist(char *path) {
             // might be valid, might not...
             if((pmp3=db_fetch_path(&perr,real_path,0))) {
                 /* FIXME:  better error handling */
+                DPRINTF(E_DBG,L_SCAN|L_PL,"Resolved %s to %d\n",real_path,
+                        pmp3->id);
                 db_add_playlist_item(NULL,playlistid,pmp3->id);
                 db_dispose_item(pmp3);
             } else {
                 DPRINTF(E_WARN,L_SCAN|L_PL,"Playlist entry %s bad: %s\n",
-                        path,perr);
+                        linebuffer,perr);
                 free(perr);
             }
         }

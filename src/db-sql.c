@@ -1804,7 +1804,7 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
     if(err != DB_E_SUCCESS) {
         if(err == DB_E_NOROWS) { /* Override generic error */
             if(pe) { free(*pe); };
-            db_get_error(pe,DB_E_INVALID_SONGID);
+            db_get_error(pe,DB_E_NOTFOUND);
             return NULL;
         }
         return NULL;

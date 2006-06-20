@@ -220,6 +220,7 @@ extern int db_force_rescan(char **pe);
 #define DB_E_WRONGVERSION            0x0C /**< must upgrade db */
 #define DB_E_DB_ERROR                0x0D /**< gdbm error */
 #define DB_E_MALLOC                  0x0E /**< malloc error */
+#define DB_E_NOTFOUND                0x0F /**< path not found */
 
 /* describes the individual database handlers */
 typedef struct tag_dbinfo {

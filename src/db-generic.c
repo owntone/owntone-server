@@ -358,7 +358,8 @@ char *db_error_list[] = {
     "Passed buffer too small for result",
     "Wrong db schema.  Use mtd-update to upgrade the db.",
     "Database error: %s",
-    "Malloc error"
+    "Malloc error",
+    "Path not found"
 };
 
 /* Globals */
