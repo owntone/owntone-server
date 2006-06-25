@@ -151,7 +151,7 @@
         <item id="scanning:concat_compilations">
             <name>Group compilations</name>
             <short_description>
-                Compilations are grouped under &amp;Various artists&amp;
+                Compilations are grouped under "Various artist"
             </short_description>
             <type default_value="0">select</type>
             <options>
@@ -188,7 +188,7 @@
         <item id="general:rescan_interval" restart="true">
             <name>Rescan Interval</name>
             <short_description>
-                How often should mt-daapd look for new files? In seconds.
+                How often should Firefly look for new files? In seconds.
             </short_description>
             <type size="20">text</type>
         </item>

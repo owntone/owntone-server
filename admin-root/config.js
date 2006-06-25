@@ -169,8 +169,10 @@ var Config ={
       var body = document.createElement('div');
       body.className = 'navibox';
       if ('Server' == sectionName) {
-        body.appendChild(Builder.node('span',{id:'config_path'},'Config File Location'));
-        body.appendChild(document.createTextNode(Config.configPath));
+        body.appendChild(Builder.node('span',{id:'config_path_label'},'Config File Location'));
+        var span = Builder.node('span',{id:'config_path'});
+        span.appendChild(document.createTextNode(Config.configPath));
+        body.appendChild(span);
         body.appendChild(Builder.node('br'));
         body.appendChild(Builder.node('div',{style: 'clear: both;'}));
       }
