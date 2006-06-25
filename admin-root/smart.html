@@ -1,6 +1,6 @@
 @include hdr.html@
 
-<h2>Smart Playlists</h2>
+<h1>Smart Playlists</h1>
 <table width="400">
 <thead><tr><th>ID</th><th>Playlist Name</th><th>Type</th><th>Action</th></tr></thead>
 <tbody id="playlists">
@@ -24,10 +24,12 @@ New playlist
 <label for="playlist_spec">Playlist criteria</label>
 <textarea id="playlist_spec" class="playlistfield" rows="5" name="playlist_spec"></textarea>
 <br />
+<div id="playlist_buttons">
 <input type="button" onclick="javascript:pl_update();" name="submit_button" value="Submit"/>
 <input type="button" onclick="javascript:pl_cancel();" value="Cancel"/>
 <input type="button" onclick="javascript:popUp('smartpopup.html');" value="Wizard"/>
-
+</div>
+<div style="clear: both;"></div>
 </div>
 </form>
 </div>
