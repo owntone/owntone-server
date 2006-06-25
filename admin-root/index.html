@@ -1,35 +1,13 @@
 @include hdr.html@
 <style type="text/css">
-table {
-  margin-top: 2ex;
-}
 #service, #stat {
   width: 60ex;
 }
 #thread {
   width: 80ex;
 }
-#service td, #thread td {
-  text-align: left;
-}
-#service th, #thread th {
-  text-align: left;
-}
-input {
-  font: icon;
-}
-.timer {
-  background-color: #8CACBB;
-  width: 100px;
-}
-.input_error {
-  border: 1px solid #ff0000;
-}
 </style>
-<h1>Status</h1>
-Next page update <div class="timer" id="update_timer"><br></div>
-Update this page every
-<input type="text" id="update" size="3" value="" /> seconds
+<h1>Server Status</h1>
 <table id="service" cellspacing="0">
 <thead>
   <tr>
@@ -56,6 +34,7 @@ Update this page every
   </tr>
 </tbody>
 </table>  
+<br />
 <table id="stat" cellspacing="0">
   <col style="width: 20ex;" />
   <col />
@@ -76,12 +55,13 @@ Update this page every
     <td>2</td>
   </tr>
 </table>
+<br />
 <table id="thread" cellspacing="0">
   <col style="width: 20ex;" />
   <col />
 <thead>
   <tr>
-    <th>Host</th>
+    <th>Client IP</th>
     <th>Action</th>
   </tr>
 </thead>

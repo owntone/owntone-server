@@ -71,3 +71,11 @@ var Cookie = {
     document.cookie = name + '=;expires=' + date.toUTCString();
   }
 };
+var Util = {
+  showSpinner: function () {
+    $('spinner').src = 'spinner.gif'; 
+  },
+  hideSpinner: function () {
+    $('spinner').src = 'spinner_stopped.gif'; 
+  }   
+}

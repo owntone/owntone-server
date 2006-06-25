@@ -75,7 +75,8 @@ th {
   font-weight: bold;
   padding: 0 1em 0 1em;
   background: #A3C1E8;
-  color: #000000; 
+  color: #000000;
+  text-align: left;
 }
 
 td {
@@ -137,8 +138,7 @@ td {
   padding-left: .5em;
 }
 #spinner {
-  margin-left: 4em;
-  visibility: hidden;
+  margin-left: 1em;
 }
 /* config.html */
 #toggle_basic_advanced {
