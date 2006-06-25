@@ -181,7 +181,7 @@ var Config ={
       });
       var div = document.createElement('div');
       div.id = ConfigXML.getSectionId(sectionName);
-      if (ConfigXML.isAdvancedSection(sectionName)) {
+      if (!Cookie.getVar('show_advanced_config') && ConfigXML.isAdvancedSection(sectionName)) {
         div.style.display = 'none';
       }
       div.appendChild(head);
