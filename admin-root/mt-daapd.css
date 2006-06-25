@@ -147,7 +147,7 @@ td.text
 #navigation {
   float: left;/*74A8F5*/
   background-color: #A3C1E8;
-  padding-top: 3em;
+  padding-top: 1em;
   height: 500px;
 }
 #navigation ul {
@@ -198,6 +198,19 @@ td.text
   padding-top: 4px;
   padding-left: .5em;
 }
+#spinner {
+  margin-left: 4em;
+  visibility: hidden;
+}
+/* config.html */
+#toggle_basic_advanced {
+  font: icon !important;
+  margin-left: 30em;
+}
+/* smart.html */
+#pl_editor {
+  width: 400px;
+}
 #pl_editor label {
   float: left;
   width: 7em;
@@ -205,8 +218,7 @@ td.text
   padding-top: .3em;
   padding-left: 1em;
 }
-/ * Config.html */
-#toggle_basic_advanced {
-  font: icon !important;
-  margin-left: 30em;
+
+#playlist_buttons {
+  float: right;
 }
