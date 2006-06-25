@@ -12,10 +12,6 @@ img
 { border: 0px;
 }
 
-table.main
-{ border: 0px;
-
-}
 /*div.ministatus
 { text-align: center;
   margin: 1em 0em 1em 0em;
@@ -59,89 +55,31 @@ h1,h2,h3
 }
 
 
-p.license
-{ text-align: justify;
+p.license {
+  text-align: justify;
 }
 
-pre 
-{ font-size: 120%;
+pre {
+  font-size: 120%;
 }
 
-
-.feedbackfield
-{ border: 0px solid black;
-  padding: 4px 0px 4px 0.5em;
-  width: 400px;
-}
-
-.playlistfield
-{ border: 1px solid grey;
-/*  padding: 4px 0px 4px 0.5em;*/
+.playlistfield {
   width: 300px;
 }
 
-textarea.text
-{ border: 1px solid grey;
-  padding: 4px 0px 4px 0.5em;
+table {
+  border: 1px solid #A3C1E8;
 }
 
-td.configname
-{ text-align: right;
-  padding-right: 0.5em;
-  border-bottom: 1px solid #8CACBB;
-}
-
-td.configdata
-{ text-align: left;
-  padding: 0px;
-  border-bottom: 1px solid #8CACBB;
-}
-
-td.feedbackdata
-{ text-align: left;
-  padding: 0px;
-  border-bottom: 1px solid #8CACBB;
-  padding-bottom: 4px;
-}
-
-td.feedbacktext
-{ text-align: left;
-  border-bottom: 0px;
-  padding-top: 4px;
-}
-
-td.feedbackname
-{ text-align: right;
+th {
   font-weight: bold;
-  width: 10em;
-  border-bottom: 1px solid #8CACBB;
-}
-
-td.submit
-{ text-align: right;
-}
-
-table
-{ border: 1px solid #A3C1E8;
-  border-spacing: 0px;
-  border-collapse: collapse;
-}
-
-th
-{ font-weight: bold;
-  text-align: right;
+  padding: 0 1em 0 1em;
   background: #A3C1E8;
   color: #000000; 
 }
 
-td
-{ text-align: right;
-  padding: 0px 4px 0px 4px;
-  border-bottom: 1px solid #8CACBB;
-}
-
-td.text
-{ text-align: left;
+td {
+  padding: 0 1em 0 1em;
 }
 
 #navigation {
