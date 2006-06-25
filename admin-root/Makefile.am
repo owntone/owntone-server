@@ -3,7 +3,7 @@
 SUBDIRS=lib-js
 
 adminrootdir = ${pkgdatadir}/admin-root
-adminroot_DATA = ftr.html linkOpaque.gif status.html aspl-license.txt \
+adminroot_DATA = ftr.html linkOpaque.gif about.html aspl-license.txt \
 	gpl-license.txt linkTransparent.gif config-update.html hdr.html \
 	mt-daapd.css ff_logo_sm.gif config.html index.html required.gif \
 	gpl-license.html aspl-license.html thanks.html feedback.html \
@@ -11,7 +11,7 @@ adminroot_DATA = ftr.html linkOpaque.gif status.html aspl-license.txt \
 	smartpopup.html applet.html mt-daapd.js CREDITS status.js \
 	config.js config.xml spinner.gif util.js pngfix.js no_access.html
 
-EXTRA_DIST = ftr.html linkOpaque.gif status.html aspl-license.txt \
+EXTRA_DIST = ftr.html linkOpaque.gif about.html aspl-license.txt \
 	gpl-license.txt linkTransparent.gif config-update.html hdr.html \
 	mt-daapd.css ff_logo_sm.gif config.html index.html required.gif \
 	gpl-license.html aspl-license.html thanks.html feedback.html \
