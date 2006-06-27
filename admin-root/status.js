@@ -3,22 +3,41 @@ Event.observe(window,'load',initStatus);
 var UPDATE_FREQUENCY = 5000; // number of milliseconds between page updates
 
 function initStatus(e) {
-  Updater.start();
+  Updater.update();
+  // Bind events to the buttons
+  Event.observe('button_stop_server','click',Updater.stopServer);
+  Event.observe('button_start_scan','click',Updater.startScan);
+  Event.observe('button_start_full_scan','click',Updater.startFullScan);
 }
 var Updater = {
-  start: function () {
-    window.setTimeout(Updater.update,UPDATE_FREQUENCY);
-    window.setTimeout(Util.showSpinner,UPDATE_FREQUENCY-1000);
+  stop: false,
+  wait: function () {
+    Updater.updateTimeout = window.setTimeout(Updater.update,UPDATE_FREQUENCY);
+    Updater.spinnerTimeout = window.setTimeout(Util.startSpinner,UPDATE_FREQUENCY-1000);
   },
   update: function () {
+    if (Updater.stop) {
+      return;
+    }
+    if (Updater.updateTimeout) {
+      window.clearTimeout(Updater.updateTimeout);
+    }
+    if (Updater.spinnerTimeout) {
+      window.clearTimeout(Updater.updateTimeout);
+    }
     new Ajax.Request('xml-rpc?method=stats',{method: 'get',onComplete: Updater.rsStats});          
   },
   rsStats: function(request) {
-    Util.hideSpinner();
+    Util.stopSpinner();
     ['service','stat'].each(function (tag) {
       $A(request.responseXML.getElementsByTagName(tag)).each(function (element) {
-        var node = $(Element.textContent(element.firstChild).toLowerCase().replace(/\ /,'_'));  
-        node.replaceChild(document.createTextNode(Element.textContent(element.childNodes[1])),node.firstChild);
+        var node = $(Element.textContent(element.firstChild).toLowerCase().replace(/\ /,'_'));
+        var status = Element.textContent(element.childNodes[1]);
+        node.replaceChild(document.createTextNode(status),node.firstChild);
+        if ('Idle' == status) {
+          $('button_start_scan').disabled = false;
+          $('button_start_full_scan').disabled = false;
+        }
       });
     });  
     var thread = $A(request.responseXML.getElementsByTagName('thread'));
@@ -33,9 +52,33 @@ var Updater = {
       threadTable.addTbodyRow(row);    
     });
     // $('session_count').replaceChild(document.createTextNode(users + ' Connected Users'),$('session_count').firstChild);
-    Updater.start();
-}
-  
+    if (!Updater.stop) {
+      Updater.wait();
+    }
+  },
+  stopServer: function() {
+    new Ajax.Request('xml-rpc',{method:'post',parameters: 'method=shutdown',onComplete: Updater.rsStopServer});
+    Util.stopSpinner();
+  },
+  rsStopServer: function(request) {
+    Updater.stop = true;
+    Element.show('grey_screen');
+    Effect.Appear('server_stopped_message');
+  },
+  startScan: function(e) {
+    Event.element(e).disabled = true;
+    new Ajax.Request('xml-rpc',{method:'post',parameters: 'method=rescan',onComplete: Updater.rsStartScan});  
+  },
+  rsStartScan: function(request) {
+    Updater.update();    
+  },
+  startFullScan: function(e) {
+    Event.element(e).disabled = true;
+    new Ajax.Request('xml-rpc',{method:'post',parameters: 'method=rescan&full=1',onComplete: Updater.rsStartFullScan});    
+  },
+  rsStartFullScan: function(request) {
+    Updater.update();
+  }
 }
 
 Table = Class.create();

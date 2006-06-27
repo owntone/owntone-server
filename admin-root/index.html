@@ -1,13 +1,34 @@
 @include hdr.html@
 <style type="text/css">
 #service, #stat {
-  width: 60ex;
+  width: 70ex;
 }
 #thread {
   width: 80ex;
 }
+#server_stopped_message {
+  background-color: yellow;
+  padding: 1em;
+  border: 1px solid #8CACBB;
+  font-size: 120%;
+  margin-bottom: 1em;
+  z-index: 100;
+}
+#grey_screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 1000px;
+  background-color: #000;
+  filter:alpha(opacity=60);
+  opacity: 0.6;
+  z-index: 10;
+}
 </style>
 <h1>Server Status</h1>
+<div id="grey_screen" style="display: none;"></div>
+<div id="server_stopped_message" style="display: none;">The Firefly server is not running, this page will be inaccessible until you start the server again.</div>
 <table id="service" cellspacing="0">
 <thead>
   <tr>
@@ -25,13 +46,18 @@
   <tr>
     <td>Firefly Media Server</td>
     <td id="daap_server">Running</td>
-    <td><a href="config-update.html?action=stopdaap">Stop Server</a></td>
+    <td><button id="button_stop_server" type="button">Stop Server</button></td>
   </tr>
   <tr>
     <td>File scanner</td>
     <td id="file_scanner">Idle</td>
-    <td><a href="config-update.html?action=rescan">Start Scan</a></td>
+    <td><button id="button_start_scan" type="button">Start Scan</button></td>
   </tr>
+  <tr>
+    <td></td>
+    <td></td>
+    <td><button id="button_start_full_scan" type="button">Start Full Scan</button></td>
+  </tr>  
 </tbody>
 </table>  
 <br />

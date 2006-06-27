@@ -72,10 +72,10 @@ var Cookie = {
   }
 };
 var Util = {
-  showSpinner: function () {
+  startSpinner: function () {
     $('spinner').src = 'spinner.gif'; 
   },
-  hideSpinner: function () {
+  stopSpinner: function () {
     $('spinner').src = 'spinner_stopped.gif'; 
   }   
 }
