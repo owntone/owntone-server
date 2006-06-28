@@ -355,7 +355,7 @@ int db_sqlite2_event(int event_type) {
     case DB_SQL_EVENT_SONGSCANEND:
         if(db_sqlite2_reload) {
             db_sqlite2_exec(NULL,E_FATAL,"commit transaction");
-            db_sqlite2_exec(NULL,E_FATAL,"create index idx_path on songs(path)");
+            db_sqlite2_exec(NULL,E_FATAL,"create index idx_path on songs(path,idx)");
             db_sqlite2_exec(NULL,E_DBG,"delete from config where term='rescan'");
         }
         break;
