@@ -16,14 +16,14 @@ var Updater = {
     Updater.spinnerTimeout = window.setTimeout(Util.startSpinner,UPDATE_FREQUENCY-1000);
   },
   update: function () {
-    if (Updater.stop) {
-      return;
-    }
     if (Updater.updateTimeout) {
       window.clearTimeout(Updater.updateTimeout);
     }
     if (Updater.spinnerTimeout) {
-      window.clearTimeout(Updater.updateTimeout);
+      window.clearTimeout(Updater.spinnerTimeout);
+    }
+    if (Updater.stop) {
+      return;
     }
     new Ajax.Request('xml-rpc?method=stats',{method: 'get',onComplete: Updater.rsStats});          
   },
@@ -57,11 +57,12 @@ var Updater = {
     }
   },
   stopServer: function() {
-    new Ajax.Request('xml-rpc',{method:'post',parameters: 'method=shutdown',onComplete: Updater.rsStopServer});
     Util.stopSpinner();
+    new Ajax.Request('xml-rpc',{method:'post',parameters: 'method=shutdown',onComplete: Updater.rsStopServer});
   },
   rsStopServer: function(request) {
     Updater.stop = true;
+    Updater.update(); // To clear the spinner timeout
     Element.show('grey_screen');
     Effect.Appear('server_stopped_message');
   },

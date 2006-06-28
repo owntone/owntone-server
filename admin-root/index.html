@@ -7,12 +7,14 @@
   width: 80ex;
 }
 #server_stopped_message {
+  position: absolute;
   background-color: yellow;
   padding: 1em;
-  border: 1px solid #8CACBB;
+/*  border: 1px solid #8CACBB;*/
   font-size: 120%;
   margin-bottom: 1em;
   z-index: 100;
+
 }
 #grey_screen {
   position: absolute;
@@ -26,8 +28,9 @@
   z-index: 10;
 }
 </style>
+
 <h1>Server Status</h1>
-<div id="grey_screen" style="display: none;"></div>
+
 <div id="server_stopped_message" style="display: none;">The Firefly server is not running, this page will be inaccessible until you start the server again.</div>
 <table id="service" cellspacing="0">
 <thead>
