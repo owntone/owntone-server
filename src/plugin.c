@@ -151,99 +151,6 @@ int plugin_deinit(void) {
     return TRUE;
 }
 
-
-/**
- * lock the plugin_mutex.  As it turns out, there might be one thread that calls
- * multiple plug-ins.  So we need to be able to just get one readlock, rather than
- * multiple.  so we'll keep a tls counter.
- *
- * NO DPRINTFING IN HERE!
- */
-void _plugin_readlock(void) {
-    int err;
-    int *current_count;
-
-    current_count = pthread_getspecific(_plugin_lock_key);
-    if(!current_count) {
-        current_count = (int*)malloc(sizeof(int));
-        if(!current_count) {
-            /* hrm */
-            DPRINTF(E_FATAL,L_PLUG,"Malloc error in _plugin_readlock\n");
-        }
-
-        *current_count = 0;
-    }
-
-    DPRINTF(E_SPAM,L_PLUG,"Current lock level: %d\n",*current_count);
-    if(!(*current_count)) {
-        (*current_count)++;
-        pthread_setspecific(_plugin_lock_key,(void*)current_count);
-
-        if((err=pthread_rwlock_rdlock(&_plugin_lock))) {
-            DPRINTF(E_FATAL,L_PLUG,"cannot lock plugin lock: %s\n",strerror(err));
-        }
-    } else {
-        (*current_count)++;
-        pthread_setspecific(_plugin_lock_key,(void*)current_count);
-    }
-}
-
-/**
- * lock the plugin_mutex
- */
-void _plugin_writelock(void) {
-    int err;
-    int *current_count;
-
-    current_count = pthread_getspecific(_plugin_lock_key);
-    if(!current_count) {
-        current_count = (int*)malloc(sizeof(int));
-        if(!current_count) {
-            DPRINTF(E_FATAL,L_PLUG,"Malloc error in _plugin_readlock\n");
-        }
-
-        *current_count = 0;
-    }
-    
-    DPRINTF(E_SPAM,L_PLUG,"Current lock level: %d\n",*current_count);
-
-    if(!(*current_count)) {
-        (*current_count)++;
-        pthread_setspecific(_plugin_lock_key,(void*)current_count);
-
-        if((err=pthread_rwlock_wrlock(&_plugin_lock))) {
-            DPRINTF(E_FATAL,L_PLUG,"cannot lock plugin lock: %s\n",strerror(err));
-        }
-    } else {
-        (*current_count)++;
-        pthread_setspecific(_plugin_lock_key,(void*)current_count);
-    }
-}
-
-/**
- * unlock the plugin_mutex
- */
-void _plugin_unlock(void) {
-    int err;
-    int *current_count;
-
-    current_count = pthread_getspecific(_plugin_lock_key);
-    if(!current_count) {
-        DPRINTF(E_FATAL,L_PLUG,"_plug_unlock without tls.  wtf?\n");
-    }
-
-    (*current_count)--;
-
-    if(!(*current_count)) {
-        pthread_setspecific(_plugin_lock_key,(void*)current_count);
-        if((err=pthread_rwlock_unlock(&_plugin_lock))) {
-            DPRINTF(E_FATAL,L_PLUG,"cannot unlock plugin lock: %s\n",strerror(err));
-        }
-    } else {
-        pthread_setspecific(_plugin_lock_key,(void*)current_count);
-    }
-}
-
 /**
  * return the error 
  * 
@@ -275,8 +182,6 @@ int _plugin_error(char **pe, int error, ...) {
 void _plugin_recalc_codecs(void) {
     PLUGIN_ENTRY *ppi;
     size_t size=0;
-
-    _plugin_writelock();
 
     ppi = _plugin_list.next;
     while(ppi) {
@@ -310,7 +215,6 @@ void _plugin_recalc_codecs(void) {
     }
 
     DPRINTF(E_DBG,L_PLUG,"New transcode codec list: %s\n",_plugin_ssc_codecs);
-    _plugin_unlock();
     return;
 
 }
@@ -369,8 +273,6 @@ int plugin_load(char **pe, char *path) {
 
     DPRINTF(E_INF,L_PLUG,"Loaded plugin %s (%s)\n",path,pinfo->server);
 
-    _plugin_writelock();
-
     if(!_plugin_initialized) {
         _plugin_initialized = 1;
         memset((void*)&_plugin_list,0,sizeof(_plugin_list));
@@ -378,8 +280,6 @@ int plugin_load(char **pe, char *path) {
 
     ppi->next = _plugin_list.next;
     _plugin_list.next = ppi;
-    
-    _plugin_unlock();
     
     _plugin_recalc_codecs();
     return PLUGIN_E_SUCCESS;
@@ -396,19 +296,16 @@ int plugin_url_candispatch(WS_CONNINFO *pwsc) {
     
     DPRINTF(E_DBG,L_PLUG,"Entering candispatch\n");
 
-    _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
         if(ppi->pinfo->type & PLUGIN_OUTPUT) {
             if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
                 /* we have a winner */
-                _plugin_unlock();
                 return TRUE;
             }
         }
         ppi = ppi->next;
     }
-    _plugin_unlock();
     return FALSE;
 }
 
@@ -423,7 +320,6 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
     PLUGIN_ENTRY *ppi;
     void (*disp_fn)(WS_CONNINFO *pwsc);
 
-    _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
         if(ppi->pinfo->type & PLUGIN_OUTPUT) {
@@ -435,7 +331,6 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
                 /* so functions must be a tag_plugin_output_fn */
                 disp_fn=(ppi->pinfo->output_fns)->handler;
                 disp_fn(pwsc);
-                _plugin_unlock();
                 return;
             }
         }
@@ -444,7 +339,6 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
 
     /* should 500 here or something */
     ws_returnerror(pwsc, 500, "Can't find plugin handler");
-    _plugin_unlock();
     return;
 } 
 
@@ -461,7 +355,6 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
     int name_len;
 
 
-    _plugin_readlock();
     ppi = _plugin_list.next;
 
     while(ppi) {
@@ -501,8 +394,6 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
         ppi=ppi->next;
     }
 
-    _plugin_unlock();
-
     return TRUE;
 }
 
@@ -519,7 +410,6 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
     int (*auth_fn)(WS_CONNINFO *pwsc, char *username, char *pw);
     int result;
 
-    _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
         if(ppi->pinfo->type & PLUGIN_OUTPUT) {
@@ -532,10 +422,8 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
                 auth_fn=(ppi->pinfo->output_fns)->auth;
                 if(auth_fn) {
                     result=auth_fn(pwsc,username,pw);
-                    _plugin_unlock();
                     return result;
                 } else {
-                    _plugin_unlock();
                     return TRUE;
                 }
             }
@@ -545,7 +433,6 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
 
     /* should 500 here or something */
     ws_returnerror(pwsc, 500, "Can't find plugin handler");
-    _plugin_unlock();
     return FALSE;
 }
 
@@ -555,8 +442,6 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
 void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
     PLUGIN_ENTRY *ppi;
 
-    /* FIXME:  Something is wrong is readlock deadlocks... */        
-//    _plugin_readlock();
     ppi = _plugin_list.next;
     while(ppi) {
         if(ppi->pinfo->type & PLUGIN_EVENT) {
@@ -569,7 +454,6 @@ void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
         }
         ppi=ppi->next;
     }
-//    _plugin_unlock();
 }
 
 /**
@@ -609,12 +493,10 @@ int plugin_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
     if(strstr(native_codecs,codec))
         return FALSE;
 
-    _plugin_readlock();
     result = FALSE;
     if(strstr(_plugin_ssc_codecs,codec)) {
         result = TRUE;
     }
-    _plugin_unlock();
     return result;
 }
 
@@ -674,7 +556,6 @@ int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duratio
 
     /* first, find the plugin that will do the conversion */
 
-    _plugin_readlock();
 
     ppi = _plugin_list.next;
     while((ppi) && (!pfn)) {
@@ -729,7 +610,6 @@ int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duratio
         ws_returnerror(pwsc,500,"Internal error");
     }
 
-    _plugin_unlock();
     return result;
 }
 
