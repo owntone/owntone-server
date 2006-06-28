@@ -212,15 +212,13 @@ void scan_process_playlistlist(void) {
             ext = strrchr(pnext->path,'.');
         }
 
-        if(strcasecmp(ext,".xml") == 0) {
+        if(strcasecmp(pnext->path,"iTunes Music Library.xml") == 0) {
             if(conf_get_int("scanning","process_xml",1)) {
                 DPRINTF(E_LOG,L_SCAN,"Scanning %s\n",pnext->path);
                 scan_xml_playlist(pnext->path);
             }
         } else if(strcasecmp(ext,".m3u") == 0) {
             scan_static_playlist(pnext->path);
-        } else {
-            DPRINTF(E_LOG,L_SCAN,"Unknown playlist type: %s\n",ext);
         }
 
         free(pnext->path);
