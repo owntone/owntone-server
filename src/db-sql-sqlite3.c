@@ -67,7 +67,7 @@ static char **db_sqlite3_row = NULL;
 
 static char db_sqlite3_path[PATH_MAX + 1];
 
-#define DB_SQLITE3_VERSION 9
+#define DB_SQLITE3_VERSION 10
 
 
 /* Forwards */

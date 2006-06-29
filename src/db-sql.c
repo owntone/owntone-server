@@ -55,6 +55,8 @@ static int db_sql_in_playlist_scan=0;
 static int db_sql_in_scan=0;
 static int db_sql_need_dispose=0;
 
+extern char *db_sqlite_updates[];
+
 /* Forwards */
 int db_sql_get_size(DBQUERYINFO *pinfo, char **valarray);
 int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presult, int len);
@@ -297,8 +299,44 @@ int db_sql_parse_smart(char **pe, char **clause, char *phrase) {
  */
 int db_sql_open(char **pe, char *parameters) {
     int result;
+    int current_version;
+    int max_version;
+    char **db_updates;
 
     result = db_sql_open_fn(pe,parameters);
+
+    if(result == DB_E_WRONGVERSION) {
+        /* need to update the version */
+        if(pe) free(*pe);
+
+        db_updates = db_sqlite_updates;
+
+        result = db_sql_fetch_int(pe,&current_version,"select value from "
+                                  "config where term='version'");
+
+        if(result != DB_E_SUCCESS)
+            return result;
+
+        max_version = 0;
+        while(db_updates[max_version]) 
+            max_version++;
+
+        DPRINTF(E_DBG,L_DB,"Current db version: %d\n",current_version);
+        DPRINTF(E_DBG,L_DB,"Target db version:  %d\n",max_version);
+
+        while(current_version < max_version) {
+            DPRINTF(E_LOG,L_DB,"Upgrading db: %d --> %d\n",current_version,
+                    current_version + 1);
+            result = db_sql_exec_fn(pe,E_LOG,"%s",db_updates[current_version]);
+            if(result != DB_E_SUCCESS) {
+                DPRINTF(E_LOG,L_DB,"Error upgrading db: %s\n", pe ? *pe : 
+                        "Unknown");
+                return result;
+            }
+            current_version++;
+        }
+    }
+
     return result;
 }
 

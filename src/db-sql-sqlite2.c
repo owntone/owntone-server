@@ -65,7 +65,7 @@ static char *db_sqlite2_enum_query;
 
 static char db_sqlite2_path[PATH_MAX + 1];
 
-#define DB_SQLITE2_VERSION 9
+#define DB_SQLITE2_VERSION 10
 
 
 /* Forwards */
