@@ -702,11 +702,14 @@ void _os_unlock(void) {
  */
 void *os_loadlib(char **pe, char *path) {
     void *retval;
+    UINT old_mode;
 
+    old_mode = SetErrorMode(SEM_NOOPENFILEERRORBOX);
     retval = (void*)LoadLibrary(path);
     if(!retval) {
         if(pe) *pe = strdup(os_strerror(0));
     }
+    SetErrorMode(old_mode);
     return retval;
 }
 
