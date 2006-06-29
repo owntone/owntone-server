@@ -10,6 +10,7 @@ Event.observe(window,'load',init);
 // I could have put it below Config = ... but I want all window.load events
 // at the start of the file
 var DEBUG = window.location.toString().match(/debug.*/);
+var g_messageTimeout;
 if ('debug=validate' == DEBUG) {
   DEBUG = 'validate';
 }
@@ -117,7 +118,7 @@ var ConfigInitialValues = {
         frag.appendChild(document.createTextNode(el));
         frag.appendChild(document.createElement('br'));
       });
-      var outerDiv = Builder.node('div',{id: ConfigXML.getSectionId('missing_items'),className: 'warning_color'});
+      var outerDiv = Builder.node('div',{id: ConfigXML.getSectionId('missing_items')});
       outerDiv.appendChild(Builder.node('div',{className: 'naviheader'},'Options missing from config.xml'));
       var contentDiv = Builder.node('div',{className: 'navibox'});
       contentDiv.appendChild(document.createTextNode('The options below are in your mt-daapd.conf and Firefly uses them,'));
@@ -452,10 +453,18 @@ var BuildElement = {
 };
 
 function saved(req) {
+  if (g_messageTimeout) {
+    window.clearTimeout(g_messageTimeout);
+  }
   if ('200' == Element.textContent(req.responseXML.getElementsByTagName('status')[0])) {
-    alert('Saved');
+    $('messages').innerHTML = 'Saved';
+    Effect.Appear('messages',{duration: 0.2});
+    g_messageTimeout = window.setTimeout(function(){
+      Effect.Fade('messages',{duration: 0.2});
+    },3000);
   } else {
-    alert("Couldn't save and if this weren't a beta I'd tell you why");
+    $('messages').innerHTML = 'Error: ' + req.responseText;
+    Effect.Appear('messages',{duration: 0.2});
   }
 }
 function saveForm() {
@@ -578,6 +587,16 @@ var i=0;
         //###TODO potential error a select without a default value
       $(item.id).value = ConfigInitialValues.getValue(item.id) || item.default_value || '';
     }
+    $('messages').innerHTML = 'Cancelled';
+    if (g_messageTimeout) {
+      window.clearTimeout(g_messageTimeout);
+    }
+    Effect.Appear('messages',{duration: 0.2});
+    g_messageTimeout = window.setTimeout(function(){
+      Effect.Fade('messages',{duration: 0.2});
+    },3000);
+    
+    
   });
   return;
 }
