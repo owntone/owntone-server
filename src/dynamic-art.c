@@ -42,6 +42,7 @@
 #include "err.h"
 #include "restart.h"
 #include "mp3-scanner.h"
+#include "os.h"
 #include "scan-aac.h"
 
 #define BLKSIZE PIPE_BUF
@@ -98,7 +99,10 @@ int da_get_image_fd(char *filename) {
         return -1;
 
     strncpy(buffer,filename,sizeof(buffer));
-    path_end = strrchr(buffer,'/');
+    path_end = strrchr(buffer,PATHSEP);
+    if(!path_end)
+        return -1;
+
     strcpy(path_end+1,artfilename);
     free(artfilename);
     fd = open(buffer,O_RDONLY);
