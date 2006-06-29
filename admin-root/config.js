@@ -240,6 +240,8 @@ var Config ={
 //          var parentSpan = Builder.node('span');
           values.each(function (val,i) {
             var div = document.createElement('div');
+            // Crappy IE wants a width on floated elements (or maybe it was w3c requiring it)
+            div.style.width = '60em';
             div.appendChild(BuildElement.input(itemId+i,itemId,
                                      item.name,
                                      val || item.default_value || '',
@@ -252,7 +254,7 @@ var Config ={
 //              div.appendChild(href);
 //            }
             div.appendChild(document.createTextNode('\u00a0\u00a0'));
-            href = Builder.node('a',{href: 'javascript://'},'Remove');
+            href = Builder.node('a',{style: 'width: 6em;',href: 'javascript://'},'Remove');
             Event.observe(href,'click',Config._removeItemEvent);
             div.appendChild(href);
             div.appendChild(Builder.node('br'));
@@ -398,13 +400,19 @@ var BuildElement = {
     label.setAttribute('for',id);
     label.appendChild(document.createTextNode(displayName));
     frag.appendChild(label);
+    var input;
     if (Config.isWritable) {
-      frag.appendChild(Builder.node('input',{id: id,name: name,className: 'text',
-                                             value: value,size: size}));
+      input = Builder.node('input',{id: id,name: name,className: 'text',
+                                             value: value,size: size});
     } else {
-      frag.appendChild(Builder.node('input',{id: id,name: name,className: 'text',
-                                             value: value,size: size, disabled: 'disabled'}));
+      input = Builder.node('input',{id: id,name: name,className: 'text',
+                                             value: value,size: size, disabled: 'disabled'});
     }
+    if (/KHTML/.test(navigator.userAgent)) {
+       // Safari & Konqueror doesn't do font: icon on inputs and selects
+       input.style.fontSize = 'x-small';
+    }
+    frag.appendChild(input);
     frag.appendChild(document.createTextNode('\u00a0'));
     if (short_description) {                                              
       frag.appendChild(document.createTextNode(short_description));
@@ -428,6 +436,11 @@ var BuildElement = {
                                                 option.label));
     });
     select.value = value;
+    if (/KHTML/.test(navigator.userAgent)) {
+       // Safari & Konqueror doesn't do font: icon on inputs and selects
+       select.style.fontSize = 'x-small';
+    }
+    
     frag.appendChild(select);
     frag.appendChild(document.createTextNode('\u00a0'));
     if (short_description) {
