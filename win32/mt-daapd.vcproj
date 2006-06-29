@@ -142,6 +142,9 @@
 				RelativePath="..\src\db-sql-sqlite3.c">
 			</File>
 			<File
+				RelativePath="..\src\db-sql-updates.c">
+			</File>
+			<File
 				RelativePath="..\src\db-sql.c">
 			</File>
 			<File
