@@ -159,3 +159,9 @@ td {
 #playlist_buttons {
   float: right;
 }
+#pl_warning {
+  background-color: yellow;
+  padding: 1em;
+  border: 1px solid #8CACBB;
+  width: 40em;
+}

@@ -1,6 +1,6 @@
 var req;
 var playlist_info={};
-
+var g_messageTimeout;
 
 function pl_editor_state(state) {
     var pleditor = document.getElementById("pl_editor");
@@ -17,6 +17,9 @@ function pl_editor_state(state) {
 }
 
 function pl_errormsg(msg) {
+    if (g_messageTimeout) {
+        window.clearTimeout(g_messageTimeout);
+    }
     var msgdiv = document.getElementById("pl_warning");
 
     if(!msgdiv)
@@ -27,7 +30,12 @@ function pl_errormsg(msg) {
     if(msg == "") {
         msgdiv.style.display="none";
     } else {
-        msgdiv.style.display="block";
+        Effect.Appear(msgdiv,{duration: 0.2});
+        if (('Success' == msg) || 'Cancelled' == msg) {
+            g_messageTimeout = window.setTimeout(function(){
+              Effect.Fade(msgdiv,{duration: 0.2});
+            },3000);
+        }
     }
 }
 
@@ -63,17 +71,19 @@ function pl_displayresults(xmldoc,query) {
     
         pl_errormsg(status_string);
     } else {
+        pl_editor_state(false);   
         pl_errormsg("Success");
     }
 }
 
 function pl_update() {
     /* this is either update or create, depending... */
+    pl_errormsg('');
     var id, name, spec;
 
-    id = document.forms['pl_form']['playlist_id'].value;
-    name = encodeURIComponent(document.forms['pl_form']['playlist_name'].value);
-    spec = encodeURIComponent(document.forms['pl_form']['playlist_spec'].value);
+    id = document.getElementById('playlist_id').value;
+    name = encodeURIComponent(document.getElementById('playlist_name').value);
+    spec = encodeURIComponent(document.getElementById('playlist_spec').value);
     
     if(id == '0') {
         /* new playlist... post it! */
@@ -87,7 +97,7 @@ function pl_update() {
     pl_displayresults(req.responseXML);
 
     init();
-    pl_editor_state(false);   
+//    pl_editor_state(false);   
 }
 
 function pl_cancel() {
