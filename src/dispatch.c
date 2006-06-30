@@ -876,7 +876,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
                 DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
                         bytes_copied);
                 /* update play counts */
-                if(bytes_copied >= real_len) {
+                if(bytes_copied + 20 >= real_len) {
                     db_playcount_increment(NULL,pmp3->id);
                 }
             }
