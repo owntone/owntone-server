@@ -749,7 +749,9 @@ SP_NODE *sp_parse_phrase(PARSETREE tree) {
 
     expr = sp_parse_oexpr(tree);
     if((!expr) || (tree->token.token_id != T_EOF)) {
-        sp_set_error(tree,SP_E_EOS);
+        if(!tree->error) {
+            sp_set_error(tree,SP_E_EOS);
+        }
         sp_free_node(expr);
         expr = NULL;
     }

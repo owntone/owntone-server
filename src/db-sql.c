@@ -537,6 +537,8 @@ int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
     int result;
     int playlist_type;
     int dup_id=id;
+    char *criteria;
+    char *estring;
 
     if((name == NULL) && (clause == NULL))
         return DB_E_SUCCESS;  /* I guess?? */
@@ -557,6 +559,16 @@ int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
             return DB_E_INVALID_PLAYLIST;
         }
         return result;
+    }
+
+
+    if((playlist_type == PL_SMART) && (clause)) {
+        if(!db_sql_parse_smart(&estring,&criteria,clause)) {
+            db_get_error(pe,DB_E_PARSE,estring);
+            free(estring);
+            return DB_E_PARSE;
+        }
+        free(criteria);
     }
 
     /* TODO: check for duplicate names here */
