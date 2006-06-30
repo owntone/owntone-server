@@ -200,6 +200,7 @@ void scan_add_playlistlist(char *path) {
 void scan_process_playlistlist(void) {
     PLAYLISTLIST *pnext;
     char *ext;
+    char *file;
 
     DPRINTF(E_DBG,L_SCAN,"Starting playlist loop\n");
 
@@ -212,7 +213,12 @@ void scan_process_playlistlist(void) {
             ext = strrchr(pnext->path,'.');
         }
 
-        if(strcasecmp(pnext->path,"iTunes Music Library.xml") == 0) {
+        file=pnext->path;
+        if(strrchr(pnext->path,PATHSEP)) {
+            file = strrchr(pnext->path,PATHSEP) + 1;
+        }
+
+        if(strcasecmp(file,"iTunes Music Library.xml") == 0) {
             if(conf_get_int("scanning","process_xml",1)) {
                 DPRINTF(E_LOG,L_SCAN,"Scanning %s\n",pnext->path);
                 scan_xml_playlist(pnext->path);
