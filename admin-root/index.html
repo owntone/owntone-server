@@ -27,6 +27,10 @@
   opacity: 0.6;
   z-index: 10;
 }
+#button_stop_server, #button_start_scan, #button_start_full_scan {
+  width: 8em;
+  margin-bottom: .2em;
+}
 </style>
 
 <h1>Server Status</h1>
@@ -49,17 +53,17 @@
   <tr>
     <td>Firefly Media Server</td>
     <td id="daap_server">Running</td>
-    <td><button id="button_stop_server" type="button">Stop Server</button></td>
+    <td><input id="button_stop_server" type="button" value="Stop Server" /></td>
   </tr>
   <tr>
     <td>File scanner</td>
     <td id="file_scanner">Idle</td>
-    <td><button id="button_start_scan" type="button">Start Scan</button></td>
+    <td><input id="button_start_scan" type="button" value="Start Scan" /></td>
   </tr>
   <tr>
     <td></td>
     <td></td>
-    <td><button id="button_start_full_scan" type="button">Start Full Scan</button></td>
+    <td><input id="button_start_full_scan" type="button" value="Start Full Scan" /></td>
   </tr>  
 </tbody>
 </table>  
