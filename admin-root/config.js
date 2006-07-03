@@ -280,7 +280,7 @@ var Config ={
 //            Event.observe(href,'click',Config._browse);          
 //            frag.appendChild(href);
 //          }
-          frag.appendChild(Builder.node('br'));
+  //        frag.appendChild(Builder.node('br'));
         }
         break;
       case 'select':
@@ -289,7 +289,7 @@ var Config ={
                                   item.options,
                                   ConfigInitialValues.getValue(itemId) || item.default_value,
                                   item.short_description));
-        frag.appendChild(Builder.node('br'));
+//        frag.appendChild(Builder.node('br'));
         break;
       default:
         alert('This should not happen (1)');
