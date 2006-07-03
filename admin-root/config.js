@@ -196,9 +196,9 @@ var Config ={
     } else {
       // Create save and cancel buttons
 //      var save = Builder.node('button',{id: 'button_save', disabled: 'disabled'},'Save');
-      var save = Builder.node('button',{id: 'button_save'},'Save');
+      var save = Builder.node('input',{id: 'button_save',type: 'button', value:'Save'});
       Event.observe(save,'click',saveForm);
-      var cancel = Builder.node('button',{id: 'button_cancel'},'Cancel');
+      var cancel = Builder.node('input',{id: 'button_cancel',type: 'button',value:'Cancel'});
       Event.observe(cancel,'click',cancelForm);
       var spacer = document.createTextNode('\u00a0\u00a0');
       var buttons = $('buttons');
