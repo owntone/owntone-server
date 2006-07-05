@@ -7,9 +7,11 @@ body
   margin: 0;
   padding: 0;
 }
-
-img
-{ border: 0px;
+#main_table {
+  border-width: 0;
+}
+img {
+  border: 0px;
 }
 
 /*div.ministatus
@@ -120,10 +122,6 @@ td {
 .links {
   padding-top: 1em;
   padding-left: .5em;
-}
-#content {
-  float: left;
-  margin-left: 3em;
 }
 #tagline {
   padding: 0.25em 0 0.25em 0.5em;
