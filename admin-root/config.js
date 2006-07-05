@@ -298,6 +298,7 @@ var Config ={
     if (!Cookie.getVar('show_advanced_config') && item.advanced) {
       frag.style.display = 'none';
     }
+    frag.style.clear = 'both';
     return frag;
   },
   _addItemEvent: function (e) {
@@ -402,6 +403,12 @@ var BuildElement = {
     label.appendChild(document.createTextNode(displayName));
     frag.appendChild(label);
     var input;
+    if (/KHTML/.test(navigator.userAgent) && (80 == size)) {
+       // Safari & Konqueror input fields gets to long
+       // This is a runner up in the ugly bug fix contest
+       size = 60;
+    }
+    
     if (Config.isWritable) {
       input = Builder.node('input',{id: id,name: name,className: 'text',
                                              value: value,size: size});
