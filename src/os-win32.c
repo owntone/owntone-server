@@ -54,6 +54,11 @@ typedef struct tag_osfileinfo {
 /* Globals */
 OSFILEINFO file_info[MAXDESC];
 char os_config_file[_MAX_PATH];
+char *os_w32_socket_states[] = {
+    "Closed/Unused",
+    "Open/Listening",
+    "Shutdown, not closed"
+};
 
 /* "official" os interface functions */
 
@@ -98,7 +103,20 @@ int os_init(int foreground, char *runas) {
  * shutdown the system-specific stuff started in os_init.
  */
 void os_deinit(void) {
+    int fd;
+
     _os_socket_shutdown();
+
+    /* walk through and log the different sockets */
+    fd=0;
+    while(fd < MAXDESC) {
+        if(file_info[fd].state) {
+            DPRINTF(E_DBG,L_MISC,"Socket %d (%d): State %s\n",fd,fd+MAXDESC,
+                os_w32_socket_states[file_info[fd].state]);
+        }
+        fd++;
+    }
+
     if(os_serviceflag) {
         /* then we need to stop the service */
         SetConsoleCtrlHandler(_os_cancelhandler,FALSE);
@@ -168,7 +186,7 @@ int _os_sock_to_fd(SOCKET sock) {
     if(sock == INVALID_SOCKET)
         return -1;
 
-    DPRINTF(E_SPAM,L_MISC,"Converting socket to fd\n");
+    DPRINTF(E_DBG,L_MISC,"Converting socket to fd\n");
 
     /* I was doing strange osfhandle stuff here, but it seemed
      * to be leaking file handles, and I don't really know what
@@ -198,7 +216,7 @@ int _os_sock_to_fd(SOCKET sock) {
         DPRINTF(E_FATAL,L_MISC,"Out of pseudo file handles.  See ya\n");
     }
 
-    DPRINTF(E_SPAM,L_MISC,"Returning fd %d\n",fd + MAXDESC);
+    DPRINTF(E_DBG,L_MISC,"Returning fd %d\n",fd + MAXDESC);
     file_info[fd].sock = sock;
     file_info[fd].state = OSFI_OPEN;
     _os_unlock();
@@ -374,7 +392,7 @@ int os_write(int fd, void *buffer, unsigned int count) {
 int os_read(int fd,void *buffer,unsigned int count) {
     int retval;
 
-    DPRINTF(E_SPAM,L_MISC,"Reading %d bytes from %d\n",count,fd);
+//    DPRINTF(E_SPAM,L_MISC,"Reading %d bytes from %d\n",count,fd);
     if(NOTSOCK) {
         retval = _read(fd,buffer,count);
     } else {
@@ -384,7 +402,7 @@ int os_read(int fd,void *buffer,unsigned int count) {
             return -1;
         }
         retval=recv(REALSOCK,buffer,count,0);
-        DPRINTF(E_SPAM,L_MISC,"Actually returning %d\n",retval);
+//        DPRINTF(E_SPAM,L_MISC,"Actually returning %d\n",retval);
     }
     return retval;
 }
