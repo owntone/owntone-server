@@ -80,6 +80,7 @@ static char *scan_xml_track_tags[] = {
     "Compilation",
     "Location",
     "Date Added",
+    "Comments",
     NULL
 };
 
@@ -103,7 +104,7 @@ static char *scan_xml_track_tags[] = {
 #define SCAN_XML_T_COMPILATION 15
 #define SCAN_XML_T_LOCATION    16
 #define SCAN_XML_T_DATE_ADDED  17
-
+#define SCAN_XML_T_COMMENTS    18
 
 #ifndef TRUE
 # define TRUE  1
@@ -692,6 +693,7 @@ int scan_xml_tracks_section(int action, char *info) {
                     MAYBECOPYSTRING(artist);
                     MAYBECOPYSTRING(album);
                     MAYBECOPYSTRING(genre);
+                    MAYBECOPYSTRING(comment);
                     MAYBECOPY(song_length);
                     MAYBECOPY(track);
                     MAYBECOPY(total_tracks);
@@ -741,6 +743,7 @@ int scan_xml_tracks_section(int action, char *info) {
                 MAYBECOPYSTRING(artist);
                 MAYBECOPYSTRING(album);
                 MAYBECOPYSTRING(genre);
+                MAYBECOPYSTRING(comment);
                 MAYBECOPY(bitrate);
                 MAYBECOPY(samplerate);
                 MAYBECOPY(play_count);
@@ -801,6 +804,8 @@ int scan_xml_tracks_section(int action, char *info) {
                 DPRINTF(E_DBG,L_SCAN,"scan_path: %s\n",song_path);
             } else if(current_field == SCAN_XML_T_DATE_ADDED) {
                 mp3.time_added = scan_xml_datedecode(info);
+            } else if(current_field == SCAN_XML_T_COMMENTS) {
+                mp3.comment = strdup(info);
             }
         } else if(action == RXML_EVT_END) {
             state = XML_TRACK_ST_TRACK_INFO;
