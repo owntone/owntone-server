@@ -1179,6 +1179,18 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         return -1;
     }
 
+    /* don't browse radio station metadata */
+    if(browse) {
+        if(have_clause) {
+            strcat(query_rest," and ");
+        } else {
+            strcpy(query_rest," where ");
+            have_clause = 1;
+        }
+
+        strcat(query_rest,"(data_kind = 0) ");
+    }
+
     /* Apply the query/filter */
     if(pinfo->pt) {
         DPRINTF(E_DBG,L_DB,"Got query/filter\n");
@@ -1188,6 +1200,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
                 strcat(query_rest," and ");
             } else {
                 strcpy(query_rest," where ");
+                have_clause=1;
             }
             strcat(query_rest,"(");
             strcat(query_rest,filter);
@@ -1206,6 +1219,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
 	    strcat(query_rest," and (");
 	} else {
 	    strcpy(query_rest," where (");
+            have_clause = 1;
 	}
 	
 	switch(pinfo->query_type) {
