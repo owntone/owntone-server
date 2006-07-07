@@ -216,7 +216,7 @@ int err_settruncate(int truncate) {
         return TRUE;
 
     err_truncate = truncate;
-    if((err_truncate) && (err_filename)) {
+    if((err_truncate) && (err_file)) {
         file=strdup(err_filename);
         err_setlogfile(err_filename);
         if(file) free(file);
