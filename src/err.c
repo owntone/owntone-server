@@ -139,7 +139,9 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     if((err_logdest & LOGDEST_LOGFILE) && err_file) {
         tt_now=time(NULL);
         localtime_r(&tt_now,&tm_now);
-        strftime(timebuf,sizeof(timebuf),"%Y-%m-%d %T",&tm_now);
+        snprintf(timebuf,sizeof(timebuf),"%04d-%02d-%02d %02d:%02d:%02d",
+                 tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
+                 tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
         fprintf(err_file,"%s: %s",timebuf,errbuf);
         if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
         fflush(err_file);
