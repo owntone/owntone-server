@@ -487,7 +487,7 @@ char *os_apppath(char *parm) {
 
     realpath(parm,path);
     if(strrchr(path,'/')) {
-        *strrchr(path,'/') = '/0';
+        *strrchr(path,'/') = '\0';
     }
 
     return strdup(path);
