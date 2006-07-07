@@ -552,6 +552,7 @@ int conf_read(char *file) {
     LL_ITEM *pli;
     char linebuffer[CONF_LINEBUFFER+1];
     char keybuffer[256];
+    char conf_file[PATH_MAX+1];
     char *comment, *term, *value, *delim;
     char *section_name=NULL;
     char *prev_comments=NULL;
@@ -572,9 +573,10 @@ int conf_read(char *file) {
         free(conf_main_file);
     }
 
-    conf_main_file = strdup(file);
+    realpath(file,conf_file);
+    conf_main_file = strdup(conf_file);
 
-    fin=fopen(file,"r");
+    fin=fopen(conf_file,"r");
     if(!fin) {
         return CONF_E_FOPEN;
     }
