@@ -34,6 +34,7 @@ static int _os_sock_to_fd(SOCKET sock);
 static void _os_lock(void);
 static void _os_unlock(void);
 static BOOL WINAPI _os_cancelhandler(DWORD dwCtrlType);
+static void _os_phandle_dump(void);
 
 extern int gettimeout(struct timeval end,struct timeval *timeoutp);
 
@@ -100,22 +101,29 @@ int os_init(int foreground, char *runas) {
 }
 
 /**
- * shutdown the system-specific stuff started in os_init.
+ * dump pseudo-handles
  */
-void os_deinit(void) {
+void _os_phandle_dump(void) {
     int fd;
-
-    _os_socket_shutdown();
-
     /* walk through and log the different sockets */
-    fd=0;
+    fd=1; /* skip the main listen socket */
     while(fd < MAXDESC) {
         if(file_info[fd].state) {
-            DPRINTF(E_DBG,L_MISC,"Socket %d (%d): State %s\n",fd,fd+MAXDESC,
+            DPRINTF(E_LOG,L_MISC,"Socket %d (%d): State %s\n",fd,fd+MAXDESC,
                 os_w32_socket_states[file_info[fd].state]);
         }
         fd++;
     }
+}
+
+/**
+ * shutdown the system-specific stuff started in os_init.
+ */
+void os_deinit(void) {
+
+    _os_socket_shutdown();
+
+    _os_phandle_dump();
 
     if(os_serviceflag) {
         /* then we need to stop the service */
@@ -213,6 +221,7 @@ int _os_sock_to_fd(SOCKET sock) {
 
     if(fd == MAXDESC) {
         _os_unlock();
+	_os_phandle_dump();
         DPRINTF(E_FATAL,L_MISC,"Out of pseudo file handles.  See ya\n");
     }
 
