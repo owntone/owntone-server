@@ -260,7 +260,7 @@ int scan_init(char **patharray) {
 
     scan_playlistlist.next=NULL;
 
-    while(patharray[index] != NULL) {
+    while((patharray[index] != NULL) && (!config.stop)) {
         DPRINTF(E_DBG,L_SCAN,"Scanning for MP3s in %s\n",patharray[index]);
         err=scan_path(patharray[index]);
         index++;
@@ -269,8 +269,10 @@ int scan_init(char **patharray) {
     if(db_end_song_scan())
         return -1;
 
-    DPRINTF(E_DBG,L_SCAN,"Processing playlists\n");
-    scan_process_playlistlist();
+    if(!config.stop) {
+        DPRINTF(E_DBG,L_SCAN,"Processing playlists\n");
+        scan_process_playlistlist();
+    }
 
     if(db_end_scan())
         return -1;
