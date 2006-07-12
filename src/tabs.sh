@@ -2,4 +2,4 @@
 XX='	'
 echo "Searching for ${XX}."
 
-egrep  "${XX}" *.[ch]
+egrep -l "${XX}" *.[ch]

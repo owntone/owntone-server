@@ -713,8 +713,8 @@ int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
             pqi->query_type = queryTypeBrowseComposers;
         } else {
             if(pe) *pe = strdup("Unsupported browse type");
-	    if(pqi->pt)
-		sp_dispose(pqi->pt);
+            if(pqi->pt)
+                sp_dispose(pqi->pt);
             pqi->pt = NULL;
             return -1; /* not really a db error for this */
         }

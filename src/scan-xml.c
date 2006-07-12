@@ -758,14 +758,14 @@ int scan_xml_tracks_section(int action, char *info) {
                 db_dispose_item(pmp3);
             }
 
-	    /* cleanup what's left */
-	    MAYBEFREE(mp3.title);
-	    MAYBEFREE(mp3.artist);
-	    MAYBEFREE(mp3.album);
-	    MAYBEFREE(mp3.genre);
-	    MAYBEFREE(mp3.comment);
-	    MAYBEFREE(song_path);
-	    memset((void*)&mp3,0,sizeof(MP3FILE));
+            /* cleanup what's left */
+            MAYBEFREE(mp3.title);
+            MAYBEFREE(mp3.artist);
+            MAYBEFREE(mp3.album);
+            MAYBEFREE(mp3.genre);
+            MAYBEFREE(mp3.comment);
+            MAYBEFREE(song_path);
+            memset((void*)&mp3,0,sizeof(MP3FILE));
         } else {
             return XML_STATE_ERROR;
         }

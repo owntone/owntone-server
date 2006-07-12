@@ -19,8 +19,8 @@ uint32_t util_djb_hash_block(unsigned char *data, uint32_t len) {
     unsigned char *pstr = data;
 
     while(len--) {
-	hash = ((hash << 5) + hash) + *pstr;
-	pstr++;
+        hash = ((hash << 5) + hash) + *pstr;
+        pstr++;
     }
     return hash;
 }

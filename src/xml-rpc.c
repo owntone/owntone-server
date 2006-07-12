@@ -367,8 +367,8 @@ void xml_handle(WS_CONNINFO *pwsc) {
     }
 
     if(strcasecmp(method,"browse_path") == 0) {
-	xml_browse_path(pwsc);
-	return;
+        xml_browse_path(pwsc);
+        return;
     }
 
     if(strcasecmp(method,"rescan") == 0) {
@@ -407,19 +407,19 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
 
     base_path = ws_getvar(pwsc, "path");
     if(!base_path)
-	base_path = PATHSEP_STR;
+        base_path = PATHSEP_STR;
 
 
     if(ws_getvar(pwsc,"show_dotfiles"))
-	ignore_dotfiles = 0;
+        ignore_dotfiles = 0;
 
     if(ws_getvar(pwsc,"show_files"))
         ignore_files = 0;
 
     pd = opendir(base_path);
     if(!pd) {
-	xml_return_error(pwsc,500,"Bad path");
-	return;
+        xml_return_error(pwsc,500,"Bad path");
+        return;
     }
 
     pxml=xml_init(pwsc,1);
@@ -427,35 +427,35 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
 
     /* get rid of trailing slash */
     while(1) {
-	pde = (struct dirent *)&de;
-	err = readdir_r(pd,(struct dirent *)de, &pde);
+        pde = (struct dirent *)&de;
+        err = readdir_r(pd,(struct dirent *)de, &pde);
 
-	if(err == -1) {
-	    DPRINTF(E_LOG,L_SCAN,"Error in readdir_r: %s\n",
-		    strerror(errno));
-	    break;
-	}
+        if(err == -1) {
+            DPRINTF(E_LOG,L_SCAN,"Error in readdir_r: %s\n",
+                    strerror(errno));
+            break;
+        }
 
-	if(!pde)
-	    break;
+        if(!pde)
+            break;
 
-	if((!strcmp(pde->d_name,".")) || (!strcmp(pde->d_name,"..")))
-	    continue;
+        if((!strcmp(pde->d_name,".")) || (!strcmp(pde->d_name,"..")))
+            continue;
 
         if((pde->d_type & DT_REG) && (ignore_files))
             continue;
 
-	if((!(pde->d_type & DT_DIR)) && 
+        if((!(pde->d_type & DT_DIR)) && 
            (!(pde->d_type & DT_REG)))
-	    continue;
+            continue;
 
-	if((ignore_dotfiles) && (pde->d_name) && (pde->d_name[0] == '.'))
-	    continue;
+        if((ignore_dotfiles) && (pde->d_name) && (pde->d_name[0] == '.'))
+            continue;
 
-	snprintf(full_path,PATH_MAX,"%s%c%s",base_path,PATHSEP,pde->d_name);
-	realpath(full_path,resolved_path);
-	readable = !access(resolved_path,R_OK);
-	writable = !access(resolved_path,W_OK);
+        snprintf(full_path,PATH_MAX,"%s%c%s",base_path,PATHSEP,pde->d_name);
+        realpath(full_path,resolved_path);
+        readable = !access(resolved_path,R_OK);
+        writable = !access(resolved_path,W_OK);
 
         if(pde->d_type & DT_DIR) {
             xml_push(pxml,"directory");
@@ -464,12 +464,12 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
         } else {
             xml_push(pxml,"file");
         }
-	xml_output(pxml,"name",pde->d_name);
-	xml_output(pxml,"full_path",resolved_path);
-	xml_output(pxml,"readable","%d",readable);
-	xml_output(pxml,"writable","%d",writable);
+        xml_output(pxml,"name",pde->d_name);
+        xml_output(pxml,"full_path",resolved_path);
+        xml_output(pxml,"readable","%d",readable);
+        xml_output(pxml,"writable","%d",writable);
 
-	xml_pop(pxml); /* directory */
+        xml_pop(pxml); /* directory */
 
     }
 

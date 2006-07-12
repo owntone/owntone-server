@@ -88,9 +88,9 @@ uint32_t _err_get_threadid(void) {
     tid = pthread_self();
 
     if(sizeof(pthread_t) == sizeof(int)) {
-	thread_id = (int)tid;
+        thread_id = (int)tid;
     } else {
-	thread_id = util_djb_hash_block((unsigned char *)&tid,sizeof(pthread_t));
+        thread_id = util_djb_hash_block((unsigned char *)&tid,sizeof(pthread_t));
     }
     
     return thread_id;
@@ -338,7 +338,7 @@ extern int err_setdebugmask(char *list) {
             }
 
             if(!err_categorylist[index]) {
-		_err_unlock();
+                _err_unlock();
                 DPRINTF(E_LOG,L_MISC,"Unknown module: %s\n",token);
                 free(tmpstr);
                 return 1;

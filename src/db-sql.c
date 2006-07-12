@@ -192,7 +192,7 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
     }
 
     if(!(*row)) {
-	db_sql_need_dispose=0;
+        db_sql_need_dispose=0;
         db_sql_enum_end_fn(NULL);
         db_get_error(pe,DB_E_NOROWS);
         return DB_E_NOROWS;
@@ -1216,31 +1216,31 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     /* disable empty */
     if(browse) {
         if((have_clause) || (pinfo->pt)) {
-	    strcat(query_rest," and (");
-	} else {
-	    strcpy(query_rest," where (");
+            strcat(query_rest," and (");
+        } else {
+            strcpy(query_rest," where (");
             have_clause = 1;
-	}
-	
-	switch(pinfo->query_type) {
-	case queryTypeBrowseAlbums:
-	    strcat(query_rest,"album");
-	    break;
-	case queryTypeBrowseArtists:
-	    strcat(query_rest,"artist");
-	    break;
-	case queryTypeBrowseGenres:
-	    strcat(query_rest,"genre");
-	    break;
-	case queryTypeBrowseComposers:
-	    strcat(query_rest,"composer");
-	    break;
-	default: /* ?? */
-	    strcat(query_rest,"album");
-	    break;
-	}
+        }
+        
+        switch(pinfo->query_type) {
+        case queryTypeBrowseAlbums:
+            strcat(query_rest,"album");
+            break;
+        case queryTypeBrowseArtists:
+            strcat(query_rest,"artist");
+            break;
+        case queryTypeBrowseGenres:
+            strcat(query_rest,"genre");
+            break;
+        case queryTypeBrowseComposers:
+            strcat(query_rest,"composer");
+            break;
+        default: /* ?? */
+            strcat(query_rest,"album");
+            break;
+        }
 
-	strcat(query_rest, " !='')");
+        strcat(query_rest, " !='')");
     }
 
     if((pinfo->index_type != indexTypeNone) || (pinfo->want_count)) {

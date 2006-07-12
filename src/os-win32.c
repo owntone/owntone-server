@@ -221,7 +221,7 @@ int _os_sock_to_fd(SOCKET sock) {
 
     if(fd == MAXDESC) {
         _os_unlock();
-	_os_phandle_dump();
+        _os_phandle_dump();
         DPRINTF(E_FATAL,L_MISC,"Out of pseudo file handles.  See ya\n");
     }
 
