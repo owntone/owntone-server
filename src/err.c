@@ -47,6 +47,8 @@
 # include "plugin.h"
 #endif
 
+#include "util.h"
+
 #ifndef PACKAGE
 # define PACKAGE "unknown daemon"
 #endif
@@ -63,7 +65,7 @@ static int err_syslog_open = 0;
 /** text list of modules to match for setting debug mask */
 static char *err_categorylist[] = {
     "config","webserver","database","scan","query","index","browse",
-    "playlist","art","daap","main","rend","xml","parse","plugin",NULL
+    "playlist","art","daap","main","rend","xml","parse","plugin","lock",NULL
 };
 
 /*
@@ -72,7 +74,27 @@ static char *err_categorylist[] = {
 
 static int _err_lock(void);
 static int _err_unlock(void);
+static uint32_t _err_get_threadid(void);
 
+
+/**
+ * get an integer representation of a thread id
+ */
+uint32_t _err_get_threadid(void) {
+    pthread_t tid;
+    int thread_id;
+
+    memset((void*)&tid,0,sizeof(pthread_t));
+    tid = pthread_self();
+
+    if(sizeof(pthread_t) == sizeof(int)) {
+	thread_id = (int)tid;
+    } else {
+	thread_id = util_djb_hash_block((unsigned char *)&tid,sizeof(pthread_t));
+    }
+    
+    return thread_id;
+}
 
 /**
  * if we are logging to a file, then re-open the file.  This
@@ -142,7 +164,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         snprintf(timebuf,sizeof(timebuf),"%04d-%02d-%02d %02d:%02d:%02d",
                  tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
                  tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
-        fprintf(err_file,"%s: %s",timebuf,errbuf);
+        fprintf(err_file,"%s (%08x): %s",timebuf,_err_get_threadid(),errbuf);
         if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
         fflush(err_file);
     }
@@ -316,19 +338,19 @@ extern int err_setdebugmask(char *list) {
             }
 
             if(!err_categorylist[index]) {
+		_err_unlock();
                 DPRINTF(E_LOG,L_MISC,"Unknown module: %s\n",token);
                 free(tmpstr);
                 return 1;
             } else {
-                DPRINTF(E_DBG,L_MISC,"Adding module %s to debug list (0x%08x)\n",token,rack);
                 err_debugmask |= rack;
             }
         } else break; /* !token */
     }
 
+    _err_unlock();
     DPRINTF(E_INF,L_MISC,"Debug mask is 0x%08x\n",err_debugmask);
     free(tmpstr);
-    _err_unlock();
 
     return 0;
 }

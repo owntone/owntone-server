@@ -435,9 +435,11 @@ int db_wantsmeta(MetaField_t meta, MetaFieldName_t fieldNo) {
 void db_readlock(void) {
     int err;
 
+    DPRINTF(E_SPAM,L_LOCK,"entering db_readlock\n");
     if((err=pthread_rwlock_rdlock(&db_rwlock))) {
         DPRINTF(E_FATAL,L_DB,"cannot lock rdlock: %s\n",strerror(err));
     }
+    DPRINTF(E_SPAM,L_LOCK,"db_readlock acquired\n");
 }
 
 /*
@@ -448,9 +450,11 @@ void db_readlock(void) {
 void db_writelock(void) {
     int err;
 
+    //    DPRINTF(E_SPAM,L_LOCK,"entering db_writelock\n");
     if((err=pthread_rwlock_wrlock(&db_rwlock))) {
         DPRINTF(E_FATAL,L_DB,"cannot lock rwlock: %s\n",strerror(err));
     }
+    //    DPRINTF(E_SPAM,L_LOCK,"db_writelock acquired\n");
 }
 
 /*
@@ -459,6 +463,7 @@ void db_writelock(void) {
  * useless, but symmetrical
  */
 int db_unlock(void) {
+    //    DPRINTF(E_SPAM,L_LOCK,"releasing db lock\n");
     return pthread_rwlock_unlock(&db_rwlock);
 }
 

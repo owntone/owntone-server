@@ -168,7 +168,6 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
     va_list ap;
 
 
-    db_sql_need_dispose = 0;
     *row=NULL;
 
     va_start(ap,fmt);
@@ -179,20 +178,21 @@ int db_sql_fetch_row(char **pe, SQL_ROW *row, char *fmt, ...) {
     db_sql_vmfree_fn(query);
 
     if(err != DB_E_SUCCESS) {
-        DPRINTF(E_SPAM,L_DB,"Error: enum_begin failed (error %d): %s\n",
+        DPRINTF(E_LOG,L_DB,"Error: enum_begin failed (error %d): %s\n",
                 err,(pe) ? *pe : "?");
         return err;
     }
 
     err=db_sql_enum_fetch_fn(pe, row);
     if(err != DB_E_SUCCESS) {
-        DPRINTF(E_SPAM,L_DB,"Error: enum_fetch failed (error %d): %s\n",
+        DPRINTF(E_LOG,L_DB,"Error: enum_fetch failed (error %d): %s\n",
                 err,(pe) ? *pe : "?");
         db_sql_enum_end_fn(NULL);
         return err;
     }
 
     if(!(*row)) {
+	db_sql_need_dispose=0;
         db_sql_enum_end_fn(NULL);
         db_get_error(pe,DB_E_NOROWS);
         return DB_E_NOROWS;
@@ -249,8 +249,8 @@ int db_sql_dispose_row(void) {
 
     /* don't really need the row */
     if(db_sql_need_dispose) {
-        err=db_sql_enum_end_fn(NULL);
         db_sql_need_dispose=0;
+        err=db_sql_enum_end_fn(NULL);
     }
 
     return err;

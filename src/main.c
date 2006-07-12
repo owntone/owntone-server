@@ -81,6 +81,7 @@
 #include "db-generic.h"
 #include "os.h"
 #include "plugin.h"
+#include "util.h"
 
 #ifdef HAVE_GETOPT_H
 # include "getopt.h"
@@ -111,22 +112,6 @@ static void main_handler(WS_CONNINFO *pwsc);
 static int main_auth(WS_CONNINFO *pwsc, char *username, char *password);
 static void txt_add(char *txtrecord, char *fmt, ...);
 
-
-/**
- * simple hash generator
- *
- * @param str string to hash
- * @returns hash
- */
-unsigned long djb_hash(char *str) {
-    unsigned long hash = 5381;
-    int c;
-    unsigned char *pstr = (unsigned char *)str;
-
-    while((c = *pstr++))
-        hash = ((hash << 5) + hash) + c;
-    return hash;
-}
 
 /**
  * build a dns text string
@@ -465,8 +450,8 @@ int main(int argc, char *argv[]) {
 
         memset(txtrecord,0,sizeof(txtrecord));
         txt_add(txtrecord,"txtvers=1");
-        txt_add(txtrecord,"Database ID=%0X",djb_hash(servername));
-        txt_add(txtrecord,"Machine ID=%0X",djb_hash(servername));
+        txt_add(txtrecord,"Database ID=%0X",util_djb_hash_str(servername));
+        txt_add(txtrecord,"Machine ID=%0X",util_djb_hash_str(servername));
         txt_add(txtrecord,"Machine Name=%s",servername);
         txt_add(txtrecord,"mtd-version=" VERSION);
         txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */

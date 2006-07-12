@@ -57,7 +57,7 @@ static char *scan_xml_file; /** < The actual file we are scanning */
 static struct rbtree *scan_xml_db;
 
 #define MAYBECOPY(a) if(mp3.a) pmp3->a = mp3.a
-#define MAYBECOPYSTRING(a) if(mp3.a) { free(pmp3->a); pmp3->a = mp3.a; }
+#define MAYBECOPYSTRING(a) if(mp3.a) { free(pmp3->a); pmp3->a = mp3.a; mp3.a=NULL; }
 #define MAYBEFREE(a) if((a)) { free((a)); (a)=NULL; }
 
 /** iTunes xml values we are interested in */
@@ -712,9 +712,6 @@ int scan_xml_tracks_section(int action, char *info) {
 
                     db_add(NULL,pmp3,NULL);
                     db_dispose_item(pmp3);
-
-                    memset((void*)&mp3,0,sizeof(MP3FILE));
-                    MAYBEFREE(song_path);
                 }
             } else if(is_streaming) {
                 /* add/update a http:// url */
@@ -759,9 +756,16 @@ int scan_xml_tracks_section(int action, char *info) {
                 }
 
                 db_dispose_item(pmp3);
-                memset((void*)&mp3,0,sizeof(MP3FILE));
-                MAYBEFREE(song_path);
             }
+
+	    /* cleanup what's left */
+	    MAYBEFREE(mp3.title);
+	    MAYBEFREE(mp3.artist);
+	    MAYBEFREE(mp3.album);
+	    MAYBEFREE(mp3.genre);
+	    MAYBEFREE(mp3.comment);
+	    MAYBEFREE(song_path);
+	    memset((void*)&mp3,0,sizeof(MP3FILE));
         } else {
             return XML_STATE_ERROR;
         }

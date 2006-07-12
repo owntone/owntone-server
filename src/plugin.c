@@ -53,11 +53,9 @@ typedef struct tag_pluginentry {
 } PLUGIN_ENTRY;
 
 /* Globals */
-static pthread_key_t _plugin_lock_key;
 static PLUGIN_ENTRY _plugin_list;
 static int _plugin_initialized = 0;
 static char *_plugin_ssc_codecs = NULL;
-static pthread_rwlock_t _plugin_lock;
 
 static char* _plugin_error_list[] = {
     "Success.",
@@ -128,9 +126,6 @@ PLUGIN_INPUT_FN pi = {
  * @returns TRUE on success, FALSE otherwise
  */
 int plugin_init(void) {
-    pthread_rwlock_init(&_plugin_lock,NULL);
-    pthread_key_create(&_plugin_lock_key, (void*)_plugin_free);
-
     return TRUE;
 }
 
@@ -718,7 +713,8 @@ int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
             pqi->query_type = queryTypeBrowseComposers;
         } else {
             if(pe) *pe = strdup("Unsupported browse type");
-            sp_dispose(pqi->pt);
+	    if(pqi->pt)
+		sp_dispose(pqi->pt);
             pqi->pt = NULL;
             return -1; /* not really a db error for this */
         }

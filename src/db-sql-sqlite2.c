@@ -81,9 +81,11 @@ int db_sqlite2_enum_begin_helper(char **pe);
 void db_sqlite2_lock(void) {
     int err;
 
+    //    DPRINTF(E_SPAM,L_LOCK,"entering db_sqlite2_lock\n");
     if((err=pthread_mutex_lock(&db_sqlite2_mutex))) {
         DPRINTF(E_FATAL,L_DB,"cannot lock sqlite lock: %s\n",strerror(err));
     }
+    //    DPRINTF(E_SPAM,L_LOCK,"acquired db_sqlite2_lock\n");
 }
 
 /**
@@ -92,9 +94,11 @@ void db_sqlite2_lock(void) {
 void db_sqlite2_unlock(void) {
     int err;
 
+    //    DPRINTF(E_SPAM,L_LOCK,"releasing db_sqlite2_lock\n");
     if((err=pthread_mutex_unlock(&db_sqlite2_mutex))) {
         DPRINTF(E_FATAL,L_DB,"cannot unlock sqlite2 lock: %s\n",strerror(err));
     }
+    //    DPRINTF(E_SPAM,L_LOCK,"released db_sqlite2_lock\n");
 }
 
 /**

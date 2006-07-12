@@ -56,7 +56,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	rxml.c rxml.h redblack.c redblack.h scan-mp3.c scan-mp4.c scan-aif.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
-	os.h ll.c ll.h conf.c conf.h compat.c compat.h \
+	os.h ll.c ll.h conf.c conf.h compat.c compat.h util.c util.h \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
 	$(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM)
