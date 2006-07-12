@@ -25,7 +25,7 @@
 /* Globals */
 pthread_t rend_tid;
 static volatile int rend_stop_flag = 0;
-static volatile int rend_timeout = 10; /* select timeout */
+static volatile int rend_timeout = 100000000; /* select timeout */
 static DNSServiceRef rend_client  = NULL;
 static DNSServiceRef rend_client2 = NULL;
 static volatile int rend_count=0;
