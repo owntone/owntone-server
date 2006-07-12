@@ -88,7 +88,7 @@ uint32_t _err_get_threadid(void) {
     tid = pthread_self();
 
     if(sizeof(pthread_t) == sizeof(int)) {
-        thread_id = (int)tid;
+        thread_id = *((int*)&tid);
     } else {
         thread_id = util_djb_hash_block((unsigned char *)&tid,sizeof(pthread_t));
     }

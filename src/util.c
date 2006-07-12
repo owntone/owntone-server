@@ -29,7 +29,7 @@ uint32_t util_djb_hash_block(unsigned char *data, uint32_t len) {
 uint32_t util_djb_hash_str(char *str) {
     uint32_t len;
 
-    len = strlen(str);
+    len = (uint32_t)strlen(str);
     return util_djb_hash_block((unsigned char *)str,len);
 }
 

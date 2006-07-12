@@ -220,6 +220,9 @@
 				RelativePath="..\src\smart-parser.c">
 			</File>
 			<File
+				RelativePath="..\src\util.c">
+			</File>
+			<File
 				RelativePath="..\src\w32-eventlog.c">
 			</File>
 			<File
