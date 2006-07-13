@@ -465,7 +465,7 @@ char *db_sqlite2_initial1 =
 "   subterm         VARCHAR(255)    DEFAULT NULL,\n"
 "   value           VARCHAR(1024)   NOT NULL\n"
 ");\n"
-"insert into config values ('version','10');\n";
+"insert into config values ('version','','10');\n";
 
 char *db_sqlite2_initial2 =
 "create table playlists (\n"
