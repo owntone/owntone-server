@@ -39,6 +39,7 @@
 #include "os.h"
 #include "rxml.h"
 #include "redblack.h"
+#include "util.h"
 
 /* Forwards */
 int scan_xml_playlist(char *filename);
@@ -478,6 +479,9 @@ int scan_xml_playlist(char *filename) {
  */
 void scan_xml_handler(int action,void* puser,char* info) {
     static int state;
+
+    if(util_must_exit())
+        return;
 
     switch(action) {
     case RXML_EVT_OPEN: /* file opened */

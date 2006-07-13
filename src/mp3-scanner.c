@@ -53,6 +53,7 @@
 #include "mp3-scanner.h"
 #include "os.h"
 #include "restart.h"
+#include "util.h"
 
 /*
  * Typedefs
@@ -207,24 +208,26 @@ void scan_process_playlistlist(void) {
     while(scan_playlistlist.next) {
         pnext=scan_playlistlist.next;
 
-        DPRINTF(E_DBG,L_SCAN,"About to scan %s\n",pnext->path);
-        ext=pnext->path;
-        if(strrchr(pnext->path,'.')) {
-            ext = strrchr(pnext->path,'.');
-        }
-
-        file=pnext->path;
-        if(strrchr(pnext->path,PATHSEP)) {
-            file = strrchr(pnext->path,PATHSEP) + 1;
-        }
-
-        if(strcasecmp(file,"iTunes Music Library.xml") == 0) {
-            if(conf_get_int("scanning","process_xml",1)) {
-                DPRINTF(E_LOG,L_SCAN,"Scanning %s\n",pnext->path);
-                scan_xml_playlist(pnext->path);
+        if(!util_must_exit()) {
+            DPRINTF(E_DBG,L_SCAN,"About to scan %s\n",pnext->path);
+            ext=pnext->path;
+            if(strrchr(pnext->path,'.')) {
+                ext = strrchr(pnext->path,'.');
             }
-        } else if(strcasecmp(ext,".m3u") == 0) {
-            scan_static_playlist(pnext->path);
+
+            file=pnext->path;
+            if(strrchr(pnext->path,PATHSEP)) {
+                file = strrchr(pnext->path,PATHSEP) + 1;
+            }
+            
+            if(strcasecmp(file,"iTunes Music Library.xml") == 0) {
+                if(conf_get_int("scanning","process_xml",1)) {
+                    DPRINTF(E_LOG,L_SCAN,"Scanning %s\n",pnext->path);
+                    scan_xml_playlist(pnext->path);
+                }
+            } else if(strcasecmp(ext,".m3u") == 0) {
+                scan_static_playlist(pnext->path);
+            }
         }
 
         free(pnext->path);

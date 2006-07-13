@@ -14,6 +14,8 @@
 #include <string.h>
 #include <sys/types.h>
 
+#include "daapd.h"
+
 uint32_t util_djb_hash_block(unsigned char *data, uint32_t len) {
     uint32_t hash = 5381;
     unsigned char *pstr = data;
@@ -33,3 +35,6 @@ uint32_t util_djb_hash_str(char *str) {
     return util_djb_hash_block((unsigned char *)str,len);
 }
 
+int util_must_exit(void) {
+    return config.stop;
+}

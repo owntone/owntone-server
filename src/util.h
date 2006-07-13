@@ -19,6 +19,7 @@
 extern uint32_t util_djb_hash_block(unsigned char *data, uint32_t len);
 extern uint32_t util_djb_hash_str(char *str);
 
+extern int util_must_exit(void);
 
 #endif /* _UTIL_H_ */
 
