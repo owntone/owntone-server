@@ -175,6 +175,7 @@ void usage(char *program) {
     printf("  -P <file>      Write the PID ot specified file\n");
     printf("  -f             Run in foreground\n");
     printf("  -y             Yes, go ahead and run as non-root user\n");
+    printf("  -b <id>        ffid to be broadcast\n");
     printf("\n\n");
     printf("Valid debug modules:\n");
     printf(" config,webserver,database,scan,query,index,browse\n");
@@ -215,6 +216,7 @@ int main(int argc, char *argv[]) {
     char *db_type,*db_parms,*web_root,*runas, *tmp;
     char **mp3_dir_array;
     char *servername, *iface;
+    char *ffid = NULL;
     int index;
     int appdir = 0;
 
@@ -234,10 +236,13 @@ int main(int argc, char *argv[]) {
     err_setlevel(debuglevel);
 
     config.foreground=0;
-    while((option=getopt(argc,argv,"D:d:c:P:mfrysiuva")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:mfrysiuvab:")) != -1) {
         switch(option) {
         case 'a':
             appdir = 1;
+            break;
+        case 'b':
+            ffid=optarg;
             break;
         case 'd':
             debuglevel = atoi(optarg);
@@ -463,7 +468,12 @@ int main(int argc, char *argv[]) {
         if(tmp) free(tmp);
 
         srand((unsigned int)time(NULL));
-        txt_add(txtrecord,"ffid=%08x",rand());
+
+        if(ffid) {
+            txt_add(txtrecord,"ffid=%s",ffid);
+        } else {
+            txt_add(txtrecord,"ffid=%08x",rand());
+        }
     
         DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
         iface = conf_alloc_string("general","interface","");
