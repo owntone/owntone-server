@@ -493,3 +493,10 @@ char *os_apppath(char *parm) {
     return strdup(path);
 }
 #endif
+
+/** 
+ * stat wrapper
+ */
+int os_stat(const char *path, struct stat *sb) {
+    return stat(path, sb);
+}
