@@ -25,6 +25,23 @@
 #include <direct.h>
 #include <stdio.h>
 
+/* Type fixups */
+#define mode_t int
+#define ssize_t int
+#define socklen_t int
+
+/* Consts */
+#define PIPE_BUF 256 /* What *should* this be on win32? */
+#define MAXDESC 512 /* http://msdn.microsoft.com/en-us/library/kdfaxaay.aspx */
+#define SHUT_RDWR 2
+#define ETIME 101
+#define PATH_MAX 512 /* it's clearly not _MAX_PATH... other projects seem to use 512 */
+#define MAX_NAME_LEN _MAX_PATH
+#define EADDRINUSE WSAEADDRINUSE
+
+#define HOST "unknown-windows-ick"
+#define SERVICENAME "Firefly Media Server"
+
 #include "os-win32.h"
 
 #ifndef TRUE
@@ -65,6 +82,7 @@ typedef INT32       int32_t;
 #define strsep os_strsep
 #define open os_open
 #define waitfdtimed os_waitfdtimed
+#define fopen os_fopen
 
 #define readdir_r os_readdir_r
 #define closedir os_closedir
@@ -80,22 +98,6 @@ typedef INT32       int32_t;
 /* privately implemented functions: @see os-win32.c */
 #define gettimeofday os_gettimeofday
 
-/* Type fixups */
-#define mode_t int
-#define ssize_t int
-#define socklen_t int
-
-/* Consts */
-#define PIPE_BUF 256 /* What *should* this be on win32? */
-#define MAXDESC 512 /* http://msdn.microsoft.com/en-us/library/kdfaxaay.aspx */
-#define SHUT_RDWR 2
-#define MAX_NAME_LEN _MAX_PATH
-#define ETIME 101
-#define PATH_MAX 512 /* it's clearly not _MAX_PATH... other projects seem to use 512 */
-#define EADDRINUSE WSAEADDRINUSE
-
-#define HOST "unknown-windows-ick"
-#define SERVICENAME "Firefly Media Server"
 
 #define CONFFILE os_configpath()
 

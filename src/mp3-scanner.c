@@ -364,7 +364,7 @@ int scan_path(char *path) {
         mp3_path[0] = '\x0';
         realpath(relative_path,mp3_path);
         DPRINTF(E_DBG,L_SCAN,"Found %s\n",relative_path);
-        if(stat(mp3_path,&sb)) {
+        if(os_stat(mp3_path,&sb)) {
             DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
         } else {
             if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
@@ -411,7 +411,7 @@ int scan_static_playlist(char *path) {
     char *ptr;
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",path);
-    if(stat(path,&sb)) {
+    if(os_stat(path,&sb)) {
         DPRINTF(E_WARN,L_SCAN,"Error statting %s: %s\n",path,strerror(errno));
         return FALSE;
     }
@@ -567,7 +567,7 @@ void scan_filename(char *path, int compdir, char *extensions) {
     }
 
 
-    if(stat(mp3_path,&sb)) {
+    if(os_stat(mp3_path,&sb)) {
         DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
     } else {
         /* we assume this is regular file */

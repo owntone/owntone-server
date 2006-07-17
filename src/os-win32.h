@@ -42,7 +42,7 @@ typedef struct {
     int dd_size;                /* amount of valid data */
     char        dd_buf[DIRBLKSIZ];      /* directory block */
     HANDLE dir_find_handle;
-    char   dir_pathname[_MAX_PATH+1];
+    char   dir_pathname[PATH_MAX+1];
     WIN32_FIND_DATA dir_find_data;
 } DIR;  
 
@@ -58,6 +58,8 @@ extern int os_shutdown(int fd, int how);
 extern int os_waitfdtimed(int fd, struct timeval end);
 extern int os_close(int fd);
 extern int os_open(const char *filename, int oflag);
+extern FILE *os_fopen(const char *filename, const char *mode);
+
 extern int os_read(int fd,void *buffer,unsigned int count);
 extern int os_write(int fd, void *buffer, unsigned int count);
 extern int os_getuid(void);

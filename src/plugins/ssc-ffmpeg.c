@@ -6,6 +6,8 @@
 # include "config.h"
 #endif
 
+#undef fopen
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

@@ -169,6 +169,9 @@
 				RelativePath="..\src\mp3-scanner.c">
 			</File>
 			<File
+				RelativePath="..\src\os-win32-u.c">
+			</File>
+			<File
 				RelativePath="..\src\os-win32.c">
 			</File>
 			<File
@@ -286,6 +289,9 @@
 			</File>
 			<File
 				RelativePath="..\src\uici.h">
+			</File>
+			<File
+				RelativePath="..\src\util.h">
 			</File>
 			<File
 				RelativePath="..\src\w32-eventlog.h">

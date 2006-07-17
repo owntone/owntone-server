@@ -427,7 +427,6 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
     int fail=0;
     int track, tracknumber;
     char numbuff[40];
-    int new_size;
     char *tmp;
 
 
@@ -528,8 +527,8 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
                 pmp3->composer = descriptor_byte_value;
                 descriptor_byte_value = NULL;
             } else {
-                size = strlen(pmp3->composer) + 1 + 
-                    strlen(descriptor_byte_value) + 1;
+                size = (int)strlen(pmp3->composer) + 1 + 
+                    (int)strlen(descriptor_byte_value) + 1;
                 tmp = malloc(size);
                 if(!tmp)
                     DPRINTF(E_FATAL,L_SCAN,"malloc: wma_ext_content_descr\n");

@@ -159,7 +159,7 @@ int scan_xml_rb_compare(const void *pa, const void *pb, const void *cfg) {
 int scan_xml_is_file(char *path) {
     struct stat sb;
 
-    if(stat(path,&sb))
+    if(os_stat(path,&sb))
         return 0;
 
     if(sb.st_mode & S_IFREG)

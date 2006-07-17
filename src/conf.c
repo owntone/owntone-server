@@ -201,7 +201,7 @@ int _conf_existdir(char *path) {
 
     DPRINTF(E_DBG,L_CONF,"Checking existence of %s\n",path);
 
-    if(stat(path,&sb)) {
+    if(os_stat(path,&sb)) {
         return FALSE;
     }
 

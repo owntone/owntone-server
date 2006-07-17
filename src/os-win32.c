@@ -1,7 +1,6 @@
 /* $Id$
  *
  */
-
 #ifdef HAVE_CONFIG_H
 # include "config.h"
 #endif
@@ -19,6 +18,7 @@
 #include "plugin.h"
 #include "w32-eventlog.h"
 #include "w32-service.h"
+#include "util.h"
 
 /* Globals */
 static WSADATA w32_wsadata;
@@ -425,13 +425,6 @@ int os_shutdown(int fd, int how) {
     return 0;
 }
 
-/* FIXME: mode */
-int os_open(const char *filename, int oflag) {
-    int fd;
-
-    fd = _open(filename, oflag | O_BINARY);
-    return fd;
-}
 
 int os_close(int fd) {
     if(NOTSOCK) {
@@ -470,7 +463,7 @@ char *os_realpath(const char *pathname, char *resolved_path) {
 
     ptr = resolved_path;
     while(*ptr) {
-        *ptr = tolower(*ptr);
+//        *ptr = tolower(*ptr);
         if(*ptr == '/')
             *ptr = '\\';
         ptr++;
@@ -524,92 +517,6 @@ void _os_socket_shutdown(void) {
 
 /* COMPAT FUNCTIONS */
 
-/* opendir/closedir/readdir emulation taken from emacs. Thanks.  :) */
-DIR *os_opendir(char *filename) {
-    DIR *dirp;
-
-    /* Opening is done by FindFirstFile.  However, a read is inherent to
-    this operation, so we defer the open until read time.  */
-
-    if (!(dirp = (DIR *) malloc (sizeof (DIR))))
-        return NULL;
-    
-    dirp->dir_find_handle = INVALID_HANDLE_VALUE;
-    dirp->dd_fd = 0;
-    dirp->dd_loc = 0;
-    dirp->dd_size = 0;
-
-    strncpy (dirp->dir_pathname, filename,_MAX_PATH);
-    dirp->dir_pathname[_MAX_PATH] = '\0';
-
-    return dirp;
-}
-
-void os_closedir(DIR *dirp) {
-    /* If we have a find-handle open, close it.  */
-    if (dirp->dir_find_handle != INVALID_HANDLE_VALUE) {
-        FindClose(dirp->dir_find_handle);
-    }
-    free((char *) dirp);
-}
-
-
-int os_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
-    if (dirp->dir_find_handle == INVALID_HANDLE_VALUE) {
-        /* If we aren't dir_finding, do a find-first, otherwise do a find-next. */
-        char filename[MAXNAMLEN + 3];
-        int ln;
-
-        strcpy (filename, dirp->dir_pathname);
-        ln = (int) strlen (filename) - 1;
-        if(filename[ln] != '\\')
-            strcat (filename, "\\");
-        strcat (filename, "*");
-
-        dirp->dir_find_handle = FindFirstFile (filename, &dirp->dir_find_data);
-
-        if (dirp->dir_find_handle == INVALID_HANDLE_VALUE) {
-            *result=NULL;
-            return 2;
-        }
-    } else {
-        if (!FindNextFile (dirp->dir_find_handle, &dirp->dir_find_data)) {
-            *result = NULL;
-            return 0;
-        }
-    }
-
-    /* Emacs never uses this value, so don't bother making it match
-    value returned by stat().  */
-    entry->d_ino = 1;
-
-    entry->d_namlen = (int) strlen (dirp->dir_find_data.cFileName);
-    entry->d_reclen = sizeof (struct dirent) - MAXNAMLEN + 3 +
-        entry->d_namlen - entry->d_namlen % 4;
-    strcpy (entry->d_name, dirp->dir_find_data.cFileName);
-
-    entry->d_type = 0;
-    if(dirp->dir_find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) {
-        entry->d_type |= DT_DIR;
-    } else if(dirp->dir_find_data.dwFileAttributes & FILE_ATTRIBUTE_NORMAL) {
-        entry->d_type |= DT_REG;
-    }
-
-    /*
-    if (dir_is_fat)
-        _strlwr (dir_static.d_name);
-    else if (!NILP (Vw32_downcase_file_names)) {
-        register char *p;
-        for (p = dir_static.d_name; *p; p++)
-            if (*p >= 'a' && *p <= 'z')
-                break;
-        if (!*p)
-            _strlwr (dir_static.d_name);
-    }
-    */
-    *result = entry;
-    return 0;
-}
 
 /* can't be worse then strerror */
 char *os_strerror (int error_no) {

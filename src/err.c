@@ -106,7 +106,7 @@ void err_reopen(void) {
     if(!(err_logdest & LOGDEST_LOGFILE))
         return;
     
-    _err_lock();
+//    _err_lock();
     fclose(err_file);
     err_file = fopen(err_filename,"a");
     if(!err_file) {
@@ -122,7 +122,7 @@ void err_reopen(void) {
                 strerror(err));
         return;
     }
-    _err_unlock();
+//    _err_unlock();
     DPRINTF(E_LOG,L_MISC,"Rotated logs\n");
 }
 
@@ -257,7 +257,7 @@ int err_setlogfile(char *file) {
     if(strcmp(file,err_filename) == 0)
         return TRUE;
 */
-    _err_lock();
+//    _err_lock();
 
     if(err_file) {
         fclose(err_file);
@@ -279,7 +279,7 @@ int err_setlogfile(char *file) {
         result=FALSE;
     }
 
-    _err_unlock();
+//    _err_unlock();
     return result;
 }
 

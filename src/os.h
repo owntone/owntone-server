@@ -39,6 +39,7 @@ extern void *os_libfunc(char **pe, void *handle, char *function);
 extern int os_unload(void *handle);
 
 /* misc */
+extern int os_stat(const char *path, struct stat *sb);
 extern int os_islocaladdr(char *hostaddr);
 extern char *os_apppath(char *parm);
 

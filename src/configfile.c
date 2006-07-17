@@ -339,7 +339,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     }
 
     /* this is quite broken, but will work */
-    stat(resolved_path,&sb);
+    os_stat(resolved_path,&sb);
     if(sb.st_mode & S_IFDIR) {
         ws_addresponseheader(pwsc,"Location","/index.html");
         ws_returnerror(pwsc,302,"Moved");
@@ -806,7 +806,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
 
     /* this should really return a 302:Found */
-    stat(resolved_path,&sb);
+    os_stat(resolved_path,&sb);
     if(sb.st_mode & S_IFDIR) {
         ws_writefd(pwsc,"<hr><i>error: cannot include dir %s</i><hr>",arg);
         return;
