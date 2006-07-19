@@ -429,13 +429,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
         _ppi->log(E_DBG,"Transcode: %d, %s: %s\n",transcode,row[37],row[2]);
 
-
         while(rsp_fields[rowindex].name) {
-            /* dummy up codectype for streaming radio */
-            if((strcmp(row[27],"1") == 0)&&(rowindex == 37)) {
-                xml_output(pxml,rsp_fields[rowindex].name,"mpeg");
-            } /* count on the fact that codectype is otherwise null */
-
             if((rsp_fields[rowindex].flags & type) &&
                (row[rowindex] && strlen(row[rowindex]))) {
                 if(transcode) {
