@@ -152,6 +152,7 @@ int rend_running(void) {
 int rend_stop(void) {
     REND_MESSAGE msg;
 
+    memset((void*)&msg,0x0,sizeof(msg));
     msg.cmd=REND_MSG_TYPE_STOP;
     return rend_send_message(&msg);
 }

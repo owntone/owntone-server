@@ -171,16 +171,18 @@ void rend_callback(void *info) {
     }
 
     src=dst=msg.txt;
-    while(src && (*src)) {
+    while(src && (*src) && (src - msg.txt < MAX_TEXT_LEN)) {
         len = (*src);
-        memmove(dst,src+1,len);
-        dst += len;
-        src += len + 1;
-        if(*src) {
-            *dst++ = '\001';
-        } else {
-            *dst='\0';
+        if((src + len + 1) - msg.txt < MAX_TEXT_LEN) {
+            memmove(dst,src+1,len);
+            dst += len;
+            if(*src) {
+                *dst++ = '\001';
+            } else {
+                *dst='\0';
+            }
         }
+        src += len + 1;
     }
 
     switch(msg.cmd) {
