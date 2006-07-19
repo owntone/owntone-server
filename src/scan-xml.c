@@ -182,12 +182,14 @@ int scan_xml_translate_path(char *pold, char *pnew) {
     static int discard;
     char base_path[PATH_MAX];
     char working_path[PATH_MAX];
-    char *current = pold + strlen(pold);
+    char *current;
     char *pbase;
     char *ptemp;
 
     if((!pold)||(!strlen(pold)))
         return FALSE;
+
+    current = pold + strlen(pold);
 
     /* see if it's a valid out-of-root path */
     if(strncmp(pold,"file://localhost/",17)==0) {
@@ -678,7 +680,7 @@ int scan_xml_tracks_section(int action, char *info) {
             state = XML_TRACK_ST_MAIN_DICT;
             /* but more importantly, we gotta process the track */
             is_streaming = 0;
-            if(strncasecmp(song_path,"http://",7) == 0)
+            if((song_path) && strncasecmp(song_path,"http://",7) == 0)
                 is_streaming = 1;
 
             if((!is_streaming)&&scan_xml_translate_path(song_path,real_path)) {
