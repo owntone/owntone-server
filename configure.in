@@ -270,7 +270,7 @@ AC_CHECK_LIB(id3tag,id3_file_open,,echo "no libid3tag. Try --with-id3tag=dir";ex
 
 LIBS=$OLDLIBS
 if test "$STATIC_LIBS" != "no"; then
-  LIBS="${LIBS} ${STATIC_LIBS}/libid3tag.a -lz"
+  LIBS="${LIBS} ${STATIC_LIBS}/libid3tag.a ${STATIC_LIBS}/libz.a"
 else
   LIBS="${LIBS} -lid3tag -lz"
 fi
