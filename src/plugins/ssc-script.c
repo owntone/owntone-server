@@ -103,8 +103,6 @@ void *ssc_script_init(void) {
  * FIXME: make register errors in the sschandle
  */
 char *ssc_script_error(void *vp) {
-    SSCHANDLE *handle = (SSCHANDLE*)vp;
-
     return "Unknown";
 }
 

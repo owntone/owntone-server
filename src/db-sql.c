@@ -1116,7 +1116,8 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
              */
 
             if(pinfo->correct_order) {
-                sprintf(query_rest," where (songs.id=playlistitems.songid and "
+                sprintf(query_rest,",playlistitems where "
+                        "(songs.id=playlistitems.songid and "
                         "playlistitems.playlistid=%d) order by "
                         "playlistitems.id",pinfo->playlist_id);
             } else {

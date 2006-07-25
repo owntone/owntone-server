@@ -11,6 +11,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 
@@ -60,14 +61,14 @@ int util_must_exit(void) {
  * calculate how long a utf16le string will be once converted
  */
 int util_utf16toutf8_len(unsigned char *utf16, int len) {
-    char *src = utf16;
+    unsigned char *src = utf16;
     int out_len = 0;
-    uint16_t temp_word;
+    uint32_t temp_dword;
 
     while(src+2 <= utf16 + len) {
-        temp_word = src[1] << 8 | src[0];
+        temp_dword = src[1] << 8 | src[0];
     
-        if((temp_word & 0xFC00) == 0xD800) {
+        if((temp_dword & 0xFC00) == 0xD800) {
             src += 2;
             if(src + 2 <= utf16 + len) {
                 out_len += 4;
@@ -75,11 +76,11 @@ int util_utf16toutf8_len(unsigned char *utf16, int len) {
                 return -1;
             }
         } else {
-            if(temp_word <= 0x7F)
+            if(temp_dword <= 0x7F)
                 out_len += 1;
-            else if(temp_word <= 0x7FF)
+            else if(temp_dword <= 0x7FF)
                 out_len += 2;
-            else if(temp_word <= 0xFFFF)
+            else if(temp_dword <= 0xFFFF)
                 out_len += 3;
         }
 
@@ -106,7 +107,7 @@ int util_utf16toutf8_len(unsigned char *utf16, int len) {
 
 int util_utf16toutf8(unsigned char *utf8, int dlen, unsigned char *utf16, int len) {
     unsigned char *src=utf16;
-    char *dst;
+    unsigned char *dst;
     unsigned int w1, w2;
     int bytes;
     int new_len;
@@ -177,7 +178,7 @@ int util_utf8toutf16_len(unsigned char *utf8) {
     int len,out_len,trailing_bytes;
     unsigned char *src = utf8;
 
-    len=(int)strlen(utf8);
+    len=(int)strlen((char *)utf8);
     out_len = 0;
 
     while(src < utf8 + len) {
@@ -208,7 +209,7 @@ unsigned char *util_utf8toutf16_alloc(unsigned char *utf8) {
         return NULL;
 
     out = calloc(1,new_len + 2);
-    if(!util_utf8toutf16(out,new_len + 2,utf8,(int)strlen(utf8))) {
+    if(!util_utf8toutf16(out,new_len + 2,utf8,(int)strlen((char*)utf8))) {
         free(out);
         return NULL;
     }
@@ -234,13 +235,13 @@ unsigned char *util_utf16touft8_alloc(unsigned char *utf16, int len) {
 
  int util_utf8toutf16(unsigned char *utf16, int dlen, unsigned char *utf8, int len) {
     unsigned char *src=utf8;
-    char *dst;
+    unsigned char *dst;
     int new_len;
     int trailing_bytes;
     uint32_t utf32;
     uint16_t temp_word;
 
-    len=(int)strlen(utf8); /* ignore passed length, might be wrong! */
+    len=(int)strlen((char*)utf8); /* ignore passed length, might be wrong! */
     if(!len)
         return FALSE;
 

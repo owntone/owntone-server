@@ -33,6 +33,9 @@
 #include <stdio.h>
 #include <string.h>
 
+#include <sys/stat.h>
+#include <sys/types.h>
+
 #include "conf.h"
 #include "db-generic.h"
 #include "dispatch.h"

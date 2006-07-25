@@ -22,6 +22,7 @@
 # include <unistd.h>
 #endif
 
+#include <sys/stat.h>
 #include <sys/types.h>
 
 #include "configfile.h"
