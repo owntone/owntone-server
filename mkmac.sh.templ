@@ -1,0 +1,71 @@
+#!/bin/bash
+
+check_error() 
+{
+    if [ "${1}" -ne "0" ]; then
+	echo "ERROR: ${1} : ${2}"
+	exit ${1}
+    fi
+}
+    
+
+SVNVERSION=`svnversion .`
+
+echo Current SVN Version $SVNVERSION
+
+if ( echo $SVNVERSION | grep "M" > /dev/null 2>&1 ); then
+    echo SVN repo not up to date
+    exit
+fi
+
+if ( echo $SVNVERSION | grep ":" > /dev/null 2>&1 ); then
+    echo Mixed SVN versions
+    exit
+fi
+
+if [ ! -f mt-daapd-svn-${SVNVERSION}.tar.gz ]; then
+    echo Build svn version ${SVNVERSION} first....
+    exit
+fi
+
+tar -xvzf mt-daapd-svn-${SVNVERSION}.tar.gz
+pushd mt-daapd-svn-${SVNVERSION}
+./configure --enable-static --with-static-libs=/sw/lib --enable-sqlite --with-id3tag=/sw
+check_error $? "Configure error"
+
+make
+check_error $? "Compile error"
+
+popd
+
+BUILDDIR=mt-daapd-svn-${SVNVERSION}/src
+rm -rf .build
+mkdir -p .build/ppc
+cp $BUILDDIR/mt-daapd .build/ppc
+cp $BUILDDIR/wavstreamer .build/ppc
+cp $BUILDDIR/plugins/.libs/*so .build/ppc
+rm -rf mt-daapd-svn-${SVNVERSION}
+
+ALAC_VERSION=0.1.1
+
+if [ ! -x alac_decoder/alac ]; then
+    wget http://craz.net/programs/itunes/files/alac_decoder-${ALAC_VERSION}.tar.gz
+    check_error $? "could not download alac decoder"
+
+    tar -xvzf alac_decoder-${ALAC_VERSION}.tar.gz
+    check_error $? "error decompressing alac decoder"
+
+    pushd alac_decoder
+    make
+
+    check_error $? "Could not compile alac decoder"
+    popd
+fi
+
+if [ ! -x alac_decoder/alac ]; then
+    echo "no alac decoder?"
+    exit 1
+fi
+
+cp alac_decoder/alac .build/ppc
+
