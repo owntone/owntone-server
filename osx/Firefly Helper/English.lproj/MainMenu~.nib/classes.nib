@@ -1,0 +1,18 @@
+{
+    IBClasses = (
+        {
+            ACTIONS = {prefsMenuChosen = id; startStopMenuChosen = id; }; 
+            CLASS = FireflyHelper; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {statusMenu = NSMenu; }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            CLASS = MyASKNibObjectInfoManager; 
+            LANGUAGE = ObjC; 
+            SUPERCLASS = ASKNibObjectInfoManager; 
+        }
+    ); 
+    IBVersion = 1; 
+}
