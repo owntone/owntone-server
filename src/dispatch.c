@@ -788,6 +788,10 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
         /**********************
          * stream file normally
          **********************/
+        if(pmp3->data_kind != 0) {
+            ws_returnerror(pwsc,500,"Can't stream radio station");
+            return;
+        }
         file_fd=r_open2(pmp3->path,O_RDONLY);
         if(file_fd == -1) {
             pwsc->error=errno;

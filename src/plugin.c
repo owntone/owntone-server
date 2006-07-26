@@ -464,6 +464,11 @@ int plugin_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
     int result;
     char *native_codecs=NULL;
     char *user_agent=NULL;
+    
+    if(!codec) {
+        DPRINTF(E_LOG,L_PLUG,"testing transcode on null codec?\n");
+        return FALSE;
+    }
 
     if(pwsc) {
         /* see if the headers give us any guidance */
