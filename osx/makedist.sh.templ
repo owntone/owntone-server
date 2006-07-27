@@ -1,23 +1,48 @@
-#!/bin/sh
+#!/bin/bash -O extglob
 
-if [ $# -eq 1 ]; then
+BUILD="yes"
+EDIT="no"
+
+until [ -z "$1" ]; do
+    case $1 in
+	--no-build|-n)
+	    BUILD="no"
+	    ;;
+
+	--edit|-e)
+	    EDIT="yes"
+	    ;;
+    esac
+    shift
+
+    if [ "$#" = "0" ]; then
+	break;
+    fi
+done
+
+if [ "$BUILD" = "yes" ]; then
     # any argument leaves the server folder as-is
+    echo "** BUILDING SERVER FOLDER **"
+
     AR="Firefly Helper/Server/admin-root"
 
-    mkdir "Firefly Helper/Server/plugins"
-    mkdir "${AR}"
-    mkdir "${AR}/lib-js"
-    mkdir "${AR}/lib-js/script.aculo.us"
 
-    cp ../.build/ppc/mt-daapd FireflyHelper/Server/firefly
-    cp ../.build/ppc/*so FireflyHelper/Server/Plugins
-    cp ../.build/wavstreamer FireflyHelper/Server
-    cp ../.build/alac FireflyHelper/Server
+    rm -rf "Firefly Helper/Server/plugins"
+    rm -rf "Firefly Helper/Server/admin-root"
 
-    cp ../admin-root/*\(html|xml|txt|jar|gif|js|png|jpg\) "${AR}"
+    mkdir -p "Firefly Helper/Server/plugins"
+    mkdir -p "${AR}"
+    mkdir -p "${AR}/lib-js"
+    mkdir -p "${AR}/lib-js/script.aculo.us"
+
+    cp ../.build/ppc/mt-daapd "Firefly Helper/Server/firefly"
+    cp ../.build/ppc/*so "Firefly Helper/Server/Plugins"
+    cp ../.build/ppc/wavstreamer "Firefly Helper/Server"
+    cp ../.build/ppc/alac "Firefly Helper/Server"
+    cp ../admin-root/*.+(html|xml|txt|jar|gif|js|png|jpg) "${AR}"
     cp ../admin-root/CREDITS "${AR}"
     cp ../admin-root/lib-js/*js "${AR}/lib-js"
-    cp ../admin-root/lib-js/script.aculo.us/*js "${AR}/li-js/script.aculo.us"
+    cp ../admin-root/lib-js/script.aculo.us/*js "${AR}/lib-js/script.aculo.us"
 fi
 
 pushd "Firefly Helper"
@@ -37,27 +62,62 @@ if [ "$?" -ne "0" ]; then
     echo "Could not build FireflyPrefs panel"
     exit 2
 fi
+popd
 
 # Now, build the image
 
-mkdir staging
-cp Install/root_DS_Store staging/.DS_Store
-mkdir staging/.background
-cp Install/background.png staging/.background/background.png
-cp Install/_background_DS_Store staging/.background/.DS_Store
+rm -rf staging
+rm -f tmp.dmg
+
+STAGING_DIR="staging"
+
+if [ "$EDIT" = "yes" ]; then
+    # build the image and stage directly to it
+    if [ -x "/Volumes/Install Firefly" ]; then
+	echo "You'll want to unmount the volume you have mounted first."
+	exit
+    fi
+
+    hdiutil create -fs HFS+ -volname "Install Firefly" -size 10m tmp.dmg
+    hdiutil attach tmp.dmg -readwrite
+
+    if [ -x "/Volumes/Install Firefly" ]; then
+	STAGING_DIR="/Volumes/Install Firefly"
+    else
+	echo "Can't seem to make or attach tmp.dmg... Sorry..."
+	exit
+    fi
+fi
+
+mkdir -p "$STAGING_DIR"
+
+cp Install/root_DS_Store "$STAGING_DIR/.DS_Store"
+cp Install/_VolumeIcon.icns "$STAGING_DIR/.VolumeIcon.icns"
+mkdir "$STAGING_DIR/.background"
+cp Install/background.png "$STAGING_DIR/.background/background.png"
+cp Install/_background_DS_Store "$STAGING_DIR/.background/.DS_Store"
 
 if [ ! -x FireflyPrefs/build/Release/Firefly.prefPane ]; then
     echo "Wait... I can't find the pref pane"
     exit 1
 fi
 
-mv FireflyPrefs/build/Release/Firefly.prefPane staging
-cp "Uninstall Firefly.app" staging
-cp -r "Install/Read Me First!.rtfd" staging
+mv FireflyPrefs/build/Release/Firefly.prefPane "$STAGING_DIR"
 
-hdiutil makehybrid -hfs -hfs-volume-name "Install Firefly" -hfs-openfolder staging staging -o tmp.dmg
-hdiutil convert -format UDZO tmp.dmg -o Firefly.dmg
+osacompile -o "Uninstall Firefly.app" "Uninstall Firefly.applescript"
 
-rm -rf staging
-rm tmp.dmg
+mv "Uninstall Firefly.app" "$STAGING_DIR"
+cp -r "Install/Read Me First!.rtfd" "$STAGING_DIR"
+/Developer/Tools/SetFile -a E "$STAGING_DIR/Read Me First!.rtfd"
+/Developer/Tools/SetFile -a C "$STAGING_DIR"
+
+if [ "$EDIT" = "no" ]; then
+    hdiutil makehybrid -hfs -hfs-volume-name "Install Firefly" -hfs-openfolder staging staging -o tmp.dmg
+    rm -f Firefly.dmg
+    rm -rf staging
+    hdiutil convert -format UDZO tmp.dmg -o Firefly.dmg
+    rm tmp.dmg
+fi
+
+
 
