@@ -65,7 +65,7 @@ static char *db_sqlite2_enum_query;
 
 static char db_sqlite2_path[PATH_MAX + 1];
 
-#define DB_SQLITE2_VERSION 10
+#define DB_SQLITE2_VERSION 11
 
 
 /* Forwards */
@@ -322,6 +322,14 @@ int db_sqlite2_event(int event_type) {
 
     case DB_SQL_EVENT_STARTUP: /* this is a startup with existing songs */
         db_sqlite2_exec(NULL,E_FATAL,"vacuum");
+	/* make sure our indexes exist */
+	db_sqlite2_exec(NULL,E_DBG,"create index idx_path on "
+			"songs(path,idx)");
+	db_sqlite2_exec(NULL,E_DBG,"create index idx_songid on "
+			"playlistitems(songid)");
+	db_sqlite2_exec(NULL,E_DBG,"create index idx_playlistid on "
+			"playlistitems(playlistid,songid)");
+
         db_sqlite2_reload=0;
         break;
 
@@ -374,7 +382,7 @@ int db_sqlite2_event(int event_type) {
             db_sqlite2_exec(NULL,E_FATAL,"end transaction");
             db_sqlite2_exec(NULL,E_FATAL,"pragma synchronous=normal");
             db_sqlite2_exec(NULL,E_FATAL,"create index idx_songid on playlistitems(songid)");
-            db_sqlite2_exec(NULL,E_FATAL,"create index idx_playlistid on playlistitems(playlistid)");
+            db_sqlite2_exec(NULL,E_FATAL,"create index idx_playlistid on playlistitems(playlistid,songid)");
 
         } else {
             db_sqlite2_exec(NULL,E_FATAL,"delete from songs where id not in (select id from updated)");
@@ -465,7 +473,7 @@ char *db_sqlite2_initial1 =
 "   subterm         VARCHAR(255)    DEFAULT NULL,\n"
 "   value           VARCHAR(1024)   NOT NULL\n"
 ");\n"
-"insert into config values ('version','','10');\n";
+"insert into config values ('version','','11');\n";
 
 char *db_sqlite2_initial2 =
 "create table playlists (\n"

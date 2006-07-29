@@ -242,8 +242,8 @@ char *db_sqlite_updates[] = {
     "update config set value=7 where term='version';\n",
     
     /* version 7 -> version 8 */
-    "create index idx_songid on playlistitems(songid);\n"
-    "create index idx_playlistid on playlistitems(playlistid);\n"
+    "create index idx_songid on playlistitems(songid)\n"
+    "create index idx_playlistid on playlistitems(playlistid)\n"
     "update config set value=8 where term='version';\n",
 
     /* version 8 -> version 9 */ 
@@ -354,5 +354,9 @@ char *db_sqlite_updates[] = {
     "create index idx_path on songs(path,idx);\n"
     "drop table tempsongs;\n"
     "update config set value=10 where term='version';\n",
+    /* version 10 -> version 11 */ 
+    "drop index idx_playlistid;\n"
+    "create index idx_playlistid on playlistitems(playlistid,songid);\n"
+    "update config set value=11 where term='version';\n",
     NULL /* No more versions! */
 };

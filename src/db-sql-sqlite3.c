@@ -67,7 +67,7 @@ static char **db_sqlite3_row = NULL;
 
 static char db_sqlite3_path[PATH_MAX + 1];
 
-#define DB_SQLITE3_VERSION 10
+#define DB_SQLITE3_VERSION 11
 
 
 /* Forwards */
@@ -357,6 +357,12 @@ int db_sqlite3_event(int event_type) {
 
     case DB_SQL_EVENT_STARTUP: /* this is a startup with existing songs */
         db_sqlite3_exec(NULL,E_FATAL,"vacuum");
+	db_sqlite3_exec(NULL,E_DBG,"create index idx_path on "
+			"songs(path,idx)");
+	db_sqlite3_exec(NULL,E_DBG,"create index idx_songid on "
+			"playlistitems(songid)");
+	db_sqlite3_exec(NULL,E_DBG,"create index idx_playlistid on "
+			"playlistitems(playlistid,songid)");
         db_sqlite3_reload=0;
         break;
 
@@ -408,7 +414,7 @@ int db_sqlite3_event(int event_type) {
             db_sqlite3_exec(NULL,E_FATAL,"end transaction");
             db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous=normal");
             db_sqlite3_exec(NULL,E_FATAL,"create index idx_songid on playlistitems(songid)");
-            db_sqlite3_exec(NULL,E_FATAL,"create index idx_playlistid on playlistitems(playlistid)");
+            db_sqlite3_exec(NULL,E_FATAL,"create index idx_playlistid on playlistitems(playlistid,songid)");
 
         } else {
             db_sqlite3_exec(NULL,E_FATAL,"delete from songs where id not in (select id from updated)");
@@ -506,7 +512,7 @@ char *db_sqlite3_initial1 =
 "   subterm         VARCHAR(255)    DEFAULT NULL,\n"
 "   value           VARCHAR(1024)   NOT NULL\n"
 ");\n"
-"insert into config values ('version','','10');\n";
+"insert into config values ('version','','11');\n";
 
 char *db_sqlite3_initial2 =
 "create table playlists (\n"

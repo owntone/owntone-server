@@ -222,8 +222,9 @@ void scan_process_playlistlist(void) {
             
             if(strcasecmp(file,"iTunes Music Library.xml") == 0) {
                 if(conf_get_int("scanning","process_xml",1)) {
-                    DPRINTF(E_LOG,L_SCAN,"Scanning %s\n",pnext->path);
+                    DPRINTF(E_INF,L_SCAN,"Scanning %s\n",pnext->path);
                     scan_xml_playlist(pnext->path);
+                    DPRINTF(E_INF,L_SCAN,"Done Scanning %s\n",pnext->path);
                 }
             } else if(strcasecmp(ext,".m3u") == 0) {
                 scan_static_playlist(pnext->path);
@@ -263,16 +264,16 @@ int scan_init(char **patharray) {
 
     scan_playlistlist.next=NULL;
 
-    while((patharray[index] != NULL) && (!config.stop)) {
+    while((patharray[index] != NULL) && (!util_must_exit())) {
         DPRINTF(E_DBG,L_SCAN,"Scanning for MP3s in %s\n",patharray[index]);
         err=scan_path(patharray[index]);
         index++;
     }
 
-    if(db_end_song_scan())
+    if(util_must_exit() || db_end_song_scan())
         return -1;
 
-    if(!config.stop) {
+    if(!util_must_exit()) {
         DPRINTF(E_DBG,L_SCAN,"Processing playlists\n");
         scan_process_playlistlist();
     }
@@ -335,7 +336,7 @@ int scan_path(char *path) {
     is_compdir=scan_is_compdir(path);
 
     while(1) {
-        if(config.stop) {
+        if(util_must_exit()) {
             DPRINTF(E_WARN,L_SCAN,"Stop req.  Aborting scan of %s.\n",path);
             closedir(current_dir);
             free(extensions);
