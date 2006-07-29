@@ -1392,7 +1392,8 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     }
 
     /* wait for db_version to be stable for 30 seconds */
-    while((clientver == db_revision()) && (db_revision() == lastver)) {
+    while((clientver == db_revision()) || 
+          (lastver && (db_revision() != lastver))) {
 	lastver = db_revision();
 
         FD_ZERO(&rset);
