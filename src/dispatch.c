@@ -1382,6 +1382,7 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     fd_set rset;
     struct timeval tv;
     int result;
+    int lastver=0;
 
     DPRINTF(E_DBG,L_DAAP,"Preparing to send update response\n");
     config_set_status(pwsc,pqi->session_id,"Waiting for DB update");
@@ -1390,7 +1391,10 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         clientver=atoi(ws_getvar(pwsc,"revision-number"));
     }
 
-    while(clientver == db_revision()) {
+    /* wait for db_version to be stable for 30 seconds */
+    while((clientver == db_revision()) && (db_revision() == lastver)) {
+	lastver = db_revision();
+
         FD_ZERO(&rset);
         FD_SET(pwsc->fd,&rset);
 
@@ -1400,8 +1404,8 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         result=select(pwsc->fd+1,&rset,NULL,NULL,&tv);
         if(FD_ISSET(pwsc->fd,&rset)) {
             /* can't be ready for read, must be error */
-            DPRINTF(E_DBG,L_DAAP,"Socket closed?\n");
-
+            DPRINTF(E_DBG,L_DAAP,"Update session stopped\n");
+	    pwsc->close=1;
             return;
         }
     }
