@@ -438,6 +438,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
         return FALSE;
 
     for(index = 0; index < descriptor_count; index++) {
+        DPRINTF(E_DBG,L_SCAN,"Reading descr %d of %d\n",index,descriptor_count);
         if(!wma_file_read_short(fd,&descriptor_name_len)) return -1;
         if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name)) return -1;
         if(!wma_file_read_short(fd,&descriptor_value_type)) { 
@@ -462,9 +463,14 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
             DPRINTF(E_DBG,L_SCAN,"Type: string, value: %s\n",descriptor_byte_value);
             break;
         case 0x0001: /* byte array */
-            if(!wma_file_read_bytes(fd,descriptor_value_len,
-                                    (unsigned char **)&descriptor_byte_value)){
-                fail=1;
+            if(descriptor_value_len > 4096) {
+                lseek(fd,descriptor_value_len,SEEK_CUR);
+                descriptor_byte_value = NULL;
+            } else {
+                if(!wma_file_read_bytes(fd,descriptor_value_len,
+                                        (unsigned char **)&descriptor_byte_value)){
+                    fail=1;
+                }
             }
             DPRINTF(E_DBG,L_SCAN,"Type: bytes\n");
             break;
@@ -492,6 +498,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
         }
 
         if(fail) {
+            DPRINTF(E_DBG,L_SCAN,"Read fail on file\n");
             free(descriptor_name);
             return FALSE;
         }
