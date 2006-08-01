@@ -1406,7 +1406,6 @@ void dispatch_update(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
         if(FD_ISSET(pwsc->fd,&rset)) {
             /* can't be ready for read, must be error */
             DPRINTF(E_DBG,L_DAAP,"Update session stopped\n");
-	    pwsc->close=1;
             return;
         }
     }
@@ -1522,10 +1521,10 @@ void dispatch_server_info(WS_CONNINFO *pwsc, DBQUERYINFO *pqi) {
     int apro = 3 << 16;
     char *servername;
     int actual_length;
-    int supports_update;
+    int supports_update=0;
 
     servername = conf_get_servername();
-    supports_update = conf_get_int("daap","supports_update",1);
+    //    supports_update = conf_get_int("daap","supports_update",1);
 
     actual_length=130 + (int) strlen(servername);
     if(!supports_update)
