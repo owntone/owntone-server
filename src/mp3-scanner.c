@@ -572,9 +572,9 @@ void scan_filename(char *path, int compdir, char *extensions) {
         DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
     } else {
         /* we assume this is regular file */
-        if(strlen(fname) > 4) {
+        if(strlen(fname) > 2) {
             ext = strrchr(fname, '.');
-            if(ext) {
+            if(ext && ((int)strlen(ext) > 1)) {
                 if(strcasecmp(".m3u",ext) == 0) {
                     scan_add_playlistlist(mp3_path);
                 } else if(strcasecmp(".xml",ext) == 0) {
@@ -622,7 +622,7 @@ void scan_music_file(char *path, char *fname,
     
     if((fname) && (strlen(fname) > 1) && (fname[strlen(fname)-1] != '.')) {
         type = strrchr(fname, '.') + 1;
-        if(type) {
+        if(type && *type) {
             /* see if there is "official" format and info for it */
             ptaghandler=scan_gethandler(type);
             if(ptaghandler) {
