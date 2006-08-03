@@ -60,6 +60,18 @@
                 <option value="1">Yes</option>
             </options>
         </item>
+	<item id="general:truncate" advanced="true">
+	    <name>Truncate Logfile</name>
+            <short_description>
+	        Should the logfile get truncated on startup?
+	    </short_description>
+            <type default_value="1">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+	</item>
+
         <item id="general:debuglevel" advanced="true">
             <name>Debug Level</name>
             <short_description>
@@ -196,6 +208,18 @@
             <name>Always Scan</name>
             <short_description></short_description>
             <type default_value="0">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+        <item id="scan:correct_order" advanced="true">
+            <name>Ordered Playlists</name>
+            <short_description>
+                Should playlists be returned in the order specified in
+            the playlist?
+            </short_description>
+            <type default_value="1">select</type>
             <options>
                 <option value="0">No</option>
                 <option value="1">Yes</option>
