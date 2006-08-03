@@ -504,7 +504,7 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) {
-        xml_output(pxml,"status",rend_running() ? "Stopped" : "Running"); /* ??? */
+        xml_output(pxml,"status",rend_running() ? "Running" : "Stopped"); /* ??? */
     } else {
         xml_output(pxml,"status","Disabled");
     }
