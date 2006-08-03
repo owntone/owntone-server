@@ -348,10 +348,6 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
     PLUGIN_ENTRY *ppi;
     PLUGIN_REND_INFO *pri;
     char *supplied_txt;
-    char *new_name;
-    char *ver;
-    int name_len;
-
 
     ppi = _plugin_list.next;
 
@@ -365,27 +361,7 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
                     supplied_txt = txt;
 
                 DPRINTF(E_DBG,L_PLUG,"Registering %s\n",pri->type);
-
-                name_len = (int)strlen(name) + 4 + (int)strlen(ppi->pinfo->server);
-                new_name=(char*)malloc(name_len);
-                if(!new_name)
-                    DPRINTF(E_FATAL,L_PLUG,"plugin_rend_register: malloc");
-
-                memset(new_name,0,name_len);
-
-                if(conf_get_int("plugins","mangle_rendezvous",1)) {
-                    ver = strdup(ppi->pinfo->server);
-                    if(strchr(ver,'/')) {
-                        *strchr(ver,'/') = '\0'; 
-                    }
-                    snprintf(new_name,name_len,"%s (%s)",name,ver);
-                    free(ver);
-                } else {
-                    snprintf(new_name,name_len,"%s",name);
-                }
-                rend_register(new_name,pri->type,port,iface,supplied_txt);
-                free(new_name);
-
+                rend_register(name,pri->type,port,iface,supplied_txt);
                 pri++;
             }
         }
