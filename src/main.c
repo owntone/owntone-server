@@ -497,7 +497,7 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN,"Serving %d songs.  Startup complete in %d seconds\n",
             song_count,end_time-start_time);
 
-    if(conf_get_int("general","rescan_interval",0))
+    if(conf_get_int("general","rescan_interval",0) && (!reload))
         config.reload = 1; /* force a reload on start */
 
     while(!config.stop) {
