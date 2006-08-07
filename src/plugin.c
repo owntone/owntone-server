@@ -706,6 +706,7 @@ int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
     case QUERY_TYPE_ITEMS:
     default:
         pqi->query_type = queryTypePlaylistItems;
+        pqi->correct_order = conf_get_int("scan","correct_order",1);
         break;
     }
 

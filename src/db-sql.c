@@ -699,7 +699,7 @@ int db_sql_add_playlist_item(char **pe, int playlistid, int songid) {
         return result;
     }
 
-    if(playlist_type == 1) { /* can't add to smart playlists, or static */
+    if(playlist_type == PL_SMART) { /* can't add to smart playlists */
         db_get_error(pe,DB_E_INVALIDTYPE);
         return DB_E_INVALIDTYPE;
     }
@@ -1020,7 +1020,7 @@ int db_sql_update_playlists(char **pe) {
 
     /* Now, update the playlists */
     for(index=0;index < playlists; index++) {
-        if(atoi(pinfo[index].type) == 1) {
+        if(atoi(pinfo[index].type) == PL_SMART) {
             /* smart */
             if(!db_sql_parse_smart(NULL,&where_clause,pinfo[index].clause)) {
                 DPRINTF(E_LOG,L_DB,"Playlist %d bad syntax",pinfo[index].plid);
@@ -1144,7 +1144,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
 
     case queryTypePlaylistItems:  /* Figure out if it's smart or dull */
         sprintf(query_select,"select * from songs ");
-        sprintf(query_count,"select count(id) from songs ");
+        sprintf(query_count,"select count(songs.id) from songs ");
         break;
 
         /* Note that sqlite doesn't support COUNT(DISTINCT x) */
