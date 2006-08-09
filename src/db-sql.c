@@ -41,6 +41,7 @@
 #include "restart.h"
 #include "smart-parser.h"
 #include "plugin.h"
+#include "conf.h"  /* FIXME */
 
 #ifdef HAVE_LIBSQLITE
 #include "db-sql-sqlite2.h"
@@ -1863,9 +1864,16 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
     SQL_ROW row;
     MP3FILE *pmp3=NULL;
     int err;
+    char *query;
+    
+    /* not very portable, but works for sqlite */
+    if(conf_get_int("scanning","case_sensitive",0)) {
+        query="select * from songs where path='%q' and idx=%d";
+    } else {
+        query="select * from songs where upper(path)=upper('%q') and idx=%d";
+    }
 
-    err=db_sql_fetch_row(pe,&row,"select * from songs where path='%q' "
-                         "and idx=%d",path,index);
+    err=db_sql_fetch_row(pe,&row,query,path,index);
     if(err != DB_E_SUCCESS) {
         if(err == DB_E_NOROWS) { /* Override generic error */
             if(pe) { free(*pe); };
