@@ -6,7 +6,9 @@
 # include "config.h"
 #endif
 
-#undef fopen
+#ifdef WIN32
+#include <windows.h>
+#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -152,6 +154,10 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
     int i;
     enum CodecID id=CODEC_ID_FLAC;
     SSCHANDLE *handle = (SSCHANDLE*)vp;
+#ifdef WIN32
+    WCHAR utf16_path[_MAX_PATH+1];
+    WCHAR utf16_mode[3];
+#endif
 
     if(!handle)
         return FALSE;
@@ -181,8 +187,18 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
             return FALSE;
         }
 
+#ifdef WIN32
+        /* this is a mess.  the fopen should really be pushed back
+         * up to the server, so it can handle streams or something.
+         */
+        MultiByteToWideChar(CP_UTF8,0,file,-1,utf16_path,sizeof(utf16_path)/sizeof(utf16_path[0]));
+        MultiByteToWideChar(CP_ACP,0,"rb",-1,utf16_mode,sizeof(utf16_mode)/sizeof(utf16_mode[0]));
+        handle->fin = _wfopen(utf16_path, utf16_mode);
+#else
         handle->fin = fopen(file,"rb");
+#endif
         if(!handle->fin) {
+            _ppi->log(E_DBG,"could not open file\n");
             handle->errnum = SSC_FFMPEG_E_FILEOPEN;
             return FALSE;
         }
