@@ -162,7 +162,7 @@ int ssc_wma_open(void *vp, char *file, char *codec, int duration) {
     }
 
     /* convert file name to wchar */
-    MultiByteToWideChar(GetACP(),0,file,-1,fname,sizeof(fname)/sizeof(fname[0]));
+    MultiByteToWideChar(CP_UTF8,0,file,-1,fname,sizeof(fname)/sizeof(fname[0]));
 
     hr = handle->pReader->Open(fname);
     if(FAILED(hr)) {
