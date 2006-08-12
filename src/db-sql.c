@@ -1865,6 +1865,13 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
     MP3FILE *pmp3=NULL;
     int err;
     char *query;
+
+    /* if we are doing a full reload, then it can't be in here.
+     * besides, we don't have an index anyway, so we don't want to
+     * do this fetch right now
+     */
+    if((db_sql_in_scan) && (db_sql_reload))
+        return NULL;
     
     /* not very portable, but works for sqlite */
     if(conf_get_int("scanning","case_sensitive",0)) {
