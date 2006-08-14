@@ -417,11 +417,16 @@ int main(int argc, char *argv[]) {
             DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
 
             plugin_event_dispatch(PLUGIN_EVENT_FULLSCAN_START,0,NULL,0);
+            start_time=(int) time(NULL);
             if(scan_init(mp3_dir_array)) {
                 DPRINTF(E_LOG,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
             }
-            if(!config.stop) { /* don't send popup when shutting down on scan */
+            if(!config.stop) { /* don't send popup when shutting down */
                 plugin_event_dispatch(PLUGIN_EVENT_FULLSCAN_END,0,NULL,0);
+                err=db_get_song_count(&perr,&song_count);
+                end_time=(int) time(NULL);
+                DPRINTF(E_LOG,L_MAIN|L_SCAN,"Scanned %d songs in %d seconds\n",
+                        song_count,end_time - start_time);
             }
         }
         conf_dispose_array(mp3_dir_array);
