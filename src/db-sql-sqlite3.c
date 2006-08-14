@@ -406,16 +406,15 @@ int db_sqlite3_event(int event_type) {
         break;
 
     case DB_SQL_EVENT_PLSCANSTART:
-        if(db_sqlite3_reload) {
-            db_sqlite3_exec(NULL,E_FATAL,"begin transaction");
-            db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous = off");
-        }
+        db_sqlite3_exec(NULL,E_FATAL,"begin transaction");
+        db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous = off");
         break;
 
     case DB_SQL_EVENT_PLSCANEND:
+        db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous=normal");
+        db_sqlite3_exec(NULL,E_FATAL,"end transaction");
+
         if(db_sqlite3_reload) {
-            db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous=normal");
-            db_sqlite3_exec(NULL,E_FATAL,"end transaction");
             db_sqlite3_exec(NULL,E_FATAL,"create index idx_songid on playlistitems(songid)");
             db_sqlite3_exec(NULL,E_FATAL,"create index idx_playlistid on playlistitems(playlistid,songid)");
 
