@@ -203,7 +203,7 @@ void scan_process_playlistlist(void) {
     char *ext;
     char *file;
 
-    DPRINTF(E_DBG,L_SCAN,"Starting playlist loop\n");
+    DPRINTF(E_LOG,L_SCAN,"Starting playlist scan\n");
 
     while(scan_playlistlist.next) {
         pnext=scan_playlistlist.next;

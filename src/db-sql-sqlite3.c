@@ -386,8 +386,8 @@ int db_sqlite3_event(int event_type) {
 
     case DB_SQL_EVENT_SONGSCANSTART:
         if(db_sqlite3_reload) {
-            db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous = off");
             db_sqlite3_exec(NULL,E_FATAL,"begin transaction");
+            db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous = off");
         } else {
             db_sqlite3_exec(NULL,E_DBG,"drop table updated");
             db_sqlite3_exec(NULL,E_FATAL,"create temp table updated (id int)");
@@ -398,6 +398,7 @@ int db_sqlite3_event(int event_type) {
 
     case DB_SQL_EVENT_SONGSCANEND:
         if(db_sqlite3_reload) {
+            db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous = normal");
             db_sqlite3_exec(NULL,E_FATAL,"commit transaction");
             db_sqlite3_exec(NULL,E_FATAL,"create index idx_path on songs(path,idx)");
             db_sqlite3_exec(NULL,E_DBG,"delete from config where term='rescan'");
@@ -405,14 +406,16 @@ int db_sqlite3_event(int event_type) {
         break;
 
     case DB_SQL_EVENT_PLSCANSTART:
-        if(db_sqlite3_reload)
+        if(db_sqlite3_reload) {
             db_sqlite3_exec(NULL,E_FATAL,"begin transaction");
+            db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous = off");
+        }
         break;
 
     case DB_SQL_EVENT_PLSCANEND:
         if(db_sqlite3_reload) {
-            db_sqlite3_exec(NULL,E_FATAL,"end transaction");
             db_sqlite3_exec(NULL,E_FATAL,"pragma synchronous=normal");
+            db_sqlite3_exec(NULL,E_FATAL,"end transaction");
             db_sqlite3_exec(NULL,E_FATAL,"create index idx_songid on playlistitems(songid)");
             db_sqlite3_exec(NULL,E_FATAL,"create index idx_playlistid on playlistitems(playlistid,songid)");
 

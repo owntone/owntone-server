@@ -181,7 +181,6 @@ extern MP3FILE *db_fetch_item(char **pe, int id);
 extern MP3FILE *db_fetch_path(char **pe, char *path, int index);
 extern M3UFILE *db_fetch_playlist(char **pe, char *path, int index);
 
-
 /* metatag parsing */
 extern MetaField_t db_encode_meta(char *meta);
 extern int db_wantsmeta(MetaField_t meta, MetaFieldName_t fieldNo);

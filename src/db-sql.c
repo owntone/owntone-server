@@ -25,6 +25,7 @@
 
 #define _XOPEN_SOURCE 500
 
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <limits.h>
@@ -65,6 +66,7 @@ void db_sql_build_mp3file(char **valarray, MP3FILE *pmp3);
 int db_sql_update(char **pe, MP3FILE *pmp3, int *id);
 int db_sql_update_playlists(char **pe);
 int db_sql_parse_smart(char **pe, char **clause, char *phrase);
+char *_db_proper_path(char *path);
 
 #define STR(a) (a) ? (a) : ""
 #define ISSTR(a) ((a) && strlen((a)))
@@ -125,6 +127,27 @@ int db_sql_open_sqlite3(char **pe, char *parameters) {
     return db_sql_open(pe,parameters);
 }
 #endif
+
+char *_db_proper_path(char *path) {
+    char *new_path;
+    char *path_ptr;
+
+    new_path = strdup(path);
+    if(!new_path) {
+        DPRINTF(E_FATAL,L_DB,"malloc: _db_proper_path\n");
+    }
+
+    if(conf_get_int("scanning","case_sensitive",0) == 0) {
+        path_ptr = new_path;
+        while(*path_ptr) {
+            *path_ptr = toupper(*path_ptr);
+            path_ptr++;
+        }
+    }
+
+    return new_path;
+}
+
 
 /**
  * escape a sql string, returning it the supplied buffer.
@@ -736,6 +759,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     int count;
     int insertid;
     char *query;
+    char *path;
 
     DPRINTF(E_SPAM,L_DB,"Entering db_sql_add\n");
 
@@ -747,20 +771,18 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
 
     pmp3->db_timestamp = (int)time(NULL);
 
-    if(conf_get_int("scanning","case_sensitive",0)) {
-        query = "select count(*) from songs where path='%q' and idx=%d";
-    } else {
-        query = "select count(*) from songs where upper(path)=upper('%q') and"
-            " idx=%d";
-    }
+    path = _db_proper_path(pmp3->path);
 
     /* Always an add if in song scan on full reload */
     if((!db_sql_reload)||(!db_sql_in_scan)) {
-        err=db_sql_fetch_int(NULL,&count,query,pmp3->path,pmp3->index);
+        query = "select count(*) from songs where path='%q' and idx=%d";
+        err=db_sql_fetch_int(NULL,&count,query,path,pmp3->index);
 
         if((err == DB_E_SUCCESS) && (count == 1)) { /* we should update */
+            free(path);
             return db_sql_update(pe,pmp3,id);
         } else if((err != DB_E_SUCCESS) && (err != DB_E_NOROWS)) {
+            free(path);
             DPRINTF(E_LOG,L_DB,"Error: %s\n",pe);
             return err;
         }
@@ -771,86 +793,87 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     pmp3->time_played=0;
 
     err=db_sql_exec_fn(pe,E_DBG,"INSERT INTO songs VALUES "
-                        "(NULL," // id
-                        "'%q',"  // path
-                        "'%q',"  // fname
-                        "'%q',"  // title
-                        "'%q',"  // artist
-                        "'%q',"  // album
-                        "'%q',"  // genre
-                        "'%q',"  // comment
-                        "'%q',"  // type
-                        "'%q',"  // composer
-                        "'%q',"  // orchestra
-                        "'%q',"  // conductor
-                        "'%q',"  // grouping
-                        "'%q',"  // url
-                        "%d,"    // bitrate
-                        "%d,"    // samplerate
-                        "%d,"    // song_length
-                        "%d,"    // file_size
-                        "%d,"    // year
-                        "%d,"    // track
-                        "%d,"    // total_tracks
-                        "%d,"    // disc
-                        "%d,"    // total_discs
-                        "%d,"    // bpm
-                        "%d,"    // compilation
-                        "%d,"    // rating
-                        "0,"     // play_count
-                        "%d,"    // data_kind
-                        "%d,"    // item_kind
-                        "'%q',"  // description
-                        "%d,"    // time_added
-                        "%d,"    // time_modified
-                        "%d,"    // time_played
-                        "%d,"    // db_timestamp
-                        "%d,"    // disabled
-                        "%d,"    // sample_count
-                        "0,"     // force_update
-                        "'%q',"  // codectype
-                        "%d,"    // index
-                        "%d,"    // has_video
-                        "%d)",   // contentrating
-                        STR(pmp3->path),
-                        STR(pmp3->fname),
-                        STR(pmp3->title),
-                        STR(pmp3->artist),
-                        STR(pmp3->album),
-                        STR(pmp3->genre),
-                        STR(pmp3->comment),
-                        STR(pmp3->type),
-                        STR(pmp3->composer),
-                        STR(pmp3->orchestra),
-                        STR(pmp3->conductor),
-                        STR(pmp3->grouping),
-                        STR(pmp3->url),
-                        pmp3->bitrate,
-                        pmp3->samplerate,
-                        pmp3->song_length,
-                        pmp3->file_size,
-                        pmp3->year,
-                        pmp3->track,
-                        pmp3->total_tracks,
-                        pmp3->disc,
-                        pmp3->total_discs,
-                        pmp3->bpm,
-                        pmp3->compilation,
-                        pmp3->rating,
-                        pmp3->data_kind,
-                        pmp3->item_kind,
-                        STR(pmp3->description),
-                        pmp3->time_added,
-                        pmp3->time_modified,
-                        pmp3->time_played,
-                        pmp3->db_timestamp,
-                        pmp3->disabled,
-                        pmp3->sample_count,
-                        STR(pmp3->codectype),
-                        pmp3->index,
-                        pmp3->has_video,
-                        pmp3->contentrating);
+                       "(NULL," // id
+                       "'%q',"  // path
+                       "'%q',"  // fname
+                       "'%q',"  // title
+                       "'%q',"  // artist
+                       "'%q',"  // album
+                       "'%q',"  // genre
+                       "'%q',"  // comment
+                       "'%q',"  // type
+                       "'%q',"  // composer
+                       "'%q',"  // orchestra
+                       "'%q',"  // conductor
+                       "'%q',"  // grouping
+                       "'%q',"  // url
+                       "%d,"    // bitrate
+                       "%d,"    // samplerate
+                       "%d,"    // song_length
+                       "%d,"    // file_size
+                       "%d,"    // year
+                       "%d,"    // track
+                       "%d,"    // total_tracks
+                       "%d,"    // disc
+                       "%d,"    // total_discs
+                       "%d,"    // bpm
+                       "%d,"    // compilation
+                       "%d,"    // rating
+                       "0,"     // play_count
+                       "%d,"    // data_kind
+                       "%d,"    // item_kind
+                       "'%q',"  // description
+                       "%d,"    // time_added
+                       "%d,"    // time_modified
+                       "%d,"    // time_played
+                       "%d,"    // db_timestamp
+                       "%d,"    // disabled
+                       "%d,"    // sample_count
+                       "0,"     // force_update
+                       "'%q',"  // codectype
+                       "%d,"    // index
+                       "%d,"    // has_video
+                       "%d)",   // contentrating
+                       path,
+                       STR(pmp3->fname),
+                       STR(pmp3->title),
+                       STR(pmp3->artist),
+                       STR(pmp3->album),
+                       STR(pmp3->genre),
+                       STR(pmp3->comment),
+                       STR(pmp3->type),
+                       STR(pmp3->composer),
+                       STR(pmp3->orchestra),
+                       STR(pmp3->conductor),
+                       STR(pmp3->grouping),
+                       STR(pmp3->url),
+                       pmp3->bitrate,
+                       pmp3->samplerate,
+                       pmp3->song_length,
+                       pmp3->file_size,
+                       pmp3->year,
+                       pmp3->track,
+                       pmp3->total_tracks,
+                       pmp3->disc,
+                       pmp3->total_discs,
+                       pmp3->bpm,
+                       pmp3->compilation,
+                       pmp3->rating,
+                       pmp3->data_kind,
+                       pmp3->item_kind,
+                       STR(pmp3->description),
+                       pmp3->time_added,
+                       pmp3->time_modified,
+                       pmp3->time_played,
+                       pmp3->db_timestamp,
+                       pmp3->disabled,
+                       pmp3->sample_count,
+                       STR(pmp3->codectype),
+                       pmp3->index,
+                       pmp3->has_video,
+                       pmp3->contentrating);
 
+    free(path);
     if(err != DB_E_SUCCESS)
         DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database\n",pmp3->fname);
 
@@ -878,6 +901,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
 int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
     int err;
     char query[1024];
+    char *path;
 
     if(!pmp3->time_modified)
         pmp3->time_modified = (int)time(NULL);
@@ -913,13 +937,9 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
            "rating=%d,"    // rating
            "sample_count=%d," // sample_count
            "codectype='%q'"   // codec
-           );
+           " WHERE path='%q' and idx=%d");
 
-    if(conf_get_int("scanning","case_sensitive",0)) {
-        strcat(query," WHERE path='%q' and idx=%d");
-    } else {
-        strcat(query," WHERE upper(path)=upper('%q') and idx=%d");
-    }
+    path = _db_proper_path(pmp3->path);
 
     err = db_sql_exec_fn(pe,E_LOG,query,
                          STR(pmp3->title),
@@ -950,44 +970,36 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
                          pmp3->rating,
                          pmp3->sample_count,
                          STR(pmp3->codectype),
-                         pmp3->path,
+                         path,
                          pmp3->index);
 
     if(err != DB_E_SUCCESS)
         DPRINTF(E_FATAL,L_DB,"Error updating file: %s\n",pmp3->fname);
 
     if(id) { /* we need the insert/update id */
-        if(conf_get_int("scanning","case_sensitive",0)) {
-            strcpy(query,"select id from songs where path='%q' and idx=%d");
-        } else {
-            strcpy(query,"select id from songs where upper(path)=upper('%q') "
-                   "and idx=%d");
-        }
+        strcpy(query,"select id from songs where path='%q' and idx=%d");
 
-        err=db_sql_fetch_int(pe,id,query,pmp3->path,pmp3->index);
-        if(err != DB_E_SUCCESS)
+        err=db_sql_fetch_int(pe,id,query,path,pmp3->index);
+        if(err != DB_E_SUCCESS) {
+            free(path);
             return err;
+        }
     }
 
     if((db_sql_in_scan || db_sql_in_playlist_scan) && (!db_sql_reload)) {
         if(id) {
             db_sql_exec_fn(NULL,E_FATAL,"insert into updated (id) values (%d)",*id);
         } else {
-            if(conf_get_int("scanning","case_sensitive",0)) {
-                strcpy(query,"insert into updated (id) select id from "
-                       "songs where path='%q' and idx=%d");
-            } else {
-                strcpy(query,"insert into updated (id) select id from "
-                       "songs where upper(path)=upper('%q') and idx=%d");
-            }
-
-            db_sql_exec_fn(NULL,E_FATAL,query,pmp3->path,pmp3->index);
+            strcpy(query,"insert into updated (id) select id from "
+                   "songs where path='%q' and idx=%d");
+            db_sql_exec_fn(NULL,E_FATAL,query,path,pmp3->index);
         }
     }
 
     if((!db_sql_in_scan) && (!db_sql_in_playlist_scan))
         db_sql_update_playlists(NULL);
 
+    free(path);
     return 0;
 }
 
@@ -1903,7 +1915,7 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
     if(conf_get_int("scanning","case_sensitive",0)) {
         query="select * from songs where path='%q' and idx=%d";
     } else {
-        query="select * from songs where upper(path)=upper('%q') and idx=%d";
+        query="select * from songs where path=upper('%q') and idx=%d";
     }
 
     err=db_sql_fetch_row(pe,&row,query,path,index);
