@@ -138,6 +138,17 @@
                 <option value="1">Yes</option>
             </options>
         </item>
+	<item id="scanning:case_sensitive">
+	    <name>Case Sensitive</name>
+	    <short_description>
+	        Is the filesystem case sensitive?
+	    </short_description>
+            <type default_value="1">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
         <item id="scanning:ignore_appledouble">
             <name>Ignore appledouble</name>
             <short_description>
