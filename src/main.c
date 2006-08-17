@@ -536,7 +536,7 @@ int main(int argc, char *argv[]) {
             }
             config.reload=0;
             db_get_song_count(NULL,&song_count);
-            DPRINTF(E_INF,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in "
+            DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in "
                     "%d seconds\n",song_count,old_song_count,
                     time(NULL)-start_time);
         }
