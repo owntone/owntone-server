@@ -354,8 +354,8 @@ int db_sqlite2_event(int event_type) {
 
     case DB_SQL_EVENT_SONGSCANSTART:
         if(db_sqlite2_reload) {
-            db_sqlite2_exec(NULL,E_FATAL,"begin transaction");
             db_sqlite2_exec(NULL,E_FATAL,"pragma synchronous = off");
+            db_sqlite2_exec(NULL,E_FATAL,"begin transaction");
         } else {
             db_sqlite2_exec(NULL,E_DBG,"drop table updated");
             db_sqlite2_exec(NULL,E_FATAL,"create temp table updated (id int)");
@@ -366,21 +366,21 @@ int db_sqlite2_event(int event_type) {
 
     case DB_SQL_EVENT_SONGSCANEND:
         if(db_sqlite2_reload) {
-            db_sqlite2_exec(NULL,E_FATAL,"pragma synchronous=normal");
             db_sqlite2_exec(NULL,E_FATAL,"commit transaction");
+            db_sqlite2_exec(NULL,E_FATAL,"pragma synchronous=normal");
             db_sqlite2_exec(NULL,E_FATAL,"create index idx_path on songs(path,idx)");
             db_sqlite2_exec(NULL,E_DBG,"delete from config where term='rescan'");
         }
         break;
 
     case DB_SQL_EVENT_PLSCANSTART:
-        db_sqlite2_exec(NULL,E_FATAL,"begin transaction");
         db_sqlite2_exec(NULL,E_FATAL,"pragma synchronous = off");
+        db_sqlite2_exec(NULL,E_FATAL,"begin transaction");
         break;
 
     case DB_SQL_EVENT_PLSCANEND:
-        db_sqlite2_exec(NULL,E_FATAL,"pragma synchronous=normal");
         db_sqlite2_exec(NULL,E_FATAL,"end transaction");
+        db_sqlite2_exec(NULL,E_FATAL,"pragma synchronous=normal");
 
         if(db_sqlite2_reload) {
             db_sqlite2_exec(NULL,E_FATAL,"create index idx_songid on playlistitems(songid)");
