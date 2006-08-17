@@ -137,7 +137,7 @@ char *_db_proper_path(char *path) {
         DPRINTF(E_FATAL,L_DB,"malloc: _db_proper_path\n");
     }
 
-    if(conf_get_int("scanning","case_sensitive",0) == 0) {
+    if(conf_get_int("scanning","case_sensitive",1) == 0) {
         path_ptr = new_path;
         while(*path_ptr) {
             *path_ptr = toupper(*path_ptr);
@@ -1912,7 +1912,7 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
         return NULL;
     
     /* not very portable, but works for sqlite */
-    if(conf_get_int("scanning","case_sensitive",0)) {
+    if(conf_get_int("scanning","case_sensitive",1)) {
         query="select * from songs where path='%q' and idx=%d";
     } else {
         query="select * from songs where path=upper('%q') and idx=%d";
