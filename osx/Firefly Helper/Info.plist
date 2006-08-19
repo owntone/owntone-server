@@ -19,9 +19,9 @@
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>102</string>
+	<string>103</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0b2</string>
+	<string>1.0</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>© 2006 Roku LLC</string>
 	<key>LSUIElement</key>
