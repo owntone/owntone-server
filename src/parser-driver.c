@@ -27,6 +27,7 @@ int main(int argc, char *argv[]) {
     int type=0;
     PARSETREE pt;
     char *configfile = "/etc/mt-daapd.conf";
+    int debuglevel=0;
     char db_type[40];
     char db_parms[PATH_MAX];
     int size;
@@ -39,7 +40,7 @@ int main(int argc, char *argv[]) {
             configfile = optarg;
             break;
         case 'd':
-            err_setlevel(atoi(optarg));
+            debuglevel = atoi(optarg);
             break;
         case 't':
             type = atoi(optarg);
@@ -50,11 +51,17 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    err_setdebugmask("parse");
+    //    err_setdebugmask("parse");
 
     if(conf_read(configfile) != CONF_E_SUCCESS) {
         fprintf(stderr,"could not read config file: %s\n",configfile);
         exit(1);
+    }
+    
+    if(debuglevel) {
+        printf("Setting debug level to %d\n",debuglevel);
+        err_setlevel(debuglevel);
+        err_setdest(LOGDEST_STDERR);
     }
 
     size = sizeof(db_type);
