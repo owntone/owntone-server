@@ -227,8 +227,7 @@
         <item id="scan:correct_order" advanced="true">
             <name>Ordered Playlists</name>
             <short_description>
-                Should playlists be returned in the order specified in
-            the playlist?
+                Should playlists be returned in the order specified in the playlist?
             </short_description>
             <type default_value="1">select</type>
             <options>
