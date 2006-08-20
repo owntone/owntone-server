@@ -645,6 +645,7 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
     int result=DB_E_SUCCESS;
     char *criteria;
     char *estring;
+    char *correct_path;
 
     result=db_sql_fetch_int(pe,&cnt,"select count(*) from playlists where "
                             "upper(title)=upper('%q')",name);
@@ -668,10 +669,12 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
     case PL_STATICWEB: /* static, maintained in web interface */
     case PL_STATICFILE: /* static, from file */
     case PL_STATICXML: /* from iTunes XML file */
+        correct_path = _db_proper_path(path);
         result = db_sql_exec_fn(pe,E_LOG,"insert into playlists "
-                                 "(title,type,items,query,db_timestamp,path,idx) "
+                                "(title,type,items,query,db_timestamp,path,idx) "
                                  "values ('%q',%d,0,NULL,%d,'%q',%d)",
-                                 name,type,time(NULL),path,index);
+                                 name,type,time(NULL),correct_path,index);
+        free(correct_path);
         break;
     case PL_SMART: /* smart */
         if(!db_sql_parse_smart(&estring,&criteria,clause)) {
@@ -1831,10 +1834,13 @@ M3UFILE *db_sql_fetch_playlist(char **pe, char *path, int index) {
     int result;
     M3UFILE *pm3u=NULL;
     SQL_ROW row;
+    char *proper_path;
 
-
+    proper_path = _db_proper_path(path);
     result = db_sql_fetch_row(pe, &row, "select * from playlists where "
-                              "path='%q' and idx=%d",path,index);
+                              "path='%q' and idx=%d",proper_path,index);
+
+    free(proper_path);
 
     if(result != DB_E_SUCCESS) {
         if(result == DB_E_NOROWS) {
