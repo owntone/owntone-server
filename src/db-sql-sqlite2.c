@@ -65,7 +65,7 @@ static char *db_sqlite2_enum_query;
 
 static char db_sqlite2_path[PATH_MAX + 1];
 
-#define DB_SQLITE2_VERSION 11
+#define DB_SQLITE2_VERSION 12
 
 
 /* Forwards */
@@ -475,7 +475,7 @@ char *db_sqlite2_initial1 =
 "   subterm         VARCHAR(255)    DEFAULT NULL,\n"
 "   value           VARCHAR(1024)   NOT NULL\n"
 ");\n"
-"insert into config values ('version','','11');\n";
+"insert into config values ('version','','12');\n";
 
 char *db_sqlite2_initial2 =
 "create table playlists (\n"

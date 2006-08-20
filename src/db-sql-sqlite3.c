@@ -67,7 +67,7 @@ static char **db_sqlite3_row = NULL;
 
 static char db_sqlite3_path[PATH_MAX + 1];
 
-#define DB_SQLITE3_VERSION 11
+#define DB_SQLITE3_VERSION 12
 
 
 /* Forwards */
@@ -514,7 +514,7 @@ char *db_sqlite3_initial1 =
 "   subterm         VARCHAR(255)    DEFAULT NULL,\n"
 "   value           VARCHAR(1024)   NOT NULL\n"
 ");\n"
-"insert into config values ('version','','11');\n";
+"insert into config values ('version','','12');\n";
 
 char *db_sqlite3_initial2 =
 "create table playlists (\n"

@@ -358,5 +358,8 @@ char *db_sqlite_updates[] = {
     "drop index idx_playlistid;\n"
     "create index idx_playlistid on playlistitems(playlistid,songid);\n"
     "update config set value=11 where term='version';\n",
+    /* version 11 -> version 12 */
+    "REPLACE INTO config VALUES('rescan',NULL,1);\n"
+    "UPDATE config SET value=12 WHERE term='version';\n",
     NULL /* No more versions! */
 };
