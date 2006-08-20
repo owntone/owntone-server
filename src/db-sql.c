@@ -417,7 +417,13 @@ int db_sql_deinit(void) {
  * force a rescan
  */
 int db_sql_force_rescan(char **pe) {
+    int result;
+    result = db_sql_exec_fn(pe,E_LOG,"update playlists set db_timestamp=0");
+    if(result != DB_E_SUCCESS)
+        return result;
+
     return db_sql_exec_fn(pe,E_LOG,"update songs set force_update=1");
+    
 }
 
 /**
