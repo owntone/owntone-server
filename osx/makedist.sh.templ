@@ -105,8 +105,11 @@ fi
 mv FireflyPrefs/build/Release/Firefly.prefPane "$STAGING_DIR"
 
 osacompile -o "Uninstall Firefly.app" "Uninstall Firefly.applescript"
+osacompile -o "Quit Firefly.app" "Quit Firefly.applescript"
 
 mv "Uninstall Firefly.app" "$STAGING_DIR"
+mv "Quit Firefly.app" "$STAGING_DIR"
+
 cp -r "Install/Read Me First!.rtfd" "$STAGING_DIR"
 /Developer/Tools/SetFile -a E "$STAGING_DIR/Read Me First!.rtfd"
 /Developer/Tools/SetFile -a C "$STAGING_DIR"
