@@ -15,6 +15,7 @@
 #include "daapd.h"
 
 CONFIG config;
+char *scan_winamp_genre[] = { NULL };
 
 void usage(void) {
     printf("Usage:\n\n  parser [-t <type (0/1)>] [-d <debug level>] \"phrase\"\n\n");
