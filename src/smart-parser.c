@@ -653,6 +653,9 @@ int sp_scan(PARSETREE tree, int hint) {
                 *dst++ = *src++;
             } else {
                 src++;
+                if(*src) {
+                    *dst++ = *src++;
+                }
             }
         }
         *dst = '\0';
