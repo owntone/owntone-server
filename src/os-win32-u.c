@@ -1,9 +1,6 @@
-/*
+/**
  * Win32 os functions that require unicode
  */
-
-#define _UNICODE
-#define UNICODE
 
 #ifdef HAVE_CONFIG_H
 # include "config.h"
@@ -69,14 +66,14 @@ int os_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
         /* filename is utf-8... let's convert to unicode */
         util_utf8toutf16((unsigned char *)&utf16,sizeof(utf16),filename,(int)strlen(filename));
 
-        dirp->dir_find_handle = FindFirstFile(utf16, &dirp->dir_find_data);
+        dirp->dir_find_handle = FindFirstFileW(utf16, &dirp->dir_find_data);
 
         if (dirp->dir_find_handle == INVALID_HANDLE_VALUE) {
             *result=NULL;
             return 2;
         }
     } else {
-        if (!FindNextFile (dirp->dir_find_handle, &dirp->dir_find_data)) {
+        if (!FindNextFileW(dirp->dir_find_handle, &dirp->dir_find_data)) {
             *result = NULL;
             return 0;
         }
@@ -118,9 +115,42 @@ int os_readdir_r(DIR *dirp, struct dirent *entry, struct dirent **result) {
     return 0;
 }
 
+/**
+ * this is now pretty close to a true realpath implementation
+ */
+char *os_realpath(const char *pathname, char *resolved_path) {
+    char *ptr;
+    WCHAR utf16_rel_path[PATH_MAX+1];
+    WCHAR utf16_path[PATH_MAX+1];
+    int utf16_len;
+
+    /* need to take the utf-8 and convert to utf-16, then _fullpath, then back */
+    util_utf8toutf16((unsigned char *)&utf16_rel_path,PATH_MAX * sizeof(WCHAR),(char*)pathname,(int)strlen(pathname));
+    if(!_wfullpath(utf16_path,utf16_rel_path,PATH_MAX)) {
+        DPRINTF(E_FATAL,L_MISC,"Could not realpath %s\n",pathname);
+    }
+    util_utf16toutf8((unsigned char *)resolved_path,PATH_MAX,(unsigned char *)&utf16_path,
+        util_utf16_byte_len((unsigned char *)utf16_path));
+
+    ptr = resolved_path;
+    while(*ptr) {
+//        *ptr = tolower(*ptr);
+        if(*ptr == '/')
+            *ptr = '\\';
+        ptr++;
+    }
+
+    while(resolved_path[strlen(resolved_path)-1] == '\\') {
+        resolved_path[strlen(resolved_path)-1] = '\x0';
+    }
+
+    return &resolved_path[0];
+}
+
 int os_stat(const char *path, struct _stat *sb) {
     WCHAR utf16_path[PATH_MAX+1];
 
+    DPRINTF(E_LOG,L_MISC,"Statting %s\n",path);
     memset(utf16_path,0,sizeof(utf16_path));
     util_utf8toutf16((unsigned char *)&utf16_path,PATH_MAX * 2,(char*)path,(int)strlen(path));
 

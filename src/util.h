@@ -32,6 +32,7 @@ extern int util_utf8toutf16_len(unsigned char *utf8);
 extern int util_utf16toutf8_len(unsigned char *utf16, int len);
 extern int util_utf8toutf16(unsigned char *utf16, int dlen, unsigned char *utf8, int len);
 extern int util_utf16toutf8(unsigned char *utf8, int dlen, unsigned char *utf16, int len);
+extern int util_utf16_byte_len(unsigned char *utf16);
 
 
 

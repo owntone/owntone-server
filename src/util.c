@@ -57,6 +57,20 @@ int util_must_exit(void) {
     return config.stop;
 }
 
+
+int util_utf16_byte_len(unsigned char *utf16) {
+    unsigned char *src = utf16;
+    int len = 0;
+
+    while(1) {
+        if((src[0] == 0) && (src[1]==0))
+            return len;
+        len += 2;
+        src += 2;
+    }
+  return len; /* ?? */
+}
+
 /**
  * calculate how long a utf16le string will be once converted
  */
@@ -168,7 +182,7 @@ int util_utf16toutf8(unsigned char *utf8, int dlen, unsigned char *utf16, int le
 
     *dst = '\x0';
 
-    return TRUE;
+    return new_len;
 }
 
 /**
@@ -197,6 +211,7 @@ int util_utf8toutf16_len(unsigned char *utf8) {
         src += (1 + trailing_bytes);
     }
 
+    out_len += 1;
     return out_len;
 }
 
@@ -306,7 +321,7 @@ unsigned char *util_utf16touft8_alloc(unsigned char *utf16, int len) {
 
     *dst++ = '\x0';
     *dst = '\x0';
-    return TRUE;
+    return new_len;
 }
 
 /*

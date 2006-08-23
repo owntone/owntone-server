@@ -451,30 +451,6 @@ int os_getuid(void) {
     return 0;
 }
 
-/**
- * this is now pretty close to a true realpath implementation
- */
-char *os_realpath(const char *pathname, char *resolved_path) {
-    char *ptr;
-
-    if(!_fullpath(resolved_path,pathname,PATH_MAX)) {
-        DPRINTF(E_FATAL,L_MISC,"Could not realpath %s\n",pathname);
-    }
-
-    ptr = resolved_path;
-    while(*ptr) {
-//        *ptr = tolower(*ptr);
-        if(*ptr == '/')
-            *ptr = '\\';
-        ptr++;
-    }
-
-    while(strlen(resolved_path) && (resolved_path[strlen(resolved_path)-1] == '\\'))
-        resolved_path[strlen(resolved_path)-1] = '\0';
-
-    return &resolved_path[0];
-}
-
 
 int os_gettimeofday (struct timeval *tv, struct timezone* tz) {
     union {

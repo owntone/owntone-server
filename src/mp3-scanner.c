@@ -366,7 +366,7 @@ int scan_path(char *path) {
         realpath(relative_path,mp3_path);
         DPRINTF(E_DBG,L_SCAN,"Found %s\n",relative_path);
         if(os_stat(mp3_path,&sb)) {
-            DPRINTF(E_WARN,L_SCAN,"Error statting: %s\n",strerror(errno));
+            DPRINTF(E_WARN,L_SCAN,"Error statting %s: %s\n",mp3_path,strerror(errno));
         } else {
             if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
                 if(conf_get_int("scanning","ignore_appledouble",1) && 

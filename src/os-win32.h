@@ -43,7 +43,7 @@ typedef struct {
     char        dd_buf[DIRBLKSIZ];      /* directory block */
     HANDLE dir_find_handle;
     char   dir_pathname[PATH_MAX+1];
-    WIN32_FIND_DATA dir_find_data;
+    WIN32_FIND_DATAW dir_find_data;
 } DIR;  
 
 /* win32-specific functions -- set up service, etc */
