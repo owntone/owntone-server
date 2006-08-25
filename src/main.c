@@ -233,7 +233,7 @@ int main(int argc, char *argv[]) {
     int debuglevel=0;
 
     config.use_mdns=1;
-    err_setlevel(debuglevel);
+    err_setlevel(2);
 
     config.foreground=0;
     while((option=getopt(argc,argv,"D:d:c:P:mfrysiuvab:")) != -1) {
@@ -241,19 +241,23 @@ int main(int argc, char *argv[]) {
         case 'a':
             appdir = 1;
             break;
+
         case 'b':
             ffid=optarg;
             break;
+
         case 'd':
             debuglevel = atoi(optarg);
             err_setlevel(debuglevel);
             break;
+
         case 'D':
             if(err_setdebugmask(optarg)) {
                 usage(argv[0]);
                 exit(EXIT_FAILURE);
             }
             break;
+
         case 'f':
             config.foreground=1;
             err_setdest(err_getdest() | LOGDEST_STDERR);
@@ -307,8 +311,9 @@ int main(int argc, char *argv[]) {
     }
 
     if((getuid()) && (!force_non_root) && (!convert_conf)) {
-        fprintf(stderr,"You are not root.  This is almost certainly wrong.  If you are\n"
-                "sure you want to do this, use the -y command-line switch\n");
+        fprintf(stderr,"You are not root.  This is almost certainly wrong.  "
+                "If you are\nsure you want to do this, use the -y "
+                "command-line switch\n");
         exit(EXIT_FAILURE);
     }
 

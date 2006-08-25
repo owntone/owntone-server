@@ -37,7 +37,7 @@
 #define E_SPAM         10   /**< Logorrhea! */
 #define E_DBG           9   /**< Way too verbose */
 #define E_INF           5   /**< Good info, not too much spam */
-#define E_WARN          2   /**< Reasonably important, but not enough to log */
+#define E_WARN          2   /**< Goes in text log, but not syslog */
 #define E_LOG           1   /**< Something that should go in a log file */
 #define E_FATAL         0   /**< Log and force an exit */
 

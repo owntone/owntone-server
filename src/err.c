@@ -293,8 +293,6 @@ int err_setlogfile(char *file) {
  * \param destination where to log to \ref log_dests "as defined in err.h"
  */
 void err_setdest(int destination) {
-    fprintf(stderr,"setting dest to %d\n",destination);
-
     if(err_logdest == destination)
         return;
 

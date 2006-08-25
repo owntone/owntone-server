@@ -775,7 +775,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
                           "Transcoding '%s' (id %d)",
                           pmp3->title,pmp3->id);
 
-        DPRINTF(E_LOG,L_WS,
+        DPRINTF(E_WARN,L_WS,
                 "Session %d: Streaming file '%s' to %s (offset %ld)\n",
                 session,pmp3->fname, pwsc->hostname,(long)offset);
 
@@ -850,7 +850,7 @@ void dispatch_stream_id(WS_CONNINFO *pwsc, int session, char *id) {
 
             config_set_status(pwsc,session,"Streaming '%s' (id %d)",
                               pmp3->title, pmp3->id);
-            DPRINTF(E_LOG,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
+            DPRINTF(E_WARN,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
                     session,pmp3->fname, pwsc->hostname,(long)offset);
 
             if(!offset)

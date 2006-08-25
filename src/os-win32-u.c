@@ -150,7 +150,6 @@ char *os_realpath(const char *pathname, char *resolved_path) {
 int os_stat(const char *path, struct _stat *sb) {
     WCHAR utf16_path[PATH_MAX+1];
 
-    DPRINTF(E_LOG,L_MISC,"Statting %s\n",path);
     memset(utf16_path,0,sizeof(utf16_path));
     util_utf8toutf16((unsigned char *)&utf16_path,PATH_MAX * 2,(char*)path,(int)strlen(path));
 
