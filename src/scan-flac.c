@@ -68,21 +68,10 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
     FLAC__StreamMetadata *block;
     int found=0;
     unsigned int sec, ms;
-    FILE *f;
     int i;
     char *val;
     size_t len;
     char tmp;
-
-    /* get file length */
-    if (!(f = fopen(filename, "rb"))) {
-        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n", filename);
-        return FALSE;
-    }
-    fseek(f, 0, SEEK_END);
-    pmp3->file_size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    fclose(f);
 
     chain = FLAC__metadata_chain_new();
     if (! chain) {

@@ -193,10 +193,6 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
         return FALSE;
     }
 
-    fseek(fin,0,SEEK_END);
-    pmp3->file_size = ftell(fin);
-    fseek(fin,0,SEEK_SET);
-
     atom_offset=scan_aac_drilltoatom(fin, "moov:udta:meta:ilst", &atom_length);
     if(atom_offset != -1) {
         /* found the tag section - need to walk through now */

@@ -43,11 +43,6 @@ int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
         return FALSE;
     }
 
-    if(!fseek(f,0,SEEK_END)) {
-        pmp3->file_size=ftell(f);
-        fseek(f,0,SEEK_SET);
-    }
-
     if (ov_open(f, &vf, NULL, 0) != 0) {
         fclose(f);
         DPRINTF(E_LOG, L_SCAN,

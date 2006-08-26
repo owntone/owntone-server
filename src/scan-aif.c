@@ -137,11 +137,6 @@ int scan_get_aifinfo(char *filename, MP3FILE *pmp3) {
         return FALSE;
     }
 
-    fseek(infile,0,SEEK_END);
-    pmp3->file_size = ftell(infile);
-    fseek(infile,0,SEEK_SET);
-
-
     /* first, verify we have a valid iff header */
     if(fread((void*)&iff_header,sizeof(AIF_IFF_HEADER),1,infile) != 1) {
         DPRINTF(E_WARN,L_SCAN,"Error reading %s -- bad iff header\n",filename);

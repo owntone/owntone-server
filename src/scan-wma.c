@@ -866,7 +866,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     int item;
     int err;
     int res=TRUE;
-
+    
     wma_fd = r_open2(filename,O_RDONLY);
     if(wma_fd == -1) {
         DPRINTF(E_INF,L_SCAN,"Error opening WMA file (%s): %s\n",filename,

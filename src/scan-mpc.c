@@ -47,16 +47,6 @@ int scan_get_mpcinfo(char *filename, MP3FILE *pmp3) {
     int len;
     unsigned int i;
 
-    /* get file length */
-    if (!(f = fopen(filename, "rb"))) {
-        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n", filename);
-        return FALSE;
-    }
-    fseek(f, 0, SEEK_END);
-    pmp3->file_size = ftell(f);
-    fseek(f, 0, SEEK_SET);
-    fclose(f);
-        
     /* open file with taglib */
     if ((file = taglib_file_new_type(filename, TagLib_File_MPC)) == NULL) {
         DPRINTF(E_WARN,L_SCAN,"Could not open %s with taglib\n", filename);

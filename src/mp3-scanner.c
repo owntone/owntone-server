@@ -619,7 +619,8 @@ void scan_music_file(char *path, char *fname,
     memset((void*)&mp3file,0,sizeof(mp3file));
     mp3file.path=strdup(path);
     mp3file.fname=strdup(fname);
-    
+    mp3file.file_size = psb->st_size;
+
     if((fname) && (strlen(fname) > 1) && (fname[strlen(fname)-1] != '.')) {
         type = strrchr(fname, '.') + 1;
         if(type && *type) {
@@ -729,9 +730,6 @@ int scan_freetags(MP3FILE *pmp3) {
  * @param pmp3 struct to stuff with info gleaned
  */
 int scan_get_info(char *file, MP3FILE *pmp3) {
-    FILE *infile;
-    off_t file_size;
-
     TAGHANDLER *hdl;
 
     /* dispatch to appropriate tag handler */
@@ -739,20 +737,6 @@ int scan_get_info(char *file, MP3FILE *pmp3) {
     if(hdl && hdl->scanner)
         return hdl->scanner(file,pmp3);
 
-    /* a file we don't know anything about... ogg or aiff maybe */
-    if(!(infile=fopen(file,"rb"))) {
-        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
-        return FALSE;
-    }
-
-    /* we can at least get this */
-    fseek(infile,0,SEEK_END);
-    file_size=ftell(infile);
-    fseek(infile,0,SEEK_SET);
-
-    pmp3->file_size=file_size;
-
-    fclose(infile);
     return TRUE;
 }
 

@@ -821,12 +821,6 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
     memset((void*)&fi,0x00,sizeof(fi));
 
-    fseek(infile,0,SEEK_END);
-    file_size=ftell(infile);
-    fseek(infile,0,SEEK_SET);
-
-    pmp3->file_size=file_size;
-
     if(fread(buffer,1,sizeof(buffer),infile) != sizeof(buffer)) {
         if(ferror(infile)) {
             DPRINTF(E_LOG,L_SCAN,"Error reading: %s\n",strerror(errno));

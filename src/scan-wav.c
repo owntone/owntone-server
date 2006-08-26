@@ -68,10 +68,6 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
         return FALSE;
     }
 
-    fseek(infile,0,SEEK_END);
-    pmp3->file_size = ftell(infile);
-    fseek(infile,0,SEEK_SET);
-
     rl = fread(hdr, 1, 44, infile);
     fclose(infile);
     if (rl != 44) {
