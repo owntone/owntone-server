@@ -69,7 +69,7 @@ static LL_HANDLE conf_comments=NULL;
 static char *conf_main_file = NULL;
 static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
 
-#define CONF_LINEBUFFER 128
+#define CONF_LINEBUFFER 1024
 
 #define CONF_T_INT          0
 #define CONF_T_STRING       1
