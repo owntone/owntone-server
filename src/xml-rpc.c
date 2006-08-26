@@ -17,6 +17,7 @@
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
 #include <time.h>
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
@@ -136,14 +137,14 @@ void xml_update_config(WS_CONNINFO *pwsc) {
                     badparms_len = (int)strlen(arg) + 1;
                     badparms = (char*)malloc(badparms_len);
                     if(!badparms) {
-                        DPRINTF(E_FATAL,L_MISC,"xml_update_config: malloc\n");
+                        DPRINTF(E_FATAL,L_XML,"xml_update_config: malloc\n");
                     }
                     strcpy(badparms,arg);
                 } else {
                     badparms_len += (int)strlen(arg) + 1;
                     badparms = (char*)realloc(badparms,badparms_len);
                     if(!badparms) {
-                        DPRINTF(E_FATAL,L_MISC,"xml_update_config: malloc\n");
+                        DPRINTF(E_FATAL,L_XML,"xml_update_config: malloc\n");
                     }
                     strcat(badparms,",");
                     strcat(badparms,arg);
@@ -154,7 +155,7 @@ void xml_update_config(WS_CONNINFO *pwsc) {
     }
 
     if(has_error) {
-        DPRINTF(E_INF,L_MISC,"Bad parms; %s\n",badparms);
+        DPRINTF(E_INF,L_XML,"Bad parms; %s\n",badparms);
         xml_return_error(pwsc,500,badparms);
         free(badparms);
         return;
@@ -367,10 +368,12 @@ void xml_handle(WS_CONNINFO *pwsc) {
         return;
     }
 
+#if(0)  /* Turn this off until it's done in the web admin */
     if(strcasecmp(method,"browse_path") == 0) {
         xml_browse_path(pwsc);
         return;
     }
+#endif
 
     if(strcasecmp(method,"rescan") == 0) {
         xml_rescan(pwsc);
@@ -405,11 +408,11 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
     int err;
     int ignore_dotfiles=1;
     int ignore_files=1;
+    struct stat sb;
 
     base_path = ws_getvar(pwsc, "path");
     if(!base_path)
         base_path = PATHSEP_STR;
-
 
     if(ws_getvar(pwsc,"show_dotfiles"))
         ignore_dotfiles = 0;
@@ -443,24 +446,33 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
         if((!strcmp(pde->d_name,".")) || (!strcmp(pde->d_name,"..")))
             continue;
 
-        if((pde->d_type & DT_REG) && (ignore_files))
+
+        snprintf(full_path,PATH_MAX,"%s%c%s",base_path,PATHSEP,pde->d_name);
+        realpath(full_path,resolved_path);
+
+        if(os_stat(resolved_path,&sb)) {
+            DPRINTF(E_WARN,L_XML,"Eror statting %s: %s\n",
+                    resolved_path,strerror(errno));
+            continue;
+        }
+
+        if((sb.st_mode & S_IFREG) && (ignore_files))
             continue;
 
-        if((!(pde->d_type & DT_DIR)) && 
-           (!(pde->d_type & DT_REG)))
+        /* skip symlinks and devices and whatnot */
+        if((!(sb.st_mode & S_IFDIR)) && 
+           (!(sb.st_mode & S_IFREG)))
             continue;
 
         if((ignore_dotfiles) && (pde->d_name) && (pde->d_name[0] == '.'))
             continue;
 
-        snprintf(full_path,PATH_MAX,"%s%c%s",base_path,PATHSEP,pde->d_name);
-        realpath(full_path,resolved_path);
         readable = !access(resolved_path,R_OK);
         writable = !access(resolved_path,W_OK);
 
         if(pde->d_type & DT_DIR) {
             xml_push(pxml,"directory");
-        } else if((pde->d_type & DT_LNK) == DT_LNK) {
+        } else if((sb.st_mode & S_IFLNK) == S_IFLNK) {
             xml_push(pxml,"symlink");
         } else {
             xml_push(pxml,"file");
