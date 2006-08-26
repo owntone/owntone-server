@@ -819,6 +819,8 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
         return FALSE;
     }
 
+    file_size = pmp3->file_size;
+
     memset((void*)&fi,0x00,sizeof(fi));
 
     if(fread(buffer,1,sizeof(buffer),infile) != sizeof(buffer)) {

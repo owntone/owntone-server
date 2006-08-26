@@ -29,7 +29,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-
 #include "mp3-scanner.h"
 #include "restart.h"
 #include "err.h"
@@ -377,7 +376,8 @@ int wma_parse_stream_properties(int fd, int size, MP3FILE *pmp3) {
 int wma_parse_audio_media(int fd, int size, MP3FILE *pmp3) {
     unsigned short int codec;
 
-    if(size < 2)
+
+    if(size < 18)
         return TRUE; /* we'll leave it wma.  will work or not! */
 
     if(!wma_file_read_short(fd,&codec)) {
@@ -400,6 +400,11 @@ int wma_parse_audio_media(int fd, int size, MP3FILE *pmp3) {
         pmp3->codectype = strdup("wmal"); /* lossless */
         break;
     }
+
+    /* might as well get the sample rate while we are at it */
+    lseek(fd,2,SEEK_CUR);
+    if(!wma_file_read_int(fd,(unsigned int *)&pmp3->samplerate))
+        return FALSE;
 
     return TRUE;
 }
