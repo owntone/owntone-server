@@ -716,6 +716,7 @@ int scan_xml_tracks_section(int action, char *info) {
                     /* must add to the red-black tree */
                     scan_xml_add_lookup(current_track_id,pmp3->id);
 
+                    make_composite_tags(pmp3);
                     db_add(NULL,pmp3,NULL);
                     db_dispose_item(pmp3);
                 }
@@ -754,6 +755,7 @@ int scan_xml_tracks_section(int action, char *info) {
                 MAYBECOPY(time_added);
                 MAYBECOPY(disabled);
                     
+                make_composite_tags(pmp3);
                 if(db_add(NULL,pmp3,&added_id) == DB_E_SUCCESS) {
                     scan_xml_add_lookup(current_track_id,added_id);
                     DPRINTF(E_DBG,L_SCAN,"Added %s\n",song_path);
