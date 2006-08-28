@@ -122,7 +122,6 @@ char *os_realpath(const char *pathname, char *resolved_path) {
     char *ptr;
     WCHAR utf16_rel_path[PATH_MAX+1];
     WCHAR utf16_path[PATH_MAX+1];
-    int utf16_len;
 
     /* need to take the utf-8 and convert to utf-16, then _fullpath, then back */
     util_utf8toutf16((unsigned char *)&utf16_rel_path,PATH_MAX * sizeof(WCHAR),(char*)pathname,(int)strlen(pathname));

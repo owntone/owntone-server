@@ -38,6 +38,7 @@
 #define PATH_MAX 512 /* it's clearly not _MAX_PATH... other projects seem to use 512 */
 #define MAX_NAME_LEN _MAX_PATH
 #define EADDRINUSE WSAEADDRINUSE
+#define S_IFLNK 0x1
 
 #define HOST "unknown-windows-ick"
 #define SERVICENAME "Firefly Media Server"
@@ -55,6 +56,7 @@ typedef UINT16      uint16_t;
 typedef INT16       int16_t;
 typedef UINT32      uint32_t;
 typedef INT32       int32_t;
+
 
 /* Funtion fixups */
 #define snprintf _snprintf

@@ -470,7 +470,7 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
         readable = !access(resolved_path,R_OK);
         writable = !access(resolved_path,W_OK);
 
-        if(pde->d_type & DT_DIR) {
+        if(sb.st_mode & S_IFDIR) {
             xml_push(pxml,"directory");
         } else if((sb.st_mode & S_IFLNK) == S_IFLNK) {
             xml_push(pxml,"symlink");
