@@ -19,6 +19,20 @@
 
 #include "ff-plugins.h"
 
+#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
+# define _PACKED __attribute((packed))
+#else
+# define _PACKED
+#endif
+
+typedef struct tag_scan_id3header {
+    unsigned char id[3];
+    unsigned char version[2];
+    unsigned char flags;
+    unsigned char size[4];
+} _PACKED SCAN_ID3HEADER;
+#pragma pack()
+
 #ifndef TRUE
 # define TRUE 1
 # define FALSE 0
@@ -158,6 +172,8 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
     WCHAR utf16_path[_MAX_PATH+1];
     WCHAR utf16_mode[3];
 #endif
+    SCAN_ID3HEADER id3;
+    unsigned int size = 0;
 
     if(!handle)
         return FALSE;
@@ -201,6 +217,30 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
             _ppi->log(E_DBG,"could not open file\n");
             handle->errnum = SSC_FFMPEG_E_FILEOPEN;
             return FALSE;
+        }
+
+        /* check to see if there is an id3 tag there... if so, skip it. */
+        if(fread((unsigned char *)&id3,1,sizeof(id3),handle->fin) != sizeof(id3)) {
+            if(ferror(handle->fin)) {
+                _ppi->log(E_LOG,"Error reading file: %s\n",file);
+            } else {
+                _ppi->log(E_LOG,"Short file: %s\n",file);
+            }
+            handle->errnum = SSC_FFMPEG_E_FILEOPEN;
+            fclose(handle->fin);
+            return FALSE;
+
+        }
+
+        if(strncmp(id3.id,"ID3",3)==0) {
+            /* found an ID3 header... */
+            _ppi->log(E_DBG,"Found ID3 header\n");
+            size = (id3.size[0] << 21 | id3.size[1] << 14 |
+                    id3.size[2] << 7 | id3.size[3]);
+            fseek(handle->fin,size + sizeof(SCAN_ID3HEADER),SEEK_SET);
+            _ppi->log(E_DBG,"Header length: %d\n",size);
+        } else {
+            fseek(handle->fin,0,SEEK_SET);
         }
 
         return TRUE;
