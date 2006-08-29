@@ -251,6 +251,13 @@ typedef struct tag_wma_stream_properties {
     unsigned short int flags;
     unsigned int reserved;
 } _PACKED WMA_STREAM_PROP;
+
+typedef struct tag_wma_header_extension {
+    unsigned char reserved_1[16];
+    unsigned short int reserved_2;
+    unsigned int data_size;
+} _PACKED WMA_HEADER_EXT;
+
 #pragma pack()
 
 /*
@@ -262,10 +269,11 @@ unsigned int wma_convert_int(unsigned char *src);
 unsigned long long wma_convert_ll(unsigned char *src);
 char *wma_utf16toutf8(unsigned char *utf16, int len);
 int wma_parse_content_description(int fd,int size, MP3FILE *pmp3);
-int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3);
+int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3, int extended);
 int wma_parse_file_properteis(int fd,int size, MP3FILE *pmp3);
 int wma_parse_audio_media(int fd, int size, MP3FILE *pmp3);
 int wma_parse_stream_properties(int fd, int size, MP3FILE *pmp3);
+int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3);
 
 /**
  * read an unsigned short int from the fd
@@ -331,6 +339,54 @@ int wma_file_read_bytes(int fd,int len, unsigned char **data) {
 
     if(r_read(fd,*data,len) != len)
         return 0;
+
+    return 1;
+}
+
+int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3) {
+    WMA_HEADER_EXT he;
+    WMA_SUBHEADER sh;
+    WMA_GUID *pguid;
+    long bytes_left;
+
+    if(r_read(fd,&he,sizeof(he)) != sizeof(he))
+        return FALSE;
+
+    bytes_left = he.data_size;
+    DPRINTF(E_DBG,L_SCAN,"Found header ext of %ld (%ld) bytes\n",he.data_size,size);
+
+    while(bytes_left) {
+        /* read in a subheader */
+        if(r_read(fd,&sh,sizeof(sh)) != sizeof(sh))
+            return FALSE;
+
+        pguid = wma_find_guid(sh.objectid);
+        if(!pguid) {
+            DPRINTF(E_DBG,L_SCAN,"  Unknown ext subheader: %02hhx%02hhx"
+                    "%02hhx%02hhx-"
+                    "%02hhx%02hhx-%02hhx%02hhx-%02hhx%02hhx-"
+                    "%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx\n",
+                    sh.objectid[3],sh.objectid[2],
+                    sh.objectid[1],sh.objectid[0],
+                    sh.objectid[5],sh.objectid[4],
+                    sh.objectid[7],sh.objectid[6],
+                    sh.objectid[8],sh.objectid[9],
+                    sh.objectid[10],sh.objectid[11],
+                    sh.objectid[12],sh.objectid[13],
+                    sh.objectid[14],sh.objectid[15]);
+        } else {
+            DPRINTF(E_DBG,L_SCAN,"  Found ext subheader: %s\n", pguid->name);
+            if(strcmp(pguid->name,"ASF_Metadata_Library_Object")==0) {
+                if(!wma_parse_extended_content_description(fd,size,pmp3,1))
+                    return FALSE;
+            }
+        }
+
+        DPRINTF(E_DBG,L_SCAN,"  Size: %ld\n",sh.size);
+
+        bytes_left -= sh.size;
+        lseek(fd,sh.size - sizeof(sh),SEEK_CUR);
+    }
 
     return 1;
 }
@@ -417,13 +473,16 @@ int wma_parse_audio_media(int fd, int size, MP3FILE *pmp3) {
  * @param size size of the content description block
  * @param pmp3 the mp3 struct we are filling with gleaned data
  */
-int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
+int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3, int extended) {
     unsigned short descriptor_count;
     int index;
     unsigned short descriptor_name_len;
     char *descriptor_name;
     unsigned short descriptor_value_type;
+    unsigned int descriptor_value_int;
     unsigned short descriptor_value_len;
+    unsigned short language_list_index;
+    unsigned short stream_number;
 
     char *descriptor_byte_value=NULL;
     unsigned int descriptor_int_value; /* bool and dword */
@@ -444,15 +503,27 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
 
     for(index = 0; index < descriptor_count; index++) {
         DPRINTF(E_DBG,L_SCAN,"Reading descr %d of %d\n",index,descriptor_count);
-        if(!wma_file_read_short(fd,&descriptor_name_len)) return -1;
-        if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name)) return -1;
-        if(!wma_file_read_short(fd,&descriptor_value_type)) { 
-            free(descriptor_name);
-            return FALSE;
-        }
-        if(!wma_file_read_short(fd,&descriptor_value_len)) {
-            free(descriptor_name);
-            return FALSE;
+        if(!extended) {
+            if(!wma_file_read_short(fd,&descriptor_name_len)) return FALSE;
+            if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name)) 
+                return FALSE;
+            if(!wma_file_read_short(fd,&descriptor_value_type)) { 
+                free(descriptor_name);
+                return FALSE;
+            }
+            if(!wma_file_read_short(fd,&descriptor_value_len)) {
+                free(descriptor_name);
+                return FALSE;
+            }
+            descriptor_value_int = descriptor_value_len;
+        } else {
+            if(!wma_file_read_short(fd,&language_list_index)) return FALSE;
+            if(!wma_file_read_short(fd,&stream_number)) return FALSE;
+            if(!wma_file_read_short(fd,&descriptor_name_len)) return FALSE;
+            if(!wma_file_read_short(fd,&descriptor_value_type)) return FALSE;
+            if(!wma_file_read_int(fd,&descriptor_value_int)) return FALSE;
+            if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name)) 
+                return FALSE;
         }
 
         DPRINTF(E_DBG,L_SCAN,"Found descriptor: %s\n", descriptor_name);
@@ -460,7 +531,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
         /* see what kind it is */
         switch(descriptor_value_type) {
         case 0x0000: /* string */
-            if(!wma_file_read_utf16(fd,descriptor_value_len,
+            if(!wma_file_read_utf16(fd,descriptor_value_int,
                                     &descriptor_byte_value)) {
                 fail=1;
             }
@@ -468,11 +539,11 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
             DPRINTF(E_DBG,L_SCAN,"Type: string, value: %s\n",descriptor_byte_value);
             break;
         case 0x0001: /* byte array */
-            if(descriptor_value_len > 4096) {
-                lseek(fd,descriptor_value_len,SEEK_CUR);
+            if(descriptor_value_int > 4096) {
+                lseek(fd,descriptor_value_int,SEEK_CUR);
                 descriptor_byte_value = NULL;
             } else {
-                if(!wma_file_read_bytes(fd,descriptor_value_len,
+                if(!wma_file_read_bytes(fd,descriptor_value_int,
                                         (unsigned char **)&descriptor_byte_value)){
                     fail=1;
                 }
@@ -498,8 +569,20 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3) {
             snprintf(numbuff,sizeof(numbuff)-1,"%d",descriptor_short_value);
             descriptor_byte_value = strdup(numbuff);
             break;
-
+        case 0x0006: /* guid */
+            lseek(fd,16,SEEK_CUR); /* skip it */
+            if(descriptor_name)
+                free(descriptor_name);
+            descriptor_name = strdup("");
+            descriptor_byte_value = NULL;
             break;
+        default:
+            DPRINTF(E_LOG,L_SCAN,"Badly formatted wma file\n");
+            if(descriptor_name)
+                free(descriptor_name);
+            if(descriptor_byte_value)
+                free(descriptor_byte_value);
+            return FALSE;
         }
 
         if(fail) {
@@ -925,17 +1008,20 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
         pguid = wma_find_guid(subhdr.objectid);
         if(pguid) {
-            DPRINTF(E_DBG,L_SCAN,"Found subheader: %s\n",pguid->name);
+            DPRINTF(E_DBG,L_SCAN,"0x%08X: Found subheader: %s\n",
+                    offset,pguid->name);
             if(strcmp(pguid->name,"ASF_Content_Description_Object")==0) {
                 res &= wma_parse_content_description(wma_fd,(int)subhdr.size,pmp3);
             } else if (strcmp(pguid->name,"ASF_Extended_Content_Description_Object")==0) {
-                res &= wma_parse_extended_content_description(wma_fd,(int)subhdr.size,pmp3);
+                res &= wma_parse_extended_content_description(wma_fd,(int)subhdr.size,pmp3,0);
             } else if (strcmp(pguid->name,"ASF_File_Properties_Object")==0) {
                 res &= wma_parse_file_properties(wma_fd,(int)subhdr.size,pmp3);
             } else if (strcmp(pguid->name,"ASF_Audio_Media")==0) {
                 res &= wma_parse_audio_media(wma_fd,(int)subhdr.size,pmp3);
             } else if (strcmp(pguid->name,"ASF_Stream_Properties_Object")==0) {
                 res &= wma_parse_stream_properties(wma_fd,(int)subhdr.size,pmp3);
+            } else if(strcmp(pguid->name,"ASF_Header_Extension_Object")==0) {
+                res &= wma_parse_header_extension(wma_fd,(int)subhdr.size,pmp3);
             }
         } else {
             DPRINTF(E_DBG,L_SCAN,"Unknown subheader: %02hhx%02hhx%02hhx%02hhx-"
