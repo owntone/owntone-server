@@ -451,7 +451,7 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
         realpath(full_path,resolved_path);
 
         if(os_stat(resolved_path,&sb)) {
-            DPRINTF(E_WARN,L_XML,"Eror statting %s: %s\n",
+            DPRINTF(E_INF,L_XML,"Error statting %s: %s\n",
                     resolved_path,strerror(errno));
             continue;
         }
