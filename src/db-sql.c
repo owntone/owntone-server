@@ -1915,6 +1915,7 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
     MP3FILE *pmp3=NULL;
     int err;
     char *query;
+    char *proper_path;
 
     /* if we are doing a full reload, then it can't be in here.
      * besides, we don't have an index anyway, so we don't want to
@@ -1924,13 +1925,12 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
         return NULL;
     
     /* not very portable, but works for sqlite */
-    if(conf_get_int("scanning","case_sensitive",1)) {
-        query="select * from songs where path='%q' and idx=%d";
-    } else {
-        query="select * from songs where path=upper('%q') and idx=%d";
-    }
+    proper_path = _db_proper_path(path);
+    query="select * from songs where path='%q' and idx=%d";
 
-    err=db_sql_fetch_row(pe,&row,query,path,index);
+    err=db_sql_fetch_row(pe,&row,query,proper_path,index);
+    free(proper_path);
+
     if(err != DB_E_SUCCESS) {
         if(err == DB_E_NOROWS) { /* Override generic error */
             if(pe) { free(*pe); };
