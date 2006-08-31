@@ -348,6 +348,7 @@ int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3) {
     WMA_SUBHEADER sh;
     WMA_GUID *pguid;
     long bytes_left;
+    off_t current;
 
     if(r_read(fd,&he,sizeof(he)) != sizeof(he))
         return FALSE;
@@ -357,6 +358,8 @@ int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3) {
 
     while(bytes_left) {
         /* read in a subheader */
+        current = lseek(fd,0,SEEK_CUR);
+
         if(r_read(fd,&sh,sizeof(sh)) != sizeof(sh))
             return FALSE;
 
@@ -383,12 +386,14 @@ int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3) {
         }
 
         DPRINTF(E_DBG,L_SCAN,"  Size: %ld\n",sh.size);
+        if(sh.size <= sizeof(sh))
+            return TRUE; /* guess we're done! */
 
         bytes_left -= sh.size;
-        lseek(fd,sh.size - sizeof(sh),SEEK_CUR);
+        lseek(fd,current + sh.size,SEEK_SET);
     }
 
-    return 1;
+    return TRUE;
 }
 
 
