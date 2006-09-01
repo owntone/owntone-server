@@ -148,6 +148,7 @@ int main(int argc, char *argv[]) {
     char *ext;
     char *configfile = "mt-daapd.conf";
     int debuglevel=1;
+    FILE *fin;
 
     memset((void*)&mp3,0x00,sizeof(MP3FILE));
 
@@ -189,6 +190,16 @@ int main(int argc, char *argv[]) {
     err_setdest(LOGDEST_STDERR);
     err_setlevel(debuglevel);
     printf("Getting info for %s\n",argv[0]);
+
+    fin=fopen(argv[0],"r");
+    if(!fin) {
+        perror("fopen");
+        exit(EXIT_FAILURE);
+    }
+
+    fseek(fin,0,SEEK_END);
+    mp3.file_size = ftell(fin);
+    fclose(fin);
 
     ext = strrchr(argv[0],'.')+1;
     plist=scanner_list;

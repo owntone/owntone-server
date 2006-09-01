@@ -964,6 +964,14 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
         fi.bitrate = 0;
     }
 
+
+    DPRINTF(E_DBG,L_SCAN,"Scan Type: %d, no of frames: %d, song_length: %d, "
+            "file size: %d\n",
+            conf_get_int("general","scan_type",0),
+            fi.number_of_frames,
+            pmp3->song_length,
+            pmp3->file_size);
+
     if((conf_get_int("general","scan_type",0) != 0) &&
        (fi.number_of_frames == 0) &&
        (!pmp3->song_length)) {
@@ -977,9 +985,9 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
             /* get full frame count */
             scan_mp3_get_frame_count(infile, &fi);
         }
+        pmp3->bitrate=fi.bitrate;
     }
 
-    pmp3->bitrate=fi.bitrate;
     pmp3->samplerate=fi.samplerate;
 
     /* guesstimate the file length */
@@ -994,13 +1002,14 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
             pmp3->song_length = (int) ((double)(fi.number_of_frames*fi.samples_per_frame*1000.)/
                                        (double) fi.samplerate);
         }
-
-        /* back-calculate bitrate from duration */
-        if(pmp3->song_length) { /* could still be unknown */
-            pmp3->bitrate = (file_size / pmp3->song_length) * 8;
-        }
-
     }
+
+    /* back-calculate bitrate from duration */
+    if((pmp3->song_length)  && (!pmp3->bitrate)) { /* could still be unknown */
+        pmp3->bitrate = (file_size / pmp3->song_length) * 8;
+    }
+
+
     DPRINTF(E_DBG,L_SCAN," Song Length: %d\n",pmp3->song_length);
 
     fclose(infile);
