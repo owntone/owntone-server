@@ -14,10 +14,12 @@ img {
   border: 0px;
 }
 
-/*div.ministatus
-{ text-align: center;
-  margin: 1em 0em 1em 0em;
-}*/
+/*
+div.ministatus
+{ text-align: right;
+  padding: 1em;
+}
+*/
 
 a
 { color: blue;
