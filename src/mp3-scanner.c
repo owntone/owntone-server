@@ -792,13 +792,18 @@ void make_composite_tags(MP3FILE *song) {
         }
     }
 
+    /* verify we have tags for the big 4 */
+    if(conf_get_int("daap","empty_strings",0)) {
+        if(!song->artist) song->artist = strdup("Unknown");
+        if(!song->album) song->album = strdup("Unknown");
+        if(!song->genre) song->genre = strdup("Unknown");
+    }
+    if(!song->title) song->title = strdup(song->fname);
+
     if(song->url)
         song->data_kind=1;
     else
         song->data_kind=0;
-
-    if(!song->title)
-        song->title = strdup(song->fname);
 
     song->item_kind = 2; /* music, I think. */
 }
