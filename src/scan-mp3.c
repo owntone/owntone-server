@@ -211,7 +211,7 @@ char *scan_winamp_genre[] = {
     "Samba",
     "Folklore",           // 115
     "Ballad",
-    "Powder Ballad",
+    "Power Ballad",
     "Rhythmic Soul",
     "Freestyle",
     "Duet",               // 120

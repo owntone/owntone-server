@@ -131,7 +131,7 @@ static int scan_static_playlist(char *path);
 static TAGHANDLER taghandlers[] = {
     { "aac", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
     { "mp4", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
-    { "m4b", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
+    { "m4b", scan_get_aacinfo, "m4a", "mp4a", "Protected AAC audio file" },
     { "m4a", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
     { "m4p", scan_get_aacinfo, "m4p", "mp4a", "AAC audio file" },
     { "mp3", scan_get_mp3info, "mp3", "mpeg", "MPEG audio file" },
