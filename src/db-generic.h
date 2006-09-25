@@ -27,72 +27,6 @@
 #include "webserver.h" /** for WS_CONNINFO */
 
 typedef enum {
-    // generic meta data
-    metaItemId,
-    metaItemName,
-    metaItemKind,
-    metaPersistentId,
-    metaContainerItemId,
-    metaParentContainerId,
-
-    firstTypeSpecificMetaId,
-
-    // song meta data
-    metaSongAlbum = firstTypeSpecificMetaId,
-    metaSongArtist,
-    metaSongBPM,
-    metaSongBitRate,
-    metaSongComment,
-    metaSongCompilation,
-    metaSongComposer,
-    metaSongDataKind,
-    metaSongDataURL,
-    metaSongDateAdded,
-    metaSongDateModified,
-    metaSongDescription,
-    metaSongDisabled,
-    metaSongDiscCount,
-    metaSongDiscNumber,
-    metaSongEqPreset,
-    metaSongFormat,
-    metaSongGenre,
-    metaSongGrouping,
-    metaSongRelativeVolume,
-    metaSongSampleRate,
-    metaSongSize,
-    metaSongStartTime,
-    metaSongStopTime,
-    metaSongTime,
-    metaSongTrackCount,
-    metaSongTrackNumber,
-    metaSongUserRating,
-    metaSongYear,
-
-    /* iTunes 4.5 + */
-    metaSongCodecType,
-    metaSongCodecSubType,
-    metaItunesNormVolume,
-    metaItmsSongId,
-    metaItmsArtistId,
-    metaItmsPlaylistId,
-    metaItmsComposerId,
-    metaItmsGenreId,
-    metaItmsStorefrontId,
-    metaItunesSmartPlaylist,
-
-    /* iTunes 5.0 + */
-    metaSongContentRating,
-    metaHasChildContainers,
-
-    /* iTunes 6.0.2+ */
-    metaItunesHasVideo,
-
-    /* mt-daapd specific */
-    metaMPlaylistSpec,
-    metaMPlaylistType
-} MetaFieldName_t;
-
-typedef enum {
     queryTypeItems,
     queryTypePlaylists,
     queryTypePlaylistItems,
@@ -114,12 +48,9 @@ typedef enum {
     countPlaylists
 } CountType_t;
 
-typedef unsigned long long MetaField_t;
-
 typedef struct tag_dbqueryinfo {
     QueryType_t query_type;
     IndexType_t index_type;
-    MetaField_t meta;
     int zero_length; /* emit zero-length strings? */
     int index_low;
     int index_high;
@@ -136,19 +67,6 @@ typedef struct tag_dbqueryinfo {
     WS_CONNINFO *pwsc;
 } DBQUERYINFO;
 
-typedef struct {
-    const char* tag;
-    MetaFieldName_t bit;
-} METAMAP;
-
-typedef struct tag_daap_items {
-    int type;
-    char *tag;
-    char *description;
-} DAAP_ITEMS;
-
-extern DAAP_ITEMS taglist[];
-
 extern int db_open(char **pe, char *type, char *parameters);
 extern int db_init(int *reload);
 extern int db_deinit(void);
@@ -158,8 +76,6 @@ extern int db_revision(void);
 extern int db_add(char **pe, MP3FILE *pmp3, int *id);
 
 extern int db_enum_start(char **pe, DBQUERYINFO *pinfo);
-extern int db_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size);
-extern int db_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size, unsigned char **pdmap);
 extern int db_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo);
 extern int db_enum_reset(char **pe, DBQUERYINFO *pinfo);
 extern int db_enum_end(char **pe);
@@ -181,17 +97,6 @@ extern MP3FILE *db_fetch_item(char **pe, int id);
 extern MP3FILE *db_fetch_path(char **pe, char *path, int index);
 extern M3UFILE *db_fetch_playlist(char **pe, char *path, int index);
 
-/* metatag parsing */
-extern MetaField_t db_encode_meta(char *meta);
-extern int db_wantsmeta(MetaField_t meta, MetaFieldName_t fieldNo);
-
-/* dmap helper functions */
-extern int db_dmap_add_char(unsigned char *where, char *tag, char value);
-extern int db_dmap_add_short(unsigned char *where, char *tag, short value);
-extern int db_dmap_add_int(unsigned char *where, char *tag, int value);
-extern int db_dmap_add_string(unsigned char *where, char *tag, char *value);
-extern int db_dmap_add_literal(unsigned char *where, char *tag, char *value, int size);
-extern int db_dmap_add_container(unsigned char *where, char *tag, int size);
 
 /* Holdover functions from old db interface...
  * should these be removed?  Refactored?

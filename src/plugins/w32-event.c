@@ -19,7 +19,6 @@ PLUGIN_INFO _pi = {
     PLUGIN_VERSION,        /* version */
     PLUGIN_EVENT,          /* type */
     "w32-event/" VERSION,  /* server */
-    NULL,                  /* url */
     NULL,                  /* output fns */
     &_pefn,                /* event fns */
     NULL,                  /* transocde fns */

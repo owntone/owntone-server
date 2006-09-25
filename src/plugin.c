@@ -26,8 +26,8 @@
 #define _XOPEN_SOURCE 500  /** unix98?  pthread_once_t, etc */
 
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
-#include <regex.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <stdio.h>
@@ -37,12 +37,14 @@
 #include <sys/types.h>
 
 #include "conf.h"
+#include "configfile.h"
 #include "db-generic.h"
-#include "dispatch.h"
+#include "dynamic-art.h"
 #include "err.h"
 #include "os.h"
 #include "plugin.h"
 #include "rend.h"
+#include "restart.h"
 #include "smart-parser.h"
 #include "xml-rpc.h"
 #include "webserver.h"
@@ -50,7 +52,6 @@
 
 typedef struct tag_pluginentry {
     void *phandle;
-    regex_t regex;
     PLUGIN_INFO *pinfo;
     struct tag_pluginentry *next;
 } PLUGIN_ENTRY;
@@ -76,7 +77,7 @@ void _plugin_recalc_codecs(void);
 
 /* webserver helpers */
 char *pi_ws_uri(WS_CONNINFO *pwsc);
-void pi_ws_close(WS_CONNINFO *pwsc);
+void pi_ws_will_close(WS_CONNINFO *pwsc);
 int pi_ws_fd(WS_CONNINFO *pwsc);
 
 /* misc helpers */
@@ -89,14 +90,15 @@ int pi_db_count(void);
 int pi_db_enum_start(char **pe, DB_QUERY *pinfo);
 int pi_db_enum_fetch_row(char **pe, char ***row, DB_QUERY *pinfo);
 int pi_db_enum_end(char **pe);
+int pi_db_enum_restart(char **pe, DB_QUERY *pinfo);
 void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo);
 void pi_stream(WS_CONNINFO *pwsc, char *id);
-
+int pi_db_count_items(int what);
 void pi_conf_dispose_string(char *str);
 
 PLUGIN_INPUT_FN pi = {
     pi_ws_uri,
-    pi_ws_close,
+    pi_ws_will_close,
     ws_returnerror,
     ws_getvar,
     ws_writefd,
@@ -115,11 +117,23 @@ PLUGIN_INPUT_FN pi = {
     pi_db_enum_start,
     pi_db_enum_fetch_row,
     pi_db_enum_end,
+    pi_db_enum_restart,
     pi_db_enum_dispose,
     pi_stream,
 
+    db_add_playlist,
+    db_add_playlist_item,
+    db_edit_playlist,
+    db_delete_playlist,
+    db_delete_playlist_item,
+    db_revision,
+    pi_db_count_items,
+
     conf_alloc_string,
-    pi_conf_dispose_string
+    pi_conf_dispose_string,
+    conf_get_int,
+
+    config_set_status
 };
 
 
@@ -262,13 +276,6 @@ int plugin_load(char **pe, char *path) {
         return PLUGIN_E_NOLOAD;
     }
 
-    if(pinfo->type & PLUGIN_OUTPUT) {
-        /* build the regex */
-        if(regcomp(&ppi->regex,pinfo->url,REG_EXTENDED | REG_NOSUB)) {
-            DPRINTF(E_LOG,L_PLUG,"Bad regex in %s: %s\n",path,pinfo->url);
-        }
-    }
-
     DPRINTF(E_INF,L_PLUG,"Loaded plugin %s (%s)\n",path,pinfo->server);
 
     if(!_plugin_initialized) {
@@ -291,22 +298,19 @@ int plugin_load(char **pe, char *path) {
  */
 int plugin_url_candispatch(WS_CONNINFO *pwsc) {
     PLUGIN_ENTRY *ppi;
-    
-    DPRINTF(E_DBG,L_PLUG,"Entering candispatch\n");
 
     ppi = _plugin_list.next;
     while(ppi) {
         if(ppi->pinfo->type & PLUGIN_OUTPUT) {
-            if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
-                /* we have a winner */
+            if((ppi->pinfo->output_fns)->can_handle(pwsc)) {
                 return TRUE;
             }
         }
         ppi = ppi->next;
     }
+
     return FALSE;
 }
-
 
 /**
  * actually DISPATCH the hander we said we wanted
@@ -321,7 +325,7 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
     ppi = _plugin_list.next;
     while(ppi) {
         if(ppi->pinfo->type & PLUGIN_OUTPUT) {
-            if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
+            if((ppi->pinfo->output_fns)->can_handle(pwsc)) {
                 /* we have a winner */
                 DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", pwsc->uri,
                         ppi->pinfo->server);
@@ -387,7 +391,7 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
     ppi = _plugin_list.next;
     while(ppi) {
         if(ppi->pinfo->type & PLUGIN_OUTPUT) {
-            if(!regexec(&ppi->regex,pwsc->uri,0,NULL,0)) {
+            if((ppi->pinfo->output_fns)->can_handle(pwsc)) {
                 /* we have a winner */
                 DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", pwsc->uri,
                         ppi->pinfo->server);
@@ -602,7 +606,7 @@ char *pi_ws_uri(WS_CONNINFO *pwsc) {
     return pwsc->uri;
 }
 
-void pi_ws_close(WS_CONNINFO *pwsc) {
+void pi_ws_will_close(WS_CONNINFO *pwsc) {
     pwsc->close=1;
 }
 
@@ -726,9 +730,28 @@ int pi_db_enum_end(char **pe) {
     return db_enum_end(pe);
 }
 
-void pi_stream(WS_CONNINFO *pwsc, char *id) {
-    dispatch_stream_id(pwsc, 0, id);
-    return;
+/* FIXME: error checking */
+int pi_db_count_items(int what) {
+    int count=0;
+
+    switch(what) {
+    case COUNT_SONGS:
+        db_get_song_count(NULL,&count);
+        break;
+    case COUNT_PLAYLISTS:
+        db_get_playlist_count(NULL,&count);
+        break;
+    }
+
+    return count;
+}
+
+
+int pi_db_enum_restart(char **pe, DB_QUERY *pinfo) {
+    DBQUERYINFO *pqi;
+
+    pqi = (DBQUERYINFO*)pinfo->priv;
+    return db_enum_reset(pe,pqi);
 }
 
 void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo) {
@@ -744,6 +767,161 @@ void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo) {
             pqi->pt = NULL;
         }
     }
+}
+
+void pi_stream(WS_CONNINFO *pwsc, char *id) {
+    int session = 0;
+    MP3FILE *pmp3;
+    int file_fd;
+    int bytes_copied;
+    off_t real_len;
+    off_t file_len;
+    off_t offset=0;
+    long img_size;
+    struct stat sb;
+    int img_fd;
+    int item;
+
+    /* stream out the song */
+    pwsc->close=1;
+
+    item = atoi(id);
+
+    if(ws_getrequestheader(pwsc,"range")) {
+        offset=(off_t)atol(ws_getrequestheader(pwsc,"range") + 6);
+    }
+
+    /* FIXME: error handling */
+    pmp3=db_fetch_item(NULL,item);
+    if(!pmp3) {
+        DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
+        config_set_status(pwsc,session,NULL);
+        ws_returnerror(pwsc,404,"File Not Found");
+    } else if (plugin_ssc_should_transcode(pwsc,pmp3->codectype)) {
+        /************************
+         * Server side conversion
+         ************************/
+        config_set_status(pwsc,session,
+                          "Transcoding '%s' (id %d)",
+                          pmp3->title,pmp3->id);
+
+        DPRINTF(E_WARN,L_WS,
+                "Session %d: Streaming file '%s' to %s (offset %ld)\n",
+                session,pmp3->fname, pwsc->hostname,(long)offset);
+
+        bytes_copied =  plugin_ssc_transcode(pwsc,pmp3->path,pmp3->codectype,
+                                             pmp3->song_length,offset,1);
+
+        config_set_status(pwsc,session,NULL);
+        db_dispose_item(pmp3);
+    } else {
+        /**********************
+         * stream file normally
+         **********************/
+        if(pmp3->data_kind != 0) {
+            ws_returnerror(pwsc,500,"Can't stream radio station");
+            return;
+        }
+        file_fd=r_open2(pmp3->path,O_RDONLY);
+        if(file_fd == -1) {
+            pwsc->error=errno;
+            DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: %s\n",
+                    pwsc->threadno,pmp3->path,strerror(errno));
+            ws_returnerror(pwsc,404,"Not found");
+            config_set_status(pwsc,session,NULL);
+            db_dispose_item(pmp3);
+        } else {
+            real_len=lseek(file_fd,0,SEEK_END);
+            lseek(file_fd,0,SEEK_SET);
+
+            /* Re-adjust content length for cover art */
+            if((conf_isset("general","art_filename")) &&
+               ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
+                fstat(img_fd, &sb);
+                img_size = sb.st_size;
+                r_close(img_fd);
+
+                if (strncasecmp(pmp3->type,"mp3",4) ==0) {
+                    /*PENDING*/
+                } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
+                    real_len += img_size + 24;
+
+                    if (offset > img_size + 24) {
+                        offset -= img_size + 24;
+                    }
+                }
+            }
+
+            file_len = real_len - offset;
+
+            DPRINTF(E_DBG,L_WS,"Thread %d: Length of file (remaining) is %ld\n",
+                    pwsc->threadno,(long)file_len);
+
+            // DWB:  fix content-type to correctly reflect data
+            // content type (dmap tagged) should only be used on
+            // dmap protocol requests, not the actually song data
+            if(pmp3->type)
+                ws_addresponseheader(pwsc,"Content-Type","audio/%s",pmp3->type);
+
+            ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
+            ws_addresponseheader(pwsc,"Connection","Close");
+
+
+            if(!offset)
+                ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+            else {
+                ws_addresponseheader(pwsc,"Content-Range","bytes %ld-%ld/%ld",
+                                     (long)offset,(long)real_len,
+                                     (long)real_len+1);
+                ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
+            }
+
+            ws_emitheaders(pwsc);
+
+            config_set_status(pwsc,session,"Streaming '%s' (id %d)",
+                              pmp3->title, pmp3->id);
+            DPRINTF(E_WARN,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
+                    session,pmp3->fname, pwsc->hostname,(long)offset);
+
+            if(!offset)
+                config.stats.songs_served++; /* FIXME: remove stat races */
+
+            if((conf_isset("general","art_filename")) &&
+               (!offset) &&
+               ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
+                if (strncasecmp(pmp3->type,"mp3",4) ==0) {
+                    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n",
+                            pmp3->fname, img_fd);
+                    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
+                } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
+                    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n",
+                            pmp3->fname, img_fd);
+                    da_aac_attach_image(img_fd, pwsc->fd, file_fd, offset);
+                }
+            } else if(offset) {
+                DPRINTF(E_INF,L_WS,"Seeking to offset %ld\n",(long)offset);
+                lseek(file_fd,offset,SEEK_SET);
+            }
+
+            if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
+                DPRINTF(E_INF,L_WS,"Error copying file to remote... %s\n",
+                        strerror(errno));
+            } else {
+                DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
+                        bytes_copied);
+                /* update play counts */
+                if(bytes_copied + 20 >= real_len) {
+                    db_playcount_increment(NULL,pmp3->id);
+                }
+            }
+
+            config_set_status(pwsc,session,NULL);
+            r_close(file_fd);
+            db_dispose_item(pmp3);
+        }
+    }
+
+    //    free(pqi);
 }
 
 void pi_conf_dispose_string(char *str) {

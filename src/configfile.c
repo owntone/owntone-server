@@ -914,21 +914,6 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
 }
 
 /**
- * Get the next available session id.
- * This is vulnerable to races, but we don't track sessions,
- * so there really isn't a point anyway.
- *
- * @returns duh... the next available session id
- */
-int config_get_next_session(void) {
-    int session;
-
-    session=++config_session;
-
-    return session;
-}
-
-/**
  * implement the VERSION command
  *
  * \param pwsc web connection

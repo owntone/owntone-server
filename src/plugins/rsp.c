@@ -24,6 +24,7 @@ typedef struct tag_rsp_privinfo {
 /* Forwards */
 PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *);
 void plugin_handler(WS_CONNINFO *pwsc);
+int plugin_can_handle(WS_CONNINFO *pwsc);
 int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password);
 void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi);
 void rsp_db(WS_CONNINFO *pwsc, PRIVINFO *ppi);
@@ -33,19 +34,17 @@ void rsp_stream(WS_CONNINFO *pwsc, PRIVINFO *ppi);
 void rsp_error(WS_CONNINFO *pwsc, PRIVINFO *ppi, int eno, char *estr);
 
 /* Globals */
-PLUGIN_OUTPUT_FN _pofn = { plugin_handler, plugin_auth };
+PLUGIN_OUTPUT_FN _pofn = { plugin_can_handle, plugin_handler, plugin_auth };
 PLUGIN_REND_INFO _pri[] = {
     { "_rsp._tcp", NULL },
     { NULL, NULL }
 };
 
 PLUGIN_INPUT_FN *_ppi;
-
 PLUGIN_INFO _pi = { 
     PLUGIN_VERSION,      /* version */
     PLUGIN_OUTPUT,       /* type */
     "rsp/" VERSION,      /* server */
-    "/rsp/.*",           /* url */
     &_pofn,              /* output fns */
     NULL,                /* event fns */
     NULL,                /* transcode fns */
@@ -100,46 +99,46 @@ FIELDSPEC rsp_playlist_fields[] = {
 
 FIELDSPEC rsp_fields[] = {
     { "id"           , 15, T_INT    },
-    { "path"         , 8, T_STRING },
-    { "fname"        , 8, T_STRING },
+    { "path"         , 8, T_STRING  },
+    { "fname"        , 8, T_STRING  },
     { "title"        , 15, T_STRING },
     { "artist"       , 11, T_STRING },
     { "album"        , 11, T_STRING },
-    { "genre"        , 9, T_STRING },
-    { "comment"      , 9, T_STRING },
+    { "genre"        , 9, T_STRING  },
+    { "comment"      , 9, T_STRING  },
     { "type"         , 15, T_STRING },
-    { "composer"     , 9, T_STRING },
-    { "orchestra"    , 9, T_STRING },
-    { "conductor"    , 9, T_STRING },
-    { "grouping"     , 0, T_STRING },
-    { "url"          , 9, T_STRING },
-    { "bitrate"      , 9, T_INT    },
-    { "samplerate"   , 9, T_INT    },
-    { "song_length"  , 9, T_INT    },
-    { "file_size"    , 9, T_INT    },
-    { "year"         , 9, T_INT    },
+    { "composer"     , 9, T_STRING  },
+    { "orchestra"    , 9, T_STRING  },
+    { "conductor"    , 9, T_STRING  },
+    { "grouping"     , 0, T_STRING  },
+    { "url"          , 9, T_STRING  },
+    { "bitrate"      , 9, T_INT     },
+    { "samplerate"   , 9, T_INT     },
+    { "song_length"  , 9, T_INT     },
+    { "file_size"    , 9, T_INT     },
+    { "year"         , 9, T_INT     },
     { "track"        , 11, T_INT    },
-    { "total_tracks" , 9, T_INT    },
+    { "total_tracks" , 9, T_INT     },
     { "disc"         , 11, T_INT    },
-    { "total_discs"  , 9, T_INT    },
-    { "bpm"          , 9, T_INT    },
-    { "compilation"  , 9, T_INT    },
-    { "rating"       , 9, T_INT    },
-    { "play_count"   , 9, T_INT    },
-    { "data_kind"    , 8, T_INT    },
-    { "item_kind"    , 8, T_INT    },
-    { "description"  , 9, T_STRING },
-    { "time_added"   , 9, T_DATE   },
-    { "time_modified", 9, T_DATE   },
-    { "time_played"  , 9, T_DATE   },
-    { "db_timestamp" , 8, T_DATE   },
+    { "total_discs"  , 9, T_INT     },
+    { "bpm"          , 9, T_INT     },
+    { "compilation"  , 9, T_INT     },
+    { "rating"       , 9, T_INT     },
+    { "play_count"   , 9, T_INT     },
+    { "data_kind"    , 8, T_INT     },
+    { "item_kind"    , 8, T_INT     },
+    { "description"  , 9, T_STRING  },
+    { "time_added"   , 9, T_DATE    },
+    { "time_modified", 9, T_DATE    },
+    { "time_played"  , 9, T_DATE    },
+    { "db_timestamp" , 8, T_DATE    },
     { "disabled"     , 15, T_INT    },
-    { "sample_count" , 8, T_INT    },
-    { "force_update" , 8, T_INT    },
+    { "sample_count" , 8, T_INT     },
+    { "force_update" , 8, T_INT     },
     { "codectype"    , 15, T_INT    },
-    { "idx"          , 8, T_INT    },
-    { "has_video"    , 8, T_INT    },
-    { "contentrating", 8, T_INT    },
+    { "idx"          , 8, T_INT     },
+    { "has_video"    , 8, T_INT     },
+    { "contentrating", 8, T_INT     },
     { NULL           , 0 }
 };
 
@@ -151,6 +150,15 @@ PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
     return &_pi;
 }
 
+/**
+ * see if the plugin should handle this request
+ */
+int plugin_can_handle(WS_CONNINFO *pwsc) {
+    _ppi->log(E_DBG,"Checking url %s\n",_ppi->ws_uri(pwsc));
+    if(strncasecmp(_ppi->ws_uri(pwsc),"/rsp/",5) == 0)
+        return TRUE;
+    return FALSE;
+}
 
 /**
  * check for auth.  Kind of a ham-handed implementation, but
@@ -249,13 +257,13 @@ void plugin_handler(WS_CONNINFO *pwsc) {
 
     if(found) {
         rsp_uri_map[index].dispatch(pwsc, ppi);
-        _ppi->ws_close(pwsc);
+        _ppi->ws_will_close(pwsc);
         free(ppi);
         return;
     }
 
     rsp_error(pwsc, ppi, 1, "Bad path");
-    _ppi->ws_close(pwsc);
+    _ppi->ws_will_close(pwsc);
     free(ppi);
     return;
 }
@@ -559,6 +567,6 @@ void rsp_error(WS_CONNINFO *pwsc, PRIVINFO *ppi, int eno, char *estr) {
     xml_pop(pxml); /* status */
     xml_pop(pxml); /* response */
     xml_deinit(pxml);
-    _ppi->ws_close(pwsc);
+    _ppi->ws_will_close(pwsc);
 }
 

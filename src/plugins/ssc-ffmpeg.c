@@ -122,7 +122,6 @@ PLUGIN_INFO _pi = {
     PLUGIN_VERSION,        /* version */
     PLUGIN_TRANSCODE,      /* type */
     "ssc-ffmpeg/" VERSION, /* server */
-    NULL,                  /* url */
     NULL,                  /* output fns */
     NULL,                  /* event fns */
     &_ptfn,                /* fns */

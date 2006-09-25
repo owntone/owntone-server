@@ -44,15 +44,20 @@
 #ifndef E_FATAL
 # define E_FATAL 0
 # define E_LOG   1
+# define E_WARN  2
 # define E_INF   5
 # define E_DBG   9
+# define E_SPAM  10
 #endif
 
+#define COUNT_SONGS 0
+#define COUNT_PLAYLISTS 1
 
 struct tag_ws_conninfo;
 
 /* Functions that must be exported by different plugin types */
 typedef struct tag_plugin_output_fn {
+    int(*can_handle)(struct tag_ws_conninfo *pwsc);
     void(*handler)(struct tag_ws_conninfo *pwsc);
     int(*auth)(struct tag_ws_conninfo *pwsc, char *username, char *pw);
 } PLUGIN_OUTPUT_FN;
@@ -81,7 +86,6 @@ typedef struct tag_plugin_info {
     int version;                  /* PLUGIN_VERSION */
     int type;                     /* PLUGIN_OUTPUT, etc */
     char *server;                 /* Server/version format */
-    char *url;                    /* regex match of web urls */
     PLUGIN_OUTPUT_FN *output_fns; /* functions for different plugin types */
     PLUGIN_EVENT_FN *event_fns;
     PLUGIN_TRANSCODE_FN *transcode_fns;
@@ -116,7 +120,7 @@ typedef struct tag_db_query {
 typedef struct tag_plugin_input_fn {
     /* webserver helpers */
     char* (*ws_uri)(struct tag_ws_conninfo *);
-    void (*ws_close)(struct tag_ws_conninfo *);
+    void (*ws_will_close)(struct tag_ws_conninfo *);
     int (*ws_returnerror)(struct tag_ws_conninfo *, int, char *);
     char* (*ws_getvar)(struct tag_ws_conninfo *, char *);
     int (*ws_writefd)(struct tag_ws_conninfo *, char *, ...);
@@ -136,11 +140,23 @@ typedef struct tag_plugin_input_fn {
     int (*db_enum_start)(char **, DB_QUERY *);
     int (*db_enum_fetch_row)(char **, char ***, DB_QUERY *);
     int (*db_enum_end)(char **);
+    int (*db_enum_restart)(char **, DB_QUERY *);
     void (*db_enum_dispose)(char **, DB_QUERY*);
     void (*stream)(struct tag_ws_conninfo *, char *);
 
+    int (*db_add_playlist)(char **pe, char *name, int type, char *clause, char *path, int index, int *playlistid);
+    int (*db_add_playlist_item)(char **pe, int playlistid, int songid);
+    int (*db_edit_playlist)(char **pe, int id, char *name, char *clause);
+    int (*db_delete_playlist)(char **pe, int playlistid);
+    int (*db_delete_playlist_item)(char **pe, int playlistid, int songid);
+    int (*db_revision)(void);
+    int (*db_count_items)(int what);
+
     char *(*conf_alloc_string)(char *section, char *key, char *dflt);
     void (*conf_dispose_string)(char *str);
+    int (*conf_get_int)(char *section, char *key, int dflt);
+
+    int (*config_set_status)(struct tag_ws_conninfo *pwsc, int session, char *fmt, ...);
 } PLUGIN_INPUT_FN;
 
 

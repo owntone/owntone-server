@@ -142,6 +142,7 @@ static TAGHANDLER taghandlers[] = {
     { "url", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
     { "pls", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
     { "m4v", scan_get_mp4info, "m4v", "mp4v", "MPEG-4 video file" },
+    { "mp4", scan_get_mp4info, "m4v", "mp4v", "MPEG-4 video file" },
 #ifdef OGGVORBIS
     { "ogg", scan_get_ogginfo, "ogg", "ogg", "Ogg Vorbis audio file" },
 #endif

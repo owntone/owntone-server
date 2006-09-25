@@ -60,8 +60,8 @@ static int db_sql_need_dispose=0;
 extern char *db_sqlite_updates[];
 
 /* Forwards */
-int db_sql_get_size(DBQUERYINFO *pinfo, char **valarray);
-int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presult, int len);
+
+
 void db_sql_build_mp3file(char **valarray, MP3FILE *pmp3);
 int db_sql_update(char **pe, MP3FILE *pmp3, int *id);
 int db_sql_update_playlists(char **pe);
@@ -71,10 +71,11 @@ char *_db_proper_path(char *path);
 #define STR(a) (a) ? (a) : ""
 #define ISSTR(a) ((a) && strlen((a)))
 #define MAYBEFREE(a) { if((a)) free((a)); };
+/*
 #define DMAPLEN(a) (((a) && strlen(a)) ? (8+(int)strlen((a))) : \
                                          ((pinfo->zero_length) ? 8 : 0))
 #define EMIT(a) (pinfo->zero_length ? 1 : ((a) && strlen((a))) ? 1 : 0)
-
+*/
 /**
  * functions for the specific db backend
  */
@@ -148,6 +149,13 @@ char *_db_proper_path(char *path) {
     return new_path;
 }
 
+
+int db_sql_atoi(const char *what) {
+    return what ? atoi(what) : 0;
+}
+char *db_sql_strdup(const char *what) {
+    return what ? (strlen(what) ? strdup(what) : NULL) : NULL;
+}
 
 /**
  * escape a sql string, returning it the supplied buffer.
@@ -1344,40 +1352,6 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     return err;
 }
 
-/**
- * find the size of the response by walking through the query and
- * sizing it
- *
- * @returns DB_E_SUCCESS on success, error code otherwise
- */
-int db_sql_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size) {
-    int err;
-    int record_size;
-    SQL_ROW row;
-
-    DPRINTF(E_DBG,L_DB,"Enumerating size\n");
-
-    *count=0;
-    *total_size = 0;
-
-    while(((err=db_sql_enum_fetch_fn(pe,&row)) == DB_E_SUCCESS) && (row)) {
-        if((record_size = db_sql_get_size(pinfo,row))) {
-            *total_size += record_size;
-            *count = *count + 1;
-        }
-    }
-
-    if(err != DB_E_SUCCESS) {
-        db_sql_enum_end_fn(NULL);
-        return err;
-    }
-
-    err=db_sql_enum_restart_fn(pe);
-
-    DPRINTF(E_DBG,L_DB,"Got size: %d\n",*total_size);
-    return err;
-}
-
 
 /**
  * fetch the next row in raw row format
@@ -1389,40 +1363,6 @@ int db_sql_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo) {
     if(err != DB_E_SUCCESS) {
         db_sql_enum_end_fn(NULL);
         return err;
-    }
-
-    return DB_E_SUCCESS;
-}
-
-/**
- * fetch the next record from the enum
- */
-int db_sql_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size, unsigned char **pdmap) {
-    int err;
-    int result_size=0;
-    unsigned char *presult;
-    SQL_ROW row;
-
-    err=db_sql_enum_fetch_fn(pe, &row);
-    if(err != DB_E_SUCCESS) {
-        db_sql_enum_end_fn(NULL);
-        return err;
-    }
-
-    if(row) {
-        result_size = db_sql_get_size(pinfo,row);
-        if(result_size) {
-            presult = (unsigned char*)malloc(result_size);
-            if(!presult) {
-                DPRINTF(E_FATAL,L_DB,"Malloc error\n");
-            }
-
-            db_sql_build_dmap(pinfo,row,presult,result_size);
-            *pdmap=presult;
-            *size = result_size;
-        }
-    } else {
-        *size = 0;
     }
 
     return DB_E_SUCCESS;
@@ -1441,329 +1381,6 @@ int db_sql_enum_reset(char **pe, DBQUERYINFO *pinfo) {
  */
 int db_sql_enum_end(char **pe) {
     return db_sql_enum_end_fn(pe);
-}
-
-/**
- * get the size of the generated dmap, given a specific meta
- */
-int db_sql_get_size(DBQUERYINFO *pinfo, SQL_ROW valarray) {
-    int size;
-    int transcode;
-
-    switch(pinfo->query_type) {
-    case queryTypeBrowseArtists: /* simple 'mlit' entry */
-    case queryTypeBrowseAlbums:
-    case queryTypeBrowseGenres:
-    case queryTypeBrowseComposers:
-        return valarray[0] ? (8 + (int) strlen(valarray[0])) : 0;
-    case queryTypePlaylists:
-        size = 8;   /* mlit */
-        size += 12; /* mimc - you get it whether you want it or not */
-        if(db_wantsmeta(pinfo->meta, metaItemId))
-            size += 12; /* miid */
-        if(db_wantsmeta(pinfo->meta, metaItunesSmartPlaylist)) {
-            if(valarray[plType] && (atoi(valarray[plType])==1))
-                size += 9;  /* aeSP */
-        }
-        if(db_wantsmeta(pinfo->meta, metaItemName))
-            size += (8 + (int) strlen(valarray[plTitle])); /* minm */
-        if(valarray[plType] && (atoi(valarray[plType])==1) &&
-           db_wantsmeta(pinfo->meta, metaMPlaylistSpec))
-            size += (8 + (int) strlen(valarray[plQuery])); /* MSPS */
-        if(db_wantsmeta(pinfo->meta, metaMPlaylistType))
-            size += 9; /* MPTY */
-        return size;
-        break;
-    case queryTypeItems:
-    case queryTypePlaylistItems:  /* essentially the same query */
-        /* see if this is going to be transcoded */
-        transcode = plugin_ssc_should_transcode(pinfo->pwsc,valarray[37]);
-
-        /* Items that get changed by transcode:
-         *
-         * type:         item  8: changes to 'wav'
-         * description:  item 29: changes to 'wav audio file'
-         * bitrate:      item 15: guestimated, based on item 15, samplerate
-         *
-         * probably file size should change as well, but currently doesn't
-         */
-
-        size = 8; /* mlit */
-        if(db_wantsmeta(pinfo->meta, metaItemKind))
-            /* mikd */
-            size += 9;
-        if(db_wantsmeta(pinfo->meta, metaSongDataKind))
-            /* asdk */
-            size += 9;
-        if(db_wantsmeta(pinfo->meta, metaSongDataURL))
-            /* asul */
-            size += DMAPLEN(valarray[13]);
-        if(db_wantsmeta(pinfo->meta, metaSongAlbum))
-            /* asal */
-            size += DMAPLEN(valarray[5]);
-        if(db_wantsmeta(pinfo->meta, metaSongArtist))
-            /* asar */
-            size += DMAPLEN(valarray[4]);
-        if(valarray[23] && atoi(valarray[23]) && db_wantsmeta(pinfo->meta, metaSongBPM))
-            /* asbt */
-            size += 10;
-        if(db_wantsmeta(pinfo->meta, metaSongBitRate)) {
-            /* asbr */
-            if(transcode) {
-                if(valarray[15] && atoi(valarray[15]))
-                    size += 10;
-            } else {
-                if(valarray[14] && atoi(valarray[14]))
-                    size += 10;
-            }
-        }
-        if(db_wantsmeta(pinfo->meta, metaSongComment))
-            /* ascm */
-            size += DMAPLEN(valarray[7]);
-        if(valarray[24] && atoi(valarray[24]) && db_wantsmeta(pinfo->meta,metaSongCompilation))
-            /* asco */
-            size += 9;
-        if(db_wantsmeta(pinfo->meta, metaSongComposer))
-            /* ascp */
-            size += DMAPLEN(valarray[9]);
-        if(db_wantsmeta(pinfo->meta, metaSongGrouping))
-            /* agrp */
-            size += DMAPLEN(valarray[12]);
-        if(valarray[30] && atoi(valarray[30]) && db_wantsmeta(pinfo->meta, metaSongDateAdded))
-            /* asda */
-            size += 12;
-        if(valarray[31] && atoi(valarray[31]) && db_wantsmeta(pinfo->meta,metaSongDateModified))
-            /* asdm */
-            size += 12;
-        if(valarray[22] && atoi(valarray[22]) && db_wantsmeta(pinfo->meta, metaSongDiscCount))
-            /* asdc */
-            size += 10;
-        if(valarray[21] && atoi(valarray[21]) && db_wantsmeta(pinfo->meta, metaSongDiscNumber))
-            /* asdn */
-            size += 10;
-        if(db_wantsmeta(pinfo->meta, metaSongGenre))
-            /* asgn */
-            size += DMAPLEN(valarray[6]);
-        if(db_wantsmeta(pinfo->meta,metaItemId))
-            /* miid */
-            size += 12;
-        if(db_wantsmeta(pinfo->meta,metaSongFormat)) {
-            /* asfm */
-            if(transcode) {
-                size += 11;   /* 'wav' */
-            } else {
-                size += DMAPLEN(valarray[8]);
-            }
-        }
-        if(db_wantsmeta(pinfo->meta,metaSongDescription)) {
-            /* asdt */
-            if(transcode) {
-                size += 22;  /* 'wav audio file' */
-            } else {
-                size += DMAPLEN(valarray[29]);
-            }
-        }
-        if(db_wantsmeta(pinfo->meta,metaItemName))
-            /* minm */
-            size += DMAPLEN(valarray[3]);
-        if(valarray[34] && atoi(valarray[34]) && db_wantsmeta(pinfo->meta,metaSongDisabled))
-            /* asdb */
-            size += 9;
-        if(valarray[15] && atoi(valarray[15]) && db_wantsmeta(pinfo->meta,metaSongSampleRate))
-            /* assr */
-            size += 12;
-        if(valarray[17] && atoi(valarray[17]) && db_wantsmeta(pinfo->meta,metaSongSize))
-            /* assz */
-            size += 12;
-
-        /* In the old daap code, we always returned 0 for asst and assp
-         * (song start time, song stop time).  I don't know if this
-         * is required, so I'm going to disabled it
-         */
-
-        if(valarray[16] && atoi(valarray[16]) && db_wantsmeta(pinfo->meta, metaSongTime))
-            /* astm */
-            size += 12;
-        if(valarray[20] && atoi(valarray[20]) && db_wantsmeta(pinfo->meta, metaSongTrackCount))
-            /* astc */
-            size += 10;
-        if(valarray[19] && atoi(valarray[19]) && db_wantsmeta(pinfo->meta, metaSongTrackNumber))
-            /* astn */
-            size += 10;
-        if(valarray[25] && atoi(valarray[25]) && db_wantsmeta(pinfo->meta, metaSongUserRating))
-            /* asur */
-            size += 9;
-        if(valarray[18] && atoi(valarray[18]) && db_wantsmeta(pinfo->meta, metaSongYear))
-            /* asyr */
-            size += 10;
-        if(db_wantsmeta(pinfo->meta, metaContainerItemId))
-            /* mcti */
-            size += 12;
-        if((valarray[37]) && (strlen(valarray[37]) == 4) && 
-           db_wantsmeta(pinfo->meta,metaSongCodecType)) 
-            /* ascd */
-            size += 12;
-
-        if(db_wantsmeta(pinfo->meta,metaSongContentRating))
-            /* ascr */
-            size += 9;
-        if(db_wantsmeta(pinfo->meta,metaItunesHasVideo))
-            /* aeHV */
-            size += 9;
-
-        return size;
-        break;
-
-    default:
-        DPRINTF(E_LOG,L_DB|L_DAAP,"Unknown query type: %d\n",(int)pinfo->query_type);
-        return 0;
-    }
-    return 0;
-}
-
-int db_sql_build_dmap(DBQUERYINFO *pinfo, char **valarray, unsigned char *presult, int len) {
-    unsigned char *current = presult;
-    int transcode;
-    int samplerate=0;
-
-    switch(pinfo->query_type) {
-    case queryTypeBrowseArtists: /* simple 'mlit' entry */
-    case queryTypeBrowseAlbums:
-    case queryTypeBrowseGenres:
-    case queryTypeBrowseComposers:
-        return db_dmap_add_string(current,"mlit",valarray[0]);
-    case queryTypePlaylists:
-        /* do I want to include the mlit? */
-        current += db_dmap_add_container(current,"mlit",len - 8);
-        if(db_wantsmeta(pinfo->meta,metaItemId))
-            current += db_dmap_add_int(current,"miid",atoi(valarray[plID]));
-        current += db_dmap_add_int(current,"mimc",atoi(valarray[plItems]));
-        if(db_wantsmeta(pinfo->meta,metaItunesSmartPlaylist)) {
-            if(valarray[plType] && (atoi(valarray[plType]) == 1))
-                current += db_dmap_add_char(current,"aeSP",1);
-        }
-        if(db_wantsmeta(pinfo->meta,metaItemName))
-            current += db_dmap_add_string(current,"minm",valarray[plTitle]);
-        if((valarray[plType]) && (atoi(valarray[plType])==1) &&
-           db_wantsmeta(pinfo->meta, metaMPlaylistSpec))
-            current += db_dmap_add_string(current,"MSPS",valarray[plQuery]);
-        if(db_wantsmeta(pinfo->meta, metaMPlaylistType))
-            current += db_dmap_add_char(current,"MPTY",atoi(valarray[plType]));
-        break;
-    case queryTypeItems:
-    case queryTypePlaylistItems:  /* essentially the same query */
-        /* see if this is going to be transcoded */
-        transcode = plugin_ssc_should_transcode(pinfo->pwsc,valarray[37]);
-
-        /* Items that get changed by transcode:
-         *
-         * type:         item  8: changes to 'wav'
-         * description:  item 29: changes to 'wav audio file'
-         * bitrate:      item 15: guestimated, but doesn't change file size
-         *
-         * probably file size should change as well, but currently doesn't
-         */
-
-        current += db_dmap_add_container(current,"mlit",len-8);
-        if(db_wantsmeta(pinfo->meta, metaItemKind))
-            current += db_dmap_add_char(current,"mikd",(char)atoi(valarray[28]));
-        if(db_wantsmeta(pinfo->meta, metaSongDataKind))
-            current += db_dmap_add_char(current,"asdk",(char)atoi(valarray[27]));
-        if(EMIT(valarray[13]) && db_wantsmeta(pinfo->meta, metaSongDataURL))
-            current += db_dmap_add_string(current,"asul",valarray[13]);
-        if(EMIT(valarray[5]) && db_wantsmeta(pinfo->meta, metaSongAlbum))
-            current += db_dmap_add_string(current,"asal",valarray[5]);
-        if(EMIT(valarray[4]) && db_wantsmeta(pinfo->meta, metaSongArtist))
-            current += db_dmap_add_string(current,"asar",valarray[4]);
-        if(valarray[23] && atoi(valarray[23]) && db_wantsmeta(pinfo->meta, metaSongBPM))
-            current += db_dmap_add_short(current,"asbt",(short)atoi(valarray[23]));
-        if(valarray[14] && atoi(valarray[14]) && db_wantsmeta(pinfo->meta, metaSongBitRate)) {
-            if(transcode) {
-                if(valarray[15]) samplerate=atoi(valarray[15]);
-                if(samplerate) {
-                    current += db_dmap_add_short(current,"asbr",
-                                                 (short)(samplerate / 250 * 8));
-                }
-            } else {
-                current += db_dmap_add_short(current,"asbr",(short)atoi(valarray[14]));
-            }
-        }
-        if(EMIT(valarray[7]) && db_wantsmeta(pinfo->meta, metaSongComment))
-            current += db_dmap_add_string(current,"ascm",valarray[7]);
-        if(valarray[24] && atoi(valarray[24]) && db_wantsmeta(pinfo->meta,metaSongCompilation))
-            current += db_dmap_add_char(current,"asco",(char)atoi(valarray[24]));
-        if(EMIT(valarray[9]) && db_wantsmeta(pinfo->meta, metaSongComposer))
-            current += db_dmap_add_string(current,"ascp",valarray[9]);
-        if(EMIT(valarray[12]) && db_wantsmeta(pinfo->meta, metaSongGrouping))
-            current += db_dmap_add_string(current,"agrp",valarray[12]);
-        if(valarray[30] && atoi(valarray[30]) && db_wantsmeta(pinfo->meta, metaSongDateAdded))
-            current += db_dmap_add_int(current,"asda",(int)atoi(valarray[30]));
-        if(valarray[31] && atoi(valarray[31]) && db_wantsmeta(pinfo->meta,metaSongDateModified))
-            current += db_dmap_add_int(current,"asdm",(int)atoi(valarray[31]));
-        if(valarray[22] && atoi(valarray[22]) && db_wantsmeta(pinfo->meta, metaSongDiscCount))
-            current += db_dmap_add_short(current,"asdc",(short)atoi(valarray[22]));
-        if(valarray[21] && atoi(valarray[21]) && db_wantsmeta(pinfo->meta, metaSongDiscNumber))
-            current += db_dmap_add_short(current,"asdn",(short)atoi(valarray[21]));
-        if(EMIT(valarray[6]) && db_wantsmeta(pinfo->meta, metaSongGenre))
-            current += db_dmap_add_string(current,"asgn",valarray[6]);
-        if(db_wantsmeta(pinfo->meta,metaItemId))
-            current += db_dmap_add_int(current,"miid",(int)atoi(valarray[0]));
-        if(EMIT(valarray[8]) && db_wantsmeta(pinfo->meta,metaSongFormat)) {
-            if(transcode) {
-                current += db_dmap_add_string(current,"asfm","wav");
-            } else {
-                current += db_dmap_add_string(current,"asfm",valarray[8]);
-            }
-        }
-        if(EMIT(valarray[29]) && db_wantsmeta(pinfo->meta,metaSongDescription)) {
-            if(transcode) {
-                current += db_dmap_add_string(current,"asdt","wav audio file");
-            } else {
-                current += db_dmap_add_string(current,"asdt",valarray[29]);
-            }
-        }
-        if(EMIT(valarray[3]) && db_wantsmeta(pinfo->meta,metaItemName))
-            current += db_dmap_add_string(current,"minm",valarray[3]);
-        if(valarray[34] && atoi(valarray[34]) && db_wantsmeta(pinfo->meta,metaSongDisabled))
-            current += db_dmap_add_char(current,"asdb",(char)atoi(valarray[34]));
-        if(valarray[15] && atoi(valarray[15]) && db_wantsmeta(pinfo->meta,metaSongSampleRate))
-            current += db_dmap_add_int(current,"assr",atoi(valarray[15]));
-        if(valarray[17] && atoi(valarray[17]) && db_wantsmeta(pinfo->meta,metaSongSize))
-            current += db_dmap_add_int(current,"assz",atoi(valarray[17]));
-        if(valarray[16] && atoi(valarray[16]) && db_wantsmeta(pinfo->meta, metaSongTime))
-            current += db_dmap_add_int(current,"astm",atoi(valarray[16]));
-        if(valarray[20] && atoi(valarray[20]) && db_wantsmeta(pinfo->meta, metaSongTrackCount))
-            current += db_dmap_add_short(current,"astc",(short)atoi(valarray[20]));
-        if(valarray[19] && atoi(valarray[19]) && db_wantsmeta(pinfo->meta, metaSongTrackNumber))
-            current += db_dmap_add_short(current,"astn",(short)atoi(valarray[19]));
-        if(valarray[25] && atoi(valarray[25]) && db_wantsmeta(pinfo->meta, metaSongUserRating))
-            current += db_dmap_add_char(current,"asur",(char)atoi(valarray[25]));
-        if(valarray[18] && atoi(valarray[18]) && db_wantsmeta(pinfo->meta, metaSongYear))
-            current += db_dmap_add_short(current,"asyr",(short)atoi(valarray[18]));
-        if((valarray[37]) && (strlen(valarray[37]) == 4) && 
-           db_wantsmeta(pinfo->meta,metaSongCodecType))
-            current += db_dmap_add_literal(current,"ascd",valarray[37],4);
-        if(db_wantsmeta(pinfo->meta, metaContainerItemId))
-            current += db_dmap_add_int(current,"mcti",atoi(valarray[0]));
-        if(db_wantsmeta(pinfo->meta, metaItunesHasVideo))
-            current += db_dmap_add_char(current,"aeHV",atoi(valarray[39]));
-        if(db_wantsmeta(pinfo->meta, metaSongContentRating))
-                current += db_dmap_add_char(current,"ascr",atoi(valarray[40]));
-        return 0;
-        break;
-
-    default:
-        DPRINTF(E_LOG,L_DB|L_DAAP,"Unknown query type: %d\n",(int)pinfo->query_type);
-        return 0;
-    }
-    return 0;
-}
-
-int db_sql_atoi(const char *what) {
-    return what ? atoi(what) : 0;
-}
-char *db_sql_strdup(const char *what) {
-    return what ? (strlen(what) ? strdup(what) : NULL) : NULL;
 }
 
 void db_sql_build_m3ufile(SQL_ROW valarray, M3UFILE *pm3u) {

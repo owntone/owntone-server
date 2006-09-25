@@ -29,7 +29,6 @@ extern int config_auth(WS_CONNINFO *pwsc, char *user, char *password);
 extern void config_handler(WS_CONNINFO *pwsc);
 extern void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...);
 extern int config_get_session_count(void);
-extern int config_get_next_session(void);
 
 /** thread local storage */
 typedef struct tag_scan_status {

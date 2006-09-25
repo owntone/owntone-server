@@ -72,7 +72,6 @@
 
 #include "conf.h"
 #include "configfile.h"
-#include "dispatch.h"
 #include "err.h"
 #include "mp3-scanner.h"
 #include "webserver.h"
@@ -451,13 +450,6 @@ int main(int argc, char *argv[]) {
     }
 
     ws_registerhandler(config.server, "^.*$",main_handler,main_auth,1);
-    ws_registerhandler(config.server, "^/server-info$",daap_handler,NULL,0);
-    ws_registerhandler(config.server, "^/content-codes$",daap_handler,daap_auth,0); /* iTunes 6.0.4+? */
-    ws_registerhandler(config.server,"^/login$",daap_handler,daap_auth,0);
-    ws_registerhandler(config.server,"^/update$",daap_handler,daap_auth,0);
-    ws_registerhandler(config.server,"^/databases$",daap_handler,daap_auth,0);
-    ws_registerhandler(config.server,"^/logout$",daap_handler,NULL,0);
-    ws_registerhandler(config.server,"^/databases/.*",daap_handler,NULL,0);
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
@@ -487,7 +479,7 @@ int main(int argc, char *argv[]) {
     
         DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
         iface = conf_alloc_string("general","interface","");
-        rend_register(servername,"_daap._tcp",ws_config.port,iface,txtrecord);
+
         rend_register(servername,"_http._tcp",ws_config.port,iface,txtrecord);
         
         plugin_rend_register(servername,ws_config.port,iface,txtrecord);

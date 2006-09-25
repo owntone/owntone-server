@@ -37,8 +37,8 @@ extern int db_sql_deinit(void);
 extern int db_sql_escape(char *buffer, int *size, char *fmt, ...);
 extern int db_sql_add(char **pe, MP3FILE *pmp3, int *id);
 extern int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo);
-extern int db_sql_enum_size(char **pe, DBQUERYINFO *pinfo, int *count, int *total_size);
-extern int db_sql_enum_fetch(char **pe, DBQUERYINFO *pinfo, int *size, unsigned char **pdmap);
+
+
 extern int db_sql_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo);
 extern int db_sql_enum_reset(char **pe, DBQUERYINFO *pinfo);
 extern int db_sql_enum_end(char **pe);
@@ -64,6 +64,7 @@ extern int db_sql_fetch_int(char **pe, int *result, char *fmt, ...);
 extern int db_sql_fetch_char(char **pe, char **result, char *fmt, ...);
 extern int db_sql_dispose_row(void);
 
+/*
 typedef enum {
     songID,
     songPath,
@@ -103,7 +104,9 @@ typedef enum {
     songForceUpdate,
     songCodecType
 } SongField_t;
+*/
 
+/*
 typedef enum {
     plID,
     plTitle,
@@ -113,6 +116,7 @@ typedef enum {
     plDBTimestamp,
     plPath
 } PlaylistField_t;
+*/
 
 #define DB_SQL_EVENT_STARTUP        0
 #define DB_SQL_EVENT_SONGSCANSTART  1
