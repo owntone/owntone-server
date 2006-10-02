@@ -1,8 +1,22 @@
-#!/bin/sh
+#!/bin/bash
+
+SVNVERSION=`svnversion .`
+
+echo Current SVN Version $SVNVERSION
+
+if ( echo $SVNVERSION | grep "M" > /dev/null 2>&1 ); then
+    echo SVN repo not up to date
+    exit
+fi
+
+if ( echo $SVNVERSION | grep ":" > /dev/null 2>&1 ); then
+    echo Mixed SVN versions
+    exit
+fi
 
 mv configure.in configure.in.mkdist
-cat configure.in.mkdist | sed -e s/AM_INIT_AUTOMAKE.*$/AM_INIT_AUTOMAKE\(mt-daapd,cvs-`date +%Y%m%d`\)/ > configure.in
-./reconf
+cat configure.in.mkdist | sed -e s/AM_INIT_AUTOMAKE.*$/AM_INIT_AUTOMAKE\(mt-daapd,svn-${SVNVERSION}\)/ > configure.in
+./reconf.sh
 ./configure --with-id3tag=/sw --enable-sqlite --enable-sqlite3
 make dist
 mv configure.in.mkdist configure.in
