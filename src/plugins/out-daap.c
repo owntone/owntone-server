@@ -42,6 +42,8 @@
 #include "out-daap.h"
 #include "out-daap-proto.h"
 
+#undef strsep  /* FIXME */
+
 /**
  * Hold the inf for the output serializer
  */
@@ -235,6 +237,14 @@ void out_daap_cleanup(PRIVINFO *ppi) {
     free(ppi);
 }
 
+char *_strsep(char **stringp, const char *delim) {
+        char *ret = *stringp;
+        if (ret == NULL) return(NULL); /* grrr */
+        if ((*stringp = strpbrk(*stringp, delim)) != NULL) {
+                *((*stringp)++) = '\0';
+        }
+        return(ret);
+}
 
 /**
  * Handles authentication for the daap server.  This isn't the
@@ -771,7 +781,7 @@ void out_daap_addplaylistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     tempstring=strdup(_ppi->ws_getvar(pwsc,"dmap.itemid"));
     current=(unsigned char*)tempstring;
 
-    while((token=strsep((char**)(char*)&current,","))) {
+    while((token=_strsep((char**)(char*)&current,","))) {
         if(token) {
             /* FIXME:  error handling */
             _ppi->db_add_playlist_item(NULL,playlist_id,atoi(token));
@@ -846,7 +856,7 @@ void out_daap_deleteplaylistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     current=(unsigned char *)tempstring;
 
     /* this looks strange, but gets rid of gcc 4 warnings */
-    while((token=strsep((char**)(char*)&current,","))) {
+    while((token=_strsep((char**)(char*)&current,","))) {
         if(token) {
             /* FIXME: Error handling */
             _ppi->db_delete_playlist_item(NULL,playlist_id,atoi(token));

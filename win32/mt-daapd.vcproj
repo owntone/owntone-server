@@ -148,9 +148,6 @@
 				RelativePath="..\src\db-sql.c">
 			</File>
 			<File
-				RelativePath="..\src\dispatch.c">
-			</File>
-			<File
 				RelativePath="..\src\dynamic-art.c">
 			</File>
 			<File

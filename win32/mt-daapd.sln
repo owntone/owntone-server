@@ -23,6 +23,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ssc-wma", "ssc-wma\ssc-wma.
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "out-daap", "out-daap\out-daap.vcproj", "{C1EF5133-DFB3-4FEC-B999-3655DBB14786}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfiguration) = preSolution
 		Debug = Debug
@@ -53,6 +57,10 @@ Global
 		{C1EF5133-DFB3-4FEC-B999-3655DBB14785}.Debug.Build.0 = Debug|Win32
 		{C1EF5133-DFB3-4FEC-B999-3655DBB14785}.Release.ActiveCfg = Release|Win32
 		{C1EF5133-DFB3-4FEC-B999-3655DBB14785}.Release.Build.0 = Release|Win32
+		{C1EF5133-DFB3-4FEC-B999-3655DBB14786}.Debug.ActiveCfg = Debug|Win32
+		{C1EF5133-DFB3-4FEC-B999-3655DBB14786}.Debug.Build.0 = Debug|Win32
+		{C1EF5133-DFB3-4FEC-B999-3655DBB14786}.Release.ActiveCfg = Release|Win32
+		{C1EF5133-DFB3-4FEC-B999-3655DBB14786}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection
