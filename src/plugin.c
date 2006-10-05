@@ -94,6 +94,7 @@ int pi_db_enum_restart(char **pe, DB_QUERY *pinfo);
 void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo);
 void pi_stream(WS_CONNINFO *pwsc, char *id);
 int pi_db_count_items(int what);
+int pi_db_wait_update(WS_CONNINFO *pwsc);
 void pi_conf_dispose_string(char *str);
 
 PLUGIN_INPUT_FN pi = {
@@ -128,6 +129,7 @@ PLUGIN_INPUT_FN pi = {
     db_delete_playlist_item,
     db_revision,
     pi_db_count_items,
+    pi_db_wait_update,
 
     conf_alloc_string,
     pi_conf_dispose_string,
@@ -767,6 +769,39 @@ void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo) {
             pqi->pt = NULL;
         }
     }
+}
+
+int pi_db_wait_update(WS_CONNINFO *pwsc) {
+    int clientver=1;
+    fd_set rset;
+    struct timeval tv;
+    int result;
+    int lastver=0;
+
+    if(ws_getvar(pwsc,"revision-number")) {
+        clientver=atoi(ws_getvar(pwsc,"revision-number"));
+    }
+
+    /* wait for db_version to be stable for 30 seconds */
+    while((clientver == db_revision()) || 
+          (lastver && (db_revision() != lastver))) {
+	lastver = db_revision();
+
+        FD_ZERO(&rset);
+        FD_SET(pwsc->fd,&rset);
+
+        tv.tv_sec=30;
+        tv.tv_usec=0;
+
+        result=select(pwsc->fd+1,&rset,NULL,NULL,&tv);
+        if(FD_ISSET(pwsc->fd,&rset)) {
+            /* can't be ready for read, must be error */
+            DPRINTF(E_DBG,L_DAAP,"Update session stopped\n");
+            return FALSE;
+        }
+    }
+
+    return TRUE;
 }
 
 void pi_stream(WS_CONNINFO *pwsc, char *id) {

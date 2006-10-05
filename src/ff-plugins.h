@@ -151,6 +151,7 @@ typedef struct tag_plugin_input_fn {
     int (*db_delete_playlist_item)(char **pe, int playlistid, int songid);
     int (*db_revision)(void);
     int (*db_count_items)(int what);
+    int (*db_wait_update)(struct tag_ws_conninfo *);
 
     char *(*conf_alloc_string)(char *section, char *key, char *dflt);
     void (*conf_dispose_string)(char *str);

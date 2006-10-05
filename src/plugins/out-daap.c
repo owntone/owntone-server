@@ -125,7 +125,7 @@ PLUGIN_RESPONSE daap_uri_map[] = {
      out_daap_content_codes },
     {{"login",         NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL },
      out_daap_login },
-    {{"updates",       NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL },
+    {{"update",        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL },
      out_daap_update },
     {{"logout",        NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL },
      out_daap_logout },
@@ -353,6 +353,11 @@ void plugin_handler(WS_CONNINFO *pwsc) {
 
     _ppi->log(E_DBG,"Index %s: offset %d, limit %d\n",index_req, 
               ppi->dq.offset,ppi->dq.limit);
+
+    if(_ppi->ws_getvar(pwsc,"query")) {
+        ppi->dq.filter_type = FILTER_TYPE_APPLE;
+        ppi->dq.filter = _ppi->ws_getvar(pwsc,"query");
+    }
 
     _ppi->log(E_DBG,"Tokenizing url\n");
     while((ppi->uri_count < 10) && (token=strtok_r(string,"/",&save))) {
@@ -1051,18 +1056,25 @@ void out_daap_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         which_field = 3;
     }
 
+    _ppi->log(E_DBG,"Browsing by %s (field %d)\n",
+              ppi->uri_sections[which_field],which_field);
+
     ppi->dq.query_type = QUERY_TYPE_DISTINCT;
     ppi->dq.distinct_field = ppi->uri_sections[which_field];
-    which_field = 3;
+    //    which_field = 3;
 
     if(!strcmp(ppi->uri_sections[which_field],"artists")) {
         response_type = "abar";
+        ppi->dq.distinct_field = "artist";
     } else if(!strcmp(ppi->uri_sections[which_field],"genres")) {
         response_type = "abgn";
+        ppi->dq.distinct_field = "genre";
     } else if(!strcmp(ppi->uri_sections[which_field],"albums")) {
         response_type = "abal";
+        ppi->dq.distinct_field = "album";
     } else if(!strcmp(ppi->uri_sections[which_field],"composers")) {
         response_type = "abcp";
+        ppi->dq.distinct_field = "composer";
     } else {
         _ppi->log(E_WARN,"Invalid browse request type %s\n",ppi->uri_sections[3]);
         out_daap_error(pwsc,ppi,"abro","Invalid browse type");
@@ -1251,36 +1263,13 @@ void out_daap_items(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 void out_daap_update(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     unsigned char update_response[32];
     unsigned char *current=update_response;
-    int clientver=1;
-    fd_set rset;
-    struct timeval tv;
-    int result;
-    int lastver=0;
 
     _ppi->log(E_DBG,"Preparing to send update response\n");
     _ppi->config_set_status(pwsc,ppi->session_id,"Waiting for DB update");
 
-    if(_ppi->ws_getvar(pwsc,"revision-number")) {
-        clientver=atoi(_ppi->ws_getvar(pwsc,"revision-number"));
-    }
-
-    /* wait for db_version to be stable for 30 seconds */
-    while((clientver == _ppi->db_revision()) || 
-          (lastver && (_ppi->db_revision() != lastver))) {
-	lastver = _ppi->db_revision();
-
-        FD_ZERO(&rset);
-        FD_SET(_ppi->ws_fd(pwsc),&rset);
-
-        tv.tv_sec=30;
-        tv.tv_usec=0;
-
-        result=select(_ppi->ws_fd(pwsc)+1,&rset,NULL,NULL,&tv);
-        if(FD_ISSET(_ppi->ws_fd(pwsc),&rset)) {
-            /* can't be ready for read, must be error */
-            _ppi->log(E_DBG,"Update session stopped\n");
-            return;
-        }
+    if(!_ppi->db_wait_update(pwsc)) {
+        _ppi->log(E_DBG,"Update session stopped\n");
+        return;
     }
 
     /* otherwise, send the info about this version */
