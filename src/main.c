@@ -60,6 +60,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_DIRENT_H
+#include <dirent.h>
+#endif
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
@@ -216,14 +219,16 @@ int main(int argc, char *argv[]) {
     char **mp3_dir_array;
     char *servername, *iface;
     char *ffid = NULL;
-    int index;
     int appdir = 0;
 
     char txtrecord[255];
 
     char *plugindir;
     char plugin[PATH_MAX];
-    char **pluginarray;
+    DIR *d_plugin;
+    char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* ?? solaris  */
+    struct dirent *pde;
+    char *pext;
 
     int err;
     char *perr=NULL;
@@ -354,21 +359,30 @@ int main(int argc, char *argv[]) {
      * plugins do stuff they might need to */
     plugin_init();
     if((plugindir=conf_alloc_string("plugins","plugin_dir",NULL)) != NULL) {
-        if(conf_get_array("plugins","plugins",&pluginarray)==TRUE) {
-            index = 0;
-            while(pluginarray[index]) {
-                sprintf(plugin,"%s/%s",plugindir,pluginarray[index]);
-                if(plugin_load(&perr,plugin) != PLUGIN_E_SUCCESS) {
-                    DPRINTF(E_LOG,L_MAIN,"Error loading plugin %s: %s\n",
-                            plugin, perr);
-                    free(perr);
-                    perr = NULL;
-                }
-                index++;
-            }
+        /* instead of specifying plugins, let's walk through the directory
+         * and load each of them */
+        if((d_plugin=opendir(plugindir)) == NULL) {
+            DPRINTF(E_LOG,L_MAIN,"Error opening plugin dir.  Ignoring\n");
         } else {
-            free(plugindir);
+            while((readdir_r(d_plugin,(struct dirent *)de,&pde) != 1) && pde) {
+                pext = strrchr(pde->d_name,'.');
+                if((strcasecmp(pext,".so") == 0) ||
+                   (strcasecmp(pext,".dylib") == 0) ||
+                   (strcasecmp(pext,".dll") == 0)) {
+                    /* must be a plugin */
+                    snprintf(plugin,PATH_MAX,"%s%c%s",plugindir,
+                             PATHSEP,pde->d_name);
+                    if(plugin_load(&perr,plugin) != PLUGIN_E_SUCCESS) {
+                        DPRINTF(E_LOG,L_MAIN,"Error loading plugin %s: %s\n",
+                                plugin,perr);
+                        free(perr);
+                        perr = NULL;
+                    }
+                }
+            }
+            closedir(d_plugin);
         }
+        free(plugindir);
     }
 
     runas = conf_alloc_string("general","runas","nobody");
