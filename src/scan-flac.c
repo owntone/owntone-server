@@ -32,10 +32,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-
+#ifdef HAVE_DIRENT_H
+# include <dirent.h>      /* why here?  For osx 10.2, of course! */
+#endif
 #ifndef WIN32
 # include <netinet/in.h>  /* htons and friends */
-# include <dirent.h>      /* why here?  For osx 10.2, of course! */
 #endif
 
 #include <sys/stat.h>

@@ -14,6 +14,7 @@ AC_PROG_LIBTOOL
 
 AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
+AC_CHECK_HEADERS([dirent.h])
 AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
 AC_CHECK_FUNCS(timegm)

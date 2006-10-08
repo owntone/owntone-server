@@ -8,8 +8,8 @@
 # include "config.h"
 #endif
 
-#ifndef WIN32
-#include <dirent.h>  /* c'mon, config for this */
+#ifdef HAVE_DIRENT_H
+# include <dirent.h>
 #endif
 #include <errno.h>
 #include <limits.h>
