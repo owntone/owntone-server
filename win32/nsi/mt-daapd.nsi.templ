@@ -144,6 +144,7 @@ Section "MainSection" SEC01
 
   SetOutPath "$2\plugins"
   File "${MTD_SOURCE}\rsp.dll"
+  File "${MTD_SOURCE}\out-daap.dll"
   File "${MTD_SOURCE}\w32-event.dll"
   File "${MTD_SOURCE}\ssc-ffmpeg.dll"
   File "${MTD_SOURCE}\ssc-wma.dll"
@@ -467,6 +468,7 @@ Section Uninstall
   Delete "$INSTDIR\avformat.dll"
   Delete "$INSTDIR\libFLAC.dll"
   Delete "$INSTDIR\plugins\rsp.dll"
+  Delete "$INSTDIR\plugins\out-daap.dll"
   Delete "$INSTDIR\plugins\w32-event.dll"
   Delete "$INSTDIR\plugins\ssc-ffmpeg.dll"
   Delete "$INSTDIR\plugins\ssc-wma.dll"
