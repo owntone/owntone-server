@@ -250,12 +250,16 @@ int readwrite(int fromfd, int tofd) {
     char buf[BLKSIZE];
     int bytesread;
 
-    if ((bytesread = r_read(fromfd, buf, BLKSIZE)) < 0)
+    if ((bytesread = r_read(fromfd, buf, BLKSIZE)) < 0) {
+        DPRINTF(E_WARN,L_MISC,"Read error: %s\n",strerror(errno));
         return -1;
+    }
     if (bytesread == 0)
         return 0;
-    if (r_write(tofd, buf, bytesread) < 0)
+    if (r_write(tofd, buf, bytesread) < 0) {
+        DPRINTF(E_WARN,L_MISC,"Write error: %s\n",strerror(errno));
         return -1;
+    }
     return bytesread;
 }
 
