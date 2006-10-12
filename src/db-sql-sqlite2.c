@@ -321,7 +321,9 @@ int db_sqlite2_event(int event_type) {
     switch(event_type) {
 
     case DB_SQL_EVENT_STARTUP: /* this is a startup with existing songs */
-        db_sqlite2_exec(NULL,E_FATAL,"vacuum");
+        if(!conf_get_int("database","quick_startup",0))
+            db_sqlite2_exec(NULL,E_FATAL,"vacuum");
+
 	/* make sure our indexes exist */
 	db_sqlite2_exec(NULL,E_DBG,"create index idx_path on "
 			"songs(path,idx)");
