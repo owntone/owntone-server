@@ -993,6 +993,7 @@ void out_daap_playlistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     }
 
     ppi->dq.query_type = QUERY_TYPE_ITEMS;
+    ppi->dq.playlist_id = atoi(ppi->uri_sections[3]);
 
     if(_ppi->db_enum_start(&pe,&ppi->dq)) {
         _ppi->log(E_LOG,"Could not start enum: %s\n",pe);
