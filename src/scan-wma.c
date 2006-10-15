@@ -959,6 +959,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     int item;
     int err;
     int res=TRUE;
+    int encrypted = 0;
     
     wma_fd = r_open2(filename,O_RDONLY);
     if(wma_fd == -1) {
@@ -1027,6 +1028,8 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
                 res &= wma_parse_stream_properties(wma_fd,(int)subhdr.size,pmp3);
             } else if(strcmp(pguid->name,"ASF_Header_Extension_Object")==0) {
                 res &= wma_parse_header_extension(wma_fd,(int)subhdr.size,pmp3);
+            } else if(strstr(pguid->name,"Content_Encryption_Object")) {
+                encrypted=1;
             }
         } else {
             DPRINTF(E_DBG,L_SCAN,"Unknown subheader: %02hhx%02hhx%02hhx%02hhx-"
@@ -1055,5 +1058,13 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
     r_close(wma_fd);
     
+
+    if(encrypted) {
+        if(pmp3->codectype)
+            free(pmp3->codectype);
+
+        pmp3->codectype=strdup("wmap");
+    }
+
     return res;
 }
