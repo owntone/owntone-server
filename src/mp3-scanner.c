@@ -756,6 +756,21 @@ void make_composite_tags(MP3FILE *song) {
     char *sep = " - ";
     char *va_artist = "Various Artists";
 
+    if(song->genre && (strlen(song->genre) == 0)) {
+        free(song->genre);
+        song->genre = NULL;
+    }
+
+    if(song->artist && (strlen(song->artist) == 0)) {
+        free(song->artist);
+        song->artist = NULL;
+    }
+
+    if(song->title && (strlen(song->title) == 0)) {
+        free(song->title);
+        song->title = NULL;
+    }
+
     if(!song->artist) {
         if (song->orchestra && song->conductor) {
             len = (int)strlen(song->orchestra) +
