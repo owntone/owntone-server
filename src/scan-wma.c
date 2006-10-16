@@ -387,7 +387,7 @@ int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3) {
             }
         }
 
-        DPRINTF(E_DBG,L_SCAN,"  Size: %ld\n",sh.size);
+        DPRINTF(E_DBG,L_SCAN,"  Size: %lld\n",sh.size);
         if(sh.size <= sizeof(sh))
             return TRUE; /* guess we're done! */
 
