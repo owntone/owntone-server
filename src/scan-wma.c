@@ -353,6 +353,7 @@ int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3) {
     if(r_read(fd,&he,sizeof(he)) != sizeof(he))
         return FALSE;
 
+    he.data_size  = wma_convert_int((unsigned char *)&he.data_size);
     bytes_left = he.data_size;
     DPRINTF(E_DBG,L_SCAN,"Found header ext of %ld (%ld) bytes\n",he.data_size,size);
 
@@ -363,6 +364,7 @@ int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3) {
         if(r_read(fd,&sh,sizeof(sh)) != sizeof(sh))
             return FALSE;
 
+        sh.size = wma_convert_ll((unsigned char *)&sh.size);
         pguid = wma_find_guid(sh.objectid);
         if(!pguid) {
             DPRINTF(E_DBG,L_SCAN,"  Unknown ext subheader: %02hhx%02hhx"
