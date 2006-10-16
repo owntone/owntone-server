@@ -132,6 +132,11 @@ void txt_add(char *txtrecord, char *fmt, ...) {
     va_end(ap);
     
     len = (int)strlen(buff);
+    if(len + strlen(txtrecord) > 255) {
+        DPRINTF(E_FATAL,L_MAIN,"dns-sd text string too long.  Try a shorter "
+                "share name.\n");
+    }
+
     end = txtrecord + strlen(txtrecord);
     *end = len;
     strcpy(end+1,buff);
