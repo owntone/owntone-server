@@ -388,7 +388,7 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
         /* calculate bitrate from song length... Kinda cheesy */
         DPRINTF(E_DBG,L_SCAN, "Guesstimating bit rate.\n");
         atom_offset=scan_aac_drilltoatom(fin,"mdat",&atom_length);
-        if ((atom_offset != -1) && (pmp3->song_length)) {
+        if ((atom_offset != -1) && (pmp3->song_length >= 1000)) {
             pmp3->bitrate = atom_length / ((pmp3->song_length / 1000) * 128);
         }
     }
