@@ -12,6 +12,8 @@ dnl AC_PROG_YACC
 dnl AM_PROG_LEX
 AC_PROG_LIBTOOL
 
+AC_USE_SYSTEM_EXTENSIONS
+
 AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
 AC_CHECK_HEADERS([dirent.h])
@@ -112,8 +114,9 @@ AM_CONDITIONAL(COND_SQLITE,test x$db_sqlite = xtrue)
 AM_CONDITIONAL(COND_SQLITE3,test x$db_sqlite3 = xtrue)
 AM_CONDITIONAL(COND_GDBM,test x$use_gdbm = xtrue)
 AM_CONDITIONAL(COND_FFMPEG,test x$use_ffmpeg = xtrue)
-AM_CONDITIONAL(COND_NEED_STRCASESTR,false)
-AM_CONDITIONAL(COND_NEED_STRSEP,false)
+#AM_CONDITIONAL(COND_NEED_STRCASESTR,false)
+#AM_CONDITIONAL(COND_NEED_STRSEP,false)
+AC_CHECK_FUNCS(strcasestr strsep)
 
 
 if test x$have_sql = xtrue; then
