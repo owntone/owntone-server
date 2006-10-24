@@ -69,6 +69,12 @@ typedef struct {
 
 
 #define MAYBEFREE(a) { if((a)) free((a)); };
+#ifndef S_ISDIR
+# define S_ISDIR(a) (((a) & S_IFMT) == S_IFDIR)
+#endif
+#ifndef S_ISLNK
+# define S_ISLNK(a) (((a) & S_IFMT) == S_IFLNK)
+#endif
 
 
 /*
@@ -327,7 +333,9 @@ int scan_path(char *path) {
     struct stat sb;
     char *extensions;
     int is_compdir;
+    int follow_symlinks = 0;
 
+    follow_symlinks = conf_get_int("scanning","follow_symlinks",0);
     extensions = conf_alloc_string("general","extensions",".mp3,.m4a,.m4p");
 
     if((current_dir=opendir(path)) == NULL) {
@@ -365,13 +373,19 @@ int scan_path(char *path) {
             continue;
 
         snprintf(relative_path,PATH_MAX,"%s/%s",path,pde->d_name);
+
+        if(!os_lstat(relative_path,&sb)) {
+            if(S_ISLNK(sb.st_mode) && !follow_symlinks)
+                continue;
+        }
+
         mp3_path[0] = '\x0';
         realpath(relative_path,mp3_path);
         DPRINTF(E_DBG,L_SCAN,"Found %s\n",relative_path);
         if(os_stat(mp3_path,&sb)) {
             DPRINTF(E_INF,L_SCAN,"Error statting %s: %s\n",mp3_path,strerror(errno));
         } else {
-            if(sb.st_mode & S_IFDIR) { /* dir -- recurse */
+            if(S_ISDIR(sb.st_mode)) {  /* follow dir */
                 if(conf_get_int("scanning","ignore_appledouble",1) && 
                    ((strcasecmp(pde->d_name,".AppleDouble") == 0) ||
                     (strcasecmp(pde->d_name,".AppleDesktop") == 0))) {

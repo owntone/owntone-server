@@ -500,3 +500,7 @@ char *os_apppath(char *parm) {
 int os_stat(const char *path, struct stat *sb) {
     return stat(path, sb);
 }
+
+int os_lstat(const char *path, struct stat *sb) {
+    return lstat(path, sb);
+}

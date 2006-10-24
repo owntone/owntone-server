@@ -40,6 +40,7 @@ extern int os_unload(void *handle);
 
 /* misc */
 extern int os_stat(const char *path, struct stat *sb);
+extern int os_lstat(const char *path, struct stat *sb);
 extern int os_islocaladdr(char *hostaddr);
 extern char *os_apppath(char *parm);
 

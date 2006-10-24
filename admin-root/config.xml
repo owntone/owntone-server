@@ -182,6 +182,17 @@
                 <option value="1">Yes</option>
             </options>
         </item>
+        <item id="scanning:follow_symlinks">
+            <name>Follow Symlinks</name>
+            <short_description>
+                Should symlinks be followed when scanning directories?
+            </short_description>
+            <type default_value="1">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
     </section>
     <section name="Database">
         <item id="general:db_type" advanced="true" restart="true">

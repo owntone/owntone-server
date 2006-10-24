@@ -146,6 +146,10 @@ char *os_realpath(const char *pathname, char *resolved_path) {
     return &resolved_path[0];
 }
 
+int os_lstat(const char *path, struct _stat *sb) {
+    return os_stat(path,sb);
+}
+
 int os_stat(const char *path, struct _stat *sb) {
     WCHAR utf16_path[PATH_MAX+1];
 
