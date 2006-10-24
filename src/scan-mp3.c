@@ -827,7 +827,7 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
         if(ferror(infile)) {
             DPRINTF(E_LOG,L_SCAN,"Error reading: %s\n",strerror(errno));
         } else {
-            DPRINTF(E_LOG,L_SCAN,"Short file: %s\n",file);
+            DPRINTF(E_INF,L_SCAN,"Bad mp3 file? (short read): %s\n",file);
         }
         fclose(infile);
         return FALSE;
@@ -858,7 +858,7 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
         fseek(infile,fp_size,SEEK_SET);
         DPRINTF(E_DBG,L_SCAN,"Reading in new block at %d\n",(int)fp_size);
         if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
-            DPRINTF(E_LOG,L_SCAN,"Short read: %s\n",file);
+            DPRINTF(E_INF,L_SCAN,"Bad mp3 file? (Short read): %s\n",file);
             fclose(infile);
             return TRUE;
         }
