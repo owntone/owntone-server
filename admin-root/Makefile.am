@@ -19,5 +19,5 @@ EXTRA_DIST = ftr.html linkOpaque.gif about.html aspl-license.txt \
 	playlist.html playlist.js smart.html smart.js DAAPApplet-0.1.jar \
 	smartpopup.html applet.html firefly.js CREDITS status.js \
 	config.js config.xml spinner.gif spinner_stopped.gif util.js \
-	pngfix.js no_access.html
+	pngfix.js no_access.html index.css
 
