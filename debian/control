@@ -2,7 +2,7 @@ Source: mt-daapd
 Section: sound
 Priority: optional
 Maintainer: Aubin Paul <debian@outlyer.org>
-Build-Depends: debhelper (>= 4.0.0), libid3tag0-dev, zlib1g-dev, libgdbm-dev, libsqlite0-dev
+Build-Depends: debhelper (>= 4.0.0), libid3tag0-dev, zlib1g-dev, libgdbm-dev, libsqlite0-dev libogg-dev libvorbis-dev libflac-dev
 Standards-Version: 3.6.0
 
 Package: mt-daapd
