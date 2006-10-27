@@ -193,6 +193,17 @@
                 <option value="1">Yes</option>
             </options>
         </item>
+        <item id="scanning:skip_first">
+            <name>Skip First Scan</name>
+            <short_description>
+                Should the initial boot-up scan be skipped?
+            </short_description>
+            <type default_value="0">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
     </section>
     <section name="Database">
         <item id="general:db_type" advanced="true" restart="true">
