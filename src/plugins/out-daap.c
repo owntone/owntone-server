@@ -201,6 +201,8 @@ int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password) {
         return TRUE;
     if(strncasecmp(uri,"/logout",7) == 0)
         return TRUE;
+    if(strncasecmp(uri,"/databases/1/items/",19) == 0)
+        return TRUE;
 
     readpassword = _ppi->conf_alloc_string("general","password",NULL);
     if(password == NULL) { /* testing to see if we need a pw */
