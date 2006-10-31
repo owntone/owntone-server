@@ -314,5 +314,12 @@
             <short_description></short_description>
             <type size="80">text</type>
         </item>
+        <item id="general:never_transcode">
+            <name>Never Transcode</name>
+            <short_description>
+                Codecs to not transcode, even if plugins are available
+            </short_description>
+            <type size="80">text</type>
+        </item>
     </section>
 </config>

@@ -123,6 +123,7 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_STRING,"general","ssc_codectypes" },
     { 0, 0, CONF_T_STRING,"general","ssc_prog" },
     { 0, 0, CONF_T_STRING,"general","password" },
+    { 0, 0, CONF_T_STRING,"general","never_transcode" },
     { 0, 0, CONF_T_MULTICOMMA,"general","compdirs" },
     { 0, 0, CONF_T_STRING,"general","logfile" },
     { 0, 0, CONF_T_EXISTPATH,"plugins","plugin_dir" },

@@ -446,10 +446,21 @@ int plugin_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
     int result;
     char *native_codecs=NULL;
     char *user_agent=NULL;
-    
+    char *never_transcode = NULL;
+
     if(!codec) {
         DPRINTF(E_LOG,L_PLUG,"testing transcode on null codec?\n");
         return FALSE;
+    }
+
+
+    never_transcode = conf_alloc_string("general","never_transcode",NULL);
+    if(never_transcode) {
+        if(strstr(never_transcode,codec)) {
+            free(never_transcode);
+            return FALSE;
+        }
+        free(never_transcode);
     }
 
     if(pwsc) {
