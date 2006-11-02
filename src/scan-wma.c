@@ -456,7 +456,9 @@ int wma_parse_audio_media(int fd, int size, MP3FILE *pmp3) {
         break;
     case 0x162:
         MAYBEFREE(pmp3->codectype);
-        pmp3->codectype = strdup("wmap"); /* pro */
+        MAYBEFREE(pmp3->type);
+        pmp3->codectype = strdup("wma"); /* pro */
+        pmp3->type = strdup("wmap");
         break;
     case 0x163:
         MAYBEFREE(pmp3->codectype);
