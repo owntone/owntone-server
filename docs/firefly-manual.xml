@@ -1,0 +1,205 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.4//EN"
+"http://www.oasis-open.org/docbook/xml/4.4/docbookx.dtd">
+<article>
+  <title>Firefly Media Server Manual</title>
+
+  <section>
+    <title>Overview</title>
+
+    <para>The Firefly Media Server is an open-source media server for the Roku
+    SoundBridge and iTunes. Generally, it supports the following
+    features:</para>
+
+    <itemizedlist>
+      <listitem>
+        <para>Integrates with iTunes, reading playlists even when iTunes is
+        not running</para>
+      </listitem>
+
+      <listitem>
+        <para>Runs in the background, without requiring user login
+        (unix/windows)</para>
+      </listitem>
+
+      <listitem>
+        <para>System tray (Windows)/Preference Pane (ouMac) allows for quick
+        and easy configuration</para>
+      </listitem>
+
+      <listitem>
+        <para>Web-based interface allows for more advanced
+        configuration</para>
+      </listitem>
+
+      <listitem>
+        <para>Support transcoding of many audio formats, including AAC, ALAC,
+        WMA, FLAC, and Ogg/Vorbis. (Supported formats vary by platform)</para>
+      </listitem>
+
+      <listitem>
+        <para>Cross platform, running on Windows, Mac, and Linux</para>
+      </listitem>
+
+      <listitem>
+        <para>Actively developed</para>
+      </listitem>
+    </itemizedlist>
+
+    <para>Full details of configuring and installing Firefly to take advantage
+    of these features are detailed below.</para>
+  </section>
+
+  <section>
+    <title>Installation</title>
+
+    <para>Firefly Media Server can be downloaded from the project web site at
+    <uri>http://www.fireflymediaserver.org</uri>. This manual describes the
+    current stable version: svn-1359.</para>
+
+    <para>If you anticipate using a Roku SoundBridge as a client to the
+    Firefly Media Server, please consider upgrading the Roku firmware to
+    version 2.5.173 or later. To check your software version and to upgrade,
+    use your SoundBridge remote to go to Change Library or
+    Configuration-&gt;System Configuration-&gt;Software Version and Updates.
+    Follow the on screen instructions to check for newer software and to
+    upgrade.</para>
+
+    <para>Details of installing the Firefly Media Server vary by platform.
+    Please read the detailed installation instructions for the platform you
+    use.</para>
+
+    <section>
+      <title>Windows Installation</title>
+
+      <para>The Firefly Media Server will run on Windows 2000 or Window XP
+      workstations. Please follow the steps below to install the Firefly Media
+      Server.</para>
+
+      <orderedlist>
+        <listitem>
+          <para>Download and install Apple's Bonjour for Windows. At the time
+          of this writing, this can be found at the following location:
+          <uri>http://www.apple.com/support/downloads/bonjourforwindows103.html.</uri></para>
+        </listitem>
+
+        <listitem>
+          <para>If you wish to transcode WMA files, including WMA Lossless,
+          please download and install Microsoft's Windows Media Player 10 or
+          later.</para>
+        </listitem>
+
+        <listitem>
+          <para>Download and install svn-1359 from the Firefly Media Server
+          site at <uri>http://www.fireflymediaserver.org</uri></para>
+        </listitem>
+      </orderedlist>
+
+      <para>After following the directions in the installer, the Firefly
+      server should start automatically and being indexing music files. Once
+      the files are indexed (at approximately 5000 songs per minute), the
+      Firefly server should appear in iTunes or the Roku SoundBridge. If it
+      does not, please refer to the troubleshooting section.</para>
+    </section>
+
+    <section>
+      <title>Mac Installation</title>
+
+      <para>The instructions for the Mac installation are contained in the
+      README file in the Mac disk image.</para>
+
+      <orderedlist>
+        <listitem>
+          <para>Download the current Mac disk image from
+          <uri>http://www.fireflymediaserver.org</uri></para>
+        </listitem>
+
+        <listitem>
+          <para>Mount the .dmg file by double-clicking on it</para>
+        </listitem>
+
+        <listitem>
+          <para>Follow the instructions in the README file</para>
+        </listitem>
+      </orderedlist>
+
+      <para>Once installed, use the Preference Pane just installed to start
+      the Firefly Server. The initial startup will take some time, as the
+      server must index all existing songs. One the server has finished
+      indexing the files, it should appear in iTunes, or in the Roku
+      SoundBridge library browser. If it does not, please refer to the
+      troubleshooting section.</para>
+
+      <para></para>
+    </section>
+  </section>
+
+  <section>
+    <title>Configuration</title>
+
+    <para>There are generally three ways to configure the Firefly Media
+    Server: Using the tray applet/prefs panel on Windows and Mac, by editing
+    the configuration file directly, or by using the web-based configuration
+    interface.</para>
+
+    <section>
+      <title>General</title>
+
+      <para></para>
+    </section>
+
+    <section>
+      <title>Windows Tray Applet</title>
+
+      <para></para>
+    </section>
+
+    <section>
+      <title>Mac Preference Panel</title>
+
+      <para></para>
+    </section>
+
+    <section>
+      <title>Config File Editing</title>
+
+      <para></para>
+    </section>
+
+    <section>
+      <title>Web Interface Configuration</title>
+
+      <para></para>
+    </section>
+  </section>
+
+  <section>
+    <title>Resources</title>
+
+    <para></para>
+
+    <section>
+      <title>Playlists</title>
+
+      <para></para>
+    </section>
+
+    <section>
+      <title>XML-RPC Guide</title>
+
+      <para></para>
+    </section>
+
+    <section>
+      <title>Troubleshooting</title>
+
+      <para></para>
+    </section>
+
+    <section>
+      <title>FAQ</title>
+
+      <para></para>
+    </section>
+  </section>
+</article>
