@@ -30,7 +30,6 @@
 # include "config.h"
 #endif
 
-#define _POSIX_PTHREAD_SEMANTICS
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -396,7 +395,7 @@ int scan_path(char *path) {
                 } else {
                     DPRINTF(E_DBG,L_SCAN,"Found %s.. recursing\n",pde->d_name);
                     scan_path(mp3_path);
-                }
+               }
             } else {
                 scan_filename(mp3_path, is_compdir, extensions);
             }
@@ -735,6 +734,7 @@ int scan_freetags(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->grouping);
     MAYBEFREE(pmp3->description);
     MAYBEFREE(pmp3->codectype);
+    MAYBEFREE(pmp3->album_artist);
 
     return 0;
 }

@@ -83,31 +83,33 @@ static char *scan_xml_track_tags[] = {
     "Date Added",
     "Comments",
     "Composer",
+    "Album Artist",
     NULL
 };
 
 /** Indexes to the iTunes xml fields we are interested in */
-#define SCAN_XML_T_UNKNOWN     -1
-#define SCAN_XML_T_NAME         0
-#define SCAN_XML_T_ARTIST       1
-#define SCAN_XML_T_ALBUM        2
-#define SCAN_XML_T_GENRE        3
-#define SCAN_XML_T_TOTALTIME    4
-#define SCAN_XML_T_TRACKNUMBER  5
-#define SCAN_XML_T_TRACKCOUNT   6
-#define SCAN_XML_T_YEAR         7
-#define SCAN_XML_T_BITRATE      8
-#define SCAN_XML_T_SAMPLERATE   9
-#define SCAN_XML_T_PLAYCOUNT   10
-#define SCAN_XML_T_RATING      11
-#define SCAN_XML_T_DISABLED    12
-#define SCAN_XML_T_DISCNO      13
-#define SCAN_XML_T_DISCCOUNT   14
-#define SCAN_XML_T_COMPILATION 15
-#define SCAN_XML_T_LOCATION    16
-#define SCAN_XML_T_DATE_ADDED  17
-#define SCAN_XML_T_COMMENTS    18
-#define SCAN_XML_T_COMPOSER    19
+#define SCAN_XML_T_UNKNOWN      -1
+#define SCAN_XML_T_NAME          0
+#define SCAN_XML_T_ARTIST        1
+#define SCAN_XML_T_ALBUM         2
+#define SCAN_XML_T_GENRE         3
+#define SCAN_XML_T_TOTALTIME     4
+#define SCAN_XML_T_TRACKNUMBER   5
+#define SCAN_XML_T_TRACKCOUNT    6
+#define SCAN_XML_T_YEAR          7
+#define SCAN_XML_T_BITRATE       8
+#define SCAN_XML_T_SAMPLERATE    9
+#define SCAN_XML_T_PLAYCOUNT    10
+#define SCAN_XML_T_RATING       11
+#define SCAN_XML_T_DISABLED     12
+#define SCAN_XML_T_DISCNO       13
+#define SCAN_XML_T_DISCCOUNT    14
+#define SCAN_XML_T_COMPILATION  15
+#define SCAN_XML_T_LOCATION     16
+#define SCAN_XML_T_DATE_ADDED   17
+#define SCAN_XML_T_COMMENTS     18
+#define SCAN_XML_T_COMPOSER     19
+#define SCAN_XML_T_ALBUM_ARTIST 20
 
 #ifndef TRUE
 # define TRUE  1
@@ -715,6 +717,7 @@ int scan_xml_tracks_section(int action, char *info) {
                     MAYBECOPY(total_discs);
                     MAYBECOPY(time_added);
                     MAYBECOPY(disabled);
+                    MAYBECOPYSTRING(album_artist);
 
                     /* must add to the red-black tree */
                     scan_xml_add_lookup(current_track_id,pmp3->id);
@@ -757,6 +760,7 @@ int scan_xml_tracks_section(int action, char *info) {
                 MAYBECOPY(rating);
                 MAYBECOPY(time_added);
                 MAYBECOPY(disabled);
+                MAYBECOPYSTRING(album_artist);
                     
                 make_composite_tags(pmp3);
                 if(db_add(NULL,pmp3,&added_id) == DB_E_SUCCESS) {
@@ -775,7 +779,9 @@ int scan_xml_tracks_section(int action, char *info) {
             MAYBEFREE(mp3.album);
             MAYBEFREE(mp3.genre);
             MAYBEFREE(mp3.comment);
+            MAYBEFREE(mp3.album_artist);
             MAYBEFREE(song_path);
+
             memset((void*)&mp3,0,sizeof(MP3FILE));
         } else {
             return XML_STATE_ERROR;
@@ -823,6 +829,8 @@ int scan_xml_tracks_section(int action, char *info) {
                 mp3.comment = strdup(info);
             } else if(current_field == SCAN_XML_T_COMPOSER) {
                 mp3.composer = strdup(info);
+            } else if(current_field == SCAN_XML_T_ALBUM_ARTIST) {
+                mp3.album_artist = strdup(info);
             }
         } else if(action == RXML_EVT_END) {
             state = XML_TRACK_ST_TRACK_INFO;

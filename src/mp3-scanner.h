@@ -26,7 +26,7 @@
 
 typedef struct tag_mp3file {
     char *path;
-    int index;
+    uint32_t index;
     char *fname;
     char *title;     /* TIT2 */
     char *artist;    /* TPE1 */
@@ -40,54 +40,60 @@ typedef struct tag_mp3file {
     char *grouping;  /* TIT1 */
     char *url;       /* daap.songdataurl (asul) */
 
-    int bitrate;
-    int samplerate;
-    int song_length;
-    int file_size;
-    int year;        /* TDRC */
+    uint32_t bitrate;
+    uint32_t samplerate;
+    uint32_t song_length;
+    uint32_t file_size; /* ?? */
+    uint32_t year;        /* TDRC */
 
-    int track;       /* TRCK */
-    int total_tracks;
+    uint32_t track;       /* TRCK */
+    uint32_t total_tracks;
 
-    int disc;        /* TPOS */
-    int total_discs;
+    uint32_t disc;        /* TPOS */
+    uint32_t total_discs;
 
-    int time_added;
-    int time_modified;
-    int time_played;
-    int play_count;
-    int rating;
-    int db_timestamp;
-    int disabled;
-    int bpm;         /* TBPM */
+    uint32_t time_added; /* really should be a time_t */
+    uint32_t time_modified;
+    uint32_t time_played;
 
-    int got_id3;
-    unsigned int id;
+    uint32_t play_count;
+    uint32_t rating;
+    uint32_t db_timestamp;
+ 
+    uint32_t disabled;
+    uint32_t bpm;         /* TBPM */
+
+    uint32_t got_id3;
+    uint32_t id;
 
     char *description;  /* long file type */
     char *codectype;          /* song.codectype */
-    int item_kind;              /* song or movie */
-    int data_kind;              /* dmap.datakind (asdk) */
-    int force_update;
-    int sample_count;
+
+    uint32_t item_kind;              /* song or movie */
+    uint32_t data_kind;              /* dmap.datakind (asdk) */
+    uint32_t force_update;
+    uint64_t sample_count;
     char compilation;
 
     /* iTunes 5+ */
-    int contentrating;
+    uint32_t contentrating;
 
     /* iTunes 6.0.2 */
-    int has_video;
+    uint32_t has_video;
+    uint32_t bits_per_sample;
+
+    char *album_artist;
 } MP3FILE;
 
 typedef struct tag_m3ufile {
-    int id;              /**< integer id (miid) */
+    uint32_t id;              /**< integer id (miid) */
     char *title;       /**< playlist name as displayed in iTunes (minm) */
-    int type;            /**< 0=static webmanaged, 1=smart, 2=static m3u (aeSP/MPTY) */
-    int items;           /**< number of items (mimc) */
+    uint32_t type;            /**< 0=static webmanaged, 1=smart, 2=static m3u (aeSP/MPTY) */
+    uint32_t items;           /**< number of items (mimc) */
     char *query;       /**< where clause if type 1 (MSPS) */
-    int db_timestamp;    /**< time last updated */
+    uint32_t db_timestamp;    /**< time last updated */
     char *path;        /**< path of underlying playlist (if type 2) */
-    int index;           /**< index of playlist for paths with multiple playlists */
+    uint32_t index;           /**< index of playlist for paths with multiple playlists */
 } M3UFILE;
 
 typedef struct tag_packed_m3ufile {
@@ -143,6 +149,7 @@ typedef struct tag_packed_mp3file {
     char *idx;
     char *has_video;
     char *contentrating;
+    char *bits_per_sample;
 } PACKED_MP3FILE;
 
 #define PL_STATICWEB  0

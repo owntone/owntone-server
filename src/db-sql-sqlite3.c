@@ -41,11 +41,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sqlite3.h>
-
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
 
+#include "conf.h"
 #include "err.h"
 #include "db-generic.h"
 #include "db-sql.h"
@@ -67,7 +70,7 @@ static char **db_sqlite3_row = NULL;
 
 static char db_sqlite3_path[PATH_MAX + 1];
 
-#define DB_SQLITE3_VERSION 12
+#define DB_SQLITE3_VERSION 13
 
 
 /* Forwards */
@@ -504,7 +507,9 @@ char *db_sqlite3_initial1 =
 "   codectype       VARCHAR(5) DEFAULT NULL,\n"
 "   idx             INTEGER NOT NULL,\n"
 "   has_video       INTEGER DEFAULT 0,\n"
-"   contentrating   INTEGER DEFAULT 0\n"
+"   contentrating   INTEGER DEFAULT 0,\n"
+"   bits_per_sample INTEGER DEFAULT 0,\n"
+"   album_artist    VARCHAR(1024)\n"
 ");\n"
 "create table playlistitems (\n"
 "   id             INTEGER PRIMARY KEY NOT NULL,\n"
@@ -516,7 +521,7 @@ char *db_sqlite3_initial1 =
 "   subterm         VARCHAR(255)    DEFAULT NULL,\n"
 "   value           VARCHAR(1024)   NOT NULL\n"
 ");\n"
-"insert into config values ('version','','12');\n";
+"insert into config values ('version','','13');\n";
 
 char *db_sqlite3_initial2 =
 "create table playlists (\n"

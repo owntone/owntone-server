@@ -34,6 +34,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#ifdef HAVE_STDINT_H
+# include <stdint.h>
+#endif
 
 #include "err.h"
 #include "mp3-scanner.h"
@@ -777,6 +780,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     int insertid;
     char *query;
     char *path;
+    char sample_count[40];
 
     DPRINTF(E_SPAM,L_DB,"Entering db_sql_add\n");
 
@@ -809,6 +813,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     pmp3->play_count=0;
     pmp3->time_played=0;
 
+    sprintf(sample_count,"%lld",pmp3->sample_count);
     err=db_sql_exec_fn(pe,E_DBG,"INSERT INTO songs VALUES "
                        "(NULL," // id
                        "'%q',"  // path
@@ -845,12 +850,14 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
                        "%d,"    // time_played
                        "%d,"    // db_timestamp
                        "%d,"    // disabled
-                       "%d,"    // sample_count
+                       "%s,"    // sample_count
                        "0,"     // force_update
                        "'%q',"  // codectype
                        "%d,"    // index
                        "%d,"    // has_video
-                       "%d)",   // contentrating
+                       "%d,"    // contentrating
+                       "%d,"    // bits_per_sample
+                       "'%q')",   // albumartist
                        path,
                        STR(pmp3->fname),
                        STR(pmp3->title),
@@ -884,11 +891,13 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
                        pmp3->time_played,
                        pmp3->db_timestamp,
                        pmp3->disabled,
-                       pmp3->sample_count,
+                       sample_count,
                        STR(pmp3->codectype),
                        pmp3->index,
                        pmp3->has_video,
-                       pmp3->contentrating);
+                       pmp3->contentrating,
+                       pmp3->bits_per_sample,
+                       STR(pmp3->album_artist));
 
     free(path);
     if(err != DB_E_SUCCESS)
@@ -919,12 +928,14 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
     int err;
     char query[1024];
     char *path;
+    char sample_count[40];
 
     if(!pmp3->time_modified)
         pmp3->time_modified = (int)time(NULL);
 
     pmp3->db_timestamp = (int)time(NULL);
 
+    sprintf(sample_count,"%lld",pmp3->sample_count);
     strcpy(query,"UPDATE songs SET "
            "title='%q',"  // title
            "artist='%q',"  // artist
@@ -952,8 +963,9 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
            "disabled=%d," // disabled
            "compilation=%d,"    // compilation
            "rating=%d,"    // rating
-           "sample_count=%d," // sample_count
-           "codectype='%q'"   // codec
+           "sample_count=%s," // sample_count
+           "codectype='%q',"   // codec
+           "album_artist='%q',"
            " WHERE path='%q' and idx=%d");
 
     path = _db_proper_path(pmp3->path);
@@ -985,8 +997,9 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
                          pmp3->disabled,
                          pmp3->compilation,
                          pmp3->rating,
-                         pmp3->sample_count,
+                         sample_count,
                          STR(pmp3->codectype),
+                         STR(pmp3->album_artist),
                          path,
                          pmp3->index);
 
@@ -1440,6 +1453,8 @@ void db_sql_build_mp3file(SQL_ROW valarray, MP3FILE *pmp3) {
     pmp3->index=db_sql_atoi(valarray[38]);
     pmp3->has_video=db_sql_atoi(valarray[39]);
     pmp3->contentrating=db_sql_atoi(valarray[40]);
+    pmp3->bits_per_sample=db_sql_atoi(valarray[41]);
+    pmp3->album_artist=db_sql_strdup(valarray[42]);
 }
 
 /**

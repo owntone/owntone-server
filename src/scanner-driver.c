@@ -97,6 +97,7 @@ void dump_mp3(MP3FILE *pmp3) {
     printf("fname.........:  %s\n",pmp3->fname);
     printf("title.........:  %s\n",pmp3->title);
     printf("artist........:  %s\n",pmp3->artist);
+    printf("album_artist..:  %s\n",pmp3->album_artist);
     printf("album.........:  %s\n",pmp3->album);
     printf("genre.........:  %s\n",pmp3->genre);
     printf("comment.......:  %s\n",pmp3->comment);

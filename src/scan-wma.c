@@ -642,8 +642,8 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3, int e
             }
         } else if(strcasecmp(descriptor_name,"wm/albumartist")==0) {
             /* get first one only */
-            if(!pmp3->orchestra) {
-                pmp3->orchestra = descriptor_byte_value;
+            if(!pmp3->album_artist) {
+                pmp3->album_artist = descriptor_byte_value;
                 descriptor_byte_value = NULL;
             }
         } else if(strcasecmp(descriptor_name,"author") == 0) {

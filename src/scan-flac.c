@@ -107,6 +107,8 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
             pmp3->song_length = (sec * 1000) + ms;
             pmp3->bitrate = (pmp3->file_size) / (((sec * 1000) + ms) / 8);
             pmp3->samplerate = block->data.stream_info.sample_rate;
+            pmp3->bits_per_sample = block->data.stream_info.bits_per_sample;
+            pmp3->sample_count = block->data.stream_info.total_samples;
 
             found |= 1;
             if(found == 3)
@@ -123,6 +125,10 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
                                                      "TITLE", &len))) {
                     if ((pmp3->title = calloc(len + 1, 1)) != NULL)
                         strncpy(pmp3->title, val, len);
+                } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+                                                     "ALBUMARTIST", &len))) {
+                    if ((pmp3->album_artist = calloc(len + 1, 1)) != NULL)
+                        strncpy(pmp3->album_artist, val, len);
                 } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
                                                      "ALBUM", &len))) {
                     if ((pmp3->album = calloc(len + 1, 1)) != NULL)

@@ -231,6 +231,8 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
                 
                 if(!memcmp(current_atom,"\xA9" "nam",4)) { /* Song name */
                     pmp3->title=strdup((char*)&current_data[16]);
+                } else if(!memcmp(current_atom,"aART",4)) { 
+                    pmp3->album_artist=strdup((char*)&current_data[16]);
                 } else if(!memcmp(current_atom,"\xA9" "ART",4)) {
                     pmp3->artist=strdup((char*)&current_data[16]);
                 } else if(!memcmp(current_atom,"\xA9" "alb",4)) {
