@@ -965,7 +965,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
            "rating=%d,"    // rating
            "sample_count=%s," // sample_count
            "codectype='%q',"   // codec
-           "album_artist='%q',"
+           "album_artist='%q'"
            " WHERE path='%q' and idx=%d");
 
     path = _db_proper_path(pmp3->path);

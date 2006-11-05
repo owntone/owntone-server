@@ -38,8 +38,6 @@ extern int plugin_rend_register(char *name, int port, char *iface, char *txt);
 extern void plugin_event_dispatch(int event_id, int intval, void *vp, int len);
 
 /* these should really get rows */
-extern int plugin_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec);
-extern int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset, int headers);
 
 #define PLUGIN_E_SUCCESS     0
 #define PLUGIN_E_NOLOAD      1

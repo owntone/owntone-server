@@ -334,7 +334,7 @@ int scan_path(char *path) {
     int is_compdir;
     int follow_symlinks = 0;
 
-    follow_symlinks = conf_get_int("scanning","follow_symlinks",0);
+    follow_symlinks = conf_get_int("scanning","follow_symlinks",1);
     extensions = conf_alloc_string("general","extensions",".mp3,.m4a,.m4p");
 
     if((current_dir=opendir(path)) == NULL) {

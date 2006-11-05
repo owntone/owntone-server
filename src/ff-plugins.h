@@ -157,7 +157,7 @@ typedef struct tag_plugin_input_fn {
     void (*conf_dispose_string)(char *str);
     int (*conf_get_int)(char *section, char *key, int dflt);
 
-    int (*config_set_status)(struct tag_ws_conninfo *pwsc, int session, char *fmt, ...);
+    void (*config_set_status)(struct tag_ws_conninfo *pwsc, int session, char *fmt, ...);
 } PLUGIN_INPUT_FN;
 
 

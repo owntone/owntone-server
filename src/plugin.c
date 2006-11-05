@@ -80,6 +80,7 @@ void _plugin_unlock(void);
 int _plugin_error(char **pe, int error, ...);
 void _plugin_free(int *pi);
 void _plugin_recalc_codecs(void);
+int _plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset, int headers);
 
 /* webserver helpers */
 char *pi_ws_uri(WS_CONNINFO *pwsc);
@@ -103,6 +104,9 @@ int pi_db_count_items(int what);
 int pi_db_wait_update(WS_CONNINFO *pwsc);
 void pi_conf_dispose_string(char *str);
 
+/* transcode helpers */
+int pi_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec);
+
 PLUGIN_INPUT_FN pi = {
     pi_ws_uri,
     pi_ws_will_close,
@@ -118,7 +122,7 @@ PLUGIN_INPUT_FN pi = {
     pi_server_ver,
     pi_server_name,
     pi_log,
-    plugin_ssc_should_transcode,
+    pi_ssc_should_transcode,
 
     pi_db_count,
     pi_db_enum_start,
@@ -448,7 +452,7 @@ void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
  * @param codec the codec we are trying to serve
  * @returns TRUE if we can transcode, FALSE otherwise
  */
-int plugin_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
+int pi_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
     int result;
     char *native_codecs=NULL;
     char *user_agent=NULL;
@@ -549,7 +553,7 @@ int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn,
  * @param duration time in ms
  * @returns bytes transferred, or -1 on error
  */
-int plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset, int headers) {
+int _plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset, int headers) {
     PLUGIN_ENTRY *ppi, *ptc=NULL;
     PLUGIN_TRANSCODE_FN *pfn = NULL;
     void *vp_ssc;
@@ -849,7 +853,7 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
         DPRINTF(E_LOG,L_DAAP|L_WS|L_DB,"Could not find requested item %lu\n",item);
         config_set_status(pwsc,session,NULL);
         ws_returnerror(pwsc,404,"File Not Found");
-    } else if (plugin_ssc_should_transcode(pwsc,pmp3->codectype)) {
+    } else if (pi_ssc_should_transcode(pwsc,pmp3->codectype)) {
         /************************
          * Server side conversion
          ************************/
@@ -861,7 +865,7 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
                 "Session %d: Streaming file '%s' to %s (offset %ld)\n",
                 session,pmp3->fname, pwsc->hostname,(long)offset);
 
-        bytes_copied =  plugin_ssc_transcode(pwsc,pmp3->path,pmp3->codectype,
+        bytes_copied =  _plugin_ssc_transcode(pwsc,pmp3->path,pmp3->codectype,
                                              pmp3->song_length,offset,1);
 
         config_set_status(pwsc,session,NULL);
