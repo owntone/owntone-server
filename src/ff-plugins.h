@@ -69,7 +69,7 @@ typedef struct tag_plugin_event_fn {
 typedef struct tag_plugin_transcode_fn {
     void *(*ssc_init)(void);
     void (*ssc_deinit)(void*);
-    int (*ssc_open)(void*, char *, char*, int);
+    int (*ssc_open)(void*, MP3FILE *);
     int (*ssc_close)(void*);
     int (*ssc_read)(void*, char*, int);
     char *(*ssc_error)(void*);

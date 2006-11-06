@@ -80,7 +80,7 @@ void _plugin_unlock(void);
 int _plugin_error(char **pe, int error, ...);
 void _plugin_free(int *pi);
 void _plugin_recalc_codecs(void);
-int _plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset, int headers);
+int _plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, int headers);
 
 /* webserver helpers */
 char *pi_ws_uri(WS_CONNINFO *pwsc);
@@ -553,7 +553,7 @@ int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn,
  * @param duration time in ms
  * @returns bytes transferred, or -1 on error
  */
-int _plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int duration, int offset, int headers) {
+int _plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, int headers) {
     PLUGIN_ENTRY *ppi, *ptc=NULL;
     PLUGIN_TRANSCODE_FN *pfn = NULL;
     void *vp_ssc;
@@ -566,7 +566,7 @@ int _plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int durati
     ppi = _plugin_list.next;
     while((ppi) && (!pfn)) {
         if(ppi->pinfo->type & PLUGIN_TRANSCODE) {
-            if(strstr(ppi->pinfo->codeclist,codec)) {
+            if(strstr(ppi->pinfo->codeclist,pmp3->codectype)) {
                 ptc = ppi;
                 pfn = ppi->pinfo->transcode_fns;
             }
@@ -575,12 +575,12 @@ int _plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int durati
     }
 
     if(pfn) {
-        DPRINTF(E_DBG,L_PLUG,"Transcoding %s with %s\n",file,
+        DPRINTF(E_DBG,L_PLUG,"Transcoding %s with %s\n",pmp3->path,
                 ptc->pinfo->server);
 
         vp_ssc = pfn->ssc_init();
         if(vp_ssc) {
-            if(pfn->ssc_open(vp_ssc,file,codec,duration)) {
+            if(pfn->ssc_open(vp_ssc,pmp3)) {
                 /* start reading and throwing */
                 if(headers) {
                     ws_addresponseheader(pwsc,"Content-Type","audio/wav");
@@ -602,7 +602,7 @@ int _plugin_ssc_transcode(WS_CONNINFO *pwsc, char *file, char *codec, int durati
                 pfn->ssc_close(vp_ssc);
             } else {
                 DPRINTF(E_LOG,L_PLUG,"Error opening %s for ssc: %s\n",
-                        file,pfn->ssc_error(vp_ssc));
+                        pmp3->path,pfn->ssc_error(vp_ssc));
             }
             pfn->ssc_deinit(vp_ssc);
         } else {
@@ -865,8 +865,7 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
                 "Session %d: Streaming file '%s' to %s (offset %ld)\n",
                 session,pmp3->fname, pwsc->hostname,(long)offset);
 
-        bytes_copied =  _plugin_ssc_transcode(pwsc,pmp3->path,pmp3->codectype,
-                                             pmp3->song_length,offset,1);
+        bytes_copied =  _plugin_ssc_transcode(pwsc,pmp3,offset,1);
 
         config_set_status(pwsc,session,NULL);
         db_dispose_item(pmp3);

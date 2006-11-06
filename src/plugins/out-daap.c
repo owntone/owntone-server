@@ -38,6 +38,7 @@
 #endif
 
 #include "compat.h"
+#include "ff-dbstruct.h"
 #include "ff-plugins.h"
 #include "out-daap.h"
 #include "out-daap-proto.h"

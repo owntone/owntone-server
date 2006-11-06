@@ -16,6 +16,7 @@
 #include <zlib.h>
 
 #include "compat.h"
+#include "ff-dbstruct.h"
 #include "ff-plugins.h"
 #include "rsp.h"
 #include "xml-rpc.h"

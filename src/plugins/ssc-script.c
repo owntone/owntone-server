@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "ff-dbstruct.h"
 #include "ff-plugins.h"
 
 #ifndef TRUE
@@ -20,7 +21,7 @@
 /* Forwards */
 void *ssc_script_init(void);
 void ssc_script_deinit(void *vp);
-int ssc_script_open(void *vp, char *file, char *codec, int duration);
+int ssc_script_open(void *vp, MP3FILE *pmp3);
 int ssc_script_close(void *vp);
 int ssc_script_read(void *vp, char *buffer, int len);
 char *ssc_script_error(void *vp);
@@ -130,13 +131,21 @@ void ssc_script_deinit(void *vp) {
  * @param codec codec type
  * @param duration duration in ms
  */
-int ssc_script_open(void *vp, char *file, char *codec, int duration) {
+int ssc_script_open(void *vp, MP3FILE *pmp3) {
     SSCHANDLE *handle = (SSCHANDLE*)vp;
     char *cmd;
     char *newpath;
     char *metachars = "\"\\!(){}#*?$&<>`"; /* More?? */
     char metacount = 0;
     char *src,*dst;
+    char *file;
+    char *codec;
+    int duration;
+
+    file = pmp3->path;
+    codec = pmp3->codectype;
+    duration = pmp3->song_length;
+
 
     src=file;
     while(*src) {

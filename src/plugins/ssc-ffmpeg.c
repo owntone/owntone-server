@@ -99,7 +99,7 @@ char *ssc_ffmpeg_errors[] = {
 /* Forwards */
 void *ssc_ffmpeg_init(void);
 void ssc_ffmpeg_deinit(void *pv);
-int ssc_ffmpeg_open(void *pv, char *file, char *codec, int duration);
+int ssc_ffmpeg_open(void *pv, MP3FILE *pmp3);
 int ssc_ffmpeg_close(void *pv);
 int ssc_ffmpeg_read(void *pv, char *buffer, int len);
 char *ssc_ffmpeg_error(void *pv);
@@ -163,7 +163,7 @@ void ssc_ffmpeg_deinit(void *vp) {
     return;
 }
 
-int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
+int ssc_ffmpeg_open(void *vp, MP3FILE *pmp3) {
     int i;
     enum CodecID id=CODEC_ID_FLAC;
     SSCHANDLE *handle = (SSCHANDLE*)vp;
@@ -173,6 +173,13 @@ int ssc_ffmpeg_open(void *vp, char *file, char *codec, int duration) {
 #endif
     SCAN_ID3HEADER id3;
     unsigned int size = 0;
+    char *file;
+    char *codec;
+    int duration;
+
+    file = pmp3->path;
+    codec = pmp3->codectype;
+    duration = pmp3->song_length;
 
     if(!handle)
         return FALSE;

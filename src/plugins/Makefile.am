@@ -22,10 +22,10 @@ ssc_script_la_SOURCES=ssc-script.c
 
 out_daap_LTLIBRARIES=out-daap.la
 out_daap_la_LDFLAGS=-module -avoid-version
-out_daap_la_SOURCES=out-daap.c out-daap-proto.c out-daap-db.c
+out_daap_la_SOURCES=out-daap.c out-daap-proto.c
 
 EXTRA_DIST = compat.h rsp.h xml-rpc.h ssc-ffmpeg.c ssc-script.c out-daap.h \
-	out-daap-proto.h out-daap-db.h
+	out-daap-proto.h
 
 AM_CFLAGS = -I..
 

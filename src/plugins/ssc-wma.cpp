@@ -66,7 +66,7 @@ char *_ssc_wma_errors[] = {
 /* Forwards */
 void *ssc_wma_init(void);
 void ssc_wma_deinit(void *pv);
-int ssc_wma_open(void *pv, char *file, char *codec, int duration);
+int ssc_wma_open(void *pv, MP3FILE *pmp3);
 int ssc_wma_close(void *pv);
 int ssc_wma_read(void *pv, char *buffer, int len);
 char *ssc_wma_error(void *pv);
@@ -140,11 +140,18 @@ void ssc_wma_deinit(void *vp) {
     return;
 }
 
-int ssc_wma_open(void *vp, char *file, char *codec, int duration) {
+int ssc_wma_open(void *vp, MP3FILE *pmp3) {
     SSCHANDLE *handle = (SSCHANDLE*)vp;
     HRESULT hr = S_OK;
     WCHAR fname[PATH_MAX];
     DWORD byte_count;
+    char *file;
+    char *codec;
+    int duration;
+
+    file = pmp3->path;
+    codec = pmp3->codectype;
+    duration = pmp3->song_length;
 
     if(!handle)
         return FALSE;

@@ -22,7 +22,7 @@
 #ifndef _DB_GENERIC_H_
 #define _DB_GENERIC_H_
 
-#include "mp3-scanner.h" /** for MP3FILE */
+#include "ff-dbstruct.h" /** for MP3FILE */
 #include "smart-parser.h" /** for PARSETREE */
 #include "webserver.h" /** for WS_CONNINFO */
 
