@@ -391,8 +391,8 @@ int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3) {
         if(sh.size <= sizeof(sh))
             return TRUE; /* guess we're done! */
 
-        bytes_left -= sh.size;
-        lseek(fd,current + sh.size,SEEK_SET);
+        bytes_left -= (long)sh.size;
+        lseek(fd,current + (long)sh.size,SEEK_SET);
     }
 
     return TRUE;

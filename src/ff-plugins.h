@@ -22,6 +22,8 @@
 #ifndef _FF_PLUGINS_H_
 #define _FF_PLUGINS_H_
 
+#include "ff-dbstruct.h"
+
 /* Plugin types */
 #define PLUGIN_OUTPUT     1
 #define PLUGIN_SCANNER    2

@@ -166,9 +166,6 @@
 				RelativePath="..\src\mp3-scanner.c">
 			</File>
 			<File
-				RelativePath="..\src\os-win32-u.c">
-			</File>
-			<File
 				RelativePath="..\src\os-win32.c">
 			</File>
 			<File

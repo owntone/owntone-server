@@ -69,6 +69,12 @@ typedef struct tag_ssc_handle {
     char *error;
 
     int raw;
+
+    int channels;
+    int sample_rate;
+    int bits_per_sample;
+    uint32_t samples;
+
     FILE *fin;
     char file_buffer[256];
     char *file_buffer_ptr;
@@ -196,6 +202,15 @@ int ssc_ffmpeg_open(void *vp, MP3FILE *pmp3) {
     }
 
     if(handle->raw) {
+        handle->bits_per_sample = 16;
+        handle->sample_rate = 44100;
+
+        if(pmp3->bits_per_sample)
+            handle->bits_per_sample = pmp3->bits_per_sample;
+        handle->channels = 2;
+        handle->samples = (uint32_t)pmp3->sample_count;
+        handle->sample_rate = pmp3->samplerate;
+
         _ppi->log(E_DBG,"opening file raw\n");
         handle->pCodec = avcodec_find_decoder(id);
         if(!handle->pCodec) {
@@ -451,9 +466,9 @@ int ssc_ffmpeg_read(void *vp, char *buffer, int len) {
         if(!handle->wav_offset) {
             /* generate the wav header */
             if(handle->raw) {
-                channels = 2;
-                sample_rate = 44100;
-                bits_per_sample = 16;
+                channels = handle->channels;
+                sample_rate = handle->sample_rate;
+                bits_per_sample = handle->bits_per_sample;
             } else {
                 channels = handle->pCodecCtx->channels;
                 sample_rate = handle->pCodecCtx->sample_rate;
@@ -477,7 +492,12 @@ int ssc_ffmpeg_read(void *vp, char *buffer, int len) {
             if(handle->duration)
                 duration = handle->duration;
 
-            data_len = ((bits_per_sample * sample_rate * channels / 8) * (duration/1000));
+            if(handle->samples) {
+                data_len = ((bits_per_sample * channels / 8) * handle->samples);
+            } else {
+                data_len = ((bits_per_sample * sample_rate * channels / 8) * (duration/1000));
+            }
+
             byte_rate = sample_rate * channels * bits_per_sample / 8;
             block_align = channels * bits_per_sample / 8;
 

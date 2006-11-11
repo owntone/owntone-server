@@ -121,9 +121,6 @@
 				RelativePath="..\..\src\plugins\compat.c">
 			</File>
 			<File
-				RelativePath="..\..\src\plugins\out-daap-db.c">
-			</File>
-			<File
 				RelativePath="..\..\src\plugins\out-daap-proto.c">
 			</File>
 			<File
