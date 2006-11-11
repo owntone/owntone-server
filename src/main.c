@@ -130,7 +130,7 @@ void txt_add(char *txtrecord, char *fmt, ...) {
     va_start(ap, fmt);
     vsnprintf(buff, sizeof(buff), fmt, ap);
     va_end(ap);
-    
+
     len = (int)strlen(buff);
     if(len + strlen(txtrecord) > 255) {
         DPRINTF(E_FATAL,L_MAIN,"dns-sd text string too long.  Try a shorter "
@@ -345,7 +345,7 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    
+
     if(debuglevel) /* was specified, should override the config file */
         err_setlevel(debuglevel);
 
@@ -358,9 +358,10 @@ int main(int argc, char *argv[]) {
         exit(EXIT_SUCCESS);
     }
 
-    DPRINTF(E_LOG,L_MAIN,"Starting with debuglevel %d\n",err_getlevel());
+    DPRINTF(E_LOG,L_MAIN,"Firefly Version %s: Starting with debuglevel %d\n",
+            VERSION,err_getlevel());
 
-    /* load plugins before we drop privs?  Maybe... let the 
+    /* load plugins before we drop privs?  Maybe... let the
      * plugins do stuff they might need to */
     plugin_init();
     if((plugindir=conf_alloc_string("plugins","plugin_dir",NULL)) != NULL) {
@@ -484,7 +485,7 @@ int main(int argc, char *argv[]) {
         txt_add(txtrecord,"Version=196610");      /* iTunes 6.0.4 */
         tmp = conf_alloc_string("general","password",NULL);
         if(tmp && (strlen(tmp)==0)) tmp=NULL;
-            
+
         txt_add(txtrecord,"Password=%s",tmp ? "true" : "false");
         if(tmp) free(tmp);
 
@@ -495,14 +496,14 @@ int main(int argc, char *argv[]) {
         } else {
             txt_add(txtrecord,"ffid=%08x",rand());
         }
-    
+
         DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
         iface = conf_alloc_string("general","interface","");
 
         rend_register(servername,"_http._tcp",ws_config.port,iface,txtrecord);
-        
+
         plugin_rend_register(servername,ws_config.port,iface,txtrecord);
-        
+
         free(servername);
         free(iface);
     }
@@ -539,7 +540,7 @@ int main(int argc, char *argv[]) {
             start_time=(int) time(NULL);
 
             DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
-            
+
             if(conf_get_array("general","mp3_dir",&mp3_dir_array)) {
                 if(config.full_reload) {
                     config.full_reload=0;
