@@ -31,7 +31,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="version.lib"
+				AdditionalDependencies="version.lib mpr.lib"
 				OutputFile="$(OutDir)/FireflyShell.exe"
 				LinkIncremental="2"
 				GenerateDebugInformation="TRUE"
@@ -77,7 +77,7 @@
 				Name="VCCustomBuildTool"/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="version.lib"
+				AdditionalDependencies="version.lib mpr.lib"
 				OutputFile="$(OutDir)/FireflyShell.exe"
 				LinkIncremental="1"
 				GenerateDebugInformation="TRUE"

@@ -262,6 +262,7 @@ void scan_process_playlistlist(void) {
 int scan_init(char **patharray) {
     int err=0;
     int index=0;
+    char resolved_path[MAX_PATH];
 
     DPRINTF(E_DBG,L_SCAN,"Starting scan_init\n");
 
@@ -274,7 +275,8 @@ int scan_init(char **patharray) {
 
     while((patharray[index] != NULL) && (!util_must_exit())) {
         DPRINTF(E_DBG,L_SCAN,"Scanning for MP3s in %s\n",patharray[index]);
-        err=scan_path(patharray[index]);
+        realpath(patharray[index],resolved_path);
+        err=scan_path(resolved_path);
         index++;
     }
 

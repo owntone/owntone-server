@@ -28,6 +28,9 @@ static os_serviceflag = 0;
 static pthread_t os_service_tid;
 static os_initialized=0;
 static pthread_mutex_t os_mutex=PTHREAD_MUTEX_INITIALIZER;
+static char *os_drive_maps[26];
+static int os_maps_init=0;
+
 
 /* Forwards */
 static void _os_socket_startup(void);
@@ -37,6 +40,8 @@ static void _os_lock(void);
 static void _os_unlock(void);
 static BOOL WINAPI _os_cancelhandler(DWORD dwCtrlType);
 static void _os_phandle_dump(void);
+char *_os_filepath(char *file);
+
 
 extern int gettimeout(struct timeval end,struct timeval *timeoutp);
 
@@ -76,7 +81,26 @@ char *os_w32_socket_states[] = {
  */
 int os_init(int foreground, char *runas) {
     int err;
+    char *inifile;
+    char drive_buffer[4];
+    char drive_map[MAX_PATH];
+    int drive_letter;
 
+    inifile=_os_filepath("mapping.ini");
+    DPRINTF(E_LOG,L_MISC,"Building drive mapping table from %s\n",inifile);    
+    for(drive_letter = 'a'; drive_letter <= 'z'; drive_letter++) {
+        sprintf(drive_buffer,"%c",drive_letter);
+        GetPrivateProfileString("mapping",drive_buffer,"",drive_map,MAX_PATH,inifile);
+        if(strlen(drive_map)) {
+            os_drive_maps[drive_letter - 'a'] = strdup(drive_map);
+            DPRINTF(E_LOG,L_MISC,"Mapped %c to %s\n",drive_letter,drive_map);
+        } else {
+            os_drive_maps[drive_letter - 'a'] = NULL;
+        }
+    }
+    os_maps_init=1;
+    free(inifile);
+    
     _os_socket_startup();
     
     if(!os_initialized) {
@@ -520,24 +544,36 @@ char *os_strerror (int error_no) {
  * @returns path to config file (from static buffer)
  */
 char *os_configpath(void) {
-    char drive[_MAX_DRIVE];
-    char dir[_MAX_DIR];
-    char working_dir[_MAX_PATH];
+    char *config_path = _os_filepath("mt-daapd.conf");
+    char *working_path = _os_filepath("");
 
-    GetModuleFileName(NULL,os_config_file,_MAX_PATH);
-    _splitpath(os_config_file,drive,dir,NULL,NULL);
-    _makepath(os_config_file,drive,dir,"mt-daapd","conf");
-    _makepath(working_dir,drive,dir,NULL,NULL);
+    strcpy(os_config_file,config_path);
+    free(config_path);
 
-    if(_chdir(working_dir) == -1) {
-        DPRINTF(E_LOG,L_MISC,"Could not chdir to %s... using c:\\\n",working_dir);
+    if(_chdir(working_path) == -1) {
+        DPRINTF(E_LOG,L_MISC,"Could not chdir to %s... using c:\\\n",working_path);
         if(_chdir("c:\\") == -1) {
             DPRINTF(E_FATAL,L_MISC,"Could not chdir to c:\\... aborting\n");
         }
     }
+    free(working_path);
+
     DPRINTF(E_DBG,L_MISC,"Using config file %s\n",os_config_file);
     return os_config_file;
 }
+
+char *_os_filepath(char *file) {
+    char drive[_MAX_DRIVE];
+    char dir[_MAX_DIR];
+    char path[_MAX_PATH];
+
+    GetModuleFileName(NULL,path,_MAX_PATH);
+    _splitpath(path,drive,dir,NULL,NULL);
+    _makepath(path,drive,dir,NULL,NULL);
+    strcat(path,file);
+    return strdup(path);
+}
+
 
 /**
  * get the path of the executable.  Caller must free.
@@ -616,7 +652,7 @@ void *os_loadlib(char **pe, char *path) {
     void *retval;
     UINT old_mode;
 
-    old_mode = SetErrorMode(SEM_NOOPENFILEERRORBOX);
+    old_mode = SetErrorMode(SEM_NOOPENFILEERRORBOX | SEM_FAILCRITICALERRORS);
     retval = (void*)LoadLibrary(path);
     if(!retval) {
         if(pe) *pe = strdup(os_strerror(0));
@@ -744,6 +780,7 @@ char *os_realpath(const char *pathname, char *resolved_path) {
     char *ptr;
     WCHAR utf16_rel_path[PATH_MAX+1];
     WCHAR utf16_path[PATH_MAX+1];
+    char *mapped_path;
 
     /* need to take the utf-8 and convert to utf-16, then _fullpath, then back */
     util_utf8toutf16((unsigned char *)&utf16_rel_path,PATH_MAX * sizeof(WCHAR),(char*)pathname,(int)strlen(pathname));
@@ -763,6 +800,15 @@ char *os_realpath(const char *pathname, char *resolved_path) {
 
     while(resolved_path[strlen(resolved_path)-1] == '\\') {
         resolved_path[strlen(resolved_path)-1] = '\x0';
+    }
+
+    /* convert drive letter to unc path? */
+    if((resolved_path[0] != '\\')&&(os_maps_init)){
+        if((mapped_path = os_drive_maps[tolower(resolved_path[0]) - 'a'])) {
+            /* replace the x:\ with the path */
+            memmove(&resolved_path[strlen(mapped_path)],&resolved_path[3],strlen(resolved_path)-2); /* get the null */
+            memcpy(resolved_path,mapped_path,strlen(mapped_path));
+        }
     }
 
     return &resolved_path[0];
