@@ -1,4 +1,4 @@
-/* 
+/*
  * $Id$
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
@@ -23,6 +23,9 @@
 #endif
 
 #include <fcntl.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -34,7 +37,7 @@
  * Get info from a "url" file -- a media stream file.
  * This should really get more metainfo, but I'll leave that
  * to later.
- * 
+ *
  * @param filename .url file to process
  * @param pmp3 MP3FILE structure that must be filled
  * @returns TRUE if file should be added to db, FALSE otherwise
@@ -75,7 +78,7 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     }
 
     *tail++='\0';
-    
+
     pmp3->title=strdup(head);
     pmp3->url=strdup(tail);
     fclose(infile);

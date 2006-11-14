@@ -23,6 +23,9 @@
 #  include "config.h"
 #endif
 
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -32,7 +35,7 @@
 #include "err.h"
 
 /**
- * scan a musepack file for metainfo.  
+ * scan a musepack file for metainfo.
  *
  * @param filename file to read metainfo for
  * @param pmp3 MP3FILE structure to fill
@@ -108,8 +111,8 @@ int scan_get_mpcinfo(char *filename, MP3FILE *pmp3) {
     pmp3->song_length = taglib_audioproperties_length(properties) * 1000;
     pmp3->bitrate = taglib_audioproperties_bitrate(properties);
     pmp3->samplerate = taglib_audioproperties_samplerate(properties);
-        
+
     taglib_file_free(file);
-        
+
     return TRUE;
 }

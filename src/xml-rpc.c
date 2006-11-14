@@ -13,6 +13,9 @@
 #endif
 #include <errno.h>
 #include <limits.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -460,7 +463,7 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
             continue;
 
         /* skip symlinks and devices and whatnot */
-        if((!(sb.st_mode & S_IFDIR)) && 
+        if((!(sb.st_mode & S_IFDIR)) &&
            (!(sb.st_mode & S_IFREG)))
             continue;
 

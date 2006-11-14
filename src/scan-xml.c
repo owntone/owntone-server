@@ -25,6 +25,9 @@
 
 #include <ctype.h>
 #include <limits.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -220,7 +223,7 @@ int scan_xml_translate_path(char *pold, char *pnew) {
         ptemp++;
     }
     strcpy(working_path,pold);
-    
+
     if(!path_found) {
         DPRINTF(E_DBG,L_SCAN,"Translating %s, base %s\n",pold,scan_xml_file);
 
@@ -690,7 +693,7 @@ int scan_xml_tracks_section(int action, char *info) {
             if((!is_streaming)&&scan_xml_translate_path(song_path,real_path)) {
                 /* FIXME: Error handling */
                 pmp3=db_fetch_path(NULL,real_path,0);
-                if(!pmp3) { 
+                if(!pmp3) {
                     /* file doesn't exist... let's add it? */
                     scan_filename(real_path,SCAN_TEST_COMPDIR,NULL);
                     pmp3=db_fetch_path(NULL,real_path,0);
@@ -734,7 +737,7 @@ int scan_xml_tracks_section(int action, char *info) {
                     DPRINTF(E_DBG,L_SCAN,"Adding %s\n",song_path);
                     pmp3 = calloc(sizeof(MP3FILE),1);
 
-                    if(!pmp3) 
+                    if(!pmp3)
                         DPRINTF(E_FATAL,L_SCAN,
                                 "malloc: scan_xml_tracks_section\n");
                 } else {
@@ -761,7 +764,7 @@ int scan_xml_tracks_section(int action, char *info) {
                 MAYBECOPY(time_added);
                 MAYBECOPY(disabled);
                 MAYBECOPYSTRING(album_artist);
-                    
+
                 make_composite_tags(pmp3);
                 if(db_add(NULL,pmp3,&added_id) == DB_E_SUCCESS) {
                     scan_xml_add_lookup(current_track_id,added_id);
@@ -944,7 +947,7 @@ int scan_xml_playlists_section(int action, char *info) {
                     DPRINTF(E_LOG,L_SCAN,"err adding playlist %s\n",current_name);
                     current_id=0;
                 }
-            } 
+            }
             dont_scan=0;
             state=XML_PL_ST_EXPECTING_PL_TRACKLIST;
             return XML_STATE_PLAYLISTS;

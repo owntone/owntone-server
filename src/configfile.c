@@ -36,6 +36,9 @@
 #include <pthread.h>
 #include <signal.h>
 #include <stdarg.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -257,7 +260,7 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
             } else {
                 outbuffer[out_index] = next;
                 out_index++;
-                
+
                 if(out_index == sizeof(outbuffer)) {
                     r_write(pwsc->fd,outbuffer,out_index);
                     out_index=0;

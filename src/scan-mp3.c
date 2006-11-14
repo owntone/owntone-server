@@ -26,6 +26,9 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <id3tag.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -306,7 +309,7 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
         DPRINTF(E_WARN,L_SCAN,"Cannot open %s\n",file);
         return FALSE;
     }
-         
+
     pid3file=id3_file_fdopen(mp3_fd,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
         DPRINTF(E_WARN,L_SCAN,"Cannot open %s\n",file);

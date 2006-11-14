@@ -38,6 +38,9 @@
 #include <errno.h>
 #include <limits.h>
 #include <pthread.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <stdlib.h>
 #include <string.h>
 
@@ -95,7 +98,7 @@ uint32_t _err_get_threadid(void) {
     } else {
         thread_id = util_djb_hash_block((unsigned char *)&tid,sizeof(pthread_t));
     }
-    
+
     return thread_id;
 }
 
@@ -108,7 +111,7 @@ void err_reopen(void) {
 
     if(!(err_logdest & LOGDEST_LOGFILE))
         return;
-    
+
 //    _err_lock();
     fclose(err_file);
     err_file = fopen(err_filename,"a");
@@ -171,13 +174,13 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
         fflush(err_file);
     }
-    
+
     /* always log to stderr on fatal error */
     if((err_logdest & LOGDEST_STDERR) || (!level)) {
         fprintf(stderr, "%s",errbuf);
         if(!level) fprintf(stderr,"Aborting\n");
     }
-    
+
     /* always log fatals and level 1 to syslog */
     if(level <= 1) {
         if(!err_syslog_open)
@@ -194,12 +197,12 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     }
 #endif
 
-    
+
     if(!level) {
         exit(EXIT_FAILURE);      /* this should go to an OS-specific exit routine */
     }
 }
- 
+
 /**
  * simple get/set interface to debuglevel to avoid global
  */
@@ -227,7 +230,7 @@ int err_getlevel(void) {
  */
 int err_getdest(void) {
     int dest;
-    
+
     _err_lock();
     dest=err_logdest;
     _err_unlock();
@@ -278,7 +281,7 @@ int err_setlogfile(char *file) {
         if(!err_syslog_open)
             os_opensyslog();
         os_syslog(1,"Error opening logfile");
-        
+
         result=FALSE;
     }
 
@@ -323,7 +326,7 @@ extern int err_setdebugmask(char *list) {
     str=tmpstr=strdup(list);
     if(!str)
         return 0;
-    
+
     _err_lock();
     while(1) {
         token=strtok_r(str,",",&last);

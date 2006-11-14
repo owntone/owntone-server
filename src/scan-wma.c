@@ -25,6 +25,9 @@
 
 #include <errno.h>
 #include <fcntl.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -235,8 +238,8 @@ typedef struct tag_wma_header {
     char reserved1;
     char reserved2;
 } _PACKED WMA_HEADER;
-                          
-                          
+
+
 typedef struct tag_wma_subheader {
     unsigned char objectid[16];
     long long size;
@@ -262,7 +265,7 @@ typedef struct tag_wma_header_extension {
 
 /*
  * Forwards
- */ 
+ */
 WMA_GUID *wma_find_guid(unsigned char *guid);
 unsigned short int wma_convert_short(unsigned char *src);
 unsigned int wma_convert_int(unsigned char *src);
@@ -322,7 +325,7 @@ int wma_file_read_utf16(int fd, int len, char **utf8) {
     if(!utf16)
         return 0;
 
-    if(r_read(fd,utf16,len) != len) 
+    if(r_read(fd,utf16,len) != len)
         return 0;
 
     out = wma_utf16toutf8(utf16,len);
@@ -417,7 +420,7 @@ int wma_parse_stream_properties(int fd, int size, MP3FILE *pmp3) {
     if(!pguid)
         return TRUE;
 
-    if(strcmp(pguid->name,"ASF_Audio_Media") != 0) 
+    if(strcmp(pguid->name,"ASF_Audio_Media") != 0)
         return TRUE;
 
     /* it is an audio stream... find codec.  The Type-Specific
@@ -428,7 +431,7 @@ int wma_parse_stream_properties(int fd, int size, MP3FILE *pmp3) {
 }
 
 /**
- * parse the audio media section... This is essentially a 
+ * parse the audio media section... This is essentially a
  * WAVFORMATEX structure.  Generally we only care about the
  * codec type.
  *
@@ -514,9 +517,9 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3, int e
         DPRINTF(E_DBG,L_SCAN,"Reading descr %d of %d\n",index,descriptor_count);
         if(!extended) {
             if(!wma_file_read_short(fd,&descriptor_name_len)) return FALSE;
-            if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name)) 
+            if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name))
                 return FALSE;
-            if(!wma_file_read_short(fd,&descriptor_value_type)) { 
+            if(!wma_file_read_short(fd,&descriptor_value_type)) {
                 free(descriptor_name);
                 return FALSE;
             }
@@ -531,7 +534,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3, int e
             if(!wma_file_read_short(fd,&descriptor_name_len)) return FALSE;
             if(!wma_file_read_short(fd,&descriptor_value_type)) return FALSE;
             if(!wma_file_read_int(fd,&descriptor_value_int)) return FALSE;
-            if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name)) 
+            if(!wma_file_read_utf16(fd,descriptor_name_len,&descriptor_name))
                 return FALSE;
         }
 
@@ -631,7 +634,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3, int e
                 pmp3->composer = descriptor_byte_value;
                 descriptor_byte_value = NULL;
             } else {
-                size = (int)strlen(pmp3->composer) + 1 + 
+                size = (int)strlen(pmp3->composer) + 1 +
                     (int)strlen(descriptor_byte_value) + 1;
                 tmp = malloc(size);
                 if(!tmp)
@@ -716,7 +719,7 @@ int wma_parse_content_description(int fd,int size, MP3FILE *pmp3) {
                 return FALSE;
 
             DPRINTF(E_DBG,L_SCAN,"Got item of length %d: %s\n",sizes[index],utf8);
-            
+
             switch(index) {
             case 0: /* title */
                 if(pmp3->title)
@@ -729,7 +732,7 @@ int wma_parse_content_description(int fd,int size, MP3FILE *pmp3) {
                 pmp3->artist = utf8;
                 break;
             case 2: /* copyright - dontcare */
-                free(utf8);  
+                free(utf8);
             break;
             case 3: /* description */
                 if(pmp3->comment)
@@ -761,11 +764,11 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
     unsigned long long play_duration;
     unsigned long long send_duration;
     unsigned long long preroll;
-    
+
     unsigned int max_bitrate;
 
     /* skip guid (16 bytes), filesize (8), creation time (8),
-     * data packets (8) 
+     * data packets (8)
      */
     lseek(fd,40,SEEK_CUR);
 
@@ -787,7 +790,7 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
      * length.
      */
     pmp3->song_length = (int)((play_duration / 10000) - preroll);
-    
+
     /* skip flags(4),
      * min_packet_size (4), max_packet_size(4)
      */
@@ -805,7 +808,7 @@ int wma_parse_file_properties(int fd,int size, MP3FILE *pmp3) {
  * convert utf16 string to utf8.  This is a bit naive, but...
  * Since utf-8 can't expand past 4 bytes per code point, and
  * we're converting utf-16, we can't be more than 2n+1 bytes, so
- * we'll just allocate that much. 
+ * we'll just allocate that much.
  *
  * Probably it could be more efficiently calculated, but this will
  * always work.  Besides, these are small strings, and will be freed
@@ -964,7 +967,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     int err;
     int res=TRUE;
     int encrypted = 0;
-    
+
     wma_fd = r_open2(filename,O_RDONLY);
     if(wma_fd == -1) {
         DPRINTF(E_INF,L_SCAN,"Error opening WMA file (%s): %s\n",filename,
@@ -998,7 +1001,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     /* Now we just walk through all the headers and see if we
      * find anything interesting
      */
-    
+
     for(item=0; item < (int) hdr.objects; item++) {
         if(lseek(wma_fd,offset,SEEK_SET) == (off_t)-1) {
             DPRINTF(E_INF,L_SCAN,"Error seeking in %s\n",filename);
@@ -1061,7 +1064,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     }
 
     r_close(wma_fd);
-    
+
 
     if(encrypted) {
         if(pmp3->codectype)

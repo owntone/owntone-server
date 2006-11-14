@@ -29,6 +29,9 @@
 #include <fcntl.h>
 #include <id3tag.h>
 #include <limits.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -57,7 +60,7 @@
          NULL)
 
 /**
- * scan a flac file for metainfo.  
+ * scan a flac file for metainfo.
  *
  * @param filename file to read metainfo for
  * @param pmp3 MP3FILE structure to fill

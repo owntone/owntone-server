@@ -9,6 +9,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 
 #include "ff-dbstruct.h"
 #include "ff-plugins.h"
@@ -560,7 +563,7 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
         if(daap_wantsmeta(pinfo->meta, metaSongArtist))
             /* asar */
             size += DMAPLEN(valarray[SG_ARTIST]);
-        if(valarray[SG_BPM] && atoi(valarray[SG_BPM]) && 
+        if(valarray[SG_BPM] && atoi(valarray[SG_BPM]) &&
            daap_wantsmeta(pinfo->meta, metaSongBPM))
             /* asbt */
             size += 10;
@@ -579,7 +582,7 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
         if(daap_wantsmeta(pinfo->meta, metaSongComment))
             /* ascm */
             size += DMAPLEN(valarray[SG_COMMENT]);
-        if(valarray[SG_COMPILATION] && atoi(valarray[SG_COMPILATION]) && 
+        if(valarray[SG_COMPILATION] && atoi(valarray[SG_COMPILATION]) &&
            daap_wantsmeta(pinfo->meta,metaSongCompilation))
             /* asco */
             size += 9;
@@ -589,7 +592,7 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
         if(daap_wantsmeta(pinfo->meta, metaSongGrouping))
             /* agrp */
             size += DMAPLEN(valarray[SG_GROUPING]);
-        if(valarray[SG_TIME_ADDED] && atoi(valarray[SG_TIME_ADDED]) && 
+        if(valarray[SG_TIME_ADDED] && atoi(valarray[SG_TIME_ADDED]) &&
            daap_wantsmeta(pinfo->meta, metaSongDateAdded))
             /* asda */
             size += 12;
@@ -597,11 +600,11 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
            daap_wantsmeta(pinfo->meta,metaSongDateModified))
             /* asdm */
             size += 12;
-        if(valarray[SG_TOTAL_DISCS] && atoi(valarray[SG_TOTAL_DISCS]) && 
+        if(valarray[SG_TOTAL_DISCS] && atoi(valarray[SG_TOTAL_DISCS]) &&
            daap_wantsmeta(pinfo->meta, metaSongDiscCount))
             /* asdc */
             size += 10;
-        if(valarray[SG_DISC] && atoi(valarray[SG_DISC]) && 
+        if(valarray[SG_DISC] && atoi(valarray[SG_DISC]) &&
            daap_wantsmeta(pinfo->meta, metaSongDiscNumber))
             /* asdn */
             size += 10;
@@ -630,15 +633,15 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
         if(daap_wantsmeta(pinfo->meta,metaItemName))
             /* minm */
             size += DMAPLEN(valarray[SG_TITLE]);
-        if(valarray[SG_DISABLED] && atoi(valarray[SG_DISABLED]) && 
+        if(valarray[SG_DISABLED] && atoi(valarray[SG_DISABLED]) &&
            daap_wantsmeta(pinfo->meta,metaSongDisabled))
             /* asdb */
             size += 9;
-        if(valarray[SG_SAMPLERATE] && atoi(valarray[SG_SAMPLERATE]) && 
+        if(valarray[SG_SAMPLERATE] && atoi(valarray[SG_SAMPLERATE]) &&
            daap_wantsmeta(pinfo->meta,metaSongSampleRate))
             /* assr */
             size += 12;
-        if(valarray[SG_FILE_SIZE] && atoi(valarray[SG_FILE_SIZE]) && 
+        if(valarray[SG_FILE_SIZE] && atoi(valarray[SG_FILE_SIZE]) &&
            daap_wantsmeta(pinfo->meta,metaSongSize))
             /* assz */
             size += 12;
@@ -648,23 +651,23 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
          * is required, so I'm going to disabled it
          */
 
-        if(valarray[SG_SONG_LENGTH] && atoi(valarray[SG_SONG_LENGTH]) && 
+        if(valarray[SG_SONG_LENGTH] && atoi(valarray[SG_SONG_LENGTH]) &&
            daap_wantsmeta(pinfo->meta, metaSongTime))
             /* astm */
             size += 12;
-        if(valarray[SG_TOTAL_TRACKS] && atoi(valarray[SG_TOTAL_TRACKS]) && 
+        if(valarray[SG_TOTAL_TRACKS] && atoi(valarray[SG_TOTAL_TRACKS]) &&
            daap_wantsmeta(pinfo->meta, metaSongTrackCount))
             /* astc */
             size += 10;
-        if(valarray[SG_TRACK] && atoi(valarray[SG_TRACK]) && 
+        if(valarray[SG_TRACK] && atoi(valarray[SG_TRACK]) &&
            daap_wantsmeta(pinfo->meta, metaSongTrackNumber))
             /* astn */
             size += 10;
-        if(valarray[SG_RATING] && atoi(valarray[SG_RATING]) && 
+        if(valarray[SG_RATING] && atoi(valarray[SG_RATING]) &&
            daap_wantsmeta(pinfo->meta, metaSongUserRating))
             /* asur */
             size += 9;
-        if(valarray[SG_YEAR] && atoi(valarray[SG_YEAR]) && 
+        if(valarray[SG_YEAR] && atoi(valarray[SG_YEAR]) &&
            daap_wantsmeta(pinfo->meta, metaSongYear))
             /* asyr */
             size += 10;
@@ -672,8 +675,8 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
             /* mcti */
             size += 12;
         /* FIXME:  This is not right - doesn't have to be 4 */
-        if((valarray[SG_CODECTYPE]) && (strlen(valarray[SG_CODECTYPE])==4) && 
-           daap_wantsmeta(pinfo->meta,metaSongCodecType)) 
+        if((valarray[SG_CODECTYPE]) && (strlen(valarray[SG_CODECTYPE])==4) &&
+           daap_wantsmeta(pinfo->meta,metaSongCodecType))
             /* ascd */
             size += 12;
         if(daap_wantsmeta(pinfo->meta,metaSongContentRating))
@@ -748,10 +751,10 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
         if(valarray[23] && atoi(valarray[23]) && daap_wantsmeta(pinfo->meta, metaSongBPM))
             current += dmap_add_short(current,"asbt",
                                          (short)atoi(valarray[SG_BPM]));
-        if(valarray[SG_BITRATE] && atoi(valarray[SG_BITRATE]) && 
+        if(valarray[SG_BITRATE] && atoi(valarray[SG_BITRATE]) &&
            daap_wantsmeta(pinfo->meta, metaSongBitRate)) {
             if(transcode) {
-                if(valarray[SG_SAMPLERATE]) 
+                if(valarray[SG_SAMPLERATE])
                     samplerate=atoi(valarray[SG_SAMPLERATE]);
                 if(samplerate) {
                     current += dmap_add_short(current,"asbr",
@@ -762,45 +765,45 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
                                              (short)atoi(valarray[SG_BITRATE]));
             }
         }
-        if(EMIT(valarray[SG_COMMENT]) && 
+        if(EMIT(valarray[SG_COMMENT]) &&
            daap_wantsmeta(pinfo->meta, metaSongComment))
             current += dmap_add_string(current,"ascm",valarray[SG_COMMENT]);
 
-        if(valarray[SG_COMPILATION] && atoi(valarray[SG_COMPILATION]) && 
+        if(valarray[SG_COMPILATION] && atoi(valarray[SG_COMPILATION]) &&
            daap_wantsmeta(pinfo->meta,metaSongCompilation))
             current += dmap_add_char(current,"asco",
                                         (char)atoi(valarray[SG_COMPILATION]));
 
-        if(EMIT(valarray[SG_COMPOSER]) && 
+        if(EMIT(valarray[SG_COMPOSER]) &&
            daap_wantsmeta(pinfo->meta, metaSongComposer))
             current += dmap_add_string(current,"ascp",
                                           valarray[SG_COMPOSER]);
 
-        if(EMIT(valarray[SG_GROUPING]) && 
+        if(EMIT(valarray[SG_GROUPING]) &&
            daap_wantsmeta(pinfo->meta, metaSongGrouping))
             current += dmap_add_string(current,"agrp",
                                           valarray[SG_GROUPING]);
 
-        if(valarray[SG_TIME_ADDED] && atoi(valarray[SG_TIME_ADDED]) && 
+        if(valarray[SG_TIME_ADDED] && atoi(valarray[SG_TIME_ADDED]) &&
            daap_wantsmeta(pinfo->meta, metaSongDateAdded))
             current += dmap_add_int(current,"asda",
                                        (int)atoi(valarray[SG_TIME_ADDED]));
 
-        if(valarray[SG_TIME_MODIFIED] && atoi(valarray[SG_TIME_MODIFIED]) && 
+        if(valarray[SG_TIME_MODIFIED] && atoi(valarray[SG_TIME_MODIFIED]) &&
            daap_wantsmeta(pinfo->meta,metaSongDateModified))
             current += dmap_add_int(current,"asdm",
                                        (int)atoi(valarray[SG_TIME_MODIFIED]));
 
-        if(valarray[SG_TOTAL_DISCS] && atoi(valarray[SG_TOTAL_DISCS]) && 
+        if(valarray[SG_TOTAL_DISCS] && atoi(valarray[SG_TOTAL_DISCS]) &&
            daap_wantsmeta(pinfo->meta, metaSongDiscCount))
             current += dmap_add_short(current,"asdc",
                                          (short)atoi(valarray[SG_TOTAL_DISCS]));
-        if(valarray[SG_DISC] && atoi(valarray[SG_DISC]) && 
+        if(valarray[SG_DISC] && atoi(valarray[SG_DISC]) &&
            daap_wantsmeta(pinfo->meta, metaSongDiscNumber))
             current += dmap_add_short(current,"asdn",
                                          (short)atoi(valarray[SG_DISC]));
 
-        if(EMIT(valarray[SG_GENRE]) && 
+        if(EMIT(valarray[SG_GENRE]) &&
            daap_wantsmeta(pinfo->meta, metaSongGenre))
             current += dmap_add_string(current,"asgn",valarray[SG_GENRE]);
 
@@ -808,7 +811,7 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
             current += dmap_add_int(current,"miid",
                                        (int)atoi(valarray[SG_ID]));
 
-        if(EMIT(valarray[SG_TYPE]) && 
+        if(EMIT(valarray[SG_TYPE]) &&
            daap_wantsmeta(pinfo->meta,metaSongFormat)) {
             if(transcode) {
                 current += dmap_add_string(current,"asfm","wav");
@@ -818,7 +821,7 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
             }
         }
 
-        if(EMIT(valarray[SG_DESCRIPTION]) && 
+        if(EMIT(valarray[SG_DESCRIPTION]) &&
            daap_wantsmeta(pinfo->meta,metaSongDescription)) {
             if(transcode) {
                 current += dmap_add_string(current,"asdt","wav audio file");
@@ -827,46 +830,46 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
                                               valarray[SG_DESCRIPTION]);
             }
         }
-        if(EMIT(valarray[SG_TITLE]) && 
+        if(EMIT(valarray[SG_TITLE]) &&
            daap_wantsmeta(pinfo->meta,metaItemName))
             current += dmap_add_string(current,"minm",valarray[SG_TITLE]);
 
-        if(valarray[SG_DISABLED] && atoi(valarray[SG_DISABLED]) && 
+        if(valarray[SG_DISABLED] && atoi(valarray[SG_DISABLED]) &&
            daap_wantsmeta(pinfo->meta,metaSongDisabled))
             current += dmap_add_char(current,"asdb",
                                         (char)atoi(valarray[SG_DISABLED]));
 
-        if(valarray[SG_SAMPLERATE] && atoi(valarray[SG_SAMPLERATE]) && 
+        if(valarray[SG_SAMPLERATE] && atoi(valarray[SG_SAMPLERATE]) &&
            daap_wantsmeta(pinfo->meta,metaSongSampleRate))
             current += dmap_add_int(current,"assr",
                                        atoi(valarray[SG_SAMPLERATE]));
 
-        if(valarray[SG_FILE_SIZE] && atoi(valarray[SG_FILE_SIZE]) && 
+        if(valarray[SG_FILE_SIZE] && atoi(valarray[SG_FILE_SIZE]) &&
            daap_wantsmeta(pinfo->meta,metaSongSize))
             current += dmap_add_int(current,"assz",
                                        atoi(valarray[SG_FILE_SIZE]));
 
-        if(valarray[SG_SONG_LENGTH] && atoi(valarray[SG_SONG_LENGTH]) && 
+        if(valarray[SG_SONG_LENGTH] && atoi(valarray[SG_SONG_LENGTH]) &&
            daap_wantsmeta(pinfo->meta, metaSongTime))
             current += dmap_add_int(current,"astm",
                                        atoi(valarray[SG_SONG_LENGTH]));
 
-        if(valarray[SG_TOTAL_TRACKS] && atoi(valarray[SG_TOTAL_TRACKS]) && 
+        if(valarray[SG_TOTAL_TRACKS] && atoi(valarray[SG_TOTAL_TRACKS]) &&
            daap_wantsmeta(pinfo->meta, metaSongTrackCount))
             current += dmap_add_short(current,"astc",
                                          (short)atoi(valarray[SG_TOTAL_TRACKS]));
 
-        if(valarray[SG_TRACK] && atoi(valarray[SG_TRACK]) && 
+        if(valarray[SG_TRACK] && atoi(valarray[SG_TRACK]) &&
            daap_wantsmeta(pinfo->meta, metaSongTrackNumber))
             current += dmap_add_short(current,"astn",
                                          (short)atoi(valarray[SG_TRACK]));
 
-        if(valarray[SG_RATING] && atoi(valarray[SG_RATING]) && 
+        if(valarray[SG_RATING] && atoi(valarray[SG_RATING]) &&
            daap_wantsmeta(pinfo->meta, metaSongUserRating))
             current += dmap_add_char(current,"asur",
                                         (char)atoi(valarray[SG_RATING]));
 
-        if(valarray[SG_YEAR] && atoi(valarray[SG_YEAR]) && 
+        if(valarray[SG_YEAR] && atoi(valarray[SG_YEAR]) &&
            daap_wantsmeta(pinfo->meta, metaSongYear))
             current += dmap_add_short(current,"asyr",
                                          (short)atoi(valarray[SG_YEAR]));

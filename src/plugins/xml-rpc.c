@@ -8,6 +8,10 @@
 # include "config.h"
 #endif
 
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
@@ -152,7 +156,7 @@ int xml_stream_write(XMLSTRUCT *pxml, char *out) {
             psb->strm.avail_out = XML_STREAM_BLOCK;
             psb->strm.next_out = psb->out_buffer;
         }
-    }        
+    }
     return TRUE;
 }
 
@@ -169,7 +173,7 @@ int xml_stream_close(XMLSTRUCT *pxml) {
         psb->strm.next_out = psb->out_buffer;
         psb->strm.avail_in = 0;
         psb->strm.next_in = psb->in_buffer;
-        
+
         deflate(&psb->strm,Z_FINISH);
         _ppi->ws_writebinary(pxml->pwsc,(char*)psb->out_buffer,
                              XML_STREAM_BLOCK - psb->strm.avail_out);
@@ -331,7 +335,7 @@ void xml_deinit(XMLSTRUCT *pxml) {
         free(pstack->tag);
         free(pstack);
     }
-    
+
     if(pxml->psb) {
         xml_stream_close(pxml);
     }

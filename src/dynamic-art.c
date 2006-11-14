@@ -28,6 +28,9 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <stdio.h>
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
 #include <string.h>
 #include <stdlib.h>
 #ifdef HAVE_UNISTD_H

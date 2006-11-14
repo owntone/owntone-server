@@ -6,6 +6,10 @@
 # include "config.h"
 #endif
 
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -85,12 +89,12 @@ PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
 }
 
 
-/* 
- * get a new transcode handle 
+/*
+ * get a new transcode handle
  */
 void *ssc_script_init(void) {
     SSCHANDLE *handle;
-    
+
     handle = (SSCHANDLE*)malloc(sizeof(SSCHANDLE));
     if(handle) {
         memset(handle,0,sizeof(SSCHANDLE));
@@ -109,7 +113,7 @@ char *ssc_script_error(void *vp) {
 
 /**
  * dispose of the transocde handle obtained from init
- * 
+ *
  * @param pv handle to dispose
  */
 void ssc_script_deinit(void *vp) {

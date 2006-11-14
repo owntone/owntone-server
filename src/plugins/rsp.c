@@ -6,6 +6,10 @@
 #include "config.h"
 #endif
 
+#ifdef HAVE_STDINT_H
+#include <stdint.h>
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -42,7 +46,7 @@ PLUGIN_REND_INFO _pri[] = {
 };
 
 PLUGIN_INPUT_FN *_ppi;
-PLUGIN_INFO _pi = { 
+PLUGIN_INFO _pi = {
     PLUGIN_VERSION,      /* version */
     PLUGIN_OUTPUT,       /* type */
     "rsp/" VERSION,      /* server */
@@ -57,7 +61,7 @@ typedef struct tag_response {
     char *uri[10];
     void (*dispatch)(WS_CONNINFO *, PRIVINFO *);
 } PLUGIN_RESPONSE;
-    
+
 
 PLUGIN_RESPONSE rsp_uri_map[] = {
     {{"rsp",  "info",NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL }, rsp_info },
@@ -203,7 +207,7 @@ void plugin_handler(WS_CONNINFO *pwsc) {
 
     string = _ppi->ws_uri(pwsc);
     string++;
-    
+
     _ppi->log(E_DBG,"Mallocing privinfo...\n");
     ppi = (PRIVINFO *)malloc(sizeof(PRIVINFO));
     if(ppi) {
@@ -239,7 +243,7 @@ void plugin_handler(WS_CONNINFO *pwsc) {
             if((ppi->uri_sections[part]) && (!rsp_uri_map[index].uri[part]))
                 break;
 
-            if((rsp_uri_map[index].uri[part]) && 
+            if((rsp_uri_map[index].uri[part]) &&
                (strcmp(rsp_uri_map[index].uri[part],"*") != 0)) {
                 if(strcmp(rsp_uri_map[index].uri[part],
                           ppi->uri_sections[part])!= 0)
@@ -270,7 +274,7 @@ void plugin_handler(WS_CONNINFO *pwsc) {
 }
 
 /**
- * get server info 
+ * get server info
  */
 void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     XMLSTRUCT *pxml;
@@ -308,7 +312,7 @@ void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 /**
  * /rsp/db
  *
- * dump details about all playlists 
+ * dump details about all playlists
  */
 void rsp_db(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     XMLSTRUCT *pxml;
@@ -384,7 +388,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     if(_ppi->ws_getvar(pwsc,"limit")) {
         ppi->dq.limit = atoi(_ppi->ws_getvar(pwsc,"limit"));
     }
-    
+
     browse_type = _ppi->ws_getvar(pwsc,"type");
     type = F_FULL;
 
@@ -414,7 +418,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         returned = 0;
     } else {
         returned = ppi->dq.limit;
-        if(returned > (ppi->dq.totalcount - ppi->dq.offset)) 
+        if(returned > (ppi->dq.totalcount - ppi->dq.offset))
             returned = ppi->dq.totalcount - ppi->dq.offset;
     }
 
@@ -428,7 +432,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     xml_push(pxml,"items");
 
-    while((!done) && (_ppi->db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) && 
+    while((!done) && (_ppi->db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) &&
           (row)) {
         xml_push(pxml,"item");
         rowindex=0;
@@ -505,7 +509,7 @@ void rsp_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     if(_ppi->ws_getvar(pwsc,"offset")) {
         ppi->dq.offset = atoi(_ppi->ws_getvar(pwsc,"offset"));
     }
-    
+
     if(_ppi->ws_getvar(pwsc,"limit")) {
         ppi->dq.limit = atoi(_ppi->ws_getvar(pwsc,"limit"));
     }
@@ -524,7 +528,7 @@ void rsp_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         returned = 0;
     } else {
         returned = ppi->dq.limit;
-        if(returned > (ppi->dq.totalcount - ppi->dq.offset)) 
+        if(returned > (ppi->dq.totalcount - ppi->dq.offset))
             returned = ppi->dq.totalcount - ppi->dq.offset;
     }
 
