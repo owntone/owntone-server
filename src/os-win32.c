@@ -61,7 +61,7 @@ typedef struct tag_osfileinfo {
 
 /* Globals */
 OSFILEINFO file_info[MAXDESC];
-char os_config_file[_MAX_PATH];
+char os_config_file[PATH_MAX];
 char *os_w32_socket_states[] = {
     "Closed/Unused",
     "Open/Listening",
@@ -83,14 +83,14 @@ int os_init(int foreground, char *runas) {
     int err;
     char *inifile;
     char drive_buffer[4];
-    char drive_map[MAX_PATH];
+    char drive_map[PATH_MAX];
     int drive_letter;
 
     inifile=_os_filepath("mapping.ini");
-    DPRINTF(E_LOG,L_MISC,"Building drive mapping table from %s\n",inifile);    
+    DPRINTF(E_LOG,L_MISC,"Building drive mapping table from %s\n",inifile);
     for(drive_letter = 'a'; drive_letter <= 'z'; drive_letter++) {
         sprintf(drive_buffer,"%c",drive_letter);
-        GetPrivateProfileString("mapping",drive_buffer,"",drive_map,MAX_PATH,inifile);
+        GetPrivateProfileString("mapping",drive_buffer,"",drive_map,PATH_MAX,inifile);
         if(strlen(drive_map)) {
             os_drive_maps[drive_letter - 'a'] = strdup(drive_map);
             DPRINTF(E_LOG,L_MISC,"Mapped %c to %s\n",drive_letter,drive_map);
@@ -100,9 +100,9 @@ int os_init(int foreground, char *runas) {
     }
     os_maps_init=1;
     free(inifile);
-    
+
     _os_socket_startup();
-    
+
     if(!os_initialized) {
         _os_lock();
         if(!os_initialized) {
@@ -272,13 +272,13 @@ int os_acceptsocket(int fd, struct in_addr *hostaddr) {
 
     while (((retval =
         accept(REALSOCK,(struct sockaddr *)(&netclient), &len)) == SOCKET_ERROR) &&
-               (WSAGetLastError() == WSAEINTR));  
+               (WSAGetLastError() == WSAEINTR));
 
     if (retval == INVALID_SOCKET) {
         DPRINTF(E_LOG,L_MISC,"Error accepting...\n");
         return _os_sock_to_fd(retval);
     }
-   
+
     *hostaddr = netclient.sin_addr;
     return _os_sock_to_fd(retval);
 }
@@ -294,12 +294,12 @@ int os_waitfdtimed(int fd, struct timeval end) {
         return -1;
 
     sock = REALSOCK;
- 
+
     /*
     if ((fd < 0) || (fd >= FD_SETSIZE)) {
         errno = EINVAL;
         return -1;
-    } 
+    }
     */
 
     FD_ZERO(&readset);
@@ -364,7 +364,7 @@ char *os_strsep(char **stringp, const char *delim) {
 }
 
 int os_opensocket(unsigned short port) {
-    int error;  
+    int error;
     struct sockaddr_in server;
     SOCKET sock;
     int true = 1;
@@ -387,18 +387,18 @@ int os_opensocket(unsigned short port) {
     if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&true,
                   sizeof(true)) == SOCKET_ERROR) {
         error = WSAGetLastError();
-        while ((closesocket(sock) == SOCKET_ERROR) && (WSAGetLastError() == WSAEINTR)); 
+        while ((closesocket(sock) == SOCKET_ERROR) && (WSAGetLastError() == WSAEINTR));
         errno = EINVAL; /* windows errnos suck */
         return -1;
     }
- 
+
     server.sin_family = AF_INET;
     server.sin_addr.s_addr = htonl(INADDR_ANY);
     server.sin_port = htons((short)port);
     if ((bind(sock, (struct sockaddr *)&server, sizeof(server)) == -1) ||
         (listen(sock, MAXBACKLOG) == -1)) {
         error = errno;
-        while ((closesocket(sock) == SOCKET_ERROR) && (WSAGetLastError() == WSAEINTR)); 
+        while ((closesocket(sock) == SOCKET_ERROR) && (WSAGetLastError() == WSAEINTR));
         errno = WSAGetLastError();
         return -1;
     }
@@ -410,7 +410,7 @@ int os_opensocket(unsigned short port) {
 
 int os_write(int fd, void *buffer, unsigned int count) {
     int retval;
-    
+
     if(NOTSOCK) {
         retval = _write(fd,buffer,count);
     } else {
@@ -463,7 +463,7 @@ int os_close(int fd) {
             closesocket(REALSOCK);
             SOCKSTATE = 0;
         }
-    } 
+    }
     return 0;
 }
 
@@ -492,18 +492,18 @@ int os_gettimeofday (struct timeval *tv, struct timezone* tz) {
         tz->tz_minuteswest = _timezone;
     }
     return (0);
-} 
+}
 
 
 /**
- * initialize winsock 
+ * initialize winsock
  */
 void _os_socket_startup(void) {
     WORD minver;
     int err;
- 
+
     minver = MAKEWORD( 2, 2 );
- 
+
     err = WSAStartup( minver, &w32_wsadata );
     if ( err != 0 ) {
         DPRINTF(E_FATAL,L_MISC,"Could not initialize winsock\n");
@@ -565,9 +565,9 @@ char *os_configpath(void) {
 char *_os_filepath(char *file) {
     char drive[_MAX_DRIVE];
     char dir[_MAX_DIR];
-    char path[_MAX_PATH];
+    char path[PATH_MAX];
 
-    GetModuleFileName(NULL,path,_MAX_PATH);
+    GetModuleFileName(NULL,path,PATH_MAX);
     _splitpath(path,drive,dir,NULL,NULL);
     _makepath(path,drive,dir,NULL,NULL);
     strcat(path,file);
@@ -580,9 +580,9 @@ char *_os_filepath(char *file) {
  *
  */
 char *os_apppath(char *junk) {
-    char app_path[_MAX_PATH];
+    char app_path[PATH_MAX];
 
-    GetModuleFileName(NULL,app_path,_MAX_PATH);
+    GetModuleFileName(NULL,app_path,PATH_MAX);
     return strdup(app_path);
 }
 
@@ -616,7 +616,7 @@ int os_islocaladdr(char *hostaddr) {
         }
         index++;
     }
-    
+
     DPRINTF(E_DBG,L_MISC,"Nope!\n");
     return FALSE;
 }
@@ -687,7 +687,7 @@ DIR *os_opendir(char *filename) {
 
     if (!(dirp = (DIR *) malloc (sizeof (DIR))))
         return NULL;
-    
+
     dirp->dir_find_handle = INVALID_HANDLE_VALUE;
     dirp->dd_fd = 0;
     dirp->dd_loc = 0;

@@ -39,14 +39,14 @@ static HANDLE elog_handle = NULL;
 int elog_register(void) {
     HKEY reg_key = NULL;
     DWORD err = 0;
-    char path[_MAX_PATH];
+    char path[PATH_MAX];
     DWORD event_types;
 
     wsprintf(path,"SYSTEM\\CurrentControlSet\\Services\\EventLog\\Application\\%s", PACKAGE);
     if((err=RegCreateKey(HKEY_LOCAL_MACHINE, path, &reg_key)) != ERROR_SUCCESS)
         return FALSE;
 
-    GetModuleFileName(NULL, path, _MAX_PATH );
+    GetModuleFileName(NULL, path, PATH_MAX);
 
     err=RegSetValueEx(reg_key, "EventMessageFile",0,REG_EXPAND_SZ,path,(DWORD)strlen(path) + 1);
     if(err != ERROR_SUCCESS) {
@@ -87,9 +87,9 @@ int elog_init(void) {
 }
 
 
-/** 
+/**
  * uninitialize the eventlog
- * 
+ *
  * @returns TRUE
  */
 int elog_deinit(void) {

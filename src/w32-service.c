@@ -225,9 +225,9 @@ void *service_startup(void *arg) {
 void service_register(void) {
     SC_HANDLE scm;
     SC_HANDLE svc;
-    char path[MAX_PATH];
+    char path[PATH_MAX];
 
-    GetModuleFileName(NULL, path, MAX_PATH );
+    GetModuleFileName(NULL, path, PATH_MAX );
 
     if(!(scm = OpenSCManager(0,0,SC_MANAGER_CREATE_SERVICE))) {
         DPRINTF(E_FATAL,L_MISC,"Cannot open service control manager\n");
