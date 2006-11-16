@@ -105,11 +105,11 @@ int ws_getpostvars(WS_CONNINFO *pwsc);
 int ws_getgetvars(WS_CONNINFO *pwsc, char *string);
 char *ws_getarg(ARGLIST *root, char *key);
 int ws_testarg(ARGLIST *root, char *key, char *value);
-int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc, 
+int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
                    void(**preq)(WS_CONNINFO*),
                    int(**pauth)(WS_CONNINFO*, char *, char *),
                    int *addheaders);
-int ws_registerhandler(WSHANDLE ws, char *regex, 
+int ws_registerhandler(WSHANDLE ws, char *regex,
                        void(*handler)(WS_CONNINFO*),
                        int(*auth)(WS_CONNINFO*, char *, char *),
                        int addheaders);
@@ -175,7 +175,7 @@ int ws_unlock_unsafe(void) {
     return retval;
 }
 
-/** 
+/**
  * lock the connection list
  */
 void ws_lock_connlist(WS_PRIVATE *pwsp) {
@@ -208,7 +208,7 @@ WSHANDLE ws_start(WSCONFIG *config) {
     WS_PRIVATE *pwsp;
 
     DPRINTF(E_SPAM,L_WS,"Entering ws_start\n");
-    
+
     if((pwsp=(WS_PRIVATE*)malloc(sizeof(WS_PRIVATE))) == NULL) {
         DPRINTF(E_SPAM,L_WS,"Malloc error: %s\n",strerror(errno));
         return NULL;
@@ -273,7 +273,7 @@ WSHANDLE ws_start(WSCONFIG *config) {
         errno=err;
         return NULL;
     }
-    
+
     /* we're really running */
     pwsp->running=1;
 
@@ -284,7 +284,7 @@ WSHANDLE ws_start(WSCONFIG *config) {
 
 /*
  * ws_remove_dispatch_thread
- * 
+ *
  * remove a dispatch thread from the thread list
  */
 void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
@@ -308,7 +308,7 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
                 pwsc->threadno,pwsp->dispatch_threads);
 
         pTail->next = pHead->next;
-        
+
         free(pHead);
 
         /* signal condition in case something is waiting */
@@ -336,7 +336,7 @@ void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
 
     if(!pNew)
         DPRINTF(E_FATAL,L_WS,"Malloc: %s\n",strerror(errno));
-    
+
     ws_lock_connlist(pwsp);
 
     /* list is locked... */
@@ -375,7 +375,7 @@ extern int ws_stop(WSHANDLE ws) {
     DPRINTF(E_DBG,L_WS,"ws_stop: closing the server fd\n");
     shutdown(pwsp->server_fd,SHUT_RDWR);
     r_close(pwsp->server_fd);
-    
+
     /* wait for the server thread to terminate.  SHould be quick! */
     pthread_join(pwsp->server_tid,&result);
 
@@ -391,7 +391,7 @@ extern int ws_stop(WSHANDLE ws) {
         if(pcl->pwsc->fd) {
             shutdown(pcl->pwsc->fd,SHUT_RDWR);
             r_close(pcl->pwsc->fd);
-        } 
+        }
         pcl=pcl->next;
     }
 
@@ -415,7 +415,7 @@ extern int ws_stop(WSHANDLE ws) {
  * Main thread for webserver - this accepts connections
  * and spawns a handler thread for each incoming connection.
  *
- * For a persistant connection, these threads will be 
+ * For a persistant connection, these threads will be
  * long-lived, otherwise, they will terminate as soon as
  * the request has been honored.
  *
@@ -513,7 +513,7 @@ void ws_close(WS_CONNINFO *pwsc) {
         free(pwsc->uri);
         pwsc->uri=NULL;
     }
-    
+
     if((pwsc->close)||(pwsc->error)) {
         DPRINTF(E_DBG,L_WS,"Thread %d: Closing fd\n",pwsc->threadno);
         shutdown(pwsc->fd,SHUT_RDWR);
@@ -530,7 +530,7 @@ void ws_close(WS_CONNINFO *pwsc) {
                 pwsc->storage_callback=NULL;
             }
         }
-    
+
         free(pwsc->hostname);
         memset(pwsc,0x00,sizeof(WS_CONNINFO));
         free(pwsc);
@@ -622,7 +622,7 @@ int ws_getpostvars(WS_CONNINFO *pwsc) {
     DPRINTF(E_DBG,L_WS,"Thread %d: Read post vars: %s\n",pwsc->threadno,buffer);
 
     pwsc->error=ws_getgetvars(pwsc,buffer);
-    
+
     free(buffer);
 
     DPRINTF(E_SPAM,L_WS,"Exiting ws_getpostvars\n");
@@ -651,7 +651,7 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
             DPRINTF(E_INF,L_WS,"Thread %d: Unexpected close\n",pwsc->threadno);
             return -1;
         }
-        
+
         DPRINTF(E_DBG,L_WS,"Thread %d: Read: %s",pwsc->threadno,buffer);
 
         first=buffer;
@@ -707,7 +707,7 @@ int ws_encoding_hack(WS_CONNINFO *pwsc) {
 
     user_agent=ws_getrequestheader(pwsc, "user-agent");
     if(user_agent) {
-        if(strncasecmp(user_agent,"Roku",4) == 0) 
+        if(strncasecmp(user_agent,"Roku",4) == 0)
             space_as_plus=0;
         if(strncasecmp(user_agent,"iTunes",6) == 0)
             space_as_plus=0;
@@ -720,7 +720,7 @@ int ws_encoding_hack(WS_CONNINFO *pwsc) {
  * ws_getgetvars
  *
  * parse a GET string of variables (or POST)
- * 
+ *
  */
 int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
     char *first, *last, *middle;
@@ -737,19 +737,19 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
     done=0;
 
     first=string;
-    
+
     while((!done) && (first)) {
         last=middle=first;
         strsep(&last,"&");
         strsep(&middle,"=");
-        
+
         if(!middle) {
             DPRINTF(E_WARN,L_WS,"Thread %d: Bad arg: %s\n",
                     pwsc->threadno,first);
         } else {
             key=ws_urldecode(first,space_as_plus);
             value=ws_urldecode(middle,space_as_plus);
-            
+
             DPRINTF(E_DBG,L_WS,"Thread %d: Adding arg %s = %s\n",
                     pwsc->threadno,key,value);
             ws_addarg(&pwsc->request_vars,key,"%s",value);
@@ -757,7 +757,7 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
             free(key);
             free(value);
         }
-        
+
         if(!last) {
             DPRINTF(E_DBG,L_WS,"Thread %d: Done parsing GET/POST args!\n",
                     pwsc->threadno);
@@ -799,7 +799,7 @@ void *ws_dispatcher(void *arg) {
     /* quick fence to ensure that we have been registered on the thread list */
     ws_lock_unsafe();
     ws_unlock_unsafe();
-        
+
     while(!connection_done) {
         /* Now, get the request from the other end
          * and decide where to dispatch it
@@ -828,7 +828,7 @@ void *ws_dispatcher(void *arg) {
             DPRINTF(E_SPAM,L_WS,"Error: bad request.  Exiting ws_dispatcher\n");
             return NULL;
         }
-        
+
         if(!strcasecmp(first,"get")) {
             pwsc->request_type = RT_GET;
         } else if(!strcasecmp(first,"post")) {
@@ -846,7 +846,7 @@ void *ws_dispatcher(void *arg) {
         first=last;
         strsep(&last," ");
         pwsc->uri=strdup(first);
-        
+
         /* Get headers */
         if((ws_getheaders(pwsc)) || (!last)) { /* didn't provide a HTTP/1.x */
             /* error already set */
@@ -879,21 +879,21 @@ void *ws_dispatcher(void *arg) {
             ws_close(pwsc);
             return NULL;
         }
-        
+
         /* trim the URI */
         first=pwsc->uri;
         strsep(&first,"?");
-        
+
         if(first) { /* got some GET args */
             DPRINTF(E_DBG,L_WS,"Thread %d: parsing GET args\n",pwsc->threadno);
             ws_getgetvars(pwsc,first);
         }
 
         /* fix the URI by un urldecoding it */
-        
+
         DPRINTF(E_DBG,L_WS,"Thread %d: Original URI: %s\n",
                 pwsc->threadno,pwsc->uri);
-        
+
         first=ws_urldecode(pwsc->uri,ws_encoding_hack(pwsc));
         free(pwsc->uri);
         pwsc->uri=first;
@@ -909,8 +909,8 @@ void *ws_dispatcher(void *arg) {
                 pwsc->uri=first;
             }
         }
-        
-        
+
+
         DPRINTF(E_DBG,L_WS,"Thread %d: Translated URI: %s\n",pwsc->threadno,
                 pwsc->uri);
 
@@ -927,7 +927,7 @@ void *ws_dispatcher(void *arg) {
                 pwsc->threadno,now);
         gmtime_r(&now,&now_tm);
         DPRINTF(E_DBG,L_WS,"Thread %d: Setting time header\n",pwsc->threadno);
-        ws_addarg(&pwsc->response_headers,"Date", 
+        ws_addarg(&pwsc->response_headers,"Date",
                   "%s, %d %s %d %02d:%02d:%02d GMT",
                   ws_dow[now_tm.tm_wday],now_tm.tm_mday,
                   ws_moy[now_tm.tm_mon],now_tm.tm_year + 1900,
@@ -936,10 +936,10 @@ void *ws_dispatcher(void *arg) {
         if(hdrs) {
             ws_addarg(&pwsc->response_headers,"Connection",
                       pwsc->close ? "close" : "keep-alive");
-            
+
             ws_addarg(&pwsc->response_headers,"Server",
                       "mt-daapd/" VERSION);
-            
+
             ws_addarg(&pwsc->response_headers,"Content-Type","text/html");
             ws_addarg(&pwsc->response_headers,"Content-Language","en_us");
         }
@@ -954,9 +954,9 @@ void *ws_dispatcher(void *arg) {
                     pwsc->threadno);
 
             can_dispatch=0;
-            /* If an auth handler is registered, but it accepts a 
-             * username and password of NULL, then don't bother 
-             * authing. 
+            /* If an auth handler is registered, but it accepts a
+             * username and password of NULL, then don't bother
+             * authing.
              */
             if((auth_handler) && (auth_handler(pwsc,NULL,NULL)==0)) {
                 /* do the auth thing */
@@ -968,7 +968,7 @@ void *ws_dispatcher(void *arg) {
                     ws_addarg(&pwsc->request_vars,"HTTP_USER",username);
                     ws_addarg(&pwsc->request_vars,"HTTP_PASSWD",password);
                     free(username); /* this frees password too */
-                } 
+                }
 
                 if(!can_dispatch) { /* auth failed, or need auth */
                     //ws_addarg(&pwsc->response_headers,"Connection","close");
@@ -985,7 +985,7 @@ void *ws_dispatcher(void *arg) {
                 if(req_handler)
                     req_handler(pwsc);
                 else
-                    ws_defaulthandler(pwsp,pwsc);               
+                    ws_defaulthandler(pwsp,pwsc);
             }
         }
 
@@ -1043,11 +1043,13 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
     DPRINTF(E_WARN,L_WS,"Thread %d: Entering ws_returnerror (%d: %s)\n",
             pwsc->threadno,error,description);
     ws_writefd(pwsc,"HTTP/1.1 %d %s\r\n",error,description);
-    
+
     /* we'll force a close here unless the user agent is
        iTunes, which seems to get pissy about it */
     useragent = ws_getarg(&pwsc->request_headers,"User-Agent");
-    if((useragent) && (strncmp(useragent,"iTunes",6) == 0) && (error == 401)) {
+    if((useragent) &&
+       (((strncmp(useragent,"iTunes",6) == 0) && (error == 401)) ||
+        ((strncmp(useragent,"Java",4) == 0)))) {
         ws_addarg(&pwsc->response_headers,"Connection","keep-alive");
         ws_addarg(&pwsc->response_headers,"Content-Length","2");
         ws_emitheaders(pwsc);
@@ -1065,7 +1067,7 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
     ws_writefd(pwsc,"\r\n<H1>%s</H1>\r\n",description);
     ws_writefd(pwsc,"Error %d\r\n<hr>\r\n",error);
     ws_writefd(pwsc,"<i>mt-daapd: %s\r\n<br>",VERSION);
-    if(errno) 
+    if(errno)
         ws_writefd(pwsc,"Error: %s\r\n",strerror(errno));
 
     ws_writefd(pwsc,"</i></BODY>\r\n</HTML>\r\n");
@@ -1085,7 +1087,7 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     char resolved_path[PATH_MAX];
     int file_fd;
     off_t len;
-    
+
     DPRINTF(E_SPAM,L_WS,"Entering ws_defaulthandler\n");
 
     snprintf(path,PATH_MAX,"%s/%s",pwsp->wsconfig.web_root,pwsc->uri);
@@ -1121,7 +1123,7 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
         ws_close(pwsc);
         return;
     }
-    
+
     /* set the Content-Length response header */
     len=lseek(file_fd,0,SEEK_END);
 
@@ -1351,7 +1353,7 @@ char *ws_urldecode(char *string, int space_as_plus) {
  * regerror to display a more interesting error message,
  * if appropriate.
  */
-int ws_registerhandler(WSHANDLE ws, char *regex, 
+int ws_registerhandler(WSHANDLE ws, char *regex,
                        void(*handler)(WS_CONNINFO*),
                        int(*auth)(WS_CONNINFO *, char *, char *),
                        int addheaders) {
@@ -1388,7 +1390,7 @@ int ws_registerhandler(WSHANDLE ws, char *regex,
  * If a handler is found, it returns 0, otherwise, returns
  * -1
  */
-int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc, 
+int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
                    void(**preq)(WS_CONNINFO*),
                    int(**pauth)(WS_CONNINFO *, char *, char *),
                    int *addheaders) {
@@ -1574,19 +1576,19 @@ void *ws_get_local_storage(WS_CONNINFO *pwsc) {
  * lock the local storage pointer.  This is sort of wrong, as
  * the all operations manipulating local storage are locked,
  * not just the one you are working on.
- * 
+ *
  * @param pwsc connection you are working with
  */
 void ws_lock_local_storage(WS_CONNINFO *pwsc) {
     WS_PRIVATE *pwsp;
-    
+
     pwsp = (WS_PRIVATE *)pwsc->pwsp;
     ws_lock_connlist(pwsp);
 }
 
 void ws_unlock_local_storage(WS_CONNINFO *pwsc) {
     WS_PRIVATE *pwsp;
-    
+
     pwsp = (WS_PRIVATE *)pwsc->pwsp;
     ws_unlock_connlist(pwsp);
 }
@@ -1601,7 +1603,7 @@ void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *)
     if(pwsc->local_storage) {
         DPRINTF(E_FATAL,L_WS,"ls already allocated");
     }
-    
+
     pwsc->storage_callback = callback;
     pwsc->local_storage = ptr;
 }
@@ -1613,9 +1615,9 @@ WS_CONNINFO *ws_thread_enum_first(WSHANDLE wsh, WSTHREADENUM *vpp) {
     WS_PRIVATE *pwsp = (WS_PRIVATE *)wsh;
     WS_CONNINFO *pwsc = NULL;
     WS_CONNLIST *pconlist;
-    
+
     ws_lock_connlist(pwsp);
-    
+
     pconlist = pwsp->connlist.next;
     *vpp = (WSTHREADENUM)pconlist;
     if(pconlist) {
@@ -1623,7 +1625,7 @@ WS_CONNINFO *ws_thread_enum_first(WSHANDLE wsh, WSTHREADENUM *vpp) {
     } else {
         ws_unlock_connlist(pwsp);
     }
-    
+
     return pwsc;
 }
 
@@ -1631,7 +1633,7 @@ WS_CONNINFO *ws_thread_enum_next(WSHANDLE wsh, WSTHREADENUM *vpp) {
     WS_PRIVATE *pwsp = (WS_PRIVATE *)wsh;
     WS_CONNINFO *pwsc = NULL;
     WS_CONNLIST *pconlist;
-    
+
     pconlist = (WS_CONNLIST*)*vpp;
     if((!pconlist) || (!pconlist->next)) {
         ws_unlock_connlist(pwsp);
