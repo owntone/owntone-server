@@ -65,7 +65,7 @@
             <short_description>
 	        Should the logfile get truncated on startup?
 	    </short_description>
-            <type default_value="1">select</type>
+            <type default_value="0">select</type>
             <options>
                 <option value="0">No</option>
                 <option value="1">Yes</option>

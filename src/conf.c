@@ -126,6 +126,7 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_STRING,"general","never_transcode" },
     { 0, 0, CONF_T_MULTICOMMA,"general","compdirs" },
     { 0, 0, CONF_T_STRING,"general","logfile" },
+    { 0, 0, CONF_T_INT,"general","truncate" },
     { 0, 0, CONF_T_EXISTPATH,"plugins","plugin_dir" },
     { 0, 0, CONF_T_MULTICOMMA,"plugins","plugins" },
     { 0, 0, CONF_T_INT,"daap","empty_strings" },
@@ -349,7 +350,7 @@ int _conf_verify_element(char *section, char *key, char *value) {
            return CONF_E_SUCCESS;
         return CONF_E_INTEXPECTED;
         break;
-        
+
     case CONF_T_MULTIPATH:
         if(_conf_split(value,",",&valuearray) >= 0) {
             index = 0;
@@ -537,7 +538,7 @@ void _conf_apply(LL_HANDLE pll) {
 
 /**
  * reload the existing config file.
- * 
+ *
  * @returns CONF_E_SUCCESS on success
  */
 int conf_reload(void) {
@@ -1370,7 +1371,7 @@ int _conf_split(char *s, char *delimiters, char ***argvp) {
                 if(strchr(delimiters,*tmp) && (*(tmp+1) != *tmp))
                     break;
                 if(strchr(delimiters,*tmp)) {
-                    tmp += 2; 
+                    tmp += 2;
                 } else {
                     tmp++;
                 }
@@ -1378,7 +1379,7 @@ int _conf_split(char *s, char *delimiters, char ***argvp) {
             *tmp = '\0';
             tmp++;
             (*argvp)[i] = tokptr;
-            
+
             fix_src = fix_dst = tokptr;
             while(*fix_src) {
                 if(strchr(delimiters,*fix_src) && (*(fix_src+1) == *fix_src)) {
@@ -1634,7 +1635,7 @@ char *conf_get_filename(void) {
 
 /**
  * this is an ugly block of crap to carry around every
- * time one wants the servername. 
+ * time one wants the servername.
  */
 char *conf_get_servername(void) {
     char *retval;
@@ -1709,7 +1710,7 @@ char *conf_get_servername(void) {
         } else {
             *dst++ = *src++;
         }
-                
+
     }
 
     return retval;

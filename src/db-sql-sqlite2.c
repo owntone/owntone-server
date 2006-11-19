@@ -69,7 +69,7 @@ static char *db_sqlite2_enum_query;
 
 static char db_sqlite2_path[PATH_MAX + 1];
 
-#define DB_SQLITE2_VERSION 12
+#define DB_SQLITE2_VERSION 13
 
 
 /* Forwards */
@@ -157,7 +157,8 @@ int db_sqlite2_open(char **pe, char *dsn) {
         DPRINTF(E_LOG,L_DB,"Can't get db version. New database?\n");
     } else if(ver != DB_SQLITE2_VERSION) {
         /* we'll deal with this in the db handler */
-        DPRINTF(E_LOG,L_DB,"Old database version.\n");
+        DPRINTF(E_LOG,L_DB,"Old database version: %d, expecting %d\n",
+                ver, DB_SQLITE2_VERSION);
         db_get_error(pe,DB_E_WRONGVERSION);
         return DB_E_WRONGVERSION;
     }
@@ -328,13 +329,13 @@ int db_sqlite2_event(int event_type) {
         if(!conf_get_int("database","quick_startup",0))
             db_sqlite2_exec(NULL,E_FATAL,"vacuum");
 
-	/* make sure our indexes exist */
-	db_sqlite2_exec(NULL,E_DBG,"create index idx_path on "
-			"songs(path,idx)");
-	db_sqlite2_exec(NULL,E_DBG,"create index idx_songid on "
-			"playlistitems(songid)");
-	db_sqlite2_exec(NULL,E_DBG,"create index idx_playlistid on "
-			"playlistitems(playlistid,songid)");
+        /* make sure our indexes exist */
+        db_sqlite2_exec(NULL,E_DBG,"create index idx_path on "
+                        "songs(path,idx)");
+        db_sqlite2_exec(NULL,E_DBG,"create index idx_songid on "
+                        "playlistitems(songid)");
+        db_sqlite2_exec(NULL,E_DBG,"create index idx_playlistid on "
+                        "playlistitems(playlistid,songid)");
 
         db_sqlite2_reload=0;
         break;
