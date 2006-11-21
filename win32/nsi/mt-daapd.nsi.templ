@@ -298,6 +298,8 @@ Function .onInit
 ; Must set $INSTDIR here to avoid adding ${PRODUCT_NAME} to the end of the
 ; path when user selects a new directory using the 'Browse' button.
   StrCpy $INSTDIR "$PROGRAMFILES\${PRODUCT_NAME}"
+  StrCpy $2 "$PROGRAMFILES\${PRODUCT_NAME}"
+  StrCpy $3 "$DOCUMENTS\My Music"
 FunctionEnd
 
 Function LicensePost
