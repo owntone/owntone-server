@@ -39,6 +39,9 @@
 #include <strings.h>
 #endif
 
+#ifdef HAVE_SYS_SELECT_H
+#include <sys/select.h>
+#endif
 #include <sys/stat.h>
 #include <sys/types.h>
 
@@ -176,8 +179,8 @@ int plugin_deinit(void) {
 }
 
 /**
- * return the error 
- * 
+ * return the error
+ *
  * @param pe buffer to store the error string in
  * @param error error to return
  * @returns the specified error,to thelp with returns
@@ -224,7 +227,7 @@ void _plugin_recalc_codecs(void) {
     if(!_plugin_ssc_codecs) {
         DPRINTF(E_FATAL,L_PLUG,"_plugin_recalc_codecs: malloc\n");
     }
-    
+
     memset(_plugin_ssc_codecs,0,size+1);
 
     ppi = _plugin_list.next;
@@ -258,7 +261,7 @@ int plugin_load(char **pe, char *path) {
     PLUGIN_INFO *pinfo;
 
     DPRINTF(E_DBG,L_PLUG,"Attempting to load plugin %s\n",path);
-    
+
     phandle = os_loadlib(pe, path);
     if(!phandle) {
         DPRINTF(E_INF,L_PLUG,"Couldn't get lib handle for %s\n",path);
@@ -277,7 +280,7 @@ int plugin_load(char **pe, char *path) {
         free(ppi);
         return PLUGIN_E_BADFUNCS;
     }
-    
+
     pinfo = info_func(&pi);
     ppi->pinfo = pinfo;
 
@@ -297,7 +300,7 @@ int plugin_load(char **pe, char *path) {
 
     ppi->next = _plugin_list.next;
     _plugin_list.next = ppi;
-    
+
     _plugin_recalc_codecs();
     return PLUGIN_E_SUCCESS;
 }
@@ -306,7 +309,7 @@ int plugin_load(char **pe, char *path) {
  * check to see if we want to dispatch a particular url
  *
  * @param pwsc the connection info (including uri) to check
- * @returns TRUE if we want to handle it 
+ * @returns TRUE if we want to handle it
  */
 int plugin_url_candispatch(WS_CONNINFO *pwsc) {
     PLUGIN_ENTRY *ppi;
@@ -328,7 +331,7 @@ int plugin_url_candispatch(WS_CONNINFO *pwsc) {
  * actually DISPATCH the hander we said we wanted
  *
  * @param pwsc the connection info (including uri) to check
- * @returns TRUE if we want to handle it 
+ * @returns TRUE if we want to handle it
  */
 void plugin_url_handle(WS_CONNINFO *pwsc) {
     PLUGIN_ENTRY *ppi;
@@ -354,7 +357,7 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
     /* should 500 here or something */
     ws_returnerror(pwsc, 500, "Can't find plugin handler");
     return;
-} 
+}
 
 /**
  * walk through the plugins and register whatever rendezvous
@@ -393,7 +396,7 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
  * @param pwsc the connection info (including uri) to check
  * @param username user attempting to login
  * @param pw password attempting
- * @returns TRUE if we want to handle it 
+ * @returns TRUE if we want to handle it
  */
 int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
     PLUGIN_ENTRY *ppi;
@@ -448,7 +451,7 @@ void plugin_event_dispatch(int event_id, int intval, void *vp, int len) {
 
 /**
  * check to see if we can transcode
- * 
+ *
  * @param codec the codec we are trying to serve
  * @returns TRUE if we can transcode, FALSE otherwise
  */
@@ -510,7 +513,7 @@ int pi_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
 /**
  * stupid helper to copy transcode stream to the fd
  */
-int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn, 
+int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn,
                      void *vp,int offset) {
     int bytes_read;
     int bytes_to_read;
@@ -526,7 +529,7 @@ int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn,
         bytes_read = pfn->ssc_read(vp,buffer,bytes_to_read);
         if(bytes_read <= 0)
             return bytes_read;
-        
+
         offset -= bytes_read;
     }
 
@@ -620,7 +623,7 @@ int _plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, int head
 }
 
 /* plugin wrappers for utility functions & stuff
- * 
+ *
  * these functions need to be wrapped so we can maintain a stable
  * interface to older plugins even if we get newer functions or apis
  * upstream... it's a binary compatibility layer.
@@ -644,7 +647,7 @@ void pi_log(int level, char *fmt, ...) {
     va_start(ap,fmt);
     vsnprintf(buf,sizeof(buf),fmt,ap);
     va_end(ap);
-    
+
     DPRINTF(level,L_PLUG,"%s",buf);
 }
 
@@ -677,7 +680,7 @@ int pi_db_count(void) {
 int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
     DBQUERYINFO *pqi;
     int result;
-    
+
     pqi = (DBQUERYINFO*)malloc(sizeof(DBQUERYINFO));
     if(!pqi) {
         if(pe) *pe = strdup("Malloc error");
@@ -745,7 +748,7 @@ int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
 }
 
 int pi_db_enum_fetch_row(char **pe, char ***row, DB_QUERY *pinfo) {
-    return db_enum_fetch_row(pe, (PACKED_MP3FILE*)row, 
+    return db_enum_fetch_row(pe, (PACKED_MP3FILE*)row,
                              (DBQUERYINFO*)pinfo->priv);
 }
 
@@ -804,9 +807,9 @@ int pi_db_wait_update(WS_CONNINFO *pwsc) {
     }
 
     /* wait for db_version to be stable for 30 seconds */
-    while((clientver == db_revision()) || 
+    while((clientver == db_revision()) ||
           (lastver && (db_revision() != lastver))) {
-	lastver = db_revision();
+        lastver = db_revision();
 
         FD_ZERO(&rset);
         FD_SET(pwsc->fd,&rset);
