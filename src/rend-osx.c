@@ -80,8 +80,8 @@ static int rend_addtorunloop(dns_service_discovery_ref client) {
     else {
         CFMachPortContext context = { 0, 0, NULL, NULL, NULL };
         Boolean shouldFreeInfo;
-        CFMachPortRef cfMachPort=CFMachPortCreateWithPort(kCFAllocatorDefault, 
-                                                          port, rend_handler, 
+        CFMachPortRef cfMachPort=CFMachPortCreateWithPort(kCFAllocatorDefault,
+                                                          port, rend_handler,
                                                           &context, &shouldFreeInfo);
 
         CFRunLoopSourceRef rls=CFMachPortCreateRunLoopSource(NULL,cfMachPort,0);
@@ -154,7 +154,7 @@ void rend_add_text(char *buffer, char *string) {
 /*
  * rend_callback
  *
- * This gets called from the main thread when there is a 
+ * This gets called from the main thread when there is a
  * message waiting to be processed.
  */
 void rend_callback(void *info) {
@@ -207,8 +207,8 @@ void rend_callback(void *info) {
         rend_stoprunloop();
         break;
     case REND_MSG_TYPE_STATUS:
-        DPRINTF(E_DBG,L_REND,"Status inquiry -- returning 0\n");
-        rend_send_response(0); /* success */
+        DPRINTF(E_DBG,L_REND,"Status inquiry -- returning 1\n");
+        rend_send_response(1); /* success */
         break;
     default:
         break;
@@ -237,7 +237,7 @@ int rend_private_init(char *user) {
     CFRunLoopAddSource(CFRunLoopGetCurrent(),rend_rls,kCFRunLoopDefaultMode);
 
     DPRINTF(E_DBG,L_REND,"Starting polling thread\n");
-    
+
     if(pthread_create(&rend_tid,NULL,rend_pipe_monitor,NULL)) {
         DPRINTF(E_FATAL,L_REND,"Could not start thread.  Terminating\n");
         /* should kill parent, too */

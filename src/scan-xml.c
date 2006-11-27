@@ -933,8 +933,14 @@ int scan_xml_playlists_section(int action, char *info) {
             current_id=0;
             if(dont_scan == 0) {
                 DPRINTF(E_DBG,L_SCAN,"Creating playlist for %s\n",current_name);
+                /* we won't actually use the iTunes pl_id, as it seems
+                 *  to change for no good reason.  We'll hash the name,
+                 * instead. */
+
                 /* delete the old one first */
                 /* FIXME: Error handling */
+                native_plid = util_djb_hash_str(current_name);
+
                 pm3u = db_fetch_playlist(NULL,scan_xml_file,native_plid);
                 if(pm3u) {
                     db_delete_playlist(NULL,pm3u->id);

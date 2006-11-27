@@ -15,7 +15,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-//#include <iconv.h> 
+//#include <iconv.h>
 
 #include "daapd.h"
 #include "err.h"
@@ -81,7 +81,7 @@ int util_utf16toutf8_len(unsigned char *utf16, int len) {
 
     while(src+2 <= utf16 + len) {
         temp_dword = src[1] << 8 | src[0];
-    
+
         if((temp_dword & 0xFC00) == 0xD800) {
             src += 2;
             if(src + 2 <= utf16 + len) {
@@ -107,7 +107,7 @@ int util_utf16toutf8_len(unsigned char *utf16, int len) {
  * convert utf16 string to utf8.  This is a bit naive, but...
  * Since utf-8 can't expand past 4 bytes per code point, and
  * we're converting utf-16, we can't be more than 2n+1 bytes, so
- * we'll just allocate that much. 
+ * we'll just allocate that much.
  *
  * Probably it could be more efficiently calculated, but this will
  * always work.  Besides, these are small strings, and will be freed
@@ -159,7 +159,7 @@ int util_utf16toutf8(unsigned char *utf8, int dlen, unsigned char *utf16, int le
             w1 += 0x10000;
         }
 
-        // now encode the original code point in utf-8 
+        // now encode the original code point in utf-8
         if (w1 < 0x80) {
             *dst++ = w1;
             bytes=0;
@@ -265,7 +265,7 @@ unsigned char *util_utf16touft8_alloc(unsigned char *utf16, int len) {
         DPRINTF(E_LOG,L_MISC,"Cannot convert %s to utf16; E2BIG (%d vs %d)\n",utf8,new_len,dlen);
         return FALSE;
     }
-    
+
     dst=utf16;
 
     while(src < utf8 + len) {
@@ -286,7 +286,7 @@ unsigned char *util_utf16touft8_alloc(unsigned char *utf16, int len) {
                 utf32 = *src;
                 break;
             case 1:
-                utf32 = ((src[0] & 0x1F) << 6) | 
+                utf32 = ((src[0] & 0x1F) << 6) |
                     (src[1] & 0x3F);
                 break;
             case 2:
@@ -315,7 +315,7 @@ unsigned char *util_utf16touft8_alloc(unsigned char *utf16, int len) {
             *dst++ = temp_word & 0xFF;
             *dst++ = (temp_word & 0xFF00) >> 8;
         }
-    
+
         src += (trailing_bytes + 1);
     }
 
