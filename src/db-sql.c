@@ -353,7 +353,7 @@ int db_sql_open(char **pe, char *parameters) {
             return result;
 
         max_version = 0;
-        while(db_updates[max_version]) 
+        while(db_updates[max_version])
             max_version++;
 
         DPRINTF(E_DBG,L_DB,"Current db version: %d\n",current_version);
@@ -364,7 +364,7 @@ int db_sql_open(char **pe, char *parameters) {
                     current_version + 1);
             result = db_sql_exec_fn(pe,E_LOG,"%s",db_updates[current_version]);
             if(result != DB_E_SUCCESS) {
-                DPRINTF(E_LOG,L_DB,"Error upgrading db: %s\n", pe ? *pe : 
+                DPRINTF(E_LOG,L_DB,"Error upgrading db: %s\n", pe ? *pe :
                         "Unknown");
                 return result;
             }
@@ -434,7 +434,7 @@ int db_sql_force_rescan(char **pe) {
         return result;
 
     return db_sql_exec_fn(pe,E_LOG,"update songs set force_update=1");
-    
+
 }
 
 /**
@@ -657,6 +657,7 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
     char *criteria;
     char *estring;
     char *correct_path;
+    SQL_ROW row;
 
     result=db_sql_fetch_int(pe,&cnt,"select count(*) from playlists where "
                             "upper(title)=upper('%q')",name);
@@ -666,6 +667,12 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
     }
 
     if(cnt != 0) { /* duplicate */
+        db_sql_fetch_row(NULL,&row, "select * from playlists where "
+                         "upper(title)=upper('%q')",name);
+        DPRINTF(E_LOG,L_MISC,"Attempt to add duplicate playlist: '%s' "
+                "type: %d, path: %s, idx: %d\n",name,atoi(row[PL_TYPE]),
+                row[PL_PATH],atoi(row[PL_IDX]));
+        db_sql_dispose_row();
         db_get_error(pe,DB_E_DUPLICATE_PLAYLIST,name);
         return DB_E_DUPLICATE_PLAYLIST;
     }
@@ -1291,7 +1298,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
             strcpy(query_rest," where (");
             have_clause = 1;
         }
-        
+
         switch(pinfo->query_type) {
         case queryTypeBrowseAlbums:
             strcat(query_rest,"album");
@@ -1320,7 +1327,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         strcat(scratch,query_rest);
         if(browse)
             strcat(scratch,")");
-        
+
         err = db_sql_fetch_int(pe,&results,"%s",scratch);
         if(err != DB_E_SUCCESS)
             return err;
@@ -1555,7 +1562,7 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
      */
     if((db_sql_in_scan) && (db_sql_reload))
         return NULL;
-    
+
     /* not very portable, but works for sqlite */
     proper_path = _db_proper_path(path);
     query="select * from songs where path='%q' and idx=%d";
