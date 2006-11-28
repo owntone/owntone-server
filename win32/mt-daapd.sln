@@ -27,6 +27,18 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "out-daap", "out-daap\out-da
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShellFRA", "FireflyShell\FireflyShellFRA.vcproj", "{819028A4-ED43-4A51-9E32-DC8559ADEBB6}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShellNLD", "FireflyShell\FireflyShellNLD.vcproj", "{5D6F19F6-6A71-4960-BFB3-BF545D02ACBD}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShellDEU", "FireflyShell\FireflyShellDEU.vcproj", "{9B035724-EAD7-48C5-BBAF-91FFAA3CA55F}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfiguration) = preSolution
 		Debug = Debug
@@ -61,6 +73,18 @@ Global
 		{C1EF5133-DFB3-4FEC-B999-3655DBB14786}.Debug.Build.0 = Debug|Win32
 		{C1EF5133-DFB3-4FEC-B999-3655DBB14786}.Release.ActiveCfg = Release|Win32
 		{C1EF5133-DFB3-4FEC-B999-3655DBB14786}.Release.Build.0 = Release|Win32
+		{819028A4-ED43-4A51-9E32-DC8559ADEBB6}.Debug.ActiveCfg = Debug|Win32
+		{819028A4-ED43-4A51-9E32-DC8559ADEBB6}.Debug.Build.0 = Debug|Win32
+		{819028A4-ED43-4A51-9E32-DC8559ADEBB6}.Release.ActiveCfg = Release|Win32
+		{819028A4-ED43-4A51-9E32-DC8559ADEBB6}.Release.Build.0 = Release|Win32
+		{5D6F19F6-6A71-4960-BFB3-BF545D02ACBD}.Debug.ActiveCfg = Debug|Win32
+		{5D6F19F6-6A71-4960-BFB3-BF545D02ACBD}.Debug.Build.0 = Debug|Win32
+		{5D6F19F6-6A71-4960-BFB3-BF545D02ACBD}.Release.ActiveCfg = Release|Win32
+		{5D6F19F6-6A71-4960-BFB3-BF545D02ACBD}.Release.Build.0 = Release|Win32
+		{9B035724-EAD7-48C5-BBAF-91FFAA3CA55F}.Debug.ActiveCfg = Debug|Win32
+		{9B035724-EAD7-48C5-BBAF-91FFAA3CA55F}.Debug.Build.0 = Debug|Win32
+		{9B035724-EAD7-48C5-BBAF-91FFAA3CA55F}.Release.ActiveCfg = Release|Win32
+		{9B035724-EAD7-48C5-BBAF-91FFAA3CA55F}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection
