@@ -18,6 +18,10 @@ if COND_REND_OSX
 ORENDSRC=rend-osx.c rend-unix.c
 endif
 
+if COND_REND_AVAHI
+ARENDSRC=rend-avahi.c
+endif
+
 if COND_OGGVORBIS
 OGGVORBISSRC=scan-ogg.c
 endif
@@ -58,8 +62,8 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
 	os.h ll.c ll.h conf.c conf.h compat.c compat.h util.c util.h \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
-	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(OGGVORBISSRC) $(FLACSRC) \
-	$(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM)
+	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(ARENDSRC) $(OGGVORBISSRC) \
+	$(FLACSRC) $(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM)
 
 EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
 	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \

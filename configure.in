@@ -39,6 +39,7 @@ fi
 AC_DEFINE_UNQUOTED(CONFFILE,"${CONFFILE}",Where the config file is)
 
 rend_posix=true
+rend_avahi=false
 db_sqlite=false
 db_sqlite3=false
 use_ffmpeg=false;
@@ -67,16 +68,25 @@ AC_ARG_ENABLE(sqlite3,[  --enable-sqlite3        Enable sqlite3 db backend],
 AC_ARG_ENABLE(mdns,[  --enable-mdns           Enable mDNS support],
 		      [ case "${enableval}" in
 		      yes) ;;
-		      no) rend_posix=false; rend_howl=false; CPPFLAGS="${CPPFLAGS} -DWITHOUT_MDNS";;
+		      no) rend_posix=false; rend_howl=false; rend_avahi=false; CPPFLAGS="${CPPFLAGS} -DWITHOUT_MDNS";;
 		      *) AC_MSG_ERROR(bad value ${enableval} for --disable-mdns);;
 		      esac ])
 
 AC_ARG_ENABLE(nslu2,[  --enable-nslu2          Build for NSLU2/uNSLUng], 
 		       CFLAGS="${CFLAGS} -DNSLU2")
 
+AC_ARG_ENABLE(avahi,[  --enable-avahi          Use avahi 0.6 or later],
+		      [ case "${enableval}" in
+                        yes) PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6 ]);
+			rend_avahi=true; rend_howl=false; rend_posix=false; LDFLAGS="${LDFLAGS} $AVAHI_LIBS";
+			CPPFLAGS="${CPPFLAGS} $AVAHI_CFLAGS -DWITH_AVAHI";;
+		        no)  rend_avahi=false;;
+		        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-avahi);;
+		      esac ])
+
 AC_ARG_ENABLE(howl,[  --enable-howl       Use howl 0.9.2 or later],
 		      [ case "${enableval}" in
-                        yes) rend_howl=true; rend_posix=false; LIBS="${LIBS} -lhowl";
+                        yes) rend_howl=true; rend_posix=false; rend_avahi=false; LIBS="${LIBS} -lhowl";
 			CPPFLAGS="${CPPFLAGS} -DWITH_HOWL";;
 		        no)  rend_howl=false;;
 		        *)   AC_MSG_ERROR(bad value ${enableval} for --enable-howl);;
@@ -107,6 +117,7 @@ AC_ARG_ENABLE(ffmpeg,[  --enable-ffmpeg     Enable ffmpeg transcode support],
 
 AM_CONDITIONAL(COND_REND_HOWL, test x$rend_howl = xtrue)
 AM_CONDITIONAL(COND_REND_POSIX, test x$rend_posix = xtrue)
+AM_CONDITIONAL(COND_REND_AVAHI, test x$rend_avahi = xtrue)
 AM_CONDITIONAL(COND_OGGVORBIS, test x$use_oggvorbis = xtrue)
 AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
