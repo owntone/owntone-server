@@ -9,13 +9,13 @@
 
 ; Strings for the application install directory panel
 !insertmacro LANG_STRING STRING_DESTFOLDER "Zielpfad"
-!insertmacro LANG_STRING STRING_DESTDETAIL "Setup wird ${PRODUCT_NAME} in folgenden Ordner installieren:$\r$\n$\r$\nUm in einen anderen Ordner als den ausgewählten zu installieren, klicken Sie Durchsuchen und wählen Sie einen anderen Ordner aus. Drücken Sie Next, um fortzufahren."
+!insertmacro LANG_STRING STRING_DESTDETAIL "Setup wird ${PRODUCT_NAME} in folgenden Ordner installieren:$\r$\n$\r$\nUm in einen anderen Ordner als den ausgewählten zu installieren, klicken Sie Durchsuchen und wählen Sie einen anderen Ordner aus. Drücken Sie Weiter, um fortzufahren."
 
 ; Strings for the music path directory panel
 !insertmacro LANG_STRING STRING_MUSICTITLE "Wählen Sie den Pfad zu Ihrer Musiksammlung"
 !insertmacro LANG_STRING STRING_MUSICHEADER "Wählen Sie den Pfad zu den Musikdateien, die Sie freigeben möchten."
 !insertmacro LANG_STRING STRING_MUSICFOLDER "Musik-Ordner"
-!insertmacro LANG_STRING STRING_MUSICDETAIL "Das Setup wird die Musik in folgenden Ordnern freigeben.$\r$\n$\r$\nUm in einen anderen Ordner als den ausgewählten freizugeben, klicken Sie Durchsuchen und wählen Sie einen anderen Ordner aus. Drücken Sie Install um den Installationsvorgang zu beginnen."
+!insertmacro LANG_STRING STRING_MUSICDETAIL "Das Setup wird die Musik in folgenden Ordnern freigeben.$\r$\n$\r$\nUm in einen anderen Ordner als den ausgewählten freizugeben, klicken Sie Durchsuchen und wählen Sie einen anderen Ordner aus. Drücken Sie Installieren um den Installationsvorgang zu beginnen."
 
 ; These are for the startmenu shortcuts
 !insertmacro LANG_BOTHSTRING STRING_WEBSITE "Website"
