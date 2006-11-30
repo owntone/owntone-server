@@ -152,9 +152,9 @@ Section "MainSection" SEC01
   SetOverwrite on
   File /oname=firefly.exe "${MTD_SOURCE}\mt-daapd.exe"
   File "${CONFIG_SOURCE}\FireflyShell.exe" 
-  File "${CONFIG_SOURCE}\FireflyShellDEU.dll"
-  File "${CONFIG_SOURCE}\FireflyShellFRA.dll"
-  File "${CONFIG_SOURCE}\FireflyShellNLD.dll"
+  File "${CONFIG_SOURCE}\FireflyShell-0c.dll"
+  File "${CONFIG_SOURCE}\FireflyShell-07.dll"
+  File "${CONFIG_SOURCE}\FireflyShell-13.dll"
   File "${CONFIG_SOURCE}\..\FireflyShell.exe.manifest"
   File "${DLL_SOURCE}\gnu_regex.dll"
   File "${DLL_SOURCE}\pthreadVC2.dll"
@@ -328,21 +328,21 @@ Function .onInit
   StrCpy $2 "$PROGRAMFILES\${PRODUCT_NAME}"
   StrCpy $3 "$DOCUMENTS\My Music"
   
-  Push ""
-  Push ${LANG_ENGLISH}
-  Push English
-  Push ${LANG_FRENCH}
-  Push French
-  Push ${LANG_DUTCH}
-  Push Dutch
-  Push ${LANG_GERMAN}
-  Push German
-  ; more
-  Push A
-  LangDLL::LangDialog "Installer Language" "Please select the language of the installer"
-  Pop $LANGUAGE
-  StrCmp $LANGUAGE "cancel" 0 +2
-  Abort
+;  Push ""
+;  Push ${LANG_ENGLISH}
+;  Push English
+;  Push ${LANG_FRENCH}
+;  Push French
+;  Push ${LANG_DUTCH}
+;  Push Dutch
+;  Push ${LANG_GERMAN}
+;  Push German
+;  ; more
+;  Push A
+;  LangDLL::LangDialog "Installer Language" "Please select the language of the installer"
+;  Pop $LANGUAGE
+;  StrCmp $LANGUAGE "cancel" 0 +2
+;  Abort
 FunctionEnd
 
 Function LicensePost
@@ -580,9 +580,9 @@ Section Uninstall
   Delete "$INSTDIR\firefly.exe"
   Delete "$INSTDIR\FireflyShell.exe"
   Delete "$INSTDIR\FireflyShell.exe.manifest"
-  Delete "$INSTDIR\FireflyShellDEU.dll"
-  Delete "$INSTDIR\FireflyShellFRA.dll"
-  Delete "$INSTDIR\FireflyShellNLD.dll"
+  Delete "$INSTDIR\FireflyShell-0c.dll"
+  Delete "$INSTDIR\FireflyShell-07.dll"
+  Delete "$INSTDIR\FireflyShell-13.dll"
   
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Uninstall.lnk"
   Delete "$SMPROGRAMS\${PRODUCT_NAME}\Website.lnk"

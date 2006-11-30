@@ -68,19 +68,16 @@ STYLE DS_SETFONT | DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
 CAPTION "About"
 FONT 8, "MS Sans Serif", 0, 0, 0x0
 BEGIN
-    LTEXT           "For help, tips and troubleshooting advice visit the ",
-                    IDC_STATIC,12,92,156,9,NOT WS_GROUP
+    CTEXT           "For help, tips and troubleshooting advice...",
+                    IDC_FIREFLYLINK,12,92,276,9,NOT WS_GROUP
     GROUPBOX        "Version information",IDC_STATIC,6,121,288,100
     CONTROL         "",IDC_VERSIONLIST,"SysListView32",LVS_REPORT | 
                     LVS_ALIGNLEFT | WS_BORDER | WS_TABSTOP,12,132,276,68
-    PUSHBUTTON      "&Copy to Clipboard",IDC_COPY,218,203,70,14
+    PUSHBUTTON      "&Copy to Clipboard",IDC_COPY,192,203,96,14
     CONTROL         208,IDC_LOGO,"Static",SS_BITMAP | SS_CENTERIMAGE | 
                     SS_SUNKEN | WS_BORDER,6,7,288,73
-    LTEXT           "Firefly Media Server website",IDC_FIREFLYLINK,167,92,90,
-                    9,NOT WS_GROUP
-    LTEXT           "For information on Firefly compatible music players, visit",
-                    IDC_STATIC,12,106,172,9,NOT WS_GROUP
-    LTEXT           "Roku's website",IDC_ROKULINK,186,106,52,9,NOT WS_GROUP
+    CTEXT           "For information on Firefly compatible music players...",
+                    IDC_ROKULINK,12,106,276,9,NOT WS_GROUP
 END
 
 IDD_PAGE_BASIC DIALOGEX 0, 0, 300, 230
@@ -89,16 +86,17 @@ STYLE DS_SETFONT | DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION |
 CAPTION "Library"
 FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
-    LTEXT           "Library &Name",IDC_STATIC,12,24,54,8
-    EDITTEXT        IDC_SERVERNAME,67,21,227,14,ES_AUTOHSCROLL
-    LTEXT           "Media &Location",IDC_STATIC,12,61,48,8
-    EDITTEXT        IDC_PATH,66,57,222,14,ES_AUTOHSCROLL
-    PUSHBUTTON      "&Browse...",IDC_BROWSE,238,76,50,14
+    LTEXT           "Library &Name",IDC_STATIC,12,24,74,8
+    EDITTEXT        IDC_SERVERNAME,86,21,202,14,ES_AUTOHSCROLL
+    LTEXT           "Media &Location",IDC_STATIC,12,61,74,8
+    EDITTEXT        IDC_PATH,86,57,202,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "&Browse...",IDC_BROWSE,228,76,60,14
     GROUPBOX        "Security",IDC_STATIC,7,113,287,103
     CONTROL         "&Protect Firefly media library with a password",
                     IDC_PROTECT,"Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,135,
-                    154,10
-    EDITTEXT        IDC_PASSWORD,174,132,114,14,ES_PASSWORD | ES_AUTOHSCROLL
+                    276,10
+    LTEXT           "Pass&word",IDC_STATIC,12,156,74,8
+    EDITTEXT        IDC_PASSWORD,86,154,114,14,ES_PASSWORD | ES_AUTOHSCROLL
     LTEXT           "You can limit access to your music library by assigning a password.  If a password is assigned, only clients that provide the correct password will be able to play music from your library.",
                     IDC_STATIC,12,180,276,26,SS_NOPREFIX
 END
@@ -122,9 +120,9 @@ FONT 8, "MS Shell Dlg", 400, 0, 0x1
 BEGIN
     GROUPBOX        "Server Status",IDC_STATIC,6,7,288,82
     LTEXT           "Current state of the server goes here",IDC_SERVERSTATE,
-                    12,28,206,25
-    PUSHBUTTON      "&Stop Server",IDC_STOPSERVICE,238,28,50,14
-    PUSHBUTTON      "&Start Server",IDC_STARTSERVICE,238,28,50,14
+                    12,28,199,25
+    PUSHBUTTON      "&Stop Server",IDC_STOPSERVICE,218,28,70,14
+    PUSHBUTTON      "&Start Server",IDC_STARTSERVICE,218,28,70,14
     CONTROL         "&Start Firefly when Windows starts",IDC_AUTOSTART,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,63,276,10
     GROUPBOX        "Advanced",IDC_STATIC,6,93,288,61
@@ -137,8 +135,8 @@ BEGIN
                     IDC_STATIC,12,129,276,23
     GROUPBOX        "Web administration",IDC_STATIC,6,159,288,54
     LTEXT           "Firefly Media Server also provides a web administration interface.",
-                    IDC_STATIC,12,177,206,20
-    PUSHBUTTON      "&Open",IDC_WEBADMIN,238,177,50,14
+                    IDC_STATIC,12,177,198,20
+    PUSHBUTTON      "&Open",IDC_WEBADMIN,218,177,70,14
 END
 
 
@@ -167,7 +165,7 @@ BEGIN
         LEFTMARGIN, 6
         RIGHTMARGIN, 294
         VERTGUIDE, 12
-        VERTGUIDE, 66
+        VERTGUIDE, 86
         VERTGUIDE, 131
         VERTGUIDE, 218
         VERTGUIDE, 288

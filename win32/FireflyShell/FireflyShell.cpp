@@ -15,6 +15,9 @@
 */
 
 #include "stdafx.h"
+
+#include <winnls.h>
+
 #include "resource.h"
 #include "FireflyShell.h"
 #include "DosPath.h"
@@ -38,10 +41,27 @@ Application::Application()
     m_config_path = filename.GetPath();
     ATLTRACE("Config path: %s\n", (const TCHAR *)m_config_path);
 
+
     // Dump an ini file with drive mappings
     CDosPath mapfile(_T("mapping.ini"));
     mapfile |= path;
+    m_ini_path = mapfile.GetPath();
 
+    /* Load the proper language dll, if possible */
+    LANGID lidDefault = GetUserDefaultLangID();
+    int iBaseLanguage = lidDefault & 0xFF;
+    iBaseLanguage = GetPrivateProfileInt(_T("shell"),_T("lang_id"),iBaseLanguage,m_ini_path);
+
+    TCHAR tempPath[24];
+    wsprintf(tempPath,_T("FireflyShell-%02x.dll"),iBaseLanguage);
+    CDosPath langlib(tempPath);
+    langlib |= path;
+
+    HMODULE hLangDLL;
+    if((hLangDLL=LoadLibrary(langlib.GetPath())) != NULL) {
+        _AtlBaseModule.SetResourceInstance(hLangDLL);
+    }
+   
     TCHAR inbuffer[4];
     TCHAR outbuffer[2048]; /* as max_path is unreliable */
     DWORD size;

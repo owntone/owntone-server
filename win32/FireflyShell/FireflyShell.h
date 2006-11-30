@@ -32,6 +32,7 @@ class Application : public Singleton<Application>
 	CNotifyIcon m_icon;
 	CMainDlg *m_dlg;
 	CString m_config_path;
+        CString m_ini_path;
 	Service m_service;
 	ServiceStatusMonitor m_service_monitor;
 	ServerEvents m_server_events;

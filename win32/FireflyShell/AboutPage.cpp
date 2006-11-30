@@ -23,7 +23,7 @@
 LRESULT CAboutPage::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*lParam*/, BOOL& /*bHandled*/)
 {
     m_firefly_link.SubclassWindow(GetDlgItem(IDC_FIREFLYLINK));
-    m_firefly_link.SetHyperLink(_T("http://www.fireflymediaserver.org"));
+    m_firefly_link.SetHyperLink(_T("http://forums.fireflymediaserver.org"));
     
     m_roku_link.SetHyperLink(_T("http://www.rokulabs.com"));
     m_roku_link.SubclassWindow(GetDlgItem(IDC_ROKULINK));
