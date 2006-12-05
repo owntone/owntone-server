@@ -20,7 +20,25 @@
 		8D202CEF0486D31800D8A456 /* FireflyPrefsPref.nib in Resources */ = {isa = PBXBuildFile; fileRef = F506C042013D9D8C01CA16C8 /* FireflyPrefsPref.nib */; };
 		8D202CF30486D31800D8A456 /* Cocoa.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1058C7ADFEA557BF11CA2CBB /* Cocoa.framework */; };
 		8D202CF40486D31800D8A456 /* PreferencePanes.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F506C035013D953901CA16C8 /* PreferencePanes.framework */; };
+		E439B8040B23DF3A00597AF1 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = E439B8020B23DF3A00597AF1 /* Localizable.strings */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXBuildStyle section */
+		E455CEBA0B23ABEA00D81FFE /* Development */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+			};
+			name = Development;
+		};
+		E455CEBB0B23ABEA00D81FFE /* Deployment */ = {
+			isa = PBXBuildStyle;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+			};
+			name = Deployment;
+		};
+/* End PBXBuildStyle section */
 
 /* Begin PBXFileReference section */
 		089C1672FE841209C02AAC07 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
@@ -37,6 +55,10 @@
 		32DBCFA20370C41700C91783 /* FireflyPrefs_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FireflyPrefs_Prefix.pch; sourceTree = "<group>"; };
 		8D202CF70486D31800D8A456 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8D202CF80486D31800D8A456 /* Firefly.prefPane */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Firefly.prefPane; sourceTree = BUILT_PRODUCTS_DIR; };
+		E439B8030B23DF3A00597AF1 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
+		E44062AC0B253BA3003ADD6D /* French */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = French; path = French.lproj/Localizable.strings; sourceTree = "<group>"; };
+		E4CBBF9E0B253B190071ED51 /* French */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = French; path = French.lproj/FireflyPrefsPref.nib; sourceTree = "<group>"; };
+		E4CBBFA00B253B700071ED51 /* French */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = French; path = French.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F506C035013D953901CA16C8 /* PreferencePanes.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PreferencePanes.framework; path = /System/Library/Frameworks/PreferencePanes.framework; sourceTree = "<absolute>"; };
 		F506C040013D9D8001CA16C8 /* FireflyPrefsPref.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = FireflyPrefsPref.tiff; sourceTree = "<group>"; };
 		F506C043013D9D8C01CA16C8 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/FireflyPrefsPref.nib; sourceTree = "<group>"; };
@@ -63,6 +85,7 @@
 				089C167CFE841241C02AAC07 /* Resources */,
 				089C1671FE841209C02AAC07 /* Frameworks and Libraries */,
 				19C28FB8FE9D52D311CA2CBB /* Products */,
+				E439B8020B23DF3A00597AF1 /* Localizable.strings */,
 			);
 			name = FireflyPrefs;
 			sourceTree = "<group>";
@@ -178,6 +201,12 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 1DBD214C08BA80EA00186707 /* Build configuration list for PBXProject "FireflyPrefs" */;
+			buildSettings = {
+			};
+			buildStyles = (
+				E455CEBA0B23ABEA00D81FFE /* Development */,
+				E455CEBB0B23ABEA00D81FFE /* Deployment */,
+			);
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* FireflyPrefs */;
 			projectDirPath = "";
@@ -198,6 +227,7 @@
 				1061CB530A266BAE002E88E0 /* FireflyLogo.png in Resources */,
 				10C7930B0A660CCA00732D76 /* Firefly Helper.app in Resources */,
 				1098819D0A704B3200F53ED9 /* firefly.conf in Resources */,
+				E439B8040B23DF3A00597AF1 /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -229,14 +259,25 @@
 			isa = PBXVariantGroup;
 			children = (
 				089C167EFE841241C02AAC07 /* English */,
+				E4CBBFA00B253B700071ED51 /* French */,
 			);
 			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		E439B8020B23DF3A00597AF1 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				E439B8030B23DF3A00597AF1 /* English */,
+				E44062AC0B253BA3003ADD6D /* French */,
+			);
+			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
 		F506C042013D9D8C01CA16C8 /* FireflyPrefsPref.nib */ = {
 			isa = PBXVariantGroup;
 			children = (
 				F506C043013D9D8C01CA16C8 /* English */,
+				E4CBBF9E0B253B190071ED51 /* French */,
 			);
 			name = FireflyPrefsPref.nib;
 			sourceTree = "<group>";
