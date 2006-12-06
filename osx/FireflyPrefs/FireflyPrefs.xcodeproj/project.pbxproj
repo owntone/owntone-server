@@ -57,6 +57,12 @@
 		8D202CF80486D31800D8A456 /* Firefly.prefPane */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = Firefly.prefPane; sourceTree = BUILT_PRODUCTS_DIR; };
 		E439B8030B23DF3A00597AF1 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		E44062AC0B253BA3003ADD6D /* French */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = French; path = French.lproj/Localizable.strings; sourceTree = "<group>"; };
+		E4BCD46F0B26970D009315B7 /* German */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = German; path = German.lproj/Localizable.strings; sourceTree = "<group>"; };
+		E4BCD4700B269713009315B7 /* Swedish */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Swedish; path = Swedish.lproj/Localizable.strings; sourceTree = "<group>"; };
+		E4BCD4710B26972C009315B7 /* German */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = German; path = German.lproj/FireflyPrefsPref.nib; sourceTree = "<group>"; };
+		E4BCD4720B269730009315B7 /* Swedish */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = Swedish; path = Swedish.lproj/FireflyPrefsPref.nib; sourceTree = "<group>"; };
+		E4BCD4730B269740009315B7 /* German */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = German; path = German.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		E4BCD4740B269745009315B7 /* Swedish */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Swedish; path = Swedish.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E4CBBF9E0B253B190071ED51 /* French */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = French; path = French.lproj/FireflyPrefsPref.nib; sourceTree = "<group>"; };
 		E4CBBFA00B253B700071ED51 /* French */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = French; path = French.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		F506C035013D953901CA16C8 /* PreferencePanes.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PreferencePanes.framework; path = /System/Library/Frameworks/PreferencePanes.framework; sourceTree = "<absolute>"; };
@@ -208,6 +214,14 @@
 				E455CEBB0B23ABEA00D81FFE /* Deployment */,
 			);
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+				Swedish,
+				sv,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* FireflyPrefs */;
 			projectDirPath = "";
 			targets = (
@@ -260,6 +274,8 @@
 			children = (
 				089C167EFE841241C02AAC07 /* English */,
 				E4CBBFA00B253B700071ED51 /* French */,
+				E4BCD4730B269740009315B7 /* German */,
+				E4BCD4740B269745009315B7 /* Swedish */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
@@ -269,6 +285,8 @@
 			children = (
 				E439B8030B23DF3A00597AF1 /* English */,
 				E44062AC0B253BA3003ADD6D /* French */,
+				E4BCD46F0B26970D009315B7 /* German */,
+				E4BCD4700B269713009315B7 /* Swedish */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -278,6 +296,8 @@
 			children = (
 				F506C043013D9D8C01CA16C8 /* English */,
 				E4CBBF9E0B253B190071ED51 /* French */,
+				E4BCD4710B26972C009315B7 /* German */,
+				E4BCD4720B269730009315B7 /* Swedish */,
 			);
 			name = FireflyPrefsPref.nib;
 			sourceTree = "<group>";
