@@ -39,6 +39,14 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShellDEU", "FireflyS
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShellJPN", "FireflyShell\FireflyShellJPN.vcproj", "{59618041-38FA-4D80-B00B-113417259E6D}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShellSWE", "FireflyShell\FireflyShellSWE.vcproj", "{D8109A27-5CB3-4888-B62A-F83BB3B1D41F}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfiguration) = preSolution
 		Debug = Debug
@@ -85,6 +93,14 @@ Global
 		{9B035724-EAD7-48C5-BBAF-91FFAA3CA55F}.Debug.Build.0 = Debug|Win32
 		{9B035724-EAD7-48C5-BBAF-91FFAA3CA55F}.Release.ActiveCfg = Release|Win32
 		{9B035724-EAD7-48C5-BBAF-91FFAA3CA55F}.Release.Build.0 = Release|Win32
+		{59618041-38FA-4D80-B00B-113417259E6D}.Debug.ActiveCfg = Debug|Win32
+		{59618041-38FA-4D80-B00B-113417259E6D}.Debug.Build.0 = Debug|Win32
+		{59618041-38FA-4D80-B00B-113417259E6D}.Release.ActiveCfg = Release|Win32
+		{59618041-38FA-4D80-B00B-113417259E6D}.Release.Build.0 = Release|Win32
+		{D8109A27-5CB3-4888-B62A-F83BB3B1D41F}.Debug.ActiveCfg = Debug|Win32
+		{D8109A27-5CB3-4888-B62A-F83BB3B1D41F}.Debug.Build.0 = Debug|Win32
+		{D8109A27-5CB3-4888-B62A-F83BB3B1D41F}.Release.ActiveCfg = Release|Win32
+		{D8109A27-5CB3-4888-B62A-F83BB3B1D41F}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection
