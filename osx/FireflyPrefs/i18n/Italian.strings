@@ -1,0 +1,234 @@
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is not running" = "Firefly non è attivo";
+
+/* English.strings: Localizable.strings: Error message if invalid port entered */
+"Please enter a port number between 1024 and 65535, or choose \"Automatic\" from the pop-up menu" = "Scegliere una porta tra 1024 e 65535, oppure scegliere \"Automatico\" dal menu";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Show Firefly menu in menu bar) : <title:Show Firefly menu in menu bar> (oid:196) */
+"Show Firefly menu in menu bar" = "Mostra il menu di Firefly nella barra dei menu";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Shared Name:) : <title:Shared Name:> (oid:106) */
+"Shared Name:" = "Nome condiviso:";
+
+/* English.strings: Localizable.strings: @Alert title when password is invalid */
+"Missing password" = "Password mancante";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is stopping" = "Firefly è in fase di arresto";
+
+/* English.strings: Localizable.strings: Label for cancel button in save prompt dialog */
+"Cancel" = "Annulla";
+
+/* English.strings: Localizable.strings: Error message related to invalid config */
+"Unable to read configuration information" = "Impossibile leggere la configurazione";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Open Web Page) : <title:Open Web Page> (oid:120) */
+"Open Web Page" = "Apri la pagina web";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is scanning the library" = "Firefly sta analizzando la libreria";
+
+/* English.strings: Localizable.strings: Format string for error message upon invalid install */
+"Unable to create a default configuration file at: %@" = "Impossibile creare il file di configurazione in: %@";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Prefs Panel Version:) : <title:Prefs Panel Version:> (oid:170) */
+"Prefs Panel Version:" = "Versione del pannello di controllo:";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Firefly Server Version:) : <title:Firefly Server Version:> (oid:171) */
+"Firefly Server Version:" = "Versione di Firefly Server:";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to apply */
+"Failed to apply changes" = "Impossibile salvare le modifiche";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is restarting" = "Firefly è in fase di riavvio";
+
+/* English.strings: Localizable.strings: Info text for the web page button when server is running */
+"Additional configuration options are available from Firefly's built-in web page. Click to open the page in your browser." = "Ulteriori opzioni di configurazione sono disponibili nella pagina web di controllo di Firefly. Fare click per aprirla con il tuo browser.";
+
+/* English.strings: Localizable.strings: Info text for the library browse dialog */
+"Please select the folder containing your music library, then click Choose." = "Selezionare la cartella contentente la libreria musicale, quindi premere Scegli.";
+
+/* English.strings: Localizable.strings: @Alert title when port number is invalid */
+"Invalid port number" = "Numero di porta non valido";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Browse...) : <title:Browse...> (oid:123) */
+"Browse..." = "Sfoglia...";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Library Location:) : <title:Library Location:> (oid:122) */
+"Library Location:" = "Ubicazione della libreria:";
+
+/* English.strings: Localizable.strings: Status text for when Firefly state is not known */
+"Checking Firefly status…" = "Controllo dello stato di Firefly…";
+
+/* English.strings: Localizable.strings: Text for missing log file */
+"The log file has not been created." = "Il file di log non è stato creato.";
+
+/* English.strings: Localizable.strings: @Alert title when library name is invalid */
+"Missing library name" = "Nome della libreria mancante";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-get-status alert */
+"An unexpected error occurred when trying to get the status of the Firefly server. Please close and re-open this Preference pane, and try again." = "Si è verificato un errore nel controllare lo stato di Firefly server. Per favore chiudere il pannello di controllo, aprirlo di nuovo e riprovare.";
+
+/* English.strings: Localizable.strings: Error message displayed at panel load */
+"Unable to find or create Application Support folder" = "Impossibile trovare o creare la cartella di supporto per l'applicazione";
+
+/* English.strings: Localizable.strings: Error message if library name is invalid */
+"Please enter a library name" = "Inserire un nome per la libreria";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-apply alert */
+"Due to an unexpected error, your changes could not be applied." = "A causa di un errore inaspettato, le modifiche non possono essere applicate.";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly status is unknown" = "Lo stato di Firefly è sconosciuto";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Apply Now) : <title:Apply Now> (oid:167) */
+"Apply Now" = "Applica";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-stop alert */
+"An unexpected error occurred when trying to stop Firefly. Please close and re-open this Preference pane, and try again." = "Si è verificato un errore nell'arrestare Firefly. Per favore chiudere il pannello di controllo, aprirlo di nuovo e riprovare.";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Start server:) : <title:Start server:> (oid:114) */
+"Start server:" = "Avvia il server:";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to stop */
+"Unable to stop Firefly" = "Impossibile arrestare Firefly";
+
+/* English.strings: FireflyPrefsPref.nib: NSMenu : <title:OtherViews> (oid:161) */
+"OtherViews" = "OtherViews";
+
+/* English.strings: Localizable.strings: Error message displayed at panel load */
+"Library directory could not be found in user folder" = "Impossibile trovare la cartella con la libreria di sistema nella cartella dell'utente";
+
+/* English.strings: Localizable.strings: Generic alert string for an invalid control */
+"Invalid value" = "Valore non valido";
+
+/* English.strings: FireflyPrefsPref.nib: NSWindow (<< do not localize >>) : <title:<< do not localize >>> (oid:12) */
+"<< do not localize >>" = "<< do not localize >>";
+
+/* English.strings: Localizable.strings: Error message if password is empty */
+"Please enter a password, or un-check the password checkbox" = "Inserire una password, oppure rimuovere il visto dal corrispondente checkbox";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of config error */
+"Configuration error" = "Errore di configurazione";
+
+/* English.strings: Localizable.strings: Explanatory text for the connection-lost alert */
+"Communication has been lost with the Firefly Helper. Please close and re-open this Preference pane, and try again." = "Comunicazione interrotta con Firefly Helper. Per favore chiudere il pannello di controllo, aprirlo di nuovo e riprovare.";
+
+/* English.strings: Localizable.strings: Label for dont' apply button in save prompt dialog */
+"Don't Apply" = "Non applicare";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is running" = "Firefly è attivo";
+
+/* English.strings: Localizable.strings: Format string for error message upon invalid install */
+"The Firefly installation appears to be damaged.  Unable to locate Firefly Helper." = "L'installazione di Firefly sembra essere danneggiata. Impossibile localizzare Firefly Helper.";
+
+/* English.strings: FireflyPrefsPref.nib: NSTabViewItem : <title:General> (oid:99) */
+"General" = "Generale";
+
+/* English.strings: FireflyPrefsPref.nib: NSTabViewItem : <title:Advanced> (oid:101) */
+"Advanced" = "Avanzata";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to get status */
+"Lost contact with Firefly Helper" = "Perso il contatto con Firefly Helper";
+
+/* English.strings: FireflyPrefsPref.nib: NSMenuItem : <title:Manually> (oid:163) */
+"Manually" = "Manuale";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-apply alert */
+"Firefly appears to be incorrectly installed or damaged. Please consult the documentation.\n\n" = "Firefly sembra essere danneggiato o installato non correttamente. Cortesemente consultare la documentazione.\n\n";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-stop alert */
+"An unexpected error occurred when trying to start Firefly. Please close and re-open this Preference pane, and try again." = "Si è verificato un errore inaspettato nell'avviare Firefly. Per favore chiudere il pannello di controllo, aprirlo di nuovo e riprovare.";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is starting" = "Firefly è in fase di avvio";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to save */
+"Failed to save changes" = "Impossibile salvare le modifiche";
+
+/* English.strings: Localizable.strings: Title of the library browser dialog */
+"Choose Library Location" = "Scegliere l'ubicazione per la libreria";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to get status */
+"Unable to get server status" = "Impossibile determinare lo stato del server";
+
+/* English.strings: FireflyPrefsPref.nib: NSBox (Box) : <title:Box> (oid:181) */
+"Box" = "Box";
+
+/* English.strings: FireflyPrefsPref.nib: NSMenuItem : <title:Automatically, when I log in> (oid:111) */
+"Automatically, when I log in" = "Automaticamente, durante il login";
+
+/* English.strings: Localizable.strings: Format string for error message */
+"The configuration file is present, but is not writable: %@" = "Il file di configurazione è presente, ma non è possibile l'accesso in scrittura: %@";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (The Firefly music server shares your music library with other computers and compatible devices on the local network.) : <title:The Firefly music server shares your music library with other computers and compatible devices on the local network.> (oid:125) */
+"The Firefly music server shares your music library with other computers and compatible devices on the local network." = "Il server di musica Firefly condivide la tua libreria musicale con altri computers e lettori compatibili che si trovano sulla rete locale.";
+
+/* English.strings: Localizable.strings: One of several titles for the start/stop button */
+"Stop Firefly" = "Arresta Firefly";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Start Firefly) : <title:Start Firefly> (oid:103)
+   Localizable.strings: One of several titles for the start/stop button */
+"Start Firefly" = "Avvia Firefly";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Assign Server Port:) : <title:Assign Server Port:> (oid:116) */
+"Assign Server Port:" = "Imposta la porta per il server:";
+
+/* English.strings: Localizable.strings: Text for empty log file */
+"The log file is empty." = "Il file di log è vuoto.";
+
+/* English.strings: FireflyPrefsPref.nib: NSTabViewItem : <title:Log> (oid:199) */
+"Log" = "Log";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-save alert */
+"Firefly could not be started because your changes could not be saved" = "Firefly non può essere avviato in quanto non è possibile salvare le modifiche";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly failed to start" = "Impossibile avviare Firefly";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Firefly is disabled) : <title:Firefly is disabled> (oid:104) */
+"Firefly is disabled" = "Firefly è disattivato";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (<unknown>) : <title:<unknown>> (oid:128) */
+"<unknown>" = "<unknown>";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField ((available when Firefly is running)) : <title:(available when Firefly is running)> (oid:172)
+   Localizable.strings: Displayed in place of server version when server is not running */
+"(available when Firefly is running)" = "(disponibile quando Firefly è avviato)";
+
+/* English.strings: Localizable.strings: Label for apply button in save prompt dialog */
+"Apply" = "Applica";
+
+/* English.strings: Localizable.strings: Format string for error message */
+"Firefly directory could not be found or created at: %@" = "Impossibile trovare o creare la cartella di Firefly: %@";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to stop */
+"Unable to start Firefly" = "Impossibile avviare Firefly";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.) : <title:Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.> (oid:119)
+   Localizable.strings: Info text for the web page button when server is not running */
+"Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running." = "Ulteriori opzioni di configurazione sono disponibili nella pagina web di controllo di Firefly (disponibile solo quando Firefly è avviato).";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly stopped unexpectedly" = "Firefly si è arrestato inaspettatamente";
+
+/* English.strings: FireflyPrefsPref.nib: NSMenuItem : <title:Automatically> (oid:162) */
+"Automatically" = "Automaticamente";
+
+/* English.strings: Localizable.strings: The Choose button in the library browser dialog */
+"Choose" = "Scegli";
+
+/* English.strings: Localizable.strings: Prompt to save changes when exiting prefs pane */
+"Apply configuration changes?" = "Applicare le modifiche alla configurazione?";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Require Password:) : <title:Require Password:> (oid:107) */
+"Require Password:" = "Richiedi Password:";
+
+/* English.strings: Localizable.strings: Format string for default library name */
+"%@'s Firefly on %@" = "Firefly di %1$@ su %2$@";
+
+/* English.strings: InfoPlist.strings: Localized versions of Info.plist keys */
+"NSHumanReadableCopyright" = "© 2006 Roku LLC";
+
