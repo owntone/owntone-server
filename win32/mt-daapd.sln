@@ -47,6 +47,10 @@ Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShellSWE", "FireflyS
 	ProjectSection(ProjectDependencies) = postProject
 	EndProjectSection
 EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "FireflyShellITA", "FireflyShell\FireflyShellITA.vcproj", "{E8F129E2-CABC-4FCD-9A9E-CDE338F4B1D0}"
+	ProjectSection(ProjectDependencies) = postProject
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfiguration) = preSolution
 		Debug = Debug
@@ -101,6 +105,10 @@ Global
 		{D8109A27-5CB3-4888-B62A-F83BB3B1D41F}.Debug.Build.0 = Debug|Win32
 		{D8109A27-5CB3-4888-B62A-F83BB3B1D41F}.Release.ActiveCfg = Release|Win32
 		{D8109A27-5CB3-4888-B62A-F83BB3B1D41F}.Release.Build.0 = Release|Win32
+		{E8F129E2-CABC-4FCD-9A9E-CDE338F4B1D0}.Debug.ActiveCfg = Debug|Win32
+		{E8F129E2-CABC-4FCD-9A9E-CDE338F4B1D0}.Debug.Build.0 = Debug|Win32
+		{E8F129E2-CABC-4FCD-9A9E-CDE338F4B1D0}.Release.ActiveCfg = Release|Win32
+		{E8F129E2-CABC-4FCD-9A9E-CDE338F4B1D0}.Release.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 	EndGlobalSection
