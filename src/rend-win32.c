@@ -30,8 +30,8 @@ static volatile int rend_timeout=2;
 static volatile int rend_count=0;
 static pthread_mutex_t rend_mutex=PTHREAD_MUTEX_INITIALIZER; 
 typedef struct tag_rend_entry {
-	DNSServiceRef client;
-	struct tag_rend_entry *next;
+    DNSServiceRef client;
+    struct tag_rend_entry *next;
 } REND_ENTRY;
 static REND_ENTRY rend_clients = { NULL, NULL };
 
