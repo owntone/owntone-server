@@ -61,6 +61,8 @@
 # define HOST_NAME_MAX 255
 #endif
 
+#define MAX_REND_LEN 62
+
 /** Globals */
 //static int ecode;
 static LL_HANDLE conf_main=NULL;
@@ -1711,6 +1713,13 @@ char *conf_get_servername(void) {
             *dst++ = *src++;
         }
 
+    }
+
+    if(strlen(retval) > MAX_REND_LEN) {
+        retval[MAX_REND_LEN] = '\0';
+        retval[MAX_REND_LEN-1] = '.';
+        retval[MAX_REND_LEN-2] = '.';
+        retval[MAX_REND_LEN-3] = '.';
     }
 
     return retval;

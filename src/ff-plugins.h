@@ -24,6 +24,11 @@
 
 #include "ff-dbstruct.h"
 
+#ifndef TRUE
+#define TRUE 1
+#define FALSE 0
+#endif
+
 /* Plugin types */
 #define PLUGIN_OUTPUT     1
 #define PLUGIN_SCANNER    2
