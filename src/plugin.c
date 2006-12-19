@@ -540,8 +540,11 @@ int _plugin_ssc_copy(WS_CONNINFO *pwsc, PLUGIN_TRANSCODE_FN *pfn,
         }
     }
 
-    if(bytes_read < 0)
+    /*
+    if(bytes_read < 0) {
         return bytes_read;
+    }
+    */
 
     return total_bytes_read;
 }
@@ -564,8 +567,6 @@ int _plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, int head
     int result = -1;
 
     /* first, find the plugin that will do the conversion */
-
-
     ppi = _plugin_list.next;
     while((ppi) && (!pfn)) {
         if(ppi->pinfo->type & PLUGIN_TRANSCODE) {
@@ -591,13 +592,13 @@ int _plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, int head
                     if(!offset) {
                         ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
                     } else {
-                        ws_addresponseheader(pwsc,"Content-Range","bytes %ld-*/*",
+                        ws_addresponseheader(pwsc,"Content-Range",
+                                             "bytes %ld-*/*",
                                              (long)offset);
                         ws_writefd(pwsc,"HTTP/1.1 206 Partial Content\r\n");
                     }
                     ws_emitheaders(pwsc);
                 }
-
 
                 /* start reading/writing */
                 result = _plugin_ssc_copy(pwsc,pfn,vp_ssc,offset);
@@ -832,8 +833,8 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
     int session = 0;
     MP3FILE *pmp3;
     int file_fd;
-    int bytes_copied;
-    off_t real_len;
+    int bytes_copied=0;
+    off_t real_len=0;
     off_t file_len;
     off_t offset=0;
     long img_size;
@@ -868,7 +869,10 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
                 "Session %d: Streaming file '%s' to %s (offset %ld)\n",
                 session,pmp3->fname, pwsc->hostname,(long)offset);
 
+        /* estimate the real length of this thing */
         bytes_copied =  _plugin_ssc_transcode(pwsc,pmp3,offset,1);
+        if(bytes_copied != -1)
+            real_len = bytes_copied;
 
         config_set_status(pwsc,session,NULL);
         db_dispose_item(pmp3);
@@ -967,15 +971,15 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
             } else {
                 DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
                         bytes_copied);
-                /* update play counts */
-                if(bytes_copied + 20 >= real_len) {
-                    db_playcount_increment(NULL,pmp3->id);
-                }
             }
 
             config_set_status(pwsc,session,NULL);
             r_close(file_fd);
             db_dispose_item(pmp3);
+        }
+        /* update play counts */
+        if(bytes_copied  >= (real_len * 80 / 100)) {
+            db_playcount_increment(NULL,pmp3->id);
         }
     }
 
