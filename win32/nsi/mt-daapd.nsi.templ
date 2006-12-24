@@ -13,10 +13,12 @@
 !define PRODUCT_UNINST_ROOT_KEY "HKLM"
 
 !define PROJROOT "..\..\.."
-!define MTD_SOURCE "${PROJROOT}\mt-daapd\win32\Release"
+
+!define MTDROOT "..\.."
+!define MTD_SOURCE "${MTDROOT}\win32\Release"
 !define DLL_SOURCE "${PROJROOT}\win32\dll"
-!define CONFIG_SOURCE "${PROJROOT}\mt-daapd\win32\FireflyShell\Release"
-!define ADMIN_ROOT "${PROJROOT}\mt-daapd\admin-root"
+!define CONFIG_SOURCE "${MTDROOT}\win32\FireflyShell\Release"
+!define ADMIN_ROOT "${MTDROOT}\admin-root"
 !define REDIST_SOURCE "${PROJROOT}\win32\redist"
 
 ; MUI 1.67 compatible ------
@@ -271,7 +273,7 @@ HasConf:
   
   trunc_skip:
   
-  
+  AccessControl::SetOnFile "$2\mt-daapd.conf" "Everyone" "FullAccess"
   SetAutoClose False
 SectionEnd
 
