@@ -15,6 +15,18 @@
 
 #include <sys/types.h>
 
+typedef enum {
+    l_err,
+    l_conf,
+    l_plugin,
+    l_last
+} lock_t;
+
+/* debugging lock wrappers */
+
+extern void util_mutex_lock(lock_t which);
+extern void util_mutex_unlock(lock_t which);
+
 /* simple hashing functions */
 extern uint32_t util_djb_hash_block(unsigned char *data, uint32_t len);
 extern uint32_t util_djb_hash_str(char *str);

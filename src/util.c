@@ -6,6 +6,8 @@
 #  include "config.h"
 #endif
 
+#include <pthread.h>
+
 #ifdef HAVE_STDINT_H
 # include <stdint.h>
 #endif
@@ -21,10 +23,16 @@
 #include "err.h"
 #include "util.h"
 
+/* Globals */
+pthread_mutex_t util_locks[(int)l_last];
+pthread_mutex_t util_mutex = PTHREAD_MUTEX_INITIALIZER;
+int _util_initialized=0;
+
+
 /* Forwards */
 //int _util_xtoy(unsigned char *dbuffer, size_t dlen, unsigned char *sbuffer, size_t slen, char *from, char *to);
 void _util_hexdump(unsigned char *block, int len);
-
+void _util_mutex_init(void);
 
 /**
  * Simple hash generator
@@ -423,4 +431,48 @@ void _util_hexdump(unsigned char *block, int len) {
 
         fprintf(stderr,"%s\n",output);
     }
+}
+
+/**
+ * simple mutex wrapper for better debugging
+ */
+void util_mutex_lock(lock_t which) {
+    if(!_util_initialized)
+        _util_mutex_init();
+
+    pthread_mutex_lock(&util_locks[(int)which]);
+}
+
+/**
+ * simple mutex wrapper for better debugging
+ */
+void util_mutex_unlock(lock_t which) {
+    pthread_mutex_unlock(&util_locks[(int)which]);
+}
+
+/**
+ * mutex initializer.  This might should be done from the
+ * main thread.
+ */
+void _util_mutex_init(void) {
+    int err;
+    lock_t lock;
+
+    if((err = pthread_mutex_lock(&util_mutex))) {
+        fprintf(stderr,"Error locking mutex\n");
+        exit(-1);
+    }
+
+    if(!_util_initialized) {
+        /* now, walk through and manually initialize the mutexes */
+        for(lock=(lock_t)0; lock < l_last; lock++) {
+            if((err = pthread_mutex_init(&util_locks[(int)lock],NULL))) {
+                fprintf(stderr,"Error initializing mutex\n");
+                exit(-1);
+            }
+        }
+        _util_initialized=1;
+    }
+
+    pthread_mutex_unlock(&util_mutex);
 }

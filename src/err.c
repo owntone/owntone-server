@@ -63,7 +63,6 @@ static int err_debuglevel=0; /**< current debuglevel, set from command line with
 static int err_logdest=0; /**< current log destination */
 static char err_filename[PATH_MAX + 1];
 static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
-static pthread_mutex_t err_mutex=PTHREAD_MUTEX_INITIALIZER; /**< for serializing log messages */
 static unsigned int err_debugmask=0xFFFFFFFF; /**< modules to debug, see \ref log_categories */
 static int err_truncate = 0;
 static int err_syslog_open = 0;
@@ -78,8 +77,6 @@ static char *err_categorylist[] = {
  * Forwards
  */
 
-static int _err_lock(void);
-static int _err_unlock(void);
 static uint32_t _err_get_threadid(void);
 
 
@@ -112,14 +109,12 @@ void err_reopen(void) {
     if(!(err_logdest & LOGDEST_LOGFILE))
         return;
 
-//    _err_lock();
     fclose(err_file);
     err_file = fopen(err_filename,"a");
     if(!err_file) {
         /* what to do when you lose your logging mechanism?  Keep
          * going?
          */
-        _err_unlock();
         err = errno;
         err_setdest(err_logdest & (~LOGDEST_LOGFILE));
         err_setdest(err_logdest | LOGDEST_SYSLOG);
@@ -128,7 +123,7 @@ void err_reopen(void) {
                 strerror(err));
         return;
     }
-//    _err_unlock();
+
     DPRINTF(E_LOG,L_MISC,"Rotated logs\n");
 }
 
@@ -162,7 +157,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
     va_end(ap);
 
-    _err_lock(); /* atomic file writes */
+    util_mutex_lock(l_err);
 
     if((err_logdest & LOGDEST_LOGFILE) && err_file) {
         tt_now=time(NULL);
@@ -189,7 +184,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         os_syslog(level,errbuf);
     }
 
-    _err_unlock();
+    util_mutex_unlock(l_err);
 
 #ifndef ERR_LEAN
     if(level < 2) { /* only event level fatals and log level */
@@ -207,9 +202,9 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
  * simple get/set interface to debuglevel to avoid global
  */
 void err_setlevel(int level) {
-    _err_lock();
+    util_mutex_lock(l_err);
     err_debuglevel = level;
-    _err_unlock();
+    util_mutex_unlock(l_err);
 }
 
 /**
@@ -217,9 +212,10 @@ void err_setlevel(int level) {
  */
 int err_getlevel(void) {
     int level;
-    _err_lock();
+
+    util_mutex_lock(l_err);
     level = err_debuglevel;
-    _err_unlock();
+    util_mutex_unlock(l_err);
 
     return level;
 }
@@ -231,9 +227,9 @@ int err_getlevel(void) {
 int err_getdest(void) {
     int dest;
 
-    _err_lock();
+    util_mutex_lock(l_err);
     dest=err_logdest;
-    _err_unlock();
+    util_mutex_unlock(l_err);
 
     return dest;
 }
@@ -263,7 +259,6 @@ int err_setlogfile(char *file) {
     if(strcmp(file,err_filename) == 0)
         return TRUE;
 */
-//    _err_lock();
 
     if(err_file) {
         fclose(err_file);
@@ -285,7 +280,6 @@ int err_setlogfile(char *file) {
         result=FALSE;
     }
 
-//    _err_unlock();
     return result;
 }
 
@@ -299,7 +293,7 @@ void err_setdest(int destination) {
     if(err_logdest == destination)
         return;
 
-    _err_lock();
+    util_mutex_lock(l_err);
     if((err_logdest & LOGDEST_LOGFILE) &&
        (!(destination & LOGDEST_LOGFILE))) {
         /* used to be logging to file, not any more */
@@ -307,7 +301,7 @@ void err_setdest(int destination) {
     }
 
     err_logdest=destination;
-    _err_unlock();
+    util_mutex_unlock(l_err);
 }
 /**
  * Set the debug mask.  Given a comma separated list, this walks
@@ -327,7 +321,7 @@ extern int err_setdebugmask(char *list) {
     if(!str)
         return 0;
 
-    _err_lock();
+    util_mutex_lock(l_err);
     while(1) {
         token=strtok_r(str,",",&last);
         str=NULL;
@@ -342,7 +336,7 @@ extern int err_setdebugmask(char *list) {
             }
 
             if(!err_categorylist[index]) {
-                _err_unlock();
+                util_mutex_unlock(l_err);
                 DPRINTF(E_LOG,L_MISC,"Unknown module: %s\n",token);
                 free(tmpstr);
                 return 1;
@@ -352,44 +346,11 @@ extern int err_setdebugmask(char *list) {
         } else break; /* !token */
     }
 
-    _err_unlock();
+    util_mutex_unlock(l_err);
     DPRINTF(E_INF,L_MISC,"Debug mask is 0x%08x\n",err_debugmask);
     free(tmpstr);
 
     return 0;
 }
 
-/**
- * Lock the error mutex.  This is used to serialize
- * log messages, as well as protect access to the memory
- * list, when memory debugging is enabled.
- *
- * \returns 0 on success, otherwise -1 with errno set
- */
-int _err_lock(void) {
-    int err;
-
-    if((err=pthread_mutex_lock(&err_mutex))) {
-        errno=err;
-        return -1;
-    }
-
-    return 0;
-}
-
-/**
- * Unlock the error mutex
- *
- * \returns 0 on success, otherwise -1 with errno set
- */
-int _err_unlock(void) {
-    int err;
-
-    if((err=pthread_mutex_unlock(&err_mutex))) {
-        errno=err;
-        return -1;
-    }
-
-    return 0;
-}
 

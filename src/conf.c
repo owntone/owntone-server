@@ -53,6 +53,7 @@
 #include "ll.h"
 #include "daapd.h"
 #include "os.h"
+#include "util.h"
 #include "webserver.h"
 #include "xml-rpc.h"
 
@@ -69,7 +70,6 @@ static LL_HANDLE conf_main=NULL;
 static LL_HANDLE conf_comments=NULL;
 
 static char *conf_main_file = NULL;
-static pthread_mutex_t conf_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 #define CONF_LINEBUFFER 1024
 
@@ -91,8 +91,6 @@ typedef struct _CONF_ELEMENTS {
 static int _conf_verify(LL_HANDLE pll);
 static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *key);
 static int _conf_exists(LL_HANDLE pll, char *section, char *key);
-static void _conf_lock(void);
-static void _conf_unlock(void);
 static int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent);
 static CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key);
 static int _conf_makedir(char *path, char *user);
@@ -245,30 +243,6 @@ CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key) {
     }
 
     return found ? pcurrent : NULL;
-}
-
-/**
- * lock the conf mutex
- */
-void _conf_lock() {
-    int err;
-
-    if((err=pthread_mutex_lock(&conf_mutex))) {
-        DPRINTF(E_FATAL,L_CONF,"Cannot lock configuration mutex: %s\n",
-            strerror(err));
-    }
-}
-
-/**
- * unlock the conf mutex
- */
-void _conf_unlock() {
-    int err;
-
-    if((err = pthread_mutex_unlock(&conf_mutex))) {
-        DPRINTF(E_FATAL,L_CONF,"Cannot unlock configuration mutex %s\n",
-            strerror(err));
-    }
 }
 
 /**
@@ -850,7 +824,7 @@ int conf_read(char *file) {
     /*  Sanity check */
     if(_conf_verify(pllnew)) {
         DPRINTF(E_INF,L_CONF,"Loading new config file.\n");
-        _conf_lock();
+        util_mutex_lock(l_conf);
         _conf_apply(pllnew);
         if(conf_main) {
             ll_destroy(conf_main);
@@ -862,7 +836,7 @@ int conf_read(char *file) {
 
         conf_main = pllnew;
         conf_comments = pllcomment;
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
     } else {
         ll_destroy(pllnew);
         ll_destroy(pllcomment);
@@ -908,14 +882,14 @@ int conf_get_int(char *section, char *key, int dflt) {
     LL_ITEM *pitem;
     int retval;
 
-    _conf_lock();
+    util_mutex_lock(l_conf);
     pitem = _conf_fetch_item(conf_main,section,key);
     if((!pitem) || (pitem->type != LL_TYPE_STRING)) {
         retval = dflt;
     } else {
         retval = atoi(pitem->value.as_string);
     }
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
 
     return retval;
 }
@@ -936,7 +910,7 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
     char *result;
     int len;
 
-    _conf_lock();
+    util_mutex_lock(l_conf);
     pitem = _conf_fetch_item(conf_main,section,key);
     if((!pitem) || (pitem->type != LL_TYPE_STRING)) {
         result = dflt;
@@ -945,7 +919,7 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
     }
 
     if(!result) {
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
         return CONF_E_NOTFOUND;
     }
 
@@ -955,12 +929,12 @@ int conf_get_string(char *section, char *key, char *dflt, char *out, int *size) 
         *size = len;
         strcpy(out,result);
     } else {
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
         *size = len;
         return CONF_E_OVERFLOW;
     }
 
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
     return CONF_E_SUCCESS;
 }
 
@@ -978,7 +952,7 @@ char *conf_alloc_string(char *section, char *key, char *dflt) {
     char *result;
     char *retval;
 
-    _conf_lock();
+    util_mutex_lock(l_conf);
     pitem = _conf_fetch_item(conf_main,section,key);
     if((!pitem) || (pitem->type != LL_TYPE_STRING)) {
         result = dflt;
@@ -987,7 +961,7 @@ char *conf_alloc_string(char *section, char *key, char *dflt) {
     }
 
     if(result == NULL) {
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
         return NULL;
     }
 
@@ -996,7 +970,7 @@ char *conf_alloc_string(char *section, char *key, char *dflt) {
     if(!retval) {
         DPRINTF(E_FATAL,L_CONF,"Malloc error in conf_alloc_string\n");
     }
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
     return retval;
 }
 
@@ -1039,17 +1013,17 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
     char *oldvalue=NULL;
     LL_ITEM *polditem;
 
-    _conf_lock();
+    util_mutex_lock(l_conf);
 
     /* verify the item */
     err=_conf_verify_element(section,key,value);
     if(err != CONF_E_SUCCESS) {
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
         return err;
     }
 
     if(verify) {
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
         return CONF_E_SUCCESS;
     }
 
@@ -1070,19 +1044,19 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
         /* deleting the item */
         pitem = ll_fetch_item(conf_main,section);
         if(!pitem) {
-            _conf_unlock();
+            util_mutex_unlock(l_conf);
             return CONF_E_SUCCESS;
         }
 
         section_ll = pitem->value.as_ll;
         if(!section_ll) {
-            _conf_unlock();
+            util_mutex_unlock(l_conf);
             return CONF_E_SUCCESS; /* ?? deleting an already deleted item */
         }
 
         /* don't care about item... might already be gone! */
         ll_del_item(section_ll,key);
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
         return CONF_E_SUCCESS;
     }
 
@@ -1093,12 +1067,12 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
             /* that subkey doesn't exist yet... */
             if((err = ll_create(&section_ll)) != LL_E_SUCCESS) {
                 DPRINTF(E_LOG,L_CONF,"Could not create linked list: %d\n",err);
-                _conf_unlock();
+                util_mutex_unlock(l_conf);
                 return CONF_E_UNKNOWN;
             }
             if((err=ll_add_ll(conf_main,section,section_ll)) != LL_E_SUCCESS) {
                 DPRINTF(E_LOG,L_CONF,"Error inserting new subkey: %d\n",err);
-                _conf_unlock();
+                util_mutex_unlock(l_conf);
                 return CONF_E_UNKNOWN;
             }
         } else {
@@ -1123,7 +1097,7 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
             if((err = ll_add_string(section_ll,key,value)) != LL_E_SUCCESS) {
                 DPRINTF(E_LOG,L_CONF,"Error in conf_set_string: "
                         "(%s/%s)\n",section,key);
-                _conf_unlock();
+                util_mutex_unlock(l_conf);
                 return CONF_E_UNKNOWN;
             }
         }
@@ -1150,7 +1124,7 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
         }
     }
 
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
     return conf_write();
 }
 
@@ -1163,14 +1137,14 @@ int conf_iswritable(void) {
     int retval = FALSE;
 
     /* don't want configfile reopened under us */
-    _conf_lock();
+    util_mutex_lock(l_conf);
 
     if(!conf_main_file)
         return FALSE;
 
     retval = !access(conf_main_file,W_OK);
 
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
     return retval;
 }
 
@@ -1186,12 +1160,12 @@ int conf_write(void) {
         return CONF_E_NOCONF;
     }
 
-    _conf_lock();
+    util_mutex_lock(l_conf);
     if((fp = fopen(conf_main_file,"w+")) != NULL) {
         retval = _conf_write(fp,conf_main,0,NULL);
         fclose(fp);
     }
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
 
     return retval ? CONF_E_SUCCESS : CONF_E_NOTWRITABLE;
 }
@@ -1302,11 +1276,11 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
 int conf_isset(char *section, char *key) {
     int retval = FALSE;
 
-    _conf_lock();
+    util_mutex_lock(l_conf);
     if(_conf_fetch_item(conf_main,section,key)) {
         retval = TRUE;
     }
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
 
     return retval;
 }
@@ -1415,10 +1389,10 @@ char *conf_implode(char *section, char *key, char *delimiter) {
     int len;
     char *retval;
 
-    _conf_lock();
+    util_mutex_lock(l_conf);
     pitem = _conf_fetch_item(conf_main,section,key);
     if((!pitem) || (pitem->type != LL_TYPE_LL)) {
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
         return NULL;
     }
 
@@ -1434,7 +1408,7 @@ char *conf_implode(char *section, char *key, char *delimiter) {
     }
 
     if(!count) {
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
         return NULL;
     }
 
@@ -1453,7 +1427,7 @@ char *conf_implode(char *section, char *key, char *delimiter) {
         }
     }
 
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
     return retval;
 }
 
@@ -1485,10 +1459,10 @@ int conf_get_array(char *section, char *key, char ***argvp) {
     int count;
     int len;
 
-    _conf_lock();
+    util_mutex_lock(l_conf);
     pitem = _conf_fetch_item(conf_main,section,key);
     if((!pitem) || (pitem->type != LL_TYPE_LL)) {
-        _conf_unlock();
+        util_mutex_unlock(l_conf);
         return FALSE;
     }
 
@@ -1521,7 +1495,7 @@ int conf_get_array(char *section, char *key, char ***argvp) {
         count++;
     }
 
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
     return TRUE;
 }
 
@@ -1562,11 +1536,11 @@ int conf_xml_dump(WS_CONNINFO *pwsc) {
     pxml = xml_init(pwsc,1);
     xml_push(pxml,"config");
 
-    _conf_lock();
+    util_mutex_lock(l_conf);
 
     retval = _conf_xml_dump(pxml,conf_main,0,NULL);
 
-    _conf_unlock();
+    util_mutex_unlock(l_conf);
 
     xml_pop(pxml);
     xml_deinit(pxml);
