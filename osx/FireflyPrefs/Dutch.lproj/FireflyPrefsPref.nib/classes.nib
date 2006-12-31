@@ -1,0 +1,61 @@
+{
+    IBClasses = (
+        {CLASS = FirstResponder; LANGUAGE = ObjC; SUPERCLASS = NSObject; }, 
+        {
+            CLASS = NSPreferencePane; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                "_firstKeyView" = id; 
+                "_initialKeyView" = id; 
+                "_lastKeyView" = id; 
+                "_window" = id; 
+            }; 
+            SUPERCLASS = NSObject; 
+        }, 
+        {
+            ACTIONS = {
+                applyNowButtonClicked = id; 
+                browseButtonClicked = id; 
+                helperMenuCheckboxClicked = id; 
+                logoButtonClicked = id; 
+                myAction = id; 
+                passwordChanged = id; 
+                portChanged = id; 
+                portPopupChanged = id; 
+                pwCheckBoxChanged = id; 
+                serverStartOptionChanged = id; 
+                shareNameChanged = id; 
+                startStopButtonClicked = id; 
+                webPageButtonClicked = id; 
+            }; 
+            CLASS = OrgFireflyMediaServerPrefs; 
+            LANGUAGE = ObjC; 
+            OUTLETS = {
+                applyNowButton = NSButton; 
+                browseButton = NSButton; 
+                helperMenuCheckbox = NSButton; 
+                libraryField = NSTextField; 
+                libraryIcon = NSImageView; 
+                logTextView = NSTextView; 
+                mainTabView = NSTabView; 
+                myOutlet = id; 
+                nameField = NSTextField; 
+                panelVersionText = NSTextField; 
+                passwordCheckbox = NSButton; 
+                passwordField = NSTextField; 
+                portField = NSTextField; 
+                portPopup = NSPopUpButton; 
+                progressSpinner = NSProgressIndicator; 
+                serverStartOptions = NSPopUpButton; 
+                serverVersionText = NSTextField; 
+                startStopButton = NSButton; 
+                statusText = NSTextField; 
+                webPageButton = NSButton; 
+                webPageInfoText = NSTextField; 
+            }; 
+            SUPERCLASS = NSPreferencePane; 
+        }, 
+        {CLASS = TextFormatter; LANGUAGE = ObjC; SUPERCLASS = NSFormatter; }
+    ); 
+    IBVersion = 1; 
+}
