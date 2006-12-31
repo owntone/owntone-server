@@ -347,7 +347,7 @@ int db_sqlite2_event(int event_type) {
 
         db_sqlite2_exec(NULL,E_DBG,"drop table songs");
         //        db_sqlite2_exec(NULL,E_DBG,"drop table playlists");
-        db_sqlite2_exec(NULL,E_DBG,"delete from playlists where not type=1");
+        db_sqlite2_exec(NULL,E_DBG,"delete from playlists where not type=1 and not type=0");
         db_sqlite2_exec(NULL,E_DBG,"drop table playlistitems");
         db_sqlite2_exec(NULL,E_DBG,"drop table config");
 
