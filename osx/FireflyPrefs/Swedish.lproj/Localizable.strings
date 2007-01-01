@@ -5,7 +5,7 @@
 "(available when Firefly is running)" = "(tillgängligt när Firefly ar aktivt)";
 
 /* Info text for the web page button when server is not running */
-"Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running." = "Fler konfigurations alternativ är tillgängliga via Firefly’s inbyggde webb sida. Tillgängligt när Firefly är aktivt.";
+"Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running." = "Fler konfigurations alternativ är tillgängliga via Fireflys inbyggde webb sida. Tillgängligt när Firefly är aktivt.";
 
 /* Info text for the web page button when server is running */
 "Additional configuration options are available from Firefly's built-in web page. Click to open the page in your browser." = "Fler konfigurations alternativ är tillgängliga via Firefly’s inbyggde webb sida. Klicka för att öppna sidan i din webbläsare.";
@@ -29,13 +29,13 @@
 "Cancel" = "Avbryt";
 
 /* Status text for when Firefly state is not known */
-"Checking Firefly status…" = "Kontrollerar Firefly's status…";
+"Checking Firefly status…" = "Checking Firefly status…";
 
 /* The Choose button in the library browser dialog */
 "Choose" = "Välj";
 
 /* Title of the library browser dialog */
-"Choose Library Location" = "Välj Bibliotekets Mapp";
+"Choose Library Location" = "Välj din biblioteketsmapp";
 
 /* Explanatory text for the connection-lost alert */
 "Communication has been lost with the Firefly Helper. Please close and re-open this Preference pane, and try again." = "Kontakten med Firefly Helper har förlorats. Starta om den här panelen för att försöka igen.";
@@ -53,7 +53,7 @@
 "Failed to apply changes" = "Kunde inte utföra ändringarna";
 
 /* Alert message notifying the user of failure to save */
-"Failed to save changes" = "Misslyckades med att spara ändringarna";
+"Failed to save changes" = "Kunde inte spara ändringarna";
 
 /* Explanatory text for the failure-to-apply alert */
 "Firefly appears to be incorrectly installed or damaged. Please consult the documentation.\n\n" = "Firefly verkar vara felaktig installerat eller skadat. Se dokumentationen för mer information.\n\n";
@@ -86,7 +86,7 @@
 "Firefly is stopping" = "Firefly stoppas";
 
 /* Status message for Firefly */
-"Firefly status is unknown" = "Firefly's status är okänd";
+"Firefly status is unknown" = "Fireflys status är okänd";
 
 /* Status message for Firefly */
 "Firefly stopped unexpectedly" = "Firefly stannade oväntat";
@@ -98,7 +98,7 @@
 "Invalid value" = "Ogiltigt värde";
 
 /* Error message displayed at panel load */
-"Library directory could not be found in user folder" = "Biblioteks mappen kunde inte hittas i användar mappen";
+"Library directory could not be found in user folder" = "Biblioteksmappen kunde inte hittas i användar mappen";
 
 /* Alert message notifying the user of failure to get status */
 "Lost contact with Firefly Helper" = "Förlorade kontakten med Firefly Helper";
@@ -149,7 +149,7 @@
 "Unable to get server status" = "Kunde inte få serverns status";
 
 /* Error message related to invalid config */
-"Unable to read configuration information" = "Kan inte läsa konfigurations informationen";
+"Unable to read configuration information" = "Kan inte läsa konfigurationen";
 
 /* Alert message notifying the user of failure to stop */
 "Unable to start Firefly" = "Kunde inte starta Firefly";
