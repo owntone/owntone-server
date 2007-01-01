@@ -1,0 +1,233 @@
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is not running" = "Firefly は実行していません";
+
+/* English.strings: Localizable.strings: Error message if invalid port entered */
+"Please enter a port number between 1024 and 65535, or choose \"Automatic\" from the pop-up menu" = "1024 から 65535 の間のポート番号を入力して、もしくは \"自動\" を選択してください。";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Show Firefly menu in menu bar) : <title:Show Firefly menu in menu bar> (oid:196) */
+"Show Firefly menu in menu bar" = "Firefly をメニューバーで表示";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Shared Name:) : <title:Shared Name:> (oid:106) */
+"Shared Name:" = "ライブラリ名：";
+
+/* English.strings: Localizable.strings: @Alert title when password is invalid */
+"Missing password" = "空白のパスワード";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is stopping" = "Firefly は停止しています";
+
+/* English.strings: Localizable.strings: Label for cancel button in save prompt dialog */
+"Cancel" = "キャンセル";
+
+/* English.strings: Localizable.strings: Error message related to invalid config */
+"Unable to read configuration information" = "設定を読み込むことができませんでした。";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Open Web Page) : <title:Open Web Page> (oid:120) */
+"Open Web Page" = "ページを開く";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is scanning the library" = "Firefly はライブラリをスキャンしています";
+
+/* English.strings: Localizable.strings: Format string for error message upon invalid install */
+"Unable to create a default configuration file at: %@" = "%@ にデフォルト設定のファイルを作成することができませんでした。";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Prefs Panel Version:) : <title:Prefs Panel Version:> (oid:170) */
+"Prefs Panel Version:" = "環境設定パネルのバージョン：";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Firefly Server Version:) : <title:Firefly Server Version:> (oid:171) */
+"Firefly Server Version:" = "Firefly サーババージョン：";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to apply */
+"Failed to apply changes" = "変更を適用することができませんでした";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is restarting" = "Firefly は再起動しています";
+
+/* English.strings: Localizable.strings: Info text for the web page button when server is running */
+"Additional configuration options are available from Firefly's built-in web page. Click to open the page in your browser." = "Firefly の内蔵ウェブページによって、詳細の設定を変更することができます。「ページを開く」ボタンをクリックして、ブラウザでそのウェブページを開きます。";
+
+/* English.strings: Localizable.strings: Info text for the library browse dialog */
+"Please select the folder containing your music library, then click Choose." = "ミュージックライブラリを含むフォルダを選択して、「選択」ボタンをクリックしてください。";
+
+/* English.strings: Localizable.strings: @Alert title when port number is invalid */
+"Invalid port number" = "不正なポート番号";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Browse...) : <title:Browse...> (oid:123) */
+"Browse..." = "ブラウズ...";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Library Location:) : <title:Library Location:> (oid:122) */
+"Library Location:" = "ライブラリフォルダ：";
+
+/* English.strings: Localizable.strings: Status text for when Firefly state is not known */
+"Checking Firefly status…" = "Firefly の状態を検査しています...";
+
+/* English.strings: Localizable.strings: Text for missing log file */
+"The log file has not been created." = "ログファイルが作成されませんでした。";
+
+/* English.strings: Localizable.strings: @Alert title when library name is invalid */
+"Missing library name" = "空白のライブラリ名";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-get-status alert */
+"An unexpected error occurred when trying to get the status of the Firefly server. Please close and re-open this Preference pane, and try again." = "Firefly サーバの状態を検査中に、予期しないエラーが発生しました。この環境設定パネルを閉じて、再び開いて、もう一度やり直してください。";
+
+/* English.strings: Localizable.strings: Error message displayed at panel load */
+"Unable to find or create Application Support folder" = "アプリケーションサポートフォルダの作成、もしくは見つけることができませんでした。";
+
+/* English.strings: Localizable.strings: Error message if library name is invalid */
+"Please enter a library name" = "ライブラリ名を入力してください。";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-apply alert */
+"Due to an unexpected error, your changes could not be applied." = "予期しないエラーの発生によって、変更を適用することができませんでした。";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly status is unknown" = "Firefly の状態は不明です";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Apply Now) : <title:Apply Now> (oid:167) */
+"Apply Now" = "今すぐ適用";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-stop alert */
+"An unexpected error occurred when trying to stop Firefly. Please close and re-open this Preference pane, and try again." = "Firefly サーバを停止中に、予期しないエラーが発生しました。この環境設定パネルを閉じて、再び開いて、もう一度やり直してください。";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Start server:) : <title:Start server:> (oid:114) */
+"Start server:" = "サーバを開始：";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to stop */
+"Unable to stop Firefly" = "Firefly を停止することができません";
+
+/* English.strings: FireflyPrefsPref.nib: NSMenu : <title:OtherViews> (oid:161) */
+"OtherViews" = "OtherViews";
+
+/* English.strings: Localizable.strings: Error message displayed at panel load */
+"Library directory could not be found in user folder" = "ユーザフォルだにライブラリのフォルダを見つけることができませんでした。";
+
+/* English.strings: Localizable.strings: Generic alert string for an invalid control */
+"Invalid value" = "不正な数値";
+
+/* English.strings: FireflyPrefsPref.nib: NSWindow (<< do not localize >>) : <title:<< do not localize >>> (oid:12) */
+"<< do not localize >>" = "<< do not localize >>";
+
+/* English.strings: Localizable.strings: Error message if password is empty */
+"Please enter a password, or un-check the password checkbox" = "パスワードを入力して、もしくはパスワードのチックボックスを外してください。";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of config error */
+"Configuration error" = "設定のエラー";
+
+/* English.strings: Localizable.strings: Explanatory text for the connection-lost alert */
+"Communication has been lost with the Firefly Helper. Please close and re-open this Preference pane, and try again." = "Firefly ヘルパーとの通信が切られました。この環境設定パネルを閉じて、再び開いて、もう一度やり直してください。";
+
+/* English.strings: Localizable.strings: Label for dont' apply button in save prompt dialog */
+"Don't Apply" = "適用しない";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is running" = "Firefly は実行しています";
+
+/* English.strings: Localizable.strings: Format string for error message upon invalid install */
+"The Firefly installation appears to be damaged.  Unable to locate Firefly Helper." = "Firefly のアプリケーションはインストールに関わる問題があるようです。 Firefly ヘルパーを見つけることができません。";
+
+/* English.strings: FireflyPrefsPref.nib: NSTabViewItem : <title:General> (oid:99) */
+"General" = "一般";
+
+/* English.strings: FireflyPrefsPref.nib: NSTabViewItem : <title:Advanced> (oid:101) */
+"Advanced" = "詳細";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to get status */
+"Lost contact with Firefly Helper" = "Firefly ヘルパーとの通信の中止";
+
+/* English.strings: FireflyPrefsPref.nib: NSMenuItem : <title:Manually> (oid:163) */
+"Manually" = "手動";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-apply alert */
+"Firefly appears to be incorrectly installed or damaged. Please consult the documentation.\n\n" = "Firefly は正常にインストールされていないようです。ヘルプを参照してください。\n\n";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-stop alert */
+"An unexpected error occurred when trying to start Firefly. Please close and re-open this Preference pane, and try again." = "Firefly サーバを開始中に、予期しないエラーが発生しました。この環境設定パネルを閉じて、再び開いて、もう一度やり直してください。";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly is starting" = "Firefly は開始しています";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to save */
+"Failed to save changes" = "変更した設定の保存の失敗";
+
+/* English.strings: Localizable.strings: Title of the library browser dialog */
+"Choose Library Location" = "ライブラリフォルダの選択";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to get status */
+"Unable to get server status" = "サーバの状態を取得することができません";
+
+/* English.strings: FireflyPrefsPref.nib: NSBox (Box) : <title:Box> (oid:181) */
+"Box" = "ボックス";
+
+/* English.strings: FireflyPrefsPref.nib: NSMenuItem : <title:Automatically, when I log in> (oid:111) */
+"Automatically, when I log in" = "ログイン時に自動的に開始";
+
+/* English.strings: Localizable.strings: Format string for error message */
+"The configuration file is present, but is not writable: %@" = "%@ という設定のファイルが存在していますが書くことができません。";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (The Firefly music server shares your music library with other computers and compatible devices on the local network.) : <title:The Firefly music server shares your music library with other computers and compatible devices on the local network.> (oid:125) */
+"The Firefly music server shares your music library with other computers and compatible devices on the local network." = "Firefly ミュージックサーバはお使いのコンピュータに保存した音楽をネットワーク上のコンピュータやその他の対応しているデバイスと共有します。";
+
+/* English.strings: Localizable.strings: One of several titles for the start/stop button */
+"Stop Firefly" = "Firefly を停止";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Start Firefly) : <title:Start Firefly> (oid:103)
+   Localizable.strings: One of several titles for the start/stop button */
+"Start Firefly" = "Firefly を開始";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Assign Server Port:) : <title:Assign Server Port:> (oid:116) */
+"Assign Server Port:" = "サーバポート番号の指定：";
+
+/* English.strings: Localizable.strings: Text for empty log file */
+"The log file is empty." = "ログファイルは空白です。";
+
+/* English.strings: FireflyPrefsPref.nib: NSTabViewItem : <title:Log> (oid:199) */
+"Log" = "Log";
+
+/* English.strings: Localizable.strings: Explanatory text for the failure-to-save alert */
+"Firefly could not be started because your changes could not be saved" = "変更した設定を保存することができなかったため、 Firefly を起動することができませんでした。";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly failed to start" = "Firefly の開始が失敗しました";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Firefly is disabled) : <title:Firefly is disabled> (oid:104) */
+"Firefly is disabled" = "Firefly は切です";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (<unknown>) : <title:<unknown>> (oid:128) */
+"<unknown>" = "<unknown>";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField ((available when Firefly is running)) : <title:(available when Firefly is running)> (oid:172)
+   Localizable.strings: Displayed in place of server version when server is not running */
+"(available when Firefly is running)" = "(Firefly サーバが実行中のみに表示)";
+
+/* English.strings: Localizable.strings: Label for apply button in save prompt dialog */
+"Apply" = "適用";
+
+/* English.strings: Localizable.strings: Format string for error message */
+"Firefly directory could not be found or created at: %@" = "%@ に Firefly フォルダの作成、もしくは見つけることができませんでした。";
+
+/* English.strings: Localizable.strings: Alert message notifying the user of failure to stop */
+"Unable to start Firefly" = "Firefly を開始することができませんでした";
+
+/* English.strings: FireflyPrefsPref.nib: NSTextField (Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.) : <title:Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.> (oid:119) Localizable.strings: Info text for the web page button when server is not running */
+"Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running." = "Firefly の内蔵ウェブページによって、詳細の設定を変更することができます。Firefly が実行中のみに使用することができます。 Available when Firefly is running.";
+
+/* English.strings: Localizable.strings: Status message for Firefly */
+"Firefly stopped unexpectedly" = "Firefly は予期せずに停止しました。";
+
+/* English.strings: FireflyPrefsPref.nib: NSMenuItem : <title:Automatically> (oid:162) */
+"Automatically" = "自動的";
+
+/* English.strings: Localizable.strings: The Choose button in the library browser dialog */
+"Choose" = "選択";
+
+/* English.strings: Localizable.strings: Prompt to save changes when exiting prefs pane */
+"Apply configuration changes?" = "変更した設定を適用しますか？";
+
+/* English.strings: FireflyPrefsPref.nib: NSButton (Require Password:) : <title:Require Password:> (oid:107) */
+"Require Password:" = "パスワードで保護：";
+
+/* English.strings: Localizable.strings: Format string for default library name */
+"%@'s Firefly on %@" = "%2$@ 上の %1$@ のライブラリ";
+
+/* English.strings: InfoPlist.strings: Localized versions of Info.plist keys */
+"NSHumanReadableCopyright" = "© 2006 Roku LLC";
+

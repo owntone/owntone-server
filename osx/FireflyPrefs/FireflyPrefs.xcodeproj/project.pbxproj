@@ -71,6 +71,9 @@
 		E4E741790B27E31E008281D7 /* Italian */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Italian; path = Italian.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		E4E7417D0B27E333008281D7 /* Italian */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = Italian; path = Italian.lproj/FireflyPrefsPref.nib; sourceTree = "<group>"; };
 		E4E7417F0B27E35A008281D7 /* Italian */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Italian; path = Italian.lproj/Localizable.strings; sourceTree = "<group>"; };
+		E4F6C1840B4978410078B163 /* Japanese */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Japanese; path = Japanese.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		E4F6C1850B4978530078B163 /* Japanese */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = Japanese; path = Japanese.lproj/FireflyPrefsPref.nib; sourceTree = "<group>"; };
+		E4F6C1860B4978620078B163 /* Japanese */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Japanese; path = Japanese.lproj/Localizable.strings; sourceTree = "<group>"; };
 		F506C035013D953901CA16C8 /* PreferencePanes.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PreferencePanes.framework; path = /System/Library/Frameworks/PreferencePanes.framework; sourceTree = "<absolute>"; };
 		F506C040013D9D8001CA16C8 /* FireflyPrefsPref.tiff */ = {isa = PBXFileReference; lastKnownFileType = image.tiff; path = FireflyPrefsPref.tiff; sourceTree = "<group>"; };
 		F506C043013D9D8C01CA16C8 /* English */ = {isa = PBXFileReference; lastKnownFileType = wrapper.nib; name = English; path = English.lproj/FireflyPrefsPref.nib; sourceTree = "<group>"; };
@@ -286,6 +289,7 @@
 				E4BCD4740B269745009315B7 /* Swedish */,
 				E4E741790B27E31E008281D7 /* Italian */,
 				E4C8AD860B3859970078EEA8 /* Dutch */,
+				E4F6C1840B4978410078B163 /* Japanese */,
 			);
 			name = InfoPlist.strings;
 			sourceTree = "<group>";
@@ -299,6 +303,7 @@
 				E4BCD4700B269713009315B7 /* Swedish */,
 				E4E7417F0B27E35A008281D7 /* Italian */,
 				E4C8AD8C0B3859AD0078EEA8 /* Dutch */,
+				E4F6C1860B4978620078B163 /* Japanese */,
 			);
 			name = Localizable.strings;
 			sourceTree = "<group>";
@@ -312,6 +317,7 @@
 				E4BCD4720B269730009315B7 /* Swedish */,
 				E4E7417D0B27E333008281D7 /* Italian */,
 				E4C8AD830B38598B0078EEA8 /* Dutch */,
+				E4F6C1850B4978530078B163 /* Japanese */,
 			);
 			name = FireflyPrefsPref.nib;
 			sourceTree = "<group>";
