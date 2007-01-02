@@ -28,6 +28,10 @@ if [ ! -f mt-daapd-svn-${SVNVERSION}.tar.gz ]; then
     exit
 fi
 
+rm -rf .build
+mkdir -p .build/ppc
+mkdir -p .build/intel
+
 tar -xvzf mt-daapd-svn-${SVNVERSION}.tar.gz
 pushd mt-daapd-svn-${SVNVERSION}
 ./configure --enable-static --with-static-libs=/sw/lib --enable-sqlite --with-id3tag=/sw
@@ -35,18 +39,37 @@ check_error $? "Configure error"
 
 make
 check_error $? "Compile error"
-
 popd
 
 BUILDDIR=mt-daapd-svn-${SVNVERSION}/src
-rm -rf .build
-mkdir -p .build/ppc
 cp $BUILDDIR/mt-daapd .build/ppc
 cp $BUILDDIR/wavstreamer .build/ppc
 cp $BUILDDIR/plugins/.libs/*so .build/ppc
+
+# now make the intel version
+pushd mt-daapd-svn-${SVNVERSION}
+make clean
+CFLAGS="-O -g -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch i386" LDFLAGS="-arch i386" ac_cv_func_setpgrp_void=no ./configure --disable-dependency-tracking --enable-static --with-static-libs=/sw-x86/lib --enable-sqlite --with-id3tag=/sw-x86 --host=i686-apple-darwin8.8.0
+
+check_error $? "Configure error"
+
+make
+check_error $? "Compile error"
+popd
+
+BUILDDIR=mt-daapd-svn-${SVNVERSION}/src
+cp $BUILDDIR/mt-daapd .build/intel
+cp $BUILDDIR/wavstreamer .build/intel
+cp $BUILDDIR/plugins/.libs/*so .build/intel
 rm -rf mt-daapd-svn-${SVNVERSION}
 
-ALAC_VERSION=0.1.1
+for f in .build/intel/*; do
+    f=`basename $f`
+    lipo -create .build/intel/$f .build/ppc/$f -output .build/$f
+done
+
+
+ALAC_VERSION=0.1.3
 
 if [ ! -x alac_decoder/alac ]; then
     wget http://craz.net/programs/itunes/files/alac_decoder-${ALAC_VERSION}.tar.gz
@@ -56,7 +79,9 @@ if [ ! -x alac_decoder/alac ]; then
     check_error $? "error decompressing alac decoder"
 
     pushd alac_decoder
-    make
+    patch -p0 < ../alac_decoder.patch
+
+    CFLAGS="-O -g -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch i386 -arch ppc" LDFLAGS="-arch i386 -arch ppc" make
 
     check_error $? "Could not compile alac decoder"
     popd
@@ -67,5 +92,5 @@ if [ ! -x alac_decoder/alac ]; then
     exit 1
 fi
 
-cp alac_decoder/alac .build/ppc
+cp alac_decoder/alac .build
 
