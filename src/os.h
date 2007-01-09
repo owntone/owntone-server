@@ -22,10 +22,14 @@
 #ifndef _OS_H_
 #define _OS_H_
 
+#define S_STOP 0
+#define S_SCAN 1
+#define S_FULL 2
 
 /* backgrounding, signal handling, etc */
 extern int os_init(int foreground, char *runas);
 extern void os_deinit(void);
+extern void os_wait(int seconds);
 
 /* system native logging functions */
 extern int os_opensyslog(void);
@@ -43,7 +47,7 @@ extern int os_stat(const char *path, struct stat *sb);
 extern int os_lstat(const char *path, struct stat *sb);
 extern int os_islocaladdr(char *hostaddr);
 extern char *os_apppath(char *parm);
-
+extern int os_signal_server(int what); /* signal a running server */
 
 #ifdef WIN32
 # include "os-win32.h"

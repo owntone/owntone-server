@@ -476,3 +476,10 @@ void _util_mutex_init(void) {
 
     pthread_mutex_unlock(&util_mutex);
 }
+
+#ifdef DEBUG_MEM
+void *util_malloc(char *file, char *line, size_t size);
+void *util_calloc(char *file, char *line, size_t count, size_t size);
+void *util_realloc(char *file, char *line, void *ptr, size_t size);
+void util_free(void *ptr);
+#endif

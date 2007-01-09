@@ -222,6 +222,7 @@ int main(int argc, char *argv[]) {
     int old_song_count, song_count;
     int force_non_root=0;
     int skip_initial=1;
+    int kill_server=0;
     int convert_conf=0;
     char *db_type,*db_parms,*web_root,*runas, *tmp;
     char **mp3_dir_array;
@@ -248,7 +249,7 @@ int main(int argc, char *argv[]) {
     err_setlevel(2);
 
     config.foreground=0;
-    while((option=getopt(argc,argv,"D:d:c:P:mfrysiuvab:")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:mfrysiuvab:Vk")) != -1) {
         switch(option) {
         case 'a':
             appdir = 1;
@@ -315,6 +316,14 @@ int main(int argc, char *argv[]) {
             convert_conf=1;
             break;
 
+        case 'k':
+            kill_server=1;
+            break;
+
+        case 'V':
+            fprintf(stderr,"Firefly Media Server: Version %s\n",VERSION);
+            break;
+
         default:
             usage(argv[0]);
             exit(EXIT_FAILURE);
@@ -327,6 +336,12 @@ int main(int argc, char *argv[]) {
                 "If you are\nsure you want to do this, use the -y "
                 "command-line switch\n");
         exit(EXIT_FAILURE);
+    }
+
+
+    if(kill_server) {
+        os_signal_server(S_STOP);
+        exit(0);
     }
 
     /* read the configfile, if specified, otherwise
@@ -562,7 +577,7 @@ int main(int argc, char *argv[]) {
                     time(NULL)-start_time);
         }
 
-        sleep(MAIN_SLEEP_INTERVAL);
+        os_wait(MAIN_SLEEP_INTERVAL);
         rescan_counter += MAIN_SLEEP_INTERVAL;
     }
 

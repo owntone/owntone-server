@@ -143,6 +143,14 @@ void _os_phandle_dump(void) {
 }
 
 /**
+ * wait for signals
+ *
+ * don't care about signals on win32, so we'll just sleep
+ */
+void os_wait(int seconds) {
+    Sleep(seconds * 1000);
+}
+/**
  * shutdown the system-specific stuff started in os_init.
  */
 void os_deinit(void) {
@@ -192,6 +200,12 @@ extern int os_chown(char *path, char *user) {
     return TRUE;
 }
 
+
+int os_signal_server(int what) {
+    /* this could really control the service somehow */
+    fprintf(stderr,"This function is unimplemented on win32\n");
+    exit(-1);
+}
 
 int os_register(void) {
     service_register();

@@ -55,7 +55,7 @@
 #include "conf.h"
 #include "err.h"
 #include "daapd.h"
-#include "os-unix.h"
+#include "os.h"
 
 /** You say po-tay-to, I say po-tat-o */
 #ifndef SIGCLD
@@ -69,12 +69,9 @@
 
 /* Forwards */
 static int _os_daemon_start(void);
-static void *_os_signal_handler(void *arg);
-static int _os_start_signal_handler(pthread_t *handler_tid);
-static volatile int _os_signal_pid;
+static int _os_start_signal_handler(void);
 
 /* Globals */
-pthread_t _os_signal_tid;
 char *_os_pidfile = PIDFILE;
 
 /**
@@ -98,7 +95,8 @@ int os_init(int foreground, char *runas) {
                 DPRINTF(E_LOG,L_MAIN,"fdopen: %s\n",strerror(errno));
         }
         /* just to be on the safe side... */
-        _os_signal_pid=0;
+        fprintf(pid_fp,"%d\n",getpid());
+        fclose(pid_fp);
         _os_daemon_start();
     }
 
@@ -109,18 +107,8 @@ int os_init(int foreground, char *runas) {
 
     /* block signals and set up the signal handling thread */
     DPRINTF(E_LOG,L_MAIN,"Starting signal handler\n");
-    if(_os_start_signal_handler(&_os_signal_tid)) {
+    if(_os_start_signal_handler()) {
         DPRINTF(E_FATAL,L_MAIN,"Error starting signal handler %s\n",strerror(errno));
-    }
-
-    if(pid_fp) {
-        /* wait to for config.pid to be set by the signal handler */
-        while(!_os_signal_pid) {
-            sleep(1);
-        }
-
-        fprintf(pid_fp,"%d\n",_os_signal_pid);
-        fclose(pid_fp);
     }
 
     return TRUE;
@@ -130,10 +118,6 @@ int os_init(int foreground, char *runas) {
  * do any deinitialization necessary for the platform
  */
 void os_deinit(void) {
-    DPRINTF(E_LOG,L_MAIN,"Stopping signal handler\n");
-    if(!pthread_kill(_os_signal_tid,SIGTERM)) {
-        pthread_join(_os_signal_tid,NULL);
-    }
 }
 
 /**
@@ -231,6 +215,51 @@ extern int os_chown(char *path, char *user) {
 }
 
 /**
+ * find the old service pid and send it a SIGTERM
+ */
+int os_signal_server(int what) {
+    FILE *pid_fp;
+    int pid;
+    int result = TRUE;
+    int signal;
+
+    if(NULL == (pid_fp = fopen(_os_pidfile, "r"))) {
+        DPRINTF(E_LOG,L_MAIN,"fdopen: %s\n",strerror(errno));
+        return FALSE;
+    }
+
+    if(fscanf(pid_fp,"%d\n",&pid)) {
+        kill(pid,SIGTERM);
+    } else {
+        DPRINTF(E_LOG,L_MAIN,"os_service_kill: can't get pid from pidfile\n");
+        result = FALSE;
+    }
+
+    fclose(pid_fp);
+
+    switch(what) {
+    case S_SCAN:
+        signal=SIGUSR1;
+        break;
+    case S_FULL:
+        signal=SIGUSR2;
+        break;
+    case S_STOP:
+        signal=SIGSTOP;
+    default:
+        break;
+
+    }
+
+    if(kill(pid,signal)) {
+        perror("kill");
+        result = FALSE;
+    }
+    return result;
+}
+
+
+/**
  * Fork and exit.  Stolen pretty much straight from Stevens.
  *
  * @returns 0 on success, -1 with errno set on error
@@ -326,6 +355,69 @@ int os_drop_privs(char *user) {
 }
 
 /**
+ * wait for specified time, while setting signal flags
+ * (if necessary)
+ */
+void os_wait(int seconds) {
+    sigset_t intmask;
+    int sig;
+    int status;
+    int done=0;
+
+    sleep(seconds);
+
+    while(!done) {
+        if(!sigpending(&intmask)) {
+            if(sigismember(&intmask, SIGCLD) ||
+               sigismember(&intmask, SIGINT) ||
+               sigismember(&intmask, SIGHUP) ||
+               sigismember(&intmask, SIGTERM)) {
+                /* do a sigwait for it */
+                if((sigemptyset(&intmask) == -1) ||
+                   (sigaddset(&intmask, SIGCLD) == -1) ||
+                   (sigaddset(&intmask, SIGINT) == -1) ||
+                   (sigaddset(&intmask, SIGHUP) == -1) ||
+                   (sigaddset(&intmask, SIGTERM) == -1) ||
+                   (sigwait(&intmask, &sig) == -1)) {
+                    DPRINTF(E_FATAL,L_MAIN,"Error waiting for signals.");
+                } else {
+                    /* process the signal */
+                    switch(sig) {
+                    case SIGCLD:
+                        DPRINTF(E_LOG,L_MAIN,"Got CLD signal.  Reaping\n");
+                        while (wait3(&status, WNOHANG, NULL) > 0) {};
+                        break;
+                    case SIGTERM:
+                    case SIGINT:
+                        DPRINTF(E_LOG,L_MAIN,"Got shutdown signal.\n");
+                        config.stop=1;
+                        return;
+                        break;
+                    case SIGHUP:
+                        DPRINTF(E_LOG,L_MAIN,"Got HUP signal.\n");
+                        /* if we can't reload, it keeps the old config file,
+                         * so no real damage */
+                        conf_reload();
+                        err_reopen();
+
+                        config.reload=1;
+                        break;
+                    default:
+                        DPRINTF(E_LOG,L_MAIN,"What am I doing here?\n");
+                        break;
+                    }
+                }
+            } else {
+                done=1;
+            }
+        } else {
+            DPRINTF(E_FATAL,L_MAIN,"Error in sigpending\n");
+        }
+    }
+}
+
+
+/**
  * Wait for signals and flag the main process.  This is
  * a thread handler for the signal processing thread.  It
  * does absolutely nothing except wait for signals.  The rest
@@ -335,58 +427,6 @@ int os_drop_privs(char *user) {
  * the stop flag (from an INT signal), and the reload flag (from HUP).
  * \param arg NULL, but required of a thread procedure
  */
-void *_os_signal_handler(void *arg) {
-    sigset_t intmask;
-    int sig;
-    int status;
-
-    config.stop=0;
-    config.reload=0;
-    _os_signal_pid=getpid();
-
-    DPRINTF(E_WARN,L_MAIN,"Signal handler started\n");
-
-    while(!config.stop) {
-        if((sigemptyset(&intmask) == -1) ||
-           (sigaddset(&intmask, SIGCLD) == -1) ||
-           (sigaddset(&intmask, SIGINT) == -1) ||
-           (sigaddset(&intmask, SIGHUP) == -1) ||
-           (sigaddset(&intmask, SIGTERM) == -1) ||
-           (sigwait(&intmask, &sig) == -1)) {
-            DPRINTF(E_FATAL,L_MAIN,"Error waiting for signals.  Aborting\n");
-        } else {
-            /* process the signal */
-            switch(sig) {
-            case SIGCLD:
-                DPRINTF(E_LOG,L_MAIN,"Got CLD signal.  Reaping\n");
-                while (wait3(&status, WNOHANG, NULL) > 0) {
-                }
-                break;
-            case SIGTERM:
-            case SIGINT:
-                DPRINTF(E_LOG,L_MAIN,"Got shutdown signal. Notifying daap server.\n");
-                config.stop=1;
-                return NULL;
-                break;
-            case SIGHUP:
-                DPRINTF(E_LOG,L_MAIN,"Got HUP signal. Notifying daap server.\n");
-                /* if we can't reload, it keeps the old config file,
-                 * so no real damage */
-                conf_reload();
-                err_reopen();
-
-                config.reload=1;
-                break;
-            default:
-                DPRINTF(E_LOG,L_MAIN,"What am I doing here?\n");
-                break;
-            }
-        }
-    }
-
-    return NULL;
-}
-
 /**
  * Block signals, then start the signal handler.  The
  * signal handler started by spawning a new thread on
@@ -394,28 +434,19 @@ void *_os_signal_handler(void *arg) {
  *
  * \returns 0 on success, -1 on failure with errno set
  */
-int _os_start_signal_handler(pthread_t *handler_tid) {
-    int error;
+int _os_start_signal_handler() {
     sigset_t set;
 
     if((sigemptyset(&set) == -1) ||
        (sigaddset(&set,SIGINT) == -1) ||
        (sigaddset(&set,SIGHUP) == -1) ||
-       (sigaddset(&set,SIGCLD) == -1) || 
+       (sigaddset(&set,SIGCLD) == -1) ||
        (sigaddset(&set,SIGTERM) == -1) ||
        (sigprocmask(SIG_BLOCK, &set, NULL) == -1)) {
         DPRINTF(E_LOG,L_MAIN,"Error setting signal set\n");
         return -1;
     }
 
-    if((error=pthread_create(handler_tid, NULL, _os_signal_handler, NULL))) {
-        errno=error;
-        DPRINTF(E_LOG,L_MAIN,"Error creating signal_handler thread\n");
-        return -1;
-    }
-
-    /* we'll not detach this... let's join it */
-    //pthread_detach(handler_tid);
     return 0;
 }
 
@@ -427,8 +458,6 @@ int _os_start_signal_handler(pthread_t *handler_tid) {
  void os_set_pidfile(char *file) {
     _os_pidfile = file;
  }
-
-
 
 /**
  * load a shared library
@@ -467,16 +496,16 @@ int os_islocaladdr(char *hostaddr) {
 
     if(strncmp(hostaddr,"127.",4) == 0)
         return TRUE;
-    
+
     return FALSE;
 }
 
 #ifdef MAC
 char *os_apppath(char *parm) {
     CFURLRef pluginRef = CFBundleCopyBundleURL(CFBundleGetMainBundle());
-    CFStringRef macPath = CFURLCopyFileSystemPath(pluginRef, 
+    CFStringRef macPath = CFURLCopyFileSystemPath(pluginRef,
                                                   kCFURLPOSIXPathStyle);
-    const char *pathPtr = CFStringGetCStringPtr(macPath, 
+    const char *pathPtr = CFStringGetCStringPtr(macPath,
                                                 CFStringGetSystemEncoding());
 
     return strdup(pathPtr);
@@ -494,7 +523,7 @@ char *os_apppath(char *parm) {
 }
 #endif
 
-/** 
+/**
  * stat wrapper
  */
 int os_stat(const char *path, struct stat *sb) {
