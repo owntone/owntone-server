@@ -684,7 +684,6 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
 
     /* Let's throw it in  */
     switch(type) {
-    case PL_STATICWEB: /* static, maintained in web interface */
     case PL_STATICFILE: /* static, from file */
     case PL_STATICXML: /* from iTunes XML file */
         correct_path = _db_proper_path(path);
@@ -693,6 +692,12 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
                                  "values ('%q',%d,0,NULL,%d,'%q',%d)",
                                  name,type,time(NULL),correct_path,index);
         free(correct_path);
+        break;
+    case PL_STATICWEB: /* static, maintained in web interface */
+        result = db_sql_exec_fn(pe,E_LOG,"insert into playlists "
+                                "(title,type,items,query,db_timestamp,path,idx) "
+                                 "values ('%q',%d,0,NULL,%d,NULL,%d)",
+                                 name,type,time(NULL),index);
         break;
     case PL_SMART: /* smart */
         if(!db_sql_parse_smart(&estring,&criteria,clause)) {
