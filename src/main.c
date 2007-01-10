@@ -322,6 +322,7 @@ int main(int argc, char *argv[]) {
 
         case 'V':
             fprintf(stderr,"Firefly Media Server: Version %s\n",VERSION);
+            exit(EXIT_SUCCESS);
             break;
 
         default:
