@@ -186,6 +186,8 @@ void usage(char *program) {
     printf("  -f             Run in foreground\n");
     printf("  -y             Yes, go ahead and run as non-root user\n");
     printf("  -b <id>        ffid to be broadcast\n");
+    printf("  -V             Display version information\n");
+    printf("  -k             Kill a running daemon (based on pidfile)\n");
     printf("\n\n");
     printf("Valid debug modules:\n");
     printf(" config,webserver,database,scan,query,index,browse\n");
