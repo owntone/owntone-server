@@ -40,6 +40,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
+#include "daapd.h"
 #include "conf.h"
 #include "configfile.h"
 #include "err.h"

@@ -4,14 +4,14 @@
  *
  * ** NOTICE **
  *
- * This code is written by (and is therefore copyright) Dr Kay Robbins 
- * (krobbins@cs.utsa.edu) and Dr. Steve Robbins (srobbins@cs.utsa.edu), 
- * and was released with unspecified licensing as part of their book 
+ * This code is written by (and is therefore copyright) Dr Kay Robbins
+ * (krobbins@cs.utsa.edu) and Dr. Steve Robbins (srobbins@cs.utsa.edu),
+ * and was released with unspecified licensing as part of their book
  * _UNIX_Systems_Programming_ (Prentice Hall, ISBN: 0130424110).
  *
- * Dr. Steve Robbins was kind enough to allow me to re-license this 
- * software as GPL.  I would request that any bugs or problems with 
- * this code be brought to my attention (ron@pedde.com), and I will 
+ * Dr. Steve Robbins was kind enough to allow me to re-license this
+ * software as GPL.  I would request that any bugs or problems with
+ * this code be brought to my attention (ron@pedde.com), and I will
  * submit appropriate patches upstream, should the problem be with
  * the original code.
  *
@@ -52,6 +52,7 @@
 #  include <sys/wait.h>
 #endif
 
+#include "daapd.h"
 #include "err.h"
 #include "restart.h"
 
@@ -169,7 +170,7 @@ ssize_t readblock(int fd, void *buf, size_t size) {
     ssize_t bytesread;
     size_t bytestoread;
     size_t totalbytes;
- 
+
     for (bufp = buf, bytestoread = size, totalbytes = 0;
          bytestoread > 0;
          bufp += bytesread, bytestoread -= bytesread) {
@@ -179,7 +180,7 @@ ssize_t readblock(int fd, void *buf, size_t size) {
         if (bytesread == 0) {
             errno = EINVAL;
             return -1;
-        }  
+        }
         if ((bytesread) == -1 && (errno != EINTR))
             return -1;
         if (bytesread == -1)
@@ -207,8 +208,8 @@ int readline(int fd, char *buf, int nbytes) {
         if (buf[numread-1] == '\n') {
             buf[numread] = '\0';
             return numread;
-        }  
-    }   
+        }
+    }
     errno = EINVAL;
     return -1;
 }
@@ -231,8 +232,8 @@ int readlinetimed(int fd, char *buf, int nbytes, double seconds) {
         if (buf[numread-1] == '\n') {
             buf[numread] = '\0';
             return numread;
-        }  
-    }   
+        }
+    }
     errno = EINVAL;
     return -1;
 }
@@ -277,11 +278,11 @@ int waitfdtimed(int fd, struct timeval end) {
     fd_set readset;
     int retval;
     struct timeval timeout;
- 
+
     if ((fd < 0) || (fd >= FD_SETSIZE)) {
         errno = EINVAL;
         return -1;
-    }  
+    }
     FD_ZERO(&readset);
     FD_SET(fd, &readset);
     if (gettimeout(end, &timeout) == -1)

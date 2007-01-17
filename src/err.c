@@ -47,6 +47,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "daapd.h"
 #include "err.h"
 #ifndef ERR_LEAN
 # include "os.h"

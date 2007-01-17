@@ -5,6 +5,7 @@
  */
 
 #include <stdio.h>
+#include "daapd.h"
 
 char *db_sqlite_updates[] = {
     /* version 0 -> version 1 -- initial update */
@@ -47,7 +48,7 @@ char *db_sqlite_updates[] = {
     "   sample_count    INTEGER DEFAULT 0,\n"
     "   force_update    INTEGER DEFAULT 0\n"
     ");\n"
-    "CREATE INDEX idx_path ON songs(path);\n" 
+    "CREATE INDEX idx_path ON songs(path);\n"
     "CREATE TABLE config (\n"
     "   term            VARCHAR(255)    NOT NULL,\n"
     "   subterm         VARCHAR(255)    DEFAULT NULL,\n"
@@ -141,7 +142,7 @@ char *db_sqlite_updates[] = {
     "create index idx_path on songs(path);\n"
     "drop table tempsongs;\n"
     "update config set value=3 where term='version';\n",
-    
+
     /* version 3 -> version 4 */
     /* add db_timestamp and path to playlist table */
     "create temp table tempplaylists as select * from playlists;\n"
@@ -240,13 +241,13 @@ char *db_sqlite_updates[] = {
     "insert into playlistitems (playlistid, songid) select * from tempitems;\n"
     "drop table tempitems;\n"
     "update config set value=7 where term='version';\n",
-    
+
     /* version 7 -> version 8 */
     "create index idx_songid on playlistitems(songid)\n"
     "create index idx_playlistid on playlistitems(playlistid)\n"
     "update config set value=8 where term='version';\n",
 
-    /* version 8 -> version 9 */ 
+    /* version 8 -> version 9 */
     "drop index idx_path;\n"
     "create temp table tempsongs as select * from songs;\n"
     "drop table songs;\n"
@@ -301,7 +302,7 @@ char *db_sqlite_updates[] = {
     "drop table tempsongs;\n"
     "update config set value=9 where term='version';\n",
 
-    /* version 9 -> version 10 */ 
+    /* version 9 -> version 10 */
     "drop index idx_path;\n"
     "create temp table tempsongs as select * from songs;\n"
     "drop table songs;\n"
@@ -354,7 +355,7 @@ char *db_sqlite_updates[] = {
     "create index idx_path on songs(path,idx);\n"
     "drop table tempsongs;\n"
     "update config set value=10 where term='version';\n",
-    /* version 10 -> version 11 */ 
+    /* version 10 -> version 11 */
     "drop index idx_playlistid;\n"
     "create index idx_playlistid on playlistitems(playlistid,songid);\n"
     "update config set value=11 where term='version';\n",

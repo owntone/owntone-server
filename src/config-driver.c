@@ -8,6 +8,7 @@
 #define os_syslog(a,b)
 #define os_closesyslog()
 
+#include "daapd.h"
 #include "conf.h"
 #include "err.h"
 

@@ -41,6 +41,7 @@
 # include <sys/socket.h>
 #endif
 
+#include "daapd.h"
 #include "err.h"
 #include "restart.h"
 #include "webserver.h"

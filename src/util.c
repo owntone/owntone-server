@@ -31,7 +31,6 @@ int _util_initialized=0;
 
 /* Forwards */
 //int _util_xtoy(unsigned char *dbuffer, size_t dlen, unsigned char *sbuffer, size_t slen, char *from, char *to);
-void _util_hexdump(unsigned char *block, int len);
 void _util_mutex_init(void);
 
 /**
@@ -399,7 +398,7 @@ int _util_xtoy(unsigned char *dbuffer, size_t dlen, unsigned char *sbuffer, size
 }
 */
 
-void _util_hexdump(unsigned char *block, int len) {
+void util_hexdump(unsigned char *block, int len) {
     char charmap[256];
     int index;
     int row, offset;
@@ -429,7 +428,7 @@ void _util_hexdump(unsigned char *block, int len) {
             strcat(output,tmp);
         }
 
-        fprintf(stderr,"%s\n",output);
+        DPRINTF(E_LOG,L_MISC,"%s\n",output);
     }
 }
 

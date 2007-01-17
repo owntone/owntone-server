@@ -52,9 +52,9 @@
 #include "CoreFoundation/CoreFoundation.h"
 #endif
 
+#include "daapd.h"
 #include "conf.h"
 #include "err.h"
-#include "daapd.h"
 #include "os.h"
 
 /** You say po-tay-to, I say po-tat-o */

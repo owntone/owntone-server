@@ -31,6 +31,7 @@
 #include <string.h>
 #include <taglib/tag_c.h>
 
+#include "daapd.h"
 #include "mp3-scanner.h"
 #include "err.h"
 

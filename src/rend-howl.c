@@ -32,6 +32,7 @@
 #include <howl.h>
 #include <pthread.h>
 
+#include "daapd.h"
 #include "err.h"
 #include "os-unix.h"
 #include "rend-unix.h"
@@ -79,11 +80,11 @@ int rend_private_init(char *user) {
         return -1;
     }
 
-    if(os_drop_privs(user)) 
+    if(os_drop_privs(user))
         return -1;
 
     DPRINTF(E_DBG,L_REND,"Starting polling thread\n");
-    
+
     if(pthread_create(&rend_tid,NULL,rend_pipe_monitor,NULL)) {
         DPRINTF(E_FATAL,L_REND,"Could not start thread.  Terminating\n");
         /* should kill parent, too */
@@ -129,7 +130,7 @@ void *rend_pipe_monitor(void* arg) {
 /*
  * rend_callback
  *
- * This gets called from the main thread when there is a 
+ * This gets called from the main thread when there is a
  * message waiting to be processed.
  */
 void rend_callback(void) {

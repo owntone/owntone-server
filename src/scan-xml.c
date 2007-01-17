@@ -467,6 +467,12 @@ int scan_xml_playlist(char *filename) {
     }
 
     rbdestroy(scan_xml_db);
+
+    MAYBEFREE(scan_xml_itunes_version);
+    MAYBEFREE(scan_xml_itunes_base_path);
+    MAYBEFREE(scan_xml_itunes_decoded_base_path);
+    MAYBEFREE(scan_xml_real_base_path);
+
     return retval;
 }
 
@@ -956,6 +962,7 @@ int scan_xml_playlists_section(int action, char *info) {
             }
             dont_scan=0;
             state=XML_PL_ST_EXPECTING_PL_TRACKLIST;
+            MAYBEFREE(current_name);
             return XML_STATE_PLAYLISTS;
         }
         if(action == RXML_EVT_BEGIN)
@@ -967,8 +974,7 @@ int scan_xml_playlists_section(int action, char *info) {
         if(action == RXML_EVT_TEXT) {
             /* got the value we were hoping for */
             if(next_value == XML_PL_NEXT_VALUE_NAME) {
-                if(current_name)
-                    free(current_name);
+                MAYBEFREE(current_name);
                 current_name = strdup(info);
                 DPRINTF(E_DBG,L_SCAN,"Found playlist: %s\n",current_name);
                 /* disallow specific playlists */

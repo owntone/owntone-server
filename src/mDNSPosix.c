@@ -2,14 +2,14 @@
  * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
  *
  * Formatting notes:
@@ -146,6 +146,7 @@ First checkin
 #include <sys/uio.h>
 #include <netinet/in.h>
 
+#include "daapd.h"
 #include "err.h"
 #include "mDNSUNP.h"
 
@@ -481,7 +482,7 @@ static int SetupSocket(struct sockaddr *intfAddr, mDNSIPPort port, int interface
         static const int kOn = 1;
         static const int kIntTwoFiveFive = 255;
         static const unsigned char kByteTwoFiveFive = 255;
-        
+
         (void) interfaceIndex;  // Unused
         assert(intfAddr != NULL);
         assert(sktPtr != NULL);
@@ -576,8 +577,8 @@ static int SetupSocket(struct sockaddr *intfAddr, mDNSIPPort port, int interface
                         bindAddr.sin_port        = port.NotAnInteger;
                         bindAddr.sin_addr.s_addr = INADDR_ANY; // Want to receive multicasts AND unicasts on this socket
                         err = bind(*sktPtr, (struct sockaddr *) &bindAddr, sizeof(bindAddr));
-                        if (err < 0) { 
-                            err = errno; 
+                        if (err < 0) {
+                            err = errno;
                             DPRINTF(E_LOG,L_REND,"bind: %s\n",strerror(errno));
                         }
                         }

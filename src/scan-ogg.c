@@ -20,6 +20,8 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <vorbis/vorbisfile.h>
+
+#include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
 

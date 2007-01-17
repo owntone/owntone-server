@@ -38,6 +38,7 @@
 # include <stdint.h>
 #endif
 
+#include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
 #include "db-generic.h"
@@ -1624,6 +1625,7 @@ void db_sql_dispose_item(MP3FILE *pmp3) {
     MAYBEFREE(pmp3->description);
     MAYBEFREE(pmp3->url);
     MAYBEFREE(pmp3->codectype);
+    MAYBEFREE(pmp3->album_artist);
     free(pmp3);
 }
 

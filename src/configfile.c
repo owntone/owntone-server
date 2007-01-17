@@ -50,6 +50,7 @@
 # include <sys/wait.h>
 #endif
 
+#include "daapd.h"
 #include "conf.h"
 #include "configfile.h"
 #include "db-generic.h"

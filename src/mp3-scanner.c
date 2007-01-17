@@ -46,8 +46,8 @@
 #endif
 #include <sys/stat.h>
 
-#include "conf.h"
 #include "daapd.h"
+#include "conf.h"
 #include "db-generic.h"
 #include "err.h"
 #include "mp3-scanner.h"

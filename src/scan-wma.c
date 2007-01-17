@@ -32,6 +32,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "daapd.h"
 #include "mp3-scanner.h"
 #include "restart.h"
 #include "err.h"

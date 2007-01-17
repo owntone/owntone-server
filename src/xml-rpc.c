@@ -29,10 +29,11 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "daapd.h"
+
 #include "configfile.h"
 #include "conf.h"
 #include "db-generic.h"
-#include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
 #include "os.h"

@@ -19,6 +19,7 @@ typedef enum {
     l_err,
     l_conf,
     l_plugin,
+    l_memdebug,
     l_last
 } lock_t;
 
@@ -46,6 +47,7 @@ extern int util_utf8toutf16(unsigned char *utf16, int dlen, unsigned char *utf8,
 extern int util_utf16toutf8(unsigned char *utf8, int dlen, unsigned char *utf16, int len);
 extern int util_utf16_byte_len(unsigned char *utf16);
 
+extern void util_hexdump(unsigned char *block, int len);
 
 
 #endif /* _UTIL_H_ */

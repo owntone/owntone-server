@@ -45,6 +45,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "daapd.h"
 #include "conf.h"
 #include "configfile.h"
 #include "db-generic.h"

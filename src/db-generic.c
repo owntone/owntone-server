@@ -39,6 +39,7 @@
 # include <stdint.h>
 #endif
 
+#include "daapd.h"
 #include "db-generic.h"
 #include "err.h"
 #include "mp3-scanner.h"
@@ -62,7 +63,7 @@ typedef struct tag_db_functions {
     int(*dbs_edit_playlist)(char **, int, char*, char*);
     int(*dbs_playcount_increment)(char **, int);
     int(*dbs_enum_start)(char **, DBQUERYINFO *);
-    int(*dbs_enum_fetch_row)(char **, PACKED_MP3FILE *, DBQUERYINFO *);    
+    int(*dbs_enum_fetch_row)(char **, PACKED_MP3FILE *, DBQUERYINFO *);
     int(*dbs_enum_reset)(char **, DBQUERYINFO *);
     int(*dbs_enum_end)(char **);
     int(*dbs_force_rescan)(char **);
@@ -466,7 +467,7 @@ int db_enum_start(char **pe, DBQUERYINFO *pinfo) {
 
 /**
  * fetch the next item int he result set started by the db enum.  this
- * will be in native packed row format 
+ * will be in native packed row format
  */
 int db_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo) {
     return db_current->dbs_enum_fetch_row(pe, row, pinfo);

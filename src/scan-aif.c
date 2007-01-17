@@ -33,6 +33,7 @@
 
 #include <sys/types.h>
 
+#include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
 
@@ -97,12 +98,12 @@ int scan_aif_parse_comm(FILE *infile, MP3FILE *pmp3) {
     }
 
     /* we'll brute the sample rate */
-    
+
     pmp3->samplerate = aif_from_be32((uint32_t*)&comm.sample_rate[2]) >> 16;
     if(!pmp3->samplerate)
         return TRUE;
 
-    pmp3->bitrate = pmp3->samplerate * comm.channels * 
+    pmp3->bitrate = pmp3->samplerate * comm.channels *
         ((comm.sample_size + 7)/8)*8;
 
     sec = pmp3->file_size / (pmp3->bitrate / 8);
@@ -157,7 +158,7 @@ int scan_get_aifinfo(char *filename, MP3FILE *pmp3) {
             done=1;
             break;
         }
-        
+
         /* fixup */
         chunk.len = aif_from_be32(&chunk.len);
 

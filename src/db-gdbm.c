@@ -34,6 +34,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "daapd.h"
 #include "err.h"
 #include "mp3-scanner.h"
 #include "redblack.h"

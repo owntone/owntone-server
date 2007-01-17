@@ -44,8 +44,8 @@
 
 #include <sys/stat.h>
 
-#include "restart.h"
 #include "daapd.h"
+#include "restart.h"
 #include "err.h"
 #include "mp3-scanner.h"
 

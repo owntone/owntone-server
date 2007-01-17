@@ -76,6 +76,8 @@
 #include <sys/wait.h>
 #endif
 
+#include "daapd.h"
+
 #include "conf.h"
 #include "configfile.h"
 #include "err.h"
@@ -578,6 +580,7 @@ int main(int argc, char *argv[]) {
             DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in "
                     "%d seconds\n",song_count,old_song_count,
                     time(NULL)-start_time);
+            conf_dispose_array(mp3_dir_array);
         }
 
         os_wait(MAIN_SLEEP_INTERVAL);
@@ -610,6 +613,7 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN,"Done!\n");
 
     os_deinit();
+    mem_dump();
     return EXIT_SUCCESS;
 }
 

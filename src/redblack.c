@@ -33,6 +33,8 @@ static char rcsid[]="$Id$";
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif
+
+#include "daapd.h"
 #include "redblack.h"
 
 #define assert(expr)
@@ -152,7 +154,7 @@ RB_STATIC struct RB_ENTRY(tree) *RB_ENTRY(init)(void)
 
         if ((retval=(struct RB_ENTRY(tree) *) malloc(sizeof(struct RB_ENTRY(tree))))==NULL)
                 return(NULL);
-        
+
 #ifndef RB_CUSTOMIZE
         retval->rb_cmp=cmp;
         retval->rb_config=config;
@@ -171,7 +173,7 @@ RB_ENTRY(destroy)(struct RB_ENTRY(tree) *rbinfo)
 
         if (rbinfo->rb_root!=RBNULL)
                 RB_ENTRY(_destroy)(rbinfo->rb_root);
-        
+
         free(rbinfo);
 }
 #endif /* no_destroy */
@@ -192,7 +194,7 @@ RB_ENTRY(search)(const RB_ENTRY(data_t) *key, struct RB_ENTRY(tree) *rbinfo)
 #endif /* no_search */
 
 #ifndef no_find
-RB_STATIC const RB_ENTRY(data_t) * 
+RB_STATIC const RB_ENTRY(data_t) *
 RB_ENTRY(find)(const RB_ENTRY(data_t) *key, struct RB_ENTRY(tree) *rbinfo)
 {
         struct RB_ENTRY(node) *x;
@@ -211,7 +213,7 @@ RB_ENTRY(find)(const RB_ENTRY(data_t) *key, struct RB_ENTRY(tree) *rbinfo)
 #endif /* no_find */
 
 #ifndef no_delete
-RB_STATIC const RB_ENTRY(data_t) * 
+RB_STATIC const RB_ENTRY(data_t) *
 RB_ENTRY(delete)(const RB_ENTRY(data_t) *key, struct RB_ENTRY(tree) *rbinfo)
 {
         struct RB_ENTRY(node) *x;
@@ -257,7 +259,7 @@ RB_ENTRY(openlist)(const struct RB_ENTRY(tree) *rbinfo)
         return(RB_ENTRY(_openlist)(rbinfo->rb_root));
 }
 
-RB_STATIC const RB_ENTRY(data_t) * 
+RB_STATIC const RB_ENTRY(data_t) *
 RB_ENTRY(readlist)(RBLIST *rblistp)
 {
         if (rblistp==NULL)
@@ -277,7 +279,7 @@ RB_ENTRY(closelist)(RBLIST *rblistp)
 #endif /* no_readlist */
 
 #ifndef no_lookup
-RB_STATIC const RB_ENTRY(data_t) * 
+RB_STATIC const RB_ENTRY(data_t) *
 RB_ENTRY(lookup)(int mode, const RB_ENTRY(data_t) *key, struct RB_ENTRY(tree) *rbinfo)
 {
         struct RB_ENTRY(node) *x;
@@ -502,10 +504,10 @@ RB_ENTRY(_lookup)(int mode, const RB_ENTRY(data_t) *key, struct RB_ENTRY(tree) *
 
         if (found && (mode==RB_LUEQUAL || mode==RB_LUGTEQ || mode==RB_LULTEQ))
                 return(x);
-        
+
         if (!found && (mode==RB_LUEQUAL || mode==RB_LUNEXT || mode==RB_LUPREV))
                 return(RBNULL);
-        
+
         if (mode==RB_LUGTEQ || (!found && mode==RB_LUGREAT))
         {
                 if (cmp>0)
@@ -527,7 +529,7 @@ RB_ENTRY(_lookup)(int mode, const RB_ENTRY(data_t) *key, struct RB_ENTRY(tree) *
 
         if (mode==RB_LUPREV || (found && mode==RB_LULESS))
                 return(RB_ENTRY(_predecessor)(x));
-        
+
         /* Shouldn't get here */
         return(RBNULL);
 }
@@ -893,7 +895,7 @@ RB_ENTRY(_openlist)(const struct RB_ENTRY(node) *rootp)
         return(rblistp);
 }
 
-static const RB_ENTRY(data_t) * 
+static const RB_ENTRY(data_t) *
 RB_ENTRY(_readlist)(RBLIST *rblistp)
 {
         const RB_ENTRY(data_t) *key=NULL;
@@ -1026,7 +1028,7 @@ RB_ENTRY(_check1)(struct RB_ENTRY(node) *x)
 
                 if (rb_check1(x->left))
                         return(1);
-        }               
+        }
 
         if (x->right != RBNULL)
         {
@@ -1038,7 +1040,7 @@ RB_ENTRY(_check1)(struct RB_ENTRY(node) *x)
 
                 if (rb_check1(x->right))
                         return(1);
-        }               
+        }
         return(0);
 }
 
@@ -1087,7 +1089,7 @@ RB_ENTRY(dumptree)(struct RB_ENTRY(node) *x, int n)
 
                 RB_ENTRY(dumptree)(x->left, n);
                 RB_ENTRY(dumptree)(x->right, n);
-        }       
+        }
 }
 #endif
 

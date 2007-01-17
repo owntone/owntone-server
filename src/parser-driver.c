@@ -8,11 +8,11 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "daapd.h"
 #include "conf.h"
 #include "db-generic.h"
 #include "err.h"
 #include "smart-parser.h"
-#include "daapd.h"
 
 CONFIG config;
 char *scan_winamp_genre[] = { NULL };
@@ -57,7 +57,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr,"could not read config file: %s\n",configfile);
         exit(1);
     }
-    
+
     if(debuglevel) {
         printf("Setting debug level to %d\n",debuglevel);
         err_setlevel(debuglevel);

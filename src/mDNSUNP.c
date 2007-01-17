@@ -2,14 +2,14 @@
  * Copyright (c) 2002-2003 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
+ *
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
  * compliance with the License. Please obtain a copy of the License at
  * http://www.opensource.apple.com/apsl/ and read it before using this
  * file.
- * 
+ *
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
@@ -17,7 +17,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- * 
+ *
  * @APPLE_LICENSE_HEADER_END@
 
     Change History (most recent first):
@@ -91,11 +91,12 @@ First checkin
 #include <unistd.h>
 #include <stdio.h>
 
+#include "daapd.h"
 #include "err.h"
 
-/* Solaris defined SIOCGIFCONF etc in <sys/sockio.h> but 
-   other platforms don't even have that include file.  So, 
-   if we haven't yet got a definition, let's try to find 
+/* Solaris defined SIOCGIFCONF etc in <sys/sockio.h> but
+   other platforms don't even have that include file.  So,
+   if we haven't yet got a definition, let's try to find
    <sys/sockio.h>.
 */
 
@@ -103,7 +104,7 @@ First checkin
     #include <sys/sockio.h>
 #endif
 
-/* sockaddr_dl is only referenced if we're using IP_RECVIF, 
+/* sockaddr_dl is only referenced if we're using IP_RECVIF,
    so only include the header in that case.
 */
 
@@ -122,7 +123,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
     struct ifreq        *ifr, ifrcopy;
     struct sockaddr_in  *sinptr;
     //    int index;
-    
+
 #if defined(AF_INET6) && defined(HAVE_IPV6)
     struct sockaddr_in6 *sinptr6;
 #endif
@@ -132,7 +133,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
     sockfd = -1;
     buf = NULL;
     ifihead = NULL;
-    
+
     sockfd = socket(AF_INET, SOCK_DGRAM, 0);
     if (sockfd < 0) {
         goto gotError;
@@ -183,9 +184,9 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
 
                     ptr += sizeof(struct ifreq); /* for next one in buffer */
 #endif
-    
+
         DPRINTF(E_DBG,L_REND,"intf name=%s AF=%d, flags=%08x\n", ifr->ifr_name, ifr->ifr_addr.sa_family,ifr->ifr_flags);
-        
+
         if (ifr->ifr_addr.sa_family != family)
             continue;   /* ignore if not desired address family */
 
@@ -203,7 +204,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
         if (ioctl(sockfd, SIOCGIFFLAGS, &ifrcopy) < 0) {
             goto gotError;
         }
-        
+
         flags = ifrcopy.ifr_flags;
         if ((flags & IFF_UP) == 0)
             continue;   /* ignore if interface not up */
@@ -270,7 +271,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
                 if (ifi->ifi_addr == NULL) {
                     goto gotError;
                 }
-                
+
                 /* Some platforms (*BSD) inject the prefix in IPv6LL addresses */
                 /* We need to strip that out */
                 if (IN6_IS_ADDR_LINKLOCAL(&sinptr6->sin6_addr))
@@ -285,7 +286,7 @@ struct ifi_info *get_ifi_info(int family, int doaliases)
         }
     }
     goto done;
-    
+
 gotError:
     if (ifihead != NULL) {
         free_ifi_info(ifihead);
@@ -323,7 +324,7 @@ free_ifi_info(struct ifi_info *ifihead)
 }
 /* end free_ifi_info */
 
-ssize_t 
+ssize_t
 recvfrom_flags(int fd, void *ptr, size_t nbytes, int *flagsp,
                struct sockaddr *sa, socklen_t *salenptr, struct my_in_pktinfo *pktp)
 {
@@ -358,10 +359,10 @@ recvfrom_flags(int fd, void *ptr, size_t nbytes, int *flagsp,
     *salenptr = msg.msg_namelen;    /* pass back results */
     if (pktp) {
         /* 0.0.0.0, i/f = -1 */
-        /* We set the interface to -1 so that the caller can 
-           tell whether we returned a meaningful value or 
-           just some default.  Previously this code just 
-           set the value to 0, but I'm concerned that 0 
+        /* We set the interface to -1 so that the caller can
+           tell whether we returned a meaningful value or
+           just some default.  Previously this code just
+           set the value to 0, but I'm concerned that 0
            might be a valid interface value.
         */
         memset(pktp, 0, sizeof(struct my_in_pktinfo));
@@ -393,11 +394,11 @@ struct in_pktinfo
         struct in_addr  ipi_addr;
 };
 #endif
-        if (cmptr->cmsg_level == IPPROTO_IP && 
+        if (cmptr->cmsg_level == IPPROTO_IP &&
             cmptr->cmsg_type == IP_PKTINFO) {
             struct in_pktinfo *tmp;
             struct sockaddr_in *sin = (struct sockaddr_in*)&pktp->ipi_addr;
-            
+
             tmp = (struct in_pktinfo *) CMSG_DATA(cmptr);
             sin->sin_family = AF_INET;
             sin->sin_addr = tmp->ipi_addr;
@@ -411,7 +412,7 @@ struct in_pktinfo
         if (cmptr->cmsg_level == IPPROTO_IP &&
             cmptr->cmsg_type == IP_RECVDSTADDR) {
             struct sockaddr_in *sin = (struct sockaddr_in*)&pktp->ipi_addr;
-            
+
             sin->sin_family = AF_INET;
             sin->sin_addr = *(struct in_addr*)CMSG_DATA(cmptr);
             sin->sin_port = 0;
@@ -435,11 +436,11 @@ struct in_pktinfo
 #endif
 
 #if defined(IPV6_PKTINFO) && defined(HAVE_IPV6)
-        if (cmptr->cmsg_level == IPPROTO_IPV6 && 
+        if (cmptr->cmsg_level == IPPROTO_IPV6 &&
             cmptr->cmsg_type == IPV6_PKTINFO) {
             struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&pktp->ipi_addr;
                         struct in6_pktinfo *ip6_info = (struct in6_pktinfo*)CMSG_DATA(cmptr);
-                        
+
             sin6->sin6_family   = AF_INET6;
             sin6->sin6_len      = sizeof(*sin6);
             sin6->sin6_addr     = ip6_info->ipi6_addr;

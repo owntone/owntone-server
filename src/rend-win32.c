@@ -19,6 +19,7 @@
 
 #include <sys/types.h>
 
+#include "daapd.h"
 #include "dns_sd.h"
 #include "err.h"
 
@@ -28,7 +29,7 @@ static volatile int rend_stop_flag = 0;
 //static volatile int rend_timeout = 100000000; /* select timeout */
 static volatile int rend_timeout=2;
 static volatile int rend_count=0;
-static pthread_mutex_t rend_mutex=PTHREAD_MUTEX_INITIALIZER; 
+static pthread_mutex_t rend_mutex=PTHREAD_MUTEX_INITIALIZER;
 typedef struct tag_rend_entry {
     DNSServiceRef client;
     struct tag_rend_entry *next;
@@ -37,9 +38,9 @@ static REND_ENTRY rend_clients = { NULL, NULL };
 
 /* Forwards */
 void *rend_mainthread(void *arg);
-void DNSSD_API rend_reg_reply(DNSServiceRef client, const DNSServiceFlags flags, 
-    DNSServiceErrorType errorCode, const char *name, 
-    const char *regtype, const char *domain, void *context); 
+void DNSSD_API rend_reg_reply(DNSServiceRef client, const DNSServiceFlags flags,
+    DNSServiceErrorType errorCode, const char *name,
+    const char *regtype, const char *domain, void *context);
 
 /* Typedefs */
 typedef union { unsigned char b[2]; unsigned short NotAnInteger; } Opaque16;
@@ -95,7 +96,7 @@ void *rend_mainthread(void *arg) {
 
                 FD_SET(DNSServiceRefSockFD(current->client),&readfds);
             }
-            current = current->next;            
+            current = current->next;
         }
         rend_unlock();
 
@@ -117,13 +118,13 @@ void *rend_mainthread(void *arg) {
             }
             rend_unlock();
 
-            if (err) { 
-                DPRINTF(E_LOG,L_REND,"DNSServiceProcessResult returned %d\n", err); 
-                rend_stop_flag = 1; 
+            if (err) {
+                DPRINTF(E_LOG,L_REND,"DNSServiceProcessResult returned %d\n", err);
+                rend_stop_flag = 1;
             }
         } else if (result == 0) {
             DPRINTF(E_SPAM,L_REND,"rendezvous: tick!\n");
-             
+
 //            myTimerCallBack();
         } else {
             DPRINTF(E_INF,L_REND,"select() returned %d errno %d %s\n", result, errno, strerror(errno));
@@ -135,7 +136,7 @@ void *rend_mainthread(void *arg) {
     while(current) {
         if(current->client)
             DNSServiceRefDeallocate(current->client);
-        current = current->next;            
+        current = current->next;
     }
     rend_unlock();
     return NULL;
@@ -191,7 +192,7 @@ int rend_register(char *name, char *type, int port, char *iface, char *txt) {
 
     DNSServiceRegister(&pnew->client,0,kDNSServiceInterfaceIndexAny,name,type,"local",NULL,
         port_netorder,(uint16_t)strlen(txt),txt,rend_reg_reply, NULL);
-    
+
     /* throw off a new thread work this */
     if(!rend_count) {
         if((err=pthread_create(&rend_tid,NULL,rend_mainthread,NULL))) {
@@ -205,19 +206,19 @@ int rend_register(char *name, char *type, int port, char *iface, char *txt) {
     return 0;
 }
 
-void DNSSD_API rend_reg_reply(DNSServiceRef client, const DNSServiceFlags flags, 
-    DNSServiceErrorType errorCode, const char *name, 
-    const char *regtype, const char *domain, void *context) 
+void DNSSD_API rend_reg_reply(DNSServiceRef client, const DNSServiceFlags flags,
+    DNSServiceErrorType errorCode, const char *name,
+    const char *regtype, const char *domain, void *context)
 {
     DPRINTF(E_INF,L_REND,"Got a reply for %s.%s%s\n", name, regtype, domain);
     switch (errorCode) {
     case kDNSServiceErr_NoError:
-        DPRINTF(E_INF,L_REND,"Name now registered and active\n"); 
+        DPRINTF(E_INF,L_REND,"Name now registered and active\n");
         break;
-    case kDNSServiceErr_NameConflict: 
-        DPRINTF(E_FATAL,L_REND,"Rendezvous name in use, aborting...\n"); 
+    case kDNSServiceErr_NameConflict:
+        DPRINTF(E_FATAL,L_REND,"Rendezvous name in use, aborting...\n");
         break;
-    default:                         
+    default:
         DPRINTF(E_FATAL,L_REND,"Error %d\n", errorCode);
         return;
     }

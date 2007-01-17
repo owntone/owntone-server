@@ -29,8 +29,8 @@
 #include <string.h>
 #include <unistd.h>
 
-#include "conf.h"
 #include "daapd.h"
+#include "conf.h"
 #include "err.h"
 #include "mp3-scanner.h"
 
@@ -47,7 +47,7 @@ extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
 extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_aifinfo(char *filename, MP3FILE *pmp3);
 
-/* 
+/*
  * Typedefs
  */
 typedef struct scannerlist_tag {
@@ -137,7 +137,7 @@ void usage(int errorcode) {
     fprintf(stderr,"options:\n\n");
     fprintf(stderr,"  -d level    set debuglevel (9 is highest)\n");
     fprintf(stderr,"  -c config   read config file\n");
-    
+
     fprintf(stderr,"\n\n");
     exit(errorcode);
 }
@@ -158,7 +158,7 @@ int main(int argc, char *argv[]) {
     } else {
         av0 = argv[0];
     }
-    
+
     while((option = getopt(argc, argv, "d:c:")) != -1) {
         switch(option) {
         case 'd':
@@ -167,13 +167,13 @@ int main(int argc, char *argv[]) {
         case 'c':
             configfile=optarg;
             break;
-            
+
         default:
             fprintf(stderr,"Error: unknown option (%c)\n\n",option);
             usage(-1);
         }
     }
-    
+
     argc -= optind;
     argv += optind;
 

@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "daapd.h"
 #include "rxml.h"
 
 /* Typedefs/Defines */
@@ -125,7 +126,7 @@ int rxml_decode_string(char *string) {
  * @param handler handler function for events
  * @param udata opaque data structure to pass to the callback
  */
-int rxml_open(RXMLHANDLE *vp, char *file, 
+int rxml_open(RXMLHANDLE *vp, char *file,
               RXML_EVTHANDLER handler, void *udata) {
     RXML *pnew;
 
@@ -232,7 +233,7 @@ int rxml_parse(RXMLHANDLE vp) {
 
     ph->line = 0;
 
-    
+
     textbuffer[0] = '\0';
 
     /* walk through and read row by row */
@@ -283,7 +284,7 @@ int rxml_parse(RXMLHANDLE vp) {
                     }
                 }
 
-                in_text=1; 
+                in_text=1;
                 text_offset=0;
                 textbuffer[0] = '\0';
 
@@ -298,7 +299,7 @@ int rxml_parse(RXMLHANDLE vp) {
                                 ph->udata,tagbuffer);
 
                 /* send a follow-up end on a <tag/> - style tag */
-                if((single_tag) && (ph->handler)) 
+                if((single_tag) && (ph->handler))
                     ph->handler(RXML_EVT_END,ph->udata,tagbuffer);
 
                 offset++;
@@ -307,7 +308,7 @@ int rxml_parse(RXMLHANDLE vp) {
             default:
                 if((in_text) && (text_offset < (sizeof(textbuffer)-1))) {
                     /* get rid of EOL */
-                    if((linebuffer[offset] != '\r') && 
+                    if((linebuffer[offset] != '\r') &&
                        (linebuffer[offset] != '\n')) {
                         textbuffer[text_offset] = linebuffer[offset];
                         text_offset++;

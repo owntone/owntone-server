@@ -8,6 +8,8 @@
 #include <string.h>
 #include <stdio.h>
 
+#include "daapd.h"
+
 #if !HAVE_STRCASESTR
 /* case-independent string matching, similar to strstr but
  * matching */
@@ -264,7 +266,7 @@ char    *strptime(char *buf, char *fmt, struct tm *tm) {
                         }
 
                         len = (int) strlen(En_US.pm_string);
-        
+
                         if (strncmp(buf, En_US.pm_string, len) == 0) {
                                 if (tm->tm_hour > 12)
                                         return 0;
@@ -373,7 +375,7 @@ char    *strptime(char *buf, char *fmt, struct tm *tm) {
                                 i *= 10;
                                 i += *buf - '0';
                         }
-                        
+
                         if (c == 'Y')
                                 i -= 1900;
                         else if (i < 69) /*c=='y', 00-68 is for 20xx, the rest is for 19xx*/
@@ -467,7 +469,7 @@ char *strtok_r(char *s, const char *delim, char **last)
     return NULL;
   }
   tok = s - 1;
-  
+
   /*
    * Scan token (scan for delimiters: s += strcspn(s, delim), sort of).
    * Note that delim must have one NUL; we stop if we see that, too.
@@ -504,7 +506,7 @@ time_t timegm(struct tm *tm) {
     _putenv("TZ=UTC0");
     _tzset();
     ret = mktime(tm);
-    
+
     if(tz)
         sprintf(buffer,"TZ=%s",tz);
     else

@@ -27,6 +27,7 @@
 #include <windows.h>
 #include <stdio.h>
 
+#include "daapd.h"
 #include "messages.h"
 
 static HANDLE elog_handle = NULL;

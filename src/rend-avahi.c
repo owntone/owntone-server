@@ -41,6 +41,7 @@
 #include <avahi-common/timeval.h>
 #include <avahi-common/malloc.h>
 
+#include "daapd.h"
 #include "err.h"
 
 static AvahiClient *mdns_client = NULL;

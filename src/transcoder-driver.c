@@ -4,8 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "conf.h"
 #include "daapd.h"
+#include "conf.h"
 #include "err.h"
 #include "os.h"
 #include "plugin.h"
@@ -23,7 +23,7 @@ void usage(void) {
     fprintf(stderr,"  -f file     file to transcode\n");
     fprintf(stderr,"  -p plugin   plugin to use\n");
     fprintf(stderr,"  -t codectype\n");
-    
+
     fprintf(stderr,"\n\n");
     exit(-1);
 }

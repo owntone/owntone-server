@@ -48,10 +48,10 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "daapd.h"
 #include "conf.h"
 #include "err.h"
 #include "ll.h"
-#include "daapd.h"
 #include "os.h"
 #include "util.h"
 #include "webserver.h"
@@ -1696,5 +1696,6 @@ char *conf_get_servername(void) {
         retval[MAX_REND_LEN-3] = '.';
     }
 
+    free(template);
     return retval;
 }

@@ -43,7 +43,7 @@
 
 char *av0;
 
-#if 0 
+#if 0
 /* need better longopt detection in configure.in */
 struct option longopts[] =
     { { "help",    0, NULL, 'h' },
@@ -130,7 +130,7 @@ size_t parse_hdr(unsigned char *hdr, size_t hdr_len,
     sample_rate = GET_WAV_INT32(hdr + 24);
     sample_bit_length = GET_WAV_INT16(hdr + 34);
     data_length = GET_WAV_INT32(hdr + 20 + format_data_length + 4);
-  
+
     if ((format_data_length != 16) ||
         (compression_code != 1) ||
         (channel_count < 1) ||
@@ -271,11 +271,11 @@ int main(int argc, char **argv)
     while ((c = getopt(argc, argv, "hl:o:s:")) != -1) {
 #endif
         switch(c) {
-        case 'h': 
+        case 'h':
             usage(0);
             /*NOTREACHED*/
             break;
-            
+
         case 'l':
             sec = strtoul(optarg, &end, 10);
             if ((optarg[0] == '-') || (end == optarg) || ((end[0] != '\0') && (end[0] != '.'))) {
@@ -284,7 +284,7 @@ int main(int argc, char **argv)
             } else if (*end == '.') {
                 char tmp[7];
                 int i;
-                
+
                 memset(tmp, '0', sizeof (tmp) - 1);
                 tmp[sizeof (tmp) - 1] = '\0';
                 for (i = 0; (i < (sizeof (tmp) - 1)) && (isdigit(end[i+1])); i++)
@@ -306,7 +306,7 @@ int main(int argc, char **argv)
                 exit(-1);
             }
             break;
-            
+
         case 's':
             samples = strtoul(optarg, &end, 10);
             if ((optarg[0] == '-') || (end == optarg) || (end[0] != '\0')) {
@@ -322,7 +322,7 @@ int main(int argc, char **argv)
                 exit(-1);
             }
             break;
-            
+
         case 'o':
             offset = strtoul(optarg, &end, 10);
             if ((*optarg == '-') || (end == optarg) || (*end != '\0')) {
@@ -330,13 +330,13 @@ int main(int argc, char **argv)
                 exit(-1);
             }
             break;
-            
+
         default:
             fprintf(stderr, "%s: Bad command line option -%c.\n", av0, optopt);
             usage(-1);
         }
     }
-    
+
     argc -= optind;
     argv += optind;
 
@@ -373,7 +373,7 @@ int main(int argc, char **argv)
         memmove(hdr, hdr + offset, hdr_len - offset);
         hdr_len -= offset;
         offset = 0;
-    } 
+    }
 
     if (offset > 0) {
         offset -= hdr_len;

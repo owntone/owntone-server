@@ -34,8 +34,8 @@
 #include <string.h>
 #include <time.h>
 
-#include "conf.h"
 #include "daapd.h"
+#include "conf.h"
 #include "err.h"
 #include "mp3-scanner.h"
 

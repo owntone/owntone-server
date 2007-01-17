@@ -28,6 +28,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "daapd.h"
 #include "ll.h"
 #include "err.h"
 
@@ -126,11 +127,11 @@ int ll_del_item(LL *pl, char *key) {
     phead = pl->itemlist.next;
 
     while(phead) {
-        if((pl->flags & LL_FLAG_HONORCASE) && 
+        if((pl->flags & LL_FLAG_HONORCASE) &&
            (strcmp(phead->key,key)==0))
             break;
-        if((!(pl->flags & LL_FLAG_HONORCASE) && 
-            (strcasecmp(phead->key,key)==0))) 
+        if((!(pl->flags & LL_FLAG_HONORCASE) &&
+            (strcasecmp(phead->key,key)==0)))
             break;
 
         ptail=phead;

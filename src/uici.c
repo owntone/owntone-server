@@ -4,14 +4,14 @@
  *
  * ** NOTICE **
  *
- * This code is written by (and is therefore copyright) Dr Kay Robbins 
- * (krobbins@cs.utsa.edu) and Dr. Steve Robbins (srobbins@cs.utsa.edu), 
- * and was released with unspecified licensing as part of their book 
+ * This code is written by (and is therefore copyright) Dr Kay Robbins
+ * (krobbins@cs.utsa.edu) and Dr. Steve Robbins (srobbins@cs.utsa.edu),
+ * and was released with unspecified licensing as part of their book
  * _UNIX_Systems_Programming_ (Prentice Hall, ISBN: 0130424110).
  *
- * Dr. Steve Robbins was kind enough to allow me to re-license this 
- * software as GPL.  I would request that any bugs or problems with 
- * this code be brought to my attention (ron@pedde.com), and I will 
+ * Dr. Steve Robbins was kind enough to allow me to re-license this
+ * software as GPL.  I would request that any bugs or problems with
+ * this code be brought to my attention (ron@pedde.com), and I will
  * submit appropriate patches upstream, should the problem be with
  * the original code.
  *
@@ -42,6 +42,8 @@
 #include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/types.h>
+
+#include "daapd.h"
 #include "uici.h"
 
 #ifndef MAXBACKLOG
@@ -69,7 +71,7 @@ static int u_ignore_sigpipe() {
       act.sa_handler = SIG_IGN;
       if (sigaction(SIGPIPE, &act, (struct sigaction *)NULL) == -1)
          return -1;
-   }   
+   }
    return 0;
 }
 
@@ -83,30 +85,30 @@ static int u_ignore_sigpipe() {
  *           -1 on error and sets errno
  */
 int u_open(u_port_t port) {
-   int error;  
+   int error;
    struct sockaddr_in server;
    int sock;
    int true = 1;
 
    if ((u_ignore_sigpipe() == -1) ||
         ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1))
-      return -1; 
+      return -1;
 
    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&true,
                   sizeof(true)) == -1) {
       error = errno;
-      while ((close(sock) == -1) && (errno == EINTR)); 
+      while ((close(sock) == -1) && (errno == EINTR));
       errno = error;
       return -1;
    }
- 
+
    server.sin_family = AF_INET;
    server.sin_addr.s_addr = htonl(INADDR_ANY);
    server.sin_port = htons((short)port);
    if ((bind(sock, (struct sockaddr *)&server, sizeof(server)) == -1) ||
         (listen(sock, MAXBACKLOG) == -1)) {
       error = errno;
-      while ((close(sock) == -1) && (errno == EINTR)); 
+      while ((close(sock) == -1) && (errno == EINTR));
       errno = error;
       return -1;
    }
@@ -142,10 +144,10 @@ int u_accept(int fd, struct in_addr *hostaddr) {
    while (((retval =
            accept(fd, (struct sockaddr *)(&netclient), &len)) == -1) &&
           (errno == EINTR))
-      ;  
+      ;
    if (retval == -1)
       return retval;
-   
+
    *hostaddr = netclient.sin_addr;
    return retval;
 }
@@ -169,7 +171,7 @@ int u_connect(u_port_t port, char *hostn) {
    struct hostent *phe;
 
 
-   /* fix broken name resolution for hosts beginning with a 
+   /* fix broken name resolution for hosts beginning with a
     * digit, plus get rid of hostname lookup stuff
     */
    if(inet_addr(hostn) == INADDR_NONE) {
@@ -201,11 +203,11 @@ int u_connect(u_port_t port, char *hostn) {
                (errno == EINTR) ) {
           FD_ZERO(&sockset);
           FD_SET(sock, &sockset);
-       } 
+       }
    }
    if (retval == -1) {
         error = errno;
-        while ((close(sock) == -1) && (errno == EINTR)); 
+        while ((close(sock) == -1) && (errno == EINTR));
         errno = error;
         return -1;
    }
