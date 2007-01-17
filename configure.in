@@ -6,6 +6,8 @@ AC_INIT(config.h.in)
 AM_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE(mt-daapd,0.2.1.1)
 
+ACLOCAL="$ACLOCAL -I m4 $ACLOCAL_FLAGS"
+
 AC_USE_SYSTEM_EXTENSIONS
 
 dnl Checks for programs.
