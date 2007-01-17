@@ -23,10 +23,12 @@ if ( echo $SVNVERSION | grep ":" > /dev/null 2>&1 ); then
     exit
 fi
 
-if [ ! -f mt-daapd-svn-${SVNVERSION}.tar.gz ]; then
-    echo Build svn version ${SVNVERSION} first....
-    exit
-fi
+#if [ ! -f mt-daapd-svn-${SVNVERSION}.tar.gz ]; then
+#    echo Build svn version ${SVNVERSION} first....
+#    exit
+#fi
+
+./mkdist.sh
 
 rm -rf .build
 mkdir -p .build/ppc
