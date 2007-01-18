@@ -34,6 +34,11 @@ void *debug_calloc(char *file, int line, size_t count, size_t size);
 char *debug_strdup(char *file, int line, const char *str);
 void debug_dump(void);
 
+
+void *_debug_alloc_nolock(char *file, int line, size_t size);
+DEBUGNODE *_debug_find_ptr(void *ptr);
+void _debug_register_ptr(char *file, int line, void *ptr, size_t size);
+
 /**
  * find a ptr in the node list, assuming the list is already
  * locked.
@@ -54,7 +59,18 @@ DEBUGNODE *_debug_find_ptr(void *ptr) {
     return NULL;
 }
 
-void *_debug_alloc_nolock(char *file, int line, int size) {
+void *_debug_alloc_nolock(char *file, int line, size_t size) {
+    void *ptr;
+
+    ptr = malloc(size);
+    if(!ptr)
+        DPRINTF(E_FATAL,L_MISC,"Malloc failed in _debug_alloc\n");
+
+    _debug_register_ptr(file, line, ptr, size);
+    return ptr;
+}
+
+void _debug_register_ptr(char *file, int line, void *ptr, size_t size) {
     DEBUGNODE *pnew;
 
     pnew = (DEBUGNODE *)malloc(sizeof(DEBUGNODE));
@@ -64,15 +80,16 @@ void *_debug_alloc_nolock(char *file, int line, int size) {
     pnew->file = strdup(file);
     pnew->line = line;
     pnew->size = size;
-    pnew->ptr = malloc(size);
-
-    if(!pnew->ptr)
-        DPRINTF(E_FATAL,L_MISC,"Malloc failed in _debug_alloc\n");
+    pnew->ptr = ptr;
 
     pnew->next = _debug_memlist.next;
     _debug_memlist.next = pnew;
+}
 
-    return pnew->ptr;
+void debug_register(char *file, int line, void *ptr, size_t size) {
+    util_mutex_lock(l_memdebug);
+    _debug_register_ptr(file, line, ptr, size);
+    util_mutex_unlock(l_memdebug);
 }
 
 void *_debug_alloc(char *file, int line, int size) {

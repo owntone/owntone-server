@@ -580,7 +580,6 @@ int main(int argc, char *argv[]) {
             DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in "
                     "%d seconds\n",song_count,old_song_count,
                     time(NULL)-start_time);
-            conf_dispose_array(mp3_dir_array);
         }
 
         os_wait(MAIN_SLEEP_INTERVAL);

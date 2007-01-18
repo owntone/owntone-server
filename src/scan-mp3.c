@@ -363,6 +363,9 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
                     utf8_text=(char *)id3_ucs4_utf8duplicate(native_text);
                 }
 
+                if(utf8_text)
+                    mem_register(utf8_text,0);
+
                 if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
                     used=1;
                     pmp3->title = utf8_text;
@@ -484,6 +487,9 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
             native_text=id3_field_getstring(&pid3frame->fields[2]);
             if(native_text) {
                 utf8_text=(char*)id3_ucs4_utf8duplicate(native_text);
+                if(utf8_text)
+                    mem_register(utf8_text,0);
+
                 if((utf8_text) && (strncasecmp(utf8_text,"iTun",4) != 0)) {
                     /* it's a real comment */
                     if(utf8_text)
@@ -495,6 +501,7 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
                             free(pmp3->comment);
                         utf8_text=(char*)id3_ucs4_utf8duplicate(native_text);
                         if(utf8_text) {
+                            mem_register(utf8_text,0);
                             pmp3->comment=utf8_text;
                         }
                     }

@@ -1510,7 +1510,6 @@ void conf_dispose_array(char **argv) {
     if(!argv)
         return;
 
-
     while(argv[index]) {
         free(argv[index]);
         index++;

@@ -61,7 +61,7 @@ static char *scan_xml_file; /** < The actual file we are scanning */
 static struct rbtree *scan_xml_db;
 
 #define MAYBECOPY(a) if(mp3.a) pmp3->a = mp3.a
-#define MAYBECOPYSTRING(a) if(mp3.a) { free(pmp3->a); pmp3->a = mp3.a; mp3.a=NULL; }
+#define MAYBECOPYSTRING(a) if(mp3.a) { if(pmp3->a) free(pmp3->a); pmp3->a = mp3.a; mp3.a=NULL; }
 #define MAYBEFREE(a) if((a)) { free((a)); (a)=NULL; }
 
 /** iTunes xml values we are interested in */
