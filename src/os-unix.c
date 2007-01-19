@@ -221,7 +221,7 @@ int os_signal_server(int what) {
     FILE *pid_fp;
     int pid;
     int result = TRUE;
-    int signal;
+    int signal = 0;
 
     if(NULL == (pid_fp = fopen(_os_pidfile, "r"))) {
         DPRINTF(E_LOG,L_MAIN,"fdopen: %s\n",strerror(errno));
@@ -442,7 +442,7 @@ int _os_start_signal_handler() {
        (sigaddset(&set,SIGHUP) == -1) ||
        (sigaddset(&set,SIGCLD) == -1) ||
        (sigaddset(&set,SIGTERM) == -1) ||
-       (sigprocmask(SIG_BLOCK, &set, NULL) == -1)) {
+       (pthread_sigmask(SIG_BLOCK, &set, NULL) == -1)) {
         DPRINTF(E_LOG,L_MAIN,"Error setting signal set\n");
         return -1;
     }
