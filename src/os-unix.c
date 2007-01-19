@@ -95,9 +95,9 @@ int os_init(int foreground, char *runas) {
                 DPRINTF(E_LOG,L_MAIN,"fdopen: %s\n",strerror(errno));
         }
         /* just to be on the safe side... */
+        _os_daemon_start();
         fprintf(pid_fp,"%d\n",getpid());
         fclose(pid_fp);
-        _os_daemon_start();
     }
 
     // Drop privs here
