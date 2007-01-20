@@ -85,6 +85,12 @@ int os_init(int foreground, char *runas) {
     int pid_fd;
     FILE *pid_fp=NULL;
 
+    /* block signals and set up the signal handling thread */
+    DPRINTF(E_LOG,L_MAIN,"Starting signal handler\n");
+    if(_os_start_signal_handler()) {
+        DPRINTF(E_FATAL,L_MAIN,"Error starting signal handler %s\n",strerror(errno));
+    }
+
     /* open the pidfile, so it can be written once we detach */
     if(!foreground) {
         if(-1 == (pid_fd = open(_os_pidfile,O_CREAT | O_WRONLY | O_TRUNC, 0644))) {
@@ -94,21 +100,15 @@ int os_init(int foreground, char *runas) {
             if(0 == (pid_fp = fdopen(pid_fd, "w")))
                 DPRINTF(E_LOG,L_MAIN,"fdopen: %s\n",strerror(errno));
         }
-        /* just to be on the safe side... */
         _os_daemon_start();
         fprintf(pid_fp,"%d\n",getpid());
         fclose(pid_fp);
+        DPRINTF(E_DBG,L_MAIN,"Pid: %d\n",getpid());
     }
 
     // Drop privs here
     if(os_drop_privs(runas)) {
         DPRINTF(E_FATAL,L_MAIN,"Error in drop_privs: %s\n",strerror(errno));
-    }
-
-    /* block signals and set up the signal handling thread */
-    DPRINTF(E_LOG,L_MAIN,"Starting signal handler\n");
-    if(_os_start_signal_handler()) {
-        DPRINTF(E_FATAL,L_MAIN,"Error starting signal handler %s\n",strerror(errno));
     }
 
     return TRUE;
@@ -245,7 +245,7 @@ int os_signal_server(int what) {
         signal=SIGUSR2;
         break;
     case S_STOP:
-        signal=SIGSTOP;
+        signal=SIGTERM;
     default:
         break;
 
@@ -434,8 +434,21 @@ void os_wait(int seconds) {
  *
  * \returns 0 on success, -1 on failure with errno set
  */
-int _os_start_signal_handler() {
+int _os_start_signal_handler(void) {
     sigset_t set;
+    struct sigaction action;
+
+    action.sa_handler = SIG_IGN;
+    sigemptyset(&action.sa_mask);
+    action.sa_flags=0;
+
+    if((sigaction(SIGTERM,&action,NULL) == -1) ||
+       (sigaction(SIGHUP,&action,NULL) == -1) ||
+       (sigaction(SIGCLD,&action,NULL) == -1) ||
+       (sigaction(SIGINT,&action,NULL) ==-1)) {
+        DPRINTF(E_LOG,L_MAIN,"Error ignoring signals\n");
+        return -1;
+    }
 
     if((sigemptyset(&set) == -1) ||
        (sigaddset(&set,SIGINT) == -1) ||
