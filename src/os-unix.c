@@ -360,62 +360,55 @@ int os_drop_privs(char *user) {
  */
 void os_wait(int seconds) {
     sigset_t intmask;
-    int sig;
     int status;
-    int done=0;
-
+    struct sigaction sa_ign;
+    struct sigaction sa_dfl;
     sleep(seconds);
 
-    while(!done) {
-        if(!sigpending(&intmask)) {
-            if(sigismember(&intmask, SIGCLD) ||
-               sigismember(&intmask, SIGINT) ||
-               sigismember(&intmask, SIGHUP) ||
-               sigismember(&intmask, SIGTERM)) {
-                /* do a sigwait for it */
-                if((sigemptyset(&intmask) == -1) ||
-                   (sigaddset(&intmask, SIGCLD) == -1) ||
-                   (sigaddset(&intmask, SIGINT) == -1) ||
-                   (sigaddset(&intmask, SIGHUP) == -1) ||
-                   (sigaddset(&intmask, SIGTERM) == -1) ||
-                   (sigwait(&intmask, &sig) == -1)) {
-                    DPRINTF(E_FATAL,L_MAIN,"Error waiting for signals.");
-                } else {
-                    /* process the signal */
-                    switch(sig) {
-                    case SIGCLD:
-                        DPRINTF(E_LOG,L_MAIN,"Got CLD signal.  Reaping\n");
-                        while (wait3(&status, WNOHANG, NULL) > 0) {};
-                        break;
-                    case SIGTERM:
-                    case SIGINT:
-                        DPRINTF(E_LOG,L_MAIN,"Got shutdown signal.\n");
-                        config.stop=1;
-                        return;
-                        break;
-                    case SIGHUP:
-                        DPRINTF(E_LOG,L_MAIN,"Got HUP signal.\n");
-                        /* if we can't reload, it keeps the old config file,
-                         * so no real damage */
-                        conf_reload();
-                        err_reopen();
+    sigpending(&intmask);
 
-                        config.reload=1;
-                        break;
-                    default:
-                        DPRINTF(E_LOG,L_MAIN,"What am I doing here?\n");
-                        break;
-                    }
-                }
-            } else {
-                done=1;
-            }
-        } else {
-            DPRINTF(E_FATAL,L_MAIN,"Error in sigpending\n");
-        }
+    sa_ign.sa_handler=SIG_IGN;
+    sa_ign.sa_flags=0;
+    sigemptyset(&sa_ign.sa_mask);
+
+    sa_dfl.sa_handler=SIG_DFL;
+    sa_dfl.sa_flags=0;
+    sigemptyset(&sa_dfl.sa_mask);
+
+
+    if(sigismember(&intmask, SIGCLD)) {
+        DPRINTF(E_LOG,L_MAIN,"Got CLD signal.  Reaping\n");
+        while (wait3(&status, WNOHANG, NULL) > 0) {};
+
+        sigaction(SIGCLD,&sa_ign,NULL);
+        sigaction(SIGCLD,&sa_dfl,NULL);
+    }
+
+    if((sigismember(&intmask, SIGTERM)) ||
+       (sigismember(&intmask, SIGINT))) {
+        DPRINTF(E_LOG,L_MAIN,"Got shutdown signal.\n");
+        config.stop=1;
+
+        sigaction(SIGTERM,&sa_ign,NULL);
+        sigaction(SIGTERM,&sa_dfl,NULL);
+
+        sigaction(SIGINT,&sa_ign,NULL);
+        sigaction(SIGINT,&sa_dfl,NULL);
+    }
+
+    if(sigismember(&intmask, SIGHUP)) {
+        DPRINTF(E_LOG,L_MAIN,"Got HUP signal.\n");
+        /* if we can't reload, it keeps the old config file,
+         * so no real damage */
+        conf_reload();
+        err_reopen();
+
+        config.reload=1;
+
+        sigaction(SIGHUP,&sa_ign,NULL);
+        sigaction(SIGHUP,&sa_dfl,NULL);
     }
 }
-
 
 /**
  * Wait for signals and flag the main process.  This is
@@ -436,19 +429,6 @@ void os_wait(int seconds) {
  */
 int _os_start_signal_handler(void) {
     sigset_t set;
-    struct sigaction action;
-
-    action.sa_handler = SIG_IGN;
-    sigemptyset(&action.sa_mask);
-    action.sa_flags=0;
-
-    if((sigaction(SIGTERM,&action,NULL) == -1) ||
-       (sigaction(SIGHUP,&action,NULL) == -1) ||
-       (sigaction(SIGCLD,&action,NULL) == -1) ||
-       (sigaction(SIGINT,&action,NULL) ==-1)) {
-        DPRINTF(E_LOG,L_MAIN,"Error ignoring signals\n");
-        return -1;
-    }
 
     if((sigemptyset(&set) == -1) ||
        (sigaddset(&set,SIGINT) == -1) ||
