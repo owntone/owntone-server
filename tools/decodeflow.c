@@ -121,7 +121,7 @@ DAAP_ITEMS taglist[] = {
     /* iTunes 5.0+ */
     { 0x01, "ascr", "daap.songcontentrating" },
     { 0x01, "f" "\x8d" "ch", "dmap.haschildcontainers" }, /* was 5? */
-    
+
     /* iTunes 6.0.2+ */
     { 0x01, "aeHV", "com.apple.itunes.has-video" },
 
@@ -141,7 +141,7 @@ DAAP_ITEMS taglist[] = {
     { 0x09, "aeEN", "com.apple.itunes.episode-num-str" },
     { 0x05, "aeES", "com.apple.itunes.episode-sort" },
     { 0x05, "aeSU", "com.apple.itunes.season-num" },
-    
+
     /* mt-daapd specific */
     { 0x09, "MSPS", "org.mt-daapd.smart-playlist-spec" },
     { 0x01, "MPTY", "org.mt-daapd.playlist-type" },
@@ -164,12 +164,12 @@ int lookup_tag(char *tag, char *descr, int *type) {
         strcpy(descr,current->description);
         *type = current->type;
         return 1;
-    } 
+    }
 
     return 0;
 }
 
-int decode_tag(FILE *fout, char *current, int level, int len) {
+int decode_tag(FILE *fout, unsigned char *current, int level, int len) {
     int type;
     int subtag_len;
     int tempint;
@@ -179,13 +179,24 @@ int decode_tag(FILE *fout, char *current, int level, int len) {
     char line[4096];
     char templine[4096];
 
+    unsigned char cval;
+    unsigned short int sival;
+    unsigned int ival;
+    unsigned long long lival;
+
     while(len) {
         memset(tag,0,sizeof(tag));
         memcpy(tag,current,4);
         current += 4;
         len -= 4;
 
-        memcpy((char*)&subtag_len,current,4);
+        subtag_len = current[0] << 24 |
+            current[1] << 16 |
+            current[2] << 8 |
+            current[3];
+
+        //        fprintf(stderr,"Tag: %c%c%c%c, subtag len: %d, len: %d\n",
+        //                tag[0],tag[1],tag[2],tag[3],subtag_len, len);
         current += 4;
         len -= 4;
 
@@ -202,7 +213,8 @@ int decode_tag(FILE *fout, char *current, int level, int len) {
                            tag,subtag_len);
                     exit(EXIT_FAILURE);
                 }
-                sprintf(templine,"%02x (%d)\n",*((char*)current),(int)(*((char*)current)));
+                cval = *current;
+                sprintf(templine,"%02x (%d)\n",cval, (int)cval);
                 current += 1;
                 len -= 1;
                 break;
@@ -213,11 +225,13 @@ int decode_tag(FILE *fout, char *current, int level, int len) {
                            tag,subtag_len);
                     exit(EXIT_FAILURE);
                 }
-                sprintf(templine,"%02x %d\n",*((short int*)current),(int)(*((short int *)current)));
+                sival = current[0] << 8 |
+                    current[1];
+                sprintf(templine,"%02x %d\n",sival,(int)sival);
                 current += 2;
                 len -= 2;
                 break;
-                
+
                 break;
 
             case 0x0A:
@@ -236,7 +250,11 @@ int decode_tag(FILE *fout, char *current, int level, int len) {
                             *((char*)current+3),
                             *((int*)current));
                 } else {
-                    sprintf(templine,"%04x (%d)\n",*((int*)current),*((int*)current));
+                    ival = current[0] << 24 |
+                        current[1] << 16 |
+                        current[2] << 8 |
+                        current[3];
+                    sprintf(templine,"%04x (%d)\n",ival,ival);
                 }
                 current += 4;
                 len -= 4;
@@ -249,7 +267,21 @@ int decode_tag(FILE *fout, char *current, int level, int len) {
                     exit(EXIT_FAILURE);
                 }
 
-                sprintf(templine,"%04x%04x (%lu)\n",*((int*)current),*((int*)current+4),*((long long*)current));
+                lival = current[0] << 24 |
+                    current[1] << 16 |
+                    current[2] << 8 |
+                    current[3];
+
+                lival = lival << 32;
+                lival = lival | current [4] << 24 |
+                    current[5] << 16 |
+                    current[6] << 8 |
+                    current[7];
+
+                sprintf(templine,"%04x%04x (%lu)\n",
+                        (unsigned int)((lival >> 32) & 0xFFFFFFFF),
+                        (unsigned int)(lival & 0xFFFFFFFF),
+                        lival);
                 current += 8;
                 len -= 8;
                 break;
@@ -273,14 +305,17 @@ int decode_tag(FILE *fout, char *current, int level, int len) {
                     exit(EXIT_FAILURE);
                 }
 
-                tempint = *((int*)current);
-                sprintf(templine,"%d.%d\n",tempint >> 16 & 0xFFFF,
-                        tempint & 0xFFFF);
+                ival = current[0] << 24 |
+                    current[1] << 16 |
+                    current[2] << 8 |
+                    current[3];
+                sprintf(templine,"%d.%d\n",ival >> 16 & 0xFFFF,
+                        ival & 0xFFFF);
 
                 current += 4;
                 len -= 4;
                 break;
-                
+
             case 0x0C:
                 sprintf(templine,"<container>\n");
                 break;
@@ -307,18 +342,18 @@ int decode_tag(FILE *fout, char *current, int level, int len) {
             exit(EXIT_FAILURE);
             return 0;
         }
-        
+
     }
-    
+
     return 1;
 }
 
 
 
-void decode_dmap(int conv, char *uncompressed, long uncompressed_size) {
+void decode_dmap(int conv, unsigned char *uncompressed, long uncompressed_size) {
     char buffer[256];
     FILE *fout;
-    
+
     sprintf(buffer,"decoded.%d",conv);
     fout=fopen(buffer,"w");
 
@@ -365,7 +400,7 @@ int main(int argc, char *argv[]) {
     int done=0;
     FILE *out;
     char *compressed;
-    char *uncompressed;
+    unsigned char *uncompressed;
     long compressed_size;
     long uncompressed_size;
     int err;
@@ -387,7 +422,7 @@ int main(int argc, char *argv[]) {
             break;
         }
     }
-    
+
 
     if(optind == argc) {
         usage();
@@ -403,7 +438,7 @@ int main(int argc, char *argv[]) {
         out=fdopen(STDOUT_FILENO,"w");
         uncompressed_size=lseek(fd,0,SEEK_END);
         lseek(fd,0,SEEK_SET);
-        uncompressed=(char*)malloc(uncompressed_size);
+        uncompressed=(unsigned char*)malloc(uncompressed_size);
         read(fd,uncompressed,uncompressed_size);
         decode_tag(out,uncompressed,0,uncompressed_size);
         exit(EXIT_SUCCESS);
@@ -419,50 +454,50 @@ int main(int argc, char *argv[]) {
                 done=1;
                 break;
             }
-                
+
             printf("got %s\n",buffer);
-                
-            if(!strlen(buffer)) 
+
+            if(!strlen(buffer))
                 break;
-                
+
             if(strncasecmp(buffer,"Content-Encoding:",17) == 0) {
                 loc=buffer+17;
                 while(*loc==' ') {
                     loc++;
                 }
-                
+
                 if(strncasecmp(loc,"gzip",4) == 0) {
                     is_compressed=1;
                 }
             }
-                
+
             if(strncasecmp(buffer,"Content-Length:",15) == 0) {
                 compressed_size=atol((char*)&buffer[15]);
                 printf("Size of conv %d is %d\n",conversation,compressed_size);
             }
         }
-            
+
         if(done)
             break;
 
         printf("Headers complete for conversation %d\n",conversation);
         printf("Flow %s compressed\n",is_compressed ? "IS" : "IS NOT");
-            
+
         uncompressed_size = 20 * compressed_size;
-            
+
         compressed=(char*)malloc(compressed_size);
-        uncompressed=(char*)malloc(uncompressed_size);
-            
+        uncompressed=(unsigned char*)malloc(uncompressed_size);
+
         if((!compressed) || (!uncompressed)) {
             perror("malloc");
             exit(EXIT_FAILURE);
         }
-            
+
         if(read(fd,compressed,compressed_size) != compressed_size) {
             perror("read");
             exit(EXIT_FAILURE);
         }
-            
+
         /* dump the compressed data */
         sprintf(file,"compressed.%d",conversation);
         out_fd=open(file,O_CREAT | O_RDWR,0666);
@@ -470,10 +505,10 @@ int main(int argc, char *argv[]) {
             perror("open");
             exit(EXIT_FAILURE);
         }
-            
+
         write(out_fd,compressed,compressed_size);
         close(out_fd);
-            
+
         if(is_compressed) {
             sprintf(file,"/sw/bin/zcat compressed.%d",conversation);
             stream=popen(file,"r");
@@ -481,19 +516,19 @@ int main(int argc, char *argv[]) {
                 perror("popen");
                 exit(EXIT_FAILURE);
             }
-                
-                
+
+
             err=fread(uncompressed,1,uncompressed_size,stream);
             if(err == -1) {
                 perror("fread");
                 exit(EXIT_FAILURE);
             }
-                
+
             if(err == uncompressed_size) {
                 printf("Error: buffer too small\n");
                 exit(EXIT_FAILURE);
             }
-                
+
             uncompressed_size = err;
             pclose(stream);
         } else {
@@ -516,7 +551,7 @@ int main(int argc, char *argv[]) {
 
         /* now decode and print */
         decode_dmap(conversation, uncompressed, uncompressed_size);
-        
+
         free(compressed);
         free(uncompressed);
         conversation++;
