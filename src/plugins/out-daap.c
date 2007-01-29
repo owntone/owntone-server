@@ -102,7 +102,7 @@ PLUGIN_REND_INFO _pri[] = {
     { NULL, NULL }
 };
 PLUGIN_INPUT_FN *_ppi;
-PLUGIN_INFO _pi = { 
+PLUGIN_INFO _pi = {
     PLUGIN_VERSION,      /* version */
     PLUGIN_OUTPUT,       /* type */
     "daap/" VERSION,     /* server */
@@ -118,11 +118,11 @@ typedef struct tag_response {
     char *uri[10];
     void (*dispatch)(WS_CONNINFO *, PRIVINFO *);
 } PLUGIN_RESPONSE;
-    
+
 PLUGIN_RESPONSE daap_uri_map[] = {
     {{"server-info",   NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL },
      out_daap_server_info },
-    {{"content-codes", NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL }, 
+    {{"content-codes", NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL },
      out_daap_content_codes },
     {{"login",         NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL },
      out_daap_login },
@@ -305,7 +305,7 @@ void plugin_handler(WS_CONNINFO *pwsc) {
 
     string = _ppi->ws_uri(pwsc);
     string++;
-    
+
     _ppi->log(E_DBG,"Mallocing privinfo...\n");
     ppi = (PRIVINFO *)malloc(sizeof(PRIVINFO));
     if(ppi) {
@@ -354,7 +354,7 @@ void plugin_handler(WS_CONNINFO *pwsc) {
         }
     }
 
-    _ppi->log(E_DBG,"Index %s: offset %d, limit %d\n",index_req, 
+    _ppi->log(E_DBG,"Index %s: offset %d, limit %d\n",index_req,
               ppi->dq.offset,ppi->dq.limit);
 
     if(_ppi->ws_getvar(pwsc,"query")) {
@@ -384,7 +384,7 @@ void plugin_handler(WS_CONNINFO *pwsc) {
             if((ppi->uri_sections[part]) && (!daap_uri_map[index].uri[part]))
                 break;
 
-            if((daap_uri_map[index].uri[part]) && 
+            if((daap_uri_map[index].uri[part]) &&
                (strcmp(daap_uri_map[index].uri[part],"*") != 0)) {
                 if(strcmp(daap_uri_map[index].uri[part],
                           ppi->uri_sections[part])!= 0)
@@ -1170,7 +1170,7 @@ void out_daap_playlists(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     _ppi->log(E_DBG,"Item enum:  got %d playlists, dmap size: %d\n",pl_count,list_length);
 
     mtco = pl_count;
-    if((ppi->dq.offset) || (ppi->dq.limit)) 
+    if((ppi->dq.offset) || (ppi->dq.limit))
         mtco = ppi->dq.totalcount;
 
     current += dmap_add_container(current,"aply",list_length + 53);
@@ -1301,22 +1301,23 @@ void out_daap_dbinfo(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     namelen=(int) strlen(servername);
 
-    current += dmap_add_container(current,"avdb",105 + namelen);
+    current += dmap_add_container(current,"avdb",121 + namelen);
     current += dmap_add_int(current,"mstt",200);                    /* 12 */
     current += dmap_add_char(current,"muty",0);                     /*  9 */
     current += dmap_add_int(current,"mtco",1);                      /* 12 */
     current += dmap_add_int(current,"mrco",1);                      /* 12 */
-    current += dmap_add_container(current,"mlcl",52 + namelen);
-    current += dmap_add_container(current,"mlit",44 + namelen);
+    current += dmap_add_container(current,"mlcl",68 + namelen);
+    current += dmap_add_container(current,"mlit",60 + namelen);
     current += dmap_add_int(current,"miid",1);                      /* 12 */
+    current += dmap_add_long(current,"mper",1);                     /* 16 */
     current += dmap_add_string(current,"minm",servername); /* 8 + namelen */
     count = _ppi->db_count_items(COUNT_SONGS);
     current += dmap_add_int(current,"mimc",count);                  /* 12 */
     count = _ppi->db_count_items(COUNT_PLAYLISTS);
     current += dmap_add_int(current,"mctc",count);                  /* 12 */
 
-    out_daap_output_start(pwsc,ppi,113+namelen);
-    out_daap_output_write(pwsc,ppi,dbinfo_response,113+namelen);
+    out_daap_output_start(pwsc,ppi,129+namelen);
+    out_daap_output_write(pwsc,ppi,dbinfo_response,129+namelen);
     out_daap_output_end(pwsc,ppi);
 
     return;
@@ -1409,7 +1410,7 @@ void out_daap_server_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     _ppi->server_name(servername,&size);
     //    supports_update = conf_get_int("daap","supports_update",1);
 
-    actual_length=130 + (int) strlen(servername);
+    actual_length=139 + (int) strlen(servername);
     if(!supports_update)
         actual_length -= 9;
 
@@ -1444,6 +1445,8 @@ void out_daap_server_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     current += dmap_add_char(current,"msix",0);         /* 9 */
     current += dmap_add_char(current,"msbr",0);         /* 9 */
     current += dmap_add_char(current,"msqy",0);         /* 9 */
+
+    current += dmap_add_char(current,"mspi",0);
     current += dmap_add_int(current,"msdc",1);          /* 12 */
 
     if(supports_update)

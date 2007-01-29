@@ -23,6 +23,7 @@ extern int daap_wantsmeta(MetaField_t meta, MetaFieldName_t fieldNo);
 extern int dmap_add_char(unsigned char *where, char *tag, char value);
 extern int dmap_add_short(unsigned char *where, char *tag, short value);
 extern int dmap_add_int(unsigned char *where, char *tag, int value);
+extern int dmap_add_long(unsigned char *where, char *tag, uint64_t value);
 extern int dmap_add_string(unsigned char *where, char *tag, char *value);
 extern int dmap_add_literal(unsigned char *where, char *tag, char *value, int size);
 extern int dmap_add_container(unsigned char *where, char *tag, int size);

@@ -346,6 +346,34 @@ int dmap_add_int(unsigned char *where, char *tag, int value) {
     return 12;
 }
 
+int dmap_add_long(unsigned char *where, char *tag, uint64_t value) {
+    uint32_t v_hi;
+    uint32_t v_lo;
+
+    /* tag */
+    memcpy(where,tag,4);
+    /* len */
+    where[4]=where[5]=where[6]=0;
+    where[7]=8;
+
+    v_hi = (value >> 32) & 0xFFFFFFFF;
+    v_lo = value & 0xFFFFFFFF;
+
+    /* value */
+    where[8] = (v_hi >> 24) & 0xFF;
+    where[9] = (v_hi >> 16) & 0xFF;
+    where[10] = (v_hi >> 8) & 0xFF;
+    where[11] = v_hi & 0xFF;
+
+    where[12] = (v_lo >> 24) & 0xFF;
+    where[13] = (v_lo >> 16) & 0xFF;
+    where[14] = (v_lo >> 8) & 0xFF;
+    where[15] = v_lo & 0xFF;
+
+    return 16;
+}
+
+
 /**
  * add a string type to a dmap block (type 0x09)
  *
@@ -522,9 +550,15 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
         if(daap_wantsmeta(pinfo->meta, metaItemId))
             size += 12; /* miid */
         if(daap_wantsmeta(pinfo->meta, metaItunesSmartPlaylist)) {
-            if(valarray[PL_TYPE] && (atoi(valarray[PL_TYPE])==1))
+            if(valarray[PL_TYPE] && (atoi(valarray[PL_TYPE])==1) &&
+               (atoi(valarray[PL_ID]) != 1))
                 size += 9;  /* aeSP */
         }
+
+        if(atoi(valarray[PL_ID]) == 1) {
+            size += 9; /* abpl */
+        }
+
         if(daap_wantsmeta(pinfo->meta, metaItemName))
             size += (8 + (int) strlen(valarray[PL_TITLE])); /* minm */
         if(valarray[PL_TYPE] && (atoi(valarray[PL_TYPE])==1) &&
@@ -563,8 +597,7 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
         if(daap_wantsmeta(pinfo->meta, metaSongArtist))
             /* asar */
             size += DMAPLEN(valarray[SG_ARTIST]);
-        if(valarray[SG_BPM] && atoi(valarray[SG_BPM]) &&
-           daap_wantsmeta(pinfo->meta, metaSongBPM))
+        if(daap_wantsmeta(pinfo->meta, metaSongBPM))
             /* asbt */
             size += 10;
         if(daap_wantsmeta(pinfo->meta, metaSongBitRate)) {
@@ -600,12 +633,10 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
            daap_wantsmeta(pinfo->meta,metaSongDateModified))
             /* asdm */
             size += 12;
-        if(valarray[SG_TOTAL_DISCS] && atoi(valarray[SG_TOTAL_DISCS]) &&
-           daap_wantsmeta(pinfo->meta, metaSongDiscCount))
+        if(daap_wantsmeta(pinfo->meta, metaSongDiscCount))
             /* asdc */
             size += 10;
-        if(valarray[SG_DISC] && atoi(valarray[SG_DISC]) &&
-           daap_wantsmeta(pinfo->meta, metaSongDiscNumber))
+        if(daap_wantsmeta(pinfo->meta, metaSongDiscNumber))
             /* asdn */
             size += 10;
         if(daap_wantsmeta(pinfo->meta, metaSongGenre))
@@ -663,8 +694,7 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
            daap_wantsmeta(pinfo->meta, metaSongTrackNumber))
             /* astn */
             size += 10;
-        if(valarray[SG_RATING] && atoi(valarray[SG_RATING]) &&
-           daap_wantsmeta(pinfo->meta, metaSongUserRating))
+        if(daap_wantsmeta(pinfo->meta, metaSongUserRating))
             /* asur */
             size += 9;
         if(valarray[SG_YEAR] && atoi(valarray[SG_YEAR]) &&
@@ -711,9 +741,14 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
             current += dmap_add_int(current,"miid",atoi(valarray[PL_ID]));
         current += dmap_add_int(current,"mimc",atoi(valarray[PL_ITEMS]));
         if(daap_wantsmeta(pinfo->meta,metaItunesSmartPlaylist)) {
-            if(valarray[PL_TYPE] && (atoi(valarray[PL_TYPE]) == 1))
+            if(valarray[PL_TYPE] && (atoi(valarray[PL_TYPE]) == 1) &&
+               (atoi(valarray[PL_ID]) != 1))
                 current += dmap_add_char(current,"aeSP",1);
         }
+        if(atoi(valarray[PL_ID]) == 1) {
+            current += dmap_add_char(current,"abpl",1);
+        }
+
         if(daap_wantsmeta(pinfo->meta,metaItemName))
             current += dmap_add_string(current,"minm",valarray[PL_TITLE]);
         if((valarray[PL_TYPE]) && (atoi(valarray[PL_TYPE])==1) &&
@@ -748,7 +783,7 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
             current += dmap_add_string(current,"asal",valarray[SG_ALBUM]);
         if(EMIT(valarray[4]) && daap_wantsmeta(pinfo->meta, metaSongArtist))
             current += dmap_add_string(current,"asar",valarray[SG_ARTIST]);
-        if(valarray[23] && atoi(valarray[23]) && daap_wantsmeta(pinfo->meta, metaSongBPM))
+        if(daap_wantsmeta(pinfo->meta, metaSongBPM))
             current += dmap_add_short(current,"asbt",
                                          (short)atoi(valarray[SG_BPM]));
         if(valarray[SG_BITRATE] && atoi(valarray[SG_BITRATE]) &&
@@ -794,12 +829,10 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
             current += dmap_add_int(current,"asdm",
                                        (int)atoi(valarray[SG_TIME_MODIFIED]));
 
-        if(valarray[SG_TOTAL_DISCS] && atoi(valarray[SG_TOTAL_DISCS]) &&
-           daap_wantsmeta(pinfo->meta, metaSongDiscCount))
+        if(daap_wantsmeta(pinfo->meta, metaSongDiscCount))
             current += dmap_add_short(current,"asdc",
                                          (short)atoi(valarray[SG_TOTAL_DISCS]));
-        if(valarray[SG_DISC] && atoi(valarray[SG_DISC]) &&
-           daap_wantsmeta(pinfo->meta, metaSongDiscNumber))
+        if(daap_wantsmeta(pinfo->meta, metaSongDiscNumber))
             current += dmap_add_short(current,"asdn",
                                          (short)atoi(valarray[SG_DISC]));
 
@@ -864,8 +897,7 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
             current += dmap_add_short(current,"astn",
                                          (short)atoi(valarray[SG_TRACK]));
 
-        if(valarray[SG_RATING] && atoi(valarray[SG_RATING]) &&
-           daap_wantsmeta(pinfo->meta, metaSongUserRating))
+        if(daap_wantsmeta(pinfo->meta, metaSongUserRating))
             current += dmap_add_char(current,"asur",
                                         (char)atoi(valarray[SG_RATING]));
 

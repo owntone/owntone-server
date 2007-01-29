@@ -1064,6 +1064,8 @@ int db_sql_update_playlists(char **pe) {
     SQL_ROW row;
     char *where_clause;
 
+    DPRINTF(E_LOG,L_DB,"Updating playlists\n");
+
     /* FIXME: There is a race here for externally added playlists */
 
     err = db_sql_fetch_int(pe,&playlists,"select count(*) from playlists");
@@ -1088,9 +1090,9 @@ int db_sql_update_playlists(char **pe) {
           (index < playlists))
     {
         /* process row */
-        pinfo[index].plid=strdup(STR(row[0]));
-        pinfo[index].type=strdup(STR(row[1]));
-        pinfo[index].clause=strdup(STR(row[2]));
+        pinfo[index].plid=strdup(STR(row[PL_ID]));
+        pinfo[index].type=strdup(STR(row[PL_TYPE]));
+        pinfo[index].clause=strdup(STR(row[PL_QUERY]));
         DPRINTF(E_SPAM,L_DB,"Found playlist %s: type %s, clause %s\n",pinfo[index].plid,
             pinfo[index].type,pinfo[index].clause);
         index++;
