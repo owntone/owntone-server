@@ -20,6 +20,18 @@
 #include "ServiceControl.h"
 #include "ServerEvents.h"
 
+class CNotifyMsg {
+    UINT32 id;
+    UINT32 intval;
+    CString strval;
+
+public:
+    CNotifyMsg(UINT32 id, UINT32 intval, const CString &strval);
+    CString &GetStrval(void) { return strval; };
+    UINT32 GetIntval(void) { return intval; };
+};
+
+
 class CNotifyIcon 
 	: public CWindowImpl<CNotifyIcon>,
 	  public ServiceStatusObserver,
@@ -60,6 +72,7 @@ class CNotifyIcon
 	void OnClose();
 
 	void PopupBalloon(UINT title_id, UINT text_id, DWORD flags = NIIF_INFO);
+        void PopupBalloon(CString &title, CString &text, DWORD flags = NIIF_INFO);
 
 	void InflictIconState();
 	void Update();

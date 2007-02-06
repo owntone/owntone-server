@@ -19,6 +19,13 @@
 #include "NotifyIcon.h"
 #include "FireflyShell.h"
 
+CNotifyMsg::CNotifyMsg(UINT32 id, UINT32 intval, const CString &strval) {
+    this->id = id;
+    this->intval = intval;
+    this->strval = strval;
+}
+
+
 CNotifyIcon::CNotifyIcon()
 {
 	ZeroMemory(&m_nid, sizeof(NOTIFYICONDATA));
@@ -79,20 +86,21 @@ void CNotifyIcon::OnClose()
 	GetApplication()->Exit();
 }
 
-void CNotifyIcon::PopupBalloon(UINT title_id, UINT text_id, DWORD flags)
-{
-	CString title, text;
-	title.LoadString(title_id);
-	text.LoadString(text_id);
+void CNotifyIcon::PopupBalloon(CString &title, CString &text, DWORD flags) {
+    m_nid.uFlags |= NIF_INFO;
+    SafeStringCopy(m_nid.szInfoTitle, title, 64);
+    SafeStringCopy(m_nid.szInfo,text, 256);
+    m_nid.dwInfoFlags = flags;
+    m_nid.uTimeout = 10000;
+    Shell_NotifyIcon(NIM_MODIFY, &m_nid);
+}
 
-	m_nid.uFlags |= NIF_INFO;
+void CNotifyIcon::PopupBalloon(UINT title_id, UINT text_id, DWORD flags) {
+    CString title, text;
+    title.LoadString(title_id);
+    text.LoadString(text_id);
 
-	SafeStringCopy(m_nid.szInfoTitle, title, 64);
-	SafeStringCopy(m_nid.szInfo, text, 256);
-
-	m_nid.dwInfoFlags = flags;
-	m_nid.uTimeout = 10000;
-	Shell_NotifyIcon(NIM_MODIFY, &m_nid);
+    PopupBalloon(title, text, flags);
 }
 
 void CNotifyIcon::Update()
@@ -205,37 +213,47 @@ LRESULT CNotifyIcon::OnRegisteredActivation(UINT, WPARAM, LPARAM, BOOL &bHandled
 	return m_registered_activation_message;
 }
 
-void CNotifyIcon::OnServerEvent(UINT32 id, UINT32 intval, const CString &strval)
-{
-	// Note that we're running on a different thread here. We need to punt
-	// the event over to the main thread using SendMessage.
-	switch (id)
-	{
-	case 0:
-		break;
-	case 1:
-	case 2:
-		SendMessage(WM_SERVEREVENT, id);
-		break;
-	default:
-		ATLASSERT(false);
-		break;
-	}
+void CNotifyIcon::OnServerEvent(UINT32 id, UINT32 intval, const CString &strval) {
+    // Note that we're running on a different thread here. We need to punt
+    // the event over to the main thread using SendMessage.
+    CNotifyMsg *pMsgNew = new CNotifyMsg(id, intval,strval);
+
+    switch (id) {
+    case 0:
+    case 1:
+    case 2:
+        SendMessage(WM_SERVEREVENT, id, (LPARAM) pMsgNew);
+        break;
+    default:
+        ATLASSERT(false);
+        break;
+    }
 }
 
-LRESULT CNotifyIcon::OnServerEvent(UINT, WPARAM wparam, LPARAM, BOOL &bHandled)
-{
-	bHandled = true;
-	switch (wparam)
-	{
-	case 1:
-		PopupBalloon(IDR_MAINFRAME, IDS_SCAN_START);
-		break;
-	case 2:
-		PopupBalloon(IDR_MAINFRAME, IDS_SCAN_STOP);
-		break;
-	}
-	return 0;
+LRESULT CNotifyIcon::OnServerEvent(UINT, WPARAM wparam, LPARAM lparam, BOOL &bHandled) {
+    CNotifyMsg *pMsgNotify = (CNotifyMsg *)lparam;
+    bHandled = true;
+    CString title;
+    
+    title.LoadString(IDR_MAINFRAME);
+
+//    CString title, text;
+//    title.LoadString(title_id);
+
+    switch (wparam) {
+        case 0:
+            if(pMsgNotify->GetIntval() == 0)
+                PopupBalloon(title,pMsgNotify->GetStrval());
+            break;
+        case 1:
+            PopupBalloon(IDR_MAINFRAME, IDS_SCAN_START);
+            break;
+        case 2:
+            PopupBalloon(IDR_MAINFRAME, IDS_SCAN_STOP);
+            break;
+    }
+    delete(pMsgNotify);
+    return 0;
 }
 
 void CNotifyIcon::EnableUserSwitchNotifications()
