@@ -1,6 +1,6 @@
 !define LANG "JAPANESE"
 
-!insertmacro LANG_STRING PRODUCT_NAME "Firefly メディアサーバー"
+!insertmacro LANG_STRING PRODUCT_NAME "Firefly Media Server"
 
 ; Install strings
 !insertmacro LANG_STRING STRING_BONJOUR_ERROR "Windows版Bonjourサービスが見つかりません。Apple社のWindows版Bonjourをインストールしてください。"

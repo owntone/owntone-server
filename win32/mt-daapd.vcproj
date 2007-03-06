@@ -1,36 +1,66 @@
 <?xml version="1.0" encoding="Windows-1252"?>
 <VisualStudioProject
 	ProjectType="Visual C++"
-	Version="7.10"
+	Version="8.00"
 	Name="mt-daapd"
 	ProjectGUID="{CB40C666-11D7-456B-B774-BCA42F675BB5}"
 	RootNamespace="mt-daapd"
-	Keyword="Win32Proj">
+	Keyword="Win32Proj"
+	>
 	<Platforms>
 		<Platform
-			Name="Win32"/>
+			Name="Win32"
+		/>
 	</Platforms>
+	<ToolFiles>
+	</ToolFiles>
 	<Configurations>
 		<Configuration
 			Name="Debug|Win32"
 			OutputDirectory="Debug"
 			IntermediateDirectory="Debug"
 			ConfigurationType="1"
-			CharacterSet="2">
+			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="$(InputDir),..\src,.,.."
 				PreprocessorDefinitions="HAVE_CONFIG_H;ZLIB_DLL;_WINDOWS;FLAC;OGGVORBIS"
-				MinimalRebuild="TRUE"
+				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="TRUE"
-				DebugInformationFormat="4"/>
+				Detect64BitPortabilityProblems="true"
+				DebugInformationFormat="4"
+			/>
 			<Tool
-				Name="VCCustomBuildTool"/>
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				AdditionalIncludeDirectories="C:\working\projects\win32\include"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib ogg_static.lib vorbis_static.lib vorbisfile_static.lib"
@@ -38,38 +68,59 @@
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames="libc"
-				GenerateDebugInformation="TRUE"
+				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/mt-daapd.pdb"
 				SubSystem="1"
-				TargetMachine="1"/>
+				TargetMachine="1"
+			/>
 			<Tool
-				Name="VCMIDLTool"/>
+				Name="VCALinkTool"
+			/>
 			<Tool
-				Name="VCPostBuildEventTool"/>
+				Name="VCManifestTool"
+			/>
 			<Tool
-				Name="VCPreBuildEventTool"/>
+				Name="VCXDCMakeTool"
+			/>
 			<Tool
-				Name="VCPreLinkEventTool"/>
+				Name="VCBscMakeTool"
+			/>
 			<Tool
-				Name="VCResourceCompilerTool"
-				AdditionalIncludeDirectories="C:\working\projects\win32\include"/>
+				Name="VCFxCopTool"
+			/>
 			<Tool
-				Name="VCWebServiceProxyGeneratorTool"/>
+				Name="VCAppVerifierTool"
+			/>
 			<Tool
-				Name="VCXMLDataGeneratorTool"/>
+				Name="VCWebDeploymentTool"
+			/>
 			<Tool
-				Name="VCWebDeploymentTool"/>
-			<Tool
-				Name="VCManagedWrapperGeneratorTool"/>
-			<Tool
-				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+				Name="VCPostBuildEventTool"
+			/>
 		</Configuration>
 		<Configuration
 			Name="Release|Win32"
 			OutputDirectory="Release"
 			IntermediateDirectory="Release"
 			ConfigurationType="1"
-			CharacterSet="2">
+			InheritedPropertySheets="$(VCInstallDir)VCProjectDefaults\UpgradeFromVC71.vsprops"
+			CharacterSet="2"
+			>
+			<Tool
+				Name="VCPreBuildEventTool"
+			/>
+			<Tool
+				Name="VCCustomBuildTool"
+			/>
+			<Tool
+				Name="VCXMLDataGeneratorTool"
+			/>
+			<Tool
+				Name="VCWebServiceProxyGeneratorTool"
+			/>
+			<Tool
+				Name="VCMIDLTool"
+			/>
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="$(InputDir),..\src,.,.."
@@ -77,10 +128,19 @@
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
-				Detect64BitPortabilityProblems="TRUE"
-				DebugInformationFormat="3"/>
+				Detect64BitPortabilityProblems="true"
+				DebugInformationFormat="3"
+			/>
 			<Tool
-				Name="VCCustomBuildTool"/>
+				Name="VCManagedResourceCompilerTool"
+			/>
+			<Tool
+				Name="VCResourceCompilerTool"
+				AdditionalIncludeDirectories="C:\working\projects\win32\include"
+			/>
+			<Tool
+				Name="VCPreLinkEventTool"
+			/>
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib ogg_static.lib vorbis_static.lib vorbisfile_static.lib"
@@ -88,32 +148,36 @@
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames="libc"
-				GenerateDebugInformation="TRUE"
+				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
-				TargetMachine="1"/>
+				TargetMachine="1"
+			/>
 			<Tool
-				Name="VCMIDLTool"/>
+				Name="VCALinkTool"
+			/>
 			<Tool
-				Name="VCPostBuildEventTool"/>
+				Name="VCManifestTool"
+			/>
 			<Tool
-				Name="VCPreBuildEventTool"/>
+				Name="VCXDCMakeTool"
+			/>
 			<Tool
-				Name="VCPreLinkEventTool"/>
+				Name="VCBscMakeTool"
+			/>
 			<Tool
-				Name="VCResourceCompilerTool"
-				AdditionalIncludeDirectories="C:\working\projects\win32\include"/>
+				Name="VCFxCopTool"
+			/>
 			<Tool
-				Name="VCWebServiceProxyGeneratorTool"/>
+				Name="VCAppVerifierTool"
+			/>
 			<Tool
-				Name="VCXMLDataGeneratorTool"/>
+				Name="VCWebDeploymentTool"
+			/>
 			<Tool
-				Name="VCWebDeploymentTool"/>
-			<Tool
-				Name="VCManagedWrapperGeneratorTool"/>
-			<Tool
-				Name="VCAuxiliaryManagedWrapperGeneratorTool"/>
+				Name="VCPostBuildEventTool"
+			/>
 		</Configuration>
 	</Configurations>
 	<References>
@@ -122,228 +186,298 @@
 		<Filter
 			Name="Source Files"
 			Filter="cpp;c;cxx;def;odl;idl;hpj;bat;asm;asmx"
-			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}">
+			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
+			>
 			<File
-				RelativePath="..\src\compat.c">
+				RelativePath="..\src\compat.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\conf.c">
+				RelativePath="..\src\conf.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\configfile.c">
+				RelativePath="..\src\configfile.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\db-generic.c">
+				RelativePath="..\src\db-generic.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\db-sql-sqlite2.c">
+				RelativePath="..\src\db-sql-sqlite2.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\db-sql-sqlite3.c">
+				RelativePath="..\src\db-sql-sqlite3.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\db-sql-updates.c">
+				RelativePath="..\src\db-sql-updates.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\db-sql.c">
+				RelativePath="..\src\db-sql.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\dynamic-art.c">
+				RelativePath="..\src\dynamic-art.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\err.c">
+				RelativePath="..\src\err.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\getopt.c">
+				RelativePath="..\src\getopt.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\ll.c">
+				RelativePath="..\src\ll.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\main.c">
+				RelativePath="..\src\main.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\mp3-scanner.c">
+				RelativePath="..\src\mp3-scanner.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\os-win32.c">
+				RelativePath="..\src\os-win32.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\plugin.c">
+				RelativePath="..\src\plugin.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\redblack.c">
+				RelativePath="..\src\redblack.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\rend-win32.c">
+				RelativePath="..\src\rend-win32.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\restart.c">
+				RelativePath="..\src\restart.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\rxml.c">
+				RelativePath="..\src\rxml.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-aac.c">
+				RelativePath="..\src\scan-aac.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-aif.c">
+				RelativePath="..\src\scan-aif.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-flac.c">
+				RelativePath="..\src\scan-flac.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-mp3.c">
+				RelativePath="..\src\scan-mp3.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-mp4.c">
+				RelativePath="..\src\scan-mp4.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-ogg.c">
+				RelativePath="..\src\scan-ogg.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-url.c">
+				RelativePath="..\src\scan-url.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-wav.c">
+				RelativePath="..\src\scan-wav.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-wma.c">
+				RelativePath="..\src\scan-wma.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\scan-xml.c">
+				RelativePath="..\src\scan-xml.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\smart-parser.c">
+				RelativePath="..\src\smart-parser.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\util.c">
+				RelativePath="..\src\util.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\w32-eventlog.c">
+				RelativePath="..\src\w32-eventlog.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\w32-service.c">
+				RelativePath="..\src\w32-service.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\webserver.c">
+				RelativePath="..\src\webserver.c"
+				>
 			</File>
 			<File
-				RelativePath="..\src\xml-rpc.c">
+				RelativePath="..\src\xml-rpc.c"
+				>
 			</File>
 		</Filter>
 		<Filter
 			Name="Header Files"
 			Filter="h;hpp;hxx;hm;inl;inc;xsd"
-			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}">
+			UniqueIdentifier="{93995380-89BD-4b04-88EB-625FBE52EBFB}"
+			>
 			<File
-				RelativePath="..\src\conf.h">
+				RelativePath="..\src\conf.h"
+				>
 			</File>
 			<File
-				RelativePath=".\config.h">
+				RelativePath=".\config.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\configfile.h">
+				RelativePath="..\src\configfile.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\daapd.h">
+				RelativePath="..\src\daapd.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\dispatch.h">
+				RelativePath="..\src\dispatch.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\err.h">
+				RelativePath="..\src\err.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\ff-plugins.h">
+				RelativePath="..\src\ff-plugins.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\ll.h">
+				RelativePath="..\src\ll.h"
+				>
 			</File>
 			<File
-				RelativePath=".\mt-daapd-res.h">
+				RelativePath=".\mt-daapd-res.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\os-win32.h">
+				RelativePath="..\src\os-win32.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\os.h">
+				RelativePath="..\src\os.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\plugin.h">
+				RelativePath="..\src\plugin.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\rend.h">
+				RelativePath="..\src\rend.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\strptime.h">
+				RelativePath="..\src\strptime.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\strtok_r.h">
+				RelativePath="..\src\strtok_r.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\uici.h">
+				RelativePath="..\src\uici.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\util.h">
+				RelativePath="..\src\util.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\w32-eventlog.h">
+				RelativePath="..\src\w32-eventlog.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\w32-service.h">
+				RelativePath="..\src\w32-service.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\webserver.h">
+				RelativePath="..\src\webserver.h"
+				>
 			</File>
 			<File
-				RelativePath="..\src\win32.h">
+				RelativePath="..\src\win32.h"
+				>
 			</File>
 		</Filter>
 		<Filter
 			Name="Resource Files"
 			Filter="rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx"
-			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}">
+			UniqueIdentifier="{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}"
+			>
 			<File
-				RelativePath=".\ff.ico">
+				RelativePath=".\ff.ico"
+				>
 			</File>
 			<File
-				RelativePath=".\mt-daapd.rc">
+				RelativePath=".\mt-daapd.rc"
+				>
 				<FileConfiguration
-					Name="Debug|Win32">
+					Name="Debug|Win32"
+					>
 					<Tool
 						Name="VCResourceCompilerTool"
-						AdditionalIncludeDirectories=".;res"/>
+						AdditionalIncludeDirectories=".;res"
+					/>
 				</FileConfiguration>
 				<FileConfiguration
-					Name="Release|Win32">
+					Name="Release|Win32"
+					>
 					<Tool
 						Name="VCResourceCompilerTool"
-						AdditionalIncludeDirectories=".;res;.."/>
+						AdditionalIncludeDirectories=".;res;.."
+					/>
 				</FileConfiguration>
 			</File>
 		</Filter>
 		<File
-			RelativePath=".\messages.mc">
+			RelativePath=".\messages.mc"
+			>
 			<FileConfiguration
-				Name="Debug|Win32">
+				Name="Debug|Win32"
+				>
 				<Tool
 					Name="VCCustomBuildTool"
-					CommandLine="mc.exe -A $(InputDir)$(InputName).mc -r $(InputDir)res -h $(InputDir)
-"
-					Outputs="$(InputDir)res\$(InputName).rc;$(InputDir)$(InputName).h"/>
+					CommandLine="mc.exe -A $(InputDir)$(InputName).mc -r $(InputDir)res -h $(InputDir)&#x0D;&#x0A;"
+					Outputs="$(InputDir)res\$(InputName).rc;$(InputDir)$(InputName).h"
+				/>
 			</FileConfiguration>
 			<FileConfiguration
-				Name="Release|Win32">
+				Name="Release|Win32"
+				>
 				<Tool
 					Name="VCCustomBuildTool"
-					CommandLine="mc.exe -A $(InputDir)$(InputName).mc -r $(InputDir)res -h $(InputDir)
-"
-					Outputs="$(InputDir)res\$(InputName).rc;$(InputDir)$(InputName).h"/>
+					CommandLine="mc.exe -A $(InputDir)$(InputName).mc -r $(InputDir)res -h $(InputDir)&#x0D;&#x0A;"
+					Outputs="$(InputDir)res\$(InputName).rc;$(InputDir)$(InputName).h"
+				/>
 			</FileConfiguration>
 		</File>
 		<File
-			RelativePath=".\ReadMe.txt">
+			RelativePath=".\ReadMe.txt"
+			>
 		</File>
 	</Files>
 	<Globals>
