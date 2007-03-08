@@ -1,7 +1,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
 <html>
 <head>
-  <title>firefly playlist wizard</title>
+  <title>Firefly playlist wizard</title>
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
   <link rel="stylesheet" type="text/css" href="firefly.css" />
 </head>
@@ -133,12 +133,19 @@ function plOutputRow(x,vis)
 '<option value="url">URL<\/option>',
 '<option value="description">Description<\/option>',
 '<\/optgroup>',
+'<optgroup label="Dates">',
+'<option value="time_added">Added<\/option>',
+'<option value="time_modified">Modified<\/option>',
+'<option value="time_played">Played<\/option>',
+'<\/optgroup>',
 '<optgroup label="Technical">',
 '<option value="bitrate">Bitrate<\/option>',
 '<option value="samplerate">Samplerate<\/option>',
 '<option value="file_size">Filesize<\/option>',
 '<option value="bpm">Beats per minute<\/option>',
 '<option value="compilation">Compilation<\/option>',
+'<option value="fname">Filename<\/option>',
+'<option value="path">Filepath<\/option>',
 '<\/optgroup>',
 '<\/select><\/td>',
 '<td><select class="playlistfield" name="playlist_crit',x,'comp" style="width:100%" onChange="javascript:plTemplateWizard()">',
@@ -164,6 +171,8 @@ function plGetCriterion(x)
    || (objField[0].value=='conductor')
    || (objField[0].value=='grouping')
    || (objField[0].value=='url')
+   || (objField[0].value=='fname')
+   || (objField[0].value=='path')
    || (objField[0].value=='description')
    || (objField[0].value=='codectype'))
    y = '"';
@@ -177,7 +186,10 @@ function plSetCriterion(x,field,comp,data)
   objComp = document.getElementsByName("playlist_crit"+x+"comp");
   objData = document.getElementsByName("playlist_crit"+x+"data");
   objComp[0].value = comp;
-  objData[0].value = data;
+  if (data.substr(0,1)=='"')
+    objData[0].value = data.substr(1, data.length-2);
+  else
+    objData[0].value = data;
 }
 
 function plSetCriteriaCombination(x)
@@ -216,8 +228,20 @@ function plUpdateComp(x)
    || (objField[0].value=='conductor')
    || (objField[0].value=='grouping')
    || (objField[0].value=='url')
+   || (objField[0].value=='fname')
+   || (objField[0].value=='path')
    || (objField[0].value=='codectype'))
   { objComp[0].options[2] = new Option('includes','includes');
+    objComp[0].options[3] = new Option('not includes','not includes');
+    objComp[0].options[4] = new Option('starts with','startswith');
+    objComp[0].options[5] = new Option('not starts with','not startswith');
+    objComp[0].options[6] = new Option('ends with','endswith');   
+    objComp[0].options[7] = new Option('not ends with','not endswith');   
+  } else if ((objField[0].value=='time_added')
+   || (objField[0].value=='time_modified')
+   || (objField[0].value=='time_played'))
+  { objComp[0].options[2] = new Option('before','before');
+    objComp[0].options[3] = new Option('after','after');
   } else
   { objComp[0].options[2] = new Option('>','>');
     objComp[0].options[3] = new Option('>=','>=');
@@ -233,7 +257,7 @@ function plTemplatePlaylist()
   switch (objTemplate[0].value)
   { case "60s":
       objSpec[0].value = 'year >= 1960 AND year <= 1970';
-      objName[0].value = 'Music from the 60\'s';
+      objName[0].value = 'Music from the 60s';
       plSetCriterion(1,'year','>=','1960');
       plSetCriterion(2,'year','<=','1970');
       plSetCriterion(3,'title','=','');
@@ -243,7 +267,7 @@ function plTemplatePlaylist()
       break;
     case "70s":
       objSpec[0].value = 'year >= 1970 AND year <= 1980';
-      objName[0].value = 'Music from the 70\'s';
+      objName[0].value = 'Music from the 70s';
       plSetCriterion(1,'year','>=','1970');
       plSetCriterion(2,'year','<=','1980');
       plSetCriterion(3,'title','=','');
@@ -253,7 +277,7 @@ function plTemplatePlaylist()
       break;
     case "80s":
       objSpec[0].value = 'year >= 1980 AND year <= 1990';
-      objName[0].value = 'Music from the 80\'s';
+      objName[0].value = 'Music from the 80s';
       plSetCriterion(1,'year','>=','1980');
       plSetCriterion(2,'year','<=','1990');
       plSetCriterion(3,'title','=','');
@@ -263,7 +287,7 @@ function plTemplatePlaylist()
       break;
     case "90s":
       objSpec[0].value = 'year >= 1990 AND year <= 2000';
-      objName[0].value = 'Music from the 90\'s';
+      objName[0].value = 'Music from the 90s';
       plSetCriterion(1,'year','>=','1990');
       plSetCriterion(2,'year','<=','2000');
       plSetCriterion(3,'title','=','');
@@ -275,6 +299,16 @@ function plTemplatePlaylist()
       objSpec[0].value = 'year >= 2000';
       objName[0].value = 'Music from today';
       plSetCriterion(1,'year','>=','2000');
+      plSetCriterion(2,'title','=','');
+      plSetCriterion(3,'title','=','');
+      plSetCriterion(4,'title','=','');
+      plSetCriterion(5,'title','=','');
+      plSetCriteriaCombination(0);
+      break;
+    case "onemonth":
+      objSpec[0].value = 'time_added after 1 month before today';
+      objName[0].value = 'Recently added';
+      plSetCriterion(1,'time_added','after','1 month before today');
       plSetCriterion(2,'title','=','');
       plSetCriterion(3,'title','=','');
       plSetCriterion(4,'title','=','');
@@ -317,11 +351,12 @@ function plTemplatePlaylist()
 <tr><td>Template:</td>
 <td colspan="3"><select class="playlistfield" name="playlist_template" style="width:100%" onChange="javascript:plTemplatePlaylist()">
 <option value="" selected="SELECTED">Custom playlist</option>
-<option value="60s">Music from the 60's</option>
-<option value="70s">Music from the 70's</option>
-<option value="80s">Music from the 80's</option>
-<option value="90s">Music from the 90's</option>
+<option value="60s">Music from the 60s</option>
+<option value="70s">Music from the 70s</option>
+<option value="80s">Music from the 80s</option>
+<option value="90s">Music from the 90s</option>
 <option value="00s">Music from today</option>
+<option value="onemonth">Recently added</option>
 <option value="metal">Metalheads</option>
 <option value="psych">Psychosynth</option>
 </select></td></tr>
@@ -345,4 +380,7 @@ plOutputRow(5,true);
 <script language="JavaScript" type="text/javascript">
 loadOpenerCriteria();
 </script>
+
+<div style="text-align: center;">Check out the <a href="http://trac.fireflymediaserver.org/wiki/SmartPlaylists" target="_blank">Firefly Wiki</a> for details.</div>
+
 </body></html>
