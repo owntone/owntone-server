@@ -4,6 +4,7 @@
 	Version="8.00"
 	Name="FireflyShell"
 	ProjectGUID="{ED38F171-854B-4EA3-B3A0-7681648969FC}"
+	RootNamespace="FireflyShell"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
