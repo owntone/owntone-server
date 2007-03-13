@@ -29,6 +29,7 @@ CMainDlg::CMainDlg(bool move_window)
 	this->AddPage(m_pageAbout);
 
 	ATLVERIFY(m_strTitle.LoadString(IDR_MAINFRAME));
+
 	this->SetTitle(m_strTitle);
 }
 

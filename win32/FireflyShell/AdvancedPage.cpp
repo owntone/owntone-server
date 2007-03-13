@@ -47,6 +47,9 @@ LRESULT CAdvancedPage::OnInitDialog(UINT /*uMsg*/, WPARAM /*wParam*/, LPARAM /*l
 	}
 	UpdateControls();
 
+        GetDlgItem(IDC_STARTSERVICE).SendMessage(BCM_SETSHIELD,0,TRUE);
+        GetDlgItem(IDC_STOPSERVICE).SendMessage(BCM_SETSHIELD,0,TRUE);
+
 	GetApplication()->ServiceStatusSubscribe(this);
 	return 0;
 }
