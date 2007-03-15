@@ -65,17 +65,13 @@ bool Service::Open(const TCHAR *name)
     DWORD dwDesiredAccess = USER_ACCESS;
 
     m_sc_manager = ::OpenSCManager(NULL, SERVICES_ACTIVE_DATABASE, dwDesiredAccess);
+    
     if (!m_sc_manager)
-    {
         m_can_control = false;
-    }
     else
-    {
         m_can_control = true;
-    }
 
-    if (m_sc_manager)
-    {
+    if (m_sc_manager) {
         m_sc_service = ::OpenService(m_sc_manager, name, dwDesiredAccess);
         if (m_sc_service) {
             m_name = name;
@@ -87,15 +83,12 @@ bool Service::Open(const TCHAR *name)
     return false;
 }
 
-void Service::Close()
-{
-    if (m_sc_service)
-    {
+void Service::Close() {
+    if (m_sc_service) {
         ::CloseServiceHandle(m_sc_service);
         m_sc_service = NULL;
     }
-    if (m_sc_manager)
-    {
+    if (m_sc_manager) {
         ::CloseServiceHandle(m_sc_manager);
         m_sc_manager = NULL;
     }
@@ -231,12 +224,12 @@ DWORD Service::GetStartup() const
     return result;
 }
 
-bool Service::ConfigureStartup(DWORD startup)
-{
-    if (::ChangeServiceConfig(m_sc_service, SERVICE_NO_CHANGE, startup, SERVICE_NO_CHANGE, NULL, NULL, NULL, NULL, NULL, NULL, NULL))
-        return true;
-    else
-        return false;
+bool Service::ConfigureStartup(DWORD startup) {
+    if(startup != GetStartup()) { // don't boost privs if we don't need to 
+        if (!::ChangeServiceConfig(m_sc_service, SERVICE_NO_CHANGE, startup, SERVICE_NO_CHANGE, NULL, NULL, NULL, NULL, NULL, NULL, NULL))
+            return false;
+    }
+    return true;
 }
 
 void ServiceStatusMonitor::Poll(Service *service)

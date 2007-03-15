@@ -137,10 +137,12 @@ public:
 	void EnableServerEvents(bool);
 
 	/// Enable/disable automatic startup of service and FireflyShell.
-	void EnableAutoStart(HWND, bool);
+	void EnableAppletAutoStart(HWND, bool);
+        void EnableServiceAutoStart(HWND, bool);
 
-	/// Reports 0 for disabled, 1 for enabled, 2 for indeterminate
-	int IsAutoStartEnabled() const;
+	/// Reports 0 for disabled, 1 for enabled
+	bool IsAppletAutoStartEnabled() const;
+        bool IsServiceAutoStartEnabled() const;
 
 	int MessageBox(HWND hwnd, UINT id, UINT flags)
 	{

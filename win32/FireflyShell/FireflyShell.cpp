@@ -299,63 +299,45 @@ CString Application::MakeRunKeyValue()
     return required_path;
 }
 
-void Application::EnableAutoStart(HWND hwnd, bool enable)
-{
-    // First let's control the service.
-    int required_startup = enable ? SERVICE_AUTO_START : SERVICE_DISABLED;
+void Application::EnableServiceAutoStart(HWND hwnd, bool enable) {
+    int required_startup = enable ? SERVICE_AUTO_START : SERVICE_DEMAND_START;
 
-    if (m_service.GetStartup() != required_startup)
-    {
-        if (!m_service.ConfigureStartup(required_startup))
-        {
+    if (m_service.GetStartup() != required_startup) {
+        if (!m_service.ConfigureStartup(required_startup)) {
             MessageBox(hwnd, IDS_FAILED_CONFIGURE_SERVICE, MB_OK);
         }
     }
+}
 
-    // Now let's set up the Run key.
+void Application::EnableAppletAutoStart(HWND hwnd, bool enable) {
     HKEY hkey;
-    LONG result = ::RegOpenKeyEx(HKEY_LOCAL_MACHINE, RUN_KEY, 0, KEY_SET_VALUE | STANDARD_RIGHTS_WRITE, &hkey);
-    if (result == ERROR_SUCCESS)
-    {
-        if (enable)
-        {
+    LONG result = ::RegOpenKeyEx(HKEY_CURRENT_USER, RUN_KEY, 0, KEY_SET_VALUE | STANDARD_RIGHTS_WRITE, &hkey);
+    if (result == ERROR_SUCCESS) {
+        if (enable) {
             // We need to quote it because the path may contain spaces.
             CString str = MakeRunKeyValue();
             result = RegSetValueEx(hkey, RUN_VALUE, 0UL, REG_SZ, reinterpret_cast<LPCBYTE>(static_cast<LPCTSTR>(str)), (str.GetLength() + 1) * sizeof(TCHAR));
-        }
-        else
-        {
+        } else {
             result = RegDeleteValue(hkey, RUN_VALUE);
             if (result == ERROR_FILE_NOT_FOUND)
                 result = 0;
         }
 
-        if (result != ERROR_SUCCESS)
-        {
+        if (result != ERROR_SUCCESS) {
             ATLTRACE("Error:%u\n", result);
             MessageBox(hwnd, IDS_FAILED_CONFIGURE_STARTUP, MB_OK);
         }
     }
 }
 
-int Application::IsAutoStartEnabled() const
-{
-    // Look at the service
-    int service_result = 2;
-    switch (m_service.GetStartup())
-    {
-    case SERVICE_AUTO_START:
-        service_result = true;
-        break;
-    case SERVICE_DISABLED:
-        service_result = false;
-        break;
-    }
+bool Application::IsServiceAutoStartEnabled() const {
+    return (m_service.GetStartup() == SERVICE_AUTO_START);
+}
 
-    // Look at the Run key
-    int run_result = 2;
+bool Application::IsAppletAutoStartEnabled() const {
+    bool run_result = false;
     HKEY hkey;
-    if (::RegOpenKeyEx(HKEY_LOCAL_MACHINE, RUN_KEY, 0, KEY_QUERY_VALUE | STANDARD_RIGHTS_READ, &hkey) == ERROR_SUCCESS)
+    if (::RegOpenKeyEx(HKEY_CURRENT_USER, RUN_KEY, 0, KEY_QUERY_VALUE | STANDARD_RIGHTS_READ, &hkey) == ERROR_SUCCESS)
     {
         DWORD dwType, cbData;
         TCHAR buffer[_MAX_PATH + 1];
@@ -370,7 +352,12 @@ int Application::IsAutoStartEnabled() const
             else
             {
                 // It's there - but it isn't us that it will start.
-                run_result = 2;
+
+                // But from the user's perspective, it *is* us, so to make the perception
+                // match the setting, we'll make this true, rather than some indeterminate 
+                // thing which nobody understands.          -- Ron                           
+                
+                run_result = true;
             }
         }
         else
@@ -380,15 +367,9 @@ int Application::IsAutoStartEnabled() const
         }
     }
     else
-    {
         run_result = false;
-    }
 
-    // If the answers agree then return them. Otherwise we're indeterminate.
-    if (run_result == service_result)
-        return run_result;
-    else
-        return 2;
+    return run_result;
 }
 
 int WINAPI _tWinMain(HINSTANCE hInstance, HINSTANCE /*hPrevInstance*/, LPTSTR lpstrCmdLine, int nCmdShow)

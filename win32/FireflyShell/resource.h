@@ -46,6 +46,8 @@
 #define IDC_AUTOSTART                   1012
 #define IDC_WEBADMIN                    1013
 #define IDC_WEBSITE                     1014
+#define IDC_AUTOSTART2                  1014
+#define IDC_AUTOSTART_ICON              1014
 #define IDC_VERSIONLIST                 1015
 #define IDC_COPY                        1016
 #define IDC_REFRESH                     1018
