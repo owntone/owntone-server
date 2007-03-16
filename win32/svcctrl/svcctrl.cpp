@@ -11,6 +11,7 @@
 #define E_SVC_NORIGHTS   2
 #define E_SVC_CANTSTART  3
 #define E_SVC_CANTSTOP   4
+#define E_SVC_CANTCONFIG 5
 
 // Global Variables:
 HINSTANCE hInst;								// current instance
@@ -121,6 +122,17 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
             retval = E_SVC_CANTSTOP;
         }
     }
+
+    if(strcmp(argv[1],"manual")) {
+        if (!ChangeServiceConfig(svc, SERVICE_NO_CHANGE, SERVICE_DEMAND_START, SERVICE_NO_CHANGE, NULL, NULL, NULL, NULL, NULL, NULL, NULL))
+            retval = E_SVC_CANTCONFIG;
+    }
+
+    if(!strcmp(argv[1],"auto")) {
+        if (!ChangeServiceConfig(svc, SERVICE_NO_CHANGE, SERVICE_AUTO_START, SERVICE_NO_CHANGE, NULL, NULL, NULL, NULL, NULL, NULL, NULL))
+            retval = E_SVC_CANTCONFIG;
+    }
+
     
     CloseServiceHandle(svc);
     CloseServiceHandle(scm);

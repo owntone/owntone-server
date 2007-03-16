@@ -226,8 +226,11 @@ DWORD Service::GetStartup() const
 
 bool Service::ConfigureStartup(DWORD startup) {
     if(startup != GetStartup()) { // don't boost privs if we don't need to 
-        if (!::ChangeServiceConfig(m_sc_service, SERVICE_NO_CHANGE, startup, SERVICE_NO_CHANGE, NULL, NULL, NULL, NULL, NULL, NULL, NULL))
-            return false;
+        if(startup == SERVICE_AUTO_START) {
+            return ExecHelper(_T("auto"));
+        } else {
+            return ExecHelper(_T("manual"));
+        }
     }
     return true;
 }
