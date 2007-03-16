@@ -123,7 +123,7 @@ int APIENTRY _tWinMain(HINSTANCE hInstance,
         }
     }
 
-    if(strcmp(argv[1],"manual")) {
+    if(!strcmp(argv[1],"manual")) {
         if (!ChangeServiceConfig(svc, SERVICE_NO_CHANGE, SERVICE_DEMAND_START, SERVICE_NO_CHANGE, NULL, NULL, NULL, NULL, NULL, NULL, NULL))
             retval = E_SVC_CANTCONFIG;
     }
