@@ -35,7 +35,6 @@ bool Service::ExecHelper(const TCHAR *szAction) {
 
     ZeroMemory(&pi,sizeof(pi));
         
-
     BOOL bStarted = CreateProcess(NULL,cmd,NULL,NULL,
         FALSE,0,NULL,NULL,&si,&pi);
 
