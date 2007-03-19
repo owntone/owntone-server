@@ -19,35 +19,37 @@
 #include "DosPath.h"
 
 bool Service::ExecHelper(const TCHAR *szAction) {
-    PROCESS_INFORMATION pi;
-    STARTUPINFO si;
-    CString commandline;
-    CDosPath path = CDosPath::AppPath();
-    CDosPath filename(_T("svcctrl.exe"));
-    DWORD dwResult;
-    LPTSTR cmd;
-    
-    filename |= path;
-    commandline.Format(_T("%s %s \"%s\""),filename.GetPath(),szAction,m_name);
-    cmd = commandline.GetBuffer(commandline.GetLength() + 1);
+    SHELLEXECUTEINFO si;
     ZeroMemory(&si,sizeof(si));
-    si.cb = sizeof(si);
 
-    ZeroMemory(&pi,sizeof(pi));
-        
-    BOOL bStarted = CreateProcess(NULL,cmd,NULL,NULL,
-        FALSE,0,NULL,NULL,&si,&pi);
+    si.cbSize = sizeof(si);
+    si.fMask = SEE_MASK_FLAG_NO_UI | SEE_MASK_NOCLOSEPROCESS;
+    si.hwnd = NULL;
+    si.lpVerb = _T("open");
 
-    commandline.ReleaseBuffer();
+    CDosPath path = CDosPath::AppPath();
+    CString strPath = path.GetPathOnly();
+    si.lpDirectory = static_cast<LPCTSTR>(strPath);
 
-    if(!bStarted)
+    CDosPath filename = CDosPath(_T("svcctrl.exe"));
+    filename |= path;
+    CString strFilename = filename.GetPath();
+
+    si.lpFile = static_cast<LPCTSTR>(strFilename);
+
+    CString strParams;
+    strParams.Format(_T("%s \"%s\""),szAction,m_name);
+    si.lpParameters = static_cast<LPCTSTR>(strParams);
+
+    si.nShow = 0;
+
+    if(!ShellExecuteEx(&si)) 
         return false;
 
-    WaitForSingleObject(pi.hProcess, INFINITE);
+    WaitForSingleObject(si.hProcess, INFINITE);
 
-    GetExitCodeProcess(pi.hProcess,&dwResult);
-    CloseHandle(pi.hProcess);
-    CloseHandle(pi.hThread);
+    DWORD dwResult;
+    GetExitCodeProcess(si.hProcess,&dwResult);
 
     if(dwResult)
         return false;

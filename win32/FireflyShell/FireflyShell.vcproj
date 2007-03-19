@@ -322,6 +322,10 @@
 			</File>
 		</Filter>
 		<File
+			RelativePath=".\FireflyShell.exe.manifest"
+			>
+		</File>
+		<File
 			RelativePath=".\README.txt"
 			>
 		</File>
