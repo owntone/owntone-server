@@ -181,8 +181,8 @@ NoProgramItems:
   File "${DLL_SOURCE}\avformat.dll"
   File "${DLL_SOURCE}\libFLAC.dll"
 
-  File "${REDIST_SOURCE}\msvcp71.dll"
-  File "${REDIST_SOURCE}\msvcr71.dll"
+  File "${REDIST_SOURCE}\msvcp80.dll"
+  File "${REDIST_SOURCE}\msvcr80.dll"
 
   SetOutPath "$2\plugins"
   File "${MTD_SOURCE}\rsp.dll"
@@ -241,11 +241,16 @@ NoProgramItems:
   File "${ADMIN_ROOT}\lib-js\script.aculo.us\slider.js"
   File "${ADMIN_ROOT}\lib-js\script.aculo.us\unittest.js"
   SetOutPath "$2"
+  IfFileExists "$2\mapping.ini" HasMap
+  File "mapping.ini"
+
+HasMap:
   File "mt-daapd-example.conf" 
   IfFileExists "$2\mt-daapd.conf" HasConf
   SetOverwrite off
   CopyFiles "$2\mt-daapd-example.conf" "$2\mt-daapd.conf"
   WriteINIStr "$2\mt-daapd.conf" "general" "mp3_dir" $3
+
 HasConf:
   WriteINIStr "$2\mt-daapd.conf" "plugins" "plugin_dir" "plugins"
   WriteINIStr "$2\mt-daapd.conf" "plugins" "plugins" ""
@@ -281,6 +286,7 @@ HasConf:
   trunc_skip:
   WriteINIStr "$2\mt-daapd.conf" "general" "db_type" "sqlite3"
   AccessControl::SetOnFile "$2\mt-daapd.conf" "Everyone" "FullAccess"
+  AccessControl::SetOnFile "$2\mapping.ini" "Everyone" "FullAccess"
   SetAutoClose False
 SectionEnd
 
