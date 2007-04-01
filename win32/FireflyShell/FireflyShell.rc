@@ -7,8 +7,7 @@
 //
 // Generated from the TEXTINCLUDE 2 resource.
 //
-#include "atlres.h"
-
+#include "atlres.h"
 /////////////////////////////////////////////////////////////////////////////
 #undef APSTUDIO_READONLY_SYMBOLS
 
@@ -112,9 +111,9 @@ BEGIN
     LTEXT           "Current state of the server goes here",IDC_SERVERSTATE,12,28,199,25
     PUSHBUTTON      "&Stop Server",IDC_STOPSERVICE,218,28,70,14
     CONTROL         "&Start Firefly when Windows starts",IDC_AUTOSTART,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,31,62,252,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,59,252,10
     CONTROL         "&Enable Firefly icon in system tray",IDC_AUTOSTART_ICON,
-                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,31,75,252,10
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,12,73,252,10
     GROUPBOX        "Advanced",IDC_STATIC,6,93,288,61
     LTEXT           "Server port number",IDC_STATIC,12,108,99,11
     EDITTEXT        IDC_SERVERPORT,105,105,42,14,ES_AUTOHSCROLL | ES_NUMBER
@@ -124,7 +123,6 @@ BEGIN
     LTEXT           "Firefly Media Server also provides a web administration interface.",IDC_STATIC,12,177,198,20
     PUSHBUTTON      "&Open",IDC_WEBADMIN,218,177,70,14
     PUSHBUTTON      "&Start Server",IDC_STARTSERVICE,218,28,70,14
-    ICON            IDI_SHIELD,IDC_STATIC,12,58,21,20
 END
 
 

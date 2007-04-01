@@ -183,11 +183,6 @@ NoProgramItems:
   File "${DLL_SOURCE}\avcodec.dll"
   File "${DLL_SOURCE}\avformat.dll"
   File "${DLL_SOURCE}\libFLAC.dll"
-
-  File "${REDIST_SOURCE}\msvcp80.dll"
-  File "${REDIST_SOURCE}\msvcr80.dll"
-  File "${REDIST_SOURCE}\msvcm80.dll"
-  File "${REDIST_SOURCE}\Microsoft.VC80.CRT.manifest"
   
   SetOutPath "$2\plugins"
   File "${MTD_SOURCE}\rsp.dll"
@@ -306,6 +301,21 @@ Section -AdditionalIcons
 
   Delete "$SMPROGRAMS\Startup\Firefly Configuration.lnk"
   
+SectionEnd
+
+!include "LogicLib.nsh"
+!define UNINSTALL_KEY "Software\Microsoft\Windows\CurrentVersion\Uninstall"
+!define APP_KEY "{A49F249F-0C91-497F-86DF-B2585E8E76B7}"
+Section -VCRedistributable
+	ReadRegStr $R0 HKLM "${UNINSTALL_KEY}\${APP_KEY}\" "DisplayName"
+	${If} ${Errors}
+		# reg value doesn't exist (ie, needs installed)
+		SetOutPath "$2\"
+		File "${REDIST_SOURCE}\WindowsInstaller-KB893803-v2-x86.exe"
+		File "${REDIST_SOURCE}\VCRedist_x86.exe"
+		ExecWait '"$2\WindowsInstaller-KB893803-v2-x86.exe"  /quiet /norestart'
+		ExecWait '"$2\VCRedist_x86.exe"  /Q'
+	${EndIf}
 SectionEnd
 
 Section -Post
