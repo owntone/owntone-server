@@ -296,11 +296,6 @@
             <short_description></short_description>
             <type size="80" browse="directory">text</type>
         </item>
-        <item id="plugins:plugins" config_section="plugins" restart="true">
-            <name>Plugins</name>
-            <short_description></short_description>
-            <type size="20" multiple="true" add_item_label="Add plugin">text</type>
-        </item>
     </section>
 
     <section name="Transcoding" advanced="true">
