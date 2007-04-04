@@ -167,6 +167,7 @@ NoProgramItems:
   SetOverwrite on
   File /oname=firefly.exe "${MTD_SOURCE}\mt-daapd.exe"
   File "${CONFIG_SOURCE}\FireflyShell.exe" 
+  Delete "$2\FireflyShell.exe.manifest"
   File "${CONFIG_SOURCE}\FireflyShell-0c.dll"
   File "${CONFIG_SOURCE}\FireflyShell-07.dll"
   File "${CONFIG_SOURCE}\FireflyShell-13.dll"
