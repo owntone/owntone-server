@@ -96,7 +96,7 @@ typedef struct tag_mp3file {
     uint32_t play_count;
     uint32_t rating;
     uint32_t db_timestamp;
- 
+
     uint32_t disabled;
     uint32_t bpm;         /* TBPM */
 
@@ -187,6 +187,7 @@ typedef struct tag_packed_mp3file {
     char *has_video;
     char *contentrating;
     char *bits_per_sample;
+    char *album_artist;
 } PACKED_MP3FILE;
 
 #define PL_STATICWEB  0

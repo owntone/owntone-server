@@ -508,6 +508,7 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     WSTHREADENUM wste;
     int count;
     XMLSTRUCT *pxml;
+    void *phandle;
 
     pxml=xml_init(pwsc,1);
     xml_push(pxml,"status");
@@ -525,7 +526,6 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
         xml_output(pxml,"status","Disabled");
     }
 #else
-
     ws_writefd(pwsc,"<td>No Support</td><td>&nbsp;</td></tr>\n");
 #endif
     xml_pop(pxml); /* service */
@@ -541,6 +541,16 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     xml_pop(pxml); /* service */
 
     xml_pop(pxml); /* service_status */
+
+    xml_push(pxml,"plugins");
+    phandle = NULL;
+    while((phandle = plugin_enum(phandle))) {
+        xml_push(pxml,"plugin");
+        xml_output(pxml,"name",plugin_get_description(phandle));
+        xml_pop(pxml); /* plugin */
+    }
+
+    xml_pop(pxml); /* plugins */
 
     xml_push(pxml,"thread_status");
 

@@ -198,6 +198,50 @@ void usage(char *program) {
 }
 
 /**
+ * process a directory for plugins
+ *
+ * @returns TRUE if at least one plugin loaded successfully
+ */
+int load_plugin_dir(char *plugindir) {
+    DIR *d_plugin;
+    char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* ?? solaris  */
+    struct dirent *pde;
+    char *pext;
+    char *perr=NULL;
+    int loaded=FALSE;
+    char plugin[PATH_MAX];
+
+    if((d_plugin=opendir(plugindir)) == NULL) {
+        DPRINTF(E_LOG,L_MAIN,"Error opening plugin dir %s.  Ignoring\n",
+                plugindir);
+        return FALSE;
+
+    } else {
+        while((readdir_r(d_plugin,(struct dirent *)de,&pde) != 1) && pde) {
+                pext = strrchr(pde->d_name,'.');
+                if((strcasecmp(pext,".so") == 0) ||
+                   (strcasecmp(pext,".dylib") == 0) ||
+                   (strcasecmp(pext,".dll") == 0)) {
+                    /* must be a plugin */
+                    snprintf(plugin,PATH_MAX,"%s%c%s",plugindir,
+                             PATHSEP,pde->d_name);
+                    if(plugin_load(&perr,plugin) != PLUGIN_E_SUCCESS) {
+                        DPRINTF(E_LOG,L_MAIN,"Error loading plugin %s: %s\n",
+                                plugin,perr);
+                        free(perr);
+                        perr = NULL;
+                    } else {
+                        loaded = TRUE;
+                    }
+                }
+        }
+        closedir(d_plugin);
+    }
+
+    return loaded;
+}
+
+/**
  * Kick off the daap server and wait for events.
  *
  * This starts the initial db scan, sets up the signal
@@ -233,18 +277,12 @@ int main(int argc, char *argv[]) {
     char *servername, *iface;
     char *ffid = NULL;
     int appdir = 0;
-
+    char *perr=NULL;
     char txtrecord[255];
-
+    void *phandle;
     char *plugindir;
-    char plugin[PATH_MAX];
-    DIR *d_plugin;
-    char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* ?? solaris  */
-    struct dirent *pde;
-    char *pext;
 
     int err;
-    char *perr=NULL;
     char *apppath;
 
     int debuglevel=0;
@@ -390,28 +428,27 @@ int main(int argc, char *argv[]) {
     if((plugindir=conf_alloc_string("plugins","plugin_dir",NULL)) != NULL) {
         /* instead of specifying plugins, let's walk through the directory
          * and load each of them */
-        if((d_plugin=opendir(plugindir)) == NULL) {
-            DPRINTF(E_LOG,L_MAIN,"Error opening plugin dir.  Ignoring\n");
-        } else {
-            while((readdir_r(d_plugin,(struct dirent *)de,&pde) != 1) && pde) {
-                pext = strrchr(pde->d_name,'.');
-                if((strcasecmp(pext,".so") == 0) ||
-                   (strcasecmp(pext,".dylib") == 0) ||
-                   (strcasecmp(pext,".dll") == 0)) {
-                    /* must be a plugin */
-                    snprintf(plugin,PATH_MAX,"%s%c%s",plugindir,
-                             PATHSEP,pde->d_name);
-                    if(plugin_load(&perr,plugin) != PLUGIN_E_SUCCESS) {
-                        DPRINTF(E_LOG,L_MAIN,"Error loading plugin %s: %s\n",
-                                plugin,perr);
-                        free(perr);
-                        perr = NULL;
-                    }
-                }
-            }
-            closedir(d_plugin);
+        if(!load_plugin_dir(plugindir)) {
+            DPRINTF(E_LOG,L_MAIN,"Warning: Could not load plugins\n");
         }
         free(plugindir);
+    } else {
+        if((!load_plugin_dir("/usr/lib/firefly")) &&
+           (!load_plugin_dir("/usr/lib/mt-daapd")) &&
+           (!load_plugin_dir("/usr/share/firefly/plugins")) &&
+           (!load_plugin_dir("/usr/share/mt-daapd/plugins")) &&
+           (!load_plugin_dir("/usr/local/share/firefly/plugins")) &&
+           (!load_plugin_dir("/usr/local/share/mt-daapd/plugins")) &&
+           (!load_plugin_dir("/opt/share/firefly/plugins")) &&
+           (!load_plugin_dir("/opt/share/mt-daapd/plugins")) &&
+           (!load_plugin_dir("plugins/.libs"))) {
+            DPRINTF(E_FATAL,L_MAIN,"plugins/plugin_dir not specified\n");
+        }
+    }
+
+    phandle=NULL;
+    while((phandle=plugin_enum(phandle))) {
+        DPRINTF(E_LOG,L_MAIN,"Plugin loaded: %s\n",plugin_get_description(phandle));
     }
 
     runas = conf_alloc_string("general","runas","nobody");

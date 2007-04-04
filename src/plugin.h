@@ -37,6 +37,9 @@ extern int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw);
 extern int plugin_rend_register(char *name, int port, char *iface, char *txt);
 extern void plugin_event_dispatch(int event_id, int intval, void *vp, int len);
 
+extern void *plugin_enum(void *);
+extern char *plugin_get_description(void *);
+
 /* these should really get rows */
 
 #define PLUGIN_E_SUCCESS     0

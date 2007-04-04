@@ -248,6 +248,35 @@ void _plugin_recalc_codecs(void) {
 }
 
 /**
+ * plugin_get_description
+ */
+char *plugin_get_description(void *which) {
+    PLUGIN_ENTRY *ppi = (PLUGIN_ENTRY *)which;
+
+    return ppi->pinfo->server;
+}
+
+
+/**
+ * walk through the loaded plugin list
+ */
+void *plugin_enum(void *where) {
+    PLUGIN_ENTRY *ppi = (PLUGIN_ENTRY *)where;
+
+    if(!ppi) {
+        // _plugin_readlock();
+        return (void*) _plugin_list.next;
+    }
+
+    if(!ppi->next) {
+        // _plugin_unlock();
+        return NULL;
+    }
+
+    return (void*) ppi->next;
+}
+
+/**
  * load a specified plugin.
  *
  * @param pe pointer to error string returned (if error)

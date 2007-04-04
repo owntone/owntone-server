@@ -51,6 +51,19 @@ var Updater = {
       row.push(Element.textContent(element.childNodes[2]));
       threadTable.addTbodyRow(row);    
     });
+ 
+    // Monkey see, monkey do
+    var plugin = $A(request.responseXML.getElementsByTagName('plugin'));
+    var pluginTable = new Table('plugin');
+    pluginTable.removeTBodyRows();
+    plugin.each(function(element) {
+      row = [];
+      info = Element.textContent(element.childNodes[0]).split('/',2);
+      row.push(info[0]);
+      row.push(info[1]);
+      pluginTable.addTbodyRow(row);
+    });
+
     // $('session_count').replaceChild(document.createTextNode(users + ' Connected Users'),$('session_count').firstChild);
     if (!Updater.stop) {
       Updater.wait();
