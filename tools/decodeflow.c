@@ -195,8 +195,8 @@ int decode_tag(FILE *fout, unsigned char *current, int level, int len) {
             current[2] << 8 |
             current[3];
 
-        //        fprintf(stderr,"Tag: %c%c%c%c, subtag len: %d, len: %d\n",
-        //                tag[0],tag[1],tag[2],tag[3],subtag_len, len);
+        fprintf(stderr,"Tag: %c%c%c%c, subtag len: %d, len: %d\n",
+                tag[0],tag[1],tag[2],tag[3],subtag_len, len);
         current += 4;
         len -= 4;
 

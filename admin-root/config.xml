@@ -109,17 +109,6 @@
             <short_description></short_description>
             <type size="80" browse="file">text</type>
         </item>
-        <item id="general:process_m3u">
-            <name>Process .m3u Files</name>
-            <short_description>
-                Should m3u files be processed as playlists?
-            </short_description>
-            <type default_value="0">select</type>
-            <options>
-                <option value="0">No</option>
-                <option value="1">Yes</option>
-            </options>
-        </item>
         <item id="general:compdirs" advanced="true">
             <name>Compilation Directories</name>
             <short_description></short_description>
@@ -127,12 +116,34 @@
         </item>
     </section>
     <section name="Scanning" advanced="true">
-        <item id="scanning:process_xml">
-            <name>Process xmlFiles</name>
+        <item id="scanning:process_playlists">
+            <name>Process Playlists</name>
+            <short_description>
+                Should static playlists (.m3u, etc) be processed?
+            </short_description>
+            <type default_value="1">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+        <item id="scanning:process_itunes">
+            <name>Process iTunes files</name>
             <short_description>
                 Should iTunes xml-files be processed?
             </short_description>
             <type default_value="1">select</type>
+            <options>
+                <option value="0">No</option>
+                <option value="1">Yes</option>
+            </options>
+        </item>
+        <item id="scanning:process_m3u">
+            <name>Process .m3u files</name>
+            <short_description>
+                Should .m3u playlists be processed?
+            </short_description>
+            <type default_value="0">select</type>
             <options>
                 <option value="0">No</option>
                 <option value="1">Yes</option>
@@ -246,7 +257,10 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-        <item id="scan:correct_order" advanced="true">
+    </section>
+
+    <section name="Daap" advanced="true">
+        <item id="daap:correct_order">
             <name>Ordered Playlists</name>
             <short_description>
                 Should playlists be returned in the order specified in the playlist?
@@ -257,9 +271,6 @@
                 <option value="1">Yes</option>
             </options>
         </item>
-    </section>
-
-    <section name="Daap" advanced="true">
         <item id="daap:empty_strings">
             <name>Empty strings</name>
             <short_description></short_description>

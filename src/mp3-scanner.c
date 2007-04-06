@@ -184,8 +184,8 @@ void scan_add_playlistlist(char *path) {
 
     DPRINTF(E_SPAM,L_SCAN,"Adding playlist %s\n",path);
 
-    if(!conf_get_int("general","process_m3u",0)) {
-        DPRINTF(E_DBG,L_SCAN,"Skipping playlist %s (process_m3u)\n",path);
+    if(!conf_get_int("scanning","process_playlists",1)) {
+        DPRINTF(E_DBG,L_SCAN,"Skipping playlist %s (process_playlists)\n",path);
         return;
     }
 
@@ -228,14 +228,19 @@ void scan_process_playlistlist(void) {
                 file = strrchr(pnext->path,PATHSEP) + 1;
             }
 
-            if(strcasecmp(file,"iTunes Music Library.xml") == 0) {
-                if(conf_get_int("scanning","process_xml",1)) {
+            if((!strcasecmp(file,"iTunes Music Library.xml")) ||
+               (!strcasecmp(file,"iTunes Library.xml"))) {
+                if(conf_get_int("scanning","process_itunes",1)) {
                     DPRINTF(E_INF,L_SCAN,"Scanning %s\n",pnext->path);
                     scan_xml_playlist(pnext->path);
                     DPRINTF(E_INF,L_SCAN,"Done Scanning %s\n",pnext->path);
                 }
-            } else if(strcasecmp(ext,".m3u") == 0) {
-                scan_static_playlist(pnext->path);
+            } else if(!strcasecmp(ext,".m3u")) {
+                if(conf_get_int("scanning","process_m3u",0)) {
+                    DPRINTF(E_INF,L_SCAN,"Scanning %s\n",pnext->path);
+                    scan_static_playlist(pnext->path);
+                    DPRINTF(E_INF,L_SCAN,"Done Scanning %s\n",pnext->path);
+                }
             }
         }
 

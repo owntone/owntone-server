@@ -87,6 +87,13 @@ typedef struct _CONF_ELEMENTS {
     char *term;
 } CONF_ELEMENTS;
 
+typedef struct _CONF_MAP {
+    char *old_section;
+    char *old_key;
+    char *new_section;
+    char *new_key;
+} CONF_MAP;
+
 /** Forwards */
 static int _conf_verify(LL_HANDLE pll);
 static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *key);
@@ -99,6 +106,7 @@ static int _conf_split(char *s, char *delimiters, char ***argvp);
 static void _conf_dispose_split(char **argv);
 static int _conf_xml_dump(XMLSTRUCT *pxml,LL *pll,int sublevel,char *parent);
 static int _conf_verify_element(char *section, char *key, char *value);
+static void _conf_remap_entry(char *old_section, char *old_key, char **new_section, char **new_key);
 
 static CONF_ELEMENTS conf_elements[] = {
     { 1, 0, CONF_T_STRING,"general","runas" },
@@ -140,9 +148,49 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_INT,"scanning","follow_symlinks" },
     { 0, 0, CONF_T_INT,"scanning","skip_first" },
     { 0, 0, CONF_T_INT,"scan","correct_order" },
-    { 0, 0, CONF_T_INT, NULL, NULL }
+
+    /* remapped values */
+    { 0, 0, CONF_T_INT,"scanning","process_playlists" },
+    { 0, 0, CONF_T_INT,"scanning","process_itunes" },
+    { 0, 0, CONF_T_INT,"scanning","process_m3u" },
+    { 0, 0, CONF_T_INT,"daap","correct_order" },
+    { 0, 0, CONF_T_INT, NULL, NULL },
 };
 
+static CONF_MAP _conf_map[] = {
+    { "general","process_m3u","scanning","process_playlists" },
+    { "scanning","process_xml","scanning","process_itunes" },
+    { "scan","correct_order","daap","correct_order" },
+
+    { NULL, NULL, NULL, NULL }
+};
+
+/**
+ * Upgrade a config silently by remapping old configuration values
+ * to new configuration values
+ */
+void _conf_remap_entry(char *old_section, char *old_key, char **new_section, char **new_key) {
+    CONF_MAP *pmap;
+
+    pmap = _conf_map;
+    while(pmap->old_section) {
+        if((!strcasecmp(old_section,pmap->old_section)) &&
+           (!strcasecmp(old_key,pmap->old_key))) {
+            /* found it! */
+            DPRINTF(E_LOG,L_CONF,"Config option %s/%s has "
+                    "been replaced by %s/%s\n",
+                    pmap->old_section,pmap->old_key,
+                    pmap->new_section, pmap->new_key);
+            *new_section = pmap->new_section;
+            *new_key = pmap->new_key;
+            return;
+        }
+        pmap++;
+    }
+
+    *new_section = old_section;
+    *new_key = old_key;
+}
 
 /**
  * Try and create a directory, including parents (probably
@@ -550,6 +598,9 @@ int conf_read(char *file) {
     int index;
     char *temp;
 
+    char *replaced_section = NULL;  /* config key/value updates */
+    char *replaced_key = NULL;      /* config key/value updates */
+
     if(conf_main_file) {
         conf_close();
         free(conf_main_file);
@@ -577,7 +628,7 @@ int conf_read(char *file) {
     ll_create(&pllcomment);  /* don't care if we lose comments */
 
     comment = NULL;
-    pllcurrent=NULL;
+    pllcurrent = NULL;
 
     /* got what will be the root of the config tree, now start walking through
      * the input file, populating the tree
@@ -627,7 +678,6 @@ int conf_read(char *file) {
             ll_add_ll(pllnew,term,plltemp);
 
             /* set current section and name */
-            pllcurrent = plltemp;
             if(section_name)
                 free(section_name);
             section_name = strdup(term);
@@ -666,11 +716,11 @@ int conf_read(char *file) {
             strsep(&value,delim);
             if((value) && (term) && (strlen(term))) {
                 while((strlen(term) && (strchr("\t ",term[strlen(term)-1]))))
-                      term[strlen(term)-1] = '\0';
+                    term[strlen(term)-1] = '\0';
                 while(strlen(value) && (strchr("\t ",*value)))
                     value++;
                 while((strlen(value) && (strchr("\t ",value[strlen(value)-1]))))
-                      value[strlen(value)-1] = '\0';
+                    value[strlen(value)-1] = '\0';
 
                 /* convert spaces to underscores in key */
                 temp = term;
@@ -680,7 +730,7 @@ int conf_read(char *file) {
                     temp++;
                 }
 
-                if(!pllcurrent) {
+                if(!section_name) {
                     /* in compat mode -- add a general section */
                     if((err=ll_create(&plltemp)) != LL_E_SUCCESS) {
                         DPRINTF(E_LOG,L_CONF,"Error creating list: %d\n",err);
@@ -689,7 +739,6 @@ int conf_read(char *file) {
                         return CONF_E_UNKNOWN;
                     }
                     ll_add_ll(pllnew,"general",plltemp);
-                    pllcurrent = plltemp;
 
                     if(section_name)
                         free(section_name); /* shouldn't ahppen */
@@ -706,7 +755,26 @@ int conf_read(char *file) {
                 }
 
                 /* see what kind this is, and act accordingly */
-                pce = _conf_get_keyinfo(section_name,term);
+                _conf_remap_entry(section_name, term, &replaced_section, &replaced_key);
+                DPRINTF(E_DBG,L_CONF,"Got %s/%s, convert to %s/%s (%s)\n",section_name,
+                        term, replaced_section, replaced_key, value);
+
+                pli = ll_fetch_item(pllnew,replaced_section);
+                if(pli) {
+                    DPRINTF(E_DBG,L_CONF,"Found existing section\n");
+                    pllcurrent = pli->value.as_ll;
+                } else {
+                    DPRINTF(E_DBG,L_CONF,"creating new section\n");
+                    if((err = ll_create(&pllcurrent)) != LL_E_SUCCESS) {
+                        ll_destroy(pllnew);
+                        DPRINTF(E_LOG,L_CONF,"Error creating linked list: %d\n",err);
+                        fclose(fin);
+                        return CONF_E_UNKNOWN;
+                    }
+                    ll_add_ll(pllnew,replaced_section,pllcurrent);
+                }
+                pce = _conf_get_keyinfo(replaced_section, replaced_key);
+
                 key_type = CONF_T_STRING;
                 if(pce)
                     key_type = pce->type;
@@ -715,13 +783,13 @@ int conf_read(char *file) {
                 case CONF_T_MULTIPATH:
                 case CONF_T_MULTICOMMA:
                     /* first, see if we already have a tree... */
-                    pli = ll_fetch_item(pllcurrent,term);
+                    pli = ll_fetch_item(pllcurrent,replaced_key);
                     if(!pli) {
                         if((ll_create(&plltemp) != LL_E_SUCCESS)) {
                             DPRINTF(E_FATAL,L_CONF,"Could not create "
                                     "linked list.\n");
                         }
-                        ll_add_ll(pllcurrent,term,plltemp);
+                        ll_add_ll(pllcurrent,replaced_key,plltemp);
                         ll_set_flags(plltemp,0); /* allow dups */
                     } else {
                         plltemp = pli->value.as_ll;
@@ -731,19 +799,19 @@ int conf_read(char *file) {
                     if(_conf_split(value,",",&valuearray) >= 0) {
                         index = 0;
                         while(valuearray[index]) {
-                            ll_add_string(plltemp,term,valuearray[index]);
+                            ll_add_string(plltemp,replaced_key,valuearray[index]);
                             index++;
                         }
                         _conf_dispose_split(valuearray);
                     } else {
-                        ll_add_string(plltemp,term,value);
+                        ll_add_string(plltemp,replaced_key,value);
                     }
                     break;
                 case CONF_T_INT:
                 case CONF_T_STRING:
                 case CONF_T_EXISTPATH:
                 default:
-                    ll_add_string(pllcurrent,term,value);
+                    ll_add_string(pllcurrent,replaced_key,value);
                     break;
                 }
 
@@ -751,7 +819,7 @@ int conf_read(char *file) {
                 if(comment) {
                     /* this is an inline comment */
                     snprintf(keybuffer,sizeof(keybuffer),"in_%s_%s",
-                             section_name,term);
+                             replaced_section,replaced_key);
                     ll_add_string(pllcomment,keybuffer,comment);
                     comment = NULL;
                 }
@@ -759,7 +827,7 @@ int conf_read(char *file) {
                 if(prev_comments[0] != '\0') {
                     /* we had some preceding comments */
                     snprintf(keybuffer,sizeof(keybuffer),"pre_%s_%s",
-                             section_name, term);
+                             replaced_section, replaced_key);
                     ll_add_string(pllcomment,keybuffer,prev_comments);
                     prev_comments[0] = '\0';
                     current_comment_length=0;
@@ -770,6 +838,7 @@ int conf_read(char *file) {
 
             if(((term) && (strlen(term))) && (!value)) {
                 DPRINTF(E_LOG,L_CONF,"Error in config file on line %d\n",line);
+                DPRINTF(E_LOG,L_CONF,"key: %s, value: %s\n",replaced_key,value);
                 ll_destroy(pllnew);
                 return CONF_E_PARSE;
             }
@@ -778,7 +847,6 @@ int conf_read(char *file) {
         if((comment)||(ws)) {
             if(!comment)
                 comment = "";
-
 
             /* add to prev comments */
             while((current_comment_length + (int)strlen(comment) + 2 >=
@@ -809,14 +877,17 @@ int conf_read(char *file) {
         }
     }
 
-    if(section_name)
+    if(section_name) {
         free(section_name);
+        section_name = NULL;
+    }
 
     if(prev_comments) {
         if(prev_comments[0] != '\0') {
             ll_add_string(pllcomment,"end",prev_comments);
         }
         free(prev_comments);
+        prev_comments = NULL;
     }
 
     fclose(fin);
