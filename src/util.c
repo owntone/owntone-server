@@ -435,7 +435,7 @@ void util_hexdump(unsigned char *block, int len) {
 /**
  * simple mutex wrapper for better debugging
  */
-void util_mutex_lock(lock_t which) {
+void util_mutex_lock(ff_lock_t which) {
     if(!_util_initialized)
         _util_mutex_init();
 
@@ -445,7 +445,7 @@ void util_mutex_lock(lock_t which) {
 /**
  * simple mutex wrapper for better debugging
  */
-void util_mutex_unlock(lock_t which) {
+void util_mutex_unlock(ff_lock_t which) {
     pthread_mutex_unlock(&util_locks[(int)which]);
 }
 
@@ -455,7 +455,7 @@ void util_mutex_unlock(lock_t which) {
  */
 void _util_mutex_init(void) {
     int err;
-    lock_t lock;
+    ff_lock_t lock;
 
     if((err = pthread_mutex_lock(&util_mutex))) {
         fprintf(stderr,"Error locking mutex\n");
@@ -464,7 +464,7 @@ void _util_mutex_init(void) {
 
     if(!_util_initialized) {
         /* now, walk through and manually initialize the mutexes */
-        for(lock=(lock_t)0; lock < l_last; lock++) {
+        for(lock=(ff_lock_t)0; lock < l_last; lock++) {
             if((err = pthread_mutex_init(&util_locks[(int)lock],NULL))) {
                 fprintf(stderr,"Error initializing mutex\n");
                 exit(-1);

@@ -21,12 +21,12 @@ typedef enum {
     l_plugin,
     l_memdebug,
     l_last
-} lock_t;
+} ff_lock_t;
 
 /* debugging lock wrappers */
 
-extern void util_mutex_lock(lock_t which);
-extern void util_mutex_unlock(lock_t which);
+extern void util_mutex_lock(ff_lock_t which);
+extern void util_mutex_unlock(ff_lock_t which);
 
 /* simple hashing functions */
 extern uint32_t util_djb_hash_block(unsigned char *data, uint32_t len);
