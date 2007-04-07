@@ -44,6 +44,8 @@
 #endif
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/time.h>
+#include <unistd.h>
 
 #include "daapd.h"
 #include "conf.h"
