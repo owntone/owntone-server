@@ -2,7 +2,6 @@ dnl $Id$
 dnl
 dnl Process this file with autoconf to produce a configure script.
 AC_INIT(config.h.in)
-
 AM_CONFIG_HEADER(config.h)
 AM_INIT_AUTOMAKE(mt-daapd,0.2.1.1)
 
@@ -160,14 +159,16 @@ dnl
 
 case $host in
 *solaris*)
-	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN -D_XPG4_2"
-	CPPFLAGS="$CPPFLAGS -D__EXTENSIONS__ -DHAVE_BROKEN_RECVIF_NAME"
+	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_DAEMON -DNOT_HAVE_SA_LEN "
+	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SOCKLEN_T -DNOT_HAVE_IF_NAMETOINDEX "
+	CPPFLAGS="$CPPFLAGS -DLOG_PERROR=0 -D_XPG4_2 -D__EXTENSIONS__ "
+	CPPFLAGS="$CPPFLAGS -DHAVE_BROKEN_RECVIF_NAME "
 	CPPFLAGS="$CPPFLAGS -D_POSIX_PTHREAD_SEMANTICS"
 	LIBS="${LIBS} -lnsl -lsocket";;	
 *freebsd*)
 	CPPFLAGS="$CPPFLAGS -DFREEBSD";;
 *linux*)
-	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN";;
+	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN -DUSES_NETLINK -DHAVE_LINUX";;
 *openbsd*)
 	CPPFLAGS="$CPPFLAGS -DHAVE_BROKEN_RECVDSTADDR";;
 *darwin*)
@@ -436,4 +437,4 @@ AC_CHECK_LIB(socket,socket,V_NETLIBS="-lsocket $V_NETLIBS",,)
 
 AC_SUBST(V_NETLIBS)
 
-AC_OUTPUT(src/Makefile src/plugins/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile Makefile)
+AC_OUTPUT(src/Makefile src/plugins/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile src/mdns/Makefile Makefile)

@@ -1,13 +1,17 @@
 # $Id$
 #
-SUBDIRS=plugins
+SUBDIRS = plugins
 
 sbin_PROGRAMS = mt-daapd
 bin_PROGRAMS = wavstreamer
 
+LDADD=
+
 if COND_REND_POSIX
-PRENDSRC=mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c mDNSUNP.c \
-rend-posix.c mDNSPlatformFunctions.h rend-unix.c
+SUBDIRS += mdns
+AM_CPPFLAGS = -I./mdns
+LDADD+=mdns/libmdns.la
+PRENDSRC=rend-unix.c rend-posix.c
 endif
 
 if COND_REND_HOWL
@@ -66,9 +70,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(ARENDSRC) $(OGGVORBISSRC) \
 	$(FLACSRC) $(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM)
 
-EXTRA_DIST = mDNS.c mDNSClientAPI.h mDNSDebug.h mDNSPosix.c \
-	mDNSUNP.c mDNSPlatformFunctions.h mDNSPosix.h mDNSUNP.h \
-	rend-howl.c rend-posix.c rend-osx.c scan-mpc.c \
+EXTRA_DIST = rend-howl.c rend-posix.c rend-osx.c scan-mpc.c \
 	scan-ogg.c scan-flac.c db-sql.c db-sql.h \
 	db-sql-sqlite2.h db-sql-sqlite2.c \
 	db-sql-sqlite3.h db-sql-sqlite3.c \

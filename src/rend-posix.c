@@ -196,7 +196,7 @@
 
 */
 
-#include "mDNSClientAPI.h"// Defines the interface to the client layer above
+#include "mDNSEmbeddedAPI.h"// Defines the interface to the client layer above
 #include "mDNSPosix.h"    // Defines the specific types needed to run mDNS on this platform
 
 #include <assert.h>
@@ -216,22 +216,6 @@
 #include "os-unix.h"
 #include "rend.h"
 #include "rend-unix.h"
-
-
-/*
- * I'll take some extra hackishness, please...
- */
-typedef struct PosixNetworkInterface PosixNetworkInterface;
-
-struct PosixNetworkInterface {
-        NetworkInterfaceInfo    coreIntf;
-        const char *            intfName;
-        PosixNetworkInterface * aliasIntf;
-        int                     index;
-        int                     multicastSocket;
-        int                     multicastSocketv6;
-};
-
 
 static mDNS mDNSStorage;       // mDNS core uses this to store its globals
 static mDNS_PlatformSupport PlatformStorage;  // Stores this platform's globals
