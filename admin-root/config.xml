@@ -327,5 +327,12 @@
             </short_description>
             <type size="80">text</type>
         </item>
+        <item id="general:always_transcode">
+            <name>Always Transcode</name>
+            <short_description>
+                Codecs to always transcode, even if client plays it
+            </short_description>
+            <type size="80">text</type>
+        </item>
     </section>
 </config>

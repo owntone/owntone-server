@@ -51,7 +51,6 @@
 #include "conf.h"
 #include "configfile.h"
 #include "db-generic.h"
-#include "dynamic-art.h"
 #include "err.h"
 #include "os.h"
 #include "plugin.h"
@@ -492,6 +491,7 @@ int pi_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
     char *native_codecs=NULL;
     char *user_agent=NULL;
     char *never_transcode = NULL;
+    char *always_transcode = NULL;
 
     if(!codec) {
         DPRINTF(E_LOG,L_PLUG,"testing transcode on null codec?\n");
@@ -518,6 +518,8 @@ int pi_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
                     native_codecs = "mpeg,mp4a,wav,mp4v,alac";
                 } else if(strncmp(user_agent,"Roku",4)==0) {
                     native_codecs = "mpeg,mp4a,wav,wma";
+                } else if(strncmp(user_agent,"Hifidelio",9)==0) {
+                    return FALSE;
                 }
             }
         }
@@ -530,6 +532,15 @@ int pi_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec) {
     /* can't transcode it if we can't transcode it */
     if(!_plugin_ssc_codecs)
         return FALSE;
+
+    always_transcode = conf_alloc_string("general","always_transcode",NULL);
+    if(always_transcode) {
+        if(strstr(always_transcode,codec)) {
+            free(always_transcode);
+            return TRUE;
+        }
+        free(always_transcode);
+    }
 
     if(strstr(native_codecs,codec))
         return FALSE;
@@ -869,9 +880,6 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
     off_t real_len=0;
     off_t file_len;
     off_t offset=0;
-    long img_size;
-    struct stat sb;
-    int img_fd;
     int item;
 
     /* stream out the song */
@@ -927,28 +935,9 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
         } else {
             real_len=lseek(file_fd,0,SEEK_END);
             lseek(file_fd,0,SEEK_SET);
-
-            /* Re-adjust content length for cover art */
-            if((conf_isset("general","art_filename")) &&
-               ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
-                fstat(img_fd, &sb);
-                img_size = sb.st_size;
-                r_close(img_fd);
-
-                if (strncasecmp(pmp3->type,"mp3",4) ==0) {
-                    /*PENDING*/
-                } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
-                    real_len += img_size + 24;
-
-                    if (offset > img_size + 24) {
-                        offset -= img_size + 24;
-                    }
-                }
-            }
-
             file_len = real_len - offset;
 
-            DPRINTF(E_DBG,L_WS,"Thread %d: Length of file (remaining) is %ld\n",
+            DPRINTF(E_DBG,L_WS,"Thread %d: Length of file (remaining): %ld\n",
                     pwsc->threadno,(long)file_len);
 
             // DWB:  fix content-type to correctly reflect data
@@ -958,8 +947,15 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
                 ws_addresponseheader(pwsc,"Content-Type","audio/%s",pmp3->type);
 
             ws_addresponseheader(pwsc,"Content-Length","%ld",(long)file_len);
-            ws_addresponseheader(pwsc,"Connection","Close");
 
+            if((ws_getrequestheader(pwsc,"user-agent")) &&
+               (!strncmp(ws_getrequestheader(pwsc,"user-agent"),
+                         "Hifidelio",9))) {
+                ws_addresponseheader(pwsc,"Connection","Keep-Alive");
+                pwsc->close=0;
+            } else {
+                ws_addresponseheader(pwsc,"Connection","Close");
+            }
 
             if(!offset)
                 ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
@@ -977,22 +973,7 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
             DPRINTF(E_WARN,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
                     session,pmp3->fname, pwsc->hostname,(long)offset);
 
-            if(!offset)
-                config.stats.songs_served++; /* FIXME: remove stat races */
-
-            if((conf_isset("general","art_filename")) &&
-               (!offset) &&
-               ((img_fd=da_get_image_fd(pmp3->path)) != -1)) {
-                if (strncasecmp(pmp3->type,"mp3",4) ==0) {
-                    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n",
-                            pmp3->fname, img_fd);
-                    da_attach_image(img_fd, pwsc->fd, file_fd, offset);
-                } else if (strncasecmp(pmp3->type, "m4a", 4) == 0) {
-                    DPRINTF(E_INF,L_WS|L_ART,"Dynamic add artwork to %s (fd %d)\n",
-                            pmp3->fname, img_fd);
-                    da_aac_attach_image(img_fd, pwsc->fd, file_fd, offset);
-                }
-            } else if(offset) {
+            if(offset) {
                 DPRINTF(E_INF,L_WS,"Seeking to offset %ld\n",(long)offset);
                 lseek(file_fd,offset,SEEK_SET);
             }
@@ -1012,6 +993,8 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
         /* update play counts */
         if(bytes_copied  >= (real_len * 80 / 100)) {
             db_playcount_increment(NULL,pmp3->id);
+            if(!offset)
+                config.stats.songs_served++; /* FIXME: remove stat races */
         }
     }
 

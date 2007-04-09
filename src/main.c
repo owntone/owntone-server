@@ -84,7 +84,6 @@
 #include "mp3-scanner.h"
 #include "webserver.h"
 #include "restart.h"
-#include "dynamic-art.h"
 #include "db-generic.h"
 #include "os.h"
 #include "plugin.h"
