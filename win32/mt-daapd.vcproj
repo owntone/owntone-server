@@ -221,10 +221,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\src\dynamic-art.c"
-				>
-			</File>
-			<File
 				RelativePath="..\src\err.c"
 				>
 			</File>
