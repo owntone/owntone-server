@@ -72,7 +72,7 @@ typedef INT64       int64_t;
 #define mkdir(a,b) _mkdir((a))
 #define popen _popen
 #define pclose _pclose
-#define strtoll strtol 
+#define strtoll strtol
 #define access _access
 #define strdup _strdup
 #define dup _dup
@@ -80,6 +80,8 @@ typedef INT64       int64_t;
 #define lseek _lseek
 #define dup2 _dup2
 #define fileno _fileno
+#define tzset _tzset
+#define putenv _putenv
 
 #define realpath os_realpath
 #define close os_close

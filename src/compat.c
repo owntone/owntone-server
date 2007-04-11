@@ -503,16 +503,16 @@ time_t timegm(struct tm *tm) {
     char buffer[255];
 
     tz = getenv("TZ");
-    _putenv("TZ=UTC0");
-    _tzset();
+    putenv("TZ=UTC0");
+    tzset();
     ret = mktime(tm);
 
     if(tz)
         sprintf(buffer,"TZ=%s",tz);
     else
         strcpy(buffer,"TZ=");
-    _putenv(buffer);
-    _tzset();
+    putenv(buffer);
+    tzset();
     return ret;
 }
 #endif
