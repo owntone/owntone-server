@@ -352,10 +352,11 @@ void plugin_handler(WS_CONNINFO *pwsc) {
                 ppi->dq.limit = (h - l) + 1;
             }
         }
-    }
 
-    _ppi->log(E_DBG,"Index %s: offset %d, limit %d\n",index_req,
-              ppi->dq.offset,ppi->dq.limit);
+		_ppi->log(E_DBG,"Index %s: offset %d, limit %d\n",index_req,
+                  ppi->dq.offset,ppi->dq.limit);
+	}
+
 
     if(_ppi->ws_getvar(pwsc,"query")) {
         ppi->dq.filter_type = FILTER_TYPE_APPLE;
