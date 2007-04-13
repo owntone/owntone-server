@@ -94,6 +94,7 @@ int _plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, int head
 char *pi_ws_uri(WS_CONNINFO *pwsc);
 void pi_ws_will_close(WS_CONNINFO *pwsc);
 int pi_ws_fd(WS_CONNINFO *pwsc);
+char *pi_ws_gethostname(WS_CONNINFO *pwsc);
 
 /* misc helpers */
 char *pi_server_ver(void);
@@ -126,6 +127,7 @@ PLUGIN_INPUT_FN pi = {
     pi_ws_fd,
     ws_getrequestheader,
     ws_writebinary,
+    pi_ws_gethostname,
 
     pi_server_ver,
     pi_server_name,
@@ -685,6 +687,10 @@ void pi_ws_will_close(WS_CONNINFO *pwsc) {
 
 int pi_ws_fd(WS_CONNINFO *pwsc) {
     return pwsc->fd;
+}
+
+char *pi_ws_gethostname(WS_CONNINFO *pwsc) {
+    return pwsc->hostname;
 }
 
 void pi_log(int level, char *fmt, ...) {

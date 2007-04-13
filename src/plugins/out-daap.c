@@ -212,11 +212,15 @@ int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password) {
             return TRUE;
         } else {
             _ppi->conf_dispose_string(readpassword);
+            _ppi->log(E_LOG,"out-daap: Invalid password from %s (%s)\n",
+                      _ppi->ws_gethostname(pwsc),password);
             return FALSE;
         }
     } else {
         if(strcasecmp(password,readpassword)) {
             _ppi->conf_dispose_string(readpassword);
+            _ppi->log(E_LOG,"out-daap: Invalid password from %s (%s)\n",
+                      _ppi->ws_gethostname(pwsc),password);
             return FALSE;
         } else {
             _ppi->conf_dispose_string(readpassword);
@@ -353,9 +357,9 @@ void plugin_handler(WS_CONNINFO *pwsc) {
             }
         }
 
-		_ppi->log(E_DBG,"Index %s: offset %d, limit %d\n",index_req,
+                _ppi->log(E_DBG,"Index %s: offset %d, limit %d\n",index_req,
                   ppi->dq.offset,ppi->dq.limit);
-	}
+        }
 
 
     if(_ppi->ws_getvar(pwsc,"query")) {

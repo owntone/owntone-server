@@ -425,10 +425,16 @@ int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
         return TRUE;
     }
 
-    if(!password)
+    if(!password) {
+        DPRINTF(E_LOG,L_MISC,"admin: Invalid password from %s (null)\n",
+                pwsc->hostname);
         return FALSE;
+    }
 
     res = !strcmp(password,adminpassword);
+    if(!res)
+        DPRINTF(E_LOG,L_MISC,"admin: Invalid password from %s (%s)\n",
+                pwsc->hostname, password);
     free(adminpassword);
     return res;
 }
