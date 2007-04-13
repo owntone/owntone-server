@@ -20,6 +20,7 @@ typedef enum {
     l_conf,
     l_plugin,
     l_memdebug,
+    l_upnp,
     l_last
 } ff_lock_t;
 

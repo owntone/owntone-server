@@ -9,10 +9,10 @@
 
 #define PATHSEP '/'
 #define PATHSEP_STR "/"
+#define OS_SOCKETTYPE unsigned int
 
 /* unix-specific functions */
 extern int os_drop_privs(char *user);
 void os_set_pidfile(char *file);
-
 #endif
 

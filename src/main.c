@@ -88,6 +88,7 @@
 #include "os.h"
 #include "plugin.h"
 #include "util.h"
+#include "upnp.h"
 
 #ifdef HAVE_GETOPT_H
 # include "getopt.h"
@@ -421,6 +422,11 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN,"Firefly Version %s: Starting with debuglevel %d\n",
             VERSION,err_getlevel());
 
+
+#ifdef UPNP
+    upnp_init();
+#endif
+
     /* load plugins before we drop privs?  Maybe... let the
      * plugins do stuff they might need to */
     plugin_init();
@@ -583,6 +589,8 @@ int main(int argc, char *argv[]) {
         config.reload = 1; /* force a reload on start */
 
     while(!config.stop) {
+        upnp_tick(); /* run the upnp loop */
+
         if((conf_get_int("general","rescan_interval",0) &&
             (rescan_counter > conf_get_int("general","rescan_interval",0)))) {
             if((conf_get_int("general","always_scan",0)) ||

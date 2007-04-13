@@ -54,6 +54,10 @@ if COND_GDBM
 GDBM=db-gdbm.c db-gdbm.h
 endif
 
+if COND_UPNP
+UPNP=upnp.c upnp.h
+endif
+
 wavstreamer_SOURCES = wavstreamer.c
 
 mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
@@ -67,7 +71,8 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
 	memdebug.c memdebug.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(ARENDSRC) $(OGGVORBISSRC) \
-	$(FLACSRC) $(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM)
+	$(FLACSRC) $(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM) \
+	$(UPNP)
 
 EXTRA_DIST = rend-howl.c rend-posix.c rend-osx.c scan-mpc.c \
 	scan-ogg.c scan-flac.c db-sql.c db-sql.h \
@@ -75,4 +80,4 @@ EXTRA_DIST = rend-howl.c rend-posix.c rend-osx.c scan-mpc.c \
 	db-sql-sqlite3.h db-sql-sqlite3.c \
 	w32-eventlog.c w32-eventlog.h w32-service.c w32-service.h \
 	os-win32.h os-win32.c win32.h db-gdbm.c db-gdbm.h \
-	ff-plugins.h ff-dbstruct.h
+	ff-plugins.h ff-dbstruct.h upnp.c upnp.h

@@ -45,6 +45,7 @@ rend_avahi=false
 db_sqlite=false
 db_sqlite3=false
 use_ffmpeg=false;
+use_upnp=false;
 
 STATIC_LIBS=no
 CPPFLAGS="${CPPFLAGS} -g -Wall"
@@ -117,6 +118,8 @@ AC_ARG_ENABLE(gdbm,[  --enable-gdbm       Enable gdbm support],
 AC_ARG_ENABLE(ffmpeg,[  --enable-ffmpeg     Enable ffmpeg transcode support],
                       use_ffmpeg=true;)
 
+AC_ARG_ENABLE(upnp,[  --enable-upnp       Enable upnp support],
+                      CPPFLAGS="${CPPFLAGS} -DUPNP"; use_upnp=true;)
 
 AC_ARG_ENABLE(mem-debug,[  --enable-mem-debug  Enable memory debugging],
                       CPPFLAGS="${CPPFLAGS} -DDEBUG_MEM")
@@ -131,6 +134,8 @@ AM_CONDITIONAL(COND_SQLITE,test x$db_sqlite = xtrue)
 AM_CONDITIONAL(COND_SQLITE3,test x$db_sqlite3 = xtrue)
 AM_CONDITIONAL(COND_GDBM,test x$use_gdbm = xtrue)
 AM_CONDITIONAL(COND_FFMPEG,test x$use_ffmpeg = xtrue)
+AM_CONDITIONAL(COND_UPNP,test x$use_upnp = xtrue)
+
 #AM_CONDITIONAL(COND_NEED_STRCASESTR,false)
 #AM_CONDITIONAL(COND_NEED_STRSEP,false)
 AC_CHECK_FUNCS(strcasestr strsep)
