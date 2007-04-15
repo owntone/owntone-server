@@ -169,6 +169,69 @@ int config_session=0;                                   /**< session counter */
 #define MAX_LINE 1024
 
 /**
+ * used in auth handlers to see if the username and password
+ * are sufficient to grant a specific role.  The roles "user" and
+ * "admin" are built-in roles, and are the roles used to control access
+ * to the music and the admin pages respectively.
+ */
+int config_matches_role(WS_CONNINFO *pwsc, char *username,
+                        char *password, char *role) {
+    char *required_pw;
+    int result;
+    char *my_username, *my_password;
+
+    my_username = username ? username : "";
+    my_password = password ? password : "";
+
+    /* sanity check */
+    if((strcasecmp(role,"admin") && strcasecmp(role,"user"))) {
+        DPRINTF(E_LOG,L_MISC,"Unknown role: %s\n",role);
+        return FALSE;
+    }
+
+    /* if we have admin auth, we have everything */
+    required_pw = conf_alloc_string("general","admin_pw",NULL);
+    if(!required_pw) { /* no password set */
+        if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname)))
+            return TRUE;
+
+        DPRINTF(E_LOG,L_MISC,"Auth: attempt to gain admin privs "
+                "from %s (%s/%s)\n",pwsc->hostname, my_username, my_password);
+        return FALSE;
+    }
+
+    /* if the admin password is set, and we've set it */
+    if(!strcmp(required_pw, my_password)) {
+        free(required_pw);
+        return TRUE;
+    }
+
+    free(required_pw);
+    if(!strcasecmp("admin",role))  {/* must we have admin? */
+        DPRINTF(E_LOG,L_MISC,"Auth: attempt to gain admin privs "
+                "from %s (%s/%s)\n",pwsc->hostname, my_username, my_password);
+        return FALSE;
+    }
+
+    /* we're checking for user privs */
+    result = FALSE;
+    required_pw = conf_alloc_string("general","password",NULL);
+
+    if(!required_pw) /* none set */
+        return TRUE;
+
+    if(!strcmp(required_pw,my_password))
+        result = TRUE;
+
+    free(required_pw);
+    if(!result) {
+        DPRINTF(E_LOG,L_MISC,"Auth: attempt to gain user privs "
+                "from %s (%s/%s)\n",pwsc->hostname, my_username, my_password);
+    }
+    return result;
+}
+
+/**
  * set the content type based on the file type
  */
 void config_content_type(WS_CONNINFO *pwsc, char *path) {
@@ -417,34 +480,7 @@ void config_handler(WS_CONNINFO *pwsc) {
  * \param password password passed in the auth request
  */
 int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
-    char *adminpassword;
-    int res;
-
-    if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname)))
-        return TRUE;
-
-    if(strncasecmp(pwsc->uri,"/upnp",5) == 0)
-        return TRUE;
-
-    adminpassword=conf_alloc_string("general","admin_pw",NULL);
-    if((!adminpassword) || (strlen(adminpassword)==0)) {
-        /* we'll handle this later */
-        if(adminpassword) free(adminpassword);
-        return TRUE;
-    }
-
-    if(!password) {
-        DPRINTF(E_LOG,L_MISC,"admin: Invalid password from %s (null)\n",
-                pwsc->hostname);
-        return FALSE;
-    }
-
-    res = !strcmp(password,adminpassword);
-    if(!res)
-        DPRINTF(E_LOG,L_MISC,"admin: Invalid password from %s (%s)\n",
-                pwsc->hostname, password);
-    free(adminpassword);
-    return res;
+    return config_matches_role(pwsc,user,password,"admin");
 }
 
 /**
@@ -988,7 +1024,6 @@ void config_emit_version(WS_CONNINFO *pwsc, void *value, char *arg) {
 void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s",HOST);
 }
-
 
 /**
  * Implement the FLAGS command.

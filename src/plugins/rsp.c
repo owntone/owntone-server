@@ -170,27 +170,7 @@ int plugin_can_handle(WS_CONNINFO *pwsc) {
  * works.
  */
 int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password) {
-    char *readpassword;
-
-    readpassword = _ppi->conf_alloc_string("general","password",NULL);
-    if(password == NULL) { /* testing to see if we need a pw */
-        if((readpassword == NULL) || (strlen(readpassword)==0)) {
-            if(readpassword) _ppi->conf_dispose_string(readpassword);
-            return TRUE;
-        } else {
-            _ppi->conf_dispose_string(readpassword);
-            return FALSE;
-        }
-    } else {
-        if(strcasecmp(password,readpassword)) {
-            _ppi->conf_dispose_string(readpassword);
-            return FALSE;
-        } else {
-            _ppi->conf_dispose_string(readpassword);
-            return TRUE;
-        }
-    }
-    return TRUE; /* ?? */
+    return _ppi->ws_matchesrole(pwsc,username,password,"user");
 }
 
 /**

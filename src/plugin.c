@@ -128,6 +128,7 @@ PLUGIN_INPUT_FN pi = {
     ws_getrequestheader,
     ws_writebinary,
     pi_ws_gethostname,
+    config_matches_role,
 
     pi_server_ver,
     pi_server_name,

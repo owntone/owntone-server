@@ -137,6 +137,7 @@ typedef struct tag_plugin_input_fn {
     char* (*ws_getrequestheader)(struct tag_ws_conninfo *, char *);
     int (*ws_writebinary)(struct tag_ws_conninfo *, char *, int);
     char* (*ws_gethostname)(struct tag_ws_conninfo *);
+    int (*ws_matchesrole)(struct tag_ws_conninfo *, char *, char *, char *);
 
     /* misc helpers */
     char* (*server_ver)(void);
