@@ -534,7 +534,7 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_FATAL,L_MAIN|L_WS,"Error staring web server: %s\n",strerror(errno));
     }
 
-    ws_registerhandler(config.server, "^.*$",main_handler,main_auth,1);
+    ws_registerhandler(config.server, "/",main_handler,main_auth,1);
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */

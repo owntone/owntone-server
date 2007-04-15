@@ -28,7 +28,6 @@
 #include <fcntl.h>
 #include <limits.h>
 #include <pthread.h>
-#include <regex.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -63,7 +62,7 @@
  */
 
 typedef struct tag_ws_handler {
-    regex_t regex;
+    char *stem;
     void (*req_handler)(WS_CONNINFO*);
     int(*auth_handler)(WS_CONNINFO*, char *, char *);
     int addheaders;
@@ -110,7 +109,7 @@ int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
                    void(**preq)(WS_CONNINFO*),
                    int(**pauth)(WS_CONNINFO*, char *, char *),
                    int *addheaders);
-int ws_registerhandler(WSHANDLE ws, char *regex,
+int ws_registerhandler(WSHANDLE ws, char *stem,
                        void(*handler)(WS_CONNINFO*),
                        int(*auth)(WS_CONNINFO*, char *, char *),
                        int addheaders);
@@ -366,7 +365,7 @@ extern int ws_stop(WSHANDLE ws) {
     while(pwsp->handlers.next) {
         current=pwsp->handlers.next;
         pwsp->handlers.next=current->next;
-        regfree(&current->regex);
+        free(&current->stem);
         free(current);
     }
 
@@ -1349,12 +1348,8 @@ char *ws_urldecode(char *string, int space_as_plus) {
  * Register a page and auth handler.  Returns 0 on success,
  * returns -1 on failure.
  *
- * If the regex is not well-formed, it returns -1 iwth
- * errno set to EINVAL.  It is up to the caller to use
- * regerror to display a more interesting error message,
- * if appropriate.
  */
-int ws_registerhandler(WSHANDLE ws, char *regex,
+int ws_registerhandler(WSHANDLE ws, char *stem,
                        void(*handler)(WS_CONNINFO*),
                        int(*auth)(WS_CONNINFO *, char *, char *),
                        int addheaders) {
@@ -1365,12 +1360,7 @@ int ws_registerhandler(WSHANDLE ws, char *regex,
     if(!phandler)
         return -1;
 
-    if(regcomp(&phandler->regex,regex,REG_EXTENDED | REG_NOSUB)) {
-        free(phandler);
-        errno=EINVAL;
-        return -1;
-    }
-
+    phandler->stem=strdup(stem);
     phandler->req_handler=handler;
     phandler->auth_handler=auth;
     phandler->addheaders=addheaders;
@@ -1405,7 +1395,7 @@ int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
             pwsc->threadno);
 
     while(phandler) {
-        if(!regexec(&phandler->regex,pwsc->uri,0,NULL,0)) {
+        if(!strncasecmp(phandler->stem,pwsc->uri,strlen(phandler->stem))) {
             /* that's a match */
             DPRINTF(E_DBG,L_WS,"Thread %d: URI Match!\n",pwsc->threadno);
             *preq=phandler->req_handler;
