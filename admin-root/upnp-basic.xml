@@ -1,0 +1,22 @@
+<?xml version="1.0"?> 
+<root xmlns="urn:schemas-upnp-org:device-1-0"> 
+  <specVersion> 
+    <major>1</major> 
+    <minor>0</minor> 
+  </specVersion> 
+  <URLBase>http://@host@:@config general/port@/</URLBase> 
+  <device> 
+    <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType> 
+    <friendlyName>@servername@</friendlyName> 
+    <manufacturer>Firefly Media Services</manufacturer> 
+    <manufacturerURL>http://www.fireflymediaserver.org/</manufacturerURL> 
+    <modelDescription>Firefly Media Server (version
+    @version@)</modelDescription> 
+    <modelName></modelName>
+    <modelURL></modelURL>
+    <serialNumber></serialNumber>
+    <UDN>uuid:12345678-1234-1234-1234-123456789012</UDN> 
+    <UPC></UPC>
+    <presentationURL>http://@host@:@config general/port@/</presentationURL> 
+  </device>
+</root>

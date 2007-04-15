@@ -80,6 +80,8 @@ static void config_emit_system(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_conffile(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_config(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_servername(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 static void config_content_type(WS_CONNINFO *pwsc, char *path);
 
@@ -143,6 +145,8 @@ CONFIGELEMENT config_elements[] = {
     { 1,0,0,CONFIG_TYPE_STRING,"logfile",(void*)&config.logfile, config_emit_string },
     { 1,0,0,CONFIG_TYPE_STRING,"art_filename",(void*)&config.artfilename,config_emit_string },
     */
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"servername",(void*)NULL,config_emit_servername },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"config",(void*)NULL,config_emit_config },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"conffile",(void*)NULL,config_emit_conffile },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"host",(void*)NULL,config_emit_host },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"release",(void*)VERSION,config_emit_literal },
@@ -393,7 +397,8 @@ void config_handler(WS_CONNINFO *pwsc) {
     ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
     ws_emitheaders(pwsc);
 
-    if(strcasecmp(&resolved_path[strlen(resolved_path) - 5],".html") == 0) {
+    if((strcasecmp(&resolved_path[strlen(resolved_path) - 5],".html") == 0) ||
+       (strcasecmp(&resolved_path[strlen(resolved_path) - 4],".xml") == 0)) {
         config_subst_stream(pwsc, file_fd);
     } else {
         copyfile(file_fd,pwsc->fd);
@@ -418,6 +423,9 @@ int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
     if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname)))
         return TRUE;
 
+    if(strncasecmp(pwsc->uri,"/upnp",5) == 0)
+        return TRUE;
+
     adminpassword=conf_alloc_string("general","admin_pw",NULL);
     if((!adminpassword) || (strlen(adminpassword)==0)) {
         /* we'll handle this later */
@@ -439,6 +447,43 @@ int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
     return res;
 }
 
+/**
+ * write the current servername
+ */
+void config_emit_servername(WS_CONNINFO *pwsc, void *value, char *arg) {
+    char *servername = conf_get_servername();
+
+    ws_writefd(pwsc,"%s",servername);
+    free(servername);
+}
+
+/**
+ * write a config value
+ */
+void config_emit_config(WS_CONNINFO *pwsc, void *value, char *arg) {
+    char *new_arg = strdup(arg);
+    char *section = new_arg;
+    char *key;
+    char *result_value;
+
+    if(!new_arg)
+        return;
+
+    key = strchr(new_arg,'/');
+    if(!key)
+        return;
+
+    *key = '\0';
+    key++;
+
+    result_value = conf_alloc_string(section, key, NULL);
+    if(!result_value)
+        ws_writefd(pwsc,"NULL");
+    else {
+        ws_writefd(pwsc,"%s",result_value);
+        free(result_value);
+    }
+}
 
 /**
  * emit the host value passed by the client web server.  This

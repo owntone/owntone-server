@@ -21,6 +21,7 @@
  */
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <string.h>
@@ -139,7 +140,7 @@ void upnp_build_packet(char *packet, int len, UPNP_PACKETINFO *pi) {
 
     if(pi->body) {
         snprintf(buffer,sizeof(buffer),"Content-Length: %d\r\n\r\n",
-                strlen(pi->body));
+                (int)strlen(pi->body));
         len=upnp_strcat(buffer,packet,len);
         len=upnp_strcat(pi->body,packet,len);
     } else {
@@ -198,11 +199,17 @@ int upnp_init(void) {
     int result;
 
     memset(&upnp_packetlist,0,sizeof(upnp_packetlist));
-    upnp_add_packet("base","/",NULL,NULL,NULL);
-    upnp_add_packet("base","/",
-                    "urn:schemas-upnp-org:device:Basic:1.0",
-                    "urn:schemas-upnp-org:device:Basic:1.0",NULL);
-    upnp_add_packet("base","/","upnp:rootdevice","upnp:rootdevice",NULL);
+    upnp_add_packet("base","/upnp-basic.xml",NULL,NULL,NULL);
+    upnp_add_packet("base","/upnp-basic.xml",
+                    "urn:schemas-upnp-org:device:MediaServer:1",
+                    "urn:schemas-upnp-org:device:MediaServer:1",NULL);
+    upnp_add_packet("base","/upnp-basic.xml",
+                    "urn:schemas-upnp-org:service:ContentDirectory:1",
+                    "urn:schemas-upnp-org:service:ContentDirectory:1",NULL);
+    upnp_add_packet("basic","/upnp-basic.xml",
+                    "urn:schemas-upnp-org:service:ConnectionManager:1",
+                    "urn:schemas-upnp-org:service:ConnectionManager:1",NULL);
+    upnp_add_packet("base","/upnp-basic.xml","upnp:rootdevice","upnp:rootdevice",NULL);
 
     upnp_socket = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     result = setsockopt(upnp_socket, IPPROTO_IP, IP_MULTICAST_TTL,
