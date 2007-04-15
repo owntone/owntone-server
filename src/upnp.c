@@ -107,7 +107,7 @@ void upnp_build_packet(char *packet, int len, UPNP_PACKETINFO *pi) {
 
     port = conf_get_int("general","port",0);
 
-    len = upnp_strcat("NOTIFY * HTTP/1.0\r\n",packet,len);
+    len = upnp_strcat("NOTIFY * HTTP/1.1\r\n",packet,len);
     if(pi->location) {
         gethostname(hostname,sizeof(hostname));
         snprintf(buffer,sizeof(buffer),"LOCATION: http://%s:%d%s\r\n",
@@ -121,7 +121,7 @@ void upnp_build_packet(char *packet, int len, UPNP_PACKETINFO *pi) {
     len=upnp_strcat("NTS: ssdp:alive\r\n",packet,len);
 
     /* USN */
-    len=upnp_strcat("USN: uuid:",packet,len);
+    len=upnp_strcat("USN:uuid:",packet,len);
     len=upnp_strcat(UPNP_UUID,packet,len);
     if(pi->usn) {
         snprintf(buffer,sizeof(buffer),"::%s",pi->usn);
@@ -131,9 +131,9 @@ void upnp_build_packet(char *packet, int len, UPNP_PACKETINFO *pi) {
 
     len=upnp_strcat("CACHE-CONTROL: max-age=1800\r\n",packet,len);
     if(pi->nt) {
-        snprintf(buffer,sizeof(buffer),"NT: %s\r\n",pi->nt);
+        snprintf(buffer,sizeof(buffer),"NT:%s\r\n",pi->nt);
     } else {
-        snprintf(buffer,sizeof(buffer),"NT: uuid:%s\r\n", UPNP_UUID);
+        snprintf(buffer,sizeof(buffer),"NT:uuid:%s\r\n", UPNP_UUID);
     }
     len=upnp_strcat(buffer,packet,len);
 
