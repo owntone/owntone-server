@@ -169,7 +169,7 @@ case $host in
 	CPPFLAGS="$CPPFLAGS -DLOG_PERROR=0 -D_XPG4_2 -D__EXTENSIONS__ "
 	CPPFLAGS="$CPPFLAGS -DHAVE_BROKEN_RECVIF_NAME "
 	CPPFLAGS="$CPPFLAGS -D_POSIX_PTHREAD_SEMANTICS"
-	LIBS="${LIBS} -lnsl -lsocket";;	
+	LIBS="${LIBS} -lnsl -lsocket -lresolv";;	
 *freebsd*)
 	CPPFLAGS="$CPPFLAGS -DFREEBSD";;
 *linux*)
