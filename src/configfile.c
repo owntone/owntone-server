@@ -168,6 +168,35 @@ int config_session=0;                                   /**< session counter */
 
 #define MAX_LINE 1024
 
+
+int config_password_required(WS_CONNINFO *pwsc,char *role) {
+    char *pw;
+
+    if(!strcmp(role,"admin")) {
+        pw = conf_alloc_string("general","admin_pw",NULL);
+        if(!pw) {
+            /* don't need a password from localhost
+               when the password isn't set */
+            if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname)))
+                return FALSE;
+        }
+        free(pw);
+        return TRUE;
+    }
+
+    if(!strcmp(role,"user")) {
+        pw = conf_alloc_string("general","password",NULL);
+        if(pw) {
+            free(pw);
+            return TRUE;
+        }
+        return FALSE;
+    }
+
+    return TRUE; /* other class */
+}
+
+
 /**
  * used in auth handlers to see if the username and password
  * are sufficient to grant a specific role.  The roles "user" and
@@ -178,10 +207,6 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
                         char *password, char *role) {
     char *required_pw;
     int result;
-    char *my_username, *my_password;
-
-    my_username = username ? username : "";
-    my_password = password ? password : "";
 
     /* sanity check */
     if((strcasecmp(role,"admin") && strcasecmp(role,"user"))) {
@@ -189,44 +214,35 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
         return FALSE;
     }
 
+    if(password == NULL)
+        return !config_password_required(pwsc,role);
+
     /* if we have admin auth, we have everything */
     required_pw = conf_alloc_string("general","admin_pw",NULL);
-    if(!required_pw) { /* no password set */
-        if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname)))
-            return TRUE;
-
-        DPRINTF(E_LOG,L_MISC,"Auth: attempt to gain admin privs "
-                "from %s (%s/%s)\n",pwsc->hostname, my_username, my_password);
-        return FALSE;
-    }
-
-    /* if the admin password is set, and we've set it */
-    if(!strcmp(required_pw, my_password)) {
+    if((required_pw) && (!strcmp(required_pw, password))) {
         free(required_pw);
         return TRUE;
     }
 
-    free(required_pw);
-    if(!strcasecmp("admin",role))  {/* must we have admin? */
-        DPRINTF(E_LOG,L_MISC,"Auth: attempt to gain admin privs "
-                "from %s (%s/%s)\n",pwsc->hostname, my_username, my_password);
-        return FALSE;
-    }
+    if(required_pw)
+        free(required_pw);
+
+    if(!strcasecmp(role,"admin"))
+       return FALSE;
 
     /* we're checking for user privs */
-    result = FALSE;
     required_pw = conf_alloc_string("general","password",NULL);
 
     if(!required_pw) /* none set */
         return TRUE;
 
-    if(!strcmp(required_pw,my_password))
+    if(!strcmp(required_pw,password))
         result = TRUE;
 
     free(required_pw);
     if(!result) {
         DPRINTF(E_LOG,L_MISC,"Auth: attempt to gain user privs "
-                "from %s (%s/%s)\n",pwsc->hostname, my_username, my_password);
+                "from %s (%s/%s)\n",pwsc->hostname, username, password);
     }
     return result;
 }

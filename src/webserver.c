@@ -1395,6 +1395,8 @@ int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
             pwsc->threadno);
 
     while(phandler) {
+        DPRINTF(E_DBG,L_WS,"Checking %s against handler for %s\n",
+                pwsc->uri, phandler->stem);
         if(!strncasecmp(phandler->stem,pwsc->uri,strlen(phandler->stem))) {
             /* that's a match */
             DPRINTF(E_DBG,L_WS,"Thread %d: URI Match!\n",pwsc->threadno);
