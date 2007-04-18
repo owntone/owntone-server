@@ -1410,6 +1410,7 @@ int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
     }
 
     ws_unlock_unsafe();
+    DPRINTF(E_DBG,L_WS,"Didn't find one!\n");
     return -1;
 }
 
