@@ -945,7 +945,9 @@ int scan_xml_playlists_section(int action, char *info) {
 
                 /* delete the old one first */
                 /* FIXME: Error handling */
-                native_plid = util_djb_hash_str(current_name,strlen(native_plid));
+                DPRINTF(E_DBG,L_SCAN,"Converting native plid (%d) to %d\n",
+                        native_plid, util_djb_hash_str(current_name));
+                native_plid = util_djb_hash_str(current_name);
 
                 pm3u = db_fetch_playlist(NULL,scan_xml_file,native_plid);
                 if(pm3u) {
