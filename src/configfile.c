@@ -58,6 +58,7 @@
 #include "os.h"
 #include "restart.h"
 #include "xml-rpc.h"
+#include "upnp.h"
 
 #ifndef WITHOUT_MDNS
 # include "rend.h"
@@ -82,6 +83,7 @@ static void config_emit_conffile(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_config(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_servername(WS_CONNINFO *pwsc, void *value, char *arg);
+static void config_emit_upnp(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
 static void config_content_type(WS_CONNINFO *pwsc, char *path);
 
@@ -161,6 +163,7 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"version",(void*)NULL,config_emit_version },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"system",(void*)NULL,config_emit_system },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"flags",(void*)NULL,config_emit_flags },
+    { 0,0,0,CONFIG_TYPE_SPECIAL,"upnp",(void*)NULL,config_emit_upnp },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -169,30 +172,45 @@ int config_session=0;                                   /**< session counter */
 #define MAX_LINE 1024
 
 
-int config_password_required(WS_CONNINFO *pwsc,char *role) {
+int config_password_required(WS_CONNINFO *pwsc, char *role) {
     char *pw;
 
-    if(!strcmp(role,"admin")) {
+    DPRINTF(E_DBG,L_MISC,"Checking if pw required for %s as %s\n",
+            pwsc->uri, role);
+
+    if(!strncasecmp(pwsc->uri,"/upnp",5)) {
+        DPRINTF(E_DBG,L_MISC,"Nope\n");
+        return FALSE;
+    }
+
+    if(!strcasecmp(role,"admin")) {
         pw = conf_alloc_string("general","admin_pw",NULL);
         if(!pw) {
             /* don't need a password from localhost
                when the password isn't set */
-            if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname)))
+            if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname))) {
+                DPRINTF(E_DBG,L_MISC,"Nope\n");
                 return FALSE;
+            }
         }
         free(pw);
+        DPRINTF(E_DBG,L_MISC,"Yep\n");
+
         return TRUE;
     }
 
-    if(!strcmp(role,"user")) {
+    if(!strcasecmp(role,"user")) {
         pw = conf_alloc_string("general","password",NULL);
         if(pw) {
             free(pw);
+            DPRINTF(E_DBG,L_MISC,"Yep\n");
             return TRUE;
         }
+        DPRINTF(E_DBG,L_MISC,"Nope\n");
         return FALSE;
     }
 
+    DPRINTF(E_LOG,L_MISC,"Bad role type for auth: %s\n",role);
     return TRUE; /* other class */
 }
 
@@ -215,7 +233,7 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
     }
 
     if(password == NULL)
-        return !config_password_required(pwsc,role);
+        return config_password_required(pwsc,role) ? FALSE : TRUE;
 
     /* if we have admin auth, we have everything */
     required_pw = conf_alloc_string("general","admin_pw",NULL);
@@ -236,6 +254,7 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
     if(!required_pw) /* none set */
         return TRUE;
 
+    result = FALSE;
     if(!strcmp(required_pw,password))
         result = TRUE;
 
@@ -498,6 +517,11 @@ void config_handler(WS_CONNINFO *pwsc) {
 int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
     return config_matches_role(pwsc,user,password,"admin");
 }
+
+void config_emit_upnp(WS_CONNINFO *pwsc, void *value, char *arg) {
+    ws_writefd(pwsc,"%s",UPNP_UUID);
+}
+
 
 /**
  * write the current servername
