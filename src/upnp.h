@@ -31,6 +31,8 @@
 #ifndef _UPNP_H_
 #define _UPNP_H_
 
+#define UPNP_UUID "12345678-1234-1234-1234-123456789013"
+
 extern int upnp_init(void);
 extern int upnp_tick(void);
 extern int upnp_deinit(void);

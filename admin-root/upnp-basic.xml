@@ -6,7 +6,7 @@
   </specVersion> 
   <URLBase>http://@host@:@config general/port@/</URLBase> 
   <device> 
-    <deviceType>urn:schemas-upnp-org:device:Basic:1</deviceType> 
+    <deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType> 
     <friendlyName>@servername@</friendlyName> 
     <manufacturer>Firefly Media Services</manufacturer> 
     <manufacturerURL>http://www.fireflymediaserver.org/</manufacturerURL> 
@@ -15,8 +15,32 @@
     <modelName></modelName>
     <modelURL></modelURL>
     <serialNumber></serialNumber>
-    <UDN>uuid:12345678-1234-1234-1234-123456789012</UDN> 
+    <UDN>uuid:@upnp@</UDN> 
     <UPC></UPC>
-    <presentationURL>http://@host@:@config general/port@/</presentationURL> 
+    <serviceList>
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:ContentDirectory:1</serviceType>
+	<SCPDURL>/upnp/cd/scpdurl</SCPDURL>
+        <controlURL>/upnp/cd/control</controlURL> 
+        <eventSubURL>/upnp/cd/event</eventSubURL> 
+      </service> 
+      <service> 
+        <serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType>
+        <serviceId>urn:upnp-org:serviceId:ConnectionManager</serviceId> 
+        <SCPDURL>/upnp/cm/scpdurl</SCPDURL> 
+        <controlURL>/upnp/cm/control</controlURL> 
+        <eventSubURL>/upnp/cm/event</eventSubURL> 
+      </service> 
+      <service> 
+        <serviceType>urn:schemas-upnp-org:service:AVTransport:1</serviceType> 
+        <serviceId>urn:upnp-org:serviceId:AVTransport</serviceId> 
+        <SCPDURL>/upnp/av/scpdurl</SCPDURL> 
+        <controlURL>/upnp/av/control</controlURL> 
+        <eventSubURL>/upnp/av/event</eventSubURL> 
+      </service> 
+    </serviceList>
+    <deviceList>
+    </deviceList>
+    <presentationURL>http://@host@:@config general/port@/</presentationURL>
   </device>
 </root>

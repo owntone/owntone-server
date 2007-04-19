@@ -35,9 +35,11 @@
 #include "err.h"
 #include "os.h"
 #include "util.h"
+#include "upnp.h"
 
 #define UPNP_MAX_PACKET 1500
-#define UPNP_UUID "12345678-1234-1234-1234-123456789012"
+#define UPNP_ADDR "239.255.255.250"
+#define UPNP_PORT 1900
 
 typedef struct upnp_packetinfo_t {
     char *group_id;
@@ -159,8 +161,8 @@ void upnp_broadcast(void) {
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
-    sin.sin_port = htons(1900);
-    sin.sin_addr.s_addr = inet_addr("239.255.255.250");
+    sin.sin_port = htons(UPNP_PORT);
+    sin.sin_addr.s_addr = inet_addr(UPNP_ADDR);
 
     util_mutex_lock(l_upnp);
 
@@ -196,13 +198,19 @@ int upnp_tick(void) {
  */
 int upnp_init(void) {
     int ttl = 3;
+    int reuse=1;
     int result;
+    struct sockaddr_in addr;
+    struct ip_mreq mreq;
 
     memset(&upnp_packetlist,0,sizeof(upnp_packetlist));
     upnp_add_packet("base","/upnp-basic.xml",NULL,NULL,NULL);
     upnp_add_packet("base","/upnp-basic.xml",
                     "urn:schemas-upnp-org:device:MediaServer:1",
                     "urn:schemas-upnp-org:device:MediaServer:1",NULL);
+    upnp_add_packet("base","/upnp-basic.xml",
+                    "urn:schemas-upnp-org:service:AVTransport:1",
+                    "urn:schemas-upnp-org:service:AVTransport:1",NULL);
     upnp_add_packet("base","/upnp-basic.xml",
                     "urn:schemas-upnp-org:service:ContentDirectory:1",
                     "urn:schemas-upnp-org:service:ContentDirectory:1",NULL);
@@ -215,6 +223,35 @@ int upnp_init(void) {
     result = setsockopt(upnp_socket, IPPROTO_IP, IP_MULTICAST_TTL,
                         &ttl, sizeof(ttl));
     if(result == -1) {
+        close(upnp_socket);
+        DPRINTF(E_LOG,L_MISC,"Error setting IP_MULTICAST_TTL\n");
+        return FALSE;
+    }
+
+    result = setsockopt(upnp_socket,SOL_SOCKET,SO_REUSEADDR,
+                        &reuse,sizeof(reuse));
+    if(result == -1) {
+        close(upnp_socket);
+        DPRINTF(E_LOG,L_MISC,"Error setting SO_REUSEADDR\n");
+        return FALSE;
+    }
+
+
+    memset(&addr,0,sizeof(addr));
+    addr.sin_family=AF_INET;
+    addr.sin_addr.s_addr=htonl(INADDR_ANY);
+    addr.sin_port=htons(UPNP_PORT);
+
+    if(bind(upnp_socket,(struct sockaddr *)&addr,sizeof(addr)) < 0) {
+        DPRINTF(E_LOG,L_MISC,"Error binding to upnp port\n");
+        close(upnp_socket);
+        return FALSE;
+    }
+
+    mreq.imr_multiaddr.s_addr=inet_addr(UPNP_ADDR);
+    mreq.imr_interface.s_addr=htonl(INADDR_ANY);
+    if(setsockopt(upnp_socket,IPPROTO_IP,IP_ADD_MEMBERSHIP,&mreq,sizeof(mreq)) < 0) {
+        DPRINTF(E_LOG,L_MISC,"Error joining UPnP multicast group\n");
         close(upnp_socket);
         return FALSE;
     }
