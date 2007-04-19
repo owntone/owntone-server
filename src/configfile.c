@@ -178,12 +178,12 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
     DPRINTF(E_DBG,L_MISC,"Checking if pw required for %s as %s\n",
             pwsc->uri, role);
 
-    if(!strncasecmp(pwsc->uri,"/upnp",5)) {
+    if(strncasecmp(pwsc->uri,"/upnp",5) == 0) {
         DPRINTF(E_DBG,L_MISC,"Nope\n");
         return FALSE;
     }
 
-    if(!strcasecmp(role,"admin")) {
+    if(strcasecmp(role,"admin") == 0) {
         pw = conf_alloc_string("general","admin_pw",NULL);
         if(!pw) {
             /* don't need a password from localhost
@@ -226,8 +226,14 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
     char *required_pw;
     int result;
 
+    DPRINTF(E_LOG,L_MISC,"Checking %s/%s for %s\n",
+            username ? username : "NULL",
+            password ? password : "NULL",
+            role);
+
     /* sanity check */
-    if((strcasecmp(role,"admin") && strcasecmp(role,"user"))) {
+    if((strcasecmp(role,"admin") != 0) &&
+        (strcasecmp(role,"user") !=0)) {
         DPRINTF(E_LOG,L_MISC,"Unknown role: %s\n",role);
         return FALSE;
     }
@@ -237,7 +243,7 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
 
     /* if we have admin auth, we have everything */
     required_pw = conf_alloc_string("general","admin_pw",NULL);
-    if((required_pw) && (!strcmp(required_pw, password))) {
+    if((required_pw) && (strcmp(required_pw, password)==0)) {
         free(required_pw);
         return TRUE;
     }
@@ -245,7 +251,7 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
     if(required_pw)
         free(required_pw);
 
-    if(!strcasecmp(role,"admin"))
+    if(strcasecmp(role,"admin") == 0)
        return FALSE;
 
     /* we're checking for user privs */
@@ -255,7 +261,7 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
         return TRUE;
 
     result = FALSE;
-    if(!strcmp(required_pw,password))
+    if(strcmp(required_pw,password) == 0)
         result = TRUE;
 
     free(required_pw);
