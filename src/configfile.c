@@ -185,15 +185,15 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
 
     if(strcasecmp(role,"admin") == 0) {
         pw = conf_alloc_string("general","admin_pw",NULL);
-        if(!pw) {
+        if((!pw) || ((pw) && (!strlen(pw)))) {
             /* don't need a password from localhost
                when the password isn't set */
             if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname))) {
-                DPRINTF(E_DBG,L_MISC,"Nope\n");
+                if(pw) free(pw);
                 return FALSE;
             }
         }
-        free(pw);
+        if(pw) free(pw);
         DPRINTF(E_DBG,L_MISC,"Yep\n");
 
         return TRUE;
@@ -201,11 +201,12 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
 
     if(!strcasecmp(role,"user")) {
         pw = conf_alloc_string("general","password",NULL);
-        if(pw) {
+        if(pw && strlen(pw)) {
+            DPRINTF(E_DBG,L_MISC,"Yep: %s\n",pw);
             free(pw);
-            DPRINTF(E_DBG,L_MISC,"Yep\n");
             return TRUE;
         }
+        if(pw) free(pw);
         DPRINTF(E_DBG,L_MISC,"Nope\n");
         return FALSE;
     }
