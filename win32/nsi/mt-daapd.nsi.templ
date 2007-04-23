@@ -246,6 +246,10 @@ NoProgramItems:
   File "mapping.ini"
 
 HasMap:
+  IfFileExists "$2\firefly.log" HasLog
+  File "firefly.log"
+  
+HasLog:
   File "mt-daapd-example.conf" 
   IfFileExists "$2\mt-daapd.conf" HasConf
   SetOverwrite off
@@ -288,6 +292,7 @@ HasConf:
   WriteINIStr "$2\mt-daapd.conf" "general" "db_type" "sqlite3"
   AccessControl::SetOnFile "$2\mt-daapd.conf" "Everyone" "FullAccess"
   AccessControl::SetOnFile "$2\mapping.ini" "Everyone" "FullAccess"
+  AccessControl::SetOnFile "$2\firefly.log" "Everyone" "FullAccess"
   SetAutoClose False
 SectionEnd
 
@@ -324,12 +329,14 @@ Section -Post
   WriteRegStr HKLM "${PRODUCT_DIR_REGKEY}" "" "$2\mt-daapd.exe"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayName" "$(^Name)"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "UninstallString" "$2\uninst.exe"
-  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$2\mt-daapd.exe"
+  WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayIcon" "$2\firefly.exe"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "DisplayVersion" "${PRODUCT_VERSION}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "URLInfoAbout" "${PRODUCT_WEB_SITE}"
   WriteRegStr ${PRODUCT_UNINST_ROOT_KEY} "${PRODUCT_UNINST_KEY}" "Publisher" "${PRODUCT_PUBLISHER}"
   
-  WriteRegStr HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Run" "FireflyShell" '"$2\FireflyShell.exe" -q'
+  WriteRegStr HKCU "SOFTWARE\Microsoft\Windows\CurrentVersion\Run" "FireflyShell" '"$2\FireflyShell.exe" -q'
+  DeleteRegValue HKLM "SOFTWARE\Microsoft\Windows\CurrentVersion\Run" "FireflyShell" 
+
 ;  ExecWait "$2\mt-daapd.exe -i"
 
   nsSCM::Install "${PRODUCT_NAME}" "${PRODUCT_SERVICE}" 16 2 "$2\firefly.exe" "" "Bonjour Service" "" ""
