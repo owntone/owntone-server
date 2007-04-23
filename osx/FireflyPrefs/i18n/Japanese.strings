@@ -1,17 +1,17 @@
 /* English.strings: Localizable.strings: Status message for Firefly */
-"Firefly is not running" = "Firefly は実行していません";
+"Firefly is not running" = "Firefly は停止しています";
 
 /* English.strings: Localizable.strings: Error message if invalid port entered */
-"Please enter a port number between 1024 and 65535, or choose \"Automatic\" from the pop-up menu" = "1024 から 65535 の間のポート番号を入力して、もしくは \"自動\" を選択してください。";
+"Please enter a port number between 1024 and 65535, or choose ¥"Automatic¥" from the pop-up menu" = "1024 から 65535 の間のポート番号を入力、または ¥"自動¥" を選択してください。";
 
 /* English.strings: FireflyPrefsPref.nib: NSButton (Show Firefly menu in menu bar) : <title:Show Firefly menu in menu bar> (oid:196) */
-"Show Firefly menu in menu bar" = "Firefly をメニューバーで表示";
+"Show Firefly menu in menu bar" = "Firefly をメニューバーに表示する";
 
 /* English.strings: FireflyPrefsPref.nib: NSTextField (Shared Name:) : <title:Shared Name:> (oid:106) */
 "Shared Name:" = "ライブラリ名：";
 
 /* English.strings: Localizable.strings: @Alert title when password is invalid */
-"Missing password" = "空白のパスワード";
+"Missing password" = "パスワードが空白です";
 
 /* English.strings: Localizable.strings: Status message for Firefly */
 "Firefly is stopping" = "Firefly は停止しています";
@@ -44,7 +44,7 @@
 "Firefly is restarting" = "Firefly は再起動しています";
 
 /* English.strings: Localizable.strings: Info text for the web page button when server is running */
-"Additional configuration options are available from Firefly's built-in web page. Click to open the page in your browser." = "Firefly の内蔵ウェブページによって、詳細の設定を変更することができます。「ページを開く」ボタンをクリックして、ブラウザでそのウェブページを開きます。";
+"Additional configuration options are available from Firefly's built-in web page. Click to open the page in your browser." = "Firefly のために用意されたウェブベースのページによって、詳細の設定を変更することができます。「ページを開く」ボタンをクリックして、ブラウザでページを開いてください。";
 
 /* English.strings: Localizable.strings: Info text for the library browse dialog */
 "Please select the folder containing your music library, then click Choose." = "ミュージックライブラリを含むフォルダを選択して、「選択」ボタンをクリックしてください。";
@@ -59,19 +59,19 @@
 "Library Location:" = "ライブラリフォルダ：";
 
 /* English.strings: Localizable.strings: Status text for when Firefly state is not known */
-"Checking Firefly status…" = "Firefly の状態を検査しています...";
+"Checking Firefly status…" = "Firefly の状態をチェックしています...";
 
 /* English.strings: Localizable.strings: Text for missing log file */
 "The log file has not been created." = "ログファイルが作成されませんでした。";
 
 /* English.strings: Localizable.strings: @Alert title when library name is invalid */
-"Missing library name" = "空白のライブラリ名";
+"Missing library name" = "ライブラリ名が空白です";
 
 /* English.strings: Localizable.strings: Explanatory text for the failure-to-get-status alert */
-"An unexpected error occurred when trying to get the status of the Firefly server. Please close and re-open this Preference pane, and try again." = "Firefly サーバの状態を検査中に、予期しないエラーが発生しました。この環境設定パネルを閉じて、再び開いて、もう一度やり直してください。";
+"An unexpected error occurred when trying to get the status of the Firefly server. Please close and re-open this Preference pane, and try again." = "Firefly サーバの状態を取得中に、予期しないエラーが発生しました。この環境設定パネルを閉じて、再び開いて、もう一度やり直してください。";
 
 /* English.strings: Localizable.strings: Error message displayed at panel load */
-"Unable to find or create Application Support folder" = "アプリケーションサポートフォルダの作成、もしくは見つけることができませんでした。";
+"Unable to find or create Application Support folder" = "アプリケーションサポートフォルダの作成ができない、または見つけることができませんでした。";
 
 /* English.strings: Localizable.strings: Error message if library name is invalid */
 "Please enter a library name" = "ライブラリ名を入力してください。";
@@ -80,7 +80,7 @@
 "Due to an unexpected error, your changes could not be applied." = "予期しないエラーの発生によって、変更を適用することができませんでした。";
 
 /* English.strings: Localizable.strings: Status message for Firefly */
-"Firefly status is unknown" = "Firefly の状態は不明です";
+"Firefly status is unknown" = "Firefly の状態が不明です";
 
 /* English.strings: FireflyPrefsPref.nib: NSButton (Apply Now) : <title:Apply Now> (oid:167) */
 "Apply Now" = "今すぐ適用";
@@ -98,7 +98,7 @@
 "OtherViews" = "OtherViews";
 
 /* English.strings: Localizable.strings: Error message displayed at panel load */
-"Library directory could not be found in user folder" = "ユーザフォルだにライブラリのフォルダを見つけることができませんでした。";
+"Library directory could not be found in user folder" = "ユーザフォルダにライブラリのフォルダを見つけることができませんでした。";
 
 /* English.strings: Localizable.strings: Generic alert string for an invalid control */
 "Invalid value" = "不正な数値";
@@ -107,7 +107,7 @@
 "<< do not localize >>" = "<< do not localize >>";
 
 /* English.strings: Localizable.strings: Error message if password is empty */
-"Please enter a password, or un-check the password checkbox" = "パスワードを入力して、もしくはパスワードのチックボックスを外してください。";
+"Please enter a password, or un-check the password checkbox" = "パスワードを入力するか、パスワードのチェックボックスを外してください。";
 
 /* English.strings: Localizable.strings: Alert message notifying the user of config error */
 "Configuration error" = "設定のエラー";
@@ -119,7 +119,7 @@
 "Don't Apply" = "適用しない";
 
 /* English.strings: Localizable.strings: Status message for Firefly */
-"Firefly is running" = "Firefly は実行しています";
+"Firefly is running" = "Firefly は実行中です";
 
 /* English.strings: Localizable.strings: Format string for error message upon invalid install */
 "The Firefly installation appears to be damaged.  Unable to locate Firefly Helper." = "Firefly のアプリケーションはインストールに関わる問題があるようです。 Firefly ヘルパーを見つけることができません。";
@@ -137,7 +137,7 @@
 "Manually" = "手動";
 
 /* English.strings: Localizable.strings: Explanatory text for the failure-to-apply alert */
-"Firefly appears to be incorrectly installed or damaged. Please consult the documentation.\n\n" = "Firefly は正常にインストールされていないようです。ヘルプを参照してください。\n\n";
+"Firefly appears to be incorrectly installed or damaged. Please consult the documentation.¥n¥n" = "Firefly は正常にインストールされていないようです。ヘルプを参照してください。¥n¥n";
 
 /* English.strings: Localizable.strings: Explanatory text for the failure-to-stop alert */
 "An unexpected error occurred when trying to start Firefly. Please close and re-open this Preference pane, and try again." = "Firefly サーバを開始中に、予期しないエラーが発生しました。この環境設定パネルを閉じて、再び開いて、もう一度やり直してください。";
@@ -158,7 +158,7 @@
 "Box" = "ボックス";
 
 /* English.strings: FireflyPrefsPref.nib: NSMenuItem : <title:Automatically, when I log in> (oid:111) */
-"Automatically, when I log in" = "ログイン時に自動的に開始";
+"Automatically, when I log in" = "ログイン時に自動的に開始する";
 
 /* English.strings: Localizable.strings: Format string for error message */
 "The configuration file is present, but is not writable: %@" = "%@ という設定のファイルが存在していますが書くことができません。";
@@ -186,17 +186,17 @@
 "Firefly could not be started because your changes could not be saved" = "変更した設定を保存することができなかったため、 Firefly を起動することができませんでした。";
 
 /* English.strings: Localizable.strings: Status message for Firefly */
-"Firefly failed to start" = "Firefly の開始が失敗しました";
+"Firefly failed to start" = "Firefly の開始に失敗しました";
 
 /* English.strings: FireflyPrefsPref.nib: NSTextField (Firefly is disabled) : <title:Firefly is disabled> (oid:104) */
-"Firefly is disabled" = "Firefly は切です";
+"Firefly is disabled" = "Firefly は無効です";
 
 /* English.strings: FireflyPrefsPref.nib: NSTextField (<unknown>) : <title:<unknown>> (oid:128) */
 "<unknown>" = "<unknown>";
 
 /* English.strings: FireflyPrefsPref.nib: NSTextField ((available when Firefly is running)) : <title:(available when Firefly is running)> (oid:172)
    Localizable.strings: Displayed in place of server version when server is not running */
-"(available when Firefly is running)" = "(Firefly サーバが実行中のみに表示)";
+"(available when Firefly is running)" = "(Firefly サーバが実行中の時のみ表示)";
 
 /* English.strings: Localizable.strings: Label for apply button in save prompt dialog */
 "Apply" = "適用";
@@ -208,10 +208,10 @@
 "Unable to start Firefly" = "Firefly を開始することができませんでした";
 
 /* English.strings: FireflyPrefsPref.nib: NSTextField (Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.) : <title:Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.> (oid:119) Localizable.strings: Info text for the web page button when server is not running */
-"Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running." = "Firefly の内蔵ウェブページによって、詳細の設定を変更することができます。Firefly が実行中のみに使用することができます。 Available when Firefly is running.";
+"Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running." = "Firefly のために用意されたウェブベースのページによって、詳細の設定を変更することができます。Firefly が実行中のみに使用することができます。 Available when Firefly is running.";
 
 /* English.strings: Localizable.strings: Status message for Firefly */
-"Firefly stopped unexpectedly" = "Firefly は予期せずに停止しました。";
+"Firefly stopped unexpectedly" = "Firefly は予期せず停止しました。";
 
 /* English.strings: FireflyPrefsPref.nib: NSMenuItem : <title:Automatically> (oid:162) */
 "Automatically" = "自動的";
