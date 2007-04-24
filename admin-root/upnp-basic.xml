@@ -4,26 +4,18 @@
     <major>1</major> 
     <minor>0</minor> 
   </specVersion> 
-  <URLBase>http://@host@:@config general/port@/</URLBase> 
   <device> 
     <deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType> 
     <friendlyName>@servername@</friendlyName> 
     <manufacturer>Firefly Media Services</manufacturer> 
     <manufacturerURL>http://www.fireflymediaserver.org/</manufacturerURL> 
-    <modelDescription>Firefly Media Server (version
-    @version@)</modelDescription> 
-    <modelName></modelName>
-    <modelURL></modelURL>
-    <serialNumber></serialNumber>
+    <modelDescription>Firefly Media Server (version @version@)</modelDescription> 
+    <modelName>Firefly</modelName>
+    <modelNumber>1</modelNumber>
+    <modelURL>http://www.fireflymediaserver.org/</modelURL>
+    <serialNumber>SERIAL-001</serialNumber>
     <UDN>uuid:@upnp@</UDN> 
-    <UPC></UPC>
     <serviceList>
-      <service>
-        <serviceType>urn:schemas-upnp-org:service:ContentDirectory:1</serviceType>
-	<SCPDURL>/upnp/cd/scpdurl</SCPDURL>
-        <controlURL>/upnp/cd/control</controlURL> 
-        <eventSubURL>/upnp/cd/event</eventSubURL> 
-      </service> 
       <service> 
         <serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType>
         <serviceId>urn:upnp-org:serviceId:ConnectionManager</serviceId> 
@@ -31,16 +23,15 @@
         <controlURL>/upnp/cm/control</controlURL> 
         <eventSubURL>/upnp/cm/event</eventSubURL> 
       </service> 
-      <service> 
-        <serviceType>urn:schemas-upnp-org:service:AVTransport:1</serviceType> 
-        <serviceId>urn:upnp-org:serviceId:AVTransport</serviceId> 
-        <SCPDURL>/upnp/av/scpdurl</SCPDURL> 
-        <controlURL>/upnp/av/control</controlURL> 
-        <eventSubURL>/upnp/av/event</eventSubURL> 
+      <service>
+        <serviceType>urn:schemas-upnp-org:service:ContentDirectory:1</serviceType>
+	<serviceId>urn:upnp-org:serviceId:ContentDirectory</serviceId>
+	<SCPDURL>/upnp/cd/scpdurl</SCPDURL>
+        <controlURL>/upnp/cd/control</controlURL> 
+        <eventSubURL>/upnp/cd/event</eventSubURL> 
       </service> 
     </serviceList>
-    <deviceList>
-    </deviceList>
-    <presentationURL>http://@host@:@config general/port@/</presentationURL>
+    <presentationURL>/index.html</presentationURL>
   </device>
+  <URLBase>http://@host@:@config general/port@/</URLBase> 
 </root>
