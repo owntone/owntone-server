@@ -2,7 +2,7 @@
 "Firefly is not running" = "Firefly は停止しています";
 
 /* English.strings: Localizable.strings: Error message if invalid port entered */
-"Please enter a port number between 1024 and 65535, or choose ¥"Automatic¥" from the pop-up menu" = "1024 から 65535 の間のポート番号を入力、または ¥"自動¥" を選択してください。";
+"Please enter a port number between 1024 and 65535, or choose \"Automatic\" from the pop-up menu" = "1024 から 65535 の間のポート番号を入力、または ¥"自動¥" を選択してください。";
 
 /* English.strings: FireflyPrefsPref.nib: NSButton (Show Firefly menu in menu bar) : <title:Show Firefly menu in menu bar> (oid:196) */
 "Show Firefly menu in menu bar" = "Firefly をメニューバーに表示する";
@@ -137,7 +137,7 @@
 "Manually" = "手動";
 
 /* English.strings: Localizable.strings: Explanatory text for the failure-to-apply alert */
-"Firefly appears to be incorrectly installed or damaged. Please consult the documentation.¥n¥n" = "Firefly は正常にインストールされていないようです。ヘルプを参照してください。¥n¥n";
+"Firefly appears to be incorrectly installed or damaged. Please consult the documentation.\n\n" = "Firefly は正常にインストールされていないようです。ヘルプを参照してください。¥n¥n";
 
 /* English.strings: Localizable.strings: Explanatory text for the failure-to-stop alert */
 "An unexpected error occurred when trying to start Firefly. Please close and re-open this Preference pane, and try again." = "Firefly サーバを開始中に、予期しないエラーが発生しました。この環境設定パネルを閉じて、再び開いて、もう一度やり直してください。";

@@ -1,5 +1,5 @@
 /* NSTextField ((available when Firefly is running)) : <title:(available when Firefly is running)> (oid:172) */
-"(available when Firefly is running)" = "(Firefly サーバが実行中のみに表示)";
+"(available when Firefly is running)" = "(Firefly サーバが実行中の時のみ表示)";
 
 /* NSWindow (<< do not localize >>) : <title:<< do not localize >>> (oid:12) */
 "<< do not localize >>" = "<< do not localize >>";
@@ -8,7 +8,7 @@
 "<unknown>" = "<unknown>";
 
 /* NSTextField (Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.) : <title:Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.> (oid:119) */
-"Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running." = "Firefly の内蔵ウェブページによって、詳細の設定を変更することができます。Firefly が実行中のみに使用することができます。 Available when Firefly is running.";
+"Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running." = "Firefly のために用意されたウェブベースのページによって、詳細の設定を変更することができます。Firefly が実行中のみに使用することができます。 Available when Firefly is running.";
 
 /* NSTabViewItem : <title:Advanced> (oid:101) */
 "Advanced" = "詳細";
@@ -23,7 +23,7 @@
 "Automatically" = "自動的";
 
 /* NSMenuItem : <title:Automatically, when I log in> (oid:111) */
-"Automatically, when I log in" = "ログイン時に自動的に開始";
+"Automatically, when I log in" = "ログイン時に自動的に開始する";
 
 /* NSBox (Box) : <title:Box> (oid:181) */
 "Box" = "ボックス";
@@ -35,7 +35,7 @@
 "Firefly Server Version:" = "Firefly サーババージョン：";
 
 /* NSTextField (Firefly is disabled) : <title:Firefly is disabled> (oid:104) */
-"Firefly is disabled" = "Firefly は切です";
+"Firefly is disabled" = "Firefly は無効です";
 
 /* NSTabViewItem : <title:General> (oid:99) */
 "General" = "一般";
@@ -65,7 +65,7 @@
 "Shared Name:" = "ライブラリ名：";
 
 /* NSButton (Show Firefly menu in menu bar) : <title:Show Firefly menu in menu bar> (oid:196) */
-"Show Firefly menu in menu bar" = "Firefly をメニューバーで表示";
+"Show Firefly menu in menu bar" = "Firefly をメニューバーに表示する";
 
 /* NSButton (Start Firefly) : <title:Start Firefly> (oid:103) */
 "Start Firefly" = "Firefly を開始";
