@@ -1,0 +1,78 @@
+/* NSTextField ((available when Firefly is running)) : <title:(available when Firefly is running)> (oid:172) */
+"(available when Firefly is running)" = "(tillgängligt när Firefly ar aktivt)";
+
+/* NSWindow (<< do not localize >>) : <title:<< do not localize >>> (oid:12) */
+"<< do not localize >>" = "<< do not localize >>";
+
+/* NSTextField (<unknown>) : <title:<unknown>> (oid:128) */
+"<unknown>" = "<okänd>";
+
+/* NSTextField (Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.) : <title:Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running.> (oid:119) */
+"Additional configuration options are available from Firefly's built-in web page. Available when Firefly is running." = "Fler konfigurations alternativ är tillgängliga via Fireflys inbyggde webb sida. Tillgängligt när Firefly är aktivt.";
+
+/* NSTabViewItem : <title:Advanced> (oid:101) */
+"Advanced" = "Avancerat";
+
+/* NSButton (Apply Now) : <title:Apply Now> (oid:167) */
+"Apply Now" = "Använd";
+
+/* NSTextField (Assign Server Port:) : <title:Assign Server Port:> (oid:116) */
+"Assign Server Port:" = "Ange Serverns Port:";
+
+/* NSMenuItem : <title:Automatically> (oid:162) */
+"Automatically" = "Automatiskt";
+
+/* NSMenuItem : <title:Automatically, when I log in> (oid:111) */
+"Automatically, when I log in" = "Automatiskt, när jag loggar in";
+
+/* NSBox (Box) : <title:Box> (oid:181) */
+"Box" = "Box";
+
+/* NSButton (Browse...) : <title:Browse...> (oid:123) */
+"Browse..." = "Välj mapp...";
+
+/* NSTextField (Firefly Server Version:) : <title:Firefly Server Version:> (oid:171) */
+"Firefly Server Version:" = "Firefly serverns version:";
+
+/* NSTextField (Firefly is disabled) : <title:Firefly is disabled> (oid:104) */
+"Firefly is disabled" = "Firefly är avaktiverat";
+
+/* NSTabViewItem : <title:General> (oid:99) */
+"General" = "Allmänt";
+
+/* NSTextField (Library Location:) : <title:Library Location:> (oid:122) */
+"Library Location:" = "Bibliotekets mappen:";
+
+/* NSTabViewItem : <title:Log> (oid:199) */
+"Log" = "Logg";
+
+/* NSMenuItem : <title:Manually> (oid:163) */
+"Manually" = "Manuellt";
+
+/* NSButton (Open Web Page) : <title:Open Web Page> (oid:120) */
+"Open Web Page" = "Öppna Webbsida";
+
+/* NSMenu : <title:OtherViews> (oid:161) */
+"OtherViews" = "Andra Vyer";
+
+/* NSTextField (Prefs Panel Version:) : <title:Prefs Panel Version:> (oid:170) */
+"Prefs Panel Version:" = "Inställningspanelens version:";
+
+/* NSButton (Require Password:) : <title:Require Password:> (oid:107) */
+"Require Password:" = "Lösenord som krävs:";
+
+/* NSTextField (Shared Name:) : <title:Shared Name:> (oid:106) */
+"Shared Name:" = "Delat Namn:";
+
+/* NSButton (Show Firefly menu in menu bar) : <title:Show Firefly menu in menu bar> (oid:196) */
+"Show Firefly menu in menu bar" = "Visa Firefly status i menyraden";
+
+/* NSButton (Start Firefly) : <title:Start Firefly> (oid:103) */
+"Start Firefly" = "Starta Firefly";
+
+/* NSTextField (Start server:) : <title:Start server:> (oid:114) */
+"Start server:" = "Starta servern:";
+
+/* NSTextField (The Firefly music server shares your music library with other computers and compatible devices on the local network.) : <title:The Firefly music server shares your music library with other computers and compatible devices on the local network.> (oid:125) */
+"The Firefly music server shares your music library with other computers and compatible devices on the local network." = "Firefly delar ditt musikbibliotek med andra datorer och kompatibla enheter på det lokala nätverket.";
+
