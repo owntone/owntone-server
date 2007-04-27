@@ -178,6 +178,7 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
     DPRINTF(E_DBG,L_MISC,"Checking if pw required for %s as %s\n",
             pwsc->uri, role);
 
+    /* hack hack hack - this needs moved into the upnp plugin */
     if(strncasecmp(pwsc->uri,"/upnp",5) == 0) {
         DPRINTF(E_DBG,L_MISC,"Nope\n");
         return FALSE;
@@ -188,6 +189,12 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
         if((!pw) || ((pw) && (!strlen(pw)))) {
             /* don't need a password from localhost
                when the password isn't set */
+
+#ifdef WIN32
+            /* except on windows */
+            return FALSE;
+#endif
+
             if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname))) {
                 if(pw) free(pw);
                 return FALSE;
@@ -227,11 +234,6 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
     char *required_pw;
     int result;
 
-    DPRINTF(E_LOG,L_MISC,"Checking %s/%s for %s\n",
-            username ? username : "NULL",
-            password ? password : "NULL",
-            role);
-
     /* sanity check */
     if((strcasecmp(role,"admin") != 0) &&
         (strcasecmp(role,"user") !=0)) {
@@ -252,8 +254,11 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
     if(required_pw)
         free(required_pw);
 
-    if(strcasecmp(role,"admin") == 0)
+    if(strcasecmp(role,"admin") == 0) {
+        DPRINTF(E_LOG,L_MISC,"Auth: failed attempt to gain admin privs by "
+                "%s from %s\n",username, pwsc->hostname);
        return FALSE;
+    }
 
     /* we're checking for user privs */
     required_pw = conf_alloc_string("general","password",NULL);
@@ -267,8 +272,8 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
 
     free(required_pw);
     if(!result) {
-        DPRINTF(E_LOG,L_MISC,"Auth: attempt to gain user privs "
-                "from %s (%s/%s)\n",pwsc->hostname, username, password);
+        DPRINTF(E_LOG,L_MISC,"Auth: failed attempt to gain user privs by "
+                "%s from %s\n",pwsc->hostname, username);
     }
     return result;
 }
@@ -579,6 +584,7 @@ void config_emit_config(WS_CONNINFO *pwsc, void *value, char *arg) {
 void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg) {
     char *host;
     char *port;
+    char hostname[256];
 
     if(ws_getrequestheader(pwsc,"host")) {
         host = strdup(ws_getrequestheader(pwsc,"host"));
@@ -589,7 +595,8 @@ void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg) {
         free(host);
     } else {
         DPRINTF(E_LOG,L_CONF,"Didn't get a host header!\n");
-        ws_writefd(pwsc,"localhost");
+        gethostname(hostname,sizeof(hostname));
+        ws_writefd(pwsc,hostname);
     }
 
     return;
