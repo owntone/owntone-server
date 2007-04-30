@@ -691,7 +691,7 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
         result = db_sql_exec_fn(pe,E_LOG,"insert into playlists "
                                 "(title,type,items,query,db_timestamp,path,idx) "
                                  "values ('%q',%d,0,NULL,%d,'%q',%d)",
-                                 name,type,time(NULL),correct_path,index);
+                                 name,type,(int)time(NULL),correct_path,index);
         free(correct_path);
         break;
     case PL_STATICWEB: /* static, maintained in web interface */
