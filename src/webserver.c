@@ -1358,7 +1358,7 @@ int ws_registerhandler(WSHANDLE ws, char *stem,
 
     phandler=(WS_HANDLER *)malloc(sizeof(WS_HANDLER));
     if(!phandler)
-        return -1;
+        DPRINTF(E_FATAL,L_WS,"Malloc error in ws_registerhandler\n");
 
     phandler->stem=strdup(stem);
     phandler->req_handler=handler;
@@ -1385,10 +1385,11 @@ int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
                    void(**preq)(WS_CONNINFO*),
                    int(**pauth)(WS_CONNINFO *, char *, char *),
                    int *addheaders) {
-    WS_HANDLER *phandler=pwsp->handlers.next;
+    WS_HANDLER *phandler;
 
     ws_lock_unsafe();
 
+    phandler = pwsp->handlers.next;
     *preq=NULL;
 
     DPRINTF(E_DBG,L_WS,"Thread %d: Preparing to find handler\n",
