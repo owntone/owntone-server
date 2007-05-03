@@ -423,10 +423,6 @@ int main(int argc, char *argv[]) {
             VERSION,err_getlevel());
 
 
-#ifdef UPNP
-    upnp_init();
-#endif
-
     /* load plugins before we drop privs?  Maybe... let the
      * plugins do stuff they might need to */
     plugin_init();
@@ -476,6 +472,10 @@ int main(int argc, char *argv[]) {
 
     free(runas);
 
+#ifdef UPNP
+    upnp_init();
+#endif
+
     /* this will require that the db be readable by the runas user */
     db_type = conf_alloc_string("general","db_type","sqlite");
     db_parms = conf_alloc_string("general","db_parms","/var/cache/mt-daapd");
@@ -497,7 +497,7 @@ int main(int argc, char *argv[]) {
 
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
-    if(db_init(&reload)) {
+    if(db_init(reload)) {
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
 
@@ -639,6 +639,10 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_LOG,L_MAIN|L_REND,"Stopping rendezvous daemon\n");
         rend_stop();
     }
+#endif
+
+#ifdef UPNP
+    upnp_deinit();
 #endif
 
 
