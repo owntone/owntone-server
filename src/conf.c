@@ -102,8 +102,6 @@ static int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent);
 static CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key);
 static int _conf_makedir(char *path, char *user);
 static int _conf_existdir(char *path);
-static int _conf_split(char *s, char *delimiters, char ***argvp);
-static void _conf_dispose_split(char **argv);
 static int _conf_xml_dump(XMLSTRUCT *pxml,LL *pll,int sublevel,char *parent);
 static int _conf_verify_element(char *section, char *key, char *value);
 static void _conf_remap_entry(char *old_section, char *old_key, char **new_section, char **new_key);
@@ -376,16 +374,16 @@ int _conf_verify_element(char *section, char *key, char *value) {
         break;
 
     case CONF_T_MULTIPATH:
-        if(_conf_split(value,",",&valuearray) >= 0) {
+        if(util_split(value,",",&valuearray) >= 0) {
             index = 0;
             while(valuearray[index]) {
                 if(!_conf_existdir(valuearray[index])) {
-                    _conf_dispose_split(valuearray);
+                    util_dispose_split(valuearray);
                     return CONF_E_PATHEXPECTED;
                 }
                 index++;
             }
-            _conf_dispose_split(valuearray);
+            util_dispose_split(valuearray);
         }
         break;
 
@@ -796,13 +794,13 @@ int conf_read(char *file) {
                     }
 
                     /* got list, break comma sep and add */
-                    if(_conf_split(value,",",&valuearray) >= 0) {
+                    if(util_split(value,",",&valuearray) >= 0) {
                         index = 0;
                         while(valuearray[index]) {
                             ll_add_string(plltemp,replaced_key,valuearray[index]);
                             index++;
                         }
-                        _conf_dispose_split(valuearray);
+                        util_dispose_split(valuearray);
                     } else {
                         ll_add_string(plltemp,replaced_key,value);
                     }
@@ -1156,13 +1154,13 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
             }
             ll_add_ll(section_ll,key,temp_ll);
             ll_set_flags(temp_ll,0); /* allow dups */
-            if(_conf_split(value,",",&valuearray) >= 0) {
+            if(util_split(value,",",&valuearray) >= 0) {
                 index = 0;
                 while(valuearray[index]) {
                     ll_add_string(temp_ll,key,valuearray[index]);
                     index++;
                 }
-                _conf_dispose_split(valuearray);
+                util_dispose_split(valuearray);
             }
         } else {
             if((err = ll_add_string(section_ll,key,value)) != LL_E_SUCCESS) {
@@ -1182,13 +1180,13 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
                         "conf_set_string: could not create ll\n");
             }
             ll_set_flags(pitem->value.as_ll,0); /* allow dups */
-            if(_conf_split(value,",",&valuearray) >= 0) {
+            if(util_split(value,",",&valuearray) >= 0) {
                 index = 0;
                 while(valuearray[index]) {
                     ll_add_string(pitem->value.as_ll,key,valuearray[index]);
                     index++;
                 }
-                _conf_dispose_split(valuearray);
+                util_dispose_split(valuearray);
             }
         } else {
             ll_update_string(pitem,value);
@@ -1357,95 +1355,6 @@ int conf_isset(char *section, char *key) {
 }
 
 /**
- * split a string on delimiter boundaries, filling
- * a string-pointer array.
- *
- * The user must free both the first element in the array,
- * and the array itself.
- *
- * @param s string to split
- * @param delimiters boundaries to split on
- * @param argvp an argv array to be filled
- * @returns number of tokens
- */
-int _conf_split(char *s, char *delimiters, char ***argvp) {
-    int i;
-    int numtokens;
-    const char *snew;
-    char *t;
-    char *tokptr;
-    char *tmp;
-    char *fix_src, *fix_dst;
-
-    if ((s == NULL) || (delimiters == NULL) || (argvp == NULL))
-        return -1;
-    *argvp = NULL;
-    snew = s + strspn(s, delimiters);
-    if ((t = malloc(strlen(snew) + 1)) == NULL)
-        return -1;
-
-    strcpy(t, snew);
-    numtokens = 1;
-    tokptr = NULL;
-    tmp = t;
-
-    tmp = s;
-    while(*tmp) {
-        if(strchr(delimiters,*tmp) && (*(tmp+1) == *tmp)) {
-            tmp += 2;
-        } else if(strchr(delimiters,*tmp)) {
-            numtokens++;
-            tmp++;
-        } else {
-            tmp++;
-        }
-    }
-
-    DPRINTF(E_DBG,L_CONF,"Found %d tokens in %s\n",numtokens,s);
-
-    if ((*argvp = malloc((numtokens + 1)*sizeof(char *))) == NULL) {
-        free(t);
-        return -1;
-    }
-
-    if (numtokens == 0)
-        free(t);
-    else {
-        tokptr = t;
-        tmp = t;
-        for (i = 0; i < numtokens; i++) {
-            while(*tmp) {
-                if(strchr(delimiters,*tmp) && (*(tmp+1) != *tmp))
-                    break;
-                if(strchr(delimiters,*tmp)) {
-                    tmp += 2;
-                } else {
-                    tmp++;
-                }
-            }
-            *tmp = '\0';
-            tmp++;
-            (*argvp)[i] = tokptr;
-
-            fix_src = fix_dst = tokptr;
-            while(*fix_src) {
-                if(strchr(delimiters,*fix_src) && (*(fix_src+1) == *fix_src)) {
-                    fix_src++;
-                }
-                *fix_dst++ = *fix_src++;
-            }
-            *fix_dst = '\0';
-
-            tokptr = tmp;
-            DPRINTF(E_DBG,L_CONF,"Token %d: %s\n",i+1,(*argvp)[i]);
-        }
-    }
-
-    *((*argvp) + numtokens) = NULL;
-    return numtokens;
-}
-
-/**
  * implode a multivalued term in a perl sense.
  *
  * @param section section of term to implode
@@ -1501,22 +1410,6 @@ char *conf_implode(char *section, char *key, char *delimiter) {
     util_mutex_unlock(l_conf);
     return retval;
 }
-
-/**
- * dispose of the argv set that was created in _conf_split
- *
- * @param argv string array to delete
- */
-void _conf_dispose_split(char **argv) {
-    if(!argv)
-        return;
-
-    if(argv[0])
-        free(argv[0]);
-
-    free(argv);
-}
-
 
 /**
  * return a multi-valued item as an array (values)

@@ -35,6 +35,10 @@ extern uint32_t util_djb_hash_str(char *str);
 
 extern int util_must_exit(void);
 
+/* dumb string functions */
+int util_split(char *s, char *delimiters, char ***argvp);
+void util_dispose_split(char **argv);
+
 //extern char *util_utf16toutf8(unsigned char *utf16, int len);
 //int util_utf8toutf16(unsigned char *utf16, size_t dlen, unsigned char *utf8, size_t slen);
 //int util_utf16toutf8(unsigned char *utf8, size_t dlen, unsigned char *utf16, size_t slen);
