@@ -383,10 +383,11 @@ int db_sql_open(char **pe, char *parameters) {
  *        on return, reload is set to 1 if the db MUST be rescanned
  * @returns DB_E_SUCCESS on success, error code otherwise
  */
-int db_sql_init(int *reload) {
+int db_sql_init(int reload) {
     int items;
     int rescan = 0;
     int err;
+    int do_reload = reload;
 
     err=db_sql_get_count(NULL,&items, countSongs);
     if(err != DB_E_SUCCESS)
@@ -394,23 +395,22 @@ int db_sql_init(int *reload) {
 
     /* check if a request has been written into the db (by a db upgrade?) */
     if(db_sql_fetch_int(NULL,&rescan,"select value from config where "
-                        "term='rescan'") == DB_E_SUCCESS)
-    {
+                        "term='rescan'") == DB_E_SUCCESS) {
         if(rescan)
-            *reload=1;
+            do_reload=1;
     }
 
 
-
-    if(*reload || (!items)) {
+    /* we could pass back a status to describe whether a reaload was
+     * required (for reasons other than expicit request)
+     */
+    if(do_reload || (!items)) {
         DPRINTF(E_LOG,L_DB,"Full reload...\n");
         db_sql_event_fn(DB_SQL_EVENT_FULLRELOAD);
         db_sql_reload=1;
-        *reload=1;
     } else {
         db_sql_event_fn(DB_SQL_EVENT_STARTUP);
         db_sql_reload=0;
-        *reload=0;
     }
 
     return DB_E_SUCCESS;

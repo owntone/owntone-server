@@ -152,11 +152,14 @@ int db_sqlite3_open(char **pe, char *dsn) {
         if(pe) { free(*pe); }
         /* we'll catch this on the init */
         DPRINTF(E_LOG,L_DB,"Can't get db version. New database?\n");
-    } else if(ver != DB_SQLITE3_VERSION) {
+    } else if(ver <  DB_SQLITE3_VERSION) {
         DPRINTF(E_LOG,L_DB,"Old database version: %d, expecting %d\n",
                 ver,DB_SQLITE3_VERSION);
         db_get_error(pe,DB_E_WRONGVERSION);
         return DB_E_WRONGVERSION;
+    } else if(ver > DB_SQLITE3_VERSION) {
+        db_sqlite3_exec(pe,E_FATAL,"insert into config (term, value) "
+                        "values ('rescan',1)");
     }
 
     return DB_E_SUCCESS;

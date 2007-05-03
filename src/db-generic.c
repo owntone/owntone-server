@@ -53,7 +53,7 @@
 typedef struct tag_db_functions {
     char *name;
     int(*dbs_open)(char **, char *);
-    int(*dbs_init)(int*);
+    int(*dbs_init)(int);
     int(*dbs_deinit)(void);
     int(*dbs_add)(char **, MP3FILE*, int*);
     int(*dbs_add_playlist)(char **, char *, int, char *,char *, int, int *);
@@ -284,7 +284,7 @@ int db_open(char **pe, char *type, char *parameters) {
  *
  * \param reload whether or not to do a full reload of the database
  */
-int db_init(int *reload) {
+int db_init(int reload) {
     return db_current->dbs_init(reload);
 }
 

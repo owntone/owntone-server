@@ -68,7 +68,7 @@ typedef struct tag_dbqueryinfo {
 } DBQUERYINFO;
 
 extern int db_open(char **pe, char *type, char *parameters);
-extern int db_init(int *reload);
+extern int db_init(int reload);
 extern int db_deinit(void);
 
 extern int db_revision(void);
