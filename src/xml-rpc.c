@@ -37,6 +37,7 @@
 #include "err.h"
 #include "mp3-scanner.h"
 #include "os.h"
+#include "plugin.h"
 #include "rend.h"
 #include "webserver.h"
 #include "xml-rpc.h"
