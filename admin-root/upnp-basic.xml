@@ -15,18 +15,27 @@
     <modelURL>http://www.fireflymediaserver.org/</modelURL>
     <serialNumber>SERIAL-001</serialNumber>
     <UDN>uuid:@upnp@</UDN> 
+    <iconList>
+      <icon>
+        <mimetype>image/png</mimetype>
+        <width>32</width>
+        <height>32</height>
+        <depth>32</depth>
+        <url>/upnp/ff_logo_32.png</url>
+      </icon>
+    </iconList>
     <serviceList>
       <service> 
         <serviceType>urn:schemas-upnp-org:service:ConnectionManager:1</serviceType>
         <serviceId>urn:upnp-org:serviceId:ConnectionManager</serviceId> 
-        <SCPDURL>/upnp/cm/scpdurl</SCPDURL> 
+        <SCPDURL>/upnp-cm.xml</SCPDURL> 
         <controlURL>/upnp/cm/control</controlURL> 
         <eventSubURL>/upnp/cm/event</eventSubURL> 
       </service> 
       <service>
         <serviceType>urn:schemas-upnp-org:service:ContentDirectory:1</serviceType>
 	<serviceId>urn:upnp-org:serviceId:ContentDirectory</serviceId>
-	<SCPDURL>/upnp/cd/scpdurl</SCPDURL>
+	<SCPDURL>/upnp-cd.xml</SCPDURL>
         <controlURL>/upnp/cd/control</controlURL> 
         <eventSubURL>/upnp/cd/event</eventSubURL> 
       </service> 

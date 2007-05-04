@@ -589,10 +589,6 @@ int main(int argc, char *argv[]) {
         config.reload = 1; /* force a reload on start */
 
     while(!config.stop) {
-#ifdef UPNP
-        upnp_tick(); /* run the upnp loop */
-#endif
-
         if((conf_get_int("general","rescan_interval",0) &&
             (rescan_counter > conf_get_int("general","rescan_interval",0)))) {
             if((conf_get_int("general","always_scan",0)) ||

@@ -40,6 +40,7 @@
 #include "upnp.h"
 
 #define UPNP_MAX_PACKET 1500
+#define UPNP_CACHE_DURATION 1800
 #define UPNP_ADDR "239.255.255.250"
 #define UPNP_PORT 1900
 
@@ -47,7 +48,9 @@
 #define UPNP_TYPE_BYEBYE   2
 #define UPNP_TYPE_RESPONSE 3
 
-#define UPNP_SELECT_TIMEOUT  1 /* update loop for discover replies */
+#define UPNP_UUID "12345678-1234-1234-1234-123456789013"
+
+#define UPNP_SELECT_TIMEOUT  1
 
 typedef struct upnp_adinfo_t {
     int type;         /** one of the UPNP_AD_ values */
@@ -67,16 +70,24 @@ typedef struct upnp_packetinfo_t {
 typedef struct upnp_disco_t {
     int seconds_remaining;
     char *query;
-    struct sockaddr to;
+    struct sockaddr_in to;
     struct upnp_disco_t *next;
 } UPNP_DISCO;
 
 /* Globals */
 UPNP_PACKETINFO upnp_packetlist;
 OS_SOCKETTYPE upnp_socket;
+UPNP_DISCO upnp_disco;
+
 pthread_t upnp_listener_tid;
 int upnp_quitflag = 0;
 int upnp_thread_started = 0;
+char *upnp_broadcast_types[] = {
+    "none",
+    "SSDP Alive",
+    "SSDP Byebye",
+    "SSDP Discovery Response"
+};
 
 /* Forwards */
 int upnp_strcat(char *what, char *where, int bytes_left);
@@ -85,6 +96,15 @@ void upnp_build_packet(char *packet, int len, int type, UPNP_PACKETINFO *pi,
 void upnp_broadcast(int type, UPNP_DISCO *pdisco);
 void *upnp_listener(void *arg);
 void upnp_process_packet(void);
+void upnp_process_queries(void);
+
+/**
+ * return the current upnp uuid
+ */
+char *upnp_uuid(void) {
+    return UPNP_UUID;
+}
+
 
 /**
  * add a upnp packet too the root list.
@@ -178,11 +198,11 @@ void upnp_build_packet(char *packet, int len, int type,
 
     /* USN & NT */
     switch(pi->padinfo->type) {
-    case UPNP_AD_BARE:
-        snprintf(buffer,sizeof(buffer),"USN: uuid:%s\r\n",UPNP_UUID);
+    case UPNP_AD_UUID:
+        snprintf(buffer,sizeof(buffer),"USN: uuid:%s\r\n",upnp_uuid());
         len=upnp_strcat(buffer,packet,len);
         if(type != UPNP_TYPE_RESPONSE) { /* no NT for responses */
-            snprintf(buffer,sizeof(buffer),"NT: uuid:%s\r\n",UPNP_UUID);
+            snprintf(buffer,sizeof(buffer),"NT: uuid:%s\r\n",upnp_uuid());
             len=upnp_strcat(buffer,packet,len);
         }
         break;
@@ -190,7 +210,7 @@ void upnp_build_packet(char *packet, int len, int type,
     case UPNP_AD_DEVICE:
     case UPNP_AD_SERVICE:
     case UPNP_AD_ROOT:
-        snprintf(buffer,sizeof(buffer),"USN: uuid:%s::%s:%s",UPNP_UUID,
+        snprintf(buffer,sizeof(buffer),"USN: uuid:%s::%s:%s",upnp_uuid(),
                 pi->padinfo->namespace, pi->padinfo->name);
         len=upnp_strcat(buffer,packet,len);
         if(pi->padinfo->version) {
@@ -214,7 +234,9 @@ void upnp_build_packet(char *packet, int len, int type,
         break;
     }
 
-    len=upnp_strcat("CACHE-CONTROL: max-age=1800\r\n",packet,len);
+    snprintf(buffer,sizeof(buffer),"CACHE-CONTROL: max-age=%d\r\n",
+             UPNP_CACHE_DURATION);
+    len=upnp_strcat(buffer,packet,len);
 
     if((pi->padinfo->body) && (type != UPNP_TYPE_RESPONSE)) {
         snprintf(buffer,sizeof(buffer),"Content-Length: %d\r\n\r\n",
@@ -234,41 +256,79 @@ void upnp_broadcast(int type, UPNP_DISCO *pdisco) {
     struct sockaddr_in sin;
     char packet[UPNP_MAX_PACKET];
     int pass;
+    char passes;
+    int send_packet;
+    int elements=0;
+    int recognized=0;
+    char **argv = NULL;
 
     memset(&sin, 0, sizeof(sin));
-    sin.sin_family = AF_INET;
-    sin.sin_port = htons(UPNP_PORT);
-    sin.sin_addr.s_addr = inet_addr(UPNP_ADDR);
+    if(type == UPNP_TYPE_RESPONSE) {
+        memcpy((void*)&sin,(void*)&pdisco->to,sizeof(struct sockaddr_in));
+    } else {
+        sin.sin_addr.s_addr = inet_addr(UPNP_ADDR);
+        sin.sin_family = AF_INET;
+        sin.sin_port = htons(UPNP_PORT);
+    }
 
     util_mutex_lock(l_upnp);
 
-    DPRINTF(E_DBG,L_MISC,"Sending upnp broadcast of type: %d\n",type);
+    DPRINTF(E_DBG,L_MISC,"Sending upnp broadcast of type: %d (%s)\n",type,
+            upnp_broadcast_types[type]);
 
-    for(pass=0; pass < 2; pass++) {
+    passes = 2;
+    if(type == UPNP_TYPE_RESPONSE) {
+        passes = 1;
+        if(strcasecmp(pdisco->query,"ssdp:all")==0)
+            passes = 3;
+
+        elements = util_split(pdisco->query,":",&argv);
+    }
+
+    for(pass=0; pass < passes; pass++) {
         pi=upnp_packetlist.next;
         while(pi) {
-            upnp_build_packet(packet, UPNP_MAX_PACKET, type, pi, pdisco);
-            sendto(upnp_socket,packet,strlen(packet),0,
-                   (struct sockaddr *)&sin, sizeof(sin));
+            send_packet = 1;
+            if(type == UPNP_TYPE_RESPONSE) {
+                send_packet = 0;
+                /* if it's a request for rootdevice, only respond
+                   with root device.  */
+                if(strcasecmp(pdisco->query,"ssdp:all")==0) {
+                    send_packet = 1;
+                } else if((strcasecmp(pdisco->query,"upnp:rootdevice")==0) &&
+                          (pi->padinfo->type == UPNP_AD_ROOT)) {
+                    send_packet = 1;
+                }
+                else if((strncasecmp(pdisco->query,"uuid:",5) == 0) &&
+                        (!strcasecmp((char*)&pdisco->query[5],upnp_uuid())) &&
+                        (pi->padinfo->type == UPNP_AD_UUID)) {
+                    send_packet = 1;
+                }
+            }
+
+            if(send_packet) {
+                usleep(100);
+                recognized = 1;
+                upnp_build_packet(packet, UPNP_MAX_PACKET, type, pi, pdisco);
+                sendto(upnp_socket,packet,strlen(packet),0,
+                       (struct sockaddr *)&sin, sizeof(sin));
+            }
+
             pi = pi->next;
         }
     }
 
-    util_mutex_unlock(l_upnp);
-}
-
-
-int upnp_tick(void) {
-    static time_t last_broadcast = 0;
-
-    if((time(NULL) - last_broadcast) > 60) {
-        upnp_broadcast(UPNP_TYPE_ALIVE,NULL);
-        last_broadcast = time(NULL);
+    if(type == UPNP_TYPE_RESPONSE) {
+        printf("%s respond to query %s\n", recognized ? "Did" : "Did not",
+               pdisco->query);
     }
 
-    return TRUE;
-}
+    if(argv) {
+        util_dispose_split(argv);
+    }
 
+    util_mutex_unlock(l_upnp);
+}
 
 /**
  * start UPnP broadcaster.  We'll want to send at least a rootdevice
@@ -285,7 +345,9 @@ int upnp_init(void) {
     srand((unsigned)time(NULL));
 
     memset(&upnp_packetlist,0,sizeof(upnp_packetlist));
-    upnp_add_packet("base,", UPNP_AD_BARE, "/upnp-basic.xml",
+    memset(&upnp_disco,0,sizeof(upnp_disco));
+
+    upnp_add_packet("base,", UPNP_AD_UUID, "/upnp-basic.xml",
                     NULL, NULL, 0, NULL);
     upnp_add_packet("base,", UPNP_AD_DEVICE, "/upnp-basic.xml",
                     "urn:schemas-upnp-org","MediaServer", 1, NULL);
@@ -346,10 +408,41 @@ int upnp_init(void) {
 }
 
 /**
+ * walk the query chain and see if there are any queries we need
+ * to respond to.
+ */
+void upnp_process_queries(void) {
+    UPNP_DISCO *plast, *pcurrent;
+
+    plast=&upnp_disco;
+    pcurrent = upnp_disco.next;
+
+    /* don't need locks here since this ist he same thread as the listening
+     * thread */
+
+    while(pcurrent) {
+        if(pcurrent->seconds_remaining - UPNP_SELECT_TIMEOUT < 1) {
+            /* do the broadcast, and cull it */
+            upnp_broadcast(UPNP_TYPE_RESPONSE,pcurrent);
+            pcurrent = pcurrent->next;
+            free(plast->next->query);
+            free(plast->next);
+            plast->next = pcurrent;
+        } else {
+            pcurrent->seconds_remaining -= UPNP_SELECT_TIMEOUT;
+            plast = pcurrent;
+            pcurrent = pcurrent->next;
+        }
+    }
+}
+
+
+/**
  * listener thread for upnp query requests
  */
 void *upnp_listener(void *arg) {
     int result;
+    static time_t last_broadcast=0;
     fd_set readset;
     struct timeval timeout;
 
@@ -379,7 +472,18 @@ void *upnp_listener(void *arg) {
             upnp_thread_started=0;
             pthread_exit(NULL);
         }
-        upnp_process_packet();
+
+        if(FD_ISSET(upnp_socket,&readset)) {
+            upnp_process_packet();
+        }
+
+        if((time(NULL) - last_broadcast) > (UPNP_CACHE_DURATION/3)) {
+            DPRINTF(E_DBG,L_MISC,"Time for alive message!\n");
+            upnp_broadcast(UPNP_TYPE_ALIVE,NULL);
+            last_broadcast = time(NULL);
+        }
+
+        upnp_process_queries();
     }
 
     upnp_thread_started=0;
@@ -464,19 +568,22 @@ void upnp_process_packet(void) {
         /* do we care?  Let's check the query and see if it is interesting */
         discovery = 0;
 
-
         pdisco = (UPNP_DISCO *)malloc(sizeof(UPNP_DISCO));
         if(!pdisco)
             DPRINTF(E_FATAL,L_MISC,"malloc error");
 
         memset(pdisco,0,sizeof(UPNP_DISCO));
         if(mx) {
-            pdisco->seconds_remaining = 2;
+            pdisco->seconds_remaining = (rand() / (RAND_MAX/mx)) + 1;
+            DPRINTF(E_DBG,L_MISC,"Responding in %d (of %d) seconds\n",
+                    pdisco->seconds_remaining, mx);
         }
 
         pdisco->query = query;
         query = NULL;
-        memcpy((void*)&pdisco->to, (void*)&from, sizeof(struct sockaddr));
+        memcpy((void*)&pdisco->to, (void*)&from,sizeof(struct sockaddr_in));
+        pdisco->next = upnp_disco.next;
+        upnp_disco.next = pdisco;
     }
 
     if(query) {
@@ -510,6 +617,3 @@ int upnp_deinit(void) {
 
     return TRUE;
 }
-
-
-

@@ -1226,6 +1226,7 @@ int conf_write(void) {
     FILE *fp;
 
     if(!conf_main_file) {
+        DPRINTF(E_DBG,L_CONF,"Config file apparently  not loaded\n");
         return CONF_E_NOCONF;
     }
 
@@ -1233,10 +1234,13 @@ int conf_write(void) {
     if((fp = fopen(conf_main_file,"w+")) != NULL) {
         retval = _conf_write(fp,conf_main,0,NULL);
         fclose(fp);
+    } else {
+        DPRINTF(E_LOG,L_CONF,"Error opening config file for write: %s\n",
+                strerror(errno));
     }
     util_mutex_unlock(l_conf);
 
-    return retval ? CONF_E_SUCCESS : CONF_E_NOTWRITABLE;
+    return retval;
 }
 
 /**
@@ -1299,8 +1303,10 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
                 }
                 fprintf(fp,"\n");
 
-                if(!_conf_write(fp, pli->value.as_ll, 1, pli->key))
-                   return FALSE;
+                if(!_conf_write(fp, pli->value.as_ll, 1, pli->key)) {
+                    DPRINTF(E_DBG,L_CONF,"Error writing key %s:%s\n",pli->key);
+                    return FALSE;
+                }
             }
             break;
 

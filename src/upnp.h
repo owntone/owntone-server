@@ -31,18 +31,16 @@
 #ifndef _UPNP_H_
 #define _UPNP_H_
 
-#define UPNP_UUID "12345678-1234-1234-1234-123456789013"
-
 #define UPNP_AD_DEVICE   1
 #define UPNP_AD_SERVICE  2
 #define UPNP_AD_ROOT     3
-#define UPNP_AD_BARE     4
+#define UPNP_AD_UUID     4
 
 extern int upnp_init(void);
-extern int upnp_tick(void);
 extern int upnp_deinit(void);
 extern void upnp_add_packet(char *group_id, int type, char *location,
                             char *namespace, char *name, int version,
                             char *body);
+extern char *upnp_uuid();
 
 #endif /* _UPNP_H_ */
