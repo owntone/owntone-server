@@ -173,6 +173,8 @@ void upnp_build_packet(char *packet, int len, int type,
     }
 
     if(pi->padinfo->location) {
+        /* Note that UPnP spec says this SHOULD be ip address,
+         * not FQDN.  Roku SB, for example, doesn't like FQDN. */
         gethostname(hostname,sizeof(hostname));
         snprintf(buffer,sizeof(buffer),"LOCATION: http://%s:%d%s\r\n",
                  hostname,port,pi->padinfo->location);
@@ -210,21 +212,28 @@ void upnp_build_packet(char *packet, int len, int type,
     case UPNP_AD_DEVICE:
     case UPNP_AD_SERVICE:
     case UPNP_AD_ROOT:
-        snprintf(buffer,sizeof(buffer),"USN: uuid:%s::%s:%s",upnp_uuid(),
-                pi->padinfo->namespace, pi->padinfo->name);
+        snprintf(buffer,sizeof(buffer),"USN: uuid:%s::%s:%s%s",upnp_uuid(),
+                 pi->padinfo->namespace,
+                 (pi->padinfo->type == UPNP_AD_DEVICE) ? "device:" :
+                 ((pi->padinfo->type == UPNP_AD_SERVICE) ? "service:" : ""),
+                 pi->padinfo->name);
         len=upnp_strcat(buffer,packet,len);
         if(pi->padinfo->version) {
-            snprintf(buffer,sizeof(buffer),"%d",pi->padinfo->version);
+            snprintf(buffer,sizeof(buffer),":%d",pi->padinfo->version);
             len=upnp_strcat(buffer,packet,len);
         }
         len=upnp_strcat("\r\n",packet,len);
 
         if(type != UPNP_TYPE_RESPONSE) { /* no NT for responses */
-            snprintf(buffer,sizeof(buffer),"NT: %s:%s",
-                    pi->padinfo->namespace, pi->padinfo->name);
+            snprintf(buffer,sizeof(buffer),"NT: %s:%s%s",
+                     pi->padinfo->namespace,
+                     (pi->padinfo->type == UPNP_AD_DEVICE) ? "device:" :
+                     ((pi->padinfo->type == UPNP_AD_SERVICE) ? "service:":""),
+                     pi->padinfo->name);
+
             len=upnp_strcat(buffer,packet,len);
             if(pi->padinfo->version) {
-                snprintf(buffer,sizeof(buffer),"%d",pi->padinfo->version);
+                snprintf(buffer,sizeof(buffer),":%d",pi->padinfo->version);
                 len=upnp_strcat(buffer,packet,len);
             }
             len=upnp_strcat("\r\n",packet,len);
@@ -303,6 +312,23 @@ void upnp_broadcast(int type, UPNP_DISCO *pdisco) {
                         (!strcasecmp((char*)&pdisco->query[5],upnp_uuid())) &&
                         (pi->padinfo->type == UPNP_AD_UUID)) {
                     send_packet = 1;
+                } else if((elements == 5) &&
+                          (strcasecmp(argv[2],"device")==0)) {
+                    if((pi->padinfo->type == UPNP_AD_DEVICE) &&
+                       (strcasecmp((char*)&pi->padinfo->namespace[4],argv[1])==0) &&
+                       (strcasecmp(pi->padinfo->name,argv[3])==0) &&
+                       (pi->padinfo->version >= atoi(argv[4]))) {
+                        send_packet = 1;
+                    }
+
+                } else if((elements == 5) &&
+                          (strcasecmp(argv[2],"service")==0)) {
+                    if((pi->padinfo->type == UPNP_AD_SERVICE) &&
+                       (strcasecmp((char*)&pi->padinfo->namespace[4],argv[1])==0) &&
+                       (strcasecmp(pi->padinfo->name,argv[3])==0) &&
+                       (pi->padinfo->version >= atoi(argv[4]))) {
+                        send_packet = 1;
+                    }
                 }
             }
 
@@ -575,6 +601,9 @@ void upnp_process_packet(void) {
         memset(pdisco,0,sizeof(UPNP_DISCO));
         if(mx) {
             pdisco->seconds_remaining = (rand() / (RAND_MAX/mx)) + 1;
+            if(mx + 1 > UPNP_SELECT_TIMEOUT)
+                pdisco->seconds_remaining = 0;
+
             DPRINTF(E_DBG,L_MISC,"Responding in %d (of %d) seconds\n",
                     pdisco->seconds_remaining, mx);
         }

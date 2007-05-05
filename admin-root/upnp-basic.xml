@@ -6,7 +6,7 @@
   </specVersion> 
   <device> 
     <deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType> 
-    <friendlyName>@servername@</friendlyName> 
+    <friendlyName>UPnP: @servername@</friendlyName> 
     <manufacturer>Firefly Media Services</manufacturer> 
     <manufacturerURL>http://www.fireflymediaserver.org/</manufacturerURL> 
     <modelDescription>Firefly Media Server (version @version@)</modelDescription> 
