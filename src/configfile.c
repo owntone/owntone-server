@@ -531,7 +531,9 @@ int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
 }
 
 void config_emit_upnp(WS_CONNINFO *pwsc, void *value, char *arg) {
+#ifdef UPNP
     ws_writefd(pwsc,"%s",upnp_uuid());
+#endif
 }
 
 
