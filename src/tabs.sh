@@ -1,5 +1,9 @@
 #!/bin/sh
 XX='	'
-echo "Searching for ${XX}."
+echo "Searching for Tabs..."
 
-egrep -l "${XX}" *.[ch]
+egrep -r -l "${XX}" * | grep '[ch]$'
+
+echo "Searching for windows line endings..."
+
+grep -r -l $'\r' * | grep '[ch]$'

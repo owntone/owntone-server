@@ -133,7 +133,6 @@ typedef struct tag_plugin_input_fn {
     int (*ws_writefd)(struct tag_ws_conninfo *, char *, ...);
     int (*ws_addresponseheader)(struct tag_ws_conninfo *, char *, char *, ...);
     void (*ws_emitheaders)(struct tag_ws_conninfo *);
-    int (*ws_fd)(struct tag_ws_conninfo *);
     char* (*ws_getrequestheader)(struct tag_ws_conninfo *, char *);
     int (*ws_writebinary)(struct tag_ws_conninfo *, char *, int);
     char* (*ws_gethostname)(struct tag_ws_conninfo *);

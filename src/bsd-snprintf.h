@@ -1,7 +1,8 @@
 /*
- * $Id$
+ * $Id: $
  *
- * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
+ * Created by Ron Pedde on 2007-07-01.
+ * Copyright (C) 2007 Firefly Media Services. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,13 +18,13 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
+ 
 
-#ifndef _SCAN_AAC_H_
-#define _SCAN_AAC_H_
+#ifndef _BSD_SNPRINTF_H_
+#define _BSD_SNPRINTF_H_
 
-#include "io.h"
+extern int io_util_vsnprintf(char *str, size_t count, const char *fmt, va_list args);
+extern int io_util_snprintf(char *str,size_t count,const char *fmt,...);
 
-extern uint64_t scan_aac_drilltoatom(IOHANDLE hfile, char *atom_path, unsigned int *atom_length);
-extern uint64_t scan_aac_findatom(IOHANDLE hfile, uint64_t max_offset, char *which_atom, unsigned int *atom_size);
+#endif /* _BSD_SNPRINTF_H_ */
 
-#endif

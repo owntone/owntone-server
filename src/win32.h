@@ -84,11 +84,12 @@ typedef INT64       int64_t;
 #define putenv _putenv
 
 #define realpath os_realpath
-#define close os_close
 #define strsep os_strsep
-#define open os_open
-#define waitfdtimed os_waitfdtimed
-#define fopen os_fopen
+
+// #define close os_close
+// #define open os_open
+// #define waitfdtimed os_waitfdtimed
+// #define fopen os_fopen
 
 #define readdir_r os_readdir_r
 #define closedir os_closedir
@@ -98,8 +99,8 @@ typedef INT64       int64_t;
 #define strerror os_strerror
 
 /* override the uici stuff */
-#define u_open os_opensocket
-#define u_accept os_acceptsocket
+// #define u_open os_opensocket
+// #define u_accept os_acceptsocket
 
 /* privately implemented functions: @see os-win32.c */
 #define gettimeofday os_gettimeofday

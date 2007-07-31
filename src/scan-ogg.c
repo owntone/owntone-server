@@ -23,7 +23,47 @@
 
 #include "daapd.h"
 #include "err.h"
+#include "io.h"
 #include "mp3-scanner.h"
+
+size_t scan_ogg_read(void *ptr, size_t size, size_t nmemb, void *datasource) {
+    IOHANDLE hfile = (IOHANDLE)datasource;
+    uint32_t bytes_read;
+    
+    bytes_read = size * nmemb;
+    if(!io_read(hfile,ptr,&bytes_read))
+        return -1;
+        
+    return (size_t)bytes_read;
+}
+
+int scan_ogg_seek(void *datasource, int64_t offset, int whence) {
+    IOHANDLE hfile = (IOHANDLE)datasource;
+    
+    if(!io_setpos(hfile,(uint64_t)offset,whence))
+        return -1;
+    return 0;
+}
+
+int scan_ogg_close(void *datasource) {
+    IOHANDLE hfile = (IOHANDLE)datasource;
+    int retcode;
+    
+    retcode = io_close(hfile);
+    io_dispose(hfile);
+    
+    return retcode ? 0 : EOF;
+}
+
+long scan_ogg_tell(void *datasource) {
+    IOHANDLE hfile = (IOHANDLE)datasource;
+    uint64_t pos;
+    
+    if(!io_getpos(hfile,&pos))
+        return -1;
+        
+    return (long)pos;
+}
 
 
 /**
@@ -34,27 +74,30 @@
  * @returns TRUE if file should be added to DB, FALSE otherwise
  */
 int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
-    FILE *f;
+    IOHANDLE hfile;
     OggVorbis_File vf;
     vorbis_comment *comment = NULL;
     vorbis_info *vi = NULL;
     char *val;
+    ov_callbacks callbacks = { scan_ogg_read, scan_ogg_seek, scan_ogg_close, scan_ogg_tell };
 
-    f = fopen(filename, "rb");
-    if (f == NULL) {
-        DPRINTF(E_LOG, L_SCAN,
-                "Error opening input file \"%s\": %s\n", filename,
-                strerror(errno));
+    
+    hfile = io_new();
+    if(!hfile) {
+        DPRINTF(E_LOG,L_SCAN,"Could not create file handle\n");
         return FALSE;
     }
-
-    if (ov_open(f, &vf, NULL, 0) != 0) {
-        fclose(f);
-        DPRINTF(E_LOG, L_SCAN,
-                "Error opening Vorbis stream in \"%s\"\n", filename);
+    
+    if(!io_open(hfile,"file://%U",filename)) {
+        DPRINTF(E_LOG,L_SCAN,"Error opening %s: %s", filename, io_errstr(hfile));
         return FALSE;
     }
-
+    
+    if(ov_open_callbacks(hfile,&vf,NULL,0,callbacks) < 0) {
+        DPRINTF(E_LOG,L_SCAN,"Could not create oggvorbis file handler\n");
+        return FALSE;
+    }
+    
     vi=ov_info(&vf,-1);
     if(vi) {
         DPRINTF(E_DBG,L_SCAN," Bitrates: %d %d %d\n",vi->bitrate_upper,
@@ -95,6 +138,5 @@ int scan_get_ogginfo(char *filename, MP3FILE *pmp3) {
             pmp3->year = atoi(val);
     }
     ov_clear(&vf);
-    /*fclose(f);*/
     return TRUE;
 }

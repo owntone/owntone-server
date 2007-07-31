@@ -22,6 +22,8 @@
 #ifndef _WEBSERVER_H_
 #define _WEBSERVER_H_
 
+#include "io.h"
+
 /*
  * Defines
  */
@@ -29,7 +31,27 @@
 #define RT_GET       0
 #define RT_POST      1
 
-/* 
+#define E_WS_SUCCESS       0 
+#define E_WS_NATIVE        1   /**< A native platform error */
+#define E_WS_MEMORY        2   /**< Malloc error */
+#define E_WS_PTHREADS      3   /**< Pthreads error */
+#define E_WS_EXHAUSTED     4   /**< ports exhausted!? */
+#define E_WS_LISTEN        5   /**< can't listen */
+#define E_WS_CONTENTLEN    6   /**< Invalid content length in POST */
+#define E_WS_READ          7   /**< read error on socket */
+#define E_WS_GETVARS       8   /**< could not parse get vars */
+#define E_WS_TIMEOUT       9   /**< timeout listening on socket */
+#define E_WS_REQTYPE      10   /**< invalid request type (POST, GET, etc) */
+#define E_WS_BADPATH      11   /**< requested path out of root */
+
+#define L_WS_SPAM         10   /**< Logorrhea! */
+#define L_WS_DBG           9   /**< Way too verbose */
+#define L_WS_INF           5   /**< Good info, not too much spam */
+#define L_WS_WARN          2   /**< Goes in text log, but not syslog */
+#define L_WS_LOG           1   /**< Something that should go in syslog */
+#define L_WS_FATAL         0   /**< Log and force an exit */
+
+/*
  * Typedefs
  */
 typedef void* WSHANDLE;
@@ -38,7 +60,11 @@ typedef void* WSTHREADENUM;
 typedef struct tag_wsconfig {
     char *web_root;
     char *id;
+    char *ssl_cert;
+    char *ssl_key;
+    char *ssl_pw;
     unsigned short port;
+    unsigned short ssl_port;
 } WSCONFIG;
 
 typedef struct tag_arglist {
@@ -48,14 +74,19 @@ typedef struct tag_arglist {
 } ARGLIST;
 
 typedef struct tag_ws_conninfo {
+    int err_code;
+    int err_native;
+    char *err_msg;
     WSHANDLE pwsp;
     int threadno;
     int error;
-    int fd;
+    IOHANDLE hclient;
     int request_type;
     char *uri;
     char *hostname;
     int close;
+    int secure;
+    void *secure_storage;
     void *local_storage;
     void (*storage_callback)(void*);
     ARGLIST request_headers;
@@ -70,13 +101,20 @@ typedef struct tag_ws_conninfo {
 #define WS_REQ_HANDLER void (*)(WS_CONNINFO *)
 #define WS_AUTH_HANDLER int (*)(WS_CONNINFO*, char *, char *)
 
-extern WSHANDLE ws_start(WSCONFIG *config);
+/** Server functions */
+extern WSHANDLE ws_init(WSCONFIG *config);
+extern int ws_start(WSHANDLE ws);
 extern int ws_stop(WSHANDLE ws);
-extern int ws_registerhandler(WSHANDLE ws, char *regex, 
-                              void(*handler)(WS_CONNINFO*),
-                              int(*auth)(WS_CONNINFO*, char *, char *),
-                              int addheaders);
+extern int ws_registerhandler(WSHANDLE ws, char *stem,
+    void(*handler)(WS_CONNINFO*),
+    int(*auth)(WS_CONNINFO*, char *, char *),
+    int flags,
+    int addheaders);
+extern int ws_server_errcode(WSHANDLE ws);
 
+                          
+
+/** Local storage functions */
 extern void ws_lock_local_storage(WS_CONNINFO *pwsc);
 extern void ws_unlock_local_storage(WS_CONNINFO *pwsc);
 extern void *ws_get_local_storage(WS_CONNINFO *pwsc);
@@ -95,8 +133,15 @@ extern char *ws_getvar(WS_CONNINFO *pwsc, char *var);
 extern char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header);
 extern int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
 extern void ws_emitheaders(WS_CONNINFO *pwsc);
-
+extern char *ws_uri(WS_CONNINFO *pwsc);
 extern void *ws_enum_var(WS_CONNINFO *pwsc, char **key, char **value, void *last);
+extern int ws_copyfile(WS_CONNINFO *pwsc, IOHANDLE hfile, uint64_t *bytes_copied);
+extern void ws_should_close(WS_CONNINFO *pwsc, int should_close);
+extern int ws_threadno(WS_CONNINFO *pwsc);
+extern char *ws_hostname(WS_CONNINFO *pwsc);
 
+extern void ws_set_errhandler(void(*err_handler)(int, char*));
+extern int ws_set_err(WS_CONNINFO *pwsc, int ws_error);
+extern int ws_get_err(WS_CONNINFO *pwsc, int *errcode, char **err_msg);
 
 #endif /* _WEBSERVER_H_ */

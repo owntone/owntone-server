@@ -1,4 +1,4 @@
-/*
+/* -*- Mode: C; tab-width: 4 -*-
  * $Id$
  *
  * Do the zeroconf/mdns/rendezvous (tm) thing.  This is a hacked version
@@ -21,178 +21,130 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
+ * Copyright (c) 2002-2004 Apple Computer, Inc. All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
  * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.2 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
+ *     http://www.apache.org/licenses/LICENSE-2.0
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
-  File:       responder.c
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
 
-  Contains:   Code to implement an mDNS responder on the Posix platform.
+    Change History (most recent first):
 
-  Written by: Quinn
+$Log: Responder.c,v $
+Revision 1.33  2007/04/16 20:49:39  cheshire
+Fix compile errors for mDNSPosix build
 
-  Copyright:  Copyright (c) 2002 by Apple Computer, Inc., All Rights Reserved.
+Revision 1.32  2006/08/14 23:24:46  cheshire
+Re-licensed mDNSResponder daemon source code under Apache License, Version 2.0
 
-  Disclaimer: IMPORTANT:  This Apple software is supplied to you by Apple Computer, Inc.
-  ("Apple") in consideration of your agreement to the following terms, and your
-  use, installation, modification or redistribution of this Apple software
-  constitutes acceptance of these terms.  If you do not agree with these terms,
-  please do not use, install, modify or redistribute this Apple software.
+Revision 1.31  2006/06/12 18:22:42  cheshire
+<rdar://problem/4580067> mDNSResponder building warnings under Red Hat 64-bit (LP64) Linux
 
-  In consideration of your agreement to abide by the following terms, and subject
-  to these terms, Apple grants you a personal, non-exclusive license, under Apple's
-  copyrights in this original Apple software (the "Apple Software"), to use,
-  reproduce, modify and redistribute the Apple Software, with or without
-  modifications, in source and/or binary forms; provided that if you redistribute
-  the Apple Software in its entirety and without modifications, you must retain
-  this notice and the following text and disclaimers in all such redistributions of
-  the Apple Software.  Neither the name, trademarks, service marks or logos of
-  Apple Computer, Inc. may be used to endorse or promote products derived from the
-  Apple Software without specific prior written permission from Apple.  Except as
-  expressly stated in this notice, no other rights or licenses, express or implied,
-  are granted by Apple herein, including but not limited to any patent rights that
-  may be infringed by your derivative works or by other works in which the Apple
-  Software may be incorporated.
+Revision 1.30  2005/10/26 22:21:16  cheshire
+<rdar://problem/4149841> Potential buffer overflow in mDNSResponderPosix
 
-  The Apple Software is provided by Apple on an "AS IS" basis.  APPLE MAKES NO
-  WARRANTIES, EXPRESS OR IMPLIED, INCLUDING WITHOUT LIMITATION THE IMPLIED
-  WARRANTIES OF NON-INFRINGEMENT, MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-  PURPOSE, REGARDING THE APPLE SOFTWARE OR ITS USE AND OPERATION ALONE OR IN
-  COMBINATION WITH YOUR PRODUCTS.
+Revision 1.29  2005/03/04 21:35:33  cheshire
+<rdar://problem/4037201> Services.txt file not parsed properly when it contains more than one service
 
-  IN NO EVENT SHALL APPLE BE LIABLE FOR ANY SPECIAL, INDIRECT, INCIDENTAL OR
-  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-  GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
-  ARISING IN ANY WAY OUT OF THE USE, REPRODUCTION, MODIFICATION AND/OR DISTRIBUTION
-  OF THE APPLE SOFTWARE, HOWEVER CAUSED AND WHETHER UNDER THEORY OF CONTRACT, TORT
-  (INCLUDING NEGLIGENCE), STRICT LIABILITY OR OTHERWISE, EVEN IF APPLE HAS BEEN
-  ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+Revision 1.28  2005/01/11 01:55:26  ksekar
+Fix compile errors in Posix debug build
 
-  Change History (most recent first):
+Revision 1.27  2004/12/01 04:28:43  cheshire
+<rdar://problem/3872803> Darwin patches for Solaris and Suse
+Use version of daemon() provided in mDNSUNP.c instead of local copy
 
- $Log$
- Revision 1.29  2006/03/05 08:09:27  rpedde
- fix up txt records to show password info, mtd-version, and itunes version
+Revision 1.26  2004/11/30 22:37:01  cheshire
+Update copyright dates and add "Mode: C; tab-width: 4" headers
 
- Revision 1.28  2006/02/26 08:46:24  rpedde
- Merged win32-branch
+Revision 1.25  2004/11/11 02:00:51  cheshire
+Minor fixes to getopt, error message
 
- Revision 1.27.2.2  2006/02/26 08:28:35  rpedde
- unix fixes from win32 port
+Revision 1.24  2004/11/09 19:32:10  rpantos
+Suggestion from Ademar de Souza Reis Jr. to allow comments in services file
 
- Revision 1.27.2.1  2006/02/23 03:19:40  rpedde
- First pass at win32 port.
+Revision 1.23  2004/09/17 01:08:54  cheshire
+Renamed mDNSClientAPI.h to mDNSEmbeddedAPI.h
+  The name "mDNSClientAPI.h" is misleading to new developers looking at this code. The interfaces
+  declared in that file are ONLY appropriate to single-address-space embedded applications.
+  For clients on general-purpose computers, the interfaces defined in dns_sd.h should be used.
 
- Revision 1.27  2006/02/20 03:36:57  rpedde
- Annoying fprintf
+Revision 1.22  2004/09/16 01:58:22  cheshire
+Fix compiler warnings
 
- Revision 1.26  2005/09/23 07:03:19  rpedde
- view persistence fixes for iTunes 5
+Revision 1.21  2004/06/15 03:48:07  cheshire
+Update mDNSResponderPosix to take multiple name=val arguments in a sane way
 
- Revision 1.25  2005/08/16 02:26:32  rpedde
- Add interface directive to config file -- fix stderr logging on rendezvous child
+Revision 1.20  2004/05/18 23:51:26  cheshire
+Tidy up all checkin comments to use consistent "<rdar://problem/xxxxxxx>" format for bug numbers
 
- Revision 1.24  2005/08/15 03:16:54  rpedde
- specify interface to register
+Revision 1.19  2004/03/12 08:03:14  cheshire
+Update comments
 
- Revision 1.23  2005/01/07 06:57:59  rpedde
- fix minor errno problem
+Revision 1.18  2004/01/25 00:00:55  cheshire
+Change to use mDNSOpaque16fromIntVal() instead of shifting and masking
 
- Revision 1.22  2004/12/09 05:05:54  rpedde
- Logging fixes
+Revision 1.17  2003/12/11 19:11:55  cheshire
+Fix compiler warning
 
- Revision 1.21  2004/11/30 04:17:32  rpedde
- use pascal packed string to avoid invalid rdata error
+Revision 1.16  2003/08/14 02:19:55  cheshire
+<rdar://problem/3375491> Split generic ResourceRecord type into two separate types: AuthRecord and CacheRecord
 
-  Revision 1.20  2004/11/30 04:04:17  rpedde
-  database id txt record to store settings
+Revision 1.15  2003/08/12 19:56:26  cheshire
+Update to APSL 2.0
 
-  Revision 1.19  2004/11/13 07:14:26  rpedde
-  modularize debugging statements
+Revision 1.14  2003/08/06 18:20:51  cheshire
+Makefile cleanup
 
-  Revision 1.18  2004/04/19 06:19:46  rpedde
-  Starting to fix signal stuff
+Revision 1.13  2003/07/23 00:00:04  cheshire
+Add comments
 
-  Revision 1.17  2004/03/29 19:44:58  rpedde
-  Move mdns stuff out of mdns subdir to help compile on older automakes
+Revision 1.12  2003/07/15 01:55:16  cheshire
+<rdar://problem/3315777> Need to implement service registration with subtypes
 
-  Revision 1.16  2004/03/08 19:21:03  rpedde
-  start of background scanning
+Revision 1.11  2003/07/14 18:11:54  cheshire
+Fix stricter compiler warnings
 
-  Revision 1.15  2004/03/02 01:35:31  rpedde
-  fix domain
+Revision 1.10  2003/07/10 20:27:31  cheshire
+<rdar://problem/3318717> mDNSResponder Posix version is missing a 'b' in the getopt option string
 
-  Revision 1.14  2004/03/02 00:03:37  rpedde
-  Merge new rendezvous code
+Revision 1.9  2003/07/02 21:19:59  cheshire
+<rdar://problem/3313413> Update copyright notices, etc., in source code comments
 
-  Revision 1.13  2004/03/01 16:29:42  rpedde
-  Fix logging
+Revision 1.8  2003/06/18 05:48:41  cheshire
+Fix warnings
 
-  Revision 1.12  2004/02/25 16:13:37  rpedde
-  More -Wall cleanups
+Revision 1.7  2003/05/06 00:00:50  cheshire
+<rdar://problem/3248914> Rationalize naming of domainname manipulation functions
 
-  Revision 1.11  2004/02/09 18:33:59  rpedde
-  Pretty up
+Revision 1.6  2003/03/08 00:35:56  cheshire
+Switched to using new "mDNS_Execute" model (see "mDNSCore/Implementer Notes.txt")
 
-  Revision 1.10  2004/01/20 04:41:20  rpedde
-  merge new-rend-branch
+Revision 1.5  2003/02/20 06:48:36  cheshire
+<rdar://problem/3169535> Xserve RAID needs to do interface-specific registrations
+Reviewed by: Josh Graessley, Bob Bradley
 
-  Revision 1.9.2.1  2004/01/16 20:51:01  rpedde
-  Convert rend-posix to message-based system
+Revision 1.4  2003/01/28 03:07:46  cheshire
+Add extra parameter to mDNS_RenameAndReregisterService(),
+and add support for specifying a domain other than dot-local.
 
-  Revision 1.9  2004/01/04 05:02:23  rpedde
-  fix segfault on dropping privs
+Revision 1.3  2002/09/21 20:44:53  zarzycki
+Added APSL info
 
-  Revision 1.8  2003/12/29 23:39:18  ron
-  add priv dropping
+Revision 1.2  2002/09/19 04:20:44  cheshire
+Remove high-ascii characters that confuse some systems
 
-  Revision 1.7  2003/12/29 20:41:08  ron
-  Make sure all files have GPL notice
-
-  Revision 1.6  2003/11/26 06:12:53  ron
-  Exclude from memory checks
-
-  Revision 1.5  2003/11/23 18:13:15  ron
-  Exit rather than returning... shouldn't make a difference, but does.  ?
-
-  Revision 1.4  2003/11/20 21:58:22  ron
-  More diag logging, move WS_PRIVATE into the WS_CONNINFO
-
-  Revision 1.3  2003/11/17 16:40:09  ron
-  add support for named db
-
-  Revision 1.2  2003/11/14 04:54:55  ron
-  Use port 53
-
-  Revision 1.1  2003/10/30 22:41:56  ron
-  Initial checkin
-
-  Revision 1.3  2002/09/21 20:44:53  zarzycki
-  Added APSL info
-
-  Revision 1.2  2002/09/19 04:20:44  cheshire
-  Remove high-ascii characters that confuse some systems
-
-  Revision 1.1  2002/09/17 06:24:35  cheshire
-  First checkin
+Revision 1.1  2002/09/17 06:24:35  cheshire
+First checkin
 
 */
 
@@ -200,31 +152,41 @@
 #include "mDNSPosix.h"    // Defines the specific types needed to run mDNS on this platform
 
 #include <assert.h>
-#include <stdio.h>                      // For printf()
-#include <stdlib.h>                     // For exit() etc.
-#include <string.h>                     // For strlen() etc.
-#include <unistd.h>                     // For select()
-#include <errno.h>                      // For errno, EINTR
+#include <stdio.h>			// For printf()
+#include <stdlib.h>			// For exit() etc.
+#include <string.h>			// For strlen() etc.
+#include <unistd.h>			// For select()
+#include <errno.h>			// For errno, EINTR
 #include <signal.h>
 #include <fcntl.h>
-#include <pwd.h>
-#include <sys/types.h>
 
-#define __IN_ERR__
 #include "daapd.h"
 #include "err.h"
 #include "os-unix.h"
 #include "rend.h"
 #include "rend-unix.h"
 
+#if COMPILER_LIKES_PRAGMA_MARK
+#pragma mark ***** Globals
+#endif
+
 static mDNS mDNSStorage;       // mDNS core uses this to store its globals
 static mDNS_PlatformSupport PlatformStorage;  // Stores this platform's globals
 
+mDNSexport const char ProgramName[] = "mDNSResponderPosix";
 
+static const char *gProgramName = ProgramName;
+
+#if COMPILER_LIKES_PRAGMA_MARK
+#pragma mark ***** Signals
+#endif
+
+static volatile mDNSBool gReceivedSigUsr1;
+static volatile mDNSBool gReceivedSigHup;
 static volatile mDNSBool gStopNow;
 
-/* modified signal handling code - rep 21 Oct 2k3 */
-
+// We support 4 signals. (2, now -- rp)
+//
 // o SIGINT  causes an orderly shutdown of the program.
 // o SIGQUIT causes a somewhat orderly shutdown (direct but dangerous)
 //
@@ -236,39 +198,47 @@ static volatile mDNSBool gStopNow;
 // modify the signal mask and start a select.
 
 static void HandleSigInt(int sigraised)
-// A handler for SIGINT that causes us to break out of the 
-// main event loop when the user types ^C.  This has the 
-// effect of quitting the program.
+    // A handler for SIGINT that causes us to break out of the 
+    // main event loop when the user types ^C.  This has the 
+    // effect of quitting the program.
 {
     assert(sigraised == SIGINT);
-
-    DPRINTF(E_INF,L_REND,"SIGINT\n");
+    
+    if (gMDNSPlatformPosixVerboseLevel > 0) {
+        fprintf(stderr, "\nSIGINT\n");
+    }
     gStopNow = mDNStrue;
 }
 
 static void HandleSigQuit(int sigraised)
-// If we get a SIGQUIT the user is desperate and we 
-// just call mDNS_Close directly.  This is definitely 
-// not safe (because it could reenter mDNS), but 
-// we presume that the user has already tried the safe 
-// alternatives.
+    // If we get a SIGQUIT the user is desperate and we 
+    // just call mDNS_Close directly.  This is definitely 
+    // not safe (because it could reenter mDNS), but 
+    // we presume that the user has already tried the safe 
+    // alternatives.
 {
     assert(sigraised == SIGQUIT);
 
-    DPRINTF(E_INF,L_REND,"SIGQUIT\n");
-
+    if (gMDNSPlatformPosixVerboseLevel > 0) {
+        fprintf(stderr, "\nSIGQUIT\n");
+    }
     mDNS_Close(&mDNSStorage);
     exit(0);
 }
 
+#if COMPILER_LIKES_PRAGMA_MARK
+#pragma mark ***** Parameter Checking
+#endif
 
-
-
-/* get rid of pidfile handling - rep - 21 Oct 2k3 */
 static const char kDefaultServiceType[] = "_http._tcp.";
+static const char kDefaultServiceDomain[] = "local.";
 enum {
     kDefaultPortNumber = 80
 };
+
+#if COMPILER_LIKES_PRAGMA_MARK
+#pragma mark ***** Registration
+#endif
 
 typedef struct PosixService PosixService;
 
@@ -281,67 +251,67 @@ struct PosixService {
 static PosixService *gServiceList = NULL;
 
 static void RegistrationCallback(mDNS *const m, ServiceRecordSet *const thisRegistration, mStatus status)
-// mDNS core calls this routine to tell us about the status of 
-// our registration.  The appropriate action to take depends 
-// entirely on the value of status.
+    // mDNS core calls this routine to tell us about the status of 
+    // our registration.  The appropriate action to take depends 
+    // entirely on the value of status.
 {
     switch (status) {
 
-    case mStatus_NoError:      
-        DPRINTF(E_DBG,L_REND,"Callback: Name Registered\n");
-        // Do nothing; our name was successfully registered.  We may 
-        // get more call backs in the future.
-        break;
+        case mStatus_NoError:      
+            DPRINTF(E_DBG,L_REND,"Callback: %##s Name Registered",   thisRegistration->RR_SRV.resrec.name->c); 
+            // Do nothing; our name was successfully registered.  We may 
+            // get more call backs in the future.
+            break;
 
-    case mStatus_NameConflict: 
-        DPRINTF(E_WARN,L_REND,"Callback: Name Conflict\n");
+        case mStatus_NameConflict: 
+            DPRINTF(E_DBG,L_REND,"Callback: %##s Name Conflict",     thisRegistration->RR_SRV.resrec.name->c); 
 
-        // In the event of a conflict, this sample RegistrationCallback 
-        // just calls mDNS_RenameAndReregisterService to automatically 
-        // pick a new unique name for the service. For a device such as a 
-        // printer, this may be appropriate.  For a device with a user 
-        // interface, and a screen, and a keyboard, the appropriate response 
-        // may be to prompt the user and ask them to choose a new name for 
-        // the service.
-        //
-        // Also, what do we do if mDNS_RenameAndReregisterService returns an 
-        // error.  Right now I have no place to send that error to.
+            // In the event of a conflict, this sample RegistrationCallback 
+            // just calls mDNS_RenameAndReregisterService to automatically 
+            // pick a new unique name for the service. For a device such as a 
+            // printer, this may be appropriate.  For a device with a user 
+            // interface, and a screen, and a keyboard, the appropriate response 
+            // may be to prompt the user and ask them to choose a new name for 
+            // the service.
+            //
+            // Also, what do we do if mDNS_RenameAndReregisterService returns an 
+            // error.  Right now I have no place to send that error to.
             
-        status = mDNS_RenameAndReregisterService(m, thisRegistration, mDNSNULL);
-        assert(status == mStatus_NoError);
-        break;
+            status = mDNS_RenameAndReregisterService(m, thisRegistration, mDNSNULL);
+            assert(status == mStatus_NoError);
+            break;
 
-    case mStatus_MemFree:      
-        DPRINTF(E_WARN,L_REND,"Callback: Memory Free\n");
+        case mStatus_MemFree:      
+            DPRINF(E_DBG,L_REND,"Callback: %##s Memory Free",       thisRegistration->RR_SRV.resrec.name->c); 
             
-        // When debugging is enabled, make sure that thisRegistration 
-        // is not on our gServiceList.
+            // When debugging is enabled, make sure that thisRegistration 
+            // is not on our gServiceList.
             
-#if defined(DEBUG)
-        {
-            PosixService *cursor;
+            #if !defined(NDEBUG)
+                {
+                    PosixService *cursor;
                     
-            cursor = gServiceList;
-            while (cursor != NULL) {
-                assert(&cursor->coreServ != thisRegistration);
-                cursor = cursor->next;
-            }
-        }
-#endif
-        free(thisRegistration);
-        break;
+                    cursor = gServiceList;
+                    while (cursor != NULL) {
+                        assert(&cursor->coreServ != thisRegistration);
+                        cursor = cursor->next;
+                    }
+                }
+            #endif
+            free(thisRegistration);
+            break;
 
-    default:                   
-        DPRINTF(E_WARN,L_REND,"Callback: Unknown Status %d\n",status); 
-        break;
+        default:                   
+            DPRINTF(E_DBG,L_REND,"Callback: %##s Unknown Status %ld", thisRegistration->RR_SRV.resrec.name->c, status); 
+            break;
     }
 }
 
 static int gServiceID = 0;
 
-static mStatus RegisterOneService(const char *  richTextHostName, 
+static mStatus RegisterOneService(const char *  richTextName, 
                                   const char *  serviceType, 
-                                  const char *  serviceDomain,
+                                  const char *  serviceDomain, 
                                   const mDNSu8  text[],
                                   mDNSu16       textLen,
                                   long          portNumber,
@@ -349,7 +319,6 @@ static mStatus RegisterOneService(const char *  richTextHostName,
 {
     mStatus             status;
     PosixService *      thisServ;
-    mDNSOpaque16        port;
     domainlabel         name;
     domainname          type;
     domainname          domain;
@@ -360,20 +329,17 @@ static mStatus RegisterOneService(const char *  richTextHostName,
         status = mStatus_NoMemoryErr;
     }
     if (status == mStatus_NoError) {
-        MakeDomainLabelFromLiteralString(&name,  richTextHostName);
+        MakeDomainLabelFromLiteralString(&name,  richTextName);
         MakeDomainNameFromDNSNameString(&type, serviceType);
         MakeDomainNameFromDNSNameString(&domain, serviceDomain);
-
-        port.b[0] = (portNumber >> 8) & 0x0FF;
-        port.b[1] = (portNumber >> 0) & 0x0FF;;
+        
         status = mDNS_RegisterService(&mDNSStorage, &thisServ->coreServ,
-                                      &name, &type, &domain,
-                                      NULL,
-                                      port, 
-                                      text, textLen,
-                                      NULL, 0,
-                                      id,
-                                      RegistrationCallback, thisServ);
+                &name, &type, &domain,				// Name, type, domain
+                NULL, mDNSOpaque16fromIntVal(portNumber),
+                text, textLen,						// TXT data, length
+                NULL, 0,							// Subtypes
+                id,					// Interface ID
+                RegistrationCallback, thisServ);	// Callback and context
     }
     if (status == mStatus_NoError) {
         thisServ->serviceID = gServiceID;
@@ -381,14 +347,12 @@ static mStatus RegisterOneService(const char *  richTextHostName,
 
         thisServ->next = gServiceList;
         gServiceList = thisServ;
-
-        DPRINTF(E_DBG,L_REND,
-                "Registered service %d, name '%s', type '%s', domain '%s', port %ld\n", 
-                thisServ->serviceID, 
-                richTextHostName,
-                serviceType,
-                serviceDomain,
-                portNumber);
+        DPRINTF(E_DBG,L_REND, 
+            "Registered service %d, name '%s', type '%s', port %ld\n", 
+            thisServ->serviceID, 
+            richTextName,
+            serviceType,
+            portNumber);
     } else {
         if (thisServ != NULL) {
             free(thisServ);
@@ -410,8 +374,9 @@ static void DeregisterOurServices(void)
         
         mDNS_DeregisterService(&mDNSStorage, &thisServ->coreServ);
 
-        DPRINTF(E_DBG,L_REND,"Deregistered service %d\n",
-                thisServ->serviceID);
+        DPRINF(E_DBG,L_REND, 
+            "Deregistered service %d\n",
+            thisServ->serviceID);
     }
 }
 
@@ -441,7 +406,7 @@ mDNSInterfaceID rend_get_interface_id(char *iface) {
     return mDNSInterface_Any;
 }
 
-/*
+*
  * rend_callback
  *
  * This is borrowed from the OSX rend client
@@ -568,5 +533,4 @@ int rend_private_init(char *user) {
 
     exit(result);
 }
-
 

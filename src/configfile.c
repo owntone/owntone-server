@@ -84,7 +84,7 @@ static void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_config(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_servername(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_upnp(WS_CONNINFO *pwsc, void *value, char *arg);
-static void config_subst_stream(WS_CONNINFO *pwsc, int fd_src);
+static void config_subst_stream(WS_CONNINFO *pwsc, IOHANDLE hfile);
 static void config_content_type(WS_CONNINFO *pwsc, char *path);
 
 /*
@@ -121,31 +121,31 @@ typedef struct tag_configelement {
 /** List of all valid config entries and web interface directives */
 CONFIGELEMENT config_elements[] = {
     /*
-    { 1,1,0,CONFIG_TYPE_STRING,"runas",(void*)&config.runas,config_emit_string },
-    { 1,1,0,CONFIG_TYPE_STRING,"web_root",(void*)&config.web_root,config_emit_string },
-    { 1,1,0,CONFIG_TYPE_INT,"port",(void*)&config.port,config_emit_int },
-    { 1,1,0,CONFIG_TYPE_STRING,"admin_pw",(void*)&config.adminpassword,config_emit_string },
-    { 1,1,0,CONFIG_TYPE_STRING,"mp3_dir",(void*)&config.mp3dir,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"db_type",(void*)&config.dbtype,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"db_parms",(void*)&config.dbparms,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_INT,"debuglevel",(void*)NULL,config_emit_debuglevel },
-    { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_INT,"rescan_interval",(void*)&config.rescan_interval,config_emit_int },
-    { 1,0,0,CONFIG_TYPE_INT,"always_scan",(void*)&config.always_scan,config_emit_int },
-    { 1,0,0,CONFIG_TYPE_INT,"latin1_tags",(void*)&config.latin1_tags,config_emit_int },
-    { 1,0,0,CONFIG_TYPE_INT,"process_m3u",(void*)&config.process_m3u,config_emit_int },
-    { 1,0,0,CONFIG_TYPE_INT,"scan_type",(void*)&config.scan_type,config_emit_int },
-    { 1,0,0,CONFIG_TYPE_INT,"compress",(void*)&config.compress,config_emit_int },
-    { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"interface",(void*)&config.iface,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"ssc_codectypes",(void*)&config.ssc_codectypes,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"ssc_prog",(void*)&config.ssc_prog,config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"compdirs",(void*)&config.compdirs, config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"logfile",(void*)&config.logfile, config_emit_string },
-    { 1,0,0,CONFIG_TYPE_STRING,"art_filename",(void*)&config.artfilename,config_emit_string },
+      { 1,1,0,CONFIG_TYPE_STRING,"runas",(void*)&config.runas,config_emit_string },
+      { 1,1,0,CONFIG_TYPE_STRING,"web_root",(void*)&config.web_root,config_emit_string },
+      { 1,1,0,CONFIG_TYPE_INT,"port",(void*)&config.port,config_emit_int },
+      { 1,1,0,CONFIG_TYPE_STRING,"admin_pw",(void*)&config.adminpassword,config_emit_string },
+      { 1,1,0,CONFIG_TYPE_STRING,"mp3_dir",(void*)&config.mp3dir,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"db_dir",(void*)&config.dbdir,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"db_type",(void*)&config.dbtype,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"db_parms",(void*)&config.dbparms,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_INT,"debuglevel",(void*)NULL,config_emit_debuglevel },
+      { 1,1,0,CONFIG_TYPE_STRING,"servername",(void*)&config.servername,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_INT,"rescan_interval",(void*)&config.rescan_interval,config_emit_int },
+      { 1,0,0,CONFIG_TYPE_INT,"always_scan",(void*)&config.always_scan,config_emit_int },
+      { 1,0,0,CONFIG_TYPE_INT,"latin1_tags",(void*)&config.latin1_tags,config_emit_int },
+      { 1,0,0,CONFIG_TYPE_INT,"process_m3u",(void*)&config.process_m3u,config_emit_int },
+      { 1,0,0,CONFIG_TYPE_INT,"scan_type",(void*)&config.scan_type,config_emit_int },
+      { 1,0,0,CONFIG_TYPE_INT,"compress",(void*)&config.compress,config_emit_int },
+      { 1,0,0,CONFIG_TYPE_STRING,"playlist",(void*)&config.playlist,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"extensions",(void*)&config.extensions,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"interface",(void*)&config.iface,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"ssc_codectypes",(void*)&config.ssc_codectypes,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"ssc_prog",(void*)&config.ssc_prog,config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"password",(void*)&config.readpassword, config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"compdirs",(void*)&config.compdirs, config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"logfile",(void*)&config.logfile, config_emit_string },
+      { 1,0,0,CONFIG_TYPE_STRING,"art_filename",(void*)&config.artfilename,config_emit_string },
     */
     { 0,0,0,CONFIG_TYPE_SPECIAL,"servername",(void*)NULL,config_emit_servername },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"config",(void*)NULL,config_emit_config },
@@ -176,10 +176,10 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
     char *pw;
 
     DPRINTF(E_DBG,L_MISC,"Checking if pw required for %s as %s\n",
-            pwsc->uri, role);
+            ws_uri(pwsc), role);
 
     /* hack hack hack - this needs moved into the upnp plugin */
-    if(strncasecmp(pwsc->uri,"/upnp",5) == 0) {
+    if(strncasecmp(ws_uri(pwsc),"/upnp",5) == 0) {
         DPRINTF(E_DBG,L_MISC,"Nope\n");
         return FALSE;
     }
@@ -195,7 +195,7 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
             return FALSE;
 #endif
 
-            if((pwsc->hostname) && (os_islocaladdr(pwsc->hostname))) {
+            if((ws_hostname(pwsc)) && (os_islocaladdr(ws_hostname(pwsc)))) {
                 if(pw) free(pw);
                 return FALSE;
             }
@@ -236,7 +236,7 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
 
     /* sanity check */
     if((strcasecmp(role,"admin") != 0) &&
-        (strcasecmp(role,"user") !=0)) {
+       (strcasecmp(role,"user") !=0)) {
         DPRINTF(E_LOG,L_MISC,"Unknown role: %s\n",role);
         return FALSE;
     }
@@ -256,8 +256,8 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
 
     if(strcasecmp(role,"admin") == 0) {
         DPRINTF(E_LOG,L_MISC,"Auth: failed attempt to gain admin privs by "
-                "%s from %s\n",username, pwsc->hostname);
-       return FALSE;
+                "%s from %s\n",username, ws_hostname(pwsc));
+        return FALSE;
     }
 
     /* we're checking for user privs */
@@ -273,7 +273,7 @@ int config_matches_role(WS_CONNINFO *pwsc, char *username,
     free(required_pw);
     if(!result) {
         DPRINTF(E_LOG,L_MISC,"Auth: failed attempt to gain user privs by "
-                "%s from %s\n",pwsc->hostname, username);
+                "%s from %s\n",ws_hostname(pwsc), username);
     }
     return result;
 }
@@ -310,7 +310,7 @@ void config_content_type(WS_CONNINFO *pwsc, char *path) {
  * \param pwsc the web connection for the original page
  * \param fd_src the fd of the file to do substitutions on
  */
-void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
+void config_subst_stream(WS_CONNINFO *pwsc, IOHANDLE hfile) {
     int in_arg;
     char *argptr;
     char argbuffer[256];
@@ -320,8 +320,7 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
 
     char outbuffer[1024];
     int out_index;
-
-
+    uint32_t bytes_read;
 
     /* now throw out the file, with replacements */
     in_arg=0;
@@ -329,7 +328,9 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
     out_index=0;
 
     while(1) {
-        if(r_read(fd_src,&next,1) <= 0)
+        /* FIXME: use a reasonable sized buffer, or implement buffered io */
+        bytes_read = 1;
+        if((!io_read(hfile,(unsigned char *)&next,&bytes_read)) || !bytes_read)
             break;
 
         if(in_arg) {
@@ -369,7 +370,7 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
 
                 /* flush whatever is in the buffer */
                 if(out_index) {
-                    r_write(pwsc->fd,outbuffer,out_index);
+                    ws_writebinary(pwsc,outbuffer,out_index);
                     out_index=0;
                 }
             } else {
@@ -377,14 +378,14 @@ void config_subst_stream(WS_CONNINFO *pwsc, int fd_src) {
                 out_index++;
 
                 if(out_index == sizeof(outbuffer)) {
-                    r_write(pwsc->fd,outbuffer,out_index);
+                    ws_writebinary(pwsc,outbuffer,out_index);
                     out_index=0;
                 }
             }
         }
     }
     if(out_index) {
-        r_write(pwsc->fd,outbuffer,out_index);
+        ws_writebinary(pwsc,outbuffer,out_index);
         out_index=0;
     }
 }
@@ -399,26 +400,27 @@ void config_handler(WS_CONNINFO *pwsc) {
     char path[PATH_MAX];
     char resolved_path[PATH_MAX];
     char web_root[PATH_MAX];
-    int file_fd;
+    IOHANDLE hfile;
     struct stat sb;
     char *pw;
     int size;
 
-    if(!pwsc->hostname) { /* ?? */
+    if(!ws_hostname(pwsc)) {
         ws_returnerror(pwsc,500,"Couldn't determine remote hostname");
-        pwsc->close=1;
+        ws_should_close(pwsc,1);
         return;
     }
 
-    if(!os_islocaladdr(pwsc->hostname)) {
+    /* FIXME: should feed this file directly, so as to bypass perms */
+    if(!os_islocaladdr(ws_hostname(pwsc))) {
         pw=conf_alloc_string("general","admin_pw",NULL);
         if((!pw) || (strlen(pw) == 0)) {
             if(pw) free(pw);
             /* if we aren't getting the no_access.html page, we should */
-            if(strcmp(pwsc->uri,"/no_access.html") != 0) {
+            if(strcmp(ws_uri(pwsc),"/no_access.html") != 0) {
                 ws_addresponseheader(pwsc,"location","/no_access.html");
                 ws_returnerror(pwsc,302,"Moved Temporarily");
-                pwsc->close=1;
+                ws_should_close(pwsc,1);
                 return;
             }
         }
@@ -434,19 +436,25 @@ void config_handler(WS_CONNINFO *pwsc) {
 
     config_set_status(pwsc,0,"Serving admin pages");
 
-    pwsc->close=1;
+    ws_should_close(pwsc,1);
     ws_addresponseheader(pwsc,"Connection","close");
 
-    if(strcasecmp(pwsc->uri,"/xml-rpc")==0) {
+    if(strcasecmp(ws_uri(pwsc),"/xml-rpc")==0) {
         // perhaps this should get a separate handler
         config_set_status(pwsc,0,"Serving xml-rpc method");
         xml_handle(pwsc);
-        DPRINTF(E_DBG,L_CONF|L_XML,"Thread %d: xml-rpc served\n",pwsc->threadno);
+        DPRINTF(E_DBG,L_CONF|L_XML,"Thread %d: xml-rpc served\n",ws_threadno(pwsc));
         config_set_status(pwsc,0,NULL);
         return;
     }
 
-    snprintf(path,PATH_MAX,"%s/%s",web_root,pwsc->uri);
+    if(('/' == web_root[strlen(web_root) - 1]) ||
+       ('\\' == web_root[strlen(web_root) - 1])) {
+        web_root[strlen(web_root) - 1] = '\0';
+    }
+
+    snprintf(path,PATH_MAX,"%s/%s",web_root,ws_uri(pwsc));
+    DPRINTF(E_DBG,L_CONF|L_WS,"Realpathing %s\n",path);
     if(!realpath(path,resolved_path)) {
         pwsc->error=errno;
         DPRINTF(E_WARN,L_CONF|L_WS,"Cannot resolve %s\n",path);
@@ -461,33 +469,41 @@ void config_handler(WS_CONNINFO *pwsc) {
         ws_addresponseheader(pwsc,"Location","/index.html");
         ws_returnerror(pwsc,302,"Moved");
         config_set_status(pwsc,0,NULL);
-        pwsc->close=1;
+        ws_should_close(pwsc,1);
         return;
     }
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Preparing to serve %s\n",
-            pwsc->threadno, resolved_path);
+            ws_threadno(pwsc), resolved_path);
 
     if(strncmp(resolved_path,web_root,strlen(web_root))) {
         pwsc->error=EINVAL;
         DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
-                pwsc->threadno,resolved_path);
+                ws_threadno(pwsc),resolved_path);
         ws_returnerror(pwsc,403,"Forbidden");
         config_set_status(pwsc,0,NULL);
         return;
     }
 
-    file_fd=r_open2(resolved_path,O_RDONLY);
-    if(file_fd == -1) {
-        pwsc->error=errno;
+    hfile = io_new();
+    if(!hfile) {
+        DPRINTF(E_FATAL,L_CONF | L_WS,"Cannot create file handle\n");
+        exit(-1);
+    }
+
+    DPRINTF(E_DBG,L_CONF|L_WS,"Opening %s\n",resolved_path);
+    if(!io_open(hfile,"file://%U",resolved_path)) {
+        ws_set_err(pwsc,E_WS_NATIVE);
         DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
-                pwsc->threadno,resolved_path,strerror(errno));
+                ws_threadno(pwsc),resolved_path,io_errstr(hfile));
         ws_returnerror(pwsc,404,"Not found");
         config_set_status(pwsc,0,NULL);
+        io_dispose(hfile);
         return;
     }
 
-    if(strcasecmp(pwsc->uri,"/config-update.html")==0) {
+    /* FIXME: use xml-rpc for all these */
+    if(strcasecmp(ws_uri(pwsc),"/config-update.html")==0) {
         /* don't update (and turn everything to (null)) the
            configuration file if what the user's really trying to do is
            stop the server */
@@ -509,13 +525,15 @@ void config_handler(WS_CONNINFO *pwsc) {
 
     if((strcasecmp(&resolved_path[strlen(resolved_path) - 5],".html") == 0) ||
        (strcasecmp(&resolved_path[strlen(resolved_path) - 4],".xml") == 0)) {
-        config_subst_stream(pwsc, file_fd);
+        config_subst_stream(pwsc, hfile);
     } else {
-        copyfile(file_fd,pwsc->fd);
+        ws_copyfile(pwsc,hfile,NULL);
     }
 
-    r_close(file_fd);
-    DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Served successfully\n",pwsc->threadno);
+    io_close(hfile);
+    io_dispose(hfile);
+
+    DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Served successfully\n",ws_threadno(pwsc));
     config_set_status(pwsc,0,NULL);
     return;
 }
@@ -747,10 +765,10 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
 
     /*
-    ws_writefd(pwsc,"<tr>\n");
-    ws_writefd(pwsc," <th>Bytes Served</th>\n");
-    ws_writefd(pwsc," <td>%d</td>\n",config.stats.songs_served);
-    ws_writefd(pwsc,"</tr>\n");
+      ws_writefd(pwsc,"<tr>\n");
+      ws_writefd(pwsc," <th>Bytes Served</th>\n");
+      ws_writefd(pwsc," <td>%d</td>\n",config.stats.songs_served);
+      ws_writefd(pwsc,"</tr>\n");
     */
 
     ws_writefd(pwsc,"</table>\n");
@@ -867,10 +885,10 @@ void config_emit_ispage(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
 
 
-    DPRINTF(E_DBG,L_CONF|L_WS,"page: %s, uri: %s\n",page,pwsc->uri);
+    DPRINTF(E_DBG,L_CONF|L_WS,"page: %s, uri: %s\n",page,ws_uri(pwsc));
 
-    if((strlen(page) > strlen(pwsc->uri)) ||
-       (strcasecmp(page,(char*)&pwsc->uri[strlen(pwsc->uri) - strlen(page)]) != 0)) {
+    if((strlen(page) > strlen(ws_uri(pwsc))) ||
+       (strcasecmp(page,(char*)&ws_uri(pwsc)[strlen(ws_uri(pwsc)) - strlen(page)]) != 0)) {
         if(false) {
             ws_writefd(pwsc,"%s",false);
         }
@@ -931,7 +949,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     char resolved_path[PATH_MAX];
     char path[PATH_MAX];
     char web_root[PATH_MAX];
-    int file_fd;
+    IOHANDLE hfile;
     struct stat sb;
     int size;
 
@@ -942,6 +960,11 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Preparing to include %s\n",arg);
+
+    if(('/' == web_root[strlen(web_root) - 1]) ||
+       ('\\' == web_root[strlen(web_root) - 1])) {
+        web_root[strlen(web_root) - 1] = '\0';
+    }
 
     snprintf(path,PATH_MAX,"%s/%s",web_root,arg);
     if(!realpath(path,resolved_path)) {
@@ -960,29 +983,37 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
 
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: Preparing to serve %s\n",
-            pwsc->threadno, resolved_path);
+            ws_threadno(pwsc), resolved_path);
 
     if(strncmp(resolved_path,web_root,strlen(web_root))) {
         pwsc->error=EINVAL;
         DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Requested file %s out of root\n",
-                pwsc->threadno,resolved_path);
+                ws_threadno(pwsc),resolved_path);
         ws_writefd(pwsc,"<hr><i>error: %s out of web root</i><hr>",arg);
         return;
     }
 
-    file_fd=r_open2(resolved_path,O_RDONLY);
-    if(file_fd == -1) {
-        pwsc->error=errno;
+    hfile = io_new();
+    if(!hfile) {
+        DPRINTF(E_LOG,L_CONF | L_WS,"Thread %d: Cannot create file handle\n",
+                ws_threadno(pwsc));
+        return;
+    }
+    if(!io_open(hfile,"file://%U",resolved_path)) {
+        ws_set_err(pwsc,E_WS_NATIVE);
         DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
-                pwsc->threadno,resolved_path,strerror(errno));
-        ws_writefd(pwsc,"<hr><i>error: cannot open %s: %s</i><hr>",arg,strerror(errno));
+                ws_threadno(pwsc),resolved_path,io_errstr(pwsc));
+        ws_writefd(pwsc,"<hr><i>error: cannot open %s: %s</i><hr>",arg,
+                   io_errstr(pwsc));
+        io_dispose(hfile);
         return;
     }
 
-    config_subst_stream(pwsc, file_fd);
+    config_subst_stream(pwsc, hfile);
 
-    r_close(file_fd);
-    DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: included successfully\n",pwsc->threadno);
+    io_close(hfile);
+    io_dispose(hfile);
+    DPRINTF(E_DBG,L_CONF|L_WS,"Thread %d: included successfully\n",ws_threadno(pwsc));
     return;
 }
 
@@ -1035,8 +1066,8 @@ void config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
         pfirst=(SCAN_STATUS*)malloc(sizeof(SCAN_STATUS));
         if(pfirst) {
             pfirst->what = NULL;
-            pfirst->thread = pwsc->threadno;
-            pfirst->host = strdup(pwsc->hostname);
+            pfirst->thread = ws_threadno(pwsc);
+            pfirst->host = strdup(ws_hostname(pwsc));
             ws_set_local_storage(pwsc,pfirst,config_freescan);
         } else {
             DPRINTF(E_FATAL,L_CONF,"Malloc Error\n");

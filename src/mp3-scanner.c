@@ -50,6 +50,7 @@
 #include "conf.h"
 #include "db-generic.h"
 #include "err.h"
+#include "io.h"
 #include "mp3-scanner.h"
 #include "os.h"
 #include "restart.h"
@@ -425,7 +426,7 @@ int scan_static_playlist(char *path) {
     char file_path[PATH_MAX];
     char real_path[PATH_MAX];
     char linebuffer[PATH_MAX];
-    int fd;
+    IOHANDLE hfile;
     int playlistid;
     M3UFILE *pm3u;
     MP3FILE *pmp3;
@@ -433,6 +434,7 @@ int scan_static_playlist(char *path) {
     char *current;
     char *perr;
     char *ptr;
+    uint32_t len;
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",path);
     if(os_stat(path,&sb)) {
@@ -467,14 +469,18 @@ int scan_static_playlist(char *path) {
         db_delete_playlist(NULL,pm3u->id);
     }
 
-    fd=open(path,O_RDONLY);
-    if(fd != -1) {
+    if(!(hfile = io_new())) {
+        DPRINTF(E_LOG,L_SCAN,"Cannot create file handle\n");
+        return FALSE;
+    }
+    
+    if(io_open(hfile,"file://%U",path)) {
         if(db_add_playlist(&perr,base_path,PL_STATICFILE,NULL,path,
                            0,&playlistid) != DB_E_SUCCESS) {
             DPRINTF(E_LOG,L_SCAN,"Error adding m3u %s: %s\n",path,perr);
             free(perr);
             db_dispose_playlist(pm3u);
-            close(fd);
+            io_dispose(hfile);
             return FALSE;
         }
         /* now get the *real* base_path */
@@ -493,13 +499,18 @@ int scan_static_playlist(char *path) {
         DPRINTF(E_INF,L_SCAN|L_PL,"Added playlist as id %d\n",playlistid);
 
         memset(linebuffer,0x00,sizeof(linebuffer));
-        while(readline(fd,linebuffer,sizeof(linebuffer)) > 0) {
+        io_buffer(hfile);
+        
+        len = sizeof(linebuffer);
+        while(io_readline(hfile,(unsigned char *)linebuffer,&len) && len) {
             while((linebuffer[strlen(linebuffer)-1] == '\n') ||
                   (linebuffer[strlen(linebuffer)-1] == '\r'))
                 linebuffer[strlen(linebuffer)-1] = '\0';
 
-            if((linebuffer[0] == ';') || (linebuffer[0] == '#'))
+            if((linebuffer[0] == ';') || (linebuffer[0] == '#')) {
+                len = sizeof(linebuffer);
                 continue;
+            }
 
             // FIXME - should chomp trailing comments
 
@@ -532,10 +543,13 @@ int scan_static_playlist(char *path) {
                         linebuffer,perr);
                 free(perr);
             }
+            
+            len = strlen(linebuffer);
         }
-        close(fd);
+        io_close(hfile);
     }
-
+    
+    io_dispose(hfile);
     db_dispose_playlist(pm3u);
     DPRINTF(E_WARN,L_SCAN|L_PL,"Done processing playlist\n");
     return TRUE;

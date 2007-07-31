@@ -273,6 +273,10 @@ FIELDLOOKUP sp_fields_0[] = {
     { T_INT_FIELD, "force_update", NULL },
     { T_STRING_FIELD, "codectype", NULL },
     { T_INT_FIELD, "idx", NULL },
+    { T_INT_FIELD, "has_video", NULL },
+    { T_INT_FIELD, "contentrating", NULL },
+    { T_INT_FIELD, "bits_per_sample", NULL },
+    { T_STRING_FIELD, "album_artist", NULL },
 
     /* end of db fields */
     { T_OR, "or", NULL },

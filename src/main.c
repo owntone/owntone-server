@@ -89,6 +89,7 @@
 #include "plugin.h"
 #include "util.h"
 #include "upnp.h"
+#include "io.h"
 
 #ifdef HAVE_GETOPT_H
 # include "getopt.h"
@@ -118,7 +119,8 @@ static void usage(char *program);
 static void main_handler(WS_CONNINFO *pwsc);
 static int main_auth(WS_CONNINFO *pwsc, char *username, char *password);
 static void txt_add(char *txtrecord, char *fmt, ...);
-
+static void main_io_errhandler(int level, char *msg);
+static void main_ws_errhandler(int level, char *msg);
 
 /**
  * build a dns text string
@@ -150,23 +152,23 @@ void txt_add(char *txtrecord, char *fmt, ...) {
 void main_handler(WS_CONNINFO *pwsc) {
     DPRINTF(E_DBG,L_MAIN,"in main_handler\n");
     if(plugin_url_candispatch(pwsc)) {
-        DPRINTF(E_DBG,L_MAIN,"Dispatching %s to plugin\n",pwsc->uri);
+        DPRINTF(E_DBG,L_MAIN,"Dispatching %s to plugin\n",ws_uri(pwsc));
         plugin_url_handle(pwsc);
         return;
     }
 
-    DPRINTF(E_DBG,L_MAIN,"Dispatching %s to config handler\n",pwsc->uri);
+    DPRINTF(E_DBG,L_MAIN,"Dispatching %s to config handler\n",ws_uri(pwsc));
     config_handler(pwsc);
 }
 
 int main_auth(WS_CONNINFO *pwsc, char *username, char *password) {
     DPRINTF(E_DBG,L_MAIN,"in main_auth\n");
     if(plugin_url_candispatch(pwsc)) {
-        DPRINTF(E_DBG,L_MAIN,"Dispatching auth for %s to plugin\n",pwsc->uri);
+        DPRINTF(E_DBG,L_MAIN,"Dispatching auth for %s to plugin\n",ws_uri(pwsc));
         return plugin_auth_handle(pwsc,username,password);
     }
 
-    DPRINTF(E_DBG,L_MAIN,"Dispatching auth for %s to config auth\n",pwsc->uri);
+    DPRINTF(E_DBG,L_MAIN,"Dispatching auth for %s to config auth\n",ws_uri(pwsc));
     return config_auth(pwsc, username, password);
 }
 
@@ -241,6 +243,25 @@ int load_plugin_dir(char *plugindir) {
     return loaded;
 }
 
+/**
+ * set up an errorhandler for io errors
+ *
+ * @param int level of the error (0=fatal, 9=debug)
+ * @param msg the text error
+ */
+void main_io_errhandler(int level, char *msg) {
+    DPRINTF(level,L_MAIN,"%s",msg);
+}
+
+/**
+ * set up an errorhandler for webserver errors
+ *
+ * @param int level of the error (0=fatal, 9=debug)
+ * @param msg the text error
+ */
+void main_ws_errhandler(int level, char *msg) {
+    DPRINTF(level,L_WS,"%s",msg);
+}
 /**
  * Kick off the daap server and wait for events.
  *
@@ -387,6 +408,10 @@ int main(int argc, char *argv[]) {
         exit(0);
     }
 
+    io_init();
+    io_set_errhandler(main_io_errhandler);
+    ws_set_errhandler(main_ws_errhandler);
+    
     /* read the configfile, if specified, otherwise
      * try defaults */
     config.stats.start_time=start_time=(int)time(NULL);
@@ -405,7 +430,6 @@ int main(int argc, char *argv[]) {
         fprintf(stderr,"Error reading config file (%s)\n",configfile);
         exit(EXIT_FAILURE);
     }
-
 
     if(debuglevel) /* was specified, should override the config file */
         err_setlevel(debuglevel);
@@ -500,7 +524,15 @@ int main(int argc, char *argv[]) {
     if(db_init(reload)) {
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
-
+    
+    err=db_get_song_count(&perr,&song_count);
+    if(err != DB_E_SUCCESS) {
+        DPRINTF(E_FATAL,L_MISC,"Error getting song count: %s\n",perr);
+    }
+    /* do a full reload if the db is empty */
+    if(!song_count)
+        reload = 1;
+    
     if(conf_get_array("general","mp3_dir",&mp3_dir_array)) {
         if((!skip_initial) || (reload)) {
             DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
@@ -529,12 +561,19 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN|L_WS,"Starting web server from %s on port %d\n",
             ws_config.web_root, ws_config.port);
 
-    config.server=ws_start(&ws_config);
+    config.server=ws_init(&ws_config);
     if(!config.server) {
-        DPRINTF(E_FATAL,L_MAIN|L_WS,"Error staring web server: %s\n",strerror(errno));
+        /* pthreads or malloc error */
+        DPRINTF(E_FATAL,L_MAIN|L_WS,"Error initializing web server\n");
     }
 
-    ws_registerhandler(config.server, "/",main_handler,main_auth,1);
+    if(E_WS_SUCCESS != ws_start(config.server)) {
+        /* listen or pthread error */
+        DPRINTF(E_FATAL,L_MAIN|L_WS,"Error starting web server\n");
+    }
+    
+    ws_registerhandler(config.server, "/",main_handler,main_auth,
+                       0,1);
 
 #ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
@@ -658,6 +697,7 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN,"Done!\n");
 
     os_deinit();
+    io_deinit();
     mem_dump();
     return EXIT_SUCCESS;
 }

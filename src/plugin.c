@@ -55,6 +55,7 @@
 #include "configfile.h"
 #include "db-generic.h"
 #include "err.h"
+#include "io.h"
 #include "os.h"
 #include "plugin.h"
 #include "rend.h"
@@ -63,6 +64,7 @@
 #include "xml-rpc.h"
 #include "webserver.h"
 #include "ff-plugins.h"
+#include "io.h"
 
 typedef struct tag_pluginentry {
     void *phandle;
@@ -91,7 +93,6 @@ void _plugin_recalc_codecs(void);
 int _plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, int headers);
 
 /* webserver helpers */
-char *pi_ws_uri(WS_CONNINFO *pwsc);
 void pi_ws_will_close(WS_CONNINFO *pwsc);
 int pi_ws_fd(WS_CONNINFO *pwsc);
 char *pi_ws_gethostname(WS_CONNINFO *pwsc);
@@ -117,14 +118,13 @@ void pi_conf_dispose_string(char *str);
 int pi_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec);
 
 PLUGIN_INPUT_FN pi = {
-    pi_ws_uri,
+    ws_uri,
     pi_ws_will_close,
     ws_returnerror,
     ws_getvar,
     ws_writefd,
     ws_addresponseheader,
     ws_emitheaders,
-    pi_ws_fd,
     ws_getrequestheader,
     ws_writebinary,
     pi_ws_gethostname,
@@ -379,7 +379,7 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
         if(ppi->pinfo->type & PLUGIN_OUTPUT) {
             if((ppi->pinfo->output_fns)->can_handle(pwsc)) {
                 /* we have a winner */
-                DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", pwsc->uri,
+                DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", ws_uri(pwsc),
                         ppi->pinfo->server);
 
                 /* so functions must be a tag_plugin_output_fn */
@@ -445,7 +445,7 @@ int plugin_auth_handle(WS_CONNINFO *pwsc, char *username, char *pw) {
         if(ppi->pinfo->type & PLUGIN_OUTPUT) {
             if((ppi->pinfo->output_fns)->can_handle(pwsc)) {
                 /* we have a winner */
-                DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", pwsc->uri,
+                DPRINTF(E_DBG,L_PLUG,"Dispatching %s to %s\n", ws_uri(pwsc),
                         ppi->pinfo->server);
 
                 /* so functions must be a tag_plugin_output_fn */
@@ -678,20 +678,12 @@ int _plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, int head
  * interface to older plugins even if we get newer functions or apis
  * upstream... it's a binary compatibility layer.
  */
-char *pi_ws_uri(WS_CONNINFO *pwsc) {
-    return pwsc->uri;
-}
-
 void pi_ws_will_close(WS_CONNINFO *pwsc) {
-    pwsc->close=1;
-}
-
-int pi_ws_fd(WS_CONNINFO *pwsc) {
-    return pwsc->fd;
+    ws_should_close(pwsc,1);
 }
 
 char *pi_ws_gethostname(WS_CONNINFO *pwsc) {
-    return pwsc->hostname;
+    return ws_hostname(pwsc);
 }
 
 void pi_log(int level, char *fmt, ...) {
@@ -851,33 +843,37 @@ void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo) {
 
 int pi_db_wait_update(WS_CONNINFO *pwsc) {
     int clientver=1;
-    fd_set rset;
-    struct timeval tv;
-    int result;
     int lastver=0;
+    IO_WAITHANDLE hwait;
+    uint32_t ms;
 
     if(ws_getvar(pwsc,"revision-number")) {
         clientver=atoi(ws_getvar(pwsc,"revision-number"));
     }
 
     /* wait for db_version to be stable for 30 seconds */
+    hwait = io_wait_new();
+    if(!hwait) 
+        DPRINTF(E_FATAL,L_MISC,"Can't get wait handle in db_wait_update\n");
+    
+    /* FIXME: Move this up into webserver to avoid groping around 
+     * inside reserved data structures */
+        
+    io_wait_add(hwait,pwsc->hclient,IO_WAIT_ERROR);
+
     while((clientver == db_revision()) ||
           (lastver && (db_revision() != lastver))) {
         lastver = db_revision();
 
-        FD_ZERO(&rset);
-        FD_SET(pwsc->fd,&rset);
-
-        tv.tv_sec=30;
-        tv.tv_usec=0;
-
-        result=select(pwsc->fd+1,&rset,NULL,NULL,&tv);
-        if(FD_ISSET(pwsc->fd,&rset)) {
+        if(!io_wait(hwait,&ms) && (ms != 0)) {
             /* can't be ready for read, must be error */
             DPRINTF(E_DBG,L_DAAP,"Update session stopped\n");
+            io_wait_dispose(hwait);
             return FALSE;
         }
     }
+    
+    io_wait_dispose(hwait);
 
     return TRUE;
 }
@@ -885,15 +881,15 @@ int pi_db_wait_update(WS_CONNINFO *pwsc) {
 void pi_stream(WS_CONNINFO *pwsc, char *id) {
     int session = 0;
     MP3FILE *pmp3;
-    int file_fd;
-    int bytes_copied=0;
-    off_t real_len=0;
-    off_t file_len;
-    off_t offset=0;
+    IOHANDLE hfile;
+    uint64_t bytes_copied=0;
+    uint64_t real_len;
+    uint64_t file_len;
+    uint64_t offset=0;
     int item;
 
     /* stream out the song */
-    pwsc->close=1;
+    ws_should_close(pwsc,1);
 
     item = atoi(id);
 
@@ -917,7 +913,7 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
 
         DPRINTF(E_WARN,L_WS,
                 "Session %d: Streaming file '%s' to %s (offset %ld)\n",
-                session,pmp3->fname, pwsc->hostname,(long)offset);
+                session,pmp3->fname, ws_hostname(pwsc),(long)offset);
 
         /* estimate the real length of this thing */
         bytes_copied =  _plugin_ssc_transcode(pwsc,pmp3,offset,1);
@@ -934,21 +930,26 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
             ws_returnerror(pwsc,500,"Can't stream radio station");
             return;
         }
-        file_fd=r_open2(pmp3->path,O_RDONLY);
-        if(file_fd == -1) {
-            pwsc->error=errno;
+        
+        hfile = io_new();
+        if(!hfile)
+            DPRINTF(E_FATAL,L_WS,"Cannot allocate file handle\n");
+
+        if(!io_open(hfile,"file://%U",pmp3->path)) {
+            /* FIXME: ws_set_errstr */
+            ws_set_err(pwsc,E_WS_NATIVE);
             DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: %s\n",
-                    pwsc->threadno,pmp3->path,strerror(errno));
+                ws_threadno(pwsc),pmp3->path,io_errstr(hfile));
             ws_returnerror(pwsc,404,"Not found");
             config_set_status(pwsc,session,NULL);
             db_dispose_item(pmp3);
+            io_dispose(hfile);
         } else {
-            real_len=lseek(file_fd,0,SEEK_END);
-            lseek(file_fd,0,SEEK_SET);
+            io_size(hfile,&real_len);
             file_len = real_len - offset;
 
-            DPRINTF(E_DBG,L_WS,"Thread %d: Length of file (remaining): %ld\n",
-                    pwsc->threadno,(long)file_len);
+            DPRINTF(E_DBG,L_WS,"Thread %d: Length of file (remaining): %lld\n",
+                    ws_threadno(pwsc),file_len);
 
             // DWB:  fix content-type to correctly reflect data
             // content type (dmap tagged) should only be used on
@@ -962,7 +963,7 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
                (!strncmp(ws_getrequestheader(pwsc,"user-agent"),
                          "Hifidelio",9))) {
                 ws_addresponseheader(pwsc,"Connection","Keep-Alive");
-                pwsc->close=0;
+                ws_should_close(pwsc,0);
             } else {
                 ws_addresponseheader(pwsc,"Connection","Close");
             }
@@ -981,23 +982,25 @@ void pi_stream(WS_CONNINFO *pwsc, char *id) {
             config_set_status(pwsc,session,"Streaming '%s' (id %d)",
                               pmp3->title, pmp3->id);
             DPRINTF(E_WARN,L_WS,"Session %d: Streaming file '%s' to %s (offset %d)\n",
-                    session,pmp3->fname, pwsc->hostname,(long)offset);
+                    session,pmp3->fname, ws_hostname(pwsc),(long)offset);
 
             if(offset) {
                 DPRINTF(E_INF,L_WS,"Seeking to offset %ld\n",(long)offset);
-                lseek(file_fd,offset,SEEK_SET);
+                io_setpos(hfile,offset,SEEK_SET);
             }
 
-            if((bytes_copied=copyfile(file_fd,pwsc->fd)) == -1) {
+            if(!ws_copyfile(pwsc,hfile,&bytes_copied)) {
                 DPRINTF(E_INF,L_WS,"Error copying file to remote... %s\n",
-                        strerror(errno));
+                    strerror(errno));
+                ws_should_close(pwsc,1);
             } else {
-                DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %d bytes\n",
+                DPRINTF(E_INF,L_WS,"Finished streaming file to remote: %lld bytes\n",
                         bytes_copied);
             }
 
             config_set_status(pwsc,session,NULL);
-            r_close(file_fd);
+            io_close(hfile);
+            io_dispose(hfile);
             db_dispose_item(pmp3);
         }
         /* update play counts */

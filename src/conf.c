@@ -57,6 +57,7 @@
 #include "webserver.h"
 #include "xml-rpc.h"
 
+#include "io.h"
 
 #ifndef HOST_NAME_MAX
 # define HOST_NAME_MAX 255
@@ -98,7 +99,7 @@ typedef struct _CONF_MAP {
 static int _conf_verify(LL_HANDLE pll);
 static LL_ITEM *_conf_fetch_item(LL_HANDLE pll, char *section, char *key);
 static int _conf_exists(LL_HANDLE pll, char *section, char *key);
-static int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent);
+static int _conf_write(IOHANDLE hfile, LL *pll, int sublevel, char *parent);
 static CONF_ELEMENTS *_conf_get_keyinfo(char *section, char *key);
 static int _conf_makedir(char *path, char *user);
 static int _conf_existdir(char *path);
@@ -574,7 +575,6 @@ int conf_reload(void) {
  * @returns TRUE if successful, FALSE otherwise
  */
 int conf_read(char *file) {
-    FILE *fin;
     int err;
     LL_HANDLE pllnew, plltemp, pllcurrent, pllcomment;
     LL_ITEM *pli;
@@ -595,6 +595,8 @@ int conf_read(char *file) {
     char **valuearray;
     int index;
     char *temp;
+    IOHANDLE hconfig;
+    uint32_t len;
 
     char *replaced_section = NULL;  /* config key/value updates */
     char *replaced_key = NULL;      /* config key/value updates */
@@ -607,10 +609,17 @@ int conf_read(char *file) {
     realpath(file,conf_file);
     conf_main_file = strdup(conf_file);
 
-    fin=fopen(conf_file,"r");
-    if(!fin) {
+    hconfig = io_new();
+    if(!hconfig)
+        DPRINTF(E_FATAL,L_CONF,"Malloc eror in io_new()\n");
+
+    DPRINTF(E_DBG,L_CONF,"Loading config file %s\n",conf_file);
+    if(!io_open(hconfig,"file://%U",conf_file)) {
+        DPRINTF(E_LOG,L_MISC,"Error opening config file: %s\n",io_errstr(hconfig));
+        io_dispose(hconfig);
         return CONF_E_FOPEN;
     }
+    DPRINTF(E_DBG,L_CONF,"Config file open\n");
 
     prev_comments = (char*)malloc(total_comment_length);
     if(!prev_comments)
@@ -619,7 +628,9 @@ int conf_read(char *file) {
 
     if((err=ll_create(&pllnew)) != LL_E_SUCCESS) {
         DPRINTF(E_LOG,L_CONF,"Error creating linked list: %d\n",err);
-        fclose(fin);
+        io_close(hconfig);
+        io_dispose(hconfig);
+
         return CONF_E_UNKNOWN;
     }
 
@@ -631,7 +642,10 @@ int conf_read(char *file) {
     /* got what will be the root of the config tree, now start walking through
      * the input file, populating the tree
      */
-    while(fgets(linebuffer,CONF_LINEBUFFER,fin)) {
+    
+    /* TODO: linebuffered IO support */
+    len = sizeof(linebuffer);
+    while(io_readline(hconfig,(unsigned char *)linebuffer,&len) && len) {
         line++;
         linebuffer[CONF_LINEBUFFER] = '\0';
         ws=0;
@@ -662,14 +676,16 @@ int conf_read(char *file) {
 
             if(!value) {
                 ll_destroy(pllnew);
-                fclose(fin);
+                io_close(hconfig);
+                io_dispose(hconfig);
                 return CONF_E_BADHEADER;
             }
             *value = '\0';
 
             if((err = ll_create(&plltemp)) != LL_E_SUCCESS) {
                 ll_destroy(pllnew);
-                fclose(fin);
+                io_close(hconfig);
+                io_dispose(hconfig);
                 return CONF_E_UNKNOWN;
             }
 
@@ -733,7 +749,8 @@ int conf_read(char *file) {
                     if((err=ll_create(&plltemp)) != LL_E_SUCCESS) {
                         DPRINTF(E_LOG,L_CONF,"Error creating list: %d\n",err);
                         ll_destroy(pllnew);
-                        fclose(fin);
+                        io_close(hconfig);
+                        io_dispose(hconfig);
                         return CONF_E_UNKNOWN;
                     }
                     ll_add_ll(pllnew,"general",plltemp);
@@ -766,7 +783,8 @@ int conf_read(char *file) {
                     if((err = ll_create(&pllcurrent)) != LL_E_SUCCESS) {
                         ll_destroy(pllnew);
                         DPRINTF(E_LOG,L_CONF,"Error creating linked list: %d\n",err);
-                        fclose(fin);
+                        io_close(hconfig);
+                        io_dispose(hconfig);
                         return CONF_E_UNKNOWN;
                     }
                     ll_add_ll(pllnew,replaced_section,pllcurrent);
@@ -873,6 +891,7 @@ int conf_read(char *file) {
                 }
             }
         }
+        len = sizeof(linebuffer);
     }
 
     if(section_name) {
@@ -888,7 +907,8 @@ int conf_read(char *file) {
         prev_comments = NULL;
     }
 
-    fclose(fin);
+    io_close(hconfig);
+    io_dispose(hconfig);
 
     /*  Sanity check */
     if(_conf_verify(pllnew)) {
@@ -1223,20 +1243,26 @@ int conf_iswritable(void) {
  */
 int conf_write(void) {
     int retval = CONF_E_NOTWRITABLE;
-    FILE *fp;
-
+    IOHANDLE outfile;
+    
     if(!conf_main_file) {
         DPRINTF(E_DBG,L_CONF,"Config file apparently  not loaded\n");
         return CONF_E_NOCONF;
     }
 
     util_mutex_lock(l_conf);
-    if((fp = fopen(conf_main_file,"w+")) != NULL) {
-        retval = _conf_write(fp,conf_main,0,NULL);
-        fclose(fp);
+    outfile = io_new();
+    if(!outfile) 
+        DPRINTF(E_FATAL,L_CONF,"io_new failed in conf_write\n");
+
+    if(io_open(outfile,"file://%U?mode=w",conf_main_file)) {
+        retval = _conf_write(outfile,conf_main,0,NULL);
+        io_close(outfile);
+        io_dispose(outfile);
     } else {
         DPRINTF(E_LOG,L_CONF,"Error opening config file for write: %s\n",
-                strerror(errno));
+            io_errstr(outfile));
+        io_dispose(outfile);
     }
     util_mutex_unlock(l_conf);
 
@@ -1251,7 +1277,7 @@ int conf_write(void) {
  * @param sublevel whether this is the root, or a subkey
  * @returns TRUE on success, FALSE otherwise
  */
-int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
+int _conf_write(IOHANDLE hfile, LL *pll, int sublevel, char *parent) {
     LL_ITEM *pli;
     LL_ITEM *ppre, *pin;
     LL_ITEM *plitemp;
@@ -1279,7 +1305,7 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
         }
 
         if(ppre) {
-            fprintf(fp,"%s",ppre->value.as_string);
+            io_printf(hfile,"%s",ppre->value.as_string);
         }
 
         switch(pli->type) {
@@ -1288,22 +1314,22 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
                 /* must be multivalued */
                 plitemp = NULL;
                 first = 1;
-                fprintf(fp,"%s = ",pli->key);
+                io_printf(hfile,"%s = ",pli->key);
                 while((plitemp = ll_get_next(pli->value.as_ll,plitemp))) {
                     if(!first)
-                        fprintf(fp,",");
+                        io_printf(hfile,",");
                     first=0;
-                    fprintf(fp,"%s",plitemp->value.as_string);
+                    io_printf(hfile,"%s",plitemp->value.as_string);
                 }
-                fprintf(fp,"\n");
+                io_printf(hfile,"\n");
             } else {
-                fprintf(fp,"[%s]",pli->key);
+                io_printf(hfile,"[%s]",pli->key);
                 if(pin) {
-                    fprintf(fp," #%s",pin->value.as_string);
+                    io_printf(hfile," #%s",pin->value.as_string);
                 }
-                fprintf(fp,"\n");
+                io_printf(hfile,"\n");
 
-                if(!_conf_write(fp, pli->value.as_ll, 1, pli->key)) {
+                if(!_conf_write(hfile, pli->value.as_ll, 1, pli->key)) {
                     DPRINTF(E_DBG,L_CONF,"Error writing key %s:%s\n",pli->key);
                     return FALSE;
                 }
@@ -1311,19 +1337,19 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
             break;
 
         case LL_TYPE_INT:
-            fprintf(fp,"%s = %d",pli->key,pli->value.as_int);
+            io_printf(hfile,"%s = %d",pli->key,pli->value.as_int);
             if(pin) {
-                fprintf(fp," #%s",pin->value.as_string);
+                io_printf(hfile," #%s",pin->value.as_string);
             }
-            fprintf(fp,"\n");
+            io_printf(hfile,"\n");
             break;
 
         case LL_TYPE_STRING:
-            fprintf(fp,"%s = %s",pli->key,pli->value.as_string);
+            io_printf(hfile,"%s = %s",pli->key,pli->value.as_string);
             if(pin) {
-                fprintf(fp," #%s",pin->value.as_string);
+                io_printf(hfile," #%s",pin->value.as_string);
             }
-            fprintf(fp,"\n");
+            io_printf(hfile,"\n");
             break;
         }
 
@@ -1333,7 +1359,7 @@ int _conf_write(FILE *fp, LL *pll, int sublevel, char *parent) {
     if(!sublevel) {
         pin = ll_fetch_item(conf_comments,"end");
         if(pin) {
-            fprintf(fp,"%s",pin->value.as_string);
+            io_printf(hfile,"%s",pin->value.as_string);
         }
     }
 

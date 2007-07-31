@@ -161,6 +161,9 @@ char *db_sql_strdup(const char *what) {
     return what ? (strlen(what) ? strdup(what) : NULL) : NULL;
 }
 
+uint64_t db_sql_atol(const char *what) {
+    return what ? atoll(what) : 0;
+}
 /**
  * escape a sql string, returning it the supplied buffer.
  * note that this uses the sqlite escape format -- use %q for quoted
@@ -794,6 +797,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     char *query;
     char *path;
     char sample_count[40];
+    char file_size[40];
 
     DPRINTF(E_SPAM,L_DB,"Entering db_sql_add\n");
 
@@ -826,7 +830,10 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     pmp3->play_count=0;
     pmp3->time_played=0;
 
+    /* sqlite2 doesn't support 64 bit ints */
     sprintf(sample_count,"%lld",pmp3->sample_count);
+    sprintf(file_size,"%lld",pmp3->file_size);
+    
     err=db_sql_exec_fn(pe,E_DBG,"INSERT INTO songs VALUES "
                        "(NULL," // id
                        "'%q',"  // path
@@ -845,7 +852,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
                        "%d,"    // bitrate
                        "%d,"    // samplerate
                        "%d,"    // song_length
-                       "%d,"    // file_size
+                       "%s,"    // file_size
                        "%d,"    // year
                        "%d,"    // track
                        "%d,"    // total_tracks
@@ -887,7 +894,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
                        pmp3->bitrate,
                        pmp3->samplerate,
                        pmp3->song_length,
-                       pmp3->file_size,
+                       file_size,
                        pmp3->year,
                        pmp3->track,
                        pmp3->total_tracks,
@@ -942,13 +949,16 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
     char query[1024];
     char *path;
     char sample_count[40];
-
+    char file_size[40];
+    
     if(!pmp3->time_modified)
         pmp3->time_modified = (int)time(NULL);
 
     pmp3->db_timestamp = (int)time(NULL);
 
     sprintf(sample_count,"%lld",pmp3->sample_count);
+    sprintf(file_size,"%lld",pmp3->file_size);
+    
     strcpy(query,"UPDATE songs SET "
            "title='%q',"  // title
            "artist='%q',"  // artist
@@ -964,7 +974,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
            "bitrate=%d,"    // bitrate
            "samplerate=%d,"    // samplerate
            "song_length=%d,"    // song_length
-           "file_size=%d,"    // file_size
+           "file_size=%s,"    // file_size
            "year=%d,"    // year
            "track=%d,"    // track
            "total_tracks=%d,"    // total_tracks
@@ -998,7 +1008,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
                          pmp3->bitrate,
                          pmp3->samplerate,
                          pmp3->song_length,
-                         pmp3->file_size,
+                         file_size,
                          pmp3->year,
                          pmp3->track,
                          pmp3->total_tracks,
@@ -1444,7 +1454,7 @@ void db_sql_build_mp3file(SQL_ROW valarray, MP3FILE *pmp3) {
     pmp3->bitrate=db_sql_atoi(valarray[14]);
     pmp3->samplerate=db_sql_atoi(valarray[15]);
     pmp3->song_length=db_sql_atoi(valarray[16]);
-    pmp3->file_size=db_sql_atoi(valarray[17]);
+    pmp3->file_size=db_sql_atol(valarray[17]);
     pmp3->year=db_sql_atoi(valarray[18]);
     pmp3->track=db_sql_atoi(valarray[19]);
     pmp3->total_tracks=db_sql_atoi(valarray[20]);
@@ -1462,7 +1472,7 @@ void db_sql_build_mp3file(SQL_ROW valarray, MP3FILE *pmp3) {
     pmp3->time_played=db_sql_atoi(valarray[32]);
     pmp3->db_timestamp=db_sql_atoi(valarray[33]);
     pmp3->disabled=db_sql_atoi(valarray[34]);
-    pmp3->sample_count=db_sql_atoi(valarray[35]);
+    pmp3->sample_count=db_sql_atol(valarray[35]);
     pmp3->force_update=db_sql_atoi(valarray[36]);
     pmp3->codectype=db_sql_strdup(valarray[37]);
     pmp3->index=db_sql_atoi(valarray[38]);

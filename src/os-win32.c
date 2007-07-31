@@ -841,7 +841,9 @@ int os_stat(const char *path, struct _stat *sb) {
 int os_lstat(const char *path, struct _stat *sb) {
     return os_stat(path,sb);
 }
-/* FIXME: mode */
+
+
+/* These should be fixed by io_ functions
 int os_open(const char *filename, int oflag) {
     WCHAR utf16_path[PATH_MAX+1];
     int fd;
@@ -863,6 +865,6 @@ FILE *os_fopen(const char *filename, const char *mode) {
     util_utf8toutf16((unsigned char *)&utf16_mode,10 * 2,(char*)mode,(int)strlen(mode));
     return _wfopen((wchar_t *)&utf16_path, (wchar_t *)&utf16_mode);
 }
-
+*/
 
 

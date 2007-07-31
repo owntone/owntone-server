@@ -49,6 +49,8 @@
 
 #include "daapd.h"
 #include "err.h"
+#include "io.h"
+
 #ifndef ERR_LEAN
 # include "os.h"
 # include "plugin.h"
@@ -63,7 +65,7 @@
 static int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
 static int err_logdest=0; /**< current log destination */
 static char err_filename[PATH_MAX + 1];
-static FILE *err_file=NULL; /**< if logging to file, the handle of that file */
+static IOHANDLE err_file = NULL;
 static unsigned int err_debugmask=0xFFFFFFFF; /**< modules to debug, see \ref log_categories */
 static int err_truncate = 0;
 static int err_syslog_open = 0;
@@ -86,13 +88,13 @@ static uint32_t _err_get_threadid(void);
  */
 uint32_t _err_get_threadid(void) {
     pthread_t tid;
-    int thread_id;
+    int thread_id=0;
 
     memset((void*)&tid,0,sizeof(pthread_t));
     tid = pthread_self();
 
     if(sizeof(pthread_t) == sizeof(int)) {
-        thread_id = *((int*)&tid);
+        memcpy((void*)&thread_id,(void*)&tid,sizeof(thread_id));
     } else {
         thread_id = util_djb_hash_block((unsigned char *)&tid,sizeof(pthread_t));
     }
@@ -105,23 +107,19 @@ uint32_t _err_get_threadid(void) {
  * would help for log rotation
  */
 void err_reopen(void) {
-    int err;
-
     if(!(err_logdest & LOGDEST_LOGFILE))
         return;
 
-    fclose(err_file);
-    err_file = fopen(err_filename,"a");
-    if(!err_file) {
+    io_close(err_file);
+    if(!io_open("file://%U?mode=a",err_filename)) {
         /* what to do when you lose your logging mechanism?  Keep
          * going?
          */
-        err = errno;
         err_setdest(err_logdest & (~LOGDEST_LOGFILE));
         err_setdest(err_logdest | LOGDEST_SYSLOG);
 
         DPRINTF(E_LOG,L_MISC,"Could not rotate log file: %s\n",
-                strerror(err));
+            io_errstr(err_file));
         return;
     }
 
@@ -166,9 +164,8 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         snprintf(timebuf,sizeof(timebuf),"%04d-%02d-%02d %02d:%02d:%02d",
                  tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
                  tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
-        fprintf(err_file,"%s (%08x): %s",timebuf,_err_get_threadid(),errbuf);
-        if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
-        fflush(err_file);
+        io_printf(err_file,"%s (%08x): %s",timebuf,_err_get_threadid(),errbuf);
+        if(!level) io_printf(err_file,"%s: Aborting\n",timebuf);
     }
 
     /* always log to stderr on fatal error */
@@ -262,7 +259,15 @@ int err_setlogfile(char *file) {
 */
 
     if(err_file) {
-        fclose(err_file);
+        io_close(err_file);
+    } else {
+        err_file = io_new();
+        if(!err_file) {
+            err_logdest &= ~LOGDEST_LOGFILE;
+            if(!err_syslog_open)
+                os_opensyslog();
+            os_syslog(1,"Error initializing logfile");
+        }
     }
 
     mode = "a";
@@ -270,8 +275,8 @@ int err_setlogfile(char *file) {
 
     strncpy(err_filename,file,sizeof(err_filename)-1);
 
-    err_file = fopen(err_filename,mode);
-    if(err_file == NULL) {
+    if(!io_open(err_file,"file://%U?mode=%s",err_filename,mode)) {
+        fprintf(stderr,"Error opening logfile: %s",io_errstr(err_file));
         err_logdest &= ~LOGDEST_LOGFILE;
 
         if(!err_syslog_open)
@@ -298,7 +303,7 @@ void err_setdest(int destination) {
     if((err_logdest & LOGDEST_LOGFILE) &&
        (!(destination & LOGDEST_LOGFILE))) {
         /* used to be logging to file, not any more */
-        fclose(err_file);
+        io_close(err_file);
     }
 
     err_logdest=destination;

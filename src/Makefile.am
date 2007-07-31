@@ -58,9 +58,10 @@ if COND_UPNP
 UPNP=upnp.c upnp.h
 endif
 
+
 wavstreamer_SOURCES = wavstreamer.c
 
-mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
+mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	mp3-scanner.h mp3-scanner.c rend-unix.h \
 	db-generic.c db-generic.h \
@@ -69,7 +70,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h uici.c uici.h webserver.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
 	os.h ll.c ll.h conf.c conf.h compat.c compat.h util.c util.h \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
-	memdebug.c memdebug.h \
+	memdebug.c memdebug.h ssl.h io.h io.c bsd-snprintf.c bsd-snprintf.h \
 	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(ARENDSRC) $(OGGVORBISSRC) \
 	$(FLACSRC) $(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM) \
 	$(UPNP)

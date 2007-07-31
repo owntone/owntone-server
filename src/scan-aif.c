@@ -35,6 +35,7 @@
 
 #include "daapd.h"
 #include "err.h"
+#include "io.h"
 #include "mp3-scanner.h"
 
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
@@ -87,18 +88,19 @@ uint16_t aif_from_be16(uint16_t *native) {
  * @param infile file to read
  * @return TRUE on success, FALSE otherwise
  */
-int scan_aif_parse_comm(FILE *infile, MP3FILE *pmp3) {
+int scan_aif_parse_comm(IOHANDLE hfile, MP3FILE *pmp3) {
     AIF_COMM comm;
     int sec;
     int ms;
-
-    if(fread((void*)&comm,sizeof(AIF_COMM),1,infile) != 1) {
+    uint32_t len;
+    
+    len = sizeof(AIF_COMM);
+    if(!io_read(hfile,(unsigned char *)&comm, &len) || !len) {
         DPRINTF(E_WARN,L_SCAN,"Error reading aiff file -- bad COMM block\n");
         return FALSE;
     }
 
     /* we'll brute the sample rate */
-
     pmp3->samplerate = aif_from_be32((uint32_t*)&comm.sample_rate[2]) >> 16;
     if(!pmp3->samplerate)
         return TRUE;
@@ -125,36 +127,49 @@ int scan_aif_parse_comm(FILE *infile, MP3FILE *pmp3) {
  * @returns TRUE if song should be added to database, FALSE otherwise
  */
 int scan_get_aifinfo(char *filename, MP3FILE *pmp3) {
-    FILE *infile;
+    IOHANDLE hfile;
     int done=0;
     AIF_CHUNK_HEADER chunk;
     AIF_IFF_HEADER iff_header;
-    long current_pos = 0;
+    uint64_t current_pos = 0;
+    uint32_t len;
 
     DPRINTF(E_DBG,L_SCAN,"Getting AIFF file info\n");
 
-    if(!(infile=fopen(filename,"rb"))) {
-        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
+    hfile = io_new();
+    if(!hfile) {
+        DPRINTF(E_WARN,L_SCAN,"Error allocating file handle\n");
+        return FALSE;
+    }
+    
+    if(!io_open(hfile,"file://%U",filename)) {
+        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: %s\n",filename,
+            io_errstr(hfile));
+        io_dispose(hfile);
         return FALSE;
     }
 
     /* first, verify we have a valid iff header */
-    if(fread((void*)&iff_header,sizeof(AIF_IFF_HEADER),1,infile) != 1) {
+    len = sizeof(AIF_IFF_HEADER);
+    if(!io_read(hfile,(unsigned char *)&iff_header,&len) || !len) {
         DPRINTF(E_WARN,L_SCAN,"Error reading %s -- bad iff header\n",filename);
-        fclose(infile);
+        io_close(hfile);
+        io_dispose(hfile);
         return FALSE;
     }
 
     if((strncmp(iff_header.id,"FORM",4) != 0) ||
        (strncmp(iff_header.type,"AIFF",4) != 0)) {
         DPRINTF(E_WARN,L_SCAN,"File %s is not an AIFF file\n",filename);
-        fclose(infile);
+        io_close(hfile);
+        io_dispose(hfile);
         return FALSE;
     }
 
     /* loop around, processing chunks */
     while(!done) {
-        if(fread((void*)&chunk,sizeof(AIF_CHUNK_HEADER),1,infile) != 1) {
+        len = sizeof(AIF_CHUNK_HEADER);
+        if(!io_read(hfile, (unsigned char *)&chunk, &len) || !len) {
             done=1;
             break;
         }
@@ -165,22 +180,24 @@ int scan_get_aifinfo(char *filename, MP3FILE *pmp3) {
         DPRINTF(E_DBG,L_SCAN,"Got chunk %c%c%c%c\n",chunk.id[0],
                 chunk.id[1],chunk.id[2],chunk.id[3]);
 
-        current_pos = ftell(infile);
+        io_getpos(hfile,&current_pos);
 
         /* process the chunk */
         if(strncmp(chunk.id,"COMM",4)==0) {
-            if(!scan_aif_parse_comm(infile,pmp3)) {
+            if(!scan_aif_parse_comm(hfile,pmp3)) {
                 DPRINTF(E_INF,L_SCAN,"Error reading COMM block: %s\n",filename);
-                fclose(infile);
+                io_close(hfile);
+                io_dispose(hfile);
                 return FALSE;
             }
         }
 
-        fseek(infile,current_pos,SEEK_SET);
-        fseek(infile,chunk.len,SEEK_CUR);
+        io_setpos(hfile, current_pos, SEEK_SET);
+        io_setpos(hfile, chunk.len, SEEK_CUR);
     }
 
-    fclose(infile);
+    io_close(hfile);
+    io_dispose(hfile);
     return TRUE;
 }
 

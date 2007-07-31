@@ -44,18 +44,34 @@
  * @returns TRUE if file should be added to db, FALSE otherwise
  */
 int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
-    FILE *infile;
+    IOHANDLE hfile;
     char *head, *tail;
     char linebuffer[256];
+    uint32_t len;
 
     DPRINTF(E_DBG,L_SCAN,"Getting URL file info\n");
 
-    if(!(infile=fopen(filename,"rb"))) {
-        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
+    if(!(hfile = io_new())) {
+        DPRINTF(E_LOG,L_SCAN,"Can't create file handle\n");
+        return FALSE;
+    }
+    
+    if(!io_open(hfile,"file://%U",filename)) {
+        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: %s\n",filename,
+            io_errstr(hfile));
+        io_dispose(hfile);
         return FALSE;
     }
 
-    fgets(linebuffer,sizeof(linebuffer),infile);
+    io_buffer(hfile);
+    len = sizeof(linebuffer);
+    if(!io_readline(hfile,(unsigned char *)linebuffer,&len)) {
+        DPRINTF(E_WARN,L_SCAN,"Error reading from file %s: %s",filename,io_errstr(hfile));
+        io_close(hfile);
+        io_dispose(hfile);
+        return FALSE;
+    }
+
     while((linebuffer[strlen(linebuffer)-1] == '\n') ||
           (linebuffer[strlen(linebuffer)-1] == '\r')) {
         linebuffer[strlen(linebuffer)-1] = '\0';
@@ -65,7 +81,8 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     tail=strchr(head,',');
     if(!tail) {
         DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
-        fclose(infile);
+        io_close(hfile);
+        io_dispose(hfile);
         return FALSE;
     }
 
@@ -74,7 +91,8 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     tail=strchr(head,',');
     if(!tail) {
         DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
-        fclose(infile);
+        io_close(hfile);
+        io_dispose(hfile);
         return FALSE;
     }
 
@@ -82,7 +100,9 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
 
     pmp3->title=strdup(head);
     pmp3->url=strdup(tail);
-    fclose(infile);
+    
+    io_close(hfile);
+    io_dispose(hfile);
 
     DPRINTF(E_DBG,L_SCAN,"  Title:    %s\n",pmp3->title);
     DPRINTF(E_DBG,L_SCAN,"  Bitrate:  %d\n",pmp3->bitrate);

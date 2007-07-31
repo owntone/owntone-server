@@ -12,11 +12,12 @@
 #include <string.h>
 
 #include "daapd.h"
+#include "io.h"
 #include "rxml.h"
 
 /* Typedefs/Defines */
 
-#define RXML_ERROR(a,b) { (a)->stdio_errno=errno; (a)->ecode=(b); return 0; };
+#define RXML_ERROR(a,b) { (a)->ecode=(b); return 0; };
 #define RXML_MAX_LINE 1024
 #define RXML_MAX_TEXT 1024
 #define RXML_MAX_TAG 256
@@ -24,9 +25,8 @@
 typedef struct _RXML {
     RXML_EVTHANDLER handler;
     char *fname;
-    FILE *fhandle;
+    IOHANDLE hfile;
     void *udata;
-    int stdio_errno;
     int ecode;
     int line;
     char *estring;
@@ -46,6 +46,7 @@ typedef struct _RXML {
 #define E_RXML_CLOSE      0x05
 #define E_RXML_TAGSIZE    0x06
 #define E_RXML_ENTITY     0x07
+#define E_RXML_MALLOC     0x08
 
 char *rxml_estrings[] = {
     "Success",
@@ -56,6 +57,7 @@ char *rxml_estrings[] = {
     "Parse error: Unexpected '>'",
     "Parse error: tag too big",
     "Parse error: bad entity encoding",
+    "Internal malloc error",
     NULL
 };
 
@@ -141,12 +143,20 @@ int rxml_open(RXMLHANDLE *vp, char *file,
 
     pnew->handler = handler;
     pnew->fname = file;
-    pnew->fhandle = fopen(file,"rb");
+    pnew->hfile = io_new();
+
+    if(!pnew->hfile)
+        RXML_ERROR(pnew,E_RXML_MALLOC);
+
+    if(!io_open(pnew->hfile, "file://%U", file)) {
+        io_dispose(pnew->hfile);
+        pnew->hfile = NULL;
+        RXML_ERROR(pnew,E_RXML_OPEN);   
+    }
+
+    io_buffer(pnew->hfile);
     pnew->udata = udata;
     pnew->line = 0;
-
-    if(!pnew->fhandle)
-        RXML_ERROR(pnew,E_RXML_OPEN);
 
     if(pnew->handler)
         pnew->handler(RXML_EVT_OPEN, pnew->udata, pnew->fname);
@@ -163,7 +173,10 @@ int rxml_close(RXMLHANDLE vp) {
     RXML *ph = (RXML*)vp;
 
     if(ph->handler) ph->handler(RXML_EVT_CLOSE,ph->udata,ph->fname);
-    if(ph->fhandle) fclose(ph->fhandle);
+    if(ph->hfile) {
+        io_close(ph->hfile);
+        io_dispose(ph->hfile);
+    }
     if(ph->estring) free(ph->estring);
 
     free(ph);
@@ -188,7 +201,7 @@ char *rxml_errorstring(RXMLHANDLE vp) {
 
     len = (int)strlen(rxml_estrings[ph->ecode]) + 16;
     if((ph->ecode & 0x80)) {
-        estring=strerror(ph->stdio_errno);
+        estring=io_errstr(ph->hfile);
         len += (int)strlen(estring);
     }
 
@@ -197,8 +210,8 @@ char *rxml_errorstring(RXMLHANDLE vp) {
         return "Double-fault malloc error";
 
 
-    if((ph->ecode & 0x80)) {
-        snprintf(ph->estring,len,"%s%s",rxml_estrings[ph->ecode],estring);
+    if(((ph->ecode & 0x80) && (ph->hfile))) {
+        snprintf(ph->estring,len,"%s%s",rxml_estrings[ph->ecode],io_errstr(ph->hfile));
     } else {
         if(strncmp(rxml_estrings[ph->ecode],"Parse",5)==0) {
             snprintf(ph->estring, len, "%s (Line:%d)",
@@ -230,14 +243,16 @@ int rxml_parse(RXMLHANDLE vp) {
     int tag_start=0;
     int single_tag;
     RXML *ph = (RXML*)vp;
+    uint32_t len;
 
     ph->line = 0;
 
-
     textbuffer[0] = '\0';
 
+    len = sizeof(linebuffer);
+    
     /* walk through and read row by row */
-    while(fgets(linebuffer,sizeof(linebuffer),ph->fhandle) != NULL) {
+    while(io_readline(ph->hfile,(unsigned char *)linebuffer,&len) && len) {
         ph->line++;
         offset=0;
         size=(int)strlen(linebuffer);
@@ -248,7 +263,7 @@ int rxml_parse(RXMLHANDLE vp) {
             case '<':
                 if(in_tag)
                     RXML_ERROR(ph, E_RXML_NEST);
-
+            
                 in_tag=TRUE;
                 tag_start=offset+1;
                 tag_end=FALSE;
@@ -257,9 +272,9 @@ int rxml_parse(RXMLHANDLE vp) {
                     offset++;
                     tag_start++;
                 }
-
+            
                 offset++;
-
+            
                 in_text=0;
                 break;
 
@@ -321,10 +336,10 @@ int rxml_parse(RXMLHANDLE vp) {
                 break;
             }
         }
+        len = sizeof(linebuffer);
     }
 
-    ph->stdio_errno=errno;
-    if(ferror(ph->fhandle))
+    if(len)
         RXML_ERROR(ph,E_RXML_READ);
 
     return TRUE;

@@ -38,24 +38,44 @@
 # include <sys/param.h>
 # include <sys/types.h>
 # include <sys/socket.h>
+# include <netinet/in.h>
+# include <arpa/inet.h>
 #endif
 
 #include "daapd.h"
-#include "err.h"
-#include "restart.h"
 #include "webserver.h"
-
-#ifndef WIN32  /* FIXME: the uici stuff should be moved into os-win32 and os-unix
-                * as os_opensocket, os_accept, etc */
-# include "uici.h"
-#endif
+#include "io.h"
 
 /*
  * Defines
  */
 
+#ifndef PACKAGE
+# define PACKAGE "Firefly Web Server"
+# define VERSION "1.0"
+#endif
+
 #define MAX_HOSTNAME 256
 #define MAX_LINEBUFFER 2048
+#define BLKSIZE PIPE_BUF
+
+#ifdef DEBUG
+#  ifndef ASSERT
+#    define ASSERT(f)         \
+        if(f)                 \
+            {}                \
+        else                  \
+            ws_dprintf(0,"Assert error in %s, line %d\n",__FILE__,__LINE__)
+#  endif /* ndef ASSERT */
+#  define WS_ENTER()          ws_dprintf(10,"Entering %s",__func__)
+#  define WS_EXIT()           ws_printf(10,"Exiting %s",__func__)
+#else /* ndef DEBUG */
+#  ifndef ASSERT
+#    define ASSERT(f)
+#  endif
+#  define WS_ENTER()
+#  define WS_EXIT()
+#endif
 
 /*
  * Local (private) typedefs
@@ -65,6 +85,7 @@ typedef struct tag_ws_handler {
     char *stem;
     void (*req_handler)(WS_CONNINFO*);
     int(*auth_handler)(WS_CONNINFO*, char *, char *);
+    int flags;
     int addheaders;
     struct tag_ws_handler *next;
 } WS_HANDLER;
@@ -78,7 +99,8 @@ typedef struct tag_ws_private {
     WSCONFIG wsconfig;
     WS_HANDLER handlers;
     WS_CONNLIST connlist;
-    int server_fd;
+    
+    IOHANDLE hserver;
     int stop;
     int running;
     int threadno;
@@ -112,6 +134,7 @@ int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
 int ws_registerhandler(WSHANDLE ws, char *stem,
                        void(*handler)(WS_CONNINFO*),
                        int(*auth)(WS_CONNINFO*, char *, char *),
+                       int flags,
                        int addheaders);
 int ws_decodepassword(char *header, char **username, char **password);
 int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value);
@@ -119,6 +142,9 @@ char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header);
 static void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
 static void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc);
 static int ws_encoding_hack(WS_CONNINFO *pwsc);
+
+static void ws_default_errhandler(int level, char *msg);
+static void(*ws_err_handler)(int, char*) = ws_default_errhandler;
 
 /*
  * Globals
@@ -129,26 +155,76 @@ char *ws_dow[] = { "Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat" };
 char *ws_moy[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul",
                    "Aug", "Sep", "Oct", "Nov", "Dec" };
 
+char *ws_errors[] = {
+    "Success",                 /**< E_WS_SUCCESS     */
+    "Native Error",            /**< E_WS_NATIVE      */
+    "Out of memory",           /**< E_WS_MEMORY      */
+    "pthreads error",          /**< E_WS_PTHREADS    */
+    "ports exhausted",         /**< E_WS_EXHAUSTED   */
+    "Can't listen on port",    /**< E_WS_LISTEN      */
+    "Invalid content length",  /**< E_WS_CONTENTLEN  */
+    "Read error",              /**< E_WS_READ        */
+    "Couldn't parse GET vars", /**< E_WS_GETVARS     */
+    "Timeout error",           /**< E_WS_TIMEOUT     */
+    "Invalid reqeust type",    /**< E_WS_REQTYPE     */
+    "Bad path - out of root"   /**< E_WS_BADPATH     */
+};
+
+/**
+ * ws_dprintf
+ *
+ * Do debugging printfs.  This will use the registered errhandler
+ */
+void ws_dprintf(int level, char *fmt, ...) {  /* FIXME: dynamic buf len */
+    char errbuf[4096];
+    va_list ap;
+
+    va_start(ap,fmt);
+    vsnprintf(errbuf,sizeof(errbuf),fmt,ap);
+    va_end(ap);
+
+    ws_err_handler(level,errbuf);
+}
+
+/**
+ * set the error handler to something other than default
+ *
+ * @param err_handler new error handler to use
+ */
+void ws_set_errhandler(void(*err_handler)(int, char*)) {
+    ws_err_handler = err_handler;
+}
+
+
+/**
+ * by default, just dump to stdout 
+ */
+void ws_default_errhandler(int level, char *msg) {
+    fprintf(stderr,"%d: %s", level, msg);
+    if(!level) { /* fatal! */
+        exit(0);
+    }
+}
+
 /*
  * ws_lock_unsafe
  *
  * Lock non-thread-safe functions
  *
- * returns 0 on success,
- * returns -1 on failure, with errno set
+ * returns TRUE on success
  */
 int ws_lock_unsafe(void) {
     int err;
-    int retval=0;
+    int retval=TRUE;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_lock_unsafe\n");
-
+    WS_ENTER();
+    
     if((err=pthread_mutex_lock(&ws_unsafe))) {
-        errno=err;
-        retval=-1;
+        ws_dprintf(L_WS_FATAL,"Cannot lock mutex: %s\n",strerror(err));
+        retval=FALSE;
     }
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_lock_unsafe with retval of %d\n",retval);
+    WS_EXIT();
     return retval;
 }
 
@@ -157,21 +233,20 @@ int ws_lock_unsafe(void) {
  *
  * Lock non-thread-safe functions
  *
- * returns 0 on success,
- * returns -1 on failure, with errno set
+ * returns TRUE on success
  */
 int ws_unlock_unsafe(void) {
     int err;
-    int retval=0;
+    int retval=TRUE;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_unlock_unsafe\n");
-
+    WS_ENTER();
+    
     if((err=pthread_mutex_unlock(&ws_unsafe))) {
-        errno=err;
-        retval=-1;
+        ws_dprintf(L_WS_FATAL,"Cannot unlock mutex: %s\n",strerror(err));
+        retval=FALSE;
     }
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_unlock_unsafe with a retval of %d\n",retval);
+    WS_EXIT();
     return retval;
 }
 
@@ -180,11 +255,53 @@ int ws_unlock_unsafe(void) {
  */
 void ws_lock_connlist(WS_PRIVATE *pwsp) {
     if(pthread_mutex_lock(&pwsp->exit_mutex))
-        DPRINTF(E_FATAL,L_WS,"Cannot lock condition mutex\n");
+        ws_dprintf(L_WS_FATAL,"Cannot lock condition mutex\n");
 }
 
+/**
+ * Unlock the connection list
+ */
 void ws_unlock_connlist(WS_PRIVATE *pwsp) {
-    pthread_mutex_unlock(&pwsp->exit_mutex);
+    if(pthread_mutex_unlock(&pwsp->exit_mutex))
+        ws_dprintf(L_WS_FATAL,"Cannot unlock condition mutex\n");
+}
+
+/**
+ * Create a new webserver object, with a specific config.
+ *
+ * @param config config to use for newly created web server
+ * @returns WSHANDLE on success, NULL on failure
+ */
+WSHANDLE ws_init(WSCONFIG *config) {
+    int err;
+    WS_PRIVATE *pwsp;
+
+    WS_ENTER();
+    if((pwsp=(WS_PRIVATE*)malloc(sizeof(WS_PRIVATE))) == NULL) {
+        ws_dprintf(L_WS_SPAM,"Malloc error: %s\n",strerror(errno));
+        return NULL;
+    }
+    
+    memcpy(&pwsp->wsconfig,config,sizeof(WS_PRIVATE));
+    pwsp->connlist.next=NULL;
+    pwsp->running=0;
+    pwsp->threadno=0;
+    pwsp->stop=0;
+    pwsp->dispatch_threads=0;
+    pwsp->handlers.next=NULL;
+
+    if((err=pthread_cond_init(&pwsp->exit_cond, NULL))) {
+        ws_dprintf(L_WS_LOG,"Error in pthread_cond_init: %s\n",strerror(err));
+        return NULL;
+    }
+
+    if((err=pthread_mutex_init(&pwsp->exit_mutex,NULL))) {
+        ws_dprintf(L_WS_LOG,"Error in pthread_mutex_init: %s\n",strerror(err));
+        return NULL;
+    }
+    
+    WS_EXIT();
+    return (WSHANDLE)pwsp;
 }
 
 
@@ -197,43 +314,17 @@ void ws_unlock_connlist(WS_PRIVATE *pwsp) {
  * we listen first
  *
  * RETURNS
- *   Success: WSHANDLE
- *   Failure: NULL, with errno set
+ *   Success: E_WS_SUCCESS
+ *   Failure: Appropriate E_WS_ error code
  *
  */
-WSHANDLE ws_start(WSCONFIG *config) {
+int ws_start(WSHANDLE ws) {
     int err;
     int ephemeral = 0;
+    WS_PRIVATE *pwsp = (WS_PRIVATE*)ws;
 
-    WS_PRIVATE *pwsp;
-
-    DPRINTF(E_SPAM,L_WS,"Entering ws_start\n");
-
-    if((pwsp=(WS_PRIVATE*)malloc(sizeof(WS_PRIVATE))) == NULL) {
-        DPRINTF(E_SPAM,L_WS,"Malloc error: %s\n",strerror(errno));
-        return NULL;
-    }
-
-    memcpy(&pwsp->wsconfig,config,sizeof(WS_PRIVATE));
-    pwsp->connlist.next=NULL;
-    pwsp->running=0;
-    pwsp->threadno=0;
-    pwsp->stop=0;
-    pwsp->dispatch_threads=0;
-    pwsp->handlers.next=NULL;
-
-    if((err=pthread_cond_init(&pwsp->exit_cond, NULL))) {
-        errno=err;
-        DPRINTF(E_LOG,L_WS,"Error in pthread_cond_init: %s\n",strerror(errno));
-        return NULL;
-    }
-
-    if((err=pthread_mutex_init(&pwsp->exit_mutex,NULL))) {
-        errno=err;
-        DPRINTF(E_LOG,L_WS,"Error in pthread_mutex_init: %s\n",strerror(errno));
-        return NULL;
-    }
-
+    WS_ENTER();
+    
     /* this is kind of stupid, but is easier to fix once here
      * rather than mucking with differences in sockets on windows/unix
      */
@@ -244,14 +335,16 @@ WSHANDLE ws_start(WSCONFIG *config) {
     }
 
     while(1) {
-        DPRINTF(E_INF,L_WS,"Listening on port %d\n",pwsp->wsconfig.port);
-        pwsp->server_fd = u_open(pwsp->wsconfig.port);
-        if(pwsp->server_fd == -1) {
-            if((!ephemeral) || (errno != EADDRINUSE)) {
-                err = errno;
-                DPRINTF(E_LOG,L_WS,"Listen port: %s\n",strerror(errno));
-                errno = err;
-                return NULL;
+        ws_dprintf(L_WS_INF,"Listening on port %d\n",pwsp->wsconfig.port);
+        pwsp->hserver = io_new();
+        if(!pwsp->hserver)
+            ws_dprintf(L_WS_FATAL,"Cannot create new IO object");
+
+        if(!io_open(pwsp->hserver,"listen://%d",pwsp->wsconfig.port)) {
+            if((!ephemeral) || (io_errcode(pwsp->hserver) != IO_E_SOCKET_INUSE)) {
+                ws_dprintf(L_WS_LOG,"Listen port: %s\n",io_errstr(pwsp->hserver));
+                WS_EXIT();
+                return E_WS_LISTEN;
             }
         } else {
             break;
@@ -259,26 +352,28 @@ WSHANDLE ws_start(WSCONFIG *config) {
 
         pwsp->wsconfig.port++;
         if(!pwsp->wsconfig.port) {
-            DPRINTF(E_LOG,L_WS,"Exhausted ports\n");
-            return NULL;
+            ws_dprintf(L_WS_LOG,"Exhausted ports\n");
+            io_dispose(pwsp->hserver);
+            pwsp->hserver = NULL;
+            WS_EXIT();
+            return E_WS_EXHAUSTED;
         }
     }
 
-    config->port = pwsp->wsconfig.port;
-
-    DPRINTF(E_INF,L_WS,"Starting server thread\n");
+    ws_dprintf(L_WS_INF,"Starting server thread\n");
     if((err=pthread_create(&pwsp->server_tid,NULL,ws_mainthread,(void*)pwsp))) {
-        DPRINTF(E_LOG,L_WS,"Could not spawn thread: %s\n",strerror(err));
-        r_close(pwsp->server_fd);
-        errno=err;
-        return NULL;
+        ws_dprintf(L_WS_LOG,"Could not spawn thread: %s\n",strerror(err));
+        io_close(pwsp->hserver);
+        io_dispose(pwsp->hserver);
+        WS_EXIT();
+        return E_WS_PTHREADS;
     }
 
     /* we're really running */
     pwsp->running=1;
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_start\n");
-    return (WSHANDLE)pwsp;
+    WS_EXIT();
+    return E_WS_SUCCESS;
 }
 
 
@@ -290,8 +385,8 @@ WSHANDLE ws_start(WSCONFIG *config) {
 void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     WS_CONNLIST *pHead, *pTail;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_remove_dispatch_thread\n");
-
+    WS_ENTER();
+    
     ws_lock_connlist(pwsp);
 
     pTail=&(pwsp->connlist);
@@ -304,7 +399,7 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
 
     if(pHead) {
         pwsp->dispatch_threads--;
-        DPRINTF(E_DBG,L_WS,"With thread %d exiting, %d are still running\n",
+        ws_dprintf(L_WS_DBG,"With thread %d exiting, %d are still running\n",
                 pwsc->threadno,pwsp->dispatch_threads);
 
         pTail->next = pHead->next;
@@ -316,7 +411,7 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     }
 
     ws_unlock_connlist(pwsp);
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_remote_dispatch_thread\n");
+    WS_EXIT();
 }
 
 
@@ -328,14 +423,17 @@ void ws_remove_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
 void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     WS_CONNLIST *pNew;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_add_dispatch_thread\n");
-
+    WS_ENTER();
+    
     pNew=(WS_CONNLIST*)malloc(sizeof(WS_CONNLIST));
     pNew->next=NULL;
     pNew->pwsc=pwsc;
 
-    if(!pNew)
-        DPRINTF(E_FATAL,L_WS,"Malloc: %s\n",strerror(errno));
+    if(!pNew) {
+        ws_dprintf(L_WS_FATAL,"Malloc: %s\n",strerror(errno));
+        exit(1); /* shouldn't strictly be necessary unless paren doesn't
+                  * honor L_WS_FATAL */
+    }
 
     ws_lock_connlist(pwsp);
 
@@ -345,22 +443,25 @@ void ws_add_dispatch_thread(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     pwsp->connlist.next = pNew;
 
     ws_unlock_connlist(pwsp);
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_add_dispatch_thread\n");
+    WS_EXIT();
 }
 
-/*
- * ws_stop
+/**
+ * Stop the web server and all the child threads.  If there are any
+ * active sessions, the web server ungraciously closes the underlying
+ * socket, in an effort to make the child stop.
  *
- * Stop the web server and all the child threads
+ * @param ws handle of webserver to stop
+ * @returns TRUE on success
  */
-extern int ws_stop(WSHANDLE ws) {
+int ws_stop(WSHANDLE ws) {
     WS_PRIVATE *pwsp = (WS_PRIVATE*)ws;
     WS_HANDLER *current;
     WS_CONNLIST *pcl;
     void *result;
 
-    DPRINTF(E_DBG,L_WS,"Entering ws_stop: %d threads\n",pwsp->dispatch_threads);
-
+    WS_ENTER();
+    
     /* free the ws_handlers */
     while(pwsp->handlers.next) {
         current=pwsp->handlers.next;
@@ -372,9 +473,9 @@ extern int ws_stop(WSHANDLE ws) {
     pwsp->stop=1;
     pwsp->running=0;
 
-    DPRINTF(E_DBG,L_WS,"ws_stop: closing the server fd\n");
-    shutdown(pwsp->server_fd,SHUT_RDWR);
-    r_close(pwsp->server_fd);
+    ws_dprintf(L_WS_DBG,"ws_stop: closing the server fd\n");
+    io_close(pwsp->hserver);
+    io_dispose(pwsp->hserver);
 
     /* wait for the server thread to terminate.  SHould be quick! */
     pthread_join(pwsp->server_tid,&result);
@@ -388,16 +489,17 @@ extern int ws_stop(WSHANDLE ws) {
      * should cause the dispatch threads to exit out with an error.
      */
     while(pcl) {
-        if(pcl->pwsc->fd) {
-            shutdown(pcl->pwsc->fd,SHUT_RDWR);
-            r_close(pcl->pwsc->fd);
+        if(pcl->pwsc->hclient) {
+            io_close(pcl->pwsc->hclient);
+            io_dispose(pcl->pwsc->hclient);
+            pcl->pwsc->hclient = NULL;
         }
         pcl=pcl->next;
     }
 
     /* wait for the threads to be done */
     while(pwsp->dispatch_threads) {
-        DPRINTF(E_DBG,L_WS,"ws_stop: I still see %d threads\n",pwsp->dispatch_threads);
+        ws_dprintf(L_WS_DBG,"ws_stop: I still see %d threads\n",pwsp->dispatch_threads);
         pthread_cond_wait(&pwsp->exit_cond, &pwsp->exit_mutex);
     }
 
@@ -405,13 +507,11 @@ extern int ws_stop(WSHANDLE ws) {
 
     free(pwsp);
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_stop\n");
-    return 0;
+    WS_EXIT();
+    return TRUE;
 }
 
-/*
- * ws_mainthread
- *
+/**
  * Main thread for webserver - this accepts connections
  * and spawns a handler thread for each incoming connection.
  *
@@ -420,44 +520,56 @@ extern int ws_stop(WSHANDLE ws) {
  * the request has been honored.
  *
  * These client threads will, of course, be detached
+ *
+ * @param arg this is actually a pointer to the web server private session
  */
 void *ws_mainthread(void *arg) {
-    int fd;
     int err;
+    IOHANDLE hnew;
     WS_PRIVATE *pwsp = (WS_PRIVATE*)arg;
     WS_CONNINFO *pwsc;
     pthread_t tid;
+    /* FIXME: endpoint from io_socket */
     char hostname[MAX_HOSTNAME+1];
     struct in_addr hostaddr;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_mainthread\n");
-
+    WS_ENTER();
+    
     while(1) {
         pwsc=(WS_CONNINFO*)malloc(sizeof(WS_CONNINFO));
         if(!pwsc) {
             /* can't very well service any more threads! */
-            DPRINTF(E_FATAL,L_WS,"Error: %s\n",strerror(errno));
+            ws_dprintf(L_WS_FATAL,"Error: %s\n",strerror(errno));
             pwsp->running=0;
+            WS_EXIT();
+            exit(1); /* should be unnecessary */
             return NULL;
         }
 
         memset(pwsc,0,sizeof(WS_CONNINFO));
 
-        if((fd=u_accept(pwsp->server_fd,&hostaddr)) == -1) {
-            DPRINTF(E_LOG,L_WS,"Dispatcher: accept failed: %s\n",strerror(errno));
-            shutdown(pwsp->server_fd,SHUT_RDWR);
-            r_close(pwsp->server_fd);
+        hnew = io_new();
+        if(!hnew)
+            ws_dprintf(L_WS_FATAL,"Malloc error in io_new()");
+        
+        if(!io_listen_accept(pwsp->hserver,hnew,&hostaddr)) {    
+            ws_dprintf(L_WS_LOG,"Dispatcher: accept failed: %s\n",
+                io_errstr(pwsp->hserver));
+            io_close(pwsp->hserver);
+            io_dispose(pwsp->hserver);
             pwsp->running=0;
             free(pwsc);
 
-            DPRINTF(E_FATAL,L_WS,"Dispatcher: Aborting\n");
+            ws_dprintf(L_WS_FATAL,"Dispatcher: Aborting\n");
+            WS_EXIT();
             return NULL;
         }
 
+        /* FIXME: Get remote endpoint */
         strncpy(hostname,inet_ntoa(hostaddr),MAX_HOSTNAME);
 
         pwsc->hostname=strdup(hostname);
-        pwsc->fd=fd;
+        pwsc->hclient = hnew;
         pwsc->pwsp = pwsp;
 
         /* Spawn off a dispatcher to decide what to do with
@@ -472,8 +584,8 @@ void *ws_mainthread(void *arg) {
 
         /* now, throw off a dispatch thread */
         if((err=pthread_create(&tid,NULL,ws_dispatcher,(void*)pwsc))) {
-            pwsc->error=err;
-            DPRINTF(E_FATAL,L_WS,"Could not spawn thread: %s\n",strerror(err));
+            ws_set_err(pwsc,E_WS_PTHREADS);
+            ws_dprintf(L_WS_FATAL,"Could not spawn thread: %s\n",strerror(err));
             ws_close(pwsc);
         } else {
             ws_add_dispatch_thread(pwsp,pwsc);
@@ -482,13 +594,11 @@ void *ws_mainthread(void *arg) {
         ws_unlock_unsafe();
     }
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_mainthred\n");
+    WS_EXIT();
 }
 
 
-/*
- * ws_close
- *
+/**
  * Close the connection.  This might be called when things
  * are already in bad shape, so we'll ignore errors and let
  * them be detected back in either the dispatch
@@ -496,18 +606,21 @@ void *ws_mainthread(void *arg) {
  *
  * Mainly, we just want to make sure that any
  * allocated memory has been freed
+ * 
+ * @param pwsc connection to close
+ * @returns TRUE on success
  */
 void ws_close(WS_CONNINFO *pwsc) {
     WS_PRIVATE *pwsp = (WS_PRIVATE *)(pwsc->pwsp);
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_close\n");
-
-    DPRINTF(E_DBG,L_WS,"Thread %d: Terminating\n",pwsc->threadno);
-    DPRINTF(E_DBG,L_WS,"Thread %d: Freeing request headers\n",pwsc->threadno);
+    WS_ENTER();
+    
+    ws_dprintf(L_WS_DBG,"Thread %d: Terminating\n",pwsc->threadno);
+    ws_dprintf(L_WS_DBG,"Thread %d: Freeing request headers\n",pwsc->threadno);
     ws_freearglist(&pwsc->request_headers);
-    DPRINTF(E_DBG,L_WS,"Thread %d: Freeing response headers\n",pwsc->threadno);
+    ws_dprintf(L_WS_DBG,"Thread %d: Freeing response headers\n",pwsc->threadno);
     ws_freearglist(&pwsc->response_headers);
-    DPRINTF(E_DBG,L_WS,"Thread %d: Freeing request vars\n",pwsc->threadno);
+    ws_dprintf(L_WS_DBG,"Thread %d: Freeing request vars\n",pwsc->threadno);
     ws_freearglist(&pwsc->request_vars);
     if(pwsc->uri) {
         free(pwsc->uri);
@@ -515,9 +628,9 @@ void ws_close(WS_CONNINFO *pwsc) {
     }
 
     if((pwsc->close)||(pwsc->error)) {
-        DPRINTF(E_DBG,L_WS,"Thread %d: Closing fd\n",pwsc->threadno);
-        shutdown(pwsc->fd,SHUT_RDWR);
-        r_close(pwsc->fd);
+        ws_dprintf(L_WS_DBG,"Thread %d: Closing fd\n",pwsc->threadno);
+        io_close(pwsc->hclient);
+        io_dispose(pwsc->hclient);
         /* this thread is done */
 
         ws_remove_dispatch_thread(pwsp, pwsc);
@@ -534,10 +647,10 @@ void ws_close(WS_CONNINFO *pwsc) {
         free(pwsc->hostname);
         memset(pwsc,0x00,sizeof(WS_CONNINFO));
         free(pwsc);
-        DPRINTF(E_SPAM,L_WS,"Exiting ws_close (thread terminating)\n");
+        WS_EXIT();
         pthread_exit(NULL);
     }
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_close (thread continuing)\n");
+    WS_EXIT();
 }
 
 /*
@@ -548,7 +661,7 @@ void ws_close(WS_CONNINFO *pwsc) {
 void ws_freearglist(ARGLIST *root) {
     ARGLIST *current;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_freearglist\n");
+    WS_ENTER();
 
     while(root->next) {
         free(root->next->key);
@@ -558,101 +671,129 @@ void ws_freearglist(ARGLIST *root) {
         free(current);
     }
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_freearglist\n");
+    WS_EXIT();
 }
 
 
 void ws_emitheaders(WS_CONNINFO *pwsc) {
     ARGLIST *pcurrent=pwsc->response_headers.next;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_emitheaders\n");
+    WS_ENTER();
     while(pcurrent) {
-        DPRINTF(E_DBG,L_WS,"Emitting reponse header %s: %s\n",pcurrent->key,
+        ws_dprintf(L_WS_DBG,"Emitting reponse header %s: %s\n",pcurrent->key,
                 pcurrent->value);
         ws_writefd(pwsc,"%s: %s\r\n",pcurrent->key,pcurrent->value);
         pcurrent=pcurrent->next;
     }
 
     ws_writefd(pwsc,"\r\n");
-    DPRINTF(E_SPAM,L_WS,"Exitin ws_emitheaders\n");
+    WS_EXIT();
 }
 
 
-/*
- * ws_getpostvars
- *
+/**
  * Receive and parse headers.  These will trump
- * get headers
+ * get headers.  This should really only be called if
+ * the method if post.  This will fill in the request_headers
+ * linked list.
+ * 
+ * @param pwsc session to parse post vars for
+ * @returns TRUE on success
  */
 int ws_getpostvars(WS_CONNINFO *pwsc) {
     char *content_length;
-    int length;
-    char *buffer;
-
-    DPRINTF(E_SPAM,L_WS,"Entering ws_getpostvars\n");
-
+    unsigned char *buffer;
+    uint32_t length;
+    uint32_t ms;
+    
+    WS_ENTER();
+    
     content_length = ws_getarg(&pwsc->request_headers,"Content-Length");
     if(!content_length) {
-        pwsc->error = EINVAL;
-        return -1;
+        ws_set_err(pwsc,E_WS_CONTENTLEN);
+        WS_EXIT();
+        return FALSE;
     }
 
     length=atoi(content_length);
-    DPRINTF(E_DBG,L_WS,"Thread %d: Post var length: %d\n",
+    ws_dprintf(L_WS_DBG,"Thread %d: Post var length: %d\n",
             pwsc->threadno,length);
 
-    buffer=(char*)malloc(length+1);
+    buffer=(unsigned char*)malloc(length+1);
 
     if(!buffer) {
-        pwsc->error = errno;
-        DPRINTF(E_INF,L_WS,"Thread %d: Could not malloc %d bytes\n",
-                pwsc->threadno, length);
-        return -1;
+        ws_set_err(pwsc,E_WS_MEMORY);
+        ws_dprintf(L_WS_INF,"Thread %d: Could not malloc %d bytes\n",
+            pwsc->threadno, length);
+        WS_EXIT();
+        return FALSE;
     }
 
     // make the read time out 30 minutes like we said in the
     // /server-info response
-    if((readtimed(pwsc->fd, buffer, length, 1800.0)) == -1) {
-        DPRINTF(E_INF,L_WS,"Thread %d: Timeout reading post vars\n",
+    ms = 1800 * 1000;
+    if(!io_read_timeout(pwsc->hclient, buffer, &length, &ms)) {
+        if(0 == ms) {
+            ws_dprintf(L_WS_INF,"Thread %d: Timeout reading post vars\n",
                 pwsc->threadno);
-        pwsc->error=errno;
-        return -1;
+            ws_set_err(pwsc,E_WS_TIMEOUT);
+            WS_EXIT();
+            free(buffer);
+            return FALSE;
+        }
+        /* FIXME: Need to pass real errors back from the webserver */
+        ws_dprintf(L_WS_LOG,"Thread %d: Read error: %s",
+            pwsc->threadno,io_errstr(pwsc->hclient));
+        ws_set_err(pwsc,E_WS_READ);
+        free(buffer);
+        return FALSE;
     }
 
-    DPRINTF(E_DBG,L_WS,"Thread %d: Read post vars: %s\n",pwsc->threadno,buffer);
+    ws_dprintf(L_WS_DBG,"Thread %d: Read post vars: %s\n",pwsc->threadno,buffer);
 
-    pwsc->error=ws_getgetvars(pwsc,buffer);
+    if(!ws_getgetvars(pwsc,(char*)buffer)) {
+        /* assume error was set already */ 
+        free(buffer);
+        ws_dprintf(L_WS_LOG,"Could not parse get vars\n");
+        return FALSE;
+    }
 
     free(buffer);
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_getpostvars\n");
-    return pwsc->error;
+    WS_EXIT();
+    return TRUE;
 }
 
 
-/*
- * ws_getheaders
- *
+/**
  * Receive and parse headers.  This is called from
  * ws_dispatcher
+ *
+ * @param pwsc session to get headers for
+ * @returns TRUE on success
  */
 int ws_getheaders(WS_CONNINFO *pwsc) {
     char *first, *last;
     int done;
     char buffer[MAX_LINEBUFFER];
+    uint32_t len;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_getheaders\n");
+    WS_ENTER();
 
     /* Break down the headers into some kind of header list */
     done=0;
     while(!done) {
-        if(readline(pwsc->fd,buffer,sizeof(buffer)) == -1) {
+        len = sizeof(buffer);
+        if(!io_readline(pwsc->hclient,(unsigned char *)buffer,&len)) {
+            ws_set_err(pwsc,E_WS_READ);
             pwsc->error=errno;
-            DPRINTF(E_INF,L_WS,"Thread %d: Unexpected close\n",pwsc->threadno);
-            return -1;
+            ws_dprintf(L_WS_INF,"Thread %d: read error: %s\n",pwsc->threadno,
+                io_errstr(pwsc->hclient));
+            WS_EXIT();
+            return FALSE;
         }
 
-        DPRINTF(E_DBG,L_WS,"Thread %d: Read: %s",pwsc->threadno,buffer);
+        ws_dprintf(L_WS_DBG,"Thread %d: Read: %s",pwsc->threadno,buffer);
 
         first=buffer;
         if(buffer[0] == '\r')
@@ -663,7 +804,7 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
             first[strlen(first)-1] = '\0';
 
         if(strlen(first) == 0) {
-            DPRINTF(E_DBG,L_WS,"Thread %d: Headers parsed!\n",pwsc->threadno);
+            ws_dprintf(L_WS_DBG,"Thread %d: Headers parsed!\n",pwsc->threadno);
             done=1;
         } else {
             /* we have a header! */
@@ -671,7 +812,7 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
             strsep(&last,":");
 
             if(last==first) {
-                DPRINTF(E_WARN,L_WS,"Thread %d: Invalid header: %s\n",
+                ws_dprintf(L_WS_WARN,"Thread %d: Invalid header: %s\n",
                         pwsc->threadno,first);
             } else {
                 while(*last==' ')
@@ -680,31 +821,52 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
                 while(last[strlen(last)-1] == '\r')
                     last[strlen(last)-1] = '\0';
 
-                DPRINTF(E_DBG,L_WS,"Thread %d: Adding header *%s=%s*\n",
+                ws_dprintf(L_WS_DBG,"Thread %d: Adding header *%s=%s*\n",
                         pwsc->threadno,first,last);
 
-                if(ws_addarg(&pwsc->request_headers,first,"%s",last)) {
-                    DPRINTF(E_FATAL,L_WS,"Thread %d: Out of memory\n",
-                            pwsc->threadno);
-                    pwsc->error=ENOMEM;
-                    return -1;
+                if(!ws_addarg(&pwsc->request_headers,first,"%s",last)) {
+                    ws_dprintf(L_WS_FATAL,"Thread %d: Out of memory\n",
+                        pwsc->threadno);
+                    ws_set_err(pwsc,E_WS_MEMORY);
+                    WS_EXIT();
+                    return FALSE;
                 }
             }
         }
     }
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_getheaders\n");
-    return 0;
+    WS_EXIT();
+    return TRUE;
 }
 
 
-/*
- * ws_encoding_hack
+/**
+ * Some client choose to encode a space as +, others dont.  This
+ * causes problems when the literal text to be passed is really a
+ * '+' and not a ' '.  This attempts to fix broken browsers by
+ * setting the appropriate flag for whether or not the client encodes
+ * a space as plus.
+ *
+ * This is indeed a hack, as the url encoding spec makes it clear
+ * that spaces should be encoded as a +.  Firefix and IE do this,
+ * but the SoundBridge and iTunes don't.  (But Safari does, go figure)
+ *
+ * This could be used to set other browser-specific quirks, like the
+ * Olive/HiFidelio issue with not honoring "Connection: close", as is
+ * *REQUIRED* by RFC for HTTP 1.1 browsers, and ignored by HiFidelio.
+ *
+ * HiFidelio programmers, take note -- if you fixed your HTTP 
+ * implementation to be RFC compliant, I could provide transcoding 
+ * for your clients.  (And they want it, judging by my forums)
+ *
+ * @param pwsc session to check for encoding style
+ * @returns TRUE if the remote user agent encodes space as a plus.
  */
 int ws_encoding_hack(WS_CONNINFO *pwsc) {
     char *user_agent;
     int space_as_plus=1;
 
+    WS_ENTER();
     user_agent=ws_getrequestheader(pwsc, "user-agent");
     if(user_agent) {
         if(strncasecmp(user_agent,"Roku",4) == 0)
@@ -712,15 +874,18 @@ int ws_encoding_hack(WS_CONNINFO *pwsc) {
         if(strncasecmp(user_agent,"iTunes",6) == 0)
             space_as_plus=0;
     }
+    WS_EXIT();
     return space_as_plus;
 }
 
 
-/*
- * ws_getgetvars
+/**
+ * parse a GET string of variables, filling in the request_vars
+ * linked list.
  *
- * parse a GET string of variables (or POST)
- *
+ * @params pwsc the session to parse vars for
+ * @params string the argument part of the URI as requested by the client
+ * @returns 
  */
 int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
     char *first, *last, *middle;
@@ -729,8 +894,7 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
 
     int space_as_plus;
 
-    DPRINTF(E_DBG,L_WS,"Thread %d: Entering ws_getgetvars (%s)\n",
-            pwsc->threadno,string);
+    WS_ENTER();
 
     space_as_plus=ws_encoding_hack(pwsc);
 
@@ -744,13 +908,13 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
         strsep(&middle,"=");
 
         if(!middle) {
-            DPRINTF(E_WARN,L_WS,"Thread %d: Bad arg: %s\n",
+            ws_dprintf(L_WS_WARN,"Thread %d: Bad arg: %s\n",
                     pwsc->threadno,first);
         } else {
             key=ws_urldecode(first,space_as_plus);
             value=ws_urldecode(middle,space_as_plus);
 
-            DPRINTF(E_DBG,L_WS,"Thread %d: Adding arg %s = %s\n",
+            ws_dprintf(L_WS_DBG,"Thread %d: Adding arg %s = %s\n",
                     pwsc->threadno,key,value);
             ws_addarg(&pwsc->request_vars,key,"%s",value);
 
@@ -759,7 +923,7 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
         }
 
         if(!last) {
-            DPRINTF(E_DBG,L_WS,"Thread %d: Done parsing GET/POST args!\n",
+            ws_dprintf(L_WS_DBG,"Thread %d: Done parsing GET/POST args!\n",
                     pwsc->threadno);
             done=1;
         } else {
@@ -767,17 +931,17 @@ int ws_getgetvars(WS_CONNINFO *pwsc, char *string) {
         }
     }
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_getgetvars\n");
-    return 0;
+    WS_EXIT();
+    return TRUE;
 }
 
 
-/*
- * ws_dispatcher
- *
+/**
  * Main dispatch thread.  This gets the request, reads the
  * headers, decodes the GET'd or POST'd variables,
  * then decides what function should service the request
+ * 
+ * @param arg a pointer to the WS_CONNINFO struct we are servicing
  */
 void *ws_dispatcher(void *arg) {
     WS_CONNINFO *pwsc=(WS_CONNINFO*)arg;
@@ -792,40 +956,41 @@ void *ws_dispatcher(void *arg) {
     struct tm now_tm;
     void (*req_handler)(WS_CONNINFO*);
     int(*auth_handler)(WS_CONNINFO*, char *, char *);
+    uint32_t ms, len;
 
-    DPRINTF(E_DBG,L_WS,"Thread %d: Entering ws_dispatcher (Connection from %s)\n",
-            pwsc->threadno, pwsc->hostname);
+    WS_ENTER()
 
     /* quick fence to ensure that we have been registered on the thread list */
     ws_lock_unsafe();
     ws_unlock_unsafe();
 
     while(!connection_done) {
-        /* Now, get the request from the other end
-         * and decide where to dispatch it
-         */
-
-        /* DWB: set timeout to 30 minutes as advertised in the
-           server-info response. */
-        if((readlinetimed(pwsc->fd,buffer,sizeof(buffer),1800.0)) < 1) {
+        // Now, get the request from the other end
+        // and decide where to dispatch it
+        ms = 1800 * 1000;
+        len = sizeof(buffer);
+        if(!io_readline_timed(pwsc->hclient,(unsigned char *)buffer,&len,&ms) || (!len)) {
+            ws_set_err(pwsc,E_WS_TIMEOUT);
             pwsc->error=errno;
             pwsc->close=1;
-            DPRINTF(E_WARN,L_WS,"Thread %d:  could not read: %s\n",
-                    pwsc->threadno,strerror(errno));
+            ws_dprintf(L_WS_WARN,"Thread %d:  could not read: %s\n",
+                pwsc->threadno,io_errstr(pwsc->hclient));
             ws_close(pwsc);
+            WS_EXIT();
             return NULL;
         }
 
-        DPRINTF(E_DBG,L_WS,"Thread %d: got request\n",pwsc->threadno);
-        DPRINTF(E_DBG - 1,L_WS, "Request: %s", buffer);
+        ws_dprintf(L_WS_DBG,"Thread %d: \n",pwsc->threadno);
+        ws_dprintf(L_WS_DBG - 1, "Request: %s", buffer);
 
         first=last=buffer;
         strsep(&last," ");
         if(!last) {
             pwsc->close=1;
-            ws_returnerror(pwsc,400,"Bad request\n");
+            ws_returnerror(pwsc,400,"Bad request");
             ws_close(pwsc);
-            DPRINTF(E_SPAM,L_WS,"Error: bad request.  Exiting ws_dispatcher\n");
+            ws_dprintf(L_WS_SPAM,"Error: bad request.  Exiting ws_dispatcher\n");
+            WS_EXIT();
             return NULL;
         }
 
@@ -834,12 +999,13 @@ void *ws_dispatcher(void *arg) {
         } else if(!strcasecmp(first,"post")) {
             pwsc->request_type = RT_POST;
         } else {
-            /* return a 501 not implemented */
-            pwsc->error=EINVAL;
-            pwsc->close=1;
+            /* TODO: pass these to the underlying client, as they
+             * might be interested in them (UPnP, maybe) */
+            ws_set_err(pwsc,E_WS_REQTYPE);
             ws_returnerror(pwsc,501,"Not implemented");
             ws_close(pwsc);
-            DPRINTF(E_SPAM,L_WS,"Error: not get or post.  Exiting ws_dispatcher\n");
+            ws_dprintf(L_WS_SPAM,"Error: not get or post.  Exiting ws_dispatcher\n");
+            WS_EXIT();
             return NULL;
         }
 
@@ -848,12 +1014,12 @@ void *ws_dispatcher(void *arg) {
         pwsc->uri=strdup(first);
 
         /* Get headers */
-        if((ws_getheaders(pwsc)) || (!last)) { /* didn't provide a HTTP/1.x */
+        if((!ws_getheaders(pwsc)) || (!last)) { /* didn't provide a HTTP/1.x */
             /* error already set */
-            DPRINTF(E_LOG,L_WS,"Thread %d: Couldn't parse headers - aborting\n",
-                    pwsc->threadno);
-            pwsc->close=1;
+            ws_dprintf(L_WS_LOG,"Thread %d: Couldn't parse headers - aborting\n",pwsc->threadno);
+            ws_should_close(pwsc,TRUE);
             ws_close(pwsc);
+            WS_EXIT();
             return NULL;
         }
 
@@ -867,16 +1033,16 @@ void *ws_dispatcher(void *arg) {
             pwsc->close=ws_testarg(&pwsc->request_headers,"connection","close");
         }
 
-        DPRINTF(E_DBG,L_WS,"Thread %d: Connection type %s: Connection: %s\n",
+        ws_dprintf(L_WS_DBG,"Thread %d: Connection type %s: Connection: %s\n",
                 pwsc->threadno, last, pwsc->close ? "non-persist" : "persist");
 
         if(!pwsc->uri) {
-            pwsc->error=ENOMEM;
-            pwsc->close=1; /* force a full close */
-            DPRINTF(E_LOG,L_WS,"Thread %d: Error allocation URI\n",
+            ws_set_err(pwsc,E_WS_MEMORY);
+            ws_dprintf(L_WS_LOG,"Thread %d: Error allocation URI\n",
                     pwsc->threadno);
             ws_returnerror(pwsc,500,"Internal server error");
             ws_close(pwsc);
+            WS_EXIT();
             return NULL;
         }
 
@@ -885,13 +1051,13 @@ void *ws_dispatcher(void *arg) {
         strsep(&first,"?");
 
         if(first) { /* got some GET args */
-            DPRINTF(E_DBG,L_WS,"Thread %d: parsing GET args\n",pwsc->threadno);
+            ws_dprintf(L_WS_DBG,"Thread %d: parsing GET args\n",pwsc->threadno);
             ws_getgetvars(pwsc,first);
         }
 
         /* fix the URI by un urldecoding it */
 
-        DPRINTF(E_DBG,L_WS,"Thread %d: Original URI: %s\n",
+        ws_dprintf(L_WS_DBG,"Thread %d: Original URI: %s\n",
                 pwsc->threadno,pwsc->uri);
 
         first=ws_urldecode(pwsc->uri,ws_encoding_hack(pwsc));
@@ -911,7 +1077,7 @@ void *ws_dispatcher(void *arg) {
         }
 
 
-        DPRINTF(E_DBG,L_WS,"Thread %d: Translated URI: %s\n",pwsc->threadno,
+        ws_dprintf(L_WS_DBG,"Thread %d: Translated URI: %s\n",pwsc->threadno,
                 pwsc->uri);
 
         /* now, parse POST args */
@@ -923,10 +1089,10 @@ void *ws_dispatcher(void *arg) {
         handler=ws_findhandler(pwsp,pwsc,&req_handler,&auth_handler,&hdrs);
 
         time(&now);
-        DPRINTF(E_DBG,L_WS,"Thread %d: Time is %d seconds after epoch\n",
+        ws_dprintf(L_WS_DBG,"Thread %d: Time is %d seconds after epoch\n",
                 pwsc->threadno,now);
         gmtime_r(&now,&now_tm);
-        DPRINTF(E_DBG,L_WS,"Thread %d: Setting time header\n",pwsc->threadno);
+        ws_dprintf(L_WS_DBG,"Thread %d: Setting time header\n",pwsc->threadno);
         ws_addarg(&pwsc->response_headers,"Date",
                   "%s, %d %s %d %02d:%02d:%02d GMT",
                   ws_dow[now_tm.tm_wday],now_tm.tm_mday,
@@ -938,7 +1104,7 @@ void *ws_dispatcher(void *arg) {
                       pwsc->close ? "close" : "keep-alive");
 
             ws_addarg(&pwsc->response_headers,"Server",
-                      "mt-daapd/" VERSION);
+                      PACKAGE "/" VERSION);
 
             ws_addarg(&pwsc->response_headers,"Content-Type","text/html");
             ws_addarg(&pwsc->response_headers,"Content-Language","en_us");
@@ -946,11 +1112,11 @@ void *ws_dispatcher(void *arg) {
 
         /* Find the appropriate handler and dispatch it */
         if(handler == -1) {
-            DPRINTF(E_DBG,L_WS,"Thread %d: Using default handler.\n",
+            ws_dprintf(L_WS_DBG,"Thread %d: Using default handler.\n",
                     pwsc->threadno);
             ws_defaulthandler(pwsp,pwsc);
         } else {
-            DPRINTF(E_DBG,L_WS,"Thread %d: Using non-default handler\n",
+            ws_dprintf(L_WS_DBG,"Thread %d: Using non-default handler\n",
                     pwsc->threadno);
 
             can_dispatch=0;
@@ -975,7 +1141,7 @@ void *ws_dispatcher(void *arg) {
                     ws_addarg(&pwsc->response_headers,"WWW-Authenticate",
                               "Basic realm=\"webserver\"");
                     ws_returnerror(pwsc,401,"Unauthorized");
-                    pwsc->error=0;
+                    ws_set_err(pwsc,E_WS_SUCCESS); /* don't close! */
                 }
             } else {
                 can_dispatch=1;
@@ -990,57 +1156,94 @@ void *ws_dispatcher(void *arg) {
         }
 
         if((pwsc->close) || (pwsc->error) || (pwsp->stop)) {
-            pwsc->close=1;
+            ws_should_close(pwsc,TRUE);
             connection_done=1;
         }
         ws_close(pwsc);
     }
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_dispatcher\n");
+    
+    WS_EXIT();
     return NULL;
 }
 
 
-/*
- * ws_writefd
+/**
+ * Write a printf-style output to a connection.
+ * 
+ * FIXME: This has a max buffer length of 1024, and shold
+ * be fixed to use a variable-length buffer.  Note to self:
+ * use io_printf to write a platform-indepentent aprintf, or
+ * make an io_vprintf function...
  *
- * Write a printf-style output to a connfd
+ * Note also that the return value is particularly useless.
+ *
+ * @param pwsc session to print output to
+ * @param fmt format of output string
+ * @returns number of bytes in the formatted string, not bytes written
  */
 int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
     char buffer[1024];
     va_list ap;
+    uint32_t len;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_writefd\n");
+    WS_ENTER();
 
     va_start(ap, fmt);
     vsnprintf(buffer, 1024, fmt, ap);
     va_end(ap);
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_writefd\n");
-    return r_write(pwsc->fd,buffer,strlen(buffer));
+    len = strlen(buffer);
+    if(!io_write(pwsc->hclient,(unsigned char *)buffer,&len)) {
+        ws_dprintf(L_WS_LOG,"Error writing to client socket: %s",
+            io_errstr(pwsc->hclient));
+    }
+    
+    WS_EXIT();
+    return len;
 }
 
 /**
-* write a blob od data to the connfd
+* write a binary block of data to the connection
+*
+* @params pwsc connection to write data to
+* @params data data to write
+* @params len length of data to write
+* @returns bytes actually written
 */
 int ws_writebinary(WS_CONNINFO *pwsc, char *data, int len) {
-    return r_write(pwsc->fd,data,len);
+    uint32_t bytes_written;
+    
+    WS_ENTER();
+    bytes_written = (uint32_t) len;
+    if(!io_write(pwsc->hclient, (unsigned char *)data, &bytes_written)) {
+        ws_dprintf(L_WS_LOG,"Error writing to client socket: %s", 
+            io_errstr(pwsc->hclient));
+    }
+    
+    WS_EXIT();
+    return (int)bytes_written;
 }
 
-
-
-/*
- * ws_returnerror
- *
+/**
  * return a particular error code to the requesting
  * agent
  *
  * This will always succeed.  If it cannot, it will
  * just close the connection with prejudice.
+ *
+ * @param pwsc connection to write error to
+ * @param int error to return (500, 302, etc)
+ * @param description (internal server error, content moved, etc)
+ * @return TRUE on success
  */
 int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
     char *useragent;
+    int err_code;
+    char *err_str;
 
-    DPRINTF(E_WARN,L_WS,"Thread %d: Entering ws_returnerror (%d: %s)\n",
+    WS_ENTER();
+    
+    ws_dprintf(L_WS_WARN,"Thread %d: Entering ws_returnerror (%d: %s)\n",
             pwsc->threadno,error,description);
     ws_writefd(pwsc,"HTTP/1.1 %d %s\r\n",error,description);
 
@@ -1054,10 +1257,11 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
         ws_addarg(&pwsc->response_headers,"Content-Length","2");
         ws_emitheaders(pwsc);
         ws_writefd(pwsc,"\r\n");
-        return 0;
+        WS_EXIT();
+        return TRUE;
     }
 
-    pwsc->close=1;
+    ws_should_close(pwsc,TRUE);
     ws_addarg(&pwsc->response_headers,"Connection","close");
 
     ws_emitheaders(pwsc);
@@ -1066,105 +1270,121 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
     ws_writefd(pwsc,"%d %s</TITLE>\r\n<BODY>",error,description);
     ws_writefd(pwsc,"\r\n<H1>%s</H1>\r\n",description);
     ws_writefd(pwsc,"Error %d\r\n<hr>\r\n",error);
-    ws_writefd(pwsc,"<i>mt-daapd: %s\r\n<br>",VERSION);
-    if(errno)
+    ws_writefd(pwsc,"<i>" PACKAGE ": %s\r\n<br>",VERSION);
+    
+    ws_get_err(pwsc,&err_code, &err_str);
+    if(E_WS_SUCCESS != err_code)
         ws_writefd(pwsc,"Error: %s\r\n",strerror(errno));
 
     ws_writefd(pwsc,"</i></BODY>\r\n</HTML>\r\n");
 
-    DPRINTF(E_SPAM,L_WS,"Exiting ws_returnerror\n");
-    return 0;
+    WS_EXIT();
+    return TRUE;
 }
 
-/*
- * ws_defaulthandler
- *
+/**
  * default URI handler.  This simply finds the file
  * and serves it up
+ *
+ * @param pwsp webserver private struct
+ * @param pwsc connection to serve over
  */
 void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     char path[PATH_MAX];
     char resolved_path[PATH_MAX];
-    int file_fd;
-    off_t len;
+    IOHANDLE hfile;
+    uint64_t len;
 
-    DPRINTF(E_SPAM,L_WS,"Entering ws_defaulthandler\n");
+    WS_ENTER();
 
     snprintf(path,PATH_MAX,"%s/%s",pwsp->wsconfig.web_root,pwsc->uri);
     if(!realpath(path,resolved_path)) {
-        pwsc->error=errno;
-        DPRINTF(E_WARN,L_WS,"Exiting ws_defaulthandler: Cannot resolve %s\n",path);
+        ws_set_err(pwsc,E_WS_NATIVE);
+        ws_dprintf(L_WS_WARN,"Exiting ws_defaulthandler: Cannot resolve %s\n",path);
         ws_returnerror(pwsc,404,"Not found");
         ws_close(pwsc);
+        WS_EXIT();
         return;
     }
 
-    DPRINTF(E_DBG,L_WS,"Thread %d: Preparing to serve %s\n",
+    ws_dprintf(L_WS_DBG,"Thread %d: Preparing to serve %s\n",
             pwsc->threadno, resolved_path);
 
     if(strncmp(resolved_path,pwsp->wsconfig.web_root,
                strlen(pwsp->wsconfig.web_root))) {
-        pwsc->error=EINVAL;
-        DPRINTF(E_WARN,L_WS,"Exiting ws_defaulthandler: Thread %d: "
+        ws_set_err(pwsc,E_WS_BADPATH);
+        ws_dprintf(L_WS_WARN,"Exiting ws_defaulthandler: Thread %d: "
                 "Requested file %s out of root\n",
                 pwsc->threadno,resolved_path);
         ws_returnerror(pwsc,403,"Forbidden");
         ws_close(pwsc);
+        WS_EXIT();
         return;
     }
 
-    file_fd=open(resolved_path,O_RDONLY);
-    if(file_fd == -1) {
-        pwsc->error=errno;
-        DPRINTF(E_WARN,L_WS,"Exiting ws_defaulthandler: Thread %d: "
+    hfile = io_new();
+    if(!hfile) {
+        ws_set_err(pwsc,E_WS_NATIVE);
+        ws_dprintf(L_WS_LOG,"Error creating file handle\n");
+        ws_returnerror(pwsc,500,"Internal Server Error");
+        ws_close(pwsc);
+        WS_EXIT();
+        return;
+    }
+
+    if(!io_open(hfile,"file://%U",resolved_path)) { /* default is O_RDONLY */
+        ws_set_err(pwsc,E_WS_NATIVE); /* FIXME: ws_set_errstr */
+        ws_dprintf(L_WS_LOG,"Error opening %s: %s",resolved_path,
+            io_errstr(hfile));
+        ws_dprintf(L_WS_WARN,"Exiting ws_defaulthandler: Thread %d: "
                 "Error opening %s: %s\n",
                 pwsc->threadno,resolved_path,strerror(errno));
         ws_returnerror(pwsc,404,"Not found");
         ws_close(pwsc);
+        
+        io_dispose(hfile);
+        WS_EXIT();
         return;
     }
 
     /* set the Content-Length response header */
-    len=lseek(file_fd,0,SEEK_END);
+    io_size(hfile,&len);
 
-    /* FIXME: assumes off_t == long */
-    if(len != -1) {
-        /* we have a real length */
-        DPRINTF(E_DBG,L_WS,"Length of file is %ld\n",(long)len);
-        ws_addarg(&pwsc->response_headers,"Content-Length","%ld",(long)len);
-        lseek(file_fd,0,SEEK_SET);
-    }
-
+    ws_dprintf(L_WS_DBG,"Length of file is %lld\n",len);
+    ws_addarg(&pwsc->response_headers,"Content-Length","%lld",len);
 
     ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
     ws_emitheaders(pwsc);
 
     /* now throw out the file */
-    copyfile(file_fd,pwsc->fd);
+    ws_copyfile(pwsc,hfile,NULL);
 
-    r_close(file_fd);
-    DPRINTF(E_DBG,L_WS,"Exiting ws_defaulthandler: "
-            "Thread %d: Served successfully\n",
-            pwsc->threadno);
+    io_close(hfile);
+    io_dispose(hfile);
+    
+    WS_EXIT();
     return;
 }
 
 
-/*
- * ws_testrequestheader
- *
- * Check to see if a request header is a particular value
+/**
+ * Check to see if a request header is a particular value.  This is
+ * a thin wrapper of the interal funcion ws_testarg
  *
  * Example:
  *
+ * if(ws_testrequestheader(pwsc,"Connection","keep-alive")) {}
+ *
+ * @param pwsc session to test headers of
+ * @param header request header to test
+ * @param value value to compare against
+ * @returns TRUE if request header is set to checked value
  */
 int ws_testrequestheader(WS_CONNINFO *pwsc, char *header, char *value) {
     return ws_testarg(&pwsc->request_headers,header,value);
 }
 
-/*
- * ws_testarg
- *
+/**
  * Check an arg for a particular value
  *
  * Example:
@@ -1176,23 +1396,23 @@ int ws_testarg(ARGLIST *root, char *key, char *value) {
     char *retval;
     int result;
 
-
-    DPRINTF(E_DBG,L_WS,"Checking to see if %s matches %s\n",key,value);
+    WS_ENTER();
+    ws_dprintf(L_WS_DBG,"Checking to see if %s matches %s\n",key,value);
 
     retval=ws_getarg(root,key);
     if(!retval) {
-        DPRINTF(E_DBG,L_WS,"Nope!\n");
-        return 0;
+        ws_dprintf(L_WS_DBG,"Nope!\n");
+        WS_EXIT();
+        return FALSE;
     }
 
     result=!strcasecmp(value,retval);
-    DPRINTF(E_DBG,L_WS,"And it %s\n",result ? "DOES!" : "does NOT");
+    ws_dprintf(L_WS_DBG,"And it %s\n",result ? "DOES!" : "does NOT");
+    WS_EXIT();
     return result;
 }
 
-/*
- * ws_getarg
- *
+/**
  * Find an argument in an argument list
  *
  * returns a pointer to the value if successful,
@@ -1202,23 +1422,29 @@ int ws_testarg(ARGLIST *root, char *key, char *value) {
  * stub in the pwsc.
  *
  * Ex: ws_getarg(pwsc->request_headers,"Connection");
+ *
+ * @param root root of linked ARGLIST list
+ * @param key key to find
+ * @returns pointer to value
  */
 char *ws_getarg(ARGLIST *root, char *key) {
     ARGLIST *pcurrent=root->next;
 
+    WS_ENTER();
     while((pcurrent)&&(strcasecmp(pcurrent->key,key)))
         pcurrent=pcurrent->next;
 
-    if(pcurrent)
+    if(pcurrent) {
+        WS_EXIT();
         return pcurrent->value;
+    }
 
+    WS_EXIT();
     return NULL;
 }
 
 
-/*
- * ws_addarg
- *
+/**
  * Add an argument to an arg list
  *
  * This will strdup the passed key and value.
@@ -1226,9 +1452,13 @@ char *ws_getarg(ARGLIST *root, char *key) {
  * be done in ws_close, and handler functions will
  * have to remember to ws_close them.
  *
- * RETURNS
- *   -1 on failure, with errno set (ENOMEM)
- *    0 on success
+ * FIXME: This uses a fixed-size buffer.  Again, need to make
+ * an aprintf function like io_printf.
+ *
+ * @param root root of the ARGLIST list ot add key/value to
+ * @param key key to add
+ * @param fmt printf-style format to add
+ * @returns TRUE on success
  */
 int ws_addarg(ARGLIST *root, char *key, char *fmt, ...) {
     char *newkey;
@@ -1238,6 +1468,8 @@ int ws_addarg(ARGLIST *root, char *key, char *fmt, ...) {
     va_list ap;
     char value[MAX_LINEBUFFER];
 
+    WS_ENTER();
+    
     va_start(ap,fmt);
     vsnprintf(value,sizeof(value),fmt,ap);
     va_end(ap);
@@ -1246,8 +1478,10 @@ int ws_addarg(ARGLIST *root, char *key, char *fmt, ...) {
     newvalue=strdup(value);
     pnew=(ARGLIST*)malloc(sizeof(ARGLIST));
 
-    if((!pnew)||(!newkey)||(!newvalue))
-        return -1;
+    if((!pnew)||(!newkey)||(!newvalue)) {
+        WS_EXIT();
+        return FALSE;
+    }
 
     pnew->key=newkey;
     pnew->value=newvalue;
@@ -1260,12 +1494,13 @@ int ws_addarg(ARGLIST *root, char *key, char *fmt, ...) {
     while(current) {
         if(!strcasecmp(current->key,key)) {
             /* got a match! */
-            DPRINTF(E_DBG,L_WS,"Updating %s from %s to %s\n",
+            ws_dprintf(L_WS_DBG,"Updating %s from %s to %s\n",
                     key,current->value,value);
             free(current->value);
             current->value = newvalue;
             free(newkey);
             free(pnew);
+            WS_EXIT();
             return 0;
         }
         current=current->next;
@@ -1273,30 +1508,35 @@ int ws_addarg(ARGLIST *root, char *key, char *fmt, ...) {
 
 
     pnew->next=root->next;
-    DPRINTF(E_DBG,L_WS,"Added *%s=%s*\n",newkey,newvalue);
+    ws_dprintf(L_WS_DBG,"Added *%s=%s*\n",newkey,newvalue);
     root->next=pnew;
 
-    return 0;
+    WS_EXIT();
+    return TRUE;
 }
 
-/*
- * ws_urldecode
- *
+/**
  * decode a urlencoded string
  *
  * the returned char will be malloced -- it must be
  * freed by the caller
  *
- * returns NULL on error (ENOMEM)
+ * @param string string to decode
+ * @param space_as_plus whether the client encodes ' ' as '+'
+ * @returns NULL on error, else the decoded URI
  */
 char *ws_urldecode(char *string, int space_as_plus) {
     char *pnew;
     char *src,*dst;
     int val=0;
 
+    WS_ENTER();
+    
     pnew=(char*)malloc(strlen(string)+1);
-    if(!pnew)
+    if(!pnew) {
+        WS_EXIT();
         return NULL;
+    }
 
     src=string;
     dst=pnew;
@@ -1338,27 +1578,34 @@ char *ws_urldecode(char *string, int space_as_plus) {
     }
 
     *dst='\0';
+    WS_EXIT();
     return pnew;
 }
 
 
-/*
- * ws_registerhandler
+/**
+ * Register a page and auth handler.  
  *
- * Register a page and auth handler.  Returns 0 on success,
- * returns -1 on failure.
- *
+ * @param ws pointer to private webserver struct
+ * @param stem the prefix of the handled web namespace ("/upnp", etc)
+ * @param handler page handler
+ * @param auth auth handler
+ * @param flags currently unused
+ * @param addheaders whether default headers should be added (date, etc)
+ * @returns TRUE on success, FALSE otherwise
  */
 int ws_registerhandler(WSHANDLE ws, char *stem,
                        void(*handler)(WS_CONNINFO*),
                        int(*auth)(WS_CONNINFO *, char *, char *),
+                       int flags,
                        int addheaders) {
     WS_HANDLER *phandler;
     WS_PRIVATE *pwsp = (WS_PRIVATE *)ws;
 
+    WS_ENTER();
     phandler=(WS_HANDLER *)malloc(sizeof(WS_HANDLER));
     if(!phandler)
-        DPRINTF(E_FATAL,L_WS,"Malloc error in ws_registerhandler\n");
+        ws_dprintf(L_WS_FATAL,"Malloc error in ws_registerhandler\n");
 
     phandler->stem=strdup(stem);
     phandler->req_handler=handler;
@@ -1369,17 +1616,22 @@ int ws_registerhandler(WSHANDLE ws, char *stem,
     phandler->next=pwsp->handlers.next;
     pwsp->handlers.next=phandler;
     ws_unlock_unsafe();
-
-    return 0;
+    
+    WS_EXIT();
+    return TRUE;
 }
 
-/*
- * ws_findhandler
- *
+/**
  * Given a URI, determine the appropriate handler.
  *
- * If a handler is found, it returns 0, otherwise, returns
- * -1
+ * If a handler is found, it returns TRUE, else FALSE
+ *
+ * @param pwsp pointer to internal webserver struct
+ * @param pwsc session (from which URI is gained)
+ * @param preq filled iwth request handler
+ * @param pauth filled with auth handler
+ * @param addheaders whether or not to add headers
+ * @returns TRUE on success, FALSE otherwise
  */
 int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
                    void(**preq)(WS_CONNINFO*),
@@ -1387,39 +1639,49 @@ int ws_findhandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc,
                    int *addheaders) {
     WS_HANDLER *phandler;
 
+    WS_ENTER();
     ws_lock_unsafe();
 
     phandler = pwsp->handlers.next;
     *preq=NULL;
 
-    DPRINTF(E_DBG,L_WS,"Thread %d: Preparing to find handler\n",
+    ws_dprintf(L_WS_DBG,"Thread %d: Preparing to find handler\n",
             pwsc->threadno);
 
     while(phandler) {
-        DPRINTF(E_DBG,L_WS,"Checking %s against handler for %s\n",
+        ws_dprintf(L_WS_DBG,"Checking %s against handler for %s\n",
                 pwsc->uri, phandler->stem);
         if(!strncasecmp(phandler->stem,pwsc->uri,strlen(phandler->stem))) {
             /* that's a match */
-            DPRINTF(E_DBG,L_WS,"Thread %d: URI Match!\n",pwsc->threadno);
+            ws_dprintf(L_WS_DBG,"Thread %d: URI Match!\n",pwsc->threadno);
             *preq=phandler->req_handler;
             *pauth=phandler->auth_handler;
             *addheaders=phandler->addheaders;
             ws_unlock_unsafe();
+            WS_EXIT();
             return 0;
         }
         phandler=phandler->next;
     }
 
     ws_unlock_unsafe();
-    DPRINTF(E_DBG,L_WS,"Didn't find one!\n");
+    ws_dprintf(L_WS_DBG,"Didn't find one!\n");
+    WS_EXIT();
     return -1;
 }
 
-/*
- * ws_decodepassword
- *
+/**
  * Given a base64 encoded Authentication request header,
- * decode it into the username and password
+ * decode it into the username and password.  The memory for
+ * the decoding is allocated, but the username and password
+ * share the same allocated chunk of memory.  The caller is
+ * responsible for freeing username when the username and
+ * password are no longer needed.
+ *
+ * @param header the base64 encoded source
+ * @param username username to be filled in
+ * @param password to be filled in
+ * @returns TRUE on success
  */
 int ws_decodepassword(char *header, char **username, char **password) {
     static char ws_xlat[256];
@@ -1435,9 +1697,10 @@ int ws_decodepassword(char *header, char **username, char **password) {
     *username=NULL;
     *password=NULL;
 
-    if(ws_lock_unsafe() == -1)
-        return -1;
-
+    WS_ENTER();
+    
+    ws_lock_unsafe();
+    
     if(!ws_xlat_init) {
         ws_xlat_init=1;
 
@@ -1454,8 +1717,8 @@ int ws_decodepassword(char *header, char **username, char **password) {
         ws_xlat['+'] = 62;
         ws_xlat['/'] = 63;
     }
-    if(ws_unlock_unsafe() == -1)
-        return -1;
+    
+    ws_unlock_unsafe();
 
     /* xlat table is initialized */
     while(*header != ' ')
@@ -1464,10 +1727,12 @@ int ws_decodepassword(char *header, char **username, char **password) {
     header++;
 
     decodebuffer=(unsigned char *)malloc(strlen(header));
-    if(!decodebuffer)
-        return -1;
+    if(!decodebuffer) {
+        WS_EXIT();
+        return FALSE;
+    }
 
-    DPRINTF(E_DBG,L_WS,"Preparing to decode %s\n",header);
+    ws_dprintf(L_WS_DBG,"Preparing to decode %s\n",header);
 
     memset(decodebuffer,0,strlen(header));
     len=0;
@@ -1479,8 +1744,11 @@ int ws_decodepassword(char *header, char **username, char **password) {
         if(pin[rack] != '=') {
             lookup=ws_xlat[pin[rack]];
             if(lookup == 0xFF) {
-                DPRINTF(E_WARN,L_WS,"Got garbage Authenticate header\n");
-                return -1;
+                ws_dprintf(L_WS_WARN,"Got garbage Authenticate header\n");
+                free(decodebuffer);
+                *username = NULL;
+                *password = NULL;
+                return FALSE;
             }
 
             /* valid character */
@@ -1517,42 +1785,60 @@ int ws_decodepassword(char *header, char **username, char **password) {
     }
 
     /* we now have the decoded string */
-    DPRINTF(E_DBG,L_WS,"Decoded %s\n",decodebuffer);
+    ws_dprintf(L_WS_DBG,"Decoded %s\n",decodebuffer);
 
     *username = (char*)decodebuffer;
     *password = *username;
 
     strsep(password,":");
 
-    DPRINTF(E_DBG,L_WS,"Decoded user=%s, pw=%s\n",*username,*password);
-    return 0;
+    ws_dprintf(L_WS_DBG,"Decoded user=%s, pw=%s\n",*username,*password);
+    WS_EXIT();
+    return TRUE;
 }
 
-/*
- * ws_addreponseheader
- *
+/**
  * Simple wrapper around the CONNINFO response headers
+ *
+ * FIXME: See comments on other printf style functions
+ *
+ * @param pwsc session to add a response header to
+ * @param header header to add
+ * @param fmt format of value to add
+ * @return TRUE on success
  */
 int ws_addresponseheader(WS_CONNINFO *pwsc, char *header, char *fmt, ...) {
     va_list ap;
     char value[MAX_LINEBUFFER];
 
+    WS_ENTER();
+    
     va_start(ap,fmt);
     vsnprintf(value,sizeof(value),fmt,ap);
     va_end(ap);
 
+    WS_EXIT(); /* FIXME: Put this after the ws_addarg */
     return ws_addarg(&pwsc->response_headers,header,value);
 }
 
-/*
- * ws_getvar
+/**
+ * Fetch a get/post variable (case insensitive)
  *
- * Simple wrapper around the CONNINFO request vars
+ * @param pwsc session to get variable for
+ * @param var get/post variable to retrieve
+ * @returns pointer to value of variable, or NULL
  */
 char *ws_getvar(WS_CONNINFO *pwsc, char *var) {
     return ws_getarg(&(pwsc->request_vars),var);
 }
 
+/**
+ * Fetch a http request header (case insenstive)
+ *
+ * @param pwsc session to get http request header for
+ * @param header header value to retrieve
+ * @returns pointer to value of header variable, or NULL
+ */
 char *ws_getrequestheader(WS_CONNINFO *pwsc, char *header) {
     return ws_getarg(&pwsc->request_headers,header);
 }
@@ -1572,7 +1858,7 @@ void *ws_get_local_storage(WS_CONNINFO *pwsc) {
  * the all operations manipulating local storage are locked,
  * not just the one you are working on.
  *
- * @param pwsc connection you are working with
+ * @param pwsc connection to lock storage pointer for
  */
 void ws_lock_local_storage(WS_CONNINFO *pwsc) {
     WS_PRIVATE *pwsp;
@@ -1581,6 +1867,13 @@ void ws_lock_local_storage(WS_CONNINFO *pwsc) {
     ws_lock_connlist(pwsp);
 }
 
+
+/**
+ * unlock the local storage pointer.  Again, this suffers (?)
+ * from the same lack of fine-grained semaphores described above
+ *
+ * @param pwsc connection to unlock storage for
+ */
 void ws_unlock_local_storage(WS_CONNINFO *pwsc) {
     WS_PRIVATE *pwsp;
 
@@ -1589,14 +1882,21 @@ void ws_unlock_local_storage(WS_CONNINFO *pwsc) {
 }
 
 /**
- * set the local storage pointer (and callback)
+ * set the local storage pointer (and callback).  If there is no
+ * callback, the storage pointer will be free'd when the session is
+ * terminated.  If the callback is set, then the application can
+ * choose a better session deallocation routine.
+ *
+ * @param pwsc session to set ptr and callback for
+ * @param ptr new local storage pointer
+ * @param callback callback function to call (passes the ptr)
  */
 void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *)) {
     if(!pwsc)
         return;
 
     if(pwsc->local_storage) {
-        DPRINTF(E_FATAL,L_WS,"ls already allocated");
+        ws_dprintf(L_WS_FATAL,"ls already allocated");
     }
 
     pwsc->storage_callback = callback;
@@ -1604,7 +1904,18 @@ void ws_set_local_storage(WS_CONNINFO *pwsc, void *ptr, void (*callback)(void *)
 }
 
 /**
- * walk through the connection list and enumerate all the items
+ * Walk through the connection list and enumerate all the items.
+ * vpp should be a pointer to a WSTHREADENUM type.  This is opaque,
+ * and used by the enumerator functions.  The same WSTHREADENUM must
+ * be passed to the ws_thread_enum_ functions.  Also, note that as soon
+ * as the enum is started, the connlist is locked, so the enumeration
+ * must be completed, or new connections will be blocked.
+ *
+ * FIXME: should this be a session connection?
+ *
+ * @param wsh server handle
+ * @param vpp opaque WSTHREADENUM structure
+ * @returns first WS_CONNINFO, or NULL, if no connections
  */
 WS_CONNINFO *ws_thread_enum_first(WSHANDLE wsh, WSTHREADENUM *vpp) {
     WS_PRIVATE *pwsp = (WS_PRIVATE *)wsh;
@@ -1624,6 +1935,16 @@ WS_CONNINFO *ws_thread_enum_first(WSHANDLE wsh, WSTHREADENUM *vpp) {
     return pwsc;
 }
 
+/**
+ * continue enumerating the connection list.  This should only
+ * be called if ws_thread_enum_first returns a non-null value.
+ * again, this must be called repeatedly until a NULL result is
+ * returned, or the connection list will remain locked
+ *
+ * @param wsh web server handle
+ * @param vpp opaque WSTHREADENUM structure
+ * @returns next connection handle, or NULL
+ */
 WS_CONNINFO *ws_thread_enum_next(WSHANDLE wsh, WSTHREADENUM *vpp) {
     WS_PRIVATE *pwsp = (WS_PRIVATE *)wsh;
     WS_CONNINFO *pwsc = NULL;
@@ -1641,6 +1962,16 @@ WS_CONNINFO *ws_thread_enum_next(WSHANDLE wsh, WSTHREADENUM *vpp) {
     return pwsc;
 }
 
+/**
+ * Enumerate a key list (could be either request headers or get/post vars).
+ * To start the enumeration, pass NULL to last.
+ *
+ * @param pwsc session to enumerate vars for
+ * @param key filled in with next key
+ * @param value filled in with next value
+ * @param last NULL to start the enumeration, or return value from last call
+ * @returns value o be passed into last for next round.
+ */
 void *ws_enum_var(WS_CONNINFO *pwsc, char **key, char **value, void *last) {
     ARGLIST *plist = (ARGLIST *)last;
 
@@ -1657,3 +1988,190 @@ void *ws_enum_var(WS_CONNINFO *pwsc, char **key, char **value, void *last) {
 
     return plist;
 }
+
+/**
+ * copy a file (given a fd) to the output socket
+ *
+ * FIXME: Move this to something like io_readwrite
+ *
+ * @param pwsc connection to stream output to
+ * @param fromfd fd to read and strem from
+ * @returns number of bytes copied, or -1  FIXME: pass copy bytes, return T/F
+ */
+int ws_copyfile(WS_CONNINFO *pwsc, IOHANDLE hfile, uint64_t *bytes_copied) {
+    int retval = FALSE;
+    unsigned char buf[BLKSIZE];
+
+    uint64_t total_bytes = 0;
+    uint32_t bytes_read = 0;
+    uint32_t bytes_written = 0;
+    
+    ASSERT(pwsc);
+    if(!pwsc)
+        return -1; /* error handling! */
+
+    bytes_read = BLKSIZE;
+    while(io_read(hfile,buf,&bytes_read) && bytes_read) {
+        bytes_written = bytes_read;
+        if(!io_write(pwsc->hclient,buf,&bytes_written)) {
+            ws_dprintf(L_WS_LOG,"Write error: %s\n",io_errstr(pwsc->hclient));
+            break;
+        }
+        
+        if(bytes_written != bytes_read) {
+            ws_dprintf(L_WS_LOG,"Internal error in ws_copyfile\n");
+            break;
+        }
+        
+        total_bytes += bytes_read;
+    }
+
+    if(!bytes_read) {
+        retval = TRUE;
+    } else {
+        ws_dprintf(L_WS_LOG,"Read error %s\n",io_errstr(hfile));
+    }
+    
+    if(bytes_copied)
+        *bytes_copied = total_bytes;
+    
+    return retval;
+}
+
+/**
+ * return the URI requested
+ *
+ * @param pwsc connection handle
+ * @returns the URI requested
+ */
+char *ws_uri(WS_CONNINFO *pwsc) {
+    return pwsc->uri;
+}
+
+/**
+ * mark this thread as one to be closed
+ *
+ * @param pwsc connection handle to close
+ * @param should_close whether the connection should be closed at finish
+ */
+void ws_should_close(WS_CONNINFO *pwsc, int should_close) {
+    ASSERT(pwsc);
+    
+    pwsc->close = should_close;
+}
+
+/**
+ * retrive the thread number, internal id
+ *
+ * @param pwsc connection to get thread number for
+ * @returns thread number (int)
+ */
+extern int ws_threadno(WS_CONNINFO *pwsc) {
+    ASSERT(pwsc);
+    
+    if(pwsc)
+        return pwsc->threadno;
+    return 0;
+}
+
+/**
+ * return the hostname of the connected endpoint
+ * 
+ * @param pwsc connection to get endpoint for
+ */
+extern char *ws_hostname(WS_CONNINFO *pwsc) {
+    ASSERT(pwsc);
+    ASSERT(pwsc->hostname);
+    
+    if((pwsc) && (pwsc->hostname)) {
+        return pwsc->hostname;
+    }
+    
+    return NULL;
+}
+
+/**
+ * set the local error for the selected socket session.  This looks
+ * up and populates the error message at the time of failure, presuming
+ * that the application will subsequently just print the error message
+ * anyway.
+ *
+ * @param pwsc session to set error for
+ * @param error code to set
+ * @return TRUE on success
+ */
+int ws_set_err(WS_CONNINFO *pwsc, int ws_error) {
+    ASSERT(pwsc);
+#ifdef WIN32
+    char lpErrorBuf[256];
+#endif
+    
+    if(!pwsc)
+        return FALSE;
+        
+    if(pwsc->err_msg)
+        free(pwsc->err_msg);
+        
+    pwsc->err_code = ws_error;
+    ws_should_close(pwsc,TRUE); /* close the session on error */
+
+    if(E_WS_SUCCESS == ws_error)
+        return TRUE;
+        
+    if(E_WS_NATIVE == ws_error) {
+#ifdef WIN32
+        pwsc->err_native = GetLastError();
+        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,pwsc->err_native,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),
+            (LPTSTR)lpErrorBuf,sizeof(lpErrorBuf),NULL);
+        pwsc->err_msg = strdup(lpErrorBuf);
+
+#else
+        pwsc->err_native = errno;
+        pwsc->err_msg = strdup(strerror(pwsc->err_native));
+#endif        
+    }
+    
+    return TRUE;
+}
+
+/**
+ * get the local error and error code for a selected socket session.
+ * Note that the error message is a pointer to an internal string.
+ * The error isn't valid of other socket operations take place.  The
+ * error should be dup'ed or used immediately.
+ * 
+ * Sample:
+ *
+ * char *errstr;
+ * int errcode;
+ *
+ * if(!ws_writebinary(pwsc,"foo",3)) {
+ *     ws_get_err(pwsc,&errcode, &errstr);
+ *     fprintf(stderr,"Error: %s",errstr);
+ * }
+ * @param pwsc session to get error of
+ * @param errcode to be filled with error number
+ * @param err_msg to be filled with non-freeable pointer to error msg
+ */
+int ws_get_err(WS_CONNINFO *pwsc, int *errcode, char **err_msg) {
+    ASSERT(pwsc);
+
+    if(!pwsc)
+        return FALSE;
+        
+    if(errcode) {
+        *errcode = pwsc->err_code;
+    }
+    
+    if(err_msg) {
+        if(E_WS_NATIVE != pwsc->err_code) {
+            *err_msg = ws_errors[pwsc->err_code];
+        } else {
+            *err_msg = pwsc->err_msg;
+        }
+    }
+    
+    return TRUE;
+}
+

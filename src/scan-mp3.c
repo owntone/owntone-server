@@ -37,6 +37,7 @@
 #include "daapd.h"
 #include "conf.h"
 #include "err.h"
+#include "io.h"
 #include "mp3-scanner.h"
 
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
@@ -252,9 +253,9 @@ char *scan_winamp_genre[] = {
 static int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3);
 static int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3);
 static int scan_mp3_decode_mp3_frame(unsigned char *frame,SCAN_FRAMEINFO *pfi);
-static void scan_mp3_get_average_bitrate(FILE *infile, SCAN_FRAMEINFO *pfi);
+static void scan_mp3_get_average_bitrate(IOHANDLE hfile, SCAN_FRAMEINFO *pfi);
 static int scan_mp3_is_numeric(char *str);
-static void scan_mp3_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi);
+static void scan_mp3_get_frame_count(IOHANDLE hfile, SCAN_FRAMEINFO *pfi);
 
 
 /**
@@ -658,30 +659,31 @@ int scan_mp3_decode_mp3_frame(unsigned char *frame, SCAN_FRAMEINFO *pfi) {
  * average bitrate from that.  It might not be as accurate as a full
  * frame count, but it's probably Close Enough (tm)
  *
- * @param infile file to scan for average bitrate
+ * @param hfile file to scan for average bitrate
  * @param pfi pointer to frame info struct to put the bitrate into
  */
-void scan_mp3_get_average_bitrate(FILE *infile, SCAN_FRAMEINFO *pfi) {
-    off_t file_size;
+void scan_mp3_get_average_bitrate(IOHANDLE hfile, SCAN_FRAMEINFO *pfi) {
+    uint64_t file_size;
     unsigned char frame_buffer[2900];
     unsigned char header[4];
     int index=0;
     int found=0;
-    off_t pos;
+    uint64_t pos;
+    uint32_t len;
     SCAN_FRAMEINFO fi;
     int frame_count=0;
     int bitrate_total=0;
 
     DPRINTF(E_DBG,L_SCAN,"Starting averaging bitrate\n");
 
-    fseek(infile,0,SEEK_END);
-    file_size=ftell(infile);
+    io_size(hfile,&file_size);
 
     pos=file_size/2;
 
     /* now, find the first frame */
-    fseek(infile,pos,SEEK_SET);
-    if(fread(frame_buffer,1,sizeof(frame_buffer),infile) != sizeof(frame_buffer))
+    io_setpos(hfile,pos,SEEK_SET);
+    len = sizeof(frame_buffer);
+    if(!io_read(hfile, frame_buffer, &len) || len != sizeof(frame_buffer))
         return;
 
     while(!found) {
@@ -695,8 +697,10 @@ void scan_mp3_get_average_bitrate(FILE *infile, SCAN_FRAMEINFO *pfi) {
 
         if(!scan_mp3_decode_mp3_frame(&frame_buffer[index],&fi)) {
             /* see if next frame is valid */
-            fseek(infile,pos + index + fi.frame_length,SEEK_SET);
-            if(fread(header,1,sizeof(header),infile) != sizeof(header)) {
+            io_setpos(hfile, pos + index + fi.frame_length, SEEK_SET);
+
+            len = sizeof(header);
+            if(!io_read(hfile,header,&len) || (len != sizeof(header))) {
                 DPRINTF(E_DBG,L_SCAN,"Could not read frame header\n");
                 return;
             }
@@ -713,11 +717,13 @@ void scan_mp3_get_average_bitrate(FILE *infile, SCAN_FRAMEINFO *pfi) {
 
     /* found first frame.  Let's move */
     while(frame_count < 10) {
-        fseek(infile,pos,SEEK_SET);
-        if(fread(header,1,sizeof(header),infile) != sizeof(header)) {
+        io_setpos(hfile,pos,SEEK_SET);
+        len = sizeof(header);
+        if(!io_read(hfile,header,&len) || (len != sizeof(header))) {
             DPRINTF(E_DBG,L_SCAN,"Could not read frame header\n");
             return;
         }
+
         if(scan_mp3_decode_mp3_frame(header,&fi)) {
             DPRINTF(E_DBG,L_SCAN,"Invalid frame header while averaging\n");
             return;
@@ -745,29 +751,31 @@ void scan_mp3_get_average_bitrate(FILE *infile, SCAN_FRAMEINFO *pfi) {
  * @param infile file to scan for frame count
  * @param pfi pointer to frame info struct to put framecount into
  */
-void scan_mp3_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi) {
-    int pos;
+void scan_mp3_get_frame_count(IOHANDLE hfile, SCAN_FRAMEINFO *pfi) {
+    uint64_t pos;
     int frames=0;
     unsigned char frame_buffer[4];
     SCAN_FRAMEINFO fi;
-    off_t file_size;
+    uint64_t file_size;
     int err=0;
     int cbr=1;
     int last_bitrate=0;
+    uint32_t len;
 
     DPRINTF(E_DBG,L_SCAN,"Starting frame count\n");
 
-    fseek(infile,0,SEEK_END);
-    file_size=ftell(infile);
+    io_size(hfile,&file_size);
 
     pos=pfi->frame_offset;
 
     while(1) {
         err=1;
-        DPRINTF(E_SPAM,L_SCAN,"Seeking to %d\n",pos);
+        DPRINTF(E_SPAM,L_SCAN,"Seeking to %ld\n",pos);
 
-        fseek(infile,pos,SEEK_SET);
-        if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
+        io_setpos(hfile,pos,SEEK_SET);
+        
+        len = sizeof(frame_buffer);
+        if(!io_read(hfile,frame_buffer,&len) || (len != sizeof(frame_buffer))) {
             /* check for valid frame */
             if(!scan_mp3_decode_mp3_frame(frame_buffer,&fi)) {
                 frames++;
@@ -792,7 +800,7 @@ void scan_mp3_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi) {
                 DPRINTF(E_DBG,L_SCAN,"Estimated frame count: %d\n",frames);
                 return;
             } else {
-                DPRINTF(E_DBG,L_SCAN,"Frame count aborted on error.  Pos=%d, Count=%d\n",
+                DPRINTF(E_DBG,L_SCAN,"Frame count aborted on error.  Pos=%ld, Count=%d\n",
                         pos, frames);
                 return;
             }
@@ -809,12 +817,13 @@ void scan_mp3_get_frame_count(FILE *infile, SCAN_FRAMEINFO *pfi) {
  * @param pmp3 where to put the found information
  */
 int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
-    FILE *infile;
+    IOHANDLE hfile;
     SCAN_ID3HEADER *pid3;
     SCAN_FRAMEINFO fi;
     unsigned int size=0;
-    off_t fp_size=0;
-    off_t file_size;
+    uint64_t fp_size=0;
+    uint64_t file_size;
+    uint32_t len;
     unsigned char buffer[1024];
     int index;
 
@@ -824,8 +833,11 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     int first_check=0;
     char frame_buffer[4];
 
-    if(!(infile=fopen(file,"rb"))) {
-        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",file);
+    if(!(hfile = io_new()))
+        DPRINTF(E_FATAL,L_SCAN,"Could not allocate io handle\n");
+
+    if(!(io_open(hfile,"file://%U",file))) {
+        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: %s\n",file,io_errstr(hfile));
         return FALSE;
     }
 
@@ -833,13 +845,15 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
     memset((void*)&fi,0x00,sizeof(fi));
 
-    if(fread(buffer,1,sizeof(buffer),infile) != sizeof(buffer)) {
-        if(ferror(infile)) {
-            DPRINTF(E_LOG,L_SCAN,"Error reading: %s\n",strerror(errno));
+    len = sizeof(buffer);
+    if(!io_read(hfile,buffer,&len) || len != sizeof(buffer)) {
+        if(len != sizeof(buffer)) {
+            DPRINTF(E_LOG,L_SCAN,"Error reading: %s\n",io_errstr(hfile));
         } else {
             DPRINTF(E_INF,L_SCAN,"Bad mp3 file? (short read): %s\n",file);
         }
-        fclose(infile);
+        io_close(hfile);
+        io_dispose(hfile);
         return FALSE;
     }
 
@@ -865,11 +879,13 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
      */
 
     while(!found) {
-        fseek(infile,fp_size,SEEK_SET);
-        DPRINTF(E_DBG,L_SCAN,"Reading in new block at %d\n",(int)fp_size);
-        if(fread(buffer,1,sizeof(buffer),infile) < sizeof(buffer)) {
+        io_setpos(hfile,fp_size,SEEK_SET);
+        DPRINTF(E_DBG,L_SCAN,"Reading in new block at %ld\n",(int)fp_size);
+        len = sizeof(buffer);
+        if(!io_read(hfile,buffer,&len) || (len != sizeof(buffer))) {
             DPRINTF(E_INF,L_SCAN,"Bad mp3 file? (Short read): %s\n",file);
-            fclose(infile);
+            io_close(hfile);
+            io_dispose(hfile);
             return TRUE;
         }
 
@@ -902,20 +918,23 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
                     /* No Xing... check for next frame */
                     DPRINTF(E_DBG,L_SCAN,"Found valid frame at %04x\n",(int)fp_size+index);
                     DPRINTF(E_DBG,L_SCAN,"Checking at %04x\n",(int)fp_size+index+fi.frame_length);
-                    fseek(infile,fp_size + index + fi.frame_length,SEEK_SET);
-                    if(fread(frame_buffer,1,sizeof(frame_buffer),infile) == sizeof(frame_buffer)) {
+
+                    io_setpos(hfile,fp_size + index + fi.frame_length,SEEK_SET);
+                    len =sizeof(frame_buffer);
+                    if(io_read(hfile,(unsigned char *)frame_buffer,&len) && (len == sizeof(frame_buffer))) {
                         if(!scan_mp3_decode_mp3_frame((u_char*)frame_buffer,&fi)) {
                             found=1;
                             fp_size += index;
                         }
                     } else {
                         DPRINTF(E_LOG,L_SCAN,"Could not read frame header: %s\n",file);
-                        fclose(infile);
+                        io_close(hfile);
+                        io_dispose(hfile);
                         return 0;
                     }
 
                     if(!found) {
-                        DPRINTF(E_DBG,L_SCAN,"Didn't pan out.\n");
+                        DPRINTF(E_DBG,L_SCAN,"Didn't pan out.  Sorry about that.\n");
                     }
                 }
             }
@@ -941,7 +960,8 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
     fi.frame_offset=fp_size;
 
     if(scan_mp3_decode_mp3_frame(&buffer[index],&fi)) {
-        fclose(infile);
+        io_close(hfile);
+        io_dispose(hfile);
         DPRINTF(E_LOG,L_SCAN,"Could not find sync frame: %s\n",file);
         DPRINTF(E_LOG,L_SCAN,"If this is a valid mp3 file that plays in "
                 "other applications, please email me at rpedde@users.sourceforge.net "
@@ -990,10 +1010,10 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
         DPRINTF(E_DBG,L_SCAN,"Starting aggressive file length scan\n");
         if(conf_get_int("general","scan_type",0) == 1) {
             /* get average bitrate */
-            scan_mp3_get_average_bitrate(infile, &fi);
+            scan_mp3_get_average_bitrate(hfile, &fi);
         } else {
             /* get full frame count */
-            scan_mp3_get_frame_count(infile, &fi);
+            scan_mp3_get_frame_count(hfile, &fi);
         }
         pmp3->bitrate=fi.bitrate;
     }
@@ -1022,7 +1042,8 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
     DPRINTF(E_DBG,L_SCAN," Song Length: %d\n",pmp3->song_length);
 
-    fclose(infile);
+    io_close(hfile);
+    io_dispose(hfile);
     return TRUE;
 }
 

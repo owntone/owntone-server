@@ -80,7 +80,7 @@ typedef struct tag_mp3file {
     uint32_t bitrate;
     uint32_t samplerate;
     uint32_t song_length;
-    uint32_t file_size; /* ?? */
+    uint64_t file_size; /* ?? */
     uint32_t year;        /* TDRC */
 
     uint32_t track;       /* TRCK */

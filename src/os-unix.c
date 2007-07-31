@@ -435,6 +435,7 @@ int _os_start_signal_handler(void) {
        (sigaddset(&set,SIGHUP) == -1) ||
        (sigaddset(&set,SIGCLD) == -1) ||
        (sigaddset(&set,SIGTERM) == -1) ||
+       (sigaddset(&set,SIGPIPE) == -1) ||
        (pthread_sigmask(SIG_BLOCK, &set, NULL) == -1)) {
         DPRINTF(E_LOG,L_MAIN,"Error setting signal set\n");
         return -1;

@@ -32,6 +32,7 @@
 
 #include "daapd.h"
 #include "err.h"
+#include "io.h"
 #include "mp3-scanner.h"
 
 #define GET_WAV_INT32(p) ((((uint32_t)((p)[3])) << 24) |   \
@@ -52,8 +53,8 @@
  * @returns TRUE if song should be added to database, FALSE otherwise
  */
 int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
-    FILE *infile;
-    size_t rl;
+    IOHANDLE hfile;
+    uint32_t len;
     unsigned char hdr[12];
     unsigned char fmt[16];
     uint32_t chunk_data_length;
@@ -74,15 +75,23 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
 
     DPRINTF(E_DBG,L_SCAN,"Getting WAV file info\n");
 
-    if(!(infile=fopen(filename,"rb"))) {
-        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading\n",filename);
+    if(!(hfile = io_new())) {
+        DPRINTF(E_LOG,L_SCAN,"Could not create file handle\n");
+        return FALSE;
+    }
+    
+    if(!io_open(hfile,"file://%U",filename)) {
+        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: %s\n",filename,
+            io_errstr(hfile));
+        io_dispose(hfile);
         return FALSE;
     }
 
-    rl = fread(hdr, 1, 12, infile);
-    if (rl != 12) {
+    len = 12;
+    if(!io_read(hfile,hdr,&len) || (len != 12)) {
         DPRINTF(E_WARN,L_SCAN,"Could not read wav header from %s\n",filename);
-        fclose(infile);
+        io_close(hfile);
+        io_dispose(hfile);
         return FALSE;
     }
 
@@ -91,7 +100,8 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     if (strncmp((char*)hdr + 0, "RIFF", 4) ||
         strncmp((char*)hdr + 8, "WAVE", 4)) {
         DPRINTF(E_WARN,L_SCAN,"Invalid wav header in %s\n",filename);
-        fclose(infile);
+        io_close(hfile);
+        io_dispose(hfile);
         return FALSE;
     }
 
@@ -101,9 +111,10 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     current_offset = 12;
 
     while(!found_fmt && !found_data) {
-        rl = fread(hdr, 1, 8, infile);
-        if (rl != 8) {
-            fclose(infile);
+        len = 8;
+        if(!io_read(hfile,hdr,&len) || (len != 8)) {
+            io_close(hfile);
+            io_dispose(hfile);
             DPRINTF(E_WARN,L_SCAN,"Error reading block: %s\n",filename);
             return FALSE;
         }
@@ -115,7 +126,8 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
                 hdr[0],hdr[1],hdr[2],hdr[3],block_len);
 
         if(block_len < 0) {
-            fclose(infile);
+            io_close(hfile);
+            io_dispose(hfile);
             DPRINTF(E_WARN,L_SCAN,"Bad block len: %s\n",filename);
             return FALSE;
         }
@@ -123,9 +135,10 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
         if(strncmp((char*)&hdr,"fmt ",4) == 0) {
             found_fmt = TRUE;
             DPRINTF(E_DBG,L_SCAN,"Found 'fmt ' header\n");
-            rl = fread(fmt,1,16,infile);
-            if(rl != 16) {
-                fclose(infile);
+            len = 16;
+            if(!io_read(hfile,fmt,&len) || (len != 16)) {
+                io_close(hfile);
+                io_dispose(hfile);
                 DPRINTF(E_WARN,L_SCAN,"Bad .wav file: can't read fmt: %s\n",
                         filename);
                 return FALSE;
@@ -147,11 +160,13 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
             found_data = TRUE;
         }
 
-        fseek(infile,current_offset + block_len + 8,SEEK_SET);
+        io_setpos(hfile,current_offset + block_len + 8,SEEK_SET);
         current_offset += block_len;
     }
 
-    fclose(infile);
+    io_close(hfile);
+    io_dispose(hfile);
+
     if (((format_data_length != 16) && (format_data_length != 18)) ||
         (compression_code != 1) ||
         (channel_count < 1)) {

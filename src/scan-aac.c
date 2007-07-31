@@ -36,6 +36,7 @@
 
 #include "daapd.h"
 #include "err.h"
+#include "io.h"
 #include "mp3-scanner.h"
 #include "scan-aac.h"
 
@@ -69,18 +70,16 @@ time_t scan_aac_mac_to_unix_time(int t) {
  * @param atom_length the size of the atom "drilled to"
  * @returns offset of the atom, or -1 if unsuccessful
  */
-off_t scan_aac_drilltoatom(FILE *aac_fp,char *atom_path,
+uint64_t scan_aac_drilltoatom(IOHANDLE hfile,char *atom_path,
                            unsigned int *atom_length) {
     long          atom_offset;
-    off_t         file_size;
+    uint64_t      file_size,pos;
     char          *cur_p, *end_p;
     char          atom_name[5];
 
     DPRINTF(E_SPAM,L_SCAN,"Searching for %s\n",atom_path);
 
-    fseek(aac_fp, 0, SEEK_END);
-    file_size = ftell(aac_fp);
-    rewind(aac_fp);
+    io_size(hfile, &file_size);
 
     end_p = atom_path;
     while (*end_p != '\0') {
@@ -94,13 +93,15 @@ off_t scan_aac_drilltoatom(FILE *aac_fp,char *atom_path,
             return -1;
         }
         strncpy(atom_name, cur_p, 4);
-        atom_offset = scan_aac_findatom(aac_fp, file_size,
+        atom_offset = scan_aac_findatom(hfile, file_size,
                                         atom_name, atom_length);
         if (atom_offset == -1) {
             return -1;
         }
-        DPRINTF(E_SPAM,L_SCAN,"Found %s atom at off %ld.\n",
-                atom_name, ftell(aac_fp) - 8);
+        
+        io_getpos(hfile,&pos);
+        DPRINTF(E_SPAM,L_SCAN,"Found %s atom at off %lld.\n",
+                atom_name, pos - 8);
 
         cur_p = strchr(cur_p, ':');
         if (cur_p != NULL) {
@@ -111,17 +112,21 @@ off_t scan_aac_drilltoatom(FILE *aac_fp,char *atom_path,
              * to having child atoms. This should be dealt in a better fashion
              * than this (table with skip offsets or a real mp4 parser.) */
             if (!strcmp(atom_name, "meta")) {
-                fseek(aac_fp, 4, SEEK_CUR);
+                io_setpos(hfile, 4, SEEK_CUR);
             } else if (!strcmp(atom_name, "stsd")) {
-                fseek(aac_fp, 8, SEEK_CUR);
+                io_setpos(hfile, 8, SEEK_CUR);
             } else if (!strcmp(atom_name, "mp4a")) {
-                fseek(aac_fp, 28, SEEK_CUR);
+                io_setpos(hfile, 28, SEEK_CUR);
             }
         }
     }
 
-    return ftell(aac_fp) - 8;
+    io_getpos(hfile, &pos);
+    return pos - 8;
 }
+
+
+/* FIXME: return TRUE/FALSE */
 
 /**
  * Given a file, search for a particular aac atom.
@@ -131,22 +136,25 @@ off_t scan_aac_drilltoatom(FILE *aac_fp,char *atom_path,
  * @param which_atom what atom name we are searching for
  * @param atom_size this will hold the size of the atom found
  */
-long scan_aac_findatom(FILE *fin, long max_offset,
+uint64_t scan_aac_findatom(IOHANDLE hfile, uint64_t max_offset,
                        char *which_atom, unsigned int *atom_size) {
-    long current_offset=0;
+    uint64_t current_offset=0;
     int size;
     char atom[4];
+    uint32_t bytes_read;
 
     while(current_offset < max_offset) {
-        if(fread((void*)&size,1,sizeof(int),fin) != sizeof(int))
+        bytes_read = sizeof(int);
+        if(!io_read(hfile,(unsigned char *)&size,&bytes_read) || (!bytes_read))
             return -1;
-
+            
         size=ntohl(size);
 
         if(size <= 7) /* something not right */
             return -1;
 
-        if(fread(atom,1,4,fin) != 4)
+        bytes_read = 4;
+        if(!io_read(hfile,(unsigned char *)atom,&bytes_read) || (!bytes_read))
             return -1;
 
         if(strncasecmp(atom,which_atom,4) == 0) {
@@ -154,7 +162,7 @@ long scan_aac_findatom(FILE *fin, long max_offset,
             return current_offset;
         }
 
-        fseek(fin,size-8,SEEK_CUR);
+        io_setpos(hfile,size-8,SEEK_CUR);
         current_offset+=size;
     }
 
@@ -169,8 +177,9 @@ long scan_aac_findatom(FILE *fin, long max_offset,
  * @returns FALSE if file should not be added to database, TRUE otherwise
  */
 int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
-    FILE *fin;
-    long atom_offset;
+    IOHANDLE hfile;
+    uint64_t atom_offset, pos;
+    uint32_t bytes_read;
     unsigned int atom_length;
 
     long current_offset=0;
@@ -189,27 +198,34 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     int time = 0;
 
 
-    if(!(fin=fopen(filename,"rb"))) {
-        DPRINTF(E_INF,L_SCAN,"Cannot open file %s for reading\n",filename);
+    hfile = io_new();
+    if(!hfile)
+        DPRINTF(E_FATAL,L_SCAN,"Malloc error in scan_get_aacinfo\n");
+
+    if(!io_open(hfile,"file://%U",filename)) {
+        DPRINTF(E_INF,L_SCAN,"Cannot open file %s for reading: %s\n",filename,
+            io_errstr(hfile));
+        io_dispose(hfile);
         return FALSE;
     }
 
-    atom_offset=scan_aac_drilltoatom(fin, "moov:udta:meta:ilst", &atom_length);
+    atom_offset=scan_aac_drilltoatom(hfile, "moov:udta:meta:ilst", &atom_length);
     if(atom_offset != -1) {
         /* found the tag section - need to walk through now */
-
-        while(current_offset < (long)atom_length) {
-            if(fread((void*)&current_size,1,sizeof(int),fin) != sizeof(int))
+        while(current_offset < (uint64_t)atom_length) {
+            bytes_read =  sizeof(int);
+            if(!io_read(hfile,(unsigned char *)&current_size,&bytes_read) || !bytes_read) 
                 break;
 
-            DPRINTF(E_SPAM,L_SCAN,"Current size: %d\n");
-
             current_size=ntohl(current_size);
+
+            DPRINTF(E_SPAM,L_SCAN,"Current size: %d\n",current_size);
 
             if(current_size <= 7) /* something not right */
                 break;
 
-            if(fread(current_atom,1,4,fin) != 4)
+            bytes_read = 4;
+            if(!io_read(hfile,(unsigned char *)current_atom,&bytes_read) || !bytes_read)
                 break;
 
             DPRINTF(E_SPAM,L_SCAN,"Current Atom: %c%c%c%c\n",
@@ -218,7 +234,7 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
 
             if(current_size > 4096) { /* Does this break anything? */
                 /* too big!  cover art, maybe? */
-                fseek(fin,current_size - 8,SEEK_CUR);
+                io_setpos(hfile,current_size - 8, SEEK_CUR);
             } else {
                 len=current_size-7;  /* for ill-formed too-short tags */
                 if(len < 22)
@@ -227,7 +243,8 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
                 current_data=(char*)malloc(len);  /* extra byte */
                 memset(current_data,0x00,len);
 
-                if(fread(current_data,1,current_size-8,fin) != current_size-8)
+                bytes_read = current_size - 8;
+                if(!io_read(hfile,(unsigned char *)current_data,&bytes_read) || (!bytes_read))
                     break;
 
                 if(!memcmp(current_atom,"\xA9" "nam",4)) { /* Song name */
@@ -292,18 +309,26 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     }
 
     /* got the tag info, now let's get bitrate, etc */
-    atom_offset = scan_aac_drilltoatom(fin, "moov:mvhd", &atom_length);
+    atom_offset = scan_aac_drilltoatom(hfile, "moov:mvhd", &atom_length);
     if(atom_offset != -1) {
-        fseek(fin, 4, SEEK_CUR);
-        fread((void *)&time, sizeof(int), 1, fin);
+        io_setpos(hfile,4,SEEK_CUR);
+
+        /* FIXME: error handling */
+        bytes_read = sizeof(int);
+        io_read(hfile,(unsigned char *)&time, &bytes_read);
+
         time = ntohl(time);
         pmp3->time_added = (int)scan_aac_mac_to_unix_time(time);
 
-        fread((void *)&time, sizeof(int), 1, fin);
+        bytes_read = sizeof(int);
+        io_read(hfile,(unsigned char *)&time, &bytes_read);
         time = ntohl(time);
         pmp3->time_modified = (int)scan_aac_mac_to_unix_time(time);
-        fread((void*)&sample_size,1,sizeof(int),fin);
-        fread((void*)&samples,1,sizeof(int),fin);
+
+        bytes_read = sizeof(int);
+        io_read(hfile,(unsigned char *)&sample_size,&bytes_read);
+        bytes_read = sizeof(int);
+        io_read(hfile,(unsigned char*)&samples, &bytes_read);
 
         sample_size=ntohl(sample_size);
         samples=ntohl(samples);
@@ -324,7 +349,7 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     pmp3->bitrate = 0;
 
     /* see if it is aac or alac */
-    atom_offset = scan_aac_drilltoatom(fin,
+    atom_offset = scan_aac_drilltoatom(hfile,
                                        "moov:trak:mdia:minf:stbl:stsd:alac",
                                        &atom_length);
 
@@ -339,40 +364,45 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     /* Get the sample rate from the 'mp4a' atom (timescale). This is also
        found in the 'mdhd' atom which is a bit closer but we need to
        navigate to the 'mp4a' atom anyways to get to the 'esds' atom. */
-    atom_offset=scan_aac_drilltoatom(fin,
+    atom_offset=scan_aac_drilltoatom(hfile,
                                      "moov:trak:mdia:minf:stbl:stsd:mp4a",
                                      &atom_length);
     if(atom_offset == -1) {
-        atom_offset=scan_aac_drilltoatom(fin,
+        atom_offset=scan_aac_drilltoatom(hfile,
                                          "moov:trak:mdia:minf:stbl:stsd:drms",
                                          &atom_length);
     }
 
     if (atom_offset != -1) {
-        fseek(fin, atom_offset + 32, SEEK_SET);
+        io_setpos(hfile, atom_offset + 32, SEEK_SET);
 
         /* Timescale here seems to be 2 bytes here (the 2 bytes before it are
          * "reserved") though the timescale in the 'mdhd' atom is 4. Not sure
          * how this is dealt with when sample rate goes higher than 64K. */
-        fread(buffer, sizeof(unsigned char), 2, fin);
+        bytes_read = 2;
+        io_read(hfile, (unsigned char *)buffer, &bytes_read);
 
         pmp3->samplerate = (buffer[0] << 8) | (buffer[1]);
 
         /* Seek to end of atom. */
-        fseek(fin, 2, SEEK_CUR);
+        io_setpos(hfile, 2, SEEK_CUR);
 
         /* Get the bit rate from the 'esds' atom. We are already positioned
            in the parent atom so just scan ahead. */
-        atom_offset = scan_aac_findatom(fin,
-                                        atom_length-(ftell(fin)-atom_offset),
+        io_getpos(hfile,&pos);
+        atom_offset = scan_aac_findatom(hfile,
+                                        atom_length-(pos-atom_offset),
                                         "esds", &atom_length);
 
         if (atom_offset != -1) {
             /* Roku Soundbridge seems to believe anything above 320K is
              * an ALAC encoded m4a.  We'll lie on their behalf.
              */
-            fseek(fin, atom_offset + 22, SEEK_CUR);
-            fread((void *)&bit_rate, sizeof(unsigned int), 1, fin);
+            io_setpos(hfile, atom_offset + 22, SEEK_CUR);
+
+            bytes_read = sizeof(unsigned int);
+            io_read(hfile, (unsigned char *)&bit_rate, &bytes_read);
+
             pmp3->bitrate = ntohl(bit_rate) / 1000;
             DPRINTF(E_DBG,L_SCAN,"esds bitrate: %d\n",pmp3->bitrate);
 
@@ -390,12 +420,13 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     if (pmp3->bitrate == 0) {
         /* calculate bitrate from song length... Kinda cheesy */
         DPRINTF(E_DBG,L_SCAN, "Guesstimating bit rate.\n");
-        atom_offset=scan_aac_drilltoatom(fin,"mdat",&atom_length);
+        atom_offset=scan_aac_drilltoatom(hfile,"mdat",&atom_length);
         if ((atom_offset != -1) && (pmp3->song_length >= 1000)) {
             pmp3->bitrate = atom_length / ((pmp3->song_length / 1000) * 128);
         }
     }
 
-    fclose(fin);
+    io_close(hfile);
+    io_dispose(hfile);
     return TRUE;  /* we'll return as much as we got. */
 }

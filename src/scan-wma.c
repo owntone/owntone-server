@@ -505,6 +505,7 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3, int e
     int track, tracknumber;
     char numbuff[40];
     char *tmp;
+    unsigned char *ptr;
 
 
     track = tracknumber = 0;
@@ -556,8 +557,9 @@ int wma_parse_extended_content_description(int fd,int size, MP3FILE *pmp3, int e
                 lseek(fd,descriptor_value_int,SEEK_CUR);
                 descriptor_byte_value = NULL;
             } else {
+                ptr = (unsigned char *)descriptor_byte_value;
                 if(!wma_file_read_bytes(fd,descriptor_value_int,
-                                        (unsigned char **)&descriptor_byte_value)){
+                                        &ptr)){
                     fail=1;
                 }
             }
