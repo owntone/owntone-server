@@ -30,7 +30,7 @@ size_t scan_ogg_read(void *ptr, size_t size, size_t nmemb, void *datasource) {
     IOHANDLE hfile = (IOHANDLE)datasource;
     uint32_t bytes_read;
     
-    bytes_read = size * nmemb;
+    bytes_read = (uint32_t)(size * nmemb);
     if(!io_read(hfile,ptr,&bytes_read))
         return -1;
         

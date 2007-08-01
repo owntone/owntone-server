@@ -72,7 +72,7 @@ time_t scan_aac_mac_to_unix_time(int t) {
  */
 uint64_t scan_aac_drilltoatom(IOHANDLE hfile,char *atom_path,
                            unsigned int *atom_length) {
-    long          atom_offset;
+    uint64_t      atom_offset;
     uint64_t      file_size,pos;
     char          *cur_p, *end_p;
     char          atom_name[5];

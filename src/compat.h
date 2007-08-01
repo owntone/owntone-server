@@ -5,12 +5,16 @@
 # include "config.h"
 #endif
 
-#ifndef HAVE_STRCASESTR
+#if !HAVE_STRCASESTR
 extern char *strcasestr(char* haystack, char* needle);
 #endif
 
 #ifndef HAVE_STRPTIME
 extern char *strptime(char *buf, char *fmt, struct tm *tm );
+#endif
+
+#if !HAVE_STRSEP
+char *strsep(char **stringp, const char *delim);
 #endif
 
 #ifndef HAVE_STRTOK_R

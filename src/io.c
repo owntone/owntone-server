@@ -336,6 +336,8 @@ static IO_FNPTR io_pfn_udplisten = {
 
 static WSADATA io_WSAData;
 
+#undef gettimeofday /* FIXME: proper gettimeofday fixups */
+
 int gettimeofday (struct timeval *tv, void* tz) {
   union {
     uint64_t ns100; /*time since 1 Jan 1601 in 100ns units */
@@ -422,14 +424,14 @@ int io_urldecode(char *str) {
                 io_err_printf(IO_LOG_DEBUG,"urldecode: bad hex digit\n");
                 return FALSE;
             }
-            digit1 = strchr(hexdigits,tolower(*current)) - hexdigits;
+            digit1 = (int)(strchr(hexdigits,tolower(*current)) - hexdigits);
 
             current++;
             if(!strchr(hexdigits,tolower(*current))) {
                 io_err_printf(IO_LOG_DEBUG,"urldecode: bad hex digit\n");
                 return FALSE;
             }
-            digit2 = strchr(hexdigits,tolower(*current)) - hexdigits;
+            digit2 = (int)(strchr(hexdigits,tolower(*current)) - hexdigits);
             current++;
 
             *dst++ = (char)(((digit1 & 0x0F) << 4) | (digit2 & 0x0F));
@@ -814,7 +816,7 @@ int io_read_timeout(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len,
 int io_read(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
     int result;
     unsigned char *buf_ptr = buf;
-    int read_size;
+    uint32_t read_size;
     uint32_t max_len = *len;
 
     ASSERT(io_initialized);

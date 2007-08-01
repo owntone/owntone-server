@@ -63,7 +63,7 @@ typedef struct tag_scan_frameinfo {
     int xing_offset;         /**< Where the xing header should be relative to end of hdr */
     int number_of_frames;    /**< Number of frames in the song */
 
-    int frame_offset;        /**< Where this frame was found */
+    uint64_t frame_offset;   /**< Where this frame was found */
 
     double version;          /**< MPEG version (e.g. 2.0, 2.5, 1.0) */
 
@@ -1036,7 +1036,7 @@ int scan_mp3_get_mp3fileinfo(char *file, MP3FILE *pmp3) {
 
     /* back-calculate bitrate from duration */
     if((pmp3->song_length)  && (!pmp3->bitrate)) { /* could still be unknown */
-        pmp3->bitrate = (file_size / pmp3->song_length) * 8;
+        pmp3->bitrate = (uint32_t)((file_size / pmp3->song_length) * 8);
     }
 
 

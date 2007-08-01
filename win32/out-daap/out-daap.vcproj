@@ -4,6 +4,7 @@
 	Version="8.00"
 	Name="out-daap"
 	ProjectGUID="{C1EF5133-DFB3-4FEC-B999-3655DBB14786}"
+	RootNamespace="out-daap"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -201,6 +202,10 @@
 		<Filter
 			Name="Header Files"
 			>
+			<File
+				RelativePath="..\..\src\compat.h"
+				>
+			</File>
 			<File
 				RelativePath="..\..\src\plugins\out-daap-db.h"
 				>

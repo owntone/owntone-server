@@ -63,7 +63,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib ogg_static.lib vorbis_static.lib vorbisfile_static.lib"
+				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib ws2_32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib ogg_static.lib vorbis_static.lib vorbisfile_static.lib"
 				OutputFile="$(OutDir)/mt-daapd.exe"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
@@ -143,7 +143,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib wsock32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib ogg_static.lib vorbis_static.lib vorbisfile_static.lib"
+				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib ws2_32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib ogg_static.lib vorbis_static.lib vorbisfile_static.lib"
 				OutputFile="$(OutDir)/mt-daapd.exe"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
@@ -189,6 +189,10 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
+				RelativePath="..\src\bsd-snprintf.c"
+				>
+			</File>
+			<File
 				RelativePath="..\src\compat.c"
 				>
 			</File>
@@ -229,6 +233,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\src\io.c"
+				>
+			</File>
+			<File
 				RelativePath="..\src\ll.c"
 				>
 			</File>
@@ -254,10 +262,6 @@
 			</File>
 			<File
 				RelativePath="..\src\rend-win32.c"
-				>
-			</File>
-			<File
-				RelativePath="..\src\restart.c"
 				>
 			</File>
 			<File
@@ -360,6 +364,14 @@
 			</File>
 			<File
 				RelativePath="..\src\ff-plugins.h"
+				>
+			</File>
+			<File
+				RelativePath="..\src\io-errors.h"
+				>
+			</File>
+			<File
+				RelativePath="..\src\io-plugin.h"
 				>
 			</File>
 			<File

@@ -49,17 +49,17 @@ struct tag_io_fnptr {
 };
 
 struct tag_io_privhandle {
-    int open;            /**< Whether file is open - don't touch */
-    ERR_T err;        /**< Current error code - don't touch */
+    int open;               /**< Whether file is open - don't touch */
+    ERR_T err;              /**< Current error code - don't touch */
     int is_local;
-    char *err_str;       /**< Current error string - don't touch */
-    IO_FNPTR *fnptr;     /**< Set on io_open by checking proto table */
-    IO_OPTIONLIST *pol;  /**< List of passed options */
-    char *proto;         /**< proto of file */
-    int buffering;       /**< are we in linebuffer mode? */
-    int buffer_offset;   /**< current offset pointer */
-    uint32_t buffer_len; /**< total size of buffer */
-    unsigned char *buffer;        /**< linebuffer */
+    char *err_str;          /**< Current error string - don't touch */
+    IO_FNPTR *fnptr;        /**< Set on io_open by checking proto table */
+    IO_OPTIONLIST *pol;     /**< List of passed options */
+    char *proto;            /**< proto of file */
+    int buffering;          /**< are we in linebuffer mode? */
+    uint32_t buffer_offset; /**< current offset pointer */
+    uint32_t buffer_len;    /**< total size of buffer */
+    unsigned char *buffer;  /**< linebuffer */
 
     /**
      * the following parameters should be set by the provider in

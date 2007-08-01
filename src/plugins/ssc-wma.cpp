@@ -15,7 +15,9 @@
 #include <string.h>
 
 #include <windows.h>
+#include <mmreg.h>
 #include <wmsdk.h>
+
 
 #include "ff-plugins.h"
 

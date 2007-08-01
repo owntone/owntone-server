@@ -1192,7 +1192,7 @@ int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
     vsnprintf(buffer, 1024, fmt, ap);
     va_end(ap);
 
-    len = strlen(buffer);
+    len = (uint32_t)strlen(buffer);
     if(!io_write(pwsc->hclient,(unsigned char *)buffer,&len)) {
         ws_dprintf(L_WS_LOG,"Error writing to client socket: %s",
             io_errstr(pwsc->hclient));
@@ -2101,10 +2101,11 @@ extern char *ws_hostname(WS_CONNINFO *pwsc) {
  * @return TRUE on success
  */
 int ws_set_err(WS_CONNINFO *pwsc, int ws_error) {
-    ASSERT(pwsc);
 #ifdef WIN32
     char lpErrorBuf[256];
 #endif
+
+    ASSERT(pwsc);
     
     if(!pwsc)
         return FALSE;

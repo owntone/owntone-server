@@ -108,8 +108,8 @@ int scan_aif_parse_comm(IOHANDLE hfile, MP3FILE *pmp3) {
     pmp3->bitrate = pmp3->samplerate * comm.channels *
         ((comm.sample_size + 7)/8)*8;
 
-    sec = pmp3->file_size / (pmp3->bitrate / 8);
-    ms = ((pmp3->file_size % (pmp3->bitrate / 8)) * 1000) / (pmp3->bitrate/8);
+    sec = (int)(pmp3->file_size / (pmp3->bitrate / 8));
+    ms = (int)(((pmp3->file_size % (pmp3->bitrate / 8)) * 1000) / (pmp3->bitrate/8));
     pmp3->song_length = (sec * 1000) + ms;
 
     pmp3->bitrate /= 1000;

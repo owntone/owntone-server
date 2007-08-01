@@ -356,8 +356,8 @@ int dmap_add_long(unsigned char *where, char *tag, uint64_t value) {
     where[4]=where[5]=where[6]=0;
     where[7]=8;
 
-    v_hi = (value >> 32) & 0xFFFFFFFF;
-    v_lo = value & 0xFFFFFFFF;
+    v_hi = (uint32_t)((value >> 32) & 0xFFFFFFFF);
+    v_lo = (uint32_t)(value & 0xFFFFFFFF);
 
     /* value */
     where[8] = (v_hi >> 24) & 0xFF;

@@ -43,7 +43,7 @@
 #include "out-daap.h"
 #include "out-daap-proto.h"
 
-#undef strsep  /* FIXME */
+//#undef strsep  /* FIXME */
 
 /**
  * Hold the inf for the output serializer

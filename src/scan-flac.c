@@ -108,7 +108,7 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
             if ((sec == 0) && (ms == 0))
                 break; /* Info is crap, escape div-by-zero. */
             pmp3->song_length = (sec * 1000) + ms;
-            pmp3->bitrate = (pmp3->file_size) / (((sec * 1000) + ms) / 8);
+            pmp3->bitrate = (uint32_t)((pmp3->file_size) / (((sec * 1000) + ms) / 8));
             pmp3->samplerate = block->data.stream_info.sample_rate;
             pmp3->bits_per_sample = block->data.stream_info.bits_per_sample;
             pmp3->sample_count = block->data.stream_info.total_samples;

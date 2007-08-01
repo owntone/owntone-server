@@ -35,39 +35,16 @@ static int os_maps_init=0;
 /* Forwards */
 static void _os_socket_startup(void);
 static void _os_socket_shutdown(void);
-static int _os_sock_to_fd(SOCKET sock);
 static void _os_lock(void);
 static void _os_unlock(void);
 static BOOL WINAPI _os_cancelhandler(DWORD dwCtrlType);
-static void _os_phandle_dump(void);
 char *_os_filepath(char *file);
 
 
 extern int gettimeout(struct timeval end,struct timeval *timeoutp);
 
-#define OSFI_OPEN     1
-#define OSFI_SHUTDOWN 2
-
-#define NOTSOCK (fd < MAXDESC)
-#define REALSOCK (file_info[fd - MAXDESC].sock)
-#define SOCKSTATE (file_info[fd - MAXDESC].state)
-
-#define MAXBACKLOG    5
-
-typedef struct tag_osfileinfo {
-    SOCKET sock;
-    int state;
-} OSFILEINFO;
-
 /* Globals */
-OSFILEINFO file_info[MAXDESC];
 char os_config_file[PATH_MAX];
-char *os_w32_socket_states[] = {
-    "Closed/Unused",
-    "Open/Listening",
-    "Shutdown, not closed"
-};
-
 /* "official" os interface functions */
 
 /**
@@ -101,17 +78,6 @@ int os_init(int foreground, char *runas) {
     os_maps_init=1;
     free(inifile);
 
-    _os_socket_startup();
-
-    if(!os_initialized) {
-        _os_lock();
-        if(!os_initialized) {
-            memset((void*)&file_info,0,sizeof(file_info));
-        }
-        os_initialized=1;
-        _os_unlock();
-    }
-
     if(!foreground) {
         /* startup as service */
         os_serviceflag = 1;
@@ -127,22 +93,6 @@ int os_init(int foreground, char *runas) {
 }
 
 /**
- * dump pseudo-handles
- */
-void _os_phandle_dump(void) {
-    int fd;
-    /* walk through and log the different sockets */
-    fd=1; /* skip the main listen socket */
-    while(fd < MAXDESC) {
-        if(file_info[fd].state) {
-            DPRINTF(E_LOG,L_MISC,"Socket %d (%d): State %s\n",fd,fd+MAXDESC,
-                os_w32_socket_states[file_info[fd].state]);
-        }
-        fd++;
-    }
-}
-
-/**
  * wait for signals
  *
  * don't care about signals on win32, so we'll just sleep
@@ -154,11 +104,6 @@ void os_wait(int seconds) {
  * shutdown the system-specific stuff started in os_init.
  */
 void os_deinit(void) {
-
-    _os_socket_shutdown();
-
-    _os_phandle_dump();
-
     if(os_serviceflag) {
         /* then we need to stop the service */
         SetConsoleCtrlHandler(_os_cancelhandler,FALSE);
@@ -227,116 +172,6 @@ static BOOL WINAPI _os_cancelhandler(DWORD dwCtrlType) {
     return TRUE;
 }
 
-
-int _os_sock_to_fd(SOCKET sock) {
-    int fd;
-
-    if(sock == INVALID_SOCKET)
-        return -1;
-
-    DPRINTF(E_DBG,L_MISC,"Converting socket to fd\n");
-
-    /* I was doing strange osfhandle stuff here, but it seemed
-     * to be leaking file handles, and I don't really know what
-     * it was doing.  Thanks, Microsoft.  Anyway, since I'm handling
-     * reads, writes, opens and closes, I might just as well hand out
-     * FAKE fds and swap them out to SOCKETS when I need to.  No
-     * more fd leaks.  Problem solved.
-     */
-/*
-    fd=_open_osfhandle(sock,O_RDWR|O_BINARY);
-//    fd=_open_osfhandle(sock,0);
-    if(fd > 0) {
-        file_info[fd].flags = OSFI_SOCKET | OSFI_OPEN;
-        file_info[fd].sock=sock;
-    } else {
-        DPRINTF(E_LOG,L_MISC,"Could not fd for socket osfhandle\n");
-    }
-*/
-    _os_lock();
-    fd=0;
-    while((fd < MAXDESC) && (file_info[fd].state)) {
-        fd++;
-    }
-
-    if(fd == MAXDESC) {
-        _os_unlock();
-        _os_phandle_dump();
-        DPRINTF(E_FATAL,L_MISC,"Out of pseudo file handles.  See ya\n");
-    }
-
-    DPRINTF(E_DBG,L_MISC,"Returning fd %d\n",fd + MAXDESC);
-    file_info[fd].sock = sock;
-    file_info[fd].state = OSFI_OPEN;
-    _os_unlock();
-    return fd + MAXDESC;
-}
-
-int os_acceptsocket(int fd, struct in_addr *hostaddr) {
-    socklen_t len = sizeof(struct sockaddr);
-    struct sockaddr_in netclient;
-    SOCKET retval;
-
-    DPRINTF(E_SPAM,L_MISC,"Accepting socket %d -- %d\n",fd,REALSOCK);
-
-    if(NOTSOCK || (SOCKSTATE != OSFI_OPEN)) {
-        DPRINTF(E_LOG,L_MISC,"Bad socket passed to accept\n");
-        return -1;
-    }
-
-    while (((retval =
-        accept(REALSOCK,(struct sockaddr *)(&netclient), &len)) == SOCKET_ERROR) &&
-               (WSAGetLastError() == WSAEINTR));
-
-    if (retval == INVALID_SOCKET) {
-        DPRINTF(E_LOG,L_MISC,"Error accepting...\n");
-        return _os_sock_to_fd(retval);
-    }
-
-    *hostaddr = netclient.sin_addr;
-    return _os_sock_to_fd(retval);
-}
-
-int os_waitfdtimed(int fd, struct timeval end) {
-    fd_set readset;
-    int retval;
-    struct timeval timeout;
-    SOCKET sock;
-
-    DPRINTF(E_SPAM,L_MISC,"Timed wait on fd %d\n");
-    if(NOTSOCK || (SOCKSTATE != OSFI_OPEN))
-        return -1;
-
-    sock = REALSOCK;
-
-    /*
-    if ((fd < 0) || (fd >= FD_SETSIZE)) {
-        errno = EINVAL;
-        return -1;
-    }
-    */
-
-    FD_ZERO(&readset);
-    FD_SET(sock, &readset);
-    if (gettimeout(end, &timeout) == -1)
-        return -1;
-    while (((retval = select(1, &readset, NULL, NULL, NULL)) == SOCKET_ERROR)
-           && (WSAGetLastError() == WSAEINTR)) {
-        if (gettimeout(end, &timeout) == -1)
-            return -1;
-        FD_ZERO(&readset);
-        FD_SET(fd, &readset);
-    }
-    if (retval == 0) {
-        errno = ETIME;
-        return -1;
-    }
-    if (retval == -1)
-        return -1;
-    DPRINTF(E_SPAM,L_MISC,"Timed wait successful\n");
-    return 0;
-}
-
 /* from the gnu c library */
 char *os_strsep(char **stringp, const char *delim) {
     char *begin, *end;
@@ -376,111 +211,6 @@ char *os_strsep(char **stringp, const char *delim) {
     }
     return begin;
 }
-
-int os_opensocket(unsigned short port) {
-    int error;
-    struct sockaddr_in server;
-    SOCKET sock;
-    int true = 1;
-    int fd;
-
-    DPRINTF(E_SPAM,L_MISC,"Opening socket\n");
-    /* make sure the file_info struct is initialized */
-    if(!os_initialized) {
-        _os_lock();
-        if(!os_initialized) {
-            memset((void*)&file_info,0,sizeof(file_info));
-            os_initialized=1;
-        }
-        _os_unlock();
-    }
-
-    if((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-        return -1;
-
-    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (char *)&true,
-                  sizeof(true)) == SOCKET_ERROR) {
-        error = WSAGetLastError();
-        while ((closesocket(sock) == SOCKET_ERROR) && (WSAGetLastError() == WSAEINTR));
-        errno = EINVAL; /* windows errnos suck */
-        return -1;
-    }
-
-    server.sin_family = AF_INET;
-    server.sin_addr.s_addr = htonl(INADDR_ANY);
-    server.sin_port = htons((short)port);
-    if ((bind(sock, (struct sockaddr *)&server, sizeof(server)) == -1) ||
-        (listen(sock, MAXBACKLOG) == -1)) {
-        error = errno;
-        while ((closesocket(sock) == SOCKET_ERROR) && (WSAGetLastError() == WSAEINTR));
-        errno = WSAGetLastError();
-        return -1;
-    }
-
-    fd=_os_sock_to_fd(sock);
-    DPRINTF(E_SPAM,L_MISC,"created socket %d\n",fd);
-    return fd;
-}
-
-int os_write(int fd, void *buffer, unsigned int count) {
-    int retval;
-
-    if(NOTSOCK) {
-        retval = _write(fd,buffer,count);
-    } else {
-        if(SOCKSTATE != OSFI_OPEN) {
-            DPRINTF(E_LOG,L_MISC,"Write to socket with status: %d\n",
-                file_info[fd-MAXDESC].state);
-            return -1;
-        }
-        retval=send(REALSOCK,buffer,count,0);
-    }
-    return retval;
-}
-
-int os_read(int fd,void *buffer,unsigned int count) {
-    int retval;
-
-//    DPRINTF(E_SPAM,L_MISC,"Reading %d bytes from %d\n",count,fd);
-    if(NOTSOCK) {
-        retval = _read(fd,buffer,count);
-    } else {
-        if(SOCKSTATE != OSFI_OPEN) {
-            DPRINTF(E_LOG,L_MISC,"Read to socket with status: %d\n",
-                file_info[fd-MAXDESC].state);
-            return -1;
-        }
-        retval=recv(REALSOCK,buffer,count,0);
-//        DPRINTF(E_SPAM,L_MISC,"Actually returning %d\n",retval);
-    }
-    return retval;
-}
-
-int os_shutdown(int fd, int how) {
-    if(NOTSOCK || (SOCKSTATE != OSFI_OPEN))
-        return -1;
-
-    SOCKSTATE = OSFI_SHUTDOWN;
-    shutdown(REALSOCK,how);
-    return 0;
-}
-
-
-int os_close(int fd) {
-    if(NOTSOCK) {
-        _close(fd);
-    } else { /* socket */
-        if(SOCKSTATE == OSFI_OPEN) {
-            os_shutdown(fd,SHUT_RDWR);
-        }
-        if(SOCKSTATE == OSFI_SHUTDOWN) {
-            closesocket(REALSOCK);
-            SOCKSTATE = 0;
-        }
-    }
-    return 0;
-}
-
 
 /**
  * get uid of current user.  this is really stubbed, as it's only used
@@ -841,30 +571,5 @@ int os_stat(const char *path, struct _stat *sb) {
 int os_lstat(const char *path, struct _stat *sb) {
     return os_stat(path,sb);
 }
-
-
-/* These should be fixed by io_ functions
-int os_open(const char *filename, int oflag) {
-    WCHAR utf16_path[PATH_MAX+1];
-    int fd;
-
-    memset(utf16_path,0,sizeof(utf16_path));
-    util_utf8toutf16((unsigned char *)&utf16_path,PATH_MAX * 2,(char*)filename,(int)strlen(filename));
-
-    fd = _wopen(utf16_path, oflag | O_BINARY);
-    return fd;
-}
-
-FILE *os_fopen(const char *filename, const char *mode) {
-    WCHAR utf16_path[PATH_MAX+1];
-    WCHAR utf16_mode[10];
-
-    memset(utf16_path,0,sizeof(utf16_path));
-    memset(utf16_mode,0,sizeof(utf16_mode));
-    util_utf8toutf16((unsigned char *)&utf16_path,PATH_MAX * 2,(char*)filename,(int)strlen(filename));
-    util_utf8toutf16((unsigned char *)&utf16_mode,10 * 2,(char*)mode,(int)strlen(mode));
-    return _wfopen((wchar_t *)&utf16_path, (wchar_t *)&utf16_mode);
-}
-*/
 
 
