@@ -111,7 +111,7 @@ void err_reopen(void) {
         return;
 
     io_close(err_file);
-    if(!io_open("file://%U?mode=a",err_filename)) {
+    if(!io_open("file://%U?mode=a&ascii=1",err_filename)) {
         /* what to do when you lose your logging mechanism?  Keep
          * going?
          */

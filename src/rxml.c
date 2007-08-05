@@ -148,7 +148,7 @@ int rxml_open(RXMLHANDLE *vp, char *file,
     if(!pnew->hfile)
         RXML_ERROR(pnew,E_RXML_MALLOC);
 
-    if(!io_open(pnew->hfile, "file://%U", file)) {
+    if(!io_open(pnew->hfile, "file://%U?ascii=1", file)) {
         io_dispose(pnew->hfile);
         pnew->hfile = NULL;
         RXML_ERROR(pnew,E_RXML_OPEN);   

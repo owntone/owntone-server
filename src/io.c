@@ -898,22 +898,28 @@ int io_readline_timed(IO_PRIVHANDLE *phandle, unsigned char *buf,
                       uint32_t *len, uint32_t *ms) {
     uint32_t numread = 0;
     uint32_t to_read;
-
+    int ascii = 0;
+    
+    if(io_option_get(phandle,"ascii",NULL))
+        ascii = 1;
+        
     io_err_printf(IO_LOG_SPAM,"entering readline_timed\n");
     
     while(numread < (*len - 1)) {
         to_read = 1;
         if(io_read_timeout(phandle, buf + numread, &to_read, ms)) {
-            numread += to_read;
-            if(buf[numread-1] == '\n') {
-                buf[numread-1] = '\0';
-                *len = numread;
-                return TRUE;
-            }
-            if(!to_read) { /* EOF */
-                *len = numread;
-                buf[numread] = '\0';
-                return TRUE;
+            if((!ascii) || (to_read != '\r')) {
+                numread += to_read;
+                if(buf[numread-1] == '\n') {
+                    buf[numread-1] = '\0';
+                    *len = numread;
+                    return TRUE;
+                }
+                if(!to_read) { /* EOF */
+                    *len = numread;
+                    buf[numread] = '\0';
+                    return TRUE;
+                }
             }
         }
     }
@@ -955,13 +961,21 @@ int io_readline(IO_PRIVHANDLE *phandle, unsigned char *buf,
  */
 int io_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
     int result;
+    int ascii=0;
+    int must_free=FALSE;
+    unsigned char *real_buffer;
+    unsigned char *dst;
 
+    uint32_t ascii_len;
+    uint32_t index;
+    uint32_t real_len;
+    
     ASSERT(io_initialized);   /* call io_init first */
     ASSERT(phandle);
     ASSERT(phandle->open);
     ASSERT(phandle->fnptr);
     ASSERT(phandle->fnptr->fn_write);
-
+                
     if((!phandle) || (!phandle->open) || (!phandle->fnptr)) {
         io_err(phandle,IO_E_NOTINIT);
         *len = 0;
@@ -974,10 +988,50 @@ int io_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
         return FALSE;
     }
 
-    result = phandle->fnptr->fn_write(phandle,buf,len);
+
+#ifdef WIN32
+    // We won't do ascii mode on non-windows platforms
+    if(io_option_get(phandle,"ascii",NULL))
+        ascii = 1;
+#endif
+
+    if(ascii) {
+        ascii_len = *len;
+        for(index = 0; index < *len; index++) {
+            if(buf[index] == '\n')
+                ascii_len++;
+        }
+        real_buffer = (unsigned char *)malloc(ascii_len);
+        if(!real_buffer) {
+            io_err_printf(IO_LOG_FATAL,"Could not alloc buffer in io_printf\n");
+            exit(-1);
+        }
+        
+        must_free = TRUE;
+        dst = real_buffer;
+        for(index = 0; index < *len; index++) {
+            *dst++ = buf[index];
+            if(buf[index] == '\n')
+                *dst++ = '\r';
+        }
+        real_len = ascii_len;
+    } else {
+        real_buffer = buf; /* just write what was passed */
+        real_len = *len;
+    }
+    
+    result = phandle->fnptr->fn_write(phandle,real_buffer,&real_len);
+
     if(!result)
         io_err(phandle,IO_E_OTHER);
 
+    if(must_free) {
+        if(real_len == ascii_len) /* lie about how much we wrote */
+            real_len = *len;
+        free(real_buffer);
+    }
+    
+    *len = real_len;
     return result;
 }
 

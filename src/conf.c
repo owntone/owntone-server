@@ -614,7 +614,7 @@ int conf_read(char *file) {
         DPRINTF(E_FATAL,L_CONF,"Malloc eror in io_new()\n");
 
     DPRINTF(E_DBG,L_CONF,"Loading config file %s\n",conf_file);
-    if(!io_open(hconfig,"file://%U",conf_file)) {
+    if(!io_open(hconfig,"file://%U?ascii=1",conf_file)) {
         DPRINTF(E_LOG,L_MISC,"Error opening config file: %s\n",io_errstr(hconfig));
         io_dispose(hconfig);
         return CONF_E_FOPEN;
@@ -1255,7 +1255,7 @@ int conf_write(void) {
     if(!outfile) 
         DPRINTF(E_FATAL,L_CONF,"io_new failed in conf_write\n");
 
-    if(io_open(outfile,"file://%U?mode=w",conf_main_file)) {
+    if(io_open(outfile,"file://%U?mode=w&ascii=1",conf_main_file)) {
         retval = _conf_write(outfile,conf_main,0,NULL);
         io_close(outfile);
         io_dispose(outfile);
