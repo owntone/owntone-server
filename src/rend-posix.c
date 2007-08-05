@@ -48,19 +48,19 @@ Revision 1.32  2006/08/14 23:24:46  cheshire
 Re-licensed mDNSResponder daemon source code under Apache License, Version 2.0
 
 Revision 1.31  2006/06/12 18:22:42  cheshire
-<rdar://problem/4580067> mDNSResponder building warnings under Red Hat 64-bit (LP64) Linux
+<4580067> mDNSResponder building warnings under Red Hat 64-bit (LP64) Linux
 
 Revision 1.30  2005/10/26 22:21:16  cheshire
-<rdar://problem/4149841> Potential buffer overflow in mDNSResponderPosix
+<4149841> Potential buffer overflow in mDNSResponderPosix
 
 Revision 1.29  2005/03/04 21:35:33  cheshire
-<rdar://problem/4037201> Services.txt file not parsed properly when it contains more than one service
+<4037201> Services.txt file not parsed properly when it contains more than one service
 
 Revision 1.28  2005/01/11 01:55:26  ksekar
 Fix compile errors in Posix debug build
 
 Revision 1.27  2004/12/01 04:28:43  cheshire
-<rdar://problem/3872803> Darwin patches for Solaris and Suse
+<3872803> Darwin patches for Solaris and Suse
 Use version of daemon() provided in mDNSUNP.c instead of local copy
 
 Revision 1.26  2004/11/30 22:37:01  cheshire
@@ -85,7 +85,7 @@ Revision 1.21  2004/06/15 03:48:07  cheshire
 Update mDNSResponderPosix to take multiple name=val arguments in a sane way
 
 Revision 1.20  2004/05/18 23:51:26  cheshire
-Tidy up all checkin comments to use consistent "<rdar://problem/xxxxxxx>" format for bug numbers
+Tidy up all checkin comments to use consistent "<xxxxxxx>" format for bug numbers
 
 Revision 1.19  2004/03/12 08:03:14  cheshire
 Update comments
@@ -97,7 +97,7 @@ Revision 1.17  2003/12/11 19:11:55  cheshire
 Fix compiler warning
 
 Revision 1.16  2003/08/14 02:19:55  cheshire
-<rdar://problem/3375491> Split generic ResourceRecord type into two separate types: AuthRecord and CacheRecord
+<3375491> Split generic ResourceRecord type into two separate types: AuthRecord and CacheRecord
 
 Revision 1.15  2003/08/12 19:56:26  cheshire
 Update to APSL 2.0
@@ -109,28 +109,28 @@ Revision 1.13  2003/07/23 00:00:04  cheshire
 Add comments
 
 Revision 1.12  2003/07/15 01:55:16  cheshire
-<rdar://problem/3315777> Need to implement service registration with subtypes
+<3315777> Need to implement service registration with subtypes
 
 Revision 1.11  2003/07/14 18:11:54  cheshire
 Fix stricter compiler warnings
 
 Revision 1.10  2003/07/10 20:27:31  cheshire
-<rdar://problem/3318717> mDNSResponder Posix version is missing a 'b' in the getopt option string
+<3318717> mDNSResponder Posix version is missing a 'b' in the getopt option string
 
 Revision 1.9  2003/07/02 21:19:59  cheshire
-<rdar://problem/3313413> Update copyright notices, etc., in source code comments
+<3313413> Update copyright notices, etc., in source code comments
 
 Revision 1.8  2003/06/18 05:48:41  cheshire
 Fix warnings
 
 Revision 1.7  2003/05/06 00:00:50  cheshire
-<rdar://problem/3248914> Rationalize naming of domainname manipulation functions
+<3248914> Rationalize naming of domainname manipulation functions
 
 Revision 1.6  2003/03/08 00:35:56  cheshire
 Switched to using new "mDNS_Execute" model (see "mDNSCore/Implementer Notes.txt")
 
 Revision 1.5  2003/02/20 06:48:36  cheshire
-<rdar://problem/3169535> Xserve RAID needs to do interface-specific registrations
+<3169535> Xserve RAID needs to do interface-specific registrations
 Reviewed by: Josh Graessley, Bob Bradley
 
 Revision 1.4  2003/01/28 03:07:46  cheshire
@@ -497,7 +497,7 @@ int rend_private_init(char *user) {
         mDNSPosixGetFDSet(&mDNSStorage, &nfds, &readfds, &timeout);
         
         // 4. Call select as normal
-        DPRINTF(E_DBG,L_REND,"select(%d, %d.%06d)\n", nfds, 
+        DPRINTF(E_SPAM,L_REND,"select(%d, %d.%06d)\n", nfds, 
                 timeout.tv_sec, timeout.tv_usec);
         
         result = select(nfds, &readfds, NULL, NULL, &timeout);

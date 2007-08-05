@@ -2126,7 +2126,7 @@ mDNSexport void mDNS_Lock(mDNS *const m)
 	if (m->timenow_last - m->timenow > 0)
 		{
 		m->timenow_adjust += m->timenow_last - m->timenow;
-		LogMsg("mDNSPlatformRawTime went backwards by %ld ticks; setting correction factor to %ld", m->timenow_last - m->timenow, m->timenow_adjust);
+//		LogMsg("mDNSPlatformRawTime went backwards by %ld ticks; setting correction factor to %ld", m->timenow_last - m->timenow, m->timenow_adjust);
 		m->timenow = m->timenow_last;
 		}
 	m->timenow_last = m->timenow;
