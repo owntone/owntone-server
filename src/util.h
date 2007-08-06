@@ -17,6 +17,7 @@
 
 typedef enum {
     l_err,
+    l_err_list,
     l_conf,
     l_plugin,
     l_memdebug,

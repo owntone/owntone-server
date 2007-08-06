@@ -62,6 +62,11 @@
 # define PACKAGE "unknown daemon"
 #endif
 
+typedef struct err_threadlist_t {
+    uint32_t id;
+    struct err_threadlist_t *next;
+} ERR_THREADLIST;
+
 static int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
 static int err_logdest=0; /**< current log destination */
 static char err_filename[PATH_MAX + 1];
@@ -76,17 +81,75 @@ static char *err_categorylist[] = {
     "playlist","art","daap","main","rend","xml","parse","plugin","lock",NULL
 };
 
+static ERR_THREADLIST err_threadlist = { 0, NULL };
+
 /*
  * Forwards
  */
 
-static uint32_t _err_get_threadid(void);
+static uint32_t __err_get_threadid(void);
+static void __err_thread_add(void);
+static void __err_thread_del(void);
+static int __err_thread_check(void);
 
+/**
+ * add a thread id to the threadlist.  note that the threadlist semaphore must
+ * be locked.
+ */
+void __err_thread_add(void) {
+    ERR_THREADLIST *pnew;
+    
+    pnew = (ERR_THREADLIST *)malloc(sizeof(ERR_THREADLIST));
+    if(!pnew) {
+        fprintf(stderr,"malloc error in __err_thread_add\n");
+        exit(-1);
+    }
+            
+    pnew->id = __err_get_threadid();
+    pnew->next = err_threadlist.next;
+    err_threadlist.next = pnew;
+}
+
+/**
+ * remove a thread id from the threadlist.  The threadlist semaphore must be locked
+ */
+void __err_thread_del(void) {
+    uint32_t thread_id = __err_get_threadid();
+    ERR_THREADLIST *last, *current;
+    last = &err_threadlist;
+    current = err_threadlist.next;
+    
+    while((current) && (current->id != thread_id)) {
+        last = current;
+        current = current->next;
+    }
+    
+    if(current) {
+        last->next = current->next;
+        free(current);
+    }
+}
+
+/**
+ * see if the current thread is already in the thread list
+ */
+int __err_thread_check(void) {
+    uint32_t thread_id = __err_get_threadid();
+    ERR_THREADLIST *current = err_threadlist.next;
+    
+    while(current && (current->id != thread_id))
+        current = current->next;
+        
+    if(current)
+        return TRUE;
+        
+    return FALSE;
+}
 
 /**
  * get an integer representation of a thread id
  */
-uint32_t _err_get_threadid(void) {
+uint32_t __err_get_threadid(void) {
     pthread_t tid;
     int thread_id=0;
 
@@ -143,6 +206,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     char errbuf[4096];
     struct tm tm_now;
     time_t tt_now;
+    int syslog_only = FALSE;
 
     if(level > 1) {
         if(level > err_debuglevel)
@@ -152,27 +216,22 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
             return;
     } /* we'll *always* process a log level 0 or 1 */
 
+    /* skip recursive calls to logging functions to avoid deadlocks (except for aborts) */
+    util_mutex_lock(l_err_list);
+    if(err_threadlist.next && __err_thread_check()) { /* skip logging */
+        if(!level) {
+            syslog_only = TRUE; /* syslog fatals even on recursive calls */
+        } else {
+            util_mutex_unlock(l_err_list);
+            return;
+        }
+    }
+    __err_thread_add();
+    util_mutex_unlock(l_err_list);
+
     va_start(ap, fmt);
     vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
     va_end(ap);
-
-    util_mutex_lock(l_err);
-
-    if((err_logdest & LOGDEST_LOGFILE) && err_file) {
-        tt_now=time(NULL);
-        localtime_r(&tt_now,&tm_now);
-        snprintf(timebuf,sizeof(timebuf),"%04d-%02d-%02d %02d:%02d:%02d",
-                 tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
-                 tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
-        io_printf(err_file,"%s (%08x): %s",timebuf,_err_get_threadid(),errbuf);
-        if(!level) io_printf(err_file,"%s: Aborting\n",timebuf);
-    }
-
-    /* always log to stderr on fatal error */
-    if((err_logdest & LOGDEST_STDERR) || (!level)) {
-        fprintf(stderr, "%s",errbuf);
-        if(!level) fprintf(stderr,"Aborting\n");
-    }
 
     /* always log fatals and level 1 to syslog */
     if(level <= 1) {
@@ -180,6 +239,29 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
             os_opensyslog();
         err_syslog_open=1;
         os_syslog(level,errbuf);
+
+        if(syslog_only && !level) {
+            fprintf(stderr,"Aborting\n");
+            exit(-1);
+        }
+    }
+    
+    util_mutex_lock(l_err);
+
+    if((err_logdest & LOGDEST_LOGFILE) && (err_file) && (!syslog_only)) {
+        tt_now=time(NULL);
+        localtime_r(&tt_now,&tm_now);
+        snprintf(timebuf,sizeof(timebuf),"%04d-%02d-%02d %02d:%02d:%02d",
+                 tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
+                 tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
+        io_printf(err_file,"%s (%08x): %s",timebuf,__err_get_threadid(),errbuf);
+        if(!level) io_printf(err_file,"%s: Aborting\n",timebuf);
+    }
+
+    /* always log to stderr on fatal error */
+    if((err_logdest & LOGDEST_STDERR) || (!level)) {
+        fprintf(stderr, "%s",errbuf);
+        if(!level) fprintf(stderr,"Aborting\n");
     }
 
     util_mutex_unlock(l_err);
@@ -190,6 +272,9 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     }
 #endif
 
+    util_mutex_lock(l_err_list);
+    __err_thread_del();
+    util_mutex_unlock(l_err_list);
 
     if(!level) {
         exit(EXIT_FAILURE);      /* this should go to an OS-specific exit routine */

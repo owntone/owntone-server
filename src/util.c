@@ -439,14 +439,21 @@ void util_mutex_lock(ff_lock_t which) {
     if(!_util_initialized)
         _util_mutex_init();
 
-    pthread_mutex_lock(&util_locks[(int)which]);
+    if(pthread_mutex_lock(&util_locks[(int)which])) {
+        fprintf(stderr,"Cannot lock mutex\n");
+        exit(-1);
+    }
 }
 
 /**
  * simple mutex wrapper for better debugging
  */
 void util_mutex_unlock(ff_lock_t which) {
-    pthread_mutex_unlock(&util_locks[(int)which]);
+    if(pthread_mutex_unlock(&util_locks[(int)which])) {
+        fprintf(stderr,"Cannot unlock mutex\n");
+        exit(-1);
+    }
+    
 }
 
 /**
