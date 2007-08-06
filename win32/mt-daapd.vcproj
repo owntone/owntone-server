@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="$(InputDir),..\src,.,.."
-				PreprocessorDefinitions="HAVE_CONFIG_H;ZLIB_DLL;_WINDOWS;FLAC;OGGVORBIS"
+				PreprocessorDefinitions="HAVE_CONFIG_H;ZLIB_DLL;_WINDOWS;WIN32;FLAC;OGGVORBIS"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -124,7 +124,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="$(InputDir),..\src,.,.."
-				PreprocessorDefinitions="HAVE_CONFIG_H;ZLIB_DLL;_WINDOWS;FLAC;OGGVORBIS"
+				PreprocessorDefinitions="HAVE_CONFIG_H;ZLIB_DLL;_WINDOWS;WIN32;FLAC;OGGVORBIS"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -372,6 +372,10 @@
 			</File>
 			<File
 				RelativePath="..\src\io-plugin.h"
+				>
+			</File>
+			<File
+				RelativePath="..\src\io.h"
 				>
 			</File>
 			<File

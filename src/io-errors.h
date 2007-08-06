@@ -23,7 +23,7 @@
 #define _IO_ERRORS_H_
 
 
-#define IO_E_OTHER           0x00000001 /**< Native error */
+#define IO_E_OTHER           0x00000000 /**< Native error */
 #define IO_E_BADPROTO        0x01000001 /**< Bad protocol type, unhandled URI */
 #define IO_E_NOTINIT         0x01000002 /**< io object not initialized with new */
 #define IO_E_BADFN           0x01000003 /**< uniplemented io function */

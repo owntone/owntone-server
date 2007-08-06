@@ -407,10 +407,16 @@ void *os_loadlib(char **pe, char *path) {
 
 void *os_libfunc(char **pe, void *handle, char *function) {
     void *retval;
+    char *e;
 
     retval = GetProcAddress((HMODULE)handle, function);
     if(!retval) {
-        if(pe) *pe = strdup(os_strerror(0));
+        if(pe) {
+            *pe = strdup(os_strerror(0));
+            e = *pe;
+            while((e[strlen(e) - 1] == '\n') || (e[strlen(e)-1] == '\r'))
+                e[strlen(e)-1] = '\0';
+        }
     }
     return retval;
 }

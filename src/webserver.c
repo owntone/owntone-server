@@ -2015,7 +2015,8 @@ int ws_copyfile(WS_CONNINFO *pwsc, IOHANDLE hfile, uint64_t *bytes_copied) {
         bytes_written = bytes_read;
         if(!io_write(pwsc->hclient,buf,&bytes_written)) {
             ws_dprintf(L_WS_LOG,"Write error: %s\n",io_errstr(pwsc->hclient));
-            break;
+            *bytes_copied = total_bytes;
+            return FALSE;
         }
         
         if(bytes_written != bytes_read) {

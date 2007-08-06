@@ -360,7 +360,7 @@ int err_setlogfile(char *file) {
 
     strncpy(err_filename,file,sizeof(err_filename)-1);
 
-    if(!io_open(err_file,"file://%U?mode=%s",err_filename,mode)) {
+    if(!io_open(err_file,"file://%U?mode=%s&ascii=1",err_filename,mode)) {
         fprintf(stderr,"Error opening logfile: %s",io_errstr(err_file));
         err_logdest &= ~LOGDEST_LOGFILE;
 

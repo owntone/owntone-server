@@ -1010,9 +1010,9 @@ int io_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
         must_free = TRUE;
         dst = real_buffer;
         for(index = 0; index < *len; index++) {
-            *dst++ = buf[index];
             if(buf[index] == '\n')
                 *dst++ = '\r';
+            *dst++ = buf[index];
         }
         real_len = ascii_len;
     } else {
@@ -1294,6 +1294,10 @@ void io_err(IO_PRIVHANDLE *phandle, uint32_t errorcode) {
         /* underlying provider must provide a free-able error message */
         phandle->err_str = phandle->fnptr->fn_geterrmsg(phandle, &phandle->err, &phandle->is_local);
     }
+
+    while((phandle->err_str[strlen(phandle->err_str) - 1] == '\n') ||
+        (phandle->err_str[strlen(phandle->err_str) -1] == '\r'))
+        phandle->err_str[strlen(phandle->err_str) -1] = '\0';
 }
 
 /**
@@ -1389,7 +1393,7 @@ int io_file_open(IO_PRIVHANDLE *phandle, char *uri) {
     else
         native_mode |= OPEN_EXISTING;
 
-    priv->fd = CreateFile(uri,native_permissions,0,NULL,
+    priv->fd = CreateFile(uri,native_permissions,FILE_SHARE_READ,NULL,
                           native_mode,FILE_ATTRIBUTE_NORMAL,NULL);
     if(priv->fd == INVALID_HANDLE_VALUE) {
         io_file_seterr(phandle,IO_E_FILE_OTHER);
@@ -1787,7 +1791,7 @@ char *io_file_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
             *is_local=FALSE;
 #ifdef WIN32
         FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,GetLastError(),MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),
+            NULL,priv->err,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),
             (LPTSTR)lpErrorBuf,sizeof(lpErrorBuf),NULL);
         return strdup(lpErrorBuf);
 #else
@@ -2286,11 +2290,18 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
         bufp += byteswritten, bytestowrite -= byteswritten) {
         if(priv->is_udp) { /* must be sending to */
             slen = sizeof(struct sockaddr_in);
-            byteswritten = sendto(priv->fd, buf, *len, 0,
+            byteswritten = sendto(priv->fd, bufp, bytestowrite, 0,
                                   (struct sockaddr *)&priv->si_remote, slen);
         } else {
-            byteswritten = send(priv->fd, buf, *len, 0);
+            byteswritten = send(priv->fd, bufp, bytestowrite, 0);
         }
+
+#ifdef WIN32
+        if(WSAGetLastError() == WSAEWOULDBLOCK) {
+            byteswritten = 0;
+            Sleep(50);
+        }
+#endif
         if((byteswritten == -1 ) && (errno != EINTR)) {
             io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
             return FALSE;
@@ -2362,17 +2373,20 @@ void io_socket_seterr(IO_PRIVHANDLE *phandle, ERR_T errcode) {
     } else {
         priv->local_err = FALSE;
 #ifdef WIN32
-        /* FIXME: should this be WSAGetLastError? */
-        priv->err = GetLastError();
-        /* FIXME: remap win32 error codes to unix error codes */
+        priv->err = WSAGetLastError();
+        /* map error codes to exported errors */
+        if(priv->err == WSAEADDRINUSE) {
+            priv->err = IO_E_SOCKET_INUSE;
+            priv->local_err = TRUE;
+        }
 #else
         priv->err = errno;
-#endif
         /* map error codes to exported errors */
         if(priv->err == EADDRINUSE) {
             priv->err = IO_E_SOCKET_INUSE;
             priv->local_err = TRUE;
         }
+#endif
     }
 }
 
@@ -2404,7 +2418,7 @@ char *io_socket_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
         *is_local = FALSE;
 #ifdef WIN32
         FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,priv->local_err,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),
+            NULL,priv->err,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),
             (LPTSTR)lpErrorBuf,sizeof(lpErrorBuf),NULL);
         return strdup(lpErrorBuf);
 
@@ -2456,7 +2470,7 @@ int io_socket_getwaitable(IO_PRIVHANDLE *phandle, int mode, WAITABLE_T *retval) 
     }
 
 #ifdef WIN32
-    io_err_printf(IO_LOG_DEBUG,"Building synthesized event for socket\n");
+    io_err_printf(IO_LOG_SPAM,"Building synthesized event for socket\n");
     if(priv->hEvent) {
         if(mode == priv->wait_mode) {
             *retval = priv->hEvent;
@@ -2813,7 +2827,7 @@ int io_wait_add(IO_WAITHANDLE *pwait, IO_PRIVHANDLE *phandle, int type) {
         return FALSE;
     }
 
-    io_err_printf(IO_LOG_DEBUG,"Getting io waitable of type %d\n",type);
+    io_err_printf(IO_LOG_SPAM,"Getting io waitable of type %d\n",type);
     if(!phandle->fnptr->fn_getwaitable(phandle, type, &waitable)) {
         io_err_printf(IO_LOG_WARN,"io_wait_add: error getting waitable\n");
         return FALSE;
@@ -2839,7 +2853,7 @@ int io_wait_add(IO_WAITHANDLE *pwait, IO_PRIVHANDLE *phandle, int type) {
     pwait->hWaitItems[pwait->dwItemCount] = waitable;
     pwait->ppHandle[pwait->dwItemCount] = phandle;
 
-    io_err_printf(IO_LOG_DEBUG,"Added event %08X with pHandle %08X as %d\n",
+    io_err_printf(IO_LOG_SPAM,"Added event %08X with pHandle %08X as %d\n",
         waitable,phandle,pwait->dwItemCount);
 
     pwait->dwItemCount++;
@@ -2847,7 +2861,7 @@ int io_wait_add(IO_WAITHANDLE *pwait, IO_PRIVHANDLE *phandle, int type) {
     if(waitable > pwait->max_fd)
         pwait->max_fd = waitable;
 
-    io_err_printf(IO_LOG_INFO,"Adding %d to waitlist\n",waitable);
+    io_err_printf(IO_LOG_SPAM,"Adding %d to waitlist\n",waitable);
 
     if(type & IO_WAIT_READ)
         FD_SET(waitable,&pwait->read_fds);
@@ -2893,7 +2907,7 @@ int io_wait(IO_WAITHANDLE *pwait, uint32_t *ms) {
 #ifdef WIN32
     ASSERT(pwait->dwItemCount);
 
-    io_err_printf(IO_LOG_INFO,"Waiting on %d items for %d sec\n",
+    io_err_printf(IO_LOG_SPAM,"Waiting on %d items for %d sec\n",
         pwait->dwItemCount,timeout.tv_sec);
 
     while(1) {
@@ -2911,7 +2925,7 @@ int io_wait(IO_WAITHANDLE *pwait, uint32_t *ms) {
         }
 
         /* Was definitely a WAIT_OBJECT_x.  Make sure it's not spurious */
-        io_err_printf(IO_LOG_DEBUG,"Got wait on index %d\n",pwait->dwWhichEvent);
+        io_err_printf(IO_LOG_SPAM,"Got wait on index %d\n",pwait->dwWhichEvent);
         if(!pwait->ppHandle[pwait->dwWhichEvent]->fnptr->fn_getsocket) { /* not a socket, must be a file */
             /* dummy up a result */
             pwait->wsaNetworkEvents.lNetworkEvents = FD_READ;
@@ -2919,18 +2933,18 @@ int io_wait(IO_WAITHANDLE *pwait, uint32_t *ms) {
         }
 
         if(!pwait->ppHandle[pwait->dwWhichEvent]->fnptr->fn_getsocket(pwait->ppHandle[pwait->dwWhichEvent],&sock)) {
-            io_err_printf(IO_LOG_WARN,"Could not get socket handle\n");
+            io_err_printf(IO_LOG_SPAM,"Could not get socket handle\n");
             return FALSE;
         }
 
-        io_err_printf(IO_LOG_DEBUG,"Getting event details for wait object\n");
+        io_err_printf(IO_LOG_SPAM,"Getting event details for wait object\n");
         WSAEnumNetworkEvents(sock,pwait->hWaitItems[pwait->dwWhichEvent],&pwait->wsaNetworkEvents);
         if(pwait->wsaNetworkEvents.lNetworkEvents != 0) {
-            io_err_printf(IO_LOG_DEBUG,"Got %ld\n",pwait->wsaNetworkEvents.lNetworkEvents);
+            io_err_printf(IO_LOG_SPAM,"Got %ld\n",pwait->wsaNetworkEvents.lNetworkEvents);
             break;
         }
 
-        io_err_printf(IO_LOG_DEBUG,"Skipping spurious wakeup\n");
+        io_err_printf(IO_LOG_SPAM,"Skipping spurious wakeup\n");
     }
 
     if(pwait->dwLastResult == WAIT_FAILED)
@@ -2953,7 +2967,7 @@ int io_wait(IO_WAITHANDLE *pwait, uint32_t *ms) {
         return FALSE;
     }
 
-    io_err_printf(IO_LOG_INFO,"selecting on %d nfds, for %d.%d sec\n",
+    io_err_printf(IO_LOG_SPAM,"selecting on %d nfds, for %d.%d sec\n",
                   pwait->max_fd+1,timeout.tv_sec,timeout.tv_usec);
 
     while(((retval = select(pwait->max_fd+1,&pwait->result_read,
