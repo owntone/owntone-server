@@ -194,7 +194,7 @@ int ssc_ffmpeg_open(void *vp, MP3FILE *pmp3) {
     handle->first_frame = 1;
     handle->raw=0;
 
-    _ppi->log(E_DBG,"opening %s\n",file);
+    pi_log(E_DBG,"opening %s\n",file);
 
     if(strcasecmp(codec,"flac") == 0) {
         handle->raw=1;
@@ -211,7 +211,7 @@ int ssc_ffmpeg_open(void *vp, MP3FILE *pmp3) {
         handle->samples = (uint32_t)pmp3->sample_count;
         handle->sample_rate = pmp3->samplerate;
 
-        _ppi->log(E_DBG,"opening file raw\n");
+        pi_log(E_DBG,"opening file raw\n");
         handle->pCodec = avcodec_find_decoder(id);
         if(!handle->pCodec) {
             handle->errnum = SSC_FFMPEG_E_BADCODEC;
@@ -235,7 +235,7 @@ int ssc_ffmpeg_open(void *vp, MP3FILE *pmp3) {
         handle->fin = fopen(file,"rb");
 #endif
         if(!handle->fin) {
-            _ppi->log(E_DBG,"could not open file\n");
+            pi_log(E_DBG,"could not open file\n");
             handle->errnum = SSC_FFMPEG_E_FILEOPEN;
             return FALSE;
         }
@@ -243,9 +243,9 @@ int ssc_ffmpeg_open(void *vp, MP3FILE *pmp3) {
         /* check to see if there is an id3 tag there... if so, skip it. */
         if(fread((unsigned char *)&id3,1,sizeof(id3),handle->fin) != sizeof(id3)) {
             if(ferror(handle->fin)) {
-                _ppi->log(E_LOG,"Error reading file: %s\n",file);
+                pi_log(E_LOG,"Error reading file: %s\n",file);
             } else {
-                _ppi->log(E_LOG,"Short file: %s\n",file);
+                pi_log(E_LOG,"Short file: %s\n",file);
             }
             handle->errnum = SSC_FFMPEG_E_FILEOPEN;
             fclose(handle->fin);
@@ -255,11 +255,11 @@ int ssc_ffmpeg_open(void *vp, MP3FILE *pmp3) {
 
         if(strncmp(id3.id,"ID3",3)==0) {
             /* found an ID3 header... */
-            _ppi->log(E_DBG,"Found ID3 header\n");
+            pi_log(E_DBG,"Found ID3 header\n");
             size = (id3.size[0] << 21 | id3.size[1] << 14 |
                     id3.size[2] << 7 | id3.size[3]);
             fseek(handle->fin,size + sizeof(SCAN_ID3HEADER),SEEK_SET);
-            _ppi->log(E_DBG,"Header length: %d\n",size);
+            pi_log(E_DBG,"Header length: %d\n",size);
         } else {
             fseek(handle->fin,0,SEEK_SET);
         }
@@ -267,7 +267,7 @@ int ssc_ffmpeg_open(void *vp, MP3FILE *pmp3) {
         return TRUE;
     }
     
-    _ppi->log(E_DBG,"opening file with format\n");
+    pi_log(E_DBG,"opening file with format\n");
     if(av_open_input_file(&handle->pFmtCtx,file,handle->pFormat,0,NULL) < 0) {
         handle->errnum = SSC_FFMPEG_E_FILEOPEN;
         return FALSE;
@@ -501,10 +501,10 @@ int ssc_ffmpeg_read(void *vp, char *buffer, int len) {
             byte_rate = sample_rate * channels * bits_per_sample / 8;
             block_align = channels * bits_per_sample / 8;
 
-            _ppi->log(E_DBG,"Channels.......: %d\n",channels);
-            _ppi->log(E_DBG,"Sample rate....: %d\n",sample_rate);
-            _ppi->log(E_DBG,"Bits/Sample....: %d\n",bits_per_sample);
-            _ppi->log(E_DBG,"Swab...........: %d\n",handle->swab);
+            pi_log(E_DBG,"Channels.......: %d\n",channels);
+            pi_log(E_DBG,"Sample rate....: %d\n",sample_rate);
+            pi_log(E_DBG,"Bits/Sample....: %d\n",bits_per_sample);
+            pi_log(E_DBG,"Swab...........: %d\n",handle->swab);
 
             memcpy(&handle->wav_header[0],"RIFF",4);
             _ssc_ffmpeg_le32(&handle->wav_header[4],36 + data_len);

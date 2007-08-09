@@ -92,7 +92,5 @@ typedef struct tag_daap_privinfo {
     WS_CONNINFO *pwsc;
 } PRIVINFO;
 
-extern PLUGIN_INPUT_FN *_ppi;
-
 #endif /* _OUT_DAAP_H_ */
 

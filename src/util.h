@@ -13,6 +13,7 @@
 # include <stdint.h>
 #endif
 
+#include <stdarg.h>
 #include <sys/types.h>
 
 typedef enum {
@@ -54,7 +55,8 @@ extern int util_utf16toutf8(unsigned char *utf8, int dlen, unsigned char *utf16,
 extern int util_utf16_byte_len(unsigned char *utf16);
 
 extern void util_hexdump(unsigned char *block, int len);
-
+extern char *util_vasprintf(char *fmt, va_list ap);
+extern char *util_asprintf(char *fmt, ...);
 
 #endif /* _UTIL_H_ */
 

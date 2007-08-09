@@ -46,8 +46,6 @@ struct tag_xmlstruct {
     XML_STREAMBUFFER *psb;
 };
 
-extern PLUGIN_INPUT_FN *_ppi;
-
 /* Forwards */
 void xml_get_stats(WS_CONNINFO *pwsc);
 void xml_set_config(WS_CONNINFO *pwsc);
@@ -72,7 +70,7 @@ int xml_write(XMLSTRUCT *pxml, char *fmt, ...) {
         if(!result)
             result = -1;
     } else {
-        result=_ppi->ws_writefd(pxml->pwsc,"%s",buffer);
+        result=pi_ws_writefd(pxml->pwsc,"%s",buffer);
     }
 
     return result;
@@ -101,14 +99,14 @@ XML_STREAMBUFFER *xml_stream_open(void) {
 
     psb = (XML_STREAMBUFFER*) malloc(sizeof(XML_STREAMBUFFER));
     if(!psb) {
-        _ppi->log(E_FATAL,"xml_stream_open: malloc\n");
+        pi_log(E_FATAL,"xml_stream_open: malloc\n");
     }
 
     psb->out_buffer = (unsigned char*) malloc(XML_STREAM_BLOCK);
     psb->in_buffer = (unsigned char*) malloc(XML_STREAM_BLOCK);
 
     if((!psb->out_buffer) || (!psb->in_buffer)) {
-        _ppi->log(E_FATAL,"xml_stream_open: malloc\n");
+        pi_log(E_FATAL,"xml_stream_open: malloc\n");
     }
 
     psb->strm.zalloc = Z_NULL;
@@ -146,9 +144,9 @@ int xml_stream_write(XMLSTRUCT *pxml, char *out) {
     while(!done) {
         result = deflate(&psb->strm, Z_NO_FLUSH);
         if(result != Z_OK) {
-            _ppi->log(E_FATAL,"Error in zlib: %d\n",result);
+            pi_log(E_FATAL,"Error in zlib: %d\n",result);
         }
-        _ppi->ws_writebinary(pxml->pwsc,(char*)psb->out_buffer,
+        pi_ws_writebinary(pxml->pwsc,(char*)psb->out_buffer,
                              XML_STREAM_BLOCK-psb->strm.avail_out);
         if(psb->strm.avail_out != 0) {
             done=1;
@@ -175,14 +173,14 @@ int xml_stream_close(XMLSTRUCT *pxml) {
         psb->strm.next_in = psb->in_buffer;
 
         deflate(&psb->strm,Z_FINISH);
-        _ppi->ws_writebinary(pxml->pwsc,(char*)psb->out_buffer,
+        pi_ws_writebinary(pxml->pwsc,(char*)psb->out_buffer,
                              XML_STREAM_BLOCK - psb->strm.avail_out);
 
         if(psb->strm.avail_out != 0)
             done=1;
     }
 
-    _ppi->log(E_DBG,"Done sending xml stream\n");
+    pi_log(E_DBG,"Done sending xml stream\n");
     deflateEnd(&psb->strm);
     if(psb->out_buffer != NULL)
         free(psb->out_buffer);
@@ -208,7 +206,7 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
 
     pxml=(XMLSTRUCT*)malloc(sizeof(XMLSTRUCT));
     if(!pxml) {
-        _ppi->log(E_FATAL,"Malloc error\n");
+        pi_log(E_FATAL,"Malloc error\n");
     }
 
     memset(pxml,0,sizeof(XMLSTRUCT));
@@ -216,27 +214,27 @@ XMLSTRUCT *xml_init(WS_CONNINFO *pwsc, int emit_header) {
     pxml->pwsc = pwsc;
 
     /* should we compress output? */
-    nogzip = _ppi->ws_getvar(pwsc,"nogzip");
-    accept = _ppi->ws_getrequestheader(pwsc,"accept-encoding");
+    nogzip = pi_ws_getvar(pwsc,"nogzip");
+    accept = pi_ws_getrequestheader(pwsc,"accept-encoding");
 
     if((!nogzip) && (accept) && (strcasestr(accept,"gzip"))) {
-        _ppi->log(E_DBG,"Gzipping output\n");
+        pi_log(E_DBG,"Gzipping output\n");
         pxml->psb = xml_stream_open();
         if(pxml->psb) {
-            _ppi->ws_addresponseheader(pwsc,"Content-Encoding","gzip");
-            _ppi->ws_addresponseheader(pwsc,"Vary","Accept-Encoding");
-            _ppi->ws_addresponseheader(pwsc,"Connection","Close");
+            pi_ws_addresponseheader(pwsc,"Content-Encoding","gzip");
+            pi_ws_addresponseheader(pwsc,"Vary","Accept-Encoding");
+            pi_ws_addresponseheader(pwsc,"Connection","Close");
         }
     }
 
     /* the world would be a wonderful place without ie */
-    _ppi->ws_addresponseheader(pwsc,"Cache-Control","no-cache");
-    _ppi->ws_addresponseheader(pwsc,"Expires","-1");
+    pi_ws_addresponseheader(pwsc,"Cache-Control","no-cache");
+    pi_ws_addresponseheader(pwsc,"Expires","-1");
 
     if(emit_header) {
-        _ppi->ws_addresponseheader(pwsc,"Content-Type","text/xml; charset=utf-8");
-        _ppi->ws_writefd(pwsc,"HTTP/1.0 200 OK\r\n");
-        _ppi->ws_emitheaders(pwsc);
+        pi_ws_addresponseheader(pwsc,"Content-Type","text/xml; charset=utf-8");
+        pi_ws_writefd(pwsc,"HTTP/1.0 200 OK\r\n");
+        pi_ws_emitheaders(pwsc);
 
 
         xml_write(pxml,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
@@ -275,7 +273,7 @@ void xml_pop(XMLSTRUCT *pxml) {
 
     pstack=pxml->stack.next;
     if(!pstack) {
-        _ppi->log(E_LOG,"xml_pop: tried to pop an empty stack\n");
+        pi_log(E_LOG,"xml_pop: tried to pop an empty stack\n");
         return;
     }
 
@@ -326,7 +324,7 @@ void xml_deinit(XMLSTRUCT *pxml) {
     XMLSTACK *pstack;
 
     if(pxml->stack.next) {
-        _ppi->log(E_LOG,"xml_deinit: entries still on stack (%s)\n",
+        pi_log(E_LOG,"xml_deinit: entries still on stack (%s)\n",
                 pxml->stack.next->tag);
     }
 

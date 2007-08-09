@@ -40,6 +40,9 @@ extern void plugin_event_dispatch(int event_id, int intval, void *vp, int len);
 extern void *plugin_enum(void *);
 extern char *plugin_get_description(void *);
 
+extern int plugin_ssc_should_transcode(WS_CONNINFO *pwsc, char *codec);
+extern int plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, int headers);
+
 /* these should really get rows */
 
 #define PLUGIN_E_SUCCESS     0

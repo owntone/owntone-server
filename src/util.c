@@ -13,6 +13,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
@@ -22,6 +23,7 @@
 #include "daapd.h"
 #include "err.h"
 #include "util.h"
+
 
 /* Globals */
 pthread_mutex_t util_locks[(int)l_last];
@@ -453,7 +455,7 @@ void util_mutex_unlock(ff_lock_t which) {
         fprintf(stderr,"Cannot unlock mutex\n");
         exit(-1);
     }
-    
+
 }
 
 /**
@@ -587,6 +589,81 @@ void util_dispose_split(char **argv) {
     free(argv);
 }
 
+/**
+ * Write a formatted string to an allocated string.  Leverage
+ * the existing util_vasprintf to do so
+ */
+char *util_asprintf(char *fmt, ...) {
+    char *outbuf;
+    va_list ap;
+
+    ASSERT(fmt);
+
+    if(!fmt)
+        return NULL;
+
+    va_start(ap,fmt);
+    outbuf = util_vasprintf(fmt, ap);
+    va_end(ap);
+
+    return outbuf;
+}
+
+/**
+ * Write a formatted string to an allocated string.  This deals with
+ * versions of vsnprintf that return either the C99 way, or the pre-C99
+ * way, by increasing the buffer until it works.
+ *
+ * @param
+ * @param fmt format string of print (compatible with printf(2))
+ * @returns TRUE on success
+ */
+
+#ifdef HAVE_VA_COPY
+# define VA_COPY(a,b) va_copy((a),(b))
+#else
+# ifdef HAVE___VA_COPY
+#  define VA_COPY(a,b) __va_copy((a),(b))
+# else
+#  define VA_COPY(a,b) a=b;
+# endif
+#endif
+
+char *util_vasprintf(char *fmt, va_list ap) {
+    char *outbuf;
+    char *newbuf;
+    va_list ap2;
+    int size=200;
+    int new_size;
+
+    outbuf = (char*)malloc(size);
+    if(!outbuf)
+        DPRINTF(E_FATAL,L_MISC,"Could not allocate buffer in vasprintf\n");
+
+    VA_COPY(ap2,ap);
+
+    while(1) {
+        new_size=vsnprintf(outbuf,size,fmt,ap);
+
+        if(new_size > -1 && new_size < size)
+            break;
+
+        if(new_size > -1)
+            size = new_size + 1;
+        else
+            size *= 2;
+
+        if((newbuf = realloc(outbuf,size)) == NULL) {
+            free(outbuf);
+            DPRINTF(E_FATAL,L_MISC,"malloc error in vasprintf\n");
+            exit(1);
+        }
+        outbuf = newbuf;
+        VA_COPY(ap,ap2);
+    }
+
+    return outbuf;
+}
 
 
 #ifdef DEBUG_MEM

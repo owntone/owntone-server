@@ -64,7 +64,7 @@ wavstreamer_SOURCES = wavstreamer.c
 mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	mp3-scanner.h mp3-scanner.c rend-unix.h \
-	db-generic.c db-generic.h \
+	db-generic.c db-generic.h ff-plugins.c ff-plugins.h \
 	rxml.c rxml.h redblack.c redblack.h scan-mp3.c scan-mp4.c scan-aif.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \

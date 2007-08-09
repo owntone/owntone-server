@@ -24,6 +24,13 @@
 
 #include "ff-dbstruct.h"
 
+#ifdef WIN32
+# define EXPORT __declspec(dllimport)
+#else
+# define EXPORT
+#endif
+
+
 #ifndef TRUE
 #define TRUE 1
 #define FALSE 0
@@ -122,51 +129,49 @@ typedef struct tag_db_query {
     void *priv;
 } DB_QUERY;
 
+/* webserver functions */
+extern EXPORT EXPORT char *pi_ws_uri(struct tag_ws_conninfo *);
+extern EXPORT EXPORT void pi_ws_will_close(struct tag_ws_conninfo *);
+extern EXPORT EXPORT int pi_ws_returnerror(struct tag_ws_conninfo *, int, char *);
+extern EXPORT char *pi_ws_getvar(struct tag_ws_conninfo *, char *);
+extern EXPORT int pi_ws_writefd(struct tag_ws_conninfo *, char *, ...);
+extern EXPORT int pi_ws_addresponseheader(struct tag_ws_conninfo *, char *, char *, ...);
+extern EXPORT void pi_ws_emitheaders(struct tag_ws_conninfo *);
+extern EXPORT char *pi_ws_getrequestheader(struct tag_ws_conninfo *, char *);
+extern EXPORT int pi_ws_writebinary(struct tag_ws_conninfo *, char *, int);
+extern EXPORT char *pi_ws_gethostname(struct tag_ws_conninfo *);
+extern EXPORT int pi_ws_matchesrole(struct tag_ws_conninfo *, char *, char *, char *);
 
-/* version 1 plugin imports */
-typedef struct tag_plugin_input_fn {
-    /* webserver helpers */
-    char* (*ws_uri)(struct tag_ws_conninfo *);
-    void (*ws_will_close)(struct tag_ws_conninfo *);
-    int (*ws_returnerror)(struct tag_ws_conninfo *, int, char *);
-    char* (*ws_getvar)(struct tag_ws_conninfo *, char *);
-    int (*ws_writefd)(struct tag_ws_conninfo *, char *, ...);
-    int (*ws_addresponseheader)(struct tag_ws_conninfo *, char *, char *, ...);
-    void (*ws_emitheaders)(struct tag_ws_conninfo *);
-    char* (*ws_getrequestheader)(struct tag_ws_conninfo *, char *);
-    int (*ws_writebinary)(struct tag_ws_conninfo *, char *, int);
-    char* (*ws_gethostname)(struct tag_ws_conninfo *);
-    int (*ws_matchesrole)(struct tag_ws_conninfo *, char *, char *, char *);
+/* misc helpers */
+extern EXPORT char *pi_server_ver(void);
+extern EXPORT int pi_server_name(char *, int *);
+extern EXPORT void pi_log(int, char *, ...);
+extern EXPORT int pi_should_transcode(struct tag_ws_conninfo *, char *);
 
-    /* misc helpers */
-    char* (*server_ver)(void);
-    int (*server_name)(char *, int *);
-    void (*log)(int, char *, ...);
-    int (*should_transcode)(struct tag_ws_conninfo *, char *);
+/* db functions */
+extern EXPORT int pi_db_count(void);
+extern EXPORT int pi_db_enum_start(char **, DB_QUERY *);
+extern EXPORT int pi_db_enum_fetch_row(char **, char ***, DB_QUERY *);
+extern EXPORT int pi_db_enum_end(char **);
+extern EXPORT int pi_db_enum_restart(char **, DB_QUERY *);
+extern EXPORT void pi_db_enum_dispose(char **, DB_QUERY*);
+extern EXPORT void pi_stream(struct tag_ws_conninfo *, char *);
 
-    int (*db_count)(void);
-    int (*db_enum_start)(char **, DB_QUERY *);
-    int (*db_enum_fetch_row)(char **, char ***, DB_QUERY *);
-    int (*db_enum_end)(char **);
-    int (*db_enum_restart)(char **, DB_QUERY *);
-    void (*db_enum_dispose)(char **, DB_QUERY*);
-    void (*stream)(struct tag_ws_conninfo *, char *);
+extern EXPORT int pi_db_add_playlist(char **pe, char *name, int type, char *clause, char *path, int index, int *playlistid);
+extern EXPORT int pi_db_add_playlist_item(char **pe, int playlistid, int songid);
+extern EXPORT int pi_db_edit_playlist(char **pe, int id, char *name, char *clause);
+extern EXPORT int pi_db_delete_playlist(char **pe, int playlistid);
+extern EXPORT int pi_db_delete_playlist_item(char **pe, int playlistid, int songid);
+extern EXPORT int pi_db_revision(void);
+extern EXPORT int pi_db_count_items(int what);
+extern EXPORT int pi_db_wait_update(struct tag_ws_conninfo *);
 
-    int (*db_add_playlist)(char **pe, char *name, int type, char *clause, char *path, int index, int *playlistid);
-    int (*db_add_playlist_item)(char **pe, int playlistid, int songid);
-    int (*db_edit_playlist)(char **pe, int id, char *name, char *clause);
-    int (*db_delete_playlist)(char **pe, int playlistid);
-    int (*db_delete_playlist_item)(char **pe, int playlistid, int songid);
-    int (*db_revision)(void);
-    int (*db_count_items)(int what);
-    int (*db_wait_update)(struct tag_ws_conninfo *);
+/* config/misc functions */
+extern EXPORT char *pi_conf_alloc_string(char *section, char *key, char *dflt);
+extern EXPORT void pi_conf_dispose_string(char *str);
+extern EXPORT int pi_conf_get_int(char *section, char *key, int dflt);
 
-    char *(*conf_alloc_string)(char *section, char *key, char *dflt);
-    void (*conf_dispose_string)(char *str);
-    int (*conf_get_int)(char *section, char *key, int dflt);
-
-    void (*config_set_status)(struct tag_ws_conninfo *pwsc, int session, char *fmt, ...);
-} PLUGIN_INPUT_FN;
+extern EXPORT void pi_config_set_status(struct tag_ws_conninfo *pwsc, int session, char *fmt, ...);
 
 
 #endif /* _FF_PLUGINS_ */

@@ -27,7 +27,7 @@ typedef struct tag_rsp_privinfo {
 } PRIVINFO;
 
 /* Forwards */
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *);
+PLUGIN_INFO *plugin_info(void);
 void plugin_handler(WS_CONNINFO *pwsc);
 int plugin_can_handle(WS_CONNINFO *pwsc);
 int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password);
@@ -45,7 +45,6 @@ PLUGIN_REND_INFO _pri[] = {
     { NULL, NULL }
 };
 
-PLUGIN_INPUT_FN *_ppi;
 PLUGIN_INFO _pi = {
     PLUGIN_VERSION,      /* version */
     PLUGIN_OUTPUT,       /* type */
@@ -150,8 +149,7 @@ FIELDSPEC rsp_fields[] = {
 /**
  * return info about this plugin module
  */
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
-    _ppi = ppi;
+PLUGIN_INFO *plugin_info(void) {
     return &_pi;
 }
 
@@ -159,8 +157,8 @@ PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
  * see if the plugin should handle this request
  */
 int plugin_can_handle(WS_CONNINFO *pwsc) {
-    _ppi->log(E_DBG,"Checking url %s\n",_ppi->ws_uri(pwsc));
-    if(strncasecmp(_ppi->ws_uri(pwsc),"/rsp/",5) == 0)
+    pi_log(E_DBG,"Checking url %s\n",pi_ws_uri(pwsc));
+    if(strncasecmp(pi_ws_uri(pwsc),"/rsp/",5) == 0)
         return TRUE;
     return FALSE;
 }
@@ -170,7 +168,7 @@ int plugin_can_handle(WS_CONNINFO *pwsc) {
  * works.
  */
 int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password) {
-    return _ppi->ws_matchesrole(pwsc,username,password,"user");
+    return pi_ws_matchesrole(pwsc,username,password,"user");
 }
 
 /**
@@ -183,39 +181,39 @@ void plugin_handler(WS_CONNINFO *pwsc) {
     int index, part;
     int found;
 
-    _ppi->log(E_DBG,"Getting uri...\n");
+    pi_log(E_DBG,"Getting uri...\n");
 
-    string = _ppi->ws_uri(pwsc);
+    string = pi_ws_uri(pwsc);
     string++;
 
-    _ppi->log(E_DBG,"Mallocing privinfo...\n");
+    pi_log(E_DBG,"Mallocing privinfo...\n");
     ppi = (PRIVINFO *)malloc(sizeof(PRIVINFO));
     if(ppi) {
         memset(ppi,0,sizeof(PRIVINFO));
     }
 
     if(!ppi) {
-        _ppi->ws_returnerror(pwsc,500,"Malloc error in plugin_handler");
+        pi_ws_returnerror(pwsc,500,"Malloc error in plugin_handler");
         return;
     }
 
     memset((void*)&ppi->dq,0,sizeof(DB_QUERY));
 
-    _ppi->log(E_DBG,"Tokenizing url\n");
+    pi_log(E_DBG,"Tokenizing url\n");
     while((ppi->uri_count < 10) && (token=strtok_r(string,"/",&save))) {
         string=NULL;
         ppi->uri_sections[ppi->uri_count++] = token;
     }
 
     elements = sizeof(rsp_uri_map) / sizeof(PLUGIN_RESPONSE);
-    _ppi->log(E_DBG,"Found %d elements\n",elements);
+    pi_log(E_DBG,"Found %d elements\n",elements);
 
     index = 0;
     found = 0;
 
     while((!found) && (index < elements)) {
         /* test this set */
-        _ppi->log(E_DBG,"Checking reponse %d\n",index);
+        pi_log(E_DBG,"Checking reponse %d\n",index);
         part=0;
         while(part < 10) {
             if((rsp_uri_map[index].uri[part]) && (!ppi->uri_sections[part]))
@@ -234,7 +232,7 @@ void plugin_handler(WS_CONNINFO *pwsc) {
 
         if(part == 10) {
             found = 1;
-            _ppi->log(E_DBG,"Found it! Index: %d\n",index);
+            pi_log(E_DBG,"Found it! Index: %d\n",index);
         } else {
             index++;
         }
@@ -242,13 +240,13 @@ void plugin_handler(WS_CONNINFO *pwsc) {
 
     if(found) {
         rsp_uri_map[index].dispatch(pwsc, ppi);
-        _ppi->ws_will_close(pwsc);
+        pi_ws_will_close(pwsc);
         free(ppi);
         return;
     }
 
     rsp_error(pwsc, ppi, 1, "Bad path");
-    _ppi->ws_will_close(pwsc);
+    pi_ws_will_close(pwsc);
     free(ppi);
     return;
 }
@@ -261,7 +259,7 @@ void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     char servername[256];
     int size;
 
-    _ppi->log(E_DBG,"Starting rsp_info\n");
+    pi_log(E_DBG,"Starting rsp_info\n");
 
     pxml = xml_init(pwsc,1);
 
@@ -275,13 +273,13 @@ void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     /* info block */
     xml_push(pxml,"info");
-    xml_output(pxml,"count","%d",_ppi->db_count());
+    xml_output(pxml,"count","%d",pi_db_count());
     xml_output(pxml,"rsp-version","%s",RSP_VERSION);
 
-    xml_output(pxml,"server-version","%s",_ppi->server_ver());
+    xml_output(pxml,"server-version","%s",pi_server_ver());
 
     size = sizeof(servername);
-    _ppi->server_name(servername,&size);
+    pi_server_name(servername,&size);
     xml_output(pxml,"name","%s",servername);
     xml_pop(pxml); /* info */
 
@@ -303,9 +301,9 @@ void rsp_db(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     ppi->dq.query_type = QUERY_TYPE_PLAYLISTS;
 
-    if((err=_ppi->db_enum_start(&pe,&ppi->dq)) != 0) {
+    if((err=pi_db_enum_start(&pe,&ppi->dq)) != 0) {
         rsp_error(pwsc, ppi, err | E_DB, pe);
-        _ppi->db_enum_dispose(NULL,&ppi->dq);
+        pi_db_enum_dispose(NULL,&ppi->dq);
         return;
     }
 
@@ -321,7 +319,7 @@ void rsp_db(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     xml_push(pxml,"playlists");
 
-    while((_ppi->db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) && (row)) {
+    while((pi_db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) && (row)) {
         xml_push(pxml,"playlist");
         rowindex=0;
         while(rsp_playlist_fields[rowindex].name) {
@@ -334,8 +332,8 @@ void rsp_db(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         xml_pop(pxml); /* playlist */
     }
 
-    _ppi->db_enum_end(NULL);
-    _ppi->db_enum_dispose(NULL,&ppi->dq);
+    pi_db_enum_end(NULL);
+    pi_db_enum_dispose(NULL,&ppi->dq);
 
     xml_pop(pxml); /* playlists */
     xml_pop(pxml); /* response */
@@ -359,17 +357,17 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     unsigned int samplerate;
     int done = 0;
 
-    ppi->dq.filter = _ppi->ws_getvar(pwsc,"query");
+    ppi->dq.filter = pi_ws_getvar(pwsc,"query");
     ppi->dq.filter_type = FILTER_TYPE_FIREFLY;
 
-    if(_ppi->ws_getvar(pwsc,"offset")) {
-        ppi->dq.offset = atoi(_ppi->ws_getvar(pwsc,"offset"));
+    if(pi_ws_getvar(pwsc,"offset")) {
+        ppi->dq.offset = atoi(pi_ws_getvar(pwsc,"offset"));
     }
-    if(_ppi->ws_getvar(pwsc,"limit")) {
-        ppi->dq.limit = atoi(_ppi->ws_getvar(pwsc,"limit"));
+    if(pi_ws_getvar(pwsc,"limit")) {
+        ppi->dq.limit = atoi(pi_ws_getvar(pwsc,"limit"));
     }
 
-    browse_type = _ppi->ws_getvar(pwsc,"type");
+    browse_type = pi_ws_getvar(pwsc,"type");
     type = F_FULL;
 
     if(browse_type) {
@@ -385,9 +383,9 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     ppi->dq.query_type = QUERY_TYPE_ITEMS;
     ppi->dq.playlist_id = atoi(ppi->uri_sections[2]);
 
-    if((err=_ppi->db_enum_start(&pe,&ppi->dq)) != 0) {
+    if((err=pi_db_enum_start(&pe,&ppi->dq)) != 0) {
         rsp_error(pwsc, ppi, err | E_DB, pe);
-        _ppi->db_enum_dispose(NULL,&ppi->dq);
+        pi_db_enum_dispose(NULL,&ppi->dq);
         free(pe);
         return;
     }
@@ -412,15 +410,15 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     xml_push(pxml,"items");
 
-    while((!done) && (_ppi->db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) &&
+    while((!done) && (pi_db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) &&
           (row)) {
         xml_push(pxml,"item");
         rowindex=0;
         transcode = 0;
 
-        transcode = _ppi->should_transcode(pwsc,row[37]);
+        transcode = pi_should_transcode(pwsc,row[37]);
 
-        _ppi->log(E_DBG,"Transcode: %d, %s: %s\n",transcode,row[37],row[2]);
+        pi_log(E_DBG,"Transcode: %d, %s: %s\n",transcode,row[37],row[2]);
 
         while(rsp_fields[rowindex].name) {
             if((rsp_fields[rowindex].flags & type) &&
@@ -466,7 +464,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         xml_pop(pxml); /* item */
     }
 
-    _ppi->db_enum_end(NULL);
+    pi_db_enum_end(NULL);
 
     xml_pop(pxml); /* items */
     xml_pop(pxml); /* response */
@@ -483,22 +481,22 @@ void rsp_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     /* this might fail if an unsupported browse type */
     ppi->dq.query_type = QUERY_TYPE_DISTINCT;
     ppi->dq.distinct_field = ppi->uri_sections[3];
-    ppi->dq.filter = _ppi->ws_getvar(pwsc,"query");
+    ppi->dq.filter = pi_ws_getvar(pwsc,"query");
     ppi->dq.filter_type = FILTER_TYPE_FIREFLY;
 
-    if(_ppi->ws_getvar(pwsc,"offset")) {
-        ppi->dq.offset = atoi(_ppi->ws_getvar(pwsc,"offset"));
+    if(pi_ws_getvar(pwsc,"offset")) {
+        ppi->dq.offset = atoi(pi_ws_getvar(pwsc,"offset"));
     }
 
-    if(_ppi->ws_getvar(pwsc,"limit")) {
-        ppi->dq.limit = atoi(_ppi->ws_getvar(pwsc,"limit"));
+    if(pi_ws_getvar(pwsc,"limit")) {
+        ppi->dq.limit = atoi(pi_ws_getvar(pwsc,"limit"));
     }
 
     ppi->dq.playlist_id = atoi(ppi->uri_sections[2]);
 
-    if((err=_ppi->db_enum_start(&pe,&ppi->dq)) != 0) {
+    if((err=pi_db_enum_start(&pe,&ppi->dq)) != 0) {
         rsp_error(pwsc, ppi, err | E_DB, pe);
-        _ppi->db_enum_dispose(NULL,&ppi->dq);
+        pi_db_enum_dispose(NULL,&ppi->dq);
         return;
     }
 
@@ -522,12 +520,12 @@ void rsp_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     xml_push(pxml,"items");
 
-    while((_ppi->db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) && (row)) {
+    while((pi_db_enum_fetch_row(NULL,&row,&ppi->dq) == 0) && (row)) {
         xml_output(pxml,"item","%s",row[0]);
     }
 
-    _ppi->db_enum_end(NULL);
-    _ppi->db_enum_dispose(NULL,&ppi->dq);
+    pi_db_enum_end(NULL);
+    pi_db_enum_dispose(NULL,&ppi->dq);
 
     xml_pop(pxml); /* items */
     xml_pop(pxml); /* response */
@@ -535,7 +533,7 @@ void rsp_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 }
 
 void rsp_stream(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
-    _ppi->stream(pwsc, ppi->uri_sections[2]);
+    pi_stream(pwsc, ppi->uri_sections[2]);
     return;
 }
 
@@ -552,6 +550,6 @@ void rsp_error(WS_CONNINFO *pwsc, PRIVINFO *ppi, int eno, char *estr) {
     xml_pop(pxml); /* status */
     xml_pop(pxml); /* response */
     xml_deinit(pxml);
-    _ppi->ws_will_close(pwsc);
+    pi_ws_will_close(pwsc);
 }
 

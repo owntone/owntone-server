@@ -30,7 +30,7 @@ int ssc_script_close(void *vp);
 int ssc_script_read(void *vp, char *buffer, int len);
 char *ssc_script_error(void *vp);
 
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *);
+PLUGIN_INFO *plugin_info(void);
 
 #define infn ((PLUGIN_INPUT_FN *)(_pi.pi))
 
@@ -43,8 +43,6 @@ PLUGIN_TRANSCODE_FN _ptfn = {
     ssc_script_read,
     ssc_script_error
 };
-
-PLUGIN_INPUT_FN *_ppi;
 
 PLUGIN_INFO _pi = {
     PLUGIN_VERSION,        /* version */
@@ -66,21 +64,19 @@ static char *_ssc_script_program = NULL;
 /**
  * return the plugininfo struct to firefly
  */
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
+PLUGIN_INFO *plugin_info(void) {
     char *codeclist;
 
-    _ppi = ppi;
-
-    _ssc_script_program = _ppi->conf_alloc_string("general","ssc_prog",NULL);
+    _ssc_script_program = pi_conf_alloc_string("general","ssc_prog",NULL);
     if(!_ssc_script_program) {
-        _ppi->log(E_INF,"No ssc program specified for script transcoder.\n");
+        pi_log(E_INF,"No ssc program specified for script transcoder.\n");
         return NULL;
     }
 
     /* FIXME: need an unload function to stop leak */
-    codeclist = _ppi->conf_alloc_string("general","ssc_codectypes",NULL);
+    codeclist = pi_conf_alloc_string("general","ssc_codectypes",NULL);
     if(!codeclist) {
-        _ppi->log(E_INF,"No codectypes specified for script transcoder.\n");
+        pi_log(E_INF,"No codectypes specified for script transcoder.\n");
         return NULL;
     }
 
@@ -161,7 +157,7 @@ int ssc_script_open(void *vp, MP3FILE *pmp3) {
     if(metachars) {
         newpath = (char*)malloc(strlen(file) + metacount + 1);
         if(!newpath) {
-            _ppi->log(E_FATAL,"ssc_script_open: malloc\n");
+            pi_log(E_FATAL,"ssc_script_open: malloc\n");
         }
         src=file;
         dst=newpath;
@@ -189,7 +185,7 @@ int ssc_script_open(void *vp, MP3FILE *pmp3) {
     sprintf(cmd, "%s \"%s\" 0 %lu.%03lu \"%s\"",
             _ssc_script_program, newpath, (unsigned long) duration / 1000,
             (unsigned long)duration % 1000, (codec && *codec) ? codec : "*");
-    _ppi->log(E_INF,"Executing %s\n",cmd);
+    pi_log(E_INF,"Executing %s\n",cmd);
     handle->fin = popen(cmd, "r");
     free(newpath);
     free(cmd);  /* should really have in-place expanded the path */

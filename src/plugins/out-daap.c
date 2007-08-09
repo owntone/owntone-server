@@ -90,18 +90,17 @@ static int out_daap_output_xml_write(WS_CONNINFO *pwsc, PRIVINFO *ppi, unsigned 
 
 static void out_daap_cleanup(PRIVINFO *ppi);
 
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *);
 void plugin_handler(WS_CONNINFO *pwsc);
 int plugin_can_handle(WS_CONNINFO *pwsc);
 int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password);
 
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *);
+PLUGIN_INFO *plugin_info(void);
 PLUGIN_OUTPUT_FN _pofn = { plugin_can_handle, plugin_handler, plugin_auth };
 PLUGIN_REND_INFO _pri[] = {
     { "_daap._tcp", NULL },
     { NULL, NULL }
 };
-PLUGIN_INPUT_FN *_ppi;
+
 PLUGIN_INFO _pi = {
     PLUGIN_VERSION,      /* version */
     PLUGIN_OUTPUT,       /* type */
@@ -161,8 +160,7 @@ PLUGIN_RESPONSE daap_uri_map[] = {
 /**
  * return info about this plugin module
  */
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
-    _ppi = ppi;
+PLUGIN_INFO *plugin_info(void) {
     return &_pi;
 }
 
@@ -170,9 +168,9 @@ PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
  * see if the plugin should handle this request
  */
 int plugin_can_handle(WS_CONNINFO *pwsc) {
-    char *uri = _ppi->ws_uri(pwsc);
+    char *uri = pi_ws_uri(pwsc);
 
-    _ppi->log(E_DBG,"Checking url %s\n",uri);
+    pi_log(E_DBG,"Checking url %s\n",uri);
     if(strncasecmp(uri,"/databases",10) == 0)
         return TRUE;
     if(strncasecmp(uri,"/server-info",12) == 0)
@@ -194,7 +192,7 @@ int plugin_can_handle(WS_CONNINFO *pwsc) {
  * works.
  */
 int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password) {
-    char *uri = _ppi->ws_uri(pwsc);
+    char *uri = pi_ws_uri(pwsc);
 
     /* don't auth for stuff we shouldn't */
     if(strncasecmp(uri,"/server-info",12) == 0)
@@ -204,7 +202,7 @@ int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password) {
     if(strncasecmp(uri,"/databases/1/items/",19) == 0)
         return TRUE;
 
-    return _ppi->ws_matchesrole(pwsc,username,password,"user");
+    return pi_ws_matchesrole(pwsc,username,password,"user");
 }
 
 
@@ -249,7 +247,7 @@ int daap_auth(WS_CONNINFO *pwsc, char *username, char *password) {
     char *readpassword;
     int result;
 
-    readpassword = _ppi->conf_alloc_string("general","password",NULL);
+    readpassword = pi_conf_alloc_string("general","password",NULL);
 
     if(password == NULL) {
         if((readpassword == NULL)||(strlen(readpassword) == 0)) {
@@ -265,7 +263,7 @@ int daap_auth(WS_CONNINFO *pwsc, char *username, char *password) {
         }
     }
 
-    if(readpassword) _ppi->conf_dispose_string(readpassword);
+    if(readpassword) pi_conf_dispose_string(readpassword);
     return result;
 }
 
@@ -282,46 +280,46 @@ void plugin_handler(WS_CONNINFO *pwsc) {
     long l,h;
     char *ptr;
 
-    _ppi->log(E_DBG,"Getting uri...\n");
+    pi_log(E_DBG,"Getting uri...\n");
 
-    string = _ppi->ws_uri(pwsc);
+    string = pi_ws_uri(pwsc);
     string++;
 
-    _ppi->log(E_DBG,"Mallocing privinfo...\n");
+    pi_log(E_DBG,"Mallocing privinfo...\n");
     ppi = (PRIVINFO *)malloc(sizeof(PRIVINFO));
     if(ppi) {
         memset(ppi,0,sizeof(PRIVINFO));
     }
 
     if(!ppi) {
-        _ppi->ws_returnerror(pwsc,500,"Malloc error in plugin_handler");
+        pi_ws_returnerror(pwsc,500,"Malloc error in plugin_handler");
         return;
     }
 
     memset((void*)&ppi->dq,0,sizeof(DB_QUERY));
 
-    ppi->empty_strings = _ppi->conf_get_int("daap","empty_strings",0);
+    ppi->empty_strings = pi_conf_get_int("daap","empty_strings",0);
     ppi->pwsc = pwsc;
 
-    _ppi->ws_addresponseheader(pwsc,"Accept-Ranges","bytes");
-    _ppi->ws_addresponseheader(pwsc,"DAAP-Server","firefly/" VERSION);
-    _ppi->ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
-    _ppi->ws_addresponseheader(pwsc,"Cache-Control","no-cache");
-    _ppi->ws_addresponseheader(pwsc,"Expires","-1");
+    pi_ws_addresponseheader(pwsc,"Accept-Ranges","bytes");
+    pi_ws_addresponseheader(pwsc,"DAAP-Server","firefly/" VERSION);
+    pi_ws_addresponseheader(pwsc,"Content-Type","application/x-dmap-tagged");
+    pi_ws_addresponseheader(pwsc,"Cache-Control","no-cache");
+    pi_ws_addresponseheader(pwsc,"Expires","-1");
 
-    if(_ppi->ws_getvar(pwsc,"session-id"))
-        ppi->session_id = atoi(_ppi->ws_getvar(pwsc,"session-id"));
+    if(pi_ws_getvar(pwsc,"session-id"))
+        ppi->session_id = atoi(pi_ws_getvar(pwsc,"session-id"));
 
     ppi->dq.offset = 0;
     ppi->dq.limit = 999999;
 
     l=h=0;
-    if(_ppi->ws_getvar(pwsc,"index")) {
-        index_req = _ppi->ws_getvar(pwsc,"index");
+    if(pi_ws_getvar(pwsc,"index")) {
+        index_req = pi_ws_getvar(pwsc,"index");
         l = strtol(index_req,&ptr,10);
 
         if(l<0) { /* "-h"... tail range, last "h" entries */
-            _ppi->log(E_LOG,"Unsupported index range: %s\n",index_req);
+            pi_log(E_LOG,"Unsupported index range: %s\n",index_req);
         } else if(*ptr == 0) {
             /* single item */
             ppi->dq.offset = l;
@@ -334,31 +332,31 @@ void plugin_handler(WS_CONNINFO *pwsc) {
             }
         }
 
-                _ppi->log(E_DBG,"Index %s: offset %d, limit %d\n",index_req,
+                pi_log(E_DBG,"Index %s: offset %d, limit %d\n",index_req,
                   ppi->dq.offset,ppi->dq.limit);
         }
 
 
-    if(_ppi->ws_getvar(pwsc,"query")) {
+    if(pi_ws_getvar(pwsc,"query")) {
         ppi->dq.filter_type = FILTER_TYPE_APPLE;
-        ppi->dq.filter = _ppi->ws_getvar(pwsc,"query");
+        ppi->dq.filter = pi_ws_getvar(pwsc,"query");
     }
 
-    _ppi->log(E_DBG,"Tokenizing url\n");
+    pi_log(E_DBG,"Tokenizing url\n");
     while((ppi->uri_count < 10) && (token=strtok_r(string,"/",&save))) {
         string=NULL;
         ppi->uri_sections[ppi->uri_count++] = token;
     }
 
     elements = sizeof(daap_uri_map) / sizeof(PLUGIN_RESPONSE);
-    _ppi->log(E_DBG,"Found %d elements\n",elements);
+    pi_log(E_DBG,"Found %d elements\n",elements);
 
     index = 0;
     found = 0;
 
     while((!found) && (index < elements)) {
         /* test this set */
-        _ppi->log(E_DBG,"Checking reponse %d\n",index);
+        pi_log(E_DBG,"Checking reponse %d\n",index);
         part=0;
         while(part < 10) {
             if((daap_uri_map[index].uri[part]) && (!ppi->uri_sections[part]))
@@ -377,7 +375,7 @@ void plugin_handler(WS_CONNINFO *pwsc) {
 
         if(part == 10) {
             found = 1;
-            _ppi->log(E_DBG,"Found it! Index: %d\n",index);
+            pi_log(E_DBG,"Found it! Index: %d\n",index);
         } else {
             index++;
         }
@@ -389,8 +387,8 @@ void plugin_handler(WS_CONNINFO *pwsc) {
         return;
     }
 
-    _ppi->ws_returnerror(pwsc,400,"Bad request");
-    _ppi->ws_will_close(pwsc);
+    pi_ws_returnerror(pwsc,400,"Bad request");
+    pi_ws_will_close(pwsc);
     out_daap_cleanup(ppi);
     return;
 }
@@ -408,33 +406,33 @@ int out_daap_output_start(WS_CONNINFO *pwsc, PRIVINFO *ppi, int content_length) 
 
     poi=(OUTPUT_INFO*)calloc(1,sizeof(OUTPUT_INFO));
     if(!poi) {
-        _ppi->log(E_LOG,"Malloc error in out_daap_ouput_start\n");
+        pi_log(E_LOG,"Malloc error in out_daap_ouput_start\n");
         return -1;
     }
 
     ppi->output_info = (void*) poi;
     poi->dmap_response_length = content_length;
 
-    if(_ppi->ws_getvar(pwsc,"output")) {
-        if(strcasecmp(_ppi->ws_getvar(pwsc,"output"),"readable") == 0)
+    if(pi_ws_getvar(pwsc,"output")) {
+        if(strcasecmp(pi_ws_getvar(pwsc,"output"),"readable") == 0)
             poi->readable=1;
 
         poi->xml_output=1;
-        _ppi->ws_addresponseheader(pwsc,"Content-Type","text/xml");
-        _ppi->ws_addresponseheader(pwsc,"Connection","Close");
-        _ppi->ws_will_close(pwsc);
-        _ppi->ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-        _ppi->ws_emitheaders(pwsc);
-        _ppi->ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
+        pi_ws_addresponseheader(pwsc,"Content-Type","text/xml");
+        pi_ws_addresponseheader(pwsc,"Connection","Close");
+        pi_ws_will_close(pwsc);
+        pi_ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+        pi_ws_emitheaders(pwsc);
+        pi_ws_writefd(pwsc,"<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\"?>");
         if(poi->readable)
-            _ppi->ws_writefd(pwsc,"\n");
+            pi_ws_writefd(pwsc,"\n");
         return 0;
     }
 
-    _ppi->ws_addresponseheader(pwsc,"Content-Length","%d",
+    pi_ws_addresponseheader(pwsc,"Content-Length","%d",
                                poi->dmap_response_length);
-    _ppi->ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
-    _ppi->ws_emitheaders(pwsc);
+    pi_ws_writefd(pwsc,"HTTP/1.1 200 OK\r\n");
+    pi_ws_emitheaders(pwsc);
 
     /* I guess now we would start writing the output */
     return 0;
@@ -458,7 +456,7 @@ int out_daap_output_write(WS_CONNINFO *pwsc, PRIVINFO *ppi, unsigned char *block
     if(poi->xml_output)
         return out_daap_output_xml_write(pwsc, ppi, block, len);
 
-    result=_ppi->ws_writebinary(pwsc,(char*)block,len);
+    result=pi_ws_writebinary(pwsc,(char*)block,len);
 
     if(result != len)
         return -1;
@@ -493,7 +491,7 @@ int out_daap_output_xml_write(WS_CONNINFO *pwsc, PRIVINFO *ppi, unsigned char *b
         block_done=1;
         len_left=(int)((block+len) - current);
         if(len_left < 8) {
-            _ppi->log(E_FATAL,"Badly formatted dmap block - frag size: %d",len_left);
+            pi_log(E_FATAL,"Badly formatted dmap block - frag size: %d",len_left);
         }
 
         /* set up block */
@@ -509,49 +507,49 @@ int out_daap_output_xml_write(WS_CONNINFO *pwsc, PRIVINFO *ppi, unsigned char *b
         }
 
         /* lookup and serialize */
-        _ppi->log(E_SPAM,"%*s %s: %d\n",poi->stack_height,"",block_tag,block_len);
+        pi_log(E_SPAM,"%*s %s: %d\n",poi->stack_height,"",block_tag,block_len);
         pitem=out_daap_xml_lookup_tag(block_tag);
         if(poi->readable)
-            _ppi->ws_writefd(pwsc,"%*s",poi->stack_height,"");
-        _ppi->ws_writefd(pwsc,"<%s>",pitem->description);
+            pi_ws_writefd(pwsc,"%*s",poi->stack_height,"");
+        pi_ws_writefd(pwsc,"<%s>",pitem->description);
         switch(pitem->type) {
         case 0x01: /* byte */
             if(block_len != 1) {
-                _ppi->log(E_FATAL,"tag %s, size %d, wanted 1\n",block_tag, block_len);
+                pi_log(E_FATAL,"tag %s, size %d, wanted 1\n",block_tag, block_len);
             }
-            _ppi->ws_writefd(pwsc,"%d",*((char *)data));
+            pi_ws_writefd(pwsc,"%d",*((char *)data));
             break;
 
         case 0x02: /* unsigned byte */
             if(block_len != 1) {
-                _ppi->log(E_FATAL,"tag %s, size %d, wanted 1\n",block_tag, block_len);
+                pi_log(E_FATAL,"tag %s, size %d, wanted 1\n",block_tag, block_len);
             }
-            _ppi->ws_writefd(pwsc,"%ud",*((char *)data));
+            pi_ws_writefd(pwsc,"%ud",*((char *)data));
             break;
 
         case 0x03: /* short */
             if(block_len != 2) {
-                _ppi->log(E_FATAL,"tag %s, size %d, wanted 2\n",block_tag, block_len);
+                pi_log(E_FATAL,"tag %s, size %d, wanted 2\n",block_tag, block_len);
             }
 
             ivalue = data[0] << 8 | data[1];
-            _ppi->ws_writefd(pwsc,"%d",ivalue);
+            pi_ws_writefd(pwsc,"%d",ivalue);
             break;
 
         case 0x05: /* int */
         case 0x0A: /* epoch */
             if(block_len != 4) {
-                _ppi->log(E_FATAL,"tag %s, size %d, wanted 4\n",block_tag, block_len);
+                pi_log(E_FATAL,"tag %s, size %d, wanted 4\n",block_tag, block_len);
             }
             ivalue = data[0] << 24 |
                 data[1] << 16 |
                 data[2] << 8 |
                 data[3];
-            _ppi->ws_writefd(pwsc,"%d",ivalue);
+            pi_ws_writefd(pwsc,"%d",ivalue);
             break;
         case 0x07: /* long long */
             if(block_len != 8) {
-                _ppi->log(E_FATAL,"tag %s, size %d, wanted 8\n",block_tag, block_len);
+                pi_log(E_FATAL,"tag %s, size %d, wanted 8\n",block_tag, block_len);
             }
 
             ivalue = data[0] << 24 |
@@ -564,29 +562,29 @@ int out_daap_output_xml_write(WS_CONNINFO *pwsc, PRIVINFO *ppi, unsigned char *b
                 data[6] << 8 |
                 data[7];
             lvalue = (lvalue << 32) | ivalue;
-            _ppi->ws_writefd(pwsc,"%ll",ivalue);
+            pi_ws_writefd(pwsc,"%ll",ivalue);
             break;
         case 0x09: /* string */
             if(block_len) {
                 encoded_string=out_daap_xml_encode((char*)data,block_len);
-                _ppi->ws_writefd(pwsc,"%s",encoded_string);
+                pi_ws_writefd(pwsc,"%s",encoded_string);
                 free(encoded_string);
             }
             break;
         case 0x0B: /* version? */
             if(block_len != 4) {
-                _ppi->log(E_FATAL,"tag %s, size %d, wanted 4\n",block_tag, block_len);
+                pi_log(E_FATAL,"tag %s, size %d, wanted 4\n",block_tag, block_len);
             }
 
             ivalue=data[0] << 8 | data[1];
-            _ppi->ws_writefd(pwsc,"%d.%d.%d",ivalue,data[2],data[3]);
+            pi_ws_writefd(pwsc,"%d.%d.%d",ivalue,data[2],data[3]);
             break;
 
         case 0x0C:
             if((poi->browse_response)&&(strcmp(block_tag,"mlit") ==0)) {
                 if(block_len) {
                     encoded_string=out_daap_xml_encode((char*)data,block_len);
-                    _ppi->ws_writefd(pwsc,"%s",encoded_string);
+                    pi_ws_writefd(pwsc,"%s",encoded_string);
                     free(encoded_string);
                 }
             } else {
@@ -599,29 +597,29 @@ int out_daap_output_xml_write(WS_CONNINFO *pwsc, PRIVINFO *ppi, unsigned char *b
                 memcpy(poi->stack[poi->stack_height].tag,block_tag,5);
                 poi->stack_height++;
                 if(poi->stack_height == 10) {
-                    _ppi->log(E_FATAL,"Stack overflow\n");
+                    pi_log(E_FATAL,"Stack overflow\n");
                 }
                 block_done=0;
             }
             break;
 
         default:
-            _ppi->log(E_FATAL,"Bad dmap type: %d, %s\n",
+            pi_log(E_FATAL,"Bad dmap type: %d, %s\n",
                     pitem->type, pitem->description);
             break;
         }
 
         if(block_done) {
-            _ppi->ws_writefd(pwsc,"</%s>",pitem->description);
+            pi_ws_writefd(pwsc,"</%s>",pitem->description);
             if(poi->readable)
-                _ppi->ws_writefd(pwsc,"\n");
+                pi_ws_writefd(pwsc,"\n");
 
             block_len += 8;
         } else {
             /* must be a container */
             block_len = 8;
             if(poi->readable)
-                _ppi->ws_writefd(pwsc,"\n");
+                pi_ws_writefd(pwsc,"\n");
         }
 
         current += block_len;
@@ -631,17 +629,17 @@ int out_daap_output_xml_write(WS_CONNINFO *pwsc, PRIVINFO *ppi, unsigned char *b
             while(stack_ptr--) {
                 poi->stack[stack_ptr].bytes_left -= block_len;
                 if(poi->stack[stack_ptr].bytes_left < 0) {
-                    _ppi->log(E_FATAL,"negative container\n");
+                    pi_log(E_FATAL,"negative container\n");
                 }
 
                 if(!poi->stack[stack_ptr].bytes_left) {
                     poi->stack_height--;
                     pitem=out_daap_xml_lookup_tag(poi->stack[stack_ptr].tag);
                     if(poi->readable)
-                        _ppi->ws_writefd(pwsc,"%*s",poi->stack_height,"");
-                    _ppi->ws_writefd(pwsc,"</%s>",pitem->description);
+                        pi_ws_writefd(pwsc,"%*s",poi->stack_height,"");
+                    pi_ws_writefd(pwsc,"</%s>",pitem->description);
                     if(poi->readable)
-                        _ppi->ws_writefd(pwsc,"\n");
+                        pi_ws_writefd(pwsc,"\n");
                 }
             }
         }
@@ -662,10 +660,10 @@ int out_daap_output_end(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     OUTPUT_INFO *poi = ppi->output_info;
 
     if((poi) && (poi->xml_output) && (poi->stack_height)) {
-        _ppi->log(E_LOG,"Badly formed xml -- still stack\n");
+        pi_log(E_LOG,"Badly formed xml -- still stack\n");
     }
 
-    _ppi->config_set_status(pwsc,ppi->session_id,NULL);
+    pi_config_set_status(pwsc,ppi->session_id,NULL);
 
     return 0;
 }
@@ -680,7 +678,7 @@ DAAP_ITEMS *out_daap_xml_lookup_tag(char *tag) {
     }
 
     if(!pitem->tag)
-        _ppi->log(E_FATAL,"Unknown daap tag: %c%c%c%c\n",tag[0],tag[1],tag[2],tag[3]);
+        pi_log(E_FATAL,"Unknown daap tag: %c%c%c%c\n",tag[0],tag[1],tag[2],tag[3]);
 
     return pitem;
 }
@@ -747,7 +745,7 @@ char *out_daap_xml_encode(char *original, int len) {
 
 void out_daap_stream(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     /* should show sesson id */
-    _ppi->stream(pwsc, ppi->uri_sections[3]);
+    pi_stream(pwsc, ppi->uri_sections[3]);
 }
 
 /**
@@ -762,19 +760,19 @@ void out_daap_addplaylistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     playlist_id = atoi(ppi->uri_sections[3]);
 
-    if(!_ppi->ws_getvar(pwsc,"dmap.itemid")) {
-        _ppi->log(E_LOG,"Attempt to add playlist item w/o dmap.itemid\n");
+    if(!pi_ws_getvar(pwsc,"dmap.itemid")) {
+        pi_log(E_LOG,"Attempt to add playlist item w/o dmap.itemid\n");
         out_daap_error(pwsc,ppi,"MAPI","No item id specified (dmap.itemid)");
         return;
     }
 
-    tempstring=strdup(_ppi->ws_getvar(pwsc,"dmap.itemid"));
+    tempstring=strdup(pi_ws_getvar(pwsc,"dmap.itemid"));
     current=(unsigned char*)tempstring;
 
     while((token=_strsep((char**)(char*)&current,","))) {
         if(token) {
             /* FIXME:  error handling */
-            _ppi->db_add_playlist_item(NULL,playlist_id,atoi(token));
+            pi_db_add_playlist_item(NULL,playlist_id,atoi(token));
         }
     }
 
@@ -789,7 +787,7 @@ void out_daap_addplaylistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     out_daap_output_write(pwsc,ppi,playlist_response,20);
     out_daap_output_end(pwsc,ppi);
 
-    _ppi->ws_will_close(pwsc);
+    pi_ws_will_close(pwsc);
 
     return;
 }
@@ -801,14 +799,14 @@ void out_daap_deleteplaylist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     unsigned char playlist_response[20];
     unsigned char *current;
 
-    if(!_ppi->ws_getvar(pwsc,"dmap.itemid")) {
-        _ppi->log(E_LOG,"Attempt to delete playlist w/o dmap.itemid\n");
+    if(!pi_ws_getvar(pwsc,"dmap.itemid")) {
+        pi_log(E_LOG,"Attempt to delete playlist w/o dmap.itemid\n");
         out_daap_error(pwsc,ppi,"MDPR","No playlist id specified");
         return;
     }
 
     /* FIXME: error handling */
-    _ppi->db_delete_playlist(NULL,atoi(_ppi->ws_getvar(pwsc,"dmap.itemid")));
+    pi_db_delete_playlist(NULL,atoi(pi_ws_getvar(pwsc,"dmap.itemid")));
 
     /* success(ish)... spool out a dmap block */
     current = playlist_response;
@@ -819,7 +817,7 @@ void out_daap_deleteplaylist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     out_daap_output_write(pwsc,ppi,playlist_response,20);
     out_daap_output_end(pwsc,ppi);
 
-    _ppi->ws_will_close(pwsc);
+    pi_ws_will_close(pwsc);
 
     return;
 }
@@ -834,22 +832,22 @@ void out_daap_deleteplaylistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     char *token;
     int playlist_id;
 
-    if(!_ppi->ws_getvar(pwsc,"dmap.itemid")) {
-        _ppi->log(E_LOG,"Delete playlist item w/o dmap.itemid\n");
+    if(!pi_ws_getvar(pwsc,"dmap.itemid")) {
+        pi_log(E_LOG,"Delete playlist item w/o dmap.itemid\n");
         out_daap_error(pwsc,ppi,"MDPI","No playlist item specified");
         return;
     }
 
     playlist_id = atoi(ppi->uri_sections[3]);
 
-    tempstring=strdup(_ppi->ws_getvar(pwsc,"dmap.itemid"));
+    tempstring=strdup(pi_ws_getvar(pwsc,"dmap.itemid"));
     current=(unsigned char *)tempstring;
 
     /* this looks strange, but gets rid of gcc 4 warnings */
     while((token=_strsep((char**)(char*)&current,","))) {
         if(token) {
             /* FIXME: Error handling */
-            _ppi->db_delete_playlist_item(NULL,playlist_id,atoi(token));
+            pi_db_delete_playlist_item(NULL,playlist_id,atoi(token));
         }
     }
 
@@ -864,7 +862,7 @@ void out_daap_deleteplaylistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     out_daap_output_write(pwsc,ppi,playlist_response,20);
     out_daap_output_end(pwsc,ppi);
 
-    _ppi->ws_will_close(pwsc);
+    pi_ws_will_close(pwsc);
 
     return;
 }
@@ -880,21 +878,21 @@ void out_daap_addplaylist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     int retval, playlistid;
     char *estring = NULL;
 
-    if((!_ppi->ws_getvar(pwsc,"org.mt-daapd.playlist-type")) ||
-       (!_ppi->ws_getvar(pwsc,"dmap.itemname"))) {
-        _ppi->log(E_LOG,"attempt to add playlist with invalid type\n");
+    if((!pi_ws_getvar(pwsc,"org.mt-daapd.playlist-type")) ||
+       (!pi_ws_getvar(pwsc,"dmap.itemname"))) {
+        pi_log(E_LOG,"attempt to add playlist with invalid type\n");
         out_daap_error(pwsc,ppi,"MAPR","bad playlist info specified");
         return;
     }
 
-    type=atoi(_ppi->ws_getvar(pwsc,"org.mt-daapd.playlist-type"));
-    name=_ppi->ws_getvar(pwsc,"dmap.itemname");
-    query=_ppi->ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
+    type=atoi(pi_ws_getvar(pwsc,"org.mt-daapd.playlist-type"));
+    name=pi_ws_getvar(pwsc,"dmap.itemname");
+    query=pi_ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
 
-    retval=_ppi->db_add_playlist(&estring,name,type,query,NULL,0,&playlistid);
+    retval=pi_db_add_playlist(&estring,name,type,query,NULL,0,&playlistid);
     if(retval) {
         out_daap_error(pwsc,ppi,"MAPR",estring);
-        _ppi->log(E_LOG,"error adding playlist %s: %s\n",name,estring);
+        pi_log(E_LOG,"error adding playlist %s: %s\n",name,estring);
         free(estring);
         return;
     }
@@ -908,7 +906,7 @@ void out_daap_addplaylist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     out_daap_output_write(pwsc,ppi,playlist_response,32);
     out_daap_output_end(pwsc,ppi);
 
-    _ppi->ws_will_close(pwsc);
+    pi_ws_will_close(pwsc);
     return;
 }
 
@@ -924,20 +922,20 @@ void out_daap_editplaylist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     int retval;
 
-    if(!_ppi->ws_getvar(pwsc,"dmap.itemid")) {
-        _ppi->log(E_LOG,"Missing itemid on playlist edit");
+    if(!pi_ws_getvar(pwsc,"dmap.itemid")) {
+        pi_log(E_LOG,"Missing itemid on playlist edit");
         out_daap_error(pwsc,ppi,"MEPR","No itemid specified");
         return;
     }
 
-    name=_ppi->ws_getvar(pwsc,"dmap.itemname");
-    query=_ppi->ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
-    id=atoi(_ppi->ws_getvar(pwsc,"dmap.itemid"));
+    name=pi_ws_getvar(pwsc,"dmap.itemname");
+    query=pi_ws_getvar(pwsc,"org.mt-daapd.smart-playlist-spec");
+    id=atoi(pi_ws_getvar(pwsc,"dmap.itemid"));
 
     /* FIXME: Error handling */
-    retval=_ppi->db_edit_playlist(&pe,id,name,query);
+    retval=pi_db_edit_playlist(&pe,id,name,query);
     if(retval) {
-        _ppi->log(E_LOG,"error editing playlist.\n");
+        pi_log(E_LOG,"error editing playlist.\n");
         out_daap_error(pwsc,ppi,"MEPR",pe);
         if(pe) free(pe);
         return;
@@ -950,7 +948,7 @@ void out_daap_editplaylist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     out_daap_output_write(pwsc,ppi,edit_response,20);
     out_daap_output_end(pwsc,ppi);
 
-    _ppi->ws_will_close(pwsc);
+    pi_ws_will_close(pwsc);
     return;
 }
 
@@ -967,8 +965,8 @@ void out_daap_playlistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     char *pe = NULL;
     int mtco;
 
-    if(_ppi->ws_getvar(pwsc,"meta")) {
-        ppi->meta = daap_encode_meta(_ppi->ws_getvar(pwsc,"meta"));
+    if(pi_ws_getvar(pwsc,"meta")) {
+        ppi->meta = daap_encode_meta(pi_ws_getvar(pwsc,"meta"));
     } else {
         ppi->meta = ((1ll << metaItemId) |
                      (1ll << metaItemName) |
@@ -980,21 +978,21 @@ void out_daap_playlistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     ppi->dq.query_type = QUERY_TYPE_ITEMS;
     ppi->dq.playlist_id = atoi(ppi->uri_sections[3]);
 
-    if(_ppi->db_enum_start(&pe,&ppi->dq)) {
-        _ppi->log(E_LOG,"Could not start enum: %s\n",pe);
+    if(pi_db_enum_start(&pe,&ppi->dq)) {
+        pi_log(E_LOG,"Could not start enum: %s\n",pe);
         out_daap_error(pwsc,ppi,"apso",pe);
         if(pe) free(pe);
         return;
     }
 
     if(daap_enum_size(&pe,ppi,&song_count,&list_length)) {
-        _ppi->log(E_LOG,"Could not enum size: %s\n",pe);
+        pi_log(E_LOG,"Could not enum size: %s\n",pe);
         out_daap_error(pwsc,ppi,"apso",pe);
         if(pe) free(pe);
         return;
     }
 
-    _ppi->log(E_DBG,"Item enum:  got %d songs, dmap size: %d\n",song_count,list_length);
+    pi_log(E_DBG,"Item enum:  got %d songs, dmap size: %d\n",song_count,list_length);
 
     mtco = song_count;
     if(ppi->dq.offset || ppi->dq.limit)
@@ -1013,15 +1011,15 @@ void out_daap_playlistitems(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     /* FIXME: Error checking */
     while((daap_enum_fetch(NULL,ppi,&list_length,&block)==0) &&
           (list_length)) {
-        _ppi->log(E_SPAM,"Got block of size %d\n",list_length);
+        pi_log(E_SPAM,"Got block of size %d\n",list_length);
         out_daap_output_write(pwsc,ppi,block,list_length);
         free(block);
     }
 
-    _ppi->log(E_DBG,"Done enumerating.\n");
+    pi_log(E_DBG,"Done enumerating.\n");
 
-    _ppi->db_enum_end(NULL);
-    _ppi->db_enum_dispose(NULL,&ppi->dq);
+    pi_db_enum_end(NULL);
+    pi_db_enum_dispose(NULL,&ppi->dq);
 
     out_daap_output_end(pwsc,ppi);
     return;
@@ -1042,7 +1040,7 @@ void out_daap_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         which_field = 3;
     }
 
-    _ppi->log(E_DBG,"Browsing by %s (field %d)\n",
+    pi_log(E_DBG,"Browsing by %s (field %d)\n",
               ppi->uri_sections[which_field],which_field);
 
     ppi->dq.query_type = QUERY_TYPE_DISTINCT;
@@ -1062,25 +1060,25 @@ void out_daap_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         response_type = "abcp";
         ppi->dq.distinct_field = "composer";
     } else {
-        _ppi->log(E_WARN,"Invalid browse request type %s\n",ppi->uri_sections[3]);
+        pi_log(E_WARN,"Invalid browse request type %s\n",ppi->uri_sections[3]);
         out_daap_error(pwsc,ppi,"abro","Invalid browse type");
-        _ppi->config_set_status(pwsc,ppi->session_id,NULL);
+        pi_config_set_status(pwsc,ppi->session_id,NULL);
         return;
     }
 
-    if(_ppi->db_enum_start(&pe,&ppi->dq)) {
-        _ppi->log(E_LOG,"Could not start enum: %s\n",pe);
+    if(pi_db_enum_start(&pe,&ppi->dq)) {
+        pi_log(E_LOG,"Could not start enum: %s\n",pe);
         out_daap_error(pwsc,ppi,"abro",pe);
         if(pe) free(pe);
         return;
     }
 
-    _ppi->log(E_DBG,"Getting enum size.\n");
+    pi_log(E_DBG,"Getting enum size.\n");
 
     /* FIXME: Error handling */
     daap_enum_size(NULL,ppi,&item_count,&list_length);
 
-    _ppi->log(E_DBG,"Item enum: got %d items, dmap size: %d\n",
+    pi_log(E_DBG,"Item enum: got %d items, dmap size: %d\n",
             item_count,list_length);
 
     mtco = item_count;
@@ -1099,15 +1097,15 @@ void out_daap_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     while((daap_enum_fetch(NULL,ppi,&list_length,&block)==0) &&
           (list_length))
     {
-        _ppi->log(E_SPAM,"Got block of size %d\n",list_length);
+        pi_log(E_SPAM,"Got block of size %d\n",list_length);
         out_daap_output_write(pwsc,ppi,block,list_length);
         free(block);
     }
 
-    _ppi->log(E_DBG,"Done enumerating\n");
+    pi_log(E_DBG,"Done enumerating\n");
 
-    _ppi->db_enum_end(NULL);
-    _ppi->db_enum_dispose(NULL,&ppi->dq);
+    pi_db_enum_end(NULL);
+    pi_db_enum_dispose(NULL,&ppi->dq);
 
     out_daap_output_end(pwsc,ppi);
     return;
@@ -1123,8 +1121,8 @@ void out_daap_playlists(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     int mtco;
 
     /* currently, this is ignored for playlist queries */
-    if(_ppi->ws_getvar(pwsc,"meta")) {
-        ppi->meta = daap_encode_meta(_ppi->ws_getvar(pwsc,"meta"));
+    if(pi_ws_getvar(pwsc,"meta")) {
+        ppi->meta = daap_encode_meta(pi_ws_getvar(pwsc,"meta"));
     } else {
         ppi->meta = ((1ll << metaItemId) |
                      (1ll << metaItemName) |
@@ -1135,21 +1133,21 @@ void out_daap_playlists(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     ppi->dq.query_type = QUERY_TYPE_PLAYLISTS;
 
-    if(_ppi->db_enum_start(&pe,&ppi->dq)) {
-        _ppi->log(E_LOG,"Could not start enum: %s\n",pe);
+    if(pi_db_enum_start(&pe,&ppi->dq)) {
+        pi_log(E_LOG,"Could not start enum: %s\n",pe);
         out_daap_error(pwsc,ppi,"aply",pe);
         if(pe) free(pe);
         return;
     }
 
     if(daap_enum_size(NULL,ppi,&pl_count,&list_length)) {
-        _ppi->log(E_LOG,"error in enumerating size: %s\n",pe);
+        pi_log(E_LOG,"error in enumerating size: %s\n",pe);
         out_daap_error(pwsc,ppi,"aply",pe);
         if(pe) free(pe);
         return;
     }
 
-    _ppi->log(E_DBG,"Item enum:  got %d playlists, dmap size: %d\n",pl_count,list_length);
+    pi_log(E_DBG,"Item enum:  got %d playlists, dmap size: %d\n",pl_count,list_length);
 
     mtco = pl_count;
     if((ppi->dq.offset) || (ppi->dq.limit))
@@ -1169,15 +1167,15 @@ void out_daap_playlists(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     while((daap_enum_fetch(NULL,ppi,&list_length,&block)==0) &&
           (list_length))
     {
-        _ppi->log(E_SPAM,"Got block of size %d\n",list_length);
+        pi_log(E_SPAM,"Got block of size %d\n",list_length);
         out_daap_output_write(pwsc,ppi,block,list_length);
         free(block);
     }
 
-    _ppi->log(E_DBG,"Done enumerating.\n");
+    pi_log(E_DBG,"Done enumerating.\n");
 
-    _ppi->db_enum_end(NULL);
-    _ppi->db_enum_dispose(NULL,&ppi->dq);
+    pi_db_enum_end(NULL);
+    pi_db_enum_dispose(NULL,&ppi->dq);
 
     out_daap_output_end(pwsc,ppi);
     return;
@@ -1192,16 +1190,16 @@ void out_daap_items(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     char *pe = NULL;
     int mtco;
 
-    if(_ppi->ws_getvar(pwsc,"meta")) {
-        ppi->meta = daap_encode_meta(_ppi->ws_getvar(pwsc,"meta"));
+    if(pi_ws_getvar(pwsc,"meta")) {
+        ppi->meta = daap_encode_meta(pi_ws_getvar(pwsc,"meta"));
     } else {
         ppi->meta = (MetaField_t) -1ll;
     }
 
     ppi->dq.query_type = QUERY_TYPE_ITEMS;
 
-    if(_ppi->db_enum_start(&pe,&ppi->dq)) {
-        _ppi->log(E_LOG,"Could not start enum: %s\n",pe);
+    if(pi_db_enum_start(&pe,&ppi->dq)) {
+        pi_log(E_LOG,"Could not start enum: %s\n",pe);
         out_daap_error(pwsc,ppi,"adbs",pe);
         if(pe) free(pe);
         return;
@@ -1209,13 +1207,13 @@ void out_daap_items(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     /* FIXME: Error handling */
     if(daap_enum_size(&pe,ppi,&song_count,&list_length)) {
-        _ppi->log(E_LOG,"Error getting dmap size: %s\n",pe);
+        pi_log(E_LOG,"Error getting dmap size: %s\n",pe);
         out_daap_error(pwsc,ppi,"adbs",pe);
         if(pe) free(pe);
         return;
     }
 
-    _ppi->log(E_DBG,"Item enum:  got %d songs, dmap size: %d\n",song_count,
+    pi_log(E_DBG,"Item enum:  got %d songs, dmap size: %d\n",song_count,
               list_length);
 
     mtco = song_count;
@@ -1235,13 +1233,13 @@ void out_daap_items(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     /* FIXME: check errors */
     while((daap_enum_fetch(NULL,ppi,&list_length,&block)==0) &&
           (list_length)) {
-        _ppi->log(E_SPAM,"Got block of size %d\n",list_length);
+        pi_log(E_SPAM,"Got block of size %d\n",list_length);
         out_daap_output_write(pwsc,ppi,block,list_length);
         free(block);
     }
-    _ppi->log(E_DBG,"Done enumerating.\n");
-    _ppi->db_enum_end(NULL);
-    _ppi->db_enum_dispose(NULL,&ppi->dq);
+    pi_log(E_DBG,"Done enumerating.\n");
+    pi_db_enum_end(NULL);
+    pi_db_enum_dispose(NULL,&ppi->dq);
     out_daap_output_end(pwsc,ppi);
     return;
 }
@@ -1250,18 +1248,18 @@ void out_daap_update(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     unsigned char update_response[32];
     unsigned char *current=update_response;
 
-    _ppi->log(E_DBG,"Preparing to send update response\n");
-    _ppi->config_set_status(pwsc,ppi->session_id,"Waiting for DB update");
+    pi_log(E_DBG,"Preparing to send update response\n");
+    pi_config_set_status(pwsc,ppi->session_id,"Waiting for DB update");
 
-    if(!_ppi->db_wait_update(pwsc)) {
-        _ppi->log(E_DBG,"Update session stopped\n");
+    if(!pi_db_wait_update(pwsc)) {
+        pi_log(E_DBG,"Update session stopped\n");
         return;
     }
 
     /* otherwise, send the info about this version */
     current += dmap_add_container(current,"mupd",24);
     current += dmap_add_int(current,"mstt",200);       /* 12 */
-    current += dmap_add_int(current,"musr",_ppi->db_revision());   /* 12 */
+    current += dmap_add_int(current,"musr",pi_db_revision());   /* 12 */
 
     out_daap_output_start(pwsc,ppi,32);
     out_daap_output_write(pwsc,ppi,update_response,32);
@@ -1279,7 +1277,7 @@ void out_daap_dbinfo(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     int servername_size;
 
     servername_size = sizeof(servername);
-    _ppi->server_name(servername,&servername_size);
+    pi_server_name(servername,&servername_size);
 
     namelen=(int) strlen(servername);
 
@@ -1293,9 +1291,9 @@ void out_daap_dbinfo(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     current += dmap_add_int(current,"miid",1);                      /* 12 */
     current += dmap_add_long(current,"mper",1);                     /* 16 */
     current += dmap_add_string(current,"minm",servername); /* 8 + namelen */
-    count = _ppi->db_count_items(COUNT_SONGS);
+    count = pi_db_count_items(COUNT_SONGS);
     current += dmap_add_int(current,"mimc",count);                  /* 12 */
-    count = _ppi->db_count_items(COUNT_PLAYLISTS);
+    count = pi_db_count_items(COUNT_PLAYLISTS);
     current += dmap_add_int(current,"mctc",count);                  /* 12 */
 
     out_daap_output_start(pwsc,ppi,129+namelen);
@@ -1306,8 +1304,8 @@ void out_daap_dbinfo(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 }
 
 void out_daap_logout(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
-    _ppi->config_set_status(pwsc,ppi->session_id,NULL);
-    _ppi->ws_returnerror(pwsc,204,"Logout Successful");
+    pi_config_set_status(pwsc,ppi->session_id,NULL);
+    pi_ws_returnerror(pwsc,204,"Logout Successful");
 }
 
 
@@ -1368,9 +1366,9 @@ void out_daap_content_codes(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 int out_daap_conf_isset(char *section, char *key) {
     char *value;
 
-    value = _ppi->conf_alloc_string(section,key,NULL);
+    value = pi_conf_alloc_string(section,key,NULL);
     if(value) {
-        _ppi->conf_dispose_string(value);
+        pi_conf_dispose_string(value);
         return TRUE;
     }
 
@@ -1389,7 +1387,7 @@ void out_daap_server_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     int supports_update=0;
 
     size = sizeof(servername);
-    _ppi->server_name(servername,&size);
+    pi_server_name(servername,&size);
     //    supports_update = conf_get_int("daap","supports_update",1);
 
     actual_length=139 + (int) strlen(servername);
@@ -1397,10 +1395,10 @@ void out_daap_server_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         actual_length -= 9;
 
     if(actual_length > sizeof(server_info)) {
-        _ppi->log(E_FATAL,"Server name too long.\n");
+        pi_log(E_FATAL,"Server name too long.\n");
     }
 
-    client_version=_ppi->ws_getrequestheader(pwsc,"Client-DAAP-Version");
+    client_version=pi_ws_getrequestheader(pwsc,"Client-DAAP-Version");
 
     current += dmap_add_container(current,"msrv",actual_length - 8);
     current += dmap_add_int(current,"mstt",200);        /* 12 */
@@ -1453,7 +1451,7 @@ void out_daap_error(WS_CONNINFO *pwsc, PRIVINFO *ppi, char *container, char *err
     block = (unsigned char *)malloc(len);
 
     if(!block)
-        _ppi->log(E_FATAL,"Malloc error\n");
+        pi_log(E_FATAL,"Malloc error\n");
 
     current = block;
     current += dmap_add_container(current,container,len - 8);
@@ -1466,7 +1464,7 @@ void out_daap_error(WS_CONNINFO *pwsc, PRIVINFO *ppi, char *container, char *err
 
     free(block);
 
-    _ppi->ws_will_close(pwsc);
+    pi_ws_will_close(pwsc);
 }
 
 

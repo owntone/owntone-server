@@ -39,6 +39,20 @@
 # include <stdint.h>
 #endif
 
+#ifdef DEBUG
+#  ifndef ASSERT
+#    define ASSERT(f)         \
+        if(f)                 \
+            {}                \
+        else                  \
+            err_log(0,"Assert error in %s, line %d\n",__FILE__,__LINE__)
+#  endif /* ndef ASSERT */
+#else /* ndef DEBUG */
+#  ifndef ASSERT
+#    define ASSERT(f)
+#  endif
+#endif
+
 #include <time.h>
 #include "memdebug.h"  /* redefine free/malloc/etc */
 #include "compat.h"

@@ -262,10 +262,10 @@ MetaField_t daap_encode_meta(char *meta) {
         if(m->tag)
             bits |= (((MetaField_t) 1) << m->bit);
         else
-            _ppi->log(E_WARN,"Unknown meta code: %.*s\n", len, start);
+            pi_log(E_WARN,"Unknown meta code: %.*s\n", len, start);
     }
 
-    _ppi->log(E_DBG, "meta codes: %llu\n", bits);
+    pi_log(E_DBG, "meta codes: %llu\n", bits);
 
     return bits;
 }
@@ -475,12 +475,12 @@ int daap_enum_size(char **pe, PRIVINFO *pinfo, int *count, int *total_size) {
     int record_size;
     char **row;
 
-    _ppi->log(E_DBG,"Enumerating size\n");
+    pi_log(E_DBG,"Enumerating size\n");
 
     *count=0;
     *total_size = 0;
 
-    while((!(err=_ppi->db_enum_fetch_row(pe,&row,&pinfo->dq))) && (row)) {
+    while((!(err=pi_db_enum_fetch_row(pe,&row,&pinfo->dq))) && (row)) {
         if((record_size = daap_get_size(pinfo,row))) {
             *total_size += record_size;
             *count = *count + 1;
@@ -488,14 +488,14 @@ int daap_enum_size(char **pe, PRIVINFO *pinfo, int *count, int *total_size) {
     }
 
     if(err) {
-        _ppi->db_enum_end(NULL);
-        _ppi->db_enum_dispose(NULL,&pinfo->dq);
+        pi_db_enum_end(NULL);
+        pi_db_enum_dispose(NULL,&pinfo->dq);
         return err;
     }
 
-    err=_ppi->db_enum_restart(pe, &pinfo->dq);
+    err=pi_db_enum_restart(pe, &pinfo->dq);
 
-    _ppi->log(E_DBG,"Got size: %d\n",*total_size);
+    pi_log(E_DBG,"Got size: %d\n",*total_size);
     return err;
 }
 
@@ -508,10 +508,10 @@ int daap_enum_fetch(char **pe, PRIVINFO *pinfo, int *size, unsigned char **pdmap
     unsigned char *presult;
     char **row;
 
-    err=_ppi->db_enum_fetch_row(pe, &row, &pinfo->dq);
+    err=pi_db_enum_fetch_row(pe, &row, &pinfo->dq);
     if(err) {
-        _ppi->db_enum_end(NULL);
-        _ppi->db_enum_dispose(NULL,&pinfo->dq);
+        pi_db_enum_end(NULL);
+        pi_db_enum_dispose(NULL,&pinfo->dq);
         return err;
     }
 
@@ -520,7 +520,7 @@ int daap_enum_fetch(char **pe, PRIVINFO *pinfo, int *size, unsigned char **pdmap
         if(result_size) {
             presult = (unsigned char*)malloc(result_size);
             if(!presult) {
-                _ppi->log(E_FATAL,"Malloc error\n");
+                pi_log(E_FATAL,"Malloc error\n");
             }
 
             daap_build_dmap(pinfo,row,presult,result_size);
@@ -570,7 +570,7 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
         break;
     case QUERY_TYPE_ITEMS:
         /* see if this is going to be transcoded */
-        transcode = _ppi->should_transcode(pinfo->pwsc,valarray[SG_CODECTYPE]);
+        transcode = pi_should_transcode(pinfo->pwsc,valarray[SG_CODECTYPE]);
 
         /* Items that get changed by transcode:
          *
@@ -720,7 +720,7 @@ int daap_get_size(PRIVINFO *pinfo, char **valarray) {
         break;
 
     default:
-        _ppi->log(E_LOG,"Unknown query type: %d\n",(int)pinfo->dq.query_type);
+        pi_log(E_LOG,"Unknown query type: %d\n",(int)pinfo->dq.query_type);
         return 0;
     }
     return 0;
@@ -759,7 +759,7 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
         break;
     case QUERY_TYPE_ITEMS:
         /* see if this is going to be transcoded */
-        transcode = _ppi->should_transcode(pinfo->pwsc,valarray[SG_CODECTYPE]);
+        transcode = pi_should_transcode(pinfo->pwsc,valarray[SG_CODECTYPE]);
 
         /* Items that get changed by transcode:
          *
@@ -924,7 +924,7 @@ int daap_build_dmap(PRIVINFO *pinfo, char **valarray, unsigned char *presult, in
         break;
 
     default:
-        _ppi->log(E_LOG,"Unknown query type: %d\n",(int)pinfo->dq.query_type);
+        pi_log(E_LOG,"Unknown query type: %d\n",(int)pinfo->dq.query_type);
         return 0;
     }
     return 0;
