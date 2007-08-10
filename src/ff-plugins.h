@@ -25,7 +25,11 @@
 #include "ff-dbstruct.h"
 
 #ifdef WIN32
-# define EXPORT __declspec(dllimport)
+# ifdef _WINDLL
+#  define EXPORT __declspec(dllimport)
+# else
+#  define EXPORT __declspec(dllexport)
+# endif
 #else
 # define EXPORT
 #endif
@@ -129,10 +133,14 @@ typedef struct tag_db_query {
     void *priv;
 } DB_QUERY;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* webserver functions */
-extern EXPORT EXPORT char *pi_ws_uri(struct tag_ws_conninfo *);
-extern EXPORT EXPORT void pi_ws_will_close(struct tag_ws_conninfo *);
-extern EXPORT EXPORT int pi_ws_returnerror(struct tag_ws_conninfo *, int, char *);
+extern EXPORT char *pi_ws_uri(struct tag_ws_conninfo *);
+extern EXPORT void pi_ws_will_close(struct tag_ws_conninfo *);
+extern EXPORT int pi_ws_returnerror(struct tag_ws_conninfo *, int, char *);
 extern EXPORT char *pi_ws_getvar(struct tag_ws_conninfo *, char *);
 extern EXPORT int pi_ws_writefd(struct tag_ws_conninfo *, char *, ...);
 extern EXPORT int pi_ws_addresponseheader(struct tag_ws_conninfo *, char *, char *, ...);
@@ -173,5 +181,8 @@ extern EXPORT int pi_conf_get_int(char *section, char *key, int dflt);
 
 extern EXPORT void pi_config_set_status(struct tag_ws_conninfo *pwsc, int session, char *fmt, ...);
 
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* _FF_PLUGINS_ */

@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\win32;.;..\src"
-				PreprocessorDefinitions="HAVE_CONFIG_H;_WIN32"
+				PreprocessorDefinitions="HAVE_CONFIG_H;_WIN32;WIN32"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -62,7 +62,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="wsock32.lib"
+				AdditionalDependencies="wsock32.lib firefly.lib"
 				OutputFile="$(OutDir)/w32-event.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile="w32-event.def"
@@ -123,7 +123,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="..\win32;.;..\src"
-				PreprocessorDefinitions="HAVE_CONFIG_H;_WIN32"
+				PreprocessorDefinitions="HAVE_CONFIG_H;_WIN32;WIN32"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -141,7 +141,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="wsock32.lib"
+				AdditionalDependencies="wsock32.lib firefly.lib"
 				OutputFile="$(OutDir)/w32-event.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="w32-event.def"

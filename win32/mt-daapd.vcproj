@@ -71,6 +71,7 @@
 				GenerateDebugInformation="true"
 				ProgramDatabaseFile="$(OutDir)/mt-daapd.pdb"
 				SubSystem="1"
+				ImportLibrary="firefly.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -152,6 +153,7 @@
 				SubSystem="1"
 				OptimizeReferences="2"
 				EnableCOMDATFolding="2"
+				ImportLibrary="firefly.lib"
 				TargetMachine="1"
 			/>
 			<Tool
@@ -226,6 +228,10 @@
 			</File>
 			<File
 				RelativePath="..\src\err.c"
+				>
+			</File>
+			<File
+				RelativePath="..\src\ff-plugins.c"
 				>
 			</File>
 			<File

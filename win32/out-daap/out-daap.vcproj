@@ -42,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..;..\..\src"
-				PreprocessorDefinitions="HAVE_CONFIG_H"
+				PreprocessorDefinitions="HAVE_CONFIG_H;WIN32"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -62,6 +62,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="firefly.lib"
 				OutputFile="$(OutDir)/out-daap.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile="out-daap.def"
@@ -122,7 +123,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="..;..\..\src"
-				PreprocessorDefinitions="HAVE_CONFIG_H"
+				PreprocessorDefinitions="HAVE_CONFIG_H;WIN32"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -140,6 +141,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
+				AdditionalDependencies="..\firefly.lib"
 				OutputFile="$(OutDir)/out-daap.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="out-daap.def"
@@ -231,6 +233,10 @@
 				>
 			</File>
 		</Filter>
+		<File
+			RelativePath="..\firefly.lib"
+			>
+		</File>
 	</Files>
 	<Globals>
 	</Globals>

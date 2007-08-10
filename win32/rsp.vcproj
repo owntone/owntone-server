@@ -4,6 +4,7 @@
 	Version="8.00"
 	Name="rsp"
 	ProjectGUID="{68CCEA19-503F-4894-8AE3-B1673FDEA920}"
+	RootNamespace="rsp"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -41,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\win32;.;..\src"
-				PreprocessorDefinitions="_WIN32;HAVE_CONFIG_H;ZLIB_DLL"
+				PreprocessorDefinitions="_WIN32;HAVE_CONFIG_H;ZLIB_DLL;WIN32;PLUGIN"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="3"
@@ -61,7 +62,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="zdll.lib"
+				AdditionalDependencies="zdll.lib firefly.lib"
 				OutputFile="$(OutDir)/rsp.dll"
 				LinkIncremental="2"
 				IgnoreAllDefaultLibraries="false"
@@ -123,7 +124,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="..\win32;.;..\src"
-				PreprocessorDefinitions="_WIN32;HAVE_CONFIG_H;ZLIB_DLL"
+				PreprocessorDefinitions="_WIN32;HAVE_CONFIG_H;ZLIB_DLL;WIN32;PLUGIN"
 				RuntimeLibrary="2"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -141,7 +142,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="zdll.lib"
+				AdditionalDependencies="zdll.lib firefly.lib"
 				OutputFile="$(OutDir)/rsp.dll"
 				LinkIncremental="1"
 				IgnoreAllDefaultLibraries="false"

@@ -6,14 +6,12 @@
 #include "ff-plugins.h"
 
 /* Forwards */
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi);
 void plugin_handler(int, int, void *, int);
 
 #define PIPE_BUFFER_SIZE 4096
 
 /* Globals */
 PLUGIN_EVENT_FN _pefn = { plugin_handler };
-PLUGIN_INPUT_FN *_ppi;
 
 PLUGIN_INFO _pi = { 
     PLUGIN_VERSION,        /* version */
@@ -34,8 +32,7 @@ typedef struct tag_plugin_msg {
 } PLUGIN_MSG;
 
 
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
-    _ppi = ppi;
+PLUGIN_INFO *plugin_info(void) {
     return &_pi;
 }
 

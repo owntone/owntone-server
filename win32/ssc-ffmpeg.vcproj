@@ -4,6 +4,7 @@
 	Version="8.00"
 	Name="ssc-ffmpeg"
 	ProjectGUID="{DA27D6F4-7E9F-40CA-AC5C-480DC81A1C56}"
+	RootNamespace="ssc-ffmpeg"
 	Keyword="Win32Proj"
 	>
 	<Platforms>
@@ -41,7 +42,7 @@
 				Name="VCCLCompilerTool"
 				Optimization="0"
 				AdditionalIncludeDirectories="..\win32;.;..\src"
-				PreprocessorDefinitions="HAVE_CONFIG_H;_WIN32"
+				PreprocessorDefinitions="HAVE_CONFIG_H;_WIN32;WIN32"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
 				RuntimeLibrary="1"
@@ -61,7 +62,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="avcodec.lib avformat.lib avutil.lib"
+				AdditionalDependencies="avcodec.lib avformat.lib avutil.lib firefly.lib"
 				OutputFile="$(OutDir)/ssc-ffmpeg.dll"
 				LinkIncremental="2"
 				ModuleDefinitionFile="ssc-ffmpeg.def"
@@ -122,7 +123,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				AdditionalIncludeDirectories="..\win32;.;..\src"
-				PreprocessorDefinitions="HAVE_CONFIG_H;_WIN32"
+				PreprocessorDefinitions="HAVE_CONFIG_H;_WIN32;WIN32"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
 				WarningLevel="3"
@@ -140,7 +141,7 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="avcodec.lib avformat.lib avutil.lib"
+				AdditionalDependencies="avcodec.lib avformat.lib avutil.lib firefly.lib"
 				OutputFile="$(OutDir)/ssc-ffmpeg.dll"
 				LinkIncremental="1"
 				ModuleDefinitionFile="ssc-ffmpeg.def"

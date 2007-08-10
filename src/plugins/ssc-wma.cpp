@@ -73,8 +73,6 @@ int ssc_wma_close(void *pv);
 int ssc_wma_read(void *pv, char *buffer, int len);
 char *ssc_wma_error(void *pv);
 
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN*);
-
 /* Globals */
 PLUGIN_TRANSCODE_FN _ptfn = {
     ssc_wma_init,
@@ -84,8 +82,6 @@ PLUGIN_TRANSCODE_FN _ptfn = {
     ssc_wma_read,
     ssc_wma_error
 };
-
-PLUGIN_INPUT_FN *_ppi;
 
 PLUGIN_INFO _pi = {
     PLUGIN_VERSION,        /* version */
@@ -107,8 +103,7 @@ char *ssc_wma_error(void *pv) {
     return _ssc_wma_errors[handle->errnum];
 }
 
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
-    _ppi = ppi;
+PLUGIN_INFO *plugin_info(void) {
     return &_pi;
 }
 
@@ -118,7 +113,7 @@ void *ssc_wma_init(void) {
 
     hr = CoInitializeEx(NULL,COINIT_MULTITHREADED);
     if(FAILED(hr)) {
-        _ppi->log(E_INF,"Could not initialize COM, Error code: 0x%08X\n",hr);
+        pi_log(E_INF,"Could not initialize COM, Error code: 0x%08X\n",hr);
         return NULL;
     }
 
@@ -164,7 +159,7 @@ int ssc_wma_open(void *vp, MP3FILE *pmp3) {
 
     hr = WMCreateSyncReader(NULL,0,&handle->pReader);
     if(FAILED(hr)) {
-        _ppi->log(E_INF,"Could not create WMA reader.  Error code: 0x%08X\n",hr);
+        pi_log(E_INF,"Could not create WMA reader.  Error code: 0x%08X\n",hr);
         handle->errnum = SSC_WMA_E_NOREADER;
         return FALSE;
     }
@@ -174,20 +169,20 @@ int ssc_wma_open(void *vp, MP3FILE *pmp3) {
 
     hr = handle->pReader->Open(fname);
     if(FAILED(hr)) {
-        _ppi->log(E_INF,"Could not open file.  Error code: 0x%08X\n",hr);
+        pi_log(E_INF,"Could not open file.  Error code: 0x%08X\n",hr);
         return FALSE;
     }
     handle->state=STATE_OPEN;
 
     hr = handle->pReader->SetRange(0,0);
     if(FAILED(hr)) {
-        _ppi->log(E_INF,"Could not set range.  Error code: 0x%08X\n",hr);
+        pi_log(E_INF,"Could not set range.  Error code: 0x%08X\n",hr);
         return FALSE;
     }
 
     hr = handle->pReader->SetReadStreamSamples(1,0);
     if(FAILED(hr)) {
-        _ppi->log(E_INF,"Could not stream samples.  Error code: 0x%08X\n",hr);
+        pi_log(E_INF,"Could not stream samples.  Error code: 0x%08X\n",hr);
         return FALSE;
     }
 
@@ -198,19 +193,19 @@ int ssc_wma_open(void *vp, MP3FILE *pmp3) {
     IWMOutputMediaProps *pprops;
     hr = handle->pReader->GetOutputFormat(0,0,&pprops);
     if(FAILED(hr)) {
-        _ppi->log(E_LOG,"Could not get output format for %s\n",file);
+        pi_log(E_LOG,"Could not get output format for %s\n",file);
         return TRUE; /* we'll assume 44100/16/2 */
     }
 
     hr = pprops->GetMediaType(NULL,&byte_count);
     if(FAILED(hr)) {
-        _ppi->log(E_LOG,"Could not get media type for %s\n",file);
+        pi_log(E_LOG,"Could not get media type for %s\n",file);
         return TRUE;
     }
 
     WM_MEDIA_TYPE *ptype = (WM_MEDIA_TYPE*)calloc(byte_count,1);
     if(!ptype) {
-        _ppi->log(E_FATAL,"ssc_wma_open: malloc\n");
+        pi_log(E_FATAL,"ssc_wma_open: malloc\n");
     }
 
     hr = pprops->GetMediaType(ptype, &byte_count);
@@ -280,9 +275,9 @@ int ssc_wma_read(void *vp, char *buffer, int len) {
             byte_rate = sample_rate * channels * bits_per_sample / 8;
             block_align = channels * bits_per_sample / 8;
 
-            _ppi->log(E_DBG,"Channels.......: %d\n",channels);
-            _ppi->log(E_DBG,"Sample rate....: %d\n",sample_rate);
-            _ppi->log(E_DBG,"Bits/Sample....: %d\n",bits_per_sample);
+            pi_log(E_DBG,"Channels.......: %d\n",channels);
+            pi_log(E_DBG,"Sample rate....: %d\n",sample_rate);
+            pi_log(E_DBG,"Bits/Sample....: %d\n",bits_per_sample);
 
             memcpy(&handle->wav_header[0],"RIFF",4);
             *((unsigned int*)(&handle->wav_header[4])) = 36 + sample_len;
@@ -332,12 +327,12 @@ int ssc_wma_read(void *vp, char *buffer, int len) {
     if(SUCCEEDED(hr)) {
         hr = handle->pBuffer->GetBufferAndLength(&handle->pdata, &handle->data_len);
         if(FAILED(hr)) {
-            _ppi->log(E_LOG,"Read error while transcoding file\n");
+            pi_log(E_LOG,"Read error while transcoding file\n");
             handle->errnum = SSC_WMA_E_READ;
             return -1;
         }
 
-//        _ppi->log(E_SPAM,"Read %d bytes\n",handle->data_len);
+//        pi_log(E_SPAM,"Read %d bytes\n",handle->data_len);
 
         bytes_returned = handle->data_len;
         if(bytes_returned > len)

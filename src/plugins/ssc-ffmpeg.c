@@ -110,8 +110,6 @@ int ssc_ffmpeg_close(void *pv);
 int ssc_ffmpeg_read(void *pv, char *buffer, int len);
 char *ssc_ffmpeg_error(void *pv);
 
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN*);
-
 /* Globals */
 PLUGIN_TRANSCODE_FN _ptfn = {
     ssc_ffmpeg_init,
@@ -121,8 +119,6 @@ PLUGIN_TRANSCODE_FN _ptfn = {
     ssc_ffmpeg_read,
     ssc_ffmpeg_error
 };
-
-PLUGIN_INPUT_FN *_ppi;
 
 PLUGIN_INFO _pi = {
     PLUGIN_VERSION,        /* version */
@@ -141,8 +137,7 @@ char *ssc_ffmpeg_error(void *pv) {
     return ssc_ffmpeg_errors[handle->errnum];
 }
 
-PLUGIN_INFO *plugin_info(PLUGIN_INPUT_FN *ppi) {
-    _ppi = ppi;
+PLUGIN_INFO *plugin_info(void) {
     av_register_all();
 
     return &_pi;
