@@ -2958,9 +2958,9 @@ int io_wait(IO_WAITHANDLE *pwait, uint32_t *ms) {
 #else
     ASSERT(pwait->max_fd);
 
-    FD_COPY(&pwait->read_fds, &pwait->result_read);
-    FD_COPY(&pwait->write_fds, &pwait->result_write);
-    FD_COPY(&pwait->err_fds, &pwait->result_err);
+    memcpy(&pwait->result_read, &pwait->read_fds, sizeof(pwait->read_fds));
+    memcpy(&pwait->result_write, &pwait->write_fds, sizeof(pwait->write_fds));
+    memcpy(&pwait->result_err, &pwait->err_fds, sizeof(pwait->err_fds));
 
     if(!pwait->max_fd) {
         io_err_printf(IO_LOG_WARN,"No fds being monitored in io_wait\n");

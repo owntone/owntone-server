@@ -52,6 +52,7 @@ use_upnp=false;
 use_ssl=false
 
 STATIC_LIBS=no
+
 CPPFLAGS="${CPPFLAGS} -g -Wall"
 
 dnl fix freebsd's broken (?) libpthread
@@ -181,7 +182,8 @@ case $host in
 *freebsd*)
 	CPPFLAGS="$CPPFLAGS -DFREEBSD";;
 *linux*)
-	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN -DUSES_NETLINK -DHAVE_LINUX";;
+	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN -DUSES_NETLINK -DHAVE_LINUX"
+	LDFLAGS="${LDFLAGS} -Wl,--export-dynamic";;
 *openbsd*)
 	CPPFLAGS="$CPPFLAGS -DHAVE_BROKEN_RECVDSTADDR";;
 *darwin*)
