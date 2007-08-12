@@ -625,7 +625,7 @@ char *util_asprintf(char *fmt, ...) {
 # ifdef HAVE___VA_COPY
 #  define VA_COPY(a,b) __va_copy((a),(b))
 # else
-#  define VA_COPY(a,b) a=b;
+#  define VA_COPY(a,b) memcpy((a),(b),sizeof(b))
 # endif
 #endif
 
