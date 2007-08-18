@@ -113,7 +113,7 @@ int io_setpos(IO_PRIVHANDLE *phandle, uint64_t offset, int whence);
 int io_getpos(IO_PRIVHANDLE *phandle, uint64_t *pos);
 int io_buffer(IO_PRIVHANDLE *phandle);
 int io_readline(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len);
-int io_readline_timed(IO_PRIVHANDLE *phandle, unsigned char *buf,
+int io_readline_timeout(IO_PRIVHANDLE *phandle, unsigned char *buf,
                       uint32_t *len, uint32_t *ms);
 char *io_errstr(IO_PRIVHANDLE *phandle);
 void io_dispose(IO_PRIVHANDLE *phandle);
@@ -404,7 +404,7 @@ int io_urldecode(char *str) {
     char *current,*dst;
     int digit1, digit2;
     char *hexdigits = "0123456789abcdef";
-    
+
     current = dst = str;
     while(*current) {
         switch(*current) {
@@ -419,7 +419,7 @@ int io_urldecode(char *str) {
                 return FALSE;
             }
             current++;
-            
+
             if(!strchr(hexdigits,tolower(*current))) {
                 io_err_printf(IO_LOG_DEBUG,"urldecode: bad hex digit\n");
                 return FALSE;
@@ -441,7 +441,7 @@ int io_urldecode(char *str) {
             break;
         }
     }
-    
+
     *dst = '\0';
     return TRUE;
 }
@@ -664,7 +664,7 @@ int io_open(IO_PRIVHANDLE *phandle, char *fmt, ...) {
 
     if(path_part)
         io_urldecode(path_part);
-    
+
     /* find the start of the options */
     options_part = strchr(path_part,'?');
     if(options_part) {
@@ -771,7 +771,7 @@ int io_read_timeout(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len,
     ASSERT(phandle->fnptr->fn_read);
 
     io_err_printf(IO_LOG_SPAM,"entering io_read_timeout\n");
-    
+
     if((!phandle) || (!phandle->open) || (!phandle->fnptr)) {
         io_err(phandle,IO_E_NOTINIT);
         *len = 0;
@@ -826,7 +826,7 @@ int io_read(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
     ASSERT(phandle->fnptr->fn_read);
 
     io_err_printf(IO_LOG_SPAM,"entering io_read\n");
-    
+
     if((!phandle) || (!phandle->open) || (!phandle->fnptr)) {
         io_err(phandle,IO_E_NOTINIT);
         *len = 0;
@@ -846,7 +846,7 @@ int io_read(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
             /* fill as much as possible from buffer */
             if(phandle->buffer_offset < phandle->buffer_len) {
                 io_err_printf(IO_LOG_SPAM,"Fulfilling from buffer\n");
-                read_size = max_len;   
+                read_size = max_len;
                 if(read_size > (phandle->buffer_len - phandle->buffer_offset))
                     read_size = phandle->buffer_len - phandle->buffer_offset;
                 memcpy((void*)buf_ptr,(void*)&phandle->buffer[phandle->buffer_offset], read_size);
@@ -863,7 +863,7 @@ int io_read(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
                     return FALSE;
                 }
                 phandle->buffer_offset = 0;
-                if(phandle->buffer_len == 0) 
+                if(phandle->buffer_len == 0)
                     return TRUE; /* can't read any more */
             }
         }
@@ -894,17 +894,17 @@ int io_read(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
  * @returns TRUE on success, FALSE with ms=0 on timeout, or FALSE
  *          on other kind of error
  */
-int io_readline_timed(IO_PRIVHANDLE *phandle, unsigned char *buf,
+int io_readline_timeout(IO_PRIVHANDLE *phandle, unsigned char *buf,
                       uint32_t *len, uint32_t *ms) {
     uint32_t numread = 0;
     uint32_t to_read;
     int ascii = 0;
-    
+
     if(io_option_get(phandle,"ascii",NULL))
         ascii = 1;
-        
-    io_err_printf(IO_LOG_SPAM,"entering readline_timed\n");
-    
+
+    io_err_printf(IO_LOG_SPAM,"entering readline_timeout\n");
+
     while(numread < (*len - 1)) {
         to_read = 1;
         if(io_read_timeout(phandle, buf + numread, &to_read, ms)) {
@@ -946,7 +946,7 @@ int io_readline(IO_PRIVHANDLE *phandle, unsigned char *buf,
                 uint32_t *len) {
 
     io_err_printf(IO_LOG_SPAM,"entering io_readline\n");
-    return io_readline_timed(phandle, buf, len, NULL);
+    return io_readline_timeout(phandle, buf, len, NULL);
 }
 
 
@@ -969,13 +969,13 @@ int io_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
     uint32_t ascii_len;
     uint32_t index;
     uint32_t real_len;
-    
+
     ASSERT(io_initialized);   /* call io_init first */
     ASSERT(phandle);
     ASSERT(phandle->open);
     ASSERT(phandle->fnptr);
     ASSERT(phandle->fnptr->fn_write);
-                
+
     if((!phandle) || (!phandle->open) || (!phandle->fnptr)) {
         io_err(phandle,IO_E_NOTINIT);
         *len = 0;
@@ -1006,7 +1006,7 @@ int io_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
             io_err_printf(IO_LOG_FATAL,"Could not alloc buffer in io_printf\n");
             exit(-1);
         }
-        
+
         must_free = TRUE;
         dst = real_buffer;
         for(index = 0; index < *len; index++) {
@@ -1019,7 +1019,7 @@ int io_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
         real_buffer = buf; /* just write what was passed */
         real_len = *len;
     }
-    
+
     result = phandle->fnptr->fn_write(phandle,real_buffer,&real_len);
 
     if(!result)
@@ -1030,7 +1030,7 @@ int io_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
             real_len = *len;
         free(real_buffer);
     }
-    
+
     *len = real_len;
     return result;
 }
@@ -1083,7 +1083,7 @@ int io_printf(IO_PRIVHANDLE *phandle, char *fmt, ...) {
     if(!io_write(phandle,(unsigned char *)outbuf,&len) || (len != new_size)) {
         return FALSE;
     }
-    
+
     return TRUE;
 }
 
@@ -1194,10 +1194,10 @@ int io_getpos(IO_PRIVHANDLE *phandle, uint64_t *pos) {
  */
 int io_buffer(IO_PRIVHANDLE *phandle) {
     ASSERT(phandle);
-    
-    if(!phandle) 
+
+    if(!phandle)
         return FALSE;
-    
+
     if(phandle->buffer)
         return TRUE;
 
@@ -1206,9 +1206,9 @@ int io_buffer(IO_PRIVHANDLE *phandle) {
         io_err_printf(IO_LOG_FATAL,"Malloc error in io_buffer\n");
         exit(-1);
     }
-    
+
     phandle->buffering=1;
-    
+
     return TRUE;
 }
 
@@ -1285,7 +1285,7 @@ void io_err(IO_PRIVHANDLE *phandle, uint32_t errorcode) {
         free(phandle->err_str);
 
     phandle->err = errorcode;
-        
+
     if(errorcode) {
         phandle->err_str = strdup(io_err_strings[errorcode & 0x00FFFFFF]);
         phandle->err = errorcode;
@@ -1778,10 +1778,10 @@ char *io_file_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
     if(!priv) {
         return "file not initialized";
     }
-    
+
     if(code)
         *code = priv->err;
-    
+
     if(priv->local_err) {
         if(is_local)
             *is_local = TRUE;
@@ -2400,7 +2400,7 @@ void io_socket_seterr(IO_PRIVHANDLE *phandle, ERR_T errcode) {
  */
 char *io_socket_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
     IO_SOCKET_PRIV *priv;
-    
+
 #ifdef WIN32
     char lpErrorBuf[256];
 #endif
@@ -2410,7 +2410,7 @@ char *io_socket_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
     priv = (IO_SOCKET_PRIV*)(phandle->private);
     if(*code)
         *code = priv->err;
-        
+
     if(priv->local_err) {
         *is_local = TRUE;
         return strdup(io_socket_err_strings[priv->err & 0x00FFFFFF]);

@@ -67,9 +67,6 @@ extern int io_close(IOHANDLE io);
 extern int io_read(IOHANDLE io, unsigned char *buf, uint32_t *len);
 extern int io_read_timeout(IOHANDLE io, unsigned char *buf, uint32_t *len,
                            uint32_t *ms);
-extern int io_readline(IOHANDLE io, unsigned char *buf, uint32_t *len);
-extern int io_readline_timed(IOHANDLE io, unsigned char *buf,  uint32_t *len,
-                             uint32_t *ms);
 extern int io_write(IOHANDLE io, unsigned char *buf, uint32_t *len);
 extern int io_printf(IOHANDLE io, char *fmt, ...);
 extern int io_size(IOHANDLE io, uint64_t *size);

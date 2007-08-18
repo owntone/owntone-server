@@ -25,6 +25,7 @@
 #include "webserver.h"
 #include "xml-rpc.h"
 #include "db-generic.h"
+#include "ff-plugin-events.h"
 
 extern int plugin_init(void);
 extern int plugin_load(char **pe, char *path);
@@ -48,7 +49,5 @@ extern int plugin_ssc_transcode(WS_CONNINFO *pwsc, MP3FILE *pmp3, int offset, in
 #define PLUGIN_E_SUCCESS     0
 #define PLUGIN_E_NOLOAD      1
 #define PLUGIN_E_BADFUNCS    2
-
-#include "ff-plugins.h"
 
 #endif /* _PLUGIN_H_ */

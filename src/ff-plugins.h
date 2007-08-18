@@ -23,6 +23,7 @@
 #define _FF_PLUGINS_H_
 
 #include "ff-dbstruct.h"
+#include "ff-plugin-events.h"
 
 #ifdef WIN32
 # ifdef _WINDLL
@@ -40,25 +41,6 @@
 #define FALSE 0
 #endif
 
-/* Plugin types */
-#define PLUGIN_OUTPUT     1
-#define PLUGIN_SCANNER    2
-#define PLUGIN_DATABASE   4
-#define PLUGIN_EVENT      8
-#define PLUGIN_TRANSCODE 16
-
-/* plugin event types */
-#define PLUGIN_EVENT_LOG            0
-#define PLUGIN_EVENT_FULLSCAN_START 1
-#define PLUGIN_EVENT_FULLSCAN_END   2
-#define PLUGIN_EVENT_STARTING       3
-#define PLUGIN_EVENT_SHUTDOWN       4
-#define PLUGIN_EVENT_STARTSTREAM    5
-#define PLUGIN_EVENT_ABORTSTREAM    6
-#define PLUGIN_EVENT_ENDSTREAM      7
-
-#define PLUGIN_VERSION   1
-
 #ifndef E_FATAL
 # define E_FATAL 0
 # define E_LOG   1
@@ -72,6 +54,7 @@
 #define COUNT_PLAYLISTS 1
 
 struct tag_ws_conninfo;
+typedef void* HANDLE;
 
 /* Functions that must be exported by different plugin types */
 typedef struct tag_plugin_output_fn {
@@ -178,11 +161,29 @@ extern EXPORT int pi_db_wait_update(struct tag_ws_conninfo *);
 extern EXPORT char *pi_conf_alloc_string(char *section, char *key, char *dflt);
 extern EXPORT void pi_conf_dispose_string(char *str);
 extern EXPORT int pi_conf_get_int(char *section, char *key, int dflt);
-
 extern EXPORT void pi_config_set_status(struct tag_ws_conninfo *pwsc, int session, char *fmt, ...);
+
+/* io functions */
+extern EXPORT HANDLE pi_io_new(void);
+extern EXPORT int pi_io_open(HANDLE io, char *fmt, ...);
+extern EXPORT int pi_io_close(HANDLE io);
+extern EXPORT int pi_io_read(HANDLE io, unsigned char *buf, uint32_t *len);
+extern EXPORT int pi_io_read_timeout(HANDLE io, unsigned char *buf, uint32_t *len, uint32_t *ms);
+extern EXPORT int pi_io_write(HANDLE io, unsigned char *buf, uint32_t *len);
+extern EXPORT int pi_io_printf(HANDLE io, char *fmt, ...);
+extern EXPORT int pi_io_size(HANDLE io, uint64_t *size);
+extern EXPORT int pi_io_setpos(HANDLE io, uint64_t offset, int whence);
+extern EXPORT int pi_io_getpos(HANDLE io, uint64_t *pos);
+extern EXPORT int pi_io_buffer(HANDLE io); /* unimplemented */
+extern EXPORT int pi_io_readline(HANDLE io, unsigned char *buf, uint32_t *len);
+extern EXPORT int pi_io_readline_timeout(HANDLE io, unsigned char *buf, uint32_t *len, uint32_t *ms);
+extern EXPORT char* pi_io_errstr(HANDLE io);
+extern EXPORT int pi_io_errcode(HANDLE io);
+extern EXPORT void pi_io_dispose(HANDLE io);
 
 #ifdef __cplusplus
 }
 #endif
+
 
 #endif /* _FF_PLUGINS_ */

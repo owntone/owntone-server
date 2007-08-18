@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include "bsd-snprintf.h"
 #include "conf.h"
 #include "configfile.h"
 #include "daapd.h"
@@ -14,6 +15,7 @@
 #include "err.h"
 #include "ff-dbstruct.h"
 #include "ff-plugins.h"
+#include "io.h"
 #include "mp3-scanner.h"
 #include "plugin.h"
 #include "util.h"
@@ -526,4 +528,241 @@ EXPORT int pi_conf_get_int(char *section, char *key, int dflt) {
 }
 
 EXPORT void pi_config_set_status(WS_CONNINFO *pwsc, int session, char *fmt, ...) {
+    char *out;
+    va_list ap;
+
+    ASSERT(fmt);
+    if(!fmt)
+        return;
+
+    va_start(ap,fmt);
+    out = util_vasprintf(fmt,ap);
+    va_end(ap);
+
+    config_set_status(pwsc, session, "%s", out);
+    free(out);
+}
+
+/**
+ * allocte an io object
+ *
+ * @returns NULL on malloc error, IOHANDLE otherwise
+ */
+EXPORT IOHANDLE pi_io_new(void) {
+    return io_new();
+}
+
+/**
+ * open an io object given a printf-style URI
+ *
+ * @param io io handle allocated with pi_io_new
+ * @param fmt printf-style format string for URI (%U URI-encodes strings)
+ * @returns TRUE on success, FALSE otherwise.  use io_err* to get error info
+ */
+EXPORT int pi_io_open(IOHANDLE io, char *fmt, ...) {
+    char uri_copy[4096];
+    va_list ap;
+
+    va_start(ap, fmt);
+    io_util_vsnprintf(uri_copy, sizeof(uri_copy), fmt, ap);
+    va_end(ap);
+
+    return io_open(io, "%s", uri_copy);
+}
+
+/**
+ * close an open io_object
+ *
+ * @param io handle to close
+ * @returns TRUE on success, FALSE otherwise
+ */
+EXPORT int pi_io_close(IOHANDLE io) {
+    return io_close(io);
+}
+
+/**
+ * read from an open io handle
+ *
+ * @param io open handle to read from
+ * @param buf buffer to read into
+ * @param len length to read, on return: length read
+ * @returns TRUE on success, FALSE otherwise, len set with bytes read
+ */
+EXPORT int pi_io_read(IOHANDLE io, unsigned char *buf, uint32_t *len){
+    return io_read(io, buf, len);
+}
+
+/**
+ * read from an io handle with timeout
+ *
+ * Returns FALSE on read error or timeout.  Timeout versus
+ * read error condition can be determined by ms.  If ms is 0,
+ * then a timeout condition occurred
+ *
+ * @param io open handle to read from
+ * @param buf buffer to read into
+ * @param len length to read, on return: length read
+ * @param ms time to wait (in ms), on return: time left
+ * @returns TRUE on success, FALSE on failure (or timeout)
+ */
+EXPORT int pi_io_read_timeout(IOHANDLE io, unsigned char *buf, uint32_t *len, uint32_t *ms) {
+    return io_read_timeout(io, buf, len, ms);
+}
+
+/**
+ * write a block of data to an open io handle
+ *
+ * @param io io handle to write to
+ * @param buf buffer to write from
+ * @param len bytes to write to io handle, on return: bytes written
+ * @returns TRUE on success, FALSE otherwise
+ */
+EXPORT int pi_io_write(IOHANDLE io, unsigned char *buf, uint32_t *len) {
+    return io_write(io, buf, len);
+}
+
+/**
+ * write a printf formatted string to io handle
+ *
+ * @param io io handle to write to
+ * @param fmt printf style format specifier
+ * @returns TRUE on success, FALSE otherwise
+ */
+EXPORT int pi_io_printf(IOHANDLE io, char *fmt, ...) {
+    char *out;
+    va_list ap;
+    int result;
+
+    ASSERT(fmt);
+    if(!fmt)
+        return FALSE;
+
+    va_start(ap,fmt);
+    out = util_vasprintf(fmt,ap);
+    va_end(ap);
+
+    result = io_printf(io,"%s",out);
+    free(out);
+
+    return result;
+}
+
+/**
+ * get the (64-bit) size of a file.  Built in URI's use seekability
+ * to determine extent of file, so non-seekable io objects (sockets, etc)
+ * will return IO_E_BADFN.
+ *
+ * @param io io handle to get size of
+ * @param size returns the 64-bit size of file
+ * @returns TRUE on success, FALSE on error (check io_errstr)
+ */
+EXPORT int pi_io_size(IOHANDLE io, uint64_t *size) {
+    return io_size(io, size);
+}
+
+/**
+ * set the position of file read handle.  There are several limitations
+ * to this.  Non seekable handles (sockets, etc) won't seek, NOT
+ * EVEN FORWARD!
+ *
+ * FIXME: seeking on buffered file handle makes explode
+ *
+ * @param io handle to set position of
+ * @param offset how far to move
+ * @param whence from where (in lseek style -- SEEK_SET, SEEK_CUR, SEEK_END)
+ * @returns TRUE on success, FALSE otherwise (check io_errstr)
+ */
+EXPORT int pi_io_setpos(IOHANDLE io, uint64_t offset, int whence) {
+    return io_setpos(io, offset, whence);
+}
+
+/**
+ * get current file position in a stream.  Like setpos, this won't work on non-
+ * streamable io handles, and it won't (currently) work on buffered file handles.
+ * in addition, it might behave strangely various filter drivers (ssl, etc)
+ *
+ * @param io io handle to get position for
+ * @param pos on return, the current file position
+ * @returns TRUE on success, FALSE otherwise (see io_errstr)
+ */
+EXPORT int pi_io_getpos(IOHANDLE io, uint64_t *pos) {
+    return io_getpos(io, pos);
+}
+
+
+/**
+ * turn on buffering for a file handle.  This really only makes sense
+ * when doing readlines.  Note that you can't currently turn of buffered
+ * mode, so if doing a mix of buffered and unbuffered io, don't buffer the
+ * handle.  Also, once the handle is buffered, setpos and getpos won't work
+ * right, and will very likely make Bad Things Happen.  You have been
+ * warned.
+ *
+ * @param io handle to buffer
+ * @returns TRUE
+ */
+EXPORT int pi_io_buffer(IOHANDLE io) {
+    return io_buffer(io);
+}
+
+/**
+ * read a line from the file handle.  If the file is opened with
+ * ascii=1, then line ending conversions to/from windows/unix will
+ * take place.
+ *
+ * @param io handle to read line from
+ * @param buf buffer to read line into
+ * @param len size of buffer, on return: bytes read
+ * @returns TRUE on success, FALSE on error (see io_errstr)
+ */
+EXPORT int pi_io_readline(IOHANDLE io, unsigned char *buf, uint32_t *len) {
+    return io_readline(io, buf, len);
+}
+
+/**
+ * read a line from a file handle with timeout.
+ *
+ * Errors (including timeout) return FALSE.  Timeout errors
+ * can be detected because ms=0
+ *
+ * @param io handle to read from
+ * @param buf buffer to read into
+ * @param len size of buffer, on return: bytes read
+ * @param ms timeout, in ms, on return: time remaining
+ * @returns TRUE on success, FALSE otherwise
+ */
+EXPORT int pi_io_readline_timeout(IOHANDLE io, unsigned char *buf, uint32_t *len, uint32_t *ms) {
+    return io_readline_timeout(io, buf, len, ms);
+}
+
+/**
+ * get error string of last error
+ *
+ * @param io handle to get error of
+ * @returns error string, does not need to be free'd
+ */
+EXPORT char* pi_io_errstr(IOHANDLE io) {
+    return io_errstr(io);
+}
+
+/**
+ * get native error code
+ *
+ * @param io handle to get error code for
+ * @returns error code (see io-errors.h)
+ */
+EXPORT int pi_io_errcode(IOHANDLE io) {
+    return io_errcode(io);
+}
+
+/**
+ * dispose of an io handle, freeing up any internally allocated
+ * memory and structs.  This implicitly calls io_close, so
+ * you don't *need* to do io_close(hio); io_dispoase(hio);, but I
+ * do anyway.  :)
+ *
+ * @param io handle to dispose of
+ */
+EXPORT void pi_io_dispose(IOHANDLE io) {
+    return io_dispose(io);
 }
