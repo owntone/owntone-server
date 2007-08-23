@@ -77,11 +77,6 @@ typedef INT64       int64_t;
 #define snprintf _snprintf
 #define access _access
 
-// #define close os_close
-// #define open os_open
-// #define waitfdtimed os_waitfdtimed
-// #define fopen os_fopen
-
 #define readdir_r os_readdir_r
 #define closedir os_closedir
 #define opendir os_opendir

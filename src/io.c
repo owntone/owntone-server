@@ -1349,6 +1349,7 @@ int io_file_open(IO_PRIVHANDLE *phandle, char *uri) {
     uint32_t native_mode=0;
 #ifdef WIN32
     uint32_t native_permissions=0;
+    WCHAR utf16_path[PATH_MAX+1]; /* the real windows utf16 path */
 #endif
 
     ASSERT(phandle);
