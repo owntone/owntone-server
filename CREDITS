@@ -146,3 +146,6 @@ Gareth Potter
 Anton Johansson
  * Swedish Translations
 
+Iam Burrell
+ * configure patches to put plugins in libdir
+ * RH/Centos/Fedora specfiles

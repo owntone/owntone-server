@@ -7,12 +7,13 @@ EXTRA_DIST = README mt-daapd.spec mt-daapd.conf.templ mt-daapd-ssc.sh mt-daapd-s
 BUILT_SOURCES = mt-daapd.conf
 bin_SCRIPTS = mt-daapd-ssc.sh
 
-dbdir="/var/cache/mt-daapd"
+dbdir="$(localstatedir)/cache/mt-daapd"
 
 mt-daapd.conf: mt-daapd.conf.templ ../config.h
-	if [ "$(prefix)" = "/usr" ]; then \
-		sed -e s,[@]prefix[@],$(prefix),g -e s,[@]dbdir[@],/var/cache/mt-daapd,g mt-daapd.conf.templ >$@; \
-	else \
-		sed -e s,[@]prefix[@],$(prefix),g -e s,[@]dbdir[@],$(prefix)/var/cache/mt-daapd,g  mt-daapd.conf.templ >$@; \
-	fi
+	sed -e s,[@]prefix[@],$(prefix), \
+		-e s,[@]sysconfdir[@],$(sysconfdir), \
+		-e s,[@]libdir[@],$(libdir), \
+		-e s,[@]dbdir[@],$(dbdir),g mt-daapd.conf.templ >$@
+
+
 

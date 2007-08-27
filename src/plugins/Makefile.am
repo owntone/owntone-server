@@ -1,9 +1,9 @@
 # $Id: $
 #
-rspdir = ${pkgdatadir}/plugins
-out_daapdir = ${pkgdatadir}/plugins
-ssc_ffmpegdir = ${pkgdatadir}/plugins
-ssc_scriptdir = ${pkgdatadir}/plugins
+rspdir = ${pkglibdir}/plugins
+out_daapdir = ${pkglibdir}/plugins
+ssc_ffmpegdir = ${pkglibdir}/plugins
+ssc_scriptdir = ${pkglibdir}/plugins
 
 rsp_LTLIBRARIES=rsp.la
 rsp_la_LDFLAGS=-module -avoid-version
