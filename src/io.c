@@ -1349,7 +1349,7 @@ int io_file_open(IO_PRIVHANDLE *phandle, char *uri) {
     uint32_t native_mode=0;
 #ifdef WIN32
     uint32_t native_permissions=0;
-    WCHAR utf16_path[PATH_MAX+1]; /* the real windows utf16 path */
+    WCHAR *utf16_path; /* the real windows utf16 path */
 #endif
 
     ASSERT(phandle);
@@ -1394,8 +1394,10 @@ int io_file_open(IO_PRIVHANDLE *phandle, char *uri) {
     else
         native_mode |= OPEN_EXISTING;
 
-    priv->fd = CreateFile(uri,native_permissions,FILE_SHARE_READ,NULL,
-                          native_mode,FILE_ATTRIBUTE_NORMAL,NULL);
+    utf16_path = (WCHAR *)util_utf8toutf16_alloc(uri);
+    priv->fd = CreateFileW(utf16_path,native_permissions,FILE_SHARE_READ,NULL,
+        native_mode,FILE_ATTRIBUTE_NORMAL,NULL);
+    free(utf16_path);
     if(priv->fd == INVALID_HANDLE_VALUE) {
         io_file_seterr(phandle,IO_E_FILE_OTHER);
         return FALSE;

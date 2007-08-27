@@ -195,7 +195,6 @@ case $host in
 	AM_CONDITIONAL(COND_REND_POSIX,false);;
 esac
 
-
 dnl Checks for libraries.
 AC_ARG_WITH(static-libs,
 	[--with-static-libs[[=DIR]]            use static libs in DIR],[
@@ -329,6 +328,9 @@ else
   LIBS="${LIBS} -lid3tag -lz"
 fi
 CFLAGS=$oldcflags
+
+AC_CHECK_LIB(iconv,libiconv,,
+ AC_CHECK_LIB(iconv,iconv,,echo "Must have iconv"; exit))
 
 if test x$use_gdbm = xtrue; then
   AC_CHECK_HEADERS(gdbm.h,, [
