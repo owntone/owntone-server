@@ -131,7 +131,7 @@ CustomDropzone.prototype = (new Rico.Dropzone()).extend( {
    },
 
    _insert: function(songids) {
-      var url = '/databases/1/containers/' + this.htmlElement.value + "/items/add?output=xml&dmap.itemid=" + songids;
+      var url = 'databases/1/containers/' + this.htmlElement.value + "/items/add?output=xml&dmap.itemid=" + songids;
       new Ajax.Request(url ,{method: 'get',onComplete:this.responseAdd});  
    },
 
@@ -160,7 +160,7 @@ function initPlaylist() {
 Ajax.Responders.register({  onCreate: Spinner.incRequestCount,
                           onComplete: Spinner.decRequestCount});
 
-  new Ajax.Request('/databases/1/containers?output=xml',{method: 'get',onComplete:rsSource});
+  new Ajax.Request('databases/1/containers?output=xml',{method: 'get',onComplete:rsSource});
   Query.send('genres');
   Event.observe('search','keypress',EventHandler.searchKeyPress);
   Event.observe('source','change',EventHandler.sourceChange);
@@ -222,7 +222,7 @@ var Source = {
      });
   },
   addPlaylist: function () {
-    var url = '/databases/1/containers/add?output=xml';
+    var url = 'databases/1/containers/add?output=xml';
     var name= 'untitled playlist';
     if (this._playlistExists(name)) {
       var i=1;
@@ -242,7 +242,7 @@ var Source = {
   },
   removePlaylist: function () {
     if (window.confirm('Really delete playlist?')) {
-      var url = '/databases/1/containers/del?output=xml';
+      var url = 'databases/1/containers/del?output=xml';
       url += '&dmap.itemid=' + $('source').value;
       new Ajax.Request(url ,{method: 'get',onComplete:this.response});
       var option = this._getOptionElement($('source').value);
@@ -251,7 +251,7 @@ var Source = {
   },
   savePlaylistName: function () {
     input = $('edit_playlist_name');  
-    var url = '/databases/1/containers/edit?output=xml';
+    var url = 'databases/1/containers/edit?output=xml';
     url += '&dmap.itemid=' + Source.playlistId;
     url += '&dmap.itemname=' + encodeURIComponent(input.value);
     new Ajax.Request(url ,{method: 'get',onComplete:this.response});

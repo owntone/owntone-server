@@ -146,6 +146,9 @@ Gareth Potter
 Anton Johansson
  * Swedish Translations
 
-Iam Burrell
+Ian Burrell
  * configure patches to put plugins in libdir
  * RH/Centos/Fedora specfiles
+
+Stephane Moreau
+ * admin page updates to make apache rewrites easier

@@ -466,7 +466,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     /* this is quite broken, but will work */
     os_stat(resolved_path,&sb);
     if(S_ISDIR(sb.st_mode)) {
-        ws_addresponseheader(pwsc,"Location","/index.html");
+        ws_addresponseheader(pwsc,"Location","index.html");
         ws_returnerror(pwsc,302,"Moved");
         config_set_status(pwsc,0,NULL);
         ws_should_close(pwsc,1);

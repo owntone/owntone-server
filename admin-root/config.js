@@ -139,7 +139,7 @@ var ConfigInitialValues = {
 var Config ={
  configPath: '',
   init: function () {
-    new Ajax.Request('/config.xml',{method: 'get',onComplete: Config.storeConfigLayout});
+    new Ajax.Request('config.xml',{method: 'get',onComplete: Config.storeConfigLayout});
   },
   storeConfigLayout: function (request) {
     // Need to store this until showConfig is run
@@ -153,12 +153,12 @@ var Config ={
         ConfigInitialValues.setValue(item.id,item.default_value || ''); 
       }
     });
-    new Ajax.Request('/xml-rpc?method=stats',{method: 'get',onComplete: Config.updateStatus});
+    new Ajax.Request('xml-rpc?method=stats',{method: 'get',onComplete: Config.updateStatus});
   },
   updateStatus: function (request) {
     Config.configPath = Element.textContent(request.responseXML.getElementsByTagName('config_path')[0]);
     Config.isWritable = Element.textContent(request.responseXML.getElementsByTagName('writable_config')[0]) == '1';
-    new Ajax.Request('/xml-rpc?method=config',{method: 'get',onComplete: Config.showConfig});  
+    new Ajax.Request('xml-rpc?method=config',{method: 'get',onComplete: Config.showConfig});  
   },
   showConfig: function (request) {
     ConfigInitialValues.parseXML(request.responseXML);
@@ -530,7 +530,7 @@ function saveForm() {
     return;
   }
   if (postVars.length > 0 ) {
-    new Ajax.Request('/xml-rpc?method=updateconfig',
+    new Ajax.Request('xml-rpc?method=updateconfig',
                      {method: 'post',
                   parameters: postVars.join('&'),
                   onComplete: saved});
@@ -545,10 +545,10 @@ function saveForm() {
       getArr.push('key='+encodeURIComponent(a[1]));
       getArr.push('value='+encodeURIComponent(value));
       getArr.push('verify_only=1');
-      getString = '/xml-rpc?method=setconfig&' + getArr.join('&');
+      getString = 'xml-rpc?method=setconfig&' + getArr.join('&');
 
     } else {
-      getString = '/xml-rpc?method=updateconfig&' + Form.Element.serialize(id);
+      getString = 'xml-rpc?method=updateconfig&' + Form.Element.serialize(id);
     }
     var output = id + '=' + value;    
     new Ajax.Request(getString,

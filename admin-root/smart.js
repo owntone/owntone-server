@@ -87,10 +87,10 @@ function pl_update() {
     
     if(id == '0') {
         /* new playlist... post it! */
-        var url = '/databases/1/containers/add?output=xml&org.mt-daapd.playlist-type=1&dmap.itemname=' + name + '&org.mt-daapd.smart-playlist-spec=' + spec;
+        var url = 'databases/1/containers/add?output=xml&org.mt-daapd.playlist-type=1&dmap.itemname=' + name + '&org.mt-daapd.smart-playlist-spec=' + spec;
         result = pl_exec(url,false);
     } else {
-        var url='/databases/1/containers/edit?output=xml&dmap.itemid=' + id + '&dmap.itemname=' + name + '&org.mt-daapd.smart-playlist-spec=' + spec;
+        var url='databases/1/containers/edit?output=xml&dmap.itemid=' + id + '&dmap.itemname=' + name + '&org.mt-daapd.smart-playlist-spec=' + spec;
         result = pl_exec(url,false);
     }
 
@@ -121,7 +121,7 @@ function pl_new() {
 
 function pl_delete(pl_id) {
     if(confirm('Are you sure you want to delete playlist "' + playlist_info[pl_id]['name'] + '"?')) {
-        result=pl_exec("/databases/1/containers/del?output=xml&dmap.itemid=" + pl_id,false);
+        result=pl_exec("databases/1/containers/del?output=xml&dmap.itemid=" + pl_id,false);
         init();
     }
 }
@@ -237,7 +237,7 @@ function pl_state_change() {
 }
 
 function init() {
-    pl_exec("/databases/1/containers?output=xml&meta=dmap.itemid,dmap.itemname,org.mt-daapd.playlist-type,org.mt-daapd.smart-playlist-spec",true);        
+    pl_exec("databases/1/containers?output=xml&meta=dmap.itemid,dmap.itemname,org.mt-daapd.playlist-type,org.mt-daapd.smart-playlist-spec",true);        
 }
 
 function pl_exec(url, async) {
