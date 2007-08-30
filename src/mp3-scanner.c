@@ -363,7 +363,7 @@ int scan_path(char *path) {
 
         pde=(struct dirent *)&de;
 
-        err=readdir_r(current_dir,(struct dirent *)de,&pde);
+        err=readdir_r(current_dir,(struct dirent *)&de,&pde);
         if(err == -1) {
             DPRINTF(E_DBG,L_SCAN,"Error on readdir_r: %s\n",strerror(errno));
             err=errno;
@@ -473,7 +473,7 @@ int scan_static_playlist(char *path) {
         DPRINTF(E_LOG,L_SCAN,"Cannot create file handle\n");
         return FALSE;
     }
-    
+
     if(io_open(hfile,"file://%U",path)) {
         if(db_add_playlist(&perr,base_path,PL_STATICFILE,NULL,path,
                            0,&playlistid) != DB_E_SUCCESS) {
@@ -500,7 +500,7 @@ int scan_static_playlist(char *path) {
 
         memset(linebuffer,0x00,sizeof(linebuffer));
         io_buffer(hfile);
-        
+
         len = sizeof(linebuffer);
         while(io_readline(hfile,(unsigned char *)linebuffer,&len) && len) {
             while((linebuffer[strlen(linebuffer)-1] == '\n') ||
@@ -543,12 +543,12 @@ int scan_static_playlist(char *path) {
                         linebuffer,perr);
                 free(perr);
             }
-            
+
             len = strlen(linebuffer);
         }
         io_close(hfile);
     }
-    
+
     io_dispose(hfile);
     db_dispose_playlist(pm3u);
     DPRINTF(E_WARN,L_SCAN|L_PL,"Done processing playlist\n");
