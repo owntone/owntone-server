@@ -42,8 +42,10 @@
 # include <netinet/in.h>
 # include <sys/select.h>
 # include <sys/socket.h>
-# include <sys/time.h>
 # include <arpa/inet.h>
+# ifdef HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# endif
 #endif
 #include <sys/types.h>
 
