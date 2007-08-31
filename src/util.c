@@ -87,7 +87,21 @@ int util_utf16toutf8(unsigned char *utf8, int dlen, unsigned char *utf16, int sl
     return result;
 }
 
-unsigned char *util_alloc_utf8to16(unsigned char *utf8) {
+int util_utf16_byte_len(unsigned char *utf16) {
+    unsigned char *src = utf16;
+    int len = 0;
+
+    while(1) {
+        if((src[0] == 0) && (src[1]==0))
+            return len;
+        len += 2;
+        src += 2;
+    }
+  return len; /* ?? */
+}
+
+
+unsigned char *util_utf8toutf16_alloc(unsigned char *utf8) {
     char *utf16;
     
     utf16 = calloc(1,strlen((char*)utf8) * 4 + 1);
@@ -99,7 +113,7 @@ unsigned char *util_alloc_utf8to16(unsigned char *utf8) {
     return NULL;
 }
 
-unsigned char *util_alloc_utf16toutf8(unsigned char *utf16, int slen) {
+unsigned char *util_utf16toutf8_alloc(unsigned char *utf16, int slen) {
     char *utf8;
 
     utf8=calloc(1, slen * 2 + 1);
@@ -115,6 +129,7 @@ int util_xtoy(unsigned char *dbuffer, int dlen, unsigned char *sbuffer, int slen
     iconv_t iv;
     size_t csize;
 
+    memset(dbuffer,0,dlen);
     iv=iconv_open(to,from);
     if(iv == (iconv_t)-1) {
         DPRINTF(E_LOG,L_MISC,"iconv error: iconv_open failed with %d\n",errno);

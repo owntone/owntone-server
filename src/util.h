@@ -46,6 +46,7 @@ extern unsigned char *util_utf16touft8_alloc(unsigned char *utf16, int slen);
 extern int util_utf8toutf16(unsigned char *utf16, int dlen, unsigned char *utf8, int slen);
 extern int util_utf16toutf8(unsigned char *utf8, int dlen, unsigned char *utf16, int slen);
 extern int util_xtoy(unsigned char *dbuffer, int dlen, unsigned char *sbuffer, int slen, char *from, char *to);
+extern int util_utf16_byte_len(unsigned char *utf16);
 
 extern void util_hexdump(unsigned char *block, int len);
 extern char *util_vasprintf(char *fmt, va_list ap);

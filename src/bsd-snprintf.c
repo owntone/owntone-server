@@ -382,9 +382,9 @@ static void fmturl(char *buffer, size_t *currlen, size_t maxlen,
 {
     int len=0;
 
-    char *current, *dest;
-    char *new_string;
-    int digit1, digit2;
+    unsigned char *current, *dest;
+    unsigned char *new_string;
+    unsigned int digit1, digit2;
     char *digits = "0123456789abcdef";
     char *safe = "abcdefghijklmnopqrstuvwxyz"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"

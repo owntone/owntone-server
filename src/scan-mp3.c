@@ -295,7 +295,6 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
     int err;
     int index;
     int used;
-    int mp3_fd;
     char *utf8_text;
     int genre=WINAMP_GENRE_UNKNOWN;
     int have_utf8;
@@ -305,13 +304,7 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
     int got_numeric_genre;
     int rating;
 
-    mp3_fd = open(file,O_RDONLY);
-    if(mp3_fd == -1) {
-        DPRINTF(E_WARN,L_SCAN,"Cannot open %s\n",file);
-        return FALSE;
-    }
-
-    pid3file=id3_file_fdopen(mp3_fd,ID3_FILE_MODE_READONLY);
+    pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
         DPRINTF(E_WARN,L_SCAN,"Cannot open %s\n",file);
         return FALSE;
