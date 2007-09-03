@@ -303,6 +303,7 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
     char *tmp;
     int got_numeric_genre;
     int rating;
+    char *conversion_codepage;
 
     pid3file=id3_file_open(file,ID3_FILE_MODE_READONLY);
     if(!pid3file) {
@@ -321,6 +322,9 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
     }
 
     DPRINTF(E_SPAM,L_SCAN,"Starting mp3 tag scan\n");
+
+    conversion_codepage = conf_alloc_string("scanning","mp3_tag_codepage",
+                                            "ISO-8859-1");
 
     index=0;
     while((pid3frame=id3_tag_findframe(pid3tag,"",index))) {
@@ -345,20 +349,15 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
             native_text=id3_field_getstrings(&pid3frame->fields[1],0);
 
             if(native_text) {
-                /* FIXME: I didn't understand what was happening here.
-                 * this should really be a switch to evaluate latin1
-                 * tags as native codepage.  Not only is this hackish,
-                 * it's just plain wrong.
-                 */
                 have_utf8=1;
-                if(conf_get_int("general","latin1_tags",0)) {
-                    utf8_text=(char *)id3_ucs4_latin1duplicate(native_text);
-                } else {
-                    utf8_text=(char *)id3_ucs4_utf8duplicate(native_text);
-                }
+                utf8_text = util_xtoutf8_alloc(native_text,strlen(native_text),
+                                               conversion_codepage);
 
-                if(utf8_text)
-                    mem_register(utf8_text,0);
+                if(!utf8_text) {
+                    utf8_text = (char*)id3_ucs4_latin1duplicate(native_text);
+                    if(utf8_text)
+                        mem_register(utf8_text,0);
+                }
 
                 if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
                     used=1;
@@ -509,6 +508,7 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
         index++;
     }
 
+    free(conversion_codepage);
     id3_file_close(pid3file);
     DPRINTF(E_DBG,L_SCAN,"Got id3 tag successfully\n");
     return TRUE;
@@ -766,7 +766,7 @@ void scan_mp3_get_frame_count(IOHANDLE hfile, SCAN_FRAMEINFO *pfi) {
         DPRINTF(E_SPAM,L_SCAN,"Seeking to %ld\n",pos);
 
         io_setpos(hfile,pos,SEEK_SET);
-        
+
         len = sizeof(frame_buffer);
         if(!io_read(hfile,frame_buffer,&len) || (len != sizeof(frame_buffer))) {
             /* check for valid frame */

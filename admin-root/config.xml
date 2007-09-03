@@ -116,6 +116,13 @@
         </item>
     </section>
     <section name="Scanning" advanced="true">
+        <item id="scanning:mp3_tag_codepage">
+	    <name>MP3 Tag Codepage</name>
+	    <short_description>
+	        What codepage non-utf mp3 tags should be converted from (default: ISO-8859-1)
+            </short_description>
+            <type>text</type>
+	</item>
         <item id="scanning:process_playlists">
             <name>Process Playlists</name>
             <short_description>

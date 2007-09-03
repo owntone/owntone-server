@@ -146,6 +146,7 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_INT,"scanning","case_sensitive" },
     { 0, 0, CONF_T_INT,"scanning","follow_symlinks" },
     { 0, 0, CONF_T_INT,"scanning","skip_first" },
+    { 0, 0, CONF_T_STRING,"scanning","mp3_tag_codepage" },
     { 0, 0, CONF_T_INT,"scan","correct_order" },
 
     /* remapped values */

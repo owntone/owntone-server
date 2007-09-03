@@ -102,19 +102,19 @@ int util_utf16_byte_len(unsigned char *utf16) {
 
 
 unsigned char *util_utf8toutf16_alloc(unsigned char *utf8) {
-    char *utf16;
-    
+    unsigned char *utf16;
+
     utf16 = calloc(1,strlen((char*)utf8) * 4 + 1);
     if(util_xtoy(utf16,strlen((char*)utf8) * 4 + 1, utf8, strlen((char*)utf8),"UTF-8","UTF-16LE")) {
         return utf16;
     }
-    
+
     free(utf16);
     return NULL;
 }
 
 unsigned char *util_utf16toutf8_alloc(unsigned char *utf16, int slen) {
-    char *utf8;
+    unsigned char *utf8;
 
     utf8=calloc(1, slen * 2 + 1);
     if(util_xtoy(utf8,slen * 2 + 1,utf16,slen,"UTF-16LE","UTF-8")) {
@@ -125,17 +125,33 @@ unsigned char *util_utf16toutf8_alloc(unsigned char *utf16, int slen) {
     return NULL;
 }
 
+unsigned char *util_xtoutf8_alloc(unsigned char *x, int slen, char *from) {
+    unsigned char *utf8;
+
+    utf8 = calloc(1, slen * 4 + 1);
+    if(util_xtoy(utf8,slen * 4 + 1, x, slen, from, "UTF-8")) {
+        return utf8;
+    }
+    free(utf8);
+    return NULL;
+}
+
 int util_xtoy(unsigned char *dbuffer, int dlen, unsigned char *sbuffer, int slen, char *from, char *to) {
     iconv_t iv;
     size_t csize;
 
+    size_t st_dlen = dlen;
+    size_t st_slen = slen;
+
     memset(dbuffer,0,dlen);
+
     iv=iconv_open(to,from);
     if(iv == (iconv_t)-1) {
         DPRINTF(E_LOG,L_MISC,"iconv error: iconv_open failed with %d\n",errno);
     }
 
-    csize = iconv(iv,&sbuffer,&slen,&dbuffer,&dlen);
+    csize = iconv(iv,(const char **)&sbuffer,&st_slen,
+                  (char **)&dbuffer,&st_dlen);
     if(csize == (size_t)-1) {
         switch(errno) {
             case EILSEQ:
@@ -397,6 +413,7 @@ char *util_vasprintf(char *fmt, va_list ap) {
     if(!outbuf)
         DPRINTF(E_FATAL,L_MISC,"Could not allocate buffer in vasprintf\n");
 
+    ap2=ap; /* shut up lint warnings */
     VA_COPY(ap2,ap);
 
     while(1) {
