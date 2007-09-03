@@ -124,7 +124,7 @@ static CONF_ELEMENTS conf_elements[] = {
     { 0, 0, CONF_T_INT,"general","process_m3u" },
     { 0, 0, CONF_T_INT,"general","scan_type" },
     { 0, 1, CONF_T_INT,"general","compress" },
-    { 0, 0, CONF_T_STRING,"general","playlist" },
+    { 0, 1, CONF_T_STRING,"general","playlist" },
     { 0, 0, CONF_T_STRING,"general","extensions" },
     { 0, 0, CONF_T_STRING,"general","interface" },
     { 0, 0, CONF_T_STRING,"general","ssc_codectypes" },
@@ -642,7 +642,7 @@ int conf_read(char *file) {
     /* got what will be the root of the config tree, now start walking through
      * the input file, populating the tree
      */
-    
+
     /* TODO: linebuffered IO support */
     len = sizeof(linebuffer);
     while(io_readline(hconfig,(unsigned char *)linebuffer,&len) && len) {
@@ -1244,7 +1244,7 @@ int conf_iswritable(void) {
 int conf_write(void) {
     int retval = CONF_E_NOTWRITABLE;
     IOHANDLE outfile;
-    
+
     if(!conf_main_file) {
         DPRINTF(E_DBG,L_CONF,"Config file apparently  not loaded\n");
         return CONF_E_NOCONF;
@@ -1252,7 +1252,7 @@ int conf_write(void) {
 
     util_mutex_lock(l_conf);
     outfile = io_new();
-    if(!outfile) 
+    if(!outfile)
         DPRINTF(E_FATAL,L_CONF,"io_new failed in conf_write\n");
 
     if(io_open(outfile,"file://%U?mode=w&ascii=1",conf_main_file)) {
