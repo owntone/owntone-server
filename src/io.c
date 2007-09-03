@@ -913,8 +913,8 @@ int io_readline_timeout(IO_PRIVHANDLE *phandle, unsigned char *buf,
             if((!ascii) || (to_read != '\r')) {
                 numread += to_read;
                 if(buf[numread-1] == '\n') {
-                    buf[numread-1] = '\0';
-                    *len = numread;
+                    buf[numread] = '\0'; /* retain the CR */
+                    *len = numread+1;
                     return TRUE;
                 }
                 if(!to_read) { /* EOF */
