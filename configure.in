@@ -14,7 +14,7 @@ AC_PROG_CC
 dnl AC_PROG_YACC
 dnl AM_PROG_LEX
 AC_PROG_LIBTOOL
-
+AM_ICONV
 
 AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
@@ -329,9 +329,6 @@ else
 fi
 CFLAGS=$oldcflags
 
-AC_CHECK_LIB(iconv,libiconv,,
- AC_CHECK_LIB(iconv,iconv,,echo "Must have iconv"; exit))
-
 if test x$use_gdbm = xtrue; then
   AC_CHECK_HEADERS(gdbm.h,, [
    AC_MSG_ERROR([gdbm.h not found... Must have gdbm headers installed])])
@@ -481,5 +478,8 @@ V_NETLIBS=""
 AC_CHECK_LIB(socket,socket,V_NETLIBS="-lsocket $V_NETLIBS",,)
 
 AC_SUBST(V_NETLIBS)
+
+dnl add the iconv stuff
+LDFLAGS="${LDFLAGS} ${LIBICONV}"
 
 AC_OUTPUT(src/Makefile src/plugins/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile src/mdns/Makefile Makefile)
