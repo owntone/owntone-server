@@ -39,6 +39,7 @@
 #include "err.h"
 #include "io.h"
 #include "mp3-scanner.h"
+#include "util.h"
 
 #if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
 # define _PACKED __attribute((packed))
@@ -350,14 +351,24 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
 
             if(native_text) {
                 have_utf8=1;
-                utf8_text = util_xtoutf8_alloc(native_text,strlen(native_text),
-                                               conversion_codepage);
 
-                if(!utf8_text) {
-                    utf8_text = (char*)id3_ucs4_latin1duplicate(native_text);
-                    if(utf8_text)
-                        mem_register(utf8_text,0);
+
+                utf8_text = (char*)id3_ucs4_utf8duplicate(native_text);
+                if(utf8_text)
+                    mem_register(utf8_text,0);
+
+                if(id3_field_gettextencoding(&pid3frame->fields[1]) ==
+                   ID3_FIELD_TEXTENCODING_ISO_8859_1) {
+#ifdef HAVE_ICONV
+                    /* this is kinda cheesy, but ucs4* == char* for 8859-1 */
+                    free(utf8_text);
+                    utf8_text = util_xtoutf8_alloc((unsigned char*)native_text,
+                                                   strlen((char*)native_text),
+                                                   conversion_codepage);
+#endif
                 }
+
+
 
                 if(!strcmp(pid3frame->id,"TIT2")) { /* Title */
                     used=1;

@@ -14,7 +14,6 @@ AC_PROG_CC
 dnl AC_PROG_YACC
 dnl AM_PROG_LEX
 AC_PROG_LIBTOOL
-AM_ICONV
 
 AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
@@ -50,6 +49,7 @@ db_sqlite3=false
 use_ffmpeg=false;
 use_upnp=false;
 use_ssl=false
+use_iconv=true
 
 STATIC_LIBS=no
 
@@ -58,6 +58,13 @@ CPPFLAGS="${CPPFLAGS} -g -Wall"
 dnl fix freebsd's broken (?) libpthread
 AC_CHECK_LIB(c_r,pthread_creat,LIBS="${LIBS} -lc_r", [
   AC_CHECK_LIB(pthread,pthread_create,LIBS="${LIBS} -lpthread") ])
+
+AC_ARG_ENABLE(iconv, [  --enable-iconv          Enable iconv conversion],
+                        [ case "${enableval}" in
+			yes) use_iconv=true;;
+			no) use_iconv=false;;
+			*) AC_MSG_ERROR(bad value ${enableval} for --enable-iconv);;
+			esac ])
 
 AC_ARG_ENABLE(sqlite,[  --enable-sqlite         Enable the sqlite db backend],
 			[ case "${enableval}" in
@@ -479,7 +486,11 @@ AC_CHECK_LIB(socket,socket,V_NETLIBS="-lsocket $V_NETLIBS",,)
 
 AC_SUBST(V_NETLIBS)
 
-dnl add the iconv stuff
-LDFLAGS="${LDFLAGS} ${LIBICONV}"
+
+if test x$use_iconv = xtrue; then
+   dnl add the iconv stuff
+   AM_ICONV
+   LDFLAGS="${LDFLAGS} ${LIBICONV}"
+fi
 
 AC_OUTPUT(src/Makefile src/plugins/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile src/mdns/Makefile Makefile)
