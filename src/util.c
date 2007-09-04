@@ -6,6 +6,7 @@
 #  include "config.h"
 #endif
 
+#include <errno.h>
 #include <pthread.h>
 
 #ifdef HAVE_STDINT_H
@@ -18,7 +19,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include <iconv.h>
+# include <iconv.h>
 
 #include "daapd.h"
 #include "err.h"
@@ -140,8 +141,11 @@ int util_xtoy(unsigned char *dbuffer, int dlen, unsigned char *sbuffer, int slen
     iconv_t iv;
     size_t csize;
 
+    /* type punning warnings */
     size_t st_dlen = dlen;
     size_t st_slen = slen;
+    char *st_dbuffer = dbuffer;
+    ICONV_CONST char *st_sbuffer = sbuffer;
 
     memset(dbuffer,0,dlen);
 
@@ -150,8 +154,8 @@ int util_xtoy(unsigned char *dbuffer, int dlen, unsigned char *sbuffer, int slen
         DPRINTF(E_LOG,L_MISC,"iconv error: iconv_open failed with %d\n",errno);
     }
 
-    csize = iconv(iv,(const char **)&sbuffer,&st_slen,
-                  (char **)&dbuffer,&st_dlen);
+    csize = iconv(iv,&st_sbuffer,&st_slen,
+                  &st_dbuffer,&st_dlen);
     if(csize == (size_t)-1) {
         switch(errno) {
             case EILSEQ:
