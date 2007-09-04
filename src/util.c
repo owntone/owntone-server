@@ -143,8 +143,8 @@ int util_xtoy(unsigned char *dbuffer, int dlen, unsigned char *sbuffer, int slen
     size_t csize;
 
     /* type punning warnings */
-    size_t st_dlen = dlen;
-    size_t st_slen = slen;
+    size_t st_dlen = (size_t)dlen;
+    size_t st_slen = (size_t)slen;
     char *st_dbuffer = dbuffer;
     ICONV_CONST char *st_sbuffer = sbuffer;
 
