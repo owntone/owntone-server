@@ -19,7 +19,9 @@
 #include <string.h>
 #include <sys/types.h>
 
+#ifdef HAVE_ICONV
 # include <iconv.h>
+#endif
 
 #include "daapd.h"
 #include "err.h"
