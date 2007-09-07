@@ -221,9 +221,9 @@ int load_plugin_dir(char *plugindir) {
     } else {
         while((readdir_r(d_plugin,(struct dirent *)de,&pde) != 1) && pde) {
                 pext = strrchr(pde->d_name,'.');
-                if((strcasecmp(pext,".so") == 0) ||
+                if((pext) && ((strcasecmp(pext,".so") == 0) ||
                    (strcasecmp(pext,".dylib") == 0) ||
-                   (strcasecmp(pext,".dll") == 0)) {
+                   (strcasecmp(pext,".dll") == 0))) {
                     /* must be a plugin */
                     snprintf(plugin,PATH_MAX,"%s%c%s",plugindir,
                              PATHSEP,pde->d_name);

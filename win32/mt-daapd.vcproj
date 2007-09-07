@@ -2,7 +2,7 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="8.00"
-	Name="mt-daapd"
+	Name="firefly"
 	ProjectGUID="{CB40C666-11D7-456B-B774-BCA42F675BB5}"
 	RootNamespace="mt-daapd"
 	Keyword="Win32Proj"
@@ -64,7 +64,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib ws2_32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib ogg_static.lib vorbis_static.lib vorbisfile_static.lib iconv.lib"
-				OutputFile="$(OutDir)/mt-daapd.exe"
+				OutputFile="$(OutDir)/firefly.exe"
 				LinkIncremental="2"
 				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames="libc"
@@ -145,7 +145,7 @@
 			<Tool
 				Name="VCLinkerTool"
 				AdditionalDependencies="zdll.lib libid3tag.lib gnu_regex.lib pthreadVC2.lib ws2_32.lib sqlite3.lib sqlite.lib dnssd.lib libFLAC.lib ogg_static.lib vorbis_static.lib vorbisfile_static.lib iconv.lib"
-				OutputFile="$(OutDir)/mt-daapd.exe"
+				OutputFile="$(OutDir)/firefly.exe"
 				LinkIncremental="1"
 				AdditionalLibraryDirectories=""
 				IgnoreDefaultLibraryNames="libc"
