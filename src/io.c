@@ -2171,6 +2171,8 @@ int io_listen_accept(IO_PRIVHANDLE *phandle, IO_PRIVHANDLE *pchild,
         return FALSE;
     }
 
+    io_err_printf(IO_LOG_DEBUG,"Got listen socket %d\n",child_fd);
+
     /* copy host, if passed a buffer */
     if(host)
         *host = client.sin_addr;
@@ -2289,6 +2291,8 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
         io_socket_seterr(phandle,IO_E_SOCKET_NOTOPEN);
         return FALSE;
     }
+
+    io_err_printf(IO_LOG_DEBUG,"writing to socket %d\n",priv->fd);
 
     for(bufp = buf, bytestowrite = *len, totalbytes=0;
         bytestowrite > 0;

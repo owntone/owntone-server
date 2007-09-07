@@ -1189,12 +1189,12 @@ int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
     WS_ENTER();
 
     va_start(ap, fmt);
-    vsnprintf(buffer, 1024, fmt, ap);
+    vsnprintf(buffer, sizeof(buffer), fmt, ap);
     va_end(ap);
 
     len = (uint32_t)strlen(buffer);
     if(!io_write(pwsc->hclient,(unsigned char *)buffer,&len)) {
-        ws_dprintf(L_WS_LOG,"Error writing to client socket: %s",
+        ws_dprintf(L_WS_LOG,"Error writing to client socket: %s\n",
             io_errstr(pwsc->hclient));
     }
 
@@ -1216,7 +1216,7 @@ int ws_writebinary(WS_CONNINFO *pwsc, char *data, int len) {
     WS_ENTER();
     bytes_written = (uint32_t) len;
     if(!io_write(pwsc->hclient, (unsigned char *)data, &bytes_written)) {
-        ws_dprintf(L_WS_LOG,"Error writing to client socket: %s",
+        ws_dprintf(L_WS_LOG,"Error writing to client socket: %s\n",
             io_errstr(pwsc->hclient));
     }
 
