@@ -411,7 +411,7 @@ int main(int argc, char *argv[]) {
     io_init();
     io_set_errhandler(main_io_errhandler);
     ws_set_errhandler(main_ws_errhandler);
-    
+
     /* read the configfile, if specified, otherwise
      * try defaults */
     config.stats.start_time=start_time=(int)time(NULL);
@@ -458,14 +458,14 @@ int main(int argc, char *argv[]) {
         }
         free(plugindir);
     } else {
-        if((!load_plugin_dir("/usr/lib/firefly")) &&
-           (!load_plugin_dir("/usr/lib/mt-daapd")) &&
-           (!load_plugin_dir("/usr/share/firefly/plugins")) &&
-           (!load_plugin_dir("/usr/share/mt-daapd/plugins")) &&
-           (!load_plugin_dir("/usr/local/share/firefly/plugins")) &&
-           (!load_plugin_dir("/usr/local/share/mt-daapd/plugins")) &&
-           (!load_plugin_dir("/opt/share/firefly/plugins")) &&
-           (!load_plugin_dir("/opt/share/mt-daapd/plugins")) &&
+        if((!load_plugin_dir("/usr/lib/firefly/plugins")) &&
+           (!load_plugin_dir("/usr/lib/mt-daapd/plugins")) &&
+           (!load_plugin_dir("/lib/mt-daapd/plugins")) &&
+           (!load_plugin_dir("/lib/mt-daapd/plugins")) &&
+           (!load_plugin_dir("/usr/local/lib/mt-daapd/plugins")) &&
+           (!load_plugin_dir("/usr/local/lib/mt-daapd/plugins")) &&
+           (!load_plugin_dir("/opt/lib/firefly/plugins")) &&
+           (!load_plugin_dir("/opt/lib/mt-daapd/plugins")) &&
            (!load_plugin_dir("plugins/.libs"))) {
             DPRINTF(E_FATAL,L_MAIN,"plugins/plugin_dir not specified\n");
         }
@@ -524,7 +524,7 @@ int main(int argc, char *argv[]) {
     if(db_init(reload)) {
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
-    
+
     err=db_get_song_count(&perr,&song_count);
     if(err != DB_E_SUCCESS) {
         DPRINTF(E_FATAL,L_MISC,"Error getting song count: %s\n",perr);
@@ -532,7 +532,7 @@ int main(int argc, char *argv[]) {
     /* do a full reload if the db is empty */
     if(!song_count)
         reload = 1;
-    
+
     if(conf_get_array("general","mp3_dir",&mp3_dir_array)) {
         if((!skip_initial) || (reload)) {
             DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
@@ -571,7 +571,7 @@ int main(int argc, char *argv[]) {
         /* listen or pthread error */
         DPRINTF(E_FATAL,L_MAIN|L_WS,"Error starting web server\n");
     }
-    
+
     ws_registerhandler(config.server, "/",main_handler,main_auth,
                        0,1);
 
