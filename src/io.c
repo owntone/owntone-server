@@ -910,16 +910,16 @@ int io_readline_timeout(IO_PRIVHANDLE *phandle, unsigned char *buf,
     while(numread < (*len - 1)) {
         to_read = 1;
         if(io_read_timeout(phandle, buf + numread, &to_read, ms)) {
+            if(!to_read) { /* EOF */
+                *len = numread;
+                buf[numread] = '\0';
+                return TRUE;
+            }
             if((!ascii) || (to_read != '\r')) {
                 numread += to_read;
                 if(buf[numread-1] == '\n') {
                     buf[numread] = '\0'; /* retain the CR */
                     *len = numread+1;
-                    return TRUE;
-                }
-                if(!to_read) { /* EOF */
-                    *len = numread;
-                    buf[numread] = '\0';
                     return TRUE;
                 }
             }
