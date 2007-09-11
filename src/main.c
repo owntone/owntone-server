@@ -307,6 +307,7 @@ int main(int argc, char *argv[]) {
     char *apppath;
 
     int debuglevel=0;
+    int plugins_loaded = 0;
 
     config.use_mdns=1;
     err_setlevel(2);
@@ -455,15 +456,21 @@ int main(int argc, char *argv[]) {
          * and load each of them */
         if(!load_plugin_dir(plugindir)) {
             DPRINTF(E_LOG,L_MAIN,"Warning: Could not load plugins\n");
+        } else {
+            plugins_loaded = TRUE;
         }
         free(plugindir);
-    } else {
+    }
+
+    if(!plugins_loaded) {
         if((!load_plugin_dir("/usr/lib/firefly/plugins")) &&
            (!load_plugin_dir("/usr/lib/mt-daapd/plugins")) &&
            (!load_plugin_dir("/lib/mt-daapd/plugins")) &&
            (!load_plugin_dir("/lib/mt-daapd/plugins")) &&
            (!load_plugin_dir("/usr/local/lib/mt-daapd/plugins")) &&
            (!load_plugin_dir("/usr/local/lib/mt-daapd/plugins")) &&
+           (!load_plugin_dir("/opt/share/firefly/plugins")) &&
+           (!load_plugin_dir("/opt/share/mt-daapd/plugins")) &&
            (!load_plugin_dir("/opt/lib/firefly/plugins")) &&
            (!load_plugin_dir("/opt/lib/mt-daapd/plugins")) &&
            (!load_plugin_dir("plugins/.libs"))) {

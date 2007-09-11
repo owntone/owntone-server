@@ -20,7 +20,7 @@
 #define PLUGIN_EVENT_ABORTSTREAM    6
 #define PLUGIN_EVENT_ENDSTREAM      7
 
-#define PLUGIN_VERSION   1
+#define PLUGIN_VERSION   2
 
 
 #endif /* _FF_PLUGIN_EVENTS_ */

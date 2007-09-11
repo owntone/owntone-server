@@ -260,6 +260,14 @@ int plugin_load(char **pe, char *path) {
         return PLUGIN_E_NOLOAD;
     }
 
+    if(pinfo->version != PLUGIN_VERSION) {
+        DPRINTF(E_INF,L_PLUG,"Plugin is too old: version %d, expecting %d\n",
+                pinfo->version, PLUGIN_VERSION);
+        os_unload(phandle);
+        free(ppi);
+        return PLUGIN_E_NOLOAD;
+    }
+
     DPRINTF(E_INF,L_PLUG,"Loaded plugin %s (%s)\n",path,pinfo->server);
 
     if(!_plugin_initialized) {
