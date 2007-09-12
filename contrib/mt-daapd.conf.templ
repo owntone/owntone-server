@@ -5,9 +5,15 @@
 # If you have problems or questions with the format of this file,
 # direct your questions to rpedde@users.sourceforge.net.
 #
-# You can also check the website at http://mt-daapd.sourceforge.net,
-# as there is a growing documentation library there, peer-supported
-# forums and possibly more.
+# Questions and discussions about the format and content of this
+# config file can probably be obtained by consulting the wiki:
+#
+# http://wiki.fireflymediaserver.org/Config_File
+#
+# Or by asking questions on the forums at
+#
+# http://forums.fireflymediaserver.org
+#
 #
 
 [general]
@@ -100,21 +106,6 @@ servername = Firefly %v on %h
 #
 
 runas = nobody
-
-#
-# playlist (optional)
-#
-# This is the location of a playlist file.
-# This is for Apple-style "Smart Playlists"
-# See the mt-daapd.playlist file in the 
-# contrib directory for syntax and examples
-#
-# This doesn't control static playlists... these
-# are controlled with the "process_m3u" directive
-# below.
-#
-
-playlist = @sysconfdir@/mt-daapd.playlist
 
 #
 # password (optional)
@@ -235,22 +226,6 @@ ssc_prog = @prefix@/bin/mt-daapd-ssc.sh
 
 # always_scan = 0
 
-# 
-# process_m3u
-#
-# By default m3u processing is turned off, since most m3u files
-# sitting around in peoples mp3 directories have bad paths, and
-# I hear about it.  :)
-#
-# If you are sure your m3u files have good paths (i.e. unixly pathed,
-# with relative paths relative to the directory the m3u is in), then
-# you can turn on m3u processing by setting this directive to 1.
-#
-# I'm not sure "unixly" is a word, but you get the idea.
-#
-
-# process_m3u = 0
-
 #
 # scan_type
 # 
@@ -298,3 +273,17 @@ scan_type = 2
 plugin_dir = @libdir@/mt-daapd/plugins
 
 
+[scanning]
+
+# should playlists be processed at all?
+#
+process_playlists = 1
+
+ 
+# should itunes xml files be processed?
+#
+process_itunes = 1
+
+# should m3u files be processed?
+#
+process_m3u = 1
