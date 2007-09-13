@@ -474,7 +474,7 @@ int scan_static_playlist(char *path) {
         return FALSE;
     }
 
-    if(io_open(hfile,"file://%U",path)) {
+    if(io_open(hfile,"file://%U?ascii=1",path)) {
         if(db_add_playlist(&perr,base_path,PL_STATICFILE,NULL,path,
                            0,&playlistid) != DB_E_SUCCESS) {
             DPRINTF(E_LOG,L_SCAN,"Error adding m3u %s: %s\n",path,perr);

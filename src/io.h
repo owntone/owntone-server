@@ -12,6 +12,7 @@
 #endif
 
 #ifndef WIN32
+# include <stdint.h>
 # include <netinet/in.h>
 # include <sys/socket.h>
 #else
