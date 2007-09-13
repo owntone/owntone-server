@@ -2119,10 +2119,10 @@ int ws_set_err(WS_CONNINFO *pwsc, int ws_error) {
         free(pwsc->err_msg);
 
     pwsc->err_code = ws_error;
-    ws_should_close(pwsc,TRUE); /* close the session on error */
-
     if(E_WS_SUCCESS == ws_error)
         return TRUE;
+
+    ws_should_close(pwsc,TRUE); /* close the session on error */
 
     if(E_WS_NATIVE == ws_error) {
 #ifdef WIN32
