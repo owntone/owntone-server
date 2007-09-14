@@ -187,12 +187,14 @@ case $host in
 	CPPFLAGS="$CPPFLAGS -D_POSIX_PTHREAD_SEMANTICS"
 	LIBS="${LIBS} -lnsl -lsocket -lresolv";;	
 *freebsd*)
-	CPPFLAGS="$CPPFLAGS -DFREEBSD";;
+	CPPFLAGS="$CPPFLAGS -DFREEBSD"
+	LDFLAGS="${LDFLAGS} -Wl,--export-dynamic";;
 *linux*)
 	CPPFLAGS="$CPPFLAGS -DNOT_HAVE_SA_LEN -DUSES_NETLINK -DHAVE_LINUX"
 	LDFLAGS="${LDFLAGS} -Wl,--export-dynamic";;
 *openbsd*)
-	CPPFLAGS="$CPPFLAGS -DHAVE_BROKEN_RECVDSTADDR";;
+	CPPFLAGS="$CPPFLAGS -DHAVE_BROKEN_RECVDSTADDR"
+	LDFLAGS="${LDFLAGS} -Wl,--export-dynamic";;
 *darwin*)
 	CPPFLAGS="$CPPFLAGS -no-cpp-precomp -DMAC"
 	LDFLAGS="$LDFLAGS -framework CoreFoundation"	
