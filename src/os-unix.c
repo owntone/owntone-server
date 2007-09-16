@@ -470,7 +470,7 @@ void *os_loadlib(char **pe, char *path) {
 void *os_libfunc(char **pe, void *handle, char *function) {
     void *retval;
 
-    if(!(retval = dlsym(handle,function)))
+    if((!(retval = dlsym(handle,function))) && (pe))
         *pe = strdup(dlerror());
 
     return retval;

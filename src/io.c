@@ -916,17 +916,22 @@ int io_readline_timeout(IO_PRIVHANDLE *phandle, unsigned char *buf,
                 return TRUE;
             }
             if((!ascii) || (to_read != '\r')) {
-                numread += to_read;
-                if(buf[numread-1] == '\n') {
-                    buf[numread] = '\0'; /* retain the CR */
-                    *len = numread+1;
+                if(buf[numread] == '\n') {
+                    buf[numread+1] = '\0'; /* retain the CR */
+                    *len = numread + 1;
                     return TRUE;
                 }
+                numread++;
             }
+        } else {
         }
     }
 
-    return FALSE;
+    buf[numread-1] = '\0';
+    *len = numread-1;
+
+    io_err_printf(IO_LOG_LOG,"Buffer too small in io_readline_timeout()\n");
+    return TRUE;
 }
 
 /**

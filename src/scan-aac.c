@@ -79,7 +79,9 @@ uint64_t scan_aac_drilltoatom(IOHANDLE hfile,char *atom_path,
 
     DPRINTF(E_SPAM,L_SCAN,"Searching for %s\n",atom_path);
 
+    // FIXME: cache io_size for static files
     io_size(hfile, &file_size);
+    io_setpos(hfile,0,SEEK_SET);
 
     end_p = atom_path;
     while (*end_p != '\0') {
@@ -98,7 +100,7 @@ uint64_t scan_aac_drilltoatom(IOHANDLE hfile,char *atom_path,
         if (atom_offset == -1) {
             return -1;
         }
-        
+
         io_getpos(hfile,&pos);
         DPRINTF(E_SPAM,L_SCAN,"Found %s atom at off %lld.\n",
                 atom_name, pos - 8);
@@ -137,25 +139,32 @@ uint64_t scan_aac_drilltoatom(IOHANDLE hfile,char *atom_path,
  * @param atom_size this will hold the size of the atom found
  */
 uint64_t scan_aac_findatom(IOHANDLE hfile, uint64_t max_offset,
-                       char *which_atom, unsigned int *atom_size) {
+                           char *which_atom, unsigned int *atom_size) {
     uint64_t current_offset=0;
-    int size;
+    uint32_t size;
     char atom[4];
     uint32_t bytes_read;
 
     while(current_offset < max_offset) {
-        bytes_read = sizeof(int);
-        if(!io_read(hfile,(unsigned char *)&size,&bytes_read) || (!bytes_read))
+        bytes_read = sizeof(uint32_t);
+        if(!io_read(hfile,(unsigned char *)&size,&bytes_read) || (!bytes_read)) {
+            DPRINTF(E_LOG,L_SCAN,"Error parsing file: %s\n",io_errstr(hfile));
             return -1;
-            
+        }
+
         size=ntohl(size);
 
-        if(size <= 7) /* something not right */
+        if(size <= 7) { /* something not right */
+            DPRINTF(E_LOG,L_SCAN,"Bad aac file: atom length too short searching for %s\n",
+                    which_atom);
             return -1;
+        }
 
         bytes_read = 4;
-        if(!io_read(hfile,(unsigned char *)atom,&bytes_read) || (!bytes_read))
+        if(!io_read(hfile,(unsigned char *)atom,&bytes_read) || (!bytes_read)) {
+            DPRINTF(E_LOG,L_SCAN,"Error parsing file: %s\n",io_errstr(hfile));
             return -1;
+        }
 
         if(strncasecmp(atom,which_atom,4) == 0) {
             *atom_size=size;
@@ -166,6 +175,7 @@ uint64_t scan_aac_findatom(IOHANDLE hfile, uint64_t max_offset,
         current_offset+=size;
     }
 
+    DPRINTF(E_SPAM,L_SCAN,"Couldn't find atom %s as requested\n",which_atom);
     return -1;
 }
 
@@ -183,19 +193,19 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     unsigned int atom_length;
 
     long current_offset=0;
-    int current_size;
+    uint32_t current_size;
     char current_atom[4];
     char *current_data;
     unsigned short us_data;
     int genre;
     int len;
 
-    int sample_size;
-    int samples;
-    unsigned int bit_rate;
+    uint32_t sample_size;
+    uint32_t samples;
+    uint32_t bit_rate;
     int ms;
     unsigned char buffer[2];
-    int time = 0;
+    uint32_t time = 0;
 
 
     hfile = io_new();
@@ -213,20 +223,30 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
     if(atom_offset != -1) {
         /* found the tag section - need to walk through now */
         while(current_offset < (uint64_t)atom_length) {
-            bytes_read =  sizeof(int);
-            if(!io_read(hfile,(unsigned char *)&current_size,&bytes_read) || !bytes_read) 
-                break;
+            bytes_read =  sizeof(uint32_t);
+            if(!io_read(hfile,(unsigned char *)&current_size,&bytes_read) || !bytes_read) {
+                DPRINTF(E_LOG,L_SCAN,"Error reading mp4 atoms: %s\n",io_errstr(hfile));
+                io_dispose(hfile);
+                return FALSE;
+            }
 
             current_size=ntohl(current_size);
 
             DPRINTF(E_SPAM,L_SCAN,"Current size: %d\n",current_size);
 
-            if(current_size <= 7) /* something not right */
-                break;
+            if(current_size <= 7) { /* something not right */
+                DPRINTF(E_LOG,L_SCAN,"mp4 atom too small. Bad aac tags?\n");
+                io_dispose(hfile);
+                return FALSE;
+            }
+
 
             bytes_read = 4;
-            if(!io_read(hfile,(unsigned char *)current_atom,&bytes_read) || !bytes_read)
-                break;
+            if(!io_read(hfile,(unsigned char *)current_atom,&bytes_read) || !bytes_read) {
+                DPRINTF(E_LOG,L_SCAN,"Error reading mp4 atoms: %s\n",io_errstr(hfile));
+                io_dispose(hfile);
+                return FALSE;
+            }
 
             DPRINTF(E_SPAM,L_SCAN,"Current Atom: %c%c%c%c\n",
                     current_atom[0],current_atom[1],current_atom[2],
@@ -235,17 +255,23 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
             if(current_size > 4096) { /* Does this break anything? */
                 /* too big!  cover art, maybe? */
                 io_setpos(hfile,current_size - 8, SEEK_CUR);
+                DPRINTF(E_SPAM,L_SCAN,"Atom too big... skipping\n");
             } else {
                 len=current_size-7;  /* for ill-formed too-short tags */
-                if(len < 22)
+                if(len < 22) {
                     len=22;
+                }
 
                 current_data=(char*)malloc(len);  /* extra byte */
                 memset(current_data,0x00,len);
 
                 bytes_read = current_size - 8;
-                if(!io_read(hfile,(unsigned char *)current_data,&bytes_read) || (!bytes_read))
-                    break;
+                if(!io_read(hfile,(unsigned char *)current_data,&bytes_read) || (!bytes_read)) {
+                    DPRINTF(E_LOG,L_SCAN,"Error reading mp4 data: %s\n",io_errstr(hfile));
+                    free(current_data);
+                    io_dispose(hfile);
+                    return FALSE;
+                }
 
                 if(!memcmp(current_atom,"\xA9" "nam",4)) { /* Song name */
                     pmp3->title=strdup((char*)&current_data[16]);
@@ -303,8 +329,8 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
                 }
 
                 free(current_data);
-                current_offset+=current_size;
             }
+            current_offset+=current_size;
         }
     }
 
@@ -314,21 +340,43 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
         io_setpos(hfile,4,SEEK_CUR);
 
         /* FIXME: error handling */
-        bytes_read = sizeof(int);
-        io_read(hfile,(unsigned char *)&time, &bytes_read);
+        bytes_read = sizeof(uint32_t);
+        if(!io_read(hfile,(unsigned char *)&time, &bytes_read)) {
+            DPRINTF(E_LOG,L_SCAN,"Error reading time from moov:mvhd: %s\n",
+                    io_errstr(hfile));
+            io_dispose(hfile);
+            return FALSE;
+        }
 
         time = ntohl(time);
         pmp3->time_added = (int)scan_aac_mac_to_unix_time(time);
 
-        bytes_read = sizeof(int);
-        io_read(hfile,(unsigned char *)&time, &bytes_read);
+        bytes_read = sizeof(uint32_t);
+        if(!io_read(hfile,(unsigned char *)&time, &bytes_read)) {
+            DPRINTF(E_LOG,L_SCAN,"Error reading time from moov:mvhd: %s\n",
+                    io_errstr(hfile));
+            io_dispose(hfile);
+            return FALSE;
+        }
+
         time = ntohl(time);
         pmp3->time_modified = (int)scan_aac_mac_to_unix_time(time);
 
-        bytes_read = sizeof(int);
-        io_read(hfile,(unsigned char *)&sample_size,&bytes_read);
-        bytes_read = sizeof(int);
-        io_read(hfile,(unsigned char*)&samples, &bytes_read);
+        bytes_read = sizeof(uint32_t);
+        if(!io_read(hfile,(unsigned char *)&sample_size,&bytes_read)) {
+            DPRINTF(E_LOG,L_SCAN,"Error reading sample_size from moov:mvhd: %s\n",
+                    io_errstr(hfile));
+            io_dispose(hfile);
+            return FALSE;
+        }
+
+        bytes_read = sizeof(uint32_t);
+        if(!io_read(hfile,(unsigned char*)&samples, &bytes_read)) {
+            DPRINTF(E_LOG,L_SCAN,"Error reading samples from moov:mvhd: %s\n",
+                    io_errstr(hfile));
+            io_dispose(hfile);
+            return FALSE;
+        }
 
         sample_size=ntohl(sample_size);
         samples=ntohl(samples);
@@ -341,7 +389,7 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
         }
 
         /* DWB: use ms time instead of sec */
-        pmp3->song_length=(int)((samples * ms) / sample_size);
+        pmp3->song_length=(uint32_t)((samples * ms) / sample_size);
         DPRINTF(E_DBG,L_SCAN,"Song length: %d seconds\n",
                 pmp3->song_length / 1000);
     }
@@ -380,7 +428,12 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
          * "reserved") though the timescale in the 'mdhd' atom is 4. Not sure
          * how this is dealt with when sample rate goes higher than 64K. */
         bytes_read = 2;
-        io_read(hfile, (unsigned char *)buffer, &bytes_read);
+        if(!io_read(hfile, (unsigned char *)buffer, &bytes_read)) {
+            DPRINTF(E_LOG,L_SCAN,"Error reading timescale from drms atom: %s\n",
+                    io_errstr(hfile));
+            io_dispose(hfile);
+            return FALSE;
+        }
 
         pmp3->samplerate = (buffer[0] << 8) | (buffer[1]);
 
@@ -401,7 +454,12 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
             io_setpos(hfile, atom_offset + 22, SEEK_CUR);
 
             bytes_read = sizeof(unsigned int);
-            io_read(hfile, (unsigned char *)&bit_rate, &bytes_read);
+            if(!io_read(hfile, (unsigned char *)&bit_rate, &bytes_read)) {
+                DPRINTF(E_LOG,L_SCAN,"Error reading bitrate from esds: %s\n",
+                        io_errstr(hfile));
+                io_dispose(hfile);
+                return FALSE;
+            }
 
             pmp3->bitrate = ntohl(bit_rate) / 1000;
             DPRINTF(E_DBG,L_SCAN,"esds bitrate: %d\n",pmp3->bitrate);

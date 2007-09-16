@@ -64,6 +64,7 @@ typedef struct {
     int (*scanner)(char* file, MP3FILE* pmp3);
     char *type;         /* daap.songformat */
     char *codectype;    /* song.codectype */
+    int has_video;      /* hack hack hack */
     char *description;  /* daap.songdescription */
 } TAGHANDLER;
 
@@ -107,7 +108,6 @@ extern int scan_get_aacinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_wavinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
-extern int scan_get_mp4info(char *filename, MP3FILE *pmp3);
 extern int scan_get_aifinfo(char *filename, MP3FILE *pmp3);
 
 /* playlist scanners */
@@ -136,31 +136,33 @@ static int scan_static_playlist(char *path);
  * This system is broken, and won't work with something like a .cue file
  */
 static TAGHANDLER taghandlers[] = {
-    { "aac", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
-    { "mp4", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
-    { "m4b", scan_get_aacinfo, "m4a", "mp4a", "Protected AAC audio file" },
-    { "m4a", scan_get_aacinfo, "m4a", "mp4a", "AAC audio file" },
-    { "m4p", scan_get_aacinfo, "m4p", "mp4a", "AAC audio file" },
-    { "mp3", scan_get_mp3info, "mp3", "mpeg", "MPEG audio file" },
-    { "wav", scan_get_wavinfo, "wav", "wav", "WAV audio file" },
-    { "aif", scan_get_aifinfo, "aif", "aif", "AIFF audio file" },
-    { "aiff",scan_get_aifinfo, "aif", "aif", "AIFF audio file" },
-    { "wma", scan_get_wmainfo, "wma", "wma", "WMA audio file" },
-    { "url", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
-    { "pls", scan_get_urlinfo, "pls", NULL, "Playlist URL" },
-    { "m4v", scan_get_mp4info, "m4v", "mp4v", "MPEG-4 video file" },
-    { "mp4", scan_get_mp4info, "m4v", "mp4v", "MPEG-4 video file" },
+    { "aac", scan_get_aacinfo, "m4a", "mp4a", 0, "AAC audio file" },
+    { "mp4", scan_get_aacinfo, "m4a", "mp4a", 0, "AAC audio file" },
+    { "m4b", scan_get_aacinfo, "m4a", "mp4a", 0, "Protected AAC audio file" },
+    { "m4a", scan_get_aacinfo, "m4a", "mp4a", 0, "AAC audio file" },
+    { "m4p", scan_get_aacinfo, "m4p", "mp4a", 0, "AAC audio file" },
+    { "mp3", scan_get_mp3info, "mp3", "mpeg", 0, "MPEG audio file" },
+    { "wav", scan_get_wavinfo, "wav", "wav", 0, "WAV audio file" },
+    { "aif", scan_get_aifinfo, "aif", "aif", 0, "AIFF audio file" },
+    { "aiff",scan_get_aifinfo, "aif", "aif", 0, "AIFF audio file" },
+    { "wma", scan_get_wmainfo, "wma", "wma", 0, "WMA audio file" },
+    { "url", scan_get_urlinfo, "pls", NULL, 0, "Playlist URL" },
+    { "pls", scan_get_urlinfo, "pls", NULL, 0, "Playlist URL" },
+    { "m4v", scan_get_aacinfo, "m4v", "mp4v", 1, "MPEG-4 video file" },
+    { "mp4", scan_get_aacinfo, "m4v", "mp4v", 1, "MPEG-4 video file" },
+    { "mov", scan_get_aacinfo, "m4v", "mp4v", 1, "MPEG-4 video file" },
+    { "mpeg4", scan_get_aacinfo, "m4v", "mp4v", 1, "MPEG-4 video file" },
 #ifdef OGGVORBIS
-    { "ogg", scan_get_ogginfo, "ogg", "ogg", "Ogg Vorbis audio file" },
+    { "ogg", scan_get_ogginfo, "ogg", "ogg", 0, "Ogg Vorbis audio file" },
 #endif
 #ifdef FLAC
-    { "flac", scan_get_flacinfo, "flac","flac", "FLAC audio file" },
-    { "fla", scan_get_flacinfo,  "flac","flac", "FLAC audio file" },
+    { "flac", scan_get_flacinfo, "flac","flac", 0, "FLAC audio file" },
+    { "fla", scan_get_flacinfo,  "flac","flac", 0, "FLAC audio file" },
 #endif
 #ifdef MUSEPACK
-    { "mpc", scan_get_mpcinfo, "mpc", "mpc", "Musepack audio file" },
-    { "mpp", scan_get_mpcinfo, "mpc", "mpc", "Musepack audio file" },
-    { "mp+", scan_get_mpcinfo, "mpc", "mpc", "Musepack audio file" },
+    { "mpc", scan_get_mpcinfo, "mpc", "mpc", 0, "Musepack audio file" },
+    { "mpp", scan_get_mpcinfo, "mpc", "mpc", 0, "Musepack audio file" },
+    { "mp+", scan_get_mpcinfo, "mpc", "mpc", 0, "Musepack audio file" },
 #endif
     { NULL, NULL, NULL, NULL, NULL }
 };
@@ -512,8 +514,6 @@ int scan_static_playlist(char *path) {
                 continue;
             }
 
-            // FIXME - should chomp trailing comments
-
             ptr = linebuffer;
             while(*ptr) {
                 if((*ptr == '/') || (*ptr == '\\'))
@@ -522,6 +522,7 @@ int scan_static_playlist(char *path) {
             }
 
             // otherwise, assume it is a path
+            // FIXME: Fixups for an absolute path without a drive letter
             if((linebuffer[0] == PATHSEP) || (linebuffer[1] == ':')) {
                 strcpy(file_path,linebuffer);
             } else {
@@ -544,8 +545,12 @@ int scan_static_playlist(char *path) {
                 free(perr);
             }
 
-            len = strlen(linebuffer);
+            len = sizeof(linebuffer);
         }
+        if(!len)
+            DPRINTF(L_SCAN,E_LOG,"Error reading playlist: %s\n",io_errstr(hfile));
+        else
+            DPRINTF(L_SCAN,E_LOG,"Finished processing playlist.  Len: %d\n",len);
         io_close(hfile);
     }
 
@@ -762,18 +767,30 @@ int scan_freetags(MP3FILE *pmp3) {
 
 
 /**
- * Dispatch to actual file info handlers
+ * Dispatch to actual file info handlers.  In addition (and this
+ * is kinda hackish, it pokes has_video into the file if it's marked
+ * as having video in the taghandler.  This should really be done in
+ * the metainfo parser, but it's easier to hack m4v up here and leverage
+ * the existing aac parser than add video handling to the parser.
+ * anyone know an easy way to tell if a mpeg4 file has a video stream
+ * or not?
  *
  * @param file file to read file metainfo for
  * @param pmp3 struct to stuff with info gleaned
  */
 int scan_get_info(char *file, MP3FILE *pmp3) {
     TAGHANDLER *hdl;
+    int retval;
 
     /* dispatch to appropriate tag handler */
     hdl = scan_gethandler(pmp3->type);
-    if(hdl && hdl->scanner)
-        return hdl->scanner(file,pmp3);
+    if(hdl && hdl->scanner) {
+        retval = hdl->scanner(file,pmp3);
+        if(retval && hdl->has_video) {
+            pmp3->has_video = 1;
+        }
+        return retval;
+    }
 
     return TRUE;
 }
