@@ -36,7 +36,7 @@ mkdir -p .build/intel
 
 tar -xvzf mt-daapd-svn-${SVNVERSION}.tar.gz
 pushd mt-daapd-svn-${SVNVERSION}
-./configure --enable-static --with-static-libs=/sw/lib --enable-sqlite --with-id3tag=/sw
+./configure --enable-static --disable-iconv --with-static-libs=/sw/lib --enable-sqlite --with-id3tag=/sw
 check_error $? "Configure error"
 
 make
@@ -51,7 +51,7 @@ cp $BUILDDIR/plugins/.libs/*so .build/ppc
 # now make the intel version
 pushd mt-daapd-svn-${SVNVERSION}
 make clean
-CFLAGS="-O -g -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch i386" LDFLAGS="-arch i386" ac_cv_func_setpgrp_void=no ./configure --disable-dependency-tracking --enable-static --with-static-libs=/sw-x86/lib --enable-sqlite --with-id3tag=/sw-x86 --host=i686-apple-darwin8.8.0
+CFLAGS="-O -g -isysroot /Developer/SDKs/MacOSX10.4u.sdk -arch i386" LDFLAGS="-arch i386" ac_cv_func_setpgrp_void=no ./configure --disable-dependency-tracking --enable-static --disable-iconv --with-static-libs=/sw-x86/lib --enable-sqlite --with-id3tag=/sw-x86 --host=i686-apple-darwin8.8.0
 
 check_error $? "Configure error"
 
