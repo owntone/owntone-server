@@ -2148,6 +2148,9 @@ int io_listen_accept(IO_PRIVHANDLE *phandle, IO_PRIVHANDLE *pchild,
     struct sockaddr_in client;
     SOCKET_T child_fd;
     IO_SOCKET_PRIV *priv;
+#ifdef WIN32
+    long blocking = 0;
+#endif
 
     ASSERT(phandle);
     ASSERT(pchild);
@@ -2175,6 +2178,12 @@ int io_listen_accept(IO_PRIVHANDLE *phandle, IO_PRIVHANDLE *pchild,
         io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
         return FALSE;
     }
+
+#ifdef WIN32
+    if(ioctlsocket(child_fd,FIONBIO,&blocking)) {
+        io_err_printf(IO_LOG_LOG,"Couldn't set socket to blocking\n");
+    }
+#endif
 
     io_err_printf(IO_LOG_DEBUG,"Got listen socket %d\n",child_fd);
 
@@ -2277,7 +2286,7 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
     int slen;
 
     uint32_t bytestowrite;
-    ssize_t byteswritten;
+    ssize_t byteswritten=0;
     uint32_t totalbytes;
     unsigned char *bufp;
 
@@ -2318,8 +2327,10 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
 #endif
         if((byteswritten == -1 ) && (errno != EINTR)) {
             io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
+            *len = totalbytes;
             return FALSE;
         }
+
         if(byteswritten == -1)
             byteswritten = 0;
         totalbytes += byteswritten;

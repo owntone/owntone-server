@@ -1203,7 +1203,7 @@ int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
     }
 
     WS_EXIT();
-    return len;
+    return (int)len;
 }
 
 /**

@@ -75,6 +75,7 @@ typedef INT64       int64_t;
 #define strncasecmp strnicmp
 #define strcasecmp stricmp
 #define snprintf _snprintf
+#define vsnprintf _vsnprintf
 #define access _access
 
 #define readdir_r os_readdir_r

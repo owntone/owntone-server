@@ -291,10 +291,6 @@
 				>
 			</File>
 			<File
-				RelativePath="..\src\scan-mp4.c"
-				>
-			</File>
-			<File
 				RelativePath="..\src\scan-ogg.c"
 				>
 			</File>
@@ -492,10 +488,6 @@
 					Outputs="$(InputDir)res\$(InputName).rc;$(InputDir)$(InputName).h"
 				/>
 			</FileConfiguration>
-		</File>
-		<File
-			RelativePath=".\ReadMe.txt"
-			>
 		</File>
 	</Files>
 	<Globals>
