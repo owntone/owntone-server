@@ -389,7 +389,7 @@ static void fmturl(char *buffer, size_t *currlen, size_t maxlen,
     char *safe = "abcdefghijklmnopqrstuvwxyz"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "0123456789$-_.!*(),/@\\";
-    current=value;
+    current=(unsigned char *)value;
     while(*current) {
         if(strchr(safe,*current)) {
             len++;
@@ -399,13 +399,13 @@ static void fmturl(char *buffer, size_t *currlen, size_t maxlen,
         current++;
     }
 
-    new_string = (char*) malloc(len+1);
+    new_string = (unsigned char*) malloc(len+1);
     if(!new_string) {
         fmtstr(buffer,currlen,maxlen,value,flags,min,max);
         return;
     }
 
-    current = value;
+    current = (unsigned char *)value;
     dest = new_string;
     while(*current) {
         if(strchr(safe,*current)) {
@@ -423,7 +423,7 @@ static void fmturl(char *buffer, size_t *currlen, size_t maxlen,
         }
     }
     *dest = '\0';
-    fmtstr(buffer,currlen,maxlen,new_string,flags,min,max);
+    fmtstr(buffer,currlen,maxlen,(char*)new_string,flags,min,max);
     free(new_string);
     return;
 }

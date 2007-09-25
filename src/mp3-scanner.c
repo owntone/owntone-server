@@ -164,7 +164,7 @@ static TAGHANDLER taghandlers[] = {
     { "mpp", scan_get_mpcinfo, "mpc", "mpc", 0, "Musepack audio file" },
     { "mp+", scan_get_mpcinfo, "mpc", "mpc", 0, "Musepack audio file" },
 #endif
-    { NULL, NULL, NULL, NULL, NULL }
+    { NULL, NULL, NULL, NULL, 0, NULL }
 };
 
 typedef struct tag_playlistlist {

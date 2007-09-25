@@ -362,9 +362,10 @@ int scan_mp3_get_mp3tags(char *file, MP3FILE *pmp3) {
 #ifdef HAVE_ICONV
                     /* this is kinda cheesy, but ucs4* == char* for 8859-1 */
                     free(utf8_text);
-                    utf8_text = util_xtoutf8_alloc((unsigned char*)native_text,
-                                                   strlen((char*)native_text),
-                                                   conversion_codepage);
+                    utf8_text =
+                        (char*)util_xtoutf8_alloc((unsigned char*)native_text,
+                                                  strlen((char*)native_text),
+                                                  conversion_codepage);
 #endif
                 }
 
