@@ -1198,7 +1198,7 @@ int ws_writefd(WS_CONNINFO *pwsc, char *fmt, ...) {
 
     len = (uint32_t)strlen(buffer);
     if(!io_write(pwsc->hclient,(unsigned char *)buffer,&len)) {
-        ws_dprintf(L_WS_LOG,"Error writing to client socket: %s\n",
+        ws_dprintf(L_WS_DBG,"Error writing to client socket: %s\n",
             io_errstr(pwsc->hclient));
     }
 
@@ -1244,6 +1244,7 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
     char *useragent;
     int err_code;
     char *err_str;
+    int keep_alive = 0;
 
     WS_ENTER();
 
@@ -1253,10 +1254,19 @@ int ws_returnerror(WS_CONNINFO *pwsc,int error, char *description) {
 
     /* we'll force a close here unless the user agent is
        iTunes, which seems to get pissy about it */
+
     useragent = ws_getarg(&pwsc->request_headers,"User-Agent");
     if((useragent) &&
        (((strncmp(useragent,"iTunes",6) == 0) && (error == 401)) ||
         ((strncmp(useragent,"Java",4) == 0)))) {
+        keep_alive = 1;
+    }
+
+    if(error == 302) {
+        keep_alive = 1;
+    }
+
+    if(keep_alive) {
         ws_addarg(&pwsc->response_headers,"Connection","keep-alive");
         ws_addarg(&pwsc->response_headers,"Content-Length","2");
         ws_emitheaders(pwsc);

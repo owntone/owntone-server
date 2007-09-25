@@ -284,7 +284,7 @@ int wma_parse_header_extension(IOHANDLE hfile, int size, MP3FILE *pmp3);
  */
 int wma_file_read_short(IOHANDLE hfile, unsigned short int *psi) {
     uint32_t len;
-    
+
     len = sizeof(unsigned short int);
     if(!io_read(hfile,(unsigned char*)psi,&len) || (len != sizeof(unsigned short int))) {
         return 0;
@@ -299,7 +299,7 @@ int wma_file_read_short(IOHANDLE hfile, unsigned short int *psi) {
  */
 int wma_file_read_int(IOHANDLE hfile, unsigned int *pi) {
     uint32_t len;
-    
+
     len = sizeof(unsigned int);
     if(!io_read(hfile,(unsigned char*)pi,&len) || (len != sizeof(unsigned int))) {
         return 0;
@@ -314,7 +314,7 @@ int wma_file_read_int(IOHANDLE hfile, unsigned int *pi) {
  */
 int wma_file_read_ll(IOHANDLE hfile, unsigned long long *pll) {
     uint32_t len;
-    
+
     len = sizeof(unsigned long long);
     if(!io_read(hfile,(unsigned char *)pll,&len) || (len != sizeof(unsigned long long))) {
         return 0;
@@ -349,11 +349,11 @@ int wma_file_read_utf16(IOHANDLE hfile, int len, char **utf8) {
 
 int wma_file_read_bytes(IOHANDLE hfile,int len, unsigned char **data) {
     uint32_t rlen;
-    
+
     *data = (unsigned char *)malloc(len);
     if(!*data)
         return 0;
-    
+
     rlen = len;
     if(!io_read(hfile,*data, &rlen) || (rlen != len))
         return 0;
@@ -431,7 +431,7 @@ int wma_parse_stream_properties(IOHANDLE hfile, int size, MP3FILE *pmp3) {
     WMA_STREAM_PROP sp;
     WMA_GUID *pguid;
     uint32_t len;
-    
+
     len = sizeof(sp);
     if(!io_read(hfile,(unsigned char *)&sp,&len) || (len != sizeof(sp)))
         return FALSE;
@@ -1048,7 +1048,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
         pguid = wma_find_guid(subhdr.objectid);
         if(pguid) {
-            DPRINTF(E_DBG,L_SCAN,"0x%08X: Found subheader: %s\n",
+            DPRINTF(E_DBG,L_SCAN,"%ll: Found subheader: %s\n",
                     offset,pguid->name);
             if(strcmp(pguid->name,"ASF_Content_Description_Object")==0) {
                 res &= wma_parse_content_description(hfile,(int)subhdr.size,pmp3);

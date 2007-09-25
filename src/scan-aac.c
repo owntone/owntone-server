@@ -145,10 +145,9 @@ uint64_t scan_aac_findatom(IOHANDLE hfile, uint64_t max_offset,
     char atom[4];
     uint32_t bytes_read;
 
-    while(current_offset < max_offset) {
+    while((current_offset + 8) < max_offset) {
         bytes_read = sizeof(uint32_t);
         if(!io_read(hfile,(unsigned char *)&size,&bytes_read) || (!bytes_read)) {
-            DPRINTF(E_LOG,L_SCAN,"Error parsing file: %s\n",io_errstr(hfile));
             return -1;
         }
 
@@ -162,7 +161,6 @@ uint64_t scan_aac_findatom(IOHANDLE hfile, uint64_t max_offset,
 
         bytes_read = 4;
         if(!io_read(hfile,(unsigned char *)atom,&bytes_read) || (!bytes_read)) {
-            DPRINTF(E_LOG,L_SCAN,"Error parsing file: %s\n",io_errstr(hfile));
             return -1;
         }
 
