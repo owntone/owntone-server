@@ -2306,8 +2306,6 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
         return FALSE;
     }
 
-    io_err_printf(IO_LOG_DEBUG,"writing to socket %d\n",priv->fd);
-
     for(bufp = buf, bytestowrite = *len, totalbytes=0;
         bytestowrite > 0;
         bufp += byteswritten, bytestowrite -= byteswritten) {
@@ -2319,8 +2317,11 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
             byteswritten = send(priv->fd, bufp, bytestowrite, 0);
         }
 
+        io_err_printf(IO_LOG_DEBUG,"wrote %d bytes to socket %d\n",byteswritten,priv->fd);
+
 #ifdef WIN32
         if(WSAGetLastError() == WSAEWOULDBLOCK) {
+            io_err_printf(IO_LOG_DEBUG,"WSAEWOULDBLOCK hack\n");
             byteswritten = 0;
             Sleep(50);
         }
