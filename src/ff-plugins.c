@@ -193,13 +193,6 @@ EXPORT int pi_should_transcode(WS_CONNINFO *pwsc, char *codec) {
 }
 
 
-EXPORT int pi_db_count(void) {
-    int count;
-    db_get_song_count(NULL, &count);
-
-    return count;
-}
-
 EXPORT int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
     DBQUERYINFO *pqi;
     int result;
@@ -462,19 +455,23 @@ EXPORT int pi_db_revision(void) {
     return db_revision();
 }
 
-/* FIXME: error checking */
 EXPORT int pi_db_count_items(int what) {
     int count=0;
+    char *pe = NULL;
 
     switch(what) {
     case COUNT_SONGS:
-        db_get_song_count(NULL,&count);
+        db_get_song_count(&pe,&count);
         break;
     case COUNT_PLAYLISTS:
-        db_get_playlist_count(NULL,&count);
+        db_get_playlist_count(&pe,&count);
         break;
     }
 
+    if(pe) {
+        DPRINTF(E_LOG,L_DB,"Error getting item count: %s\n",pe);
+        free(pe);
+    }
     return count;
 }
 

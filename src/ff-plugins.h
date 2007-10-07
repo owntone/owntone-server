@@ -140,7 +140,6 @@ extern EXPORT void pi_log(int, char *, ...);
 extern EXPORT int pi_should_transcode(struct tag_ws_conninfo *, char *);
 
 /* db functions */
-extern EXPORT int pi_db_count(void);
 extern EXPORT int pi_db_enum_start(char **, DB_QUERY *);
 extern EXPORT int pi_db_enum_fetch_row(char **, char ***, DB_QUERY *);
 extern EXPORT int pi_db_enum_end(char **);

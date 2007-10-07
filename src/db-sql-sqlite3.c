@@ -65,6 +65,8 @@
 static sqlite3 *db_sqlite3_songs; /**< Database that holds the mp3 info */
 static pthread_mutex_t db_sqlite3_mutex = PTHREAD_MUTEX_INITIALIZER; /**< sqlite not reentrant */
 static sqlite3_stmt *db_sqlite3_stmt;
+static const char *db_sqlite3_ptail;
+static int db_sqlite3_finalized;
 static int db_sqlite3_reload=0;
 static char *db_sqlite3_enum_query=NULL;
 static char **db_sqlite3_row = NULL;
@@ -230,28 +232,29 @@ int db_sqlite3_enum_begin(char **pe, char *fmt, ...) {
     db_sqlite3_enum_query = sqlite3_vmprintf(fmt,ap);
     va_end(ap);
 
+    db_sqlite3_finalized=0;
     return db_sqlite3_enum_begin_helper(pe);
 }
 
 int db_sqlite3_enum_begin_helper(char **pe) {
     int err;
-    const char *ptail;
 
     if(!db_sqlite3_enum_query)
         *((int*)NULL) = 1;
 
-
     DPRINTF(E_DBG,L_DB,"Executing: %s\n",db_sqlite3_enum_query);
     err=sqlite3_prepare(db_sqlite3_songs,db_sqlite3_enum_query,-1,
-                        &db_sqlite3_stmt,&ptail);
+                        &db_sqlite3_stmt,&db_sqlite3_ptail);
 
     if(err != SQLITE_OK) {
         db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
-        db_sqlite3_unlock();
         sqlite3_free(db_sqlite3_enum_query);
         db_sqlite3_enum_query=NULL;
+        db_sqlite3_unlock();
         return DB_E_SQL_ERROR;
     }
+
+    DPRINTF(E_SPAM,L_DB,"Prepared statement: %08X\n",db_sqlite3_stmt);
 
     /* otherwise, we leave the db locked while we walk through the enums */
     if(db_sqlite3_row)
@@ -284,10 +287,11 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
         *((int*)NULL) = 1;
 
     while(counter--) {
+        DPRINTF(E_SPAM,L_DB,"Fetching statement: %08X\n",db_sqlite3_stmt);
         err=sqlite3_step(db_sqlite3_stmt);
         if(err != SQLITE_BUSY)
             break;
-        usleep(100);
+        usleep(1000);
     }
 
     if(err == SQLITE_DONE) {
@@ -299,6 +303,7 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
     }
 
     if(err == SQLITE_ROW) {
+        DPRINTF(E_SPAM,L_DB,"Got row\n");
         cols = sqlite3_column_count(db_sqlite3_stmt);
 
         if(!db_sqlite3_row) {
@@ -321,7 +326,9 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
     db_sqlite3_row = NULL;
 
     db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
+    DPRINTF(E_SPAM,L_DB,"Finalizing statement: %08X\n",db_sqlite3_stmt);
     sqlite3_finalize(db_sqlite3_stmt);
+    db_sqlite3_finalized=1;
 
     return DB_E_SQL_ERROR;
 }
@@ -341,11 +348,14 @@ int db_sqlite3_enum_end(char **pe) {
     sqlite3_free(db_sqlite3_enum_query);
     db_sqlite3_enum_query = NULL;
 
-    err = sqlite3_finalize(db_sqlite3_stmt);
-    if(err != SQLITE_OK) {
-        db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
-        db_sqlite3_unlock();
-        return DB_E_SQL_ERROR;
+    if(!db_sqlite3_finalized) {
+        DPRINTF(E_SPAM,L_DB,"Finalizing statement: %08X\n",db_sqlite3_stmt);
+        err = sqlite3_finalize(db_sqlite3_stmt);
+        if(err != SQLITE_OK) {
+            db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
+            db_sqlite3_unlock();
+            return DB_E_SQL_ERROR;
+        }
     }
 
     db_sqlite3_unlock();

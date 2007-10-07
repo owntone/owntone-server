@@ -183,6 +183,8 @@ int plugin_can_handle(WS_CONNINFO *pwsc) {
         return TRUE;
     if(strncasecmp(uri,"/logout",7) == 0)
         return TRUE;
+    if(strncasecmp(uri,"/activity",9) == 0)
+        return TRUE;
 
     return FALSE;
 }
@@ -200,6 +202,8 @@ int plugin_auth(WS_CONNINFO *pwsc, char *username, char *password) {
     if(strncasecmp(uri,"/logout",7) == 0)
         return TRUE;
     if(strncasecmp(uri,"/databases/1/items/",19) == 0)
+        return TRUE;
+    if(strncasecmp(uri,"/activity",9) == 0)
         return TRUE;
 
     return pi_ws_matchesrole(pwsc,username,password,"user");
