@@ -62,7 +62,6 @@
 
 
 /* Globals */
-static sqlite3 *db_sqlite3_songs; /**< Database that holds the mp3 info */
 static pthread_mutex_t db_sqlite3_mutex = PTHREAD_MUTEX_INITIALIZER; /**< sqlite not reentrant */
 static sqlite3_stmt *db_sqlite3_stmt;
 static const char *db_sqlite3_ptail;
@@ -70,7 +69,7 @@ static int db_sqlite3_finalized;
 static int db_sqlite3_reload=0;
 static char *db_sqlite3_enum_query=NULL;
 static char **db_sqlite3_row = NULL;
-
+static pthread_key_t db_sqlite3_key;
 static char db_sqlite3_path[PATH_MAX + 1];
 
 #define DB_SQLITE3_VERSION 13
@@ -84,6 +83,36 @@ extern char *db_sqlite3_initial2;
 int db_sqlite3_enum_begin_helper(char **pe);
 
 
+
+/**
+ * get (or create) the db handle
+ */
+sqlite3 *db_sqlite3_handle(void) {
+    sqlite3 *pdb = NULL;
+    char *pe = NULL;
+
+    pdb = (sqlite3*)pthread_getspecific(db_sqlite3_key);
+    if(pdb == NULL) { /* don't have a handle yet */
+        DPRINTF(E_DBG,L_DB,"Creating new db handle\n");
+        if(sqlite3_open(db_sqlite3_path,&pdb) != SQLITE_OK) {
+            db_get_error(&pe,DB_E_SQL_ERROR,sqlite3_errmsg(pdb));
+            DPRINTF(E_FATAL,L_DB,"db_sqlite3_open: %s (%s)\n",pe,db_sqlite3_path);
+            db_sqlite3_unlock();
+            return NULL;
+        }
+        sqlite3_busy_timeout(pdb,30000);  /* 30 seconds */
+        pthread_setspecific(db_sqlite3_key,(void*)pdb);
+    }
+
+    return pdb;
+}
+
+/**
+ * free a thread-specific db handle
+ */
+void db_sqlite3_freedb(sqlite3 *pdb) {
+    sqlite3_close(pdb);
+}
 
 /**
  * lock the db_mutex
@@ -133,19 +162,20 @@ void db_sqlite3_vmfree(char *query) {
 int db_sqlite3_open(char **pe, char *dsn) {
     int ver;
     int err;
+    sqlite3 *pdb;
 
+    pthread_key_create(&db_sqlite3_key, (void*)db_sqlite3_freedb);
     snprintf(db_sqlite3_path,sizeof(db_sqlite3_path),"%s/songs3.db",dsn);
 
     db_sqlite3_lock();
-    if(sqlite3_open(db_sqlite3_path,&db_sqlite3_songs) != SQLITE_OK) {
-        db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
+    if(sqlite3_open(db_sqlite3_path,&pdb) != SQLITE_OK) {
+        db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(pdb));
         DPRINTF(E_LOG,L_DB,"db_sqlite3_open: %s (%s)\n",pe ? *pe : "Unknown",
             db_sqlite3_path);
         db_sqlite3_unlock();
         return DB_E_SQL_ERROR;
     }
-
-    sqlite3_busy_timeout(db_sqlite3_songs,30000);  /* 30 seconds */
+    sqlite3_close(pdb);
     db_sqlite3_unlock();
 
     err = db_sql_fetch_int(pe,&ver,"select value from config where "
@@ -171,9 +201,7 @@ int db_sqlite3_open(char **pe, char *dsn) {
  * close the database
  */
 int db_sqlite3_close(void) {
-    db_sqlite3_lock();
-    sqlite3_close(db_sqlite3_songs);
-    db_sqlite3_unlock();
+    /* this doens't actually make much sense, as the closes get done by the threads */
     return DB_E_SUCCESS;
 }
 
@@ -201,7 +229,7 @@ int db_sqlite3_exec(char **pe, int loglevel, char *fmt, ...) {
 
     DPRINTF(E_DBG,L_DB,"Executing: %s\n",query);
 
-    err=sqlite3_exec(db_sqlite3_songs,query,NULL,NULL,&perr);
+    err=sqlite3_exec(db_sqlite3_handle(),query,NULL,NULL,&perr);
     if(err != SQLITE_OK) {
         db_get_error(pe,DB_E_SQL_ERROR,perr);
 
@@ -210,7 +238,7 @@ int db_sqlite3_exec(char **pe, int loglevel, char *fmt, ...) {
         DPRINTF(loglevel,L_DB,"Error: %s\n",perr);
         sqlite3_free(perr);
     } else {
-        DPRINTF(E_DBG,L_DB,"Rows: %d\n",sqlite3_changes(db_sqlite3_songs));
+        DPRINTF(E_DBG,L_DB,"Rows: %d\n",sqlite3_changes(db_sqlite3_handle()));
     }
     sqlite3_free(query);
 
@@ -243,11 +271,11 @@ int db_sqlite3_enum_begin_helper(char **pe) {
         *((int*)NULL) = 1;
 
     DPRINTF(E_DBG,L_DB,"Executing: %s\n",db_sqlite3_enum_query);
-    err=sqlite3_prepare(db_sqlite3_songs,db_sqlite3_enum_query,-1,
+    err=sqlite3_prepare(db_sqlite3_handle(),db_sqlite3_enum_query,-1,
                         &db_sqlite3_stmt,&db_sqlite3_ptail);
 
     if(err != SQLITE_OK) {
-        db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
+        db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_handle()));
         sqlite3_free(db_sqlite3_enum_query);
         db_sqlite3_enum_query=NULL;
         db_sqlite3_unlock();
@@ -325,7 +353,7 @@ int db_sqlite3_enum_fetch(char **pe, SQL_ROW *pr) {
         free(db_sqlite3_row);
     db_sqlite3_row = NULL;
 
-    db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
+    db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_handle()));
     DPRINTF(E_SPAM,L_DB,"Finalizing statement: %08X\n",db_sqlite3_stmt);
     sqlite3_finalize(db_sqlite3_stmt);
     db_sqlite3_finalized=1;
@@ -352,7 +380,7 @@ int db_sqlite3_enum_end(char **pe) {
         DPRINTF(E_SPAM,L_DB,"Finalizing statement: %08X\n",db_sqlite3_stmt);
         err = sqlite3_finalize(db_sqlite3_stmt);
         if(err != SQLITE_OK) {
-            db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_songs));
+            db_get_error(pe,DB_E_SQL_ERROR,sqlite3_errmsg(db_sqlite3_handle()));
             db_sqlite3_unlock();
             return DB_E_SQL_ERROR;
         }
@@ -472,7 +500,7 @@ int db_sqlite3_insert_id(void) {
     int result;
 
     db_sqlite3_lock();
-    result = (int)sqlite3_last_insert_rowid(db_sqlite3_songs);
+    result = (int)sqlite3_last_insert_rowid(db_sqlite3_handle());
     db_sqlite3_unlock();
 
     return result;

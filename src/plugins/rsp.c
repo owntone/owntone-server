@@ -273,7 +273,7 @@ void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     /* info block */
     xml_push(pxml,"info");
-    xml_output(pxml,"count","%d",pi_db_count());
+    xml_output(pxml,"count","%d",pi_db_count_items(COUNT_SONGS));
     xml_output(pxml,"rsp-version","%s",RSP_VERSION);
 
     xml_output(pxml,"server-version","%s",pi_server_ver());
