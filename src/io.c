@@ -2148,9 +2148,6 @@ int io_listen_accept(IO_PRIVHANDLE *phandle, IO_PRIVHANDLE *pchild,
     struct sockaddr_in client;
     SOCKET_T child_fd;
     IO_SOCKET_PRIV *priv;
-#ifdef WIN32
-    long blocking = 0;
-#endif
 
     ASSERT(phandle);
     ASSERT(pchild);
@@ -2178,12 +2175,6 @@ int io_listen_accept(IO_PRIVHANDLE *phandle, IO_PRIVHANDLE *pchild,
         io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
         return FALSE;
     }
-
-#ifdef WIN32
-    if(ioctlsocket(child_fd,FIONBIO,&blocking)) {
-        io_err_printf(IO_LOG_LOG,"Couldn't set socket to blocking\n");
-    }
-#endif
 
     io_err_printf(IO_LOG_DEBUG,"Got listen socket %d\n",child_fd);
 
@@ -2289,6 +2280,7 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
     ssize_t byteswritten=0;
     uint32_t totalbytes;
     unsigned char *bufp;
+    long blocking = 0;
 
     ASSERT(phandle);
     ASSERT(phandle->private);
@@ -2321,9 +2313,11 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
 
 #ifdef WIN32
         if(WSAGetLastError() == WSAEWOULDBLOCK) {
-            io_err_printf(IO_LOG_DEBUG,"WSAEWOULDBLOCK hack\n");
             byteswritten = 0;
-            Sleep(50);
+
+            if(ioctlsocket(priv->fd,FIONBIO,&blocking)) {
+                io_err_printf(IO_LOG_LOG,"Couldn't set socket to blocking\n");
+            }
         }
 #endif
         if((byteswritten == -1 ) && (errno != EINTR)) {
