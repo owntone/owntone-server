@@ -1134,8 +1134,8 @@ void *ws_dispatcher(void *arg) {
                 if((auth) && (ws_decodepassword(auth,&username, &password))) {
                     if(auth_handler(pwsc,username,password))
                         can_dispatch=1;
-                    ws_addarg(&pwsc->request_vars,"HTTP_USER",username);
-                    ws_addarg(&pwsc->request_vars,"HTTP_PASSWD",password);
+                    ws_addarg(&pwsc->request_vars,"HTTP_USER","%s",username);
+                    ws_addarg(&pwsc->request_vars,"HTTP_PASSWD","%s",password);
                     free(username); /* this frees password too */
                 }
 
