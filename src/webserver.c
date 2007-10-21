@@ -1131,8 +1131,7 @@ void *ws_dispatcher(void *arg) {
             if((auth_handler) && (auth_handler(pwsc,NULL,NULL)==0)) {
                 /* do the auth thing */
                 auth=ws_getarg(&pwsc->request_headers,"Authorization");
-                if(auth) {
-                    ws_decodepassword(auth,&username,&password);
+                if((auth) && (ws_decodepassword(auth,&username, &password))) {
                     if(auth_handler(pwsc,username,password))
                         can_dispatch=1;
                     ws_addarg(&pwsc->request_vars,"HTTP_USER",username);
@@ -1706,6 +1705,7 @@ int ws_decodepassword(char *header, char **username, char **password) {
     int pads=0;
     unsigned char *decodebuffer;
     unsigned char *pin, *pout;
+    char *type,*base64;
     int lookup;
 
     *username=NULL;
@@ -1735,23 +1735,36 @@ int ws_decodepassword(char *header, char **username, char **password) {
     ws_unlock_unsafe();
 
     /* xlat table is initialized */
-    while(*header != ' ')
+
+    // Trim leading spaces
+    while((*header) && (*header == ' '))
         header++;
 
-    header++;
+    // Should be in the form "Basic <base-64 enc username/pw>"
+    type=header;
+    base64 = strchr(header,' ');
+    if(!base64) {
+        // invalid auth header 
+        ws_dprintf(L_WS_DBG,"Bad authentication header: %s\n",header);
+        WS_EXIT();
+        return FALSE;
+    }
+    
+    *base64 = '\0';
+    base64++;
 
-    decodebuffer=(unsigned char *)malloc(strlen(header));
+    decodebuffer=(unsigned char *)malloc(strlen(base64));
     if(!decodebuffer) {
         WS_EXIT();
         return FALSE;
     }
 
-    ws_dprintf(L_WS_DBG,"Preparing to decode %s\n",header);
+    ws_dprintf(L_WS_DBG,"Preparing to decode %s\n",base64);
 
-    memset(decodebuffer,0,strlen(header));
+    memset(decodebuffer,0,strlen(base64));
     len=0;
     pout=decodebuffer;
-    pin=(unsigned char *)header;
+    pin=(unsigned char *)base64;
 
     /* this is more than a little sloppy */
     while(pin[rack]) {
