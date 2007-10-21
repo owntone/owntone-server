@@ -815,7 +815,7 @@ int ws_getheaders(WS_CONNINFO *pwsc) {
             last=first;
             strsep(&last,":");
 
-            if(last==first) {
+            if(!last) {
                 ws_dprintf(L_WS_WARN,"Thread %d: Invalid header: %s\n",
                         pwsc->threadno,first);
             } else {
