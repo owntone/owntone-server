@@ -70,8 +70,8 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     uint32_t current_offset;
     uint32_t block_len;
 
-    int found_fmt = 0;
-    int found_data = 0;
+    int found_fmt = FALSE;
+    int found_data = FALSE;
 
     DPRINTF(E_DBG,L_SCAN,"Getting WAV file info\n");
 
@@ -79,7 +79,7 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
         DPRINTF(E_LOG,L_SCAN,"Could not create file handle\n");
         return FALSE;
     }
-    
+
     if(!io_open(hfile,"file://%U",filename)) {
         DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: %s\n",filename,
             io_errstr(hfile));
@@ -110,7 +110,7 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     /* now, walk through the chunks */
     current_offset = 12;
 
-    while(!found_fmt && !found_data) {
+    while(!found_fmt || !found_data) {
         len = 8;
         if(!io_read(hfile,hdr,&len) || (len != 8)) {
             io_close(hfile);
@@ -148,7 +148,7 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
             compression_code = GET_WAV_INT16(fmt);
             channel_count = GET_WAV_INT16(fmt+2);
             sample_rate = GET_WAV_INT32(fmt + 4);
-            sample_bit_length = GET_WAV_INT16(hdr + 14);
+            sample_bit_length = GET_WAV_INT16(fmt + 14);
             DPRINTF(E_DBG,L_SCAN,"Compression code: %d\n",compression_code);
             DPRINTF(E_DBG,L_SCAN,"Channel count:    %d\n",channel_count);
             DPRINTF(E_DBG,L_SCAN,"Sample Rate:      %d\n",sample_rate);
@@ -175,6 +175,11 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
     }
 
     bit_rate = sample_rate * channel_count * ((sample_bit_length + 7) / 8) * 8;
+    if(!bit_rate) {
+        DPRINTF(E_WARN,L_SCAN,"Couldn't get bitrate\n");
+        return FALSE;
+    }
+
     pmp3->bitrate = bit_rate / 1000;
     pmp3->samplerate = sample_rate;
     sec = data_length / (bit_rate / 8);
