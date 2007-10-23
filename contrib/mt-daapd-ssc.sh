@@ -22,32 +22,21 @@ flac_file() {
 }
 
 FILE=$1
-OFFSET=0
-
-if [ "$2" == "" ]; then
-    OFFSET=0
-else
-    OFFSET=$2
-fi
-
+OFFSET=${2:-0}
 
 if [ "$3" != "" ]; then
     FORGELEN="-l $3"
 fi
 
-if ( echo $1 | grep -i "\.ogg$" > /dev/null 2>&1 ); then
-    ogg_file
-    exit;
-fi
-
-if ( echo $1 | grep -i "\.flac$" > /dev/null 2>&1 ); then
-    flac_file
-    exit;
-fi
-
-#
+case "$1" in
+  *.[oO][gG][gG])
+  ogg_file
+  ;;
+  *.[fF][lL][aA][cC])
+  flac_file
+  ;;
+  *)
 # here you could cat a generic "error" wav...
-#
-#
 # cat /path/to/error.wav
-#
+  ;;
+esac
