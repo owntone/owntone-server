@@ -146,8 +146,16 @@ int scan_get_flacinfo(char *filename, MP3FILE *pmp3) {
                         strncpy(pmp3->composer, val, len);
                 } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
                                                      "COMMENT", &len))) {
+                    if(pmp3->comment)
+                        free(pmp3->comment); /* was description */
                     if ((pmp3->comment = calloc(len + 1, 1)) != NULL)
                         strncpy(pmp3->comment, val, len);
+                } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
+                                                     "DESCRIPTION", &len))) {
+                    if(!pmp3->comment) {
+                        if ((pmp3->comment = calloc(len + 1, 1)) != NULL)
+                            strncpy(pmp3->comment, val, len);
+                    }
                 } else if ((val = GET_VORBIS_COMMENT(block->data.vorbis_comment.comments[i],
                                                      "TRACKNUMBER", &len))) {
                     tmp = *(val + len);
