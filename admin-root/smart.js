@@ -172,6 +172,7 @@ function pl_process() {
         var pl_id;
         var pl_name;
         var pl_type;
+	var pl_count;
         
         pl_id=playlists[x].getElementsByTagName("dmap.itemid")[0].firstChild.nodeValue;
         if(playlists[x].getElementsByTagName("dmap.itemname")[0].firstChild) {
@@ -180,6 +181,7 @@ function pl_process() {
             pl_name = "";
         }
         pl_type=playlists[x].getElementsByTagName("org.mt-daapd.playlist-type")[0].firstChild.nodeValue;
+	pl_count=playlists[x].getElementsByTagName("dmap.itemcount")[0].firstChild.nodeValue;
 
         
         playlist_info[String(pl_id)] = { 'name': pl_name, 'type': pl_type };
@@ -209,20 +211,24 @@ function pl_process() {
         var td2 = document.createElement("td");
         var td3 = document.createElement("td");
         var td4 = document.createElement("td");
+	var td5 = document.createElement("td");
+
         td1.innerHTML=pl_id + '\n';
         td2.innerHTML=pl_name + '\n';
         td3.innerHTML=pl_type + '\n';
+	td4.innerHTML=pl_count + '\n';
         if((pl_id != 1) && (playlist_info[pl_id]['type'] == 1)) {
-            td4.innerHTML='<a href="javascript:pl_edit(' + pl_id + ')">Edit</a>';
-            td4.innerHTML = td4.innerHTML + '&nbsp;<a href="javascript:pl_delete(' + pl_id + ')">Delete</a>';
+            td5.innerHTML='<a href="javascript:pl_edit(' + pl_id + ')">Edit</a>';
+            td5.innerHTML = td5.innerHTML + '&nbsp;<a href="javascript:pl_delete(' + pl_id + ')">Delete</a>';
         } else {
-            td4.innerHTML="&nbsp;";
+            td5.innerHTML="&nbsp;";
         }
         
         row.appendChild(td1);
         row.appendChild(td2);
         row.appendChild(td3);
         row.appendChild(td4);
+	row.appendChild(td5);
         pl_table.appendChild(row);
     }
 }

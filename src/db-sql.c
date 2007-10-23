@@ -632,17 +632,24 @@ int db_sql_edit_playlist(char **pe, int id, char *name, char *clause) {
             return DB_E_DUPLICATE_PLAYLIST;
         }
 
-        if((playlist_type == PL_SMART)&&(clause))
-            return db_sql_exec_fn(pe,E_LOG,"update playlists set title='%q', "
+        if((playlist_type == PL_SMART)&&(clause)) {
+            result=db_sql_exec_fn(pe,E_LOG,"update playlists set title='%q', "
                                   "query='%q' where id=%d",name,clause,id);
 
-        return db_sql_exec_fn(pe,E_LOG,"update playlists set title='%q' "
-                              "where id=%d",name,id);
+        } else {
+            result=db_sql_exec_fn(pe,E_LOG,"update playlists set title='%q' "
+                                  "where id=%d",name,id);
+        }
+        db_sql_update_playlists(NULL);
+        return result;
     }
 
-    if((playlist_type == PL_SMART) && (clause))
-        return db_sql_exec_fn(pe,E_LOG,"update playlists set query='%q' "
-                              "where id=%d",clause,id);
+    if((playlist_type == PL_SMART) && (clause)) {
+        result= db_sql_exec_fn(pe,E_LOG,"update playlists set query='%q' "
+                               "where id=%d",clause,id);
+        db_sql_update_playlists(NULL);
+        return result;
+    }
 
     return DB_E_SUCCESS;  /* ?? */
 }
@@ -730,6 +737,7 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
         db_sql_exec_fn(NULL,E_FATAL,"insert into plupdated values (%d)",*playlistid);
     }
 
+    db_sql_update_playlists(NULL);
     return result;
 }
 
@@ -833,7 +841,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     /* sqlite2 doesn't support 64 bit ints */
     sprintf(sample_count,"%lld",pmp3->sample_count);
     sprintf(file_size,"%lld",pmp3->file_size);
-    
+
     err=db_sql_exec_fn(pe,E_DBG,"INSERT INTO songs VALUES "
                        "(NULL," // id
                        "'%q',"  // path
@@ -950,7 +958,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
     char *path;
     char sample_count[40];
     char file_size[40];
-    
+
     if(!pmp3->time_modified)
         pmp3->time_modified = (int)time(NULL);
 
@@ -958,7 +966,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
 
     sprintf(sample_count,"%lld",pmp3->sample_count);
     sprintf(file_size,"%lld",pmp3->file_size);
-    
+
     strcpy(query,"UPDATE songs SET "
            "title='%q',"  // title
            "artist='%q',"  // artist
