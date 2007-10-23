@@ -427,7 +427,7 @@ int main(int argc, char *argv[]) {
         configfile="mt-daapd.conf";
     }
 
-    if(conf_read(configfile) != CONF_E_SUCCESS) {
+    if(CONF_E_SUCCESS != conf_read(configfile)) {
         fprintf(stderr,"Error reading config file (%s)\n",configfile);
         exit(EXIT_FAILURE);
     }
@@ -437,7 +437,7 @@ int main(int argc, char *argv[]) {
 
     if(convert_conf) {
         fprintf(stderr,"Converting config file...\n");
-        if(!conf_write()) {
+        if(CONF_E_SUCCESS != conf_write()) {
             fprintf(stderr,"Error writing config file.\n");
             exit(EXIT_FAILURE);
         }

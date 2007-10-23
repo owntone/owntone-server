@@ -139,8 +139,10 @@ void xml_update_config(WS_CONNINFO *pwsc) {
             *ptmp++ = '\0';
             /* this is stupidly inefficient */
 
+            DPRINTF(E_DBG,L_XML,"Setting %s/%s to %s\n",duparg,ptmp,value);
             err = conf_set_string(duparg,ptmp,value,TRUE);
             if(err != CONF_E_SUCCESS) {
+                DPRINTF(E_DBG,L_XML,"Error setting %s/%s\n",duparg,ptmp);
                 has_error = TRUE;
                 if(!badparms) {
                     badparms_len = (int)strlen(arg) + 1;
@@ -170,6 +172,8 @@ void xml_update_config(WS_CONNINFO *pwsc) {
         return;
     }
 
+    handle = NULL;
+
     /* now set! */
     while((handle=ws_enum_var(pwsc,&arg,&value,handle)) != NULL) {
         /* arg will be section:value */
@@ -179,9 +183,11 @@ void xml_update_config(WS_CONNINFO *pwsc) {
             *ptmp++ = '\0';
             /* this is stupidly inefficient */
 
+            DPRINTF(E_DBG,L_XML,"Setting %s/%s to %s\n",duparg,ptmp,value);
             err = conf_set_string(duparg,ptmp,value,FALSE);
             if(err != CONF_E_SUCCESS) {
                 /* shouldn't happen */
+                DPRINTF(E_DBG,L_XML,"Error setting %s/%s\n",duparg,ptmp);
                 xml_return_error(pwsc,500,arg);
                 return;
             }

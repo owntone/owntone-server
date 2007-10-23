@@ -1109,6 +1109,7 @@ int conf_set_string(char *section, char *key, char *value, int verify) {
     err=_conf_verify_element(section,key,value);
     if(err != CONF_E_SUCCESS) {
         util_mutex_unlock(l_conf);
+        DPRINTF(E_DBG,L_CONF,"Couldn't validate %s = %s\n",key,value);
         return err;
     }
 
@@ -1276,18 +1277,19 @@ int conf_write(void) {
  * @param fp file we are writing the config file to
  * @param pll list we are dumping k/v pairs for
  * @param sublevel whether this is the root, or a subkey
- * @returns TRUE on success, FALSE otherwise
+ * @returns CONF_E_SUCCESS on success, failure code otherwise
  */
 int _conf_write(IOHANDLE hfile, LL *pll, int sublevel, char *parent) {
     LL_ITEM *pli;
     LL_ITEM *ppre, *pin;
     LL_ITEM *plitemp;
     int first;
+    int err;
 
     char keybuffer[256];
 
     if(!pll)
-        return TRUE;
+        return CONF_E_SUCCESS; /* ?? */
 
     /* write all the solo keys, first! */
     pli = pll->itemlist.next;
@@ -1330,9 +1332,9 @@ int _conf_write(IOHANDLE hfile, LL *pll, int sublevel, char *parent) {
                 }
                 io_printf(hfile,"\n");
 
-                if(!_conf_write(hfile, pli->value.as_ll, 1, pli->key)) {
+                if((err =_conf_write(hfile, pli->value.as_ll, 1, pli->key)) != CONF_E_SUCCESS) {
                     DPRINTF(E_DBG,L_CONF,"Error writing key %s:%s\n",pli->key);
-                    return FALSE;
+                    return err;
                 }
             }
             break;
@@ -1364,7 +1366,7 @@ int _conf_write(IOHANDLE hfile, LL *pll, int sublevel, char *parent) {
         }
     }
 
-    return TRUE;
+    return CONF_E_SUCCESS;
 }
 
 
