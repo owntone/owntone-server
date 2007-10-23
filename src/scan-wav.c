@@ -22,6 +22,7 @@
 #  include "config.h"
 #endif
 
+#include <ctype.h>
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
@@ -42,6 +43,8 @@
 
 #define GET_WAV_INT16(p) ((((uint32_t)((p)[1])) << 8) |    \
                           (((uint32_t)((p)[0]))))
+
+#define XLAT(c) (((toupper((c)) >= 'A') && (toupper((c)) <= 'Z')) ? (c) : '_' )
 
 /**
  * Get info from the actual wav headers.  Since there is no
@@ -123,7 +126,7 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
 
         DPRINTF(E_DBG,L_SCAN,"Read block %02x%02x%02x%02x (%c%c%c%c) of "
                 "size %08x\n",hdr[0],hdr[1],hdr[2],hdr[3],
-                hdr[0],hdr[1],hdr[2],hdr[3],block_len);
+                XLAT(hdr[0]),XLAT(hdr[1]),XLAT(hdr[2]),XLAT(hdr[3]),block_len);
 
         if(block_len < 0) {
             io_close(hfile);
@@ -161,7 +164,7 @@ int scan_get_wavinfo(char *filename, MP3FILE *pmp3) {
         }
 
         io_setpos(hfile,current_offset + block_len + 8,SEEK_SET);
-        current_offset += block_len;
+        current_offset += (block_len + 8);
     }
 
     io_close(hfile);
