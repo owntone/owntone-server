@@ -10,7 +10,8 @@ adminroot_DATA = ftr.html linkOpaque.gif about.html \
 	playlist.html playlist.js smart.html smart.js DAAPApplet-0.1.jar \
 	smartpopup.html applet.html firefly.js CREDITS status.js \
 	config.js config.xml spinner.gif spinner_stopped.gif util.js \
-	pngfix.js no_access.html index.css config.css
+	pngfix.js no_access.html index.css config.css \
+	xiph-license.html xiph-license.txt zlib-license.html zlib-license.txt 
 
 EXTRA_DIST = ftr.html linkOpaque.gif about.html \
 	gpl-license.txt linkTransparent.gif config-update.html hdr.html \
@@ -19,5 +20,6 @@ EXTRA_DIST = ftr.html linkOpaque.gif about.html \
 	playlist.html playlist.js smart.html smart.js DAAPApplet-0.1.jar \
 	smartpopup.html applet.html firefly.js CREDITS status.js \
 	config.js config.xml spinner.gif spinner_stopped.gif util.js \
-	pngfix.js no_access.html index.css config.css
+	pngfix.js no_access.html index.css config.css \
+	xiph-license.html xiph-license.txt zlib-license.html zlib-license.txt 
 
