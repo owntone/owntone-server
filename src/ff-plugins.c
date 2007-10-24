@@ -419,14 +419,13 @@ EXPORT void pi_stream(WS_CONNINFO *pwsc, char *id) {
             io_dispose(hfile);
             db_dispose_item(pmp3);
         }
-        /* update play counts */
-        if(bytes_copied  >= (real_len * 80 / 100)) {
-            db_playcount_increment(NULL,pmp3->id);
-            if(!offset)
-                config.stats.songs_served++; /* FIXME: remove stat races */
-        }
     }
-
+    /* update play counts */
+    if(bytes_copied  >= (real_len * 80 / 100)) {
+        db_playcount_increment(NULL,pmp3->id);
+        if(!offset)
+            config.stats.songs_served++; /* FIXME: remove stat races */
+    }
     //    free(pqi);
 }
 
