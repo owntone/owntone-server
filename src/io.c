@@ -370,7 +370,7 @@ int io_init(void) {
     io_handler_list.next = NULL;
 
 #ifdef WIN32
-    wVersionRequested = MAKEWORD(2,0);
+    wVersionRequested = MAKEWORD(2,2);
     err = WSAStartup(wVersionRequested, &io_WSAData);
     if(err) {
         io_err_printf(IO_LOG_FATAL,"Could not initialize winsock\n");
@@ -2309,14 +2309,19 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
             byteswritten = send(priv->fd, bufp, bytestowrite, 0);
         }
 
-        io_err_printf(IO_LOG_DEBUG,"wrote %d bytes to socket %d\n",byteswritten,priv->fd);
+        io_err_printf(IO_LOG_SPAM,"wrote %d bytes to socket %d\n",byteswritten,priv->fd);
 
 #ifdef WIN32
         if(WSAGetLastError() == WSAEWOULDBLOCK) {
             byteswritten = 0;
+            
+            if(priv->hEvent) {
+                WSAEventSelect(priv->fd,(WSAEVENT)priv->hEvent,0);
+            }
 
+            blocking = 0;
             if(ioctlsocket(priv->fd,FIONBIO,&blocking)) {
-                io_err_printf(IO_LOG_LOG,"Couldn't set socket to blocking\n");
+                io_err_printf(IO_LOG_LOG,"Couldn't set socket to blocking: %ld\n",WSAGetLastError());
             }
         }
 #endif
