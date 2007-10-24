@@ -260,6 +260,7 @@ void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     int size;
 
     pi_log(E_DBG,"Starting rsp_info\n");
+    pi_config_set_status(pwsc,0,"Getting server info");
 
     pxml = xml_init(pwsc,1);
 
@@ -285,6 +286,7 @@ void rsp_info(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
 
     xml_pop(pxml); /* response */
     xml_deinit(pxml);
+    pi_config_set_status(pwsc,0,NULL);
 }
 
 /**
@@ -307,6 +309,7 @@ void rsp_db(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         return;
     }
 
+    pi_config_set_status(pwsc,0,"Fetching playlist info");
     pxml = xml_init(pwsc,1);
 
     xml_push(pxml,"response");
@@ -338,7 +341,7 @@ void rsp_db(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     xml_pop(pxml); /* playlists */
     xml_pop(pxml); /* response */
     xml_deinit(pxml);
-
+    pi_config_set_status(pwsc,0,NULL);
 }
 
 /**
@@ -390,6 +393,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         return;
     }
 
+    pi_config_set_status(pwsc,0,"Fetching playlist items");
     pxml = xml_init(pwsc,1);
 
     if(ppi->dq.offset > ppi->dq.totalcount) {
@@ -469,6 +473,7 @@ void rsp_playlist(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     xml_pop(pxml); /* items */
     xml_pop(pxml); /* response */
     xml_deinit(pxml);
+    pi_config_set_status(pwsc,0,NULL);
 }
 
 void rsp_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
@@ -500,6 +505,7 @@ void rsp_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
         return;
     }
 
+    pi_config_set_status(pwsc,0,"Browsing");
     pxml = xml_init(pwsc,1);
 
     if(ppi->dq.offset > ppi->dq.totalcount) {
@@ -530,6 +536,7 @@ void rsp_browse(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
     xml_pop(pxml); /* items */
     xml_pop(pxml); /* response */
     xml_deinit(pxml);
+    pi_config_set_status(pwsc,0,NULL);
 }
 
 void rsp_stream(WS_CONNINFO *pwsc, PRIVINFO *ppi) {
