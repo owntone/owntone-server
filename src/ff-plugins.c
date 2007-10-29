@@ -291,6 +291,8 @@ EXPORT void pi_db_enum_dispose(char **pe, DB_QUERY *pinfo) {
             sp_dispose(pqi->pt);
             pqi->pt = NULL;
         }
+        free(pqi);
+        pinfo->priv = NULL;
     }
 }
 

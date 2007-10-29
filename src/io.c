@@ -1088,9 +1088,11 @@ int io_printf(IO_PRIVHANDLE *phandle, char *fmt, ...) {
 
     len = new_size;
     if(!io_write(phandle,(unsigned char *)outbuf,&len) || (len != new_size)) {
+        free(outbuf);
         return FALSE;
     }
 
+    free(outbuf);
     return TRUE;
 }
 
@@ -2221,6 +2223,9 @@ int io_socket_close(IO_PRIVHANDLE *phandle) {
     }
 #endif
 
+    free(priv);
+    phandle->private = NULL;
+
     return TRUE;
 }
 
@@ -2314,7 +2319,7 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
 #ifdef WIN32
         if(WSAGetLastError() == WSAEWOULDBLOCK) {
             byteswritten = 0;
-            
+
             if(priv->hEvent) {
                 WSAEventSelect(priv->fd,(WSAEVENT)priv->hEvent,0);
             }
