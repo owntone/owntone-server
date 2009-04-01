@@ -7,13 +7,6 @@ bin_PROGRAMS = wavstreamer
 
 LDADD=
 
-if COND_REND_POSIX
-SUBDIRS += mdns
-AM_CPPFLAGS = -I./mdns
-LDADD+=mdns/libmdns.la
-PRENDSRC=rend-unix.c rend-posix.c
-endif
-
 if COND_REND_HOWL
 HRENDSRC=rend-howl.c rend-unix.c
 endif
@@ -72,11 +65,11 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
 	memdebug.c memdebug.h ssl.h io.h io.c io-errors.h io-plugin.h \
 	bsd-snprintf.c bsd-snprintf.h \
-	$(PRENDSRC) $(ORENDSRC) $(HRENDSRC) $(ARENDSRC) $(OGGVORBISSRC) \
+	$(ORENDSRC) $(HRENDSRC) $(ARENDSRC) $(OGGVORBISSRC) \
 	$(FLACSRC) $(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM) \
 	$(UPNP)
 
-EXTRA_DIST = rend-howl.c rend-posix.c rend-osx.c scan-mpc.c \
+EXTRA_DIST = rend-howl.c rend-osx.c scan-mpc.c \
 	scan-ogg.c scan-flac.c db-sql.c db-sql.h \
 	db-sql-sqlite2.h db-sql-sqlite2.c \
 	db-sql-sqlite3.h db-sql-sqlite3.c \
