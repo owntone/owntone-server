@@ -1,8 +1,0 @@
-#!/bin/sh
-
-make clean
-svn update
-./reconf.sh
-VERSION=`svnversion .`
-cat debian/changelog.templ | sed s/@ver@/svn-$VERSION/g > debian/changelog
-debian/rules binary
