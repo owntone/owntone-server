@@ -14,8 +14,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <avcodec.h>
-#include <avformat.h>
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
 
 #include "ff-plugins.h"
 
