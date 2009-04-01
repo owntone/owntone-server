@@ -1136,10 +1136,6 @@ void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg) {
     ws_writefd(pwsc,"%s ","--with-gdbm");
 #endif
 
-#ifdef WITH_HOWL
-    ws_writefd(pwsc,"%s ","--enable-howl");
-#endif
-
 #ifdef NSLU2
     ws_writefd(pwsc,"%s ","--enable-nslu2");
 #endif

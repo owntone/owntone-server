@@ -7,14 +7,6 @@ bin_PROGRAMS = wavstreamer
 
 LDADD=
 
-if COND_REND_HOWL
-HRENDSRC=rend-howl.c rend-unix.c
-endif
-
-if COND_REND_OSX
-ORENDSRC=rend-osx.c rend-unix.c
-endif
-
 if COND_REND_AVAHI
 ARENDSRC=rend-avahi.c
 endif
@@ -56,7 +48,7 @@ wavstreamer_SOURCES = wavstreamer.c
 
 mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
-	mp3-scanner.h mp3-scanner.c rend-unix.h \
+	mp3-scanner.h mp3-scanner.c \
 	db-generic.c db-generic.h ff-plugins.c ff-plugins.h \
 	rxml.c rxml.h redblack.c redblack.h scan-mp3.c scan-aif.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \
@@ -65,11 +57,11 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
 	memdebug.c memdebug.h ssl.h io.h io.c io-errors.h io-plugin.h \
 	bsd-snprintf.c bsd-snprintf.h \
-	$(ORENDSRC) $(HRENDSRC) $(ARENDSRC) $(OGGVORBISSRC) \
+	$(ARENDSRC) $(OGGVORBISSRC) \
 	$(FLACSRC) $(MUSEPACKSRC) $(SQLITEDB) $(SQLITE3DB) $(SQLDB) $(GDBM) \
 	$(UPNP)
 
-EXTRA_DIST = rend-howl.c rend-osx.c scan-mpc.c \
+EXTRA_DIST = scan-mpc.c \
 	scan-ogg.c scan-flac.c db-sql.c db-sql.h \
 	db-sql-sqlite2.h db-sql-sqlite2.c \
 	db-sql-sqlite3.h db-sql-sqlite3.c \
