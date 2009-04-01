@@ -1123,8 +1123,4 @@ void config_emit_flags(WS_CONNINFO *pwsc, void *value, char *arg) {
 #ifdef MUSEPACK
     ws_writefd(pwsc,"%s ","--enable-musepack");
 #endif
-
-#ifdef NSLU2
-    ws_writefd(pwsc,"%s ","--enable-nslu2");
-#endif
 }
