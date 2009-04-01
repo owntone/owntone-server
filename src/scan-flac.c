@@ -23,7 +23,6 @@
 #  include "config.h"
 #endif
 
-#define _POSIX_PTHREAD_SEMANTICS
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>

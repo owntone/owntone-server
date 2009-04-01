@@ -103,6 +103,10 @@ if test x$use_oggvorbis = xtrue; then
 	PKG_CHECK_MODULES(OGGVORBIS, [ ogg vorbis vorbisfile ])
 fi
 
+if test x$use_flac = xtrue; then
+	PKG_CHECK_MODULES(FLAC, [ flac ])
+fi
+
 if test x$use_ffmpeg = xtrue; then
 	PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat ])
 fi
@@ -117,18 +121,6 @@ AC_ARG_WITH(static-libs,
 
 AC_CHECK_HEADERS(getopt.h,,)
 AC_CHECK_HEADERS(stdint.h,,)
-
-if test x$use_flac = xtrue; then
-  AC_CHECK_HEADERS(FLAC/metadata.h,, [
-   AC_MSG_ERROR([FLAC/metadata.h not found... Must have libFLAC installed for FLAC support])])
-  AC_CHECK_LIB(FLAC,FLAC__metadata_chain_read,,echo "Must have libFLAC for FLAC support";exit)
-
-  if test x"$STATIC_LIBS" != x"no"; then
-    LIBS="${LIBS} ${STATIC_LIBS}/libFLAC.a"
-  else
-    LIBS="${LIBS} -lFLAC"
-  fi
-fi
 
 if test x$use_musepack = xtrue; then
   AC_PATH_PROG(TAGLIB_CONFIG, taglib-config, no)
