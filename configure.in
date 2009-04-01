@@ -97,6 +97,7 @@ dnl Checks for libraries.
 PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
 PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
+PKG_CHECK_MODULES(ID3TAG, [ id3tag ])
 
 if test x$use_ffmpeg = xtrue; then
 	PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat ])
@@ -110,34 +111,8 @@ AC_ARG_WITH(static-libs,
 	fi
 ])
 
-AC_ARG_WITH(id3tag,
-	[--with-id3tag[[=DIR]]           use id3tag in DIR],[
-	if test "$withval" != "no" -a "$withval" != "yes"; then
-	  Z_DIR=$withval
-	  CPPFLAGS="${CPPFLAGS} -I$withval/include"
-	  LDFLAGS="${LDFLAGS} -L$withval/lib -R$withval/lib"
-	fi
-])
-
 AC_CHECK_HEADERS(getopt.h,,)
 AC_CHECK_HEADERS(stdint.h,,)
-
-AC_CHECK_HEADERS(id3tag.h,, [
- AC_MSG_ERROR([id3tag.h not found... try --with-id3tag=dir])])
-
-oldcflags=$CFLAGS
-
-CFLAGS="$CFLAGS -lz"
-OLDLIBS=$LIBS
-AC_CHECK_LIB(id3tag,id3_file_open,,echo "no libid3tag. Try --with-id3tag=dir";exit)
-
-LIBS=$OLDLIBS
-if test "$STATIC_LIBS" != "no"; then
-  LIBS="${LIBS} ${STATIC_LIBS}/libid3tag.a ${STATIC_LIBS}/libz.a"
-else
-  LIBS="${LIBS} -lid3tag -lz"
-fi
-CFLAGS=$oldcflags
 
 if test x$use_oggvorbis = xtrue; then
   AC_CHECK_HEADERS(ogg/ogg.h,, [
