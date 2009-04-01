@@ -80,7 +80,7 @@ typedef struct tag_db_functions {
 
 /** All supported backend databases, and pointers to the db specific implementations */
 DB_FUNCTIONS db_functions[] = {
-#ifdef HAVE_LIBSQLITE3
+#ifdef HAVE_SQLITE3
     {
         "sqlite3",
         db_sql_open_sqlite3,

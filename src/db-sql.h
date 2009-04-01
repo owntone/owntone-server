@@ -24,7 +24,7 @@
 
 typedef char** SQL_ROW;
 
-#ifdef HAVE_LIBSQLITE3
+#ifdef HAVE_SQLITE3
 extern int db_sql_open_sqlite3(char **pe, char *parameters);
 #endif
 

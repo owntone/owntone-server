@@ -48,7 +48,7 @@
 #include "plugin.h"
 #include "conf.h"  /* FIXME */
 
-#ifdef HAVE_LIBSQLITE3
+#ifdef HAVE_SQLITE3
 #include "db-sql-sqlite3.h"
 #endif
 
@@ -92,7 +92,7 @@ int (*db_sql_enum_restart_fn)(char **pe);
 int (*db_sql_event_fn)(int event_type);
 int (*db_sql_insert_id_fn)(void);
 
-#ifdef HAVE_LIBSQLITE3
+#ifdef HAVE_SQLITE3
 int db_sql_open_sqlite3(char **pe, char *parameters) {
     /* first, set our external links to sqlite3 */
     db_sql_open_fn = db_sqlite3_open;

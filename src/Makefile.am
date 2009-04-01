@@ -17,14 +17,6 @@ if COND_MUSEPACK
 MUSEPACKSRC=scan-mpc.c
 endif
 
-if COND_SQLITE3
-SQLITE3DB=db-sql-sqlite3.c db-sql-sqlite3.h
-endif
-
-if COND_SQL
-SQLDB=db-sql.c db-sql.h
-endif
-
 if COND_UPNP
 UPNP=upnp.c upnp.h
 endif
@@ -32,8 +24,8 @@ endif
 
 wavstreamer_SOURCES = wavstreamer.c
 
-mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@
-mt_daapd_LDADD = @AVAHI_LIBS@
+mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@
+mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@
 mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	mp3-scanner.h mp3-scanner.c \
@@ -46,11 +38,11 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	ssl.h io.h io.c io-errors.h io-plugin.h \
 	bsd-snprintf.c bsd-snprintf.h \
 	rend-avahi.c \
+	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
 	$(OGGVORBISSRC) \
-	$(FLACSRC) $(MUSEPACKSRC) $(SQLITE3DB) $(SQLDB) \
+	$(FLACSRC) $(MUSEPACKSRC) \
 	$(UPNP)
 
 EXTRA_DIST = scan-mpc.c \
-	scan-ogg.c scan-flac.c db-sql.c db-sql.h \
-	db-sql-sqlite3.h db-sql-sqlite3.c \
+	scan-ogg.c scan-flac.c \
 	ff-plugins.h ff-dbstruct.h upnp.c upnp.h ff-plugin-events.h

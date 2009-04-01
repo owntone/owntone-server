@@ -22,10 +22,7 @@
 #include "daapd.h"
 #include "err.h"
 
-#ifdef HAVE_SQL
 extern int db_sql_escape(char *buffer, int *size, char *fmt, ...);
-#endif
-
 
 typedef struct tag_token {
     int token_id;
@@ -1338,7 +1335,6 @@ int sp_dispose(PARSETREE tree) {
     return 1;
 }
 
-#ifdef HAVE_SQL
 /**
  * calculate the size required to render the tree as a
  * sql query.
@@ -1476,8 +1472,6 @@ char *sp_sql_clause(PARSETREE tree) {
 
     return sql;
 }
-#endif /* HAVE_SQL */
-
 
 /**
  * if there was an error in a previous action (parsing?)
