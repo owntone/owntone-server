@@ -60,11 +60,7 @@ typedef void* WSTHREADENUM;
 typedef struct tag_wsconfig {
     char *web_root;
     char *id;
-    char *ssl_cert;
-    char *ssl_key;
-    char *ssl_pw;
     unsigned short port;
-    unsigned short ssl_port;
 } WSCONFIG;
 
 typedef struct tag_arglist {
