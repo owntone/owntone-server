@@ -11,10 +11,11 @@ rsp_la_SOURCES = compat.c rsp.c xml-rpc.c
 
 if COND_FFMPEG
 ssc_ffmpeg_LTLIBRARIES=ssc-ffmpeg.la
+ssc_ffmpeg_la_CPPFLAGS = @FFMPEG_CFLAGS@
+ssc_ffmpeg_la_LIBADD = @FFMPEG_LIBS@
+ssc_ffmpeg_la_LDFLAGS=-module -avoid-version
 ssc_ffmpeg_la_SOURCES=ssc-ffmpeg.c
 endif
-
-ssc_ffmpeg_la_LDFLAGS=-module -avoid-version
 
 ssc_script_LTLIBRARIES=ssc-script.la
 ssc_script_la_LDFLAGS=-module -avoid-version

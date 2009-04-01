@@ -103,6 +103,10 @@ PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
 PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
 
+if test x$use_ffmpeg = xtrue; then
+	PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat ])
+fi
+
 AC_ARG_WITH(static-libs,
 	[--with-static-libs[[=DIR]]            use static libs in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
@@ -121,22 +125,6 @@ AC_ARG_WITH(ssl-includes,
 
 AC_ARG_WITH(ssl-libs,
 	[--with-ssl-libs[[=DIR]]           use ssl lib files in DIR],[
-	if test "$withval" != "no" -a "$withval" != "yes"; then
-	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval -R$withval"
-	fi
-])
-
-AC_ARG_WITH(ffmpeg-includes,
-	[--with-ffmpeg-includes[[=DIR]]        use ffmpeg include files in DIR],[
-	if test "$withval" != "no" -a "$withval" != "yes"; then
-	 Z_DIR=$withval
-         CPPFLAGS="${CPPFLAGS} -I$withval"
-	fi
-])
-
-AC_ARG_WITH(ffmpeg-libs,
-	[--with-ffmpeg-libs[[=DIR]]        use ffmpeg lib files in DIR],[
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
          LDFLAGS="${LDFLAGS} -L$withval -R$withval"
@@ -222,18 +210,6 @@ if test x$use_flac = xtrue; then
     LIBS="${LIBS} ${STATIC_LIBS}/libFLAC.a"
   else
     LIBS="${LIBS} -lFLAC"
-  fi
-fi
-
-if test x$use_ffmpeg = xtrue; then
-  AC_CHECK_HEADERS(avcodec.h,, [
-   AC_MSG_ERROR([avcodec.h not found... Must have ffmpeg installed])])
-dnl  AC_CHECK_LIB(avcodec,avcodec_find_decoder,,echo "Must have libavcodec";exit)
-
-  if test x"$STATIC_LIBS" != x"no"; then
-    LIBS="${LIBS} ${STATIC_LIBS}/libavcodec.a ${STATIC_LIBS}/libavformat.a ${STATIC_LIBS}/libavutil.a"
-  else
-    LIBS="${LIBS} -lavcodec -lavformat -lavutil"
   fi
 fi
 
