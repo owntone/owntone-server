@@ -705,7 +705,6 @@ int main(int argc, char *argv[]) {
 
     os_deinit();
     io_deinit();
-    mem_dump();
     return EXIT_SUCCESS;
 }
 

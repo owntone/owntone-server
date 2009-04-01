@@ -54,7 +54,6 @@
 #endif
 
 #include <time.h>
-#include "memdebug.h"  /* redefine free/malloc/etc */
 #include "compat.h"
 #include "webserver.h"
 

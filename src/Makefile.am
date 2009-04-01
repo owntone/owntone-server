@@ -47,7 +47,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
 	os.h ll.c ll.h conf.c conf.h compat.c compat.h util.c util.h \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
-	memdebug.c memdebug.h ssl.h io.h io.c io-errors.h io-plugin.h \
+	ssl.h io.h io.c io-errors.h io-plugin.h \
 	bsd-snprintf.c bsd-snprintf.h \
 	$(ARENDSRC) $(OGGVORBISSRC) \
 	$(FLACSRC) $(MUSEPACKSRC) $(SQLITE3DB) $(SQLDB) \
