@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
  *
  * This program is free software; you can redistribute it and/or modify

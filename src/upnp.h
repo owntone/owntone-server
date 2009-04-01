@@ -1,6 +1,4 @@
 /*
- * $Id: $
- *
  * Header functions for UPnP discovery
  *
  * Copyright (C) 2007 Ron Pedde (ron@pedde.com)

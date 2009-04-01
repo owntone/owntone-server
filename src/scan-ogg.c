@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Ogg parsing routines.
  *
  *

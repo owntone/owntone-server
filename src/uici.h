@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Sockets Library
  *
  * ** NOTICE **

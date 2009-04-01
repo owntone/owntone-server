@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Implementation file iTunes metainfo scanning
  *
  * Copyright (C) 2005 Ron Pedde (ron@pedde.com)

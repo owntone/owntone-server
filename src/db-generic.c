@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Generic db implementation for specific sql backend
  *
  * Copyright (C) 2005 Ron Pedde (ron@pedde.com)

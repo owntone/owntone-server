@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Driver for multi-threaded daap server
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)

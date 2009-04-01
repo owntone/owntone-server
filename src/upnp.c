@@ -1,5 +1,4 @@
 /**
- * $Id: $
  *
  * Implementation of functions for UPnP discovery
  *

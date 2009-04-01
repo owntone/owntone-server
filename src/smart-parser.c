@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * This is really two parts -- the lexer and the parser.  Converting
  * a parse tree back to a format that works with the database backend
  * is left to the db backend.

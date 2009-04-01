@@ -1,5 +1,4 @@
-# $Id: $
-#
+
 rspdir = ${pkglibdir}/plugins
 out_daapdir = ${pkglibdir}/plugins
 ssc_ffmpegdir = ${pkglibdir}/plugins

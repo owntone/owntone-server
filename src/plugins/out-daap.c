@@ -1,5 +1,4 @@
 /*
- * $Id$
  * daap plugin handler and dispatch code
  *
  * Copyright (C) 2003-2006 Ron Pedde (ron@pedde.com)

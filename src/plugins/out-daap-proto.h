@@ -1,6 +1,3 @@
-/*
- * $Id: $
- */
 
 #ifndef _OUT_DAAP_PROTO_H_
 #define _OUT_DAAP_PROTO_H_

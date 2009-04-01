@@ -1,8 +1,6 @@
 /*
  * -*- c -*-
  *
- * $Id$
- *
  * Read wav file from stdin and patch the info in header and write
  * it to stdout.
  *

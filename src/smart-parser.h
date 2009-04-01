@@ -1,6 +1,3 @@
-/*
- * $Id$
- */
 
 #ifndef _SMART_PARSER_H_
 #define _SMART_PARSER_H_

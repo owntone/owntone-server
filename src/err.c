@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Generic error handling
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)

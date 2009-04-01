@@ -1,6 +1,4 @@
 /*
- * $Id: $
- *
  * Database structure and fields
  */
 

@@ -1,5 +1,4 @@
-# $Id$
-#
+
 SUBDIRS = plugins
 
 sbin_PROGRAMS = mt-daapd

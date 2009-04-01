@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Functions for reading and writing the config file
  *
  * Copyright (C) 2006 Ron Pedde (ron@pedde.com)

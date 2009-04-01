@@ -1,5 +1,3 @@
-$Id$
-
 Here's the short and sweet of it:
 
 ./configure; make; make install

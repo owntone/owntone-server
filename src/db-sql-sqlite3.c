@@ -1,5 +1,4 @@
 /*
- * $Id$
  * sqlite3-specific db implementation
  *
  * Copyright (C) 2005 Ron Pedde (ron@pedde.com)

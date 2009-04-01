@@ -1,6 +1,4 @@
 /*
- * $Id: $
- *
  * Generic IO abstraction for files, sockets, http streams, etc
  */
 

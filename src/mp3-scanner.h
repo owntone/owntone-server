@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Header file for mp3 scanner and monitor
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)

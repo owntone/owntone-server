@@ -1,5 +1,4 @@
 /*
- * $Id$
  * WMA metatag parsing
  *
  * Copyright (C) 2005 Ron Pedde (ron@pedde.com)

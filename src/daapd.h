@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Header info for daapd server
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)

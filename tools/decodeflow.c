@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * Decode a tcpflow from iTunes
  */
 

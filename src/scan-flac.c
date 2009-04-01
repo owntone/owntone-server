@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Implementation file for server side format conversion.
  *
  * Copyright (C) 2005 Timo J. Rinne (tri@iki.fi)

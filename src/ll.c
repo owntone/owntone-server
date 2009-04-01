@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Rock stupid char* indexed linked lists
  *
  * Copyright (C) 2006 Ron Pedde (rpedde@users.sourceforge.net)

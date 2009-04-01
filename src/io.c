@@ -1,6 +1,4 @@
 /*
- * $Id: $
- *
  * Generic IO handling for files/sockets/etc
  */
 

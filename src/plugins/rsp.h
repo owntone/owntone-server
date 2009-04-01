@@ -1,6 +1,3 @@
-/* 
- * $Id: $
- */
 
 #ifndef _RSP_H_
 #define _RSP_H_

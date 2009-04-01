@@ -1,5 +1,4 @@
 /*
- * $Id: $
  * Simple plug-in api for output, transcode, and scanning plug-ins
  *
  * Copyright (C) 2006 Ron Pedde (ron@pedde.com)

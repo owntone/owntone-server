@@ -1,6 +1,4 @@
 /*
- * $Id: $
- *
  * Private interface for io objects to provide plug-in io objects
  */
 

@@ -1,5 +1,4 @@
-# $Id$
-#
+
 SUBDIRS = init.d
 
 EXTRA_DIST = README mt-daapd.spec mt-daapd.conf.templ mt-daapd-ssc.sh mt-daapd-ssc.pl

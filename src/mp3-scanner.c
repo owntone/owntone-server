@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Implementation file for mp3 scanner and monitor
  *
  * Ironically, this now scans file types other than mp3 files,

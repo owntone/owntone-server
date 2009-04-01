@@ -1,5 +1,4 @@
 /*
- * $Id: $
  * Commands to update database to new version
  *
  */

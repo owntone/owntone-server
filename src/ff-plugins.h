@@ -1,5 +1,4 @@
 /*
- * $Id: $
  * Public plug-in interface
  *
  * Copyright (C) 2006 Ron Pedde (ron@pedde.com)

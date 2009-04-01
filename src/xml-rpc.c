@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * This really isn't xmlrpc.  It's xmlrpc-ish.  Emphasis on -ish.
  */
 

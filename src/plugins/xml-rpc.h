@@ -1,6 +1,3 @@
-/*
- * $Id: xml-rpc.h 917 2006-04-04 06:31:19Z rpedde $
- */
 
 #ifndef _XMLRPC_H_
 #define _XMLRPC_H_

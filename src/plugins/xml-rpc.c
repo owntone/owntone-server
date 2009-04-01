@@ -1,6 +1,4 @@
 /*
- * $Id: xml-rpc.c 970 2006-04-20 06:52:21Z rpedde $
- *
  * This really isn't xmlrpc.  It's xmlrpc-ish.  Emphasis on -ish.
  */
 

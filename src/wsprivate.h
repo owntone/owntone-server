@@ -1,5 +1,4 @@
 /*
- * $Id: os.h 1479 2007-01-09 18:12:39Z rpedde $
  * Abstract os interface for non-unix platforms
  *
  * Copyright (C) 2006 Ron Pedde (rpedde@users.sourceforge.net)

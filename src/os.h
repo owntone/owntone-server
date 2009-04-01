@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Abstract os interface for non-unix platforms
  *
  * Copyright (C) 2006 Ron Pedde (rpedde@users.sourceforge.net)

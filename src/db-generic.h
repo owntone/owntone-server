@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Header info for generic database
  *
  * Copyright (C) 2005 Ron Pedde (ron@pedde.com)

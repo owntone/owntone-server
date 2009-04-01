@@ -1,6 +1,4 @@
 /*
- * $Id: $
- *
  * Created by Ron Pedde on 2007-07-01.
  * Copyright (C) 2007 Firefly Media Services. All rights reserved.
  *

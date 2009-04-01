@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Rendezvous stuff
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)

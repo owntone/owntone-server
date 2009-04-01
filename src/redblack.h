@@ -1,8 +1,4 @@
 /*
- * RCS $Id$
- */
-
-/*
    Redblack balanced tree algorithm
    Copyright (C) Damian Ivereigh 2000
 
@@ -137,7 +133,6 @@ RB_STATIC void RB_ENTRY(closelist)(RBLIST *);
 
 /*
  *
- * $Log$
  * Revision 1.4  2006/02/26 08:46:24  rpedde
  * Merged win32-branch
  *

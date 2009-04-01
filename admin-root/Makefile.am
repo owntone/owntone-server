@@ -1,5 +1,4 @@
-# $Id$
-#
+
 SUBDIRS=lib-js
 
 adminrootdir = ${pkgdatadir}/admin-root

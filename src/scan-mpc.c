@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Musepack tag parsing routines.
  *
  * Copyright (C) 2005 Sebastian Dröge <slomo@ubuntu.com>

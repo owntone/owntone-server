@@ -1,5 +1,3 @@
-static char rcsid[]="$Id$";
-
 /*
    Redblack balanced tree algorithm
    Copyright (C) Damian Ivereigh 2000
@@ -149,8 +147,6 @@ RB_STATIC struct RB_ENTRY(tree) *RB_ENTRY(init)(void)
 {
         struct RB_ENTRY(tree) *retval;
         char c;
-
-        c=rcsid[0]; /* This does nothing but shutup the -Wall */
 
         if ((retval=(struct RB_ENTRY(tree) *) malloc(sizeof(struct RB_ENTRY(tree))))==NULL)
                 return(NULL);
@@ -1094,7 +1090,6 @@ RB_ENTRY(dumptree)(struct RB_ENTRY(node) *x, int n)
 #endif
 
 /*
- * $Log$
  * Revision 1.4  2006/02/26 08:46:24  rpedde
  * Merged win32-branch
  *

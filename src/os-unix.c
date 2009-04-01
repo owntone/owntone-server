@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Abstracts os interface
  *
  * Copyright (c) 2006 Ron Pedde (rpedde@users.sourceforge.net)

@@ -1,4 +1,3 @@
-* $Id$ */
 
 I've received lots of help from people on this project.
 
@@ -146,3 +145,9 @@ Gareth Potter
 Anton Johansson
  * Swedish Translations
 
+Ian Burrell
+ * configure patches to put plugins in libdir
+ * RH/Centos/Fedora specfiles
+
+Stephane Moreau
+ * admin page updates to make apache rewrites easier

@@ -1,6 +1,3 @@
-/*
- * $Id$
- */
 
 #ifndef _RXML_H_
 #define _RXML_H_

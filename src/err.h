@@ -1,5 +1,4 @@
 /*
- * $Id$
  * Error related routines
  *
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
