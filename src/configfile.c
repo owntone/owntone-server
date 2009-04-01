@@ -55,7 +55,6 @@
 #include "db-generic.h"
 #include "err.h"
 #include "os.h"
-#include "restart.h"
 #include "xml-rpc.h"
 #include "upnp.h"
 #include "rend.h"

@@ -34,7 +34,6 @@
 #include "daapd.h"
 #include "io.h"
 #include "mp3-scanner.h"
-#include "restart.h"
 #include "err.h"
 
 typedef struct tag_wma_guidlist {

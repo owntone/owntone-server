@@ -58,7 +58,6 @@
 #include "os.h"
 #include "plugin.h"
 #include "rend.h"
-#include "restart.h"
 #include "smart-parser.h"
 #include "xml-rpc.h"
 #include "webserver.h"

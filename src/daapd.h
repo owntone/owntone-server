@@ -57,7 +57,6 @@
 #include "webserver.h"
 
 /** Simple struct for holding stat info.
- * \todo wire up the tag_stats#bytes_served stuff into r_write() in restart.c
  */
 typedef struct tag_stats {
     time_t start_time;          /**< When the server was started */

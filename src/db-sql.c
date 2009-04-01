@@ -42,7 +42,6 @@
 #include "mp3-scanner.h"
 #include "db-generic.h"
 #include "db-sql.h"
-#include "restart.h"
 #include "smart-parser.h"
 #include "plugin.h"
 #include "conf.h"  /* FIXME */

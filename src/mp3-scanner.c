@@ -52,7 +52,6 @@
 #include "io.h"
 #include "mp3-scanner.h"
 #include "os.h"
-#include "restart.h"
 #include "util.h"
 
 /*
