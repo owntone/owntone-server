@@ -44,7 +44,7 @@
 /** @anchor log_categories */
 #define L_CONF    0x00000001 /**< configuration - configfile.c */
 #define L_WS      0x00000002 /**< webserver - webserver.c */
-#define L_DB      0x00000004 /**< database - db-gdbm.c, db-memory.c */
+#define L_DB      0x00000004 /**< database */
 #define L_SCAN    0x00000008 /**< scanner - mp3-scanner.c */
 #define L_QRY     0x00000010 /**< query - query.c */
 #define L_IND     0x00000020 /**< index - daap.c */

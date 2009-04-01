@@ -122,7 +122,6 @@ extern int db_force_rescan(char **pe);
 #define DB_E_PROC                    0x0A /**< could not start threadpool */
 #define DB_E_SIZE                    0x0B /**< passed buffer too small */
 #define DB_E_WRONGVERSION            0x0C /**< must upgrade db */
-#define DB_E_DB_ERROR                0x0D /**< gdbm error */
 #define DB_E_MALLOC                  0x0E /**< malloc error */
 #define DB_E_NOTFOUND                0x0F /**< path not found */
 

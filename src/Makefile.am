@@ -31,10 +31,6 @@ if COND_SQL
 SQLDB=db-sql.c db-sql.h
 endif
 
-if COND_GDBM
-GDBM=db-gdbm.c db-gdbm.h
-endif
-
 if COND_UPNP
 UPNP=upnp.c upnp.h
 endif
@@ -54,11 +50,10 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	memdebug.c memdebug.h ssl.h io.h io.c io-errors.h io-plugin.h \
 	bsd-snprintf.c bsd-snprintf.h \
 	$(ARENDSRC) $(OGGVORBISSRC) \
-	$(FLACSRC) $(MUSEPACKSRC) $(SQLITE3DB) $(SQLDB) $(GDBM) \
+	$(FLACSRC) $(MUSEPACKSRC) $(SQLITE3DB) $(SQLDB) \
 	$(UPNP)
 
 EXTRA_DIST = scan-mpc.c \
 	scan-ogg.c scan-flac.c db-sql.c db-sql.h \
 	db-sql-sqlite3.h db-sql-sqlite3.c \
-	db-gdbm.c db-gdbm.h \
 	ff-plugins.h ff-dbstruct.h upnp.c upnp.h ff-plugin-events.h
