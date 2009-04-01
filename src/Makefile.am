@@ -35,7 +35,6 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	os.h ll.c ll.h conf.c conf.h compat.c compat.h util.c util.h \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
 	io.h io.c io-errors.h io-plugin.h \
-	bsd-snprintf.c bsd-snprintf.h \
 	rend-avahi.c \
 	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
 	$(OGGVORBISSRC) \

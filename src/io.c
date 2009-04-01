@@ -49,7 +49,6 @@
 
 #include "io-errors.h"
 #include "io-plugin.h"
-#include "bsd-snprintf.h"
 
 #ifdef WIN32
 # define strcasecmp stricmp
@@ -651,7 +650,7 @@ int io_open(IO_PRIVHANDLE *phandle, char *fmt, ...) {
     ASSERT(io_initialized);  /* call io_init first */
 
     va_start(ap, fmt);
-    io_util_vsnprintf(uri_copy, sizeof(uri_copy), fmt, ap);
+    vsnprintf(uri_copy, sizeof(uri_copy), fmt, ap);
     va_end(ap);
 
     io_err_printf(IO_LOG_DEBUG,"Opening %s\n", uri_copy);

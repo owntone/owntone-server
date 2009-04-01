@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "bsd-snprintf.h"
 #include "conf.h"
 #include "configfile.h"
 #include "daapd.h"
@@ -562,7 +561,7 @@ EXPORT int pi_io_open(IOHANDLE io, char *fmt, ...) {
     va_list ap;
 
     va_start(ap, fmt);
-    io_util_vsnprintf(uri_copy, sizeof(uri_copy), fmt, ap);
+    vsnprintf(uri_copy, sizeof(uri_copy), fmt, ap);
     va_end(ap);
 
     return io_open(io, "%s", uri_copy);
