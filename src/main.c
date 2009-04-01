@@ -89,15 +89,13 @@
 #include "plugin.h"
 #include "util.h"
 #include "upnp.h"
+#include "rend.h"
 #include "io.h"
 
 #ifdef HAVE_GETOPT_H
 # include "getopt.h"
 #endif
 
-#ifndef WITHOUT_MDNS
-# include "rend.h"
-#endif
 
 /** Seconds to sleep before checking for a shutdown or reload */
 #define MAIN_SLEEP_INTERVAL  2
@@ -485,7 +483,6 @@ int main(int argc, char *argv[]) {
 
     runas = conf_alloc_string("general","runas","nobody");
 
-#ifndef WITHOUT_MDNS
     if(config.use_mdns) {
         DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
         if(rend_init(runas)) {
@@ -493,7 +490,6 @@ int main(int argc, char *argv[]) {
                     strerror(errno));
         }
     }
-#endif
 
     if(!os_init(config.foreground,runas)) {
         DPRINTF(E_LOG,L_MAIN,"Could not initialize server\n");
@@ -514,11 +510,9 @@ int main(int argc, char *argv[]) {
 
     if(err) {
         DPRINTF(E_LOG,L_MAIN|L_DB,"Error opening db: %s\n",perr);
-#ifndef WITHOUT_MDNS
         if(config.use_mdns) {
             rend_stop();
         }
-#endif
         os_deinit();
         exit(EXIT_FAILURE);
     }
@@ -582,7 +576,6 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(config.server, "/",main_handler,main_auth,
                        0,1);
 
-#ifndef WITHOUT_MDNS
     if(config.use_mdns) { /* register services */
         servername = conf_get_servername();
 
@@ -618,7 +611,6 @@ int main(int argc, char *argv[]) {
         free(servername);
         free(iface);
     }
-#endif
 
     end_time=(int) time(NULL);
 
@@ -676,12 +668,10 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG,L_MAIN,"Stopping gracefully\n");
 
-#ifndef WITHOUT_MDNS
     if(config.use_mdns) {
         DPRINTF(E_LOG,L_MAIN|L_REND,"Stopping rendezvous daemon\n");
         rend_stop();
     }
-#endif
 
 #ifdef UPNP
     upnp_deinit();

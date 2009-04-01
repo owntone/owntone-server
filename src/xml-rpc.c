@@ -530,15 +530,12 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
 
     xml_output(pxml,"name","Rendezvous");
 
-#ifndef WITHOUT_MDNS
     if(config.use_mdns) {
         xml_output(pxml,"status",rend_running() ? "Running" : "Stopped"); /* ??? */
     } else {
         xml_output(pxml,"status","Disabled");
     }
-#else
-    ws_writefd(pwsc,"<td>No Support</td><td>&nbsp;</td></tr>\n");
-#endif
+
     xml_pop(pxml); /* service */
 
     xml_push(pxml,"service");

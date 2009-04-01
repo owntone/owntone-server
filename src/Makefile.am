@@ -5,12 +5,6 @@ SUBDIRS = plugins
 sbin_PROGRAMS = mt-daapd
 bin_PROGRAMS = wavstreamer
 
-LDADD=
-
-if COND_REND_AVAHI
-ARENDSRC=rend-avahi.c
-endif
-
 if COND_OGGVORBIS
 OGGVORBISSRC=scan-ogg.c
 endif
@@ -38,6 +32,8 @@ endif
 
 wavstreamer_SOURCES = wavstreamer.c
 
+mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@
+mt_daapd_LDADD = @AVAHI_LIBS@
 mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	mp3-scanner.h mp3-scanner.c \
@@ -49,7 +45,8 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
 	ssl.h io.h io.c io-errors.h io-plugin.h \
 	bsd-snprintf.c bsd-snprintf.h \
-	$(ARENDSRC) $(OGGVORBISSRC) \
+	rend-avahi.c \
+	$(OGGVORBISSRC) \
 	$(FLACSRC) $(MUSEPACKSRC) $(SQLITE3DB) $(SQLDB) \
 	$(UPNP)
 
