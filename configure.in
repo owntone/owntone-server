@@ -51,14 +51,14 @@ dnl fix freebsd's broken (?) libpthread
 AC_CHECK_LIB(c_r,pthread_creat,LIBS="${LIBS} -lc_r", [
   AC_CHECK_LIB(pthread,pthread_create,LIBS="${LIBS} -lpthread") ])
 
-AC_ARG_ENABLE(iconv, [  --enable-iconv          Enable iconv conversion],
+AC_ARG_ENABLE(iconv, AC_HELP_STRING([--enable-iconv], [Enable iconv conversion]),
                         [ case "${enableval}" in
 			yes) use_iconv=true;;
 			no) use_iconv=false;;
 			*) AC_MSG_ERROR(bad value ${enableval} for --enable-iconv);;
 			esac ])
 
-AC_ARG_ENABLE(oggvorbis,[  --enable-oggvorbis      Enable Ogg/Vorbis support],
+AC_ARG_ENABLE(oggvorbis, AC_HELP_STRING([--enable-oggvorbis], [Enable Ogg/Vorbis support]),
 			   [ case "${enableval}" in
 			   yes) use_oggvorbis=true;
                            CPPFLAGS="${CPPFLAGS} -DOGGVORBIS";;
@@ -66,21 +66,21 @@ AC_ARG_ENABLE(oggvorbis,[  --enable-oggvorbis      Enable Ogg/Vorbis support],
 			   *) AC_MSG_ERROR(bad value ${enableval} for --enable-oggvorbis);;
 			   esac ])
 
-AC_ARG_ENABLE(flac,[  --enable-flac      Enable FLAC support],
+AC_ARG_ENABLE(flac, AC_HELP_STRING([--enable-flac], [Enable FLAC support]),
                       use_flac=true;
                       CPPFLAGS="${CPPFLAGS} -DFLAC")
 
-AC_ARG_ENABLE(musepack,[  --enable-musepack       Enable Musepack support],
+AC_ARG_ENABLE(musepack, AC_HELP_STRING([--enable-musepack], [Enable Musepack support]),
                       use_musepack=true;
                       CPPFLAGS="${CPPFLAGS} -DMUSEPACK")
 
 AC_ARG_ENABLE(ffmpeg, AC_HELP_STRING([--disable-ffmpeg], [Disable ffmpeg transcoding plugin]),
                       use_ffmpeg=false)
 
-AC_ARG_ENABLE(upnp,[  --enable-upnp       Enable upnp support],
+AC_ARG_ENABLE(upnp, AC_HELP_STRING([--enable-upnp], [Enable upnp support]),
                       CPPFLAGS="${CPPFLAGS} -DUPNP"; use_upnp=true;)
 
-AC_ARG_ENABLE(ssl,[  --enable-ssl        Enable SSL support in web server],
+AC_ARG_ENABLE(ssl, AC_HELP_STRING([--enable-ssl], [Enable SSL support in web server]),
                       CPPFLAGS="${CPPFLAGS} -DUSE_SSL"; use_ssl=true; )
 
 AM_CONDITIONAL(COND_OGGVORBIS, test x$use_oggvorbis = xtrue)
