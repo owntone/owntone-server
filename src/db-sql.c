@@ -48,9 +48,6 @@
 #include "plugin.h"
 #include "conf.h"  /* FIXME */
 
-#ifdef HAVE_LIBSQLITE
-#include "db-sql-sqlite2.h"
-#endif
 #ifdef HAVE_LIBSQLITE3
 #include "db-sql-sqlite3.h"
 #endif
@@ -95,28 +92,9 @@ int (*db_sql_enum_restart_fn)(char **pe);
 int (*db_sql_event_fn)(int event_type);
 int (*db_sql_insert_id_fn)(void);
 
-#ifdef HAVE_LIBSQLITE
-int db_sql_open_sqlite2(char **pe, char *parameters) {
-    /* first, set our external links to sqlite2 */
-    db_sql_open_fn = db_sqlite2_open;
-    db_sql_close_fn = db_sqlite2_close;
-    db_sql_exec_fn = db_sqlite2_exec;
-    db_sql_vmquery_fn = db_sqlite2_vmquery;
-    db_sql_vmfree_fn = db_sqlite2_vmfree;
-    db_sql_enum_begin_fn = db_sqlite2_enum_begin;
-    db_sql_enum_fetch_fn = db_sqlite2_enum_fetch;
-    db_sql_enum_end_fn = db_sqlite2_enum_end;
-    db_sql_enum_restart_fn = db_sqlite2_enum_restart;
-    db_sql_event_fn = db_sqlite2_event;
-    db_sql_insert_id_fn = db_sqlite2_insert_id;
-
-    return db_sql_open(pe,parameters);
-}
-#endif
-
 #ifdef HAVE_LIBSQLITE3
 int db_sql_open_sqlite3(char **pe, char *parameters) {
-    /* first, set our external links to sqlite2 */
+    /* first, set our external links to sqlite3 */
     db_sql_open_fn = db_sqlite3_open;
     db_sql_close_fn = db_sqlite3_close;
     db_sql_exec_fn = db_sqlite3_exec;
@@ -838,7 +816,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     pmp3->play_count=0;
     pmp3->time_played=0;
 
-    /* sqlite2 doesn't support 64 bit ints */
+    /* sqlite2 doesn't support 64 bit ints */ /* JB: FIXME */
     sprintf(sample_count,"%lld",pmp3->sample_count);
     sprintf(file_size,"%lld",pmp3->file_size);
 

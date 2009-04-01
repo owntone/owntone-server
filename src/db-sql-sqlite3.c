@@ -1,6 +1,6 @@
 /*
  * $Id$
- * sqlite2-specific db implementation
+ * sqlite3-specific db implementation
  *
  * Copyright (C) 2005 Ron Pedde (ron@pedde.com)
  *

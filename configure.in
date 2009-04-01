@@ -38,7 +38,6 @@ fi
 AC_DEFINE_UNQUOTED(CONFFILE,"${CONFFILE}",Where the config file is)
 
 rend_avahi=false
-db_sqlite=false
 db_sqlite3=false
 use_ffmpeg=false;
 use_upnp=false;
@@ -58,13 +57,6 @@ AC_ARG_ENABLE(iconv, [  --enable-iconv          Enable iconv conversion],
 			yes) use_iconv=true;;
 			no) use_iconv=false;;
 			*) AC_MSG_ERROR(bad value ${enableval} for --enable-iconv);;
-			esac ])
-
-AC_ARG_ENABLE(sqlite,[  --enable-sqlite         Enable the sqlite db backend],
-			[ case "${enableval}" in
-			yes) db_sqlite=true; have_sql=true;;
-			no) db_sqlite=false;;
-			*) AC_MSG_ERROR(bad value ${enableval} for --enable-sqlite);;
 			esac ])
 
 AC_ARG_ENABLE(sqlite3,[  --enable-sqlite3        Enable sqlite3 db backend],
@@ -129,7 +121,6 @@ AM_CONDITIONAL(COND_REND_AVAHI, test x$rend_avahi = xtrue)
 AM_CONDITIONAL(COND_OGGVORBIS, test x$use_oggvorbis = xtrue)
 AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
-AM_CONDITIONAL(COND_SQLITE,test x$db_sqlite = xtrue)
 AM_CONDITIONAL(COND_SQLITE3,test x$db_sqlite3 = xtrue)
 AM_CONDITIONAL(COND_GDBM,test x$use_gdbm = xtrue)
 AM_CONDITIONAL(COND_FFMPEG,test x$use_ffmpeg = xtrue)
@@ -145,12 +136,12 @@ if test x$have_sql = xtrue; then
    CPPFLAGS="${CPPFLAGS} -DHAVE_SQL"
 fi
 
-if test x$db_sqlite = xtrue -o x$db_sqlite3 = xtrue; then
+if test x$db_sqlite3 = xtrue; then
    AM_CONDITIONAL(COND_SQL,true)
 fi
 
-if test x$db_sqlite = xfalse -a x$db_sqlite3 = xfalse; then
-    echo "Must use either --enable-sqlite or --enable-sqlite3"
+if test x$db_sqlite3 = xfalse; then
+    echo "Must use --enable-sqlite3"
     exit;
 fi
 
@@ -196,22 +187,6 @@ AC_ARG_WITH(gdbm-libs,
 	if test "$withval" != "no" -a "$withval" != "yes"; then
 	 Z_DIR=$withval
          LDFLAGS="${LDFLAGS} -L$withval -R$withval"
-	fi
-])
-
-AC_ARG_WITH(sqlite-includes,
-	[--with-sqlite-includes[[=DIR]]        use sqlite include files in DIR],[
-	if test "$withval" != "no" -a "$withval" != "yes"; then
-	 Z_DIR=$withval
-         CPPFLAGS="${CPPFLAGS} -I$withval -R$withval"
-	fi
-])
-
-AC_ARG_WITH(sqlite-libs,
-	[--with-sqlite-libs[[=DIR]]          use sqlite lib files in DIR],[
-	if test "$withval" != "no" -a "$withval" != "yes"; then
-	 Z_DIR=$withval
-         LDFLAGS="${LDFLAGS} -L$withval -R$withval" 
 	fi
 ])
 
@@ -297,20 +272,6 @@ if test x$use_ssl = xtrue; then
     LIBS="${LIBS} ${STATIC_LIBS}/libssl.a ${STATIC_LIBS}/libcrypto.a"
   else
     LIBS="${LIBS} -lssl -lcrypto"
-  fi
-fi
-
-OLDLIBS=$LIBS
-if test x$db_sqlite = xtrue; then
-  AC_CHECK_HEADERS(sqlite.h,, [
-   AC_MSG_ERROR([sqlite.h not found... Must have sqlite headers installed])])
-  AC_CHECK_LIB(sqlite,sqlite_open,,echo "Must have sqlite libraries installed";exit)
-
-  LIBS=$OLDLIBS
-  if test x"$STATIC_LIBS" != x"no"; then
-    LIBS="${LIBS} ${STATIC_LIBS}/libsqlite.a"
-  else
-    LIBS="${LIBS} -lsqlite"
   fi
 fi
 

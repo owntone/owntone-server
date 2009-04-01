@@ -80,35 +80,6 @@ typedef struct tag_db_functions {
 
 /** All supported backend databases, and pointers to the db specific implementations */
 DB_FUNCTIONS db_functions[] = {
-#ifdef HAVE_LIBSQLITE
-    {
-        "sqlite",
-        db_sql_open_sqlite2,
-        db_sql_init,
-        db_sql_deinit,
-        db_sql_add,
-        db_sql_add_playlist,
-        db_sql_add_playlist_item,
-        db_sql_delete_playlist,
-        db_sql_delete_playlist_item,
-        db_sql_edit_playlist,
-        db_sql_playcount_increment,
-        db_sql_enum_start,
-        db_sql_enum_fetch_row,
-        db_sql_enum_reset,
-        db_sql_enum_end,
-        db_sql_force_rescan,
-        db_sql_start_scan,
-        db_sql_end_song_scan,
-        db_sql_end_scan,
-        db_sql_get_count,
-        db_sql_fetch_item,
-        db_sql_fetch_path,
-        db_sql_fetch_playlist,
-        db_sql_dispose_item,
-        db_sql_dispose_playlist
-    },
-#endif
 #ifdef HAVE_LIBSQLITE3
     {
         "sqlite3",
