@@ -99,6 +99,10 @@ PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
 PKG_CHECK_MODULES(ID3TAG, [ id3tag ])
 
+if test x$use_oggvorbis = xtrue; then
+	PKG_CHECK_MODULES(OGGVORBIS, [ ogg vorbis vorbisfile ])
+fi
+
 if test x$use_ffmpeg = xtrue; then
 	PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat ])
 fi
@@ -113,35 +117,6 @@ AC_ARG_WITH(static-libs,
 
 AC_CHECK_HEADERS(getopt.h,,)
 AC_CHECK_HEADERS(stdint.h,,)
-
-if test x$use_oggvorbis = xtrue; then
-  AC_CHECK_HEADERS(ogg/ogg.h,, [
-   AC_MSG_ERROR([ogg/ogg.h not found... Must have libogg installed for Ogg/Vorbis support])])
-  AC_CHECK_LIB(ogg,ogg_sync_init,,echo "Must have libogg for Ogg/Vorbis support";exit)
-
-  if test x"$STATIC_LIBS" != x"no"; then
-    LIBS="${LIBS} ${STATIC_LIBS}/libogg.a"
-  else
-    LIBS="${LIBS} -logg"
-  fi
-
-  AC_CHECK_HEADERS(vorbis/codec.h,, [
-   AC_MSG_ERROR([vorbis/codec.h not found... Must have libvorbis installed for Ogg/Vorbis support])])
-  AC_CHECK_LIB(vorbis,vorbis_info_init,,echo "Must have libvorbis for Ogg/Vorbis support";exit)
-
-  if test x"$STATIC_LIBS" != x"no"; then
-    LIBS="${LIBS} ${STATIC_LIBS}/libvorbis.a"
-  else
-    LIBS="${LIBS} -lvorbis"
-  fi
-
-  AC_CHECK_LIB(vorbisfile,ov_open,,echo "Must have libvorbisfile for Ogg/Vorbis support";exit)
-  if test x"$STATIC_LIBS" != x"no"; then
-    LIBS="${LIBS} ${STATIC_LIBS}/libvorbisfile.a"
-  else
-    LIBS="${LIBS} -lvorbisfile"
-  fi
-fi
 
 if test x$use_flac = xtrue; then
   AC_CHECK_HEADERS(FLAC/metadata.h,, [

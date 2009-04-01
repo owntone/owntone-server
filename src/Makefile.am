@@ -24,8 +24,8 @@ endif
 
 wavstreamer_SOURCES = wavstreamer.c
 
-mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @ID3TAG_CFLAGS@
-mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @ID3TAG_LIBS@
+mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @ID3TAG_CFLAGS@ @OGGVORBIS_CFLAGS@
+mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @ID3TAG_LIBS@ @OGGVORBIS_LIBS@
 mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h restart.c restart.h \
 	mp3-scanner.h mp3-scanner.c \
