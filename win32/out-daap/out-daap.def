@@ -1,4 +1,0 @@
-LIBRARY	out-daap
-EXPORTS
-	plugin_info
-	

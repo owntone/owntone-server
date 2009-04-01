@@ -1,4 +1,0 @@
-LIBRARY	w32-event
-EXPORTS
-	plugin_info
-	

@@ -1,4 +1,0 @@
-LIBRARY	ssc-ffmpeg
-EXPORTS
-	plugin_info
-	

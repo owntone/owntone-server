@@ -49,10 +49,6 @@ extern int os_islocaladdr(char *hostaddr);
 extern char *os_apppath(char *parm);
 extern int os_signal_server(int what); /* signal a running server */
 
-#ifdef WIN32
-# include "os-win32.h"
-#else
-# include "os-unix.h"
-#endif
+#include "os-unix.h"
 
 #endif

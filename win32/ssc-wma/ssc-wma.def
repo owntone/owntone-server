@@ -1,4 +1,0 @@
-LIBRARY	ssc-wma
-EXPORTS
-	plugin_info
-	
