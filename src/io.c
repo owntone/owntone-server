@@ -18,13 +18,7 @@
 #endif
 
 #include <errno.h>
-#ifndef WIN32
-# include <netdb.h>
-#else
-# define WIN32_LEAN_AND_MEAN
-# include <windows.h>
-# include <ws2tcpip.h>
-#endif
+#include <netdb.h>
 
 #include <ctype.h>
 #include <fcntl.h>
@@ -36,42 +30,18 @@
 # include <unistd.h>
 #endif
 
-#ifndef WIN32
-# include <netinet/in.h>
-# include <sys/select.h>
-# include <sys/socket.h>
-# include <arpa/inet.h>
-# ifdef HAVE_SYS_TIME_H
-#  include <sys/time.h>
-# endif
+#include <netinet/in.h>
+#include <sys/select.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#ifdef HAVE_SYS_TIME_H
+# include <sys/time.h>
 #endif
 #include <sys/types.h>
 
 #include "io-errors.h"
 #include "io-plugin.h"
 
-#ifdef WIN32
-# define strcasecmp stricmp
-# define SHUT_RDWR SD_BOTH
-# define ssize_t int
-
-# define IO_HANDLES_START  1
-# define IO_HANDLES_GROW   1
-#else
-# define closesocket close
-#endif
-
-#ifdef WIN32
-typedef struct tag_io_waithandle {
-    DWORD dwLastResult;
-    DWORD dwItemCount;
-    DWORD dwMaxItems;
-    DWORD dwWhichEvent;
-    WAITABLE_T *hWaitItems;
-    WSANETWORKEVENTS wsaNetworkEvents;
-    IO_PRIVHANDLE **ppHandle;
-} IO_WAITHANDLE;
-#else
 typedef struct tag_io_waithandle {
     int max_fd;
     fd_set read_fds;
@@ -81,7 +51,6 @@ typedef struct tag_io_waithandle {
     fd_set result_write;
     fd_set result_err;
 } IO_WAITHANDLE;
-#endif
 
 
 /* Public interface */
@@ -204,10 +173,6 @@ typedef struct tag_io_socket_priv {
     int opened;
     int is_udp;
     struct sockaddr_in si_remote;
-#ifdef WIN32
-    WAITABLE_T hEvent;
-    int wait_mode;
-#endif
 } IO_SOCKET_PRIV;
 
 #ifdef DEBUG
@@ -327,62 +292,17 @@ static IO_FNPTR io_pfn_udplisten = {
     io_socket_getsocket
 };
 
-
-/**
- * Windows compatibility functions
- */
-#ifdef WIN32
-
-static WSADATA io_WSAData;
-
-#undef gettimeofday /* FIXME: proper gettimeofday fixups */
-
-int gettimeofday (struct timeval *tv, void* tz) {
-  union {
-    uint64_t ns100; /*time since 1 Jan 1601 in 100ns units */
-    FILETIME ft;
-  } now;
-
-  GetSystemTimeAsFileTime (&now.ft);
-  tv->tv_usec = (long) ((now.ns100 / 10LL) % 1000000LL);
-  tv->tv_sec = (long) ((now.ns100 - 116444736000000000LL) / 10000000LL);
-  return (0);
-}
-#endif /* WIN32 */
-
 /**
  * initialize the io handlers
  *
  * @returns TRUE on success
  */
 int io_init(void) {
-#ifdef WIN32
-    WORD wVersionRequested;
-    int err;
-#endif
-
     ASSERT(!io_initialized); /* only initialize once */
 
     io_lock();
     io_handler_list.next = NULL;
 
-#ifdef WIN32
-    wVersionRequested = MAKEWORD(2,2);
-    err = WSAStartup(wVersionRequested, &io_WSAData);
-    if(err) {
-        io_err_printf(IO_LOG_FATAL,"Could not initialize winsock\n");
-        io_unlock();
-        return FALSE;
-    }
-
-    if(HIBYTE(io_WSAData.wVersion < 2)) {
-        io_err_printf(IO_LOG_FATAL,"This program requires Winsock 2.0 or better\n");
-        WSACleanup();
-        io_unlock();
-        return FALSE;
-
-    }
-#endif
     io_initialized = TRUE;
     io_unlock();
 
@@ -486,10 +406,6 @@ int io_deinit(void) {
         free(pcurrent);
         pcurrent = io_handler_list.next;
     }
-
-#ifdef WIN32
-    WSACleanup();
-#endif
 
     io_unlock();
 
@@ -993,12 +909,6 @@ int io_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
     }
 
 
-#ifdef WIN32
-    // We won't do ascii mode on non-windows platforms
-    if(io_option_get(phandle,"ascii",NULL))
-        ascii = 1;
-#endif
-
     if(ascii) {
         ascii_len = *len;
         for(index = 0; index < *len; index++) {
@@ -1353,10 +1263,6 @@ int io_file_open(IO_PRIVHANDLE *phandle, char *uri) {
     char *mode;
     char *permissions; /* octal */
     uint32_t native_mode=0;
-#ifdef WIN32
-    uint32_t native_permissions=0;
-    WCHAR *utf16_path; /* the real windows utf16 path */
-#endif
 
     ASSERT(phandle);
     if(!phandle) {
@@ -1389,29 +1295,6 @@ int io_file_open(IO_PRIVHANDLE *phandle, char *uri) {
         priv->open_flags = IO_FILE_READ | IO_FILE_WRITE | IO_FILE_APPEND | IO_FILE_CREATE;
 
     /* open the file natively, and get native file handle */
-#ifdef WIN32
-    if(priv->open_flags & IO_FILE_READ)
-        native_permissions |= GENERIC_READ;
-    if(priv->open_flags & IO_FILE_WRITE)
-        native_permissions |= GENERIC_WRITE;
-
-    if(priv->open_flags & IO_FILE_CREATE)
-        native_mode |= OPEN_ALWAYS;
-    else
-        native_mode |= OPEN_EXISTING;
-
-    utf16_path = (WCHAR *)util_utf8toutf16_alloc(uri);
-    priv->fd = CreateFileW(utf16_path,native_permissions,FILE_SHARE_READ,NULL,
-        native_mode,FILE_ATTRIBUTE_NORMAL,NULL);
-    free(utf16_path);
-    if(priv->fd == INVALID_HANDLE_VALUE) {
-        io_file_seterr(phandle,IO_E_FILE_OTHER);
-        return FALSE;
-    }
-
-    if(priv->open_flags & IO_FILE_TRUNCATE)
-        SetEndOfFile(priv->fd);
-#else
     if((priv->open_flags & IO_FILE_READ) && (priv->open_flags & IO_FILE_WRITE))
         native_mode |= O_RDWR;
     else {
@@ -1432,7 +1315,6 @@ int io_file_open(IO_PRIVHANDLE *phandle, char *uri) {
         io_file_seterr(phandle,IO_E_FILE_OTHER);
         return FALSE;
     }
-#endif
 
     priv->opened = TRUE;
     return TRUE;
@@ -1462,11 +1344,7 @@ int io_file_close(IO_PRIVHANDLE *phandle) {
     }
 
     /* close the native file handle */
-#ifdef WIN32
-    CloseHandle(priv->fd);
-#else
     close(priv->fd);
-#endif
 
     free(priv);
     phandle->private = NULL;
@@ -1504,16 +1382,6 @@ int io_file_read(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
     }
 
     /* read from native file handle */
-#ifdef WIN32
-    result = (int) ReadFile(priv->fd,buf,*len,len,NULL);
-    if(!result) {
-        io_file_seterr(phandle,IO_E_FILE_OTHER);
-        *len = 0;
-        result = FALSE;
-    } else {
-        result = TRUE;
-    }
-#else
     while(((result = read(priv->fd, buf, *len)) == -1) &&
           (errno == EINTR));
 
@@ -1525,7 +1393,6 @@ int io_file_read(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
         *len = result;
         result = TRUE;
     }
-#endif
 
     return result;
 }
@@ -1560,17 +1427,6 @@ int io_file_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
     }
 
     /* write to native file handle */
-#ifdef WIN32
-    result = (int) WriteFile(priv->fd,buf,*len,len,NULL);
-    if(!result) {
-        io_file_seterr(phandle,IO_E_FILE_OTHER);
-        *len = 0;
-        result = FALSE;
-    } else {
-        result = TRUE;
-    }
-
-#else
     while(((result = write(priv->fd, buf, *len)) == -1) &&
           (errno == EINTR));
 
@@ -1582,7 +1438,6 @@ int io_file_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
         *len = result;
         result = TRUE;
     }
-#endif
 
     return result;
 }
@@ -1597,11 +1452,7 @@ int io_file_write(IO_PRIVHANDLE *phandle, unsigned char *buf, uint32_t *len) {
 int io_file_size(IO_PRIVHANDLE *phandle, uint64_t *size) {
     IO_FILE_PRIV *priv;
     int result=FALSE;
-#ifdef WIN32
-    LARGE_INTEGER liSize;
-#else
     uint64_t curpos;
-#endif
 
     ASSERT(phandle);
     ASSERT(phandle->private);
@@ -1619,17 +1470,13 @@ int io_file_size(IO_PRIVHANDLE *phandle, uint64_t *size) {
         return FALSE;
     }
 
-#ifdef WIN32
-    result = GetFileSizeEx(priv->fd,&liSize);
-    *size = liSize.QuadPart;
-#else
     result = FALSE;
     if(io_file_getpos(phandle,&curpos))
         if(io_file_setpos(phandle,0,SEEK_END))
             if(io_file_getpos(phandle,size))
                 if(io_file_setpos(phandle, curpos, SEEK_SET))
                     result = TRUE;
-#endif
+
     return result;
 }
 
@@ -1644,10 +1491,6 @@ int io_file_size(IO_PRIVHANDLE *phandle, uint64_t *size) {
 int io_file_setpos(IO_PRIVHANDLE *phandle, uint64_t offset, int whence) {
     IO_FILE_PRIV *priv;
     int result=FALSE;
-#ifdef WIN32
-    int native_position;
-    LARGE_INTEGER liSize;
-#endif
 
     ASSERT(phandle);
     ASSERT(phandle->private);
@@ -1663,25 +1506,9 @@ int io_file_setpos(IO_PRIVHANDLE *phandle, uint64_t offset, int whence) {
         return FALSE;
     }
 
-#ifdef WIN32
-    switch(whence) {
-        case SEEK_SET:
-            native_position = FILE_BEGIN;
-            break;
-        case SEEK_CUR:
-            native_position = FILE_CURRENT;
-            break;
-        case SEEK_END:
-            native_position = FILE_END;
-            break;
-    }
-    liSize.QuadPart = offset;
-    result = SetFilePointerEx(priv->fd,liSize,NULL,(DWORD)native_position);
-#else
     result = TRUE;
     if(lseek(priv->fd, (off_t)offset, whence) == -1)
         result = FALSE;
-#endif /* WIN32 */
 
     if(!result) {
         io_file_seterr(phandle, IO_E_FILE_OTHER);
@@ -1701,11 +1528,6 @@ int io_file_getpos(IO_PRIVHANDLE *phandle, uint64_t *pos) {
     IO_FILE_PRIV *priv;
     int result=FALSE;
 
-#ifdef WIN32
-    LARGE_INTEGER liPos;
-    LARGE_INTEGER liResult;
-#endif
-
     ASSERT(phandle);
     ASSERT(phandle->private);
 
@@ -1720,16 +1542,11 @@ int io_file_getpos(IO_PRIVHANDLE *phandle, uint64_t *pos) {
         return FALSE;
     }
 
-#ifdef WIN32
-    liPos.QuadPart = 0;
-    result = SetFilePointerEx(priv->fd,liPos,&liResult,FILE_CURRENT);
-    *pos = liResult.QuadPart;
-#else
     result = TRUE;
     *pos = lseek(priv->fd, 0, SEEK_CUR);
     if((*pos) == -1)
         result = FALSE;
-#endif
+
     if(!result)
         io_file_seterr(phandle,IO_E_FILE_OTHER);
     return result;
@@ -1772,9 +1589,6 @@ void io_file_seterr(IO_PRIVHANDLE *phandle, ERR_T errcode) {
  */
 char *io_file_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
     IO_FILE_PRIV *priv;
-#ifdef WIN32
-    char lpErrorBuf[256];
-#endif
 
     ASSERT(phandle);
 
@@ -1798,14 +1612,8 @@ char *io_file_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
     } else {
         if(is_local)
             *is_local=FALSE;
-#ifdef WIN32
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,priv->err,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),
-            (LPTSTR)lpErrorBuf,sizeof(lpErrorBuf),NULL);
-        return strdup(lpErrorBuf);
-#else
+
         return strdup(strerror(priv->err));
-#endif
     }
 }
 
@@ -1994,7 +1802,7 @@ int io_socket_open(IO_PRIVHANDLE *phandle, char *uri) {
     }
 
     if(retval == -1) {
-        closesocket(priv->fd);
+        close(priv->fd);
         io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
         return FALSE;
     }
@@ -2065,7 +1873,7 @@ int io_listen_open(IO_PRIVHANDLE *phandle, char *uri) {
             mcast_group = io_option_get(phandle,"mcast_group",NULL);
             if(!mcast_group) {
                 io_socket_seterr(phandle,IO_E_SOCKET_NOMCAST);
-                while((closesocket(priv->fd) == -1) && (errno == EINTR));
+                while((close(priv->fd) == -1) && (errno == EINTR));
                 return FALSE;
             } else {
                 mreq.imr_multiaddr.s_addr = inet_addr(mcast_group);
@@ -2073,7 +1881,7 @@ int io_listen_open(IO_PRIVHANDLE *phandle, char *uri) {
                 if(setsockopt(priv->fd,IPPROTO_IP,IP_ADD_MEMBERSHIP,(char*)&mreq,
                               sizeof(mreq)) < 0) {
                     io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
-                    while((closesocket(priv->fd) == -1) && (errno == EINTR));
+                    while((close(priv->fd) == -1) && (errno == EINTR));
                     return FALSE;
                 }
             }
@@ -2094,7 +1902,7 @@ int io_listen_open(IO_PRIVHANDLE *phandle, char *uri) {
                   sizeof(opt)) == -1) {
         io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
         io_err_printf(IO_LOG_DEBUG,"Error setting SO_REUSEADDR\n");
-        while((closesocket(priv->fd) == -1) && (errno == EINTR));
+        while((close(priv->fd) == -1) && (errno == EINTR));
         return FALSE;
     }
 
@@ -2110,7 +1918,7 @@ int io_listen_open(IO_PRIVHANDLE *phandle, char *uri) {
     if(retval == -1) {
         io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
         io_err_printf(IO_LOG_DEBUG,"Error binding socket\n");
-        while((closesocket(priv->fd) == -1) && (errno == EINTR));
+        while((close(priv->fd) == -1) && (errno == EINTR));
         return FALSE;
     }
 
@@ -2125,7 +1933,7 @@ int io_listen_open(IO_PRIVHANDLE *phandle, char *uri) {
     while(((retval = listen(priv->fd,backlog)) == -1) && (errno == EINTR));
     if(retval == -1) {
         io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
-        while((closesocket(priv->fd) == -1) && (errno == EINTR));
+        while((close(priv->fd) == -1) && (errno == EINTR));
         return FALSE;
     }
 
@@ -2211,14 +2019,7 @@ int io_socket_close(IO_PRIVHANDLE *phandle) {
     }
 
     shutdown(priv->fd,SHUT_RDWR);
-    closesocket(priv->fd);
-
-#ifdef WIN32
-    if(priv->hEvent) {
-        WSACloseEvent(priv->hEvent);
-        priv->hEvent = NULL;
-    }
-#endif
+    close(priv->fd);
 
     free(priv);
     phandle->private = NULL;
@@ -2313,20 +2114,6 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
 
         io_err_printf(IO_LOG_SPAM,"wrote %d bytes to socket %d\n",byteswritten,priv->fd);
 
-#ifdef WIN32
-        if(WSAGetLastError() == WSAEWOULDBLOCK) {
-            byteswritten = 0;
-
-            if(priv->hEvent) {
-                WSAEventSelect(priv->fd,(WSAEVENT)priv->hEvent,0);
-            }
-
-            blocking = 0;
-            if(ioctlsocket(priv->fd,FIONBIO,&blocking)) {
-                io_err_printf(IO_LOG_LOG,"Couldn't set socket to blocking: %ld\n",WSAGetLastError());
-            }
-        }
-#endif
         if((byteswritten == -1 ) && (errno != EINTR)) {
             io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
             *len = totalbytes;
@@ -2399,21 +2186,13 @@ void io_socket_seterr(IO_PRIVHANDLE *phandle, ERR_T errcode) {
         priv->local_err = TRUE;
     } else {
         priv->local_err = FALSE;
-#ifdef WIN32
-        priv->err = WSAGetLastError();
-        /* map error codes to exported errors */
-        if(priv->err == WSAEADDRINUSE) {
-            priv->err = IO_E_SOCKET_INUSE;
-            priv->local_err = TRUE;
-        }
-#else
+
         priv->err = errno;
         /* map error codes to exported errors */
         if(priv->err == EADDRINUSE) {
             priv->err = IO_E_SOCKET_INUSE;
             priv->local_err = TRUE;
         }
-#endif
     }
 }
 
@@ -2428,10 +2207,6 @@ void io_socket_seterr(IO_PRIVHANDLE *phandle, ERR_T errcode) {
 char *io_socket_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
     IO_SOCKET_PRIV *priv;
 
-#ifdef WIN32
-    char lpErrorBuf[256];
-#endif
-
     ASSERT(phandle);
 
     priv = (IO_SOCKET_PRIV*)(phandle->private);
@@ -2443,15 +2218,8 @@ char *io_socket_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
         return strdup(io_socket_err_strings[priv->err & 0x00FFFFFF]);
     } else {
         *is_local = FALSE;
-#ifdef WIN32
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,priv->err,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),
-            (LPTSTR)lpErrorBuf,sizeof(lpErrorBuf),NULL);
-        return strdup(lpErrorBuf);
 
-#else
         return strdup(strerror(priv->err));
-#endif
     }
 }
 
@@ -2464,9 +2232,6 @@ char *io_socket_geterrmsg(IO_PRIVHANDLE *phandle, ERR_T *code, int *is_local) {
  */
 int io_socket_getwaitable(IO_PRIVHANDLE *phandle, int mode, WAITABLE_T *retval) {
     IO_SOCKET_PRIV *priv;
-#ifdef WIN32
-    long lEvents=0;
-#endif
 
     ASSERT(phandle);
     ASSERT(phandle->private);
@@ -2496,39 +2261,8 @@ int io_socket_getwaitable(IO_PRIVHANDLE *phandle, int mode, WAITABLE_T *retval) 
         return FALSE;
     }
 
-#ifdef WIN32
-    io_err_printf(IO_LOG_SPAM,"Building synthesized event for socket\n");
-    if(priv->hEvent) {
-        if(mode == priv->wait_mode) {
-            *retval = priv->hEvent;
-            return TRUE;
-        } else {
-            WSACloseEvent(priv->hEvent);
-            priv->hEvent = NULL;
-        }
-    }
-
-    priv->hEvent = (WAITABLE_T)WSACreateEvent();
-    if(!priv->hEvent) {
-        io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
-        return FALSE;
-    }
-
-    if(mode & IO_WAIT_READ)
-        lEvents = FD_READ | FD_OOB | FD_ACCEPT | FD_CLOSE;
-    if(mode & IO_WAIT_WRITE)
-        lEvents |= FD_WRITE | FD_CLOSE;
-    if(mode & IO_WAIT_ERROR)
-        lEvents |= FD_CLOSE;
-
-    if(WSAEventSelect(priv->fd,(WSAEVENT)priv->hEvent,lEvents) == SOCKET_ERROR) {
-        io_socket_seterr(phandle,IO_E_SOCKET_OTHER);
-        return FALSE;
-    }
-    *retval = priv->hEvent;
-#else
     *retval = priv->fd;
-#endif
+
     return TRUE;
 }
 
@@ -2801,26 +2535,9 @@ IO_WAITHANDLE *io_wait_new(void) {
 
     memset(pnew,0x00,sizeof(IO_WAITHANDLE));
 
-#ifdef WIN32
-    pnew->hWaitItems = (WAITABLE_T *)malloc(sizeof(WAITABLE_T) * IO_HANDLES_START);
-    if(!pnew->hWaitItems) {
-        free(pnew);
-        return NULL;
-    }
-    pnew->ppHandle = (IO_PRIVHANDLE **)malloc(sizeof(IO_PRIVHANDLE*) * IO_HANDLES_START);
-    if(!pnew->ppHandle) {
-        free(pnew->hWaitItems);
-        free(pnew);
-        return NULL;
-    }
-
-    pnew->dwItemCount = 0;
-    pnew->dwMaxItems = IO_HANDLES_START;
-#else
     FD_ZERO(&pnew->read_fds);
     FD_ZERO(&pnew->write_fds);
     FD_ZERO(&pnew->err_fds);
-#endif
 
     return pnew;
 }
@@ -2835,9 +2552,6 @@ IO_WAITHANDLE *io_wait_new(void) {
  */
 int io_wait_add(IO_WAITHANDLE *pwait, IO_PRIVHANDLE *phandle, int type) {
     WAITABLE_T waitable;
-#ifdef WIN32
-    void *ptmp;
-#endif
 
     ASSERT(pwait);
     ASSERT(phandle && phandle->open && phandle->fnptr &&
@@ -2860,31 +2574,6 @@ int io_wait_add(IO_WAITHANDLE *pwait, IO_PRIVHANDLE *phandle, int type) {
         return FALSE;
     }
 
-#ifdef WIN32
-    ASSERT(pwait->dwItemCount <= pwait->dwMaxItems);
-
-    while (pwait->dwMaxItems <= pwait->dwItemCount) { /* must expand our handle list */
-        ptmp = realloc(pwait->hWaitItems,sizeof(WAITABLE_T) * (pwait->dwMaxItems + IO_HANDLES_GROW));
-        if(!ptmp) {
-            return FALSE;
-        }
-        pwait->hWaitItems = ptmp;
-        ptmp = realloc(pwait->ppHandle,sizeof(IO_PRIVHANDLE *) * (pwait->dwMaxItems + IO_HANDLES_GROW));
-        if(!ptmp) {
-            return FALSE;
-        }
-        pwait->ppHandle = ptmp;
-        pwait->dwMaxItems += IO_HANDLES_GROW;
-    }
-
-    pwait->hWaitItems[pwait->dwItemCount] = waitable;
-    pwait->ppHandle[pwait->dwItemCount] = phandle;
-
-    io_err_printf(IO_LOG_SPAM,"Added event %08X with pHandle %08X as %d\n",
-        waitable,phandle,pwait->dwItemCount);
-
-    pwait->dwItemCount++;
-#else
     if(waitable > pwait->max_fd)
         pwait->max_fd = waitable;
 
@@ -2896,7 +2585,6 @@ int io_wait_add(IO_WAITHANDLE *pwait, IO_PRIVHANDLE *phandle, int type) {
         FD_SET(waitable,&pwait->write_fds);
     if(type & IO_WAIT_ERROR)
         FD_SET(waitable,&pwait->err_fds);
-#endif
 
     return TRUE;
 }
@@ -2914,9 +2602,7 @@ int io_wait(IO_WAITHANDLE *pwait, uint32_t *ms) {
     struct timeval start_time, end_time;
     uint32_t elapsed_ms;
     uint32_t wait_ms;
-#ifdef WIN32
-    SOCKET_T sock;
-#endif
+
     int retval=0;
 
     ASSERT(pwait);
@@ -2931,58 +2617,7 @@ int io_wait(IO_WAITHANDLE *pwait, uint32_t *ms) {
     timeout.tv_usec = 0;
 
     gettimeofday(&start_time,NULL);
-#ifdef WIN32
-    ASSERT(pwait->dwItemCount);
 
-    io_err_printf(IO_LOG_SPAM,"Waiting on %d items for %d sec\n",
-        pwait->dwItemCount,timeout.tv_sec);
-
-    while(1) {
-        pwait->dwLastResult = WaitForMultipleObjects(pwait->dwItemCount,pwait->hWaitItems,FALSE,*ms);
-        if((pwait->dwLastResult == WAIT_FAILED) || (pwait->dwLastResult == WAIT_TIMEOUT))
-            break;
-
-        pwait->dwWhichEvent = pwait->dwLastResult - WAIT_OBJECT_0;
-        if(pwait->dwWhichEvent >= pwait->dwItemCount) { /* error or something */
-            pwait->dwWhichEvent = pwait->dwLastResult - WAIT_ABANDONED_0;
-            ASSERT(pwait->dwWhichEvent < pwait->dwItemCount);
-            if(pwait->dwWhichEvent < pwait->dwItemCount)
-                return FALSE;
-            break;
-        }
-
-        /* Was definitely a WAIT_OBJECT_x.  Make sure it's not spurious */
-        io_err_printf(IO_LOG_SPAM,"Got wait on index %d\n",pwait->dwWhichEvent);
-        if(!pwait->ppHandle[pwait->dwWhichEvent]->fnptr->fn_getsocket) { /* not a socket, must be a file */
-            /* dummy up a result */
-            pwait->wsaNetworkEvents.lNetworkEvents = FD_READ;
-            break;
-        }
-
-        if(!pwait->ppHandle[pwait->dwWhichEvent]->fnptr->fn_getsocket(pwait->ppHandle[pwait->dwWhichEvent],&sock)) {
-            io_err_printf(IO_LOG_SPAM,"Could not get socket handle\n");
-            return FALSE;
-        }
-
-        io_err_printf(IO_LOG_SPAM,"Getting event details for wait object\n");
-        WSAEnumNetworkEvents(sock,pwait->hWaitItems[pwait->dwWhichEvent],&pwait->wsaNetworkEvents);
-        if(pwait->wsaNetworkEvents.lNetworkEvents != 0) {
-            io_err_printf(IO_LOG_SPAM,"Got %ld\n",pwait->wsaNetworkEvents.lNetworkEvents);
-            break;
-        }
-
-        io_err_printf(IO_LOG_SPAM,"Skipping spurious wakeup\n");
-    }
-
-    if(pwait->dwLastResult == WAIT_FAILED)
-        return FALSE;
-
-    /* on timeout, return FALSE, with ms=0 */
-    if(WAIT_TIMEOUT == pwait->dwLastResult) {
-        *ms = 0;
-        return FALSE;
-    }
-#else
     ASSERT(pwait->max_fd);
 
     memcpy(&pwait->result_read, &pwait->read_fds, sizeof(pwait->read_fds));
@@ -3012,7 +2647,6 @@ int io_wait(IO_WAITHANDLE *pwait, uint32_t *ms) {
         *ms = 0;
         return FALSE;
     }
-#endif
 
     gettimeofday(&end_time,NULL);
     elapsed_ms = ((end_time.tv_sec - start_time.tv_sec) * 1000) +
@@ -3035,9 +2669,7 @@ int io_wait(IO_WAITHANDLE *pwait, uint32_t *ms) {
 int io_wait_status(IO_WAITHANDLE *pwait, IO_PRIVHANDLE *phandle) {
     int retval = 0;
 
-#ifndef WIN32
     WAITABLE_T waitable;
-#endif
 
     ASSERT(pwait);
 
@@ -3056,44 +2688,6 @@ int io_wait_status(IO_WAITHANDLE *pwait, IO_PRIVHANDLE *phandle) {
         return 0;
     }
 
-#ifdef WIN32
-    io_err_printf(IO_LOG_DEBUG,"lnetwork: %08x\n",pwait->wsaNetworkEvents.lNetworkEvents);
-
-    if(pwait->wsaNetworkEvents.lNetworkEvents == FD_READ) {
-        retval |= IO_WAIT_READ;
-        io_err_printf(IO_LOG_DEBUG,"Set: FD_READ\n");
-    }
-    if(pwait->wsaNetworkEvents.lNetworkEvents == FD_ACCEPT) {
-        retval |= IO_WAIT_READ;
-        io_err_printf(IO_LOG_DEBUG,"Set: FD_ACCEPT\n");
-    }
-    if(pwait->wsaNetworkEvents.lNetworkEvents == FD_OOB) {
-        retval |= IO_WAIT_READ;
-        io_err_printf(IO_LOG_DEBUG,"Set: FD_OOB\n");
-    }
-    if(pwait->wsaNetworkEvents.lNetworkEvents == FD_WRITE) {
-        retval |= IO_WAIT_WRITE;
-        io_err_printf(IO_LOG_DEBUG,"Set: FD_WRITE\n");
-    }
-    if(pwait->wsaNetworkEvents.lNetworkEvents == FD_CLOSE) {
-        retval |= IO_WAIT_READ | IO_WAIT_ERROR | IO_WAIT_WRITE;
-        io_err_printf(IO_LOG_DEBUG,"Set: FD_CLOSE\n");
-    }
-
-    io_err_printf(IO_LOG_DEBUG,"Wait status: %d\n",retval);
-    /*
-    if(wsaNetworkEvents.iErrorCode[FD_READ_BIT])
-        retval |= IO_WAIT_ERROR;
-    if(wsaNetworkEvents.iErrorCode[FD_ACCEPT_BIT])
-        retval |= IO_WAIT_ERROR;
-    if(wsaNetworkEvents.iErrorCode[FD_OOB_BIT])
-        retval |= IO_WAIT_ERROR;
-    if(wsaNetworkEvents.iErrorCode[FD_WRITE_BIT])
-        retval |= IO_WAIT_ERROR;
-    if(wsaNetworkEvents.iErrorCode[FD_CLOSE_BIT])
-        retval |= IO_WAIT_ERROR;
-    */
-#else
     if(!phandle->fnptr->fn_getwaitable(phandle, 1, &waitable)) /* get underlying fd */
         return 0;
 
@@ -3105,7 +2699,6 @@ int io_wait_status(IO_WAITHANDLE *pwait, IO_PRIVHANDLE *phandle) {
     if(FD_ISSET(waitable,&pwait->result_err))
         retval |= IO_WAIT_ERROR;
     io_err_printf(IO_LOG_DEBUG,"Returning %d\n",retval);
-#endif
 
     return retval;
 }
@@ -3121,13 +2714,6 @@ int io_wait_dispose(IO_WAITHANDLE *pwait) {
 
     if(!pwait)
         return TRUE;
-
-#ifdef WIN32
-    if(pwait->hWaitItems)
-        free(pwait->hWaitItems);
-    if(pwait->ppHandle)
-        free(pwait->ppHandle);
-#endif
 
     free(pwait);
     return TRUE;

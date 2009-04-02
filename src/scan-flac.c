@@ -36,9 +36,7 @@
 #ifdef HAVE_DIRENT_H
 # include <dirent.h>      /* why here?  For osx 10.2, of course! */
 #endif
-#ifndef WIN32
-# include <netinet/in.h>  /* htons and friends */
-#endif
+#include <netinet/in.h>  /* htons and friends */
 
 #include <sys/stat.h>
 

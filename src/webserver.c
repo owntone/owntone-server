@@ -36,14 +36,12 @@
 # include <unistd.h>
 #endif
 
-#ifndef WIN32
-# include <netdb.h>
-# include <sys/param.h>
-# include <sys/types.h>
-# include <sys/socket.h>
-# include <netinet/in.h>
-# include <arpa/inet.h>
-#endif
+#include <netdb.h>
+#include <sys/param.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
 
 #include "daapd.h"
 #include "webserver.h"
@@ -2128,9 +2126,6 @@ extern char *ws_hostname(WS_CONNINFO *pwsc) {
  * @return TRUE on success
  */
 int ws_set_err(WS_CONNINFO *pwsc, int ws_error) {
-#ifdef WIN32
-    char lpErrorBuf[256];
-#endif
 
     ASSERT(pwsc);
 
@@ -2147,17 +2142,8 @@ int ws_set_err(WS_CONNINFO *pwsc, int ws_error) {
     ws_should_close(pwsc,TRUE); /* close the session on error */
 
     if(E_WS_NATIVE == ws_error) {
-#ifdef WIN32
-        pwsc->err_native = GetLastError();
-        FormatMessage(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,pwsc->err_native,MAKELANGID(LANG_NEUTRAL,SUBLANG_DEFAULT),
-            (LPTSTR)lpErrorBuf,sizeof(lpErrorBuf),NULL);
-        pwsc->err_msg = strdup(lpErrorBuf);
-
-#else
         pwsc->err_native = errno;
         pwsc->err_msg = strdup(strerror(pwsc->err_native));
-#endif
     }
 
     return TRUE;

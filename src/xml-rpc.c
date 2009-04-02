@@ -24,10 +24,6 @@
 # include <unistd.h>
 #endif
 
-#ifdef WIN32
-#include <io.h>
-#endif
-
 #include <sys/stat.h>
 #include <sys/types.h>
 

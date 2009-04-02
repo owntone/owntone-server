@@ -32,9 +32,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 
-#ifndef WIN32
 #include <netinet/in.h>
-#endif
 
 #include "compat.h"
 #include "ff-dbstruct.h"

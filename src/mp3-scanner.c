@@ -40,9 +40,7 @@
 #ifdef HAVE_DIRENT_H
 # include <dirent.h>
 #endif
-#ifndef WIN32
-# include <netinet/in.h>  /* htons and friends */
-#endif
+#include <netinet/in.h>  /* htons and friends */
 #include <sys/stat.h>
 
 #include "daapd.h"

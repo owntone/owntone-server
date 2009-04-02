@@ -9,15 +9,9 @@
 #include "config.h"
 #endif
 
-#ifndef WIN32
-# include <stdint.h>
-# include <netinet/in.h>
-# include <sys/socket.h>
-#else
-#define WIN32_LEAN_AND_MEAN
-# include <windows.h>
-# include <ws2tcpip.h>
-#endif
+#include <stdint.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
 
 #include "io-errors.h"
 
@@ -26,19 +20,8 @@ typedef void* IO_WAITHANDLE;
 
 #define INVALID_HANDLE NULL
 
-#ifdef WIN32 /* MSVC, really */
-# define SOCKET_T SOCKET
-# define FILE_T HANDLE
-# define mode_t int
-typedef unsigned __int8  uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-#else
-# define SOCKET_T int
-# define FILE_T int
-#endif
-
+#define SOCKET_T int
+#define FILE_T int
 
 /*
  * Valid protocol options:

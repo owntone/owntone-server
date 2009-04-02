@@ -16,21 +16,10 @@ typedef struct tag_io_optionlist IO_OPTIONLIST;
 #define IO_LOG_DEBUG 9
 #define IO_LOG_SPAM  10
 
-#ifdef WIN32
-# define WAITABLE_T HANDLE
-# define SOCKET_T SOCKET
-# define FILE_T HANDLE
-# define ERR_T DWORD
-typedef unsigned __int8  uint8_t;
-typedef unsigned __int16 uint16_t;
-typedef unsigned __int32 uint32_t;
-typedef unsigned __int64 uint64_t;
-#else
-# define WAITABLE_T int
-# define SOCKET_T int
-# define FILE_T int
-# define ERR_T int
-#endif
+#define WAITABLE_T int
+#define SOCKET_T int
+#define FILE_T int
+#define ERR_T int
 
 struct tag_io_fnptr {
     int(*fn_open)(IO_PRIVHANDLE *, char *);

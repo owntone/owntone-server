@@ -344,11 +344,10 @@ int main(int argc, char *argv[]) {
             config.use_mdns=0;
             break;
 
-#ifndef WIN32
         case 'P':
             os_set_pidfile(optarg);
             break;
-#endif
+
         case 'r':
             reload=1;
             break;
@@ -361,17 +360,6 @@ int main(int argc, char *argv[]) {
             force_non_root=1;
             break;
 
-#ifdef WIN32
-        case 'i':
-            os_register();
-            exit(EXIT_SUCCESS);
-            break;
-
-        case 'u':
-            os_unregister();
-            exit(EXIT_SUCCESS);
-            break;
-#endif
         case 'v':
             convert_conf=1;
             break;

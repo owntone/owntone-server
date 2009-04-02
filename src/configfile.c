@@ -185,11 +185,6 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
             /* don't need a password from localhost
                when the password isn't set */
 
-#ifdef WIN32
-            /* except on windows */
-            return FALSE;
-#endif
-
             if((ws_hostname(pwsc)) && (os_islocaladdr(ws_hostname(pwsc)))) {
                 if(pw) free(pw);
                 return FALSE;

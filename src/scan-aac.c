@@ -28,9 +28,7 @@
 # include <sys/time.h>
 #endif
 
-#ifndef WIN32
 #include <netinet/in.h>
-#endif
 
 #include "daapd.h"
 #include "err.h"

@@ -24,16 +24,7 @@
 #include "ff-dbstruct.h"
 #include "ff-plugin-events.h"
 
-#ifdef WIN32
-# ifdef _WINDLL
-#  define EXPORT __declspec(dllimport)
-# else
-#  define EXPORT __declspec(dllexport)
-# endif
-#else
-# define EXPORT
-#endif
-
+#define EXPORT
 
 #ifndef TRUE
 #define TRUE 1
