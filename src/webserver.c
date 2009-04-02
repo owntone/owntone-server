@@ -1516,7 +1516,7 @@ int ws_addarg(ARGLIST *root, char *key, char *fmt, ...) {
             free(newkey);
             free(pnew);
             WS_EXIT();
-            return 0;
+            return TRUE;
         }
         current=current->next;
     }
