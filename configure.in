@@ -78,6 +78,10 @@ AM_CONDITIONAL(COND_UPNP,test x$use_upnp = xtrue)
 AC_CHECK_FUNCS(strcasestr strsep)
 
 dnl Checks for libraries.
+if test x$use_iconv = xtrue; then
+	AM_ICONV
+fi
+
 PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
 PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
@@ -126,12 +130,6 @@ dnl check to see if we need -lsocket (solaris)
 V_NETLIBS=""
 AC_CHECK_LIB(socket,socket,V_NETLIBS="-lsocket $V_NETLIBS",,)
 AC_SUBST(V_NETLIBS)
-
-if test x$use_iconv = xtrue; then
-   dnl add the iconv stuff
-   AM_ICONV
-   LDFLAGS="${LDFLAGS} ${LIBICONV}"
-fi
 
 AC_DEFINE_UNQUOTED(HOST, "$host", [host triplet])
 
