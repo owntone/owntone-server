@@ -69,31 +69,31 @@ int scan_get_mpcinfo(char *filename, MP3FILE *pmp3) {
         len = strlen(val);
         if ((pmp3->title = calloc(len + 1, 1)) != NULL)
             strncpy(pmp3->title, val, len);
-        taglib_tag_free_strings(val);
+        taglib_tag_free_strings();
     }
     if ((val = taglib_tag_artist(tag)) != NULL) {
         len = strlen(val);
         if ((pmp3->artist = calloc(len + 1, 1)) != NULL)
             strncpy(pmp3->artist, val, len);
-        taglib_tag_free_strings(val);
+        taglib_tag_free_strings();
     }
     if ((val = taglib_tag_album(tag)) != NULL) {
         len = strlen(val);
         if ((pmp3->album = calloc(len + 1, 1)) != NULL)
             strncpy(pmp3->album, val, len);
-        taglib_tag_free_strings(val);
+        taglib_tag_free_strings();
     }
     if ((val = taglib_tag_comment(tag)) != NULL) {
         len = strlen(val);
         if ((pmp3->comment = calloc(len + 1, 1)) != NULL)
             strncpy(pmp3->comment, val, len);
-        taglib_tag_free_strings(val);
+        taglib_tag_free_strings();
     }
     if ((val = taglib_tag_genre(tag)) != NULL) {
         len = strlen(val);
         if ((pmp3->genre = calloc(len + 1, 1)) != NULL)
             strncpy(pmp3->genre, val, len);
-        taglib_tag_free_strings(val);
+        taglib_tag_free_strings();
     }
 
     if ((i = taglib_tag_year(tag)) != 0)
