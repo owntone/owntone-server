@@ -21,7 +21,7 @@
 
 #include "io.h"
 
-extern uint64_t scan_aac_drilltoatom(IOHANDLE hfile, char *atom_path, unsigned int *atom_length);
-extern uint64_t scan_aac_findatom(IOHANDLE hfile, uint64_t max_offset, char *which_atom, unsigned int *atom_size);
+extern int scan_aac_drilltoatom(IOHANDLE hfile, char *atom_path, uint64_t *atom_offset, unsigned int *atom_length);
+extern int scan_aac_findatom(IOHANDLE hfile, uint64_t max_offset, uint64_t *atom_offset, char *which_atom, unsigned int *atom_size);
 
 #endif
