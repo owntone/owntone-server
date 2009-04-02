@@ -124,7 +124,8 @@ AC_PROG_GCC_TRADITIONAL
 AC_TYPE_SIGNAL
 AC_CHECK_FUNCS(select socket strdup strerror)
 
-AC_CHECK_LIB(dl,dlsym)
+AC_CHECK_LIB(dl, dlsym, LIBDL=-ldl)
+AC_SUBST(LIBDL)
 
 dnl check to see if we need -lsocket (solaris)
 V_NETLIBS=""
