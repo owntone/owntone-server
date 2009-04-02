@@ -469,18 +469,18 @@ int main(int argc, char *argv[]) {
 
     runas = conf_alloc_string("general","runas","nobody");
 
+    if(!os_init(config.foreground,runas)) {
+      DPRINTF(E_LOG,L_MAIN,"Could not initialize server\n");
+      os_deinit();
+      exit(EXIT_FAILURE);
+    }
+
     if(config.use_mdns) {
         DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
         if(rend_init(runas)) {
             DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",
                     strerror(errno));
         }
-    }
-
-    if(!os_init(config.foreground,runas)) {
-        DPRINTF(E_LOG,L_MAIN,"Could not initialize server\n");
-        os_deinit();
-        exit(EXIT_FAILURE);
     }
 
     free(runas);

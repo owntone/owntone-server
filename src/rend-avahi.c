@@ -93,21 +93,18 @@ static int _rend_avahi_add_group_entry(char *name, char *type, int port, char *i
 }
 
 static void *rend_poll(void *arg) {
-    int ret;
-    while((ret = avahi_simple_poll_iterate(simple_poll,-1)) == 0);
+    avahi_simple_poll_loop(simple_poll);
 
-    if(ret < 0) {
-        DPRINTF(E_WARN,L_REND,"Avahi poll thread quit iwth error: %s\n",
-                avahi_strerror(avahi_client_errno(mdns_client)));
-    } else {
-        DPRINTF(E_DBG,L_REND,"Avahi poll thread quit\n");
-    }
+    DPRINTF(E_DBG,L_REND,"Avahi poll thread exited\n");
 
     return NULL;
 }
 
 static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state, AVAHI_GCC_UNUSED void *userdata) {
     //    assert(g == mdns_group);
+
+    if (!g || (g != mdns_group))
+        return;
 
     switch (state) {
     case AVAHI_ENTRY_GROUP_ESTABLISHED:
@@ -186,7 +183,7 @@ int _rend_avahi_create_services(void) {
     unsigned char *key,*nextkey;
     unsigned char *newtxt;
 
-    DPRINTF(E_DBG,L_REND,"Creting service group\n");
+    DPRINTF(E_DBG,L_REND,"Creating service group\n");
 
     if(!rend_avahi_entries.next) {
         DPRINTF(E_DBG,L_REND,"No entries yet... skipping service create\n");
@@ -262,6 +259,8 @@ int _rend_avahi_create_services(void) {
 }
 
 static void client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * userdata) {
+    int error;
+
     assert(c);
     switch(state) {
     case AVAHI_CLIENT_S_RUNNING:
@@ -276,7 +275,29 @@ static void client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UN
         break;
     case AVAHI_CLIENT_FAILURE:
         DPRINTF(E_LOG,L_REND,"Client failure\n");
-        avahi_simple_poll_quit(simple_poll);
+
+	error = avahi_client_errno(c);
+	if (error == AVAHI_ERR_DISCONNECTED)
+	  {
+	    DPRINTF(E_LOG,L_REND,"Server disconnected, reconnecting\n");
+
+	    avahi_client_free(mdns_client);
+	    mdns_group = NULL;
+
+	    mdns_client = avahi_client_new(avahi_simple_poll_get(simple_poll),
+					   AVAHI_CLIENT_NO_FAIL,
+					   client_callback,NULL,&error);
+	    if (mdns_client == NULL)
+	      {
+		DPRINTF(E_LOG,L_REND,"Failed to create new Avahi client: %s\n", avahi_strerror(error));
+		avahi_simple_poll_quit(simple_poll);
+	      }
+	  }
+	else
+	  {
+	    DPRINTF(E_LOG,L_REND,"Client failure: %s\n", avahi_strerror(error));
+	    avahi_simple_poll_quit(simple_poll);
+	  }
         break;
     case AVAHI_CLIENT_S_REGISTERING:
         DPRINTF(E_LOG,L_REND,"Client registering\n");
@@ -284,6 +305,7 @@ static void client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UN
             avahi_entry_group_reset(mdns_group);
         break;
     case AVAHI_CLIENT_CONNECTING:
+        DPRINTF(E_LOG,L_REND,"Client connecting\n");
         break;
     }
 }
@@ -317,7 +339,8 @@ int rend_init(char *user) {
     */
 
     if (!(mdns_client = avahi_client_new(avahi_simple_poll_get(simple_poll),
-                                         0,client_callback,NULL,&error))) {
+                                         AVAHI_CLIENT_NO_FAIL,
+					 client_callback,NULL,&error))) {
         DPRINTF(E_WARN, L_REND, "avahi_client_new: Error in avahi: %s\n",
                 avahi_strerror(avahi_client_errno(mdns_client)));
         avahi_simple_poll_free(simple_poll);
