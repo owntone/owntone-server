@@ -183,8 +183,9 @@ int scan_xml_is_file(char *path) {
  * @param ppnew where the real physical path goes
  * @returns 1 on success, 0 on failure
  */
+static int path_found = 0;
+
 int scan_xml_translate_path(char *pold, char *pnew) {
-    static int path_found=0;
     static int discard;
     char base_path[PATH_MAX];
     char working_path[PATH_MAX];
@@ -423,6 +424,8 @@ int scan_xml_playlist(char *filename) {
     MAYBEFREE(scan_xml_real_base_path);
 
     scan_xml_file = filename;
+    /* reinitialize path_found for scan_xml_translate_path() */
+    path_found = 0;
 
     /* initialize the redblack tree */
     if((scan_xml_db = rbinit(scan_xml_rb_compare,NULL)) == NULL) {
