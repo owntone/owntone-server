@@ -577,15 +577,16 @@ int io_open(IO_PRIVHANDLE *phandle, char *fmt, ...) {
         proto_part = uri_copy;
     }
 
-    if(path_part)
-        io_urldecode(path_part);
-
     /* find the start of the options */
     options_part = strchr(path_part,'?');
     if(options_part) {
         *options_part = '\0';
         options_part++;
+        io_urldecode(options_part);
     }
+
+    if(path_part)
+        io_urldecode(path_part);
 
     /* see if we can generate a list of options */
     while(options_part) {
