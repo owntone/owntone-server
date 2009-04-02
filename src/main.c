@@ -178,11 +178,11 @@ void usage(char *program) {
     printf("Usage: %s [options]\n\n",program);
     printf("Options:\n");
     printf("  -a             Set cwd to app dir before starting\n");
-    printf("  -d <number>    Debuglevel (0-9)\n");
+    printf("  -d <number>    Debug level (0-9)\n");
     printf("  -D <mod,mod..> Debug modules\n");
     printf("  -m             Disable mDNS\n");
     printf("  -c <file>      Use configfile specified\n");
-    printf("  -P <file>      Write the PID ot specified file\n");
+    printf("  -P <file>      Write the PID to specified file\n");
     printf("  -f             Run in foreground\n");
     printf("  -y             Yes, go ahead and run as non-root user\n");
     printf("  -b <id>        ffid to be broadcast\n");
