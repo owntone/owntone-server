@@ -47,10 +47,6 @@
 #include <sys/time.h>
 #include <sys/resource.h>
 
-#ifdef MAC
-#include "CoreFoundation/CoreFoundation.h"
-#endif
-
 #include "daapd.h"
 #include "conf.h"
 #include "err.h"
@@ -493,17 +489,6 @@ int os_islocaladdr(char *hostaddr) {
     return FALSE;
 }
 
-#ifdef MAC
-char *os_apppath(char *parm) {
-    CFURLRef pluginRef = CFBundleCopyBundleURL(CFBundleGetMainBundle());
-    CFStringRef macPath = CFURLCopyFileSystemPath(pluginRef,
-                                                  kCFURLPOSIXPathStyle);
-    const char *pathPtr = CFStringGetCStringPtr(macPath,
-                                                CFStringGetSystemEncoding());
-
-    return strdup(pathPtr);
-}
-#else
 char *os_apppath(char *parm) {
     char path[PATH_MAX];
 
@@ -514,7 +499,6 @@ char *os_apppath(char *parm) {
 
     return strdup(path);
 }
-#endif
 
 /**
  * stat wrapper
