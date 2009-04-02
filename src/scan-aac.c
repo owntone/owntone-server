@@ -215,6 +215,7 @@ int scan_get_aacinfo(char *filename, MP3FILE *pmp3) {
 
     ret = scan_aac_drilltoatom(hfile, "moov:udta:meta:ilst", &atom_offset, &atom_length);
     if(ret) {
+      current_offset = 8; /* we're already 2*4 bytes into the ilst atom */
       /* found the tag section - need to walk through now */
       while (current_offset < (uint64_t)atom_length) {
             bytes_read = sizeof(uint32_t);
