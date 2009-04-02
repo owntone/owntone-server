@@ -716,7 +716,12 @@ int ws_getpostvars(WS_CONNINFO *pwsc) {
         return FALSE;
     }
 
-    length=atoi(content_length);
+    length=strtol(content_length, NULL, 10);
+    if(EINVAL == errno || UINT_MAX - 1 <= length){
+        ws_dprintf(L_WS_WARN, "Thread %d: Suspicious Content-Length value, ignoring request\n", pwsc->threadno);
+        return FALSE;
+    }
+
     ws_dprintf(L_WS_DBG,"Thread %d: Post var length: %d\n",
             pwsc->threadno,length);
 
