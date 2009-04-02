@@ -2,7 +2,6 @@
 SUBDIRS = plugins
 
 sbin_PROGRAMS = mt-daapd
-bin_PROGRAMS = wavstreamer
 
 if COND_OGGVORBIS
 OGGVORBISSRC=scan-ogg.c
@@ -20,8 +19,6 @@ if COND_UPNP
 UPNP=upnp.c upnp.h
 endif
 
-
-wavstreamer_SOURCES = wavstreamer.c
 
 mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @ID3TAG_CFLAGS@ @OGGVORBIS_CFLAGS@ @TAGLIB_CFLAGS@
 mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @ID3TAG_LIBS@ @OGGVORBIS_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBICONV@
