@@ -323,7 +323,7 @@ int io_urldecode(char *str) {
         switch(*current) {
         case '+':
             *dst++ = ' ';
-            *current++;
+            current++;
             break;
         case '%':
             /* This is rather brute force.  Maybe sscanf? */
@@ -2078,7 +2078,6 @@ int io_socket_write(IO_PRIVHANDLE *phandle, unsigned char *buf,uint32_t *len) {
     ssize_t byteswritten=0;
     uint32_t totalbytes;
     unsigned char *bufp;
-    long blocking = 0;
 
     ASSERT(phandle);
     ASSERT(phandle->private);

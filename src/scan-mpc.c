@@ -42,7 +42,6 @@
  * @returns TRUE if file should be added to DB, FALSE otherwise
  */
 int scan_get_mpcinfo(char *filename, MP3FILE *pmp3) {
-    FILE *f;
     TagLib_File *file;
     TagLib_Tag *tag;
     const TagLib_AudioProperties *properties;

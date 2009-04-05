@@ -223,7 +223,7 @@ int ssc_ffmpeg_open(void *vp, MP3FILE *pmp3) {
 
         }
 
-        if(strncmp(id3.id,"ID3",3)==0) {
+        if(strncmp((char *)id3.id,"ID3",3)==0) {
             /* found an ID3 header... */
             pi_log(E_DBG,"Found ID3 header\n");
             size = (id3.size[0] << 21 | id3.size[1] << 14 |

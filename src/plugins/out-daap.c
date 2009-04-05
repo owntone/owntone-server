@@ -344,6 +344,7 @@ void plugin_handler(WS_CONNINFO *pwsc) {
     }
 
     pi_log(E_DBG,"Tokenizing url\n");
+    save = NULL;
     while((ppi->uri_count < 10) && (token=strtok_r(string,"/",&save))) {
         string=NULL;
         ppi->uri_sections[ppi->uri_count++] = token;
