@@ -349,6 +349,8 @@ int scan_static_playlist(char *path) {
     char *perr;
     char *ptr;
     uint32_t len;
+    char *urltemp;
+    int ret;
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",path);
     if(os_stat(path,&sb)) {
@@ -388,7 +390,18 @@ int scan_static_playlist(char *path) {
         return FALSE;
     }
 
-    if(io_open(hfile,"file://%s?ascii=1",path)) {
+    urltemp = io_urlencode(path);
+    if (!urltemp)
+      {
+        DPRINTF(E_LOG, L_SCAN, "Cannot open playlist: out of memory\n");
+	io_dispose(hfile);
+	db_dispose_playlist(pm3u);
+	return FALSE;
+      }
+
+    ret = io_open(hfile, "file://%s?ascii=1", urltemp);
+    free(urltemp);
+    if (ret) {
         if(db_add_playlist(&perr,base_path,PL_STATICFILE,NULL,path,
                            0,&playlistid) != DB_E_SUCCESS) {
             DPRINTF(E_LOG,L_SCAN,"Error adding m3u %s: %s\n",path,perr);

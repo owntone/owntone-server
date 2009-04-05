@@ -101,4 +101,6 @@ extern int io_wait_dispose(IO_WAITHANDLE wh);
 # define FALSE 0
 #endif
 
+char *io_urlencode(char *str);
+
 #endif /* _IO_H_ */

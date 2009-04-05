@@ -304,6 +304,8 @@ EXPORT void pi_stream(WS_CONNINFO *pwsc, char *id) {
     uint64_t file_len;
     uint64_t offset=0;
     int item;
+    char *urltemp;
+    int ret;
 
     /* stream out the song */
     ws_should_close(pwsc,1);
@@ -352,7 +354,21 @@ EXPORT void pi_stream(WS_CONNINFO *pwsc, char *id) {
         if(!hfile)
             DPRINTF(E_FATAL,L_WS,"Cannot allocate file handle\n");
 
-        if(!io_open(hfile,"file://%s",pmp3->path)) {
+	urltemp = io_urlencode(pmp3->path);
+	if (!urltemp)
+	  {
+	    ws_set_err(pwsc,E_WS_NATIVE);
+            DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: out of memory\n",
+		    ws_threadno(pwsc),pmp3->path);
+            ws_returnerror(pwsc,404,"Not found");
+            config_set_status(pwsc,session,NULL);
+            db_dispose_item(pmp3);
+            io_dispose(hfile);
+	  }
+
+	ret = io_open(hfile, "file://%s", urltemp);
+	free(urltemp);
+        if (!ret) {
             /* FIXME: ws_set_errstr */
             ws_set_err(pwsc,E_WS_NATIVE);
             DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: %s\n",

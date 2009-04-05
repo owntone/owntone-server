@@ -169,11 +169,21 @@ uint32_t __err_get_threadid(void) {
  * would help for log rotation
  */
 void err_reopen(void) {
+    char *urltemp;
+    int ret;
+
     if(!(err_logdest & LOGDEST_LOGFILE))
         return;
 
+    urltemp = io_urlencode(err_filename);
+    if (!urltemp)
+      return;
+
     io_close(err_file);
-    if(!io_open("file://%s?mode=a&ascii=1",err_filename)) {
+
+    ret = io_open(err_file, "file://%s?mode=a&ascii=1", urltemp);
+    free(urltemp);
+    if (!ret) {
         /* what to do when you lose your logging mechanism?  Keep
          * going?
          */
@@ -335,6 +345,8 @@ int err_settruncate(int truncate) {
 
 int err_setlogfile(char *file) {
     char *mode;
+    char *urltemp;
+    int ret;
     int result=TRUE;
 
 /*
@@ -359,7 +371,16 @@ int err_setlogfile(char *file) {
 
     strncpy(err_filename,file,sizeof(err_filename)-1);
 
-    if(!io_open(err_file,"file://%s?mode=%s&ascii=1",err_filename,mode)) {
+    urltemp = io_urlencode(err_filename);
+    if (!urltemp)
+      {
+        fprintf(stderr,"Error opening logfile: out of memory\n");
+	return FALSE;
+      }
+
+    ret = io_open(err_file, "file://%s?mode=%s&ascii=1", urltemp, mode);
+    free(urltemp);
+    if (!ret) {
         fprintf(stderr,"Error opening logfile: %s",io_errstr(err_file));
         err_logdest &= ~LOGDEST_LOGFILE;
 

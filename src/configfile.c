@@ -394,6 +394,8 @@ void config_handler(WS_CONNINFO *pwsc) {
     struct stat sb;
     char *pw;
     int size;
+    char *urltemp;
+    int ret;
 
     if(!ws_hostname(pwsc)) {
         ws_returnerror(pwsc,500,"Couldn't determine remote hostname");
@@ -482,7 +484,21 @@ void config_handler(WS_CONNINFO *pwsc) {
     }
 
     DPRINTF(E_DBG,L_CONF|L_WS,"Opening %s\n",resolved_path);
-    if(!io_open(hfile,"file://%s",resolved_path)) {
+    urltemp = io_urlencode(resolved_path);
+    if (!urltemp)
+      {
+        ws_set_err(pwsc,E_WS_NATIVE);
+        DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Error opening %s: out of memory\n",
+                ws_threadno(pwsc),resolved_path);
+        ws_returnerror(pwsc,404,"Not found");
+        config_set_status(pwsc,0,NULL);
+        io_dispose(hfile);
+        return;
+      }
+
+    ret = io_open(hfile, "file://%s", urltemp);
+    free(urltemp);
+    if(!ret) {
         ws_set_err(pwsc,E_WS_NATIVE);
         DPRINTF(E_WARN,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
                 ws_threadno(pwsc),resolved_path,io_errstr(hfile));
@@ -937,6 +953,8 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     IOHANDLE hfile;
     struct stat sb;
     int size;
+    char *urltemp;
+    int ret;
 
     size = sizeof(web_root);
     if(conf_get_string("general","web_root",NULL,web_root,
@@ -984,7 +1002,21 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
                 ws_threadno(pwsc));
         return;
     }
-    if(!io_open(hfile,"file://%s",resolved_path)) {
+
+    urltemp = io_urlencode(resolved_path);
+    if (!urltemp)
+      {
+        ws_set_err(pwsc,E_WS_NATIVE);
+        DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Error opening %s: out of memory\n",
+                ws_threadno(pwsc),resolved_path);
+        ws_writefd(pwsc,"<hr><i>error: cannot open %s: out of memory</i><hr>",arg);
+        io_dispose(hfile);
+        return;
+      }
+
+    ret = io_open(hfile, "file://%s", urltemp);
+    free(urltemp);
+    if (!ret) {
         ws_set_err(pwsc,E_WS_NATIVE);
         DPRINTF(E_LOG,L_CONF|L_WS,"Thread %d: Error opening %s: %s\n",
                 ws_threadno(pwsc),resolved_path,io_errstr(pwsc));

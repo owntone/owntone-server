@@ -128,6 +128,8 @@ int rxml_decode_string(char *string) {
 int rxml_open(RXMLHANDLE *vp, char *file,
               RXML_EVTHANDLER handler, void *udata) {
     RXML *pnew;
+    char *urltemp;
+    int ret;
 
     pnew=(RXML*)malloc(sizeof(RXML));
     if(!pnew) {
@@ -145,7 +147,13 @@ int rxml_open(RXMLHANDLE *vp, char *file,
     if(!pnew->hfile)
         RXML_ERROR(pnew,E_RXML_MALLOC);
 
-    if(!io_open(pnew->hfile, "file://%s?ascii=1", file)) {
+    urltemp = io_urlencode(file);
+    if (!urltemp)
+        RXML_ERROR(pnew,E_RXML_MALLOC);
+
+    ret = io_open(pnew->hfile, "file://%s?ascii=1", urltemp);
+    free(urltemp);
+    if (!ret) {
         io_dispose(pnew->hfile);
         pnew->hfile = NULL;
         RXML_ERROR(pnew,E_RXML_OPEN);   

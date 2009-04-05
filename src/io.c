@@ -308,6 +308,55 @@ int io_init(void) {
     return TRUE;
 }
 
+char *io_urlencode(char *str)
+{
+  char *ret;
+  unsigned char *in_cur;
+  unsigned char *out_cur;
+  int len;
+
+  char *digits = "0123456789abcdef";
+  char *safe = "abcdefghijklmnopqrstuvwxyz"
+    "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+    "0123456789$-_.!*(),/@\\";
+
+  len = 0;
+
+  in_cur = (unsigned char *) str;
+  for (len = 0; *in_cur; in_cur++)
+    {
+      if (strchr(safe, *in_cur))
+	len++;
+      else
+	len += 3;
+    }
+
+  ret = (char *)malloc(len + 1);
+  if (!ret)
+    return NULL;
+
+  in_cur = (unsigned char *)str;
+  out_cur = (unsigned char *)ret;
+  for (; *in_cur; in_cur++, out_cur++)
+    {
+      if (strchr(safe,*in_cur))
+	*out_cur = *in_cur;
+      else if (*in_cur == ' ')
+	*out_cur = '+';
+      else
+	{
+	  *out_cur = '%';
+	  out_cur++;
+	  *out_cur = digits[(*in_cur >> 4) & 0xf];
+	  out_cur++;
+	  *out_cur = digits[*in_cur & 0xf];
+	}
+    }
+    *out_cur = '\0';
+
+  return ret;
+}
+
 /**
  * urldecode a string in-place
  *

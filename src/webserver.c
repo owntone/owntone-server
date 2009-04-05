@@ -1309,6 +1309,8 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
     char resolved_path[PATH_MAX];
     IOHANDLE hfile;
     uint64_t len;
+    char *urltemp;
+    int ret;
 
     WS_ENTER();
 
@@ -1347,7 +1349,25 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
         return;
     }
 
-    if(!io_open(hfile,"file://%s",resolved_path)) { /* default is O_RDONLY */
+    urltemp = io_urlencode(resolved_path);
+    if (!urltemp)
+      {
+        ws_set_err(pwsc,E_WS_NATIVE); /* FIXME: ws_set_errstr */
+        ws_dprintf(L_WS_LOG,"Error opening %s: out of memory",resolved_path);
+        ws_dprintf(L_WS_WARN,"Exiting ws_defaulthandler: Thread %d: "
+                "Error opening %s: out of memory\n",
+                pwsc->threadno,resolved_path);
+        ws_returnerror(pwsc,404,"Not found");
+        ws_close(pwsc);
+
+        io_dispose(hfile);
+        WS_EXIT();
+        return;
+      }
+
+    ret = io_open(hfile, "file://%s", urltemp); /* default is O_RDONLY */
+    free(urltemp);
+    if(!ret) {
         ws_set_err(pwsc,E_WS_NATIVE); /* FIXME: ws_set_errstr */
         ws_dprintf(L_WS_LOG,"Error opening %s: %s",resolved_path,
             io_errstr(hfile));

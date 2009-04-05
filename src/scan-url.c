@@ -46,6 +46,8 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     char *head, *tail;
     char linebuffer[256];
     uint32_t len;
+    char *urltemp;
+    int ret;
 
     DPRINTF(E_DBG,L_SCAN,"Getting URL file info\n");
 
@@ -53,8 +55,18 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
         DPRINTF(E_LOG,L_SCAN,"Can't create file handle\n");
         return FALSE;
     }
-    
-    if(!io_open(hfile,"file://%s?ascii=1",filename)) {
+
+    urltemp = io_urlencode(filename);
+    if (!urltemp)
+      {
+        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: out of memory\n",filename);
+        io_dispose(hfile);
+        return FALSE;
+      }
+
+    ret = io_open(hfile,"file://%s?ascii=1",filename);
+    free(urltemp);
+    if (!ret) {
         DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: %s\n",filename,
             io_errstr(hfile));
         io_dispose(hfile);

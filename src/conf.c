@@ -597,6 +597,8 @@ int conf_read(char *file) {
     char *temp;
     IOHANDLE hconfig;
     uint32_t len;
+    char *urltemp;
+    int ret;
 
     char *replaced_section = NULL;  /* config key/value updates */
     char *replaced_key = NULL;      /* config key/value updates */
@@ -614,7 +616,17 @@ int conf_read(char *file) {
         DPRINTF(E_FATAL,L_CONF,"Malloc eror in io_new()\n");
 
     DPRINTF(E_DBG,L_CONF,"Loading config file %s\n",conf_file);
-    if(!io_open(hconfig,"file://%s?ascii=1",conf_file)) {
+    urltemp = io_urlencode(conf_file);
+    if (!urltemp)
+      {
+        DPRINTF(E_LOG,L_MISC,"Error opening config file: out of memory\n");
+        io_dispose(hconfig);
+	return CONF_E_FOPEN;
+      }
+
+    ret = io_open(hconfig, "file://%s?ascii=1", urltemp);
+    free(urltemp);
+    if(!ret) {
         DPRINTF(E_LOG,L_MISC,"Error opening config file: %s\n",io_errstr(hconfig));
         io_dispose(hconfig);
         return CONF_E_FOPEN;
@@ -1245,6 +1257,8 @@ int conf_iswritable(void) {
 int conf_write(void) {
     int retval = CONF_E_NOTWRITABLE;
     IOHANDLE outfile;
+    char *urltemp;
+    int ret;
 
     if(!conf_main_file) {
         DPRINTF(E_DBG,L_CONF,"Config file apparently  not loaded\n");
@@ -1256,15 +1270,25 @@ int conf_write(void) {
     if(!outfile)
         DPRINTF(E_FATAL,L_CONF,"io_new failed in conf_write\n");
 
-    if(io_open(outfile,"file://%s?mode=w&ascii=1",conf_main_file)) {
+    urltemp = io_urlencode(conf_main_file);
+    if (!urltemp)
+      {
+        DPRINTF(E_LOG,L_CONF,"Error opening config file for write: out of memory\n");
+	io_dispose(outfile);
+	return retval;
+      }
+
+    ret = io_open(outfile, "file://%s?mode=w&ascii=1", urltemp);
+    free(urltemp);
+    if (ret) {
         retval = _conf_write(outfile,conf_main,0,NULL);
         io_close(outfile);
-        io_dispose(outfile);
     } else {
         DPRINTF(E_LOG,L_CONF,"Error opening config file for write: %s\n",
             io_errstr(outfile));
-        io_dispose(outfile);
     }
+    io_dispose(outfile);
+
     util_mutex_unlock(l_conf);
 
     return retval;
