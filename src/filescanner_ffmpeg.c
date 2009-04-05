@@ -41,6 +41,16 @@
 #include "mp3-scanner.h"
 
 
+/* Legacy format-specific scanners */
+extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
+#ifdef FLAC
+extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
+#endif
+#ifdef MUSEPACK
+extern int scan_get_mpcinfo(char *filename, MP3FILE *pmp3);
+#endif
+
+
 /* Mapping between the metadata name(s) and the offset
  * of the equivalent metadata field in struct media_file_info */
 struct metadata_map {
@@ -351,7 +361,41 @@ int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi)
 
  skip_extract:
   if (mdcount == 0)
-    DPRINTF(E_WARN, L_SCAN, "Could not extract any metadata\n");
+    {
+      /* ffmpeg doesn't support FLAC nor Musepack metadata,
+       * and is buggy for some WMA variants, so fall back to the
+       * legacy format-specific parsers until it gets fixed */
+      if ((codec_id == CODEC_ID_WMAPRO)
+	  || (codec_id == CODEC_ID_WMAVOICE)
+	  || (codec_id == CODEC_ID_WMALOSSLESS))
+	{
+	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy WMA scanner\n");
+
+	  av_close_input_file(ctx);
+	  return scan_get_wmainfo(filename, mfi);
+	}
+#ifdef FLAC
+      else if (codec_id == CODEC_ID_FLAC)
+	{
+	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy FLAC scanner\n");
+
+	  av_close_input_file(ctx);
+	  return scan_get_flacinfo(filename, mfi);
+	}
+#endif /* FLAC */
+#ifdef MUSEPACK
+      else if ((codec_id == CODEC_ID_MUSEPACK7)
+	       || (codec_id == CODEC_ID_MUSEPACK8))
+	{
+	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy Musepack scanner\n");
+
+	  av_close_input_file(ctx);
+	  return scan_get_mpcinfo(filename, mfi);
+	}
+#endif /* MUSEPACK */
+      else
+	DPRINTF(E_WARN, L_SCAN, "Could not extract any metadata\n");
+    }
 
   /* Just in case there's no title set ... */
   if (mfi->title == NULL)
