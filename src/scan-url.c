@@ -106,6 +106,10 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
     DPRINTF(E_DBG,L_SCAN,"  Bitrate:  %d\n",pmp3->bitrate);
     DPRINTF(E_DBG,L_SCAN,"  URL:      %s\n",pmp3->url);
 
+    pmp3->type = strdup("pls");
+    /* codectype = NULL */
+    pmp3->description = strdup("Playlist URL");
+
     return TRUE;
 }
 
