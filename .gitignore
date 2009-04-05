@@ -1,4 +1,10 @@
 *~
 autom4te.cache
 Makefile.in
-
+Makefile
+*.o
+*.lo
+*.a
+*.la
+.deps/
+.libs/
