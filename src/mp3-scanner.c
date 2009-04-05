@@ -71,11 +71,6 @@ static void scan_music_file(char *path, char *fname,struct stat *psb, int is_com
 
 
 /* EXTERNAL SCANNERS */
-
-#ifdef OGGVORBIS
-extern int scan_get_ogginfo(char *filename, MP3FILE *pmp3);
-#endif
-
 #ifdef FLAC
 extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
 #endif

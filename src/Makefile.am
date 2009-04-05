@@ -3,10 +3,6 @@ SUBDIRS = plugins
 
 sbin_PROGRAMS = mt-daapd
 
-if COND_OGGVORBIS
-OGGVORBISSRC=scan-ogg.c
-endif
-
 if COND_FLAC
 FLACSRC=scan-flac.c
 endif
@@ -20,8 +16,8 @@ UPNP=upnp.c upnp.h
 endif
 
 
-mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @OGGVORBIS_CFLAGS@ @TAGLIB_CFLAGS@
-mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @OGGVORBIS_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBICONV@ @LIBDL@
+mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @TAGLIB_CFLAGS@
+mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBICONV@ @LIBDL@
 mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h \
 	mp3-scanner.h mp3-scanner.c \
@@ -35,10 +31,9 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	io.h io.c io-errors.h io-plugin.h \
 	rend-avahi.c \
 	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
-	$(OGGVORBISSRC) \
 	$(FLACSRC) $(MUSEPACKSRC) \
 	$(UPNP)
 
 EXTRA_DIST = scan-mpc.c \
-	scan-ogg.c scan-flac.c \
+	scan-flac.c \
 	ff-plugins.h ff-dbstruct.h upnp.c upnp.h ff-plugin-events.h
