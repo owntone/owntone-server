@@ -94,6 +94,7 @@
 # include "getopt.h"
 #endif
 
+#include <libavformat/avformat.h>
 
 /** Seconds to sleep before checking for a shutdown or reload */
 #define MAIN_SLEEP_INTERVAL  2
@@ -431,6 +432,8 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN,"Firefly Version %s: Starting with debuglevel %d\n",
             VERSION,err_getlevel());
 
+    /* initialize ffmpeg */
+    av_register_all();
 
     /* load plugins before we drop privs?  Maybe... let the
      * plugins do stuff they might need to */

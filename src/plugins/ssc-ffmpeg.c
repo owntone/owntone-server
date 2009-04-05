@@ -131,7 +131,8 @@ char *ssc_ffmpeg_error(void *pv) {
 }
 
 PLUGIN_INFO *plugin_info(void) {
-    av_register_all();
+    /* Now done in main() */
+    /* av_register_all(); */
 
     return &_pi;
 }
