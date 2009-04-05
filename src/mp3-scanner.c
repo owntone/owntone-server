@@ -52,18 +52,6 @@
 #include "os.h"
 #include "util.h"
 
-/*
- * Typedefs
- */
-typedef struct {
-    char *suffix;
-    int (*scanner)(char* file, MP3FILE* pmp3);
-    char *type;         /* daap.songformat */
-    char *codectype;    /* song.codectype */
-    int has_video;      /* hack hack hack */
-    char *description;  /* daap.songdescription */
-} TAGHANDLER;
-
 
 #define MAYBEFREE(a) { if((a)) free((a)); };
 #ifndef S_ISDIR
@@ -78,11 +66,8 @@ typedef struct {
  * Forwards
  */
 static int scan_path(char *path);
-static int scan_get_info(char *file, MP3FILE *pmp3);
 static int scan_freetags(MP3FILE *pmp3);
 static void scan_music_file(char *path, char *fname,struct stat *psb, int is_compdir);
-
-static TAGHANDLER *scan_gethandler(char *type);
 
 
 /* EXTERNAL SCANNERS */
@@ -106,62 +91,12 @@ extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
 extern int scan_get_aifinfo(char *filename, MP3FILE *pmp3);
 
+extern int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi);
+
 /* playlist scanners */
 extern int scan_xml_playlist(char *filename);
 static int scan_static_playlist(char *path);
 
-/* For known types, I'm gong to use the "official" apple
- * daap.songformat, daap.songdescription, and daap.songcodecsubtype.
- * If I we don't have "official" ones, we can make them up the
- * way we currently are:  using extension or whatver.
- *
- * This means that you can test to see if something is, say, an un-drmed
- * aac file by just testing for ->type "m4a", rather than checking every
- * different flavor of file extension.
- *
- * NOTE: Although they are represented here as strings, the codectype is
- * *really* an unsigned short.  So when it gets serialized, it gets
- * serialized as a short int. If you put something other than 3 or 4
- * characters as your codectype, you'll see strange results.
- *
- * FIXME: url != pls -- this method of dispatching handlers based on file type
- * is completely wrong.  There needs to be a separate type that gets carried
- * around with it, at least outside the database that says where the info
- * CAME FROM.
- *
- * This system is broken, and won't work with something like a .cue file
- */
-static TAGHANDLER taghandlers[] = {
-    { "aac", scan_get_aacinfo, "m4a", "mp4a", 0, "AAC audio file" },
-    { "mp4", scan_get_aacinfo, "m4a", "mp4a", 0, "AAC audio file" },
-    { "m4b", scan_get_aacinfo, "m4a", "mp4a", 0, "Protected AAC audio file" },
-    { "m4a", scan_get_aacinfo, "m4a", "mp4a", 0, "AAC audio file" },
-    { "m4p", scan_get_aacinfo, "m4p", "mp4a", 0, "AAC audio file" },
-    { "mp3", scan_get_mp3info, "mp3", "mpeg", 0, "MPEG audio file" },
-    { "wav", scan_get_wavinfo, "wav", "wav", 0, "WAV audio file" },
-    { "aif", scan_get_aifinfo, "aif", "aif", 0, "AIFF audio file" },
-    { "aiff",scan_get_aifinfo, "aif", "aif", 0, "AIFF audio file" },
-    { "wma", scan_get_wmainfo, "wma", "wma", 0, "WMA audio file" },
-    { "url", scan_get_urlinfo, "pls", NULL, 0, "Playlist URL" },
-    { "pls", scan_get_urlinfo, "pls", NULL, 0, "Playlist URL" },
-    { "m4v", scan_get_aacinfo, "m4v", "mp4v", 1, "MPEG-4 video file" },
-    { "mp4", scan_get_aacinfo, "m4v", "mp4v", 1, "MPEG-4 video file" },
-    { "mov", scan_get_aacinfo, "m4v", "mp4v", 1, "MPEG-4 video file" },
-    { "mpeg4", scan_get_aacinfo, "m4v", "mp4v", 1, "MPEG-4 video file" },
-#ifdef OGGVORBIS
-    { "ogg", scan_get_ogginfo, "ogg", "ogg", 0, "Ogg Vorbis audio file" },
-#endif
-#ifdef FLAC
-    { "flac", scan_get_flacinfo, "flac","flac", 0, "FLAC audio file" },
-    { "fla", scan_get_flacinfo,  "flac","flac", 0, "FLAC audio file" },
-#endif
-#ifdef MUSEPACK
-    { "mpc", scan_get_mpcinfo, "mpc", "mpc", 0, "Musepack audio file" },
-    { "mpp", scan_get_mpcinfo, "mpc", "mpc", 0, "Musepack audio file" },
-    { "mp+", scan_get_mpcinfo, "mpc", "mpc", 0, "Musepack audio file" },
-#endif
-    { NULL, NULL, NULL, NULL, 0, NULL }
-};
 
 typedef struct tag_playlistlist {
     char *path;
@@ -646,12 +581,9 @@ void scan_filename(char *path, int compdir, char *extensions) {
 void scan_music_file(char *path, char *fname,
                      struct stat *psb, int is_compdir) {
     MP3FILE mp3file;
-    char *current=NULL;
-    char *type;
-    TAGHANDLER *ptaghandler;
-    char fdescr[50];
+    char *ext;
+    int ret = -1;
 
-    /* we found an mp3 file */
     DPRINTF(E_INF,L_SCAN,"Found music file: %s\n",fname);
 
     memset((void*)&mp3file,0,sizeof(mp3file));
@@ -659,43 +591,21 @@ void scan_music_file(char *path, char *fname,
     mp3file.fname=strdup(fname);
     mp3file.file_size = psb->st_size;
 
-    if((fname) && (strlen(fname) > 1) && (fname[strlen(fname)-1] != '.')) {
-        type = strrchr(fname, '.') + 1;
-        if(type && *type) {
-            /* see if there is "official" format and info for it */
-            ptaghandler=scan_gethandler(type);
-            if(ptaghandler) {
-                /* yup, use the official format */
-                mp3file.type=strdup(ptaghandler->type);
-                if(ptaghandler->description)
-                    mp3file.description=strdup(ptaghandler->description);
+    if (fname)
+      {
+	ext = strrchr(fname, '.');
+	if (ext != NULL)
+	  {
+	    if ((strcmp(ext, ".url") == 0) || (strcmp(ext, ".pls") == 0))
+	      ret = scan_get_urlinfo(mp3file.path, &mp3file);
+	  }
+      }
 
-                if(ptaghandler->codectype)
-                    mp3file.codectype=strdup(ptaghandler->codectype);
-
-                DPRINTF(E_DBG,L_SCAN,"Codec type: %s\n",mp3file.codectype);
-            } else {
-                /* just dummy up songformat, codectype and description */
-                mp3file.type=strdup(type);
-                mp3file.codectype = strdup("unkn");
-                mp3file.song_length = 10 * 60 * 1000; /* 10 min */
-
-                /* upper-case types cause some problems */
-                current=mp3file.type;
-                while(*current) {
-                    *current=tolower(*current);
-                    current++;
-                }
-
-                sprintf(fdescr,"%s audio file",mp3file.type);
-                mp3file.description = strdup(fdescr);
-                /* we'll just dodge the codectype */
-            }
-        }
-    }
+    if (ret == -1) /* Not a playlist file */
+      ret = scan_get_ffmpeginfo(mp3file.path, &mp3file);
 
     /* Do the tag lookup here */
-    if(scan_get_info(mp3file.path,&mp3file)) {
+    if (ret) {
         if(is_compdir)
             mp3file.compilation = 1;
         make_composite_tags(&mp3file);
@@ -721,20 +631,6 @@ void scan_music_file(char *path, char *fname,
     scan_freetags(&mp3file);
 }
 
-/**
- * fetch the taghandler for this file type
- */
-TAGHANDLER *scan_gethandler(char *type) {
-    TAGHANDLER *phdl = taghandlers;
-
-    while((phdl->suffix) && (strcasecmp(phdl->suffix,type)))
-        phdl++;
-
-    if(phdl->suffix)
-        return phdl;
-
-    return NULL;
-}
 
 /*
  * scan_freetags
@@ -761,35 +657,6 @@ int scan_freetags(MP3FILE *pmp3) {
     return 0;
 }
 
-
-/**
- * Dispatch to actual file info handlers.  In addition (and this
- * is kinda hackish, it pokes has_video into the file if it's marked
- * as having video in the taghandler.  This should really be done in
- * the metainfo parser, but it's easier to hack m4v up here and leverage
- * the existing aac parser than add video handling to the parser.
- * anyone know an easy way to tell if a mpeg4 file has a video stream
- * or not?
- *
- * @param file file to read file metainfo for
- * @param pmp3 struct to stuff with info gleaned
- */
-int scan_get_info(char *file, MP3FILE *pmp3) {
-    TAGHANDLER *hdl;
-    int retval;
-
-    /* dispatch to appropriate tag handler */
-    hdl = scan_gethandler(pmp3->type);
-    if(hdl && hdl->scanner) {
-        retval = hdl->scanner(file,pmp3);
-        if(retval && hdl->has_video) {
-            pmp3->has_video = 1;
-        }
-        return retval;
-    }
-
-    return TRUE;
-}
 
 /**
  * Manually build tags.  Set artist to computer/orchestra
