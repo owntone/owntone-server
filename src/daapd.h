@@ -53,7 +53,6 @@
 #endif
 
 #include <time.h>
-#include "compat.h"
 #include "webserver.h"
 
 /** Simple struct for holding stat info.

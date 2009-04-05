@@ -34,7 +34,6 @@
 
 #include <netinet/in.h>
 
-#include "compat.h"
 #include "ff-dbstruct.h"
 #include "ff-plugins.h"
 #include "out-daap.h"

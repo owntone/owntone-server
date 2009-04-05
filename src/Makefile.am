@@ -27,7 +27,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	rxml.c rxml.h redblack.c redblack.h \
 	scan-xml.c scan-wma.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
-	os.h ll.c ll.h conf.c conf.h compat.c compat.h util.c util.h \
+	os.h ll.c ll.h conf.c conf.h util.c util.h \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
 	io.h io.c io-errors.h io-plugin.h \
 	rend-avahi.c \
