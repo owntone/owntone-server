@@ -223,26 +223,20 @@ WMA_GUID wma_guidlist[] = {
     { NULL, NULL, "\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0\x0" }
 };
 
-#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
-# define _PACKED __attribute((packed))
-#else
-# define _PACKED
-#endif
 #define MAYBEFREE(x) { free((x)); }
 
-#pragma pack(1)
 typedef struct tag_wma_header {
     unsigned char objectid[16];
     unsigned long long size;
     unsigned int objects;
     char reserved1;
     char reserved2;
-} _PACKED WMA_HEADER;
+} __attribute__((packed)) WMA_HEADER;
 
 typedef struct tag_wma_subheader {
     unsigned char objectid[16];
     long long size;
-} _PACKED WMA_SUBHEADER;
+} __attribute__((packed)) WMA_SUBHEADER;
 
 typedef struct tag_wma_stream_properties {
     unsigned char stream_type[16];
@@ -252,15 +246,13 @@ typedef struct tag_wma_stream_properties {
     unsigned int ecdl;
     unsigned short int flags;
     unsigned int reserved;
-} _PACKED WMA_STREAM_PROP;
+} __attribute__((packed)) WMA_STREAM_PROP;
 
 typedef struct tag_wma_header_extension {
     unsigned char reserved_1[16];
     unsigned short int reserved_2;
     unsigned int data_size;
-} _PACKED WMA_HEADER_EXT;
-
-#pragma pack()
+} __attribute__((packed)) WMA_HEADER_EXT;
 
 /*
  * Forwards

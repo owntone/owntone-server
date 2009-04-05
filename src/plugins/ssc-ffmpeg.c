@@ -12,19 +12,12 @@
 
 #include "ff-plugins.h"
 
-#if __GNUC__ > 2 || (__GNUC__ == 2 && __GNUC_MINOR__ > 4)
-# define _PACKED __attribute((packed))
-#else
-# define _PACKED
-#endif
-
 typedef struct tag_scan_id3header {
     unsigned char id[3];
     unsigned char version[2];
     unsigned char flags;
     unsigned char size[4];
-} _PACKED SCAN_ID3HEADER;
-#pragma pack()
+} __attribute__((packed)) SCAN_ID3HEADER;
 
 #ifndef TRUE
 # define TRUE 1

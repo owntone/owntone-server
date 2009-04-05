@@ -2,12 +2,6 @@
  * Generic IO handling for files/sockets/etc
  */
 
-
-#define _CRT_SECURE_NO_WARNINGS 1601
-#define _CRT_SECURE_NO_DEPRECATE 1
-#define _CRT_NONSTDC_NO_DEPRECATE 1
-#pragma warning(disable: 4996)
-
 #ifdef LARGE_FILE
 # define _LARGEFILE_SOURCE
 # define _LARGEFILE64_SOURCE
