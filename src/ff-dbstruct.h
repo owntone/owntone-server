@@ -68,7 +68,7 @@ typedef struct media_file_info {
     char *album;     /* TALB */
     char *genre;     /* TCON */
     char *comment;   /* COMM */
-    char *type;
+    char *type;      /* daap.songformat */
     char *composer;  /* TCOM */
     char *orchestra; /* TPE2 */
     char *conductor; /* TPE3 */
@@ -101,8 +101,9 @@ typedef struct media_file_info {
     uint32_t got_id3;
     uint32_t id;
 
-    char *description;  /* long file type */
+    char *description;  /* daap.songdescription */
     char *codectype;          /* song.codectype */
+    /* codectype will be encoded as a short int, no more than 4 chars */
 
     uint32_t item_kind;              /* song or movie */
     uint32_t data_kind;              /* dmap.datakind (asdk) */
