@@ -310,7 +310,7 @@ int ssc_ffmpeg_close(void *vp) {
 }
 
 
-int _ssc_ffmpeg_read_frame(void *vp, char *buffer, int len) {
+int _ssc_ffmpeg_read_frame(void *vp, char *buffer, int buflen) {
     SSCHANDLE *handle = (SSCHANDLE *)vp;
     int data_size;
     int len1;
@@ -329,11 +329,12 @@ int _ssc_ffmpeg_read_frame(void *vp, char *buffer, int len) {
             
             if(!handle->file_bytes_read)
                 return 0;
-            
-            len1 = avcodec_decode_audio(handle->pCodecCtx,(short*)buffer,
-                                        &out_size,
-                                        (uint8_t*)handle->file_buffer_ptr,
-                                        handle->file_bytes_read);
+
+	    out_size = buflen;
+            len1 = avcodec_decode_audio2(handle->pCodecCtx,(short*)buffer,
+					 &out_size,
+					 (uint8_t*)handle->file_buffer_ptr,
+					 handle->file_bytes_read);
             
             if(len1 < 0) /* FIXME: Decode Error */
                 return 0;
@@ -355,11 +356,12 @@ int _ssc_ffmpeg_read_frame(void *vp, char *buffer, int len) {
 
     while(1) {
         while(handle->packet_size > 0) {
-            len1=avcodec_decode_audio(handle->pCodecCtx,
-                                      (int16_t*)buffer,
-                                      &data_size,
-                                      handle->packet_data,
-                                      handle->packet_size);
+            data_size = buflen;
+            len1=avcodec_decode_audio2(handle->pCodecCtx,
+				       (int16_t*)buffer,
+				       &data_size,
+				       handle->packet_data,
+				       handle->packet_size);
             
             if(len1 < 0) {
                 /* skip frame */
