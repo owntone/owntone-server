@@ -36,6 +36,7 @@
 #ifdef HAVE_STDINT_H
 # include <stdint.h>
 #endif
+#include <inttypes.h>
 
 #include "daapd.h"
 #include "err.h"
@@ -815,8 +816,8 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     pmp3->time_played=0;
 
     /* sqlite2 doesn't support 64 bit ints */ /* JB: FIXME */
-    sprintf(sample_count,"%lld",pmp3->sample_count);
-    sprintf(file_size,"%lld",pmp3->file_size);
+    sprintf(sample_count, "%" PRIu64, pmp3->sample_count);
+    sprintf(file_size, "%" PRIu64, pmp3->file_size);
 
     err=db_sql_exec_fn(pe,E_DBG,"INSERT INTO songs VALUES "
                        "(NULL," // id
@@ -941,8 +942,8 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
 
     pmp3->db_timestamp = (int)time(NULL);
 
-    sprintf(sample_count,"%lld",pmp3->sample_count);
-    sprintf(file_size,"%lld",pmp3->file_size);
+    sprintf(sample_count, "%" PRIu64, pmp3->sample_count);
+    sprintf(file_size, "%" PRIu64, pmp3->file_size);
 
     strcpy(query,"UPDATE songs SET "
            "title='%q',"  // title
