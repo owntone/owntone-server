@@ -27,7 +27,7 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	mp3-scanner.h mp3-scanner.c \
 	filescanner_ffmpeg.c \
 	db-generic.c db-generic.h ff-plugins.c ff-plugins.h \
-	rxml.c rxml.h redblack.c redblack.h scan-mp3.c scan-aif.c \
+	rxml.c rxml.h redblack.c redblack.h scan-mp3.c \
 	scan-xml.c scan-wma.c scan-aac.c scan-aac.h scan-wav.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
 	os.h ll.c ll.h conf.c conf.h compat.c compat.h util.c util.h \
