@@ -25,7 +25,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <id3tag.h>
 #include <limits.h>
 #ifdef HAVE_STDINT_H
 #include <stdint.h>

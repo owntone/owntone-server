@@ -32,7 +32,6 @@
 #include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
-#include <id3tag.h>
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
