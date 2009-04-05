@@ -352,7 +352,7 @@ EXPORT void pi_stream(WS_CONNINFO *pwsc, char *id) {
         if(!hfile)
             DPRINTF(E_FATAL,L_WS,"Cannot allocate file handle\n");
 
-        if(!io_open(hfile,"file://%U",pmp3->path)) {
+        if(!io_open(hfile,"file://%s",pmp3->path)) {
             /* FIXME: ws_set_errstr */
             ws_set_err(pwsc,E_WS_NATIVE);
             DPRINTF(E_WARN,L_WS,"Thread %d: Error opening %s: %s\n",

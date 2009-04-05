@@ -173,7 +173,7 @@ void err_reopen(void) {
         return;
 
     io_close(err_file);
-    if(!io_open("file://%U?mode=a&ascii=1",err_filename)) {
+    if(!io_open("file://%s?mode=a&ascii=1",err_filename)) {
         /* what to do when you lose your logging mechanism?  Keep
          * going?
          */
@@ -359,7 +359,7 @@ int err_setlogfile(char *file) {
 
     strncpy(err_filename,file,sizeof(err_filename)-1);
 
-    if(!io_open(err_file,"file://%U?mode=%s&ascii=1",err_filename,mode)) {
+    if(!io_open(err_file,"file://%s?mode=%s&ascii=1",err_filename,mode)) {
         fprintf(stderr,"Error opening logfile: %s",io_errstr(err_file));
         err_logdest &= ~LOGDEST_LOGFILE;
 

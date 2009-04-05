@@ -1347,7 +1347,7 @@ void ws_defaulthandler(WS_PRIVATE *pwsp, WS_CONNINFO *pwsc) {
         return;
     }
 
-    if(!io_open(hfile,"file://%U",resolved_path)) { /* default is O_RDONLY */
+    if(!io_open(hfile,"file://%s",resolved_path)) { /* default is O_RDONLY */
         ws_set_err(pwsc,E_WS_NATIVE); /* FIXME: ws_set_errstr */
         ws_dprintf(L_WS_LOG,"Error opening %s: %s",resolved_path,
             io_errstr(hfile));

@@ -984,7 +984,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
         return FALSE;
     }
 
-    if(!io_open(hfile,"file://%U",filename)) {
+    if(!io_open(hfile,"file://%s",filename)) {
         DPRINTF(E_INF,L_SCAN,"Error opening WMA file (%s): %s\n",filename,
             io_errstr(hfile));
         io_dispose(hfile);

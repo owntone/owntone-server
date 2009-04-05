@@ -54,7 +54,7 @@ int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
         return FALSE;
     }
     
-    if(!io_open(hfile,"file://%U?ascii=1",filename)) {
+    if(!io_open(hfile,"file://%s?ascii=1",filename)) {
         DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: %s\n",filename,
             io_errstr(hfile));
         io_dispose(hfile);
