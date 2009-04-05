@@ -40,14 +40,6 @@ extern int util_must_exit(void);
 int util_split(char *s, char *delimiters, char ***argvp);
 void util_dispose_split(char **argv);
 
-extern unsigned char *util_utf8toutf16_alloc(unsigned char *utf8);
-extern unsigned char *util_utf16touft8_alloc(unsigned char *utf16, int slen);
-extern int util_utf8toutf16(unsigned char *utf16, int dlen, unsigned char *utf8, int slen);
-extern int util_utf16toutf8(unsigned char *utf8, int dlen, unsigned char *utf16, int slen);
-extern int util_xtoy(unsigned char *dbuffer, int dlen, unsigned char *sbuffer, int slen, char *from, char *to);
-extern unsigned char *util_xtoutf8_alloc(unsigned char *x,int slen,char *from);
-extern int util_utf16_byte_len(unsigned char *utf16);
-
 extern void util_hexdump(unsigned char *block, int len);
 extern char *util_vasprintf(char *fmt, va_list ap);
 extern char *util_asprintf(char *fmt, ...);

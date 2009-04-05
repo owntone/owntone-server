@@ -37,14 +37,6 @@ fi
 AC_DEFINE_UNQUOTED(CONFFILE,"${CONFFILE}",Where the config file is)
 
 use_upnp=false;
-use_iconv=true
-
-AC_ARG_ENABLE(iconv, AC_HELP_STRING([--enable-iconv], [Enable iconv conversion]),
-                        [ case "${enableval}" in
-			yes) use_iconv=true;;
-			no) use_iconv=false;;
-			*) AC_MSG_ERROR(bad value ${enableval} for --enable-iconv);;
-			esac ])
 
 AC_ARG_ENABLE(flac, AC_HELP_STRING([--enable-flac], [Enable FLAC support]),
                       use_flac=true;
@@ -64,10 +56,6 @@ AM_CONDITIONAL(COND_UPNP,test x$use_upnp = xtrue)
 AC_CHECK_FUNCS(strcasestr strsep)
 
 dnl Checks for libraries.
-if test x$use_iconv = xtrue; then
-	AM_ICONV
-fi
-
 PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
 PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
