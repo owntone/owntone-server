@@ -86,7 +86,6 @@ extern int scan_get_mpcinfo(char *filename, MP3FILE *pmp3);
 
 extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
-extern int scan_get_mp3info(char *filename, MP3FILE *pmp3);
 
 extern int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi);
 

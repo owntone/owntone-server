@@ -20,14 +20,14 @@ UPNP=upnp.c upnp.h
 endif
 
 
-mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @ID3TAG_CFLAGS@ @OGGVORBIS_CFLAGS@ @TAGLIB_CFLAGS@
-mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @ID3TAG_LIBS@ @OGGVORBIS_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBICONV@ @LIBDL@
+mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @OGGVORBIS_CFLAGS@ @TAGLIB_CFLAGS@
+mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @OGGVORBIS_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBICONV@ @LIBDL@
 mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h \
 	mp3-scanner.h mp3-scanner.c \
 	filescanner_ffmpeg.c \
 	db-generic.c db-generic.h ff-plugins.c ff-plugins.h \
-	rxml.c rxml.h redblack.c redblack.h scan-mp3.c \
+	rxml.c rxml.h redblack.c redblack.h \
 	scan-xml.c scan-wma.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
 	os.h ll.c ll.h conf.c conf.h compat.c compat.h util.c util.h \

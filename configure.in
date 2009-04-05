@@ -82,8 +82,6 @@ PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
 PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat ])
 
-PKG_CHECK_MODULES(ID3TAG, [ id3tag ])
-
 if test x$use_oggvorbis = xtrue; then
 	PKG_CHECK_MODULES(OGGVORBIS, [ ogg vorbis vorbisfile ])
 fi
