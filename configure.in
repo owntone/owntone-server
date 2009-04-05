@@ -9,7 +9,7 @@ AC_USE_SYSTEM_EXTENSIONS
 dnl Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
-AC_PROG_LIBTOOL
+LT_INIT([disable-static])
 
 AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
