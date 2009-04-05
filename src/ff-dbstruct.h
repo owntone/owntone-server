@@ -59,7 +59,7 @@
 #define SG_ALBUM_ARTIST    42
 
 /* Packed and unpacked formats */
-typedef struct tag_mp3file {
+typedef struct media_file_info {
     char *path;
     uint32_t index;
     char *fname;
