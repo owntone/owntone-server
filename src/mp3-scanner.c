@@ -70,15 +70,6 @@ static void scan_music_file(char *path, char *fname,struct stat *psb, int is_com
 
 
 /* EXTERNAL SCANNERS */
-#ifdef FLAC
-extern int scan_get_flacinfo(char *filename, MP3FILE *pmp3);
-#endif
-
-#ifdef MUSEPACK
-extern int scan_get_mpcinfo(char *filename, MP3FILE *pmp3);
-#endif
-
-extern int scan_get_wmainfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
 
 extern int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi);
