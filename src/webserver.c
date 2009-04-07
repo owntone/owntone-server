@@ -964,7 +964,7 @@ void *ws_dispatcher(void *arg) {
     int(*auth_handler)(WS_CONNINFO*, char *, char *);
     uint32_t ms, len;
 
-    WS_ENTER()
+    WS_ENTER();
 
     /* quick fence to ensure that we have been registered on the thread list */
     ws_lock_unsafe();
