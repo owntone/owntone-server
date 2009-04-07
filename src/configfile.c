@@ -57,7 +57,6 @@
 #include "os.h"
 #include "xml-rpc.h"
 #include "upnp.h"
-#include "rend.h"
 
 
 /*
@@ -667,8 +666,6 @@ void config_emit_literal(WS_CONNINFO *pwsc, void *value, char *arg) {
  * \param arg any args passwd with the meta command.  Also unused
  */
 void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
-    int mdns_running;
-    char *html;
     char buf[256];
     int r_days, r_hours, r_mins, r_secs;
     int scanning;
@@ -676,23 +673,6 @@ void config_emit_service_status(WS_CONNINFO *pwsc, void *value, char *arg) {
 
     ws_writefd(pwsc,"<table><tr><th align=\"left\">Service</th>");
     ws_writefd(pwsc,"<th align=\"left\">Status</th><th align=\"left\">Control</th></tr>\n");
-
-    ws_writefd(pwsc,"<tr><td>Rendezvous</td>");
-
-    if(config.use_mdns) {
-        mdns_running=!rend_running();
-
-        if(mdns_running) {
-            html="<a href=\"config-update.html?action=stopmdns\">Stop MDNS Server</a>";
-        } else {
-            html="<a href=\"config-update.html?action=startmdns\">Start MDNS Server</a>";
-        }
-
-        ws_writefd(pwsc,"<td>%s</td><td>%s</td></tr>\n",mdns_running ? "Running":"Stopped",
-                   html);
-    } else {
-        ws_writefd(pwsc,"<td>Not configured</td><td>&nbsp;</td></tr>\n");
-    }
 
     ws_writefd(pwsc,"<tr><td>DAAP Server</td><td>%s</td>",config.stop ? "Stopping":"Running");
     if(config.stop) {

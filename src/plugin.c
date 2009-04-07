@@ -57,12 +57,13 @@
 #include "io.h"
 #include "os.h"
 #include "plugin.h"
-#include "rend.h"
 #include "smart-parser.h"
 #include "xml-rpc.h"
 #include "webserver.h"
 #include "ff-plugins.h"
 #include "io.h"
+
+#include "mdns_avahi.h"
 
 typedef struct tag_pluginentry {
     void *phandle;
@@ -338,7 +339,7 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
  * walk through the plugins and register whatever rendezvous
  * names the clients want
  */
-int plugin_rend_register(char *name, int port, char *iface, char *txt) {
+int plugin_rend_register(char *name, int port, char *txt) {
     PLUGIN_ENTRY *ppi;
     PLUGIN_REND_INFO *pri;
     char *supplied_txt;
@@ -355,7 +356,7 @@ int plugin_rend_register(char *name, int port, char *iface, char *txt) {
                     supplied_txt = txt;
 
                 DPRINTF(E_DBG,L_PLUG,"Registering %s\n",pri->type);
-                rend_register(name,pri->type,port,iface,supplied_txt);
+                mdns_register(name, pri->type, port, supplied_txt);
                 pri++;
             }
         }

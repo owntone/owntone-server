@@ -87,8 +87,9 @@
 #include "plugin.h"
 #include "util.h"
 #include "upnp.h"
-#include "rend.h"
 #include "io.h"
+
+#include "mdns_avahi.h"
 
 #ifdef HAVE_GETOPT_H
 # include "getopt.h"
@@ -185,7 +186,6 @@ void usage(char *program) {
     printf("  -a             Set cwd to app dir before starting\n");
     printf("  -d <number>    Debug level (0-9)\n");
     printf("  -D <mod,mod..> Debug modules\n");
-    printf("  -m             Disable mDNS\n");
     printf("  -c <file>      Use configfile specified\n");
     printf("  -P <file>      Write the PID to specified file\n");
     printf("  -f             Run in foreground\n");
@@ -363,7 +363,7 @@ int main(int argc, char *argv[]) {
     int convert_conf=0;
     char *db_type,*db_parms,*web_root,*runas, *tmp;
     char **mp3_dir_array;
-    char *servername, *iface;
+    char *servername;
     char *ffid = NULL;
     int appdir = 0;
     char *perr=NULL;
@@ -372,6 +372,7 @@ int main(int argc, char *argv[]) {
     char *plugindir;
     struct event *main_timer;
     struct timeval tv;
+    int ret;
 
     int err;
     char *apppath;
@@ -379,7 +380,6 @@ int main(int argc, char *argv[]) {
     int debuglevel=0;
     int plugins_loaded = 0;
 
-    config.use_mdns=1;
     err_setlevel(2);
 
     config.foreground=0;
@@ -412,10 +412,6 @@ int main(int argc, char *argv[]) {
 
         case 'c':
             configfile=optarg;
-            break;
-
-        case 'm':
-            config.use_mdns=0;
             break;
 
         case 'P':
@@ -560,16 +556,17 @@ int main(int argc, char *argv[]) {
 	os_deinit();
 	exit(EXIT_FAILURE);
       }
-
-    if(config.use_mdns) {
-        DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
-        if(rend_init(runas)) {
-            DPRINTF(E_FATAL,L_MAIN|L_REND,"Error in rend_init: %s\n",
-                    strerror(errno));
-        }
-    }
-
     free(runas);
+
+    DPRINTF(E_LOG, L_MAIN, "mDNS init\n");
+    ret = mdns_init();
+    if (ret != 0)
+      {
+	DPRINTF(E_FATAL, L_MAIN | L_REND, "mDNS init failed\n");
+
+	os_deinit();
+	exit(EXIT_FAILURE);
+      }
 
 #ifdef UPNP
     upnp_init();
@@ -582,9 +579,8 @@ int main(int argc, char *argv[]) {
 
     if(err) {
         DPRINTF(E_LOG,L_MAIN|L_DB,"Error opening db: %s\n",perr);
-        if(config.use_mdns) {
-            rend_stop();
-        }
+
+	mdns_deinit();
         os_deinit();
         exit(EXIT_FAILURE);
     }
@@ -648,41 +644,38 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(config.server, "/",main_handler,main_auth,
                        0,1);
 
-    if(config.use_mdns) { /* register services */
-        servername = conf_get_servername();
+    /* Register mDNS services */
+    servername = conf_get_servername();
 
-        memset(txtrecord,0,sizeof(txtrecord));
-        txt_add(txtrecord,"txtvers=1");
-        txt_add(txtrecord,"Database ID=%0X",util_djb_hash_str(servername));
-        txt_add(txtrecord,"Machine ID=%0X",util_djb_hash_str(servername));
-        txt_add(txtrecord,"Machine Name=%s",servername);
-        txt_add(txtrecord,"mtd-version=" VERSION);
-        txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */
-        txt_add(txtrecord,"Version=196610");      /* iTunes 6.0.4 */
-        tmp = conf_alloc_string("general","password",NULL);
-        if(tmp && (strlen(tmp)==0)) tmp=NULL;
+    memset(txtrecord,0,sizeof(txtrecord));
+    txt_add(txtrecord,"txtvers=1");
+    txt_add(txtrecord,"Database ID=%0X",util_djb_hash_str(servername));
+    txt_add(txtrecord,"Machine ID=%0X",util_djb_hash_str(servername));
+    txt_add(txtrecord,"Machine Name=%s",servername);
+    txt_add(txtrecord,"mtd-version=" VERSION);
+    txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */
+    txt_add(txtrecord,"Version=196610");      /* iTunes 6.0.4 */
+    tmp = conf_alloc_string("general","password",NULL);
+    if(tmp && (strlen(tmp)==0)) tmp=NULL;
 
-        txt_add(txtrecord,"Password=%s",tmp ? "true" : "false");
-        if(tmp) free(tmp);
+    txt_add(txtrecord,"Password=%s",tmp ? "true" : "false");
+    if(tmp) free(tmp);
 
-        srand((unsigned int)time(NULL));
+    srand((unsigned int)time(NULL));
 
-        if(ffid) {
-            txt_add(txtrecord,"ffid=%s",ffid);
-        } else {
-            txt_add(txtrecord,"ffid=%08x",rand());
-        }
-
-        DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
-        iface = conf_alloc_string("general","interface","");
-
-        rend_register(servername,"_http._tcp",ws_config.port,iface,txtrecord);
-
-        plugin_rend_register(servername,ws_config.port,iface,txtrecord);
-
-        free(servername);
-        free(iface);
+    if(ffid) {
+      txt_add(txtrecord,"ffid=%s",ffid);
+    } else {
+      txt_add(txtrecord,"ffid=%08x",rand());
     }
+
+    DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
+    /* Register main service */
+    mdns_register(servername, "_http._tcp", ws_config.port, txtrecord);
+    /* Register plugin services */
+    plugin_rend_register(servername, ws_config.port, txtrecord);
+
+    free(servername);
 
     end_time=(int) time(NULL);
 
@@ -710,10 +703,8 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG,L_MAIN,"Stopping gracefully\n");
 
-    if(config.use_mdns) {
-        DPRINTF(E_LOG,L_MAIN|L_REND,"Stopping rendezvous daemon\n");
-        rend_stop();
-    }
+    DPRINTF(E_LOG, L_MAIN | L_REND, "mDNS deinit\n");
+    mdns_deinit();
 
 #ifdef UPNP
     upnp_deinit();

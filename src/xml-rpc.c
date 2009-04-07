@@ -36,7 +36,6 @@
 #include "mp3-scanner.h"
 #include "os.h"
 #include "plugin.h"
-#include "rend.h"
 #include "webserver.h"
 #include "xml-rpc.h"
 
@@ -519,18 +518,6 @@ void xml_get_stats(WS_CONNINFO *pwsc) {
     xml_push(pxml,"status");
 
     xml_push(pxml,"service_status");
-
-    xml_push(pxml,"service");
-
-    xml_output(pxml,"name","Rendezvous");
-
-    if(config.use_mdns) {
-        xml_output(pxml,"status",rend_running() ? "Running" : "Stopped"); /* ??? */
-    } else {
-        xml_output(pxml,"status","Disabled");
-    }
-
-    xml_pop(pxml); /* service */
 
     xml_push(pxml,"service");
     xml_output(pxml,"name","DAAP Server");
