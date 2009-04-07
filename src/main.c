@@ -111,6 +111,8 @@
  */
 CONFIG config; /**< Main configuration structure, as read from configfile */
 
+struct event_base *evbase_main;
+
 /*
  * Forwards
  */
@@ -550,7 +552,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Initialize libevent (after forking) */
-    event_init();
+    evbase_main = event_init();
     main_timer = (struct event *)malloc(sizeof(struct event));
     if (!main_timer)
       {
@@ -698,12 +700,13 @@ int main(int argc, char *argv[]) {
 
     /* Set up main timer */
     evtimer_set(main_timer, mainloop_cb, main_timer);
+    event_base_set(evbase_main, main_timer);
     evutil_timerclear(&tv);
     tv.tv_sec = MAIN_SLEEP_INTERVAL;
     evtimer_add(main_timer, &tv);
 
     /* Run the loop */
-    event_dispatch();
+    event_base_dispatch(evbase_main);
 
     DPRINTF(E_LOG,L_MAIN,"Stopping gracefully\n");
 
