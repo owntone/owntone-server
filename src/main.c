@@ -94,7 +94,9 @@
 # include "getopt.h"
 #endif
 
+#include <event.h>
 #include <libavformat/avformat.h>
+
 
 /** Seconds to sleep before checking for a shutdown or reload */
 #define MAIN_SLEEP_INTERVAL  2
@@ -259,6 +261,74 @@ void main_io_errhandler(int level, char *msg) {
 void main_ws_errhandler(int level, char *msg) {
     DPRINTF(level,L_WS,"%s",msg);
 }
+
+static void
+mainloop_cb(int fd, short event, void *arg)
+{
+  int old_song_count, song_count;
+  char **mp3_dir_array;
+  struct event *main_timer;
+  struct timeval tv;
+  static int rescan_counter = 0;
+
+  rescan_counter += MAIN_SLEEP_INTERVAL;
+
+  /* Handle signals */ /* JB: FIXME */
+  os_wait(0);
+
+  if (config.stop)
+    {
+      event_loopbreak();
+      return;
+    }
+
+  main_timer = (struct event *)arg;
+  evutil_timerclear(&tv);
+  tv.tv_sec = MAIN_SLEEP_INTERVAL;
+  evtimer_add(main_timer, &tv);
+
+  if ((conf_get_int("general", "rescan_interval", 0)
+       && (rescan_counter > conf_get_int("general", "rescan_interval", 0))))
+    {
+      if ((conf_get_int("general", "always_scan", 0))
+	  || (config_get_session_count()))
+	{
+	  config.reload = 1;
+	}
+      else
+	{
+	  DPRINTF(E_DBG, L_MAIN | L_SCAN | L_DB, "Skipped background scan... no users\n");
+	}
+      rescan_counter = 0;
+    }
+
+  if (config.reload)
+    {
+      db_get_song_count(NULL, &old_song_count);
+
+      DPRINTF(E_LOG, L_MAIN | L_DB | L_SCAN, "Rescanning database\n");
+
+      if (conf_get_array("general", "mp3_dir", &mp3_dir_array))
+	{
+	  if (config.full_reload)
+	    {
+	      config.full_reload = 0;
+	      db_force_rescan(NULL);
+	    }
+
+	  if (scan_init(mp3_dir_array))
+	    {
+	      DPRINTF(E_LOG, L_MAIN | L_DB | L_SCAN, "Error rescanning... bad path?\n");
+	    }
+	  conf_dispose_array(mp3_dir_array);
+	}
+      config.reload = 0;
+
+      db_get_song_count(NULL, &song_count);
+      DPRINTF(E_LOG, L_MAIN | L_DB | L_SCAN, "Scanned %d songs (was %d)\n",song_count, old_song_count);
+    }
+}
+
 /**
  * Kick off the daap server and wait for events.
  *
@@ -284,8 +354,7 @@ int main(int argc, char *argv[]) {
     int reload=0;
     int start_time;
     int end_time;
-    int rescan_counter=0;
-    int old_song_count, song_count;
+    int song_count;
     int force_non_root=0;
     int skip_initial=1;
     int kill_server=0;
@@ -299,6 +368,8 @@ int main(int argc, char *argv[]) {
     char txtrecord[255];
     void *phandle;
     char *plugindir;
+    struct event *main_timer;
+    struct timeval tv;
 
     int err;
     char *apppath;
@@ -478,6 +549,16 @@ int main(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
     }
 
+    /* Initialize libevent (after forking) */
+    event_init();
+    main_timer = (struct event *)malloc(sizeof(struct event));
+    if (!main_timer)
+      {
+	DPRINTF(E_FATAL, L_MAIN, "Out of memory\n");
+	os_deinit();
+	exit(EXIT_FAILURE);
+      }
+
     if(config.use_mdns) {
         DPRINTF(E_LOG,L_MAIN,"Starting rendezvous daemon\n");
         if(rend_init(runas)) {
@@ -615,45 +696,14 @@ int main(int argc, char *argv[]) {
        (!conf_get_int("scanning","skip_first",0)))
         config.reload = 1; /* force a reload on start */
 
-    while(!config.stop) {
-        if((conf_get_int("general","rescan_interval",0) &&
-            (rescan_counter > conf_get_int("general","rescan_interval",0)))) {
-            if((conf_get_int("general","always_scan",0)) ||
-                (config_get_session_count())) {
-                config.reload=1;
-            } else {
-                DPRINTF(E_DBG,L_MAIN|L_SCAN|L_DB,"Skipped bground scan... no users\n");
-            }
-            rescan_counter=0;
-        }
+    /* Set up main timer */
+    evtimer_set(main_timer, mainloop_cb, main_timer);
+    evutil_timerclear(&tv);
+    tv.tv_sec = MAIN_SLEEP_INTERVAL;
+    evtimer_add(main_timer, &tv);
 
-        if(config.reload) {
-            old_song_count = song_count;
-            start_time=(int) time(NULL);
-
-            DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Rescanning database\n");
-
-            if(conf_get_array("general","mp3_dir",&mp3_dir_array)) {
-                if(config.full_reload) {
-                    config.full_reload=0;
-                    db_force_rescan(NULL);
-                }
-
-                if(scan_init(mp3_dir_array)) {
-                    DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Error rescanning... bad path?\n");
-                }
-                conf_dispose_array(mp3_dir_array);
-            }
-            config.reload=0;
-            db_get_song_count(NULL,&song_count);
-            DPRINTF(E_LOG,L_MAIN|L_DB|L_SCAN,"Scanned %d songs (was %d) in "
-                    "%d seconds\n",song_count,old_song_count,
-                    time(NULL)-start_time);
-        }
-
-        os_wait(MAIN_SLEEP_INTERVAL);
-        rescan_counter += MAIN_SLEEP_INTERVAL;
-    }
+    /* Run the loop */
+    event_dispatch();
 
     DPRINTF(E_LOG,L_MAIN,"Stopping gracefully\n");
 

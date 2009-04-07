@@ -358,7 +358,9 @@ void os_wait(int seconds) {
     int status;
     struct sigaction sa_ign;
     struct sigaction sa_dfl;
-    sleep(seconds);
+
+    if (seconds > 0)
+      sleep(seconds);
 
     sigpending(&intmask);
 
