@@ -19,7 +19,7 @@ endif
 mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @TAGLIB_CFLAGS@
 mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBDL@
 mt_daapd_LDFLAGS = -export-dynamic
-mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
+mt_daapd_SOURCES = main.c daapd.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h \
 	mp3-scanner.h mp3-scanner.c \
 	filescanner_ffmpeg.c \
@@ -31,7 +31,6 @@ mt_daapd_SOURCES = main.c daapd.h rend.h webserver.c \
 	os.h ll.c ll.h conf.c conf.h util.c util.h \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
 	io.h io.c io-errors.h io-plugin.h \
-	rend-avahi.c \
 	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
 	$(FLACSRC) $(MUSEPACKSRC) \
 	$(UPNP)
