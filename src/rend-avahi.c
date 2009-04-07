@@ -2,6 +2,7 @@
  * Rendezvous support with avahi
  *
  * Copyright (C) 2005 Sebastian Dröge <slomo@ubuntu.com>
+ * Copyright (C) 2009 Julien BLACHE <jb@jblache.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,7 +38,7 @@
 #include <avahi-client/client.h>
 #include <avahi-common/alternative.h>
 #include <avahi-common/error.h>
-#include <avahi-common/simple-watch.h>
+#include <avahi-common/thread-watch.h>
 #include <avahi-common/timeval.h>
 #include <avahi-common/malloc.h>
 
@@ -46,7 +47,7 @@
 
 static AvahiClient *mdns_client = NULL;
 static AvahiEntryGroup *mdns_group = NULL;
-static AvahiSimplePoll *simple_poll = NULL;
+static AvahiThreadedPoll *threaded_poll = NULL;
 
 typedef struct tag_rend_avahi_group_entry {
     char *name;
@@ -59,14 +60,6 @@ typedef struct tag_rend_avahi_group_entry {
 
 static REND_AVAHI_GROUP_ENTRY rend_avahi_entries = { NULL, NULL, 0, NULL };
 
-static pthread_t rend_tid;
-static pthread_cond_t rend_avahi_cond;
-static pthread_mutex_t rend_avahi_mutex;
-
-static void _rend_avahi_signal(void);
-static void _rend_avahi_wait_on(void *what);
-static void _rend_avahi_lock(void);
-static void _rend_avahi_unlock(void);
 static int _rend_avahi_create_services(void);
 
 /* add a new group entry node */
@@ -83,21 +76,10 @@ static int _rend_avahi_add_group_entry(char *name, char *type, int port, char *i
     pge->txt = strdup(txt);
     pge->port = port;
 
-    _rend_avahi_lock();
-
     pge->next = rend_avahi_entries.next;
     rend_avahi_entries.next = pge;
 
-    _rend_avahi_unlock();
     return 1;
-}
-
-static void *rend_poll(void *arg) {
-    avahi_simple_poll_loop(simple_poll);
-
-    DPRINTF(E_DBG,L_REND,"Avahi poll thread exited\n");
-
-    return NULL;
 }
 
 static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state, AVAHI_GCC_UNUSED void *userdata) {
@@ -109,7 +91,6 @@ static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
     switch (state) {
     case AVAHI_ENTRY_GROUP_ESTABLISHED:
         DPRINTF(E_DBG, L_REND, "Successfully added mdns services\n");
-        _rend_avahi_signal();
         break;
     case AVAHI_ENTRY_GROUP_COLLISION:
         DPRINTF(E_DBG, L_REND, "Group collision\n");
@@ -122,7 +103,7 @@ static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
         */
         break;
     case AVAHI_ENTRY_GROUP_FAILURE :
-        avahi_simple_poll_quit(simple_poll);
+        avahi_threaded_poll_quit(threaded_poll);
         break;
     case AVAHI_ENTRY_GROUP_UNCOMMITED:
     case AVAHI_ENTRY_GROUP_REGISTERING:
@@ -130,34 +111,9 @@ static void entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state,
     }
 }
 
-void _rend_avahi_lock(void) {
-    if(pthread_mutex_lock(&rend_avahi_mutex))
-        DPRINTF(E_FATAL,L_REND,"Could not lock mutex\n");
-}
-
-void _rend_avahi_unlock(void) {
-    pthread_mutex_unlock(&rend_avahi_mutex);
-}
-
-void _rend_avahi_signal(void) {
-    /* kick the condition for waiters */
-    _rend_avahi_lock();
-    pthread_cond_signal(&rend_avahi_cond);
-    _rend_avahi_unlock();
-}
-
-void _rend_avahi_wait_on(void *what) {
-    DPRINTF(E_DBG,L_REND,"Waiting on something...\n");
-    if(pthread_mutex_lock(&rend_avahi_mutex))
-        DPRINTF(E_FATAL,L_REND,"Could not lock mutex\n");
-    while(!what) {
-        pthread_cond_wait(&rend_avahi_cond,&rend_avahi_mutex);
-    }
-    _rend_avahi_unlock();
-    DPRINTF(E_DBG,L_REND,"Done waiting.\n");
-}
-
 int rend_register(char *name, char *type, int port, char *iface, char *txt) {
+    avahi_threaded_poll_lock(threaded_poll);
+
     DPRINTF(E_DBG,L_REND,"Adding %s/%s\n",name,type);
     _rend_avahi_add_group_entry(name,type,port,iface,txt);
     if(mdns_group) {
@@ -166,6 +122,9 @@ int rend_register(char *name, char *type, int port, char *iface, char *txt) {
     }
     DPRINTF(E_DBG,L_REND,"Creating service group (again?)\n");
     _rend_avahi_create_services();
+
+    avahi_threaded_poll_unlock(threaded_poll);
+
     return 0;
 }
 
@@ -200,10 +159,6 @@ int _rend_avahi_create_services(void) {
         }
     }
 
-    /* wait for entry group to be created */
-    _rend_avahi_wait_on(mdns_group);
-
-    _rend_avahi_lock();
     pentry = rend_avahi_entries.next;
     while(pentry) {
         /* TODO: honor iface parameter */
@@ -241,13 +196,11 @@ int _rend_avahi_create_services(void) {
                                                  psl)) < 0) {
             DPRINTF(E_WARN, L_REND, "Could not add mdns services: %s\n", avahi_strerror(ret));
             avahi_string_list_free(psl);
-            _rend_avahi_unlock();
+
             return 0;
         }
         pentry = pentry->next;
     }
-
-    _rend_avahi_unlock();
 
     if ((ret = avahi_entry_group_commit(mdns_group)) < 0) {
         DPRINTF(E_WARN, L_REND, "Could not commit mdns services: %s\n",
@@ -284,19 +237,19 @@ static void client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UN
 	    avahi_client_free(mdns_client);
 	    mdns_group = NULL;
 
-	    mdns_client = avahi_client_new(avahi_simple_poll_get(simple_poll),
+	    mdns_client = avahi_client_new(avahi_threaded_poll_get(threaded_poll),
 					   AVAHI_CLIENT_NO_FAIL,
 					   client_callback,NULL,&error);
 	    if (mdns_client == NULL)
 	      {
 		DPRINTF(E_LOG,L_REND,"Failed to create new Avahi client: %s\n", avahi_strerror(error));
-		avahi_simple_poll_quit(simple_poll);
+		avahi_threaded_poll_quit(threaded_poll);
 	      }
 	  }
 	else
 	  {
 	    DPRINTF(E_LOG,L_REND,"Client failure: %s\n", avahi_strerror(error));
-	    avahi_simple_poll_quit(simple_poll);
+	    avahi_threaded_poll_quit(threaded_poll);
 	  }
         break;
     case AVAHI_CLIENT_S_REGISTERING:
@@ -313,18 +266,8 @@ static void client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UN
 int rend_init(char *user) {
     int error;
 
-    if(pthread_cond_init(&rend_avahi_cond,NULL)) {
-        DPRINTF(E_LOG,L_REND,"Could not initialize rendezvous condition\n");
-        return -1;
-    }
-
-    if(pthread_mutex_init(&rend_avahi_mutex,NULL)) {
-        DPRINTF(E_LOG,L_REND,"Could not initialize rendezvous mutex\n");
-        return -1;
-    }
-
     DPRINTF(E_DBG, L_REND, "Initializing avahi\n");
-    if(!(simple_poll = avahi_simple_poll_new())) {
+    if(!(threaded_poll = avahi_threaded_poll_new())) {
         DPRINTF(E_LOG,L_REND,"Error starting poll thread\n");
         return -1;
     }
@@ -338,27 +281,37 @@ int rend_init(char *user) {
         mdns_interface = AVAHI_IF_UNSPEC;
     */
 
-    if (!(mdns_client = avahi_client_new(avahi_simple_poll_get(simple_poll),
+    if (!(mdns_client = avahi_client_new(avahi_threaded_poll_get(threaded_poll),
                                          AVAHI_CLIENT_NO_FAIL,
 					 client_callback,NULL,&error))) {
         DPRINTF(E_WARN, L_REND, "avahi_client_new: Error in avahi: %s\n",
                 avahi_strerror(avahi_client_errno(mdns_client)));
-        avahi_simple_poll_free(simple_poll);
+        avahi_threaded_poll_free(threaded_poll);
         return -1;
     }
 
-    DPRINTF(E_DBG, L_REND, "Starting avahi polling thread\n");
-    if(pthread_create(&rend_tid, NULL, rend_poll, NULL)) {
-        DPRINTF(E_FATAL,L_REND,"Could not start avahi polling thread.\n");
-    }
+    DPRINTF(E_DBG, L_REND, "Starting Avahi ThreadedPoll\n");
+    if (avahi_threaded_poll_start(threaded_poll) < 0)
+      {
+	DPRINTF(E_WARN, L_REND, "avahi_threaded_poll_start: error: %s\n",
+		avahi_strerror(avahi_client_errno(mdns_client)));
+
+	avahi_threaded_poll_free(threaded_poll);
+
+	return -1;
+      }
 
     return 0;
 }
 
 int rend_stop() {
-    avahi_simple_poll_quit(simple_poll);
+    avahi_threaded_poll_stop(threaded_poll);
+
     if (mdns_client != NULL)
         avahi_client_free(mdns_client);
+
+    avahi_threaded_poll_free(threaded_poll);
+
     return 0;
 }
 
