@@ -398,7 +398,6 @@ int main(int argc, char *argv[]) {
     char *apppath;
 
     int debuglevel=0;
-    int plugins_loaded = 0;
 
     err_setlevel(2);
 
@@ -527,37 +526,21 @@ int main(int argc, char *argv[]) {
     /* load plugins before we drop privs?  Maybe... let the
      * plugins do stuff they might need to */
     plugin_init();
-    if((plugindir=conf_alloc_string("plugins","plugin_dir",NULL)) != NULL) {
+
+    plugindir = conf_alloc_string("plugins", "plugin_dir", NULL);
+    if (plugindir)
+      {
         /* instead of specifying plugins, let's walk through the directory
          * and load each of them */
-        if(!load_plugin_dir(plugindir)) {
-            DPRINTF(E_LOG,L_MAIN,"Warning: Could not load plugins\n");
-        } else {
-            plugins_loaded = TRUE;
-        }
+        if (!load_plugin_dir(plugindir))
+	  DPRINTF(E_LOG, L_MAIN, "Warning: Could not load plugins\n");
+
         free(plugindir);
-    }
+      }
 
-    if(!plugins_loaded) {
-        if((!load_plugin_dir("/usr/lib/firefly/plugins")) &&
-           (!load_plugin_dir("/usr/lib/mt-daapd/plugins")) &&
-           (!load_plugin_dir("/lib/mt-daapd/plugins")) &&
-           (!load_plugin_dir("/lib/mt-daapd/plugins")) &&
-           (!load_plugin_dir("/usr/local/lib/mt-daapd/plugins")) &&
-           (!load_plugin_dir("/usr/local/lib/mt-daapd/plugins")) &&
-           (!load_plugin_dir("/opt/share/firefly/plugins")) &&
-           (!load_plugin_dir("/opt/share/mt-daapd/plugins")) &&
-           (!load_plugin_dir("/opt/lib/firefly/plugins")) &&
-           (!load_plugin_dir("/opt/lib/mt-daapd/plugins")) &&
-           (!load_plugin_dir("plugins/.libs"))) {
-            DPRINTF(E_FATAL,L_MAIN,"plugins/plugin_dir not specified\n");
-        }
-    }
-
-    phandle=NULL;
-    while((phandle=plugin_enum(phandle))) {
-        DPRINTF(E_LOG,L_MAIN,"Plugin loaded: %s\n",plugin_get_description(phandle));
-    }
+    phandle = NULL;
+    while ((phandle = plugin_enum(phandle)))
+      DPRINTF(E_LOG, L_MAIN, "Plugin loaded: %s\n", plugin_get_description(phandle));
 
     /* Block signals for all threads except the main one */
     sigemptyset(&sigs);
