@@ -103,12 +103,6 @@ int os_init(int foreground, char *runas) {
 }
 
 /**
- * do any deinitialization necessary for the platform
- */
-void os_deinit(void) {
-}
-
-/**
  * start syslogging
  *
  * @returns TRUE on success, FALSE otherwise

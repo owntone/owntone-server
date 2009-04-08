@@ -605,7 +605,7 @@ int main(int argc, char *argv[]) {
 
     if(!os_init(config.foreground,runas)) {
       DPRINTF(E_LOG,L_MAIN,"Could not initialize server\n");
-      os_deinit();
+
       exit(EXIT_FAILURE);
     }
 
@@ -615,7 +615,7 @@ int main(int argc, char *argv[]) {
     if (!main_timer)
       {
 	DPRINTF(E_FATAL, L_MAIN, "Out of memory\n");
-	os_deinit();
+
 	exit(EXIT_FAILURE);
       }
     free(runas);
@@ -626,7 +626,6 @@ int main(int argc, char *argv[]) {
       {
 	DPRINTF(E_FATAL, L_MAIN | L_REND, "mDNS init failed\n");
 
-	os_deinit();
 	exit(EXIT_FAILURE);
       }
 
@@ -643,7 +642,6 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_LOG,L_MAIN|L_DB,"Error opening db: %s\n",perr);
 
 	mdns_deinit();
-        os_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -802,7 +800,6 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG,L_MAIN,"Done!\n");
 
-    os_deinit();
     io_deinit();
     return EXIT_SUCCESS;
 }
