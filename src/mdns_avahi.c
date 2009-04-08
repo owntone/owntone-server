@@ -303,7 +303,7 @@ struct mdns_group_entry
   char *name;
   char *type;
   int port;
-  char *txt;
+  AvahiStringList *txt;
 
   struct mdns_group_entry *next;
 };
@@ -344,11 +344,6 @@ static void
 _create_services(void)
 {
   struct mdns_group_entry *pentry;
-  AvahiStringList *psl;
-  unsigned char count;
-  unsigned char *key;
-  unsigned char *nextkey;
-  unsigned char *newtxt;
   int ret;
 
   DPRINTF(E_DBG, L_REND, "Creating service group\n");
@@ -372,51 +367,14 @@ _create_services(void)
 	  }
       }
 
-    count = 0;
     pentry = group_entries;
     while (pentry)
       {
         DPRINTF(E_DBG, L_REND, "Re-registering %s/%s\n", pentry->name, pentry->type);
 
-        /* Build a string list from the "encoded" txt record
-	 * "<len1><record1><len2><record2>...<recordN>\0"
-	 * Length is 1 byte
-	 */
-        psl = NULL;
-        newtxt = (unsigned char *)strdup(pentry->txt);
-        if (!newtxt)
-	  {
-	    DPRINTF(E_FATAL, L_REND, "Out of memory\n");
-
-	    return;
-	  }
-
-        key = nextkey = newtxt;
-        if (*nextkey)
-	  count = *nextkey;
-
-        DPRINTF(E_DBG, L_REND, "Found key of size %d\n", count);
-        while ((*nextkey) && (nextkey < (newtxt + strlen(pentry->txt))))
-	  {
-            key = nextkey + 1;
-            nextkey += (count + 1);
-            count = *nextkey;
-            *nextkey = '\0';
-
-            psl = avahi_string_list_add(psl, (char *)key);
-
-            DPRINTF(E_DBG, L_REND, "Added key %s\n", key);
-
-            *nextkey = count;
-	  }
-
-        free(newtxt);
-
         ret = avahi_entry_group_add_service_strlst(mdns_group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0,
 						   avahi_strdup(pentry->name), avahi_strdup(pentry->type),
-						   NULL, NULL, pentry->port, psl);
-	avahi_string_list_free(psl);
-
+						   NULL, NULL, pentry->port, pentry->txt);
 	if (ret < 0)
 	  {
 	    DPRINTF(E_WARN, L_REND, "Could not add mDNS services: %s\n", avahi_strerror(ret));
@@ -538,6 +496,11 @@ int
 mdns_register(char *name, char *type, int port, char *txt)
 {
   struct mdns_group_entry *ge;
+  AvahiStringList *txt_sl;
+  unsigned char count;
+  unsigned char *key;
+  unsigned char *nextkey;
+  unsigned char *newtxt;
 
   DPRINTF(E_DBG, L_REND, "Adding mDNS service %s/%s\n", name, type);
 
@@ -547,8 +510,44 @@ mdns_register(char *name, char *type, int port, char *txt)
 
   ge->name = strdup(name);
   ge->type = strdup(type);
-  ge->txt = strdup(txt);
   ge->port = port;
+
+  /* Build a string list from the "encoded" txt record
+   * "<len1><record1><len2><record2>...<recordN>\0"
+   * Length is 1 byte
+   */
+  count = 0;
+  txt_sl = NULL;
+  newtxt = (unsigned char *)strdup(txt);
+  if (!newtxt)
+    {
+      DPRINTF(E_FATAL, L_REND, "Out of memory\n");
+
+      return -1;
+    }
+
+  key = nextkey = newtxt;
+  if (*nextkey)
+    count = *nextkey;
+
+  DPRINTF(E_DBG, L_REND, "Found key of size %d\n", count);
+  while ((*nextkey) && (nextkey < (newtxt + strlen(txt))))
+    {
+      key = nextkey + 1;
+      nextkey += (count + 1);
+      count = *nextkey;
+      *nextkey = '\0';
+
+      txt_sl = avahi_string_list_add(txt_sl, (char *)key);
+
+      DPRINTF(E_DBG, L_REND, "Added key %s\n", key);
+
+      *nextkey = count;
+    }
+
+  free(newtxt);
+
+  ge->txt = txt_sl;
 
   ge->next = group_entries;
   group_entries = ge;
