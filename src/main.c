@@ -88,7 +88,6 @@
 #include "os.h"
 #include "plugin.h"
 #include "util.h"
-#include "upnp.h"
 #include "io.h"
 
 #include "mdns_avahi.h"
@@ -629,10 +628,6 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
       }
 
-#ifdef UPNP
-    upnp_init();
-#endif
-
     /* this will require that the db be readable by the runas user */
     db_type = conf_alloc_string("general","db_type","sqlite");
     db_parms = conf_alloc_string("general","db_parms","/var/cache/mt-daapd");
@@ -779,11 +774,6 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG, L_MAIN | L_REND, "mDNS deinit\n");
     mdns_deinit();
-
-#ifdef UPNP
-    upnp_deinit();
-#endif
-
 
     /* Got to find a cleaner way to stop the web server.
      * Closing the fd of the socking accepting doesn't necessarily

@@ -11,11 +11,6 @@ if COND_MUSEPACK
 MUSEPACKSRC=scan-mpc.c
 endif
 
-if COND_UPNP
-UPNP=upnp.c upnp.h
-endif
-
-
 mt_daapd_CPPFLAGS = @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @TAGLIB_CFLAGS@
 mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBDL@
 mt_daapd_LDFLAGS = -export-dynamic
@@ -32,9 +27,8 @@ mt_daapd_SOURCES = main.c daapd.h webserver.c \
 	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
 	io.h io.c io-errors.h io-plugin.h \
 	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
-	$(FLACSRC) $(MUSEPACKSRC) \
-	$(UPNP)
+	$(FLACSRC) $(MUSEPACKSRC)
 
 EXTRA_DIST = scan-mpc.c \
 	scan-flac.c \
-	ff-plugins.h ff-dbstruct.h upnp.c upnp.h ff-plugin-events.h
+	ff-plugins.h ff-dbstruct.h ff-plugin-events.h

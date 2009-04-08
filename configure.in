@@ -38,8 +38,6 @@ fi
 
 AC_DEFINE_UNQUOTED(CONFFILE,"${CONFFILE}",Where the config file is)
 
-use_upnp=false;
-
 AC_ARG_ENABLE(flac, AC_HELP_STRING([--enable-flac], [Enable FLAC support]),
                       use_flac=true;
                       CPPFLAGS="${CPPFLAGS} -DFLAC")
@@ -48,12 +46,8 @@ AC_ARG_ENABLE(musepack, AC_HELP_STRING([--enable-musepack], [Enable Musepack sup
                       use_musepack=true;
                       CPPFLAGS="${CPPFLAGS} -DMUSEPACK")
 
-AC_ARG_ENABLE(upnp, AC_HELP_STRING([--enable-upnp], [Enable upnp support]),
-                      CPPFLAGS="${CPPFLAGS} -DUPNP"; use_upnp=true;)
-
 AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
-AM_CONDITIONAL(COND_UPNP,test x$use_upnp = xtrue)
 
 AC_CHECK_FUNCS(strcasestr strsep)
 

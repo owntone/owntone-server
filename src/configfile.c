@@ -56,7 +56,6 @@
 #include "err.h"
 #include "os.h"
 #include "xml-rpc.h"
-#include "upnp.h"
 
 
 /*
@@ -77,7 +76,6 @@ static void config_emit_conffile(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_host(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_config(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_emit_servername(WS_CONNINFO *pwsc, void *value, char *arg);
-static void config_emit_upnp(WS_CONNINFO *pwsc, void *value, char *arg);
 static void config_subst_stream(WS_CONNINFO *pwsc, IOHANDLE hfile);
 static void config_content_type(WS_CONNINFO *pwsc, char *path);
 
@@ -157,7 +155,6 @@ CONFIGELEMENT config_elements[] = {
     { 0,0,0,CONFIG_TYPE_SPECIAL,"version",(void*)NULL,config_emit_version },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"system",(void*)NULL,config_emit_system },
     { 0,0,0,CONFIG_TYPE_SPECIAL,"flags",(void*)NULL,config_emit_flags },
-    { 0,0,0,CONFIG_TYPE_SPECIAL,"upnp",(void*)NULL,config_emit_upnp },
     { -1,1,0,CONFIG_TYPE_STRING,NULL,NULL,NULL }
 };
 
@@ -171,12 +168,6 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
 
     DPRINTF(E_DBG,L_MISC,"Checking if pw required for %s as %s\n",
             ws_uri(pwsc), role);
-
-    /* hack hack hack - this needs moved into the upnp plugin */
-    if(strncasecmp(ws_uri(pwsc),"/upnp",5) == 0) {
-        DPRINTF(E_DBG,L_MISC,"Nope\n");
-        return FALSE;
-    }
 
     if(strcasecmp(role,"admin") == 0) {
         pw = conf_alloc_string("general","admin_pw",NULL);
@@ -552,13 +543,6 @@ void config_handler(WS_CONNINFO *pwsc) {
 int config_auth(WS_CONNINFO *pwsc, char *user, char *password) {
     return config_matches_role(pwsc,user,password,"admin");
 }
-
-void config_emit_upnp(WS_CONNINFO *pwsc, void *value, char *arg) {
-#ifdef UPNP
-    ws_writefd(pwsc,"%s",upnp_uuid());
-#endif
-}
-
 
 /**
  * write the current servername
