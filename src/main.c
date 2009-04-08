@@ -655,11 +655,11 @@ int main(int argc, char *argv[]) {
     txt_add(txtrecord,"mtd-version=" VERSION);
     txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */
     txt_add(txtrecord,"Version=196610");      /* iTunes 6.0.4 */
-    tmp = conf_alloc_string("general","password",NULL);
-    if(tmp && (strlen(tmp)==0)) tmp=NULL;
 
-    txt_add(txtrecord,"Password=%s",tmp ? "true" : "false");
-    if(tmp) free(tmp);
+    tmp = conf_alloc_string("general", "password", NULL);
+    txt_add(txtrecord, "Password=%s", (tmp && (strlen(tmp) > 0)) ? "true" : "false");
+    if (tmp)
+      free(tmp);
 
     srand((unsigned int)time(NULL));
 
