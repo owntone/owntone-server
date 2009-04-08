@@ -121,36 +121,8 @@ struct event_base *evbase_main;
 static void usage(char *program);
 static void main_handler(WS_CONNINFO *pwsc);
 static int main_auth(WS_CONNINFO *pwsc, char *username, char *password);
-static void txt_add(char *txtrecord, char *fmt, ...);
 static void main_io_errhandler(int level, char *msg);
 static void main_ws_errhandler(int level, char *msg);
-
-/**
- * build a dns text string
- *
- * @param txtrecord buffer to append text record string to
- * @param fmt sprintf-style format
- */
-void txt_add(char *txtrecord, char *fmt, ...) {
-    va_list ap;
-    char buff[256];
-    int len;
-    char *end;
-
-    va_start(ap, fmt);
-    vsnprintf(buff, sizeof(buff), fmt, ap);
-    va_end(ap);
-
-    len = (int)strlen(buff);
-    if(len + strlen(txtrecord) > 255) {
-        DPRINTF(E_FATAL,L_MAIN,"dns-sd text string too long.  Try a shorter "
-                "share name.\n");
-    }
-
-    end = txtrecord + strlen(txtrecord);
-    *end = len;
-    strcpy(end+1,buff);
-}
 
 void main_handler(WS_CONNINFO *pwsc) {
     DPRINTF(E_DBG,L_MAIN,"in main_handler\n");
@@ -411,7 +383,7 @@ int main(int argc, char *argv[]) {
     char *ffid = NULL;
     int appdir = 0;
     char *perr=NULL;
-    char txtrecord[255];
+    char *txtrecord[10];
     void *phandle;
     char *plugindir;
     struct event *main_timer;
@@ -420,6 +392,7 @@ int main(int argc, char *argv[]) {
     int sigfd;
     struct event sig_event;
     int ret;
+    int i;
 
     int err;
     char *apppath;
@@ -702,33 +675,50 @@ int main(int argc, char *argv[]) {
     /* Register mDNS services */
     servername = conf_get_servername();
 
-    memset(txtrecord,0,sizeof(txtrecord));
-    txt_add(txtrecord,"txtvers=1");
-    txt_add(txtrecord,"Database ID=%0X",util_djb_hash_str(servername));
-    txt_add(txtrecord,"Machine ID=%0X",util_djb_hash_str(servername));
-    txt_add(txtrecord,"Machine Name=%s",servername);
-    txt_add(txtrecord,"mtd-version=" VERSION);
-    txt_add(txtrecord,"iTSh Version=131073"); /* iTunes 6.0.4 */
-    txt_add(txtrecord,"Version=196610");      /* iTunes 6.0.4 */
+    for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
+      {
+	txtrecord[i] = (char *)malloc(128);
+	if (!txtrecord[i])
+	  {
+	    DPRINTF(E_FATAL, L_MAIN, "Out of memory for TXT record\n");
+
+	    mdns_deinit();
+	    exit(EXIT_FAILURE);
+	  }
+
+	memset(txtrecord[i], 0, 128);
+      }
+
+    snprintf(txtrecord[0], 128, "txtvers=1");
+    snprintf(txtrecord[1], 128, "Database ID=%0X", util_djb_hash_str(servername));
+    snprintf(txtrecord[2], 128, "Machine ID=%0X", util_djb_hash_str(servername));
+    snprintf(txtrecord[3], 128, "Machine Name=%s", servername);
+    snprintf(txtrecord[4], 128, "mtd-version=%s", VERSION);
+    snprintf(txtrecord[5], 128, "iTSh Version=131073"); /* iTunes 6.0.4 */
+    snprintf(txtrecord[6], 128, "Version=196610");      /* iTunes 6.0.4 */
 
     tmp = conf_alloc_string("general", "password", NULL);
-    txt_add(txtrecord, "Password=%s", (tmp && (strlen(tmp) > 0)) ? "true" : "false");
+    snprintf(txtrecord[7], 128, "Password=%s", (tmp && (strlen(tmp) > 0)) ? "true" : "false");
     if (tmp)
       free(tmp);
 
     srand((unsigned int)time(NULL));
 
-    if(ffid) {
-      txt_add(txtrecord,"ffid=%s",ffid);
-    } else {
-      txt_add(txtrecord,"ffid=%08x",rand());
-    }
+    if (ffid)
+      snprintf(txtrecord[8], 128, "ffid=%s", ffid);
+    else
+      snprintf(txtrecord[8], 128, "ffid=%08x", rand());
+
+    txtrecord[9] = NULL;
 
     DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
     /* Register main service */
     mdns_register(servername, "_http._tcp", ws_config.port, txtrecord);
     /* Register plugin services */
     plugin_rend_register(servername, ws_config.port, txtrecord);
+
+    for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
+      free(txtrecord[i]);
 
     free(servername);
 

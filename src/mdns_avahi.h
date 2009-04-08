@@ -11,6 +11,6 @@ void
 mdns_deinit(void);
 
 int
-mdns_register(char *name, char *type, int port, char *txt);
+mdns_register(char *name, char *type, int port, char **txt);
 
 #endif /* !__MDNS_AVAHI_H__ */

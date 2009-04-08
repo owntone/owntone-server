@@ -339,10 +339,10 @@ void plugin_url_handle(WS_CONNINFO *pwsc) {
  * walk through the plugins and register whatever rendezvous
  * names the clients want
  */
-int plugin_rend_register(char *name, int port, char *txt) {
+int plugin_rend_register(char *name, int port, char **txt) {
     PLUGIN_ENTRY *ppi;
     PLUGIN_REND_INFO *pri;
-    char *supplied_txt;
+    char **supplied_txt;
 
     ppi = _plugin_list.next;
 

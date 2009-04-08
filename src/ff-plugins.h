@@ -69,7 +69,7 @@ typedef struct tag_plugin_transcode_fn {
 /* info for rendezvous advertising */
 typedef struct tag_plugin_rend_info {
     char *type;
-    char *txt;
+    char **txt;
 } PLUGIN_REND_INFO;
 
 /* main info struct that plugins must provide */
