@@ -28,7 +28,6 @@
 /* backgrounding, signal handling, etc */
 extern int os_init(int foreground, char *runas);
 extern void os_deinit(void);
-extern void os_wait(int seconds);
 
 /* system native logging functions */
 extern int os_opensyslog(void);

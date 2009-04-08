@@ -64,7 +64,6 @@
 
 /* Forwards */
 static int _os_daemon_start(void);
-static int _os_start_signal_handler(void);
 
 /* Globals */
 char *_os_pidfile = PIDFILE;
@@ -79,12 +78,6 @@ char *_os_pidfile = PIDFILE;
 int os_init(int foreground, char *runas) {
     int pid_fd;
     FILE *pid_fp=NULL;
-
-    /* block signals and set up the signal handling thread */
-    DPRINTF(E_LOG,L_MAIN,"Starting signal handler\n");
-    if(_os_start_signal_handler()) {
-        DPRINTF(E_FATAL,L_MAIN,"Error starting signal handler %s\n",strerror(errno));
-    }
 
     /* open the pidfile, so it can be written once we detach */
     if(!foreground) {
@@ -349,97 +342,6 @@ int os_drop_privs(char *user) {
     return 0;
 }
 
-/**
- * wait for specified time, while setting signal flags
- * (if necessary)
- */
-void os_wait(int seconds) {
-    sigset_t intmask;
-    int status;
-    struct sigaction sa_ign;
-    struct sigaction sa_dfl;
-
-    if (seconds > 0)
-      sleep(seconds);
-
-    sigpending(&intmask);
-
-    sa_ign.sa_handler=SIG_IGN;
-    sa_ign.sa_flags=0;
-    sigemptyset(&sa_ign.sa_mask);
-
-    sa_dfl.sa_handler=SIG_DFL;
-    sa_dfl.sa_flags=0;
-    sigemptyset(&sa_dfl.sa_mask);
-
-
-    if(sigismember(&intmask, SIGCLD)) {
-        DPRINTF(E_LOG,L_MAIN,"Got CLD signal.  Reaping\n");
-        while (wait3(&status, WNOHANG, NULL) > 0) {};
-
-        sigaction(SIGCLD,&sa_ign,NULL);
-        sigaction(SIGCLD,&sa_dfl,NULL);
-    }
-
-    if((sigismember(&intmask, SIGTERM)) ||
-       (sigismember(&intmask, SIGINT))) {
-        DPRINTF(E_LOG,L_MAIN,"Got shutdown signal.\n");
-        config.stop=1;
-
-        sigaction(SIGTERM,&sa_ign,NULL);
-        sigaction(SIGTERM,&sa_dfl,NULL);
-
-        sigaction(SIGINT,&sa_ign,NULL);
-        sigaction(SIGINT,&sa_dfl,NULL);
-    }
-
-    if(sigismember(&intmask, SIGHUP)) {
-        DPRINTF(E_LOG,L_MAIN,"Got HUP signal.\n");
-        /* if we can't reload, it keeps the old config file,
-         * so no real damage */
-        conf_reload();
-        err_reopen();
-
-        config.reload=1;
-
-        sigaction(SIGHUP,&sa_ign,NULL);
-        sigaction(SIGHUP,&sa_dfl,NULL);
-    }
-}
-
-/**
- * Wait for signals and flag the main process.  This is
- * a thread handler for the signal processing thread.  It
- * does absolutely nothing except wait for signals.  The rest
- * of the threads are running with signals blocked, so this thread
- * is guaranteed to catch all the signals.  It sets flags in
- * the config structure that the main thread looks for.  Specifically,
- * the stop flag (from an INT signal), and the reload flag (from HUP).
- * \param arg NULL, but required of a thread procedure
- */
-/**
- * Block signals, then start the signal handler.  The
- * signal handler started by spawning a new thread on
- * signal_handler().
- *
- * \returns 0 on success, -1 on failure with errno set
- */
-int _os_start_signal_handler(void) {
-    sigset_t set;
-
-    if((sigemptyset(&set) == -1) ||
-       (sigaddset(&set,SIGINT) == -1) ||
-       (sigaddset(&set,SIGHUP) == -1) ||
-       (sigaddset(&set,SIGCLD) == -1) ||
-       (sigaddset(&set,SIGTERM) == -1) ||
-       (sigaddset(&set,SIGPIPE) == -1) ||
-       (pthread_sigmask(SIG_BLOCK, &set, NULL) == -1)) {
-        DPRINTF(E_LOG,L_MAIN,"Error setting signal set\n");
-        return -1;
-    }
-
-    return 0;
-}
 
 /**
  * set the pidfile to a non-default value

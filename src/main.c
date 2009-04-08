@@ -1,6 +1,7 @@
 /*
- * Driver for multi-threaded daap server
+ * Copyright (C) 2009 Julien BLACHE <jb@jblache.org>
  *
+ * Pieces from mt-daapd:
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
  *
  * This program is free software; you can redistribute it and/or modify
@@ -74,6 +75,7 @@
 #ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
 #endif
+#include <sys/signalfd.h>
 
 #include "daapd.h"
 
@@ -275,15 +277,6 @@ mainloop_cb(int fd, short event, void *arg)
 
   rescan_counter += MAIN_SLEEP_INTERVAL;
 
-  /* Handle signals */ /* JB: FIXME */
-  os_wait(0);
-
-  if (config.stop)
-    {
-      event_loopbreak();
-      return;
-    }
-
   main_timer = (struct event *)arg;
   evutil_timerclear(&tv);
   tv.tv_sec = MAIN_SLEEP_INTERVAL;
@@ -331,6 +324,58 @@ mainloop_cb(int fd, short event, void *arg)
     }
 }
 
+static void
+signal_cb(int fd, short event, void *arg)
+{
+  struct sigaction sa_ign;
+  struct sigaction sa_dfl;
+  struct signalfd_siginfo info;
+  int status;
+
+  sa_ign.sa_handler=SIG_IGN;
+  sa_ign.sa_flags=0;
+  sigemptyset(&sa_ign.sa_mask);
+
+  sa_dfl.sa_handler=SIG_DFL;
+  sa_dfl.sa_flags=0;
+  sigemptyset(&sa_dfl.sa_mask);
+
+  while (read(fd, &info, sizeof(struct signalfd_siginfo)) > 0)
+    {
+      switch (info.ssi_signo)
+	{
+	  case SIGCHLD:
+	    DPRINTF(E_LOG, L_MAIN, "Got SIGCHLD, reaping children\n");
+
+	    while (wait3(&status, WNOHANG, NULL) > 0)
+	      /* Nothing. */ ;
+	    break;
+
+	  case SIGINT:
+	  case SIGTERM:
+	    DPRINTF(E_LOG, L_MAIN, "Got SIGTERM or SIGINT\n");
+
+	    config.stop = 1;
+	    break;
+
+	  case SIGHUP:
+	    DPRINTF(E_LOG, L_MAIN, "Got SIGHUP\n");
+
+	    if (!config.stop)
+	      {
+		conf_reload();
+		err_reopen();
+
+		config.reload = 1;
+	      }
+	    break;
+	}
+    }
+
+  if (config.stop)
+    event_base_loopbreak(evbase_main);
+}
+
 /**
  * Kick off the daap server and wait for events.
  *
@@ -372,6 +417,9 @@ int main(int argc, char *argv[]) {
     char *plugindir;
     struct event *main_timer;
     struct timeval tv;
+    sigset_t sigs;
+    int sigfd;
+    struct event sig_event;
     int ret;
 
     int err;
@@ -539,6 +587,20 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_LOG,L_MAIN,"Plugin loaded: %s\n",plugin_get_description(phandle));
     }
 
+    /* Block signals for all threads except the main one */
+    sigemptyset(&sigs);
+    sigaddset(&sigs, SIGINT);
+    sigaddset(&sigs, SIGHUP);
+    sigaddset(&sigs, SIGCHLD);
+    sigaddset(&sigs, SIGTERM);
+    sigaddset(&sigs, SIGPIPE);
+    ret = pthread_sigmask(SIG_BLOCK, &sigs, NULL);
+    if (ret != 0)
+      {
+        DPRINTF(E_LOG, L_MAIN, "Error setting signal set\n");
+	exit(EXIT_FAILURE);
+      }
+
     runas = conf_alloc_string("general","runas","nobody");
 
     if(!os_init(config.foreground,runas)) {
@@ -690,6 +752,20 @@ int main(int argc, char *argv[]) {
     if(conf_get_int("general","rescan_interval",0) && (!reload) &&
        (!conf_get_int("scanning","skip_first",0)))
         config.reload = 1; /* force a reload on start */
+
+    /* Set up signal fd */
+    sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);
+    if (sigfd < 0)
+      {
+	DPRINTF(E_FATAL, L_MAIN, "Could not setup signalfd: %s\n", strerror(errno));
+
+	mdns_deinit();
+	exit(EXIT_FAILURE);
+      }
+
+    event_set(&sig_event, sigfd, EV_READ, signal_cb, NULL);
+    event_base_set(evbase_main, &sig_event);
+    event_add(&sig_event, NULL);
 
     /* Set up main timer */
     evtimer_set(main_timer, mainloop_cb, main_timer);
