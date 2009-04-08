@@ -49,13 +49,15 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
+
+#include <dlfcn.h>
+
 #include "daapd.h"
 #include "conf.h"
 #include "configfile.h"
 #include "db-generic.h"
 #include "err.h"
 #include "io.h"
-#include "os.h"
 #include "plugin.h"
 #include "smart-parser.h"
 #include "xml-rpc.h"
@@ -230,8 +232,9 @@ int plugin_load(char **pe, char *path) {
 
     DPRINTF(E_DBG,L_PLUG,"Attempting to load plugin %s\n",path);
 
-    phandle = os_loadlib(pe, path);
-    if(!phandle) {
+    phandle = dlopen(path, RTLD_NOW);
+    if (!phandle) {
+        *pe = strdup(dlerror());
         DPRINTF(E_INF,L_PLUG,"Couldn't get lib handle for %s\n",path);
         return PLUGIN_E_NOLOAD;
     }
@@ -241,10 +244,11 @@ int plugin_load(char **pe, char *path) {
 
     ppi->phandle = phandle;
 
-    info_func = (PLUGIN_INFO*(*)(void)) os_libfunc(pe, phandle,"plugin_info");
+    info_func = (PLUGIN_INFO*(*)(void)) dlsym(phandle, "plugin_info");
     if(info_func == NULL) {
+        *pe = strdup(dlerror());
         DPRINTF(E_INF,L_PLUG,"Couldn't get info_func for %s\n",path);
-        os_unload(phandle);
+	dlclose(phandle);
         free(ppi);
         return PLUGIN_E_BADFUNCS;
     }
@@ -254,7 +258,7 @@ int plugin_load(char **pe, char *path) {
 
     if(!pinfo) {
         if(pe) *pe = strdup("plugin declined to load");
-        os_unload(phandle);
+        dlclose(phandle);
         free(ppi);
         return PLUGIN_E_NOLOAD;
     }
@@ -262,7 +266,7 @@ int plugin_load(char **pe, char *path) {
     if(pinfo->version != PLUGIN_VERSION) {
         DPRINTF(E_INF,L_PLUG,"Plugin is too old: version %d, expecting %d\n",
                 pinfo->version, PLUGIN_VERSION);
-        os_unload(phandle);
+        dlclose(phandle);
         free(ppi);
         return PLUGIN_E_NOLOAD;
     }

@@ -23,8 +23,8 @@ mt_daapd_SOURCES = main.c daapd.h webserver.c \
 	rxml.c rxml.h redblack.c redblack.h \
 	scan-xml.c scan-wma.c scan-url.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
-	os.h ll.c ll.h conf.c conf.h util.c util.h \
-	os-unix.h os-unix.c os.h plugin.c plugin.h db-sql-updates.c \
+	ll.c ll.h conf.c conf.h util.c util.h \
+	plugin.c plugin.h db-sql-updates.c \
 	io.h io.c io-errors.h io-plugin.h \
 	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
 	$(FLACSRC) $(MUSEPACKSRC)

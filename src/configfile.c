@@ -54,7 +54,6 @@
 #include "configfile.h"
 #include "db-generic.h"
 #include "err.h"
-#include "os.h"
 #include "xml-rpc.h"
 
 
@@ -175,7 +174,8 @@ int config_password_required(WS_CONNINFO *pwsc, char *role) {
             /* don't need a password from localhost
                when the password isn't set */
 
-            if((ws_hostname(pwsc)) && (os_islocaladdr(ws_hostname(pwsc)))) {
+            if((ws_hostname(pwsc))
+	       && (strncmp(ws_hostname(pwsc), "127.", 4) == 0)) {
                 if(pw) free(pw);
                 return FALSE;
             }
@@ -394,7 +394,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     }
 
     /* FIXME: should feed this file directly, so as to bypass perms */
-    if(!os_islocaladdr(ws_hostname(pwsc))) {
+    if(strncmp(ws_hostname(pwsc), "127.", 4) != 0) {
         pw=conf_alloc_string("general","admin_pw",NULL);
         if((!pw) || (strlen(pw) == 0)) {
             if(pw) free(pw);
@@ -446,7 +446,7 @@ void config_handler(WS_CONNINFO *pwsc) {
     }
 
     /* this is quite broken, but will work */
-    os_stat(resolved_path,&sb);
+    stat(resolved_path,&sb);
     if(S_ISDIR(sb.st_mode)) {
         ws_addresponseheader(pwsc,"Location","index.html");
         ws_returnerror(pwsc,302,"Moved");
@@ -942,7 +942,7 @@ void config_emit_include(WS_CONNINFO *pwsc, void *value, char *arg) {
     }
 
     /* this should really return a 302:Found */
-    os_stat(resolved_path,&sb);
+    stat(resolved_path,&sb);
     if(sb.st_mode & S_IFDIR) {
         ws_writefd(pwsc,"<hr><i>error: cannot include dir %s</i><hr>",arg);
         return;

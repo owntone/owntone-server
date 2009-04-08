@@ -34,7 +34,6 @@
 #include "db-generic.h"
 #include "err.h"
 #include "mp3-scanner.h"
-#include "os.h"
 #include "plugin.h"
 #include "webserver.h"
 #include "xml-rpc.h"
@@ -458,7 +457,7 @@ void xml_browse_path(WS_CONNINFO *pwsc) {
         snprintf(full_path,PATH_MAX,"%s%c%s",base_path,PATHSEP,pde->d_name);
         realpath(full_path,resolved_path);
 
-        if(os_stat(resolved_path,&sb)) {
+        if(stat(resolved_path, &sb)) {
             DPRINTF(E_INF,L_XML,"Error statting %s: %s\n",
                     resolved_path,strerror(errno));
             continue;

@@ -46,12 +46,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include <syslog.h>
+
 #include "daapd.h"
 #include "err.h"
 #include "io.h"
 
 #ifndef ERR_LEAN
-# include "os.h"
 # include "plugin.h"
 #endif
 
@@ -81,6 +82,14 @@ static char *err_categorylist[] = {
 };
 
 static ERR_THREADLIST err_threadlist = { 0, NULL };
+
+static int lvl2syslog[10] =
+  {
+    LOG_ALERT, LOG_ALERT,
+    LOG_NOTICE, LOG_NOTICE, LOG_NOTICE,
+    LOG_INFO, LOG_INFO, LOG_INFO, LOG_INFO,
+    LOG_DEBUG
+  };
 
 /*
  * Forwards
@@ -245,9 +254,10 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     /* always log fatals and level 1 to syslog */
     if(level <= 1) {
         if(!err_syslog_open)
-            os_opensyslog();
+	  openlog(PACKAGE, LOG_PID, LOG_DAEMON);
+
         err_syslog_open=1;
-        os_syslog(level,errbuf);
+	syslog((level > E_DBG) ? LOG_DEBUG : lvl2syslog[level], "%s", errbuf);
 
         if(syslog_only && !level) {
             fprintf(stderr,"Aborting\n");
@@ -361,8 +371,9 @@ int err_setlogfile(char *file) {
         if(!err_file) {
             err_logdest &= ~LOGDEST_LOGFILE;
             if(!err_syslog_open)
-                os_opensyslog();
-            os_syslog(1,"Error initializing logfile");
+	      openlog(PACKAGE, LOG_PID, LOG_DAEMON);
+
+	    syslog(lvl2syslog[1], "Error initializing logfile");
         }
     }
 
@@ -385,8 +396,9 @@ int err_setlogfile(char *file) {
         err_logdest &= ~LOGDEST_LOGFILE;
 
         if(!err_syslog_open)
-            os_opensyslog();
-        os_syslog(1,"Error opening logfile");
+	  openlog(PACKAGE, LOG_PID, LOG_DAEMON);
+
+	syslog(lvl2syslog[1], "Error opening logfile");
 
         result=FALSE;
     }

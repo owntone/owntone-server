@@ -23,8 +23,6 @@ AC_CHECK_FUNCS(timegm)
 AC_CHECK_FUNCS(va_copy)
 AC_CHECK_FUNCS(__va_copy)
 
-AC_FUNC_SETPGRP
-
 if test "x$prefix" != xNONE -a "x$prefix" != "x/usr"; then
     CONFFILE="$prefix/etc/mt-daapd.conf"
 else 

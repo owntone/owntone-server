@@ -46,12 +46,13 @@
 #endif
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <pwd.h>
+#include <grp.h>
 
 #include "daapd.h"
 #include "conf.h"
 #include "err.h"
 #include "ll.h"
-#include "os.h"
 #include "util.h"
 #include "webserver.h"
 #include "xml-rpc.h"
@@ -191,6 +192,36 @@ void _conf_remap_entry(char *old_section, char *old_key, char **new_section, cha
     *new_key = old_key;
 }
 
+static int _conf_chown(char *path, char *user) {
+    struct passwd *pw=NULL;
+
+    DPRINTF(E_DBG,L_MISC,"Chowning %s to %s\n",path,user);
+
+    /* drop privs */
+    if(getuid() == (uid_t)0) {
+        if(atoi(user)) {
+            pw=getpwuid((uid_t)atoi(user)); /* doh! */
+        } else {
+            pw=getpwnam(user);
+        }
+
+        if(pw) {
+            if(initgroups(user,pw->pw_gid) != 0 ||
+               chown(path, pw->pw_uid, pw->pw_gid) != 0) {
+                DPRINTF(E_LOG,L_MISC,"Couldn't chown %s, gid=%d, uid=%d\n",
+                        user,pw->pw_gid, pw->pw_uid);
+                return FALSE;
+            }
+        } else {
+            DPRINTF(E_LOG,L_MISC,"Couldn't lookup user %s for chown\n",user);
+            return FALSE;
+        }
+    }
+
+    DPRINTF(E_DBG,L_MISC,"Success!\n");
+    return TRUE;
+}
+
 /**
  * Try and create a directory, including parents (probably
  * in response to a config file entry that does not exist).
@@ -233,7 +264,7 @@ int _conf_makedir(char *path,char *user) {
                             path_buffer,strerror(errno));
                     return FALSE;
                 }
-                os_chown(path_buffer,user);
+                _conf_chown(path_buffer,user);
             }
             retval = TRUE;
         }
@@ -254,9 +285,8 @@ int _conf_existdir(char *path) {
 
     DPRINTF(E_DBG,L_CONF,"Checking existence of %s\n",path);
 
-    if(os_stat(path,&sb)) {
-        return FALSE;
-    }
+    if (stat(path, &sb))
+      return FALSE;
 
     if(sb.st_mode & S_IFDIR)
         return TRUE;

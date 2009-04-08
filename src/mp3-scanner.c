@@ -48,7 +48,6 @@
 #include "err.h"
 #include "io.h"
 #include "mp3-scanner.h"
-#include "os.h"
 #include "util.h"
 
 
@@ -295,7 +294,7 @@ int scan_path(char *path) {
 
         snprintf(relative_path,PATH_MAX,"%s/%s",path,pde->d_name);
 
-        if(!os_lstat(relative_path,&sb)) {
+        if(!lstat(relative_path, &sb)) {
             if(S_ISLNK(sb.st_mode) && !follow_symlinks)
                 continue;
         }
@@ -303,7 +302,7 @@ int scan_path(char *path) {
         mp3_path[0] = '\x0';
         realpath(relative_path,mp3_path);
         DPRINTF(E_DBG,L_SCAN,"Found %s\n",relative_path);
-        if(os_stat(mp3_path,&sb)) {
+        if (stat(mp3_path, &sb)) {
             DPRINTF(E_INF,L_SCAN,"Error statting %s: %s\n",mp3_path,strerror(errno));
         } else {
             if(S_ISDIR(sb.st_mode)) {  /* follow dir */
@@ -353,7 +352,7 @@ int scan_static_playlist(char *path) {
     int ret;
 
     DPRINTF(E_WARN,L_SCAN|L_PL,"Processing static playlist: %s\n",path);
-    if(os_stat(path,&sb)) {
+    if (stat(path, &sb)) {
         DPRINTF(E_INF,L_SCAN,"Error statting %s: %s\n",path,strerror(errno));
         return FALSE;
     }
@@ -535,7 +534,7 @@ void scan_filename(char *path, int compdir, char *extensions) {
     }
 
 
-    if(os_stat(mp3_path,&sb)) {
+    if(stat(mp3_path, &sb)) {
         DPRINTF(E_INF,L_SCAN,"Error statting: %s\n",strerror(errno));
     } else {
         /* we assume this is regular file */

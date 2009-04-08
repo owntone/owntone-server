@@ -38,7 +38,6 @@
 #include "db-generic.h"
 #include "err.h"
 #include "mp3-scanner.h"
-#include "os.h"
 #include "rxml.h"
 #include "redblack.h"
 #include "util.h"
@@ -165,7 +164,7 @@ int scan_xml_rb_compare(const void *pa, const void *pb, const void *cfg) {
 int scan_xml_is_file(char *path) {
     struct stat sb;
 
-    if(os_stat(path,&sb))
+    if(stat(path, &sb))
         return 0;
 
     if(sb.st_mode & S_IFREG)

@@ -77,6 +77,9 @@
 #endif
 #include <sys/signalfd.h>
 
+#include <pwd.h>
+#include <grp.h>
+
 #include "daapd.h"
 
 #include "conf.h"
@@ -85,7 +88,6 @@
 #include "mp3-scanner.h"
 #include "webserver.h"
 #include "db-generic.h"
-#include "os.h"
 #include "plugin.h"
 #include "util.h"
 #include "io.h"
@@ -106,6 +108,10 @@
 /** Let's hope if you have no atoll, you only have 32 bit inodes... */
 #if !HAVE_ATOLL
 #  define atoll(a) atol(a)
+#endif
+
+#ifndef PIDFILE
+#define PIDFILE "/var/run/mt-daapd.pid"
 #endif
 
 /*
@@ -156,7 +162,6 @@ int main_auth(WS_CONNINFO *pwsc, char *username, char *password) {
 void usage(char *program) {
     printf("Usage: %s [options]\n\n",program);
     printf("Options:\n");
-    printf("  -a             Set cwd to app dir before starting\n");
     printf("  -d <number>    Debug level (0-9)\n");
     printf("  -D <mod,mod..> Debug modules\n");
     printf("  -c <file>      Use configfile specified\n");
@@ -216,6 +221,160 @@ int load_plugin_dir(char *plugindir) {
 
     return loaded;
 }
+
+static int
+sigterm_server(char *pidfile)
+{
+  FILE *fp;
+  pid_t pid;
+  int ret;
+
+  fp = fopen(pidfile, "r");
+  if (!fp)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Failed to open pidfile %s: %s\n", pidfile, strerror(errno));
+
+      return -1;
+    }
+
+  ret = fscanf(fp, "%d\n", &pid);
+
+  fclose(fp);
+
+  if (ret < 1)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Failed to get pid from pidfile %s\n", pidfile);
+
+      return -1;
+    }
+
+  ret = kill(pid, SIGTERM);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Failed to kill pid %d: %s\n", pid, strerror(errno));
+
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+daemonize(int foreground, char *runas, char *pidfile)
+{
+  FILE *fp;
+  int fd;
+  pid_t childpid;
+  pid_t ret;
+  int iret;
+  struct passwd *pw;
+
+  if (geteuid() == (uid_t) 0)
+    {
+      pw = getpwnam(runas);
+
+      if (!pw)
+	{
+	  DPRINTF(E_FATAL, L_MAIN, "Could not lookup user %s: %s\n", runas, strerror(errno));
+
+	  return -1;
+	}
+    }
+  else
+    pw = NULL;
+
+  if (!foreground)
+    {
+      fp = fopen(pidfile, "w");
+      if (!fp)
+	{
+	  DPRINTF(E_LOG, L_MAIN, "Error opening pidfile (%s): %s\n", pidfile, strerror(errno));
+
+	  return -1;
+	}
+
+      fd = open("/dev/null", O_RDWR, 0);
+      if (fd < 0)
+	{
+	  DPRINTF(E_LOG, L_MAIN, "Error opening /dev/null: %s\n", strerror(errno));
+
+	  fclose(fp);
+	  return -1;
+	}
+
+      signal(SIGTTOU, SIG_IGN);
+      signal(SIGTTIN, SIG_IGN);
+      signal(SIGTSTP, SIG_IGN);
+
+      childpid = fork();
+
+      if (childpid > 0)
+	exit(EXIT_SUCCESS);
+      else if (childpid < 0)
+	{
+	  DPRINTF(E_FATAL, L_MAIN, "Fork failed: %s\n", strerror(errno));
+
+	  close(fd);
+	  fclose(fp);
+	  return -1;
+	}
+
+      ret = setsid();
+      if (ret == (pid_t) -1)
+	{
+	  DPRINTF(E_FATAL, L_MAIN, "setsid() failed: %s\n", strerror(errno));
+
+	  close(fd);
+	  fclose(fp);
+	  return -1;
+	}
+
+      dup2(fd, STDIN_FILENO);
+      dup2(fd, STDOUT_FILENO);
+      dup2(fd, STDERR_FILENO);
+
+      if (fd > 2)
+	close(fd);
+
+      chdir("/");
+      umask(0);
+
+      fprintf(fp, "%d\n", getpid());
+      fclose(fp);
+
+      DPRINTF(E_DBG, L_MAIN, "PID: %d\n", getpid());
+    }
+
+  if (pw)
+    {
+      iret = initgroups(runas, pw->pw_gid);
+      if (iret != 0)
+	{
+	  DPRINTF(E_FATAL, L_MAIN, "initgroups() failed: %s\n", strerror(errno));
+
+	  return -1;
+	}
+
+      iret = setgid(pw->pw_gid);
+      if (iret != 0)
+	{
+	  DPRINTF(E_FATAL, L_MAIN, "setgid() failed: %s\n", strerror(errno));
+
+	  return -1;
+	}
+
+      iret = setuid(pw->pw_uid);
+      if (iret != 0)
+	{
+	  DPRINTF(E_FATAL, L_MAIN, "setuid() failed: %s\n", strerror(errno));
+
+	  return -1;
+	}
+    }
+
+  return 0;
+}
+
 
 /**
  * set up an errorhandler for io errors
@@ -381,11 +540,11 @@ int main(int argc, char *argv[]) {
     char **mp3_dir_array;
     char *servername;
     char *ffid = NULL;
-    int appdir = 0;
     char *perr=NULL;
     char *txtrecord[10];
     void *phandle;
     char *plugindir;
+    char *pidfile = PIDFILE;
     struct event *main_timer;
     struct timeval tv;
     sigset_t sigs;
@@ -395,19 +554,14 @@ int main(int argc, char *argv[]) {
     int i;
 
     int err;
-    char *apppath;
 
     int debuglevel=0;
 
     err_setlevel(2);
 
     config.foreground=0;
-    while((option=getopt(argc,argv,"D:d:c:P:mfrysiuvab:Vk")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:frysiuvb:Vk")) != -1) {
         switch(option) {
-        case 'a':
-            appdir = 1;
-            break;
-
         case 'b':
             ffid=optarg;
             break;
@@ -434,7 +588,7 @@ int main(int argc, char *argv[]) {
             break;
 
         case 'P':
-            os_set_pidfile(optarg);
+	    pidfile = optarg;
             break;
 
         case 'r':
@@ -477,10 +631,14 @@ int main(int argc, char *argv[]) {
     }
 
 
-    if(kill_server) {
-        os_signal_server(S_STOP);
-        exit(0);
-    }
+    if (kill_server)
+      {
+        ret = sigterm_server(pidfile);
+	if (ret == 0)
+	  exit(EXIT_SUCCESS);
+	else
+	  exit(EXIT_FAILURE);
+      }
 
     io_init();
     io_set_errhandler(main_io_errhandler);
@@ -490,15 +648,6 @@ int main(int argc, char *argv[]) {
      * try defaults */
     config.stats.start_time=start_time=(int)time(NULL);
     config.stop=0;
-
-    /* set appdir first, that way config resolves relative to appdir */
-    if(appdir) {
-        apppath = os_apppath(argv[0]);
-        DPRINTF(E_INF,L_MAIN,"Changing cwd to %s\n",apppath);
-        chdir(apppath);
-        free(apppath);
-        configfile="mt-daapd.conf";
-    }
 
     if(CONF_E_SUCCESS != conf_read(configfile)) {
         fprintf(stderr,"Error reading config file (%s)\n",configfile);
@@ -556,13 +705,18 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
       }
 
-    runas = conf_alloc_string("general","runas","nobody");
+    /* Daemonize and drop privileges */
+    runas = conf_alloc_string("general", "runas", "nobody");
 
-    if(!os_init(config.foreground,runas)) {
-      DPRINTF(E_LOG,L_MAIN,"Could not initialize server\n");
+    ret = daemonize(config.foreground, runas, pidfile);
+    if (ret < 0)
+      {
+	DPRINTF(E_LOG, L_MAIN, "Could not initialize server\n");
 
-      exit(EXIT_FAILURE);
-    }
+	exit(EXIT_FAILURE);
+      }
+
+    free(runas);
 
     /* Initialize libevent (after forking) */
     evbase_main = event_init();
@@ -573,7 +727,6 @@ int main(int argc, char *argv[]) {
 
 	exit(EXIT_FAILURE);
       }
-    free(runas);
 
     DPRINTF(E_LOG, L_MAIN, "mDNS init\n");
     ret = mdns_init();

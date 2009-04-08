@@ -38,6 +38,9 @@
 # include <stdint.h>
 #endif
 
+#define PATHSEP '/'
+#define PATHSEP_STR "/"
+
 #ifdef DEBUG
 #  ifndef ASSERT
 #    define ASSERT(f)         \
