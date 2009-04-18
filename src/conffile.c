@@ -69,7 +69,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_END()
   };
 
-static cfg_t *cfg;
+cfg_t *cfg;
 
 
 static int
