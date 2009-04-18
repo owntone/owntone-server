@@ -170,7 +170,6 @@ void usage(char *program) {
     printf("  -y             Yes, go ahead and run as non-root user\n");
     printf("  -b <id>        ffid to be broadcast\n");
     printf("  -V             Display version information\n");
-    printf("  -k             Kill a running daemon (based on pidfile)\n");
     printf("\n\n");
     printf("Valid debug modules:\n");
     printf(" config,webserver,database,scan,query,index,browse\n");
@@ -220,43 +219,6 @@ int load_plugin_dir(char *plugindir) {
     }
 
     return loaded;
-}
-
-static int
-sigterm_server(char *pidfile)
-{
-  FILE *fp;
-  pid_t pid;
-  int ret;
-
-  fp = fopen(pidfile, "r");
-  if (!fp)
-    {
-      DPRINTF(E_LOG, L_MAIN, "Failed to open pidfile %s: %s\n", pidfile, strerror(errno));
-
-      return -1;
-    }
-
-  ret = fscanf(fp, "%d\n", &pid);
-
-  fclose(fp);
-
-  if (ret < 1)
-    {
-      DPRINTF(E_LOG, L_MAIN, "Failed to get pid from pidfile %s\n", pidfile);
-
-      return -1;
-    }
-
-  ret = kill(pid, SIGTERM);
-  if (ret != 0)
-    {
-      DPRINTF(E_LOG, L_MAIN, "Failed to kill pid %d: %s\n", pid, strerror(errno));
-
-      return -1;
-    }
-
-  return 0;
 }
 
 static int
@@ -534,7 +496,6 @@ int main(int argc, char *argv[]) {
     int song_count;
     int force_non_root=0;
     int skip_initial=1;
-    int kill_server=0;
     char *db_type,*db_parms,*web_root,*runas, *tmp;
     char **mp3_dir_array;
     char *servername;
@@ -559,7 +520,7 @@ int main(int argc, char *argv[]) {
     err_setlevel(2);
 
     config.foreground=0;
-    while((option=getopt(argc,argv,"D:d:c:P:frysiub:Vk")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:frysiub:V")) != -1) {
         switch(option) {
         case 'b':
             ffid=optarg;
@@ -602,10 +563,6 @@ int main(int argc, char *argv[]) {
             force_non_root=1;
             break;
 
-        case 'k':
-            kill_server=1;
-            break;
-
         case 'V':
             fprintf(stderr,"Firefly Media Server: Version %s\n",VERSION);
             exit(EXIT_SUCCESS);
@@ -624,16 +581,6 @@ int main(int argc, char *argv[]) {
                 "command-line switch\n");
         exit(EXIT_FAILURE);
     }
-
-
-    if (kill_server)
-      {
-        ret = sigterm_server(pidfile);
-	if (ret == 0)
-	  exit(EXIT_SUCCESS);
-	else
-	  exit(EXIT_FAILURE);
-      }
 
     io_init();
     io_set_errhandler(main_io_errhandler);
