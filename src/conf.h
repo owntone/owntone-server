@@ -36,9 +36,7 @@
 #define CONF_E_BADCONFIG    12
 #define CONF_E_NOTSUPP      13
 
-extern int conf_read(char *file);
 extern int conf_reload(void);
-extern int conf_close(void);
 extern int conf_get_int(char *section, char *key, int dflt);
 extern int conf_get_string(char *section, char *key, char *dflt,
                              char *out, int *size);

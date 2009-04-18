@@ -82,6 +82,7 @@
 
 #include "daapd.h"
 
+#include "conffile.h"
 #include "conf.h"
 #include "configfile.h"
 #include "err.h"
@@ -591,10 +592,13 @@ int main(int argc, char *argv[]) {
     config.stats.start_time=start_time=(int)time(NULL);
     config.stop=0;
 
-    if(CONF_E_SUCCESS != conf_read(configfile)) {
-        fprintf(stderr,"Error reading config file (%s)\n",configfile);
-        exit(EXIT_FAILURE);
-    }
+    ret = conffile_load(configfile);
+    if (ret != 0)
+      {
+	fprintf(stderr, "Config file errors; please fix your config\n");
+
+	exit(EXIT_FAILURE);
+      }
 
     if(debuglevel) /* was specified, should override the config file */
         err_setlevel(debuglevel);
@@ -842,7 +846,8 @@ int main(int argc, char *argv[]) {
     ws_stop(config.server);
     */
     free(web_root);
-    conf_close();
+
+    conffile_unload();
 
     DPRINTF(E_LOG,L_MAIN|L_DB,"Closing database\n");
     db_deinit();

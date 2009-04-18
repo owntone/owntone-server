@@ -337,19 +337,6 @@ conffile_unload(void)
 #include "conf.h"
 
 int
-conf_read(char *file)
-{
-  return conffile_load(file);
-}
-
-int
-conf_close(void)
-{
-  conffile_unload();
-  return 0;
-}
-
-int
 conf_get_int(char *section, char *key, int dflt)
 {
   cfg_t *lib;
