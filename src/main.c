@@ -169,7 +169,7 @@ void usage(char *program) {
     printf("  -f             Run in foreground\n");
     printf("  -y             Yes, go ahead and run as non-root user\n");
     printf("  -b <id>        ffid to be broadcast\n");
-    printf("  -V             Display version information\n");
+    printf("  -v             Display version information\n");
     printf("\n\n");
     printf("Valid debug modules:\n");
     printf(" config,webserver,database,scan,query,index,browse\n");
@@ -520,7 +520,7 @@ int main(int argc, char *argv[]) {
     err_setlevel(2);
 
     config.foreground=0;
-    while((option=getopt(argc,argv,"D:d:c:P:frysiub:V")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:frysiub:v")) != -1) {
         switch(option) {
         case 'b':
             ffid=optarg;
@@ -563,7 +563,7 @@ int main(int argc, char *argv[]) {
             force_non_root=1;
             break;
 
-        case 'V':
+        case 'v':
             fprintf(stderr,"Firefly Media Server: Version %s\n",VERSION);
             exit(EXIT_SUCCESS);
             break;
