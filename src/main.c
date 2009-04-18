@@ -535,7 +535,6 @@ int main(int argc, char *argv[]) {
     int force_non_root=0;
     int skip_initial=1;
     int kill_server=0;
-    int convert_conf=0;
     char *db_type,*db_parms,*web_root,*runas, *tmp;
     char **mp3_dir_array;
     char *servername;
@@ -560,7 +559,7 @@ int main(int argc, char *argv[]) {
     err_setlevel(2);
 
     config.foreground=0;
-    while((option=getopt(argc,argv,"D:d:c:P:frysiuvb:Vk")) != -1) {
+    while((option=getopt(argc,argv,"D:d:c:P:frysiub:Vk")) != -1) {
         switch(option) {
         case 'b':
             ffid=optarg;
@@ -603,10 +602,6 @@ int main(int argc, char *argv[]) {
             force_non_root=1;
             break;
 
-        case 'v':
-            convert_conf=1;
-            break;
-
         case 'k':
             kill_server=1;
             break;
@@ -623,7 +618,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if((getuid()) && (!force_non_root) && (!convert_conf)) {
+    if((getuid()) && (!force_non_root)) {
         fprintf(stderr,"You are not root.  This is almost certainly wrong.  "
                 "If you are\nsure you want to do this, use the -y "
                 "command-line switch\n");
@@ -656,15 +651,6 @@ int main(int argc, char *argv[]) {
 
     if(debuglevel) /* was specified, should override the config file */
         err_setlevel(debuglevel);
-
-    if(convert_conf) {
-        fprintf(stderr,"Converting config file...\n");
-        if(CONF_E_SUCCESS != conf_write()) {
-            fprintf(stderr,"Error writing config file.\n");
-            exit(EXIT_FAILURE);
-        }
-        exit(EXIT_SUCCESS);
-    }
 
     DPRINTF(E_LOG,L_MAIN,"Firefly Version %s: Starting with debuglevel %d\n",
             VERSION,err_getlevel());
