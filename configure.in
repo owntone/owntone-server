@@ -50,6 +50,7 @@ AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 AC_CHECK_FUNCS(strcasestr strsep)
 
 dnl Checks for libraries.
+PKG_CHECK_MODULES(CONFUSE, [ libconfuse ])
 PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
 PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
