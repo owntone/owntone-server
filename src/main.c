@@ -86,7 +86,7 @@
 #include "conf.h"
 #include "configfile.h"
 #include "err.h"
-#include "mp3-scanner.h"
+#include "filescanner.h"
 #include "webserver.h"
 #include "db-generic.h"
 #include "plugin.h"
@@ -359,63 +359,6 @@ void main_ws_errhandler(int level, char *msg) {
     DPRINTF(level,L_WS,"%s",msg);
 }
 
-static void
-mainloop_cb(int fd, short event, void *arg)
-{
-  int old_song_count, song_count;
-  char **mp3_dir_array;
-  struct event *main_timer;
-  struct timeval tv;
-  static int rescan_counter = 0;
-
-  rescan_counter += MAIN_SLEEP_INTERVAL;
-
-  main_timer = (struct event *)arg;
-  evutil_timerclear(&tv);
-  tv.tv_sec = MAIN_SLEEP_INTERVAL;
-  evtimer_add(main_timer, &tv);
-
-  if ((conf_get_int("general", "rescan_interval", 0)
-       && (rescan_counter > conf_get_int("general", "rescan_interval", 0))))
-    {
-      if ((conf_get_int("general", "always_scan", 0))
-	  || (config_get_session_count()))
-	{
-	  config.reload = 1;
-	}
-      else
-	{
-	  DPRINTF(E_DBG, L_MAIN | L_SCAN | L_DB, "Skipped background scan... no users\n");
-	}
-      rescan_counter = 0;
-    }
-
-  if (config.reload)
-    {
-      db_get_song_count(NULL, &old_song_count);
-
-      DPRINTF(E_LOG, L_MAIN | L_DB | L_SCAN, "Rescanning database\n");
-
-      if (conf_get_array("general", "mp3_dir", &mp3_dir_array))
-	{
-	  if (config.full_reload)
-	    {
-	      config.full_reload = 0;
-	      db_force_rescan(NULL);
-	    }
-
-	  if (scan_init(mp3_dir_array))
-	    {
-	      DPRINTF(E_LOG, L_MAIN | L_DB | L_SCAN, "Error rescanning... bad path?\n");
-	    }
-	  conf_dispose_array(mp3_dir_array);
-	}
-      config.reload = 0;
-
-      db_get_song_count(NULL, &song_count);
-      DPRINTF(E_LOG, L_MAIN | L_DB | L_SCAN, "Scanned %d songs (was %d)\n",song_count, old_song_count);
-    }
-}
 
 static void
 signal_cb(int fd, short event, void *arg)
@@ -498,7 +441,6 @@ int main(int argc, char *argv[]) {
     int force_non_root=0;
     int skip_initial=1;
     char *db_type,*db_parms,*web_root,*runas, *tmp;
-    char **mp3_dir_array;
     char *servername;
     char *ffid = NULL;
     char *perr=NULL;
@@ -506,8 +448,6 @@ int main(int argc, char *argv[]) {
     void *phandle;
     char *plugindir;
     char *pidfile = PIDFILE;
-    struct event *main_timer;
-    struct timeval tv;
     sigset_t sigs;
     int sigfd;
     struct event sig_event;
@@ -657,13 +597,6 @@ int main(int argc, char *argv[]) {
 
     /* Initialize libevent (after forking) */
     evbase_main = event_init();
-    main_timer = (struct event *)malloc(sizeof(struct event));
-    if (!main_timer)
-      {
-	DPRINTF(E_FATAL, L_MAIN, "Out of memory\n");
-
-	exit(EXIT_FAILURE);
-      }
 
     DPRINTF(E_LOG, L_MAIN, "mDNS init\n");
     ret = mdns_init();
@@ -703,25 +636,16 @@ int main(int argc, char *argv[]) {
     if(!song_count)
         reload = 1;
 
-    if(conf_get_array("general","mp3_dir",&mp3_dir_array)) {
-        if((!skip_initial) || (reload)) {
-            DPRINTF(E_LOG,L_MAIN|L_SCAN,"Starting mp3 scan\n");
+    /* Spawn file scanner thread */
+    ret = filescanner_init();
+    if (ret != 0)
+      {
+	DPRINTF(E_FATAL, L_MAIN, "File scanner thread failed to start\n");
 
-            plugin_event_dispatch(PLUGIN_EVENT_FULLSCAN_START,0,NULL,0);
-            start_time=(int) time(NULL);
-            if(scan_init(mp3_dir_array)) {
-                DPRINTF(E_LOG,L_MAIN|L_SCAN,"Error scanning MP3 files: %s\n",strerror(errno));
-            }
-            if(!config.stop) { /* don't send popup when shutting down */
-                plugin_event_dispatch(PLUGIN_EVENT_FULLSCAN_END,0,NULL,0);
-                err=db_get_song_count(&perr,&song_count);
-                end_time=(int) time(NULL);
-                DPRINTF(E_LOG,L_MAIN|L_SCAN,"Scanned %d songs in %d seconds\n",
-                        song_count,end_time - start_time);
-            }
-        }
-        conf_dispose_array(mp3_dir_array);
-    }
+	mdns_deinit();
+	db_deinit();
+	exit(EXIT_FAILURE);
+      }
 
     /* start up the web server */
     web_root = conf_alloc_string("general","web_root",NULL);
@@ -755,6 +679,7 @@ int main(int argc, char *argv[]) {
 	  {
 	    DPRINTF(E_FATAL, L_MAIN, "Out of memory for TXT record\n");
 
+	    filescanner_deinit();
 	    mdns_deinit();
 	    exit(EXIT_FAILURE);
 	  }
@@ -815,6 +740,7 @@ int main(int argc, char *argv[]) {
       {
 	DPRINTF(E_FATAL, L_MAIN, "Could not setup signalfd: %s\n", strerror(errno));
 
+	filescanner_deinit();
 	mdns_deinit();
 	exit(EXIT_FAILURE);
       }
@@ -823,17 +749,13 @@ int main(int argc, char *argv[]) {
     event_base_set(evbase_main, &sig_event);
     event_add(&sig_event, NULL);
 
-    /* Set up main timer */
-    evtimer_set(main_timer, mainloop_cb, main_timer);
-    event_base_set(evbase_main, main_timer);
-    evutil_timerclear(&tv);
-    tv.tv_sec = MAIN_SLEEP_INTERVAL;
-    evtimer_add(main_timer, &tv);
-
     /* Run the loop */
     event_base_dispatch(evbase_main);
 
     DPRINTF(E_LOG,L_MAIN,"Stopping gracefully\n");
+
+    DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
+    filescanner_deinit();
 
     DPRINTF(E_LOG, L_MAIN | L_REND, "mDNS deinit\n");
     mdns_deinit();
