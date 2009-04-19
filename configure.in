@@ -60,6 +60,10 @@ AC_CHECK_HEADER(event.h, , AC_MSG_ERROR([event.h not found]))
 AC_CHECK_LIB([event_core], [event_init], [LIBEVENT_LIBS="-levent_core"], AC_MSG_ERROR([libevent not found]))
 AC_SUBST(LIBEVENT_LIBS)
 
+AC_CHECK_HEADER(avl.h, , AC_MSG_ERROR([avl.h not found]))
+AC_CHECK_LIB([avl], [avl_alloc_tree], [LIBAVL_LIBS="-lavl"], AC_MSG_ERROR([libavl not found]))
+AC_SUBST(LIBAVL_LIBS)
+
 if test x$use_flac = xtrue; then
 	PKG_CHECK_MODULES(FLAC, [ flac ])
 fi
