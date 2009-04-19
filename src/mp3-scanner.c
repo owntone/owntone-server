@@ -75,7 +75,7 @@ extern int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi);
 
 /* playlist scanners */
 extern int scan_xml_playlist(char *filename);
-static int scan_static_playlist(char *path);
+int scan_static_playlist(char *path);
 
 
 typedef struct tag_playlistlist {
