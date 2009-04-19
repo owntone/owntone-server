@@ -681,6 +681,7 @@ int main(int argc, char *argv[]) {
 
 	    filescanner_deinit();
 	    mdns_deinit();
+	    db_deinit();
 	    exit(EXIT_FAILURE);
 	  }
 
@@ -742,6 +743,7 @@ int main(int argc, char *argv[]) {
 
 	filescanner_deinit();
 	mdns_deinit();
+	db_deinit();
 	exit(EXIT_FAILURE);
       }
 
