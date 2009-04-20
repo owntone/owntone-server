@@ -38,7 +38,7 @@
 
 #include "daapd.h"
 #include "err.h"
-#include "mp3-scanner.h"
+#include "filescanner.h"
 
 
 /* Legacy format-specific scanners */

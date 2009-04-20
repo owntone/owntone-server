@@ -41,7 +41,6 @@
 #include "daapd.h"
 #include "db-generic.h"
 #include "err.h"
-#include "mp3-scanner.h"
 
 #include "db-sql.h"
 

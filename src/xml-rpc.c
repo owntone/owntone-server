@@ -33,7 +33,6 @@
 #include "conf.h"
 #include "db-generic.h"
 #include "err.h"
-#include "mp3-scanner.h"
 #include "plugin.h"
 #include "webserver.h"
 #include "xml-rpc.h"

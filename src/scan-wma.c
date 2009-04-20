@@ -33,8 +33,8 @@
 
 #include "daapd.h"
 #include "io.h"
-#include "mp3-scanner.h"
 #include "err.h"
+#include "ff-dbstruct.h"
 
 typedef struct tag_wma_guidlist {
     char *name;

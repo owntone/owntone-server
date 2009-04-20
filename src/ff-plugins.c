@@ -15,7 +15,6 @@
 #include "ff-dbstruct.h"
 #include "ff-plugins.h"
 #include "io.h"
-#include "mp3-scanner.h"
 #include "plugin.h"
 #include "util.h"
 #include "webserver.h"

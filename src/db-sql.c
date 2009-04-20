@@ -40,7 +40,6 @@
 
 #include "daapd.h"
 #include "err.h"
-#include "mp3-scanner.h"
 #include "db-generic.h"
 #include "db-sql.h"
 #include "smart-parser.h"

@@ -41,7 +41,7 @@
 
 #include "daapd.h"
 #include "err.h"
-#include "mp3-scanner.h"
+#include "ff-dbstruct.h"
 
 #include <FLAC/metadata.h>
 
