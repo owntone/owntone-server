@@ -23,4 +23,7 @@ scan_xml_playlist(char *filename);
 int
 scan_static_playlist(char *filename);
 
+int
+scan_m3u_playlist(char *file);
+
 #endif /* !__FILESCANNER_H__ */
