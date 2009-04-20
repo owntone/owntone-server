@@ -1,4 +1,7 @@
 /*
+ * Copyright (C) 2009 Julien BLACHE <jb@jblache.org>
+ *
+ * Rewritten from mt-daapd code:
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
  *
  * This program is free software; you can redistribute it and/or modify
@@ -17,111 +20,127 @@
  */
 
 #ifdef HAVE_CONFIG_H
-#  include "config.h"
+# include <config.h>
 #endif
 
-#include <fcntl.h>
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
+#include <limits.h>
+#include <errno.h>
 
 #include "daapd.h"
 #include "err.h"
-#include "mp3-scanner.h"
+#include "ff-dbstruct.h"
 
-/**
- * Get info from a "url" file -- a media stream file.
- * This should really get more metainfo, but I'll leave that
- * to later.
- *
- * @param filename .url file to process
- * @param pmp3 MP3FILE structure that must be filled
- * @returns TRUE if file should be added to db, FALSE otherwise
- */
-int scan_get_urlinfo(char *filename, MP3FILE *pmp3) {
-    IOHANDLE hfile;
-    char *head, *tail;
-    char linebuffer[256];
-    uint32_t len;
-    char *urltemp;
-    int ret;
 
-    DPRINTF(E_DBG,L_SCAN,"Getting URL file info\n");
+int
+scan_get_urlinfo(char *file, struct media_file_info *mfi)
+{
+  FILE *fp;
+  char *head;
+  char *tail;
+  char buf[256];
+  size_t len;
+  long intval;
 
-    if(!(hfile = io_new())) {
-        DPRINTF(E_LOG,L_SCAN,"Can't create file handle\n");
-        return FALSE;
+  DPRINTF(E_DBG, L_SCAN, "Getting URL file info\n");
+
+  fp = fopen(file, "r");
+  if (!fp)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Could not open '%s' for reading: %s\n", file, strerror(errno));
+
+      return FALSE;
     }
 
-    urltemp = io_urlencode(filename);
-    if (!urltemp)
-      {
-        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: out of memory\n",filename);
-        io_dispose(hfile);
-        return FALSE;
-      }
+  head = fgets(buf, sizeof(buf), fp);
+  fclose(fp);
 
-    ret = io_open(hfile,"file://%s?ascii=1",filename);
-    free(urltemp);
-    if (!ret) {
-        DPRINTF(E_WARN,L_SCAN,"Could not open %s for reading: %s\n",filename,
-            io_errstr(hfile));
-        io_dispose(hfile);
-        return FALSE;
+  if (!head)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Error reading from file '%s': %s", file, strerror(errno));
+
+      return FALSE;
     }
 
-    io_buffer(hfile);
-    len = sizeof(linebuffer);
-    if(!io_readline(hfile,(unsigned char *)linebuffer,&len)) {
-        DPRINTF(E_WARN,L_SCAN,"Error reading from file %s: %s",filename,io_errstr(hfile));
-        io_close(hfile);
-        io_dispose(hfile);
-        return FALSE;
+  len = strlen(buf);
+
+  if (buf[len - 1] != '\n')
+    {
+      DPRINTF(E_WARN, L_SCAN, "URL info in file '%s' too large for buffer\n", file);
+
+      return FALSE;
     }
 
-    while((linebuffer[strlen(linebuffer)-1] == '\n') ||
-          (linebuffer[strlen(linebuffer)-1] == '\r')) {
-        linebuffer[strlen(linebuffer)-1] = '\0';
+  while (isspace(buf[len - 1]))
+    {
+      len--;
+      buf[len] = '\0';
     }
 
-    head=linebuffer;
-    tail=strchr(head,',');
-    if(!tail) {
-        DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
-        io_close(hfile);
-        io_dispose(hfile);
-        return FALSE;
+  tail = strchr(head, ',');
+  if (!tail)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Badly formatted .url file; expected format is bitrate,descr,url\n");
+
+      return FALSE;
     }
 
-    pmp3->bitrate=atoi(head);
-    head=++tail;
-    tail=strchr(head,',');
-    if(!tail) {
-        DPRINTF(E_LOG,L_SCAN,"Badly formatted .url file - must be bitrate,descr,url\n");
-        io_close(hfile);
-        io_dispose(hfile);
-        return FALSE;
+  head = tail + 1;
+  tail = strchr(head, ',');
+  if (!tail)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Badly formatted .url file; expected format is bitrate,descr,url\n");
+
+      return FALSE;
+    }
+  *tail = '\0';
+
+  mfi->title = strdup(head);
+  mfi->url = strdup(tail + 1);
+
+  errno = 0;
+  intval = strtol(buf, &tail, 10);
+
+  if (((errno == ERANGE) && ((intval == LONG_MAX) || (intval == LONG_MIN)))
+      || ((errno != 0) && (intval == 0)))
+    {
+      DPRINTF(E_WARN, L_SCAN, "Could not read bitrate: %s\n", strerror(errno));
+
+      free(mfi->title);
+      free(mfi->url);
+      return FALSE;
     }
 
-    *tail++='\0';
+  if (tail == buf)
+    {
+      DPRINTF(E_WARN, L_SCAN, "No bitrate found\n");
 
-    pmp3->title=strdup(head);
-    pmp3->url=strdup(tail);
-    
-    io_close(hfile);
-    io_dispose(hfile);
+      free(mfi->title);
+      free(mfi->url);
+      return FALSE;
+    }
 
-    DPRINTF(E_DBG,L_SCAN,"  Title:    %s\n",pmp3->title);
-    DPRINTF(E_DBG,L_SCAN,"  Bitrate:  %d\n",pmp3->bitrate);
-    DPRINTF(E_DBG,L_SCAN,"  URL:      %s\n",pmp3->url);
+  if (intval > INT_MAX)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Bitrate too large\n");
 
-    pmp3->type = strdup("pls");
-    /* codectype = NULL */
-    pmp3->description = strdup("Playlist URL");
+      free(mfi->title);
+      free(mfi->url);
+      return FALSE;
+    }
 
-    return TRUE;
+  mfi->bitrate = (int)intval;
+
+  DPRINTF(E_DBG, L_SCAN,"  Title:    %s\n", mfi->title);
+  DPRINTF(E_DBG, L_SCAN,"  Bitrate:  %d\n", mfi->bitrate);
+  DPRINTF(E_DBG, L_SCAN,"  URL:      %s\n", mfi->url);
+
+  mfi->type = strdup("pls");
+  /* codectype = NULL */
+  mfi->description = strdup("Playlist URL");
+
+  return TRUE;
 }
-
