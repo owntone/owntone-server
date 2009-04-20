@@ -18,9 +18,6 @@ int
 scan_get_urlinfo(char *filename, struct media_file_info *mfi);
 
 int
-scan_xml_playlist(char *filename);
-
-int
 scan_static_playlist(char *filename);
 
 int

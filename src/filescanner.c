@@ -312,7 +312,6 @@ static void
 process_playlist(char *file)
 {
   char *ext;
-  char *filename;
 
   ext = strrchr(file, '.');
   if (ext)
@@ -320,19 +319,6 @@ process_playlist(char *file)
       if (strcmp(ext, ".m3u") == 0)
 	{
 	  scan_m3u_playlist(file);
-
-	  return;
-	}
-    }
-
-  filename = strrchr(file, '/');
-  if (filename)
-    {
-      filename++;
-      if ((strcmp(filename, "iTunes Music Library.xml") == 0)
-	  || (strcmp(filename, "iTunes Library.xml") == 0))
-	{
-	  scan_xml_playlist(file);
 
 	  return;
 	}
@@ -396,8 +382,7 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int bulk)
   ext = strrchr(file, '.');
   if (ext)
     {
-      if ((strcmp(ext, ".m3u") == 0)
-	  || (strcmp(ext, ".xml") == 0))
+      if (strcmp(ext, ".m3u") == 0)
 	{
 	  if (bulk)
 	    defer_playlist(file);

@@ -74,7 +74,6 @@ extern int scan_get_urlinfo(char *filename, MP3FILE *pmp3);
 extern int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi);
 
 /* playlist scanners */
-extern int scan_xml_playlist(char *filename);
 int scan_static_playlist(char *path);
 
 
@@ -142,14 +141,7 @@ void scan_process_playlistlist(void) {
                 file = strrchr(pnext->path,PATHSEP) + 1;
             }
 
-            if((!strcasecmp(file,"iTunes Music Library.xml")) ||
-               (!strcasecmp(file,"iTunes Library.xml"))) {
-                if(conf_get_int("scanning","process_itunes",1)) {
-                    DPRINTF(E_INF,L_SCAN,"Scanning %s\n",pnext->path);
-                    scan_xml_playlist(pnext->path);
-                    DPRINTF(E_INF,L_SCAN,"Done Scanning %s\n",pnext->path);
-                }
-            } else if(!strcasecmp(ext,".m3u")) {
+            if(!strcasecmp(ext,".m3u")) {
                 if(conf_get_int("scanning","process_m3u",0)) {
                     DPRINTF(E_INF,L_SCAN,"Scanning %s\n",pnext->path);
                     scan_static_playlist(pnext->path);
