@@ -16,7 +16,6 @@ mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @CONFUSE_LIBS@ @FLAC_
 mt_daapd_LDFLAGS = -export-dynamic
 mt_daapd_SOURCES = main.c daapd.h webserver.c \
 	webserver.h configfile.c configfile.h err.c err.h \
-	mp3-scanner.h mp3-scanner.c \
 	conffile.c conffile.h \
 	filescanner.c filescanner.h \
 	filescanner_ffmpeg.c filescanner_urlfile.c filescanner_m3u.c \
