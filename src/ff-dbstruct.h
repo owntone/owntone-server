@@ -121,7 +121,7 @@ typedef struct media_file_info {
     char *album_artist;
 } MP3FILE;
 
-typedef struct tag_m3ufile {
+typedef struct playlist_info {
     uint32_t id;          /**< integer id (miid) */
     char *title;          /**< playlist name as displayed in iTunes (minm) */
     uint32_t type;        /**< see PL_ types */
