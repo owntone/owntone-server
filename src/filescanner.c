@@ -319,7 +319,7 @@ process_playlist(char *file)
     {
       if (strcmp(ext, ".m3u") == 0)
 	{
-	  scan_static_playlist(file);
+	  scan_m3u_playlist(file);
 
 	  return;
 	}
