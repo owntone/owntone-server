@@ -12,15 +12,12 @@ filescanner_deinit(void);
 
 /* Actual scanners */
 int
-scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi);
+scan_metadata_ffmpeg(char *file, struct media_file_info *mfi);
 
 int
-scan_get_urlinfo(char *filename, struct media_file_info *mfi);
+scan_url_file(char *file, struct media_file_info *mfi);
 
-int
-scan_static_playlist(char *filename);
-
-int
+void
 scan_m3u_playlist(char *file);
 
 #endif /* !__FILESCANNER_H__ */

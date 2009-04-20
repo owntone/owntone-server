@@ -37,9 +37,10 @@
 #include "err.h"
 #include "ff-dbstruct.h"
 #include "db-generic.h"
+#include "filescanner.h"
 
 
-int
+void
 scan_m3u_playlist(char *file)
 {
   FILE *fp;
@@ -64,7 +65,7 @@ scan_m3u_playlist(char *file)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not stat() '%s': %s\n", file, strerror(errno));
 
-      return FALSE;
+      return;
     }
 
   filename = strrchr(file, '/');
@@ -82,7 +83,7 @@ scan_m3u_playlist(char *file)
 	  DPRINTF(E_DBG, L_SCAN, "Playlist up-to-date\n");
 
 	  db_dispose_playlist(pli);
-	  return TRUE;
+	  return;
 	}
       else
 	{
@@ -98,7 +99,7 @@ scan_m3u_playlist(char *file)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not open playlist '%s': %s\n", file, strerror(errno));
 
-      return FALSE;
+      return;
     }
 
   /* Get only the basename, to be used as the playlist name */
@@ -120,7 +121,7 @@ scan_m3u_playlist(char *file)
       DPRINTF(E_LOG, L_SCAN, "Error adding m3u playlist '%s': %s\n", file, db_errmsg);
 
       free(db_errmsg);
-      return FALSE;
+      return;
     }
 
   ptr = strrchr(file, '/');
@@ -128,7 +129,7 @@ scan_m3u_playlist(char *file)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not determine playlist base path\n");
 
-      return FALSE;
+      return;
     }
 
   *ptr = '\0';
@@ -139,7 +140,7 @@ scan_m3u_playlist(char *file)
     {
       DPRINTF(E_WARN, L_SCAN, "Out of memory\n");
 
-      return FALSE;
+      return;
     }
 
   DPRINTF(E_INF, L_SCAN | L_PL, "Added playlist as id %d\n", pl_id);
@@ -217,12 +218,10 @@ scan_m3u_playlist(char *file)
       DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s': %s\n", file, strerror(errno));
 
       fclose(fp);
-      return FALSE;
+      return;
     }
 
   fclose(fp);
 
   DPRINTF(E_INF, L_SCAN | L_PL, "Done processing playlist\n");
-
-  return TRUE;
 }

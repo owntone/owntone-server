@@ -266,7 +266,7 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
   mfi->time_modified = mtime;
   mfi->file_size = size;
 
-  ret = 0;
+  ret = -1;
 
   /* Special cases */
   ext = strrchr(file, '.');
@@ -275,20 +275,20 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
       if ((strcmp(ext, ".pls") == 0)
 	  || (strcmp(ext, ".url") == 0))
 	{
-	  ret = scan_get_urlinfo(file, mfi);
-	  if (ret)
+	  ret = scan_url_file(file, mfi);
+	  if (ret == 0)
 	    mfi->data_kind = 1; /* url/stream */
 	}
     }
 
   /* General case */
-  if (!ret)
+  if (ret < 0)
     {
-      ret = scan_get_ffmpeginfo(file, mfi);
+      ret = scan_metadata_ffmpeg(file, mfi);
       mfi->data_kind = 0; /* real file */
     }
 
-  if (!ret)
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not extract metadata for %s\n");
 

@@ -88,7 +88,8 @@ static struct metadata_map md_map[] =
   };
 
 
-int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi)
+int
+scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 {
   AVFormatContext *ctx;
   AVMetadataTag *mdt;
@@ -105,12 +106,12 @@ int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi)
   int i;
   int ret;
 
-  ret = av_open_input_file(&ctx, filename, NULL, 0, NULL);
+  ret = av_open_input_file(&ctx, file, NULL, 0, NULL);
   if (ret != 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Cannot open media file '%s': %s\n", filename, strerror(AVUNERROR(ret)));
+      DPRINTF(E_WARN, L_SCAN, "Cannot open media file '%s': %s\n", file, strerror(AVUNERROR(ret)));
 
-      return FALSE;
+      return -1;
     }
 
   ret = av_find_stream_info(ctx);
@@ -119,12 +120,12 @@ int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi)
       DPRINTF(E_WARN, L_SCAN, "Cannot get stream info: %s\n", strerror(AVUNERROR(ret)));
 
       av_close_input_file(ctx);
-      return FALSE;
+      return -1;
     }
 
 #if 0
   /* Dump input format as determined by ffmpeg */
-  dump_format(ctx, 0, filename, FALSE);
+  dump_format(ctx, 0, file, FALSE);
 #endif
 
   DPRINTF(E_DBG, L_SCAN, "File has %d streams\n", ctx->nb_streams);
@@ -372,7 +373,7 @@ int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi)
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy WMA scanner\n");
 
 	  av_close_input_file(ctx);
-	  return scan_get_wmainfo(filename, mfi);
+	  return (scan_get_wmainfo(file, mfi) ? 0 : -1);
 	}
 #ifdef FLAC
       else if (codec_id == CODEC_ID_FLAC)
@@ -380,7 +381,7 @@ int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi)
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy FLAC scanner\n");
 
 	  av_close_input_file(ctx);
-	  return scan_get_flacinfo(filename, mfi);
+	  return (scan_get_flacinfo(file, mfi) ? 0 : -1);
 	}
 #endif /* FLAC */
 #ifdef MUSEPACK
@@ -390,7 +391,7 @@ int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi)
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy Musepack scanner\n");
 
 	  av_close_input_file(ctx);
-	  return scan_get_mpcinfo(filename, mfi);
+	  return (scan_get_mpcinfo(file, mfi) ? 0 : -1);
 	}
 #endif /* MUSEPACK */
       else
@@ -404,5 +405,5 @@ int scan_get_ffmpeginfo(char *filename, struct media_file_info *mfi)
   /* All done */
   av_close_input_file(ctx);
 
-  return TRUE;
+  return 0;
 }

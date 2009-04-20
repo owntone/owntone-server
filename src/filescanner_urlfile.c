@@ -33,10 +33,11 @@
 #include "daapd.h"
 #include "err.h"
 #include "ff-dbstruct.h"
+#include "filescanner.h"
 
 
 int
-scan_get_urlinfo(char *file, struct media_file_info *mfi)
+scan_url_file(char *file, struct media_file_info *mfi)
 {
   FILE *fp;
   char *head;
@@ -52,7 +53,7 @@ scan_get_urlinfo(char *file, struct media_file_info *mfi)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not open '%s' for reading: %s\n", file, strerror(errno));
 
-      return FALSE;
+      return -1;
     }
 
   head = fgets(buf, sizeof(buf), fp);
@@ -62,7 +63,7 @@ scan_get_urlinfo(char *file, struct media_file_info *mfi)
     {
       DPRINTF(E_WARN, L_SCAN, "Error reading from file '%s': %s", file, strerror(errno));
 
-      return FALSE;
+      return -1;
     }
 
   len = strlen(buf);
@@ -71,7 +72,7 @@ scan_get_urlinfo(char *file, struct media_file_info *mfi)
     {
       DPRINTF(E_WARN, L_SCAN, "URL info in file '%s' too large for buffer\n", file);
 
-      return FALSE;
+      return -1;
     }
 
   while (isspace(buf[len - 1]))
@@ -85,7 +86,7 @@ scan_get_urlinfo(char *file, struct media_file_info *mfi)
     {
       DPRINTF(E_LOG, L_SCAN, "Badly formatted .url file; expected format is bitrate,descr,url\n");
 
-      return FALSE;
+      return -1;
     }
 
   head = tail + 1;
@@ -94,7 +95,7 @@ scan_get_urlinfo(char *file, struct media_file_info *mfi)
     {
       DPRINTF(E_LOG, L_SCAN, "Badly formatted .url file; expected format is bitrate,descr,url\n");
 
-      return FALSE;
+      return -1;
     }
   *tail = '\0';
 
@@ -111,7 +112,7 @@ scan_get_urlinfo(char *file, struct media_file_info *mfi)
 
       free(mfi->title);
       free(mfi->url);
-      return FALSE;
+      return -1;
     }
 
   if (tail == buf)
@@ -120,7 +121,7 @@ scan_get_urlinfo(char *file, struct media_file_info *mfi)
 
       free(mfi->title);
       free(mfi->url);
-      return FALSE;
+      return -1;
     }
 
   if (intval > INT_MAX)
@@ -129,7 +130,7 @@ scan_get_urlinfo(char *file, struct media_file_info *mfi)
 
       free(mfi->title);
       free(mfi->url);
-      return FALSE;
+      return -1;
     }
 
   mfi->bitrate = (int)intval;
@@ -142,5 +143,5 @@ scan_get_urlinfo(char *file, struct media_file_info *mfi)
   /* codectype = NULL */
   mfi->description = strdup("Playlist URL");
 
-  return TRUE;
+  return 0;
 }
