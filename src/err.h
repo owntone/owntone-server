@@ -57,6 +57,7 @@
 #define L_PARSE   0x00002000 /**< smart playlist parser */
 #define L_PLUG    0x00004000 /**< plugins */
 #define L_LOCK    0x00008000 /**< semaphore locks */
+#define L_HTTPD   0x00010000 /**< httpd - httpd.c */
 #define L_MISC    0x80000000 /**< anything else */
 
 #ifndef TRUE
