@@ -87,6 +87,7 @@
 #include "configfile.h"
 #include "err.h"
 #include "filescanner.h"
+#include "httpd.h"
 #include "webserver.h"
 #include "db-generic.h"
 #include "plugin.h"
@@ -669,6 +670,17 @@ int main(int argc, char *argv[]) {
     ws_registerhandler(config.server, "/",main_handler,main_auth,
                        0,1);
 
+    /* Spawn HTTPd thread */
+    ret = httpd_init();
+    if (ret != 0)
+      {
+	DPRINTF(E_FATAL, L_MAIN, "HTTPd thread failed to start\n");
+
+	mdns_deinit();
+	db_deinit();
+	exit(EXIT_FAILURE);
+      }
+
     /* Register mDNS services */
     servername = conf_get_servername();
 
@@ -679,6 +691,7 @@ int main(int argc, char *argv[]) {
 	  {
 	    DPRINTF(E_FATAL, L_MAIN, "Out of memory for TXT record\n");
 
+	    httpd_deinit();
 	    filescanner_deinit();
 	    mdns_deinit();
 	    db_deinit();
@@ -741,6 +754,7 @@ int main(int argc, char *argv[]) {
       {
 	DPRINTF(E_FATAL, L_MAIN, "Could not setup signalfd: %s\n", strerror(errno));
 
+	httpd_deinit();
 	filescanner_deinit();
 	mdns_deinit();
 	db_deinit();
@@ -755,6 +769,9 @@ int main(int argc, char *argv[]) {
     event_base_dispatch(evbase_main);
 
     DPRINTF(E_LOG,L_MAIN,"Stopping gracefully\n");
+
+    DPRINTF(E_LOG, L_MAIN, "HTTPd deinit\n");
+    httpd_deinit();
 
     DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
     filescanner_deinit();
