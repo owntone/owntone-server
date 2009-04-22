@@ -20,6 +20,7 @@ mt_daapd_SOURCES = main.c daapd.h webserver.c \
 	filescanner.c filescanner.h \
 	filescanner_ffmpeg.c filescanner_urlfile.c filescanner_m3u.c \
 	mdns_avahi.c mdns_avahi.h \
+	httpd.c httpd.h \
 	db-generic.c db-generic.h ff-plugins.c ff-plugins.h \
 	scan-wma.c \
 	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
