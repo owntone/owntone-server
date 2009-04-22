@@ -58,6 +58,11 @@ PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat ])
 
 AC_CHECK_HEADER(event.h, , AC_MSG_ERROR([event.h not found]))
 AC_CHECK_LIB([event_core], [event_init], [LIBEVENT_LIBS="-levent_core"], AC_MSG_ERROR([libevent not found]))
+AC_CHECK_HEADER(evhttp.h, , AC_MSG_ERROR([evhttp.h not found]))
+save_LIBS="$LIBS"
+LIBS=-levent_core
+AC_CHECK_LIB([event_extra], [evhttp_new], [LIBEVENT_LIBS="$LIBEVENT_LIBS -levent_extra"], AC_MSG_ERROR([libevent not found]))
+LIBS="$save_LIBS"
 AC_SUBST(LIBEVENT_LIBS)
 
 AC_CHECK_HEADER(avl.h, , AC_MSG_ERROR([avl.h not found]))
