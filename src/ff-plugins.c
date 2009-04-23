@@ -262,7 +262,7 @@ EXPORT int pi_db_enum_start(char **pe, DB_QUERY *pinfo) {
 }
 
 EXPORT int pi_db_enum_fetch_row(char **pe, char ***row, DB_QUERY *pinfo) {
-    return db_enum_fetch_row(pe, (PACKED_MP3FILE*)row,
+    return db_enum_fetch_row(pe, (PACKED_MP3FILE**)row,
                              (DBQUERYINFO*)pinfo->priv);
 }
 

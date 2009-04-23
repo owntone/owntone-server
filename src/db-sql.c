@@ -1379,7 +1379,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
 /**
  * fetch the next row in raw row format
  */
-int db_sql_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo) {
+int db_sql_enum_fetch_row(char **pe, PACKED_MP3FILE **row, DBQUERYINFO *pinfo) {
     int err;
 
     err=db_sql_enum_fetch_fn(pe, (char***)row);

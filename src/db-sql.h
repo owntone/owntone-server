@@ -35,7 +35,7 @@ extern int db_sql_add(char **pe, MP3FILE *pmp3, int *id);
 extern int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo);
 
 
-extern int db_sql_enum_fetch_row(char **pe, PACKED_MP3FILE *row, DBQUERYINFO *pinfo);
+extern int db_sql_enum_fetch_row(char **pe, PACKED_MP3FILE **row, DBQUERYINFO *pinfo);
 extern int db_sql_enum_reset(char **pe, DBQUERYINFO *pinfo);
 extern int db_sql_enum_end(char **pe);
 extern int db_sql_force_rescan(char **pe);
