@@ -132,7 +132,7 @@ typedef struct playlist_info {
     uint32_t index;       /**< index of playlist for paths with multiple playlists */
 } M3UFILE;
 
-typedef struct tag_packed_m3ufile {
+typedef struct db_playlist_info {
     char *id;
     char *title;
     char *type;
@@ -143,7 +143,7 @@ typedef struct tag_packed_m3ufile {
     char *index;
 } PACKED_M3UFILE;
 
-typedef struct tag_packed_mp3file {
+typedef struct db_media_file_info {
     char *id;
     char *path;
     char *fname;
