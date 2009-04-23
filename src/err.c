@@ -78,7 +78,7 @@ static int err_syslog_open = 0;
 /** text list of modules to match for setting debug mask */
 static char *err_categorylist[] = {
     "config","webserver","database","scan","query","index","browse",
-    "playlist","art","daap","main","rend","xml","parse","plugin","lock","httpd",NULL
+    "playlist","art","daap","main","rend","xml","parse","plugin","lock","httpd","rsp",NULL
 };
 
 static ERR_THREADLIST err_threadlist = { 0, NULL };
