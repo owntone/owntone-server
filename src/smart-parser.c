@@ -710,7 +710,7 @@ PARSETREE sp_init(void) {
  * @param term term or phrase to parse
  * @returns 1 if successful, 0 if not
  */
-int sp_parse(PARSETREE tree, char *term, int type) {
+int sp_parse(PARSETREE tree, const char *term, int type) {
     tree->term = strdup(term); /* will be destroyed by parsing */
     tree->current=tree->term;
     tree->token.token_id=T_BOF;
