@@ -23,6 +23,7 @@
 
 #include "ff-dbstruct.h"
 #include "ff-plugin-events.h"
+#include "smart-parser.h"
 
 #define EXPORT
 
@@ -88,9 +89,6 @@ typedef struct tag_plugin_info {
 #define QUERY_TYPE_ITEMS     0
 #define QUERY_TYPE_PLAYLISTS 1
 #define QUERY_TYPE_DISTINCT  2
-
-#define FILTER_TYPE_FIREFLY  0
-#define FILTER_TYPE_APPLE    1
 
 typedef struct tag_db_query {
     int query_type;

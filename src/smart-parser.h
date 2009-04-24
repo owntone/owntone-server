@@ -13,5 +13,8 @@ extern char *sp_sql_clause(PARSETREE tree);
 #define SP_TYPE_PLAYLIST 0
 #define SP_TYPE_QUERY    1
 
+#define FILTER_TYPE_FIREFLY  0
+#define FILTER_TYPE_APPLE    1
+
 #endif /* _SMART_PARSER_H_ */
 
