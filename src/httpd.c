@@ -36,6 +36,7 @@
 #include "err.h"
 #include "conffile.h"
 #include "httpd.h"
+#include "httpd_rsp.h"
 
 
 #define WEBFACE_ROOT "/usr/share/mt-daapd/admin-root/"
@@ -265,6 +266,16 @@ webface_cb(struct evhttp_request *req, void *arg)
   uri = evhttp_decode_uri(uri);
   free(ptr);
 
+  /* Dispatch protocol-specific URIs */
+  if (rsp_is_request(req, uri))
+    {
+      rsp_request(req);
+
+      free(uri);
+      return;
+    }
+
+  /* Serve web interface files */
   serve_file(req, uri);
 
   free(uri);
@@ -301,12 +312,20 @@ httpd_init(void)
 
   httpd_exit = 0;
 
+  ret = rsp_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "RSP protocol init failed\n");
+
+      return -1;
+    }
+
   ret = pipe2(exit_pipe, O_CLOEXEC);
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create pipe: %s\n", strerror(errno));
 
-      return -1;
+      goto pipe_fail;
     }
 
   evbase_httpd = event_base_new();
@@ -367,6 +386,8 @@ httpd_init(void)
  evbase_fail:
   close(exit_pipe[0]);
   close(exit_pipe[1]);
+ pipe_fail:
+  rsp_deinit();
 
   return -1;
 }
@@ -393,6 +414,8 @@ httpd_deinit(void)
 
       return;
     }
+
+  rsp_deinit();
 
   close(exit_pipe[0]);
   close(exit_pipe[1]);
