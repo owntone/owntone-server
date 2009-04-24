@@ -55,6 +55,7 @@ PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
 PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
 PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat ])
+PKG_CHECK_MODULES(MINIXML, [ mxml ])
 
 AC_CHECK_HEADER(event.h, , AC_MSG_ERROR([event.h not found]))
 AC_CHECK_LIB([event_core], [event_init], [LIBEVENT_LIBS="-levent_core"], AC_MSG_ERROR([libevent not found]))
