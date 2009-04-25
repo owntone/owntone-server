@@ -43,6 +43,21 @@
 #include "httpd_rsp.h"
 
 
+/*
+ * HTTP client quirks by User-Agent, from mt-daapd
+ *
+ * - Roku:
+ *   + Does not encode space as + in query string
+ * - iTunes:
+ *   + Does not encode space as + in query string
+ *   + Connection: Keep-Alive on HTTP error 401
+ * - Hifidelio:
+ *   + Connection: Keep-Alive for streaming (Connection: close not honoured)
+ *
+ * These quirks are not implemented. Implement as needed.
+ */
+
+
 #define STREAM_CHUNK_SIZE (512 * 1024)
 #define WEBFACE_ROOT "/usr/share/mt-daapd/admin-root/"
 
