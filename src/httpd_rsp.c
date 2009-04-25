@@ -42,6 +42,7 @@
 #include "ff-dbstruct.h"
 #include "db-generic.h"
 #include "conffile.h"
+#include "httpd.h"
 #include "httpd_rsp.h"
 
 
@@ -884,6 +885,20 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
   evbuffer_free(evbuf);
 }
 
+static void
+rsp_stream(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
+{
+  int id;
+  int ret;
+
+  ret = safe_atoi(uri[2], &id);
+  if (ret < 0)
+    evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+  else
+    httpd_stream_file(req, id);
+}
+
+
 static struct uri_map rsp_handlers[] =
   {
     {
@@ -902,12 +917,10 @@ static struct uri_map rsp_handlers[] =
       .regexp = "^/rsp/db/[[:digit:]]+/[^/]+$",
       .handler = rsp_reply_browse
     },
-#if 0
     {
       .regexp = "^/rsp/stream/[[:digit:]]+$",
       .handler = rsp_stream
     },
-#endif
     { 
       .regexp = NULL,
       .handler = NULL
