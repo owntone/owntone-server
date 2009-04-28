@@ -41,6 +41,7 @@
 #include "conffile.h"
 #include "httpd.h"
 #include "httpd_rsp.h"
+#include "httpd_daap.h"
 
 
 /*
@@ -567,6 +568,13 @@ webface_cb(struct evhttp_request *req, void *arg)
       free(uri);
       return;
     }
+  else if (daap_is_request(req, uri))
+    {
+      daap_request(req);
+
+      free(uri);
+      return;
+    }
 
   /* Serve web interface files */
   serve_file(req, uri);
@@ -611,6 +619,14 @@ httpd_init(void)
       DPRINTF(E_FATAL, L_HTTPD, "RSP protocol init failed\n");
 
       return -1;
+    }
+
+  ret = daap_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "DAAP protocol init failed\n");
+
+      goto daap_fail;
     }
 
   ret = pipe2(exit_pipe, O_CLOEXEC);
@@ -680,6 +696,8 @@ httpd_init(void)
   close(exit_pipe[0]);
   close(exit_pipe[1]);
  pipe_fail:
+  daap_deinit();
+ daap_fail:
   rsp_deinit();
 
   return -1;
@@ -709,6 +727,7 @@ httpd_deinit(void)
     }
 
   rsp_deinit();
+  daap_deinit();
 
   close(exit_pipe[0]);
   close(exit_pipe[1]);
