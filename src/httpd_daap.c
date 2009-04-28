@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/queue.h>
 #include <sys/types.h>
 #include <regex.h>
@@ -35,6 +36,7 @@
 
 #include <event.h>
 #include <evhttp.h>
+#include <avl.h>
 
 #include "daapd.h"
 #include "err.h"
@@ -43,6 +45,8 @@
 #include "conffile.h"
 #include "httpd.h"
 #include "httpd_daap.h"
+
+#include "util.h"
 
 
 struct uri_map {
@@ -62,6 +66,7 @@ struct uri_map {
 #define DMAP_TYPE_LIST     0x0c
 
 struct dmap_field_map {
+  uint32_t hash;
   short type;
   char *tag;
   char *desc;
@@ -75,248 +80,252 @@ struct dmap_field_map {
 
 static struct dmap_field_map dmap_fields[] =
   {
-    { DMAP_TYPE_INT,     "miid", "dmap.itemid",
+    { 0, DMAP_TYPE_INT,     "miid", "dmap.itemid",
       dbmfi_offsetof(id),            dbpli_offsetof(id) },
-    { DMAP_TYPE_STRING,  "minm", "dmap.itemname",
+    { 0, DMAP_TYPE_STRING,  "minm", "dmap.itemname",
       dbmfi_offsetof(title),         dbpli_offsetof(title) },
-    { DMAP_TYPE_BYTE,    "mikd", "dmap.itemkind",
+    { 0, DMAP_TYPE_BYTE,    "mikd", "dmap.itemkind",
       dbmfi_offsetof(item_kind),     -1 },
-    { DMAP_TYPE_LONG,    "mper", "dmap.persistentid",
+    { 0, DMAP_TYPE_LONG,    "mper", "dmap.persistentid",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "mcon", "dmap.container",
+    { 0, DMAP_TYPE_LIST,    "mcon", "dmap.container",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "mcti", "dmap.containeritemid",
+    { 0, DMAP_TYPE_INT,     "mcti", "dmap.containeritemid",
       dbmfi_offsetof(id),            -1 },
-    { DMAP_TYPE_INT,     "mpco", "dmap.parentcontainerid",
+    { 0, DMAP_TYPE_INT,     "mpco", "dmap.parentcontainerid",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "mstt", "dmap.status",
+    { 0, DMAP_TYPE_INT,     "mstt", "dmap.status",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "msts", "dmap.statusstring",
+    { 0, DMAP_TYPE_STRING,  "msts", "dmap.statusstring",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "mimc", "dmap.itemcount",
+    { 0, DMAP_TYPE_INT,     "mimc", "dmap.itemcount",
       -1,                            dbpli_offsetof(items) },
-    { DMAP_TYPE_INT,     "mctc", "dmap.containercount",
+    { 0, DMAP_TYPE_INT,     "mctc", "dmap.containercount",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "mrco", "dmap.returnedcount",
+    { 0, DMAP_TYPE_INT,     "mrco", "dmap.returnedcount",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "mtco", "dmap.specifiedtotalcount",
+    { 0, DMAP_TYPE_INT,     "mtco", "dmap.specifiedtotalcount",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "mlcl", "dmap.listing",
+    { 0, DMAP_TYPE_LIST,    "mlcl", "dmap.listing",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "mlit", "dmap.listingitem",
+    { 0, DMAP_TYPE_LIST,    "mlit", "dmap.listingitem",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "mbcl", "dmap.bag",
+    { 0, DMAP_TYPE_LIST,    "mbcl", "dmap.bag",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "mdcl", "dmap.dictionary",
+    { 0, DMAP_TYPE_LIST,    "mdcl", "dmap.dictionary",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "msrv", "dmap.serverinforesponse",
+    { 0, DMAP_TYPE_LIST,    "msrv", "dmap.serverinforesponse",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "msau", "dmap.authenticationmethod",
+    { 0, DMAP_TYPE_BYTE,    "msau", "dmap.authenticationmethod",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "mslr", "dmap.loginrequired",
+    { 0, DMAP_TYPE_BYTE,    "mslr", "dmap.loginrequired",
       -1,                            -1 },
-    { DMAP_TYPE_VERSION, "mpro", "dmap.protocolversion",
+    { 0, DMAP_TYPE_VERSION, "mpro", "dmap.protocolversion",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "msal", "dmap.supportsautologout",
+    { 0, DMAP_TYPE_BYTE,    "msal", "dmap.supportsautologout",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "msup", "dmap.supportsupdate",
+    { 0, DMAP_TYPE_BYTE,    "msup", "dmap.supportsupdate",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "mspi", "dmap.supportspersistentids",
+    { 0, DMAP_TYPE_BYTE,    "mspi", "dmap.supportspersistentids",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "msex", "dmap.supportsextensions",
+    { 0, DMAP_TYPE_BYTE,    "msex", "dmap.supportsextensions",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "msbr", "dmap.supportsbrowse",
+    { 0, DMAP_TYPE_BYTE,    "msbr", "dmap.supportsbrowse",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "msqy", "dmap.supportsquery",
+    { 0, DMAP_TYPE_BYTE,    "msqy", "dmap.supportsquery",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "msix", "dmap.supportsindex",
+    { 0, DMAP_TYPE_BYTE,    "msix", "dmap.supportsindex",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "msrs", "dmap.supportsresolve",
+    { 0, DMAP_TYPE_BYTE,    "msrs", "dmap.supportsresolve",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "mstm", "dmap.timeoutinterval",
+    { 0, DMAP_TYPE_INT,     "mstm", "dmap.timeoutinterval",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "msdc", "dmap.databasescount",
+    { 0, DMAP_TYPE_INT,     "msdc", "dmap.databasescount",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "mlog", "dmap.loginresponse",
+    { 0, DMAP_TYPE_LIST,    "mlog", "dmap.loginresponse",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "mlid", "dmap.sessionid",
+    { 0, DMAP_TYPE_INT,     "mlid", "dmap.sessionid",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "mupd", "dmap.updateresponse",
+    { 0, DMAP_TYPE_LIST,    "mupd", "dmap.updateresponse",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "musr", "dmap.serverrevision",
+    { 0, DMAP_TYPE_INT,     "musr", "dmap.serverrevision",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "muty", "dmap.updatetype",
+    { 0, DMAP_TYPE_BYTE,    "muty", "dmap.updatetype",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "mudl", "dmap.deletedidlisting",
+    { 0, DMAP_TYPE_LIST,    "mudl", "dmap.deletedidlisting",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "mccr", "dmap.contentcodesresponse",
+    { 0, DMAP_TYPE_LIST,    "mccr", "dmap.contentcodesresponse",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "mcnm", "dmap.contentcodesnumber",
+    { 0, DMAP_TYPE_INT,     "mcnm", "dmap.contentcodesnumber",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "mcna", "dmap.contentcodesname",
+    { 0, DMAP_TYPE_STRING,  "mcna", "dmap.contentcodesname",
       -1,                            -1 },
-    { DMAP_TYPE_SHORT,   "mcty", "dmap.contentcodestype",
+    { 0, DMAP_TYPE_SHORT,   "mcty", "dmap.contentcodestype",
       -1,                            -1 },
-    { DMAP_TYPE_VERSION, "apro", "daap.protocolversion",
+    { 0, DMAP_TYPE_VERSION, "apro", "daap.protocolversion",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "avdb", "daap.serverdatabases",
+    { 0, DMAP_TYPE_LIST,    "avdb", "daap.serverdatabases",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "abro", "daap.databasebrowse",
+    { 0, DMAP_TYPE_LIST,    "abro", "daap.databasebrowse",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "abal", "daap.browsealbumlisting",
+    { 0, DMAP_TYPE_LIST,    "abal", "daap.browsealbumlisting",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "abar", "daap.browseartistlisting",
+    { 0, DMAP_TYPE_LIST,    "abar", "daap.browseartistlisting",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "abcp", "daap.browsecomposerlisting",
+    { 0, DMAP_TYPE_LIST,    "abcp", "daap.browsecomposerlisting",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "abgn", "daap.browsegenrelisting",
+    { 0, DMAP_TYPE_LIST,    "abgn", "daap.browsegenrelisting",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "adbs", "daap.databasesongs",
+    { 0, DMAP_TYPE_LIST,    "adbs", "daap.databasesongs",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "asal", "daap.songalbum",
+    { 0, DMAP_TYPE_STRING,  "asal", "daap.songalbum",
       dbmfi_offsetof(album),         -1 },
-    { DMAP_TYPE_STRING,  "asar", "daap.songartist",
+    { 0, DMAP_TYPE_STRING,  "asar", "daap.songartist",
       dbmfi_offsetof(artist),        -1 },
-    { DMAP_TYPE_SHORT,   "asbt", "daap.songbeatsperminute",
+    { 0, DMAP_TYPE_SHORT,   "asbt", "daap.songbeatsperminute",
       dbmfi_offsetof(bpm),           -1 },
-    { DMAP_TYPE_SHORT,   "asbr", "daap.songbitrate",
+    { 0, DMAP_TYPE_SHORT,   "asbr", "daap.songbitrate",
       dbmfi_offsetof(bitrate),       -1 },
-    { DMAP_TYPE_STRING,  "ascm", "daap.songcomment",
+    { 0, DMAP_TYPE_STRING,  "ascm", "daap.songcomment",
       dbmfi_offsetof(comment),       -1 },
-    { DMAP_TYPE_BYTE,    "asco", "daap.songcompilation",
+    { 0, DMAP_TYPE_BYTE,    "asco", "daap.songcompilation",
       dbmfi_offsetof(compilation),   -1 },
-    { DMAP_TYPE_STRING,  "ascp", "daap.songcomposer",
+    { 0, DMAP_TYPE_STRING,  "ascp", "daap.songcomposer",
       dbmfi_offsetof(composer),      -1 },
-    { DMAP_TYPE_DATE,    "asda", "daap.songdateadded",
+    { 0, DMAP_TYPE_DATE,    "asda", "daap.songdateadded",
       dbmfi_offsetof(time_added),    -1 },
-    { DMAP_TYPE_DATE,    "asdm", "daap.songdatemodified",
+    { 0, DMAP_TYPE_DATE,    "asdm", "daap.songdatemodified",
       dbmfi_offsetof(time_modified), -1 },
-    { DMAP_TYPE_SHORT,   "asdc", "daap.songdisccount",
+    { 0, DMAP_TYPE_SHORT,   "asdc", "daap.songdisccount",
       dbmfi_offsetof(total_discs),   -1 },
-    { DMAP_TYPE_SHORT,   "asdn", "daap.songdiscnumber",
+    { 0, DMAP_TYPE_SHORT,   "asdn", "daap.songdiscnumber",
       dbmfi_offsetof(disc),          -1 },
-    { DMAP_TYPE_BYTE,    "asdb", "daap.songdisabled",
+    { 0, DMAP_TYPE_BYTE,    "asdb", "daap.songdisabled",
       dbmfi_offsetof(disabled),      -1 },
-    { DMAP_TYPE_STRING,  "aseq", "daap.songeqpreset",
+    { 0, DMAP_TYPE_STRING,  "aseq", "daap.songeqpreset",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "asfm", "daap.songformat",
+    { 0, DMAP_TYPE_STRING,  "asfm", "daap.songformat",
       dbmfi_offsetof(type),          -1 },
-    { DMAP_TYPE_STRING,  "asgn", "daap.songgenre",
+    { 0, DMAP_TYPE_STRING,  "asgn", "daap.songgenre",
       dbmfi_offsetof(genre),         -1 },
-    { DMAP_TYPE_STRING,  "asdt", "daap.songdescription",
+    { 0, DMAP_TYPE_STRING,  "asdt", "daap.songdescription",
       dbmfi_offsetof(description),   -1 },
-    { DMAP_TYPE_UBYTE,   "asrv", "daap.songrelativevolume",
+    { 0, DMAP_TYPE_UBYTE,   "asrv", "daap.songrelativevolume",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "assr", "daap.songsamplerate",
+    { 0, DMAP_TYPE_INT,     "assr", "daap.songsamplerate",
       dbmfi_offsetof(samplerate),    -1 },
-    { DMAP_TYPE_INT,     "assz", "daap.songsize",
+    { 0, DMAP_TYPE_INT,     "assz", "daap.songsize",
       dbmfi_offsetof(file_size),     -1 },
-    { DMAP_TYPE_INT,     "asst", "daap.songstarttime",
+    { 0, DMAP_TYPE_INT,     "asst", "daap.songstarttime",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "assp", "daap.songstoptime",
+    { 0, DMAP_TYPE_INT,     "assp", "daap.songstoptime",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "astm", "daap.songtime",
+    { 0, DMAP_TYPE_INT,     "astm", "daap.songtime",
       dbmfi_offsetof(song_length),   -1 },
-    { DMAP_TYPE_SHORT,   "astc", "daap.songtrackcount",
+    { 0, DMAP_TYPE_SHORT,   "astc", "daap.songtrackcount",
       dbmfi_offsetof(total_tracks),  -1 },
-    { DMAP_TYPE_SHORT,   "astn", "daap.songtracknumber",
+    { 0, DMAP_TYPE_SHORT,   "astn", "daap.songtracknumber",
       dbmfi_offsetof(track),         -1 },
-    { DMAP_TYPE_BYTE,    "asur", "daap.songuserrating",
+    { 0, DMAP_TYPE_BYTE,    "asur", "daap.songuserrating",
       dbmfi_offsetof(rating),        -1 },
-    { DMAP_TYPE_SHORT,   "asyr", "daap.songyear",
+    { 0, DMAP_TYPE_SHORT,   "asyr", "daap.songyear",
       dbmfi_offsetof(year),          -1 },
-    { DMAP_TYPE_BYTE,    "asdk", "daap.songdatakind",
+    { 0, DMAP_TYPE_BYTE,    "asdk", "daap.songdatakind",
       dbmfi_offsetof(data_kind),     -1 },
-    { DMAP_TYPE_STRING,  "asul", "daap.songdataurl",
+    { 0, DMAP_TYPE_STRING,  "asul", "daap.songdataurl",
       dbmfi_offsetof(url),           -1 },
-    { DMAP_TYPE_LIST,    "aply", "daap.databaseplaylists",
+    { 0, DMAP_TYPE_LIST,    "aply", "daap.databaseplaylists",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "abpl", "daap.baseplaylist",
+    { 0, DMAP_TYPE_BYTE,    "abpl", "daap.baseplaylist",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "apso", "daap.playlistsongs",
+    { 0, DMAP_TYPE_LIST,    "apso", "daap.playlistsongs",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "arsv", "daap.resolve",
+    { 0, DMAP_TYPE_LIST,    "arsv", "daap.resolve",
       -1,                            -1 },
-    { DMAP_TYPE_LIST,    "arif", "daap.resolveinfo",
+    { 0, DMAP_TYPE_LIST,    "arif", "daap.resolveinfo",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "aeNV", "com.apple.itunes.norm-volume",
+    { 0, DMAP_TYPE_INT,     "aeNV", "com.apple.itunes.norm-volume",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "aeSP", "com.apple.itunes.smart-playlist",
+    { 0, DMAP_TYPE_BYTE,    "aeSP", "com.apple.itunes.smart-playlist",
       -1,                            -1 },
 
     /* iTunes 4.5+ */
-    { DMAP_TYPE_BYTE,    "msas", "dmap.authenticationschemes",
+#if 0 /* Duplicate: type changed to INT in iTunes 6.0.4 */
+    { 0, DMAP_TYPE_BYTE,    "msas", "dmap.authenticationschemes",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "ascd", "daap.songcodectype",
+#endif
+    { 0, DMAP_TYPE_INT,     "ascd", "daap.songcodectype",
       dbmfi_offsetof(codectype),     -1 },
-    { DMAP_TYPE_INT,     "ascs", "daap.songcodecsubtype",
+    { 0, DMAP_TYPE_INT,     "ascs", "daap.songcodecsubtype",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "agrp", "daap.songgrouping",
+    { 0, DMAP_TYPE_STRING,  "agrp", "daap.songgrouping",
       dbmfi_offsetof(grouping),      -1 },
-    { DMAP_TYPE_INT,     "aeSV", "com.apple.itunes.music-sharing-version",
+    { 0, DMAP_TYPE_INT,     "aeSV", "com.apple.itunes.music-sharing-version",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "aePI", "com.apple.itunes.itms-playlistid",
+    { 0, DMAP_TYPE_INT,     "aePI", "com.apple.itunes.itms-playlistid",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "aeCI", "com.apple.iTunes.itms-composerid",
+    { 0, DMAP_TYPE_INT,     "aeCI", "com.apple.iTunes.itms-composerid",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "aeGI", "com.apple.iTunes.itms-genreid",
+    { 0, DMAP_TYPE_INT,     "aeGI", "com.apple.iTunes.itms-genreid",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "aeAI", "com.apple.iTunes.itms-artistid",
+    { 0, DMAP_TYPE_INT,     "aeAI", "com.apple.iTunes.itms-artistid",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "aeSI", "com.apple.iTunes.itms-songid",
+    { 0, DMAP_TYPE_INT,     "aeSI", "com.apple.iTunes.itms-songid",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "aeSF", "com.apple.iTunes.itms-storefrontid",
+    { 0, DMAP_TYPE_INT,     "aeSF", "com.apple.iTunes.itms-storefrontid",
       -1,                            -1 },
 
     /* iTunes 5.0+ */
-    { DMAP_TYPE_BYTE,    "ascr", "daap.songcontentrating",
+    { 0, DMAP_TYPE_BYTE,    "ascr", "daap.songcontentrating",
       dbmfi_offsetof(contentrating), -1 },
-    { DMAP_TYPE_BYTE,    "f" "\x8d" "ch", "dmap.haschildcontainers",
+    { 0, DMAP_TYPE_BYTE,    "f" "\x8d" "ch", "dmap.haschildcontainers",
       -1,                            -1 },
 
     /* iTunes 6.0.2+ */
-    { DMAP_TYPE_BYTE,    "aeHV", "com.apple.itunes.has-video",
+    { 0, DMAP_TYPE_BYTE,    "aeHV", "com.apple.itunes.has-video",
       dbmfi_offsetof(has_video),     -1 },
 
     /* iTunes 6.0.4+ */
-    { DMAP_TYPE_INT,     "msas", "dmap.authenticationschemes",
+    { 0, DMAP_TYPE_INT,     "msas", "dmap.authenticationschemes",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "asct", "daap.songcategory",
+    { 0, DMAP_TYPE_STRING,  "asct", "daap.songcategory",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "ascn", "daap.songcontentdescription",
+    { 0, DMAP_TYPE_STRING,  "ascn", "daap.songcontentdescription",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "aslc", "daap.songlongcontentdescription",
+    { 0, DMAP_TYPE_STRING,  "aslc", "daap.songlongcontentdescription",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "asky", "daap.songkeywords",
+    { 0, DMAP_TYPE_STRING,  "asky", "daap.songkeywords",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "apsm", "daap.playlistshufflemode",
+    { 0, DMAP_TYPE_BYTE,    "apsm", "daap.playlistshufflemode",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "aprm", "daap.playlistrepeatmode",
+    { 0, DMAP_TYPE_BYTE,    "aprm", "daap.playlistrepeatmode",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "aePC", "com.apple.itunes.is-podcast",
+    { 0, DMAP_TYPE_BYTE,    "aePC", "com.apple.itunes.is-podcast",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "aePP", "com.apple.itunes.is-podcast-playlist",
+    { 0, DMAP_TYPE_BYTE,    "aePP", "com.apple.itunes.is-podcast-playlist",
       -1,                            -1 },
-    { DMAP_TYPE_BYTE,    "aeMK", "com.apple.itunes.mediakind",
+    { 0, DMAP_TYPE_BYTE,    "aeMK", "com.apple.itunes.mediakind",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "aeSN", "com.apple.itunes.series-name",
+    { 0, DMAP_TYPE_STRING,  "aeSN", "com.apple.itunes.series-name",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "aeNN", "com.apple.itunes.network-name",
+    { 0, DMAP_TYPE_STRING,  "aeNN", "com.apple.itunes.network-name",
       -1,                            -1 },
-    { DMAP_TYPE_STRING,  "aeEN", "com.apple.itunes.episode-num-str",
+    { 0, DMAP_TYPE_STRING,  "aeEN", "com.apple.itunes.episode-num-str",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "aeES", "com.apple.itunes.episode-sort",
+    { 0, DMAP_TYPE_INT,     "aeES", "com.apple.itunes.episode-sort",
       -1,                            -1 },
-    { DMAP_TYPE_INT,     "aeSU", "com.apple.itunes.season-num",
+    { 0, DMAP_TYPE_INT,     "aeSU", "com.apple.itunes.season-num",
       -1,                            -1 },
 
-    { 0,                 "",      NULL,
+    { 0, 0,                 "",      NULL,
       -1,                            -1 }
   };
 
 /* Default meta tags if not provided in the query */
 static char *default_meta_plsongs = "dmap.itemkind,dmap.itemid,dmap.itemname,dmap.containeritemid,dmap.parentcontainerid";
 static char *default_meta_pl = "dmap.itemid,dmap.itemname,dmap.persistentid,com.apple.itunes.smart-playlist";
+
+avl_tree_t *dmap_fields_hash;
 
 /* Next session ID */
 static int session_id;
@@ -354,6 +363,21 @@ safe_atoi(const char *str, int *val)
     }
 
   *val = (int)intval;
+
+  return 0;
+}
+
+static int
+dmap_field_map_compare(const void *aa, const void *bb)
+{
+  struct dmap_field_map *a = (struct dmap_field_map *)aa;
+  struct dmap_field_map *b = (struct dmap_field_map *)bb;
+
+  if (a->hash < b->hash)
+    return -1;
+
+  if (a->hash > b->hash)
+    return 1;
 
   return 0;
 }
@@ -507,11 +531,79 @@ dmap_add_string(struct evbuffer *evbuf, char *tag, char *str)
     evbuffer_add(evbuf, str, len);
 }
 
+static void
+dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval, int intval)
+{
+  int val;
+  int ret;
+
+  val = 0;
+
+  if (intval != 0)
+    val = intval;
+  else if (strval)
+    {
+      ret = safe_atoi(strval, &val);
+      if (ret < 0)
+	val = 0;
+    }
+
+  switch (dfm->type)
+    {
+    case DMAP_TYPE_BYTE:
+    case DMAP_TYPE_UBYTE:
+      if (val)
+	dmap_add_char(evbuf, dfm->tag, val);
+      break;
+
+    case DMAP_TYPE_SHORT:
+      if (val)
+	dmap_add_short(evbuf, dfm->tag, val);
+      break;
+
+    case DMAP_TYPE_INT:
+    case DMAP_TYPE_DATE:
+      if (val)
+	dmap_add_int(evbuf, dfm->tag, val);
+      break;
+
+    case DMAP_TYPE_LONG:
+      /* FIXME: "long" is thought of as a 64bit value */
+      if (val)
+	dmap_add_long(evbuf, dfm->tag, val);
+      break;
+
+    case DMAP_TYPE_STRING:
+      if (strval)
+	dmap_add_string(evbuf, dfm->tag, strval);
+      break;
+
+    default:
+      DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", dfm->type, dfm->desc);
+      break;
+    }
+}
+
 
 /* Forward */
 static void
 daap_send_error(struct evhttp_request *req, char *container, char *errmsg);
 
+
+static struct dmap_field_map *
+dmap_find_field(uint32_t hash)
+{
+  struct dmap_field_map dfm;
+  avl_node_t *node;
+
+  dfm.hash = hash;
+
+  node = avl_search(dmap_fields_hash, &dfm);
+  if (!node)
+    return NULL;
+
+  return (struct dmap_field_map *)node->item;
+}
 
 static void
 get_query_params(struct evkeyvalq *query, DBQUERYINFO *qi)
@@ -592,13 +684,14 @@ get_query_params(struct evkeyvalq *query, DBQUERYINFO *qi)
 }
 
 static void
-parse_meta(struct evhttp_request *req, char *tag, const char *param, char **out_metastr, char ***out_meta, int *out_nmeta)
+parse_meta(struct evhttp_request *req, char *tag, const char *param, uint32_t **out_meta, int *out_nmeta)
 {
   char *ptr;
+  char *meta;
   char *metastr;
-  char **meta;
+  uint32_t *hashes;
   int nmeta;
-  int m;
+  int i;
 
   *out_nmeta = -1;
 
@@ -618,8 +711,8 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, char **out_
 
   DPRINTF(E_DBG, L_DAAP, "Asking for %d meta tags\n", nmeta);
 
-  meta = (char **)malloc((nmeta + 1) * sizeof(char *));
-  if (!meta)
+  hashes = (uint32_t *)malloc((nmeta + 1) * sizeof(uint32_t));
+  if (!hashes)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not allocate meta array; out of memory\n");
 
@@ -628,36 +721,24 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, char **out_
       free(metastr);
       return;
     }
-  memset(meta, 0, (nmeta + 1) * sizeof(char *));
+  memset(hashes, 0, (nmeta + 1) * sizeof(uint32_t));
 
-  meta[0] = strtok_r(metastr, ",", &ptr);
-  for (m = 1; (m < nmeta + 1) && meta[m - 1]; m++)
+  meta = strtok_r(metastr, ",", &ptr);
+  for (i = 0; i < nmeta; i++)
     {
-      meta[m] = strtok_r(NULL, ",", &ptr);
+      hashes[i] = util_djb_hash_str(meta);
+
+      meta = strtok_r(NULL, ",", &ptr);
+      if (!meta)
+	break;
     }
-
-  if (!meta[0] || meta[m - 1])
-    {
-      DPRINTF(E_LOG, L_DAAP, "Error parsing meta parameter in DAAP query\n");
-
-      daap_send_error(req, tag, "Error parsing meta parameter");
-
-      free(meta);
-      free(metastr);
-      return;
-    }
-
-  /* Adjust nmeta */
-  while (nmeta && !meta[nmeta])
-    nmeta--;
-
-  nmeta++;
 
   DPRINTF(E_DBG, L_DAAP, "Found %d meta tags\n", nmeta);
 
   *out_nmeta = nmeta;
-  *out_metastr = metastr;
-  *out_meta = meta;
+  *out_meta = hashes;
+
+  free(metastr);
 }
 
 
@@ -931,13 +1012,13 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   struct db_media_file_info *dbmfi;
   struct evbuffer *song;
   struct evbuffer *songlist;
+  struct dmap_field_map *dfm;
   char *db_errmsg;
   const char *param;
   char *tag;
   char **strval;
   char *ptr;
-  char *metastr;
-  char **meta;
+  uint32_t *meta;
   int nmeta;
   int nsongs;
   int transcode;
@@ -945,8 +1026,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   int want_asdk;
   int oom;
   int val;
-  int m;
-  int f;
+  int i;
   int ret;
 
   DPRINTF(E_DBG, L_DAAP, "Fetching song list for playlist %d\n", playlist);
@@ -1021,7 +1101,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   if (param)
     {
-      parse_meta(req, tag, param, &metastr, &meta, &nmeta);
+      parse_meta(req, tag, param, &meta, &nmeta);
       if (nmeta < 0)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Failed to parse meta parameter in DAAP query\n");
@@ -1032,7 +1112,10 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	}
     }
   else
-    nmeta = 0;
+    {
+      meta = NULL;
+      nmeta = 0;
+    }
 
   memset(&qi, 0, sizeof(DBQUERYINFO));
   get_query_params(query, &qi);
@@ -1050,7 +1133,6 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
       free(db_errmsg);
       free(meta);
-      free(metastr);
       evbuffer_free(song);
       evbuffer_free(songlist);
       if (qi.pt)
@@ -1068,48 +1150,68 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
       transcode = 0; /* FIXME: No transcode support here yet */
 
-      for (f = 0; dmap_fields[f].type != 0; f++)
+      i = -1;
+      while (1)
 	{
-	  /* Not in struct media_file_info */
-	  if (dmap_fields[f].mfi_offset < 0)
-	    continue;
+	  i++;
 
-	  /* No meta tags required by query and no default list
-	   *  -> send out everything we can
-	   */
+	  /* Specific meta tags requested (or default list) */
 	  if (nmeta > 0)
 	    {
-	      for (m = 0; m < nmeta; m++)
-		{
-		  if (strcmp(meta[m], dmap_fields[f].desc) == 0)
-		    break;
-		}
+	      if (i == nmeta)
+		break;
 
-	      /* Not found */
-	      if (m == nmeta)
-		continue;
+	      dfm = dmap_find_field(meta[i]);
+
+	      if (!dfm)
+		{
+		  DPRINTF(E_LOG, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
+		  continue;
+		}
+	    }
+	  /* No specific meta tags requested, send out everything */
+	  else
+	    {
+	      /* End of list */
+	      if (dmap_fields[i].type == 0)
+		break;
+
+	      dfm = &dmap_fields[i];
 	    }
 
+	  /* Not in struct media_file_info */
+	  if (dfm->mfi_offset < 0)
+	    continue;
+
 	  /* Will be prepended to the list */
-	  if (dmap_fields[f].mfi_offset == dbmfi_offsetof(item_kind))
+	  if (dfm->mfi_offset == dbmfi_offsetof(item_kind))
 	    {
 	      want_mikd = 1;
 	      continue;
 	    }
-	  else if (dmap_fields[f].mfi_offset == dbmfi_offsetof(data_kind))
+	  else if (dfm->mfi_offset == dbmfi_offsetof(data_kind))
 	    {
 	      want_asdk = 1;
 	      continue;
 	    }
 
-          strval = (char **) ((char *)dbmfi + dmap_fields[f].mfi_offset);
+	  DPRINTF(E_DBG, L_DAAP, "Investigating %s\n", dfm->desc);
 
-          if (!(*strval) || (strlen(*strval) == 0))
+	  strval = (char **) ((char *)dbmfi + dfm->mfi_offset);
+
+	  if (!(*strval) || (**strval == '\0'))
             continue;
+
+	  /* Here's one exception ... codectype (ascd) is actually an integer */
+	  if (dfm->mfi_offset == dbmfi_offsetof(codectype))
+	    {
+	      dmap_add_literal(song, dfm->tag, *strval, 4);
+	      continue;
+	    }
 
 	  if (transcode)
             {
-              switch (dmap_fields[f].mfi_offset)
+              switch (dfm->mfi_offset)
                 {
 		  case dbmfi_offsetof(type):
 		    ptr = "wav";
@@ -1123,6 +1225,9 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 		      val = 1411;
 		    else
 		      val = (val * 8) / 250;
+
+		    ptr = NULL;
+		    strval = &ptr;
 		    break;
 
 		  case dbmfi_offsetof(description):
@@ -1134,55 +1239,17 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 		    break;
                 }
             }
-	  else
+
+	  if (*strval)
 	    {
 	      ret = safe_atoi(*strval, &val);
 	      if (ret < 0)
 		val = 0;
 	    }
 
-	  /* Here's one exception ... codectype (ascd) is actually an integer */
-	  if (dmap_fields[f].mfi_offset == dbmfi_offsetof(codectype))
-	    {
-	      dmap_add_literal(song, dmap_fields[f].tag, *strval, 4);
-	      continue;
-	    }
+	  dmap_add_field(song, dfm, *strval, val);
 
-	  switch (dmap_fields[f].type)
-	    {
-	      case DMAP_TYPE_BYTE:
-	      case DMAP_TYPE_UBYTE:
-		if (val)
-		  dmap_add_char(song, dmap_fields[f].tag, val);
-		break;
-
-	      case DMAP_TYPE_SHORT:
-		if (val)
-		  dmap_add_short(song, dmap_fields[f].tag, val);
-		break;
-
-	      case DMAP_TYPE_INT:
-	      case DMAP_TYPE_DATE:
-		if (val)
-		  dmap_add_int(song, dmap_fields[f].tag, val);
-		break;
-
-	      case DMAP_TYPE_LONG:
-		/* FIXME: "long" is thought of as a 64bit value */
-		if (val)
-		  dmap_add_long(song, dmap_fields[f].tag, val);
-		break;
-
-	      case DMAP_TYPE_STRING:
-		dmap_add_string(song, dmap_fields[f].tag, *strval);
-		break;
-
-	      default:
-		DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", dmap_fields[f].type, dmap_fields[f].desc);
-		continue;
-	    }
-
-	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", dmap_fields[f].desc, *strval);
+	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", dfm->desc, *strval);
 	}
 
       DPRINTF(E_DBG, L_DAAP, "Done with song\n");
@@ -1220,13 +1287,11 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	}
     }
 
-  DPRINTF(E_DBG, L_DAAP, "Done with song list\n");
+  DPRINTF(E_DBG, L_DAAP, "Done with song list, %d songs\n", nsongs);
 
   if (nmeta > 0)
-    {
-      free(meta);
-      free(metastr);
-    }
+    free(meta);
+
   evbuffer_free(song);
 
   if (qi.pt)
@@ -1312,17 +1377,16 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   struct evbuffer *playlistlist;
   struct evbuffer *playlist;
   struct db_playlist_info *dbpli;
+  struct dmap_field_map *dfm;
   const char *param;
   char *db_errmsg;
   char **strval;
-  char *metastr;
-  char **meta;
+  uint32_t *meta;
   int nmeta;
   int npls;
   int oom;
   int val;
-  int f;
-  int m;
+  int i;
   int ret;
 
   ret = evbuffer_expand(evbuf, 61);
@@ -1387,7 +1451,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       param = default_meta_pl;
     }
 
-  parse_meta(req, "aply", param, &metastr, &meta, &nmeta);
+  parse_meta(req, "aply", param, &meta, &nmeta);
   if (nmeta < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Failed to parse meta parameter in DAAP query\n");
@@ -1410,7 +1474,6 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 
       free(db_errmsg);
       free(meta);
-      free(metastr);
       evbuffer_free(playlist);
       evbuffer_free(playlistlist);
       if (qi.pt)
@@ -1424,14 +1487,14 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       npls++;
 
-      for (m = 0; m < nmeta; m++)
+      for (i = 0; i < nmeta; i++)
 	{
-	  /* Always added */
-	  if (strcmp(meta[m], "dmap.itemcount") == 0)
+	  /* dmap.itemcount - always added */
+	  if (meta[i] == 0xd4b8b70d)
 	    continue;
 
-	  /* Smart playlist: type = 1 AND id != 1*/
-	  if (strcmp(meta[m], "com.apple.itunes.smart-playlist") == 0)
+	  /* com.apple.itunes.smart-playlist - type = 1 AND id != 1 */
+	  if (meta[i] == 0x670fc55e)
 	    {
 	      val = 0;
 	      ret = safe_atoi(dbpli->type, &val);
@@ -1446,64 +1509,25 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	      continue;
 	    }
 
-	  for (f = 0; dmap_fields[f].type != 0; f++)
+	  dfm = dmap_find_field(meta[i]);
+	  if (!dfm)
 	    {
-	      /* Not in struct playlist_info */
-	      if (dmap_fields[f].pli_offset < 0)
-		continue;
-
-	      if (strcmp(meta[m], dmap_fields[f].desc) == 0)
-		break;
+	      DPRINTF(E_LOG, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
+	      continue;
 	    }
 
-	  /* Not found */
-	  if (dmap_fields[f].type == 0)
+	  /* Not in struct playlist_info */
+	  if (dfm->pli_offset < 0)
 	    continue;
 
-          strval = (char **) ((char *)dbpli + dmap_fields[f].pli_offset);
+          strval = (char **) ((char *)dbpli + dfm->pli_offset);
 
-          if (!(*strval) || (strlen(*strval) == 0))
+          if (!(*strval) || (**strval == '\0'))
             continue;
 
-	  ret = safe_atoi(*strval, &val);
-	  if (ret < 0)
-	    val = 0;
+	  dmap_add_field(playlist, dfm, *strval, 0);
 
-	  switch (dmap_fields[f].type)
-	    {
-	      case DMAP_TYPE_BYTE:
-	      case DMAP_TYPE_UBYTE:
-		if (val)
-		  dmap_add_char(playlist, dmap_fields[f].tag, val);
-		break;
-
-	      case DMAP_TYPE_SHORT:
-		if (val)
-		  dmap_add_short(playlist, dmap_fields[f].tag, val);
-		break;
-
-	      case DMAP_TYPE_INT:
-	      case DMAP_TYPE_DATE:
-		if (val)
-		  dmap_add_int(playlist, dmap_fields[f].tag, val);
-		break;
-
-	      case DMAP_TYPE_LONG:
-		/* FIXME: "long" is thought of as a 64bit value */
-		if (val)
-		  dmap_add_long(playlist, dmap_fields[f].tag, val);
-		break;
-
-	      case DMAP_TYPE_STRING:
-		dmap_add_string(playlist, dmap_fields[f].tag, *strval);
-		break;
-
-	      default:
-		DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", dmap_fields[f].type, dmap_fields[f].desc);
-		continue;
-	    }
-
-	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s\n", dmap_fields[f].desc);
+	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", dfm->desc, *strval);
 	}
 
       /* Item count (mimc) */
@@ -1529,10 +1553,9 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	}
     }
 
-  DPRINTF(E_DBG, L_DAAP, "Done with playlist list\n");
+  DPRINTF(E_DBG, L_DAAP, "Done with playlist list, %d playlists\n");
 
   free(meta);
-  free(metastr);
   evbuffer_free(playlist);
 
   if (qi.pt)
@@ -1922,6 +1945,8 @@ int
 daap_init(void)
 {
   char buf[64];
+  avl_node_t *node;
+  struct dmap_field_map *dfm;
   int i;
   int ret;
 
@@ -1939,7 +1964,47 @@ daap_init(void)
         }
     }
 
+  dmap_fields_hash = avl_alloc_tree(dmap_field_map_compare, NULL);
+  if (!dmap_fields_hash)
+    {
+      DPRINTF(E_FATAL, L_DAAP, "DAAP init could not allocate AVL tree\n");
+
+      goto avl_alloc_fail;
+    }
+
+  for (i = 0; dmap_fields[i].type != 0; i++)
+    {
+      dmap_fields[i].hash = util_djb_hash_str(dmap_fields[i].desc);
+
+      node = avl_insert(dmap_fields_hash, &dmap_fields[i]);
+      if (!node)
+	{
+	  if (errno != EEXIST)
+	    DPRINTF(E_FATAL, L_DAAP, "DAAP init failed; AVL insert error: %s\n", strerror(errno));
+	  else
+	    {
+	      node = avl_search(dmap_fields_hash, &dmap_fields[i]);
+	      dfm = node->item;
+
+	      DPRINTF(E_FATAL, L_DAAP, "DAAP init failed; WARNING: duplicate hash key\n");
+	      DPRINTF(E_FATAL, L_DAAP, "Hash %x, string %s\n", dmap_fields[i].hash, dmap_fields[i].desc);
+
+	      DPRINTF(E_FATAL, L_DAAP, "Hash %x, string %s\n", dfm->hash, dfm->desc);
+	    }
+
+	  goto avl_insert_fail;
+	}
+    }
+
   return 0;
+
+ avl_insert_fail:
+  avl_free_tree(dmap_fields_hash);
+ avl_alloc_fail:
+  for (i = 0; daap_handlers[i].handler; i++)
+    regfree(&daap_handlers[i].preg);
+
+  return -1;
 }
 
 void
@@ -1949,4 +2014,6 @@ daap_deinit(void)
 
   for (i = 0; daap_handlers[i].handler; i++)
     regfree(&daap_handlers[i].preg);
+
+  avl_free_tree(dmap_fields_hash);
 }
