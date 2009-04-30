@@ -59,6 +59,7 @@
 #define L_LOCK    0x00008000 /**< semaphore locks */
 #define L_HTTPD   0x00010000 /**< httpd - httpd.c */
 #define L_RSP     0x00020000 /**< RSP - httpd_rsp.c */
+#define L_XCODE   0x00040000 /**< transcode - transcode.c */
 #define L_MISC    0x80000000 /**< anything else */
 
 #ifndef TRUE
