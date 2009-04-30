@@ -47,8 +47,6 @@
 #include "httpd.h"
 #include "httpd_daap.h"
 
-#include "util.h"
-
 
 struct uri_map {
   regex_t preg;
@@ -691,7 +689,7 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, uint32_t **
   meta = strtok_r(metastr, ",", &ptr);
   for (i = 0; i < nmeta; i++)
     {
-      hashes[i] = util_djb_hash_str(meta);
+      hashes[i] = djb_hash(meta, strlen(meta));
 
       meta = strtok_r(NULL, ",", &ptr);
       if (!meta)
@@ -1939,7 +1937,7 @@ daap_init(void)
 
   for (i = 0; dmap_fields[i].type != 0; i++)
     {
-      dmap_fields[i].hash = util_djb_hash_str(dmap_fields[i].desc);
+      dmap_fields[i].hash = djb_hash(dmap_fields[i].desc, strlen(dmap_fields[i].desc));
 
       node = avl_insert(dmap_fields_hash, &dmap_fields[i]);
       if (!node)

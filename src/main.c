@@ -86,6 +86,7 @@
 #include "conf.h"
 #include "configfile.h"
 #include "err.h"
+#include "misc.h"
 #include "filescanner.h"
 #include "httpd.h"
 #include "webserver.h"
@@ -702,8 +703,8 @@ int main(int argc, char *argv[]) {
       }
 
     snprintf(txtrecord[0], 128, "txtvers=1");
-    snprintf(txtrecord[1], 128, "Database ID=%0X", util_djb_hash_str(servername));
-    snprintf(txtrecord[2], 128, "Machine ID=%0X", util_djb_hash_str(servername));
+    snprintf(txtrecord[1], 128, "Database ID=%0X", djb_hash(servername, strlen(servername)));
+    snprintf(txtrecord[2], 128, "Machine ID=%0X", djb_hash(servername, strlen(servername)));
     snprintf(txtrecord[3], 128, "Machine Name=%s", servername);
     snprintf(txtrecord[4], 128, "mtd-version=%s", VERSION);
     snprintf(txtrecord[5], 128, "iTSh Version=131073"); /* iTunes 6.0.4 */

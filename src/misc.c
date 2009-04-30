@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <stdint.h>
 #include <limits.h>
 
 #include "daapd.h"
@@ -93,4 +94,19 @@ safe_atol(const char *str, long *val)
   *val = intval;
 
   return 0;
+}
+
+uint32_t
+djb_hash(void *data, size_t len)
+{
+  unsigned char *bytes = data;
+  uint32_t hash = 5381;
+
+  while (len--)
+    {
+      hash = ((hash << 5) + hash) + *bytes;
+      bytes++;
+    }
+
+  return hash;
 }
