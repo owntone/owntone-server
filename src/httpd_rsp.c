@@ -42,6 +42,7 @@
 #include "ff-dbstruct.h"
 #include "db-generic.h"
 #include "conffile.h"
+#include "misc.h"
 #include "httpd.h"
 #include "httpd_rsp.h"
 
@@ -129,42 +130,6 @@ static struct field_map rsp_fields[] =
     { NULL,            0,                             0 }
   };
 
-
-static int
-safe_atoi(const char *str, int *val)
-{
-  char *end;
-  long intval;
-
-  errno = 0;
-  intval = strtol(str, &end, 10);
-
-  if (((errno == ERANGE) && ((intval == LONG_MAX) || (intval == LONG_MIN)))
-      || ((errno != 0) && (intval == 0)))
-    {
-      DPRINTF(E_WARN, L_RSP, "Invalid integer in string (%s): %s\n", str, strerror(errno));
-
-      return -1;
-    }
-
-  if (end == str)
-    {
-      DPRINTF(E_WARN, L_RSP, "No integer found in string (%s)\n", str);
-
-      return -1;
-    }
-
-  if (intval > INT_MAX)
-    {
-      DPRINTF(E_WARN, L_RSP, "Integer value too large (%s)\n", str);
-
-      return -1;
-    }
-
-  *val = (int)intval;
-
-  return 0;
-}
 
 static struct evbuffer *
 mxml_to_evbuf(mxml_node_t *tree)

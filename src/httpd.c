@@ -39,6 +39,7 @@
 #include "ff-dbstruct.h"
 #include "db-generic.h"
 #include "conffile.h"
+#include "misc.h"
 #include "httpd.h"
 #include "httpd_rsp.h"
 #include "httpd_daap.h"
@@ -97,36 +98,6 @@ static struct event_base *evbase_httpd;
 static struct event exitev;
 static struct evhttp *evhttpd;
 static pthread_t tid_httpd;
-
-
-static int
-safe_atol(const char *str, long *val)
-{
-  char *end;
-  long intval;
-
-  errno = 0;
-  intval = strtol(str, &end, 10);
-
-  if (((errno == ERANGE) && ((intval == LONG_MAX) || (intval == LONG_MIN)))
-      || ((errno != 0) && (intval == 0)))
-    {
-      DPRINTF(E_WARN, L_RSP, "Invalid integer in string (%s): %s\n", str, strerror(errno));
-
-      return -1;
-    }
-
-  if (end == str)
-    {
-      DPRINTF(E_WARN, L_RSP, "No integer found in string (%s)\n", str);
-
-      return -1;
-    }
-
-  *val = intval;
-
-  return 0;
-}
 
 
 static void

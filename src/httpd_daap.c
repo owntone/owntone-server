@@ -43,6 +43,7 @@
 #include "ff-dbstruct.h"
 #include "db-generic.h"
 #include "conffile.h"
+#include "misc.h"
 #include "httpd.h"
 #include "httpd_daap.h"
 
@@ -330,42 +331,6 @@ avl_tree_t *dmap_fields_hash;
 /* Next session ID */
 static int session_id;
 
-
-static int
-safe_atoi(const char *str, int *val)
-{
-  char *end;
-  long intval;
-
-  errno = 0;
-  intval = strtol(str, &end, 10);
-
-  if (((errno == ERANGE) && ((intval == LONG_MAX) || (intval == LONG_MIN)))
-      || ((errno != 0) && (intval == 0)))
-    {
-      DPRINTF(E_WARN, L_DAAP, "Invalid integer in string (%s): %s\n", str, strerror(errno));
-
-      return -1;
-    }
-
-  if (end == str)
-    {
-      DPRINTF(E_WARN, L_DAAP, "No integer found in string (%s)\n", str);
-
-      return -1;
-    }
-
-  if (intval > INT_MAX)
-    {
-      DPRINTF(E_WARN, L_DAAP, "Integer value too large (%s)\n", str);
-
-      return -1;
-    }
-
-  *val = (int)intval;
-
-  return 0;
-}
 
 static int
 dmap_field_map_compare(const void *aa, const void *bb)
