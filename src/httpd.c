@@ -488,11 +488,35 @@ serve_file(struct evhttp_request *req, char *uri)
   char path[PATH_MAX];
   char *deref;
   char *ctype;
+  char *passwd;
   struct evbuffer *evbuf;
   struct stat sb;
   int fd;
   int i;
   int ret;
+
+  /* Check authentication */
+  passwd = cfg_getstr(cfg_getsec(cfg, "general"), "admin_password");
+  if (passwd)
+    {
+      DPRINTF(E_DBG, L_HTTPD, "Checking web interface authentication\n");
+
+      ret = httpd_basic_auth(req, "admin", passwd, PACKAGE " web interface");
+      if (ret != 0)
+	return;
+
+      DPRINTF(E_DBG, L_HTTPD, "Authentication successful\n");
+    }
+  else
+    {
+      if (strcmp(req->remote_host, "127.0.0.1") != 0)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
+
+	  evhttp_send_error(req, 403, "Forbidden");
+	  return;
+	}
+    }
 
   ret = snprintf(path, sizeof(path), "%s%s", WEBFACE_ROOT, uri + 1); /* skip starting '/' */
   if ((ret < 0) || (ret >= sizeof(path)))

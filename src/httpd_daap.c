@@ -1789,6 +1789,9 @@ daap_request(struct evhttp_request *req)
   char *uri_parts[7];
   struct evbuffer *evbuf;
   struct evkeyvalq query;
+  cfg_t *lib;
+  char *libname;
+  char *passwd;
   int handler;
   int ret;
   int i;
@@ -1836,6 +1839,34 @@ daap_request(struct evhttp_request *req)
       free(uri);
       free(full_uri);
       return;
+    }
+
+  /* Check authentication */
+  lib = cfg_getnsec(cfg, "library", 0);
+  passwd = cfg_getstr(lib, "password");
+
+  /* No authentication for these URIs */
+  if ((strcmp(uri, "/server-info") == 0)
+      || (strcmp(uri, "/logout") == 0)
+      || (strncmp(uri, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
+    passwd = NULL;
+
+  if (passwd)
+    {
+      libname = cfg_getstr(lib, "name");
+
+      DPRINTF(E_DBG, L_HTTPD, "Checking authentication for library '%s'\n", libname);
+
+      /* We don't care about the username */
+      ret = httpd_basic_auth(req, NULL, passwd, libname);
+      if (ret != 0)
+	{
+	  free(uri);
+	  free(full_uri);
+	  return;
+	}
+
+      DPRINTF(E_DBG, L_HTTPD, "Library authentication successful\n");
     }
 
   memset(uri_parts, 0, sizeof(uri_parts));
