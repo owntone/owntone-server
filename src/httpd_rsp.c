@@ -44,6 +44,7 @@
 #include "conffile.h"
 #include "misc.h"
 #include "httpd.h"
+#include "transcode.h"
 #include "httpd_rsp.h"
 
 
@@ -563,7 +564,7 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   /* Items block (all items) */
   while (((ret = db_enum_fetch_row(&db_errmsg, &dbmfi, &qi)) == DB_E_SUCCESS) && (dbmfi))
     {
-      transcode = 0; /* FIXME: No transcode support here yet */
+      transcode = transcode_needed(req->input_headers, dbmfi->codectype);
 
       /* Item block (one item) */
       item = mxmlNewElement(items, "item");

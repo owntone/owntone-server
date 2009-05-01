@@ -45,6 +45,7 @@
 #include "conffile.h"
 #include "misc.h"
 #include "httpd.h"
+#include "transcode.h"
 #include "httpd_daap.h"
 
 
@@ -1111,7 +1112,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       nsongs++;
 
-      transcode = 0; /* FIXME: No transcode support here yet */
+      transcode = transcode_needed(req->input_headers, dbmfi->codectype);
 
       i = -1;
       while (1)
