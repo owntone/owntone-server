@@ -691,6 +691,112 @@ exit_cb(int fd, short event, void *arg)
   httpd_exit = 1;
 }
 
+static char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
+
+int
+httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *realm)
+{
+  struct evbuffer *evbuf;
+  char *header;
+  const char *auth;
+  char *authuser;
+  char *authpwd;
+  int len;
+  int ret;
+
+  auth = evhttp_find_header(req->input_headers, "Authorization");
+  if (!auth)
+    {
+      DPRINTF(E_DBG, L_HTTPD, "No Authorization header\n");
+
+      goto need_auth;
+    }
+
+  if (strncmp(auth, "Basic ", strlen("Basic ")) != 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Bad Authentication header\n");
+
+      goto need_auth;
+    }
+
+  auth += strlen("Basic ");
+
+  authuser = b64_decode(auth);
+  if (!authuser)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not decode Authentication header\n");
+
+      goto need_auth;
+    }
+
+  authpwd = strchr(authuser, ':');
+  if (!authpwd)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Malformed Authentication header\n");
+
+      free(authuser);
+      goto need_auth;
+    }
+
+  *authpwd = '\0';
+  authpwd++;
+
+  if (user)
+    {
+      if (strcmp(user, authuser) != 0)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "Username mismatch\n");
+
+	  free(authuser);
+	  goto need_auth;
+	}
+    }
+
+  if (strcmp(passwd, authpwd) != 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Bad password\n");
+
+      free(authuser);
+      goto need_auth;
+    }
+
+  free(authuser);
+
+  return 0;
+
+ need_auth:
+  len = strlen(realm) + strlen("Basic realm=") + 3;
+  header = (char *)malloc(len);
+  if (!header)
+    {
+      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      return -1;
+    }
+
+  ret = snprintf(header, len, "Basic realm=\"%s\"", realm);
+  if ((ret < 0) || (ret >= len))
+    {
+      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      return -1;
+    }
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    {
+      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      return -1;
+    }
+
+  evhttp_add_header(req->output_headers, "WWW-Authenticate", header);
+  evbuffer_add(evbuf, http_reply_401, strlen(http_reply_401));
+  evhttp_send_reply(req, 401, "Unauthorized", evbuf);
+
+  free(header);
+  evbuffer_free(evbuf);
+
+  return -1;
+}
+
 /* Thread: main */
 int
 httpd_init(void)
