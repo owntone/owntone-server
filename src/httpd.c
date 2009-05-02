@@ -109,6 +109,41 @@ static pthread_t tid_httpd;
 
 
 static void
+stream_end(struct stream_chunk *st)
+{
+  /* This is an extension to the stock evhttp */
+  st->req->fail_cb = NULL;
+  st->req->fail_cb_arg = NULL;
+
+  evhttp_send_reply_end(st->req);
+
+  evbuffer_free(st->evbuf);
+  
+  if (st->xcode)
+    transcode_cleanup(st->xcode);
+  free(st);
+}
+
+static void
+stream_chunk_resched_cb(struct evhttp_connection *evcon, void *arg)
+{
+  struct stream_chunk *st;
+  struct timeval tv;
+  int ret;
+
+  st = (struct stream_chunk *)arg;
+
+  evutil_timerclear(&tv);
+  ret = event_add(&st->ev, &tv);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming\n");
+
+      stream_end(st);
+    }
+}
+
+static void
 stream_chunk_xcode_cb(int fd, short event, void *arg)
 {
   struct stream_chunk *st;
@@ -126,7 +161,8 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
       else
 	DPRINTF(E_LOG, L_HTTPD, "Transcoding error, file id %d\n", st->id);
 
-      goto end_stream;
+      stream_end(st);
+      return;
     }
 
   DPRINTF(E_DBG, L_HTTPD, "Got %d bytes from transcode; streaming file id %d\n", xcoded, st->id);
@@ -142,20 +178,22 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
 	  st->offset += ret;
 
 	  ret = xcoded - ret;
+
+	  if (ret == 0)
+	    goto consume;
 	}
       else
 	{
 	  evbuffer_drain(st->evbuf, xcoded);
 	  st->offset += xcoded;
 
-	  goto continue_stream;
+	  goto consume;
 	}
     }
   else
     ret = xcoded;
 
-  if (ret > 0)
-    evhttp_send_reply_chunk(st->req, st->evbuf);
+  evhttp_send_reply_chunk_with_cb(st->req, st->evbuf, stream_chunk_resched_cb, st);
 
   st->offset += ret;
 
@@ -165,35 +203,24 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
       db_playcount_increment(NULL, st->id);
     }
 
- continue_stream:
+  return;
+
+ consume: /* reschedule immediately - consume up to start_offset */
   evutil_timerclear(&tv);
   ret = event_add(&st->ev, &tv);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming\n");
+      DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming (xcode)\n");
 
-      goto end_stream;
+      stream_end(st);
+      return;
     }
-
-  return;
-
- end_stream:
-  /* This is an extension to the stock evhttp */
-  st->req->fail_cb = NULL;
-  st->req->fail_cb_arg = NULL;
-
-  evhttp_send_reply_end(st->req);
-
-  evbuffer_free(st->evbuf);
-  transcode_cleanup(st->xcode);
-  free(st);
 }
 
 static void
 stream_chunk_raw_cb(int fd, short event, void *arg)
 {
   struct stream_chunk *st;
-  struct timeval tv;
   int ret;
 
   st = (struct stream_chunk *)arg;
@@ -206,13 +233,13 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
       else
 	DPRINTF(E_LOG, L_HTTPD, "Streaming error, file id %d\n", st->id);
 
-      goto end_stream;
+      stream_end(st);
+      return;
     }
 
   DPRINTF(E_DBG, L_HTTPD, "Read %d bytes; streaming file id %d\n", ret, st->id);
 
-  if (ret > 0)
-    evhttp_send_reply_chunk(st->req, st->evbuf);
+  evhttp_send_reply_chunk_with_cb(st->req, st->evbuf, stream_chunk_resched_cb, st);
 
   st->offset += ret;
 
@@ -221,28 +248,6 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
       st->marked = 1;
       db_playcount_increment(NULL, st->id);
     }
-
-  evutil_timerclear(&tv);
-  ret = event_add(&st->ev, &tv);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming\n");
-
-      goto end_stream;
-    }
-
-  return;
-
- end_stream:
-  /* This is an extension to the stock evhttp */
-  st->req->fail_cb = NULL;
-  st->req->fail_cb_arg = NULL;
-
-  evhttp_send_reply_end(st->req);
-
-  close(st->fd);
-  evbuffer_free(st->evbuf);
-  free(st);
 }
 
 static void
