@@ -76,6 +76,7 @@ struct content_type_map {
 struct stream_chunk {
   struct evhttp_request *req;
   struct evbuffer *evbuf;
+  struct event ev;
   int id;
   int fd;
   size_t size;
@@ -166,7 +167,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
 
  continue_stream:
   evutil_timerclear(&tv);
-  ret = event_base_once(evbase_httpd, -1, EV_TIMEOUT, stream_chunk_xcode_cb, st, &tv);
+  ret = event_add(&st->ev, &tv);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming\n");
@@ -177,6 +178,10 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
   return;
 
  end_stream:
+  /* This is an extension to the stock evhttp */
+  st->req->fail_cb = NULL;
+  st->req->fail_cb_arg = NULL;
+
   evhttp_send_reply_end(st->req);
 
   evbuffer_free(st->evbuf);
@@ -218,7 +223,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
     }
 
   evutil_timerclear(&tv);
-  ret = event_base_once(evbase_httpd, -1, EV_TIMEOUT, stream_chunk_raw_cb, st, &tv);
+  ret = event_add(&st->ev, &tv);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming\n");
@@ -229,12 +234,40 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
   return;
 
  end_stream:
+  /* This is an extension to the stock evhttp */
+  st->req->fail_cb = NULL;
+  st->req->fail_cb_arg = NULL;
+
   evhttp_send_reply_end(st->req);
 
   close(st->fd);
   evbuffer_free(st->evbuf);
   free(st);
 }
+
+static void
+stream_fail_cb(struct evhttp_request *req, void *arg)
+{
+  struct stream_chunk *st;
+
+  st = (struct stream_chunk *)arg;
+
+  DPRINTF(E_LOG, L_HTTPD, "Connection failed; stopping streaming of file ID %d\n", st->id);
+
+  req->fail_cb = NULL;
+  req->fail_cb_arg = NULL;
+
+  /* Stop streaming */
+  event_del(&st->ev);
+
+  /* Cleanup */
+  evbuffer_free(st->evbuf);
+
+  if (st->xcode)
+    transcode_cleanup(st->xcode);
+  free(st);
+}
+
 
 /* Thread: httpd */
 void
@@ -411,7 +444,9 @@ httpd_stream_file(struct evhttp_request *req, int id)
     }
 
   evutil_timerclear(&tv);
-  ret = event_base_once(evbase_httpd, -1, EV_TIMEOUT, stream_cb, st, &tv);
+  event_set(&st->ev, -1, EV_TIMEOUT, stream_cb, st);
+  event_base_set(evbase_httpd, &st->ev);
+  ret = event_add(&st->ev, &tv);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not add one-shot event for streaming\n");
@@ -448,6 +483,10 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
       evhttp_send_reply_start(req, 206, "Partial Content");
     }
+
+  /* This is an extension to the stock evhttp */
+  req->fail_cb = stream_fail_cb;
+  req->fail_cb_arg = st;
 
   DPRINTF(E_INF, L_HTTPD, "Kicking off streaming for %s\n", mfi->path);
 
