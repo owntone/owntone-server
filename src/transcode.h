@@ -2,7 +2,7 @@
 #ifndef __TRANSCODE_H__
 #define __TRANSCODE_H__
 
-#include <evhttp.h>
+#include "evhttp/evhttp.h"
 
 struct transcode_ctx;
 

@@ -32,7 +32,7 @@
 #include <sys/queue.h>
 
 #include <event.h>
-#include <evhttp.h>
+#include "evhttp/evhttp.h"
 
 #include "daapd.h"
 #include "err.h"

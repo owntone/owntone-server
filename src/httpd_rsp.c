@@ -33,7 +33,7 @@
 #include <limits.h>
 
 #include <event.h>
-#include <evhttp.h>
+#include "evhttp/evhttp.h"
 
 #include <mxml.h>
 

@@ -34,7 +34,7 @@
 #include <stdint.h>
 
 #include <event.h>
-#include <evhttp.h>
+#include "evhttp/evhttp.h"
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
