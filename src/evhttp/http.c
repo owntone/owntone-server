@@ -650,7 +650,11 @@ evhttp_connection_fail(struct evhttp_connection *evcon,
 		 * reply before the connection can be freed.
 		 */
 		if (evhttp_connection_incoming_fail(req, error) == -1)
-			evhttp_connection_free(evcon);
+		  {
+		    if (req->fail_cb)
+		      req->fail_cb(req, req->fail_cb_arg);
+		    evhttp_connection_free(evcon);
+		  }
 		return;
 	}
 
