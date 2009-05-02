@@ -1963,7 +1963,8 @@ evhttp_send_reply_start(struct evhttp_request *req, int code,
 }
 
 void
-evhttp_send_reply_chunk(struct evhttp_request *req, struct evbuffer *databuf)
+evhttp_send_reply_chunk_with_cb(struct evhttp_request *req, struct evbuffer *databuf,
+				void (*cb)(struct evhttp_connection *, void *), void *arg)
 {
 	if (req->chunked) {
 		evbuffer_add_printf(req->evcon->output_buffer, "%x\r\n",
@@ -1973,7 +1974,13 @@ evhttp_send_reply_chunk(struct evhttp_request *req, struct evbuffer *databuf)
 	if (req->chunked) {
 		evbuffer_add(req->evcon->output_buffer, "\r\n", 2);
 	}
-	evhttp_write_buffer(req->evcon, NULL, NULL);
+	evhttp_write_buffer(req->evcon, cb, arg);
+}
+
+void
+evhttp_send_reply_chunk(struct evhttp_request *req, struct evbuffer *databuf)
+{
+  evhttp_send_reply_chunk_with_cb(req, databuf, NULL, NULL);
 }
 
 void

@@ -64,6 +64,7 @@ extern "C" {
 struct evhttp;
 struct evhttp_request;
 struct evkeyvalq;
+struct evhttp_connection;
 
 /** Create a new HTTP server
  *
@@ -159,6 +160,8 @@ void evhttp_send_reply(struct evhttp_request *req, int code,
 
 /* Low-level response interface, for streaming/chunked replies */
 void evhttp_send_reply_start(struct evhttp_request *, int, const char *);
+void evhttp_send_reply_chunk_with_cb(struct evhttp_request *, struct evbuffer *,
+				     void (*cb)(struct evhttp_connection *, void *), void *arg);
 void evhttp_send_reply_chunk(struct evhttp_request *, struct evbuffer *);
 void evhttp_send_reply_end(struct evhttp_request *);
 
