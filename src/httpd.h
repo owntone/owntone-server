@@ -9,6 +9,9 @@
 void
 httpd_stream_file(struct evhttp_request *req, int id);
 
+char *
+httpd_fixup_uri(struct evhttp_request *req);
+
 int
 httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *realm);
 

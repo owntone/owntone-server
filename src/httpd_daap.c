@@ -1782,7 +1782,6 @@ static struct uri_map daap_handlers[] =
 void
 daap_request(struct evhttp_request *req)
 {
-  const char *req_uri;
   char *full_uri;
   char *uri;
   char *ptr;
@@ -1796,22 +1795,26 @@ daap_request(struct evhttp_request *req)
   int ret;
   int i;
 
-  req_uri = evhttp_request_uri(req);
-
-  full_uri = strdup(req_uri);
+  full_uri = httpd_fixup_uri(req);
+  if (!full_uri)
+    {
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
 
   ptr = strchr(full_uri, '?');
   if (ptr)
     *ptr = '\0';
 
   uri = strdup(full_uri);
+  if (!uri)
+    {
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
 
   if (ptr)
     *ptr = '?';
-
-  ptr = full_uri;
-  full_uri = evhttp_decode_uri(full_uri);
-  free(ptr);
 
   ptr = uri;
   uri = evhttp_decode_uri(uri);

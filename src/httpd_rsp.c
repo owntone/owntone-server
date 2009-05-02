@@ -897,7 +897,6 @@ static struct uri_map rsp_handlers[] =
 void
 rsp_request(struct evhttp_request *req)
 {
-  const char *req_uri;
   char *full_uri;
   char *uri;
   char *ptr;
@@ -910,22 +909,26 @@ rsp_request(struct evhttp_request *req)
   int i;
   int ret;
 
-  req_uri = evhttp_request_uri(req);
-
-  full_uri = strdup(req_uri);
+  full_uri = httpd_fixup_uri(req);
+  if (!full_uri)
+    {
+      rsp_send_error(req, "Server error");
+      return;
+    }
 
   ptr = strchr(full_uri, '?');
   if (ptr)
     *ptr = '\0';
 
   uri = strdup(full_uri);
+  if (!uri)
+    {
+      rsp_send_error(req, "Server error");
+      return;
+    }
 
   if (ptr)
     *ptr = '?';
-
-  ptr = full_uri;
-  full_uri = evhttp_decode_uri(full_uri);
-  free(ptr);
 
   ptr = uri;
   uri = evhttp_decode_uri(uri);

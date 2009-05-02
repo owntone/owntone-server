@@ -49,15 +49,19 @@
 /*
  * HTTP client quirks by User-Agent, from mt-daapd
  *
- * - Roku:
- *   + Does not encode space as + in query string
  * - iTunes:
- *   + Does not encode space as + in query string
  *   + Connection: Keep-Alive on HTTP error 401
  * - Hifidelio:
  *   + Connection: Keep-Alive for streaming (Connection: close not honoured)
  *
  * These quirks are not implemented. Implement as needed.
+ *
+ * Implemented quirks:
+ *
+ * - Roku:
+ *   + Does not encode space as + in query string
+ * - iTunes:
+ *   + Does not encode space as + in query string
  */
 
 
@@ -713,6 +717,84 @@ exit_cb(int fd, short event, void *arg)
   event_base_loopbreak(evbase_httpd);
 
   httpd_exit = 1;
+}
+
+char *
+httpd_fixup_uri(struct evhttp_request *req)
+{
+  const char *ua;
+  const char *uri;
+  const char *u;
+  const char *q;
+  char *fixed;
+  char *f;
+  int len;
+
+  uri = evhttp_request_uri(req);
+  if (!uri)
+    return NULL;
+
+  /* No query string, nothing to do */
+  q = strchr(uri, '?');
+  if (!q)
+    return strdup(uri);
+
+  ua = evhttp_find_header(req->input_headers, "User-Agent");
+  if (!ua)
+    return strdup(uri);
+
+  if ((strncmp(ua, "iTunes", strlen("iTunes")) != 0)
+      && (strncmp(ua, "Roku", strlen("Roku")) != 0))
+    return strdup(uri);
+
+  /* Reencode + as %2B and space as + in the query,
+     which iTunes and Roku devices don't do */
+  len = strlen(uri);
+
+  u = q;
+  while (*u)
+    {
+      if (*u == '+')
+	len += 2;
+
+      u++;
+    }
+
+  fixed = (char *)malloc(len + 1);
+  if (!fixed)
+    return NULL;
+
+  strncpy(fixed, uri, q - uri);
+
+  f = fixed + (q - uri);
+  while (*q)
+    {
+      switch (*q)
+	{
+	  case '+':
+	    *f = '%';
+	    f++;
+	    *f = '2';
+	    f++;
+	    *f = 'B';
+	    break;
+
+	  case ' ':
+	    *f = '+';
+	    break;
+
+	  default:
+	    *f = *q;
+	    break;
+	}
+
+      q++;
+      f++;
+    }
+
+  *f = '\0';
+
+  return fixed;
 }
 
 static char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
