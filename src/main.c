@@ -89,7 +89,6 @@
 #include "filescanner.h"
 #include "httpd.h"
 #include "db-generic.h"
-#include "io.h"
 
 #include "mdns_avahi.h"
 
@@ -124,7 +123,6 @@ struct event_base *evbase_main;
  * Forwards
  */
 static void usage(char *program);
-static void main_io_errhandler(int level, char *msg);
 
 /**
  * Print usage information to stdout
@@ -264,17 +262,6 @@ daemonize(int foreground, char *runas, char *pidfile)
     }
 
   return 0;
-}
-
-
-/**
- * set up an errorhandler for io errors
- *
- * @param int level of the error (0=fatal, 9=debug)
- * @param msg the text error
- */
-void main_io_errhandler(int level, char *msg) {
-    DPRINTF(level,L_MAIN,"%s",msg);
 }
 
 
@@ -438,9 +425,6 @@ int main(int argc, char *argv[]) {
                 "command-line switch\n");
         exit(EXIT_FAILURE);
     }
-
-    io_init();
-    io_set_errhandler(main_io_errhandler);
 
     /* read the configfile, if specified, otherwise
      * try defaults */
@@ -664,7 +648,6 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG,L_MAIN,"Done!\n");
 
-    io_deinit();
     return EXIT_SUCCESS;
 }
 
