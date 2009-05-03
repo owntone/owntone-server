@@ -50,7 +50,6 @@
 
 #include "daapd.h"
 #include "err.h"
-#include "io.h"
 #include "misc.h"
 
 #ifndef PACKAGE
@@ -65,7 +64,7 @@ typedef struct err_threadlist_t {
 static int err_debuglevel=0; /**< current debuglevel, set from command line with -d */
 static int err_logdest=0; /**< current log destination */
 static char err_filename[PATH_MAX + 1];
-static IOHANDLE err_file = NULL;
+static FILE *err_file = NULL;
 static unsigned int err_debugmask=0xFFFFFFFF; /**< modules to debug, see \ref log_categories */
 static int err_truncate = 0;
 static int err_syslog_open = 0;
@@ -176,29 +175,20 @@ uint32_t __err_get_threadid(void) {
  * would help for log rotation
  */
 void err_reopen(void) {
-    char *urltemp;
-    int ret;
-
     if(!(err_logdest & LOGDEST_LOGFILE))
         return;
 
-    urltemp = io_urlencode(err_filename);
-    if (!urltemp)
-      return;
+    fclose(err_file);
 
-    io_close(err_file);
-
-    ret = io_open(err_file, "file://%s?mode=a&ascii=1", urltemp);
-    free(urltemp);
-    if (!ret) {
+    err_file = fopen(err_filename, "w");
+    if (!err_file) {
         /* what to do when you lose your logging mechanism?  Keep
          * going?
          */
         err_setdest(err_logdest & (~LOGDEST_LOGFILE));
         err_setdest(err_logdest | LOGDEST_SYSLOG);
 
-        DPRINTF(E_LOG,L_MISC,"Could not rotate log file: %s\n",
-            io_errstr(err_file));
+        DPRINTF(E_LOG,L_MISC,"Could not rotate log file: %s\n", strerror(errno));
         return;
     }
 
@@ -271,8 +261,8 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         snprintf(timebuf,sizeof(timebuf),"%04d-%02d-%02d %02d:%02d:%02d",
                  tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday,
                  tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
-        io_printf(err_file,"%s (%08x): %s",timebuf,__err_get_threadid(),errbuf);
-        if(!level) io_printf(err_file,"%s: Aborting\n",timebuf);
+        fprintf(err_file,"%s (%08x): %s",timebuf,__err_get_threadid(),errbuf);
+        if(!level) fprintf(err_file,"%s: Aborting\n",timebuf);
     }
 
     /* always log to stderr on fatal error */
@@ -347,8 +337,6 @@ int err_settruncate(int truncate) {
 
 int err_setlogfile(char *file) {
     char *mode;
-    char *urltemp;
-    int ret;
     int result=TRUE;
 
 /*
@@ -357,16 +345,7 @@ int err_setlogfile(char *file) {
 */
 
     if(err_file) {
-        io_close(err_file);
-    } else {
-        err_file = io_new();
-        if(!err_file) {
-            err_logdest &= ~LOGDEST_LOGFILE;
-            if(!err_syslog_open)
-	      openlog(PACKAGE, LOG_PID, LOG_DAEMON);
-
-	    syslog(lvl2syslog[1], "Error initializing logfile");
-        }
+        fclose(err_file);
     }
 
     mode = "a";
@@ -374,17 +353,9 @@ int err_setlogfile(char *file) {
 
     strncpy(err_filename,file,sizeof(err_filename)-1);
 
-    urltemp = io_urlencode(err_filename);
-    if (!urltemp)
-      {
-        fprintf(stderr,"Error opening logfile: out of memory\n");
-	return FALSE;
-      }
-
-    ret = io_open(err_file, "file://%s?mode=%s&ascii=1", urltemp, mode);
-    free(urltemp);
-    if (!ret) {
-        fprintf(stderr,"Error opening logfile: %s",io_errstr(err_file));
+    err_file = fopen(err_filename, mode);
+    if (!err_file) {
+        fprintf(stderr,"Error opening logfile: %s", strerror(errno));
         err_logdest &= ~LOGDEST_LOGFILE;
 
         if(!err_syslog_open)
@@ -412,7 +383,7 @@ void err_setdest(int destination) {
     if((err_logdest & LOGDEST_LOGFILE) &&
        (!(destination & LOGDEST_LOGFILE))) {
         /* used to be logging to file, not any more */
-        io_close(err_file);
+        fclose(err_file);
     }
 
     err_logdest=destination;
