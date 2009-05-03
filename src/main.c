@@ -667,10 +667,12 @@ int main(int argc, char *argv[]) {
 
     port = conf_get_int("general", "port", 0);
 
-    /* Register main service */
+    /* Register web server service */
     mdns_register(servername, "_http._tcp", port, txtrecord);
-    /* Register plugin services */
-    plugin_rend_register(servername, port, txtrecord);
+    /* Register RSP service */
+    mdns_register(servername, "_rsp._tcp", port, txtrecord);
+    /* Register DAAP service */
+    mdns_register(servername, "_daap._tcp", port, txtrecord);
 
     for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
       free(txtrecord[i]);
