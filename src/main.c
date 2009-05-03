@@ -89,7 +89,6 @@
 #include "filescanner.h"
 #include "httpd.h"
 #include "db-generic.h"
-#include "util.h"
 #include "io.h"
 
 #include "mdns_avahi.h"

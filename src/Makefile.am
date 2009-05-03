@@ -28,7 +28,6 @@ mt_daapd_SOURCES = main.c daapd.h \
 	db-generic.c db-generic.h \
 	scan-wma.c \
 	smart-parser.c smart-parser.h \
-	util.c util.h \
 	db-sql-updates.c \
 	io.h io.c io-errors.h io-plugin.h \
 	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
