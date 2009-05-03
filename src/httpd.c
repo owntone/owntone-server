@@ -73,7 +73,7 @@ struct content_type_map {
   char *ctype;
 };
 
-struct stream_chunk {
+struct stream_ctx {
   struct evhttp_request *req;
   struct evbuffer *evbuf;
   struct event ev;
@@ -109,7 +109,7 @@ static pthread_t tid_httpd;
 
 
 static void
-stream_end(struct stream_chunk *st)
+stream_end(struct stream_ctx *st)
 {
   /* This is an extension to the stock evhttp */
   st->req->fail_cb = NULL;
@@ -127,11 +127,11 @@ stream_end(struct stream_chunk *st)
 static void
 stream_chunk_resched_cb(struct evhttp_connection *evcon, void *arg)
 {
-  struct stream_chunk *st;
+  struct stream_ctx *st;
   struct timeval tv;
   int ret;
 
-  st = (struct stream_chunk *)arg;
+  st = (struct stream_ctx *)arg;
 
   evutil_timerclear(&tv);
   ret = event_add(&st->ev, &tv);
@@ -146,12 +146,12 @@ stream_chunk_resched_cb(struct evhttp_connection *evcon, void *arg)
 static void
 stream_chunk_xcode_cb(int fd, short event, void *arg)
 {
-  struct stream_chunk *st;
+  struct stream_ctx *st;
   struct timeval tv;
   int xcoded;
   int ret;
 
-  st = (struct stream_chunk *)arg;
+  st = (struct stream_ctx *)arg;
 
   xcoded = transcode(st->xcode, st->evbuf, STREAM_CHUNK_SIZE);
   if (xcoded <= 0)
@@ -220,10 +220,10 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
 static void
 stream_chunk_raw_cb(int fd, short event, void *arg)
 {
-  struct stream_chunk *st;
+  struct stream_ctx *st;
   int ret;
 
-  st = (struct stream_chunk *)arg;
+  st = (struct stream_ctx *)arg;
 
   ret = evbuffer_read(st->evbuf, st->fd, STREAM_CHUNK_SIZE);
   if (ret <= 0)
@@ -253,9 +253,9 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 static void
 stream_fail_cb(struct evhttp_request *req, void *arg)
 {
-  struct stream_chunk *st;
+  struct stream_ctx *st;
 
-  st = (struct stream_chunk *)arg;
+  st = (struct stream_ctx *)arg;
 
   DPRINTF(E_LOG, L_HTTPD, "Connection failed; stopping streaming of file ID %d\n", st->id);
 
@@ -279,7 +279,7 @@ void
 httpd_stream_file(struct evhttp_request *req, int id)
 {
   struct media_file_info *mfi;
-  struct stream_chunk *st;
+  struct stream_ctx *st;
   void (*stream_cb)(int fd, short event, void *arg);
   struct stat sb;
   struct timeval tv;
@@ -320,17 +320,17 @@ httpd_stream_file(struct evhttp_request *req, int id)
       return;
     }
 
-  st = (struct stream_chunk *)malloc(sizeof(struct stream_chunk));
+  st = (struct stream_ctx *)malloc(sizeof(struct stream_ctx));
   if (!st)
     {
-      DPRINTF(E_LOG, L_HTTPD, "Out of memory for struct stream_chunk\n");
+      DPRINTF(E_LOG, L_HTTPD, "Out of memory for struct stream_ctx\n");
 
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       db_dispose_item(mfi);
       return;
     }
-  memset(st, 0, sizeof(struct stream_chunk));
+  memset(st, 0, sizeof(struct stream_ctx));
 
   transcode = transcode_needed(req->input_headers, mfi->codectype);
 
