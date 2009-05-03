@@ -51,8 +51,7 @@
 #include "daapd.h"
 #include "err.h"
 #include "io.h"
-
-#include "util.h"
+#include "misc.h"
 
 #ifndef PACKAGE
 # define PACKAGE "unknown daemon"
@@ -76,6 +75,9 @@ static char *err_categorylist[] = {
     "config","webserver","database","scan","query","index","browse",
     "playlist","art","daap","main","rend","xml","parse","plugin","lock","httpd","rsp","xcode",NULL
 };
+
+static pthread_mutex_t m_err = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t m_errlist = PTHREAD_MUTEX_INITIALIZER;
 
 static ERR_THREADLIST err_threadlist = { 0, NULL };
 
@@ -163,7 +165,7 @@ uint32_t __err_get_threadid(void) {
     if(sizeof(pthread_t) == sizeof(int)) {
         memcpy((void*)&thread_id,(void*)&tid,sizeof(thread_id));
     } else {
-        thread_id = util_djb_hash_block((unsigned char *)&tid,sizeof(pthread_t));
+        thread_id = djb_hash((unsigned char *)&tid,sizeof(pthread_t));
     }
 
     return thread_id;
@@ -231,17 +233,17 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     } /* we'll *always* process a log level 0 or 1 */
 
     /* skip recursive calls to logging functions to avoid deadlocks (except for aborts) */
-    util_mutex_lock(l_err_list);
+    pthread_mutex_lock(&m_errlist);
     if(err_threadlist.next && __err_thread_check()) { /* skip logging */
         if(!level) {
             syslog_only = TRUE; /* syslog fatals even on recursive calls */
         } else {
-            util_mutex_unlock(l_err_list);
+            pthread_mutex_unlock(&m_errlist);
             return;
         }
     }
     __err_thread_add();
-    util_mutex_unlock(l_err_list);
+    pthread_mutex_unlock(&m_errlist);
 
     va_start(ap, fmt);
     vsnprintf(errbuf, sizeof(errbuf), fmt, ap);
@@ -261,7 +263,7 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         }
     }
     
-    util_mutex_lock(l_err);
+    pthread_mutex_lock(&m_err);
 
     if((err_logdest & LOGDEST_LOGFILE) && (err_file) && (!syslog_only)) {
         tt_now=time(NULL);
@@ -279,11 +281,11 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
         if(!level) fprintf(stderr,"Aborting\n");
     }
 
-    util_mutex_unlock(l_err);
+    pthread_mutex_unlock(&m_err);
 
-    util_mutex_lock(l_err_list);
+    pthread_mutex_lock(&m_errlist);
     __err_thread_del();
-    util_mutex_unlock(l_err_list);
+    pthread_mutex_unlock(&m_errlist);
 
     if(!level) {
         exit(EXIT_FAILURE);      /* this should go to an OS-specific exit routine */
@@ -294,9 +296,9 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
  * simple get/set interface to debuglevel to avoid global
  */
 void err_setlevel(int level) {
-    util_mutex_lock(l_err);
+    pthread_mutex_lock(&m_err);
     err_debuglevel = level;
-    util_mutex_unlock(l_err);
+    pthread_mutex_unlock(&m_err);
 }
 
 /**
@@ -305,9 +307,9 @@ void err_setlevel(int level) {
 int err_getlevel(void) {
     int level;
 
-    util_mutex_lock(l_err);
+    pthread_mutex_lock(&m_err);
     level = err_debuglevel;
-    util_mutex_unlock(l_err);
+    pthread_mutex_unlock(&m_err);
 
     return level;
 }
@@ -319,9 +321,9 @@ int err_getlevel(void) {
 int err_getdest(void) {
     int dest;
 
-    util_mutex_lock(l_err);
+    pthread_mutex_lock(&m_err);
     dest=err_logdest;
-    util_mutex_unlock(l_err);
+    pthread_mutex_unlock(&m_err);
 
     return dest;
 }
@@ -406,7 +408,7 @@ void err_setdest(int destination) {
     if(err_logdest == destination)
         return;
 
-    util_mutex_lock(l_err);
+    pthread_mutex_lock(&m_err);
     if((err_logdest & LOGDEST_LOGFILE) &&
        (!(destination & LOGDEST_LOGFILE))) {
         /* used to be logging to file, not any more */
@@ -414,7 +416,7 @@ void err_setdest(int destination) {
     }
 
     err_logdest=destination;
-    util_mutex_unlock(l_err);
+    pthread_mutex_unlock(&m_err);
 }
 /**
  * Set the debug mask.  Given a comma separated list, this walks
@@ -434,7 +436,7 @@ extern int err_setdebugmask(char *list) {
     if(!str)
         return 0;
 
-    util_mutex_lock(l_err);
+    pthread_mutex_lock(&m_err);
     while(1) {
         token=strtok_r(str,",",&last);
         str=NULL;
@@ -449,7 +451,7 @@ extern int err_setdebugmask(char *list) {
             }
 
             if(!err_categorylist[index]) {
-                util_mutex_unlock(l_err);
+                pthread_mutex_unlock(&m_err);
                 DPRINTF(E_LOG,L_MISC,"Unknown module: %s\n",token);
                 free(tmpstr);
                 return 1;
@@ -459,7 +461,7 @@ extern int err_setdebugmask(char *list) {
         } else break; /* !token */
     }
 
-    util_mutex_unlock(l_err);
+    pthread_mutex_unlock(&m_err);
     DPRINTF(E_INF,L_MISC,"Debug mask is 0x%08x\n",err_debugmask);
     free(tmpstr);
 
