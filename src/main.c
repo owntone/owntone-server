@@ -90,7 +90,6 @@
 #include "filescanner.h"
 #include "httpd.h"
 #include "db-generic.h"
-#include "plugin.h"
 #include "util.h"
 #include "io.h"
 
@@ -152,49 +151,6 @@ void usage(char *program) {
     printf("\n\n");
 }
 
-/**
- * process a directory for plugins
- *
- * @returns TRUE if at least one plugin loaded successfully
- */
-int load_plugin_dir(char *plugindir) {
-    DIR *d_plugin;
-    char de[sizeof(struct dirent) + MAXNAMLEN + 1]; /* ?? solaris  */
-    struct dirent *pde;
-    char *pext;
-    char *perr=NULL;
-    int loaded=FALSE;
-    char plugin[PATH_MAX];
-
-    if((d_plugin=opendir(plugindir)) == NULL) {
-        DPRINTF(E_LOG,L_MAIN,"Error opening plugin dir %s.  Ignoring\n",
-                plugindir);
-        return FALSE;
-
-    } else {
-        while((readdir_r(d_plugin,(struct dirent *)de,&pde) != 1) && pde) {
-                pext = strrchr(pde->d_name,'.');
-                if((pext) && ((strcasecmp(pext,".so") == 0) ||
-                   (strcasecmp(pext,".dylib") == 0) ||
-                   (strcasecmp(pext,".dll") == 0))) {
-                    /* must be a plugin */
-                    snprintf(plugin,PATH_MAX,"%s%c%s",plugindir,
-                             PATHSEP,pde->d_name);
-                    if(plugin_load(&perr,plugin) != PLUGIN_E_SUCCESS) {
-                        DPRINTF(E_LOG,L_MAIN,"Error loading plugin %s: %s\n",
-                                plugin,perr);
-                        free(perr);
-                        perr = NULL;
-                    } else {
-                        loaded = TRUE;
-                    }
-                }
-        }
-        closedir(d_plugin);
-    }
-
-    return loaded;
-}
 
 static int
 daemonize(int foreground, char *runas, char *pidfile)
@@ -409,8 +365,6 @@ int main(int argc, char *argv[]) {
     char *ffid = NULL;
     char *perr=NULL;
     char *txtrecord[10];
-    void *phandle;
-    char *plugindir;
     char *pidfile = PIDFILE;
     sigset_t sigs;
     int sigfd;
@@ -511,25 +465,6 @@ int main(int argc, char *argv[]) {
 
     /* initialize ffmpeg */
     av_register_all();
-
-    /* load plugins before we drop privs?  Maybe... let the
-     * plugins do stuff they might need to */
-    plugin_init();
-
-    plugindir = conf_alloc_string("plugins", "plugin_dir", NULL);
-    if (plugindir)
-      {
-        /* instead of specifying plugins, let's walk through the directory
-         * and load each of them */
-        if (!load_plugin_dir(plugindir))
-	  DPRINTF(E_LOG, L_MAIN, "Warning: Could not load plugins\n");
-
-        free(plugindir);
-      }
-
-    phandle = NULL;
-    while ((phandle = plugin_enum(phandle)))
-      DPRINTF(E_LOG, L_MAIN, "Plugin loaded: %s\n", plugin_get_description(phandle));
 
     /* Block signals for all threads except the main one */
     sigemptyset(&sigs);
