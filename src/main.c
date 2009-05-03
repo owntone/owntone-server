@@ -89,7 +89,6 @@
 #include "misc.h"
 #include "filescanner.h"
 #include "httpd.h"
-#include "webserver.h"
 #include "db-generic.h"
 #include "plugin.h"
 #include "util.h"
@@ -128,34 +127,7 @@ struct event_base *evbase_main;
  * Forwards
  */
 static void usage(char *program);
-static void main_handler(WS_CONNINFO *pwsc);
-static int main_auth(WS_CONNINFO *pwsc, char *username, char *password);
 static void main_io_errhandler(int level, char *msg);
-static void main_ws_errhandler(int level, char *msg);
-
-void main_handler(WS_CONNINFO *pwsc) {
-    DPRINTF(E_DBG,L_MAIN,"in main_handler\n");
-    if(plugin_url_candispatch(pwsc)) {
-        DPRINTF(E_DBG,L_MAIN,"Dispatching %s to plugin\n",ws_uri(pwsc));
-        plugin_url_handle(pwsc);
-        return;
-    }
-
-    DPRINTF(E_DBG,L_MAIN,"Dispatching %s to config handler\n",ws_uri(pwsc));
-    config_handler(pwsc);
-}
-
-int main_auth(WS_CONNINFO *pwsc, char *username, char *password) {
-    DPRINTF(E_DBG,L_MAIN,"in main_auth\n");
-    if(plugin_url_candispatch(pwsc)) {
-        DPRINTF(E_DBG,L_MAIN,"Dispatching auth for %s to plugin\n",ws_uri(pwsc));
-        return plugin_auth_handle(pwsc,username,password);
-    }
-
-    DPRINTF(E_DBG,L_MAIN,"Dispatching auth for %s to config auth\n",ws_uri(pwsc));
-    return config_auth(pwsc, username, password);
-}
-
 
 /**
  * Print usage information to stdout
@@ -351,16 +323,6 @@ void main_io_errhandler(int level, char *msg) {
     DPRINTF(level,L_MAIN,"%s",msg);
 }
 
-/**
- * set up an errorhandler for webserver errors
- *
- * @param int level of the error (0=fatal, 9=debug)
- * @param msg the text error
- */
-void main_ws_errhandler(int level, char *msg) {
-    DPRINTF(level,L_WS,"%s",msg);
-}
-
 
 static void
 signal_cb(int fd, short event, void *arg)
@@ -435,14 +397,14 @@ signal_cb(int fd, short event, void *arg)
 int main(int argc, char *argv[]) {
     int option;
     char *configfile=CONFFILE;
-    WSCONFIG ws_config;
     int reload=0;
     int start_time;
     int end_time;
     int song_count;
     int force_non_root=0;
     int skip_initial=1;
-    char *db_type,*db_parms,*web_root,*runas, *tmp;
+    char *db_type,*db_parms,*runas, *tmp;
+    int port;
     char *servername;
     char *ffid = NULL;
     char *perr=NULL;
@@ -527,7 +489,6 @@ int main(int argc, char *argv[]) {
 
     io_init();
     io_set_errhandler(main_io_errhandler);
-    ws_set_errhandler(main_ws_errhandler);
 
     /* read the configfile, if specified, otherwise
      * try defaults */
@@ -649,28 +610,6 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
       }
 
-    /* start up the web server */
-    web_root = conf_alloc_string("general","web_root",NULL);
-    ws_config.web_root=web_root;
-    ws_config.port=conf_get_int("general","port",0);
-
-    DPRINTF(E_LOG,L_MAIN|L_WS,"Starting web server from %s on port %d\n",
-            ws_config.web_root, ws_config.port);
-
-    config.server=ws_init(&ws_config);
-    if(!config.server) {
-        /* pthreads or malloc error */
-        DPRINTF(E_FATAL,L_MAIN|L_WS,"Error initializing web server\n");
-    }
-
-    if(E_WS_SUCCESS != ws_start(config.server)) {
-        /* listen or pthread error */
-        DPRINTF(E_FATAL,L_MAIN|L_WS,"Error starting web server\n");
-    }
-
-    ws_registerhandler(config.server, "/",main_handler,main_auth,
-                       0,1);
-
     /* Spawn HTTPd thread */
     ret = httpd_init();
     if (ret != 0)
@@ -725,10 +664,13 @@ int main(int argc, char *argv[]) {
     txtrecord[9] = NULL;
 
     DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
+
+    port = conf_get_int("general", "port", 0);
+
     /* Register main service */
-    mdns_register(servername, "_http._tcp", ws_config.port, txtrecord);
+    mdns_register(servername, "_http._tcp", port, txtrecord);
     /* Register plugin services */
-    plugin_rend_register(servername, ws_config.port, txtrecord);
+    plugin_rend_register(servername, port, txtrecord);
 
     for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
       free(txtrecord[i]);
@@ -779,15 +721,6 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG, L_MAIN | L_REND, "mDNS deinit\n");
     mdns_deinit();
-
-    /* Got to find a cleaner way to stop the web server.
-     * Closing the fd of the socking accepting doesn't necessarily
-     * cause the accept to fail on some libcs.
-     *
-    DPRINTF(E_LOG,L_MAIN|L_WS,"Stopping web server\n");
-    ws_stop(config.server);
-    */
-    free(web_root);
 
     conffile_unload();
 
