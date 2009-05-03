@@ -29,7 +29,6 @@ mt_daapd_SOURCES = main.c daapd.h \
 	scan-wma.c \
 	smart-parser.c smart-parser.h \
 	db-sql-updates.c \
-	io.h io.c io-errors.h io-plugin.h \
 	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
 	$(FLACSRC) $(MUSEPACKSRC)
 
