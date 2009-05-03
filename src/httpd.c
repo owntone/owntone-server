@@ -693,7 +693,7 @@ serve_file(struct evhttp_request *req, char *uri)
 
 /* Thread: httpd */
 static void
-webface_cb(struct evhttp_request *req, void *arg)
+httpd_gen_cb(struct evhttp_request *req, void *arg)
 {
   const char *req_uri;
   char *uri;
@@ -1019,7 +1019,7 @@ httpd_init(void)
 	}
     }
 
-  evhttp_set_gencb(evhttpd, webface_cb, NULL);
+  evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
 
   ret = pthread_create(&tid_httpd, NULL, httpd, NULL);
   if (ret != 0)
