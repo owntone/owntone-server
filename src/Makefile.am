@@ -1,6 +1,4 @@
 
-SUBDIRS = plugins
-
 sbin_PROGRAMS = mt-daapd
 
 if COND_FLAC

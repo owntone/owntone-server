@@ -111,4 +111,4 @@ AC_SUBST(V_NETLIBS)
 
 AC_DEFINE_UNQUOTED(HOST, "$host", [host triplet])
 
-AC_OUTPUT(src/Makefile src/plugins/Makefile tools/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile Makefile)
+AC_OUTPUT(src/Makefile tools/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile Makefile)
