@@ -43,7 +43,6 @@
 #include "db-generic.h"
 #include "db-sql.h"
 #include "smart-parser.h"
-#include "plugin.h"
 #include "conf.h"  /* FIXME */
 
 #ifdef HAVE_SQLITE3

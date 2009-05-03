@@ -52,10 +52,6 @@
 #include "err.h"
 #include "io.h"
 
-#ifndef ERR_LEAN
-# include "plugin.h"
-#endif
-
 #include "util.h"
 
 #ifndef PACKAGE
@@ -284,12 +280,6 @@ void err_log(int level, unsigned int cat, char *fmt, ...)
     }
 
     util_mutex_unlock(l_err);
-
-#ifndef ERR_LEAN
-    if(level < 2) { /* only event level fatals and log level */
-        plugin_event_dispatch(PLUGIN_EVENT_LOG, level, errbuf, (int)strlen(errbuf)+1);
-    }
-#endif
 
     util_mutex_lock(l_err_list);
     __err_thread_del();
