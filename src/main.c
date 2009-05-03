@@ -115,9 +115,9 @@
 /*
  * Globals
  */
-CONFIG config; /**< Main configuration structure, as read from configfile */
-
 struct event_base *evbase_main;
+static int main_exit;
+
 
 /*
  * Forwards
@@ -296,24 +296,22 @@ signal_cb(int fd, short event, void *arg)
 	  case SIGTERM:
 	    DPRINTF(E_LOG, L_MAIN, "Got SIGTERM or SIGINT\n");
 
-	    config.stop = 1;
+	    main_exit = 1;
 	    break;
 
 	  case SIGHUP:
 	    DPRINTF(E_LOG, L_MAIN, "Got SIGHUP\n");
 
-	    if (!config.stop)
+	    if (!main_exit)
 	      {
 		conf_reload();
 		err_reopen();
-
-		config.reload = 1;
 	      }
 	    break;
 	}
     }
 
-  if (config.stop)
+  if (main_exit)
     event_base_loopbreak(evbase_main);
 }
 
@@ -339,9 +337,7 @@ int main(int argc, char *argv[]) {
     int option;
     char *configfile=CONFFILE;
     int reload=0;
-    int start_time;
-    int end_time;
-    int song_count;
+    int foreground;
     int force_non_root=0;
     int skip_initial=1;
     char *db_type,*db_parms,*runas, *tmp;
@@ -363,7 +359,8 @@ int main(int argc, char *argv[]) {
 
     err_setlevel(2);
 
-    config.foreground=0;
+    foreground = 0;
+
     while((option=getopt(argc,argv,"D:d:c:P:frysiub:v")) != -1) {
         switch(option) {
         case 'b':
@@ -383,7 +380,7 @@ int main(int argc, char *argv[]) {
             break;
 
         case 'f':
-            config.foreground=1;
+            foreground = 1;
             err_setdest(err_getdest() | LOGDEST_STDERR);
             break;
 
@@ -426,11 +423,6 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    /* read the configfile, if specified, otherwise
-     * try defaults */
-    config.stats.start_time=start_time=(int)time(NULL);
-    config.stop=0;
-
     ret = conffile_load(configfile);
     if (ret != 0)
       {
@@ -465,7 +457,7 @@ int main(int argc, char *argv[]) {
     /* Daemonize and drop privileges */
     runas = conf_alloc_string("general", "runas", "nobody");
 
-    ret = daemonize(config.foreground, runas, pidfile);
+    ret = daemonize(foreground, runas, pidfile);
     if (ret < 0)
       {
 	DPRINTF(E_LOG, L_MAIN, "Could not initialize server\n");
@@ -507,14 +499,6 @@ int main(int argc, char *argv[]) {
     if(db_init(reload)) {
         DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
     }
-
-    err=db_get_song_count(&perr,&song_count);
-    if(err != DB_E_SUCCESS) {
-        DPRINTF(E_FATAL,L_MISC,"Error getting song count: %s\n",perr);
-    }
-    /* do a full reload if the db is empty */
-    if(!song_count)
-        reload = 1;
 
     /* Spawn file scanner thread */
     ret = filescanner_init();
@@ -595,20 +579,6 @@ int main(int argc, char *argv[]) {
       free(txtrecord[i]);
 
     free(servername);
-
-    end_time=(int) time(NULL);
-
-    err=db_get_song_count(&perr,&song_count);
-    if(err != DB_E_SUCCESS) {
-        DPRINTF(E_FATAL,L_MISC,"Error getting song count: %s\n",perr);
-    }
-
-    DPRINTF(E_LOG,L_MAIN,"Serving %d songs.  Startup complete in %d seconds\n",
-            song_count,end_time-start_time);
-
-    if(conf_get_int("general","rescan_interval",0) && (!reload) &&
-       (!conf_get_int("scanning","skip_first",0)))
-        config.reload = 1; /* force a reload on start */
 
     /* Set up signal fd */
     sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);

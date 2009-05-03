@@ -67,19 +67,6 @@ typedef struct tag_stats {
     unsigned int bytes_served;  /**< How many bytes of data served (unused) */
 } STATS;
 
-/** Global config struct */
-typedef struct tag_config {
-    int use_mdns;         /**< Should we do rendezvous advertisements? */
-    int stop;             /**< Time to exit? */
-    int reload;           /**< Time to reload and/or rescan the database? */
-    int foreground;       /**< Whether or not we are running in foreground */
-    int full_reload;      /**< Whether the reload should be a full one */
-
-    STATS stats;          /**< Stats structure (see above) */
-} CONFIG;
-
-extern CONFIG config;
-
 /* Event bases */
 extern struct event_base *evbase_main;
 
