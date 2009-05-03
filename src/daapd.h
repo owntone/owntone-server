@@ -55,17 +55,6 @@
 #  endif
 #endif
 
-#include <time.h>
-
-/** Simple struct for holding stat info.
- */
-typedef struct tag_stats {
-    time_t start_time;          /**< When the server was started */
-    int songs_served;           /**< How many songs have been served */
-
-    unsigned int gb_served;     /**< How many gigs of data have been served (unused) */
-    unsigned int bytes_served;  /**< How many bytes of data served (unused) */
-} STATS;
 
 /* Event bases */
 extern struct event_base *evbase_main;
