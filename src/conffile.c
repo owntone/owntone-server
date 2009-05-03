@@ -574,10 +574,3 @@ conf_get_filename(void)
 {
   return "NOT SUPPORTED";
 }
-
-int
-conf_xml_dump(WS_CONNINFO *pwsc)
-{
-  /* Not supported */
-  return CONF_E_NOTSUPP;
-}

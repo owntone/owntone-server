@@ -84,7 +84,6 @@
 
 #include "conffile.h"
 #include "conf.h"
-#include "configfile.h"
 #include "err.h"
 #include "misc.h"
 #include "filescanner.h"

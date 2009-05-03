@@ -56,7 +56,6 @@
 #endif
 
 #include <time.h>
-#include "webserver.h"
 
 /** Simple struct for holding stat info.
  */
@@ -77,7 +76,6 @@ typedef struct tag_config {
     int full_reload;      /**< Whether the reload should be a full one */
 
     STATS stats;          /**< Stats structure (see above) */
-    WSHANDLE server;      /**< webserver handle */
 } CONFIG;
 
 extern CONFIG config;

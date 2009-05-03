@@ -54,10 +54,6 @@ extern void conf_dispose_array(char **argv);
 
 extern char *conf_get_filename(void);
 
-/* FIXME: get enum functions and move to xml-rpc */
-#include "webserver.h"
-extern int conf_xml_dump(WS_CONNINFO *pwsc);
-
 /* FIXME: well used config reading stuff... */
 extern char *conf_get_servername(void);
 

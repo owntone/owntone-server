@@ -12,8 +12,8 @@ endif
 mt_daapd_CPPFLAGS = -D_GNU_SOURCE @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@
 mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBAVL_LIBS@ @MINIXML_LIBS@
 mt_daapd_LDFLAGS = -export-dynamic
-mt_daapd_SOURCES = main.c daapd.h webserver.c \
-	webserver.h configfile.c configfile.h err.c err.h \
+mt_daapd_SOURCES = main.c daapd.h \
+	err.c err.h \
 	conffile.c conffile.h \
 	filescanner.c filescanner.h \
 	filescanner_ffmpeg.c filescanner_urlfile.c filescanner_m3u.c \
@@ -27,7 +27,7 @@ mt_daapd_SOURCES = main.c daapd.h webserver.c \
 	misc.c misc.h \
 	db-generic.c db-generic.h \
 	scan-wma.c \
-	smart-parser.c smart-parser.h xml-rpc.c xml-rpc.h \
+	smart-parser.c smart-parser.h \
 	util.c util.h \
 	db-sql-updates.c \
 	io.h io.c io-errors.h io-plugin.h \
