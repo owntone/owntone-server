@@ -616,6 +616,13 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN|L_DB,"Closing database\n");
     db_deinit();
 
+    if (!foreground)
+      {
+	ret = unlink(pidfile);
+	if (ret < 0)
+	  DPRINTF(E_WARN, L_MAIN, "Could not unlink PID file %s: %s\n", pidfile, strerror(errno));
+      }
+
     DPRINTF(E_LOG,L_MAIN,"Done!\n");
 
     return EXIT_SUCCESS;
