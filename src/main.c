@@ -83,7 +83,6 @@
 #include "daapd.h"
 
 #include "conffile.h"
-#include "conf.h"
 #include "err.h"
 #include "misc.h"
 #include "filescanner.h"
@@ -303,10 +302,7 @@ signal_cb(int fd, short event, void *arg)
 	    DPRINTF(E_LOG, L_MAIN, "Got SIGHUP\n");
 
 	    if (!main_exit)
-	      {
-		conf_reload();
-		err_reopen();
-	      }
+	      err_reopen();
 	    break;
 	}
     }
@@ -340,7 +336,8 @@ int main(int argc, char *argv[]) {
     int foreground;
     int force_non_root=0;
     int skip_initial=1;
-    char *db_type,*db_parms,*runas, *tmp;
+    cfg_t *lib;
+    char *runas, *tmp;
     int port;
     char *servername;
     char *ffid = NULL;
@@ -455,7 +452,7 @@ int main(int argc, char *argv[]) {
       }
 
     /* Daemonize and drop privileges */
-    runas = conf_alloc_string("general", "runas", "nobody");
+    runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
 
     ret = daemonize(foreground, runas, pidfile);
     if (ret < 0)
@@ -464,8 +461,6 @@ int main(int argc, char *argv[]) {
 
 	exit(EXIT_FAILURE);
       }
-
-    free(runas);
 
     /* Initialize libevent (after forking) */
     evbase_main = event_init();
@@ -480,9 +475,7 @@ int main(int argc, char *argv[]) {
       }
 
     /* this will require that the db be readable by the runas user */
-    db_type = conf_alloc_string("general","db_type","sqlite");
-    db_parms = conf_alloc_string("general","db_parms","/var/cache/mt-daapd");
-    err=db_open(&perr,db_type,db_parms);
+    err = db_open(&perr, "sqlite3", "/var/cache/mt-daapd"); /* FIXME */
 
     if(err) {
         DPRINTF(E_LOG,L_MAIN|L_DB,"Error opening db: %s\n",perr);
@@ -490,9 +483,6 @@ int main(int argc, char *argv[]) {
 	mdns_deinit();
         exit(EXIT_FAILURE);
     }
-
-    free(db_type);
-    free(db_parms);
 
     /* Initialize the database before starting */
     DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
@@ -523,7 +513,9 @@ int main(int argc, char *argv[]) {
       }
 
     /* Register mDNS services */
-    servername = conf_get_servername();
+    lib = cfg_getnsec(cfg, "library", 0);
+
+    servername = cfg_getstr(lib, "name");
 
     for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
       {
@@ -550,10 +542,8 @@ int main(int argc, char *argv[]) {
     snprintf(txtrecord[5], 128, "iTSh Version=131073"); /* iTunes 6.0.4 */
     snprintf(txtrecord[6], 128, "Version=196610");      /* iTunes 6.0.4 */
 
-    tmp = conf_alloc_string("general", "password", NULL);
-    snprintf(txtrecord[7], 128, "Password=%s", (tmp && (strlen(tmp) > 0)) ? "true" : "false");
-    if (tmp)
-      free(tmp);
+    tmp = cfg_getstr(lib, "password");
+    snprintf(txtrecord[7], 128, "Password=%s", (tmp) ? "true" : "false");
 
     srand((unsigned int)time(NULL));
 
@@ -566,7 +556,7 @@ int main(int argc, char *argv[]) {
 
     DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
 
-    port = conf_get_int("general", "port", 0);
+    port = cfg_getint(lib, "port");
 
     /* Register web server service */
     mdns_register(servername, "_http._tcp", port, txtrecord);
@@ -577,8 +567,6 @@ int main(int argc, char *argv[]) {
 
     for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
       free(txtrecord[i]);
-
-    free(servername);
 
     /* Set up signal fd */
     sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);
