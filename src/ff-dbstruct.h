@@ -5,6 +5,8 @@
 #ifndef _FF_DBSTRUCT_H_
 #define _FF_DBSTRUCT_H_
 
+#include <stdint.h>
+
 #define PL_ID               0
 #define PL_TITLE            1
 #define PL_TYPE             2
