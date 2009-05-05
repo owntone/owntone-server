@@ -48,7 +48,6 @@
 #endif
 
 #include "daapd.h"
-#include "conf.h"
 #include "err.h"
 #include "db-generic.h"
 #include "db-sql.h"
@@ -401,9 +400,6 @@ int db_sqlite3_event(int event_type) {
     switch(event_type) {
 
     case DB_SQL_EVENT_STARTUP: /* this is a startup with existing songs */
-        if(!conf_get_int("database","quick_startup",0))
-            db_sqlite3_exec(NULL,E_FATAL,"vacuum");
-
         db_sqlite3_exec(NULL,E_DBG,"create index idx_path on "
                         "songs(path,idx)");
         db_sqlite3_exec(NULL,E_DBG,"create index idx_songid on "

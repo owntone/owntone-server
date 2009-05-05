@@ -43,7 +43,6 @@
 #include "db-generic.h"
 #include "db-sql.h"
 #include "smart-parser.h"
-#include "conf.h"  /* FIXME */
 
 #ifdef HAVE_SQLITE3
 #include "db-sql-sqlite3.h"
@@ -64,7 +63,6 @@ void db_sql_build_mp3file(char **valarray, MP3FILE *pmp3);
 int db_sql_update(char **pe, MP3FILE *pmp3, int *id);
 int db_sql_update_playlists(char **pe);
 int db_sql_parse_smart(char **pe, char **clause, char *phrase);
-char *_db_proper_path(char *path);
 
 #define STR(a) (a) ? (a) : ""
 #define ISSTR(a) ((a) && strlen((a)))
@@ -107,27 +105,6 @@ int db_sql_open_sqlite3(char **pe, char *parameters) {
     return db_sql_open(pe,parameters);
 }
 #endif
-
-char *_db_proper_path(char *path) {
-    char *new_path;
-    char *path_ptr;
-
-    new_path = strdup(path);
-    if(!new_path) {
-        DPRINTF(E_FATAL,L_DB,"malloc: _db_proper_path\n");
-    }
-
-    if(conf_get_int("scanning","case_sensitive",1) == 0) {
-        path_ptr = new_path;
-        while(*path_ptr) {
-            *path_ptr = toupper(*path_ptr);
-            path_ptr++;
-        }
-    }
-
-    return new_path;
-}
-
 
 int db_sql_atoi(const char *what) {
     return what ? atoi(what) : 0;
@@ -642,7 +619,6 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
     int result=DB_E_SUCCESS;
     char *criteria;
     char *estring;
-    char *correct_path;
     SQL_ROW row;
 
     result=db_sql_fetch_int(pe,&cnt,"select count(*) from playlists where "
@@ -672,12 +648,10 @@ int db_sql_add_playlist(char **pe, char *name, int type, char *clause, char *pat
     switch(type) {
     case PL_STATICFILE: /* static, from file */
     case PL_STATICXML: /* from iTunes XML file */
-        correct_path = _db_proper_path(path);
         result = db_sql_exec_fn(pe,E_LOG,"insert into playlists "
                                 "(title,type,items,query,db_timestamp,path,idx) "
                                  "values ('%q',%d,0,NULL,%d,'%q',%d)",
-                                 name,type,(int)time(NULL),correct_path,index);
-        free(correct_path);
+                                 name,type,(int)time(NULL),path,index);
         break;
     case PL_STATICWEB: /* static, maintained in web interface */
         result = db_sql_exec_fn(pe,E_LOG,"insert into playlists "
@@ -778,7 +752,6 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
     int count;
     int insertid;
     char *query;
-    char *path;
     char sample_count[40];
     char file_size[40];
 
@@ -792,18 +765,14 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
 
     pmp3->db_timestamp = (int)time(NULL);
 
-    path = _db_proper_path(pmp3->path);
-
     /* Always an add if in song scan on full reload */
     if((!db_sql_reload)||(!db_sql_in_scan)) {
         query = "select count(*) from songs where path='%q' and idx=%d";
-        err=db_sql_fetch_int(NULL,&count,query,path,pmp3->index);
+        err=db_sql_fetch_int(NULL,&count,query,pmp3->path,pmp3->index);
 
         if((err == DB_E_SUCCESS) && (count == 1)) { /* we should update */
-            free(path);
             return db_sql_update(pe,pmp3,id);
         } else if((err != DB_E_SUCCESS) && (err != DB_E_NOROWS)) {
-            free(path);
             DPRINTF(E_LOG,L_DB,"Error: %s\n",pe);
             return err;
         }
@@ -861,7 +830,7 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
                        "%d,"    // contentrating
                        "%d,"    // bits_per_sample
                        "'%q')",   // albumartist
-                       path,
+                       pmp3->path,
                        STR(pmp3->fname),
                        STR(pmp3->title),
                        STR(pmp3->artist),
@@ -902,7 +871,6 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
                        pmp3->bits_per_sample,
                        STR(pmp3->album_artist));
 
-    free(path);
     if(err != DB_E_SUCCESS)
         DPRINTF(E_FATAL,L_DB,"Error inserting file %s in database\n",pmp3->fname);
 
@@ -931,7 +899,6 @@ int db_sql_add(char **pe, MP3FILE *pmp3, int *id) {
 int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
     int err;
     char query[1024];
-    char *path;
     char sample_count[40];
     char file_size[40];
 
@@ -975,8 +942,6 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
            "album_artist='%q'"
            " WHERE path='%q' and idx=%d");
 
-    path = _db_proper_path(pmp3->path);
-
     err = db_sql_exec_fn(pe,E_LOG,query,
                          STR(pmp3->title),
                          STR(pmp3->artist),
@@ -1007,7 +972,7 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
                          sample_count,
                          STR(pmp3->codectype),
                          STR(pmp3->album_artist),
-                         path,
+                         pmp3->path,
                          pmp3->index);
 
     if(err != DB_E_SUCCESS)
@@ -1016,9 +981,8 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
     if(id) { /* we need the insert/update id */
         strcpy(query,"select id from songs where path='%q' and idx=%d");
 
-        err=db_sql_fetch_int(pe,id,query,path,pmp3->index);
+        err=db_sql_fetch_int(pe,id,query,pmp3->path,pmp3->index);
         if(err != DB_E_SUCCESS) {
-            free(path);
             return err;
         }
     }
@@ -1029,14 +993,13 @@ int db_sql_update(char **pe, MP3FILE *pmp3, int *id) {
         } else {
             strcpy(query,"insert into updated (id) select id from "
                    "songs where path='%q' and idx=%d");
-            db_sql_exec_fn(NULL,E_FATAL,query,path,pmp3->index);
+            db_sql_exec_fn(NULL,E_FATAL,query,pmp3->path,pmp3->index);
         }
     }
 
     if((!db_sql_in_scan) && (!db_sql_in_playlist_scan))
         db_sql_update_playlists(NULL);
 
-    free(path);
     return 0;
 }
 
@@ -1475,13 +1438,9 @@ M3UFILE *db_sql_fetch_playlist(char **pe, char *path, int index) {
     int result;
     M3UFILE *pm3u=NULL;
     SQL_ROW row;
-    char *proper_path;
 
-    proper_path = _db_proper_path(path);
     result = db_sql_fetch_row(pe, &row, "select * from playlists where "
-                              "path='%q' and idx=%d",proper_path,index);
-
-    free(proper_path);
+                              "path='%q' and idx=%d",path,index);
 
     if(result != DB_E_SUCCESS) {
         if(result == DB_E_NOROWS) {
@@ -1556,7 +1515,6 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
     MP3FILE *pmp3=NULL;
     int err;
     char *query;
-    char *proper_path;
 
     /* if we are doing a full reload, then it can't be in here.
      * besides, we don't have an index anyway, so we don't want to
@@ -1566,11 +1524,9 @@ MP3FILE *db_sql_fetch_path(char **pe, char *path, int index) {
         return NULL;
 
     /* not very portable, but works for sqlite */
-    proper_path = _db_proper_path(path);
     query="select * from songs where path='%q' and idx=%d";
 
-    err=db_sql_fetch_row(pe,&row,query,proper_path,index);
-    free(proper_path);
+    err=db_sql_fetch_row(pe,&row,query,path,index);
 
     if(err != DB_E_SUCCESS) {
         if(err == DB_E_NOROWS) { /* Override generic error */
