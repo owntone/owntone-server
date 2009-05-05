@@ -33,5 +33,4 @@ mt_daapd_SOURCES = main.c daapd.h \
 
 EXTRA_DIST = scan-mpc.c \
 	scan-flac.c \
-	conf.h \
 	ff-dbstruct.h
