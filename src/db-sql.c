@@ -1216,7 +1216,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
         browse=1;
         break;
     default:
-        DPRINTF(E_LOG,L_DB|L_DAAP,"Unknown query type\n");
+        DPRINTF(E_LOG,L_DB,"Unknown query type\n");
         return -1;
     }
 

@@ -57,7 +57,7 @@ scan_m3u_playlist(char *file)
   int pl_id;
   int ret;
 
-  DPRINTF(E_INF, L_SCAN | L_PL, "Processing static playlist: %s\n", file);
+  DPRINTF(E_INF, L_SCAN, "Processing static playlist: %s\n", file);
 
   ret = stat(file, &sb);
   if (ret < 0)
@@ -142,7 +142,7 @@ scan_m3u_playlist(char *file)
       return;
     }
 
-  DPRINTF(E_INF, L_SCAN | L_PL, "Added playlist as id %d\n", pl_id);
+  DPRINTF(E_INF, L_SCAN, "Added playlist as id %d\n", pl_id);
 
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
@@ -195,19 +195,19 @@ scan_m3u_playlist(char *file)
 	    continue;
 	  }
 
-	DPRINTF(E_DBG, L_SCAN | L_PL, "Checking %s\n", filename);
+	DPRINTF(E_DBG, L_SCAN, "Checking %s\n", filename);
 
 	mfi = db_fetch_path(&db_errmsg, filename, 0);
 	if (!mfi)
 	  {
-	    DPRINTF(E_WARN, L_SCAN | L_PL, "Playlist entry '%s' not found: %s\n", entry, db_errmsg);
+	    DPRINTF(E_WARN, L_SCAN, "Playlist entry '%s' not found: %s\n", entry, db_errmsg);
 
 	    free(db_errmsg);
 	    free(filename);
 	    continue;
 	  }
 
-	DPRINTF(E_DBG, L_SCAN | L_PL, "Resolved %s to %d\n", filename, mfi->id);
+	DPRINTF(E_DBG, L_SCAN, "Resolved %s to %d\n", filename, mfi->id);
 	db_add_playlist_item(NULL, pl_id, mfi->id);
 	db_dispose_item(mfi);
     }
@@ -222,5 +222,5 @@ scan_m3u_playlist(char *file)
 
   fclose(fp);
 
-  DPRINTF(E_INF, L_SCAN | L_PL, "Done processing playlist\n");
+  DPRINTF(E_INF, L_SCAN, "Done processing playlist\n");
 }

@@ -466,7 +466,7 @@ int main(int argc, char *argv[]) {
     ret = mdns_init();
     if (ret != 0)
       {
-	DPRINTF(E_FATAL, L_MAIN | L_REND, "mDNS init failed\n");
+	DPRINTF(E_FATAL, L_MAIN, "mDNS init failed\n");
 
 	exit(EXIT_FAILURE);
       }
@@ -475,16 +475,16 @@ int main(int argc, char *argv[]) {
     err = db_open(&perr, "sqlite3", "/var/cache/mt-daapd"); /* FIXME */
 
     if(err) {
-        DPRINTF(E_LOG,L_MAIN|L_DB,"Error opening db: %s\n",perr);
+        DPRINTF(E_LOG,L_MAIN,"Error opening db: %s\n",perr);
 
 	mdns_deinit();
         exit(EXIT_FAILURE);
     }
 
     /* Initialize the database before starting */
-    DPRINTF(E_LOG,L_MAIN|L_DB,"Initializing database\n");
+    DPRINTF(E_LOG,L_MAIN,"Initializing database\n");
     if(db_init(reload)) {
-        DPRINTF(E_FATAL,L_MAIN|L_DB,"Error in db_init: %s\n",strerror(errno));
+        DPRINTF(E_FATAL,L_MAIN,"Error in db_init: %s\n",strerror(errno));
     }
 
     /* Spawn file scanner thread */
@@ -551,7 +551,7 @@ int main(int argc, char *argv[]) {
 
     txtrecord[9] = NULL;
 
-    DPRINTF(E_LOG,L_MAIN|L_REND,"Registering rendezvous names\n");
+    DPRINTF(E_LOG,L_MAIN,"Registering rendezvous names\n");
 
     port = cfg_getint(lib, "port");
 
@@ -593,12 +593,12 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
     filescanner_deinit();
 
-    DPRINTF(E_LOG, L_MAIN | L_REND, "mDNS deinit\n");
+    DPRINTF(E_LOG, L_MAIN, "mDNS deinit\n");
     mdns_deinit();
 
     conffile_unload();
 
-    DPRINTF(E_LOG,L_MAIN|L_DB,"Closing database\n");
+    DPRINTF(E_LOG,L_MAIN,"Closing database\n");
     db_deinit();
 
     if (background)
