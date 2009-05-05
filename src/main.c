@@ -145,7 +145,7 @@ void usage(char *program) {
 
 
 static int
-daemonize(int foreground, char *runas, char *pidfile)
+daemonize(int background, char *runas, char *pidfile)
 {
   FILE *fp;
   int fd;
@@ -168,7 +168,7 @@ daemonize(int foreground, char *runas, char *pidfile)
   else
     pw = NULL;
 
-  if (!foreground)
+  if (background)
     {
       fp = fopen(pidfile, "w");
       if (!fp)
@@ -330,7 +330,7 @@ int main(int argc, char *argv[]) {
     int option;
     char *configfile=CONFFILE;
     int reload=0;
-    int foreground;
+    int background;
     int force_non_root=0;
     int skip_initial=1;
     cfg_t *lib;
@@ -353,7 +353,7 @@ int main(int argc, char *argv[]) {
 
     err_setlevel(2);
 
-    foreground = 0;
+    background = 1;
 
     while((option=getopt(argc,argv,"D:d:c:P:frysiub:v")) != -1) {
         switch(option) {
@@ -374,7 +374,7 @@ int main(int argc, char *argv[]) {
             break;
 
         case 'f':
-            foreground = 1;
+            background = 0;
             err_setdest(err_getdest() | LOGDEST_STDERR);
             break;
 
@@ -451,7 +451,7 @@ int main(int argc, char *argv[]) {
     /* Daemonize and drop privileges */
     runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
 
-    ret = daemonize(foreground, runas, pidfile);
+    ret = daemonize(background, runas, pidfile);
     if (ret < 0)
       {
 	DPRINTF(E_LOG, L_MAIN, "Could not initialize server\n");
@@ -601,7 +601,7 @@ int main(int argc, char *argv[]) {
     DPRINTF(E_LOG,L_MAIN|L_DB,"Closing database\n");
     db_deinit();
 
-    if (!foreground)
+    if (background)
       {
 	ret = unlink(pidfile);
 	if (ret < 0)
