@@ -37,6 +37,10 @@
 #include "err.h"
 #include "mdns_avahi.h"
 
+
+/* Main event base, from main.c */
+extern struct event_base *evbase_main;
+
 static AvahiClient *mdns_client = NULL;
 static AvahiEntryGroup *mdns_group = NULL;
 

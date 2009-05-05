@@ -56,7 +56,4 @@
 #endif
 
 
-/* Event bases */
-extern struct event_base *evbase_main;
-
 #endif /* _DAAPD_H_ */
