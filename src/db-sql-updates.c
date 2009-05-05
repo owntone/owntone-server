@@ -4,7 +4,6 @@
  */
 
 #include <stdio.h>
-#include "daapd.h"
 
 char *db_sqlite_updates[] = {
     /* version 0 -> version 1 -- initial update */

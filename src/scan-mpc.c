@@ -30,7 +30,6 @@
 #include <string.h>
 #include <taglib/tag_c.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "ff-dbstruct.h"
 

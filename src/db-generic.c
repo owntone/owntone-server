@@ -38,7 +38,6 @@
 # include <stdint.h>
 #endif
 
-#include "daapd.h"
 #include "db-generic.h"
 #include "err.h"
 

@@ -30,7 +30,6 @@
 
 #include <confuse.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "conffile.h"
 

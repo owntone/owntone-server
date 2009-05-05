@@ -47,7 +47,6 @@
 # include <unistd.h>
 #endif
 
-#include "daapd.h"
 #include "err.h"
 #include "db-generic.h"
 #include "db-sql.h"

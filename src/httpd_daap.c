@@ -38,7 +38,6 @@
 #include "evhttp/evhttp.h"
 #include <avl.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "ff-dbstruct.h"
 #include "db-generic.h"

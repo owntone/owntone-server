@@ -33,7 +33,6 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "ff-dbstruct.h"
 #include "db-generic.h"

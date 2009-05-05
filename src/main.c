@@ -80,15 +80,12 @@
 #include <pwd.h>
 #include <grp.h>
 
-#include "daapd.h"
-
 #include "conffile.h"
 #include "err.h"
 #include "misc.h"
 #include "filescanner.h"
 #include "httpd.h"
 #include "db-generic.h"
-
 #include "mdns_avahi.h"
 
 #ifdef HAVE_GETOPT_H

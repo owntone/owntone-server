@@ -48,7 +48,6 @@
 
 #include <syslog.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "misc.h"
 

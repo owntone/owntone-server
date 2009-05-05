@@ -36,7 +36,6 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "filescanner.h"
 

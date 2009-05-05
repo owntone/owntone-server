@@ -39,7 +39,6 @@
 
 #include <sys/stat.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "ff-dbstruct.h"
 

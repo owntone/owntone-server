@@ -42,7 +42,6 @@
 #include <event.h>
 #include <avl.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "db-generic.h"
 #include "filescanner.h"

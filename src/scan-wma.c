@@ -33,7 +33,6 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "ff-dbstruct.h"
 

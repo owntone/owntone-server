@@ -29,7 +29,6 @@
 #include <stdint.h>
 #include <limits.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "misc.h"
 

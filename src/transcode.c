@@ -39,7 +39,6 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
-#include "daapd.h"
 #include "err.h"
 #include "conffile.h"
 #include "ff-dbstruct.h"
