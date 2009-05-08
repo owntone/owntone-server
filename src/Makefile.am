@@ -17,7 +17,7 @@ mt_daapd_SOURCES = main.c \
 	filescanner.c filescanner.h \
 	filescanner_ffmpeg.c filescanner_urlfile.c filescanner_m3u.c \
 	mdns_avahi.c mdns_avahi.h \
-	evhttp/http.c evhttp/evhttp.h evhttp/strlcpy.c evhttp/log.c \
+	evhttp/http.c evhttp/evhttp.h evhttp/strlcpy.c \
 	evhttp/http-internal.h evhttp/log.h evhttp/strlcpy-internal.h \
 	httpd.c httpd.h \
 	httpd_rsp.c httpd_rsp.h \
