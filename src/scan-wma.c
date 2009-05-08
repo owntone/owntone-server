@@ -866,13 +866,13 @@ char *wma_utf16toutf8(unsigned char *utf16, int len) {
         src += 2;
         if((w1 & 0xFC00) == 0xD800) { /* could be surrogate pair */
             if(src+2 > utf16+len) {
-                DPRINTF(E_INF,L_SCAN,"Invalid utf-16 in file\n");
+                DPRINTF(E_INFO,L_SCAN,"Invalid utf-16 in file\n");
                 free(utf8);
                 return NULL;
             }
             w2 = src[3] << 8 | src[2];
             if((w2 & 0xFC00) != 0xDC00) {
-                DPRINTF(E_INF,L_SCAN,"Invalid utf-16 in file\n");
+                DPRINTF(E_INFO,L_SCAN,"Invalid utf-16 in file\n");
                 free(utf8);
                 return NULL;
             }
@@ -996,7 +996,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
     fd = open(filename, O_RDONLY);
     if (fd < 0) {
-        DPRINTF(E_INF,L_SCAN,"Error opening WMA file (%s): %s\n",filename,
+        DPRINTF(E_INFO,L_SCAN,"Error opening WMA file (%s): %s\n",filename,
 		strerror(errno));
         return FALSE;
     }
@@ -1004,7 +1004,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
     len = sizeof(hdr);
     ret = read(fd, &hdr, len);
     if((ret < 0) || (ret != len)) {
-        DPRINTF(E_INF,L_SCAN,"Error reading from %s: %s\n",filename,
+        DPRINTF(E_INFO,L_SCAN,"Error reading from %s: %s\n",filename,
             strerror(errno));
 	close(fd);
         return FALSE;
@@ -1012,7 +1012,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
     pguid = wma_find_guid(hdr.objectid);
     if(!pguid) {
-        DPRINTF(E_INF,L_SCAN,"Could not find header in %s\n",filename);
+        DPRINTF(E_INFO,L_SCAN,"Could not find header in %s\n",filename);
 	close(fd);
         return FALSE;
     }
@@ -1032,7 +1032,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
     for(item=0; item < (int) hdr.objects; item++) {
         if(!lseek(fd,offset,SEEK_SET)) {
-            DPRINTF(E_INF,L_SCAN,"Error seeking in %s\n",filename);
+            DPRINTF(E_INFO,L_SCAN,"Error seeking in %s\n",filename);
 	    close(fd);
             return FALSE;
         }
@@ -1040,7 +1040,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
         len = sizeof(subhdr);
 	ret = read(fd, &subhdr, len);
         if((ret < 0) || (ret != len)) {
-            DPRINTF(E_INF,L_SCAN,"Error reading from %s: %s\n",filename,
+            DPRINTF(E_INFO,L_SCAN,"Error reading from %s: %s\n",filename,
 		    strerror(errno));
 	    close(fd);
             return FALSE;
@@ -1086,7 +1086,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
 
     if(!res) {
-        DPRINTF(E_INF,L_SCAN,"Error reading meta info for file %s\n",
+        DPRINTF(E_INFO,L_SCAN,"Error reading meta info for file %s\n",
             filename);
     } else {
         DPRINTF(E_DBG,L_SCAN,"Successfully parsed file\n");

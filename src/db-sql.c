@@ -1628,7 +1628,7 @@ int db_sql_get_count(char **pe, int *count, CountType_t type) {
 int db_sql_playcount_increment(char **pe, int id) {
     time_t now = time(NULL);
 
-    return db_sql_exec_fn(pe,E_INF,"update songs set play_count=play_count + 1"
+    return db_sql_exec_fn(pe,E_INFO,"update songs set play_count=play_count + 1"
         ", time_played=%d where id=%d",now,id);
 }
 

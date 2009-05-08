@@ -635,7 +635,7 @@ int sp_scan(PARSETREE tree, int hint) {
         if(is_qstr) {
             tree->current++; /* absorb it */
         } else {
-            DPRINTF(E_INF,L_PARSE,"Missing closing quotes\n");
+            DPRINTF(E_INFO,L_PARSE,"Missing closing quotes\n");
             if(tree->token.token_id & 0x2000) {
                 free(tree->token.data.cvalue);
             }

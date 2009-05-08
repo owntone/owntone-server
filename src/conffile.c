@@ -81,7 +81,7 @@ cb_loglevel(cfg_t *cfg, cfg_opt_t *opt, const char *value, void *result)
   else if (strcasecmp(value, "warning") == 0)
     *(long int *)result = E_WARN;
   else if (strcasecmp(value, "info") == 0)
-    *(long int *)result = E_INF;
+    *(long int *)result = E_INFO;
   else if (strcasecmp(value, "debug") == 0)
     *(long int *)result = E_DBG;
   else if (strcasecmp(value, "spam") == 0)
@@ -253,7 +253,7 @@ conffile_load(char *file)
 
   nlib = cfg_size(cfg, "library");
 
-  DPRINTF(E_INF, L_CONF, "%d music libraries configured\n", nlib);
+  DPRINTF(E_INFO, L_CONF, "%d music libraries configured\n", nlib);
 
   libports = (int *)malloc(nlib * sizeof(int));
   memset(libports, 0, (nlib * sizeof(int)));

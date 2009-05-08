@@ -57,7 +57,7 @@ scan_m3u_playlist(char *file)
   int pl_id;
   int ret;
 
-  DPRINTF(E_INF, L_SCAN, "Processing static playlist: %s\n", file);
+  DPRINTF(E_INFO, L_SCAN, "Processing static playlist: %s\n", file);
 
   ret = stat(file, &sb);
   if (ret < 0)
@@ -142,7 +142,7 @@ scan_m3u_playlist(char *file)
       return;
     }
 
-  DPRINTF(E_INF, L_SCAN, "Added playlist as id %d\n", pl_id);
+  DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
 
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
@@ -222,5 +222,5 @@ scan_m3u_playlist(char *file)
 
   fclose(fp);
 
-  DPRINTF(E_INF, L_SCAN, "Done processing playlist\n");
+  DPRINTF(E_INFO, L_SCAN, "Done processing playlist\n");
 }

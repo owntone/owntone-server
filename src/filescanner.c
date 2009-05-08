@@ -352,7 +352,7 @@ defer_playlist(char *path)
   pl->next = playlists;
   playlists = pl;
 
-  DPRINTF(E_INF, L_SCAN, "Deferred playlist %s\n", path);
+  DPRINTF(E_INFO, L_SCAN, "Deferred playlist %s\n", path);
 }
 
 /* Thread: scan */

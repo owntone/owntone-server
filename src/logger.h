@@ -28,9 +28,6 @@
 #define E_DBG     4
 #define E_SPAM    5
 
-/* Will go away */
-#define E_INF     E_INFO
-
 
 void
 DPRINTF(int severity, int domain, char *fmt, ...);

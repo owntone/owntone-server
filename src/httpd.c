@@ -335,7 +335,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
   if (transcode)
     {
-      DPRINTF(E_INF, L_HTTPD, "Preparing to transcode %s\n", mfi->path);
+      DPRINTF(E_INFO, L_HTTPD, "Preparing to transcode %s\n", mfi->path);
 
       stream_cb = stream_chunk_xcode_cb;
       st->fd = -1;
@@ -358,7 +358,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
   else
     {
       /* Stream the raw file */
-      DPRINTF(E_INF, L_HTTPD, "Preparing to stream %s\n", mfi->path);
+      DPRINTF(E_INFO, L_HTTPD, "Preparing to stream %s\n", mfi->path);
 
       stream_cb = stream_chunk_raw_cb;
 
@@ -492,7 +492,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
   req->fail_cb = stream_fail_cb;
   req->fail_cb_arg = st;
 
-  DPRINTF(E_INF, L_HTTPD, "Kicking off streaming for %s\n", mfi->path);
+  DPRINTF(E_INFO, L_HTTPD, "Kicking off streaming for %s\n", mfi->path);
 
   db_dispose_item(mfi);
 }
@@ -1005,7 +1005,7 @@ httpd_init(void)
   /* evhttp doesn't support IPv6 yet, so this is expected to fail */
   bindv6 = evhttp_bind_socket(evhttpd, "::", port);
   if (bindv6 < 0)
-    DPRINTF(E_INF, L_HTTPD, "Could not bind IN6ADDR_ANY:%d (that's OK)\n", port);
+    DPRINTF(E_INFO, L_HTTPD, "Could not bind IN6ADDR_ANY:%d (that's OK)\n", port);
 
   ret = evhttp_bind_socket(evhttpd, "0.0.0.0", port);
   if (ret < 0)
