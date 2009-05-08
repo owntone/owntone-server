@@ -47,7 +47,7 @@
 # include <unistd.h>
 #endif
 
-#include "err.h"
+#include "logger.h"
 #include "db-generic.h"
 #include "db-sql.h"
 #include "db-sql-sqlite3.h"

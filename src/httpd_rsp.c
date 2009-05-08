@@ -37,7 +37,7 @@
 
 #include <mxml.h>
 
-#include "err.h"
+#include "logger.h"
 #include "ff-dbstruct.h"
 #include "db-generic.h"
 #include "conffile.h"

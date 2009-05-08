@@ -81,7 +81,7 @@
 #include <grp.h>
 
 #include "conffile.h"
-#include "err.h"
+#include "logger.h"
 #include "misc.h"
 #include "filescanner.h"
 #include "httpd.h"
@@ -128,8 +128,8 @@ static void usage(char *program);
 void usage(char *program) {
     printf("Usage: %s [options]\n\n",program);
     printf("Options:\n");
-    printf("  -d <number>    Debug level (0-9)\n");
-    printf("  -D <mod,mod..> Debug modules\n");
+    printf("  -d <number>    Log level (0-5)\n");
+    printf("  -D <dom,dom..> Log domains\n");
     printf("  -c <file>      Use configfile specified\n");
     printf("  -P <file>      Write the PID to specified file\n");
     printf("  -f             Run in foreground\n");
@@ -137,9 +137,8 @@ void usage(char *program) {
     printf("  -b <id>        ffid to be broadcast\n");
     printf("  -v             Display version information\n");
     printf("\n\n");
-    printf("Valid debug modules:\n");
-    printf(" config,webserver,database,scan,query,index,browse\n");
-    printf(" playlist,art,daap,main,rend,misc\n");
+    printf("Available log domains:\n");
+    logger_domains();
     printf("\n\n");
 }
 
@@ -213,6 +212,8 @@ daemonize(int background, char *runas, char *pidfile)
 	  fclose(fp);
 	  return -1;
 	}
+
+      logger_detach();
 
       dup2(fd, STDIN_FILENO);
       dup2(fd, STDOUT_FILENO);
@@ -299,7 +300,7 @@ signal_cb(int fd, short event, void *arg)
 	    DPRINTF(E_LOG, L_MAIN, "Got SIGHUP\n");
 
 	    if (!main_exit)
-	      err_reopen();
+	      logger_reinit();
 	    break;
 	}
     }
@@ -349,9 +350,9 @@ int main(int argc, char *argv[]) {
 
     int err;
 
-    int debuglevel=0;
-
-    err_setlevel(2);
+    int loglevel = -1;
+    char *logdomains = NULL;
+    char *logfile = NULL;
 
     background = 1;
 
@@ -362,20 +363,15 @@ int main(int argc, char *argv[]) {
             break;
 
         case 'd':
-            debuglevel = atoi(optarg);
-            err_setlevel(debuglevel);
+            loglevel = atoi(optarg);
             break;
 
         case 'D':
-            if(err_setdebugmask(optarg)) {
-                usage(argv[0]);
-                exit(EXIT_FAILURE);
-            }
+	    logdomains = optarg;
             break;
 
         case 'f':
             background = 0;
-            err_setdest(err_getdest() | LOGDEST_STDERR);
             break;
 
         case 'c':
@@ -417,19 +413,41 @@ int main(int argc, char *argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    ret = conffile_load(configfile);
+    ret = logger_init(NULL, NULL, (loglevel < 0) ? E_LOG : loglevel);
     if (ret != 0)
       {
-	fprintf(stderr, "Config file errors; please fix your config\n");
+	fprintf(stderr, "Could not initialize log facility\n");
 
 	exit(EXIT_FAILURE);
       }
 
-    if(debuglevel) /* was specified, should override the config file */
-        err_setlevel(debuglevel);
+    ret = conffile_load(configfile);
+    if (ret != 0)
+      {
+	DPRINTF(E_FATAL, L_MAIN, "Config file errors; please fix your config\n");
 
-    DPRINTF(E_LOG,L_MAIN,"Firefly Version %s: Starting with debuglevel %d\n",
-            VERSION,err_getlevel());
+	logger_deinit();
+	exit(EXIT_FAILURE);
+      }
+
+    logger_deinit();
+
+    /* Reinit log facility with configfile values */
+    if (loglevel < 0)
+      loglevel = cfg_getint(cfg_getsec(cfg, "general"), "loglevel");
+
+    logfile = cfg_getstr(cfg_getsec(cfg, "general"), "logfile");
+
+    ret = logger_init(logfile, logdomains, loglevel);
+    if (ret != 0)
+      {
+	fprintf(stderr, "Could not reinitialize log facility with config file settings\n");
+
+	conffile_unload();
+	exit(EXIT_FAILURE);
+      }
+
+    DPRINTF(E_LOG, L_MAIN, "Firefly Version %s taking off\n", VERSION);
 
     /* initialize ffmpeg */
     av_register_all();
@@ -445,6 +463,8 @@ int main(int argc, char *argv[]) {
     if (ret != 0)
       {
         DPRINTF(E_LOG, L_MAIN, "Error setting signal set\n");
+
+	logger_deinit();
 	exit(EXIT_FAILURE);
       }
 
@@ -456,6 +476,7 @@ int main(int argc, char *argv[]) {
       {
 	DPRINTF(E_LOG, L_MAIN, "Could not initialize server\n");
 
+	logger_deinit();
 	exit(EXIT_FAILURE);
       }
 
@@ -468,6 +489,7 @@ int main(int argc, char *argv[]) {
       {
 	DPRINTF(E_FATAL, L_MAIN, "mDNS init failed\n");
 
+	logger_deinit();
 	exit(EXIT_FAILURE);
       }
 
@@ -478,6 +500,7 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_LOG,L_MAIN,"Error opening db: %s\n",perr);
 
 	mdns_deinit();
+	logger_deinit();
         exit(EXIT_FAILURE);
     }
 
@@ -495,6 +518,7 @@ int main(int argc, char *argv[]) {
 
 	mdns_deinit();
 	db_deinit();
+	logger_deinit();
 	exit(EXIT_FAILURE);
       }
 
@@ -506,6 +530,7 @@ int main(int argc, char *argv[]) {
 
 	mdns_deinit();
 	db_deinit();
+	logger_deinit();
 	exit(EXIT_FAILURE);
       }
 
@@ -525,6 +550,7 @@ int main(int argc, char *argv[]) {
 	    filescanner_deinit();
 	    mdns_deinit();
 	    db_deinit();
+	    logger_deinit();
 	    exit(EXIT_FAILURE);
 	  }
 
@@ -575,6 +601,7 @@ int main(int argc, char *argv[]) {
 	filescanner_deinit();
 	mdns_deinit();
 	db_deinit();
+	logger_deinit();
 	exit(EXIT_FAILURE);
       }
 
@@ -609,6 +636,8 @@ int main(int argc, char *argv[]) {
       }
 
     DPRINTF(E_LOG,L_MAIN,"Done!\n");
+
+    logger_deinit();
 
     return EXIT_SUCCESS;
 }

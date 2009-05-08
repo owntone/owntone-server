@@ -33,7 +33,7 @@
 #include <avahi-client/client.h>
 #include <avahi-client/publish.h>
 
-#include "err.h"
+#include "logger.h"
 #include "mdns_avahi.h"
 
 

@@ -39,7 +39,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
-#include "err.h"
+#include "logger.h"
 #include "conffile.h"
 #include "ff-dbstruct.h"
 #include "transcode.h"

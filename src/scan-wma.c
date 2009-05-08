@@ -33,8 +33,11 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include "err.h"
+#include "logger.h"
 #include "ff-dbstruct.h"
+
+#define TRUE   ((1 == 1))
+#define FALSE  (!TRUE)
 
 typedef struct tag_wma_guidlist {
     char *name;

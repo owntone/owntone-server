@@ -30,7 +30,7 @@
 #include <limits.h>
 #include <errno.h>
 
-#include "err.h"
+#include "logger.h"
 #include "ff-dbstruct.h"
 #include "filescanner.h"
 

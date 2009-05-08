@@ -38,10 +38,13 @@
 #endif
 #include <inttypes.h>
 
-#include "err.h"
+#include "logger.h"
 #include "db-generic.h"
 #include "db-sql.h"
 #include "smart-parser.h"
+
+#define TRUE   ((1 == 1))
+#define FALSE  (!TRUE)
 
 #ifdef HAVE_SQLITE3
 #include "db-sql-sqlite3.h"

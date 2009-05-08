@@ -39,7 +39,7 @@
 #endif
 
 #include "db-generic.h"
-#include "err.h"
+#include "logger.h"
 
 #include "db-sql.h"
 

@@ -42,7 +42,7 @@
 #include <event.h>
 #include <avl.h>
 
-#include "err.h"
+#include "logger.h"
 #include "db-generic.h"
 #include "filescanner.h"
 #include "conffile.h"

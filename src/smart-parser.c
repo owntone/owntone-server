@@ -17,7 +17,7 @@
 #include <string.h>
 #include <time.h>
 
-#include "err.h"
+#include "logger.h"
 
 extern int db_sql_escape(char *buffer, int *size, char *fmt, ...);
 
