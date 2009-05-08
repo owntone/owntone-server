@@ -464,6 +464,7 @@ int main(int argc, char *argv[]) {
       {
         DPRINTF(E_LOG, L_MAIN, "Error setting signal set\n");
 
+	conffile_unload();
 	logger_deinit();
 	exit(EXIT_FAILURE);
       }
@@ -476,6 +477,7 @@ int main(int argc, char *argv[]) {
       {
 	DPRINTF(E_LOG, L_MAIN, "Could not initialize server\n");
 
+	conffile_unload();
 	logger_deinit();
 	exit(EXIT_FAILURE);
       }
@@ -489,6 +491,7 @@ int main(int argc, char *argv[]) {
       {
 	DPRINTF(E_FATAL, L_MAIN, "mDNS init failed\n");
 
+	conffile_unload();
 	logger_deinit();
 	exit(EXIT_FAILURE);
       }
@@ -500,6 +503,7 @@ int main(int argc, char *argv[]) {
         DPRINTF(E_LOG,L_MAIN,"Error opening db: %s\n",perr);
 
 	mdns_deinit();
+	conffile_unload();
 	logger_deinit();
         exit(EXIT_FAILURE);
     }
@@ -518,6 +522,7 @@ int main(int argc, char *argv[]) {
 
 	mdns_deinit();
 	db_deinit();
+	conffile_unload();
 	logger_deinit();
 	exit(EXIT_FAILURE);
       }
@@ -528,8 +533,10 @@ int main(int argc, char *argv[]) {
       {
 	DPRINTF(E_FATAL, L_MAIN, "HTTPd thread failed to start\n");
 
+	filescanner_deinit();
 	mdns_deinit();
 	db_deinit();
+	conffile_unload();
 	logger_deinit();
 	exit(EXIT_FAILURE);
       }
@@ -550,6 +557,7 @@ int main(int argc, char *argv[]) {
 	    filescanner_deinit();
 	    mdns_deinit();
 	    db_deinit();
+	    conffile_unload();
 	    logger_deinit();
 	    exit(EXIT_FAILURE);
 	  }
@@ -601,6 +609,7 @@ int main(int argc, char *argv[]) {
 	filescanner_deinit();
 	mdns_deinit();
 	db_deinit();
+	conffile_unload();
 	logger_deinit();
 	exit(EXIT_FAILURE);
       }
