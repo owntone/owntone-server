@@ -16,7 +16,6 @@
 #define L_XCODE   10
 
 /* Will go away */
-#define L_REND    L_MDNS
 #define L_LOCK    11
 #define N_LOGDOMAINS  12
 

@@ -322,23 +322,23 @@ entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state, AVAHI_GCC_U
   switch (state)
     {
       case AVAHI_ENTRY_GROUP_ESTABLISHED:
-        DPRINTF(E_DBG, L_REND, "Successfully added mDNS services\n");
+        DPRINTF(E_DBG, L_MDNS, "Successfully added mDNS services\n");
         break;
 
       case AVAHI_ENTRY_GROUP_COLLISION:
-        DPRINTF(E_DBG, L_REND, "Group collision\n");
+        DPRINTF(E_DBG, L_MDNS, "Group collision\n");
         break;
 
       case AVAHI_ENTRY_GROUP_FAILURE:
-        DPRINTF(E_DBG, L_REND, "Group failure\n");
+        DPRINTF(E_DBG, L_MDNS, "Group failure\n");
         break;
 
       case AVAHI_ENTRY_GROUP_UNCOMMITED:
-        DPRINTF(E_DBG, L_REND, "Group uncommitted\n");
+        DPRINTF(E_DBG, L_MDNS, "Group uncommitted\n");
 	break;
 
       case AVAHI_ENTRY_GROUP_REGISTERING:
-        DPRINTF(E_DBG, L_REND, "Group registering\n");
+        DPRINTF(E_DBG, L_MDNS, "Group registering\n");
         break;
     }
 }
@@ -349,11 +349,11 @@ _create_services(void)
   struct mdns_group_entry *pentry;
   int ret;
 
-  DPRINTF(E_DBG, L_REND, "Creating service group\n");
+  DPRINTF(E_DBG, L_MDNS, "Creating service group\n");
 
   if (!group_entries)
     {
-      DPRINTF(E_DBG, L_REND, "No entries yet... skipping service create\n");
+      DPRINTF(E_DBG, L_MDNS, "No entries yet... skipping service create\n");
 
       return;
     }
@@ -363,7 +363,7 @@ _create_services(void)
         mdns_group = avahi_entry_group_new(mdns_client, entry_group_callback, NULL);
 	if (!mdns_group)
 	  {
-            DPRINTF(E_WARN, L_REND, "Could not create Avahi EntryGroup: %s\n",
+            DPRINTF(E_WARN, L_MDNS, "Could not create Avahi EntryGroup: %s\n",
                     avahi_strerror(avahi_client_errno(mdns_client)));
 
             return;
@@ -373,14 +373,14 @@ _create_services(void)
     pentry = group_entries;
     while (pentry)
       {
-        DPRINTF(E_DBG, L_REND, "Re-registering %s/%s\n", pentry->name, pentry->type);
+        DPRINTF(E_DBG, L_MDNS, "Re-registering %s/%s\n", pentry->name, pentry->type);
 
         ret = avahi_entry_group_add_service_strlst(mdns_group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0,
 						   avahi_strdup(pentry->name), avahi_strdup(pentry->type),
 						   NULL, NULL, pentry->port, pentry->txt);
 	if (ret < 0)
 	  {
-	    DPRINTF(E_WARN, L_REND, "Could not add mDNS services: %s\n", avahi_strerror(ret));
+	    DPRINTF(E_WARN, L_MDNS, "Could not add mDNS services: %s\n", avahi_strerror(ret));
 
 	    return;
 	  }
@@ -391,7 +391,7 @@ _create_services(void)
     ret = avahi_entry_group_commit(mdns_group);
     if (ret < 0)
       {
-	DPRINTF(E_WARN, L_REND, "Could not commit mDNS services: %s\n",
+	DPRINTF(E_WARN, L_MDNS, "Could not commit mDNS services: %s\n",
 		avahi_strerror(avahi_client_errno(mdns_client)));
       }
 }
@@ -404,24 +404,24 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
   switch (state)
     {
       case AVAHI_CLIENT_S_RUNNING:
-        DPRINTF(E_LOG, L_REND, "Avahi state change: Client running\n");
+        DPRINTF(E_LOG, L_MDNS, "Avahi state change: Client running\n");
         if (!mdns_group)
 	  _create_services();
         break;
 
       case AVAHI_CLIENT_S_COLLISION:
-        DPRINTF(E_LOG, L_REND, "Avahi state change: Client collision\n");
+        DPRINTF(E_LOG, L_MDNS, "Avahi state change: Client collision\n");
         if(mdns_group)
 	  avahi_entry_group_reset(mdns_group);
         break;
 
       case AVAHI_CLIENT_FAILURE:
-        DPRINTF(E_LOG, L_REND, "Avahi state change: Client failure\n");
+        DPRINTF(E_LOG, L_MDNS, "Avahi state change: Client failure\n");
 
 	error = avahi_client_errno(c);
 	if (error == AVAHI_ERR_DISCONNECTED)
 	  {
-	    DPRINTF(E_LOG, L_REND, "Avahi Server disconnected, reconnecting\n");
+	    DPRINTF(E_LOG, L_MDNS, "Avahi Server disconnected, reconnecting\n");
 
 	    avahi_client_free(mdns_client);
 	    mdns_group = NULL;
@@ -430,24 +430,24 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
 					   client_callback, NULL, &error);
 	    if (!mdns_client)
 	      {
-		DPRINTF(E_LOG, L_REND, "Failed to create new Avahi client: %s\n",
+		DPRINTF(E_LOG, L_MDNS, "Failed to create new Avahi client: %s\n",
 			avahi_strerror(error));
 	      }
 	  }
 	else
 	  {
-	    DPRINTF(E_LOG, L_REND, "Avahi client failure: %s\n", avahi_strerror(error));
+	    DPRINTF(E_LOG, L_MDNS, "Avahi client failure: %s\n", avahi_strerror(error));
 	  }
         break;
 
       case AVAHI_CLIENT_S_REGISTERING:
-        DPRINTF(E_LOG, L_REND, "Avahi state change: Client registering\n");
+        DPRINTF(E_LOG, L_MDNS, "Avahi state change: Client registering\n");
         if (mdns_group)
 	  avahi_entry_group_reset(mdns_group);
         break;
 
       case AVAHI_CLIENT_CONNECTING:
-        DPRINTF(E_LOG, L_REND, "Avahi state change: Client connecting\n");
+        DPRINTF(E_LOG, L_MDNS, "Avahi state change: Client connecting\n");
         break;
     }
 }
@@ -460,7 +460,7 @@ mdns_init(void)
 {
   int error;
 
-  DPRINTF(E_DBG, L_REND, "Initializing Avahi mDNS\n");
+  DPRINTF(E_DBG, L_MDNS, "Initializing Avahi mDNS\n");
 
   all_w = NULL;
   all_t = NULL;
@@ -470,7 +470,7 @@ mdns_init(void)
 				 client_callback, NULL, &error);
   if (!mdns_client)
     {
-      DPRINTF(E_WARN, L_REND, "mdns_init: Could not create Avahi client: %s\n",
+      DPRINTF(E_WARN, L_MDNS, "mdns_init: Could not create Avahi client: %s\n",
 	      avahi_strerror(avahi_client_errno(mdns_client)));
 
       return -1;
@@ -514,7 +514,7 @@ mdns_register(char *name, char *type, int port, char **txt)
   AvahiStringList *txt_sl;
   int i;
 
-  DPRINTF(E_DBG, L_REND, "Adding mDNS service %s/%s\n", name, type);
+  DPRINTF(E_DBG, L_MDNS, "Adding mDNS service %s/%s\n", name, type);
 
   ge = (struct mdns_group_entry *)malloc(sizeof(struct mdns_group_entry));
   if (!ge)
@@ -529,7 +529,7 @@ mdns_register(char *name, char *type, int port, char **txt)
     {
       txt_sl = avahi_string_list_add(txt_sl, txt[i]);
 
-      DPRINTF(E_DBG, L_REND, "Added key %s\n", txt[i]);
+      DPRINTF(E_DBG, L_MDNS, "Added key %s\n", txt[i]);
     }
 
   ge->txt = txt_sl;
@@ -543,7 +543,7 @@ mdns_register(char *name, char *type, int port, char **txt)
       avahi_entry_group_reset(mdns_group);
     }
 
-  DPRINTF(E_DBG, L_REND, "Creating service group\n");
+  DPRINTF(E_DBG, L_MDNS, "Creating service group\n");
   _create_services();
 
   return 0;
