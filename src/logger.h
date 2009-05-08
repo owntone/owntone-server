@@ -14,10 +14,12 @@
 #define L_RSP     8
 #define L_SCAN    9
 #define L_XCODE   10
+/* libevent logging */
+#define L_EVENT   11
 
 /* Will go away */
-#define L_LOCK    11
-#define N_LOGDOMAINS  12
+#define L_LOCK    12
+#define N_LOGDOMAINS  13
 
 /* Severities */
 #define E_FATAL   0
@@ -30,6 +32,9 @@
 
 void
 DPRINTF(int severity, int domain, char *fmt, ...);
+
+void
+logger_libevent(int severity, const char *msg);
 
 void
 logger_reinit(void);

@@ -447,6 +447,9 @@ int main(int argc, char *argv[]) {
 	exit(EXIT_FAILURE);
       }
 
+    /* Set up libevent logging callback */
+    event_set_log_callback(logger_libevent);
+
     DPRINTF(E_LOG, L_MAIN, "Firefly Version %s taking off\n", VERSION);
 
     /* initialize ffmpeg */

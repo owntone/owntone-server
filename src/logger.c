@@ -23,6 +23,8 @@
 #include <errno.h>
 #include <pthread.h>
 
+#include <event.h>
+
 #include "logger.h"
 
 
@@ -32,7 +34,7 @@ static int threshold;
 static int console;
 static char *logfilename;
 static FILE *logfile;
-static char *labels[] = { "config", "daap", "db", "httpd", "main", "mdns", "misc", "parse", "rsp", "scan", "xcode", "lock" };
+static char *labels[] = { "config", "daap", "db", "httpd", "main", "mdns", "misc", "parse", "rsp", "scan", "xcode", "event", "lock" };
 
 
 static int
@@ -110,6 +112,35 @@ DPRINTF(int severity, int domain, char *fmt, ...)
     }
 
   pthread_mutex_unlock(&logger_lck);
+}
+
+void
+logger_libevent(int severity, const char *msg)
+{
+  switch (severity)
+    {
+      case _EVENT_LOG_DEBUG:
+	severity = E_DBG;
+	break;
+
+      case _EVENT_LOG_ERR:
+	severity = E_LOG;
+	break;
+
+      case _EVENT_LOG_WARN:
+	severity = E_WARN;
+	break;
+
+      case _EVENT_LOG_MSG:
+	severity = E_INFO;
+	break;
+
+      default:
+	severity = E_LOG;
+	break;
+    }
+
+  DPRINTF(severity, L_EVENT, "%s\n", msg);
 }
 
 void
