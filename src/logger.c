@@ -70,7 +70,7 @@ set_logdomains(char *domains)
 }
 
 void
-DPRINTF(int severity, int domain, char *fmt, ...)
+vlogger(int severity, int domain, char *fmt, va_list args)
 {
   va_list ap;
   char stamp[32];
@@ -97,7 +97,7 @@ DPRINTF(int severity, int domain, char *fmt, ...)
 
       fprintf(logfile, "[%s] %6s: ", stamp, labels[domain]);
 
-      va_start(ap, fmt);
+      va_copy(ap, args);
       vfprintf(logfile, fmt, ap);
       va_end(ap);
     }
@@ -106,12 +106,22 @@ DPRINTF(int severity, int domain, char *fmt, ...)
     {
       fprintf(stderr, "%6s: ", labels[domain]);
 
-      va_start(ap, fmt);
+      va_copy(ap, args);
       vfprintf(stderr, fmt, ap);
       va_end(ap);
     }
 
   pthread_mutex_unlock(&logger_lck);
+}
+
+void
+DPRINTF(int severity, int domain, char *fmt, ...)
+{
+  va_list ap;
+
+  va_start(ap, fmt);
+  vlogger(severity, domain, fmt, ap);
+  va_end(ap);
 }
 
 void

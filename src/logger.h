@@ -2,6 +2,8 @@
 #ifndef __LOGGER_H__
 #define __LOGGER_H__
 
+#include <stdarg.h>
+
 /* Log domains */
 #define L_CONF    0
 #define L_DAAP    1
@@ -29,6 +31,9 @@
 #define E_DBG     4
 #define E_SPAM    5
 
+
+void
+vlogger(int severity, int domain, char *fmt, va_list args);
 
 void
 DPRINTF(int severity, int domain, char *fmt, ...);
