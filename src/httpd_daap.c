@@ -324,7 +324,7 @@ static struct dmap_field_map dmap_fields[] =
 static char *default_meta_plsongs = "dmap.itemkind,dmap.itemid,dmap.itemname,dmap.containeritemid,dmap.parentcontainerid";
 static char *default_meta_pl = "dmap.itemid,dmap.itemname,dmap.persistentid,com.apple.itunes.smart-playlist";
 
-avl_tree_t *dmap_fields_hash;
+static avl_tree_t *dmap_fields_hash;
 
 /* Next session ID */
 static int session_id;
