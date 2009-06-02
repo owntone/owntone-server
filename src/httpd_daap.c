@@ -621,6 +621,9 @@ get_query_params(struct evkeyvalq *query, DBQUERYINFO *qi)
   qi->index_type = indexTypeSub;
 
   param = evhttp_find_header(query, "query");
+  if (!param)
+    param = evhttp_find_header(query, "filter");
+
   if (param)
     {
       DPRINTF(E_DBG, L_DAAP, "DAAP browse query filter: %s\n", param);
