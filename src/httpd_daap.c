@@ -46,6 +46,7 @@
 #include "httpd.h"
 #include "transcode.h"
 #include "httpd_daap.h"
+#include "daap_query.h"
 
 
 struct uri_map {
@@ -1949,6 +1950,10 @@ daap_init(void)
 
   session_id = 100; /* gotta start somewhere, right? */
 
+  ret = daap_query_init();
+  if (ret < 0)
+    return ret;
+
   for (i = 0; daap_handlers[i].handler; i++)
     {
       ret = regcomp(&daap_handlers[i].preg, daap_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
@@ -1957,7 +1962,7 @@ daap_init(void)
           regerror(ret, &daap_handlers[i].preg, buf, sizeof(buf));
 
           DPRINTF(E_FATAL, L_DAAP, "DAAP init failed; regexp error: %s\n", buf);
-          return -1;
+	  goto regexp_fail;
         }
     }
 
@@ -2000,6 +2005,8 @@ daap_init(void)
  avl_alloc_fail:
   for (i = 0; daap_handlers[i].handler; i++)
     regfree(&daap_handlers[i].preg);
+ regexp_fail:
+  daap_query_deinit();
 
   return -1;
 }
@@ -2008,6 +2015,8 @@ void
 daap_deinit(void)
 {
   int i;
+
+  daap_query_deinit();
 
   for (i = 0; daap_handlers[i].handler; i++)
     regfree(&daap_handlers[i].preg);

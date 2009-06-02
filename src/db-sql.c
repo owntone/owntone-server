@@ -150,6 +150,23 @@ int db_sql_escape(char *buffer, int *size, char *fmt, ...) {
     return DB_E_SUCCESS;
 }
 
+char *
+db_sql_escape_dup(char *fmt, ...)
+{
+  va_list ap;
+  char *escaped;
+  char *ret;
+
+  va_start(ap, fmt);
+  escaped = db_sql_vmquery_fn(fmt, ap);
+  va_end(ap);
+
+  ret = strdup(escaped);
+
+  db_sql_vmfree_fn(escaped);
+
+  return ret;
+}
 
 /**
  * fetch a single row, using the underlying database enum

@@ -31,6 +31,7 @@ extern int db_sql_open(char **pe, char *parameters);
 extern int db_sql_init(int reload);
 extern int db_sql_deinit(void);
 extern int db_sql_escape(char *buffer, int *size, char *fmt, ...);
+extern char * db_sql_escape_dup(char *fmt, ...);
 extern int db_sql_add(char **pe, MP3FILE *pmp3, int *id);
 extern int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo);
 

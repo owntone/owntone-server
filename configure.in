@@ -11,6 +11,23 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 LT_INIT([disable-static])
 
+AC_CHECK_PROG(ANTLR, [antlr3], [antlr3])
+if test "x$ANTLR" = x; then
+	AC_MSG_NOTICE([antlr3 wrapper not found, checking direct java invocation])
+	AC_CHECK_PROG(JAVA, [java], [java])
+	if test "x$JAVA" = x; then
+		AC_MSG_FAILURE([java not found; check your java installation])
+	else
+		if $JAVA org.antlr.Tool > /dev/null 2>&1; then
+			AC_MSG_NOTICE([Direct java invocation working, using java org.antlr.Tool to invoke antlr])
+			ANTLR="$JAVA org.antlr.Tool"
+		else
+			AC_MSG_FAILURE([antlr3 wrapper not found and direct java invocation failed; check your antlr3/java installation])
+		fi
+	fi
+fi
+AC_SUBST(ANTLR)
+
 CFLAGS="$CFLAGS -Wall"
 
 AC_CHECK_HEADERS([sys/wait.h])
@@ -67,6 +84,10 @@ AC_SUBST(LIBEVENT_LIBS)
 AC_CHECK_HEADER(avl.h, , AC_MSG_ERROR([avl.h not found]))
 AC_CHECK_LIB([avl], [avl_alloc_tree], [LIBAVL_LIBS="-lavl"], AC_MSG_ERROR([libavl not found]))
 AC_SUBST(LIBAVL_LIBS)
+
+AC_CHECK_HEADER(antlr3.h, , AC_MSG_ERROR([antlr3.h not found]))
+AC_CHECK_LIB([antlr3c], [antlr3BaseRecognizerNew], [ANTLR3C_LIBS="-lantlr3c"], AC_MSG_ERROR([ANTLR3 C runtime (libantlr3c) not found]))
+AC_SUBST(ANTLR3C_LIBS)
 
 if test x$use_flac = xtrue; then
 	PKG_CHECK_MODULES(FLAC, [ flac ])

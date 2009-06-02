@@ -1,2 +1,8 @@
 mt-daapd
 
+*.tokens
+*Lexer.[ch]
+*Parser.[ch]
+DAAP2SQL.[ch]
+
+*.u
