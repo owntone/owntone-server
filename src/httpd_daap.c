@@ -625,22 +625,9 @@ get_query_params(struct evkeyvalq *query, DBQUERYINFO *qi)
     {
       DPRINTF(E_DBG, L_DAAP, "DAAP browse query filter: %s\n", param);
 
-      qi->pt = sp_init();
-      if (!qi->pt)
-        {
-          DPRINTF(E_LOG, L_DAAP, "Could not init query filter\n");
-        }
-      else
-        {
-          ret = sp_parse(qi->pt, param, FILTER_TYPE_APPLE);
-          if (ret != 1)
-            {
-              DPRINTF(E_LOG, L_DAAP, "Ignoring improper query: %s\n", sp_get_error(qi->pt));
-
-              sp_dispose(qi->pt);
-              qi->pt = NULL;
-            }
-        }
+      qi->filter = daap_query_parse_sql(param);
+      if (!qi->filter)
+	DPRINTF(E_LOG, L_DAAP, "Ignoring improper DAAP query\n");
     }
 
   qi->want_count = 1;
@@ -1099,8 +1086,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       free(meta);
       evbuffer_free(song);
       evbuffer_free(songlist);
-      if (qi.pt)
-	sp_dispose(qi.pt);
+      if (qi.filter)
+	free(qi.filter);
       return;
     }
 
@@ -1258,8 +1245,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   evbuffer_free(song);
 
-  if (qi.pt)
-    sp_dispose(qi.pt);
+  if (qi.filter)
+    free(qi.filter);
 
   if (ret != DB_E_SUCCESS)
     {
@@ -1440,8 +1427,8 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       free(meta);
       evbuffer_free(playlist);
       evbuffer_free(playlistlist);
-      if (qi.pt)
-	sp_dispose(qi.pt);
+      if (qi.filter)
+	free(qi.filter);
       return;
     }
 
@@ -1522,8 +1509,8 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   free(meta);
   evbuffer_free(playlist);
 
-  if (qi.pt)
-    sp_dispose(qi.pt);
+  if (qi.filter)
+    free(qi.filter);
 
   if (ret != DB_E_SUCCESS)
     {
@@ -1657,8 +1644,8 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
       free(db_errmsg);
       evbuffer_free(itemlist);
-      if (qi.pt)
-	sp_dispose(qi.pt);
+      if (qi.filter)
+	free(qi.filter);
       return;
     }
 
@@ -1670,8 +1657,8 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       dmap_add_string(itemlist, "mlit", *item);
     }
 
-  if (qi.pt)
-    sp_dispose(qi.pt);
+  if (qi.filter)
+    free(qi.filter);
 
   if (ret != DB_E_SUCCESS)
     {

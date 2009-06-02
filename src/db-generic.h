@@ -60,6 +60,7 @@ typedef struct tag_dbqueryinfo {
     int uri_count;
     int correct_order;
     char *uri_sections[10];
+    char *filter; /* SQL WHERE clause */
     PARSETREE pt;
     void *output_info;
 } DBQUERYINFO;

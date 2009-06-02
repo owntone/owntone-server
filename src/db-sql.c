@@ -1253,8 +1253,19 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     }
 
     /* Apply the query/filter */
-    if(pinfo->pt) {
-        DPRINTF(E_DBG,L_DB,"Got query/filter\n");
+    if (pinfo->filter) { /* New parsers */
+        DPRINTF(E_DBG, L_DB, "Got new-style query/filter\n");
+
+	if(have_clause) {
+	  strcat(query_rest, " and ");
+	} else {
+	  strcpy(query_rest, " where ");
+	  have_clause = 1;
+	}
+	strcat(query_rest, pinfo->filter);
+    }
+    else if (pinfo->pt) { /* Old parsers (smart-parser.c) */
+        DPRINTF(E_DBG,L_DB,"Got old-style query/filter\n");
         filter = sp_sql_clause(pinfo->pt);
         if(filter) {
             if(have_clause) {
@@ -1276,7 +1287,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
 
     /* disable empty */
     if(browse) {
-        if((have_clause) || (pinfo->pt)) {
+        if((have_clause) || (pinfo->filter) || (pinfo->pt)) {
             strcat(query_rest," and (");
         } else {
             strcpy(query_rest," where (");
