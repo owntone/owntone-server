@@ -47,8 +47,6 @@ AC_ARG_ENABLE(musepack, AC_HELP_STRING([--enable-musepack], [Enable Musepack sup
 AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 
-AC_CHECK_FUNCS(strcasestr strsep)
-
 dnl Checks for libraries.
 PKG_CHECK_MODULES(CONFUSE, [ libconfuse ])
 PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
