@@ -391,6 +391,14 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
       free(db_errmsg);
     }
 
+  /* HACK
+   * Add a dummy empty string to the playlists element if there is no data
+   * to return - this prevents mxml from sending out an empty <playlists/>
+   * tag that the SoundBridge does not handle. It's hackish, but it works.
+   */
+  if (qi.specifiedtotalcount == 0)
+    mxmlNewText(pls, 0, "");
+
   evbuf = mxml_to_evbuf(reply);
   mxmlDelete(reply);
 
@@ -643,6 +651,14 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
       free(db_errmsg);
     }
 
+  /* HACK
+   * Add a dummy empty string to the items element if there is no data
+   * to return - this prevents mxml from sending out an empty <items/>
+   * tag that the SoundBridge does not handle. It's hackish, but it works.
+   */
+  if (qi.specifiedtotalcount == 0)
+    mxmlNewText(items, 0, "");
+
   evbuf = mxml_to_evbuf(reply);
   mxmlDelete(reply);
 
@@ -832,6 +848,14 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
 
       free(db_errmsg);
     }
+
+  /* HACK
+   * Add a dummy empty string to the items element if there is no data
+   * to return - this prevents mxml from sending out an empty <items/>
+   * tag that the SoundBridge does not handle. It's hackish, but it works.
+   */
+  if (qi.specifiedtotalcount == 0)
+    mxmlNewText(items, 0, "");
 
   evbuf = mxml_to_evbuf(reply);
   mxmlDelete(reply);
