@@ -68,7 +68,7 @@ static struct event inoev;
 static struct event exitev;
 static pthread_t tid_scan;
 static struct deferred_pl *playlists;
-avl_tree_t *wd2path;
+static avl_tree_t *wd2path;
 
 
 static void
