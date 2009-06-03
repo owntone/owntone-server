@@ -59,6 +59,11 @@ struct deferred_pl {
   struct deferred_pl *next;
 };
 
+struct stacked_dir {
+  char *path;
+  struct stacked_dir *next;
+};
+
 
 static int exit_pipe[2];
 static int scan_exit;
@@ -68,6 +73,7 @@ static struct event inoev;
 static struct event exitev;
 static pthread_t tid_scan;
 static struct deferred_pl *playlists;
+static struct stacked_dir *dirstack;
 static avl_tree_t *wd2path;
 
 
@@ -93,6 +99,49 @@ wdpath_compare(const void *aa, const void *bb)
     return 1;
 
   return 0;
+}
+
+static int
+push_dir(char *path)
+{
+  struct stacked_dir *d;
+
+  d = (struct stacked_dir *)malloc(sizeof(struct stacked_dir));
+  if (!d)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not stack directory %s; out of memory\n", path);
+      return -1;
+    }
+
+  d->path = strdup(path);
+  if (!d->path)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not stack directory %s; out of memory for path\n", path);
+      return -1;
+    }
+
+  d->next = dirstack;
+  dirstack = d;
+
+  return 0;
+}
+
+static char *
+pop_dir(void)
+{
+  struct stacked_dir *d;
+  char *ret;
+
+  if (!dirstack)
+    return NULL;
+
+  d = dirstack;
+  dirstack = d->next;
+  ret = d->path;
+
+  free(d);
+
+  return ret;
 }
 
 static void
@@ -431,6 +480,8 @@ process_directory(cfg_t *lib, char *path, int bulk)
   int compilation;
   int ret;
 
+  DPRINTF(E_DBG, L_SCAN, "Processing directory %s (bulk = %d)\n", path, bulk);
+
   dirp = opendir(path);
   if (!dirp)
     {
@@ -506,17 +557,9 @@ process_directory(cfg_t *lib, char *path, int bulk)
       if (S_ISREG(sb.st_mode))
 	process_file(entry, sb.st_mtime, sb.st_size, compilation, bulk);
       else if (S_ISDIR(sb.st_mode))
-	process_directory(lib, entry, bulk);
+	push_dir(entry);
       else
 	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink nor regular file\n", entry);
-
-      if (bulk)
-	{
-	  /* Run the event loop */
-	  event_base_loop(evbase_scan, EVLOOP_ONCE | EVLOOP_NONBLOCK);
-	  if (scan_exit)
-	    return;
-	}
     }
 
   closedir(dirp);
@@ -559,6 +602,41 @@ process_directory(cfg_t *lib, char *path, int bulk)
     }
 }
 
+/* Thread: scan */
+static void
+process_directories(cfg_t *lib, char *root, int bulk)
+{
+  struct stacked_dir *bulkstack;
+  char *path;
+
+  process_directory(lib, root, bulk);
+
+  while ((path = pop_dir()))
+    {
+      process_directory(lib, path, bulk);
+
+      free(path);
+
+      if (bulk)
+	{
+	  /* Save our directory stack so it won't get handled inside
+	   * the event loop - not its business, we're in bulk mode here.
+	   */
+	  bulkstack = dirstack;
+	  dirstack = NULL;
+
+	  /* Run the event loop */
+	  event_base_loop(evbase_scan, EVLOOP_ONCE | EVLOOP_NONBLOCK);
+
+	  /* Restore our directory stack */
+	  dirstack = bulkstack;
+
+	  if (scan_exit)
+	    return;
+	}
+    }
+}
+
 
 /* Thread: scan */
 static void
@@ -572,6 +650,7 @@ bulk_scan(void)
   int j;
 
   playlists = NULL;
+  dirstack = NULL;
 
   nlib = cfg_size(cfg, "library");
   for (i = 0; i < nlib; i++)
@@ -583,7 +662,7 @@ bulk_scan(void)
 	{
 	  path = cfg_getnstr(lib, "directories", j);
 
-	  process_directory(lib, path, 1);
+	  process_directories(lib, path, 1);
 
 	  if (scan_exit)
 	    return;
@@ -592,6 +671,9 @@ bulk_scan(void)
 
   if (playlists)
     process_deferred_playlists();
+
+  if (dirstack)
+    DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
 }
 
 
@@ -622,7 +704,10 @@ process_inotify_dir(char *path, struct wdpath *w2p, struct inotify_event *ie)
 {
   if (ie->mask & IN_CREATE)
     {
-      process_directory(w2p->lib, path, 0);
+      process_directories(w2p->lib, path, 0);
+
+      if (dirstack)
+	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
     }
 
   /* TODO: other cases need more support from the DB */
