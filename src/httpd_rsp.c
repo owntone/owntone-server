@@ -509,22 +509,9 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
     {
       DPRINTF(E_DBG, L_RSP, "RSP browse query filter: %s\n", param);
 
-      qi.pt = sp_init();
-      if (!qi.pt)
-	{
-	  DPRINTF(E_LOG, L_RSP, "Could not init query filter\n");
-	}
-      else
-	{
-	  ret = sp_parse(qi.pt, param, FILTER_TYPE_FIREFLY);
-	  if (ret != 1)
-	    {
-	      DPRINTF(E_LOG, L_RSP, "Ignoring improper query: %s\n", sp_get_error(qi.pt));
-
-	      sp_dispose(qi.pt);
-	      qi.pt = NULL;
-	    }
-	}
+      qi.filter = rsp_query_parse_sql(param);
+      if (!qi.filter)
+	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
     }
 
   ret = db_enum_start(&db_errmsg, &qi);
@@ -534,8 +521,8 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 
       rsp_send_error(req, db_errmsg);
 
-      if (qi.pt)
-	sp_dispose(qi.pt);
+      if (qi.filter)
+	free(qi.filter);
       free(db_errmsg);
       return;
     }
@@ -629,8 +616,8 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 	}
     }
 
-  if (qi.pt)
-    sp_dispose(qi.pt);
+  if (qi.filter)
+    free(qi.filter);
 
   if (ret != DB_E_SUCCESS)
     {
@@ -763,22 +750,9 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
     {
       DPRINTF(E_DBG, L_RSP, "RSP browse query filter: %s\n", param);
 
-      qi.pt = sp_init();
-      if (!qi.pt)
-	{
-	  DPRINTF(E_LOG, L_RSP, "Could not init query filter\n");
-	}
-      else
-	{
-	  ret = sp_parse(qi.pt, param, FILTER_TYPE_FIREFLY);
-	  if (ret != 1)
-	    {
-	      DPRINTF(E_LOG, L_RSP, "Ignoring improper query: %s\n", sp_get_error(qi.pt));
-
-	      sp_dispose(qi.pt);
-	      qi.pt = NULL;
-	    }
-	}
+      qi.filter = rsp_query_parse_sql(param);
+      if (!qi.filter)
+	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
     }
 
   ret = db_enum_start(&db_errmsg, &qi);
@@ -788,8 +762,8 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
 
       rsp_send_error(req, db_errmsg);
 
-      if (qi.pt)
-	sp_dispose(qi.pt);
+      if (qi.filter)
+	free(qi.filter);
       free(db_errmsg);
       return;
     }
@@ -830,8 +804,8 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
       mxmlNewText(node, 0, dbmfi->id);
     }
 
-  if (qi.pt)
-    sp_dispose(qi.pt);
+  if (qi.filter)
+    free(qi.filter);
 
   if (ret != DB_E_SUCCESS)
     {
