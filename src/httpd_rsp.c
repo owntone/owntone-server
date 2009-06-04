@@ -48,6 +48,8 @@
 
 
 #define RSP_VERSION "1.0"
+#define RSP_XML_ROOT "?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?"
+
 
 #define F_FULL     (1 << 0)
 #define F_BROWSE   (1 << 1)
@@ -136,7 +138,6 @@ mxml_to_evbuf(mxml_node_t *tree)
 {
   struct evbuffer *evbuf;
   char *xml;
-  char *content;
   int ret;
 
   evbuf = evbuffer_new();
@@ -156,20 +157,7 @@ mxml_to_evbuf(mxml_node_t *tree)
       return NULL;
     }
 
-
-  /* MiniXML doesn't support setting attributes on the root node */
-  content = strchr(xml, '>') + 1;
-  ret = evbuffer_add_printf(evbuf, "<?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?>");
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RSP, "Could not prepare evbuffer for RSP error\n");
-
-      free(xml);
-      evbuffer_free(evbuf);
-      return NULL;
-    }
-
-  ret = evbuffer_add(evbuf, content, strlen(content));
+  ret = evbuffer_add(evbuf, xml, strlen(xml));
   free(xml);
   if (ret < 0)
     {
@@ -190,7 +178,10 @@ rsp_send_error(struct evhttp_request *req, char *errmsg)
   mxml_node_t *status;
   mxml_node_t *node;
 
-  reply = mxmlNewXML("1.0");
+  /* We'd use mxmlNewXML(), but then we can't put any attributes
+   * on the root node and we need some.
+   */
+  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
 
   node = mxmlNewElement(reply, "response");
   status = mxmlNewElement(node, "status");
@@ -252,7 +243,10 @@ rsp_reply_info(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
   lib = cfg_getnsec(cfg, "library", 0);
   library = cfg_getstr(lib, "name");
 
-  reply = mxmlNewXML("1.0");
+  /* We'd use mxmlNewXML(), but then we can't put any attributes
+   * on the root node and we need some.
+   */
+  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
 
   node = mxmlNewElement(reply, "response");
   status = mxmlNewElement(node, "status");
@@ -334,7 +328,10 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
       return;
     }
 
-  reply = mxmlNewXML("1.0");
+  /* We'd use mxmlNewXML(), but then we can't put any attributes
+   * on the root node and we need some.
+   */
+  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
 
   node = mxmlNewElement(reply, "response");
   status = mxmlNewElement(node, "status");
@@ -549,7 +546,10 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   else
     records = limit;
 
-  reply = mxmlNewXML("1.0");
+  /* We'd use mxmlNewXML(), but then we can't put any attributes
+   * on the root node and we need some.
+   */
+  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
 
   node = mxmlNewElement(reply, "response");
   status = mxmlNewElement(node, "status");
@@ -800,7 +800,10 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
   else
     records = limit;
 
-  reply = mxmlNewXML("1.0");
+  /* We'd use mxmlNewXML(), but then we can't put any attributes
+   * on the root node and we need some.
+   */
+  reply = mxmlNewElement(MXML_NO_PARENT, RSP_XML_ROOT);
 
   node = mxmlNewElement(reply, "response");
   status = mxmlNewElement(node, "status");
