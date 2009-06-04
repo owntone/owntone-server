@@ -41,7 +41,6 @@
 #include "logger.h"
 #include "db-generic.h"
 #include "db-sql.h"
-#include "smart-parser.h"
 
 #define TRUE   ((1 == 1))
 #define FALSE  (!TRUE)
@@ -274,6 +273,9 @@ int db_sql_dispose_row(void) {
  * @returns sql where clause if successful, NULL otherwise
  */
 int db_sql_parse_smart(char **pe, char **clause, char *phrase) {
+#if 0
+  /* The smart parser is gone, and this function and its callers
+   * will soon be gone too.*/
     PARSETREE pt;
 
     if(strcmp(phrase,"1") == 0) {
@@ -300,6 +302,9 @@ int db_sql_parse_smart(char **pe, char **clause, char *phrase) {
 
     sp_dispose(pt);
     return TRUE;
+#endif /* 0 */
+    *pe = *clause = NULL;
+    return FALSE;
 }
 
 /**
@@ -1119,7 +1124,6 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     char query_count[255];
     char query_rest[4096];
     char *where_clause;
-    char *filter;
 
     int is_smart;
     int have_clause=0;
@@ -1253,7 +1257,7 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
     }
 
     /* Apply the query/filter */
-    if (pinfo->filter) { /* New parsers */
+    if (pinfo->filter) {
         DPRINTF(E_DBG, L_DB, "Got new-style query/filter\n");
 
 	if(have_clause) {
@@ -1263,31 +1267,13 @@ int db_sql_enum_start(char **pe, DBQUERYINFO *pinfo) {
 	  have_clause = 1;
 	}
 	strcat(query_rest, pinfo->filter);
-    }
-    else if (pinfo->pt) { /* Old parsers (smart-parser.c) */
-        DPRINTF(E_DBG,L_DB,"Got old-style query/filter\n");
-        filter = sp_sql_clause(pinfo->pt);
-        if(filter) {
-            if(have_clause) {
-                strcat(query_rest," and ");
-            } else {
-                strcpy(query_rest," where ");
-                have_clause=1;
-            }
-            strcat(query_rest,"(");
-            strcat(query_rest,filter);
-            strcat(query_rest,")");
-            free(filter);
-        } else {
-            DPRINTF(E_LOG,L_DB,"Error getting sql for parse tree\n");
-        }
     } else {
         DPRINTF(E_DBG,L_DB,"No query/filter\n");
     }
 
     /* disable empty */
     if(browse) {
-        if((have_clause) || (pinfo->filter) || (pinfo->pt)) {
+        if((have_clause) || (pinfo->filter)) {
             strcat(query_rest," and (");
         } else {
             strcpy(query_rest," where (");

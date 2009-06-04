@@ -22,7 +22,6 @@
 #define _DB_GENERIC_H_
 
 #include "ff-dbstruct.h" /** for MP3FILE */
-#include "smart-parser.h" /** for PARSETREE */
 
 typedef enum {
     queryTypeItems,
@@ -61,7 +60,6 @@ typedef struct tag_dbqueryinfo {
     int correct_order;
     char *uri_sections[10];
     char *filter; /* SQL WHERE clause */
-    PARSETREE pt;
     void *output_info;
 } DBQUERYINFO;
 
