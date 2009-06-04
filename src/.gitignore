@@ -4,5 +4,6 @@ mt-daapd
 *Lexer.[ch]
 *Parser.[ch]
 DAAP2SQL.[ch]
+RSP2SQL.[ch]
 
 *.u

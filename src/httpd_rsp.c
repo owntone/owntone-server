@@ -45,6 +45,7 @@
 #include "httpd.h"
 #include "transcode.h"
 #include "httpd_rsp.h"
+#include "rsp_query.h"
 
 
 #define RSP_VERSION "1.0"
@@ -1049,6 +1050,10 @@ rsp_init(void)
   int i;
   int ret;
 
+  ret = rsp_query_init();
+  if (ret < 0)
+    return ret;
+
   for (i = 0; rsp_handlers[i].handler; i++)
     {
       ret = regcomp(&rsp_handlers[i].preg, rsp_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
@@ -1057,17 +1062,24 @@ rsp_init(void)
           regerror(ret, &rsp_handlers[i].preg, buf, sizeof(buf));
 
           DPRINTF(E_FATAL, L_RSP, "RSP init failed; regexp error: %s\n", buf);
-          return -1;
+	  goto regexp_fail;
         }
     }
 
   return 0;
+
+ regexp_fail:
+  rsp_query_deinit();
+
+  return -1;
 }
 
 void
 rsp_deinit(void)
 {
   int i;
+
+  rsp_query_deinit();
 
   for (i = 0; rsp_handlers[i].handler; i++)
     regfree(&rsp_handlers[i].preg);

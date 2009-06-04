@@ -10,9 +10,12 @@ MUSEPACKSRC=scan-mpc.c
 endif
 
 ANTLR_GRAMMARS = \
+	RSP.g RSP2SQL.g \
 	DAAP.g DAAP2SQL.g
 
 ANTLR_SOURCES = \
+	RSPLexer.c RSPLexer.h RSPParser.c RSPParser.h \
+	RSP2SQL.c RSP2SQL.h \
 	DAAPLexer.c DAAPLexer.h DAAPParser.c DAAPParser.h \
 	DAAP2SQL.c DAAP2SQL.h
 
@@ -33,6 +36,7 @@ mt_daapd_SOURCES = main.c \
 	httpd_daap.c httpd_daap.h \
 	transcode.c transcode.h \
 	misc.c misc.h \
+	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \
 	db-generic.c db-generic.h \
 	scan-wma.c \
@@ -52,6 +56,7 @@ EXTRA_DIST = \
 
 
 # Let's help the dependencies a little.
+rsp_query.c: RSPLexer.h RSPParser.h RSP2SQL.h
 daap_query.c: DAAPLexer.h DAAPParser.h DAAP2SQL.h
 
 
@@ -65,7 +70,7 @@ SUFFIXES = .g .u
 	@echo -n "ANTLR_PRODUCTS += " > $@.tmp
 	@grep : $@ | cut -d : -f 1 | tr -d ' ' | { while read f; do test "$$f" != "$<" && echo -n "$$f "; done } >> $@.tmp
 	@cat $@.tmp >> $@
-	rm $@.tmp
+	@rm $@.tmp
 
 clean-local:
 	-rm $(ANTLR_PRODUCTS)
