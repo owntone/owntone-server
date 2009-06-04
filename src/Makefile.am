@@ -40,7 +40,6 @@ mt_daapd_SOURCES = main.c \
 	daap_query.c daap_query.h \
 	db-generic.c db-generic.h \
 	scan-wma.c \
-	smart-parser.c smart-parser.h \
 	db-sql-updates.c \
 	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
 	$(FLACSRC) $(MUSEPACKSRC)
