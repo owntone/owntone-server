@@ -12,16 +12,15 @@
 #define L_MAIN    4
 #define L_MDNS    5
 #define L_MISC    6
-#define L_PARSE   7
-#define L_RSP     8
-#define L_SCAN    9
-#define L_XCODE   10
+#define L_RSP     7
+#define L_SCAN    8
+#define L_XCODE   9
 /* libevent logging */
-#define L_EVENT   11
+#define L_EVENT   10
 
 /* Will go away */
-#define L_LOCK    12
-#define N_LOGDOMAINS  13
+#define L_LOCK    11
+#define N_LOGDOMAINS  12
 
 /* Severities */
 #define E_FATAL   0
