@@ -161,7 +161,7 @@ mxml_to_evbuf(mxml_node_t *tree)
   free(xml);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RSP, "Could not load evbuffer for RSP error\n");
+      DPRINTF(E_LOG, L_RSP, "Could not load evbuffer for RSP reply\n");
 
       evbuffer_free(evbuf);
       return NULL;
