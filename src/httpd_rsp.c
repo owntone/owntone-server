@@ -171,6 +171,70 @@ mxml_to_evbuf(mxml_node_t *tree)
   return evbuf;
 }
 
+/* Forward */
+static void
+rsp_send_error(struct evhttp_request *req, char *errmsg);
+
+static int
+get_query_params(struct evhttp_request *req, struct evkeyvalq *query, DBQUERYINFO *qi, int *offset, int *limit)
+{
+  const char *param;
+  int ret;
+
+  *offset = 0;
+  param = evhttp_find_header(query, "offset");
+  if (param)
+    {
+      ret = safe_atoi(param, offset);
+      if (ret < 0)
+	{
+	  rsp_send_error(req, "Invalid offset");
+	  return -1;
+	}
+    }
+
+  *limit = 0;
+  param = evhttp_find_header(query, "limit");
+  if (param)
+    {
+      ret = safe_atoi(param, limit);
+      if (ret < 0)
+	{
+	  rsp_send_error(req, "Invalid limit");
+	  return -1;
+	}
+    }
+
+  if (*offset || *limit)
+    {
+      qi->index_low = *offset;
+      qi->index_high = *offset + *limit - 1;
+
+      if (qi->index_high < qi->index_low)
+	qi->index_high = 9999999; /* Arbitrarily high number */
+
+      qi->index_type = indexTypeSub;
+    }
+  else
+    qi->index_type = indexTypeNone;
+
+  qi->want_count = 1;
+  qi->correct_order = 1;
+
+  param = evhttp_find_header(query, "query");
+  if (param)
+    {
+      DPRINTF(E_DBG, L_RSP, "RSP browse query filter: %s\n", param);
+
+      qi->filter = rsp_query_parse_sql(param);
+      if (!qi->filter)
+	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
+    }
+
+  return 0;
+}
+
+
 static void
 rsp_send_error(struct evhttp_request *req, char *errmsg)
 {
@@ -440,7 +504,6 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   memset(&qi, 0, sizeof(DBQUERYINFO));
 
   qi.query_type = queryTypePlaylistItems;
-  qi.correct_order = 1;
 
   ret = safe_atoi(uri[2], &qi.playlist_id);
   if (ret < 0)
@@ -465,54 +528,9 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 	DPRINTF(E_LOG, L_RSP, "Unknown browse mode %s\n", param);
     }
 
-  offset = 0;
-  param = evhttp_find_header(query, "offset");
-  if (param)
-    {
-      ret = safe_atoi(param, &offset);
-      if (ret < 0)
-	{
-	  rsp_send_error(req, "Invalid offset");
-	  return;
-	}
-    }
-
-  limit = 0;
-  param = evhttp_find_header(query, "limit");
-  if (param)
-    {
-      ret = safe_atoi(param, &limit);
-      if (ret < 0)
-	{
-	  rsp_send_error(req, "Invalid limit");
-	  return;
-	}
-    }
-
-  if (offset || limit)
-    {
-      qi.index_low = offset;
-      qi.index_high = offset + limit - 1;
-
-      if (qi.index_high < qi.index_low)
-	qi.index_high = 9999999; /* Arbitrarily high number */
-
-      qi.index_type = indexTypeSub;
-    }
-  else
-    qi.index_type = indexTypeNone;
-
-  qi.want_count = 1;
-
-  param = evhttp_find_header(query, "query");
-  if (param)
-    {
-      DPRINTF(E_DBG, L_RSP, "RSP browse query filter: %s\n", param);
-
-      qi.filter = rsp_query_parse_sql(param);
-      if (!qi.filter)
-	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
-    }
+  ret = get_query_params(req, query, &qi, &offset, &limit);
+  if (ret < 0)
+    return;
 
   ret = db_enum_start(&db_errmsg, &qi);
   if (ret != DB_E_SUCCESS)
@@ -671,7 +689,6 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
   struct db_media_file_info *dbmfi;
   struct evbuffer *evbuf;
   char *db_errmsg;
-  const char *param;
   mxml_node_t *reply;
   mxml_node_t *status;
   mxml_node_t *items;
@@ -706,54 +723,9 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
       return;
     }
 
-  offset = 0;
-  param = evhttp_find_header(query, "offset");
-  if (param)
-    {
-      ret = safe_atoi(param, &offset);
-      if (ret < 0)
-	{
-	  rsp_send_error(req, "Invalid offset");
-	  return;
-	}
-    }
-
-  limit = 0;
-  param = evhttp_find_header(query, "limit");
-  if (param)
-    {
-      ret = safe_atoi(param, &limit);
-      if (ret < 0)
-	{
-	  rsp_send_error(req, "Invalid limit");
-	  return;
-	}
-    }
-
-  if (offset || limit)
-    {
-      qi.index_low = offset;
-      qi.index_high = offset + limit - 1;
-
-      if (qi.index_high < qi.index_low)
-	qi.index_high = 9999999; /* Arbitrarily high number */
-
-      qi.index_type = indexTypeSub;
-    }
-  else
-    qi.index_type = indexTypeNone;
-
-  qi.want_count = 1;
-
-  param = evhttp_find_header(query, "query");
-  if (param)
-    {
-      DPRINTF(E_DBG, L_RSP, "RSP browse query filter: %s\n", param);
-
-      qi.filter = rsp_query_parse_sql(param);
-      if (!qi.filter)
-	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
-    }
+  ret = get_query_params(req, query, &qi, &offset, &limit);
+  if (ret < 0)
+    return;
 
   ret = db_enum_start(&db_errmsg, &qi);
   if (ret != DB_E_SUCCESS)
