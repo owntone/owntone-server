@@ -250,35 +250,65 @@ int
 main(int argc, char **argv)
 {
   int option;
-  char *configfile = CONFFILE;
-  int reload = 0;
+  char *configfile;
   int background;
-  int force_non_root = 0;
-  int skip_initial = 1;
+  int mdns_no_rsp;
+  int mdns_no_daap;
+  int loglevel;
+  char *logdomains;
+  char *logfile;
   cfg_t *lib;
   char *runas, *tmp;
   int port;
   char *servername;
-  char *ffid = NULL;
-  char *perr = NULL;
+  char *ffid;
+  char *perr;
   char *txtrecord[10];
-  char *pidfile = PIDFILE;
+  char *pidfile;
   sigset_t sigs;
   int sigfd;
   struct event sig_event;
   int ret;
   int i;
 
-  int loglevel = -1;
-  char *logdomains = NULL;
-  char *logfile = NULL;
+  struct option option_map[] =
+    {
+      { "ffid",         1, NULL, 'b' },
+      { "debug",        1, NULL, 'd' },
+      { "logdomains",   1, NULL, 'D' },
+      { "foreground",   0, NULL, 'f' },
+      { "config",       1, NULL, 'c' },
+      { "pidfile",      1, NULL, 'P' },
+      { "version",      0, NULL, 'v' },
 
+      { "mdns-no-rsp",  0, NULL, 512 },
+      { "mdns-no-daap", 0, NULL, 513 },
+
+      { NULL,           0, NULL, 0 }
+    };
+
+  configfile = CONFFILE;
+  pidfile = PIDFILE;
+  loglevel = -1;
+  logdomains = NULL;
+  logfile = NULL;
   background = 1;
+  ffid = NULL;
+  mdns_no_rsp = 0;
+  mdns_no_daap = 0;
 
-  while ((option = getopt(argc, argv, "D:d:c:P:frysiub:v")) != -1)
+  while ((option = getopt_long(argc, argv, "D:d:c:P:fb:v", option_map, NULL)) != -1)
     {
       switch (option)
 	{
+	  case 512:
+	    mdns_no_rsp = 1;
+	    break;
+
+	  case 513:
+	    mdns_no_daap = 1;
+	    break;
+
 	  case 'b':
             ffid = optarg;
             break;
@@ -307,18 +337,6 @@ main(int argc, char **argv)
 	    pidfile = optarg;
             break;
 
-          case 'r':
-            reload = 1;
-            break;
-
-          case 's':
-            skip_initial = 0;
-            break;
-
-          case 'y':
-            force_non_root = 1;
-            break;
-
           case 'v':
             fprintf(stdout, "Firefly Media Server: Version %s\n",VERSION);
             exit(EXIT_SUCCESS);
@@ -329,14 +347,6 @@ main(int argc, char **argv)
             exit(EXIT_FAILURE);
             break;
         }
-    }
-
-  if ((getuid() != 0) && (!force_non_root))
-    {
-      fprintf(stderr, "You are not root. This is almost certainly wrong.  "
-	      "If you are\nsure you want to do this, use the -y "
-	      "command-line switch\n");
-      exit(EXIT_FAILURE);
     }
 
   ret = logger_init(NULL, NULL, (loglevel < 0) ? E_LOG : loglevel);
@@ -440,7 +450,7 @@ main(int argc, char **argv)
 
   /* Initialize the database before starting */
   DPRINTF(E_INFO, L_MAIN, "Initializing database\n");
-  if (db_init(reload))
+  if (db_init(0))
     {
       DPRINTF(E_FATAL, L_MAIN, "Error in db_init: %s\n", strerror(errno));
     }
@@ -523,9 +533,11 @@ main(int argc, char **argv)
   /* Register web server service */
   mdns_register(servername, "_http._tcp", port, txtrecord);
   /* Register RSP service */
-  mdns_register(servername, "_rsp._tcp", port, txtrecord);
+  if (!mdns_no_rsp)
+    mdns_register(servername, "_rsp._tcp", port, txtrecord);
   /* Register DAAP service */
-  mdns_register(servername, "_daap._tcp", port, txtrecord);
+  if (!mdns_no_daap)
+    mdns_register(servername, "_daap._tcp", port, txtrecord);
 
   for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
     free(txtrecord[i]);
