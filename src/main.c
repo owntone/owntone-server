@@ -80,17 +80,20 @@ usage(char *program)
 }
 
 static int
-daemonize(int background, char *runas, char *pidfile)
+daemonize(int background, char *pidfile)
 {
   FILE *fp;
-  int fd;
   pid_t childpid;
   pid_t ret;
+  int fd;
   int iret;
+  char *runas;
   struct passwd *pw;
 
   if (geteuid() == (uid_t) 0)
     {
+      runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
+
       pw = getpwnam(runas);
 
       if (!pw)
@@ -258,7 +261,7 @@ main(int argc, char **argv)
   char *logdomains;
   char *logfile;
   cfg_t *lib;
-  char *runas, *tmp;
+  char *tmp;
   int port;
   char *servername;
   char *ffid;
@@ -409,9 +412,7 @@ main(int argc, char **argv)
     }
 
   /* Daemonize and drop privileges */
-  runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
-
-  ret = daemonize(background, runas, pidfile);
+  ret = daemonize(background, pidfile);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MAIN, "Could not initialize server\n");
