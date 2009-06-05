@@ -36,6 +36,7 @@
 #include <limits.h>
 #include <pwd.h>
 #include <grp.h>
+#include <stdint.h>
 
 #include <sys/signalfd.h>
 
@@ -200,6 +201,78 @@ daemonize(int background, char *pidfile)
   return 0;
 }
 
+static int
+register_services(char *ffid, int no_rsp, int no_daap)
+{
+  cfg_t *lib;
+  char *servername;
+  char *password;
+  char *txtrecord[10];
+  char records[9][128];
+  int port;
+  uint32_t hash;
+  int i;
+  int ret;
+
+  srand((unsigned int)time(NULL));
+
+  lib = cfg_getnsec(cfg, "library", 0);
+
+  servername = cfg_getstr(lib, "name");
+  hash = djb_hash(servername, strlen(servername));
+
+  for (i = 0; i < (sizeof(records) / sizeof(records[0])); i++)
+    {
+      memset(records[i], 0, 128);
+      txtrecord[i] = records[i];
+    }
+
+  txtrecord[9] = NULL;
+
+  snprintf(txtrecord[0], 128, "txtvers=1");
+  snprintf(txtrecord[1], 128, "Database ID=%0X", hash);
+  snprintf(txtrecord[2], 128, "Machine ID=%0X", hash);
+  snprintf(txtrecord[3], 128, "Machine Name=%s", servername);
+  snprintf(txtrecord[4], 128, "mtd-version=%s", VERSION);
+  snprintf(txtrecord[5], 128, "iTSh Version=131073"); /* iTunes 6.0.4 */
+  snprintf(txtrecord[6], 128, "Version=196610");      /* iTunes 6.0.4 */
+
+  password = cfg_getstr(lib, "password");
+  snprintf(txtrecord[7], 128, "Password=%s", (password) ? "true" : "false");
+
+  if (ffid)
+    snprintf(txtrecord[8], 128, "ffid=%s", ffid);
+  else
+    snprintf(txtrecord[8], 128, "ffid=%08x", rand());
+
+  DPRINTF(E_INFO, L_MAIN, "Registering rendezvous names\n");
+
+  port = cfg_getint(lib, "port");
+
+  /* Register web server service */
+  ret = mdns_register(servername, "_http._tcp", port, txtrecord);
+  if (ret < 0)
+    return ret;
+
+  /* Register RSP service */
+  if (!no_rsp)
+    {
+      ret = mdns_register(servername, "_rsp._tcp", port, txtrecord);
+      if (ret < 0)
+	return ret;
+    }
+
+  /* Register DAAP service */
+  if (!no_daap)
+    {
+      ret = mdns_register(servername, "_daap._tcp", port, txtrecord);
+      if (ret < 0)
+	return ret;
+    }
+
+  return 0;
+}
+
 
 static void
 signal_cb(int fd, short event, void *arg)
@@ -260,19 +333,13 @@ main(int argc, char **argv)
   int loglevel;
   char *logdomains;
   char *logfile;
-  cfg_t *lib;
-  char *tmp;
-  int port;
-  char *servername;
   char *ffid;
   char *perr;
-  char *txtrecord[10];
   char *pidfile;
   sigset_t sigs;
   int sigfd;
   struct event sig_event;
   int ret;
-  int i;
 
   struct option option_map[] =
     {
@@ -317,11 +384,11 @@ main(int argc, char **argv)
             break;
 
 	  case 'd':
-	    ret = safe_atoi(optarg, &i);
+	    ret = safe_atoi(optarg, &option);
 	    if (ret < 0)
 	      fprintf(stderr, "Error: loglevel must be an integer in '-d %s'\n", optarg);
 	    else
-	      loglevel = i;
+	      loglevel = option;
             break;
 
 	  case 'D':
@@ -484,64 +551,17 @@ main(int argc, char **argv)
     }
 
   /* Register mDNS services */
-  lib = cfg_getnsec(cfg, "library", 0);
-
-  servername = cfg_getstr(lib, "name");
-
-  for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
+  ret = register_services(ffid, mdns_no_rsp, mdns_no_daap);
+  if (ret < 0)
     {
-      txtrecord[i] = (char *)malloc(128);
-      if (!txtrecord[i])
-	{
-	  DPRINTF(E_FATAL, L_MAIN, "Out of memory for TXT record\n");
-
-	  httpd_deinit();
-	  filescanner_deinit();
-	  mdns_deinit();
-	  db_deinit();
-	  conffile_unload();
-	  logger_deinit();
-	  exit(EXIT_FAILURE);
-	}
-
-      memset(txtrecord[i], 0, 128);
+      httpd_deinit();
+      filescanner_deinit();
+      mdns_deinit();
+      db_deinit();
+      conffile_unload();
+      logger_deinit();
+      exit(EXIT_FAILURE);
     }
-
-  snprintf(txtrecord[0], 128, "txtvers=1");
-  snprintf(txtrecord[1], 128, "Database ID=%0X", djb_hash(servername, strlen(servername)));
-  snprintf(txtrecord[2], 128, "Machine ID=%0X", djb_hash(servername, strlen(servername)));
-  snprintf(txtrecord[3], 128, "Machine Name=%s", servername);
-  snprintf(txtrecord[4], 128, "mtd-version=%s", VERSION);
-  snprintf(txtrecord[5], 128, "iTSh Version=131073"); /* iTunes 6.0.4 */
-  snprintf(txtrecord[6], 128, "Version=196610");      /* iTunes 6.0.4 */
-
-  tmp = cfg_getstr(lib, "password");
-  snprintf(txtrecord[7], 128, "Password=%s", (tmp) ? "true" : "false");
-
-  srand((unsigned int)time(NULL));
-
-  if (ffid)
-    snprintf(txtrecord[8], 128, "ffid=%s", ffid);
-  else
-    snprintf(txtrecord[8], 128, "ffid=%08x", rand());
-
-  txtrecord[9] = NULL;
-
-  DPRINTF(E_LOG,L_MAIN,"Registering rendezvous names\n");
-
-  port = cfg_getint(lib, "port");
-
-  /* Register web server service */
-  mdns_register(servername, "_http._tcp", port, txtrecord);
-  /* Register RSP service */
-  if (!mdns_no_rsp)
-    mdns_register(servername, "_rsp._tcp", port, txtrecord);
-  /* Register DAAP service */
-  if (!mdns_no_daap)
-    mdns_register(servername, "_daap._tcp", port, txtrecord);
-
-  for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
-    free(txtrecord[i]);
 
   /* Set up signal fd */
   sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);
