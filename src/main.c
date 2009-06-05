@@ -409,12 +409,12 @@ main(int argc, char **argv)
 
           case 'v':
             fprintf(stdout, "Firefly Media Server: Version %s\n",VERSION);
-            exit(EXIT_SUCCESS);
+            return EXIT_SUCCESS;
             break;
 
           default:
             usage(argv[0]);
-            exit(EXIT_FAILURE);
+            return EXIT_FAILURE;
             break;
         }
     }
@@ -424,7 +424,7 @@ main(int argc, char **argv)
     {
       fprintf(stderr, "Could not initialize log facility\n");
 
-      exit(EXIT_FAILURE);
+      return EXIT_FAILURE;
     }
 
   ret = conffile_load(configfile);
@@ -433,7 +433,7 @@ main(int argc, char **argv)
       DPRINTF(E_FATAL, L_MAIN, "Config file errors; please fix your config\n");
 
       logger_deinit();
-      exit(EXIT_FAILURE);
+      return EXIT_FAILURE;
     }
 
   logger_deinit();
@@ -450,7 +450,7 @@ main(int argc, char **argv)
       fprintf(stderr, "Could not reinitialize log facility with config file settings\n");
 
       conffile_unload();
-      exit(EXIT_FAILURE);
+      return EXIT_FAILURE;
     }
 
   /* Set up libevent logging callback */
@@ -458,7 +458,7 @@ main(int argc, char **argv)
 
   DPRINTF(E_LOG, L_MAIN, "Firefly Version %s taking off\n", VERSION);
 
-  /* initialize ffmpeg */
+  /* Initialize ffmpeg */
   av_register_all();
 
   /* Block signals for all threads except the main one */
@@ -473,9 +473,8 @@ main(int argc, char **argv)
     {
       DPRINTF(E_LOG, L_MAIN, "Error setting signal set\n");
 
-      conffile_unload();
-      logger_deinit();
-      exit(EXIT_FAILURE);
+      ret = EXIT_FAILURE;
+      goto signal_block_fail;
     }
 
   /* Daemonize and drop privileges */
@@ -484,9 +483,8 @@ main(int argc, char **argv)
     {
       DPRINTF(E_LOG, L_MAIN, "Could not initialize server\n");
 
-      conffile_unload();
-      logger_deinit();
-      exit(EXIT_FAILURE);
+      ret = EXIT_FAILURE;
+      goto daemon_fail;
     }
 
   /* Initialize libevent (after forking) */
@@ -498,22 +496,18 @@ main(int argc, char **argv)
     {
       DPRINTF(E_FATAL, L_MAIN, "mDNS init failed\n");
 
-      conffile_unload();
-      logger_deinit();
-      exit(EXIT_FAILURE);
+      ret = EXIT_FAILURE;
+      goto mdns_fail;
     }
 
   /* this will require that the db be readable by the runas user */
   ret = db_open(&perr, "sqlite3", "/var/cache/mt-daapd"); /* FIXME */
-
   if (ret != 0)
     {
       DPRINTF(E_FATAL, L_MAIN, "Error opening db: %s\n", perr);
 
-      mdns_deinit();
-      conffile_unload();
-      logger_deinit();
-      exit(EXIT_FAILURE);
+      ret = EXIT_FAILURE;
+      goto db_fail;
     }
 
   /* Initialize the database before starting */
@@ -529,11 +523,8 @@ main(int argc, char **argv)
     {
       DPRINTF(E_FATAL, L_MAIN, "File scanner thread failed to start\n");
 
-      mdns_deinit();
-      db_deinit();
-      conffile_unload();
-      logger_deinit();
-      exit(EXIT_FAILURE);
+      ret = EXIT_FAILURE;
+      goto filescanner_fail;
     }
 
   /* Spawn HTTPd thread */
@@ -542,25 +533,16 @@ main(int argc, char **argv)
     {
       DPRINTF(E_FATAL, L_MAIN, "HTTPd thread failed to start\n");
 
-      filescanner_deinit();
-      mdns_deinit();
-      db_deinit();
-      conffile_unload();
-      logger_deinit();
-      exit(EXIT_FAILURE);
+      ret = EXIT_FAILURE;
+      goto httpd_fail;
     }
 
   /* Register mDNS services */
   ret = register_services(ffid, mdns_no_rsp, mdns_no_daap);
   if (ret < 0)
     {
-      httpd_deinit();
-      filescanner_deinit();
-      mdns_deinit();
-      db_deinit();
-      conffile_unload();
-      logger_deinit();
-      exit(EXIT_FAILURE);
+      ret = EXIT_FAILURE;
+      goto mdns_reg_fail;
     }
 
   /* Set up signal fd */
@@ -569,13 +551,8 @@ main(int argc, char **argv)
     {
       DPRINTF(E_FATAL, L_MAIN, "Could not setup signalfd: %s\n", strerror(errno));
 
-      httpd_deinit();
-      filescanner_deinit();
-      mdns_deinit();
-      db_deinit();
-      conffile_unload();
-      logger_deinit();
-      exit(EXIT_FAILURE);
+      ret = EXIT_FAILURE;
+      goto signalfd_fail;
     }
 
   event_set(&sig_event, sigfd, EV_READ, signal_cb, NULL);
@@ -586,21 +563,37 @@ main(int argc, char **argv)
   event_base_dispatch(evbase_main);
 
   DPRINTF(E_LOG, L_MAIN, "Stopping gracefully\n");
+  ret = EXIT_SUCCESS;
 
-  DPRINTF(E_LOG, L_MAIN, "HTTPd deinit\n");
-  httpd_deinit();
-
-  DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
-  filescanner_deinit();
-
+  /*
+   * On a clean shutdown, bring mDNS down first to give a chance
+   * to the clients to perform a clean shutdown on their end
+   */
   DPRINTF(E_LOG, L_MAIN, "mDNS deinit\n");
   mdns_deinit();
 
-  conffile_unload();
+ signalfd_fail:
+ mdns_reg_fail:
+  DPRINTF(E_LOG, L_MAIN, "HTTPd deinit\n");
+  httpd_deinit();
 
+ httpd_fail:
+  DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
+  filescanner_deinit();
+
+ filescanner_fail:
   DPRINTF(E_LOG, L_MAIN, "Closing database\n");
   db_deinit();
 
+ db_fail:
+  if (ret == EXIT_FAILURE)
+    {
+      DPRINTF(E_LOG, L_MAIN, "mDNS deinit\n");
+      mdns_deinit();
+    }
+
+ mdns_fail:
+ daemon_fail:
   if (background)
     {
       ret = unlink(pidfile);
@@ -608,9 +601,10 @@ main(int argc, char **argv)
 	DPRINTF(E_WARN, L_MAIN, "Could not unlink PID file %s: %s\n", pidfile, strerror(errno));
     }
 
+ signal_block_fail:
   DPRINTF(E_LOG, L_MAIN, "Exiting.\n");
-
+  conffile_unload();
   logger_deinit();
 
-  return EXIT_SUCCESS;
+  return ret;
 }
