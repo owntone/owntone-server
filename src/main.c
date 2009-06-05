@@ -19,66 +19,31 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/**
- * @file main.c
- *
- * Driver for mt-daapd, including the main() function.  This
- * is responsible for kicking off the initial mp3 scan, starting
- * up the signal handler, starting up the webserver, and waiting
- * around for external events to happen (like a request to rescan,
- * or a background rescan to take place.)
- *
- * It also contains the daap handling callback for the webserver.
- * This should almost certainly be somewhere else, and is in
- * desparate need of refactoring, but somehow continues to be in
- * this files.
- */
-
-/** @mainpage mt-daapd
- * @section about_section About
- *
- * This is mt-daapd, an attempt to create an iTunes server for
- * linux and other POSIXish systems.  Maybe even Windows with cygwin,
- * eventually.
- *
- * You might check these locations for more info:
- * - <a href="http://www.mt-daapd.org">Home page</a>
- * - <a href="http://sf.net/projects/mt-daapd">Project page on SourceForge</a>
- *
- */
-
 #ifdef HAVE_CONFIG_H
-#  include "config.h"
+# include <config.h>
 #endif
 
-#include <errno.h>
-#include <fcntl.h>
-#include <limits.h>
-#include <pthread.h>
-#include <signal.h>
-#include <stdarg.h>
-#ifdef HAVE_STDINT_H
-#include <stdint.h>
-#endif
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 #include <string.h>
-#ifdef HAVE_DIRENT_H
-#include <dirent.h>
-#endif
-#ifdef HAVE_UNISTD_H
-# include <unistd.h>
-#endif
-
+#include <errno.h>
+#include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/types.h>
-#ifdef HAVE_SYS_WAIT_H
 #include <sys/wait.h>
-#endif
-#include <sys/signalfd.h>
-
+#include <signal.h>
+#include <limits.h>
 #include <pwd.h>
 #include <grp.h>
+
+#include <sys/signalfd.h>
+
+#include <pthread.h>
+
+#include <getopt.h>
+#include <event.h>
+#include <libavformat/avformat.h>
 
 #include "conffile.h"
 #include "logger.h"
@@ -88,60 +53,31 @@
 #include "db-generic.h"
 #include "mdns_avahi.h"
 
-#ifdef HAVE_GETOPT_H
-# include "getopt.h"
-#endif
 
-#include <event.h>
-#include <libavformat/avformat.h>
-
-
-/** Seconds to sleep before checking for a shutdown or reload */
-#define MAIN_SLEEP_INTERVAL  2
-
-/** Let's hope if you have no atoll, you only have 32 bit inodes... */
-#if !HAVE_ATOLL
-#  define atoll(a) atol(a)
-#endif
-
-#ifndef PIDFILE
 #define PIDFILE "/var/run/mt-daapd.pid"
-#endif
 
-/*
- * Globals
- */
 struct event_base *evbase_main;
 static int main_exit;
 
 
-/*
- * Forwards
- */
-static void usage(char *program);
-
-/**
- * Print usage information to stdout
- *
- * \param program name of program (argv[0])
- */
-void usage(char *program) {
-    printf("Usage: %s [options]\n\n",program);
-    printf("Options:\n");
-    printf("  -d <number>    Log level (0-5)\n");
-    printf("  -D <dom,dom..> Log domains\n");
-    printf("  -c <file>      Use configfile specified\n");
-    printf("  -P <file>      Write the PID to specified file\n");
-    printf("  -f             Run in foreground\n");
-    printf("  -y             Yes, go ahead and run as non-root user\n");
-    printf("  -b <id>        ffid to be broadcast\n");
-    printf("  -v             Display version information\n");
-    printf("\n\n");
-    printf("Available log domains:\n");
-    logger_domains();
-    printf("\n\n");
+static void
+usage(char *program)
+{
+  printf("Usage: %s [options]\n\n",program);
+  printf("Options:\n");
+  printf("  -d <number>    Log level (0-5)\n");
+  printf("  -D <dom,dom..> Log domains\n");
+  printf("  -c <file>      Use <file> as the configfile\n");
+  printf("  -P <file>      Write PID to specified file\n");
+  printf("  -f             Run in foreground\n");
+  printf("  -y             Start even if user is not root\n");
+  printf("  -b <id>        ffid to be broadcast\n");
+  printf("  -v             Display version information\n");
+  printf("\n\n");
+  printf("Available log domains:\n");
+  logger_domains();
+  printf("\n\n");
 }
-
 
 static int
 daemonize(int background, char *runas, char *pidfile)
@@ -270,12 +206,12 @@ signal_cb(int fd, short event, void *arg)
   struct signalfd_siginfo info;
   int status;
 
-  sa_ign.sa_handler=SIG_IGN;
-  sa_ign.sa_flags=0;
+  sa_ign.sa_handler = SIG_IGN;
+  sa_ign.sa_flags = 0;
   sigemptyset(&sa_ign.sa_mask);
 
-  sa_dfl.sa_handler=SIG_DFL;
-  sa_dfl.sa_flags=0;
+  sa_dfl.sa_handler = SIG_DFL;
+  sa_dfl.sa_flags = 0;
   sigemptyset(&sa_dfl.sa_mask);
 
   while (read(fd, &info, sizeof(struct signalfd_siginfo)) > 0)
@@ -309,348 +245,339 @@ signal_cb(int fd, short event, void *arg)
     event_base_loopbreak(evbase_main);
 }
 
-/**
- * Kick off the daap server and wait for events.
- *
- * This starts the initial db scan, sets up the signal
- * handling, starts the webserver, then sits back and waits
- * for events, as notified by the signal handler and the
- * web interface.  These events are communicated via flags
- * in the config structure.
- *
- * \param argc count of command line arguments
- * \param argv command line argument pointers
- * \returns 0 on success, -1 otherwise
- *
- * \todo split out a ws_init and ws_start, so that the
- * web space handlers can be registered before the webserver
- * starts.
- *
- */
-int main(int argc, char *argv[]) {
-    int option;
-    char *configfile=CONFFILE;
-    int reload=0;
-    int background;
-    int force_non_root=0;
-    int skip_initial=1;
-    cfg_t *lib;
-    char *runas, *tmp;
-    int port;
-    char *servername;
-    char *ffid = NULL;
-    char *perr=NULL;
-    char *txtrecord[10];
-    char *pidfile = PIDFILE;
-    sigset_t sigs;
-    int sigfd;
-    struct event sig_event;
-    int ret;
-    int i;
 
-    int err;
+int
+main(int argc, char **argv)
+{
+  int option;
+  char *configfile = CONFFILE;
+  int reload = 0;
+  int background;
+  int force_non_root = 0;
+  int skip_initial = 1;
+  cfg_t *lib;
+  char *runas, *tmp;
+  int port;
+  char *servername;
+  char *ffid = NULL;
+  char *perr = NULL;
+  char *txtrecord[10];
+  char *pidfile = PIDFILE;
+  sigset_t sigs;
+  int sigfd;
+  struct event sig_event;
+  int ret;
+  int i;
 
-    int loglevel = -1;
-    char *logdomains = NULL;
-    char *logfile = NULL;
+  int loglevel = -1;
+  char *logdomains = NULL;
+  char *logfile = NULL;
 
-    background = 1;
+  background = 1;
 
-    while((option=getopt(argc,argv,"D:d:c:P:frysiub:v")) != -1) {
-        switch(option) {
-        case 'b':
-            ffid=optarg;
+  while ((option = getopt(argc, argv, "D:d:c:P:frysiub:v")) != -1)
+    {
+      switch (option)
+	{
+	  case 'b':
+            ffid = optarg;
             break;
 
-        case 'd':
-            loglevel = atoi(optarg);
+	  case 'd':
+	    ret = safe_atoi(optarg, &i);
+	    if (ret < 0)
+	      fprintf(stderr, "Error: loglevel must be an integer in '-d %s'\n", optarg);
+	    else
+	      loglevel = i;
             break;
 
-        case 'D':
+	  case 'D':
 	    logdomains = optarg;
             break;
 
-        case 'f':
+          case 'f':
             background = 0;
             break;
 
-        case 'c':
-            configfile=optarg;
+          case 'c':
+            configfile = optarg;
             break;
 
-        case 'P':
+          case 'P':
 	    pidfile = optarg;
             break;
 
-        case 'r':
-            reload=1;
+          case 'r':
+            reload = 1;
             break;
 
-        case 's':
-            skip_initial=0;
+          case 's':
+            skip_initial = 0;
             break;
 
-        case 'y':
-            force_non_root=1;
+          case 'y':
+            force_non_root = 1;
             break;
 
-        case 'v':
-            fprintf(stderr,"Firefly Media Server: Version %s\n",VERSION);
+          case 'v':
+            fprintf(stdout, "Firefly Media Server: Version %s\n",VERSION);
             exit(EXIT_SUCCESS);
             break;
 
-        default:
+          default:
             usage(argv[0]);
             exit(EXIT_FAILURE);
             break;
         }
     }
 
-    if((getuid()) && (!force_non_root)) {
-        fprintf(stderr,"You are not root.  This is almost certainly wrong.  "
-                "If you are\nsure you want to do this, use the -y "
-                "command-line switch\n");
-        exit(EXIT_FAILURE);
+  if ((getuid() != 0) && (!force_non_root))
+    {
+      fprintf(stderr, "You are not root. This is almost certainly wrong.  "
+	      "If you are\nsure you want to do this, use the -y "
+	      "command-line switch\n");
+      exit(EXIT_FAILURE);
     }
 
-    ret = logger_init(NULL, NULL, (loglevel < 0) ? E_LOG : loglevel);
-    if (ret != 0)
-      {
-	fprintf(stderr, "Could not initialize log facility\n");
+  ret = logger_init(NULL, NULL, (loglevel < 0) ? E_LOG : loglevel);
+  if (ret != 0)
+    {
+      fprintf(stderr, "Could not initialize log facility\n");
 
-	exit(EXIT_FAILURE);
-      }
-
-    ret = conffile_load(configfile);
-    if (ret != 0)
-      {
-	DPRINTF(E_FATAL, L_MAIN, "Config file errors; please fix your config\n");
-
-	logger_deinit();
-	exit(EXIT_FAILURE);
-      }
-
-    logger_deinit();
-
-    /* Reinit log facility with configfile values */
-    if (loglevel < 0)
-      loglevel = cfg_getint(cfg_getsec(cfg, "general"), "loglevel");
-
-    logfile = cfg_getstr(cfg_getsec(cfg, "general"), "logfile");
-
-    ret = logger_init(logfile, logdomains, loglevel);
-    if (ret != 0)
-      {
-	fprintf(stderr, "Could not reinitialize log facility with config file settings\n");
-
-	conffile_unload();
-	exit(EXIT_FAILURE);
-      }
-
-    /* Set up libevent logging callback */
-    event_set_log_callback(logger_libevent);
-
-    DPRINTF(E_LOG, L_MAIN, "Firefly Version %s taking off\n", VERSION);
-
-    /* initialize ffmpeg */
-    av_register_all();
-
-    /* Block signals for all threads except the main one */
-    sigemptyset(&sigs);
-    sigaddset(&sigs, SIGINT);
-    sigaddset(&sigs, SIGHUP);
-    sigaddset(&sigs, SIGCHLD);
-    sigaddset(&sigs, SIGTERM);
-    sigaddset(&sigs, SIGPIPE);
-    ret = pthread_sigmask(SIG_BLOCK, &sigs, NULL);
-    if (ret != 0)
-      {
-        DPRINTF(E_LOG, L_MAIN, "Error setting signal set\n");
-
-	conffile_unload();
-	logger_deinit();
-	exit(EXIT_FAILURE);
-      }
-
-    /* Daemonize and drop privileges */
-    runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
-
-    ret = daemonize(background, runas, pidfile);
-    if (ret < 0)
-      {
-	DPRINTF(E_LOG, L_MAIN, "Could not initialize server\n");
-
-	conffile_unload();
-	logger_deinit();
-	exit(EXIT_FAILURE);
-      }
-
-    /* Initialize libevent (after forking) */
-    evbase_main = event_init();
-
-    DPRINTF(E_LOG, L_MAIN, "mDNS init\n");
-    ret = mdns_init();
-    if (ret != 0)
-      {
-	DPRINTF(E_FATAL, L_MAIN, "mDNS init failed\n");
-
-	conffile_unload();
-	logger_deinit();
-	exit(EXIT_FAILURE);
-      }
-
-    /* this will require that the db be readable by the runas user */
-    err = db_open(&perr, "sqlite3", "/var/cache/mt-daapd"); /* FIXME */
-
-    if(err) {
-        DPRINTF(E_LOG,L_MAIN,"Error opening db: %s\n",perr);
-
-	mdns_deinit();
-	conffile_unload();
-	logger_deinit();
-        exit(EXIT_FAILURE);
+      exit(EXIT_FAILURE);
     }
 
-    /* Initialize the database before starting */
-    DPRINTF(E_LOG,L_MAIN,"Initializing database\n");
-    if(db_init(reload)) {
-        DPRINTF(E_FATAL,L_MAIN,"Error in db_init: %s\n",strerror(errno));
+  ret = conffile_load(configfile);
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Config file errors; please fix your config\n");
+
+      logger_deinit();
+      exit(EXIT_FAILURE);
     }
 
-    /* Spawn file scanner thread */
-    ret = filescanner_init();
-    if (ret != 0)
-      {
-	DPRINTF(E_FATAL, L_MAIN, "File scanner thread failed to start\n");
+  logger_deinit();
 
-	mdns_deinit();
-	db_deinit();
-	conffile_unload();
-	logger_deinit();
-	exit(EXIT_FAILURE);
-      }
+  /* Reinit log facility with configfile values */
+  if (loglevel < 0)
+    loglevel = cfg_getint(cfg_getsec(cfg, "general"), "loglevel");
 
-    /* Spawn HTTPd thread */
-    ret = httpd_init();
-    if (ret != 0)
-      {
-	DPRINTF(E_FATAL, L_MAIN, "HTTPd thread failed to start\n");
+  logfile = cfg_getstr(cfg_getsec(cfg, "general"), "logfile");
 
-	filescanner_deinit();
-	mdns_deinit();
-	db_deinit();
-	conffile_unload();
-	logger_deinit();
-	exit(EXIT_FAILURE);
-      }
+  ret = logger_init(logfile, logdomains, loglevel);
+  if (ret != 0)
+    {
+      fprintf(stderr, "Could not reinitialize log facility with config file settings\n");
 
-    /* Register mDNS services */
-    lib = cfg_getnsec(cfg, "library", 0);
+      conffile_unload();
+      exit(EXIT_FAILURE);
+    }
 
-    servername = cfg_getstr(lib, "name");
+  /* Set up libevent logging callback */
+  event_set_log_callback(logger_libevent);
 
-    for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
-      {
-	txtrecord[i] = (char *)malloc(128);
-	if (!txtrecord[i])
-	  {
-	    DPRINTF(E_FATAL, L_MAIN, "Out of memory for TXT record\n");
+  DPRINTF(E_LOG, L_MAIN, "Firefly Version %s taking off\n", VERSION);
 
-	    httpd_deinit();
-	    filescanner_deinit();
-	    mdns_deinit();
-	    db_deinit();
-	    conffile_unload();
-	    logger_deinit();
-	    exit(EXIT_FAILURE);
-	  }
+  /* initialize ffmpeg */
+  av_register_all();
 
-	memset(txtrecord[i], 0, 128);
-      }
+  /* Block signals for all threads except the main one */
+  sigemptyset(&sigs);
+  sigaddset(&sigs, SIGINT);
+  sigaddset(&sigs, SIGHUP);
+  sigaddset(&sigs, SIGCHLD);
+  sigaddset(&sigs, SIGTERM);
+  sigaddset(&sigs, SIGPIPE);
+  ret = pthread_sigmask(SIG_BLOCK, &sigs, NULL);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Error setting signal set\n");
 
-    snprintf(txtrecord[0], 128, "txtvers=1");
-    snprintf(txtrecord[1], 128, "Database ID=%0X", djb_hash(servername, strlen(servername)));
-    snprintf(txtrecord[2], 128, "Machine ID=%0X", djb_hash(servername, strlen(servername)));
-    snprintf(txtrecord[3], 128, "Machine Name=%s", servername);
-    snprintf(txtrecord[4], 128, "mtd-version=%s", VERSION);
-    snprintf(txtrecord[5], 128, "iTSh Version=131073"); /* iTunes 6.0.4 */
-    snprintf(txtrecord[6], 128, "Version=196610");      /* iTunes 6.0.4 */
+      conffile_unload();
+      logger_deinit();
+      exit(EXIT_FAILURE);
+    }
 
-    tmp = cfg_getstr(lib, "password");
-    snprintf(txtrecord[7], 128, "Password=%s", (tmp) ? "true" : "false");
+  /* Daemonize and drop privileges */
+  runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
 
-    srand((unsigned int)time(NULL));
+  ret = daemonize(background, runas, pidfile);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MAIN, "Could not initialize server\n");
 
-    if (ffid)
-      snprintf(txtrecord[8], 128, "ffid=%s", ffid);
-    else
-      snprintf(txtrecord[8], 128, "ffid=%08x", rand());
+      conffile_unload();
+      logger_deinit();
+      exit(EXIT_FAILURE);
+    }
 
-    txtrecord[9] = NULL;
+  /* Initialize libevent (after forking) */
+  evbase_main = event_init();
 
-    DPRINTF(E_LOG,L_MAIN,"Registering rendezvous names\n");
+  DPRINTF(E_LOG, L_MAIN, "mDNS init\n");
+  ret = mdns_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "mDNS init failed\n");
 
-    port = cfg_getint(lib, "port");
+      conffile_unload();
+      logger_deinit();
+      exit(EXIT_FAILURE);
+    }
 
-    /* Register web server service */
-    mdns_register(servername, "_http._tcp", port, txtrecord);
-    /* Register RSP service */
-    mdns_register(servername, "_rsp._tcp", port, txtrecord);
-    /* Register DAAP service */
-    mdns_register(servername, "_daap._tcp", port, txtrecord);
+  /* this will require that the db be readable by the runas user */
+  ret = db_open(&perr, "sqlite3", "/var/cache/mt-daapd"); /* FIXME */
 
-    for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
-      free(txtrecord[i]);
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Error opening db: %s\n", perr);
 
-    /* Set up signal fd */
-    sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);
-    if (sigfd < 0)
-      {
-	DPRINTF(E_FATAL, L_MAIN, "Could not setup signalfd: %s\n", strerror(errno));
+      mdns_deinit();
+      conffile_unload();
+      logger_deinit();
+      exit(EXIT_FAILURE);
+    }
 
-	httpd_deinit();
-	filescanner_deinit();
-	mdns_deinit();
-	db_deinit();
-	conffile_unload();
-	logger_deinit();
-	exit(EXIT_FAILURE);
-      }
+  /* Initialize the database before starting */
+  DPRINTF(E_INFO, L_MAIN, "Initializing database\n");
+  if (db_init(reload))
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Error in db_init: %s\n", strerror(errno));
+    }
 
-    event_set(&sig_event, sigfd, EV_READ, signal_cb, NULL);
-    event_base_set(evbase_main, &sig_event);
-    event_add(&sig_event, NULL);
+  /* Spawn file scanner thread */
+  ret = filescanner_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "File scanner thread failed to start\n");
 
-    /* Run the loop */
-    event_base_dispatch(evbase_main);
+      mdns_deinit();
+      db_deinit();
+      conffile_unload();
+      logger_deinit();
+      exit(EXIT_FAILURE);
+    }
 
-    DPRINTF(E_LOG,L_MAIN,"Stopping gracefully\n");
+  /* Spawn HTTPd thread */
+  ret = httpd_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "HTTPd thread failed to start\n");
 
-    DPRINTF(E_LOG, L_MAIN, "HTTPd deinit\n");
-    httpd_deinit();
+      filescanner_deinit();
+      mdns_deinit();
+      db_deinit();
+      conffile_unload();
+      logger_deinit();
+      exit(EXIT_FAILURE);
+    }
 
-    DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
-    filescanner_deinit();
+  /* Register mDNS services */
+  lib = cfg_getnsec(cfg, "library", 0);
 
-    DPRINTF(E_LOG, L_MAIN, "mDNS deinit\n");
-    mdns_deinit();
+  servername = cfg_getstr(lib, "name");
 
-    conffile_unload();
+  for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
+    {
+      txtrecord[i] = (char *)malloc(128);
+      if (!txtrecord[i])
+	{
+	  DPRINTF(E_FATAL, L_MAIN, "Out of memory for TXT record\n");
 
-    DPRINTF(E_LOG,L_MAIN,"Closing database\n");
-    db_deinit();
+	  httpd_deinit();
+	  filescanner_deinit();
+	  mdns_deinit();
+	  db_deinit();
+	  conffile_unload();
+	  logger_deinit();
+	  exit(EXIT_FAILURE);
+	}
 
-    if (background)
-      {
-	ret = unlink(pidfile);
-	if (ret < 0)
-	  DPRINTF(E_WARN, L_MAIN, "Could not unlink PID file %s: %s\n", pidfile, strerror(errno));
-      }
+      memset(txtrecord[i], 0, 128);
+    }
 
-    DPRINTF(E_LOG,L_MAIN,"Done!\n");
+  snprintf(txtrecord[0], 128, "txtvers=1");
+  snprintf(txtrecord[1], 128, "Database ID=%0X", djb_hash(servername, strlen(servername)));
+  snprintf(txtrecord[2], 128, "Machine ID=%0X", djb_hash(servername, strlen(servername)));
+  snprintf(txtrecord[3], 128, "Machine Name=%s", servername);
+  snprintf(txtrecord[4], 128, "mtd-version=%s", VERSION);
+  snprintf(txtrecord[5], 128, "iTSh Version=131073"); /* iTunes 6.0.4 */
+  snprintf(txtrecord[6], 128, "Version=196610");      /* iTunes 6.0.4 */
 
-    logger_deinit();
+  tmp = cfg_getstr(lib, "password");
+  snprintf(txtrecord[7], 128, "Password=%s", (tmp) ? "true" : "false");
 
-    return EXIT_SUCCESS;
+  srand((unsigned int)time(NULL));
+
+  if (ffid)
+    snprintf(txtrecord[8], 128, "ffid=%s", ffid);
+  else
+    snprintf(txtrecord[8], 128, "ffid=%08x", rand());
+
+  txtrecord[9] = NULL;
+
+  DPRINTF(E_LOG,L_MAIN,"Registering rendezvous names\n");
+
+  port = cfg_getint(lib, "port");
+
+  /* Register web server service */
+  mdns_register(servername, "_http._tcp", port, txtrecord);
+  /* Register RSP service */
+  mdns_register(servername, "_rsp._tcp", port, txtrecord);
+  /* Register DAAP service */
+  mdns_register(servername, "_daap._tcp", port, txtrecord);
+
+  for (i = 0; i < (sizeof(txtrecord) / sizeof(*txtrecord) - 1); i++)
+    free(txtrecord[i]);
+
+  /* Set up signal fd */
+  sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);
+  if (sigfd < 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Could not setup signalfd: %s\n", strerror(errno));
+
+      httpd_deinit();
+      filescanner_deinit();
+      mdns_deinit();
+      db_deinit();
+      conffile_unload();
+      logger_deinit();
+      exit(EXIT_FAILURE);
+    }
+
+  event_set(&sig_event, sigfd, EV_READ, signal_cb, NULL);
+  event_base_set(evbase_main, &sig_event);
+  event_add(&sig_event, NULL);
+
+  /* Run the loop */
+  event_base_dispatch(evbase_main);
+
+  DPRINTF(E_LOG, L_MAIN, "Stopping gracefully\n");
+
+  DPRINTF(E_LOG, L_MAIN, "HTTPd deinit\n");
+  httpd_deinit();
+
+  DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
+  filescanner_deinit();
+
+  DPRINTF(E_LOG, L_MAIN, "mDNS deinit\n");
+  mdns_deinit();
+
+  conffile_unload();
+
+  DPRINTF(E_LOG, L_MAIN, "Closing database\n");
+  db_deinit();
+
+  if (background)
+    {
+      ret = unlink(pidfile);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_MAIN, "Could not unlink PID file %s: %s\n", pidfile, strerror(errno));
+    }
+
+  DPRINTF(E_LOG, L_MAIN, "Exiting.\n");
+
+  logger_deinit();
+
+  return EXIT_SUCCESS;
 }
-
