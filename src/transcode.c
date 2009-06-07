@@ -41,7 +41,7 @@
 
 #include "logger.h"
 #include "conffile.h"
-#include "ff-dbstruct.h"
+#include "db.h"
 #include "transcode.h"
 
 

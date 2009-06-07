@@ -32,9 +32,7 @@ options {
 	#include <time.h>
 
 	#include "logger.h"
-	#include "ff-dbstruct.h"
-	#include "db-generic.h"
-	#include "db-sql.h"
+	#include "db.h"
 	#include "misc.h"
 	#include "rsp_query.h"
 }
@@ -181,7 +179,7 @@ strcrit	returns [ pANTLR3_STRING result, int valid ]
 				goto strcrit_valid_0; /* ABORT */
 			}
 
-			escaped = db_sql_escape_dup("\%q", $s->getText($s)->chars);
+			escaped = db_escape_string((char *)$s->getText($s)->chars);
 			if (!escaped)
 			{
 				DPRINTF(E_LOG, L_RSP, "Could not escape value\n");

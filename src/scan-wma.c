@@ -34,10 +34,12 @@
 #include <unistd.h>
 
 #include "logger.h"
-#include "ff-dbstruct.h"
+#include "db.h"
 
 #define TRUE   ((1 == 1))
 #define FALSE  (!TRUE)
+
+typedef struct media_file_info MP3FILE;
 
 typedef struct tag_wma_guidlist {
     char *name;

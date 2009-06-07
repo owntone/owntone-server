@@ -34,8 +34,7 @@
 #include <errno.h>
 
 #include "logger.h"
-#include "ff-dbstruct.h"
-#include "db-generic.h"
+#include "db.h"
 #include "filescanner.h"
 
 
@@ -44,7 +43,6 @@ scan_m3u_playlist(char *file)
 {
   FILE *fp;
   struct playlist_info *pli;
-  struct media_file_info *mfi;
   struct stat sb;
   char buf[PATH_MAX];
   char rel_entry[PATH_MAX];
@@ -52,9 +50,9 @@ scan_m3u_playlist(char *file)
   char *entry;
   char *filename;
   char *ptr;
-  char *db_errmsg;
   size_t len;
   int pl_id;
+  int mf_id;
   int ret;
 
   DPRINTF(E_INFO, L_SCAN, "Processing static playlist: %s\n", file);
@@ -73,7 +71,7 @@ scan_m3u_playlist(char *file)
   else
     filename++;
 
-  pli = db_fetch_playlist(NULL, file, 0);
+  pli = db_pl_fetch_bypath(file);
 
   if (pli)
     {
@@ -81,15 +79,17 @@ scan_m3u_playlist(char *file)
 	{
 	  DPRINTF(E_DBG, L_SCAN, "Playlist up-to-date\n");
 
-	  db_dispose_playlist(pli);
+	  db_pl_ping(pli->id);
+
+	  free_pli(pli, 0);
 	  return;
 	}
       else
 	{
 	  DPRINTF(E_DBG, L_SCAN, "Playlist needs update\n");
 
-	  db_delete_playlist(NULL, pli->id);
-	  db_dispose_playlist(pli);
+	  db_pl_delete(pli->id);
+	  free_pli(pli, 0);
 	}
     }
 
@@ -113,13 +113,11 @@ scan_m3u_playlist(char *file)
   if (ptr)
     *ptr = '.';
 
-  ret = db_add_playlist(&db_errmsg, buf, PL_STATICFILE, NULL, file, 0, &pl_id);
-
-  if (ret != DB_E_SUCCESS)
+  ret = db_pl_add(buf, file, &pl_id);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Error adding m3u playlist '%s': %s\n", file, db_errmsg);
+      DPRINTF(E_LOG, L_SCAN, "Error adding m3u playlist '%s'\n", file);
 
-      free(db_errmsg);
       return;
     }
 
@@ -197,19 +195,19 @@ scan_m3u_playlist(char *file)
 
 	DPRINTF(E_DBG, L_SCAN, "Checking %s\n", filename);
 
-	mfi = db_fetch_path(&db_errmsg, filename, 0);
-	if (!mfi)
+	ret = db_file_id_bypath(filename, &mf_id);
+	if (ret < 0)
 	  {
-	    DPRINTF(E_WARN, L_SCAN, "Playlist entry '%s' not found: %s\n", entry, db_errmsg);
+	    DPRINTF(E_WARN, L_SCAN, "Playlist entry '%s' not found\n", entry);
 
-	    free(db_errmsg);
 	    free(filename);
 	    continue;
 	  }
 
-	DPRINTF(E_DBG, L_SCAN, "Resolved %s to %d\n", filename, mfi->id);
-	db_add_playlist_item(NULL, pl_id, mfi->id);
-	db_dispose_item(mfi);
+	DPRINTF(E_DBG, L_SCAN, "Resolved %s to %d\n", filename, mf_id);
+	ret = db_pl_add_item(pl_id, mf_id);
+	if (ret < 0)
+	  DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
     }
 
   if (!feof(fp))
@@ -221,6 +219,8 @@ scan_m3u_playlist(char *file)
     }
 
   fclose(fp);
+
+  db_pl_update(pl_id);
 
   DPRINTF(E_INFO, L_SCAN, "Done processing playlist\n");
 }

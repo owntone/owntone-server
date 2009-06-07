@@ -47,11 +47,11 @@
 #include <libavformat/avformat.h>
 
 #include "conffile.h"
+#include "db.h"
 #include "logger.h"
 #include "misc.h"
 #include "filescanner.h"
 #include "httpd.h"
-#include "db-generic.h"
 #include "mdns_avahi.h"
 
 
@@ -334,7 +334,6 @@ main(int argc, char **argv)
   char *logdomains;
   char *logfile;
   char *ffid;
-  char *perr;
   char *pidfile;
   sigset_t sigs;
   int sigfd;
@@ -500,21 +499,15 @@ main(int argc, char **argv)
       goto mdns_fail;
     }
 
-  /* this will require that the db be readable by the runas user */
-  ret = db_open(&perr, "sqlite3", "/var/cache/mt-daapd"); /* FIXME */
-  if (ret != 0)
+  /* Initialize the database before starting */
+  DPRINTF(E_INFO, L_MAIN, "Initializing database\n");
+  ret = db_init();
+  if (ret < 0)
     {
-      DPRINTF(E_FATAL, L_MAIN, "Error opening db: %s\n", perr);
+      DPRINTF(E_FATAL, L_MAIN, "Database init failed\n");
 
       ret = EXIT_FAILURE;
       goto db_fail;
-    }
-
-  /* Initialize the database before starting */
-  DPRINTF(E_INFO, L_MAIN, "Initializing database\n");
-  if (db_init(0))
-    {
-      DPRINTF(E_FATAL, L_MAIN, "Error in db_init: %s\n", strerror(errno));
     }
 
   /* Spawn file scanner thread */
@@ -582,9 +575,6 @@ main(int argc, char **argv)
   filescanner_deinit();
 
  filescanner_fail:
-  DPRINTF(E_LOG, L_MAIN, "Closing database\n");
-  db_deinit();
-
  db_fail:
   if (ret == EXIT_FAILURE)
     {

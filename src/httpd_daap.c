@@ -26,6 +26,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <errno.h>
 #include <sys/queue.h>
 #include <sys/types.h>
@@ -39,8 +40,7 @@
 #include <avl.h>
 
 #include "logger.h"
-#include "ff-dbstruct.h"
-#include "db-generic.h"
+#include "db.h"
 #include "conffile.h"
 #include "misc.h"
 #include "httpd.h"
@@ -569,16 +569,18 @@ dmap_find_field(uint32_t hash)
   return (struct dmap_field_map *)node->item;
 }
 
+
 static void
-get_query_params(struct evkeyvalq *query, DBQUERYINFO *qi)
+get_query_params(struct evkeyvalq *query, struct query_params *qp)
 {
   const char *param;
   char *ptr;
-  int val;
+  int low;
+  int high;
   int ret;
 
-  qi->index_low = 0;
-  qi->index_high = 9999999; /* Arbitrarily high number */
+  low = 0;
+  high = -1; /* No limit */
 
   param = evhttp_find_header(query, "index");
   if (param)
@@ -587,38 +589,40 @@ get_query_params(struct evkeyvalq *query, DBQUERYINFO *qi)
 	DPRINTF(E_LOG, L_DAAP, "Unsupported index range: %s\n", param);
       else
 	{
-	  ret = safe_atoi(param, &val);
+	  ret = safe_atoi(param, &low);
 	  if (ret < 0)
 	    DPRINTF(E_LOG, L_DAAP, "Could not parse index range: %s\n", param);
 	  else
 	    {
-	      qi->index_low = val;
-
 	      ptr = strchr(param, '-');
 	      if (!ptr) /* single item */
-		qi->index_high = qi->index_low;
+		high = low;
 	      else
 		{
 		  ptr++;
 		  if (*ptr != '\0') /* low-high */
 		    {
-		      ret = safe_atoi(ptr, &val);
+		      ret = safe_atoi(ptr, &high);
 		      if (ret < 0)
 			  DPRINTF(E_LOG, L_DAAP, "Could not parse high index in range: %s\n", param);
-		      else
-			qi->index_high = val;
 		    }
 		}
 	    }
 	}
 
-      DPRINTF(E_DBG, L_DAAP, "Index range %s: low %d, high %d\n", param, qi->index_low, qi->index_high);
+      DPRINTF(E_DBG, L_DAAP, "Index range %s: low %d, high %d (offset %d, limit %d)\n", param, low, high, qp->offset, qp->limit);
     }
 
-  if (qi->index_high < qi->index_low)
-    qi->index_high = 9999999; /* Arbitrarily high number */
+  if (high < low)
+    high = -1; /* No limit */
 
-  qi->index_type = indexTypeSub;
+  qp->offset = low;
+  if (high < 0)
+    qp->limit = -1; /* No limit */
+  else
+    qp->limit = (high - low) + 1;
+
+  qp->idx_type = I_SUB;
 
   param = evhttp_find_header(query, "query");
   if (!param)
@@ -628,13 +632,10 @@ get_query_params(struct evkeyvalq *query, DBQUERYINFO *qi)
     {
       DPRINTF(E_DBG, L_DAAP, "DAAP browse query filter: %s\n", param);
 
-      qi->filter = daap_query_parse_sql(param);
-      if (!qi->filter)
+      qp->filter = daap_query_parse_sql(param);
+      if (!qp->filter)
 	DPRINTF(E_LOG, L_DAAP, "Ignoring improper DAAP query\n");
     }
-
-  qi->want_count = 1;
-  qi->correct_order = 1;
 }
 
 static void
@@ -879,7 +880,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 {
   int ret;
 
-  /* Just send back the current db revision.
+  /* Just send back the current time.
    *
    * This probably doesn't cut it, but then again we don't claim to support
    * updates, so... that support should be added eventually.
@@ -895,8 +896,8 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
 
   dmap_add_container(evbuf, "mupd", 24);
-  dmap_add_int(evbuf, "mstt", 200);           /* 12 */
-  dmap_add_int(evbuf, "musr", db_revision()); /* 12 */
+  dmap_add_int(evbuf, "mstt", 200);             /* 12 */
+  dmap_add_int(evbuf, "musr", (int)time(NULL)); /* 12 */
 
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
 }
@@ -904,12 +905,10 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 static void
 daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  int count;
-
   cfg_t *lib;
-  char *db_errmsg;
   char *name;
   int namelen;
+  int count;
   int ret;
 
   lib = cfg_getnsec(cfg, "library", 0);
@@ -936,23 +935,21 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   dmap_add_long(evbuf, "mper", 1);      /* 16 */
   dmap_add_string(evbuf, "minm", name); /* 8 + namelen */
 
-  ret = db_get_song_count(&db_errmsg, &count);
-  if (ret != DB_E_SUCCESS)
+  ret = db_files_get_count(&count);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not get song count: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_DAAP, "Could not get song count\n");
 
       count = 0;
-      free(db_errmsg);
     }
   dmap_add_int(evbuf, "mimc", count); /* 12 */
 
-  ret = db_get_playlist_count(&db_errmsg, &count);
-  if (ret != DB_E_SUCCESS)
+  ret = db_pl_get_count(&count);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not get playlist count: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_DAAP, "Could not get playlist count\n");
 
       count = 0;
-      free(db_errmsg);
     }
   dmap_add_int(evbuf, "mctc", count); /* 12 */
 
@@ -962,12 +959,11 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 static void
 daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, int playlist, struct evkeyvalq *query)
 {
-  DBQUERYINFO qi;
-  struct db_media_file_info *dbmfi;
+  struct query_params qp;
+  struct db_media_file_info dbmfi;
   struct evbuffer *song;
   struct evbuffer *songlist;
   struct dmap_field_map *dfm;
-  char *db_errmsg;
   const char *param;
   char *tag;
   char **strval;
@@ -1071,26 +1067,29 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       nmeta = 0;
     }
 
-  memset(&qi, 0, sizeof(DBQUERYINFO));
-  get_query_params(query, &qi);
-  qi.query_type = queryTypePlaylistItems;
+  memset(&qp, 0, sizeof(struct query_params));
+  get_query_params(query, &qp);
 
-  if (playlist != -1)
-    qi.playlist_id = playlist;
-
-  ret = db_enum_start(&db_errmsg, &qi);
-  if (ret != DB_E_SUCCESS)
+  if (playlist < 2)
+    qp.type = Q_ITEMS;
+  else
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not fetch song list: %s\n", db_errmsg);
+      qp.type = Q_PLITEMS;
+      qp.pl_id = playlist;
+    }
 
-      daap_send_error(req, tag, db_errmsg);
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      free(db_errmsg);
+      daap_send_error(req, tag, "Could not stat query");
+
       free(meta);
       evbuffer_free(song);
       evbuffer_free(songlist);
-      if (qi.filter)
-	free(qi.filter);
+      if (qp.filter)
+	free(qp.filter);
       return;
     }
 
@@ -1098,11 +1097,11 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   want_asdk = 0;
   oom = 0;
   nsongs = 0;
-  while (((ret = db_enum_fetch_row(&db_errmsg, &dbmfi, &qi)) == DB_E_SUCCESS) && (dbmfi))
+  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
       nsongs++;
 
-      transcode = transcode_needed(req->input_headers, dbmfi->codectype);
+      transcode = transcode_needed(req->input_headers, dbmfi.codectype);
 
       i = -1;
       while (1)
@@ -1151,7 +1150,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
 	  DPRINTF(E_DBG, L_DAAP, "Investigating %s\n", dfm->desc);
 
-	  strval = (char **) ((char *)dbmfi + dfm->mfi_offset);
+	  strval = (char **) ((char *)&dbmfi + dfm->mfi_offset);
 
 	  if (!(*strval) || (**strval == '\0'))
             continue;
@@ -1174,7 +1173,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
 		  case dbmfi_offsetof(bitrate):
 		    val = 0;
-		    ret = safe_atoi(dbmfi->samplerate, &val);
+		    ret = safe_atoi(dbmfi.samplerate, &val);
 		    if ((ret < 0) || (val == 0))
 		      val = 1411;
 		    else
@@ -1220,14 +1219,14 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       if (want_mikd)
 	{
 	  /* dmap.itemkind must come first */
-	  ret = safe_atoi(dbmfi->item_kind, &val);
+	  ret = safe_atoi(dbmfi.item_kind, &val);
 	  if (ret < 0)
 	    val = 2; /* music by default */
 	  dmap_add_char(songlist, "mikd", val);
 	}
       if (want_asdk)
 	{
-	  ret = safe_atoi(dbmfi->data_kind, &val);
+	  ret = safe_atoi(dbmfi.data_kind, &val);
 	  if (ret < 0)
 	    val = 0;
 	  dmap_add_char(songlist, "asdk", val);
@@ -1248,26 +1247,17 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   evbuffer_free(song);
 
-  if (qi.filter)
-    free(qi.filter);
+  if (qp.filter)
+    free(qp.filter);
 
-  if (ret != DB_E_SUCCESS)
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Error fetching results: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
 
-      daap_send_error(req, tag, db_errmsg);
-
-      free(db_errmsg);
+      daap_send_error(req, tag, "Error fetching query results");
+      db_query_end(&qp);
       evbuffer_free(songlist);
       return;
-    }
-
-  ret = db_enum_end(&db_errmsg);
-  if (ret != DB_E_SUCCESS)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Error cleaning up DB enum: %s\n", db_errmsg);
-
-      free(db_errmsg);
     }
 
   if (oom)
@@ -1275,7 +1265,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       DPRINTF(E_LOG, L_DAAP, "Could not add song to song list for DAAP song list reply\n");
 
       daap_send_error(req, tag, "Out of memory");
-
+      db_query_end(&qp);
       evbuffer_free(songlist);
       return;
     }
@@ -1284,9 +1274,11 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(songlist) + 53);
   dmap_add_int(evbuf, "mstt", 200);    /* 12 */
   dmap_add_char(evbuf, "muty", 0);     /* 9 */
-  dmap_add_int(evbuf, "mtco", qi.specifiedtotalcount); /* 12 */
+  dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf, "mrco", nsongs); /* 12 */
   dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(songlist));
+
+  db_query_end(&qp);
 
   ret = evbuffer_add_buffer(evbuf, songlist);
   evbuffer_free(songlist);
@@ -1327,13 +1319,12 @@ daap_reply_plsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char *
 static void
 daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  DBQUERYINFO qi;
+  struct query_params qp;
+  struct db_playlist_info dbpli;
   struct evbuffer *playlistlist;
   struct evbuffer *playlist;
-  struct db_playlist_info *dbpli;
   struct dmap_field_map *dfm;
   const char *param;
-  char *db_errmsg;
   char **strval;
   uint32_t *meta;
   int nmeta;
@@ -1415,29 +1406,28 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       return;
     }
 
-  memset(&qi, 0, sizeof(DBQUERYINFO));
-  get_query_params(query, &qi);
-  qi.query_type = queryTypePlaylists;
+  memset(&qp, 0, sizeof(struct query_params));
+  get_query_params(query, &qp);
+  qp.type = Q_PL;
 
-  ret = db_enum_start(&db_errmsg, &qi);
-  if (ret != DB_E_SUCCESS)
+  ret = db_query_start(&qp);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not fetch playlist list: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      daap_send_error(req, "aply", db_errmsg);
+      daap_send_error(req, "aply", "Could not start query");
 
-      free(db_errmsg);
       free(meta);
       evbuffer_free(playlist);
       evbuffer_free(playlistlist);
-      if (qi.filter)
-	free(qi.filter);
+      if (qp.filter)
+	free(qp.filter);
       return;
     }
 
   npls = 0;
   oom = 0;
-  while (((ret = db_enum_fetch_row(&db_errmsg, (struct db_media_file_info **)&dbpli, &qi)) == DB_E_SUCCESS) && (dbpli))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
       npls++;
 
@@ -1451,11 +1441,11 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	  if (meta[i] == 0x670fc55e)
 	    {
 	      val = 0;
-	      ret = safe_atoi(dbpli->type, &val);
+	      ret = safe_atoi(dbpli.type, &val);
 	      if ((ret == 0) && (val == 1))
 		{
 		  val = 1;
-		  ret = safe_atoi(dbpli->id, &val);
+		  ret = safe_atoi(dbpli.id, &val);
 		  if ((ret == 0) && (val != 1))
 		    dmap_add_char(playlist, "aeSP", 1);
 		}
@@ -1474,7 +1464,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	  if (dfm->pli_offset < 0)
 	    continue;
 
-          strval = (char **) ((char *)dbpli + dfm->pli_offset);
+          strval = (char **) ((char *)&dbpli + dfm->pli_offset);
 
           if (!(*strval) || (**strval == '\0'))
             continue;
@@ -1486,13 +1476,13 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 
       /* Item count (mimc) */
       val = 0;
-      ret = safe_atoi(dbpli->items, &val);
+      ret = safe_atoi(dbpli.items, &val);
       if ((ret == 0) && (val > 0))
 	dmap_add_int(playlist, "mimc", val);
 
       /* Base playlist (abpl), id = 1 */
       val = 0;
-      ret = safe_atoi(dbpli->id, &val);
+      ret = safe_atoi(dbpli.id, &val);
       if ((ret == 0) && (val == 1))
 	dmap_add_char(playlist, "abpl", 1);
 
@@ -1512,26 +1502,17 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   free(meta);
   evbuffer_free(playlist);
 
-  if (qi.filter)
-    free(qi.filter);
+  if (qp.filter)
+    free(qp.filter);
 
-  if (ret != DB_E_SUCCESS)
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Error fetching results: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
 
-      daap_send_error(req, "aply", db_errmsg);
-
-      free(db_errmsg);
+      daap_send_error(req, "aply", "Error fetching query results");
+      db_query_end(&qp);
       evbuffer_free(playlistlist);
       return;
-    }
-
-  ret = db_enum_end(&db_errmsg);
-  if (ret != DB_E_SUCCESS)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Error cleaning up DB enum: %s\n", db_errmsg);
-
-      free(db_errmsg);
     }
 
   if (oom)
@@ -1539,7 +1520,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       DPRINTF(E_LOG, L_DAAP, "Could not add playlist to playlist list for DAAP playlists reply\n");
 
       daap_send_error(req, "aply", "Out of memory");
-
+      db_query_end(&qp);
       evbuffer_free(playlistlist);
       return;
     }
@@ -1548,9 +1529,11 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   dmap_add_container(evbuf, "aply", EVBUFFER_LENGTH(playlistlist) + 53);
   dmap_add_int(evbuf, "mstt", 200); /* 12 */
   dmap_add_char(evbuf, "muty", 0);  /* 9 */
-  dmap_add_int(evbuf, "mtco", qi.specifiedtotalcount); /* 12 */
+  dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf,"mrco", npls); /* 12 */
   dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(playlistlist));
+
+  db_query_end(&qp);
 
   ret = evbuffer_add_buffer(evbuf, playlistlist);
   evbuffer_free(playlistlist);
@@ -1568,35 +1551,34 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 static void
 daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  DBQUERYINFO qi;
+  struct query_params qp;
   struct evbuffer *itemlist;
-  char **item;
+  char *browse_item;
   char *tag;
-  char *db_errmsg;
   int nitems;
   int ret;
 
-  memset(&qi, 0, sizeof(DBQUERYINFO));
+  memset(&qp, 0, sizeof(struct query_params));
 
   if (strcmp(uri[3], "artists") == 0)
     {
       tag = "abar";
-      qi.query_type = queryTypeBrowseArtists;
+      qp.type = Q_BROWSE_ARTISTS;
     }
   else if (strcmp(uri[3], "genres") == 0)
     {
       tag = "abgn";
-      qi.query_type = queryTypeBrowseGenres;
+      qp.type = Q_BROWSE_GENRES;
     }
   else if (strcmp(uri[3], "albums") == 0)
     {
       tag = "abal";
-      qi.query_type = queryTypeBrowseAlbums;
+      qp.type = Q_BROWSE_ALBUMS;
     }
   else if (strcmp(uri[3], "composers") == 0)
     {
       tag = "abcp";
-      qi.query_type = queryTypeBrowseComposers;
+      qp.type = Q_BROWSE_COMPOSERS;
     }
   else
     {
@@ -1636,57 +1618,49 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       return;
     }
 
-  get_query_params(query, &qi);
+  get_query_params(query, &qp);
 
-  ret = db_enum_start(&db_errmsg, &qi);
-  if (ret != DB_E_SUCCESS)
+  ret = db_query_start(&qp);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not fetch browse item list: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      daap_send_error(req, "abro", db_errmsg);
+      daap_send_error(req, "abro", "Could not start query");
 
-      free(db_errmsg);
       evbuffer_free(itemlist);
-      if (qi.filter)
-	free(qi.filter);
+      if (qp.filter)
+	free(qp.filter);
       return;
     }
 
   nitems = 0;
-  while (((ret = db_enum_fetch_row(&db_errmsg, (struct db_media_file_info **)&item, &qi)) == DB_E_SUCCESS) && (item))
+  while (((ret = db_query_fetch_string(&qp, &browse_item)) == 0) && (browse_item))
     {
       nitems++;
 
-      dmap_add_string(itemlist, "mlit", *item);
+      dmap_add_string(itemlist, "mlit", browse_item);
     }
 
-  if (qi.filter)
-    free(qi.filter);
+  if (qp.filter)
+    free(qp.filter);
 
-  if (ret != DB_E_SUCCESS)
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Error fetching results: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
 
-      daap_send_error(req, "abro", db_errmsg);
-
-      free(db_errmsg);
+      daap_send_error(req, "abro", "Error fetching query results");
+      db_query_end(&qp);
       evbuffer_free(itemlist);
       return;
     }
 
-  ret = db_enum_end(&db_errmsg);
-  if (ret != DB_E_SUCCESS)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Error cleaning up DB enum: %s\n", db_errmsg);
-
-      free(db_errmsg);
-    }
-
   dmap_add_container(evbuf, "abro", EVBUFFER_LENGTH(itemlist) + 44);
   dmap_add_int(evbuf, "mstt", 200);    /* 12 */
-  dmap_add_int(evbuf, "mtco", qi.specifiedtotalcount); /* 12 */
+  dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf, "mrco", nitems); /* 12 */
   dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(itemlist));
+
+  db_query_end(&qp);
 
   ret = evbuffer_add_buffer(evbuf, itemlist);
   evbuffer_free(itemlist);

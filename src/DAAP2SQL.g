@@ -31,9 +31,7 @@ options {
 	#include <errno.h>
 
 	#include "logger.h"
-	#include "ff-dbstruct.h"
-	#include "db-generic.h"
-	#include "db-sql.h"
+	#include "db.h"
 	#include "daap_query.h"
 }
 
@@ -217,7 +215,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 					goto STR_result_valid_0; /* ABORT */
 				}
 
-				escaped = (pANTLR3_UINT8)db_sql_escape_dup("\%q", val);
+				escaped = (pANTLR3_UINT8)db_escape_string((char *)val);
 				if (!escaped)
 				{
 					DPRINTF(E_LOG, L_DAAP, "Could not escape value\n");

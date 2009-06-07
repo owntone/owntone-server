@@ -24,6 +24,7 @@ ANTLR_PRODUCTS =
 mt_daapd_CPPFLAGS = -D_GNU_SOURCE @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@
 mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@
 mt_daapd_SOURCES = main.c \
+	db.c db.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
 	filescanner.c filescanner.h \
@@ -38,10 +39,7 @@ mt_daapd_SOURCES = main.c \
 	misc.c misc.h \
 	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \
-	db-generic.c db-generic.h \
 	scan-wma.c \
-	db-sql-updates.c \
-	db-sql.c db-sql.h db-sql-sqlite3.c db-sql-sqlite3.h\
 	$(FLACSRC) $(MUSEPACKSRC)
 
 nodist_mt_daapd_SOURCES = \
@@ -50,9 +48,7 @@ nodist_mt_daapd_SOURCES = \
 EXTRA_DIST = \
 	$(ANTLR_GRAMMARS) \
 	scan-mpc.c \
-	scan-flac.c \
-	ff-dbstruct.h
-
+	scan-flac.c
 
 # Let's help the dependencies a little.
 rsp_query.c: RSPLexer.h RSPParser.h RSP2SQL.h

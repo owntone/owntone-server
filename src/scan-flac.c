@@ -40,12 +40,14 @@
 #include <sys/stat.h>
 
 #include "logger.h"
-#include "ff-dbstruct.h"
+#include "db.h"
 
 #include <FLAC/metadata.h>
 
 #define TRUE   ((1 == 1))
 #define FALSE  (!TRUE)
+
+typedef struct media_file_info MP3FILE;
 
 #define GET_VORBIS_COMMENT(comment, name, len)  (char*)                 \
         (((strncasecmp(name, (char*)(comment).entry, strlen(name)) == 0) && \

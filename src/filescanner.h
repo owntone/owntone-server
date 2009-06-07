@@ -2,7 +2,7 @@
 #ifndef __FILESCANNER_H__
 #define __FILESCANNER_H__
 
-#include "ff-dbstruct.h"
+#include "db.h"
 
 int
 filescanner_init(void);

@@ -35,8 +35,7 @@
 #include "evhttp/evhttp.h"
 
 #include "logger.h"
-#include "ff-dbstruct.h"
-#include "db-generic.h"
+#include "db.h"
 #include "conffile.h"
 #include "misc.h"
 #include "httpd.h"
@@ -199,7 +198,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
   if (!st->marked && (st->offset > ((st->size * 80) / 100)))
     {
       st->marked = 1;
-      db_playcount_increment(NULL, st->id);
+      db_file_inc_playcount(st->id);
     }
 
   return;
@@ -245,7 +244,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
   if (!st->marked && (st->offset > ((st->size * 80) / 100)))
     {
       st->marked = 1;
-      db_playcount_increment(NULL, st->id);
+      db_file_inc_playcount(st->id);
     }
 }
 
@@ -302,7 +301,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	}
     }
 
-  mfi = db_fetch_item(NULL, id);
+  mfi = db_file_fetch_byid(id);
   if (!mfi)
     {
       DPRINTF(E_LOG, L_HTTPD, "Item %d not found\n", id);
@@ -315,7 +314,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
     {
       evhttp_send_error(req, 500, "Cannot stream radio station");
 
-      db_dispose_item(mfi);
+      free_mfi(mfi, 0);
       return;
     }
 
@@ -326,7 +325,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
-      db_dispose_item(mfi);
+      free_mfi(mfi, 0);
       return;
     }
   memset(st, 0, sizeof(struct stream_ctx));
@@ -348,7 +347,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	  evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
 	  free(st);
-	  db_dispose_item(mfi);
+	  free_mfi(mfi, 0);
 	  return;
 	}
 
@@ -370,7 +369,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  free(st);
-	  db_dispose_item(mfi);
+	  free_mfi(mfi, 0);
 	  return;
 	}
 
@@ -383,7 +382,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 	  close(st->fd);
 	  free(st);
-	  db_dispose_item(mfi);
+	  free_mfi(mfi, 0);
 	  return;
 	}
       st->size = sb.st_size;
@@ -397,7 +396,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 	  close(st->fd);
 	  free(st);
-	  db_dispose_item(mfi);
+	  free_mfi(mfi, 0);
 	  return;
 	}
       st->offset = offset;
@@ -425,7 +424,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       else
 	close(st->fd);
       free(st);
-      db_dispose_item(mfi);
+      free_mfi(mfi, 0);
       return;
     }
 
@@ -443,7 +442,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	close(st->fd);
       evbuffer_free(st->evbuf);
       free(st);
-      db_dispose_item(mfi);
+      free_mfi(mfi, 0);
       return;
     }
 
@@ -464,7 +463,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	close(st->fd);
       evbuffer_free(st->evbuf);
       free(st);
-      db_dispose_item(mfi);
+      free_mfi(mfi, 0);
       return;
     }
 
@@ -494,7 +493,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
   DPRINTF(E_INFO, L_HTTPD, "Kicking off streaming for %s\n", mfi->path);
 
-  db_dispose_item(mfi);
+  free_mfi(mfi, 0);
 }
 
 /* Thread: httpd */
@@ -745,10 +744,22 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
 static void *
 httpd(void *arg)
 {
+  int ret;
+
+  ret = db_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Error: DB init failed\n");
+
+      pthread_exit(NULL);
+    }
+
   event_base_dispatch(evbase_httpd);
 
   if (!httpd_exit)
     DPRINTF(E_FATAL, L_HTTPD, "HTTPd event loop terminated ahead of time!\n");
+
+  db_perthread_deinit();
 
   pthread_exit(NULL);
 }

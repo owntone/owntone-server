@@ -31,7 +31,7 @@
 #include <errno.h>
 
 #include "logger.h"
-#include "ff-dbstruct.h"
+#include "db.h"
 #include "filescanner.h"
 
 

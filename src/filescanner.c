@@ -43,7 +43,7 @@
 #include <avl.h>
 
 #include "logger.h"
-#include "db-generic.h"
+#include "db.h"
 #include "filescanner.h"
 #include "conffile.h"
 
@@ -144,55 +144,6 @@ pop_dir(void)
   return ret;
 }
 
-static void
-free_mfi(struct media_file_info *mfi)
-{
-  if (mfi->path)
-    free(mfi->path);
-
-  if (mfi->fname)
-    free(mfi->fname);
-
-  if (mfi->title)
-    free(mfi->title);
-
-  if (mfi->artist)
-    free(mfi->artist);
-
-  if (mfi->album)
-    free(mfi->album);
-
-  if (mfi->genre)
-    free(mfi->genre);
-
-  if (mfi->comment)
-    free(mfi->comment);
-
-  if (mfi->type)
-    free(mfi->type);
-
-  if (mfi->composer)
-    free(mfi->composer);
-
-  if (mfi->orchestra)
-    free(mfi->orchestra);
-
-  if (mfi->conductor)
-    free(mfi->conductor);
-
-  if (mfi->grouping)
-    free(mfi->grouping);
-
-  if (mfi->description)
-    free(mfi->description);
-
-  if (mfi->codectype)
-    free(mfi->codectype);
-
-  if (mfi->album_artist)
-    free(mfi->album_artist);
-}
-
 
 static void
 fixup_tags(struct media_file_info *mfi)
@@ -256,32 +207,42 @@ fixup_tags(struct media_file_info *mfi)
 static void
 process_media_file(char *file, time_t mtime, off_t size, int compilation)
 {
-  struct media_file_info *db_mfi;
   struct media_file_info *mfi;
   char *filename;
   char *ext;
   int need_update;
   int ret;
 
-  db_mfi = db_fetch_path(NULL, file, 0);
+  mfi = db_file_fetch_bypath(file);
 
-  need_update = (!db_mfi || (db_mfi->db_timestamp < mtime) || db_mfi->force_update);
-
-  db_dispose_item(db_mfi);
+  need_update = (!mfi || (mfi->db_timestamp < mtime) || mfi->force_update);
 
   if (!need_update)
-    return;
-
-  mfi = (struct media_file_info *)malloc(sizeof(struct media_file_info));
-  if (!mfi)
     {
-      DPRINTF(E_WARN, L_SCAN, "Out of memory for media_file_info\n");
+      db_file_ping(mfi->id);
 
-      db_dispose_item(db_mfi);
+      free_mfi(mfi, 0);
       return;
     }
 
+  if (mfi)
+    {
+      ret = mfi->id;
+      free_mfi(mfi, 1);
+    }
+  else
+    {
+      ret = 0;
+      mfi = (struct media_file_info *)malloc(sizeof(struct media_file_info));
+      if (!mfi)
+	{
+	  DPRINTF(E_WARN, L_SCAN, "Out of memory for media_file_info\n");
+	  return;
+	}
+    }
+
   memset(mfi, 0, sizeof(struct media_file_info));
+  mfi->id = ret;
 
   filename = strrchr(file, '/');
   if (!filename)
@@ -340,8 +301,7 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not extract metadata for %s\n");
 
-      free_mfi(mfi);
-      free(mfi);
+      free_mfi(mfi, 0);
       return;
     }
 
@@ -350,10 +310,12 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
 
   fixup_tags(mfi);
 
-  db_add(NULL, mfi, NULL);
+  if (mfi->id == 0)
+    db_file_add(mfi);
+  else
+    db_file_update(mfi);
 
-  free_mfi(mfi);
-  free(mfi);
+  free_mfi(mfi, 0);
 }
 
 static void
@@ -669,6 +631,8 @@ bulk_scan(void)
 	}
     }
 
+  db_pl_update_all();
+
   if (playlists)
     process_deferred_playlists();
 
@@ -681,10 +645,22 @@ bulk_scan(void)
 static void *
 filescanner(void *arg)
 {
+  int ret;
+
+  ret = db_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error: DB init failed\n");
+
+      pthread_exit(NULL);
+    }
+
   bulk_scan();
 
   if (!scan_exit)
     {
+      db_pl_update_all();
+
       /* Enable inotify */
       event_add(&inoev, NULL);
 
@@ -693,6 +669,8 @@ filescanner(void *arg)
 
   if (!scan_exit)
     DPRINTF(E_FATAL, L_SCAN, "Scan event loop terminated ahead of time!\n");
+
+  db_perthread_deinit();
 
   pthread_exit(NULL);
 }

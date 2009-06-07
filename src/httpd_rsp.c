@@ -38,8 +38,7 @@
 #include <mxml.h>
 
 #include "logger.h"
-#include "ff-dbstruct.h"
-#include "db-generic.h"
+#include "db.h"
 #include "conffile.h"
 #include "misc.h"
 #include "httpd.h"
@@ -176,16 +175,16 @@ static void
 rsp_send_error(struct evhttp_request *req, char *errmsg);
 
 static int
-get_query_params(struct evhttp_request *req, struct evkeyvalq *query, DBQUERYINFO *qi, int *offset, int *limit)
+get_query_params(struct evhttp_request *req, struct evkeyvalq *query, struct query_params *qp)
 {
   const char *param;
   int ret;
 
-  *offset = 0;
+  qp->offset = 0;
   param = evhttp_find_header(query, "offset");
   if (param)
     {
-      ret = safe_atoi(param, offset);
+      ret = safe_atoi(param, &qp->offset);
       if (ret < 0)
 	{
 	  rsp_send_error(req, "Invalid offset");
@@ -193,11 +192,11 @@ get_query_params(struct evhttp_request *req, struct evkeyvalq *query, DBQUERYINF
 	}
     }
 
-  *limit = 0;
+  qp->limit = 0;
   param = evhttp_find_header(query, "limit");
   if (param)
     {
-      ret = safe_atoi(param, limit);
+      ret = safe_atoi(param, &qp->limit);
       if (ret < 0)
 	{
 	  rsp_send_error(req, "Invalid limit");
@@ -205,29 +204,18 @@ get_query_params(struct evhttp_request *req, struct evkeyvalq *query, DBQUERYINF
 	}
     }
 
-  if (*offset || *limit)
-    {
-      qi->index_low = *offset;
-      qi->index_high = *offset + *limit - 1;
-
-      if (qi->index_high < qi->index_low)
-	qi->index_high = 9999999; /* Arbitrarily high number */
-
-      qi->index_type = indexTypeSub;
-    }
+  if (qp->offset || qp->limit)
+    qp->idx_type = I_SUB;
   else
-    qi->index_type = indexTypeNone;
-
-  qi->want_count = 1;
-  qi->correct_order = 1;
+    qp->idx_type = I_NONE;
 
   param = evhttp_find_header(query, "query");
   if (param)
     {
       DPRINTF(E_DBG, L_RSP, "RSP browse query filter: %s\n", param);
 
-      qi->filter = rsp_query_parse_sql(param);
-      if (!qi->filter)
+      qp->filter = rsp_query_parse_sql(param);
+      if (!qp->filter)
 	DPRINTF(E_LOG, L_RSP, "Ignoring improper RSP query\n");
     }
 
@@ -291,18 +279,15 @@ rsp_reply_info(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
   mxml_node_t *node;
   cfg_t *lib;
   char *library;
-  char *db_errmsg;
   int songcount;
   int ret;
 
-  ret = db_get_song_count(&db_errmsg, &songcount);
-  if (ret != DB_E_SUCCESS)
+  ret = db_files_get_count(&songcount);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RSP, "Could not get song count: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_RSP, "Could not get song count\n");
 
       songcount = 0;
-
-      free(db_errmsg);
     }
 
   lib = cfg_getnsec(cfg, "library", 0);
@@ -363,10 +348,9 @@ rsp_reply_info(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 static void
 rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 {
-  DBQUERYINFO qi;
-  struct db_playlist_info *dbpli;
+  struct query_params qp;
+  struct db_playlist_info dbpli;
   struct evbuffer *evbuf;
-  char *db_errmsg;
   char **strval;
   mxml_node_t *reply;
   mxml_node_t *status;
@@ -376,20 +360,17 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
   int i;
   int ret;
 
-  memset(&qi, 0, sizeof(DBQUERYINFO));
+  memset(&qp, 0, sizeof(struct db_playlist_info));
 
-  qi.query_type = queryTypePlaylists;
-  qi.index_type = indexTypeNone;
-  qi.want_count = 1;
+  qp.type = Q_PL;
+  qp.idx_type = I_NONE;
 
-  ret = db_enum_start(&db_errmsg, &qi);
-  if (ret != DB_E_SUCCESS)
+  ret = db_query_start(&qp);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RSP, "Could not fetch playlists: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_RSP, "Could not start query\n");
 
-      rsp_send_error(req, db_errmsg);
-
-      free(db_errmsg);
+      rsp_send_error(req, "Could not start query");
       return;
     }
 
@@ -410,13 +391,13 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
   mxmlNewText(node, 0, "");
 
   node = mxmlNewElement(status, "records");
-  mxmlNewTextf(node, 0, "%d", qi.specifiedtotalcount);
+  mxmlNewTextf(node, 0, "%d", qp.results);
 
   node = mxmlNewElement(status, "totalrecords");
-  mxmlNewTextf(node, 0, "%d", qi.specifiedtotalcount);
+  mxmlNewTextf(node, 0, "%d", qp.results);
 
   /* Playlists block (all playlists) */
-  while (((ret = db_enum_fetch_row(&db_errmsg, (struct db_media_file_info **)&dbpli, &qi)) == DB_E_SUCCESS) && (dbpli))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
       /* Playlist block (one playlist) */
       pl = mxmlNewElement(pls, "playlist");
@@ -425,7 +406,7 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 	{
 	  if (pl_fields[i].flags & F_FULL)
 	    {
-	      strval = (char **) ((char *)dbpli + pl_fields[i].offset);
+	      strval = (char **) ((char *)&dbpli + pl_fields[i].offset);
 
 	      node = mxmlNewElement(pl, pl_fields[i].field);
 	      mxmlNewText(node, 0, *strval);
@@ -433,24 +414,14 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
         }
     }
 
-  if (ret != DB_E_SUCCESS)
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RSP, "Error fetching results: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_RSP, "Error fetching results\n");
 
       mxmlDelete(reply);
-
-      rsp_send_error(req, db_errmsg);
-
-      free(db_errmsg);
+      db_query_end(&qp);
+      rsp_send_error(req, "Error fetching query results");
       return;
-    }
-
-  ret = db_enum_end(&db_errmsg);
-  if (ret != DB_E_SUCCESS)
-    {
-      DPRINTF(E_LOG, L_RSP, "Error cleaning up DB enum: %s\n", db_errmsg);
-
-      free(db_errmsg);
     }
 
   /* HACK
@@ -458,8 +429,10 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
    * to return - this prevents mxml from sending out an empty <playlists/>
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
-  if (qi.specifiedtotalcount == 0)
+  if (qp.results == 0)
     mxmlNewText(pls, 0, "");
+
+  db_query_end(&qp);
 
   evbuf = mxml_to_evbuf(reply);
   mxmlDelete(reply);
@@ -481,10 +454,9 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 static void
 rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 {
-  DBQUERYINFO qi;
-  struct db_media_file_info *dbmfi;
+  struct query_params qp;
+  struct db_media_file_info dbmfi;
   struct evbuffer *evbuf;
-  char *db_errmsg;
   const char *param;
   char **strval;
   mxml_node_t *reply;
@@ -493,24 +465,25 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   mxml_node_t *item;
   mxml_node_t *node;
   int mode;
-  int limit;
-  int offset;
   int records;
   int transcode;
   int bitrate;
   int i;
   int ret;
 
-  memset(&qi, 0, sizeof(DBQUERYINFO));
+  memset(&qp, 0, sizeof(struct query_params));
 
-  qi.query_type = queryTypePlaylistItems;
-
-  ret = safe_atoi(uri[2], &qi.playlist_id);
+  ret = safe_atoi(uri[2], &qp.pl_id);
   if (ret < 0)
     {
       rsp_send_error(req, "Invalid playlist ID");
       return;
     }
+
+  if (qp.pl_id == 0)
+    qp.type = Q_ITEMS;
+  else
+    qp.type = Q_PLITEMS;
 
   mode = F_FULL;
   param = evhttp_find_header(query, "type");
@@ -528,29 +501,28 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 	DPRINTF(E_LOG, L_RSP, "Unknown browse mode %s\n", param);
     }
 
-  ret = get_query_params(req, query, &qi, &offset, &limit);
+  ret = get_query_params(req, query, &qp);
   if (ret < 0)
     return;
 
-  ret = db_enum_start(&db_errmsg, &qi);
-  if (ret != DB_E_SUCCESS)
+  ret = db_query_start(&qp);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RSP, "Could not fetch data: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_RSP, "Could not start query\n");
 
-      rsp_send_error(req, db_errmsg);
+      rsp_send_error(req, "Could not start query");
 
-      if (qi.filter)
-	free(qi.filter);
-      free(db_errmsg);
+      if (qp.filter)
+	free(qp.filter);
       return;
     }
 
-  if (offset > qi.specifiedtotalcount)
+  if (qp.offset > qp.results)
     records = 0;
-  else if (limit > (qi.specifiedtotalcount - offset))
-    records = qi.specifiedtotalcount - offset;
+  else if (qp.limit > (qp.results - qp.offset))
+    records = qp.results - qp.offset;
   else
-    records = limit;
+    records = qp.limit;
 
   /* We'd use mxmlNewXML(), but then we can't put any attributes
    * on the root node and we need some.
@@ -572,12 +544,12 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   mxmlNewTextf(node, 0, "%d", records);
 
   node = mxmlNewElement(status, "totalrecords");
-  mxmlNewTextf(node, 0, "%d", qi.specifiedtotalcount);
+  mxmlNewTextf(node, 0, "%d", qp.results);
 
   /* Items block (all items) */
-  while (((ret = db_enum_fetch_row(&db_errmsg, &dbmfi, &qi)) == DB_E_SUCCESS) && (dbmfi))
+  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      transcode = transcode_needed(req->input_headers, dbmfi->codectype);
+      transcode = transcode_needed(req->input_headers, dbmfi.codectype);
 
       /* Item block (one item) */
       item = mxmlNewElement(items, "item");
@@ -587,7 +559,7 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 	  if (!(rsp_fields[i].flags & mode))
 	    continue;
 
-	  strval = (char **) ((char *)dbmfi + rsp_fields[i].offset);
+	  strval = (char **) ((char *)&dbmfi + rsp_fields[i].offset);
 
 	  if (!(*strval) || (strlen(*strval) == 0))
 	    continue;
@@ -606,7 +578,7 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 
 		  case dbmfi_offsetof(bitrate):
 		    bitrate = 0;
-		    ret = safe_atoi(dbmfi->samplerate, &bitrate);
+		    ret = safe_atoi(dbmfi.samplerate, &bitrate);
 		    if ((ret < 0) || (bitrate == 0))
 		      bitrate = 1411;
 		    else
@@ -634,27 +606,17 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 	}
     }
 
-  if (qi.filter)
-    free(qi.filter);
+  if (qp.filter)
+    free(qp.filter);
 
-  if (ret != DB_E_SUCCESS)
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RSP, "Error fetching results: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_RSP, "Error fetching results\n");
 
       mxmlDelete(reply);
-
-      rsp_send_error(req, db_errmsg);
-
-      free(db_errmsg);
+      db_query_end(&qp);
+      rsp_send_error(req, "Error fetching query results");
       return;
-    }
-
-  ret = db_enum_end(&db_errmsg);
-  if (ret != DB_E_SUCCESS)
-    {
-      DPRINTF(E_LOG, L_RSP, "Error cleaning up DB enum: %s\n", db_errmsg);
-
-      free(db_errmsg);
     }
 
   /* HACK
@@ -662,8 +624,10 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
    * to return - this prevents mxml from sending out an empty <items/>
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
-  if (qi.specifiedtotalcount == 0)
+  if (qp.results == 0)
     mxmlNewText(items, 0, "");
+
+  db_query_end(&qp);
 
   evbuf = mxml_to_evbuf(reply);
   mxmlDelete(reply);
@@ -685,29 +649,26 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 static void
 rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 {
-  DBQUERYINFO qi;
-  struct db_media_file_info *dbmfi;
+  struct query_params qp;
   struct evbuffer *evbuf;
-  char *db_errmsg;
+  char *browse_item;
   mxml_node_t *reply;
   mxml_node_t *status;
   mxml_node_t *items;
   mxml_node_t *node;
-  int limit;
-  int offset;
   int records;
   int ret;
 
-  memset(&qi, 0, sizeof(DBQUERYINFO));
+  memset(&qp, 0, sizeof(struct query_params));
 
   if (strcmp(uri[3], "artist") == 0)
-    qi.query_type = queryTypeBrowseArtists;
+    qp.type = Q_BROWSE_ARTISTS;
   else if (strcmp(uri[3], "genre") == 0)
-    qi.query_type = queryTypeBrowseGenres;
+    qp.type = Q_BROWSE_GENRES;
   else if (strcmp(uri[3], "album") == 0)
-    qi.query_type = queryTypeBrowseAlbums;
+    qp.type = Q_BROWSE_ALBUMS;
   else if (strcmp(uri[3], "composer") == 0)
-    qi.query_type = queryTypeBrowseComposers;
+    qp.type = Q_BROWSE_COMPOSERS;
   else
     {
       DPRINTF(E_LOG, L_RSP, "Unsupported browse type '%s'\n", uri[3]);
@@ -716,36 +677,35 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
       return;
     }
 
-  ret = safe_atoi(uri[2], &qi.playlist_id);
+  ret = safe_atoi(uri[2], &qp.pl_id);
   if (ret < 0)
     {
       rsp_send_error(req, "Invalid playlist ID");
       return;
     }
 
-  ret = get_query_params(req, query, &qi, &offset, &limit);
+  ret = get_query_params(req, query, &qp);
   if (ret < 0)
     return;
 
-  ret = db_enum_start(&db_errmsg, &qi);
-  if (ret != DB_E_SUCCESS)
+  ret = db_query_start(&qp);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RSP, "Could not fetch data: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_RSP, "Could not start query\n");
 
-      rsp_send_error(req, db_errmsg);
+      rsp_send_error(req, "Could not start query");
 
-      if (qi.filter)
-	free(qi.filter);
-      free(db_errmsg);
+      if (qp.filter)
+	free(qp.filter);
       return;
     }
 
-  if (offset > qi.specifiedtotalcount)
+  if (qp.offset > qp.results)
     records = 0;
-  else if (limit > (qi.specifiedtotalcount - offset))
-    records = qi.specifiedtotalcount - offset;
+  else if (qp.limit > (qp.results - qp.offset))
+    records = qp.results - qp.offset;
   else
-    records = limit;
+    records = qp.limit;
 
   /* We'd use mxmlNewXML(), but then we can't put any attributes
    * on the root node and we need some.
@@ -767,36 +727,26 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
   mxmlNewTextf(node, 0, "%d", records);
 
   node = mxmlNewElement(status, "totalrecords");
-  mxmlNewTextf(node, 0, "%d", qi.specifiedtotalcount);
+  mxmlNewTextf(node, 0, "%d", qp.results);
 
   /* Items block (all items) */
-  while (((ret = db_enum_fetch_row(&db_errmsg, &dbmfi, &qi)) == DB_E_SUCCESS) && (dbmfi))
+  while (((ret = db_query_fetch_string(&qp, &browse_item)) == 0) && (browse_item))
     {
       node = mxmlNewElement(items, "item");
-      mxmlNewText(node, 0, dbmfi->id);
+      mxmlNewText(node, 0, browse_item);
     }
 
-  if (qi.filter)
-    free(qi.filter);
+  if (qp.filter)
+    free(qp.filter);
 
-  if (ret != DB_E_SUCCESS)
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RSP, "Error fetching results: %s\n", db_errmsg);
+      DPRINTF(E_LOG, L_RSP, "Error fetching results\n");
 
       mxmlDelete(reply);
-
-      rsp_send_error(req, db_errmsg);
-
-      free(db_errmsg);
+      db_query_end(&qp);
+      rsp_send_error(req, "Error fetching query results");
       return;
-    }
-
-  ret = db_enum_end(&db_errmsg);
-  if (ret != DB_E_SUCCESS)
-    {
-      DPRINTF(E_LOG, L_RSP, "Error cleaning up DB enum: %s\n", db_errmsg);
-
-      free(db_errmsg);
     }
 
   /* HACK
@@ -804,8 +754,10 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
    * to return - this prevents mxml from sending out an empty <items/>
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
-  if (qi.specifiedtotalcount == 0)
+  if (qp.results == 0);
     mxmlNewText(items, 0, "");
+
+  db_query_end(&qp);
 
   evbuf = mxml_to_evbuf(reply);
   mxmlDelete(reply);
