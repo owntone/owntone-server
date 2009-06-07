@@ -1785,6 +1785,8 @@ daap_request(struct evhttp_request *req)
   int ret;
   int i;
 
+  memset(&query, 0, sizeof(struct evkeyvalq));
+
   full_uri = httpd_fixup_uri(req);
   if (!full_uri)
     {
