@@ -2,6 +2,8 @@
 #ifndef __DB_H__
 #define __DB_H__
 
+#include <time.h>
+
 #include <stdint.h>
 
 #include <sqlite3.h>
@@ -180,6 +182,9 @@ free_mfi(struct media_file_info *mfi, int content_only);
 
 void
 free_pli(struct playlist_info *pli, int content_only);
+
+void
+db_purge_cruft(time_t ref);
 
 /* Queries */
 int

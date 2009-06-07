@@ -283,6 +283,60 @@ free_pli(struct playlist_info *pli, int content_only)
     free(pli);
 }
 
+void
+db_purge_cruft(time_t ref)
+{
+  char *errmsg;
+  int i;
+  int ret;
+  char *queries[4] = { NULL, NULL, NULL, NULL };
+  char *queries_tmpl[4] =
+    {
+      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE id <> 1 AND db_timestamp < %" PRIi64 ");",
+      "DELETE FROM playlists WHERE id <> 1 AND db_timestamp < %" PRIi64 ";",
+      "DELETE FROM playlistitems WHERE songid IN (SELECT id FROM songs WHERE db_timestamp < %" PRIi64 ");",
+      "DELETE FROM songs WHERE db_timestamp < %" PRIi64 ";"
+    };
+
+  if (sizeof(queries) != sizeof(queries_tmpl))
+    {
+      DPRINTF(E_LOG, L_DB, "db_purge_cruft(): queries out of sync with queries_tmpl\n");
+      return;
+    }
+
+  for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
+    {
+      queries[i] = sqlite3_mprintf(queries_tmpl[i], (int64_t)ref);
+      if (!queries[i])
+	{
+	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+	  goto purge_fail;
+	}
+    }
+
+  for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
+    {
+      DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", queries[i]);
+
+      ret = sqlite3_exec(hdl, queries[i], NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
+
+	  sqlite3_free(errmsg);
+	}
+      else
+	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+    }
+
+ purge_fail:
+  for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
+    {
+      sqlite3_free(queries[i]);
+    }
+
+}
+
 
 /* Queries */
 static int

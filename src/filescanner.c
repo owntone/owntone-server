@@ -29,6 +29,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <time.h>
 #include <errno.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -608,8 +609,11 @@ bulk_scan(void)
   int nlib;
   int ndirs;
   char *path;
+  time_t start;
   int i;
   int j;
+
+  start = time(NULL);
 
   playlists = NULL;
   dirstack = NULL;
@@ -638,6 +642,9 @@ bulk_scan(void)
 
   if (dirstack)
     DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
+
+  DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
+  db_purge_cruft(start);
 }
 
 
