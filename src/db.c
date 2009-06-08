@@ -1910,6 +1910,11 @@ db_perthread_deinit(void)
 #define I_PLITEMID							\
   "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, songid);"
 
+
+#define SCHEMA_VERSION 1
+#define Q_SCVER					\
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '1');"
+
 struct db_init_query {
   char *query;
   char *desc;
@@ -1963,7 +1968,68 @@ db_create_tables(void)
 	}
     }
 
+  ret = db_query_get_count("SELECT COUNT(*) FROM admin WHERE key = 'schema_version';");
+  if (ret != 1)
+    {
+      DPRINTF(E_DBG, L_DB, "Setting schema version\n");
+
+      ret = sqlite3_exec(hdl, Q_SCVER, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_DB, "Could not set schema version: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+    }
+
   return 0;
+}
+
+static int
+db_check_version(void)
+{
+#define Q_VER "SELECT value FROM admin WHERE key = 'schema_version';"
+  sqlite3_stmt *stmt;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_VER);
+
+  ret = sqlite3_prepare_v2(hdl, Q_VER, strlen(Q_VER) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s %d\n", sqlite3_errmsg(hdl), ret);
+      return -1;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s %d\n", sqlite3_errmsg(hdl), ret);
+
+      sqlite3_finalize(stmt);
+      return -1;
+    }
+
+  ret = sqlite3_column_int(stmt, 0);
+
+  sqlite3_finalize(stmt);
+
+  if (ret < SCHEMA_VERSION)
+    {
+      DPRINTF(E_LOG, L_DB, "Database schema outdated, schema upgrade needed\n");
+      /* We'll handle the upgrade */
+      return -1;
+    }
+  else if (ret > SCHEMA_VERSION)
+    {
+      DPRINTF(E_LOG, L_DB, "Database schema is newer than the supported version\n");
+      return -1;
+    }
+
+  return 0;
+
+#undef Q_VER
 }
 
 int
@@ -1987,6 +2053,14 @@ db_init(void)
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_DB, "Could not create tables\n");
+      db_perthread_deinit();
+      return -1;
+    }
+
+  ret = db_check_version();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_DB, "Could not check database version\n");
       db_perthread_deinit();
       return -1;
     }
