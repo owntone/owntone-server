@@ -18,9 +18,7 @@
 /* libevent logging */
 #define L_EVENT   10
 
-/* Will go away */
-#define L_LOCK    11
-#define N_LOGDOMAINS  12
+#define N_LOGDOMAINS  11
 
 /* Severities */
 #define E_FATAL   0
