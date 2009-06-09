@@ -367,7 +367,7 @@ defer_playlist(char *path)
   DPRINTF(E_INFO, L_SCAN, "Deferred playlist %s\n", path);
 }
 
-/* Thread: scan */
+/* Thread: scan (bulk only) */
 static void
 process_deferred_playlists(void)
 {
@@ -381,6 +381,12 @@ process_deferred_playlists(void)
 
       free(pl->path);
       free(pl);
+
+      /* Run the event loop */
+      event_base_loop(evbase_scan, EVLOOP_ONCE | EVLOOP_NONBLOCK);
+
+      if (scan_exit)
+	return;
     }
 }
 
@@ -431,6 +437,7 @@ check_compilation(cfg_t *lib, char *path)
 static void
 process_directory(cfg_t *lib, char *path, int bulk)
 {
+  struct stacked_dir *bulkstack;
   DIR *dirp;
   struct dirent buf;
   struct dirent *de;
@@ -442,6 +449,24 @@ process_directory(cfg_t *lib, char *path, int bulk)
   avl_node_t *node;
   int compilation;
   int ret;
+
+  if (bulk)
+    {
+      /* Save our directory stack so it won't get handled inside
+       * the event loop - not its business, we're in bulk mode here.
+       */
+      bulkstack = dirstack;
+      dirstack = NULL;
+
+      /* Run the event loop */
+      event_base_loop(evbase_scan, EVLOOP_ONCE | EVLOOP_NONBLOCK);
+
+      /* Restore our directory stack */
+      dirstack = bulkstack;
+
+      if (scan_exit)
+	return;
+    }
 
   DPRINTF(E_DBG, L_SCAN, "Processing directory %s (bulk = %d)\n", path, bulk);
 
@@ -569,10 +594,12 @@ process_directory(cfg_t *lib, char *path, int bulk)
 static void
 process_directories(cfg_t *lib, char *root, int bulk)
 {
-  struct stacked_dir *bulkstack;
   char *path;
 
   process_directory(lib, root, bulk);
+
+  if (bulk && scan_exit)
+    return;
 
   while ((path = pop_dir()))
     {
@@ -580,23 +607,8 @@ process_directories(cfg_t *lib, char *root, int bulk)
 
       free(path);
 
-      if (bulk)
-	{
-	  /* Save our directory stack so it won't get handled inside
-	   * the event loop - not its business, we're in bulk mode here.
-	   */
-	  bulkstack = dirstack;
-	  dirstack = NULL;
-
-	  /* Run the event loop */
-	  event_base_loop(evbase_scan, EVLOOP_ONCE | EVLOOP_NONBLOCK);
-
-	  /* Restore our directory stack */
-	  dirstack = bulkstack;
-
-	  if (scan_exit)
-	    return;
-	}
+      if (bulk && scan_exit)
+	return;
     }
 }
 
@@ -639,6 +651,9 @@ bulk_scan(void)
 
   if (playlists)
     process_deferred_playlists();
+
+  if (scan_exit)
+    return;
 
   if (dirstack)
     DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
