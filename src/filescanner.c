@@ -779,6 +779,7 @@ inotify_cb(int fd, short event, void *arg)
   avl_node_t *node;
   char path[PATH_MAX];
   int qsize;
+  int namelen;
   int ret;
 
   /* Determine the size of the inotify queue */
@@ -817,14 +818,6 @@ inotify_cb(int fd, short event, void *arg)
        * the memory space for ie[1+] contains the name of the file
        * see the inotify documentation
        */
-
-      if ((ie->len == 0) || (ie->name == NULL))
-        {
-          DPRINTF(E_DBG, L_SCAN, "inotify event with no name\n");
-
-          continue;
-        }
-
       wdsearch.wd = ie->wd;
       node = avl_search(wd2path, &wdsearch);
       if (!node)
@@ -836,15 +829,34 @@ inotify_cb(int fd, short event, void *arg)
 
       w2p = (struct wdpath *)node->item;
 
-      ret = snprintf(path, PATH_MAX, "%s/%s", w2p->path, ie->name);
-      if ((ret < 0) || (ret >= sizeof(path)))
+      path[0] = '\0';
+
+      ret = snprintf(path, PATH_MAX, "%s", w2p->path);
+      if ((ret < 0) || (ret >= PATH_MAX))
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Skipping %s/%s, PATH_MAX exceeded\n", w2p->path, ie->name);
+	  DPRINTF(E_LOG, L_SCAN, "Skipping event under %s, PATH_MAX exceeded\n", w2p->path);
 
 	  continue;
 	}
 
-      if (ie->mask & IN_ISDIR)
+      if (ie->len > 0)
+	{
+	  namelen = PATH_MAX - ret;
+	  ret = snprintf(path + ret, namelen, "/%s", ie->name);
+	  if ((ret < 0) || (ret >= namelen))
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Skipping %s/%s, PATH_MAX exceeded\n", w2p->path, ie->name);
+
+	      continue;
+	    }
+	}
+
+      /* ie->len == 0 catches events on the subject of the watch itself.
+       * As we only watch directories, this catches directories.
+       * General watch events like IN_UNMOUNT and IN_IGNORED do not come
+       * with the IN_ISDIR flag set.
+       */
+      if ((ie->mask & IN_ISDIR) || (ie->len == 0))
 	process_inotify_dir(path, w2p, ie);
       else
 	process_inotify_file(path, w2p, ie);
