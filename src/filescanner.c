@@ -702,6 +702,8 @@ filescanner(void *arg)
 static void
 process_inotify_dir(char *path, struct wdpath *w2p, struct inotify_event *ie)
 {
+  DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x\n", ie->mask);
+
   if (ie->mask & IN_CREATE)
     {
       process_directories(w2p->lib, path, 0);
@@ -711,7 +713,7 @@ process_inotify_dir(char *path, struct wdpath *w2p, struct inotify_event *ie)
     }
 
   /* TODO: other cases need more support from the DB */
-  /* IN_DELETE, IN_MODIFY, IN_MOVE_FROM / IN_MOVE_TO, IN_DELETE_SELF, IN_MOVE_SELF */
+  /* IN_UNMOUNT, IN_DELETE, IN_MODIFY, IN_MOVE_FROM / IN_MOVE_TO, IN_DELETE_SELF, IN_MOVE_SELF */
 }
 
 /* Thread: scan */
@@ -723,6 +725,8 @@ process_inotify_file(char *path, struct wdpath *w2p, struct inotify_event *ie)
   char *file = path;
   int compilation;
   int ret;
+
+  DPRINTF(E_DBG, L_SCAN, "File event: 0x%x\n", ie->mask);
 
   if (ie->mask & (IN_MODIFY | IN_CREATE))
     {
@@ -822,12 +826,21 @@ inotify_cb(int fd, short event, void *arg)
       node = avl_search(wd2path, &wdsearch);
       if (!node)
 	{
-	  DPRINTF(E_LOG, L_SCAN, "No matching wdpath found, ignoring event\n");
+	  if (!(ie->mask & IN_IGNORED))
+	    DPRINTF(E_LOG, L_SCAN, "No matching watch found, ignoring event (0x%x)\n", ie->mask);
 
 	  continue;
 	}
 
       w2p = (struct wdpath *)node->item;
+
+      if (ie->mask & IN_IGNORED)
+	{
+	  DPRINTF(E_DBG, L_SCAN, "%s deleted or backing filesystem unmounted!\n", w2p->path);
+
+	  avl_delete_node(wd2path, node);
+	  continue;
+	}
 
       path[0] = '\0';
 
