@@ -41,7 +41,6 @@
 #include <sys/inotify.h>
 
 #include <event.h>
-#include <avl.h>
 
 #include "logger.h"
 #include "db.h"
@@ -49,11 +48,8 @@
 #include "conffile.h"
 
 
-struct wdpath {
-  int wd;
-  char *path;
-  cfg_t *lib;
-};
+#define F_SCAN_BULK    (1 << 0)
+#define F_SCAN_TOPDIR  (1 << 1)
 
 struct deferred_pl {
   char *path;
@@ -75,32 +71,7 @@ static struct event exitev;
 static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
-static avl_tree_t *wd2path;
 
-
-static void
-wdpath_free(void *v)
-{
-  struct wdpath *w = (struct wdpath *)v;
-
-  free(w->path);
-  free(w);
-}
-
-static int
-wdpath_compare(const void *aa, const void *bb)
-{
-  struct wdpath *a = (struct wdpath *)aa;
-  struct wdpath *b = (struct wdpath *)bb;
-
-  if (a->wd < b->wd)
-    return -1;
-
-  if (a->wd > b->wd)
-    return 1;
-
-  return 0;
-}
 
 static int
 push_dir(char *path)
@@ -392,7 +363,7 @@ process_deferred_playlists(void)
 
 /* Thread: scan */
 static void
-process_file(char *file, time_t mtime, off_t size, int compilation, int bulk)
+process_file(char *file, time_t mtime, off_t size, int compilation, int flags)
 {
   char *ext;
 
@@ -401,7 +372,7 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int bulk)
     {
       if (strcmp(ext, ".m3u") == 0)
 	{
-	  if (bulk)
+	  if (flags & F_SCAN_BULK)
 	    defer_playlist(file);
 	  else
 	    process_playlist(file);
@@ -417,11 +388,13 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int bulk)
 
 /* Thread: scan */
 static int
-check_compilation(cfg_t *lib, char *path)
+check_compilation(int libidx, char *path)
 {
+  cfg_t *lib;
   int ndirs;
   int i;
 
+  lib = cfg_getnsec(cfg, "library", libidx);
   ndirs = cfg_size(lib, "compilations");
 
   for (i = 0; i < ndirs; i++)
@@ -435,22 +408,23 @@ check_compilation(cfg_t *lib, char *path)
 
 /* Thread: scan */
 static void
-process_directory(cfg_t *lib, char *path, int bulk)
+process_directory(int libidx, char *path, int flags)
 {
   struct stacked_dir *bulkstack;
+  cfg_t *lib;
   DIR *dirp;
   struct dirent buf;
   struct dirent *de;
   char entry[PATH_MAX];
   char *deref;
   struct stat sb;
-  int wd;
-  struct wdpath *w2p;
-  avl_node_t *node;
+  struct watch_info wi;
   int compilation;
   int ret;
 
-  if (bulk)
+  lib = cfg_getnsec(cfg, "library", libidx);
+
+  if (flags & F_SCAN_BULK)
     {
       /* Save our directory stack so it won't get handled inside
        * the event loop - not its business, we're in bulk mode here.
@@ -468,7 +442,7 @@ process_directory(cfg_t *lib, char *path, int bulk)
 	return;
     }
 
-  DPRINTF(E_DBG, L_SCAN, "Processing directory %s (bulk = %d)\n", path, bulk);
+  DPRINTF(E_DBG, L_SCAN, "Processing directory %s (flags = 0x%x)\n", path, flags);
 
   dirp = opendir(path);
   if (!dirp)
@@ -479,7 +453,7 @@ process_directory(cfg_t *lib, char *path, int bulk)
     }
 
   /* Check for a compilation directory */
-  compilation = check_compilation(lib, path);
+  compilation = check_compilation(libidx, path);
 
   for (;;)
     {
@@ -543,7 +517,7 @@ process_directory(cfg_t *lib, char *path, int bulk)
 	}
 
       if (S_ISREG(sb.st_mode))
-	process_file(entry, sb.st_mtime, sb.st_size, compilation, bulk);
+	process_file(entry, sb.st_mtime, sb.st_size, compilation, flags);
       else if (S_ISDIR(sb.st_mode))
 	push_dir(entry);
       else
@@ -552,62 +526,46 @@ process_directory(cfg_t *lib, char *path, int bulk)
 
   closedir(dirp);
 
+  memset(&wi, 0, sizeof(struct watch_info));
+
   /* Add inotify watch */
-  wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF);
-  if (wd < 0)
+  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF);
+  if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
 
       return;
     }
 
-  w2p = (struct wdpath *)malloc(sizeof(struct wdpath));
-  if (!w2p)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Out of memory for struct wdpath\n");
+  wi.libidx = libidx;
+  wi.cookie = 0;
+  wi.toplevel = ((flags & F_SCAN_TOPDIR) != 0);
+  wi.path = path;
 
-      return;
-    }
-
-  w2p->wd = wd;
-  w2p->lib = lib;
-  w2p->path = strdup(path);
-  if (!w2p->path)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Out of memory for path inside struct wdpath\n");
-
-      free(w2p);
-      return;
-    }
-
-  node = avl_insert(wd2path, w2p);
-  if (!node)
-    {
-      if (errno != EEXIST)
-	DPRINTF(E_WARN, L_SCAN, "Could not insert w2p in wd2path: %s\n", strerror(errno));
-
-      wdpath_free(w2p);
-    }
+  db_watch_add(&wi);
 }
 
 /* Thread: scan */
 static void
-process_directories(cfg_t *lib, char *root, int bulk)
+process_directories(int libidx, char *root, int flags)
 {
   char *path;
 
-  process_directory(lib, root, bulk);
+  process_directory(libidx, root, flags);
 
-  if (bulk && scan_exit)
+  if (scan_exit)
     return;
+
+  if (flags & F_SCAN_TOPDIR)
+    flags &= ~F_SCAN_TOPDIR;
 
   while ((path = pop_dir()))
     {
-      process_directory(lib, path, bulk);
+      process_directory(libidx, path, flags);
 
       free(path);
 
-      if (bulk && scan_exit)
+      if (scan_exit)
 	return;
     }
 }
@@ -640,7 +598,7 @@ bulk_scan(void)
 	{
 	  path = cfg_getnstr(lib, "directories", j);
 
-	  process_directories(lib, path, 1);
+	  process_directories(i, path, F_SCAN_BULK | F_SCAN_TOPDIR);
 
 	  if (scan_exit)
 	    return;
@@ -677,6 +635,14 @@ filescanner(void *arg)
       pthread_exit(NULL);
     }
 
+  ret = db_watch_clear();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error: could not clear old watches from DB\n");
+
+      pthread_exit(NULL);
+    }
+
   bulk_scan();
 
   if (!scan_exit)
@@ -700,13 +666,13 @@ filescanner(void *arg)
 
 /* Thread: scan */
 static void
-process_inotify_dir(char *path, struct wdpath *w2p, struct inotify_event *ie)
+process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 {
-  DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x\n", ie->mask);
+  DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   if (ie->mask & IN_CREATE)
     {
-      process_directories(w2p->lib, path, 0);
+      process_directories(wi->libidx, path, 0);
 
       if (dirstack)
 	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
@@ -718,7 +684,7 @@ process_inotify_dir(char *path, struct wdpath *w2p, struct inotify_event *ie)
 
 /* Thread: scan */
 static void
-process_inotify_file(char *path, struct wdpath *w2p, struct inotify_event *ie)
+process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie)
 {
   struct stat sb;
   char *deref = NULL;
@@ -726,7 +692,7 @@ process_inotify_file(char *path, struct wdpath *w2p, struct inotify_event *ie)
   int compilation;
   int ret;
 
-  DPRINTF(E_DBG, L_SCAN, "File event: 0x%x\n", ie->mask);
+  DPRINTF(E_DBG, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   if (ie->mask & (IN_MODIFY | IN_CREATE))
     {
@@ -760,7 +726,7 @@ process_inotify_file(char *path, struct wdpath *w2p, struct inotify_event *ie)
 	    }
 	}
 
-      compilation = check_compilation(w2p->lib, path);
+      compilation = check_compilation(wi->libidx, path);
 
       process_file(file, sb.st_mtime, sb.st_size, compilation, 0);
   
@@ -778,9 +744,7 @@ inotify_cb(int fd, short event, void *arg)
 {
   struct inotify_event *buf;
   struct inotify_event *ie;
-  struct wdpath wdsearch;
-  struct wdpath *w2p;
-  avl_node_t *node;
+  struct watch_info wi;
   char path[PATH_MAX];
   int qsize;
   int namelen;
@@ -818,13 +782,15 @@ inotify_cb(int fd, short event, void *arg)
   /* Loop through all the events we got */
   for (ie = buf; (ie - buf) < qsize; ie += (1 + (ie->len / sizeof(struct inotify_event))))
     {
+      memset(&wi, 0, sizeof(struct watch_info));
+
       /* ie[0] contains the inotify event information
        * the memory space for ie[1+] contains the name of the file
        * see the inotify documentation
        */
-      wdsearch.wd = ie->wd;
-      node = avl_search(wd2path, &wdsearch);
-      if (!node)
+      wi.wd = ie->wd;
+      ret = db_watch_get_bywd(&wi);
+      if (ret < 0)
 	{
 	  if (!(ie->mask & IN_IGNORED))
 	    DPRINTF(E_LOG, L_SCAN, "No matching watch found, ignoring event (0x%x)\n", ie->mask);
@@ -832,23 +798,23 @@ inotify_cb(int fd, short event, void *arg)
 	  continue;
 	}
 
-      w2p = (struct wdpath *)node->item;
-
       if (ie->mask & IN_IGNORED)
 	{
-	  DPRINTF(E_DBG, L_SCAN, "%s deleted or backing filesystem unmounted!\n", w2p->path);
+	  DPRINTF(E_DBG, L_SCAN, "%s deleted or backing filesystem unmounted!\n", wi.path);
 
-	  avl_delete_node(wd2path, node);
+	  db_watch_delete_bywd(&wi);
+	  free(wi.path);
 	  continue;
 	}
 
       path[0] = '\0';
 
-      ret = snprintf(path, PATH_MAX, "%s", w2p->path);
+      ret = snprintf(path, PATH_MAX, "%s", wi.path);
       if ((ret < 0) || (ret >= PATH_MAX))
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Skipping event under %s, PATH_MAX exceeded\n", w2p->path);
+	  DPRINTF(E_LOG, L_SCAN, "Skipping event under %s, PATH_MAX exceeded\n", wi.path);
 
+	  free(wi.path);
 	  continue;
 	}
 
@@ -858,8 +824,9 @@ inotify_cb(int fd, short event, void *arg)
 	  ret = snprintf(path + ret, namelen, "/%s", ie->name);
 	  if ((ret < 0) || (ret >= namelen))
 	    {
-	      DPRINTF(E_LOG, L_SCAN, "Skipping %s/%s, PATH_MAX exceeded\n", w2p->path, ie->name);
+	      DPRINTF(E_LOG, L_SCAN, "Skipping %s/%s, PATH_MAX exceeded\n", wi.path, ie->name);
 
+	      free(wi.path);
 	      continue;
 	    }
 	}
@@ -870,9 +837,11 @@ inotify_cb(int fd, short event, void *arg)
        * with the IN_ISDIR flag set.
        */
       if ((ie->mask & IN_ISDIR) || (ie->len == 0))
-	process_inotify_dir(path, w2p, ie);
+	process_inotify_dir(&wi, path, ie);
       else
-	process_inotify_file(path, w2p, ie);
+	process_inotify_file(&wi, path, ie);
+
+      free(wi.path);
     }
 
   free(buf);
@@ -898,20 +867,12 @@ filescanner_init(void)
 
   scan_exit = 0;
 
-  wd2path = avl_alloc_tree(wdpath_compare, wdpath_free);
-  if (!wd2path)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not allocate AVL tree\n");
-
-      return -1;
-    }
-
   evbase_scan = event_base_new();
   if (!evbase_scan)
     {
       DPRINTF(E_FATAL, L_SCAN, "Could not create an event base\n");
 
-      goto evbase_fail;
+      return -1;
     }
 
   ret = pipe2(exit_pipe, O_CLOEXEC);
@@ -954,8 +915,6 @@ filescanner_init(void)
   close(exit_pipe[1]);
  pipe_fail:
   event_base_free(evbase_scan);
- evbase_fail:
-  avl_free_tree(wd2path);
 
   return -1;
 }
@@ -987,5 +946,4 @@ filescanner_deinit(void)
   close(exit_pipe[1]);
   close(inofd);
   event_base_free(evbase_scan);
-  avl_free_tree(wd2path);
 }
