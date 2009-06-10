@@ -1296,6 +1296,35 @@ db_file_update(struct media_file_info *mfi)
 #undef Q_TMPL
 }
 
+void
+db_file_delete_bypath(char *path)
+{
+#define Q_TMPL "DELETE FROM songs WHERE path = '%q';"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error deleting file: %s\n", errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
 
 /* Playlists */
 int
@@ -1356,6 +1385,56 @@ db_pl_ping(int id)
 
   sqlite3_free(errmsg);
   sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
+static int
+db_pl_id_bypath(char *path, int *id)
+{
+#define Q_TMPL "SELECT id FROM playlists WHERE path = '%q';"
+  char *query;
+  sqlite3_stmt *stmt;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return -1;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_INFO, L_DB, "No results\n");
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  *id = sqlite3_column_int(stmt, 0);
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  return 0;
 
 #undef Q_TMPL
 }
@@ -1700,6 +1779,35 @@ db_pl_add_item(int plid, int mfid)
 #undef QADD_TMPL
 }
 
+static void
+db_pl_clear_items(int id)
+{
+#define Q_TMPL "DELETE FROM playlistitems WHERE playlistid = %d;"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error clearing playlist %d items: %s\n", id, errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
 void
 db_pl_update(int id)
 {
@@ -1787,47 +1895,48 @@ db_pl_update_all(void)
 void
 db_pl_delete(int id)
 {
-#define Q1_TMPL "DELETE FROM playlists WHERE id = %d;"
-#define Q2_TMPL "DELETE FROM playlistitems WHERE playlistid = %d;"
-  char *query[2];
+#define Q_TMPL "DELETE FROM playlists WHERE id = %d;"
+  char *query;
   char *errmsg;
-  int i;
   int ret;
 
   if (id == 1)
     return;
 
-  query[0] = sqlite3_mprintf(Q1_TMPL, id);
-  query[1] = sqlite3_mprintf(Q2_TMPL, id);
-
-  if (!query[0] || !query[1])
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      if (query[0])
-	sqlite3_free(query[0]);
-      if (query[1])
-	sqlite3_free(query[1]);
       return;
     }
 
-  for (i = 0; i < (sizeof(query) / sizeof(query[0])); i++)
-    {
-      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query[i]);
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-      errmsg = NULL;
-      ret = sqlite3_exec(hdl, query[i], NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-	  sqlite3_free(errmsg);
-	}
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error deleting playlist %d: %s\n", id, errmsg);
 
-      sqlite3_free(query[i]);
-    }
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
 
-#undef Q1_TMPL
-#undef Q2_TMPL
+  db_pl_clear_items(id);
+
+#undef Q_TMPL
+}
+
+void
+db_pl_delete_bypath(char *path)
+{
+  int id;
+  int ret;
+
+  ret = db_pl_id_bypath(path, &id);
+  if (ret < 0)
+    return;
+
+  db_pl_delete(id);
 }
 
 

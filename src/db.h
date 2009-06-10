@@ -237,6 +237,9 @@ db_file_add(struct media_file_info *mfi);
 int
 db_file_update(struct media_file_info *mfi);
 
+void
+db_file_delete_bypath(char *path);
+
 /* Playlists */
 int
 db_pl_get_count(int *count);
@@ -261,6 +264,9 @@ db_pl_update_all(void);
 
 void
 db_pl_delete(int id);
+
+void
+db_pl_delete_bypath(char *path);
 
 /* Inotify */
 int
