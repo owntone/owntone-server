@@ -694,6 +694,29 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
   DPRINTF(E_DBG, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
+  if (ie->mask & IN_DELETE)
+    {
+      db_file_delete_bypath(path);
+      db_pl_delete_bypath(path);
+    }
+
+  if (ie->mask & IN_MOVED_FROM)
+    {
+      db_file_disable_bypath(path, wi->path, ie->cookie);
+      db_pl_disable_bypath(path, wi->path, ie->cookie);
+    }
+
+  if (ie->mask & IN_MOVED_TO)
+    {
+      ret = db_file_enable_bycookie(ie->cookie, wi->path);
+
+      if (ret <= 0)
+	ret = db_pl_enable_bycookie(ie->cookie, wi->path);
+
+      if (ret <= 0)
+	ie->mask |= IN_CREATE;
+    }
+
   if (ie->mask & (IN_MODIFY | IN_CREATE))
     {
       ret = lstat(path, &sb);
@@ -729,13 +752,10 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
       compilation = check_compilation(wi->libidx, path);
 
       process_file(file, sb.st_mtime, sb.st_size, compilation, 0);
-  
+
       if (deref)
 	free(deref);
     }
-
-  /* TODO: other cases need more support from the DB */
-  /* IN_DELETE, IN_MOVE_FROM / IN_MOVE_TO */
 }
 
 /* Thread: scan */
