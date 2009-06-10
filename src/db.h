@@ -240,6 +240,12 @@ db_file_update(struct media_file_info *mfi);
 void
 db_file_delete_bypath(char *path);
 
+void
+db_file_disable_bypath(char *path, char *strip, uint32_t cookie);
+
+int
+db_file_enable_bycookie(uint32_t cookie, char *path);
+
 /* Playlists */
 int
 db_pl_get_count(int *count);
@@ -267,6 +273,12 @@ db_pl_delete(int id);
 
 void
 db_pl_delete_bypath(char *path);
+
+void
+db_pl_disable_bypath(char *path, char *strip, uint32_t cookie);
+
+int
+db_pl_enable_bycookie(uint32_t cookie, char *path);
 
 /* Inotify */
 int

@@ -1325,6 +1325,76 @@ db_file_delete_bypath(char *path)
 #undef Q_TMPL
 }
 
+void
+db_file_disable_bypath(char *path, char *strip, uint32_t cookie)
+{
+#define Q_TMPL "UPDATE songs SET path = substr(path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
+  char *query;
+  char *errmsg;
+  int64_t disabled;
+  int striplen;
+  int ret;
+
+  disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
+  striplen = strlen(strip) + 1;
+
+  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error disabling file: %s\n", errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
+int
+db_file_enable_bycookie(uint32_t cookie, char *path)
+{
+#define Q_TMPL "UPDATE songs SET path = '%q' || path, disabled = 0 WHERE disabled = %" PRIi64 ";"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error enabling files: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return sqlite3_changes(hdl);
+
+#undef Q_TMPL
+}
+
 
 /* Playlists */
 int
@@ -1937,6 +2007,76 @@ db_pl_delete_bypath(char *path)
     return;
 
   db_pl_delete(id);
+}
+
+void
+db_pl_disable_bypath(char *path, char *strip, uint32_t cookie)
+{
+#define Q_TMPL "UPDATE playlists SET path = substr(path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
+  char *query;
+  char *errmsg;
+  int64_t disabled;
+  int striplen;
+  int ret;
+
+  disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
+  striplen = strlen(strip) + 1;
+
+  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error disabling playlist: %s\n", errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
+int
+db_pl_enable_bycookie(uint32_t cookie, char *path)
+{
+#define Q_TMPL "UPDATE playlists SET path = '%q' || path, disabled = 0 WHERE disabled = %" PRIi64 ";"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error enabling playlists: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return sqlite3_changes(hdl);
+
+#undef Q_TMPL
 }
 
 
