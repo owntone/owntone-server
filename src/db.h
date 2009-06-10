@@ -112,6 +112,7 @@ struct playlist_info {
   uint32_t items;        /* number of items (mimc) */
   char *query;           /* where clause if type 1 (MSPS) */
   uint32_t db_timestamp; /* time last updated */
+  uint32_t disabled;
   char *path;            /* path of underlying playlist */
   uint32_t index;        /* index of playlist for paths with multiple playlists */
 };
@@ -123,6 +124,7 @@ struct db_playlist_info {
   char *items;
   char *query;
   char *db_timestamp;
+  char *disabled;
   char *path;
   char *index;
 };
