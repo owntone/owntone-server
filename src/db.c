@@ -40,6 +40,8 @@
 #define STR(x) ((x) ? (x) : "")
 #define DB_PATH "/var/cache/mt-daapd/songs3.db" /* FIXME */
 
+/* Inotify cookies are uint32_t */
+#define INOTIFY_FAKE_COOKIE ((int64_t)1 << 32)
 
 #define DB_TYPE_CHAR    1
 #define DB_TYPE_INT     2
@@ -191,6 +193,21 @@ static ssize_t dbpli_cols_map[] =
     dbpli_offsetof(disabled),
     dbpli_offsetof(path),
     dbpli_offsetof(index),
+  };
+
+#define wi_offsetof(field) offsetof(struct watch_info, field)
+
+/* This list must be kept in sync with
+ * - the order of the columns in the inotify table
+ * - the name and type of the fields in struct watch_info
+ */
+static struct col_type_map wi_cols_map[] =
+  {
+    { wi_offsetof(wd), DB_TYPE_INT },
+    { wi_offsetof(cookie), DB_TYPE_INT },
+    { wi_offsetof(path), DB_TYPE_STRING },
+    { wi_offsetof(toplevel), DB_TYPE_INT },
+    { wi_offsetof(libidx), DB_TYPE_INT },
   };
 
 static __thread sqlite3 *hdl;
@@ -1814,6 +1831,194 @@ db_pl_delete(int id)
 }
 
 
+/* Inotify */
+int
+db_watch_clear(void)
+{
+  char *query = "DELETE FROM inotify;";
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      return -1;
+    }
+
+  return 0;
+}
+
+int
+db_watch_add(struct watch_info *wi)
+{
+#define Q_TMPL "INSERT INTO inotify (wd, cookie, path, toplevel, libidx) VALUES (%d, 0, '%q', %d, %d);"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, wi->wd, wi->path, wi->toplevel, wi->libidx);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error adding watch: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+int
+db_watch_delete_bywd(struct watch_info *wi)
+{
+#define Q_TMPL "DELETE FROM inotify WHERE wd = %d;"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, wi->wd);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error deleting watch: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+int
+db_watch_get_bywd(struct watch_info *wi)
+{
+#define Q_TMPL "SELECT * FROM inotify WHERE wd = %d;"
+  char *query;
+  sqlite3_stmt *stmt;
+  char **strval;
+  char *cval;
+  uint32_t *ival;
+  int64_t cookie;
+  int ncols;
+  int i;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, wi->wd);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Watch wd %d not found\n", wi->wd);
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  ncols = sqlite3_column_count(stmt);
+
+  if (sizeof(wi_cols_map) / sizeof(wi_cols_map[0]) != ncols)
+    {
+      DPRINTF(E_LOG, L_DB, "BUG: wi column map out of sync with schema\n");
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  for (i = 0; i < ncols; i++)
+    {
+      switch (wi_cols_map[i].type)
+	{
+	  case DB_TYPE_INT:
+	    ival = (uint32_t *) ((char *)wi + wi_cols_map[i].offset);
+
+	    if (wi_cols_map[i].offset == wi_offsetof(cookie))
+	      {
+		cookie = sqlite3_column_int64(stmt, i);
+		*ival = (cookie == INOTIFY_FAKE_COOKIE) ? 0 : cookie;
+	      }
+	    else
+	      *ival = sqlite3_column_int(stmt, i);
+	    break;
+
+	  case DB_TYPE_STRING:
+	    strval = (char **) ((char *)wi + wi_cols_map[i].offset);
+
+	    cval = (char *)sqlite3_column_text(stmt, i);
+	    if (cval)
+	      *strval = strdup(cval);
+	    break;
+
+	  default:
+	    DPRINTF(E_LOG, L_DB, "BUG: Unknown type %d in wi column map\n", wi_cols_map[i].type);
+	    sqlite3_finalize(stmt);
+	    sqlite3_free(query);
+	    return -1;
+	}
+    }
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+
+
 int
 db_perthread_init(void)
 {
@@ -1917,6 +2122,15 @@ db_perthread_deinit(void)
   "   songid         INTEGER NOT NULL"			\
   ");"
 
+#define T_INOTIFY					\
+  "CREATE TABLE IF NOT EXISTS inotify ("		\
+  "   wd          INTEGER PRIMARY KEY NOT NULL,"	\
+  "   cookie      INTEGER NOT NULL,"			\
+  "   path        VARCHAR(4096) NOT NULL,"		\
+  "   toplevel    INTEGER NOT NULL,"			\
+  "   libidx      INTEGER NOT NULL"			\
+  ");"
+
 #define Q_PL1								\
   "INSERT INTO playlists (id, title, type, items, query, db_timestamp, path, idx)" \
   " VALUES(1, 'Library', 1, 0, '1', 0, '', 0);"
@@ -1946,6 +2160,7 @@ static struct db_init_query db_init_queries[] =
     { T_SONGS,     "create table songs" },
     { T_PL,        "create table playlists" },
     { T_PLITEMS,   "create table playlistitems" },
+    { T_INOTIFY,   "create table inotify" },
 
     { I_PATH,      "create file path index" },
     { I_FILEID,    "create file id index" },

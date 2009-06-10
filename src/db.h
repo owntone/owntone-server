@@ -175,6 +175,14 @@ struct db_media_file_info {
   char *album_artist;
 };
 
+struct watch_info {
+  int wd;
+  char *path;
+  uint32_t cookie;
+  int toplevel;
+  int libidx;
+};
+
 
 char *
 db_escape_string(const char *str);
@@ -253,6 +261,19 @@ db_pl_update_all(void);
 
 void
 db_pl_delete(int id);
+
+/* Inotify */
+int
+db_watch_clear(void);
+
+int
+db_watch_add(struct watch_info *wi);
+
+int
+db_watch_delete_bywd(struct watch_info *wi);
+
+int
+db_watch_get_bywd(struct watch_info *wi);
 
 
 int
