@@ -68,7 +68,6 @@ static struct rsp_query_field_map rsp_query_fields[] =
   { 0, RSP_TYPE_DATE,   "time_played" },
   { 0, RSP_TYPE_DATE,   "db_timestamp" },
   { 0, RSP_TYPE_INT,    "sample_count" },
-  { 0, RSP_TYPE_INT,    "force_update" },
   { 0, RSP_TYPE_STRING, "codectype" },
   { 0, RSP_TYPE_INT,    "idx" },
   { 0, RSP_TYPE_INT,    "has_video" },

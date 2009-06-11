@@ -92,7 +92,6 @@ struct media_file_info {
 
   uint32_t item_kind;    /* song or movie */
   uint32_t data_kind;    /* dmap.datakind (asdk) */
-  uint32_t force_update;
   uint64_t sample_count;
   char compilation;
 
@@ -167,7 +166,6 @@ struct db_media_file_info {
   char *db_timestamp;
   char *disabled;
   char *sample_count;
-  char *force_update;
   char *codectype;
   char *idx;
   char *has_video;

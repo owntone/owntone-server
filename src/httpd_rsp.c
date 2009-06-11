@@ -124,7 +124,6 @@ static struct field_map rsp_fields[] =
     { "db_timestamp",  dbmfi_offsetof(db_timestamp),  F_DETAILED },
     { "disabled",      dbmfi_offsetof(disabled),      F_ALWAYS },
     { "sample_count",  dbmfi_offsetof(sample_count),  F_DETAILED },
-    { "force_update",  dbmfi_offsetof(force_update),  F_DETAILED },
     { "codectype",     dbmfi_offsetof(codectype),     F_ALWAYS },
     { "idx",           dbmfi_offsetof(idx),           F_DETAILED },
     { "has_video",     dbmfi_offsetof(has_video),     F_DETAILED },

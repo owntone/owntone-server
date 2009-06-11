@@ -185,7 +185,7 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
 
   mfi = db_file_fetch_bypath(file);
 
-  need_update = (!mfi || (mfi->db_timestamp < mtime) || mfi->force_update);
+  need_update = (!mfi || (mfi->db_timestamp < mtime));
 
   if (!need_update)
     {

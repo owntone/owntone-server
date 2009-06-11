@@ -98,7 +98,6 @@ static struct col_type_map mfi_cols_map[] =
     { mfi_offsetof(db_timestamp),    DB_TYPE_INT },
     { mfi_offsetof(disabled),        DB_TYPE_INT },
     { mfi_offsetof(sample_count),    DB_TYPE_INT64 },
-    { mfi_offsetof(force_update),    DB_TYPE_INT },
     { mfi_offsetof(codectype),       DB_TYPE_STRING },
     { mfi_offsetof(index),           DB_TYPE_INT },
     { mfi_offsetof(has_video),       DB_TYPE_INT },
@@ -170,7 +169,6 @@ static ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(db_timestamp),
     dbmfi_offsetof(disabled),
     dbmfi_offsetof(sample_count),
-    dbmfi_offsetof(force_update),
     dbmfi_offsetof(codectype),
     dbmfi_offsetof(idx),
     dbmfi_offsetof(has_video),
@@ -1165,12 +1163,12 @@ db_file_add(struct media_file_info *mfi)
                " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
                " total_tracks, disc, total_discs, bpm, compilation, rating, play_count, data_kind, item_kind," \
                " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
-               " force_update, codectype, idx, has_video, contentrating, bits_per_sample, album_artist)" \
+               " codectype, idx, has_video, contentrating, bits_per_sample, album_artist)" \
                " VALUES (NULL, '%q', '%q', %Q, %Q, %Q, %Q, %Q, %Q, %Q," \
                " %Q, %Q, %Q, %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
                " %d, %d, %d, %d, %d, %d, %d, %d, %d," \
                " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
-               " %d, %Q, %d, %d, %d, %d, %Q);"
+               " %Q, %d, %d, %d, %d, %Q);"
   char *query;
   char *errmsg;
   int ret;
@@ -1197,7 +1195,7 @@ db_file_add(struct media_file_info *mfi)
 			  mfi->rating, mfi->play_count, mfi->data_kind, mfi->item_kind,
 			  mfi->description, (int64_t)mfi->time_added, (int64_t)mfi->time_modified,
 			  (int64_t)mfi->time_played, (int64_t)mfi->db_timestamp, mfi->disabled, mfi->sample_count,
-			  mfi->force_update, mfi->codectype, mfi->index, mfi->has_video,
+			  mfi->codectype, mfi->index, mfi->has_video,
 			  mfi->contentrating, mfi->bits_per_sample, mfi->album_artist);
   if (!query)
     {
@@ -1235,7 +1233,7 @@ db_file_update(struct media_file_info *mfi)
                " compilation = %d, rating = %d, data_kind = %d, item_kind = %d," \
                " description = %Q, time_modified = %" PRIi64 "," \
                " db_timestamp = %" PRIi64 ", sample_count = %d," \
-               " force_update = %d, codectype = %Q, idx = %d, has_video = %d," \
+               " codectype = %Q, idx = %d, has_video = %d," \
                " bits_per_sample = %d, album_artist = %Q WHERE id = %d;"
   char *query;
   char *errmsg;
@@ -1260,7 +1258,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->compilation, mfi->rating, mfi->data_kind, mfi->item_kind,
 			  mfi->description, (int64_t)mfi->time_modified,
 			  (int64_t)mfi->db_timestamp, mfi->sample_count,
-			  mfi->force_update, mfi->codectype, mfi->index, mfi->has_video,
+			  mfi->codectype, mfi->index, mfi->has_video,
 			  mfi->bits_per_sample, mfi->album_artist, mfi->id);
 
   if (!query)
@@ -2587,7 +2585,6 @@ db_perthread_deinit(void)
   "   db_timestamp    INTEGER DEFAULT 0,"		\
   "   disabled        INTEGER DEFAULT 0,"		\
   "   sample_count    INTEGER DEFAULT 0,"		\
-  "   force_update    INTEGER DEFAULT 0,"		\
   "   codectype       VARCHAR(5) DEFAULT NULL,"		\
   "   idx             INTEGER NOT NULL,"		\
   "   has_video       INTEGER DEFAULT 0,"		\
