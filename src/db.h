@@ -302,7 +302,7 @@ int
 db_watch_add(struct watch_info *wi);
 
 int
-db_watch_delete_bywd(struct watch_info *wi);
+db_watch_delete_bywd(uint32_t wd);
 
 int
 db_watch_delete_bypath(char *path);

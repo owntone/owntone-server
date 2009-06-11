@@ -718,7 +718,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	   */
 
 	  inotify_rm_watch(inofd, ie->wd);
-	  db_watch_delete_bywd(wi);
+	  db_watch_delete_bywd(ie->wd);
 
 	  memset(&we, 0, sizeof(struct watch_enum));
 
@@ -919,7 +919,7 @@ inotify_cb(int fd, short event, void *arg)
 	{
 	  DPRINTF(E_DBG, L_SCAN, "%s deleted or backing filesystem unmounted!\n", wi.path);
 
-	  db_watch_delete_bywd(&wi);
+	  db_watch_delete_bywd(ie->wd);
 	  free(wi.path);
 	  continue;
 	}

@@ -2230,13 +2230,13 @@ db_watch_delete_byquery(char *query)
 }
 
 int
-db_watch_delete_bywd(struct watch_info *wi)
+db_watch_delete_bywd(uint32_t wd)
 {
 #define Q_TMPL "DELETE FROM inotify WHERE wd = %d;"
   char *query;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, wi->wd);
+  query = sqlite3_mprintf(Q_TMPL, wd);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
