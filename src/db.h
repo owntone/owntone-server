@@ -226,10 +226,13 @@ void
 db_file_inc_playcount(int id);
 
 void
-db_file_ping(int id);
+db_file_ping(char *path);
 
 int
-db_file_id_bypath(char *path, int *id);
+db_file_id_bypath(char *path);
+
+time_t
+db_file_stamp_bypath(char *path);
 
 struct media_file_info *
 db_file_fetch_byid(int id);

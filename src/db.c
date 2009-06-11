@@ -917,14 +917,14 @@ db_file_inc_playcount(int id)
 }
 
 void
-db_file_ping(int id)
+db_file_ping(char *path)
 {
-#define Q_TMPL "UPDATE songs SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE id = %d;"
+#define Q_TMPL "UPDATE songs SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE path = '%q';"
   char *query;
   char *errmsg;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -937,7 +937,7 @@ db_file_ping(int id)
   errmsg = NULL;
   ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error pinging file %d: %s\n", id, errmsg);
+    DPRINTF(E_LOG, L_DB, "Error pinging file '%s': %s\n", path, errmsg);
 
   sqlite3_free(errmsg);
   sqlite3_free(query);
@@ -946,9 +946,9 @@ db_file_ping(int id)
 }
 
 int
-db_file_id_bypath(char *path, int *id)
+db_file_id_bypath(char *path)
 {
-#define Q_TMPL "SELECT id FROM songs WHERE disabled = 0 AND path = '%q';"
+#define Q_TMPL "SELECT id FROM songs WHERE path = '%q';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
@@ -958,7 +958,7 @@ db_file_id_bypath(char *path, int *id)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
+      return 0;
     }
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
@@ -969,7 +969,7 @@ db_file_id_bypath(char *path, int *id)
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_free(query);
-      return -1;
+      return 0;
     }
 
   ret = sqlite3_step(stmt);
@@ -982,15 +982,66 @@ db_file_id_bypath(char *path, int *id)
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
-      return -1;
+      return 0;
     }
 
-  *id = sqlite3_column_int(stmt, 0);
+  ret = sqlite3_column_int(stmt, 0);
 
   sqlite3_finalize(stmt);
   sqlite3_free(query);
 
-  return 0;
+  return ret;
+
+#undef Q_TMPL
+}
+
+time_t
+db_file_stamp_bypath(char *path)
+{
+#define Q_TMPL "SELECT db_timestamp FROM songs WHERE path = '%q';"
+  char *query;
+  sqlite3_stmt *stmt;
+  time_t stamp;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return 0;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_INFO, L_DB, "No results\n");
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return 0;
+    }
+
+  stamp = (time_t)sqlite3_column_int64(stmt, 0);
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  return stamp;
 
 #undef Q_TMPL
 }

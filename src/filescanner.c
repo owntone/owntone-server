@@ -177,73 +177,52 @@ fixup_tags(struct media_file_info *mfi)
 static void
 process_media_file(char *file, time_t mtime, off_t size, int compilation)
 {
-  struct media_file_info *mfi;
+  struct media_file_info mfi;
   char *filename;
   char *ext;
-  int need_update;
+  time_t stamp;
   int ret;
 
-  mfi = db_file_fetch_bypath(file);
+  stamp = db_file_stamp_bypath(file);
 
-  need_update = (!mfi || (mfi->db_timestamp < mtime));
-
-  if (!need_update)
+  if (stamp >= mtime)
     {
-      db_file_ping(mfi->id);
-
-      free_mfi(mfi, 0);
+      db_file_ping(file);
       return;
     }
 
-  if (mfi)
-    {
-      ret = mfi->id;
-      free_mfi(mfi, 1);
-    }
-  else
-    {
-      ret = 0;
-      mfi = (struct media_file_info *)malloc(sizeof(struct media_file_info));
-      if (!mfi)
-	{
-	  DPRINTF(E_WARN, L_SCAN, "Out of memory for media_file_info\n");
-	  return;
-	}
-    }
+  memset(&mfi, 0, sizeof(struct media_file_info));
 
-  memset(mfi, 0, sizeof(struct media_file_info));
-  mfi->id = ret;
+  if (stamp)
+    mfi.id = db_file_id_bypath(file);
 
   filename = strrchr(file, '/');
   if (!filename)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not determine filename for %s\n", file);
 
-      free(mfi);
       return;
     }
 
-  mfi->fname = strdup(filename + 1);
-  if (!mfi->fname)
+  mfi.fname = strdup(filename + 1);
+  if (!mfi.fname)
     {
       DPRINTF(E_WARN, L_SCAN, "Out of memory for fname\n");
 
-      free(mfi);
       return;
     }
 
-  mfi->path = strdup(file);
-  if (!mfi->path)
+  mfi.path = strdup(file);
+  if (!mfi.path)
     {
       DPRINTF(E_WARN, L_SCAN, "Out of memory for path\n");
 
-      free(mfi->fname);
-      free(mfi);
+      free(mfi.fname);
       return;
     }
 
-  mfi->time_modified = mtime;
-  mfi->file_size = size;
+  mfi.time_modified = mtime;
+  mfi.file_size = size;
 
   ret = -1;
 
@@ -254,38 +233,38 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
       if ((strcmp(ext, ".pls") == 0)
 	  || (strcmp(ext, ".url") == 0))
 	{
-	  ret = scan_url_file(file, mfi);
+	  ret = scan_url_file(file, &mfi);
 	  if (ret == 0)
-	    mfi->data_kind = 1; /* url/stream */
+	    mfi.data_kind = 1; /* url/stream */
 	}
     }
 
   /* General case */
   if (ret < 0)
     {
-      ret = scan_metadata_ffmpeg(file, mfi);
-      mfi->data_kind = 0; /* real file */
+      ret = scan_metadata_ffmpeg(file, &mfi);
+      mfi.data_kind = 0; /* real file */
     }
 
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not extract metadata for %s\n", file);
 
-      free_mfi(mfi, 0);
+      free_mfi(&mfi, 1);
       return;
     }
 
-  mfi->compilation = compilation;
-  mfi->item_kind = 2; /* music */
+  mfi.compilation = compilation;
+  mfi.item_kind = 2; /* music */
 
-  fixup_tags(mfi);
+  fixup_tags(&mfi);
 
-  if (mfi->id == 0)
-    db_file_add(mfi);
+  if (mfi.id == 0)
+    db_file_add(&mfi);
   else
-    db_file_update(mfi);
+    db_file_update(&mfi);
 
-  free_mfi(mfi, 0);
+  free_mfi(&mfi, 1);
 }
 
 static void
