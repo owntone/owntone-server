@@ -297,6 +297,15 @@ int
 db_watch_delete_bywd(struct watch_info *wi);
 
 int
+db_watch_delete_bypath(char *path);
+
+int
+db_watch_delete_bymatch(char *path);
+
+int
+db_watch_delete_bycookie(uint32_t cookie);
+
+int
 db_watch_get_bywd(struct watch_info *wi);
 
 void

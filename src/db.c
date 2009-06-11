@@ -2207,21 +2207,11 @@ db_watch_add(struct watch_info *wi)
 #undef Q_TMPL
 }
 
-int
-db_watch_delete_bywd(struct watch_info *wi)
+static int
+db_watch_delete_byquery(char *query)
 {
-#define Q_TMPL "DELETE FROM inotify WHERE wd = %d;"
-  char *query;
   char *errmsg;
   int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, wi->wd);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return -1;
-    }
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
@@ -2236,9 +2226,104 @@ db_watch_delete_bywd(struct watch_info *wi)
       return -1;
     }
 
+  return 0;
+}
+
+int
+db_watch_delete_bywd(struct watch_info *wi)
+{
+#define Q_TMPL "DELETE FROM inotify WHERE wd = %d;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, wi->wd);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  ret = db_watch_delete_byquery(query);
+
   sqlite3_free(query);
 
-  return 0;
+  return ret;
+
+#undef Q_TMPL
+}
+
+int
+db_watch_delete_bypath(char *path)
+{
+#define Q_TMPL "DELETE FROM inotify WHERE path = '%q';"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  ret = db_watch_delete_byquery(query);
+
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
+int
+db_watch_delete_bymatch(char *path)
+{
+#define Q_TMPL "DELETE FROM inotify WHERE path LIKE '%q/%%';"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  ret = db_watch_delete_byquery(query);
+
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
+int
+db_watch_delete_bycookie(uint32_t cookie)
+{
+#define Q_TMPL "DELETE FROM inotify WHERE cookie = %" PRIi64 ";"
+  char *query;
+  int ret;
+
+  if (cookie == 0)
+    return -1;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)cookie);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  ret = db_watch_delete_byquery(query);
+
+  sqlite3_free(query);
+
+  return ret;
 
 #undef Q_TMPL
 }
