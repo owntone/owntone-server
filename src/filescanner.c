@@ -529,7 +529,7 @@ process_directory(int libidx, char *path, int flags)
   memset(&wi, 0, sizeof(struct watch_info));
 
   /* Add inotify watch */
-  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF);
+  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
@@ -668,7 +668,99 @@ filescanner(void *arg)
 static void
 process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 {
+  struct watch_enum we;
+  uint32_t rm_wd;
+  int ret;
+
   DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+
+  if (ie->mask & IN_UNMOUNT)
+    {
+      db_file_disable_bymatch(path, "", 0);
+      db_pl_disable_bymatch(path, "", 0);
+    }
+
+  if (ie->mask & IN_MOVE_SELF)
+    {
+      /* A directory we know about, that got moved from a place
+       * we know about to a place we know nothing about
+       */
+      if (wi->cookie)
+	{
+	  memset(&we, 0, sizeof(struct watch_enum));
+
+	  we.cookie = wi->cookie;
+
+	  ret = db_watch_enum_start(&we);
+	  if (ret < 0)
+	    return;
+
+	  while (((ret = db_watch_enum_fetchwd(&we, &rm_wd)) == 0) && (rm_wd))
+	    {
+	      inotify_rm_watch(inofd, rm_wd);
+	    }
+
+	  db_watch_enum_end(&we);
+
+	  db_watch_delete_bycookie(wi->cookie);
+	}
+      else
+	{
+	  /* If the directory exists, it has been moved and we've
+	   * kept track of it successfully, so we're done
+	   */
+	  ret = access(path, F_OK);
+	  if (ret == 0)
+	    return;
+
+	  /* Most probably a top-level dir is getting moved,
+	   * and we can't tell where it's going
+	   */
+
+	  inotify_rm_watch(inofd, ie->wd);
+	  db_watch_delete_bywd(wi);
+
+	  memset(&we, 0, sizeof(struct watch_enum));
+
+	  we.match = path;
+
+	  ret = db_watch_enum_start(&we);
+	  if (ret < 0)
+	    return;
+
+	  while (((ret = db_watch_enum_fetchwd(&we, &rm_wd)) == 0) && (rm_wd))
+	    {
+	      inotify_rm_watch(inofd, rm_wd);
+	    }
+
+	  db_watch_enum_end(&we);
+
+	  db_watch_delete_bymatch(path);
+
+	  db_file_disable_bymatch(path, "", 0);
+	  db_pl_disable_bymatch(path, "", 0);
+	}
+    }
+
+  if (ie->mask & IN_MOVED_FROM)
+    {
+      db_watch_mark_bypath(path, path, ie->cookie);
+      db_watch_mark_bymatch(path, path, ie->cookie);
+      db_file_disable_bymatch(path, path, ie->cookie);
+      db_pl_disable_bymatch(path, path, ie->cookie);
+    }
+
+  if (ie->mask & IN_MOVED_TO)
+    {
+      if (db_watch_cookie_known(ie->cookie))
+	{
+	  db_watch_move_bycookie(ie->cookie, path);
+	  db_file_enable_bycookie(ie->cookie, path);
+	  db_pl_enable_bycookie(ie->cookie, path);
+	}
+      else
+	ie->mask |= IN_CREATE;
+    }
 
   if (ie->mask & IN_CREATE)
     {
@@ -677,9 +769,6 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
       if (dirstack)
 	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
     }
-
-  /* TODO: other cases need more support from the DB */
-  /* IN_UNMOUNT, IN_DELETE, IN_MODIFY, IN_MOVE_FROM / IN_MOVE_TO, IN_DELETE_SELF, IN_MOVE_SELF */
 }
 
 /* Thread: scan */
