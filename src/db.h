@@ -183,6 +183,14 @@ struct watch_info {
   int libidx;
 };
 
+struct watch_enum {
+  uint32_t cookie;
+  char *match;
+
+  /* Private enum context, keep out */
+  sqlite3_stmt *stmt;
+};
+
 
 char *
 db_escape_string(const char *str);
@@ -319,6 +327,15 @@ db_watch_move_bycookie(uint32_t cookie, char *path);
 
 int
 db_watch_cookie_known(uint32_t cookie);
+
+int
+db_watch_enum_start(struct watch_enum *we);
+
+void
+db_watch_enum_end(struct watch_enum *we);
+
+int
+db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd);
 
 
 int

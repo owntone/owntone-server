@@ -2546,6 +2546,92 @@ db_watch_cookie_known(uint32_t cookie)
 #undef Q_TMPL
 }
 
+int
+db_watch_enum_start(struct watch_enum *we)
+{
+#define Q_MATCH_TMPL "SELECT wd FROM inotify WHERE path LIKE '%q/%%';"
+#define Q_COOKIE_TMPL "SELECT wd FROM inotify WHERE cookie = %" PRIi64 ";"
+  char *query;
+  int ret;
+
+  we->stmt = NULL;
+
+  if (we->match)
+    query = sqlite3_mprintf(Q_MATCH_TMPL, we->match);
+  else if (we->cookie != 0)
+    query = sqlite3_mprintf(Q_COOKIE_TMPL, we->cookie);
+  else
+    {
+      DPRINTF(E_LOG, L_DB, "Could not start enum, no parameter given\n");
+      return -1;
+    }
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Starting enum '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &we->stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_MATCH_TMPL
+#undef Q_COOKIE_TMPL
+}
+
+void
+db_watch_enum_end(struct watch_enum *we)
+{
+  if (!we->stmt)
+    return;
+
+  sqlite3_finalize(we->stmt);
+  we->stmt = NULL;
+}
+
+int
+db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd)
+{
+  int ret;
+
+  *wd = 0;
+
+  if (!we->stmt)
+    {
+      DPRINTF(E_LOG, L_DB, "Watch enum not started!\n");
+      return -1;
+    }
+
+  ret = sqlite3_step(we->stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_INFO, L_DB, "End of watch enum results\n");
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+      return -1;
+    }
+
+  *wd = (uint32_t)sqlite3_column_int(we->stmt, 0);
+
+  return 0;
+}
+
 
 int
 db_perthread_init(void)
