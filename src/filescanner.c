@@ -747,6 +747,14 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	      free(deref);
 	      return;
 	    }
+
+	  if (S_ISDIR(sb.st_mode))
+	    {
+	      process_inotify_dir(wi, deref, ie);
+
+	      free(deref);
+	      return;
+	    }
 	}
 
       compilation = check_compilation(wi->libidx, path);
