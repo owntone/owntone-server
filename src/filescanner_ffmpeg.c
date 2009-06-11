@@ -30,9 +30,6 @@
 #include <stdint.h>
 #endif
 
-#include <stddef.h>
-#include <stdarg.h>
-
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 
@@ -57,8 +54,6 @@ struct metadata_map {
   int as_int;
   size_t offset;
 };
-
-#define mfi_offsetof(field) offsetof(struct media_file_info, field)
 
 /* Lookup is case-insensitive, first occurrence takes precedence */
 static struct metadata_map md_map[] =

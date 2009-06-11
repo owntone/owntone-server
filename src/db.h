@@ -3,7 +3,7 @@
 #define __DB_H__
 
 #include <time.h>
-
+#include <stddef.h>
 #include <stdint.h>
 
 #include <sqlite3.h>
@@ -105,6 +105,8 @@ struct media_file_info {
   char *album_artist;
 };
 
+#define mfi_offsetof(field) offsetof(struct media_file_info, field)
+
 struct playlist_info {
   uint32_t id;           /* integer id (miid) */
   char *title;           /* playlist name as displayed in iTunes (minm) */
@@ -117,6 +119,8 @@ struct playlist_info {
   uint32_t index;        /* index of playlist for paths with multiple playlists */
 };
 
+#define pli_offsetof(field) offsetof(struct playlist_info, field)
+
 struct db_playlist_info {
   char *id;
   char *title;
@@ -128,6 +132,8 @@ struct db_playlist_info {
   char *path;
   char *index;
 };
+
+#define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
 
 struct db_media_file_info {
   char *id;
@@ -174,12 +180,16 @@ struct db_media_file_info {
   char *album_artist;
 };
 
+#define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
+
 struct watch_info {
   int wd;
   char *path;
   uint32_t cookie;
   int libidx;
 };
+
+#define wi_offsetof(field) offsetof(struct watch_info, field)
 
 struct watch_enum {
   uint32_t cookie;

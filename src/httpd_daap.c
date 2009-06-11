@@ -31,7 +31,6 @@
 #include <sys/queue.h>
 #include <sys/types.h>
 #include <regex.h>
-#include <stddef.h>
 #include <limits.h>
 #include <stdint.h>
 
@@ -73,10 +72,6 @@ struct dmap_field_map {
   ssize_t mfi_offset;
   ssize_t pli_offset;
 };
-
-
-#define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
-#define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
 
 static struct dmap_field_map dmap_fields[] =
   {

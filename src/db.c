@@ -27,8 +27,6 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include <stddef.h>
-
 #include <pthread.h>
 
 #include <sqlite3.h>
@@ -52,9 +50,6 @@ struct col_type_map {
   ssize_t offset;
   short type;
 };
-
-#define mfi_offsetof(field) offsetof(struct media_file_info, field)
-#define pli_offsetof(field) offsetof(struct playlist_info, field)
 
 /* This list must be kept in sync with
  * - the order of the columns in the files table
@@ -124,9 +119,6 @@ static struct col_type_map pli_cols_map[] =
     /* items is computed on the fly */
   };
 
-#define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
-#define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
-
 /* This list must be kept in sync with
  * - the order of the columns in the files table
  * - the name of the fields in struct db_media_file_info
@@ -194,8 +186,6 @@ static ssize_t dbpli_cols_map[] =
 
     /* items is computed on the fly */
   };
-
-#define wi_offsetof(field) offsetof(struct watch_info, field)
 
 /* This list must be kept in sync with
  * - the order of the columns in the inotify table

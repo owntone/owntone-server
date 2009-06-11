@@ -29,7 +29,6 @@
 #include <sys/queue.h>
 #include <sys/types.h>
 #include <regex.h>
-#include <stddef.h>
 #include <limits.h>
 
 #include <event.h>
@@ -69,9 +68,6 @@ struct uri_map {
   void (*handler)(struct evhttp_request *req, char **uri, struct evkeyvalq *query);
 };
 
-
-#define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
-
 static struct field_map pl_fields[] =
   {
     { "id",           dbpli_offsetof(id),           F_ALWAYS },
@@ -84,8 +80,6 @@ static struct field_map pl_fields[] =
     { "index",        dbpli_offsetof(index),        F_DETAILED },
     { NULL,           0,                            0 }
   };
-
-#define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
 
 static struct field_map rsp_fields[] =
   {
