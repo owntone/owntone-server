@@ -49,7 +49,6 @@
 
 
 #define F_SCAN_BULK    (1 << 0)
-#define F_SCAN_TOPDIR  (1 << 1)
 
 struct deferred_pl {
   char *path;
@@ -539,7 +538,6 @@ process_directory(int libidx, char *path, int flags)
 
   wi.libidx = libidx;
   wi.cookie = 0;
-  wi.toplevel = ((flags & F_SCAN_TOPDIR) != 0);
   wi.path = path;
 
   db_watch_add(&wi);
@@ -555,9 +553,6 @@ process_directories(int libidx, char *root, int flags)
 
   if (scan_exit)
     return;
-
-  if (flags & F_SCAN_TOPDIR)
-    flags &= ~F_SCAN_TOPDIR;
 
   while ((path = pop_dir()))
     {
@@ -598,7 +593,7 @@ bulk_scan(void)
 	{
 	  path = cfg_getnstr(lib, "directories", j);
 
-	  process_directories(i, path, F_SCAN_BULK | F_SCAN_TOPDIR);
+	  process_directories(i, path, F_SCAN_BULK);
 
 	  if (scan_exit)
 	    return;

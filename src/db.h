@@ -179,7 +179,6 @@ struct watch_info {
   int wd;
   char *path;
   uint32_t cookie;
-  int toplevel;
   int libidx;
 };
 
