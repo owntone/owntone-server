@@ -529,7 +529,7 @@ process_directory(int libidx, char *path, int flags)
   memset(&wi, 0, sizeof(struct watch_info));
 
   /* Add inotify watch */
-  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_MOVE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF);
+  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_DELETE_SELF | IN_MOVE_SELF);
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
@@ -717,7 +717,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	ie->mask |= IN_CREATE;
     }
 
-  if (ie->mask & (IN_MODIFY | IN_CREATE))
+  if (ie->mask & (IN_MODIFY | IN_CREATE | IN_CLOSE_WRITE))
     {
       ret = lstat(path, &sb);
       if (ret < 0)
