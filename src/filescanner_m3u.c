@@ -52,7 +52,6 @@ scan_m3u_playlist(char *file)
   char *ptr;
   size_t len;
   int pl_id;
-  int mf_id;
   int ret;
 
   DPRINTF(E_INFO, L_SCAN, "Processing static playlist: %s\n", file);
@@ -190,21 +189,11 @@ scan_m3u_playlist(char *file)
 	    continue;
 	  }
 
-	DPRINTF(E_DBG, L_SCAN, "Checking %s\n", filename);
-
-	ret = db_file_id_bypath(filename, &mf_id);
-	if (ret < 0)
-	  {
-	    DPRINTF(E_WARN, L_SCAN, "Playlist entry '%s' not found\n", entry);
-
-	    free(filename);
-	    continue;
-	  }
-
-	DPRINTF(E_DBG, L_SCAN, "Resolved %s to %d\n", filename, mf_id);
-	ret = db_pl_add_item(pl_id, mf_id);
+	ret = db_pl_add_item(pl_id, filename);
 	if (ret < 0)
 	  DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
+
+	free(filename);
     }
 
   if (!feof(fp))

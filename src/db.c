@@ -312,12 +312,11 @@ db_purge_cruft(time_t ref)
   char *errmsg;
   int i;
   int ret;
-  char *queries[4] = { NULL, NULL, NULL, NULL };
-  char *queries_tmpl[4] =
+  char *queries[3] = { NULL, NULL, NULL };
+  char *queries_tmpl[3] =
     {
       "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE id <> 1 AND db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlists WHERE id <> 1 AND db_timestamp < %" PRIi64 ";",
-      "DELETE FROM playlistitems WHERE songid IN (SELECT id FROM songs WHERE db_timestamp < %" PRIi64 ");",
       "DELETE FROM songs WHERE db_timestamp < %" PRIi64 ";"
     };
 
@@ -539,10 +538,10 @@ db_build_query_plitems(struct query_params *qp, char **q)
   else
     {
       if (qp->filter)
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM songs JOIN playlistitems ON songs.id = playlistitems.songid"
+	count = sqlite3_mprintf("SELECT COUNT(*) FROM songs JOIN playlistitems ON songs.path = playlistitems.filepath"
 				" WHERE playlistitems.playlistid = %d AND songs.disabled = 0 AND %s;", qp->pl_id, qp->filter);
       else
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM songs JOIN playlistitems ON songs.id = playlistitems.songid"
+	count = sqlite3_mprintf("SELECT COUNT(*) FROM songs JOIN playlistitems ON songs.path = playlistitems.filepath"
 				" WHERE playlistitems.playlistid = %d AND songs.disabled = 0;", qp->pl_id);
     }
 
@@ -565,19 +564,19 @@ db_build_query_plitems(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT songs.* FROM songs JOIN playlistitems ON songs.id = playlistitems.songid"
+    query = sqlite3_mprintf("SELECT songs.* FROM songs JOIN playlistitems ON songs.path = playlistitems.filepath"
 			    " WHERE playlistitems.playlistid = %d AND songs.disabled = 0 AND %s ORDER BY playlistitems.id ASC %s;",
 			    qp->pl_id, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT songs.* FROM songs JOIN playlistitems ON songs.id = playlistitems.songid"
+    query = sqlite3_mprintf("SELECT songs.* FROM songs JOIN playlistitems ON songs.path = playlistitems.filepath"
 			    " WHERE playlistitems.playlistid = %d AND songs.disabled = 0 ORDER BY playlistitems.id ASC %s;",
 			    qp->pl_id, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT songs.* FROM songs JOIN playlistitems ON songs.id = playlistitems.songid"
+    query = sqlite3_mprintf("SELECT songs.* FROM songs JOIN playlistitems ON songs.path = playlistitems.filepath"
 			    " WHERE playlistitems.playlistid = %d AND songs.disabled = 0 AND %s ORDER BY playlistitems.id ASC;",
 			    qp->pl_id, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT songs.* FROM songs JOIN playlistitems ON songs.id = playlistitems.songid"
+    query = sqlite3_mprintf("SELECT songs.* FROM songs JOIN playlistitems ON songs.path = playlistitems.filepath"
 			    " WHERE playlistitems.playlistid = %d AND songs.disabled = 0 ORDER BY playlistitems.id ASC;",
 			    qp->pl_id);
 
@@ -1432,7 +1431,7 @@ static int
 db_pl_count_items(int id)
 {
 #define Q_TMPL "SELECT COUNT(*) FROM playlistitems JOIN songs" \
-               " ON playlistitems.songid = songs.id WHERE songs.disabled = 0 AND playlistitems.playlistid = %d;"
+               " ON playlistitems.filepath = songs.path WHERE songs.disabled = 0 AND playlistitems.playlistid = %d;"
   char *query;
   int ret;
 
@@ -1730,91 +1729,14 @@ db_pl_add(char *title, char *path, int *id)
 }
 
 int
-db_pl_add_item(int plid, int mfid)
+db_pl_add_item(int plid, char *path)
 {
-#define QPL_TMPL "SELECT title FROM playlists WHERE id = %d;"
-#define QMF_TMPL "SELECT fname FROM songs WHERE id = %d;"
-#define QADD_TMPL "INSERT INTO playlistitems (playlistid, songid) VALUES (%d, %d);"
+#define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, '%q');"
   char *query;
-  char *str;
   char *errmsg;
-  sqlite3_stmt *stmt;
   int ret;
 
-  /* Check playlist */
-  query = sqlite3_mprintf(QPL_TMPL, plid);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
-      return -1;
-    }
-
-  ret = sqlite3_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      DPRINTF(E_LOG, L_DB, "Playlist id %d not found\n", plid);
-
-      sqlite3_finalize(stmt);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  str = (char *)sqlite3_column_text(stmt, 0);
-
-  DPRINTF(E_DBG, L_DB, "Found playlist id %d ('%s')\n", plid, str);
-
-  sqlite3_finalize(stmt);
-  sqlite3_free(query);
-
-  /* Check media file */
-  query = sqlite3_mprintf(QMF_TMPL, mfid);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
-      return -1;
-    }
-
-  ret = sqlite3_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      DPRINTF(E_LOG, L_DB, "Media file id %d not found\n", mfid);
-
-      sqlite3_finalize(stmt);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  str = (char *)sqlite3_column_text(stmt, 0);
-
-  DPRINTF(E_DBG, L_DB, "Found media file id %d (%s)\n", mfid, str);
-
-  sqlite3_finalize(stmt);
-  sqlite3_free(query);
-
-  /* Add */
-  query = sqlite3_mprintf(QADD_TMPL, plid, mfid);
+  query = sqlite3_mprintf(Q_TMPL, plid, path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1836,13 +1758,9 @@ db_pl_add_item(int plid, int mfid)
 
   sqlite3_free(query);
 
-  DPRINTF(E_DBG, L_DB, "Added media file id %d to playlist id %d\n", mfid, plid);
-
   return 0;
 
-#undef QPL_TMPL
-#undef QMF_TMPL
-#undef QADD_TMPL
+#undef Q_TMPL
 }
 
 void
@@ -2609,7 +2527,7 @@ db_perthread_deinit(void)
   "CREATE TABLE IF NOT EXISTS playlistitems ("		\
   "   id             INTEGER PRIMARY KEY NOT NULL,"	\
   "   playlistid     INTEGER NOT NULL,"			\
-  "   songid         INTEGER NOT NULL"			\
+  "   filepath       VARCHAR(4096) NOT NULL"		\
   ");"
 
 #define T_INOTIFY					\
@@ -2627,11 +2545,11 @@ db_perthread_deinit(void)
 #define I_PATH							\
   "CREATE INDEX IF NOT EXISTS idx_path ON songs(path, idx);"
 
-#define I_FILEID							\
-  "CREATE INDEX IF NOT EXISTS idx_fileid ON playlistitems(songid ASC);"
+#define I_FILEPATH							\
+  "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
 
 #define I_PLITEMID							\
-  "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, songid);"
+  "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
 
 
 #define SCHEMA_VERSION 1
@@ -2652,7 +2570,7 @@ static struct db_init_query db_init_queries[] =
     { T_INOTIFY,   "create table inotify" },
 
     { I_PATH,      "create file path index" },
-    { I_FILEID,    "create file id index" },
+    { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
   };
 

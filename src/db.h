@@ -269,7 +269,7 @@ int
 db_pl_add(char *title, char *path, int *id);
 
 int
-db_pl_add_item(int plid, int mfid);
+db_pl_add_item(int plid, char *path);
 
 void
 db_pl_clear_items(int id);
