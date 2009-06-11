@@ -237,9 +237,6 @@ db_file_stamp_bypath(char *path);
 struct media_file_info *
 db_file_fetch_byid(int id);
 
-struct media_file_info *
-db_file_fetch_bypath(char *path);
-
 int
 db_file_add(struct media_file_info *mfi);
 

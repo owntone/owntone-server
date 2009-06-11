@@ -1182,30 +1182,6 @@ db_file_fetch_byid(int id)
 #undef Q_TMPL
 }
 
-struct media_file_info *
-db_file_fetch_bypath(char *path)
-{
-#define Q_TMPL "SELECT * FROM songs WHERE path = '%q';"
-  struct media_file_info *mfi;
-  char *query;
-
-  query = sqlite3_mprintf(Q_TMPL, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return NULL;
-    }
-
-  mfi = db_file_fetch_byquery(query);
-
-  sqlite3_free(query);
-
-  return mfi;
-
-#undef Q_TMPL
-}
-
 int
 db_file_add(struct media_file_info *mfi)
 {
