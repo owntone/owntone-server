@@ -299,6 +299,12 @@ db_watch_delete_bywd(struct watch_info *wi);
 int
 db_watch_get_bywd(struct watch_info *wi);
 
+void
+db_watch_mark_bypath(char *path, char *strip, uint32_t cookie);
+
+void
+db_watch_mark_bymatch(char *path, char *strip, uint32_t cookie);
+
 
 int
 db_perthread_init(void);
