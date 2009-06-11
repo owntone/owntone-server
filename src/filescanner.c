@@ -47,6 +47,7 @@
 
 
 #define F_SCAN_BULK    (1 << 0)
+#define F_SCAN_RESCAN  (1 << 1)
 
 struct deferred_pl {
   char *path;
@@ -538,7 +539,8 @@ process_directory(int libidx, char *path, int flags)
   wi.cookie = 0;
   wi.path = path;
 
-  db_watch_add(&wi);
+  if (!(flags & F_SCAN_RESCAN))
+    db_watch_add(&wi);
 }
 
 /* Thread: scan */
@@ -659,6 +661,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 {
   struct watch_enum we;
   uint32_t rm_wd;
+  int flags = 0;
   int ret;
 
   DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
@@ -746,14 +749,17 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	  db_watch_move_bycookie(ie->cookie, path);
 	  db_file_enable_bycookie(ie->cookie, path);
 	  db_pl_enable_bycookie(ie->cookie, path);
+
+	  /* We'll rescan the directory tree to update playlists */
+	  flags |= F_SCAN_RESCAN;
 	}
-      else
-	ie->mask |= IN_CREATE;
+
+      ie->mask |= IN_CREATE;
     }
 
   if (ie->mask & IN_CREATE)
     {
-      process_directories(wi->libidx, path, 0);
+      process_directories(wi->libidx, path, flags);
 
       if (dirstack)
 	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
