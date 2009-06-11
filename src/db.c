@@ -1847,7 +1847,7 @@ db_pl_add_item(int plid, int mfid)
 #undef QADD_TMPL
 }
 
-static void
+void
 db_pl_clear_items(int id)
 {
 #define Q_TMPL "DELETE FROM playlistitems WHERE playlistid = %d;"

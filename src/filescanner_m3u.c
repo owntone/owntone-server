@@ -75,23 +75,17 @@ scan_m3u_playlist(char *file)
 
   if (pli)
     {
-      if (pli->db_timestamp >= sb.st_mtime)
-	{
-	  DPRINTF(E_DBG, L_SCAN, "Playlist up-to-date\n");
+      DPRINTF(E_DBG, L_SCAN, "Playlist found, updating\n");
 
-	  db_pl_ping(pli->id);
+      pl_id = pli->id;
 
-	  free_pli(pli, 0);
-	  return;
-	}
-      else
-	{
-	  DPRINTF(E_DBG, L_SCAN, "Playlist needs update\n");
+      free_pli(pli, 0);
 
-	  db_pl_delete(pli->id);
-	  free_pli(pli, 0);
-	}
+      db_pl_ping(pl_id);
+      db_pl_clear_items(pl_id);
     }
+  else
+    pl_id = 0;
 
   fp = fopen(file, "r");
   if (!fp)
@@ -101,24 +95,29 @@ scan_m3u_playlist(char *file)
       return;
     }
 
-  /* Get only the basename, to be used as the playlist name */
-  ptr = strrchr(filename, '.');
-  if (ptr)
-    *ptr = '\0';
-
-  /* Safe: filename is a subset of file which is <= PATH_MAX already */
-  strncpy(buf, filename, sizeof(buf));
-
-  /* Restore the full filename */
-  if (ptr)
-    *ptr = '.';
-
-  ret = db_pl_add(buf, file, &pl_id);
-  if (ret < 0)
+  if (pl_id == 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Error adding m3u playlist '%s'\n", file);
+      /* Get only the basename, to be used as the playlist name */
+      ptr = strrchr(filename, '.');
+      if (ptr)
+	*ptr = '\0';
 
-      return;
+      /* Safe: filename is a subset of file which is <= PATH_MAX already */
+      strncpy(buf, filename, sizeof(buf));
+
+      /* Restore the full filename */
+      if (ptr)
+	*ptr = '.';
+
+      ret = db_pl_add(buf, file, &pl_id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Error adding m3u playlist '%s'\n", file);
+
+	  return;
+	}
+
+      DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
     }
 
   ptr = strrchr(file, '/');
@@ -139,8 +138,6 @@ scan_m3u_playlist(char *file)
 
       return;
     }
-
-  DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
 
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {

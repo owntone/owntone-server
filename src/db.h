@@ -274,6 +274,9 @@ int
 db_pl_add_item(int plid, int mfid);
 
 void
+db_pl_clear_items(int id);
+
+void
 db_pl_delete(int id);
 
 void

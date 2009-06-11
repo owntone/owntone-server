@@ -19,8 +19,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
-/* TODO: inotify vs. playlists */
-
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
@@ -791,10 +789,15 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
       ret = db_file_enable_bycookie(ie->cookie, wi->path);
 
       if (ret <= 0)
-	ret = db_pl_enable_bycookie(ie->cookie, wi->path);
-
-      if (ret <= 0)
-	ie->mask |= IN_CREATE;
+	{
+	  /* It's not a known media file, so it's either a new file
+	   * or a playlist, known or not.
+	   * We want to scan the new file and we want to rescan the
+	   * playlist to update playlist items (relative items).
+	   */
+	  ie->mask |= IN_CREATE;
+	  db_pl_enable_bycookie(ie->cookie, wi->path);
+	}
     }
 
   if (ie->mask & (IN_MODIFY | IN_CREATE | IN_CLOSE_WRITE))
