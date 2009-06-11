@@ -280,15 +280,8 @@ rsp_reply_info(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
   cfg_t *lib;
   char *library;
   int songcount;
-  int ret;
 
-  ret = db_files_get_count(&songcount);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RSP, "Could not get song count\n");
-
-      songcount = 0;
-    }
+  songcount = db_files_get_count();
 
   lib = cfg_getnsec(cfg, "library", 0);
   library = cfg_getstr(lib, "name");

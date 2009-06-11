@@ -935,22 +935,10 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   dmap_add_long(evbuf, "mper", 1);      /* 16 */
   dmap_add_string(evbuf, "minm", name); /* 8 + namelen */
 
-  ret = db_files_get_count(&count);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not get song count\n");
-
-      count = 0;
-    }
+  count = db_files_get_count();
   dmap_add_int(evbuf, "mimc", count); /* 12 */
 
-  ret = db_pl_get_count(&count);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not get playlist count\n");
-
-      count = 0;
-    }
+  count = db_pl_get_count();
   dmap_add_int(evbuf, "mctc", count); /* 12 */
 
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);

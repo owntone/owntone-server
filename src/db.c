@@ -885,36 +885,9 @@ db_query_fetch_string(struct query_params *qp, char **string)
 
 /* Files */
 int
-db_files_get_count(int *count)
+db_files_get_count(void)
 {
-  char *query = "SELECT COUNT(*) FROM songs WHERE disabled = 0;";
-  sqlite3_stmt *stmt;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      return -1;
-    }
-
-  ret = sqlite3_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      return -1;
-    }
-
-  *count = sqlite3_column_int(stmt, 0);
-
-  sqlite3_finalize(stmt);
-
-  return 0;
+  return db_get_count("SELECT COUNT(*) FROM songs WHERE disabled = 0;");
 }
 
 void
@@ -1452,36 +1425,9 @@ db_file_enable_bycookie(uint32_t cookie, char *path)
 
 /* Playlists */
 int
-db_pl_get_count(int *count)
+db_pl_get_count(void)
 {
-  char *query = "SELECT COUNT(*) FROM playlists WHERE disabled = 0;";
-  sqlite3_stmt *stmt;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      return -1;
-    }
-
-  ret = sqlite3_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      return -1;
-    }
-
-  *count = sqlite3_column_int(stmt, 0);
-
-  sqlite3_finalize(stmt);
-
-  return 0;
+  return db_get_count("SELECT COUNT(*) FROM playlists WHERE disabled = 0;");
 }
 
 static int
@@ -1490,20 +1436,10 @@ db_pl_count_items(int id)
 #define Q_TMPL "SELECT COUNT(*) FROM playlistitems JOIN songs" \
                " ON playlistitems.songid = songs.id WHERE songs.disabled = 0 AND playlistitems.playlistid = %d;"
   char *query;
-  int nsongs;
   int ret;
 
   if (id == 1)
-    {
-      ret = db_files_get_count(&nsongs);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not get file count\n");
-	  return 0;
-	}
-
-      return nsongs;
-    }
+    return db_files_get_count();
 
   query = sqlite3_mprintf(Q_TMPL, id);
 
@@ -1698,16 +1634,7 @@ db_pl_fetch_byquery(char *query)
 
   /* Playlist 1: all files */
   if (pli->id == 1)
-    {
-      ret = db_files_get_count(&i);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DB, "Couldn't get song count for playlist 1\n");
-	  i = 0;
-	}
-
-      pli->items = i;
-    }
+    pli->items = db_files_get_count();
   else
     pli->items = db_pl_count_items(pli->id);
 
@@ -1746,7 +1673,6 @@ db_pl_add(char *title, char *path, int *id)
                   " VALUES ('%q', 0, NULL, %" PRIi64 ", 0, '%q', 0);"
   char *query;
   char *errmsg;
-  sqlite3_stmt *stmt;
   int ret;
 
   /* Check duplicates */
@@ -1757,30 +1683,8 @@ db_pl_add(char *title, char *path, int *id)
       return -1;
     }
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+  ret = db_get_count(query);
 
-  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
-      return -1;
-    }
-
-  ret = sqlite3_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  ret = sqlite3_column_int(stmt, 0);
-
-  sqlite3_finalize(stmt);
   sqlite3_free(query);
 
   if (ret > 0)
@@ -2888,21 +2792,8 @@ db_init(void)
       return -1;
     }
 
-  ret = db_files_get_count(&files);
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_DB, "Could not fetch file count\n");
-      db_perthread_deinit();
-      return -1;
-    }
-
-  ret = db_pl_get_count(&pls);
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_DB, "Could not fetch playlist count\n");
-      db_perthread_deinit();
-      return -1;
-    }
+  files = db_files_get_count();
+  pls = db_pl_get_count();
 
   db_perthread_deinit();
 

@@ -222,7 +222,7 @@ db_query_fetch_string(struct query_params *qp, char **string);
 
 /* Files */
 int
-db_files_get_count(int *count);
+db_files_get_count(void);
 
 void
 db_file_inc_playcount(int id);
@@ -259,7 +259,7 @@ db_file_enable_bycookie(uint32_t cookie, char *path);
 
 /* Playlists */
 int
-db_pl_get_count(int *count);
+db_pl_get_count(void);
 
 void
 db_pl_ping(int id);
