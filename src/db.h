@@ -305,6 +305,12 @@ db_watch_mark_bypath(char *path, char *strip, uint32_t cookie);
 void
 db_watch_mark_bymatch(char *path, char *strip, uint32_t cookie);
 
+void
+db_watch_move_bycookie(uint32_t cookie, char *path);
+
+int
+db_watch_cookie_known(uint32_t cookie);
+
 
 int
 db_perthread_init(void);

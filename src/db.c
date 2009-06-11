@@ -2402,6 +2402,65 @@ db_watch_mark_bymatch(char *path, char *strip, uint32_t cookie)
 #undef Q_TMPL
 }
 
+void
+db_watch_move_bycookie(uint32_t cookie, char *path)
+{
+#define Q_TMPL "UPDATE inotify SET path = '%q' || path, cookie = 0 WHERE cookie = %" PRIi64 ";"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  if (cookie == 0)
+    return;
+
+  query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error moving watch: %s\n", errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
+int
+db_watch_cookie_known(uint32_t cookie)
+{
+#define Q_TMPL "SELECT COUNT(*) FROM inotify WHERE cookie = %" PRIi64 ";"
+  char *query;
+  int ret;
+
+  if (cookie == 0)
+    return 0;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)cookie);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  ret = db_query_get_count(query);
+
+  sqlite3_free(query);
+
+  return (ret > 0);
+
+#undef Q_TMPL
+}
+
 
 int
 db_perthread_init(void)
