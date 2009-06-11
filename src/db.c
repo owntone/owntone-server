@@ -356,10 +356,8 @@ db_purge_cruft(time_t ref)
 
 }
 
-
-/* Queries */
 static int
-db_query_get_count(char *query)
+db_get_count(char *query)
 {
   sqlite3_stmt *stmt;
   int ret;
@@ -389,6 +387,8 @@ db_query_get_count(char *query)
   return ret;
 }
 
+
+/* Queries */
 static int
 db_build_query_index_clause(struct query_params *qp, char **i)
 {
@@ -448,7 +448,7 @@ db_build_query_items(struct query_params *qp, char **q)
       return -1;
     }
 
-  qp->results = db_query_get_count(count);
+  qp->results = db_get_count(count);
   sqlite3_free(count);
 
   if (qp->results < 0)
@@ -486,7 +486,7 @@ db_build_query_pls(struct query_params *qp, char **q)
   char *idx;
   int ret;
 
-  qp->results = db_query_get_count("SELECT COUNT(*) FROM playlists WHERE disabled = 0;");
+  qp->results = db_get_count("SELECT COUNT(*) FROM playlists WHERE disabled = 0;");
   if (qp->results < 0)
     return -1;
 
@@ -549,7 +549,7 @@ db_build_query_plitems(struct query_params *qp, char **q)
       return -1;
     }
 
-  qp->results = db_query_get_count(count);
+  qp->results = db_get_count(count);
   sqlite3_free(count);
 
   if (qp->results < 0)
@@ -610,7 +610,7 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
       return -1;
     }
 
-  qp->results = db_query_get_count(count);
+  qp->results = db_get_count(count);
   sqlite3_free(count);
 
   if (qp->results < 0)
@@ -2452,7 +2452,7 @@ db_watch_cookie_known(uint32_t cookie)
       return 0;
     }
 
-  ret = db_query_get_count(query);
+  ret = db_get_count(query);
 
   sqlite3_free(query);
 
@@ -2631,7 +2631,7 @@ db_create_tables(void)
 	}
     }
 
-  ret = db_query_get_count("SELECT COUNT(*) FROM playlists WHERE id = 1;");
+  ret = db_get_count("SELECT COUNT(*) FROM playlists WHERE id = 1;");
   if (ret != 1)
     {
       DPRINTF(E_DBG, L_DB, "Creating default playlist\n");
@@ -2646,7 +2646,7 @@ db_create_tables(void)
 	}
     }
 
-  ret = db_query_get_count("SELECT COUNT(*) FROM admin WHERE key = 'schema_version';");
+  ret = db_get_count("SELECT COUNT(*) FROM admin WHERE key = 'schema_version';");
   if (ret != 1)
     {
       DPRINTF(E_DBG, L_DB, "Setting schema version\n");
