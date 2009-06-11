@@ -220,7 +220,5 @@ scan_m3u_playlist(char *file)
 
   fclose(fp);
 
-  db_pl_update(pl_id);
-
   DPRINTF(E_INFO, L_SCAN, "Done processing playlist\n");
 }

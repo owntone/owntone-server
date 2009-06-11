@@ -43,6 +43,7 @@ struct query_params {
 
   /* Private query context, keep out */
   sqlite3_stmt *stmt;
+  char buf[32];
 };
 
 struct media_file_info {
@@ -271,12 +272,6 @@ db_pl_add(char *title, char *path, int *id);
 
 int
 db_pl_add_item(int plid, int mfid);
-
-void
-db_pl_update(int id);
-
-void
-db_pl_update_all(void);
 
 void
 db_pl_delete(int id);

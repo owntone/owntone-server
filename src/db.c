@@ -116,12 +116,13 @@ static struct col_type_map pli_cols_map[] =
     { pli_offsetof(id),           DB_TYPE_INT },
     { pli_offsetof(title),        DB_TYPE_STRING },
     { pli_offsetof(type),         DB_TYPE_INT },
-    { pli_offsetof(items),        DB_TYPE_INT },
     { pli_offsetof(query),        DB_TYPE_STRING },
     { pli_offsetof(db_timestamp), DB_TYPE_INT },
     { pli_offsetof(disabled),     DB_TYPE_INT },
     { pli_offsetof(path),         DB_TYPE_STRING },
     { pli_offsetof(index),        DB_TYPE_INT },
+
+    /* items is computed on the fly */
   };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
@@ -187,12 +188,13 @@ static ssize_t dbpli_cols_map[] =
     dbpli_offsetof(id),
     dbpli_offsetof(title),
     dbpli_offsetof(type),
-    dbpli_offsetof(items),
     dbpli_offsetof(query),
     dbpli_offsetof(db_timestamp),
     dbpli_offsetof(disabled),
     dbpli_offsetof(path),
     dbpli_offsetof(index),
+
+    /* items is computed on the fly */
   };
 
 #define wi_offsetof(field) offsetof(struct watch_info, field)
@@ -210,6 +212,11 @@ static struct col_type_map wi_cols_map[] =
   };
 
 static __thread sqlite3 *hdl;
+
+
+/* Forward */
+static int
+db_pl_count_items(int id);
 
 
 char *
@@ -776,6 +783,7 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
 {
   int ncols;
   char **strcol;
+  int id;
   int i;
   int ret;
 
@@ -819,6 +827,19 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
       strcol = (char **) ((char *)dbpli + dbpli_cols_map[i]);
 
       *strcol = (char *)sqlite3_column_text(qp->stmt, i);
+    }
+
+  id = sqlite3_column_int(qp->stmt, 0);
+
+  i = db_pl_count_items(id);
+
+  dbpli->items = qp->buf;
+  ret = snprintf(qp->buf, sizeof(qp->buf), "%d", i);
+  if ((ret < 0) || (ret >= sizeof(qp->buf)))
+    {
+      DPRINTF(E_LOG, L_DB, "Could not convert items, buffer too small\n");
+
+      strcpy(qp->buf, "0");
     }
 
   return 0;
@@ -1463,6 +1484,44 @@ db_pl_get_count(int *count)
   return 0;
 }
 
+static int
+db_pl_count_items(int id)
+{
+#define Q_TMPL "SELECT COUNT(*) FROM playlistitems JOIN songs" \
+               " ON playlistitems.songid = songs.id WHERE songs.disabled = 0 AND playlistitems.playlistid = %d;"
+  char *query;
+  int nsongs;
+  int ret;
+
+  if (id == 1)
+    {
+      ret = db_files_get_count(&nsongs);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not get file count\n");
+	  return 0;
+	}
+
+      return nsongs;
+    }
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return 0;
+    }
+
+  ret = db_get_count(query);
+
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
 void
 db_pl_ping(int id)
 {
@@ -1649,6 +1708,8 @@ db_pl_fetch_byquery(char *query)
 
       pli->items = i;
     }
+  else
+    pli->items = db_pl_count_items(pli->id);
 
   return pli;
 }
@@ -1681,8 +1742,8 @@ int
 db_pl_add(char *title, char *path, int *id)
 {
 #define QDUP_TMPL "SELECT COUNT(*) FROM playlists WHERE title = '%q' OR path = '%q';"
-#define QADD_TMPL "INSERT INTO playlists (title, type, items, query, db_timestamp, disabled, path, idx)" \
-                  " VALUES ('%q', 0, 0, NULL, %" PRIi64 ", 0, '%q', 0);"
+#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx)" \
+                  " VALUES ('%q', 0, NULL, %" PRIi64 ", 0, '%q', 0);"
   char *query;
   char *errmsg;
   sqlite3_stmt *stmt;
@@ -1909,90 +1970,6 @@ db_pl_clear_items(int id)
   sqlite3_free(query);
 
 #undef Q_TMPL
-}
-
-void
-db_pl_update(int id)
-{
-#define QPL1_TMPL "UPDATE playlists SET items = %d WHERE id = 1;"
-#define Q_TMPL "UPDATE playlists SET items = (SELECT COUNT(*) FROM playlistitems JOIN songs" \
-               " ON playlistitems.songid = songs.id WHERE songs.disabled = 0 AND playlistitems.playlistid = %d) WHERE id = %d;"
-  char *query;
-  char *errmsg;
-  int nsongs;
-  int ret;
-
-  if (id == 1)
-    {
-      ret = db_files_get_count(&nsongs);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not get file count\n");
-	  return;
-	}
-
-      query = sqlite3_mprintf(QPL1_TMPL, nsongs);
-    }
-  else
-    query = sqlite3_mprintf(Q_TMPL, id, id);
-
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return;
-    }
-
-  sqlite3_free(query);
-
-#undef QPL1_TMPL
-#undef Q_TMPL
-}
-
-void
-db_pl_update_all(void)
-{
-  char *query = "SELECT id FROM playlists;";
-  sqlite3_stmt *stmt;
-  int plid;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-      return;
-    }
-
-  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
-    {
-      plid = sqlite3_column_int(stmt, 0);
-      db_pl_update(plid);
-    }
-
-  if (ret != SQLITE_DONE)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      return;
-    }
-
-  sqlite3_finalize(stmt);
 }
 
 void
@@ -2720,7 +2697,6 @@ db_perthread_deinit(void)
   "   id             INTEGER PRIMARY KEY NOT NULL,"	\
   "   title          VARCHAR(255) NOT NULL,"		\
   "   type           INTEGER NOT NULL,"			\
-  "   items          INTEGER NOT NULL,"			\
   "   query          VARCHAR(1024),"			\
   "   db_timestamp   INTEGER NOT NULL,"			\
   "   disabled       INTEGER DEFAULT 0,"		\
@@ -2744,8 +2720,8 @@ db_perthread_deinit(void)
   ");"
 
 #define Q_PL1								\
-  "INSERT INTO playlists (id, title, type, items, query, db_timestamp, path, idx)" \
-  " VALUES(1, 'Library', 1, 0, '1', 0, '', 0);"
+  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx)" \
+  " VALUES(1, 'Library', 1, '1', 0, '', 0);"
 
 #define I_PATH							\
   "CREATE INDEX IF NOT EXISTS idx_path ON songs(path, idx);"

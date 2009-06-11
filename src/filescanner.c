@@ -600,8 +600,6 @@ bulk_scan(void)
 	}
     }
 
-  db_pl_update_all();
-
   if (playlists)
     process_deferred_playlists();
 
@@ -642,8 +640,6 @@ filescanner(void *arg)
 
   if (!scan_exit)
     {
-      db_pl_update_all();
-
       /* Enable inotify */
       event_add(&inoev, NULL);
 
