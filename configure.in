@@ -89,29 +89,8 @@ AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ re
 AC_CHECK_HEADERS(getopt.h,,)
 AC_CHECK_HEADERS(stdint.h,,)
 
-AC_REPLACE_FUNCS(strcasestr)
-AC_REPLACE_FUNCS(strsep)
-AC_CHECK_FUNCS(atoll)
-
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(fcntl.h sys/ioctl.h sys/time.h syslog.h unistd.h \
-	sys/filio.h termio.h)
-
-dnl Checks for typedefs, structures, and compiler characteristics.
-AC_HEADER_TIME
-
-dnl Checks for library functions.
-AC_PROG_GCC_TRADITIONAL
-AC_TYPE_SIGNAL
-AC_CHECK_FUNCS(select socket strdup strerror)
-
-dnl check to see if we need -lsocket (solaris)
-V_NETLIBS=""
-AC_CHECK_LIB(socket,socket,V_NETLIBS="-lsocket $V_NETLIBS",,)
-AC_SUBST(V_NETLIBS)
-
-AC_DEFINE_UNQUOTED(HOST, "$host", [host triplet])
 
 AC_OUTPUT(src/Makefile tools/Makefile admin-root/Makefile admin-root/lib-js/Makefile admin-root/lib-js/script.aculo.us/Makefile contrib/Makefile contrib/init.d/Makefile Makefile)
