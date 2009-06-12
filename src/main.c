@@ -55,7 +55,7 @@
 #include "mdns_avahi.h"
 
 
-#define PIDFILE "/var/run/mt-daapd.pid"
+#define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
 
 struct event_base *evbase_main;
 static int main_exit;
@@ -407,7 +407,7 @@ main(int argc, char **argv)
             break;
 
           case 'v':
-            fprintf(stdout, "Firefly Media Server: Version %s\n",VERSION);
+            fprintf(stdout, "Forked Media Server: Version %s\n",VERSION);
             return EXIT_SUCCESS;
             break;
 
@@ -455,7 +455,7 @@ main(int argc, char **argv)
   /* Set up libevent logging callback */
   event_set_log_callback(logger_libevent);
 
-  DPRINTF(E_LOG, L_MAIN, "Firefly Version %s taking off\n", VERSION);
+  DPRINTF(E_LOG, L_MAIN, "Forked Media Server Version %s taking off\n", VERSION);
 
   /* Initialize ffmpeg */
   av_register_all();

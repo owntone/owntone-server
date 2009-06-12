@@ -4,6 +4,8 @@
 
 #include <confuse.h>
 
+#define CONFFILE   CONFDIR "/forked-daapd.conf"
+
 extern cfg_t *cfg;
 
 int

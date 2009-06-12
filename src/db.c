@@ -36,7 +36,7 @@
 
 
 #define STR(x) ((x) ? (x) : "")
-#define DB_PATH "/var/cache/mt-daapd/songs3.db" /* FIXME */
+#define DB_PATH   STATEDIR "/cache/" PACKAGE "/songs3.db"
 
 /* Inotify cookies are uint32_t */
 #define INOTIFY_FAKE_COOKIE ((int64_t)1 << 32)

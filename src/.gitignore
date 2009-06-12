@@ -1,4 +1,4 @@
-mt-daapd
+forked-daapd
 
 *.tokens
 *Lexer.[ch]

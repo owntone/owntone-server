@@ -1,5 +1,5 @@
 
-sbin_PROGRAMS = mt-daapd
+sbin_PROGRAMS = forked-daapd
 
 if COND_FLAC
 FLACSRC=scan-flac.c
@@ -21,9 +21,11 @@ ANTLR_SOURCES = \
 
 ANTLR_PRODUCTS =
 
-mt_daapd_CPPFLAGS = -D_GNU_SOURCE @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@
-mt_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@
-mt_daapd_SOURCES = main.c \
+forked_daapd_CPPFLAGS = -D_GNU_SOURCE @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@ \
+	-DDATADIR="\"$(pkgdatadir)\"" -DCONFDIR="\"$(sysconfdir)\"" -DSTATEDIR="\"$(localstatedir)\""
+
+forked_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@
+forked_daapd_SOURCES = main.c \
 	db.c db.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
@@ -42,7 +44,7 @@ mt_daapd_SOURCES = main.c \
 	scan-wma.c \
 	$(FLACSRC) $(MUSEPACKSRC)
 
-nodist_mt_daapd_SOURCES = \
+nodist_forked_daapd_SOURCES = \
 	$(ANTLR_SOURCES)
 
 EXTRA_DIST = \

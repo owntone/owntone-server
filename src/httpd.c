@@ -64,7 +64,7 @@
 
 
 #define STREAM_CHUNK_SIZE (512 * 1024)
-#define WEBFACE_ROOT "/usr/share/mt-daapd/admin-root/"
+#define WEBFACE_ROOT   DATADIR "/webface/"
 
 struct content_type_map {
   char *ext;
