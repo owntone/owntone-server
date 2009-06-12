@@ -1,5 +1,5 @@
 
-EXTRA_DIST = configure CREDITS
+EXTRA_DIST = configure
 SUBDIRS = src
 
 
