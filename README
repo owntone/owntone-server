@@ -1,0 +1,85 @@
+forked-daapd
+------------
+
+forked-daapd is a DAAP and RSP media server for Linux. It is a complete
+rewrite of mt-daapd (Firefly Media Server).
+
+DAAP stands for Digital Audio Access Protocol, and is the protocol used
+by iTunes and friends to share/stream media libraries over the network.
+
+RSP is Roku's own media sharing protocol. Roku are the makers of the
+SoundBridge devices. See <http://www.roku.com>.
+
+forked-daapd is a temporary name that should change to something else if
+someone can come up with a good name for it.
+
+
+Supported clients
+-----------------
+
+forked-daapd supports iTunes clients as well as a number of devices similar
+to the SoundBridge.
+
+It should be able to serve your media library to any client supporting DAAP
+or RSP.
+
+A single forked-daapd instance can handle several clients concurrently,
+regardless of the protocol.
+
+
+Supported formats
+-----------------
+
+forked-daapd should support pretty much all media formats. It uses ffmpeg to
+extract metadata and decode the files on the fly when the client doesn't
+support the format.
+
+However, ffmpeg is not necessarily very good at extracting metadata, so some
+formats may cause problems. FLAC, Musepack and WMA use custom metadata
+extractors to work around that.
+
+Formats are attributed a code, so any new format will need to be explicitely
+added. Currently supported:
+ - MPEG4: mp4a, mp4v
+ - AAC: alac
+ - MP3 (and friends): mpeg
+ - FLAC: flac
+ - OGG VORBIS: ogg
+ - Musepack: mpc
+ - WMA: wma (WMA Pro), wmal (WMA Lossless), wmav (WMA video)
+ - AIFF: aif
+ - WAV: wav
+
+
+Playlists
+---------
+
+forked-daapd supports M3U playlists. Just drop your playlist somewhere in
+your library with an .m3u extension and it will pick it up.
+
+Smart playlists are not supported at the moment.
+
+
+Library
+-------
+
+The library is scanned in bulk mode at startup, but the server will be
+available even while this scan is in progress. Of course, if files have gone
+missing while the server was not running a request for these files will
+produce an error until the scan has completed and the file is no longer
+offered. Similarly, new files added while the server was not running won't
+be offered until they've been scanned.
+
+Changes to the library are reflected in real time after the initial scan. The
+directories are monitored for changes and rescanned on the fly.
+
+Symlinks are supported and dereferenced. This does interact in tricky ways
+with the above monitoring and rescanning, so you've been warned. Changes to
+symlinks themselves won't be taken into account, or not the way you'd expect.
+
+If you use symlinks, do not move around the target of the symlink. Avoid
+linking files, as files themselves aren't monitored for changes individually,
+so changes won't be noticed unless the file happens to be in a directory that
+is monitored.
+
+Bottom line: symlinks are for directories only.

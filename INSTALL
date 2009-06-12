@@ -1,0 +1,46 @@
+Installation instructions for forked-daapd
+------------------------------------------
+
+Required tools:
+ - ANTLR v3 is required to build forked-daapd, along with its C runtime
+   (libantlr3c). Use at least version 3.1.x of ANTLR v3 and the matching
+   C runtime version.
+
+The configure script will look for a wrapper called antlr3 in the PATH to
+invoke ANTLR. If it doesn't exist, it'll try to invoke ANTLR directly with
+'java org.antlr.Tool'; make sure your CLASSPATH is set properly, and if it
+doesn't work, just create the wrapper somewhere in your PATH.
+
+Libraries:
+ - glibc 2.9+ (for signalfd)
+ - Avahi client libraries, 0.6.24 minimum
+ - sqlite3
+ - ffmpeg
+ - confuse
+ - libevent 1.4+
+ - libavl
+ - MiniXML
+ - libflac (optional)
+ - taglib (optional)
+
+libavl is not the GNU libavl. There doesn't seem to be an upstream website
+anymore, but you can fetch it from any Debian mirror for instance (it'll be
+in /debian/pool/main/liba/libavl).
+
+FLAC and Musepack support are optional. If not enabled, metadata extraction
+will fail on these files.
+
+Recommended build settings:
+ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac --enable-musepack
+
+After installation, edit the configuration file, /etc/forked-daapd.conf and
+adjust the values at your convenience.
+
+forked-daapd will drop privileges to any user you'll specify in the
+configuration file if it's started as root. It's recommended to create a
+dedicated user without login privileges. That user must have read permissions
+on your library.
+
+You'll need an init script if you want to start forked-daapd at boot. A simple
+init script will do, forked-daapd daemonizes all by itself and creates a
+pidfile under /var/run.

@@ -10,7 +10,6 @@ Makefile
 
 # autofoo stuff
 autom4te.cache
-INSTALL
 aclocal.m4
 compile
 config.guess
