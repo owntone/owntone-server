@@ -408,6 +408,7 @@ transcode_cleanup(struct transcode_ctx *ctx)
   avcodec_close(ctx->acodec);
   av_close_input_file(ctx->fmtctx);
 
+  free(ctx->abuffer);
   free(ctx);
 }
 
