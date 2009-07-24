@@ -368,7 +368,7 @@ transcode_setup(struct media_file_info *mfi, size_t *est_size)
   if (ctx->fd != -1)
     DPRINTF(E_DBG, L_XCODE, "Set up raw mode for transcoding input\n");
 
-  ctx->abuffer = (uint8_t *)malloc(XCODE_BUFFER_SIZE);
+  ctx->abuffer = (uint8_t *)av_malloc(XCODE_BUFFER_SIZE);
   if (!ctx->abuffer)
     {
       DPRINTF(E_WARN, L_XCODE, "Could not allocate transcode buffer\n");
@@ -408,7 +408,7 @@ transcode_cleanup(struct transcode_ctx *ctx)
   avcodec_close(ctx->acodec);
   av_close_input_file(ctx->fmtctx);
 
-  free(ctx->abuffer);
+  av_free(ctx->abuffer);
   free(ctx);
 }
 
