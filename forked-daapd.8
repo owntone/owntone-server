@@ -1,0 +1,53 @@
+.\"  -*- nroff -*-
+.TH FORKED-DAAPD "8" "2009-09-21" "forked-daapd" "RSP & DAAP media server"
+.SH NAME
+mt\-daapd \- RSP & iTunes\-compatible DAAP server
+.SH SYNOPSIS
+.B forked-daapd
+[\fIoptions\fR]
+.SH DESCRIPTION
+\fBforked\-daapd\fP is an RSP (Roku Streaming Protocol) and DAAP (Digital
+Audio Access Protocol) server. It allows you to share your music
+collection over the local network using the RSP protocol used by
+devices from Roku and/or the DAAP protocol also used by Apple's
+iTunes.
+.SH OPTIONS
+.TP
+\fB\-d\fR \fIlevel\fP
+Log level (0\-5).
+.TP
+\fB\-D\fR \fIdom,..,dom\fP
+Debug domains; available domains are: \fIconfig\fP, \fIdaap\fP,
+\fIdb\fP, \fIhttpd\fP, \fImain\fP, \fImdns\fP, \fImisc\fP,
+\fIrsp\fP, \fIscan\fP, \fIxcode\fP, \fIevent\fP.
+.TP
+\fB\-c\fR \fIfile\fP
+Use \fIfile\fP as the configuration file.
+.TP
+\fB\-P\fR \fIfile\fP
+Write PID to \fIfile\fP.
+.TP
+\fB\-f\fR
+Run in the foreground.
+.TP
+\fB\-y\fR
+Force running as non\-root user.
+.TP
+\fB\-b\fR \fIffid\fP
+\fIffid\fP to be broadcast in mDNS records.
+.TP
+\fB\-v\fR
+Display version information.
+.SH FILES
+.nf
+ \fI/etc/forked\-daapd.conf\fR
+ \fI/var/cache/forked\-daapd\fR
+.fi
+.SH AUTHORS
+\fBforked\-daapd\fP was written by Julien BLACHE <jb@jblache.org> as a
+fork/rewrite of mt\-daapd. mt\-daapd was written by Ron Pedde
+<ron@pedde.com>.
+.PP
+This manual page was written by Rog\['e]rio Brito
+<rbrito@users.sf.net> and Julien BLACHE <jblache@debian.org>
+for the Debian project (but may be used by others).
