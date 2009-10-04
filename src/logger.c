@@ -100,6 +100,8 @@ vlogger(int severity, int domain, char *fmt, va_list args)
       va_copy(ap, args);
       vfprintf(logfile, fmt, ap);
       va_end(ap);
+
+      fflush(logfile);
     }
 
   if (console)
