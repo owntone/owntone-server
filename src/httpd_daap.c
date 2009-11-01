@@ -1700,23 +1700,23 @@ static struct uri_map daap_handlers[] =
       .handler = daap_reply_dblist
     },
     {
-      .regexp = "^/databases/[[:digit:]]/browse/[^/]+$",
+      .regexp = "^/databases/[[:digit:]]+/browse/[^/]+$",
       .handler = daap_reply_browse
     },
     {
-      .regexp = "^/databases/[[:digit:]]/items$",
+      .regexp = "^/databases/[[:digit:]]+/items$",
       .handler = daap_reply_dbsonglist
     },
     {
-      .regexp = "^/databases/[[:digit:]]/items/[[:digit:]][.][^/]+$",
+      .regexp = "^/databases/[[:digit:]]+/items/[[:digit:]]+[.][^/]+$",
       .handler = daap_stream
     },
     {
-      .regexp = "^/databases/[[:digit:]]/containers$",
+      .regexp = "^/databases/[[:digit:]]+/containers$",
       .handler = daap_reply_playlists
     },
     {
-      .regexp = "^/databases/[[:digit:]]/containers/[[:digit:]]/items$",
+      .regexp = "^/databases/[[:digit:]]+/containers/[[:digit:]]+/items$",
       .handler = daap_reply_plsonglist
     },
     { 
