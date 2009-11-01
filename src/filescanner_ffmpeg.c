@@ -165,7 +165,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   if (ctx->bit_rate > 0)
     mfi->bitrate = ctx->bit_rate / 1000;
-  else if (ctx->duration > 0) /* guesstimate */
+  else if (ctx->duration > AV_TIME_BASE) /* guesstimate */
     mfi->bitrate = ((mfi->file_size * 8) / (ctx->duration / AV_TIME_BASE)) / 1000;
 
   DPRINTF(E_DBG, L_SCAN, "Duration %d ms, bitrate %d kbps\n", mfi->song_length, mfi->bitrate);
