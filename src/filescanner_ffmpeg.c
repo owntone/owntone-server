@@ -159,6 +159,14 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	}
     }
 
+  if (audio_codec_id == CODEC_ID_NONE)
+    {
+      DPRINTF(E_DBG, L_SCAN, "File has no audio streams, discarding\n");
+
+      av_close_input_file(ctx);
+      return -1;
+    }
+
   /* Common media information */
   if (ctx->duration > 0)
     mfi->song_length = ctx->duration / (AV_TIME_BASE / 1000); /* ms */
