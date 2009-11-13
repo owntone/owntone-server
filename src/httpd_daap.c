@@ -1672,6 +1672,40 @@ daap_stream(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, stru
 }
 
 
+static char *
+daap_fix_request_uri(struct evhttp_request *req, char *uri)
+{
+  int i;
+  char *ret;
+
+  /* iTunes 9 gives us a request-uri like
+   *  daap://10.1.1.20:3689/server-info
+   */
+
+  if (strncmp(uri, "daap://", strlen("daap://")) != 0)
+    return uri;
+
+  /* Clear the proxy request flag set by evhttp
+   * due to the request URI beginning with daap://
+   * It has side-effects on Connection: keep-alive
+   */
+  req->flags &= ~EVHTTP_PROXY_REQUEST;
+
+  ret = uri - 1;
+  for (i = 0; i < 3; i++)
+    {
+      ret = strchr(ret + 1, '/');
+      if (!ret)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Malformed DAAP Request URI '%s'\n", uri);
+	  return NULL;
+	}
+    }
+
+  return ret;
+}
+
+
 static struct uri_map daap_handlers[] =
   {
 
@@ -1749,6 +1783,28 @@ daap_request(struct evhttp_request *req)
     {
       evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
+    }
+
+  ptr = daap_fix_request_uri(req, full_uri);
+  if (!ptr)
+    {
+      free(full_uri);
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  if (ptr != full_uri)
+    {
+      uri = strdup(ptr);
+      free(full_uri);
+
+      if (!uri)
+	{
+	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  return;
+	}
+
+      full_uri = uri;
     }
 
   ptr = strchr(full_uri, '?');
@@ -1870,6 +1926,10 @@ daap_request(struct evhttp_request *req)
 int
 daap_is_request(struct evhttp_request *req, char *uri)
 {
+  uri = daap_fix_request_uri(req, uri);
+  if (!uri)
+    return 0;
+
   if (strncmp(uri, "/databases/", strlen("/databases/")) == 0)
     return 1;
   if (strcmp(uri, "/databases") == 0)
