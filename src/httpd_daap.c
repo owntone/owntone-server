@@ -1675,10 +1675,9 @@ daap_stream(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, stru
 static char *
 daap_fix_request_uri(struct evhttp_request *req, char *uri)
 {
-  int i;
   char *ret;
 
-  /* iTunes 9 gives us a request-uri like
+  /* iTunes 9 gives us an absolute request-uri like
    *  daap://10.1.1.20:3689/server-info
    */
 
@@ -1686,20 +1685,16 @@ daap_fix_request_uri(struct evhttp_request *req, char *uri)
     return uri;
 
   /* Clear the proxy request flag set by evhttp
-   * due to the request URI beginning with daap://
+   * due to the request URI being absolute.
    * It has side-effects on Connection: keep-alive
    */
   req->flags &= ~EVHTTP_PROXY_REQUEST;
 
-  ret = uri - 1;
-  for (i = 0; i < 3; i++)
+  ret = strchr(uri + strlen("daap://"), '/');
+  if (!ret)
     {
-      ret = strchr(ret + 1, '/');
-      if (!ret)
-	{
-	  DPRINTF(E_LOG, L_DAAP, "Malformed DAAP Request URI '%s'\n", uri);
-	  return NULL;
-	}
+      DPRINTF(E_LOG, L_DAAP, "Malformed DAAP Request URI '%s'\n", uri);
+      return NULL;
     }
 
   return ret;
