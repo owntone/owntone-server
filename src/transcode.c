@@ -48,6 +48,9 @@
 #define XCODE_BUFFER_SIZE ((AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2)
 #define RAW_BUFFER_SIZE   256
 
+#define ID3V2_MIN_HEADER_SIZE 10
+
+
 struct transcode_ctx {
   AVFormatContext *fmtctx;
   /* Audio stream */
@@ -76,6 +79,38 @@ struct transcode_ctx {
 static char *default_codecs = "mpeg,wav";
 static char *roku_codecs = "mpeg,mp4a,wma,wav";
 static char *itunes_codecs = "mpeg,mp4a,mp4v,alac,wav";
+
+
+static int
+id3v2_tag_len(const uint8_t *buf)
+{
+  int len;
+
+  len = ID3V2_MIN_HEADER_SIZE
+    + ((buf[6] & 0x7f) << 21)
+    + ((buf[7] & 0x7f) << 14)
+    + ((buf[8] & 0x7f) << 7)
+    + (buf[9] & 0x7f);
+
+  if (buf[5] & 0x10)
+    len += ID3V2_MIN_HEADER_SIZE;
+
+  return len;
+}
+
+static int
+has_id3v2_tag(const uint8_t *buf)
+{
+  return ((buf[0] ==  'I')
+	  && (buf[1] ==  'D')
+	  && (buf[2] ==  '3')
+	  && (buf[3] != 0xff)
+	  && (buf[4] != 0xff)
+	  && ((buf[6] & 0x80) == 0)
+	  && ((buf[7] & 0x80) == 0)
+	  && ((buf[8] & 0x80) == 0)
+	  && ((buf[9] & 0x80) == 0));
+}
 
 
 static inline void
@@ -273,6 +308,7 @@ struct transcode_ctx *
 transcode_setup(struct media_file_info *mfi, size_t *est_size)
 {
   struct transcode_ctx *ctx;
+  int hdr_len;
   int i;
   int ret;
 
@@ -358,6 +394,39 @@ transcode_setup(struct media_file_info *mfi, size_t *est_size)
       if (ctx->fd < 0)
 	{
 	  DPRINTF(E_WARN, L_XCODE, "Could not open %s: %s\n", mfi->fname, strerror(errno));
+
+	  free(ctx->rawbuffer);
+	  avcodec_close(ctx->acodec);
+	  goto setup_fail;
+	}
+
+      /* Check for ID3v2 header */
+      ret = read(ctx->fd, ctx->rawbuffer, ID3V2_MIN_HEADER_SIZE);
+      if ((ret < 0) || (ret != ID3V2_MIN_HEADER_SIZE))
+	{
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_XCODE, "Could not read raw data: %s\n", strerror(errno));
+	  else
+	    DPRINTF(E_WARN, L_XCODE, "Could not read enough raw data\n");
+
+	  free(ctx->rawbuffer);
+	  avcodec_close(ctx->acodec);
+	  goto setup_fail;
+	}
+
+      ret = has_id3v2_tag(ctx->rawbuffer);
+      if (ret)
+	{
+	  hdr_len = id3v2_tag_len(ctx->rawbuffer);
+	  DPRINTF(E_DBG, L_XCODE, "Skipping ID3V2 header of %d bytes\n", hdr_len);
+	}
+      else
+	hdr_len = 0;
+
+      ret = lseek(ctx->fd, hdr_len, SEEK_SET);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_XCODE, "Could not seek: %s\n", strerror(errno));
 
 	  free(ctx->rawbuffer);
 	  avcodec_close(ctx->acodec);
