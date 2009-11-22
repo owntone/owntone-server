@@ -48,8 +48,13 @@ AC_ARG_ENABLE(musepack, AC_HELP_STRING([--enable-musepack], [Enable Musepack sup
                       use_musepack=true;
                       CPPFLAGS="${CPPFLAGS} -DMUSEPACK")
 
+AC_ARG_ENABLE(itunes, AC_HELP_STRING([--enable-itunes], [Enable iTunes library support]),
+                      use_itunes=true;
+                      CPPFLAGS="${CPPFLAGS} -DITUNES")
+
 AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
+AM_CONDITIONAL(COND_ITUNES, test x$use_itunes = xtrue)
 
 dnl Checks for libraries.
 PKG_CHECK_MODULES(CONFUSE, [ libconfuse ])
@@ -82,6 +87,10 @@ fi
 
 if test x$use_musepack = xtrue; then
 	PKG_CHECK_MODULES(TAGLIB, [ taglib_c ])
+fi
+
+if test x$use_itunes = xtrue; then
+	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.15 ])
 fi
 
 AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))

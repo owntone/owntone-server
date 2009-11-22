@@ -9,6 +9,10 @@ if COND_MUSEPACK
 MUSEPACKSRC=scan-mpc.c
 endif
 
+if COND_ITUNES
+ITUNESSRC=filescanner_itunes.c
+endif
+
 ANTLR_GRAMMARS = \
 	RSP.g RSP2SQL.g \
 	DAAP.g DAAP2SQL.g
@@ -21,16 +25,16 @@ ANTLR_SOURCES = \
 
 ANTLR_PRODUCTS =
 
-forked_daapd_CPPFLAGS = -D_GNU_SOURCE @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@ \
+forked_daapd_CPPFLAGS = -D_GNU_SOURCE @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ \
 	-DDATADIR="\"$(pkgdatadir)\"" -DCONFDIR="\"$(sysconfdir)\"" -DSTATEDIR="\"$(localstatedir)\""
 
-forked_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@
+forked_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
 	filescanner.c filescanner.h \
-	filescanner_ffmpeg.c filescanner_urlfile.c filescanner_m3u.c \
+	filescanner_ffmpeg.c filescanner_urlfile.c filescanner_m3u.c $(ITUNESSRC) \
 	mdns_avahi.c mdns_avahi.h \
 	evhttp/http.c evhttp/evhttp.h evhttp/strlcpy.c \
 	evhttp/http-internal.h evhttp/log.h evhttp/strlcpy-internal.h \
