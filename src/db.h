@@ -275,6 +275,9 @@ db_pl_ping(int id);
 struct playlist_info *
 db_pl_fetch_bypath(char *path);
 
+struct playlist_info *
+db_pl_fetch_bytitlepath(char *title, char *path);
+
 int
 db_pl_add(char *title, char *path, int *id);
 

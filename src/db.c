@@ -1688,6 +1688,30 @@ db_pl_fetch_bypath(char *path)
 #undef Q_TMPL
 }
 
+struct playlist_info *
+db_pl_fetch_bytitlepath(char *title, char *path)
+{
+#define Q_TMPL "SELECT * FROM playlists WHERE title = '%q' AND path = '%q';"
+  struct playlist_info *pli;
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, title, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return NULL;
+    }
+
+  pli = db_pl_fetch_byquery(query);
+
+  sqlite3_free(query);
+
+  return pli;
+
+#undef Q_TMPL
+}
+
 int
 db_pl_add(char *title, char *path, int *id)
 {
