@@ -279,7 +279,7 @@ int
 db_pl_add(char *title, char *path, int *id);
 
 int
-db_pl_add_item(int plid, char *path);
+db_pl_add_item_bypath(int plid, char *path);
 
 int
 db_pl_add_item_byid(int plid, int fileid);

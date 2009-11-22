@@ -189,7 +189,7 @@ scan_m3u_playlist(char *file)
 	    continue;
 	  }
 
-	ret = db_pl_add_item(pl_id, filename);
+	ret = db_pl_add_item_bypath(pl_id, filename);
 	if (ret < 0)
 	  DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
 

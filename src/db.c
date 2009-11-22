@@ -1755,7 +1755,7 @@ db_pl_add(char *title, char *path, int *id)
 }
 
 int
-db_pl_add_item(int plid, char *path)
+db_pl_add_item_bypath(int plid, char *path)
 {
 #define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, '%q');"
   char *query;
