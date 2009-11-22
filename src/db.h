@@ -281,6 +281,9 @@ db_pl_add(char *title, char *path, int *id);
 int
 db_pl_add_item(int plid, char *path);
 
+int
+db_pl_add_item_byid(int plid, int fileid);
+
 void
 db_pl_clear_items(int id);
 
