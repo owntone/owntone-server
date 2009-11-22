@@ -1682,7 +1682,7 @@ db_pl_fetch_bypath(char *path)
 int
 db_pl_add(char *title, char *path, int *id)
 {
-#define QDUP_TMPL "SELECT COUNT(*) FROM playlists WHERE title = '%q' OR path = '%q';"
+#define QDUP_TMPL "SELECT COUNT(*) FROM playlists WHERE title = '%q' AND path = '%q';"
 #define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx)" \
                   " VALUES ('%q', 0, NULL, %" PRIi64 ", 0, '%q', 0);"
   char *query;
