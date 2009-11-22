@@ -1644,7 +1644,16 @@ db_pl_fetch_byquery(char *query)
 	}
     }
 
+  ret = sqlite3_step(stmt);
   sqlite3_finalize(stmt);
+
+  if (ret != SQLITE_DONE)
+    {
+      DPRINTF(E_WARN, L_DB, "Query had more than a single result!\n");
+
+      free_pli(pli, 0);
+      return NULL;
+    }
 
   /* Playlist 1: all files */
   if (pli->id == 1)
