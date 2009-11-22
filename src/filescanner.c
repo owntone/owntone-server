@@ -276,11 +276,11 @@ process_playlist(char *file)
   if (ext)
     {
       if (strcmp(ext, ".m3u") == 0)
-	{
-	  scan_m3u_playlist(file);
-
-	  return;
-	}
+	scan_m3u_playlist(file);
+#ifdef ITUNES
+      else if (strcmp(ext, ".xml") == 0)
+	scan_itunes_itml(file);
+#endif
     }
 }
 
@@ -347,7 +347,11 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int flags)
   ext = strrchr(file, '.');
   if (ext)
     {
-      if (strcmp(ext, ".m3u") == 0)
+      if ((strcmp(ext, ".m3u") == 0)
+#ifdef ITUNES
+	  || (strcmp(ext, ".xml") == 0)
+#endif
+	  )
 	{
 	  if (flags & F_SCAN_BULK)
 	    defer_playlist(file);
