@@ -241,6 +241,9 @@ db_file_ping(char *path);
 int
 db_file_id_bypath(char *path);
 
+int
+db_file_id_byurl(char *url);
+
 time_t
 db_file_stamp_bypath(char *path);
 
