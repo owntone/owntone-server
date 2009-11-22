@@ -242,6 +242,12 @@ int
 db_file_id_bypath(char *path);
 
 int
+db_file_id_byfilebase(char *filename, char *base);
+
+int
+db_file_id_byfile(char *filename);
+
+int
 db_file_id_byurl(char *url);
 
 time_t
