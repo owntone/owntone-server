@@ -22,6 +22,7 @@ Libraries:
  - MiniXML
  - libflac (optional)
  - taglib (optional)
+ - libplist 0.15+ (optional - iTunes XML support)
 
 libavl is not the GNU libavl. There doesn't seem to be an upstream website
 anymore, but you can fetch it from any Debian mirror for instance (it'll be
@@ -29,6 +30,9 @@ in /debian/pool/main/liba/libavl).
 
 FLAC and Musepack support are optional. If not enabled, metadata extraction
 will fail on these files.
+
+Support for iTunes Music Library XML format is optional. Use --enable-itunes
+to enable this feature.
 
 Recommended build settings:
  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac --enable-musepack
