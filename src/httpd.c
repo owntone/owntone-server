@@ -120,6 +120,9 @@ stream_end(struct stream_ctx *st, int failed)
 
   if (st->xcode)
     transcode_cleanup(st->xcode);
+  else
+    close(st->fd);
+
   free(st);
 }
 
