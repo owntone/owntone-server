@@ -1907,7 +1907,10 @@ daap_request(struct evhttp_request *req)
 
   evhttp_add_header(req->output_headers, "Accept-Ranges", "bytes");
   evhttp_add_header(req->output_headers, "DAAP-Server", "forked-daapd/" VERSION);
-  /* Content-Type for all replies, even the actual streaming */
+  /* Content-Type for all replies, even the actual audio streaming. Note that
+   * video streaming will override this Content-Type with a more appropriate
+   * video/<type> Content-Type as expected by clients like Front Row.
+   */
   evhttp_add_header(req->output_headers, "Content-Type", "application/x-dmap-tagged");
 
   daap_handlers[handler].handler(req, evbuf, uri_parts, &query);

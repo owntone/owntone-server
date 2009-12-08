@@ -397,7 +397,27 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	}
       st->offset = offset;
 
-      if (!evhttp_find_header(req->output_headers, "Content-Type") && mfi->type)
+      /* Content-Type for video files is different than for audio files
+       * and overrides whatever may have been set previously, like
+       * application/x-dmap-tagged when we're speaking DAAP.
+       */
+      if (mfi->has_video)
+	{
+	  /* Front Row and others expect video/<type> */
+	  ret = snprintf(buf, sizeof(buf), "video/%s", mfi->type);
+	  if ((ret < 0) || (ret >= sizeof(buf)))
+	    DPRINTF(E_LOG, L_HTTPD, "Content-Type too large for buffer, dropping\n");
+	  else
+	    {
+	      evhttp_remove_header(req->output_headers, "Content-Type");
+	      evhttp_add_header(req->output_headers, "Content-Type", buf);
+	    }
+	}
+      /* If no Content-Type has been set and we're streaming audio, add a proper
+       * Content-Type for the file we're streaming. Remember DAAP streams audio
+       * with application/x-dmap-tagged as the Content-Type (ugh!).
+       */
+      else if (!evhttp_find_header(req->output_headers, "Content-Type") && mfi->type)
 	{
 	  ret = snprintf(buf, sizeof(buf), "audio/%s", mfi->type);
 	  if ((ret < 0) || (ret >= sizeof(buf)))
