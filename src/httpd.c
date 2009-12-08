@@ -538,6 +538,12 @@ httpd_stream_file(struct evhttp_request *req, int id)
       else
 	evhttp_add_header(req->output_headers, "Content-Range", buf);
 
+      ret = snprintf(buf, sizeof(buf), "%ld", ((end_offset) ? end_offset + 1 : (long)sb.st_size) - offset);
+      if ((ret < 0) || (ret >= sizeof(buf)))
+	DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
+      else
+	evhttp_add_header(req->output_headers, "Content-Length", buf);
+
       evhttp_send_reply_start(req, 206, "Partial Content");
     }
 
