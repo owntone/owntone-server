@@ -107,16 +107,17 @@ static pthread_t tid_httpd;
 
 
 static void
-stream_end(struct stream_ctx *st)
+stream_end(struct stream_ctx *st, int failed)
 {
   /* This is an extension to the stock evhttp */
   st->req->fail_cb = NULL;
   st->req->fail_cb_arg = NULL;
 
-  evhttp_send_reply_end(st->req);
+  if (!failed)
+    evhttp_send_reply_end(st->req);
 
   evbuffer_free(st->evbuf);
-  
+
   if (st->xcode)
     transcode_cleanup(st->xcode);
   free(st);
@@ -137,7 +138,7 @@ stream_chunk_resched_cb(struct evhttp_connection *evcon, void *arg)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming\n");
 
-      stream_end(st);
+      stream_end(st, 0);
     }
 }
 
@@ -159,7 +160,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
       else
 	DPRINTF(E_LOG, L_HTTPD, "Transcoding error, file id %d\n", st->id);
 
-      stream_end(st);
+      stream_end(st, 0);
       return;
     }
 
@@ -210,7 +211,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming (xcode)\n");
 
-      stream_end(st);
+      stream_end(st, 0);
       return;
     }
 }
@@ -231,7 +232,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
       else
 	DPRINTF(E_LOG, L_HTTPD, "Streaming error, file id %d\n", st->id);
 
-      stream_end(st);
+      stream_end(st, 0);
       return;
     }
 
@@ -257,18 +258,10 @@ stream_fail_cb(struct evhttp_request *req, void *arg)
 
   DPRINTF(E_LOG, L_HTTPD, "Connection failed; stopping streaming of file ID %d\n", st->id);
 
-  req->fail_cb = NULL;
-  req->fail_cb_arg = NULL;
-
   /* Stop streaming */
   event_del(&st->ev);
 
-  /* Cleanup */
-  evbuffer_free(st->evbuf);
-
-  if (st->xcode)
-    transcode_cleanup(st->xcode);
-  free(st);
+  stream_end(st, 1);
 }
 
 
