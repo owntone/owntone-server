@@ -80,6 +80,7 @@ struct stream_ctx {
   size_t size;
   size_t offset;
   size_t start_offset;
+  size_t end_offset;
   int marked;
   struct transcode_ctx *xcode;
 };
@@ -223,11 +224,23 @@ static void
 stream_chunk_raw_cb(int fd, short event, void *arg)
 {
   struct stream_ctx *st;
+  size_t chunk_size;
   int ret;
 
   st = (struct stream_ctx *)arg;
 
-  ret = evbuffer_read(st->evbuf, st->fd, STREAM_CHUNK_SIZE);
+  if (st->end_offset && (st->offset > st->end_offset))
+    {
+      stream_end(st, 0);
+      return;
+    }
+
+  if (st->end_offset && ((st->offset + STREAM_CHUNK_SIZE) > (st->end_offset + 1)))
+    chunk_size = st->end_offset + 1 - st->offset;
+  else
+    chunk_size = STREAM_CHUNK_SIZE;  
+
+  ret = evbuffer_read(st->evbuf, st->fd, chunk_size);
   if (ret <= 0)
     {
       if (ret == 0)
@@ -278,22 +291,46 @@ httpd_stream_file(struct evhttp_request *req, int id)
   struct stat sb;
   struct timeval tv;
   const char *param;
+  const char *param_end;
   char buf[64];
   long offset;
+  long end_offset;
   int transcode;
   int ret;
 
   offset = 0;
+  end_offset = 0;
   param = evhttp_find_header(req->input_headers, "Range");
   if (param)
     {
       DPRINTF(E_DBG, L_HTTPD, "Found Range header: %s\n", param);
 
+      /* Start offset */
       ret = safe_atol(param + strlen("bytes="), &offset);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_HTTPD, "Invalid offset, starting from 0 (%s)\n", param);
+	  DPRINTF(E_LOG, L_HTTPD, "Invalid start offset, will stream whole file (%s)\n", param);
 	  offset = 0;
+	}
+      /* End offset, if any */
+      else
+	{
+	  param_end = strchr(param, '-');
+	  if (param_end)
+	    {
+	      ret = safe_atol(param_end + 1, &end_offset);
+	      if (ret < 0)
+		{
+		  DPRINTF(E_LOG, L_HTTPD, "Invalid end offset, will stream to end of file (%s)\n", param);
+		  end_offset = 0;
+		}
+
+	      if (end_offset < offset)
+		{
+		  DPRINTF(E_LOG, L_HTTPD, "End offset < start offset, will stream to end of file (%ld < %ld)\n", end_offset, offset);
+		  end_offset = 0;
+		}
+	    }
 	}
     }
 
@@ -396,6 +433,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	  return;
 	}
       st->offset = offset;
+      st->end_offset = end_offset;
 
       /* Content-Type for video files is different than for audio files
        * and overrides whatever may have been set previously, like
@@ -487,14 +525,14 @@ httpd_stream_file(struct evhttp_request *req, int id)
   st->start_offset = offset;
   st->req = req;
 
-  if (offset == 0)
+  if ((offset == 0) && (end_offset == 0))
     evhttp_send_reply_start(req, HTTP_OK, "OK");
   else
     {
-      DPRINTF(E_DBG, L_HTTPD, "Stream request with offset %ld\n", offset);
+      DPRINTF(E_DBG, L_HTTPD, "Stream request with range %ld-%ld\n", offset, end_offset);
 
       ret = snprintf(buf, sizeof(buf), "bytes %ld-%ld/%ld",
-		     offset, (long)sb.st_size, (long)sb.st_size + 1);
+		     offset, (end_offset) ? end_offset : (long)sb.st_size, (long)sb.st_size);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Range too large for buffer, dropping\n");
       else
