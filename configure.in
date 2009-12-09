@@ -90,7 +90,7 @@ if test x$use_musepack = xtrue; then
 fi
 
 if test x$use_itunes = xtrue; then
-	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.15 ])
+	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.16 ])
 fi
 
 AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
