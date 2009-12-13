@@ -23,8 +23,8 @@ Libraries:
  - libevent 1.4+
  - libavl
  - MiniXML
- - libflac (optional)
- - taglib (optional)
+ - libflac (optional - FLAC support)
+ - taglib (optional - Musepack support)
  - libplist 0.16+ (optional - iTunes XML support)
 
 libavl is not the GNU libavl. There doesn't seem to be an upstream website
