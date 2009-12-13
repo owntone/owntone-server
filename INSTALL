@@ -25,7 +25,7 @@ Libraries:
  - MiniXML
  - libflac (optional)
  - taglib (optional)
- - libplist 0.15+ (optional - iTunes XML support)
+ - libplist 0.16+ (optional - iTunes XML support)
 
 libavl is not the GNU libavl. There doesn't seem to be an upstream website
 anymore, but you can fetch it from any Debian mirror for instance (it'll be
