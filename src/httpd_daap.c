@@ -898,6 +898,13 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 }
 
 static void
+daap_reply_activity(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  /* That's so nice, thanks for letting us know */
+  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+}
+
+static void
 daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   cfg_t *lib;
@@ -1725,6 +1732,10 @@ static struct uri_map daap_handlers[] =
       .handler = daap_reply_update
     },
     {
+      .regexp = "^/activity$",
+      .handler = daap_reply_activity
+    },
+    {
       .regexp = "^/databases$",
       .handler = daap_reply_dblist
     },
@@ -1939,6 +1950,8 @@ daap_is_request(struct evhttp_request *req, char *uri)
   if (strcmp(uri, "/login") == 0)
     return 1;
   if (strcmp(uri, "/update") == 0)
+    return 1;
+  if (strcmp(uri, "/activity") == 0)
     return 1;
   if (strcmp(uri, "/logout") == 0)
     return 1;
