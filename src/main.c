@@ -172,7 +172,10 @@ daemonize(int background, char *pidfile)
       if (fd > 2)
 	close(fd);
 
-      chdir("/");
+      ret = chdir("/");
+      if (ret < 0)
+        DPRINTF(E_WARN, L_MAIN, "chdir() failed: %s\n", strerror(errno));
+
       umask(0);
 
       fprintf(fp, "%d\n", getpid());
