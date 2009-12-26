@@ -78,6 +78,14 @@ static struct metadata_map md_map[] =
     { "discnumber",   1, mfi_offsetof(disc) },
     { "year",         1, mfi_offsetof(year) },
     { "date",         1, mfi_offsetof(year) },
+
+    { "stik",         1, mfi_offsetof(media_kind) },
+    { "show",         0, mfi_offsetof(tv_series_name) },
+    { "episode_id",   0, mfi_offsetof(tv_episode_num_str) },
+    { "network",      0, mfi_offsetof(tv_network_name) },
+    { "episode_sort", 1, mfi_offsetof(tv_episode_sort) },
+    { "season_number",1, mfi_offsetof(tv_season_num) },
+
     { NULL,           0, 0 }
   };
 
@@ -360,6 +368,13 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	      *intval = (uint32_t) tmpval;
 	    }
 	}
+    }
+
+  /* fix up TV metadata */
+  if (mfi->media_kind == 10)
+    {
+      /* I have no idea why this is, but iTunes reports a media kind of 64 for stik==10 (?!) */
+      mfi->media_kind = 64;
     }
 
  skip_extract:
