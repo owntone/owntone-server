@@ -57,54 +57,54 @@ struct col_type_map {
  */
 static struct col_type_map mfi_cols_map[] =
   {
-    { mfi_offsetof(id),              DB_TYPE_INT },
-    { mfi_offsetof(path),            DB_TYPE_STRING },
-    { mfi_offsetof(fname),           DB_TYPE_STRING },
-    { mfi_offsetof(title),           DB_TYPE_STRING },
-    { mfi_offsetof(artist),          DB_TYPE_STRING },
-    { mfi_offsetof(album),           DB_TYPE_STRING },
-    { mfi_offsetof(genre),           DB_TYPE_STRING },
-    { mfi_offsetof(comment),         DB_TYPE_STRING },
-    { mfi_offsetof(type),            DB_TYPE_STRING },
-    { mfi_offsetof(composer),        DB_TYPE_STRING },
-    { mfi_offsetof(orchestra),       DB_TYPE_STRING },
-    { mfi_offsetof(conductor),       DB_TYPE_STRING },
-    { mfi_offsetof(grouping),        DB_TYPE_STRING },
-    { mfi_offsetof(url),             DB_TYPE_STRING },
-    { mfi_offsetof(bitrate),         DB_TYPE_INT },
-    { mfi_offsetof(samplerate),      DB_TYPE_INT },
-    { mfi_offsetof(song_length),     DB_TYPE_INT },
-    { mfi_offsetof(file_size),       DB_TYPE_INT64 },
-    { mfi_offsetof(year),            DB_TYPE_INT },
-    { mfi_offsetof(track),           DB_TYPE_INT },
-    { mfi_offsetof(total_tracks),    DB_TYPE_INT },
-    { mfi_offsetof(disc),            DB_TYPE_INT },
-    { mfi_offsetof(total_discs),     DB_TYPE_INT },
-    { mfi_offsetof(bpm),             DB_TYPE_INT },
-    { mfi_offsetof(compilation),     DB_TYPE_CHAR },
-    { mfi_offsetof(rating),          DB_TYPE_INT },
-    { mfi_offsetof(play_count),      DB_TYPE_INT },
-    { mfi_offsetof(data_kind),       DB_TYPE_INT },
-    { mfi_offsetof(item_kind),       DB_TYPE_INT },
-    { mfi_offsetof(description),     DB_TYPE_STRING },
-    { mfi_offsetof(time_added),      DB_TYPE_INT },
-    { mfi_offsetof(time_modified),   DB_TYPE_INT },
-    { mfi_offsetof(time_played),     DB_TYPE_INT },
-    { mfi_offsetof(db_timestamp),    DB_TYPE_INT },
-    { mfi_offsetof(disabled),        DB_TYPE_INT },
-    { mfi_offsetof(sample_count),    DB_TYPE_INT64 },
-    { mfi_offsetof(codectype),       DB_TYPE_STRING },
-    { mfi_offsetof(index),           DB_TYPE_INT },
-    { mfi_offsetof(has_video),       DB_TYPE_INT },
-    { mfi_offsetof(contentrating),   DB_TYPE_INT },
-    { mfi_offsetof(bits_per_sample), DB_TYPE_INT },
-    { mfi_offsetof(album_artist),    DB_TYPE_STRING },
-    { mfi_offsetof(media_kind),      DB_TYPE_INT },
-    { mfi_offsetof(tv_series_name),  DB_TYPE_STRING },
-    { mfi_offsetof(tv_episode_num_str),DB_TYPE_STRING },
-    { mfi_offsetof(tv_network_name), DB_TYPE_STRING },
-    { mfi_offsetof(tv_episode_sort), DB_TYPE_INT },
-    { mfi_offsetof(tv_season_num),   DB_TYPE_INT },
+    { mfi_offsetof(id),                 DB_TYPE_INT },
+    { mfi_offsetof(path),               DB_TYPE_STRING },
+    { mfi_offsetof(fname),              DB_TYPE_STRING },
+    { mfi_offsetof(title),              DB_TYPE_STRING },
+    { mfi_offsetof(artist),             DB_TYPE_STRING },
+    { mfi_offsetof(album),              DB_TYPE_STRING },
+    { mfi_offsetof(genre),              DB_TYPE_STRING },
+    { mfi_offsetof(comment),            DB_TYPE_STRING },
+    { mfi_offsetof(type),               DB_TYPE_STRING },
+    { mfi_offsetof(composer),           DB_TYPE_STRING },
+    { mfi_offsetof(orchestra),          DB_TYPE_STRING },
+    { mfi_offsetof(conductor),          DB_TYPE_STRING },
+    { mfi_offsetof(grouping),           DB_TYPE_STRING },
+    { mfi_offsetof(url),                DB_TYPE_STRING },
+    { mfi_offsetof(bitrate),            DB_TYPE_INT },
+    { mfi_offsetof(samplerate),         DB_TYPE_INT },
+    { mfi_offsetof(song_length),        DB_TYPE_INT },
+    { mfi_offsetof(file_size),          DB_TYPE_INT64 },
+    { mfi_offsetof(year),               DB_TYPE_INT },
+    { mfi_offsetof(track),              DB_TYPE_INT },
+    { mfi_offsetof(total_tracks),       DB_TYPE_INT },
+    { mfi_offsetof(disc),               DB_TYPE_INT },
+    { mfi_offsetof(total_discs),        DB_TYPE_INT },
+    { mfi_offsetof(bpm),                DB_TYPE_INT },
+    { mfi_offsetof(compilation),        DB_TYPE_CHAR },
+    { mfi_offsetof(rating),             DB_TYPE_INT },
+    { mfi_offsetof(play_count),         DB_TYPE_INT },
+    { mfi_offsetof(data_kind),          DB_TYPE_INT },
+    { mfi_offsetof(item_kind),          DB_TYPE_INT },
+    { mfi_offsetof(description),        DB_TYPE_STRING },
+    { mfi_offsetof(time_added),         DB_TYPE_INT },
+    { mfi_offsetof(time_modified),      DB_TYPE_INT },
+    { mfi_offsetof(time_played),        DB_TYPE_INT },
+    { mfi_offsetof(db_timestamp),       DB_TYPE_INT },
+    { mfi_offsetof(disabled),           DB_TYPE_INT },
+    { mfi_offsetof(sample_count),       DB_TYPE_INT64 },
+    { mfi_offsetof(codectype),          DB_TYPE_STRING },
+    { mfi_offsetof(index),              DB_TYPE_INT },
+    { mfi_offsetof(has_video),          DB_TYPE_INT },
+    { mfi_offsetof(contentrating),      DB_TYPE_INT },
+    { mfi_offsetof(bits_per_sample),    DB_TYPE_INT },
+    { mfi_offsetof(album_artist),       DB_TYPE_STRING },
+    { mfi_offsetof(media_kind),         DB_TYPE_INT },
+    { mfi_offsetof(tv_series_name),     DB_TYPE_STRING },
+    { mfi_offsetof(tv_episode_num_str), DB_TYPE_STRING },
+    { mfi_offsetof(tv_network_name),    DB_TYPE_STRING },
+    { mfi_offsetof(tv_episode_sort),    DB_TYPE_INT },
+    { mfi_offsetof(tv_season_num),      DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -205,9 +205,9 @@ static ssize_t dbpli_cols_map[] =
  */
 static struct col_type_map wi_cols_map[] =
   {
-    { wi_offsetof(wd), DB_TYPE_INT },
+    { wi_offsetof(wd),     DB_TYPE_INT },
     { wi_offsetof(cookie), DB_TYPE_INT },
-    { wi_offsetof(path), DB_TYPE_STRING },
+    { wi_offsetof(path),   DB_TYPE_STRING },
     { wi_offsetof(libidx), DB_TYPE_INT },
   };
 
@@ -2665,56 +2665,56 @@ db_perthread_deinit(void)
   "   value VARCHAR(32) NOT NULL"		\
   ");"
 
-#define T_FILES					\
+#define T_FILES						\
   "CREATE TABLE IF NOT EXISTS files ("			\
-  "   id              INTEGER PRIMARY KEY NOT NULL,"	\
-  "   path            VARCHAR(4096) NOT NULL,"		\
-  "   fname           VARCHAR(255) NOT NULL,"		\
-  "   title           VARCHAR(1024) DEFAULT NULL,"	\
-  "   artist          VARCHAR(1024) DEFAULT NULL,"	\
-  "   album           VARCHAR(1024) DEFAULT NULL,"	\
-  "   genre           VARCHAR(255) DEFAULT NULL,"	\
-  "   comment         VARCHAR(4096) DEFAULT NULL,"	\
-  "   type            VARCHAR(255) DEFAULT NULL,"	\
-  "   composer        VARCHAR(1024) DEFAULT NULL,"	\
-  "   orchestra       VARCHAR(1024) DEFAULT NULL,"	\
-  "   conductor       VARCHAR(1024) DEFAULT NULL,"	\
-  "   grouping        VARCHAR(1024) DEFAULT NULL,"	\
-  "   url             VARCHAR(1024) DEFAULT NULL,"	\
-  "   bitrate         INTEGER DEFAULT 0,"		\
-  "   samplerate      INTEGER DEFAULT 0,"		\
-  "   song_length     INTEGER DEFAULT 0,"		\
-  "   file_size       INTEGER DEFAULT 0,"		\
-  "   year            INTEGER DEFAULT 0,"		\
-  "   track           INTEGER DEFAULT 0,"		\
-  "   total_tracks    INTEGER DEFAULT 0,"		\
-  "   disc            INTEGER DEFAULT 0,"		\
-  "   total_discs     INTEGER DEFAULT 0,"		\
-  "   bpm             INTEGER DEFAULT 0,"		\
-  "   compilation     INTEGER DEFAULT 0,"		\
-  "   rating          INTEGER DEFAULT 0,"		\
-  "   play_count      INTEGER DEFAULT 0,"		\
-  "   data_kind       INTEGER DEFAULT 0,"		\
-  "   item_kind       INTEGER DEFAULT 0,"		\
-  "   description     INTEGER DEFAULT 0,"		\
-  "   time_added      INTEGER DEFAULT 0,"		\
-  "   time_modified   INTEGER DEFAULT 0,"		\
-  "   time_played     INTEGER DEFAULT 0,"		\
-  "   db_timestamp    INTEGER DEFAULT 0,"		\
-  "   disabled        INTEGER DEFAULT 0,"		\
-  "   sample_count    INTEGER DEFAULT 0,"		\
-  "   codectype       VARCHAR(5) DEFAULT NULL,"		\
-  "   idx             INTEGER NOT NULL,"		\
-  "   has_video       INTEGER DEFAULT 0,"		\
-  "   contentrating   INTEGER DEFAULT 0,"		\
-  "   bits_per_sample INTEGER DEFAULT 0,"		\
-  "   album_artist    VARCHAR(1024),"			\
-  "   media_kind      INTEGER NOT NULL,"		\
-  "   tv_series_name  VARCHAR(1024) DEFAULT NULL,"	\
+  "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
+  "   path               VARCHAR(4096) NOT NULL,"	\
+  "   fname              VARCHAR(255) NOT NULL,"	\
+  "   title              VARCHAR(1024) DEFAULT NULL,"	\
+  "   artist             VARCHAR(1024) DEFAULT NULL,"	\
+  "   album              VARCHAR(1024) DEFAULT NULL,"	\
+  "   genre              VARCHAR(255) DEFAULT NULL,"	\
+  "   comment            VARCHAR(4096) DEFAULT NULL,"	\
+  "   type               VARCHAR(255) DEFAULT NULL,"	\
+  "   composer           VARCHAR(1024) DEFAULT NULL,"	\
+  "   orchestra          VARCHAR(1024) DEFAULT NULL,"	\
+  "   conductor          VARCHAR(1024) DEFAULT NULL,"	\
+  "   grouping           VARCHAR(1024) DEFAULT NULL,"	\
+  "   url                VARCHAR(1024) DEFAULT NULL,"	\
+  "   bitrate            INTEGER DEFAULT 0,"		\
+  "   samplerate         INTEGER DEFAULT 0,"		\
+  "   song_length        INTEGER DEFAULT 0,"		\
+  "   file_size          INTEGER DEFAULT 0,"		\
+  "   year               INTEGER DEFAULT 0,"		\
+  "   track              INTEGER DEFAULT 0,"		\
+  "   total_tracks       INTEGER DEFAULT 0,"		\
+  "   disc               INTEGER DEFAULT 0,"		\
+  "   total_discs        INTEGER DEFAULT 0,"		\
+  "   bpm                INTEGER DEFAULT 0,"		\
+  "   compilation        INTEGER DEFAULT 0,"		\
+  "   rating             INTEGER DEFAULT 0,"		\
+  "   play_count         INTEGER DEFAULT 0,"		\
+  "   data_kind          INTEGER DEFAULT 0,"		\
+  "   item_kind          INTEGER DEFAULT 0,"		\
+  "   description        INTEGER DEFAULT 0,"		\
+  "   time_added         INTEGER DEFAULT 0,"		\
+  "   time_modified      INTEGER DEFAULT 0,"		\
+  "   time_played        INTEGER DEFAULT 0,"		\
+  "   db_timestamp       INTEGER DEFAULT 0,"		\
+  "   disabled           INTEGER DEFAULT 0,"		\
+  "   sample_count       INTEGER DEFAULT 0,"		\
+  "   codectype          VARCHAR(5) DEFAULT NULL,"	\
+  "   idx                INTEGER NOT NULL,"		\
+  "   has_video          INTEGER DEFAULT 0,"		\
+  "   contentrating      INTEGER DEFAULT 0,"		\
+  "   bits_per_sample    INTEGER DEFAULT 0,"		\
+  "   album_artist       VARCHAR(1024),"		\
+  "   media_kind         INTEGER NOT NULL,"		\
+  "   tv_series_name     VARCHAR(1024) DEFAULT NULL,"	\
   "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL,"	\
-  "   tv_network_name VARCHAR(1024) DEFAULT NULL,"	\
-  "   tv_episode_sort INTEGER NOT NULL,"		\
-  "   tv_season_num   INTEGER NOT NULL"		\
+  "   tv_network_name    VARCHAR(1024) DEFAULT NULL,"	\
+  "   tv_episode_sort    INTEGER NOT NULL,"		\
+  "   tv_season_num      INTEGER NOT NULL"		\
   ");"
 
 #define T_PL					\
