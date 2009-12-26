@@ -2834,11 +2834,58 @@ db_create_tables(void)
   return 0;
 }
 
+/* Upgrade from schema v1 to v2 */
+
+#define U_V2_FILES					\
+  "ALTER TABLE files ADD COLUMN media_kind INTEGER NOT NULL DEFAULT 0;"		\
+  "ALTER TABLE files ADD COLUMN tv_series_name VARCHAR(1024) DEFAULT NULL;"	\
+  "ALTER TABLE files ADD COLUMN tv_episode_num_str VARCHAR(1024) DEFAULT NULL;"	\
+  "ALTER TABLE files ADD COLUMN tv_network_name VARCHAR(1024) DEFAULT NULL;"	\
+  "ALTER TABLE files ADD COLUMN tv_episode_sort INTEGER NOT NULL DEFAULT 0;"	\
+  "ALTER TABLE files ADD COLUMN tv_season_num INTEGER NOT NULL DEFAULT 0;"
+
+#define U_V2_SCVER					\
+  "UPDATE admin SET value = '2' WHERE key = 'schema_version';"
+
+static struct db_init_query db_upgrade_v2_queries[] =
+  {
+    { U_V2_FILES,     "upgrade table files" },
+    { U_V2_SCVER,     "set schema_version to 2" },
+  };
+
+static int
+db_upgrade_v2(void)
+{
+  char *errmsg;
+  int i;
+  int ret;
+
+  for (i = 0; i < (sizeof(db_upgrade_v2_queries) / sizeof(db_upgrade_v2_queries[0])); i++)
+    {
+      DPRINTF(E_DBG, L_DB, "DB upgrade query: %s\n", db_upgrade_v2_queries[i].desc);
+
+      ret = sqlite3_exec(hdl, db_upgrade_v2_queries[i].query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_DB, "DB upgrade error: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+    }
+
+  return 0;
+}
+
+
 static int
 db_check_version(void)
 {
 #define Q_VER "SELECT value FROM admin WHERE key = 'schema_version';"
+#define Q_VACUUM "VACUUM;"
   sqlite3_stmt *stmt;
+  char *errmsg;
+  int cur_ver;
   int ret;
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_VER);
@@ -2859,17 +2906,40 @@ db_check_version(void)
       return -1;
     }
 
-  ret = sqlite3_column_int(stmt, 0);
+  cur_ver = sqlite3_column_int(stmt, 0);
 
   sqlite3_finalize(stmt);
 
-  if (ret < SCHEMA_VERSION)
+  if (cur_ver < SCHEMA_VERSION)
     {
-      DPRINTF(E_LOG, L_DB, "Database schema outdated, schema upgrade needed\n");
-      /* We'll handle the upgrade */
-      return -1;
+      DPRINTF(E_LOG, L_DB, "Database schema outdated, schema upgrade needed v%d -> v%d\n", cur_ver, SCHEMA_VERSION);
+
+      switch (cur_ver)
+	{
+	  case 1:
+	    ret = db_upgrade_v2();
+	    if (ret < 0)
+	      return -1;
+	    break;
+
+	  default:
+	    DPRINTF(E_LOG, L_DB, "No upgrade path from DB schema v%d to v%d\n", cur_ver, SCHEMA_VERSION);
+	    return -1;
+	}
+
+      /* What about some housekeeping work, eh? */
+      DPRINTF(E_INFO, L_DB, "Now vacuuming database, this may take some time...\n");
+
+      ret = sqlite3_exec(hdl, Q_VACUUM, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not VACUUM database: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
     }
-  else if (ret > SCHEMA_VERSION)
+  else if (cur_ver > SCHEMA_VERSION)
     {
       DPRINTF(E_LOG, L_DB, "Database schema is newer than the supported version\n");
       return -1;
@@ -2878,6 +2948,7 @@ db_check_version(void)
   return 0;
 
 #undef Q_VER
+#undef Q_VACUUM
 }
 
 int
