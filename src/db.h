@@ -102,6 +102,13 @@ struct media_file_info {
   uint32_t has_video;
   uint32_t bits_per_sample;
 
+  uint32_t media_kind;
+  uint32_t tv_episode_sort;
+  uint32_t tv_season_num;
+  char *tv_series_name;
+  char *tv_episode_num_str; /* com.apple.itunes.episode-num-str, used as a unique episode identifier */
+  char *tv_network_name;
+
   char *album_artist;
 };
 
@@ -178,6 +185,12 @@ struct db_media_file_info {
   char *contentrating;
   char *bits_per_sample;
   char *album_artist;
+  char *media_kind;
+  char *tv_episode_sort;
+  char *tv_season_num;
+  char *tv_series_name;
+  char *tv_episode_num_str;
+  char *tv_network_name;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)

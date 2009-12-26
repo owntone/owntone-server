@@ -276,6 +276,15 @@ free_mfi(struct media_file_info *mfi, int content_only)
   if (mfi->album_artist)
     free(mfi->album_artist);
 
+  if (mfi->tv_series_name)
+    free(mfi->tv_series_name);
+
+  if (mfi->tv_episode_num_str)
+    free(mfi->tv_episode_num_str);
+
+  if (mfi->tv_network_name)
+    free(mfi->tv_network_name);
+
   if (!content_only)
     free(mfi);
 }
