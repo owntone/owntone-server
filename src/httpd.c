@@ -78,6 +78,7 @@ struct stream_ctx {
   int id;
   int fd;
   size_t size;
+  size_t stream_size;
   size_t offset;
   size_t start_offset;
   size_t end_offset;
@@ -200,7 +201,9 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
 
   st->offset += ret;
 
-  if (!st->marked && (st->offset > ((st->size * 80) / 100)))
+  if (!st->marked
+      && (st->stream_size > ((st->size * 50) / 100))
+      && (st->offset > ((st->size * 80) / 100)))
     {
       st->marked = 1;
       db_file_inc_playcount(st->id);
@@ -258,7 +261,9 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 
   st->offset += ret;
 
-  if (!st->marked && (st->offset > ((st->size * 80) / 100)))
+  if (!st->marked
+      && (st->stream_size > ((st->size * 50) / 100))
+      && (st->offset > ((st->size * 80) / 100)))
     {
       st->marked = 1;
       db_file_inc_playcount(st->id);
@@ -523,12 +528,18 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
   st->id = mfi->id;
   st->start_offset = offset;
+  st->stream_size = st->size;
   st->req = req;
 
   if ((offset == 0) && (end_offset == 0))
     evhttp_send_reply_start(req, HTTP_OK, "OK");
   else
     {
+      if (offset > 0)
+	st->stream_size -= offset;
+      if (end_offset > 0)
+	st->stream_size -= (st->size - end_offset);
+
       DPRINTF(E_DBG, L_HTTPD, "Stream request with range %ld-%ld\n", offset, end_offset);
 
       ret = snprintf(buf, sizeof(buf), "bytes %ld-%ld/%ld",
