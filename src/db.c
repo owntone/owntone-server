@@ -99,6 +99,12 @@ static struct col_type_map mfi_cols_map[] =
     { mfi_offsetof(contentrating),   DB_TYPE_INT },
     { mfi_offsetof(bits_per_sample), DB_TYPE_INT },
     { mfi_offsetof(album_artist),    DB_TYPE_STRING },
+    { mfi_offsetof(media_kind),      DB_TYPE_INT },
+    { mfi_offsetof(tv_series_name),  DB_TYPE_STRING },
+    { mfi_offsetof(tv_episode_num_str),DB_TYPE_STRING },
+    { mfi_offsetof(tv_network_name), DB_TYPE_STRING },
+    { mfi_offsetof(tv_episode_sort), DB_TYPE_INT },
+    { mfi_offsetof(tv_season_num),   DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -167,6 +173,12 @@ static ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(contentrating),
     dbmfi_offsetof(bits_per_sample),
     dbmfi_offsetof(album_artist),
+    dbmfi_offsetof(media_kind),
+    dbmfi_offsetof(tv_series_name),
+    dbmfi_offsetof(tv_episode_num_str),
+    dbmfi_offsetof(tv_network_name),
+    dbmfi_offsetof(tv_episode_sort),
+    dbmfi_offsetof(tv_season_num),
   };
 
 /* This list must be kept in sync with
@@ -1272,12 +1284,14 @@ db_file_add(struct media_file_info *mfi)
                " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
                " total_tracks, disc, total_discs, bpm, compilation, rating, play_count, data_kind, item_kind," \
                " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
-               " codectype, idx, has_video, contentrating, bits_per_sample, album_artist)" \
+               " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
+               " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num " \
+               " ) " \
                " VALUES (NULL, '%q', '%q', %Q, %Q, %Q, %Q, %Q, %Q, %Q," \
                " %Q, %Q, %Q, %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
                " %d, %d, %d, %d, %d, %d, %d, %d, %d," \
                " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
-               " %Q, %d, %d, %d, %d, %Q);"
+               " %Q, %d, %d, %d, %d, %Q, %d, %Q, %Q, %Q, %d, %d);"
   char *query;
   char *errmsg;
   int ret;
@@ -1305,7 +1319,9 @@ db_file_add(struct media_file_info *mfi)
 			  mfi->description, (int64_t)mfi->time_added, (int64_t)mfi->time_modified,
 			  (int64_t)mfi->time_played, (int64_t)mfi->db_timestamp, mfi->disabled, mfi->sample_count,
 			  mfi->codectype, mfi->index, mfi->has_video,
-			  mfi->contentrating, mfi->bits_per_sample, mfi->album_artist);
+			  mfi->contentrating, mfi->bits_per_sample, mfi->album_artist,
+                          mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
+                          mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1343,7 +1359,10 @@ db_file_update(struct media_file_info *mfi)
                " description = %Q, time_modified = %" PRIi64 "," \
                " db_timestamp = %" PRIi64 ", sample_count = %d," \
                " codectype = %Q, idx = %d, has_video = %d," \
-               " bits_per_sample = %d, album_artist = %Q WHERE id = %d;"
+               " bits_per_sample = %d, album_artist = %Q," \
+               " media_kind = %d, tv_series_name = %Q, tv_episode_num_str = %Q," \
+               " tv_network_name = %Q, tv_episode_sort = %Q, tv_season_num = %Q" \
+               " WHERE id = %d;"
   char *query;
   char *errmsg;
   int ret;
@@ -1368,7 +1387,10 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->description, (int64_t)mfi->time_modified,
 			  (int64_t)mfi->db_timestamp, mfi->sample_count,
 			  mfi->codectype, mfi->index, mfi->has_video,
-			  mfi->bits_per_sample, mfi->album_artist, mfi->id);
+			  mfi->bits_per_sample, mfi->album_artist,
+			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
+			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
+			  mfi->id);
 
   if (!query)
     {
@@ -2686,7 +2708,13 @@ db_perthread_deinit(void)
   "   has_video       INTEGER DEFAULT 0,"		\
   "   contentrating   INTEGER DEFAULT 0,"		\
   "   bits_per_sample INTEGER DEFAULT 0,"		\
-  "   album_artist    VARCHAR(1024)"			\
+  "   album_artist    VARCHAR(1024),"			\
+  "   media_kind      INTEGER NOT NULL,"		\
+  "   tv_series_name  VARCHAR(1024) DEFAULT NULL,"	\
+  "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL,"	\
+  "   tv_network_name VARCHAR(1024) DEFAULT NULL,"	\
+  "   tv_episode_sort INTEGER NOT NULL,"		\
+  "   tv_season_num   INTEGER NOT NULL"		\
   ");"
 
 #define T_PL					\
@@ -2730,9 +2758,9 @@ db_perthread_deinit(void)
   "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
 
 
-#define SCHEMA_VERSION 1
+#define SCHEMA_VERSION 2
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '1');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '2');"
 
 struct db_init_query {
   char *query;
