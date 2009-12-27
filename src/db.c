@@ -1361,7 +1361,7 @@ db_file_update(struct media_file_info *mfi)
                " codectype = %Q, idx = %d, has_video = %d," \
                " bits_per_sample = %d, album_artist = %Q," \
                " media_kind = %d, tv_series_name = %Q, tv_episode_num_str = %Q," \
-               " tv_network_name = %Q, tv_episode_sort = %Q, tv_season_num = %Q" \
+               " tv_network_name = %Q, tv_episode_sort = %d, tv_season_num = %d" \
                " WHERE id = %d;"
   char *query;
   char *errmsg;
