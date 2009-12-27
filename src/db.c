@@ -2844,12 +2844,16 @@ db_create_tables(void)
   "ALTER TABLE files ADD COLUMN tv_episode_sort INTEGER NOT NULL DEFAULT 0;"	\
   "ALTER TABLE files ADD COLUMN tv_season_num INTEGER NOT NULL DEFAULT 0;"
 
+#define U_V2_RESCAN					\
+  "UPDATE files SET db_timestamp = 1;"
+
 #define U_V2_SCVER					\
   "UPDATE admin SET value = '2' WHERE key = 'schema_version';"
 
 static struct db_init_query db_upgrade_v2_queries[] =
   {
     { U_V2_FILES,     "upgrade table files" },
+    { U_V2_RESCAN,    "force library rescan" },
     { U_V2_SCVER,     "set schema_version to 2" },
   };
 
