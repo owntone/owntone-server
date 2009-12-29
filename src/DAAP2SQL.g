@@ -136,28 +136,18 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			*val = '\0';
 			val++;
 
-			if (*val == '\0')
-			{
-				if (op == '!')
-					DPRINTF(E_LOG, L_DAAP, "Negation found but operator missing in clause '\%s\%c'\n", field, op);
-				else
-					DPRINTF(E_LOG, L_DAAP, "No value given in clause '\%s\%c'\n", field, op);
-				$valid = 0;
-				goto STR_result_valid_0; /* ABORT */
-			}
-
 			if (op == '!')
 			{
-				neg_op = 1;
-				op = *val;
-				val++;
-
 				if (*val == '\0')
 				{
-					DPRINTF(E_LOG, L_DAAP, "No value given in clause '\%s!\%c'\n", field, op);
+					DPRINTF(E_LOG, L_DAAP, "Negation found but operator missing in clause '\%s\%c'\n", field, op);
 					$valid = 0;
 					goto STR_result_valid_0; /* ABORT */
 				}
+
+				neg_op = 1;
+				op = *val;
+				val++;
 			}
 			else
 				neg_op = 0;
@@ -167,6 +157,14 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			if (!dqfm)
 			{
 				DPRINTF(E_LOG, L_DAAP, "DMAP field '\%s' is not a valid field in queries\n", field);
+				$valid = 0;
+				goto STR_result_valid_0; /* ABORT */
+			}
+
+			/* Empty values OK for string fields, NOK for integer */
+			if ((*val == '\0') && (dqfm->as_int))
+			{
+				DPRINTF(E_LOG, L_DAAP, "No value given in clause '\%s\%s\%c'\n", field, (neg_op) ? "!" : "", op);
 				$valid = 0;
 				goto STR_result_valid_0; /* ABORT */
 			}
@@ -182,16 +180,16 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 				if (((errno == ERANGE) && ((longval == LONG_MAX) || (longval == LONG_MIN)))
 					|| ((errno != 0) && (longval == 0)))
 				{
-					DPRINTF(E_LOG, L_DAAP, "Value '\%s' in clause '\%s\%c\%s' does not convert to an integer type\n",
-					val, field, op, val);
+					DPRINTF(E_LOG, L_DAAP, "Value '\%s' in clause '\%s\%s\%c\%s' does not convert to an integer type\n",
+					val, field, (neg_op) ? "!" : "", op, val);
 					$valid = 0;
 					goto STR_result_valid_0; /* ABORT */
 				}
 
 				if (end == (char *)val)
 				{
-					DPRINTF(E_LOG, L_DAAP, "Value '\%s' in clause '\%s\%c\%s' does not represent an integer value\n",
-					val, field, op, val);
+					DPRINTF(E_LOG, L_DAAP, "Value '\%s' in clause '\%s\%s\%c\%s' does not represent an integer value\n",
+					val, field, (neg_op) ? "!" : "", op, val);
 					$valid = 0;
 					goto STR_result_valid_0; /* ABORT */
 				}
