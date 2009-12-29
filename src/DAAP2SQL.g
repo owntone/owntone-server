@@ -162,11 +162,18 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			}
 
 			/* Empty values OK for string fields, NOK for integer */
-			if ((*val == '\0') && (dqfm->as_int))
+			if (*val == '\0')
 			{
-				DPRINTF(E_LOG, L_DAAP, "No value given in clause '\%s\%s\%c'\n", field, (neg_op) ? "!" : "", op);
-				$valid = 0;
-				goto STR_result_valid_0; /* ABORT */
+				if (dqfm->as_int)
+				{
+					DPRINTF(E_LOG, L_DAAP, "No value given in clause '\%s\%s\%c'\n", field, (neg_op) ? "!" : "", op);
+					$valid = 0;
+					goto STR_result_valid_0; /* ABORT */
+				}
+
+				/* Need to check against NULL too */
+				if (op == ':')
+					$result->append8($result, "(");
 			}
 
 			$result->append8($result, dqfm->db_col);
@@ -273,6 +280,24 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 	
 			if (!dqfm->as_int)
 				$result->append8($result, "'");
+
+			/* For empty string value, we need to check against NULL too */
+			if ((*val == '\0') && (op == ':'))
+			{
+				if (neg_op)
+					$result->append8($result, " AND ");
+				else
+					$result->append8($result, " OR ");
+
+				$result->append8($result, dqfm->db_col);
+
+				if (neg_op)
+					$result->append8($result, " IS NOT NULL");
+				else
+					$result->append8($result, " IS NULL");
+
+				$result->append8($result, ")");
+			}
 
 			STR_result_valid_0: /* bail out label */
 				;
