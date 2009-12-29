@@ -199,13 +199,6 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			/* String field: escape string, check for '*' */
 			else
 			{
-				if (neg_op)
-				{
-					DPRINTF(E_LOG, L_DAAP, "Negation not valid for string operations\n");
-					$valid = 0;
-					goto STR_result_valid_0; /* ABORT */
-				}
-
 				if (op != ':')
 				{
 					DPRINTF(E_LOG, L_DAAP, "Operation '\%c' not valid for string values\n", op);
@@ -239,7 +232,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			switch(op)
 			{
 				case ':':
-					if (neg_op) /* Not valid for strings, checked above */
+					if (neg_op)
 						$result->append8($result, " <> ");
 					else
 						$result->append8($result, " = ");
