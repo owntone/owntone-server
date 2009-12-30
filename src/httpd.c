@@ -869,6 +869,7 @@ httpd_fixup_uri(struct evhttp_request *req)
     return strdup(uri);
 
   if ((strncmp(ua, "iTunes", strlen("iTunes")) != 0)
+      && (strncmp(ua, "Remote", strlen("Remote")) != 0)
       && (strncmp(ua, "Roku", strlen("Roku")) != 0))
     return strdup(uri);
 
