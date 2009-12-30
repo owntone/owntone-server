@@ -509,8 +509,12 @@ db_build_query_pls(struct query_params *qp, char **q)
   if (ret < 0)
     return -1;
 
-  if (idx)
+  if (idx && qp->filter)
+    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0 AND %s %s;", qp->filter, idx);
+  else if (idx)
     query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0 %s;", idx);
+  else if (qp->filter)
+    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0 AND %s;", qp->filter);
   else
     query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0;");
 
