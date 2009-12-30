@@ -1488,7 +1488,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	}
     }
 
-  DPRINTF(E_DBG, L_DAAP, "Done with playlist list, %d playlists\n");
+  DPRINTF(E_DBG, L_DAAP, "Done with playlist list, %d playlists\n", npls);
 
   free(meta);
   evbuffer_free(playlist);
