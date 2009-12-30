@@ -1074,7 +1074,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      daap_send_error(req, tag, "Could not stat query");
+      daap_send_error(req, tag, "Could not start query");
 
       free(meta);
       evbuffer_free(song);
