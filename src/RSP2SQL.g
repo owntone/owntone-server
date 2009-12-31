@@ -382,7 +382,7 @@ datespec	returns [ time_t date, int valid ]
 			ret = safe_atoi((char *)$m->getText($m)->chars, &val);
 			if (ret < 0)
 			{
-				DPRINTF(E_LOG, L_RSP, "Could not convert '\%s' to integer\n", $m->getText($m));
+				DPRINTF(E_LOG, L_RSP, "Could not convert '\%s' to integer\n", (char *)$m->getText($m));
 				$valid = 0;
 				goto datespec_valid_0; /* ABORT */
 			}
@@ -413,19 +413,19 @@ dateref	returns [ time_t date, int valid ]
 			ret = strptime((char *)$n->getText($n), "\%Y-\%m-\%d", &tm);
 			if (!ret)
 			{
-				DPRINTF(E_LOG, L_RSP, "Date '\%s' could not be interpreted\n", $n->getText($n));
+				DPRINTF(E_LOG, L_RSP, "Date '\%s' could not be interpreted\n", (char *)$n->getText($n));
 				$valid = 0;
 				goto dateref_valid_0; /* ABORT */
 			}
 			else
 			{
 				if (*ret != '\0')
-					DPRINTF(E_LOG, L_RSP, "Garbage at end of date '\%s' ?!\n", $n->getText($n));
+					DPRINTF(E_LOG, L_RSP, "Garbage at end of date '\%s' ?!\n", (char *)$n->getText($n));
 
 				$date = mktime(&tm);
 				if ($date == (time_t) -1)
 				{
-					DPRINTF(E_LOG, L_RSP, "Date '\%s' could not be converted to an epoch\n", $n->getText($n));
+					DPRINTF(E_LOG, L_RSP, "Date '\%s' could not be converted to an epoch\n", (char *)$n->getText($n));
 					$valid = 0;
 					goto dateref_valid_0; /* ABORT */
 				}
