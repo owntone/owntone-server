@@ -194,18 +194,18 @@ daemonize(int background, char *pidfile)
 	  return -1;
 	}
 
-      ret = setgid(pw->pw_gid);
+      ret = setegid(pw->pw_gid);
       if (ret != 0)
 	{
-	  DPRINTF(E_FATAL, L_MAIN, "setgid() failed: %s\n", strerror(errno));
+	  DPRINTF(E_FATAL, L_MAIN, "setegid() failed: %s\n", strerror(errno));
 
 	  return -1;
 	}
 
-      ret = setuid(pw->pw_uid);
+      ret = seteuid(pw->pw_uid);
       if (ret != 0)
 	{
-	  DPRINTF(E_FATAL, L_MAIN, "setuid() failed: %s\n", strerror(errno));
+	  DPRINTF(E_FATAL, L_MAIN, "seteuid() failed: %s\n", strerror(errno));
 
 	  return -1;
 	}
