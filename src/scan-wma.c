@@ -378,7 +378,7 @@ int wma_parse_header_extension(int fd, int size, MP3FILE *pmp3) {
 
     he.data_size  = wma_convert_int((unsigned char *)&he.data_size);
     bytes_left = he.data_size;
-    DPRINTF(E_DBG,L_SCAN,"Found header ext of %ld (%ld) bytes\n",he.data_size,size);
+    DPRINTF(E_DBG,L_SCAN,"Found header ext of %d (%d) bytes\n",he.data_size,size);
 
     while(bytes_left) {
         /* read in a subheader */
@@ -1052,7 +1052,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
         pguid = wma_find_guid(subhdr.objectid);
         if(pguid) {
-            DPRINTF(E_DBG,L_SCAN,"%ll: Found subheader: %s\n",
+            DPRINTF(E_DBG,L_SCAN,"%ld: Found subheader: %s\n",
                     offset,pguid->name);
             if(strcmp(pguid->name,"ASF_Content_Description_Object")==0) {
                 res &= wma_parse_content_description(fd,(int)subhdr.size,pmp3);
