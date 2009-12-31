@@ -555,9 +555,9 @@ process_tracks(plist_t tracks, char *base)
       if (!mapnode)
 	{
 	  if (errno == EEXIST)
-	    DPRINTF(E_WARN, L_SCAN, "Track %" PRIu64 " already in itml -> db map?!\n");
+	    DPRINTF(E_WARN, L_SCAN, "Track %" PRIu64 " already in itml -> db map?!\n", trk_id);
 	  else
-	    DPRINTF(E_WARN, L_SCAN, "Track %" PRIu64 ": AVL insert error: %s\n", strerror(errno));
+	    DPRINTF(E_WARN, L_SCAN, "Track %" PRIu64 ": AVL insert error: %s\n", trk_id, strerror(errno));
 
 	  free(map);
 	}
