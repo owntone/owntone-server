@@ -599,9 +599,15 @@ main(int argc, char **argv)
  daemon_fail:
   if (background)
     {
-      ret = unlink(pidfile);
+      ret = seteuid(0);
       if (ret < 0)
-	DPRINTF(E_WARN, L_MAIN, "Could not unlink PID file %s: %s\n", pidfile, strerror(errno));
+	DPRINTF(E_LOG, L_MAIN, "seteuid() failed: %s\n", strerror(errno));
+      else
+	{
+	  ret = unlink(pidfile);
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MAIN, "Could not unlink PID file %s: %s\n", pidfile, strerror(errno));
+	}
     }
 
  signal_block_fail:
