@@ -532,7 +532,22 @@ httpd_stream_file(struct evhttp_request *req, int id)
   st->req = req;
 
   if ((offset == 0) && (end_offset == 0))
-    evhttp_send_reply_start(req, HTTP_OK, "OK");
+    {
+      /* If we are not decoding, send the Content-Length. We don't do
+       * that if we are decoding because we can only guesstimate the
+       * size in this case and the error margin is unknown and variable.
+       */
+      if (!st->xcode)
+	{
+	  ret = snprintf(buf, sizeof(buf), "%ld", st->size);
+	  if ((ret < 0) || (ret >= sizeof(buf)))
+	    DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
+	  else
+	    evhttp_add_header(req->output_headers, "Content-Length", buf);
+	}
+
+      evhttp_send_reply_start(req, HTTP_OK, "OK");
+    }
   else
     {
       if (offset > 0)
