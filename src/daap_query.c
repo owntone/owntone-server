@@ -58,6 +58,7 @@ static struct dmap_query_field_map dmap_query_fields[] =
   { 0, 1, "daap.songtrackcount",   "total_tracks" },
   { 0, 1, "daap.songtracknumber",  "track" },
   { 0, 1, "daap.songyear",         "year" },
+  { 0, 1, "com.apple.itunes.mediakind", "media_kind" },
 
   { -1, -1, NULL, NULL }
 };
