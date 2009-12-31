@@ -95,9 +95,9 @@ daemonize(int background, char *pidfile)
 {
   FILE *fp;
   pid_t childpid;
-  pid_t ret;
+  pid_t pid_ret;
   int fd;
-  int iret;
+  int ret;
   char *runas;
   struct passwd *pw;
 
@@ -153,8 +153,8 @@ daemonize(int background, char *pidfile)
 	  return -1;
 	}
 
-      ret = setsid();
-      if (ret == (pid_t) -1)
+      pid_ret = setsid();
+      if (pid_ret == (pid_t) -1)
 	{
 	  DPRINTF(E_FATAL, L_MAIN, "setsid() failed: %s\n", strerror(errno));
 
@@ -186,24 +186,24 @@ daemonize(int background, char *pidfile)
 
   if (pw)
     {
-      iret = initgroups(runas, pw->pw_gid);
-      if (iret != 0)
+      ret = initgroups(runas, pw->pw_gid);
+      if (ret != 0)
 	{
 	  DPRINTF(E_FATAL, L_MAIN, "initgroups() failed: %s\n", strerror(errno));
 
 	  return -1;
 	}
 
-      iret = setgid(pw->pw_gid);
-      if (iret != 0)
+      ret = setgid(pw->pw_gid);
+      if (ret != 0)
 	{
 	  DPRINTF(E_FATAL, L_MAIN, "setgid() failed: %s\n", strerror(errno));
 
 	  return -1;
 	}
 
-      iret = setuid(pw->pw_uid);
-      if (iret != 0)
+      ret = setuid(pw->pw_uid);
+      if (ret != 0)
 	{
 	  DPRINTF(E_FATAL, L_MAIN, "setuid() failed: %s\n", strerror(errno));
 
