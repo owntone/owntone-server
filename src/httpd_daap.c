@@ -1667,6 +1667,13 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 }
 
 static void
+daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  /* Sorry, we have no artwork */
+  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+}
+
+static void
 daap_stream(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   int id;
@@ -1753,12 +1760,20 @@ static struct uri_map daap_handlers[] =
       .handler = daap_stream
     },
     {
+      .regexp = "^/databases/[[:digit:]]+/items/[[:digit:]]+/extra_data/artwork$",
+      .handler = daap_reply_extra_data
+    },
+    {
       .regexp = "^/databases/[[:digit:]]+/containers$",
       .handler = daap_reply_playlists
     },
     {
       .regexp = "^/databases/[[:digit:]]+/containers/[[:digit:]]+/items$",
       .handler = daap_reply_plsonglist
+    },
+    {
+      .regexp = "^/databases/[[:digit:]]+/groups/[[:digit:]]+/extra_data/artwork$",
+      .handler = daap_reply_extra_data
     },
     { 
       .regexp = NULL,
