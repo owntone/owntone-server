@@ -1,6 +1,9 @@
 /*
  * Copyright (C) 2009 Julien BLACHE <jb@jblache.org>
  *
+ * Some code included below is in the public domain, check comments
+ * in the file.
+ *
  * Pieces of code adapted from mt-daapd:
  * Copyright (C) 2003-2007 Ron Pedde (ron@pedde.com)
  *
@@ -203,3 +206,137 @@ b64_decode(const char *b64)
 
   return str;
 }
+
+/*
+ * MurmurHash2, 64-bit versions, by Austin Appleby
+ *
+ * Code released under the public domain, as per
+ *    <http://murmurhash.googlepages.com/>
+ * as of 2010-01-03.
+ */
+
+#if __WORDSIZE == 64 /* 64bit platforms */
+
+uint64_t
+murmur_hash64(const void *key, int len, uint32_t seed)
+{
+  const int r = 47;
+  const uint64_t m = 0xc6a4a7935bd1e995;
+
+  const uint64_t *data;
+  const uint64_t *end;
+  const unsigned char *data_tail;
+  uint64_t h;
+  uint64_t k;
+
+  h = seed ^ (len * m);
+  data = (const uint64_t *)key;
+  end = data + (len / 8);
+
+  while (data != end)
+    {
+      k = *data++;
+
+      k *= m;
+      k ^= k >> r;
+      k *= m;
+
+      h ^= k;
+      h *= m;
+    }
+
+  data_tail = (const unsigned char *)data;
+
+  switch (len & 7)
+    {
+      case 7:
+	h ^= (uint64_t)(data_tail[6]) << 48;
+      case 6:
+	h ^= (uint64_t)(data_tail[5]) << 40;
+      case 5:
+	h ^= (uint64_t)(data_tail[4]) << 32;
+      case 4:
+	h ^= (uint64_t)(data_tail[3]) << 24;
+      case 3:
+	h ^= (uint64_t)(data_tail[2]) << 16;
+      case 2:
+	h ^= (uint64_t)(data_tail[1]) << 8;
+      case 1:
+	h ^= (uint64_t)(data_tail[0]);
+	h *= m;
+    }
+
+  h ^= h >> r;
+  h *= m;
+  h ^= h >> r;
+
+  return h;
+}
+
+#elif __WORDSIZE == 32 /* 32bit platforms */
+
+uint64_t
+murmur_hash64(const void *key, int len, uint32_t seed)
+{
+  const int r = 24;
+  const uint32_t m = 0x5bd1e995;
+
+  const uint32_t *data;
+  uint32_t k1;
+  uint32_t h1;
+  uint32_t k2;
+  uint32_t h2;
+
+  uint64_t h;
+
+  h1 = seed ^ len;
+  h2 = 0;
+
+  data = (const uint32_t *)key;
+
+  while (len >= 8)
+    {
+      k1 = *data++;
+      k1 *= m; k1 ^= k1 >> r; k1 *= m;
+      h1 *= m; h1 ^= k1;
+      len -= 4;
+
+      k2 = *data++;
+      k2 *= m; k2 ^= k2 >> r; k2 *= m;
+      h2 *= m; h2 ^= k2;
+      len -= 4;
+    }
+
+  if (len >= 4)
+    {
+      k1 = *data++;
+      k1 *= m; k1 ^= k1 >> r; k1 *= m;
+      h1 *= m; h1 ^= k1;
+      len -= 4;
+    }
+
+  switch(len)
+    {
+      case 3:
+	h2 ^= (uint32_t)(data[2]) << 16;
+      case 2:
+	h2 ^= (uint32_t)(data[1]) << 8;
+      case 1:
+	h2 ^= (uint32_t)(data[0]);
+	h2 *= m;
+    };
+
+  h1 ^= h2 >> 18; h1 *= m;
+  h2 ^= h1 >> 22; h2 *= m;
+  h1 ^= h2 >> 17; h1 *= m;
+  h2 ^= h1 >> 19; h2 *= m;
+
+  h = h1;
+  h = (h << 32) | h2;
+
+  return h;
+}
+
+#else
+# error Platform not supported
+#endif

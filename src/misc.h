@@ -16,4 +16,7 @@ djb_hash(void *data, size_t len);
 char *
 b64_decode(const char *b64);
 
+uint64_t
+murmur_hash64(const void *key, int len, uint32_t seed);
+
 #endif /* !__MISC_H__ */
