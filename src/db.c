@@ -2800,9 +2800,9 @@ db_perthread_deinit(void)
   "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
 
 
-#define SCHEMA_VERSION 2
+#define SCHEMA_VERSION 3
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '2');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '3');"
 
 struct db_init_query {
   char *query;
@@ -2923,6 +2923,44 @@ db_upgrade_v2(void)
   return 0;
 }
 
+/* Upgrade from schema v2 to v3 */
+
+#define U_V3_FILES					\
+  "UPDATE files SET album_artist = COALESCE(artist, '') WHERE album_artist IS NULL;"
+
+#define U_V3_SCVER					\
+  "UPDATE admin SET value = '3' WHERE key = 'schema_version';"
+
+static struct db_init_query db_upgrade_v3_queries[] =
+  {
+    { U_V3_FILES,     "upgrade table files" },
+    { U_V3_SCVER,     "set schema_version to 3" },
+  };
+
+static int
+db_upgrade_v3(void)
+{
+  char *errmsg;
+  int i;
+  int ret;
+
+  for (i = 0; i < (sizeof(db_upgrade_v3_queries) / sizeof(db_upgrade_v3_queries[0])); i++)
+    {
+      DPRINTF(E_DBG, L_DB, "DB upgrade query: %s\n", db_upgrade_v3_queries[i].desc);
+
+      ret = sqlite3_exec(hdl, db_upgrade_v3_queries[i].query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_DB, "DB upgrade error: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+    }
+
+  return 0;
+}
+
 
 static int
 db_check_version(void)
@@ -2964,6 +3002,13 @@ db_check_version(void)
 	{
 	  case 1:
 	    ret = db_upgrade_v2();
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 2:
+	    ret = db_upgrade_v3();
 	    if (ret < 0)
 	      return -1;
 	    break;
