@@ -32,6 +32,7 @@
 #include <sqlite3.h>
 
 #include "logger.h"
+#include "daap_query.h"
 #include "db.h"
 
 
@@ -2633,6 +2634,34 @@ db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd)
 }
 
 
+static void
+db_daap_songalbumid_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
+{
+  const char *album_artist;
+  const char *album;
+  sqlite3_int64 result;
+
+  if (n != 2)
+    {
+      sqlite3_result_error(pv, "daap_songalbumid() requires 2 parameters, album_artist and album", -1);
+      return;
+    }
+
+  if ((sqlite3_value_type(ppv[0]) != SQLITE_TEXT)
+      || (sqlite3_value_type(ppv[1]) != SQLITE_TEXT))
+    {
+      sqlite3_result_error(pv, "daap_songalbumid() requires 2 text parameters", -1);
+      return;
+    }
+
+  album_artist = (const char *)sqlite3_value_text(ppv[0]);
+  album = (const char *)sqlite3_value_text(ppv[1]);
+
+  result = daap_songalbumid(album_artist, album);
+  sqlite3_result_int64(pv, result);
+}
+
+
 int
 db_perthread_init(void)
 {
@@ -2642,6 +2671,15 @@ db_perthread_init(void)
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not open database: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_close(hdl);
+      return -1;
+    }
+
+  ret = sqlite3_create_function(hdl, "daap_songalbumid", 2, SQLITE_UTF8, NULL, db_daap_songalbumid_xfunc, NULL, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not create daap_songalbumid function: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_close(hdl);
       return -1;
