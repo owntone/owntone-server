@@ -171,6 +171,10 @@ fixup_tags(struct media_file_info *mfi)
     mfi->genre = strdup("Unknown genre");
   if (!mfi->title)
     mfi->title = strdup(mfi->fname);
+
+  /* If we don't have an album_artist, set it to artist */
+  if (!mfi->album_artist)
+    mfi->album_artist = strdup(mfi->artist);
 }
 
 
