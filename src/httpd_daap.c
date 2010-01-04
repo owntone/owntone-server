@@ -33,6 +33,7 @@
 #include <regex.h>
 #include <limits.h>
 #include <stdint.h>
+#include <inttypes.h>
 
 #include <event.h>
 #include "evhttp/evhttp.h"
@@ -174,6 +175,8 @@ static struct dmap_field_map dmap_fields[] =
     { 0, DMAP_TYPE_LIST,    "adbs", "daap.databasesongs",
       -1,                                 -1 },
     { 0, DMAP_TYPE_STRING,  "asal", "daap.songalbum",
+      dbmfi_offsetof(album),              -1 },
+    { 0, DMAP_TYPE_LONG,    "asai", "daap.songalbumid",  /* special case; will be transformed to LONG (hash) */
       dbmfi_offsetof(album),              -1 },
     { 0, DMAP_TYPE_STRING,  "asar", "daap.songartist",
       dbmfi_offsetof(artist),             -1 },
@@ -960,6 +963,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   char **strval;
   char *ptr;
   uint32_t *meta;
+  int64_t songalbumid;
   int nmeta;
   int nsongs;
   int transcode;
@@ -1150,6 +1154,19 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	  if (dfm->mfi_offset == dbmfi_offsetof(codectype))
 	    {
 	      dmap_add_literal(song, dfm->tag, *strval, 4);
+	      continue;
+	    }
+
+	  /* Special handling for songalbumid (asai)
+	   * Return an int64_t hash of the album_artist & album
+	   */
+	  if (strcmp(dfm->tag, "asai") == 0)
+	    {
+	      songalbumid = daap_songalbumid(dbmfi.album_artist, dbmfi.album);
+
+	      dmap_add_long(song, dfm->tag, songalbumid);
+
+	      DPRINTF(E_DBG, L_DAAP, "Generated meta tag %s (%" PRIi64 ") based on (%s,%s)\n", dfm->desc, songalbumid, dbmfi.album_artist, dbmfi.album);
 	      continue;
 	    }
 
