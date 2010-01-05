@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
  *
  * Bits and pieces from mt-daapd:
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)

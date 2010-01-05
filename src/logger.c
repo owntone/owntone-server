@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by

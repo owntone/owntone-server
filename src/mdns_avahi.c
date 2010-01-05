@@ -1,7 +1,7 @@
 /*
  * Avahi mDNS backend, with libevent polling
  *
- * Copyright (C) 2009 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
  *
  * Pieces coming from mt-daapd:
  * Copyright (C) 2005 Sebastian Dröge <slomo@ubuntu.com>

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
  *
  * Some code included below is in the public domain, check comments
  * in the file.

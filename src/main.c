@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
  *
  * Pieces from mt-daapd:
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
@@ -64,7 +64,7 @@ static void
 version(void)
 {
   fprintf(stdout, "Forked Media Server: Version %s\n", VERSION);
-  fprintf(stdout, "Copyright (C) 2009 Julien BLACHE <jb@jblache.org>\n");
+  fprintf(stdout, "Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>\n");
   fprintf(stdout, "Based on mt-daapd, Copyright (C) 2003-2007 Ron Pedde <ron@pedde.com>\n");
   fprintf(stdout, "Released under the GNU General Public License version 2 or later\n");
 }
