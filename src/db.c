@@ -2876,6 +2876,31 @@ db_create_tables(void)
   return 0;
 }
 
+static int
+db_generic_upgrade(struct db_init_query *queries, int nqueries)
+{
+  char *errmsg;
+  int i;
+  int ret;
+
+  for (i = 0; i < nqueries; i++, queries++)
+    {
+      DPRINTF(E_DBG, L_DB, "DB upgrade query: %s\n", queries->desc);
+
+      ret = sqlite3_exec(hdl, queries->query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_DB, "DB upgrade error: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+    }
+
+  return 0;
+}
+
+
 /* Upgrade from schema v1 to v2 */
 
 #define U_V2_FILES					\
@@ -2899,30 +2924,6 @@ static struct db_init_query db_upgrade_v2_queries[] =
     { U_V2_SCVER,     "set schema_version to 2" },
   };
 
-static int
-db_upgrade_v2(void)
-{
-  char *errmsg;
-  int i;
-  int ret;
-
-  for (i = 0; i < (sizeof(db_upgrade_v2_queries) / sizeof(db_upgrade_v2_queries[0])); i++)
-    {
-      DPRINTF(E_DBG, L_DB, "DB upgrade query: %s\n", db_upgrade_v2_queries[i].desc);
-
-      ret = sqlite3_exec(hdl, db_upgrade_v2_queries[i].query, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_FATAL, L_DB, "DB upgrade error: %s\n", errmsg);
-
-	  sqlite3_free(errmsg);
-	  return -1;
-	}
-    }
-
-  return 0;
-}
-
 /* Upgrade from schema v2 to v3 */
 
 #define U_V3_FILES					\
@@ -2936,30 +2937,6 @@ static struct db_init_query db_upgrade_v3_queries[] =
     { U_V3_FILES,     "upgrade table files" },
     { U_V3_SCVER,     "set schema_version to 3" },
   };
-
-static int
-db_upgrade_v3(void)
-{
-  char *errmsg;
-  int i;
-  int ret;
-
-  for (i = 0; i < (sizeof(db_upgrade_v3_queries) / sizeof(db_upgrade_v3_queries[0])); i++)
-    {
-      DPRINTF(E_DBG, L_DB, "DB upgrade query: %s\n", db_upgrade_v3_queries[i].desc);
-
-      ret = sqlite3_exec(hdl, db_upgrade_v3_queries[i].query, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_FATAL, L_DB, "DB upgrade error: %s\n", errmsg);
-
-	  sqlite3_free(errmsg);
-	  return -1;
-	}
-    }
-
-  return 0;
-}
 
 
 static int
@@ -3001,14 +2978,14 @@ db_check_version(void)
       switch (cur_ver)
 	{
 	  case 1:
-	    ret = db_upgrade_v2();
+	    ret = db_generic_upgrade(db_upgrade_v2_queries, sizeof(db_upgrade_v2_queries) / sizeof(db_upgrade_v2_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
 	    /* FALLTHROUGH */
 
 	  case 2:
-	    ret = db_upgrade_v3();
+	    ret = db_generic_upgrade(db_upgrade_v3_queries, sizeof(db_upgrade_v3_queries) / sizeof(db_upgrade_v3_queries[0]));
 	    if (ret < 0)
 	      return -1;
 	    break;
