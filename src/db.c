@@ -2714,7 +2714,7 @@ db_perthread_deinit(void)
   "   fname              VARCHAR(255) NOT NULL,"	\
   "   title              VARCHAR(1024) DEFAULT NULL,"	\
   "   artist             VARCHAR(1024) DEFAULT NULL,"	\
-  "   album              VARCHAR(1024) DEFAULT NULL,"	\
+  "   album              VARCHAR(1024) NOT NULL,"	\
   "   genre              VARCHAR(255) DEFAULT NULL,"	\
   "   comment            VARCHAR(4096) DEFAULT NULL,"	\
   "   type               VARCHAR(255) DEFAULT NULL,"	\
@@ -2750,7 +2750,7 @@ db_perthread_deinit(void)
   "   has_video          INTEGER DEFAULT 0,"		\
   "   contentrating      INTEGER DEFAULT 0,"		\
   "   bits_per_sample    INTEGER DEFAULT 0,"		\
-  "   album_artist       VARCHAR(1024),"		\
+  "   album_artist       VARCHAR(1024) NOT NULL,"	\
   "   media_kind         INTEGER NOT NULL,"		\
   "   tv_series_name     VARCHAR(1024) DEFAULT NULL,"	\
   "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL,"	\
