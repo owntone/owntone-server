@@ -81,7 +81,6 @@ usage(char *program)
   printf("  -c <file>      Use <file> as the configfile\n");
   printf("  -P <file>      Write PID to specified file\n");
   printf("  -f             Run in foreground\n");
-  printf("  -y             Start even if user is not root\n");
   printf("  -b <id>        ffid to be broadcast\n");
   printf("  -v             Display version information\n");
   printf("\n\n");
