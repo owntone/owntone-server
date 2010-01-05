@@ -9,6 +9,8 @@ Required tools:
  - autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run autoreconf -i
    at the top of the source tree to generate the build system.
 
+ - pkg-config
+
 The configure script will look for a wrapper called antlr3 in the PATH to
 invoke ANTLR. If it doesn't exist, it'll try to invoke ANTLR directly with
 'java org.antlr.Tool'; make sure your CLASSPATH is set properly, and if it
