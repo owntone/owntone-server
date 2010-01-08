@@ -289,18 +289,8 @@ register_services(char *ffid, int no_rsp, int no_daap)
 static void
 signal_cb(int fd, short event, void *arg)
 {
-  struct sigaction sa_ign;
-  struct sigaction sa_dfl;
   struct signalfd_siginfo info;
   int status;
-
-  sa_ign.sa_handler = SIG_IGN;
-  sa_ign.sa_flags = 0;
-  sigemptyset(&sa_ign.sa_mask);
-
-  sa_dfl.sa_handler = SIG_DFL;
-  sa_dfl.sa_flags = 0;
-  sigemptyset(&sa_dfl.sa_mask);
 
   while (read(fd, &info, sizeof(struct signalfd_siginfo)) > 0)
     {
