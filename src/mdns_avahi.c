@@ -539,7 +539,7 @@ mdns_register(char *name, char *type, int port, char **txt)
 
   if (mdns_group)
     {
-      DPRINTF(E_DBG, L_MISC, "Resetting mDNS group\n");
+      DPRINTF(E_DBG, L_MDNS, "Resetting mDNS group\n");
       avahi_entry_group_reset(mdns_group);
     }
 
