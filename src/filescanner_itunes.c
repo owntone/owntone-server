@@ -39,6 +39,7 @@
 #include "db.h"
 #include "filescanner.h"
 #include "conffile.h"
+#include "misc.h"
 
 
 /* Mapping between iTunes library IDs and our DB IDs */
@@ -280,7 +281,7 @@ find_track_file(char *location, char *base)
     plen -= 1;
 
   /* Try exact path first */
-  filename = realpath(location + plen, NULL);
+  filename = m_realpath(location + plen);
   if (filename)
     {
       mfi_id = db_file_id_bypath(filename);

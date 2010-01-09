@@ -37,6 +37,7 @@
 #include "logger.h"
 #include "db.h"
 #include "filescanner.h"
+#include "misc.h"
 
 
 void
@@ -182,7 +183,7 @@ scan_m3u_playlist(char *file)
 	  entry = rel_entry;
 	}
 
-	filename = realpath(entry, NULL);
+	filename = m_realpath(entry);
 	if (!filename)
 	  {
 	    DPRINTF(E_WARN, L_SCAN, "Could not determine real path for '%s': %s\n", entry, strerror(errno));

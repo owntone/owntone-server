@@ -45,6 +45,7 @@
 #include "db.h"
 #include "filescanner.h"
 #include "conffile.h"
+#include "misc.h"
 
 
 #define F_SCAN_BULK    (1 << 0)
@@ -478,7 +479,7 @@ process_directory(int libidx, char *path, int flags)
 
       if (S_ISLNK(sb.st_mode))
 	{
-	  deref = realpath(entry, NULL);
+	  deref = m_realpath(entry);
 	  if (!deref)
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Skipping %s, could not dereference symlink: %s\n", entry, strerror(errno));
@@ -809,7 +810,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
       if (S_ISLNK(sb.st_mode))
 	{
-	  deref = realpath(path, NULL);
+	  deref = m_realpath(path);
 	  if (!deref)
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Could not dereference symlink '%s': %s\n", path, strerror(errno));
