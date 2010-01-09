@@ -58,6 +58,8 @@
 #define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
 
 struct event_base *evbase_main;
+
+static struct event sig_event;
 static int main_exit;
 
 static void
@@ -321,6 +323,8 @@ signal_cb(int fd, short event, void *arg)
 
   if (main_exit)
     event_base_loopbreak(evbase_main);
+  else
+    event_add(&sig_event, NULL);
 }
 
 
@@ -339,7 +343,6 @@ main(int argc, char **argv)
   char *pidfile;
   sigset_t sigs;
   int sigfd;
-  struct event sig_event;
   int ret;
 
   struct option option_map[] =
