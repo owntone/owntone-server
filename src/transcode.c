@@ -29,9 +29,14 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <endian.h>
-#include <byteswap.h>
 #include <stdint.h>
+
+#if defined(__linux__)
+# include <endian.h>
+# include <byteswap.h>
+#elif defined(__FreeBSD__)
+# include <sys/endian.h>
+#endif
 
 #include <event.h>
 #include "evhttp/evhttp.h"
