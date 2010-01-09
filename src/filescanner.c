@@ -982,7 +982,11 @@ filescanner_init(void)
       return -1;
     }
 
+#if defined(__linux__)
   ret = pipe2(exit_pipe, O_CLOEXEC);
+#else
+  ret = pipe(exit_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_SCAN, "Could not create pipe: %s\n", strerror(errno));

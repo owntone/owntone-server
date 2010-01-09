@@ -1070,7 +1070,11 @@ httpd_init(void)
       goto daap_fail;
     }
 
+#if defined(__linux__)
   ret = pipe2(exit_pipe, O_CLOEXEC);
+#else
+  ret = pipe(exit_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create pipe: %s\n", strerror(errno));
