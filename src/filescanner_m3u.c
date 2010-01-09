@@ -29,6 +29,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <limits.h>
+#include <sys/param.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <errno.h>
