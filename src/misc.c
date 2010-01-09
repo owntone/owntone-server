@@ -215,7 +215,7 @@ b64_decode(const char *b64)
  * as of 2010-01-03.
  */
 
-#if __WORDSIZE == 64 /* 64bit platforms */
+#if SIZEOF_VOID_P == 8 /* 64bit platforms */
 
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed)
@@ -273,7 +273,7 @@ murmur_hash64(const void *key, int len, uint32_t seed)
   return h;
 }
 
-#elif __WORDSIZE == 32 /* 32bit platforms */
+#elif SIZEOF_VOID_P == 4 /* 32bit platforms */
 
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed)

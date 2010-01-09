@@ -95,6 +95,8 @@ fi
 
 AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
 
+AC_CHECK_SIZEOF(void *)
+
 AC_CHECK_HEADERS(getopt.h,,)
 AC_CHECK_HEADERS(stdint.h,,)
 
