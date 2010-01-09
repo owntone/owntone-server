@@ -30,6 +30,8 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/queue.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include <event.h>
 #include "evhttp/evhttp.h"
