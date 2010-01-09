@@ -31,6 +31,7 @@
 #include <errno.h>
 #include <stdint.h>
 #include <limits.h>
+#include <sys/param.h>
 
 #include "logger.h"
 #include "misc.h"
@@ -99,6 +100,27 @@ safe_atol(const char *str, long *val)
   *val = intval;
 
   return 0;
+}
+
+char *
+m_realpath(const char *pathname)
+{
+  char buf[PATH_MAX];
+  char *ret;
+
+  ret = realpath(pathname, buf);
+  if (!ret)
+    return NULL;
+
+  ret = strdup(buf);
+  if (!ret)
+    {
+      DPRINTF(E_LOG, L_MISC, "Out of memory for realpath\n");
+
+      return NULL;
+    }
+
+  return ret;
 }
 
 uint32_t

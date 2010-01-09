@@ -10,6 +10,9 @@ safe_atoi(const char *str, int *val);
 int
 safe_atol(const char *str, long *val);
 
+char *
+m_realpath(const char *pathname);
+
 uint32_t
 djb_hash(void *data, size_t len);
 
