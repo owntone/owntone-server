@@ -27,6 +27,7 @@
 #ifdef HAVE_STDINT_H
 #include <stdint.h>
 #endif
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -1052,7 +1053,7 @@ int scan_get_wmainfo(char *filename, MP3FILE *pmp3) {
 
         pguid = wma_find_guid(subhdr.objectid);
         if(pguid) {
-            DPRINTF(E_DBG,L_SCAN,"%ld: Found subheader: %s\n",
+            DPRINTF(E_DBG,L_SCAN,"%" PRIu64 ": Found subheader: %s\n",
                     offset,pguid->name);
             if(strcmp(pguid->name,"ASF_Content_Description_Object")==0) {
                 res &= wma_parse_content_description(fd,(int)subhdr.size,pmp3);
