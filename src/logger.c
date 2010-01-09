@@ -164,8 +164,6 @@ logger_reinit(void)
 
   if (logfile)
     {
-      fclose(logfile);
-
       fp = fopen(logfilename, "a");
       if (!fp)
 	{
