@@ -38,7 +38,12 @@
 #include <grp.h>
 #include <stdint.h>
 
-#include <sys/signalfd.h>
+#if defined(__linux__)
+# include <sys/signalfd.h>
+#elif defined(__FreeBSD__)
+# include <sys/time.h>
+# include <sys/event.h>
+#endif
 
 #include <pthread.h>
 
@@ -288,8 +293,9 @@ register_services(char *ffid, int no_rsp, int no_daap)
 }
 
 
+#if defined(__linux__)
 static void
-signal_cb(int fd, short event, void *arg)
+signal_signalfd_cb(int fd, short event, void *arg)
 {
   struct signalfd_siginfo info;
   int status;
@@ -327,6 +333,51 @@ signal_cb(int fd, short event, void *arg)
     event_add(&sig_event, NULL);
 }
 
+#elif defined(__FreeBSD__)
+
+static void
+signal_kqueue_cb(int fd, short event, void *arg)
+{
+  struct timespec ts;
+  struct kevent ke;
+  int status;
+
+  ts.tv_sec = 0;
+  ts.tv_nsec = 0;
+
+  while (kevent(fd, NULL, 0, &ke, 1, &ts) > 0)
+    {
+      switch (ke.ident)
+	{
+	  case SIGCHLD:
+	    DPRINTF(E_LOG, L_MAIN, "Got SIGCHLD, reaping children\n");
+
+	    while (wait3(&status, WNOHANG, NULL) > 0)
+	      /* Nothing. */ ;
+	    break;
+
+	  case SIGINT:
+	  case SIGTERM:
+	    DPRINTF(E_LOG, L_MAIN, "Got SIGTERM or SIGINT\n");
+
+	    main_exit = 1;
+	    break;
+
+	  case SIGHUP:
+	    DPRINTF(E_LOG, L_MAIN, "Got SIGHUP\n");
+
+	    if (!main_exit)
+	      logger_reinit();
+	    break;
+	}
+    }
+
+  if (main_exit)
+    event_base_loopbreak(evbase_main);
+  else
+    event_add(&sig_event, NULL);
+}
+#endif
 
 int
 main(int argc, char **argv)
@@ -343,6 +394,9 @@ main(int argc, char **argv)
   char *pidfile;
   sigset_t sigs;
   int sigfd;
+#ifdef __FreeBSD__
+  struct kevent ke_sigs[4];
+#endif
   int ret;
 
   struct option option_map[] =
@@ -543,6 +597,7 @@ main(int argc, char **argv)
       goto mdns_reg_fail;
     }
 
+#if defined(__linux__)
   /* Set up signal fd */
   sigfd = signalfd(-1, &sigs, SFD_NONBLOCK | SFD_CLOEXEC);
   if (sigfd < 0)
@@ -553,7 +608,35 @@ main(int argc, char **argv)
       goto signalfd_fail;
     }
 
-  event_set(&sig_event, sigfd, EV_READ, signal_cb, NULL);
+  event_set(&sig_event, sigfd, EV_READ, signal_signalfd_cb, NULL);
+
+#elif defined(__FreeBSD__)
+  sigfd = kqueue();
+  if (sigfd < 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Could not setup kqueue: %s\n", strerror(errno));
+
+      ret = EXIT_FAILURE;
+      goto signalfd_fail;
+    }
+
+  EV_SET(&ke_sigs[0], SIGINT, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
+  EV_SET(&ke_sigs[1], SIGTERM, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
+  EV_SET(&ke_sigs[2], SIGHUP, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
+  EV_SET(&ke_sigs[3], SIGCHLD, EVFILT_SIGNAL, EV_ADD, 0, 0, NULL);
+
+  ret = kevent(sigfd, ke_sigs, 4, NULL, 0, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Could not register signal events: %s\n", strerror(errno));
+
+      ret = EXIT_FAILURE;
+      goto signalfd_fail;
+    }
+
+  event_set(&sig_event, sigfd, EV_READ, signal_kqueue_cb, NULL);
+#endif
+
   event_base_set(evbase_main, &sig_event);
   event_add(&sig_event, NULL);
 
