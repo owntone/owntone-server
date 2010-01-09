@@ -37,7 +37,12 @@
 #include <dirent.h>
 #include <pthread.h>
 
-#include <sys/inotify.h>
+#if defined(__linux__)
+# include <sys/inotify.h>
+#elif defined(__FreeBSD__)
+# include <sys/time.h>
+# include <sys/event.h>
+#endif
 
 #include <event.h>
 
@@ -408,7 +413,12 @@ process_directory(int libidx, char *path, int flags)
   char entry[PATH_MAX];
   char *deref;
   struct stat sb;
+#if defined(__linux__)
   struct watch_info wi;
+#elif defined(__FreeBSD__)
+  struct watch_info *wi;
+  struct kevent *kev;
+#endif
   int compilation;
   int ret;
 
@@ -516,6 +526,7 @@ process_directory(int libidx, char *path, int flags)
 
   closedir(dirp);
 
+#if defined(__linux__)
   memset(&wi, 0, sizeof(struct watch_info));
 
   /* Add inotify watch */
@@ -533,6 +544,74 @@ process_directory(int libidx, char *path, int flags)
 
   if (!(flags & F_SCAN_RESCAN))
     db_watch_add(&wi);
+
+#elif defined(__FreeBSD__)
+
+  wi = (struct watch_info *)malloc(sizeof(struct watch_info));
+  if (!wi)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Could not allocate watch_info for %s: %s\n", path, strerror(errno));
+
+      return;
+    }
+
+  kev = (struct kevent *)malloc(sizeof(struct kevent));
+  if (!kev)
+   {
+     DPRINTF(E_WARN, L_SCAN, "Could not allocate kevent for %s: %s\n", path, strerror(errno));
+
+     free(wi);
+     return;
+   }
+
+  memset(wi, 0, sizeof(struct watch_info));
+  memset(kev, 0, sizeof(struct kevent));
+
+  wi->priv = kev;
+
+  /* TODO: we probably want to keep track of the watch_info structs
+   * somewhere in addition to the kevent struct
+   */
+
+  wi->wd = open(path, O_RDONLY | O_NONBLOCK);
+  if (wi->wd < 0)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Could not open directory %s for watching: %s\n", path, strerror(errno));
+
+      free(wi);
+      free(kev);
+      return;
+    }
+
+  wi->libidx = libidx;
+  wi->path = strdup(path);
+  if (!wi->path)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Out of memory for watch path\n");
+
+      close(wi->wd);
+      free(wi);
+      free(kev);
+      return;
+    }
+
+  /* Add kevent */
+  EV_SET(kev, wi->wd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_DELETE | NOTE_WRITE | NOTE_RENAME, 0, wi);
+
+  ret = kevent(inofd, kev, 1, NULL, 0, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_SCAN, "Could not add kevent for %s: %s\n", path, strerror(errno));
+
+      close(wi->wd);
+      free(wi->path);
+      free(wi);
+      free(kev);
+      return;
+    }
+
+  /* TODO: we'll probably want to add the watch to the DB */
+#endif
 }
 
 /* Thread: scan */
@@ -647,6 +726,7 @@ filescanner(void *arg)
 }
 
 
+#if defined(__linux__)
 /* Thread: scan */
 static void
 process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
@@ -957,6 +1037,71 @@ inotify_cb(int fd, short event, void *arg)
 
   event_add(&inoev, NULL);
 }
+#endif /* __linux__ */
+
+
+#if defined(__FreeBSD__)
+/* Thread: scan */
+static void
+kqueue_cb(int fd, short event, void *arg)
+{
+  struct kevent kev;
+  struct timespec ts;
+  struct watch_info *wi;
+
+  ts.tv_sec = 0;
+  ts.tv_nsec = 0;
+
+  /* We can only monitor directories with kqueue; to monitor files, we'd need
+   * to have an open fd on every file in the library, which is totally insane.
+   * Unfortunately, that means we only know when directories get renamed,
+   * deleted or changed. We don't get directory/file names when directories/files
+   * are created/deleted in the directory, so we have to rescan.
+   */
+  while (kevent(fd, NULL, 0, &kev, 1, &ts) > 0)
+    {
+      wi = (struct watch_info *)kev.udata;
+
+      if (kev.flags & EV_ERROR)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "kevent reports EV_ERROR: %s\n", strerror(kev.data));
+
+	  continue;
+	}
+
+      if (kev.filter != EVFILT_VNODE)
+	continue;
+
+      /* TODO: well ... everything. */
+      if (kev.fflags & NOTE_WRITE)
+	{
+          DPRINTF(E_DBG, L_SCAN, "Got NOTE_WRITE (%s)\n", wi->path);
+	}
+
+      if (kev.fflags & NOTE_DELETE)
+	{
+          DPRINTF(E_DBG, L_SCAN, "Got NOTE_DELETE (%s)\n", wi->path);
+
+          close(wi->wd);
+          free(wi->priv);
+          free(wi->path);
+          free(wi);
+	}
+
+      if (kev.fflags & NOTE_RENAME)
+	{
+          DPRINTF(E_DBG, L_SCAN, "Got NOTE_RENAME (%s)\n", wi->path);
+
+          /* TODO: might need to free watch_info & friends just like in
+           * the NOTE_DELETE case above. Depends on how this will be handled.
+           */
+	}
+    }
+
+  event_add(&inoev, NULL);
+}
+#endif /* __FreeBSD__ */
+
 
 /* Thread: scan */
 static void
@@ -996,6 +1141,7 @@ filescanner_init(void)
       goto pipe_fail;
     }
 
+#if defined(__linux__)
   inofd = inotify_init1(IN_CLOEXEC);
   if (inofd < 0)
     {
@@ -1004,12 +1150,26 @@ filescanner_init(void)
       goto ino_fail;
     }
 
+  event_set(&inoev, inofd, EV_READ, inotify_cb, NULL);
+
+#elif defined(__FreeBSD__)
+
+  inofd = kqueue();
+  if (inofd < 0)
+    {
+      DPRINTF(E_FATAL, L_SCAN, "Could not create kqueue: %s\n", strerror(errno));
+
+      goto ino_fail;
+    }
+
+  event_set(&inoev, inofd, EV_READ, kqueue_cb, NULL);
+#endif
+
+  event_base_set(evbase_scan, &inoev);
+
   event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
   event_base_set(evbase_scan, &exitev);
   event_add(&exitev, NULL);
-
-  event_set(&inoev, inofd, EV_READ, inotify_cb, NULL);
-  event_base_set(evbase_scan, &inoev);
 
   ret = pthread_create(&tid_scan, NULL, filescanner, NULL);
   if (ret != 0)
