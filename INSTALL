@@ -6,6 +6,9 @@ Required tools:
    (libantlr3c). Use at least version 3.1.x of ANTLR v3 and the matching
    C runtime version. Version 3.1.3 is recommended.
 
+ - Java runtime: ANTLR is written in Java and as such a JRE is required to
+   run the tool. The JRE is enough, you don't need a full JDK.
+
  - autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run autoreconf -i
    at the top of the source tree to generate the build system.
 
@@ -16,8 +19,11 @@ invoke ANTLR. If it doesn't exist, it'll try to invoke ANTLR directly with
 'java org.antlr.Tool'; make sure your CLASSPATH is set properly, and if it
 doesn't work, just create the wrapper somewhere in your PATH.
 
-Libraries:
- - glibc 2.9+ (for signalfd)
+System-specific libraries:
+ - Linux:
+   + glibc 2.9+ (for signalfd)
+
+General libraries:
  - Avahi client libraries, 0.6.24 minimum
  - sqlite3
  - ffmpeg

@@ -1,8 +1,8 @@
 forked-daapd
 ------------
 
-forked-daapd is a DAAP and RSP media server for Linux. It is a complete
-rewrite of mt-daapd (Firefly Media Server).
+forked-daapd is a DAAP and RSP media server, with support for Linux and
+FreeBSD. It is a complete rewrite of mt-daapd (Firefly Media Server).
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
