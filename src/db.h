@@ -25,7 +25,8 @@ enum query_type {
   Q_BROWSE_ARTISTS   = Q_F_BROWSE | (1 << 3),
   Q_BROWSE_ALBUMS    = Q_F_BROWSE | (1 << 4),
   Q_BROWSE_GENRES    = Q_F_BROWSE | (1 << 5),
-  Q_BROWSE_COMPOSERS = Q_F_BROWSE | (1 << 6)
+  Q_BROWSE_COMPOSERS = Q_F_BROWSE | (1 << 6),
+  Q_GROUPS           = (1 << 7),
 };
 
 struct query_params {
@@ -142,6 +143,26 @@ struct db_playlist_info {
 
 #define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
 
+struct group_info {
+  uint32_t itemid;       /* integer id (miid) */
+  uint64_t persistentid; /* ulonglong id (mper) */
+  char *itemname;        /* playlist name as displayed in iTunes (minm) */
+  uint32_t itemcount;    /* number of items (mimc) */
+  char *songalbumartist; /* song album artist (asaa) */
+};
+
+#define gri_offsetof(field) offsetof(struct group_info, field)
+
+struct db_group_info {
+  char *itemid;
+  char *persistentid;
+  char *itemname;
+  char *itemcount;
+  char *songalbumartist;
+};
+
+#define dbgri_offsetof(field) offsetof(struct db_group_info, field)
+
 struct db_media_file_info {
   char *id;
   char *path;
@@ -241,6 +262,9 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi);
 
 int
 db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli);
+
+int
+db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri);
 
 int
 db_query_fetch_string(struct query_params *qp, char **string);

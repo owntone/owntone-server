@@ -201,6 +201,18 @@ static ssize_t dbpli_cols_map[] =
   };
 
 /* This list must be kept in sync with
+ * - the order of fields in the Q_GROUPS query
+ * - the name of the fields in struct group_info
+ */
+static ssize_t dbgri_cols_map[] =
+  {
+    dbgri_offsetof(itemcount),
+    dbgri_offsetof(persistentid),
+    dbgri_offsetof(songalbumartist),
+    dbgri_offsetof(itemname),
+  };
+
+/* This list must be kept in sync with
  * - the order of the columns in the inotify table
  * - the name and type of the fields in struct watch_info
  */
@@ -608,6 +620,42 @@ db_build_query_plitems(struct query_params *qp, char **q)
 }
 
 static int
+db_build_query_groups(struct query_params *qp, char **q)
+{
+  char *query;
+  char *idx;
+  int ret;
+
+  qp->results = db_get_count("SELECT COUNT(DISTINCT daap_songalbumid(album_artist, album)) FROM files WHERE disabled = 0;");
+  if (qp->results < 0)
+    return -1;
+
+  /* Get index clause */
+  ret = db_build_query_index_clause(qp, &idx);
+  if (ret < 0)
+    return -1;
+
+  if (idx && qp->filter)
+    query = sqlite3_mprintf("SELECT COUNT(*) AS items, daap_songalbumid(album_artist, album) AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 AND %s %s;", qp->filter, idx);
+  else if (idx)
+    query = sqlite3_mprintf("SELECT COUNT(*) AS items, daap_songalbumid(album_artist, album) AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 %s;", idx);
+  else if (qp->filter)
+    query = sqlite3_mprintf("SELECT COUNT(*) AS items, daap_songalbumid(album_artist, album) AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 AND %s;", qp->filter);
+  else
+    query = sqlite3_mprintf("SELECT COUNT(*) AS items, daap_songalbumid(album_artist, album) AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0;");
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  *q = query;
+
+  return 0;
+}
+
+static int
 db_build_query_browse(struct query_params *qp, char *field, char **q)
 {
   char *query;
@@ -684,6 +732,10 @@ db_query_start(struct query_params *qp)
 
       case Q_PLITEMS:
 	ret = db_build_query_plitems(qp, &query);
+	break;
+
+      case Q_GROUPS:
+	ret = db_build_query_groups(qp, &query);
 	break;
 
       case Q_BROWSE_ALBUMS:
@@ -853,6 +905,58 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
       DPRINTF(E_LOG, L_DB, "Could not convert items, buffer too small\n");
 
       strcpy(qp->buf, "0");
+    }
+
+  return 0;
+}
+
+int
+db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
+{
+  int ncols;
+  char **strcol;
+  int i;
+  int ret;
+
+  memset(dbgri, 0, sizeof(struct db_group_info));
+
+  if (!qp->stmt)
+    {
+      DPRINTF(E_LOG, L_DB, "Query not started!\n");
+      return -1;
+    }
+
+  if (qp->type != Q_GROUPS)
+    {
+      DPRINTF(E_LOG, L_DB, "Not a groups query!\n");
+      return -1;
+    }
+
+  ret = sqlite3_step(qp->stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_INFO, L_DB, "End of query results\n");
+      return 1;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  ncols = sqlite3_column_count(qp->stmt);
+
+  if (sizeof(dbgri_cols_map) / sizeof(dbgri_cols_map[0]) != ncols)
+    {
+      DPRINTF(E_LOG, L_DB, "BUG: dbgri column map out of sync with schema\n");
+      return -1;
+    }
+
+  for (i = 0; i < ncols; i++)
+    {
+      strcol = (char **) ((char *)dbgri + dbgri_cols_map[i]);
+
+      *strcol = (char *)sqlite3_column_text(qp->stmt, i);
     }
 
   return 0;
