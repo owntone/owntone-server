@@ -102,6 +102,34 @@ safe_atol(const char *str, long *val)
   return 0;
 }
 
+int
+safe_atoull(const char *str, unsigned long long *val)
+{
+  char *end;
+  unsigned long long intval;
+
+  errno = 0;
+  intval = strtoull(str, &end, 10);
+
+  if (errno)
+    {
+      DPRINTF(E_DBG, L_MISC, "Invalid unsigned long long integer in string (%s): %s\n", str, strerror(errno));
+
+      return -1;
+    }
+
+  if (end == str)
+    {
+      DPRINTF(E_DBG, L_MISC, "No unsigned long long integer found in string (%s)\n", str);
+
+      return -1;
+    }
+
+  *val = intval;
+
+  return 0;
+}
+
 char *
 m_realpath(const char *pathname)
 {

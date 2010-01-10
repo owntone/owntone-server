@@ -10,6 +10,9 @@ safe_atoi(const char *str, int *val);
 int
 safe_atol(const char *str, long *val);
 
+int
+safe_atoull(const char *str, unsigned long long *val);
+
 char *
 m_realpath(const char *pathname);
 
