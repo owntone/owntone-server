@@ -178,6 +178,8 @@ static struct dmap_field_map dmap_fields[] =
       dbmfi_offsetof(album),              -1 },
     { 0, DMAP_TYPE_LONG,    "asai", "daap.songalbumid",  /* special case; will be transformed to LONG (hash) */
       dbmfi_offsetof(album),              -1 },
+    { 0, DMAP_TYPE_STRING,  "asaa", "daap.songalbumartist",
+      dbmfi_offsetof(album_artist),       -1 },
     { 0, DMAP_TYPE_STRING,  "asar", "daap.songartist",
       dbmfi_offsetof(artist),             -1 },
     { 0, DMAP_TYPE_SHORT,   "asbt", "daap.songbeatsperminute",
