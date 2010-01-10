@@ -1008,9 +1008,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DMAP song list\n");
 
       daap_send_error(req, tag, "Out of memory");
-
-      evbuffer_free(songlist);
-      return;
+      goto out_list_free;
     }
 
   song = evbuffer_new();
@@ -1019,9 +1017,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP song block\n");
 
       daap_send_error(req, tag, "Out of memory");
-
-      evbuffer_free(songlist);
-      return;
+      goto out_list_free;
     }
 
   /* The buffer will expand if needed */
@@ -1031,10 +1027,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DMAP song block\n");
 
       daap_send_error(req, tag, "Out of memory");
-
-      evbuffer_free(song);
-      evbuffer_free(songlist);
-      return;
+      goto out_song_free;
     }
 
   param = evhttp_find_header(query, "meta");
@@ -1053,9 +1046,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Failed to parse meta parameter in DAAP query\n");
 
-	  evbuffer_free(song);
-	  evbuffer_free(songlist);
-	  return;
+	  goto out_song_free;
 	}
     }
   else
@@ -1081,13 +1072,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
       daap_send_error(req, tag, "Could not start query");
-
-      free(meta);
-      evbuffer_free(song);
-      evbuffer_free(songlist);
-      if (qp.filter)
-	free(qp.filter);
-      return;
+      goto out_query_free;
     }
 
   want_mikd = 0;
@@ -1266,8 +1251,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
       daap_send_error(req, tag, "Error fetching query results");
       db_query_end(&qp);
-      evbuffer_free(songlist);
-      return;
+      goto out_list_free;
     }
 
   if (oom)
@@ -1276,8 +1260,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
       daap_send_error(req, tag, "Out of memory");
       db_query_end(&qp);
-      evbuffer_free(songlist);
-      return;
+      goto out_list_free;
     }
 
   /* Add header to evbuf, add songlist to evbuf */
@@ -1301,6 +1284,21 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     }
 
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+
+  return;
+
+ out_query_free:
+  if (nmeta > 0)
+    free(meta);
+
+  if (qp.filter)
+    free(qp.filter);
+
+ out_song_free:
+  evbuffer_free(song);
+
+ out_list_free:
+  evbuffer_free(songlist);
 }
 
 static void
