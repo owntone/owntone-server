@@ -40,7 +40,7 @@
 
 #if defined(__linux__)
 # include <sys/signalfd.h>
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <sys/time.h>
 # include <sys/event.h>
 #endif
@@ -333,7 +333,7 @@ signal_signalfd_cb(int fd, short event, void *arg)
     event_add(&sig_event, NULL);
 }
 
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 
 static void
 signal_kqueue_cb(int fd, short event, void *arg)
@@ -394,7 +394,7 @@ main(int argc, char **argv)
   char *pidfile;
   sigset_t sigs;
   int sigfd;
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
   struct kevent ke_sigs[4];
 #endif
   int ret;
@@ -610,7 +610,7 @@ main(int argc, char **argv)
 
   event_set(&sig_event, sigfd, EV_READ, signal_signalfd_cb, NULL);
 
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
   sigfd = kqueue();
   if (sigfd < 0)
     {

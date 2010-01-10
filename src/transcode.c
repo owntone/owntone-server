@@ -34,7 +34,7 @@
 #if defined(__linux__)
 # include <endian.h>
 # include <byteswap.h>
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <sys/endian.h>
 #endif
 

@@ -222,7 +222,7 @@ struct watch_info {
   uint32_t cookie;
   int libidx;
 
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
   void *priv;
 #endif
 };

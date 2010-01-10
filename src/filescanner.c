@@ -39,7 +39,7 @@
 
 #if defined(__linux__)
 # include <sys/inotify.h>
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <sys/time.h>
 # include <sys/event.h>
 #endif
@@ -415,7 +415,7 @@ process_directory(int libidx, char *path, int flags)
   struct stat sb;
 #if defined(__linux__)
   struct watch_info wi;
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
   struct watch_info *wi;
   struct kevent *kev;
 #endif
@@ -545,7 +545,7 @@ process_directory(int libidx, char *path, int flags)
   if (!(flags & F_SCAN_RESCAN))
     db_watch_add(&wi);
 
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 
   wi = (struct watch_info *)malloc(sizeof(struct watch_info));
   if (!wi)
@@ -1040,7 +1040,7 @@ inotify_cb(int fd, short event, void *arg)
 #endif /* __linux__ */
 
 
-#if defined(__FreeBSD__)
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 /* Thread: scan */
 static void
 kqueue_cb(int fd, short event, void *arg)
@@ -1100,7 +1100,7 @@ kqueue_cb(int fd, short event, void *arg)
 
   event_add(&inoev, NULL);
 }
-#endif /* __FreeBSD__ */
+#endif /* __FreeBSD__ || __FreeBSD_kernel__ */
 
 
 /* Thread: scan */
@@ -1152,7 +1152,7 @@ filescanner_init(void)
 
   event_set(&inoev, inofd, EV_READ, inotify_cb, NULL);
 
-#elif defined(__FreeBSD__)
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 
   inofd = kqueue();
   if (inofd < 0)
