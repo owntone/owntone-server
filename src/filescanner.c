@@ -79,7 +79,7 @@ static struct stacked_dir *dirstack;
 
 
 static int
-push_dir(char *path)
+push_dir(struct stacked_dir **s, char *path)
 {
   struct stacked_dir *d;
 
@@ -97,23 +97,23 @@ push_dir(char *path)
       return -1;
     }
 
-  d->next = dirstack;
-  dirstack = d;
+  d->next = *s;
+  *s = d;
 
   return 0;
 }
 
 static char *
-pop_dir(void)
+pop_dir(struct stacked_dir **s)
 {
   struct stacked_dir *d;
   char *ret;
 
-  if (!dirstack)
+  if (!*s)
     return NULL;
 
-  d = dirstack;
-  dirstack = d->next;
+  d = *s;
+  *s = d->next;
   ret = d->path;
 
   free(d);
@@ -519,7 +519,7 @@ process_directory(int libidx, char *path, int flags)
       if (S_ISREG(sb.st_mode))
 	process_file(entry, sb.st_mtime, sb.st_size, compilation, flags);
       else if (S_ISDIR(sb.st_mode))
-	push_dir(entry);
+	push_dir(&dirstack, entry);
       else
 	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink nor regular file\n", entry);
     }
@@ -625,7 +625,7 @@ process_directories(int libidx, char *root, int flags)
   if (scan_exit)
     return;
 
-  while ((path = pop_dir()))
+  while ((path = pop_dir(&dirstack)))
     {
       process_directory(libidx, path, flags);
 
