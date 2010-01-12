@@ -536,12 +536,14 @@ process_directory(int libidx, char *path, int flags)
       return;
     }
 
-  wi.libidx = libidx;
-  wi.cookie = 0;
-  wi.path = path;
-
   if (!(flags & F_SCAN_RESCAN))
-    db_watch_add(&wi);
+    {
+      wi.libidx = libidx;
+      wi.cookie = 0;
+      wi.path = path;
+
+      db_watch_add(&wi);
+    }
 
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
   memset(&kev, 0, sizeof(struct kevent));
