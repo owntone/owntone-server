@@ -413,11 +413,9 @@ process_directory(int libidx, char *path, int flags)
   char entry[PATH_MAX];
   char *deref;
   struct stat sb;
-#if defined(__linux__)
   struct watch_info wi;
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-  struct watch_info *wi;
-  struct kevent *kev;
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  struct kevent kev;
 #endif
   int compilation;
   int ret;
@@ -526,9 +524,9 @@ process_directory(int libidx, char *path, int flags)
 
   closedir(dirp);
 
-#if defined(__linux__)
   memset(&wi, 0, sizeof(struct watch_info));
 
+#if defined(__linux__)
   /* Add inotify watch */
   wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
   if (wi.wd < 0)
@@ -546,71 +544,33 @@ process_directory(int libidx, char *path, int flags)
     db_watch_add(&wi);
 
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  memset(&kev, 0, sizeof(struct kevent));
 
-  wi = (struct watch_info *)malloc(sizeof(struct watch_info));
-  if (!wi)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Could not allocate watch_info for %s: %s\n", path, strerror(errno));
-
-      return;
-    }
-
-  kev = (struct kevent *)malloc(sizeof(struct kevent));
-  if (!kev)
-   {
-     DPRINTF(E_WARN, L_SCAN, "Could not allocate kevent for %s: %s\n", path, strerror(errno));
-
-     free(wi);
-     return;
-   }
-
-  memset(wi, 0, sizeof(struct watch_info));
-  memset(kev, 0, sizeof(struct kevent));
-
-  wi->priv = kev;
-
-  /* TODO: we probably want to keep track of the watch_info structs
-   * somewhere in addition to the kevent struct
-   */
-
-  wi->wd = open(path, O_RDONLY | O_NONBLOCK);
-  if (wi->wd < 0)
+  wi.wd = open(path, O_RDONLY | O_NONBLOCK);
+  if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not open directory %s for watching: %s\n", path, strerror(errno));
 
-      free(wi);
-      free(kev);
-      return;
-    }
-
-  wi->libidx = libidx;
-  wi->path = strdup(path);
-  if (!wi->path)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Out of memory for watch path\n");
-
-      close(wi->wd);
-      free(wi);
-      free(kev);
       return;
     }
 
   /* Add kevent */
-  EV_SET(kev, wi->wd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_DELETE | NOTE_WRITE | NOTE_RENAME, 0, wi);
+  EV_SET(&kev, wi.wd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_DELETE | NOTE_WRITE | NOTE_RENAME, 0, NULL);
 
-  ret = kevent(inofd, kev, 1, NULL, 0, NULL);
+  ret = kevent(inofd, &kev, 1, NULL, 0, NULL);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not add kevent for %s: %s\n", path, strerror(errno));
 
-      close(wi->wd);
-      free(wi->path);
-      free(wi);
-      free(kev);
+      close(wi.wd);
       return;
     }
 
-  /* TODO: we'll probably want to add the watch to the DB */
+  wi.libidx = libidx;
+  wi.cookie = 0;
+  wi.path = path;
+
+  db_watch_add(&wi);
 #endif
 }
 
@@ -1047,55 +1007,176 @@ kqueue_cb(int fd, short event, void *arg)
 {
   struct kevent kev;
   struct timespec ts;
-  struct watch_info *wi;
+  struct watch_info wi;
+  struct watch_enum we;
+  struct stacked_dir *rescan;
+  struct stacked_dir *d;
+  struct stacked_dir *dprev;
+  char *path;
+  uint32_t wd;
+  int d_len;
+  int w_len;
+  int need_rescan;
+  int ret;
 
   ts.tv_sec = 0;
   ts.tv_nsec = 0;
+
+  we.cookie = 0;
+
+  rescan = NULL;
+
+  DPRINTF(E_DBG, L_SCAN, "Library changed!\n");
 
   /* We can only monitor directories with kqueue; to monitor files, we'd need
    * to have an open fd on every file in the library, which is totally insane.
    * Unfortunately, that means we only know when directories get renamed,
    * deleted or changed. We don't get directory/file names when directories/files
-   * are created/deleted in the directory, so we have to rescan.
+   * are created/deleted/renamed in the directory, so we have to rescan.
    */
   while (kevent(fd, NULL, 0, &kev, 1, &ts) > 0)
     {
-      wi = (struct watch_info *)kev.udata;
-
-      if (kev.flags & EV_ERROR)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "kevent reports EV_ERROR: %s\n", strerror(kev.data));
-
-	  continue;
-	}
-
+      /* This should not happen, and if it does, we'll end up in
+       * an infinite loop.
+       */
       if (kev.filter != EVFILT_VNODE)
 	continue;
 
-      /* TODO: well ... everything. */
+      wi.wd = kev.ident;
+
+      ret = db_watch_get_bywd(&wi);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Found no matching watch for kevent, killing this event\n");
+
+	  close(kev.ident);
+	  continue;
+	}
+
+      /* Whatever the type of event that happened, disable matching watches and
+       * files before we trigger an eventual rescan.
+       */
+      we.match = wi.path;
+
+      ret = db_watch_enum_start(&we);
+      if (ret < 0)
+	{
+	  free(wi.path);
+	  continue;
+	}
+
+      while ((db_watch_enum_fetchwd(&we, &wd) == 0) && (wd))
+	{
+	  close(wd);
+	}
+
+      db_watch_enum_end(&we);
+
+      db_watch_delete_bymatch(wi.path);
+
+      close(wi.wd);
+      db_watch_delete_bywd(wi.wd);
+
+      /* Disable files */
+      db_file_disable_bymatch(wi.path, "", 0);
+      db_pl_disable_bymatch(wi.path, "", 0);
+
+      if (kev.flags & EV_ERROR)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "kevent reports EV_ERROR (%s): %s\n", wi.path, strerror(kev.data));
+
+	  ret = access(wi.path, F_OK);
+	  if (ret != 0)
+	    {
+	      free(wi.path);
+	      continue;
+	    }
+
+	  /* The directory still exists, so try to add it back to the library */
+	  kev.fflags |= NOTE_WRITE;
+	}
+
+      /* No further action on NOTE_DELETE & NOTE_RENAME; NOTE_WRITE on the
+       * parent directory will trigger a rescan in both cases and the
+       * renamed directory will be picked up then.
+       */
+
       if (kev.fflags & NOTE_WRITE)
 	{
-          DPRINTF(E_DBG, L_SCAN, "Got NOTE_WRITE (%s)\n", wi->path);
+          DPRINTF(E_DBG, L_SCAN, "Got NOTE_WRITE (%s)\n", wi.path);
+
+	  need_rescan = 1;
+	  w_len = strlen(wi.path);
+
+	  /* Abusing stacked_dir a little bit here */
+	  dprev = NULL;
+	  d = rescan;
+	  while (d)
+	    {
+	      d_len = strlen(d->path);
+
+	      if (d_len > w_len)
+		{
+		  /* Stacked dir child of watch dir? */
+		  if ((d->path[w_len] == '/') && (strncmp(d->path, wi.path, w_len) == 0))
+		    {
+		      DPRINTF(E_DBG, L_SCAN, "Watched directory is a parent\n");
+
+		      if (dprev)
+			dprev->next = d->next;
+		      else
+			rescan = d->next;
+
+		      free(d->path);
+		      free(d);
+
+		      if (dprev)
+			d = dprev->next;
+		      else
+			d = rescan;
+
+		      continue;
+		    }
+		}
+	      else if (w_len > d_len)
+		{
+		  /* Watch dir child of stacked dir? */
+		  if ((wi.path[d_len] == '/') && (strncmp(wi.path, d->path, d_len) == 0))
+		    {
+		      DPRINTF(E_DBG, L_SCAN, "Watched directory is a child\n");
+
+		      need_rescan = 0;
+		      break;
+		    }
+		}
+	      else if (strcmp(wi.path, d->path) == 0)
+		{
+		  DPRINTF(E_DBG, L_SCAN, "Watched directory already listed\n");
+
+		  need_rescan = 0;
+		  break;
+		}
+
+	      dprev = d;
+	      d = d->next;
+	    }
+
+	  if (need_rescan)
+	    push_dir(&rescan, wi.path);
 	}
 
-      if (kev.fflags & NOTE_DELETE)
-	{
-          DPRINTF(E_DBG, L_SCAN, "Got NOTE_DELETE (%s)\n", wi->path);
+      free(wi.path);
+    }
 
-          close(wi->wd);
-          free(wi->priv);
-          free(wi->path);
-          free(wi);
-	}
+  while ((path = pop_dir(&rescan)))
+    {
+      /* FIXME: libidx for multi-library support */
+      process_directories(0, path, 0);
 
-      if (kev.fflags & NOTE_RENAME)
-	{
-          DPRINTF(E_DBG, L_SCAN, "Got NOTE_RENAME (%s)\n", wi->path);
+      free(path);
 
-          /* TODO: might need to free watch_info & friends just like in
-           * the NOTE_DELETE case above. Depends on how this will be handled.
-           */
-	}
+      if (rescan)
+	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
     }
 
   event_add(&inoev, NULL);

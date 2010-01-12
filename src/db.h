@@ -221,10 +221,6 @@ struct watch_info {
   char *path;
   uint32_t cookie;
   int libidx;
-
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-  void *priv;
-#endif
 };
 
 #define wi_offsetof(field) offsetof(struct watch_info, field)
