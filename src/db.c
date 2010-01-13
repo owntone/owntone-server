@@ -339,8 +339,8 @@ db_purge_cruft(time_t ref)
   char *queries[3] = { NULL, NULL, NULL };
   char *queries_tmpl[3] =
     {
-      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE id <> 1 AND db_timestamp < %" PRIi64 ");",
-      "DELETE FROM playlists WHERE id <> 1 AND db_timestamp < %" PRIi64 ";",
+      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE db_timestamp < %" PRIi64 ");",
+      "DELETE FROM playlists WHERE db_timestamp < %" PRIi64 ";",
       "DELETE FROM files WHERE db_timestamp < %" PRIi64 ";"
     };
 
@@ -556,22 +556,12 @@ db_build_query_plitems(struct query_params *qp, char **q)
       return -1;
     }
 
-  if (qp->pl_id == 1)
-    {
-      if (qp->filter)
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s;", qp->filter);
-      else
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0;");
-    }
+  if (qp->filter)
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
+			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s;", qp->pl_id, qp->filter);
   else
-    {
-      if (qp->filter)
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-				" WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s;", qp->pl_id, qp->filter);
-      else
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-				" WHERE playlistitems.playlistid = %d AND files.disabled = 0;", qp->pl_id);
-    }
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
+			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0;", qp->pl_id);
 
   if (!count)
     {
@@ -1879,11 +1869,7 @@ db_pl_fetch_byquery(char *query)
       return NULL;
     }
 
-  /* Playlist 1: all files */
-  if (pli->id == 1)
-    pli->items = db_files_get_count();
-  else
-    pli->items = db_pl_count_items(pli->id);
+  pli->items = db_pl_count_items(pli->id);
 
   return pli;
 }
@@ -2890,10 +2876,6 @@ db_perthread_deinit(void)
   "   libidx      INTEGER NOT NULL"			\
   ");"
 
-#define Q_PL1								\
-  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx)" \
-  " VALUES(1, 'Library', 1, '1', 0, '', 0);"
-
 #define I_PATH							\
   "CREATE INDEX IF NOT EXISTS idx_path ON files(path, idx);"
 
@@ -2941,21 +2923,6 @@ db_create_tables(void)
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);
-
-	  sqlite3_free(errmsg);
-	  return -1;
-	}
-    }
-
-  ret = db_get_count("SELECT COUNT(*) FROM playlists WHERE id = 1;");
-  if (ret != 1)
-    {
-      DPRINTF(E_DBG, L_DB, "Creating default playlist\n");
-
-      ret = sqlite3_exec(hdl, Q_PL1, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_FATAL, L_DB, "Could not add default playlist: %s\n", errmsg);
 
 	  sqlite3_free(errmsg);
 	  return -1;
