@@ -250,10 +250,6 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
 	}
     }
 
-  /* These will eventually be overridden by the actual filescanner */
-  mfi.item_kind = 2; /* music */
-  mfi.media_kind = 1; /* music */
-
   /* General case */
   if (ret < 0)
     {
@@ -270,6 +266,11 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
     }
 
   mfi.compilation = compilation;
+
+  if (!mfi.item_kind)
+    mfi.item_kind = 2; /* music */
+  if (!mfi.media_kind)
+    mfi.media_kind = 1; /* music */
 
   fixup_tags(&mfi);
 
