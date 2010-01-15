@@ -32,6 +32,7 @@
 #include <avahi-common/error.h>
 #include <avahi-client/client.h>
 #include <avahi-client/publish.h>
+#include <avahi-client/lookup.h>
 
 #include "logger.h"
 #include "mdns_avahi.h"
@@ -301,6 +302,14 @@ static struct AvahiPoll ev_poll_api =
 
 /* Avahi client callbacks & helpers (imported from mt-daapd) */
 
+struct mdns_browser
+{
+  char *type;
+  mdns_browse_cb cb;
+
+  struct mdns_browser *next;
+};
+
 struct mdns_group_entry
 {
   char *name;
@@ -311,7 +320,92 @@ struct mdns_group_entry
   struct mdns_group_entry *next;
 };
 
+static struct mdns_browser *browser_list;
 static struct mdns_group_entry *group_entries;
+
+
+static void
+browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtocol proto, AvahiResolverEvent event,
+			const char *name, const char *type, const char *domain, const char *hostname, const AvahiAddress *addr,
+			uint16_t port, AvahiStringList *txt, AvahiLookupResultFlags flags, void *userdata)
+{
+  struct mdns_browser *mb;
+  char address[AVAHI_ADDRESS_STR_MAX];
+
+  mb = (struct mdns_browser *)userdata;
+
+  switch (event)
+    {
+      case AVAHI_RESOLVER_FAILURE:
+	DPRINTF(E_LOG, L_MDNS, "Avahi Resolver failure: service '%s' type '%s': %s\n", name, type,
+		avahi_strerror(avahi_client_errno(mdns_client)));
+	break;
+
+      case AVAHI_RESOLVER_FOUND:
+	DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s'\n", name, type);
+
+	avahi_address_snprint(address, sizeof(address), addr);
+
+	/* Execute callback (mb->cb) with all the data */
+	mb->cb(name, type, domain, hostname, address, port, txt);
+	break;
+    }
+
+  avahi_service_resolver_free(r);
+}
+
+static void
+browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, AvahiBrowserEvent event,
+		const char *name, const char *type, const char *domain, AvahiLookupResultFlags flags, void *userdata)
+{
+  struct mdns_browser *mb;
+  AvahiServiceResolver *res;
+
+  mb = (struct mdns_browser *)userdata;
+
+  switch (event)
+    {
+      case AVAHI_BROWSER_FAILURE:
+	DPRINTF(E_LOG, L_MDNS, "Avahi Browser failure: %s\n",
+		avahi_strerror(avahi_client_errno(mdns_client)));
+
+	avahi_service_browser_free(b);
+
+	/* Restrict service browsing to IPv4 for now, until evhttp gets support for IPv6 */
+	b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_INET, mb->type, NULL, 0, browse_callback, mb);
+	if (!b)
+	  {
+	    DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type,
+		    avahi_strerror(avahi_client_errno(mdns_client)));
+	  }
+	return;
+
+      case AVAHI_BROWSER_NEW:
+	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: NEW service '%s' type '%s'\n", name, type);
+
+	/* Restrict resolution to IPv4 until evhttp gets support for IPv6 */
+	res = avahi_service_resolver_new(mdns_client, intf, proto, name, type, domain, AVAHI_PROTO_INET, 0, browse_resolve_callback, mb);
+	if (!res)
+	  DPRINTF(E_LOG, L_MDNS, "Failed to create service resolver: %s\n",
+		  avahi_strerror(avahi_client_errno(mdns_client)));
+
+	/* browse_resolve_callback will execute callback (mb->cb) with all the data */
+	break;
+
+      case AVAHI_BROWSER_REMOVE:
+	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: REMOVE service '%s' type '%s'\n", name, type);
+
+	mb->cb(name, type, domain, NULL, NULL, -1, NULL);
+	break;
+
+      case AVAHI_BROWSER_ALL_FOR_NOW:
+      case AVAHI_BROWSER_CACHE_EXHAUSTED:
+	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: no more results (%s)\n",
+		(event == AVAHI_BROWSER_CACHE_EXHAUSTED) ? "CACHE_EXHAUSTED" : "ALL_FOR_NOW");
+	break;
+    }
+}
+
 
 static void
 entry_group_callback(AvahiEntryGroup *g, AvahiEntryGroupState state, AVAHI_GCC_UNUSED void *userdata)
@@ -399,6 +493,8 @@ _create_services(void)
 static void
 client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * userdata)
 {
+  struct mdns_browser *mb;
+  AvahiServiceBrowser *b;
   int error;
 
   switch (state)
@@ -407,6 +503,17 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
         DPRINTF(E_LOG, L_MDNS, "Avahi state change: Client running\n");
         if (!mdns_group)
 	  _create_services();
+
+	for (mb = browser_list; mb; mb = mb->next)
+	  {
+	    /* Restrict service browsing to IPv4 for now, until evhttp gets support for IPv6 */
+	    b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_INET, mb->type, NULL, 0, browse_callback, mb);
+	    if (!b)
+	      {
+		DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type,
+			avahi_strerror(avahi_client_errno(mdns_client)));
+	      }
+	  }
         break;
 
       case AVAHI_CLIENT_S_COLLISION:
@@ -465,6 +572,7 @@ mdns_init(void)
   all_w = NULL;
   all_t = NULL;
   group_entries = NULL;
+  browser_list = NULL;
 
   mdns_client = avahi_client_new(&ev_poll_api, AVAHI_CLIENT_NO_FAIL,
 				 client_callback, NULL, &error);
@@ -483,6 +591,7 @@ void
 mdns_deinit(void)
 {
   struct mdns_group_entry *ge;
+  struct mdns_browser *mb;
   AvahiWatch *w;
   AvahiTimeout *t;
 
@@ -501,6 +610,14 @@ mdns_deinit(void)
       avahi_string_list_free(ge->txt);
 
       free(ge);
+    }
+
+  for (mb = browser_list; browser_list; mb = browser_list)
+    {
+      browser_list = mb->next;
+
+      free(mb->type);
+      free(mb);
     }
 
   if (mdns_client != NULL)
@@ -545,6 +662,36 @@ mdns_register(char *name, char *type, int port, char **txt)
 
   DPRINTF(E_DBG, L_MDNS, "Creating service group\n");
   _create_services();
+
+  return 0;
+}
+
+int
+mdns_browse(char *type, mdns_browse_cb cb)
+{
+  struct mdns_browser *mb;
+  AvahiServiceBrowser *b;
+
+  DPRINTF(E_DBG, L_MDNS, "Adding service browser for type %s\n", type);
+
+  mb = (struct mdns_browser *)malloc(sizeof(struct mdns_browser));
+  if (!mb)
+    return -1;
+
+  mb->type = strdup(type);
+  mb->cb = cb;
+
+  mb->next = browser_list;
+  browser_list = mb;
+
+  /* Restrict service browsing to IPv4 for now, until evhttp gets support for IPv6 */
+  b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_INET, type, NULL, 0, browse_callback, mb);
+  if (!b)
+    {
+      DPRINTF(E_LOG, L_MDNS, "Failed to create service browser: %s\n",
+	      avahi_strerror(avahi_client_errno(mdns_client)));
+      return -1;
+    }
 
   return 0;
 }
