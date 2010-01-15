@@ -230,6 +230,7 @@ register_services(char *ffid, int no_rsp, int no_daap)
   char records[9][128];
   int port;
   uint32_t hash;
+  uint64_t libhash;
   int i;
   int ret;
 
@@ -288,6 +289,37 @@ register_services(char *ffid, int no_rsp, int no_daap)
       if (ret < 0)
 	return ret;
     }
+
+  for (i = 0; i < (sizeof(records) / sizeof(records[0])); i++)
+    {
+      memset(records[i], 0, 128);
+    }
+
+  libhash = murmur_hash64(libname, strlen(libname), 0);
+
+  snprintf(txtrecord[0], 128, "txtvers=1");
+  snprintf(txtrecord[1], 128, "DbId=%08" PRIX64, libhash);
+  snprintf(txtrecord[2], 128, "DvTy=iTunes");
+  snprintf(txtrecord[3], 128, "DvSv=2306"); /* Magic number! Yay! */
+  snprintf(txtrecord[4], 128, "Ver=131073"); /* iTunes 6.0.4 */
+  snprintf(txtrecord[5], 128, "OSsi=0x1F5"); /* Magic number! Yay! */
+  snprintf(txtrecord[6], 128, "CtlN=%s", libname);
+
+  /* Terminator */
+  txtrecord[7] = NULL;
+
+  /* The group name for the touch-able service advertising is a 64bit hash
+   * but is different from the DbId in iTunes. For now we'll use a hash of
+   * the library name for both, and we'll change that if needed.
+   */
+
+  /* Use as scratch space for the hash */
+  snprintf(records[7], 128, "%08" PRIX64, libhash);
+
+  /* Register touch-able service, for Remote.app */
+  ret = mdns_register(records[7], "_touch-able._tcp", port, txtrecord);
+  if (ret < 0)
+    return ret;
 
   return 0;
 }
