@@ -58,6 +58,7 @@
 #include "filescanner.h"
 #include "httpd.h"
 #include "mdns_avahi.h"
+#include "remote_pairing.h"
 
 
 #define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
@@ -621,6 +622,16 @@ main(int argc, char **argv)
       goto httpd_fail;
     }
 
+  /* Start Remote pairing service */
+  ret = remote_pairing_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Remote pairing service failed to start\n");
+
+      ret = EXIT_FAILURE;
+      goto remote_fail;
+    }
+
   /* Register mDNS services */
   ret = register_services(ffid, mdns_no_rsp, mdns_no_daap);
   if (ret < 0)
@@ -687,6 +698,10 @@ main(int argc, char **argv)
 
  signalfd_fail:
  mdns_reg_fail:
+  DPRINTF(E_LOG, L_MAIN, "Remote pairing deinit\n");
+  remote_pairing_deinit();
+
+ remote_fail:
   DPRINTF(E_LOG, L_MAIN, "HTTPd deinit\n");
   httpd_deinit();
 
