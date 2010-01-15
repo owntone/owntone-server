@@ -224,7 +224,7 @@ static int
 register_services(char *ffid, int no_rsp, int no_daap)
 {
   cfg_t *lib;
-  char *servername;
+  char *libname;
   char *password;
   char *txtrecord[10];
   char records[9][128];
@@ -237,8 +237,8 @@ register_services(char *ffid, int no_rsp, int no_daap)
 
   lib = cfg_getnsec(cfg, "library", 0);
 
-  servername = cfg_getstr(lib, "name");
-  hash = djb_hash(servername, strlen(servername));
+  libname = cfg_getstr(lib, "name");
+  hash = djb_hash(libname, strlen(libname));
 
   for (i = 0; i < (sizeof(records) / sizeof(records[0])); i++)
     {
@@ -251,7 +251,7 @@ register_services(char *ffid, int no_rsp, int no_daap)
   snprintf(txtrecord[0], 128, "txtvers=1");
   snprintf(txtrecord[1], 128, "Database ID=%0X", hash);
   snprintf(txtrecord[2], 128, "Machine ID=%0X", hash);
-  snprintf(txtrecord[3], 128, "Machine Name=%s", servername);
+  snprintf(txtrecord[3], 128, "Machine Name=%s", libname);
   snprintf(txtrecord[4], 128, "mtd-version=%s", VERSION);
   snprintf(txtrecord[5], 128, "iTSh Version=131073"); /* iTunes 6.0.4 */
   snprintf(txtrecord[6], 128, "Version=196610");      /* iTunes 6.0.4 */
@@ -269,14 +269,14 @@ register_services(char *ffid, int no_rsp, int no_daap)
   port = cfg_getint(lib, "port");
 
   /* Register web server service */
-  ret = mdns_register(servername, "_http._tcp", port, txtrecord);
+  ret = mdns_register(libname, "_http._tcp", port, txtrecord);
   if (ret < 0)
     return ret;
 
   /* Register RSP service */
   if (!no_rsp)
     {
-      ret = mdns_register(servername, "_rsp._tcp", port, txtrecord);
+      ret = mdns_register(libname, "_rsp._tcp", port, txtrecord);
       if (ret < 0)
 	return ret;
     }
@@ -284,7 +284,7 @@ register_services(char *ffid, int no_rsp, int no_daap)
   /* Register DAAP service */
   if (!no_daap)
     {
-      ret = mdns_register(servername, "_daap._tcp", port, txtrecord);
+      ret = mdns_register(libname, "_daap._tcp", port, txtrecord);
       if (ret < 0)
 	return ret;
     }
