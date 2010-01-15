@@ -17,8 +17,9 @@
 #define L_XCODE   9
 /* libevent logging */
 #define L_EVENT   10
+#define L_REMOTE  11
 
-#define N_LOGDOMAINS  11
+#define N_LOGDOMAINS  12
 
 /* Severities */
 #define E_FATAL   0
