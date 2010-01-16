@@ -51,6 +51,7 @@
 #include "filescanner.h"
 #include "conffile.h"
 #include "misc.h"
+#include "remote_pairing.h"
 
 
 #define F_SCAN_BULK    (1 << 0)
@@ -372,6 +373,12 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int flags)
 	    defer_playlist(file);
 	  else
 	    process_playlist(file);
+
+	  return;
+	}
+      else if (strcmp(ext, ".remote") == 0)
+	{
+	  remote_pairing_read_pin(file);
 
 	  return;
 	}
