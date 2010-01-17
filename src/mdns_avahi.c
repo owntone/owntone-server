@@ -492,7 +492,7 @@ mdns_deinit(void)
   for (w = all_w; w; w = w->next)
     event_del(&w->ev);
 
-  for (ge = group_entries; ge; ge = ge->next)
+  for (ge = group_entries; group_entries; ge = group_entries)
     {
       group_entries = ge->next;
 
