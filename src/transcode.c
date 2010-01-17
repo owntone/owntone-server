@@ -31,7 +31,7 @@
 #include <fcntl.h>
 #include <stdint.h>
 
-#if defined(__linux__)
+#if defined(__linux__) || defined(__GLIBC__)
 # include <endian.h>
 # include <byteswap.h>
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
