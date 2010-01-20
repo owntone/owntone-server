@@ -55,6 +55,10 @@ struct uri_map {
   void (*handler)(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query);
 };
 
+struct daap_session {
+  int id;
+};
+
 #define DMAP_TYPE_BYTE     0x01
 #define DMAP_TYPE_UBYTE    0x02
 #define DMAP_TYPE_SHORT    0x03
@@ -330,9 +334,25 @@ static char *default_meta_group = "dmap.itemname,dmap.persistentid,daap.songalbu
 
 static avl_tree_t *dmap_fields_hash;
 
-/* Next session ID */
-static int session_id;
+/* DAAP session tracking */
+static avl_tree_t *daap_sessions;
+static int next_session_id;
 
+
+static int
+daap_session_compare(const void *aa, const void *bb)
+{
+  struct daap_session *a = (struct daap_session *)aa;
+  struct daap_session *b = (struct daap_session *)bb;
+
+  if (a->id < b->id)
+    return -1;
+
+  if (a->id > b->id)
+    return 1;
+
+  return 0;
+}
 
 static int
 dmap_field_map_compare(const void *aa, const void *bb)
@@ -555,6 +575,78 @@ dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval,
 /* Forward */
 static void
 daap_send_error(struct evhttp_request *req, char *container, char *errmsg);
+
+
+/* Session handling */
+static struct daap_session *
+daap_session_register(void)
+{
+  struct daap_session *s;
+  avl_node_t *node;
+
+  s = (struct daap_session *)malloc(sizeof(struct daap_session));
+  if (!s)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Out of memory for DAAP session\n");
+      return NULL;
+    }
+
+  memset(s, 0, sizeof(struct daap_session));
+
+  s->id = next_session_id;
+
+  next_session_id++;
+
+  node = avl_insert(daap_sessions, s);
+  if (!node)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not register DAAP session: %s\n", strerror(errno));
+
+      free(s);
+      return NULL;
+    }
+
+  return s;
+}
+
+static void
+daap_session_kill(struct daap_session *s)
+{
+  avl_delete(daap_sessions, s);
+}
+
+static struct daap_session *
+daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct evbuffer *evbuf)
+{
+  struct daap_session needle;
+  avl_node_t *node;
+  const char *param;
+  int ret;
+
+  param = evhttp_find_header(query, "session-id");
+  if (!param)
+    {
+      DPRINTF(E_WARN, L_DAAP, "No session-id specified in request\n");
+      goto invalid;
+    }
+
+  ret = safe_atoi(param, &needle.id);
+  if (ret < 0)
+    goto invalid;
+
+  node = avl_search(daap_sessions, &needle);
+  if (!node)
+    {
+      DPRINTF(E_WARN, L_DAAP, "DAAP session id %d not found\n", needle.id);
+      goto invalid;
+    }
+
+  return (struct daap_session *)node->item;
+
+ invalid:
+  evhttp_send_reply(req, 403, "Forbidden", evbuf);
+  return NULL;
+}
 
 
 static struct dmap_field_map *
@@ -851,6 +943,7 @@ daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, cha
 static void
 daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct daap_session *s;
   int ret;
 
   ret = evbuffer_expand(evbuf, 32);
@@ -862,12 +955,16 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
       return;
     }
 
+  s = daap_session_register();
+  if (!s)
+    {
+      daap_send_error(req, "mlog", "Could not start session");
+      return;
+    }
+
   dmap_add_container(evbuf, "mlog", 24);
   dmap_add_int(evbuf, "mstt", 200);        /* 12 */
-  dmap_add_int(evbuf, "mlid", session_id); /* 12 */
-
-  /* We don't actually care about session id at the moment */
-  session_id++;
+  dmap_add_int(evbuf, "mlid", s->id); /* 12 */
 
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
 }
@@ -875,6 +972,14 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 static void
 daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct daap_session *s;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
+
+  daap_session_kill(s);
+
   evhttp_send_reply(req, 204, "Logout Successful", evbuf);
 }
 
@@ -915,11 +1020,16 @@ daap_reply_activity(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 static void
 daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct daap_session *s;
   cfg_t *lib;
   char *name;
   int namelen;
   int count;
   int ret;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
 
   lib = cfg_getnsec(cfg, "library", 0);
   name = cfg_getstr(lib, "name");
@@ -1306,14 +1416,25 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 static void
 daap_reply_dbsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct daap_session *s;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
+
   daap_reply_songlist_generic(req, evbuf, -1, query);
 }
 
 static void
 daap_reply_plsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct daap_session *s;
   int playlist;
   int ret;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
 
   ret = safe_atoi(uri[3], &playlist);
   if (ret < 0)
@@ -1331,6 +1452,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 {
   struct query_params qp;
   struct db_playlist_info dbpli;
+  struct daap_session *s;
   struct evbuffer *playlistlist;
   struct evbuffer *playlist;
   struct dmap_field_map *dfm;
@@ -1343,6 +1465,10 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   int val;
   int i;
   int ret;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
 
   ret = evbuffer_expand(evbuf, 61);
   if (ret < 0)
@@ -1559,6 +1685,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 {
   struct query_params qp;
   struct db_group_info dbgri;
+  struct daap_session *s;
   struct evbuffer *group;
   struct evbuffer *grouplist;
   struct dmap_field_map *dfm;
@@ -1572,6 +1699,10 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   int i;
   int ret;
   char *tag;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
 
   /* For now we only support album groups */
   tag = "agal";
@@ -1793,11 +1924,16 @@ static void
 daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct query_params qp;
+  struct daap_session *s;
   struct evbuffer *itemlist;
   char *browse_item;
   char *tag;
   int nitems;
   int ret;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
 
   memset(&qp, 0, sizeof(struct query_params));
 
@@ -1919,6 +2055,12 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 static void
 daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct daap_session *s;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
+
   /* Sorry, we have no artwork */
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
 }
@@ -1926,8 +2068,13 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 static void
 daap_stream(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct daap_session *s;
   int id;
   int ret;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
 
   ret = safe_atoi(uri[3], &id);
   if (ret < 0)
@@ -2238,7 +2385,7 @@ daap_init(void)
   int i;
   int ret;
 
-  session_id = 100; /* gotta start somewhere, right? */
+  next_session_id = 100; /* gotta start somewhere, right? */
 
   ret = daap_query_init();
   if (ret < 0)
@@ -2256,12 +2403,20 @@ daap_init(void)
         }
     }
 
+  daap_sessions = avl_alloc_tree(daap_session_compare, free);
+  if (!daap_sessions)
+    {
+      DPRINTF(E_FATAL, L_DAAP, "DAAP init could not allocate DAAP sessions AVL tree\n");
+
+      goto daap_avl_alloc_fail;
+    }
+
   dmap_fields_hash = avl_alloc_tree(dmap_field_map_compare, NULL);
   if (!dmap_fields_hash)
     {
-      DPRINTF(E_FATAL, L_DAAP, "DAAP init could not allocate AVL tree\n");
+      DPRINTF(E_FATAL, L_DAAP, "DAAP init could not allocate DMAP fields AVL tree\n");
 
-      goto avl_alloc_fail;
+      goto dmap_avl_alloc_fail;
     }
 
   for (i = 0; dmap_fields[i].type != 0; i++)
@@ -2284,15 +2439,17 @@ daap_init(void)
 	      DPRINTF(E_FATAL, L_DAAP, "Hash %x, string %s\n", dfm->hash, dfm->desc);
 	    }
 
-	  goto avl_insert_fail;
+	  goto dmap_avl_insert_fail;
 	}
     }
 
   return 0;
 
- avl_insert_fail:
+ dmap_avl_insert_fail:
   avl_free_tree(dmap_fields_hash);
- avl_alloc_fail:
+ dmap_avl_alloc_fail:
+  avl_free_tree(daap_sessions);
+ daap_avl_alloc_fail:
   for (i = 0; daap_handlers[i].handler; i++)
     regfree(&daap_handlers[i].preg);
  regexp_fail:
@@ -2311,5 +2468,6 @@ daap_deinit(void)
   for (i = 0; daap_handlers[i].handler; i++)
     regfree(&daap_handlers[i].preg);
 
+  avl_free_tree(daap_sessions);
   avl_free_tree(dmap_fields_hash);
 }
