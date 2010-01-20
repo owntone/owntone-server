@@ -815,7 +815,7 @@ scan_itunes_itml(char *file)
       return;
     }
 
-  itml_to_db = avl_alloc_tree(itml_to_db_compare, NULL);
+  itml_to_db = avl_alloc_tree(itml_to_db_compare, free);
   if (!itml_to_db)
     {
       DPRINTF(E_FATAL, L_SCAN, "iTunes library parser could not allocate AVL tree\n");
