@@ -400,7 +400,7 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 
       case AVAHI_BROWSER_ALL_FOR_NOW:
       case AVAHI_BROWSER_CACHE_EXHAUSTED:
-	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: no more results (%s)\n",
+	DPRINTF(E_DBG, L_MDNS, "Avahi Browser (%s): no more results (%s)\n", mb->type,
 		(event == AVAHI_BROWSER_CACHE_EXHAUSTED) ? "CACHE_EXHAUSTED" : "ALL_FOR_NOW");
 	break;
     }
