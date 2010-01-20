@@ -524,11 +524,9 @@ dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval,
   int val;
   int ret;
 
-  val = 0;
+  val = intval;
 
-  if (intval != 0)
-    val = intval;
-  else if (strval)
+  if ((dfm->type != DMAP_TYPE_STRING) && (val == 0) && strval)
     {
       ret = safe_atoi(strval, &val);
       if (ret < 0)
@@ -1300,7 +1298,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
                 }
             }
 
-	  if (*strval)
+	  if (*strval && (dfm->type != DMAP_TYPE_STRING))
 	    {
 	      ret = safe_atoi(*strval, &val);
 	      if (ret < 0)
