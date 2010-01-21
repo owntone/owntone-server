@@ -3190,6 +3190,38 @@ static struct db_init_query db_upgrade_v3_queries[] =
     { U_V3_SCVER,     "set schema_version to 3" },
   };
 
+/* Upgrade from schema v3 to v4 */
+
+#define U_V4_PLAYLISTS								\
+  "ALTER TABLE playlists ADD COLUMN special_id INTEGER NOT NULL DEFAULT 0;"
+
+#define U_V4_PL1								\
+  "UPDATE playlists SET query = 'disabled = 0' WHERE id = 1;"
+
+#define U_V4_PL2								\
+  "INSERT INTO playlists (title, type, query, db_timestamp, path, idx, special_id)" \
+  " VALUES('Music', 1, 'media_kind = 1', 0, '', 0, 6);"
+
+#define U_V4_PL3								\
+  "INSERT INTO playlists (title, type, query, db_timestamp, path, idx, special_id)" \
+  " VALUES('Movies', 1, 'media_kind = 32', 0, '', 0, 4);"
+
+#define U_V4_PL4								\
+  "INSERT INTO playlists (title, type, query, db_timestamp, path, idx, special_id)" \
+  " VALUES('TV Shows', 1, 'media_kind = 64', 0, '', 0, 5);"
+
+#define U_V4_SCVER					\
+  "UPDATE admin SET value = '4' WHERE key = 'schema_version';"
+
+static struct db_init_query db_upgrade_v4_queries[] =
+  {
+    { U_V4_PLAYLISTS, "upgrade table playlists" },
+    { U_V4_PL1,       "update playlist 1" },
+    { U_V4_PL2,       "add smart playlist 'Music'" },
+    { U_V4_PL3,       "add smart playlist 'Movies'" },
+    { U_V4_PL4,       "add smart playlist 'TV Shows'" },
+    { U_V4_SCVER,     "set schema_version to 4" },
+  };
 
 static int
 db_check_version(void)
@@ -3238,6 +3270,13 @@ db_check_version(void)
 
 	  case 2:
 	    ret = db_generic_upgrade(db_upgrade_v3_queries, sizeof(db_upgrade_v3_queries) / sizeof(db_upgrade_v3_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 3:
+	    ret = db_generic_upgrade(db_upgrade_v4_queries, sizeof(db_upgrade_v4_queries) / sizeof(db_upgrade_v4_queries[0]));
 	    if (ret < 0)
 	      return -1;
 	    break;
