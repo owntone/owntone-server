@@ -115,16 +115,23 @@ struct media_file_info {
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
 
+enum pl_type {
+  PL_PLAIN,
+  PL_SMART,
+  PL_MAX
+};
+
 struct playlist_info {
   uint32_t id;           /* integer id (miid) */
   char *title;           /* playlist name as displayed in iTunes (minm) */
-  uint32_t type;         /* see PL_ types (deprecated) */
+  enum pl_type type;     /* see PL_ types */
   uint32_t items;        /* number of items (mimc) */
   char *query;           /* where clause if type 1 (MSPS) */
   uint32_t db_timestamp; /* time last updated */
   uint32_t disabled;
   char *path;            /* path of underlying playlist */
   uint32_t index;        /* index of playlist for paths with multiple playlists */
+  uint32_t special_id;   /* iTunes identifies certain 'special' playlists with special meaning */
 };
 
 #define pli_offsetof(field) offsetof(struct playlist_info, field)
@@ -139,6 +146,7 @@ struct db_playlist_info {
   char *disabled;
   char *path;
   char *index;
+  char *special_id;
 };
 
 #define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)

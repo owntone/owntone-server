@@ -122,6 +122,7 @@ static struct col_type_map pli_cols_map[] =
     { pli_offsetof(disabled),     DB_TYPE_INT },
     { pli_offsetof(path),         DB_TYPE_STRING },
     { pli_offsetof(index),        DB_TYPE_INT },
+    { pli_offsetof(special_id),   DB_TYPE_INT },
 
     /* items is computed on the fly */
   };
@@ -196,6 +197,7 @@ static ssize_t dbpli_cols_map[] =
     dbpli_offsetof(disabled),
     dbpli_offsetof(path),
     dbpli_offsetof(index),
+    dbpli_offsetof(special_id),
 
     /* items is computed on the fly */
   };
@@ -230,6 +232,12 @@ static __thread sqlite3 *hdl;
 /* Forward */
 static int
 db_pl_count_items(int id);
+
+static int
+db_smartpl_count_items(const char *smartpl_query);
+
+struct playlist_info *
+db_pl_fetch_byid(int id);
 
 
 char *
@@ -339,8 +347,8 @@ db_purge_cruft(time_t ref)
   char *queries[3] = { NULL, NULL, NULL };
   char *queries_tmpl[3] =
     {
-      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE id <> 1 AND db_timestamp < %" PRIi64 ");",
-      "DELETE FROM playlists WHERE id <> 1 AND db_timestamp < %" PRIi64 ";",
+      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE type <> 1 AND db_timestamp < %" PRIi64 ");",
+      "DELETE FROM playlists WHERE type <> 1 AND db_timestamp < %" PRIi64 ";",
       "DELETE FROM files WHERE db_timestamp < %" PRIi64 ";"
     };
 
@@ -543,35 +551,19 @@ db_build_query_pls(struct query_params *qp, char **q)
 }
 
 static int
-db_build_query_plitems(struct query_params *qp, char **q)
+db_build_query_plitems_plain(struct query_params *qp, char **q)
 {
   char *query;
   char *count;
   char *idx;
   int ret;
 
-  if (qp->pl_id <= 0)
-    {
-      DPRINTF(E_LOG, L_DB, "No playlist id specified in playlist items query\n");
-      return -1;
-    }
-
-  if (qp->pl_id == 1)
-    {
-      if (qp->filter)
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s;", qp->filter);
-      else
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0;");
-    }
+  if (qp->filter)
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
+			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s;", qp->pl_id, qp->filter);
   else
-    {
-      if (qp->filter)
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-				" WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s;", qp->pl_id, qp->filter);
-      else
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-				" WHERE playlistitems.playlistid = %d AND files.disabled = 0;", qp->pl_id);
-    }
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
+			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0;", qp->pl_id);
 
   if (!count)
     {
@@ -617,6 +609,91 @@ db_build_query_plitems(struct query_params *qp, char **q)
   *q = query;
 
   return 0;
+}
+
+static int
+db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char **q)
+{
+  char *query;
+  char *count;
+  char *filter;
+  char *idx;
+  int ret;
+
+  if (qp->filter)
+    filter = qp->filter;
+  else
+    filter = "1 = 1";
+
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s AND %s;", filter, smartpl_query);
+  if (!count)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for count query string\n");
+      return -1;
+    }
+
+  qp->results = db_get_count(count);
+
+  sqlite3_free(count);
+
+  if (qp->results < 0)
+    return -1;
+
+  /* Get index clause */
+  ret = db_build_query_index_clause(qp, &idx);
+  if (ret < 0)
+    return -1;
+
+  if (!idx)
+    idx = "";
+
+  query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s AND %s %s;", smartpl_query, filter, idx);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  *q = query;
+
+  return 0;
+}
+
+static int
+db_build_query_plitems(struct query_params *qp, char **q)
+{
+  struct playlist_info *pli;
+  int ret;
+
+  if (qp->pl_id <= 0)
+    {
+      DPRINTF(E_LOG, L_DB, "No playlist id specified in playlist items query\n");
+      return -1;
+    }
+
+  pli = db_pl_fetch_byid(qp->pl_id);
+  if (!pli)
+    return -1;
+
+  switch (pli->type)
+    {
+      case PL_SMART:
+	ret = db_build_query_plitems_smart(qp, pli->query, q);
+	break;
+
+      case PL_PLAIN:
+	ret = db_build_query_plitems_plain(qp, q);
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_DB, "Unknown playlist type %d in playlist items query\n", pli->type);
+	ret = -1;
+	break;
+    }
+
+  free_pli(pli, 0);
+
+  return ret;
 }
 
 static int
@@ -849,6 +926,8 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
   int ncols;
   char **strcol;
   int id;
+  int type;
+  int nitems;
   int i;
   int ret;
 
@@ -894,12 +973,26 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
       *strcol = (char *)sqlite3_column_text(qp->stmt, i);
     }
 
-  id = sqlite3_column_int(qp->stmt, 0);
+  type = sqlite3_column_int(qp->stmt, 2);
 
-  i = db_pl_count_items(id);
+  switch (type)
+    {
+      case PL_PLAIN:
+	id = sqlite3_column_int(qp->stmt, 0);
+	nitems = db_pl_count_items(id);
+	break;
+
+      case PL_SMART:
+	nitems = db_smartpl_count_items(dbpli->query);
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_DB, "Unknown playlist type %d while fetching playlist\n", type);
+	return -1;
+    }
 
   dbpli->items = qp->buf;
-  ret = snprintf(qp->buf, sizeof(qp->buf), "%d", i);
+  ret = snprintf(qp->buf, sizeof(qp->buf), "%d", nitems);
   if ((ret < 0) || (ret >= sizeof(qp->buf)))
     {
       DPRINTF(E_LOG, L_DB, "Could not convert items, buffer too small\n");
@@ -1676,10 +1769,31 @@ db_pl_count_items(int id)
   char *query;
   int ret;
 
-  if (id == 1)
-    return db_files_get_count();
-
   query = sqlite3_mprintf(Q_TMPL, id);
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return 0;
+    }
+
+  ret = db_get_count(query);
+
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
+static int
+db_smartpl_count_items(const char *smartpl_query)
+{
+#define Q_TMPL "SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, smartpl_query);
 
   if (!query)
     {
@@ -1879,11 +1993,22 @@ db_pl_fetch_byquery(char *query)
       return NULL;
     }
 
-  /* Playlist 1: all files */
-  if (pli->id == 1)
-    pli->items = db_files_get_count();
-  else
-    pli->items = db_pl_count_items(pli->id);
+  switch (pli->type)
+    {
+      case PL_PLAIN:
+	pli->items = db_pl_count_items(pli->id);
+	break;
+
+      case PL_SMART:
+	pli->items = db_smartpl_count_items(pli->query);
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_DB, "Unknown playlist type %d while fetching playlist\n", pli->type);
+
+	free_pli(pli, 0);
+	return NULL;
+    }
 
   return pli;
 }
@@ -1896,6 +2021,30 @@ db_pl_fetch_bypath(char *path)
   char *query;
 
   query = sqlite3_mprintf(Q_TMPL, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return NULL;
+    }
+
+  pli = db_pl_fetch_byquery(query);
+
+  sqlite3_free(query);
+
+  return pli;
+
+#undef Q_TMPL
+}
+
+struct playlist_info *
+db_pl_fetch_byid(int id)
+{
+#define Q_TMPL "SELECT * FROM playlists WHERE id = %d;"
+  struct playlist_info *pli;
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1940,8 +2089,8 @@ int
 db_pl_add(char *title, char *path, int *id)
 {
 #define QDUP_TMPL "SELECT COUNT(*) FROM playlists WHERE title = '%q' AND path = '%q';"
-#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx)" \
-                  " VALUES ('%q', 0, NULL, %" PRIi64 ", 0, '%q', 0);"
+#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id)" \
+                  " VALUES ('%q', 0, NULL, %" PRIi64 ", 0, '%q', 0, 0);"
   char *query;
   char *errmsg;
   int ret;
@@ -2872,7 +3021,8 @@ db_perthread_deinit(void)
   "   db_timestamp   INTEGER NOT NULL,"			\
   "   disabled       INTEGER DEFAULT 0,"		\
   "   path           VARCHAR(4096),"			\
-  "   idx            INTEGER NOT NULL"			\
+  "   idx            INTEGER NOT NULL,"			\
+  "   special_id     INTEGER DEFAULT 0"			\
   ");"
 
 #define T_PLITEMS				\
@@ -2901,13 +3051,33 @@ db_perthread_deinit(void)
 
 
 #define Q_PL1								\
-  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx)" \
-  " VALUES(1, 'Library', 1, '1', 0, '', 0);"
+  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
+  " VALUES(1, 'Library', 1, '1', 0, 'disabled = 0', 0, 0);"
+
+#define Q_PL2								\
+  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
+  " VALUES(2, 'Music', 1, 'media_kind = 1', 0, '', 0, 6);"
+
+#define Q_PL3								\
+  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
+  " VALUES(3, 'Movies', 1, 'media_kind = 32', 0, '', 0, 4);"
+
+#define Q_PL4								\
+  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
+  " VALUES(4, 'TV Shows', 1, 'media_kind = 64', 0, '', 0, 5);"
+
+/* These are the remaining automatically-created iTunes playlists, but
+ * their query is unknown
+  " VALUES(5, 'Podcasts', 0, 'media_kind = 128 ', 0, '', 0, 1);"
+  " VALUES(6, 'iTunes U', 0, 'media_kind = 256', 0, '', 0, 13);"
+  " VALUES(7, 'Audiobooks', 0, 'media_kind = 512', 0, '', 0, 7);"
+  " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
+ */
 
 
-#define SCHEMA_VERSION 3
+#define SCHEMA_VERSION 4
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '3');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '4');"
 
 struct db_init_query {
   char *query;
@@ -2927,6 +3097,9 @@ static struct db_init_query db_init_queries[] =
     { I_PLITEMID,  "create playlist id index" },
 
     { Q_PL1,       "create default playlist" },
+    { Q_PL2,       "create default smart playlist 'Music'" },
+    { Q_PL3,       "create default smart playlist 'Movies'" },
+    { Q_PL4,       "create default smart playlist 'TV Shows'" },
 
     { Q_SCVER,     "set schema version" },
   };
