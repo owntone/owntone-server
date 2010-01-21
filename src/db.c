@@ -3140,20 +3140,18 @@ db_init(void)
   if (ret < 0)
     return ret;
 
-  ret = db_create_tables();
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_DB, "Could not create tables\n");
-      db_perthread_deinit();
-      return -1;
-    }
-
   ret = db_check_version();
   if (ret < 0)
     {
-      DPRINTF(E_FATAL, L_DB, "Could not check database version\n");
-      db_perthread_deinit();
-      return -1;
+      DPRINTF(E_FATAL, L_DB, "Could not check database version, trying DB init\n");
+
+      ret = db_create_tables();
+      if (ret < 0)
+	{
+	  DPRINTF(E_FATAL, L_DB, "Could not create tables\n");
+	  db_perthread_deinit();
+	  return -1;
+	}
     }
 
   files = db_files_get_count();
