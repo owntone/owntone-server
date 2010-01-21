@@ -2890,10 +2890,6 @@ db_perthread_deinit(void)
   "   libidx      INTEGER NOT NULL"			\
   ");"
 
-#define Q_PL1								\
-  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx)" \
-  " VALUES(1, 'Library', 1, '1', 0, '', 0);"
-
 #define I_PATH							\
   "CREATE INDEX IF NOT EXISTS idx_path ON files(path, idx);"
 
@@ -2902,6 +2898,11 @@ db_perthread_deinit(void)
 
 #define I_PLITEMID							\
   "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
+
+
+#define Q_PL1								\
+  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx)" \
+  " VALUES(1, 'Library', 1, '1', 0, '', 0);"
 
 
 #define SCHEMA_VERSION 3
@@ -2924,6 +2925,10 @@ static struct db_init_query db_init_queries[] =
     { I_PATH,      "create file path index" },
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
+
+    { Q_PL1,       "create default playlist" },
+
+    { Q_SCVER,     "set schema version" },
   };
 
 static int
@@ -2941,36 +2946,6 @@ db_create_tables(void)
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);
-
-	  sqlite3_free(errmsg);
-	  return -1;
-	}
-    }
-
-  ret = db_get_count("SELECT COUNT(*) FROM playlists WHERE id = 1;");
-  if (ret != 1)
-    {
-      DPRINTF(E_DBG, L_DB, "Creating default playlist\n");
-
-      ret = sqlite3_exec(hdl, Q_PL1, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_FATAL, L_DB, "Could not add default playlist: %s\n", errmsg);
-
-	  sqlite3_free(errmsg);
-	  return -1;
-	}
-    }
-
-  ret = db_get_count("SELECT COUNT(*) FROM admin WHERE key = 'schema_version';");
-  if (ret != 1)
-    {
-      DPRINTF(E_DBG, L_DB, "Setting schema version\n");
-
-      ret = sqlite3_exec(hdl, Q_SCVER, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_FATAL, L_DB, "Could not set schema version: %s\n", errmsg);
 
 	  sqlite3_free(errmsg);
 	  return -1;
