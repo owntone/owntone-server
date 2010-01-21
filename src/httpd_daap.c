@@ -253,6 +253,8 @@ static struct dmap_field_map dmap_fields[] =
       -1,                                 -1,                    -1 },
     { 0, DMAP_TYPE_BYTE,    "aeSP", "com.apple.itunes.smart-playlist",
       -1,                                 -1,                    -1 },
+    { 0, DMAP_TYPE_BYTE,    "aePS", "com.apple.itunes.special-playlist",
+      -1,                                 -1,                    -1 },
 
     /* iTunes 4.5+ */
 #if 0 /* Duplicate: type changed to INT in iTunes 6.0.4 */
@@ -1561,12 +1563,19 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	    {
 	      val = 0;
 	      ret = safe_atoi(dbpli.type, &val);
-	      if ((ret == 0) && (val == 1))
+	      if ((ret == 0) && (val == PL_SMART))
 		{
 		  val = 1;
 		  ret = safe_atoi(dbpli.id, &val);
 		  if ((ret == 0) && (val != 1))
-		    dmap_add_char(playlist, "aeSP", 1);
+		    {
+		      int aePS = 0;
+		      dmap_add_char(playlist, "aeSP", 1);
+
+		      ret = safe_atoi(dbpli.special_id, &aePS);
+		      if ((ret == 0) && (aePS > 0))
+			dmap_add_char(playlist, "aePS", aePS);
+		    }
 		}
 
 	      continue;
