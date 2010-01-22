@@ -1170,13 +1170,13 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   memset(&qp, 0, sizeof(struct query_params));
   get_query_params(query, &qp);
 
-  if (playlist < 2)
-    qp.type = Q_ITEMS;
-  else
+  if (playlist != -1)
     {
       qp.type = Q_PLITEMS;
       qp.pl_id = playlist;
     }
+  else
+    qp.type = Q_ITEMS;
 
   ret = db_query_start(&qp);
   if (ret < 0)
