@@ -1,4 +1,5 @@
 *~
+*.swp
 Makefile.in
 Makefile
 *.o
