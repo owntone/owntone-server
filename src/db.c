@@ -3060,7 +3060,7 @@ db_perthread_deinit(void)
 
 #define Q_PL3								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(3, 'Movies', 1, 'media_kind = 32', 0, '', 0, 4);"
+  " VALUES(3, 'Movies', 1, 'media_kind = 2', 0, '', 0, 4);"
 
 #define Q_PL4								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
@@ -3075,9 +3075,9 @@ db_perthread_deinit(void)
  */
 
 
-#define SCHEMA_VERSION 4
+#define SCHEMA_VERSION 5
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '4');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '5');"
 
 struct db_init_query {
   char *query;

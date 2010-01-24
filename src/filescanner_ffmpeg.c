@@ -376,6 +376,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
       /* I have no idea why this is, but iTunes reports a media kind of 64 for stik==10 (?!) */
       mfi->media_kind = 64;
     }
+  /* Unspecified video files are "Movies", media_kind 2 */
+  else if (mfi->has_video == 1)
+    {
+      mfi->media_kind = 2;
+    }
 
  skip_extract:
   if (mdcount == 0)
