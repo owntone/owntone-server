@@ -615,6 +615,7 @@ bulk_scan(void)
   int nlib;
   int ndirs;
   char *path;
+  char *deref;
   time_t start;
   int i;
   int j;
@@ -634,7 +635,17 @@ bulk_scan(void)
 	{
 	  path = cfg_getnstr(lib, "directories", j);
 
-	  process_directories(i, path, F_SCAN_BULK);
+	  deref = m_realpath(path);
+	  if (!deref)
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Skipping library directory %s, could not dereference: %s\n", path, strerror(errno));
+
+	      continue;
+	    }
+
+	  process_directories(i, deref, F_SCAN_BULK);
+
+	  free(deref);
 
 	  if (scan_exit)
 	    return;
