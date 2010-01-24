@@ -850,7 +850,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   passwd = cfg_getstr(lib, "password");
   name = cfg_getstr(lib, "name");
 
-  len = 139 + strlen(name);
+  len = 148 + strlen(name);
 
   if (!supports_update)
     len -= 9;
@@ -889,6 +889,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_int(evbuf, "mstm", 1800); /* 12 */
   dmap_add_string(evbuf, "minm", name); /* 8 + strlen(name) */
 
+  dmap_add_char(evbuf, "mslr", 0);   /* 9 */
   dmap_add_char(evbuf, "msau", (passwd) ? 2 : 0); /* 9 */
   dmap_add_char(evbuf, "msex", 0);   /* 9 */
   dmap_add_char(evbuf, "msix", 0);   /* 9 */
