@@ -3223,6 +3223,24 @@ static struct db_init_query db_upgrade_v4_queries[] =
     { U_V4_SCVER,     "set schema_version to 4" },
   };
 
+/* Upgrade from schema v4 to v5 */
+
+#define U_V5_FIXPL					\
+  "UPDATE playlists SET query = 'media_kind = 2' WHERE title = 'Movies' and type = 1;"
+
+#define U_V5_RESCAN					\
+  "UPDATE files SET db_timestamp = 1;"
+
+#define U_V5_SCVER					\
+  "UPDATE admin SET value = '5' WHERE key = 'schema_version';"
+
+static struct db_init_query db_upgrade_v5_queries[] =
+  {
+    { U_V5_FIXPL,     "fix 'Movies' smart playlist" },
+    { U_V5_RESCAN,    "force library rescan" },
+    { U_V5_SCVER,     "set schema_version to 5" },
+  };
+
 static int
 db_check_version(void)
 {
@@ -3277,6 +3295,13 @@ db_check_version(void)
 
 	  case 3:
 	    ret = db_generic_upgrade(db_upgrade_v4_queries, sizeof(db_upgrade_v4_queries) / sizeof(db_upgrade_v4_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 4:
+	    ret = db_generic_upgrade(db_upgrade_v5_queries, sizeof(db_upgrade_v5_queries) / sizeof(db_upgrade_v5_queries[0]));
 	    if (ret < 0)
 	      return -1;
 	    break;
