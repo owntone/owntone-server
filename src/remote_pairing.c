@@ -274,7 +274,7 @@ itunes_pairing_hash(char *paircode, char *pin)
   d = htobe32(d);
 
   /* Write out the pairing hash */
-  snprintf(hash, sizeof(hash), "%0X%0X%0X%0X", a, b, c, d);
+  snprintf(hash, sizeof(hash), "%08X%08X%08X%08X", a, b, c, d);
 
   return strdup(hash);
 }
