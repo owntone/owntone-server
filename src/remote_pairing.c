@@ -74,13 +74,11 @@ struct remote_info {
 };
 
 
-static int exit_pipe[2];
+/* Main event base, from main.c */
+extern struct event_base *evbase_main;
+
 static int pairing_pipe[2];
-static struct event_base *evbase_pairing;
-static struct event exitev;
 static struct event pairingev;
-static int pairing_exit;
-static pthread_t tid_pairing;
 static pthread_mutex_t remote_lck = PTHREAD_MUTEX_INITIALIZER;
 static struct remote_info *remote_list;
 static uint64_t libhash;
@@ -684,7 +682,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 }
 
 
-/* Thread: pairing */
+/* Thread: main (pairing) */
 static void
 pairing_request_cb(struct evhttp_request *req, void *arg)
 {
@@ -710,7 +708,7 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
 }
 
 
-/* Thread: pairing */
+/* Thread: main (pairing) */
 static void
 do_pairing(struct remote_info *ri)
 {
@@ -754,7 +752,7 @@ do_pairing(struct remote_info *ri)
       goto evcon_fail;
     }
 
-  evhttp_connection_set_base(evcon, evbase_pairing);
+  evhttp_connection_set_base(evcon, evbase_main);
 
   req = evhttp_request_new(pairing_request_cb, ri);
   if (!req)
@@ -789,7 +787,7 @@ do_pairing(struct remote_info *ri)
 }
 
 
-/* Thread: pairing */
+/* Thread: main (pairing) */
 static void
 pairing_cb(int fd, short event, void *arg)
 {
@@ -824,28 +822,6 @@ pairing_cb(int fd, short event, void *arg)
 }
 
 
-/* Thread: pairing */
-static void
-exit_cb(int fd, short event, void *arg)
-{
-  event_base_loopbreak(evbase_pairing);
-
-  pairing_exit = 1;
-}
-
-/* Thread: pairing */
-static void *
-pairing_agent(void *arg)
-{
-  event_base_dispatch(evbase_pairing);
-
-  if (!pairing_exit)
-    DPRINTF(E_FATAL, L_REMOTE, "Pairing agent event loop terminated ahead of time!\n");
-
-  pthread_exit(NULL);
-}
-
-
 /* Thread: main */
 int
 remote_pairing_init(void)
@@ -854,19 +830,6 @@ remote_pairing_init(void)
   int ret;
 
   remote_list = NULL;
-  pairing_exit = 0;
-
-#if defined(__linux__)
-  ret = pipe2(exit_pipe, O_CLOEXEC);
-#else
-  ret = pipe(exit_pipe);
-#endif
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_REMOTE, "Could not create exit pipe: %s\n", strerror(errno));
-
-      return -1;
-    }
 
 #if defined(__linux__)
   ret = pipe2(pairing_pipe, O_CLOEXEC | O_NONBLOCK);
@@ -877,7 +840,7 @@ remote_pairing_init(void)
     {
       DPRINTF(E_FATAL, L_REMOTE, "Could not create pairing pipe: %s\n", strerror(errno));
 
-      goto pairing_pipe_fail;
+      return -1;
     }
 
 #ifndef __linux__
@@ -890,22 +853,6 @@ remote_pairing_init(void)
     }
 #endif
 
-  evbase_pairing = event_base_new();
-  if (!evbase_pairing)
-    {
-      DPRINTF(E_FATAL, L_REMOTE, "Could not create an event base\n");
-
-      goto evbase_fail;
-    }
-
-  event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
-  event_base_set(evbase_pairing, &exitev);
-  event_add(&exitev, NULL);
-
-  event_set(&pairingev, pairing_pipe[0], EV_READ, pairing_cb, NULL);
-  event_base_set(evbase_pairing, &pairingev);
-  event_add(&pairingev, NULL);
-
   ret = mdns_browse("_touch-remote._tcp", touch_remote_cb);
   if (ret < 0)
     {
@@ -917,27 +864,18 @@ remote_pairing_init(void)
   libname = cfg_getstr(cfg_getnsec(cfg, "library", 0), "name");
   libhash = murmur_hash64(libname, strlen(libname), 0);
 
-  ret = pthread_create(&tid_pairing, NULL, pairing_agent, NULL);
-  if (ret != 0)
-    {
-      DPRINTF(E_FATAL, L_REMOTE, "Could not spawn pairing agent thread: %s\n", strerror(errno));
-
-      goto thread_fail;
-    }
+  event_set(&pairingev, pairing_pipe[0], EV_READ, pairing_cb, NULL);
+  event_base_set(evbase_main, &pairingev);
+  event_add(&pairingev, NULL);
 
   return 0;
 
- thread_fail:
+#ifndef __linux__
+ pairing_pipe_fail:
+#endif
  mdns_browse_fail:
-  event_base_free(evbase_pairing);
-
- evbase_fail:
   close(pairing_pipe[0]);
   close(pairing_pipe[1]);
-
- pairing_pipe_fail:
-  close(exit_pipe[0]);
-  close(exit_pipe[1]);
 
   return -1;
 }
@@ -946,28 +884,6 @@ remote_pairing_init(void)
 void
 remote_pairing_deinit(void)
 {
-  int dummy = 42;
-  int ret;
-
-  ret = write(exit_pipe[1], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    {
-      DPRINTF(E_FATAL, L_REMOTE, "Could not write to exit fd: %s\n", strerror(errno));
-
-      return;
-    }
-
-  ret = pthread_join(tid_pairing, NULL);
-  if (ret != 0)
-    {
-      DPRINTF(E_FATAL, L_REMOTE, "Could not join pairing agent thread: %s\n", strerror(errno));
-
-      return;
-    }
-
   close(pairing_pipe[0]);
   close(pairing_pipe[1]);
-  close(exit_pipe[0]);
-  close(exit_pipe[1]);
-  event_base_free(evbase_pairing);
 }
