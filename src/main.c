@@ -299,7 +299,7 @@ register_services(char *ffid, int no_rsp, int no_daap)
   libhash = murmur_hash64(libname, strlen(libname), 0);
 
   snprintf(txtrecord[0], 128, "txtvers=1");
-  snprintf(txtrecord[1], 128, "DbId=%08" PRIX64, libhash);
+  snprintf(txtrecord[1], 128, "DbId=%016" PRIX64, libhash);
   snprintf(txtrecord[2], 128, "DvTy=iTunes");
   snprintf(txtrecord[3], 128, "DvSv=2306"); /* Magic number! Yay! */
   snprintf(txtrecord[4], 128, "Ver=131073"); /* iTunes 6.0.4 */
@@ -315,7 +315,7 @@ register_services(char *ffid, int no_rsp, int no_daap)
    */
 
   /* Use as scratch space for the hash */
-  snprintf(records[7], 128, "%08" PRIX64, libhash);
+  snprintf(records[7], 128, "%016" PRIX64, libhash);
 
   /* Register touch-able service, for Remote.app */
   ret = mdns_register(records[7], "_touch-able._tcp", port, txtrecord);

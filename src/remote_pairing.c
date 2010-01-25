@@ -736,7 +736,7 @@ do_pairing(struct remote_info *ri)
    * ID (DbId) are different (see comment in main.c).
    * Remote uses the service name to perform mDNS lookups.
    */
-  ret = snprintf(req_uri, sizeof(req_uri), "/pair?pairingcode=%s&servicename=%08" PRIX64, pairing_hash, libhash);
+  ret = snprintf(req_uri, sizeof(req_uri), "/pair?pairingcode=%s&servicename=%016" PRIX64, pairing_hash, libhash);
   free(pairing_hash);
   if ((ret < 0) || (ret >= sizeof(req_uri)))
     {
