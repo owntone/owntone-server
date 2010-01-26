@@ -80,7 +80,6 @@
 #undef timeout_pending
 #undef timeout_initialized
 
-#include "strlcpy-internal.h"
 #include <event.h>
 #include "evhttp.h"
 #include <evutil.h>
@@ -105,19 +104,21 @@ fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host,
 	size_t hostlen, char *serv, size_t servlen, int flags)
 {
         struct sockaddr_in *sin = (struct sockaddr_in *)sa;
+        int ret;
         
         if (serv != NULL) {
 				char tmpserv[16];
 				evutil_snprintf(tmpserv, sizeof(tmpserv),
 					"%d", ntohs(sin->sin_port));
-                if (strlcpy(serv, tmpserv, servlen) >= servlen)
+                ret = evutil_snprintf(serv, servlen, "%s", tmpserv);
+                if ((ret < 0) || (ret >= servlen))
                         return (-1);
         }
 
         if (host != NULL) {
                 if (flags & NI_NUMERICHOST) {
-                        if (strlcpy(host, inet_ntoa(sin->sin_addr),
-                            hostlen) >= hostlen)
+                        ret = evutil_snprintf(host, hostlen, "%s", inet_ntoa(sin->sin_addr));
+                        if ((ret < 0) || (ret >= hostlen))
                                 return (-1);
                         else
                                 return (0);
@@ -128,7 +129,8 @@ fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host,
                         if (hp == NULL)
                                 return (-2);
                         
-                        if (strlcpy(host, hp->h_name, hostlen) >= hostlen)
+                        ret = evutil_snprintf(host, hostlen, "%s", hp->h_name);
+                        if ((ret < 0) || (ret >= hostlen))
                                 return (-1);
                         else
                                 return (0);
@@ -553,6 +555,7 @@ evhttp_hostportfile(char *url, char **phost, u_short *pport, char **pfile)
 	char *p;
 	const char *p2;
 	int len;
+	int ret;
 	u_short port;
 
 	len = strlen(HTTP_PREFIX);
@@ -562,7 +565,8 @@ evhttp_hostportfile(char *url, char **phost, u_short *pport, char **pfile)
 	url += len;
 
 	/* We might overrun */
-	if (strlcpy(host, url, sizeof (host)) >= sizeof(host))
+	ret = evutil_snprintf(host, sizeof(host), "%s", url);
+	if ((ret < 0) || (ret >= sizeof(host)))
 		return (-1);
 
 	p = strchr(host, '/');
