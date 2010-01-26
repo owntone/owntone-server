@@ -823,6 +823,8 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
       return;
     }
 
+  DPRINTF(E_DBG, L_HTTPD, "HTTP request: %s\n", uri);
+
   /* Serve web interface files */
   serve_file(req, uri);
 
