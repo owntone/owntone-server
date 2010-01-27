@@ -3052,7 +3052,7 @@ db_perthread_deinit(void)
 
 #define Q_PL1								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(1, 'Library', 1, '1', 0, 'disabled = 0', 0, 0);"
+  " VALUES(1, 'Library', 1, '1 = 1', 0, '', 0, 0);"
 
 #define Q_PL2								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
@@ -3196,7 +3196,7 @@ static struct db_init_query db_upgrade_v3_queries[] =
   "ALTER TABLE playlists ADD COLUMN special_id INTEGER NOT NULL DEFAULT 0;"
 
 #define U_V4_PL1								\
-  "UPDATE playlists SET query = 'disabled = 0' WHERE id = 1;"
+  "UPDATE playlists SET query = '1 = 1' WHERE id = 1;"
 
 #define U_V4_PL2								\
   "INSERT INTO playlists (title, type, query, db_timestamp, path, idx, special_id)" \
