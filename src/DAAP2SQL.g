@@ -107,6 +107,15 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			/* NOTE: the lexer delivers the string without quotes
 			which may not be obvious from the grammar due to embedded code
 			*/
+
+			/* Make daap.songalbumid:0 a no-op */
+			if (strcmp((char *)str->chars, "daap.songalbumid:0") == 0)
+			{
+				$result->append8($result, "1 = 1");
+
+				goto STR_out;
+			}
+
 			field = str->chars;
 
 			val = field;
@@ -304,5 +313,8 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 
 			if (escaped)
 				free(escaped);
+
+			STR_out: /* get out of here */
+				;
 		}
 	;
