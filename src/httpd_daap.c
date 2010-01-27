@@ -644,7 +644,7 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
   return (struct daap_session *)node->item;
 
  invalid:
-  evhttp_send_reply(req, 403, "Forbidden", evbuf);
+  evhttp_send_error(req, 403, "Forbidden");
   return NULL;
 }
 
