@@ -59,6 +59,12 @@ struct daap_session {
   int id;
 };
 
+struct daap_update_request {
+  struct evhttp_request *req;
+
+  struct daap_update_request *next;
+};
+
 #define DMAP_TYPE_BYTE     0x01
 #define DMAP_TYPE_UBYTE    0x02
 #define DMAP_TYPE_SHORT    0x03
@@ -339,6 +345,9 @@ static avl_tree_t *dmap_fields_hash;
 /* DAAP session tracking */
 static avl_tree_t *daap_sessions;
 static int next_session_id;
+
+/* Update requests */
+static struct daap_update_request *update_requests;
 
 
 static int
@@ -646,6 +655,36 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
  invalid:
   evhttp_send_error(req, 403, "Forbidden");
   return NULL;
+}
+
+/* Update requests helpers */
+static void
+update_fail_cb(struct evhttp_request *req, void *arg)
+{
+  struct daap_update_request *ur;
+  struct daap_update_request *p;
+
+  ur = (struct daap_update_request *)arg;
+
+  DPRINTF(E_DBG, L_DAAP, "Update request failed\n");
+
+  if (ur == update_requests)
+    update_requests = ur->next;
+  else
+    {
+      for (p = update_requests; p && (p->next != ur); p = p->next)
+	;
+
+      if (!p)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "WARNING: struct update_request not found in list; BUG!\n");
+	  return;
+	}
+
+      p->next = ur->next;
+    }
+
+  free(ur);
 }
 
 
@@ -987,28 +1026,73 @@ daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 static void
 daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct daap_update_request *ur;
+  const char *param;
+  int current_rev = 2;
+  int reqd_rev;
   int ret;
 
-  /* Just send back the current time.
-   *
-   * This probably doesn't cut it, but then again we don't claim to support
-   * updates, so... that support should be added eventually.
-   */
+  param = evhttp_find_header(query, "revision-number");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Missing revision-number in update request\n");
 
-  ret = evbuffer_expand(evbuf, 32);
+      daap_send_error(req, "mupd", "Invalid request");
+      return;
+    }
+
+  ret = safe_atoi(param, &reqd_rev);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP update reply\n");
+      DPRINTF(E_LOG, L_DAAP, "Parameter revision-number not an integer\n");
+
+      daap_send_error(req, "mupd", "Invalid request");
+      return;
+    }
+
+  if (reqd_rev == 1) /* Or revision is not valid */
+    {
+      ret = evbuffer_expand(evbuf, 32);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP update reply\n");
+
+	  daap_send_error(req, "mupd", "Out of memory");
+	  return;
+	}
+
+      /* Send back current revision */
+      dmap_add_container(evbuf, "mupd", 24);
+      dmap_add_int(evbuf, "mstt", 200);         /* 12 */
+      dmap_add_int(evbuf, "musr", current_rev); /* 12 */
+
+      evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+
+      return;
+    }
+
+  /* Else, just let the request hang until we have changes to push back */
+  ur = (struct daap_update_request *)malloc(sizeof(struct daap_update_request));
+  if (!ur)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Out of memory for update request\n");
 
       daap_send_error(req, "mupd", "Out of memory");
       return;
     }
 
-  dmap_add_container(evbuf, "mupd", 24);
-  dmap_add_int(evbuf, "mstt", 200);             /* 12 */
-  dmap_add_int(evbuf, "musr", (int)time(NULL)); /* 12 */
+  /* NOTE: we may need to keep reqd_rev in there too */
+  ur->req = req;
 
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  ur->next = update_requests;
+  update_requests = ur;
+
+  /* Set fail_cb; this is an extension to the stock evhttp and will
+   * get called if the connection fails before we have an update to
+   * push out to the client.
+   */
+  req->fail_cb = update_fail_cb;
+  req->fail_cb_arg = ur;
 }
 
 static void
@@ -2394,6 +2478,7 @@ daap_init(void)
   int ret;
 
   next_session_id = 100; /* gotta start somewhere, right? */
+  update_requests = NULL;
 
   ret = daap_query_init();
   if (ret < 0)
@@ -2469,6 +2554,7 @@ daap_init(void)
 void
 daap_deinit(void)
 {
+  struct daap_update_request *ur;
   int i;
 
   daap_query_deinit();
@@ -2478,4 +2564,11 @@ daap_deinit(void)
 
   avl_free_tree(daap_sessions);
   avl_free_tree(dmap_fields_hash);
+
+  for (ur = update_requests; update_requests; ur = update_requests)
+    {
+      update_requests = ur->next;
+
+      free(ur);
+    }
 }
