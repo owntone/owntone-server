@@ -884,6 +884,15 @@ remote_pairing_init(void)
 void
 remote_pairing_deinit(void)
 {
+  struct remote_info *ri;
+
+  for (ri = remote_list; remote_list; ri = remote_list)
+    {
+      remote_list = ri->next;
+
+      free_remote(ri);
+    }
+
   close(pairing_pipe[0]);
   close(pairing_pipe[1]);
 }
