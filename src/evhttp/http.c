@@ -1106,7 +1106,11 @@ static void
 evhttp_detect_close_cb(int fd, short what, void *arg)
 {
 	struct evhttp_connection *evcon = arg;
-	evhttp_connection_reset(evcon);
+
+	if (evcon->flags & EVHTTP_CON_OUTGOING)
+	  evhttp_connection_reset(evcon);
+	else
+	  evhttp_connection_fail(evcon, EVCON_HTTP_EOF);
 }
 
 static void
@@ -1910,6 +1914,8 @@ evhttp_send_error(struct evhttp_request *req, int error, const char *reason)
 
 	struct evbuffer *buf = evbuffer_new();
 
+	evhttp_connection_stop_detectclose(req->evcon);
+
 	/* close the connection on error */
 	evhttp_add_header(req->output_headers, "Connection", "close");
 
@@ -1946,6 +1952,8 @@ void
 evhttp_send_reply(struct evhttp_request *req, int code, const char *reason,
     struct evbuffer *databuf)
 {
+	evhttp_connection_stop_detectclose(req->evcon);
+
 	evhttp_response_code(req, code, reason);
 	
 	evhttp_send(req, databuf);
@@ -1955,6 +1963,8 @@ void
 evhttp_send_reply_start(struct evhttp_request *req, int code,
     const char *reason)
 {
+	evhttp_connection_stop_detectclose(req->evcon);
+
 	evhttp_response_code(req, code, reason);
 	if (req->major == 1 && req->minor == 1) {
 		/* use chunked encoding for HTTP/1.1 */
@@ -2215,12 +2225,14 @@ evhttp_handle_request(struct evhttp_request *req, void *arg)
 	}
 
 	if ((cb = evhttp_dispatch_callback(&http->callbacks, req)) != NULL) {
+		evhttp_connection_start_detectclose(req->evcon);
 		(*cb->cb)(req, cb->cbarg);
 		return;
 	}
 
 	/* Generic call back */
 	if (http->gencb) {
+		evhttp_connection_start_detectclose(req->evcon);
 		(*http->gencb)(req, http->gencbarg);
 		return;
 	} else {
