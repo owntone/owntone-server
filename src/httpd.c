@@ -812,15 +812,13 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
     {
       rsp_request(req);
 
-      free(uri);
-      return;
+      goto out;
     }
   else if (daap_is_request(req, uri))
     {
       daap_request(req);
 
-      free(uri);
-      return;
+      goto out;
     }
 
   DPRINTF(E_DBG, L_HTTPD, "HTTP request: %s\n", uri);
@@ -828,6 +826,7 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   /* Serve web interface files */
   serve_file(req, uri);
 
+ out:
   free(uri);
 }
 
