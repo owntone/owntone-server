@@ -393,7 +393,7 @@ daap_session_kill(struct daap_session *s)
   avl_delete(daap_sessions, s);
 }
 
-static struct daap_session *
+struct daap_session *
 daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct evbuffer *evbuf)
 {
   struct daap_session needle;
