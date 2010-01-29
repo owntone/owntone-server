@@ -665,7 +665,7 @@ update_fail_cb(struct evhttp_request *req, void *arg)
 
   ur = (struct daap_update_request *)arg;
 
-  DPRINTF(E_DBG, L_DAAP, "Update request failed\n");
+  DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
 
   if (ur == update_requests)
     update_requests = ur->next;
@@ -676,7 +676,7 @@ update_fail_cb(struct evhttp_request *req, void *arg)
 
       if (!p)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "WARNING: struct update_request not found in list; BUG!\n");
+	  DPRINTF(E_LOG, L_DAAP, "WARNING: struct daap_update_request not found in list; BUG!\n");
 	  return;
 	}
 
