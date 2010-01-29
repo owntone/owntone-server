@@ -44,6 +44,7 @@
 #include "httpd.h"
 #include "httpd_rsp.h"
 #include "httpd_daap.h"
+#include "httpd_dacp.h"
 #include "transcode.h"
 
 
@@ -820,6 +821,12 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
 
       goto out;
     }
+  else if (dacp_is_request(req, uri))
+    {
+      dacp_request(req);
+
+      goto out;
+    }
 
   DPRINTF(E_DBG, L_HTTPD, "HTTP request: %s\n", uri);
 
@@ -1074,6 +1081,14 @@ httpd_init(void)
       goto daap_fail;
     }
 
+  ret = dacp_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "DACP protocol init failed\n");
+
+      goto dacp_fail;
+    }
+
 #if defined(__linux__)
   ret = pipe2(exit_pipe, O_CLOEXEC);
 #else
@@ -1145,6 +1160,8 @@ httpd_init(void)
   close(exit_pipe[0]);
   close(exit_pipe[1]);
  pipe_fail:
+  dacp_deinit();
+ dacp_fail:
   daap_deinit();
  daap_fail:
   rsp_deinit();
@@ -1176,6 +1193,7 @@ httpd_deinit(void)
     }
 
   rsp_deinit();
+  dacp_deinit();
   daap_deinit();
 
   close(exit_pipe[0]);
