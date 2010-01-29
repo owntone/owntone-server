@@ -340,6 +340,7 @@ static int next_session_id;
 static struct daap_update_request *update_requests;
 
 
+/* Session handling */
 static int
 daap_session_compare(const void *aa, const void *bb)
 {
@@ -355,75 +356,6 @@ daap_session_compare(const void *aa, const void *bb)
   return 0;
 }
 
-static int
-dmap_field_map_compare(const void *aa, const void *bb)
-{
-  struct dmap_field_map *a = (struct dmap_field_map *)aa;
-  struct dmap_field_map *b = (struct dmap_field_map *)bb;
-
-  if (a->hash < b->hash)
-    return -1;
-
-  if (a->hash > b->hash)
-    return 1;
-
-  return 0;
-}
-
-
-static void
-dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval, int intval)
-{
-  int val;
-  int ret;
-
-  val = intval;
-
-  if ((dfm->type != DMAP_TYPE_STRING) && (val == 0) && strval)
-    {
-      ret = safe_atoi(strval, &val);
-      if (ret < 0)
-	val = 0;
-    }
-
-  switch (dfm->type)
-    {
-    case DMAP_TYPE_BYTE:
-    case DMAP_TYPE_UBYTE:
-      if (val)
-	dmap_add_char(evbuf, dfm->tag, val);
-      break;
-
-    case DMAP_TYPE_SHORT:
-      if (val)
-	dmap_add_short(evbuf, dfm->tag, val);
-      break;
-
-    case DMAP_TYPE_INT:
-    case DMAP_TYPE_DATE:
-      if (val)
-	dmap_add_int(evbuf, dfm->tag, val);
-      break;
-
-    case DMAP_TYPE_LONG:
-      /* FIXME: "long" is thought of as a 64bit value */
-      if (val)
-	dmap_add_long(evbuf, dfm->tag, val);
-      break;
-
-    case DMAP_TYPE_STRING:
-      if (strval)
-	dmap_add_string(evbuf, dfm->tag, strval);
-      break;
-
-    default:
-      DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", dfm->type, dfm->desc);
-      break;
-    }
-}
-
-
-/* Session handling */
 static struct daap_session *
 daap_session_register(void)
 {
@@ -494,6 +426,7 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
   return NULL;
 }
 
+
 /* Update requests helpers */
 static void
 update_fail_cb(struct evhttp_request *req, void *arg)
@@ -525,6 +458,21 @@ update_fail_cb(struct evhttp_request *req, void *arg)
 }
 
 
+/* DMAP fields helpers */
+static int
+dmap_field_map_compare(const void *aa, const void *bb)
+{
+  struct dmap_field_map *a = (struct dmap_field_map *)aa;
+  struct dmap_field_map *b = (struct dmap_field_map *)bb;
+
+  if (a->hash < b->hash)
+    return -1;
+
+  if (a->hash > b->hash)
+    return 1;
+
+  return 0;
+}
 
 static struct dmap_field_map *
 dmap_find_field(uint32_t hash)
@@ -539,6 +487,57 @@ dmap_find_field(uint32_t hash)
     return NULL;
 
   return (struct dmap_field_map *)node->item;
+}
+
+static void
+dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval, int intval)
+{
+  int val;
+  int ret;
+
+  val = intval;
+
+  if ((dfm->type != DMAP_TYPE_STRING) && (val == 0) && strval)
+    {
+      ret = safe_atoi(strval, &val);
+      if (ret < 0)
+	val = 0;
+    }
+
+  switch (dfm->type)
+    {
+    case DMAP_TYPE_BYTE:
+    case DMAP_TYPE_UBYTE:
+      if (val)
+	dmap_add_char(evbuf, dfm->tag, val);
+      break;
+
+    case DMAP_TYPE_SHORT:
+      if (val)
+	dmap_add_short(evbuf, dfm->tag, val);
+      break;
+
+    case DMAP_TYPE_INT:
+    case DMAP_TYPE_DATE:
+      if (val)
+	dmap_add_int(evbuf, dfm->tag, val);
+      break;
+
+    case DMAP_TYPE_LONG:
+      /* FIXME: "long" is thought of as a 64bit value */
+      if (val)
+	dmap_add_long(evbuf, dfm->tag, val);
+      break;
+
+    case DMAP_TYPE_STRING:
+      if (strval)
+	dmap_add_string(evbuf, dfm->tag, strval);
+      break;
+
+    default:
+      DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", dfm->type, dfm->desc);
+      break;
+    }
 }
 
 
