@@ -42,6 +42,7 @@ forked_daapd_SOURCES = main.c \
 	httpd.c httpd.h \
 	httpd_rsp.c httpd_rsp.h \
 	httpd_daap.c httpd_daap.h \
+	dmap_helpers.c dmap_helpers.h \
 	transcode.c transcode.h \
 	misc.c misc.h \
 	rsp_query.c rsp_query.h \
