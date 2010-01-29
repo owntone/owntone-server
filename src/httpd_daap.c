@@ -46,6 +46,7 @@
 #include "transcode.h"
 #include "httpd_daap.h"
 #include "daap_query.h"
+#include "dmap_helpers.h"
 
 
 struct uri_map {
@@ -63,16 +64,6 @@ struct daap_update_request {
 
   struct daap_update_request *next;
 };
-
-#define DMAP_TYPE_BYTE     0x01
-#define DMAP_TYPE_UBYTE    0x02
-#define DMAP_TYPE_SHORT    0x03
-#define DMAP_TYPE_INT      0x05
-#define DMAP_TYPE_LONG     0x07
-#define DMAP_TYPE_STRING   0x09
-#define DMAP_TYPE_DATE     0x0a
-#define DMAP_TYPE_VERSION  0x0b
-#define DMAP_TYPE_LIST     0x0c
 
 struct dmap_field_map {
   uint32_t hash;
@@ -380,154 +371,6 @@ dmap_field_map_compare(const void *aa, const void *bb)
 }
 
 
-/* DMAP encoding routines */
-static void
-dmap_add_container(struct evbuffer *evbuf, char *tag, int len)
-{
-  unsigned char buf[4];
-
-  evbuffer_add(evbuf, tag, 4);
-
-  /* Container length */
-  buf[0] = (len >> 24) & 0xff;
-  buf[1] = (len >> 16) & 0xff;
-  buf[2] = (len >> 8) & 0xff;
-  buf[3] = len & 0xff;
-
-  evbuffer_add(evbuf, buf, sizeof(buf));
-}
-
-static void
-dmap_add_long(struct evbuffer *evbuf, char *tag, int64_t val)
-{
-  unsigned char buf[12];
-
-  evbuffer_add(evbuf, tag, 4);
-
-  /* Length */
-  buf[0] = 0;
-  buf[1] = 0;
-  buf[2] = 0;
-  buf[3] = 8;
-
-  /* Value */
-  buf[4] = (val >> 56) & 0xff;
-  buf[5] = (val >> 48) & 0xff;
-  buf[6] = (val >> 40) & 0xff;
-  buf[7] = (val >> 32) & 0xff;
-  buf[8] = (val >> 24) & 0xff;
-  buf[9] = (val >> 16) & 0xff;
-  buf[10] = (val >> 8) & 0xff;
-  buf[11] = val & 0xff;
-
-  evbuffer_add(evbuf, buf, sizeof(buf));
-}
-
-static void
-dmap_add_int(struct evbuffer *evbuf, char *tag, int val)
-{
-  unsigned char buf[8];
-
-  evbuffer_add(evbuf, tag, 4);
-
-  /* Length */
-  buf[0] = 0;
-  buf[1] = 0;
-  buf[2] = 0;
-  buf[3] = 4;
-
-  /* Value */
-  buf[4] = (val >> 24) & 0xff;
-  buf[5] = (val >> 16) & 0xff;
-  buf[6] = (val >> 8) & 0xff;
-  buf[7] = val & 0xff;
-
-  evbuffer_add(evbuf, buf, sizeof(buf));
-}
-
-static void
-dmap_add_short(struct evbuffer *evbuf, char *tag, short val)
-{
-  unsigned char buf[6];
-
-  evbuffer_add(evbuf, tag, 4);
-
-  /* Length */
-  buf[0] = 0;
-  buf[1] = 0;
-  buf[2] = 0;
-  buf[3] = 2;
-
-  /* Value */
-  buf[4] = (val >> 8) & 0xff;
-  buf[5] = val & 0xff;
-
-  evbuffer_add(evbuf, buf, sizeof(buf));
-}
-
-static void
-dmap_add_char(struct evbuffer *evbuf, char *tag, char val)
-{
-  unsigned char buf[5];
-
-  evbuffer_add(evbuf, tag, 4);
-
-  /* Length */
-  buf[0] = 0;
-  buf[1] = 0;
-  buf[2] = 0;
-  buf[3] = 1;
-
-  /* Value */
-  buf[4] = val;
-
-  evbuffer_add(evbuf, buf, sizeof(buf));
-}
-
-static void
-dmap_add_literal(struct evbuffer *evbuf, char *tag, char *str, int len)
-{
-  char buf[4];
-
-  evbuffer_add(evbuf, tag, 4);
-
-  /* Length */
-  buf[0] = (len >> 24) & 0xff;
-  buf[1] = (len >> 16) & 0xff;
-  buf[2] = (len >> 8) & 0xff;
-  buf[3] = len & 0xff;
-
-  evbuffer_add(evbuf, buf, sizeof(buf));
-
-  if (str && (len > 0))
-    evbuffer_add(evbuf, str, len);
-}
-
-static void
-dmap_add_string(struct evbuffer *evbuf, char *tag, char *str)
-{
-  unsigned char buf[4];
-  int len;
-
-  if (str)
-    len = strlen(str);
-  else
-    len = 0;
-
-  evbuffer_add(evbuf, tag, 4);
-
-  /* String length */
-  buf[0] = (len >> 24) & 0xff;
-  buf[1] = (len >> 16) & 0xff;
-  buf[2] = (len >> 8) & 0xff;
-  buf[3] = len & 0xff;
-
-  evbuffer_add(evbuf, buf, sizeof(buf));
-
-  if (len)
-    evbuffer_add(evbuf, str, len);
-}
-
 static void
 dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval, int intval)
 {
@@ -578,11 +421,6 @@ dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval,
       break;
     }
 }
-
-
-/* Forward */
-static void
-daap_send_error(struct evhttp_request *req, char *container, char *errmsg);
 
 
 /* Session handling */
@@ -687,6 +525,7 @@ update_fail_cb(struct evhttp_request *req, void *arg)
 }
 
 
+
 static struct dmap_field_map *
 dmap_find_field(uint32_t hash)
 {
@@ -788,7 +627,7 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, uint32_t **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not duplicate meta parameter; out of memory\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       return;
     }
 
@@ -804,7 +643,7 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, uint32_t **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not allocate meta array; out of memory\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
 
       free(metastr);
       return;
@@ -829,44 +668,6 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, uint32_t **
   free(metastr);
 }
 
-
-static void
-daap_send_error(struct evhttp_request *req, char *container, char *errmsg)
-{
-  struct evbuffer *evbuf;
-  int len;
-  int ret;
-
-  evbuf = evbuffer_new();
-  if (!evbuf)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not allocate evbuffer for DAAP error\n");
-
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
-      return;
-    }
-
-  len = 12 + 8 + 8 + strlen(errmsg);
-
-  ret = evbuffer_expand(evbuf, len);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP error\n");
-
-      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
-
-      evbuffer_free(evbuf);
-      return;
-    }
-
-  dmap_add_container(evbuf, container, len - 8);
-  dmap_add_int(evbuf, "mstt", 500);
-  dmap_add_string(evbuf, "msts", errmsg);
-
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
-
-  evbuffer_free(evbuf);
-}
 
 static void
 daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
@@ -898,7 +699,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP server-info reply\n");
 
-      daap_send_error(req, "msrv", "Out of memory");
+      dmap_send_error(req, "msrv", "Out of memory");
       return;
     }
 
@@ -959,7 +760,7 @@ daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, cha
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP content-codes reply\n");
 
-      daap_send_error(req, "mccr", "Out of memory");
+      dmap_send_error(req, "mccr", "Out of memory");
       return;
     } 
 
@@ -990,14 +791,14 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP login reply\n");
 
-      daap_send_error(req, "mlog", "Out of memory");
+      dmap_send_error(req, "mlog", "Out of memory");
       return;
     }
 
   s = daap_session_register();
   if (!s)
     {
-      daap_send_error(req, "mlog", "Could not start session");
+      dmap_send_error(req, "mlog", "Could not start session");
       return;
     }
 
@@ -1041,7 +842,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Missing revision-number in update request\n");
 
-      daap_send_error(req, "mupd", "Invalid request");
+      dmap_send_error(req, "mupd", "Invalid request");
       return;
     }
 
@@ -1050,7 +851,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Parameter revision-number not an integer\n");
 
-      daap_send_error(req, "mupd", "Invalid request");
+      dmap_send_error(req, "mupd", "Invalid request");
       return;
     }
 
@@ -1061,7 +862,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP update reply\n");
 
-	  daap_send_error(req, "mupd", "Out of memory");
+	  dmap_send_error(req, "mupd", "Out of memory");
 	  return;
 	}
 
@@ -1081,7 +882,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Out of memory for update request\n");
 
-      daap_send_error(req, "mupd", "Out of memory");
+      dmap_send_error(req, "mupd", "Out of memory");
       return;
     }
 
@@ -1129,7 +930,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP dblist reply\n");
 
-      daap_send_error(req, "avdb", "Out of memory");
+      dmap_send_error(req, "avdb", "Out of memory");
       return;
     }
 
@@ -1189,7 +990,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP song list reply\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       return;
     }
 
@@ -1198,7 +999,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP song list\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       return;
     }
 
@@ -1208,7 +1009,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DMAP song list\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       goto out_list_free;
     }
 
@@ -1217,7 +1018,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP song block\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       goto out_list_free;
     }
 
@@ -1227,7 +1028,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DMAP song block\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       goto out_song_free;
     }
 
@@ -1272,7 +1073,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      daap_send_error(req, tag, "Could not start query");
+      dmap_send_error(req, tag, "Could not start query");
       goto out_query_free;
     }
 
@@ -1450,7 +1251,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
 
-      daap_send_error(req, tag, "Error fetching query results");
+      dmap_send_error(req, tag, "Error fetching query results");
       db_query_end(&qp);
       goto out_list_free;
     }
@@ -1459,7 +1260,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add song to song list for DAAP song list reply\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       db_query_end(&qp);
       goto out_list_free;
     }
@@ -1480,7 +1281,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add song list to DAAP song list reply\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       return;
     }
 
@@ -1528,7 +1329,7 @@ daap_reply_plsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char *
   ret = safe_atoi(uri[3], &playlist);
   if (ret < 0)
     {
-      daap_send_error(req, "apso", "Invalid playlist ID");
+      dmap_send_error(req, "apso", "Invalid playlist ID");
 
       return;
     }
@@ -1564,7 +1365,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP playlists reply\n");
 
-      daap_send_error(req, "aply", "Out of memory");
+      dmap_send_error(req, "aply", "Out of memory");
       return;
     }
 
@@ -1573,7 +1374,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP playlist list\n");
 
-      daap_send_error(req, "aply", "Out of memory");
+      dmap_send_error(req, "aply", "Out of memory");
       return;
     }
 
@@ -1583,7 +1384,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DMAP playlist list\n");
 
-      daap_send_error(req, "aply", "Out of memory");
+      dmap_send_error(req, "aply", "Out of memory");
       goto out_list_free;
     }
 
@@ -1592,7 +1393,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP playlist block\n");
 
-      daap_send_error(req, "aply", "Out of memory");
+      dmap_send_error(req, "aply", "Out of memory");
       goto out_list_free;
     }
 
@@ -1602,7 +1403,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DMAP playlist block\n");
 
-      daap_send_error(req, "aply", "Out of memory");
+      dmap_send_error(req, "aply", "Out of memory");
       goto out_pl_free;
     }
 
@@ -1631,7 +1432,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      daap_send_error(req, "aply", "Could not start query");
+      dmap_send_error(req, "aply", "Could not start query");
       goto out_query_free;
     }
 
@@ -1726,7 +1527,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
 
-      daap_send_error(req, "aply", "Error fetching query results");
+      dmap_send_error(req, "aply", "Error fetching query results");
       db_query_end(&qp);
       goto out_list_free;
     }
@@ -1735,7 +1536,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add playlist to playlist list for DAAP playlists reply\n");
 
-      daap_send_error(req, "aply", "Out of memory");
+      dmap_send_error(req, "aply", "Out of memory");
       db_query_end(&qp);
       goto out_list_free;
     }
@@ -1756,7 +1557,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add playlist list to DAAP playlists reply\n");
 
-      daap_send_error(req, "aply", "Out of memory");
+      dmap_send_error(req, "aply", "Out of memory");
       return;
     }
 
@@ -1808,7 +1609,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP groups reply\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       return;
     }
 
@@ -1817,7 +1618,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP group list\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       return;
     }
 
@@ -1827,7 +1628,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DMAP group list\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       goto out_list_free;
     }
 
@@ -1836,7 +1637,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP group block\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       goto out_list_free;
     }
 
@@ -1846,7 +1647,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DMAP group block\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       goto out_group_free;
     }
 
@@ -1875,7 +1676,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      daap_send_error(req, tag, "Could not start query");
+      dmap_send_error(req, tag, "Could not start query");
       goto out_query_free;
     }
 
@@ -1966,7 +1767,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
 
-      daap_send_error(req, tag, "Error fetching query results");
+      dmap_send_error(req, tag, "Error fetching query results");
       db_query_end(&qp);
       goto out_list_free;
     }
@@ -1975,7 +1776,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add group to group list for DAAP groups reply\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       db_query_end(&qp);
       goto out_list_free;
     }
@@ -1996,7 +1797,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add group list to DAAP groups reply\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       return;
     }
 
@@ -2057,7 +1858,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Invalid DAAP browse request type '%s'\n", uri[3]);
 
-      daap_send_error(req, "abro", "Invalid browse type");
+      dmap_send_error(req, "abro", "Invalid browse type");
       return;
     }
 
@@ -2066,7 +1867,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP browse reply\n");
 
-      daap_send_error(req, "abro", "Out of memory");
+      dmap_send_error(req, "abro", "Out of memory");
       return;
     }
 
@@ -2075,7 +1876,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP browse item list\n");
 
-      daap_send_error(req, "abro", "Out of memory");
+      dmap_send_error(req, "abro", "Out of memory");
       return;
     }
 
@@ -2085,7 +1886,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DMAP browse item list\n");
 
-      daap_send_error(req, "abro", "Out of memory");
+      dmap_send_error(req, "abro", "Out of memory");
 
       evbuffer_free(itemlist);
       return;
@@ -2098,7 +1899,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
-      daap_send_error(req, "abro", "Could not start query");
+      dmap_send_error(req, "abro", "Could not start query");
 
       evbuffer_free(itemlist);
       if (qp.filter)
@@ -2121,7 +1922,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
 
-      daap_send_error(req, "abro", "Error fetching query results");
+      dmap_send_error(req, "abro", "Error fetching query results");
       db_query_end(&qp);
       evbuffer_free(itemlist);
       return;
@@ -2141,7 +1942,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add item list to DAAP browse reply\n");
 
-      daap_send_error(req, tag, "Out of memory");
+      dmap_send_error(req, tag, "Out of memory");
       return;
     }
 
