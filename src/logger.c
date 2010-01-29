@@ -34,7 +34,7 @@ static int threshold;
 static int console;
 static char *logfilename;
 static FILE *logfile;
-static char *labels[] = { "config", "daap", "db", "httpd", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote" };
+static char *labels[] = { "config", "daap", "db", "httpd", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp" };
 
 
 static int

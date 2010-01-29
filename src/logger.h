@@ -18,8 +18,9 @@
 /* libevent logging */
 #define L_EVENT   10
 #define L_REMOTE  11
+#define L_DACP    12
 
-#define N_LOGDOMAINS  12
+#define N_LOGDOMAINS  13
 
 /* Severities */
 #define E_FATAL   0
