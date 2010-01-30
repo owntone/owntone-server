@@ -47,6 +47,12 @@ struct query_params {
   char buf[32];
 };
 
+struct pairing_info {
+  char *remote_id;
+  char *name;
+  char *guid;
+};
+
 struct media_file_info {
   char *path;
   uint32_t index;
@@ -246,6 +252,9 @@ char *
 db_escape_string(const char *str);
 
 void
+free_pi(struct pairing_info *pi, int content_only);
+
+void
 free_mfi(struct media_file_info *mfi, int content_only);
 
 void
@@ -358,6 +367,13 @@ db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie);
 
 int
 db_pl_enable_bycookie(uint32_t cookie, char *path);
+
+/* Remotes */
+int
+db_pairing_add(struct pairing_info *pi);
+
+int
+db_pairing_fetch_byguid(struct pairing_info *pi);
 
 /* Inotify */
 int

@@ -262,6 +262,22 @@ db_escape_string(const char *str)
 }
 
 void
+free_pi(struct pairing_info *pi, int content_only)
+{
+  if (pi->remote_id)
+    free(pi->remote_id);
+
+  if (pi->name)
+    free(pi->name);
+
+  if (pi->guid)
+    free(pi->guid);
+
+  if (!content_only)
+    free(pi);
+}
+
+void
 free_mfi(struct media_file_info *mfi, int content_only)
 {
   if (mfi->path)
@@ -2402,6 +2418,132 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 }
 
 
+/* Remotes */
+static int
+db_pairing_delete_byremote(char *remote_id)
+{
+#define Q_TMPL "DELETE FROM pairings WHERE remote = '%q';"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, remote_id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error deleting pairing: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+int
+db_pairing_add(struct pairing_info *pi)
+{
+#define Q_TMPL "INSERT INTO pairings (remote, name, guid) VALUES ('%q', '%q', '%q');"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  ret = db_pairing_delete_byremote(pi->remote_id);
+  if (ret < 0)
+    return ret;
+
+  query = sqlite3_mprintf(Q_TMPL, pi->remote_id, pi->name, pi->guid);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error adding pairing: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+int
+db_pairing_fetch_byguid(struct pairing_info *pi)
+{
+#define Q_TMPL "SELECT * FROM pairings WHERE guid = '%q';"
+  char *query;
+  sqlite3_stmt *stmt;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, pi->guid);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_INFO, L_DB, "Pairing GUID %s not found\n", pi->guid);
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  pi->remote_id = strdup((char *)sqlite3_column_text(stmt, 0));
+  pi->name = strdup((char *)sqlite3_column_text(stmt, 1));
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+
 /* Inotify */
 int
 db_watch_clear(void)
@@ -3032,6 +3174,13 @@ db_perthread_deinit(void)
   "   filepath       VARCHAR(4096) NOT NULL"		\
   ");"
 
+#define T_PAIRINGS					\
+  "CREATE TABLE IF NOT EXISTS pairings("		\
+  "   remote         VARCHAR(64) PRIMARY KEY NOT NULL,"	\
+  "   name           VARCHAR(255) NOT NULL,"		\
+  "   guid           VARCHAR(16) NOT NULL"		\
+  ");"
+
 #define T_INOTIFY					\
   "CREATE TABLE IF NOT EXISTS inotify ("		\
   "   wd          INTEGER PRIMARY KEY NOT NULL,"	\
@@ -3049,6 +3198,8 @@ db_perthread_deinit(void)
 #define I_PLITEMID							\
   "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
 
+#define I_PAIRING				\
+  "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
 
 #define Q_PL1								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
@@ -3075,9 +3226,9 @@ db_perthread_deinit(void)
  */
 
 
-#define SCHEMA_VERSION 5
+#define SCHEMA_VERSION 6
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '5');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '6');"
 
 struct db_init_query {
   char *query;
@@ -3090,11 +3241,13 @@ static struct db_init_query db_init_queries[] =
     { T_FILES,     "create table files" },
     { T_PL,        "create table playlists" },
     { T_PLITEMS,   "create table playlistitems" },
+    { T_PAIRINGS,  "create table pairings" },
     { T_INOTIFY,   "create table inotify" },
 
     { I_PATH,      "create file path index" },
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
+    { I_PAIRING,   "create pairing guid index" },
 
     { Q_PL1,       "create default playlist" },
     { Q_PL2,       "create default smart playlist 'Music'" },
