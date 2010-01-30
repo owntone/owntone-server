@@ -782,7 +782,10 @@ daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, cha
 static void
 daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct pairing_info pi;
   struct daap_session *s;
+  const char *ua;
+  const char *guid;
   int ret;
 
   ret = evbuffer_expand(evbuf, 32);
@@ -792,6 +795,43 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 
       dmap_send_error(req, "mlog", "Out of memory");
       return;
+    }
+
+  ua = evhttp_find_header(req->input_headers, "User-Agent");
+  if (!ua)
+    {
+      DPRINTF(E_LOG, L_DAAP, "No User-Agent header, rejecting login request\n");
+
+      evhttp_send_error(req, 403, "Forbidden");
+      return;
+    }
+
+  if (strncmp(ua, "Remote", strlen("Remote")) == 0)
+    {
+      guid = evhttp_find_header(query, "pairing-guid");
+      if (!guid)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Login attempt with U-A: Remote and no pairing-guid\n");
+
+	  evhttp_send_error(req, 403, "Forbidden");
+	  return;
+	}
+
+      memset(&pi, 0, sizeof(struct pairing_info));
+      pi.guid = strdup(guid + 2); /* Skip leading 0X */
+
+      ret = db_pairing_fetch_byguid(&pi);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Login attempt with invalid pairing-guid\n");
+
+	  free_pi(&pi, 1);
+	  evhttp_send_error(req, 403, "Forbidden");
+	  return;
+	}
+
+      DPRINTF(E_INFO, L_DAAP, "Remote '%s' logging in with GUID %s\n", pi.name, pi.guid);
+      free_pi(&pi, 1);
     }
 
   s = daap_session_register();
