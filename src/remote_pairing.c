@@ -675,6 +675,11 @@ static void
 pairing_request_cb(struct evhttp_request *req, void *arg)
 {
   struct remote_info *ri;
+  uint8_t *response;
+  char guid[17];
+  int len;
+  int i;
+  int ret;
 
   ri = (struct remote_info *)arg;
 
@@ -688,7 +693,67 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
       goto cleanup;
     }
 
-  DPRINTF(E_INFO, L_REMOTE, "Pairing succeeded with Remote '%s' (id %s)\n", ri->pi.name, ri->pi.remote_id);
+  if (EVBUFFER_LENGTH(req->input_buffer) < 8)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response too short\n", ri->pi.remote_id, ri->pi.name);
+
+      goto cleanup;
+    }
+
+  response = EVBUFFER_DATA(req->input_buffer);
+
+  if ((response[0] != 'c') || (response[1] != 'm') || (response[2] != 'p') || (response[3] != 'a'))
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: unknown pairing response, expected cmpa\n", ri->pi.remote_id, ri->pi.name);
+
+      goto cleanup;
+    }
+
+  len = (response[4] << 24) | (response[5] << 16) | (response[6] << 8) | (response[7]);
+  if (EVBUFFER_LENGTH(req->input_buffer) < 8 + len)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response truncated (got %d expected %d)\n",
+	      ri->pi.remote_id, ri->pi.name, (int)EVBUFFER_LENGTH(req->input_buffer), len + 8);
+
+      goto cleanup;
+    }
+
+  response += 8;
+
+  for (; len > 0; len--, response++)
+    {
+      if ((response[0] != 'c') || (response[1] != 'm') || (response[2] != 'p') || (response[3] != 'g'))
+	continue;
+      else
+	{
+	  len -= 8;
+	  response += 8;
+
+	  break;
+	}
+    }
+
+  if (len < 8)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: cmpg truncated in pairing response\n", ri->pi.remote_id, ri->pi.name);
+
+      goto cleanup;
+    }
+
+  for (i = 0; i < 8; i++)
+    sprintf(guid + (2 * i), "%02X", response[i]);
+
+  ri->pi.guid = strdup(guid);
+
+  DPRINTF(E_INFO, L_REMOTE, "Pairing succeeded with Remote '%s' (id %s), GUID: %s\n", ri->pi.name, ri->pi.remote_id, guid);
+
+  ret = db_pairing_add(&ri->pi);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Failed to register pairing!\n");
+
+      goto cleanup;
+    }
 
  cleanup:
   evhttp_connection_free(ri->evcon);
