@@ -819,6 +819,8 @@ pairing_cb(int fd, short event, void *arg)
 
       do_pairing(ri);
     }
+
+  event_add(&pairingev, NULL);
 }
 
 
