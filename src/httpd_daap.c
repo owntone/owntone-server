@@ -2128,6 +2128,7 @@ daap_request(struct evhttp_request *req)
   char *uri_parts[7];
   struct evbuffer *evbuf;
   struct evkeyvalq query;
+  const char *ua;
   cfg_t *lib;
   char *libname;
   char *passwd;
@@ -2216,6 +2217,15 @@ daap_request(struct evhttp_request *req)
   if ((strcmp(uri, "/server-info") == 0)
       || (strcmp(uri, "/logout") == 0)
       || (strncmp(uri, "/databases/1/items/", strlen("/databases/1/items/")) == 0))
+    passwd = NULL;
+
+  /* Waive HTTP authentication for Remote
+   * Remotes are authentified by their pairing-guid; DAAP queries require a
+   * valid session-id that Remote can only obtain if its pairing-guid is in
+   * our database. So HTTP authentication is waived for Remote.
+   */
+  ua = evhttp_find_header(req->input_headers, "User-Agent");
+  if ((ua) && (strncmp(ua, "Remote", strlen("Remote")) == 0))
     passwd = NULL;
 
   if (passwd)
