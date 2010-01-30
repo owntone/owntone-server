@@ -55,12 +55,12 @@
 #include "conffile.h"
 #include "mdns_avahi.h"
 #include "misc.h"
+#include "db.h"
 #include "remote_pairing.h"
 
 
 struct remote_info {
-  char *id;
-  char *name;
+  struct pairing_info pi;
 
   char *paircode;
   char *pin;
@@ -326,12 +326,6 @@ unlink_remote(struct remote_info *ri)
 static void
 free_remote(struct remote_info *ri)
 {
-  if (ri->id)
-    free(ri->id);
-
-  if (ri->name)
-    free(ri->name);
-
   if (ri->paircode)
     free(ri->paircode);
 
@@ -340,6 +334,8 @@ free_remote(struct remote_info *ri)
 
   if (ri->address)
     free(ri->address);
+
+  free_pi(&ri->pi, 1);
 
   free(ri);
 }
@@ -359,10 +355,10 @@ remove_remote_byid(const char *id)
 
   for (ri = remote_list; ri; ri = ri->next)
     {
-      if (!ri->id)
+      if (!ri->pi.remote_id)
 	continue;
 
-      if (strcmp(ri->id, id) == 0)
+      if (strcmp(ri->pi.remote_id, id) == 0)
 	break;
     }
 
@@ -383,7 +379,10 @@ add_remote_mdns_data(const char *id, const char *address, int port, char *name, 
 
   for (ri = remote_list; ri; ri = ri->next)
     {
-      if ((ri->id) && (strcmp(ri->id, id) == 0))
+      if (!ri->pi.remote_id)
+	continue;
+
+      if (strcmp(ri->pi.remote_id, id) == 0)
 	break;
     }
 
@@ -401,14 +400,10 @@ add_remote_mdns_data(const char *id, const char *address, int port, char *name, 
     {
       DPRINTF(E_DBG, L_REMOTE, "Remote id %s found\n", id);
 
-      if (ri->id)
-	free(ri->id);
+      free_pi(&ri->pi, 1);
 
       if (ri->address)
 	free(ri->address);
-
-      if (ri->name)
-	free(ri->name);
 
       if (ri->paircode)
 	free(ri->paircode);
@@ -416,10 +411,10 @@ add_remote_mdns_data(const char *id, const char *address, int port, char *name, 
       ret = 1;
     }
 
-  ri->id = strdup(id);
+  ri->pi.remote_id = strdup(id);
   ri->address = strdup(address);
 
-  if (!ri->id || !ri->address)
+  if (!ri->pi.remote_id || !ri->address)
     {
       DPRINTF(E_LOG, L_REMOTE, "Out of memory for remote pairing data\n");
 
@@ -427,8 +422,8 @@ add_remote_mdns_data(const char *id, const char *address, int port, char *name, 
       return -1;
     }
 
+  ri->pi.name = name;
   ri->port = port;
-  ri->name = name;
   ri->paircode = paircode;
 
   return ret;
@@ -441,7 +436,7 @@ add_remote_pin_data(char *devname, char *pin)
 
   for (ri = remote_list; ri; ri = ri->next)
     {
-      if (strcmp(ri->name, devname) == 0)
+      if (strcmp(ri->pi.name, devname) == 0)
 	break;
     }
 
@@ -454,13 +449,9 @@ add_remote_pin_data(char *devname, char *pin)
 
   DPRINTF(E_DBG, L_REMOTE, "Remote '%s' found\n", devname);
 
-  if (ri->name)
-    free(ri->name);
-
   if (ri->pin)
     free(ri->pin);
 
-  ri->name = devname;
   ri->pin = pin;
 
   return 0;
@@ -564,12 +555,9 @@ remote_pairing_read_pin(char *path)
   pthread_mutex_lock(&remote_lck);
 
   ret = add_remote_pin_data(devname, pin);
-
+  free(devname);
   if (ret < 0)
-    {
-      free(devname);
-      free(pin);
-    }
+    free(pin);
   else
     kickoff_pairing();
 
@@ -695,12 +683,12 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
 
   if (req->response_code != HTTP_OK)
     {
-      DPRINTF(E_LOG, L_REMOTE, "Pairing failed with Remote %s/%s, HTTP response code %d\n", ri->id, ri->name, req->response_code);
+      DPRINTF(E_LOG, L_REMOTE, "Pairing failed with Remote %s/%s, HTTP response code %d\n", ri->pi.remote_id, ri->pi.name, req->response_code);
 
       goto cleanup;
     }
 
-  DPRINTF(E_INFO, L_REMOTE, "Pairing succeeded with Remote '%s' (id %s)\n", ri->name, ri->id);
+  DPRINTF(E_INFO, L_REMOTE, "Pairing succeeded with Remote '%s' (id %s)\n", ri->pi.name, ri->pi.remote_id);
 
  cleanup:
   evhttp_connection_free(ri->evcon);
@@ -726,7 +714,7 @@ do_pairing(struct remote_info *ri)
       goto hash_fail;
     }
 
-  DPRINTF(E_DBG, L_REMOTE, "Pairing hash for %s/%s: %s\n", ri->id, ri->name, pairing_hash);
+  DPRINTF(E_DBG, L_REMOTE, "Pairing hash for %s/%s: %s\n", ri->pi.remote_id, ri->pi.name, pairing_hash);
 
   /* Prepare request URI */
   /* The servicename variable is the mDNS service group name; currently it's
