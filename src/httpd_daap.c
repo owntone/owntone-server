@@ -1025,11 +1025,16 @@ daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 static void
 daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct daap_session *s;
   struct daap_update_request *ur;
   const char *param;
   int current_rev = 2;
   int reqd_rev;
   int ret;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
 
   param = evhttp_find_header(query, "revision-number");
   if (!param)
