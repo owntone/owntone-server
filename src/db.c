@@ -3394,6 +3394,28 @@ static struct db_init_query db_upgrade_v5_queries[] =
     { U_V5_SCVER,     "set schema_version to 5" },
   };
 
+/* Upgrade from schema v5 to v6 */
+
+#define U_V6_PAIRINGS					\
+  "CREATE TABLE IF NOT EXISTS pairings("		\
+  "   remote         VARCHAR(64) PRIMARY KEY NOT NULL,"	\
+  "   name           VARCHAR(255) NOT NULL,"		\
+  "   guid           VARCHAR(16) NOT NULL"		\
+  ");"
+
+#define U_V6_PAIRINGGUID				\
+  "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
+
+#define U_V6_SCVER					\
+  "UPDATE admin SET value = '6' WHERE key = 'schema_version';"
+
+static struct db_init_query db_upgrade_v6_queries[] =
+  {
+    { U_V6_PAIRINGS,    "create pairings table" },
+    { U_V6_PAIRINGGUID, "create pairing guid index" },
+    { U_V6_SCVER,       "set schema_version to 6" },
+  };
+
 static int
 db_check_version(void)
 {
@@ -3457,6 +3479,14 @@ db_check_version(void)
 	    ret = db_generic_upgrade(db_upgrade_v5_queries, sizeof(db_upgrade_v5_queries) / sizeof(db_upgrade_v5_queries[0]));
 	    if (ret < 0)
 	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 5:
+	    ret = db_generic_upgrade(db_upgrade_v6_queries, sizeof(db_upgrade_v6_queries) / sizeof(db_upgrade_v6_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
 	    break;
 
 	  default:
