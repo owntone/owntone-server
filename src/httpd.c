@@ -760,6 +760,9 @@ serve_file(struct evhttp_request *req, char *uri)
       return;
     }
 
+  /* FIXME: this is broken, if we ever need to serve files here,
+   * this must be fixed.
+   */
   ret = evbuffer_read(evbuf, fd, sb.st_size);
   close(fd);
   if (ret < 0)
