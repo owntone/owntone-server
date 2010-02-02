@@ -577,6 +577,16 @@ httpd_stream_file(struct evhttp_request *req, int id)
       evhttp_send_reply_start(req, 206, "Partial Content");
     }
 
+#ifdef HAVE_POSIX_FADVISE
+  if (!transcode)
+    {
+      /* Hint the OS */
+      posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_WILLNEED);
+      posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_SEQUENTIAL);
+      posix_fadvise(st->fd, st->start_offset, st->stream_size, POSIX_FADV_NOREUSE);
+    }
+#endif
+
   /* This is an extension to the stock evhttp */
   req->fail_cb = stream_fail_cb;
   req->fail_cb_arg = st;
