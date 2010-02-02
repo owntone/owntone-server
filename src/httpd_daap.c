@@ -490,18 +490,31 @@ dmap_find_field(uint32_t hash)
 }
 
 static void
-dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval, int intval)
+dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval, int32_t intval)
 {
+  int64_t val64;
   int32_t val;
   int ret;
 
-  val = intval;
-
-  if ((dfm->type != DMAP_TYPE_STRING) && (val == 0) && strval)
+  if (strval && (dfm->type != DMAP_TYPE_STRING))
     {
-      ret = safe_atoi32(strval, &val);
-      if (ret < 0)
-	val = 0;
+      if (dfm->type == DMAP_TYPE_LONG)
+	{
+	  ret = safe_atoi64(strval, &val64);
+	  if (ret < 0)
+	    val64 = 0;
+	}
+      else
+	{
+	  ret = safe_atoi32(strval, &val);
+	  if (ret < 0)
+	    val = 0;
+	}
+    }
+  else
+    {
+      val = intval;
+      val64 = intval;
     }
 
   switch (dfm->type)
@@ -524,9 +537,8 @@ dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval,
       break;
 
     case DMAP_TYPE_LONG:
-      /* FIXME: "long" is thought of as a 64bit value */
-      if (val)
-	dmap_add_long(evbuf, dfm->tag, val);
+      if (val64)
+	dmap_add_long(evbuf, dfm->tag, val64);
       break;
 
     case DMAP_TYPE_STRING:
