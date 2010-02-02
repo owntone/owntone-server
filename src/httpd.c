@@ -79,6 +79,7 @@ struct content_type_map {
 
 struct stream_ctx {
   struct evhttp_request *req;
+  uint8_t *buf;
   struct evbuffer *evbuf;
   struct event ev;
   int id;
@@ -129,7 +130,10 @@ stream_end(struct stream_ctx *st, int failed)
   if (st->xcode)
     transcode_cleanup(st->xcode);
   else
-    close(st->fd);
+    {
+      free(st->buf);
+      close(st->fd);
+    }
 
   free(st);
 }
@@ -249,7 +253,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
   else
     chunk_size = STREAM_CHUNK_SIZE;  
 
-  ret = evbuffer_read(st->evbuf, st->fd, chunk_size);
+  ret = read(st->fd, st->buf, chunk_size);
   if (ret <= 0)
     {
       if (ret == 0)
@@ -262,6 +266,8 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
     }
 
   DPRINTF(E_DBG, L_HTTPD, "Read %d bytes; streaming file id %d\n", ret, st->id);
+
+  evbuffer_add(st->evbuf, st->buf, ret);
 
   evhttp_send_reply_chunk_with_cb(st->req, st->evbuf, stream_chunk_resched_cb, st);
 
@@ -403,6 +409,18 @@ httpd_stream_file(struct evhttp_request *req, int id)
       /* Stream the raw file */
       DPRINTF(E_INFO, L_HTTPD, "Preparing to stream %s\n", mfi->path);
 
+      st->buf = (uint8_t *)malloc(STREAM_CHUNK_SIZE);
+      if (!st->buf)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "Out of memory for raw streaming buffer\n");
+
+	  evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+
+	  free(st);
+	  free_mfi(mfi, 0);
+	  return;
+	}
+
       stream_cb = stream_chunk_raw_cb;
 
       st->fd = open(mfi->path, O_RDONLY);
@@ -412,6 +430,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
 
+	  free(st->buf);
 	  free(st);
 	  free_mfi(mfi, 0);
 	  return;
@@ -425,6 +444,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
 
 	  close(st->fd);
+	  free(st->buf);
 	  free(st);
 	  free_mfi(mfi, 0);
 	  return;
@@ -439,6 +459,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
 	  close(st->fd);
+	  free(st->buf);
 	  free(st);
 	  free_mfi(mfi, 0);
 	  return;
@@ -487,7 +508,10 @@ httpd_stream_file(struct evhttp_request *req, int id)
       if (transcode)
 	transcode_cleanup(st->xcode);
       else
-	close(st->fd);
+	{
+	  free(st->buf);
+	  close(st->fd);
+	}
       free(st);
       free_mfi(mfi, 0);
       return;
@@ -504,7 +528,10 @@ httpd_stream_file(struct evhttp_request *req, int id)
       if (transcode)
 	transcode_cleanup(st->xcode);
       else
-	close(st->fd);
+	{
+	  free(st->buf);
+	  close(st->fd);
+	}
       evbuffer_free(st->evbuf);
       free(st);
       free_mfi(mfi, 0);
@@ -525,7 +552,10 @@ httpd_stream_file(struct evhttp_request *req, int id)
       if (transcode)
 	transcode_cleanup(st->xcode);
       else
-	close(st->fd);
+	{
+	  free(st->buf);
+	  close(st->fd);
+	}
       evbuffer_free(st->evbuf);
       free(st);
       free_mfi(mfi, 0);
