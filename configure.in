@@ -37,8 +37,6 @@ AC_CHECK_HEADERS([dirent.h])
 AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
 AC_CHECK_FUNCS(timegm)
-AC_CHECK_FUNCS(va_copy)
-AC_CHECK_FUNCS(__va_copy)
 
 AC_ARG_ENABLE(flac, AC_HELP_STRING([--enable-flac], [Enable FLAC support]),
                       use_flac=true;
