@@ -364,8 +364,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
     {
       evhttp_send_error(req, 500, "Cannot stream radio station");
 
-      free_mfi(mfi, 0);
-      return;
+      goto out_free_mfi;
     }
 
   st = (struct stream_ctx *)malloc(sizeof(struct stream_ctx));
@@ -375,10 +374,10 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
-      free_mfi(mfi, 0);
-      return;
+      goto out_free_mfi;
     }
   memset(st, 0, sizeof(struct stream_ctx));
+  st->fd = -1;
 
   transcode = transcode_needed(req->input_headers, mfi->codectype);
 
@@ -387,7 +386,6 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_INFO, L_HTTPD, "Preparing to transcode %s\n", mfi->path);
 
       stream_cb = stream_chunk_xcode_cb;
-      st->fd = -1;
 
       st->xcode = transcode_setup(mfi, &st->size);
       if (!st->xcode)
@@ -396,9 +394,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 	  evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
-	  free(st);
-	  free_mfi(mfi, 0);
-	  return;
+	  goto out_free_st;
 	}
 
       if (!evhttp_find_header(req->output_headers, "Content-Type"))
@@ -416,9 +412,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 	  evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
-	  free(st);
-	  free_mfi(mfi, 0);
-	  return;
+	  goto out_free_st;
 	}
 
       stream_cb = stream_chunk_raw_cb;
@@ -430,10 +424,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
 
-	  free(st->buf);
-	  free(st);
-	  free_mfi(mfi, 0);
-	  return;
+	  goto out_cleanup;
 	}
 
       ret = stat(mfi->path, &sb);
@@ -443,11 +434,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 	  evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
 
-	  close(st->fd);
-	  free(st->buf);
-	  free(st);
-	  free_mfi(mfi, 0);
-	  return;
+	  goto out_cleanup;
 	}
       st->size = sb.st_size;
 
@@ -458,11 +445,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
 
-	  close(st->fd);
-	  free(st->buf);
-	  free(st);
-	  free_mfi(mfi, 0);
-	  return;
+	  goto out_cleanup;
 	}
       st->offset = offset;
       st->end_offset = end_offset;
@@ -505,16 +488,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       evhttp_clear_headers(req->output_headers);
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
-      if (transcode)
-	transcode_cleanup(st->xcode);
-      else
-	{
-	  free(st->buf);
-	  close(st->fd);
-	}
-      free(st);
-      free_mfi(mfi, 0);
-      return;
+      goto out_cleanup;
     }
 
   ret = evbuffer_expand(st->evbuf, STREAM_CHUNK_SIZE);
@@ -525,17 +499,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       evhttp_clear_headers(req->output_headers);
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
-      if (transcode)
-	transcode_cleanup(st->xcode);
-      else
-	{
-	  free(st->buf);
-	  close(st->fd);
-	}
-      evbuffer_free(st->evbuf);
-      free(st);
-      free_mfi(mfi, 0);
-      return;
+      goto out_cleanup;
     }
 
   evutil_timerclear(&tv);
@@ -549,17 +513,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       evhttp_clear_headers(req->output_headers);
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
-      if (transcode)
-	transcode_cleanup(st->xcode);
-      else
-	{
-	  free(st->buf);
-	  close(st->fd);
-	}
-      evbuffer_free(st->evbuf);
-      free(st);
-      free_mfi(mfi, 0);
-      return;
+      goto out_cleanup;
     }
 
   st->id = mfi->id;
@@ -625,6 +579,22 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
   DPRINTF(E_INFO, L_HTTPD, "Kicking off streaming for %s\n", mfi->path);
 
+  free_mfi(mfi, 0);
+
+  return;
+
+ out_cleanup:
+  if (st->evbuf)
+    evbuffer_free(st->evbuf);
+  if (st->xcode)
+    transcode_cleanup(st->xcode);
+  if (st->buf)
+    free(st->buf);
+  if (st->fd > 0)
+    close(st->fd);
+ out_free_st:
+  free(st);
+ out_free_mfi:
   free_mfi(mfi, 0);
 }
 
