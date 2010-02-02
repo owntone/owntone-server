@@ -527,7 +527,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
        * that if we are decoding because we can only guesstimate the
        * size in this case and the error margin is unknown and variable.
        */
-      if (!st->xcode)
+      if (!transcode)
 	{
 	  ret = snprintf(buf, sizeof(buf), "%" PRIi64, (int64_t)st->size);
 	  if ((ret < 0) || (ret >= sizeof(buf)))
