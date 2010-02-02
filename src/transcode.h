@@ -10,7 +10,7 @@ int
 transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted);
 
 struct transcode_ctx *
-transcode_setup(struct media_file_info *mfi, size_t *est_size);
+transcode_setup(struct media_file_info *mfi, off_t *est_size);
 
 void
 transcode_cleanup(struct transcode_ctx *ctx);

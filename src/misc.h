@@ -5,13 +5,10 @@
 #include <stdint.h>
 
 int
-safe_atoi(const char *str, int *val);
+safe_atoi32(const char *str, int32_t *val);
 
 int
-safe_atol(const char *str, long *val);
-
-int
-safe_atoull(const char *str, unsigned long long *val);
+safe_atoi64(const char *str, int64_t *val);
 
 char *
 m_realpath(const char *pathname);

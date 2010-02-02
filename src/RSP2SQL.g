@@ -30,6 +30,7 @@ options {
 	#include <stdio.h>
 	#include <string.h>
 	#include <time.h>
+	#include <stdint.h>
 
 	#include "logger.h"
 	#include "db.h"
@@ -370,7 +371,7 @@ datespec	returns [ time_t date, int valid ]
 		}
 	|	^(o = dateop r = dateref m = INT i = dateintval)
 		{
-			int val;
+			int32_t val;
 			int ret;
 
 			if (!$r.valid || !$i.valid)
@@ -379,7 +380,7 @@ datespec	returns [ time_t date, int valid ]
 				goto datespec_valid_0; /* ABORT */
 			}
 
-			ret = safe_atoi((char *)$m->getText($m)->chars, &val);
+			ret = safe_atoi32((char *)$m->getText($m)->chars, &val);
 			if (ret < 0)
 			{
 				DPRINTF(E_LOG, L_RSP, "Could not convert '\%s' to integer\n", (char *)$m->getText($m));

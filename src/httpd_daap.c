@@ -408,7 +408,7 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
       goto invalid;
     }
 
-  ret = safe_atoi(param, &needle.id);
+  ret = safe_atoi32(param, &needle.id);
   if (ret < 0)
     goto invalid;
 
@@ -492,14 +492,14 @@ dmap_find_field(uint32_t hash)
 static void
 dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval, int intval)
 {
-  int val;
+  int32_t val;
   int ret;
 
   val = intval;
 
   if ((dfm->type != DMAP_TYPE_STRING) && (val == 0) && strval)
     {
-      ret = safe_atoi(strval, &val);
+      ret = safe_atoi32(strval, &val);
       if (ret < 0)
 	val = 0;
     }
@@ -560,7 +560,7 @@ get_query_params(struct evkeyvalq *query, struct query_params *qp)
 	DPRINTF(E_LOG, L_DAAP, "Unsupported index range: %s\n", param);
       else
 	{
-	  ret = safe_atoi(param, &low);
+	  ret = safe_atoi32(param, &low);
 	  if (ret < 0)
 	    DPRINTF(E_LOG, L_DAAP, "Could not parse index range: %s\n", param);
 	  else
@@ -573,7 +573,7 @@ get_query_params(struct evkeyvalq *query, struct query_params *qp)
 		  ptr++;
 		  if (*ptr != '\0') /* low-high */
 		    {
-		      ret = safe_atoi(ptr, &high);
+		      ret = safe_atoi32(ptr, &high);
 		      if (ret < 0)
 			  DPRINTF(E_LOG, L_DAAP, "Could not parse high index in range: %s\n", param);
 		    }
@@ -885,7 +885,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       return;
     }
 
-  ret = safe_atoi(param, &reqd_rev);
+  ret = safe_atoi32(param, &reqd_rev);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Parameter revision-number not an integer\n");
@@ -1013,7 +1013,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   int want_mikd;
   int want_asdk;
   int oom;
-  int val;
+  int32_t val;
   int i;
   int ret;
 
@@ -1209,7 +1209,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
 		  case dbmfi_offsetof(bitrate):
 		    val = 0;
-		    ret = safe_atoi(dbmfi.samplerate, &val);
+		    ret = safe_atoi32(dbmfi.samplerate, &val);
 		    if ((ret < 0) || (val == 0))
 		      val = 1411;
 		    else
@@ -1231,7 +1231,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
 	  if (*strval && (dfm->type != DMAP_TYPE_STRING))
 	    {
-	      ret = safe_atoi(*strval, &val);
+	      ret = safe_atoi32(*strval, &val);
 	      if (ret < 0)
 		val = 0;
 	    }
@@ -1255,14 +1255,14 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       if (want_mikd)
 	{
 	  /* dmap.itemkind must come first */
-	  ret = safe_atoi(dbmfi.item_kind, &val);
+	  ret = safe_atoi32(dbmfi.item_kind, &val);
 	  if (ret < 0)
 	    val = 2; /* music by default */
 	  dmap_add_char(songlist, "mikd", val);
 	}
       if (want_asdk)
 	{
-	  ret = safe_atoi(dbmfi.data_kind, &val);
+	  ret = safe_atoi32(dbmfi.data_kind, &val);
 	  if (ret < 0)
 	    val = 0;
 	  dmap_add_char(songlist, "asdk", val);
@@ -1365,7 +1365,7 @@ daap_reply_plsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char *
   if (!s)
     return;
 
-  ret = safe_atoi(uri[3], &playlist);
+  ret = safe_atoi32(uri[3], &playlist);
   if (ret < 0)
     {
       dmap_send_error(req, "apso", "Invalid playlist ID");
@@ -1391,7 +1391,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   int nmeta;
   int npls;
   int oom;
-  int val;
+  int32_t val;
   int i;
   int ret;
 
@@ -1491,17 +1491,17 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	  if (meta[i] == 0x670fc55e)
 	    {
 	      val = 0;
-	      ret = safe_atoi(dbpli.type, &val);
+	      ret = safe_atoi32(dbpli.type, &val);
 	      if ((ret == 0) && (val == PL_SMART))
 		{
 		  val = 1;
-		  ret = safe_atoi(dbpli.id, &val);
+		  ret = safe_atoi32(dbpli.id, &val);
 		  if ((ret == 0) && (val != 1))
 		    {
-		      int aePS = 0;
+		      int32_t aePS = 0;
 		      dmap_add_char(playlist, "aeSP", 1);
 
-		      ret = safe_atoi(dbpli.special_id, &aePS);
+		      ret = safe_atoi32(dbpli.special_id, &aePS);
 		      if ((ret == 0) && (aePS > 0))
 			dmap_add_char(playlist, "aePS", aePS);
 		    }
@@ -1533,13 +1533,13 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 
       /* Item count (mimc) */
       val = 0;
-      ret = safe_atoi(dbpli.items, &val);
+      ret = safe_atoi32(dbpli.items, &val);
       if ((ret == 0) && (val > 0))
 	dmap_add_int(playlist, "mimc", val);
 
       /* Base playlist (abpl), id = 1 */
       val = 0;
-      ret = safe_atoi(dbpli.id, &val);
+      ret = safe_atoi32(dbpli.id, &val);
       if ((ret == 0) && (val == 1))
 	dmap_add_char(playlist, "abpl", 1);
 
@@ -1631,7 +1631,8 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   int nmeta;
   int ngrp;
   int oom;
-  int val;
+  int32_t val;
+  int64_t val64;
   int i;
   int ret;
   char *tag;
@@ -1748,21 +1749,20 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
             continue;
 
 	  /* Special handling for persistentid (mper)
-	   * Correctly handle a ulonglong.
+	   * Correctly handle a DMAP long value (64bit)
 	   */
 	  if (strcmp(dfm->tag, "mper") == 0)
 	    {
-	      unsigned long long ull = 0;
 	      if (*strval)
 		{
-		  ret = safe_atoull(*strval, &ull);
+		  ret = safe_atoi64(*strval, &val64);
 		  if (ret < 0)
-		    ull = 0;
+		    val64 = 0;
 		}
 
-	      dmap_add_long(group, dfm->tag, ull);
+	      dmap_add_long(group, dfm->tag, val64);
 
-	      DPRINTF(E_DBG, L_DAAP, "Done with ULL meta tag %s (%llu) \n", dfm->desc, ull);
+	      DPRINTF(E_DBG, L_DAAP, "Done with LONG meta tag %s (%" PRIi64 ") \n", dfm->desc, val64);
 	      continue;
 	    }
 
@@ -1773,7 +1773,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
       /* Item count, always added (mimc) */
       val = 0;
-      ret = safe_atoi(dbgri.itemcount, &val);
+      ret = safe_atoi32(dbgri.itemcount, &val);
       if ((ret == 0) && (val > 0))
 	dmap_add_int(group, "mimc", val);
 
@@ -2012,7 +2012,7 @@ daap_stream(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, stru
   if (!s)
     return;
 
-  ret = safe_atoi(uri[3], &id);
+  ret = safe_atoi32(uri[3], &id);
   if (ret < 0)
     evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
   else

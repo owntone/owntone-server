@@ -38,7 +38,7 @@
 
 
 int
-safe_atoi(const char *str, int *val)
+safe_atoi32(const char *str, int32_t *val)
 {
   char *end;
   long intval;
@@ -61,28 +61,28 @@ safe_atoi(const char *str, int *val)
       return -1;
     }
 
-  if (intval > INT_MAX)
+  if (intval > INT32_MAX)
     {
       DPRINTF(E_DBG, L_MISC, "Integer value too large (%s)\n", str);
 
       return -1;
     }
 
-  *val = (int)intval;
+  *val = (int32_t)intval;
 
   return 0;
 }
 
 int
-safe_atol(const char *str, long *val)
+safe_atoi64(const char *str, int64_t *val)
 {
   char *end;
-  long intval;
+  long long intval;
 
   errno = 0;
-  intval = strtol(str, &end, 10);
+  intval = strtoll(str, &end, 10);
 
-  if (((errno == ERANGE) && ((intval == LONG_MAX) || (intval == LONG_MIN)))
+  if (((errno == ERANGE) && ((intval == LLONG_MAX) || (intval == LLONG_MIN)))
       || ((errno != 0) && (intval == 0)))
     {
       DPRINTF(E_DBG, L_MISC, "Invalid integer in string (%s): %s\n", str, strerror(errno));
@@ -97,35 +97,14 @@ safe_atol(const char *str, long *val)
       return -1;
     }
 
-  *val = intval;
-
-  return 0;
-}
-
-int
-safe_atoull(const char *str, unsigned long long *val)
-{
-  char *end;
-  unsigned long long intval;
-
-  errno = 0;
-  intval = strtoull(str, &end, 10);
-
-  if (errno)
+  if (intval > INT64_MAX)
     {
-      DPRINTF(E_DBG, L_MISC, "Invalid unsigned long long integer in string (%s): %s\n", str, strerror(errno));
+      DPRINTF(E_DBG, L_MISC, "Integer value too large (%s)\n", str);
 
       return -1;
     }
 
-  if (end == str)
-    {
-      DPRINTF(E_DBG, L_MISC, "No unsigned long long integer found in string (%s)\n", str);
-
-      return -1;
-    }
-
-  *val = intval;
+  *val = (int64_t)intval;
 
   return 0;
 }

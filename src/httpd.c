@@ -33,6 +33,8 @@
 #include <sys/queue.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <stdint.h>
+#include <inttypes.h>
 
 #include <event.h>
 #include "evhttp/evhttp.h"
@@ -81,11 +83,11 @@ struct stream_ctx {
   struct event ev;
   int id;
   int fd;
-  size_t size;
-  size_t stream_size;
-  size_t offset;
-  size_t start_offset;
-  size_t end_offset;
+  off_t size;
+  off_t stream_size;
+  off_t offset;
+  off_t start_offset;
+  off_t end_offset;
   int marked;
   struct transcode_ctx *xcode;
 };
@@ -302,8 +304,8 @@ httpd_stream_file(struct evhttp_request *req, int id)
   const char *param;
   const char *param_end;
   char buf[64];
-  long offset;
-  long end_offset;
+  int64_t offset;
+  int64_t end_offset;
   int transcode;
   int ret;
 
@@ -315,7 +317,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_DBG, L_HTTPD, "Found Range header: %s\n", param);
 
       /* Start offset */
-      ret = safe_atol(param + strlen("bytes="), &offset);
+      ret = safe_atoi64(param + strlen("bytes="), &offset);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Invalid start offset, will stream whole file (%s)\n", param);
@@ -327,7 +329,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	  param_end = strchr(param, '-');
 	  if (param_end)
 	    {
-	      ret = safe_atol(param_end + 1, &end_offset);
+	      ret = safe_atoi64(param_end + 1, &end_offset);
 	      if (ret < 0)
 		{
 		  DPRINTF(E_LOG, L_HTTPD, "Invalid end offset, will stream to end of file (%s)\n", param);
@@ -336,7 +338,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
 	      if (end_offset < offset)
 		{
-		  DPRINTF(E_LOG, L_HTTPD, "End offset < start offset, will stream to end of file (%ld < %ld)\n", end_offset, offset);
+		  DPRINTF(E_LOG, L_HTTPD, "End offset < start offset, will stream to end of file (%" PRIi64 " < %" PRIi64 ")\n", end_offset, offset);
 		  end_offset = 0;
 		}
 	    }
@@ -543,7 +545,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
        */
       if (!st->xcode)
 	{
-	  ret = snprintf(buf, sizeof(buf), "%ld", st->size);
+	  ret = snprintf(buf, sizeof(buf), "%" PRIi64, (int64_t)st->size);
 	  if ((ret < 0) || (ret >= sizeof(buf)))
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
 	  else
@@ -559,16 +561,16 @@ httpd_stream_file(struct evhttp_request *req, int id)
       if (end_offset > 0)
 	st->stream_size -= (st->size - end_offset);
 
-      DPRINTF(E_DBG, L_HTTPD, "Stream request with range %ld-%ld\n", offset, end_offset);
+      DPRINTF(E_DBG, L_HTTPD, "Stream request with range %" PRIi64 "-%" PRIi64 "\n", offset, end_offset);
 
-      ret = snprintf(buf, sizeof(buf), "bytes %ld-%ld/%ld",
-		     offset, (end_offset) ? end_offset : (long)sb.st_size, (long)sb.st_size);
+      ret = snprintf(buf, sizeof(buf), "bytes %" PRIi64 "-%" PRIi64 "/%" PRIi64,
+		     offset, (end_offset) ? end_offset : (int64_t)sb.st_size, (int64_t)sb.st_size);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Range too large for buffer, dropping\n");
       else
 	evhttp_add_header(req->output_headers, "Content-Range", buf);
 
-      ret = snprintf(buf, sizeof(buf), "%ld", ((end_offset) ? end_offset + 1 : (long)sb.st_size) - offset);
+      ret = snprintf(buf, sizeof(buf), "%" PRIi64, ((end_offset) ? end_offset + 1 : (int64_t)sb.st_size) - offset);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
       else

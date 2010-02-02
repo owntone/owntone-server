@@ -475,7 +475,7 @@ main(int argc, char **argv)
             break;
 
 	  case 'd':
-	    ret = safe_atoi(optarg, &option);
+	    ret = safe_atoi32(optarg, &option);
 	    if (ret < 0)
 	      fprintf(stderr, "Error: loglevel must be an integer in '-d %s'\n", optarg);
 	    else

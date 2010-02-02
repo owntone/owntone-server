@@ -262,7 +262,7 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
       return;
     }
 
-  ret = safe_atoi(param, &reqd_rev);
+  ret = safe_atoi32(param, &reqd_rev);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Parameter revision-number not an integer\n");

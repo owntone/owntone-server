@@ -177,7 +177,7 @@ get_query_params(struct evhttp_request *req, struct evkeyvalq *query, struct que
   param = evhttp_find_header(query, "offset");
   if (param)
     {
-      ret = safe_atoi(param, &qp->offset);
+      ret = safe_atoi32(param, &qp->offset);
       if (ret < 0)
 	{
 	  rsp_send_error(req, "Invalid offset");
@@ -189,7 +189,7 @@ get_query_params(struct evhttp_request *req, struct evkeyvalq *query, struct que
   param = evhttp_find_header(query, "limit");
   if (param)
     {
-      ret = safe_atoi(param, &qp->limit);
+      ret = safe_atoi32(param, &qp->limit);
       if (ret < 0)
 	{
 	  rsp_send_error(req, "Invalid limit");
@@ -453,13 +453,13 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   int mode;
   int records;
   int transcode;
-  int bitrate;
+  int32_t bitrate;
   int i;
   int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  ret = safe_atoi(uri[2], &qp.pl_id);
+  ret = safe_atoi32(uri[2], &qp.pl_id);
   if (ret < 0)
     {
       rsp_send_error(req, "Invalid playlist ID");
@@ -564,7 +564,7 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 
 		  case dbmfi_offsetof(bitrate):
 		    bitrate = 0;
-		    ret = safe_atoi(dbmfi.samplerate, &bitrate);
+		    ret = safe_atoi32(dbmfi.samplerate, &bitrate);
 		    if ((ret < 0) || (bitrate == 0))
 		      bitrate = 1411;
 		    else
@@ -663,7 +663,7 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
       return;
     }
 
-  ret = safe_atoi(uri[2], &qp.pl_id);
+  ret = safe_atoi32(uri[2], &qp.pl_id);
   if (ret < 0)
     {
       rsp_send_error(req, "Invalid playlist ID");
@@ -768,7 +768,7 @@ rsp_stream(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
   int id;
   int ret;
 
-  ret = safe_atoi(uri[2], &id);
+  ret = safe_atoi32(uri[2], &id);
   if (ret < 0)
     evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
   else

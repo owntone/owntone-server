@@ -135,7 +135,7 @@ add_le32(uint8_t *dst, uint32_t val)
 }
 
 static void
-make_wav_header(struct transcode_ctx *ctx, size_t *est_size)
+make_wav_header(struct transcode_ctx *ctx, off_t *est_size)
 {
   uint32_t samplerate;
   uint32_t byte_rate;
@@ -310,7 +310,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 }
 
 struct transcode_ctx *
-transcode_setup(struct media_file_info *mfi, size_t *est_size)
+transcode_setup(struct media_file_info *mfi, off_t *est_size)
 {
   struct transcode_ctx *ctx;
   int hdr_len;
