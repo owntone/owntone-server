@@ -69,7 +69,7 @@
  */
 
 
-#define STREAM_CHUNK_SIZE (512 * 1024)
+#define STREAM_CHUNK_SIZE (64 * 1024)
 #define WEBFACE_ROOT   DATADIR "/webface/"
 
 struct content_type_map {
