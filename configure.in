@@ -28,7 +28,7 @@ if test "x$ANTLR" = x; then
 fi
 AC_SUBST(ANTLR)
 
-CFLAGS="$CFLAGS -Wall"
+CFLAGS="$CFLAGS -Wall -D_LARGEFILE_SOURCE"
 
 AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
@@ -38,6 +38,10 @@ AC_CHECK_FUNCS(posix_fadvise)
 AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
 AC_CHECK_FUNCS(timegm)
+
+dnl Large File Support (LFS)
+AC_SYS_LARGEFILE
+AC_TYPE_OFF_T
 
 AC_ARG_ENABLE(flac, AC_HELP_STRING([--enable-flac], [Enable FLAC support]),
                       use_flac=true;
