@@ -46,6 +46,11 @@
 # include <sys/endian.h>
 #endif
 
+#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
+# define USE_EVENTFD
+# include <sys/eventfd.h>
+#endif
+
 #include <avahi-common/malloc.h>
 
 #include <event.h>
@@ -77,7 +82,11 @@ struct remote_info {
 /* Main event base, from main.c */
 extern struct event_base *evbase_main;
 
+#ifdef USE_EVENTFD
+static int pairing_efd;
+#else
 static int pairing_pipe[2];
+#endif
 static struct event pairingev;
 static pthread_mutex_t remote_lck = PTHREAD_MUTEX_INITIALIZER;
 static struct remote_info *remote_list;
@@ -460,12 +469,20 @@ add_remote_pin_data(char *devname, char *pin)
 static void
 kickoff_pairing(void)
 {
+#ifdef USE_EVENTFD
+  int ret;
+
+  ret = eventfd_write(pairing_efd, 1);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_REMOTE, "Could not send pairing event: %s\n", strerror(errno));
+#else
   int dummy = 42;
   int ret;
 
   ret = write(pairing_pipe[1], &dummy, sizeof(dummy));
   if (ret != sizeof(dummy))
     DPRINTF(E_LOG, L_REMOTE, "Could not write to pairing fd: %s\n", strerror(errno));
+#endif
 }
 
 
@@ -845,11 +862,24 @@ static void
 pairing_cb(int fd, short event, void *arg)
 {
   struct remote_info *ri;
+
+#ifdef USE_EVENTFD
+  eventfd_t count;
+  int ret;
+
+  ret = eventfd_read(pairing_efd, &count);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Could not read event counter: %s\n", strerror(errno));
+      return;
+    }
+#else
   int dummy;
 
   /* Drain the pipe */
   while (read(pairing_pipe[0], &dummy, sizeof(dummy)) >= 0)
     ; /* EMPTY */
+#endif
 
   for (;;)
     {
@@ -886,11 +916,20 @@ remote_pairing_init(void)
 
   remote_list = NULL;
 
-#if defined(__linux__)
-  ret = pipe2(pairing_pipe, O_CLOEXEC | O_NONBLOCK);
+#ifdef USE_EVENTFD
+  pairing_efd = eventfd(0, EFD_CLOEXEC | EFD_NONBLOCK);
+  if (pairing_efd < 0)
+    {
+      DPRINTF(E_FATAL, L_REMOTE, "Could not create eventfd: %s\n", strerror(errno));
+
+      return -1;
+    }
 #else
+# if defined(__linux__)
+  ret = pipe2(pairing_pipe, O_CLOEXEC | O_NONBLOCK);
+# else
   ret = pipe(pairing_pipe);
-#endif
+# endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_REMOTE, "Could not create pairing pipe: %s\n", strerror(errno));
@@ -898,7 +937,7 @@ remote_pairing_init(void)
       return -1;
     }
 
-#ifndef __linux__
+# ifndef __linux__
   ret = fcntl(pairing_pipe[0], F_SETFL, O_NONBLOCK);
   if (ret < 0)
     {
@@ -906,7 +945,8 @@ remote_pairing_init(void)
 
       goto pairing_pipe_fail;
     }
-#endif
+# endif
+#endif /* USE_EVENTFD */
 
   ret = mdns_browse("_touch-remote._tcp", touch_remote_cb);
   if (ret < 0)
@@ -919,7 +959,11 @@ remote_pairing_init(void)
   libname = cfg_getstr(cfg_getnsec(cfg, "library", 0), "name");
   libhash = murmur_hash64(libname, strlen(libname), 0);
 
+#ifdef USE_EVENTFD
+  event_set(&pairingev, pairing_efd, EV_READ, pairing_cb, NULL);
+#else
   event_set(&pairingev, pairing_pipe[0], EV_READ, pairing_cb, NULL);
+#endif
   event_base_set(evbase_main, &pairingev);
   event_add(&pairingev, NULL);
 
@@ -929,8 +973,12 @@ remote_pairing_init(void)
  pairing_pipe_fail:
 #endif
  mdns_browse_fail:
+#ifdef USE_EVENTFD
+  close(pairing_efd);
+#else
   close(pairing_pipe[0]);
   close(pairing_pipe[1]);
+#endif
 
   return -1;
 }
@@ -948,6 +996,10 @@ remote_pairing_deinit(void)
       free_remote(ri);
     }
 
+#ifdef USE_EVENTFD
+  close(pairing_efd);
+#else
   close(pairing_pipe[0]);
   close(pairing_pipe[1]);
+#endif
 }

@@ -44,6 +44,11 @@
 # include <sys/event.h>
 #endif
 
+#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
+# define USE_EVENTFD
+# include <sys/eventfd.h>
+#endif
+
 #include <event.h>
 
 #include "logger.h"
@@ -68,7 +73,11 @@ struct stacked_dir {
 };
 
 
+#ifdef USE_EVENTFD
+static int exit_efd;
+#else
 static int exit_pipe[2];
+#endif
 static int scan_exit;
 static int inofd;
 static struct event_base *evbase_scan;
@@ -1231,17 +1240,27 @@ filescanner_init(void)
       return -1;
     }
 
-#if defined(__linux__)
-  ret = pipe2(exit_pipe, O_CLOEXEC);
+#ifdef USE_EVENTFD
+  exit_efd = eventfd(0, EFD_CLOEXEC);
+  if (exit_efd < 0)
+    {
+      DPRINTF(E_FATAL, L_SCAN, "Could not create eventfd: %s\n", strerror(errno));
+
+      goto pipe_fail;
+    }
 #else
+# if defined(__linux__)
+  ret = pipe2(exit_pipe, O_CLOEXEC);
+# else
   ret = pipe(exit_pipe);
-#endif
+# endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_SCAN, "Could not create pipe: %s\n", strerror(errno));
 
       goto pipe_fail;
     }
+#endif /* USE_EVENTFD */
 
 #if defined(__linux__)
   inofd = inotify_init1(IN_CLOEXEC);
@@ -1269,7 +1288,11 @@ filescanner_init(void)
 
   event_base_set(evbase_scan, &inoev);
 
+#ifdef USE_EVENTFD
+  event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
+#else
   event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
+#endif
   event_base_set(evbase_scan, &exitev);
   event_add(&exitev, NULL);
 
@@ -1286,8 +1309,12 @@ filescanner_init(void)
  thread_fail:
   close(inofd);
  ino_fail:
+#ifdef USE_EVENTFD
+  close(exit_efd);
+#else
   close(exit_pipe[0]);
   close(exit_pipe[1]);
+#endif
  pipe_fail:
   event_base_free(evbase_scan);
 
@@ -1298,8 +1325,18 @@ filescanner_init(void)
 void
 filescanner_deinit(void)
 {
-  int dummy = 42;
   int ret;
+
+#ifdef USE_EVENTFD
+  ret = eventfd_write(exit_efd, 1);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_SCAN, "Could not send exit event: %s\n", strerror(errno));
+
+      return;
+    }
+#else
+  int dummy = 42;
 
   ret = write(exit_pipe[1], &dummy, sizeof(dummy));
   if (ret != sizeof(dummy))
@@ -1308,6 +1345,7 @@ filescanner_deinit(void)
 
       return;
     }
+#endif
 
   ret = pthread_join(tid_scan, NULL);
   if (ret != 0)
@@ -1317,8 +1355,12 @@ filescanner_deinit(void)
       return;
     }
 
+#ifdef USE_EVENTFD
+  close(exit_efd);
+#else
   close(exit_pipe[0]);
   close(exit_pipe[1]);
+#endif
   close(inofd);
   event_base_free(evbase_scan);
 }

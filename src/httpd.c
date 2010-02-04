@@ -36,6 +36,11 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
+# define USE_EVENTFD
+# include <sys/eventfd.h>
+#endif
+
 #include <event.h>
 #include "evhttp/evhttp.h"
 
@@ -107,7 +112,11 @@ static struct content_type_map ext2ctype[] =
     { NULL, NULL }
   };
 
+#ifdef USE_EVENTFD
+static int exit_efd;
+#else
 static int exit_pipe[2];
+#endif
 static int httpd_exit;
 static struct event_base *evbase_httpd;
 static struct event exitev;
@@ -1104,17 +1113,27 @@ httpd_init(void)
       goto dacp_fail;
     }
 
-#if defined(__linux__)
-  ret = pipe2(exit_pipe, O_CLOEXEC);
+#ifdef USE_EVENTFD
+  exit_efd = eventfd(0, EFD_CLOEXEC);
+  if (exit_efd < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Could not create eventfd: %s\n", strerror(errno));
+
+      goto pipe_fail;
+    }
 #else
+# if defined(__linux__)
+  ret = pipe2(exit_pipe, O_CLOEXEC);
+# else
   ret = pipe(exit_pipe);
-#endif
+# endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create pipe: %s\n", strerror(errno));
 
       goto pipe_fail;
     }
+#endif /* USE_EVENTFD */
 
   evbase_httpd = event_base_new();
   if (!evbase_httpd)
@@ -1124,7 +1143,11 @@ httpd_init(void)
       goto evbase_fail;
     }
 
+#ifdef USE_EVENTFD
+  event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
+#else
   event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
+#endif
   event_base_set(evbase_httpd, &exitev);
   event_add(&exitev, NULL);
 
@@ -1172,8 +1195,12 @@ httpd_init(void)
  evhttp_fail:
   event_base_free(evbase_httpd);
  evbase_fail:
+#ifdef USE_EVENTFD
+  close(exit_efd);
+#else
   close(exit_pipe[0]);
   close(exit_pipe[1]);
+#endif
  pipe_fail:
   dacp_deinit();
  dacp_fail:
@@ -1188,8 +1215,18 @@ httpd_init(void)
 void
 httpd_deinit(void)
 {
-  int dummy = 42;
   int ret;
+
+#ifdef USE_EVENTFD
+  ret = eventfd_write(exit_efd, 1);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Could not send exit event: %s\n", strerror(errno));
+
+      return;
+    }
+#else
+  int dummy = 42;
 
   ret = write(exit_pipe[1], &dummy, sizeof(dummy));
   if (ret != sizeof(dummy))
@@ -1198,6 +1235,7 @@ httpd_deinit(void)
 
       return;
     }
+#endif
 
   ret = pthread_join(tid_httpd, NULL);
   if (ret != 0)
@@ -1211,8 +1249,12 @@ httpd_deinit(void)
   dacp_deinit();
   daap_deinit();
 
+#ifdef USE_EVENTFD
+  close(exit_efd);
+#else
   close(exit_pipe[0]);
   close(exit_pipe[1]);
+#endif
   evhttp_free(evhttpd);
   event_base_free(evbase_httpd);
 }
