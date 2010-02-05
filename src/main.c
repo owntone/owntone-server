@@ -51,6 +51,9 @@
 #include <event.h>
 #include <libavformat/avformat.h>
 
+#include <gcrypt.h>
+GCRY_THREAD_OPTION_PTHREAD_IMPL;
+
 #include "conffile.h"
 #include "db.h"
 #include "logger.h"
@@ -425,6 +428,7 @@ main(int argc, char **argv)
   char *logfile;
   char *ffid;
   char *pidfile;
+  const char *gcry_version;
   sigset_t sigs;
   int sigfd;
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
@@ -551,6 +555,26 @@ main(int argc, char **argv)
 
   /* Initialize ffmpeg */
   av_register_all();
+
+  /* Initialize libgcrypt */
+  gcry_control(GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
+
+  gcry_version = gcry_check_version(GCRYPT_VERSION);
+  if (!gcry_version)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "libgcrypt version mismatch\n");
+
+      goto gcrypt_init_fail;
+    }
+
+  /* We aren't handling anything sensitive, so give up on secure
+   * memory, which is a scarce system resource.
+   */
+  gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
+
+  gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
+
+  DPRINTF(E_DBG, L_MAIN, "Initialized with gcrypt %s\n", gcry_version);
 
   /* Block signals for all threads except the main one */
   sigemptyset(&sigs);
@@ -743,6 +767,7 @@ main(int argc, char **argv)
 	}
     }
 
+ gcrypt_init_fail:
  signal_block_fail:
   DPRINTF(E_LOG, L_MAIN, "Exiting.\n");
   conffile_unload();
