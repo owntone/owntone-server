@@ -3,7 +3,8 @@
  *
  * iTunes - Remote pairing hash function published by Michael Paul Bailey
  *   <http://jinxidoru.blogspot.com/2009/06/itunes-remote-pairing-code.html>
- * Derived from Xine-lib source code, src/input/libreal/real.c::hash(), GPLv2+.
+ * Simplified version using standard MD5 published by Jeff Sharkey
+ *   <http://jsharkey.org/blog/2009/06/21/itunes-dacp-pairing-hash-is-broken/>
  *
  * Pairing process based on the work by
  *  - Michael Croes
@@ -56,6 +57,8 @@
 #include <event.h>
 #include "evhttp/evhttp.h"
 
+#include <gcrypt.h>
+
 #include "logger.h"
 #include "conffile.h"
 #include "mdns_avahi.h"
@@ -97,13 +100,14 @@ static uint64_t libhash;
 static char *
 itunes_pairing_hash(char *paircode, char *pin)
 {
-  char param[64];
+  char buf[24];
   char hash[33];
-  uint32_t *input;
-  uint32_t a;
-  uint32_t b;
-  uint32_t c;
-  uint32_t d;
+  char ebuf[64];
+  uint8_t *hash_bytes;
+  size_t hashlen;
+  gcry_md_hd_t hd;
+  gpg_error_t gc_err;
+  int i;
 
   if (strlen(paircode) != 16)
     {
@@ -117,171 +121,40 @@ itunes_pairing_hash(char *paircode, char *pin)
       return NULL;
     }
 
-  /* Initialization */
-  a = 0x67452301;
-  b = 0xefcdab89;
-  c = 0x98badcfe;
-  d = 0x10325476;
-  
-  memset(param, 0, sizeof(param));
-  param[56] = '\xc0';
-  param[24] = '\x80';
+  memset(buf, 0, sizeof(buf));
+  memcpy(buf, paircode, 16);
 
-  strncpy(param, paircode, 16);
-  strncpy(param + 16, pin, 4);
+  /* Add pin code characters on 16 bits - remember Mac OS X is
+   * all UTF-16 (wchar_t).
+   */
+  for (i = 0; i < 4; i++)
+    buf[16 + (2 * i)] = pin[i];
 
-  param[22] = param[19];
-  param[20] = param[18];
-  param[18] = param[17];
-  param[19] = param[17] = 0;
+  gc_err = gcry_md_open(&hd, GCRY_MD_MD5, 0);
+  if (gc_err != GPG_ERR_NO_ERROR)
+    {
+      gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
+      DPRINTF(E_LOG, L_REMOTE, "Could not open MD5: %s\n", ebuf);
 
-  input = (uint32_t *)param;
+      return NULL;
+    }
 
-  a = ((b & c) | (~b & d)) + input[0]  + a - 0x28955B88;
-  a = ((a << 0x07) | (a >> 0x19)) + b;
-  d = ((a & b) | (~a & c)) + input[1]  + d - 0x173848AA;
-  d = ((d << 0x0c) | (d >> 0x14)) + a;
-  c = ((d & a) | (~d & b)) + input[2]  + c + 0x242070DB;
-  c = ((c << 0x11) | (c >> 0x0f)) + d;
-  b = ((c & d) | (~c & a)) + input[3]  + b - 0x3E423112;
-  b = ((b << 0x16) | (b >> 0x0a)) + c;
-  a = ((b & c) | (~b & d)) + input[4]  + a - 0x0A83F051;
-  a = ((a << 0x07) | (a >> 0x19)) + b;
-  d = ((a & b) | (~a & c)) + input[5]  + d + 0x4787C62A;
-  d = ((d << 0x0c) | (d >> 0x14)) + a;
-  c = ((d & a) | (~d & b)) + input[6]  + c - 0x57CFB9ED;
-  c = ((c << 0x11) | (c >> 0x0f)) + d;
-  b = ((c & d) | (~c & a)) + input[7]  + b - 0x02B96AFF;
-  b = ((b << 0x16) | (b >> 0x0a)) + c;
-  a = ((b & c) | (~b & d)) + input[8]  + a + 0x698098D8;
-  a = ((a << 0x07) | (a >> 0x19)) + b;
-  d = ((a & b) | (~a & c)) + input[9]  + d - 0x74BB0851;
-  d = ((d << 0x0c) | (d >> 0x14)) + a;
-  c = ((d & a) | (~d & b)) + input[10] + c - 0x0000A44F;
-  c = ((c << 0x11) | (c >> 0x0f)) + d;
-  b = ((c & d) | (~c & a)) + input[11] + b - 0x76A32842;
-  b = ((b << 0x16) | (b >> 0x0a)) + c;
-  a = ((b & c) | (~b & d)) + input[12] + a + 0x6B901122;
-  a = ((a << 0x07) | (a >> 0x19)) + b;
-  d = ((a & b) | (~a & c)) + input[13] + d - 0x02678E6D;
-  d = ((d << 0x0c) | (d >> 0x14)) + a;
-  c = ((d & a) | (~d & b)) + input[14] + c - 0x5986BC72;
-  c = ((c << 0x11) | (c >> 0x0f)) + d;
-  b = ((c & d) | (~c & a)) + input[15] + b + 0x49B40821;
-  b = ((b << 0x16) | (b >> 0x0a)) + c;
+  gcry_md_write(hd, buf, sizeof(buf));
 
-  a = ((b & d) | (~d & c)) + input[1]  + a - 0x09E1DA9E;
-  a = ((a << 0x05) | (a >> 0x1b)) + b;
-  d = ((a & c) | (~c & b)) + input[6]  + d - 0x3FBF4CC0;
-  d = ((d << 0x09) | (d >> 0x17)) + a;
-  c = ((d & b) | (~b & a)) + input[11] + c + 0x265E5A51;
-  c = ((c << 0x0e) | (c >> 0x12)) + d;
-  b = ((c & a) | (~a & d)) + input[0]  + b - 0x16493856;
-  b = ((b << 0x14) | (b >> 0x0c)) + c;
-  a = ((b & d) | (~d & c)) + input[5]  + a - 0x29D0EFA3;
-  a = ((a << 0x05) | (a >> 0x1b)) + b;
-  d = ((a & c) | (~c & b)) + input[10] + d + 0x02441453;
-  d = ((d << 0x09) | (d >> 0x17)) + a;
-  c = ((d & b) | (~b & a)) + input[15] + c - 0x275E197F;
-  c = ((c << 0x0e) | (c >> 0x12)) + d;
-  b = ((c & a) | (~a & d)) + input[4]  + b - 0x182C0438;
-  b = ((b << 0x14) | (b >> 0x0c)) + c;
-  a = ((b & d) | (~d & c)) + input[9]  + a + 0x21E1CDE6;
-  a = ((a << 0x05) | (a >> 0x1b)) + b;
-  d = ((a & c) | (~c & b)) + input[14] + d - 0x3CC8F82A;
-  d = ((d << 0x09) | (d >> 0x17)) + a;
-  c = ((d & b) | (~b & a)) + input[3]  + c - 0x0B2AF279;
-  c = ((c << 0x0e) | (c >> 0x12)) + d;
-  b = ((c & a) | (~a & d)) + input[8]  + b + 0x455A14ED;
-  b = ((b << 0x14) | (b >> 0x0c)) + c;
-  a = ((b & d) | (~d & c)) + input[13] + a - 0x561C16FB;
-  a = ((a << 0x05) | (a >> 0x1b)) + b;
-  d = ((a & c) | (~c & b)) + input[2]  + d - 0x03105C08;
-  d = ((d << 0x09) | (d >> 0x17)) + a;
-  c = ((d & b) | (~b & a)) + input[7]  + c + 0x676F02D9;
-  c = ((c << 0x0e) | (c >> 0x12)) + d;
-  b = ((c & a) | (~a & d)) + input[12] + b - 0x72D5B376;
-  b = ((b << 0x14) | (b >> 0x0c)) + c;
+  hash_bytes = gcry_md_read(hd, GCRY_MD_MD5);
+  if (!hash_bytes)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Could not read MD5 hash\n");
 
-  a = (b ^ c ^ d) + input[5]  + a - 0x0005C6BE;
-  a = ((a << 0x04) | (a >> 0x1c)) + b;
-  d = (a ^ b ^ c) + input[8]  + d - 0x788E097F;
-  d = ((d << 0x0b) | (d >> 0x15)) + a;
-  c = (d ^ a ^ b) + input[11] + c + 0x6D9D6122;
-  c = ((c << 0x10) | (c >> 0x10)) + d;
-  b = (c ^ d ^ a) + input[14] + b - 0x021AC7F4;
-  b = ((b << 0x17) | (b >> 0x09)) + c;
-  a = (b ^ c ^ d) + input[1]  + a - 0x5B4115BC;
-  a = ((a << 0x04) | (a >> 0x1c)) + b;
-  d = (a ^ b ^ c) + input[4]  + d + 0x4BDECFA9;
-  d = ((d << 0x0b) | (d >> 0x15)) + a;
-  c = (d ^ a ^ b) + input[7]  + c - 0x0944B4A0;
-  c = ((c << 0x10) | (c >> 0x10)) + d;
-  b = (c ^ d ^ a) + input[10] + b - 0x41404390;
-  b = ((b << 0x17) | (b >> 0x09)) + c;
-  a = (b ^ c ^ d) + input[13] + a + 0x289B7EC6;
-  a = ((a << 0x04) | (a >> 0x1c)) + b;
-  d = (a ^ b ^ c) + input[0]  + d - 0x155ED806;
-  d = ((d << 0x0b) | (d >> 0x15)) + a;
-  c = (d ^ a ^ b) + input[3]  + c - 0x2B10CF7B;
-  c = ((c << 0x10) | (c >> 0x10)) + d;
-  b = (c ^ d ^ a) + input[6]  + b + 0x04881D05;
-  b = ((b << 0x17) | (b >> 0x09)) + c;
-  a = (b ^ c ^ d) + input[9]  + a - 0x262B2FC7;
-  a = ((a << 0x04) | (a >> 0x1c)) + b;
-  d = (a ^ b ^ c) + input[12] + d - 0x1924661B;
-  d = ((d << 0x0b) | (d >> 0x15)) + a;
-  c = (d ^ a ^ b) + input[15] + c + 0x1fa27cf8;
-  c = ((c << 0x10) | (c >> 0x10)) + d;
-  b = (c ^ d ^ a) + input[2]  + b - 0x3B53A99B;
-  b = ((b << 0x17) | (b >> 0x09)) + c;
+      return NULL;
+    }
 
-  a = ((~d | b) ^ c) + input[0]  + a - 0x0BD6DDBC;
-  a = ((a << 0x06) | (a >> 0x1a)) + b;
-  d = ((~c | a) ^ b) + input[7]  + d + 0x432AFF97;
-  d = ((d << 0x0a) | (d >> 0x16)) + a;
-  c = ((~b | d) ^ a) + input[14] + c - 0x546BDC59;
-  c = ((c << 0x0f) | (c >> 0x11)) + d;
-  b = ((~a | c) ^ d) + input[5]  + b - 0x036C5FC7;
-  b = ((b << 0x15) | (b >> 0x0b)) + c;
-  a = ((~d | b) ^ c) + input[12] + a + 0x655B59C3;
-  a = ((a << 0x06) | (a >> 0x1a)) + b;
-  d = ((~c | a) ^ b) + input[3]  + d - 0x70F3336E;
-  d = ((d << 0x0a) | (d >> 0x16)) + a;
-  c = ((~b | d) ^ a) + input[10] + c - 0x00100B83;
-  c = ((c << 0x0f) | (c >> 0x11)) + d;
-  b = ((~a | c) ^ d) + input[1]  + b - 0x7A7BA22F;
-  b = ((b << 0x15) | (b >> 0x0b)) + c;
-  a = ((~d | b) ^ c) + input[8]  + a + 0x6FA87E4F;
-  a = ((a << 0x06) | (a >> 0x1a)) + b;
-  d = ((~c | a) ^ b) + input[15] + d - 0x01D31920;
-  d = ((d << 0x0a) | (d >> 0x16)) + a;
-  c = ((~b | d) ^ a) + input[6]  + c - 0x5CFEBCEC;
-  c = ((c << 0x0f) | (c >> 0x11)) + d;
-  b = ((~a | c) ^ d) + input[13] + b + 0x4E0811A1;
-  b = ((b << 0x15) | (b >> 0x0b)) + c;
-  a = ((~d | b) ^ c) + input[4]  + a - 0x08AC817E;
-  a = ((a << 0x06) | (a >> 0x1a)) + b;
-  d = ((~c | a) ^ b) + input[11] + d - 0x42C50DCB;
-  d = ((d << 0x0a) | (d >> 0x16)) + a;
-  c = ((~b | d) ^ a) + input[2]  + c + 0x2AD7D2BB;
-  c = ((c << 0x0f) | (c >> 0x11)) + d;
-  b = ((~a | c) ^ d) + input[9]  + b - 0x14792C6F;
-  b = ((b << 0x15) | (b >> 0x0b)) + c;
+  hashlen = gcry_md_get_algo_dlen(GCRY_MD_MD5);
 
-  a += 0x67452301;
-  b += 0xefcdab89;
-  c += 0x98badcfe;
-  d += 0x10325476;
+  for (i = 0; i < hashlen; i++)
+    sprintf(hash + (2 * i), "%02X", hash_bytes[i]);
 
-  /* Byteswap to big endian */
-  a = htobe32(a);
-  b = htobe32(b);
-  c = htobe32(c);
-  d = htobe32(d);
-
-  /* Write out the pairing hash */
-  snprintf(hash, sizeof(hash), "%08X%08X%08X%08X", a, b, c, d);
+  gcry_md_close(hd);
 
   return strdup(hash);
 }
