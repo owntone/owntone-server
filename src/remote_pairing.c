@@ -40,13 +40,6 @@
 #include <errno.h>
 #include <pthread.h>
 
-#if defined(__linux__) || defined(__GLIBC__)
-# include <endian.h>
-# include <byteswap.h>
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-# include <sys/endian.h>
-#endif
-
 #if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
 # define USE_EVENTFD
 # include <sys/eventfd.h>
