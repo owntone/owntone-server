@@ -492,56 +492,126 @@ dmap_find_field(uint32_t hash)
 static void
 dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval, int32_t intval)
 {
-  int64_t val64;
-  int32_t val;
+  union {
+    int32_t v_i32;
+    uint32_t v_u32;
+    int64_t v_i64;
+    uint64_t v_u64;
+  } val;
   int ret;
 
   if (strval && (dfm->type != DMAP_TYPE_STRING))
     {
-      if (dfm->type == DMAP_TYPE_LONG)
+      switch (dfm->type)
 	{
-	  ret = safe_atoi64(strval, &val64);
-	  if (ret < 0)
-	    val64 = 0;
-	}
-      else
-	{
-	  ret = safe_atoi32(strval, &val);
-	  if (ret < 0)
-	    val = 0;
+	  case DMAP_TYPE_DATE:
+	  case DMAP_TYPE_UBYTE:
+	  case DMAP_TYPE_USHORT:
+	  case DMAP_TYPE_UINT:
+	    ret = safe_atou32(strval, &val.v_u32);
+	    if (ret < 0)
+	      val.v_u32 = 0;
+	    break;
+
+	  case DMAP_TYPE_BYTE:
+	  case DMAP_TYPE_SHORT:
+	  case DMAP_TYPE_INT:
+	    ret = safe_atoi32(strval, &val.v_i32);
+	    if (ret < 0)
+	      val.v_i32 = 0;
+	    break;
+
+	  case DMAP_TYPE_ULONG:
+	    ret = safe_atou64(strval, &val.v_u64);
+	    if (ret < 0)
+	      val.v_u64 = 0;
+	    break;
+
+	  case DMAP_TYPE_LONG:
+	    ret = safe_atoi64(strval, &val.v_i64);
+	    if (ret < 0)
+	      val.v_i64 = 0;
+	    break;
+
+	  /* DMAP_TYPE_VERSION & DMAP_TYPE_LIST not handled here */
+	  default:
+	    DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", dfm->type, dfm->desc);
+	    return;
 	}
     }
-  else
+  else if (!strval && (dfm->type != DMAP_TYPE_STRING))
     {
-      val = intval;
-      val64 = intval;
+      switch (dfm->type)
+	{
+	  case DMAP_TYPE_DATE:
+	  case DMAP_TYPE_UBYTE:
+	  case DMAP_TYPE_USHORT:
+	  case DMAP_TYPE_UINT:
+	    val.v_u32 = intval;
+	    break;
+
+	  case DMAP_TYPE_BYTE:
+	  case DMAP_TYPE_SHORT:
+	  case DMAP_TYPE_INT:
+	    val.v_i32 = intval;
+	    break;
+
+	  case DMAP_TYPE_ULONG:
+	    val.v_u64 = intval;
+	    break;
+
+	  case DMAP_TYPE_LONG:
+	    val.v_i64 = intval;
+	    break;
+
+	  /* DMAP_TYPE_VERSION & DMAP_TYPE_LIST not handled here */
+	  default:
+	    DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", dfm->type, dfm->desc);
+	    return;
+	}
     }
 
   switch (dfm->type)
     {
     case DMAP_TYPE_UBYTE:
+      if (val.v_u32)
+	dmap_add_char(evbuf, dfm->tag, val.v_u32);
+      break;
+
     case DMAP_TYPE_BYTE:
-      if (val)
-	dmap_add_char(evbuf, dfm->tag, val);
+      if (val.v_i32)
+	dmap_add_char(evbuf, dfm->tag, val.v_i32);
       break;
 
     case DMAP_TYPE_USHORT:
-    case DMAP_TYPE_SHORT:
-      if (val)
-	dmap_add_short(evbuf, dfm->tag, val);
+      if (val.v_u32)
+	dmap_add_short(evbuf, dfm->tag, val.v_u32);
       break;
 
-    case DMAP_TYPE_UINT:
-    case DMAP_TYPE_INT:
+    case DMAP_TYPE_SHORT:
+      if (val.v_i32)
+	dmap_add_short(evbuf, dfm->tag, val.v_i32);
+      break;
+
     case DMAP_TYPE_DATE:
-      if (val)
-	dmap_add_int(evbuf, dfm->tag, val);
+    case DMAP_TYPE_UINT:
+      if (val.v_u32)
+	dmap_add_int(evbuf, dfm->tag, val.v_u32);
+      break;
+
+    case DMAP_TYPE_INT:
+      if (val.v_i32)
+	dmap_add_int(evbuf, dfm->tag, val.v_i32);
       break;
 
     case DMAP_TYPE_ULONG:
+      if (val.v_u64)
+	dmap_add_long(evbuf, dfm->tag, val.v_u64);
+      break;
+
     case DMAP_TYPE_LONG:
-      if (val64)
-	dmap_add_long(evbuf, dfm->tag, val64);
+      if (val.v_i64)
+	dmap_add_long(evbuf, dfm->tag, val.v_i64);
       break;
 
     case DMAP_TYPE_STRING:
@@ -549,10 +619,9 @@ dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval,
 	dmap_add_string(evbuf, dfm->tag, strval);
       break;
 
-    /* DMAP_TYPE_VERSION & DMAP_TYPE_LIST not handled here */
-    default:
-      DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", dfm->type, dfm->desc);
-      break;
+    case DMAP_TYPE_VERSION:
+    case DMAP_TYPE_LIST:
+      return;
     }
 }
 
