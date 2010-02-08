@@ -1210,6 +1210,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	      continue;
 	    }
 
+	  val = 0;
+
 	  if (transcode)
             {
               switch (dfm->mfi_offset)
@@ -1240,13 +1242,6 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 		    break;
                 }
             }
-
-	  if (*strval && (dfm->type != DMAP_TYPE_STRING))
-	    {
-	      ret = safe_atoi32(*strval, &val);
-	      if (ret < 0)
-		val = 0;
-	    }
 
 	  dmap_add_field(song, dfm, *strval, val);
 
