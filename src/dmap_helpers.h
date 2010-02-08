@@ -6,11 +6,14 @@
 
 enum dmap_type
   {
-    DMAP_TYPE_BYTE    = 0x01,
-    DMAP_TYPE_UBYTE   = 0x02,
-    DMAP_TYPE_SHORT   = 0x03,
-    DMAP_TYPE_INT     = 0x05,
-    DMAP_TYPE_LONG    = 0x07,
+    DMAP_TYPE_UBYTE   = 0x01,
+    DMAP_TYPE_BYTE    = 0x02,
+    DMAP_TYPE_USHORT  = 0x03,
+    DMAP_TYPE_SHORT   = 0x04,
+    DMAP_TYPE_UINT    = 0x05,
+    DMAP_TYPE_INT     = 0x06,
+    DMAP_TYPE_ULONG   = 0x07,
+    DMAP_TYPE_LONG    = 0x08,
     DMAP_TYPE_STRING  = 0x09,
     DMAP_TYPE_DATE    = 0x0a,
     DMAP_TYPE_VERSION = 0x0b,

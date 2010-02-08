@@ -519,23 +519,26 @@ dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval,
 
   switch (dfm->type)
     {
-    case DMAP_TYPE_BYTE:
     case DMAP_TYPE_UBYTE:
+    case DMAP_TYPE_BYTE:
       if (val)
 	dmap_add_char(evbuf, dfm->tag, val);
       break;
 
+    case DMAP_TYPE_USHORT:
     case DMAP_TYPE_SHORT:
       if (val)
 	dmap_add_short(evbuf, dfm->tag, val);
       break;
 
+    case DMAP_TYPE_UINT:
     case DMAP_TYPE_INT:
     case DMAP_TYPE_DATE:
       if (val)
 	dmap_add_int(evbuf, dfm->tag, val);
       break;
 
+    case DMAP_TYPE_ULONG:
     case DMAP_TYPE_LONG:
       if (val64)
 	dmap_add_long(evbuf, dfm->tag, val64);
@@ -546,6 +549,7 @@ dmap_add_field(struct evbuffer *evbuf, struct dmap_field_map *dfm, char *strval,
 	dmap_add_string(evbuf, dfm->tag, strval);
       break;
 
+    /* DMAP_TYPE_VERSION & DMAP_TYPE_LIST not handled here */
     default:
       DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", dfm->type, dfm->desc);
       break;
