@@ -1408,13 +1408,15 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	    continue;
 
 	  /* Will be prepended to the list */
-	  if (dfm->mfi_offset == dbmfi_offsetof(item_kind))
+	  if (dfm->field == &dmap_mikd)
 	    {
+	      /* item kind */
 	      want_mikd = 1;
 	      continue;
 	    }
-	  else if (dfm->mfi_offset == dbmfi_offsetof(data_kind))
+	  else if (dfm->field == &dmap_asdk)
 	    {
+	      /* data kind */
 	      want_asdk = 1;
 	      continue;
 	    }
@@ -1427,7 +1429,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
             continue;
 
 	  /* Here's one exception ... codectype (ascd) is actually an integer */
-	  if (dfm->mfi_offset == dbmfi_offsetof(codectype))
+	  if (dfm->field == &dmap_ascd)
 	    {
 	      dmap_add_literal(song, dfm->field->tag, *strval, 4);
 	      continue;
@@ -1436,7 +1438,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	  /* Special handling for songalbumid (asai)
 	   * Return an int64_t hash of the album_artist & album
 	   */
-	  if (strcmp(dfm->field->tag, "asai") == 0)
+	  if (dfm->field == &dmap_asai)
 	    {
 	      songalbumid = daap_songalbumid(dbmfi.album_artist, dbmfi.album);
 
