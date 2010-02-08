@@ -1875,7 +1875,6 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   int ngrp;
   int oom;
   int32_t val;
-  int64_t val64;
   int i;
   int ret;
   char *tag;
@@ -1990,24 +1989,6 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
           if (!(*strval) || (**strval == '\0'))
             continue;
-
-	  /* Special handling for persistentid (mper)
-	   * Correctly handle a DMAP long value (64bit)
-	   */
-	  if (strcmp(dfm->field->tag, "mper") == 0)
-	    {
-	      if (*strval)
-		{
-		  ret = safe_atoi64(*strval, &val64);
-		  if (ret < 0)
-		    val64 = 0;
-		}
-
-	      dmap_add_long(group, dfm->field->tag, val64);
-
-	      DPRINTF(E_DBG, L_DAAP, "Done with LONG meta tag %s (%" PRIi64 ")\n", dfm->field->desc, val64);
-	      continue;
-	    }
 
 	  dmap_add_field(group, dfm->field, *strval, 0);
 
