@@ -1728,12 +1728,19 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 
       for (i = 0; i < nmeta; i++)
 	{
+	  dfm = dmap_find_field(meta[i]);
+	  if (!dfm)
+	    {
+	      DPRINTF(E_LOG, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
+	      continue;
+	    }
+
 	  /* dmap.itemcount - always added */
-	  if (meta[i] == 0xd4b8b70d)
+	  if (dfm->field == &dmap_mimc)
 	    continue;
 
 	  /* com.apple.itunes.smart-playlist - type = 1 AND id != 1 */
-	  if (meta[i] == 0x670fc55e)
+	  if (dfm->field == &dmap_aeSP)
 	    {
 	      val = 0;
 	      ret = safe_atoi32(dbpli.type, &val);
@@ -1752,13 +1759,6 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 		    }
 		}
 
-	      continue;
-	    }
-
-	  dfm = dmap_find_field(meta[i]);
-	  if (!dfm)
-	    {
-	      DPRINTF(E_LOG, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
 	      continue;
 	    }
 
@@ -1972,16 +1972,16 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
       for (i = 0; i < nmeta; i++)
 	{
-	  /* dmap.itemcount - always added */
-	  if (meta[i] == 0xd4b8b70d)
-	    continue;
-
 	  dfm = dmap_find_field(meta[i]);
 	  if (!dfm)
 	    {
 	      DPRINTF(E_LOG, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
 	      continue;
 	    }
+
+	  /* dmap.itemcount - always added */
+	  if (dfm->field == &dmap_mimc)
+	    continue;
 
 	  /* Not in struct group_info */
 	  if (dfm->gri_offset < 0)
