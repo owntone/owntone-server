@@ -4,16 +4,18 @@
 
 #include <event.h>
 
-#define DMAP_TYPE_BYTE     0x01
-#define DMAP_TYPE_UBYTE    0x02
-#define DMAP_TYPE_SHORT    0x03
-#define DMAP_TYPE_INT      0x05
-#define DMAP_TYPE_LONG     0x07
-#define DMAP_TYPE_STRING   0x09
-#define DMAP_TYPE_DATE     0x0a
-#define DMAP_TYPE_VERSION  0x0b
-#define DMAP_TYPE_LIST     0x0c
-
+enum dmap_type
+  {
+    DMAP_TYPE_BYTE    = 0x01,
+    DMAP_TYPE_UBYTE   = 0x02,
+    DMAP_TYPE_SHORT   = 0x03,
+    DMAP_TYPE_INT     = 0x05,
+    DMAP_TYPE_LONG    = 0x07,
+    DMAP_TYPE_STRING  = 0x09,
+    DMAP_TYPE_DATE    = 0x0a,
+    DMAP_TYPE_VERSION = 0x0b,
+    DMAP_TYPE_LIST    = 0x0c,
+  };
 
 void
 dmap_add_container(struct evbuffer *evbuf, char *tag, int len);

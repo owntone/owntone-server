@@ -67,7 +67,7 @@ struct daap_update_request {
 
 struct dmap_field_map {
   uint32_t hash;
-  short type;
+  enum dmap_type type;
   char *tag;
   char *desc;
   ssize_t mfi_offset;
