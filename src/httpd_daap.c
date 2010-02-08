@@ -733,55 +733,55 @@ dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval
 
   switch (df->type)
     {
-    case DMAP_TYPE_UBYTE:
-      if (val.v_u32)
-	dmap_add_char(evbuf, df->tag, val.v_u32);
-      break;
+      case DMAP_TYPE_UBYTE:
+	if (val.v_u32)
+	  dmap_add_char(evbuf, df->tag, val.v_u32);
+	break;
 
-    case DMAP_TYPE_BYTE:
-      if (val.v_i32)
-	dmap_add_char(evbuf, df->tag, val.v_i32);
-      break;
+      case DMAP_TYPE_BYTE:
+	if (val.v_i32)
+	  dmap_add_char(evbuf, df->tag, val.v_i32);
+	break;
 
-    case DMAP_TYPE_USHORT:
-      if (val.v_u32)
-	dmap_add_short(evbuf, df->tag, val.v_u32);
-      break;
+      case DMAP_TYPE_USHORT:
+	if (val.v_u32)
+	  dmap_add_short(evbuf, df->tag, val.v_u32);
+	break;
 
-    case DMAP_TYPE_SHORT:
-      if (val.v_i32)
-	dmap_add_short(evbuf, df->tag, val.v_i32);
-      break;
+      case DMAP_TYPE_SHORT:
+	if (val.v_i32)
+	  dmap_add_short(evbuf, df->tag, val.v_i32);
+	break;
 
-    case DMAP_TYPE_DATE:
-    case DMAP_TYPE_UINT:
-      if (val.v_u32)
-	dmap_add_int(evbuf, df->tag, val.v_u32);
-      break;
+      case DMAP_TYPE_DATE:
+      case DMAP_TYPE_UINT:
+	if (val.v_u32)
+	  dmap_add_int(evbuf, df->tag, val.v_u32);
+	break;
 
-    case DMAP_TYPE_INT:
-      if (val.v_i32)
-	dmap_add_int(evbuf, df->tag, val.v_i32);
-      break;
+      case DMAP_TYPE_INT:
+	if (val.v_i32)
+	  dmap_add_int(evbuf, df->tag, val.v_i32);
+	break;
 
-    case DMAP_TYPE_ULONG:
-      if (val.v_u64)
-	dmap_add_long(evbuf, df->tag, val.v_u64);
-      break;
+      case DMAP_TYPE_ULONG:
+	if (val.v_u64)
+	  dmap_add_long(evbuf, df->tag, val.v_u64);
+	break;
 
-    case DMAP_TYPE_LONG:
-      if (val.v_i64)
-	dmap_add_long(evbuf, df->tag, val.v_i64);
-      break;
+      case DMAP_TYPE_LONG:
+	if (val.v_i64)
+	  dmap_add_long(evbuf, df->tag, val.v_i64);
+	break;
 
-    case DMAP_TYPE_STRING:
-      if (strval)
-	dmap_add_string(evbuf, df->tag, strval);
-      break;
+      case DMAP_TYPE_STRING:
+	if (strval)
+	  dmap_add_string(evbuf, df->tag, strval);
+	break;
 
-    case DMAP_TYPE_VERSION:
-    case DMAP_TYPE_LIST:
-      return;
+      case DMAP_TYPE_VERSION:
+      case DMAP_TYPE_LIST:
+	return;
     }
 }
 
