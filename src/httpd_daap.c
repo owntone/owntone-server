@@ -2275,6 +2275,104 @@ daap_fix_request_uri(struct evhttp_request *req, char *uri)
 }
 
 
+#ifdef DMAP_TEST
+static const struct dmap_field dmap_TEST = { "TEST", "test.container", DMAP_TYPE_LIST };
+static const struct dmap_field dmap_TST1 = { "TST1", "test.ubyte",     DMAP_TYPE_UBYTE };
+static const struct dmap_field dmap_TST2 = { "TST2", "test.byte",      DMAP_TYPE_BYTE };
+static const struct dmap_field dmap_TST3 = { "TST3", "test.ushort",    DMAP_TYPE_USHORT };
+static const struct dmap_field dmap_TST4 = { "TST4", "test.short",     DMAP_TYPE_SHORT };
+static const struct dmap_field dmap_TST5 = { "TST5", "test.uint",      DMAP_TYPE_UINT };
+static const struct dmap_field dmap_TST6 = { "TST6", "test.int",       DMAP_TYPE_INT };
+static const struct dmap_field dmap_TST7 = { "TST7", "test.ulong",     DMAP_TYPE_ULONG };
+static const struct dmap_field dmap_TST8 = { "TST8", "test.long",      DMAP_TYPE_LONG };
+static const struct dmap_field dmap_TST9 = { "TST9", "test.string",    DMAP_TYPE_STRING };
+
+static void
+daap_reply_dmap_test(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  char buf[64];
+  struct evbuffer *test;
+  int ret;
+
+  test = evbuffer_new();
+  if (!test)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP test\n");
+
+      dmap_send_error(req, dmap_TEST.tag, "Out of memory");
+      return;
+    }
+
+  /* UBYTE */
+  snprintf(buf, sizeof(buf), "%" PRIu8, UINT8_MAX);
+  dmap_add_field(test, &dmap_TST1, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+
+  /* BYTE */
+  snprintf(buf, sizeof(buf), "%" PRIi8, INT8_MIN);
+  dmap_add_field(test, &dmap_TST2, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+  snprintf(buf, sizeof(buf), "%" PRIi8, INT8_MAX);
+  dmap_add_field(test, &dmap_TST2, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+
+  /* USHORT */
+  snprintf(buf, sizeof(buf), "%" PRIu16, UINT16_MAX);
+  dmap_add_field(test, &dmap_TST3, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+
+  /* SHORT */
+  snprintf(buf, sizeof(buf), "%" PRIi16, INT16_MIN);
+  dmap_add_field(test, &dmap_TST4, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+  snprintf(buf, sizeof(buf), "%" PRIi16, INT16_MAX);
+  dmap_add_field(test, &dmap_TST4, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+
+  /* UINT */
+  snprintf(buf, sizeof(buf), "%" PRIu32, UINT32_MAX);
+  dmap_add_field(test, &dmap_TST5, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+
+  /* INT */
+  snprintf(buf, sizeof(buf), "%" PRIi32, INT32_MIN);
+  dmap_add_field(test, &dmap_TST6, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+  snprintf(buf, sizeof(buf), "%" PRIi32, INT32_MAX);
+  dmap_add_field(test, &dmap_TST6, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+
+  /* ULONG */
+  snprintf(buf, sizeof(buf), "%" PRIu64, UINT64_MAX);
+  dmap_add_field(test, &dmap_TST7, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+
+  /* LONG */
+  snprintf(buf, sizeof(buf), "%" PRIi64, INT64_MIN);
+  dmap_add_field(test, &dmap_TST8, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+  snprintf(buf, sizeof(buf), "%" PRIi64, INT64_MAX);
+  dmap_add_field(test, &dmap_TST8, buf, 0);
+  dmap_add_field(test, &dmap_TST9, buf, 0);
+
+  dmap_add_container(evbuf, dmap_TEST.tag, EVBUFFER_LENGTH(test));
+
+  ret = evbuffer_add_buffer(evbuf, test);
+  evbuffer_free(test);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not add test results to DMAP test reply\n");
+
+      dmap_send_error(req, dmap_TEST.tag, "Out of memory");
+      return;      
+    }
+
+  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+}
+#endif /* DMAP_TEST */
+
+
 static struct uri_map daap_handlers[] =
   {
 
@@ -2338,6 +2436,12 @@ static struct uri_map daap_handlers[] =
       .regexp = "^/databases/[[:digit:]]+/groups/[[:digit:]]+/extra_data/artwork$",
       .handler = daap_reply_extra_data
     },
+#ifdef DMAP_TEST
+    {
+      .regexp = "^/dmap-test$",
+      .handler = daap_reply_dmap_test
+    },
+#endif /* DMAP_TEST */
     { 
       .regexp = NULL,
       .handler = NULL
@@ -2544,6 +2648,11 @@ daap_is_request(struct evhttp_request *req, char *uri)
     return 1;
   if (strcmp(uri, "/logout") == 0)
     return 1;
+
+#ifdef DMAP_TEST
+  if (strcmp(uri, "/dmap-test") == 0)
+    return 1;
+#endif
 
   return 0;
 }
