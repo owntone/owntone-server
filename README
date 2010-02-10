@@ -105,6 +105,23 @@ added. Currently supported:
  - WAV: wav
 
 
+Streaming MPEG4
+---------------
+
+For streaming to work properly (read: at all), MPEG4 files must be optimized;
+this means, among other things, that the metadata are located at the beginning
+of the file, rather than at the end.
+
+Files produced by iTunes are always optimized by default. Files produced by
+FAAC and a lot of other encoders are not.
+
+The mp4creator tool from the mpeg4ip suite can be used to optimize MPEG4 files,
+with the -optimize option:
+  $ mp4creator -optimize foo.m4a
+
+Don't forget to make a backup copy of your file, just in case.
+
+
 Playlists
 ---------
 
