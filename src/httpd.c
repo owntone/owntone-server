@@ -321,6 +321,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
   char buf[64];
   int64_t offset;
   int64_t end_offset;
+  off_t pos;
   int transcode;
   int ret;
 
@@ -447,8 +448,8 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	}
       st->size = sb.st_size;
 
-      ret = lseek(st->fd, offset, SEEK_SET);
-      if (ret < 0)
+      pos = lseek(st->fd, offset, SEEK_SET);
+      if (pos == (off_t) -1)
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Could not seek into %s: %s\n", mfi->path, strerror(errno));
 

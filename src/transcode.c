@@ -313,6 +313,7 @@ struct transcode_ctx *
 transcode_setup(struct media_file_info *mfi, off_t *est_size)
 {
   struct transcode_ctx *ctx;
+  off_t pos;
   int hdr_len;
   int i;
   int ret;
@@ -428,8 +429,8 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
       else
 	hdr_len = 0;
 
-      ret = lseek(ctx->fd, hdr_len, SEEK_SET);
-      if (ret < 0)
+      pos = lseek(ctx->fd, hdr_len, SEEK_SET);
+      if (pos == (off_t) -1)
 	{
 	  DPRINTF(E_WARN, L_XCODE, "Could not seek: %s\n", strerror(errno));
 
