@@ -113,13 +113,18 @@ this means, among other things, that the metadata are located at the beginning
 of the file, rather than at the end.
 
 Files produced by iTunes are always optimized by default. Files produced by
-FAAC and a lot of other encoders are not.
+FAAC and a lot of other encoders are not, though some encoders have an option
+for that.
 
 The mp4creator tool from the mpeg4ip suite can be used to optimize MPEG4 files,
 with the -optimize option:
   $ mp4creator -optimize foo.m4a
 
 Don't forget to make a backup copy of your file, just in case.
+
+Note that not all tag/metadata editors know about stream optimization and will
+happily write the metadata back at the end of the file after you've modified
+them. Watch out for that.
 
 
 Playlists
