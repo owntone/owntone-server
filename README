@@ -108,9 +108,13 @@ added. Currently supported:
 Streaming MPEG4
 ---------------
 
-For streaming to work properly (read: at all), MPEG4 files must be optimized;
-this means, among other things, that the metadata are located at the beginning
-of the file, rather than at the end.
+Depending on the client application, you may need to optimize your MPEG4 files
+for streaming. Stream-optimized MPEG4 files have their metadata at the beginning
+of the file, whereas non-optimized files have them at the end.
+
+Not all clients need this; if you're having trouble playing your MPEG4 files,
+this is the most probable cause. iTunes, in particular, doesn't handle files
+that aren't optimized, though FrontRow does.
 
 Files produced by iTunes are always optimized by default. Files produced by
 FAAC and a lot of other encoders are not, though some encoders have an option
