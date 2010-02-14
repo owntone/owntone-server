@@ -232,9 +232,6 @@ struct {
 	void (*cb)(struct evhttp_request *, void *);
 	void *cb_arg;
 
-	void (*fail_cb)(struct evhttp_request *, void *);
-	void *fail_cb_arg;
-
 	/*
 	 * Chunked data callback - call for each completed chunk if
 	 * specified.  If not specified, all the data is delivered via
