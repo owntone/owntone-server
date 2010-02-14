@@ -127,9 +127,7 @@ static pthread_t tid_httpd;
 static void
 stream_end(struct stream_ctx *st, int failed)
 {
-  /* This is an extension to the stock evhttp */
-  st->req->fail_cb = NULL;
-  st->req->fail_cb_arg = NULL;
+  evhttp_connection_set_closecb(st->req->evcon, NULL, NULL);
 
   if (!failed)
     evhttp_send_reply_end(st->req);
@@ -292,7 +290,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 }
 
 static void
-stream_fail_cb(struct evhttp_request *req, void *arg)
+stream_fail_cb(struct evhttp_connection *evcon, void *arg)
 {
   struct stream_ctx *st;
 
@@ -583,9 +581,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
     }
 #endif
 
-  /* This is an extension to the stock evhttp */
-  req->fail_cb = stream_fail_cb;
-  req->fail_cb_arg = st;
+  evhttp_connection_set_closecb(req->evcon, stream_fail_cb, st);
 
   DPRINTF(E_INFO, L_HTTPD, "Kicking off streaming for %s\n", mfi->path);
 

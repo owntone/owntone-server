@@ -589,7 +589,7 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
 
 /* Update requests helpers */
 static void
-update_fail_cb(struct evhttp_request *req, void *arg)
+update_fail_cb(struct evhttp_connection *evcon, void *arg)
 {
   struct daap_update_request *ur;
   struct daap_update_request *p;
@@ -597,6 +597,8 @@ update_fail_cb(struct evhttp_request *req, void *arg)
   ur = (struct daap_update_request *)arg;
 
   DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
+
+  evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
 
   if (ur == update_requests)
     update_requests = ur->next;
@@ -1179,12 +1181,10 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   ur->next = update_requests;
   update_requests = ur;
 
-  /* Set fail_cb; this is an extension to the stock evhttp and will
-   * get called if the connection fails before we have an update to
-   * push out to the client.
+  /* If the connection fails before we have an update to push out
+   * to the client, we need to know.
    */
-  req->fail_cb = update_fail_cb;
-  req->fail_cb_arg = ur;
+  evhttp_connection_set_closecb(req->evcon, update_fail_cb, ur);
 }
 
 static void

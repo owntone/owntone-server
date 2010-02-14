@@ -67,7 +67,7 @@ static struct dacp_update_request *update_requests;
 /* Update requests helpers */
 
 static void
-update_fail_cb(struct evhttp_request *req, void *arg)
+update_fail_cb(struct evhttp_connection *evcon, void *arg)
 {
   struct dacp_update_request *ur;
   struct dacp_update_request *p;
@@ -75,6 +75,8 @@ update_fail_cb(struct evhttp_request *req, void *arg)
   ur = (struct dacp_update_request *)arg;
 
   DPRINTF(E_DBG, L_DACP, "Update request: client closed connection\n");
+
+  evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
 
   if (ur == update_requests)
     update_requests = ur->next;
@@ -306,12 +308,10 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
   ur->next = update_requests;
   update_requests = ur;
 
-  /* Set fail_cb; this is an extension to the stock evhttp and will
-   * get called if the connection fails before we have an update to
-   * push out to the client.
+  /* If the connection fails before we have an update to push out
+   * to the client, we need to know.
    */
-  req->fail_cb = update_fail_cb;
-  req->fail_cb_arg = ur;
+  evhttp_connection_set_closecb(req->evcon, update_fail_cb, ur);
 }
 
 static void
