@@ -93,7 +93,6 @@ static uint64_t libhash;
 static char *
 itunes_pairing_hash(char *paircode, char *pin)
 {
-  char buf[24];
   char hash[33];
   char ebuf[64];
   uint8_t *hash_bytes;
@@ -114,15 +113,6 @@ itunes_pairing_hash(char *paircode, char *pin)
       return NULL;
     }
 
-  memset(buf, 0, sizeof(buf));
-  memcpy(buf, paircode, 16);
-
-  /* Add pin code characters on 16 bits - remember Mac OS X is
-   * all UTF-16 (wchar_t).
-   */
-  for (i = 0; i < 4; i++)
-    buf[16 + (2 * i)] = pin[i];
-
   gc_err = gcry_md_open(&hd, GCRY_MD_MD5, 0);
   if (gc_err != GPG_ERR_NO_ERROR)
     {
@@ -132,7 +122,15 @@ itunes_pairing_hash(char *paircode, char *pin)
       return NULL;
     }
 
-  gcry_md_write(hd, buf, sizeof(buf));
+  gcry_md_write(hd, paircode, 16);
+  /* Add pin code characters on 16 bits - remember Mac OS X is
+   * all UTF-16 (wchar_t).
+   */
+  for (i = 0; i < 4; i++)
+    {
+      gcry_md_write(hd, pin + i, 1);
+      gcry_md_write(hd, "\0", 1);
+    }
 
   hash_bytes = gcry_md_read(hd, GCRY_MD_MD5);
   if (!hash_bytes)
