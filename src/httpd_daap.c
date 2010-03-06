@@ -347,8 +347,8 @@ static struct dmap_field_map dmap_fields[] =
       -1,                                 -1,                    -1 },
     { 0, &dmap_asal,
       dbmfi_offsetof(album),              -1,                    -1 },
-    { 0, &dmap_asai, /* special case; will be transformed to LONG (hash) */
-      dbmfi_offsetof(album),              -1,                    -1 },
+    { 0, &dmap_asai,
+      dbmfi_offsetof(songalbumid),        -1,                    -1 },
     { 0, &dmap_asaa,
       dbmfi_offsetof(album_artist),       -1,                    dbgri_offsetof(songalbumartist) },
     { 0, &dmap_asar,
@@ -1305,7 +1305,6 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   char **strval;
   char *ptr;
   uint32_t *meta;
-  int64_t songalbumid;
   int nmeta;
   int nsongs;
   int transcode;
@@ -1483,19 +1482,6 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	  if (dfm->field == &dmap_ascd)
 	    {
 	      dmap_add_literal(song, dfm->field->tag, *strval, 4);
-	      continue;
-	    }
-
-	  /* Special handling for songalbumid (asai)
-	   * Return an int64_t hash of the album_artist & album
-	   */
-	  if (dfm->field == &dmap_asai)
-	    {
-	      songalbumid = daap_songalbumid(dbmfi.album_artist, dbmfi.album);
-
-	      dmap_add_long(song, dfm->field->tag, songalbumid);
-
-	      DPRINTF(E_DBG, L_DAAP, "Generated meta tag %s (%" PRIi64 ") based on (%s,%s)\n", dfm->field->desc, songalbumid, dbmfi.album_artist, dbmfi.album);
 	      continue;
 	    }
 

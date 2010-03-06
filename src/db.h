@@ -117,6 +117,8 @@ struct media_file_info {
   char *tv_network_name;
 
   char *album_artist;
+
+  int64_t songalbumid;
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
@@ -226,6 +228,7 @@ struct db_media_file_info {
   char *tv_series_name;
   char *tv_episode_num_str;
   char *tv_network_name;
+  char *songalbumid;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)

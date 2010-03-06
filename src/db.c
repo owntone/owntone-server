@@ -106,6 +106,7 @@ static struct col_type_map mfi_cols_map[] =
     { mfi_offsetof(tv_network_name),    DB_TYPE_STRING },
     { mfi_offsetof(tv_episode_sort),    DB_TYPE_INT },
     { mfi_offsetof(tv_season_num),      DB_TYPE_INT },
+    { mfi_offsetof(songalbumid),        DB_TYPE_INT64 },
   };
 
 /* This list must be kept in sync with
@@ -181,6 +182,7 @@ static ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(tv_network_name),
     dbmfi_offsetof(tv_episode_sort),
     dbmfi_offsetof(tv_season_num),
+    dbmfi_offsetof(songalbumid),
   };
 
 /* This list must be kept in sync with
@@ -719,7 +721,7 @@ db_build_query_groups(struct query_params *qp, char **q)
   char *idx;
   int ret;
 
-  qp->results = db_get_count("SELECT COUNT(DISTINCT daap_songalbumid(album_artist, album)) FROM files WHERE disabled = 0;");
+  qp->results = db_get_count("SELECT COUNT(DISTINCT songalbumid) FROM files WHERE disabled = 0;");
   if (qp->results < 0)
     return -1;
 
@@ -729,13 +731,13 @@ db_build_query_groups(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*) AS items, daap_songalbumid(album_artist, album) AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 AND %s %s;", qp->filter, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*) AS items, songalbumid AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 AND %s %s;", qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT COUNT(*) AS items, daap_songalbumid(album_artist, album) AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 %s;", idx);
+    query = sqlite3_mprintf("SELECT COUNT(*) AS items, songalbumid AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 %s;", idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*) AS items, daap_songalbumid(album_artist, album) AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 AND %s;", qp->filter);
+    query = sqlite3_mprintf("SELECT COUNT(*) AS items, songalbumid AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 AND %s;", qp->filter);
   else
-    query = sqlite3_mprintf("SELECT COUNT(*) AS items, daap_songalbumid(album_artist, album) AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0;");
+    query = sqlite3_mprintf("SELECT COUNT(*) AS items, songalbumid AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0;");
 
   if (!query)
     {
@@ -1503,13 +1505,14 @@ db_file_add(struct media_file_info *mfi)
                " total_tracks, disc, total_discs, bpm, compilation, rating, play_count, data_kind, item_kind," \
                " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
                " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
-               " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num " \
+               " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
+               " songalbumid" \
                " ) " \
                " VALUES (NULL, '%q', '%q', %Q, %Q, %Q, %Q, %Q, %Q, %Q," \
                " %Q, %Q, %Q, %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
                " %d, %d, %d, %d, %d, %d, %d, %d, %d," \
                " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
-               " %Q, %d, %d, %d, %d, %Q, %d, %Q, %Q, %Q, %d, %d);"
+               " %Q, %d, %d, %d, %d, %Q, %d, %Q, %Q, %Q, %d, %d, daap_songalbumid(%Q, %Q));"
   char *query;
   char *errmsg;
   int ret;
@@ -1539,7 +1542,8 @@ db_file_add(struct media_file_info *mfi)
 			  mfi->codectype, mfi->index, mfi->has_video,
 			  mfi->contentrating, mfi->bits_per_sample, mfi->album_artist,
                           mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
-                          mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num);
+                          mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
+			  mfi->album_artist, mfi->album);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1579,7 +1583,8 @@ db_file_update(struct media_file_info *mfi)
                " codectype = %Q, idx = %d, has_video = %d," \
                " bits_per_sample = %d, album_artist = %Q," \
                " media_kind = %d, tv_series_name = %Q, tv_episode_num_str = %Q," \
-               " tv_network_name = %Q, tv_episode_sort = %d, tv_season_num = %d" \
+               " tv_network_name = %Q, tv_episode_sort = %d, tv_season_num = %d," \
+               " songalbumid = daap_songalbumid(%Q, %Q) " \
                " WHERE id = %d;"
   char *query;
   char *errmsg;
@@ -1608,6 +1613,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->bits_per_sample, mfi->album_artist,
 			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
 			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
+			  mfi->album_artist, mfi->album,
 			  mfi->id);
 
   if (!query)
@@ -3151,7 +3157,8 @@ db_perthread_deinit(void)
   "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL,"	\
   "   tv_network_name    VARCHAR(1024) DEFAULT NULL,"	\
   "   tv_episode_sort    INTEGER NOT NULL,"		\
-  "   tv_season_num      INTEGER NOT NULL"		\
+  "   tv_season_num      INTEGER NOT NULL,"		\
+  "   songalbumid        INTEGER NOT NULL"		\
   ");"
 
 #define T_PL					\
@@ -3226,9 +3233,9 @@ db_perthread_deinit(void)
  */
 
 
-#define SCHEMA_VERSION 6
+#define SCHEMA_VERSION 7
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '6');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '7');"
 
 struct db_init_query {
   char *query;

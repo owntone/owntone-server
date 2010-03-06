@@ -41,7 +41,7 @@ static struct dmap_query_field_map dmap_query_fields[] =
   { 0, 0, "dmap.itemname",              "title" },
   { 0, 1, "dmap.itemid",                "id" },
   { 0, 0, "daap.songalbum",             "album" },
-  { 0, 1, "daap.songalbumid",           "daap_songalbumid(album_artist, album)" },
+  { 0, 1, "daap.songalbumid",           "songalbumid" },
   { 0, 0, "daap.songartist",            "artist" },
   { 0, 1, "daap.songbitrate",           "bitrate" },
   { 0, 0, "daap.songcomment",           "comment" },
