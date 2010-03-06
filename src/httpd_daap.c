@@ -516,6 +516,12 @@ daap_session_compare(const void *aa, const void *bb)
   return 0;
 }
 
+static void
+daap_session_kill(struct daap_session *s)
+{
+  avl_delete(daap_sessions, s);
+}
+
 static struct daap_session *
 daap_session_register(void)
 {
@@ -545,12 +551,6 @@ daap_session_register(void)
     }
 
   return s;
-}
-
-static void
-daap_session_kill(struct daap_session *s)
-{
-  avl_delete(daap_sessions, s);
 }
 
 struct daap_session *
