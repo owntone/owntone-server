@@ -112,13 +112,14 @@ static struct content_type_map ext2ctype[] =
     { NULL, NULL }
   };
 
+struct event_base *evbase_httpd;
+
 #ifdef USE_EVENTFD
 static int exit_efd;
 #else
 static int exit_pipe[2];
 #endif
 static int httpd_exit;
-static struct event_base *evbase_httpd;
 static struct event exitev;
 static struct evhttp *evhttpd;
 static pthread_t tid_httpd;
