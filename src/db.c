@@ -3435,6 +3435,24 @@ static struct db_init_query db_upgrade_v6_queries[] =
     { U_V6_SCVER,       "set schema_version to 6" },
   };
 
+/* Upgrade from schema v6 to v7 */
+
+#define U_V7_FILES								\
+  "ALTER TABLE files ADD COLUMN songalbumid INTEGER NOT NULL DEFAULT 0;"
+
+#define U_V7_RESCAN					\
+  "UPDATE files SET db_timestamp = 1;"
+
+#define U_V7_SCVER					\
+  "UPDATE admin SET value = '7' WHERE key = 'schema_version';"
+
+static struct db_init_query db_upgrade_v7_queries[] =
+  {
+    { U_V7_FILES,     "upgrade table files" },
+    { U_V7_RESCAN,    "force library rescan" },
+    { U_V7_SCVER,     "set schema_version to 7" },
+  };
+
 static int
 db_check_version(void)
 {
@@ -3503,6 +3521,13 @@ db_check_version(void)
 
 	  case 5:
 	    ret = db_generic_upgrade(db_upgrade_v6_queries, sizeof(db_upgrade_v6_queries) / sizeof(db_upgrade_v6_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 6:
+	    ret = db_generic_upgrade(db_upgrade_v7_queries, sizeof(db_upgrade_v7_queries) / sizeof(db_upgrade_v7_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
