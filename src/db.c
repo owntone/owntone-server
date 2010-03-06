@@ -3526,6 +3526,39 @@ static struct db_init_query db_upgrade_v7_queries[] =
     { U_V7_SCVER,     "set schema_version to 7" },
   };
 
+/* Upgrade from schema v7 to v8 */
+#define U_V8_GROUPS							\
+  "CREATE TABLE IF NOT EXISTS groups ("					\
+  "   id             INTEGER PRIMARY KEY NOT NULL,"			\
+  "   type           INTEGER NOT NULL,"					\
+  "   name           VARCHAR(1024) NOT NULL,"				\
+  "   persistentid   INTEGER NOT NULL,"					\
+  "CONSTRAINT groups_type_unique_persistentid UNIQUE (type, persistentid)" \
+  ");"
+
+#define U_V8_TRG1							\
+  "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
+  " BEGIN"								\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
+  " END;"
+
+#define U_V8_TRG2							\
+  "CREATE TRIGGER update_groups_update_file AFTER UPDATE OF songalbumid ON files FOR EACH ROW" \
+  " BEGIN"								\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
+  " END;"
+
+#define U_V8_SCVER						\
+  "UPDATE admin SET value = '8' WHERE key = 'schema_version';"
+
+static struct db_init_query db_upgrade_v8_queries[] =
+  {
+    { U_V8_GROUPS,    "create groups table" },
+    { U_V8_TRG1,      "create trigger update_groups_new_file" },
+    { U_V8_TRG2,      "create trigger update_groups_update_file" },
+    { U_V8_SCVER,     "set schema_version to 8" },
+  };
+
 static int
 db_check_version(void)
 {
@@ -3601,6 +3634,13 @@ db_check_version(void)
 
 	  case 6:
 	    ret = db_generic_upgrade(db_upgrade_v7_queries, sizeof(db_upgrade_v7_queries) / sizeof(db_upgrade_v7_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 7:
+	    ret = db_generic_upgrade(db_upgrade_v8_queries, sizeof(db_upgrade_v8_queries) / sizeof(db_upgrade_v8_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
