@@ -697,6 +697,11 @@ filescanner(void *arg)
       pthread_exit(NULL);
     }
 
+  /* Recompute all songalbumids, in case the SQLite DB got transferred
+   * to a different host; the hash is not portable.
+   */
+  db_files_update_songalbumid();
+
   bulk_scan();
 
   if (!scan_exit)

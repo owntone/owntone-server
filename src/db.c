@@ -1119,6 +1119,25 @@ db_files_get_count(void)
 }
 
 void
+db_files_update_songalbumid(void)
+{
+#define Q_SONGALBUMID "UPDATE files SET songalbumid = daap_songalbumid(album_artist, album);"
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_SONGALBUMID);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, Q_SONGALBUMID, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error updating songalbumid: %s\n", errmsg);
+
+  sqlite3_free(errmsg);
+
+#undef Q_SONGALBUMID
+}
+
+void
 db_file_inc_playcount(int id)
 {
 #define Q_TMPL "UPDATE files SET play_count = play_count + 1, time_played = %" PRIi64 " WHERE id = %d;"

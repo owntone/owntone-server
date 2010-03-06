@@ -290,6 +290,9 @@ int
 db_files_get_count(void);
 
 void
+db_files_update_songalbumid(void);
+
+void
 db_file_inc_playcount(int id);
 
 void
