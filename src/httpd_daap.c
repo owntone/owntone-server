@@ -2044,7 +2044,10 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       dmap_add_string(group, "asaa", dbgri.songalbumartist);
 
       /* Item id (miid) */
-      dmap_add_int(group, "miid", ngrp);
+      val = 0;
+      ret = safe_atoi32(dbgri.id, &val);
+      if ((ret == 0) && (val > 0))
+	dmap_add_int(group, "miid", val);
 
       DPRINTF(E_DBG, L_DAAP, "Done with group\n");
 

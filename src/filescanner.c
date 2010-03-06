@@ -697,8 +697,17 @@ filescanner(void *arg)
       pthread_exit(NULL);
     }
 
+  ret = db_groups_clear();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error: could not clear old groups from DB\n");
+
+      pthread_exit(NULL);
+    }
+
   /* Recompute all songalbumids, in case the SQLite DB got transferred
    * to a different host; the hash is not portable.
+   * It will also rebuild the groups we just cleared.
    */
   db_files_update_songalbumid();
 

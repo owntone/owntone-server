@@ -42,6 +42,10 @@
 /* Inotify cookies are uint32_t */
 #define INOTIFY_FAKE_COOKIE ((int64_t)1 << 32)
 
+enum group_type {
+  G_ALBUMS = 1,
+};
+
 #define DB_TYPE_CHAR    1
 #define DB_TYPE_INT     2
 #define DB_TYPE_INT64   3
@@ -211,6 +215,7 @@ static ssize_t dbpli_cols_map[] =
 static ssize_t dbgri_cols_map[] =
   {
     dbgri_offsetof(itemcount),
+    dbgri_offsetof(id),
     dbgri_offsetof(persistentid),
     dbgri_offsetof(songalbumartist),
     dbgri_offsetof(itemname),
@@ -731,13 +736,13 @@ db_build_query_groups(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*) AS items, songalbumid AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 AND %s %s;", qp->filter, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album_artist, g.name HAVING g.type = %d AND disabled = 0 AND %s %s;", G_ALBUMS, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT COUNT(*) AS items, songalbumid AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 %s;", idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album_artist, g.name HAVING g.type = %d AND disabled = 0 %s;", G_ALBUMS, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*) AS items, songalbumid AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0 AND %s;", qp->filter);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album_artist, g.name HAVING g.type = %d AND disabled = 0 AND %s;", G_ALBUMS, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT COUNT(*) AS items, songalbumid AS persistentid, album_artist, album FROM files GROUP BY album_artist, album HAVING disabled = 0;");
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album_artist, g.name HAVING g.type = %d AND disabled = 0;", G_ALBUMS);
 
   if (!query)
     {
@@ -2443,6 +2448,30 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 }
 
 
+/* Groups */
+int
+db_groups_clear(void)
+{
+  char *query = "DELETE FROM groups;";
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      return -1;
+    }
+
+  return 0;
+}
+
+
 /* Remotes */
 static int
 db_pairing_delete_byremote(char *remote_id)
@@ -3212,6 +3241,15 @@ db_perthread_deinit(void)
   "   filepath       VARCHAR(4096) NOT NULL"		\
   ");"
 
+#define T_GROUPS							\
+  "CREATE TABLE IF NOT EXISTS groups ("					\
+  "   id             INTEGER PRIMARY KEY NOT NULL,"			\
+  "   type           INTEGER NOT NULL,"					\
+  "   name           VARCHAR(1024) NOT NULL,"				\
+  "   persistentid   INTEGER NOT NULL,"					\
+  "CONSTRAINT groups_type_unique_persistentid UNIQUE (type, persistentid)" \
+  ");"
+
 #define T_PAIRINGS					\
   "CREATE TABLE IF NOT EXISTS pairings("		\
   "   remote         VARCHAR(64) PRIMARY KEY NOT NULL,"	\
@@ -3239,6 +3277,18 @@ db_perthread_deinit(void)
 #define I_PAIRING				\
   "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
 
+#define TRG_GROUPS_INSERT_FILES						\
+  "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
+  " BEGIN"								\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
+  " END;"
+
+#define TRG_GROUPS_UPDATE_FILES						\
+  "CREATE TRIGGER update_groups_update_file AFTER UPDATE OF songalbumid ON files FOR EACH ROW" \
+  " BEGIN"								\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
+  " END;"
+
 #define Q_PL1								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
   " VALUES(1, 'Library', 1, '1 = 1', 0, '', 0, 0);"
@@ -3264,9 +3314,9 @@ db_perthread_deinit(void)
  */
 
 
-#define SCHEMA_VERSION 7
+#define SCHEMA_VERSION 8
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '7');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '8');"
 
 struct db_init_query {
   char *query;
@@ -3279,6 +3329,7 @@ static struct db_init_query db_init_queries[] =
     { T_FILES,     "create table files" },
     { T_PL,        "create table playlists" },
     { T_PLITEMS,   "create table playlistitems" },
+    { T_GROUPS,    "create table groups" },
     { T_PAIRINGS,  "create table pairings" },
     { T_INOTIFY,   "create table inotify" },
 
@@ -3286,6 +3337,9 @@ static struct db_init_query db_init_queries[] =
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
     { I_PAIRING,   "create pairing guid index" },
+
+    { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
+    { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
 
     { Q_PL1,       "create default playlist" },
     { Q_PL2,       "create default smart playlist 'Music'" },

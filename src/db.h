@@ -160,7 +160,7 @@ struct db_playlist_info {
 #define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
 
 struct group_info {
-  uint32_t itemid;       /* integer id (miid) */
+  uint32_t id;           /* integer id (miid) */
   uint64_t persistentid; /* ulonglong id (mper) */
   char *itemname;        /* playlist name as displayed in iTunes (minm) */
   uint32_t itemcount;    /* number of items (mimc) */
@@ -170,7 +170,7 @@ struct group_info {
 #define gri_offsetof(field) offsetof(struct group_info, field)
 
 struct db_group_info {
-  char *itemid;
+  char *id;
   char *persistentid;
   char *itemname;
   char *itemcount;
@@ -373,6 +373,10 @@ db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie);
 
 int
 db_pl_enable_bycookie(uint32_t cookie, char *path);
+
+/* Groups */
+int
+db_groups_clear(void);
 
 /* Remotes */
 int
