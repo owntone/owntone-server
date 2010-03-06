@@ -48,6 +48,13 @@
 #include "daap_query.h"
 #include "dmap_helpers.h"
 
+/* httpd event base, from httpd.c */
+extern struct event_base *evbase_httpd;
+
+
+/* Session timeout in seconds */
+#define DAAP_SESSION_TIMEOUT 1800
+
 
 struct uri_map {
   regex_t preg;
@@ -57,6 +64,8 @@ struct uri_map {
 
 struct daap_session {
   int id;
+
+  struct event timeout;
 };
 
 struct daap_update_request {
@@ -519,14 +528,30 @@ daap_session_compare(const void *aa, const void *bb)
 static void
 daap_session_kill(struct daap_session *s)
 {
+  evtimer_del(&s->timeout);
+
   avl_delete(daap_sessions, s);
+}
+
+static void
+daap_session_timeout_cb(int fd, short what, void *arg)
+{
+  struct daap_session *s;
+
+  s = (struct daap_session *)arg;
+
+  DPRINTF(E_DBG, L_DAAP, "Session %d timed out\n", s->id);
+
+  daap_session_kill(s);
 }
 
 static struct daap_session *
 daap_session_register(void)
 {
+  struct timeval tv;
   struct daap_session *s;
   avl_node_t *node;
+  int ret;
 
   s = (struct daap_session *)malloc(sizeof(struct daap_session));
   if (!s)
@@ -541,6 +566,9 @@ daap_session_register(void)
 
   next_session_id++;
 
+  evtimer_set(&s->timeout, daap_session_timeout_cb, s);
+  event_base_set(evbase_httpd, &s->timeout);
+
   node = avl_insert(daap_sessions, s);
   if (!node)
     {
@@ -550,6 +578,13 @@ daap_session_register(void)
       return NULL;
     }
 
+  evutil_timerclear(&tv);
+  tv.tv_sec = DAAP_SESSION_TIMEOUT;
+
+  ret = evtimer_add(&s->timeout, &tv);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
+
   return s;
 }
 
@@ -557,6 +592,8 @@ struct daap_session *
 daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct evbuffer *evbuf)
 {
   struct daap_session needle;
+  struct timeval tv;
+  struct daap_session *s;
   avl_node_t *node;
   const char *param;
   int ret;
@@ -579,7 +616,18 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
       goto invalid;
     }
 
-  return (struct daap_session *)node->item;
+  s = (struct daap_session *)node->item;
+
+  event_del(&s->timeout);
+
+  evutil_timerclear(&tv);
+  tv.tv_sec = DAAP_SESSION_TIMEOUT;
+
+  ret = evtimer_add(&s->timeout, &tv);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
+
+  return s;
 
  invalid:
   evhttp_send_error(req, 403, "Forbidden");
@@ -935,7 +983,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   passwd = cfg_getstr(lib, "password");
   name = cfg_getstr(lib, "name");
 
-  len = 148 + strlen(name);
+  len = 169 + strlen(name);
 
   if (!supports_update)
     len -= 9;
@@ -973,6 +1021,9 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_int(evbuf, "apro", apro); /* 12 */
   dmap_add_int(evbuf, "mstm", 1800); /* 12 */
   dmap_add_string(evbuf, "minm", name); /* 8 + strlen(name) */
+
+  dmap_add_int(evbuf, "mstm", DAAP_SESSION_TIMEOUT); /* 12 */
+  dmap_add_char(evbuf, "msal", 1);   /* 9 */
 
   dmap_add_char(evbuf, "mslr", 1);   /* 9 */
   dmap_add_char(evbuf, "msau", (passwd) ? 2 : 0); /* 9 */
