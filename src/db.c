@@ -32,7 +32,7 @@
 #include <sqlite3.h>
 
 #include "logger.h"
-#include "daap_query.h"
+#include "misc.h"
 #include "db.h"
 
 
@@ -3040,6 +3040,7 @@ db_daap_songalbumid_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
 {
   const char *album_artist;
   const char *album;
+  char *hashbuf;
   sqlite3_int64 result;
 
   if (n != 2)
@@ -3058,7 +3059,18 @@ db_daap_songalbumid_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
   album_artist = (const char *)sqlite3_value_text(ppv[0]);
   album = (const char *)sqlite3_value_text(ppv[1]);
 
-  result = daap_songalbumid(album_artist, album);
+  hashbuf = sqlite3_mprintf("%s==%s", (album_artist) ? album_artist : "", (album) ? album : "");
+  if (!hashbuf)
+    {
+      sqlite3_result_error(pv, "daap_songalbumid() out of memory for hashbuf", -1);
+      return;
+    }
+
+  /* Limit hash length to 63 bits, due to signed type in sqlite */
+  result = murmur_hash64(hashbuf, strlen(hashbuf), 0) >> 1;
+
+  sqlite3_free(hashbuf);
+
   sqlite3_result_int64(pv, result);
 }
 
