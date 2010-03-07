@@ -144,6 +144,36 @@ the iTunes DB; use itunes_overrides = true if you prefer iTunes' metadata.
 Smart playlists are not supported at the moment.
 
 
+Artwork
+-------
+
+forked-daapd has /some/ support for artwork, with a number of limitations.
+
+Embedded artwork is not supported; ffmpeg doesn't support this yet, if and
+when it this is added to ffmpeg, forked-daapd will support it.
+
+Your artwork must be in PNG format, dimensions do not matter; forked-daapd
+scales down (never up) the artwork on-the-fly to match the constraints given
+by the client. Note, however, that the bigger the picture, the more time and
+ressources it takes to perform the scaling operation.
+
+As for the naming convention, it is quite simple; consider your foo.mp3 song,
+residing at /bar/foo.mp3:
+ - if /bar/foo.png exists, this will be the artwork returned for this file;
+ - failing that, if /bar/artwork.png exists, it will be used.
+
+For "groups" (same album name and album artist), the situation is a bit
+different:
+ - if a file artwork.png is found in one of the directories containing files
+   that are part of the group, it is used as the artwork. The first file found
+   is used, ordering is not guaranteed;
+ - failing that, individual files are examined and the first artwork found is
+   used. Here again, ordering is not guaranteed.
+
+You can use symlinks for the artwork files; the artwork is not scanned/indexed
+in any way in the database and there is no caching.
+
+
 Library
 -------
 
