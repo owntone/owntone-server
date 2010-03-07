@@ -49,6 +49,7 @@
 
 #include <getopt.h>
 #include <event.h>
+#include <libavutil/log.h>
 #include <libavformat/avformat.h>
 
 #include <gcrypt.h>
@@ -555,6 +556,7 @@ main(int argc, char **argv)
 
   /* Initialize ffmpeg */
   av_register_all();
+  av_log_set_callback(logger_ffmpeg);
 
   /* Initialize libgcrypt */
   gcry_control(GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);

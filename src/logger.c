@@ -29,6 +29,8 @@
 
 #include <event.h>
 
+#include <libavutil/log.h>
+
 #include "logger.h"
 
 
@@ -128,6 +130,26 @@ DPRINTF(int severity, int domain, const char *fmt, ...)
   va_start(ap, fmt);
   vlogger(severity, domain, fmt, ap);
   va_end(ap);
+}
+
+void
+logger_ffmpeg(void *ptr, int level, const char *fmt, va_list ap)
+{
+  int severity;
+
+  /* Can't use a switch() because some definitions have the same value */
+  if ((level == AV_LOG_FATAL) || (level == AV_LOG_ERROR))
+    severity = E_LOG;
+  else if ((level == AV_LOG_WARNING) || (level == AV_LOG_INFO) || (level == AV_LOG_VERBOSE))
+    severity = E_WARN;
+  else if (level == AV_LOG_DEBUG)
+    severity = E_DBG;
+  else if (level == AV_LOG_QUIET)
+    severity = E_SPAM;
+  else
+    severity = E_LOG;
+
+  vlogger(severity, L_FFMPEG, fmt, ap);
 }
 
 void
