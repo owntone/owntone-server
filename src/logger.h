@@ -20,8 +20,9 @@
 #define L_REMOTE  11
 #define L_DACP    12
 #define L_FFMPEG  13
+#define L_ART     14
 
-#define N_LOGDOMAINS  14
+#define N_LOGDOMAINS  15
 
 /* Severities */
 #define E_FATAL   0
