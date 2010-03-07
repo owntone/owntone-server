@@ -44,6 +44,7 @@
 #include "misc.h"
 #include "httpd.h"
 #include "transcode.h"
+#include "artwork.h"
 #include "httpd_daap.h"
 #include "daap_query.h"
 #include "dmap_helpers.h"
@@ -2254,16 +2255,87 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
 }
 
+/* NOTE: We only handle artwork at the moment */
 static void
 daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  char clen[32];
   struct daap_session *s;
+  const char *param;
+  int id;
+  int max_w;
+  int max_h;
+  int ret;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  /* Sorry, we have no artwork */
+  ret = safe_atoi32(uri[3], &id);
+  if (ret < 0)
+    {
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  param = evhttp_find_header(query, "mw");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Request for artwork without mw parameter\n");
+
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  ret = safe_atoi32(param, &max_w);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not convert mw parameter to integer\n");
+
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  param = evhttp_find_header(query, "mh");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Request for artwork without mh parameter\n");
+
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  ret = safe_atoi32(param, &max_h);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not convert mh parameter to integer\n");
+
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  if (strcmp(uri[2], "groups") == 0)
+    ret = artwork_get_group(id, max_w, max_h, evbuf);
+  else if (strcmp(uri[2], "items") == 0)
+    ret = artwork_get_item(id, max_w, max_h, evbuf);
+
+  if (ret < 0)
+    {
+      if (EVBUFFER_LENGTH(evbuf) > 0)
+	evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+
+      goto no_artwork;
+    }
+
+  evhttp_remove_header(req->output_headers, "Content-Type");
+  evhttp_add_header(req->output_headers, "Content-Type", "image/png");
+  snprintf(clen, sizeof(clen), "%ld", EVBUFFER_LENGTH(evbuf));
+  evhttp_add_header(req->output_headers, "Content-Length", clen);
+
+  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  return;
+
+ no_artwork:
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
 }
 
