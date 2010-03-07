@@ -63,6 +63,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "httpd.h"
 #include "mdns_avahi.h"
 #include "remote_pairing.h"
+#include "ffmpeg_url_evbuffer.h"
 
 
 #define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
@@ -557,6 +558,7 @@ main(int argc, char **argv)
   /* Initialize ffmpeg */
   av_register_all();
   av_log_set_callback(logger_ffmpeg);
+  register_ffmpeg_evbuffer_url_protocol();
 
   /* Initialize libgcrypt */
   gcry_control(GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
