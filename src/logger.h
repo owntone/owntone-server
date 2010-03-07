@@ -32,10 +32,10 @@
 
 
 void
-vlogger(int severity, int domain, char *fmt, va_list args);
+vlogger(int severity, int domain, const char *fmt, va_list args);
 
 void
-DPRINTF(int severity, int domain, char *fmt, ...) __attribute__((format(printf, 3, 4)));
+DPRINTF(int severity, int domain, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 
 void
 logger_libevent(int severity, const char *msg);

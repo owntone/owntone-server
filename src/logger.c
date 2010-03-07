@@ -74,7 +74,7 @@ set_logdomains(char *domains)
 }
 
 void
-vlogger(int severity, int domain, char *fmt, va_list args)
+vlogger(int severity, int domain, const char *fmt, va_list args)
 {
   va_list ap;
   char stamp[32];
@@ -121,7 +121,7 @@ vlogger(int severity, int domain, char *fmt, va_list args)
 }
 
 void
-DPRINTF(int severity, int domain, char *fmt, ...)
+DPRINTF(int severity, int domain, const char *fmt, ...)
 {
   va_list ap;
 
