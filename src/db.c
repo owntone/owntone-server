@@ -756,6 +756,114 @@ db_build_query_groups(struct query_params *qp, char **q)
 }
 
 static int
+db_build_query_groupitems(struct query_params *qp, char **q)
+{
+  char *query;
+  char *count;
+  enum group_type gt;
+
+  gt = db_group_type_byid(qp->id);
+
+  switch (gt)
+    {
+      case G_ALBUMS:
+	count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN groups ON files.songalbumid = groups.persistentid"
+				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %d\n", gt, qp->id);
+	return -1;
+    }
+
+  if (!count)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for count query string\n");
+
+      return -1;
+    }
+
+  qp->results = db_get_count(count);
+  sqlite3_free(count);
+
+  if (qp->results < 0)
+    return -1;
+
+  switch (gt)
+    {
+      case G_ALBUMS:
+	query = sqlite3_mprintf("SELECT files.* FROM files JOIN groups ON files.songalbumid = groups.persistentid"
+				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	break;
+    }
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  *q = query;
+
+  return 0;
+}
+
+static int
+db_build_query_group_dirs(struct query_params *qp, char **q)
+{
+  char *query;
+  char *count;
+  enum group_type gt;
+
+  gt = db_group_type_byid(qp->id);
+
+  switch (gt)
+    {
+      case G_ALBUMS:
+	count = sqlite3_mprintf("SELECT COUNT(DISTINCT(SUBSTR(files.path, 1, LENGTH(files.path) - LENGTH(files.fname) - 1)))"
+				" FROM files JOIN groups ON files.songalbumid = groups.persistentid"
+				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %d\n", gt, qp->id);
+	return -1;
+    }
+
+  if (!count)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for count query string\n");
+
+      return -1;
+    }
+
+  qp->results = db_get_count(count);
+  sqlite3_free(count);
+
+  if (qp->results < 0)
+    return -1;
+
+  switch (gt)
+    {
+      case G_ALBUMS:
+	query = sqlite3_mprintf("SELECT DISTINCT(SUBSTR(files.path, 1, LENGTH(files.path) - LENGTH(files.fname) - 1))"
+				" FROM files JOIN groups ON files.songalbumid = groups.persistentid"
+				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	break;
+    }
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  *q = query;
+
+  return 0;
+}
+
+static int
 db_build_query_browse(struct query_params *qp, char *field, char **q)
 {
   char *query;
@@ -838,6 +946,14 @@ db_query_start(struct query_params *qp)
 	ret = db_build_query_groups(qp, &query);
 	break;
 
+      case Q_GROUPITEMS:
+	ret = db_build_query_groupitems(qp, &query);
+	break;
+
+      case Q_GROUP_DIRS:
+	ret = db_build_query_group_dirs(qp, &query);
+	break;
+
       case Q_BROWSE_ALBUMS:
 	ret = db_build_query_browse(qp, "album", &query);
 	break;
@@ -906,9 +1022,9 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
       return -1;
     }
 
-  if ((qp->type != Q_ITEMS) && (qp->type != Q_PLITEMS))
+  if ((qp->type != Q_ITEMS) && (qp->type != Q_PLITEMS) && (qp->type != Q_GROUPITEMS))
     {
-      DPRINTF(E_LOG, L_DB, "Not an items or playlist items query!\n");
+      DPRINTF(E_LOG, L_DB, "Not an items, playlist or group items query!\n");
       return -1;
     }
 
@@ -2524,6 +2640,55 @@ db_groups_clear(void)
   return 0;
 }
 
+enum group_type
+db_group_type_byid(int id)
+{
+#define Q_TMPL "SELECT type FROM groups WHERE id = '%d';"
+  char *query;
+  sqlite3_stmt *stmt;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return 0;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_INFO, L_DB, "No results\n");
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return 0;
+    }
+
+  ret = sqlite3_column_int(stmt, 0);
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
 
 /* Remotes */
 static int
