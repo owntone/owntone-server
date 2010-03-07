@@ -1400,7 +1400,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   if (playlist != -1)
     {
       qp.type = Q_PLITEMS;
-      qp.pl_id = playlist;
+      qp.id = playlist;
     }
   else
     qp.type = Q_ITEMS;

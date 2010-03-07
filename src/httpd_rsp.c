@@ -459,14 +459,14 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  ret = safe_atoi32(uri[2], &qp.pl_id);
+  ret = safe_atoi32(uri[2], &qp.id);
   if (ret < 0)
     {
       rsp_send_error(req, "Invalid playlist ID");
       return;
     }
 
-  if (qp.pl_id == 0)
+  if (qp.id == 0)
     qp.type = Q_ITEMS;
   else
     qp.type = Q_PLITEMS;
@@ -663,7 +663,7 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
       return;
     }
 
-  ret = safe_atoi32(uri[2], &qp.pl_id);
+  ret = safe_atoi32(uri[2], &qp.id);
   if (ret < 0)
     {
       rsp_send_error(req, "Invalid playlist ID");

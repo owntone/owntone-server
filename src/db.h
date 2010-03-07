@@ -33,7 +33,7 @@ struct query_params {
   /* Query parameters, filled in by caller */
   enum query_type type;
   enum index_type idx_type;
-  int pl_id;
+  int id;
   int offset;
   int limit;
 

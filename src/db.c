@@ -583,10 +583,10 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
 
   if (qp->filter)
     count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s;", qp->pl_id, qp->filter);
+			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s;", qp->id, qp->filter);
   else
     count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0;", qp->pl_id);
+			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0;", qp->id);
 
   if (!count)
     {
@@ -609,19 +609,19 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
   if (idx && qp->filter)
     query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
 			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s ORDER BY playlistitems.id ASC %s;",
-			    qp->pl_id, qp->filter, idx);
+			    qp->id, qp->filter, idx);
   else if (idx)
     query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
 			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 ORDER BY playlistitems.id ASC %s;",
-			    qp->pl_id, idx);
+			    qp->id, idx);
   else if (qp->filter)
     query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
 			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s ORDER BY playlistitems.id ASC;",
-			    qp->pl_id, qp->filter);
+			    qp->id, qp->filter);
   else
     query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
 			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 ORDER BY playlistitems.id ASC;",
-			    qp->pl_id);
+			    qp->id);
 
   if (!query)
     {
@@ -688,13 +688,13 @@ db_build_query_plitems(struct query_params *qp, char **q)
   struct playlist_info *pli;
   int ret;
 
-  if (qp->pl_id <= 0)
+  if (qp->id <= 0)
     {
       DPRINTF(E_LOG, L_DB, "No playlist id specified in playlist items query\n");
       return -1;
     }
 
-  pli = db_pl_fetch_byid(qp->pl_id);
+  pli = db_pl_fetch_byid(qp->id);
   if (!pli)
     return -1;
 
