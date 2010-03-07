@@ -1200,6 +1200,59 @@ db_file_ping(char *path)
 #undef Q_TMPL
 }
 
+char *
+db_file_path_byid(int id)
+{
+#define Q_TMPL "SELECT path FROM files WHERE id = %d;"
+  char *query;
+  sqlite3_stmt *stmt;
+  char *res;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return NULL;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return NULL;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_INFO, L_DB, "No results\n");
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return NULL;
+    }
+
+  res = (char *)sqlite3_column_text(stmt, 0);
+  if (res)
+    res = strdup(res);
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  return res;
+
+#undef Q_TMPL
+}
+
 static int
 db_file_id_byquery(char *query)
 {

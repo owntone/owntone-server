@@ -298,6 +298,9 @@ db_file_inc_playcount(int id);
 void
 db_file_ping(char *path);
 
+char *
+db_file_path_byid(int id);
+
 int
 db_file_id_bypath(char *path);
 
