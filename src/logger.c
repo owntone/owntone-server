@@ -101,7 +101,7 @@ vlogger(int severity, int domain, const char *fmt, va_list args)
       if (ret == 0)
 	stamp[0] = '\0';
 
-      fprintf(logfile, "[%s] %6s: ", stamp, labels[domain]);
+      fprintf(logfile, "[%s] %8s: ", stamp, labels[domain]);
 
       va_copy(ap, args);
       vfprintf(logfile, fmt, ap);
@@ -112,7 +112,7 @@ vlogger(int severity, int domain, const char *fmt, va_list args)
 
   if (console)
     {
-      fprintf(stderr, "%6s: ", labels[domain]);
+      fprintf(stderr, "%8s: ", labels[domain]);
 
       va_copy(ap, args);
       vfprintf(stderr, fmt, ap);
