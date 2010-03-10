@@ -64,6 +64,7 @@ static struct metadata_map md_map[] =
     { "author",       0, mfi_offsetof(artist) },
     { "TPE1",         0, mfi_offsetof(artist) },   /* ID3v2 */
     { "albumartist",  0, mfi_offsetof(album_artist) },
+    { "TPE2",         0, mfi_offsetof(album_artist) }, /* ID3v2 */
     { "album",        0, mfi_offsetof(album) },
     { "TALB",         0, mfi_offsetof(album) },    /* ID3v2 */
     { "genre",        0, mfi_offsetof(genre) },
