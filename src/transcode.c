@@ -65,7 +65,7 @@ struct transcode_ctx {
   AVPacket apacket;
   int apacket_size;
   uint8_t *apacket_data;
-  uint8_t *abuffer;
+  int16_t *abuffer;
 
   off_t offset;
 
@@ -205,7 +205,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
   int ret;
 #if BYTE_ORDER == BIG_ENDIAN
   int i;
-  uint16_t *buf;
+  int16_t *buf;
 #endif
 
   processed = 0;
@@ -226,7 +226,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	  buflen = XCODE_BUFFER_SIZE;
 
 	  used = avcodec_decode_audio2(ctx->acodec,
-				       (int16_t *)ctx->abuffer, &buflen,
+				       ctx->abuffer, &buflen,
 				       ctx->apacket_data, ctx->apacket_size);
 
 	  if (used < 0)
@@ -245,7 +245,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 
 #if BYTE_ORDER == BIG_ENDIAN
 	  /* swap buffer, le16 */
-	  buf = (uint16_t *)ctx->abuffer;
+	  buf = ctx->abuffer;
 	  for (i = 0; i < (buflen / 2); i++)
 	    {
 	      buf[i] = htole16(buf[i]);
@@ -443,7 +443,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
   if (ctx->fd != -1)
     DPRINTF(E_DBG, L_XCODE, "Set up raw mode for transcoding input\n");
 
-  ctx->abuffer = (uint8_t *)av_malloc(XCODE_BUFFER_SIZE);
+  ctx->abuffer = (int16_t *)av_malloc(XCODE_BUFFER_SIZE);
   if (!ctx->abuffer)
     {
       DPRINTF(E_WARN, L_XCODE, "Could not allocate transcode buffer\n");
