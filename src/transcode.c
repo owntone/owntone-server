@@ -67,6 +67,12 @@ struct transcode_ctx {
   uint8_t *apacket_data;
   int16_t *abuffer;
 
+  /* Resampling */
+  int need_resample;
+  int input_size;
+  ReSampleContext *resample_ctx;
+  int16_t *re_abuffer;
+
   off_t offset;
 
   uint32_t duration;
@@ -137,59 +143,31 @@ add_le32(uint8_t *dst, uint32_t val)
 static void
 make_wav_header(struct transcode_ctx *ctx, off_t *est_size)
 {
-  uint32_t samplerate;
-  uint32_t byte_rate;
   uint32_t wav_len;
   int duration;
-  uint16_t channels;
-  uint16_t block_align;
-  uint16_t bits_per_sample;
-
-  switch (ctx->acodec->sample_fmt)
-    {
-      case SAMPLE_FMT_S16:
-	bits_per_sample = 16;
-	break;
-      case SAMPLE_FMT_S32:
-	/* BROKEN */
-	bits_per_sample = 32;
-	break;
-      default:
-	bits_per_sample = 16;
-	break;
-    }
 
   if (ctx->duration)
     duration = ctx->duration;
   else
     duration = 3 * 60 * 1000; /* 3 minutes, in ms */
 
-  channels = ctx->acodec->channels;
-  samplerate = ctx->acodec->sample_rate;
-
-  if (ctx->samples)
-    wav_len = ((bits_per_sample * channels / 8) * ctx->samples);
+  if (ctx->samples && !ctx->need_resample)
+    wav_len = 2 * 2 * ctx->samples;
   else
-    wav_len = ((bits_per_sample * samplerate * channels / 8) * (duration/1000));
+    wav_len = 2 * 2 * 44100 * (duration / 1000);
 
   *est_size = wav_len + sizeof(ctx->header);
-
-  byte_rate = samplerate * channels * bits_per_sample / 8;
-  block_align = channels * bits_per_sample / 8;
-
-  DPRINTF(E_DBG, L_XCODE, "WAV parameters: %d channels, %d kHz, %d bps\n",
-	  channels, samplerate, bits_per_sample);
 
   memcpy(ctx->header, "RIFF", 4);
   add_le32(ctx->header + 4, 36 + wav_len);
   memcpy(ctx->header + 8, "WAVEfmt ", 8);
   add_le32(ctx->header + 16, 16);
   add_le16(ctx->header + 20, 1);
-  add_le16(ctx->header + 22, channels);
-  add_le32(ctx->header + 24, samplerate);
-  add_le32(ctx->header + 28, byte_rate);
-  add_le16(ctx->header + 32, block_align);
-  add_le16(ctx->header + 34, bits_per_sample);
+  add_le16(ctx->header + 22, 2);               /* channels */
+  add_le32(ctx->header + 24, 44100);           /* samplerate */
+  add_le32(ctx->header + 28, 44100 * 2 * 2);   /* byte rate */
+  add_le16(ctx->header + 32, 2 * 2);           /* block align */
+  add_le16(ctx->header + 34, 16);              /* bits per sample */
   memcpy(ctx->header + 36, "data", 4);
   add_le32(ctx->header + 40, wav_len);
 }
@@ -198,14 +176,14 @@ make_wav_header(struct transcode_ctx *ctx, off_t *est_size)
 int
 transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 {
-  int processed;
+  int16_t *buf;
   int buflen;
+  int processed;
   int used;
   int stop;
   int ret;
 #if BYTE_ORDER == BIG_ENDIAN
   int i;
-  int16_t *buf;
 #endif
 
   processed = 0;
@@ -243,16 +221,31 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	  if (buflen == 0)
 	    continue;
 
+	  if (ctx->need_resample)
+	    {
+	      buflen = audio_resample(ctx->resample_ctx, ctx->re_abuffer, ctx->abuffer, buflen / ctx->input_size);
+
+	      if (buflen == 0)
+		{
+		  DPRINTF(E_WARN, L_XCODE, "Resample returned no samples!\n");
+		  continue;
+		}
+
+	      buflen = buflen * 2 * 2; /* 16bit samples, 2 channels */
+	      buf = ctx->re_abuffer;
+	    }
+	  else
+	    buf = ctx->abuffer;
+
 #if BYTE_ORDER == BIG_ENDIAN
-	  /* swap buffer, le16 */
-	  buf = ctx->abuffer;
+	  /* swap buffer, LE16 */
 	  for (i = 0; i < (buflen / 2); i++)
 	    {
 	      buf[i] = htole16(buf[i]);
 	    }
 #endif
 
-	  ret = evbuffer_add(evbuf, ctx->abuffer, buflen);
+	  ret = evbuffer_add(evbuf, buf, buflen);
 	  if (ret != 0)
 	    {
 	      DPRINTF(E_WARN, L_XCODE, "Could not copy WAV data to buffer\n");
@@ -447,6 +440,37 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
       goto setup_fail_codec;
     }
 
+  if ((ctx->acodec->sample_fmt != SAMPLE_FMT_S16)
+      || (ctx->acodec->channels != 2)
+      || (ctx->acodec->sample_rate != 44100))
+    {
+      DPRINTF(E_DBG, L_XCODE, "Setting up resampling (%d@%d)\n", ctx->acodec->channels, ctx->acodec->sample_rate);
+
+      ctx->resample_ctx = av_audio_resample_init(2,              ctx->acodec->channels,
+						 44100,          ctx->acodec->sample_rate,
+						 SAMPLE_FMT_S16, ctx->acodec->sample_fmt,
+						 16, 10, 0, 0.8);
+
+      if (!ctx->resample_ctx)
+	{
+	  DPRINTF(E_WARN, L_XCODE, "Could not init resample from %d@%d to 2@44100\n", ctx->acodec->channels, ctx->acodec->sample_rate);
+
+	  goto setup_fail_codec;
+	}
+
+      ctx->re_abuffer = (int16_t *)av_malloc(XCODE_BUFFER_SIZE * 2);
+      if (!ctx->re_abuffer)
+	{
+	  DPRINTF(E_WARN, L_XCODE, "Could not allocate resample buffer\n");
+
+	  audio_resample_close(ctx->resample_ctx);
+	  goto setup_fail_codec;
+	}
+
+      ctx->need_resample = 1;
+      ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_format(ctx->acodec->sample_fmt) / 8;
+    }
+
   ctx->duration = mfi->song_length;
   ctx->samples = mfi->sample_count;
 
@@ -479,10 +503,18 @@ transcode_cleanup(struct transcode_ctx *ctx)
     }
   if (ctx->apacket.data)
     av_free_packet(&ctx->apacket);
+
   avcodec_close(ctx->acodec);
   av_close_input_file(ctx->fmtctx);
 
   av_free(ctx->abuffer);
+
+  if (ctx->need_resample)
+    {
+      audio_resample_close(ctx->resample_ctx);
+      av_free(ctx->re_abuffer);
+    }
+
   free(ctx);
 }
 
