@@ -415,9 +415,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
 	  else
 	    DPRINTF(E_WARN, L_XCODE, "Could not read enough raw data\n");
 
-	  free(ctx->rawbuffer);
-	  avcodec_close(ctx->acodec);
-	  goto setup_fail;
+	  goto setup_fail_codec;
 	}
 
       ret = has_id3v2_tag(ctx->rawbuffer);
@@ -434,9 +432,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
 	{
 	  DPRINTF(E_WARN, L_XCODE, "Could not seek: %s\n", strerror(errno));
 
-	  free(ctx->rawbuffer);
-	  avcodec_close(ctx->acodec);
-	  goto setup_fail;
+	  goto setup_fail_codec;
 	}
     }
 
@@ -448,13 +444,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
     {
       DPRINTF(E_WARN, L_XCODE, "Could not allocate transcode buffer\n");
 
-      if (ctx->fd != -1)
-	{
-	  close(ctx->fd);
-	  free(ctx->rawbuffer);
-	}
-      avcodec_close(ctx->acodec);
-      goto setup_fail;
+      goto setup_fail_codec;
     }
 
   ctx->duration = mfi->song_length;
@@ -464,9 +454,18 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
 
   return ctx;
 
+ setup_fail_codec:
+  if (ctx->fd != -1)
+    {
+      close(ctx->fd);
+      free(ctx->rawbuffer);
+    }
+  avcodec_close(ctx->acodec);
+
  setup_fail:
   av_close_input_file(ctx->fmtctx);
   free(ctx);
+
   return NULL;
 }
 
