@@ -150,7 +150,7 @@ Artwork
 forked-daapd has /some/ support for artwork, with a number of limitations.
 
 Embedded artwork is not supported; ffmpeg doesn't support this yet, if and
-when it this is added to ffmpeg, forked-daapd will support it.
+when this is added to ffmpeg, forked-daapd will support it.
 
 Your artwork must be in PNG format, dimensions do not matter; forked-daapd
 scales down (never up) the artwork on-the-fly to match the constraints given
