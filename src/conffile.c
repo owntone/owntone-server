@@ -50,7 +50,7 @@ static cfg_opt_t sec_general[] =
 /* library section structure */
 static cfg_opt_t sec_library[] =
   {
-    CFG_STR("name", "%l on %h", CFGF_NONE),
+    CFG_STR("name", "My Music on %h", CFGF_NONE),
     CFG_INT("port", 3689, CFGF_NONE),
     CFG_STR("password", NULL, CFGF_NONE),
     CFG_STR_LIST("directories", NULL, CFGF_NONE),
@@ -65,7 +65,7 @@ static cfg_opt_t sec_library[] =
 static cfg_opt_t toplvl_cfg[] =
   {
     CFG_SEC("general", sec_general, CFGF_NONE),
-    CFG_SEC("library", sec_library, CFGF_MULTI | CFGF_TITLE),
+    CFG_SEC("library", sec_library, CFGF_NONE),
     CFG_END()
   };
 
@@ -101,7 +101,6 @@ static int
 conffile_expand_libname(cfg_t *lib)
 {
   char *libname;
-  const char *title;
   char *hostname;
   char *s;
   char *d;
@@ -109,7 +108,6 @@ conffile_expand_libname(cfg_t *lib)
   struct utsname sysinfo;
   size_t len;
   size_t olen;
-  size_t titlelen;
   size_t hostlen;
   size_t verlen;
   int ret;
@@ -122,8 +120,6 @@ conffile_expand_libname(cfg_t *lib)
     return 0;
 
   /* Grab what we need */
-  title = cfg_title(lib);
-
   ret = uname(&sysinfo);
   if (ret != 0)
     {
@@ -133,7 +129,6 @@ conffile_expand_libname(cfg_t *lib)
   else
     hostname = sysinfo.nodename;
 
-  titlelen = strlen(title);
   hostlen = strlen(hostname);
   verlen = strlen(VERSION);
 
@@ -152,10 +147,6 @@ conffile_expand_libname(cfg_t *lib)
 	    {
 	      case 'h':
 		len += hostlen;
-		break;
-
-	      case 'l':
-		len += titlelen;
 		break;
 
 	      case 'v':
@@ -191,11 +182,6 @@ conffile_expand_libname(cfg_t *lib)
 		d += hostlen;
 		break;
 
-	      case 'l':
-		strcat(d, title);
-		d += titlelen;
-		break;
-
 	      case 'v':
 		strcat(d, VERSION);
 		d += verlen;
@@ -225,12 +211,6 @@ int
 conffile_load(char *file)
 {
   cfg_t *lib;
-  int nlib;
-  int *libports;
-  int libport;
-  int error;
-  int i;
-  int j;
   int ret;
 
   cfg = cfg_init(toplvl_cfg, CFGF_NONE);
@@ -241,89 +221,39 @@ conffile_load(char *file)
     {
       DPRINTF(E_FATAL, L_CONF, "Could not open config file %s\n", file);
 
-      cfg_free(cfg);
-      return -1;
+      goto out_fail;
     }
   else if (ret == CFG_PARSE_ERROR)
     {
       DPRINTF(E_FATAL, L_CONF, "Parse error in config file %s\n", file);
 
-      cfg_free(cfg);
-      return -1;
+      goto out_fail;
     }
 
-  nlib = cfg_size(cfg, "library");
+  lib = cfg_getsec(cfg, "library");
 
-  DPRINTF(E_INFO, L_CONF, "%d music libraries configured\n", nlib);
-
-  libports = (int *)malloc(nlib * sizeof(int));
-  memset(libports, 0, (nlib * sizeof(int)));
-
-  error = 0;
-  for (i = 0; i < nlib; i++)
+  if (cfg_size(lib, "directories") == 0)
     {
-      lib = cfg_getnsec(cfg, "library", i);
-      libport = cfg_getint(lib, "port");
+      DPRINTF(E_FATAL, L_CONF, "No directories specified for library\n");
 
-      error = ((libport > 65535) || (libport < 1024));
-      if (error)
-	{
-	  DPRINTF(E_FATAL, L_CONF, "Invalid port number for library '%s', must be between 1024 and 65535\n",
-		  cfg_title(lib));
-
-	  break;
-	}
-
-      /* Check libraries ports */
-      for (j = 0; j < i; j++)
-	{
-	  error = (libports[j] == libport);
-	  if (error)
-	    break;
-	}
-
-      if (error)
-	{
-	  DPRINTF(E_FATAL, L_CONF, "Port collision for library '%s' and library '%s'\n",
-		  cfg_title(cfg_getnsec(cfg, "library", j)), cfg_title(lib));
-	  DPRINTF(E_FATAL, L_CONF, "Port numbers must be unique accross all libraries\n");
-
-	  break;
-	}
-
-      libports[i] = libport;
-
-      error = (cfg_size(lib, "directories") == 0);
-      if (error)
-	{
-	  DPRINTF(E_FATAL, L_CONF, "No directories specified for library '%s'\n",
-		  cfg_title(lib));
-
-	  break;
-	}
-
-      /* Do keyword expansion on library names */
-      ret = conffile_expand_libname(lib);
-      if (ret != 0)
-	{
-	  DPRINTF(E_FATAL, L_CONF, "Could not expand library name\n");
-
-	  free(libports);
-	  cfg_free(cfg);
-	  return -1;
-	}
+      goto out_fail;
     }
 
-  free(libports);
-
-  if (error)
+  /* Do keyword expansion on library names */
+  ret = conffile_expand_libname(lib);
+  if (ret != 0)
     {
-      cfg_free(cfg);
+      DPRINTF(E_FATAL, L_CONF, "Could not expand library name\n");
 
-      return -1;
+      goto out_fail;
     }
 
   return 0;
+
+ out_fail:
+  cfg_free(cfg);
+
+  return -1;
 }
 
 void

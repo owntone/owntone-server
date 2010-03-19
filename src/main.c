@@ -242,7 +242,7 @@ register_services(char *ffid, int no_rsp, int no_daap)
 
   srand((unsigned int)time(NULL));
 
-  lib = cfg_getnsec(cfg, "library", 0);
+  lib = cfg_getsec(cfg, "library");
 
   libname = cfg_getstr(lib, "name");
   hash = djb_hash(libname, strlen(libname));

@@ -980,7 +980,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   /* We don't support updates atm */
   supports_update = 0;
 
-  lib = cfg_getnsec(cfg, "library", 0);
+  lib = cfg_getsec(cfg, "library");
   passwd = cfg_getstr(lib, "password");
   name = cfg_getstr(lib, "name");
 
@@ -1260,7 +1260,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   if (!s)
     return;
 
-  lib = cfg_getnsec(cfg, "library", 0);
+  lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
   namelen = strlen(name);
 
@@ -2652,7 +2652,7 @@ daap_request(struct evhttp_request *req)
     }
 
   /* Check authentication */
-  lib = cfg_getnsec(cfg, "library", 0);
+  lib = cfg_getsec(cfg, "library");
   passwd = cfg_getstr(lib, "password");
 
   /* No authentication for these URIs */

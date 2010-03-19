@@ -230,7 +230,6 @@ static struct col_type_map wi_cols_map[] =
     { wi_offsetof(wd),     DB_TYPE_INT },
     { wi_offsetof(cookie), DB_TYPE_INT },
     { wi_offsetof(path),   DB_TYPE_STRING },
-    { wi_offsetof(libidx), DB_TYPE_INT },
   };
 
 static __thread sqlite3 *hdl;
@@ -2842,12 +2841,12 @@ db_watch_clear(void)
 int
 db_watch_add(struct watch_info *wi)
 {
-#define Q_TMPL "INSERT INTO inotify (wd, cookie, path, libidx) VALUES (%d, 0, '%q', %d);"
+#define Q_TMPL "INSERT INTO inotify (wd, cookie, path) VALUES (%d, 0, '%q');"
   char *query;
   char *errmsg;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, wi->wd, wi->path, wi->libidx);
+  query = sqlite3_mprintf(Q_TMPL, wi->wd, wi->path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3479,8 +3478,7 @@ db_perthread_deinit(void)
   "CREATE TABLE IF NOT EXISTS inotify ("		\
   "   wd          INTEGER PRIMARY KEY NOT NULL,"	\
   "   cookie      INTEGER NOT NULL,"			\
-  "   path        VARCHAR(4096) NOT NULL,"		\
-  "   libidx      INTEGER NOT NULL"			\
+  "   path        VARCHAR(4096) NOT NULL"		\
   ");"
 
 #define I_PATH							\
@@ -3532,9 +3530,9 @@ db_perthread_deinit(void)
  */
 
 
-#define SCHEMA_VERSION 8
+#define SCHEMA_VERSION 9
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '8');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '9');"
 
 struct db_init_query {
   char *query;

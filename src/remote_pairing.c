@@ -820,7 +820,7 @@ remote_pairing_init(void)
       goto mdns_browse_fail;
     }
 
-  libname = cfg_getstr(cfg_getnsec(cfg, "library", 0), "name");
+  libname = cfg_getstr(cfg_getsec(cfg, "library"), "name");
   libhash = murmur_hash64(libname, strlen(libname), 0);
 
 #ifdef USE_EVENTFD

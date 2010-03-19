@@ -363,7 +363,7 @@ process_track_file(plist_t trk, char *base)
 
   free(location);
 
-  if (!cfg_getbool(cfg_getnsec(cfg, "library", 0), "itunes_overrides"))
+  if (!cfg_getbool(cfg_getsec(cfg, "library"), "itunes_overrides"))
     return mfi_id;
 
   /* Override our metadata with what's provided by iTunes */

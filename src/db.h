@@ -239,7 +239,6 @@ struct watch_info {
   int wd;
   char *path;
   uint32_t cookie;
-  int libidx;
 };
 
 #define wi_offsetof(field) offsetof(struct watch_info, field)

@@ -531,7 +531,7 @@ transcode_needed(struct evkeyvalq *headers, char *file_codectype)
 
   DPRINTF(E_DBG, L_XCODE, "Determining transcoding status for codectype %s\n", file_codectype);
 
-  lib = cfg_getnsec(cfg, "library", 0);
+  lib = cfg_getsec(cfg, "library");
 
   size = cfg_size(lib, "no_transcode");
   if (size > 0)

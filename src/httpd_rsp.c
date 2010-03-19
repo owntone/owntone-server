@@ -276,7 +276,7 @@ rsp_reply_info(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 
   songcount = db_files_get_count();
 
-  lib = cfg_getnsec(cfg, "library", 0);
+  lib = cfg_getsec(cfg, "library");
   library = cfg_getstr(lib, "name");
 
   /* We'd use mxmlNewXML(), but then we can't put any attributes
@@ -872,7 +872,7 @@ rsp_request(struct evhttp_request *req)
     }
 
   /* Check authentication */
-  lib = cfg_getnsec(cfg, "library", 0);
+  lib = cfg_getsec(cfg, "library");
   passwd = cfg_getstr(lib, "password");
   if (passwd)
     {

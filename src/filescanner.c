@@ -400,13 +400,13 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int flags)
 
 /* Thread: scan */
 static int
-check_compilation(int libidx, char *path)
+check_compilation(char *path)
 {
   cfg_t *lib;
   int ndirs;
   int i;
 
-  lib = cfg_getnsec(cfg, "library", libidx);
+  lib = cfg_getsec(cfg, "library");
   ndirs = cfg_size(lib, "compilations");
 
   for (i = 0; i < ndirs; i++)
@@ -420,7 +420,7 @@ check_compilation(int libidx, char *path)
 
 /* Thread: scan */
 static void
-process_directory(int libidx, char *path, int flags)
+process_directory(char *path, int flags)
 {
   struct stacked_dir *bulkstack;
   cfg_t *lib;
@@ -437,7 +437,7 @@ process_directory(int libidx, char *path, int flags)
   int compilation;
   int ret;
 
-  lib = cfg_getnsec(cfg, "library", libidx);
+  lib = cfg_getsec(cfg, "library");
 
   if (flags & F_SCAN_BULK)
     {
@@ -468,7 +468,7 @@ process_directory(int libidx, char *path, int flags)
     }
 
   /* Check for a compilation directory */
-  compilation = check_compilation(libidx, path);
+  compilation = check_compilation(path);
 
   for (;;)
     {
@@ -555,7 +555,6 @@ process_directory(int libidx, char *path, int flags)
 
   if (!(flags & F_SCAN_RESCAN))
     {
-      wi.libidx = libidx;
       wi.cookie = 0;
       wi.path = path;
 
@@ -585,7 +584,6 @@ process_directory(int libidx, char *path, int flags)
       return;
     }
 
-  wi.libidx = libidx;
   wi.cookie = 0;
   wi.path = path;
 
@@ -595,18 +593,18 @@ process_directory(int libidx, char *path, int flags)
 
 /* Thread: scan */
 static void
-process_directories(int libidx, char *root, int flags)
+process_directories(char *root, int flags)
 {
   char *path;
 
-  process_directory(libidx, root, flags);
+  process_directory(root, flags);
 
   if (scan_exit)
     return;
 
   while ((path = pop_dir(&dirstack)))
     {
-      process_directory(libidx, path, flags);
+      process_directory(path, flags);
 
       free(path);
 
@@ -621,44 +619,38 @@ static void
 bulk_scan(void)
 {
   cfg_t *lib;
-  int nlib;
   int ndirs;
   char *path;
   char *deref;
   time_t start;
   int i;
-  int j;
 
   start = time(NULL);
 
   playlists = NULL;
   dirstack = NULL;
 
-  nlib = cfg_size(cfg, "library");
-  for (i = 0; i < nlib; i++)
+  lib = cfg_getsec(cfg, "library");
+
+  ndirs = cfg_size(lib, "directories");
+  for (i = 0; i < ndirs; i++)
     {
-      lib = cfg_getnsec(cfg, "library", i);
+      path = cfg_getnstr(lib, "directories", i);
 
-      ndirs = cfg_size(lib, "directories");
-      for (j = 0; j < ndirs; j++)
+      deref = m_realpath(path);
+      if (!deref)
 	{
-	  path = cfg_getnstr(lib, "directories", j);
+	  DPRINTF(E_LOG, L_SCAN, "Skipping library directory %s, could not dereference: %s\n", path, strerror(errno));
 
-	  deref = m_realpath(path);
-	  if (!deref)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Skipping library directory %s, could not dereference: %s\n", path, strerror(errno));
-
-	      continue;
-	    }
-
-	  process_directories(i, deref, F_SCAN_BULK);
-
-	  free(deref);
-
-	  if (scan_exit)
-	    return;
+	  continue;
 	}
+
+      process_directories(deref, F_SCAN_BULK);
+
+      free(deref);
+
+      if (scan_exit)
+	return;
     }
 
   if (playlists)
@@ -835,7 +827,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 
   if (ie->mask & IN_CREATE)
     {
-      process_directories(wi->libidx, path, flags);
+      process_directories(path, flags);
 
       if (dirstack)
 	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
@@ -922,7 +914,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	    }
 	}
 
-      compilation = check_compilation(wi->libidx, path);
+      compilation = check_compilation(path);
 
       process_file(file, sb.st_mtime, sb.st_size, compilation, 0);
 
@@ -1214,8 +1206,7 @@ kqueue_cb(int fd, short event, void *arg)
 
   while ((path = pop_dir(&rescan)))
     {
-      /* FIXME: libidx for multi-library support */
-      process_directories(0, path, 0);
+      process_directories(path, 0);
 
       free(path);
 

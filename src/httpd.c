@@ -1157,7 +1157,7 @@ httpd_init(void)
       goto evhttp_fail;
     }
 
-  port = cfg_getint(cfg_getnsec(cfg, "library", 0), "port");
+  port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
   /* evhttp doesn't support IPv6 yet, so this is expected to fail */
   bindv6 = evhttp_bind_socket(evhttpd, "::", port);
