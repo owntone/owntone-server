@@ -3743,6 +3743,7 @@ static struct db_init_query db_upgrade_v7_queries[] =
   };
 
 /* Upgrade from schema v7 to v8 */
+
 #define U_V8_GROUPS							\
   "CREATE TABLE IF NOT EXISTS groups ("					\
   "   id             INTEGER PRIMARY KEY NOT NULL,"			\
@@ -3773,6 +3774,28 @@ static struct db_init_query db_upgrade_v8_queries[] =
     { U_V8_TRG1,      "create trigger update_groups_new_file" },
     { U_V8_TRG2,      "create trigger update_groups_update_file" },
     { U_V8_SCVER,     "set schema_version to 8" },
+  };
+
+/* Upgrade from schema v8 to v9 */
+
+#define U_V9_INOTIFY1				\
+  "DROP TABLE inotify;"
+
+#define U_V9_INOTIFY2					\
+  "CREATE TABLE inotify ("				\
+  "   wd          INTEGER PRIMARY KEY NOT NULL,"	\
+  "   cookie      INTEGER NOT NULL,"			\
+  "   path        VARCHAR(4096) NOT NULL"		\
+  ");"
+
+#define U_V9_SCVER					\
+  "UPDATE admin SET value = '9' WHERE key = 'schema_version';"
+
+static struct db_init_query db_upgrade_v9_queries[] =
+  {
+    { U_V9_INOTIFY1,  "drop table inotify" },
+    { U_V9_INOTIFY2,  "create new table inotify" },
+    { U_V9_SCVER,     "set schema_version to 9" },
   };
 
 static int
@@ -3857,6 +3880,13 @@ db_check_version(void)
 
 	  case 7:
 	    ret = db_generic_upgrade(db_upgrade_v8_queries, sizeof(db_upgrade_v8_queries) / sizeof(db_upgrade_v8_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 8:
+	    ret = db_generic_upgrade(db_upgrade_v9_queries, sizeof(db_upgrade_v9_queries) / sizeof(db_upgrade_v9_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
