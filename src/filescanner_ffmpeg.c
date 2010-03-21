@@ -59,18 +59,18 @@ struct metadata_map {
 static struct metadata_map md_map[] =
   {
     { "title",        0, mfi_offsetof(title) },
-    { "TIT2",         0, mfi_offsetof(title) },    /* ID3v2 */
+    { "TIT2",         0, mfi_offsetof(title) },        /* ID3v2.3 */
     { "artist",       0, mfi_offsetof(artist) },
     { "author",       0, mfi_offsetof(artist) },
-    { "TPE1",         0, mfi_offsetof(artist) },   /* ID3v2 */
+    { "TPE1",         0, mfi_offsetof(artist) },       /* ID3v2.3 */
     { "albumartist",  0, mfi_offsetof(album_artist) },
-    { "TPE2",         0, mfi_offsetof(album_artist) }, /* ID3v2 */
+    { "TPE2",         0, mfi_offsetof(album_artist) }, /* ID3v2.3 */
     { "album",        0, mfi_offsetof(album) },
-    { "TALB",         0, mfi_offsetof(album) },    /* ID3v2 */
+    { "TALB",         0, mfi_offsetof(album) },        /* ID3v2.3 */
     { "genre",        0, mfi_offsetof(genre) },
-    { "TCON",         0, mfi_offsetof(genre) },    /* ID3v2 */
+    { "TCON",         0, mfi_offsetof(genre) },        /* ID3v2.3 */
     { "composer",     0, mfi_offsetof(composer) },
-    { "TCOM",         0, mfi_offsetof(composer) }, /* ID3v2 */
+    { "TCOM",         0, mfi_offsetof(composer) },     /* ID3v2.3 */
     { "grouping",     0, mfi_offsetof(grouping) },
     { "orchestra",    0, mfi_offsetof(orchestra) },
     { "conductor",    0, mfi_offsetof(conductor) },
@@ -79,14 +79,14 @@ static struct metadata_map md_map[] =
     { "totaltracks",  1, mfi_offsetof(total_tracks) },
     { "track",        1, mfi_offsetof(track) },
     { "tracknumber",  1, mfi_offsetof(track) },
-    { "TRCK",         1, mfi_offsetof(track) },    /* ID3v2 */
+    { "TRCK",         1, mfi_offsetof(track) },        /* ID3v2.3 */
     { "totaldiscs",   1, mfi_offsetof(total_discs) },
     { "disc",         1, mfi_offsetof(disc) },
     { "discnumber",   1, mfi_offsetof(disc) },
-    { "TPOS",         1, mfi_offsetof(disc) },     /* ID3v2 */
+    { "TPOS",         1, mfi_offsetof(disc) },         /* ID3v2.3 */
     { "year",         1, mfi_offsetof(year) },
-    { "TYER",         1, mfi_offsetof(year) },     /* ID3v2 */
-    { "TDRC",         1, mfi_offsetof(year) },     /* ID3v2 */
+    { "TYER",         1, mfi_offsetof(year) },         /* ID3v2.3 */
+    { "TDRC",         1, mfi_offsetof(year) },         /* ID3v2.3 */
     { "date",         1, mfi_offsetof(year) },
 
     { "stik",         1, mfi_offsetof(media_kind) },
