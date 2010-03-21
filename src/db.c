@@ -31,13 +31,13 @@
 
 #include <sqlite3.h>
 
+#include "conffile.h"
 #include "logger.h"
 #include "misc.h"
 #include "db.h"
 
 
 #define STR(x) ((x) ? (x) : "")
-#define DB_PATH   STATEDIR "/cache/" PACKAGE "/songs3.db"
 
 /* Inotify cookies are uint32_t */
 #define INOTIFY_FAKE_COOKIE ((int64_t)1 << 32)
@@ -232,6 +232,7 @@ static struct col_type_map wi_cols_map[] =
     { wi_offsetof(path),   DB_TYPE_STRING },
   };
 
+static char *db_path;
 static __thread sqlite3 *hdl;
 
 
@@ -3345,7 +3346,7 @@ db_perthread_init(void)
 {
   int ret;
 
-  ret = sqlite3_open(DB_PATH, &hdl);
+  ret = sqlite3_open(db_path, &hdl);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not open database: %s\n", sqlite3_errmsg(hdl));
@@ -3927,6 +3928,8 @@ db_init(void)
   int files;
   int pls;
   int ret;
+
+  db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
 
   if (!sqlite3_threadsafe())
     {
