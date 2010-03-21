@@ -55,6 +55,15 @@ struct metadata_map {
   size_t offset;
 };
 
+/* NOTE about ID3 tag names:
+ *  metadata conversion for ID3v2 tags was added in ffmpeg in september 2009
+ *  (rev 20073) for ID3v2.3; support for ID3v2.2 tag names was added in december
+ *  2009 (rev 20839).
+ *
+ * ID3v2.x tags will be removed from the map once a version of ffmpeg containing
+ * the changes listed above will be generally available. The more entries in the
+ * map, the slower the filescanner gets.
+ */
 /* Lookup is case-insensitive, first occurrence takes precedence */
 static struct metadata_map md_map[] =
   {
