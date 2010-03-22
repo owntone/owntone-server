@@ -55,6 +55,40 @@ struct metadata_map {
   size_t offset;
 };
 
+/* Lookup is case-insensitive, first occurrence takes precedence */
+static struct metadata_map md_map_generic[] =
+  {
+    { "title",        0, mfi_offsetof(title) },
+    { "artist",       0, mfi_offsetof(artist) },
+    { "author",       0, mfi_offsetof(artist) },
+    { "albumartist",  0, mfi_offsetof(album_artist) },
+    { "album",        0, mfi_offsetof(album) },
+    { "genre",        0, mfi_offsetof(genre) },
+    { "composer",     0, mfi_offsetof(composer) },
+    { "grouping",     0, mfi_offsetof(grouping) },
+    { "orchestra",    0, mfi_offsetof(orchestra) },
+    { "conductor",    0, mfi_offsetof(conductor) },
+    { "comment",      0, mfi_offsetof(comment) },
+    { "description",  0, mfi_offsetof(comment) },
+    { "totaltracks",  1, mfi_offsetof(total_tracks) },
+    { "track",        1, mfi_offsetof(track) },
+    { "tracknumber",  1, mfi_offsetof(track) },
+    { "totaldiscs",   1, mfi_offsetof(total_discs) },
+    { "disc",         1, mfi_offsetof(disc) },
+    { "discnumber",   1, mfi_offsetof(disc) },
+    { "year",         1, mfi_offsetof(year) },
+    { "date",         1, mfi_offsetof(year) },
+
+    { "stik",         1, mfi_offsetof(media_kind) },
+    { "show",         0, mfi_offsetof(tv_series_name) },
+    { "episode_id",   0, mfi_offsetof(tv_episode_num_str) },
+    { "network",      0, mfi_offsetof(tv_network_name) },
+    { "episode_sort", 1, mfi_offsetof(tv_episode_sort) },
+    { "season_number",1, mfi_offsetof(tv_season_num) },
+
+    { NULL,           0, 0 }
+  };
+
 /* NOTE about ID3 tag names:
  *  metadata conversion for ID3v2 tags was added in ffmpeg in september 2009
  *  (rev 20073) for ID3v2.3; support for ID3v2.2 tag names was added in december
@@ -64,55 +98,27 @@ struct metadata_map {
  * the changes listed above will be generally available. The more entries in the
  * map, the slower the filescanner gets.
  */
-/* Lookup is case-insensitive, first occurrence takes precedence */
-static struct metadata_map md_map_generic[] =
+static struct metadata_map md_map_id3[] =
   {
-    { "title",        0, mfi_offsetof(title) },
     { "TT2",          0, mfi_offsetof(title) },        /* ID3v2.2 */
     { "TIT2",         0, mfi_offsetof(title) },        /* ID3v2.3 */
-    { "artist",       0, mfi_offsetof(artist) },
-    { "author",       0, mfi_offsetof(artist) },
     { "TP1",          0, mfi_offsetof(artist) },       /* ID3v2.2 */
     { "TPE1",         0, mfi_offsetof(artist) },       /* ID3v2.3 */
-    { "albumartist",  0, mfi_offsetof(album_artist) },
     { "TP2",          0, mfi_offsetof(album_artist) }, /* ID3v2.2 */
     { "TPE2",         0, mfi_offsetof(album_artist) }, /* ID3v2.3 */
-    { "album",        0, mfi_offsetof(album) },
     { "TAL",          0, mfi_offsetof(album) },        /* ID3v2.2 */
     { "TALB",         0, mfi_offsetof(album) },        /* ID3v2.3 */
-    { "genre",        0, mfi_offsetof(genre) },
     { "TCO",          0, mfi_offsetof(genre) },        /* ID3v2.2 */
     { "TCON",         0, mfi_offsetof(genre) },        /* ID3v2.3 */
-    { "composer",     0, mfi_offsetof(composer) },
     { "TCM",          0, mfi_offsetof(composer) },     /* ID3v2.2 */
     { "TCOM",         0, mfi_offsetof(composer) },     /* ID3v2.3 */
-    { "grouping",     0, mfi_offsetof(grouping) },
-    { "orchestra",    0, mfi_offsetof(orchestra) },
-    { "conductor",    0, mfi_offsetof(conductor) },
-    { "comment",      0, mfi_offsetof(comment) },
-    { "description",  0, mfi_offsetof(comment) },
-    { "totaltracks",  1, mfi_offsetof(total_tracks) },
-    { "track",        1, mfi_offsetof(track) },
-    { "tracknumber",  1, mfi_offsetof(track) },
     { "TRK",          1, mfi_offsetof(track) },        /* ID3v2.2 */
     { "TRCK",         1, mfi_offsetof(track) },        /* ID3v2.3 */
-    { "totaldiscs",   1, mfi_offsetof(total_discs) },
-    { "disc",         1, mfi_offsetof(disc) },
-    { "discnumber",   1, mfi_offsetof(disc) },
     { "TPA",          1, mfi_offsetof(disc) },         /* ID3v2.2 */
     { "TPOS",         1, mfi_offsetof(disc) },         /* ID3v2.3 */
-    { "year",         1, mfi_offsetof(year) },
     { "TYE",          1, mfi_offsetof(year) },         /* ID3v2.2 */
     { "TYER",         1, mfi_offsetof(year) },         /* ID3v2.3 */
     { "TDRC",         1, mfi_offsetof(year) },         /* ID3v2.3 */
-    { "date",         1, mfi_offsetof(year) },
-
-    { "stik",         1, mfi_offsetof(media_kind) },
-    { "show",         0, mfi_offsetof(tv_series_name) },
-    { "episode_id",   0, mfi_offsetof(tv_episode_num_str) },
-    { "network",      0, mfi_offsetof(tv_network_name) },
-    { "episode_sort", 1, mfi_offsetof(tv_episode_sort) },
-    { "season_number",1, mfi_offsetof(tv_season_num) },
 
     { NULL,           0, 0 }
   };
@@ -362,6 +368,8 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	mfi->type = strdup("mp3");
 	mfi->codectype = strdup("mpeg");
 	mfi->description = strdup("MPEG audio file");
+
+	extra_md_map = md_map_id3;
 	break;
 
       case CODEC_ID_VORBIS:
