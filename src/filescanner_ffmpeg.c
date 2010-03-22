@@ -79,6 +79,11 @@ static struct metadata_map md_map_generic[] =
     { "year",         1, mfi_offsetof(year) },
     { "date",         1, mfi_offsetof(year) },
 
+    { NULL,           0, 0 }
+  };
+
+static struct metadata_map md_map_tv[] =
+  {
     { "stik",         1, mfi_offsetof(media_kind) },
     { "show",         0, mfi_offsetof(tv_series_name) },
     { "episode_id",   0, mfi_offsetof(tv_episode_num_str) },
@@ -361,6 +366,8 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	mfi->type = strdup("m4v");
 	mfi->codectype = strdup("mp4v");
 	mfi->description = strdup("MPEG-4 video file");
+
+	extra_md_map = md_map_tv;
 	break;
 
       case CODEC_ID_MP3:
@@ -426,7 +433,10 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	mfi->type = strdup("unkn");
 	mfi->codectype = strdup("unkn");
 	if (mfi->has_video)
-	  mfi->description = strdup("Unknown video file format");
+	  {
+	    mfi->description = strdup("Unknown video file format");
+	    extra_md_map = md_map_tv;
+	  }
 	else
 	  mfi->description = strdup("Unknown audio file format");
 	break;
