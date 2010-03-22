@@ -65,7 +65,7 @@ struct metadata_map {
  * map, the slower the filescanner gets.
  */
 /* Lookup is case-insensitive, first occurrence takes precedence */
-static struct metadata_map md_map[] =
+static struct metadata_map md_map_generic[] =
   {
     { "title",        0, mfi_offsetof(title) },
     { "TT2",          0, mfi_offsetof(title) },        /* ID3v2.2 */
@@ -119,7 +119,7 @@ static struct metadata_map md_map[] =
 
 
 static int
-extract_metadata(struct media_file_info *mfi, AVMetadata *md)
+extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, struct metadata_map *md_map)
 {
   AVMetadataTag *mdt;
   char **strval;
@@ -184,10 +184,33 @@ extract_metadata(struct media_file_info *mfi, AVMetadata *md)
   return mdcount;
 }
 
+static int
+extract_metadata(struct media_file_info *mfi, AVMetadata *md, struct metadata_map *extra_md_map)
+{
+  int mdcount;
+  int extra;
+
+  mdcount = extract_metadata_core(mfi, md, md_map_generic);
+
+  DPRINTF(E_DBG, L_SCAN, "Picked up %d metadata with generic map\n", mdcount);
+
+  if (extra_md_map)
+    {
+      extra = extract_metadata_core(mfi, md, extra_md_map);
+
+      DPRINTF(E_DBG, L_SCAN, "Picked up %d metadata with extra map\n", extra);
+
+      mdcount += extra;
+    }
+
+  return mdcount;
+}
+
 int
 scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 {
   AVFormatContext *ctx;
+  struct metadata_map *extra_md_map;
   enum CodecID codec_id;
   enum CodecID video_codec_id;
   enum CodecID audio_codec_id;
@@ -293,6 +316,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     }
 
   /* Check codec */
+  extra_md_map = NULL;
   codec_id = (mfi->has_video) ? video_codec_id : audio_codec_id;
   switch (codec_id)
     {
@@ -412,7 +436,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   if (ctx->metadata)
     {
-      ret = extract_metadata(mfi, ctx->metadata);
+      ret = extract_metadata(mfi, ctx->metadata, extra_md_map);
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from file metadata\n", ret);
 
@@ -421,7 +445,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   if (ctx->streams[audio_stream]->metadata)
     {
-      ret = extract_metadata(mfi, ctx->streams[audio_stream]->metadata);
+      ret = extract_metadata(mfi, ctx->streams[audio_stream]->metadata, extra_md_map);
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from audio stream metadata\n", ret);
 
@@ -430,7 +454,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   if ((video_stream != -1) && (ctx->streams[video_stream]->metadata))
     {
-      ret = extract_metadata(mfi, ctx->streams[video_stream]->metadata);
+      ret = extract_metadata(mfi, ctx->streams[video_stream]->metadata, extra_md_map);
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from video stream metadata\n", ret);
 
