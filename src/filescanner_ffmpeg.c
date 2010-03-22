@@ -402,14 +402,40 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   mdcount = 0;
 
-  if (ctx->metadata == NULL)
+  if ((!ctx->metadata) && (!ctx->streams[audio_stream]->metadata)
+      && ((video_stream != -1) && (!ctx->streams[video_stream]->metadata)))
     {
       DPRINTF(E_WARN, L_SCAN, "ffmpeg reports no metadata\n");
 
       goto skip_extract;
     }
 
-  mdcount += extract_metadata(mfi, ctx->metadata);
+  if (ctx->metadata)
+    {
+      ret = extract_metadata(mfi, ctx->metadata);
+
+      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from file metadata\n", ret);
+
+      mdcount += ret;
+    }
+
+  if (ctx->streams[audio_stream]->metadata)
+    {
+      ret = extract_metadata(mfi, ctx->streams[audio_stream]->metadata);
+
+      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from audio stream metadata\n", ret);
+
+      mdcount += ret;
+    }
+
+  if ((video_stream != -1) && (ctx->streams[video_stream]->metadata))
+    {
+      ret = extract_metadata(mfi, ctx->streams[video_stream]->metadata);
+
+      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from video stream metadata\n", ret);
+
+      mdcount += ret;
+    }
 
   /* fix up TV metadata */
   if (mfi->media_kind == 10)
