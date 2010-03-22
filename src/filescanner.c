@@ -269,7 +269,7 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
 
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not extract metadata for %s\n", file);
+      DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for %s\n", file);
 
       free_mfi(&mfi, 1);
       return;
