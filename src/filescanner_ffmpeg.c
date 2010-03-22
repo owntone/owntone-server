@@ -118,20 +118,81 @@ static struct metadata_map md_map[] =
   };
 
 
+static int
+extract_metadata(struct media_file_info *mfi, AVMetadata *md)
+{
+  AVMetadataTag *mdt;
+  char **strval;
+  uint32_t *intval;
+  char *endptr;
+  long tmpval;
+  int mdcount;
+  int i;
+
+#if 0
+  /* Dump all the metadata reported by ffmpeg */
+  mdt = NULL;
+  while ((mdt = av_metadata_get(md, "", mdt, AV_METADATA_IGNORE_SUFFIX)) != NULL)
+    fprintf(stderr, " -> %s = %s\n", mdt->key, mdt->value);
+#endif
+
+  mdcount = 0;
+
+  /* Extract actual metadata */
+  for (i = 0; md_map[i].key != NULL; i++)
+    {
+      mdt = av_metadata_get(md, md_map[i].key, NULL, 0);
+      if (mdt == NULL)
+	continue;
+
+      if ((mdt->value == NULL) || (strlen(mdt->value) == 0))
+	continue;
+
+      mdcount++;
+
+      if (!md_map[i].as_int)
+	{
+	  strval = (char **) ((char *) mfi + md_map[i].offset);
+
+	  if (*strval == NULL)
+	    *strval = strdup(mdt->value);
+	}
+      else
+	{
+	  intval = (uint32_t *) ((char *) mfi + md_map[i].offset);
+
+	  if (*intval == 0)
+	    {
+	      errno = 0;
+	      tmpval = strtol(mdt->value, &endptr, 10);
+
+	      if (((errno == ERANGE) && ((tmpval == LONG_MAX) || (tmpval == LONG_MIN)))
+		  || ((errno != 0) && (tmpval == 0)))
+		continue;
+
+	      if (endptr == mdt->value)
+		continue;
+
+	      if (tmpval > UINT32_MAX)
+		continue;
+
+	      *intval = (uint32_t) tmpval;
+	    }
+	}
+    }
+
+  return mdcount;
+}
+
 int
 scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 {
   AVFormatContext *ctx;
-  AVMetadataTag *mdt;
   enum CodecID codec_id;
   enum CodecID video_codec_id;
   enum CodecID audio_codec_id;
   int video_stream;
   int audio_stream;
-  char **strval;
-  uint32_t *intval;
-  char *endptr;
-  long tmpval;
   int mdcount;
   int i;
   int ret;
@@ -348,55 +409,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
       goto skip_extract;
     }
 
-#if 0
-  /* Dump all the metadata reported by ffmpeg */
-  mdt = NULL;
-  while ((mdt = av_metadata_get(ctx->metadata, "", mdt, AV_METADATA_IGNORE_SUFFIX)) != NULL)
-    fprintf(stderr, " -> %s = %s\n", mdt->key, mdt->value);
-#endif
-
-  /* Extract actual metadata */
-  for (i = 0; md_map[i].key != NULL; i++)
-    {
-      mdt = av_metadata_get(ctx->metadata, md_map[i].key, NULL, 0);
-      if (mdt == NULL)
-	continue;
-
-      if ((mdt->value == NULL) || (strlen(mdt->value) == 0))
-	continue;
-
-      mdcount++;
-
-      if (!md_map[i].as_int)
-	{
-	  strval = (char **) ((char *) mfi + md_map[i].offset);
-
-	  if (*strval == NULL)
-	    *strval = strdup(mdt->value);
-	}
-      else
-	{
-	  intval = (uint32_t *) ((char *) mfi + md_map[i].offset);
-
-	  if (*intval == 0)
-	    {
-	      errno = 0;
-	      tmpval = strtol(mdt->value, &endptr, 10);
-
-	      if (((errno == ERANGE) && ((tmpval == LONG_MAX) || (tmpval == LONG_MIN)))
-		  || ((errno != 0) && (tmpval == 0)))
-		continue;
-
-	      if (endptr == mdt->value)
-		continue;
-
-	      if (tmpval > UINT32_MAX)
-		continue;
-
-	      *intval = (uint32_t) tmpval;
-	    }
-	}
-    }
+  mdcount += extract_metadata(mfi, ctx->metadata);
 
   /* fix up TV metadata */
   if (mfi->media_kind == 10)
