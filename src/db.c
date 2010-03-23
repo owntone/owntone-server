@@ -60,7 +60,7 @@ struct col_type_map {
  * - the order of the columns in the files table
  * - the type and name of the fields in struct media_file_info
  */
-static struct col_type_map mfi_cols_map[] =
+static const struct col_type_map mfi_cols_map[] =
   {
     { mfi_offsetof(id),                 DB_TYPE_INT },
     { mfi_offsetof(path),               DB_TYPE_STRING },
@@ -117,7 +117,7 @@ static struct col_type_map mfi_cols_map[] =
  * - the order of the columns in the playlists table
  * - the type and name of the fields in struct playlist_info
  */
-static struct col_type_map pli_cols_map[] =
+static const struct col_type_map pli_cols_map[] =
   {
     { pli_offsetof(id),           DB_TYPE_INT },
     { pli_offsetof(title),        DB_TYPE_STRING },
@@ -136,7 +136,7 @@ static struct col_type_map pli_cols_map[] =
  * - the order of the columns in the files table
  * - the name of the fields in struct db_media_file_info
  */
-static ssize_t dbmfi_cols_map[] =
+static const ssize_t dbmfi_cols_map[] =
   {
     dbmfi_offsetof(id),
     dbmfi_offsetof(path),
@@ -193,7 +193,7 @@ static ssize_t dbmfi_cols_map[] =
  * - the order of the columns in the playlists table
  * - the name of the fields in struct playlist_info
  */
-static ssize_t dbpli_cols_map[] =
+static const ssize_t dbpli_cols_map[] =
   {
     dbpli_offsetof(id),
     dbpli_offsetof(title),
@@ -212,7 +212,7 @@ static ssize_t dbpli_cols_map[] =
  * - the order of fields in the Q_GROUPS query
  * - the name of the fields in struct group_info
  */
-static ssize_t dbgri_cols_map[] =
+static const ssize_t dbgri_cols_map[] =
   {
     dbgri_offsetof(itemcount),
     dbgri_offsetof(id),
@@ -225,7 +225,7 @@ static ssize_t dbgri_cols_map[] =
  * - the order of the columns in the inotify table
  * - the name and type of the fields in struct watch_info
  */
-static struct col_type_map wi_cols_map[] =
+static const struct col_type_map wi_cols_map[] =
   {
     { wi_offsetof(wd),     DB_TYPE_INT },
     { wi_offsetof(cookie), DB_TYPE_INT },
@@ -3540,7 +3540,7 @@ struct db_init_query {
   char *desc;
 };
 
-static struct db_init_query db_init_queries[] =
+static const struct db_init_query db_init_queries[] =
   {
     { T_ADMIN,     "create table admin" },
     { T_FILES,     "create table files" },
@@ -3591,7 +3591,7 @@ db_create_tables(void)
 }
 
 static int
-db_generic_upgrade(struct db_init_query *queries, int nqueries)
+db_generic_upgrade(const struct db_init_query *queries, int nqueries)
 {
   char *errmsg;
   int i;
@@ -3631,7 +3631,7 @@ db_generic_upgrade(struct db_init_query *queries, int nqueries)
 #define U_V2_SCVER					\
   "UPDATE admin SET value = '2' WHERE key = 'schema_version';"
 
-static struct db_init_query db_upgrade_v2_queries[] =
+static const struct db_init_query db_upgrade_v2_queries[] =
   {
     { U_V2_FILES,     "upgrade table files" },
     { U_V2_RESCAN,    "force library rescan" },
@@ -3646,7 +3646,7 @@ static struct db_init_query db_upgrade_v2_queries[] =
 #define U_V3_SCVER					\
   "UPDATE admin SET value = '3' WHERE key = 'schema_version';"
 
-static struct db_init_query db_upgrade_v3_queries[] =
+static const struct db_init_query db_upgrade_v3_queries[] =
   {
     { U_V3_FILES,     "upgrade table files" },
     { U_V3_SCVER,     "set schema_version to 3" },
@@ -3675,7 +3675,7 @@ static struct db_init_query db_upgrade_v3_queries[] =
 #define U_V4_SCVER					\
   "UPDATE admin SET value = '4' WHERE key = 'schema_version';"
 
-static struct db_init_query db_upgrade_v4_queries[] =
+static const struct db_init_query db_upgrade_v4_queries[] =
   {
     { U_V4_PLAYLISTS, "upgrade table playlists" },
     { U_V4_PL1,       "update playlist 1" },
@@ -3696,7 +3696,7 @@ static struct db_init_query db_upgrade_v4_queries[] =
 #define U_V5_SCVER					\
   "UPDATE admin SET value = '5' WHERE key = 'schema_version';"
 
-static struct db_init_query db_upgrade_v5_queries[] =
+static const struct db_init_query db_upgrade_v5_queries[] =
   {
     { U_V5_FIXPL,     "fix 'Movies' smart playlist" },
     { U_V5_RESCAN,    "force library rescan" },
@@ -3718,7 +3718,7 @@ static struct db_init_query db_upgrade_v5_queries[] =
 #define U_V6_SCVER					\
   "UPDATE admin SET value = '6' WHERE key = 'schema_version';"
 
-static struct db_init_query db_upgrade_v6_queries[] =
+static const struct db_init_query db_upgrade_v6_queries[] =
   {
     { U_V6_PAIRINGS,    "create pairings table" },
     { U_V6_PAIRINGGUID, "create pairing guid index" },
@@ -3736,7 +3736,7 @@ static struct db_init_query db_upgrade_v6_queries[] =
 #define U_V7_SCVER					\
   "UPDATE admin SET value = '7' WHERE key = 'schema_version';"
 
-static struct db_init_query db_upgrade_v7_queries[] =
+static const struct db_init_query db_upgrade_v7_queries[] =
   {
     { U_V7_FILES,     "upgrade table files" },
     { U_V7_RESCAN,    "force library rescan" },
@@ -3769,7 +3769,7 @@ static struct db_init_query db_upgrade_v7_queries[] =
 #define U_V8_SCVER						\
   "UPDATE admin SET value = '8' WHERE key = 'schema_version';"
 
-static struct db_init_query db_upgrade_v8_queries[] =
+static const struct db_init_query db_upgrade_v8_queries[] =
   {
     { U_V8_GROUPS,    "create groups table" },
     { U_V8_TRG1,      "create trigger update_groups_new_file" },
@@ -3792,7 +3792,7 @@ static struct db_init_query db_upgrade_v8_queries[] =
 #define U_V9_SCVER					\
   "UPDATE admin SET value = '9' WHERE key = 'schema_version';"
 
-static struct db_init_query db_upgrade_v9_queries[] =
+static const struct db_init_query db_upgrade_v9_queries[] =
   {
     { U_V9_INOTIFY1,  "drop table inotify" },
     { U_V9_INOTIFY2,  "create new table inotify" },

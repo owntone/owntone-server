@@ -68,7 +68,7 @@ struct uri_map {
   void (*handler)(struct evhttp_request *req, char **uri, struct evkeyvalq *query);
 };
 
-static struct field_map pl_fields[] =
+static const struct field_map pl_fields[] =
   {
     { "id",           dbpli_offsetof(id),           F_ALWAYS },
     { "title",        dbpli_offsetof(title),        F_FULL | F_BROWSE | F_DETAILED },
@@ -81,7 +81,7 @@ static struct field_map pl_fields[] =
     { NULL,           0,                            0 }
   };
 
-static struct field_map rsp_fields[] =
+static const struct field_map rsp_fields[] =
   {
     { "id",            dbmfi_offsetof(id),            F_ALWAYS },
     { "path",          dbmfi_offsetof(path),          F_DETAILED },

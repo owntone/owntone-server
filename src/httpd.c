@@ -99,7 +99,7 @@ struct stream_ctx {
 };
 
 
-static struct content_type_map ext2ctype[] =
+static const struct content_type_map ext2ctype[] =
   {
     { ".html", "text/html; charset=utf-8" },
     { ".xml",  "text/xml; charset=utf-8" },

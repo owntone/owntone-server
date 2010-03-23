@@ -56,7 +56,7 @@ struct metadata_map {
 };
 
 /* Lookup is case-insensitive, first occurrence takes precedence */
-static struct metadata_map md_map_generic[] =
+static const struct metadata_map md_map_generic[] =
   {
     { "title",        0, mfi_offsetof(title) },
     { "artist",       0, mfi_offsetof(artist) },
@@ -82,7 +82,7 @@ static struct metadata_map md_map_generic[] =
     { NULL,           0, 0 }
   };
 
-static struct metadata_map md_map_tv[] =
+static const struct metadata_map md_map_tv[] =
   {
     { "stik",         1, mfi_offsetof(media_kind) },
     { "show",         0, mfi_offsetof(tv_series_name) },
@@ -103,7 +103,7 @@ static struct metadata_map md_map_tv[] =
  * the changes listed above will be generally available. The more entries in the
  * map, the slower the filescanner gets.
  */
-static struct metadata_map md_map_id3[] =
+static const struct metadata_map md_map_id3[] =
   {
     { "TT2",          0, mfi_offsetof(title) },        /* ID3v2.2 */
     { "TIT2",         0, mfi_offsetof(title) },        /* ID3v2.3 */
@@ -130,7 +130,7 @@ static struct metadata_map md_map_id3[] =
 
 
 static int
-extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, struct metadata_map *md_map)
+extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct metadata_map *md_map)
 {
   AVMetadataTag *mdt;
   char **strval;
@@ -196,7 +196,7 @@ extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, struct metada
 }
 
 static int
-extract_metadata(struct media_file_info *mfi, AVMetadata *md, struct metadata_map *extra_md_map)
+extract_metadata(struct media_file_info *mfi, AVMetadata *md, const struct metadata_map *extra_md_map)
 {
   int mdcount;
   int extra;
@@ -221,7 +221,7 @@ int
 scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 {
   AVFormatContext *ctx;
-  struct metadata_map *extra_md_map;
+  const struct metadata_map *extra_md_map;
   enum CodecID codec_id;
   enum CodecID video_codec_id;
   enum CodecID audio_codec_id;
