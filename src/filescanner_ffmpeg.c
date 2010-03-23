@@ -225,8 +225,8 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   enum CodecID codec_id;
   enum CodecID video_codec_id;
   enum CodecID audio_codec_id;
-  int video_stream;
-  int audio_stream;
+  AVStream *video_stream;
+  AVStream *audio_stream;
   int mdcount;
   int i;
   int ret;
@@ -257,31 +257,31 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   /* Extract codec IDs, check for video */
   video_codec_id = CODEC_ID_NONE;
-  video_stream = -1;
+  video_stream = NULL;
 
   audio_codec_id = CODEC_ID_NONE;
-  audio_stream = -1;
+  audio_stream = NULL;
 
   for (i = 0; i < ctx->nb_streams; i++)
     {
       switch (ctx->streams[i]->codec->codec_type)
 	{
 	  case CODEC_TYPE_VIDEO:
-	    if (video_stream == -1)
+	    if (!video_stream)
 	      {
 		DPRINTF(E_DBG, L_SCAN, "File has video (stream %d)\n", i);
 
 		mfi->has_video = 1;
-		video_codec_id = ctx->streams[i]->codec->codec_id;
-		video_stream = i;
+		video_stream = ctx->streams[i];
+		video_codec_id = video_stream->codec->codec_id;
 	      }
 	    break;
 
 	  case CODEC_TYPE_AUDIO:
-	    if (audio_stream == -1)
+	    if (!audio_stream)
 	      {
-		audio_codec_id = ctx->streams[i]->codec->codec_id;
-		audio_stream = i;
+		audio_stream = ctx->streams[i];
+		audio_codec_id = audio_stream->codec->codec_id;
 	      } 
 	    break;
 
@@ -310,13 +310,13 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   DPRINTF(E_DBG, L_SCAN, "Duration %d ms, bitrate %d kbps\n", mfi->song_length, mfi->bitrate);
 
   /* Get some more information on the audio stream */
-  if (audio_stream != -1)
+  if (audio_stream)
     {
-      if (ctx->streams[audio_stream]->codec->sample_rate != 0)
-	mfi->samplerate = ctx->streams[audio_stream]->codec->sample_rate;
+      if (audio_stream->codec->sample_rate != 0)
+	mfi->samplerate = audio_stream->codec->sample_rate;
 
       /* Try sample format first */
-      mfi->bits_per_sample = av_get_bits_per_sample_format(ctx->streams[audio_stream]->codec->sample_fmt);
+      mfi->bits_per_sample = av_get_bits_per_sample_format(audio_stream->codec->sample_fmt);
       if (mfi->bits_per_sample == 0)
 	{
 	  /* Try codec */
@@ -444,8 +444,8 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   mdcount = 0;
 
-  if ((!ctx->metadata) && (!ctx->streams[audio_stream]->metadata)
-      && ((video_stream != -1) && (!ctx->streams[video_stream]->metadata)))
+  if ((!ctx->metadata) && (!audio_stream->metadata)
+      && (video_stream && !video_stream->metadata))
     {
       DPRINTF(E_WARN, L_SCAN, "ffmpeg reports no metadata\n");
 
@@ -463,18 +463,18 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
       mdcount += ret;
     }
 
-  if (ctx->streams[audio_stream]->metadata)
+  if (audio_stream->metadata)
     {
-      ret = extract_metadata(mfi, ctx->streams[audio_stream]->metadata, extra_md_map);
+      ret = extract_metadata(mfi, audio_stream->metadata, extra_md_map);
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from audio stream metadata\n", ret);
 
       mdcount += ret;
     }
 
-  if ((video_stream != -1) && (ctx->streams[video_stream]->metadata))
+  if (video_stream && video_stream->metadata)
     {
-      ret = extract_metadata(mfi, ctx->streams[video_stream]->metadata, extra_md_map);
+      ret = extract_metadata(mfi, video_stream->metadata, extra_md_map);
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from video stream metadata\n", ret);
 
