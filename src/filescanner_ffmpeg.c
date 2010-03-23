@@ -452,6 +452,8 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
       goto skip_extract;
     }
 
+  av_metadata_conv(ctx, NULL, ctx->iformat->metadata_conv);
+
   if (ctx->metadata)
     {
       ret = extract_metadata(mfi, ctx->metadata, extra_md_map);
