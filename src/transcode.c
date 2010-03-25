@@ -280,7 +280,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	      if (ctx->apacket.data)
 		av_free_packet(&ctx->apacket);
 
-	      ret = av_read_packet(ctx->fmtctx, &ctx->apacket);
+	      ret = av_read_frame(ctx->fmtctx, &ctx->apacket);
 	      if (ret < 0)
 		{
 		  DPRINTF(E_WARN, L_XCODE, "Could not read more data\n");
