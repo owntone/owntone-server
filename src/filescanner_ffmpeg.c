@@ -70,6 +70,7 @@ static const struct metadata_map md_map_generic[] =
     { "conductor",    0, mfi_offsetof(conductor) },
     { "comment",      0, mfi_offsetof(comment) },
     { "description",  0, mfi_offsetof(comment) },
+    { "tracktotal",   1, mfi_offsetof(total_tracks) },
     { "totaltracks",  1, mfi_offsetof(total_tracks) },
     { "track",        1, mfi_offsetof(track) },
     { "tracknumber",  1, mfi_offsetof(track) },
