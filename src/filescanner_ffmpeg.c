@@ -74,6 +74,7 @@ static const struct metadata_map md_map_generic[] =
     { "totaltracks",  1, mfi_offsetof(total_tracks) },
     { "track",        1, mfi_offsetof(track) },
     { "tracknumber",  1, mfi_offsetof(track) },
+    { "disctotal",    1, mfi_offsetof(total_discs) },
     { "totaldiscs",   1, mfi_offsetof(total_discs) },
     { "disc",         1, mfi_offsetof(disc) },
     { "discnumber",   1, mfi_offsetof(disc) },
