@@ -62,7 +62,6 @@ static const struct metadata_map md_map_generic[] =
     { "artist",       0, mfi_offsetof(artist) },
     { "author",       0, mfi_offsetof(artist) },
     { "album_artist", 0, mfi_offsetof(album_artist) },
-    { "albumartist",  0, mfi_offsetof(album_artist) },
     { "album",        0, mfi_offsetof(album) },
     { "genre",        0, mfi_offsetof(genre) },
     { "composer",     0, mfi_offsetof(composer) },
@@ -71,14 +70,8 @@ static const struct metadata_map md_map_generic[] =
     { "conductor",    0, mfi_offsetof(conductor) },
     { "comment",      0, mfi_offsetof(comment) },
     { "description",  0, mfi_offsetof(comment) },
-    { "tracktotal",   1, mfi_offsetof(total_tracks) },
-    { "totaltracks",  1, mfi_offsetof(total_tracks) },
     { "track",        1, mfi_offsetof(track) },
-    { "tracknumber",  1, mfi_offsetof(track) },
-    { "disctotal",    1, mfi_offsetof(total_discs) },
-    { "totaldiscs",   1, mfi_offsetof(total_discs) },
     { "disc",         1, mfi_offsetof(disc) },
-    { "discnumber",   1, mfi_offsetof(disc) },
     { "year",         1, mfi_offsetof(year) },
     { "date",         1, mfi_offsetof(year) },
 
@@ -93,6 +86,29 @@ static const struct metadata_map md_map_tv[] =
     { "network",      0, mfi_offsetof(tv_network_name) },
     { "episode_sort", 1, mfi_offsetof(tv_episode_sort) },
     { "season_number",1, mfi_offsetof(tv_season_num) },
+
+    { NULL,           0, 0 }
+  };
+
+/* NOTE about VORBIS comments:
+ *  Only a small set of VORBIS comment fields are officially designated. Most
+ *  common tags are at best de facto standards. Currently, metadata conversion
+ *  functionality in ffmpeg only adds support for a couple of tags. Specifically,
+ *  ALBUMARTIST and TRACKNUMBER are handled as of Feb 1, 2010 (rev 21587). Tags
+ *  with names that already match the generic ffmpeg scheme--TITLE and ARTIST,
+ *  for example--are of course handled. The rest of these tags are reported to
+ *  have been used by various programs in the wild.
+ */
+static const struct metadata_map md_map_vorbis[] =
+  {
+    { "albumartist",  0, mfi_offsetof(album_artist) },
+    { "album artist", 0, mfi_offsetof(album_artist) },
+    { "tracknumber",  1, mfi_offsetof(track) },
+    { "tracktotal",   1, mfi_offsetof(total_tracks) },
+    { "totaltracks",  1, mfi_offsetof(total_tracks) },
+    { "discnumber",   1, mfi_offsetof(disc) },
+    { "disctotal",    1, mfi_offsetof(total_discs) },
+    { "totaldiscs",   1, mfi_offsetof(total_discs) },
 
     { NULL,           0, 0 }
   };
@@ -353,6 +369,8 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	mfi->type = strdup("flac");
 	mfi->codectype = strdup("flac");
 	mfi->description = strdup("FLAC audio file");
+
+	extra_md_map = md_map_vorbis;
 	break;
 
       case CODEC_ID_MUSEPACK7:
@@ -387,6 +405,8 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	mfi->type = strdup("ogg");
 	mfi->codectype = strdup("ogg");
 	mfi->description = strdup("Ogg Vorbis audio file");
+
+	extra_md_map = md_map_vorbis;
 	break;
 
       case CODEC_ID_WMAVOICE:
