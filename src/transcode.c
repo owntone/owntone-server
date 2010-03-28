@@ -501,8 +501,11 @@ transcode_cleanup(struct transcode_ctx *ctx)
       close(ctx->fd);
       free(ctx->rawbuffer);
     }
-  if (ctx->apacket.data)
-    av_free_packet(&ctx->apacket);
+  else
+    {
+      if (ctx->apacket.data)
+	av_free_packet(&ctx->apacket);
+    }
 
   avcodec_close(ctx->acodec);
   av_close_input_file(ctx->fmtctx);
