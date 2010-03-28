@@ -51,9 +51,6 @@
 
 
 #define XCODE_BUFFER_SIZE ((AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2)
-#define RAW_BUFFER_SIZE   256
-
-#define ID3V2_MIN_HEADER_SIZE 10
 
 
 struct transcode_ctx {
@@ -80,48 +77,12 @@ struct transcode_ctx {
 
   /* WAV header */
   uint8_t header[44];
-
-  /* Raw mode */
-  int fd;
-  uint8_t *rawbuffer;
 };
 
 
 static char *default_codecs = "mpeg,wav";
 static char *roku_codecs = "mpeg,mp4a,wma,wav";
 static char *itunes_codecs = "mpeg,mp4a,mp4v,alac,wav";
-
-
-static int
-id3v2_tag_len(const uint8_t *buf)
-{
-  int len;
-
-  len = ID3V2_MIN_HEADER_SIZE
-    + ((buf[6] & 0x7f) << 21)
-    + ((buf[7] & 0x7f) << 14)
-    + ((buf[8] & 0x7f) << 7)
-    + (buf[9] & 0x7f);
-
-  if (buf[5] & 0x10)
-    len += ID3V2_MIN_HEADER_SIZE;
-
-  return len;
-}
-
-static int
-has_id3v2_tag(const uint8_t *buf)
-{
-  return ((buf[0] ==  'I')
-	  && (buf[1] ==  'D')
-	  && (buf[2] ==  '3')
-	  && (buf[3] != 0xff)
-	  && (buf[4] != 0xff)
-	  && ((buf[6] & 0x80) == 0)
-	  && ((buf[7] & 0x80) == 0)
-	  && ((buf[8] & 0x80) == 0)
-	  && ((buf[9] & 0x80) == 0));
-}
 
 
 static inline void
@@ -257,44 +218,25 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	}
 
       /* Read more data */
-      if (ctx->fd != -1)
+      do
 	{
-	  /* Raw mode */
-	  ret = read(ctx->fd, ctx->rawbuffer, RAW_BUFFER_SIZE);
-	  if (ret <= 0)
+	  if (ctx->apacket.data)
+	    av_free_packet(&ctx->apacket);
+
+	  ret = av_read_frame(ctx->fmtctx, &ctx->apacket);
+	  if (ret < 0)
 	    {
-	      DPRINTF(E_WARN, L_XCODE, "Could not read more raw data\n");
+	      DPRINTF(E_WARN, L_XCODE, "Could not read more data\n");
 
 	      stop = 1;
 	      break;
 	    }
-
-	  ctx->apacket_data = ctx->rawbuffer;
-	  ctx->apacket_size = ret;
 	}
-      else
-	{
-	  /* ffmpeg mode */
-	  do
-	    {
-	      if (ctx->apacket.data)
-		av_free_packet(&ctx->apacket);
+      while (ctx->apacket.stream_index != ctx->astream);
 
-	      ret = av_read_frame(ctx->fmtctx, &ctx->apacket);
-	      if (ret < 0)
-		{
-		  DPRINTF(E_WARN, L_XCODE, "Could not read more data\n");
-
-		  stop = 1;
-		  break;
-		}
-	    }
-	  while (ctx->apacket.stream_index != ctx->astream);
-
-	  /* Copy apacket data & size and do not mess with them */
-	  ctx->apacket_data = ctx->apacket.data;
-	  ctx->apacket_size = ctx->apacket.size;
-	}
+      /* Copy apacket data & size and do not mess with them */
+      ctx->apacket_data = ctx->apacket.data;
+      ctx->apacket_size = ctx->apacket.size;
     }
 
   ctx->offset += processed;
@@ -306,8 +248,6 @@ struct transcode_ctx *
 transcode_setup(struct media_file_info *mfi, off_t *est_size)
 {
   struct transcode_ctx *ctx;
-  off_t pos;
-  int hdr_len;
   int i;
   int ret;
 
@@ -319,7 +259,6 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
       return NULL;
     }
   memset(ctx, 0, sizeof(struct transcode_ctx));
-  ctx->fd = -1;
 
   ret = av_open_input_file(&ctx->fmtctx, mfi->path, NULL, 0, NULL);
   if (ret != 0)
@@ -377,61 +316,6 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
       goto setup_fail;
     }
 
-  /* FLAC needs raw mode, ffmpeg sucks */
-  if (ctx->acodec->codec_id == CODEC_ID_FLAC)
-    {
-      ctx->rawbuffer = (uint8_t *)malloc(RAW_BUFFER_SIZE);
-      if (!ctx->rawbuffer)
-	{
-	  DPRINTF(E_WARN, L_XCODE, "Could not allocate raw buffer\n");
-
-	  avcodec_close(ctx->acodec);
-	  goto setup_fail;
-	}
-
-      ctx->fd = open(mfi->path, O_RDONLY);
-      if (ctx->fd < 0)
-	{
-	  DPRINTF(E_WARN, L_XCODE, "Could not open %s: %s\n", mfi->fname, strerror(errno));
-
-	  free(ctx->rawbuffer);
-	  avcodec_close(ctx->acodec);
-	  goto setup_fail;
-	}
-
-      /* Check for ID3v2 header */
-      ret = read(ctx->fd, ctx->rawbuffer, ID3V2_MIN_HEADER_SIZE);
-      if ((ret < 0) || (ret != ID3V2_MIN_HEADER_SIZE))
-	{
-	  if (ret < 0)
-	    DPRINTF(E_WARN, L_XCODE, "Could not read raw data: %s\n", strerror(errno));
-	  else
-	    DPRINTF(E_WARN, L_XCODE, "Could not read enough raw data\n");
-
-	  goto setup_fail_codec;
-	}
-
-      ret = has_id3v2_tag(ctx->rawbuffer);
-      if (ret)
-	{
-	  hdr_len = id3v2_tag_len(ctx->rawbuffer);
-	  DPRINTF(E_DBG, L_XCODE, "Skipping ID3V2 header of %d bytes\n", hdr_len);
-	}
-      else
-	hdr_len = 0;
-
-      pos = lseek(ctx->fd, hdr_len, SEEK_SET);
-      if (pos == (off_t) -1)
-	{
-	  DPRINTF(E_WARN, L_XCODE, "Could not seek: %s\n", strerror(errno));
-
-	  goto setup_fail_codec;
-	}
-    }
-
-  if (ctx->fd != -1)
-    DPRINTF(E_DBG, L_XCODE, "Set up raw mode for transcoding input\n");
-
   ctx->abuffer = (int16_t *)av_malloc(XCODE_BUFFER_SIZE);
   if (!ctx->abuffer)
     {
@@ -479,11 +363,6 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
   return ctx;
 
  setup_fail_codec:
-  if (ctx->fd != -1)
-    {
-      close(ctx->fd);
-      free(ctx->rawbuffer);
-    }
   avcodec_close(ctx->acodec);
 
  setup_fail:
@@ -496,16 +375,8 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
 void
 transcode_cleanup(struct transcode_ctx *ctx)
 {
-  if (ctx->fd != -1)
-    {
-      close(ctx->fd);
-      free(ctx->rawbuffer);
-    }
-  else
-    {
-      if (ctx->apacket.data)
-	av_free_packet(&ctx->apacket);
-    }
+  if (ctx->apacket.data)
+    av_free_packet(&ctx->apacket);
 
   avcodec_close(ctx->acodec);
   av_close_input_file(ctx->fmtctx);
