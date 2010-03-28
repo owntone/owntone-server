@@ -35,6 +35,7 @@
 
 #include "logger.h"
 #include "filescanner.h"
+#include "misc.h"
 
 
 /* Legacy format-specific scanners */
@@ -114,6 +115,45 @@ static const struct metadata_map md_map_vorbis[] =
     { NULL,           0, 0,                               NULL }
   };
 
+
+static int
+parse_slash_separated_ints(char *string, uint32_t *firstval, uint32_t *secondval)
+{
+  int numvals = 0;
+  char *ptr;
+
+  ptr = strchr(string, '/');
+  if (ptr)
+    {
+      *ptr = '\0';
+      if (safe_atou32(ptr + 1, secondval) == 0)
+        numvals++;
+    }
+
+  if (safe_atou32(string, firstval) == 0)
+    numvals++;
+
+  return numvals;
+}
+
+static int
+parse_id3v2_track(struct media_file_info *mfi, char *track_string)
+{
+  uint32_t *track = (uint32_t *) ((char *) mfi + mfi_offsetof(track));
+  uint32_t *total_tracks = (uint32_t *) ((char *) mfi + mfi_offsetof(total_tracks));
+
+  return parse_slash_separated_ints(track_string, track, total_tracks);
+}
+
+static int
+parse_id3v2_disc(struct media_file_info *mfi, char *disc_string)
+{
+  uint32_t *disc = (uint32_t *) ((char *) mfi + mfi_offsetof(disc));
+  uint32_t *total_discs = (uint32_t *) ((char *) mfi + mfi_offsetof(total_discs));
+
+  return parse_slash_separated_ints(disc_string, disc, total_discs);
+}
+
 /* NOTE about ID3 tag names:
  *  metadata conversion for ID3v2 tags was added in ffmpeg in september 2009
  *  (rev 20073) for ID3v2.3; support for ID3v2.2 tag names was added in december
@@ -137,10 +177,10 @@ static const struct metadata_map md_map_id3[] =
     { "TCON",         0, mfi_offsetof(genre),            NULL },              /* ID3v2.3 */
     { "TCM",          0, mfi_offsetof(composer),         NULL },              /* ID3v2.2 */
     { "TCOM",         0, mfi_offsetof(composer),         NULL },              /* ID3v2.3 */
-    { "TRK",          1, mfi_offsetof(track),            NULL },              /* ID3v2.2 */
-    { "TRCK",         1, mfi_offsetof(track),            NULL },              /* ID3v2.3 */
-    { "TPA",          1, mfi_offsetof(disc),             NULL },              /* ID3v2.2 */
-    { "TPOS",         1, mfi_offsetof(disc),             NULL },              /* ID3v2.3 */
+    { "TRK",          1, mfi_offsetof(track),            parse_id3v2_track }, /* ID3v2.2 */
+    { "TRCK",         1, mfi_offsetof(track),            parse_id3v2_track }, /* ID3v2.3 */
+    { "TPA",          1, mfi_offsetof(disc),             parse_id3v2_disc },  /* ID3v2.2 */
+    { "TPOS",         1, mfi_offsetof(disc),             parse_id3v2_disc },  /* ID3v2.3 */
     { "TYE",          1, mfi_offsetof(year),             NULL },              /* ID3v2.2 */
     { "TYER",         1, mfi_offsetof(year),             NULL },              /* ID3v2.3 */
     { "TDRC",         1, mfi_offsetof(year),             NULL },              /* ID3v2.4 */
@@ -178,6 +218,12 @@ extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct 
 
       if ((mdt->value == NULL) || (strlen(mdt->value) == 0))
 	continue;
+
+      if (md_map[i].handler_function)
+	{
+	  mdcount += md_map[i].handler_function(mfi, mdt->value);
+	  continue;
+	}
 
       mdcount++;
 
