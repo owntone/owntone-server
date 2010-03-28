@@ -125,7 +125,7 @@ static const struct metadata_map md_map_id3[] =
     { "TPOS",         1, mfi_offsetof(disc) },         /* ID3v2.3 */
     { "TYE",          1, mfi_offsetof(year) },         /* ID3v2.2 */
     { "TYER",         1, mfi_offsetof(year) },         /* ID3v2.3 */
-    { "TDRC",         1, mfi_offsetof(year) },         /* ID3v2.3 */
+    { "TDRC",         1, mfi_offsetof(year) },         /* ID3v2.4 */
 
     { NULL,           0, 0 }
   };
