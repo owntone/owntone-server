@@ -236,7 +236,6 @@ register_services(char *ffid, int no_rsp, int no_daap)
   char records[9][128];
   int port;
   uint32_t hash;
-  uint64_t libhash;
   int i;
   int ret;
 
@@ -300,8 +299,6 @@ register_services(char *ffid, int no_rsp, int no_daap)
     {
       memset(records[i], 0, 128);
     }
-
-  libhash = murmur_hash64(libname, strlen(libname), 0);
 
   snprintf(txtrecord[0], 128, "txtvers=1");
   snprintf(txtrecord[1], 128, "DbId=%016" PRIX64, libhash);

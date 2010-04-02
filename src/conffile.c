@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdint.h>
 
 #include <sys/utsname.h>
 
@@ -31,6 +32,7 @@
 #include <confuse.h>
 
 #include "logger.h"
+#include "misc.h"
 #include "conffile.h"
 
 
@@ -71,6 +73,7 @@ static cfg_opt_t toplvl_cfg[] =
   };
 
 cfg_t *cfg;
+uint64_t libhash;
 
 
 static int
@@ -114,11 +117,15 @@ conffile_expand_libname(cfg_t *lib)
   int ret;
 
   libname = cfg_getstr(lib, "name");
+  olen = strlen(libname);
 
   /* Fast path */
   s = strchr(libname, '%');
   if (!s)
-    return 0;
+    {
+      libhash = murmur_hash64(libname, olen, 0);
+      return 0;
+    }
 
   /* Grab what we need */
   ret = uname(&sysinfo);
@@ -133,10 +140,8 @@ conffile_expand_libname(cfg_t *lib)
   hostlen = strlen(hostname);
   verlen = strlen(VERSION);
 
-  olen = strlen(libname);
-  len = olen;
-
   /* Compute expanded size */
+  len = olen;
   s = libname;
   while (*s)
     {
@@ -201,6 +206,8 @@ conffile_expand_libname(cfg_t *lib)
     }
 
   cfg_setstr(lib, "name", expanded);
+
+  libhash = murmur_hash64(expanded, strlen(expanded), 0);
 
   free(expanded);
 

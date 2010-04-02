@@ -7,6 +7,7 @@
 #define CONFFILE   CONFDIR "/forked-daapd.conf"
 
 extern cfg_t *cfg;
+extern uint64_t libhash;
 
 int
 conffile_load(char *file);

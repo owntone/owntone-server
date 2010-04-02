@@ -86,7 +86,6 @@ static int pairing_pipe[2];
 static struct event pairingev;
 static pthread_mutex_t remote_lck = PTHREAD_MUTEX_INITIALIZER;
 static struct remote_info *remote_list;
-static uint64_t libhash;
 
 
 /* iTunes - Remote pairing hash */
@@ -775,7 +774,6 @@ pairing_cb(int fd, short event, void *arg)
 int
 remote_pairing_init(void)
 {
-  char *libname;
   int ret;
 
   remote_list = NULL;
@@ -819,9 +817,6 @@ remote_pairing_init(void)
 
       goto mdns_browse_fail;
     }
-
-  libname = cfg_getstr(cfg_getsec(cfg, "library"), "name");
-  libhash = murmur_hash64(libname, strlen(libname), 0);
 
 #ifdef USE_EVENTFD
   event_set(&pairingev, pairing_efd, EV_READ, pairing_cb, NULL);
