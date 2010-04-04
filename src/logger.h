@@ -21,8 +21,11 @@
 #define L_DACP    12
 #define L_FFMPEG  13
 #define L_ART     14
+#define L_PLAYER  15
+#define L_RAOP    16
+#define L_LAUDIO  17
 
-#define N_LOGDOMAINS  15
+#define N_LOGDOMAINS  18
 
 /* Severities */
 #define E_FATAL   0
