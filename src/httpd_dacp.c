@@ -28,6 +28,7 @@
 #include <sys/types.h>
 #include <regex.h>
 #include <stdint.h>
+#include <inttypes.h>
 
 #include <event.h>
 #include "evhttp/evhttp.h"
@@ -447,14 +448,84 @@ static void
 dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
+  const char *param;
+  const char *ptr;
+  uint64_t *ids;
+  int nspk;
+  int i;
+  int ret;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  /* Query: /setspeakers?speaker-id=0,0xapexid,0xapexid */
+  param = evhttp_find_header(query, "speaker-id");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "Missing speaker-id parameter in DACP setspeakers request\n");
 
-  /* TODO */
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  if (strlen(param) == 0)
+    {
+      ids = NULL;
+      goto fastpath;
+    }
+
+  nspk = 1;
+  ptr = param;
+  while ((ptr = strchr(ptr + 1, ',')))
+    nspk++;
+
+  ids = (uint64_t *)malloc((nspk + 1) * sizeof(uint64_t));
+  if (!ids)
+    {
+      DPRINTF(E_LOG, L_DACP, "Out of memory for speaker ids\n");
+
+      evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
+      return;
+    }
+
+  param--;
+  i = 1;
+  do
+    {
+      param++;
+      ret = safe_hextou64(param, &ids[i]);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Invalid speaker id in request: %s\n", param);
+
+	  nspk--;
+	  continue;
+	}
+
+      i++;
+    }
+  while ((param = strchr(param + 1, ',')));
+
+  ids[0] = nspk;
+
+ fastpath:
+  ret = player_speaker_set(ids);
+
+  if (ids)
+    free(ids);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Speakers de/activation failed!\n");
+
+      /* Password problem */
+      if (ret == -2)
+	evhttp_send_error(req, 902, "");
+      else
+	evhttp_send_error(req, 500, "Internal Server Error");
+
+      return;
+    }
 
   /* 204 No Content is the canonical reply */
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
