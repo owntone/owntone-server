@@ -38,6 +38,7 @@
 #include "httpd.h"
 #include "httpd_dacp.h"
 #include "dmap_helpers.h"
+#include "player.h"
 
 
 /* From httpd_daap.c */
@@ -388,21 +389,56 @@ dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
 }
 
 static void
+speaker_enum_cb(uint64_t id, const char *name, int selected, int has_password, void *arg)
+{
+  struct evbuffer *evbuf;
+  int len;
+
+  evbuf = (struct evbuffer *)arg;
+
+  len = 8 + strlen(name) + 16;
+  if (selected)
+    len += 9;
+  if (has_password)
+    len += 9;
+
+  dmap_add_container(evbuf, "mdcl", len); /* 8 + len */
+  if (selected)
+    dmap_add_char(evbuf, "caia", 1);      /* 9 */
+  if (has_password)
+    dmap_add_char(evbuf, "cahp", 1);      /* 9 */
+  dmap_add_string(evbuf, "minm", name);   /* 8 + len */
+  dmap_add_long(evbuf, "msma", id);       /* 16 */
+}
+
+static void
 dacp_reply_getspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
+  struct evbuffer *spklist;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  /* We're going to pretend we have local speakers... */
-  dmap_add_container(evbuf, "casp", 61);      /* 8 + len */
-  dmap_add_int(evbuf, "mstt", 200);           /* 12 */
-  dmap_add_container(evbuf, "mdcl", 41);      /* 8 + len */
-  dmap_add_char(evbuf, "caia", 1);            /* 9 */ /* Speaker is active */
-  dmap_add_string(evbuf, "minm", "Computer"); /* 8 + len */
-  dmap_add_long(evbuf, "msma", 0);            /* 16 */ /* Speaker identifier (ApEx mac address or 0 for computer) */
+  spklist = evbuffer_new();
+  if (!spklist)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not create evbuffer for speaker list\n");
+
+      dmap_send_error(req, "casp", "Out of memory");
+
+      return;
+    }
+
+  player_speaker_enumerate(speaker_enum_cb, spklist);
+
+  dmap_add_container(evbuf, "casp", 12 + EVBUFFER_LENGTH(spklist)); /* 8 + len */
+  dmap_add_int(evbuf, "mstt", 200); /* 12 */
+
+  evbuffer_add_buffer(evbuf, spklist);
+
+  evbuffer_free(spklist);
 
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
 }
