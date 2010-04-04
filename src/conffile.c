@@ -72,12 +72,20 @@ static cfg_opt_t sec_audio[] =
     CFG_END()
   };
 
+/* ApEx device section structure */
+static cfg_opt_t sec_apex[] =
+  {
+    CFG_STR("password", NULL, CFGF_NONE),
+    CFG_END()
+  };
+
 /* Config file structure */
 static cfg_opt_t toplvl_cfg[] =
   {
     CFG_SEC("general", sec_general, CFGF_NONE),
     CFG_SEC("library", sec_library, CFGF_NONE),
     CFG_SEC("audio", sec_audio, CFGF_NONE),
+    CFG_SEC("apex", sec_apex, CFGF_MULTI | CFGF_TITLE),
     CFG_END()
   };
 
