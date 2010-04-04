@@ -9,6 +9,9 @@ struct transcode_ctx;
 int
 transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted);
 
+int
+transcode_seek(struct transcode_ctx *ctx, int ms);
+
 struct transcode_ctx *
 transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr);
 
