@@ -13,6 +13,10 @@ if COND_ITUNES
 ITUNESSRC=filescanner_itunes.c
 endif
 
+if COND_ALSA
+ALSASRC=laudio_alsa.c
+endif
+
 ANTLR_GRAMMARS = \
 	RSP.g RSP2SQL.g \
 	DAAP.g DAAP2SQL.g
@@ -25,10 +29,10 @@ ANTLR_SOURCES = \
 
 ANTLR_PRODUCTS =
 
-forked_daapd_CPPFLAGS = -D_GNU_SOURCE @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ @LIBGCRYPT_CFLAGS@ \
+forked_daapd_CPPFLAGS = -D_GNU_SOURCE @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ @CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ @LIBGCRYPT_CFLAGS@ @ALSA_CFLAGS@ \
 	-DDATADIR="\"$(pkgdatadir)\"" -DCONFDIR="\"$(sysconfdir)\"" -DSTATEDIR="\"$(localstatedir)\""
 
-forked_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ @LIBGCRYPT_LIBS@
+forked_daapd_LDADD = @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ @CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ @LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ @LIBGCRYPT_LIBS@ @ALSA_LIBS@
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
 	logger.c logger.h \
@@ -48,8 +52,14 @@ forked_daapd_SOURCES = main.c \
 	transcode.c transcode.h \
 	artwork.c artwork.h \
 	misc.c misc.h \
+	rng.c rng.h \
 	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \
+	player.c player.h \
+	$(ALSASRC) laudio.h \
+	raop.c raop.h \
+	evrtsp/rtsp.c evrtp/evrtsp.h \
+	evrtsp/rtsp-internal.h evrtsp/log.h \
 	scan-wma.c \
 	$(FLACSRC) $(MUSEPACKSRC)
 
