@@ -39,7 +39,7 @@ void
 dmap_add_literal(struct evbuffer *evbuf, char *tag, char *str, int len);
 
 void
-dmap_add_string(struct evbuffer *evbuf, char *tag, char *str);
+dmap_add_string(struct evbuffer *evbuf, char *tag, const char *str);
 
 void
 dmap_send_error(struct evhttp_request *req, char *container, char *errmsg);

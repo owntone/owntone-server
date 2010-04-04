@@ -153,7 +153,7 @@ dmap_add_literal(struct evbuffer *evbuf, char *tag, char *str, int len)
 }
 
 void
-dmap_add_string(struct evbuffer *evbuf, char *tag, char *str)
+dmap_add_string(struct evbuffer *evbuf, char *tag, const char *str)
 {
   unsigned char buf[4];
   int len;
