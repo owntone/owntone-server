@@ -76,6 +76,7 @@ struct transcode_ctx {
   uint64_t samples;
 
   /* WAV header */
+  int wavhdr;
   uint8_t header[44];
 };
 
@@ -149,7 +150,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 
   processed = 0;
 
-  if (ctx->offset == 0)
+  if (ctx->wavhdr && (ctx->offset == 0))
     {
       evbuffer_add(evbuf, ctx->header, sizeof(ctx->header));
       processed += sizeof(ctx->header);
@@ -245,7 +246,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 }
 
 struct transcode_ctx *
-transcode_setup(struct media_file_info *mfi, off_t *est_size)
+transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 {
   struct transcode_ctx *ctx;
   int i;
@@ -357,8 +358,10 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size)
 
   ctx->duration = mfi->song_length;
   ctx->samples = mfi->sample_count;
+  ctx->wavhdr = wavhdr;
 
-  make_wav_header(ctx, est_size);
+  if (wavhdr)
+    make_wav_header(ctx, est_size);
 
   return ctx;
 
