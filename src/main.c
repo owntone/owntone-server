@@ -63,6 +63,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "httpd.h"
 #include "mdns_avahi.h"
 #include "remote_pairing.h"
+#include "player.h"
 #include "ffmpeg_url_evbuffer.h"
 
 
@@ -647,6 +648,16 @@ main(int argc, char **argv)
       goto filescanner_fail;
     }
 
+  /* Spawn player thread */
+  ret = player_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Player thread failed to start\n");
+
+      ret = EXIT_FAILURE;
+      goto player_fail;
+    }
+
   /* Spawn HTTPd thread */
   ret = httpd_init();
   if (ret != 0)
@@ -739,6 +750,10 @@ main(int argc, char **argv)
  remote_fail:
   DPRINTF(E_LOG, L_MAIN, "HTTPd deinit\n");
   httpd_deinit();
+
+ player_fail:
+  DPRINTF(E_LOG, L_MAIN, "Player deinit\n");
+  player_deinit();
 
  httpd_fail:
   DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
