@@ -122,9 +122,15 @@ fi
 
 case "$host" in
   *linux*)
+    use_alsa=true
+    PKG_CHECK_MODULES(ALSA, [ alsa ])
+    AC_DEFINE(LAUDIO_USE_ALSA, 1, [define if local audio output uses ALSA])
+
     AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
     ;;
 esac
+
+AM_CONDITIONAL(COND_ALSA, test x$use_alsa = xtrue)
 
 AC_CHECK_SIZEOF(void *)
 
