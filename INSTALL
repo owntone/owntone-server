@@ -19,9 +19,12 @@ invoke ANTLR. If it doesn't exist, it'll try to invoke ANTLR directly with
 'java org.antlr.Tool'; make sure your CLASSPATH is set properly, and if it
 doesn't work, just create the wrapper somewhere in your PATH.
 
-System-specific libraries:
+System-specific requirements:
  - Linux:
    + glibc 2.9+ (for signalfd)
+   + libasound (ALSA sound support - or you can use OSS4)
+ - FreeBSD:
+   + OSS4 sound support
 
 General libraries:
  - Avahi client libraries, 0.6.24 minimum
