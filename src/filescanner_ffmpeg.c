@@ -216,22 +216,35 @@ extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct 
 }
 
 static int
-extract_metadata(struct media_file_info *mfi, AVMetadata *md, const struct metadata_map *extra_md_map)
+extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *audio_stream, AVStream *video_stream, const struct metadata_map *md_map)
 {
   int mdcount;
-  int extra;
+  int ret;
 
-  mdcount = extract_metadata_core(mfi, md, md_map_generic);
+  mdcount = 0;
 
-  DPRINTF(E_DBG, L_SCAN, "Picked up %d metadata with generic map\n", mdcount);
-
-  if (extra_md_map)
+  if (ctx->metadata)
     {
-      extra = extract_metadata_core(mfi, md, extra_md_map);
+      ret = extract_metadata_core(mfi, ctx->metadata, md_map);
+      mdcount += ret;
 
-      DPRINTF(E_DBG, L_SCAN, "Picked up %d metadata with extra map\n", extra);
+      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from file metadata\n", ret);
+    }
 
-      mdcount += extra;
+  if (audio_stream->metadata)
+    {
+      ret = extract_metadata_core(mfi, audio_stream->metadata, md_map);
+      mdcount += ret;
+
+      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from audio stream metadata\n", ret);
+    }
+
+  if (video_stream && video_stream->metadata)
+    {
+      ret = extract_metadata_core(mfi, video_stream->metadata, md_map);
+      mdcount += ret;
+
+      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from video stream metadata\n", ret);
     }
 
   return mdcount;
@@ -476,34 +489,20 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
       goto skip_extract;
     }
 
+  if (extra_md_map)
+    {
+      ret = extract_metadata(mfi, ctx, audio_stream, video_stream, extra_md_map);
+      mdcount += ret;
+
+      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags with extra md_map\n", ret);
+    }
+
   av_metadata_conv(ctx, NULL, ctx->iformat->metadata_conv);
 
-  if (ctx->metadata)
-    {
-      ret = extract_metadata(mfi, ctx->metadata, extra_md_map);
+  ret = extract_metadata(mfi, ctx, audio_stream, video_stream, md_map_generic);
+  mdcount += ret;
 
-      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from file metadata\n", ret);
-
-      mdcount += ret;
-    }
-
-  if (audio_stream->metadata)
-    {
-      ret = extract_metadata(mfi, audio_stream->metadata, extra_md_map);
-
-      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from audio stream metadata\n", ret);
-
-      mdcount += ret;
-    }
-
-  if (video_stream && video_stream->metadata)
-    {
-      ret = extract_metadata(mfi, video_stream->metadata, extra_md_map);
-
-      DPRINTF(E_DBG, L_SCAN, "Picked up %d tags from video stream metadata\n", ret);
-
-      mdcount += ret;
-    }
+  DPRINTF(E_DBG, L_SCAN, "Picked up %d tags with generic md_map, %d tags total\n", ret, mdcount);
 
   /* fix up TV metadata */
   if (mfi->media_kind == 10)
