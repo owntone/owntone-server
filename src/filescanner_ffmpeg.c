@@ -61,6 +61,7 @@ static const struct metadata_map md_map_generic[] =
     { "title",        0, mfi_offsetof(title) },
     { "artist",       0, mfi_offsetof(artist) },
     { "author",       0, mfi_offsetof(artist) },
+    { "album_artist", 0, mfi_offsetof(album_artist) },
     { "albumartist",  0, mfi_offsetof(album_artist) },
     { "album",        0, mfi_offsetof(album) },
     { "genre",        0, mfi_offsetof(genre) },
