@@ -1440,7 +1440,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
 	      if (!dfm)
 		{
-		  DPRINTF(E_LOG, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
+		  DPRINTF(E_WARN, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
 		  continue;
 		}
 	    }
@@ -1769,7 +1769,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	  dfm = dmap_find_field(meta[i]);
 	  if (!dfm)
 	    {
-	      DPRINTF(E_LOG, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
+	      DPRINTF(E_WARN, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
 	      continue;
 	    }
 
@@ -2013,7 +2013,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	  dfm = dmap_find_field(meta[i]);
 	  if (!dfm)
 	    {
-	      DPRINTF(E_LOG, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
+	      DPRINTF(E_WARN, L_DAAP, "Could not find requested meta field (%d)\n", i + 1);
 	      continue;
 	    }
 
