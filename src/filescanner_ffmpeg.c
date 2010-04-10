@@ -53,41 +53,42 @@ struct metadata_map {
   char *key;
   int as_int;
   size_t offset;
+  int (*handler_function)(struct media_file_info *, char *);
 };
 
 /* Lookup is case-insensitive, first occurrence takes precedence */
 static const struct metadata_map md_map_generic[] =
   {
-    { "title",        0, mfi_offsetof(title) },
-    { "artist",       0, mfi_offsetof(artist) },
-    { "author",       0, mfi_offsetof(artist) },
-    { "album_artist", 0, mfi_offsetof(album_artist) },
-    { "album",        0, mfi_offsetof(album) },
-    { "genre",        0, mfi_offsetof(genre) },
-    { "composer",     0, mfi_offsetof(composer) },
-    { "grouping",     0, mfi_offsetof(grouping) },
-    { "orchestra",    0, mfi_offsetof(orchestra) },
-    { "conductor",    0, mfi_offsetof(conductor) },
-    { "comment",      0, mfi_offsetof(comment) },
-    { "description",  0, mfi_offsetof(comment) },
-    { "track",        1, mfi_offsetof(track) },
-    { "disc",         1, mfi_offsetof(disc) },
-    { "year",         1, mfi_offsetof(year) },
-    { "date",         1, mfi_offsetof(year) },
+    { "title",        0, mfi_offsetof(title),              NULL },
+    { "artist",       0, mfi_offsetof(artist),             NULL },
+    { "author",       0, mfi_offsetof(artist),             NULL },
+    { "album_artist", 0, mfi_offsetof(album_artist),       NULL },
+    { "album",        0, mfi_offsetof(album),              NULL },
+    { "genre",        0, mfi_offsetof(genre),              NULL },
+    { "composer",     0, mfi_offsetof(composer),           NULL },
+    { "grouping",     0, mfi_offsetof(grouping),           NULL },
+    { "orchestra",    0, mfi_offsetof(orchestra),          NULL },
+    { "conductor",    0, mfi_offsetof(conductor),          NULL },
+    { "comment",      0, mfi_offsetof(comment),            NULL },
+    { "description",  0, mfi_offsetof(comment),            NULL },
+    { "track",        1, mfi_offsetof(track),              NULL },
+    { "disc",         1, mfi_offsetof(disc),               NULL },
+    { "year",         1, mfi_offsetof(year),               NULL },
+    { "date",         1, mfi_offsetof(year),               NULL },
 
-    { NULL,           0, 0 }
+    { NULL,           0, 0,                                NULL }
   };
 
 static const struct metadata_map md_map_tv[] =
   {
-    { "stik",         1, mfi_offsetof(media_kind) },
-    { "show",         0, mfi_offsetof(tv_series_name) },
-    { "episode_id",   0, mfi_offsetof(tv_episode_num_str) },
-    { "network",      0, mfi_offsetof(tv_network_name) },
-    { "episode_sort", 1, mfi_offsetof(tv_episode_sort) },
-    { "season_number",1, mfi_offsetof(tv_season_num) },
+    { "stik",         1, mfi_offsetof(media_kind),         NULL },
+    { "show",         0, mfi_offsetof(tv_series_name),     NULL },
+    { "episode_id",   0, mfi_offsetof(tv_episode_num_str), NULL },
+    { "network",      0, mfi_offsetof(tv_network_name),    NULL },
+    { "episode_sort", 1, mfi_offsetof(tv_episode_sort),    NULL },
+    { "season_number",1, mfi_offsetof(tv_season_num),      NULL },
 
-    { NULL,           0, 0 }
+    { NULL,           0, 0,                                NULL }
   };
 
 /* NOTE about VORBIS comments:
@@ -101,16 +102,16 @@ static const struct metadata_map md_map_tv[] =
  */
 static const struct metadata_map md_map_vorbis[] =
   {
-    { "albumartist",  0, mfi_offsetof(album_artist) },
-    { "album artist", 0, mfi_offsetof(album_artist) },
-    { "tracknumber",  1, mfi_offsetof(track) },
-    { "tracktotal",   1, mfi_offsetof(total_tracks) },
-    { "totaltracks",  1, mfi_offsetof(total_tracks) },
-    { "discnumber",   1, mfi_offsetof(disc) },
-    { "disctotal",    1, mfi_offsetof(total_discs) },
-    { "totaldiscs",   1, mfi_offsetof(total_discs) },
+    { "albumartist",  0, mfi_offsetof(album_artist),      NULL },
+    { "album artist", 0, mfi_offsetof(album_artist),      NULL },
+    { "tracknumber",  1, mfi_offsetof(track),             NULL },
+    { "tracktotal",   1, mfi_offsetof(total_tracks),      NULL },
+    { "totaltracks",  1, mfi_offsetof(total_tracks),      NULL },
+    { "discnumber",   1, mfi_offsetof(disc),              NULL },
+    { "disctotal",    1, mfi_offsetof(total_discs),       NULL },
+    { "totaldiscs",   1, mfi_offsetof(total_discs),       NULL },
 
-    { NULL,           0, 0 }
+    { NULL,           0, 0,                               NULL }
   };
 
 /* NOTE about ID3 tag names:
@@ -124,27 +125,27 @@ static const struct metadata_map md_map_vorbis[] =
  */
 static const struct metadata_map md_map_id3[] =
   {
-    { "TT2",          0, mfi_offsetof(title) },        /* ID3v2.2 */
-    { "TIT2",         0, mfi_offsetof(title) },        /* ID3v2.3 */
-    { "TP1",          0, mfi_offsetof(artist) },       /* ID3v2.2 */
-    { "TPE1",         0, mfi_offsetof(artist) },       /* ID3v2.3 */
-    { "TP2",          0, mfi_offsetof(album_artist) }, /* ID3v2.2 */
-    { "TPE2",         0, mfi_offsetof(album_artist) }, /* ID3v2.3 */
-    { "TAL",          0, mfi_offsetof(album) },        /* ID3v2.2 */
-    { "TALB",         0, mfi_offsetof(album) },        /* ID3v2.3 */
-    { "TCO",          0, mfi_offsetof(genre) },        /* ID3v2.2 */
-    { "TCON",         0, mfi_offsetof(genre) },        /* ID3v2.3 */
-    { "TCM",          0, mfi_offsetof(composer) },     /* ID3v2.2 */
-    { "TCOM",         0, mfi_offsetof(composer) },     /* ID3v2.3 */
-    { "TRK",          1, mfi_offsetof(track) },        /* ID3v2.2 */
-    { "TRCK",         1, mfi_offsetof(track) },        /* ID3v2.3 */
-    { "TPA",          1, mfi_offsetof(disc) },         /* ID3v2.2 */
-    { "TPOS",         1, mfi_offsetof(disc) },         /* ID3v2.3 */
-    { "TYE",          1, mfi_offsetof(year) },         /* ID3v2.2 */
-    { "TYER",         1, mfi_offsetof(year) },         /* ID3v2.3 */
-    { "TDRC",         1, mfi_offsetof(year) },         /* ID3v2.4 */
+    { "TT2",          0, mfi_offsetof(title),            NULL },              /* ID3v2.2 */
+    { "TIT2",         0, mfi_offsetof(title),            NULL },              /* ID3v2.3 */
+    { "TP1",          0, mfi_offsetof(artist),           NULL },              /* ID3v2.2 */
+    { "TPE1",         0, mfi_offsetof(artist),           NULL },              /* ID3v2.3 */
+    { "TP2",          0, mfi_offsetof(album_artist),     NULL },              /* ID3v2.2 */
+    { "TPE2",         0, mfi_offsetof(album_artist),     NULL },              /* ID3v2.3 */
+    { "TAL",          0, mfi_offsetof(album),            NULL },              /* ID3v2.2 */
+    { "TALB",         0, mfi_offsetof(album),            NULL },              /* ID3v2.3 */
+    { "TCO",          0, mfi_offsetof(genre),            NULL },              /* ID3v2.2 */
+    { "TCON",         0, mfi_offsetof(genre),            NULL },              /* ID3v2.3 */
+    { "TCM",          0, mfi_offsetof(composer),         NULL },              /* ID3v2.2 */
+    { "TCOM",         0, mfi_offsetof(composer),         NULL },              /* ID3v2.3 */
+    { "TRK",          1, mfi_offsetof(track),            NULL },              /* ID3v2.2 */
+    { "TRCK",         1, mfi_offsetof(track),            NULL },              /* ID3v2.3 */
+    { "TPA",          1, mfi_offsetof(disc),             NULL },              /* ID3v2.2 */
+    { "TPOS",         1, mfi_offsetof(disc),             NULL },              /* ID3v2.3 */
+    { "TYE",          1, mfi_offsetof(year),             NULL },              /* ID3v2.2 */
+    { "TYER",         1, mfi_offsetof(year),             NULL },              /* ID3v2.3 */
+    { "TDRC",         1, mfi_offsetof(year),             NULL },              /* ID3v2.4 */
 
-    { NULL,           0, 0 }
+    { NULL,           0, 0,                              NULL }
   };
 
 
