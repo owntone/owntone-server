@@ -122,20 +122,110 @@ dacp_reply_ctrlint(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
 }
 
 static void
+dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  const char *sort;
+  const char *cuequery;
+  const char *param;
+  struct player_source *ps;
+  uint32_t id;
+  int ret;
+
+  /* /cue?command=play&query=...&sort=...&index=N */
+
+  cuequery = evhttp_find_header(query, "query");
+  if (!cuequery)
+    {
+      DPRINTF(E_LOG, L_DACP, "No query given for cue play command\n");
+
+      dmap_send_error(req, "cacr", "No query given");
+      return;
+    }
+
+  sort = evhttp_find_header(query, "sort");
+
+  ps = player_queue_make(cuequery, sort);
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
+
+      dmap_send_error(req, "cacr", "Could not build song queue");
+      return;
+    }
+
+  player_queue_add(ps);
+
+  id = 0;
+  param = evhttp_find_header(query, "index");
+  if (param)
+    {
+      ret = safe_atou32(param, &id);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_DACP, "Invalid index (%s) in cue request\n", param);
+    }
+
+  ret = player_playback_start(&id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
+
+      dmap_send_error(req, "cacr", "Playback failed to start");
+      return;
+    }
+
+  dmap_add_container(evbuf, "cacr", 24); /* 8 + len */
+  dmap_add_int(evbuf, "mstt", 200);      /* 12 */
+  dmap_add_int(evbuf, "miid", id);       /* 12 */
+
+  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+}
+
+static void
+dacp_reply_cue_clear(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  /* /cue?command=clear */
+
+  player_playback_stop();
+
+  player_queue_clear();
+
+  dmap_add_container(evbuf, "cacr", 24); /* 8 + len */
+  dmap_add_int(evbuf, "mstt", 200);      /* 12 */
+  dmap_add_int(evbuf, "miid", 0);        /* 12 */
+
+  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+}
+
+static void
 dacp_reply_cue(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
+  const char *param;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  /* /cue?command=play&query=...&sort=...&index=N */
-  /* /cue?command=clear */
+  param = evhttp_find_header(query, "command");
+  if (!param)
+    {
+      DPRINTF(E_DBG, L_DACP, "No command in cue request\n");
 
-  /* TODO */
+      dmap_send_error(req, "cacr", "No command in cue request");
+      return;
+    }
 
-  dmap_send_error(req, "cacr", "Not implemented");
+  if (strcmp(param, "clear") == 0)
+    dacp_reply_cue_clear(req, evbuf, uri, query);
+  else if (strcmp(param, "play") == 0)
+    dacp_reply_cue_play(req, evbuf, uri, query);
+  else
+    {
+      DPRINTF(E_LOG, L_DACP, "Unknown cue command %s\n", param);
+
+      dmap_send_error(req, "cacr", "Unknown command in cue request");
+      return;
+    }
 }
 
 static void
