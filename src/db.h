@@ -392,6 +392,13 @@ db_pairing_add(struct pairing_info *pi);
 int
 db_pairing_fetch_byguid(struct pairing_info *pi);
 
+/* Config */
+int
+db_config_save_int(const char *key, int val);
+
+int
+db_config_fetch_int(const char *key, int *val);
+
 /* Inotify */
 int
 db_watch_clear(void);

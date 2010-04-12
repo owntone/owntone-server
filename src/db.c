@@ -2923,6 +2923,95 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 }
 
 
+/* Config */
+int
+db_config_save_int(const char *key, int val)
+{
+#define Q_TMPL "UPDATE admin SET value = '%d' WHERE key = '%q';"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, val, key);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error saving int value: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+int
+db_config_fetch_int(const char *key, int *val)
+{
+#define Q_TMPL "SELECT value FROM admin WHERE key = '%q';"
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, key);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      ret = -1;
+      goto out;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+
+      ret = -1;
+      goto out;
+    }
+
+  *val = sqlite3_column_int(stmt, 0);
+
+  sqlite3_finalize(stmt);
+
+  ret = 0;
+
+ out:
+  sqlite3_free(query);
+  return ret;
+
+#undef Q_TMPL
+}
+
+
 /* Inotify */
 int
 db_watch_clear(void)
@@ -3632,10 +3721,13 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
+#define Q_PLAYER_VOLUME				\
+  "INSERT INTO admin (key, value) VALUES ('player:volume', '75');"
 
-#define SCHEMA_VERSION 9
+
+#define SCHEMA_VERSION 10
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '9');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '10');"
 
 struct db_init_query {
   char *query;
@@ -3664,6 +3756,8 @@ static const struct db_init_query db_init_queries[] =
     { Q_PL2,       "create default smart playlist 'Music'" },
     { Q_PL3,       "create default smart playlist 'Movies'" },
     { Q_PL4,       "create default smart playlist 'TV Shows'" },
+
+    { Q_PLAYER_VOLUME, "store player start volume" },
 
     { Q_SCVER,     "set schema version" },
   };
