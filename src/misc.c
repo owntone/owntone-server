@@ -308,6 +308,73 @@ b64_decode(const char *b64)
   return str;
 }
 
+static const char b64_encode_table[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
+static void
+b64_encode_block(uint8_t *in, char *out, int len)
+{
+  out[0] = b64_encode_table[in[0] >> 2];
+
+  out[2] = out[3] = '=';
+
+  if (len == 1)
+    out[1] = b64_encode_table[((in[0] & 0x03) << 4)];
+  else
+    {
+      out[1] = b64_encode_table[((in[0] & 0x03) << 4) | ((in[1] & 0xf0) >> 4)];
+
+      if (len == 2)
+	out[2] = b64_encode_table[((in[1] & 0x0f) << 2)];
+      else
+	{
+	  out[2] = b64_encode_table[((in[1] & 0x0f) << 2) | ((in[2] & 0xc0) >> 6)];
+	  out[3] = b64_encode_table[in[2] & 0x3f];
+	}
+    }
+}
+
+static void
+b64_encode_full_block(uint8_t *in, char *out)
+{
+  out[0] = b64_encode_table[in[0] >> 2];
+  out[1] = b64_encode_table[((in[0] & 0x03) << 4) | ((in[1] & 0xf0) >> 4)];
+  out[2] = b64_encode_table[((in[1] & 0x0f) << 2) | ((in[2] & 0xc0) >> 6)];
+  out[3] = b64_encode_table[in[2] & 0x3f];
+}
+
+char *
+b64_encode(uint8_t *in, size_t len)
+{
+  char *encoded;
+  char *out;
+
+  /* 3 in chars -> 4 out chars */
+  encoded = (char *)malloc(len + (len / 3) + 4 + 1);
+  if (!encoded)
+    return NULL;
+
+  out = encoded;
+
+  while (len >= 3)
+    {
+      b64_encode_full_block(in, out);
+
+      len -= 3;
+      in += 3;
+      out += 4;
+    }
+
+  if (len > 0)
+    {
+      b64_encode_block(in, out, len);
+      out += 4;
+    }
+
+  out[0] = '\0';
+
+  return encoded;
+}
+
 /*
  * MurmurHash2, 64-bit versions, by Austin Appleby
  *
