@@ -2870,6 +2870,7 @@ daap_deinit(void)
     {
       update_requests = ur->next;
 
+      evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
       free(ur);
     }
 }
