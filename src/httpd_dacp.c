@@ -39,6 +39,7 @@
 #include "httpd.h"
 #include "httpd_dacp.h"
 #include "dmap_helpers.h"
+#include "db.h"
 #include "player.h"
 
 
@@ -63,10 +64,104 @@ struct dacp_update_request {
 
 
 /* Play status update requests */
+static int current_rev;
 static struct dacp_update_request *update_requests;
 
 
 /* Update requests helpers */
+static int
+make_playstatusupdate(struct evbuffer *evbuf)
+{
+  struct player_status status;
+  char canp[16];
+  struct media_file_info *mfi;
+  struct evbuffer *psu;
+  int ret;
+
+  psu = evbuffer_new();
+  if (!psu)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for playstatusupdate\n");
+
+      return -1;
+    }
+
+  memset(&status, 0, sizeof(struct player_status));
+
+  player_get_status(&status);
+
+  if (status.status != PLAY_STOPPED)
+    {
+      mfi = db_file_fetch_byid(status.id);
+      if (!mfi)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Could not fetch file id %d\n", status.id);
+
+	  return -1;
+	}
+    }
+  else
+    mfi = NULL;
+
+  dmap_add_int(psu, "mstt", 200);         /* 12 */
+
+  dmap_add_int(psu, "cmsr", current_rev); /* 12 */
+
+  dmap_add_char(psu, "cavc", 1);              /* 9 */ /* volume controllable */
+  dmap_add_char(psu, "caps", status.status);  /* 9 */ /* play status, 2 = stopped, 3 = paused, 4 = playing */
+  dmap_add_char(psu, "cash", status.shuffle); /* 9 */ /* shuffle, true/false */
+  dmap_add_char(psu, "carp", status.repeat);  /* 9 */ /* repeat, 0 = off, 1 = repeat song, 2 = repeat (playlist) */
+
+  dmap_add_int(psu, "caas", 2);           /* 12 */ /* available shuffle states */
+  dmap_add_int(psu, "caar", 6);           /* 12 */ /* available repeat states */
+
+  if (mfi)
+    {
+      memset(canp, 0, sizeof(canp));
+
+      canp[3] = 1; /* 0-3 database ID */
+
+      /* 4-7 playlist ID FIXME */
+
+      canp[8]  = (status.pos_pl >> 24) & 0xff; /* 8-11 position in playlist */
+      canp[9]  = (status.pos_pl >> 16) & 0xff;
+      canp[10] = (status.pos_pl >> 8) & 0xff;
+      canp[11] = status.pos_pl & 0xff;
+
+      canp[12] = (status.id >> 24) & 0xff; /* 12-15 track ID */
+      canp[13] = (status.id >> 16) & 0xff;
+      canp[14] = (status.id >> 8) & 0xff;
+      canp[15] = status.id & 0xff;
+
+      dmap_add_literal(psu, "canp", canp, sizeof(canp));
+
+      dmap_add_string(psu, "cann", mfi->title);
+      dmap_add_string(psu, "cana", mfi->artist);
+      dmap_add_string(psu, "canl", mfi->album);
+      dmap_add_string(psu, "cang", mfi->genre);
+      dmap_add_long(psu, "asai", mfi->songalbumid);
+
+      dmap_add_int(psu, "cmmk", 1);
+
+      dmap_add_int(psu, "cant", mfi->song_length - status.pos_ms); /* Remaining time in ms */
+      dmap_add_int(psu, "cast", mfi->song_length); /* Song length in ms */
+
+      free_mfi(mfi, 0);
+    }
+
+  dmap_add_container(evbuf, "cmst", EVBUFFER_LENGTH(psu));    /* 8 + len */
+
+  ret = evbuffer_add_buffer(evbuf, psu);
+  evbuffer_free(psu);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not add status data to playstatusupdate reply\n");
+
+      return -1;
+    }
+
+  return 0;
+}
 
 static void
 update_fail_cb(struct evhttp_connection *evcon, void *arg)
@@ -339,7 +434,6 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
   struct daap_session *s;
   struct dacp_update_request *ur;
   const char *param;
-  int current_rev = 2;
   int reqd_rev;
   int ret;
 
@@ -367,20 +461,11 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   if (reqd_rev == 1)
     {
-      dmap_add_container(evbuf, "cmst", 84);    /* 8 + len */
-      dmap_add_int(evbuf, "mstt", 200);         /* 12 */
-
-      dmap_add_int(evbuf, "cmsr", current_rev); /* 12 */
-
-      dmap_add_char(evbuf, "cavc", 1);          /* 9 */ /* volume controllable */
-      dmap_add_char(evbuf, "caps", 2);          /* 9 */ /* play status, 2 = stopped, 3 = paused, 4 = playing */
-      dmap_add_char(evbuf, "cash", 0);          /* 9 */ /* shuffle, true/false */
-      dmap_add_char(evbuf, "carp", 0);          /* 9 */ /* repeat, 0 = off, 1 = repeat song, 2 = repeat (playlist) */
-
-      dmap_add_int(evbuf, "caas", 2);           /* 12 */ /* album shuffle */
-      dmap_add_int(evbuf, "caar", 6);           /* 12 */ /* album repeat */
-
-      evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+      ret = make_playstatusupdate(evbuf);
+      if (ret < 0)
+	evhttp_send_error(req, 500, "Internal Server Error");
+      else
+	evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
 
       return;
     }
@@ -820,6 +905,7 @@ dacp_init(void)
   int i;
   int ret;
 
+  current_rev = 2;
   update_requests = NULL;
 
   for (i = 0; dacp_handlers[i].handler; i++)
