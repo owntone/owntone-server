@@ -1087,12 +1087,20 @@ httpd_init(void)
 
   httpd_exit = 0;
 
+  evbase_httpd = event_base_new();
+  if (!evbase_httpd)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Could not create an event base\n");
+
+      return -1;
+    }
+
   ret = rsp_init();
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "RSP protocol init failed\n");
 
-      return -1;
+      goto rsp_fail;
     }
 
   ret = daap_init();
@@ -1132,14 +1140,6 @@ httpd_init(void)
       goto pipe_fail;
     }
 #endif /* USE_EVENTFD */
-
-  evbase_httpd = event_base_new();
-  if (!evbase_httpd)
-    {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not create an event base\n");
-
-      goto evbase_fail;
-    }
 
 #ifdef USE_EVENTFD
   event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
@@ -1191,8 +1191,6 @@ httpd_init(void)
  bind_fail:
   evhttp_free(evhttpd);
  evhttp_fail:
-  event_base_free(evbase_httpd);
- evbase_fail:
 #ifdef USE_EVENTFD
   close(exit_efd);
 #else
@@ -1205,6 +1203,8 @@ httpd_init(void)
   daap_deinit();
  daap_fail:
   rsp_deinit();
+ rsp_fail:
+  event_base_free(evbase_httpd);
 
   return -1;
 }
