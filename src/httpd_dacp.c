@@ -456,12 +456,29 @@ static void
 dacp_reply_nextitem(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
+  int ret;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  /* TODO */
+  ret = player_playback_next();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Player returned an error for nextitem\n");
+
+      evhttp_send_error(req, 500, "Internal Server Error");
+      return;
+    }
+
+  ret = player_playback_start(NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Player returned an error for start after nextitem\n");
+
+      evhttp_send_error(req, 500, "Internal Server Error");
+      return;
+    }
 
   /* 204 No Content is the canonical reply */
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
@@ -471,12 +488,29 @@ static void
 dacp_reply_previtem(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
+  int ret;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  /* TODO */
+  ret = player_playback_prev();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Player returned an error for previtem\n");
+
+      evhttp_send_error(req, 500, "Internal Server Error");
+      return;
+    }
+
+  ret = player_playback_start(NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Player returned an error for start after previtem\n");
+
+      evhttp_send_error(req, 500, "Internal Server Error");
+      return;
+    }
 
   /* 204 No Content is the canonical reply */
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
