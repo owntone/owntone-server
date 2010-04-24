@@ -22,6 +22,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
+#include <fcntl.h>
 #include <string.h>
 #include <errno.h>
 #include <sys/queue.h>
@@ -29,6 +31,11 @@
 #include <regex.h>
 #include <stdint.h>
 #include <inttypes.h>
+
+#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
+# define USE_EVENTFD
+# include <sys/eventfd.h>
+#endif
 
 #include <event.h>
 #include "evhttp/evhttp.h"
@@ -42,6 +49,9 @@
 #include "db.h"
 #include "player.h"
 
+
+/* httpd event base, from httpd.c */
+extern struct event_base *evbase_httpd;
 
 /* From httpd_daap.c */
 struct daap_session;
@@ -63,8 +73,16 @@ struct dacp_update_request {
 };
 
 
-/* Play status update requests */
+/* Play status update */
+#ifdef USE_EVENTFD
+static int update_efd;
+#else
+static int update_pipe[2];
+#endif
+static struct event updateev;
 static int current_rev;
+
+/* Play status update requests */
 static struct dacp_update_request *update_requests;
 
 
@@ -161,6 +179,78 @@ make_playstatusupdate(struct evbuffer *evbuf)
     }
 
   return 0;
+}
+
+static void
+playstatusupdate_cb(int fd, short what, void *arg)
+{
+  struct dacp_update_request *ur;
+  struct evbuffer *evbuf;
+  struct evbuffer *update;
+  int ret;
+
+#ifdef USE_EVENTFD
+  eventfd_t count;
+
+  ret = eventfd_read(update_efd, &count);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not read playstatusupdate event counter: %s\n", strerror(errno));
+
+      goto readd;
+    }
+#else
+  int dummy;
+
+  read(update_pipe[0], &dummy, sizeof(dummy));
+#endif
+
+  if (!update_requests)
+    goto readd;
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for playstatusupdate reply\n");
+
+      goto readd;
+    }
+
+  update = evbuffer_new();
+  if (!evbuf)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for playstatusupdate data\n");
+
+      goto out_free_evbuf;
+    }
+
+  ret = make_playstatusupdate(update);
+  if (ret < 0)
+    goto out_free_update;
+
+  for (ur = update_requests; update_requests; ur = update_requests)
+    {
+      update_requests = ur->next;
+
+      evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+
+      evbuffer_add(evbuf, EVBUFFER_DATA(update), EVBUFFER_LENGTH(update));
+
+      evhttp_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+
+      free(ur);
+    }
+
+  current_rev++;
+
+ out_free_update:
+  evbuffer_free(update);
+ out_free_evbuf:
+  evbuffer_free(evbuf);
+ readd:
+  ret = event_add(&updateev, NULL);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_DACP, "Couldn't re-add event for playstatusupdate\n");
 }
 
 static void
@@ -908,6 +998,28 @@ dacp_init(void)
   current_rev = 2;
   update_requests = NULL;
 
+#ifdef USE_EVENTFD
+  update_efd = eventfd(0, EFD_CLOEXEC);
+  if (update_efd < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not create update eventfd: %s\n", strerror(errno));
+
+      return -1;
+    }
+#else
+# if defined(__linux__)
+  ret = pipe2(update_pipe, O_CLOEXEC);
+# else
+  ret = pipe(update_pipe);
+# endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not create update pipe: %s\n", strerror(errno));
+
+      return -1;
+    }
+#endif /* USE_EVENTFD */
+
   for (i = 0; dacp_handlers[i].handler; i++)
     {
       ret = regcomp(&dacp_handlers[i].preg, dacp_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
@@ -916,11 +1028,34 @@ dacp_init(void)
           regerror(ret, &dacp_handlers[i].preg, buf, sizeof(buf));
 
           DPRINTF(E_FATAL, L_DACP, "DACP init failed; regexp error: %s\n", buf);
-	  return -1;
+	  goto regexp_fail;
         }
     }
 
+#ifdef USE_EVENTFD
+  event_set(&updateev, update_efd, EV_READ, playstatusupdate_cb, NULL);
+#else
+  event_set(&updateev, update_pipe[0], EV_READ, playstatusupdate_cb, NULL);
+#endif
+  event_base_set(evbase_httpd, &updateev);
+  event_add(&updateev, NULL);
+
+#ifdef USE_EVENTFD
+  player_set_updatefd(update_efd);
+#else
+  player_set_updatefd(update_pipe[1]);
+#endif
+
   return 0;
+
+ regexp_fail:
+#ifdef USE_EVENTFD
+  close(update_efd);
+#else
+  close(update_pipe[0]);
+  close(update_pipe[1]);
+#endif
+  return -1;
 }
 
 void
@@ -939,4 +1074,13 @@ dacp_deinit(void)
       evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
       free(ur);
     }
+
+  player_set_updatefd(-1);
+
+#ifdef USE_EVENTFD
+  close(update_efd);
+#else
+  close(update_pipe[0]);
+  close(update_pipe[1]);
+#endif
 }
