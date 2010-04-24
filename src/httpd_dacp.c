@@ -43,6 +43,7 @@
 #include "logger.h"
 #include "misc.h"
 #include "conffile.h"
+#include "artwork.h"
 #include "httpd.h"
 #include "httpd_dacp.h"
 #include "dmap_helpers.h"
@@ -584,14 +585,76 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
 static void
 dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  char clen[32];
   struct daap_session *s;
+  const char *param;
+  uint32_t id;
+  int max_w;
+  int max_h;
+  int ret;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  /* We don't have any support for artwork at the moment... */
-  /* No artwork -> 404 Not Found */
+  param = evhttp_find_header(query, "mw");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "Request for artwork without mw parameter\n");
+
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  ret = safe_atoi32(param, &max_w);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not convert mw parameter to integer\n");
+
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  param = evhttp_find_header(query, "mh");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "Request for artwork without mh parameter\n");
+
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  ret = safe_atoi32(param, &max_h);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not convert mh parameter to integer\n");
+
+      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+      return;
+    }
+
+  ret = player_now_playing(&id);
+  if (ret < 0)
+    goto no_artwork;
+
+  ret = artwork_get_item(id, max_w, max_h, evbuf);
+  if (ret < 0)
+    {
+      if (EVBUFFER_LENGTH(evbuf) > 0)
+        evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+
+      goto no_artwork;
+    }
+
+  evhttp_remove_header(req->output_headers, "Content-Type");
+  evhttp_add_header(req->output_headers, "Content-Type", "image/png");
+  snprintf(clen, sizeof(clen), "%ld", (long)EVBUFFER_LENGTH(evbuf));
+  evhttp_add_header(req->output_headers, "Content-Length", clen);
+
+  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  return;
+
+ no_artwork:
   evhttp_send_error(req, HTTP_NOTFOUND, "Not Found");
 }
 
