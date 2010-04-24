@@ -891,6 +891,8 @@ get_query_params(struct evkeyvalq *query, struct query_params *qp)
 
   qp->idx_type = I_SUB;
 
+  qp->sort = S_NONE;
+
   param = evhttp_find_header(query, "query");
   if (!param)
     param = evhttp_find_header(query, "filter");

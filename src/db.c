@@ -618,6 +618,7 @@ db_build_query_items(struct query_params *qp, char **q)
   char *query;
   char *count;
   char *idx;
+  char *sort;
   int ret;
 
   if (qp->filter)
@@ -643,14 +644,29 @@ db_build_query_items(struct query_params *qp, char **q)
   if (ret < 0)
     return -1;
 
+  switch (qp->sort)
+    {
+      case S_NONE:
+	sort = "";
+	break;
+
+      case S_NAME:
+	sort = "ORDER BY title ASC";
+	break;
+
+      case S_ALBUM:
+	sort = "ORDER BY track ASC, album ASC";
+	break;
+    }
+
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s %s;", qp->filter, idx);
+    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s %s %s;", qp->filter, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 %s;", idx);
+    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 %s %s;", sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s;", qp->filter);
+    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s %s;", qp->filter, sort);
   else
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0;");
+    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 %s;", sort);
 
   if (!query)
     {

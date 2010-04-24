@@ -16,6 +16,12 @@ enum index_type {
   I_SUB
 };
 
+enum sort_type {
+  S_NONE = 0,
+  S_NAME,
+  S_ALBUM,
+};
+
 #define Q_F_BROWSE (1 << 15)
 
 enum query_type {
@@ -35,6 +41,7 @@ struct query_params {
   /* Query parameters, filled in by caller */
   enum query_type type;
   enum index_type idx_type;
+  enum sort_type sort;
   int id;
   int offset;
   int limit;
