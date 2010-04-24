@@ -423,7 +423,7 @@ dacp_reply_pause(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
   if (!s)
     return;
 
-  /* TODO */
+  player_playback_pause();
 
   /* 204 No Content is the canonical reply */
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
@@ -433,12 +433,20 @@ static void
 dacp_reply_playpause(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
+  int ret;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  /* TODO */
+  ret = player_playback_start(NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Player returned an error for start after pause\n");
+
+      evhttp_send_error(req, 500, "Internal Server Error");
+      return;
+    }
 
   /* 204 No Content is the canonical reply */
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
