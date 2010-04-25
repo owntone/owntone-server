@@ -87,12 +87,58 @@ static int current_rev;
 static struct dacp_update_request *update_requests;
 
 
+/* DACP helpers */
+static void
+dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+  char canp[16];
+
+  if ((status->status == PLAY_STOPPED) || !mfi)
+    return;
+
+  memset(canp, 0, sizeof(canp));
+
+  canp[3] = 1; /* 0-3 database ID */
+
+  /* 4-7 playlist ID FIXME */
+
+  canp[8]  = (status->pos_pl >> 24) & 0xff; /* 8-11 position in playlist */
+  canp[9]  = (status->pos_pl >> 16) & 0xff;
+  canp[10] = (status->pos_pl >> 8) & 0xff;
+  canp[11] = status->pos_pl & 0xff;
+
+  canp[12] = (status->id >> 24) & 0xff; /* 12-15 track ID */
+  canp[13] = (status->id >> 16) & 0xff;
+  canp[14] = (status->id >> 8) & 0xff;
+  canp[15] = status->id & 0xff;
+
+  dmap_add_literal(evbuf, "canp", canp, sizeof(canp));
+
+  dmap_add_string(evbuf, "cann", mfi->title);
+  dmap_add_string(evbuf, "cana", mfi->artist);
+  dmap_add_string(evbuf, "canl", mfi->album);
+  dmap_add_string(evbuf, "cang", mfi->genre);
+  dmap_add_long(evbuf, "asai", mfi->songalbumid);
+
+  dmap_add_int(evbuf, "cmmk", 1);
+}
+
+static void
+dacp_playingtime(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+  if ((status->status == PLAY_STOPPED) || !mfi)
+    return;
+
+  dmap_add_int(evbuf, "cant", mfi->song_length - status->pos_ms); /* Remaining time in ms */
+  dmap_add_int(evbuf, "cast", mfi->song_length); /* Song length in ms */
+}
+
+
 /* Update requests helpers */
 static int
 make_playstatusupdate(struct evbuffer *evbuf)
 {
   struct player_status status;
-  char canp[16];
   struct media_file_info *mfi;
   struct evbuffer *psu;
   int ret;
@@ -136,34 +182,8 @@ make_playstatusupdate(struct evbuffer *evbuf)
 
   if (mfi)
     {
-      memset(canp, 0, sizeof(canp));
-
-      canp[3] = 1; /* 0-3 database ID */
-
-      /* 4-7 playlist ID FIXME */
-
-      canp[8]  = (status.pos_pl >> 24) & 0xff; /* 8-11 position in playlist */
-      canp[9]  = (status.pos_pl >> 16) & 0xff;
-      canp[10] = (status.pos_pl >> 8) & 0xff;
-      canp[11] = status.pos_pl & 0xff;
-
-      canp[12] = (status.id >> 24) & 0xff; /* 12-15 track ID */
-      canp[13] = (status.id >> 16) & 0xff;
-      canp[14] = (status.id >> 8) & 0xff;
-      canp[15] = status.id & 0xff;
-
-      dmap_add_literal(psu, "canp", canp, sizeof(canp));
-
-      dmap_add_string(psu, "cann", mfi->title);
-      dmap_add_string(psu, "cana", mfi->artist);
-      dmap_add_string(psu, "canl", mfi->album);
-      dmap_add_string(psu, "cang", mfi->genre);
-      dmap_add_long(psu, "asai", mfi->songalbumid);
-
-      dmap_add_int(psu, "cmmk", 1);
-
-      dmap_add_int(psu, "cant", mfi->song_length - status.pos_ms); /* Remaining time in ms */
-      dmap_add_int(psu, "cast", mfi->song_length); /* Song length in ms */
+      dacp_nowplaying(psu, &status, mfi);
+      dacp_playingtime(psu, &status, mfi);
 
       free_mfi(mfi, 0);
     }
