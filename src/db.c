@@ -3995,6 +3995,20 @@ static const struct db_init_query db_upgrade_v9_queries[] =
     { U_V9_SCVER,     "set schema_version to 9" },
   };
 
+/* Upgrade from schema v9 to v10 */
+
+#define U_V10_PLVOL				\
+  "INSERT INTO admin (key, value) VALUES ('player:volume', '75');"
+
+#define U_V10_SCVER					\
+  "UPDATE admin SET value = '10' WHERE key = 'schema_version';"
+
+static const struct db_init_query db_upgrade_v10_queries[] =
+  {
+    { U_V10_PLVOL,     "store player start volume" },
+    { U_V10_SCVER,     "set schema_version to 10" },
+  };
+
 static int
 db_check_version(void)
 {
@@ -4084,6 +4098,13 @@ db_check_version(void)
 
 	  case 8:
 	    ret = db_generic_upgrade(db_upgrade_v9_queries, sizeof(db_upgrade_v9_queries) / sizeof(db_upgrade_v9_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 9:
+	    ret = db_generic_upgrade(db_upgrade_v10_queries, sizeof(db_upgrade_v10_queries) / sizeof(db_upgrade_v10_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
