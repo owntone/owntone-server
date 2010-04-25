@@ -75,11 +75,13 @@ struct dacp_update_request {
 };
 
 typedef void (*dacp_propget)(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+typedef void (*dacp_propset)(const char *value);
 
 struct dacp_prop_map {
   uint32_t hash;
   char *desc;
   dacp_propget propget;
+  dacp_propset propset;
 };
 
 
@@ -103,19 +105,23 @@ dacp_propget_nowplaying(struct evbuffer *evbuf, struct player_status *status, st
 static void
 dacp_propget_playingtime(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
 
+/* Forward - properties setters */
+static void
+dacp_propset_volume(const char *value);
+
 static struct dacp_prop_map dacp_props[] =
   {
-    { 0, "dmcp.volume",                 dacp_propget_volume },
-    { 0, "dacp.playerstate",            dacp_propget_playerstate },
-    { 0, "dacp.nowplaying",             dacp_propget_nowplaying },
-    { 0, "dacp.playingtime",            dacp_propget_playingtime },
-    { 0, "dacp.volumecontrollable",     dacp_propget_volumecontrollable },
-    { 0, "dacp.availableshufflestates", dacp_propget_availableshufflestates },
-    { 0, "dacp.availablerepeatstates",  dacp_propget_availablerepeatstates },
-    { 0, "dacp.shufflestate",           dacp_propget_shufflestate },
-    { 0, "dacp.repeatstate",            dacp_propget_repeatstate },
+    { 0, "dmcp.volume",                 dacp_propget_volume,                 dacp_propset_volume },
+    { 0, "dacp.playerstate",            dacp_propget_playerstate,            NULL },
+    { 0, "dacp.nowplaying",             dacp_propget_nowplaying,             NULL },
+    { 0, "dacp.playingtime",            dacp_propget_playingtime,            NULL },
+    { 0, "dacp.volumecontrollable",     dacp_propget_volumecontrollable,     NULL },
+    { 0, "dacp.availableshufflestates", dacp_propget_availableshufflestates, NULL },
+    { 0, "dacp.availablerepeatstates",  dacp_propget_availablerepeatstates,  NULL },
+    { 0, "dacp.shufflestate",           dacp_propget_shufflestate,           NULL },
+    { 0, "dacp.repeatstate",            dacp_propget_repeatstate,            NULL },
 
-    { 0, NULL, NULL }
+    { 0, NULL, NULL, NULL }
   };
 
 
@@ -496,6 +502,26 @@ static void
 dacp_propget_playingtime(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
 {
   dacp_playingtime(evbuf, status, mfi);
+}
+
+/* Properties setters */
+static void
+dacp_propset_volume(const char *value)
+{
+  int volume;
+  int ret;
+
+  ret = safe_atoi32(value, &volume);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "dmcp.volume argument doesn't convert to integer: %s\n", value);
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DACP, "Setting volume to %d (value '%s')\n", volume, value);
+
+  player_volume_set(volume);
 }
 
 
@@ -1023,6 +1049,9 @@ static void
 dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
+  struct dacp_prop_map *dpm;
+  struct evkeyval *param;
+  uint32_t hash;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
@@ -1037,7 +1066,23 @@ dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
   /* /ctrl-int/1/setproperty?dacp.shufflestate=1&session-id=100 */
 
-  /* TODO */
+  TAILQ_FOREACH(param, query, next)
+    {
+      hash = djb_hash(param->key, strlen(param->key));
+
+      dpm = dacp_find_prop(hash);
+
+      if (!dpm)
+	{
+	  DPRINTF(E_DBG, L_DACP, "Unknown DACP property %s\n", param->key);
+	  continue;
+	}
+
+      if (dpm->propset)
+	dpm->propset(param->value);
+      else
+	DPRINTF(E_WARN, L_DACP, "No setter method for DACP property %s\n", dpm->desc);
+    }
 
   /* 204 No Content is the canonical reply */
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
