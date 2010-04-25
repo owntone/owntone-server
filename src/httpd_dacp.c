@@ -108,13 +108,15 @@ dacp_propget_playingtime(struct evbuffer *evbuf, struct player_status *status, s
 /* Forward - properties setters */
 static void
 dacp_propset_volume(const char *value);
+static void
+dacp_propset_playingtime(const char *value);
 
 static struct dacp_prop_map dacp_props[] =
   {
     { 0, "dmcp.volume",                 dacp_propget_volume,                 dacp_propset_volume },
     { 0, "dacp.playerstate",            dacp_propget_playerstate,            NULL },
     { 0, "dacp.nowplaying",             dacp_propget_nowplaying,             NULL },
-    { 0, "dacp.playingtime",            dacp_propget_playingtime,            NULL },
+    { 0, "dacp.playingtime",            dacp_propget_playingtime,            dacp_propset_playingtime },
     { 0, "dacp.volumecontrollable",     dacp_propget_volumecontrollable,     NULL },
     { 0, "dacp.availableshufflestates", dacp_propget_availableshufflestates, NULL },
     { 0, "dacp.availablerepeatstates",  dacp_propget_availablerepeatstates,  NULL },
@@ -139,6 +141,10 @@ static struct dacp_update_request *update_requests;
 
 /* Properties */
 static avl_tree_t *dacp_props_hash;
+
+/* Seek timer */
+static struct event seek_timer;
+static int seek_target;
 
 
 /* DACP helpers */
@@ -522,6 +528,50 @@ dacp_propset_volume(const char *value)
   DPRINTF(E_DBG, L_DACP, "Setting volume to %d (value '%s')\n", volume, value);
 
   player_volume_set(volume);
+}
+
+static void
+seek_timer_cb(int fd, short what, void *arg)
+{
+  int ret;
+
+  DPRINTF(E_DBG, L_DACP, "Seek timer expired, target %d ms\n", seek_target);
+
+  ret = player_playback_seek(seek_target);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Player failed to seek to %d ms\n", seek_target);
+
+      return;
+    }
+
+  ret = player_playback_start(NULL);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_DACP, "Player returned an error for start after seek\n");
+}
+
+static void
+dacp_propset_playingtime(const char *value)
+{
+  struct timeval tv;
+  int ret;
+
+  if (event_initialized(&seek_timer))
+    event_del(&seek_timer);
+
+  ret = safe_atoi32(value, &seek_target);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "dacp.playingtime argument doesn't convert to integer: %s\n", value);
+
+      return;
+    }
+
+  evtimer_set(&seek_timer, seek_timer_cb, NULL);
+  event_base_set(evbase_httpd, &seek_timer);
+  evutil_timerclear(&tv);
+  tv.tv_usec = 200 * 1000;
+  evtimer_add(&seek_timer, &tv);
 }
 
 
