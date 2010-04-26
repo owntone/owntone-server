@@ -3931,16 +3931,18 @@ db_init(void)
 
   db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
 
+  ret = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "Could not switch SQLite3 to multithread mode\n");
+      DPRINTF(E_FATAL, L_DB, "Check that SQLite3 has been configured for thread-safe operations\n");
+      return -1;
+    }
+
   ret = sqlite3_initialize();
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_DB, "SQLite3 failed to initialize\n");
-      return -1;
-    }
-
-  if (!sqlite3_threadsafe())
-    {
-      DPRINTF(E_FATAL, L_DB, "The SQLite3 library is not built with a threadsafe configuration\n");
       return -1;
     }
 
