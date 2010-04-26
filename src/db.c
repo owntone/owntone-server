@@ -3931,6 +3931,13 @@ db_init(void)
 
   db_path = cfg_getstr(cfg_getsec(cfg, "general"), "db_path");
 
+  ret = sqlite3_initialize();
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "SQLite3 failed to initialize\n");
+      return -1;
+    }
+
   if (!sqlite3_threadsafe())
     {
       DPRINTF(E_FATAL, L_DB, "The SQLite3 library is not built with a threadsafe configuration\n");
@@ -3963,4 +3970,10 @@ db_init(void)
   DPRINTF(E_INFO, L_DB, "Database OK with %d active files and %d active playlists\n", files, pls);
 
   return 0;
+}
+
+void
+db_deinit(void)
+{
+  sqlite3_shutdown();
 }

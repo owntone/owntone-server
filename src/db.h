@@ -445,4 +445,7 @@ db_perthread_deinit(void);
 int
 db_init(void);
 
+void
+db_deinit(void);
+
 #endif /* !__DB_H__ */

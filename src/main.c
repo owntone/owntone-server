@@ -748,7 +748,9 @@ main(int argc, char **argv)
   filescanner_deinit();
 
  filescanner_fail:
+  DPRINTF(E_LOG, L_MAIN, "Database deinit\n");
   db_perthread_deinit();
+  db_deinit();
  db_fail:
   if (ret == EXIT_FAILURE)
     {
