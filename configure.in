@@ -66,6 +66,25 @@ PKG_CHECK_MODULES(CONFUSE, [ libconfuse ])
 PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
 PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
+
+save_LIBS="$LIBS"
+LIBS="$SQLITE3_LIBS"
+dnl Check that SQLite3 has been built with threadsafe operations
+AC_MSG_CHECKING([if SQLite3 was built with threadsafe operations support])
+AC_LANG_PUSH([C])
+AC_RUN_IFELSE(
+  [AC_LANG_PROGRAM([dnl
+    #include <sqlite3.h>
+    ], [dnl
+    int ret = sqlite3_config(SQLITE_CONFIG_MULTITHREAD);
+    if (ret != SQLITE_OK)
+      return 1;
+    return 0;])],
+  [AC_MSG_RESULT([yes])], [AC_MSG_ERROR([SQLite3 was not built with threadsafe operations support])],
+  [AC_MSG_RESULT([runtime will tell])])
+AC_LANG_POP([C])
+LIBS="$save_LIBS"
+
 PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat libswscale libavutil ])
 PKG_CHECK_MODULES(MINIXML, [ mxml ])
 
