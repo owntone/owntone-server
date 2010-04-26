@@ -361,6 +361,40 @@ free_pli(struct playlist_info *pli, int content_only)
     free(pli);
 }
 
+
+/* Modelled after sqlite3_exec() */
+static int
+db_exec(const char *query, char **errmsg)
+{
+  sqlite3_stmt *stmt;
+  int ret;
+
+  *errmsg = NULL;
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      *errmsg = sqlite3_mprintf("%s", sqlite3_errmsg(hdl));
+      return ret;
+    }
+
+  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+    ; /* EMPTY */
+
+  if (ret != SQLITE_DONE)
+    {
+      *errmsg = sqlite3_mprintf("%s", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      return ret;
+    }
+
+  sqlite3_finalize(stmt);
+
+  return SQLITE_OK;
+}
+
+
 void
 db_purge_cruft(time_t ref)
 {
@@ -395,7 +429,7 @@ db_purge_cruft(time_t ref)
     {
       DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", queries[i]);
 
-      ret = sqlite3_exec(hdl, queries[i], NULL, NULL, &errmsg);
+      ret = db_exec(queries[i], &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
@@ -1248,8 +1282,7 @@ db_files_update_songalbumid(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_SONGALBUMID);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, Q_SONGALBUMID, NULL, NULL, &errmsg);
+  ret = db_exec(Q_SONGALBUMID, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error updating songalbumid: %s\n", errmsg);
 
@@ -1276,8 +1309,7 @@ db_file_inc_playcount(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error incrementing play count on %d: %s\n", id, errmsg);
 
@@ -1305,8 +1337,7 @@ db_file_ping(char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging file '%s': %s\n", path, errmsg);
 
@@ -1745,8 +1776,7 @@ db_file_add(struct media_file_info *mfi)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -1817,8 +1847,7 @@ db_file_update(struct media_file_info *mfi)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -1853,8 +1882,7 @@ db_file_delete_bypath(char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error deleting file: %s\n", errmsg);
 
@@ -1872,8 +1900,7 @@ db_file_disable_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error disabling file: %s\n", errmsg);
 
@@ -1950,8 +1977,7 @@ db_file_enable_bycookie(uint32_t cookie, char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error enabling files: %s\n", errmsg);
@@ -2043,8 +2069,7 @@ db_pl_ping(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging playlist %d: %s\n", id, errmsg);
 
@@ -2338,8 +2363,7 @@ db_pl_add(char *title, char *path, int *id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -2383,8 +2407,7 @@ db_pl_add_item_bypath(int plid, char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -2418,8 +2441,7 @@ db_pl_add_item_byid(int plid, int fileid)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -2454,8 +2476,7 @@ db_pl_clear_items(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error clearing playlist %d items: %s\n", id, errmsg);
 
@@ -2486,8 +2507,7 @@ db_pl_delete(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error deleting playlist %d: %s\n", id, errmsg);
 
@@ -2520,8 +2540,7 @@ db_pl_disable_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error disabling playlist: %s\n", errmsg);
 
@@ -2598,8 +2617,7 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error enabling playlists: %s\n", errmsg);
@@ -2627,8 +2645,7 @@ db_groups_clear(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -2709,8 +2726,7 @@ db_pairing_delete_byremote(char *remote_id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error deleting pairing: %s\n", errmsg);
@@ -2749,8 +2765,7 @@ db_pairing_add(struct pairing_info *pi)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error adding pairing: %s\n", errmsg);
@@ -2826,8 +2841,7 @@ db_watch_clear(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -2857,8 +2871,7 @@ db_watch_add(struct watch_info *wi)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error adding watch: %s\n", errmsg);
@@ -2883,8 +2896,7 @@ db_watch_delete_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error deleting watch: %s\n", errmsg);
@@ -3095,8 +3107,7 @@ db_watch_mark_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error marking watch: %s\n", errmsg);
 
@@ -3176,8 +3187,7 @@ db_watch_move_bycookie(uint32_t cookie, char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  errmsg = NULL;
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error moving watch: %s\n", errmsg);
 
@@ -3577,7 +3587,7 @@ db_create_tables(void)
     {
       DPRINTF(E_DBG, L_DB, "DB init query: %s\n", db_init_queries[i].desc);
 
-      ret = sqlite3_exec(hdl, db_init_queries[i].query, NULL, NULL, &errmsg);
+      ret = db_exec(db_init_queries[i].query, &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);
@@ -3601,7 +3611,7 @@ db_generic_upgrade(const struct db_init_query *queries, int nqueries)
     {
       DPRINTF(E_DBG, L_DB, "DB upgrade query: %s\n", queries->desc);
 
-      ret = sqlite3_exec(hdl, queries->query, NULL, NULL, &errmsg);
+      ret = db_exec(queries->query, &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_FATAL, L_DB, "DB upgrade error: %s\n", errmsg);
@@ -3901,7 +3911,7 @@ db_check_version(void)
       /* What about some housekeeping work, eh? */
       DPRINTF(E_INFO, L_DB, "Now vacuuming database, this may take some time...\n");
 
-      ret = sqlite3_exec(hdl, Q_VACUUM, NULL, NULL, &errmsg);
+      ret = db_exec(Q_VACUUM, &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Could not VACUUM database: %s\n", errmsg);
