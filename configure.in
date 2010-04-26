@@ -69,6 +69,8 @@ PKG_CHECK_MODULES(SQLITE3, [ sqlite3 >= 3.5.0 ],
 
 save_LIBS="$LIBS"
 LIBS="$SQLITE3_LIBS"
+dnl Check that SQLite3 has the unlock notify API built-in
+AC_CHECK_LIB([sqlite3], [sqlite3_unlock_notify], [], AC_MSG_ERROR([SQLite3 was built without unlock notify support]))
 dnl Check that SQLite3 has been built with threadsafe operations
 AC_MSG_CHECKING([if SQLite3 was built with threadsafe operations support])
 AC_LANG_PUSH([C])
