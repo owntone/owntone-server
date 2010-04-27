@@ -3916,14 +3916,14 @@ db_check_version(void)
   ret = db_blocking_prepare_v2(Q_VER, strlen(Q_VER) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s %d\n", sqlite3_errmsg(hdl), ret);
-      return -1;
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return 1;
     }
 
   ret = db_blocking_step(stmt);
   if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s %d\n", sqlite3_errmsg(hdl), ret);
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_finalize(stmt);
       return -1;
@@ -4061,6 +4061,13 @@ db_init(void)
 
   ret = db_check_version();
   if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_DB, "Database version check errored out, incompatible database\n");
+
+      db_perthread_deinit();
+      return -1;
+    }
+  else if (ret > 0)
     {
       DPRINTF(E_FATAL, L_DB, "Could not check database version, trying DB init\n");
 
