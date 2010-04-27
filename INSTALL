@@ -25,7 +25,7 @@ System-specific libraries:
 
 General libraries:
  - Avahi client libraries, 0.6.24 minimum
- - sqlite3
+ - sqlite3 3.5.0+
  - ffmpeg
  - confuse
  - libevent 1.4+

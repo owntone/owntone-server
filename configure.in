@@ -64,7 +64,7 @@ AM_CONDITIONAL(COND_ITUNES, test x$use_itunes = xtrue)
 dnl Checks for libraries.
 PKG_CHECK_MODULES(CONFUSE, [ libconfuse ])
 PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
-PKG_CHECK_MODULES(SQLITE3, [ sqlite3 ],
+PKG_CHECK_MODULES(SQLITE3, [ sqlite3 >= 3.5.0 ],
 	AC_DEFINE(HAVE_SQLITE3, 1, [define if sqlite3 is available]))
 
 save_LIBS="$LIBS"
