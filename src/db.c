@@ -3939,6 +3939,13 @@ db_init(void)
       return -1;
     }
 
+  ret = sqlite3_enable_shared_cache(1);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "Could not enable SQLite3 shared-cache mode\n");
+      return -1;
+    }
+
   ret = sqlite3_initialize();
   if (ret != SQLITE_OK)
     {
