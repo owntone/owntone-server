@@ -110,6 +110,8 @@ static void
 dacp_propset_volume(const char *value);
 static void
 dacp_propset_playingtime(const char *value);
+static void
+dacp_propset_repeatstate(const char *value);
 
 static struct dacp_prop_map dacp_props[] =
   {
@@ -121,7 +123,7 @@ static struct dacp_prop_map dacp_props[] =
     { 0, "dacp.availableshufflestates", dacp_propget_availableshufflestates, NULL },
     { 0, "dacp.availablerepeatstates",  dacp_propget_availablerepeatstates,  NULL },
     { 0, "dacp.shufflestate",           dacp_propget_shufflestate,           NULL },
-    { 0, "dacp.repeatstate",            dacp_propget_repeatstate,            NULL },
+    { 0, "dacp.repeatstate",            dacp_propget_repeatstate,            dacp_propset_repeatstate },
 
     { 0, NULL, NULL, NULL }
   };
@@ -572,6 +574,23 @@ dacp_propset_playingtime(const char *value)
   evutil_timerclear(&tv);
   tv.tv_usec = 200 * 1000;
   evtimer_add(&seek_timer, &tv);
+}
+
+static void
+dacp_propset_repeatstate(const char *value)
+{
+  int mode;
+  int ret;
+
+  ret = safe_atoi32(value, &mode);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "dacp.repeatstate argument doesn't convert to integer: %s\n", value);
+
+      return;
+    }
+
+  player_repeat_set(mode);
 }
 
 
