@@ -1836,7 +1836,7 @@ db_file_add(struct media_file_info *mfi)
 
   if (mfi->id != 0)
     {
-      DPRINTF(E_WARN, L_DB, "Trying to update file with id > 0; use db_file_update()?\n");
+      DPRINTF(E_WARN, L_DB, "Trying to add file with non-zero id; use db_file_update()?\n");
       return -1;
     }
 
