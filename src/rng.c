@@ -88,22 +88,40 @@ rng_rand(struct rng_ctx *ctx)
   return ctx->iy;
 }
 
-/* Integer in [min, max[, min >= 0 */
+/* Integer in [min, max[ */
+/* Taken from GLib 2.0 v2.25.3, g_rand_int_range(), GPLv2+ */
 int32_t
 rng_rand_range(struct rng_ctx *ctx, int32_t min, int32_t max)
 {
   int32_t res;
-  int32_t range;
+  int32_t dist;
+  uint32_t maxvalue;
+  uint32_t leftover;
 
-  range = max - min;
+  dist = max - min;
 
-  res = rng_rand(ctx);
-  res = (int32_t)((double)range * ((1.0 / 2147483647.0) * (double)res));
+  if (dist <= 0)
+    return min;
 
-  if (min > 0)
-    res += min;
+  /* maxvalue is set to the predecessor of the greatest
+   * multiple of dist less or equal 2^32. */
+  if (dist <= 0x80000000u) /* 2^31 */
+    {
+      /* maxvalue = 2^32 - 1 - (2^32 % dist) */
+      leftover = (0x80000000u % dist) * 2;
+      if (leftover >= dist)
+	leftover -= dist;
+      maxvalue = 0xffffffffu - leftover;
+    }
+  else
+    maxvalue = dist - 1;
+  do
+    res = rng_rand(ctx);
+  while (res > maxvalue);
 
-  return res;
+  res %= dist;
+
+  return min + res;
 }
 
 /* Fisher-Yates shuffling algorithm
