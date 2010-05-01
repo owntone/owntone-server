@@ -2329,7 +2329,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 
   evhttp_remove_header(req->output_headers, "Content-Type");
   evhttp_add_header(req->output_headers, "Content-Type", "image/png");
-  snprintf(clen, sizeof(clen), "%ld", EVBUFFER_LENGTH(evbuf));
+  snprintf(clen, sizeof(clen), "%ld", (long)EVBUFFER_LENGTH(evbuf));
   evhttp_add_header(req->output_headers, "Content-Length", clen);
 
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
