@@ -31,7 +31,12 @@
 #include <time.h>
 #include <pthread.h>
 
-#include <sys/timerfd.h>
+#if defined(__linux__)
+# include <sys/timerfd.h>
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+# include <sys/time.h>
+# include <sys/event.h>
+#endif
 
 #if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
 # define USE_EVENTFD
@@ -126,7 +131,9 @@ static int update_fd;
 /* Playback timer */
 static int pb_timer_fd;
 static struct event pb_timer_ev;
+#if defined(__linux__)
 static struct timespec pb_timer_last;
+#endif
 
 /* Sync source */
 static enum player_sync_source pb_sync_source;
@@ -916,15 +923,9 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 
 
 static void
-player_playback_cb(int fd, short what, void *arg)
+playback_write(void)
 {
   uint8_t rawbuf[AIRTUNES_V2_PACKET_SAMPLES * 2 * 2];
-  struct itimerspec next;
-  uint64_t ticks;
-  int ret;
-
-  /* Acknowledge timer */
-  read(fd, &ticks, sizeof(ticks));
 
   source_check();
   /* Make sure playback is still running after source_check() */
@@ -942,6 +943,20 @@ player_playback_cb(int fd, short what, void *arg)
 
   if (raop_sessions > 0)
     raop_v2_write(rawbuf, last_rtptime);
+}
+
+#if defined(__linux__)
+static void
+player_playback_cb(int fd, short what, void *arg)
+{
+  struct itimerspec next;
+  uint64_t ticks;
+  int ret;
+
+  /* Acknowledge timer */
+  read(fd, &ticks, sizeof(ticks));
+
+  playback_write();
 
   pb_timer_last.tv_nsec += AIRTUNES_V2_STREAM_PERIOD;
   if (pb_timer_last.tv_nsec >= 1000000000)
@@ -973,6 +988,38 @@ player_playback_cb(int fd, short what, void *arg)
       return;
     }
 }
+#endif /* __linux__ */
+
+
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+static void
+player_playback_cb(int fd, short what, void *arg)
+{
+  struct timespec ts;
+  struct kevent kev;
+  int ret;
+
+  ts.tv_sec = 0;
+  ts.tv_nsec = 0;
+
+  while (kevent(pb_timer_fd, NULL, 0, &kev, 1, &ts) > 0)
+    {
+      if (kev.filter != EVFILT_TIMER)
+        continue;
+
+      playback_write();
+    }
+
+  ret = event_add(&pb_timer_ev, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not re-add playback timer event\n");
+
+      playback_stop(NULL);
+      return;
+    }
+}
+#endif /* __FreeBSD__ || __FreeBSD_kernel__ */
 
 
 static void
@@ -1217,9 +1264,15 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not get current time: %s\n", strerror(errno));
 
+#if defined(__linux__)
 	  /* Fallback to nearest timer expiration time */
 	  ts.tv_sec = pb_timer_last.tv_sec;
 	  ts.tv_nsec = pb_timer_last.tv_nsec;
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+	  if (cmd.ret != -2)
+	    cmd.ret = -1;
+	  goto out;
+#endif
 	}
 
       raop_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &ts);
@@ -1478,7 +1531,11 @@ playback_stop(void *arg)
 static int
 playback_start_bh(void *arg)
 {
+#if defined(__linux__)
   struct itimerspec next;
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  struct kevent kev;
+#endif
   int ret;
 
   if ((laudio_status == LAUDIO_CLOSED) && (raop_sessions == 0))
@@ -1502,7 +1559,7 @@ playback_start_bh(void *arg)
 	}
     }
 
-  ret = clock_gettime(CLOCK_MONOTONIC, &pb_timer_last);
+  ret = clock_gettime(CLOCK_MONOTONIC, &pb_pos_stamp);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get current clock: %s\n", strerror(errno));
@@ -1510,10 +1567,11 @@ playback_start_bh(void *arg)
       goto out_fail;
     }
 
-  pb_pos_stamp.tv_sec = pb_timer_last.tv_sec;
-  pb_pos_stamp.tv_nsec = pb_timer_last.tv_nsec;
-
   memset(&pb_timer_ev, 0, sizeof(struct event));
+
+#if defined(__linux__)
+  pb_timer_last.tv_sec = pb_pos_stamp.tv_sec;
+  pb_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
 
   pb_timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
   if (pb_timer_fd < 0)
@@ -1522,9 +1580,6 @@ playback_start_bh(void *arg)
 
       goto out_fail;
     }
-
-  event_set(&pb_timer_ev, pb_timer_fd, EV_READ, player_playback_cb, NULL);
-  event_base_set(evbase_player, &pb_timer_ev);
 
   next.it_interval.tv_sec = 0;
   next.it_interval.tv_nsec = 0;
@@ -1538,6 +1593,30 @@ playback_start_bh(void *arg)
 
       goto out_fail;
     }
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pb_timer_fd = kqueue();
+  if (pb_timer_fd < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create kqueue: %s\n", strerror(errno));
+
+      goto out_fail;
+    }
+
+  memset(&kev, 0, sizeof(struct kevent));
+
+  EV_SET(&kev, 1, EVFILT_TIMER, EV_ADD | EV_ENABLE, 0, AIRTUNES_V2_STREAM_PERIOD, 0);
+
+  ret = kevent(pb_timer_fd, &kev, 1, NULL, 0, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not add kevent timer: %s\n", strerror(errno));
+
+      goto out_fail;
+    }
+#endif
+
+  event_set(&pb_timer_ev, pb_timer_fd, EV_READ, player_playback_cb, NULL);
+  event_base_set(evbase_player, &pb_timer_ev);
 
   ret = event_add(&pb_timer_ev, NULL);
   if (ret < 0)
@@ -1549,7 +1628,7 @@ playback_start_bh(void *arg)
 
   /* Everything OK, start RAOP */
   if (raop_sessions > 0)
-    raop_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_timer_last);
+    raop_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_pos_stamp);
 
   status_update(PLAY_PLAYING);
 
