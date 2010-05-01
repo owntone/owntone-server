@@ -637,36 +637,39 @@ dacp_reply_ctrlint(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
 static void
 dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct player_status status;
+  struct player_source *ps;
   const char *sort;
   const char *cuequery;
   const char *param;
-  struct player_source *ps;
   uint32_t id;
   int ret;
 
   /* /cue?command=play&query=...&sort=...&index=N */
 
   cuequery = evhttp_find_header(query, "query");
-  if (!cuequery)
+  if (cuequery)
     {
-      DPRINTF(E_LOG, L_DACP, "No query given for cue play command\n");
+      sort = evhttp_find_header(query, "sort");
 
-      dmap_send_error(req, "cacr", "No query given");
-      return;
+      ps = player_queue_make(cuequery, sort);
+      if (!ps)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
+
+	  dmap_send_error(req, "cacr", "Could not build song queue");
+	  return;
+	}
+
+      player_queue_add(ps);
     }
-
-  sort = evhttp_find_header(query, "sort");
-
-  ps = player_queue_make(cuequery, sort);
-  if (!ps)
+  else
     {
-      DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
+      player_get_status(&status);
 
-      dmap_send_error(req, "cacr", "Could not build song queue");
-      return;
+      if (status.status != PLAY_STOPPED)
+	player_playback_stop();
     }
-
-  player_queue_add(ps);
 
   param = evhttp_find_header(query, "dacp.shufflestate");
   if (param)
