@@ -668,6 +668,10 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
   player_queue_add(ps);
 
+  param = evhttp_find_header(query, "dacp.shufflestate");
+  if (param)
+    dacp_propset_shufflestate(param);
+
   id = 0;
   param = evhttp_find_header(query, "index");
   if (param)
