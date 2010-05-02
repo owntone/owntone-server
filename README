@@ -81,6 +81,26 @@ example, the correct value is Foobar.
 Hit Ctrl-C to terminate avahi-browse.
 
 
+AirTunes devices
+----------------
+
+forked-daapd will discover the AirTunes devices available on your network. For
+devices that are password-protected, the device's AirTunes name and password
+must be given in the configuration file. See the sample configuration file
+for the syntax.
+
+
+Local audio output
+------------------
+
+The audio section of the configuration file supports 2 parameters for the local
+audio device:
+ - nickname: this is the name that will be used in the speakers list in Remote
+ - card: this is the name/device string (ALSA) or device node (OSS4) to be used
+   as the local audio device. Defaults to "default" for ALSA and "/dev/dsp" for
+   OSS4.
+
+
 Supported formats
 -----------------
 
