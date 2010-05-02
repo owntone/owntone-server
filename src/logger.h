@@ -48,6 +48,11 @@ logger_ffmpeg(void *ptr, int level, const char *fmt, va_list ap);
 void
 logger_libevent(int severity, const char *msg);
 
+#ifdef LAUDIO_USE_ALSA
+void
+logger_alsa(const char *file, int line, const char *function, int err, const char *fmt, ...);
+#endif
+
 void
 logger_reinit(void);
 

@@ -181,6 +181,18 @@ logger_libevent(int severity, const char *msg)
   DPRINTF(severity, L_EVENT, "%s\n", msg);
 }
 
+#ifdef LAUDIO_USE_ALSA
+void
+logger_alsa(const char *file, int line, const char *function, int err, const char *fmt, ...)
+{
+  va_list ap;
+
+  va_start(ap, fmt);
+  vlogger(E_LOG, L_LAUDIO, fmt, ap);
+  va_end(ap);
+}
+#endif /* LAUDIO_USE_ALSA */
+
 void
 logger_reinit(void)
 {
