@@ -64,11 +64,20 @@ static cfg_opt_t sec_library[] =
     CFG_END()
   };
 
+/* local audio section structure */
+static cfg_opt_t sec_audio[] =
+  {
+    CFG_STR("nickname", "Computer", CFGF_NONE),
+    CFG_STR("card", "default", CFGF_NONE),
+    CFG_END()
+  };
+
 /* Config file structure */
 static cfg_opt_t toplvl_cfg[] =
   {
     CFG_SEC("general", sec_general, CFGF_NONE),
     CFG_SEC("library", sec_library, CFGF_NONE),
+    CFG_SEC("audio", sec_audio, CFGF_NONE),
     CFG_END()
   };
 
