@@ -321,7 +321,7 @@ playstatusupdate_cb(int fd, short what, void *arg)
 
       evbuffer_add(evbuf, EVBUFFER_DATA(update), EVBUFFER_LENGTH(update));
 
-      evhttp_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+      httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
 
       free(ur);
     }
@@ -631,7 +631,7 @@ dacp_reply_ctrlint(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
   dmap_add_char(evbuf, "casu", 1);        /* 9 */
   dmap_add_char(evbuf, "ceSG", 1);        /* 9 */
 
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
 
 static void
@@ -697,7 +697,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
   dmap_add_int(evbuf, "miid", id);       /* 12 */
 
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
 
 static void
@@ -713,7 +713,7 @@ dacp_reply_cue_clear(struct evhttp_request *req, struct evbuffer *evbuf, char **
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
   dmap_add_int(evbuf, "miid", 0);        /* 12 */
 
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
 
 static void
@@ -932,7 +932,7 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
       if (ret < 0)
 	evhttp_send_error(req, 500, "Internal Server Error");
       else
-	evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+	httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
       return;
     }
@@ -1027,6 +1027,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   snprintf(clen, sizeof(clen), "%ld", (long)EVBUFFER_LENGTH(evbuf));
   evhttp_add_header(req->output_headers, "Content-Length", clen);
 
+  /* No gzip compression for artwork */
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
   return;
 
@@ -1128,7 +1129,7 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
       return;
     }
 
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
   return;
 
@@ -1235,7 +1236,7 @@ dacp_reply_getspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
   evbuffer_free(spklist);
 
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
 
 static void

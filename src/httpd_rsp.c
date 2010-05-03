@@ -328,7 +328,7 @@ rsp_reply_info(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 
   evhttp_add_header(req->output_headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(req->output_headers, "Connection", "close");
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
   evbuffer_free(evbuf);
 }
@@ -434,7 +434,7 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
 
   evhttp_add_header(req->output_headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(req->output_headers, "Connection", "close");
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
   evbuffer_free(evbuf);
 }
@@ -629,7 +629,7 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 
   evhttp_add_header(req->output_headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(req->output_headers, "Connection", "close");
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
   evbuffer_free(evbuf);
 }
@@ -759,7 +759,7 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
 
   evhttp_add_header(req->output_headers, "Content-Type", "text/xml; charset=utf-8");
   evhttp_add_header(req->output_headers, "Connection", "close");
-  evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
   evbuffer_free(evbuf);
 }
