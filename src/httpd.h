@@ -9,6 +9,9 @@
 void
 httpd_stream_file(struct evhttp_request *req, int id);
 
+void
+httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struct evbuffer *evbuf);
+
 char *
 httpd_fixup_uri(struct evhttp_request *req);
 
