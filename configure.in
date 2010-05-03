@@ -96,6 +96,7 @@ AC_ARG_WITH(oss4, AC_HELP_STRING([--with-oss4=includedir], [Use OSS4 with soundc
     esac ])
 
 dnl Checks for libraries.
+PKG_CHECK_MODULES(ZLIB, [ zlib ])
 PKG_CHECK_MODULES(CONFUSE, [ libconfuse ])
 PKG_CHECK_MODULES(AVAHI, [ avahi-client >= 0.6.24 ])
 PKG_CHECK_MODULES(SQLITE3, [ sqlite3 >= 3.5.0 ])
