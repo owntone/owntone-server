@@ -37,9 +37,6 @@
 
 
 void
-vlogger(int severity, int domain, const char *fmt, va_list args);
-
-void
 DPRINTF(int severity, int domain, const char *fmt, ...) __attribute__((format(printf, 3, 4)));
 
 void

@@ -75,7 +75,7 @@ set_logdomains(char *domains)
   return 0;
 }
 
-void
+static void
 vlogger(int severity, int domain, const char *fmt, va_list args)
 {
   va_list ap;
