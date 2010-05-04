@@ -35,6 +35,7 @@ General libraries:
  - libavl
  - MiniXML
  - gcrypt 1.2.0+
+ - zlib
  - libflac (optional - FLAC support)
  - taglib (optional - Musepack support)
  - libplist 0.16+ (optional - iTunes XML support)
