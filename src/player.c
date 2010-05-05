@@ -1652,6 +1652,13 @@ playback_start(void *arg)
   uint32_t *idx_id;
   int ret;
 
+  if (!source_head)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Nothing to play!\n");
+
+      return -1;
+    }
+
   idx_id = (uint32_t *)arg;
 
   if (player_state == PLAY_PLAYING)
