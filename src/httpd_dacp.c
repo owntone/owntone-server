@@ -75,7 +75,7 @@ struct dacp_update_request {
 };
 
 typedef void (*dacp_propget)(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
-typedef void (*dacp_propset)(const char *value);
+typedef void (*dacp_propset)(const char *value, struct evkeyvalq *query);
 
 struct dacp_prop_map {
   uint32_t hash;
@@ -107,13 +107,13 @@ dacp_propget_playingtime(struct evbuffer *evbuf, struct player_status *status, s
 
 /* Forward - properties setters */
 static void
-dacp_propset_volume(const char *value);
+dacp_propset_volume(const char *value, struct evkeyvalq *query);
 static void
-dacp_propset_playingtime(const char *value);
+dacp_propset_playingtime(const char *value, struct evkeyvalq *query);
 static void
-dacp_propset_shufflestate(const char *value);
+dacp_propset_shufflestate(const char *value, struct evkeyvalq *query);
 static void
-dacp_propset_repeatstate(const char *value);
+dacp_propset_repeatstate(const char *value, struct evkeyvalq *query);
 
 static struct dacp_prop_map dacp_props[] =
   {
@@ -516,7 +516,7 @@ dacp_propget_playingtime(struct evbuffer *evbuf, struct player_status *status, s
 
 /* Properties setters */
 static void
-dacp_propset_volume(const char *value)
+dacp_propset_volume(const char *value, struct evkeyvalq *query)
 {
   int volume;
   int ret;
@@ -555,7 +555,7 @@ seek_timer_cb(int fd, short what, void *arg)
 }
 
 static void
-dacp_propset_playingtime(const char *value)
+dacp_propset_playingtime(const char *value, struct evkeyvalq *query)
 {
   struct timeval tv;
   int ret;
@@ -579,7 +579,7 @@ dacp_propset_playingtime(const char *value)
 }
 
 static void
-dacp_propset_shufflestate(const char *value)
+dacp_propset_shufflestate(const char *value, struct evkeyvalq *query)
 {
   int enable;
   int ret;
@@ -596,7 +596,7 @@ dacp_propset_shufflestate(const char *value)
 }
 
 static void
-dacp_propset_repeatstate(const char *value)
+dacp_propset_repeatstate(const char *value, struct evkeyvalq *query)
 {
   int mode;
   int ret;
@@ -673,7 +673,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
   param = evhttp_find_header(query, "dacp.shufflestate");
   if (param)
-    dacp_propset_shufflestate(param);
+    dacp_propset_shufflestate(param, NULL);
 
   id = 0;
   param = evhttp_find_header(query, "index");
@@ -1175,7 +1175,7 @@ dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
 	}
 
       if (dpm->propset)
-	dpm->propset(param->value);
+	dpm->propset(param->value, query);
       else
 	DPRINTF(E_WARN, L_DACP, "No setter method for DACP property %s\n", dpm->desc);
     }
