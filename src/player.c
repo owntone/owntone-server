@@ -486,6 +486,9 @@ source_shuffle(struct player_source *head)
   int nitems;
   int i;
 
+  if (!head)
+    return NULL;
+
   ps = head;
   nitems = 0;
   do
