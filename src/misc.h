@@ -11,6 +11,9 @@ int
 safe_atou32(const char *str, uint32_t *val);
 
 int
+safe_hextou32(const char *str, uint32_t *val);
+
+int
 safe_atoi64(const char *str, int64_t *val);
 
 int
