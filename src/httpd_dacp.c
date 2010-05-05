@@ -114,6 +114,8 @@ static void
 dacp_propset_shufflestate(const char *value, struct evkeyvalq *query);
 static void
 dacp_propset_repeatstate(const char *value, struct evkeyvalq *query);
+static void
+dacp_propset_userrating(const char *value, struct evkeyvalq *query);
 
 static struct dacp_prop_map dacp_props[] =
   {
@@ -126,6 +128,7 @@ static struct dacp_prop_map dacp_props[] =
     { 0, "dacp.availablerepeatstates",  dacp_propget_availablerepeatstates,  NULL },
     { 0, "dacp.shufflestate",           dacp_propget_shufflestate,           dacp_propset_shufflestate },
     { 0, "dacp.repeatstate",            dacp_propget_repeatstate,            dacp_propset_repeatstate },
+    { 0, "dacp.userrating",             NULL,                                dacp_propset_userrating },
 
     { 0, NULL, NULL, NULL }
   };
@@ -610,6 +613,63 @@ dacp_propset_repeatstate(const char *value, struct evkeyvalq *query)
     }
 
   player_repeat_set(mode);
+}
+
+static void
+dacp_propset_userrating(const char *value, struct evkeyvalq *query)
+{
+  struct media_file_info *mfi;
+  const char *param;
+  uint32_t itemid;
+  uint32_t rating;
+  int ret;
+
+  ret = safe_atou32(value, &rating);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "dacp.userrating argument doesn't convert to integer: %s\n", value);
+
+      return;
+    }
+
+  param = evhttp_find_header(query, "item-spec");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "Missing item-spec parameter in dacp.userrating query\n");
+
+      return;
+    }
+
+  param = strchr(param, ':');
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "Malformed item-spec parameter in dacp.userrating query\n");
+
+      return;
+    }
+
+  param++;
+  ret = safe_hextou32(param, &itemid);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Couldn't convert item-spec to an integer in dacp.userrating (%s)\n", param);
+
+      return;
+    }
+
+  mfi = db_file_fetch_byid(itemid);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not fetch file id %d\n", itemid);
+
+      return;
+    }
+
+  mfi->rating = rating;
+
+  db_file_update(mfi);
+
+  free_mfi(mfi, 0);
 }
 
 
