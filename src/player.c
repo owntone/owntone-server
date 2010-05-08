@@ -2748,7 +2748,7 @@ player_queue_clear(void)
 
 /* Thread: main (mdns) */
 static void
-raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, const char *address, int port, AvahiStringList *txt)
+raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, AvahiStringList *txt)
 {
   AvahiStringList *p;
   struct raop_device *rd;
@@ -2761,6 +2761,9 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   size_t valsz;
   int has_password;
   int ret;
+
+  if (family != AF_INET)
+    return;
 
   ret = safe_hextou64(name, &id);
   if (ret < 0)

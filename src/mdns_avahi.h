@@ -4,7 +4,7 @@
 
 #include <avahi-common/strlst.h>
 
-typedef void (* mdns_browse_cb)(const char *name, const char *type, const char *domain, const char *hostname, const char *address, int port, AvahiStringList *txt);
+typedef void (* mdns_browse_cb)(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, AvahiStringList *txt);
 
 /* mDNS interface functions */
 /* Call only from the main thread */

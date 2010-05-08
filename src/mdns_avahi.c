@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/socket.h>
 
 #include <event.h>
 
@@ -335,6 +336,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 {
   struct mdns_browser *mb;
   char address[AVAHI_ADDRESS_STR_MAX];
+  int family;
 
   mb = (struct mdns_browser *)userdata;
 
@@ -346,12 +348,30 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 	break;
 
       case AVAHI_RESOLVER_FOUND:
-	DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s'\n", name, type);
+	DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d\n", name, type, proto);
 
 	avahi_address_snprint(address, sizeof(address), addr);
 
+	switch (proto)
+	  {
+	    case AVAHI_PROTO_INET:
+	      family = AF_INET;
+	      break;
+
+	    case AVAHI_PROTO_INET6:
+	      family = AF_INET6;
+	      break;
+
+	    default:
+	      DPRINTF(E_INFO, L_MDNS, "Avahi Resolver: unknown protocol %d\n", proto);
+
+	      family = -1;
+	      break;
+	  }
+
 	/* Execute callback (mb->cb) with all the data */
-	mb->cb(name, type, domain, hostname, address, port, txt);
+	if (family != -1)
+	  mb->cb(name, type, domain, hostname, family, address, port, txt);
 	break;
     }
 
@@ -364,6 +384,7 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 {
   struct mdns_browser *mb;
   AvahiServiceResolver *res;
+  int family;
 
   mb = (struct mdns_browser *)userdata;
 
@@ -375,8 +396,7 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 
 	avahi_service_browser_free(b);
 
-	/* Restrict service browsing to IPv4 for now, until evhttp gets support for IPv6 */
-	b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_INET, mb->type, NULL, 0, browse_callback, mb);
+	b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, mb->type, NULL, 0, browse_callback, mb);
 	if (!b)
 	  {
 	    DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type,
@@ -385,10 +405,9 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 	return;
 
       case AVAHI_BROWSER_NEW:
-	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: NEW service '%s' type '%s'\n", name, type);
+	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: NEW service '%s' type '%s' proto %d\n", name, type, proto);
 
-	/* Restrict resolution to IPv4 until evhttp gets support for IPv6 */
-	res = avahi_service_resolver_new(mdns_client, intf, proto, name, type, domain, AVAHI_PROTO_INET, 0, browse_resolve_callback, mb);
+	res = avahi_service_resolver_new(mdns_client, intf, proto, name, type, domain, proto, 0, browse_resolve_callback, mb);
 	if (!res)
 	  DPRINTF(E_LOG, L_MDNS, "Failed to create service resolver: %s\n",
 		  avahi_strerror(avahi_client_errno(mdns_client)));
@@ -397,9 +416,27 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 	break;
 
       case AVAHI_BROWSER_REMOVE:
-	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: REMOVE service '%s' type '%s'\n", name, type);
+	DPRINTF(E_DBG, L_MDNS, "Avahi Browser: REMOVE service '%s' type '%s' proto %d\n", name, type, proto);
 
-	mb->cb(name, type, domain, NULL, NULL, -1, NULL);
+	switch (proto)
+	  {
+	    case AVAHI_PROTO_INET:
+	      family = AF_INET;
+	      break;
+
+	    case AVAHI_PROTO_INET6:
+	      family = AF_INET6;
+	      break;
+
+	    default:
+	      DPRINTF(E_INFO, L_MDNS, "Avahi Browser: unknown protocol %d\n", proto);
+
+	      family = -1;
+	      break;
+	  }
+
+	if (family != -1)
+	  mb->cb(name, type, domain, NULL, family, NULL, -1, NULL);
 	break;
 
       case AVAHI_BROWSER_ALL_FOR_NOW:
@@ -510,8 +547,7 @@ client_callback(AvahiClient *c, AvahiClientState state, AVAHI_GCC_UNUSED void * 
 
 	for (mb = browser_list; mb; mb = mb->next)
 	  {
-	    /* Restrict service browsing to IPv4 for now, until evhttp gets support for IPv6 */
-	    b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_INET, mb->type, NULL, 0, browse_callback, mb);
+	    b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, mb->type, NULL, 0, browse_callback, mb);
 	    if (!b)
 	      {
 		DPRINTF(E_LOG, L_MDNS, "Failed to recreate service browser (service type %s): %s\n", mb->type,
@@ -688,8 +724,7 @@ mdns_browse(char *type, mdns_browse_cb cb)
   mb->next = browser_list;
   browser_list = mb;
 
-  /* Restrict service browsing to IPv4 for now, until evhttp gets support for IPv6 */
-  b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_INET, type, NULL, 0, browse_callback, mb);
+  b = avahi_service_browser_new(mdns_client, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, type, NULL, 0, browse_callback, mb);
   if (!b)
     {
       DPRINTF(E_LOG, L_MDNS, "Failed to create service browser: %s\n",

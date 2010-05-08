@@ -447,7 +447,7 @@ remote_pairing_read_pin(char *path)
 
 /* Thread: main (mdns) */
 static void
-touch_remote_cb(const char *name, const char *type, const char *domain, const char *hostname, const char *address, int port, AvahiStringList *txt)
+touch_remote_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, AvahiStringList *txt)
 {
   AvahiStringList *p;
   char *devname;
@@ -456,6 +456,9 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
   char *val;
   size_t valsz;
   int ret;
+
+  if (family != AF_INET)
+    return;
 
   if (port < 0)
     {
