@@ -975,7 +975,7 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not make TEARDOWN request\n");
 
-      goto cleanup;
+      return -1;
     }
 
   rs->req_in_flight = 1;
@@ -983,11 +983,6 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb)
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
   return 0;
-
- cleanup:
-  evrtsp_request_free(req);
-
-  return -1;
 }
 
 static int
@@ -1013,7 +1008,8 @@ raop_send_req_flush(struct raop_session *rs, evrtsp_req_cb cb, uint64_t rtptime)
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer in FLUSH request\n");
 
-      goto cleanup;
+      evrtsp_request_free(req);
+      return -1;
     }
   evrtsp_add_header(req->output_headers, "RTP-Info", buf);
 
@@ -1022,7 +1018,7 @@ raop_send_req_flush(struct raop_session *rs, evrtsp_req_cb cb, uint64_t rtptime)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not make FLUSH request\n");
 
-      goto cleanup;
+      return -1;
     }
 
   rs->req_in_flight = 1;
@@ -1030,11 +1026,6 @@ raop_send_req_flush(struct raop_session *rs, evrtsp_req_cb cb, uint64_t rtptime)
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
   return 0;
-
- cleanup:
-  evrtsp_request_free(req);
-
-  return -1;
 }
 
 static int
@@ -1056,7 +1047,8 @@ raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, evr
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for SET_PARAMETER payload\n");
 
-      goto cleanup;
+      evrtsp_request_free(req);
+      return -1;
     }
 
   raop_add_headers(rs, req);
@@ -1067,7 +1059,7 @@ raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, evr
     {
       DPRINTF(E_LOG, L_RAOP, "Could not make SET_PARAMETER request\n");
 
-      goto cleanup;
+      return -1;
     }
 
   rs->req_in_flight = 1;
@@ -1075,11 +1067,6 @@ raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, evr
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
   return 0;
-
- cleanup:
-  evrtsp_request_free(req);
-
-  return -1;
 }
 
 static int
@@ -1107,7 +1094,8 @@ raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb)
     {
       DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer in RECORD request\n");
 
-      goto cleanup;
+      evrtsp_request_free(req);
+      return -1;
     }
   evrtsp_add_header(req->output_headers, "RTP-Info", buf);
 
@@ -1116,17 +1104,12 @@ raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not make RECORD request\n");
 
-      goto cleanup;
+      return -1;
     }
 
   rs->req_in_flight = 1;
 
   return 0;
-
- cleanup:
-  evrtsp_request_free(req);
-
-  return -1;
 }
 
 static int
@@ -1152,7 +1135,8 @@ raop_send_req_setup(struct raop_session *rs, evrtsp_req_cb cb)
     {
       DPRINTF(E_LOG, L_RAOP, "Transport header exceeds buffer length\n");
 
-      goto cleanup;
+      evrtsp_request_free(req);
+      return -1;
     }
 
   evrtsp_add_header(req->output_headers, "Transport", hdr);
@@ -1162,17 +1146,12 @@ raop_send_req_setup(struct raop_session *rs, evrtsp_req_cb cb)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not make SETUP request\n");
 
-      goto cleanup;
+      return -1;
     }
 
   rs->req_in_flight = 1;
 
   return 0;
-
- cleanup:
-  evrtsp_request_free(req);
-
-  return -1;
 }
 
 static int
@@ -1219,7 +1198,7 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
       DPRINTF(E_LOG, L_RAOP, "Session URL length exceeds 127 characters\n");
 
       free(address);
-      goto cleanup;
+      goto cleanup_req;
     }
 
   /* SDP payload */
@@ -1229,7 +1208,7 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not generate SDP payload for ANNOUNCE\n");
 
-      goto cleanup;
+      goto cleanup_req;
     }
 
   raop_add_headers(rs, req);
@@ -1242,7 +1221,7 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't encode challenge\n");
 
-      goto cleanup;
+      goto cleanup_req;
     }
 
   /* Remove base64 padding */
@@ -1259,14 +1238,14 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not make ANNOUNCE request\n");
 
-      goto cleanup;
+      return -1;
     }
 
   rs->req_in_flight = 1;
 
   return 0;
 
- cleanup:
+ cleanup_req:
   evrtsp_request_free(req);
 
   return -1;
@@ -1296,7 +1275,8 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
       if (ret == -2)
 	rs->state = RAOP_PASSWORD;
 
-      goto cleanup;
+      evrtsp_request_free(req);
+      return -1;
     }
 
   ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_OPTIONS, "*");
@@ -1304,7 +1284,7 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not make OPTIONS request\n");
 
-      goto cleanup;
+      return -1;
     }
 
   rs->req_in_flight = 1;
@@ -1312,11 +1292,6 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
   return 0;
-
- cleanup:
-  evrtsp_request_free(req);
-
-  return -1;
 }
 
 
