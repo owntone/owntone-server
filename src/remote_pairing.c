@@ -66,8 +66,10 @@ struct remote_info {
   char *paircode;
   char *pin;
 
-  int port;
-  char *address;
+  unsigned short v4_port;
+  unsigned short v6_port;
+  char *v4_address;
+  char *v6_address;
 
   struct evhttp_connection *evcon;
 
@@ -204,8 +206,11 @@ free_remote(struct remote_info *ri)
   if (ri->pin)
     free(ri->pin);
 
-  if (ri->address)
-    free(ri->address);
+  if (ri->v4_address)
+    free(ri->v4_address);
+
+  if (ri->v6_address)
+    free(ri->v6_address);
 
   free_pi(&ri->pi, 1);
 
@@ -221,7 +226,7 @@ remove_remote(struct remote_info *ri)
 }
 
 static void
-remove_remote_byid(const char *id)
+remove_remote_address_byid(const char *id, int family)
 {
   struct remote_info *ri;
 
@@ -240,13 +245,34 @@ remove_remote_byid(const char *id)
       return;
     }
 
-  remove_remote(ri);
+  switch (family)
+    {
+      case AF_INET:
+	if (ri->v4_address)
+	  {
+	    free(ri->v4_address);
+	    ri->v4_address = NULL;
+	  }
+	break;
+
+      case AF_INET6:
+	if (ri->v6_address)
+	  {
+	    free(ri->v6_address);
+	    ri->v6_address = NULL;
+	  }
+	break;
+    }
+
+  if (!ri->v4_address && !ri->v6_address)
+    remove_remote(ri);
 }
 
 static int
-add_remote_mdns_data(const char *id, const char *address, int port, char *name, char *paircode)
+add_remote_mdns_data(const char *id, int family, const char *address, int port, char *name, char *paircode)
 {
   struct remote_info *ri;
+  char *check_addr;
   int ret;
 
   for (ri = remote_list; ri; ri = ri->next)
@@ -274,8 +300,18 @@ add_remote_mdns_data(const char *id, const char *address, int port, char *name, 
 
       free_pi(&ri->pi, 1);
 
-      if (ri->address)
-	free(ri->address);
+      switch (family)
+	{
+	  case AF_INET:
+	    if (ri->v4_address)
+	      free(ri->v4_address);
+	    break;
+
+	  case AF_INET6:
+	    if (ri->v6_address)
+	      free(ri->v6_address);
+	    break;
+	}
 
       if (ri->paircode)
 	free(ri->paircode);
@@ -284,9 +320,25 @@ add_remote_mdns_data(const char *id, const char *address, int port, char *name, 
     }
 
   ri->pi.remote_id = strdup(id);
-  ri->address = strdup(address);
 
-  if (!ri->pi.remote_id || !ri->address)
+  switch (family)
+    {
+      case AF_INET:
+	ri->v4_address = strdup(address);
+	ri->v4_port = port;
+
+	check_addr = ri->v4_address;
+	break;
+
+      case AF_INET6:
+	ri->v6_address = strdup(address);
+	ri->v6_port = port;
+
+	check_addr = ri->v6_address;
+	break;
+    }
+
+  if (!ri->pi.remote_id || !check_addr)
     {
       DPRINTF(E_LOG, L_REMOTE, "Out of memory for remote pairing data\n");
 
@@ -295,7 +347,6 @@ add_remote_mdns_data(const char *id, const char *address, int port, char *name, 
     }
 
   ri->pi.name = name;
-  ri->port = port;
   ri->paircode = paircode;
 
   return ret;
@@ -457,9 +508,6 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
   size_t valsz;
   int ret;
 
-  if (family != AF_INET)
-    return;
-
   if (port < 0)
     {
       /* If Remote stops advertising itself, the pairing either succeeded or
@@ -468,7 +516,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
        */
       pthread_mutex_lock(&remote_lck);
 
-      remove_remote_byid(name);
+      remove_remote_address_byid(name, family);
 
       pthread_mutex_unlock(&remote_lck);
     }
@@ -531,12 +579,12 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 	  return;
 	}
 
-      DPRINTF(E_DBG, L_REMOTE, "Discovered remote %s (id %s) at %s:%d, paircode %s\n", devname, name, address, port, paircode);
+      DPRINTF(E_DBG, L_REMOTE, "Discovered remote %s (id %s) at [%s]:%d, paircode %s\n", devname, name, address, port, paircode);
 
       /* Add the data to the list, adding the remote to the list if needed */
       pthread_mutex_lock(&remote_lck);
 
-      ret = add_remote_mdns_data(name, address, port, devname, paircode);
+      ret = add_remote_mdns_data(name, family, address, port, devname, paircode);
 
       if (ret < 0)
 	{
@@ -645,12 +693,78 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
 
 
 /* Thread: main (pairing) */
+static int
+send_pairing_request(struct remote_info *ri, char *req_uri, int family)
+{
+  struct evhttp_connection *evcon;
+  struct evhttp_request *req;
+  char *address;
+  unsigned short port;
+  int ret;
+
+  switch (family)
+    {
+      case AF_INET:
+	if (!ri->v4_address)
+	  return -1;
+
+	address = ri->v4_address;
+	port = ri->v4_port;
+	break;
+
+      case AF_INET6:
+	if (!ri->v6_address)
+	  return -1;
+
+	address = ri->v6_address;
+	port = ri->v6_port;
+	break;
+
+      default:
+	return -1;
+    }
+
+  evcon = evhttp_connection_new(address, port);
+  if (!evcon)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Could not create connection for pairing with %s\n", ri->pi.name);
+
+      return -1;
+    }
+
+  evhttp_connection_set_base(evcon, evbase_main);
+
+  req = evhttp_request_new(pairing_request_cb, ri);
+  if (!req)
+    {
+      DPRINTF(E_WARN, L_REMOTE, "Could not create HTTP request for pairing\n");
+
+      goto request_fail;
+    }
+
+  ret = evhttp_make_request(evcon, req, EVHTTP_REQ_GET, req_uri);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_REMOTE, "Could not make pairing request\n");
+
+      goto request_fail;
+    }
+
+  ri->evcon = evcon;
+
+  return 0;
+
+ request_fail:
+  evhttp_connection_free(evcon);
+
+  return -1;
+}
+
+/* Thread: main (pairing) */
 static void
 do_pairing(struct remote_info *ri)
 {
   char req_uri[128];
-  struct evhttp_connection *evcon;
-  struct evhttp_request *req;
   char *pairing_hash;
   int ret;
 
@@ -680,40 +794,26 @@ do_pairing(struct remote_info *ri)
     }
 
   /* Fire up the request */
-  evcon = evhttp_connection_new(ri->address, ri->port);
-  if (!evcon)
+  if (ri->v6_address)
     {
-      DPRINTF(E_WARN, L_REMOTE, "Could not create connection for pairing\n");
+      ret = send_pairing_request(ri, req_uri, AF_INET6);
+      if (ret == 0)
+	return;
 
-      goto evcon_fail;
+      DPRINTF(E_WARN, L_REMOTE, "Could not send pairing request on IPv6\n");
     }
 
-  evhttp_connection_set_base(evcon, evbase_main);
-
-  req = evhttp_request_new(pairing_request_cb, ri);
-  if (!req)
-    {
-      DPRINTF(E_WARN, L_REMOTE, "Could not create HTTP request for pairing\n");
-
-      goto request_fail;
-    }
-
-  ret = evhttp_make_request(evcon, req, EVHTTP_REQ_GET, req_uri);
+  ret = send_pairing_request(ri, req_uri, AF_INET);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_REMOTE, "Could not make pairing request\n");
+      DPRINTF(E_WARN, L_REMOTE, "Could not send pairing request on IPv4\n");
 
-      goto request_fail;
+      goto pairing_fail;
     }
-
-  ri->evcon = evcon;
 
   return;
 
- request_fail:
-  evhttp_connection_free(evcon);
-
- evcon_fail:
+ pairing_fail:
  req_uri_fail:
  hash_fail:
   free_remote(ri);
