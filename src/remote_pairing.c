@@ -700,15 +700,12 @@ do_pairing(struct remote_info *ri)
     {
       DPRINTF(E_WARN, L_REMOTE, "Could not make pairing request\n");
 
-      goto make_request_fail;
+      goto request_fail;
     }
 
   ri->evcon = evcon;
 
   return;
-
- make_request_fail:
-  evhttp_request_free(req);
 
  request_fail:
   evhttp_connection_free(evcon);
