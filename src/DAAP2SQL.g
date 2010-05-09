@@ -96,7 +96,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			int neg_op;
 			struct dmap_query_field_map *dqfm;
 			char *end;
-			long longval;
+			long long llval;
 
 			escaped = NULL;
 
@@ -191,10 +191,10 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 			if (dqfm->as_int)
 			{
 				errno = 0;
-				longval = strtol((const char *)val, &end, 10);
+				llval = strtoll((const char *)val, &end, 10);
 
-				if (((errno == ERANGE) && ((longval == LONG_MAX) || (longval == LONG_MIN)))
-					|| ((errno != 0) && (longval == 0)))
+				if (((errno == ERANGE) && ((llval == LLONG_MAX) || (llval == LLONG_MIN)))
+					|| ((errno != 0) && (llval == 0)))
 				{
 					DPRINTF(E_LOG, L_DAAP, "Value '\%s' in clause '\%s\%s\%c\%s' does not convert to an integer type\n",
 					val, field, (neg_op) ? "!" : "", op, val);
