@@ -617,6 +617,11 @@ source_next(int force)
   /* Playlist has only one file, treat REPEAT_ALL as REPEAT_SONG */
   if ((r_mode == REPEAT_ALL) && (source_head == source_head->pl_next))
     r_mode = REPEAT_SONG;
+  /* Playlist has only one file, not a user action, treat as REPEAT_ALL
+   * and source_check() will stop playback
+   */
+  else if (!force && (r_mode == REPEAT_OFF) && (source_head == source_head->pl_next))
+    r_mode = REPEAT_SONG;
 
   if (!cur_streaming)
     ps = head;
@@ -850,8 +855,12 @@ source_check(void)
     {
       i++;
 
-      /* Stop playback if repeat OFF and at end of playlist */
-      if ((r_mode == REPEAT_OFF) && (cur_playing->play_next == head))
+      /* Stop playback if:
+       * - at end of playlist (NULL)
+       * - repeat OFF and at end of playlist (wraparound)
+       */
+      if (!cur_playing->play_next
+	  || ((r_mode == REPEAT_OFF) && (cur_playing->play_next == head)))
 	{
 	  playback_stop(NULL);
 
