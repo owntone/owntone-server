@@ -27,11 +27,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
-#include <limits.h>
 #include <errno.h>
 
 #include "logger.h"
 #include "db.h"
+#include "misc.h"
 #include "filescanner.h"
 
 
@@ -43,7 +43,7 @@ scan_url_file(char *file, struct media_file_info *mfi)
   char *tail;
   char buf[256];
   size_t len;
-  long intval;
+  int ret;
 
   DPRINTF(E_DBG, L_SCAN, "Getting URL file info\n");
 
@@ -101,38 +101,15 @@ scan_url_file(char *file, struct media_file_info *mfi)
   mfi->title = strdup(head);
   mfi->url = strdup(tail + 1);
 
-  errno = 0;
-  intval = strtol(buf, &tail, 10);
-
-  if (((errno == ERANGE) && ((intval == LONG_MAX) || (intval == LONG_MIN)))
-      || ((errno != 0) && (intval == 0)))
+  ret = safe_atou32(buf, &mfi->bitrate);
+  if (ret < 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Could not read bitrate: %s\n", strerror(errno));
+      DPRINTF(E_WARN, L_SCAN, "Could not read bitrate\n");
 
       free(mfi->title);
       free(mfi->url);
       return -1;
     }
-
-  if (tail == buf)
-    {
-      DPRINTF(E_WARN, L_SCAN, "No bitrate found\n");
-
-      free(mfi->title);
-      free(mfi->url);
-      return -1;
-    }
-
-  if (intval > INT_MAX)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Bitrate too large\n");
-
-      free(mfi->title);
-      free(mfi->url);
-      return -1;
-    }
-
-  mfi->bitrate = (int)intval;
 
   DPRINTF(E_DBG, L_SCAN,"  Title:    %s\n", mfi->title);
   DPRINTF(E_DBG, L_SCAN,"  Bitrate:  %d\n", mfi->bitrate);

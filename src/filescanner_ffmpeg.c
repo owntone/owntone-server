@@ -195,10 +195,9 @@ extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct 
   AVMetadataTag *mdt;
   char **strval;
   uint32_t *intval;
-  char *endptr;
-  long tmpval;
   int mdcount;
   int i;
+  int ret;
 
 #if 0
   /* Dump all the metadata reported by ffmpeg */
@@ -240,20 +239,9 @@ extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct 
 
 	  if (*intval == 0)
 	    {
-	      errno = 0;
-	      tmpval = strtol(mdt->value, &endptr, 10);
-
-	      if (((errno == ERANGE) && ((tmpval == LONG_MAX) || (tmpval == LONG_MIN)))
-		  || ((errno != 0) && (tmpval == 0)))
+	      ret = safe_atou32(mdt->value, intval);
+	      if (ret < 0)
 		continue;
-
-	      if (endptr == mdt->value)
-		continue;
-
-	      if (tmpval > UINT32_MAX)
-		continue;
-
-	      *intval = (uint32_t) tmpval;
 	    }
 	}
     }
