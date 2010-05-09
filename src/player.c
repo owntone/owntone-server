@@ -961,6 +961,10 @@ player_playback_cb(int fd, short what, void *arg)
 
   playback_write();
 
+  /* Make sure playback is still running */
+  if (player_state == PLAY_STOPPED)
+    return;
+
   pb_timer_last.tv_nsec += AIRTUNES_V2_STREAM_PERIOD;
   if (pb_timer_last.tv_nsec >= 1000000000)
     {
@@ -1011,6 +1015,10 @@ player_playback_cb(int fd, short what, void *arg)
         continue;
 
       playback_write();
+
+      /* Make sure playback is still running */
+      if (player_state == PLAY_STOPPED)
+	return;
     }
 
   ret = event_add(&pb_timer_ev, NULL);
