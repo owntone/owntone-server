@@ -53,6 +53,7 @@
 #ifndef WIN32
 #include <netinet/in.h>
 #include <netdb.h>
+#include <arpa/inet.h>
 #endif
 
 #ifdef WIN32
@@ -197,8 +198,8 @@ fake_freeaddrinfo(struct addrinfo *ai)
 extern int debug;
 
 static int socket_connect(int fd, const char *address, unsigned short port);
-static int bind_socket_ai(struct addrinfo *, int reuse);
-static int bind_socket(const char *, u_short, int reuse);
+static int bind_socket_ai(int family, struct addrinfo *, int reuse);
+static int bind_socket(int family, const char *, u_short, int reuse);
 static void name_from_addr(struct sockaddr *, socklen_t, char **, char **);
 static int evhttp_associate_new_request_with_connection(
 	struct evhttp_connection *evcon);
@@ -1689,7 +1690,18 @@ struct evhttp_connection *
 evhttp_connection_new(const char *address, unsigned short port)
 {
 	struct evhttp_connection *evcon = NULL;
-	
+	unsigned char scratch[16];
+	int family;
+
+	if (inet_pton(AF_INET6, address, scratch) == 1)
+	  family = AF_INET6;
+	else if (inet_pton(AF_INET, address, scratch) == 1)
+	  family = AF_INET;
+	else {
+	  event_warn("%s: address is neither IPv6 nor IPv4", __func__);
+	  return NULL;
+	}
+
 	event_debug(("Attempting connection to %s:%d\n", address, port));
 
 	if ((evcon = calloc(1, sizeof(struct evhttp_connection))) == NULL) {
@@ -1702,6 +1714,8 @@ evhttp_connection_new(const char *address, unsigned short port)
 
 	evcon->timeout = -1;
 	evcon->retry_cnt = evcon->retry_max = 0;
+
+	evcon->family = family;
 
 	if ((evcon->address = strdup(address)) == NULL) {
 		event_warn("%s: strdup failed", __func__);
@@ -1778,7 +1792,7 @@ evhttp_connection_connect(struct evhttp_connection *evcon)
 	assert(!(evcon->flags & EVHTTP_CON_INCOMING));
 	evcon->flags |= EVHTTP_CON_OUTGOING;
 	
-	evcon->fd = bind_socket(
+	evcon->fd = bind_socket(evcon->family,
 		evcon->bind_address, evcon->bind_port, 0 /*reuse*/);
 	if (evcon->fd == -1) {
 		event_debug(("%s: failed to bind to \"%s\"",
@@ -2278,10 +2292,21 @@ accept_socket(int fd, short what, void *arg)
 int
 evhttp_bind_socket(struct evhttp *http, const char *address, u_short port)
 {
+	unsigned char scratch[16];
+	int family;
 	int fd;
 	int res;
 
-	if ((fd = bind_socket(address, port, 1 /*reuse*/)) == -1)
+	if (inet_pton(AF_INET6, address, scratch) == 1)
+	  family = AF_INET6;
+	else if (inet_pton(AF_INET, address, scratch) == 1)
+	  family = AF_INET;
+	else {
+	  event_warn("%s: address is neither IPv4 nor IPv6", __func__);
+	  return -1;
+	}
+
+	if ((fd = bind_socket(family, address, port, 1 /*reuse*/)) == -1)
 		return (-1);
 
 	if (listen(fd, 128) == -1) {
@@ -2706,13 +2731,16 @@ name_from_addr(struct sockaddr *sa, socklen_t salen,
 /* Create a non-blocking socket and bind it */
 /* todo: rename this function */
 static int
-bind_socket_ai(struct addrinfo *ai, int reuse)
+bind_socket_ai(int family, struct addrinfo *ai, int reuse)
 {
         int fd, on = 1, r;
 	int serrno;
 
+	if (ai)
+	  family = ai->ai_family;
+
         /* Create listen socket */
-        fd = socket(AF_INET, SOCK_STREAM, 0);
+        fd = socket(family, SOCK_STREAM, 0);
         if (fd == -1) {
                 event_warn("socket");
                 return (-1);
@@ -2727,6 +2755,9 @@ bind_socket_ai(struct addrinfo *ai, int reuse)
                 goto out;
         }
 #endif
+
+	if (family == AF_INET6)
+	  setsockopt(fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
 
         setsockopt(fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&on, sizeof(on));
 	if (reuse) {
@@ -2760,7 +2791,7 @@ make_addrinfo(const char *address, u_short port)
         int ai_result;
 
         memset(&ai, 0, sizeof(ai));
-        ai.ai_family = AF_INET;
+        ai.ai_family = AF_UNSPEC;
         ai.ai_socktype = SOCK_STREAM;
         ai.ai_flags = AI_PASSIVE;  /* turn NULL host name into INADDR_ANY */
         evutil_snprintf(strport, sizeof(strport), "%d", port);
@@ -2788,21 +2819,21 @@ make_addrinfo(const char *address, u_short port)
 }
 
 static int
-bind_socket(const char *address, u_short port, int reuse)
+bind_socket(int family, const char *address, u_short port, int reuse)
 {
 	int fd;
 	struct addrinfo *aitop = NULL;
 
 	/* just create an unbound socket */
 	if (address == NULL && port == 0)
-		return bind_socket_ai(NULL, 0);
+		return bind_socket_ai(family, NULL, 0);
 		
 	aitop = make_addrinfo(address, port);
 
 	if (aitop == NULL)
 		return (-1);
 
-	fd = bind_socket_ai(aitop, reuse);
+	fd = bind_socket_ai(family, aitop, reuse);
 
 #ifdef _EVENT_HAVE_GETADDRINFO
 	freeaddrinfo(aitop);
