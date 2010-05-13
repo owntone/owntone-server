@@ -63,6 +63,7 @@ struct evrtsp_connection {
 	u_short bind_port;		/* local port for binding the src */
 
 	char *address;			/* address to connect to */
+	int family;
 	u_short port;
 
 	int flags;
