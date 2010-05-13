@@ -1687,7 +1687,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't get receive timestamp\n");
 
-      return;
+      goto readd;
     }
 
   len = sizeof(sa.ss);
@@ -1695,17 +1695,19 @@ raop_v2_timing_cb(int fd, short what, void *arg)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Error reading timing request: %s\n", strerror(errno));
-      return;
+
+      goto readd;
     }
 
   if (ret != 32)
     {
       DPRINTF(E_DBG, L_RAOP, "Got timing request with size %d\n", ret);
-      return;
+
+      goto readd;
     }
 
   if (len != sizeof(struct sockaddr_in))
-    return;
+    goto readd;
 
   for (rs = sessions; rs; rs = rs->next)
     {
@@ -1720,13 +1722,14 @@ raop_v2_timing_cb(int fd, short what, void *arg)
       else
 	DPRINTF(E_LOG, L_RAOP, "Time sync request from %s; not a RAOP client\n", address);
 
-      return;
+      goto readd;
     }
 
   if ((req[0] != 0x80) || (req[1] != 0xd2))
     {
       DPRINTF(E_LOG, L_RAOP, "Packet header doesn't match timing request\n");
-      return;
+
+      goto readd;
     }
 
   memset(res, 0, sizeof(res));
@@ -1770,9 +1773,10 @@ raop_v2_timing_cb(int fd, short what, void *arg)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not send timing reply: %s\n", strerror(errno));
 
-      return;
+      goto readd;
     }
 
+ readd:
   ret = event_add(&timing_ev, NULL);
   if (ret < 0)
     {
