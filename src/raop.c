@@ -2254,12 +2254,13 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
 static int
 raop_v2_stream_open(struct raop_session *rs)
 {
+  int len;
   int ret;
 
 #ifdef __linux__
-  rs->server_fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  rs->server_fd = socket(rs->sa.ss.ss_family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 #else
-  rs->server_fd = socket(AF_INET, SOCK_DGRAM, 0);
+  rs->server_fd = socket(rs->sa.ss.ss_family, SOCK_DGRAM, 0);
 #endif
   if (rs->server_fd < 0)
     {
@@ -2268,12 +2269,27 @@ raop_v2_stream_open(struct raop_session *rs)
       return -1;
     }
 
-  rs->sa.sin.sin_port = htons(rs->server_port);
+  switch (rs->sa.ss.ss_family)
+    {
+      case AF_INET:
+	rs->sa.sin.sin_port = htons(rs->server_port);
+	len = sizeof(rs->sa.sin);
+	break;
 
-  ret = connect(rs->server_fd, &rs->sa.sa, sizeof(struct sockaddr_in));
+      case AF_INET6:
+	rs->sa.sin6.sin6_port = htons(rs->server_port);
+	len = sizeof(rs->sa.sin6);
+	break;
+
+      default:
+	DPRINTF(E_WARN, L_RAOP, "Unknown family %d\n", rs->sa.ss.ss_family);
+	goto out_fail;
+    }
+
+  ret = connect(rs->server_fd, &rs->sa.sa, len);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "connect() to %s:%u failed: %s\n", rs->address, rs->server_port, strerror(errno));
+      DPRINTF(E_LOG, L_RAOP, "connect() to [%s]:%u failed: %s\n", rs->address, rs->server_port, strerror(errno));
 
       goto out_fail;
     }
