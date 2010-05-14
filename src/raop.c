@@ -1346,13 +1346,35 @@ raop_session_cleanup(struct raop_session *rs)
 }
 
 static struct raop_session *
-raop_session_make(struct raop_device *rd, raop_status_cb cb)
+raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 {
   struct raop_session *rs;
+  char *address;
+  unsigned short port;
   int ret;
 
-  if (!rd->v4_address)
-    return NULL;
+  switch (family)
+    {
+      case AF_INET:
+	/* We always have the v4 services, so no need to check */
+	if (!rd->v4_address)
+	  return NULL;
+
+	address = rd->v4_address;
+	port = rd->v4_port;
+	break;
+
+      case AF_INET6:
+	if (!rd->v6_address || (timing_6svc.fd < 0) || (control_6svc.fd < 0))
+	  return NULL;
+
+	address = rd->v6_address;
+	port = rd->v6_port;
+	break;
+
+      default:
+	return NULL;
+    }
 
   rs = (struct raop_session *)malloc(sizeof(struct raop_session));
   if (!rs)
@@ -1372,19 +1394,7 @@ raop_session_make(struct raop_device *rd, raop_status_cb cb)
 
   rs->password = rd->password;
 
-  rs->timing_svc = &timing_4svc;
-  rs->control_svc = &control_4svc;
-
-  rs->sa.sin.sin_family = AF_INET;
-  ret = inet_pton(AF_INET, rd->v4_address, &rs->sa.sin.sin_addr.s_addr);
-  if (ret <= 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Device address not valid (%s)\n", rd->v4_address);
-
-      goto out_free_rs;
-    }
-
-  rs->ctrl = evrtsp_connection_new(rd->v4_address, rd->v4_port);
+  rs->ctrl = evrtsp_connection_new(address, port);
   if (!rs->ctrl)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not create control connection\n");
@@ -1394,14 +1404,45 @@ raop_session_make(struct raop_device *rd, raop_status_cb cb)
 
   evrtsp_connection_set_base(rs->ctrl, evbase_player);
 
+  rs->sa.ss.ss_family = family;
+  switch (family)
+    {
+      case AF_INET:
+	rs->timing_svc = &timing_4svc;
+	rs->control_svc = &control_4svc;
+
+	ret = inet_pton(AF_INET, address, &rs->sa.sin.sin_addr);
+	break;
+
+      case AF_INET6:
+	rs->timing_svc = &timing_6svc;
+	rs->control_svc = &control_6svc;
+
+	ret = inet_pton(AF_INET6, address, &rs->sa.sin6.sin6_addr);
+	break;
+
+      default:
+	ret = -1;
+	break;
+    }
+
+  if (ret <= 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Device address not valid (%s)\n", address);
+
+      goto out_free_evcon;
+    }
+
   rs->devname = strdup(rd->name);
-  rs->address = strdup(rd->v4_address);
+  rs->address = strdup(address);
 
   rs->next = sessions;
   sessions = rs;
 
   return rs;
 
+ out_free_evcon:
+  evrtsp_connection_free(rs->ctrl);
  out_free_rs:
   free(rs);
 
@@ -2789,23 +2830,38 @@ raop_device_probe(struct raop_device *rd, raop_status_cb cb)
   struct raop_session *rs;
   int ret;
 
-  rs = raop_session_make(rd, cb);
-  if (!rs)
-    return -1;
-
   /* Send an OPTIONS request to test our ability to connect to the device,
    * including the need for and/or validity of the password
    */
+
+  rs = raop_session_make(rd, AF_INET6, cb);
+  if (rs)
+    {
+      ret = raop_send_req_options(rs, raop_cb_probe_options);
+      if (ret == 0)
+	return 0;
+      else
+	{
+	  DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv6 (probe)\n");
+
+	  raop_session_cleanup(rs);
+	}
+    }
+
+  rs = raop_session_make(rd, AF_INET, cb);
+  if (!rs)
+    return -1;
+
   ret = raop_send_req_options(rs, raop_cb_probe_options);
   if (ret < 0)
-    goto cleanup;
+    {
+      DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv4 (probe)\n");
+
+      raop_session_cleanup(rs);
+      return -1;
+    }
 
   return 0;
-
- cleanup:
-  raop_session_cleanup(rs);
-
-  return -1;
 }
 
 int
@@ -2814,26 +2870,43 @@ raop_device_start(struct raop_device *rd, raop_status_cb cb, uint64_t rtptime)
   struct raop_session *rs;
   int ret;
 
-  rs = raop_session_make(rd, cb);
+  /* Send an OPTIONS request to establish the connection
+   * After that, we can determine our local address and build our session URL
+   * for all subsequent requests.
+   */
+
+  rs = raop_session_make(rd, AF_INET6, cb);
+  if (rs)
+    {
+      rs->start_rtptime = rtptime;
+
+      ret = raop_send_req_options(rs, raop_cb_startup_options);
+      if (ret == 0)
+	return 0;
+      else
+	{
+	  DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv6 (start)\n");
+
+	  raop_session_cleanup(rs);
+	}
+    }
+
+  rs = raop_session_make(rd, AF_INET, cb);
   if (!rs)
     return -1;
 
   rs->start_rtptime = rtptime;
 
-  /* Send an OPTIONS request to establish the connection
-   * After that, we can determine our local address and build our session URL
-   * for all subsequent requests.
-   */
   ret = raop_send_req_options(rs, raop_cb_startup_options);
   if (ret < 0)
-    goto cleanup;
+    {
+      DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv4 (start)\n");
+
+      raop_session_cleanup(rs);
+      return -1;
+    }
 
   return 0;
-
- cleanup:
-  raop_session_cleanup(rs);
-
-  return -1;
 }
 
 void
