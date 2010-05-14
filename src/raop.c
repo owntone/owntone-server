@@ -108,6 +108,9 @@ struct raop_session
 
   union sockaddr_all sa;
 
+  struct raop_service *timing_svc;
+  struct raop_service *control_svc;
+
   struct raop_session *next;
 };
 
@@ -174,10 +177,12 @@ static char *raop_aes_key_b64;
 static char *raop_aes_iv_b64;
 
 /* AirTunes v2 time synchronization */
-static struct raop_service timing_svc;
+static struct raop_service timing_4svc;
+static struct raop_service timing_6svc;
 
 /* AirTunes v2 playback synchronization / control */
-static struct raop_service control_svc;
+static struct raop_service control_4svc;
+static struct raop_service control_6svc;
 static int sync_counter;
 
 /* AirTunes v2 audio stream */
@@ -1134,7 +1139,8 @@ raop_send_req_setup(struct raop_session *rs, evrtsp_req_cb cb)
   raop_add_headers(rs, req);
 
   /* Request UDP transport, AirTunes v2 streaming */
-  ret = snprintf(hdr, sizeof(hdr), "RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;control_port=%u;timing_port=%u", control_svc.port, timing_svc.port);
+  ret = snprintf(hdr, sizeof(hdr), "RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;control_port=%u;timing_port=%u",
+		 rs->control_svc->port, rs->timing_svc->port);
   if ((ret < 0) || (ret >= sizeof(hdr)))
     {
       DPRINTF(E_LOG, L_RAOP, "Transport header exceeds buffer length\n");
@@ -1365,6 +1371,9 @@ raop_session_make(struct raop_device *rd, raop_status_cb cb)
   rs->server_fd = -1;
 
   rs->password = rd->password;
+
+  rs->timing_svc = &timing_4svc;
+  rs->control_svc = &control_4svc;
 
   rs->sa.sin.sin_family = AF_INET;
   ret = inet_pton(AF_INET, rd->v4_address, &rs->sa.sin.sin_addr.s_addr);
@@ -1686,8 +1695,11 @@ raop_v2_timing_cb(int fd, short what, void *arg)
   struct ntp_stamp recv_stamp;
   struct ntp_stamp xmit_stamp;
   struct raop_session *rs;
+  struct raop_service *svc;
   int len;
   int ret;
+
+  svc = (struct raop_service *)arg;
 
   ret = raop_v2_timing_get_clock_ntp(&recv_stamp);
   if (ret < 0)
@@ -1698,7 +1710,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
     }
 
   len = sizeof(sa.ss);
-  ret = recvfrom(timing_svc.fd, req, sizeof(req), 0, &sa.sa, (socklen_t *)&len);
+  ret = recvfrom(svc->fd, req, sizeof(req), 0, &sa.sa, (socklen_t *)&len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Error reading timing request: %s\n", strerror(errno));
@@ -1713,7 +1725,9 @@ raop_v2_timing_cb(int fd, short what, void *arg)
       goto readd;
     }
 
-  if (len != sizeof(struct sockaddr_in))
+  if ((svc == &timing_4svc) && (len != sizeof(struct sockaddr_in)))
+    goto readd;
+  else if ((svc == &timing_6svc) && (len != sizeof(struct sockaddr_in6)))
     goto readd;
 
   for (rs = sessions; rs; rs = rs->next)
@@ -1775,7 +1789,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
       memcpy(res + 28, &xmit_stamp.frac, 4);
     }
 
-  ret = sendto(timing_svc.fd, res, sizeof(res), 0, &sa.sa, len);
+  ret = sendto(svc->fd, res, sizeof(res), 0, &sa.sa, len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not send timing reply: %s\n", strerror(errno));
@@ -1784,7 +1798,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
     }
 
  readd:
-  ret = event_add(&timing_svc.ev, NULL);
+  ret = event_add(&svc->ev, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't re-add event for timing requests\n");
@@ -1794,75 +1808,143 @@ raop_v2_timing_cb(int fd, short what, void *arg)
 }
 
 static int
-raop_v2_timing_start(void)
+raop_v2_timing_start_one(struct raop_service *svc, int family)
 {
   union sockaddr_all sa;
+  int on;
   int len;
   int ret;
 
 #ifdef __linux__
-  timing_svc.fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 #else
-  timing_svc.fd = socket(AF_INET, SOCK_DGRAM, 0);
+  svc->fd = socket(family, SOCK_DGRAM, 0);
 #endif
-  if (timing_svc.fd < 0)
+  if (svc->fd < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't make timing socket: %s\n", strerror(errno));
 
       return -1;
     }
 
-  sa.sin.sin_family = AF_INET;
-  sa.sin.sin_addr.s_addr = INADDR_ANY;
-  sa.sin.sin_port = 0;
+  if (family == AF_INET6)
+    {
+      on = 1;
+      ret = setsockopt(svc->fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Could not set IPV6_V6ONLY on timing socket: %s\n", strerror(errno));
 
-  ret = bind(timing_svc.fd, &sa.sa, sizeof(struct sockaddr_in));
+	  goto out_fail;
+	}
+    }
+
+  sa.ss.ss_family = family;
+
+  switch (family)
+    {
+      case AF_INET:
+	sa.sin.sin_addr.s_addr = INADDR_ANY;
+	sa.sin.sin_port = 0;
+	len = sizeof(sa.sin);
+	break;
+
+      case AF_INET6:
+	sa.sin6.sin6_addr = in6addr_any;
+	sa.sin6.sin6_port = 0;
+	len = sizeof(sa.sin6);
+	break;
+    }
+
+  ret = bind(svc->fd, &sa.sa, len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't bind timing socket: %s\n", strerror(errno));
 
-      close(timing_svc.fd);
-      return -1;
+      goto out_fail;
     }
 
   len = sizeof(sa.ss);
-  ret = getsockname(timing_svc.fd, &sa.sa, (socklen_t *)&len);
+  ret = getsockname(svc->fd, &sa.sa, (socklen_t *)&len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't get timing socket name: %s\n", strerror(errno));
 
-      close(timing_svc.fd);
-      return -1;
+      goto out_fail;
     }
 
-  timing_svc.port = ntohs(sa.sin.sin_port);
+  switch (family)
+    {
+      case AF_INET:
+	svc->port = ntohs(sa.sin.sin_port);
+	DPRINTF(E_DBG, L_RAOP, "Timing IPv4 port: %d\n", svc->port);
+	break;
 
-  DPRINTF(E_DBG, L_RAOP, "Timing port: %d\n", timing_svc.port);
+      case AF_INET6:
+	svc->port = ntohs(sa.sin6.sin6_port);
+	DPRINTF(E_DBG, L_RAOP, "Timing IPv6 port: %d\n", svc->port);
+	break;
+    }
 
-  event_set(&timing_svc.ev, timing_svc.fd, EV_READ, raop_v2_timing_cb, NULL);
-  event_base_set(evbase_player, &timing_svc.ev);
-  ret = event_add(&timing_svc.ev, NULL);
+  event_set(&svc->ev, svc->fd, EV_READ, raop_v2_timing_cb, svc);
+  event_base_set(evbase_player, &svc->ev);
+  ret = event_add(&svc->ev, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't add event for timing requests\n");
 
-      close(timing_svc.fd);
-      return -1;
+      goto out_fail;
     }
 
   return 0;
+
+ out_fail:
+  close(svc->fd);
+  svc->fd = -1;
+  svc->port = 0;
+
+  return -1;
 }
 
 static void
 raop_v2_timing_stop(void)
 {
-  if (event_initialized(&timing_svc.ev))
-    event_del(&timing_svc.ev);
+  if (event_initialized(&timing_4svc.ev))
+    event_del(&timing_4svc.ev);
 
-  close(timing_svc.fd);
+  if (event_initialized(&timing_6svc.ev))
+    event_del(&timing_6svc.ev);
 
-  timing_svc.fd = -1;
-  timing_svc.port = 0;
+  close(timing_4svc.fd);
+
+  timing_4svc.fd = -1;
+  timing_4svc.port = 0;
+
+  close(timing_6svc.fd);
+
+  timing_6svc.fd = -1;
+  timing_6svc.port = 0;
+}
+
+static int
+raop_v2_timing_start(void)
+{
+  int ret;
+
+  ret = raop_v2_timing_start_one(&timing_6svc, AF_INET6);
+  if (ret < 0)
+    DPRINTF(E_WARN, L_RAOP, "Could not start timing service on IPv6\n");
+
+  ret = raop_v2_timing_start_one(&timing_4svc, AF_INET);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not start timing service on IPv4\n");
+
+      raop_v2_timing_stop();
+      return -1;
+    }
+
+  return 0;
 }
 
 /* AirTunes v2 playback synchronization */
@@ -1876,6 +1958,7 @@ raop_v2_control_send_sync(uint64_t next_pkt, struct timespec *init)
   uint64_t cur_pos;
   uint32_t cur_pos32;
   uint32_t next_pkt32;
+  int len;
   int ret;
 
   memset(msg, 0, sizeof(msg));
@@ -1918,70 +2001,151 @@ raop_v2_control_send_sync(uint64_t next_pkt, struct timespec *init)
       if (rs->state != RAOP_STREAMING)
 	continue;
 
-      rs->sa.sin.sin_port = htons(rs->control_port);
+      switch (rs->sa.ss.ss_family)
+	{
+	  case AF_INET:
+	    rs->sa.sin.sin_port = htons(rs->control_port);
+	    len = sizeof(rs->sa.sin);
+	    break;
 
-      ret = sendto(control_svc.fd, msg, sizeof(msg), 0, &rs->sa.sa, sizeof(struct sockaddr_in));
+	  case AF_INET6:
+	    rs->sa.sin6.sin6_port = htons(rs->control_port);
+	    len = sizeof(rs->sa.sin6);
+	    break;
+
+	  default:
+	    DPRINTF(E_WARN, L_RAOP, "Unknown family %d\n", rs->sa.ss.ss_family);
+	    continue;
+	}
+
+      ret = sendto(rs->control_svc->fd, msg, sizeof(msg), 0, &rs->sa.sa, len);
       if (ret < 0)
 	DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device %s: %s\n", rs->devname, strerror(errno));
     }
 }
 
 static int
-raop_v2_control_start(void)
+raop_v2_control_start_one(struct raop_service *svc, int family)
 {
   union sockaddr_all sa;
+  int on;
   int len;
   int ret;
 
 #ifdef __linux__
-  control_svc.fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  svc->fd = socket(family, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 #else
-  control_svc.fd = socket(AF_INET, SOCK_DGRAM, 0);
+  svc->fd = socket(family, SOCK_DGRAM, 0);
 #endif
-  if (control_svc.fd < 0)
+  if (svc->fd < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't make control socket: %s\n", strerror(errno));
 
       return -1;
     }
 
-  sa.sin.sin_family = AF_INET;
-  sa.sin.sin_addr.s_addr = INADDR_ANY;
-  sa.sin.sin_port = 0;
+  if (family == AF_INET6)
+    {
+      on = 1;
+      ret = setsockopt(svc->fd, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Could not set IPV6_V6ONLY on control socket: %s\n", strerror(errno));
 
-  ret = bind(control_svc.fd, &sa.sa, sizeof(struct sockaddr_in));
+	  goto out_fail;
+	}
+    }
+
+  sa.ss.ss_family = family;
+
+  switch (family)
+    {
+      case AF_INET:
+	sa.sin.sin_addr.s_addr = INADDR_ANY;
+	sa.sin.sin_port = 0;
+	len = sizeof(sa.sin);
+	break;
+
+      case AF_INET6:
+	sa.sin6.sin6_addr = in6addr_any;
+	sa.sin6.sin6_port = 0;
+	len = sizeof(sa.sin6);
+	break;
+    }
+
+  ret = bind(svc->fd, &sa.sa, len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't bind control socket: %s\n", strerror(errno));
 
-      close(control_svc.fd);
-      return -1;
+      goto out_fail;
     }
 
   len = sizeof(sa.ss);
-  ret = getsockname(control_svc.fd, &sa.sa, (socklen_t *)&len);
+  ret = getsockname(svc->fd, &sa.sa, (socklen_t *)&len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't get control socket name: %s\n", strerror(errno));
 
-      close(control_svc.fd);
-      return -1;
+      goto out_fail;
     }
 
-  control_svc.port = ntohs(sa.sin.sin_port);
+  switch (family)
+    {
+      case AF_INET:
+	svc->port = ntohs(sa.sin.sin_port);
+	DPRINTF(E_DBG, L_RAOP, "Control IPv4 port: %d\n", svc->port);
+	break;
 
-  DPRINTF(E_DBG, L_RAOP, "Control port: %d\n", control_svc.port);
+      case AF_INET6:
+	svc->port = ntohs(sa.sin6.sin6_port);
+	DPRINTF(E_DBG, L_RAOP, "Control IPv6 port: %d\n", svc->port);
+	break;
+    }
 
   return 0;
+
+ out_fail:
+  close(svc->fd);
+  svc->fd = -1;
+  svc->port = 0;
+
+  return -1;
 }
 
 static void
 raop_v2_control_stop(void)
 {
-  close(control_svc.fd);
+  close(control_4svc.fd);
 
-  control_svc.fd = -1;
-  control_svc.port = 0;
+  control_4svc.fd = -1;
+  control_4svc.port = 0;
+
+  close(control_6svc.fd);
+
+  control_6svc.fd = -1;
+  control_6svc.port = 0;
+}
+
+static int
+raop_v2_control_start(void)
+{
+  int ret;
+
+  ret = raop_v2_control_start_one(&control_6svc, AF_INET6);
+  if (ret < 0)
+    DPRINTF(E_WARN, L_RAOP, "Could not start control service on IPv6\n");
+
+  ret = raop_v2_control_start_one(&control_4svc, AF_INET);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not start control service on IPv4\n");
+
+      raop_v2_control_stop();
+      return -1;
+    }
+
+  return 0;
 }
 
 
@@ -2715,11 +2879,17 @@ raop_init(void)
   gpg_error_t gc_err;
   int ret;
 
-  timing_svc.fd = -1;
-  timing_svc.port = 0;
+  timing_4svc.fd = -1;
+  timing_4svc.port = 0;
 
-  control_svc.fd = -1;
-  control_svc.port = 0;
+  timing_6svc.fd = -1;
+  timing_6svc.port = 0;
+
+  control_4svc.fd = -1;
+  control_4svc.port = 0;
+
+  control_6svc.fd = -1;
+  control_6svc.port = 0;
 
   sessions = NULL;
 
