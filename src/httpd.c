@@ -1201,7 +1201,6 @@ int
 httpd_init(void)
 {
   unsigned short port;
-  int bindv6;
   int ret;
 
   httpd_exit = 0;
@@ -1278,20 +1277,20 @@ httpd_init(void)
 
   port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
-  /* evhttp doesn't support IPv6 yet, so this is expected to fail */
-  bindv6 = evhttp_bind_socket(evhttpd, "::", port);
-  if (bindv6 < 0)
-    DPRINTF(E_INFO, L_HTTPD, "Could not bind IN6ADDR_ANY:%d (that's OK)\n", port);
+  /* We are binding v6 and v4 separately, and we allow v6 to fail
+   * as IPv6 might not be supported on the system.
+   * We still warn about the failure, in case there's another issue.
+   */
+  ret = evhttp_bind_socket(evhttpd, "::", port);
+  if (ret < 0)
+    DPRINTF(E_WARN, L_HTTPD, "Could not bind IN6ADDR_ANY:%d (that's OK)\n", port);
 
   ret = evhttp_bind_socket(evhttpd, "0.0.0.0", port);
   if (ret < 0)
     {
-      if (bindv6 < 0)
-	{
-	  DPRINTF(E_FATAL, L_HTTPD, "Could not bind INADDR_ANY:%d\n", port);
+      DPRINTF(E_FATAL, L_HTTPD, "Could not bind INADDR_ANY:%d\n", port);
 
-	  goto bind_fail;
-	}
+      goto bind_fail;
     }
 
   evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
