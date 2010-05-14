@@ -111,6 +111,13 @@ struct raop_session
   struct raop_session *next;
 };
 
+struct raop_service
+{
+  int fd;
+  unsigned short port;
+  struct event ev;
+};
+
 struct raop_deferred_eh
 {
   struct event ev;
@@ -167,13 +174,10 @@ static char *raop_aes_key_b64;
 static char *raop_aes_iv_b64;
 
 /* AirTunes v2 time synchronization */
-static int timing_fd;
-static unsigned short timing_port;
-static struct event timing_ev;
+static struct raop_service timing_svc;
 
-/* AirTunes v2 playback synchronization */
-static int control_fd;
-static unsigned short control_port;
+/* AirTunes v2 playback synchronization / control */
+static struct raop_service control_svc;
 static int sync_counter;
 
 /* AirTunes v2 audio stream */
@@ -1130,7 +1134,7 @@ raop_send_req_setup(struct raop_session *rs, evrtsp_req_cb cb)
   raop_add_headers(rs, req);
 
   /* Request UDP transport, AirTunes v2 streaming */
-  ret = snprintf(hdr, sizeof(hdr), "RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;control_port=%u;timing_port=%u", control_port, timing_port);
+  ret = snprintf(hdr, sizeof(hdr), "RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;control_port=%u;timing_port=%u", control_svc.port, timing_svc.port);
   if ((ret < 0) || (ret >= sizeof(hdr)))
     {
       DPRINTF(E_LOG, L_RAOP, "Transport header exceeds buffer length\n");
@@ -1694,7 +1698,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
     }
 
   len = sizeof(sa.ss);
-  ret = recvfrom(timing_fd, req, sizeof(req), 0, &sa.sa, (socklen_t *)&len);
+  ret = recvfrom(timing_svc.fd, req, sizeof(req), 0, &sa.sa, (socklen_t *)&len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Error reading timing request: %s\n", strerror(errno));
@@ -1771,7 +1775,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
       memcpy(res + 28, &xmit_stamp.frac, 4);
     }
 
-  ret = sendto(timing_fd, res, sizeof(res), 0, &sa.sa, len);
+  ret = sendto(timing_svc.fd, res, sizeof(res), 0, &sa.sa, len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not send timing reply: %s\n", strerror(errno));
@@ -1780,7 +1784,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
     }
 
  readd:
-  ret = event_add(&timing_ev, NULL);
+  ret = event_add(&timing_svc.ev, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't re-add event for timing requests\n");
@@ -1797,11 +1801,11 @@ raop_v2_timing_start(void)
   int ret;
 
 #ifdef __linux__
-  timing_fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  timing_svc.fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 #else
-  timing_fd = socket(AF_INET, SOCK_DGRAM, 0);
+  timing_svc.fd = socket(AF_INET, SOCK_DGRAM, 0);
 #endif
-  if (timing_fd < 0)
+  if (timing_svc.fd < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't make timing socket: %s\n", strerror(errno));
 
@@ -1812,37 +1816,37 @@ raop_v2_timing_start(void)
   sa.sin.sin_addr.s_addr = INADDR_ANY;
   sa.sin.sin_port = 0;
 
-  ret = bind(timing_fd, &sa.sa, sizeof(struct sockaddr_in));
+  ret = bind(timing_svc.fd, &sa.sa, sizeof(struct sockaddr_in));
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't bind timing socket: %s\n", strerror(errno));
 
-      close(timing_fd);
+      close(timing_svc.fd);
       return -1;
     }
 
   len = sizeof(sa.ss);
-  ret = getsockname(timing_fd, &sa.sa, (socklen_t *)&len);
+  ret = getsockname(timing_svc.fd, &sa.sa, (socklen_t *)&len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't get timing socket name: %s\n", strerror(errno));
 
-      close(timing_fd);
+      close(timing_svc.fd);
       return -1;
     }
 
-  timing_port = ntohs(sa.sin.sin_port);
+  timing_svc.port = ntohs(sa.sin.sin_port);
 
-  DPRINTF(E_DBG, L_RAOP, "Timing port: %d\n", timing_port);
+  DPRINTF(E_DBG, L_RAOP, "Timing port: %d\n", timing_svc.port);
 
-  event_set(&timing_ev, timing_fd, EV_READ, raop_v2_timing_cb, NULL);
-  event_base_set(evbase_player, &timing_ev);
-  ret = event_add(&timing_ev, NULL);
+  event_set(&timing_svc.ev, timing_svc.fd, EV_READ, raop_v2_timing_cb, NULL);
+  event_base_set(evbase_player, &timing_svc.ev);
+  ret = event_add(&timing_svc.ev, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't add event for timing requests\n");
 
-      close(timing_fd);
+      close(timing_svc.fd);
       return -1;
     }
 
@@ -1852,13 +1856,13 @@ raop_v2_timing_start(void)
 static void
 raop_v2_timing_stop(void)
 {
-  if (event_initialized(&timing_ev))
-    event_del(&timing_ev);
+  if (event_initialized(&timing_svc.ev))
+    event_del(&timing_svc.ev);
 
-  close(timing_fd);
+  close(timing_svc.fd);
 
-  timing_fd = -1;
-  timing_port = 0;
+  timing_svc.fd = -1;
+  timing_svc.port = 0;
 }
 
 /* AirTunes v2 playback synchronization */
@@ -1916,7 +1920,7 @@ raop_v2_control_send_sync(uint64_t next_pkt, struct timespec *init)
 
       rs->sa.sin.sin_port = htons(rs->control_port);
 
-      ret = sendto(control_fd, msg, sizeof(msg), 0, &rs->sa.sa, sizeof(struct sockaddr_in));
+      ret = sendto(control_svc.fd, msg, sizeof(msg), 0, &rs->sa.sa, sizeof(struct sockaddr_in));
       if (ret < 0)
 	DPRINTF(E_LOG, L_RAOP, "Could not send playback sync to device %s: %s\n", rs->devname, strerror(errno));
     }
@@ -1930,11 +1934,11 @@ raop_v2_control_start(void)
   int ret;
 
 #ifdef __linux__
-  control_fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
+  control_svc.fd = socket(AF_INET, SOCK_DGRAM | SOCK_CLOEXEC, 0);
 #else
-  control_fd = socket(AF_INET, SOCK_DGRAM, 0);
+  control_svc.fd = socket(AF_INET, SOCK_DGRAM, 0);
 #endif
-  if (control_fd < 0)
+  if (control_svc.fd < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't make control socket: %s\n", strerror(errno));
 
@@ -1945,28 +1949,28 @@ raop_v2_control_start(void)
   sa.sin.sin_addr.s_addr = INADDR_ANY;
   sa.sin.sin_port = 0;
 
-  ret = bind(control_fd, &sa.sa, sizeof(struct sockaddr_in));
+  ret = bind(control_svc.fd, &sa.sa, sizeof(struct sockaddr_in));
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't bind control socket: %s\n", strerror(errno));
 
-      close(control_fd);
+      close(control_svc.fd);
       return -1;
     }
 
   len = sizeof(sa.ss);
-  ret = getsockname(control_fd, &sa.sa, (socklen_t *)&len);
+  ret = getsockname(control_svc.fd, &sa.sa, (socklen_t *)&len);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't get control socket name: %s\n", strerror(errno));
 
-      close(control_fd);
+      close(control_svc.fd);
       return -1;
     }
 
-  control_port = ntohs(sa.sin.sin_port);
+  control_svc.port = ntohs(sa.sin.sin_port);
 
-  DPRINTF(E_DBG, L_RAOP, "Control port: %d\n", control_port);
+  DPRINTF(E_DBG, L_RAOP, "Control port: %d\n", control_svc.port);
 
   return 0;
 }
@@ -1974,10 +1978,10 @@ raop_v2_control_start(void)
 static void
 raop_v2_control_stop(void)
 {
-  close(control_fd);
+  close(control_svc.fd);
 
-  control_fd = -1;
-  control_port = 0;
+  control_svc.fd = -1;
+  control_svc.port = 0;
 }
 
 
@@ -2711,11 +2715,11 @@ raop_init(void)
   gpg_error_t gc_err;
   int ret;
 
-  timing_fd = -1;
-  timing_port = 0;
+  timing_svc.fd = -1;
+  timing_svc.port = 0;
 
-  control_fd = -1;
-  control_port = 0;
+  control_svc.fd = -1;
+  control_svc.port = 0;
 
   sessions = NULL;
 
