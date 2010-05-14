@@ -11,6 +11,7 @@
 union sockaddr_all
 {
   struct sockaddr_in sin;
+  struct sockaddr_in6 sin6;
   struct sockaddr sa;
   struct sockaddr_storage ss;
 };
@@ -22,8 +23,10 @@ struct raop_device
   uint64_t id;
   char *name;
 
-  char *address;
-  short port;
+  char *v4_address;
+  char *v6_address;
+  short v4_port;
+  short v6_port;
 
   char selected;
   char advertised;

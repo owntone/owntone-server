@@ -1341,6 +1341,9 @@ raop_session_make(struct raop_device *rd, raop_status_cb cb)
   struct raop_session *rs;
   int ret;
 
+  if (!rd->v4_address)
+    return NULL;
+
   rs = (struct raop_session *)malloc(sizeof(struct raop_session));
   if (!rs)
     {
@@ -1360,15 +1363,15 @@ raop_session_make(struct raop_device *rd, raop_status_cb cb)
   rs->password = rd->password;
 
   rs->sa.sin.sin_family = AF_INET;
-  ret = inet_pton(AF_INET, rd->address, &rs->sa.sin.sin_addr.s_addr);
+  ret = inet_pton(AF_INET, rd->v4_address, &rs->sa.sin.sin_addr.s_addr);
   if (ret <= 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Device address not valid (%s)\n", rd->address);
+      DPRINTF(E_LOG, L_RAOP, "Device address not valid (%s)\n", rd->v4_address);
 
       goto out_free_rs;
     }
 
-  rs->ctrl = evrtsp_connection_new(rd->address, rd->port);
+  rs->ctrl = evrtsp_connection_new(rd->v4_address, rd->v4_port);
   if (!rs->ctrl)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not create control connection\n");
@@ -1379,7 +1382,7 @@ raop_session_make(struct raop_device *rd, raop_status_cb cb)
   evrtsp_connection_set_base(rs->ctrl, evbase_player);
 
   rs->devname = strdup(rd->name);
-  rs->address = strdup(rd->address);
+  rs->address = strdup(rd->v4_address);
 
   rs->next = sessions;
   sessions = rs;

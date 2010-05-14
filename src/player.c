@@ -1046,7 +1046,12 @@ static void
 device_free(struct raop_device *dev)
 {
   free(dev->name);
-  free(dev->address);
+
+  if (dev->v4_address)
+    free(dev->v4_address);
+
+  if (dev->v6_address)
+    free(dev->v6_address);
 
   free(dev);
 }
@@ -2762,9 +2767,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   int has_password;
   int ret;
 
-  if (family != AF_INET)
-    return;
-
   ret = safe_hextou64(name, &id);
   if (ret < 0)
     {
@@ -2807,18 +2809,40 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	  return;
 	}
 
-      rd->advertised = 0;
-
-      if (!rd->session)
+      switch (family)
 	{
-	  if (!prev)
-	    dev_list = rd->next;
-	  else
-	    prev->next = rd->next;
+	  case AF_INET:
+	    if (rd->v4_address)
+	      {
+		free(rd->v4_address);
+		rd->v4_address = NULL;
+	      }
+	    break;
 
-	  device_free(rd);
+	  case AF_INET6:
+	    if (rd->v6_address)
+	      {
+		free(rd->v6_address);
+		rd->v6_address = NULL;
+	      }
+	    break;
+	}
 
-	  DPRINTF(E_DBG, L_PLAYER, "Removed AirTunes device %s; stopped advertising\n", name);
+      if (!rd->v4_address && !rd->v6_address)
+	{
+	  rd->advertised = 0;
+
+	  if (!rd->session)
+	    {
+	      if (!prev)
+		dev_list = rd->next;
+	      else
+		prev->next = rd->next;
+
+	      device_free(rd);
+
+	      DPRINTF(E_DBG, L_PLAYER, "Removed AirTunes device %s; stopped advertising\n", name);
+	    }
 	}
 
       pthread_mutex_unlock(&dev_lck);
@@ -2872,7 +2896,25 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	  DPRINTF(E_DBG, L_PLAYER, "Updating AirTunes device %s already in list, updating\n", name);
 
 	  free(rd->name);
-	  free(rd->address);
+
+	  switch (family)
+	    {
+	      case AF_INET:
+		if (rd->v4_address)
+		  {
+		    free(rd->v4_address);
+		    rd->v4_address = NULL;
+		  }
+		break;
+
+	      case AF_INET6:
+		if (rd->v6_address)
+		  {
+		    free(rd->v6_address);
+		    rd->v6_address = NULL;
+		  }
+		break;
+	    }
 	}
       else
 	{
@@ -2897,10 +2939,21 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	}
 
       rd->advertised = 1;
-      rd->port = port;
+
+      switch (family)
+	{
+	  case AF_INET:
+	    rd->v4_address = strdup(address);
+	    rd->v4_port = port;
+	    break;
+
+	  case AF_INET6:
+	    rd->v6_address = strdup(address);
+	    rd->v6_port = port;
+	    break;
+	}
 
       rd->name = strdup(at_name);
-      rd->address = strdup(address);
 
       rd->has_password = has_password;
       rd->password = val;
