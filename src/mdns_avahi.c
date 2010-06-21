@@ -115,7 +115,7 @@ _ev_watch_add(AvahiWatch *w, int fd, AvahiWatchEvent a_events)
   if (a_events & AVAHI_WATCH_IN)
     ev_events |= EV_READ;
   if (a_events & AVAHI_WATCH_OUT)
-    ev_events | EV_WRITE;
+    ev_events |= EV_WRITE;
 
   event_set(&w->ev, fd, ev_events, evcb_watch, w);
   event_base_set(evbase_main, &w->ev);
