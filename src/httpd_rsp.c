@@ -742,7 +742,7 @@ rsp_reply_browse(struct evhttp_request *req, char **uri, struct evkeyvalq *query
    * to return - this prevents mxml from sending out an empty <items/>
    * tag that the SoundBridge does not handle. It's hackish, but it works.
    */
-  if (qp.results == 0);
+  if (qp.results == 0)
     mxmlNewText(items, 0, "");
 
   db_query_end(&qp);
