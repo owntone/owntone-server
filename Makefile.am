@@ -1,3 +1,4 @@
+ACLOCAL_AMFLAGS = -I m4
 
 sysconf_DATA = forked-daapd.conf
 
