@@ -667,6 +667,9 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query)
 
   mfi->rating = rating;
 
+  /* We're not touching any string field in mfi, so it's safe to
+   * skip unicode_fixup_mfi() before the update
+   */
   db_file_update(mfi);
 
   free_mfi(mfi, 0);

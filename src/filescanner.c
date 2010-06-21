@@ -284,6 +284,8 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
 
   fixup_tags(&mfi);
 
+  unicode_fixup_mfi(&mfi);
+
   if (mfi.id == 0)
     db_file_add(&mfi);
   else
