@@ -25,6 +25,7 @@ System-specific requirements:
    + libasound (ALSA sound support - or you can use OSS4)
  - FreeBSD:
    + OSS4 sound support
+   + libiconv
 
 General libraries:
  - Avahi client libraries, 0.6.24 minimum
@@ -36,6 +37,7 @@ General libraries:
  - MiniXML
  - gcrypt 1.2.0+
  - zlib
+ - libunistring
  - libflac (optional - FLAC support)
  - taglib (optional - Musepack support)
  - libplist 0.16+ (optional - iTunes XML support)
