@@ -25,6 +25,9 @@ safe_hextou64(const char *str, uint64_t *val);
 char *
 m_realpath(const char *pathname);
 
+char *
+unicode_fixup_string(char *str);
+
 uint32_t
 djb_hash(void *data, size_t len);
 

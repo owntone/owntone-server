@@ -33,6 +33,9 @@
 #include <limits.h>
 #include <sys/param.h>
 
+#include <unistr.h>
+#include <uniconv.h>
+
 #include "logger.h"
 #include "misc.h"
 
@@ -272,6 +275,32 @@ m_realpath(const char *pathname)
     }
 
   return ret;
+}
+
+char *
+unicode_fixup_string(char *str)
+{
+  uint8_t *ret;
+  size_t len;
+
+  if (!str)
+    return NULL;
+
+  len = strlen(str);
+
+  /* String is valid UTF-8 */
+  if (!u8_check((uint8_t *)str, len))
+    return str;
+
+  ret = u8_conv_from_encoding("ascii", iconveh_question_mark, str, len, NULL, NULL, &len);
+  if (!ret)
+    {
+      DPRINTF(E_LOG, L_MISC, "Could not convert string '%s' to UTF-8: %s\n", str, strerror(errno));
+
+      return NULL;
+    }
+
+  return (char *)ret;
 }
 
 uint32_t
