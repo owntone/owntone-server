@@ -352,6 +352,40 @@ free_mfi(struct media_file_info *mfi, int content_only)
 }
 
 void
+unicode_fixup_mfi(struct media_file_info *mfi)
+{
+  char *ret;
+  char **field;
+  int i;
+
+  for (i = 0; i < (sizeof(mfi_cols_map) / sizeof(mfi_cols_map[0])); i++)
+    {
+      if (mfi_cols_map[i].type != DB_TYPE_STRING)
+	continue;
+
+      switch (mfi_cols_map[i].offset)
+	{
+	  case mfi_offsetof(path):
+	  case mfi_offsetof(fname):
+	  case mfi_offsetof(codectype):
+	    continue;
+	}
+
+      field = (char **) ((char *)mfi + mfi_cols_map[i].offset);
+
+      if (!*field)
+	continue;
+
+      ret = unicode_fixup_string(*field);
+      if (ret != *field)
+	{
+	  free(*field);
+	  *field = ret;
+	}
+    }
+}
+
+void
 free_pli(struct playlist_info *pli, int content_only)
 {
   if (pli->title)

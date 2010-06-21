@@ -269,6 +269,9 @@ void
 free_mfi(struct media_file_info *mfi, int content_only);
 
 void
+unicode_fixup_mfi(struct media_file_info *mfi);
+
+void
 free_pli(struct playlist_info *pli, int content_only);
 
 void
