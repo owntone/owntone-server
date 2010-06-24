@@ -3,8 +3,8 @@ Installation instructions for forked-daapd
 
 Required tools:
  - ANTLR v3 is required to build forked-daapd, along with its C runtime
-   (libantlr3c). Use at least version 3.1.x of ANTLR v3 and the matching
-   C runtime version. Version 3.1.3 is recommended.
+   (libantlr3c). Use at least version 3.1.3 of ANTLR v3 and the matching
+   C runtime version.
 
  - Java runtime: ANTLR is written in Java and as such a JRE is required to
    run the tool. The JRE is enough, you don't need a full JDK.
