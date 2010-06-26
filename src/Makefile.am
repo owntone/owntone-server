@@ -83,10 +83,10 @@ daap_query.c: DAAPLexer.h DAAPParser.h DAAP2SQL.h
 SUFFIXES = .g .u
 
 %.tokens %.c %Lexer.c %Parser.c %Lexer.h %Parser.h %.h: %.g
-	@ANTLR@ $(ANTLR_OPTIONS) $<
+	$(ANTLR) $(ANTLR_OPTIONS) $<
 
 %.u: %.g
-	@ANTLR@ -depend $< > $@
+	$(ANTLR) -depend $< > $@
 	@echo -n "ANTLR_PRODUCTS += " > $@.tmp
 	@grep : $@ | cut -d : -f 1 | tr -d ' ' | { while read f; do test "$$f" != "$<" && echo -n "$$f "; done } >> $@.tmp
 	@cat $@.tmp >> $@
