@@ -29,6 +29,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
+#include <arpa/inet.h>
+#include <net/if.h>
 
 #include <event.h>
 
@@ -329,14 +331,47 @@ static struct mdns_browser *browser_list;
 static struct mdns_group_entry *group_entries;
 
 
+#define IPV4LL_NETWORK 0xA9FE0000
+#define IPV4LL_NETMASK 0xFFFF0000
+#define IPV6LL_NETWORK 0xFE80
+#define IPV6LL_NETMASK 0xFFC0
+
+static int
+is_link_local(const AvahiAddress *addr)
+{
+  uint32_t a;
+
+  switch (addr->proto)
+    {
+      case AVAHI_PROTO_INET:
+	a = ntohl(addr->data.ipv4.address);
+
+	return (a & IPV4LL_NETMASK) == IPV4LL_NETWORK;
+
+      case AVAHI_PROTO_INET6:
+	a = (addr->data.ipv6.address[0] << 8) | addr->data.ipv6.address[1];
+
+	return (a & IPV6LL_NETMASK) == IPV6LL_NETWORK;
+
+      default:
+	return 0;
+    }
+
+  return 0;
+}
+
 static void
 browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtocol proto, AvahiResolverEvent event,
 			const char *name, const char *type, const char *domain, const char *hostname, const AvahiAddress *addr,
 			uint16_t port, AvahiStringList *txt, AvahiLookupResultFlags flags, void *userdata)
 {
   struct mdns_browser *mb;
-  char address[AVAHI_ADDRESS_STR_MAX];
+  char address[AVAHI_ADDRESS_STR_MAX + IF_NAMESIZE + 2];
+  char ifname[IF_NAMESIZE];
+  size_t len;
   int family;
+  int ll;
+  int ret;
 
   mb = (struct mdns_browser *)userdata;
 
@@ -350,15 +385,51 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       case AVAHI_RESOLVER_FOUND:
 	DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d\n", name, type, proto);
 
-	avahi_address_snprint(address, sizeof(address), addr);
+	ll = is_link_local(addr);
 
 	switch (proto)
 	  {
 	    case AVAHI_PROTO_INET:
+	      if (ll)
+		{
+		  family = -1;
+
+		  DPRINTF(E_DBG, L_MDNS, "Discarding IPv4 LL address\n");
+		  break;
+		}
+
 	      family = AF_INET;
+	      avahi_address_snprint(address, sizeof(address), addr);
 	      break;
 
 	    case AVAHI_PROTO_INET6:
+	      avahi_address_snprint(address, sizeof(address), addr);
+
+	      if (ll)
+		{
+		  DPRINTF(E_DBG, L_MDNS, "Appending interface name to IPv6 LL address\n");
+
+		  if (!if_indextoname(intf, ifname))
+		    {
+		      DPRINTF(E_LOG, L_MDNS, "Could not map interface index %d to a name\n", intf);
+
+		      family = -1;
+		      break;
+		    }
+
+		  len = strlen(address);
+		  ret = snprintf(address + len, sizeof(address) - len, "%%%s", ifname);
+		  if ((ret < 0) || (ret > sizeof(address) - len))
+		    {
+		      DPRINTF(E_LOG, L_MDNS, "Buffer too short for scoped IPv6 LL\n");
+
+		      family = -1;
+		      break;
+		    }
+
+		  DPRINTF(E_DBG, L_MDNS, "Scoped IPv6 LL: %s\n", address);
+		}
+
 	      family = AF_INET6;
 	      break;
 
