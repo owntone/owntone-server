@@ -2893,7 +2893,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
       if (rd)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Updating AirTunes device %s already in list, updating\n", name);
+	  DPRINTF(E_DBG, L_PLAYER, "Updating AirTunes device %s, already in list\n", name);
 
 	  free(rd->name);
 
