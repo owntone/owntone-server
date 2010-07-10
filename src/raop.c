@@ -49,6 +49,7 @@
 #include <endian.h>
 
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #include <event.h>
 #include "evrtsp/evrtsp.h"
@@ -1172,6 +1173,7 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
   char *ptr;
   struct evrtsp_request *req;
   char *address;
+  char *intf;
   unsigned short port;
   uint32_t session_id;
   int ret;
@@ -1188,7 +1190,14 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  DPRINTF(E_DBG, L_RAOP, "Local address: %s port %d\n", address, port);
+  intf = strchr(address, '%');
+  if (intf)
+    {
+      *intf = '\0';
+      intf++;
+    }
+
+  DPRINTF(E_DBG, L_RAOP, "Local address: %s (LL: %s) port %d\n", address, (intf) ? intf : "no", port);
 
   req = evrtsp_request_new(cb, rs);
   if (!req)
@@ -1350,6 +1359,7 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 {
   struct raop_session *rs;
   char *address;
+  char *intf;
   unsigned short port;
   int ret;
 
@@ -1397,7 +1407,7 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   rs->ctrl = evrtsp_connection_new(address, port);
   if (!rs->ctrl)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not create control connection\n");
+      DPRINTF(E_LOG, L_RAOP, "Could not create control connection to %s\n", address);
 
       goto out_free_rs;
     }
@@ -1418,7 +1428,28 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 	rs->timing_svc = &timing_6svc;
 	rs->control_svc = &control_6svc;
 
+	intf = strchr(address, '%');
+	if (intf)
+	  *intf = '\0';
+
 	ret = inet_pton(AF_INET6, address, &rs->sa.sin6.sin6_addr);
+
+	if (intf)
+	  {
+	    *intf = '%';
+
+	    intf++;
+
+	    rs->sa.sin6.sin6_scope_id = if_nametoindex(intf);
+	    if (rs->sa.sin6.sin6_scope_id == 0)
+	      {
+		DPRINTF(E_LOG, L_RAOP, "Could not find interface %s\n", intf);
+
+		ret = -1;
+		break;
+	      }
+	  }
+
 	break;
 
       default:
