@@ -21,6 +21,7 @@
 #endif
 
 #include <stdio.h>
+#include <unistd.h>
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
@@ -197,21 +198,43 @@ void
 logger_reinit(void)
 {
   FILE *fp;
+  uid_t uid;
+  int ret;
+
+  if (!logfile)
+    return;
 
   pthread_mutex_lock(&logger_lck);
 
-  if (logfile)
-    {
-      fp = fopen(logfilename, "a");
-      if (!fp)
-	{
-	  fprintf(logfile, "WARNING: Could not reopen logfile, logging will stop now\n");
-	}
+  uid = geteuid();
 
-      fclose(logfile);
-      logfile = fp;
+  if (uid != 0)
+    {
+      ret = seteuid(0);
+      if (ret < 0)
+	fprintf(logfile, "logger_reinit: seteuid(0) failed: %s\n", strerror(errno));
     }
 
+  fp = fopen(logfilename, "a");
+
+  if (uid != 0)
+    {
+      ret = seteuid(uid);
+      if (ret < 0)
+	fprintf(logfile, "logger_reinit: seteuid(%lu) failed: %s\n", (unsigned long)uid, strerror(errno));
+    }
+
+  if (!fp)
+    {
+      fprintf(logfile, "Could not reopen logfile: %s\n", strerror(errno));
+
+      goto out;
+    }
+
+  fclose(logfile);
+  logfile = fp;
+
+ out:
   pthread_mutex_unlock(&logger_lck);
 }
 
