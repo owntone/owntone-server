@@ -731,7 +731,7 @@ mdns_deinit(void)
       free(mb);
     }
 
-  if (mdns_client != NULL)
+  if (mdns_client)
     avahi_client_free(mdns_client);
 }
 
