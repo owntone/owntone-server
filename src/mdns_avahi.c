@@ -800,6 +800,11 @@ mdns_browse(char *type, mdns_browse_cb cb)
     {
       DPRINTF(E_LOG, L_MDNS, "Failed to create service browser: %s\n",
 	      avahi_strerror(avahi_client_errno(mdns_client)));
+
+      browser_list = mb->next;
+      free(mb->type);
+      free(mb);
+
       return -1;
     }
 
