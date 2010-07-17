@@ -12,6 +12,9 @@ Required tools:
  - autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run autoreconf -i
    at the top of the source tree to generate the build system.
 
+ - gettext: libunistring requires iconv and gettext provides the autotools
+   macro definitions for iconv.
+
  - pkg-config
 
 The configure script will look for a wrapper called antlr3 in the PATH to
