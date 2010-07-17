@@ -3613,6 +3613,9 @@ db_perthread_deinit(void)
 {
   sqlite3_stmt *stmt;
 
+  if (!hdl)
+    return;
+
   /* Tear down anything that's in flight */
   while ((stmt = sqlite3_next_stmt(hdl, 0)))
     sqlite3_finalize(stmt);
