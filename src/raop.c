@@ -2500,13 +2500,9 @@ raop_cb_startup_record(struct evrtsp_request *req, void *arg)
   /* Audio latency */
   param = evrtsp_find_header(req->input_headers, "Audio-Latency");
   if (!param)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Missing Audio-Latency header in RECORD reply\n");
-
-      goto cleanup;
-    }
-
-  DPRINTF(E_DBG, L_RAOP, "RAOP audio latency is %s\n", param);
+    DPRINTF(E_INFO, L_RAOP, "RECORD reply from %s did not have an Audio-Latency header\n", rs->devname);
+  else
+    DPRINTF(E_DBG, L_RAOP, "RAOP audio latency is %s\n", param);
 
   rs->state = RAOP_RECORD;
 
