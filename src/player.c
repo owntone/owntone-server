@@ -2849,6 +2849,34 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
   else
     {
+      p = avahi_string_list_find(txt, "tp");
+      if (!p)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no tp field in TXT record!\n", name);
+
+	  return;
+	}
+
+      avahi_string_list_get_pair(p, &key, &val, &valsz);
+      avahi_free(key);
+      if (!val)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: tp has no value\n", name);
+
+	  return;
+	}
+
+      if (!strstr(val, "UDP"))
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, val);
+
+	  avahi_free(val);
+	  return;
+	}
+
+      avahi_free(val);
+      val = NULL;
+
       p = avahi_string_list_find(txt, "pw");
       if (!p)
 	{
