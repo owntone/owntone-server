@@ -104,7 +104,7 @@
 #define NI_NUMERICHOST 1
 #define NI_NUMERICSERV 2
 
-int
+static int
 fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host, 
 	size_t hostlen, char *serv, size_t servlen, int flags)
 {
@@ -349,14 +349,12 @@ static void
 evrtsp_make_header_request(struct evrtsp_connection *evcon,
     struct evrtsp_request *req)
 {
-	char line[1024];
 	const char *method;
 
 	/* Generate request line */
 	method = evrtsp_method(req->type);
-	evutil_snprintf(line, sizeof(line), "%s %s RTSP/%d.%d\r\n",
+	evbuffer_add_printf(evcon->output_buffer, "%s %s RTSP/%d.%d\r\n",
 	    method, req->uri, req->major, req->minor);
-	evbuffer_add(evcon->output_buffer, line, strlen(line));
 
 	/* Content-Length is mandatory, absent means 0 */
 	if ((EVBUFFER_LENGTH(req->output_buffer) > 0)
@@ -372,15 +370,13 @@ evrtsp_make_header_request(struct evrtsp_connection *evcon,
 void
 evrtsp_make_header(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 {
-	char line[1024];
 	struct evkeyval *header;
 
 	evrtsp_make_header_request(evcon, req);
 
 	TAILQ_FOREACH(header, req->output_headers, next) {
-		evutil_snprintf(line, sizeof(line), "%s: %s\r\n",
+		evbuffer_add_printf(evcon->output_buffer, "%s: %s\r\n",
 		    header->key, header->value);
-		evbuffer_add(evcon->output_buffer, line, strlen(line));
 	}
 	evbuffer_add(evcon->output_buffer, "\r\n", 2);
 
@@ -584,8 +580,8 @@ evrtsp_read_body(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 	} else if (EVBUFFER_LENGTH(buf) >= req->ntoread) {
 		/* Completed content length */
 		evbuffer_add(req->input_buffer, EVBUFFER_DATA(buf),
-		    req->ntoread);
-		evbuffer_drain(buf, req->ntoread);
+		    (size_t)req->ntoread);
+		evbuffer_drain(buf, (size_t)req->ntoread);
 		req->ntoread = 0;
 		evrtsp_connection_done(evcon);
 		return;
@@ -630,6 +626,7 @@ evrtsp_read(int fd, short what, void *arg)
 		return;
 	} else if (n == 0) {
 		/* Connection closed */
+		evcon->state = EVCON_DISCONNECTED;
 		evrtsp_connection_done(evcon);
 		return;
 	}
@@ -870,15 +867,14 @@ evrtsp_parse_response_line(struct evrtsp_request *req, char *line)
 {
 	char *protocol;
 	char *number;
-	char *readable;
+	const char *readable = "";
 
 	protocol = strsep(&line, " ");
 	if (line == NULL)
 		return (-1);
 	number = strsep(&line, " ");
-	if (line == NULL)
-		return (-1);
-	readable = line;
+	if (line != NULL)
+		readable = line;
 
 	if (strcmp(protocol, "RTSP/1.0") == 0) {
 		req->major = 1;
@@ -1497,6 +1493,11 @@ static inline void
 evrtsp_send(struct evrtsp_request *req, struct evbuffer *databuf)
 {
 	struct evrtsp_connection *evcon = req->evcon;
+
+	if (evcon == NULL) {
+		evrtsp_request_free(req);
+		return;
+	}
 
 	assert(TAILQ_FIRST(&evcon->requests) == req);
 
