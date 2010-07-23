@@ -129,7 +129,8 @@ static pthread_t tid_httpd;
 static void
 stream_end(struct stream_ctx *st, int failed)
 {
-  evhttp_connection_set_closecb(st->req->evcon, NULL, NULL);
+  if (st->req->evcon)
+    evhttp_connection_set_closecb(st->req->evcon, NULL, NULL);
 
   if (!failed)
     evhttp_send_reply_end(st->req);

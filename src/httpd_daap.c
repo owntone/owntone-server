@@ -647,7 +647,8 @@ update_fail_cb(struct evhttp_connection *evcon, void *arg)
 
   DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
 
-  evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+  if (ur->req->evcon)
+    evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
 
   if (ur == update_requests)
     update_requests = ur->next;
@@ -2873,7 +2874,9 @@ daap_deinit(void)
     {
       update_requests = ur->next;
 
-      evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+      if (ur->req->evcon)
+	evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+
       free(ur);
     }
 }
