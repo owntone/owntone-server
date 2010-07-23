@@ -100,7 +100,7 @@
 #define NI_NUMERICHOST 1
 #define NI_NUMERICSERV 2
 
-int
+static int
 fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host, 
 	size_t hostlen, char *serv, size_t servlen, int flags)
 {
@@ -379,16 +379,14 @@ static void
 evhttp_make_header_request(struct evhttp_connection *evcon,
     struct evhttp_request *req)
 {
-	char line[1024];
 	const char *method;
 	
 	evhttp_remove_header(req->output_headers, "Proxy-Connection");
 
 	/* Generate request line */
 	method = evhttp_method(req->type);
-	evutil_snprintf(line, sizeof(line), "%s %s HTTP/%d.%d\r\n",
+	evbuffer_add_printf(evcon->output_buffer, "%s %s HTTP/%d.%d\r\n",
 	    method, req->uri, req->major, req->minor);
-	evbuffer_add(evcon->output_buffer, line, strlen(line));
 
 	/* Add the content length on a post request if missing */
 	if (req->type == EVHTTP_REQ_POST &&
@@ -465,11 +463,9 @@ evhttp_make_header_response(struct evhttp_connection *evcon,
     struct evhttp_request *req)
 {
 	int is_keepalive = evhttp_is_connection_keepalive(req->input_headers);
-	char line[1024];
-	evutil_snprintf(line, sizeof(line), "HTTP/%d.%d %d %s\r\n",
+	evbuffer_add_printf(evcon->output_buffer, "HTTP/%d.%d %d %s\r\n",
 	    req->major, req->minor, req->response_code,
 	    req->response_code_line);
-	evbuffer_add(evcon->output_buffer, line, strlen(line));
 
 	if (req->major == 1) {
 		if (req->minor == 1)
@@ -516,7 +512,6 @@ evhttp_make_header_response(struct evhttp_connection *evcon,
 void
 evhttp_make_header(struct evhttp_connection *evcon, struct evhttp_request *req)
 {
-	char line[1024];
 	struct evkeyval *header;
 
 	/*
@@ -530,9 +525,8 @@ evhttp_make_header(struct evhttp_connection *evcon, struct evhttp_request *req)
 	}
 
 	TAILQ_FOREACH(header, req->output_headers, next) {
-		evutil_snprintf(line, sizeof(line), "%s: %s\r\n",
+		evbuffer_add_printf(evcon->output_buffer, "%s: %s\r\n",
 		    header->key, header->value);
-		evbuffer_add(evcon->output_buffer, line, strlen(line));
 	}
 	evbuffer_add(evcon->output_buffer, "\r\n", 2);
 
@@ -615,8 +609,18 @@ evhttp_connection_incoming_fail(struct evhttp_request *req,
 		 * these are cases in which we probably should just
 		 * close the connection and not send a reply.  this
 		 * case may happen when a browser keeps a persistent
-		 * connection open and we timeout on the read.
+		 * connection open and we timeout on the read.  when
+		 * the request is still being used for sending, we
+		 * need to disassociated it from the connection here.
 		 */
+		if (!req->userdone) {
+			/* remove it so that it will not be freed */
+			TAILQ_REMOVE(&req->evcon->requests, req, next);
+			/* indicate that this request no longer has a
+			 * connection object
+			 */
+			req->evcon = NULL;
+		}
 		return (-1);
 	case EVCON_HTTP_INVALID_HEADER:
 	default:	/* xxx: probably should just error on default */
@@ -663,10 +667,12 @@ evhttp_connection_fail(struct evhttp_connection *evcon,
 	cb = req->cb;
 	cb_arg = req->cb_arg;
 
+	/* do not fail all requests; the next request is going to get
+	 * send over a new connection.   when a user cancels a request,
+	 * all other pending requests should be processed as normal
+	 */
 	TAILQ_REMOVE(&evcon->requests, req, next);
 	evhttp_request_free(req);
-
-	/* xxx: maybe we should fail all requests??? */
 
 	/* reset the connection */
 	evhttp_connection_reset(evcon);
@@ -760,7 +766,7 @@ evhttp_connection_done(struct evhttp_connection *evcon)
 			 */
 			evhttp_connection_start_detectclose(evcon);
 		}
-	} else {
+	} else if (evcon->state != EVCON_DISCONNECTED) {
 		/*
 		 * incoming connection - we need to leave the request on the
 		 * connection so that we can reply to it.
@@ -831,8 +837,8 @@ evhttp_handle_chunked_read(struct evhttp_request *req, struct evbuffer *buf)
 
 		/* Completed chunk */
 		evbuffer_add(req->input_buffer,
-		    EVBUFFER_DATA(buf), req->ntoread);
-		evbuffer_drain(buf, req->ntoread);
+		    EVBUFFER_DATA(buf), (size_t)req->ntoread);
+		evbuffer_drain(buf, (size_t)req->ntoread);
 		req->ntoread = -1;
 		if (req->chunk_cb != NULL) {
 			(*req->chunk_cb)(req, req->cb_arg);
@@ -896,8 +902,8 @@ evhttp_read_body(struct evhttp_connection *evcon, struct evhttp_request *req)
 	} else if (EVBUFFER_LENGTH(buf) >= req->ntoread) {
 		/* Completed content length */
 		evbuffer_add(req->input_buffer, EVBUFFER_DATA(buf),
-		    req->ntoread);
-		evbuffer_drain(buf, req->ntoread);
+		    (size_t)req->ntoread);
+		evbuffer_drain(buf, (size_t)req->ntoread);
 		req->ntoread = 0;
 		evhttp_connection_done(evcon);
 		return;
@@ -942,6 +948,7 @@ evhttp_read(int fd, short what, void *arg)
 		return;
 	} else if (n == 0) {
 		/* Connection closed */
+		evcon->state = EVCON_DISCONNECTED;
 		evhttp_connection_done(evcon);
 		return;
 	}
@@ -999,7 +1006,11 @@ evhttp_connection_free(struct evhttp_connection *evcon)
 			(*evcon->closecb)(evcon, evcon->closecb_arg);
 	}
 
-	/* remove all requests that might be queued on this connection */
+	/* remove all requests that might be queued on this
+	 * connection.  for server connections, this should be empty.
+	 * because it gets dequeued either in evhttp_connection_done or
+	 * evhttp_connection_fail.
+	 */
 	while ((req = TAILQ_FIRST(&evcon->requests)) != NULL) {
 		TAILQ_REMOVE(&evcon->requests, req, next);
 		evhttp_request_free(req);
@@ -1226,15 +1237,14 @@ evhttp_parse_response_line(struct evhttp_request *req, char *line)
 {
 	char *protocol;
 	char *number;
-	char *readable;
+	const char *readable = "";
 
 	protocol = strsep(&line, " ");
 	if (line == NULL)
 		return (-1);
 	number = strsep(&line, " ");
-	if (line == NULL)
-		return (-1);
-	readable = line;
+	if (line != NULL)
+		readable = line;
 
 	if (strcmp(protocol, "HTTP/1.0") == 0) {
 		req->major = 1;
@@ -1307,7 +1317,7 @@ evhttp_parse_request_line(struct evhttp_request *req, char *line)
 	}
 
 	if ((req->uri = strdup(uri)) == NULL) {
-		event_debug(("%s: evhttp_decode_uri", __func__));
+		event_debug(("%s: strdup", __func__));
 		return (-1);
 	}
 
@@ -1946,7 +1956,15 @@ evhttp_send(struct evhttp_request *req, struct evbuffer *databuf)
 {
 	struct evhttp_connection *evcon = req->evcon;
 
+	if (evcon == NULL) {
+		evhttp_request_free(req);
+		return;
+	}
+
 	assert(TAILQ_FIRST(&evcon->requests) == req);
+
+	/* we expect no more calls form the user on this request */
+	req->userdone = 1;
 
 	/* xxx: not sure if we really should expose the data buffer this way */
 	if (databuf != NULL)
@@ -1990,15 +2008,20 @@ void
 evhttp_send_reply_chunk_with_cb(struct evhttp_request *req, struct evbuffer *databuf,
 				void (*cb)(struct evhttp_connection *, void *), void *arg)
 {
+	struct evhttp_connection *evcon = req->evcon;
+
+	if (evcon == NULL)
+	  return;
+
 	if (req->chunked) {
-		evbuffer_add_printf(req->evcon->output_buffer, "%x\r\n",
+		evbuffer_add_printf(evcon->output_buffer, "%x\r\n",
 				    (unsigned)EVBUFFER_LENGTH(databuf));
 	}
-	evbuffer_add_buffer(req->evcon->output_buffer, databuf);
+	evbuffer_add_buffer(evcon->output_buffer, databuf);
 	if (req->chunked) {
-		evbuffer_add(req->evcon->output_buffer, "\r\n", 2);
+		evbuffer_add(evcon->output_buffer, "\r\n", 2);
 	}
-	evhttp_write_buffer(req->evcon, cb, arg);
+	evhttp_write_buffer(evcon, cb, arg);
 }
 
 void
@@ -2011,6 +2034,14 @@ void
 evhttp_send_reply_end(struct evhttp_request *req)
 {
 	struct evhttp_connection *evcon = req->evcon;
+
+	if (evcon == NULL) {
+		evhttp_request_free(req);
+		return;
+	}
+
+	/* we expect no more calls form the user on this request */
+	req->userdone = 1;
 
 	if (req->chunked) {
 		evbuffer_add(req->evcon->output_buffer, "0\r\n\r\n", 5);
@@ -2229,8 +2260,15 @@ evhttp_handle_request(struct evhttp_request *req, void *arg)
 	struct evhttp *http = arg;
 	struct evhttp_cb *cb = NULL;
 
+	event_debug(("%s: req->uri=%s", __func__, req->uri));
 	if (req->uri == NULL) {
-		evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+		event_debug(("%s: bad request", __func__));
+		if (req->evcon->state == EVCON_DISCONNECTED) {
+			evhttp_connection_fail(req->evcon, EVCON_HTTP_EOF);
+		} else {
+			event_debug(("%s: sending error", __func__));
+			evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+		}
 		return;
 	}
 
@@ -2556,6 +2594,13 @@ evhttp_request_free(struct evhttp_request *req)
 
 	free(req);
 }
+
+struct evhttp_connection *
+evhttp_request_get_connection(struct evhttp_request *req)
+{
+	return req->evcon;
+}
+
 
 void
 evhttp_request_set_chunked_cb(struct evhttp_request *req,
