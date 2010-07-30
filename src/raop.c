@@ -66,13 +66,14 @@
 # define MIN(a, b) ((a < b) ? a : b)
 #endif
 
-#define AIRTUNES_V2_HEADER  12
-#define ALAC_HEADER         3
+#define AIRTUNES_V2_HDR_LEN        12
+#define ALAC_HDR_LEN               3
+#define AIRTUNES_V2_PKT_LEN        (AIRTUNES_V2_HDR_LEN + ALAC_HDR_LEN + STOB(AIRTUNES_V2_PACKET_SAMPLES))
 
 
 struct raop_v2_packet
 {
-  uint8_t data[AIRTUNES_V2_HEADER + ALAC_HEADER + STOB(AIRTUNES_V2_PACKET_SAMPLES)];
+  uint8_t data[AIRTUNES_V2_PKT_LEN];
 };
 
 struct raop_session
@@ -2260,7 +2261,7 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
 
   memset(pkt, 0, sizeof(struct raop_v2_packet));
 
-  alac_encode(rawbuf, pkt->data + AIRTUNES_V2_HEADER, STOB(AIRTUNES_V2_PACKET_SAMPLES));
+  alac_encode(rawbuf, pkt->data + AIRTUNES_V2_HDR_LEN, STOB(AIRTUNES_V2_PACKET_SAMPLES));
 
   stream_seq++;
 
@@ -2295,8 +2296,10 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
       return -1;
     }
 
-  /* Encrypt in place, in blocks of 16 bytes */
-  gc_err = gcry_cipher_encrypt(raop_aes_ctx, pkt->data + 12, ((sizeof(pkt->data) - 12) / 16) * 16, NULL, 0);
+  /* Encrypt in blocks of 16 bytes */
+  gc_err = gcry_cipher_encrypt(raop_aes_ctx,
+			       pkt->data + AIRTUNES_V2_HDR_LEN, ((AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_HDR_LEN) / 16) * 16,
+			       NULL, 0); /* Encrypt in place */
   if (gc_err != GPG_ERR_NO_ERROR)
     {
       gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
@@ -2337,14 +2340,14 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
       if (rs->state != RAOP_STREAMING)
 	continue;
 
-      ret = send(rs->server_fd, pkt.data, sizeof(pkt.data), 0);
+      ret = send(rs->server_fd, pkt.data, AIRTUNES_V2_PKT_LEN, 0);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_RAOP, "Send error for %s: %s\n", rs->devname, strerror(errno));
 
 	  raop_session_failure(rs);
 	}
-      else if (ret != sizeof(pkt.data))
+      else if (ret != AIRTUNES_V2_PKT_LEN)
 	DPRINTF(E_WARN, L_RAOP, "Partial send (%d) for %s\n", ret, rs->devname);
     }
 
