@@ -1715,6 +1715,8 @@ dacp_deinit(void)
 
   player_set_updatefd(-1);
 
+  event_del(&updateev);
+
   avl_free_tree(dacp_props_hash);
 
 #ifdef USE_EVENTFD
