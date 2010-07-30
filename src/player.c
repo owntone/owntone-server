@@ -2766,6 +2766,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   uint64_t id;
   size_t valsz;
   int has_password;
+  int encrypt;
   int ret;
 
   ret = safe_hextou64(name, &id);
@@ -2911,6 +2912,30 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	    DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirTunes device %s\n", name);
 	}
 
+      encrypt = 1;
+      p = avahi_string_list_find(txt, "am");
+      if (!p)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no am field in TXT record!\n", name);
+
+	  goto no_ma;
+	}
+
+      avahi_string_list_get_pair(p, &key, &val, &valsz);
+      avahi_free(key);
+      if (!val)
+        {
+          DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: am has no value\n", name);
+
+          goto no_ma;
+        }
+
+      if (strncmp(val, "AppleTV", strlen("AppleTV")) == 0)
+	encrypt = 0;
+
+      avahi_free(val);
+
+    no_ma:
       pthread_mutex_lock(&dev_lck);
 
       for (rd = dev_list; rd; rd = rd->next)
@@ -2983,7 +3008,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
       rd->name = strdup(at_name);
 
-      rd->encrypt = 1;
+      rd->encrypt = encrypt;
 
       rd->has_password = has_password;
       rd->password = password;
