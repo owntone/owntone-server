@@ -1362,6 +1362,8 @@ filescanner_deinit(void)
       return;
     }
 
+  event_del(&inoev);
+
 #ifdef USE_EVENTFD
   close(exit_efd);
 #else
