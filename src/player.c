@@ -3282,6 +3282,11 @@ player_deinit(void)
   laudio_deinit();
   raop_deinit();
 
+  if (event_initialized(&pb_timer_ev))
+    event_del(&pb_timer_ev);
+
+  event_del(&cmdev);
+
 #ifdef USE_EVENTFD
   close(exit_efd);
   close(cmd_efd);
