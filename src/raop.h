@@ -30,6 +30,7 @@ struct raop_device
 
   char selected;
   char advertised;
+  char encrypt;
 
   char has_password;
   const char *password;

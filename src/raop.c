@@ -69,11 +69,14 @@
 #define AIRTUNES_V2_HDR_LEN        12
 #define ALAC_HDR_LEN               3
 #define AIRTUNES_V2_PKT_LEN        (AIRTUNES_V2_HDR_LEN + ALAC_HDR_LEN + STOB(AIRTUNES_V2_PACKET_SAMPLES))
+#define AIRTUNES_V2_PKT_TAIL_LEN   (AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_HDR_LEN - ((AIRTUNES_V2_PKT_LEN / 16) * 16))
+#define AIRTUNES_V2_PKT_TAIL_OFF   (AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_PKT_TAIL_LEN)
 
 
 struct raop_v2_packet
 {
-  uint8_t data[AIRTUNES_V2_PKT_LEN];
+  uint8_t clear[AIRTUNES_V2_PKT_LEN];
+  uint8_t encrypted[AIRTUNES_V2_PKT_LEN];
 };
 
 struct raop_session
@@ -83,6 +86,7 @@ struct raop_session
   enum raop_session_state state;
   int req_in_flight;
   int req_has_auth;
+  int encrypt;
 
   int cseq;
   char *session;
@@ -1403,6 +1407,8 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   rs->status_cb = cb;
   rs->server_fd = -1;
 
+  rs->encrypt = rd->encrypt;
+
   rs->password = rd->password;
 
   rs->ctrl = evrtsp_connection_new(address, port);
@@ -2261,20 +2267,28 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
 
   memset(pkt, 0, sizeof(struct raop_v2_packet));
 
-  alac_encode(rawbuf, pkt->data + AIRTUNES_V2_HDR_LEN, STOB(AIRTUNES_V2_PACKET_SAMPLES));
+  alac_encode(rawbuf, pkt->clear + AIRTUNES_V2_HDR_LEN, STOB(AIRTUNES_V2_PACKET_SAMPLES));
 
   stream_seq++;
 
   seq = htobe16(stream_seq);
   rtptime32 = htobe32(RAOP_RTPTIME(rtptime));
 
-  pkt->data[0] = 0x80;
-  pkt->data[1] = (sync_counter == 0) ? 0xe0 : 0x60;
+  pkt->clear[0] = 0x80;
+  pkt->clear[1] = (sync_counter == 0) ? 0xe0 : 0x60;
 
-  memcpy(pkt->data + 2, &seq, 2);
-  memcpy(pkt->data + 4, &rtptime32, 4);
+  memcpy(pkt->clear + 2, &seq, 2);
+  memcpy(pkt->clear + 4, &rtptime32, 4);
 
   /* 4 bytes unknown */
+
+  /* Copy AirTunes v2 header to encrypted packet */
+  memcpy(pkt->encrypted, pkt->clear, AIRTUNES_V2_HDR_LEN);
+
+  /* Copy the tail of the audio packet that is left unencrypted */
+  memcpy(pkt->encrypted + AIRTUNES_V2_PKT_TAIL_OFF,
+	 pkt->clear + AIRTUNES_V2_PKT_TAIL_OFF,
+	 AIRTUNES_V2_PKT_TAIL_LEN);
 
   /* Reset cipher */
   gc_err = gcry_cipher_reset(raop_aes_ctx);
@@ -2298,8 +2312,8 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
 
   /* Encrypt in blocks of 16 bytes */
   gc_err = gcry_cipher_encrypt(raop_aes_ctx,
-			       pkt->data + AIRTUNES_V2_HDR_LEN, ((AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_HDR_LEN) / 16) * 16,
-			       NULL, 0); /* Encrypt in place */
+			       pkt->encrypted + AIRTUNES_V2_HDR_LEN, ((AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_HDR_LEN) / 16) * 16,
+			       pkt->clear + AIRTUNES_V2_HDR_LEN, ((AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_HDR_LEN) / 16) * 16);
   if (gc_err != GPG_ERR_NO_ERROR)
     {
       gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
@@ -2316,6 +2330,7 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
 {
   struct raop_v2_packet pkt;
   struct raop_session *rs;
+  uint8_t *data;
   int ret;
 
   ret = raop_v2_make_packet(&pkt, buf, rtptime);
@@ -2340,7 +2355,9 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
       if (rs->state != RAOP_STREAMING)
 	continue;
 
-      ret = send(rs->server_fd, pkt.data, AIRTUNES_V2_PKT_LEN, 0);
+      data = (rs->encrypt) ? pkt.encrypted : pkt.clear;
+
+      ret = send(rs->server_fd, data, AIRTUNES_V2_PKT_LEN, 0);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_RAOP, "Send error for %s: %s\n", rs->devname, strerror(errno));

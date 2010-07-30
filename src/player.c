@@ -2983,6 +2983,8 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
       rd->name = strdup(at_name);
 
+      rd->encrypt = 1;
+
       rd->has_password = has_password;
       rd->password = val;
 
