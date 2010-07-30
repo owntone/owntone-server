@@ -28,11 +28,11 @@ struct raop_device
   short v4_port;
   short v6_port;
 
-  char selected;
-  char advertised;
-  char encrypt;
+  unsigned selected:1;
+  unsigned advertised:1;
+  unsigned encrypt:1;
 
-  char has_password;
+  unsigned has_password:1;
   const char *password;
 
   struct raop_session *session;

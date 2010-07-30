@@ -84,9 +84,9 @@ struct raop_session
   struct evrtsp_connection *ctrl;
 
   enum raop_session_state state;
-  int req_in_flight;
-  int req_has_auth;
-  int encrypt;
+  unsigned req_in_flight:1;
+  unsigned req_has_auth:1;
+  unsigned encrypt:1;
 
   int cseq;
   char *session;
