@@ -527,10 +527,19 @@ daap_session_compare(const void *aa, const void *bb)
 }
 
 static void
+daap_session_free(void *item)
+{
+  struct daap_session *s;
+
+  s = (struct daap_session *)item;
+
+  evtimer_del(&s->timeout);
+  free(s);
+}
+
+static void
 daap_session_kill(struct daap_session *s)
 {
-  evtimer_del(&s->timeout);
-
   avl_delete(daap_sessions, s);
 }
 
@@ -2801,7 +2810,7 @@ daap_init(void)
         }
     }
 
-  daap_sessions = avl_alloc_tree(daap_session_compare, free);
+  daap_sessions = avl_alloc_tree(daap_session_compare, daap_session_free);
   if (!daap_sessions)
     {
       DPRINTF(E_FATAL, L_DAAP, "DAAP init could not allocate DAAP sessions AVL tree\n");
