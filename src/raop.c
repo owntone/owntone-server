@@ -1318,25 +1318,9 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
   return 0;
 }
 
-
 static void
-raop_session_cleanup(struct raop_session *rs)
+raop_session_free(struct raop_session *rs)
 {
-  struct raop_session *s;
-
-  if (rs == sessions)
-    sessions = sessions->next;
-  else
-    {
-      for (s = sessions; s && (s->next != rs); s = s->next)
-	; /* EMPTY */
-
-      if (!s)
-	DPRINTF(E_WARN, L_RAOP, "WARNING: struct raop_session not found in list; BUG!\n");
-      else
-	s->next = rs->next;
-    }
-
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
   evrtsp_connection_free(rs->ctrl);
@@ -1357,6 +1341,27 @@ raop_session_cleanup(struct raop_session *rs)
     free(rs->devname);
 
   free(rs);
+}
+
+static void
+raop_session_cleanup(struct raop_session *rs)
+{
+  struct raop_session *s;
+
+  if (rs == sessions)
+    sessions = sessions->next;
+  else
+    {
+      for (s = sessions; s && (s->next != rs); s = s->next)
+	; /* EMPTY */
+
+      if (!s)
+	DPRINTF(E_WARN, L_RAOP, "WARNING: struct raop_session not found in list; BUG!\n");
+      else
+	s->next = rs->next;
+    }
+
+  raop_session_free(rs);
 }
 
 static struct raop_session *
@@ -3143,6 +3148,15 @@ raop_init(void)
 void
 raop_deinit(void)
 {
+  struct raop_session *rs;
+
+  for (rs = sessions; sessions; rs = sessions)
+    {
+      sessions = rs->next;
+
+      raop_session_free(rs);
+    }
+
   raop_v2_timing_stop();
   raop_v2_control_stop();
 
