@@ -751,11 +751,11 @@ main(int argc, char **argv)
   DPRINTF(E_LOG, L_MAIN, "HTTPd deinit\n");
   httpd_deinit();
 
- player_fail:
+ httpd_fail:
   DPRINTF(E_LOG, L_MAIN, "Player deinit\n");
   player_deinit();
 
- httpd_fail:
+ player_fail:
   DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
   filescanner_deinit();
 
