@@ -1705,7 +1705,10 @@ dacp_deinit(void)
       update_requests = ur->next;
 
       if (ur->req->evcon)
-	evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+	{
+	  evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+	  evhttp_connection_free(ur->req->evcon);
+	}
 
       free(ur);
     }
