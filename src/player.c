@@ -2760,6 +2760,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   struct raop_device *prev;
   cfg_t *apex;
   char *at_name;
+  char *password;
   char *key;
   char *val;
   uint64_t id;
@@ -2875,8 +2876,8 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	}
 
       avahi_free(val);
-      val = NULL;
 
+      password = NULL;
       p = avahi_string_list_find(txt, "pw");
       if (!p)
 	{
@@ -2897,7 +2898,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       has_password = (strcmp(val, "false") != 0);
 
       avahi_free(val);
-      val = NULL;
 
       if (has_password)
 	{
@@ -2905,9 +2905,9 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
 	  apex = cfg_gettsec(cfg, "apex", at_name);
 	  if (apex)
-	    val = cfg_getstr(apex, "password");
+	    password = cfg_getstr(apex, "password");
 
-	  if (!val)
+	  if (!password)
 	    DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirTunes device %s\n", name);
 	}
 
@@ -2986,7 +2986,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       rd->encrypt = 1;
 
       rd->has_password = has_password;
-      rd->password = val;
+      rd->password = password;
 
       pthread_mutex_unlock(&dev_lck);
     }
