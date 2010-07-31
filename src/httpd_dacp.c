@@ -716,7 +716,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       sort = evhttp_find_header(query, "sort");
 
-      ps = player_queue_make(cuequery, sort);
+      ps = player_queue_make_daap(cuequery, sort);
       if (!ps)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");

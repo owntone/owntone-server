@@ -338,10 +338,9 @@ player_laudio_status_cb(enum laudio_state status)
 
 /* Audio sources */
 /* Thread: httpd (DACP) */
-struct player_source *
-player_queue_make(const char *query, const char *sort)
+static struct player_source *
+player_queue_make(struct query_params *qp, const char *sort)
 {
-  struct query_params qp;
   struct db_media_file_info dbmfi;
   struct player_source *q_head;
   struct player_source *q_tail;
@@ -349,46 +348,30 @@ player_queue_make(const char *query, const char *sort)
   uint32_t id;
   int ret;
 
-  memset(&qp, 0, sizeof(struct query_params));
-
-  qp.type = Q_ITEMS;
-  qp.offset = 0;
-  qp.limit = 0;
-  qp.idx_type = I_NONE;
-  qp.sort = S_NONE;
-
-  qp.filter = daap_query_parse_sql(query);
-  if (!qp.filter)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Improper DAAP query!\n");
-
-      return NULL;
-    }
+  qp->idx_type = I_NONE;
+  qp->sort = S_NONE;
 
   if (sort)
     {
       if (strcmp(sort, "name") == 0)
-	qp.sort = S_NAME;
+	qp->sort = S_NAME;
       else if (strcmp(sort, "album") == 0)
-	qp.sort = S_ALBUM;
+	qp->sort = S_ALBUM;
     }
 
-  ret = db_query_start(&qp);
+  ret = db_query_start(qp);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start query\n");
 
-      if (qp.filter)
-	free(qp.filter);
-
       return NULL;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Player queue query returned %d items\n", qp.results);
+  DPRINTF(E_DBG, L_PLAYER, "Player queue query returned %d items\n", qp->results);
 
   q_head = NULL;
   q_tail = NULL;
-  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
     {
       ret = safe_atou32(dbmfi.id, &id);
       if (ret < 0)
@@ -428,10 +411,7 @@ player_queue_make(const char *query, const char *sort)
       DPRINTF(E_DBG, L_PLAYER, "Added song id %d (%s)\n", id, dbmfi.title);
     }
 
-  if (qp.filter)
-    free(qp.filter);
-
-  db_query_end(&qp);
+  db_query_end(qp);
 
   if (ret < 0)
     {
@@ -447,6 +427,34 @@ player_queue_make(const char *query, const char *sort)
   q_tail->pl_next = q_head;
 
   return q_head;
+}
+
+/* Thread: httpd (DACP) */
+struct player_source *
+player_queue_make_daap(const char *query, const char *sort)
+{
+  struct query_params qp;
+  struct player_source *ps;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_ITEMS;
+  qp.offset = 0;
+  qp.limit = 0;
+
+  qp.filter = daap_query_parse_sql(query);
+  if (!qp.filter)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Improper DAAP query!\n");
+
+      return NULL;
+    }
+
+  ps = player_queue_make(&qp, sort);
+
+  free(qp.filter);
+
+  return ps;
 }
 
 static void
