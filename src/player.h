@@ -97,6 +97,9 @@ player_shuffle_set(int enable);
 struct player_source *
 player_queue_make_daap(const char *query, const char *sort);
 
+struct player_source *
+player_queue_make_pl(int plid, uint32_t *id);
+
 int
 player_queue_add(struct player_source *ps);
 

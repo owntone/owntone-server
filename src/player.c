@@ -457,6 +457,41 @@ player_queue_make_daap(const char *query, const char *sort)
   return ps;
 }
 
+struct player_source *
+player_queue_make_pl(int plid, uint32_t *id)
+{
+  struct query_params qp;
+  struct player_source *ps;
+  struct player_source *p;
+  uint32_t i;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.id = plid;
+  qp.type = Q_PLITEMS;
+  qp.offset = 0;
+  qp.limit = 0;
+
+  ps = player_queue_make(&qp, NULL);
+
+  p = ps;
+  i = 0;
+  do
+    {
+      if (p->id == *id)
+	{
+	  *id = i;
+	  break;
+	}
+
+      p = p->pl_next;
+      i++;
+    }
+  while (p != ps);
+
+  return ps;
+}
+
 static void
 source_free(struct player_source *ps)
 {
