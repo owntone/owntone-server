@@ -167,7 +167,10 @@ dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct med
 
   canp[3] = 1; /* 0-3 database ID */
 
-  /* 4-7 playlist ID FIXME */
+  canp[4]  = (status->plid >> 24) & 0xff;
+  canp[5]  = (status->plid >> 16) & 0xff;
+  canp[6]  = (status->plid >> 8) & 0xff;
+  canp[7]  = status->plid & 0xff;
 
   canp[8]  = (status->pos_pl >> 24) & 0xff; /* 8-11 position in playlist */
   canp[9]  = (status->pos_pl >> 16) & 0xff;
