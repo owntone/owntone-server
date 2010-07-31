@@ -2971,7 +2971,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	}
       else
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s)\n", name, (val) ? "yes" : "no");
+	  DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s)\n", name, (password) ? "yes" : "no");
 
 	  rd = (struct raop_device *)malloc(sizeof(struct raop_device));
 	  if (!rd)
