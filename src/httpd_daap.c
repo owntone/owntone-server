@@ -1832,6 +1832,9 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       if ((ret == 0) && (val > 0))
 	dmap_add_int(playlist, "mimc", val);
 
+      /* Container ID (mpco) */
+      dmap_add_int(playlist, "mpco", 0);
+
       /* Base playlist (abpl), id = 1 */
       val = 0;
       ret = safe_atoi32(dbpli.id, &val);
