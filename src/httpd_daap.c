@@ -255,7 +255,7 @@ static struct dmap_field_map dmap_fields[] =
     { 0, &dmap_mikd,
       dbmfi_offsetof(item_kind),          -1,                    -1 },
     { 0, &dmap_mper,
-      dbmfi_offsetof(id),                 -1,                    dbgri_offsetof(persistentid) },
+      dbmfi_offsetof(id),                 dbpli_offsetof(id),    dbgri_offsetof(persistentid) },
     { 0, &dmap_mcon,
       -1,                                 -1,                    -1 },
     { 0, &dmap_mcti,
