@@ -914,6 +914,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
   player_queue_clear();
   player_queue_add(ps);
+  player_queue_plid(plid);
 
   if (shuffle)
     dacp_propset_shufflestate(shuffle, NULL);
