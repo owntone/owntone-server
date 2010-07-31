@@ -819,6 +819,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   struct player_source *ps;
   struct daap_session *s;
   const char *param;
+  const char *shuffle;
   uint32_t plid;
   uint32_t id;
   int ret;
@@ -830,6 +831,9 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
+
+  /* Check for shuffle */
+  shuffle = evhttp_find_header(query, "dacp.shufflestate");
 
   /* Playlist ID */
   param = evhttp_find_header(query, "container-spec");
@@ -857,33 +861,38 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
       goto out_fail;
     }
 
-  /* Start song ID */
-  param = evhttp_find_header(query, "container-item-spec");
-  if (!param)
+  if (!shuffle)
     {
-      DPRINTF(E_LOG, L_DACP, "No container-item-spec in playspec request\n");
+      /* Start song ID */
+      param = evhttp_find_header(query, "container-item-spec");
+      if (!param)
+	{
+	  DPRINTF(E_LOG, L_DACP, "No container-item-spec in playspec request\n");
 
-      goto out_fail;
+	  goto out_fail;
+	}
+
+      param = strchr(param, ':');
+      if (!param)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Malformed container-item-spec parameter in playspec request\n");
+
+	  goto out_fail;
+	}
+      param++;
+
+      ret = safe_hextou32(param, &id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Couldn't convert container-item-spec to an integer in playspec (%s)\n", param);
+
+	  goto out_fail;
+	}
     }
+  else
+    id = 0;
 
-  param = strchr(param, ':');
-  if (!param)
-    {
-      DPRINTF(E_LOG, L_DACP, "Malformed container-item-spec parameter in playspec request\n");
-
-      goto out_fail;
-    }
-  param++;
-
-  ret = safe_hextou32(param, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Couldn't convert container-item-spec to an integer in playspec (%s)\n", param);
-
-      goto out_fail;
-    }
-
-  DPRINTF(E_DBG, L_DACP, "Playspec request for playlist %d, start song id %d\n", plid, id);
+  DPRINTF(E_DBG, L_DACP, "Playspec request for playlist %d, start song id %d%s\n", plid, id, (shuffle) ? ", shuffle" : "");
 
   ps = player_queue_make_pl(plid, &id);
   if (!ps)
@@ -902,6 +911,9 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
   player_queue_clear();
   player_queue_add(ps);
+
+  if (shuffle)
+    dacp_propset_shufflestate(shuffle, NULL);
 
   ret = player_playback_start(&id);
   if (ret < 0)

@@ -474,6 +474,10 @@ player_queue_make_pl(int plid, uint32_t *id)
 
   ps = player_queue_make(&qp, NULL);
 
+  /* Shortcut for shuffled playlist */
+  if (*id == 0)
+    return ps;
+
   p = ps;
   i = 0;
   do
