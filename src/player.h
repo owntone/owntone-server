@@ -39,6 +39,7 @@ struct player_status {
 
   int volume;
 
+  uint32_t plid;
   uint32_t id;
   uint32_t pos_ms;
   int pos_pl;
@@ -105,6 +106,9 @@ player_queue_add(struct player_source *ps);
 
 void
 player_queue_clear(void);
+
+void
+player_queue_plid(uint32_t plid);
 
 
 void

@@ -170,6 +170,7 @@ static struct player_source *source_head;
 static struct player_source *shuffle_head;
 static struct player_source *cur_playing;
 static struct player_source *cur_streaming;
+static uint32_t cur_plid;
 static struct evbuffer *audio_buf;
 
 
@@ -1490,6 +1491,8 @@ get_status(void *arg)
 
   status->volume = volume;
 
+  status->plid = cur_plid;
+
   switch (player_state)
     {
       case PLAY_STOPPED:
@@ -2412,6 +2415,9 @@ queue_add(void *arg)
       shuffle_head = ps_shuffle;
     }
 
+  if (cur_plid != 0)
+    cur_plid = 0;
+
   return 0;
 }
 
@@ -2432,6 +2438,23 @@ queue_clear(void *arg)
 
       source_free(ps);
     }
+
+  cur_plid = 0;
+
+  return 0;
+}
+
+static int
+queue_plid(void *arg)
+{
+  uint32_t *plid;
+
+  if (!source_head)
+    return 0;
+
+  plid = (uint32_t *)arg;
+
+  cur_plid = *plid;
 
   return 0;
 }
@@ -2797,6 +2820,20 @@ player_queue_clear(void)
   pthread_mutex_unlock(&cmd_lck);
 }
 
+void
+player_queue_plid(uint32_t plid)
+{
+  pthread_mutex_lock(&cmd_lck);
+
+  cmd.func = queue_plid;
+  cmd.func_bh = NULL;
+  cmd.arg = &plid;
+
+  sync_command();
+
+  pthread_mutex_unlock(&cmd_lck);
+}
+
 
 /* Thread: main (mdns) */
 static void
@@ -3126,6 +3163,7 @@ player_init(void)
   shuffle_head = NULL;
   cur_playing = NULL;
   cur_streaming = NULL;
+  cur_plid = 0;
 
   player_state = PLAY_STOPPED;
   repeat = REPEAT_OFF;
