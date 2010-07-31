@@ -813,6 +813,113 @@ dacp_reply_cue(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, s
 }
 
 static void
+dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  struct player_status status;
+  struct player_source *ps;
+  struct daap_session *s;
+  const char *param;
+  uint32_t plid;
+  uint32_t id;
+  int ret;
+
+  /* /ctrl-int/1/playspec?database-spec='dmap.persistentid:0x1'&container-spec='dmap.persistentid:0x5'&container-item-spec='dmap.containeritemid:0x9'
+   * With our DAAP implementation, container-spec is the playlist ID and container-item-spec is the song ID
+   */
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
+
+  /* Playlist ID */
+  param = evhttp_find_header(query, "container-spec");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "No container-spec in playspec request\n");
+
+      goto out_fail;
+    }
+
+  param = strchr(param, ':');
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "Malformed container-spec parameter in playspec request\n");
+
+      goto out_fail;
+    }
+  param++;
+
+  ret = safe_hextou32(param, &plid);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Couldn't convert container-spec to an integer in playspec (%s)\n", param);
+
+      goto out_fail;
+    }
+
+  /* Start song ID */
+  param = evhttp_find_header(query, "container-item-spec");
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "No container-item-spec in playspec request\n");
+
+      goto out_fail;
+    }
+
+  param = strchr(param, ':');
+  if (!param)
+    {
+      DPRINTF(E_LOG, L_DACP, "Malformed container-item-spec parameter in playspec request\n");
+
+      goto out_fail;
+    }
+  param++;
+
+  ret = safe_hextou32(param, &id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Couldn't convert container-item-spec to an integer in playspec (%s)\n", param);
+
+      goto out_fail;
+    }
+
+  DPRINTF(E_DBG, L_DACP, "Playspec request for playlist %d, start song id %d\n", plid, id);
+
+  ps = player_queue_make_pl(plid, &id);
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not build song queue from playlist %d\n", plid);
+
+      goto out_fail;
+    }
+
+  DPRINTF(E_DBG, L_DACP, "Playspec start song index is %d\n", id);
+
+  player_get_status(&status);
+
+  if (status.status != PLAY_STOPPED)
+    player_playback_stop();
+
+  player_queue_clear();
+  player_queue_add(ps);
+
+  ret = player_playback_start(&id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
+
+      goto out_fail;
+    }
+
+  /* 204 No Content is the canonical reply */
+  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+  return;
+
+ out_fail:
+  evhttp_send_error(req, 500, "Internal Server Error");
+}
+
+static void
 dacp_reply_pause(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
@@ -1400,6 +1507,10 @@ static struct uri_map dacp_handlers[] =
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/cue$",
       .handler = dacp_reply_cue
+    },
+    {
+      .regexp = "^/ctrl-int/[[:digit:]]+/playspec$",
+      .handler = dacp_reply_playspec
     },
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/pause$",
