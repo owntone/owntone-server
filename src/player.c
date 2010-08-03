@@ -1783,6 +1783,7 @@ playback_start(void *arg)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Couldn't jump to queue position %d\n", *idx_id);
 
+	  playback_stop(NULL);
 	  return -1;
 	}
 
@@ -1800,6 +1801,7 @@ playback_start(void *arg)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Couldn't find anything to play!\n");
 
+	  playback_stop(NULL);
 	  return -1;
 	}
 
@@ -1815,6 +1817,7 @@ playback_start(void *arg)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not open local audio\n");
 
+	  playback_stop(NULL);
 	  return -1;
 	}
     }
@@ -1845,6 +1848,7 @@ playback_start(void *arg)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
 
+      playback_stop(NULL);
       return -1;
     }
 
