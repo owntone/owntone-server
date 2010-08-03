@@ -817,6 +817,7 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
   char *count;
   char *filter;
   char *idx;
+  char *sort;
   int ret;
 
   if (qp->filter)
@@ -846,7 +847,22 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
   if (!idx)
     idx = "";
 
-  query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s AND %s %s;", smartpl_query, filter, idx);
+  switch (qp->sort)
+    {
+      case S_NONE:
+	sort = "";
+	break;
+
+      case S_NAME:
+	sort = "ORDER BY title ASC";
+	break;
+
+      case S_ALBUM:
+	sort = "ORDER BY track ASC, album ASC";
+	break;
+    }
+
+  query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s AND %s %s %s;", smartpl_query, filter, sort, idx);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
