@@ -902,6 +902,19 @@ get_query_params(struct evkeyvalq *query, struct query_params *qp)
   qp->idx_type = I_SUB;
 
   qp->sort = S_NONE;
+  param = evhttp_find_header(query, "sort");
+  if (param)
+    {
+      if (strcmp(param, "name") == 0)
+	qp->sort = S_NAME;
+      else if (strcmp(param, "album") == 0)
+	qp->sort = S_ALBUM;
+      else
+	DPRINTF(E_DBG, L_DAAP, "Unknown sort param: %s\n", param);
+
+      if (qp->sort != S_NONE)
+	DPRINTF(E_DBG, L_DAAP, "Sorting songlist by %s\n", param);
+    }
 
   param = evhttp_find_header(query, "query");
   if (!param)
