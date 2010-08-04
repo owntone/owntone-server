@@ -67,6 +67,9 @@
 #endif
 
 #define VAR_PLAYER_VOLUME "player:volume"
+#define VAR_ACTIVE_SPK    "player:active-spk"
+
+#define LAST_ACTIVE_GRACEPERIOD  (5 * 60)
 
 enum player_sync_source
   {
@@ -146,6 +149,7 @@ static uint64_t pb_pos;
 static uint64_t last_rtptime;
 
 /* AirTunes devices */
+static time_t dev_deadline;
 static struct raop_device *dev_list;
 static pthread_mutex_t dev_lck = PTHREAD_MUTEX_INITIALIZER;
 
@@ -2843,6 +2847,7 @@ player_queue_plid(uint32_t plid)
 static void
 raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, AvahiStringList *txt)
 {
+  struct player_status status;
   AvahiStringList *p;
   struct raop_device *rd;
   struct raop_device *prev;
@@ -2855,6 +2860,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   size_t valsz;
   int has_password;
   int encrypt;
+  int last_active;
   int ret;
 
   ret = safe_hextou64(name, &id);
@@ -2875,6 +2881,22 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   at_name++;
 
   DPRINTF(E_DBG, L_PLAYER, "Found AirTunes device %" PRIx64 "/%s (%d)\n", id, at_name, port);
+
+  /* Check if the device was selected last time */
+  if (time(NULL) < dev_deadline)
+    {
+      player_get_status(&status);
+
+      if (status.status != PLAY_STOPPED)
+	last_active = 0;
+      else
+	{
+	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, id);
+	  last_active = (ret == 1);
+	}
+    }
+  else
+    last_active = 0;
 
   if (port < 0)
     {
@@ -3080,6 +3102,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	}
 
       rd->advertised = 1;
+      rd->selected = last_active;
 
       switch (family)
 	{
@@ -3109,6 +3132,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 static void *
 player(void *arg)
 {
+  struct raop_device *rd;
   int ret;
 
   ret = db_perthread_init();
@@ -3123,6 +3147,20 @@ player(void *arg)
 
   if (!player_exit)
     DPRINTF(E_LOG, L_PLAYER, "Player event loop terminated ahead of time!\n");
+
+  /* Save selected devices */
+  db_config_clear_key(VAR_ACTIVE_SPK);
+
+  if (laudio_selected)
+    db_config_save_hex64(VAR_ACTIVE_SPK, 0);
+
+  pthread_mutex_lock(&dev_lck);
+  for (rd = dev_list; rd; rd = rd->next)
+    {
+      if (rd->selected)
+	db_config_save_hex64(VAR_ACTIVE_SPK, rd->id);
+    }
+  pthread_mutex_unlock(&dev_lck);
 
   db_perthread_deinit();
 
@@ -3154,6 +3192,7 @@ player_init(void)
 
   player_exit = 0;
 
+  dev_deadline = time(NULL) + LAST_ACTIVE_GRACEPERIOD;
   dev_list = NULL;
 
   laudio_status = LAUDIO_CLOSED;
@@ -3180,6 +3219,9 @@ player_init(void)
   last_rtptime = ((uint64_t)1 << 32) | rnd;
 
   rng_init(&shuffle_rng);
+
+  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, 0);
+  laudio_selected = (ret == 1);
 
   ret = db_config_fetch_int(VAR_PLAYER_VOLUME, &volume);
   if (ret < 0)
