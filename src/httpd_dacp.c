@@ -221,8 +221,6 @@ make_playstatusupdate(struct evbuffer *evbuf)
       return -1;
     }
 
-  memset(&status, 0, sizeof(struct player_status));
-
   player_get_status(&status);
 
   if (status.status != PLAY_STOPPED)
