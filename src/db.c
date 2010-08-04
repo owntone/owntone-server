@@ -3011,6 +3011,42 @@ db_config_save_int(const char *key, int val)
 }
 
 int
+db_config_save_hex64(const char *key, uint64_t val)
+{
+#define Q_TMPL "INSERT OR REPLACE INTO admin (key, value) VALUES ('%q', '%016" PRIx64 "');"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, key, val);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error saving hex64 value: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+int
 db_config_fetch_int(const char *key, int *val)
 {
 #define Q_TMPL "SELECT value FROM admin WHERE key = '%q';"
@@ -3057,6 +3093,89 @@ db_config_fetch_int(const char *key, int *val)
  out:
   sqlite3_free(query);
   return ret;
+
+#undef Q_TMPL
+}
+
+int
+db_config_has_tuple_hex64(const char *key, uint64_t val)
+{
+#define Q_TMPL "SELECT 1 FROM admin WHERE key = '%q' AND value = '%016" PRIx64 "';"
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, key, val);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      ret = -1;
+      goto out;
+    }
+
+  ret = db_blocking_step(stmt);
+
+  switch (ret)
+    {
+      case SQLITE_ROW:
+	ret = 1;
+	break;
+
+      case SQLITE_DONE:
+	ret = 0;
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+	ret = -1;
+	break;
+    }
+
+  sqlite3_finalize(stmt);
+
+ out:
+  sqlite3_free(query);
+  return ret;
+
+#undef Q_TMPL
+}
+
+void
+db_config_clear_key(const char *key)
+{
+#define Q_TMPL "DELETE FROM admin WHERE key = '%q';"
+
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, key);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error clearing config key %s: %s\n", key, errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
 
 #undef Q_TMPL
 }

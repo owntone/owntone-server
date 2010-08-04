@@ -407,7 +407,16 @@ int
 db_config_save_int(const char *key, int val);
 
 int
+db_config_save_hex64(const char *key, uint64_t val);
+
+int
 db_config_fetch_int(const char *key, int *val);
+
+int
+db_config_has_tuple_hex64(const char *key, uint64_t val);
+
+void
+db_config_clear_key(const char *key);
 
 /* Inotify */
 int
