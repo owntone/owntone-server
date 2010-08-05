@@ -238,6 +238,15 @@ static const struct col_type_map wi_cols_map[] =
     { wi_offsetof(path),   DB_TYPE_STRING },
   };
 
+/* Sort clauses */
+/* Keep in sync with enum sort_type */
+static const char *sort_clause[] =
+  {
+    "",
+    "ORDER BY title ASC",
+    "ORDER BY track ASC, album ASC",
+  };
+
 static char *db_path;
 static __thread sqlite3 *hdl;
 
@@ -652,7 +661,7 @@ db_build_query_items(struct query_params *qp, char **q)
   char *query;
   char *count;
   char *idx;
-  char *sort;
+  const char *sort;
   int ret;
 
   if (qp->filter)
@@ -678,20 +687,7 @@ db_build_query_items(struct query_params *qp, char **q)
   if (ret < 0)
     return -1;
 
-  switch (qp->sort)
-    {
-      case S_NONE:
-	sort = "";
-	break;
-
-      case S_NAME:
-	sort = "ORDER BY title ASC";
-	break;
-
-      case S_ALBUM:
-	sort = "ORDER BY track ASC, album ASC";
-	break;
-    }
+  sort = sort_clause[qp->sort];
 
   if (idx && qp->filter)
     query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s %s %s;", qp->filter, sort, idx);
@@ -817,7 +813,7 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
   char *count;
   char *filter;
   char *idx;
-  char *sort;
+  const char *sort;
   int ret;
 
   if (qp->filter)
@@ -847,20 +843,7 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
   if (!idx)
     idx = "";
 
-  switch (qp->sort)
-    {
-      case S_NONE:
-	sort = "";
-	break;
-
-      case S_NAME:
-	sort = "ORDER BY title ASC";
-	break;
-
-      case S_ALBUM:
-	sort = "ORDER BY track ASC, album ASC";
-	break;
-    }
+  sort = sort_clause[qp->sort];
 
   query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s AND %s %s %s;", smartpl_query, filter, sort, idx);
   if (!query)
