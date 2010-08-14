@@ -1047,10 +1047,10 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
   int ret;
 
   if (qp->filter)
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '' AND %s;",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s COLLATE NOCASE) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '' AND %s;",
 			    field, field, qp->filter);
   else
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '';",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s COLLATE NOCASE) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '';",
 			    field, field);
 
   if (!count)
@@ -1072,16 +1072,16 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE NOCASE FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
 			    " AND %s %s;", field, field, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT DISTINCT %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE NOCASE FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
 			    " %s;", field, field, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE NOCASE FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
 			    " AND %s;", field, field, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT DISTINCT %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''",
+    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE NOCASE FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''",
 			    field, field);
 
   if (!query)
