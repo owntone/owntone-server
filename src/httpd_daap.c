@@ -2310,8 +2310,10 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   struct query_params qp;
   struct daap_session *s;
   struct evbuffer *itemlist;
+  struct sort_ctx *sctx;
   char *browse_item;
   char *tag;
+  int sort_headers;
   int nitems;
   int ret;
 
@@ -2379,7 +2381,24 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       return;
     }
 
-  get_query_params(query, NULL, &qp);
+  get_query_params(query, &sort_headers, &qp);
+
+  sctx = NULL;
+  if (sort_headers)
+    {
+      sctx = daap_sort_context_new();
+      if (!sctx)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not create sort context\n");
+
+	  dmap_send_error(req, "abro", "Out of memory");
+
+	  evbuffer_free(itemlist);
+	  if (qp.filter)
+	    free(qp.filter);
+	  return;
+	}
+    }
 
   ret = db_query_start(&qp);
   if (ret < 0)
@@ -2387,6 +2406,9 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
       dmap_send_error(req, "abro", "Could not start query");
+
+      if (sort_headers)
+	daap_sort_context_free(sctx);
 
       evbuffer_free(itemlist);
       if (qp.filter)
@@ -2399,6 +2421,17 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       nitems++;
 
+      if (sort_headers)
+	{
+	  ret = daap_sort_build(sctx, browse_item);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DAAP, "Could not add sort header to DAAP browse reply\n");
+
+	      break;
+	    }
+	}
+
       dmap_add_string(itemlist, "mlit", browse_item);
     }
 
@@ -2407,18 +2440,27 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
+      DPRINTF(E_LOG, L_DAAP, "Error fetching/building results\n");
 
-      dmap_send_error(req, "abro", "Error fetching query results");
+      dmap_send_error(req, "abro", "Error fetching/building query results");
       db_query_end(&qp);
+
+      if (sort_headers)
+	daap_sort_context_free(sctx);
+
       evbuffer_free(itemlist);
       return;
     }
 
-  dmap_add_container(evbuf, "abro", EVBUFFER_LENGTH(itemlist) + 44);
+  if (sort_headers)
+    dmap_add_container(evbuf, "abro", EVBUFFER_LENGTH(itemlist) + EVBUFFER_LENGTH(sctx->headerlist) + 44);
+  else
+    dmap_add_container(evbuf, "abro", EVBUFFER_LENGTH(itemlist) + 44);
+
   dmap_add_int(evbuf, "mstt", 200);    /* 12 */
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf, "mrco", nitems); /* 12 */
+
   dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(itemlist));
 
   db_query_end(&qp);
@@ -2430,7 +2472,25 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Could not add item list to DAAP browse reply\n");
 
       dmap_send_error(req, tag, "Out of memory");
+
+      if (sort_headers)
+	daap_sort_context_free(sctx);
+
       return;
+    }
+
+  if (sort_headers)
+    {
+      ret = daap_sort_finalize(sctx, evbuf);
+      daap_sort_context_free(sctx);
+
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not add sort headers to DAAP browse reply\n");
+
+	  dmap_send_error(req, tag, "Out of memory");
+	  return;
+	}
     }
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
