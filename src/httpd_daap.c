@@ -848,7 +848,7 @@ dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval
 
 
 static void
-get_query_params(struct evkeyvalq *query, struct query_params *qp)
+get_query_params(struct evkeyvalq *query, int *sort_headers, struct query_params *qp)
 {
   const char *param;
   char *ptr;
@@ -914,6 +914,22 @@ get_query_params(struct evkeyvalq *query, struct query_params *qp)
 
       if (qp->sort != S_NONE)
 	DPRINTF(E_DBG, L_DAAP, "Sorting songlist by %s\n", param);
+    }
+
+  if (sort_headers)
+    {
+      *sort_headers = 0;
+      param = evhttp_find_header(query, "include-sort-headers");
+      if (param)
+	{
+	  if (strcmp(param, "1") == 0)
+	    {
+	      *sort_headers = 1;
+	      DPRINTF(E_DBG, L_DAAP, "Sort headers requested\n");
+	    }
+	  else
+	    DPRINTF(E_DBG, L_DAAP, "Unknown include-sort-headers param: %s\n", param);
+	}
     }
 
   param = evhttp_find_header(query, "query");
@@ -1420,7 +1436,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     }
 
   memset(&qp, 0, sizeof(struct query_params));
-  get_query_params(query, &qp);
+  get_query_params(query, NULL, &qp);
 
   if (playlist != -1)
     {
@@ -1766,7 +1782,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     }
 
   memset(&qp, 0, sizeof(struct query_params));
-  get_query_params(query, &qp);
+  get_query_params(query, NULL, &qp);
   qp.type = Q_PL;
 
   ret = db_query_start(&qp);
@@ -2009,7 +2025,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
 
   memset(&qp, 0, sizeof(struct query_params));
-  get_query_params(query, &qp);
+  get_query_params(query, NULL, &qp);
   qp.type = Q_GROUPS;
 
   ret = db_query_start(&qp);
@@ -2214,7 +2230,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       return;
     }
 
-  get_query_params(query, &qp);
+  get_query_params(query, NULL, &qp);
 
   ret = db_query_start(&qp);
   if (ret < 0)
