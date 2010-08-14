@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2010 Kai Elwert <elwertk@googlemail.com>
  *
  * Adapted from mt-daapd:
  * Copyright (C) 2003-2007 Ron Pedde <ron@pedde.com>
@@ -33,6 +34,9 @@
 #include <limits.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <ctype.h>
+
+#include <uninorm.h>
 
 #include <event.h>
 #include "evhttp/evhttp.h"
@@ -87,6 +91,14 @@ struct dmap_field_map {
   ssize_t mfi_offset;
   ssize_t pli_offset;
   ssize_t gri_offset;
+};
+
+struct sort_ctx {
+  struct evbuffer *headerlist;
+  int16_t mshc;
+  uint32_t mshi;
+  uint32_t mshn;
+  uint32_t misc_mshn;
 };
 
 
@@ -227,6 +239,10 @@ static const struct dmap_field dmap_msas = { "msas", "dmap.authenticationschemes
 static const struct dmap_field dmap_msau = { "msau", "dmap.authenticationmethod",              DMAP_TYPE_UBYTE };
 static const struct dmap_field dmap_msbr = { "msbr", "dmap.supportsbrowse",                    DMAP_TYPE_UBYTE };
 static const struct dmap_field dmap_msdc = { "msdc", "dmap.databasescount",                    DMAP_TYPE_UINT };
+static const struct dmap_field dmap_mshl = { "mshl", "dmap.sortingheaderlisting",              DMAP_TYPE_UINT };
+static const struct dmap_field dmap_mshc = { "mshc", "dmap.sortingheaderchar",                 DMAP_TYPE_SHORT };
+static const struct dmap_field dmap_mshi = { "mshi", "dmap.sortingheaderindex",                DMAP_TYPE_UINT };
+static const struct dmap_field dmap_mshn = { "mshn", "dmap.sortingheadernumber",               DMAP_TYPE_UINT };
 static const struct dmap_field dmap_msex = { "msex", "dmap.supportsextensions",                DMAP_TYPE_UBYTE };
 static const struct dmap_field dmap_msix = { "msix", "dmap.supportsindex",                     DMAP_TYPE_UBYTE };
 static const struct dmap_field dmap_mslr = { "mslr", "dmap.loginrequired",                     DMAP_TYPE_UBYTE };
@@ -844,6 +860,139 @@ dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval
       case DMAP_TYPE_LIST:
 	return;
     }
+}
+
+
+/* DAAP sort headers helpers */
+static struct sort_ctx *
+daap_sort_context_new(void)
+{
+  struct sort_ctx *ctx;
+  int ret;
+
+  ctx = (struct sort_ctx *)malloc(sizeof(struct sort_ctx));
+  if (!ctx)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Out of memory for sorting context\n");
+
+      return NULL;
+    }
+
+  memset(ctx, 0, sizeof(struct sort_ctx));
+
+  ctx->headerlist = evbuffer_new();
+  if (!ctx->headerlist)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP sort headers list\n");
+
+      free(ctx);
+      return NULL;
+    }
+
+  ret = evbuffer_expand(ctx->headerlist, 512);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP sort headers list\n");
+
+      evbuffer_free(ctx->headerlist);
+      free(ctx);
+      return NULL;
+    }
+
+  ctx->mshc = -1;
+
+  return ctx;
+}
+
+static void
+daap_sort_context_free(struct sort_ctx *ctx)
+{
+  evbuffer_free(ctx->headerlist);
+  free(ctx);
+}
+
+static int
+daap_sort_build(struct sort_ctx *ctx, char *str)
+{
+  uint8_t *ret;
+  size_t len;
+  char fl;
+
+  len = strlen(str);
+  ret = u8_normalize(UNINORM_NFD, (uint8_t *)str, len, NULL, &len);
+  if (!ret)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not normalize string for sort header\n");
+
+      return -1;
+    }
+
+  fl = ret[0];
+  free(ret);
+
+  if (isascii(fl) && isalpha(fl))
+    {
+      fl = toupper(fl);
+
+      /* Init */
+      if (ctx->mshc == -1)
+	ctx->mshc = fl;
+
+      if (fl == ctx->mshc)
+	ctx->mshn++;
+      else
+        {
+	  dmap_add_container(ctx->headerlist, "mlit", 34);
+	  dmap_add_short(ctx->headerlist, "mshc", ctx->mshc); /* 10 */
+	  dmap_add_int(ctx->headerlist, "mshi", ctx->mshi);   /* 12 */
+	  dmap_add_int(ctx->headerlist, "mshn", ctx->mshn);   /* 12 */
+
+	  DPRINTF(E_DBG, L_DAAP, "Added sort header: mshc = %c, mshi = %u, mshn = %u fl %c\n", ctx->mshc, ctx->mshi, ctx->mshn, fl);
+
+	  ctx->mshi = ctx->mshi + ctx->mshn;
+	  ctx->mshn = 1;
+	  ctx->mshc = fl;
+	}
+    }
+  else
+    {
+      /* Non-ASCII, goes to misc category */
+      ctx->misc_mshn++;
+    }
+
+  return 0;
+}
+
+static int
+daap_sort_finalize(struct sort_ctx *ctx, struct evbuffer *evbuf)
+{
+  int ret;
+
+  /* Add current entry, if any */
+  if (ctx->mshc != -1)
+    {
+      dmap_add_container(ctx->headerlist, "mlit", 34);
+      dmap_add_short(ctx->headerlist, "mshc", ctx->mshc); /* 10 */
+      dmap_add_int(ctx->headerlist, "mshi", ctx->mshi);   /* 12 */
+      dmap_add_int(ctx->headerlist, "mshn", ctx->mshn);   /* 12 */
+
+      ctx->mshi = ctx->mshi + ctx->mshn;
+
+      DPRINTF(E_DBG, L_DAAP, "Added sort header: mshc = %c, mshi = %u, mshn = %u (final)\n", ctx->mshc, ctx->mshi, ctx->mshn);
+    }
+
+  /* Add misc category */
+  dmap_add_container(ctx->headerlist, "mlit", 34);
+  dmap_add_short(ctx->headerlist, "mshc", '0');          /* 10 */
+  dmap_add_int(ctx->headerlist, "mshi", ctx->mshi);      /* 12 */
+  dmap_add_int(ctx->headerlist, "mshn", ctx->misc_mshn); /* 12 */
+
+  dmap_add_container(evbuf, "mshl", EVBUFFER_LENGTH(ctx->headerlist));
+  ret = evbuffer_add_buffer(evbuf, ctx->headerlist);
+  if (ret < 0)
+    return -1;
+
+  return 0;
 }
 
 
