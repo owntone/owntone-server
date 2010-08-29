@@ -1336,7 +1336,6 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   int transcode;
   int want_mikd;
   int want_asdk;
-  int oom;
   int32_t val;
   int i;
   int ret;
@@ -1442,7 +1441,6 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   want_mikd = 0;
   want_asdk = 0;
-  oom = 0;
   nsongs = 0;
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
@@ -1579,7 +1577,9 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       ret = evbuffer_add_buffer(songlist, song);
       if (ret < 0)
 	{
-	  oom = 1;
+	  DPRINTF(E_LOG, L_DAAP, "Could not add song to song list for DAAP song list reply\n");
+
+	  ret = -100;
 	  break;
 	}
     }
@@ -1596,18 +1596,14 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
+      if (ret == -100)
+	  dmap_send_error(req, tag, "Out of memory");
+      else
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
+	  dmap_send_error(req, tag, "Error fetching query results");
+	}
 
-      dmap_send_error(req, tag, "Error fetching query results");
-      db_query_end(&qp);
-      goto out_list_free;
-    }
-
-  if (oom)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not add song to song list for DAAP song list reply\n");
-
-      dmap_send_error(req, tag, "Out of memory");
       db_query_end(&qp);
       goto out_list_free;
     }
@@ -1698,7 +1694,6 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   uint32_t *meta;
   int nmeta;
   int npls;
-  int oom;
   int32_t val;
   int i;
   int ret;
@@ -1784,7 +1779,6 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     }
 
   npls = 0;
-  oom = 0;
   while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
       npls++;
@@ -1860,7 +1854,9 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       ret = evbuffer_add_buffer(playlistlist, playlist);
       if (ret < 0)
 	{
-	  oom = 1;
+	  DPRINTF(E_LOG, L_DAAP, "Could not add playlist to playlist list for DAAP playlists reply\n");
+
+	  ret = -100;
 	  break;
 	}
     }
@@ -1875,18 +1871,14 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
+      if (ret == -100)
+	dmap_send_error(req, "aply", "Out of memory");
+      else
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
+	  dmap_send_error(req, "aply", "Error fetching query results");
+	}
 
-      dmap_send_error(req, "aply", "Error fetching query results");
-      db_query_end(&qp);
-      goto out_list_free;
-    }
-
-  if (oom)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not add playlist to playlist list for DAAP playlists reply\n");
-
-      dmap_send_error(req, "aply", "Out of memory");
       db_query_end(&qp);
       goto out_list_free;
     }
@@ -1941,7 +1933,6 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   uint32_t *meta;
   int nmeta;
   int ngrp;
-  int oom;
   int32_t val;
   int i;
   int ret;
@@ -2031,7 +2022,6 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
 
   ngrp = 0;
-  oom = 0;
   while ((ret = db_query_fetch_group(&qp, &dbgri)) == 0)
     {
       ngrp++;
@@ -2084,7 +2074,9 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       ret = evbuffer_add_buffer(grouplist, group);
       if (ret < 0)
 	{
-	  oom = 1;
+	  DPRINTF(E_LOG, L_DAAP, "Could not add group to group list for DAAP groups reply\n");
+
+	  ret = -100;
 	  break;
 	}
     }
@@ -2099,18 +2091,14 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
+      if (ret == -100)
+	dmap_send_error(req, tag, "Out of memory");
+      else
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Error fetching results\n");
+	  dmap_send_error(req, tag, "Error fetching query results");
+	}
 
-      dmap_send_error(req, tag, "Error fetching query results");
-      db_query_end(&qp);
-      goto out_list_free;
-    }
-
-  if (oom)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not add group to group list for DAAP groups reply\n");
-
-      dmap_send_error(req, tag, "Out of memory");
       db_query_end(&qp);
       goto out_list_free;
     }
