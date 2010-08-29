@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2010 Kai Elwert <elwertk@googlemail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,6 +27,11 @@
 #include <time.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <errno.h>
+
+#include <unistr.h>
+#include <unictype.h>
+#include <unicase.h>
 
 #include <pthread.h>
 
@@ -3699,6 +3705,54 @@ db_daap_songalbumid_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
   sqlite3_result_int64(pv, result);
 }
 
+static int
+db_daap_unicode_xcollation(void *notused, int llen, const void *left, int rlen, const void *right)
+{
+  ucs4_t lch;
+  ucs4_t rch;
+  int lalpha;
+  int ralpha;
+  int rpp;
+  int ret;
+
+  /* Extract first utf-8 character */
+  ret = u8_mbtoucr(&lch, (const uint8_t *)left, llen);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "DAAP collation: error %d in u8_mbtoucr (left)\n", ret);
+
+      return 0;
+    }
+
+  ret = u8_mbtoucr(&rch, (const uint8_t *)right, rlen);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "DAAP collation: error %d in u8_mbtoucr (right)\n", ret);
+
+      return 0;
+    }
+
+  /* Ensure digits and other non-alphanum sort to tail */
+  lalpha = uc_is_alpha(lch);
+  ralpha = uc_is_alpha(rch);
+
+  if (!lalpha && ralpha)
+    return 1;
+  else if (lalpha && !ralpha)
+    return -1;
+
+  /* Compare case and normalization insensitive */
+  ret = u8_casecmp((const uint8_t *)left, llen, (const uint8_t*)right, rlen, NULL, UNINORM_NFD, &rpp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "DAAP collation: error in u8_casecmp: %s\n", strerror(errno));
+
+      return 0;
+    }
+
+  return rpp;
+}
+
 
 int
 db_perthread_init(void)
@@ -3718,6 +3772,15 @@ db_perthread_init(void)
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not create daap_songalbumid function: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_close(hdl);
+      return -1;
+    }
+
+  ret = sqlite3_create_collation(hdl, "DAAP", SQLITE_UTF8, NULL, db_daap_unicode_xcollation);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not create sqlite3 custom collation DAAP: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_close(hdl);
       return -1;
