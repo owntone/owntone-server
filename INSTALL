@@ -40,7 +40,7 @@ General libraries:
  - MiniXML
  - gcrypt 1.2.0+
  - zlib
- - libunistring
+ - libunistring 0.9.3+
  - libflac (optional - FLAC support)
  - taglib (optional - Musepack support)
  - libplist 0.16+ (optional - iTunes XML support)
