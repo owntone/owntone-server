@@ -2093,10 +2093,12 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   struct evbuffer *group;
   struct evbuffer *grouplist;
   struct dmap_field_map *dfm;
+  struct sort_ctx *sctx;
   const char *param;
   char **strval;
   uint32_t *meta;
   int nmeta;
+  int sort_headers;
   int ngrp;
   int32_t val;
   int i;
@@ -2174,8 +2176,21 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
 
   memset(&qp, 0, sizeof(struct query_params));
-  get_query_params(query, NULL, &qp);
+  get_query_params(query, &sort_headers, &qp);
   qp.type = Q_GROUPS;
+
+  sctx = NULL;
+  if (sort_headers)
+    {
+      sctx = daap_sort_context_new();
+      if (!sctx)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not create sort context\n");
+
+	  dmap_send_error(req, tag, "Out of memory");
+	  goto out_query_free;
+	}
+    }
 
   ret = db_query_start(&qp);
   if (ret < 0)
@@ -2183,6 +2198,10 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
       dmap_send_error(req, tag, "Could not start query");
+
+      if (sort_headers)
+	daap_sort_context_free(sctx);
+
       goto out_query_free;
     }
 
@@ -2216,6 +2235,18 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	  dmap_add_field(group, dfm->field, *strval, 0);
 
 	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", dfm->field->desc, *strval);
+	}
+
+      if (sort_headers)
+	{
+	  ret = daap_sort_build(sctx, dbgri.itemname);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DAAP, "Could not add sort header to DAAP groups reply\n");
+
+	      ret = -100;
+	      break;
+	    }
 	}
 
       /* Item count, always added (mimc) */
@@ -2265,11 +2296,19 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	}
 
       db_query_end(&qp);
+
+      if (sort_headers)
+	daap_sort_context_free(sctx);
+
       goto out_list_free;
     }
 
   /* Add header to evbuf, add grouplist to evbuf */
-  dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(grouplist) + 53);
+  if (sort_headers)
+    dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(grouplist) + EVBUFFER_LENGTH(sctx->headerlist) + 53);
+  else
+    dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(grouplist) + 53);
+
   dmap_add_int(evbuf, "mstt", 200); /* 12 */
   dmap_add_char(evbuf, "muty", 0);  /* 9 */
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
@@ -2285,7 +2324,25 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Could not add group list to DAAP groups reply\n");
 
       dmap_send_error(req, tag, "Out of memory");
+
+      if (sort_headers)
+	daap_sort_context_free(sctx);
+
       return;
+    }
+
+  if (sort_headers)
+    {
+      ret = daap_sort_finalize(sctx, evbuf);
+      daap_sort_context_free(sctx);
+
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not add sort headers to DAAP browse reply\n");
+
+	  dmap_send_error(req, tag, "Out of memory");
+	  return;
+	}
     }
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
