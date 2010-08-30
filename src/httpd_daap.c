@@ -1491,12 +1491,14 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   struct evbuffer *song;
   struct evbuffer *songlist;
   struct dmap_field_map *dfm;
+  struct sort_ctx *sctx;
   const char *param;
   char *tag;
   char **strval;
   char *ptr;
   uint32_t *meta;
   int nmeta;
+  int sort_headers;
   int nsongs;
   int transcode;
   int want_mikd;
@@ -1585,7 +1587,20 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     }
 
   memset(&qp, 0, sizeof(struct query_params));
-  get_query_params(query, NULL, &qp);
+  get_query_params(query, &sort_headers, &qp);
+
+  sctx = NULL;
+  if (sort_headers)
+    {
+      sctx = daap_sort_context_new();
+      if (!sctx)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not create sort context\n");
+
+	  dmap_send_error(req, tag, "Out of memory");
+	  goto out_query_free;
+	}
+    }
 
   if (playlist != -1)
     {
@@ -1601,6 +1616,10 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       DPRINTF(E_LOG, L_DAAP, "Could not start query\n");
 
       dmap_send_error(req, tag, "Could not start query");
+
+      if (sort_headers)
+	daap_sort_context_free(sctx);
+
       goto out_query_free;
     }
 
@@ -1712,6 +1731,18 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", dfm->field->desc, *strval);
 	}
 
+      if (sort_headers)
+	{
+	  ret = daap_sort_build(sctx, dbmfi.title);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DAAP, "Could not add sort header to DAAP song list reply\n");
+
+	      ret = -100;
+	      break;
+	    }
+   	}
+
       DPRINTF(E_DBG, L_DAAP, "Done with song\n");
 
       val = 0;
@@ -1770,11 +1801,18 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	}
 
       db_query_end(&qp);
+
+      if (sort_headers)
+	daap_sort_context_free(sctx);
+
       goto out_list_free;
     }
 
   /* Add header to evbuf, add songlist to evbuf */
-  dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(songlist) + 53);
+  if (sort_headers)
+    dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(songlist) + EVBUFFER_LENGTH(sctx->headerlist) + 53);
+  else
+    dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(songlist) + 53);
   dmap_add_int(evbuf, "mstt", 200);    /* 12 */
   dmap_add_char(evbuf, "muty", 0);     /* 9 */
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
@@ -1790,7 +1828,25 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       DPRINTF(E_LOG, L_DAAP, "Could not add song list to DAAP song list reply\n");
 
       dmap_send_error(req, tag, "Out of memory");
+
+      if (sort_headers)
+	daap_sort_context_free(sctx);
+
       return;
+    }
+
+  if (sort_headers)
+    {
+      ret = daap_sort_finalize(sctx, evbuf);
+      daap_sort_context_free(sctx);
+
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not add sort headers to DAAP song list reply\n");
+
+	  dmap_send_error(req, tag, "Out of memory");
+	  return;
+	}
     }
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
