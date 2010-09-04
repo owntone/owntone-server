@@ -1,6 +1,14 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 0.12:
+	- add AirTunes v2 streaming.
+	- add Remote support.
+	- add gzipped replies.
+	- add IPv6 support.
+	- check for UTF-8 correctness of metadata.
+	- fixes, big and small.
+
 version 0.11:
 	- support iTunes 9.
 	- add iTunes XML playlist scanner.
