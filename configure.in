@@ -14,20 +14,18 @@ LT_INIT([disable-static])
 
 AC_CHECK_PROG(ANTLR, [antlr3], [antlr3])
 if test "x$ANTLR" = x; then
-	AC_MSG_NOTICE([antlr3 wrapper not found, checking direct java invocation])
-	AC_CHECK_PROG(JAVA, [java], [java])
-	if test "x$JAVA" = x; then
-		AC_MSG_FAILURE([java not found; check your java installation])
+	if test -d $srcdir/src/pregen; then
+		for f in $srcdir/src/pregen/*; do
+			bf=`basename $f`
+			ln -sf pregen/$bf $srcdir/src/$bf
+		done
+		AC_MSG_NOTICE([antlr3 wrapper not found, using pre-generated files])
 	else
-		if $JAVA org.antlr.Tool > /dev/null 2>&1; then
-			AC_MSG_NOTICE([Direct java invocation working, using java org.antlr.Tool to invoke antlr])
-			ANTLR="$JAVA org.antlr.Tool"
-		else
-			AC_MSG_FAILURE([antlr3 wrapper not found and direct java invocation failed; check your antlr3/java installation])
-		fi
+		AC_MSG_ERROR([antlr3 wrapper not found and pre-generated files not available])
 	fi
 fi
 AC_SUBST(ANTLR)
+AM_CONDITIONAL(COND_ANTLR, test "x$ANTLR" != x)
 
 CFLAGS="$CFLAGS -Wall -D_LARGEFILE_SOURCE"
 

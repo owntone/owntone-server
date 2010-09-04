@@ -79,7 +79,8 @@ EXTRA_DIST = \
 rsp_query.c: RSPLexer.h RSPParser.h RSP2SQL.h
 daap_query.c: DAAPLexer.h DAAPParser.h DAAP2SQL.h
 
-
+# Support for building the parsers when ANTLR3 is available
+if COND_ANTLR
 SUFFIXES = .g .u
 
 %.tokens %.c %Lexer.c %Parser.c %Lexer.h %Parser.h %.h: %.g
@@ -95,5 +96,11 @@ SUFFIXES = .g .u
 clean-local:
 	rm -f $(ANTLR_PRODUCTS)
 	rm -f $(ANTLR_GRAMMARS:.g=.u)
+
+else !COND_ANTLR
+distclean-local:
+	rm -f $(ANTLR_SOURCES)
+	rm -f $(ANTLR_GRAMMARS:.g=.u)
+endif
 
 -include $(ANTLR_GRAMMARS:.g=.u)
