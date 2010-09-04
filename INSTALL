@@ -1,26 +1,14 @@
 Installation instructions for forked-daapd
 ------------------------------------------
 
-Required tools:
- - ANTLR v3 is required to build forked-daapd, along with its C runtime
-   (libantlr3c). Use at least version 3.1.3 of ANTLR v3 and the matching
-   C runtime version.
+There are two ways to install forked-daapd: from a tarball or from the git
+tree. The tarball contains a working build system and pre-generated ANTLR3
+parsers; the git tree doesn't and requires more tools to generate the build
+system and the ANTLR3 parsers.
 
- - Java runtime: ANTLR is written in Java and as such a JRE is required to
-   run the tool. The JRE is enough, you don't need a full JDK.
+In both cases the installation procedure is the traditional ./configure;
+make; make install. Please read this file carefully before proceeding.
 
- - autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run autoreconf -i
-   at the top of the source tree to generate the build system.
-
- - gettext: libunistring requires iconv and gettext provides the autotools
-   macro definitions for iconv.
-
- - pkg-config
-
-The configure script will look for a wrapper called antlr3 in the PATH to
-invoke ANTLR. If it doesn't exist, it'll try to invoke ANTLR directly with
-'java org.antlr.Tool'; make sure your CLASSPATH is set properly, and if it
-doesn't work, just create the wrapper somewhere in your PATH.
 
 System-specific requirements:
  - Linux:
@@ -30,7 +18,11 @@ System-specific requirements:
    + OSS4 sound support
    + libiconv
 
-General libraries:
+Tools:
+ - pkg-config
+
+Libraries:
+ - libantlr3c (ANTLR3 C runtime, version 3.2 for tarball builds)
  - Avahi client libraries, 0.6.24 minimum
  - sqlite3 3.5.0+ with update notify API enabled
  - ffmpeg
@@ -53,6 +45,53 @@ sqlite3 needs to be built with support for the update notify API; this isn't
 always the case, so you may need to rebuild sqlite3 to enable the update
 notify API. See the sqlite3 doc and look for SQLITE_ENABLE_UPDATE_NOTIFY.
 
+
+Building from the git tree
+--------------------------
+
+Gitweb: <http://git.debian.org/?p=users/jblache/forked-daapd.git>
+Git tree: <git://git.debian.org/users/jblache/forked-daapd.git>
+
+Required tools:
+ - ANTLR v3 is required to build forked-daapd, along with its C runtime
+   (libantlr3c). Use at least version 3.1.3 of ANTLR v3 and the matching
+   C runtime version.
+
+ - Java runtime: ANTLR is written in Java and as such a JRE is required to
+   run the tool. The JRE is enough, you don't need a full JDK.
+
+ - autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run autoreconf -i
+   at the top of the source tree to generate the build system.
+
+ - gettext: libunistring requires iconv and gettext provides the autotools
+   macro definitions for iconv.
+
+Start by generating the build system by running autoreconf -i. This will
+generate the configure script and Makefile.in.
+
+The configure script will look for a wrapper called antlr3 in the PATH to
+invoke ANTLR3. If your installation of ANTLR3 does not come with such a
+wrapper, create one as follows:
+
+  #!/bin/sh
+  CLASSPATH=...
+  exec /path/to/java -cp $CLASSPATH org.antlr.Tool "@"
+
+Adjust the CLASSPATH as needed so that Java will find all the jars needed
+by ANTLR3.
+
+The parsers will be generated during the build, no manual intervention is
+needed.
+
+
+Building from the tarball
+-------------------------
+
+Download URL: <http://alioth.debian.org/~jblache/forked-daapd/>
+
+When building forked-daapd from a release tarball, the usual ./configure;
+make; make install procedure applies.
+
 FLAC and Musepack support are optional. If not enabled, metadata extraction
 will fail on these files.
 
@@ -67,9 +106,37 @@ adjust the values at your convenience.
 
 forked-daapd will drop privileges to any user you'll specify in the
 configuration file if it's started as root. It's recommended to create a
-dedicated user without login privileges. That user must have read permissions
-on your library.
+dedicated user without login privileges.
+
+This user must have read permission on your library (you can create a group for
+this and make the user a member of the group, for instance) and read/write
+permissions on the database location ($localstatedir/cache/forked-daapd by
+default).
 
 You'll need an init script if you want to start forked-daapd at boot. A simple
 init script will do, forked-daapd daemonizes all by itself and creates a
-pidfile under /var/run.
+pidfile under /var/run. Different distributions have different standards for
+init scripts and some do not use init scripts anymore; check the documentation
+for your distribution.
+
+For dependency-based boot systems, here are the forked-daapd dependencies:
+ - local filesystems
+ - network filesystems, if needed in your setup (library on NFS, ...)
+ - networking
+ - NTP
+ - Avahi daemon
+
+The LSB header below sums it up:
+
+### BEGIN INIT INFO
+# Provides:          forked-daapd
+# Required-Start:    $local_fs $remote_fs $network $time avahi
+# Required-Stop:     $local_fs $remote_fs $network $time
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: media server with support for RSP, DAAP, DACP and AirTunes
+# Description:       forked-daapd is an iTunes-compatible media server for
+#                    sharing your music library over the local network with RSP
+#                    clients like the SoundBridge from Roku and DAAP clients like
+#                    iTunes. It can also stream music to AirTunes devices.
+### END INIT INFO
