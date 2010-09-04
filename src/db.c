@@ -3018,7 +3018,7 @@ db_config_save_int(const char *key, int val)
 int
 db_config_save_hex64(const char *key, uint64_t val)
 {
-#define Q_TMPL "INSERT OR REPLACE INTO admin (key, value) VALUES ('%q', '%016" PRIx64 "');"
+#define Q_TMPL "INSERT INTO admin (key, value) VALUES ('%q', '%016" PRIx64 "');"
   char *query;
   char *errmsg;
   int ret;
