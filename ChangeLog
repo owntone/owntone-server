@@ -1,5 +1,17 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 0.11:
+	- support iTunes 9.
+	- add iTunes XML playlist scanner.
+	- add support for TV shows.
+	- add FreeBSD and GNU/kFreeBSD support.
+	- add support for DAAP groups.
+	- add support for artwork.
+	- rework metdata extraction, better support for ID3 tags.
+	- database code rework.
+	- preliminary support for Remote (pairing, browsing).
+	- fixes, big and small.
+
 version 0.10:
 	- initial release.
