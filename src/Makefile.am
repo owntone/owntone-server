@@ -93,7 +93,7 @@ SUFFIXES = .g .u
 	@rm $@.tmp
 
 clean-local:
-	-rm $(ANTLR_PRODUCTS)
-	rm $(ANTLR_GRAMMARS:.g=.u)
+	rm -f $(ANTLR_PRODUCTS)
+	rm -f $(ANTLR_GRAMMARS:.g=.u)
 
 -include $(ANTLR_GRAMMARS:.g=.u)
