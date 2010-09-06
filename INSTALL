@@ -38,8 +38,9 @@ Libraries:
  - libplist 0.16+ (optional - iTunes XML support)
 
 libavl is not the GNU libavl. There doesn't seem to be an upstream website
-anymore, but you can fetch it from any Debian mirror for instance (it'll be
-in /debian/pool/main/liba/libavl).
+anymore, but you'll find the source tarball alongside the forked-daapd
+release tarballs (see below for the URL). Alternatively, you can fetch it from
+any Debian mirror, too (it'll be in /debian/pool/main/liba/libavl).
 
 sqlite3 needs to be built with support for the update notify API; this isn't
 always the case, so you may need to rebuild sqlite3 to enable the update
