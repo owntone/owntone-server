@@ -24,7 +24,7 @@ Tools:
 Libraries:
  - libantlr3c (ANTLR3 C runtime, version 3.2 for tarball builds)
  - Avahi client libraries, 0.6.24 minimum
- - sqlite3 3.5.0+ with update notify API enabled
+ - sqlite3 3.5.0+ with unlock notify API enabled
  - ffmpeg 0.5+
  - confuse
  - libevent 1.4+
@@ -42,9 +42,9 @@ anymore, but you'll find the source tarball alongside the forked-daapd
 release tarballs (see below for the URL). Alternatively, you can fetch it from
 any Debian mirror, too (it'll be in /debian/pool/main/liba/libavl).
 
-sqlite3 needs to be built with support for the update notify API; this isn't
-always the case, so you may need to rebuild sqlite3 to enable the update
-notify API. See the sqlite3 doc and look for SQLITE_ENABLE_UPDATE_NOTIFY.
+sqlite3 needs to be built with support for the unlock notify API; this isn't
+always the case, so you may need to rebuild sqlite3 to enable the unlock
+notify API. See the sqlite3 doc and look for SQLITE_ENABLE_UNLOCK_NOTIFY.
 
 
 Note about ffmpeg
