@@ -43,8 +43,10 @@ release tarballs (see below for the URL). Alternatively, you can fetch it from
 any Debian mirror, too (it'll be in /debian/pool/main/liba/libavl).
 
 sqlite3 needs to be built with support for the unlock notify API; this isn't
-always the case, so you may need to rebuild sqlite3 to enable the unlock
-notify API. See the sqlite3 doc and look for SQLITE_ENABLE_UNLOCK_NOTIFY.
+always the case in binary packages, so you may need to rebuild sqlite3 to
+enable the unlock notify API (you can check for the presence of the
+sqlite3_unlock_notify symbol in the sqlite3 library). Refer to the sqlite3
+documentation, look for SQLITE_ENABLE_UNLOCK_NOTIFY.
 
 
 Note about ffmpeg
