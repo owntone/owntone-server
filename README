@@ -82,6 +82,12 @@ the correct value:
 The name of your iPod/iPhone is the value of the DvNm field above. In this
 example, the correct value is Foobar.
 
+Watch out for fancy characters; for instance, the name of your device may
+include Unicode characters that aren't visually different from plain ASCII
+characters (like the single quote if your device name follows the default
+scheme of "Foo's iPhone"). If unsure, change the name of your device or
+capture the output in a file to extract the real, correct name.
+
 Hit Ctrl-C to terminate avahi-browse.
 
 
