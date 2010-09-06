@@ -400,207 +400,6 @@ kickoff_pairing(void)
 }
 
 
-/* Thread: filescanner */
-void
-remote_pairing_read_pin(char *path)
-{
-  char buf[256];
-  FILE *fp;
-  char *devname;
-  char *pin;
-  int len;
-  int ret;
-
-  fp = fopen(path, "rb");
-  if (!fp)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Could not open Remote pairing file %s: %s\n", path, strerror(errno));
-      return;
-    }
-
-  devname = fgets(buf, sizeof(buf), fp);
-  if (!devname)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s\n", path);
-
-      fclose(fp);
-      return;
-    }
-
-  len = strlen(devname);
-  if (buf[len - 1] == '\n')
-    buf[len - 1] = '\0';
-  else
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s: device name too long or missing pin\n", path);
-
-      fclose(fp);
-      return;
-    }
-
-  devname = strdup(buf);
-  if (!devname)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Out of memory for device name while reading %s\n", path);
-
-      fclose(fp);
-      return;
-    }
-
-  pin = fgets(buf, sizeof(buf), fp);
-  fclose(fp);
-  if (!pin)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s: no pin\n", path);
-
-      free(devname);
-      return;
-    }
-
-  len = strlen(pin);
-  if (buf[len - 1] == '\n')
-    {
-      buf[len - 1] = '\0';
-      len--;
-    }
-
-  if (len != 4)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Invalid pin in Remote pairing file %s: pin length should be 4, got %d\n", path, len);
-
-      free(devname);
-      return;
-    }
-
-  pin = strdup(buf);
-  if (!pin)
-    {
-      DPRINTF(E_LOG, L_REMOTE, "Out of memory for device pin while reading %s\n", path);
-
-      free(devname);
-      return;
-    }
-
-  DPRINTF(E_DBG, L_REMOTE, "Adding Remote pin data: name '%s', pin '%s'\n", devname, pin);
-
-  pthread_mutex_lock(&remote_lck);
-
-  ret = add_remote_pin_data(devname, pin);
-  free(devname);
-  if (ret < 0)
-    free(pin);
-  else
-    kickoff_pairing();
-
-  pthread_mutex_unlock(&remote_lck);
-}
-
-
-/* Thread: main (mdns) */
-static void
-touch_remote_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, AvahiStringList *txt)
-{
-  AvahiStringList *p;
-  char *devname;
-  char *paircode;
-  char *key;
-  char *val;
-  size_t valsz;
-  int ret;
-
-  if (port < 0)
-    {
-      /* If Remote stops advertising itself, the pairing either succeeded or
-       * failed; any subsequent attempt will need a new pairing pin, so
-       * we can just forget everything we know about the remote.
-       */
-      pthread_mutex_lock(&remote_lck);
-
-      remove_remote_address_byid(name, family);
-
-      pthread_mutex_unlock(&remote_lck);
-    }
-  else
-    {
-      /* Get device name (DvNm field in TXT record) */
-      p = avahi_string_list_find(txt, "DvNm");
-      if (!p)
-	{
-	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: no DvNm in TXT record!\n", name);
-
-	  return;
-	}
-
-      avahi_string_list_get_pair(p, &key, &val, &valsz);
-      avahi_free(key);
-      if (!val)
-	{
-	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: DvNm has no value\n", name);
-
-	  return;
-	}
-
-      devname = strndup(val, valsz);
-      avahi_free(val);
-      if (!devname)
-	{
-	  DPRINTF(E_LOG, L_REMOTE, "Out of memory for device name\n");
-
-	  return;
-	}
-
-      /* Get pairing code (Pair field in TXT record) */
-      p = avahi_string_list_find(txt, "Pair");
-      if (!p)
-	{
-	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: no Pair in TXT record!\n", name);
-
-	  free(devname);
-	  return;
-	}
-
-      avahi_string_list_get_pair(p, &key, &val, &valsz);
-      avahi_free(key);
-      if (!val)
-	{
-	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: Pair has no value\n", name);
-
-	  free(devname);
-	  return;
-	}
-
-      paircode = strndup(val, valsz);
-      avahi_free(val);
-      if (!paircode)
-	{
-	  DPRINTF(E_LOG, L_REMOTE, "Out of memory for paircode\n");
-
-	  free(devname);
-	  return;
-	}
-
-      DPRINTF(E_DBG, L_REMOTE, "Discovered remote %s (id %s) at [%s]:%d, paircode %s\n", devname, name, address, port, paircode);
-
-      /* Add the data to the list, adding the remote to the list if needed */
-      pthread_mutex_lock(&remote_lck);
-
-      ret = add_remote_mdns_data(name, family, address, port, devname, paircode);
-
-      if (ret < 0)
-	{
-	  DPRINTF(E_WARN, L_REMOTE, "Could not add Remote mDNS data, id %s\n", name);
-
-	  free(devname);
-	  free(paircode);
-	}
-      else if (ret == 1)
-	kickoff_pairing();
-
-      pthread_mutex_unlock(&remote_lck);
-    }
-}
-
-
 /* Thread: main (pairing) */
 static void
 pairing_request_cb(struct evhttp_request *req, void *arg)
@@ -867,6 +666,206 @@ pairing_cb(int fd, short event, void *arg)
     }
 
   event_add(&pairingev, NULL);
+}
+
+
+/* Thread: main (mdns) */
+static void
+touch_remote_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, AvahiStringList *txt)
+{
+  AvahiStringList *p;
+  char *devname;
+  char *paircode;
+  char *key;
+  char *val;
+  size_t valsz;
+  int ret;
+
+  if (port < 0)
+    {
+      /* If Remote stops advertising itself, the pairing either succeeded or
+       * failed; any subsequent attempt will need a new pairing pin, so
+       * we can just forget everything we know about the remote.
+       */
+      pthread_mutex_lock(&remote_lck);
+
+      remove_remote_address_byid(name, family);
+
+      pthread_mutex_unlock(&remote_lck);
+    }
+  else
+    {
+      /* Get device name (DvNm field in TXT record) */
+      p = avahi_string_list_find(txt, "DvNm");
+      if (!p)
+	{
+	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: no DvNm in TXT record!\n", name);
+
+	  return;
+	}
+
+      avahi_string_list_get_pair(p, &key, &val, &valsz);
+      avahi_free(key);
+      if (!val)
+	{
+	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: DvNm has no value\n", name);
+
+	  return;
+	}
+
+      devname = strndup(val, valsz);
+      avahi_free(val);
+      if (!devname)
+	{
+	  DPRINTF(E_LOG, L_REMOTE, "Out of memory for device name\n");
+
+	  return;
+	}
+
+      /* Get pairing code (Pair field in TXT record) */
+      p = avahi_string_list_find(txt, "Pair");
+      if (!p)
+	{
+	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: no Pair in TXT record!\n", name);
+
+	  free(devname);
+	  return;
+	}
+
+      avahi_string_list_get_pair(p, &key, &val, &valsz);
+      avahi_free(key);
+      if (!val)
+	{
+	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: Pair has no value\n", name);
+
+	  free(devname);
+	  return;
+	}
+
+      paircode = strndup(val, valsz);
+      avahi_free(val);
+      if (!paircode)
+	{
+	  DPRINTF(E_LOG, L_REMOTE, "Out of memory for paircode\n");
+
+	  free(devname);
+	  return;
+	}
+
+      DPRINTF(E_DBG, L_REMOTE, "Discovered remote %s (id %s) at [%s]:%d, paircode %s\n", devname, name, address, port, paircode);
+
+      /* Add the data to the list, adding the remote to the list if needed */
+      pthread_mutex_lock(&remote_lck);
+
+      ret = add_remote_mdns_data(name, family, address, port, devname, paircode);
+
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_REMOTE, "Could not add Remote mDNS data, id %s\n", name);
+
+	  free(devname);
+	  free(paircode);
+	}
+      else if (ret == 1)
+	kickoff_pairing();
+
+      pthread_mutex_unlock(&remote_lck);
+    }
+}
+
+/* Thread: filescanner */
+void
+remote_pairing_read_pin(char *path)
+{
+  char buf[256];
+  FILE *fp;
+  char *devname;
+  char *pin;
+  int len;
+  int ret;
+
+  fp = fopen(path, "rb");
+  if (!fp)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Could not open Remote pairing file %s: %s\n", path, strerror(errno));
+      return;
+    }
+
+  devname = fgets(buf, sizeof(buf), fp);
+  if (!devname)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s\n", path);
+
+      fclose(fp);
+      return;
+    }
+
+  len = strlen(devname);
+  if (buf[len - 1] == '\n')
+    buf[len - 1] = '\0';
+  else
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s: device name too long or missing pin\n", path);
+
+      fclose(fp);
+      return;
+    }
+
+  devname = strdup(buf);
+  if (!devname)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Out of memory for device name while reading %s\n", path);
+
+      fclose(fp);
+      return;
+    }
+
+  pin = fgets(buf, sizeof(buf), fp);
+  fclose(fp);
+  if (!pin)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s: no pin\n", path);
+
+      free(devname);
+      return;
+    }
+
+  len = strlen(pin);
+  if (buf[len - 1] == '\n')
+    {
+      buf[len - 1] = '\0';
+      len--;
+    }
+
+  if (len != 4)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Invalid pin in Remote pairing file %s: pin length should be 4, got %d\n", path, len);
+
+      free(devname);
+      return;
+    }
+
+  pin = strdup(buf);
+  if (!pin)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Out of memory for device pin while reading %s\n", path);
+
+      free(devname);
+      return;
+    }
+
+  DPRINTF(E_DBG, L_REMOTE, "Adding Remote pin data: name '%s', pin '%s'\n", devname, pin);
+
+  pthread_mutex_lock(&remote_lck);
+
+  ret = add_remote_pin_data(devname, pin);
+  free(devname);
+  if (ret < 0)
+    free(pin);
+  else
+    kickoff_pairing();
+
+  pthread_mutex_unlock(&remote_lck);
 }
 
 
