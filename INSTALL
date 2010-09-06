@@ -23,19 +23,36 @@ Tools:
 
 Libraries:
  - libantlr3c (ANTLR3 C runtime, version 3.2 for tarball builds)
- - Avahi client libraries, 0.6.24 minimum
- - sqlite3 3.5.0+ with unlock notify API enabled
+        from <http://www.antlr.org/download/C>
+ - Avahi client libraries (avahi-client), 0.6.24 minimum
+        from <http://avahi.org/>
+ - sqlite3 3.5.0+ with unlock notify API enabled (read below)
+        from <http://sqlite.org/download.html>
  - ffmpeg 0.5+
- - confuse
+        from <http://ffmpeg.org/releases/>
+ - libconfuse
+        from <http://www.nongnu.org/confuse/>
  - libevent 1.4+
+        from <http://www.monkey.org/~provos/libevent/>
  - libavl
- - MiniXML
+        /!\ Read below
+ - MiniXML (aka mxml or libmxml)
+        from <http://minixml.org/software.php>
  - gcrypt 1.2.0+
+        from <http://gnupg.org/download/index.en.html#libgcrypt>
  - zlib
+        from <http://zlib.net/>
  - libunistring 0.9.3+
+        from <http://www.gnu.org/software/libunistring/#downloading>
  - libflac (optional - FLAC support)
+        from <http://flac.sourceforge.net/download.html>
  - taglib (optional - Musepack support)
+        from <http://developer.kde.org/~wheeler/taglib.html>
  - libplist 0.16+ (optional - iTunes XML support)
+        from <http://github.com/JonathanBeck/libplist/downloads>
+
+If using binary packages, remember that you need the development packages to
+build forked-daapd (usually named -dev or -devel).
 
 libavl is not the GNU libavl. There doesn't seem to be an upstream website
 anymore, but you'll find the source tarball alongside the forked-daapd
