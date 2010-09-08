@@ -1091,7 +1091,7 @@ httpd_fixup_uri(struct evhttp_request *req)
   return fixed;
 }
 
-static char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
+static const char *http_reply_401 = "<html><head><title>401 Unauthorized</title></head><body>Authorization required</body></html>";
 
 int
 httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *realm)
