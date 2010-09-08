@@ -839,6 +839,8 @@ rsp_request(struct evhttp_request *req)
   if (!uri)
     {
       rsp_send_error(req, "Server error");
+
+      free(full_uri);
       return;
     }
 

@@ -2971,6 +2971,7 @@ daap_request(struct evhttp_request *req)
   uri = strdup(full_uri);
   if (!uri)
     {
+      free(full_uri);
       evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
       return;
     }
