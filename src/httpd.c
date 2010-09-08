@@ -149,6 +149,18 @@ stream_end(struct stream_ctx *st, int failed)
 }
 
 static void
+stream_up_playcount(struct stream_ctx *st)
+{
+  if (!st->marked
+      && (st->stream_size > ((st->size * 50) / 100))
+      && (st->offset > ((st->size * 80) / 100)))
+    {
+      st->marked = 1;
+      db_file_inc_playcount(st->id);
+    }
+}
+
+static void
 stream_chunk_resched_cb(struct evhttp_connection *evcon, void *arg)
 {
   struct stream_ctx *st;
@@ -218,13 +230,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
 
   st->offset += ret;
 
-  if (!st->marked
-      && (st->stream_size > ((st->size * 50) / 100))
-      && (st->offset > ((st->size * 80) / 100)))
-    {
-      st->marked = 1;
-      db_file_inc_playcount(st->id);
-    }
+  stream_up_playcount(st);
 
   return;
 
@@ -280,13 +286,7 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 
   st->offset += ret;
 
-  if (!st->marked
-      && (st->stream_size > ((st->size * 50) / 100))
-      && (st->offset > ((st->size * 80) / 100)))
-    {
-      st->marked = 1;
-      db_file_inc_playcount(st->id);
-    }
+  stream_up_playcount(st);
 }
 
 static void
