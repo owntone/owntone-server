@@ -202,9 +202,6 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
 	  st->offset += ret;
 
 	  ret = xcoded - ret;
-
-	  if (ret == 0)
-	    goto consume;
 	}
       else
 	{
