@@ -781,7 +781,8 @@ serve_file(struct evhttp_request *req, char *uri)
     }
   else
     {
-      if (strcmp(req->remote_host, "127.0.0.1") != 0)
+      if ((strcmp(req->remote_host, "::1") != 0)
+	  && (strcmp(req->remote_host, "127.0.0.1") != 0))
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
 
