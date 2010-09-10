@@ -1949,7 +1949,7 @@ db_file_update(struct media_file_info *mfi)
                " year = %d, track = %d, total_tracks = %d, disc = %d, total_discs = %d, bpm = %d," \
                " compilation = %d, rating = %d, data_kind = %d, item_kind = %d," \
                " description = %Q, time_modified = %" PRIi64 "," \
-               " db_timestamp = %" PRIi64 ", sample_count = %d," \
+               " db_timestamp = %" PRIi64 ", sample_count = %" PRIi64 "," \
                " codectype = %Q, idx = %d, has_video = %d," \
                " bits_per_sample = %d, album_artist = %Q," \
                " media_kind = %d, tv_series_name = %Q, tv_episode_num_str = %Q," \
