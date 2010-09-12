@@ -342,6 +342,25 @@ playstatusupdate_cb(int fd, short what, void *arg)
     DPRINTF(E_LOG, L_DACP, "Couldn't re-add event for playstatusupdate\n");
 }
 
+/* Thread: player */
+static void
+dacp_playstatus_update_handler(void)
+{
+  int ret;
+
+#ifdef USE_EVENTFD
+  ret = eventfd_write(update_efd, 1);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_DACP, "Could not send status update event: %s\n", strerror(errno));
+#else
+  int dummy = 42;
+
+  ret = write(update_pipe[1], &dummy, sizeof(dummy));
+  if (ret != sizeof(dummy))
+    DPRINTF(E_LOG, L_DACP, "Could not write to status update fd: %s\n", strerror(errno));
+#endif
+}
+
 static void
 update_fail_cb(struct evhttp_connection *evcon, void *arg)
 {
@@ -1794,11 +1813,7 @@ dacp_init(void)
   event_base_set(evbase_httpd, &updateev);
   event_add(&updateev, NULL);
 
-#ifdef USE_EVENTFD
-  player_set_updatefd(update_efd);
-#else
-  player_set_updatefd(update_pipe[1]);
-#endif
+  player_set_update_handler(dacp_playstatus_update_handler);
 
   return 0;
 
@@ -1823,6 +1838,8 @@ dacp_deinit(void)
   struct dacp_update_request *ur;
   int i;
 
+  player_set_update_handler(NULL);
+
   for (i = 0; dacp_handlers[i].handler; i++)
     regfree(&dacp_handlers[i].preg);
 
@@ -1838,8 +1855,6 @@ dacp_deinit(void)
 
       free(ur);
     }
-
-  player_set_updatefd(-1);
 
   event_del(&updateev);
 

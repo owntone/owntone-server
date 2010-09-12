@@ -129,7 +129,7 @@ static enum repeat_mode repeat;
 static char shuffle;
 
 /* Status updates (for DACP) */
-static int update_fd;
+static player_status_handler update_handler;
 
 /* Playback timer */
 static int pb_timer_fd;
@@ -181,26 +181,10 @@ static struct evbuffer *audio_buf;
 static void
 status_update(enum play_status status)
 {
-#ifndef USE_EVENTFD
-  int dummy = 42;
-#endif
-  int ret;
-
   player_state = status;
 
-  if (update_fd < 0)
-    return;
-
-#ifdef USE_EVENTFD
-  ret = eventfd_write(update_fd, 1);
-  if (ret < 0)
-#else
-  ret = write(update_fd, &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-#endif
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not send status update: %s\n", strerror(errno));
-    }
+  if (update_handler)
+    update_handler();
 }
 
 
@@ -2467,6 +2451,17 @@ queue_plid(void *arg)
   return 0;
 }
 
+static int
+set_update_handler(void *arg)
+{
+  player_status_handler handler;
+
+  handler = (player_status_handler)arg;
+
+  update_handler = handler;
+
+  return 0;
+}
 
 /* Command helpers */
 /* Thread: player */
@@ -2842,6 +2837,19 @@ player_queue_plid(uint32_t plid)
   pthread_mutex_unlock(&cmd_lck);
 }
 
+void
+player_set_update_handler(player_status_handler handler)
+{
+  pthread_mutex_lock(&cmd_lck);
+
+  cmd.func = set_update_handler;
+  cmd.func_bh = NULL;
+  cmd.arg = handler;
+
+  sync_command();
+
+  pthread_mutex_unlock(&cmd_lck);
+}
 
 /* Thread: main (mdns) */
 static void
@@ -3176,13 +3184,6 @@ exit_cb(int fd, short what, void *arg)
   player_exit = 1;
 }
 
-/* Thread: main at DACP init/deinit */
-void
-player_set_updatefd(int fd)
-{
-  update_fd = fd;
-}
-
 /* Thread: main */
 int
 player_init(void)
@@ -3212,7 +3213,7 @@ player_init(void)
   repeat = REPEAT_OFF;
   shuffle = 0;
 
-  update_fd = -1;
+  update_handler = NULL;
 
   /* Random RTP time start */
   gcry_randomize(&rnd, sizeof(rnd), GCRY_STRONG_RANDOM);
