@@ -31,7 +31,6 @@
 #define _EVRTSP_H_
 
 #include <event.h>
-#include <evhttp.h> /* FIXME: forked-daapd's one */
 
 #ifdef __cplusplus
 extern "C" {
