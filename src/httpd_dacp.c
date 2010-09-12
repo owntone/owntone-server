@@ -306,7 +306,7 @@ playstatusupdate_cb(int fd, short what, void *arg)
     }
 
   update = evbuffer_new();
-  if (!evbuf)
+  if (!update)
     {
       DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for playstatusupdate data\n");
 
