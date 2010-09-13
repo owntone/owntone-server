@@ -87,7 +87,19 @@ struct player_command
 
   cmd_func func;
   cmd_func func_bh;
-  void *arg;
+
+  union {
+    void *noarg;
+    struct player_status *status;
+    struct player_source *ps;
+    player_status_handler status_handler;
+    uint32_t *id_ptr;
+    uint64_t *raop_ids;
+    enum repeat_mode mode;
+    uint32_t id;
+    int intval;
+  } arg;
+
   int ret;
 
   int raop_pending;
@@ -1498,7 +1510,7 @@ get_status(struct player_command *cmd)
   uint64_t pos;
   int ret;
 
-  status = (struct player_status *)cmd->arg;
+  status = cmd->arg.status;
 
   status->shuffle = shuffle;
   status->repeat = repeat;
@@ -1574,7 +1586,7 @@ now_playing(struct player_command *cmd)
 {
   uint32_t *id;
 
-  id = (uint32_t *)cmd->arg;
+  id = cmd->arg.id_ptr;
 
   if (cur_playing)
     *id = cur_playing->id;
@@ -1745,7 +1757,7 @@ playback_start(struct player_command *cmd)
       return -1;
     }
 
-  idx_id = (uint32_t *)cmd->arg;
+  idx_id = cmd->arg.id_ptr;
 
   if (player_state == PLAY_PLAYING)
     {
@@ -1945,7 +1957,7 @@ playback_seek_bh(struct player_command *cmd)
   int ms;
   int ret;
 
-  ms = *(int *)cmd->arg;
+  ms = cmd->arg.intval;
 
   if (cur_playing)
     ps = cur_playing;
@@ -2193,7 +2205,7 @@ speaker_set(struct player_command *cmd)
   int i;
   int ret;
 
-  ids = (uint64_t *)cmd->arg;
+  ids = cmd->arg.raop_ids;
 
   if (ids)
     nspk = ids[0];
@@ -2325,12 +2337,9 @@ speaker_set(struct player_command *cmd)
 static int
 volume_set(struct player_command *cmd)
 {
-  int vol;
   int ret;
 
-  vol = *(int *)cmd->arg;
-
-  volume = vol;
+  volume = cmd->arg.intval;
 
   cmd->raop_pending = raop_set_volume(volume, device_command_cb);
   laudio_set_volume(volume);
@@ -2348,20 +2357,16 @@ volume_set(struct player_command *cmd)
 static int
 repeat_set(struct player_command *cmd)
 {
-  enum repeat_mode *mode;
-
-  mode = (enum repeat_mode *)cmd->arg;
-
-  switch (*mode)
+  switch (cmd->arg.mode)
     {
       case REPEAT_OFF:
       case REPEAT_SONG:
       case REPEAT_ALL:
-	repeat = *mode;
+	repeat = cmd->arg.mode;
 	break;
 
       default:
-	DPRINTF(E_LOG, L_PLAYER, "Invalid repeat mode: %d\n", *mode);
+	DPRINTF(E_LOG, L_PLAYER, "Invalid repeat mode: %d\n", cmd->arg.mode);
 	return -1;
     }
 
@@ -2371,22 +2376,18 @@ repeat_set(struct player_command *cmd)
 static int
 shuffle_set(struct player_command *cmd)
 {
-  int *enable;
-
-  enable = (int *)cmd->arg;
-
-  switch (*enable)
+  switch (cmd->arg.intval)
     {
       case 1:
 	if (!shuffle)
 	  source_reshuffle();
 	/* FALLTHROUGH*/
       case 0:
-	shuffle = *enable;
+	shuffle = cmd->arg.intval;
 	break;
 
       default:
-	DPRINTF(E_LOG, L_PLAYER, "Invalid shuffle mode: %d\n", *enable);
+	DPRINTF(E_LOG, L_PLAYER, "Invalid shuffle mode: %d\n", cmd->arg.intval);
 	return -1;
     }
 
@@ -2401,7 +2402,7 @@ queue_add(struct player_command *cmd)
   struct player_source *source_tail;
   struct player_source *ps_tail;
 
-  ps = (struct player_source *)cmd->arg;
+  ps = cmd->arg.ps;
 
   ps_shuffle = source_shuffle(ps);
   if (!ps_shuffle)
@@ -2467,14 +2468,10 @@ queue_clear(struct player_command *cmd)
 static int
 queue_plid(struct player_command *cmd)
 {
-  uint32_t *plid;
-
   if (!source_head)
     return 0;
 
-  plid = (uint32_t *)cmd->arg;
-
-  cur_plid = *plid;
+  cur_plid = cmd->arg.id;
 
   return 0;
 }
@@ -2482,11 +2479,7 @@ queue_plid(struct player_command *cmd)
 static int
 set_update_handler(struct player_command *cmd)
 {
-  player_status_handler handler;
-
-  handler = (player_status_handler)cmd->arg;
-
-  update_handler = handler;
+  update_handler = cmd->arg.status_handler;
 
   return 0;
 }
@@ -2581,7 +2574,7 @@ player_get_status(struct player_status *status)
 
   cmd.func = get_status;
   cmd.func_bh = NULL;
-  cmd.arg = status;
+  cmd.arg.status = status;
 
   ret = sync_command(&cmd);
 
@@ -2600,7 +2593,7 @@ player_now_playing(uint32_t *id)
 
   cmd.func = now_playing;
   cmd.func_bh = NULL;
-  cmd.arg = id;
+  cmd.arg.id_ptr = id;
 
   ret = sync_command(&cmd);
 
@@ -2619,7 +2612,7 @@ player_playback_start(uint32_t *idx_id)
 
   cmd.func = playback_start;
   cmd.func_bh = playback_start_bh;
-  cmd.arg = idx_id;
+  cmd.arg.id_ptr = idx_id;
 
   ret = sync_command(&cmd);
 
@@ -2637,7 +2630,7 @@ player_playback_stop(void)
   command_init(&cmd);
 
   cmd.func = playback_stop;
-  cmd.arg = NULL;
+  cmd.arg.noarg = NULL;
 
   ret = sync_command(&cmd);
 
@@ -2656,7 +2649,7 @@ player_playback_pause(void)
 
   cmd.func = playback_pause;
   cmd.func_bh = playback_pause_bh;
-  cmd.arg = NULL;
+  cmd.arg.noarg = NULL;
 
   ret = sync_command(&cmd);
 
@@ -2675,7 +2668,7 @@ player_playback_seek(int ms)
 
   cmd.func = playback_pause;
   cmd.func_bh = playback_seek_bh;
-  cmd.arg = &ms;
+  cmd.arg.intval = ms;
 
   ret = sync_command(&cmd);
 
@@ -2692,7 +2685,7 @@ player_playback_next(void)
 
   cmd.func = playback_pause;
   cmd.func_bh = playback_next_bh;
-  cmd.arg = NULL;
+  cmd.arg.noarg = NULL;
 
   ret = sync_command(&cmd);
 
@@ -2711,7 +2704,7 @@ player_playback_prev(void)
 
   cmd.func = playback_pause;
   cmd.func_bh = playback_prev_bh;
-  cmd.arg = NULL;
+  cmd.arg.noarg = NULL;
 
   ret = sync_command(&cmd);
 
@@ -2755,7 +2748,7 @@ player_speaker_set(uint64_t *ids)
 
   cmd.func = speaker_set;
   cmd.func_bh = NULL;
-  cmd.arg = ids;
+  cmd.arg.raop_ids = ids;
 
   ret = sync_command(&cmd);
 
@@ -2774,7 +2767,7 @@ player_volume_set(int vol)
 
   cmd.func = volume_set;
   cmd.func_bh = NULL;
-  cmd.arg = &vol;
+  cmd.arg.intval = vol;
 
   ret = sync_command(&cmd);
 
@@ -2793,7 +2786,7 @@ player_repeat_set(enum repeat_mode mode)
 
   cmd.func = repeat_set;
   cmd.func_bh = NULL;
-  cmd.arg = &mode;
+  cmd.arg.mode = mode;
 
   ret = sync_command(&cmd);
 
@@ -2812,7 +2805,7 @@ player_shuffle_set(int enable)
 
   cmd.func = shuffle_set;
   cmd.func_bh = NULL;
-  cmd.arg = &enable;
+  cmd.arg.intval = enable;
 
   ret = sync_command(&cmd);
 
@@ -2831,7 +2824,7 @@ player_queue_add(struct player_source *ps)
 
   cmd.func = queue_add;
   cmd.func_bh = NULL;
-  cmd.arg = ps;
+  cmd.arg.ps = ps;
 
   ret = sync_command(&cmd);
 
@@ -2849,7 +2842,7 @@ player_queue_clear(void)
 
   cmd.func = queue_clear;
   cmd.func_bh = NULL;
-  cmd.arg = NULL;
+  cmd.arg.noarg = NULL;
 
   sync_command(&cmd);
 
@@ -2865,7 +2858,7 @@ player_queue_plid(uint32_t plid)
 
   cmd.func = queue_plid;
   cmd.func_bh = NULL;
-  cmd.arg = &plid;
+  cmd.arg.id = plid;
 
   sync_command(&cmd);
 
@@ -2881,7 +2874,7 @@ player_set_update_handler(player_status_handler handler)
 
   cmd.func = set_update_handler;
   cmd.func_bh = NULL;
-  cmd.arg = handler;
+  cmd.arg.status_handler = handler;
 
   sync_command(&cmd);
 
