@@ -308,10 +308,12 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   ctx->apacket_size = ctx->apacket.size;
 
   /* Compute position in ms from pts */
+  got_pts = ctx->apacket.pts;
+
   if ((start_time != AV_NOPTS_VALUE) && (start_time > 0))
     got_pts -= start_time;
 
-  got_pts = av_rescale_q(ctx->apacket.pts, ctx->fmtctx->streams[ctx->astream]->time_base, AV_TIME_BASE_Q);
+  got_pts = av_rescale_q(got_pts, ctx->fmtctx->streams[ctx->astream]->time_base, AV_TIME_BASE_Q);
   got_ms = got_pts / (AV_TIME_BASE / 1000);
 
   DPRINTF(E_DBG, L_XCODE, "Seek wanted %d ms, got %d ms\n", ms, got_ms);
