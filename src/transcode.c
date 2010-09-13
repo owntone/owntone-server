@@ -255,10 +255,10 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   int flags;
   int ret;
 
+  start_time = ctx->fmtctx->streams[ctx->astream]->start_time;
+
   target_pts = ms * AV_TIME_BASE / 1000;
   target_pts = av_rescale_q(target_pts, AV_TIME_BASE_Q, ctx->fmtctx->streams[ctx->astream]->time_base);
-
-  start_time = ctx->fmtctx->streams[ctx->astream]->start_time;
 
   if ((start_time != AV_NOPTS_VALUE) && (start_time > 0))
     target_pts += start_time;
