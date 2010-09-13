@@ -77,10 +77,14 @@ enum player_sync_source
     PLAYER_SYNC_LAUDIO,
   };
 
-typedef int (*cmd_func)(void *arg);
+struct player_command;
+typedef int (*cmd_func)(struct player_command *cmd);
 
 struct player_command
 {
+  pthread_mutex_t lck;
+  pthread_cond_t cond;
+
   cmd_func func;
   cmd_func func_bh;
   void *arg;
@@ -113,11 +117,10 @@ struct event_base *evbase_player;
 
 #ifdef USE_EVENTFD
 static int exit_efd;
-static int cmd_efd;
 #else
 static int exit_pipe[2];
-static int cmd_pipe[2];
 #endif
+static int cmd_pipe[2];
 static int player_exit;
 static struct event exitev;
 static struct event cmdev;
@@ -159,9 +162,7 @@ static int laudio_selected;
 static int raop_sessions;
 
 /* Commands */
-static struct player_command cmd;
-static pthread_mutex_t cmd_lck = PTHREAD_MUTEX_INITIALIZER;
-static pthread_cond_t cmd_cond = PTHREAD_COND_INITIALIZER;
+static struct player_command *cur_cmd;
 
 /* Last commanded volume */
 static int volume;
@@ -176,6 +177,36 @@ static struct player_source *cur_playing;
 static struct player_source *cur_streaming;
 static uint32_t cur_plid;
 static struct evbuffer *audio_buf;
+
+
+/* Command helpers */
+static void
+command_async_end(struct player_command *cmd)
+{
+  cur_cmd = NULL;
+
+  pthread_cond_signal(&cmd->cond);
+  pthread_mutex_unlock(&cmd->lck);
+
+  /* Process commands again */
+  event_add(&cmdev, NULL);
+}
+
+static void
+command_init(struct player_command *cmd)
+{
+  memset(cmd, 0, sizeof(struct player_command));
+
+  pthread_mutex_init(&cmd->lck, NULL);
+  pthread_cond_init(&cmd->cond, NULL);
+}
+
+static void
+command_deinit(struct player_command *cmd)
+{
+  pthread_cond_destroy(&cmd->cond);
+  pthread_mutex_destroy(&cmd->lck);
+}
 
 
 static void
@@ -274,7 +305,7 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 
 /* Forward */
 static int
-playback_stop(void *arg);
+playback_stop(struct player_command *cmd);
 
 static void
 player_laudio_status_cb(enum laudio_state status)
@@ -1195,22 +1226,21 @@ device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_
 static void
 device_command_cb(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status)
 {
-  cmd.raop_pending--;
+  cur_cmd->raop_pending--;
 
   raop_set_status_cb(rs, device_streaming_cb);
 
   if (status == RAOP_FAILED)
     device_streaming_cb(dev, rs, status);
 
-  if (cmd.raop_pending == 0)
+  if (cur_cmd->raop_pending == 0)
     {
-      if (cmd.func_bh)
-	cmd.ret = cmd.func_bh(cmd.arg);
+      if (cur_cmd->func_bh)
+	cur_cmd->ret = cur_cmd->func_bh(cur_cmd);
       else
-	cmd.ret = 0;
+	cur_cmd->ret = 0;
 
-      pthread_cond_signal(&cmd_cond);
-      pthread_mutex_unlock(&cmd_lck);
+      command_async_end(cur_cmd);
     }
 }
 
@@ -1219,7 +1249,7 @@ device_shutdown_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 {
   int ret;
 
-  cmd.raop_pending--;
+  cur_cmd->raop_pending--;
 
   if (raop_sessions)
     raop_sessions--;
@@ -1233,8 +1263,8 @@ device_shutdown_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 
       DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared before shutdown completion!\n");
 
-      if (cmd.ret != -2)
-	cmd.ret = -1;
+      if (cur_cmd->ret != -2)
+	cur_cmd->ret = -1;
       goto out;
     }
 
@@ -1246,14 +1276,13 @@ device_shutdown_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
   pthread_mutex_unlock(&dev_lck);
 
  out:
-  if (cmd.raop_pending == 0)
+  if (cur_cmd->raop_pending == 0)
     {
-      /* cmd.ret already set
+      /* cur_cmd->ret already set
        *  - to 0 (or -2 if password issue) in speaker_set()
        *  - to -1 above on error
        */
-      pthread_cond_signal(&cmd_cond);
-      pthread_mutex_unlock(&cmd_lck);
+      command_async_end(cur_cmd);
     }
 }
 
@@ -1273,7 +1302,7 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
   struct timespec ts;
   int ret;
 
-  cmd.raop_pending--;
+  cur_cmd->raop_pending--;
 
   pthread_mutex_lock(&dev_lck);
 
@@ -1287,15 +1316,15 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
       raop_set_status_cb(rs, device_lost_cb);
       raop_device_stop(rs);
 
-      if (cmd.ret != -2)
-	cmd.ret = -1;
+      if (cur_cmd->ret != -2)
+	cur_cmd->ret = -1;
       goto out;
     }
 
   if (status == RAOP_PASSWORD)
     {
       status = RAOP_FAILED;
-      cmd.ret = -2;
+      cur_cmd->ret = -2;
     }
 
   if (status == RAOP_FAILED)
@@ -1307,8 +1336,8 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 
       pthread_mutex_unlock(&dev_lck);
 
-      if (cmd.ret != -2)
-	cmd.ret = -1;
+      if (cur_cmd->ret != -2)
+	cur_cmd->ret = -1;
       goto out;
     }
 
@@ -1342,15 +1371,14 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
   raop_set_status_cb(rs, device_streaming_cb);
 
  out:
-  if (cmd.raop_pending == 0)
+  if (cur_cmd->raop_pending == 0)
     {
-      /* cmd.ret already set
+      /* cur_cmd->ret already set
        *  - to 0 in speaker_set() (default)
        *  - to -2 above if password issue
        *  - to -1 above on error
        */
-      pthread_cond_signal(&cmd_cond);
-      pthread_mutex_unlock(&cmd_lck);
+      command_async_end(cur_cmd);
     }
 }
 
@@ -1359,7 +1387,7 @@ device_probe_cb(struct raop_device *dev, struct raop_session *rs, enum raop_sess
 {
   int ret;
 
-  cmd.raop_pending--;
+  cur_cmd->raop_pending--;
 
   pthread_mutex_lock(&dev_lck);
 
@@ -1370,15 +1398,15 @@ device_probe_cb(struct raop_device *dev, struct raop_session *rs, enum raop_sess
 
       DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during probe!\n");
 
-      if (cmd.ret != -2)
-	cmd.ret = -1;
+      if (cur_cmd->ret != -2)
+	cur_cmd->ret = -1;
       goto out;
     }
 
   if (status == RAOP_PASSWORD)
     {
       status = RAOP_FAILED;
-      cmd.ret = -2;
+      cur_cmd->ret = -2;
     }
 
   if (status == RAOP_FAILED)
@@ -1390,23 +1418,22 @@ device_probe_cb(struct raop_device *dev, struct raop_session *rs, enum raop_sess
 
       pthread_mutex_unlock(&dev_lck);
 
-      if (cmd.ret != -2)
-	cmd.ret = -1;
+      if (cur_cmd->ret != -2)
+	cur_cmd->ret = -1;
       goto out;
     }
 
   pthread_mutex_unlock(&dev_lck);
 
  out:
-  if (cmd.raop_pending == 0)
+  if (cur_cmd->raop_pending == 0)
     {
-      /* cmd.ret already set
+      /* cur_cmd->ret already set
        *  - to 0 in speaker_set() (default)
        *  - to -2 above if password issue
        *  - to -1 above on error
        */
-      pthread_cond_signal(&cmd_cond);
-      pthread_mutex_unlock(&cmd_lck);
+      command_async_end(cur_cmd);
     }
 }
 
@@ -1415,7 +1442,7 @@ device_restart_cb(struct raop_device *dev, struct raop_session *rs, enum raop_se
 {
   int ret;
 
-  cmd.raop_pending--;
+  cur_cmd->raop_pending--;
 
   pthread_mutex_lock(&dev_lck);
 
@@ -1452,19 +1479,18 @@ device_restart_cb(struct raop_device *dev, struct raop_session *rs, enum raop_se
   raop_set_status_cb(rs, device_streaming_cb);
 
  out:
-  if (cmd.raop_pending == 0)
+  if (cur_cmd->raop_pending == 0)
     {
-      cmd.ret = cmd.func_bh(cmd.arg);
+      cur_cmd->ret = cur_cmd->func_bh(cur_cmd);
 
-      pthread_cond_signal(&cmd_cond);
-      pthread_mutex_unlock(&cmd_lck);
+      command_async_end(cur_cmd);
     }
 }
 
 
 /* Actual commands, executed in the player thread */
 static int
-get_status(void *arg)
+get_status(struct player_command *cmd)
 {
   struct timespec ts;
   struct player_source *ps;
@@ -1472,7 +1498,7 @@ get_status(void *arg)
   uint64_t pos;
   int ret;
 
-  status = (struct player_status *)arg;
+  status = (struct player_status *)cmd->arg;
 
   status->shuffle = shuffle;
   status->repeat = repeat;
@@ -1544,11 +1570,11 @@ get_status(void *arg)
 }
 
 static int
-now_playing(void *arg)
+now_playing(struct player_command *cmd)
 {
   uint32_t *id;
 
-  id = (uint32_t *)arg;
+  id = (uint32_t *)cmd->arg;
 
   if (cur_playing)
     *id = cur_playing->id;
@@ -1561,7 +1587,7 @@ now_playing(void *arg)
 }
 
 static int
-playback_stop(void *arg)
+playback_stop(struct player_command *cmd)
 {
   if (laudio_status != LAUDIO_CLOSED)
     laudio_close();
@@ -1592,7 +1618,7 @@ playback_stop(void *arg)
 
 /* Playback startup bottom half */
 static int
-playback_start_bh(void *arg)
+playback_start_bh(struct player_command *cmd)
 {
 #if defined(__linux__)
   struct itimerspec next;
@@ -1706,7 +1732,7 @@ playback_start_bh(void *arg)
 }
 
 static int
-playback_start(void *arg)
+playback_start(struct player_command *cmd)
 {
   struct raop_device *rd;
   uint32_t *idx_id;
@@ -1719,7 +1745,7 @@ playback_start(void *arg)
       return -1;
     }
 
-  idx_id = (uint32_t *)arg;
+  idx_id = (uint32_t *)cmd->arg;
 
   if (player_state == PLAY_PLAYING)
     {
@@ -1811,7 +1837,7 @@ playback_start(void *arg)
     }
 
   /* Start RAOP sessions on selected devices if needed */
-  cmd.raop_pending = 0;
+  cmd->raop_pending = 0;
 
   pthread_mutex_lock(&dev_lck);
 
@@ -1826,13 +1852,13 @@ playback_start(void *arg)
 	      continue;
 	    }
 
-	  cmd.raop_pending++;
+	  cmd->raop_pending++;
 	}
     }
 
   pthread_mutex_unlock(&dev_lck);
 
-  if ((laudio_status == LAUDIO_CLOSED) && (cmd.raop_pending == 0) && (raop_sessions == 0))
+  if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (raop_sessions == 0))
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
 
@@ -1841,15 +1867,15 @@ playback_start(void *arg)
     }
 
   /* We're async if we need to start RAOP devices */
-  if (cmd.raop_pending > 0)
+  if (cmd->raop_pending > 0)
     return 1; /* async */
 
   /* Otherwise, just run the bottom half */
-  return playback_start_bh(arg);
+  return playback_start_bh(cmd);
 }
 
 static int
-playback_prev_bh(void *arg)
+playback_prev_bh(struct player_command *cmd)
 {
   int ret;
 
@@ -1881,7 +1907,7 @@ playback_prev_bh(void *arg)
 }
 
 static int
-playback_next_bh(void *arg)
+playback_next_bh(struct player_command *cmd)
 {
   int ret;
 
@@ -1913,13 +1939,13 @@ playback_next_bh(void *arg)
 }
 
 static int
-playback_seek_bh(void *arg)
+playback_seek_bh(struct player_command *cmd)
 {
   struct player_source *ps;
   int ms;
   int ret;
 
-  ms = *(int *)arg;
+  ms = *(int *)cmd->arg;
 
   if (cur_playing)
     ps = cur_playing;
@@ -1951,7 +1977,7 @@ playback_seek_bh(void *arg)
 }
 
 static int
-playback_pause_bh(void *arg)
+playback_pause_bh(struct player_command *cmd)
 {
   struct player_source *ps;
   uint64_t pos;
@@ -1991,7 +2017,7 @@ playback_pause_bh(void *arg)
 }
 
 static int
-playback_pause(void *arg)
+playback_pause(struct player_command *cmd)
 {
   struct player_source *ps;
   uint64_t pos;
@@ -2001,7 +2027,7 @@ playback_pause(void *arg)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not retrieve current position for pause\n");
 
-      return playback_stop(arg);
+      return playback_stop(cmd);
     }
 
   /* Make sure playback is still running after source_check() */
@@ -2016,7 +2042,7 @@ playback_pause(void *arg)
   /* Store pause position */
   ps->end = pos;
 
-  cmd.raop_pending = raop_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  cmd->raop_pending = raop_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
   if (laudio_status != LAUDIO_CLOSED)
     laudio_stop();
@@ -2037,13 +2063,12 @@ playback_pause(void *arg)
   evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
 
   /* We're async if we need to flush RAOP devices */
-  if (cmd.raop_pending > 0)
+  if (cmd->raop_pending > 0)
     return 1; /* async */
 
   /* Otherwise, just run the bottom half */
-  return cmd.func_bh(arg);
+  return cmd->func_bh(cmd);
 }
-
 
 static int
 speaker_activate(struct raop_device *rd)
@@ -2121,9 +2146,7 @@ speaker_activate(struct raop_device *rd)
 	    }
 	}
 
-      cmd.raop_pending++;
-
-      return 0;
+      return 1;
     }
 
   return -1;
@@ -2155,15 +2178,14 @@ speaker_deactivate(struct raop_device *rd)
       raop_set_status_cb(rd->session, device_shutdown_cb);
       raop_device_stop(rd->session);
 
-      cmd.raop_pending++;
-      return 0;
+      return 1;
     }
 
   return -1;
 }
 
 static int
-speaker_set(void *arg)
+speaker_set(struct player_command *cmd)
 {
   struct raop_device *rd;
   uint64_t *ids;
@@ -2171,7 +2193,7 @@ speaker_set(void *arg)
   int i;
   int ret;
 
-  ids = (uint64_t *)arg;
+  ids = (uint64_t *)cmd->arg;
 
   if (ids)
     nspk = ids[0];
@@ -2180,8 +2202,8 @@ speaker_set(void *arg)
 
   DPRINTF(E_DBG, L_PLAYER, "Speaker set: %d speakers\n", nspk);
 
-  cmd.raop_pending = 0;
-  cmd.ret = 0;
+  cmd->raop_pending = 0;
+  cmd->ret = 0;
 
   pthread_mutex_lock(&dev_lck);
 
@@ -2202,7 +2224,7 @@ speaker_set(void *arg)
 	    {
 	      DPRINTF(E_INFO, L_PLAYER, "RAOP device %s is password-protected, but we don't have it\n", rd->name);
 
-	      cmd.ret = -2;
+	      cmd->ret = -2;
 	      continue;
 	    }
 
@@ -2218,9 +2240,12 @@ speaker_set(void *arg)
 
 		  rd->selected = 0;
 
-		  if (cmd.ret != -2)
-		    cmd.ret = -1;
+		  if (cmd->ret != -2)
+		    cmd->ret = -1;
 		}
+
+	      /* ret = 1 if RAOP needs to take action */
+	      cmd->raop_pending += ret;
 	    }
 	}
       else
@@ -2235,9 +2260,12 @@ speaker_set(void *arg)
 		{
 		  DPRINTF(E_LOG, L_PLAYER, "Could not deactivate RAOP device %s\n", rd->name);
 
-		  if (cmd.ret != -2)
-		    cmd.ret = -1;
+		  if (cmd->ret != -2)
+		    cmd->ret = -1;
 		}
+
+	      /* ret = 1 if RAOP needs to take action */
+	      cmd->raop_pending += ret;
 	    }
 	}
     }
@@ -2265,8 +2293,8 @@ speaker_set(void *arg)
 
 	      laudio_selected = 0;
 
-	      if (cmd.ret != -2)
-		cmd.ret = -1;
+	      if (cmd->ret != -2)
+		cmd->ret = -1;
 	    }
 	}
     }
@@ -2282,47 +2310,47 @@ speaker_set(void *arg)
 	    {
 	      DPRINTF(E_LOG, L_PLAYER, "Could not deactivate local audio output\n");
 
-	      if (cmd.ret != -2)
-		cmd.ret = -1;
+	      if (cmd->ret != -2)
+		cmd->ret = -1;
 	    }
 	}
     }
 
-  if (cmd.raop_pending > 0)
+  if (cmd->raop_pending > 0)
     return 1; /* async */
 
-  return cmd.ret;
+  return cmd->ret;
 }
 
 static int
-volume_set(void *arg)
+volume_set(struct player_command *cmd)
 {
   int vol;
   int ret;
 
-  vol = *(int *)arg;
+  vol = *(int *)cmd->arg;
 
   volume = vol;
 
-  cmd.raop_pending = raop_set_volume(volume, device_command_cb);
+  cmd->raop_pending = raop_set_volume(volume, device_command_cb);
   laudio_set_volume(volume);
 
   ret = db_config_save_int(VAR_PLAYER_VOLUME, volume);
   if (ret < 0)
     DPRINTF(E_WARN, L_PLAYER, "Could not save volume setting to DB\n");
 
-  if (cmd.raop_pending > 0)
+  if (cmd->raop_pending > 0)
     return 1; /* async */
 
   return 0;
 }
 
 static int
-repeat_set(void *arg)
+repeat_set(struct player_command *cmd)
 {
   enum repeat_mode *mode;
 
-  mode = (enum repeat_mode *)arg;
+  mode = (enum repeat_mode *)cmd->arg;
 
   switch (*mode)
     {
@@ -2341,11 +2369,11 @@ repeat_set(void *arg)
 }
 
 static int
-shuffle_set(void *arg)
+shuffle_set(struct player_command *cmd)
 {
   int *enable;
 
-  enable = (int *)arg;
+  enable = (int *)cmd->arg;
 
   switch (*enable)
     {
@@ -2366,14 +2394,14 @@ shuffle_set(void *arg)
 }
 
 static int
-queue_add(void *arg)
+queue_add(struct player_command *cmd)
 {
   struct player_source *ps;
   struct player_source *ps_shuffle;
   struct player_source *source_tail;
   struct player_source *ps_tail;
 
-  ps = (struct player_source *)arg;
+  ps = (struct player_source *)cmd->arg;
 
   ps_shuffle = source_shuffle(ps);
   if (!ps_shuffle)
@@ -2414,7 +2442,7 @@ queue_add(void *arg)
 }
 
 static int
-queue_clear(void *arg)
+queue_clear(struct player_command *cmd)
 {
   struct player_source *ps;
 
@@ -2437,14 +2465,14 @@ queue_clear(void *arg)
 }
 
 static int
-queue_plid(void *arg)
+queue_plid(struct player_command *cmd)
 {
   uint32_t *plid;
 
   if (!source_head)
     return 0;
 
-  plid = (uint32_t *)arg;
+  plid = (uint32_t *)cmd->arg;
 
   cur_plid = *plid;
 
@@ -2452,99 +2480,91 @@ queue_plid(void *arg)
 }
 
 static int
-set_update_handler(void *arg)
+set_update_handler(struct player_command *cmd)
 {
   player_status_handler handler;
 
-  handler = (player_status_handler)arg;
+  handler = (player_status_handler)cmd->arg;
 
   update_handler = handler;
 
   return 0;
 }
 
-/* Command helpers */
+/* Command processing */
 /* Thread: player */
 static void
 command_cb(int fd, short what, void *arg)
 {
+  struct player_command *cmd;
   int ret;
 
-#ifdef USE_EVENTFD
-  eventfd_t count;
-
-  ret = eventfd_read(cmd_efd, &count);
-  if (ret < 0)
+  ret = read(cmd_pipe[0], &cmd, sizeof(cmd));
+  if (ret != sizeof(cmd))
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not read event counter: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_PLAYER, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
 
       goto readd;
     }
-#else
-  int dummy;
 
-  read(cmd_pipe[0], &dummy, sizeof(dummy));
-#endif
+  pthread_mutex_lock(&cmd->lck);
 
-  pthread_mutex_lock(&cmd_lck);
+  cur_cmd = cmd;
 
-  ret = cmd.func(cmd.arg);
+  ret = cmd->func(cmd);
 
   if (ret <= 0)
     {
-      cmd.ret = ret;
+      cmd->ret = ret;
 
-      pthread_cond_signal(&cmd_cond);
-      pthread_mutex_unlock(&cmd_lck);
+      cur_cmd = NULL;
+
+      pthread_cond_signal(&cmd->cond);
+      pthread_mutex_unlock(&cmd->lck);
+    }
+  else
+    {
+      /* Command is asynchronous, we don't want to process another command
+       * before we're done with this one. See command_async_end().
+       */
+
+      return;
     }
 
-  /* ret > 0 means command is asynchronous and will unlock and signal
-   * by itself upon completion
-   */
-
-#ifdef USE_EVENTFD
  readd:
-#endif
   event_add(&cmdev, NULL);
 }
 
 
 /* Thread: httpd (DACP) */
-/* Must be called with cmd_lck held */
 static int
-sync_command(void)
+sync_command(struct player_command *cmd)
 {
-#ifndef USE_EVENTFD
-  int dummy = 42;
-#endif
   int ret;
 
-  if (!cmd.func)
+  if (!cmd->func)
     {
-      DPRINTF(E_LOG, L_PLAYER, "BUG: cmd.func is NULL!\n");
+      DPRINTF(E_LOG, L_PLAYER, "BUG: cmd->func is NULL!\n");
 
       return -1;
     }
 
-#ifdef USE_EVENTFD
-  ret = eventfd_write(cmd_efd, 1);
-  if (ret < 0)
-#else
-  ret = write(cmd_pipe[1], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-#endif
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not send command event: %s\n", strerror(errno));
+  pthread_mutex_lock(&cmd->lck);
 
+  ret = write(cmd_pipe[1], &cmd, sizeof(cmd));
+  if (ret != sizeof(cmd))
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not send command: %s\n", strerror(errno));
+
+      pthread_mutex_unlock(&cmd->lck);
       return -1;
     }
 
-  pthread_cond_wait(&cmd_cond, &cmd_lck);
+  pthread_cond_wait(&cmd->cond, &cmd->lck);
 
-  ret = cmd.ret;
-  cmd.func = NULL;
-  cmd.func_bh = NULL;
-  cmd.arg = NULL;
+  pthread_mutex_unlock(&cmd->lck);
+
+  ret = cmd->ret;
 
   return ret;
 }
@@ -2554,17 +2574,18 @@ sync_command(void)
 int
 player_get_status(struct player_status *status)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = get_status;
   cmd.func_bh = NULL;
   cmd.arg = status;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2572,17 +2593,18 @@ player_get_status(struct player_status *status)
 int
 player_now_playing(uint32_t *id)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = now_playing;
   cmd.func_bh = NULL;
   cmd.arg = id;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2590,17 +2612,18 @@ player_now_playing(uint32_t *id)
 int
 player_playback_start(uint32_t *idx_id)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = playback_start;
   cmd.func_bh = playback_start_bh;
   cmd.arg = idx_id;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2608,16 +2631,17 @@ player_playback_start(uint32_t *idx_id)
 int
 player_playback_stop(void)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = playback_stop;
   cmd.arg = NULL;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2625,17 +2649,18 @@ player_playback_stop(void)
 int
 player_playback_pause(void)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = playback_pause;
   cmd.func_bh = playback_pause_bh;
   cmd.arg = NULL;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2643,17 +2668,18 @@ player_playback_pause(void)
 int
 player_playback_seek(int ms)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = playback_pause;
   cmd.func_bh = playback_seek_bh;
   cmd.arg = &ms;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2661,17 +2687,16 @@ player_playback_seek(int ms)
 int
 player_playback_next(void)
 {
+  struct player_command cmd;
   int ret;
-
-  pthread_mutex_lock(&cmd_lck);
 
   cmd.func = playback_pause;
   cmd.func_bh = playback_next_bh;
   cmd.arg = NULL;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2679,17 +2704,18 @@ player_playback_next(void)
 int
 player_playback_prev(void)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = playback_pause;
   cmd.func_bh = playback_prev_bh;
   cmd.arg = NULL;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2722,17 +2748,18 @@ player_speaker_enumerate(spk_enum_cb cb, void *arg)
 int
 player_speaker_set(uint64_t *ids)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = speaker_set;
   cmd.func_bh = NULL;
   cmd.arg = ids;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2740,17 +2767,18 @@ player_speaker_set(uint64_t *ids)
 int
 player_volume_set(int vol)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = volume_set;
   cmd.func_bh = NULL;
   cmd.arg = &vol;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2758,17 +2786,18 @@ player_volume_set(int vol)
 int
 player_repeat_set(enum repeat_mode mode)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = repeat_set;
   cmd.func_bh = NULL;
   cmd.arg = &mode;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2776,17 +2805,18 @@ player_repeat_set(enum repeat_mode mode)
 int
 player_shuffle_set(int enable)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = shuffle_set;
   cmd.func_bh = NULL;
   cmd.arg = &enable;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2794,17 +2824,18 @@ player_shuffle_set(int enable)
 int
 player_queue_add(struct player_source *ps)
 {
+  struct player_command cmd;
   int ret;
 
-  pthread_mutex_lock(&cmd_lck);
+  command_init(&cmd);
 
   cmd.func = queue_add;
   cmd.func_bh = NULL;
   cmd.arg = ps;
 
-  ret = sync_command();
+  ret = sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 
   return ret;
 }
@@ -2812,43 +2843,49 @@ player_queue_add(struct player_source *ps)
 void
 player_queue_clear(void)
 {
-  pthread_mutex_lock(&cmd_lck);
+  struct player_command cmd;
+
+  command_init(&cmd);
 
   cmd.func = queue_clear;
   cmd.func_bh = NULL;
   cmd.arg = NULL;
 
-  sync_command();
+  sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 }
 
 void
 player_queue_plid(uint32_t plid)
 {
-  pthread_mutex_lock(&cmd_lck);
+  struct player_command cmd;
+
+  command_init(&cmd);
 
   cmd.func = queue_plid;
   cmd.func_bh = NULL;
   cmd.arg = &plid;
 
-  sync_command();
+  sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 }
 
 void
 player_set_update_handler(player_status_handler handler)
 {
-  pthread_mutex_lock(&cmd_lck);
+  struct player_command cmd;
+
+  command_init(&cmd);
 
   cmd.func = set_update_handler;
   cmd.func_bh = NULL;
   cmd.arg = handler;
 
-  sync_command();
+  sync_command(&cmd);
 
-  pthread_mutex_unlock(&cmd_lck);
+  command_deinit(&cmd);
 }
 
 /* Thread: main (mdns) */
@@ -3199,7 +3236,7 @@ player_init(void)
   laudio_status = LAUDIO_CLOSED;
   raop_sessions = 0;
 
-  cmd.func = NULL;
+  cur_cmd = NULL;
 
   pb_timer_fd = -1;
 
@@ -3263,15 +3300,6 @@ player_init(void)
     }
 #endif /* USE_EVENTFD */
 
-#ifdef USE_EVENTFD
-  cmd_efd = eventfd(0, EFD_CLOEXEC);
-  if (cmd_efd < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create command eventfd: %s\n", strerror(errno));
-
-      goto cmd_fail;
-    }
-#else
 # if defined(__linux__)
   ret = pipe2(cmd_pipe, O_CLOEXEC);
 # else
@@ -3283,7 +3311,6 @@ player_init(void)
 
       goto cmd_fail;
     }
-#endif /* USE_EVENTFD */
 
   evbase_player = event_base_new();
   if (!evbase_player)
@@ -3301,11 +3328,7 @@ player_init(void)
   event_base_set(evbase_player, &exitev);
   event_add(&exitev, NULL);
 
-#ifdef USE_EVENTFD
-  event_set(&cmdev, cmd_efd, EV_READ, command_cb, NULL);
-#else
   event_set(&cmdev, cmd_pipe[0], EV_READ, command_cb, NULL);
-#endif
   event_base_set(evbase_player, &cmdev);
   event_add(&cmdev, NULL);
 
@@ -3353,12 +3376,8 @@ player_init(void)
  laudio_fail:
   event_base_free(evbase_player);
  evbase_fail:
-#ifdef USE_EVENTFD
-  close(cmd_efd);
-#else
   close(cmd_pipe[0]);
   close(cmd_pipe[1]);
-#endif
  cmd_fail:
 #ifdef USE_EVENTFD
   close(exit_efd);
@@ -3421,15 +3440,13 @@ player_deinit(void)
 
 #ifdef USE_EVENTFD
   close(exit_efd);
-  close(cmd_efd);
-  cmd_efd = -1;
 #else
   close(exit_pipe[0]);
   close(exit_pipe[1]);
+#endif
   close(cmd_pipe[0]);
   close(cmd_pipe[1]);
   cmd_pipe[0] = -1;
   cmd_pipe[1] = -1;
-#endif
   event_base_free(evbase_player);
 }
