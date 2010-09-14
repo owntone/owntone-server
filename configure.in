@@ -33,8 +33,6 @@ AC_CHECK_HEADERS([sys/wait.h])
 AC_CHECK_HEADERS([sys/param.h])
 AC_CHECK_HEADERS([sys/select.h])
 AC_CHECK_HEADERS([dirent.h])
-AC_CHECK_HEADERS([sys/eventfd.h])
-AC_CHECK_FUNCS(eventfd)
 AC_CHECK_FUNCS(posix_fadvise)
 AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
@@ -162,6 +160,9 @@ case "$host" in
 	PKG_CHECK_MODULES(ALSA, [ alsa ])
 	AC_DEFINE(LAUDIO_USE_ALSA, 1, [define if local audio output uses ALSA])
     fi
+
+    AC_CHECK_HEADERS([sys/eventfd.h])
+    AC_CHECK_FUNCS(eventfd)
 
     AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
     ;;
