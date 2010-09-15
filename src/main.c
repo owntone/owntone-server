@@ -554,6 +554,7 @@ main(int argc, char **argv)
   DPRINTF(E_LOG, L_MAIN, "Forked Media Server Version %s taking off\n", VERSION);
 
   /* Initialize ffmpeg */
+  avcodec_init();
   av_register_all();
   av_log_set_callback(logger_ffmpeg);
   register_ffmpeg_evbuffer_url_protocol();
