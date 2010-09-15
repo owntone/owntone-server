@@ -125,6 +125,9 @@ AC_LANG_POP([C])
 LIBS="$save_LIBS"
 
 PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat libswscale libavutil ])
+dnl Check for av_lock_manager (ffmpeg >= 0.5.1)
+AC_CHECK_LIB([avcodec], [av_lockmgr_register], , AC_MSG_ERROR([ffmpeg >= 0.5.1 required]))
+
 PKG_CHECK_MODULES(MINIXML, [ mxml ])
 
 AC_CHECK_HEADER(event.h, , AC_MSG_ERROR([event.h not found]))
