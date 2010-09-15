@@ -415,6 +415,36 @@ signal_kqueue_cb(int fd, short event, void *arg)
 }
 #endif
 
+
+static int
+ffmpeg_lockmgr(void **mutex, enum AVLockOp op)
+{
+  switch (op)
+    {
+      case AV_LOCK_CREATE:
+	*mutex = malloc(sizeof(pthread_mutex_t));
+	if (!*mutex)
+	  return 1;
+
+	return !!pthread_mutex_init(*mutex, NULL);
+
+      case AV_LOCK_OBTAIN:
+	return !!pthread_mutex_lock(*mutex);
+
+      case AV_LOCK_RELEASE:
+	return !!pthread_mutex_unlock(*mutex);
+
+      case AV_LOCK_DESTROY:
+	pthread_mutex_destroy(*mutex);
+	free(*mutex);
+
+	return 0;
+    }
+
+  return 1;
+}
+
+
 int
 main(int argc, char **argv)
 {
@@ -555,6 +585,16 @@ main(int argc, char **argv)
 
   /* Initialize ffmpeg */
   avcodec_init();
+
+  ret = av_lockmgr_register(ffmpeg_lockmgr);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Could not register ffmpeg lock manager callback\n");
+
+      ret = EXIT_FAILURE;
+      goto ffmpeg_init_fail;
+    }
+
   av_register_all();
   av_log_set_callback(logger_ffmpeg);
   register_ffmpeg_evbuffer_url_protocol();
@@ -789,6 +829,9 @@ main(int argc, char **argv)
 
  signal_block_fail:
  gcrypt_init_fail:
+  av_lockmgr_register(NULL);
+
+ ffmpeg_init_fail:
   DPRINTF(E_LOG, L_MAIN, "Exiting.\n");
   conffile_unload();
   logger_deinit();
