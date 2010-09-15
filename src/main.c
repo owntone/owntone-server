@@ -566,6 +566,7 @@ main(int argc, char **argv)
     {
       DPRINTF(E_FATAL, L_MAIN, "libgcrypt version mismatch\n");
 
+      ret = EXIT_FAILURE;
       goto gcrypt_init_fail;
     }
 
@@ -785,8 +786,8 @@ main(int argc, char **argv)
 	}
     }
 
- gcrypt_init_fail:
  signal_block_fail:
+ gcrypt_init_fail:
   DPRINTF(E_LOG, L_MAIN, "Exiting.\n");
   conffile_unload();
   logger_deinit();
