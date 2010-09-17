@@ -3066,7 +3066,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no am field in TXT record!\n", name);
 
-	  goto no_ma;
+	  goto no_am;
 	}
 
       avahi_string_list_get_pair(p, &key, &val, &valsz);
@@ -3075,7 +3075,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
         {
           DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: am has no value\n", name);
 
-          goto no_ma;
+          goto no_am;
         }
 
       if (strncmp(val, "AppleTV", strlen("AppleTV")) == 0)
@@ -3083,7 +3083,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
       avahi_free(val);
 
-    no_ma:
+    no_am:
       pthread_mutex_lock(&dev_lck);
 
       for (rd = dev_list; rd; rd = rd->next)
