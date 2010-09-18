@@ -365,9 +365,12 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 			const char *name, const char *type, const char *domain, const char *hostname, const AvahiAddress *addr,
 			uint16_t port, AvahiStringList *txt, AvahiLookupResultFlags flags, void *userdata)
 {
-  struct mdns_browser *mb;
   char address[AVAHI_ADDRESS_STR_MAX + IF_NAMESIZE + 2];
   char ifname[IF_NAMESIZE];
+  struct keyval txt_kv;
+  struct mdns_browser *mb;
+  char *key;
+  char *value;
   size_t len;
   int family;
   int ll;
@@ -440,9 +443,46 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 	      break;
 	  }
 
+	if (family == -1)
+	  break;
+
+	memset(&txt_kv, 0, sizeof(struct keyval));
+
+	while (txt)
+	  {
+	    len = avahi_string_list_get_size(txt);
+	    key = (char *)avahi_string_list_get_text(txt);
+
+	    value = memchr(key, '=', len);
+	    if (!value)
+	      {
+		value = "";
+		len = 0;
+	      }
+	    else
+	      {
+		*value = '\0';
+		value++;
+
+		len -= strlen(key) + 1;
+	      }
+
+	    ret = keyval_add_size(&txt_kv, key, value, len);
+	    if (ret < 0)
+	      {
+		DPRINTF(E_LOG, L_MDNS, "Could not build TXT record keyval\n");
+
+		goto out_clear_txt_kv;
+	      }
+
+	    txt = avahi_string_list_get_next(txt);
+	  }
+
 	/* Execute callback (mb->cb) with all the data */
-	if (family != -1)
-	  mb->cb(name, type, domain, hostname, family, address, port, txt);
+	mb->cb(name, type, domain, hostname, family, address, port, &txt_kv);
+
+    out_clear_txt_kv:
+	keyval_clear(&txt_kv);
 	break;
     }
 

@@ -43,8 +43,6 @@
 # include <sys/eventfd.h>
 #endif
 
-#include <avahi-common/malloc.h>
-
 #include <event.h>
 
 #include <gcrypt.h>
@@ -2883,19 +2881,16 @@ player_set_update_handler(player_status_handler handler)
 
 /* Thread: main (mdns) */
 static void
-raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, AvahiStringList *txt)
+raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
   struct player_status status;
-  AvahiStringList *p;
   struct raop_device *rd;
   struct raop_device *prev;
   cfg_t *apex;
+  const char *p;
   char *at_name;
   char *password;
-  char *key;
-  char *val;
   uint64_t id;
-  size_t valsz;
   int has_password;
   int encrypt;
   int last_active;
@@ -2999,7 +2994,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
   else
     {
-      p = avahi_string_list_find(txt, "tp");
+      p = keyval_get(txt, "tp");
       if (!p)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no tp field in TXT record!\n", name);
@@ -3007,27 +3002,22 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	  return;
 	}
 
-      avahi_string_list_get_pair(p, &key, &val, &valsz);
-      avahi_free(key);
-      if (!val)
+      if (*p == '\0')
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: tp has no value\n", name);
 
 	  return;
 	}
 
-      if (!strstr(val, "UDP"))
+      if (!strstr(p, "UDP"))
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, val);
+	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, p);
 
-	  avahi_free(val);
 	  return;
 	}
 
-      avahi_free(val);
-
       password = NULL;
-      p = avahi_string_list_find(txt, "pw");
+      p = keyval_get(txt, "pw");
       if (!p)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no pw field in TXT record!\n", name);
@@ -3035,18 +3025,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	  return;
 	}
 
-      avahi_string_list_get_pair(p, &key, &val, &valsz);
-      avahi_free(key);
-      if (!val)
+      if (*p == '\0')
         {
           DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: pw has no value\n", name);
 
           return;
         }
 
-      has_password = (strcmp(val, "false") != 0);
-
-      avahi_free(val);
+      has_password = (strcmp(p, "false") != 0);
 
       if (has_password)
 	{
@@ -3061,7 +3047,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	}
 
       encrypt = 1;
-      p = avahi_string_list_find(txt, "am");
+      p = keyval_get(txt, "am");
       if (!p)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no am field in TXT record!\n", name);
@@ -3069,19 +3055,15 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	  goto no_am;
 	}
 
-      avahi_string_list_get_pair(p, &key, &val, &valsz);
-      avahi_free(key);
-      if (!val)
+      if (*p == '\0')
         {
           DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: am has no value\n", name);
 
           goto no_am;
         }
 
-      if (strncmp(val, "AppleTV", strlen("AppleTV")) == 0)
+      if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
 	encrypt = 0;
-
-      avahi_free(val);
 
     no_am:
       pthread_mutex_lock(&dev_lck);

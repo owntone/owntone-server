@@ -37,6 +37,7 @@
 #include <string.h>
 #include <fcntl.h>
 #include <stdint.h>
+#include <inttypes.h>
 #include <errno.h>
 #include <pthread.h>
 
@@ -44,8 +45,6 @@
 # define USE_EVENTFD
 # include <sys/eventfd.h>
 #endif
-
-#include <avahi-common/malloc.h>
 
 #include <event.h>
 #include "evhttp/evhttp.h"
@@ -671,14 +670,11 @@ pairing_cb(int fd, short event, void *arg)
 
 /* Thread: main (mdns) */
 static void
-touch_remote_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, AvahiStringList *txt)
+touch_remote_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
-  AvahiStringList *p;
+  const char *p;
   char *devname;
   char *paircode;
-  char *key;
-  char *val;
-  size_t valsz;
   int ret;
 
   if (port < 0)
@@ -696,7 +692,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
   else
     {
       /* Get device name (DvNm field in TXT record) */
-      p = avahi_string_list_find(txt, "DvNm");
+      p = keyval_get(txt, "DvNm");
       if (!p)
 	{
 	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: no DvNm in TXT record!\n", name);
@@ -704,17 +700,14 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 	  return;
 	}
 
-      avahi_string_list_get_pair(p, &key, &val, &valsz);
-      avahi_free(key);
-      if (!val)
+      if (*p == '\0')
 	{
 	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: DvNm has no value\n", name);
 
 	  return;
 	}
 
-      devname = strndup(val, valsz);
-      avahi_free(val);
+      devname = strdup(p);
       if (!devname)
 	{
 	  DPRINTF(E_LOG, L_REMOTE, "Out of memory for device name\n");
@@ -723,7 +716,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 	}
 
       /* Get pairing code (Pair field in TXT record) */
-      p = avahi_string_list_find(txt, "Pair");
+      p = keyval_get(txt, "Pair");
       if (!p)
 	{
 	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: no Pair in TXT record!\n", name);
@@ -732,9 +725,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 	  return;
 	}
 
-      avahi_string_list_get_pair(p, &key, &val, &valsz);
-      avahi_free(key);
-      if (!val)
+      if (*p == '\0')
 	{
 	  DPRINTF(E_LOG, L_REMOTE, "Remote %s: Pair has no value\n", name);
 
@@ -742,8 +733,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 	  return;
 	}
 
-      paircode = strndup(val, valsz);
-      avahi_free(val);
+      paircode = strdup(p);
       if (!paircode)
 	{
 	  DPRINTF(E_LOG, L_REMOTE, "Out of memory for paircode\n");
