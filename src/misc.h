@@ -4,6 +4,20 @@
 
 #include <stdint.h>
 
+
+struct onekeyval {
+  char *name;
+  char *value;
+
+  struct onekeyval *next;
+};
+
+struct keyval {
+  struct onekeyval *head;
+  struct onekeyval *tail;
+};
+
+
 int
 safe_atoi32(const char *str, int32_t *val);
 
@@ -21,6 +35,24 @@ safe_atou64(const char *str, uint64_t *val);
 
 int
 safe_hextou64(const char *str, uint64_t *val);
+
+
+/* Key/value functions */
+int
+keyval_add(struct keyval *kv, const char *name, const char *value);
+
+int
+keyval_add_size(struct keyval *kv, const char *name, const char *value, size_t size);
+
+void
+keyval_remove(struct keyval *kv, const char *name);
+
+const char *
+keyval_get(struct keyval *kv, const char *name);
+
+void
+keyval_clear(struct keyval *kv);
+
 
 char *
 m_realpath(const char *pathname);

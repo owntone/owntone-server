@@ -256,6 +256,139 @@ safe_hextou64(const char *str, uint64_t *val)
   return 0;
 }
 
+
+/* Key/value functions */
+int
+keyval_add_size(struct keyval *kv, const char *name, const char *value, size_t size)
+{
+  struct onekeyval *okv;
+  const char *val;
+
+  /* Check for duplicate key names */
+  val = keyval_get(kv, name);
+  if (val)
+    {
+      /* Same value, fine */
+      if (strcmp(val, value) == 0)
+        return 0;
+      else /* Different value, bad */
+        return -1;
+    }
+
+  okv = (struct onekeyval *)malloc(sizeof(struct onekeyval));
+  if (!okv)
+    {
+      DPRINTF(E_LOG, L_MISC, "Out of memory for new keyval\n");
+
+      return -1;
+    }
+
+  okv->name = strdup(name);
+  if (!okv->name)
+    {
+      DPRINTF(E_LOG, L_MISC, "Out of memory for new keyval name\n");
+
+      free(okv);
+      return -1;
+    }
+
+  okv->value = (char *)malloc(size + 1);
+  if (!okv->value)
+    {
+      DPRINTF(E_LOG, L_MISC, "Out of memory for new keyval value\n");
+
+      free(okv->name);
+      free(okv);
+      return -1;
+    }
+
+  memcpy(okv->value, value, size);
+  okv->value[size] = '\0';
+
+  okv->next = NULL;
+
+  if (!kv->head)
+    kv->head = okv;
+
+  if (kv->tail)
+    kv->tail->next = okv;
+
+  kv->tail = okv;
+
+  return 0;
+}
+
+int
+keyval_add(struct keyval *kv, const char *name, const char *value)
+{
+  return keyval_add_size(kv, name, value, strlen(value));
+}
+
+void
+keyval_remove(struct keyval *kv, const char *name)
+{
+  struct onekeyval *okv;
+  struct onekeyval *pokv;
+
+  for (pokv = NULL, okv = kv->head; okv; pokv = okv, okv = okv->next)
+    {
+      if (strcasecmp(okv->name, name) == 0)
+        break;
+    }
+
+  if (!okv)
+    return;
+
+  if (okv == kv->head)
+    kv->head = okv->next;
+
+  if (okv == kv->tail)
+    kv->tail = pokv;
+
+  if (pokv)
+    pokv->next = okv->next;
+
+  free(okv->name);
+  free(okv->value);
+  free(okv);
+}
+
+const char *
+keyval_get(struct keyval *kv, const char *name)
+{
+  struct onekeyval *okv;
+
+  for (okv = kv->head; okv; okv = okv->next)
+    {
+      if (strcasecmp(okv->name, name) == 0)
+        return okv->value;
+    }
+
+  return NULL;
+}
+
+void
+keyval_clear(struct keyval *kv)
+{
+  struct onekeyval *hokv;
+  struct onekeyval *okv;
+
+  hokv = kv->head;
+
+  for (okv = hokv; hokv; okv = hokv)
+    {
+      hokv = okv->next;
+
+      free(okv->name);
+      free(okv->value);
+      free(okv);
+    }
+
+  kv->head = NULL;
+  kv->tail = NULL;
+}
+
+
 char *
 m_realpath(const char *pathname)
 {
