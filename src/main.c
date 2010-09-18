@@ -61,7 +61,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "misc.h"
 #include "filescanner.h"
 #include "httpd.h"
-#include "mdns_avahi.h"
+#include "mdns.h"
 #include "remote_pairing.h"
 #include "player.h"
 #include "ffmpeg_url_evbuffer.h"

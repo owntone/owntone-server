@@ -52,7 +52,7 @@
 #include "db.h"
 #include "daap_query.h"
 #include "logger.h"
-#include "mdns_avahi.h"
+#include "mdns.h"
 #include "conffile.h"
 #include "misc.h"
 #include "rng.h"

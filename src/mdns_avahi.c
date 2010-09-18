@@ -42,7 +42,7 @@
 #include <avahi-client/lookup.h>
 
 #include "logger.h"
-#include "mdns_avahi.h"
+#include "mdns.h"
 
 
 /* Main event base, from main.c */

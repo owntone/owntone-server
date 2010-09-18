@@ -1,6 +1,6 @@
 
-#ifndef __MDNS_AVAHI_H__
-#define __MDNS_AVAHI_H__
+#ifndef __MDNS_H__
+#define __MDNS_H__
 
 #include <avahi-common/strlst.h>
 
@@ -20,4 +20,4 @@ mdns_register(char *name, char *type, int port, char **txt);
 int
 mdns_browse(char *type, mdns_browse_cb cb);
 
-#endif /* !__MDNS_AVAHI_H__ */
+#endif /* !__MDNS_H__ */

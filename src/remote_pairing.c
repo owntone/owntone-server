@@ -54,7 +54,7 @@
 
 #include "logger.h"
 #include "conffile.h"
-#include "mdns_avahi.h"
+#include "mdns.h"
 #include "misc.h"
 #include "db.h"
 #include "remote_pairing.h"
