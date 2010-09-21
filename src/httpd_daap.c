@@ -190,15 +190,15 @@ static const struct dmap_field dmap_aslc = { "aslc", "daap.songlongcontentdescri
 //static const struct dmap_field dmap_asls = { "asls", "daap.songlongsize",                      DMAP_TYPE_ULONG };
 //static const struct dmap_field dmap_aspu = { "aspu", "daap.songpodcasturl",                    DMAP_TYPE_STRING };
 static const struct dmap_field dmap_asrv = { "asrv", "daap.songrelativevolume",                DMAP_TYPE_BYTE };
-//static const struct dmap_field dmap_assa = { "assa", "daap.sortartist",                        DMAP_TYPE_STRING };
-//static const struct dmap_field dmap_assc = { "assc", "daap.sortcomposer",                      DMAP_TYPE_STRING };
-//static const struct dmap_field dmap_assl = { "assl", "daap.sortalbumartist",                   DMAP_TYPE_STRING };
-//static const struct dmap_field dmap_assn = { "assn", "daap.sortname",                          DMAP_TYPE_STRING };
+static const struct dmap_field dmap_assa = { "assa", "daap.sortartist",                        DMAP_TYPE_STRING };
+static const struct dmap_field dmap_assc = { "assc", "daap.sortcomposer",                      DMAP_TYPE_STRING };
+static const struct dmap_field dmap_assl = { "assl", "daap.sortalbumartist",                   DMAP_TYPE_STRING };
+static const struct dmap_field dmap_assn = { "assn", "daap.sortname",                          DMAP_TYPE_STRING };
 static const struct dmap_field dmap_assp = { "assp", "daap.songstoptime",                      DMAP_TYPE_UINT };
 static const struct dmap_field dmap_assr = { "assr", "daap.songsamplerate",                    DMAP_TYPE_UINT };
 //static const struct dmap_field dmap_asss = { "asss", "daap.sortseriesname",                    DMAP_TYPE_STRING };
 static const struct dmap_field dmap_asst = { "asst", "daap.songstarttime",                     DMAP_TYPE_UINT };
-//static const struct dmap_field dmap_assu = { "assu", "daap.sortalbum",                         DMAP_TYPE_STRING };
+static const struct dmap_field dmap_assu = { "assu", "daap.sortalbum",                         DMAP_TYPE_STRING };
 static const struct dmap_field dmap_assz = { "assz", "daap.songsize",                          DMAP_TYPE_UINT };
 static const struct dmap_field dmap_astc = { "astc", "daap.songtrackcount",                    DMAP_TYPE_USHORT };
 static const struct dmap_field dmap_astm = { "astm", "daap.songtime",                          DMAP_TYPE_UINT };
@@ -506,6 +506,17 @@ static struct dmap_field_map dmap_fields[] =
       dbmfi_offsetof(tv_episode_sort),    -1,                    -1 },
     { 0, &dmap_aeSU,
       dbmfi_offsetof(tv_season_num),      -1,                    -1 },
+
+    { 0, &dmap_assn,
+      dbmfi_offsetof(title_sort),     	  -1,                    -1 },
+    { 0, &dmap_assa,
+      dbmfi_offsetof(artist_sort),        -1,                    -1 },
+    { 0, &dmap_assu,
+      dbmfi_offsetof(album_sort),         -1,                    -1 },
+    { 0, &dmap_assc,
+      dbmfi_offsetof(composer_sort),      -1,                    -1 },
+    { 0, &dmap_assl,
+      dbmfi_offsetof(album_artist_sort),  -1,                    -1 },
 
     { 0, NULL,
       -1,                                 -1,                    -1 }
@@ -1736,6 +1747,15 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
 	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", dfm->field->desc, *strval);
 	}
+
+      /* Always include sort tags */
+      dmap_add_string(song, "assn", dbmfi.title_sort);
+      dmap_add_string(song, "assa", dbmfi.artist_sort);
+      dmap_add_string(song, "assu", dbmfi.album_sort);
+      dmap_add_string(song, "assl", dbmfi.album_artist_sort);
+
+      if (dbmfi.composer_sort)
+	dmap_add_string(song, "assc", dbmfi.composer_sort);
 
       if (sort_headers)
 	{
