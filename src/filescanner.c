@@ -37,6 +37,8 @@
 #include <dirent.h>
 #include <pthread.h>
 
+#include <uninorm.h>
+
 #if defined(__linux__)
 # include <sys/inotify.h>
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
@@ -131,6 +133,24 @@ pop_dir(struct stacked_dir **s)
   return ret;
 }
 
+
+static void
+normalize_fixup_tag(char **tag, char *src_tag)
+{
+  char *norm;
+  size_t len;
+
+  /* Note: include terminating NUL in string length for u8_normalize */
+
+  if (!*tag)
+    *tag = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)src_tag, strlen(src_tag) + 1, NULL, &len);
+  else
+    {
+      norm = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)*tag, strlen(*tag) + 1, NULL, &len);
+      free(*tag);
+      *tag = norm;
+    }
+}
 
 static void
 fixup_tags(struct media_file_info *mfi)
@@ -247,6 +267,16 @@ fixup_tags(struct media_file_info *mfi)
       else
 	mfi->album_artist = strdup(mfi->artist);
     }
+
+  /* Ensure sort tags are filled and normalized */
+  normalize_fixup_tag(&mfi->artist_sort, mfi->artist);
+  normalize_fixup_tag(&mfi->album_sort, mfi->album);
+  normalize_fixup_tag(&mfi->title_sort, mfi->title);
+  normalize_fixup_tag(&mfi->album_artist_sort, mfi->album_artist);
+
+  /* Composer is not one of our mandatory tags, so take extra care */
+  if (mfi->composer_sort || mfi->composer)
+    normalize_fixup_tag(&mfi->composer_sort, mfi->composer);
 }
 
 
