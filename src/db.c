@@ -119,6 +119,11 @@ static const struct col_type_map mfi_cols_map[] =
     { mfi_offsetof(tv_episode_sort),    DB_TYPE_INT },
     { mfi_offsetof(tv_season_num),      DB_TYPE_INT },
     { mfi_offsetof(songalbumid),        DB_TYPE_INT64 },
+    { mfi_offsetof(title_sort),         DB_TYPE_STRING },
+    { mfi_offsetof(artist_sort),        DB_TYPE_STRING },
+    { mfi_offsetof(album_sort),         DB_TYPE_STRING },
+    { mfi_offsetof(composer_sort),      DB_TYPE_STRING },
+    { mfi_offsetof(album_artist_sort),  DB_TYPE_STRING },
   };
 
 /* This list must be kept in sync with
@@ -195,6 +200,11 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(tv_episode_sort),
     dbmfi_offsetof(tv_season_num),
     dbmfi_offsetof(songalbumid),
+    dbmfi_offsetof(title_sort),
+    dbmfi_offsetof(artist_sort),
+    dbmfi_offsetof(album_sort),
+    dbmfi_offsetof(composer_sort),
+    dbmfi_offsetof(album_artist_sort),
   };
 
 /* This list must be kept in sync with
@@ -358,6 +368,21 @@ free_mfi(struct media_file_info *mfi, int content_only)
 
   if (mfi->tv_network_name)
     free(mfi->tv_network_name);
+
+  if (mfi->title_sort)
+    free(mfi->title_sort);
+
+  if (mfi->artist_sort)
+    free(mfi->artist_sort);
+
+  if (mfi->album_sort)
+    free(mfi->album_sort);
+
+  if (mfi->composer_sort)
+    free(mfi->composer_sort);
+
+  if (mfi->album_artist_sort)
+    free(mfi->album_artist_sort);
 
   if (!content_only)
     free(mfi);
@@ -1873,13 +1898,15 @@ db_file_add(struct media_file_info *mfi)
                " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
                " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
                " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
-               " songalbumid" \
+               " songalbumid, title_sort, artist_sort, album_sort, composer_sort, album_artist_sort" \
                " ) " \
                " VALUES (NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, TRIM(%Q)," \
                " TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
                " %d, %d, %d, %d, %d, %d, %d, %d, %d," \
                " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
-               " %Q, %d, %d, %d, %d, TRIM(%Q), %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d, daap_songalbumid(TRIM(%Q), TRIM(%Q)));"
+               " %Q, %d, %d, %d, %d, TRIM(%Q), %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d, daap_songalbumid(TRIM(%Q), TRIM(%Q))," \
+               " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q));"
+
   char *query;
   char *errmsg;
   int ret;
@@ -1910,7 +1937,9 @@ db_file_add(struct media_file_info *mfi)
 			  mfi->contentrating, mfi->bits_per_sample, mfi->album_artist,
                           mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
                           mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
-			  mfi->album_artist, mfi->album);
+			  mfi->album_artist, mfi->album, mfi->title_sort, mfi->artist_sort, mfi->album_sort,
+			  mfi->composer_sort, mfi->album_artist_sort);
+
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1950,7 +1979,8 @@ db_file_update(struct media_file_info *mfi)
                " bits_per_sample = %d, album_artist = TRIM(%Q)," \
                " media_kind = %d, tv_series_name = TRIM(%Q), tv_episode_num_str = TRIM(%Q)," \
                " tv_network_name = TRIM(%Q), tv_episode_sort = %d, tv_season_num = %d," \
-               " songalbumid = daap_songalbumid(TRIM(%Q), TRIM(%Q)) " \
+               " songalbumid = daap_songalbumid(TRIM(%Q), TRIM(%Q))," \
+               " title_sort = TRIM(%Q), artist_sort = TRIM(%Q), album_sort = TRIM(%Q), composer_sort = TRIM(%Q), album_artist_sort = TRIM(%Q)" \
                " WHERE id = %d;"
   char *query;
   char *errmsg;
@@ -1980,6 +2010,8 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
 			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
 			  mfi->album_artist, mfi->album,
+			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
+			  mfi->composer_sort, mfi->album_artist_sort,
 			  mfi->id);
 
   if (!query)
@@ -3700,7 +3732,12 @@ db_perthread_deinit(void)
   "   tv_network_name    VARCHAR(1024) DEFAULT NULL,"	\
   "   tv_episode_sort    INTEGER NOT NULL,"		\
   "   tv_season_num      INTEGER NOT NULL,"		\
-  "   songalbumid        INTEGER NOT NULL"		\
+  "   songalbumid        INTEGER NOT NULL,"		\
+  "   title_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
   ");"
 
 #define T_PL					\
@@ -3765,6 +3802,15 @@ db_perthread_deinit(void)
 #define I_PAIRING				\
   "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
 
+#define I_TITLESORT				\
+  "CREATE INDEX IF NOT EXISTS idx_titlesort ON files(title_sort COLLATE DAAP);"
+
+#define I_ARTISTSORT				\
+  "CREATE INDEX IF NOT EXISTS idx_artistsort ON files(artist_sort COLLATE DAAP);"
+
+#define I_ALBUMSORT				\
+  "CREATE INDEX IF NOT EXISTS idx_albumsort ON files(album_sort COLLATE DAAP);"
+
 #define TRG_GROUPS_INSERT_FILES						\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
   " BEGIN"								\
@@ -3801,9 +3847,9 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION 11
+#define SCHEMA_VERSION 12
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '11');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '12');"
 
 struct db_init_query {
   char *query;
@@ -3825,6 +3871,9 @@ static const struct db_init_query db_init_queries[] =
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
     { I_PAIRING,   "create pairing guid index" },
+    { I_TITLESORT, "create file titlesort index" },
+    { I_ARTISTSORT,"create file artistsort index" },
+    { I_ALBUMSORT, "create file albumsort index" },
 
     { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
     { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },

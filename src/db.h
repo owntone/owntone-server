@@ -129,6 +129,12 @@ struct media_file_info {
   char *album_artist;
 
   int64_t songalbumid;
+
+  char *title_sort;
+  char *artist_sort;
+  char *album_sort;
+  char *composer_sort;
+  char *album_artist_sort;
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
@@ -239,6 +245,11 @@ struct db_media_file_info {
   char *tv_episode_num_str;
   char *tv_network_name;
   char *songalbumid;
+  char *title_sort;
+  char *artist_sort;
+  char *album_sort;
+  char *composer_sort;
+  char *album_artist_sort;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
