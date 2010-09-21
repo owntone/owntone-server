@@ -184,6 +184,17 @@ static const struct metadata_map md_map_id3[] =
     { "TYE",          1, mfi_offsetof(year),             NULL },              /* ID3v2.2 */
     { "TYER",         1, mfi_offsetof(year),             NULL },              /* ID3v2.3 */
     { "TDRC",         1, mfi_offsetof(year),             NULL },              /* ID3v2.4 */
+    { "TSOA",         0, mfi_offsetof(album_sort),       NULL },              /* ID3v2.4 */
+    { "XSOA",         0, mfi_offsetof(album_sort),       NULL },              /* ID3v2.3 */
+    { "TSOP",         0, mfi_offsetof(artist_sort),      NULL },              /* ID3v2.4 */
+    { "XSOP",         0, mfi_offsetof(artist_sort),      NULL },              /* ID3v2.3 */
+    { "TSOT",         0, mfi_offsetof(title_sort),       NULL },              /* ID3v2.4 */
+    { "XSOT",         0, mfi_offsetof(title_sort),       NULL },              /* ID3v2.3 */
+    { "TS2",          0, mfi_offsetof(album_artist_sort),     NULL },              /* ID3v2.2 */
+    { "TSO2",         0, mfi_offsetof(album_artist_sort),     NULL },              /* ID3v2.3 */
+    { "ALBUMARTISTSORT",     0, mfi_offsetof(album_artist_sort),     NULL },              /* ID3v2.x */
+    { "TSC",          0, mfi_offsetof(composer_sort),         NULL },              /* ID3v2.2 */
+    { "TSOC",         0, mfi_offsetof(composer_sort),         NULL },              /* ID3v2.3 */
 
     { NULL,           0, 0,                              NULL }
   };
