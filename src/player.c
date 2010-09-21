@@ -2893,6 +2893,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   uint64_t id;
   int has_password;
   int encrypt;
+  int auth_quirk_itunes;
   int last_active;
   int ret;
 
@@ -3047,10 +3048,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	}
 
       encrypt = 1;
+      auth_quirk_itunes = 0;
       p = keyval_get(txt, "am");
       if (!p)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no am field in TXT record!\n", name);
+
+	  /* Old AirPort Express */
+	  auth_quirk_itunes = 1;
 
 	  goto no_am;
 	}
@@ -3140,6 +3145,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       rd->name = strdup(at_name);
 
       rd->encrypt = encrypt;
+      rd->auth_quirk_itunes = auth_quirk_itunes;
 
       rd->has_password = has_password;
       rd->password = password;

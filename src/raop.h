@@ -31,6 +31,7 @@ struct raop_device
   unsigned selected:1;
   unsigned advertised:1;
   unsigned encrypt:1;
+  unsigned auth_quirk_itunes:1;
 
   unsigned has_password:1;
   const char *password;

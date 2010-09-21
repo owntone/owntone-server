@@ -87,6 +87,7 @@ struct raop_session
   unsigned req_in_flight:1;
   unsigned req_has_auth:1;
   unsigned encrypt:1;
+  unsigned auth_quirk_itunes:1;
 
   int cseq;
   char *session;
@@ -671,6 +672,8 @@ raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, const char *m
   char ha2[33];
   char ebuf[64];
   char auth[256];
+  const char *hash_fmt;
+  const char *username;
   uint8_t *hash_bytes;
   size_t hashlen;
   gcry_md_hd_t hd;
@@ -690,6 +693,17 @@ raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, const char *m
       return -2;
     }
 
+  if (rs->auth_quirk_itunes)
+    {
+      hash_fmt = "%02X"; /* Uppercase hex */
+      username = "iTunes";
+    }
+  else
+    {
+      hash_fmt = "%02x";
+      username = ""; /* No username */
+    }
+
   gc_err = gcry_md_open(&hd, GCRY_MD_MD5, 0);
   if (gc_err != GPG_ERR_NO_ERROR)
     {
@@ -704,7 +718,8 @@ raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, const char *m
   hashlen = gcry_md_get_algo_dlen(GCRY_MD_MD5);
 
   /* HA 1 */
-  /* No username */
+
+  gcry_md_write(hd, username, strlen(username));
   gcry_md_write(hd, ":", 1);
   gcry_md_write(hd, rs->realm, strlen(rs->realm));
   gcry_md_write(hd, ":", 1);
@@ -719,7 +734,7 @@ raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, const char *m
     }
 
   for (i = 0; i < hashlen; i++)
-    sprintf(ha1 + (2 * i), "%02x", hash_bytes[i]);
+    sprintf(ha1 + (2 * i), hash_fmt, hash_bytes[i]);
 
   /* RESET */
   gcry_md_reset(hd);
@@ -738,7 +753,7 @@ raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, const char *m
     }
 
   for (i = 0; i < hashlen; i++)
-    sprintf(ha2 + (2 * i), "%02x", hash_bytes[i]);
+    sprintf(ha2 + (2 * i), hash_fmt, hash_bytes[i]);
 
   /* RESET */
   gcry_md_reset(hd);
@@ -759,13 +774,13 @@ raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, const char *m
     }
 
   for (i = 0; i < hashlen; i++)
-    sprintf(ha1 + (2 * i), "%02x", hash_bytes[i]);
+    sprintf(ha1 + (2 * i), hash_fmt, hash_bytes[i]);
 
   gcry_md_close(hd);
 
   /* Build header */
-  ret = snprintf(auth, sizeof(auth), "Digest username=\"\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
-		 rs->realm, rs->nonce, uri, ha1);
+  ret = snprintf(auth, sizeof(auth), "Digest username=\"%s\", realm=\"%s\", nonce=\"%s\", uri=\"%s\", response=\"%s\"",
+		 username, rs->realm, rs->nonce, uri, ha1);
   if ((ret < 0) || (ret >= sizeof(auth)))
     {
       DPRINTF(E_LOG, L_RAOP, "Authorization value header exceeds buffer size\n");
@@ -1456,6 +1471,7 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   rs->server_fd = -1;
 
   rs->encrypt = rd->encrypt;
+  rs->auth_quirk_itunes = rd->auth_quirk_itunes;
 
   rs->password = rd->password;
 
