@@ -2891,10 +2891,10 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   char *at_name;
   char *password;
   uint64_t id;
-  int has_password;
-  int encrypt;
-  int auth_quirk_itunes;
-  int last_active;
+  char has_password;
+  char encrypt;
+  char auth_quirk_itunes;
+  char last_active;
   int ret;
 
   ret = safe_hextou64(name, &id);
