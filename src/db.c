@@ -255,9 +255,9 @@ static const struct col_type_map wi_cols_map[] =
 static const char *sort_clause[] =
   {
     "",
-    "ORDER BY title COLLATE DAAP ASC",
-    "ORDER BY album COLLATE DAAP ASC, disc ASC, track ASC",
-    "ORDER BY artist COLLATE DAAP ASC",
+    "ORDER BY title_sort COLLATE DAAP ASC",
+    "ORDER BY album_sort COLLATE DAAP ASC, disc ASC, track ASC",
+    "ORDER BY artist_sort COLLATE DAAP ASC",
   };
 
 static char *db_path;
