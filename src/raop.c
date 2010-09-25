@@ -664,26 +664,6 @@ raop_crypt_encrypt_aes_key_base64(void)
 
 
 /* Helpers */
-static void
-raop_add_headers(struct raop_session *rs, struct evrtsp_request *req)
-{
-  char buf[64];
-
-  snprintf(buf, sizeof(buf), "%d", rs->cseq);
-  evrtsp_add_header(req->output_headers, "CSeq", buf);
-
-  evrtsp_add_header(req->output_headers, "User-Agent", "forked-daapd/" VERSION);
-
-  snprintf(buf, sizeof(buf), "%" PRIX64, libhash);
-  evrtsp_add_header(req->output_headers, "Client-Instance", buf);
-  evrtsp_add_header(req->output_headers, "DACP-ID", buf);
-
-  if (rs->session)
-    evrtsp_add_header(req->output_headers, "Session", rs->session);
-
-  /* Content-Length added automatically by evrtsp */
-}
-
 static int
 raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, char *method, char *uri)
 {
@@ -903,6 +883,26 @@ raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
   DPRINTF(E_DBG, L_RAOP, "Found realm: [%s], nonce: [%s]\n", rs->realm, rs->nonce);
 
   return 0;
+}
+
+static void
+raop_add_headers(struct raop_session *rs, struct evrtsp_request *req)
+{
+  char buf[64];
+
+  snprintf(buf, sizeof(buf), "%d", rs->cseq);
+  evrtsp_add_header(req->output_headers, "CSeq", buf);
+
+  evrtsp_add_header(req->output_headers, "User-Agent", "forked-daapd/" VERSION);
+
+  snprintf(buf, sizeof(buf), "%" PRIX64, libhash);
+  evrtsp_add_header(req->output_headers, "Client-Instance", buf);
+  evrtsp_add_header(req->output_headers, "DACP-ID", buf);
+
+  if (rs->session)
+    evrtsp_add_header(req->output_headers, "Session", rs->session);
+
+  /* Content-Length added automatically by evrtsp */
 }
 
 static int
