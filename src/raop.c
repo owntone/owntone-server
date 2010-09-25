@@ -665,7 +665,7 @@ raop_crypt_encrypt_aes_key_base64(void)
 
 /* Helpers */
 static int
-raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, char *method, char *uri)
+raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, const char *method, const char *uri)
 {
   char ha1[33];
   char ha2[33];
@@ -779,12 +779,6 @@ raop_add_auth(struct raop_session *rs, struct evrtsp_request *req, char *method,
 
   rs->req_has_auth = 1;
 
-  free(rs->realm);
-  rs->realm = NULL;
-
-  free(rs->nonce);
-  rs->nonce = NULL;
-
   return 0;
 }
 
@@ -885,15 +879,33 @@ raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
   return 0;
 }
 
-static void
-raop_add_headers(struct raop_session *rs, struct evrtsp_request *req)
+static int
+raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrtsp_cmd_type req_method)
 {
   char buf[64];
+  const char *method;
+  const char *url;
+  int ret;
 
   snprintf(buf, sizeof(buf), "%d", rs->cseq);
   evrtsp_add_header(req->output_headers, "CSeq", buf);
 
   evrtsp_add_header(req->output_headers, "User-Agent", "forked-daapd/" VERSION);
+
+  /* Add Authorization header */
+  url = (req_method == EVRTSP_REQ_OPTIONS) ? "*" : rs->session_url;
+  method = evrtsp_method(req_method);
+
+  ret = raop_add_auth(rs, req, method, url);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not add Authorization header\n");
+
+      if (ret == -2)
+	rs->state = RAOP_PASSWORD;
+
+      return -1;
+    }
 
   snprintf(buf, sizeof(buf), "%" PRIX64, libhash);
   evrtsp_add_header(req->output_headers, "Client-Instance", buf);
@@ -903,6 +915,8 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req)
     evrtsp_add_header(req->output_headers, "Session", rs->session);
 
   /* Content-Length added automatically by evrtsp */
+
+  return 0;
 }
 
 static int
@@ -987,7 +1001,12 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  raop_add_headers(rs, req);
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_TEARDOWN);
+  if (ret < 0)
+    {
+      evrtsp_request_free(req);
+      return -1;
+    }
 
   ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_TEARDOWN, rs->session_url);
   if (ret < 0)
@@ -1019,7 +1038,12 @@ raop_send_req_flush(struct raop_session *rs, evrtsp_req_cb cb, uint64_t rtptime)
       return -1;
     }
 
-  raop_add_headers(rs, req);
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_FLUSH);
+  if (ret < 0)
+    {
+      evrtsp_request_free(req);
+      return -1;
+    }
 
   /* Restart sequence: last sequence + 1 */
   ret = snprintf(buf, sizeof(buf), "seq=%u;rtptime=%u", stream_seq + 1, RAOP_RTPTIME(rtptime));
@@ -1070,7 +1094,13 @@ raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, evr
       return -1;
     }
 
-  raop_add_headers(rs, req);
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_SET_PARAMETER);
+  if (ret < 0)
+    {
+      evrtsp_request_free(req);
+      return -1;
+    }
+
   evrtsp_add_header(req->output_headers, "Content-Type", "text/parameters");
 
   ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_SET_PARAMETER, rs->session_url);
@@ -1103,7 +1133,12 @@ raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  raop_add_headers(rs, req);
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_RECORD);
+  if (ret < 0)
+    {
+      evrtsp_request_free(req);
+      return -1;
+    }
 
   evrtsp_add_header(req->output_headers, "Range", "npt=0-");
 
@@ -1146,7 +1181,12 @@ raop_send_req_setup(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  raop_add_headers(rs, req);
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_SETUP);
+  if (ret < 0)
+    {
+      evrtsp_request_free(req);
+      return -1;
+    }
 
   /* Request UDP transport, AirTunes v2 streaming */
   ret = snprintf(hdr, sizeof(hdr), "RTP/AVP/UDP;unicast;interleaved=0-1;mode=record;control_port=%u;timing_port=%u",
@@ -1239,7 +1279,13 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
       goto cleanup_req;
     }
 
-  raop_add_headers(rs, req);
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_ANNOUNCE);
+  if (ret < 0)
+    {
+      evrtsp_request_free(req);
+      return -1;
+    }
+
   evrtsp_add_header(req->output_headers, "Content-Type", "application/sdp");
 
   /* Challenge */
@@ -1293,16 +1339,9 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  raop_add_headers(rs, req);
-
-  ret = raop_add_auth(rs, req, "OPTIONS", "*");
+  ret = raop_add_headers(rs, req, EVRTSP_REQ_OPTIONS);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not add authentication data to OPTIONS request\n");
-
-      if (ret == -2)
-	rs->state = RAOP_PASSWORD;
-
       evrtsp_request_free(req);
       return -1;
     }
