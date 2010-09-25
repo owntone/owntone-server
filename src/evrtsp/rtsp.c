@@ -241,7 +241,7 @@ strsep(char **s, const char *del)
 }
 #endif
 
-static const char *
+const char *
 evrtsp_method(enum evrtsp_cmd_type type)
 {
 	const char *method;

@@ -161,6 +161,8 @@ int evrtsp_remove_header(struct evkeyvalq *, const char *);
 int evrtsp_add_header(struct evkeyvalq *, const char *, const char *);
 void evrtsp_clear_headers(struct evkeyvalq *);
 
+const char *evrtsp_method(enum evrtsp_cmd_type type);
+
 #ifdef __cplusplus
 }
 #endif
