@@ -836,6 +836,8 @@ raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
       return -1;
     }
 
+  DPRINTF(E_DBG, L_RAOP, "WWW-Authenticate: %s\n", param);
+
   if (strncmp(param, "Digest ", strlen("Digest ")) != 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Unsupported authentication method: %s\n", param);
@@ -859,19 +861,19 @@ raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
     {
       if (strcmp(token, "realm") == 0)
 	{
-	  token = strtok_r(NULL, " =", &ptr);
+	  token = strtok_r(NULL, "=\"", &ptr);
 	  if (!token)
 	    break;
 
-	  rs->realm = strndup(token + 1, strlen(token) - 2);
+	  rs->realm = strdup(token);
 	}
       else if (strcmp(token, "nonce") == 0)
 	{
-	  token = strtok_r(NULL, " =", &ptr);
+	  token = strtok_r(NULL, "=\"", &ptr);
 	  if (!token)
 	    break;
 
-	  rs->nonce = strndup(token + 1, strlen(token) - 2);
+	  rs->nonce = strdup(token);
 	}
 
       token = strtok_r(NULL, " =", &ptr);
@@ -897,6 +899,8 @@ raop_parse_auth(struct raop_session *rs, struct evrtsp_request *req)
 
       return -1;
     }
+
+  DPRINTF(E_DBG, L_RAOP, "Found realm: [%s], nonce: [%s]\n", rs->realm, rs->nonce);
 
   return 0;
 }
