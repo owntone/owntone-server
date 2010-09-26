@@ -395,7 +395,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 	    case AVAHI_PROTO_INET:
 	      if (ll)
 		{
-		  family = -1;
+		  family = AF_UNSPEC;
 
 		  DPRINTF(E_DBG, L_MDNS, "Discarding IPv4 LL address\n");
 		  break;
@@ -416,7 +416,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 		    {
 		      DPRINTF(E_LOG, L_MDNS, "Could not map interface index %d to a name\n", intf);
 
-		      family = -1;
+		      family = AF_UNSPEC;
 		      break;
 		    }
 
@@ -426,7 +426,7 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 		    {
 		      DPRINTF(E_LOG, L_MDNS, "Buffer too short for scoped IPv6 LL\n");
 
-		      family = -1;
+		      family = AF_UNSPEC;
 		      break;
 		    }
 
@@ -439,11 +439,11 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 	    default:
 	      DPRINTF(E_INFO, L_MDNS, "Avahi Resolver: unknown protocol %d\n", proto);
 
-	      family = -1;
+	      family = AF_UNSPEC;
 	      break;
 	  }
 
-	if (family == -1)
+	if (family == AF_UNSPEC)
 	  break;
 
 	memset(&txt_kv, 0, sizeof(struct keyval));
@@ -542,11 +542,11 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 	    default:
 	      DPRINTF(E_INFO, L_MDNS, "Avahi Browser: unknown protocol %d\n", proto);
 
-	      family = -1;
+	      family = AF_UNSPEC;
 	      break;
 	  }
 
-	if (family != -1)
+	if (family != AF_UNSPEC)
 	  mb->cb(name, type, domain, NULL, family, NULL, -1, NULL);
 	break;
 
