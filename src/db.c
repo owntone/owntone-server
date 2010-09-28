@@ -3757,6 +3757,7 @@ db_daap_unicode_xcollation(void *notused, int llen, const void *left, int rlen, 
 int
 db_perthread_init(void)
 {
+  char *errmsg;
   int ret;
 
   ret = sqlite3_open(db_path, &hdl);
@@ -3768,19 +3769,35 @@ db_perthread_init(void)
       return -1;
     }
 
-  ret = sqlite3_create_function(hdl, "daap_songalbumid", 2, SQLITE_UTF8, NULL, db_daap_songalbumid_xfunc, NULL, NULL);
+  ret = sqlite3_enable_load_extension(hdl, 1);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not create daap_songalbumid function: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not enable extension loading\n");
 
       sqlite3_close(hdl);
       return -1;
     }
 
-  ret = sqlite3_create_collation(hdl, "DAAP", SQLITE_UTF8, NULL, db_daap_unicode_xcollation);
+  errmsg = NULL;
+  ret = sqlite3_load_extension(hdl, PKGLIBDIR "/forked-daapd-sqlext.so", NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not create sqlite3 custom collation DAAP: %s\n", sqlite3_errmsg(hdl));
+      if (errmsg)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not load SQLite extension: %s\n", errmsg);
+	  sqlite3_free(errmsg);
+	}
+      else
+	DPRINTF(E_LOG, L_DB, "Could not load SQLite extension: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_close(hdl);
+      return -1;
+    }
+
+  ret = sqlite3_enable_load_extension(hdl, 0);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not disable extension loading\n");
 
       sqlite3_close(hdl);
       return -1;
