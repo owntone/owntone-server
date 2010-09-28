@@ -29,10 +29,6 @@
 #include <inttypes.h>
 #include <errno.h>
 
-#include <unistr.h>
-#include <unictype.h>
-#include <unicase.h>
-
 #include <pthread.h>
 
 #include <sqlite3.h>
@@ -3663,94 +3659,6 @@ db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd)
   *wd = (uint32_t)sqlite3_column_int(we->stmt, 0);
 
   return 0;
-}
-
-
-static void
-db_daap_songalbumid_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
-{
-  const char *album_artist;
-  const char *album;
-  char *hashbuf;
-  sqlite3_int64 result;
-
-  if (n != 2)
-    {
-      sqlite3_result_error(pv, "daap_songalbumid() requires 2 parameters, album_artist and album", -1);
-      return;
-    }
-
-  if ((sqlite3_value_type(ppv[0]) != SQLITE_TEXT)
-      || (sqlite3_value_type(ppv[1]) != SQLITE_TEXT))
-    {
-      sqlite3_result_error(pv, "daap_songalbumid() requires 2 text parameters", -1);
-      return;
-    }
-
-  album_artist = (const char *)sqlite3_value_text(ppv[0]);
-  album = (const char *)sqlite3_value_text(ppv[1]);
-
-  hashbuf = sqlite3_mprintf("%s==%s", (album_artist) ? album_artist : "", (album) ? album : "");
-  if (!hashbuf)
-    {
-      sqlite3_result_error(pv, "daap_songalbumid() out of memory for hashbuf", -1);
-      return;
-    }
-
-  /* Limit hash length to 63 bits, due to signed type in sqlite */
-  result = murmur_hash64(hashbuf, strlen(hashbuf), 0) >> 1;
-
-  sqlite3_free(hashbuf);
-
-  sqlite3_result_int64(pv, result);
-}
-
-static int
-db_daap_unicode_xcollation(void *notused, int llen, const void *left, int rlen, const void *right)
-{
-  ucs4_t lch;
-  ucs4_t rch;
-  int lalpha;
-  int ralpha;
-  int rpp;
-  int ret;
-
-  /* Extract first utf-8 character */
-  ret = u8_mbtoucr(&lch, (const uint8_t *)left, llen);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DB, "DAAP collation: error %d in u8_mbtoucr (left)\n", ret);
-
-      return 0;
-    }
-
-  ret = u8_mbtoucr(&rch, (const uint8_t *)right, rlen);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DB, "DAAP collation: error %d in u8_mbtoucr (right)\n", ret);
-
-      return 0;
-    }
-
-  /* Ensure digits and other non-alphanum sort to tail */
-  lalpha = uc_is_alpha(lch);
-  ralpha = uc_is_alpha(rch);
-
-  if (!lalpha && ralpha)
-    return 1;
-  else if (lalpha && !ralpha)
-    return -1;
-
-  /* Compare case and normalization insensitive */
-  ret = u8_casecmp((const uint8_t *)left, llen, (const uint8_t*)right, rlen, NULL, UNINORM_NFD, &rpp);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DB, "DAAP collation: error in u8_casecmp: %s\n", strerror(errno));
-
-      return 0;
-    }
-
-  return rpp;
 }
 
 
