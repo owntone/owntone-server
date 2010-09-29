@@ -3932,7 +3932,7 @@ db_create_tables(void)
     {
       DPRINTF(E_DBG, L_DB, "DB init query: %s\n", db_init_queries[i].desc);
 
-      ret = db_exec(db_init_queries[i].query, &errmsg);
+      ret = sqlite3_exec(hdl, db_init_queries[i].query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);
@@ -3956,7 +3956,7 @@ db_generic_upgrade(const struct db_init_query *queries, int nqueries)
     {
       DPRINTF(E_DBG, L_DB, "DB upgrade query: %s\n", queries->desc);
 
-      ret = db_exec(queries->query, &errmsg);
+      ret = sqlite3_exec(hdl, queries->query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_FATAL, L_DB, "DB upgrade error: %s\n", errmsg);
@@ -4180,14 +4180,14 @@ db_check_version(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_VER);
 
-  ret = db_blocking_prepare_v2(Q_VER, strlen(Q_VER) + 1, &stmt, NULL);
+  ret = sqlite3_prepare_v2(hdl, Q_VER, strlen(Q_VER) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
       return 1;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = sqlite3_step(stmt);
   if (ret != SQLITE_ROW)
     {
       DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
@@ -4277,7 +4277,7 @@ db_check_version(void)
       /* What about some housekeeping work, eh? */
       DPRINTF(E_INFO, L_DB, "Now vacuuming database, this may take some time...\n");
 
-      ret = db_exec(Q_VACUUM, &errmsg);
+      ret = sqlite3_exec(hdl, Q_VACUUM, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Could not VACUUM database: %s\n", errmsg);
