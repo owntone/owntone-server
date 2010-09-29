@@ -3662,6 +3662,16 @@ db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd)
 }
 
 
+#ifdef DB_PROFILE
+static void
+db_xprofile(void *notused, const char *pquery, sqlite3_uint64 ptime)
+{
+  DPRINTF(E_DBG, L_DB, "SQL PROFILE query: %s\n", pquery);
+  DPRINTF(E_DBG, L_DB, "SQL PROFILE time: %" PRIu64 "\n", (uint64_t)ptime); 
+}
+#endif
+
+
 int
 db_perthread_init(void)
 {
@@ -3710,6 +3720,10 @@ db_perthread_init(void)
       sqlite3_close(hdl);
       return -1;
     }
+
+#ifdef DB_PROFILE
+  sqlite3_profile(hdl, db_xprofile, NULL);
+#endif
 
   return 0;
 }
