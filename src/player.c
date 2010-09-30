@@ -2943,6 +2943,37 @@ raop_device_remove_family(const char *name, uint64_t id, int family)
 }
 
 /* Thread: main (mdns) */
+/* Call with dev_lck held */
+static struct raop_device *
+raop_device_find_or_new(uint64_t id)
+{
+  struct raop_device *rd;
+
+  for (rd = dev_list; rd; rd = rd->next)
+    {
+      if (rd->id == id)
+	return rd;
+    }
+
+  rd = (struct raop_device *)malloc(sizeof(struct raop_device));
+  if (!rd)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirTunes device\n");
+
+      return NULL;
+    }
+
+  memset(rd, 0, sizeof(struct raop_device));
+
+  rd->id = id;
+
+  rd->next = dev_list;
+  dev_list = rd;
+
+  return rd;
+}
+
+/* Thread: main (mdns) */
 static void
 raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
@@ -3083,58 +3114,17 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   pthread_mutex_lock(&dev_lck);
 
-  for (rd = dev_list; rd; rd = rd->next)
+  rd = raop_device_find_or_new(id);
+  if (!rd)
     {
-      if (rd->id == id)
-	break;
+      pthread_mutex_unlock(&dev_lck);
+      return;
     }
 
-  if (rd)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Updating AirTunes device %s, already in list\n", name);
-
-      free(rd->name);
-
-      switch (family)
-	{
-	  case AF_INET:
-	    if (rd->v4_address)
-	      {
-		free(rd->v4_address);
-		rd->v4_address = NULL;
-	      }
-	    break;
-
-	  case AF_INET6:
-	    if (rd->v6_address)
-	      {
-		free(rd->v6_address);
-		rd->v6_address = NULL;
-	      }
-	    break;
-	}
-    }
+  if (rd->name)
+    DPRINTF(E_DBG, L_PLAYER, "Updating AirTunes device %s, already in list\n", name);
   else
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s)\n", name, (password) ? "yes" : "no");
-
-      rd = (struct raop_device *)malloc(sizeof(struct raop_device));
-      if (!rd)
-	{
-	  pthread_mutex_unlock(&dev_lck);
-
-	  DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirTunes device\n");
-
-	  return;
-	}
-
-      memset(rd, 0, sizeof(struct raop_device));
-
-      rd->id = id;
-
-      rd->next = dev_list;
-      dev_list = rd;
-    }
+    DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s)\n", name, (password) ? "yes" : "no");
 
   rd->advertised = 1;
   rd->selected = last_active;
@@ -3142,16 +3132,24 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   switch (family)
     {
       case AF_INET:
+	if (rd->v4_address)
+	  free(rd->v4_address);
+
 	rd->v4_address = strdup(address);
 	rd->v4_port = port;
 	break;
 
       case AF_INET6:
+	if (rd->v6_address)
+	  free(rd->v6_address);
+
 	rd->v6_address = strdup(address);
 	rd->v6_port = port;
 	break;
     }
 
+  if (rd->name)
+    free(rd->name);
   rd->name = strdup(at_name);
 
   rd->encrypt = encrypt;
