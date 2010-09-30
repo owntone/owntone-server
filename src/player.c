@@ -2916,22 +2916,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   DPRINTF(E_DBG, L_PLAYER, "Found AirTunes device %" PRIx64 "/%s (%d)\n", id, at_name, port);
 
-  /* Check if the device was selected last time */
-  if (time(NULL) < dev_deadline)
-    {
-      player_get_status(&status);
-
-      if (status.status != PLAY_STOPPED)
-	last_active = 0;
-      else
-	{
-	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, id);
-	  last_active = (ret == 1);
-	}
-    }
-  else
-    last_active = 0;
-
   if (port < 0)
     {
       /* Device stopped advertising */
@@ -3071,6 +3055,22 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	encrypt = 0;
 
     no_am:
+      /* Check if the device was selected last time */
+      if (time(NULL) < dev_deadline)
+	{
+	  player_get_status(&status);
+
+	  if (status.status != PLAY_STOPPED)
+	    last_active = 0;
+	  else
+	    {
+	      ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, id);
+	      last_active = (ret == 1);
+	    }
+	}
+      else
+	last_active = 0;
+
       pthread_mutex_lock(&dev_lck);
 
       for (rd = dev_list; rd; rd = rd->next)
