@@ -2879,13 +2879,75 @@ player_set_update_handler(player_status_handler handler)
   command_deinit(&cmd);
 }
 
+
+/* RAOP devices discovery - mDNS callback & helpers */
+/* Thread: main (mdns) */
+/* Call with dev_lck held */
+static void
+raop_device_remove_family(const char *name, uint64_t id, int family)
+{
+  struct raop_device *rd;
+  struct raop_device *prev;
+
+  prev = NULL;
+  for (rd = dev_list; rd; rd = rd->next)
+    {
+      if (rd->id == id)
+        break;
+
+      prev = rd;
+    }
+
+  if (!rd)
+    {
+      DPRINTF(E_WARN, L_PLAYER, "AirTunes device %s stopped advertising, but not in our list\n", name);
+
+      return;
+    }
+
+  switch (family)
+    {
+      case AF_INET:
+	if (rd->v4_address)
+	  {
+	    free(rd->v4_address);
+	    rd->v4_address = NULL;
+	  }
+	break;
+
+      case AF_INET6:
+	if (rd->v6_address)
+	  {
+	    free(rd->v6_address);
+	    rd->v6_address = NULL;
+	  }
+	break;
+    }
+
+  if (!rd->v4_address && !rd->v6_address)
+    {
+      rd->advertised = 0;
+
+      if (!rd->session)
+        {
+          if (!prev)
+            dev_list = rd->next;
+          else
+            prev->next = rd->next;
+
+          device_free(rd);
+
+          DPRINTF(E_DBG, L_PLAYER, "Removed AirTunes device %s; stopped advertising\n", name);
+        }
+    }
+}
+
 /* Thread: main (mdns) */
 static void
 raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
   struct player_status status;
   struct raop_device *rd;
-  struct raop_device *prev;
   cfg_t *apex;
   const char *p;
   char *at_name;
@@ -2921,59 +2983,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       /* Device stopped advertising */
       pthread_mutex_lock(&dev_lck);
 
-      prev = NULL;
-      for (rd = dev_list; rd; rd = rd->next)
-	{
-	  if (rd->id == id)
-	    break;
-
-	  prev = rd;
-	}
-
-      if (!rd)
-	{
-	  pthread_mutex_unlock(&dev_lck);
-
-	  DPRINTF(E_WARN, L_PLAYER, "AirTunes device %s stopped advertising, but not in our list\n", name);
-
-	  return;
-	}
-
-      switch (family)
-	{
-	  case AF_INET:
-	    if (rd->v4_address)
-	      {
-		free(rd->v4_address);
-		rd->v4_address = NULL;
-	      }
-	    break;
-
-	  case AF_INET6:
-	    if (rd->v6_address)
-	      {
-		free(rd->v6_address);
-		rd->v6_address = NULL;
-	      }
-	    break;
-	}
-
-      if (!rd->v4_address && !rd->v6_address)
-	{
-	  rd->advertised = 0;
-
-	  if (!rd->session)
-	    {
-	      if (!prev)
-		dev_list = rd->next;
-	      else
-		prev->next = rd->next;
-
-	      device_free(rd);
-
-	      DPRINTF(E_DBG, L_PLAYER, "Removed AirTunes device %s; stopped advertising\n", name);
-	    }
-	}
+      raop_device_remove_family(name, id, family);
 
       pthread_mutex_unlock(&dev_lck);
     }
