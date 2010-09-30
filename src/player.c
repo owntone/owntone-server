@@ -2986,182 +2986,181 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       raop_device_remove_family(name, id, family);
 
       pthread_mutex_unlock(&dev_lck);
+      return;
+    }
+
+  p = keyval_get(txt, "tp");
+  if (!p)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no tp field in TXT record!\n", name);
+
+      return;
+    }
+
+  if (*p == '\0')
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: tp has no value\n", name);
+
+      return;
+    }
+
+  if (!strstr(p, "UDP"))
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, p);
+
+      return;
+    }
+
+  password = NULL;
+  p = keyval_get(txt, "pw");
+  if (!p)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no pw field in TXT record!\n", name);
+
+      return;
+    }
+
+  if (*p == '\0')
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: pw has no value\n", name);
+
+      return;
+    }
+
+  has_password = (strcmp(p, "false") != 0);
+
+  if (has_password)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes device %s is password-protected\n", name);
+
+      apex = cfg_gettsec(cfg, "apex", at_name);
+      if (apex)
+	password = cfg_getstr(apex, "password");
+
+      if (!password)
+	DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirTunes device %s\n", name);
+    }
+
+  encrypt = 1;
+  auth_quirk_itunes = 0;
+  p = keyval_get(txt, "am");
+  if (!p)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no am field in TXT record!\n", name);
+
+      /* Old AirPort Express */
+      auth_quirk_itunes = 1;
+
+      goto no_am;
+    }
+
+  if (*p == '\0')
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: am has no value\n", name);
+
+      goto no_am;
+    }
+
+  if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
+    encrypt = 0;
+
+ no_am:
+  /* Check if the device was selected last time */
+  if (time(NULL) < dev_deadline)
+    {
+      player_get_status(&status);
+
+      if (status.status != PLAY_STOPPED)
+	last_active = 0;
+      else
+	{
+	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, id);
+	  last_active = (ret == 1);
+	}
     }
   else
+    last_active = 0;
+
+  pthread_mutex_lock(&dev_lck);
+
+  for (rd = dev_list; rd; rd = rd->next)
     {
-      p = keyval_get(txt, "tp");
-      if (!p)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no tp field in TXT record!\n", name);
+      if (rd->id == id)
+	break;
+    }
 
-	  return;
-	}
+  if (rd)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Updating AirTunes device %s, already in list\n", name);
 
-      if (*p == '\0')
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: tp has no value\n", name);
-
-	  return;
-	}
-
-      if (!strstr(p, "UDP"))
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, p);
-
-	  return;
-	}
-
-      password = NULL;
-      p = keyval_get(txt, "pw");
-      if (!p)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no pw field in TXT record!\n", name);
-
-	  return;
-	}
-
-      if (*p == '\0')
-        {
-          DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: pw has no value\n", name);
-
-          return;
-        }
-
-      has_password = (strcmp(p, "false") != 0);
-
-      if (has_password)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "AirTunes device %s is password-protected\n", name);
-
-	  apex = cfg_gettsec(cfg, "apex", at_name);
-	  if (apex)
-	    password = cfg_getstr(apex, "password");
-
-	  if (!password)
-	    DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirTunes device %s\n", name);
-	}
-
-      encrypt = 1;
-      auth_quirk_itunes = 0;
-      p = keyval_get(txt, "am");
-      if (!p)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no am field in TXT record!\n", name);
-
-	  /* Old AirPort Express */
-	  auth_quirk_itunes = 1;
-
-	  goto no_am;
-	}
-
-      if (*p == '\0')
-        {
-          DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: am has no value\n", name);
-
-          goto no_am;
-        }
-
-      if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
-	encrypt = 0;
-
-    no_am:
-      /* Check if the device was selected last time */
-      if (time(NULL) < dev_deadline)
-	{
-	  player_get_status(&status);
-
-	  if (status.status != PLAY_STOPPED)
-	    last_active = 0;
-	  else
-	    {
-	      ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, id);
-	      last_active = (ret == 1);
-	    }
-	}
-      else
-	last_active = 0;
-
-      pthread_mutex_lock(&dev_lck);
-
-      for (rd = dev_list; rd; rd = rd->next)
-	{
-	  if (rd->id == id)
-	    break;
-	}
-
-      if (rd)
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "Updating AirTunes device %s, already in list\n", name);
-
-	  free(rd->name);
-
-	  switch (family)
-	    {
-	      case AF_INET:
-		if (rd->v4_address)
-		  {
-		    free(rd->v4_address);
-		    rd->v4_address = NULL;
-		  }
-		break;
-
-	      case AF_INET6:
-		if (rd->v6_address)
-		  {
-		    free(rd->v6_address);
-		    rd->v6_address = NULL;
-		  }
-		break;
-	    }
-	}
-      else
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s)\n", name, (password) ? "yes" : "no");
-
-	  rd = (struct raop_device *)malloc(sizeof(struct raop_device));
-	  if (!rd)
-	    {
-	      pthread_mutex_unlock(&dev_lck);
-
-	      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirTunes device\n");
-
-	      return;
-	    }
-
-	  memset(rd, 0, sizeof(struct raop_device));
-
-	  rd->id = id;
-
-	  rd->next = dev_list;
-	  dev_list = rd;
-	}
-
-      rd->advertised = 1;
-      rd->selected = last_active;
+      free(rd->name);
 
       switch (family)
 	{
 	  case AF_INET:
-	    rd->v4_address = strdup(address);
-	    rd->v4_port = port;
+	    if (rd->v4_address)
+	      {
+		free(rd->v4_address);
+		rd->v4_address = NULL;
+	      }
 	    break;
 
 	  case AF_INET6:
-	    rd->v6_address = strdup(address);
-	    rd->v6_port = port;
+	    if (rd->v6_address)
+	      {
+		free(rd->v6_address);
+		rd->v6_address = NULL;
+	      }
 	    break;
 	}
-
-      rd->name = strdup(at_name);
-
-      rd->encrypt = encrypt;
-      rd->auth_quirk_itunes = auth_quirk_itunes;
-
-      rd->has_password = has_password;
-      rd->password = password;
-
-      pthread_mutex_unlock(&dev_lck);
     }
+  else
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s)\n", name, (password) ? "yes" : "no");
+
+      rd = (struct raop_device *)malloc(sizeof(struct raop_device));
+      if (!rd)
+	{
+	  pthread_mutex_unlock(&dev_lck);
+
+	  DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirTunes device\n");
+
+	  return;
+	}
+
+      memset(rd, 0, sizeof(struct raop_device));
+
+      rd->id = id;
+
+      rd->next = dev_list;
+      dev_list = rd;
+    }
+
+  rd->advertised = 1;
+  rd->selected = last_active;
+
+  switch (family)
+    {
+      case AF_INET:
+	rd->v4_address = strdup(address);
+	rd->v4_port = port;
+	break;
+
+      case AF_INET6:
+	rd->v6_address = strdup(address);
+	rd->v6_port = port;
+	break;
+    }
+
+  rd->name = strdup(at_name);
+
+  rd->encrypt = encrypt;
+  rd->auth_quirk_itunes = auth_quirk_itunes;
+
+  rd->has_password = has_password;
+  rd->password = password;
+
+  pthread_mutex_unlock(&dev_lck);
 }
 
 /* Thread: player */
