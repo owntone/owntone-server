@@ -981,12 +981,20 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
     "a=rsaaeskey:%s\r\n"						\
     "a=aesiv:%s\r\n"
 
+  char *p;
   int ret;
+
+  p = strchr(rs->address, '%');
+  if (p)
+    *p = '\0';
 
   /* Add SDP payload */
   ret = evbuffer_add_printf(req->output_buffer, SDP_PLD_FMT,
 			    session_id, address, rs->address, AIRTUNES_V2_PACKET_SAMPLES,
 			    raop_aes_key_b64, raop_aes_iv_b64);
+
+  if (p)
+    *p = '%';
 
   if (ret < 0)
     {
