@@ -1430,6 +1430,63 @@ raop_session_cleanup(struct raop_session *rs)
   raop_session_free(rs);
 }
 
+static void
+raop_session_failure(struct raop_session *rs)
+{
+  /* Session failed, let our user know */
+  if (rs->state != RAOP_PASSWORD)
+    rs->state = RAOP_FAILED;
+  rs->status_cb(rs->dev, rs, rs->state);
+
+  raop_session_cleanup(rs);
+}
+
+static void
+raop_deferred_eh_cb(int fd, short what, void *arg)
+{
+  struct raop_deferred_eh *deh;
+  struct raop_session *rs;
+
+  deh = (struct raop_deferred_eh *)arg;
+
+  rs = deh->session;
+
+  free(deh);
+
+  DPRINTF(E_DBG, L_RAOP, "Cleaning up failed session (deferred) on device %s\n", rs->devname);
+
+  raop_session_failure(rs);
+}
+
+static void
+raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
+{
+  struct timeval tv;
+  struct raop_deferred_eh *deh;
+  struct raop_session *rs;
+
+  rs = (struct raop_session *)arg;
+
+  DPRINTF(E_LOG, L_RAOP, "ApEx %s closed RTSP connection\n", rs->devname);
+
+  rs->state = RAOP_FAILED;
+
+  deh = (struct raop_deferred_eh *)malloc(sizeof(struct raop_deferred_eh));
+  if (!deh)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for deferred error handling!\n");
+
+      return;
+    }
+
+  deh->session = rs;
+
+  evtimer_set(&deh->ev, raop_deferred_eh_cb, deh);
+  event_base_set(evbase_player, &deh->ev);
+  evutil_timerclear(&tv);
+  evtimer_add(&deh->ev, &tv);
+}
+
 static struct raop_session *
 raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 {
@@ -1560,17 +1617,6 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 }
 
 static void
-raop_session_failure(struct raop_session *rs)
-{
-  /* Session failed, let our user know */
-  if (rs->state != RAOP_PASSWORD)
-    rs->state = RAOP_FAILED;
-  rs->status_cb(rs->dev, rs, rs->state);
-
-  raop_session_cleanup(rs);
-}
-
-static void
 raop_session_failure_cb(struct evrtsp_request *req, void *arg)
 {
   struct raop_session *rs;
@@ -1578,52 +1624,6 @@ raop_session_failure_cb(struct evrtsp_request *req, void *arg)
   rs = (struct raop_session *)arg;
 
   raop_session_failure(rs);
-}
-
-static void
-raop_deferred_eh_cb(int fd, short what, void *arg)
-{
-  struct raop_deferred_eh *deh;
-  struct raop_session *rs;
-
-  deh = (struct raop_deferred_eh *)arg;
-
-  rs = deh->session;
-
-  free(deh);
-
-  DPRINTF(E_DBG, L_RAOP, "Cleaning up failed session (deferred) on device %s\n", rs->devname);
-
-  raop_session_failure(rs);
-}
-
-static void
-raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
-{
-  struct timeval tv;
-  struct raop_deferred_eh *deh;
-  struct raop_session *rs;
-
-  rs = (struct raop_session *)arg;
-
-  DPRINTF(E_LOG, L_RAOP, "ApEx %s closed RTSP connection\n", rs->devname);
-
-  rs->state = RAOP_FAILED;
-
-  deh = (struct raop_deferred_eh *)malloc(sizeof(struct raop_deferred_eh));
-  if (!deh)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for deferred error handling!\n");
-
-      return;
-    }
-
-  deh->session = rs;
-
-  evtimer_set(&deh->ev, raop_deferred_eh_cb, deh);
-  event_base_set(evbase_player, &deh->ev);
-  evutil_timerclear(&tv);
-  evtimer_add(&deh->ev, &tv);
 }
 
 
