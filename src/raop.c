@@ -193,6 +193,7 @@ static struct raop_service control_6svc;
 static int sync_counter;
 
 /* AirTunes v2 audio stream */
+static uint32_t ssrc_id;
 static uint16_t stream_seq;
 
 /* Volume */
@@ -2352,7 +2353,11 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
   memcpy(pkt->clear + 2, &seq, 2);
   memcpy(pkt->clear + 4, &rtptime32, 4);
 
-  /* 4 bytes unknown */
+  /* RTP SSRC ID
+   * Note: should htobe32() that value, but it's just a
+   * random/unique ID so it's no big deal
+   */
+  memcpy(pkt->clear + 8, &ssrc_id, 4);
 
   /* Copy AirTunes v2 header to encrypted packet */
   memcpy(pkt->encrypted, pkt->clear, AIRTUNES_V2_HDR_LEN);
@@ -3112,6 +3117,7 @@ raop_init(void)
 {
   char ebuf[64];
   char *ptr;
+  char *libname;
   gpg_error_t gc_err;
   int ret;
 
@@ -3128,6 +3134,10 @@ raop_init(void)
   control_6svc.port = 0;
 
   sessions = NULL;
+
+  /* Generate RTP SSRC ID from library name */
+  libname = cfg_getstr(cfg_getsec(cfg, "library"), "name");
+  ssrc_id = djb_hash(libname, strlen(libname));
 
   /* Random RTP sequence start */
   gcry_randomize(&stream_seq, sizeof(stream_seq), GCRY_STRONG_RANDOM);
