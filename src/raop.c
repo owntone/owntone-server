@@ -2204,6 +2204,111 @@ raop_v2_control_send_sync(uint64_t next_pkt, struct timespec *init)
     }
 }
 
+static void
+raop_v2_control_cb(int fd, short what, void *arg)
+{
+  char address[INET6_ADDRSTRLEN];
+  union sockaddr_all sa;
+  uint8_t req[8];
+  struct raop_session *rs;
+  struct raop_service *svc;
+  uint16_t seq_start;
+  uint16_t seq_len;
+  int len;
+  int ret;
+
+  svc = (struct raop_service *)arg;
+
+  len = sizeof(sa.ss);
+  ret = recvfrom(svc->fd, req, sizeof(req), 0, &sa.sa, (socklen_t *)&len);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Error reading control request: %s\n", strerror(errno));
+
+      goto readd;
+    }
+
+  if (ret != 8)
+    {
+      DPRINTF(E_DBG, L_RAOP, "Got control request with size %d\n", ret);
+
+      goto readd;
+    }
+
+  switch (sa.ss.ss_family)
+    {
+      case AF_INET:
+	if (svc != &control_4svc)
+	  goto readd;
+
+	for (rs = sessions; rs; rs = rs->next)
+	  {
+	    if ((rs->sa.ss.ss_family == AF_INET)
+		&& (sa.sin.sin_addr.s_addr == rs->sa.sin.sin_addr.s_addr))
+	      break;
+	  }
+
+	if (!rs)
+	  ret = (inet_ntop(AF_INET, &sa.sin.sin_addr.s_addr, address, sizeof(address)) != NULL);
+
+	break;
+
+      case AF_INET6:
+	if (svc != &control_6svc)
+	  goto readd;
+
+	for (rs = sessions; rs; rs = rs->next)
+	  {
+	    if ((rs->sa.ss.ss_family == AF_INET6)
+		&& IN6_ARE_ADDR_EQUAL(sa.sin6.sin6_addr.s6_addr32, rs->sa.sin6.sin6_addr.s6_addr32))
+	      break;
+	  }
+
+	if (!rs)
+	  ret = (inet_ntop(AF_INET6, &sa.sin6.sin6_addr.s6_addr, address, sizeof(address)) != NULL);
+
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_RAOP, "Control svc: Unknown address family %d\n", sa.ss.ss_family);
+	goto readd;
+    }
+
+  if (!rs)
+    {
+      if (!ret)
+	DPRINTF(E_LOG, L_RAOP, "Control request from [error: %s]; not a RAOP client\n", strerror(errno));
+      else
+	DPRINTF(E_LOG, L_RAOP, "Control request from %s; not a RAOP client\n", address);
+
+      goto readd;
+    }
+
+  if ((req[0] != 0x80) || (req[1] != 0xd5))
+    {
+      DPRINTF(E_LOG, L_RAOP, "Packet header doesn't match retransmit request\n");
+
+      goto readd;
+    }
+
+  memcpy(&seq_start, req + 4, 2);
+  memcpy(&seq_len, req + 6, 2);
+
+  seq_start = be16toh(seq_start);
+  seq_len = be16toh(seq_len);
+
+  DPRINTF(E_DBG, L_RAOP, "Got retransmit request, seq_start %u len %u\n", seq_start, seq_len);
+
+ readd:
+  ret = event_add(&svc->ev, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Couldn't re-add event for control requests\n");
+
+      return;
+    }
+}
+
 static int
 raop_v2_control_start_one(struct raop_service *svc, int family)
 {
@@ -2283,6 +2388,16 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
 	break;
     }
 
+  event_set(&svc->ev, svc->fd, EV_READ, raop_v2_control_cb, svc);
+  event_base_set(evbase_player, &svc->ev);
+  ret = event_add(&svc->ev, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Couldn't add event for control requests\n");
+
+      goto out_fail;
+    }
+
   return 0;
 
  out_fail:
@@ -2296,6 +2411,12 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
 static void
 raop_v2_control_stop(void)
 {
+  if (event_initialized(&control_4svc.ev))
+    event_del(&control_4svc.ev);
+
+  if (event_initialized(&control_6svc.ev))
+    event_del(&control_6svc.ev);
+
   close(control_4svc.fd);
 
   control_4svc.fd = -1;
