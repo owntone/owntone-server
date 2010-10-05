@@ -71,12 +71,18 @@
 #define AIRTUNES_V2_PKT_LEN        (AIRTUNES_V2_HDR_LEN + ALAC_HDR_LEN + STOB(AIRTUNES_V2_PACKET_SAMPLES))
 #define AIRTUNES_V2_PKT_TAIL_LEN   (AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_HDR_LEN - ((AIRTUNES_V2_PKT_LEN / 16) * 16))
 #define AIRTUNES_V2_PKT_TAIL_OFF   (AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_PKT_TAIL_LEN)
+#define RETRANSMIT_BUFFER_SIZE     1000
 
 
 struct raop_v2_packet
 {
   uint8_t clear[AIRTUNES_V2_PKT_LEN];
   uint8_t encrypted[AIRTUNES_V2_PKT_LEN];
+
+  uint16_t seqnum;
+
+  struct raop_v2_packet *prev;
+  struct raop_v2_packet *next;
 };
 
 struct raop_session
@@ -195,6 +201,11 @@ static int sync_counter;
 /* AirTunes v2 audio stream */
 static uint32_t ssrc_id;
 static uint16_t stream_seq;
+
+/* Retransmit packet buffer */
+static int pktbuf_size;
+static struct raop_v2_packet *pktbuf_head;
+static struct raop_v2_packet *pktbuf_tail;
 
 /* Volume */
 static double raop_volume;
@@ -1414,6 +1425,7 @@ static void
 raop_session_cleanup(struct raop_session *rs)
 {
   struct raop_session *s;
+  struct raop_v2_packet *pkt;
 
   if (rs == sessions)
     sessions = sessions->next;
@@ -1429,6 +1441,17 @@ raop_session_cleanup(struct raop_session *rs)
     }
 
   raop_session_free(rs);
+
+  /* No more active sessions, free retransmit buffer */
+  if (!sessions)
+    {
+      for (pkt = pktbuf_head; pkt; pkt = pkt->next)
+	free(pkt);
+
+      pktbuf_head = NULL;
+      pktbuf_tail = NULL;
+      pktbuf_size = 0;
+    }
 }
 
 static void
@@ -2451,13 +2474,46 @@ raop_v2_control_start(void)
 
 
 /* AirTunes v2 streaming */
-static int
-raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptime)
+static struct raop_v2_packet *
+raop_v2_new_packet(void)
+{
+  struct raop_v2_packet *pkt;
+
+  if (pktbuf_size >= RETRANSMIT_BUFFER_SIZE)
+    {
+      pktbuf_size--;
+
+      pkt = pktbuf_tail;
+
+      pktbuf_tail = pktbuf_tail->prev;
+      pktbuf_tail->next = NULL;
+    }
+  else
+    {
+      pkt = (struct raop_v2_packet *)malloc(sizeof(struct raop_v2_packet));
+      if (!pkt)
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Out of memory for RAOP packet\n");
+
+	  return NULL;
+	}
+    }
+
+  return pkt;
+}
+
+static struct raop_v2_packet *
+raop_v2_make_packet(uint8_t *rawbuf, uint64_t rtptime)
 {
   char ebuf[64];
+  struct raop_v2_packet *pkt;
   gpg_error_t gc_err;
   uint32_t rtptime32;
   uint16_t seq;
+
+  pkt = raop_v2_new_packet();
+  if (!pkt)
+    return NULL;
 
   memset(pkt, 0, sizeof(struct raop_v2_packet));
 
@@ -2465,7 +2521,9 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
 
   stream_seq++;
 
-  seq = htobe16(stream_seq);
+  pkt->seqnum = stream_seq;
+
+  seq = htobe16(pkt->seqnum);
   rtptime32 = htobe32(RAOP_RTPTIME(rtptime));
 
   pkt->clear[0] = 0x80;
@@ -2495,7 +2553,8 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
       gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
       DPRINTF(E_LOG, L_RAOP, "Could not reset AES cipher: %s\n", ebuf);
 
-      return -1;
+      free(pkt);
+      return NULL;
     }
 
   /* Set IV */
@@ -2505,7 +2564,8 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
       gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
       DPRINTF(E_LOG, L_RAOP, "Could not set AES IV: %s\n", ebuf);
 
-      return -1;
+      free(pkt);
+      return NULL;
     }
 
   /* Encrypt in blocks of 16 bytes */
@@ -2517,10 +2577,24 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
       gpg_strerror_r(gc_err, ebuf, sizeof(ebuf));
       DPRINTF(E_LOG, L_RAOP, "Could not encrypt payload: %s\n", ebuf);
 
-      return -1;
+      free(pkt);
+      return NULL;
     }
 
-  return 0;
+  pkt->prev = NULL;
+  pkt->next = pktbuf_head;
+
+  if (pktbuf_head)
+    pktbuf_head->prev = pkt;
+
+  if (!pktbuf_tail)
+    pktbuf_tail = pkt;
+
+  pktbuf_head = pkt;
+
+  pktbuf_size++;
+
+  return pkt;
 }
 
 static int
@@ -2551,12 +2625,11 @@ raop_v2_send_packet(struct raop_session *rs, struct raop_v2_packet *pkt)
 void
 raop_v2_write(uint8_t *buf, uint64_t rtptime)
 {
-  struct raop_v2_packet pkt;
+  struct raop_v2_packet *pkt;
   struct raop_session *rs;
-  int ret;
 
-  ret = raop_v2_make_packet(&pkt, buf, rtptime);
-  if (ret < 0)
+  pkt = raop_v2_make_packet(buf, rtptime);
+  if (!pkt)
     {
       raop_playback_stop();
 
@@ -2577,7 +2650,7 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
       if (rs->state != RAOP_STREAMING)
 	continue;
 
-      raop_v2_send_packet(rs, &pkt);
+      raop_v2_send_packet(rs, pkt);
     }
 
   return;
@@ -3269,6 +3342,10 @@ raop_init(void)
   control_6svc.port = 0;
 
   sessions = NULL;
+
+  pktbuf_size = 0;
+  pktbuf_head = NULL;
+  pktbuf_tail = NULL;
 
   /* Generate RTP SSRC ID from library name */
   libname = cfg_getstr(cfg_getsec(cfg, "library"), "name");
