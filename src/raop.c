@@ -2523,12 +2523,36 @@ raop_v2_make_packet(struct raop_v2_packet *pkt, uint8_t *rawbuf, uint64_t rtptim
   return 0;
 }
 
+static int
+raop_v2_send_packet(struct raop_session *rs, struct raop_v2_packet *pkt)
+{
+  uint8_t *data;
+  int ret;
+
+  data = (rs->encrypt) ? pkt->encrypted : pkt->clear;
+
+  ret = send(rs->server_fd, data, AIRTUNES_V2_PKT_LEN, 0);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Send error for %s: %s\n", rs->devname, strerror(errno));
+
+      raop_session_failure(rs);
+      return -1;
+    }
+  else if (ret != AIRTUNES_V2_PKT_LEN)
+    {
+      DPRINTF(E_WARN, L_RAOP, "Partial send (%d) for %s\n", ret, rs->devname);
+      return -1;
+    }
+
+  return 0;
+}
+
 void
 raop_v2_write(uint8_t *buf, uint64_t rtptime)
 {
   struct raop_v2_packet pkt;
   struct raop_session *rs;
-  uint8_t *data;
   int ret;
 
   ret = raop_v2_make_packet(&pkt, buf, rtptime);
@@ -2553,17 +2577,7 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
       if (rs->state != RAOP_STREAMING)
 	continue;
 
-      data = (rs->encrypt) ? pkt.encrypted : pkt.clear;
-
-      ret = send(rs->server_fd, data, AIRTUNES_V2_PKT_LEN, 0);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_RAOP, "Send error for %s: %s\n", rs->devname, strerror(errno));
-
-	  raop_session_failure(rs);
-	}
-      else if (ret != AIRTUNES_V2_PKT_LEN)
-	DPRINTF(E_WARN, L_RAOP, "Partial send (%d) for %s\n", ret, rs->devname);
+      raop_v2_send_packet(rs, &pkt);
     }
 
   return;
