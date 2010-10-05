@@ -2227,6 +2227,10 @@ raop_v2_control_send_sync(uint64_t next_pkt, struct timespec *init)
     }
 }
 
+/* Forward */
+static void
+raop_v2_resend_range(struct raop_session *rs, uint16_t seqnum, uint16_t len);
+
 static void
 raop_v2_control_cb(int fd, short what, void *arg)
 {
@@ -2321,6 +2325,8 @@ raop_v2_control_cb(int fd, short what, void *arg)
   seq_len = be16toh(seq_len);
 
   DPRINTF(E_DBG, L_RAOP, "Got retransmit request, seq_start %u len %u\n", seq_start, seq_len);
+
+  raop_v2_resend_range(rs, seq_start, seq_len);
 
  readd:
   ret = event_add(&svc->ev, NULL);
@@ -2654,6 +2660,68 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
     }
 
   return;
+}
+
+static void
+raop_v2_resend_range(struct raop_session *rs, uint16_t seqnum, uint16_t len)
+{
+  struct raop_v2_packet *pktbuf;
+  int ret;
+  uint16_t distance;
+
+  /* Check that seqnum is in the retransmit buffer */
+  if ((seqnum > pktbuf_head->seqnum) && (seqnum < pktbuf_tail->seqnum))
+    {
+      DPRINTF(E_LOG, L_RAOP, "RAOP device %s asking for seqnum %u; not in buffer (h %u t %u)\n", rs->devname, seqnum, pktbuf_head->seqnum, pktbuf_tail->seqnum);
+      return;
+    }
+
+  if (seqnum > pktbuf_head->seqnum)
+    {
+      distance = seqnum - pktbuf_tail->seqnum;
+
+      if (distance > (RETRANSMIT_BUFFER_SIZE / 2))
+	pktbuf = pktbuf_head;
+      else
+	pktbuf = pktbuf_tail;
+    }
+  else
+    {
+      distance = pktbuf_head->seqnum - seqnum;
+
+      if (distance > (RETRANSMIT_BUFFER_SIZE / 2))
+	pktbuf = pktbuf_tail;
+      else
+	pktbuf = pktbuf_head;
+    }
+
+  if (pktbuf == pktbuf_head)
+    {
+      while (seqnum != pktbuf->seqnum)
+	pktbuf = pktbuf->next;
+    }
+  else
+    {
+      while (seqnum != pktbuf->seqnum)
+	pktbuf = pktbuf->prev;
+    }
+
+  while (len && pktbuf)
+    {
+      ret = raop_v2_send_packet(rs, pktbuf);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Error retransmit packet, aborting retransmission\n");
+
+	  return;
+	}
+
+      pktbuf = pktbuf->prev;
+      len--;
+    }
+
+  if (len != 0)
+    DPRINTF(E_LOG, L_RAOP, "WARNING: len non-zero at end of retransmission\n");
 }
 
 static int
