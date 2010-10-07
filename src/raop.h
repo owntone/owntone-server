@@ -16,6 +16,12 @@ union sockaddr_all
   struct sockaddr_storage ss;
 };
 
+enum raop_devtype {
+  RAOP_DEV_APEX_80211G,
+  RAOP_DEV_APEX_80211N,
+  RAOP_DEV_APPLETV,
+};
+
 struct raop_session;
 
 struct raop_device
@@ -28,10 +34,10 @@ struct raop_device
   short v4_port;
   short v6_port;
 
+  enum raop_devtype devtype;
+
   unsigned selected:1;
   unsigned advertised:1;
-  unsigned encrypt:1;
-  unsigned auth_quirk_itunes:1;
 
   unsigned has_password:1;
   const char *password;

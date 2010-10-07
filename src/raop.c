@@ -1559,10 +1559,25 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   rs->status_cb = cb;
   rs->server_fd = -1;
 
-  rs->encrypt = rd->encrypt;
-  rs->auth_quirk_itunes = rd->auth_quirk_itunes;
-
   rs->password = rd->password;
+
+  switch (rd->devtype)
+    {
+      case RAOP_DEV_APEX_80211G:
+	rs->encrypt = 1;
+	rs->auth_quirk_itunes = 1;
+	break;
+
+      case RAOP_DEV_APEX_80211N:
+	rs->encrypt = 1;
+	rs->auth_quirk_itunes = 0;
+	break;
+
+      case RAOP_DEV_APPLETV:
+	rs->encrypt = 0;
+	rs->auth_quirk_itunes = 0;
+	break;
+    }
 
   rs->ctrl = evrtsp_connection_new(address, port);
   if (!rs->ctrl)

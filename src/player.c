@@ -123,6 +123,15 @@ struct player_source
 };
 
 
+/* Keep in sync with enum raop_devtype */
+static const char *raop_devtype[] =
+  {
+    "AirPort Express 802.11G",
+    "AirPort Express 802.11N",
+    "AppleTV",
+  };
+
+
 struct event_base *evbase_player;
 
 #ifdef USE_EVENTFD
@@ -2985,9 +2994,8 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   char *password;
   uint64_t id;
   char has_password;
-  char encrypt;
-  char auth_quirk_itunes;
   char last_active;
+  enum raop_devtype devtype;
   int ret;
 
   ret = safe_hextou64(name, &id);
@@ -3072,15 +3080,15 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirTunes device %s\n", name);
     }
 
-  encrypt = 1;
-  auth_quirk_itunes = 0;
+  devtype = RAOP_DEV_APEX_80211N;
+
   p = keyval_get(txt, "am");
   if (!p)
     {
       DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no am field in TXT record!\n", name);
 
       /* Old AirPort Express */
-      auth_quirk_itunes = 1;
+      devtype = RAOP_DEV_APEX_80211G;
 
       goto no_am;
     }
@@ -3093,7 +3101,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
 
   if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
-    encrypt = 0;
+    devtype = RAOP_DEV_APPLETV;
 
  no_am:
   /* Check if the device was selected last time */
@@ -3124,7 +3132,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   if (rd->name)
     DPRINTF(E_DBG, L_PLAYER, "Updating AirTunes device %s, already in list\n", name);
   else
-    DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s)\n", name, (password) ? "yes" : "no");
+    DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s, type %s)\n", name, (password) ? "yes" : "no", raop_devtype[devtype]);
 
   rd->advertised = 1;
   rd->selected = last_active;
@@ -3152,8 +3160,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     free(rd->name);
   rd->name = strdup(at_name);
 
-  rd->encrypt = encrypt;
-  rd->auth_quirk_itunes = auth_quirk_itunes;
+  rd->devtype = devtype;
 
   rd->has_password = has_password;
   rd->password = password;
