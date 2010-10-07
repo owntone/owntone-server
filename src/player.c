@@ -2690,6 +2690,8 @@ player_playback_next(void)
   struct player_command cmd;
   int ret;
 
+  command_init(&cmd);
+
   cmd.func = playback_pause;
   cmd.func_bh = playback_next_bh;
   cmd.arg.noarg = NULL;
