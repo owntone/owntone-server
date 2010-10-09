@@ -1161,23 +1161,16 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   char *name;
   char *passwd;
   const char *clientver;
-  int supports_update;
   int mpro;
   int apro;
   int len;
   int ret;
-
-  /* We don't support updates atm */
-  supports_update = 0;
 
   lib = cfg_getsec(cfg, "library");
   passwd = cfg_getstr(lib, "password");
   name = cfg_getstr(lib, "name");
 
   len = 157 + strlen(name);
-
-  if (!supports_update)
-    len -= 9;
 
   ret = evbuffer_expand(evbuf, len);
   if (ret < 0)
@@ -1225,8 +1218,8 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_char(evbuf, "mspi", 1);   /* 9 */
   dmap_add_int(evbuf, "msdc", 1);    /* 12 */
 
-  if (supports_update)
-    dmap_add_char(evbuf, "msup", 0); /* 9 */
+  /* Advertise updates support even though we don't send updates */
+  dmap_add_char(evbuf, "msup", 1);   /* 9 */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
