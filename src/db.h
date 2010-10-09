@@ -20,6 +20,7 @@ enum sort_type {
   S_NONE = 0,
   S_NAME,
   S_ALBUM,
+  S_ARTIST,
 };
 
 #define Q_F_BROWSE (1 << 15)

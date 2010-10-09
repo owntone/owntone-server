@@ -247,6 +247,7 @@ static const char *sort_clause[] =
     "",
     "ORDER BY title COLLATE DAAP ASC",
     "ORDER BY album COLLATE DAAP ASC, disc ASC, track ASC",
+    "ORDER BY artist COLLATE DAAP ASC",
   };
 
 static char *db_path;

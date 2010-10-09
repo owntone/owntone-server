@@ -1058,6 +1058,8 @@ get_query_params(struct evkeyvalq *query, int *sort_headers, struct query_params
 	qp->sort = S_NAME;
       else if (strcmp(param, "album") == 0)
 	qp->sort = S_ALBUM;
+      else if (strcmp(param, "artist") == 0)
+	qp->sort = S_ARTIST;
       else
 	DPRINTF(E_DBG, L_DAAP, "Unknown sort param: %s\n", param);
 
