@@ -85,7 +85,7 @@ artwork_read(char *filename, struct evbuffer *evbuf)
 }
 
 static int
-artwork_rescale(AVFormatContext *src_ctx, int s, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct evbuffer *evbuf)
 {
   uint8_t *buf;
   uint8_t *outbuf;
@@ -185,35 +185,8 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int max_w, int max_h, struct ev
   dst->time_base.num = 1;
   dst->time_base.den = 25;
 
-  /* Determine width/height */
-  if (src->width > src->height)
-    {
-      dst->width = max_w;
-      dst->height = (double)max_h * ((double)src->height / (double)src->width);
-    }
-  else if (src->height > src->width)
-    {
-      dst->height = max_h;
-      dst->width = (double)max_w * ((double)src->width / (double)src->height);
-    }
-  else
-    {
-      dst->width = max_w;
-      dst->height = max_h;
-    }
-
-  DPRINTF(E_DBG, L_ART, "Raw destination width %d height %d\n", dst->width, dst->height);
-
-  dst->width += dst->width % 2;
-  dst->height += dst->height % 2;
-
-  if (dst->width > max_w)
-    dst->width = max_w;
-
-  if (dst->height > max_h)
-    dst->height = max_h;
-
-  DPRINTF(E_DBG, L_ART, "Destination width %d height %d\n", dst->width, dst->height);
+  dst->width = out_w;
+  dst->height = out_h;
 
   ret = av_set_parameters(dst_ctx, NULL);
   if (ret < 0)
@@ -415,6 +388,9 @@ artwork_get(char *filename, int max_w, int max_h, struct evbuffer *evbuf)
   AVFormatContext *src_ctx;
   AVCodecContext *src;
   int s;
+  int target_w;
+  int target_h;
+  int need_rescale;
   int ret;
 
   ret = av_open_input_file(&src_ctx, filename, NULL, 0, NULL);
@@ -452,10 +428,49 @@ artwork_get(char *filename, int max_w, int max_h, struct evbuffer *evbuf)
 
   DPRINTF(E_DBG, L_ART, "PNG image '%s': w %d h %d\n", filename, src->width, src->height);
 
-  if ((src->width <= max_w) && (src->height <= max_h))  
+  need_rescale = 1;
+
+  /* Determine width/height -- assuming max_w == max_h */
+  if ((src->width <= max_w) && (src->height <= max_h))
+    {
+      need_rescale = 0;
+
+      target_w = src->width;
+      target_h = src->height;
+    }
+  else if (src->width > src->height)
+    {
+      target_w = max_w;
+      target_h = (double)max_h * ((double)src->height / (double)src->width);
+    }
+  else if (src->height > src->width)
+    {
+      target_h = max_h;
+      target_w = (double)max_w * ((double)src->width / (double)src->height);
+    }
+  else
+    {
+      target_w = max_w;
+      target_h = max_h;
+    }
+
+  DPRINTF(E_DBG, L_ART, "Raw destination width %d height %d\n", target_w, target_h);
+
+  if (target_h > max_h)
+    target_h = max_h;
+
+  /* PNG prefers even row count */
+  target_w += target_w % 2;
+
+  if (target_w > max_w)
+    target_w = max_w - (max_w % 2);
+
+  DPRINTF(E_DBG, L_ART, "Destination width %d height %d\n", target_w, target_h);
+
+  if (!need_rescale)
     ret = artwork_read(filename, evbuf);
   else
-    ret = artwork_rescale(src_ctx, s, max_w, max_h, evbuf);
+    ret = artwork_rescale(src_ctx, s, target_w, target_h, evbuf);
 
   av_close_input_file(src_ctx);
 
