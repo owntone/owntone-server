@@ -410,6 +410,8 @@ static int
 mixer_open(void)
 {
   snd_mixer_elem_t *elem;
+  snd_mixer_elem_t *master;
+  snd_mixer_elem_t *pcm;
   snd_mixer_selem_id_t *sid;
   int ret;
 
@@ -449,17 +451,25 @@ mixer_open(void)
   /* Grab interesting elements */
   snd_mixer_selem_id_alloca(&sid);
 
+  pcm = NULL;
+  master = NULL;
   for (elem = snd_mixer_first_elem(mixer_hdl); elem; elem = snd_mixer_elem_next(elem))
     {
       snd_mixer_selem_get_id(elem, sid);
 
       if (strcmp(snd_mixer_selem_id_get_name(sid), "PCM") == 0)
-        vol_elem = elem;
+        pcm = elem;
+      else if (strcmp(snd_mixer_selem_id_get_name(sid), "Master") == 0)
+	master = elem;
     }
 
-  if (!vol_elem)
+  if (pcm)
+    vol_elem = pcm;
+  else if (master)
+    vol_elem = master;
+  else
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Failed to open PCM mixer element\n");
+      DPRINTF(E_LOG, L_LAUDIO, "Failed to open PCM or Master mixer element\n");
 
       goto out_detach;
     }
