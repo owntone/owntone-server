@@ -42,7 +42,7 @@ SQLITE_EXTENSION_INIT1
 
 #if SIZEOF_VOID_P == 8 /* 64bit platforms */
 
-uint64_t
+static uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed)
 {
   const int r = 47;
@@ -100,7 +100,7 @@ murmur_hash64(const void *key, int len, uint32_t seed)
 
 #elif SIZEOF_VOID_P == 4 /* 32bit platforms */
 
-uint64_t
+static uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed)
 {
   const int r = 24;
