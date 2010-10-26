@@ -396,6 +396,8 @@ player_queue_make(struct query_params *qp, const char *sort)
 	qp->sort = S_NAME;
       else if (strcmp(sort, "album") == 0)
 	qp->sort = S_ALBUM;
+      else if (strcmp(sort, "artist") == 0)
+	qp->sort = S_ARTIST;
     }
 
   ret = db_query_start(qp);
