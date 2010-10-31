@@ -727,9 +727,24 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   const char *cuequery;
   const char *param;
   uint32_t id;
+  int clear;
   int ret;
 
   /* /cue?command=play&query=...&sort=...&index=N */
+
+  param = evhttp_find_header(query, "clear-first");
+  if (param)
+    {
+      ret = safe_atoi32(param, &clear);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_DACP, "Invalid clear-first value in cue request\n");
+      else if (clear)
+	{
+	  player_playback_stop();
+
+	  player_queue_clear();
+	}
+    }
 
   cuequery = evhttp_find_header(query, "query");
   if (cuequery)
