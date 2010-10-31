@@ -735,15 +735,22 @@ dacp_reply_ctrlint(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
   dmap_add_char(evbuf, "muty", 0);        /* 9 */
   dmap_add_int(evbuf, "mtco", 1);         /* 12 */
   dmap_add_int(evbuf, "mrco", 1);         /* 12 */
-  dmap_add_container(evbuf, "mlcl", 74);  /* 8 + len */
-  dmap_add_container(evbuf, "mlit", 66);  /* 8 + len */
+  dmap_add_container(evbuf, "mlcl", 125); /* 8 + len */
+  dmap_add_container(evbuf, "mlit", 117); /* 8 + len */
   dmap_add_int(evbuf, "miid", 1);         /* 12 */ /* Database ID */
   dmap_add_char(evbuf, "cmik", 1);        /* 9 */
+
+  dmap_add_int(evbuf, "cmpr", (2 << 16 | 1)); /* 12 */
+  dmap_add_int(evbuf, "capr", (2 << 16 | 2)); /* 12 */
+
   dmap_add_char(evbuf, "cmsp", 1);        /* 9 */
+  dmap_add_char(evbuf, "aeFR", 0x64);     /* 9 */
   dmap_add_char(evbuf, "cmsv", 1);        /* 9 */
   dmap_add_char(evbuf, "cass", 1);        /* 9 */
+  dmap_add_char(evbuf, "caov", 1);        /* 9 */
   dmap_add_char(evbuf, "casu", 1);        /* 9 */
   dmap_add_char(evbuf, "ceSG", 1);        /* 9 */
+  dmap_add_char(evbuf, "cmrl", 1);        /* 9 */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
