@@ -4086,6 +4086,184 @@ static const struct db_init_query db_upgrade_v10_queries[] =
     { U_V10_SCVER,     "set schema_version to 10" },
   };
 
+/* Upgrade from schema v10 to v11 */
+
+#define U_V11_SPEAKERS					\
+  "CREATE TABLE speakers("				\
+  "   id             INTEGER PRIMARY KEY NOT NULL,"	\
+  "   selected       INTEGER NOT NULL,"			\
+  "   volume         INTEGER NOT NULL"			\
+  ");"
+
+#define U_V11_SCVER					\
+  "UPDATE admin SET value = '11' WHERE key = 'schema_version';"
+
+static const struct db_init_query db_upgrade_v11_queries[] =
+  {
+    { U_V11_SPEAKERS,  "create new table speakers" },
+    { U_V11_SCVER,     "set schema_version to 11" },
+  };
+
+static int
+db_upgrade_v11(void)
+{
+#define Q_NEWSPK "INSERT INTO speakers (id, selected, volume) VALUES (%" PRIi64 ", 1, 75);"
+#define Q_SPKVOL "UPDATE speakers SET volume = %d;"
+  sqlite3_stmt *stmt;
+  char *query;
+  char *errmsg;
+  const char *strid;
+  uint64_t *spkids;
+  int volume;
+  int count;
+  int i;
+  int qret;
+  int ret;
+
+  /* Get saved speakers */
+  count = db_get_count("SELECT COUNT(*) FROM admin WHERE key = 'player:active-spk';");
+  if (count == 0)
+    goto clear_vars;
+  else if (count < 0)
+    return -1;
+
+  spkids = (uint64_t *)malloc(count * sizeof(uint64_t));
+  if (!spkids)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for speaker IDs\n");
+
+      return -1;
+    }
+
+  query = "SELECT value FROM admin WHERE key = 'player:active-spk';";
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      goto out_free_ids;
+    }
+
+  i = 0;
+  ret = 0;
+  while ((qret = sqlite3_step(stmt)) == SQLITE_ROW)
+    {
+      strid = (const char *)sqlite3_column_text(stmt, 0);
+
+      ret = safe_hextou64(strid, spkids + i);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not convert speaker ID: %s\n", strid);
+	  break;
+	}
+
+      i++;
+    }
+
+  sqlite3_finalize(stmt);
+
+  if ((ret == 0) && (qret != SQLITE_DONE))
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      goto out_free_ids;
+    }
+  else if (ret < 0)
+    goto out_free_ids;
+
+  /* Get saved volume */
+  query = "SELECT value FROM admin WHERE key = 'player:volume';";
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      goto out_free_ids;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      goto out_free_ids;
+    }
+
+  volume = sqlite3_column_int(stmt, 0);
+
+  sqlite3_finalize(stmt);
+
+  /* Add speakers to the table */
+  for (i = 0; i < count; i++)
+    {
+      query = sqlite3_mprintf(Q_NEWSPK, spkids[i]);
+      if (!query)
+	{
+	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+	  goto out_free_ids;
+	}
+
+      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+      ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	DPRINTF(E_LOG, L_DB, "Error adding speaker: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+    }
+
+  free(spkids);
+
+  /* Update with volume */
+  query = sqlite3_mprintf(Q_SPKVOL, volume);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error adding speaker: %s\n", errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+  /* Clear old config keys */
+ clear_vars:
+  query = "DELETE FROM admin WHERE key = 'player:volume' OR key = 'player:active-spk';";
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error adding speaker: %s\n", errmsg);
+
+  sqlite3_free(errmsg);
+
+  return 0;
+
+ out_free_ids:
+  free(spkids);
+
+  return -1;
+
+#undef Q_NEWSPK
+#undef Q_SPKVOL
+}
+
 static int
 db_check_version(void)
 {
@@ -4182,6 +4360,17 @@ db_check_version(void)
 
 	  case 9:
 	    ret = db_generic_upgrade(db_upgrade_v10_queries, sizeof(db_upgrade_v10_queries) / sizeof(db_upgrade_v10_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 10:
+	    ret = db_generic_upgrade(db_upgrade_v11_queries, sizeof(db_upgrade_v11_queries) / sizeof(db_upgrade_v11_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    ret = db_upgrade_v11();
 	    if (ret < 0)
 	      return -1;
 
