@@ -3183,6 +3183,115 @@ db_config_clear_key(const char *key)
 }
 
 
+/* Speakers */
+int
+db_speaker_save(uint64_t id, int selected, int volume)
+{
+#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume) VALUES (%" PRIi64 ", %d, %d);"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id, selected, volume);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error saving speaker state: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+int
+db_speaker_get(uint64_t id, int *selected, int *volume)
+{
+#define Q_TMPL "SELECT selected, volume FROM speakers WHERE id = %" PRIi64 ";"
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      ret = -1;
+      goto out;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret != SQLITE_DONE)
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+
+      ret = -1;
+      goto out;
+    }
+
+  *selected = sqlite3_column_int(stmt, 0);
+  *volume = sqlite3_column_int(stmt, 1);
+
+  sqlite3_finalize(stmt);
+
+  ret = 0;
+
+ out:
+  sqlite3_free(query);
+  return ret;
+
+#undef Q_TMPL
+}
+
+void
+db_speaker_clear_all(void)
+{
+  char *query = "UPDATE speakers SET selected = 0;";
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+    }
+}
+
+
 /* Inotify */
 int
 db_watch_clear(void)
@@ -3840,6 +3949,13 @@ db_perthread_deinit(void)
   "   guid           VARCHAR(16) NOT NULL"		\
   ");"
 
+#define T_SPEAKERS					\
+  "CREATE TABLE IF NOT EXISTS speakers("		\
+  "   id             INTEGER PRIMARY KEY NOT NULL,"	\
+  "   selected       INTEGER NOT NULL,"			\
+  "   volume         INTEGER NOT NULL"			\
+  ");"
+
 #define T_INOTIFY					\
   "CREATE TABLE IF NOT EXISTS inotify ("		\
   "   wd          INTEGER PRIMARY KEY NOT NULL,"	\
@@ -3895,13 +4011,9 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define Q_PLAYER_VOLUME				\
-  "INSERT INTO admin (key, value) VALUES ('player:volume', '75');"
-
-
-#define SCHEMA_VERSION 10
+#define SCHEMA_VERSION 11
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '10');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '11');"
 
 struct db_init_query {
   char *query;
@@ -3916,6 +4028,7 @@ static const struct db_init_query db_init_queries[] =
     { T_PLITEMS,   "create table playlistitems" },
     { T_GROUPS,    "create table groups" },
     { T_PAIRINGS,  "create table pairings" },
+    { T_SPEAKERS,  "create table speakers" },
     { T_INOTIFY,   "create table inotify" },
 
     { I_PATH,      "create file path index" },
@@ -3930,8 +4043,6 @@ static const struct db_init_query db_init_queries[] =
     { Q_PL2,       "create default smart playlist 'Music'" },
     { Q_PL3,       "create default smart playlist 'Movies'" },
     { Q_PL4,       "create default smart playlist 'TV Shows'" },
-
-    { Q_PLAYER_VOLUME, "store player start volume" },
 
     { Q_SCVER,     "set schema version" },
   };

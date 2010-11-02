@@ -419,6 +419,16 @@ db_config_has_tuple_hex64(const char *key, uint64_t val);
 void
 db_config_clear_key(const char *key);
 
+/* Speakers */
+int
+db_speaker_save(uint64_t id, int selected, int volume);
+
+int
+db_speaker_get(uint64_t id, int *selected, int *volume);
+
+void
+db_speaker_clear_all(void);
+
 /* Inotify */
 int
 db_watch_clear(void);
