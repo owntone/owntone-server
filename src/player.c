@@ -2960,7 +2960,9 @@ raop_device_remove_family(const char *name, uint64_t id, int family)
 static struct raop_device *
 raop_device_find_or_new(uint64_t id)
 {
+  struct player_status status;
   struct raop_device *rd;
+  int ret;
 
   for (rd = dev_list; rd; rd = rd->next)
     {
@@ -2980,6 +2982,18 @@ raop_device_find_or_new(uint64_t id)
 
   rd->id = id;
 
+  /* Check if the device was selected last time */
+  if (time(NULL) < dev_deadline)
+    {
+      player_get_status(&status);
+
+      if (status.status == PLAY_STOPPED)
+	{
+	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, id);
+	  rd->selected = (ret == 1);
+	}
+    }
+
   rd->next = dev_list;
   dev_list = rd;
 
@@ -2990,7 +3004,6 @@ raop_device_find_or_new(uint64_t id)
 static void
 raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
-  struct player_status status;
   struct raop_device *rd;
   cfg_t *apex;
   const char *p;
@@ -2998,7 +3011,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   char *password;
   uint64_t id;
   char has_password;
-  char last_active;
   enum raop_devtype devtype;
   int ret;
 
@@ -3108,22 +3120,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     devtype = RAOP_DEV_APPLETV;
 
  no_am:
-  /* Check if the device was selected last time */
-  if (time(NULL) < dev_deadline)
-    {
-      player_get_status(&status);
-
-      if (status.status != PLAY_STOPPED)
-	last_active = 0;
-      else
-	{
-	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, id);
-	  last_active = (ret == 1);
-	}
-    }
-  else
-    last_active = 0;
-
   pthread_mutex_lock(&dev_lck);
 
   rd = raop_device_find_or_new(id);
@@ -3139,7 +3135,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s, type %s)\n", name, (password) ? "yes" : "no", raop_devtype[devtype]);
 
   rd->advertised = 1;
-  rd->selected = last_active;
 
   switch (family)
     {
