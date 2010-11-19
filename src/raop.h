@@ -42,6 +42,7 @@ struct raop_device
   unsigned has_password:1;
   const char *password;
 
+  int volume;
   struct raop_session *session;
 
   struct raop_device *next;

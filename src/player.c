@@ -182,6 +182,7 @@ static struct raop_device *dev_list;
 /* Device status */
 static enum laudio_state laudio_status;
 static int laudio_selected;
+static int laudio_volume;
 static int raop_sessions;
 
 /* Commands */
@@ -1208,7 +1209,7 @@ device_remove(struct raop_device *dev)
     speaker_deselect_raop(dev);
 
   /* Save device volume */
-  ret = db_speaker_save(dev->id, 0, master_volume);
+  ret = db_speaker_save(dev->id, 0, dev->volume);
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for speaker %s\n", dev->name);
 
@@ -1259,6 +1260,9 @@ device_add(struct player_command *cmd)
       ret = db_speaker_get(rd->id, &selected, &dummy);
       if (ret < 0)
 	selected = 0;
+
+      /* Force master volume for now */
+      rd->volume = master_volume;
 
       if (dev_autoselect && selected)
 	speaker_select_raop(rd);
@@ -1791,7 +1795,7 @@ playback_start_bh(struct player_command *cmd)
   /* Start laudio first as it can fail, but can be stopped easily if needed */
   if (laudio_status == LAUDIO_OPEN)
     {
-      laudio_set_volume(master_volume);
+      laudio_set_volume(laudio_volume);
 
       ret = laudio_start(pb_pos, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
       if (ret < 0)
@@ -2271,7 +2275,7 @@ speaker_activate(struct raop_device *rd)
 
       if (player_state == PLAY_PLAYING)
 	{
-	  laudio_set_volume(master_volume);
+	  laudio_set_volume(laudio_volume);
 
 	  ret = player_get_current_pos(&pos, &ts, 0);
 	  if (ret < 0)
@@ -2505,10 +2509,19 @@ speaker_set(struct player_command *cmd)
 static int
 volume_set(struct player_command *cmd)
 {
+  struct raop_device *rd;
+
   master_volume = cmd->arg.intval;
 
+  laudio_volume = master_volume;
+
   cmd->raop_pending = raop_set_volume(master_volume, device_command_cb);
-  laudio_set_volume(master_volume);
+  laudio_set_volume(laudio_volume);
+
+  for (rd = dev_list; rd; rd = rd->next)
+    {
+      rd->volume = master_volume;
+    }
 
   if (cmd->raop_pending > 0)
     return 1; /* async */
@@ -3338,13 +3351,13 @@ player(void *arg)
   /* Save selected devices */
   db_speaker_clear_all();
 
-  ret = db_speaker_save(0, laudio_selected, master_volume);
+  ret = db_speaker_save(0, laudio_selected, laudio_volume);
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for local audio\n");
 
   for (rd = dev_list; rd; rd = rd->next)
     {
-      ret = db_speaker_save(rd->id, rd->selected, master_volume);
+      ret = db_speaker_save(rd->id, rd->selected, rd->volume);
       if (ret < 0)
 	DPRINTF(E_LOG, L_PLAYER, "Could not save state for speaker %s\n", rd->name);
     }
@@ -3401,11 +3414,13 @@ player_init(void)
 
   rng_init(&shuffle_rng);
 
-  ret = db_speaker_get(0, &laudio_selected, &master_volume);
+  ret = db_speaker_get(0, &laudio_selected, &laudio_volume);
   if (ret < 0)
-    master_volume = 75;
+    laudio_volume = 75;
   else if (laudio_selected)
     speaker_select_laudio(); /* Run the select helper */
+
+  master_volume = laudio_volume;
 
   audio_buf = evbuffer_new();
   if (!audio_buf)
