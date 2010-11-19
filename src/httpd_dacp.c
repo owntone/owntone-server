@@ -1411,7 +1411,7 @@ speaker_enum_cb(uint64_t id, const char *name, int relvol, int selected, int has
 
   evbuf = (struct evbuffer *)arg;
 
-  len = 8 + strlen(name) + 16;
+  len = 8 + strlen(name) + 28;
   if (selected)
     len += 9;
   if (has_password)
@@ -1424,6 +1424,8 @@ speaker_enum_cb(uint64_t id, const char *name, int relvol, int selected, int has
     dmap_add_char(evbuf, "cahp", 1);      /* 9 */
   dmap_add_string(evbuf, "minm", name);   /* 8 + len */
   dmap_add_long(evbuf, "msma", id);       /* 16 */
+
+  dmap_add_int(evbuf, "cmvo", relvol);    /* 12 */
 }
 
 static void
