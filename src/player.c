@@ -2514,13 +2514,16 @@ volume_set(struct player_command *cmd)
   master_volume = cmd->arg.intval;
 
   laudio_volume = master_volume;
-
-  cmd->raop_pending = raop_set_volume(master_volume, device_command_cb);
   laudio_set_volume(laudio_volume);
+
+  cmd->raop_pending = 0;
 
   for (rd = dev_list; rd; rd = rd->next)
     {
       rd->volume = master_volume;
+
+      if (rd->session)
+	cmd->raop_pending += raop_set_volume_one(rd->session, rd->volume, device_command_cb);
     }
 
   if (cmd->raop_pending > 0)
@@ -3500,8 +3503,6 @@ player_init(void)
 
       goto raop_fail;
     }
-
-  raop_set_volume(master_volume, NULL);
 
   ret = mdns_browse("_raop._tcp", raop_device_cb);
   if (ret < 0)

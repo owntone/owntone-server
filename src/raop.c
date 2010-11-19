@@ -106,6 +106,7 @@ struct raop_session
   char *devname;
   char *address;
 
+  int volume;
   uint64_t start_rtptime;
 
   /* Do not dereference - only passed to the status cb */
@@ -206,9 +207,6 @@ static uint16_t stream_seq;
 static int pktbuf_size;
 static struct raop_v2_packet *pktbuf_head;
 static struct raop_v2_packet *pktbuf_tail;
-
-/* Volume */
-static double raop_volume;
 
 /* FLUSH timer */
 static struct event flush_timer;
@@ -1642,6 +1640,8 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   rs->devname = strdup(rd->name);
   rs->address = strdup(address);
 
+  rs->volume = rd->volume;
+
   rs->next = sessions;
   sessions = rs;
 
@@ -1667,10 +1667,28 @@ raop_session_failure_cb(struct evrtsp_request *req, void *arg)
 
 
 /* Volume handling */
+static double
+raop_volume_convert(int volume)
+{
+  double raop_volume;
+
+  /* RAOP volume
+   *  -144.0 is off
+   *  0 - -30.0 maps to 100 - 0
+   */
+  if (volume == 0)
+    raop_volume = -144.0;
+  else
+    raop_volume = -30.0 + ((double)volume * 30.0) / 100.0;
+
+  return raop_volume;
+}
+
 static int
-raop_set_volume_internal(struct raop_session *rs, evrtsp_req_cb cb)
+raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
 {
   struct evbuffer *evbuf;
+  double raop_volume;
   int ret;
 
   evbuf = evbuffer_new();
@@ -1680,6 +1698,8 @@ raop_set_volume_internal(struct raop_session *rs, evrtsp_req_cb cb)
 
       return -1;
     }
+
+  raop_volume = raop_volume_convert(volume);
 
   /* Don't let locales get in the way here */
   ret = evbuffer_add_printf(evbuf, "volume: %d.%06d", (int)raop_volume, (int)(1000000.0 * (raop_volume - floor(raop_volume))));
@@ -1741,42 +1761,25 @@ raop_set_volume_cb(struct evrtsp_request *req, void *arg)
 
 /* Volume in [0 - 100] */
 int
-raop_set_volume(int volume, raop_status_cb cb)
+raop_set_volume_one(struct raop_session *rs, int volume, raop_status_cb cb)
 {
-  struct raop_session *rs;
-  int pending;
   int ret;
 
-  /* RAOP volume
-   *  -144.0 is off
-   *  0 - -30.0 maps to 100 - 0
-   */
-  if (volume == 0)
-    raop_volume = -144.0;
-  else
-    raop_volume = -30.0 + ((double)volume * 30.0) / 100.0;
+  if (!(rs->state & RAOP_CONNECTED))
+    return 0;
 
-  pending = 0;
-  for (rs = sessions; rs; rs = rs->next)
+  ret = raop_set_volume_internal(rs, volume, raop_set_volume_cb);
+  if (ret < 0)
     {
-      if (!(rs->state & RAOP_CONNECTED))
-	continue;
+      raop_session_failure(rs);
 
-      ret = raop_set_volume_internal(rs, raop_set_volume_cb);
-      if (ret < 0)
-	{
-	  raop_session_failure(rs);
-
-	  continue;
-	}
-
-      rs->status_cb = cb;
-      pending++;
+      return 0;
     }
 
-  return pending;
-}
+  rs->status_cb = cb;
 
+  return 1;
+}
 
 static void
 raop_flush_cb(struct evrtsp_request *req, void *arg)
@@ -2895,7 +2898,7 @@ raop_cb_startup_record(struct evrtsp_request *req, void *arg)
   rs->state = RAOP_RECORD;
 
   /* Set initial volume */
-  raop_set_volume_internal(rs, raop_cb_startup_volume);
+  raop_set_volume_internal(rs, rs->volume, raop_cb_startup_volume);
 
   return;
 

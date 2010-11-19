@@ -102,7 +102,7 @@ raop_playback_stop(void);
 
 
 int
-raop_set_volume(int volume, raop_status_cb cb);
+raop_set_volume_one(struct raop_session *rs, int volume, raop_status_cb cb);
 
 int
 raop_flush(raop_status_cb cb, uint64_t rtptime);
