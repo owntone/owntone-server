@@ -92,6 +92,8 @@ struct player_command
   cmd_func func;
   cmd_func func_bh;
 
+  int nonblock;
+
   union {
     void *noarg;
     struct spk_enum *spk_enum;
@@ -2610,6 +2612,14 @@ command_cb(int fd, short what, void *arg)
       goto readd;
     }
 
+  if (cmd->nonblock)
+    {
+      cmd->func(cmd);
+
+      free(cmd);
+      goto readd;
+    }
+
   pthread_mutex_lock(&cmd->lck);
 
   cur_cmd = cmd;
@@ -2639,9 +2649,9 @@ command_cb(int fd, short what, void *arg)
 }
 
 
-/* Thread: httpd (DACP) */
+/* Thread: httpd (DACP) - mDNS */
 static int
-sync_command(struct player_command *cmd)
+send_command(struct player_command *cmd)
 {
   int ret;
 
@@ -2652,14 +2662,43 @@ sync_command(struct player_command *cmd)
       return -1;
     }
 
-  pthread_mutex_lock(&cmd->lck);
-
   ret = write(cmd_pipe[1], &cmd, sizeof(cmd));
   if (ret != sizeof(cmd))
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not send command: %s\n", strerror(errno));
 
+      return -1;
+    }
+
+  return 0;
+}
+
+/* Thread: mDNS */
+static int
+nonblock_command(struct player_command *cmd)
+{
+  int ret;
+
+  ret = send_command(cmd);
+  if (ret < 0)
+    return -1;
+
+  return 0;
+}
+
+/* Thread: httpd (DACP) */
+static int
+sync_command(struct player_command *cmd)
+{
+  int ret;
+
+  pthread_mutex_lock(&cmd->lck);
+
+  ret = send_command(cmd);
+  if (ret < 0)
+    {
       pthread_mutex_unlock(&cmd->lck);
+
       return -1;
     }
 
