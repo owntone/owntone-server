@@ -43,6 +43,7 @@ struct raop_device
   const char *password;
 
   int volume;
+  int relvol;
   struct raop_session *session;
 
   struct raop_device *next;

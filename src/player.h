@@ -45,7 +45,7 @@ struct player_status {
   int pos_pl;
 };
 
-typedef void (*spk_enum_cb)(uint64_t id, const char *name, int selected, int has_password, void *arg);
+typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, int selected, int has_password, void *arg);
 typedef void (*player_status_handler)(void);
 
 struct player_source;
@@ -88,6 +88,12 @@ player_playback_prev(void);
 
 int
 player_volume_set(int vol);
+
+int
+player_volume_setrel_speaker(uint64_t id, int relvol);
+
+int
+player_volume_setabs_speaker(uint64_t id, int vol);
 
 int
 player_repeat_set(enum repeat_mode mode);

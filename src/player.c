@@ -70,6 +70,11 @@ enum player_sync_source
     PLAYER_SYNC_LAUDIO,
   };
 
+struct volume_param {
+  int volume;
+  uint64_t spk_id;
+};
+
 struct player_command;
 typedef int (*cmd_func)(struct player_command *cmd);
 
@@ -90,6 +95,7 @@ struct player_command
   int nonblock;
 
   union {
+    struct volume_param vol_param;
     void *noarg;
     struct spk_enum *spk_enum;
     struct raop_device *rd;
@@ -183,6 +189,7 @@ static struct raop_device *dev_list;
 static enum laudio_state laudio_status;
 static int laudio_selected;
 static int laudio_volume;
+static int laudio_relvol;
 static int raop_sessions;
 
 /* Commands */
@@ -246,29 +253,121 @@ status_update(enum play_status status)
 }
 
 
+/* Volume helpers */
+static int
+rel_to_vol(int relvol)
+{
+  double vol;
+
+  if (relvol == 100)
+    return master_volume;
+
+  vol = ((double)relvol * (double)master_volume) / 100.0;
+
+  return (int)vol;
+}
+
+static int
+vol_to_rel(int volume)
+{
+  double rel;
+
+  if (volume == master_volume)
+    return 100;
+
+  rel = ((double)volume / (double)master_volume) * 100.0;
+
+  return (int)rel;
+}
+
+/* Master volume helpers */
+static void
+volume_master_update(int newvol)
+{
+  struct raop_device *rd;
+
+  master_volume = newvol;
+
+  if (laudio_selected)
+    laudio_relvol = vol_to_rel(laudio_volume);
+
+  for (rd = dev_list; rd; rd = rd->next)
+    {
+      if (rd->selected)
+	rd->relvol = vol_to_rel(rd->volume);
+    }
+}
+
+static void
+volume_master_find(void)
+{
+  struct raop_device *rd;
+  int newmaster;
+
+  newmaster = -1;
+
+  if (laudio_selected)
+    newmaster = laudio_volume;
+
+  for (rd = dev_list; rd; rd = rd->next)
+    {
+      if (rd->selected && (rd->volume > newmaster))
+	newmaster = rd->volume;
+    }
+
+  volume_master_update(newmaster);
+}
+
+
 /* Device select/deselect hooks */
 static void
 speaker_select_laudio(void)
 {
   laudio_selected = 1;
+
+  if (laudio_volume > master_volume)
+    {
+      if (player_state == PLAY_STOPPED)
+	volume_master_update(laudio_volume);
+      else
+	laudio_volume = master_volume;
+    }
+
+  laudio_relvol = vol_to_rel(laudio_volume);
 }
 
 static void
 speaker_select_raop(struct raop_device *rd)
 {
   rd->selected = 1;
+
+  if (rd->volume > master_volume)
+    {
+      if (player_state == PLAY_STOPPED)
+	volume_master_update(rd->volume);
+      else
+	rd->volume = master_volume;
+    }
+
+  rd->relvol = vol_to_rel(rd->volume);
 }
 
 static void
 speaker_deselect_laudio(void)
 {
   laudio_selected = 0;
+
+  if (laudio_volume == master_volume)
+    volume_master_find();
 }
 
 static void
 speaker_deselect_raop(struct raop_device *rd)
 {
   rd->selected = 0;
+
+  if (rd->volume == master_volume)
+    volume_master_find();
 }
 
 
@@ -1241,7 +1340,6 @@ device_add(struct player_command *cmd)
   struct raop_device *dev;
   struct raop_device *rd;
   int selected;
-  int dummy;
   int ret;
 
   dev = cmd->arg.rd;
@@ -1257,12 +1355,12 @@ device_add(struct player_command *cmd)
     {
       rd = dev;
 
-      ret = db_speaker_get(rd->id, &selected, &dummy);
+      ret = db_speaker_get(rd->id, &selected, &rd->volume);
       if (ret < 0)
-	selected = 0;
-
-      /* Force master volume for now */
-      rd->volume = master_volume;
+	{
+	  selected = 0;
+	  rd->volume = (master_volume >= 0) ? master_volume : 75;
+	}
 
       if (dev_autoselect && selected)
 	speaker_select_raop(rd);
@@ -1660,6 +1758,10 @@ get_status(struct player_command *cmd)
 
   status->shuffle = shuffle;
   status->repeat = repeat;
+
+  /* No devices selected, autoselect local audio */
+  if (master_volume < 0)
+    speaker_select_laudio();
 
   status->volume = master_volume;
 
@@ -2239,12 +2341,23 @@ speaker_enumerate(struct player_command *cmd)
   if (!dev_list && !laudio_selected)
     speaker_select_laudio();
 
-  spk_enum->cb(0, laudio_name, laudio_selected, 0, spk_enum->arg);
+  spk_enum->cb(0, laudio_name, laudio_relvol, laudio_selected, 0, spk_enum->arg);
+
+#ifdef DEBUG_RELVOL
+  DPRINTF(E_DBG, L_PLAYER, "*** master: %d\n", master_volume);
+  DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
+#endif
 
   for (rd = dev_list; rd; rd = rd->next)
     {
       if (rd->advertised || rd->selected)
-	spk_enum->cb(rd->id, rd->name, rd->selected, rd->has_password, spk_enum->arg);
+	{
+	  spk_enum->cb(rd->id, rd->name, rd->relvol, rd->selected, rd->has_password, spk_enum->arg);
+
+#ifdef DEBUG_RELVOL
+	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+#endif
+	}
     }
 
   return 0;
@@ -2510,20 +2623,149 @@ static int
 volume_set(struct player_command *cmd)
 {
   struct raop_device *rd;
+  int volume;
 
-  master_volume = cmd->arg.intval;
+  volume = cmd->arg.intval;
 
-  laudio_volume = master_volume;
-  laudio_set_volume(laudio_volume);
+  if (master_volume == volume)
+    return 0;
+
+  master_volume = volume;
+
+  if (laudio_selected)
+    {
+      laudio_volume = rel_to_vol(laudio_relvol);
+      laudio_set_volume(laudio_volume);
+
+#ifdef DEBUG_RELVOL
+      DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
+#endif
+    }
 
   cmd->raop_pending = 0;
 
   for (rd = dev_list; rd; rd = rd->next)
     {
-      rd->volume = master_volume;
+      if (!rd->selected)
+	continue;
+
+      rd->volume = rel_to_vol(rd->relvol);
+
+#ifdef DEBUG_RELVOL
+      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+#endif
 
       if (rd->session)
 	cmd->raop_pending += raop_set_volume_one(rd->session, rd->volume, device_command_cb);
+    }
+
+  if (cmd->raop_pending > 0)
+    return 1; /* async */
+
+  return 0;
+}
+
+static int
+volume_setrel_speaker(struct player_command *cmd)
+{
+  struct raop_device *rd;
+  uint64_t id;
+  int relvol;
+
+  id = cmd->arg.vol_param.spk_id;
+  relvol = cmd->arg.vol_param.volume;
+
+  if (id == 0)
+    {
+      laudio_relvol = relvol;
+      laudio_volume = rel_to_vol(relvol);
+      laudio_set_volume(laudio_volume);
+
+#ifdef DEBUG_RELVOL
+      DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
+#endif
+    }
+  else
+    {
+      for (rd = dev_list; rd; rd = rd->next)
+        {
+	  if (rd->id != id)
+	    continue;
+
+	  if (!rd->selected)
+	    return 0;
+
+	  rd->relvol = relvol;
+	  rd->volume = rel_to_vol(relvol);
+
+#ifdef DEBUG_RELVOL
+	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+#endif
+
+	  if (rd->session)
+	    cmd->raop_pending = raop_set_volume_one(rd->session, rd->volume, device_command_cb);
+
+	  break;
+        }
+    }
+
+  if (cmd->raop_pending > 0)
+    return 1; /* async */
+
+  return 0;
+}
+
+static int
+volume_setabs_speaker(struct player_command *cmd)
+{
+  struct raop_device *rd;
+  uint64_t id;
+  int volume;
+
+  id = cmd->arg.vol_param.spk_id;
+  volume = cmd->arg.vol_param.volume;
+
+  master_volume = volume;
+
+  if (id == 0)
+    {
+      laudio_relvol = 100;
+      laudio_volume = volume;
+      laudio_set_volume(laudio_volume);
+    }
+  else
+    laudio_relvol = vol_to_rel(laudio_volume);
+
+#ifdef DEBUG_RELVOL
+  DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
+#endif
+
+  for (rd = dev_list; rd; rd = rd->next)
+    {
+      if (!rd->selected)
+	continue;
+
+      if (rd->id != id)
+	{
+	  rd->relvol = vol_to_rel(rd->volume);
+
+#ifdef DEBUG_RELVOL
+	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+#endif
+	  continue;
+	}
+      else
+	{
+	  rd->relvol = 100;
+	  rd->volume = master_volume;
+
+#ifdef DEBUG_RELVOL
+	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+#endif
+
+	  if (rd->session)
+	    cmd->raop_pending = raop_set_volume_one(rd->session, rd->volume, device_command_cb);
+	}
     }
 
   if (cmd->raop_pending > 0)
@@ -2989,6 +3231,46 @@ player_volume_set(int vol)
 }
 
 int
+player_volume_setrel_speaker(uint64_t id, int relvol)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = volume_setrel_speaker;
+  cmd.func_bh = NULL;
+  cmd.arg.vol_param.spk_id = id;
+  cmd.arg.vol_param.volume = relvol;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+player_volume_setabs_speaker(uint64_t id, int vol)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = volume_setabs_speaker;
+  cmd.func_bh = NULL;
+  cmd.arg.vol_param.spk_id = id;
+  cmd.arg.vol_param.volume = vol;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
 player_repeat_set(enum repeat_mode mode)
 {
   struct player_command cmd;
@@ -3391,6 +3673,8 @@ player_init(void)
   dev_autoselect = 1;
   dev_list = NULL;
 
+  master_volume = -1;
+
   laudio_selected = 0;
   laudio_status = LAUDIO_CLOSED;
   raop_sessions = 0;
@@ -3422,8 +3706,6 @@ player_init(void)
     laudio_volume = 75;
   else if (laudio_selected)
     speaker_select_laudio(); /* Run the select helper */
-
-  master_volume = laudio_volume;
 
   audio_buf = evbuffer_new();
   if (!audio_buf)
