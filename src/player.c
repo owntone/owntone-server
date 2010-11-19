@@ -64,9 +64,6 @@
 # define MIN(a, b) ((a < b) ? a : b)
 #endif
 
-#define VAR_PLAYER_VOLUME "player:volume"
-#define VAR_ACTIVE_SPK    "player:active-spk"
-
 enum player_sync_source
   {
     PLAYER_SYNC_CLOCK,
@@ -1190,6 +1187,7 @@ device_remove(struct raop_device *dev)
 {
   struct raop_device *rd;
   struct raop_device *prev;
+  int ret;
 
   prev = NULL;
   for (rd = dev_list; rd; rd = rd->next)
@@ -1208,6 +1206,11 @@ device_remove(struct raop_device *dev)
   /* Make sure device isn't selected anymore */
   if (dev->selected)
     speaker_deselect_raop(dev);
+
+  /* Save device volume */
+  ret = db_speaker_save(dev->id, 0, master_volume);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_PLAYER, "Could not save state for speaker %s\n", dev->name);
 
   if (!prev)
     dev_list = dev->next;
@@ -1236,6 +1239,8 @@ device_add(struct player_command *cmd)
 {
   struct raop_device *dev;
   struct raop_device *rd;
+  int selected;
+  int dummy;
   int ret;
 
   dev = cmd->arg.rd;
@@ -1251,14 +1256,12 @@ device_add(struct player_command *cmd)
     {
       rd = dev;
 
-      /* Check if the device was selected last time */
-      if (dev_autoselect)
-	{
-	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, rd->id);
+      ret = db_speaker_get(rd->id, &selected, &dummy);
+      if (ret < 0)
+	selected = 0;
 
-	  if (ret == 1)
-	    speaker_select_raop(rd);
-	}
+      if (dev_autoselect && selected)
+	speaker_select_raop(rd);
 
       rd->next = dev_list;
       dev_list = rd;
@@ -2502,16 +2505,10 @@ speaker_set(struct player_command *cmd)
 static int
 volume_set(struct player_command *cmd)
 {
-  int ret;
-
   master_volume = cmd->arg.intval;
 
   cmd->raop_pending = raop_set_volume(master_volume, device_command_cb);
   laudio_set_volume(master_volume);
-
-  ret = db_config_save_int(VAR_PLAYER_VOLUME, master_volume);
-  if (ret < 0)
-    DPRINTF(E_WARN, L_PLAYER, "Could not save volume setting to DB\n");
 
   if (cmd->raop_pending > 0)
     return 1; /* async */
@@ -3339,15 +3336,17 @@ player(void *arg)
     DPRINTF(E_LOG, L_PLAYER, "Player event loop terminated ahead of time!\n");
 
   /* Save selected devices */
-  db_config_clear_key(VAR_ACTIVE_SPK);
+  db_speaker_clear_all();
 
-  if (laudio_selected)
-    db_config_save_hex64(VAR_ACTIVE_SPK, 0);
+  ret = db_speaker_save(0, laudio_selected, master_volume);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_PLAYER, "Could not save state for local audio\n");
 
   for (rd = dev_list; rd; rd = rd->next)
     {
-      if (rd->selected)
-	db_config_save_hex64(VAR_ACTIVE_SPK, rd->id);
+      ret = db_speaker_save(rd->id, rd->selected, master_volume);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_PLAYER, "Could not save state for speaker %s\n", rd->name);
     }
 
   db_perthread_deinit();
@@ -3402,17 +3401,11 @@ player_init(void)
 
   rng_init(&shuffle_rng);
 
-  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, 0);
-  if (ret == 1)
-    speaker_select_laudio();
-
-  ret = db_config_fetch_int(VAR_PLAYER_VOLUME, &master_volume);
+  ret = db_speaker_get(0, &laudio_selected, &master_volume);
   if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_PLAYER, "Could not fetch last volume setting from DB\n");
-
-      master_volume = 75;
-    }
+    master_volume = 75;
+  else if (laudio_selected)
+    speaker_select_laudio(); /* Run the select helper */
 
   audio_buf = evbuffer_new();
   if (!audio_buf)
