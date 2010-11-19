@@ -2742,7 +2742,7 @@ player_speaker_enumerate(spk_enum_cb cb, void *arg)
 
   for (rd = dev_list; rd; rd = rd->next)
     {
-      if (rd->advertised)
+      if (rd->advertised || rd->selected)
 	cb(rd->id, rd->name, rd->selected, rd->has_password, arg);
     }
 
