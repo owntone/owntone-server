@@ -191,7 +191,7 @@ static int raop_sessions;
 static struct player_command *cur_cmd;
 
 /* Last commanded volume */
-static int volume;
+static int master_volume;
 
 /* Shuffle RNG state */
 struct rng_ctx shuffle_rng;
@@ -1622,7 +1622,7 @@ get_status(struct player_command *cmd)
   status->shuffle = shuffle;
   status->repeat = repeat;
 
-  status->volume = volume;
+  status->volume = master_volume;
 
   status->plid = cur_plid;
 
@@ -1756,7 +1756,7 @@ playback_start_bh(struct player_command *cmd)
   /* Start laudio first as it can fail, but can be stopped easily if needed */
   if (laudio_status == LAUDIO_OPEN)
     {
-      laudio_set_volume(volume);
+      laudio_set_volume(master_volume);
 
       ret = laudio_start(pb_pos, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
       if (ret < 0)
@@ -2236,7 +2236,7 @@ speaker_activate(struct raop_device *rd)
 
       if (player_state == PLAY_PLAYING)
 	{
-	  laudio_set_volume(volume);
+	  laudio_set_volume(master_volume);
 
 	  ret = player_get_current_pos(&pos, &ts, 0);
 	  if (ret < 0)
@@ -2464,12 +2464,12 @@ volume_set(struct player_command *cmd)
 {
   int ret;
 
-  volume = cmd->arg.intval;
+  master_volume = cmd->arg.intval;
 
-  cmd->raop_pending = raop_set_volume(volume, device_command_cb);
-  laudio_set_volume(volume);
+  cmd->raop_pending = raop_set_volume(master_volume, device_command_cb);
+  laudio_set_volume(master_volume);
 
-  ret = db_config_save_int(VAR_PLAYER_VOLUME, volume);
+  ret = db_config_save_int(VAR_PLAYER_VOLUME, master_volume);
   if (ret < 0)
     DPRINTF(E_WARN, L_PLAYER, "Could not save volume setting to DB\n");
 
@@ -3364,12 +3364,12 @@ player_init(void)
   ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, 0);
   laudio_selected = (ret == 1);
 
-  ret = db_config_fetch_int(VAR_PLAYER_VOLUME, &volume);
+  ret = db_config_fetch_int(VAR_PLAYER_VOLUME, &master_volume);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_PLAYER, "Could not fetch last volume setting from DB\n");
 
-      volume = 75;
+      master_volume = 75;
     }
 
   audio_buf = evbuffer_new();
@@ -3451,7 +3451,7 @@ player_init(void)
       goto raop_fail;
     }
 
-  raop_set_volume(volume, NULL);
+  raop_set_volume(master_volume, NULL);
 
   ret = mdns_browse("_raop._tcp", raop_device_cb);
   if (ret < 0)
