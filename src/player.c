@@ -67,8 +67,6 @@
 #define VAR_PLAYER_VOLUME "player:volume"
 #define VAR_ACTIVE_SPK    "player:active-spk"
 
-#define LAST_ACTIVE_GRACEPERIOD  (5 * 60)
-
 enum player_sync_source
   {
     PLAYER_SYNC_CLOCK,
@@ -181,7 +179,7 @@ static uint64_t pb_pos;
 static uint64_t last_rtptime;
 
 /* AirTunes devices */
-static time_t dev_deadline;
+static int dev_autoselect;
 static struct raop_device *dev_list;
 
 /* Device status */
@@ -244,6 +242,9 @@ status_update(enum play_status status)
 
   if (update_handler)
     update_handler();
+
+  if (status == PLAY_PLAYING)
+    dev_autoselect = 0;
 }
 
 
@@ -1221,7 +1222,7 @@ device_add(struct player_command *cmd)
       rd = dev;
 
       /* Check if the device was selected last time */
-      if ((player_state == PLAY_STOPPED) && (time(NULL) < dev_deadline))
+      if (dev_autoselect)
 	{
 	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, rd->id);
 	  rd->selected = (ret == 1);
@@ -3332,7 +3333,7 @@ player_init(void)
 
   player_exit = 0;
 
-  dev_deadline = time(NULL) + LAST_ACTIVE_GRACEPERIOD;
+  dev_autoselect = 1;
   dev_list = NULL;
 
   laudio_status = LAUDIO_CLOSED;
