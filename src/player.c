@@ -97,6 +97,7 @@ struct player_command
   union {
     void *noarg;
     struct spk_enum *spk_enum;
+    struct raop_device *rd;
     struct player_status *status;
     struct player_source *ps;
     player_status_handler status_handler;
@@ -1200,17 +1201,87 @@ device_check(struct raop_device *dev)
   return (rd) ? 0 : -1;
 }
 
-/* Thread: main (mdns) */
-static void
-device_remove_family(const char *name, uint64_t id, int family)
+static int
+device_add(struct player_command *cmd)
 {
+  struct raop_device *dev;
+  struct raop_device *rd;
+  int ret;
+
+  dev = cmd->arg.rd;
+
+  for (rd = dev_list; rd; rd = rd->next)
+    {
+      if (rd->id == dev->id)
+	break;
+    }
+
+  /* New device */
+  if (!rd)
+    {
+      rd = dev;
+
+      /* Check if the device was selected last time */
+      if ((player_state == PLAY_STOPPED) && (time(NULL) < dev_deadline))
+	{
+	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, rd->id);
+	  rd->selected = (ret == 1);
+	}
+
+      rd->next = dev_list;
+      dev_list = rd;
+    }
+  else
+    {
+      rd->advertised = 1;
+
+      if (dev->v4_address)
+	{
+	  if (rd->v4_address)
+	    free(rd->v4_address);
+
+	  rd->v4_address = dev->v4_address;
+	  rd->v4_port = dev->v4_port;
+	}
+
+      if (dev->v6_address)
+	{
+	  if (rd->v6_address)
+	    free(rd->v6_address);
+
+	  rd->v6_address = dev->v6_address;
+	  rd->v6_port = dev->v6_port;
+	}
+
+      if (rd->name)
+	free(rd->name);
+      rd->name = dev->name;
+      dev->name = NULL;
+
+      rd->devtype = dev->devtype;
+
+      rd->has_password = dev->has_password;
+      rd->password = dev->password;
+
+      device_free(dev);
+    }
+
+  return 0;
+}
+
+static int
+device_remove_family(struct player_command *cmd)
+{
+  struct raop_device *dev;
   struct raop_device *rd;
   struct raop_device *prev;
+
+  dev = cmd->arg.rd;
 
   prev = NULL;
   for (rd = dev_list; rd; rd = rd->next)
     {
-      if (rd->id == id)
+      if (rd->id == dev->id)
         break;
 
       prev = rd;
@@ -1218,28 +1289,25 @@ device_remove_family(const char *name, uint64_t id, int family)
 
   if (!rd)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirTunes device %s stopped advertising, but not in our list\n", name);
+      DPRINTF(E_WARN, L_PLAYER, "AirTunes device %s stopped advertising, but not in our list\n", dev->name);
 
-      return;
+      device_free(dev);
+      return 0;
     }
 
-  switch (family)
+  /* v{4,6}_port non-zero indicates the address family stopped advertising */
+  if (dev->v4_port && rd->v4_address)
     {
-      case AF_INET:
-	if (rd->v4_address)
-	  {
-	    free(rd->v4_address);
-	    rd->v4_address = NULL;
-	  }
-	break;
+      free(rd->v4_address);
+      rd->v4_address = NULL;
+      rd->v4_port = 0;
+    }
 
-      case AF_INET6:
-	if (rd->v6_address)
-	  {
-	    free(rd->v6_address);
-	    rd->v6_address = NULL;
-	  }
-	break;
+  if (dev->v6_port && rd->v6_address)
+    {
+      free(rd->v6_address);
+      rd->v6_address = NULL;
+      rd->v6_port = 0;
     }
 
   if (!rd->v4_address && !rd->v6_address)
@@ -1247,17 +1315,12 @@ device_remove_family(const char *name, uint64_t id, int family)
       rd->advertised = 0;
 
       if (!rd->session)
-        {
-          if (!prev)
-            dev_list = rd->next;
-          else
-            prev->next = rd->next;
-
-          device_free(rd);
-
-          DPRINTF(E_DBG, L_PLAYER, "Removed AirTunes device %s; stopped advertising\n", name);
-        }
+	device_remove(rd);
     }
+
+  device_free(dev);
+
+  return 0;
 }
 
 /* RAOP callbacks executed in the player thread */
@@ -3027,53 +3090,73 @@ player_set_update_handler(player_status_handler handler)
   command_deinit(&cmd);
 }
 
-
-/* RAOP devices discovery - mDNS callback & helpers */
-/* Thread: main (mdns) */
-/* Call with dev_lck held */
-static struct raop_device *
-raop_device_find_or_new(uint64_t id)
+/* Non-blocking commands used by mDNS */
+static void
+player_device_add(struct raop_device *rd)
 {
-  struct player_status status;
-  struct raop_device *rd;
+  struct player_command *cmd;
   int ret;
 
-  for (rd = dev_list; rd; rd = rd->next)
+  cmd = (struct player_command *)malloc(sizeof(struct player_command));
+  if (!cmd)
     {
-      if (rd->id == id)
-	return rd;
+      DPRINTF(E_LOG, L_PLAYER, "Could not allocate player_command\n");
+
+      device_free(rd);
+      return;
     }
 
-  rd = (struct raop_device *)malloc(sizeof(struct raop_device));
-  if (!rd)
+  memset(cmd, 0, sizeof(struct player_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = device_add;
+  cmd->arg.rd = rd;
+
+  ret = nonblock_command(cmd);
+  if (ret < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirTunes device\n");
+      free(cmd);
+      device_free(rd);
 
-      return NULL;
+      return;
     }
-
-  memset(rd, 0, sizeof(struct raop_device));
-
-  rd->id = id;
-
-  /* Check if the device was selected last time */
-  if (time(NULL) < dev_deadline)
-    {
-      player_get_status(&status);
-
-      if (status.status == PLAY_STOPPED)
-	{
-	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, id);
-	  rd->selected = (ret == 1);
-	}
-    }
-
-  rd->next = dev_list;
-  dev_list = rd;
-
-  return rd;
 }
 
+static void
+player_device_remove(struct raop_device *rd)
+{
+  struct player_command *cmd;
+  int ret;
+
+  cmd = (struct player_command *)malloc(sizeof(struct player_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not allocate player_command\n");
+
+      device_free(rd);
+      return;
+    }
+
+  memset(cmd, 0, sizeof(struct player_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = device_remove_family;
+  cmd->arg.rd = rd;
+
+  ret = nonblock_command(cmd);
+  if (ret < 0)
+    {
+      free(cmd);
+      device_free(rd);
+
+      return;
+    }
+}
+
+
+/* RAOP devices discovery - mDNS callback */
 /* Thread: main (mdns) */
 static void
 raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
@@ -3105,16 +3188,37 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
   at_name++;
 
-  DPRINTF(E_DBG, L_PLAYER, "Found AirTunes device %" PRIx64 "/%s (%d)\n", id, at_name, port);
+  DPRINTF(E_DBG, L_PLAYER, "Event for AirTunes device %" PRIx64 "/%s (%d)\n", id, at_name, port);
+
+  rd = (struct raop_device *)malloc(sizeof(struct raop_device));
+  if (!rd)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirTunes device\n");
+
+      return;
+    }
+
+  memset(rd, 0, sizeof(struct raop_device));
+
+  rd->id = id;
+  rd->name = strdup(at_name);
 
   if (port < 0)
     {
       /* Device stopped advertising */
-      pthread_mutex_lock(&dev_lck);
+      switch (family)
+	{
+	  case AF_INET:
+	    rd->v4_port = 1;
+	    break;
 
-      device_remove_family(name, id, family);
+	  case AF_INET6:
+	    rd->v6_port = 1;
+	    break;
+	}
 
-      pthread_mutex_unlock(&dev_lck);
+      player_device_remove(rd);
+
       return;
     }
 
@@ -3123,21 +3227,21 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     {
       DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no tp field in TXT record!\n", name);
 
-      return;
+      goto free_rd;
     }
 
   if (*p == '\0')
     {
       DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: tp has no value\n", name);
 
-      return;
+      goto free_rd;
     }
 
   if (!strstr(p, "UDP"))
     {
       DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, p);
 
-      return;
+      goto free_rd;
     }
 
   password = NULL;
@@ -3146,14 +3250,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     {
       DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no pw field in TXT record!\n", name);
 
-      return;
+      goto free_rd;
     }
 
   if (*p == '\0')
     {
       DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: pw has no value\n", name);
 
-      return;
+      goto free_rd;
     }
 
   has_password = (strcmp(p, "false") != 0);
@@ -3194,51 +3298,34 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     devtype = RAOP_DEV_APPLETV;
 
  no_am:
-  pthread_mutex_lock(&dev_lck);
-
-  rd = raop_device_find_or_new(id);
-  if (!rd)
-    {
-      pthread_mutex_unlock(&dev_lck);
-      return;
-    }
-
-  if (rd->name)
-    DPRINTF(E_DBG, L_PLAYER, "Updating AirTunes device %s, already in list\n", name);
-  else
-    DPRINTF(E_DBG, L_PLAYER, "Adding AirTunes device %s (password: %s, type %s)\n", name, (password) ? "yes" : "no", raop_devtype[devtype]);
+  DPRINTF(E_DBG, L_PLAYER, "AirTunes device %s: password: %s, type %s\n", name, (password) ? "yes" : "no", raop_devtype[devtype]);
 
   rd->advertised = 1;
 
   switch (family)
     {
       case AF_INET:
-	if (rd->v4_address)
-	  free(rd->v4_address);
-
 	rd->v4_address = strdup(address);
 	rd->v4_port = port;
 	break;
 
       case AF_INET6:
-	if (rd->v6_address)
-	  free(rd->v6_address);
-
 	rd->v6_address = strdup(address);
 	rd->v6_port = port;
 	break;
     }
-
-  if (rd->name)
-    free(rd->name);
-  rd->name = strdup(at_name);
 
   rd->devtype = devtype;
 
   rd->has_password = has_password;
   rd->password = password;
 
-  pthread_mutex_unlock(&dev_lck);
+  player_device_add(rd);
+
+  return;
+
+ free_rd:
+  device_free(rd);
 }
 
 /* Thread: player */
