@@ -183,7 +183,6 @@ static uint64_t last_rtptime;
 /* AirTunes devices */
 static time_t dev_deadline;
 static struct raop_device *dev_list;
-static pthread_mutex_t dev_lck = PTHREAD_MUTEX_INITIALIZER;
 
 /* Device status */
 static enum laudio_state laudio_status;
@@ -1158,7 +1157,7 @@ device_free(struct raop_device *dev)
   free(dev);
 }
 
-/* Helpers - call with dev_lck held */
+/* Helpers */
 static void
 device_remove(struct raop_device *dev)
 {
@@ -1329,8 +1328,6 @@ device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_
 {
   int ret;
 
-  pthread_mutex_lock(&dev_lck);
-
   if (status == RAOP_FAILED)
     {
       raop_sessions--;
@@ -1338,8 +1335,6 @@ device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_
       ret = device_check(dev);
       if (ret < 0)
 	{
-	  pthread_mutex_unlock(&dev_lck);
-
 	  DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during streaming!\n");
 
 	  return;
@@ -1362,8 +1357,6 @@ device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_
       ret = device_check(dev);
       if (ret < 0)
 	{
-	  pthread_mutex_unlock(&dev_lck);
-
 	  DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during streaming!\n");
 
 	  return;
@@ -1376,8 +1369,6 @@ device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_
       if (!dev->advertised)
 	device_remove(dev);
     }
-
-  pthread_mutex_unlock(&dev_lck);
 }
 
 static void
@@ -1411,13 +1402,9 @@ device_shutdown_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
   if (raop_sessions)
     raop_sessions--;
 
-  pthread_mutex_lock(&dev_lck);
-
   ret = device_check(dev);
   if (ret < 0)
     {
-      pthread_mutex_unlock(&dev_lck);
-
       DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared before shutdown completion!\n");
 
       if (cur_cmd->ret != -2)
@@ -1429,8 +1416,6 @@ device_shutdown_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 
   if (!dev->advertised)
     device_remove(dev);
-
-  pthread_mutex_unlock(&dev_lck);
 
  out:
   if (cur_cmd->raop_pending == 0)
@@ -1461,13 +1446,9 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 
   cur_cmd->raop_pending--;
 
-  pthread_mutex_lock(&dev_lck);
-
   ret = device_check(dev);
   if (ret < 0)
     {
-      pthread_mutex_unlock(&dev_lck);
-
       DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during startup!\n");
 
       raop_set_status_cb(rs, device_lost_cb);
@@ -1491,16 +1472,12 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
       if (!dev->advertised)
 	device_remove(dev);
 
-      pthread_mutex_unlock(&dev_lck);
-
       if (cur_cmd->ret != -2)
 	cur_cmd->ret = -1;
       goto out;
     }
 
   dev->session = rs;
-
-  pthread_mutex_unlock(&dev_lck);
 
   raop_sessions++;
 
@@ -1546,13 +1523,9 @@ device_probe_cb(struct raop_device *dev, struct raop_session *rs, enum raop_sess
 
   cur_cmd->raop_pending--;
 
-  pthread_mutex_lock(&dev_lck);
-
   ret = device_check(dev);
   if (ret < 0)
     {
-      pthread_mutex_unlock(&dev_lck);
-
       DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during probe!\n");
 
       if (cur_cmd->ret != -2)
@@ -1573,14 +1546,10 @@ device_probe_cb(struct raop_device *dev, struct raop_session *rs, enum raop_sess
       if (!dev->advertised)
 	device_remove(dev);
 
-      pthread_mutex_unlock(&dev_lck);
-
       if (cur_cmd->ret != -2)
 	cur_cmd->ret = -1;
       goto out;
     }
-
-  pthread_mutex_unlock(&dev_lck);
 
  out:
   if (cur_cmd->raop_pending == 0)
@@ -1601,13 +1570,9 @@ device_restart_cb(struct raop_device *dev, struct raop_session *rs, enum raop_se
 
   cur_cmd->raop_pending--;
 
-  pthread_mutex_lock(&dev_lck);
-
   ret = device_check(dev);
   if (ret < 0)
     {
-      pthread_mutex_unlock(&dev_lck);
-
       DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during restart!\n");
 
       raop_set_status_cb(rs, device_lost_cb);
@@ -1623,14 +1588,10 @@ device_restart_cb(struct raop_device *dev, struct raop_session *rs, enum raop_se
       if (!dev->advertised)
 	device_remove(dev);
 
-      pthread_mutex_unlock(&dev_lck);
-
       goto out;
     }
 
   dev->session = rs;
-
-  pthread_mutex_unlock(&dev_lck);
 
   raop_sessions++;
   raop_set_status_cb(rs, device_streaming_cb);
@@ -1996,8 +1957,6 @@ playback_start(struct player_command *cmd)
   /* Start RAOP sessions on selected devices if needed */
   cmd->raop_pending = 0;
 
-  pthread_mutex_lock(&dev_lck);
-
   for (rd = dev_list; rd; rd = rd->next)
     {
       if (rd->selected && !rd->session)
@@ -2012,8 +1971,6 @@ playback_start(struct player_command *cmd)
 	  cmd->raop_pending++;
 	}
     }
-
-  pthread_mutex_unlock(&dev_lck);
 
   if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (raop_sessions == 0))
     {
@@ -2238,8 +2195,6 @@ speaker_enumerate(struct player_command *cmd)
 
   laudio_name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
 
-  pthread_mutex_lock(&dev_lck);
-
   /* Auto-select local audio if there are no AirTunes devices */
   if (!dev_list)
     laudio_selected = 1;
@@ -2251,8 +2206,6 @@ speaker_enumerate(struct player_command *cmd)
       if (rd->advertised || rd->selected)
 	spk_enum->cb(rd->id, rd->name, rd->selected, rd->has_password, spk_enum->arg);
     }
-
-  pthread_mutex_unlock(&dev_lck);
 
   return 0;
 }
@@ -2392,8 +2345,6 @@ speaker_set(struct player_command *cmd)
   cmd->raop_pending = 0;
   cmd->ret = 0;
 
-  pthread_mutex_lock(&dev_lck);
-
   /* RAOP devices */
   for (rd = dev_list; rd; rd = rd->next)
     {
@@ -2456,8 +2407,6 @@ speaker_set(struct player_command *cmd)
 	    }
 	}
     }
-
-  pthread_mutex_unlock(&dev_lck);
 
   /* Local audio */
   for (i = 1; i <= nspk; i++)
@@ -3354,13 +3303,11 @@ player(void *arg)
   if (laudio_selected)
     db_config_save_hex64(VAR_ACTIVE_SPK, 0);
 
-  pthread_mutex_lock(&dev_lck);
   for (rd = dev_list; rd; rd = rd->next)
     {
       if (rd->selected)
 	db_config_save_hex64(VAR_ACTIVE_SPK, rd->id);
     }
-  pthread_mutex_unlock(&dev_lck);
 
   db_perthread_deinit();
 
