@@ -248,6 +248,32 @@ status_update(enum play_status status)
 }
 
 
+/* Device select/deselect hooks */
+static void
+speaker_select_laudio(void)
+{
+  laudio_selected = 1;
+}
+
+static void
+speaker_select_raop(struct raop_device *rd)
+{
+  rd->selected = 1;
+}
+
+static void
+speaker_deselect_laudio(void)
+{
+  laudio_selected = 0;
+}
+
+static void
+speaker_deselect_raop(struct raop_device *rd)
+{
+  rd->selected = 0;
+}
+
+
 static int
 player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
 {
@@ -379,7 +405,7 @@ player_laudio_status_cb(enum laudio_state status)
 	if (raop_sessions == 0)
 	  playback_stop(NULL);
 
-	laudio_selected = 0;
+	speaker_deselect_laudio();
 	break;
 
       default:
@@ -1225,7 +1251,9 @@ device_add(struct player_command *cmd)
       if (dev_autoselect)
 	{
 	  ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, rd->id);
-	  rd->selected = (ret == 1);
+
+	  if (ret == 1)
+	    speaker_select_raop(rd);
 	}
 
       rd->next = dev_list;
@@ -1344,7 +1372,7 @@ device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_
       DPRINTF(E_LOG, L_PLAYER, "AirTunes device %s FAILED\n", dev->name);
 
       if (player_state == PLAY_PLAYING)
-	dev->selected = 0;
+	speaker_deselect_raop(dev);
 
       dev->session = NULL;
 
@@ -1468,7 +1496,7 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 
   if (status == RAOP_FAILED)
     {
-      dev->selected = 0;
+      speaker_deselect_raop(dev);
 
       if (!dev->advertised)
 	device_remove(dev);
@@ -1542,7 +1570,7 @@ device_probe_cb(struct raop_device *dev, struct raop_session *rs, enum raop_sess
 
   if (status == RAOP_FAILED)
     {
-      dev->selected = 0;
+      speaker_deselect_raop(dev);
 
       if (!dev->advertised)
 	device_remove(dev);
@@ -1584,7 +1612,7 @@ device_restart_cb(struct raop_device *dev, struct raop_session *rs, enum raop_se
 
   if (status == RAOP_FAILED)
     {
-      dev->selected = 0;
+      speaker_deselect_raop(dev);
 
       if (!dev->advertised)
 	device_remove(dev);
@@ -2197,8 +2225,8 @@ speaker_enumerate(struct player_command *cmd)
   laudio_name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
 
   /* Auto-select local audio if there are no AirTunes devices */
-  if (!dev_list)
-    laudio_selected = 1;
+  if (!dev_list && !laudio_selected)
+    speaker_select_laudio();
 
   spk_enum->cb(0, laudio_name, laudio_selected, 0, spk_enum->arg);
 
@@ -2368,7 +2396,9 @@ speaker_set(struct player_command *cmd)
 	    }
 
 	  DPRINTF(E_DBG, L_PLAYER, "RAOP device %s selected\n", rd->name);
-	  rd->selected = 1;
+
+	  if (!rd->selected)
+	    speaker_select_raop(rd);
 
 	  if (!rd->session)
 	    {
@@ -2377,7 +2407,7 @@ speaker_set(struct player_command *cmd)
 		{
 		  DPRINTF(E_LOG, L_PLAYER, "Could not activate RAOP device %s\n", rd->name);
 
-		  rd->selected = 0;
+		  speaker_deselect_raop(rd);
 
 		  if (cmd->ret != -2)
 		    cmd->ret = -1;
@@ -2390,7 +2420,9 @@ speaker_set(struct player_command *cmd)
       else
 	{
 	  DPRINTF(E_DBG, L_PLAYER, "RAOP device %s NOT selected\n", rd->name);
-	  rd->selected = 0;
+
+	  if (rd->selected)
+	    speaker_deselect_raop(rd);
 
 	  if (rd->session)
 	    {
@@ -2419,7 +2451,9 @@ speaker_set(struct player_command *cmd)
   if (i <= nspk)
     {
       DPRINTF(E_DBG, L_PLAYER, "Local audio selected\n");
-      laudio_selected = 1;
+
+      if (!laudio_selected)
+	speaker_select_laudio();
 
       if (!(laudio_status & LAUDIO_F_STARTED))
 	{
@@ -2428,7 +2462,7 @@ speaker_set(struct player_command *cmd)
 	    {
 	      DPRINTF(E_LOG, L_PLAYER, "Could not activate local audio output\n");
 
-	      laudio_selected = 0;
+	      speaker_deselect_laudio();
 
 	      if (cmd->ret != -2)
 		cmd->ret = -1;
@@ -2438,7 +2472,9 @@ speaker_set(struct player_command *cmd)
   else
     {
       DPRINTF(E_DBG, L_PLAYER, "Local audio NOT selected\n");
-      laudio_selected = 0;
+
+      if (laudio_selected)
+	speaker_deselect_laudio();
 
       if (laudio_status != LAUDIO_CLOSED)
 	{
@@ -3336,6 +3372,7 @@ player_init(void)
   dev_autoselect = 1;
   dev_list = NULL;
 
+  laudio_selected = 0;
   laudio_status = LAUDIO_CLOSED;
   raop_sessions = 0;
 
@@ -3362,7 +3399,8 @@ player_init(void)
   rng_init(&shuffle_rng);
 
   ret = db_config_has_tuple_hex64(VAR_ACTIVE_SPK, 0);
-  laudio_selected = (ret == 1);
+  if (ret == 1)
+    speaker_select_laudio();
 
   ret = db_config_fetch_int(VAR_PLAYER_VOLUME, &master_volume);
   if (ret < 0)
