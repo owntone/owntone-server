@@ -542,6 +542,8 @@ dacp_propget_playingtime(struct evbuffer *evbuf, struct player_status *status, s
 static void
 dacp_propset_volume(const char *value, struct evkeyvalq *query)
 {
+  const char *param;
+  uint64_t id;
   int volume;
   int ret;
 
@@ -553,7 +555,35 @@ dacp_propset_volume(const char *value, struct evkeyvalq *query)
       return;
     }
 
-  DPRINTF(E_DBG, L_DACP, "Setting volume to %d (value '%s')\n", volume, value);
+  param = evhttp_find_header(query, "speaker-id");
+  if (param)
+    {
+      ret = safe_atou64(param, &id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Invalid speaker ID in dmcp.volume request\n");
+
+	  return;
+	}
+
+      player_volume_setrel_speaker(id, volume);
+      return;
+    }
+
+  param = evhttp_find_header(query, "include-speaker-id");
+  if (param)
+    {
+      ret = safe_atou64(param, &id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Invalid speaker ID in dmcp.volume request\n");
+
+	  return;
+	}
+
+      player_volume_setabs_speaker(id, volume);
+      return;
+    }
 
   player_volume_set(volume);
 }
