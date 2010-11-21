@@ -273,7 +273,9 @@ player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
       pb_pos_stamp.tv_sec = ts->tv_sec;
       pb_pos_stamp.tv_nsec = ts->tv_nsec;
 
+#ifdef DEBUG_SYNC
       DPRINTF(E_DBG, L_PLAYER, "Pos: %" PRIu64 " (clock)\n", *pos);
+#endif
     }
 
   return 0;
@@ -301,7 +303,9 @@ player_get_current_pos_laudio(uint64_t *pos, struct timespec *ts, int commit)
       pb_pos_stamp.tv_sec = ts->tv_sec;
       pb_pos_stamp.tv_nsec = ts->tv_nsec;
 
+#ifdef DEBUG_SYNC
       DPRINTF(E_DBG, L_PLAYER, "Pos: %" PRIu64 " (laudio)\n", *pos);
+#endif
     }
 
   return 0;
