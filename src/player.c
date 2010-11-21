@@ -1205,6 +1205,10 @@ device_remove(struct raop_device *dev)
 
   DPRINTF(E_DBG, L_PLAYER, "Removing AirTunes device %s; stopped advertising\n", dev->name);
 
+  /* Make sure device isn't selected anymore */
+  if (dev->selected)
+    speaker_deselect_raop(dev);
+
   if (!prev)
     dev_list = dev->next;
   else
