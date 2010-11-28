@@ -1374,7 +1374,7 @@ dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
       if (!dpm)
 	{
-	  DPRINTF(E_DBG, L_DACP, "Unknown DACP property %s\n", param->key);
+	  DPRINTF(E_SPAM, L_DACP, "Unknown DACP property %s\n", param->key);
 	  continue;
 	}
 
