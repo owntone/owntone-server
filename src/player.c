@@ -78,6 +78,12 @@ enum player_sync_source
 struct player_command;
 typedef int (*cmd_func)(struct player_command *cmd);
 
+struct spk_enum
+{
+  spk_enum_cb cb;
+  void *arg;
+};
+
 struct player_command
 {
   pthread_mutex_t lck;
@@ -88,6 +94,7 @@ struct player_command
 
   union {
     void *noarg;
+    struct spk_enum *spk_enum;
     struct player_status *status;
     struct player_source *ps;
     player_status_handler status_handler;
@@ -2156,6 +2163,36 @@ playback_pause(struct player_command *cmd)
 }
 
 static int
+speaker_enumerate(struct player_command *cmd)
+{
+  struct raop_device *rd;
+  struct spk_enum *spk_enum;
+  char *laudio_name;
+
+  spk_enum = cmd->arg.spk_enum;
+
+  laudio_name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
+
+  pthread_mutex_lock(&dev_lck);
+
+  /* Auto-select local audio if there are no AirTunes devices */
+  if (!dev_list)
+    laudio_selected = 1;
+
+  spk_enum->cb(0, laudio_name, laudio_selected, 0, spk_enum->arg);
+
+  for (rd = dev_list; rd; rd = rd->next)
+    {
+      if (rd->advertised || rd->selected)
+	spk_enum->cb(rd->id, rd->name, rd->selected, rd->has_password, spk_enum->arg);
+    }
+
+  pthread_mutex_unlock(&dev_lck);
+
+  return 0;
+}
+
+static int
 speaker_activate(struct raop_device *rd)
 {
   struct timespec ts;
@@ -2791,26 +2828,21 @@ player_playback_prev(void)
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg)
 {
-  struct raop_device *rd;
-  char *laudio_name;
+  struct player_command cmd;
+  struct spk_enum spk_enum;
 
-  laudio_name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
+  command_init(&cmd);
 
-  pthread_mutex_lock(&dev_lck);
+  spk_enum.cb = cb;
+  spk_enum.arg = arg;
 
-  /* Auto-select local audio if there are no AirTunes devices */
-  if (!dev_list)
-    laudio_selected = 1;
+  cmd.func = speaker_enumerate;
+  cmd.func_bh = NULL;
+  cmd.arg.spk_enum = &spk_enum;
 
-  cb(0, laudio_name, laudio_selected, 0, arg);
+  sync_command(&cmd);
 
-  for (rd = dev_list; rd; rd = rd->next)
-    {
-      if (rd->advertised || rd->selected)
-	cb(rd->id, rd->name, rd->selected, rd->has_password, arg);
-    }
-
-  pthread_mutex_unlock(&dev_lck);
+  command_deinit(&cmd);
 }
 
 int
