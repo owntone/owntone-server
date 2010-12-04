@@ -126,7 +126,9 @@ LIBS="$save_LIBS"
 
 PKG_CHECK_MODULES(FFMPEG, [ libavcodec libavformat libswscale libavutil ])
 dnl Check for av_lock_manager (ffmpeg >= 0.5.1)
+save_LIBS="$LIBS"
 AC_CHECK_LIB([avcodec], [av_lockmgr_register], , AC_MSG_ERROR([ffmpeg >= 0.5.1 required]))
+LIBS="$save_LIBS"
 
 PKG_CHECK_MODULES(MINIXML, [ mxml ])
 
