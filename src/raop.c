@@ -1675,11 +1675,13 @@ raop_volume_convert(int volume)
   /* RAOP volume
    *  -144.0 is off
    *  0 - -30.0 maps to 100 - 0
+   *
+   * Here, raop_volume is the absolute value
    */
   if (volume == 0)
-    raop_volume = -144.0;
+    raop_volume = 144.0;
   else
-    raop_volume = -30.0 + ((double)volume * 30.0) / 100.0;
+    raop_volume = 30.0 - ((double)volume * 30.0) / 100.0;
 
   return raop_volume;
 }
@@ -1702,7 +1704,7 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
   raop_volume = raop_volume_convert(volume);
 
   /* Don't let locales get in the way here */
-  ret = evbuffer_add_printf(evbuf, "volume: %d.%06d", (int)raop_volume, (int)(1000000.0 * (raop_volume - floor(raop_volume))));
+  ret = evbuffer_add_printf(evbuf, "volume: -%d.%06d", (int)raop_volume, (int)(1000000.0 * (raop_volume - (int)raop_volume)));
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for SET_PARAMETER payload (volume)\n");
