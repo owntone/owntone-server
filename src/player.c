@@ -257,12 +257,12 @@ status_update(enum play_status status)
 static int
 rel_to_vol(int relvol)
 {
-  double vol;
+  float vol;
 
   if (relvol == 100)
     return master_volume;
 
-  vol = ((double)relvol * (double)master_volume) / 100.0;
+  vol = ((float)relvol * (float)master_volume) / 100.0;
 
   return (int)vol;
 }
@@ -270,12 +270,12 @@ rel_to_vol(int relvol)
 static int
 vol_to_rel(int volume)
 {
-  double rel;
+  float rel;
 
   if (volume == master_volume)
     return 100;
 
-  rel = ((double)volume / (double)master_volume) * 100.0;
+  rel = ((float)volume / (float)master_volume) * 100.0;
 
   return (int)rel;
 }

@@ -1667,10 +1667,10 @@ raop_session_failure_cb(struct evrtsp_request *req, void *arg)
 
 
 /* Volume handling */
-static double
+static float
 raop_volume_convert(int volume)
 {
-  double raop_volume;
+  float raop_volume;
 
   /* RAOP volume
    *  -144.0 is off
@@ -1681,7 +1681,7 @@ raop_volume_convert(int volume)
   if (volume == 0)
     raop_volume = 144.0;
   else
-    raop_volume = 30.0 - ((double)volume * 30.0) / 100.0;
+    raop_volume = 30.0 - ((float)volume * 30.0) / 100.0;
 
   return raop_volume;
 }
@@ -1690,7 +1690,7 @@ static int
 raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
 {
   struct evbuffer *evbuf;
-  double raop_volume;
+  float raop_volume;
   int ret;
 
   evbuf = evbuffer_new();
