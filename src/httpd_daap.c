@@ -2451,6 +2451,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   struct evbuffer *itemlist;
   struct sort_ctx *sctx;
   char *browse_item;
+  char *sort_item;
   char *tag;
   int sort_headers;
   int nitems;
@@ -2556,13 +2557,13 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
 
   nitems = 0;
-  while (((ret = db_query_fetch_string(&qp, &browse_item)) == 0) && (browse_item))
+  while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
     {
       nitems++;
 
       if (sort_headers)
 	{
-	  ret = daap_sort_build(sctx, browse_item);
+	  ret = daap_sort_build(sctx, sort_item);
 	  if (ret < 0)
 	    {
 	      DPRINTF(E_LOG, L_DAAP, "Could not add sort header to DAAP browse reply\n");
