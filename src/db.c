@@ -568,6 +568,35 @@ db_exec(const char *query, char **errmsg)
 }
 
 
+/* Maintenance and DB hygiene */
+static void
+db_analyze(void)
+{
+  char *query = "ANALYZE;";
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "ANALYZE failed: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+    }
+}
+
+void
+db_hook_post_scan(void)
+{
+  DPRINTF(E_DBG, L_DB, "Running post-scan DB maintenance tasks...\n");
+
+  db_analyze();
+
+  DPRINTF(E_DBG, L_DB, "Done with post-scan DB maintenance\n");
+}
+
 void
 db_purge_cruft(time_t ref)
 {

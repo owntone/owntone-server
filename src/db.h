@@ -286,6 +286,10 @@ unicode_fixup_mfi(struct media_file_info *mfi);
 void
 free_pli(struct playlist_info *pli, int content_only);
 
+/* Maintenance and DB hygiene */
+void
+db_hook_post_scan(void);
+
 void
 db_purge_cruft(time_t ref);
 
