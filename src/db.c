@@ -1434,6 +1434,44 @@ db_query_fetch_string(struct query_params *qp, char **string)
   return 0;
 }
 
+int
+db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortstring)
+{
+  int ret;
+
+  *string = NULL;
+
+  if (!qp->stmt)
+    {
+      DPRINTF(E_LOG, L_DB, "Query not started!\n");
+      return -1;
+    }
+
+  if (!(qp->type & Q_F_BROWSE))
+    {
+      DPRINTF(E_LOG, L_DB, "Not a browse query!\n");
+      return -1;
+    }
+
+  ret = db_blocking_step(qp->stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_INFO, L_DB, "End of query results\n");
+      *string = NULL;
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  *string = (char *)sqlite3_column_text(qp->stmt, 0);
+  *sortstring = (char *)sqlite3_column_text(qp->stmt, 1);
+
+  return 0;
+}
+
 
 /* Files */
 int

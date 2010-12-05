@@ -308,6 +308,9 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri);
 int
 db_query_fetch_string(struct query_params *qp, char **string);
 
+int
+db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortstring);
+
 /* Files */
 int
 db_files_get_count(void);
