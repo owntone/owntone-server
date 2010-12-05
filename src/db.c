@@ -1100,17 +1100,17 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
-			    " AND %s %s;", field, field, qp->filter, idx);
+    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+			    " AND %s %s;", field, field, field, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
-			    " %s;", field, field, idx);
+    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+			    " %s;", field, field, field, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
-			    " AND %s;", field, field, qp->filter);
+    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+			    " AND %s;", field, field, field, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''",
-			    field, field);
+    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''",
+			    field, field, field);
 
   if (!query)
     {
