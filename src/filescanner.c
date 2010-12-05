@@ -811,6 +811,8 @@ filescanner(void *arg)
 
   bulk_scan();
 
+  db_hook_post_scan();
+
   if (!scan_exit)
     {
       /* Enable inotify */
