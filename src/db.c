@@ -255,9 +255,9 @@ static const struct col_type_map wi_cols_map[] =
 static const char *sort_clause[] =
   {
     "",
-    "ORDER BY title_sort COLLATE DAAP ASC",
-    "ORDER BY album_sort COLLATE DAAP ASC, disc ASC, track ASC",
-    "ORDER BY artist_sort COLLATE DAAP ASC",
+    "ORDER BY title_sort ASC",
+    "ORDER BY album_sort ASC, disc ASC, track ASC",
+    "ORDER BY artist_sort ASC",
   };
 
 static char *db_path;
@@ -939,13 +939,13 @@ db_build_query_groups(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album COLLATE DAAP, g.name HAVING g.type = %d AND disabled = 0 AND %s %s;", G_ALBUMS, qp->filter, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0 AND %s %s;", G_ALBUMS, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album COLLATE DAAP, g.name HAVING g.type = %d AND disabled = 0 %s;", G_ALBUMS, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0 %s;", G_ALBUMS, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album COLLATE DAAP, g.name HAVING g.type = %d AND disabled = 0 AND %s;", G_ALBUMS, qp->filter);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0 AND %s;", G_ALBUMS, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album COLLATE DAAP, g.name HAVING g.type = %d AND disabled = 0;", G_ALBUMS);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0;", G_ALBUMS);
 
   if (!query)
     {
@@ -1075,10 +1075,10 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
   int ret;
 
   if (qp->filter)
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s COLLATE DAAP) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '' AND %s;",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '' AND %s;",
 			    field, field, qp->filter);
   else
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s COLLATE DAAP) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '';",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '';",
 			    field, field);
 
   if (!count)
@@ -1100,16 +1100,16 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
 			    " AND %s %s;", field, field, field, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
 			    " %s;", field, field, field, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
 			    " AND %s;", field, field, field, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT DISTINCT %s COLLATE DAAP, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''",
+    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''",
 			    field, field, field);
 
   if (!query)
@@ -3725,16 +3725,16 @@ db_perthread_deinit(void)
   "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
   "   path               VARCHAR(4096) NOT NULL,"	\
   "   fname              VARCHAR(255) NOT NULL,"	\
-  "   title              VARCHAR(1024) DEFAULT NULL,"	\
-  "   artist             VARCHAR(1024) DEFAULT NULL,"	\
-  "   album              VARCHAR(1024) NOT NULL,"	\
-  "   genre              VARCHAR(255) DEFAULT NULL,"	\
-  "   comment            VARCHAR(4096) DEFAULT NULL,"	\
-  "   type               VARCHAR(255) DEFAULT NULL,"	\
-  "   composer           VARCHAR(1024) DEFAULT NULL,"	\
-  "   orchestra          VARCHAR(1024) DEFAULT NULL,"	\
-  "   conductor          VARCHAR(1024) DEFAULT NULL,"	\
-  "   grouping           VARCHAR(1024) DEFAULT NULL,"	\
+  "   title              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist             VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album              VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   genre              VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   comment            VARCHAR(4096) DEFAULT NULL COLLATE DAAP,"	\
+  "   type               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   composer           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   orchestra          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   conductor          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   grouping           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   url                VARCHAR(1024) DEFAULT NULL,"	\
   "   bitrate            INTEGER DEFAULT 0,"		\
   "   samplerate         INTEGER DEFAULT 0,"		\
@@ -3763,11 +3763,11 @@ db_perthread_deinit(void)
   "   has_video          INTEGER DEFAULT 0,"		\
   "   contentrating      INTEGER DEFAULT 0,"		\
   "   bits_per_sample    INTEGER DEFAULT 0,"		\
-  "   album_artist       VARCHAR(1024) NOT NULL,"	\
+  "   album_artist       VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
   "   media_kind         INTEGER NOT NULL,"		\
-  "   tv_series_name     VARCHAR(1024) DEFAULT NULL,"	\
-  "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL,"	\
-  "   tv_network_name    VARCHAR(1024) DEFAULT NULL,"	\
+  "   tv_series_name     VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_network_name    VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   tv_episode_sort    INTEGER NOT NULL,"		\
   "   tv_season_num      INTEGER NOT NULL,"		\
   "   songalbumid        INTEGER NOT NULL,"		\
@@ -3781,7 +3781,7 @@ db_perthread_deinit(void)
 #define T_PL					\
   "CREATE TABLE IF NOT EXISTS playlists ("		\
   "   id             INTEGER PRIMARY KEY NOT NULL,"	\
-  "   title          VARCHAR(255) NOT NULL,"		\
+  "   title          VARCHAR(255) NOT NULL COLLATE DAAP,"	\
   "   type           INTEGER NOT NULL,"			\
   "   query          VARCHAR(1024),"			\
   "   db_timestamp   INTEGER NOT NULL,"			\
@@ -3802,7 +3802,7 @@ db_perthread_deinit(void)
   "CREATE TABLE IF NOT EXISTS groups ("					\
   "   id             INTEGER PRIMARY KEY NOT NULL,"			\
   "   type           INTEGER NOT NULL,"					\
-  "   name           VARCHAR(1024) NOT NULL,"				\
+  "   name           VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
   "   persistentid   INTEGER NOT NULL,"					\
   "CONSTRAINT groups_type_unique_persistentid UNIQUE (type, persistentid)" \
   ");"
@@ -3841,13 +3841,13 @@ db_perthread_deinit(void)
   "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
 
 #define I_TITLESORT				\
-  "CREATE INDEX IF NOT EXISTS idx_titlesort ON files(title_sort COLLATE DAAP);"
+  "CREATE INDEX IF NOT EXISTS idx_titlesort ON files(title_sort);"
 
 #define I_ARTISTSORT				\
-  "CREATE INDEX IF NOT EXISTS idx_artistsort ON files(artist_sort COLLATE DAAP);"
+  "CREATE INDEX IF NOT EXISTS idx_artistsort ON files(artist_sort);"
 
 #define I_ALBUMSORT				\
-  "CREATE INDEX IF NOT EXISTS idx_albumsort ON files(album_sort COLLATE DAAP);"
+  "CREATE INDEX IF NOT EXISTS idx_albumsort ON files(album_sort);"
 
 #define TRG_GROUPS_INSERT_FILES						\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
