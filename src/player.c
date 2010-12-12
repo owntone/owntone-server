@@ -1116,7 +1116,7 @@ source_check(void)
   return pos;
 }
 
-static void
+static int
 source_read(uint8_t *buf, int len, uint64_t rtptime)
 {
   int new;
@@ -1124,7 +1124,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   int nbytes;
 
   if (!cur_streaming)
-    return;
+    return 0;
 
   nbytes = 0;
   new = 0;
@@ -1138,7 +1138,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 
 	  ret = source_next(0);
 	  if (ret < 0)
-	    return;
+	    return -1;
 	}
 
       if (EVBUFFER_LENGTH(audio_buf) == 0)
@@ -1156,6 +1156,8 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 
       nbytes += evbuffer_remove(audio_buf, buf + nbytes, len - nbytes);
     }
+
+  return nbytes;
 }
 
 
@@ -1163,6 +1165,7 @@ static void
 playback_write(void)
 {
   uint8_t rawbuf[AIRTUNES_V2_PACKET_SAMPLES * 2 * 2];
+  int ret;
 
   source_check();
   /* Make sure playback is still running after source_check() */
@@ -1173,7 +1176,14 @@ playback_write(void)
 
   memset(rawbuf, 0, sizeof(rawbuf));
 
-  source_read(rawbuf, sizeof(rawbuf), last_rtptime);
+  ret = source_read(rawbuf, sizeof(rawbuf), last_rtptime);
+  if (ret < 0)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Error reading from source, aborting playback\n");
+
+      playback_stop(NULL);
+      return;
+    }
 
   if (laudio_status & LAUDIO_F_STARTED)
     laudio_write(rawbuf, last_rtptime);
