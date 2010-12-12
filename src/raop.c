@@ -912,6 +912,10 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
   const char *url;
   int ret;
 
+  method = evrtsp_method(req_method);
+
+  DPRINTF(E_DBG, L_RAOP, "Building %s for %s\n", method, rs->devname);
+
   snprintf(buf, sizeof(buf), "%d", rs->cseq);
   evrtsp_add_header(req->output_headers, "CSeq", buf);
 
@@ -919,7 +923,6 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
 
   /* Add Authorization header */
   url = (req_method == EVRTSP_REQ_OPTIONS) ? "*" : rs->session_url;
-  method = evrtsp_method(req_method);
 
   ret = raop_add_auth(rs, req, method, url);
   if (ret < 0)
