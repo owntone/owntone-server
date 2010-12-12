@@ -137,8 +137,8 @@ struct player_source
 /* Keep in sync with enum raop_devtype */
 static const char *raop_devtype[] =
   {
-    "AirPort Express 802.11G",
-    "AirPort Express 802.11N",
+    "AirPort Express 802.11g",
+    "AirPort Express 802.11n",
     "AppleTV",
   };
 
