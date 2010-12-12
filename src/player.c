@@ -1889,7 +1889,36 @@ now_playing(struct player_command *cmd)
 static int
 playback_stop(struct player_command *cmd)
 {
-  playback_abort();
+  if (laudio_status != LAUDIO_CLOSED)
+    laudio_close();
+
+  /* We may be restarting very soon, so we don't bring the devices to a
+   * full stop just yet; this saves time when restarting, which is nicer
+   * for the user.
+   */
+  cmd->raop_pending = raop_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+
+  if (event_initialized(&pb_timer_ev))
+    event_del(&pb_timer_ev);
+
+  close(pb_timer_fd);
+  pb_timer_fd = -1;
+
+  if (cur_playing)
+    source_stop(cur_playing);
+  else
+    source_stop(cur_streaming);
+
+  cur_playing = NULL;
+  cur_streaming = NULL;
+
+  evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
+
+  status_update(PLAY_STOPPED);
+
+  /* We're async if we need to flush RAOP devices */
+  if (cmd->raop_pending > 0)
+    return 1; /* async */
 
   return 0;
 }
