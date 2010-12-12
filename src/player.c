@@ -460,8 +460,8 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 }
 
 /* Forward */
-static int
-playback_stop(struct player_command *cmd);
+static void
+playback_abort(void);
 
 static void
 player_laudio_status_cb(enum laudio_state status)
@@ -500,7 +500,7 @@ player_laudio_status_cb(enum laudio_state status)
 	laudio_close();
 
 	if (raop_sessions == 0)
-	  playback_stop(NULL);
+	  playback_abort();
 
 	speaker_deselect_laudio();
 	break;
@@ -895,7 +895,7 @@ source_next(int force)
 	  {
 	    DPRINTF(E_DBG, L_PLAYER, "End of playlist reached and repeat is OFF\n");
 
-	    playback_stop(NULL);
+	    playback_abort();
 	    return 0;
 	  }
 	break;
@@ -953,7 +953,7 @@ source_prev(void)
     {
       DPRINTF(E_DBG, L_PLAYER, "Start of playlist reached and repeat is OFF\n");
 
-      playback_stop(NULL);
+      playback_abort();
       return 0;
     }
 
@@ -1087,7 +1087,7 @@ source_check(void)
       if (!cur_playing->play_next
 	  || ((r_mode == REPEAT_OFF) && (cur_playing->play_next == head)))
 	{
-	  playback_stop(NULL);
+	  playback_abort();
 
 	  return pos;
         }
@@ -1181,7 +1181,7 @@ playback_write(void)
     {
       DPRINTF(E_DBG, L_PLAYER, "Error reading from source, aborting playback\n");
 
-      playback_stop(NULL);
+      playback_abort();
       return;
     }
 
@@ -1226,7 +1226,7 @@ player_playback_cb(int fd, short what, void *arg)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not set playback timer: %s\n", strerror(errno));
 
-      playback_stop(NULL);
+      playback_abort();
       return;
     }
 
@@ -1235,7 +1235,7 @@ player_playback_cb(int fd, short what, void *arg)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not re-add playback timer event\n");
 
-      playback_stop(NULL);
+      playback_abort();
       return;
     }
 }
@@ -1270,7 +1270,7 @@ player_playback_cb(int fd, short what, void *arg)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not re-add playback timer event\n");
 
-      playback_stop(NULL);
+      playback_abort();
       return;
     }
 }
@@ -1754,6 +1754,36 @@ device_restart_cb(struct raop_device *dev, struct raop_session *rs, enum raop_se
 }
 
 
+/* Internal abort routine */
+static void
+playback_abort(void)
+{
+  if (laudio_status != LAUDIO_CLOSED)
+    laudio_close();
+
+  if (raop_sessions > 0)
+    raop_playback_stop();
+
+  if (event_initialized(&pb_timer_ev))
+    event_del(&pb_timer_ev);
+
+  close(pb_timer_fd);
+  pb_timer_fd = -1;
+
+  if (cur_playing)
+    source_stop(cur_playing);
+  else
+    source_stop(cur_streaming);
+
+  cur_playing = NULL;
+  cur_streaming = NULL;
+
+  evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
+
+  status_update(PLAY_STOPPED);
+}
+
+
 /* Actual commands, executed in the player thread */
 static int
 get_status(struct player_command *cmd)
@@ -1859,29 +1889,7 @@ now_playing(struct player_command *cmd)
 static int
 playback_stop(struct player_command *cmd)
 {
-  if (laudio_status != LAUDIO_CLOSED)
-    laudio_close();
-
-  if (raop_sessions > 0)
-    raop_playback_stop();
-
-  if (event_initialized(&pb_timer_ev))
-    event_del(&pb_timer_ev);
-
-  close(pb_timer_fd);
-  pb_timer_fd = -1;
-
-  if (cur_playing)
-    source_stop(cur_playing);
-  else
-    source_stop(cur_streaming);
-
-  cur_playing = NULL;
-  cur_streaming = NULL;
-
-  evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
-
-  status_update(PLAY_STOPPED);
+  playback_abort();
 
   return 0;
 }
@@ -1996,7 +2004,7 @@ playback_start_bh(struct player_command *cmd)
  out_fail:
   close(pb_timer_fd);
   pb_timer_fd = -1;
-  playback_stop(NULL);
+  playback_abort();
 
   return -1;
 }
@@ -2067,7 +2075,7 @@ playback_start(struct player_command *cmd)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Couldn't jump to queue position %d\n", *idx_id);
 
-	  playback_stop(NULL);
+	  playback_abort();
 	  return -1;
 	}
 
@@ -2085,7 +2093,7 @@ playback_start(struct player_command *cmd)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Couldn't find anything to play!\n");
 
-	  playback_stop(NULL);
+	  playback_abort();
 	  return -1;
 	}
 
@@ -2101,7 +2109,7 @@ playback_start(struct player_command *cmd)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not open local audio\n");
 
-	  playback_stop(NULL);
+	  playback_abort();
 	  return -1;
 	}
     }
@@ -2128,7 +2136,7 @@ playback_start(struct player_command *cmd)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
 
-      playback_stop(NULL);
+      playback_abort();
       return -1;
     }
 
@@ -2153,7 +2161,7 @@ playback_prev_bh(struct player_command *cmd)
   ret = source_prev();
   if (ret < 0)
     {
-      playback_stop(NULL);
+      playback_abort();
 
       return -1;
     }
@@ -2185,7 +2193,7 @@ playback_next_bh(struct player_command *cmd)
   ret = source_next(1);
   if (ret < 0)
     {
-      playback_stop(NULL);
+      playback_abort();
 
       return -1;
     }
@@ -2224,7 +2232,7 @@ playback_seek_bh(struct player_command *cmd)
   ret = transcode_seek(ps->ctx, ms);
   if (ret < 0)
     {
-      playback_stop(NULL);
+      playback_abort();
 
       return -1;
     }
@@ -2265,7 +2273,7 @@ playback_pause_bh(struct player_command *cmd)
   ret = transcode_seek(ps->ctx, ms);
   if (ret < 0)
     {
-      playback_stop(NULL);
+      playback_abort();
 
       return -1;
     }
@@ -2293,7 +2301,8 @@ playback_pause(struct player_command *cmd)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not retrieve current position for pause\n");
 
-      return playback_stop(cmd);
+      playback_abort();
+      return -1;
     }
 
   /* Make sure playback is still running after source_check() */
