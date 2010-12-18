@@ -64,6 +64,8 @@ static struct metadata_map md_map[] =
   {
     { "Name",         PLIST_STRING,  mfi_offsetof(title) },
     { "Artist",       PLIST_STRING,  mfi_offsetof(artist) },
+    { "Album Artist", PLIST_STRING,  mfi_offsetof(album_artist) },
+    { "Composer",     PLIST_STRING,  mfi_offsetof(composer) },
     { "Album",        PLIST_STRING,  mfi_offsetof(album) },
     { "Genre",        PLIST_STRING,  mfi_offsetof(genre) },
     { "Comments",     PLIST_STRING,  mfi_offsetof(comment) },
@@ -75,6 +77,7 @@ static struct metadata_map md_map[] =
     { "Total Time",   PLIST_UINT,    mfi_offsetof(song_length) },
     { "Bit Rate",     PLIST_UINT,    mfi_offsetof(bitrate) },
     { "Sample Rate",  PLIST_UINT,    mfi_offsetof(samplerate) },
+    { "BPM",          PLIST_UINT,    mfi_offsetof(bpm) },
     { "Rating",       PLIST_UINT,    mfi_offsetof(rating) },
     { "Compilation",  PLIST_BOOLEAN, mfi_offsetof(compilation) },
     { "Date Added",   PLIST_DATE,    mfi_offsetof(time_added) },
