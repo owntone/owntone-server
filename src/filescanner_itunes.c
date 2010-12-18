@@ -427,6 +427,15 @@ process_track_file(plist_t trk, char *base)
 	}
     }
 
+  /* Don't let album_artist set to "Unknown artist" if we've
+   * filled artist from the iTunes data in the meantime
+   */
+  if (strcmp(mfi->album_artist, "Unknown artist") == 0)
+    {
+      free(mfi->album_artist);
+      mfi->album_artist = strdup(mfi->artist);
+    }
+
   unicode_fixup_mfi(mfi);
   db_file_update(mfi);
 
