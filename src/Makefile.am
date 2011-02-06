@@ -34,10 +34,14 @@ ANTLR_SOURCES = \
 ANTLR_PRODUCTS =
 
 forked_daapd_CPPFLAGS = -D_GNU_SOURCE \
+	-DDATADIR="\"$(pkgdatadir)\"" -DCONFDIR="\"$(sysconfdir)\"" \
+	-DSTATEDIR="\"$(localstatedir)\"" -DPKGLIBDIR="\"$(pkglibdir)\"" \
+	@OSS4CPPFLAGS@
+
+forked_daapd_CFLAGS = \
 	@ZLIB_CFLAGS@ @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @FFMPEG_CFLAGS@ \
 	@CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ \
-	@LIBGCRYPT_CFLAGS@ @ALSA_CFLAGS@ @OSS4CPPFLAGS@ \
-	-DDATADIR="\"$(pkgdatadir)\"" -DCONFDIR="\"$(sysconfdir)\"" -DSTATEDIR="\"$(localstatedir)\"" -DPKGLIBDIR="\"$(pkglibdir)\""
+	@LIBGCRYPT_CFLAGS@ @ALSA_CFLAGS@
 
 forked_daapd_LDADD = \
 	@ZLIB_LIBS@ @AVAHI_LIBS@ @SQLITE3_LIBS@ @FFMPEG_LIBS@ \
