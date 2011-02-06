@@ -27,3 +27,6 @@ ltmain.sh
 missing
 stamp-h1
 
+# ignore debian packaging for convenience
+debian/
+
