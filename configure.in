@@ -144,7 +144,8 @@ AC_CHECK_HEADER(antlr3.h, , AC_MSG_ERROR([antlr3.h not found]))
 AC_CHECK_LIB([antlr3c], [antlr3BaseRecognizerNew], [ANTLR3C_LIBS="-lantlr3c"], AC_MSG_ERROR([ANTLR3 C runtime (libantlr3c) not found]))
 AC_SUBST(ANTLR3C_LIBS)
 
-AM_PATH_LIBGCRYPT([], , AC_MSG_ERROR([libgcrypt not found]))
+AM_PATH_LIBGCRYPT([1:1.2.0], , AC_MSG_ERROR([libgcrypt not found]))
+AM_PATH_GPG_ERROR([1.6], , AC_MSG_ERROR([libgpg-error not found]))
 
 if test x$use_flac = xtrue; then
 	PKG_CHECK_MODULES(FLAC, [ flac ])
