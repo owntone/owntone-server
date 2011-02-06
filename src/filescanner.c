@@ -263,6 +263,12 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
 	  if (ret == 0)
 	    mfi.data_kind = 1; /* url/stream */
 	}
+      else if ((strcmp(ext, ".png") == 0)
+	       || (strcmp(ext, ".jpg") == 0))
+	{
+	  /* Artwork - don't scan */
+	  goto out;
+	}
     }
 
   /* General case */
@@ -276,8 +282,7 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
     {
       DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for %s\n", file);
 
-      free_mfi(&mfi, 1);
-      return;
+      goto out;
     }
 
   mfi.compilation = compilation;
@@ -296,6 +301,7 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
   else
     db_file_update(&mfi);
 
+ out:
   free_mfi(&mfi, 1);
 }
 
