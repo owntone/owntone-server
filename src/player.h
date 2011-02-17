@@ -6,7 +6,8 @@
 
 #if defined(__linux__)
 /* AirTunes v2 packet interval in ns */
-# define AIRTUNES_V2_STREAM_PERIOD   7980000
+/* (352 samples/packet * 1e9 ns/s) / 44100 samples/s = 7981859 ns/packet */
+#define AIRTUNES_V2_STREAM_PERIOD 7981859
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 /* AirTunes v2 packet interval in ms */
 # define AIRTUNES_V2_STREAM_PERIOD   8

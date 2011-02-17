@@ -64,6 +64,10 @@
 # define MIN(a, b) ((a < b) ? a : b)
 #endif
 
+#ifndef MAX
+#define MAX(a, b) ((a > b) ? a : b)
+#endif
+
 enum player_sync_source
   {
     PLAYER_SYNC_CLOCK,
@@ -150,6 +154,10 @@ static int pb_timer_fd;
 static struct event pb_timer_ev;
 #if defined(__linux__)
 static struct timespec pb_timer_last;
+static struct timespec packet_timer_last;
+static uint64_t MINIMUM_STREAM_PERIOD;
+static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
+static struct timespec timer_res;
 #endif
 
 /* Sync source */
@@ -358,7 +366,7 @@ player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
   uint64_t delta;
   int ret;
 
-  ret = clock_gettime(CLOCK_MONOTONIC, ts);
+  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
@@ -402,7 +410,7 @@ player_get_current_pos_laudio(uint64_t *pos, struct timespec *ts, int commit)
 
   *pos = laudio_get_pos();
 
-  ret = clock_gettime(CLOCK_MONOTONIC, ts);
+  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
@@ -1397,17 +1405,35 @@ player_playback_cb(int fd, short what, void *arg)
   struct itimerspec next;
   uint64_t ticks;
   int ret;
+  uint32_t packet_send_count = 0;
+  struct timespec next_tick;
+  struct timespec stream_period  = { 0, MINIMUM_STREAM_PERIOD };
 
   /* Acknowledge timer */
   read(fd, &ticks, sizeof(ticks));
 
-  playback_write();
+  /* Decide how many packets to send */
+  next_tick = timespec_add(pb_timer_last, stream_period);
+  do
+    {
+      playback_write();
+      packet_timer_last = timespec_add(packet_timer_last, packet_time);
+      packet_send_count++;
+      /* not possible to have more than 126 audio packets per second */
+      if(packet_send_count > 126)
+        {
+          DPRINTF(E_LOG, L_PLAYER, "Timing error detected during playback! Aborting.\n");
+          playback_abort();
+          return;
+        }
+    }
+  while(timespec_cmp(packet_timer_last, next_tick) < 0 );
 
   /* Make sure playback is still running */
   if (player_state == PLAY_STOPPED)
     return;
 
-  pb_timer_last.tv_nsec += AIRTUNES_V2_STREAM_PERIOD;
+  pb_timer_last.tv_nsec += MINIMUM_STREAM_PERIOD;
   if (pb_timer_last.tv_nsec >= 1000000000)
     {
       pb_timer_last.tv_sec++;
@@ -1831,7 +1857,7 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 
   if ((player_state == PLAY_PLAYING) && (raop_sessions == 1))
     {
-      ret = clock_gettime(CLOCK_MONOTONIC, &ts);
+      ret = clock_gettime_with_res(CLOCK_MONOTONIC, &ts, &timer_res);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not get current time: %s\n", strerror(errno));
@@ -2157,7 +2183,7 @@ playback_start_bh(struct player_command *cmd)
 	}
     }
 
-  ret = clock_gettime(CLOCK_MONOTONIC, &pb_pos_stamp);
+  ret = clock_gettime_with_res(CLOCK_MONOTONIC, &pb_pos_stamp, &timer_res);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get current clock: %s\n", strerror(errno));
@@ -2168,6 +2194,13 @@ playback_start_bh(struct player_command *cmd)
   memset(&pb_timer_ev, 0, sizeof(struct event));
 
 #if defined(__linux__)
+  /*
+   * initialize the packet timer to the same relative time that we have 
+   * for the playback timer.
+   */
+  packet_timer_last.tv_sec = pb_pos_stamp.tv_sec;
+  packet_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
+
   pb_timer_last.tv_sec = pb_pos_stamp.tv_sec;
   pb_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
 
@@ -4020,6 +4053,18 @@ player_init(void)
   shuffle = 0;
 
   update_handler = NULL;
+
+  /*
+   * Determine if the resolution of the system timer is > or < the size
+   * of an audio packet. NOTE: this assumes the system clock resolution
+   * is less than one second.
+   */
+  if(clock_getres(CLOCK_MONOTONIC, &timer_res) < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not get the system timer resolution.\n");
+      return -1;
+    }
+  MINIMUM_STREAM_PERIOD = MAX(timer_res.tv_nsec, AIRTUNES_V2_STREAM_PERIOD);
 
   /* Random RTP time start */
   gcry_randomize(&rnd, sizeof(rnd), GCRY_STRONG_RANDOM);

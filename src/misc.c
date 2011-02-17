@@ -751,6 +751,57 @@ murmur_hash64(const void *key, int len, uint32_t seed)
   return h;
 }
 
+int
+clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec *res)
+{
+  int r_val = -1;
+  if(res && tp)
+  {
+   r_val = clock_gettime(clock_id, tp);
+   /* this will only work for sub-second resolutions. */
+   if(r_val == 0 && res->tv_nsec > 1)
+    {
+      tp->tv_nsec = (tp->tv_nsec/res->tv_nsec)*res->tv_nsec;    
+    }
+  }
+  return r_val;
+}
+
+struct timespec
+timespec_add(struct timespec time1, struct timespec time2)
+{
+  struct timespec result;
+
+  result.tv_sec = time1.tv_sec + time2.tv_sec;
+  result.tv_nsec = time1.tv_nsec + time2.tv_nsec;
+  if (result.tv_nsec >= 1000000000L)
+  {
+    result.tv_sec++;
+    result.tv_nsec -= 1000000000L;
+  }
+  return result;
+}
+
+int
+timespec_cmp(struct timespec time1, struct timespec time2)
+{
+  /* Less than. */
+  if (time1.tv_sec < time2.tv_sec)
+    return -1;
+  /* Greater than. */
+  else if (time1.tv_sec > time2.tv_sec)
+    return 1;
+  /* Less than. */
+  else if (time1.tv_nsec < time2.tv_nsec)
+    return -1;
+  /* Greater than. */
+  else if (time1.tv_nsec > time2.tv_nsec)
+    return 1;
+  /* Equal. */
+  else
+    return 0;
+}
+
 #else
 # error Platform not supported
 #endif
