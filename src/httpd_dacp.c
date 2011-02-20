@@ -991,6 +991,13 @@ dacp_reply_playpause(struct evhttp_request *req, struct evbuffer *evbuf, char **
   struct player_status status;
   int ret;
 
+  /*
+   * Support (Android) remotes that always send playpause to pause or start a
+   * song.
+   */
+  if(player_is_playing())
+    return dacp_reply_pause(req, evbuf, uri, query);
+
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
