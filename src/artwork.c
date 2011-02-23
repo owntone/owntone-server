@@ -279,7 +279,12 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
 	  continue;
 	}
 
+#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 32)
+      /* FFmpeg 0.6 */
+      avcodec_decode_video2(src, i_frame, &have_frame, &pkt);
+#else
       avcodec_decode_video(src, i_frame, &have_frame, pkt.data, pkt.size);
+#endif
 
       break;
     }
