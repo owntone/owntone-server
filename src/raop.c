@@ -46,7 +46,13 @@
 #include <netdb.h>
 #include <fcntl.h>
 #include <time.h>
-#include <endian.h>
+
+#if defined(__linux__) || defined(__GLIBC__)
+# include <endian.h>
+# include <byteswap.h>
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+# include <sys/endian.h>
+#endif
 
 #include <arpa/inet.h>
 #include <net/if.h>
