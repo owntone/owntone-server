@@ -60,8 +60,7 @@ struct transcode_ctx {
   AVCodecContext *acodec; /* pCodecCtx */
   AVCodec *adecoder; /* pCodec */
   AVPacket apacket;
-  int apacket_size;
-  uint8_t *apacket_data;
+  AVPacket apacket2;
   int16_t *abuffer;
 
   /* Resampling */
@@ -161,23 +160,30 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
   while ((processed < wanted) && !stop)
     {
       /* Decode data */
-      while (ctx->apacket_size > 0)
+      while (ctx->apacket2.size > 0)
 	{
 	  buflen = XCODE_BUFFER_SIZE;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 32)
+	  /* FFmpeg 0.6 */
+	  used = avcodec_decode_audio3(ctx->acodec,
+				       ctx->abuffer, &buflen,
+				       &ctx->apacket2);
+#else
 	  used = avcodec_decode_audio2(ctx->acodec,
 				       ctx->abuffer, &buflen,
-				       ctx->apacket_data, ctx->apacket_size);
+				       ctx->apacket2.data, ctx->apacket2.size);
+#endif
 
 	  if (used < 0)
 	    {
 	      /* Something happened, skip this packet */
-	      ctx->apacket_size = 0;
+	      ctx->apacket2.size = 0;
 	      break;
 	    }
 
-	  ctx->apacket_data += used;
-	  ctx->apacket_size -= used;
+	  ctx->apacket2.data += used;
+	  ctx->apacket2.size -= used;
 
 	  /* No frame decoded this time around */
 	  if (buflen == 0)
@@ -235,9 +241,8 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	}
       while (ctx->apacket.stream_index != ctx->astream);
 
-      /* Copy apacket data & size and do not mess with them */
-      ctx->apacket_data = ctx->apacket.data;
-      ctx->apacket_size = ctx->apacket.size;
+      /* Copy apacket and do not mess with it */
+      ctx->apacket2 = ctx->apacket;
     }
 
   ctx->offset += processed;
@@ -304,9 +309,8 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   if (flags)
     return -1;
 
-  /* Copy apacket data & size and do not mess with them */
-  ctx->apacket_data = ctx->apacket.data;
-  ctx->apacket_size = ctx->apacket.size;
+  /* Copy apacket and do not mess with it */
+  ctx->apacket2 = ctx->apacket;
 
   /* Compute position in ms from pts */
   got_pts = ctx->apacket.pts;
