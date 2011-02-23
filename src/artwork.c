@@ -142,7 +142,12 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
     }
 
   /* Set up output */
+#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 52 && LIBAVFORMAT_VERSION_MINOR >= 45)
+  /* FFmpeg 0.6 */
+  dst_fmt = av_guess_format("image2", NULL, NULL);
+#else
   dst_fmt = guess_format("image2", NULL, NULL);
+#endif
   if (!dst_fmt)
     {
       DPRINTF(E_LOG, L_ART, "ffmpeg image2 muxer not available\n");
