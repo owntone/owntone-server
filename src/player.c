@@ -1641,8 +1641,8 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 	  ts.tv_sec = pb_timer_last.tv_sec;
 	  ts.tv_nsec = pb_timer_last.tv_nsec;
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-	  if (cmd.ret != -2)
-	    cmd.ret = -1;
+	  if (cur_cmd->ret != -2)
+	    cur_cmd->ret = -1;
 	  goto out;
 #endif
 	}
