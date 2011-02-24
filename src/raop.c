@@ -1952,7 +1952,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
 	for (rs = sessions; rs; rs = rs->next)
 	  {
 	    if ((rs->sa.ss.ss_family == AF_INET6)
-		&& IN6_ARE_ADDR_EQUAL(sa.sin6.sin6_addr.s6_addr32, rs->sa.sin6.sin6_addr.s6_addr32))
+		&& IN6_ARE_ADDR_EQUAL(&sa.sin6.sin6_addr, &rs->sa.sin6.sin6_addr))
 	      break;
 	  }
 
@@ -2314,7 +2314,7 @@ raop_v2_control_cb(int fd, short what, void *arg)
 	for (rs = sessions; rs; rs = rs->next)
 	  {
 	    if ((rs->sa.ss.ss_family == AF_INET6)
-		&& IN6_ARE_ADDR_EQUAL(sa.sin6.sin6_addr.s6_addr32, rs->sa.sin6.sin6_addr.s6_addr32))
+		&& IN6_ARE_ADDR_EQUAL(&sa.sin6.sin6_addr, &rs->sa.sin6.sin6_addr))
 	      break;
 	  }
 
