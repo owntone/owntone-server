@@ -2888,7 +2888,7 @@ raop_cb_startup_record(struct evrtsp_request *req, void *arg)
 
   if (req->response_code != RTSP_OK)
     {
-      DPRINTF(E_LOG, L_RAOP, "SETUP request failed in session startup: %d %s\n", req->response_code, req->response_code_line);
+      DPRINTF(E_LOG, L_RAOP, "RECORD request failed in session startup: %d %s\n", req->response_code, req->response_code_line);
 
       goto cleanup;
     }
