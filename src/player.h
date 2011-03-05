@@ -32,6 +32,11 @@ enum repeat_mode {
   REPEAT_ALL  = 2,
 };
 
+struct spk_flags {
+  unsigned selected:1;
+  unsigned has_password:1;
+};
+
 struct player_status {
   enum play_status status;
   enum repeat_mode repeat;
@@ -45,7 +50,7 @@ struct player_status {
   int pos_pl;
 };
 
-typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, int selected, int has_password, void *arg);
+typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg);
 typedef void (*player_status_handler)(void);
 
 struct player_source;

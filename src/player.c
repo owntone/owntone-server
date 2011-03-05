@@ -2385,6 +2385,7 @@ speaker_enumerate(struct player_command *cmd)
 {
   struct raop_device *rd;
   struct spk_enum *spk_enum;
+  struct spk_flags flags;
   char *laudio_name;
 
   spk_enum = cmd->arg.spk_enum;
@@ -2395,7 +2396,10 @@ speaker_enumerate(struct player_command *cmd)
   if (!dev_list && !laudio_selected)
     speaker_select_laudio();
 
-  spk_enum->cb(0, laudio_name, laudio_relvol, laudio_selected, 0, spk_enum->arg);
+  flags.selected = laudio_selected;
+  flags.has_password = 0;
+
+  spk_enum->cb(0, laudio_name, laudio_relvol, flags, spk_enum->arg);
 
 #ifdef DEBUG_RELVOL
   DPRINTF(E_DBG, L_PLAYER, "*** master: %d\n", master_volume);
@@ -2406,7 +2410,10 @@ speaker_enumerate(struct player_command *cmd)
     {
       if (rd->advertised || rd->selected)
 	{
-	  spk_enum->cb(rd->id, rd->name, rd->relvol, rd->selected, rd->has_password, spk_enum->arg);
+	  flags.selected = rd->selected;
+	  flags.has_password = rd->has_password;
+
+	  spk_enum->cb(rd->id, rd->name, rd->relvol, flags, spk_enum->arg);
 
 #ifdef DEBUG_RELVOL
 	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
