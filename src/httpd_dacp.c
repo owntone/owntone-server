@@ -1356,12 +1356,16 @@ speaker_enum_cb(uint64_t id, const char *name, int relvol, struct spk_flags flag
     len += 9;
   if (flags.has_password)
     len += 9;
+  if (flags.has_video)
+    len += 9;
 
   dmap_add_container(evbuf, "mdcl", len); /* 8 + len */
   if (flags.selected)
     dmap_add_char(evbuf, "caia", 1);      /* 9 */
   if (flags.has_password)
     dmap_add_char(evbuf, "cahp", 1);      /* 9 */
+  if (flags.has_video)
+    dmap_add_char(evbuf, "caiv", 1);      /* 9 */
   dmap_add_string(evbuf, "minm", name);   /* 8 + len */
   dmap_add_long(evbuf, "msma", id);       /* 16 */
 
