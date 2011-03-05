@@ -1,7 +1,7 @@
 /*
  * Avahi mDNS backend, with libevent polling
  *
- * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  *
  * Pieces coming from mt-daapd:
  * Copyright (C) 2005 Sebastian Dröge <slomo@ubuntu.com>
@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <errno.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <net/if.h>
@@ -307,7 +308,7 @@ static struct AvahiPoll ev_poll_api =
   };
 
 
-/* Avahi client callbacks & helpers (imported from mt-daapd) */
+/* Avahi client callbacks & helpers */
 
 struct mdns_browser
 {
@@ -315,6 +316,16 @@ struct mdns_browser
   mdns_browse_cb cb;
 
   struct mdns_browser *next;
+};
+
+struct mdns_record_browser {
+  struct mdns_browser *mb;
+
+  char *name;
+  char *domain;
+  struct keyval txt_kv;
+
+  unsigned short port;
 };
 
 struct mdns_group_entry
@@ -337,27 +348,171 @@ static struct mdns_group_entry *group_entries;
 #define IPV6LL_NETMASK 0xFFC0
 
 static int
-is_link_local(const AvahiAddress *addr)
+is_v4ll(struct in_addr *addr)
 {
-  uint32_t a;
+  return ((ntohl(addr->s_addr) & IPV4LL_NETMASK) == IPV4LL_NETWORK);
+}
 
-  switch (addr->proto)
+static int
+is_v6ll(struct in6_addr *addr)
+{
+  return ((((addr->s6_addr[0] << 8) | addr->s6_addr[1]) & IPV6LL_NETMASK) == IPV6LL_NETWORK);
+}
+
+static void
+browse_record_callback_v4(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol proto,
+			  AvahiBrowserEvent event, const char *hostname, uint16_t clazz, uint16_t type,
+			  const void *rdata, size_t size, AvahiLookupResultFlags flags, void *userdata)
+{
+  char address[INET_ADDRSTRLEN];
+  struct in_addr addr;
+  struct mdns_record_browser *rb_data;
+
+  rb_data = (struct mdns_record_browser *)userdata;
+
+  switch (event)
     {
-      case AVAHI_PROTO_INET:
-	a = ntohl(addr->data.ipv4.address);
+      case AVAHI_BROWSER_NEW:
+	if (size != sizeof(addr.s_addr))
+	  {
+	    DPRINTF(E_WARN, L_MDNS, "Got RR type A size %ld (should be %ld)\n", (long)size, (long)sizeof(addr.s_addr));
 
-	return (a & IPV4LL_NETMASK) == IPV4LL_NETWORK;
+	    return;
+	  }
 
-      case AVAHI_PROTO_INET6:
-	a = (addr->data.ipv6.address[0] << 8) | addr->data.ipv6.address[1];
+	memcpy(&addr.s_addr, rdata, sizeof(addr.s_addr));
 
-	return (a & IPV6LL_NETMASK) == IPV6LL_NETWORK;
+	if (is_v4ll(&addr))
+	  {
+	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv4 LL address\n");
 
-      default:
-	return 0;
+	    return;
+	  }
+
+	if (!inet_ntop(AF_INET, &addr.s_addr, address, sizeof(address)))
+	  {
+	    DPRINTF(E_LOG, L_MDNS, "Could not print IPv4 address: %s\n", strerror(errno));
+
+	    return;
+	  }
+
+	DPRINTF(E_DBG, L_MDNS, "Service %s, hostname %s resolved to %s\n", rb_data->name, hostname, address);
+
+	/* Execute callback (mb->cb) with all the data */
+	rb_data->mb->cb(rb_data->name, rb_data->mb->type, rb_data->domain, hostname, AF_INET, address, rb_data->port, &rb_data->txt_kv);
+	/* Got a suitable address, stop record browser */
+	break;
+
+      case AVAHI_BROWSER_REMOVE:
+	/* Not handled - record browser lifetime too short for this to happen */
+	return;
+
+      case AVAHI_BROWSER_CACHE_EXHAUSTED:
+      case AVAHI_BROWSER_ALL_FOR_NOW:
+	DPRINTF(E_DBG, L_MDNS, "Avahi Record Browser (%s v4): no more results (%s)\n", hostname,
+		(event == AVAHI_BROWSER_CACHE_EXHAUSTED) ? "CACHE_EXHAUSTED" : "ALL_FOR_NOW");	
+
+	break;
+
+      case AVAHI_BROWSER_FAILURE:
+	DPRINTF(E_LOG, L_MDNS, "Avahi Record Browser (%s v4) failure: %s\n", hostname,
+		avahi_strerror(avahi_client_errno(avahi_record_browser_get_client(b))));
+
+	break;
     }
 
-  return 0;
+  keyval_clear(&rb_data->txt_kv);      
+  free(rb_data->name);
+  free(rb_data->domain);
+  free(rb_data);
+
+  avahi_record_browser_free(b);
+}
+
+static void
+browse_record_callback_v6(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtocol proto,
+			  AvahiBrowserEvent event, const char *hostname, uint16_t clazz, uint16_t type,
+			  const void *rdata, size_t size, AvahiLookupResultFlags flags, void *userdata)
+{
+  char address[INET6_ADDRSTRLEN + IF_NAMESIZE + 1];
+  char ifname[IF_NAMESIZE];
+  struct in6_addr addr;
+  struct mdns_record_browser *rb_data;
+  int len;
+  int ret;
+
+  rb_data = (struct mdns_record_browser *)userdata;
+
+  switch (event)
+    {
+      case AVAHI_BROWSER_NEW:
+	if (size != sizeof(addr.s6_addr))
+	  {
+	    DPRINTF(E_WARN, L_MDNS, "Got RR type AAAA size %ld (should be %ld)\n", (long)size, (long)sizeof(addr.s6_addr));
+
+	    return;
+	  }
+
+	memcpy(&addr.s6_addr, rdata, sizeof(addr.s6_addr));
+
+	if (!inet_ntop(AF_INET6, &addr.s6_addr, address, sizeof(address)))
+	  {
+	    DPRINTF(E_LOG, L_MDNS, "Could not print IPv6 address: %s\n", strerror(errno));
+
+	    return;
+	  }
+
+	if (is_v6ll(&addr))
+	  {
+	    if (!if_indextoname(intf, ifname))
+	      {
+		DPRINTF(E_LOG, L_MDNS, "Could not map interface index %d to a name\n", intf);
+
+		return;
+	      }
+
+	    len = strlen(address);
+	    ret = snprintf(address + len, sizeof(address) - len, "%%%s", ifname);
+	    if ((ret < 0) || (ret > sizeof(address) - len))
+	      {
+		DPRINTF(E_LOG, L_MDNS, "Buffer too short for scoped IPv6 LL\n");
+
+		return;
+	      }
+	  }
+
+	DPRINTF(E_DBG, L_MDNS, "Service %s, hostname %s resolved to %s\n", rb_data->name, hostname, address);
+
+	/* Execute callback (mb->cb) with all the data */
+	rb_data->mb->cb(rb_data->name, rb_data->mb->type, rb_data->domain, hostname, AF_INET6, address, rb_data->port, &rb_data->txt_kv);
+	/* Got a suitable address, stop record browser */
+	break;
+
+      case AVAHI_BROWSER_REMOVE:
+	/* Not handled - record browser lifetime too short for this to happen */
+	return;
+
+      case AVAHI_BROWSER_CACHE_EXHAUSTED:
+      case AVAHI_BROWSER_ALL_FOR_NOW:
+	DPRINTF(E_DBG, L_MDNS, "Avahi Record Browser (%s v6): no more results (%s)\n", hostname,
+		(event == AVAHI_BROWSER_CACHE_EXHAUSTED) ? "CACHE_EXHAUSTED" : "ALL_FOR_NOW");	
+
+	break;
+
+      case AVAHI_BROWSER_FAILURE:
+	DPRINTF(E_LOG, L_MDNS, "Avahi Record Browser (%s v6) failure: %s\n", hostname,
+		avahi_strerror(avahi_client_errno(avahi_record_browser_get_client(b))));
+
+	break;
+    }
+
+  /* Cleanup when done/error */
+  keyval_clear(&rb_data->txt_kv);      
+  free(rb_data->name);
+  free(rb_data->domain);
+  free(rb_data);
+
+  avahi_record_browser_free(b);
 }
 
 static void
@@ -365,15 +520,13 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 			const char *name, const char *type, const char *domain, const char *hostname, const AvahiAddress *addr,
 			uint16_t port, AvahiStringList *txt, AvahiLookupResultFlags flags, void *userdata)
 {
-  char address[AVAHI_ADDRESS_STR_MAX + IF_NAMESIZE + 2];
-  char ifname[IF_NAMESIZE];
-  struct keyval txt_kv;
+  AvahiClient *c;
+  AvahiRecordBrowser *rb;
   struct mdns_browser *mb;
+  struct mdns_record_browser *rb_data;
   char *key;
   char *value;
   size_t len;
-  int family;
-  int ll;
   int ret;
 
   mb = (struct mdns_browser *)userdata;
@@ -388,65 +541,39 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       case AVAHI_RESOLVER_FOUND:
 	DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d\n", name, type, proto);
 
-	ll = is_link_local(addr);
-
-	switch (proto)
+	rb_data = (struct mdns_record_browser *)malloc(sizeof(struct mdns_record_browser));
+	if (!rb_data)
 	  {
-	    case AVAHI_PROTO_INET:
-	      if (ll)
-		{
-		  family = AF_UNSPEC;
+	    DPRINTF(E_LOG, L_MDNS, "Out of memory for record browser data\n");
 
-		  DPRINTF(E_DBG, L_MDNS, "Discarding IPv4 LL address\n");
-		  break;
-		}
-
-	      family = AF_INET;
-	      avahi_address_snprint(address, sizeof(address), addr);
-	      break;
-
-	    case AVAHI_PROTO_INET6:
-	      avahi_address_snprint(address, sizeof(address), addr);
-
-	      if (ll)
-		{
-		  DPRINTF(E_DBG, L_MDNS, "Appending interface name to IPv6 LL address\n");
-
-		  if (!if_indextoname(intf, ifname))
-		    {
-		      DPRINTF(E_LOG, L_MDNS, "Could not map interface index %d to a name\n", intf);
-
-		      family = AF_UNSPEC;
-		      break;
-		    }
-
-		  len = strlen(address);
-		  ret = snprintf(address + len, sizeof(address) - len, "%%%s", ifname);
-		  if ((ret < 0) || (ret > sizeof(address) - len))
-		    {
-		      DPRINTF(E_LOG, L_MDNS, "Buffer too short for scoped IPv6 LL\n");
-
-		      family = AF_UNSPEC;
-		      break;
-		    }
-
-		  DPRINTF(E_DBG, L_MDNS, "Scoped IPv6 LL: %s\n", address);
-		}
-
-	      family = AF_INET6;
-	      break;
-
-	    default:
-	      DPRINTF(E_INFO, L_MDNS, "Avahi Resolver: unknown protocol %d\n", proto);
-
-	      family = AF_UNSPEC;
-	      break;
+	    break;
 	  }
 
-	if (family == AF_UNSPEC)
-	  break;
+	memset(rb_data, 0, sizeof(struct mdns_record_browser));
 
-	memset(&txt_kv, 0, sizeof(struct keyval));
+	rb_data->mb = mb;
+	rb_data->port = port;
+
+	rb_data->name = strdup(name);
+	if (!rb_data->name)
+	  {
+	    DPRINTF(E_LOG, L_MDNS, "Out of memory for service name\n");
+
+	    keyval_clear(&rb_data->txt_kv);
+	    free(rb_data);
+	    break;
+	  }
+
+	rb_data->domain = strdup(domain);
+	if (!rb_data->domain)
+	  {
+	    DPRINTF(E_LOG, L_MDNS, "Out of memory for service domain\n");
+
+	    keyval_clear(&rb_data->txt_kv);
+	    free(rb_data->name);
+	    free(rb_data);
+	    break;
+	  }
 
 	while (txt)
 	  {
@@ -467,26 +594,63 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
 		len -= strlen(key) + 1;
 	      }
 
-	    ret = keyval_add_size(&txt_kv, key, value, len);
+	    ret = keyval_add_size(&rb_data->txt_kv, key, value, len);
 	    if (ret < 0)
 	      {
 		DPRINTF(E_LOG, L_MDNS, "Could not build TXT record keyval\n");
 
-		goto out_clear_txt_kv;
+		keyval_clear(&rb_data->txt_kv);
+		free(rb_data->name);
+		free(rb_data->domain);
+		free(rb_data);
+		break;
 	      }
 
 	    txt = avahi_string_list_get_next(txt);
 	  }
 
-	/* Execute callback (mb->cb) with all the data */
-	mb->cb(name, type, domain, hostname, family, address, port, &txt_kv);
+	c = avahi_service_resolver_get_client(r);
 
-    out_clear_txt_kv:
-	keyval_clear(&txt_kv);
+	switch (proto)
+	  {
+	    case AVAHI_PROTO_INET:
+	      rb = avahi_record_browser_new(c, intf, proto, hostname,
+					    AVAHI_DNS_CLASS_IN, AVAHI_DNS_TYPE_A, 0,
+					    browse_record_callback_v4, rb_data);
+	      if (!rb)
+		DPRINTF(E_LOG, L_MDNS, "Could not create v4 record browser for host %s: %s\n",
+			hostname, avahi_strerror(avahi_client_errno(c)));
+	      break;
+
+	    case AVAHI_PROTO_INET6:
+	      rb = avahi_record_browser_new(c, intf, proto, hostname,
+					    AVAHI_DNS_CLASS_IN, AVAHI_DNS_TYPE_AAAA, 0,
+					    browse_record_callback_v6, rb_data);
+	      if (!rb)
+		DPRINTF(E_LOG, L_MDNS, "Could not create v4 record browser for host %s: %s\n",
+			hostname, avahi_strerror(avahi_client_errno(c)));
+	      break;
+
+	    default:
+	      DPRINTF(E_INFO, L_MDNS, "Avahi Resolver: unknown protocol %d\n", proto);
+
+	      rb = NULL;
+	      break;
+	  }
+
+	if (!rb)
+	  {
+	    keyval_clear(&rb_data->txt_kv);
+	    free(rb_data->name);
+	    free(rb_data->domain);
+	    free(rb_data);
+	  }
 	break;
     }
 
   avahi_service_resolver_free(r);
+
+  return;
 }
 
 static void
@@ -522,8 +686,6 @@ browse_callback(AvahiServiceBrowser *b, AvahiIfIndex intf, AvahiProtocol proto, 
 	if (!res)
 	  DPRINTF(E_LOG, L_MDNS, "Failed to create service resolver: %s\n",
 		  avahi_strerror(avahi_client_errno(mdns_client)));
-
-	/* browse_resolve_callback will execute callback (mb->cb) with all the data */
 	break;
 
       case AVAHI_BROWSER_REMOVE:
