@@ -2398,6 +2398,7 @@ speaker_enumerate(struct player_command *cmd)
 
   flags.selected = laudio_selected;
   flags.has_password = 0;
+  flags.has_video = 0;
 
   spk_enum->cb(0, laudio_name, laudio_relvol, flags, spk_enum->arg);
 
@@ -2412,6 +2413,7 @@ speaker_enumerate(struct player_command *cmd)
 	{
 	  flags.selected = rd->selected;
 	  flags.has_password = rd->has_password;
+	  flags.has_video = (rd->devtype == RAOP_DEV_APPLETV);
 
 	  spk_enum->cb(rd->id, rd->name, rd->relvol, flags, spk_enum->arg);
 

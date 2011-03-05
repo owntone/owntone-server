@@ -35,6 +35,8 @@ enum repeat_mode {
 struct spk_flags {
   unsigned selected:1;
   unsigned has_password:1;
+
+  unsigned has_video:1;
 };
 
 struct player_status {
