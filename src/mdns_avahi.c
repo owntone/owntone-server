@@ -315,6 +315,8 @@ struct mdns_browser
   char *type;
   mdns_browse_cb cb;
 
+  int flags;
+
   struct mdns_browser *next;
 };
 
@@ -367,6 +369,7 @@ browse_record_callback_v4(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtoco
   char address[INET_ADDRSTRLEN];
   struct in_addr addr;
   struct mdns_record_browser *rb_data;
+  int ll;
 
   rb_data = (struct mdns_record_browser *)userdata;
 
@@ -382,10 +385,15 @@ browse_record_callback_v4(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtoco
 
 	memcpy(&addr.s_addr, rdata, sizeof(addr.s_addr));
 
-	if (is_v4ll(&addr))
+	ll = is_v4ll(&addr);
+	if (ll && !(rb_data->mb->flags & MDNS_WANT_V4LL))
 	  {
-	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv4 LL address\n");
-
+	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv4 LL, not interested (service %s)\n", rb_data->name);
+	    return;
+	  }
+	else if (!ll && !(rb_data->mb->flags & MDNS_WANT_V4))
+	  {
+	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv4, not interested (service %s)\n", rb_data->name);
 	    return;
 	  }
 
@@ -438,6 +446,7 @@ browse_record_callback_v6(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtoco
   char ifname[IF_NAMESIZE];
   struct in6_addr addr;
   struct mdns_record_browser *rb_data;
+  int ll;
   int len;
   int ret;
 
@@ -455,6 +464,18 @@ browse_record_callback_v6(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtoco
 
 	memcpy(&addr.s6_addr, rdata, sizeof(addr.s6_addr));
 
+	ll = is_v6ll(&addr);
+	if (ll && !(rb_data->mb->flags & MDNS_WANT_V6LL))
+	  {
+	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv6 LL, not interested (service %s)\n", rb_data->name);
+	    return;
+	  }
+	else if (!ll && !(rb_data->mb->flags & MDNS_WANT_V6))
+	  {
+	    DPRINTF(E_DBG, L_MDNS, "Discarding IPv6, not interested (service %s)\n", rb_data->name);
+	    return;
+	  }
+
 	if (!inet_ntop(AF_INET6, &addr.s6_addr, address, sizeof(address)))
 	  {
 	    DPRINTF(E_LOG, L_MDNS, "Could not print IPv6 address: %s\n", strerror(errno));
@@ -462,7 +483,7 @@ browse_record_callback_v6(AvahiRecordBrowser *b, AvahiIfIndex intf, AvahiProtoco
 	    return;
 	  }
 
-	if (is_v6ll(&addr))
+	if (ll)
 	  {
 	    if (!if_indextoname(intf, ifname))
 	      {
@@ -980,7 +1001,7 @@ mdns_register(char *name, char *type, int port, char **txt)
 }
 
 int
-mdns_browse(char *type, mdns_browse_cb cb)
+mdns_browse(char *type, int flags, mdns_browse_cb cb)
 {
   struct mdns_browser *mb;
   AvahiServiceBrowser *b;
@@ -993,6 +1014,8 @@ mdns_browse(char *type, mdns_browse_cb cb)
 
   mb->type = strdup(type);
   mb->cb = cb;
+
+  mb->flags = (flags) ? flags : MDNS_WANT_DEFAULT;
 
   mb->next = browser_list;
   browser_list = mb;
