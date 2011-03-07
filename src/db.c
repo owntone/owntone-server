@@ -1786,7 +1786,6 @@ db_file_fetch_byquery(char *query)
       DPRINTF(E_LOG, L_DB, "BUG: mfi column map out of sync with schema\n");
 
       sqlite3_finalize(stmt);
-      /* Can't risk free()ing what's inside the mfi in this case... */
       free(mfi);
       return NULL;
     }
@@ -2328,7 +2327,6 @@ db_pl_fetch_byquery(char *query)
       DPRINTF(E_LOG, L_DB, "BUG: pli column map out of sync with schema\n");
 
       sqlite3_finalize(stmt);
-      /* Can't risk free()ing what's inside the pli in this case... */
       free(pli);
       return NULL;
     }
