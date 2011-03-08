@@ -99,6 +99,7 @@ struct raop_session
   unsigned req_has_auth:1;
   unsigned encrypt:1;
   unsigned auth_quirk_itunes:1;
+  unsigned wants_metadata:1;
 
   int reqs_in_flight;
   int cseq;
@@ -1626,16 +1627,19 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
       case RAOP_DEV_APEX_80211G:
 	rs->encrypt = 1;
 	rs->auth_quirk_itunes = 1;
+	rs->wants_metadata = 0;
 	break;
 
       case RAOP_DEV_APEX_80211N:
 	rs->encrypt = 1;
 	rs->auth_quirk_itunes = 0;
+	rs->wants_metadata = 0;
 	break;
 
       case RAOP_DEV_APPLETV:
 	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
+	rs->wants_metadata = 1;
 	break;
     }
 
