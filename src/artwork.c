@@ -471,6 +471,8 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
   int format_ok;
   int ret;
 
+  DPRINTF(E_DBG, L_ART, "Artwork request parameters: max w = %d, max h = %d\n", max_w, max_h);
+
   ret = av_open_input_file(&src_ctx, filename, NULL, 0, NULL);
   if (ret < 0)
     {
@@ -684,33 +686,43 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
 
 
 int
-artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbuf)
+artwork_get_item_filename(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
-  char *filename;
   int ret;
-
-  DPRINTF(E_DBG, L_ART, "Artwork request for item %d, max w = %d, max h = %d\n", id, max_w, max_h);
-
-  filename = db_file_path_byid(id);
-  if (!filename)
-    return -1;
 
   /* FUTURE: look at embedded artwork */
 
   /* Look for basename(filename).{png,jpg} */
   ret = artwork_get_own_image(filename, max_w, max_h, format, evbuf);
   if (ret > 0)
-    goto out;
+    return ret;
 
   /* Look for basedir(filename)/{artwork,cover}.{png,jpg} */
   ret = artwork_get_dir_image(filename, 0, max_w, max_h, format, evbuf);
   if (ret > 0)
-    goto out;
+    return ret;
 
-  DPRINTF(E_DBG, L_ART, "No artwork found for item id %d\n", id);
+  return -1;
+}
 
- out:
+int
+artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbuf)
+{
+  char *filename;
+  int ret;
+
+  DPRINTF(E_DBG, L_ART, "Artwork request for item %d\n", id);
+
+  filename = db_file_path_byid(id);
+  if (!filename)
+    return -1;
+
+  ret = artwork_get_item_filename(filename, max_w, max_h, format, evbuf);
+  if (ret < 0)
+    DPRINTF(E_DBG, L_ART, "No artwork found for item id %d\n", id);
+
   free(filename);
+
   return ret;
 }
 
@@ -723,7 +735,7 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   int got_art;
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for group %d, max w = %d, max h = %d\n", id, max_w, max_h);
+  DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
 
   /* Try directory artwork first */
   memset(&qp, 0, sizeof(struct query_params));
