@@ -76,7 +76,7 @@ forked_daapd_SOURCES = main.c \
 	httpd_rsp.c httpd_rsp.h \
 	httpd_daap.c httpd_daap.h \
 	httpd_dacp.c httpd_dacp.h \
-	dmap_helpers.c dmap_helpers.h \
+	dmap_common.c dmap_common.h \
 	transcode.c transcode.h \
 	artwork.c artwork.h \
 	misc.c misc.h \

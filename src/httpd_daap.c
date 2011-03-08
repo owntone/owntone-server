@@ -51,7 +51,7 @@
 #include "artwork.h"
 #include "httpd_daap.h"
 #include "daap_query.h"
-#include "dmap_helpers.h"
+#include "dmap_common.h"
 
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;

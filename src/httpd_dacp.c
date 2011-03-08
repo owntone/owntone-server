@@ -46,7 +46,7 @@
 #include "artwork.h"
 #include "httpd.h"
 #include "httpd_dacp.h"
-#include "dmap_helpers.h"
+#include "dmap_common.h"
 #include "db.h"
 #include "player.h"
 

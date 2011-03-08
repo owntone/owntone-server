@@ -26,7 +26,7 @@
 #include <event.h>
 #include "evhttp/evhttp.h"
 
-#include "dmap_helpers.h"
+#include "dmap_common.h"
 #include "logger.h"
 
 
