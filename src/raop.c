@@ -1114,7 +1114,7 @@ raop_send_req_flush(struct raop_session *rs, uint64_t rtptime, evrtsp_req_cb cb)
 }
 
 static int
-raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, evrtsp_req_cb cb)
+raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, char *ctype, evrtsp_req_cb cb)
 {
   struct evrtsp_request *req;
   int ret;
@@ -1143,7 +1143,7 @@ raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, evr
       return -1;
     }
 
-  evrtsp_add_header(req->output_headers, "Content-Type", "text/parameters");
+  evrtsp_add_header(req->output_headers, "Content-Type", ctype);
 
   ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_SET_PARAMETER, rs->session_url);
   if (ret < 0)
@@ -1720,7 +1720,7 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
       return -1;
     }
 
-  ret = raop_send_req_set_parameter(rs, evbuf, cb);
+  ret = raop_send_req_set_parameter(rs, evbuf, "text/parameters", cb);
   if (ret < 0)
     DPRINTF(E_LOG, L_RAOP, "Could not send SET_PARAMETER request for volume\n");
 
