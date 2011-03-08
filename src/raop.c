@@ -66,6 +66,9 @@
 #include "logger.h"
 #include "misc.h"
 #include "player.h"
+#include "db.h"
+#include "artwork.h"
+#include "dmap_common.h"
 #include "raop.h"
 
 #ifndef MIN
@@ -79,6 +82,8 @@
 #define AIRTUNES_V2_PKT_TAIL_OFF   (AIRTUNES_V2_PKT_LEN - AIRTUNES_V2_PKT_TAIL_LEN)
 #define RETRANSMIT_BUFFER_SIZE     1000
 
+#define RAOP_MD_DELAY_STARTUP      15360
+#define RAOP_MD_DELAY_SWITCH       (RAOP_MD_DELAY_STARTUP * 2)
 
 struct raop_v2_packet
 {
@@ -133,6 +138,20 @@ struct raop_session
   struct raop_service *control_svc;
 
   struct raop_session *next;
+};
+
+struct raop_metadata
+{
+  struct evbuffer *metadata;
+
+  struct evbuffer *artwork;
+  int artwork_fmt;
+
+  /* Progress data */
+  uint64_t start;
+  uint64_t end;
+
+  struct raop_metadata *next;
 };
 
 struct raop_service
@@ -214,6 +233,10 @@ static uint16_t stream_seq;
 static int pktbuf_size;
 static struct raop_v2_packet *pktbuf_head;
 static struct raop_v2_packet *pktbuf_tail;
+
+/* Metadata */
+static struct raop_metadata *metadata_head;
+static struct raop_metadata *metadata_tail;
 
 /* FLUSH timer */
 static struct event flush_timer;
@@ -678,6 +701,186 @@ raop_crypt_encrypt_aes_key_base64(void)
   gcry_mpi_release(mpi_pubkey);
 
   return result;
+}
+
+
+/* RAOP metadata */
+static void
+raop_metadata_free(struct raop_metadata *rmd)
+{
+  evbuffer_free(rmd->metadata);
+  if (rmd->artwork)
+    evbuffer_free(rmd->artwork);
+  free(rmd);
+}
+
+void
+raop_metadata_purge(void)
+{
+  struct raop_metadata *rmd;
+
+  for (rmd = metadata_head; rmd; rmd = metadata_head)
+    {
+      metadata_head = rmd->next;
+
+      raop_metadata_free(rmd);
+    }
+
+  metadata_tail = NULL;
+}
+
+void
+raop_metadata_prune(uint64_t rtptime)
+{
+  struct raop_metadata *rmd;
+
+  for (rmd = metadata_head; rmd; rmd = metadata_head)
+    {
+      if (rmd->end >= rtptime)
+	break;
+
+      if (metadata_tail == metadata_head)
+	metadata_tail = rmd->next;
+
+      metadata_head = rmd->next;
+
+      raop_metadata_free(rmd);
+    }
+}
+
+static struct raop_metadata *
+raop_metadata_prepare(int id, uint64_t rtptime)
+{
+  struct query_params qp;
+  struct db_media_file_info dbmfi;
+  char filter[32];
+  struct raop_metadata *rmd;
+  struct evbuffer *tmp;
+  uint64_t duration;
+  int ret;
+
+  rmd = (struct raop_metadata *)malloc(sizeof(struct raop_metadata));
+  if (!rmd)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for RAOP metadata\n");
+
+      return NULL;
+    }
+
+  memset(rmd, 0, sizeof(struct raop_metadata));
+
+  /* Get dbmfi */
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_ITEMS;
+  qp.idx_type = I_NONE;
+  qp.sort = S_NONE;
+  qp.filter = filter;
+
+  ret = snprintf(filter, sizeof(filter), "id = %d", id);
+  if ((ret < 0) || (ret >= sizeof(filter)))
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not build filter for file id %d; metadata will not be sent\n", id);
+
+      goto out_rmd;
+    }
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Couldn't start query; no metadata will be sent\n");
+
+      goto out_rmd;
+    }
+
+  ret = db_query_fetch_file(&qp, &dbmfi);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Couldn't fetch file id %d; metadata will not be sent\n", id);
+
+      goto out_query;
+    }
+
+  /* Turn it into DAAP metadata */
+  tmp = evbuffer_new();
+  if (!tmp)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for temporary metadata evbuffer; metadata will not be sent\n");
+
+      goto out_query;
+    }
+
+  rmd->metadata = evbuffer_new();
+  if (!rmd->metadata)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for metadata evbuffer; metadata will not be sent\n");
+
+      evbuffer_free(tmp);
+      goto out_query;
+    }
+
+  ret = dmap_encode_file_metadata(rmd->metadata, tmp, &dbmfi, NULL, 0, 1);
+  evbuffer_free(tmp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not encode file metadata; metadata will not be sent\n");
+
+      goto out_metadata;
+    }
+
+  /* Progress */
+  ret = safe_atou64(dbmfi.song_length, &duration);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Failed to convert song_length to integer; no metadata will be sent\n");
+
+      goto out_metadata;
+    }
+
+  rmd->start = rtptime;
+  rmd->end = rtptime + (duration * 44100UL) / 1000UL;
+
+  /* Get artwork */
+  rmd->artwork = evbuffer_new();
+  if (!rmd->artwork)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for artwork evbuffer; no artwork will be sent\n");
+
+      goto skip_artwork;
+    }
+
+  ret = artwork_get_item_filename(dbmfi.path, 600, 600, ART_CAN_PNG | ART_CAN_JPEG, rmd->artwork);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Failed to retrieve artwork for '%s' (%d); no artwork will be sent\n", dbmfi.title, id);
+
+      evbuffer_free(rmd->artwork);
+      rmd->artwork = NULL;
+    }
+
+  rmd->artwork_fmt = ret;
+
+ skip_artwork:
+  db_query_end(&qp);
+
+  /* Add rmd to metadata list */
+  if (metadata_tail)
+    metadata_tail->next = rmd;
+  else
+    {
+      metadata_head = rmd;
+      metadata_tail = rmd;
+    }
+
+  return rmd;
+
+ out_metadata:
+  evbuffer_free(rmd->metadata);
+ out_query:
+  db_query_end(&qp);
+ out_rmd:
+  free(rmd);
+
+  return NULL;
 }
 
 
@@ -1729,6 +1932,256 @@ raop_session_failure_cb(struct evrtsp_request *req, void *arg)
   rs = (struct raop_session *)arg;
 
   raop_session_failure(rs);
+}
+
+
+/* Metadata handling */
+static void
+raop_cb_metadata(struct evrtsp_request *req, void *arg)
+{
+  struct raop_session *rs;
+  int ret;
+
+  rs = (struct raop_session *)arg;
+
+  rs->reqs_in_flight--;
+
+  if (!req)
+    goto error;
+
+  if (req->response_code != RTSP_OK)
+    {
+      DPRINTF(E_LOG, L_RAOP, "SET_PARAMETER request failed for metadata/artwork/progress: %d %s\n", req->response_code, req->response_code_line);
+
+      goto error;
+    }
+
+  ret = raop_check_cseq(rs, req);
+  if (ret < 0)
+    goto error;
+
+  /* No status_cb call, user doesn't want/need to know about the status
+   * of metadata requests unless they cause the session to fail.
+   */
+
+  if (!rs->reqs_in_flight)
+    evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
+
+  return;
+
+ error:
+  raop_session_failure(rs);
+}
+
+static int
+raop_metadata_send_progress(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, uint64_t offset, uint32_t delay)
+{
+  uint32_t display;
+  int ret;
+
+  display = RAOP_RTPTIME(rmd->start - delay);
+
+  ret = evbuffer_add_printf(evbuf, "progress: %u/%u/%u\r\n", display, RAOP_RTPTIME(rmd->start + offset), RAOP_RTPTIME(rmd->end));
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not build progress string for sending\n");
+
+      return -1;
+    }
+
+  ret = raop_send_req_set_parameter(rs, evbuf, "text/parameters", NULL, raop_cb_metadata);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_RAOP, "Could not send SET_PARAMETER request for metadata\n");
+
+  return ret;
+}
+
+static int
+raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, char *rtptime)
+{
+  char *ctype;
+  int ret;
+
+  ret = evbuffer_add(evbuf, EVBUFFER_DATA(rmd->artwork), EVBUFFER_LENGTH(rmd->artwork));
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not copy artwork for sending\n");
+
+      return -1;
+    }
+
+  switch (rmd->artwork_fmt)
+    {
+      case ART_FMT_PNG:
+	ctype = "image/png";
+	break;
+
+      case ART_FMT_JPEG:
+	ctype = "image/jpeg";
+	break;
+    }
+
+  ret = raop_send_req_set_parameter(rs, evbuf, ctype, rtptime, raop_cb_metadata);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_RAOP, "Could not send SET_PARAMETER request for metadata\n");
+
+  return ret;
+}
+
+static int
+raop_metadata_send_metadata(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, char *rtptime)
+{
+  int ret;
+
+  ret = evbuffer_add(evbuf, EVBUFFER_DATA(rmd->metadata), EVBUFFER_LENGTH(rmd->metadata));
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not copy metadata for sending\n");
+
+      return -1;
+    }
+
+  ret = raop_send_req_set_parameter(rs, evbuf, "application/x-dmap-tagged", rtptime, raop_cb_metadata);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_RAOP, "Could not send SET_PARAMETER request for metadata\n");
+
+  return ret;
+}
+
+static int
+raop_metadata_send_internal(struct raop_session *rs, struct raop_metadata *rmd, uint64_t offset, uint32_t delay)
+{
+  char rtptime[32];
+  struct evbuffer *evbuf;
+  int ret;
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not allocate temp evbuffer for metadata processing\n");
+
+      return -1;
+    }
+
+  ret = snprintf(rtptime, sizeof(rtptime), "rtptime=%u", RAOP_RTPTIME(rmd->start));
+  if ((ret < 0) || (ret >= sizeof(rtptime)))
+    {
+      DPRINTF(E_LOG, L_RAOP, "RTP-Info too big for buffer while sending metadata\n");
+
+      ret = -1;
+      goto out;
+    }
+
+  ret = raop_metadata_send_metadata(rs, evbuf, rmd, rtptime);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not send metadata to %s\n", rs->devname);
+
+      ret = -1;
+      goto out;
+    }
+
+  if (!rmd->artwork)
+    goto skip_artwork;
+
+  ret = raop_metadata_send_artwork(rs, evbuf, rmd, rtptime);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not send artwork to %s\n", rs->devname);
+
+      ret = -1;
+      goto out;
+    }
+
+ skip_artwork:
+  ret = raop_metadata_send_progress(rs, evbuf, rmd, offset, delay);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not send progress to %s\n", rs->devname);
+
+      ret = -1;
+      goto out;
+    }
+
+ out:
+  evbuffer_free(evbuf);
+
+  return ret;
+}
+
+static void
+raop_metadata_startup_send(struct raop_session *rs)
+{
+  struct raop_metadata *rmd;
+  uint64_t offset;
+  int sent;
+  int ret;
+
+  if (!rs->wants_metadata)
+    return;
+
+  sent = 0;
+  for (rmd = metadata_head; rmd; rmd = rmd->next)
+    {
+      /* Current song */
+      if ((rs->start_rtptime >= rmd->start) && (rs->start_rtptime < rmd->end))
+	{
+	  offset = rs->start_rtptime - rmd->start;
+
+	  ret = raop_metadata_send_internal(rs, rmd, offset, RAOP_MD_DELAY_STARTUP);
+	  if (ret < 0)
+	    {
+	      raop_session_failure(rs);
+
+	      return;
+	    }
+
+	  sent = 1;
+	}
+      /* Next song(s) */
+      else if (sent && (rs->start_rtptime < rmd->start))
+	{
+	  ret = raop_metadata_send_internal(rs, rmd, 0, RAOP_MD_DELAY_SWITCH);
+	  if (ret < 0)
+	    {
+	      raop_session_failure(rs);
+
+	      return;
+	    }
+	}
+    }
+}
+
+void
+raop_metadata_send(int id, uint64_t rtptime, uint64_t offset, int startup)
+{
+  struct raop_session *rs;
+  struct raop_metadata *rmd;
+  uint32_t delay;
+  int ret;
+
+  rmd = raop_metadata_prepare(id, rtptime);
+  if (!rmd)
+    return;
+
+  for (rs = sessions; rs; rs = rs->next)
+    {
+      if (!(rs->state & RAOP_F_CONNECTED))
+	continue;
+
+      if (!rs->wants_metadata)
+	continue;
+
+      delay = (startup) ? RAOP_MD_DELAY_STARTUP : RAOP_MD_DELAY_SWITCH;
+
+      ret = raop_metadata_send_internal(rs, rmd, offset, delay);
+      if (ret < 0)
+	{
+	  raop_session_failure(rs);
+
+	  continue;
+	}
+    }
 }
 
 
@@ -3498,6 +3951,9 @@ raop_init(int *v6enabled)
   pktbuf_size = 0;
   pktbuf_head = NULL;
   pktbuf_tail = NULL;
+
+  metadata_head = NULL;
+  metadata_tail = NULL;
 
   /* Generate RTP SSRC ID from library name */
   libname = cfg_getstr(cfg_getsec(cfg, "library"), "name");
