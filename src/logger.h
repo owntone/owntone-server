@@ -24,8 +24,9 @@
 #define L_PLAYER  15
 #define L_RAOP    16
 #define L_LAUDIO  17
+#define L_DMAP    18
 
-#define N_LOGDOMAINS  18
+#define N_LOGDOMAINS  19
 
 /* Severities */
 #define E_FATAL   0
