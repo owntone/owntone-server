@@ -3,6 +3,7 @@
 #define __DMAP_HELPERS_H__
 
 #include <event.h>
+#include "evhttp/evhttp.h"
 
 enum dmap_type
   {
