@@ -1066,7 +1066,7 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb)
 }
 
 static int
-raop_send_req_flush(struct raop_session *rs, evrtsp_req_cb cb, uint64_t rtptime)
+raop_send_req_flush(struct raop_session *rs, uint64_t rtptime, evrtsp_req_cb cb)
 {
   char buf[64];
   struct evrtsp_request *req;
@@ -1861,7 +1861,7 @@ raop_flush(raop_status_cb cb, uint64_t rtptime)
       if (rs->state != RAOP_STREAMING)
 	continue;
 
-      ret = raop_send_req_flush(rs, raop_flush_cb, rtptime);
+      ret = raop_send_req_flush(rs, rtptime, raop_flush_cb);
       if (ret < 0)
 	{
 	  raop_session_failure(rs);
