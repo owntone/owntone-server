@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  * Copyright (C) 2010 Kai Elwert <elwertk@googlemail.com>
  *
  * This program is free software; you can redistribute it and/or modify
@@ -1875,11 +1875,11 @@ db_file_add(struct media_file_info *mfi)
                " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
                " songalbumid" \
                " ) " \
-               " VALUES (NULL, '%q', '%q', %Q, %Q, %Q, %Q, %Q, %Q, %Q," \
-               " %Q, %Q, %Q, %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
+               " VALUES (NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, TRIM(%Q)," \
+               " TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
                " %d, %d, %d, %d, %d, %d, %d, %d, %d," \
                " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
-               " %Q, %d, %d, %d, %d, %Q, %d, %Q, %Q, %Q, %d, %d, daap_songalbumid(%Q, %Q));"
+               " %Q, %d, %d, %d, %d, TRIM(%Q), %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d, daap_songalbumid(TRIM(%Q), TRIM(%Q)));"
   char *query;
   char *errmsg;
   int ret;
@@ -1939,18 +1939,18 @@ db_file_add(struct media_file_info *mfi)
 int
 db_file_update(struct media_file_info *mfi)
 {
-#define Q_TMPL "UPDATE files SET path = '%q', fname = '%q', title = %Q, artist = %Q, album = %Q, genre = %Q," \
-               " comment = %Q, type = %Q, composer = %Q, orchestra = %Q, conductor = %Q, grouping = %Q," \
+#define Q_TMPL "UPDATE files SET path = '%q', fname = '%q', title = TRIM(%Q), artist = TRIM(%Q), album = TRIM(%Q), genre = TRIM(%Q)," \
+               " comment = TRIM(%Q), type = %Q, composer = TRIM(%Q), orchestra = TRIM(%Q), conductor = TRIM(%Q), grouping = TRIM(%Q)," \
                " url = %Q, bitrate = %d, samplerate = %d, song_length = %d, file_size = %" PRIi64 "," \
                " year = %d, track = %d, total_tracks = %d, disc = %d, total_discs = %d, bpm = %d," \
                " compilation = %d, rating = %d, data_kind = %d, item_kind = %d," \
                " description = %Q, time_modified = %" PRIi64 "," \
                " db_timestamp = %" PRIi64 ", sample_count = %" PRIi64 "," \
                " codectype = %Q, idx = %d, has_video = %d," \
-               " bits_per_sample = %d, album_artist = %Q," \
-               " media_kind = %d, tv_series_name = %Q, tv_episode_num_str = %Q," \
-               " tv_network_name = %Q, tv_episode_sort = %d, tv_season_num = %d," \
-               " songalbumid = daap_songalbumid(%Q, %Q) " \
+               " bits_per_sample = %d, album_artist = TRIM(%Q)," \
+               " media_kind = %d, tv_series_name = TRIM(%Q), tv_episode_num_str = TRIM(%Q)," \
+               " tv_network_name = TRIM(%Q), tv_episode_sort = %d, tv_season_num = %d," \
+               " songalbumid = daap_songalbumid(TRIM(%Q), TRIM(%Q)) " \
                " WHERE id = %d;"
   char *query;
   char *errmsg;
