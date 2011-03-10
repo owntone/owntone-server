@@ -1263,6 +1263,7 @@ evrtsp_connection_new(const char *address, unsigned short port)
 	event_debug(("Attempting connection to %s:%d\n", address, port));
 
 	if ((evcon = calloc(1, sizeof(struct evrtsp_connection))) == NULL) {
+		free(addr);
 		event_warn("%s: calloc failed", __func__);
 		goto error;
 	}
