@@ -1700,21 +1700,37 @@ struct evhttp_connection *
 evhttp_connection_new(const char *address, unsigned short port)
 {
 	struct evhttp_connection *evcon = NULL;
+	char *intf;
+	char *addr;
 	unsigned char scratch[16];
 	int family;
 
-	if (inet_pton(AF_INET6, address, scratch) == 1)
+	if ((addr = strdup(address)) == NULL) {
+		event_warn("%s: strdup failed", __func__);
+		goto error;
+	}
+
+	intf = strchr(addr, '%');
+	if (intf)
+	  *intf = '\0';
+
+	if (inet_pton(AF_INET6, addr, scratch) == 1)
 	  family = AF_INET6;
-	else if (inet_pton(AF_INET, address, scratch) == 1)
+	else if (inet_pton(AF_INET, addr, scratch) == 1)
 	  family = AF_INET;
 	else {
+	  free(addr);
 	  event_warn("%s: address is neither IPv6 nor IPv4", __func__);
 	  return NULL;
 	}
 
+	if (intf)
+	  *intf = '%';
+
 	event_debug(("Attempting connection to %s:%d\n", address, port));
 
 	if ((evcon = calloc(1, sizeof(struct evhttp_connection))) == NULL) {
+		free(addr);
 		event_warn("%s: calloc failed", __func__);
 		goto error;
 	}
@@ -1727,10 +1743,7 @@ evhttp_connection_new(const char *address, unsigned short port)
 
 	evcon->family = family;
 
-	if ((evcon->address = strdup(address)) == NULL) {
-		event_warn("%s: strdup failed", __func__);
-		goto error;
-	}
+	evcon->address = addr;
 
 	if ((evcon->input_buffer = evbuffer_new()) == NULL) {
 		event_warn("%s: evbuffer_new failed", __func__);
