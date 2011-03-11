@@ -925,6 +925,8 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
   snprintf(buf, sizeof(buf), "%d", rs->cseq);
   evrtsp_add_header(req->output_headers, "CSeq", buf);
 
+  rs->cseq++;
+
   evrtsp_add_header(req->output_headers, "User-Agent", "forked-daapd/" VERSION);
 
   /* Add Authorization header */
@@ -1765,7 +1767,6 @@ raop_cb_set_volume(struct evrtsp_request *req, void *arg)
     goto error;
 
   rs->req_in_flight = 0;
-  rs->cseq++;
 
   if (req->response_code != RTSP_OK)
     {
@@ -1826,7 +1827,6 @@ raop_cb_flush(struct evrtsp_request *req, void *arg)
     goto error;
 
   rs->req_in_flight = 0;
-  rs->cseq++;
 
   if (req->response_code != RTSP_OK)
     {
@@ -2865,7 +2865,6 @@ raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
     goto cleanup;
 
   rs->req_in_flight = 0;
-  rs->cseq++;
 
   if (req->response_code != RTSP_OK)
     {
@@ -2913,7 +2912,6 @@ raop_cb_startup_record(struct evrtsp_request *req, void *arg)
     goto cleanup;
 
   rs->req_in_flight = 0;
-  rs->cseq++;
 
   if (req->response_code != RTSP_OK)
     {
@@ -2961,7 +2959,6 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
     goto cleanup;
 
   rs->req_in_flight = 0;
-  rs->cseq++;
 
   if (req->response_code != RTSP_OK)
     {
@@ -3107,7 +3104,6 @@ raop_cb_startup_announce(struct evrtsp_request *req, void *arg)
     goto cleanup;
 
   rs->req_in_flight = 0;
-  rs->cseq++;
 
   if (req->response_code != RTSP_OK)
     {
@@ -3145,7 +3141,6 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
     goto cleanup;
 
   rs->req_in_flight = 0;
-  rs->cseq++;
 
   if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED))
     {
@@ -3210,7 +3205,6 @@ raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
     goto error;
 
   rs->req_in_flight = 0;
-  rs->cseq++;
 
   if (req->response_code != RTSP_OK)
     {
@@ -3252,7 +3246,6 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
     goto cleanup;
 
   rs->req_in_flight = 0;
-  rs->cseq++;
 
   if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED))
     {
