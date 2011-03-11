@@ -1785,7 +1785,8 @@ raop_cb_set_volume(struct evrtsp_request *req, void *arg)
   rs->status_cb = NULL;
   status_cb(rs->dev, rs, rs->state);
 
-  evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
+  if (!rs->reqs_in_flight)
+    evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
 
   return;
 
@@ -1847,7 +1848,8 @@ raop_cb_flush(struct evrtsp_request *req, void *arg)
   rs->status_cb = NULL;
   status_cb(rs->dev, rs, rs->state);
 
-  evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
+  if (!rs->reqs_in_flight)
+    evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
 
   return;
 
@@ -2892,7 +2894,8 @@ raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
 
   status_cb(rs->dev, rs, rs->state);
 
-  evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
+  if (!rs->reqs_in_flight)
+    evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
 
   return;
 
