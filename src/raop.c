@@ -96,11 +96,11 @@ struct raop_session
   struct evrtsp_connection *ctrl;
 
   enum raop_session_state state;
-  unsigned req_in_flight:1;
   unsigned req_has_auth:1;
   unsigned encrypt:1;
   unsigned auth_quirk_itunes:1;
 
+  int reqs_in_flight;
   int cseq;
   char *session;
   char session_url[128];
@@ -1080,7 +1080,7 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  rs->req_in_flight = 1;
+  rs->reqs_in_flight++;
 
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
@@ -1128,7 +1128,7 @@ raop_send_req_flush(struct raop_session *rs, uint64_t rtptime, evrtsp_req_cb cb)
       return -1;
     }
 
-  rs->req_in_flight = 1;
+  rs->reqs_in_flight++;
 
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
@@ -1178,7 +1178,7 @@ raop_send_req_set_parameter(struct raop_session *rs, struct evbuffer *evbuf, cha
       return -1;
     }
 
-  rs->req_in_flight = 1;
+  rs->reqs_in_flight++;
 
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
@@ -1228,7 +1228,7 @@ raop_send_req_record(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  rs->req_in_flight = 1;
+  rs->reqs_in_flight++;
 
   return 0;
 }
@@ -1276,7 +1276,7 @@ raop_send_req_setup(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  rs->req_in_flight = 1;
+  rs->reqs_in_flight++;
 
   return 0;
 }
@@ -1382,7 +1382,7 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  rs->req_in_flight = 1;
+  rs->reqs_in_flight++;
 
   return 0;
 
@@ -1421,7 +1421,7 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
-  rs->req_in_flight = 1;
+  rs->reqs_in_flight++;
 
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
 
@@ -1585,6 +1585,7 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   memset(rs, 0, sizeof(struct raop_session));
 
   rs->state = RAOP_STOPPED;
+  rs->reqs_in_flight = 0;
   rs->cseq = 1;
 
   rs->dev = rd;
@@ -1763,10 +1764,10 @@ raop_cb_set_volume(struct evrtsp_request *req, void *arg)
 
   rs = (struct raop_session *)arg;
 
+  rs->reqs_in_flight--;
+
   if (!req)
     goto error;
-
-  rs->req_in_flight = 0;
 
   if (req->response_code != RTSP_OK)
     {
@@ -1823,10 +1824,10 @@ raop_cb_flush(struct evrtsp_request *req, void *arg)
 
   rs = (struct raop_session *)arg;
 
+  rs->reqs_in_flight--;
+
   if (!req)
     goto error;
-
-  rs->req_in_flight = 0;
 
   if (req->response_code != RTSP_OK)
     {
@@ -2861,10 +2862,10 @@ raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
 
   rs = (struct raop_session *)arg;
 
+  rs->reqs_in_flight--;
+
   if (!req)
     goto cleanup;
-
-  rs->req_in_flight = 0;
 
   if (req->response_code != RTSP_OK)
     {
@@ -2908,10 +2909,10 @@ raop_cb_startup_record(struct evrtsp_request *req, void *arg)
 
   rs = (struct raop_session *)arg;
 
+  rs->reqs_in_flight--;
+
   if (!req)
     goto cleanup;
-
-  rs->req_in_flight = 0;
 
   if (req->response_code != RTSP_OK)
     {
@@ -2955,10 +2956,10 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
 
   rs = (struct raop_session *)arg;
 
+  rs->reqs_in_flight--;
+
   if (!req)
     goto cleanup;
-
-  rs->req_in_flight = 0;
 
   if (req->response_code != RTSP_OK)
     {
@@ -3100,10 +3101,10 @@ raop_cb_startup_announce(struct evrtsp_request *req, void *arg)
 
   rs = (struct raop_session *)arg;
 
+  rs->reqs_in_flight--;
+
   if (!req)
     goto cleanup;
-
-  rs->req_in_flight = 0;
 
   if (req->response_code != RTSP_OK)
     {
@@ -3137,10 +3138,10 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 
   rs = (struct raop_session *)arg;
 
+  rs->reqs_in_flight--;
+
   if (!req)
     goto cleanup;
-
-  rs->req_in_flight = 0;
 
   if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED))
     {
@@ -3201,10 +3202,10 @@ raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
 
   rs = (struct raop_session *)arg;
 
+  rs->reqs_in_flight--;
+
   if (!req)
     goto error;
-
-  rs->req_in_flight = 0;
 
   if (req->response_code != RTSP_OK)
     {
@@ -3242,10 +3243,10 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
 
   rs = (struct raop_session *)arg;
 
+  rs->reqs_in_flight--;
+
   if (!req)
     goto cleanup;
-
-  rs->req_in_flight = 0;
 
   if ((req->response_code != RTSP_OK) && (req->response_code != RTSP_UNAUTHORIZED))
     {
