@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
  *
  * RAOP AirTunes v2
  *
@@ -954,19 +954,15 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
 }
 
 static int
-raop_check_cseq(struct raop_session *rs, struct evrtsp_request *req)
+raop_grab_cseq(struct evkeyvalq *headers)
 {
   const char *param;
   int cseq;
   int ret;
 
-  param = evrtsp_find_header(req->input_headers, "CSeq");
+  param = evrtsp_find_header(headers, "CSeq");
   if (!param)
-    {
-      DPRINTF(E_LOG, L_RAOP, "No CSeq in reply\n");
-
-      return -1;
-    }
+    return -1;
 
   ret = safe_atoi32(param, &cseq);
   if (ret < 0)
@@ -976,11 +972,35 @@ raop_check_cseq(struct raop_session *rs, struct evrtsp_request *req)
       return -1;
     }
 
-  /* CSeq is always incremented before checking */
-  if (cseq == (rs->cseq - 1))
+  return cseq;
+}
+
+static int
+raop_check_cseq(struct raop_session *rs, struct evrtsp_request *req)
+{
+  int reply_cseq;
+  int request_cseq;
+
+  reply_cseq = raop_grab_cseq(req->input_headers);
+  if (reply_cseq < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "No CSeq in reply\n");
+
+      return -1;
+    }
+
+  request_cseq = raop_grab_cseq(req->output_headers);
+  if (request_cseq < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "No CSeq in request\n");
+
+      return -1;
+    }
+
+  if (reply_cseq == request_cseq)
     return 0;
 
-  DPRINTF(E_LOG, L_RAOP, "CSeq in reply does not match last CSeq: got %d expected %d\n", cseq, rs->cseq);
+  DPRINTF(E_LOG, L_RAOP, "Reply CSeq does not match request CSeq: got %d expected %d\n", reply_cseq, request_cseq);
 
   return -1;
 }
