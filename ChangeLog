@@ -12,7 +12,7 @@ version 0.13:
 	- add support for JPEG artwork and alternative filenames.
 	- disable session expiration that was causing issues.
 	- FFmpeg 0.6 support.
-	- fixes, bug and small.
+	- fixes, big and small.
 
 version 0.12:
 	- add AirTunes v2 streaming.
