@@ -1,6 +1,19 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 0.13:
+	- add Remote v2 support; Remote v1 is not supported anymore.
+	- add per-speaker volume support.
+	- implement RAOP retransmission.
+	- implement per-device quirks in RAOP.
+	- improve compatibility with 802.11g AirPort Express.
+	- improve mDNS address resolution, making IPv4 usable again.
+	- fix Murmur Hash bug on 32bit platforms.
+	- add support for JPEG artwork and alternative filenames.
+	- disable session expiration that was causing issues.
+	- FFmpeg 0.6 support.
+	- fixes, bug and small.
+
 version 0.12:
 	- add AirTunes v2 streaming.
 	- add Remote support.
