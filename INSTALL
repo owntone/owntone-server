@@ -28,7 +28,7 @@ Libraries:
         from <http://avahi.org/>
  - sqlite3 3.5.0+ with unlock notify API enabled (read below)
         from <http://sqlite.org/download.html>
- - ffmpeg 0.5.1+
+ - ffmpeg 0.5.1+/0.6+
         from <http://ffmpeg.org/releases/>
  - libconfuse
         from <http://www.nongnu.org/confuse/>
