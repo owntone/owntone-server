@@ -1389,6 +1389,9 @@ device_add(struct player_command *cmd)
 
 	  rd->v4_address = dev->v4_address;
 	  rd->v4_port = dev->v4_port;
+
+	  /* Address is ours now */
+	  dev->v4_address = NULL;
 	}
 
       if (dev->v6_address)
@@ -1398,6 +1401,9 @@ device_add(struct player_command *cmd)
 
 	  rd->v6_address = dev->v6_address;
 	  rd->v6_port = dev->v6_port;
+
+	  /* Address is ours now */
+	  dev->v6_address = NULL;
 	}
 
       if (rd->name)
