@@ -29,6 +29,11 @@
 #include <inttypes.h>
 #include <errno.h>
 
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <sys/mman.h>
+
 #include <pthread.h>
 
 #include <sqlite3.h>
@@ -4151,6 +4156,296 @@ db_upgrade_v11(void)
 #undef Q_SPKVOL
 }
 
+/* Upgrade from schema v11 to v12 */
+
+#define U_V12_NEW_FILES_TABLE				\
+  "CREATE TABLE IF NOT EXISTS files ("			\
+  "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
+  "   path               VARCHAR(4096) NOT NULL,"	\
+  "   fname              VARCHAR(255) NOT NULL,"	\
+  "   title              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist             VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album              VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   genre              VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   comment            VARCHAR(4096) DEFAULT NULL COLLATE DAAP,"	\
+  "   type               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   composer           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   orchestra          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   conductor          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   grouping           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   url                VARCHAR(1024) DEFAULT NULL,"	\
+  "   bitrate            INTEGER DEFAULT 0,"		\
+  "   samplerate         INTEGER DEFAULT 0,"		\
+  "   song_length        INTEGER DEFAULT 0,"		\
+  "   file_size          INTEGER DEFAULT 0,"		\
+  "   year               INTEGER DEFAULT 0,"		\
+  "   track              INTEGER DEFAULT 0,"		\
+  "   total_tracks       INTEGER DEFAULT 0,"		\
+  "   disc               INTEGER DEFAULT 0,"		\
+  "   total_discs        INTEGER DEFAULT 0,"		\
+  "   bpm                INTEGER DEFAULT 0,"		\
+  "   compilation        INTEGER DEFAULT 0,"		\
+  "   rating             INTEGER DEFAULT 0,"		\
+  "   play_count         INTEGER DEFAULT 0,"		\
+  "   data_kind          INTEGER DEFAULT 0,"		\
+  "   item_kind          INTEGER DEFAULT 0,"		\
+  "   description        INTEGER DEFAULT 0,"		\
+  "   time_added         INTEGER DEFAULT 0,"		\
+  "   time_modified      INTEGER DEFAULT 0,"		\
+  "   time_played        INTEGER DEFAULT 0,"		\
+  "   db_timestamp       INTEGER DEFAULT 0,"		\
+  "   disabled           INTEGER DEFAULT 0,"		\
+  "   sample_count       INTEGER DEFAULT 0,"		\
+  "   codectype          VARCHAR(5) DEFAULT NULL,"	\
+  "   idx                INTEGER NOT NULL,"		\
+  "   has_video          INTEGER DEFAULT 0,"		\
+  "   contentrating      INTEGER DEFAULT 0,"		\
+  "   bits_per_sample    INTEGER DEFAULT 0,"		\
+  "   album_artist       VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   media_kind         INTEGER NOT NULL,"		\
+  "   tv_series_name     VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_network_name    VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_episode_sort    INTEGER NOT NULL,"		\
+  "   tv_season_num      INTEGER NOT NULL,"		\
+  "   songalbumid        INTEGER NOT NULL,"		\
+  "   title_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
+  ");"
+
+#define U_V12_IDX_PATH						\
+  "CREATE INDEX IF NOT EXISTS idx_path ON files(path, idx);"
+
+#define U_V12_IDX_TS							\
+  "CREATE INDEX IF NOT EXISTS idx_titlesort ON files(title_sort);"
+
+#define U_V12_IDX_AS							\
+  "CREATE INDEX IF NOT EXISTS idx_artistsort ON files(artist_sort);"
+
+#define U_V12_IDX_BS							\
+  "CREATE INDEX IF NOT EXISTS idx_albumsort ON files(album_sort);"
+
+#define U_V12_TRG1							\
+  "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
+  " BEGIN"								\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
+  " END;"
+
+#define U_V12_TRG2							\
+  "CREATE TRIGGER update_groups_update_file AFTER UPDATE OF songalbumid ON files FOR EACH ROW" \
+  " BEGIN"								\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
+  " END;"
+
+#define U_V12_SCVER				\
+  "UPDATE admin SET value = '12' WHERE key = 'schema_version';"
+
+static const struct db_init_query db_upgrade_v12_queries[] =
+  {
+    { U_V12_IDX_PATH, "create index path table files" },
+    { U_V12_IDX_TS,   "create index titlesort table files" },
+    { U_V12_IDX_AS,   "create index artistsort table files" },
+    { U_V12_IDX_BS,   "create index albumsort table files" },
+
+    { U_V12_TRG1,     "create trigger update_groups_new_file" },
+    { U_V12_TRG2,     "create trigger update_groups_update_file" },
+
+    { U_V12_SCVER,    "set schema_version to 12" },
+  };
+
+/* Upgrade the files table to the new schema by dumping and reloading the
+ * table. A bit tedious.
+ */
+static int
+db_upgrade_v12(void)
+{
+#define Q_DUMP "SELECT 'INSERT INTO files " \
+    "(id, path, fname, title, artist, album, genre, comment, type, composer," \
+    " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
+    " total_tracks, disc, total_discs, bpm, compilation, rating, play_count, data_kind, item_kind," \
+    " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
+    " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
+    " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
+    " songalbumid, title_sort, artist_sort, album_sort, composer_sort, album_artist_sort)" \
+    " VALUES (' || id || ', ' || QUOTE(path) || ', ' || QUOTE(fname) || ', ' || QUOTE(title) || ', '" \
+    " || QUOTE(artist) || ', ' || QUOTE(album) || ', ' || QUOTE(genre) || ', ' || QUOTE(comment) || ', '" \
+    " || QUOTE(type) || ', ' || QUOTE(composer) || ', ' || QUOTE(orchestra) || ', ' || QUOTE(conductor) || ', '" \
+    " || QUOTE(grouping) || ', ' || QUOTE(url) || ', ' || bitrate || ', ' || samplerate || ', '" \
+    " || song_length || ', ' || file_size || ', ' || year || ', ' || track || ', ' || total_tracks || ', '" \
+    " || disc || ', ' || total_discs || ', ' || bpm || ', ' || compilation || ', ' || rating || ', '" \
+    " || play_count || ', ' || data_kind || ', ' || item_kind || ', ' ||  QUOTE(description) || ', '" \
+    " || time_added || ', ' || time_modified || ', ' || time_played || ', 1, '" \
+    " || disabled || ', ' || sample_count || ', ' || QUOTE(codectype) || ', ' || idx || ', '" \
+    " || has_video || ', ' || contentrating || ', ' || bits_per_sample || ', ' || QUOTE(album_artist) || ', '" \
+    " || media_kind || ', ' || QUOTE(tv_series_name) || ', ' || QUOTE(tv_episode_num_str) || ', '" \
+    " || QUOTE(tv_network_name) || ', ' || tv_episode_sort || ', ' || tv_season_num || ', '" \
+    " || songalbumid || ', ' || QUOTE(title) || ', ' || QUOTE(artist) || ', ' || QUOTE(album) || ', '" \
+    " || QUOTE(composer) || ', ' || QUOTE(album_artist) || ');' FROM files;"
+
+  struct stat sb;
+  FILE *fp;
+  sqlite3_stmt *stmt;
+  const unsigned char *dumprow;
+  char *dump;
+  char *errmsg;
+  int fd;
+  int ret;
+
+  fp = tmpfile();
+  if (!fp)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not create temporary file for files table dump: %s\n", strerror(errno));
+      return -1;
+    }
+
+  DPRINTF(E_LOG, L_DB, "Dumping old files table...\n");
+
+  /* dump */
+  ret = sqlite3_prepare_v2(hdl, Q_DUMP, strlen(Q_DUMP) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      ret = -1;
+      goto out_fclose;
+    }
+
+  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+    {
+      dumprow = sqlite3_column_text(stmt, 0);
+
+      ret = fprintf(fp, "%s\n", dumprow);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not write dump: %s\n", strerror(errno));
+
+	  sqlite3_finalize(stmt);
+
+	  ret = -1;
+	  goto out_fclose;
+	}
+    }
+
+  if (ret != SQLITE_DONE)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+
+      ret = -1;
+      goto out_fclose;
+    }
+
+  sqlite3_finalize(stmt);
+
+  /* Seek back to start of dump file */
+  ret = fseek(fp, 0, SEEK_SET);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not seek back to start of dump: %s\n", strerror(errno));
+
+      ret = -1;
+      goto out_fclose;
+    }
+
+  /* Map dump file */
+  fd = fileno(fp);
+  if (fd < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not obtain file descriptor: %s\n", strerror(errno));
+
+      ret = -1;
+      goto out_fclose;
+    }
+
+  ret = fstat(fd, &sb);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not stat dump file: %s\n", strerror(errno));
+
+      ret = -1;
+      goto out_fclose;
+    }
+
+  dump = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+  if (dump == MAP_FAILED)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not map dump file: %s\n", strerror(errno));
+
+      ret = -1;
+      goto out_fclose;
+    }
+
+  /* Move old table out of the way */
+  DPRINTF(E_LOG, L_DB, "Moving old files table out of the way...\n");
+
+  ret = sqlite3_exec(hdl, "ALTER TABLE files RENAME TO oldfilesv11;", NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error renaming old files table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+
+      ret = -1;
+      goto out_munmap;
+    }
+
+  /* Create new table */
+  DPRINTF(E_LOG, L_DB, "Creating new files table...\n");
+
+  ret = sqlite3_exec(hdl, U_V12_NEW_FILES_TABLE, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error creating new files table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+
+      ret = -1;
+      goto out_munmap;
+    }
+
+  /* Reload dump */
+  DPRINTF(E_LOG, L_DB, "Reloading new files table...\n");
+
+  ret = sqlite3_exec(hdl, dump, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error reloading files table data: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+
+      ret = -1;
+      goto out_munmap;
+    }
+
+  /* Delete old files table */
+  DPRINTF(E_LOG, L_DB, "Deleting old files table...\n");
+
+  ret = sqlite3_exec(hdl, "DROP TABLE oldfilesv11;", NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error dropping old files table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      /* Not an issue, but takes up space in the database */
+    }
+
+ out_munmap:
+  if (munmap(dump, sb.st_size) < 0)
+    DPRINTF(E_LOG, L_DB, "Could not unmap dump file: %s\n", strerror(errno));
+
+ out_fclose:
+  fclose(fp);
+
+  return ret;
+
+#undef Q_DUMP
+}
+
+
 static int
 db_check_version(void)
 {
@@ -4201,6 +4496,17 @@ db_check_version(void)
 	      return -1;
 
 	    ret = db_upgrade_v11();
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 11:
+	    ret = db_upgrade_v12();
+	    if (ret < 0)
+	      return -1;
+
+	    ret = db_generic_upgrade(db_upgrade_v12_queries, sizeof(db_upgrade_v12_queries) / sizeof(db_upgrade_v12_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
