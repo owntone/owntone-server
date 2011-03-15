@@ -1759,7 +1759,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
       if (sort_headers)
 	{
-	  ret = daap_sort_build(sctx, dbmfi.title);
+	  ret = daap_sort_build(sctx, dbmfi.title_sort);
 	  if (ret < 0)
 	    {
 	      DPRINTF(E_LOG, L_DAAP, "Could not add sort header to DAAP song list reply\n");
