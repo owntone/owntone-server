@@ -562,6 +562,19 @@ browse_resolve_callback(AvahiServiceResolver *r, AvahiIfIndex intf, AvahiProtoco
       case AVAHI_RESOLVER_FOUND:
 	DPRINTF(E_DBG, L_MDNS, "Avahi Resolver: resolved service '%s' type '%s' proto %d\n", name, type, proto);
 
+	if ((proto == AVAHI_PROTO_INET) && !(mb->flags & (MDNS_WANT_V4 | MDNS_WANT_V4LL)))
+	  {
+	    DPRINTF(E_DBG, L_MDNS, "No IPv4 addresses requested, skipping v4 record browsing\n");
+
+	    break;
+	  }
+	else if ((proto == AVAHI_PROTO_INET6) && !(mb->flags & (MDNS_WANT_V6 | MDNS_WANT_V6LL)))
+	  {
+	    DPRINTF(E_DBG, L_MDNS, "No IPv6 addresses requested, skipping v6 record browsing\n");
+
+	    break;
+	  }
+
 	rb_data = (struct mdns_record_browser *)malloc(sizeof(struct mdns_record_browser));
 	if (!rb_data)
 	  {
