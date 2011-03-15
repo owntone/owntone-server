@@ -118,7 +118,7 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime);
 
 
 int
-raop_init(void);
+raop_init(int *v6enabled);
 
 void
 raop_deinit(void);

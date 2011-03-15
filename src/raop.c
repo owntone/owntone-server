@@ -3416,7 +3416,7 @@ raop_set_status_cb(struct raop_session *rs, raop_status_cb cb)
 
 
 int
-raop_init(void)
+raop_init(int *v6enabled)
 {
   char ebuf[64];
   char *ptr;
@@ -3514,6 +3514,8 @@ raop_init(void)
 
       goto out_stop_timing;
     }
+
+  *v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
 
   return 0;
 

@@ -3720,6 +3720,7 @@ int
 player_init(void)
 {
   uint32_t rnd;
+  int raop_v6enabled;
   int ret;
 
   player_exit = 0;
@@ -3832,7 +3833,7 @@ player_init(void)
       goto laudio_fail;
     }
 
-  ret = raop_init();
+  ret = raop_init(&raop_v6enabled);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "RAOP init failed\n");
