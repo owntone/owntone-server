@@ -99,13 +99,6 @@ devices that are password-protected, the device's AirTunes name and password
 must be given in the configuration file. See the sample configuration file
 for the syntax.
 
-You should enable IPv6 on the host machine and the AirTunes devices for AirTunes
-to work properly. You do not need to do any configuration on the host machine,
-as link-local communication is all that's needed. Unfortunately, IPv4 link-local
-mostly does (can) not work and Avahi returns IPv4 link-local addresses more
-often than not when discovering AirTunes devices. Any device discovered with
-only an IPv4 link-local address will be ignored as it cannot work anyway.
-
 
 Local audio output
 ------------------
