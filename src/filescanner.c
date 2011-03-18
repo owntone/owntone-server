@@ -259,9 +259,11 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
       if ((strcmp(ext, ".pls") == 0)
 	  || (strcmp(ext, ".url") == 0))
 	{
+	  mfi.data_kind = 1; /* url/stream */
+
 	  ret = scan_url_file(file, &mfi);
-	  if (ret == 0)
-	    mfi.data_kind = 1; /* url/stream */
+	  if (ret < 0)
+	    goto out;
 	}
       else if ((strcmp(ext, ".png") == 0)
 	       || (strcmp(ext, ".jpg") == 0))

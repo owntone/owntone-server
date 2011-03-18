@@ -106,8 +106,6 @@ scan_url_file(char *file, struct media_file_info *mfi)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not read bitrate\n");
 
-      free(mfi->title);
-      free(mfi->url);
       return -1;
     }
 
