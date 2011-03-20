@@ -1200,9 +1200,12 @@ int
 httpd_init(void)
 {
   unsigned short port;
+  int v6enabled;
   int ret;
 
   httpd_exit = 0;
+
+  v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
 
   evbase_httpd = event_base_new();
   if (!evbase_httpd)
@@ -1288,9 +1291,12 @@ httpd_init(void)
       goto bind_fail;
     }
 
-  ret = evhttp_bind_socket(evhttpd, "::", port);
-  if (ret < 0)
-    DPRINTF(E_WARN, L_HTTPD, "Could not bind IN6ADDR_ANY:%d (that's OK)\n", port);
+  if (v6enabled)
+    {
+      ret = evhttp_bind_socket(evhttpd, "::", port);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_HTTPD, "Could not bind IN6ADDR_ANY:%d (that's OK)\n", port);
+    }
 
   evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
 
