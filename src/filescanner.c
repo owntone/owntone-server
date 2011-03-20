@@ -157,6 +157,24 @@ fixup_tags(struct media_file_info *mfi)
       mfi->title = NULL;
     }
 
+  /*
+   * Default to mpeg4 video/audio for unknown file types
+   * in an attempt to allow streaming of DRM-afflicted files
+   */
+  if (strcmp(mfi->codectype, "unkn") == 0)
+    {
+      if (mfi->has_video)
+	{
+	  strcpy(mfi->codectype, "mp4v");
+	  strcpy(mfi->type, "m4v");
+	}
+      else
+	{
+	  strcpy(mfi->codectype, "mp4a");
+	  strcpy(mfi->type, "m4a");
+	}
+    }
+
   if (!mfi->artist)
     {
       if (mfi->orchestra && mfi->conductor)
