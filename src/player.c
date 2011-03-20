@@ -3771,6 +3771,8 @@ player_init(void)
       return -1;
     }
 
+  raop_v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
+
 
 #ifdef USE_EVENTFD
   exit_efd = eventfd(0, EFD_CLOEXEC);

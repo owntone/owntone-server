@@ -2157,13 +2157,16 @@ raop_v2_timing_stop(void)
 }
 
 static int
-raop_v2_timing_start(void)
+raop_v2_timing_start(int v6enabled)
 {
   int ret;
 
-  ret = raop_v2_timing_start_one(&timing_6svc, AF_INET6);
-  if (ret < 0)
-    DPRINTF(E_WARN, L_RAOP, "Could not start timing service on IPv6\n");
+  if (v6enabled)
+    {
+      ret = raop_v2_timing_start_one(&timing_6svc, AF_INET6);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_RAOP, "Could not start timing service on IPv6\n");
+    }
 
   ret = raop_v2_timing_start_one(&timing_4svc, AF_INET);
   if (ret < 0)
@@ -2485,13 +2488,16 @@ raop_v2_control_stop(void)
 }
 
 static int
-raop_v2_control_start(void)
+raop_v2_control_start(int v6enabled)
 {
   int ret;
 
-  ret = raop_v2_control_start_one(&control_6svc, AF_INET6);
-  if (ret < 0)
-    DPRINTF(E_WARN, L_RAOP, "Could not start control service on IPv6\n");
+  if (v6enabled)
+    {
+      ret = raop_v2_control_start_one(&control_6svc, AF_INET6);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_RAOP, "Could not start control service on IPv6\n");
+    }
 
   ret = raop_v2_control_start_one(&control_4svc, AF_INET);
   if (ret < 0)
@@ -3499,7 +3505,7 @@ raop_init(int *v6enabled)
   if (ptr)
     *ptr = '\0';
 
-  ret = raop_v2_timing_start();
+  ret = raop_v2_timing_start(*v6enabled);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirTunes v2 time synchronization failed to start\n");
@@ -3507,7 +3513,7 @@ raop_init(int *v6enabled)
       goto out_free_b64_iv;
     }
 
-  ret = raop_v2_control_start();
+  ret = raop_v2_control_start(*v6enabled);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirTunes v2 playback synchronization failed to start\n");
@@ -3515,7 +3521,8 @@ raop_init(int *v6enabled)
       goto out_stop_timing;
     }
 
-  *v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
+  if (*v6enabled)
+    *v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
 
   return 0;
 
