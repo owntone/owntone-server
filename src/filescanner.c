@@ -179,6 +179,38 @@ fixup_tags(struct media_file_info *mfi)
         }
     }
 
+  /* Handle TV shows, try to present prettier metadata */
+  if (mfi->tv_series_name && strlen(mfi->tv_series_name) != 0)
+    {
+      mfi->media_kind = 64;  /* tv show */
+
+      /* Default to artist = series_name */
+      if (mfi->artist && strlen(mfi->artist) == 0)
+	{
+	  free(mfi->artist);
+	  mfi->artist = NULL;
+	}
+
+      if (!mfi->artist)
+	mfi->artist = strdup(mfi->tv_series_name);
+
+      /* Default to album = "<series_name>, Season <season_num>" */
+      if (mfi->album && strlen(mfi->album) == 0)
+	{
+	  free(mfi->album);
+	  mfi->album = NULL;
+	}
+
+      if (!mfi->album)
+	{
+	  len = snprintf(NULL, 0, "%s, Season %d", mfi->tv_series_name, mfi->tv_season_num);
+
+	  mfi->album = (char *)malloc(len + 1);
+	  if (mfi->album)
+	    sprintf(mfi->album, "%s, Season %d", mfi->tv_series_name, mfi->tv_season_num);
+	}
+    }
+
   /* Check the 4 top-tags are filled */
   if (!mfi->artist)
     mfi->artist = strdup("Unknown artist");
