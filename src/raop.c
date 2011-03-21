@@ -2993,7 +2993,7 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
   token = strtok_r(token, ";=", &ptr);
   while (token)
     {
-      DPRINTF(E_LOG, L_RAOP, "token: %s\n", token);
+      DPRINTF(E_DBG, L_RAOP, "token: %s\n", token);
 
       if (strcmp(token, "server_port") == 0)
         {
