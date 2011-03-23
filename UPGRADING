@@ -1,0 +1,21 @@
+Upgrading forked-daapd
+----------------------
+
+From time to time, newer versions of forked-daapd may need to perform a
+database upgrade. This upgrade is handled by forked-daapd upon startup if
+required.
+
+Before upgrading forked-daapd, it is always a good idea to backup your
+database, just in case.
+
+The database upgrade procedure is built into forked-daapd; there is no
+external upgrade script to run. Depending on the changes done to the database
+structure, the upgrade process will take more or less time and may need some
+space in /tmp for temporary data. The upgrade can also require some more space
+in the directory containing the database file.
+
+Before running the new forked-daapd version, make sure you have done your
+backups and checked your disk space.
+
+Some upgrades can also trigger a full rescan to rebuild parts of the database,
+so startup will be a bit slower and more resource-intensive than usual.
