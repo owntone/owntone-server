@@ -1,6 +1,14 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 0.14:
+	- sort headers/tags handling improvements.
+	- better handling of tags for TV shows.
+	- better handling of DRM-afflicted files.
+	- configurable IPv6 support.
+	- fix scanning of URL files.
+	- fixes, big and small.
+
 version 0.13:
 	- add Remote v2 support; Remote v1 is not supported anymore.
 	- add per-speaker volume support.
