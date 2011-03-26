@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -509,6 +509,54 @@ player_laudio_status_cb(enum laudio_state status)
       	laudio_status = status;
 	break;
     }
+}
+
+
+/* Metadata */
+static void
+metadata_prune(uint64_t pos)
+{
+  raop_metadata_prune(pos);
+}
+
+static void
+metadata_purge(void)
+{
+  raop_metadata_purge();
+}
+
+static void
+metadata_send(struct player_source *ps, int startup)
+{
+  uint64_t offset;
+  uint64_t rtptime;
+
+  offset = 0;
+
+  /* Determine song boundaries, dependent on context */
+
+  /* Restart after pause/seek */
+  if (ps->stream_start)
+    {
+      offset = ps->output_start - ps->stream_start;
+      rtptime = ps->stream_start;
+    }
+  else if (startup)
+    {
+      rtptime = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+    }
+  /* Generic case */
+  else if (cur_streaming && (cur_streaming->end))
+    {
+      rtptime = cur_streaming->end + 1;
+    }
+  else
+    {
+      rtptime = 0;
+      DPRINTF(E_LOG, L_PLAYER, "PTOH! Unhandled song boundary case in metadata_send()\n");
+    }
+
+  raop_metadata_send(ps->id, rtptime, offset, startup);
 }
 
 
