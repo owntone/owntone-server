@@ -3376,6 +3376,8 @@ raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto cleanup;
 
+  raop_metadata_startup_send(rs);
+
   ret = raop_v2_stream_open(rs);
   if (ret < 0)
     {

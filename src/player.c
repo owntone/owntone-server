@@ -829,7 +829,7 @@ source_reshuffle(void)
 
 /* Helper */
 static int
-source_open(struct player_source *ps)
+source_open(struct player_source *ps, int no_md)
 {
   struct media_file_info *mfi;
 
@@ -866,6 +866,9 @@ source_open(struct player_source *ps)
 
       return -1;
     }
+
+  if (!no_md)
+    metadata_send(ps, (player_state == PLAY_PLAYING) ? 0 : 1);
 
   return 0;
 }
@@ -905,9 +908,18 @@ source_next(int force)
     {
       case REPEAT_SONG:
 	if (cur_streaming->ctx)
-	  ret = transcode_seek(cur_streaming->ctx, 0);
+	  {
+	    ret = transcode_seek(cur_streaming->ctx, 0);
+
+	    /* source_open() takes care of sending metadata, but we don't
+	     * call it when repeating a song as we just seek back to 0
+	     * so we have to handle metadata ourselves here
+	     */
+	    if (ret >= 0)
+	      metadata_send(cur_streaming, 0);
+	  }
 	else
-	  ret = source_open(cur_streaming);
+	  ret = source_open(cur_streaming, force);
 
 	if (ret < 0)
 	  {
@@ -951,7 +963,7 @@ source_next(int force)
 
   do
     {
-      ret = source_open(ps);
+      ret = source_open(ps, force);
       if (ret < 0)
 	{
 	  if (shuffle)
@@ -1009,7 +1021,7 @@ source_prev(void)
 
   do
     {
-      ret = source_open(ps);
+      ret = source_open(ps, 1);
       if (ret < 0)
 	{
 	  if (shuffle)
@@ -1078,6 +1090,8 @@ source_check(void)
 	{
 	  cur_playing = cur_streaming;
 	  status_update(PLAY_PLAYING);
+
+	  /* Start of streaming, no metadata to prune yet */
 	}
 
       return pos;
@@ -1117,6 +1131,8 @@ source_check(void)
       ps->end = 0;
 
       status_update(PLAY_PLAYING);
+
+      metadata_prune(pos);
 
       return pos;
     }
@@ -1159,6 +1175,8 @@ source_check(void)
       DPRINTF(E_DBG, L_PLAYER, "Playback switched to next song\n");
 
       status_update(PLAY_PLAYING);
+
+      metadata_prune(pos);
     }
 
   return pos;
@@ -1835,6 +1853,8 @@ playback_abort(void)
   evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
 
   status_update(PLAY_STOPPED);
+
+  metadata_purge();
 }
 
 
@@ -1969,6 +1989,8 @@ playback_stop(struct player_command *cmd)
   evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
 
   status_update(PLAY_STOPPED);
+
+  metadata_purge();
 
   /* We're async if we need to flush RAOP devices */
   if (cmd->raop_pending > 0)
@@ -2153,7 +2175,7 @@ playback_start(struct player_command *cmd)
 	    shuffle_head = cur_streaming;
 	}
 
-      ret = source_open(cur_streaming);
+      ret = source_open(cur_streaming, 0);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Couldn't jump to queue position %d\n", *idx_id);
@@ -2182,6 +2204,13 @@ playback_start(struct player_command *cmd)
 
       cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
       cur_streaming->output_start = cur_streaming->stream_start;
+    }
+  else
+    {
+      /* After a pause, the source is still open so source_open() doesn't get
+       * called and we have to handle metadata ourselves.
+       */
+      metadata_send(cur_streaming, 1);
     }
 
   /* Start local audio if needed */
@@ -2419,6 +2448,8 @@ playback_pause(struct player_command *cmd)
   cur_streaming->play_next = NULL;
 
   evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
+
+  metadata_purge();
 
   /* We're async if we need to flush RAOP devices */
   if (cmd->raop_pending > 0)
