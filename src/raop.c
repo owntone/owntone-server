@@ -1051,6 +1051,33 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
 
 
 /* RAOP/RTSP requests */
+/*
+ * Request queueing HOWTO
+ *
+ * Sending:
+ * - increment rs->reqs_in_flight
+ * - set evrtsp connection closecb to NULL
+ *
+ * Request callback:
+ * - decrement rs->reqs_in_flight first thing, even if the callback is
+ *   called for error handling (req == NULL or HTTP error code)
+ * - if rs->reqs_in_flight == 0, setup evrtsp connection closecb
+ *
+ * When a request fails, the whole RAOP session is declared failed and
+ * torn down by calling raop_session_failure(), even if there are requests
+ * queued on the evrtsp connection. There is no reason to think pending
+ * requests would work out better than the one that just failed and recovery
+ * would be tricky to get right.
+ *
+ * evrtsp behaviour with queued requests:
+ * - request callback is called with req == NULL to indicate a connection
+ *   error; if there are several requests queued on the connection, this can
+ *   happen for each request if the connection isn't destroyed
+ * - the connection is reset, and the closecb is called if the connection was
+ *   previously connected. There is no closecb set when there are requests in
+ *   flight
+ */
+
 static int
 raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb)
 {
