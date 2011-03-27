@@ -1979,6 +1979,18 @@ raop_metadata_send_progress(struct raop_session *rs, struct evbuffer *evbuf, str
   uint32_t display;
   int ret;
 
+  /* Here's the deal with progress values:
+   * - first value, called display, is always start minus a delay
+   *    -> delay x1 if streaming is starting for this device (joining or not)
+   *    -> delay x2 if stream is switching to a new song
+   * - second value, called start, is the RTP time of the first sample for this
+   *   song for this device
+   *    -> start of song
+   *    -> start of song + offset if device is joining in the middle of a song,
+   *       or getting out of a pause or seeking
+   * - third value, called end, is the RTP time of the last sample for this song
+   */
+
   display = RAOP_RTPTIME(rmd->start - delay);
 
   ret = evbuffer_add_printf(evbuf, "progress: %u/%u/%u\r\n", display, RAOP_RTPTIME(rmd->start + offset), RAOP_RTPTIME(rmd->end));
