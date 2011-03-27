@@ -1774,7 +1774,7 @@ raop_set_volume_one(struct raop_session *rs, int volume, raop_status_cb cb)
 {
   int ret;
 
-  if (!(rs->state & RAOP_CONNECTED))
+  if (!(rs->state & RAOP_F_CONNECTED))
     return 0;
 
   ret = raop_set_volume_internal(rs, volume, raop_cb_set_volume);
