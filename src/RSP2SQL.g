@@ -205,6 +205,7 @@ strcrit	returns [ pANTLR3_STRING result, int valid ]
 			}
 
 			$result = field->factory->newRaw(field->factory);
+			$result->append8($result, "f.");
 			$result->appendS($result, field);
 			$result->append8($result, op);
 			$result->append8($result, "'");
@@ -289,6 +290,7 @@ intcrit	returns [ pANTLR3_STRING result, int valid ]
 			}
 
 			$result = field->factory->newRaw(field->factory);
+			$result->append8($result, "f.");
 			$result->appendS($result, field);
 			$result->append8($result, op);
 			$result->appendS($result, $i->getText($i));
@@ -362,6 +364,7 @@ datecrit	returns [ pANTLR3_STRING result, int valid ]
 			}
 
 			$result = field->factory->newRaw(field->factory);
+			$result->append8($result, "f.");
 			$result->appendS($result, field);
 			$result->append8($result, op);
 			$result->append8($result, buf);

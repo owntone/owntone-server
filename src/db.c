@@ -260,9 +260,9 @@ static const struct col_type_map wi_cols_map[] =
 static const char *sort_clause[] =
   {
     "",
-    "ORDER BY title_sort ASC",
-    "ORDER BY album_sort ASC, disc ASC, track ASC",
-    "ORDER BY artist_sort ASC",
+    "ORDER BY f.title_sort ASC",
+    "ORDER BY f.album_sort ASC, f.disc ASC, f.track ASC",
+    "ORDER BY f.artist_sort ASC",
   };
 
 static char *db_path;
@@ -606,7 +606,7 @@ db_purge_cruft(time_t ref)
   char *queries[3] = { NULL, NULL, NULL };
   char *queries_tmpl[3] =
     {
-      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE type <> 1 AND db_timestamp < %" PRIi64 ");",
+      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> 1 AND p.db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlists WHERE type <> 1 AND db_timestamp < %" PRIi64 ";",
       "DELETE FROM files WHERE db_timestamp < %" PRIi64 ";"
     };
@@ -737,9 +737,9 @@ db_build_query_items(struct query_params *qp, char **q)
   int ret;
 
   if (qp->filter)
-    count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s;", qp->filter);
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.disabled = 0 AND %s;", qp->filter);
   else
-    count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0;");
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
 
   if (!count)
     {
@@ -762,13 +762,13 @@ db_build_query_items(struct query_params *qp, char **q)
   sort = sort_clause[qp->sort];
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s %s %s;", qp->filter, sort, idx);
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 AND %s %s %s;", qp->filter, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 %s %s;", sort, idx);
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 %s %s;", sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s %s;", qp->filter, sort);
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 AND %s %s;", qp->filter, sort);
   else
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 %s;", sort);
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 %s;", sort);
 
   if (!query)
     {
@@ -788,7 +788,7 @@ db_build_query_pls(struct query_params *qp, char **q)
   char *idx;
   int ret;
 
-  qp->results = db_get_count("SELECT COUNT(*) FROM playlists WHERE disabled = 0;");
+  qp->results = db_get_count("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
   if (qp->results < 0)
     return -1;
 
@@ -798,13 +798,13 @@ db_build_query_pls(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0 AND %s %s;", qp->filter, idx);
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 AND %s %s;", qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0 %s;", idx);
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 %s;", idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0 AND %s;", qp->filter);
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 AND %s;", qp->filter);
   else
-    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0;");
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0;");
 
   if (!query)
     {
@@ -826,11 +826,11 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
   int ret;
 
   if (qp->filter)
-    count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s;", qp->id, qp->filter);
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 AND %s;", qp->id, qp->filter);
   else
-    count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0;", qp->id);
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0;", qp->id);
 
   if (!count)
     {
@@ -851,20 +851,20 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s ORDER BY playlistitems.id ASC %s;",
+    query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 AND %s ORDER BY pi.id ASC %s;",
 			    qp->id, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 ORDER BY playlistitems.id ASC %s;",
+    query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 ORDER BY pi.id ASC %s;",
 			    qp->id, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s ORDER BY playlistitems.id ASC;",
+    query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 AND %s ORDER BY pi.id ASC;",
 			    qp->id, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 ORDER BY playlistitems.id ASC;",
+    query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 ORDER BY pi.id ASC;",
 			    qp->id);
 
   if (!query)
@@ -893,7 +893,7 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
   else
     filter = "1 = 1";
 
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s AND %s;", filter, smartpl_query);
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.disabled = 0 AND %s AND %s;", filter, smartpl_query);
   if (!count)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for count query string\n");
@@ -917,7 +917,7 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
 
   sort = sort_clause[qp->sort];
 
-  query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s AND %s %s %s;", smartpl_query, filter, sort, idx);
+  query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 AND %s AND %s %s %s;", smartpl_query, filter, sort, idx);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -973,7 +973,7 @@ db_build_query_groups(struct query_params *qp, char **q)
   char *idx;
   int ret;
 
-  qp->results = db_get_count("SELECT COUNT(DISTINCT songalbumid) FROM files WHERE disabled = 0;");
+  qp->results = db_get_count("SELECT COUNT(DISTINCT f.songalbumid) FROM files f WHERE f.disabled = 0;");
   if (qp->results < 0)
     return -1;
 
@@ -983,13 +983,13 @@ db_build_query_groups(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0 AND %s %s;", G_ALBUMS, qp->filter, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND f.disabled = 0 AND %s %s;", G_ALBUMS, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0 %s;", G_ALBUMS, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND f.disabled = 0 %s;", G_ALBUMS, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0 AND %s;", G_ALBUMS, qp->filter);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND f.disabled = 0 AND %s;", G_ALBUMS, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0;", G_ALBUMS);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND f.disabled = 0;", G_ALBUMS);
 
   if (!query)
     {
@@ -1014,8 +1014,8 @@ db_build_query_groupitems(struct query_params *qp, char **q)
   switch (gt)
     {
       case G_ALBUMS:
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN groups ON files.songalbumid = groups.persistentid"
-				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	count = sqlite3_mprintf("SELECT COUNT(*) FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
+				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
 	break;
 
       default:
@@ -1039,8 +1039,8 @@ db_build_query_groupitems(struct query_params *qp, char **q)
   switch (gt)
     {
       case G_ALBUMS:
-	query = sqlite3_mprintf("SELECT files.* FROM files JOIN groups ON files.songalbumid = groups.persistentid"
-				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	query = sqlite3_mprintf("SELECT f.* FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
+				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
 	break;
     }
 
@@ -1067,9 +1067,9 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
   switch (gt)
     {
       case G_ALBUMS:
-	count = sqlite3_mprintf("SELECT COUNT(DISTINCT(SUBSTR(files.path, 1, LENGTH(files.path) - LENGTH(files.fname) - 1)))"
-				" FROM files JOIN groups ON files.songalbumid = groups.persistentid"
-				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	count = sqlite3_mprintf("SELECT COUNT(DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1)))"
+				" FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
+				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
 	break;
 
       default:
@@ -1093,9 +1093,9 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
   switch (gt)
     {
       case G_ALBUMS:
-	query = sqlite3_mprintf("SELECT DISTINCT(SUBSTR(files.path, 1, LENGTH(files.path) - LENGTH(files.fname) - 1))"
-				" FROM files JOIN groups ON files.songalbumid = groups.persistentid"
-				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	query = sqlite3_mprintf("SELECT DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1))"
+				" FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
+				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
 	break;
     }
 
@@ -1119,10 +1119,10 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
   int ret;
 
   if (qp->filter)
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '' AND %s;",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.%s) FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != '' AND %s;",
 			    field, field, qp->filter);
   else
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '';",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.%s) FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != '';",
 			    field, field);
 
   if (!count)
@@ -1144,16 +1144,16 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
 			    " AND %s %s;", field, field, field, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
 			    " %s;", field, field, field, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
 			    " AND %s;", field, field, field, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''",
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''",
 			    field, field, field);
 
   if (!query)
@@ -1521,7 +1521,7 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 int
 db_files_get_count(void)
 {
-  return db_get_count("SELECT COUNT(*) FROM files WHERE disabled = 0;");
+  return db_get_count("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
 }
 
 void
@@ -1601,7 +1601,7 @@ db_file_ping(int id)
 char *
 db_file_path_byid(int id)
 {
-#define Q_TMPL "SELECT path FROM files WHERE id = %d;"
+#define Q_TMPL "SELECT f.path FROM files f WHERE f.id = %d;"
   char *query;
   sqlite3_stmt *stmt;
   char *res;
@@ -1702,7 +1702,7 @@ db_file_id_byquery(char *query)
 int
 db_file_id_bypath(char *path)
 {
-#define Q_TMPL "SELECT id FROM files WHERE path = '%q';"
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.path = '%q';"
   char *query;
   int ret;
 
@@ -1726,7 +1726,7 @@ db_file_id_bypath(char *path)
 int
 db_file_id_byfilebase(char *filename, char *base)
 {
-#define Q_TMPL "SELECT id FROM files WHERE path LIKE '%q/%%/%q';"
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.path LIKE '%q/%%/%q';"
   char *query;
   int ret;
 
@@ -1750,7 +1750,7 @@ db_file_id_byfilebase(char *filename, char *base)
 int
 db_file_id_byfile(char *filename)
 {
-#define Q_TMPL "SELECT id FROM files WHERE fname = '%q';"
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.fname = '%q';"
   char *query;
   int ret;
 
@@ -1774,7 +1774,7 @@ db_file_id_byfile(char *filename)
 int
 db_file_id_byurl(char *url)
 {
-#define Q_TMPL "SELECT id FROM files WHERE url = '%q';"
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.url = '%q';"
   char *query;
   int ret;
 
@@ -1798,7 +1798,7 @@ db_file_id_byurl(char *url)
 void
 db_file_stamp_bypath(char *path, time_t *stamp, int *id)
 {
-#define Q_TMPL "SELECT id, db_timestamp FROM files WHERE path = '%q';"
+#define Q_TMPL "SELECT f.id, f.db_timestamp FROM files f WHERE f.path = '%q';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
@@ -1970,7 +1970,7 @@ db_file_fetch_byquery(char *query)
 struct media_file_info *
 db_file_fetch_byid(int id)
 {
-#define Q_TMPL "SELECT * FROM files WHERE id = %d;"
+#define Q_TMPL "SELECT f.* FROM files f WHERE f.id = %d;"
   struct media_file_info *mfi;
   char *query;
 
@@ -2276,14 +2276,14 @@ db_file_enable_bycookie(uint32_t cookie, char *path)
 int
 db_pl_get_count(void)
 {
-  return db_get_count("SELECT COUNT(*) FROM playlists WHERE disabled = 0;");
+  return db_get_count("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
 }
 
 static int
 db_pl_count_items(int id)
 {
-#define Q_TMPL "SELECT COUNT(*) FROM playlistitems JOIN files" \
-               " ON playlistitems.filepath = files.path WHERE files.disabled = 0 AND playlistitems.playlistid = %d;"
+#define Q_TMPL "SELECT COUNT(*) FROM playlistitems pi JOIN files f" \
+               " ON pi.filepath = f.path WHERE f.disabled = 0 AND pi.playlistid = %d;"
   char *query;
   int ret;
 
@@ -2307,7 +2307,7 @@ db_pl_count_items(int id)
 static int
 db_smartpl_count_items(const char *smartpl_query)
 {
-#define Q_TMPL "SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s;"
+#define Q_TMPL "SELECT COUNT(*) FROM files f WHERE f.disabled = 0 AND %s;"
   char *query;
   int ret;
 
@@ -2359,7 +2359,7 @@ db_pl_ping(int id)
 static int
 db_pl_id_bypath(char *path, int *id)
 {
-#define Q_TMPL "SELECT id FROM playlists WHERE path = '%q';"
+#define Q_TMPL "SELECT p.id FROM playlists p WHERE p.path = '%q';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
@@ -2537,7 +2537,7 @@ db_pl_fetch_byquery(char *query)
 struct playlist_info *
 db_pl_fetch_bypath(char *path)
 {
-#define Q_TMPL "SELECT * FROM playlists WHERE path = '%q';"
+#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.path = '%q';"
   struct playlist_info *pli;
   char *query;
 
@@ -2561,7 +2561,7 @@ db_pl_fetch_bypath(char *path)
 struct playlist_info *
 db_pl_fetch_byid(int id)
 {
-#define Q_TMPL "SELECT * FROM playlists WHERE id = %d;"
+#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.id = %d;"
   struct playlist_info *pli;
   char *query;
 
@@ -2585,7 +2585,7 @@ db_pl_fetch_byid(int id)
 struct playlist_info *
 db_pl_fetch_bytitlepath(char *title, char *path)
 {
-#define Q_TMPL "SELECT * FROM playlists WHERE title = '%q' AND path = '%q';"
+#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.title = '%q' AND p.path = '%q';"
   struct playlist_info *pli;
   char *query;
 
@@ -2609,7 +2609,7 @@ db_pl_fetch_bytitlepath(char *title, char *path)
 int
 db_pl_add(char *title, char *path, int *id)
 {
-#define QDUP_TMPL "SELECT COUNT(*) FROM playlists WHERE title = '%q' AND path = '%q';"
+#define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = '%q' AND p.path = '%q';"
 #define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id)" \
                   " VALUES ('%q', 0, NULL, %" PRIi64 ", 0, '%q', 0, 0);"
   char *query;
@@ -2708,7 +2708,7 @@ db_pl_add_item_bypath(int plid, char *path)
 int
 db_pl_add_item_byid(int plid, int fileid)
 {
-#define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, (SELECT path FROM files WHERE id = %d));"
+#define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, (SELECT f.path FROM files f WHERE f.id = %d));"
   char *query;
   char *errmsg;
   int ret;
@@ -2941,7 +2941,7 @@ db_groups_clear(void)
 enum group_type
 db_group_type_byid(int id)
 {
-#define Q_TMPL "SELECT type FROM groups WHERE id = '%d';"
+#define Q_TMPL "SELECT g.type FROM groups g WHERE g.id = '%d';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
@@ -3071,7 +3071,7 @@ db_pairing_add(struct pairing_info *pi)
 int
 db_pairing_fetch_byguid(struct pairing_info *pi)
 {
-#define Q_TMPL "SELECT * FROM pairings WHERE guid = '%q';"
+#define Q_TMPL "SELECT p.* FROM pairings p WHERE p.guid = '%q';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
@@ -3162,7 +3162,7 @@ db_speaker_save(uint64_t id, int selected, int volume)
 int
 db_speaker_get(uint64_t id, int *selected, int *volume)
 {
-#define Q_TMPL "SELECT selected, volume FROM speakers WHERE id = %" PRIi64 ";"
+#define Q_TMPL "SELECT s.selected, s.volume FROM speakers s WHERE s.id = %" PRIi64 ";"
   sqlite3_stmt *stmt;
   char *query;
   int ret;
@@ -4018,15 +4018,15 @@ db_perthread_deinit(void)
 
 #define Q_PL2								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(2, 'Music', 1, 'media_kind = 1', 0, '', 0, 6);"
+  " VALUES(2, 'Music', 1, 'f.media_kind = 1', 0, '', 0, 6);"
 
 #define Q_PL3								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(3, 'Movies', 1, 'media_kind = 2', 0, '', 0, 4);"
+  " VALUES(3, 'Movies', 1, 'f.media_kind = 2', 0, '', 0, 4);"
 
 #define Q_PL4								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(4, 'TV Shows', 1, 'media_kind = 64', 0, '', 0, 5);"
+  " VALUES(4, 'TV Shows', 1, 'f.media_kind = 64', 0, '', 0, 5);"
 
 /* These are the remaining automatically-created iTunes playlists, but
  * their query is unknown
