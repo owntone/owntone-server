@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -96,7 +96,7 @@ artwork_read(char *filename, struct evbuffer *evbuf)
 }
 
 static int
-artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct evbuffer *evbuf)
+artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int format, struct evbuffer *evbuf)
 {
   uint8_t *buf;
   uint8_t *outbuf;
@@ -109,7 +109,10 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
   AVStream *dst_st;
 
   AVCodec *img_decoder;
-  AVCodec *png_encoder;
+  AVCodec *img_encoder;
+
+  int64_t pix_fmt_mask;
+  const enum PixelFormat *pix_fmts;
 
   AVFrame *i_frame;
   AVFrame *o_frame;
@@ -156,7 +159,31 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
       goto out_close_src;
     }
 
-  dst_fmt->video_codec = CODEC_ID_PNG;
+  dst_fmt->video_codec = CODEC_ID_NONE;
+
+  /* Try to keep same codec if possible */
+  if ((src->codec_id == CODEC_ID_PNG) && (format & ART_CAN_PNG))
+    dst_fmt->video_codec = CODEC_ID_PNG;
+  else if ((src->codec_id == CODEC_ID_MJPEG) && (format & ART_CAN_JPEG))
+    dst_fmt->video_codec = CODEC_ID_MJPEG;
+
+  /* If not possible, select new codec */
+  if (dst_fmt->video_codec == CODEC_ID_NONE)
+    {
+      if (format & ART_CAN_PNG)
+	dst_fmt->video_codec = CODEC_ID_PNG;
+      else if (format & ART_CAN_JPEG)
+	dst_fmt->video_codec = CODEC_ID_MJPEG;
+    }
+
+  img_encoder = avcodec_find_encoder(dst_fmt->video_codec);
+  if (!img_encoder)
+    {
+      DPRINTF(E_LOG, L_ART, "No suitable encoder found for codec ID %d\n", dst_fmt->video_codec);
+
+      ret = -1;
+      goto out_close_src;
+    }
 
   dst_ctx = avformat_alloc_context();
   if (!dst_ctx)
@@ -196,7 +223,26 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
 
   dst->codec_id = dst_fmt->video_codec;
   dst->codec_type = CODEC_TYPE_VIDEO;
-  dst->pix_fmt = PIX_FMT_RGB24;
+
+  pix_fmt_mask = 0;
+  pix_fmts = img_encoder->pix_fmts;
+  while (pix_fmts && (*pix_fmts != -1))
+    {
+      pix_fmt_mask |= (1 << *pix_fmts);
+      pix_fmts++;
+    }
+
+  dst->pix_fmt = avcodec_find_best_pix_fmt(pix_fmt_mask, src->pix_fmt, 1, NULL);
+
+  if (dst->pix_fmt < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not determine best pixel format\n");
+
+      goto out_free_dst;
+      ret = -1;
+    }
+
+  DPRINTF(E_DBG, L_ART, "Selected pixel format: %d\n", dst->pix_fmt);
 
   dst->time_base.num = 1;
   dst->time_base.den = 25;
@@ -214,16 +260,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
     }
 
   /* Open encoder */
-  png_encoder = avcodec_find_encoder(dst_fmt->video_codec);
-  if (!png_encoder)
-    {
-      DPRINTF(E_LOG, L_ART, "No suitable encoder found for PNG\n");
-
-      ret = -1;
-      goto out_free_dst;
-    }
-
-  ret = avcodec_open(dst, png_encoder);
+  ret = avcodec_open(dst, img_encoder);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_ART, "Could not open codec for encoding: %s\n", strerror(AVUNERROR(ret)));
@@ -379,7 +416,21 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
       goto out_fclose_dst;
     }
 
-  ret = 0;
+  switch (dst_fmt->video_codec)
+    {
+      case CODEC_ID_PNG:
+	ret = ART_FMT_PNG;
+	break;
+
+      case CODEC_ID_MJPEG:
+	ret = ART_FMT_JPEG;
+	break;
+
+      default:
+	DPRINTF(E_LOG, L_ART, "Unhandled rescale output format\n");
+	ret = -1;
+	break;
+    }
 
  out_fclose_dst:
   url_fclose(dst_ctx->pb);
@@ -409,7 +460,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
 }
 
 static int
-artwork_get(char *filename, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   AVFormatContext *src_ctx;
   AVCodecContext *src;
@@ -417,6 +468,7 @@ artwork_get(char *filename, int max_w, int max_h, struct evbuffer *evbuf)
   int target_w;
   int target_h;
   int need_rescale;
+  int format_ok;
   int ret;
 
   ret = av_open_input_file(&src_ctx, filename, NULL, 0, NULL);
@@ -436,12 +488,19 @@ artwork_get(char *filename, int max_w, int max_h, struct evbuffer *evbuf)
       return -1;
     }
 
+  format_ok = 0;
   for (s = 0; s < src_ctx->nb_streams; s++)
     {
       if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_PNG)
-	break;
+	{
+	  format_ok = (format & ART_CAN_PNG) ? ART_FMT_PNG : 0;
+	  break;
+	}
       else if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_MJPEG)
-	break;
+	{
+	  format_ok = (format & ART_CAN_JPEG) ? ART_FMT_JPEG : 0;
+	  break;
+	}
     }
 
   if (s == src_ctx->nb_streams)
@@ -495,11 +554,15 @@ artwork_get(char *filename, int max_w, int max_h, struct evbuffer *evbuf)
 
   DPRINTF(E_DBG, L_ART, "Destination width %d height %d\n", target_w, target_h);
 
-  /* Fastpath for PNG */
-  if ((src->codec_id == CODEC_ID_PNG) && !need_rescale)
-    ret = artwork_read(filename, evbuf);
+  /* Fastpath */
+  if (!need_rescale && format_ok)
+    {
+      ret = artwork_read(filename, evbuf);
+      if (ret == 0)
+	ret = format_ok;
+    }
   else
-    ret = artwork_rescale(src_ctx, s, target_w, target_h, evbuf);
+    ret = artwork_rescale(src_ctx, s, target_w, target_h, format, evbuf);
 
   av_close_input_file(src_ctx);
 
@@ -514,7 +577,7 @@ artwork_get(char *filename, int max_w, int max_h, struct evbuffer *evbuf)
 
 
 static int
-artwork_get_own_image(char *path, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   char artwork[PATH_MAX];
   char *ptr;
@@ -558,11 +621,11 @@ artwork_get_own_image(char *path, int max_w, int max_h, struct evbuffer *evbuf)
   if (i == (sizeof(cover_extension) / sizeof(cover_extension[0])))
     return -1;
 
-  return artwork_get(artwork, max_w, max_h, evbuf);
+  return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
 
 static int
-artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   char artwork[PATH_MAX];
   char *ptr;
@@ -616,12 +679,12 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, struct evbuff
   if (i == (sizeof(cover_basename) / sizeof(cover_basename[0])))
     return -1;
 
-  return artwork_get(artwork, max_w, max_h, evbuf);
+  return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
 
 
 int
-artwork_get_item(int id, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   char *filename;
   int ret;
@@ -635,18 +698,16 @@ artwork_get_item(int id, int max_w, int max_h, struct evbuffer *evbuf)
   /* FUTURE: look at embedded artwork */
 
   /* Look for basename(filename).{png,jpg} */
-  ret = artwork_get_own_image(filename, max_w, max_h, evbuf);
-  if (ret == 0)
+  ret = artwork_get_own_image(filename, max_w, max_h, format, evbuf);
+  if (ret > 0)
     goto out;
 
   /* Look for basedir(filename)/{artwork,cover}.{png,jpg} */
-  ret = artwork_get_dir_image(filename, 0, max_w, max_h, evbuf);
-  if (ret == 0)
+  ret = artwork_get_dir_image(filename, 0, max_w, max_h, format, evbuf);
+  if (ret > 0)
     goto out;
 
   DPRINTF(E_DBG, L_ART, "No artwork found for item id %d\n", id);
-
-  ret = -1;
 
  out:
   free(filename);
@@ -654,7 +715,7 @@ artwork_get_item(int id, int max_w, int max_h, struct evbuffer *evbuf)
 }
 
 int
-artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
@@ -679,18 +740,18 @@ artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
       goto files_art;
     }
 
-  got_art = 0;
-  while ((!got_art) && ((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
+  got_art = -1;
+  while ((got_art < 0) && ((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
     {
-      got_art = ! artwork_get_dir_image(dir, 1, max_w, max_h, evbuf);
+      got_art = artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf);
     }
 
   db_query_end(&qp);
 
   if (ret < 0)
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_DIRS results\n");
-  else if (got_art)
-    return 0;
+  else if (got_art > 0)
+    return got_art;
 
 
   /* Then try individual files */
@@ -708,18 +769,18 @@ artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
       return -1;
     }
 
-  got_art = 0;
-  while ((!got_art) && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  got_art = -1;
+  while ((got_art < 0) && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      got_art = ! artwork_get_own_image(dbmfi.path, max_w, max_h, evbuf);
+      got_art = artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf);
     }
 
   db_query_end(&qp);
 
   if (ret < 0)
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUPITEMS results\n");
-  else if (got_art)
-    return 0;
+  else if (got_art > 0)
+    return got_art;
 
   return -1;
 }
