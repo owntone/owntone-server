@@ -1220,6 +1220,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   char clen[32];
   struct daap_session *s;
   const char *param;
+  char *ctype;
   uint32_t id;
   int max_w;
   int max_h;
@@ -1269,17 +1270,26 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   if (ret < 0)
     goto no_artwork;
 
-  ret = artwork_get_item(id, max_w, max_h, ART_CAN_PNG, evbuf);
-  if (ret < 0)
+  ret = artwork_get_item(id, max_w, max_h, ART_CAN_PNG | ART_CAN_JPEG, evbuf);
+  switch (ret)
     {
-      if (EVBUFFER_LENGTH(evbuf) > 0)
-        evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+      case ART_FMT_PNG:
+	ctype = "image/png";
+	break;
 
-      goto no_artwork;
+      case ART_FMT_JPEG:
+	ctype = "image/jpeg";
+	break;
+
+      default:
+	if (EVBUFFER_LENGTH(evbuf) > 0)
+	  evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+
+	goto no_artwork;
     }
 
   evhttp_remove_header(req->output_headers, "Content-Type");
-  evhttp_add_header(req->output_headers, "Content-Type", "image/png");
+  evhttp_add_header(req->output_headers, "Content-Type", ctype);
   snprintf(clen, sizeof(clen), "%ld", (long)EVBUFFER_LENGTH(evbuf));
   evhttp_add_header(req->output_headers, "Content-Length", clen);
 
