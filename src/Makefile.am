@@ -22,10 +22,12 @@ OSS4SRC=laudio_oss4.c
 endif
 
 GPERF_FILES = \
-	daap_query.gperf
+	daap_query.gperf \
+	rsp_query.gperf
 
 GPERF_PRODUCTS = \
-	daap_query_hash.c
+	daap_query_hash.c \
+	rsp_query_hash.c
 
 ANTLR_GRAMMARS = \
 	RSP.g RSP2SQL.g \

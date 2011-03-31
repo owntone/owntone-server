@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  *
  * Adapted from mt-daapd:
  * Copyright (C) 2006-2007 Ron Pedde <ron@pedde.com>
@@ -903,10 +903,6 @@ rsp_init(void)
   int i;
   int ret;
 
-  ret = rsp_query_init();
-  if (ret < 0)
-    return ret;
-
   for (i = 0; rsp_handlers[i].handler; i++)
     {
       ret = regcomp(&rsp_handlers[i].preg, rsp_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
@@ -915,24 +911,17 @@ rsp_init(void)
           regerror(ret, &rsp_handlers[i].preg, buf, sizeof(buf));
 
           DPRINTF(E_FATAL, L_RSP, "RSP init failed; regexp error: %s\n", buf);
-	  goto regexp_fail;
+	  return -1;
         }
     }
 
   return 0;
-
- regexp_fail:
-  rsp_query_deinit();
-
-  return -1;
 }
 
 void
 rsp_deinit(void)
 {
   int i;
-
-  rsp_query_deinit();
 
   for (i = 0; rsp_handlers[i].handler; i++)
     regfree(&rsp_handlers[i].preg);

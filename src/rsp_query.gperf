@@ -1,0 +1,52 @@
+%language=ANSI-C
+%readonly-tables
+%enum
+%switch=1
+%compare-lengths
+%define hash-function-name rsp_query_field_hash
+%define lookup-function-name rsp_query_field_lookup
+%define slot-name rsp_field
+%struct-type
+%omit-struct-type
+struct rsp_query_field_map;
+%%
+"id",                    RSP_TYPE_INT
+"path",                  RSP_TYPE_STRING
+"fname",                 RSP_TYPE_STRING
+"title",                 RSP_TYPE_STRING
+"artist",                RSP_TYPE_STRING
+"album",                 RSP_TYPE_STRING
+"genre",                 RSP_TYPE_STRING
+"comment",               RSP_TYPE_STRING
+"type",                  RSP_TYPE_STRING
+"composer",              RSP_TYPE_STRING
+"orchestra",             RSP_TYPE_STRING
+"grouping",              RSP_TYPE_STRING
+"url",                   RSP_TYPE_STRING
+"bitrate",               RSP_TYPE_INT
+"samplerate",            RSP_TYPE_INT
+"song_length",           RSP_TYPE_INT
+"file_size",             RSP_TYPE_INT
+"year",                  RSP_TYPE_INT
+"track",                 RSP_TYPE_INT
+"total_tracks",          RSP_TYPE_INT
+"disc",                  RSP_TYPE_INT
+"total_discs",           RSP_TYPE_INT
+"bpm",                   RSP_TYPE_INT
+"compilation",           RSP_TYPE_INT
+"rating",                RSP_TYPE_INT
+"play_count",            RSP_TYPE_INT
+"data_kind",             RSP_TYPE_INT
+"item_kind",             RSP_TYPE_INT
+"description",           RSP_TYPE_STRING
+"time_added",            RSP_TYPE_DATE
+"time_modified",         RSP_TYPE_DATE
+"time_played",           RSP_TYPE_DATE
+"db_timestamp",          RSP_TYPE_DATE
+"sample_count",          RSP_TYPE_INT
+"codectype",             RSP_TYPE_STRING
+"idx",                   RSP_TYPE_INT
+"has_video",             RSP_TYPE_INT
+"contentrating",         RSP_TYPE_INT
+"bits_per_sample",       RSP_TYPE_INT
+"album_artist",          RSP_TYPE_STRING
