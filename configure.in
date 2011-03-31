@@ -12,6 +12,12 @@ AC_PROG_CC
 AM_PROG_CC_C_O
 LT_INIT([disable-static])
 
+AC_CHECK_PROG(GPERF, [gperf], [gperf])
+if test "x$GPERF" = x; then
+	AC_MSG_ERROR([GNU gperf not found, please install it])
+fi
+AC_SUBST(GPERF)
+
 AC_CHECK_PROG(ANTLR, [antlr3], [antlr3])
 if test "x$ANTLR" = x; then
 	if test -d $srcdir/src/pregen; then

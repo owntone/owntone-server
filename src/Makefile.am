@@ -21,6 +21,10 @@ if COND_OSS4
 OSS4SRC=laudio_oss4.c
 endif
 
+GPERF_FILES =
+
+GPERF_PRODUCTS =
+
 ANTLR_GRAMMARS = \
 	RSP.g RSP2SQL.g \
 	DAAP.g DAAP2SQL.g
@@ -82,14 +86,32 @@ forked_daapd_SOURCES = main.c \
 nodist_forked_daapd_SOURCES = \
 	$(ANTLR_SOURCES)
 
+BUILT_SOURCES = \
+	$(GPERF_PRODUCTS)
+
 EXTRA_DIST = \
 	$(ANTLR_GRAMMARS) \
 	scan-mpc.c \
 	scan-flac.c
 
+CLEANFILES = \
+	$(GPERF_PRODUCTS)
+
 # Let's help the dependencies a little.
 rsp_query.c: RSPLexer.h RSPParser.h RSP2SQL.h
 daap_query.c: DAAPLexer.h DAAPParser.h DAAP2SQL.h
+
+# gperf construction rules
+%_hash.c: %.gperf
+	if $(GPERF) $< > $@.tmp; then \
+		mv $@.tmp $@; \
+	elif $(GPERF) --version >/dev/null 2>&1; then \
+		rm $@.tmp; \
+		exit 1; \
+	else \
+		rm $@.tmp; \
+		touch $@; \
+	fi
 
 # Support for building the parsers when ANTLR3 is available
 if COND_ANTLR
