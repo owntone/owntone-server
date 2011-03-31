@@ -23,11 +23,13 @@ endif
 
 GPERF_FILES = \
 	daap_query.gperf \
-	rsp_query.gperf
+	rsp_query.gperf \
+	dacp_prop.gperf
 
 GPERF_PRODUCTS = \
 	daap_query_hash.c \
-	rsp_query_hash.c
+	rsp_query_hash.c \
+	dacp_prop_hash.c
 
 ANTLR_GRAMMARS = \
 	RSP.g RSP2SQL.g \

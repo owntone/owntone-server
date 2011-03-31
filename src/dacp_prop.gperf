@@ -1,0 +1,22 @@
+%language=ANSI-C
+%readonly-tables
+%enum
+%switch=1
+%compare-lengths
+%define hash-function-name dacp_hash_prop
+%define lookup-function-name dacp_find_prop
+%define slot-name desc
+%struct-type
+%omit-struct-type
+struct dacp_prop_map;
+%%
+"dmcp.volume",                 dacp_propget_volume,                 dacp_propset_volume
+"dacp.playerstate",            dacp_propget_playerstate,            NULL
+"dacp.nowplaying",             dacp_propget_nowplaying,             NULL
+"dacp.playingtime",            dacp_propget_playingtime,            dacp_propset_playingtime
+"dacp.volumecontrollable",     dacp_propget_volumecontrollable,     NULL
+"dacp.availableshufflestates", dacp_propget_availableshufflestates, NULL
+"dacp.availablerepeatstates",  dacp_propget_availablerepeatstates,  NULL
+"dacp.shufflestate",           dacp_propget_shufflestate,           dacp_propset_shufflestate
+"dacp.repeatstate",            dacp_propget_repeatstate,            dacp_propset_repeatstate
+"dacp.userrating",             NULL,                                dacp_propset_userrating

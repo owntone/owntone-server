@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,7 +39,6 @@
 
 #include <event.h>
 #include "evhttp/evhttp.h"
-#include <avl.h>
 
 #include "logger.h"
 #include "misc.h"
@@ -78,7 +77,6 @@ typedef void (*dacp_propget)(struct evbuffer *evbuf, struct player_status *statu
 typedef void (*dacp_propset)(const char *value, struct evkeyvalq *query);
 
 struct dacp_prop_map {
-  uint32_t hash;
   char *desc;
   dacp_propget propget;
   dacp_propset propset;
@@ -117,21 +115,9 @@ dacp_propset_repeatstate(const char *value, struct evkeyvalq *query);
 static void
 dacp_propset_userrating(const char *value, struct evkeyvalq *query);
 
-static struct dacp_prop_map dacp_props[] =
-  {
-    { 0, "dmcp.volume",                 dacp_propget_volume,                 dacp_propset_volume },
-    { 0, "dacp.playerstate",            dacp_propget_playerstate,            NULL },
-    { 0, "dacp.nowplaying",             dacp_propget_nowplaying,             NULL },
-    { 0, "dacp.playingtime",            dacp_propget_playingtime,            dacp_propset_playingtime },
-    { 0, "dacp.volumecontrollable",     dacp_propget_volumecontrollable,     NULL },
-    { 0, "dacp.availableshufflestates", dacp_propget_availableshufflestates, NULL },
-    { 0, "dacp.availablerepeatstates",  dacp_propget_availablerepeatstates,  NULL },
-    { 0, "dacp.shufflestate",           dacp_propget_shufflestate,           dacp_propset_shufflestate },
-    { 0, "dacp.repeatstate",            dacp_propget_repeatstate,            dacp_propset_repeatstate },
-    { 0, "dacp.userrating",             NULL,                                dacp_propset_userrating },
 
-    { 0, NULL, NULL, NULL }
-  };
+/* gperf static hash, dacp_prop.gperf */
+#include "dacp_prop_hash.c"
 
 
 /* Play status update */
@@ -145,9 +131,6 @@ static int current_rev;
 
 /* Play status update requests */
 static struct dacp_update_request *update_requests;
-
-/* Properties */
-static avl_tree_t *dacp_props_hash;
 
 /* Seek timer */
 static struct event seek_timer;
@@ -393,95 +376,6 @@ update_fail_cb(struct evhttp_connection *evcon, void *arg)
   free(ur);
 }
 
-
-/* Properties helpers */
-static int
-dacp_prop_map_compare(const void *aa, const void *bb)
-{
-  struct dacp_prop_map *a = (struct dacp_prop_map *)aa;
-  struct dacp_prop_map *b = (struct dacp_prop_map *)bb;
-
-  if (a->hash < b->hash)
-    return -1;
-
-  if (a->hash > b->hash)
-    return 1;
-
-  return 0;
-}
-
-static struct dacp_prop_map *
-dacp_find_prop(uint32_t hash)
-{
-  struct dacp_prop_map dpm;
-  avl_node_t *node;
-
-  dpm.hash = hash;
-
-  node = avl_search(dacp_props_hash, &dpm);
-  if (!node)
-    return NULL;
-
-  return (struct dacp_prop_map *)node->item;
-}
-
-static void
-parse_properties(struct evhttp_request *req, char *tag, const char *param, uint32_t **out_prop, int *out_nprop)
-{
-  char *ptr;
-  char *prop;
-  char *propstr;
-  uint32_t *hashes;
-  int nprop;
-  int i;
-
-  *out_nprop = -1;
-
-  propstr = strdup(param);
-  if (!propstr)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not duplicate properties parameter; out of memory\n");
-
-      dmap_send_error(req, tag, "Out of memory");
-      return;
-    }
-
-  nprop = 1;
-  ptr = propstr;
-  while ((ptr = strchr(ptr + 1, ',')))
-    nprop++;
-
-  DPRINTF(E_DBG, L_DACP, "Asking for %d properties\n", nprop);
-
-  hashes = (uint32_t *)malloc((nprop + 1) * sizeof(uint32_t));
-  if (!hashes)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not allocate properties array; out of memory\n");
-
-      dmap_send_error(req, tag, "Out of memory");
-
-      free(propstr);
-      return;
-    }
-  memset(hashes, 0, (nprop + 1) * sizeof(uint32_t));
-
-  prop = strtok_r(propstr, ",", &ptr);
-  for (i = 0; i < nprop; i++)
-    {
-      hashes[i] = djb_hash(prop, strlen(prop));
-
-      prop = strtok_r(NULL, ",", &ptr);
-      if (!prop)
-        break;
-    }
-
-  DPRINTF(E_DBG, L_DACP, "Found %d properties\n", nprop);
-
-  *out_nprop = nprop;
-  *out_prop = hashes;
-
-  free(propstr);
-}
 
 /* Properties getters */
 static void
@@ -1306,13 +1200,13 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
 {
   struct player_status status;
   struct daap_session *s;
-  struct dacp_prop_map *dpm;
+  const struct dacp_prop_map *dpm;
   struct media_file_info *mfi;
   struct evbuffer *proplist;
   const char *param;
-  uint32_t *prop;
-  int nprop;
-  int i;
+  char *ptr;
+  char *prop;
+  char *propstr;
   int ret;
 
   s = daap_session_find(req, query, evbuf);
@@ -1328,11 +1222,12 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
       return;
     }
 
-  parse_properties(req, "cmgt", param, &prop, &nprop);
-  if (nprop < 0)
+  propstr = strdup(param);
+  if (!propstr)
     {
-      DPRINTF(E_LOG, L_DACP, "Failed to parse properties parameter in getproperty call\n");
+      DPRINTF(E_LOG, L_DACP, "Could not duplicate properties parameter; out of memory\n");
 
+      dmap_send_error(req, "cmgt", "Out of memory");
       return;
     }
 
@@ -1342,7 +1237,7 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
       DPRINTF(E_LOG, L_DACP, "Could not allocate evbuffer for properties list\n");
 
       dmap_send_error(req, "cmgt", "Out of memory");
-      goto out_free_prop;
+      goto out_free_propstr;
     }
 
   player_get_status(&status);
@@ -1361,26 +1256,28 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
   else
     mfi = NULL;
 
-  for (i = 0; i < nprop; i++)
+  prop = strtok_r(propstr, ",", &ptr);
+  while (prop)
     {
-      dpm = dacp_find_prop(prop[i]);
+      dpm = dacp_find_prop(prop, strlen(prop));
       if (!dpm)
 	{
-	  DPRINTF(E_LOG, L_DACP, "Could not find requested property (%d)\n", i + 1);
+	  DPRINTF(E_LOG, L_DACP, "Could not find requested property '%s'\n", prop);
 	  continue;
 	}
 
       if (dpm->propget)
 	dpm->propget(proplist, &status, mfi);
       else
-	DPRINTF(E_WARN, L_DACP, "No getter method for DACP property %s\n", dpm->desc);
+	DPRINTF(E_WARN, L_DACP, "No getter method for DACP property %s\n", prop);
+
+      prop = strtok_r(NULL, ",", &ptr);
     }
+
+  free(propstr);
 
   if (mfi)
     free_mfi(mfi, 0);
-
-  if (nprop > 0)
-    free(prop);
 
   dmap_add_container(evbuf, "cmgt", 12 + EVBUFFER_LENGTH(proplist)); /* 8 + len */
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
@@ -1402,18 +1299,16 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
  out_free_proplist:
   evbuffer_free(proplist);
 
- out_free_prop:
-  if (nprop > 0)
-    free(prop);
+ out_free_propstr:
+  free(propstr);
 }
 
 static void
 dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
-  struct dacp_prop_map *dpm;
+  const struct dacp_prop_map *dpm;
   struct evkeyval *param;
-  uint32_t hash;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
@@ -1430,9 +1325,7 @@ dacp_reply_setproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
   TAILQ_FOREACH(param, query, next)
     {
-      hash = djb_hash(param->key, strlen(param->key));
-
-      dpm = dacp_find_prop(hash);
+      dpm = dacp_find_prop(param->key, strlen(param->key));
 
       if (!dpm)
 	{
@@ -1795,8 +1688,6 @@ int
 dacp_init(void)
 {
   char buf[64];
-  avl_node_t *node;
-  struct dacp_prop_map *dpm;
   int i;
   int ret;
 
@@ -1837,38 +1728,6 @@ dacp_init(void)
         }
     }
 
-  dacp_props_hash = avl_alloc_tree(dacp_prop_map_compare, NULL);
-  if (!dacp_props_hash)
-    {
-      DPRINTF(E_FATAL, L_DACP, "DACP init could not allocate DACP props AVL tree\n");
-
-      goto dacp_avl_alloc_fail;
-    }
-
-  for (i = 0; dacp_props[i].desc; i++)
-    {
-      dacp_props[i].hash = djb_hash(dacp_props[i].desc, strlen(dacp_props[i].desc));
-
-      node = avl_insert(dacp_props_hash, &dacp_props[i]);
-      if (!node)
-        {
-          if (errno != EEXIST)
-            DPRINTF(E_FATAL, L_DACP, "DACP init failed; AVL insert error: %s\n", strerror(errno));
-          else
-            {
-              node = avl_search(dacp_props_hash, &dacp_props[i]);
-              dpm = node->item;
-
-              DPRINTF(E_FATAL, L_DACP, "DACP init failed; WARNING: duplicate hash key\n");
-              DPRINTF(E_FATAL, L_DACP, "Hash %x, string %s\n", dacp_props[i].hash, dacp_props[i].desc);
-
-              DPRINTF(E_FATAL, L_DACP, "Hash %x, string %s\n", dpm->hash, dpm->desc);
-            }
-
-          goto dacp_avl_insert_fail;
-        }
-    }
-
 #ifdef USE_EVENTFD
   event_set(&updateev, update_efd, EV_READ, playstatusupdate_cb, NULL);
 #else
@@ -1881,11 +1740,6 @@ dacp_init(void)
 
   return 0;
 
- dacp_avl_insert_fail:
-  avl_free_tree(dacp_props_hash);
- dacp_avl_alloc_fail:
-  for (i = 0; dacp_handlers[i].handler; i++)
-    regfree(&dacp_handlers[i].preg);
  regexp_fail:
 #ifdef USE_EVENTFD
   close(update_efd);
@@ -1921,8 +1775,6 @@ dacp_deinit(void)
     }
 
   event_del(&updateev);
-
-  avl_free_tree(dacp_props_hash);
 
 #ifdef USE_EVENTFD
   close(update_efd);

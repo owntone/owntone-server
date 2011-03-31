@@ -10,3 +10,4 @@ RSP2SQL.[ch]
 
 daap_query_hash.c
 rsp_query_hash.c
+dacp_prop_hash.c
