@@ -20,6 +20,8 @@ System-specific requirements:
 
 Tools:
  - pkg-config
+ - gperf
+        from <http://www.gnu.org/software/gperf/>
 
 Libraries:
  - libantlr3c (ANTLR3 C runtime, version 3.2 for tarball builds)
