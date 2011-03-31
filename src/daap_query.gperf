@@ -1,0 +1,39 @@
+%language=ANSI-C
+%readonly-tables
+%enum
+%switch=1
+%compare-lengths
+%define hash-function-name daap_query_field_hash
+%define lookup-function-name daap_query_field_lookup
+%define slot-name dmap_field
+%struct-type
+%omit-struct-type
+struct dmap_query_field_map;
+%%
+"dmap.itemname",              "title",            0
+"dmap.itemid",                "id",               1
+"daap.songalbum",             "album",            0
+"daap.songalbumid",           "songalbumid",      1
+"daap.songartist",            "artist",           0
+"daap.songalbumartist",       "album_artist",     0
+"daap.songbitrate",           "bitrate",          1
+"daap.songcomment",           "comment",          0
+"daap.songcompilation",       "compilation",      1
+"daap.songcomposer",          "composer",         0
+"daap.songdatakind",          "data_kind",        1
+"daap.songdataurl",           "url",              0
+"daap.songdateadded",         "time_added",       1
+"daap.songdatemodified",      "time_modified",    1
+"daap.songdescription",       "description",      0
+"daap.songdisccount",         "total_discs",      1
+"daap.songdiscnumber",        "disc",             1
+"daap.songformat",            "type",             0
+"daap.songgenre",             "genre",            0
+"daap.songsamplerate",        "samplerate",       1
+"daap.songsize",              "file_size",        1
+"daap.songstoptime",          "song_length",      1
+"daap.songtime",              "song_length",      1
+"daap.songtrackcount",        "total_tracks",     1
+"daap.songtracknumber",       "track",            1
+"daap.songyear",              "year",             1
+"com.apple.itunes.mediakind", "media_kind",       1

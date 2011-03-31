@@ -7,3 +7,5 @@ DAAP2SQL.[ch]
 RSP2SQL.[ch]
 
 *.u
+
+daap_query_hash.c

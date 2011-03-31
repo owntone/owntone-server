@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  * Copyright (C) 2010 Kai Elwert <elwertk@googlemail.com>
  *
  * Adapted from mt-daapd:
@@ -3174,10 +3174,6 @@ daap_init(void)
   next_session_id = 100; /* gotta start somewhere, right? */
   update_requests = NULL;
 
-  ret = daap_query_init();
-  if (ret < 0)
-    return ret;
-
   for (i = 0; daap_handlers[i].handler; i++)
     {
       ret = regcomp(&daap_handlers[i].preg, daap_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
@@ -3186,7 +3182,7 @@ daap_init(void)
           regerror(ret, &daap_handlers[i].preg, buf, sizeof(buf));
 
           DPRINTF(E_FATAL, L_DAAP, "DAAP init failed; regexp error: %s\n", buf);
-	  goto regexp_fail;
+	  return -1;
         }
     }
 
@@ -3239,8 +3235,6 @@ daap_init(void)
  daap_avl_alloc_fail:
   for (i = 0; daap_handlers[i].handler; i++)
     regfree(&daap_handlers[i].preg);
- regexp_fail:
-  daap_query_deinit();
 
   return -1;
 }
@@ -3250,8 +3244,6 @@ daap_deinit(void)
 {
   struct daap_update_request *ur;
   int i;
-
-  daap_query_deinit();
 
   for (i = 0; daap_handlers[i].handler; i++)
     regfree(&daap_handlers[i].preg);

@@ -21,9 +21,11 @@ if COND_OSS4
 OSS4SRC=laudio_oss4.c
 endif
 
-GPERF_FILES =
+GPERF_FILES = \
+	daap_query.gperf
 
-GPERF_PRODUCTS =
+GPERF_PRODUCTS = \
+	daap_query_hash.c
 
 ANTLR_GRAMMARS = \
 	RSP.g RSP2SQL.g \
