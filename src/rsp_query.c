@@ -34,10 +34,6 @@
 #include "RSP2SQL.h"
 
 
-/* gperf static hash, rsp_query.gperf */
-#include "rsp_query_hash.c"
-
-
 char *
 rsp_query_parse_sql(const char *rsp_query)
 {

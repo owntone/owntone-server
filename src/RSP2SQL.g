@@ -38,6 +38,21 @@ options {
 	#include "rsp_query.h"
 }
 
+@members {
+	#define RSP_TYPE_STRING 0
+	#define RSP_TYPE_INT    1
+	#define RSP_TYPE_DATE   2
+
+	struct rsp_query_field_map {
+	  char *rsp_field;
+	  int field_type;
+	  /* RSP fields are named after the DB columns - or vice versa */
+	};
+
+	/* gperf static hash, rsp_query.gperf */
+	#include "rsp_query_hash.c"
+}
+
 query	returns [ pANTLR3_STRING result ]
 	:	e = expr
 		{
