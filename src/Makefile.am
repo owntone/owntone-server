@@ -105,9 +105,6 @@ EXTRA_DIST = \
 CLEANFILES = \
 	$(GPERF_PRODUCTS)
 
-# Let's help the dependencies a little.
-rsp_query.c: RSPLexer.h RSPParser.h RSP2SQL.h
-daap_query.c: DAAPLexer.h DAAPParser.h DAAP2SQL.h
 
 # gperf construction rules
 %_hash.c: %.gperf
@@ -135,14 +132,17 @@ SUFFIXES = .g .u
 	@cat $@.tmp >> $@
 	@rm $@.tmp
 
-clean-local:
-	rm -f $(ANTLR_PRODUCTS)
-	rm -f $(ANTLR_GRAMMARS:.g=.u)
+BUILT_SOURCES += $(ANTLR_SOURCES)
+
+CLEANFILES += \
+	$(ANTLR_PRODUCTS) \
+	$(ANTLR_GRAMMARS:.g=.u)
 
 else !COND_ANTLR
-distclean-local:
-	rm -f $(ANTLR_SOURCES)
-	rm -f $(ANTLR_GRAMMARS:.g=.u)
+DISTCLEANFILES = \
+	$(ANTLR_PRODUCTS) \
+	$(ANTLR_GRAMMARS:.g=.u)
+
 endif
 
 -include $(ANTLR_GRAMMARS:.g=.u)
