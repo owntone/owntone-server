@@ -1,0 +1,317 @@
+%language=ANSI-C
+%readonly-tables
+%enum
+%switch=1
+%compare-lengths
+%define hash-function-name dmap_hash_field
+%define lookup-function-name dmap_find_field
+%define slot-name desc
+%global-table
+%define word-array-name dmap_fields
+%struct-type
+%omit-struct-type
+%{
+static const struct dmap_field_map dfm_dmap_miid = { dbmfi_offsetof(id),                      dbpli_offsetof(id),            -1 };
+static const struct dmap_field_map dfm_dmap_minm = { dbmfi_offsetof(title),                   dbpli_offsetof(title),         dbgri_offsetof(itemname) };
+static const struct dmap_field_map dfm_dmap_mikd = { dbmfi_offsetof(item_kind),               -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mper = { dbmfi_offsetof(id),                      dbpli_offsetof(id),            dbgri_offsetof(persistentid) };
+static const struct dmap_field_map dfm_dmap_mcon = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mcti = { dbmfi_offsetof(id),                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mpco = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mstt = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msts = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mimc = { dbmfi_offsetof(total_tracks),            dbpli_offsetof(items),         dbgri_offsetof(itemcount) };
+static const struct dmap_field_map dfm_dmap_mctc = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mrco = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mtco = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mlcl = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mlit = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mbcl = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mdcl = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msrv = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msau = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mslr = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mpro = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msal = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msup = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mspi = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msex = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msbr = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msqy = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msix = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msrs = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mstm = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msdc = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mlog = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mlid = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mupd = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_musr = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_muty = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mudl = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mccr = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mcnm = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mcna = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_mcty = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_apro = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_avdb = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_abro = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_abal = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_abar = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_abcp = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_abgn = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_adbs = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asal = { dbmfi_offsetof(album),                   -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asai = { dbmfi_offsetof(songalbumid),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asaa = { dbmfi_offsetof(album_artist),            -1,                            dbgri_offsetof(songalbumartist) };
+static const struct dmap_field_map dfm_dmap_asar = { dbmfi_offsetof(artist),                  -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asbt = { dbmfi_offsetof(bpm),                     -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asbr = { dbmfi_offsetof(bitrate),                 -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_ascm = { dbmfi_offsetof(comment),                 -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asco = { dbmfi_offsetof(compilation),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_ascp = { dbmfi_offsetof(composer),                -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asda = { dbmfi_offsetof(time_added),              -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdm = { dbmfi_offsetof(time_modified),           -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdc = { dbmfi_offsetof(total_discs),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdn = { dbmfi_offsetof(disc),                    -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdb = { dbmfi_offsetof(disabled),                -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aseq = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asfm = { dbmfi_offsetof(type),                    -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asgn = { dbmfi_offsetof(genre),                   -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdt = { dbmfi_offsetof(description),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asrv = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assr = { dbmfi_offsetof(samplerate),              -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assz = { dbmfi_offsetof(file_size),               -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asst = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assp = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_astm = { dbmfi_offsetof(song_length),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_astc = { dbmfi_offsetof(total_tracks),            -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_astn = { dbmfi_offsetof(track),                   -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asur = { dbmfi_offsetof(rating),                  -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asyr = { dbmfi_offsetof(year),                    -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdk = { dbmfi_offsetof(data_kind),               -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asul = { dbmfi_offsetof(url),                     -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aply = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_abpl = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_apso = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_arsv = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_arif = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeNV = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeSP = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aePS = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_ascd = { dbmfi_offsetof(codectype),               -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_ascs = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_agrp = { dbmfi_offsetof(grouping),                -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeSV = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aePI = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeCI = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeGI = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeAI = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeSI = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeSF = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_ascr = { dbmfi_offsetof(contentrating),           -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeHV = { dbmfi_offsetof(has_video),               -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_msas = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asct = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_ascn = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aslc = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asky = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_apsm = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aprm = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aePC = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aePP = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeMK = { dbmfi_offsetof(media_kind),              -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeMk = { dbmfi_offsetof(media_kind),              -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeSN = { dbmfi_offsetof(tv_series_name),          -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeNN = { dbmfi_offsetof(tv_network_name),         -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeEN = { dbmfi_offsetof(tv_episode_num_str),      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeES = { dbmfi_offsetof(tv_episode_sort),         -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aeSU = { dbmfi_offsetof(tv_season_num),           -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assn = { dbmfi_offsetof(title_sort),              -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assa = { dbmfi_offsetof(artist_sort),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assu = { dbmfi_offsetof(album_sort),              -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assc = { dbmfi_offsetof(composer_sort),           -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assl = { dbmfi_offsetof(album_artist_sort),       -1,                            -1 };
+%}
+struct dmap_field;
+%%
+"daap.browsealbumlisting",                   "abal", &dfm_dmap_abal, DMAP_TYPE_LIST
+"daap.browseartistlisting",                  "abar", &dfm_dmap_abar, DMAP_TYPE_LIST
+"daap.browsecomposerlisting",                "abcp", &dfm_dmap_abcp, DMAP_TYPE_LIST
+"daap.browsegenrelisting",                   "abgn", &dfm_dmap_abgn, DMAP_TYPE_LIST
+"daap.baseplaylist",                         "abpl", &dfm_dmap_abpl, DMAP_TYPE_UBYTE
+"daap.databasebrowse",                       "abro", &dfm_dmap_abro, DMAP_TYPE_LIST
+"daap.databasesongs",                        "adbs", &dfm_dmap_adbs, DMAP_TYPE_LIST
+"com.apple.itunes.itms-artistid",            "aeAI", &dfm_dmap_aeAI, DMAP_TYPE_UINT
+"com.apple.itunes.itms-composerid",          "aeCI", &dfm_dmap_aeCI, DMAP_TYPE_UINT
+"com.apple.itunes.episode-num-str",          "aeEN", &dfm_dmap_aeEN, DMAP_TYPE_STRING
+"com.apple.itunes.episode-sort",             "aeES", &dfm_dmap_aeES, DMAP_TYPE_UINT
+"com.apple.itunes.itms-genreid",             "aeGI", &dfm_dmap_aeGI, DMAP_TYPE_UINT
+"com.apple.itunes.has-video",                "aeHV", &dfm_dmap_aeHV, DMAP_TYPE_UBYTE
+"com.apple.itunes.extended-media-kind",      "aeMk", &dfm_dmap_aeMk, DMAP_TYPE_UINT
+"com.apple.itunes.mediakind",                "aeMK", &dfm_dmap_aeMK, DMAP_TYPE_UBYTE
+"com.apple.itunes.network-name",             "aeNN", &dfm_dmap_aeNN, DMAP_TYPE_STRING
+"com.apple.itunes.norm-volume",              "aeNV", &dfm_dmap_aeNV, DMAP_TYPE_UINT
+"com.apple.itunes.is-podcast",               "aePC", &dfm_dmap_aePC, DMAP_TYPE_UBYTE
+"com.apple.itunes.itms-playlistid",          "aePI", &dfm_dmap_aePI, DMAP_TYPE_UINT
+"com.apple.itunes.is-podcast-playlist",      "aePP", &dfm_dmap_aePP, DMAP_TYPE_UBYTE
+"com.apple.itunes.special-playlist",         "aePS", &dfm_dmap_aePS, DMAP_TYPE_UBYTE
+"com.apple.itunes.itms-storefrontid",        "aeSF", &dfm_dmap_aeSF, DMAP_TYPE_UINT
+"com.apple.itunes.itms-songid",              "aeSI", &dfm_dmap_aeSI, DMAP_TYPE_UINT
+"com.apple.itunes.series-name",              "aeSN", &dfm_dmap_aeSN, DMAP_TYPE_STRING
+"com.apple.itunes.smart-playlist",           "aeSP", &dfm_dmap_aeSP, DMAP_TYPE_UBYTE
+"com.apple.itunes.season-num",               "aeSU", &dfm_dmap_aeSU, DMAP_TYPE_UINT
+"com.apple.itunes.music-sharing-version",    "aeSV", &dfm_dmap_aeSV, DMAP_TYPE_UINT
+"daap.songgrouping",                         "agrp", &dfm_dmap_agrp, DMAP_TYPE_STRING
+"daap.databaseplaylists",                    "aply", &dfm_dmap_aply, DMAP_TYPE_LIST
+"daap.playlistrepeatmode",                   "aprm", &dfm_dmap_aprm, DMAP_TYPE_UBYTE
+"daap.protocolversion",                      "apro", &dfm_dmap_apro, DMAP_TYPE_VERSION
+"daap.playlistshufflemode",                  "apsm", &dfm_dmap_apsm, DMAP_TYPE_UBYTE
+"daap.playlistsongs",                        "apso", &dfm_dmap_apso, DMAP_TYPE_LIST
+"daap.resolveinfo",                          "arif", &dfm_dmap_arif, DMAP_TYPE_LIST
+"daap.resolve",                              "arsv", &dfm_dmap_arsv, DMAP_TYPE_LIST
+"daap.songalbumartist",                      "asaa", &dfm_dmap_asaa, DMAP_TYPE_STRING
+"daap.songalbumid",                          "asai", &dfm_dmap_asai, DMAP_TYPE_ULONG
+"daap.songalbum",                            "asal", &dfm_dmap_asal, DMAP_TYPE_STRING
+"daap.songartist",                           "asar", &dfm_dmap_asar, DMAP_TYPE_STRING
+"daap.songbitrate",                          "asbr", &dfm_dmap_asbr, DMAP_TYPE_USHORT
+"daap.songbeatsperminute",                   "asbt", &dfm_dmap_asbt, DMAP_TYPE_USHORT
+"daap.songcodectype",                        "ascd", &dfm_dmap_ascd, DMAP_TYPE_UINT
+"daap.songcomment",                          "ascm", &dfm_dmap_ascm, DMAP_TYPE_STRING
+"daap.songcontentdescription",               "ascn", &dfm_dmap_ascn, DMAP_TYPE_STRING
+"daap.songcompilation",                      "asco", &dfm_dmap_asco, DMAP_TYPE_UBYTE
+"daap.songcomposer",                         "ascp", &dfm_dmap_ascp, DMAP_TYPE_STRING
+"daap.songcontentrating",                    "ascr", &dfm_dmap_ascr, DMAP_TYPE_UBYTE
+"daap.songcodecsubtype",                     "ascs", &dfm_dmap_ascs, DMAP_TYPE_UINT
+"daap.songcategory",                         "asct", &dfm_dmap_asct, DMAP_TYPE_STRING
+"daap.songdateadded",                        "asda", &dfm_dmap_asda, DMAP_TYPE_DATE
+"daap.songdisabled",                         "asdb", &dfm_dmap_asdb, DMAP_TYPE_UBYTE
+"daap.songdisccount",                        "asdc", &dfm_dmap_asdc, DMAP_TYPE_USHORT
+"daap.songdatakind",                         "asdk", &dfm_dmap_asdk, DMAP_TYPE_UBYTE
+"daap.songdatemodified",                     "asdm", &dfm_dmap_asdm, DMAP_TYPE_DATE
+"daap.songdiscnumber",                       "asdn", &dfm_dmap_asdn, DMAP_TYPE_USHORT
+"daap.songdescription",                      "asdt", &dfm_dmap_asdt, DMAP_TYPE_STRING
+"daap.songeqpreset",                         "aseq", &dfm_dmap_aseq, DMAP_TYPE_STRING
+"daap.songformat",                           "asfm", &dfm_dmap_asfm, DMAP_TYPE_STRING
+"daap.songgenre",                            "asgn", &dfm_dmap_asgn, DMAP_TYPE_STRING
+"daap.songkeywords",                         "asky", &dfm_dmap_asky, DMAP_TYPE_STRING
+"daap.songlongcontentdescription",           "aslc", &dfm_dmap_aslc, DMAP_TYPE_STRING
+"daap.songrelativevolume",                   "asrv", &dfm_dmap_asrv, DMAP_TYPE_BYTE
+"daap.sortartist",                           "assa", &dfm_dmap_assa, DMAP_TYPE_STRING
+"daap.sortcomposer",                         "assc", &dfm_dmap_assc, DMAP_TYPE_STRING
+"daap.sortalbumartist",                      "assl", &dfm_dmap_assl, DMAP_TYPE_STRING
+"daap.sortname",                             "assn", &dfm_dmap_assn, DMAP_TYPE_STRING
+"daap.songstoptime",                         "assp", &dfm_dmap_assp, DMAP_TYPE_UINT
+"daap.songsamplerate",                       "assr", &dfm_dmap_assr, DMAP_TYPE_UINT
+"daap.songstarttime",                        "asst", &dfm_dmap_asst, DMAP_TYPE_UINT
+"daap.sortalbum",                            "assu", &dfm_dmap_assu, DMAP_TYPE_STRING
+"daap.songsize",                             "assz", &dfm_dmap_assz, DMAP_TYPE_UINT
+"daap.songtrackcount",                       "astc", &dfm_dmap_astc, DMAP_TYPE_USHORT
+"daap.songtime",                             "astm", &dfm_dmap_astm, DMAP_TYPE_UINT
+"daap.songtracknumber",                      "astn", &dfm_dmap_astn, DMAP_TYPE_USHORT
+"daap.songdataurl",                          "asul", &dfm_dmap_asul, DMAP_TYPE_STRING
+"daap.songuserrating",                       "asur", &dfm_dmap_asur, DMAP_TYPE_UBYTE
+"daap.songyear",                             "asyr", &dfm_dmap_asyr, DMAP_TYPE_USHORT
+"daap.serverdatabases",                      "avdb", &dfm_dmap_avdb, DMAP_TYPE_LIST
+"dmap.bag",                                  "mbcl", &dfm_dmap_mbcl, DMAP_TYPE_LIST
+"dmap.contentcodesresponse",                 "mccr", &dfm_dmap_mccr, DMAP_TYPE_LIST
+"dmap.contentcodesname",                     "mcna", &dfm_dmap_mcna, DMAP_TYPE_STRING
+"dmap.contentcodesnumber",                   "mcnm", &dfm_dmap_mcnm, DMAP_TYPE_UINT
+"dmap.container",                            "mcon", &dfm_dmap_mcon, DMAP_TYPE_LIST
+"dmap.containercount",                       "mctc", &dfm_dmap_mctc, DMAP_TYPE_UINT
+"dmap.containeritemid",                      "mcti", &dfm_dmap_mcti, DMAP_TYPE_UINT
+"dmap.contentcodestype",                     "mcty", &dfm_dmap_mcty, DMAP_TYPE_USHORT
+"dmap.dictionary",                           "mdcl", &dfm_dmap_mdcl, DMAP_TYPE_LIST
+"dmap.itemid",                               "miid", &dfm_dmap_miid, DMAP_TYPE_UINT
+"dmap.itemkind",                             "mikd", &dfm_dmap_mikd, DMAP_TYPE_UBYTE
+"dmap.itemcount",                            "mimc", &dfm_dmap_mimc, DMAP_TYPE_UINT
+"dmap.itemname",                             "minm", &dfm_dmap_minm, DMAP_TYPE_STRING
+"dmap.listing",                              "mlcl", &dfm_dmap_mlcl, DMAP_TYPE_LIST
+"dmap.sessionid",                            "mlid", &dfm_dmap_mlid, DMAP_TYPE_UINT
+"dmap.listingitem",                          "mlit", &dfm_dmap_mlit, DMAP_TYPE_LIST
+"dmap.loginresponse",                        "mlog", &dfm_dmap_mlog, DMAP_TYPE_LIST
+"dmap.parentcontainerid",                    "mpco", &dfm_dmap_mpco, DMAP_TYPE_UINT
+"dmap.persistentid",                         "mper", &dfm_dmap_mper, DMAP_TYPE_ULONG
+"dmap.protocolversion",                      "mpro", &dfm_dmap_mpro, DMAP_TYPE_VERSION
+"dmap.returnedcount",                        "mrco", &dfm_dmap_mrco, DMAP_TYPE_UINT
+"dmap.supportsautologout",                   "msal", &dfm_dmap_msal, DMAP_TYPE_UBYTE
+"dmap.authenticationschemes",                "msas", &dfm_dmap_msas, DMAP_TYPE_UINT
+"dmap.authenticationmethod",                 "msau", &dfm_dmap_msau, DMAP_TYPE_UBYTE
+"dmap.supportsbrowse",                       "msbr", &dfm_dmap_msbr, DMAP_TYPE_UBYTE
+"dmap.databasescount",                       "msdc", &dfm_dmap_msdc, DMAP_TYPE_UINT
+"dmap.supportsextensions",                   "msex", &dfm_dmap_msex, DMAP_TYPE_UBYTE
+"dmap.supportsindex",                        "msix", &dfm_dmap_msix, DMAP_TYPE_UBYTE
+"dmap.loginrequired",                        "mslr", &dfm_dmap_mslr, DMAP_TYPE_UBYTE
+"dmap.supportspersistentids",                "mspi", &dfm_dmap_mspi, DMAP_TYPE_UBYTE
+"dmap.supportsquery",                        "msqy", &dfm_dmap_msqy, DMAP_TYPE_UBYTE
+"dmap.supportsresolve",                      "msrs", &dfm_dmap_msrs, DMAP_TYPE_UBYTE
+"dmap.serverinforesponse",                   "msrv", &dfm_dmap_msrv, DMAP_TYPE_LIST
+"dmap.timeoutinterval",                      "mstm", &dfm_dmap_mstm, DMAP_TYPE_UINT
+"dmap.statusstring",                         "msts", &dfm_dmap_msts, DMAP_TYPE_STRING
+"dmap.status",                               "mstt", &dfm_dmap_mstt, DMAP_TYPE_UINT
+"dmap.supportsupdate",                       "msup", &dfm_dmap_msup, DMAP_TYPE_UBYTE
+"dmap.specifiedtotalcount",                  "mtco", &dfm_dmap_mtco, DMAP_TYPE_UINT
+"dmap.deletedidlisting",                     "mudl", &dfm_dmap_mudl, DMAP_TYPE_LIST
+"dmap.updateresponse",                       "mupd", &dfm_dmap_mupd, DMAP_TYPE_LIST
+"dmap.serverrevision",                       "musr", &dfm_dmap_musr, DMAP_TYPE_UINT
+"dmap.updatetype",                           "muty", &dfm_dmap_muty, DMAP_TYPE_UBYTE
+%%
+/* Sort fields */
+/*
+"dmap.sortingheaderlisting",                 "mshl", &dfm_dmap_mshl, DMAP_TYPE_UINT
+"dmap.sortingheaderchar",                    "mshc", &dfm_dmap_mshc, DMAP_TYPE_SHORT
+"dmap.sortingheaderindex",                   "mshi", &dfm_dmap_mshi, DMAP_TYPE_UINT
+"dmap.sortingheadernumber",                  "mshn", &dfm_dmap_mshn, DMAP_TYPE_UINT
+*/
+/* Unsupported DMAP fields */
+
+/*
+"com.apple.itunes.adam-ids-array",           "aeAD", &dfm_dmap_aeAD, DMAP_TYPE_LIST
+"com.apple.itunes.content-rating",           "aeCR", &dfm_dmap_aeCR, DMAP_TYPE_STRING
+"com.apple.itunes.drm-platform-id",          "aeDP", &dfm_dmap_aeDP, DMAP_TYPE_UINT
+"com.apple.itunes.drm-user-id",              "aeDR", &dfm_dmap_aeDR, DMAP_TYPE_ULONG
+"com.apple.itunes.drm-versions",             "aeDV", &dfm_dmap_aeDV, DMAP_TYPE_UINT
+"com.apple.itunes.gapless-enc-dr",           "aeGD", &dfm_dmap_aeGD, DMAP_TYPE_UINT
+"com.apple.itunes.gapless-enc-del",          "aeGE", &dfm_dmap_aeGE, DMAP_TYPE_UINT
+"com.apple.itunes.gapless-heur",             "aeGH", &dfm_dmap_aeGH, DMAP_TYPE_UINT
+"com.apple.itunes.gapless-resy",             "aeGR", &dfm_dmap_aeGR, DMAP_TYPE_ULONG
+"com.apple.itunes.gapless-dur",              "aeGU", &dfm_dmap_aeGU, DMAP_TYPE_ULONG
+"com.apple.itunes.is-hd-video",              "aeHD", &dfm_dmap_aeHD, DMAP_TYPE_UBYTE
+"com.apple.itunes.drm-key1-id",              "aeK1", &dfm_dmap_aeK1, DMAP_TYPE_ULONG
+"com.apple.itunes.drm-key2-id",              "aeK2", &dfm_dmap_aeK2, DMAP_TYPE_ULONG
+"com.apple.itunes.non-drm-user-id",          "aeND", &dfm_dmap_aeND, DMAP_TYPE_ULONG
+"com.apple.itunes.store-pers-id",            "aeSE", &dfm_dmap_aeSE, DMAP_TYPE_ULONG
+"com.apple.itunes.saved-genius",             "aeSG", &dfm_dmap_aeSG, DMAP_TYPE_UBYTE
+"com.apple.itunes.xid",                      "aeXD", &dfm_dmap_aeXD, DMAP_TYPE_STRING
+"daap.bookmarkable",                         "asbk", &dfm_dmap_asbk, DMAP_TYPE_UBYTE
+"daap.songbookmark",                         "asbo", &dfm_dmap_asbo, DMAP_TYPE_UINT
+"daap.songdatepurchased",                    "asdp", &dfm_dmap_asdp, DMAP_TYPE_DATE
+"daap.songdatereleased",                     "asdr", &dfm_dmap_asdr, DMAP_TYPE_DATE
+"daap.songextradata",                        "ased", &dfm_dmap_ased, DMAP_TYPE_USHORT
+"daap.songgapless",                          "asgp", &dfm_dmap_asgp, DMAP_TYPE_UBYTE
+"daap.songhasbeenplayed",                    "ashp", &dfm_dmap_ashp, DMAP_TYPE_UBYTE
+"daap.songlongsize",                         "asls", &dfm_dmap_asls, DMAP_TYPE_ULONG
+"daap.songpodcasturl",                       "aspu", &dfm_dmap_aspu, DMAP_TYPE_STRING
+"daap.sortseriesname",                       "asss", &dfm_dmap_asss, DMAP_TYPE_STRING
+"daap.supportsextradata",                    "ated", &dfm_dmap_ated, DMAP_TYPE_USHORT
+"com.apple.itunes.jukebox-client-vote",      "ceJC", &dfm_dmap_ceJC, DMAP_TYPE_BYTE
+"com.apple.itunes.jukebox-current",          "ceJI", &dfm_dmap_ceJI, DMAP_TYPE_UINT
+"com.apple.itunes.jukebox-score",            "ceJS", &dfm_dmap_ceJS, DMAP_TYPE_SHORT
+"com.apple.itunes.jukebox-vote",             "ceJV", &dfm_dmap_ceJV, DMAP_TYPE_UINT
+"dmap.editcommandssupported",                "meds", &dfm_dmap_meds, DMAP_TYPE_UINT
+"dmap.utctime",                              "mstc", &dfm_dmap_mstc, DMAP_TYPE_DATE
+"dmap.utcoffset",                            "msto", &dfm_dmap_msto, DMAP_TYPE_INT
+*/
+
+/* DMAP test fields */
+/*
+"test.container",                            "TEST", &dfm_dmap_TEST, DMAP_TYPE_LIST
+"test.ubyte",                                "TST1", &dfm_dmap_TST1, DMAP_TYPE_UBYTE
+"test.byte",                                 "TST2", &dfm_dmap_TST2, DMAP_TYPE_BYTE
+"test.ushort",                               "TST3", &dfm_dmap_TST3, DMAP_TYPE_USHORT
+"test.short",                                "TST4", &dfm_dmap_TST4, DMAP_TYPE_SHORT
+"test.uint",                                 "TST5", &dfm_dmap_TST5, DMAP_TYPE_UINT
+"test.int",                                  "TST6", &dfm_dmap_TST6, DMAP_TYPE_INT
+"test.ulong",                                "TST7", &dfm_dmap_TST7, DMAP_TYPE_ULONG
+"test.long",                                 "TST8", &dfm_dmap_TST8, DMAP_TYPE_LONG
+"test.string",                               "TST9", &dfm_dmap_TST9, DMAP_TYPE_STRING
+*/
