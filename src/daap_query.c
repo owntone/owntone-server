@@ -34,10 +34,6 @@
 #include "DAAP2SQL.h"
 
 
-/* gperf static hash, daap_query.gperf */
-#include "daap_query_hash.c"
-
-
 char *
 daap_query_parse_sql(const char *daap_query)
 {

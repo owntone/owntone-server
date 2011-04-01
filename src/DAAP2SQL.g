@@ -27,12 +27,24 @@ options {
 @header {
 	#include <stdio.h>
 	#include <stdlib.h>
+	#include <string.h>
 	#include <limits.h>
 	#include <errno.h>
 
 	#include "logger.h"
 	#include "db.h"
 	#include "daap_query.h"
+}
+
+@members {
+	struct dmap_query_field_map {
+	  char *dmap_field;
+	  char *db_col;
+	  int as_int;
+	};
+
+	/* gperf static hash, daap_query.gperf */
+	#include "daap_query_hash.c"
 }
 
 query	returns [ pANTLR3_STRING result ]
