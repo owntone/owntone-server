@@ -72,6 +72,10 @@ void
 dmap_add_string(struct evbuffer *evbuf, char *tag, const char *str);
 
 void
+dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval, int32_t intval);
+
+
+void
 dmap_send_error(struct evhttp_request *req, char *container, char *errmsg);
 
 #endif /* !__DMAP_HELPERS_H__ */

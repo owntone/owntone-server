@@ -27,6 +27,7 @@
 #include "evhttp/evhttp.h"
 
 #include "db.h"
+#include "misc.h"
 #include "logger.h"
 #include "dmap_common.h"
 
@@ -190,6 +191,143 @@ dmap_add_string(struct evbuffer *evbuf, char *tag, const char *str)
   if (len)
     evbuffer_add(evbuf, str, len);
 }
+
+void
+dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval, int32_t intval)
+{
+  union {
+    int32_t v_i32;
+    uint32_t v_u32;
+    int64_t v_i64;
+    uint64_t v_u64;
+  } val;
+  int ret;
+
+  if (strval && (df->type != DMAP_TYPE_STRING))
+    {
+      switch (df->type)
+	{
+	  case DMAP_TYPE_DATE:
+	  case DMAP_TYPE_UBYTE:
+	  case DMAP_TYPE_USHORT:
+	  case DMAP_TYPE_UINT:
+	    ret = safe_atou32(strval, &val.v_u32);
+	    if (ret < 0)
+	      val.v_u32 = 0;
+	    break;
+
+	  case DMAP_TYPE_BYTE:
+	  case DMAP_TYPE_SHORT:
+	  case DMAP_TYPE_INT:
+	    ret = safe_atoi32(strval, &val.v_i32);
+	    if (ret < 0)
+	      val.v_i32 = 0;
+	    break;
+
+	  case DMAP_TYPE_ULONG:
+	    ret = safe_atou64(strval, &val.v_u64);
+	    if (ret < 0)
+	      val.v_u64 = 0;
+	    break;
+
+	  case DMAP_TYPE_LONG:
+	    ret = safe_atoi64(strval, &val.v_i64);
+	    if (ret < 0)
+	      val.v_i64 = 0;
+	    break;
+
+	  /* DMAP_TYPE_VERSION & DMAP_TYPE_LIST not handled here */
+	  default:
+	    DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", df->type, df->desc);
+	    return;
+	}
+    }
+  else if (!strval && (df->type != DMAP_TYPE_STRING))
+    {
+      switch (df->type)
+	{
+	  case DMAP_TYPE_DATE:
+	  case DMAP_TYPE_UBYTE:
+	  case DMAP_TYPE_USHORT:
+	  case DMAP_TYPE_UINT:
+	    val.v_u32 = intval;
+	    break;
+
+	  case DMAP_TYPE_BYTE:
+	  case DMAP_TYPE_SHORT:
+	  case DMAP_TYPE_INT:
+	    val.v_i32 = intval;
+	    break;
+
+	  case DMAP_TYPE_ULONG:
+	    val.v_u64 = intval;
+	    break;
+
+	  case DMAP_TYPE_LONG:
+	    val.v_i64 = intval;
+	    break;
+
+	  /* DMAP_TYPE_VERSION & DMAP_TYPE_LIST not handled here */
+	  default:
+	    DPRINTF(E_LOG, L_DAAP, "Unsupported DMAP type %d for DMAP field %s\n", df->type, df->desc);
+	    return;
+	}
+    }
+
+  switch (df->type)
+    {
+      case DMAP_TYPE_UBYTE:
+	if (val.v_u32)
+	  dmap_add_char(evbuf, df->tag, val.v_u32);
+	break;
+
+      case DMAP_TYPE_BYTE:
+	if (val.v_i32)
+	  dmap_add_char(evbuf, df->tag, val.v_i32);
+	break;
+
+      case DMAP_TYPE_USHORT:
+	if (val.v_u32)
+	  dmap_add_short(evbuf, df->tag, val.v_u32);
+	break;
+
+      case DMAP_TYPE_SHORT:
+	if (val.v_i32)
+	  dmap_add_short(evbuf, df->tag, val.v_i32);
+	break;
+
+      case DMAP_TYPE_DATE:
+      case DMAP_TYPE_UINT:
+	if (val.v_u32)
+	  dmap_add_int(evbuf, df->tag, val.v_u32);
+	break;
+
+      case DMAP_TYPE_INT:
+	if (val.v_i32)
+	  dmap_add_int(evbuf, df->tag, val.v_i32);
+	break;
+
+      case DMAP_TYPE_ULONG:
+	if (val.v_u64)
+	  dmap_add_long(evbuf, df->tag, val.v_u64);
+	break;
+
+      case DMAP_TYPE_LONG:
+	if (val.v_i64)
+	  dmap_add_long(evbuf, df->tag, val.v_i64);
+	break;
+
+      case DMAP_TYPE_STRING:
+	if (strval)
+	  dmap_add_string(evbuf, df->tag, strval);
+	break;
+
+      case DMAP_TYPE_VERSION:
+      case DMAP_TYPE_LIST:
+	return;
+    }
+}
+
 
 void
 dmap_send_error(struct evhttp_request *req, char *container, char *errmsg)
