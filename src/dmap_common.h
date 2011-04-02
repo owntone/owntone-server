@@ -5,6 +5,8 @@
 #include <event.h>
 #include "evhttp/evhttp.h"
 
+#include "db.h"
+
 enum dmap_type
   {
     DMAP_TYPE_UBYTE   = 0x01,
@@ -35,9 +37,6 @@ struct dmap_field {
 };
 
 
-extern const struct dmap_field_map dfm_dmap_mikd;
-extern const struct dmap_field_map dfm_dmap_asdk;
-extern const struct dmap_field_map dfm_dmap_ascd;
 extern const struct dmap_field_map dfm_dmap_mimc;
 extern const struct dmap_field_map dfm_dmap_aeSP;
 
@@ -77,5 +76,9 @@ dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval
 
 void
 dmap_send_error(struct evhttp_request *req, char *container, char *errmsg);
+
+
+int
+dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int force_wav);
 
 #endif /* !__DMAP_HELPERS_H__ */

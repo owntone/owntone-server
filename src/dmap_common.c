@@ -366,3 +366,151 @@ dmap_send_error(struct evhttp_request *req, char *container, char *errmsg)
 
   evbuffer_free(evbuf);
 }
+
+
+int
+dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int force_wav)
+{
+  const struct dmap_field_map *dfm;
+  const struct dmap_field *df;
+  char **strval;
+  char *ptr;
+  int32_t val;
+  int want_mikd;
+  int want_asdk;
+  int i;
+  int ret;
+
+  want_mikd = 0;
+  want_asdk = 0;
+
+  i = -1;
+  while (1)
+    {
+      i++;
+
+      /* Specific meta tags requested (or default list) */
+      if (nmeta > 0)
+	{
+	  if (i == nmeta)
+	    break;
+
+	  df = meta[i];
+	  dfm = df->dfm;
+	}
+      /* No specific meta tags requested, send out everything */
+      else
+	{
+	  /* End of list */
+	  if (i == (sizeof(dmap_fields) / sizeof(dmap_fields[0])))
+	    break;
+
+	  df = &dmap_fields[i];
+	  dfm = dmap_fields[i].dfm;
+	}
+
+      /* Not in struct media_file_info */
+      if (dfm->mfi_offset < 0)
+	continue;
+
+      /* Will be prepended to the list */
+      if (dfm == &dfm_dmap_mikd)
+	{
+	  /* item kind */
+	  want_mikd = 1;
+	  continue;
+	}
+      else if (dfm == &dfm_dmap_asdk)
+	{
+	  /* data kind */
+	  want_asdk = 1;
+	  continue;
+	}
+
+      DPRINTF(E_DBG, L_DAAP, "Investigating %s\n", df->desc);
+
+      strval = (char **) ((char *)dbmfi + dfm->mfi_offset);
+
+      if (!(*strval) || (**strval == '\0'))
+	continue;
+
+      /* Here's one exception ... codectype (ascd) is actually an integer */
+      if (dfm == &dfm_dmap_ascd)
+	{
+	  dmap_add_literal(song, df->tag, *strval, 4);
+	  continue;
+	}
+
+      val = 0;
+
+      if (force_wav)
+	{
+	  switch (dfm->mfi_offset)
+	    {
+	      case dbmfi_offsetof(type):
+		ptr = "wav";
+		strval = &ptr;
+		break;
+
+	      case dbmfi_offsetof(bitrate):
+		val = 0;
+		ret = safe_atoi32(dbmfi->samplerate, &val);
+		if ((ret < 0) || (val == 0))
+		  val = 1411;
+		else
+		  val = (val * 8) / 250;
+
+		ptr = NULL;
+		strval = &ptr;
+		break;
+
+	      case dbmfi_offsetof(description):
+		ptr = "wav audio file";
+		strval = &ptr;
+		break;
+
+	      default:
+		break;
+	    }
+	}
+
+      dmap_add_field(song, df, *strval, val);
+
+      DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
+    }
+
+  val = 0;
+  if (want_mikd)
+    val += 9;
+  if (want_asdk)
+    val += 9;
+
+  dmap_add_container(songlist, "mlit", EVBUFFER_LENGTH(song) + val);
+
+  /* Prepend mikd & asdk if needed */
+  if (want_mikd)
+    {
+      /* dmap.itemkind must come first */
+      ret = safe_atoi32(dbmfi->item_kind, &val);
+      if (ret < 0)
+	val = 2; /* music by default */
+      dmap_add_char(songlist, "mikd", val);
+    }
+  if (want_asdk)
+    {
+      ret = safe_atoi32(dbmfi->data_kind, &val);
+      if (ret < 0)
+	val = 0;
+      dmap_add_char(songlist, "asdk", val);
+    }
+
+  ret = evbuffer_add_buffer(songlist, song);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not add song to song list\n");
+
+      return -1;
+    }
+
+  return 0;
+}

@@ -913,27 +913,15 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   struct db_media_file_info dbmfi;
   struct evbuffer *song;
   struct evbuffer *songlist;
-  const struct dmap_field_map *dfm;
-  const struct dmap_field *dmap_fields;
-  const struct dmap_field *df;
   const struct dmap_field **meta;
   struct sort_ctx *sctx;
   const char *param;
   char *tag;
-  char **strval;
-  char *ptr;
-  int nfields;
   int nmeta;
   int sort_headers;
   int nsongs;
   int transcode;
-  int want_mikd;
-  int want_asdk;
-  int32_t val;
-  int i;
   int ret;
-
-  dmap_fields = dmap_get_fields_table(&nfields);
 
   DPRINTF(E_DBG, L_DAAP, "Fetching song list for playlist %d\n", playlist);
 
@@ -1051,8 +1039,6 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       goto out_query_free;
     }
 
-  want_mikd = 0;
-  want_asdk = 0;
   nsongs = 0;
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
@@ -1060,99 +1046,13 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
       transcode = transcode_needed(req->input_headers, dbmfi.codectype);
 
-      i = -1;
-      while (1)
+      ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, transcode);
+      if (ret < 0)
 	{
-	  i++;
+	  DPRINTF(E_LOG, L_DAAP, "Failed to encode song metadata\n");
 
-	  /* Specific meta tags requested (or default list) */
-	  if (nmeta > 0)
-	    {
-	      if (i == nmeta)
-		break;
-
-	      df = meta[i];
-	      dfm = df->dfm;
-	    }
-	  /* No specific meta tags requested, send out everything */
-	  else
-	    {
-	      /* End of list */
-	      if (i == nfields)
-		break;
-
-	      df = &dmap_fields[i];
-	      dfm = dmap_fields[i].dfm;
-	    }
-
-	  /* Not in struct media_file_info */
-	  if (dfm->mfi_offset < 0)
-	    continue;
-
-	  /* Will be prepended to the list */
-	  if (dfm == &dfm_dmap_mikd)
-	    {
-	      /* item kind */
-	      want_mikd = 1;
-	      continue;
-	    }
-	  else if (dfm == &dfm_dmap_asdk)
-	    {
-	      /* data kind */
-	      want_asdk = 1;
-	      continue;
-	    }
-
-	  DPRINTF(E_DBG, L_DAAP, "Investigating %s\n", df->desc);
-
-	  strval = (char **) ((char *)&dbmfi + dfm->mfi_offset);
-
-	  if (!(*strval) || (**strval == '\0'))
-            continue;
-
-	  /* Here's one exception ... codectype (ascd) is actually an integer */
-	  if (dfm == &dfm_dmap_ascd)
-	    {
-	      dmap_add_literal(song, df->tag, *strval, 4);
-	      continue;
-	    }
-
-	  val = 0;
-
-	  if (transcode)
-            {
-              switch (dfm->mfi_offset)
-                {
-		  case dbmfi_offsetof(type):
-		    ptr = "wav";
-		    strval = &ptr;
-		    break;
-
-		  case dbmfi_offsetof(bitrate):
-		    val = 0;
-		    ret = safe_atoi32(dbmfi.samplerate, &val);
-		    if ((ret < 0) || (val == 0))
-		      val = 1411;
-		    else
-		      val = (val * 8) / 250;
-
-		    ptr = NULL;
-		    strval = &ptr;
-		    break;
-
-		  case dbmfi_offsetof(description):
-		    ptr = "wav audio file";
-		    strval = &ptr;
-		    break;
-
-		  default:
-		    break;
-                }
-            }
-
-	  dmap_add_field(song, df, *strval, val);
-
-	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
+	  ret = -100;
+	  break;
 	}
 
       /* Always include sort tags */
@@ -1177,40 +1077,6 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
    	}
 
       DPRINTF(E_DBG, L_DAAP, "Done with song\n");
-
-      val = 0;
-      if (want_mikd)
-	val += 9;
-      if (want_asdk)
-	val += 9;
-
-      dmap_add_container(songlist, "mlit", EVBUFFER_LENGTH(song) + val);
-
-      /* Prepend mikd & asdk if needed */
-      if (want_mikd)
-	{
-	  /* dmap.itemkind must come first */
-	  ret = safe_atoi32(dbmfi.item_kind, &val);
-	  if (ret < 0)
-	    val = 2; /* music by default */
-	  dmap_add_char(songlist, "mikd", val);
-	}
-      if (want_asdk)
-	{
-	  ret = safe_atoi32(dbmfi.data_kind, &val);
-	  if (ret < 0)
-	    val = 0;
-	  dmap_add_char(songlist, "asdk", val);
-	}
-
-      ret = evbuffer_add_buffer(songlist, song);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DAAP, "Could not add song to song list for DAAP song list reply\n");
-
-	  ret = -100;
-	  break;
-	}
     }
 
   DPRINTF(E_DBG, L_DAAP, "Done with song list, %d songs\n", nsongs);
