@@ -26,8 +26,22 @@
 #include <event.h>
 #include "evhttp/evhttp.h"
 
-#include "dmap_common.h"
+#include "db.h"
 #include "logger.h"
+#include "dmap_common.h"
+
+
+/* gperf static hash, dmap_fields.gperf */
+#include "dmap_fields_hash.c"
+
+
+const struct dmap_field *
+dmap_get_fields_table(int *nfields)
+{
+  *nfields = sizeof(dmap_fields) / sizeof(dmap_fields[0]);
+
+  return dmap_fields;
+}
 
 
 void

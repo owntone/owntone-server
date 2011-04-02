@@ -11,16 +11,17 @@
 %struct-type
 %omit-struct-type
 %{
+/* Non-static fields are exported by dmap_common.h */
 static const struct dmap_field_map dfm_dmap_miid = { dbmfi_offsetof(id),                      dbpli_offsetof(id),            -1 };
 static const struct dmap_field_map dfm_dmap_minm = { dbmfi_offsetof(title),                   dbpli_offsetof(title),         dbgri_offsetof(itemname) };
-static const struct dmap_field_map dfm_dmap_mikd = { dbmfi_offsetof(item_kind),               -1,                            -1 };
+const struct dmap_field_map dfm_dmap_mikd = { dbmfi_offsetof(item_kind),               -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_mper = { dbmfi_offsetof(id),                      dbpli_offsetof(id),            dbgri_offsetof(persistentid) };
 static const struct dmap_field_map dfm_dmap_mcon = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_mcti = { dbmfi_offsetof(id),                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_mpco = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_mstt = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_msts = { -1,                                      -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_mimc = { dbmfi_offsetof(total_tracks),            dbpli_offsetof(items),         dbgri_offsetof(itemcount) };
+const struct dmap_field_map dfm_dmap_mimc = { dbmfi_offsetof(total_tracks),            dbpli_offsetof(items),         dbgri_offsetof(itemcount) };
 static const struct dmap_field_map dfm_dmap_mctc = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_mrco = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_mtco = { -1,                                      -1,                            -1 };
@@ -88,7 +89,7 @@ static const struct dmap_field_map dfm_dmap_astc = { dbmfi_offsetof(total_tracks
 static const struct dmap_field_map dfm_dmap_astn = { dbmfi_offsetof(track),                   -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asur = { dbmfi_offsetof(rating),                  -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asyr = { dbmfi_offsetof(year),                    -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_asdk = { dbmfi_offsetof(data_kind),               -1,                            -1 };
+const struct dmap_field_map dfm_dmap_asdk = { dbmfi_offsetof(data_kind),               -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asul = { dbmfi_offsetof(url),                     -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aply = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_abpl = { -1,                                      -1,                            -1 };
@@ -96,9 +97,9 @@ static const struct dmap_field_map dfm_dmap_apso = { -1,                        
 static const struct dmap_field_map dfm_dmap_arsv = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_arif = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aeNV = { -1,                                      -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_aeSP = { -1,                                      -1,                            -1 };
+const struct dmap_field_map dfm_dmap_aeSP = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aePS = { -1,                                      -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_ascd = { dbmfi_offsetof(codectype),               -1,                            -1 };
+const struct dmap_field_map dfm_dmap_ascd = { dbmfi_offsetof(codectype),               -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_ascs = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_agrp = { dbmfi_offsetof(grouping),                -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aeSV = { -1,                                      -1,                            -1 };

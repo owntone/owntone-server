@@ -79,19 +79,6 @@ struct daap_update_request {
   struct daap_update_request *next;
 };
 
-struct dmap_field_map {
-  ssize_t mfi_offset;
-  ssize_t pli_offset;
-  ssize_t gri_offset;
-};
-
-struct dmap_field {
-  char *desc;
-  char *tag;
-  const struct dmap_field_map *dfm;
-  enum dmap_type type;
-};
-
 struct sort_ctx {
   struct evbuffer *headerlist;
   int16_t mshc;
@@ -100,9 +87,6 @@ struct sort_ctx {
   uint32_t misc_mshn;
 };
 
-
-/* gperf static hash, dmap_fields.gperf */
-#include "dmap_fields_hash.c"
 
 /* Default meta tags if not provided in the query */
 static char *default_meta_plsongs = "dmap.itemkind,dmap.itemid,dmap.itemname,dmap.containeritemid,dmap.parentcontainerid";
@@ -811,12 +795,16 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
 static void
 daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  const struct dmap_field *dmap_fields;
+  int nfields;
   int i;
   int len;
   int ret;
 
+  dmap_fields = dmap_get_fields_table(&nfields);
+
   len = 12;
-  for (i = 0; i < (sizeof(dmap_fields) / sizeof(dmap_fields[0])); i++)
+  for (i = 0; i < nfields; i++)
     len += 8 + 12 + 10 + 8 + strlen(dmap_fields[i].desc);
 
   ret = evbuffer_expand(evbuf, len + 8);
@@ -831,7 +819,7 @@ daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, cha
   dmap_add_container(evbuf, "mccr", len);
   dmap_add_int(evbuf, "mstt", 200);
 
-  for (i = 0; i < (sizeof(dmap_fields) / sizeof(dmap_fields[0])); i++)
+  for (i = 0; i < nfields; i++)
     {
       len = 12 + 10 + 8 + strlen(dmap_fields[i].desc);
 
@@ -1064,6 +1052,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   struct evbuffer *song;
   struct evbuffer *songlist;
   const struct dmap_field_map *dfm;
+  const struct dmap_field *dmap_fields;
   const struct dmap_field *df;
   const struct dmap_field **meta;
   struct sort_ctx *sctx;
@@ -1071,6 +1060,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   char *tag;
   char **strval;
   char *ptr;
+  int nfields;
   int nmeta;
   int sort_headers;
   int nsongs;
@@ -1080,6 +1070,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   int32_t val;
   int i;
   int ret;
+
+  dmap_fields = dmap_get_fields_table(&nfields);
 
   DPRINTF(E_DBG, L_DAAP, "Fetching song list for playlist %d\n", playlist);
 
@@ -1224,7 +1216,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	  else
 	    {
 	      /* End of list */
-	      if (i == (sizeof(dmap_fields) / sizeof(dmap_fields[0])))
+	      if (i == nfields)
 		break;
 
 	      df = &dmap_fields[i];
