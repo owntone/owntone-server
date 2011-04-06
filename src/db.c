@@ -4370,13 +4370,18 @@ db_upgrade_v12(void)
       goto out_fclose;
     }
 
-  dump = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
-  if (dump == MAP_FAILED)
+  if (sb.st_size == 0)
+    dump = NULL;
+  else
     {
-      DPRINTF(E_LOG, L_DB, "Could not map dump file: %s\n", strerror(errno));
+      dump = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
+      if (dump == MAP_FAILED)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not map dump file: %s\n", strerror(errno));
 
-      ret = -1;
-      goto out_fclose;
+	  ret = -1;
+	  goto out_fclose;
+	}
     }
 
   /* Move old table out of the way */
@@ -4410,15 +4415,18 @@ db_upgrade_v12(void)
   /* Reload dump */
   DPRINTF(E_LOG, L_DB, "Reloading new files table...\n");
 
-  ret = sqlite3_exec(hdl, dump, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
+  if (dump)
     {
-      DPRINTF(E_LOG, L_DB, "Error reloading files table data: %s\n", errmsg);
+      ret = sqlite3_exec(hdl, dump, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Error reloading files table data: %s\n", errmsg);
 
-      sqlite3_free(errmsg);
+	  sqlite3_free(errmsg);
 
-      ret = -1;
-      goto out_munmap;
+	  ret = -1;
+	  goto out_munmap;
+	}
     }
 
   /* Delete old files table */
@@ -4434,8 +4442,11 @@ db_upgrade_v12(void)
     }
 
  out_munmap:
-  if (munmap(dump, sb.st_size) < 0)
-    DPRINTF(E_LOG, L_DB, "Could not unmap dump file: %s\n", strerror(errno));
+  if (dump)
+    {
+      if (munmap(dump, sb.st_size) < 0)
+	DPRINTF(E_LOG, L_DB, "Could not unmap dump file: %s\n", strerror(errno));
+    }
 
  out_fclose:
   fclose(fp);
