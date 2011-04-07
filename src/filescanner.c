@@ -259,20 +259,27 @@ fixup_tags(struct media_file_info *mfi)
   if (!mfi->title)
     mfi->title = strdup(mfi->fname);
 
-  /* If we don't have an album_artist, set it to artist */
-  if (!mfi->album_artist)
-    {
-      if (mfi->compilation)
-	mfi->album_artist = strdup("");
-      else
-	mfi->album_artist = strdup(mfi->artist);
-    }
-
   /* Ensure sort tags are filled and normalized */
   normalize_fixup_tag(&mfi->artist_sort, mfi->artist);
   normalize_fixup_tag(&mfi->album_sort, mfi->album);
   normalize_fixup_tag(&mfi->title_sort, mfi->title);
-  normalize_fixup_tag(&mfi->album_artist_sort, mfi->album_artist);
+
+  /* If we don't have an album_artist, set it to artist */
+  if (!mfi->album_artist)
+    {
+      if (mfi->compilation)
+	{
+	  mfi->album_artist = strdup("");
+	  mfi->album_artist_sort = strdup("");
+	}
+      else
+	mfi->album_artist = strdup(mfi->artist);
+    }
+
+  if (!mfi->album_artist_sort && (strcmp(mfi->album_artist, mfi->artist) == 0))
+    mfi->album_artist_sort = strdup(mfi->artist_sort);
+  else
+    normalize_fixup_tag(&mfi->album_artist_sort, mfi->album_artist);
 
   /* Composer is not one of our mandatory tags, so take extra care */
   if (mfi->composer_sort || mfi->composer)
