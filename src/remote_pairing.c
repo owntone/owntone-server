@@ -784,18 +784,35 @@ remote_pairing_read_pin(char *path)
   devname = fgets(buf, sizeof(buf), fp);
   if (!devname)
     {
-      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s\n", path);
+      DPRINTF(E_LOG, L_REMOTE, "Empty Remote pairing file %s\n", path);
 
       fclose(fp);
       return;
     }
 
   len = strlen(devname);
-  if (buf[len - 1] == '\n')
-    buf[len - 1] = '\0';
-  else
+  if (buf[len - 1] != '\n')
     {
       DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s: device name too long or missing pin\n", path);
+
+      fclose(fp);
+      return;
+    }
+
+  while (len)
+    {
+      if ((buf[len - 1] == '\r') || (buf[len - 1] == '\n'))
+	{
+	  buf[len - 1] = '\0';
+	  len--;
+	}
+      else
+	break;
+    }
+
+  if (!len)
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Invalid Remote pairing file %s: empty line where device name expected\n", path);
 
       fclose(fp);
       return;
@@ -821,10 +838,16 @@ remote_pairing_read_pin(char *path)
     }
 
   len = strlen(pin);
-  if (buf[len - 1] == '\n')
+
+  while (len)
     {
-      buf[len - 1] = '\0';
-      len--;
+      if ((buf[len - 1] == '\r') || (buf[len - 1] == '\n'))
+	{
+	  buf[len - 1] = '\0';
+	  len--;
+	}
+      else
+	break;
     }
 
   if (len != 4)
