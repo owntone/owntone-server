@@ -1,6 +1,16 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 0.15:
+	- add support for sending metadata to AppleTV during AirTunes streaming.
+	- support DOS-encoded Remote pairing files.
+	- rework album_artist_sort handling.
+	- enable RAOP to queue RTSP requests.
+	- speedup DAAP & RSP filters processing.
+	- speedup DAAP songlist generation.
+	- artwork can handle and send out both PNG and JPEG.
+	- fixes, big and small.
+
 version 0.14:
 	- sort headers/tags handling improvements.
 	- better handling of tags for TV shows.
