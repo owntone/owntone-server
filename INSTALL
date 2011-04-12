@@ -20,7 +20,7 @@ System-specific requirements:
 
 Tools:
  - pkg-config
- - gperf
+ - gperf 3.x
         from <http://www.gnu.org/software/gperf/>
 
 Libraries:
