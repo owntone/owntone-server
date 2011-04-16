@@ -381,9 +381,9 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
   if (!mfi.media_kind)
     mfi.media_kind = 1; /* music */
 
-  fixup_tags(&mfi);
-
   unicode_fixup_mfi(&mfi);
+
+  fixup_tags(&mfi);
 
   if (mfi.id == 0)
     db_file_add(&mfi);
