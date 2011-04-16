@@ -257,7 +257,14 @@ fixup_tags(struct media_file_info *mfi)
   if (!mfi->genre)
     mfi->genre = strdup("Unknown genre");
   if (!mfi->title)
-    mfi->title = strdup(mfi->fname);
+    {
+      /* fname is left untouched by unicode_fixup_mfi() for
+       * obvious reasons, so ensure it is proper UTF-8
+       */
+      mfi->title = unicode_fixup_string(mfi->fname);
+      if (mfi->title == mfi->fname)
+	mfi->title = strdup(mfi->fname);
+    }
 
   /* Ensure sort tags are filled and normalized */
   normalize_fixup_tag(&mfi->artist_sort, mfi->artist);
