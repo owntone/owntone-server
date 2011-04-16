@@ -199,7 +199,7 @@ fixup_tags(struct media_file_info *mfi)
     {
       if (mfi->orchestra && mfi->conductor)
 	{
-	  len = strlen(mfi->orchestra) + strlen(sep) + strlen(mfi ->conductor);
+	  len = strlen(mfi->orchestra) + strlen(sep) + strlen(mfi->conductor);
 	  tag = (char *)malloc(len + 1);
 	  if (tag)
 	    {
