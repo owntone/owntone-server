@@ -861,7 +861,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	  if (ret < 0)
 	    return;
 
-	  while (((ret = db_watch_enum_fetchwd(&we, &rm_wd)) == 0) && (rm_wd))
+	  while ((db_watch_enum_fetchwd(&we, &rm_wd) == 0) && (rm_wd))
 	    {
 	      inotify_rm_watch(inofd, rm_wd);
 	    }
@@ -894,7 +894,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	  if (ret < 0)
 	    return;
 
-	  while (((ret = db_watch_enum_fetchwd(&we, &rm_wd)) == 0) && (rm_wd))
+	  while ((db_watch_enum_fetchwd(&we, &rm_wd) == 0) && (rm_wd))
 	    {
 	      inotify_rm_watch(inofd, rm_wd);
 	    }
