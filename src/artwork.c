@@ -238,8 +238,8 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
     {
       DPRINTF(E_LOG, L_ART, "Could not determine best pixel format\n");
 
-      goto out_free_dst;
       ret = -1;
+      goto out_free_dst;
     }
 
   DPRINTF(E_DBG, L_ART, "Selected pixel format: %d\n", dst->pix_fmt);
