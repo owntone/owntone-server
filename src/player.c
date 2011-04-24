@@ -1493,17 +1493,13 @@ device_remove_family(struct player_command *cmd)
 {
   struct raop_device *dev;
   struct raop_device *rd;
-  struct raop_device *prev;
 
   dev = cmd->arg.rd;
 
-  prev = NULL;
   for (rd = dev_list; rd; rd = rd->next)
     {
       if (rd->id == dev->id)
         break;
-
-      prev = rd;
     }
 
   if (!rd)
