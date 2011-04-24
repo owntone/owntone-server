@@ -532,7 +532,6 @@ static void
 process_directory(char *path, int flags)
 {
   struct stacked_dir *bulkstack;
-  cfg_t *lib;
   DIR *dirp;
   struct dirent buf;
   struct dirent *de;
@@ -545,8 +544,6 @@ process_directory(char *path, int flags)
 #endif
   int compilation;
   int ret;
-
-  lib = cfg_getsec(cfg, "library");
 
   if (flags & F_SCAN_BULK)
     {
