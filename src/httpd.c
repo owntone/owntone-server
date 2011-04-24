@@ -556,13 +556,13 @@ httpd_stream_file(struct evhttp_request *req, int id)
       DPRINTF(E_DBG, L_HTTPD, "Stream request with range %" PRIi64 "-%" PRIi64 "\n", offset, end_offset);
 
       ret = snprintf(buf, sizeof(buf), "bytes %" PRIi64 "-%" PRIi64 "/%" PRIi64,
-		     offset, (end_offset) ? end_offset : (int64_t)sb.st_size, (int64_t)sb.st_size);
+		     offset, (end_offset) ? end_offset : (int64_t)st->size, (int64_t)st->size);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Range too large for buffer, dropping\n");
       else
 	evhttp_add_header(req->output_headers, "Content-Range", buf);
 
-      ret = snprintf(buf, sizeof(buf), "%" PRIi64, ((end_offset) ? end_offset + 1 : (int64_t)sb.st_size) - offset);
+      ret = snprintf(buf, sizeof(buf), "%" PRIi64, ((end_offset) ? end_offset + 1 : (int64_t)st->size) - offset);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
       else
