@@ -1046,7 +1046,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
       transcode = transcode_needed(req->input_headers, dbmfi.codectype);
 
-      ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, transcode);
+      ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, 1, transcode);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Failed to encode song metadata\n");
@@ -1054,15 +1054,6 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 	  ret = -100;
 	  break;
 	}
-
-      /* Always include sort tags */
-      dmap_add_string(song, "assn", dbmfi.title_sort);
-      dmap_add_string(song, "assa", dbmfi.artist_sort);
-      dmap_add_string(song, "assu", dbmfi.album_sort);
-      dmap_add_string(song, "assl", dbmfi.album_artist_sort);
-
-      if (dbmfi.composer_sort)
-	dmap_add_string(song, "assc", dbmfi.composer_sort);
 
       if (sort_headers)
 	{

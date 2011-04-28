@@ -369,7 +369,7 @@ dmap_send_error(struct evhttp_request *req, char *container, char *errmsg)
 
 
 int
-dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int force_wav)
+dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int sort_tags, int force_wav)
 {
   const struct dmap_field_map *dfm;
   const struct dmap_field *df;
@@ -477,6 +477,17 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
       dmap_add_field(song, df, *strval, val);
 
       DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
+    }
+
+  if (sort_tags)
+    {
+      dmap_add_string(song, "assn", dbmfi->title_sort);
+      dmap_add_string(song, "assa", dbmfi->artist_sort);
+      dmap_add_string(song, "assu", dbmfi->album_sort);
+      dmap_add_string(song, "assl", dbmfi->album_artist_sort);
+
+      if (dbmfi->composer_sort)
+	dmap_add_string(song, "assc", dbmfi->composer_sort);
     }
 
   val = 0;

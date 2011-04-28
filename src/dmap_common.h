@@ -79,6 +79,6 @@ dmap_send_error(struct evhttp_request *req, char *container, char *errmsg);
 
 
 int
-dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int force_wav);
+dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, struct db_media_file_info *dbmfi, const struct dmap_field **meta, int nmeta, int sort_tags, int force_wav);
 
 #endif /* !__DMAP_HELPERS_H__ */

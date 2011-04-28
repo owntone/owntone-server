@@ -818,7 +818,7 @@ raop_metadata_prepare(int id, uint64_t rtptime)
       goto out_query;
     }
 
-  ret = dmap_encode_file_metadata(rmd->metadata, tmp, &dbmfi, NULL, 0, 1);
+  ret = dmap_encode_file_metadata(rmd->metadata, tmp, &dbmfi, NULL, 0, 0, 1);
   evbuffer_free(tmp);
   if (ret < 0)
     {
