@@ -605,14 +605,13 @@ evrtsp_read(int fd, short what, void *arg)
 	struct evrtsp_connection *evcon = arg;
 	struct evrtsp_request *req = TAILQ_FIRST(&evcon->requests);
 	struct evbuffer *buf = evcon->input_buffer;
-	int n, len;
+	int n;
 
 	if (what == EV_TIMEOUT) {
 		evrtsp_connection_fail(evcon, EVCON_RTSP_TIMEOUT);
 		return;
 	}
 	n = evbuffer_read(buf, fd, -1);
-	len = EVBUFFER_LENGTH(buf);
 	event_debug(("%s: got %d on %d\n", __func__, n, fd));
 	
 	if (n == -1) {
