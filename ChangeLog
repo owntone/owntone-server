@@ -1,6 +1,12 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 0.16:
+	- fix issue with non-UTF-8 metadata while scanning.
+	- use proper file size in HTTP streaming code.
+	- fix DAAP songlist bug with sort tags.
+	- small code fixes.
+
 version 0.15:
 	- add support for sending metadata to AppleTV during AirTunes streaming.
 	- support DOS-encoded Remote pairing files.
