@@ -2014,14 +2014,6 @@ raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, stru
   char *ctype;
   int ret;
 
-  ret = evbuffer_add(evbuf, EVBUFFER_DATA(rmd->artwork), EVBUFFER_LENGTH(rmd->artwork));
-  if (ret != 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not copy artwork for sending\n");
-
-      return -1;
-    }
-
   switch (rmd->artwork_fmt)
     {
       case ART_FMT_PNG:
@@ -2031,6 +2023,19 @@ raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, stru
       case ART_FMT_JPEG:
 	ctype = "image/jpeg";
 	break;
+
+      default:
+	DPRINTF(E_LOG, L_RAOP, "Unsupported artwork format %d\n", rmd->artwork_fmt);
+
+	return -1;
+    }
+
+  ret = evbuffer_add(evbuf, EVBUFFER_DATA(rmd->artwork), EVBUFFER_LENGTH(rmd->artwork));
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not copy artwork for sending\n");
+
+      return -1;
     }
 
   ret = raop_send_req_set_parameter(rs, evbuf, ctype, rtptime, raop_cb_metadata);
