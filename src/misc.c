@@ -423,7 +423,16 @@ unicode_fixup_string(char *str)
 
   /* String is valid UTF-8 */
   if (!u8_check((uint8_t *)str, len))
-    return str;
+    {
+      if (len >= 3)
+	{
+	  /* Check for and strip byte-order mark */
+	  if (memcmp("\xef\xbb\xbf", str, 3) == 0)
+	    memmove(str, str + 3, len - 3 + 1);
+	}
+
+      return str;
+    }
 
   ret = u8_conv_from_encoding("ascii", iconveh_question_mark, str, len, NULL, NULL, &len);
   if (!ret)
