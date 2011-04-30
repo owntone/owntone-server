@@ -335,6 +335,12 @@ add_remote_mdns_data(const char *id, int family, const char *address, int port, 
 
 	check_addr = ri->v6_address;
 	break;
+
+      default:
+	DPRINTF(E_LOG, L_REMOTE, "Unknown address family %d\n", family);
+
+	check_addr = NULL;
+	break;
     }
 
   if (!ri->pi.remote_id || !check_addr)
