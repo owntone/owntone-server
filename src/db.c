@@ -542,7 +542,7 @@ db_exec(const char *query, char **errmsg)
   ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      *errmsg = sqlite3_mprintf("%s", sqlite3_errmsg(hdl));
+      *errmsg = sqlite3_mprintf("prepare failed: %s", sqlite3_errmsg(hdl));
       return ret;
     }
 
@@ -551,7 +551,7 @@ db_exec(const char *query, char **errmsg)
 
   if (ret != SQLITE_DONE)
     {
-      *errmsg = sqlite3_mprintf("%s", sqlite3_errmsg(hdl));
+      *errmsg = sqlite3_mprintf("step failed: %s", sqlite3_errmsg(hdl));
 
       sqlite3_finalize(stmt);
       return ret;
