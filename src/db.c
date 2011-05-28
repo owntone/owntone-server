@@ -535,29 +535,34 @@ static int
 db_exec(const char *query, char **errmsg)
 {
   sqlite3_stmt *stmt;
+  int try;
   int ret;
 
   *errmsg = NULL;
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
+  for (try = 0; try < 5; try++)
     {
-      *errmsg = sqlite3_mprintf("prepare failed: %s", sqlite3_errmsg(hdl));
-      return ret;
-    }
+      ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+      if (ret != SQLITE_OK)
+	{
+	  *errmsg = sqlite3_mprintf("prepare failed: %s", sqlite3_errmsg(hdl));
+	  return ret;
+	}
 
-  while ((ret = db_blocking_step(stmt)) == SQLITE_ROW)
-    ; /* EMPTY */
+      while ((ret = db_blocking_step(stmt)) == SQLITE_ROW)
+	; /* EMPTY */
+
+      sqlite3_finalize(stmt);
+
+      if (ret != SQLITE_SCHEMA)
+	break;
+    }
 
   if (ret != SQLITE_DONE)
     {
       *errmsg = sqlite3_mprintf("step failed: %s", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
       return ret;
     }
-
-  sqlite3_finalize(stmt);
 
   return SQLITE_OK;
 }
