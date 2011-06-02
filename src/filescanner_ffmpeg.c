@@ -344,7 +344,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     {
       switch (ctx->streams[i]->codec->codec_type)
 	{
+#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 64)
+	  case AVMEDIA_TYPE_VIDEO:
+#else
 	  case CODEC_TYPE_VIDEO:
+#endif
 	    if (!video_stream)
 	      {
 		DPRINTF(E_DBG, L_SCAN, "File has video (stream %d)\n", i);
@@ -355,7 +359,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	      }
 	    break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 64)
+	  case AVMEDIA_TYPE_AUDIO:
+#else
 	  case CODEC_TYPE_AUDIO:
+#endif
 	    if (!audio_stream)
 	      {
 		audio_stream = ctx->streams[i];

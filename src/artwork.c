@@ -216,13 +216,21 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
 
   dst = dst_st->codec;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 64)
+  avcodec_get_context_defaults2(dst, AVMEDIA_TYPE_VIDEO);
+#else
   avcodec_get_context_defaults2(dst, CODEC_TYPE_VIDEO);
+#endif
 
   if (dst_fmt->flags & AVFMT_GLOBALHEADER)
     dst->flags |= CODEC_FLAG_GLOBAL_HEADER;
 
   dst->codec_id = dst_fmt->video_codec;
+#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 64)
+  dst->codec_type = AVMEDIA_TYPE_VIDEO;
+#else
   dst->codec_type = CODEC_TYPE_VIDEO;
+#endif
 
   pix_fmt_mask = 0;
   pix_fmts = img_encoder->pix_fmts;

@@ -365,7 +365,11 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
   ctx->astream = -1;
   for (i = 0; i < ctx->fmtctx->nb_streams; i++)
     {
+#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 64)
+      if (ctx->fmtctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO)
+#else
       if (ctx->fmtctx->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO)
+#endif
 	{
 	  ctx->astream = i;
 
