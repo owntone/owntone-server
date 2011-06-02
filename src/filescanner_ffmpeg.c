@@ -76,6 +76,9 @@ static const struct metadata_map md_map_generic[] =
     { "disc",         1, mfi_offsetof(disc),               NULL },
     { "year",         1, mfi_offsetof(year),               NULL },
     { "date",         1, mfi_offsetof(year),               NULL },
+    { "title-sort",   0, mfi_offsetof(title_sort),         NULL },
+    { "artist-sort",  0, mfi_offsetof(artist_sort),        NULL },
+    { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
 
     { NULL,           0, 0,                                NULL }
   };
