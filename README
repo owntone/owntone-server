@@ -114,11 +114,11 @@ audio device:
 Supported formats
 -----------------
 
-forked-daapd should support pretty much all media formats. It uses ffmpeg to
-extract metadata and decode the files on the fly when the client doesn't
-support the format.
+forked-daapd should support pretty much all media formats. It relies on libav
+(ffmpeg) to extract metadata and decode the files on the fly when the client
+doesn't support the format.
 
-However, ffmpeg is not necessarily very good at extracting metadata, so some
+However, libav is not necessarily very good at extracting metadata, so some
 formats may cause problems. FLAC, Musepack and WMA use custom metadata
 extractors to work around that.
 
@@ -179,8 +179,8 @@ Artwork
 
 forked-daapd has /some/ support for artwork, with a number of limitations.
 
-Embedded artwork is not supported; ffmpeg doesn't support this yet, if and
-when this is added to ffmpeg, forked-daapd will support it.
+Embedded artwork is not supported; libav (ffmpeg) doesn't support this yet, if
+and when this is added to libav, forked-daapd will support it.
 
 Your artwork must be in PNG or JPEG format, dimensions do not matter;
 forked-daapd scales down (never up) the artwork on-the-fly to match the
