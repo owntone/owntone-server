@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  *
  * Adapted from mt-daapd:
  * Copyright (C) 2006-2007 Ron Pedde <ron@pedde.com>
@@ -279,7 +279,12 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
 
   avcodec_flush_buffers(ctx->acodec);
 
+#if LIBAVCODEC_VERSION_MAJOR >= 53
+  ctx->acodec->skip_frame = AVDISCARD_NONREF;
+#else
   ctx->acodec->hurry_up = 1;
+#endif
+
   flags = 0;
   while (1)
     {
@@ -305,7 +310,11 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
       break;
     }
 
+#if LIBAVCODEC_VERSION_MAJOR >= 53
+  ctx->acodec->skip_frame = AVDISCARD_DEFAULT;
+#else
   ctx->acodec->hurry_up = 0;
+#endif
 
   /* Error while reading frame above */
   if (flags)
