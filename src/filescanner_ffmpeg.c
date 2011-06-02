@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -56,6 +56,35 @@ struct metadata_map {
   size_t offset;
   int (*handler_function)(struct media_file_info *, char *);
 };
+
+static int
+parse_slash_separated_ints(char *string, uint32_t *firstval, uint32_t *secondval)
+{
+  int numvals = 0;
+  char *ptr;
+
+  ptr = strchr(string, '/');
+  if (ptr)
+    {
+      *ptr = '\0';
+      if (safe_atou32(ptr + 1, secondval) == 0)
+        numvals++;
+    }
+
+  if (safe_atou32(string, firstval) == 0)
+    numvals++;
+
+  return numvals;
+}
+
+static int
+parse_track(struct media_file_info *mfi, char *track_string)
+{
+  uint32_t *track = (uint32_t *) ((char *) mfi + mfi_offsetof(track));
+  uint32_t *total_tracks = (uint32_t *) ((char *) mfi + mfi_offsetof(total_tracks));
+
+  return parse_slash_separated_ints(track_string, track, total_tracks);
+}
 
 /* Lookup is case-insensitive, first occurrence takes precedence */
 static const struct metadata_map md_map_generic[] =
@@ -120,35 +149,6 @@ static const struct metadata_map md_map_vorbis[] =
 
 
 static int
-parse_slash_separated_ints(char *string, uint32_t *firstval, uint32_t *secondval)
-{
-  int numvals = 0;
-  char *ptr;
-
-  ptr = strchr(string, '/');
-  if (ptr)
-    {
-      *ptr = '\0';
-      if (safe_atou32(ptr + 1, secondval) == 0)
-        numvals++;
-    }
-
-  if (safe_atou32(string, firstval) == 0)
-    numvals++;
-
-  return numvals;
-}
-
-static int
-parse_id3v2_track(struct media_file_info *mfi, char *track_string)
-{
-  uint32_t *track = (uint32_t *) ((char *) mfi + mfi_offsetof(track));
-  uint32_t *total_tracks = (uint32_t *) ((char *) mfi + mfi_offsetof(total_tracks));
-
-  return parse_slash_separated_ints(track_string, track, total_tracks);
-}
-
-static int
 parse_id3v2_disc(struct media_file_info *mfi, char *disc_string)
 {
   uint32_t *disc = (uint32_t *) ((char *) mfi + mfi_offsetof(disc));
@@ -180,8 +180,8 @@ static const struct metadata_map md_map_id3[] =
     { "TCON",                0, mfi_offsetof(genre),                 NULL },              /* ID3v2.3 */
     { "TCM",                 0, mfi_offsetof(composer),              NULL },              /* ID3v2.2 */
     { "TCOM",                0, mfi_offsetof(composer),              NULL },              /* ID3v2.3 */
-    { "TRK",                 1, mfi_offsetof(track),                 parse_id3v2_track }, /* ID3v2.2 */
-    { "TRCK",                1, mfi_offsetof(track),                 parse_id3v2_track }, /* ID3v2.3 */
+    { "TRK",                 1, mfi_offsetof(track),                 parse_track },       /* ID3v2.2 */
+    { "TRCK",                1, mfi_offsetof(track),                 parse_track },       /* ID3v2.3 */
     { "TPA",                 1, mfi_offsetof(disc),                  parse_id3v2_disc },  /* ID3v2.2 */
     { "TPOS",                1, mfi_offsetof(disc),                  parse_id3v2_disc },  /* ID3v2.3 */
     { "TYE",                 1, mfi_offsetof(year),                  NULL },              /* ID3v2.2 */
