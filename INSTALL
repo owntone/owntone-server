@@ -30,7 +30,7 @@ Libraries:
         from <http://avahi.org/>
  - sqlite3 3.5.0+ with unlock notify API enabled (read below)
         from <http://sqlite.org/download.html>
- - libav 0.6+ (or ffmpeg 0.5.1+)
+ - libav 0.6+/0.7+ (or ffmpeg 0.5.1+)
         from <http://libav.org/releases/>
  - libconfuse
         from <http://www.nongnu.org/confuse/>
@@ -78,7 +78,8 @@ great influence on your experience with forked-daapd.
 The following versions of libav (ffmpeg) are supported and known to work:
  - ffmpeg 0.5.x: has issues with metadata (tags) extraction, notably with
    MP3 files and ID3 tags in general;
- - libav 0.6.x: known to work better with regard to metadata extraction
+ - libav 0.6.x: known to work better with regard to metadata extraction;
+ - libav 0.7.x: better yet
 
 Note that forked-daapd uses libav since the ffmpeg/libav fork during the
 0.6.x series.
