@@ -402,7 +402,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	mfi->samplerate = audio_stream->codec->sample_rate;
 
       /* Try sample format first */
+#if LIBAVCODEC_VERSION_MAJOR >= 53
+      mfi->bits_per_sample = av_get_bits_per_sample_fmt(audio_stream->codec->sample_fmt);
+#else
       mfi->bits_per_sample = av_get_bits_per_sample_format(audio_stream->codec->sample_fmt);
+#endif
       if (mfi->bits_per_sample == 0)
 	{
 	  /* Try codec */

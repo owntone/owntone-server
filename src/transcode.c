@@ -450,7 +450,11 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 	}
 
       ctx->need_resample = 1;
+#if LIBAVCODEC_VERSION_MAJOR >= 53
+      ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_fmt(ctx->acodec->sample_fmt) / 8;
+#else
       ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_format(ctx->acodec->sample_fmt) / 8;
+#endif
     }
 
   ctx->duration = mfi->song_length;
