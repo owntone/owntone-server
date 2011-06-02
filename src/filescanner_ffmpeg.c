@@ -554,7 +554,9 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags with extra md_map\n", ret);
     }
 
+#if LIBAVFORMAT_VERSION_MAJOR < 53
   av_metadata_conv(ctx, NULL, ctx->iformat->metadata_conv);
+#endif
 
   ret = extract_metadata(mfi, ctx, audio_stream, video_stream, md_map_generic);
   mdcount += ret;
