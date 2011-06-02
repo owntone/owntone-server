@@ -37,6 +37,9 @@
 
 #include "db.h"
 #include "logger.h"
+#if LIBAVFORMAT_VERSION_MAJOR >= 53
+# include "avio_evbuffer.h"
+#endif
 #include "artwork.h"
 
 
@@ -196,6 +199,9 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
 
   dst_ctx->oformat = dst_fmt;
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 53
+  dst_fmt->flags &= ~AVFMT_NOFILE;
+#else
   ret = snprintf(dst_ctx->filename, sizeof(dst_ctx->filename), "evbuffer:%p", evbuf);
   if ((ret < 0) || (ret >= sizeof(dst_ctx->filename)))
     {
@@ -204,6 +210,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
       ret = -1;
       goto out_free_dst_ctx;
     }
+#endif
 
   dst_st = av_new_stream(dst_ctx, 0);
   if (!dst_st)
@@ -357,7 +364,11 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   av_free_packet(&pkt);
 
   /* Open output file */
+#if LIBAVFORMAT_VERSION_MAJOR >= 53
+  dst_ctx->pb = avio_evbuffer_open(evbuf);
+#else
   ret = url_fopen(&dst_ctx->pb, dst_ctx->filename, URL_WRONLY);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_ART, "Could not open artwork destination buffer\n");
@@ -376,7 +387,11 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
     {
       DPRINTF(E_LOG, L_ART, "Out of memory for encoded artwork buffer\n");
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 53
+      avio_evbuffer_close(dst_ctx->pb);
+#else
       url_fclose(dst_ctx->pb);
+#endif
 
       ret = -1;
       goto out_free_buf;
@@ -441,7 +456,11 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
     }
 
  out_fclose_dst:
+#if LIBAVFORMAT_VERSION_MAJOR >= 53
+  avio_evbuffer_close(dst_ctx->pb);
+#else
   url_fclose(dst_ctx->pb);
+#endif
   av_free(outbuf);
 
  out_free_buf:

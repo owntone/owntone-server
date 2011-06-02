@@ -64,7 +64,9 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "mdns.h"
 #include "remote_pairing.h"
 #include "player.h"
-#include "ffmpeg_url_evbuffer.h"
+#if LIBAVFORMAT_VERSION_MAJOR < 53
+# include "ffmpeg_url_evbuffer.h"
+#endif
 
 
 #define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
@@ -597,7 +599,9 @@ main(int argc, char **argv)
 
   av_register_all();
   av_log_set_callback(logger_ffmpeg);
+#if LIBAVFORMAT_VERSION_MAJOR < 53
   register_ffmpeg_evbuffer_url_protocol();
+#endif
 
   /* Initialize libgcrypt */
   gcry_control(GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);

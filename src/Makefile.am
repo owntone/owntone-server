@@ -21,6 +21,12 @@ if COND_OSS4
 OSS4SRC=laudio_oss4.c
 endif
 
+if COND_AVIO
+AVIO_SRC=avio_evbuffer.c avio_evbuffer.h
+else
+FFURL_SRC=ffmpeg_url_evbuffer.c ffmpeg_url_evbuffer.h
+endif
+
 GPERF_FILES = \
 	daap_query.gperf \
 	rsp_query.gperf \
@@ -71,7 +77,7 @@ forked_daapd_SOURCES = main.c \
 	remote_pairing.c remote_pairing.h \
 	evhttp/http.c evhttp/evhttp.h \
 	evhttp/http-internal.h evhttp/log.h \
-	ffmpeg_url_evbuffer.c ffmpeg_url_evbuffer.h \
+	$(FFURL_SRC) $(AVIO_SRC) \
 	httpd.c httpd.h \
 	httpd_rsp.c httpd_rsp.h \
 	httpd_daap.c httpd_daap.h \

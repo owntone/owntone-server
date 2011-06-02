@@ -136,6 +136,14 @@ save_LIBS="$LIBS"
 AC_CHECK_LIB([avcodec], [av_lockmgr_register], , AC_MSG_ERROR([libav (ffmpeg) >= 0.5.1 required]))
 LIBS="$save_LIBS"
 
+# Check for libavformat >= 53; url -> avio switch
+_PKG_CONFIG([libavformat_VERSION], [atleast-version=53], [libavformat])
+if test $pkg_failed = yes; then
+	AM_CONDITIONAL(COND_AVIO, false)
+else
+	AM_CONDITIONAL(COND_AVIO, true)
+fi
+
 PKG_CHECK_MODULES(MINIXML, [ mxml ])
 
 AC_CHECK_HEADER(event.h, , AC_MSG_ERROR([event.h not found]))
