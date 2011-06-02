@@ -305,6 +305,8 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
       break;
     }
 
+  ctx->acodec->hurry_up = 0;
+
   /* Error while reading frame above */
   if (flags)
     return -1;
