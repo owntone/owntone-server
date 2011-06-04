@@ -111,7 +111,7 @@ static const struct metadata_map md_map_generic[] =
     { "comment",      0, mfi_offsetof(comment),            NULL },
     { "description",  0, mfi_offsetof(comment),            NULL },
     { "track",        1, mfi_offsetof(track),              parse_track },
-    { "disc",         1, mfi_offsetof(disc),               NULL },
+    { "disc",         1, mfi_offsetof(disc),               parse_disc },
     { "year",         1, mfi_offsetof(year),               NULL },
     { "date",         1, mfi_offsetof(year),               NULL },
     { "title-sort",   0, mfi_offsetof(title_sort),         NULL },
