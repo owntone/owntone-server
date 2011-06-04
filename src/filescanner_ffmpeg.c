@@ -86,6 +86,15 @@ parse_track(struct media_file_info *mfi, char *track_string)
   return parse_slash_separated_ints(track_string, track, total_tracks);
 }
 
+static int
+parse_disc(struct media_file_info *mfi, char *disc_string)
+{
+  uint32_t *disc = (uint32_t *) ((char *) mfi + mfi_offsetof(disc));
+  uint32_t *total_discs = (uint32_t *) ((char *) mfi + mfi_offsetof(total_discs));
+
+  return parse_slash_separated_ints(disc_string, disc, total_discs);
+}
+
 /* Lookup is case-insensitive, first occurrence takes precedence */
 static const struct metadata_map md_map_generic[] =
   {
@@ -147,16 +156,6 @@ static const struct metadata_map md_map_vorbis[] =
     { NULL,           0, 0,                               NULL }
   };
 
-
-static int
-parse_id3v2_disc(struct media_file_info *mfi, char *disc_string)
-{
-  uint32_t *disc = (uint32_t *) ((char *) mfi + mfi_offsetof(disc));
-  uint32_t *total_discs = (uint32_t *) ((char *) mfi + mfi_offsetof(total_discs));
-
-  return parse_slash_separated_ints(disc_string, disc, total_discs);
-}
-
 /* NOTE about ID3 tag names:
  *  metadata conversion for ID3v2 tags was added in ffmpeg in september 2009
  *  (rev 20073) for ID3v2.3; support for ID3v2.2 tag names was added in december
@@ -182,8 +181,8 @@ static const struct metadata_map md_map_id3[] =
     { "TCOM",                0, mfi_offsetof(composer),              NULL },              /* ID3v2.3 */
     { "TRK",                 1, mfi_offsetof(track),                 parse_track },       /* ID3v2.2 */
     { "TRCK",                1, mfi_offsetof(track),                 parse_track },       /* ID3v2.3 */
-    { "TPA",                 1, mfi_offsetof(disc),                  parse_id3v2_disc },  /* ID3v2.2 */
-    { "TPOS",                1, mfi_offsetof(disc),                  parse_id3v2_disc },  /* ID3v2.3 */
+    { "TPA",                 1, mfi_offsetof(disc),                  parse_disc },        /* ID3v2.2 */
+    { "TPOS",                1, mfi_offsetof(disc),                  parse_disc },        /* ID3v2.3 */
     { "TYE",                 1, mfi_offsetof(year),                  NULL },              /* ID3v2.2 */
     { "TYER",                1, mfi_offsetof(year),                  NULL },              /* ID3v2.3 */
     { "TDRC",                1, mfi_offsetof(year),                  NULL },              /* ID3v2.4 */
