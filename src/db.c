@@ -666,7 +666,7 @@ db_build_query_index_clause(struct query_params *qp, char **i)
 	break;
 
       case I_LAST:
-	idx = sqlite3_mprintf("LIMIT -1 OFFSET %d", qp->limit, qp->results - qp->limit);
+	idx = sqlite3_mprintf("LIMIT -1 OFFSET %d", qp->results - qp->limit);
 	break;
 
       case I_SUB:
