@@ -4642,6 +4642,8 @@ db_init(void)
 	}
     }
 
+  db_analyze();
+
   files = db_files_get_count();
   pls = db_pl_get_count();
 
