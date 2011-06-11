@@ -676,6 +676,11 @@ db_get_count(char *query)
 
   ret = sqlite3_column_int(stmt, 0);
 
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
   sqlite3_finalize(stmt);
 
   return ret;
@@ -1638,6 +1643,11 @@ db_file_path_byid(int id)
   if (res)
     res = strdup(res);
 
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
   sqlite3_finalize(stmt);
   sqlite3_free(query);
 
@@ -1678,6 +1688,11 @@ db_file_id_byquery(char *query)
     }
 
   ret = sqlite3_column_int(stmt, 0);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
 
@@ -1823,6 +1838,11 @@ db_file_stamp_bypath(char *path)
 
   stamp = (time_t)sqlite3_column_int64(stmt, 0);
 
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
   sqlite3_finalize(stmt);
   sqlite3_free(query);
 
@@ -1936,6 +1956,11 @@ db_file_fetch_byquery(char *query)
 	    return NULL;
 	}
     }
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
 
@@ -2372,6 +2397,11 @@ db_pl_id_bypath(char *path, int *id)
     }
 
   *id = sqlite3_column_int(stmt, 0);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
   sqlite3_free(query);
@@ -2950,6 +2980,11 @@ db_group_type_byid(int id)
 
   ret = sqlite3_column_int(stmt, 0);
 
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
   sqlite3_finalize(stmt);
   sqlite3_free(query);
 
@@ -3073,6 +3108,11 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
   pi->remote_id = strdup((char *)sqlite3_column_text(stmt, 0));
   pi->name = strdup((char *)sqlite3_column_text(stmt, 1));
 
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
   sqlite3_finalize(stmt);
   sqlite3_free(query);
 
@@ -3160,6 +3200,11 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
 
   *selected = sqlite3_column_int(stmt, 0);
   *volume = sqlite3_column_int(stmt, 1);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
 
@@ -3450,6 +3495,11 @@ db_watch_get_bywd(struct watch_info *wi)
 	    return -1;
 	}
     }
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
   sqlite3_free(query);
