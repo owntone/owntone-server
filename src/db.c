@@ -3680,7 +3680,7 @@ db_xprofile(void *notused, const char *pquery, sqlite3_uint64 ptime)
   int ret;
 
   DPRINTF(E_DBG, L_DBPERF, "SQL PROFILE query: %s\n", pquery);
-  DPRINTF(E_DBG, L_DBPERF, "SQL PROFILE time: %" PRIu64 "\n", (uint64_t)ptime);
+  DPRINTF(E_DBG, L_DBPERF, "SQL PROFILE time: %" PRIu64 " ms\n", ((uint64_t)ptime / 1000000));
 
   if ((strncmp(pquery, "SELECT", 6) != 0)
        && (strncmp(pquery, "UPDATE", 6) != 0)
