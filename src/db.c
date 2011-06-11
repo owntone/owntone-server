@@ -3675,8 +3675,57 @@ db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd)
 static void
 db_xprofile(void *notused, const char *pquery, sqlite3_uint64 ptime)
 {
-  DPRINTF(E_DBG, L_DB, "SQL PROFILE query: %s\n", pquery);
-  DPRINTF(E_DBG, L_DB, "SQL PROFILE time: %" PRIu64 "\n", (uint64_t)ptime); 
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  DPRINTF(E_DBG, L_DBPERF, "SQL PROFILE query: %s\n", pquery);
+  DPRINTF(E_DBG, L_DBPERF, "SQL PROFILE time: %" PRIu64 "\n", (uint64_t)ptime);
+
+  if ((strncmp(pquery, "SELECT", 6) != 0)
+       && (strncmp(pquery, "UPDATE", 6) != 0)
+       && (strncmp(pquery, "DELETE", 6) != 0))
+      return;
+
+  /* Disable profiling callback */
+  sqlite3_profile(hdl, NULL, NULL);
+
+  query = sqlite3_mprintf("EXPLAIN QUERY PLAN %s", pquery);
+  if (!query)
+    {
+      DPRINTF(E_DBG, L_DBPERF, "Query plan: Out of memory\n");
+
+      goto out;
+    }
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  sqlite3_free(query);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_DBG, L_DBPERF, "Query plan: Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      goto out;
+    }
+
+  DPRINTF(E_DBG, L_DBPERF, "Query plan:\n");
+
+  while ((ret = db_blocking_step(stmt)) == SQLITE_ROW)
+    {
+      DPRINTF(E_DBG, L_DBPERF, "(%d,%d,%d) %s\n",
+	      sqlite3_column_int(stmt, 0), sqlite3_column_int(stmt, 1), sqlite3_column_int(stmt, 2),
+	      sqlite3_column_text(stmt, 3));
+    }
+
+  if (ret != SQLITE_DONE)
+    DPRINTF(E_DBG, L_DBPERF, "Query plan: Could not step: %s\n", sqlite3_errmsg(hdl));
+
+  DPRINTF(E_DBG, L_DBPERF, "---\n");
+
+  sqlite3_finalize(stmt);
+
+ out:
+  /* Reenable profiling callback */
+  sqlite3_profile(hdl, db_xprofile, NULL);
 }
 #endif
 
