@@ -3966,9 +3966,6 @@ db_perthread_deinit(void)
   "   path        VARCHAR(4096) NOT NULL"		\
   ");"
 
-#define I_PATH							\
-  "CREATE INDEX IF NOT EXISTS idx_path ON files(path, idx);"
-
 #define I_FILEPATH							\
   "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
 
@@ -3978,14 +3975,6 @@ db_perthread_deinit(void)
 #define I_PAIRING				\
   "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
 
-#define I_TITLESORT				\
-  "CREATE INDEX IF NOT EXISTS idx_titlesort ON files(title_sort);"
-
-#define I_ARTISTSORT				\
-  "CREATE INDEX IF NOT EXISTS idx_artistsort ON files(artist_sort);"
-
-#define I_ALBUMSORT				\
-  "CREATE INDEX IF NOT EXISTS idx_albumsort ON files(album_sort);"
 
 #define TRG_GROUPS_INSERT_FILES						\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
@@ -4043,13 +4032,9 @@ static const struct db_init_query db_init_queries[] =
     { T_SPEAKERS,  "create table speakers" },
     { T_INOTIFY,   "create table inotify" },
 
-    { I_PATH,      "create file path index" },
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
     { I_PAIRING,   "create pairing guid index" },
-    { I_TITLESORT, "create file titlesort index" },
-    { I_ARTISTSORT,"create file artistsort index" },
-    { I_ALBUMSORT, "create file albumsort index" },
 
     { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
     { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
