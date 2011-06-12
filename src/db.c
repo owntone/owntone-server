@@ -3969,6 +3969,12 @@ db_perthread_deinit(void)
 #define I_RESCAN				\
   "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
 
+#define I_SONGALBUMID				\
+  "CREATE INDEX IF NOT EXISTS idx_sai ON files(songalbumid);"
+
+#define I_STATEMKINDSAI				\
+  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sai ON files(disabled, media_kind, songalbumid);"
+
 #define I_FILEPATH							\
   "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
 
@@ -4036,6 +4042,8 @@ static const struct db_init_query db_init_queries[] =
     { T_INOTIFY,   "create table inotify" },
 
     { I_RESCAN,    "create rescan index" },
+    { I_SONGALBUMID, "create songalbumid index" },
+    { I_STATEMKINDSAI, "create state/mkind/sai index" },
 
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
