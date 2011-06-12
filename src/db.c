@@ -3975,6 +3975,21 @@ db_perthread_deinit(void)
 #define I_STATEMKINDSAI				\
   "CREATE INDEX IF NOT EXISTS idx_state_mkind_sai ON files(disabled, media_kind, songalbumid);"
 
+#define I_ARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
+
+#define I_ALBUMARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
+
+#define I_COMPOSER				\
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
+
+#define I_TITLE					\
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
+
+#define I_ALBUM					\
+  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
+
 #define I_FILEPATH							\
   "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
 
@@ -4044,6 +4059,12 @@ static const struct db_init_query db_init_queries[] =
     { I_RESCAN,    "create rescan index" },
     { I_SONGALBUMID, "create songalbumid index" },
     { I_STATEMKINDSAI, "create state/mkind/sai index" },
+
+    { I_ARTIST,    "create artist index" },
+    { I_ALBUMARTIST, "create album_artist index" },
+    { I_COMPOSER,  "create composer index" },
+    { I_TITLE,     "create title index" },
+    { I_ALBUM,     "create album index" },
 
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
