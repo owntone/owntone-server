@@ -1571,14 +1571,14 @@ db_file_inc_playcount(int id)
 }
 
 void
-db_file_ping(char *path)
+db_file_ping(int id)
 {
-#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE path = '%q';"
+#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE id = %d;"
   char *query;
   char *errmsg;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path);
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1590,7 +1590,7 @@ db_file_ping(char *path)
 
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error pinging file '%s': %s\n", path, errmsg);
+    DPRINTF(E_LOG, L_DB, "Error pinging file ID %d: %s\n", id, errmsg);
 
   sqlite3_free(errmsg);
   sqlite3_free(query);
@@ -1795,21 +1795,22 @@ db_file_id_byurl(char *url)
 #undef Q_TMPL
 }
 
-time_t
-db_file_stamp_bypath(char *path)
+void
+db_file_stamp_bypath(char *path, time_t *stamp, int *id)
 {
-#define Q_TMPL "SELECT db_timestamp FROM files WHERE path = '%q';"
+#define Q_TMPL "SELECT id, db_timestamp FROM files WHERE path = '%q';"
   char *query;
   sqlite3_stmt *stmt;
-  time_t stamp;
   int ret;
+
+  *stamp = 0;
 
   query = sqlite3_mprintf(Q_TMPL, path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return 0;
+      return;
     }
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
@@ -1820,7 +1821,7 @@ db_file_stamp_bypath(char *path)
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_free(query);
-      return 0;
+      return;
     }
 
   ret = db_blocking_step(stmt);
@@ -1833,10 +1834,11 @@ db_file_stamp_bypath(char *path)
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
-      return 0;
+      return;
     }
 
-  stamp = (time_t)sqlite3_column_int64(stmt, 0);
+  *id = sqlite3_column_int(stmt, 0);
+  *stamp = (time_t)sqlite3_column_int64(stmt, 1);
 
 #ifdef DB_PROFILE
   while (db_blocking_step(stmt) == SQLITE_ROW)
@@ -1845,8 +1847,6 @@ db_file_stamp_bypath(char *path)
 
   sqlite3_finalize(stmt);
   sqlite3_free(query);
-
-  return stamp;
 
 #undef Q_TMPL
 }
@@ -3966,6 +3966,9 @@ db_perthread_deinit(void)
   "   path        VARCHAR(4096) NOT NULL"		\
   ");"
 
+#define I_RESCAN				\
+  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
+
 #define I_FILEPATH							\
   "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
 
@@ -4031,6 +4034,8 @@ static const struct db_init_query db_init_queries[] =
     { T_PAIRINGS,  "create table pairings" },
     { T_SPEAKERS,  "create table speakers" },
     { T_INOTIFY,   "create table inotify" },
+
+    { I_RESCAN,    "create rescan index" },
 
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
