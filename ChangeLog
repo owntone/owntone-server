@@ -1,6 +1,10 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 0.17:
+	- support for libav 0.7
+	- fixes, big and small.
+
 version 0.16:
 	- fix issue with non-UTF-8 metadata while scanning.
 	- use proper file size in HTTP streaming code.
