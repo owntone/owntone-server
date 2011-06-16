@@ -31,8 +31,14 @@ A single forked-daapd instance can handle several clients concurrently,
 regardless of the protocol.
 
 
-Pairing with Remote on iPod/iPhone
-----------------------------------
+Using Remote
+------------
+
+If you plan to use Remote with forked-daapd, read the following sections
+carefully.
+
+  Pairing with Remote on iPod/iPhone
+  ----------------------------------
 
 forked-daapd can be paired with Apple's Remote application for iPod/iPhone;
 this is how the pairing process works:
@@ -89,6 +95,32 @@ scheme of "Foo's iPhone"). If unsure, change the name of your device or
 capture the output in a file to extract the real, correct name.
 
 Hit Ctrl-C to terminate avahi-browse.
+
+  Selecting output devices
+  ------------------------
+
+Remote gets a list of output devices from the server; this list includes any
+and all devices on the network we know of that advertise AirTunes: AirPort
+Express, Apple TV, ... It also includes the local audio output, that is, the
+sound card on the server (even if there is no soundcard).
+
+By default, if no output is selected when playback starts, the local output
+device will be used, following the principle of least surprise (ie not
+selecting an output device at random that can be anywhere in the house or
+elsewhere). forked-daapd will error out if the local output is not usable
+(no soundcard, bad permissions, ...).
+
+There are two ways to select the output devices in Remote:
+ - in the settings panel;
+ - in the AirPlay panel during playback.
+
+Be aware that the settings panel doesn't show any output device when there
+is only one; the one output device that is available is automatically used.
+
+forked-daapd remembers your selection and the individual volume for each
+output device; selected devices will be automatically re-selected at the next
+server startup, provided they appear in the 5 minutes following the startup
+and no playback has occured yet. Again, principle of least surprise.
 
 
 AirTunes devices
