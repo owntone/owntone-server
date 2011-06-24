@@ -54,6 +54,7 @@ options {
 }
 
 query	returns [ pANTLR3_STRING result ]
+@init { $result = NULL; }
 	:	e = expr
 		{
 			if (!$e.valid)
@@ -225,6 +226,7 @@ strcrit	returns [ pANTLR3_STRING result, int valid ]
 	;
 
 strop	returns [ pANTLR3_COMMON_TOKEN op ]
+@init { $op = NULL; }
 	:	n = EQUAL
 		{ $op = $n->getToken($n); }
 	|	n = INCLUDES
@@ -297,6 +299,7 @@ intcrit	returns [ pANTLR3_STRING result, int valid ]
 	;
 
 intop	returns [ pANTLR3_COMMON_TOKEN op ]
+@init { $op = NULL; }
 	:	n = EQUAL
 		{ $op = $n->getToken($n); }
 	|	n = LESS
@@ -369,6 +372,7 @@ datecrit	returns [ pANTLR3_STRING result, int valid ]
 	;
 
 dateop	returns [ pANTLR3_COMMON_TOKEN op ]
+@init { $op = NULL; }
 	:	n = BEFORE
 		{ $op = $n->getToken($n); }
 	|	n = AFTER

@@ -48,6 +48,7 @@ options {
 }
 
 query	returns [ pANTLR3_STRING result ]
+@init { $result = NULL; }
 	:	e = expr
 		{
 			if (!$e.valid)
