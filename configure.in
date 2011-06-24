@@ -156,6 +156,9 @@ AC_SUBST(LIBAVL_LIBS)
 
 AC_CHECK_HEADER(antlr3.h, , AC_MSG_ERROR([antlr3.h not found]))
 AC_CHECK_LIB([antlr3c], [antlr3BaseRecognizerNew], [ANTLR3C_LIBS="-lantlr3c"], AC_MSG_ERROR([ANTLR3 C runtime (libantlr3c) not found]))
+AC_CHECK_LIB([antlr3c], [antlr3NewAsciiStringInPlaceStream],
+	AC_DEFINE(ANTLR3C_NEW_INPUT, 0, [define if antlr3 C runtime uses new input routines]),
+	AC_DEFINE(ANTLR3C_NEW_INPUT, 1, [define if antlr3 C runtime uses new input routines]))
 AC_SUBST(ANTLR3C_LIBS)
 
 AM_PATH_LIBGCRYPT([1:1.2.0], , AC_MSG_ERROR([libgcrypt not found]))

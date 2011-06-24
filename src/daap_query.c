@@ -57,7 +57,11 @@ daap_query_parse_sql(const char *daap_query)
 
   DPRINTF(E_DBG, L_DAAP, "Trying DAAP query -%s-\n", daap_query);
 
+#if ANTLR3C_NEW_INPUT
+  query = antlr3StringStreamNew ((pANTLR3_UINT8)daap_query, ANTLR3_ENC_8BIT, (ANTLR3_UINT64)strlen(daap_query), (pANTLR3_UINT8)"DAAP query");
+#else
   query = antlr3NewAsciiStringInPlaceStream ((pANTLR3_UINT8)daap_query, (ANTLR3_UINT64)strlen(daap_query), (pANTLR3_UINT8)"DAAP query");
+#endif
   if (!query)
     {
       DPRINTF(E_DBG, L_DAAP, "Could not create input stream\n");

@@ -57,7 +57,11 @@ rsp_query_parse_sql(const char *rsp_query)
 
   DPRINTF(E_DBG, L_RSP, "Trying RSP query -%s-\n", rsp_query);
 
+#if ANTLR3C_NEW_INPUT
+  query = antlr3StringStreamNew ((pANTLR3_UINT8)rsp_query, ANTLR3_ENC_8BIT, (ANTLR3_UINT64)strlen(rsp_query), (pANTLR3_UINT8)"RSP query");
+#else
   query = antlr3NewAsciiStringInPlaceStream ((pANTLR3_UINT8)rsp_query, (ANTLR3_UINT64)strlen(rsp_query), (pANTLR3_UINT8)"RSP query");
+#endif
   if (!query)
     {
       DPRINTF(E_DBG, L_RSP, "Could not create input stream\n");
