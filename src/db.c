@@ -3990,6 +3990,12 @@ db_perthread_deinit(void)
 #define I_ALBUM					\
   "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
 
+#define I_PL_PATH				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
+
+#define I_PL_DISABLED				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled);"
+
 #define I_FILEPATH							\
   "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
 
@@ -4068,6 +4074,9 @@ static const struct db_init_query db_init_queries[] =
     { I_COMPOSER,  "create composer index" },
     { I_TITLE,     "create title index" },
     { I_ALBUM,     "create album index" },
+
+    { I_PL_PATH,   "create playlist path index" },
+    { I_PL_DISABLED, "create playlist state index" },
 
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
