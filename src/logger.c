@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,12 +26,15 @@
 #include <string.h>
 #include <time.h>
 #include <errno.h>
+#include <sys/stat.h>
+#include <pwd.h>
 #include <pthread.h>
 
 #include <event.h>
 
 #include <libavutil/log.h>
 
+#include "conffile.h"
 #include "logger.h"
 
 
@@ -198,32 +201,13 @@ void
 logger_reinit(void)
 {
   FILE *fp;
-  uid_t uid;
-  int ret;
 
   if (!logfile)
     return;
 
   pthread_mutex_lock(&logger_lck);
 
-  uid = geteuid();
-
-  if (uid != 0)
-    {
-      ret = seteuid(0);
-      if (ret < 0)
-	fprintf(logfile, "logger_reinit: seteuid(0) failed: %s\n", strerror(errno));
-    }
-
   fp = fopen(logfilename, "a");
-
-  if (uid != 0)
-    {
-      ret = seteuid(uid);
-      if (ret < 0)
-	fprintf(logfile, "logger_reinit: seteuid(%lu) failed: %s\n", (unsigned long)uid, strerror(errno));
-    }
-
   if (!fp)
     {
       fprintf(logfile, "Could not reopen logfile: %s\n", strerror(errno));
@@ -262,6 +246,8 @@ logger_detach(void)
 int
 logger_init(char *file, char *domains, int severity)
 {
+  struct passwd *pw;
+  char *runas;
   int ret;
 
   if ((sizeof(labels) / sizeof(labels[0])) != N_LOGDOMAINS)
@@ -286,6 +272,15 @@ logger_init(char *file, char *domains, int severity)
   if (!file)
     return 0;
 
+  runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
+  pw = getpwnam(runas);
+  if (!pw)
+    {
+      fprintf(stderr, "Could not lookup user %s: %s\n", runas, strerror(errno));
+
+      return -1;
+    }
+
   logfile = fopen(file, "a");
   if (!logfile)
     {
@@ -293,6 +288,14 @@ logger_init(char *file, char *domains, int severity)
 
       return -1;
     }
+
+  ret = fchown(fileno(logfile), pw->pw_uid, 0);
+  if (ret < 0)
+    fprintf(stderr, "Failed to set ownership on logfile: %s\n", strerror(errno));
+
+  ret = fchmod(fileno(logfile), 0644);
+  if (ret < 0)
+    fprintf(stderr, "Failed to set permissions on logfile: %s\n", strerror(errno));
 
   logfilename = file;
 
