@@ -198,6 +198,8 @@ scan_m3u_playlist(char *file)
 	free(filename);
     }
 
+  free(pl_base);
+
   if (!feof(fp))
     {
       DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s': %s\n", file, strerror(errno));
