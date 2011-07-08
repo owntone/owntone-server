@@ -76,6 +76,7 @@ static cfg_opt_t sec_audio[] =
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
     CFG_STR("card", "/dev/dsp", CFGF_NONE),
 #endif
+    CFG_STR("mixer", NULL, CFGF_NONE),
     CFG_END()
   };
 

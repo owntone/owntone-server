@@ -57,6 +57,7 @@ static struct pcm_packet *pcm_pkt_head;
 static struct pcm_packet *pcm_pkt_tail;
 
 static char *card_name;
+static char *mixer_name;
 static snd_pcm_t *hdl;
 static snd_mixer_t *mixer_hdl;
 static snd_mixer_elem_t *vol_elem;
@@ -412,6 +413,7 @@ mixer_open(void)
   snd_mixer_elem_t *elem;
   snd_mixer_elem_t *master;
   snd_mixer_elem_t *pcm;
+  snd_mixer_elem_t *custom;
   snd_mixer_selem_id_t *sid;
   int ret;
 
@@ -453,17 +455,34 @@ mixer_open(void)
 
   pcm = NULL;
   master = NULL;
+  custom = NULL;
   for (elem = snd_mixer_first_elem(mixer_hdl); elem; elem = snd_mixer_elem_next(elem))
     {
       snd_mixer_selem_get_id(elem, sid);
 
-      if (strcmp(snd_mixer_selem_id_get_name(sid), "PCM") == 0)
+      if (mixer_name && (strcmp(snd_mixer_selem_id_get_name(sid), mixer_name) == 0))
+	{
+	  custom = elem;
+	  break;
+	}
+      else if (strcmp(snd_mixer_selem_id_get_name(sid), "PCM") == 0)
         pcm = elem;
       else if (strcmp(snd_mixer_selem_id_get_name(sid), "Master") == 0)
 	master = elem;
     }
 
-  if (pcm)
+  if (mixer_name)
+    {
+      if (custom)
+	vol_elem = custom;
+      else
+	{
+	  DPRINTF(E_LOG, L_LAUDIO, "Failed to open configured mixer element '%s'\n", mixer_name);
+
+	  goto out_detach;
+	}
+    }
+  else if (pcm)
     vol_elem = pcm;
   else if (master)
     vol_elem = master;
@@ -652,6 +671,7 @@ laudio_init(laudio_status_cb cb)
   status_cb = cb;
 
   card_name = cfg_getstr(cfg_getsec(cfg, "audio"), "card");
+  mixer_name = cfg_getstr(cfg_getsec(cfg, "audio"), "mixer");
 
   hdl = NULL;
   mixer_hdl = NULL;
