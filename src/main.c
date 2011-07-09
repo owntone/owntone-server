@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  *
  * Pieces from mt-daapd:
  * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
@@ -34,7 +34,6 @@
 #include <sys/wait.h>
 #include <signal.h>
 #include <limits.h>
-#include <pwd.h>
 #include <grp.h>
 #include <stdint.h>
 
@@ -114,23 +113,6 @@ daemonize(int background, char *pidfile)
   int fd;
   int ret;
   char *runas;
-  struct passwd *pw;
-
-  if (geteuid() == (uid_t) 0)
-    {
-      runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
-
-      pw = getpwnam(runas);
-
-      if (!pw)
-	{
-	  DPRINTF(E_FATAL, L_MAIN, "Could not lookup user %s: %s\n", runas, strerror(errno));
-
-	  return -1;
-	}
-    }
-  else
-    pw = NULL;
 
   if (background)
     {
@@ -199,9 +181,11 @@ daemonize(int background, char *pidfile)
       DPRINTF(E_DBG, L_MAIN, "PID: %d\n", getpid());
     }
 
-  if (pw)
+  if (geteuid() == (uid_t) 0)
     {
-      ret = initgroups(runas, pw->pw_gid);
+      runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
+
+      ret = initgroups(runas, runas_gid);
       if (ret != 0)
 	{
 	  DPRINTF(E_FATAL, L_MAIN, "initgroups() failed: %s\n", strerror(errno));
@@ -209,7 +193,7 @@ daemonize(int background, char *pidfile)
 	  return -1;
 	}
 
-      ret = setegid(pw->pw_gid);
+      ret = setegid(runas_gid);
       if (ret != 0)
 	{
 	  DPRINTF(E_FATAL, L_MAIN, "setegid() failed: %s\n", strerror(errno));
@@ -217,7 +201,7 @@ daemonize(int background, char *pidfile)
 	  return -1;
 	}
 
-      ret = seteuid(pw->pw_uid);
+      ret = seteuid(runas_uid);
       if (ret != 0)
 	{
 	  DPRINTF(E_FATAL, L_MAIN, "seteuid() failed: %s\n", strerror(errno));
