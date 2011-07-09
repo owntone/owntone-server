@@ -2596,6 +2596,7 @@ raop_v2_timing_start_one(struct raop_service *svc, int family)
 	}
     }
 
+  memset(&sa, 0, sizeof(union sockaddr_all));
   sa.ss.ss_family = family;
 
   switch (family)
@@ -2927,6 +2928,7 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
 	}
     }
 
+  memset(&sa, 0, sizeof(union sockaddr_all));
   sa.ss.ss_family = family;
 
   switch (family)
