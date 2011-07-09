@@ -829,7 +829,7 @@ _create_services(void)
         DPRINTF(E_DBG, L_MDNS, "Re-registering %s/%s\n", pentry->name, pentry->type);
 
         ret = avahi_entry_group_add_service_strlst(mdns_group, AVAHI_IF_UNSPEC, AVAHI_PROTO_UNSPEC, 0,
-						   avahi_strdup(pentry->name), avahi_strdup(pentry->type),
+						   pentry->name, pentry->type,
 						   NULL, NULL, pentry->port, pentry->txt);
 	if (ret < 0)
 	  {
