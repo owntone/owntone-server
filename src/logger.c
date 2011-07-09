@@ -27,7 +27,6 @@
 #include <time.h>
 #include <errno.h>
 #include <sys/stat.h>
-#include <pwd.h>
 #include <pthread.h>
 
 #include <event.h>
@@ -246,8 +245,6 @@ logger_detach(void)
 int
 logger_init(char *file, char *domains, int severity)
 {
-  struct passwd *pw;
-  char *runas;
   int ret;
 
   if ((sizeof(labels) / sizeof(labels[0])) != N_LOGDOMAINS)
@@ -272,15 +269,6 @@ logger_init(char *file, char *domains, int severity)
   if (!file)
     return 0;
 
-  runas = cfg_getstr(cfg_getsec(cfg, "general"), "uid");
-  pw = getpwnam(runas);
-  if (!pw)
-    {
-      fprintf(stderr, "Could not lookup user %s: %s\n", runas, strerror(errno));
-
-      return -1;
-    }
-
   logfile = fopen(file, "a");
   if (!logfile)
     {
@@ -289,7 +277,7 @@ logger_init(char *file, char *domains, int severity)
       return -1;
     }
 
-  ret = fchown(fileno(logfile), pw->pw_uid, 0);
+  ret = fchown(fileno(logfile), runas_uid, 0);
   if (ret < 0)
     fprintf(stderr, "Failed to set ownership on logfile: %s\n", strerror(errno));
 
