@@ -4045,9 +4045,9 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION 12
+#define SCHEMA_VERSION 13
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '12');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '13');"
 
 struct db_init_query {
   char *query;
@@ -4623,6 +4623,92 @@ db_upgrade_v12(void)
 #undef Q_DUMP
 }
 
+/* Upgrade from schema v12 to v13 */
+
+#define U_V13_DROP_IDX_PATH						\
+  "DROP INDEX idx_path;"
+
+#define U_V13_DROP_IDX_TS						\
+  "DROP INDEX idx_titlesort;"
+
+#define U_V13_DROP_IDX_AS						\
+  "DROP INDEX idx_artistsort;"
+
+#define U_V13_DROP_IDX_BS						\
+  "DROP INDEX idx_albumsort;"
+
+#define U_V13_IDX_RESCAN						\
+  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
+
+#define U_V13_IDX_SONGALBUMID					\
+  "CREATE INDEX IF NOT EXISTS idx_sai ON files(songalbumid);"
+
+#define U_V13_IDX_STATEMKINDSAI						\
+  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sai ON files(disabled, media_kind, songalbumid);"
+
+#define U_V13_IDX_ARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
+
+#define U_V13_IDX_ALBUMARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
+
+#define U_V13_IDX_COMPOSER				\
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
+
+#define U_V13_IDX_TITLE					\
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
+
+#define U_V13_IDX_ALBUM					\
+  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
+
+#define U_V13_IDX_GRP_TYPE_PERSIST					\
+  "CREATE INDEX IF NOT EXISTS idx_grp_type_persist ON groups(type, persistentid);"
+
+#define U_V13_IDX_PL_PATH				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
+
+#define U_V13_IDX_PL_DISABLED				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled);"
+
+#define U_V13_PL2							\
+  "UPDATE playlists SET query = 'f.media_kind = 1' where id = 2;"
+
+#define U_V13_PL3							\
+  "UPDATE playlists SET query = 'f.media_kind = 2' where id = 3;"
+
+#define U_V13_PL4							\
+  "UPDATE playlists SET query = 'f.media_kind = 64' where id = 4;"
+
+#define U_V13_SCVER				\
+  "UPDATE admin SET value = '13' WHERE key = 'schema_version';"
+
+static const struct db_init_query db_upgrade_v13_queries[] =
+  {
+    { U_V13_DROP_IDX_PATH, "drop index path table files" },
+    { U_V13_DROP_IDX_TS,   "drop index titlesort table files" },
+    { U_V13_DROP_IDX_AS,   "drop index artistsort table files" },
+    { U_V13_DROP_IDX_BS,   "drop index albumsort table files" },
+
+    { U_V13_IDX_RESCAN,    "create rescan index" },
+    { U_V13_IDX_SONGALBUMID, "create songalbumid index" },
+    { U_V13_IDX_STATEMKINDSAI, "create state/mkind/sai index" },
+    { U_V13_IDX_ARTIST,    "create artist index" },
+    { U_V13_IDX_ALBUMARTIST, "create album_artist index" },
+    { U_V13_IDX_COMPOSER,  "create composer index" },
+    { U_V13_IDX_TITLE,     "create title index" },
+    { U_V13_IDX_ALBUM,     "create album index" },
+
+    { U_V13_IDX_GRP_TYPE_PERSIST, "create groups type/persistentid index" },
+
+    { U_V13_IDX_PL_PATH,   "create playlist path index" },
+    { U_V13_IDX_PL_DISABLED, "create playlist state index" },
+
+    { U_V13_PL2,           "update default smart playlist 'Music'" },
+    { U_V13_PL3,           "update default smart playlist 'Movies'" },
+    { U_V13_PL4,           "update default smart playlist 'TV Shows'" },
+
+    { U_V13_SCVER,    "set schema_version to 13" },
+  };
 
 static int
 db_check_version(void)
@@ -4685,6 +4771,13 @@ db_check_version(void)
 	      return -1;
 
 	    ret = db_generic_upgrade(db_upgrade_v12_queries, sizeof(db_upgrade_v12_queries) / sizeof(db_upgrade_v12_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 12:
+	    ret = db_generic_upgrade(db_upgrade_v13_queries, sizeof(db_upgrade_v13_queries) / sizeof(db_upgrade_v13_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
