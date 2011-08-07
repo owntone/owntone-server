@@ -1,6 +1,12 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 0.18:
+	- add config knob for ALSA mixer channel name.
+	- do not elevate privileges for reopening the log file; log file
+	  will now be owned by the user forked-daapd runs as.
+	- fixes, big and small.
+
 version 0.17:
 	- support for libav 0.7
 	- fixes, big and small.
