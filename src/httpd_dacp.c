@@ -1260,16 +1260,15 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
   while (prop)
     {
       dpm = dacp_find_prop(prop, strlen(prop));
-      if (!dpm)
+      if (dpm)
 	{
-	  DPRINTF(E_LOG, L_DACP, "Could not find requested property '%s'\n", prop);
-	  continue;
+	  if (dpm->propget)
+	    dpm->propget(proplist, &status, mfi);
+	  else
+	    DPRINTF(E_WARN, L_DACP, "No getter method for DACP property %s\n", prop);
 	}
-
-      if (dpm->propget)
-	dpm->propget(proplist, &status, mfi);
       else
-	DPRINTF(E_WARN, L_DACP, "No getter method for DACP property %s\n", prop);
+	DPRINTF(E_LOG, L_DACP, "Could not find requested property '%s'\n", prop);
 
       prop = strtok_r(NULL, ",", &ptr);
     }
