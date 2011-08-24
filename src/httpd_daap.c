@@ -59,7 +59,17 @@ extern struct event_base *evbase_httpd;
 
 /* Session timeout in seconds */
 #define DAAP_SESSION_TIMEOUT 1800
+/* Amount of time update request can pending before we 
+   send a forced response to keep the channel alive */
+#define DAAP_UPDATE_TIMEOUT  1500
+/* How often we poll for database changes */
+#define DAAP_UPDATE_MONITOR_TIMEOUT 10
 
+/* XXX Workaround before adding revision support in db.c;
+   Client will not get dynamic updates.  The state of the
+   database at the time of connection is all the client
+   gets. */
+#define db_revision_number() (2)
 
 struct uri_map {
   regex_t preg;
@@ -67,14 +77,27 @@ struct uri_map {
   void (*handler)(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query);
 };
 
+struct daap_update_request; /* Forward */
 struct daap_session {
   int id;
 
   struct event timeout;
+  /* A pending request, if active */
+  struct daap_update_request *update_request;  
 };
 
 struct daap_update_request {
+
+  /* Currently pending request */
   struct evhttp_request *req;
+  /* Time-out when an update *must* be sent */
+  struct event timeout;
+  /* Session that this request belongs to */
+  struct daap_session *session;
+
+  /* Current revision number client is reporting */
+  int revision_number;
+  int session_id;
 
   struct daap_update_request *next;
 };
@@ -99,6 +122,16 @@ static int next_session_id;
 
 /* Update requests */
 static struct daap_update_request *update_requests;
+/* Global persistent timer that triggers periodically (10 secs).  
+   Checks the database to see if it has changed, and if so,
+   pushes a response to all outstanding client update requests. */
+static struct event update_monitor_timer;
+
+/* Forward declaration */
+static void
+daap_update_timeout_cb(int fd, short what, void *arg);
+static void
+update_request_free(struct daap_update_request *ur, int free_conn);
 
 
 /* Session handling */
@@ -117,6 +150,9 @@ daap_session_compare(const void *aa, const void *bb)
   return 0;
 }
 
+/*
+ * daap_session_free - called by avl_delete()
+ */
 static void
 daap_session_free(void *item)
 {
@@ -124,16 +160,37 @@ daap_session_free(void *item)
 
   s = (struct daap_session *)item;
 
+  /* If there is a pending request, then close it out */
+  if (s->update_request) 
+    update_request_free(s->update_request, 1 /* Close connection */);
   evtimer_del(&s->timeout);
   free(s);
+
+  /* XXX does not handle the case the connection being open but no
+     pending request.  The connection stays silently open but 
+     httpd_daapd refuses to acknowledge stale requests on the 
+     connection.
+  */
 }
 
+
+/*
+ * daap_session_kill - recover when connection dies
+ */
 static void
 daap_session_kill(struct daap_session *s)
 {
+  /* NOTE: automatically calls daap_session_free() */
   avl_delete(daap_sessions, s);
 }
 
+/*
+ * daap_session_timeout_cb - event callback when session inactivity timeout is triggered
+ * 
+ * fd - dummy
+ * what - time event fired
+ * arg - session pointer
+ */
 static void
 daap_session_timeout_cb(int fd, short what, void *arg)
 {
@@ -149,14 +206,10 @@ daap_session_timeout_cb(int fd, short what, void *arg)
 static struct daap_session *
 daap_session_register(void)
 {
-#if 0
   struct timeval tv;
-#endif
   struct daap_session *s;
   avl_node_t *node;
-#if 0
   int ret;
-#endif
 
   s = (struct daap_session *)malloc(sizeof(struct daap_session));
   if (!s)
@@ -168,7 +221,6 @@ daap_session_register(void)
   memset(s, 0, sizeof(struct daap_session));
 
   s->id = next_session_id;
-
   next_session_id++;
 
   evtimer_set(&s->timeout, daap_session_timeout_cb, s);
@@ -183,14 +235,12 @@ daap_session_register(void)
       return NULL;
     }
 
-#if 0
   evutil_timerclear(&tv);
   tv.tv_sec = DAAP_SESSION_TIMEOUT;
 
   ret = evtimer_add(&s->timeout, &tv);
   if (ret < 0)
     DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
-#endif /* 0 */
 
   return s;
 }
@@ -199,9 +249,7 @@ struct daap_session *
 daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct evbuffer *evbuf)
 {
   struct daap_session needle;
-#if 0
   struct timeval tv;
-#endif
   struct daap_session *s;
   avl_node_t *node;
   const char *param;
@@ -227,7 +275,6 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
 
   s = (struct daap_session *)node->item;
 
-#if 0
   event_del(&s->timeout);
 
   evutil_timerclear(&tv);
@@ -236,7 +283,6 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
   ret = evtimer_add(&s->timeout, &tv);
   if (ret < 0)
     DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
-#endif /* 0 */
 
   return s;
 
@@ -245,21 +291,19 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
   return NULL;
 }
 
-
-/* Update requests helpers */
+/*
+ * update_request_free - delete update request and remove from list of pending updates
+ *
+ * ur - pointer to update request to remove
+ * free_con - if set, then close the associated HTTP connection
+ *
+ */
 static void
-update_fail_cb(struct evhttp_connection *evcon, void *arg)
+update_request_free(struct daap_update_request *ur, int free_conn)
 {
-  struct daap_update_request *ur;
   struct daap_update_request *p;
 
-  ur = (struct daap_update_request *)arg;
-
-  DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
-
-  if (ur->req->evcon)
-    evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
-
+  if (ur == 0) return;
   if (ur == update_requests)
     update_requests = ur->next;
   else
@@ -276,7 +320,31 @@ update_fail_cb(struct evhttp_connection *evcon, void *arg)
       p->next = ur->next;
     }
 
+  if (ur->session)
+    ur->session->update_request = 0;
+
+  evtimer_del(&ur->timeout);
+  if (ur->req && ur->req->evcon)
+    {
+      evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+      if (free_conn) evhttp_connection_free(ur->req->evcon);
+    }
+
   free(ur);
+}
+
+
+/* Update requests helpers */
+static void
+update_fail_cb(struct evhttp_connection *evcon, void *arg)
+{
+  struct daap_update_request *ur;
+
+  ur = (struct daap_update_request *)arg;
+
+  DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
+
+  update_request_free(ur, 1 /* Close connection */);
 }
 
 
@@ -632,12 +700,12 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_int(evbuf, "mpro", mpro); /* 12 */
   dmap_add_int(evbuf, "apro", apro); /* 12 */
   dmap_add_string(evbuf, "minm", name); /* 8 + strlen(name) */
-
 #if 0
+  /* XXX Strangely, if these are enabled, then the client does
+     not poll for updates, even if msup == 1 */
   dmap_add_int(evbuf, "mstm", DAAP_SESSION_TIMEOUT); /* 12 */
   dmap_add_char(evbuf, "msal", 1);   /* 9 */
 #endif
-
   dmap_add_char(evbuf, "mslr", 1);   /* 9 */
   dmap_add_char(evbuf, "msau", (passwd) ? 2 : 0); /* 9 */
   dmap_add_char(evbuf, "msex", 1);   /* 9 */
@@ -648,7 +716,6 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_char(evbuf, "mspi", 1);   /* 9 */
   dmap_add_int(evbuf, "msdc", 1);    /* 12 */
 
-  /* Advertise updates support even though we don't send updates */
   dmap_add_char(evbuf, "msup", 1);   /* 9 */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
@@ -777,13 +844,144 @@ daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   httpd_send_reply(req, 204, "Logout Successful", evbuf);
 }
 
+/*
+ * Send update response 
+ *    s - current DAAP session
+ *    req - evhttp_request we are responding to
+ *    force - whether we are forcing a reply even if the database is unchanged
+ * Return value:
+ *   -1: error
+ *    0: did not send
+ *    1: reply sent OK
+ */
+static int
+daap_update_response(struct daap_update_request *ur, int force)
+{
+  int db_rev = db_revision_number();
+  struct evbuffer *evbuf;
+
+  DPRINTF(E_DBG, L_DAAP, "   (update, session-id=%d, old_rev=%d, current_rev=%d, force=%d)\n", 
+	  ur->session_id, ur->revision_number, db_rev, force);
+  if (!force && ur->revision_number == db_rev) return 0;
+
+  evbuf = evbuffer_new();
+  if (evbuffer_expand(evbuf, 32) < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP update reply\n");
+      
+      dmap_send_error(ur->req, "mupd", "Out of memory");
+      return -1;
+    }
+
+  /* Send back current revision */
+  dmap_add_container(evbuf, "mupd", 24);
+  dmap_add_int(evbuf, "mstt", 200);    /* 12 */
+  dmap_add_int(evbuf, "musr", db_rev); /* 12 */
+
+  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+  evbuffer_free(evbuf);
+  DPRINTF(E_DBG, L_DAAP, "   (reply OK, session-id=%d, old_rev=%d, current_rev=%d)\n", 
+	  ur->session_id, ur->revision_number, db_rev);
+
+  ur->revision_number = db_rev;
+  return 1;
+}
+
+/* 
+ * daap_update_monitor_cb - global database monitor callback
+ *
+ * This function is called periodically, to monitor for database updates
+ * that need to be sent out.
+ *
+ * fd - dummy
+ * what - timer event
+ * arg - dummy
+ */
+static void
+daap_update_monitor_cb(int fd, short what, void *arg)
+{
+  struct timeval tv;
+  int db_rev = db_revision_number();
+  int ret;
+  struct daap_update_request *ur = 0, *next = 0;
+
+  DPRINTF(E_DBG, L_DAAP, "Periodic update monitor event (db-rev=%d)\n", db_rev);
+  ur = update_requests;
+  while (ur)
+    {
+      next = ur->next;  /* Cache a local copy of "next" */
+      DPRINTF(E_DBG, L_DAAP, 
+	      "   (session-id=%d, request=%d, rev=%d)\n",
+	      ur->session_id, ur->req ? 1 : 0, ur->revision_number);
+      if (! ur->req ) continue;
+      
+      /* Send update to client now */
+      ret = 0;
+      if (db_rev != ur->revision_number) 
+	ret = daap_update_response(ur, 1);
+
+      /* If we sent a reply, remove this update request from the linked list */
+      if (ret > 0) update_request_free(ur, 0);
+
+      ur = next; /* Advance to next request */
+    }
+
+  /* Reset the timer for next monitor cycle */
+  evutil_timerclear(&tv);
+  tv.tv_sec = DAAP_UPDATE_MONITOR_TIMEOUT;
+  evtimer_add(&update_monitor_timer, &tv);
+  
+  return;
+}
+
+/* 
+ * daap_update_timeout_cb - single update timeout callback
+ *
+ * Called when an individual session update has timed out
+ *
+ * fd - dummy
+ * what - timer event
+ * arg - pointer to update request
+ */
+static void
+daap_update_timeout_cb(int fd, short what, void *arg)
+{
+  struct daap_update_request *ur;
+
+  ur = (struct daap_update_request *) arg;
+
+  if (ur && ur->req)
+    {
+      DPRINTF(E_DBG, L_DAAP, "Session update timeout (session-id=%d)\n", ur->session_id);
+      daap_update_response(ur, 1);
+    }
+  
+  /* Remove update_request from list */
+  update_request_free(ur, 0);
+  
+  return;
+}
+
+
+/*
+ * daap_reply_update - accept DAAP update request and respond or queue response
+ *
+ * Is passed an update request from HTTP server.  If an update is available
+ * already, then it is responded to immediately, otherwise the request is
+ * queued with other update_requests for later response.
+ *
+ * req - HTTP request
+ * evbuf - response buffer
+ * uri - parsed URI
+ * query - parsed query parameters
+ *
+ */
 static void
 daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
-  struct daap_update_request *ur;
+  struct daap_update_request *ur, update;
   const char *param;
-  int current_rev = 2;
   int reqd_rev;
   int ret;
 
@@ -809,47 +1007,64 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       return;
     }
 
-  if (reqd_rev == 1) /* Or revision is not valid */
-    {
-      ret = evbuffer_expand(evbuf, 32);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP update reply\n");
+  DPRINTF(E_DBG, L_DAAP, "DAAP update request (revision=%d)\n", reqd_rev);
 
+  memset(&update, 0, sizeof(update));
+  update.revision_number = reqd_rev;
+  update.session_id = s->id;
+  update.req = req;
+
+  ret = daap_update_response(&update, 0);
+  if (ret < 0) 
+    return;
+  
+  if (ret == 0) 
+    {
+      struct timeval tv;
+      /* We did not send a reply immediately because the database is unchanged,
+	 so queue this request for pushing later. */
+
+      DPRINTF(E_DBG, L_DAAP, "Queuing update request for session-id=%d\n", s->id);
+
+      /* Create daap_update_request structure */
+      ur = (struct daap_update_request *)malloc(sizeof(struct daap_update_request));
+      if (!ur)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Out of memory for update request\n");
+	  
 	  dmap_send_error(req, "mupd", "Out of memory");
 	  return;
 	}
+      *ur = update;  /* Copy temporary request info into malloc'd structure */
+      ur->req = req;
+      ur->next = update_requests;
+      update_requests = ur;  /* Add to master list */
 
-      /* Send back current revision */
-      dmap_add_container(evbuf, "mupd", 24);
-      dmap_add_int(evbuf, "mstt", 200);         /* 12 */
-      dmap_add_int(evbuf, "musr", current_rev); /* 12 */
+      /* Link the session and the request */
+      ur->session = s;
+      s->update_request = ur;
 
-      httpd_send_reply(req, HTTP_OK, "OK", evbuf);
-
-      return;
+      /* Set the time-out timer */
+      evtimer_set(&ur->timeout, daap_update_timeout_cb, ur);
+      event_base_set(evbase_httpd, &ur->timeout);
+      evutil_timerclear(&tv);
+      tv.tv_sec = DAAP_UPDATE_TIMEOUT;
+      
+      ret = evtimer_add(&ur->timeout, &tv);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not add update timeout event for session %d\n", s->id);
+	  dmap_send_error(req, "mupd", "Timer setting failed");
+	  return;
+	}
+      
+      /* If the connection fails before we have an update to push out
+       * to the client, we need to know.
+       */
+      evhttp_connection_set_closecb(req->evcon, update_fail_cb, ur);
     }
 
-  /* Else, just let the request hang until we have changes to push back */
-  ur = (struct daap_update_request *)malloc(sizeof(struct daap_update_request));
-  if (!ur)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Out of memory for update request\n");
-
-      dmap_send_error(req, "mupd", "Out of memory");
-      return;
-    }
-
-  /* NOTE: we may need to keep reqd_rev in there too */
-  ur->req = req;
-
-  ur->next = update_requests;
-  update_requests = ur;
-
-  /* If the connection fails before we have an update to push out
-   * to the client, we need to know.
-   */
-  evhttp_connection_set_closecb(req->evcon, update_fail_cb, ur);
+  return;
 }
 
 static void
@@ -2426,10 +2641,25 @@ daap_init(void)
   char buf[64];
   int i;
   int ret;
+  struct timeval tv;
 
   next_session_id = 100; /* gotta start somewhere, right? */
   update_requests = NULL;
 
+  /* Add a monitor timer which periodically polls the database revision number */
+  evtimer_set(&update_monitor_timer, daap_update_monitor_cb, 0);
+  event_base_set(evbase_httpd, &update_monitor_timer);
+  
+  evutil_timerclear(&tv);
+  tv.tv_sec = DAAP_UPDATE_MONITOR_TIMEOUT;
+  ret = evtimer_add(&update_monitor_timer, &tv);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_DAAP, "Could not add update monitor timer\n");
+      return -1;
+    }
+
+  /* Initialize handlers */
   for (i = 0; daap_handlers[i].handler; i++)
     {
       ret = regcomp(&daap_handlers[i].preg, daap_handlers[i].regexp, REG_EXTENDED | REG_NOSUB);
@@ -2442,6 +2672,7 @@ daap_init(void)
         }
     }
 
+  /* Initialize session tree */
   daap_sessions = avl_alloc_tree(daap_session_compare, daap_session_free);
   if (!daap_sessions)
     {
@@ -2470,16 +2701,10 @@ daap_deinit(void)
 
   avl_free_tree(daap_sessions);
 
-  for (ur = update_requests; update_requests; ur = update_requests)
+  /* Free any update requests, starting at the beginning */
+  while ( (ur = update_requests) )
     {
-      update_requests = ur->next;
-
-      if (ur->req->evcon)
-	{
-	  evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
-	  evhttp_connection_free(ur->req->evcon);
-	}
-
-      free(ur);
+      update_request_free(ur, 1 /* Close connection */);
+      /* Note: update_requests changes */
     }
 }
