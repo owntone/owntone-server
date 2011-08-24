@@ -65,12 +65,6 @@ extern struct event_base *evbase_httpd;
 /* How often we poll for database changes */
 #define DAAP_UPDATE_MONITOR_TIMEOUT 10
 
-/* XXX Workaround before adding revision support in db.c;
-   Client will not get dynamic updates.  The state of the
-   database at the time of connection is all the client
-   gets. */
-#define db_revision_number() (2)
-
 struct uri_map {
   regex_t preg;
   char *regexp;
