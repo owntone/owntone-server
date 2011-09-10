@@ -155,14 +155,10 @@ daap_session_timeout_cb(int fd, short what, void *arg)
 static struct daap_session *
 daap_session_register(void)
 {
-#if 0
   struct timeval tv;
-#endif
   struct daap_session *s;
   avl_node_t *node;
-#if 0
   int ret;
-#endif
 
   s = (struct daap_session *)malloc(sizeof(struct daap_session));
   if (!s)
@@ -189,14 +185,12 @@ daap_session_register(void)
       return NULL;
     }
 
-#if 0
   evutil_timerclear(&tv);
   tv.tv_sec = DAAP_SESSION_TIMEOUT;
 
   ret = evtimer_add(&s->timeout, &tv);
   if (ret < 0)
     DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
-#endif /* 0 */
 
   return s;
 }
@@ -205,9 +199,7 @@ struct daap_session *
 daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct evbuffer *evbuf)
 {
   struct daap_session needle;
-#if 0
   struct timeval tv;
-#endif
   struct daap_session *s;
   avl_node_t *node;
   const char *param;
@@ -233,7 +225,6 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
 
   s = (struct daap_session *)node->item;
 
-#if 0
   event_del(&s->timeout);
 
   evutil_timerclear(&tv);
@@ -242,7 +233,6 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
   ret = evtimer_add(&s->timeout, &tv);
   if (ret < 0)
     DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
-#endif /* 0 */
 
   return s;
 
@@ -656,7 +646,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   passwd = cfg_getstr(lib, "password");
   name = cfg_getstr(lib, "name");
 
-  len = 136 + strlen(name);
+  len = 157 + strlen(name);
 
   ret = evbuffer_expand(evbuf, len);
   if (ret < 0)
@@ -691,10 +681,8 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_int(evbuf, "apro", apro); /* 12 */
   dmap_add_string(evbuf, "minm", name); /* 8 + strlen(name) */
 
-#if 0
   dmap_add_int(evbuf, "mstm", DAAP_SESSION_TIMEOUT); /* 12 */
   dmap_add_char(evbuf, "msal", 1);   /* 9 */
-#endif
 
   dmap_add_char(evbuf, "mslr", 1);   /* 9 */
   dmap_add_char(evbuf, "msau", (passwd) ? 2 : 0); /* 9 */
