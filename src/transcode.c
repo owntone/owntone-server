@@ -454,7 +454,9 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 	}
 
       ctx->need_resample = 1;
-#if LIBAVCODEC_VERSION_MAJOR >= 53
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 4)
+      ctx->input_size = ctx->acodec->channels * av_get_bytes_per_sample(ctx->acodec->sample_fmt);
+#elif LIBAVCODEC_VERSION_MAJOR >= 53
       ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_fmt(ctx->acodec->sample_fmt) / 8;
 #else
       ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_format(ctx->acodec->sample_fmt) / 8;

@@ -410,7 +410,9 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	mfi->samplerate = audio_stream->codec->sample_rate;
 
       /* Try sample format first */
-#if LIBAVCODEC_VERSION_MAJOR >= 53
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 4)
+      mfi->bits_per_sample = 8 * av_get_bytes_per_sample(audio_stream->codec->sample_fmt);
+#elif LIBAVCODEC_VERSION_MAJOR >= 53
       mfi->bits_per_sample = av_get_bits_per_sample_fmt(audio_stream->codec->sample_fmt);
 #else
       mfi->bits_per_sample = av_get_bits_per_sample_format(audio_stream->codec->sample_fmt);
