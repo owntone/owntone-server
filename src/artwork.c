@@ -265,6 +265,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   dst->width = out_w;
   dst->height = out_h;
 
+#if LIBAVFORMAT_VERSION_MAJOR <= 52 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR <= 1)
   ret = av_set_parameters(dst_ctx, NULL);
   if (ret < 0)
     {
@@ -273,6 +274,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
       ret = -1;
       goto out_free_dst;
     }
+#endif
 
   /* Open encoder */
   ret = avcodec_open(dst, img_encoder);
@@ -411,7 +413,11 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   pkt.data = outbuf;
   pkt.size = ret;
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 3)
+  ret = avformat_write_header(dst_ctx, NULL);
+#else
   ret = av_write_header(dst_ctx);
+#endif
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_ART, "Could not write artwork header: %s\n", strerror(AVUNERROR(ret)));
