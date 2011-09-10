@@ -203,9 +203,17 @@ static const struct metadata_map md_map_id3[] =
 
 
 static int
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 5)
+extract_metadata_core(struct media_file_info *mfi, AVDictionary *md, const struct metadata_map *md_map)
+#else
 extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct metadata_map *md_map)
+#endif
 {
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 5)
+  AVDictionaryEntry *mdt;
+#else
   AVMetadataTag *mdt;
+#endif
   char **strval;
   uint32_t *intval;
   int mdcount;
@@ -215,7 +223,11 @@ extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct 
 #if 0
   /* Dump all the metadata reported by ffmpeg */
   mdt = NULL;
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 5)
+  while ((mdt = av_dict_get(md, "", mdt, AV_DICT_IGNORE_SUFFIX)) != NULL)
+#else
   while ((mdt = av_metadata_get(md, "", mdt, AV_METADATA_IGNORE_SUFFIX)) != NULL)
+#endif
     fprintf(stderr, " -> %s = %s\n", mdt->key, mdt->value);
 #endif
 
@@ -224,7 +236,11 @@ extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct 
   /* Extract actual metadata */
   for (i = 0; md_map[i].key != NULL; i++)
     {
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 5)
+      mdt = av_dict_get(md, md_map[i].key, NULL, 0);
+#else
       mdt = av_metadata_get(md, md_map[i].key, NULL, 0);
+#endif
       if (mdt == NULL)
 	continue;
 
