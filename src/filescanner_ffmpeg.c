@@ -311,7 +311,13 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   int i;
   int ret;
 
+  ctx = NULL;
+
+#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 3)
+  ret = avformat_open_input(&ctx, file, NULL, NULL);
+#else
   ret = av_open_input_file(&ctx, file, NULL, 0, NULL);
+#endif
   if (ret != 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Cannot open media file '%s': %s\n", file, strerror(AVUNERROR(ret)));

@@ -354,7 +354,11 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
     }
   memset(ctx, 0, sizeof(struct transcode_ctx));
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 3)
+  ret = avformat_open_input(&ctx->fmtctx, mfi->path, NULL, NULL);
+#else
   ret = av_open_input_file(&ctx->fmtctx, mfi->path, NULL, 0, NULL);
+#endif
   if (ret != 0)
     {
       DPRINTF(E_WARN, L_XCODE, "Could not open file %s: %s\n", mfi->fname, strerror(AVUNERROR(ret)));
