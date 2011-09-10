@@ -336,7 +336,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
 #if 0
   /* Dump input format as determined by ffmpeg */
+# if LIBAVFORMAT_VERSION_MAJOR >= 52 || (LIBAVFORMAT_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 101)
+  av_dump_format(ctx, 0, file, 0);
+# else
   dump_format(ctx, 0, file, FALSE);
+# endif
 #endif
 
   DPRINTF(E_DBG, L_SCAN, "File has %d streams\n", ctx->nb_streams);
