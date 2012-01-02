@@ -268,15 +268,6 @@ static const char *sort_clause[] =
 static char *db_path;
 static __thread sqlite3 *hdl;
 
-/*
- * Starting database revision.  A number of 2 ensures that remote clients
- * always get a fresh update. (they start with 1)
- */
-static int db_rev = 2;
-/* Update the database revision number.  Don't worry about multiple threads,
-   we don't care about an accurate count of the number of revisions, just
-   that revisions have occurred or not.  */
-#define db_rev_increment() { db_rev ++; }
 
 /* Forward */
 static int
@@ -288,14 +279,6 @@ db_smartpl_count_items(const char *smartpl_query);
 struct playlist_info *
 db_pl_fetch_byid(int id);
 
-/*
- * db_revision_number - return current database revision number to external modules
- */
-int 
-db_revision_number()
-{
-  return db_rev;
-}
 
 char *
 db_escape_string(const char *str)
@@ -2024,7 +2007,6 @@ db_file_add(struct media_file_info *mfi)
     }
 
   sqlite3_free(query);
-  db_rev_increment();
 
   return 0;
 
@@ -2099,7 +2081,6 @@ db_file_update(struct media_file_info *mfi)
     }
 
   sqlite3_free(query);
-  db_rev_increment();
 
   return 0;
 
