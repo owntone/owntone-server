@@ -59,6 +59,8 @@ extern struct event_base *evbase_httpd;
 
 /* Session timeout in seconds */
 #define DAAP_SESSION_TIMEOUT 1800
+/* Update requests refresh interval in seconds */
+#define DAAP_UPDATE_REFRESH  300
 
 
 struct uri_map {
@@ -75,6 +77,9 @@ struct daap_session {
 
 struct daap_update_request {
   struct evhttp_request *req;
+
+  /* Refresh tiemout */
+  struct event timeout;
 
   struct daap_update_request *next;
 };
@@ -98,6 +103,7 @@ static avl_tree_t *daap_sessions;
 static int next_session_id;
 
 /* Update requests */
+static int current_rev;
 static struct daap_update_request *update_requests;
 
 
@@ -149,14 +155,10 @@ daap_session_timeout_cb(int fd, short what, void *arg)
 static struct daap_session *
 daap_session_register(void)
 {
-#if 0
   struct timeval tv;
-#endif
   struct daap_session *s;
   avl_node_t *node;
-#if 0
   int ret;
-#endif
 
   s = (struct daap_session *)malloc(sizeof(struct daap_session));
   if (!s)
@@ -183,14 +185,12 @@ daap_session_register(void)
       return NULL;
     }
 
-#if 0
   evutil_timerclear(&tv);
   tv.tv_sec = DAAP_SESSION_TIMEOUT;
 
   ret = evtimer_add(&s->timeout, &tv);
   if (ret < 0)
     DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
-#endif /* 0 */
 
   return s;
 }
@@ -199,9 +199,7 @@ struct daap_session *
 daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct evbuffer *evbuf)
 {
   struct daap_session needle;
-#if 0
   struct timeval tv;
-#endif
   struct daap_session *s;
   avl_node_t *node;
   const char *param;
@@ -227,7 +225,6 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
 
   s = (struct daap_session *)node->item;
 
-#if 0
   event_del(&s->timeout);
 
   evutil_timerclear(&tv);
@@ -236,7 +233,6 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
   ret = evtimer_add(&s->timeout, &tv);
   if (ret < 0)
     DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
-#endif /* 0 */
 
   return s;
 
@@ -248,17 +244,9 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
 
 /* Update requests helpers */
 static void
-update_fail_cb(struct evhttp_connection *evcon, void *arg)
+update_remove(struct daap_update_request *ur)
 {
-  struct daap_update_request *ur;
   struct daap_update_request *p;
-
-  ur = (struct daap_update_request *)arg;
-
-  DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
-
-  if (ur->req->evcon)
-    evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
 
   if (ur == update_requests)
     update_requests = ur->next;
@@ -275,8 +263,68 @@ update_fail_cb(struct evhttp_connection *evcon, void *arg)
 
       p->next = ur->next;
     }
+}
 
+static void
+update_free(struct daap_update_request *ur)
+{
+  if (event_initialized(&ur->timeout))
+      evtimer_del(&ur->timeout);
   free(ur);
+}
+
+static void
+update_refresh_cb(int fd, short event, void *arg)
+{
+  struct daap_update_request *ur;
+  struct evbuffer *evbuf;
+  int ret;
+
+  ur = (struct daap_update_request *)arg;
+
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not allocate evbuffer for DAAP update data\n");
+
+      return;
+    }
+
+  ret = evbuffer_expand(evbuf, 32);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP update data\n");
+
+      return;
+    }
+
+  /* Send back current revision */
+  dmap_add_container(evbuf, "mupd", 24);
+  dmap_add_int(evbuf, "mstt", 200);         /* 12 */
+  dmap_add_int(evbuf, "musr", current_rev); /* 12 */
+
+  evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+
+  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+
+  update_remove(ur);
+  update_free(ur);
+}
+
+static void
+update_fail_cb(struct evhttp_connection *evcon, void *arg)
+{
+  struct daap_update_request *ur;
+
+  ur = (struct daap_update_request *)arg;
+
+  DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
+
+  if (ur->req->evcon)
+    evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+
+  update_remove(ur);
+  update_free(ur);
 }
 
 
@@ -598,7 +646,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   passwd = cfg_getstr(lib, "password");
   name = cfg_getstr(lib, "name");
 
-  len = 136 + strlen(name);
+  len = 157 + strlen(name);
 
   ret = evbuffer_expand(evbuf, len);
   if (ret < 0)
@@ -633,10 +681,8 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_int(evbuf, "apro", apro); /* 12 */
   dmap_add_string(evbuf, "minm", name); /* 8 + strlen(name) */
 
-#if 0
   dmap_add_int(evbuf, "mstm", DAAP_SESSION_TIMEOUT); /* 12 */
   dmap_add_char(evbuf, "msal", 1);   /* 9 */
-#endif
 
   dmap_add_char(evbuf, "mslr", 1);   /* 9 */
   dmap_add_char(evbuf, "msau", (passwd) ? 2 : 0); /* 9 */
@@ -780,10 +826,10 @@ daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 static void
 daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct timeval tv;
   struct daap_session *s;
   struct daap_update_request *ur;
   const char *param;
-  int current_rev = 2;
   int reqd_rev;
   int ret;
 
@@ -837,6 +883,24 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Out of memory for update request\n");
 
       dmap_send_error(req, "mupd", "Out of memory");
+      return;
+    }
+  memset(ur, 0, sizeof(struct daap_update_request));
+
+  evtimer_set(&ur->timeout, update_refresh_cb, ur);
+  event_base_set(evbase_httpd, &ur->timeout);
+
+  evutil_timerclear(&tv);
+  tv.tv_sec = DAAP_UPDATE_REFRESH;
+
+  ret = evtimer_add(&ur->timeout, &tv);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not add update timeout event\n");
+
+      dmap_send_error(req, "mupd", "Could not register timer");
+
+      update_free(ur);
       return;
     }
 
@@ -2428,6 +2492,7 @@ daap_init(void)
   int ret;
 
   next_session_id = 100; /* gotta start somewhere, right? */
+  current_rev = 2;
   update_requests = NULL;
 
   for (i = 0; daap_handlers[i].handler; i++)
@@ -2480,6 +2545,6 @@ daap_deinit(void)
 	  evhttp_connection_free(ur->req->evcon);
 	}
 
-      free(ur);
+      update_free(ur);
     }
 }

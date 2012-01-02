@@ -286,6 +286,10 @@ unicode_fixup_mfi(struct media_file_info *mfi);
 void
 free_pli(struct playlist_info *pli, int content_only);
 
+/* Maintenance and DB hygiene */
+void
+db_hook_post_scan(void);
+
 void
 db_purge_cruft(time_t ref);
 
@@ -322,7 +326,7 @@ void
 db_file_inc_playcount(int id);
 
 void
-db_file_ping(char *path);
+db_file_ping(int id);
 
 char *
 db_file_path_byid(int id);
@@ -339,8 +343,8 @@ db_file_id_byfile(char *filename);
 int
 db_file_id_byurl(char *url);
 
-time_t
-db_file_stamp_bypath(char *path);
+void
+db_file_stamp_bypath(char *path, time_t *stamp, int *id);
 
 struct media_file_info *
 db_file_fetch_byid(int id);

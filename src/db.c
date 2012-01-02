@@ -260,9 +260,9 @@ static const struct col_type_map wi_cols_map[] =
 static const char *sort_clause[] =
   {
     "",
-    "ORDER BY title_sort ASC",
-    "ORDER BY album_sort ASC, disc ASC, track ASC",
-    "ORDER BY artist_sort ASC",
+    "ORDER BY f.title_sort ASC",
+    "ORDER BY f.album_sort ASC, f.disc ASC, f.track ASC",
+    "ORDER BY f.artist_sort ASC",
   };
 
 static char *db_path;
@@ -568,6 +568,35 @@ db_exec(const char *query, char **errmsg)
 }
 
 
+/* Maintenance and DB hygiene */
+static void
+db_analyze(void)
+{
+  char *query = "ANALYZE;";
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "ANALYZE failed: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+    }
+}
+
+void
+db_hook_post_scan(void)
+{
+  DPRINTF(E_DBG, L_DB, "Running post-scan DB maintenance tasks...\n");
+
+  db_analyze();
+
+  DPRINTF(E_DBG, L_DB, "Done with post-scan DB maintenance\n");
+}
+
 void
 db_purge_cruft(time_t ref)
 {
@@ -577,7 +606,7 @@ db_purge_cruft(time_t ref)
   char *queries[3] = { NULL, NULL, NULL };
   char *queries_tmpl[3] =
     {
-      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists WHERE type <> 1 AND db_timestamp < %" PRIi64 ");",
+      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> 1 AND p.db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlists WHERE type <> 1 AND db_timestamp < %" PRIi64 ";",
       "DELETE FROM files WHERE db_timestamp < %" PRIi64 ";"
     };
@@ -647,6 +676,11 @@ db_get_count(char *query)
 
   ret = sqlite3_column_int(stmt, 0);
 
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
   sqlite3_finalize(stmt);
 
   return ret;
@@ -703,9 +737,9 @@ db_build_query_items(struct query_params *qp, char **q)
   int ret;
 
   if (qp->filter)
-    count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s;", qp->filter);
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.disabled = 0 AND %s;", qp->filter);
   else
-    count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0;");
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
 
   if (!count)
     {
@@ -728,13 +762,13 @@ db_build_query_items(struct query_params *qp, char **q)
   sort = sort_clause[qp->sort];
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s %s %s;", qp->filter, sort, idx);
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 AND %s %s %s;", qp->filter, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 %s %s;", sort, idx);
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 %s %s;", sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s %s;", qp->filter, sort);
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 AND %s %s;", qp->filter, sort);
   else
-    query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 %s;", sort);
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 %s;", sort);
 
   if (!query)
     {
@@ -754,7 +788,7 @@ db_build_query_pls(struct query_params *qp, char **q)
   char *idx;
   int ret;
 
-  qp->results = db_get_count("SELECT COUNT(*) FROM playlists WHERE disabled = 0;");
+  qp->results = db_get_count("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
   if (qp->results < 0)
     return -1;
 
@@ -764,13 +798,13 @@ db_build_query_pls(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0 AND %s %s;", qp->filter, idx);
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 AND %s %s;", qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0 %s;", idx);
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 %s;", idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0 AND %s;", qp->filter);
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 AND %s;", qp->filter);
   else
-    query = sqlite3_mprintf("SELECT * FROM playlists WHERE disabled = 0;");
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0;");
 
   if (!query)
     {
@@ -792,11 +826,11 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
   int ret;
 
   if (qp->filter)
-    count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s;", qp->id, qp->filter);
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 AND %s;", qp->id, qp->filter);
   else
-    count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0;", qp->id);
+    count = sqlite3_mprintf("SELECT COUNT(*) FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0;", qp->id);
 
   if (!count)
     {
@@ -817,20 +851,20 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s ORDER BY playlistitems.id ASC %s;",
+    query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 AND %s ORDER BY pi.id ASC %s;",
 			    qp->id, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 ORDER BY playlistitems.id ASC %s;",
+    query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 ORDER BY pi.id ASC %s;",
 			    qp->id, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 AND %s ORDER BY playlistitems.id ASC;",
+    query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 AND %s ORDER BY pi.id ASC;",
 			    qp->id, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT files.* FROM files JOIN playlistitems ON files.path = playlistitems.filepath"
-			    " WHERE playlistitems.playlistid = %d AND files.disabled = 0 ORDER BY playlistitems.id ASC;",
+    query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
+			    " WHERE pi.playlistid = %d AND f.disabled = 0 ORDER BY pi.id ASC;",
 			    qp->id);
 
   if (!query)
@@ -859,7 +893,7 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
   else
     filter = "1 = 1";
 
-  count = sqlite3_mprintf("SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s AND %s;", filter, smartpl_query);
+  count = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.disabled = 0 AND %s AND %s;", filter, smartpl_query);
   if (!count)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for count query string\n");
@@ -883,7 +917,7 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
 
   sort = sort_clause[qp->sort];
 
-  query = sqlite3_mprintf("SELECT * FROM files WHERE disabled = 0 AND %s AND %s %s %s;", smartpl_query, filter, sort, idx);
+  query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 AND %s AND %s %s %s;", smartpl_query, filter, sort, idx);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -939,7 +973,7 @@ db_build_query_groups(struct query_params *qp, char **q)
   char *idx;
   int ret;
 
-  qp->results = db_get_count("SELECT COUNT(DISTINCT songalbumid) FROM files WHERE disabled = 0;");
+  qp->results = db_get_count("SELECT COUNT(DISTINCT f.songalbumid) FROM files f WHERE f.disabled = 0;");
   if (qp->results < 0)
     return -1;
 
@@ -949,13 +983,13 @@ db_build_query_groups(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0 AND %s %s;", G_ALBUMS, qp->filter, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name %s;", G_ALBUMS, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0 %s;", G_ALBUMS, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name %s;", G_ALBUMS, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0 AND %s;", G_ALBUMS, qp->filter);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name;", G_ALBUMS, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f JOIN groups g ON f.songalbumid = g.persistentid GROUP BY f.album, g.name HAVING g.type = %d AND disabled = 0;", G_ALBUMS);
+    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name;", G_ALBUMS);
 
   if (!query)
     {
@@ -980,8 +1014,8 @@ db_build_query_groupitems(struct query_params *qp, char **q)
   switch (gt)
     {
       case G_ALBUMS:
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files JOIN groups ON files.songalbumid = groups.persistentid"
-				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	count = sqlite3_mprintf("SELECT COUNT(*) FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
+				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
 	break;
 
       default:
@@ -1005,8 +1039,8 @@ db_build_query_groupitems(struct query_params *qp, char **q)
   switch (gt)
     {
       case G_ALBUMS:
-	query = sqlite3_mprintf("SELECT files.* FROM files JOIN groups ON files.songalbumid = groups.persistentid"
-				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	query = sqlite3_mprintf("SELECT f.* FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
+				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
 	break;
     }
 
@@ -1033,9 +1067,9 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
   switch (gt)
     {
       case G_ALBUMS:
-	count = sqlite3_mprintf("SELECT COUNT(DISTINCT(SUBSTR(files.path, 1, LENGTH(files.path) - LENGTH(files.fname) - 1)))"
-				" FROM files JOIN groups ON files.songalbumid = groups.persistentid"
-				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	count = sqlite3_mprintf("SELECT COUNT(DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1)))"
+				" FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
+				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
 	break;
 
       default:
@@ -1059,9 +1093,9 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
   switch (gt)
     {
       case G_ALBUMS:
-	query = sqlite3_mprintf("SELECT DISTINCT(SUBSTR(files.path, 1, LENGTH(files.path) - LENGTH(files.fname) - 1))"
-				" FROM files JOIN groups ON files.songalbumid = groups.persistentid"
-				" WHERE groups.id = %d AND files.disabled = 0;", qp->id);
+	query = sqlite3_mprintf("SELECT DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1))"
+				" FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
+				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
 	break;
     }
 
@@ -1085,10 +1119,10 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
   int ret;
 
   if (qp->filter)
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '' AND %s;",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.%s) FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != '' AND %s;",
 			    field, field, qp->filter);
   else
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT %s) FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != '';",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.%s) FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != '';",
 			    field, field);
 
   if (!count)
@@ -1110,16 +1144,16 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
 			    " AND %s %s;", field, field, field, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
 			    " %s;", field, field, field, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
 			    " AND %s;", field, field, field, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT DISTINCT %s, %s FROM files WHERE data_kind = 0 AND disabled = 0 AND %s != ''",
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''",
 			    field, field, field);
 
   if (!query)
@@ -1487,7 +1521,7 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 int
 db_files_get_count(void)
 {
-  return db_get_count("SELECT COUNT(*) FROM files WHERE disabled = 0;");
+  return db_get_count("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
 }
 
 void
@@ -1537,14 +1571,14 @@ db_file_inc_playcount(int id)
 }
 
 void
-db_file_ping(char *path)
+db_file_ping(int id)
 {
-#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE path = '%q';"
+#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE id = %d;"
   char *query;
   char *errmsg;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path);
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1556,7 +1590,7 @@ db_file_ping(char *path)
 
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error pinging file '%s': %s\n", path, errmsg);
+    DPRINTF(E_LOG, L_DB, "Error pinging file ID %d: %s\n", id, errmsg);
 
   sqlite3_free(errmsg);
   sqlite3_free(query);
@@ -1567,7 +1601,7 @@ db_file_ping(char *path)
 char *
 db_file_path_byid(int id)
 {
-#define Q_TMPL "SELECT path FROM files WHERE id = %d;"
+#define Q_TMPL "SELECT f.path FROM files f WHERE f.id = %d;"
   char *query;
   sqlite3_stmt *stmt;
   char *res;
@@ -1608,6 +1642,11 @@ db_file_path_byid(int id)
   res = (char *)sqlite3_column_text(stmt, 0);
   if (res)
     res = strdup(res);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
   sqlite3_free(query);
@@ -1650,6 +1689,11 @@ db_file_id_byquery(char *query)
 
   ret = sqlite3_column_int(stmt, 0);
 
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
   sqlite3_finalize(stmt);
 
   return ret;
@@ -1658,7 +1702,7 @@ db_file_id_byquery(char *query)
 int
 db_file_id_bypath(char *path)
 {
-#define Q_TMPL "SELECT id FROM files WHERE path = '%q';"
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.path = '%q';"
   char *query;
   int ret;
 
@@ -1682,7 +1726,7 @@ db_file_id_bypath(char *path)
 int
 db_file_id_byfilebase(char *filename, char *base)
 {
-#define Q_TMPL "SELECT id FROM files WHERE path LIKE '%q/%%/%q';"
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.path LIKE '%q/%%/%q';"
   char *query;
   int ret;
 
@@ -1706,7 +1750,7 @@ db_file_id_byfilebase(char *filename, char *base)
 int
 db_file_id_byfile(char *filename)
 {
-#define Q_TMPL "SELECT id FROM files WHERE fname = '%q';"
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.fname = '%q';"
   char *query;
   int ret;
 
@@ -1730,7 +1774,7 @@ db_file_id_byfile(char *filename)
 int
 db_file_id_byurl(char *url)
 {
-#define Q_TMPL "SELECT id FROM files WHERE url = '%q';"
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.url = '%q';"
   char *query;
   int ret;
 
@@ -1751,21 +1795,22 @@ db_file_id_byurl(char *url)
 #undef Q_TMPL
 }
 
-time_t
-db_file_stamp_bypath(char *path)
+void
+db_file_stamp_bypath(char *path, time_t *stamp, int *id)
 {
-#define Q_TMPL "SELECT db_timestamp FROM files WHERE path = '%q';"
+#define Q_TMPL "SELECT f.id, f.db_timestamp FROM files f WHERE f.path = '%q';"
   char *query;
   sqlite3_stmt *stmt;
-  time_t stamp;
   int ret;
+
+  *stamp = 0;
 
   query = sqlite3_mprintf(Q_TMPL, path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return 0;
+      return;
     }
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
@@ -1776,7 +1821,7 @@ db_file_stamp_bypath(char *path)
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_free(query);
-      return 0;
+      return;
     }
 
   ret = db_blocking_step(stmt);
@@ -1789,15 +1834,19 @@ db_file_stamp_bypath(char *path)
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
-      return 0;
+      return;
     }
 
-  stamp = (time_t)sqlite3_column_int64(stmt, 0);
+  *id = sqlite3_column_int(stmt, 0);
+  *stamp = (time_t)sqlite3_column_int64(stmt, 1);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
   sqlite3_free(query);
-
-  return stamp;
 
 #undef Q_TMPL
 }
@@ -1908,6 +1957,11 @@ db_file_fetch_byquery(char *query)
 	}
     }
 
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
   sqlite3_finalize(stmt);
 
   return mfi;
@@ -1916,7 +1970,7 @@ db_file_fetch_byquery(char *query)
 struct media_file_info *
 db_file_fetch_byid(int id)
 {
-#define Q_TMPL "SELECT * FROM files WHERE id = %d;"
+#define Q_TMPL "SELECT f.* FROM files f WHERE f.id = %d;"
   struct media_file_info *mfi;
   char *query;
 
@@ -2222,14 +2276,14 @@ db_file_enable_bycookie(uint32_t cookie, char *path)
 int
 db_pl_get_count(void)
 {
-  return db_get_count("SELECT COUNT(*) FROM playlists WHERE disabled = 0;");
+  return db_get_count("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
 }
 
 static int
 db_pl_count_items(int id)
 {
-#define Q_TMPL "SELECT COUNT(*) FROM playlistitems JOIN files" \
-               " ON playlistitems.filepath = files.path WHERE files.disabled = 0 AND playlistitems.playlistid = %d;"
+#define Q_TMPL "SELECT COUNT(*) FROM playlistitems pi JOIN files f" \
+               " ON pi.filepath = f.path WHERE f.disabled = 0 AND pi.playlistid = %d;"
   char *query;
   int ret;
 
@@ -2253,7 +2307,7 @@ db_pl_count_items(int id)
 static int
 db_smartpl_count_items(const char *smartpl_query)
 {
-#define Q_TMPL "SELECT COUNT(*) FROM files WHERE disabled = 0 AND %s;"
+#define Q_TMPL "SELECT COUNT(*) FROM files f WHERE f.disabled = 0 AND %s;"
   char *query;
   int ret;
 
@@ -2305,7 +2359,7 @@ db_pl_ping(int id)
 static int
 db_pl_id_bypath(char *path, int *id)
 {
-#define Q_TMPL "SELECT id FROM playlists WHERE path = '%q';"
+#define Q_TMPL "SELECT p.id FROM playlists p WHERE p.path = '%q';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
@@ -2343,6 +2397,11 @@ db_pl_id_bypath(char *path, int *id)
     }
 
   *id = sqlite3_column_int(stmt, 0);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
   sqlite3_free(query);
@@ -2478,7 +2537,7 @@ db_pl_fetch_byquery(char *query)
 struct playlist_info *
 db_pl_fetch_bypath(char *path)
 {
-#define Q_TMPL "SELECT * FROM playlists WHERE path = '%q';"
+#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.path = '%q';"
   struct playlist_info *pli;
   char *query;
 
@@ -2502,7 +2561,7 @@ db_pl_fetch_bypath(char *path)
 struct playlist_info *
 db_pl_fetch_byid(int id)
 {
-#define Q_TMPL "SELECT * FROM playlists WHERE id = %d;"
+#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.id = %d;"
   struct playlist_info *pli;
   char *query;
 
@@ -2526,7 +2585,7 @@ db_pl_fetch_byid(int id)
 struct playlist_info *
 db_pl_fetch_bytitlepath(char *title, char *path)
 {
-#define Q_TMPL "SELECT * FROM playlists WHERE title = '%q' AND path = '%q';"
+#define Q_TMPL "SELECT p.* FROM playlists p WHERE p.title = '%q' AND p.path = '%q';"
   struct playlist_info *pli;
   char *query;
 
@@ -2550,7 +2609,7 @@ db_pl_fetch_bytitlepath(char *title, char *path)
 int
 db_pl_add(char *title, char *path, int *id)
 {
-#define QDUP_TMPL "SELECT COUNT(*) FROM playlists WHERE title = '%q' AND path = '%q';"
+#define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = '%q' AND p.path = '%q';"
 #define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id)" \
                   " VALUES ('%q', 0, NULL, %" PRIi64 ", 0, '%q', 0, 0);"
   char *query;
@@ -2649,7 +2708,7 @@ db_pl_add_item_bypath(int plid, char *path)
 int
 db_pl_add_item_byid(int plid, int fileid)
 {
-#define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, (SELECT path FROM files WHERE id = %d));"
+#define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, (SELECT f.path FROM files f WHERE f.id = %d));"
   char *query;
   char *errmsg;
   int ret;
@@ -2882,7 +2941,7 @@ db_groups_clear(void)
 enum group_type
 db_group_type_byid(int id)
 {
-#define Q_TMPL "SELECT type FROM groups WHERE id = '%d';"
+#define Q_TMPL "SELECT g.type FROM groups g WHERE g.id = '%d';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
@@ -2920,6 +2979,11 @@ db_group_type_byid(int id)
     }
 
   ret = sqlite3_column_int(stmt, 0);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
   sqlite3_free(query);
@@ -3007,7 +3071,7 @@ db_pairing_add(struct pairing_info *pi)
 int
 db_pairing_fetch_byguid(struct pairing_info *pi)
 {
-#define Q_TMPL "SELECT * FROM pairings WHERE guid = '%q';"
+#define Q_TMPL "SELECT p.* FROM pairings p WHERE p.guid = '%q';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
@@ -3043,6 +3107,11 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 
   pi->remote_id = strdup((char *)sqlite3_column_text(stmt, 0));
   pi->name = strdup((char *)sqlite3_column_text(stmt, 1));
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
   sqlite3_free(query);
@@ -3093,7 +3162,7 @@ db_speaker_save(uint64_t id, int selected, int volume)
 int
 db_speaker_get(uint64_t id, int *selected, int *volume)
 {
-#define Q_TMPL "SELECT selected, volume FROM speakers WHERE id = %" PRIi64 ";"
+#define Q_TMPL "SELECT s.selected, s.volume FROM speakers s WHERE s.id = %" PRIi64 ";"
   sqlite3_stmt *stmt;
   char *query;
   int ret;
@@ -3131,6 +3200,11 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
 
   *selected = sqlite3_column_int(stmt, 0);
   *volume = sqlite3_column_int(stmt, 1);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
 
   sqlite3_finalize(stmt);
 
@@ -3422,6 +3496,11 @@ db_watch_get_bywd(struct watch_info *wi)
 	}
     }
 
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
   sqlite3_finalize(stmt);
   sqlite3_free(query);
 
@@ -3646,8 +3725,57 @@ db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd)
 static void
 db_xprofile(void *notused, const char *pquery, sqlite3_uint64 ptime)
 {
-  DPRINTF(E_DBG, L_DB, "SQL PROFILE query: %s\n", pquery);
-  DPRINTF(E_DBG, L_DB, "SQL PROFILE time: %" PRIu64 "\n", (uint64_t)ptime); 
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  DPRINTF(E_DBG, L_DBPERF, "SQL PROFILE query: %s\n", pquery);
+  DPRINTF(E_DBG, L_DBPERF, "SQL PROFILE time: %" PRIu64 " ms\n", ((uint64_t)ptime / 1000000));
+
+  if ((strncmp(pquery, "SELECT", 6) != 0)
+       && (strncmp(pquery, "UPDATE", 6) != 0)
+       && (strncmp(pquery, "DELETE", 6) != 0))
+      return;
+
+  /* Disable profiling callback */
+  sqlite3_profile(hdl, NULL, NULL);
+
+  query = sqlite3_mprintf("EXPLAIN QUERY PLAN %s", pquery);
+  if (!query)
+    {
+      DPRINTF(E_DBG, L_DBPERF, "Query plan: Out of memory\n");
+
+      goto out;
+    }
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  sqlite3_free(query);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_DBG, L_DBPERF, "Query plan: Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      goto out;
+    }
+
+  DPRINTF(E_DBG, L_DBPERF, "Query plan:\n");
+
+  while ((ret = db_blocking_step(stmt)) == SQLITE_ROW)
+    {
+      DPRINTF(E_DBG, L_DBPERF, "(%d,%d,%d) %s\n",
+	      sqlite3_column_int(stmt, 0), sqlite3_column_int(stmt, 1), sqlite3_column_int(stmt, 2),
+	      sqlite3_column_text(stmt, 3));
+    }
+
+  if (ret != SQLITE_DONE)
+    DPRINTF(E_DBG, L_DBPERF, "Query plan: Could not step: %s\n", sqlite3_errmsg(hdl));
+
+  DPRINTF(E_DBG, L_DBPERF, "---\n");
+
+  sqlite3_finalize(stmt);
+
+ out:
+  /* Reenable profiling callback */
+  sqlite3_profile(hdl, db_xprofile, NULL);
 }
 #endif
 
@@ -3838,8 +3966,35 @@ db_perthread_deinit(void)
   "   path        VARCHAR(4096) NOT NULL"		\
   ");"
 
-#define I_PATH							\
-  "CREATE INDEX IF NOT EXISTS idx_path ON files(path, idx);"
+#define I_RESCAN				\
+  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
+
+#define I_SONGALBUMID				\
+  "CREATE INDEX IF NOT EXISTS idx_sai ON files(songalbumid);"
+
+#define I_STATEMKINDSAI				\
+  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sai ON files(disabled, media_kind, songalbumid);"
+
+#define I_ARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
+
+#define I_ALBUMARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
+
+#define I_COMPOSER				\
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
+
+#define I_TITLE					\
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
+
+#define I_ALBUM					\
+  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
+
+#define I_PL_PATH				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
+
+#define I_PL_DISABLED				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled);"
 
 #define I_FILEPATH							\
   "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
@@ -3847,17 +4002,12 @@ db_perthread_deinit(void)
 #define I_PLITEMID							\
   "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
 
+#define I_GRP_TYPE_PERSIST				\
+  "CREATE INDEX IF NOT EXISTS idx_grp_type_persist ON groups(type, persistentid);"
+
 #define I_PAIRING				\
   "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
 
-#define I_TITLESORT				\
-  "CREATE INDEX IF NOT EXISTS idx_titlesort ON files(title_sort);"
-
-#define I_ARTISTSORT				\
-  "CREATE INDEX IF NOT EXISTS idx_artistsort ON files(artist_sort);"
-
-#define I_ALBUMSORT				\
-  "CREATE INDEX IF NOT EXISTS idx_albumsort ON files(album_sort);"
 
 #define TRG_GROUPS_INSERT_FILES						\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
@@ -3877,15 +4027,15 @@ db_perthread_deinit(void)
 
 #define Q_PL2								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(2, 'Music', 1, 'media_kind = 1', 0, '', 0, 6);"
+  " VALUES(2, 'Music', 1, 'f.media_kind = 1', 0, '', 0, 6);"
 
 #define Q_PL3								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(3, 'Movies', 1, 'media_kind = 2', 0, '', 0, 4);"
+  " VALUES(3, 'Movies', 1, 'f.media_kind = 2', 0, '', 0, 4);"
 
 #define Q_PL4								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(4, 'TV Shows', 1, 'media_kind = 64', 0, '', 0, 5);"
+  " VALUES(4, 'TV Shows', 1, 'f.media_kind = 64', 0, '', 0, 5);"
 
 /* These are the remaining automatically-created iTunes playlists, but
  * their query is unknown
@@ -3895,9 +4045,9 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION 12
+#define SCHEMA_VERSION 13
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '12');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '13');"
 
 struct db_init_query {
   char *query;
@@ -3915,13 +4065,25 @@ static const struct db_init_query db_init_queries[] =
     { T_SPEAKERS,  "create table speakers" },
     { T_INOTIFY,   "create table inotify" },
 
-    { I_PATH,      "create file path index" },
+    { I_RESCAN,    "create rescan index" },
+    { I_SONGALBUMID, "create songalbumid index" },
+    { I_STATEMKINDSAI, "create state/mkind/sai index" },
+
+    { I_ARTIST,    "create artist index" },
+    { I_ALBUMARTIST, "create album_artist index" },
+    { I_COMPOSER,  "create composer index" },
+    { I_TITLE,     "create title index" },
+    { I_ALBUM,     "create album index" },
+
+    { I_PL_PATH,   "create playlist path index" },
+    { I_PL_DISABLED, "create playlist state index" },
+
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
+
+    { I_GRP_TYPE_PERSIST, "create groups type/persistentid index" },
+
     { I_PAIRING,   "create pairing guid index" },
-    { I_TITLESORT, "create file titlesort index" },
-    { I_ARTISTSORT,"create file artistsort index" },
-    { I_ALBUMSORT, "create file albumsort index" },
 
     { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
     { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
@@ -4461,6 +4623,92 @@ db_upgrade_v12(void)
 #undef Q_DUMP
 }
 
+/* Upgrade from schema v12 to v13 */
+
+#define U_V13_DROP_IDX_PATH						\
+  "DROP INDEX idx_path;"
+
+#define U_V13_DROP_IDX_TS						\
+  "DROP INDEX idx_titlesort;"
+
+#define U_V13_DROP_IDX_AS						\
+  "DROP INDEX idx_artistsort;"
+
+#define U_V13_DROP_IDX_BS						\
+  "DROP INDEX idx_albumsort;"
+
+#define U_V13_IDX_RESCAN						\
+  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
+
+#define U_V13_IDX_SONGALBUMID					\
+  "CREATE INDEX IF NOT EXISTS idx_sai ON files(songalbumid);"
+
+#define U_V13_IDX_STATEMKINDSAI						\
+  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sai ON files(disabled, media_kind, songalbumid);"
+
+#define U_V13_IDX_ARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
+
+#define U_V13_IDX_ALBUMARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
+
+#define U_V13_IDX_COMPOSER				\
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
+
+#define U_V13_IDX_TITLE					\
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
+
+#define U_V13_IDX_ALBUM					\
+  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
+
+#define U_V13_IDX_GRP_TYPE_PERSIST					\
+  "CREATE INDEX IF NOT EXISTS idx_grp_type_persist ON groups(type, persistentid);"
+
+#define U_V13_IDX_PL_PATH				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
+
+#define U_V13_IDX_PL_DISABLED				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled);"
+
+#define U_V13_PL2							\
+  "UPDATE playlists SET query = 'f.media_kind = 1' where id = 2;"
+
+#define U_V13_PL3							\
+  "UPDATE playlists SET query = 'f.media_kind = 2' where id = 3;"
+
+#define U_V13_PL4							\
+  "UPDATE playlists SET query = 'f.media_kind = 64' where id = 4;"
+
+#define U_V13_SCVER				\
+  "UPDATE admin SET value = '13' WHERE key = 'schema_version';"
+
+static const struct db_init_query db_upgrade_v13_queries[] =
+  {
+    { U_V13_DROP_IDX_PATH, "drop index path table files" },
+    { U_V13_DROP_IDX_TS,   "drop index titlesort table files" },
+    { U_V13_DROP_IDX_AS,   "drop index artistsort table files" },
+    { U_V13_DROP_IDX_BS,   "drop index albumsort table files" },
+
+    { U_V13_IDX_RESCAN,    "create rescan index" },
+    { U_V13_IDX_SONGALBUMID, "create songalbumid index" },
+    { U_V13_IDX_STATEMKINDSAI, "create state/mkind/sai index" },
+    { U_V13_IDX_ARTIST,    "create artist index" },
+    { U_V13_IDX_ALBUMARTIST, "create album_artist index" },
+    { U_V13_IDX_COMPOSER,  "create composer index" },
+    { U_V13_IDX_TITLE,     "create title index" },
+    { U_V13_IDX_ALBUM,     "create album index" },
+
+    { U_V13_IDX_GRP_TYPE_PERSIST, "create groups type/persistentid index" },
+
+    { U_V13_IDX_PL_PATH,   "create playlist path index" },
+    { U_V13_IDX_PL_DISABLED, "create playlist state index" },
+
+    { U_V13_PL2,           "update default smart playlist 'Music'" },
+    { U_V13_PL3,           "update default smart playlist 'Movies'" },
+    { U_V13_PL4,           "update default smart playlist 'TV Shows'" },
+
+    { U_V13_SCVER,    "set schema_version to 13" },
+  };
 
 static int
 db_check_version(void)
@@ -4523,6 +4771,13 @@ db_check_version(void)
 	      return -1;
 
 	    ret = db_generic_upgrade(db_upgrade_v12_queries, sizeof(db_upgrade_v12_queries) / sizeof(db_upgrade_v12_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 12:
+	    ret = db_generic_upgrade(db_upgrade_v13_queries, sizeof(db_upgrade_v13_queries) / sizeof(db_upgrade_v13_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
@@ -4612,6 +4867,8 @@ db_init(void)
 	  return -1;
 	}
     }
+
+  db_analyze();
 
   files = db_files_get_count();
   pls = db_pl_get_count();

@@ -203,9 +203,17 @@ static const struct metadata_map md_map_id3[] =
 
 
 static int
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 5)
+extract_metadata_core(struct media_file_info *mfi, AVDictionary *md, const struct metadata_map *md_map)
+#else
 extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct metadata_map *md_map)
+#endif
 {
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 5)
+  AVDictionaryEntry *mdt;
+#else
   AVMetadataTag *mdt;
+#endif
   char **strval;
   uint32_t *intval;
   int mdcount;
@@ -215,7 +223,11 @@ extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct 
 #if 0
   /* Dump all the metadata reported by ffmpeg */
   mdt = NULL;
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 5)
+  while ((mdt = av_dict_get(md, "", mdt, AV_DICT_IGNORE_SUFFIX)) != NULL)
+#else
   while ((mdt = av_metadata_get(md, "", mdt, AV_METADATA_IGNORE_SUFFIX)) != NULL)
+#endif
     fprintf(stderr, " -> %s = %s\n", mdt->key, mdt->value);
 #endif
 
@@ -224,7 +236,11 @@ extract_metadata_core(struct media_file_info *mfi, AVMetadata *md, const struct 
   /* Extract actual metadata */
   for (i = 0; md_map[i].key != NULL; i++)
     {
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 5)
+      mdt = av_dict_get(md, md_map[i].key, NULL, 0);
+#else
       mdt = av_metadata_get(md, md_map[i].key, NULL, 0);
+#endif
       if (mdt == NULL)
 	continue;
 
@@ -311,7 +327,13 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   int i;
   int ret;
 
+  ctx = NULL;
+
+#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 3)
+  ret = avformat_open_input(&ctx, file, NULL, NULL);
+#else
   ret = av_open_input_file(&ctx, file, NULL, 0, NULL);
+#endif
   if (ret != 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Cannot open media file '%s': %s\n", file, strerror(AVUNERROR(ret)));
@@ -330,7 +352,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
 #if 0
   /* Dump input format as determined by ffmpeg */
+# if LIBAVFORMAT_VERSION_MAJOR >= 52 || (LIBAVFORMAT_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 101)
+  av_dump_format(ctx, 0, file, 0);
+# else
   dump_format(ctx, 0, file, FALSE);
+# endif
 #endif
 
   DPRINTF(E_DBG, L_SCAN, "File has %d streams\n", ctx->nb_streams);
@@ -404,7 +430,9 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	mfi->samplerate = audio_stream->codec->sample_rate;
 
       /* Try sample format first */
-#if LIBAVCODEC_VERSION_MAJOR >= 53
+#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 4)
+      mfi->bits_per_sample = 8 * av_get_bytes_per_sample(audio_stream->codec->sample_fmt);
+#elif LIBAVCODEC_VERSION_MAJOR >= 53
       mfi->bits_per_sample = av_get_bits_per_sample_fmt(audio_stream->codec->sample_fmt);
 #else
       mfi->bits_per_sample = av_get_bits_per_sample_format(audio_stream->codec->sample_fmt);

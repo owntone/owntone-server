@@ -301,13 +301,14 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
   char *filename;
   char *ext;
   time_t stamp;
+  int id;
   int ret;
 
-  stamp = db_file_stamp_bypath(file);
+  db_file_stamp_bypath(file, &stamp, &id);
 
   if (stamp >= mtime)
     {
-      db_file_ping(file);
+      db_file_ping(id);
       return;
     }
 
@@ -810,6 +811,8 @@ filescanner(void *arg)
   db_files_update_songalbumid();
 
   bulk_scan();
+
+  db_hook_post_scan();
 
   if (!scan_exit)
     {

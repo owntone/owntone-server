@@ -1,6 +1,12 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 0.19:
+	- more libav 0.7 updates.
+	- database speedups.
+	- fix for iTunes 30-minute timeout.
+	- fixes, big and small.
+
 version 0.18:
 	- add config knob for ALSA mixer channel name.
 	- do not elevate privileges for reopening the log file; log file
