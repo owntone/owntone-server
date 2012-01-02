@@ -848,10 +848,10 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   param = evhttp_find_header(query, "revision-number");
   if (!param)
     {
-      DPRINTF(E_LOG, L_DAAP, "Missing revision-number in update request\n");
-
-      dmap_send_error(req, "mupd", "Invalid request");
-      return;
+      DPRINTF(E_LOG, L_DAAP, "Missing revision-number in client update request\n");
+      /* Some players (Amarok, Banshee) don't supply a revision number.
+	 They get a standard update of everything. */
+      param = "1";  /* Default to "1" will insure update */
     }
 
   ret = safe_atoi32(param, &reqd_rev);
