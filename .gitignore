@@ -26,6 +26,8 @@ libtool
 ltmain.sh
 missing
 stamp-h1
+autotools-stamp
+build-stamp
 
 # ignore debian packaging for convenience
 debian/

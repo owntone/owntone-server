@@ -103,6 +103,19 @@ dacp_propget_nowplaying(struct evbuffer *evbuf, struct player_status *status, st
 static void
 dacp_propget_playingtime(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
 
+static void
+dacp_propget_fullscreenenabled(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+static void
+dacp_propget_fullscreen(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+static void
+dacp_propget_visualizerenabled(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+static void
+dacp_propget_visualizer(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+static void
+dacp_propget_itms_songid(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+static void
+dacp_propget_haschapterdata(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+
 /* Forward - properties setters */
 static void
 dacp_propset_volume(const char *value, struct evkeyvalq *query);
@@ -431,6 +444,43 @@ dacp_propget_playingtime(struct evbuffer *evbuf, struct player_status *status, s
 {
   dacp_playingtime(evbuf, status, mfi);
 }
+
+static void
+dacp_propget_fullscreenenabled(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+	// TODO
+}
+
+static void
+dacp_propget_fullscreen(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+	// TODO
+}
+
+static void
+dacp_propget_visualizerenabled(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+	// TODO
+}
+
+static void
+dacp_propget_visualizer(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+	// TODO
+}
+
+static void
+dacp_propget_itms_songid(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+	// TODO
+}
+
+static void
+dacp_propget_haschapterdata(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+	// TODO
+}
+
 
 /* Properties setters */
 static void
