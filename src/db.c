@@ -1145,16 +1145,16 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
 
   if (idx && qp->filter)
     query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
-			    " AND %s %s;", field, field, field, qp->filter, idx);
+			    " AND %s ORDER BY f.%s %s;", field, field, field, qp->filter, field, idx);
   else if (idx)
     query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
-			    " %s;", field, field, field, idx);
+			    " ORDER BY f.%s %s;", field, field, field, field, idx);
   else if (qp->filter)
     query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
-			    " AND %s;", field, field, field, qp->filter);
+			    " AND %s ORDER BY f.%s;", field, field, field, qp->filter, field);
   else
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''",
-			    field, field, field);
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != '' ORDER BY f.%s",
+			    field, field, field, field);
 
   if (!query)
     {
