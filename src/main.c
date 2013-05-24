@@ -569,9 +569,6 @@ main(int argc, char **argv)
 
   DPRINTF(E_LOG, L_MAIN, "Forked Media Server Version %s taking off\n", VERSION);
 
-  /* Initialize ffmpeg */
-  avcodec_init();
-
   ret = av_lockmgr_register(ffmpeg_lockmgr);
   if (ret < 0)
     {
