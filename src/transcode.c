@@ -426,7 +426,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
       goto setup_fail_codec;
     }
 
-  if ((ctx->acodec->sample_fmt != SAMPLE_FMT_S16)
+  if ((ctx->acodec->sample_fmt != AV_SAMPLE_FMT_S16)
       || (ctx->acodec->channels != 2)
       || (ctx->acodec->sample_rate != 44100))
     {
@@ -434,7 +434,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 
       ctx->resample_ctx = av_audio_resample_init(2,              ctx->acodec->channels,
 						 44100,          ctx->acodec->sample_rate,
-						 SAMPLE_FMT_S16, ctx->acodec->sample_fmt,
+						 AV_SAMPLE_FMT_S16, ctx->acodec->sample_fmt,
 						 16, 10, 0, 0.8);
 
       if (!ctx->resample_ctx)
