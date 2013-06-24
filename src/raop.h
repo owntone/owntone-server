@@ -20,6 +20,7 @@ enum raop_devtype {
   RAOP_DEV_APEX_80211G,
   RAOP_DEV_APEX_80211N,
   RAOP_DEV_APPLETV,
+  OTHER,
 };
 
 struct raop_session;

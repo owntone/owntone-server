@@ -140,6 +140,7 @@ static const char *raop_devtype[] =
     "AirPort Express 802.11g",
     "AirPort Express 802.11n",
     "AppleTV",
+    "Other",
   };
 
 
@@ -3719,6 +3720,8 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
     devtype = RAOP_DEV_APPLETV;
+  else
+    devtype = OTHER;
 
  no_am:
   DPRINTF(E_DBG, L_PLAYER, "AirTunes device %s: password: %s, type %s\n", name, (password) ? "yes" : "no", raop_devtype[devtype]);
