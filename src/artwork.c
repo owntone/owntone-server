@@ -37,16 +37,13 @@
 
 #include "db.h"
 #include "logger.h"
+#include "conffile.h"
+
 #if LIBAVFORMAT_VERSION_MAJOR >= 53
 # include "avio_evbuffer.h"
 #endif
 #include "artwork.h"
 
-
-static const char *cover_basename[] =
-  {
-    "artwork", "cover", "folder",
-  };
 
 static const char *cover_extension[] =
   {
@@ -674,6 +671,8 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
   int j;
   int len;
   int ret;
+  cfg_t *lib;
+  int nbasenames;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -692,14 +691,20 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
 
   len = strlen(artwork);
 
-  for (i = 0; i < (sizeof(cover_basename) / sizeof(cover_basename[0])); i++)
+  lib = cfg_getsec(cfg, "library");
+  nbasenames = cfg_size(lib, "artwork_basenames");
+
+  if (nbasenames == 0)
+    return -1;
+
+  for (i = 0; i < nbasenames; i++)
     {
       for (j = 0; j < (sizeof(cover_extension) / sizeof(cover_extension[0])); j++)
 	{
-	  ret = snprintf(artwork + len, sizeof(artwork) - len, "/%s.%s", cover_basename[i], cover_extension[j]);
+	  ret = snprintf(artwork + len, sizeof(artwork) - len, "/%s.%s", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
 	  if ((ret < 0) || (ret >= sizeof(artwork) - len))
 	    {
-	      DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX (%s.%s)\n", cover_basename[i], cover_extension[j]);
+	      DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX (%s.%s)\n", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
 
 	      continue;
 	    }
@@ -717,7 +722,7 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
 	break;
     }
 
-  if (i == (sizeof(cover_basename) / sizeof(cover_basename[0])))
+  if (i == nbasenames)
     return -1;
 
   return artwork_get(artwork, max_w, max_h, format, evbuf);
