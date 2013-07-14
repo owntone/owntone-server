@@ -47,7 +47,7 @@
 
 static const char *cover_extension[] =
   {
-    "png", "jpg",
+    "jpg", "png",
   };
 
 
@@ -728,6 +728,64 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
   return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
 
+static int
+artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int format, struct evbuffer *evbuf)
+{
+  char artwork[PATH_MAX];
+  char parentdir[PATH_MAX];
+  char *ptr;
+  int len;
+  int i;
+  int ret;
+
+  ret = snprintf(artwork, sizeof(artwork), "%s", path);
+  if ((ret < 0) || (ret >= sizeof(artwork)))
+    {
+      DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX\n");
+
+      return -1;
+    }
+
+  if (!isdir)
+    {
+      ptr = strrchr(artwork, '/');
+      if (ptr)
+	*ptr = '\0';
+    }
+
+  ptr = strrchr(artwork, '/');
+  if ((!ptr) || (strlen(ptr) <= 1))
+    return -1;
+  strcpy(parentdir, ptr + 1);
+
+  len = strlen(artwork);
+
+  for (i = 0; i < (sizeof(cover_extension) / sizeof(cover_extension[0])); i++)
+    {
+      ret = snprintf(artwork + len, sizeof(artwork) - len, "/%s.%s", parentdir, cover_extension[i]);
+      if ((ret < 0) || (ret >= sizeof(artwork) - len))
+	{
+	  DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX (%s.%s)\n", parentdir, cover_extension[i]);
+
+	  continue;
+	}
+
+      DPRINTF(E_DBG, L_ART, "Trying parent directory artwork file %s\n", artwork);
+
+      ret = access(artwork, F_OK);
+      if (ret < 0)
+	continue;
+
+      break;
+    }
+
+  if (i == (sizeof(cover_extension) / sizeof(cover_extension[0])))
+    return -1;
+
+  return artwork_get(artwork, max_w, max_h, format, evbuf);
+}
+
+
 
 int
 artwork_get_item_filename(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
@@ -743,6 +801,11 @@ artwork_get_item_filename(char *filename, int max_w, int max_h, int format, stru
 
   /* Look for basedir(filename)/{artwork,cover}.{png,jpg} */
   ret = artwork_get_dir_image(filename, 0, max_w, max_h, format, evbuf);
+  if (ret > 0)
+    return ret;
+
+  /* Look for parentdir(filename).{png,jpg} */
+  ret = artwork_get_parentdir_image(filename, 0, max_w, max_h, format, evbuf);
   if (ret > 0)
     return ret;
 
@@ -800,6 +863,8 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   while ((got_art < 0) && ((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
     {
       got_art = artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf);
+      if (got_art < 0)
+        got_art = artwork_get_parentdir_image(dir, 1, max_w, max_h, format, evbuf);
     }
 
   db_query_end(&qp);
