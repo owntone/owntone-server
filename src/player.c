@@ -3720,7 +3720,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
     devtype = RAOP_DEV_APPLETV;
-  else
+  else if (strncmp(p, "AirPort4", strlen("AirPort4")) != 0)
     devtype = OTHER;
 
  no_am:
