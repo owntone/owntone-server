@@ -1206,7 +1206,7 @@ db_query_start(struct query_params *qp)
 	break;
 
       case Q_BROWSE_ARTISTS:
-	ret = db_build_query_browse(qp, "artist", &query);
+	ret = db_build_query_browse(qp, "album_artist", &query);
 	break;
 
       case Q_BROWSE_GENRES:
