@@ -223,14 +223,21 @@ As for the naming convention, it is quite simple; consider your foo.mp3 song,
 residing at /bar/foo.mp3:
  - if /bar/foo.{png,jpg} exists, this will be used as the artwork for this file;
  - failing that, if /bar/{artwork,cover}.{png,jpg} exists, it will be used.
+ - failing that, if /bar/bar.{png,jpg} exists, it will be used
 
 For "groups" (same album name and album artist), the situation is a bit
 different:
  - if a file {artwork,cover}.{png,jpg} is found in one of the directories
    containing files that are part of the group, it is used as the artwork. The
    first file found is used, ordering is not guaranteed;
+ - failing that, if [directory name].{png,jpg} is found in one of the
+   directories containing files that are part of the group, it is used as the
+   artwork. The first file found is used, ordering is not guaranteed;
  - failing that, individual files are examined and the first artwork found is
    used. Here again, ordering is not guaranteed.
+
+{artwork,cover} are the default, you can add other base names in the
+configuration file.
 
 You can use symlinks for the artwork files; the artwork is not scanned/indexed
 in any way in the database and there is no caching on forked-daapd's side.
