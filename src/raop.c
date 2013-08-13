@@ -1188,11 +1188,12 @@ raop_check_cseq(struct raop_session *rs, struct evrtsp_request *req)
   int request_cseq;
 
   reply_cseq = raop_grab_cseq(req->input_headers);
+  /* AirFoil won't return cseq, so skip the check */
   if (reply_cseq < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "No CSeq in reply\n");
+      DPRINTF(E_LOG, L_RAOP, "No CSeq in reply, skipping check\n");
 
-      return -1;
+      return 0;
     }
 
   request_cseq = raop_grab_cseq(req->output_headers);
