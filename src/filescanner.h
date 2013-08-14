@@ -10,15 +10,15 @@ filescanner_init(void);
 void
 filescanner_deinit(void);
 
+void
+process_media_file(char *file, time_t mtime, off_t size, int compilation, int url);
+
 /* Actual scanners */
 int
 scan_metadata_ffmpeg(char *file, struct media_file_info *mfi);
 
-int
-scan_url_file(char *file, struct media_file_info *mfi);
-
 void
-scan_m3u_playlist(char *file);
+scan_m3u_playlist(char *file, time_t mtime);
 
 #ifdef ITUNES
 void

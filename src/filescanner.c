@@ -66,6 +66,7 @@
 
 struct deferred_pl {
   char *path;
+  time_t mtime;
   struct deferred_pl *next;
 };
 
@@ -294,8 +295,8 @@ fixup_tags(struct media_file_info *mfi)
 }
 
 
-static void
-process_media_file(char *file, time_t mtime, off_t size, int compilation)
+void
+process_media_file(char *file, time_t mtime, off_t size, int compilation, int url)
 {
   struct media_file_info mfi;
   char *filename;
@@ -364,13 +365,28 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
 	  /* Artwork - don't scan */
 	  goto out;
 	}
+      else if ((strcmp(ext, ".db") == 0)
+	       || (strcmp(ext, ".ini") == 0))
+	{
+	  /* System files - don't scan */
+	  goto out;
+	}
+      else if ((filename[1] == '_')
+	       || (filename[1] == '.'))
+	{
+	  /* Hidden files - don't scan */
+	  goto out;
+	}
     }
 
   /* General case */
   if (ret < 0)
     {
       ret = scan_metadata_ffmpeg(file, &mfi);
-      mfi.data_kind = 0; /* real file */
+      if (url == 0)
+        mfi.data_kind = 0; /* real file */
+      if (url == 1)
+        mfi.data_kind = 1; /* url/stream */
     }
 
   if (ret < 0)
@@ -401,7 +417,7 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
 }
 
 static void
-process_playlist(char *file)
+process_playlist(char *file, time_t mtime)
 {
   char *ext;
 
@@ -409,7 +425,7 @@ process_playlist(char *file)
   if (ext)
     {
       if (strcmp(ext, ".m3u") == 0)
-	scan_m3u_playlist(file);
+	scan_m3u_playlist(file, mtime);
 #ifdef ITUNES
       else if (strcmp(ext, ".xml") == 0)
 	scan_itunes_itml(file);
@@ -419,7 +435,7 @@ process_playlist(char *file)
 
 /* Thread: scan */
 static void
-defer_playlist(char *path)
+defer_playlist(char *path, time_t mtime)
 {
   struct deferred_pl *pl;
 
@@ -442,6 +458,7 @@ defer_playlist(char *path)
       return;
     }
 
+  pl->mtime = mtime;
   pl->next = playlists;
   playlists = pl;
 
@@ -458,7 +475,7 @@ process_deferred_playlists(void)
     {
       playlists = pl->next;
 
-      process_playlist(pl->path);
+      process_playlist(pl->path, pl->mtime);
 
       free(pl->path);
       free(pl);
@@ -487,9 +504,9 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int flags)
 	  )
 	{
 	  if (flags & F_SCAN_BULK)
-	    defer_playlist(file);
+	    defer_playlist(file, mtime);
 	  else
-	    process_playlist(file);
+	    process_playlist(file, mtime);
 
 	  return;
 	}
@@ -502,7 +519,7 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int flags)
     }
 
   /* Not any kind of special file, so let's see if it's a media file */
-  process_media_file(file, mtime, size, compilation);
+  process_media_file(file, mtime, size, compilation, 0);
 }
 
 
