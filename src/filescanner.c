@@ -181,7 +181,7 @@ fixup_tags(struct media_file_info *mfi)
    * Default to mpeg4 video/audio for unknown file types
    * in an attempt to allow streaming of DRM-afflicted files
    */
-  if (strcmp(mfi->codectype, "unkn") == 0)
+  if (mfi->codectype && strcmp(mfi->codectype, "unkn") == 0)
     {
       if (mfi->has_video)
 	{
@@ -354,11 +354,9 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation)
       if ((strcmp(ext, ".pls") == 0)
 	  || (strcmp(ext, ".url") == 0))
 	{
-	  mfi.data_kind = 1; /* url/stream */
+	  DPRINTF(E_INFO, L_SCAN, "No support for .url and .pls in this version, use .m3u\n");  
 
-	  ret = scan_url_file(file, &mfi);
-	  if (ret < 0)
-	    goto out;
+	  goto out;
 	}
       else if ((strcmp(ext, ".png") == 0)
 	       || (strcmp(ext, ".jpg") == 0))
