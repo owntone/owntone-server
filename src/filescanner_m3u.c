@@ -41,7 +41,7 @@
 
 
 void
-scan_m3u_playlist(char *file)
+scan_m3u_playlist(char *file, time_t mtime)
 {
   FILE *fp;
   struct playlist_info *pli;
@@ -165,6 +165,17 @@ scan_m3u_playlist(char *file)
 	  buf[len] = '\0';
 	}
 
+      /* Check if line is an URL */
+      if (strcmp(buf, "http://") > 0)
+	{
+	  DPRINTF(E_DBG, L_SCAN, "Playlist contains URL entry\n");
+
+	  filename = strdup(buf);
+	  process_media_file(filename, mtime, 0, 0, 1);
+
+	  goto urlexit;
+	}
+
       /* Absolute vs. relative path */
       if (buf[0] == '/')
 	{
@@ -183,19 +194,20 @@ scan_m3u_playlist(char *file)
 	  entry = rel_entry;
 	}
 
-	filename = m_realpath(entry);
-	if (!filename)
-	  {
-	    DPRINTF(E_WARN, L_SCAN, "Could not determine real path for '%s': %s\n", entry, strerror(errno));
+      filename = m_realpath(entry);
+      if (!filename)
+	{
+	  DPRINTF(E_WARN, L_SCAN, "Could not determine real path for '%s': %s\n", entry, strerror(errno));
 
-	    continue;
-	  }
+	  continue;
+	}
 
-	ret = db_pl_add_item_bypath(pl_id, filename);
-	if (ret < 0)
-	  DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
+ urlexit:
+      ret = db_pl_add_item_bypath(pl_id, filename);
+      if (ret < 0)
+	DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
 
-	free(filename);
+      free(filename);
     }
 
   free(pl_base);
