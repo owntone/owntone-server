@@ -1836,7 +1836,8 @@ playback_abort(void)
   if (event_initialized(&pb_timer_ev))
     event_del(&pb_timer_ev);
 
-  close(pb_timer_fd);
+  if (pb_timer_fd != -1)
+    close(pb_timer_fd);
   pb_timer_fd = -1;
 
   if (cur_playing)
@@ -1972,7 +1973,8 @@ playback_stop(struct player_command *cmd)
   if (event_initialized(&pb_timer_ev))
     event_del(&pb_timer_ev);
 
-  close(pb_timer_fd);
+  if (pb_timer_fd != -1)
+    close(pb_timer_fd);
   pb_timer_fd = -1;
 
   if (cur_playing)
@@ -2104,7 +2106,8 @@ playback_start_bh(struct player_command *cmd)
   return 0;
 
  out_fail:
-  close(pb_timer_fd);
+  if (pb_timer_fd != -1)
+    close(pb_timer_fd);
   pb_timer_fd = -1;
   playback_abort();
 
@@ -2434,7 +2437,8 @@ playback_pause(struct player_command *cmd)
   if (event_initialized(&pb_timer_ev))
     event_del(&pb_timer_ev);
 
-  close(pb_timer_fd);
+  if (pb_timer_fd != -1)
+    close(pb_timer_fd);
   pb_timer_fd = -1;
 
   if (ps->play_next)

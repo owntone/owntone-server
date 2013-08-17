@@ -1690,6 +1690,7 @@ raop_session_cleanup(struct raop_session *rs)
 {
   struct raop_session *s;
   struct raop_v2_packet *pkt;
+  struct raop_v2_packet *next_pkt;
 
   if (rs == sessions)
     sessions = sessions->next;
@@ -1709,8 +1710,13 @@ raop_session_cleanup(struct raop_session *rs)
   /* No more active sessions, free retransmit buffer */
   if (!sessions)
     {
-      for (pkt = pktbuf_head; pkt; pkt = pkt->next)
-	free(pkt);
+      pkt = pktbuf_head;
+      while (pkt)
+	{
+	  next_pkt = pkt->next;
+	  free(pkt);
+	  pkt = next_pkt;
+	}
 
       pktbuf_head = NULL;
       pktbuf_tail = NULL;
