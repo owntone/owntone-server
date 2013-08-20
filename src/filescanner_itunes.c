@@ -260,20 +260,20 @@ check_meta(plist_t dict)
   return 0;
 }
 
-
-/* Best-effort attempt at locating the file:
- *  - first exact location given in itml
- *  - somewhere under the location of itml
- *  - anywhere (filename only)
- */
 static int
-find_track_file(char *location, char *base)
+find_track_file(char *location)
 {
-  char *filename;
   int plen;
   int mfi_id;
+  char *filename;
 
   location = evhttp_decode_uri(location);
+  if (!location)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not decode iTunes XML playlist url.\n");
+
+      return 0;
+    }
 
   plen = strlen("file://localhost/");
 
@@ -287,52 +287,30 @@ find_track_file(char *location, char *base)
   else
     plen -= 1;
 
-  /* Try exact path first */
-  filename = m_realpath(location + plen);
-  if (filename)
+  /* Now look for location in the library, first using full path, gradually shorten, finally just with filename */
+  filename = location + plen;
+  while (filename && !(mfi_id = db_file_id_bypathpattern(filename)))
     {
-      mfi_id = db_file_id_bypath(filename);
-
-      free(filename);
-
-      if (mfi_id > 0)
-	{
-	  free(location);
-
-	  return mfi_id;
-	}
+      DPRINTF(E_SPAM, L_SCAN, "XML playlist filename is now %s\n", filename);
+      filename = strchr(filename + 1, '/');
     }
 
-  filename = strrchr(location, '/');
-  if (!filename)
+  /* Found */
+  if (filename && mfi_id > 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Could not extract filename from location\n");
+      DPRINTF(E_DBG, L_SCAN, "Found iTunes XML playlist entry match, id is %d, filename is %s\n", mfi_id, filename);
 
       free(location);
-      return 0;
-    }
-
-  filename++;
-
-  /* Try to locate the file under the playlist location */
-  mfi_id = db_file_id_byfilebase(filename, base);
-  if (mfi_id > 0)
-    {
-      free(location);
-
       return mfi_id;
     }
 
-  /* Last resort, filename only */
-  mfi_id = db_file_id_byfile(filename);
-
+  /* Not found */
   free(location);
-
-  return mfi_id;
+  return 0;
 }
 
 static int
-process_track_file(plist_t trk, char *base)
+process_track_file(plist_t trk)
 {
   char *location;
   struct media_file_info *mfi;
@@ -354,7 +332,7 @@ process_track_file(plist_t trk, char *base)
       return 0;
     }
 
-  mfi_id = find_track_file(location, base);
+  mfi_id = find_track_file(location);
 
   if (mfi_id <= 0)
     {
@@ -466,7 +444,7 @@ process_track_stream(plist_t trk)
 }
 
 static int
-process_tracks(plist_t tracks, char *base)
+process_tracks(plist_t tracks)
 {
   plist_t trk;
   plist_dict_iter iter;
@@ -537,7 +515,7 @@ process_tracks(plist_t tracks, char *base)
       if (strcmp(str, "URL") == 0)
 	mfi_id = process_track_stream(trk);
       else if (strcmp(str, "File") == 0)
-	mfi_id = process_track_file(trk, base);
+	mfi_id = process_track_file(trk);
       else
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Unknown track type: %s\n", str);
@@ -853,7 +831,7 @@ scan_itunes_itml(char *file)
 
   *ptr = '\0';
 
-  ret = process_tracks(node, file);
+  ret = process_tracks(node);
   if (ret <= 0)
     {
       DPRINTF(E_WARN, L_SCAN, "No tracks loaded\n");
