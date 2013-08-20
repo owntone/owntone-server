@@ -47,14 +47,14 @@ scan_m3u_playlist(char *file, time_t mtime)
   struct playlist_info *pli;
   struct stat sb;
   char buf[PATH_MAX];
-  char rel_entry[PATH_MAX];
-  char *pl_base;
   char *entry;
   char *filename;
   char *ptr;
   size_t len;
   int pl_id;
+  int mfi_id;
   int ret;
+  int i;
 
   DPRINTF(E_INFO, L_SCAN, "Processing static playlist: %s\n", file);
 
@@ -121,25 +121,6 @@ scan_m3u_playlist(char *file, time_t mtime)
       DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
     }
 
-  ptr = strrchr(file, '/');
-  if (!ptr)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Could not determine playlist base path\n");
-
-      return;
-    }
-
-  *ptr = '\0';
-  pl_base = strdup(file);
-  *ptr = '/';
-
-  if (!pl_base)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Out of memory\n");
-
-      return;
-    }
-
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
       len = strlen(buf);
@@ -171,46 +152,53 @@ scan_m3u_playlist(char *file, time_t mtime)
 	  DPRINTF(E_DBG, L_SCAN, "Playlist contains URL entry\n");
 
 	  filename = strdup(buf);
-	  process_media_file(filename, mtime, 0, 0, 1);
-
-	  goto urlexit;
-	}
-
-      /* Absolute vs. relative path */
-      if (buf[0] == '/')
-	{
-	  entry = buf;
-	}
-      else
-	{
-	  ret = snprintf(rel_entry, sizeof(rel_entry),"%s/%s", pl_base, buf);
-	  if ((ret < 0) || (ret >= sizeof(rel_entry)))
+	  if (!filename)
 	    {
-	      DPRINTF(E_WARN, L_SCAN, "Skipping entry, PATH_MAX exceeded\n");
+	      DPRINTF(E_LOG, L_SCAN, "Out of memory for playlist filename.\n");
 
 	      continue;
 	    }
 
-	  entry = rel_entry;
+	  process_media_file(filename, mtime, 0, 0, 1);
 	}
-
-      filename = m_realpath(entry);
-      if (!filename)
+      /* Regular file */
+      else
 	{
-	  DPRINTF(E_WARN, L_SCAN, "Could not determine real path for '%s': %s\n", entry, strerror(errno));
+          /* m3u might be from Windows so we change backslash to forward slash */
+          for (i = 0; i < strlen(buf); i++)
+	    {
+	      if (buf[i] == '\\')
+	        buf[i] = '/';
+	    }
 
-	  continue;
+	  entry = buf;
+	  while (entry && !(mfi_id = db_file_id_bypathpattern(entry)))
+	    {
+	      DPRINTF(E_DBG, L_SCAN, "Playlist entry is now %s\n", entry);
+	      entry = strchr(entry + 1, '/');
+	    }
+
+	  if (entry && mfi_id > 0)
+	    {
+	      DPRINTF(E_DBG, L_SCAN, "Found playlist entry match, id is %d, entry is %s\n", mfi_id, entry);
+              filename = db_file_path_byid(mfi_id);
+	      if (!filename)
+		{
+		  DPRINTF(E_LOG, L_SCAN, "Playlist entry %s matches file id %d, but file path is missing.\n", entry, mfi_id);
+
+		  continue;
+		}
+	    }
+	  else
+	    continue;
 	}
 
- urlexit:
       ret = db_pl_add_item_bypath(pl_id, filename);
       if (ret < 0)
 	DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
 
       free(filename);
     }
-
-  free(pl_base);
 
   if (!feof(fp))
     {

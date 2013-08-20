@@ -335,6 +335,9 @@ int
 db_file_id_bypath(char *path);
 
 int
+db_file_id_bypathpattern(char *path);
+
+int
 db_file_id_byfilebase(char *filename, char *base);
 
 int
