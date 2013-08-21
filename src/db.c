@@ -1535,7 +1535,7 @@ db_files_get_count_bypathpattern(char *path)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory making count query string.\n");
 
-      return;
+      return -1;
     }
 
   count = db_get_count(query);
