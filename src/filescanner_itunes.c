@@ -263,9 +263,11 @@ check_meta(plist_t dict)
 static int
 find_track_file(char *location)
 {
+  int ret;
   int plen;
   int mfi_id;
-  char *filename;
+  char *entry;
+  char *ptr;
 
   location = evhttp_decode_uri(location);
   if (!location)
@@ -281,32 +283,44 @@ find_track_file(char *location)
   if (strncmp(location, "file://localhost/", plen) != 0)
     return 0;
 
-  /* Windows pathspec, from iTunes Win32 */
-  if (location[plen + 1] == ':')
-    plen += 2;
-  else
-    plen -= 1;
-
-  /* Now look for location in the library, first using full path, gradually shorten, finally just with filename */
-  filename = location + plen;
-  while (filename && !(mfi_id = db_file_id_bypathpattern(filename)))
+  /* Now search for the library item where the path has closest match to playlist item */
+  /* Succes is when we find an unambiguous match, or when we no longer can expand the  */
+  /* the path to refine our search.                                                    */
+  entry = NULL;
+  do
     {
-      DPRINTF(E_SPAM, L_SCAN, "XML playlist filename is now %s\n", filename);
-      filename = strchr(filename + 1, '/');
-    }
+      ptr = strrchr(location, '/');
+      if (entry)
+	*(entry - 1) = '/';
+      if (ptr)
+	{
+	  *ptr = '\0';
+	  entry = ptr + 1;
+	}
+      else
+	entry = location;
 
-  /* Found */
-  if (filename && mfi_id > 0)
+      DPRINTF(E_SPAM, L_SCAN, "iTunes XML playlist entry is now %s\n", entry);
+      ret = db_files_get_count_bypathpattern(entry);
+
+    } while (ptr && (ret > 1));
+
+  if (ret > 0)
     {
-      DPRINTF(E_DBG, L_SCAN, "Found iTunes XML playlist entry match, id is %d, filename is %s\n", mfi_id, filename);
+      mfi_id = db_file_id_bypathpattern(entry);
+      DPRINTF(E_DBG, L_SCAN, "Found iTunes XML playlist entry match, id is %d, entry is %s\n", mfi_id, entry);
 
       free(location);
       return mfi_id;
     }
+  else
+    {
+      DPRINTF(E_DBG, L_SCAN, "No match for iTunes XML playlist entry %s\n", entry);
 
-  /* Not found */
-  free(location);
-  return 0;
+      free(location);
+      return 0;
+    }
+
 }
 
 static int
