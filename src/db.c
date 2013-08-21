@@ -1524,6 +1524,26 @@ db_files_get_count(void)
   return db_get_count("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
 }
 
+int
+db_files_get_count_bypathpattern(char *path)
+{
+  char *query;
+  int count;
+
+  query = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.path LIKE '%%%q';", path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory making count query string.\n");
+
+      return;
+    }
+
+  count = db_get_count(query);
+  sqlite3_free(query);
+
+  return count;
+}
+
 void
 db_files_update_songalbumid(void)
 {

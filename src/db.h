@@ -319,6 +319,9 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 int
 db_files_get_count(void);
 
+int
+db_files_get_count_bypathpattern(char *path);
+
 void
 db_files_update_songalbumid(void);
 

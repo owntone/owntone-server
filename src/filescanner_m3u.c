@@ -171,17 +171,34 @@ scan_m3u_playlist(char *file, time_t mtime)
 	        buf[i] = '/';
 	    }
 
-	  entry = buf;
-	  while (entry && !(mfi_id = db_file_id_bypathpattern(entry)))
+          /* Now search for the library item where the path has closest match to playlist item */
+          /* Succes is when we find an unambiguous match, or when we no longer can expand the  */
+          /* the path to refine our search.                                                    */
+	  entry = NULL;
+	  do
 	    {
-	      DPRINTF(E_DBG, L_SCAN, "Playlist entry is now %s\n", entry);
-	      entry = strchr(entry + 1, '/');
-	    }
+	      ptr = strrchr(buf, '/');
+	      if (entry)
+		*(entry - 1) = '/';
+	      if (ptr)
+		{
+		  *ptr = '\0';
+		  entry = ptr + 1;
+		}
+	      else
+		entry = buf;
 
-	  if (entry && mfi_id > 0)
+	      DPRINTF(E_SPAM, L_SCAN, "Playlist entry is now %s\n", entry);
+	      ret = db_files_get_count_bypathpattern(entry);
+
+	    } while (ptr && (ret > 1));
+
+	  if (ret > 0)
 	    {
+	      mfi_id = db_file_id_bypathpattern(entry);
 	      DPRINTF(E_DBG, L_SCAN, "Found playlist entry match, id is %d, entry is %s\n", mfi_id, entry);
-              filename = db_file_path_byid(mfi_id);
+
+	      filename = db_file_path_byid(mfi_id);
 	      if (!filename)
 		{
 		  DPRINTF(E_LOG, L_SCAN, "Playlist entry %s matches file id %d, but file path is missing.\n", entry, mfi_id);
@@ -190,7 +207,11 @@ scan_m3u_playlist(char *file, time_t mtime)
 		}
 	    }
 	  else
-	    continue;
+	    {
+	      DPRINTF(E_DBG, L_SCAN, "No match for playlist entry %s\n", entry);
+
+	      continue;
+	    }
 	}
 
       ret = db_pl_add_item_bypath(pl_id, filename);
