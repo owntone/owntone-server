@@ -137,7 +137,7 @@ scan_m3u_playlist(char *file, time_t mtime)
 	  continue;
 	}
 
-      if ((!isalnum(buf[0])) || (buf[0] == ';') || (buf[0] == '#') || (buf[0] == '\n'))
+      if ((!isalnum(buf[0])) && (buf[0] != '/'))
 	continue;
 
       while (isspace(buf[len - 1]))
