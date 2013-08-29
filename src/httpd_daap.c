@@ -1509,13 +1509,13 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   struct daap_session *s;
   struct evbuffer *group;
   struct evbuffer *grouplist;
+  enum query_type group_type;
   const struct dmap_field_map *dfm;
   const struct dmap_field *df;
   const struct dmap_field **meta;
   struct sort_ctx *sctx;
   const char *param;
   char **strval;
-  int group_type;
   int nmeta;
   int sort_headers;
   int ngrp;
