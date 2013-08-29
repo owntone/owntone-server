@@ -41,7 +41,7 @@ QUOTE	:	'\'';
 LPAR	:	'(';
 RPAR	:	')';
 
-OPAND	:	'+';
+OPAND	:	'+' | ' ';
 OPOR	:	',';
 
 NEWLINE	:	'\r'? '\n';

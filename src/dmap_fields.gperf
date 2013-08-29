@@ -101,6 +101,7 @@ const struct dmap_field_map dfm_dmap_aeSP = { -1,                               
 static const struct dmap_field_map dfm_dmap_aePS = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_ascd = { dbmfi_offsetof(codectype),               -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_ascs = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_agac = { -1,                                      -1,                            dbgri_offsetof(groupalbumcount) };
 static const struct dmap_field_map dfm_dmap_agrp = { dbmfi_offsetof(grouping),                -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aeSV = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aePI = { -1,                                      -1,                            -1 };
@@ -162,6 +163,7 @@ struct dmap_field;
 "com.apple.itunes.smart-playlist",           "aeSP", &dfm_dmap_aeSP, DMAP_TYPE_UBYTE
 "com.apple.itunes.season-num",               "aeSU", &dfm_dmap_aeSU, DMAP_TYPE_UINT
 "com.apple.itunes.music-sharing-version",    "aeSV", &dfm_dmap_aeSV, DMAP_TYPE_UINT
+"daap.groupalbumcount",                      "agac", &dfm_dmap_agac, DMAP_TYPE_UINT
 "daap.songgrouping",                         "agrp", &dfm_dmap_agrp, DMAP_TYPE_STRING
 "daap.databaseplaylists",                    "aply", &dfm_dmap_aply, DMAP_TYPE_LIST
 "daap.playlistrepeatmode",                   "aprm", &dfm_dmap_aprm, DMAP_TYPE_UBYTE
