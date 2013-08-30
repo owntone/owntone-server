@@ -1509,6 +1509,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   struct daap_session *s;
   struct evbuffer *group;
   struct evbuffer *grouplist;
+  enum query_type group_type;
   const struct dmap_field_map *dfm;
   const struct dmap_field *df;
   const struct dmap_field **meta;
@@ -1527,8 +1528,17 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   if (!s)
     return;
 
-  /* For now we only support album groups */
-  tag = "agal";
+  param = evhttp_find_header(query, "group-type");
+  if (strcmp(param, "artists") == 0)
+    {
+      tag = "agar";
+      group_type = Q_GROUP_ARTISTS;
+    }
+  else
+    {
+      tag = "agal";
+      group_type = Q_GROUP_ALBUMS;
+    }
 
   ret = evbuffer_expand(evbuf, 61);
   if (ret < 0)
@@ -1595,7 +1605,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   memset(&qp, 0, sizeof(struct query_params));
   get_query_params(query, &sort_headers, &qp);
-  qp.type = Q_GROUPS;
+  qp.type = group_type;
 
   sctx = NULL;
   if (sort_headers)
@@ -1669,8 +1679,9 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       if ((ret == 0) && (val > 0))
 	dmap_add_int(group, "mimc", val);
 
-      /* Song album artist, always added (asaa) */
-      dmap_add_string(group, "asaa", dbgri.songalbumartist);
+      /* Song album artist (asaa), always added if group-type is albums  */
+      if (group_type == Q_GROUP_ALBUMS)
+        dmap_add_string(group, "asaa", dbgri.songalbumartist);
 
       /* Item id (miid) */
       val = 0;

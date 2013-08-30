@@ -33,9 +33,10 @@ enum query_type {
   Q_BROWSE_ALBUMS    = Q_F_BROWSE | (1 << 4),
   Q_BROWSE_GENRES    = Q_F_BROWSE | (1 << 5),
   Q_BROWSE_COMPOSERS = Q_F_BROWSE | (1 << 6),
-  Q_GROUPS           = (1 << 7),
-  Q_GROUPITEMS       = (1 << 8),
-  Q_GROUP_DIRS       = Q_F_BROWSE | (1 << 9),
+  Q_GROUP_ALBUMS     = (1 << 7),
+  Q_GROUP_ARTISTS    = (1 << 8),
+  Q_GROUP_ITEMS      = (1 << 9),
+  Q_GROUP_DIRS       = Q_F_BROWSE | (1 << 10),
 };
 
 struct query_params {
@@ -190,6 +191,7 @@ struct db_group_info {
   char *persistentid;
   char *itemname;
   char *itemcount;
+  char *groupalbumcount;
   char *songalbumartist;
 };
 

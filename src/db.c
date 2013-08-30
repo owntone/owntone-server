@@ -232,12 +232,13 @@ static const ssize_t dbpli_cols_map[] =
   };
 
 /* This list must be kept in sync with
- * - the order of fields in the Q_GROUPS query
+ * - the order of fields in the Q_GROUP_ALBUMS and Q_GROUP_ARTISTS query
  * - the name of the fields in struct group_info
  */
 static const ssize_t dbgri_cols_map[] =
   {
     dbgri_offsetof(itemcount),
+    dbgri_offsetof(groupalbumcount),
     dbgri_offsetof(id),
     dbgri_offsetof(persistentid),
     dbgri_offsetof(songalbumartist),
@@ -967,7 +968,7 @@ db_build_query_plitems(struct query_params *qp, char **q)
 }
 
 static int
-db_build_query_groups(struct query_params *qp, char **q)
+db_build_query_group_albums(struct query_params *qp, char **q)
 {
   char *query;
   char *idx;
@@ -983,13 +984,13 @@ db_build_query_groups(struct query_params *qp, char **q)
     return -1;
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name %s;", G_ALBUMS, qp->filter, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), 1, g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name %s;", G_ALBUMS, qp->filter, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name %s;", G_ALBUMS, idx);
+    query = sqlite3_mprintf("SELECT COUNT(*), 1, g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name %s;", G_ALBUMS, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name;", G_ALBUMS, qp->filter);
+    query = sqlite3_mprintf("SELECT COUNT(*), 1, g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name;", G_ALBUMS, qp->filter);
   else
-    query = sqlite3_mprintf("SELECT COUNT(*), g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name;", G_ALBUMS);
+    query = sqlite3_mprintf("SELECT COUNT(*), 1, g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name;", G_ALBUMS);
 
   if (!query)
     {
@@ -1003,7 +1004,43 @@ db_build_query_groups(struct query_params *qp, char **q)
 }
 
 static int
-db_build_query_groupitems(struct query_params *qp, char **q)
+db_build_query_group_artists(struct query_params *qp, char **q)
+{
+  char *query;
+  char *idx;
+  int ret;
+
+  qp->results = db_get_count("SELECT COUNT(DISTINCT f.album_artist) FROM files f WHERE f.disabled = 0;");
+  if (qp->results < 0)
+    return -1;
+
+  /* Get index clause */
+  ret = db_build_query_index_clause(qp, &idx);
+  if (ret < 0)
+    return -1;
+
+  if (idx && qp->filter)
+    query = sqlite3_mprintf("SELECT COUNT(*), COUNT(DISTINCT f.album), 1, 1, f.album_artist, f.album_artist FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.album_artist %s;", qp->filter, idx);
+  else if (idx)
+    query = sqlite3_mprintf("SELECT COUNT(*), COUNT(DISTINCT f.album), 1, 1, f.album_artist, f.album_artist FROM files f WHERE f.disabled = 0 GROUP BY f.album_artist %s;", idx);
+  else if (qp->filter)
+    query = sqlite3_mprintf("SELECT COUNT(*), COUNT(DISTINCT f.album), 1, 1, f.album_artist, f.album_artist FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.album_artist;", qp->filter);
+  else
+    query = sqlite3_mprintf("SELECT COUNT(*), COUNT(DISTINCT f.album), 1, 1, f.album_artist, f.album_artist FROM files f WHERE f.disabled = 0 GROUP BY f.album_artist;");
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  *q = query;
+
+  return 0;
+}
+
+static int
+db_build_query_group_items(struct query_params *qp, char **q)
 {
   char *query;
   char *count;
@@ -1189,12 +1226,16 @@ db_query_start(struct query_params *qp)
 	ret = db_build_query_plitems(qp, &query);
 	break;
 
-      case Q_GROUPS:
-	ret = db_build_query_groups(qp, &query);
+      case Q_GROUP_ALBUMS:
+	ret = db_build_query_group_albums(qp, &query);
 	break;
 
-      case Q_GROUPITEMS:
-	ret = db_build_query_groupitems(qp, &query);
+      case Q_GROUP_ARTISTS:
+	ret = db_build_query_group_artists(qp, &query);
+	break;
+
+      case Q_GROUP_ITEMS:
+	ret = db_build_query_group_items(qp, &query);
 	break;
 
       case Q_GROUP_DIRS:
@@ -1269,7 +1310,7 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
       return -1;
     }
 
-  if ((qp->type != Q_ITEMS) && (qp->type != Q_PLITEMS) && (qp->type != Q_GROUPITEMS))
+  if ((qp->type != Q_ITEMS) && (qp->type != Q_PLITEMS) && (qp->type != Q_GROUP_ITEMS))
     {
       DPRINTF(E_LOG, L_DB, "Not an items, playlist or group items query!\n");
       return -1;
@@ -1405,7 +1446,7 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
       return -1;
     }
 
-  if (qp->type != Q_GROUPS)
+  if ((qp->type != Q_GROUP_ALBUMS) && (qp->type != Q_GROUP_ARTISTS))
     {
       DPRINTF(E_LOG, L_DB, "Not a groups query!\n");
       return -1;
