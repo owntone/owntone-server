@@ -967,19 +967,29 @@ static void
 dacp_reply_playpause(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
+  struct player_status status;
   int ret;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Player returned an error for start after pause\n");
 
-      evhttp_send_error(req, 500, "Internal Server Error");
-      return;
+  player_get_status(&status);
+  if (status.status == PLAY_PLAYING)
+    {
+      player_playback_pause();
+    }
+  else
+    {
+      ret = player_playback_start(NULL);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Player returned an error for start after pause\n");
+
+	  evhttp_send_error(req, 500, "Internal Server Error");
+	  return;
+        }
     }
 
   /* 204 No Content is the canonical reply */
@@ -1502,15 +1512,18 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
   do
     {
       param++;
-      ret = safe_hextou64(param, &ids[i]);
-      if (ret < 0)
+      /* Hyperfine Remote for Android will send in decimal, others use hex */
+      if (safe_atou64(param, &ids[i]) < 0)
 	{
-	  DPRINTF(E_LOG, L_DACP, "Invalid speaker id in request: %s\n", param);
+	  ret = safe_hextou64(param, &ids[i]);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DACP, "Invalid speaker id in request: %s\n", param);
 
-	  nspk--;
-	  continue;
+	      nspk--;
+	      continue;
+	    }
 	}
-
       i++;
     }
   while ((param = strchr(param + 1, ',')));
