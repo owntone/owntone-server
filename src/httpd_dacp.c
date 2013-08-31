@@ -1513,16 +1513,21 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
     {
       param++;
       /* Hyperfine Remote for Android will send in decimal, others use hex */
-      if (safe_atou64(param, &ids[i]) < 0)
-	{
-	  ret = safe_hextou64(param, &ids[i]);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_DACP, "Invalid speaker id in request: %s\n", param);
+      if ((strlen(param) > 1) && (param[1] != 'x'))
+	ret = safe_atou64(param, &ids[i]);
+      else
+	ret = safe_hextou64(param, &ids[i]);
 
-	      nspk--;
-	      continue;
-	    }
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Invalid speaker id in request: %s\n", param);
+
+	  nspk--;
+	  continue;
+	}
+      else
+	{
+	  DPRINTF(E_DBG, L_DACP, "Speaker id converted with ret %d, param %s, dec val %llu.\n", ret, param, ids[i]);
 	}
       i++;
     }
