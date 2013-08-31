@@ -1871,10 +1871,6 @@ get_status(struct player_command *cmd)
   status->shuffle = shuffle;
   status->repeat = repeat;
 
-  /* No devices selected, autoselect local audio */
-  if (master_volume < 0)
-    speaker_select_laudio();
-
   status->volume = master_volume;
 
   status->plid = cur_plid;
