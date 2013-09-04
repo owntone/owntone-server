@@ -29,7 +29,8 @@
 #include <fcntl.h>
 #include <limits.h>
 
-#include <event.h>
+#include <event2/event.h>
+#include <event2/buffer.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
@@ -649,8 +650,8 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
 
   if (ret < 0)
     {
-      if (EVBUFFER_LENGTH(evbuf) > 0)
-	evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+      if (evbuffer_get_length(evbuf) > 0)
+	evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
     }
 
   return ret;

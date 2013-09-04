@@ -57,7 +57,7 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 
-#include <event.h>
+#include <event2/event.h>
 #include "evrtsp/evrtsp.h"
 
 #include <gcrypt.h>
@@ -1792,8 +1792,7 @@ raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
 
   deh->session = rs;
 
-  evtimer_set(&deh->ev, raop_deferred_eh_cb, deh);
-  event_base_set(evbase_player, &deh->ev);
+  evtimer_assign(&deh->ev, evbase_player, raop_deferred_eh_cb, deh);
   evutil_timerclear(&tv);
   evtimer_add(&deh->ev, &tv);
 }
@@ -2060,7 +2059,7 @@ raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, stru
 	return -1;
     }
 
-  ret = evbuffer_add(evbuf, EVBUFFER_DATA(rmd->artwork), EVBUFFER_LENGTH(rmd->artwork));
+  ret = evbuffer_add(evbuf, evbuffer_pullup(rmd->artwork, -1), evbuffer_get_length(rmd->artwork));
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not copy artwork for sending\n");
@@ -2080,7 +2079,7 @@ raop_metadata_send_metadata(struct raop_session *rs, struct evbuffer *evbuf, str
 {
   int ret;
 
-  ret = evbuffer_add(evbuf, EVBUFFER_DATA(rmd->metadata), EVBUFFER_LENGTH(rmd->metadata));
+  ret = evbuffer_add(evbuf, evbuffer_pullup(rmd->metadata, -1), evbuffer_get_length(rmd->metadata));
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not copy metadata for sending\n");
@@ -2432,8 +2431,7 @@ raop_flush(raop_status_cb cb, uint64_t rtptime)
 
   if (pending > 0)
     {
-      evtimer_set(&flush_timer, raop_flush_timer_cb, NULL);
-      event_base_set(evbase_player, &flush_timer);
+      evtimer_assign(&flush_timer, evbase_player, raop_flush_timer_cb, NULL);
       evutil_timerclear(&tv);
       tv.tv_sec = 10;
       evtimer_add(&flush_timer, &tv);
@@ -2674,8 +2672,7 @@ raop_v2_timing_start_one(struct raop_service *svc, int family)
 	break;
     }
 
-  event_set(&svc->ev, svc->fd, EV_READ, raop_v2_timing_cb, svc);
-  event_base_set(evbase_player, &svc->ev);
+  event_assign(&svc->ev, evbase_player, svc->fd, EV_READ, raop_v2_timing_cb, svc);
   ret = event_add(&svc->ev, NULL);
   if (ret < 0)
     {
@@ -3006,8 +3003,7 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
 	break;
     }
 
-  event_set(&svc->ev, svc->fd, EV_READ, raop_v2_control_cb, svc);
-  event_base_set(evbase_player, &svc->ev);
+  event_assign(&svc->ev, evbase_player, svc->fd, EV_READ, raop_v2_control_cb, svc);
   ret = event_add(&svc->ev, NULL);
   if (ret < 0)
     {

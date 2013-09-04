@@ -47,7 +47,7 @@
 #include <pthread.h>
 
 #include <getopt.h>
-#include <event.h>
+#include <event2/event.h>
 #include <libavutil/log.h>
 #include <libavformat/avformat.h>
 
@@ -633,7 +633,7 @@ main(int argc, char **argv)
     }
 
   /* Initialize libevent (after forking) */
-  evbase_main = event_init();
+  evbase_main = event_base_new();
 
   DPRINTF(E_LOG, L_MAIN, "mDNS init\n");
   ret = mdns_init();
@@ -725,7 +725,7 @@ main(int argc, char **argv)
       goto signalfd_fail;
     }
 
-  event_set(&sig_event, sigfd, EV_READ, signal_signalfd_cb, NULL);
+  event_assign(&sig_event, evbase_main, sigfd, EV_READ, signal_signalfd_cb, NULL);
 
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
   sigfd = kqueue();
@@ -751,10 +751,10 @@ main(int argc, char **argv)
       goto signalfd_fail;
     }
 
-  event_set(&sig_event, sigfd, EV_READ, signal_kqueue_cb, NULL);
+  event_assign(&sig_event, evbase_main, sigfd, EV_READ, signal_kqueue_cb, NULL);
+
 #endif
 
-  event_base_set(evbase_main, &sig_event);
   event_add(&sig_event, NULL);
 
   /* Run the loop */

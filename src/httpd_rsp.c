@@ -31,7 +31,7 @@
 #include <regex.h>
 #include <limits.h>
 
-#include <event.h>
+#include <event2/event.h>
 #include "evhttp/evhttp.h"
 
 #include <mxml.h>

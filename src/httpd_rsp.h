@@ -2,7 +2,7 @@
 #ifndef __HTTPD_RSP_H__
 #define __HTTPD_RSP_H__
 
-#include <event.h>
+#include <event2/event.h>
 #include "evhttp/evhttp.h"
 
 int

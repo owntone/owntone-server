@@ -30,7 +30,9 @@
 #ifndef _EVRTSP_H_
 #define _EVRTSP_H_
 
-#include <event.h>
+#include <event2/event.h>
+#include <event2/buffer.h>
+#include <event2/event_struct.h>
 
 #ifdef __cplusplus
 extern "C" {

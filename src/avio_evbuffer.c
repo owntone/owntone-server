@@ -24,7 +24,8 @@
 
 #include <libavformat/avformat.h>
 
-#include <event.h>
+#include <event2/event.h>
+#include <event2/buffer.h>
 
 #include "logger.h"
 #include "avio_evbuffer.h"

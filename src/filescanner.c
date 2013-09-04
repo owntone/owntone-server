@@ -51,7 +51,8 @@
 # include <sys/eventfd.h>
 #endif
 
-#include <event.h>
+#include <event2/event.h>
+#include <event2/event_struct.h>
 
 #include "logger.h"
 #include "db.h"
@@ -1473,7 +1474,7 @@ filescanner_init(void)
       goto ino_fail;
     }
 
-  event_set(&inoev, inofd, EV_READ, inotify_cb, NULL);
+  event_assign(&inoev, evbase_scan, inofd, EV_READ, inotify_cb, NULL);
 
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 
@@ -1485,17 +1486,15 @@ filescanner_init(void)
       goto ino_fail;
     }
 
-  event_set(&inoev, inofd, EV_READ, kqueue_cb, NULL);
-#endif
+  event_assign(&inoev, evbase_scan, inofd, EV_READ, kqueue_cb, NULL);
 
-  event_base_set(evbase_scan, &inoev);
+#endif
 
 #ifdef USE_EVENTFD
-  event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
+  event_assign(&exitev, evbase_scan, exit_efd, EV_READ, exit_cb, NULL);
 #else
-  event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
+  event_assign(&exitev, evbase_scan, exit_pipe[0], EV_READ, exit_cb, NULL);
 #endif
-  event_base_set(evbase_scan, &exitev);
   event_add(&exitev, NULL);
 
   ret = pthread_create(&tid_scan, NULL, filescanner, NULL);

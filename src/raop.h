@@ -4,7 +4,7 @@
 
 #include <netinet/in.h>
 
-#include <event.h>
+#include <event2/event.h>
 #include "evrtsp/evrtsp.h"
 
 

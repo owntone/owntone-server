@@ -43,7 +43,7 @@
 # include <sys/eventfd.h>
 #endif
 
-#include <event.h>
+#include <event2/event.h>
 
 #include <gcrypt.h>
 
@@ -1213,7 +1213,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	    return -1;
 	}
 
-      if (EVBUFFER_LENGTH(audio_buf) == 0)
+      if (evbuffer_get_length(audio_buf) == 0)
 	{
 	  ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes);
 	  if (ret <= 0)
@@ -1853,7 +1853,7 @@ playback_abort(void)
   cur_playing = NULL;
   cur_streaming = NULL;
 
-  evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
+  evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
   status_update(PLAY_STOPPED);
 
@@ -1986,7 +1986,7 @@ playback_stop(struct player_command *cmd)
   cur_playing = NULL;
   cur_streaming = NULL;
 
-  evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
+  evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
   status_update(PLAY_STOPPED);
 
@@ -2087,8 +2087,7 @@ playback_start_bh(struct player_command *cmd)
     }
 #endif
 
-  event_set(&pb_timer_ev, pb_timer_fd, EV_READ, player_playback_cb, NULL);
-  event_base_set(evbase_player, &pb_timer_ev);
+  event_assign(&pb_timer_ev, evbase_player, pb_timer_fd, EV_READ, player_playback_cb, NULL);
 
   ret = event_add(&pb_timer_ev, NULL);
   if (ret < 0)
@@ -2449,7 +2448,7 @@ playback_pause(struct player_command *cmd)
   cur_streaming = ps;
   cur_streaming->play_next = NULL;
 
-  evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
+  evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
   metadata_purge();
 
@@ -3910,15 +3909,13 @@ player_init(void)
     }
 
 #ifdef USE_EVENTFD
-  event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
+  event_assign(&exitev, evbase_player, exit_efd, EV_READ, exit_cb, NULL);
 #else
-  event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
+  event_assign(&exitev, evbase_player, exit_pipe[0], EV_READ, exit_cb, NULL);
 #endif
-  event_base_set(evbase_player, &exitev);
   event_add(&exitev, NULL);
 
-  event_set(&cmdev, cmd_pipe[0], EV_READ, command_cb, NULL);
-  event_base_set(evbase_player, &cmdev);
+  event_assign(&cmdev, evbase_player, cmd_pipe[0], EV_READ, command_cb, NULL);
   event_add(&cmdev, NULL);
 
   ret = laudio_init(player_laudio_status_cb);

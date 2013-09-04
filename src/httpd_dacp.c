@@ -37,7 +37,7 @@
 # include <sys/eventfd.h>
 #endif
 
-#include <event.h>
+#include <event2/event.h>
 #include "evhttp/evhttp.h"
 
 #include "logger.h"
@@ -252,7 +252,7 @@ make_playstatusupdate(struct evbuffer *evbuf)
       free_mfi(mfi, 0);
     }
 
-  dmap_add_container(evbuf, "cmst", EVBUFFER_LENGTH(psu));    /* 8 + len */
+  dmap_add_container(evbuf, "cmst", evbuffer_get_length(psu));    /* 8 + len */
 
   ret = evbuffer_add_buffer(evbuf, psu);
   evbuffer_free(psu);
@@ -319,7 +319,7 @@ playstatusupdate_cb(int fd, short what, void *arg)
 
       evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
 
-      evbuffer_add(evbuf, EVBUFFER_DATA(update), EVBUFFER_LENGTH(update));
+      evbuffer_add(evbuf, evbuffer_pullup(update, -1), evbuffer_get_length(update));
 
       httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
 
@@ -569,8 +569,7 @@ dacp_propset_playingtime(const char *value, struct evkeyvalq *query)
       return;
     }
 
-  evtimer_set(&seek_timer, seek_timer_cb, NULL);
-  event_base_set(evbase_httpd, &seek_timer);
+  evtimer_assign(&seek_timer, evbase_httpd, seek_timer_cb, NULL);
   evutil_timerclear(&tv);
   tv.tv_usec = 200 * 1000;
   evtimer_add(&seek_timer, &tv);
@@ -1240,15 +1239,15 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
 	break;
 
       default:
-	if (EVBUFFER_LENGTH(evbuf) > 0)
-	  evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+	if (evbuffer_get_length(evbuf) > 0)
+	  evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
 
 	goto no_artwork;
     }
 
   evhttp_remove_header(req->output_headers, "Content-Type");
   evhttp_add_header(req->output_headers, "Content-Type", ctype);
-  snprintf(clen, sizeof(clen), "%ld", (long)EVBUFFER_LENGTH(evbuf));
+  snprintf(clen, sizeof(clen), "%ld", (long)evbuffer_get_length(evbuf));
   evhttp_add_header(req->output_headers, "Content-Length", clen);
 
   /* No gzip compression for artwork */
@@ -1342,7 +1341,7 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
   if (mfi)
     free_mfi(mfi, 0);
 
-  dmap_add_container(evbuf, "cmgt", 12 + EVBUFFER_LENGTH(proplist)); /* 8 + len */
+  dmap_add_container(evbuf, "cmgt", 12 + evbuffer_get_length(proplist)); /* 8 + len */
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
 
   ret = evbuffer_add_buffer(evbuf, proplist);
@@ -1457,7 +1456,7 @@ dacp_reply_getspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
   player_speaker_enumerate(speaker_enum_cb, spklist);
 
-  dmap_add_container(evbuf, "casp", 12 + EVBUFFER_LENGTH(spklist)); /* 8 + len */
+  dmap_add_container(evbuf, "casp", 12 + evbuffer_get_length(spklist)); /* 8 + len */
   dmap_add_int(evbuf, "mstt", 200); /* 12 */
 
   evbuffer_add_buffer(evbuf, spklist);
@@ -1804,11 +1803,10 @@ dacp_init(void)
     }
 
 #ifdef USE_EVENTFD
-  event_set(&updateev, update_efd, EV_READ, playstatusupdate_cb, NULL);
+  event_assign(&updateev, evbase_httpd, update_efd, EV_READ, playstatusupdate_cb, NULL);
 #else
-  event_set(&updateev, update_pipe[0], EV_READ, playstatusupdate_cb, NULL);
+  event_assign(&updateev, evbase_httpd, update_pipe[0], EV_READ, playstatusupdate_cb, NULL);
 #endif
-  event_base_set(evbase_httpd, &updateev);
   event_add(&updateev, NULL);
 
   player_set_update_handler(dacp_playstatus_update_handler);

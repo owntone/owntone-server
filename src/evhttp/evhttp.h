@@ -27,7 +27,9 @@
 #ifndef _EVHTTP_H_
 #define _EVHTTP_H_
 
-#include <event.h>
+#include <event2/event.h>
+#include <event2/buffer.h>
+#include <event2/event_struct.h>
 
 #ifdef __cplusplus
 extern "C" {

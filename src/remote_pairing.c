@@ -46,7 +46,8 @@
 # include <sys/eventfd.h>
 #endif
 
-#include <event.h>
+#include <event2/event.h>
+#include <event2/event_struct.h>
 #include "evhttp/evhttp.h"
 
 #include <gcrypt.h>
@@ -428,14 +429,14 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
       goto cleanup;
     }
 
-  if (EVBUFFER_LENGTH(req->input_buffer) < 8)
+  if (evbuffer_get_length(req->input_buffer) < 8)
     {
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response too short\n", ri->pi.remote_id, ri->pi.name);
 
       goto cleanup;
     }
 
-  response = EVBUFFER_DATA(req->input_buffer);
+  response = evbuffer_pullup(req->input_buffer, -1);
 
   if ((response[0] != 'c') || (response[1] != 'm') || (response[2] != 'p') || (response[3] != 'a'))
     {
@@ -445,10 +446,10 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
     }
 
   len = (response[4] << 24) | (response[5] << 16) | (response[6] << 8) | (response[7]);
-  if (EVBUFFER_LENGTH(req->input_buffer) < 8 + len)
+  if (evbuffer_get_length(req->input_buffer) < 8 + len)
     {
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response truncated (got %d expected %d)\n",
-	      ri->pi.remote_id, ri->pi.name, (int)EVBUFFER_LENGTH(req->input_buffer), len + 8);
+	      ri->pi.remote_id, ri->pi.name, (int)evbuffer_get_length(req->input_buffer), len + 8);
 
       goto cleanup;
     }
@@ -937,11 +938,10 @@ remote_pairing_init(void)
     }
 
 #ifdef USE_EVENTFD
-  event_set(&pairingev, pairing_efd, EV_READ, pairing_cb, NULL);
+  event_assign(&pairingev, evbase_main, pairing_efd, EV_READ, pairing_cb, NULL);
 #else
-  event_set(&pairingev, pairing_pipe[0], EV_READ, pairing_cb, NULL);
+  event_assign(&pairingev, evbase_main, pairing_pipe[0], EV_READ, pairing_cb, NULL);
 #endif
-  event_base_set(evbase_main, &pairingev);
   event_add(&pairingev, NULL);
 
   return 0;

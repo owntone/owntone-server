@@ -24,7 +24,7 @@
 
 #include <libavformat/avformat.h>
 
-#include <event.h>
+#include <event2/event.h>
 
 #include "logger.h"
 #include "ffmpeg_url_evbuffer.h"

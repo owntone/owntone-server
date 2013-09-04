@@ -25,7 +25,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <event-config.h>
+#include <event2/event-config.h>
 
 #ifdef _EVENT_HAVE_SYS_PARAM_H
 #include <sys/param.h>
@@ -81,9 +81,9 @@
 #undef timeout_pending
 #undef timeout_initialized
 
-#include <event.h>
+#include <event2/event.h>
+#include <event2/util.h>
 #include "evhttp.h"
-#include <evutil.h>
 #include "log.h"
 #include "http-internal.h"
 
@@ -349,8 +349,7 @@ evhttp_write_buffer(struct evhttp_connection *evcon,
 	if (event_pending(&evcon->ev, EV_WRITE|EV_TIMEOUT, NULL))
 		event_del(&evcon->ev);
 
-	event_set(&evcon->ev, evcon->fd, EV_WRITE, evhttp_write, evcon);
-	EVHTTP_BASE_SET(evcon, &evcon->ev);
+	event_assign(&evcon->ev, evcon->base, evcon->fd, EV_WRITE, evhttp_write, evcon);
 	evhttp_add_event(&evcon->ev, evcon->timeout, HTTP_WRITE_TIMEOUT);
 }
 
@@ -393,7 +392,7 @@ evhttp_make_header_request(struct evhttp_connection *evcon,
 	    evhttp_find_header(req->output_headers, "Content-Length") == NULL){
 		char size[12];
 		evutil_snprintf(size, sizeof(size), "%ld",
-		    (long)EVBUFFER_LENGTH(req->output_buffer));
+		    (long)evbuffer_get_length(req->output_buffer));
 		evhttp_add_header(req->output_headers, "Content-Length", size);
 	}
 }
@@ -487,12 +486,12 @@ evhttp_make_header_response(struct evhttp_connection *evcon,
 			 */
 			evhttp_maybe_add_content_length_header(
 				req->output_headers,
-				(long)EVBUFFER_LENGTH(req->output_buffer));
+				(long)evbuffer_get_length(req->output_buffer));
 		}
 	}
 
 	/* Potentially add headers for unidentified content. */
-	if (EVBUFFER_LENGTH(req->output_buffer)) {
+	if (evbuffer_get_length(req->output_buffer)) {
 		if (evhttp_find_header(req->output_headers,
 			"Content-Type") == NULL) {
 			evhttp_add_header(req->output_headers,
@@ -530,7 +529,7 @@ evhttp_make_header(struct evhttp_connection *evcon, struct evhttp_request *req)
 	}
 	evbuffer_add(evcon->output_buffer, "\r\n", 2);
 
-	if (EVBUFFER_LENGTH(req->output_buffer) > 0) {
+	if (evbuffer_get_length(req->output_buffer) > 0) {
 		/*
 		 * For a request, we add the POST data, for a reply, this
 		 * is the regular data.
@@ -710,7 +709,7 @@ evhttp_write(int fd, short what, void *arg)
 		return;
 	}
 
-	if (EVBUFFER_LENGTH(evcon->output_buffer) != 0) {
+	if (evbuffer_get_length(evcon->output_buffer) != 0) {
 		evhttp_add_event(&evcon->ev, 
 		    evcon->timeout, HTTP_WRITE_TIMEOUT);
 		return;
@@ -800,11 +799,11 @@ evhttp_handle_chunked_read(struct evhttp_request *req, struct evbuffer *buf)
 {
 	int len;
 
-	while ((len = EVBUFFER_LENGTH(buf)) > 0) {
+	while ((len = evbuffer_get_length(buf)) > 0) {
 		if (req->ntoread < 0) {
 			/* Read chunk size */
 			ev_int64_t ntoread;
-			char *p = evbuffer_readline(buf);
+			char *p = evbuffer_readln(buf, NULL, EVBUFFER_EOL_ANY);
 			char *endp;
 			int error;
 			if (p == NULL)
@@ -837,13 +836,13 @@ evhttp_handle_chunked_read(struct evhttp_request *req, struct evbuffer *buf)
 
 		/* Completed chunk */
 		evbuffer_add(req->input_buffer,
-		    EVBUFFER_DATA(buf), (size_t)req->ntoread);
+		    evbuffer_pullup(buf,-1), (size_t)req->ntoread);
 		evbuffer_drain(buf, (size_t)req->ntoread);
 		req->ntoread = -1;
 		if (req->chunk_cb != NULL) {
 			(*req->chunk_cb)(req, req->cb_arg);
 			evbuffer_drain(req->input_buffer,
-			    EVBUFFER_LENGTH(req->input_buffer));
+			    evbuffer_get_length(req->input_buffer));
 		}
 	}
 
@@ -899,9 +898,9 @@ evhttp_read_body(struct evhttp_connection *evcon, struct evhttp_request *req)
 	} else if (req->ntoread < 0) {
 		/* Read until connection close. */
 		evbuffer_add_buffer(req->input_buffer, buf);
-	} else if (EVBUFFER_LENGTH(buf) >= req->ntoread) {
+	} else if (evbuffer_get_length(buf) >= req->ntoread) {
 		/* Completed content length */
-		evbuffer_add(req->input_buffer, EVBUFFER_DATA(buf),
+		evbuffer_add(req->input_buffer, evbuffer_pullup(buf,-1),
 		    (size_t)req->ntoread);
 		evbuffer_drain(buf, (size_t)req->ntoread);
 		req->ntoread = 0;
@@ -909,8 +908,7 @@ evhttp_read_body(struct evhttp_connection *evcon, struct evhttp_request *req)
 		return;
 	}
 	/* Read more! */
-	event_set(&evcon->ev, evcon->fd, EV_READ, evhttp_read, evcon);
-	EVHTTP_BASE_SET(evcon, &evcon->ev);
+	event_assign(&evcon->ev, evcon->base, evcon->fd, EV_READ, evhttp_read, evcon);
 	evhttp_add_event(&evcon->ev, evcon->timeout, HTTP_READ_TIMEOUT);
 }
 
@@ -1104,9 +1102,9 @@ evhttp_connection_reset(struct evhttp_connection *evcon)
 	evcon->state = EVCON_DISCONNECTED;
 
 	evbuffer_drain(evcon->input_buffer,
-	    EVBUFFER_LENGTH(evcon->input_buffer));
+	    evbuffer_get_length(evcon->input_buffer));
 	evbuffer_drain(evcon->output_buffer,
-	    EVBUFFER_LENGTH(evcon->output_buffer));
+	    evbuffer_get_length(evcon->output_buffer));
 }
 
 static void
@@ -1127,9 +1125,8 @@ evhttp_connection_start_detectclose(struct evhttp_connection *evcon)
 
 	if (event_initialized(&evcon->close_ev))
 		event_del(&evcon->close_ev);
-	event_set(&evcon->close_ev, evcon->fd, EV_READ,
+	event_assign(&evcon->close_ev, evcon->base, evcon->fd, EV_READ,
 	    evhttp_detect_close_cb, evcon);
-	EVHTTP_BASE_SET(evcon, &evcon->close_ev);
 	event_add(&evcon->close_ev, NULL);
 }
 
@@ -1195,8 +1192,7 @@ evhttp_connectioncb(int fd, short what, void *arg)
 
  cleanup:
 	if (evcon->retry_max < 0 || evcon->retry_cnt < evcon->retry_max) {
-		evtimer_set(&evcon->ev, evhttp_connection_retry, evcon);
-		EVHTTP_BASE_SET(evcon, &evcon->ev);
+		evtimer_assign(&evcon->ev, evcon->base, evhttp_connection_retry, evcon);
 		evhttp_add_event(&evcon->ev, MIN(3600, 2 << evcon->retry_cnt),
 		    HTTP_CONNECT_TIMEOUT);
 		evcon->retry_cnt++;
@@ -1459,7 +1455,7 @@ evhttp_parse_firstline(struct evhttp_request *req, struct evbuffer *buffer)
 	char *line;
 	enum message_read_status status = ALL_DATA_READ;
 
-	line = evbuffer_readline(buffer);
+	line = evbuffer_readln(buffer, NULL, EVBUFFER_EOL_ANY);
 	if (line == NULL)
 		return (MORE_DATA_EXPECTED);
 
@@ -1510,7 +1506,7 @@ evhttp_parse_headers(struct evhttp_request *req, struct evbuffer* buffer)
 	enum message_read_status status = MORE_DATA_EXPECTED;
 
 	struct evkeyvalq* headers = req->input_headers;
-	while ((line = evbuffer_readline(buffer))
+	while ((line = evbuffer_readln(buffer, NULL, EVBUFFER_EOL_ANY))
 	       != NULL) {
 		char *skey, *svalue;
 
@@ -1583,7 +1579,7 @@ evhttp_get_body_length(struct evhttp_request *req)
 		
 	event_debug(("%s: bytes to read: %lld (in buffer %ld)\n",
 		__func__, req->ntoread,
-		EVBUFFER_LENGTH(req->evcon->input_buffer)));
+		evbuffer_get_length(req->evcon->input_buffer)));
 
 	return (0);
 }
@@ -1836,8 +1832,7 @@ evhttp_connection_connect(struct evhttp_connection *evcon)
 	}
 
 	/* Set up a callback for successful connection setup */
-	event_set(&evcon->ev, evcon->fd, EV_WRITE, evhttp_connectioncb, evcon);
-	EVHTTP_BASE_SET(evcon, &evcon->ev);
+	event_assign(&evcon->ev, evcon->base, evcon->fd, EV_WRITE, evhttp_connectioncb, evcon);
 	evhttp_add_event(&evcon->ev, evcon->timeout, HTTP_CONNECT_TIMEOUT);
 
 	evcon->state = EVCON_CONNECTING;
@@ -1902,9 +1897,7 @@ evhttp_start_read(struct evhttp_connection *evcon)
 	/* Set up an event to read the headers */
 	if (event_initialized(&evcon->ev))
 		event_del(&evcon->ev);
-	event_set(&evcon->ev, evcon->fd, EV_READ, evhttp_read, evcon);
-	EVHTTP_BASE_SET(evcon, &evcon->ev);
-	
+	event_assign(&evcon->ev, evcon->base, evcon->fd, EV_READ, evhttp_read, evcon);
 	evhttp_add_event(&evcon->ev, evcon->timeout, HTTP_READ_TIMEOUT);
 	evcon->state = EVCON_READING_FIRSTLINE;
 }
@@ -2035,7 +2028,7 @@ evhttp_send_reply_chunk_with_cb(struct evhttp_request *req, struct evbuffer *dat
 
 	if (req->chunked) {
 		evbuffer_add_printf(evcon->output_buffer, "%x\r\n",
-				    (unsigned)EVBUFFER_LENGTH(databuf));
+				    (unsigned)evbuffer_get_length(databuf));
 	}
 	evbuffer_add_buffer(evcon->output_buffer, databuf);
 	if (req->chunked) {
@@ -2145,7 +2138,7 @@ evhttp_encode_uri(const char *uri)
 		}
 	}
 	evbuffer_add(buf, "", 1);
-	p = strdup((char *)EVBUFFER_DATA(buf));
+	p = strdup((char *)evbuffer_pullup(buf,-1));
 	evbuffer_free(buf);
 	
 	return (p);
@@ -2396,8 +2389,7 @@ evhttp_accept_socket(struct evhttp *http, int fd)
 	ev = &bound->bind_ev;
 
 	/* Schedule the socket for accepting */
-	event_set(ev, fd, EV_READ | EV_PERSIST, accept_socket, http);
-	EVHTTP_BASE_SET(http, ev);
+	event_assign(ev, http->base, fd, EV_READ | EV_PERSIST, accept_socket, http);
 
 	res = event_add(ev, NULL);
 

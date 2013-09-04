@@ -42,7 +42,8 @@
 #endif
 
 #include <zlib.h>
-#include <event.h>
+#include <event2/event.h>
+#include <event2/event_struct.h>
 #include "evhttp/evhttp.h"
 
 #include "logger.h"
@@ -511,8 +512,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
     }
 
   evutil_timerclear(&tv);
-  event_set(&st->ev, -1, EV_TIMEOUT, stream_cb, st);
-  event_base_set(evbase_httpd, &st->ev);
+  event_assign(&st->ev, evbase_httpd, -1, EV_TIMEOUT, stream_cb, st);
   ret = event_add(&st->ev, &tv);
   if (ret < 0)
     {
@@ -616,7 +616,7 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   int zret;
   int ret;
 
-  if (!evbuf || (EVBUFFER_LENGTH(evbuf) == 0))
+  if (!evbuf || (evbuffer_get_length(evbuf) == 0))
     {
       DPRINTF(E_DBG, L_HTTPD, "Not gzipping body-less reply\n");
 
@@ -658,8 +658,8 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
       goto out_fail_init;
     }
 
-  strm.next_in = EVBUFFER_DATA(evbuf);
-  strm.avail_in = EVBUFFER_LENGTH(evbuf);
+  strm.next_in = evbuffer_pullup(evbuf, -1);
+  strm.avail_in = evbuffer_get_length(evbuf);
 
   flush = Z_NO_FLUSH;
 
@@ -710,7 +710,7 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   evbuffer_free(gzbuf);
 
   /* Drain original buffer, as would be after evhttp_send_reply() */
-  evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+  evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
 
   return;
 
@@ -1262,11 +1262,10 @@ httpd_init(void)
 #endif /* USE_EVENTFD */
 
 #ifdef USE_EVENTFD
-  event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
+  event_assign(&exitev, evbase_httpd, exit_efd, EV_READ, exit_cb, NULL);
 #else
-  event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
+  event_assign(&exitev, evbase_httpd, exit_pipe[0], EV_READ, exit_cb, NULL);
 #endif
-  event_base_set(evbase_httpd, &exitev);
   event_add(&exitev, NULL);
 
   evhttpd = evhttp_new(evbase_httpd);

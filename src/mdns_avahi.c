@@ -34,7 +34,8 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 
-#include <event.h>
+#include <event2/event.h>
+#include <event2/event_struct.h>
 
 #include <avahi-common/watch.h>
 #include <avahi-common/malloc.h>
@@ -121,8 +122,7 @@ _ev_watch_add(AvahiWatch *w, int fd, AvahiWatchEvent a_events)
   if (a_events & AVAHI_WATCH_OUT)
     ev_events |= EV_WRITE;
 
-  event_set(&w->ev, fd, ev_events, evcb_watch, w);
-  event_base_set(evbase_main, &w->ev);
+  event_assign(&w->ev, evbase_main, fd, ev_events, evcb_watch, w);
 
   return event_add(&w->ev, NULL);
 }
@@ -160,7 +160,7 @@ ev_watch_update(AvahiWatch *w, AvahiWatchEvent a_events)
 {
   event_del(&w->ev);
 
-  _ev_watch_add(w, EVENT_FD(&w->ev), a_events);
+  _ev_watch_add(w, (int)event_get_fd(&w->ev), a_events);
 }
 
 static AvahiWatchEvent
@@ -211,8 +211,7 @@ _ev_timeout_add(AvahiTimeout *t, const struct timeval *tv)
   struct timeval now;
   int ret;
 
-  evtimer_set(&t->ev, evcb_timeout, t);
-  event_base_set(evbase_main, &t->ev);
+  evtimer_assign(&t->ev, evbase_main, evcb_timeout, t);
 
   if ((tv->tv_sec == 0) && (tv->tv_usec == 0))
     {
