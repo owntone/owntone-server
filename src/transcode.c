@@ -147,6 +147,10 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 #if BYTE_ORDER == BIG_ENDIAN
   int i;
 #endif
+#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+  AVFrame frame;
+  int got_frame = 0;
+#endif
 
   processed = 0;
 
@@ -165,15 +169,20 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	{
 	  buflen = XCODE_BUFFER_SIZE;
 
-#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 32)
-	  /* FFmpeg 0.6 */
+#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+	  if (ctx->acodec->get_buffer != avcodec_default_get_buffer)
+	    {
+	      DPRINTF(E_LOG, L_XCODE, "Custom get_buffer - not allowed by ffmpeg/libav!\n");
+
+	      ctx->acodec->get_buffer = avcodec_default_get_buffer;
+	    }
+	  used = avcodec_decode_audio4(ctx->acodec,
+				       &frame, &got_frame,
+				       &ctx->apacket2);
+#else
 	  used = avcodec_decode_audio3(ctx->acodec,
 				       ctx->abuffer, &buflen,
 				       &ctx->apacket2);
-#else
-	  used = avcodec_decode_audio2(ctx->acodec,
-				       ctx->abuffer, &buflen,
-				       ctx->apacket2.data, ctx->apacket2.size);
 #endif
 
 	  if (used < 0)
@@ -186,9 +195,42 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	  ctx->apacket2.data += used;
 	  ctx->apacket2.size -= used;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+	  /* This part is from the libav wrapper for avcodec_decode_audio3 - it may be useless in this context */
+	  if (got_frame != 0)
+	    {
+	      int ch, plane_size;
+	      int planar = av_sample_fmt_is_planar(ctx->acodec->sample_fmt);
+	      int data_size = av_samples_get_buffer_size(&plane_size, ctx->acodec->channels, 
+				frame.nb_samples, ctx->acodec->sample_fmt, 1);
+
+	      if (XCODE_BUFFER_SIZE < data_size)
+		{
+		  DPRINTF(E_WARN, L_XCODE, "Output buffer too small for frame (%d < %d)\n", XCODE_BUFFER_SIZE, data_size);
+
+		  continue;
+		}
+
+	      memcpy(ctx->abuffer, frame.extended_data[0], plane_size);
+
+	      if (planar && ctx->acodec->channels > 1)
+		{
+		  uint8_t *out = ((uint8_t *)ctx->abuffer) + plane_size;
+		  for (ch = 1; ch < ctx->acodec->channels; ch++)
+		    {
+		      memcpy(out, frame.extended_data[ch], plane_size);
+		      out += plane_size;
+		    }
+		}
+	      buflen = data_size;
+	    }
+	  else
+	    continue;
+#else
 	  /* No frame decoded this time around */
 	  if (buflen == 0)
 	    continue;
+#endif
 
 	  if (ctx->need_resample)
 	    {
@@ -355,7 +397,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
     }
   memset(ctx, 0, sizeof(struct transcode_ctx));
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 3)
+#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
   ret = avformat_open_input(&ctx->fmtctx, mfi->path, NULL, NULL);
 #else
   ret = av_open_input_file(&ctx->fmtctx, mfi->path, NULL, 0, NULL);
@@ -368,7 +410,11 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
       return NULL;
     }
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
+  ret = avformat_find_stream_info(ctx->fmtctx, NULL);
+#else
   ret = av_find_stream_info(ctx->fmtctx);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_XCODE, "Could not find stream info: %s\n", strerror(AVUNERROR(ret)));
@@ -411,7 +457,11 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
   if (ctx->adecoder->capabilities & CODEC_CAP_TRUNCATED)
     ctx->acodec->flags |= CODEC_FLAG_TRUNCATED;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 6)
+  ret = avcodec_open2(ctx->acodec, ctx->adecoder, NULL);
+#else
   ret = avcodec_open(ctx->acodec, ctx->adecoder);
+#endif
   if (ret != 0)
     {
       DPRINTF(E_WARN, L_XCODE, "Could not open codec: %s\n", strerror(AVUNERROR(ret)));
@@ -477,7 +527,11 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
   avcodec_close(ctx->acodec);
 
  setup_fail:
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+  avformat_close_input(&ctx->fmtctx);
+#else
   av_close_input_file(ctx->fmtctx);
+#endif
   free(ctx);
 
   return NULL;
@@ -490,7 +544,11 @@ transcode_cleanup(struct transcode_ctx *ctx)
     av_free_packet(&ctx->apacket);
 
   avcodec_close(ctx->acodec);
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+  avformat_close_input(&ctx->fmtctx);
+#else
   av_close_input_file(ctx->fmtctx);
+#endif
 
   av_free(ctx->abuffer);
 

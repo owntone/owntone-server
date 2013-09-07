@@ -329,7 +329,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   ctx = NULL;
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 3)
+#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
   ret = avformat_open_input(&ctx, file, NULL, NULL);
 #else
   ret = av_open_input_file(&ctx, file, NULL, 0, NULL);
@@ -341,18 +341,26 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
       return -1;
     }
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
+  ret = avformat_find_stream_info(ctx, NULL);
+#else
   ret = av_find_stream_info(ctx);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Cannot get stream info: %s\n", strerror(AVUNERROR(ret)));
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+      avformat_close_input(&ctx);
+#else
       av_close_input_file(ctx);
+#endif
       return -1;
     }
 
 #if 0
   /* Dump input format as determined by ffmpeg */
-# if LIBAVFORMAT_VERSION_MAJOR >= 52 || (LIBAVFORMAT_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 101)
+# if LIBAVFORMAT_VERSION_MAJOR >= 52 || (LIBAVFORMAT_VERSION_MAJOR == 52 && LIBAVFORMAT_VERSION_MINOR >= 101)
   av_dump_format(ctx, 0, file, 0);
 # else
   dump_format(ctx, 0, file, FALSE);
@@ -408,7 +416,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     {
       DPRINTF(E_DBG, L_SCAN, "File has no audio streams, discarding\n");
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+      avformat_close_input(&ctx);
+#else
       av_close_input_file(ctx);
+#endif
       return -1;
     }
 
@@ -462,7 +474,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	DPRINTF(E_DBG, L_SCAN, "ALAC\n");
 	mfi->type = strdup("m4a");
 	mfi->codectype = strdup("alac");
-	mfi->description = strdup("AAC audio file");
+	mfi->description = strdup("Apple Lossless audio file");
 	break;
 
       case CODEC_ID_FLAC:
@@ -617,7 +629,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	{
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy WMA scanner\n");
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+	  avformat_close_input(&ctx);
+#else
 	  av_close_input_file(ctx);
+#endif
 	  return (scan_get_wmainfo(file, mfi) ? 0 : -1);
 	}
 #ifdef FLAC
@@ -625,7 +641,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	{
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy FLAC scanner\n");
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+	  avformat_close_input(&ctx);
+#else
 	  av_close_input_file(ctx);
+#endif
 	  return (scan_get_flacinfo(file, mfi) ? 0 : -1);
 	}
 #endif /* FLAC */
@@ -635,7 +655,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	{
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy Musepack scanner\n");
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+	  avformat_close_input(&ctx);
+#else
 	  av_close_input_file(ctx);
+#endif
 	  return (scan_get_mpcinfo(file, mfi) ? 0 : -1);
 	}
 #endif /* MUSEPACK */
@@ -648,7 +672,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     mfi->title = strdup(mfi->fname);
 
   /* All done */
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+  avformat_close_input(&ctx);
+#else
   av_close_input_file(ctx);
+#endif
 
   return 0;
 }
