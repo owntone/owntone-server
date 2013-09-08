@@ -408,6 +408,24 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
       goto out_free_buf;
     }
 
+#if LIBAVCODEC_VERSION_MAJOR >= 54
+  av_init_packet(&pkt);
+  pkt.data = outbuf;
+  pkt.size = outbuf_len;
+  ret = avcodec_encode_video2(dst, &pkt, o_frame, &have_frame);
+  if (!ret && have_frame && dst->coded_frame) 
+    {
+      dst->coded_frame->pts       = pkt.pts;
+      dst->coded_frame->key_frame = !!(pkt.flags & AV_PKT_FLAG_KEY);
+    }
+  else if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not encode artwork\n");
+
+      ret = -1;
+      goto out_fclose_dst;
+    }
+#else
   ret = avcodec_encode_video(dst, outbuf, outbuf_len, o_frame);
   if (ret <= 0)
     {
@@ -421,6 +439,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   pkt.stream_index = 0;
   pkt.data = outbuf;
   pkt.size = ret;
+#endif
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
   ret = avformat_write_header(dst_ctx, NULL);
