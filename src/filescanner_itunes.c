@@ -37,7 +37,8 @@
 #include <avl.h>
 #include <plist/plist.h>
 
-#include "evhttp/evhttp.h"
+#include <event2/buffer.h>
+#include <event2/http.h>
 
 #include "logger.h"
 #include "db.h"

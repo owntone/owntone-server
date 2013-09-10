@@ -3,7 +3,7 @@
 #define __HTTPD_RSP_H__
 
 #include <event2/event.h>
-#include "evhttp/evhttp.h"
+#include <event2/http.h>
 
 int
 rsp_init(void);

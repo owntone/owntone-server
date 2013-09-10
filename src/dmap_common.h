@@ -3,7 +3,7 @@
 #define __DMAP_HELPERS_H__
 
 #include <event2/event.h>
-#include "evhttp/evhttp.h"
+#include <event2/http.h>
 
 #include "db.h"
 

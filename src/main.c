@@ -48,6 +48,7 @@
 
 #include <getopt.h>
 #include <event2/event.h>
+#include <event2/event_struct.h>
 #include <libavutil/log.h>
 #include <libavformat/avformat.h>
 

@@ -48,7 +48,9 @@
 
 #include <event2/event.h>
 #include <event2/event_struct.h>
-#include "evhttp/evhttp.h"
+#include <event2/buffer.h>
+#include <event2/http.h>
+#include <event2/http_struct.h>
 
 #include <gcrypt.h>
 
@@ -529,15 +531,13 @@ send_pairing_request(struct remote_info *ri, char *req_uri, int family)
 	return -1;
     }
 
-  evcon = evhttp_connection_new(address, port);
+  evcon = evhttp_connection_base_new(evbase_main, NULL, address, port);
   if (!evcon)
     {
       DPRINTF(E_LOG, L_REMOTE, "Could not create connection for pairing with %s\n", ri->pi.name);
 
       return -1;
     }
-
-  evhttp_connection_set_base(evcon, evbase_main);
 
   req = evhttp_request_new(pairing_request_cb, ri);
   if (!req)

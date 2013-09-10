@@ -44,7 +44,9 @@
 #include <zlib.h>
 #include <event2/event.h>
 #include <event2/event_struct.h>
-#include "evhttp/evhttp.h"
+#include <event2/buffer.h>
+#include <event2/http.h>
+#include <event2/http_struct.h>
 
 #include "logger.h"
 #include "db.h"
@@ -162,7 +164,7 @@ stream_up_playcount(struct stream_ctx *st)
 }
 
 static void
-stream_chunk_resched_cb(struct evhttp_connection *evcon, void *arg)
+stream_chunk_resched_cb(struct evhttp_request *req, void *arg)
 {
   struct stream_ctx *st;
   struct timeval tv;
@@ -227,7 +229,8 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
   else
     ret = xcoded;
 
-  evhttp_send_reply_chunk_with_cb(st->req, st->evbuf, stream_chunk_resched_cb, st);
+  /* TODO: Make sure the callback is stream_chunk_resched_cb and arg is st */
+  evhttp_send_reply_chunk(st->req, st->evbuf);
 
   st->offset += ret;
 
@@ -283,7 +286,8 @@ stream_chunk_raw_cb(int fd, short event, void *arg)
 
   evbuffer_add(st->evbuf, st->buf, ret);
 
-  evhttp_send_reply_chunk_with_cb(st->req, st->evbuf, stream_chunk_resched_cb, st);
+  /* TODO: Make sure the callback is stream_chunk_resched_cb and arg is st */
+  evhttp_send_reply_chunk(st->req, st->evbuf);
 
   st->offset += ret;
 
@@ -324,6 +328,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
   int transcode;
   int ret;
 
+  evhttp_request_set_chunked_cb(req, stream_chunk_resched_cb);
   offset = 0;
   end_offset = 0;
   param = evhttp_find_header(req->input_headers, "Range");
@@ -927,7 +932,7 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   char *uri;
   char *ptr;
 
-  req_uri = evhttp_request_uri(req);
+  req_uri = evhttp_request_get_uri(req);
   if (!req_uri)
     {
       redirect_to_index(req, "/");
@@ -1021,7 +1026,7 @@ httpd_fixup_uri(struct evhttp_request *req)
   char *f;
   int len;
 
-  uri = evhttp_request_uri(req);
+  uri = evhttp_request_get_uri(req);
   if (!uri)
     return NULL;
 

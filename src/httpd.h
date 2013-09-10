@@ -3,7 +3,7 @@
 #define __HTTPD_H__
 
 #include <event2/buffer.h>
-#include "evhttp/evhttp.h"
+#include <event2/http.h>
 
 
 void

@@ -40,7 +40,8 @@
 
 #include <event2/event.h>
 #include <event2/event_struct.h>
-#include "evhttp/evhttp.h"
+#include <event2/http.h>
+#include <event2/http_struct.h>
 #include <avl.h>
 
 #include "logger.h"
