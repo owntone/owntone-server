@@ -382,14 +382,18 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation, int ur
   /* General case */
   if (ret < 0)
     {
-      ret = scan_metadata_ffmpeg(file, &mfi);
       if (url == 0)
-	mfi.data_kind = 0; /* real file */
-      if (url == 1)
+	{
+	  mfi.data_kind = 0; /* real file */
+          ret = scan_metadata_ffmpeg(file, &mfi);
+	}
+      else if (url == 1)
 	{
 	  mfi.data_kind = 1; /* url/stream */
-	  mfi.url = file;
+	  ret = scan_metadata_icy(file, &mfi);
 	}
+      else
+	ret = -1;
     }
 
   if (ret < 0)
