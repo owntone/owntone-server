@@ -17,6 +17,9 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation, int ur
 int
 scan_metadata_ffmpeg(char *file, struct media_file_info *mfi);
 
+int
+scan_metadata_icy(char *url, struct media_file_info *mfi);
+
 void
 scan_m3u_playlist(char *file, time_t mtime);
 

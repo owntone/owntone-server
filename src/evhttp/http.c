@@ -1656,6 +1656,14 @@ evhttp_read_header(struct evhttp_connection *evcon, struct evhttp_request *req)
 		return;
 	}
 
+	/* Callback can shut down connection with negative return value */
+	if (req->header_cb != NULL) {
+		if ((*req->header_cb)(req, req->cb_arg) < 0) {
+			evhttp_connection_fail(evcon, EVCON_HTTP_EOF);
+			return;
+		}
+	}
+
 	/* Done reading headers, do the real work */
 	switch (req->kind) {
 	case EVHTTP_REQUEST:
