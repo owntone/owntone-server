@@ -908,6 +908,9 @@ source_next(int force)
   switch (r_mode)
     {
       case REPEAT_SONG:
+	if (!cur_streaming)
+	  break;
+
 	if (cur_streaming->ctx)
 	  {
 	    ret = transcode_seek(cur_streaming->ctx, 0);
