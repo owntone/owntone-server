@@ -38,6 +38,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+#include <netinet/in.h>
+#endif
+
 #include <event.h>
 #include "evhttp/evhttp.h"
 
