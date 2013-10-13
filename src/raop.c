@@ -1226,6 +1226,15 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
     "a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 44100\r\n"			\
     "a=rsaaeskey:%s\r\n"						\
     "a=aesiv:%s\r\n"
+#define SDP_PLD_FMT_NO_ENC						\
+  "v=0\r\n"								\
+    "o=iTunes %u 0 IN IP4 %s\r\n"					\
+    "s=iTunes\r\n"							\
+    "c=IN IP4 %s\r\n"							\
+    "t=0 0\r\n"								\
+    "m=audio 0 RTP/AVP 96\r\n"						\
+    "a=rtpmap:96 AppleLossless\r\n"					\
+    "a=fmtp:96 %d 0 16 40 10 14 2 255 0 0 44100\r\n"
 
   char *p;
   int ret;
@@ -1234,10 +1243,14 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
   if (p)
     *p = '\0';
 
-  /* Add SDP payload */
-  ret = evbuffer_add_printf(req->output_buffer, SDP_PLD_FMT,
-			    session_id, address, rs->address, AIRTUNES_V2_PACKET_SAMPLES,
-			    raop_aes_key_b64, raop_aes_iv_b64);
+  /* Add SDP payload - but don't add RSA/AES key/iv if no encryption - important for ATV3 update 6.0 */
+  if (rs->encrypt)
+    ret = evbuffer_add_printf(req->output_buffer, SDP_PLD_FMT,
+			      session_id, address, rs->address, AIRTUNES_V2_PACKET_SAMPLES,
+			      raop_aes_key_b64, raop_aes_iv_b64);
+  else
+    ret = evbuffer_add_printf(req->output_buffer, SDP_PLD_FMT_NO_ENC,
+			      session_id, address, rs->address, AIRTUNES_V2_PACKET_SAMPLES);
 
   if (p)
     *p = '%';
@@ -1252,6 +1265,7 @@ raop_make_sdp(struct raop_session *rs, struct evrtsp_request *req, char *address
   return 0;
 
 #undef SDP_PLD_FMT
+#undef SDP_PLD_FMT_NO_ENC
 }
 
 
@@ -1587,24 +1601,27 @@ raop_send_req_announce(struct raop_session *rs, evrtsp_req_cb cb)
 
   evrtsp_add_header(req->output_headers, "Content-Type", "application/sdp");
 
-  /* Challenge */
-  gcry_randomize(challenge, sizeof(challenge), GCRY_STRONG_RANDOM);
-  challenge_b64 = b64_encode(challenge, sizeof(challenge));
-  if (!challenge_b64)
+  /* Challenge - but only if session is encrypted (important for ATV3 after update 6.0) */
+  if (rs->encrypt)
     {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't encode challenge\n");
+      gcry_randomize(challenge, sizeof(challenge), GCRY_STRONG_RANDOM);
+      challenge_b64 = b64_encode(challenge, sizeof(challenge));
+      if (!challenge_b64)
+	{
+	  DPRINTF(E_LOG, L_RAOP, "Couldn't encode challenge\n");
 
-      goto cleanup_req;
+	  goto cleanup_req;
+	}
+
+      /* Remove base64 padding */
+      ptr = strchr(challenge_b64, '=');
+      if (ptr)
+	*ptr = '\0';
+
+      evrtsp_add_header(req->output_headers, "Apple-Challenge", challenge_b64);
+
+      free(challenge_b64);
     }
-
-  /* Remove base64 padding */
-  ptr = strchr(challenge_b64, '=');
-  if (ptr)
-    *ptr = '\0';
-
-  evrtsp_add_header(req->output_headers, "Apple-Challenge", challenge_b64);
-
-  free(challenge_b64);
 
   ret = evrtsp_make_request(rs->ctrl, req, EVRTSP_REQ_ANNOUNCE, rs->session_url);
   if (ret < 0)
@@ -1851,11 +1868,12 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 	rs->auth_quirk_itunes = 0;
 	rs->wants_metadata = 1;
 	break;
+
       case OTHER:
 	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
 	rs->wants_metadata = 0;
-        break;
+	break;
     }
 
   rs->ctrl = evrtsp_connection_new(address, port);

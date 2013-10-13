@@ -3675,19 +3675,20 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "pw");
   if (!p)
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no pw field in TXT record!\n", name);
+      DPRINTF(E_INFO, L_PLAYER, "AirTunes %s: no pw field in TXT record, assuming no password protection\n", name);
 
-      goto free_rd;
+      has_password = 0;
     }
-
-  if (*p == '\0')
+  else if (*p == '\0')
     {
       DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: pw has no value\n", name);
 
       goto free_rd;
     }
-
-  has_password = (strcmp(p, "false") != 0);
+  else
+    {
+      has_password = (strcmp(p, "false") != 0);
+    }
 
   if (has_password)
     {
@@ -3706,7 +3707,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "am");
   if (!p)
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no am field in TXT record!\n", name);
+      DPRINTF(E_INFO, L_PLAYER, "AirTunes %s: no am field in TXT record, assuming old Airport Express\n", name);
 
       /* Old AirPort Express */
       devtype = RAOP_DEV_APEX_80211G;
