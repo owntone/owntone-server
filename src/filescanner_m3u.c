@@ -43,7 +43,7 @@
 
 
 static int
-get_extinf(char *string, struct extinf_ctx *extinf)
+extinf_get(char *string, struct extinf_ctx *extinf)
 {
   regex_t *regex;
   regmatch_t *regmatch;
@@ -74,35 +74,33 @@ get_extinf(char *string, struct extinf_ctx *extinf)
     }
 
   if (regexec(regex, string, 1 + regex->re_nsub, regmatch, 0))
-    {
-      DPRINTF(E_DBG, L_SCAN, "Playlist line has no EXTINF data\n");
-
-      goto regmatchfail;
-    }
+    goto regmatchfail;
 
   /* Found extinf */
   if (regmatch[0].rm_so != -1)
     {
-      DPRINTF(E_DBG, L_SCAN, "Playlist line has EXTINF data\n");
+      if (extinf->found)
+	{
+	  free(extinf->artist);
+	  free(extinf->title);
+	}
 
       /* Artist */
-      if (extinf->artist)
-	free(extinf->artist);
       matchlen = regmatch[1].rm_eo - regmatch[1].rm_so;
       extinf->artist = (char*)malloc(matchlen + 1);
       strncpy(extinf->artist, string + regmatch[1].rm_so, matchlen + 1);
       extinf->artist[matchlen]='\0';
 
       /* Title */
-      if (extinf->title)
-	free(extinf->title);
-      matchlen = regmatch[1].rm_eo - regmatch[1].rm_so;
+      matchlen = regmatch[2].rm_eo - regmatch[2].rm_so;
       extinf->title = (char*)malloc(matchlen + 1);
-      strncpy(extinf->title, string + regmatch[1].rm_so, matchlen + 1);
+      strncpy(extinf->title, string + regmatch[2].rm_so, matchlen + 1);
       extinf->title[matchlen]='\0';
 
       free(regmatch);
       regfree(regex);
+
+      extinf->found = 1;
       return 1;
     }
 
@@ -111,6 +109,17 @@ get_extinf(char *string, struct extinf_ctx *extinf)
  regexfail:
   regfree(regex);
   return 0;
+}
+
+static void
+extinf_reset(struct extinf_ctx *extinf)
+{
+  if (extinf->found)
+    {
+      free(extinf->artist);
+      free(extinf->title);
+    }
+  extinf->found = 0;
 }
 
 void
@@ -196,6 +205,7 @@ scan_m3u_playlist(char *file, time_t mtime)
     }
 
   extinf.found = 0;
+
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
       len = strlen(buf);
@@ -216,11 +226,8 @@ scan_m3u_playlist(char *file, time_t mtime)
 	continue;
 
       /* Saves metadata in extinf if EXTINF metadata line */
-      if (get_extinf(buf, &extinf))
-        {
-          extinf.found = 1;
-	  continue;
-	}
+      if (extinf_get(buf, &extinf))
+	continue;
 
       /* Check that first char is sane for a path */
       if ((!isalnum(buf[0])) && (buf[0] != '/') && (buf[0] != '.'))
@@ -234,10 +241,13 @@ scan_m3u_playlist(char *file, time_t mtime)
 	  filename = strdup(buf);
 	  if (!filename)
 	    {
-	      DPRINTF(E_LOG, L_SCAN, "Out of memory for playlist filename.\n");
+	      DPRINTF(E_LOG, L_SCAN, "Out of memory for playlist filename\n");
 
 	      continue;
 	    }
+
+	  if (extinf.found)
+	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF, artist is %s, title is %s\n", extinf.artist, extinf.title);
 
 	  process_media_file(filename, mtime, 0, 0, 1, &extinf);
 	}
@@ -298,7 +308,7 @@ scan_m3u_playlist(char *file, time_t mtime)
       if (ret < 0)
 	DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
 
-      extinf.found = 0;
+      extinf_reset(&extinf);
       free(filename);
     }
 
@@ -311,10 +321,6 @@ scan_m3u_playlist(char *file, time_t mtime)
     }
 
   fclose(fp);
-  if (extinf.artist)
-    free(extinf.artist);
-  if (extinf.title)
-    free(extinf.title);
 
   DPRINTF(E_INFO, L_SCAN, "Done processing playlist\n");
 }
