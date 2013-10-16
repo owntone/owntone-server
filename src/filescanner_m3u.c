@@ -210,7 +210,7 @@ scan_m3u_playlist(char *file, time_t mtime)
 	    }
 
 	  if (extinf.found)
-	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF, artist is %s, title is %s\n", extinf.artist, extinf.title);
+	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", extinf.artist, extinf.title);
 
 	  process_media_file(filename, mtime, 0, 0, 1, &extinf);
 	}

@@ -384,7 +384,8 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation, int ur
       if (extinf && extinf->found)
         {
 	  mfi.artist = strdup(extinf->artist);
-	  mfi.title = strdup(extinf->title);
+	  mfi.title = strdup(extinf->artist);
+	  mfi.album = strdup(extinf->title);
 	}
       ret = scan_metadata_icy(file, &mfi);
     }
