@@ -34,81 +34,44 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#include <regex.h>
-
 #include "logger.h"
 #include "db.h"
 #include "filescanner.h"
 #include "misc.h"
 
 
+/* Get metadata from the EXTINF tag */
 static int
 extinf_get(char *string, struct extinf_ctx *extinf)
 {
-  regex_t *regex;
-  regmatch_t *regmatch;
-  size_t matchlen;
+  char *ptr;
 
   if (strcmp(string, "#EXTINF:") <= 0)
-    {
-      DPRINTF(E_DBG, L_SCAN, "Playlist line has no EXTINF data\n");
+    return 0;
 
-      return 0;
+  ptr = strchr(string, ',');
+  if (!ptr || strlen(ptr) < 2)
+    return 0;
+
+  /* New extinf found, so clear old data */
+  if (extinf->found)
+    {
+      free(extinf->artist);
+      free(extinf->title);
     }
 
-  regex = (regex_t*)malloc(sizeof(regex_t));
-  if (!regex)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Out of memory for playlist regex.\n");
+  extinf->found = 1;
+  extinf->artist = strdup(ptr + 1);
 
-      return 0;
-    }
+  ptr = strstr(extinf->artist, " -");
+  if (ptr && strlen(ptr) > 3)
+    extinf->title = strdup(ptr + 3);
+  else
+    extinf->title = strdup("");
+  if (ptr)
+    *ptr = '\0';
 
-  regcomp(regex, "^#EXTINF:.*,(.*?)-(.*)",REG_EXTENDED|REG_NEWLINE);
-  regmatch = (regmatch_t*)malloc(sizeof(regmatch_t) * (1 + regex->re_nsub));
-  if (!regmatch)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Out of memory for playlist regmatch.\n");
-
-      goto regexfail;
-    }
-
-  if (regexec(regex, string, 1 + regex->re_nsub, regmatch, 0))
-    goto regmatchfail;
-
-  /* Found extinf */
-  if (regmatch[0].rm_so != -1)
-    {
-      if (extinf->found)
-	{
-	  free(extinf->artist);
-	  free(extinf->title);
-	}
-
-      /* Artist */
-      matchlen = regmatch[1].rm_eo - regmatch[1].rm_so;
-      extinf->artist = (char*)malloc(matchlen + 1);
-      strncpy(extinf->artist, string + regmatch[1].rm_so, matchlen + 1);
-      extinf->artist[matchlen]='\0';
-
-      /* Title */
-      matchlen = regmatch[2].rm_eo - regmatch[2].rm_so;
-      extinf->title = (char*)malloc(matchlen + 1);
-      strncpy(extinf->title, string + regmatch[2].rm_so, matchlen + 1);
-      extinf->title[matchlen]='\0';
-
-      free(regmatch);
-      regfree(regex);
-
-      extinf->found = 1;
-      return 1;
-    }
-
- regmatchfail:
-  free(regmatch);
- regexfail:
-  regfree(regex);
-  return 0;
+  return 1;
 }
 
 static void
