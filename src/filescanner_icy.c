@@ -231,6 +231,13 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
    */
  no_icy:
   ret = scan_metadata_ffmpeg(url, mfi);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Playlist URL is unavailable for probe/metadata, assuming MP3 encoding\n");
+      mfi->type = strdup("mp3");
+      mfi->codectype = strdup("mpeg");
+      mfi->description = strdup("MPEG audio file");
+    }
 
   /* Wait till ICY request completes or we reach timeout */
   for (i = 0; (status == ICY_WAITING) && (i <= ICY_TIMEOUT); i++)
@@ -240,5 +247,5 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
 
   DPRINTF(E_DBG, L_SCAN, "scan_metadata_icy exiting with status %d after waiting %d sec\n", status, i);
 
-  return ret;
+  return 1;
 }
