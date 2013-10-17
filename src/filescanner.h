@@ -10,8 +10,15 @@ filescanner_init(void);
 void
 filescanner_deinit(void);
 
+struct extinf_ctx
+{
+  char *artist;
+  char *title;
+  int found;
+};
+
 void
-process_media_file(char *file, time_t mtime, off_t size, int compilation, int url);
+process_media_file(char *file, time_t mtime, off_t size, int compilation, int url, struct extinf_ctx *extinf);
 
 /* Actual scanners */
 int

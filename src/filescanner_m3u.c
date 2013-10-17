@@ -40,12 +40,58 @@
 #include "misc.h"
 
 
+/* Get metadata from the EXTINF tag */
+static int
+extinf_get(char *string, struct extinf_ctx *extinf)
+{
+  char *ptr;
+
+  if (strcmp(string, "#EXTINF:") <= 0)
+    return 0;
+
+  ptr = strchr(string, ',');
+  if (!ptr || strlen(ptr) < 2)
+    return 0;
+
+  /* New extinf found, so clear old data */
+  if (extinf->found)
+    {
+      free(extinf->artist);
+      free(extinf->title);
+    }
+
+  extinf->found = 1;
+  extinf->artist = strdup(ptr + 1);
+
+  ptr = strstr(extinf->artist, " -");
+  if (ptr && strlen(ptr) > 3)
+    extinf->title = strdup(ptr + 3);
+  else
+    extinf->title = strdup("");
+  if (ptr)
+    *ptr = '\0';
+
+  return 1;
+}
+
+static void
+extinf_reset(struct extinf_ctx *extinf)
+{
+  if (extinf->found)
+    {
+      free(extinf->artist);
+      free(extinf->title);
+    }
+  extinf->found = 0;
+}
+
 void
 scan_m3u_playlist(char *file, time_t mtime)
 {
   FILE *fp;
   struct playlist_info *pli;
   struct stat sb;
+  struct extinf_ctx extinf;
   char buf[PATH_MAX];
   char *entry;
   char *filename;
@@ -121,30 +167,34 @@ scan_m3u_playlist(char *file, time_t mtime)
       DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
     }
 
+  extinf.found = 0;
+
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
       len = strlen(buf);
-      if (buf[len - 1] != '\n')
+      if (len >= (sizeof(buf) - 1))
 	{
-	  DPRINTF(E_WARN, L_SCAN, "Entry exceeds PATH_MAX, discarding\n");
-
-	  while (fgets(buf, sizeof(buf), fp) != NULL)
-	    {
-	      if (buf[strlen(buf) - 1] == '\n')
-		break;
-	    }
+	  DPRINTF(E_LOG, L_SCAN, "Playlist entry exceeds PATH_MAX, discarding\n");
 
 	  continue;
 	}
 
-      if ((!isalnum(buf[0])) && (buf[0] != '/'))
-	continue;
-
-      while (isspace(buf[len - 1]))
+      /* rtrim and check that length is sane (ignore blank lines) */
+      while ((len > 0) && isspace(buf[len - 1]))
 	{
 	  len--;
 	  buf[len] = '\0';
 	}
+      if (len < 1)
+	continue;
+
+      /* Saves metadata in extinf if EXTINF metadata line */
+      if (extinf_get(buf, &extinf))
+	continue;
+
+      /* Check that first char is sane for a path */
+      if ((!isalnum(buf[0])) && (buf[0] != '/') && (buf[0] != '.'))
+	continue;
 
       /* Check if line is an URL */
       if (strcmp(buf, "http://") > 0)
@@ -154,18 +204,21 @@ scan_m3u_playlist(char *file, time_t mtime)
 	  filename = strdup(buf);
 	  if (!filename)
 	    {
-	      DPRINTF(E_LOG, L_SCAN, "Out of memory for playlist filename.\n");
+	      DPRINTF(E_LOG, L_SCAN, "Out of memory for playlist filename\n");
 
 	      continue;
 	    }
 
-	  process_media_file(filename, mtime, 0, 0, 1);
+	  if (extinf.found)
+	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", extinf.artist, extinf.title);
+
+	  process_media_file(filename, mtime, 0, 0, 1, &extinf);
 	}
       /* Regular file */
       else
 	{
-          /* m3u might be from Windows so we change backslash to forward slash */
-          for (i = 0; i < strlen(buf); i++)
+	  /* m3u might be from Windows so we change backslash to forward slash */
+	  for (i = 0; i < strlen(buf); i++)
 	    {
 	      if (buf[i] == '\\')
 	        buf[i] = '/';
@@ -218,6 +271,7 @@ scan_m3u_playlist(char *file, time_t mtime)
       if (ret < 0)
 	DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
 
+      extinf_reset(&extinf);
       free(filename);
     }
 

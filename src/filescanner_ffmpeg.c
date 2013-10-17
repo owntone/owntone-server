@@ -664,7 +664,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	}
 #endif /* MUSEPACK */
       else
-	DPRINTF(E_WARN, L_SCAN, "Could not extract any metadata\n");
+	DPRINTF(E_WARN, L_SCAN, "ffmpeg/libav could not extract any metadata\n");
     }
 
   /* Just in case there's no title set ... */

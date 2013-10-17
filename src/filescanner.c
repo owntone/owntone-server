@@ -296,7 +296,7 @@ fixup_tags(struct media_file_info *mfi)
 
 
 void
-process_media_file(char *file, time_t mtime, off_t size, int compilation, int url)
+process_media_file(char *file, time_t mtime, off_t size, int compilation, int url, struct extinf_ctx *extinf)
 {
   struct media_file_info mfi;
   char *filename;
@@ -304,6 +304,41 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation, int ur
   time_t stamp;
   int id;
   int ret;
+
+  filename = strrchr(file, '/');
+  if (!filename)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not determine filename for %s\n", file);
+
+      return;
+    }
+
+  /* File types which should never be processed */
+  ext = strrchr(file, '.');
+  if (ext)
+    {
+      if ((strcmp(ext, ".pls") == 0) || (strcmp(ext, ".url") == 0))
+	{
+	  DPRINTF(E_INFO, L_SCAN, "No support for .url and .pls in this version, use .m3u\n");
+
+	  return;
+	}
+      else if ((strcmp(ext, ".png") == 0) || (strcmp(ext, ".jpg") == 0))
+	{
+	  /* Artwork files - don't scan */
+	  return;
+	}
+      else if ((strcmp(ext, ".db") == 0) || (strcmp(ext, ".ini") == 0))
+	{
+	  /* System files - don't scan */
+	  return;
+	}
+      else if ((strlen(filename) > 1) && ((filename[1] == '_') || (filename[1] == '.')))
+	{
+	  /* Hidden files - don't scan */
+	  return;
+	}
+    }
 
   db_file_stamp_bypath(file, &stamp, &id);
 
@@ -317,14 +352,6 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation, int ur
 
   if (stamp)
     mfi.id = db_file_id_bypath(file);
-
-  filename = strrchr(file, '/');
-  if (!filename)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not determine filename for %s\n", file);
-
-      return;
-    }
 
   mfi.fname = strdup(filename + 1);
   if (!mfi.fname)
@@ -346,54 +373,21 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation, int ur
   mfi.time_modified = mtime;
   mfi.file_size = size;
 
-  ret = -1;
-
-  /* Special cases */
-  ext = strrchr(file, '.');
-  if (ext)
+  if (!url)
     {
-      if ((strcmp(ext, ".pls") == 0)
-	  || (strcmp(ext, ".url") == 0))
-	{
-	  DPRINTF(E_INFO, L_SCAN, "No support for .url and .pls in this version, use .m3u\n");  
-
-	  goto out;
-	}
-      else if ((strcmp(ext, ".png") == 0)
-	       || (strcmp(ext, ".jpg") == 0))
-	{
-	  /* Artwork - don't scan */
-	  goto out;
-	}
-      else if ((strcmp(ext, ".db") == 0)
-	       || (strcmp(ext, ".ini") == 0))
-	{
-	  /* System files - don't scan */
-	  goto out;
-	}
-      else if ((filename[1] == '_')
-	       || (filename[1] == '.'))
-	{
-	  /* Hidden files - don't scan */
-	  goto out;
-	}
+      mfi.data_kind = 0; /* real file */
+      ret = scan_metadata_ffmpeg(file, &mfi);
     }
-
-  /* General case */
-  if (ret < 0)
+  else
     {
-      if (url == 0)
-	{
-	  mfi.data_kind = 0; /* real file */
-          ret = scan_metadata_ffmpeg(file, &mfi);
+      mfi.data_kind = 1; /* url/stream */
+      if (extinf && extinf->found)
+        {
+	  mfi.artist = strdup(extinf->artist);
+	  mfi.title = strdup(extinf->artist);
+	  mfi.album = strdup(extinf->title);
 	}
-      else if (url == 1)
-	{
-	  mfi.data_kind = 1; /* url/stream */
-	  ret = scan_metadata_icy(file, &mfi);
-	}
-      else
-	ret = -1;
+      ret = scan_metadata_icy(file, &mfi);
     }
 
   if (ret < 0)
@@ -526,7 +520,7 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int flags)
     }
 
   /* Not any kind of special file, so let's see if it's a media file */
-  process_media_file(file, mtime, size, compilation, 0);
+  process_media_file(file, mtime, size, compilation, 0, NULL);
 }
 
 
