@@ -793,6 +793,8 @@ bulk_scan(void)
 
   DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
   db_purge_cruft(start);
+
+  DPRINTF(E_LOG, L_SCAN, "Bulk library scan complete\n");
 }
 
 
