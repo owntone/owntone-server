@@ -841,7 +841,9 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   int ret;
 
   /* /ctrl-int/1/playspec?database-spec='dmap.persistentid:0x1'&container-spec='dmap.persistentid:0x5'&container-item-spec='dmap.containeritemid:0x9'
-   * With our DAAP implementation, container-spec is the playlist ID and container-item-spec is the song ID
+   * or (Apple Remote when playing a Podcast)
+   * /ctrl-int/1/playspec?database-spec='dmap.persistentid:0x1'&container-spec='dmap.persistentid:0x5'&item-spec='dmap.itemid:0x9'
+   * With our DAAP implementation, container-spec is the playlist ID and container-item-spec/item-spec is the song ID
    */
 
   s = daap_session_find(req, query, evbuf);
@@ -882,8 +884,10 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
       /* Start song ID */
       param = evhttp_find_header(query, "container-item-spec");
       if (!param)
+	param = evhttp_find_header(query, "item-spec");
+      if (!param)
 	{
-	  DPRINTF(E_LOG, L_DACP, "No container-item-spec in playspec request\n");
+	  DPRINTF(E_LOG, L_DACP, "No container-item-spec/item-spec in playspec request\n");
 
 	  goto out_fail;
 	}
@@ -891,7 +895,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
       param = strchr(param, ':');
       if (!param)
 	{
-	  DPRINTF(E_LOG, L_DACP, "Malformed container-item-spec parameter in playspec request\n");
+	  DPRINTF(E_LOG, L_DACP, "Malformed container-item-spec/item-spec parameter in playspec request\n");
 
 	  goto out_fail;
 	}
@@ -900,7 +904,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
       ret = safe_hextou32(param, &id);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_DACP, "Couldn't convert container-item-spec to an integer in playspec (%s)\n", param);
+	  DPRINTF(E_LOG, L_DACP, "Couldn't convert container-item-spec/item-spec to an integer in playspec (%s)\n", param);
 
 	  goto out_fail;
 	}
