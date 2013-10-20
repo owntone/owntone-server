@@ -259,7 +259,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
       DPRINTF(E_LOG, L_ART, "Could not determine best pixel format\n");
 
       ret = -1;
-      goto out_free_dst;
+      goto out_free_dst_ctx;
     }
 
   DPRINTF(E_DBG, L_ART, "Selected pixel format: %d\n", dst->pix_fmt);
@@ -277,7 +277,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
       DPRINTF(E_LOG, L_ART, "Invalid parameters for artwork output: %s\n", strerror(AVUNERROR(ret)));
 
       ret = -1;
-      goto out_free_dst;
+      goto out_free_dst_ctx;
     }
 #endif
 
@@ -292,7 +292,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
       DPRINTF(E_LOG, L_ART, "Could not open codec for encoding: %s\n", strerror(AVUNERROR(ret)));
 
       ret = -1;
-      goto out_free_dst;
+      goto out_free_dst_ctx;
     }
 
   i_frame = avcodec_alloc_frame();
@@ -507,12 +507,8 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
     av_free(o_frame);
   avcodec_close(dst);
 
- out_free_dst:
-  av_free(dst_st);
-  av_free(dst);
-
  out_free_dst_ctx:
-  av_free(dst_ctx);
+  avformat_free_context(dst_ctx);
 
  out_close_src:
   avcodec_close(src);
