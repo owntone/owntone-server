@@ -35,6 +35,7 @@ struct dmap_query_field_map;
 "daap.songtime",              "f.song_length",      1
 "daap.songtrackcount",        "f.total_tracks",     1
 "daap.songtracknumber",       "f.track",            1
+"daap.songuserplaycount",     "f.play_count",       1
 "daap.songyear",              "f.year",             1
 "com.apple.itunes.mediakind", "f.media_kind",       1
 "com.apple.itunes.extended-media-kind",  "f.media_kind",         1
