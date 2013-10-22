@@ -213,8 +213,7 @@ Artwork
 
 forked-daapd has /some/ support for artwork, with a number of limitations.
 
-Embedded artwork is not supported; libav (ffmpeg) doesn't support this yet, if
-and when this is added to libav, forked-daapd will support it.
+Embedded artwork is not currently supported.
 
 Your artwork must be in PNG or JPEG format, dimensions do not matter;
 forked-daapd scales down (never up) the artwork on-the-fly to match the
@@ -224,12 +223,12 @@ the more time and resources it takes to perform the scaling operation.
 As for the naming convention, it is quite simple; consider your foo.mp3 song,
 residing at /bar/foo.mp3:
  - if /bar/foo.{png,jpg} exists, this will be used as the artwork for this file;
- - failing that, if /bar/{artwork,cover}.{png,jpg} exists, it will be used.
+ - failing that, if /bar/{artwork,cover,Folder}.{png,jpg} exists, it is used.
  - failing that, if /bar/bar.{png,jpg} exists, it will be used
 
 For "groups" (same album name and album artist), the situation is a bit
 different:
- - if a file {artwork,cover}.{png,jpg} is found in one of the directories
+ - if a file {artwork,cover,Folder}.{png,jpg} is found in one of the directories
    containing files that are part of the group, it is used as the artwork. The
    first file found is used, ordering is not guaranteed;
  - failing that, if [directory name].{png,jpg} is found in one of the
@@ -238,7 +237,7 @@ different:
  - failing that, individual files are examined and the first artwork found is
    used. Here again, ordering is not guaranteed.
 
-{artwork,cover} are the default, you can add other base names in the
+{artwork,cover,Folder} are the default, you can add other base names in the
 configuration file.
 
 You can use symlinks for the artwork files; the artwork is not scanned/indexed
