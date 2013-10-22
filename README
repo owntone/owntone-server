@@ -10,11 +10,13 @@ by iTunes and friends to share/stream media libraries over the network.
 RSP is Roku's own media sharing protocol. Roku are the makers of the
 SoundBridge devices. See <http://www.roku.com>.
 
-forked-daapd is a working title that will eventually change in the future.
+The source for this version of forked-daapd can be found here:
 
-The forked-daapd git tree can be found at:
+  <https://github.com/ejurgensen/forked-daapd.git>
+
+The original (now unmaintained) source can be found here:
+
   <http://git.debian.org/?p=users/jblache/forked-daapd.git>
-Release tarballs can be downloaded at:
   <http://alioth.debian.org/~jblache/forked-daapd/>
 
 
