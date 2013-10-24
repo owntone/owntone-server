@@ -4,6 +4,10 @@
 
 #include "db.h"
 
+#define F_SCAN_TYPE_PODCAST      (1 << 0)
+#define F_SCAN_TYPE_COMPILATION  (1 << 1)
+#define F_SCAN_TYPE_URL          (1 << 2)
+
 int
 filescanner_init(void);
 
@@ -18,7 +22,7 @@ struct extinf_ctx
 };
 
 void
-process_media_file(char *file, time_t mtime, off_t size, int compilation, int url, struct extinf_ctx *extinf);
+process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf_ctx *extinf);
 
 /* Actual scanners */
 int

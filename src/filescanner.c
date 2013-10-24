@@ -156,9 +156,11 @@ normalize_fixup_tag(char **tag, char *src_tag)
 static void
 fixup_tags(struct media_file_info *mfi)
 {
+  cfg_t *lib;
   size_t len;
   char *tag;
   char *sep = " - ";
+  char *ca;
 
   if (mfi->genre && (strlen(mfi->genre) == 0))
     {
@@ -272,16 +274,36 @@ fixup_tags(struct media_file_info *mfi)
   normalize_fixup_tag(&mfi->album_sort, mfi->album);
   normalize_fixup_tag(&mfi->title_sort, mfi->title);
 
-  /* If we don't have an album_artist, set it to artist */
-  if (!mfi->album_artist)
+  /* We need to set album_artist according to media type and config */
+  if (mfi->compilation)          /* Compilation */
     {
-      if (mfi->compilation)
+      lib = cfg_getsec(cfg, "library");
+      ca = cfg_getstr(lib, "compilation_artist");
+      if (ca && mfi->album_artist)
+	{
+	  free(mfi->album_artist);
+	  mfi->album_artist = strdup(ca);
+	}
+      else if (ca && !mfi->album_artist)
+	{
+	  mfi->album_artist = strdup(ca);
+	}
+      else if (!ca && !mfi->album_artist)
 	{
 	  mfi->album_artist = strdup("");
 	  mfi->album_artist_sort = strdup("");
 	}
-      else
-	mfi->album_artist = strdup(mfi->artist);
+    }
+  else if (mfi->media_kind == 4) /* Podcast */
+    {
+      if (mfi->album_artist)
+	free(mfi->album_artist);
+      mfi->album_artist = strdup("");
+      mfi->album_artist_sort = strdup("");
+    }
+  else if (!mfi->album_artist)   /* Regular media without album_artist */
+    {
+      mfi->album_artist = strdup(mfi->artist);
     }
 
   if (!mfi->album_artist_sort && (strcmp(mfi->album_artist, mfi->artist) == 0))
@@ -296,7 +318,7 @@ fixup_tags(struct media_file_info *mfi)
 
 
 void
-process_media_file(char *file, time_t mtime, off_t size, int compilation, int url, struct extinf_ctx *extinf)
+process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf_ctx *extinf)
 {
   struct media_file_info mfi;
   char *filename;
@@ -373,7 +395,7 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation, int ur
   mfi.time_modified = mtime;
   mfi.file_size = size;
 
-  if (!url)
+  if (!(type & F_SCAN_TYPE_URL))
     {
       mfi.data_kind = 0; /* real file */
       ret = scan_metadata_ffmpeg(file, &mfi);
@@ -397,7 +419,10 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation, int ur
       goto out;
     }
 
-  mfi.compilation = compilation;
+  if (type & F_SCAN_TYPE_COMPILATION)
+    mfi.compilation = 1;
+  if (type & F_SCAN_TYPE_PODCAST)
+    mfi.media_kind = 4; /* podcast */
 
   if (!mfi.item_kind)
     mfi.item_kind = 2; /* music */
@@ -491,7 +516,7 @@ process_deferred_playlists(void)
 
 /* Thread: scan */
 static void
-process_file(char *file, time_t mtime, off_t size, int compilation, int flags)
+process_file(char *file, time_t mtime, off_t size, int type, int flags)
 {
   char *ext;
 
@@ -520,9 +545,28 @@ process_file(char *file, time_t mtime, off_t size, int compilation, int flags)
     }
 
   /* Not any kind of special file, so let's see if it's a media file */
-  process_media_file(file, mtime, size, compilation, 0, NULL);
+  process_media_file(file, mtime, size, type, NULL);
 }
 
+/* Thread: scan */
+static int
+check_podcast(char *path)
+{
+  cfg_t *lib;
+  int ndirs;
+  int i;
+
+  lib = cfg_getsec(cfg, "library");
+  ndirs = cfg_size(lib, "podcasts");
+
+  for (i = 0; i < ndirs; i++)
+    {
+      if (strstr(path, cfg_getnstr(lib, "podcasts", i)))
+	return 1;
+    }
+
+  return 0;
+}
 
 /* Thread: scan */
 static int
@@ -559,7 +603,7 @@ process_directory(char *path, int flags)
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
   struct kevent kev;
 #endif
-  int compilation;
+  int type;
   int ret;
 
   if (flags & F_SCAN_BULK)
@@ -590,8 +634,12 @@ process_directory(char *path, int flags)
       return;
     }
 
-  /* Check for a compilation directory */
-  compilation = check_compilation(path);
+  /* Check if compilation and/or podcast directory */
+  type = 0;
+  if (check_compilation(path))
+    type |= F_SCAN_TYPE_COMPILATION;
+  if (check_podcast(path))
+    type |= F_SCAN_TYPE_PODCAST;
 
   for (;;)
     {
@@ -655,7 +703,7 @@ process_directory(char *path, int flags)
 	}
 
       if (S_ISREG(sb.st_mode))
-	process_file(entry, sb.st_mtime, sb.st_size, compilation, flags);
+	process_file(entry, sb.st_mtime, sb.st_size, type, flags);
       else if (S_ISDIR(sb.st_mode))
 	push_dir(&dirstack, entry);
       else
@@ -968,7 +1016,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   struct stat sb;
   char *deref = NULL;
   char *file = path;
-  int compilation;
+  int type;
   int ret;
 
   DPRINTF(E_DBG, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
@@ -1041,9 +1089,13 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	    }
 	}
 
-      compilation = check_compilation(path);
+      type = 0;
+      if (check_compilation(path))
+	type |= F_SCAN_TYPE_COMPILATION;
+      if (check_podcast(path))
+	type |= F_SCAN_TYPE_PODCAST;
 
-      process_file(file, sb.st_mtime, sb.st_size, compilation, 0);
+      process_file(file, sb.st_mtime, sb.st_size, type, 0);
 
       if (deref)
 	free(deref);

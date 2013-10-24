@@ -616,15 +616,6 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     {
       mfi->media_kind = 2;
     }
-  /* Podcasts are either media_kind 4, 6 or 7 - unsure what the difference is */
-  else if (mfi->path && strstr(mfi->path, "/Podcasts/"))
-    {
-      mfi->media_kind = 4;
-    }
-  else if ((mdcount > 0) && mfi->genre && (strcmp(mfi->genre,"Podcast") == 0))
-    {
-      mfi->media_kind = 4;
-    }
 
  skip_extract:
   if (mdcount == 0)
