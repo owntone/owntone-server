@@ -1148,6 +1148,8 @@ source_check(void)
     {
       i++;
 
+      db_file_inc_playcount((int)cur_playing->id);
+
       /* Stop playback if:
        * - at end of playlist (NULL)
        * - repeat OFF and at end of playlist (wraparound)
