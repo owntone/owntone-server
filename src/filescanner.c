@@ -134,6 +134,24 @@ pop_dir(struct stacked_dir **s)
   return ret;
 }
 
+static int
+ignore_filetype(char *ext)
+{
+  cfg_t *lib;
+  int n;
+  int i;
+
+  lib = cfg_getsec(cfg, "library");
+  n = cfg_size(lib, "filetypes_ignore");
+
+  for (i = 0; i < n; i++)
+    {
+      if (strcmp(ext, cfg_getnstr(lib, "filetypes_ignore", i)) == 0)
+	return 1;
+    }
+
+  return 0;
+}
 
 static void
 normalize_fixup_tag(char **tag, char *src_tag)
@@ -328,14 +346,14 @@ process_media_file(char *file, time_t mtime, off_t size, int compilation, int ur
 	  /* Artwork files - don't scan */
 	  return;
 	}
-      else if ((strcmp(ext, ".db") == 0) || (strcmp(ext, ".ini") == 0))
-	{
-	  /* System files - don't scan */
-	  return;
-	}
       else if ((strlen(filename) > 1) && ((filename[1] == '_') || (filename[1] == '.')))
 	{
 	  /* Hidden files - don't scan */
+	  return;
+	}
+      else if (ignore_filetype(ext))
+	{
+	  /* File extension is in ignore list - don't scan */
 	  return;
 	}
     }

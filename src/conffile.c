@@ -62,6 +62,7 @@ static cfg_opt_t sec_library[] =
     CFG_STR_LIST("directories", NULL, CFGF_NONE),
     CFG_STR_LIST("compilations", NULL, CFGF_NONE),
     CFG_STR_LIST("artwork_basenames", "{artwork,cover,Folder}", CFGF_NONE),
+    CFG_STR_LIST("filetypes_ignore", "{.db,.ini}", CFGF_NONE),
     CFG_BOOL("itunes_overrides", cfg_false, CFGF_NONE),
     CFG_STR_LIST("no_transcode", NULL, CFGF_NONE),
     CFG_STR_LIST("force_transcode", NULL, CFGF_NONE),
