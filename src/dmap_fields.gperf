@@ -79,6 +79,7 @@ static const struct dmap_field_map dfm_dmap_aseq = { -1,                        
 static const struct dmap_field_map dfm_dmap_asfm = { dbmfi_offsetof(type),                    -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asgn = { dbmfi_offsetof(genre),                   -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asdt = { dbmfi_offsetof(description),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_aspc = { dbmfi_offsetof(play_count),              -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asrv = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_assr = { dbmfi_offsetof(samplerate),              -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_assz = { dbmfi_offsetof(file_size),               -1,                            -1 };
@@ -198,6 +199,7 @@ struct dmap_field;
 "daap.songgenre",                            "asgn", &dfm_dmap_asgn, DMAP_TYPE_STRING
 "daap.songkeywords",                         "asky", &dfm_dmap_asky, DMAP_TYPE_STRING
 "daap.songlongcontentdescription",           "aslc", &dfm_dmap_aslc, DMAP_TYPE_STRING
+"daap.songuserplaycount",                    "aspc", &dfm_dmap_aspc, DMAP_TYPE_UINT
 "daap.songrelativevolume",                   "asrv", &dfm_dmap_asrv, DMAP_TYPE_BYTE
 "daap.sortartist",                           "assa", &dfm_dmap_assa, DMAP_TYPE_STRING
 "daap.sortcomposer",                         "assc", &dfm_dmap_assc, DMAP_TYPE_STRING

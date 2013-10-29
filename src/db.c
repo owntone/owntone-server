@@ -4122,9 +4122,12 @@ db_perthread_deinit(void)
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
   " VALUES(4, 'TV Shows', 1, 'f.media_kind = 64', 0, '', 0, 5);"
 
+#define Q_PL5								\
+  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
+  " VALUES(5, 'Podcasts', 1, 'f.media_kind = 4', 0, '', 0, 1);"
+
 /* These are the remaining automatically-created iTunes playlists, but
  * their query is unknown
-  " VALUES(5, 'Podcasts', 0, 'media_kind = 128 ', 0, '', 0, 1);"
   " VALUES(6, 'iTunes U', 0, 'media_kind = 256', 0, '', 0, 13);"
   " VALUES(7, 'Audiobooks', 0, 'media_kind = 512', 0, '', 0, 7);"
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
@@ -4177,6 +4180,7 @@ static const struct db_init_query db_init_queries[] =
     { Q_PL2,       "create default smart playlist 'Music'" },
     { Q_PL3,       "create default smart playlist 'Movies'" },
     { Q_PL4,       "create default smart playlist 'TV Shows'" },
+    { Q_PL5,       "create default smart playlist 'Podcasts'" },
 
     { Q_SCVER,     "set schema version" },
   };

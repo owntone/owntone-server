@@ -419,6 +419,13 @@ process_track_file(plist_t trk)
 	}
     }
 
+  /* Set media_kind to 4 (Podcast) if Podcast is true */
+  ret = get_dictval_bool_from_key(trk, "Podcast", &boolean); 
+  if ((ret == 0) && boolean)
+    {
+      mfi->media_kind = 4;
+    }
+
   /* Don't let album_artist set to "Unknown artist" if we've
    * filled artist from the iTunes data in the meantime
    */
