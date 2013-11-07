@@ -115,6 +115,10 @@ static void
 dacp_propget_itms_songid(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
 static void
 dacp_propget_haschapterdata(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+static void
+dacp_propget_mediakind(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
+static void
+dacp_propget_extendedmediakind(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi);
 
 /* Forward - properties setters */
 static void
@@ -481,6 +485,17 @@ dacp_propget_haschapterdata(struct evbuffer *evbuf, struct player_status *status
 	// TODO
 }
 
+static void
+dacp_propget_mediakind(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+	// TODO
+}
+
+static void
+dacp_propget_extendedmediakind(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
+{
+	// TODO
+}
 
 /* Properties setters */
 static void
