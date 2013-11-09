@@ -146,7 +146,7 @@ ignore_filetype(char *ext)
 
   for (i = 0; i < n; i++)
     {
-      if (strcmp(ext, cfg_getnstr(lib, "filetypes_ignore", i)) == 0)
+      if (strcasecmp(ext, cfg_getnstr(lib, "filetypes_ignore", i)) == 0)
 	return 1;
     }
 
@@ -357,13 +357,13 @@ process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf
   ext = strrchr(file, '.');
   if (ext)
     {
-      if ((strcmp(ext, ".pls") == 0) || (strcmp(ext, ".url") == 0))
+      if ((strcasecmp(ext, ".pls") == 0) || (strcasecmp(ext, ".url") == 0))
 	{
 	  DPRINTF(E_INFO, L_SCAN, "No support for .url and .pls in this version, use .m3u\n");
 
 	  return;
 	}
-      else if ((strcmp(ext, ".png") == 0) || (strcmp(ext, ".jpg") == 0))
+      else if ((strcasecmp(ext, ".png") == 0) || (strcasecmp(ext, ".jpg") == 0))
 	{
 	  /* Artwork files - don't scan */
 	  return;
@@ -468,10 +468,10 @@ process_playlist(char *file, time_t mtime)
   ext = strrchr(file, '.');
   if (ext)
     {
-      if (strcmp(ext, ".m3u") == 0)
+      if (strcasecmp(ext, ".m3u") == 0)
 	scan_m3u_playlist(file, mtime);
 #ifdef ITUNES
-      else if (strcmp(ext, ".xml") == 0)
+      else if (strcasecmp(ext, ".xml") == 0)
 	scan_itunes_itml(file);
 #endif
     }
@@ -541,9 +541,9 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
   ext = strrchr(file, '.');
   if (ext)
     {
-      if ((strcmp(ext, ".m3u") == 0)
+      if ((strcasecmp(ext, ".m3u") == 0)
 #ifdef ITUNES
-	  || (strcmp(ext, ".xml") == 0)
+	  || (strcasecmp(ext, ".xml") == 0)
 #endif
 	  )
 	{
