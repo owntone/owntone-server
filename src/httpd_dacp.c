@@ -689,27 +689,30 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query)
 static void
 dacp_reply_ctrlint(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  dmap_add_container(evbuf, "caci", 127); /* 8 + len */
-  dmap_add_int(evbuf, "mstt", 200);       /* 12 */
-  dmap_add_char(evbuf, "muty", 0);        /* 9 */
-  dmap_add_int(evbuf, "mtco", 1);         /* 12 */
-  dmap_add_int(evbuf, "mrco", 1);         /* 12 */
-  dmap_add_container(evbuf, "mlcl", 125); /* 8 + len */
-  dmap_add_container(evbuf, "mlit", 117); /* 8 + len */
-  dmap_add_int(evbuf, "miid", 1);         /* 12 */ /* Database ID */
-  dmap_add_char(evbuf, "cmik", 1);        /* 9 */
+  /* /ctrl-int */
+  /* If tags are added or removed container sizes should be adjusted too */
+  dmap_add_container(evbuf, "caci", 194); /*  8, unknown dacp container - size of content */
+  dmap_add_int(evbuf, "mstt", 200);       /* 12, dmap.status */
+  dmap_add_char(evbuf, "muty", 0);        /*  9, dmap.updatetype */
+  dmap_add_int(evbuf, "mtco", 1);         /* 12, dmap.specifiedtotalcount */
+  dmap_add_int(evbuf, "mrco", 1);         /* 12, dmap.returnedcount */
+  dmap_add_container(evbuf, "mlcl", 141); /*  8, dmap.listing - size of content */
+  dmap_add_container(evbuf, "mlit", 133); /*  8, dmap.listingitem - size of content */
+  dmap_add_int(evbuf, "miid", 1);         /* 12, dmap.itemid - database ID */
+  dmap_add_char(evbuf, "cmik", 1);        /*  9, unknown */
 
-  dmap_add_int(evbuf, "cmpr", (2 << 16 | 1)); /* 12 */
-  dmap_add_int(evbuf, "capr", (2 << 16 | 2)); /* 12 */
+  dmap_add_int(evbuf, "cmpr", (2 << 16 | 2)); /* 12, dmcp.protocolversion */
+  dmap_add_int(evbuf, "capr", (2 << 16 | 5)); /* 12, dacp.protocolversion */
 
-  dmap_add_char(evbuf, "cmsp", 1);        /* 9 */
-  dmap_add_char(evbuf, "aeFR", 0x64);     /* 9 */
-  dmap_add_char(evbuf, "cmsv", 1);        /* 9 */
-  dmap_add_char(evbuf, "cass", 1);        /* 9 */
-  dmap_add_char(evbuf, "caov", 1);        /* 9 */
-  dmap_add_char(evbuf, "casu", 1);        /* 9 */
-  dmap_add_char(evbuf, "ceSG", 1);        /* 9 */
-  dmap_add_char(evbuf, "cmrl", 1);        /* 9 */
+  dmap_add_char(evbuf, "cmsp", 1);        /*  9, unknown */
+  dmap_add_char(evbuf, "aeFR", 0x64);     /*  9, unknown */
+  dmap_add_char(evbuf, "cmsv", 1);        /*  9, unknown */
+  dmap_add_char(evbuf, "cass", 1);        /*  9, unknown */
+  dmap_add_char(evbuf, "caov", 1);        /*  9, unknown */
+  dmap_add_char(evbuf, "casu", 1);        /*  9, unknown */
+  dmap_add_char(evbuf, "ceSG", 1);        /*  9, unknown */
+  dmap_add_char(evbuf, "cmrl", 1);        /*  9, unknown */
+  dmap_add_long(evbuf, "ceSX", 3);        /* 16, unknown dacp - announce support for playqueue-contents */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
@@ -1122,6 +1125,47 @@ dacp_reply_playresume(struct evhttp_request *req, struct evbuffer *evbuf, char *
 
   /* 204 No Content is the canonical reply */
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+}
+
+static void
+dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  struct daap_session *s;
+  const char *param;
+  int span;
+  int ret;
+
+  /* /ctrl-int/1/playqueue-contents?span=50&session-id=... */
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
+
+  param = evhttp_find_header(query, "span");
+  if (param)
+    {
+      ret = safe_atoi32(param, &span);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
+    }
+
+  /* Dummy reply */
+  dmap_add_container(evbuf, "ceQR", 138);  /*  8, size of contents */
+  dmap_add_int(evbuf, "mstt", 200);        /* 12, dmap.status */
+  dmap_add_int(evbuf, "mtco", span);       /* 12 */
+  dmap_add_int(evbuf, "mtco", 0);          /* 12 */
+  dmap_add_char(evbuf, "ceQu", 0);         /*  9 */
+  dmap_add_container(evbuf, "mlcl", 67);   /*  8 */
+  dmap_add_container(evbuf, "ceQS", 59);   /*  8 */
+  dmap_add_container(evbuf, "mlit", 51);   /*  8 */
+  dmap_add_string(evbuf, "ceQk", "hist");  /* 12 */
+  dmap_add_int(evbuf, "ceQi", 0xffffff38); /* 12 */
+  dmap_add_int(evbuf, "ceQm", 200);        /* 12 */
+  dmap_add_string(evbuf, "ceQl", "History"); /* 27 */
+  dmap_add_char(evbuf, "apsm", 0);         /*  9, daap.playlistshufflemode - not part of mlcl container */
+  dmap_add_char(evbuf, "aprm", 0);         /*  9, daap.playlistrepeatmode  - not part of mlcl container */
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
 
 static void
@@ -1623,6 +1667,10 @@ static struct uri_map dacp_handlers[] =
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/playstatusupdate$",
       .handler = dacp_reply_playstatusupdate
+    },
+    {
+      .regexp = "^/ctrl-int/[[:digit:]]+/playqueue-contents$",
+      .handler = dacp_reply_playqueuecontents
     },
     {
       .regexp = "^/ctrl-int/[[:digit:]]+/nowplayingartwork$",
