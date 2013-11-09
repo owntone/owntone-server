@@ -1152,16 +1152,16 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   /* Dummy reply */
   dmap_add_container(evbuf, "ceQR", 138);  /*  8, size of contents */
   dmap_add_int(evbuf, "mstt", 200);        /* 12, dmap.status */
-  dmap_add_int(evbuf, "mtco", span);       /* 12 */
-  dmap_add_int(evbuf, "mtco", 0);          /* 12 */
-  dmap_add_char(evbuf, "ceQu", 0);         /*  9 */
-  dmap_add_container(evbuf, "mlcl", 67);   /*  8 */
-  dmap_add_container(evbuf, "ceQS", 59);   /*  8 */
-  dmap_add_container(evbuf, "mlit", 51);   /*  8 */
-  dmap_add_string(evbuf, "ceQk", "hist");  /* 12 */
-  dmap_add_int(evbuf, "ceQi", 0xffffff38); /* 12 */
-  dmap_add_int(evbuf, "ceQm", 200);        /* 12 */
-  dmap_add_string(evbuf, "ceQl", "History"); /* 27 */
+  dmap_add_int(evbuf, "mtco", span);       /* 12, dmap.specifiedtotalcount */
+  dmap_add_int(evbuf, "mrco", 0);          /* 12, dmap.returnedcount */
+  dmap_add_char(evbuf, "ceQu", 0);         /*  9, unknown dacp */
+  dmap_add_container(evbuf, "mlcl", 67);   /*  8, size of contents */
+  dmap_add_container(evbuf, "ceQS", 59);   /*  8, size of contents */
+  dmap_add_container(evbuf, "mlit", 51);   /*  8, size of contents */
+  dmap_add_string(evbuf, "ceQk", "hist");  /* 12, unknown dacp - either hist or curr (or next?) */
+  dmap_add_int(evbuf, "ceQi", 0xffffff38); /* 12, unknown dacp */
+  dmap_add_int(evbuf, "ceQm", 200);        /* 12, unknown dacp - status code? */
+  dmap_add_string(evbuf, "ceQl", "History"); /* X - should be full localised name of hist/curr/next*/
   dmap_add_char(evbuf, "apsm", 0);         /*  9, daap.playlistshufflemode - not part of mlcl container */
   dmap_add_char(evbuf, "aprm", 0);         /*  9, daap.playlistrepeatmode  - not part of mlcl container */
 
