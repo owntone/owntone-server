@@ -438,11 +438,9 @@ daap_sort_build(struct sort_ctx *ctx, char *str)
   return 0;
 }
 
-static int
-daap_sort_finalize(struct sort_ctx *ctx, struct evbuffer *evbuf)
+static void
+daap_sort_finalize(struct sort_ctx *ctx)
 {
-  int ret;
-
   /* Add current entry, if any */
   if (ctx->mshc != -1)
     {
@@ -461,13 +459,6 @@ daap_sort_finalize(struct sort_ctx *ctx, struct evbuffer *evbuf)
   dmap_add_short(ctx->headerlist, "mshc", '0');          /* 10 */
   dmap_add_int(ctx->headerlist, "mshi", ctx->mshi);      /* 12 */
   dmap_add_int(ctx->headerlist, "mshn", ctx->misc_mshn); /* 12 */
-
-  dmap_add_container(evbuf, "mshl", EVBUFFER_LENGTH(ctx->headerlist));
-  ret = evbuffer_add_buffer(evbuf, ctx->headerlist);
-  if (ret < 0)
-    return -1;
-
-  return 0;
 }
 
 
@@ -1174,14 +1165,17 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   /* Add header to evbuf, add songlist to evbuf */
   if (sort_headers)
-    dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(songlist) + EVBUFFER_LENGTH(sctx->headerlist) + 53);
+    {
+      daap_sort_finalize(sctx);
+      dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(songlist) + EVBUFFER_LENGTH(sctx->headerlist) + 61);
+    }
   else
     dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(songlist) + 53);
   dmap_add_int(evbuf, "mstt", 200);    /* 12 */
   dmap_add_char(evbuf, "muty", 0);     /* 9 */
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf, "mrco", nsongs); /* 12 */
-  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(songlist));
+  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(songlist)); /* 8 */
 
   db_query_end(&qp);
 
@@ -1201,7 +1195,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   if (sort_headers)
     {
-      ret = daap_sort_finalize(sctx, evbuf);
+      dmap_add_container(evbuf, "mshl", EVBUFFER_LENGTH(sctx->headerlist)); /* 8 */
+      ret = evbuffer_add_buffer(evbuf, sctx->headerlist);
       daap_sort_context_free(sctx);
 
       if (ret < 0)
@@ -1730,7 +1725,10 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   /* Add header to evbuf, add grouplist to evbuf */
   if (sort_headers)
-    dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(grouplist) + EVBUFFER_LENGTH(sctx->headerlist) + 53);
+    {
+      daap_sort_finalize(sctx);
+      dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(grouplist) + EVBUFFER_LENGTH(sctx->headerlist) + 61);
+    }
   else
     dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(grouplist) + 53);
 
@@ -1738,7 +1736,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   dmap_add_char(evbuf, "muty", 0);  /* 9 */
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf,"mrco", ngrp); /* 12 */
-  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(grouplist));
+  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(grouplist)); /* 8 */
 
   db_query_end(&qp);
 
@@ -1758,12 +1756,13 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   if (sort_headers)
     {
-      ret = daap_sort_finalize(sctx, evbuf);
+      dmap_add_container(evbuf, "mshl", EVBUFFER_LENGTH(sctx->headerlist)); /* 8 */
+      ret = evbuffer_add_buffer(evbuf, sctx->headerlist);
       daap_sort_context_free(sctx);
 
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_DAAP, "Could not add sort headers to DAAP browse reply\n");
+	  DPRINTF(E_LOG, L_DAAP, "Could not add sort headers to DAAP groups reply\n");
 
 	  dmap_send_error(req, tag, "Out of memory");
 	  return;
@@ -1936,7 +1935,10 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
 
   if (sort_headers)
-    dmap_add_container(evbuf, "abro", EVBUFFER_LENGTH(itemlist) + EVBUFFER_LENGTH(sctx->headerlist) + 44);
+    {
+      daap_sort_finalize(sctx);
+      dmap_add_container(evbuf, "abro", EVBUFFER_LENGTH(itemlist) + EVBUFFER_LENGTH(sctx->headerlist) + 52);
+    }
   else
     dmap_add_container(evbuf, "abro", EVBUFFER_LENGTH(itemlist) + 44);
 
@@ -1944,7 +1946,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf, "mrco", nitems); /* 12 */
 
-  dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(itemlist));
+  dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(itemlist)); /* 8 */
 
   db_query_end(&qp);
 
@@ -1964,7 +1966,8 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   if (sort_headers)
     {
-      ret = daap_sort_finalize(sctx, evbuf);
+      dmap_add_container(evbuf, "mshl", EVBUFFER_LENGTH(sctx->headerlist)); /* 8 */
+      ret = evbuffer_add_buffer(evbuf, sctx->headerlist);
       daap_sort_context_free(sctx);
 
       if (ret < 0)
