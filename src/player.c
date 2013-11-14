@@ -114,26 +114,6 @@ struct player_command
   int raop_pending;
 };
 
-struct player_source
-{
-  uint32_t id;
-
-  uint64_t stream_start;
-  uint64_t output_start;
-  uint64_t end;
-
-  struct transcode_ctx *ctx;
-
-  struct player_source *pl_next;
-  struct player_source *pl_prev;
-
-  struct player_source *shuffle_next;
-  struct player_source *shuffle_prev;
-
-  struct player_source *play_next;
-};
-
-
 /* Keep in sync with enum raop_devtype */
 static const char *raop_devtype[] =
   {
@@ -559,7 +539,6 @@ metadata_send(struct player_source *ps, int startup)
 
   raop_metadata_send(ps->id, rtptime, offset, startup);
 }
-
 
 /* Audio sources */
 /* Thread: httpd (DACP) */
@@ -3163,7 +3142,6 @@ sync_command(struct player_command *cmd)
   return ret;
 }
 
-
 /* Player API executed in the httpd (DACP) thread */
 int
 player_get_status(struct player_status *status)
@@ -3450,6 +3428,12 @@ player_shuffle_set(int enable)
   command_deinit(&cmd);
 
   return ret;
+}
+
+struct player_source *
+player_queue_get(void)
+{
+  return source_head;
 }
 
 int

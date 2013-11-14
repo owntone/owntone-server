@@ -55,8 +55,24 @@ struct player_status {
 typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg);
 typedef void (*player_status_handler)(void);
 
-struct player_source;
+struct player_source
+{
+  uint32_t id;
 
+  uint64_t stream_start;
+  uint64_t output_start;
+  uint64_t end;
+
+  struct transcode_ctx *ctx;
+
+  struct player_source *pl_next;
+  struct player_source *pl_prev;
+
+  struct player_source *shuffle_next;
+  struct player_source *shuffle_prev;
+
+  struct player_source *play_next;
+};
 
 int
 player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit);
@@ -66,7 +82,6 @@ player_get_status(struct player_status *status);
 
 int
 player_now_playing(uint32_t *id);
-
 
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg);
@@ -115,6 +130,9 @@ player_queue_make_daap(const char *query, const char *sort);
 struct player_source *
 player_queue_make_pl(int plid, uint32_t *id);
 
+struct player_source *
+player_queue_get(void);
+
 int
 player_queue_add(struct player_source *ps);
 
@@ -123,7 +141,6 @@ player_queue_clear(void);
 
 void
 player_queue_plid(uint32_t plid);
-
 
 void
 player_set_update_handler(player_status_handler handler);
