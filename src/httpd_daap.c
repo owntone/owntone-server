@@ -1407,7 +1407,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 
 	  dmap_add_field(playlist, df, *strval, 0);
 
-	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
+	  DPRINTF(E_SPAM, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
 	}
 
       /* Item count (mimc) */

@@ -168,6 +168,20 @@ dmap_add_literal(struct evbuffer *evbuf, char *tag, char *str, int len)
 }
 
 void
+dmap_add_raw_uint32(struct evbuffer *evbuf, uint32_t val)
+{
+  unsigned char buf[4];
+
+  /* Value */
+  buf[0] = (val >> 24) & 0xff;
+  buf[1] = (val >> 16) & 0xff;
+  buf[2] = (val >> 8) & 0xff;
+  buf[3] = val & 0xff;
+
+  evbuffer_add(evbuf, buf, sizeof(buf));
+}
+
+void
 dmap_add_string(struct evbuffer *evbuf, char *tag, const char *str)
 {
   unsigned char buf[4];
@@ -427,7 +441,7 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
 	  continue;
 	}
 
-      DPRINTF(E_DBG, L_DAAP, "Investigating %s\n", df->desc);
+      DPRINTF(E_SPAM, L_DAAP, "Investigating %s\n", df->desc);
 
       strval = (char **) ((char *)dbmfi + dfm->mfi_offset);
 
@@ -476,7 +490,7 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
 
       dmap_add_field(song, df, *strval, val);
 
-      DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
+      DPRINTF(E_SPAM, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
     }
 
   if (sort_tags)

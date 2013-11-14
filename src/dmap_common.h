@@ -68,6 +68,9 @@ void
 dmap_add_literal(struct evbuffer *evbuf, char *tag, char *str, int len);
 
 void
+dmap_add_raw_uint32(struct evbuffer *evbuf, uint32_t val);
+
+void
 dmap_add_string(struct evbuffer *evbuf, char *tag, const char *str);
 
 void
