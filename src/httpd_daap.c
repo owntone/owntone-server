@@ -1653,7 +1653,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
 	  dmap_add_field(group, df, *strval, 0);
 
-	  DPRINTF(E_DBG, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
+	  DPRINTF(E_SPAM, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
 	}
 
       if (sort_headers)
