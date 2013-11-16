@@ -1184,7 +1184,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	  dmap_add_raw_uint32(song, 0); /* Unknown  */
 	  dmap_add_raw_uint32(song, mfi->id);
 	  dmap_add_string(song, "ceQn", mfi->title);
-	  dmap_add_string(song, "ceQr", mfi->album_artist);
+	  dmap_add_string(song, "ceQr", mfi->artist);
 	  dmap_add_string(song, "ceQa", mfi->album);
 	  dmap_add_string(song, "ceQg", mfi->genre);
 	  dmap_add_long(song, "asai", mfi->songalbumid);
