@@ -158,31 +158,14 @@ static int seek_target;
 static void
 dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
 {
-  char canp[16];
-
   if ((status->status == PLAY_STOPPED) || !mfi)
     return;
 
-  memset(canp, 0, sizeof(canp));
-
-  canp[3] = 1; /* 0-3 database ID */
-
-  canp[4]  = (status->plid >> 24) & 0xff;
-  canp[5]  = (status->plid >> 16) & 0xff;
-  canp[6]  = (status->plid >> 8) & 0xff;
-  canp[7]  = status->plid & 0xff;
-
-  canp[8]  = (status->pos_pl >> 24) & 0xff; /* 8-11 position in playlist */
-  canp[9]  = (status->pos_pl >> 16) & 0xff;
-  canp[10] = (status->pos_pl >> 8) & 0xff;
-  canp[11] = status->pos_pl & 0xff;
-
-  canp[12] = (status->id >> 24) & 0xff; /* 12-15 track ID */
-  canp[13] = (status->id >> 16) & 0xff;
-  canp[14] = (status->id >> 8) & 0xff;
-  canp[15] = status->id & 0xff;
-
-  dmap_add_literal(evbuf, "canp", canp, sizeof(canp));
+  dmap_add_container(evbuf, "canp", 16);
+  dmap_add_raw_uint32(evbuf, 1); /* Database */
+  dmap_add_raw_uint32(evbuf, status->plid);
+  dmap_add_raw_uint32(evbuf, status->pos_pl);
+  dmap_add_raw_uint32(evbuf, status->id);
 
   dmap_add_string(evbuf, "cann", mfi->title);
   dmap_add_string(evbuf, "cana", mfi->artist);
@@ -1152,6 +1135,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 
   DPRINTF(E_DBG, L_DACP, "Fetching playqueue contents\n");
 
+  span = 50; /* Default */
   param = evhttp_find_header(query, "span");
   if (param)
     {
@@ -1172,7 +1156,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
       /* Make song list for Up Next, begin with first song after playlist position */
       // TODO support for shuffle
       songlist = evbuffer_new();
-      while ((ps = ps->pl_next) && (ps != head) && (i - status.pos_pl < span))
+      while ((ps = ps->pl_next) && (ps != head) && (i - status.pos_pl < abs(span)))
 	{
 	  i++;
 	  song = evbuffer_new();
@@ -1180,8 +1164,8 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	  mfi = db_file_fetch_byid(ps->id);
 	  dmap_add_container(song, "ceQs", 16);
 	  dmap_add_raw_uint32(song, 1); /* Database */
-	  dmap_add_raw_uint32(song, 0); /* Unknown  */
-	  dmap_add_raw_uint32(song, 0); /* Unknown  */
+	  dmap_add_raw_uint32(song, status.plid);
+	  dmap_add_raw_uint32(song, 0); /* Should perhaps be playlist index? */
 	  dmap_add_raw_uint32(song, mfi->id);
 	  dmap_add_string(song, "ceQn", mfi->title);
 	  dmap_add_string(song, "ceQr", mfi->artist);
@@ -1258,19 +1242,109 @@ static void
 dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
+  struct player_status status;
+  struct player_source *ps;
+  const char *cuequery;
+  const char *sort;
   const char *param;
-  int span;
+  uint32_t id;
+  int mode;
   int ret;
 
-  /* /ctrl-int/1/playqueue-edit?command=add&query='dmap.itemid:...'&queuefilter=album:...&sort=album&mode=1&session-id=... */
+  /*  Variations of /ctrl-int/1/playqueue-edit and expected behaviour
+      User selected play (album or artist tab):
+	?command=add&query='...'&sort=album&mode=1&session-id=...
+	-> clear queue, play query results
+      User selected track (album tab):
+	?command=add&query='dmap.itemid:...'&queuefilter=album:...&sort=album&mode=1&session-id=...
+	-> clear queue, play itemid and the rest of album
+      User selected track (song tab):
+	?command=add&query='dmap.itemid:...'&queuefilter=playlist:...&sort=name&mode=1&session-id=...
+	-> clear queue, play itemid and the rest of playlist
+      User selected track (playlist tab):
+	?command=add&query='dmap.containeritemid:...'&queuefilter=playlist:...&sort=physical&mode=1&session-id=...
+	-> clear queue, play containeritemid and the rest of playlist
+      User selected track (artist tab):
+	?command=add&query='dmap.itemid:...'&mode=1&session-id=...
+	-> clear queue, play itemid and the rest of artist tracks
+      User selected shuffle (artist tab):
+	?command=add&query='...'&sort=album&mode=2&session-id=...
+	-> clear queue, play shuffled query results
+      User selected add item to queue:
+	?command=add&query='...'&sort=album&mode=0&session-id=...
+	-> add query results to queue
+      User selected play next song (album tab)
+	?command=add&query='daap.songalbumid:...'&sort=album&mode=3&session-id=...
+	-> replace queue from after current song with query results
+      User selected track in queue:
+	?command=playnow&index=...&session-id=...
+	-> play index
+   */
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return;
 
-  // TODO
+  param = evhttp_find_header(query, "mode");
+  if (param)
+    {
+      ret = safe_atoi32(param, &mode);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_DACP, "Invalid mode value in playqueue-edit request\n");
+      else if (mode == 1)
+	{
+	  player_playback_stop();
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+	  player_queue_clear();
+	}
+    }
+
+  cuequery = evhttp_find_header(query, "query");
+  if (cuequery)
+    {
+      sort = evhttp_find_header(query, "sort");
+
+      ps = player_queue_make_daap(cuequery, sort);
+      if (!ps)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
+
+	  dmap_send_error(req, "cmst", "Could not build song queue");
+	  return;
+	}
+
+      player_queue_add(ps);
+    }
+  else
+    {
+      player_get_status(&status);
+
+      if (status.status != PLAY_STOPPED)
+	player_playback_stop();
+    }
+
+  /* 
+  param = evhttp_find_header(query, "dacp.shufflestate");
+  if (param)
+    dacp_propset_shufflestate(param, NULL);*/
+
+  id = 0;
+  param = evhttp_find_header(query, "index");
+  if (param)
+    {
+      ret = safe_atou32(param, &id);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_DACP, "Invalid index (%s) in playqueue-edit request\n", param);
+    }
+
+  ret = player_playback_start(&id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
+
+      dmap_send_error(req, "cmst", "Playback failed to start");
+      return;
+    }
 }
 
 static void
