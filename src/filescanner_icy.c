@@ -42,8 +42,9 @@
 #include <netinet/in.h>
 #endif
 
-#include <event.h>
-#include "evhttp/evhttp.h"
+#include <event2/event.h>
+#include "event2/http.h"
+#include "event2/http_compat.h"
 
 #include <libavformat/avformat.h>
 
@@ -126,18 +127,18 @@ scan_icy_header_cb(struct evhttp_request *req, void *arg)
 
   mfi = (struct media_file_info *)arg;
 
-  if ( (ptr = evhttp_find_header(req->input_headers, "icy-name")) )
+  if ( (ptr = evhttp_find_header(evhttp_request_get_input_headers(req), "icy-name")) )
     {
       mfi->title = strdup(ptr);
       mfi->artist = strdup(ptr);
       DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, name (title/artist) is %s\n", mfi->title);
     }
-  if ( (ptr = evhttp_find_header(req->input_headers, "icy-description")) )
+  if ( (ptr = evhttp_find_header(evhttp_request_get_input_headers(req), "icy-description")) )
     {
       mfi->album = strdup(ptr);
       DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, description (album) is %s\n", mfi->album);
     }
-  if ( (ptr = evhttp_find_header(req->input_headers, "icy-genre")) )
+  if ( (ptr = evhttp_find_header(evhttp_request_get_input_headers(req), "icy-genre")) )
     {
       mfi->genre = strdup(ptr);
       DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, genre is %s\n", mfi->genre);
@@ -208,9 +209,9 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
       evhttp_connection_free(evcon);
       goto no_icy;
     }
-  req->header_cb = scan_icy_header_cb;
-  evhttp_add_header(req->output_headers, "Host", ctx->hostname);
-  evhttp_add_header(req->output_headers, "Icy-MetaData", "1");
+  evhttp_request_set_header_cb(req, scan_icy_header_cb);
+  evhttp_add_header(evhttp_request_get_output_headers(req), "Host", ctx->hostname);
+  evhttp_add_header(evhttp_request_get_output_headers(req), "Icy-MetaData", "1");
 
   /* Make request */
   status = ICY_WAITING;
