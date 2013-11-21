@@ -1357,21 +1357,21 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
     {
       DPRINTF(E_LOG, L_DACP, "No command in playqueue-edit request\n");
 
-      dmap_send_error(req, "cmst", "No command in cue request");
+      dmap_send_error(req, "cmst", "No command in playqueue-edit request");
       return;
     }
 
   if (strcmp(param, "clear") == 0)
     dacp_reply_cue_clear(req, evbuf, uri, query); // TODO this might give wrong reply container
   else if (strcmp(param, "playnow") == 0)
-    dacp_reply_cue_play(req, evbuf, uri, query); // TODO this might give wrong reply container
+    dacp_reply_cue_play(req, evbuf, uri, query); // TODO index is wrong + this might give wrong reply container
   else if (strcmp(param, "add") == 0)
     dacp_reply_playqueueedit_add(req, evbuf, uri, query);
   else
     {
       DPRINTF(E_LOG, L_DACP, "Unknown playqueue-edit command %s\n", param);
 
-      dmap_send_error(req, "cmst", "Unknown command in cue request");
+      dmap_send_error(req, "cmst", "Unknown command in playqueue-edit request");
       return;
     }
 }
