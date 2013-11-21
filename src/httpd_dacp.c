@@ -1258,7 +1258,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	{
 	  DPRINTF(E_LOG, L_DACP, "Invalid mode value in playqueue-edit request\n");
 
-	  dmap_send_error(req, "cmst", "Invalid mode value in playqueue-edit request");
+	  dmap_send_error(req, "cmst", "Invalid request");
 	  return;
 	}
     }
@@ -1280,7 +1280,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
 
-	  dmap_send_error(req, "cmst", "Could not build song queue");
+	  dmap_send_error(req, "cmst", "Invalid request");
 	  return;
 	}
 
@@ -1292,7 +1292,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Could not add song queue, DACP query missing\n");
 
-      dmap_send_error(req, "cmst", "Could not add song queue, DACP query missing");
+      dmap_send_error(req, "cmst", "Invalid request");
       return;
     }
 
@@ -1357,7 +1357,7 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
     {
       DPRINTF(E_LOG, L_DACP, "No command in playqueue-edit request\n");
 
-      dmap_send_error(req, "cmst", "No command in playqueue-edit request");
+      dmap_send_error(req, "cmst", "Invalid request");
       return;
     }
 
@@ -1371,7 +1371,7 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
     {
       DPRINTF(E_LOG, L_DACP, "Unknown playqueue-edit command %s\n", param);
 
-      dmap_send_error(req, "cmst", "Unknown command in playqueue-edit request");
+      dmap_send_error(req, "cmst", "Invalid request");
       return;
     }
 }
