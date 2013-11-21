@@ -12,6 +12,7 @@ struct dmap_query_field_map;
 %%
 "dmap.itemname",              "f.title",            0
 "dmap.itemid",                "f.id",               1
+"dmap.containeritemid",       "f.id",               1
 "daap.songalbum",             "f.album",            0
 "daap.songalbumid",           "f.songalbumid",      1
 "daap.songartist",            "f.album_artist",     0

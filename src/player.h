@@ -123,9 +123,8 @@ player_repeat_set(enum repeat_mode mode);
 int
 player_shuffle_set(int enable);
 
-
-struct player_source *
-player_queue_make_daap(const char *query, const char *sort);
+int
+player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort);
 
 struct player_source *
 player_queue_make_pl(int plid, uint32_t *id);

@@ -733,8 +733,8 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       sort = evhttp_find_header(query, "sort");
 
-      ps = player_queue_make_daap(cuequery, sort);
-      if (!ps)
+      ret = player_queue_make_daap(&ps, cuequery, NULL, sort);
+      if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
 
@@ -1239,17 +1239,84 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 }
 
 static void
+dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  struct player_source *ps;
+  const char *editquery;
+  const char *queuefilter;
+  const char *sort;
+  const char *param;
+  uint32_t idx;
+  int mode;
+  int ret;
+
+  param = evhttp_find_header(query, "mode");
+  if (param)
+    {
+      ret = safe_atoi32(param, &mode);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Invalid mode value in playqueue-edit request\n");
+
+	  dmap_send_error(req, "cmst", "Invalid mode value in playqueue-edit request");
+	  return;
+	}
+    }
+
+  if (mode == 1)
+    {
+      player_playback_stop();
+      player_queue_clear();
+    }
+
+  editquery = evhttp_find_header(query, "query");
+  if (editquery)
+    {
+      queuefilter = evhttp_find_header(query, "queuefilter");
+      sort = evhttp_find_header(query, "sort");
+
+      ret = player_queue_make_daap(&ps, editquery, queuefilter, sort);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
+
+	  dmap_send_error(req, "cmst", "Could not build song queue");
+	  return;
+	}
+
+      idx = ret;
+
+      player_queue_add(ps);
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not add song queue, DACP query missing\n");
+
+      dmap_send_error(req, "cmst", "Could not add song queue, DACP query missing");
+      return;
+    }
+
+  /* 
+  param = evhttp_find_header(query, "dacp.shufflestate");
+  if (param)
+    dacp_propset_shufflestate(param, NULL);*/
+
+  DPRINTF(E_DBG, L_DACP, "Song queue built, playback starting at index %" PRIu32 "\n", idx);
+  ret = player_playback_start(&idx);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
+
+      dmap_send_error(req, "cmst", "Playback failed to start");
+      return;
+    }
+}
+
+static void
 dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
-  struct player_status status;
-  struct player_source *ps;
-  const char *cuequery;
-  const char *sort;
   const char *param;
-  uint32_t id;
-  int mode;
-  int ret;
 
   /*  Variations of /ctrl-int/1/playqueue-edit and expected behaviour
       User selected play (album or artist tab):
@@ -1285,64 +1352,26 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
   if (!s)
     return;
 
-  param = evhttp_find_header(query, "mode");
-  if (param)
+  param = evhttp_find_header(query, "command");
+  if (!param)
     {
-      ret = safe_atoi32(param, &mode);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_DACP, "Invalid mode value in playqueue-edit request\n");
-      else if (mode == 1)
-	{
-	  player_playback_stop();
+      DPRINTF(E_LOG, L_DACP, "No command in playqueue-edit request\n");
 
-	  player_queue_clear();
-	}
+      dmap_send_error(req, "cmst", "No command in cue request");
+      return;
     }
 
-  cuequery = evhttp_find_header(query, "query");
-  if (cuequery)
-    {
-      sort = evhttp_find_header(query, "sort");
-
-      ps = player_queue_make_daap(cuequery, sort);
-      if (!ps)
-	{
-	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
-
-	  dmap_send_error(req, "cmst", "Could not build song queue");
-	  return;
-	}
-
-      player_queue_add(ps);
-    }
+  if (strcmp(param, "clear") == 0)
+    dacp_reply_cue_clear(req, evbuf, uri, query); // TODO this might give wrong reply container
+  else if (strcmp(param, "playnow") == 0)
+    dacp_reply_cue_play(req, evbuf, uri, query); // TODO this might give wrong reply container
+  else if (strcmp(param, "add") == 0)
+    dacp_reply_playqueueedit_add(req, evbuf, uri, query);
   else
     {
-      player_get_status(&status);
+      DPRINTF(E_LOG, L_DACP, "Unknown playqueue-edit command %s\n", param);
 
-      if (status.status != PLAY_STOPPED)
-	player_playback_stop();
-    }
-
-  /* 
-  param = evhttp_find_header(query, "dacp.shufflestate");
-  if (param)
-    dacp_propset_shufflestate(param, NULL);*/
-
-  id = 0;
-  param = evhttp_find_header(query, "index");
-  if (param)
-    {
-      ret = safe_atou32(param, &id);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_DACP, "Invalid index (%s) in playqueue-edit request\n", param);
-    }
-
-  ret = player_playback_start(&id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
-
-      dmap_send_error(req, "cmst", "Playback failed to start");
+      dmap_send_error(req, "cmst", "Unknown command in cue request");
       return;
     }
 }
