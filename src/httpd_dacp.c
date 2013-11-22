@@ -1126,6 +1126,15 @@ dacp_reply_playresume(struct evhttp_request *req, struct evbuffer *evbuf, char *
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
 }
 
+static struct player_source *
+next_ps(struct player_source *ps, char shuffle)
+{
+  if (shuffle)
+    return ps->shuffle_next;
+  else
+    return ps->pl_next;
+}
+
 static void
 dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
@@ -1140,6 +1149,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   const char *param;
   int span;
   int i;
+  int n;
   int songlist_length;
   int ret;
 
@@ -1162,21 +1172,38 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 
   songlist = NULL;
   i = 0;
+  n = 0;
   player_get_status(&status);
   /* Get queue and make songlist only if playing or paused */
   if ((status.status != PLAY_STOPPED) && (head = player_queue_get()))
     {
-      /* Fast forward to current playlist position */
-      for (ps = head; (ps && i < status.pos_pl); i++)
-	ps = ps->pl_next;
+      /* Fast forward to song currently being played */
+      ps = head;
+      while ((ps->id != status.id) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
+	i++;
+
       /* Make song list for Up Next, begin with first song after playlist position */
-      // TODO support for shuffle
       songlist = evbuffer_new();
-      while ((ps = ps->pl_next) && (ps != head) && (i - status.pos_pl < abs(span)))
+      if (!songlist)
+        {
+          DPRINTF(E_LOG, L_DACP, "Could not allocate songlist evbuffer for playqueue-contents\n");
+
+          dmap_send_error(req, "ceQR", "Out of memory");
+          return;
+        }
+
+      while ((n < abs(span)) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
 	{
-	  i++;
+	  n++;
 	  song = evbuffer_new();
-	  // TODO Out of memory check (song)
+	  if (!song)
+	    {
+	      DPRINTF(E_LOG, L_DACP, "Could not allocate song evbuffer for playqueue-contents\n");
+
+	      dmap_send_error(req, "ceQR", "Out of memory");
+	      return;
+	    }
+
 	  mfi = db_file_fetch_byid(ps->id);
 	  dmap_add_container(song, "ceQs", 16);
 	  dmap_add_raw_uint32(song, 1); /* Database */
@@ -1193,20 +1220,35 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	  dmap_add_int(song, "astm", mfi->song_length);
 	  dmap_add_char(song, "casc", 1); /* Maybe an indication of extra data? */
 	  dmap_add_char(song, "caks", 6); /* Unknown */
-	  dmap_add_int(song, "ceQI", i + 1);
+	  dmap_add_int(song, "ceQI", n + i + 1);
 
 	  dmap_add_container(songlist, "mlit", EVBUFFER_LENGTH(song));
 	  ret = evbuffer_add_buffer(songlist, song);
 	  evbuffer_free(song);
           if (mfi)
 	    free_mfi(mfi, 0);
-	  // TODO Out of memory check (songlist)
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+
+	      dmap_send_error(req, "ceQR", "Out of memory");
+	      return;
+	    }
 	}  
     }
 
   /* Playlists are hist, curr and main. Currently we don't support hist. */
   playlists = evbuffer_new();
-  // TODO Out of memory check (playlists)
+  if (!playlists)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not allocate playlists evbuffer for playqueue-contents\n");
+      if (songlist)
+	evbuffer_free(songlist);
+
+      dmap_send_error(req, "ceQR", "Out of memory");
+      return;
+    }
+
   dmap_add_container(playlists, "mlit", 61);
   dmap_add_string(playlists, "ceQk", "hist");              /* 12 */
   dmap_add_int(playlists, "ceQi", -200);                   /* 12 */
@@ -1223,7 +1265,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
       dmap_add_container(playlists, "mlit", 69);
       dmap_add_string(playlists, "ceQk", "main");            /* 12 */
       dmap_add_int(playlists, "ceQi", 1);                    /* 12 */
-      dmap_add_int(playlists, "ceQm", i);                    /* 12 */
+      dmap_add_int(playlists, "ceQm", n);                    /* 12 */
       dmap_add_string(playlists, "ceQl", "Up Next");         /* 15 = 8 + 7 */
       dmap_add_string(playlists, "ceQh", "from Music");      /* 18 = 8 + 10 */
 
@@ -1236,17 +1278,33 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   dmap_add_container(evbuf, "ceQR", 79 + EVBUFFER_LENGTH(playlists) + songlist_length); /* size of entire container */
   dmap_add_int(evbuf, "mstt", 200);                                                     /* 12, dmap.status */
   dmap_add_int(evbuf, "mtco", abs(span));                                               /* 12 */
-  dmap_add_int(evbuf, "mrco", i);                                                       /* 12 */
+  dmap_add_int(evbuf, "mrco", n);                                                       /* 12 */
   dmap_add_char(evbuf, "ceQu", 0);                                                      /*  9 */
   dmap_add_container(evbuf, "mlcl", 8 + EVBUFFER_LENGTH(playlists) + songlist_length);  /*  8 */
   dmap_add_container(evbuf, "ceQS", EVBUFFER_LENGTH(playlists));                        /*  8 */
   ret = evbuffer_add_buffer(evbuf, playlists);
-  // TODO check ret value & memcheck evbuf
   evbuffer_free(playlists);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not add playlists to evbuffer for playqueue-contents\n");
+      if (songlist)
+	evbuffer_free(songlist);
+
+      dmap_send_error(req, "ceQR", "Out of memory");
+      return;
+    }
+
   if (songlist)
     {
       ret = evbuffer_add_buffer(evbuf, songlist);
       evbuffer_free(songlist);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DACP, "Could not add songlist to evbuffer for playqueue-contents\n");
+
+	  dmap_send_error(req, "ceQR", "Out of memory");
+	  return;
+	}
     } 
   dmap_add_char(evbuf, "apsm", status.shuffle); /*  9, daap.playlistshufflemode - not part of mlcl container */
   dmap_add_char(evbuf, "aprm", status.repeat);  /*  9, daap.playlistrepeatmode  - not part of mlcl container */
@@ -1280,7 +1338,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	}
     }
 
-  if (mode == 1)
+  if ((mode == 1) || (mode == 2))
     {
       player_playback_stop();
       player_queue_clear();
@@ -1316,10 +1374,11 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
       return;
     }
 
-  /* 
-  param = evhttp_find_header(query, "dacp.shufflestate");
-  if (param)
-    dacp_propset_shufflestate(param, NULL);*/
+  if (mode == 2)
+    {
+      player_shuffle_set(1);
+      idx = 0;
+    }
 
   DPRINTF(E_DBG, L_DACP, "Song queue built, playback starting at index %" PRIu32 "\n", idx);
   ret = player_playback_start(&idx);

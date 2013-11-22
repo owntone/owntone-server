@@ -3566,7 +3566,10 @@ player_shuffle_set(int enable)
 struct player_source *
 player_queue_get(void)
 {
-  return source_head;
+  if (shuffle)
+    return shuffle_head;
+  else
+    return source_head;
 }
 
 int
