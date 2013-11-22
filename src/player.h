@@ -124,7 +124,7 @@ int
 player_shuffle_set(int enable);
 
 int
-player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort);
+player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk);
 
 struct player_source *
 player_queue_make_pl(int plid, uint32_t *id);

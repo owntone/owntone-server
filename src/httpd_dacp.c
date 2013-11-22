@@ -223,21 +223,33 @@ make_playstatusupdate(struct evbuffer *evbuf)
 
   dmap_add_int(psu, "cmsr", current_rev); /* 12 */
 
-  dmap_add_char(psu, "cavc", 1);              /* 9 */ /* volume controllable */
-  dmap_add_char(psu, "caps", status.status);  /* 9 */ /* play status, 2 = stopped, 3 = paused, 4 = playing */
-  dmap_add_char(psu, "cash", status.shuffle); /* 9 */ /* shuffle, true/false */
-  dmap_add_char(psu, "carp", status.repeat);  /* 9 */ /* repeat, 0 = off, 1 = repeat song, 2 = repeat (playlist) */
-
-  dmap_add_int(psu, "caas", 2);           /* 12 */ /* available shuffle states */
-  dmap_add_int(psu, "caar", 6);           /* 12 */ /* available repeat states */
+  dmap_add_char(psu, "caps", status.status);  /*  9 */ /* play status, 2 = stopped, 3 = paused, 4 = playing */
+  dmap_add_char(psu, "cash", status.shuffle); /*  9 */ /* shuffle, true/false */
+  dmap_add_char(psu, "carp", status.repeat);  /*  9 */ /* repeat, 0 = off, 1 = repeat song, 2 = repeat (playlist) */
+  dmap_add_char(psu, "cafs", 0);              /*  9 */ /* dacp.fullscreen */
+  dmap_add_char(psu, "cavs", 0);              /*  9 */ /* dacp.visualizer */
+  dmap_add_char(psu, "cavc", 1);              /*  9 */ /* volume controllable */
+  dmap_add_int(psu, "caas", 2);               /* 12 */ /* available shuffle states */
+  dmap_add_int(psu, "caar", 6);               /* 12 */ /* available repeat states */
+  dmap_add_char(psu, "cafe", 0);              /*  9 */ /* dacp.fullscreenenabled */
+  dmap_add_char(psu, "cave", 0);              /*  9 */ /* dacp.visualizerenabled */
 
   if (mfi)
     {
       dacp_nowplaying(psu, &status, mfi);
+
+      dmap_add_int(psu, "casa", 1);           /* 12 */ /* unknown */
+      dmap_add_int(psu, "astm", mfi->song_length);
+      dmap_add_char(psu, "casc", 1);         /* Maybe an indication of extra data? */
+      dmap_add_char(psu, "caks", 6);         /* Unknown */
+
       dacp_playingtime(psu, &status, mfi);
 
       free_mfi(mfi, 0);
     }
+
+  dmap_add_char(psu, "casu", 1);              /*  9 */ /* unknown */
+  dmap_add_char(psu, "ceQu", 0);              /*  9 */ /* unknown */
 
   dmap_add_container(evbuf, "cmst", EVBUFFER_LENGTH(psu));    /* 8 + len */
 
@@ -733,7 +745,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       sort = evhttp_find_header(query, "sort");
 
-      ret = player_queue_make_daap(&ps, cuequery, NULL, sort);
+      ret = player_queue_make_daap(&ps, cuequery, NULL, sort, 0);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
@@ -764,6 +776,10 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
       if (ret < 0)
 	DPRINTF(E_LOG, L_DACP, "Invalid index (%s) in cue request\n", param);
     }
+
+  /* If selection was from Up Next queue (command will be playnow), then index is relative */
+  if ((param = evhttp_find_header(query, "command")) && (strcmp(param, "playnow") == 0))
+    id += status.pos_pl;
 
   ret = player_playback_start(&id);
   if (ret < 0)
@@ -1249,6 +1265,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
   uint32_t idx;
   int mode;
   int ret;
+  int quirkyquery;
 
   param = evhttp_find_header(query, "mode");
   if (param)
@@ -1258,7 +1275,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	{
 	  DPRINTF(E_LOG, L_DACP, "Invalid mode value in playqueue-edit request\n");
 
-	  dmap_send_error(req, "cmst", "Invalid request");
+	  dmap_send_error(req, "cacr", "Invalid request");
 	  return;
 	}
     }
@@ -1272,15 +1289,18 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
   editquery = evhttp_find_header(query, "query");
   if (editquery)
     {
+      /* This query kind needs special treatment */
+      quirkyquery = (mode == 1) && strstr(editquery, "dmap.itemid:");
+
       queuefilter = evhttp_find_header(query, "queuefilter");
       sort = evhttp_find_header(query, "sort");
 
-      ret = player_queue_make_daap(&ps, editquery, queuefilter, sort);
+      ret = player_queue_make_daap(&ps, editquery, queuefilter, sort, quirkyquery);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
 
-	  dmap_send_error(req, "cmst", "Invalid request");
+	  dmap_send_error(req, "cacr", "Invalid request");
 	  return;
 	}
 
@@ -1292,7 +1312,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Could not add song queue, DACP query missing\n");
 
-      dmap_send_error(req, "cmst", "Invalid request");
+      dmap_send_error(req, "cacr", "Invalid request");
       return;
     }
 
@@ -1307,9 +1327,15 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
 
-      dmap_send_error(req, "cmst", "Playback failed to start");
+      dmap_send_error(req, "cacr", "Playback failed to start");
       return;
     }
+
+  dmap_add_container(evbuf, "cacr", 24); /* 8 + len */
+  dmap_add_int(evbuf, "mstt", 200);      /* 12 */
+  dmap_add_int(evbuf, "miid", ps->id);   /* 12 */
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
 
 static void
@@ -1331,9 +1357,6 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
       User selected track (playlist tab):
 	?command=add&query='dmap.containeritemid:...'&queuefilter=playlist:...&sort=physical&mode=1&session-id=...
 	-> clear queue, play containeritemid and the rest of playlist
-      User selected track (artist tab):
-	?command=add&query='dmap.itemid:...'&mode=1&session-id=...
-	-> clear queue, play itemid and the rest of artist tracks
       User selected shuffle (artist tab):
 	?command=add&query='...'&sort=album&mode=2&session-id=...
 	-> clear queue, play shuffled query results
@@ -1346,6 +1369,11 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
       User selected track in queue:
 	?command=playnow&index=...&session-id=...
 	-> play index
+
+      And the quirky query - no sort and no queuefilter:
+      User selected track (artist tab):
+	?command=add&query='dmap.itemid:...'&mode=1&session-id=...
+	-> clear queue, play itemid and the rest of artist tracks
    */
 
   s = daap_session_find(req, query, evbuf);
@@ -1362,9 +1390,9 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
     }
 
   if (strcmp(param, "clear") == 0)
-    dacp_reply_cue_clear(req, evbuf, uri, query); // TODO this might give wrong reply container
+    dacp_reply_cue_clear(req, evbuf, uri, query);
   else if (strcmp(param, "playnow") == 0)
-    dacp_reply_cue_play(req, evbuf, uri, query); // TODO index is wrong + this might give wrong reply container
+    dacp_reply_cue_play(req, evbuf, uri, query);
   else if (strcmp(param, "add") == 0)
     dacp_reply_playqueueedit_add(req, evbuf, uri, query);
   else

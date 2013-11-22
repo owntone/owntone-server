@@ -553,7 +553,6 @@ player_queue_make(struct query_params *qp, const char *sort)
   int ret;
 
   qp->idx_type = I_NONE;
-  qp->sort = S_NONE;
 
   if (sort)
     {
@@ -700,7 +699,7 @@ fetch_first_query_match(const char *query, struct db_media_file_info *dbmfi)
 
 /* Thread: httpd (DACP) */
 int
-player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort)
+player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk)
 {
   struct query_params qp;
   struct player_source *ps;
@@ -721,6 +720,7 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 
   qp.offset = 0;
   qp.limit = 0;
+  qp.sort = S_NONE;
 
   id = 0;
 
@@ -760,9 +760,10 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 	  return -1;
 	}
     }
-  else if (strstr(query, "dmap.itemid:") && dbmfi.album_artist)
+  else if (quirk && dbmfi.album_artist)
     {
       safe_atou32(dbmfi.id, &id);
+      qp.sort = S_ALBUM;
       qp.type = Q_ITEMS;
       snprintf(buf, sizeof(buf), "f.album_artist = \"%s\"", dbmfi.album_artist);
       qp.filter = strdup(buf);
@@ -808,6 +809,7 @@ player_queue_make_pl(int plid, uint32_t *id)
   qp.type = Q_PLITEMS;
   qp.offset = 0;
   qp.limit = 0;
+  qp.sort = S_NONE;
 
   ps = player_queue_make(&qp, NULL);
 
