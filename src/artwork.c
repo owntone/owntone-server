@@ -594,27 +594,21 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
 
   need_rescale = 1;
 
-  /* Determine width/height -- assuming max_w == max_h */
-  if ((src->width <= max_w) && (src->height <= max_h))
+  if ((src->width <= max_w) && (src->height <= max_h)) /* Smaller than target */
     {
       need_rescale = 0;
 
       target_w = src->width;
       target_h = src->height;
     }
-  else if (src->width > src->height)
+  else if (src->width * max_h > src->height * max_w)   /* Wider aspect ratio than target */
     {
       target_w = max_w;
-      target_h = (double)max_h * ((double)src->height / (double)src->width);
+      target_h = (double)max_w * ((double)src->height / (double)src->width);
     }
-  else if (src->height > src->width)
+  else                                                 /* Taller or equal aspect ratio */
     {
-      target_h = max_h;
-      target_w = (double)max_w * ((double)src->width / (double)src->height);
-    }
-  else
-    {
-      target_w = max_w;
+      target_w = (double)max_h * ((double)src->width / (double)src->height);
       target_h = max_h;
     }
 

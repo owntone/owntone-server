@@ -114,26 +114,6 @@ struct player_command
   int raop_pending;
 };
 
-struct player_source
-{
-  uint32_t id;
-
-  uint64_t stream_start;
-  uint64_t output_start;
-  uint64_t end;
-
-  struct transcode_ctx *ctx;
-
-  struct player_source *pl_next;
-  struct player_source *pl_prev;
-
-  struct player_source *shuffle_next;
-  struct player_source *shuffle_prev;
-
-  struct player_source *play_next;
-};
-
-
 /* Keep in sync with enum raop_devtype */
 static const char *raop_devtype[] =
   {
@@ -560,7 +540,6 @@ metadata_send(struct player_source *ps, int startup)
   raop_metadata_send(ps->id, rtptime, offset, startup);
 }
 
-
 /* Audio sources */
 /* Thread: httpd (DACP) */
 static struct player_source *
@@ -574,7 +553,6 @@ player_queue_make(struct query_params *qp, const char *sort)
   int ret;
 
   qp->idx_type = I_NONE;
-  qp->sort = S_NONE;
 
   if (sort)
     {
@@ -656,32 +634,165 @@ player_queue_make(struct query_params *qp, const char *sort)
   return q_head;
 }
 
-/* Thread: httpd (DACP) */
-struct player_source *
-player_queue_make_daap(const char *query, const char *sort)
+static int
+fetch_first_query_match(const char *query, struct db_media_file_info *dbmfi)
 {
   struct query_params qp;
-  struct player_source *ps;
+  uint32_t id;
+  int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_ITEMS;
+  qp.idx_type = I_FIRST;
+  qp.sort = S_NONE;
   qp.offset = 0;
-  qp.limit = 0;
-
+  qp.limit = 1;
   qp.filter = daap_query_parse_sql(query);
   if (!qp.filter)
     {
       DPRINTF(E_LOG, L_PLAYER, "Improper DAAP query!\n");
 
-      return NULL;
+      return -1;
+    }
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not start query\n");
+
+      goto no_query_start;
+    }
+
+  if (((ret = db_query_fetch_file(&qp, dbmfi)) == 0) && (dbmfi->id))
+    {
+      ret = safe_atou32(dbmfi->id, &id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Invalid song id in query result!\n");
+
+	  goto no_result;
+	}
+
+      DPRINTF(E_DBG, L_PLAYER, "Found index song\n");
+      ret = 1;
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_PLAYER, "No song matches query (num %d): %s\n", qp.results, qp.filter);
+
+      goto no_result;
+    }
+
+ no_result:
+  db_query_end(&qp);
+
+ no_query_start:
+  if (qp.filter)
+    free(qp.filter);
+  if (ret == 1)
+    return 0;
+  else
+    return -1;
+}
+
+
+/* Thread: httpd (DACP) */
+int
+player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk)
+{
+  struct query_params qp;
+  struct player_source *ps;
+  struct db_media_file_info dbmfi;
+  uint32_t id;
+  int64_t albumid;
+  int plid;
+  int idx;
+  int ret;
+  char buf[200];
+
+  /* If query doesn't give even a single result give up */
+  ret = fetch_first_query_match(query, &dbmfi);
+  if (ret < 0)
+    return -1;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.offset = 0;
+  qp.limit = 0;
+  qp.sort = S_NONE;
+
+  id = 0;
+
+  if (queuefilter)
+    {
+      safe_atou32(dbmfi.id, &id);
+      if ((strlen(queuefilter) > 6) && (strncmp(queuefilter, "album:", 6) == 0))
+	{
+	  qp.type = Q_ITEMS;
+	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &albumid);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_PLAYER, "Invalid album id in queuefilter: %s\n", queuefilter);
+
+	      return -1;
+	    }
+	  snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, albumid);
+	  qp.filter = strdup(buf);
+	}
+      else if ((strlen(queuefilter) > 9) && (strncmp(queuefilter, "playlist:", 9) == 0))
+	{
+	  qp.type = Q_PLITEMS;
+	  ret = safe_atoi32(strchr(queuefilter, ':') + 1, &plid);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_PLAYER, "Invalid playlist id in queuefilter: %s\n", queuefilter);
+
+	      return -1;
+	    }
+	  qp.id = plid;
+	  qp.filter = strdup("1 = 1");
+	}
+      else
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Unknown queuefilter: %s\n", queuefilter);
+
+	  return -1;
+	}
+    }
+  else if (quirk && dbmfi.album_artist)
+    {
+      safe_atou32(dbmfi.id, &id);
+      qp.sort = S_ALBUM;
+      qp.type = Q_ITEMS;
+      snprintf(buf, sizeof(buf), "f.album_artist = \"%s\"", dbmfi.album_artist);
+      qp.filter = strdup(buf);
+    }
+  else
+    {
+      id = 0;
+      qp.type = Q_ITEMS;
+      qp.filter = daap_query_parse_sql(query);
     }
 
   ps = player_queue_make(&qp, sort);
 
-  free(qp.filter);
+  if (qp.filter)
+    free(qp.filter);
 
-  return ps;
+  if (ps)
+    *head = ps;
+  else
+    return -1;
+
+  idx = 0;
+  while (id && ps && ps->pl_next && (ps->id != id) && (ps->pl_next != *head))
+    {
+      idx++;
+      ps = ps->pl_next;
+    }
+
+  return idx;
 }
 
 struct player_source *
@@ -698,6 +809,7 @@ player_queue_make_pl(int plid, uint32_t *id)
   qp.type = Q_PLITEMS;
   qp.offset = 0;
   qp.limit = 0;
+  qp.sort = S_NONE;
 
   ps = player_queue_make(&qp, NULL);
 
@@ -3163,7 +3275,6 @@ sync_command(struct player_command *cmd)
   return ret;
 }
 
-
 /* Player API executed in the httpd (DACP) thread */
 int
 player_get_status(struct player_status *status)
@@ -3450,6 +3561,15 @@ player_shuffle_set(int enable)
   command_deinit(&cmd);
 
   return ret;
+}
+
+struct player_source *
+player_queue_get(void)
+{
+  if (shuffle)
+    return shuffle_head;
+  else
+    return source_head;
 }
 
 int

@@ -10,19 +10,21 @@
 %omit-struct-type
 struct dacp_prop_map;
 %%
-"dmcp.volume",                 dacp_propget_volume,                 dacp_propset_volume
-"dacp.playerstate",            dacp_propget_playerstate,            NULL
-"dacp.nowplaying",             dacp_propget_nowplaying,             NULL
-"dacp.playingtime",            dacp_propget_playingtime,            dacp_propset_playingtime
-"dacp.volumecontrollable",     dacp_propget_volumecontrollable,     NULL
-"dacp.availableshufflestates", dacp_propget_availableshufflestates, NULL
-"dacp.availablerepeatstates",  dacp_propget_availablerepeatstates,  NULL
-"dacp.shufflestate",           dacp_propget_shufflestate,           dacp_propset_shufflestate
-"dacp.repeatstate",            dacp_propget_repeatstate,            dacp_propset_repeatstate
-"dacp.userrating",             NULL,                                dacp_propset_userrating
-"dacp.fullscreenenabled",      dacp_propget_fullscreenenabled,      NULL
-"dacp.fullscreen",             dacp_propget_fullscreen,             NULL
-"dacp.visualizerenabled",      dacp_propget_visualizerenabled,      NULL
-"dacp.visualizer",             dacp_propget_visualizer,             NULL
-"com.apple.itunes.itms-songid", dacp_propget_itms_songid,           NULL
-"com.apple.itunes.has-chapter-data", dacp_propget_haschapterdata,   NULL
+"dmcp.volume",                          dacp_propget_volume,                 dacp_propset_volume
+"dacp.playerstate",                     dacp_propget_playerstate,            NULL
+"dacp.nowplaying",                      dacp_propget_nowplaying,             NULL
+"dacp.playingtime",                     dacp_propget_playingtime,            dacp_propset_playingtime
+"dacp.volumecontrollable",              dacp_propget_volumecontrollable,     NULL
+"dacp.availableshufflestates",          dacp_propget_availableshufflestates, NULL
+"dacp.availablerepeatstates",           dacp_propget_availablerepeatstates,  NULL
+"dacp.shufflestate",                    dacp_propget_shufflestate,           dacp_propset_shufflestate
+"dacp.repeatstate",                     dacp_propget_repeatstate,            dacp_propset_repeatstate
+"dacp.userrating",                      NULL,                                dacp_propset_userrating
+"dacp.fullscreenenabled",               dacp_propget_fullscreenenabled,      NULL
+"dacp.fullscreen",                      dacp_propget_fullscreen,             NULL
+"dacp.visualizerenabled",               dacp_propget_visualizerenabled,      NULL
+"dacp.visualizer",                      dacp_propget_visualizer,             NULL
+"com.apple.itunes.itms-songid",         dacp_propget_itms_songid,            NULL
+"com.apple.itunes.has-chapter-data",    dacp_propget_haschapterdata,         NULL
+"com.apple.itunes.mediakind",           dacp_propget_mediakind,              NULL
+"com.apple.itunes.extended-media-kind", dacp_propget_extendedmediakind,      NULL
