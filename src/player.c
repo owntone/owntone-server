@@ -724,7 +724,15 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 
   id = 0;
 
-  if (queuefilter)
+  if (quirk && dbmfi.album_artist)
+    {
+      safe_atou32(dbmfi.id, &id);
+      qp.sort = S_ALBUM;
+      qp.type = Q_ITEMS;
+      snprintf(buf, sizeof(buf), "f.album_artist = \"%s\"", db_escape_string(dbmfi.album_artist));
+      qp.filter = strdup(buf);
+    }
+  else if (queuefilter)
     {
       safe_atou32(dbmfi.id, &id);
       if ((strlen(queuefilter) > 6) && (strncmp(queuefilter, "album:", 6) == 0))
@@ -760,17 +768,8 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 	  return -1;
 	}
     }
-  else if (quirk && dbmfi.album_artist)
-    {
-      safe_atou32(dbmfi.id, &id);
-      qp.sort = S_ALBUM;
-      qp.type = Q_ITEMS;
-      snprintf(buf, sizeof(buf), "f.album_artist = \"%s\"", dbmfi.album_artist);
-      qp.filter = strdup(buf);
-    }
   else
     {
-      id = 0;
       qp.type = Q_ITEMS;
       qp.filter = daap_query_parse_sql(query);
     }
