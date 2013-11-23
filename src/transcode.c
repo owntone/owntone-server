@@ -172,7 +172,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 #if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
 	  if (ctx->acodec->get_buffer != avcodec_default_get_buffer)
 	    {
-	      DPRINTF(E_LOG, L_XCODE, "Custom get_buffer - not allowed by ffmpeg/libav!\n");
+	      DPRINTF(E_WARN, L_XCODE, "Custom get_buffer, not allowed by ffmpeg/libav. Setting to default.\n");
 
 	      ctx->acodec->get_buffer = avcodec_default_get_buffer;
 	    }
