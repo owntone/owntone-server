@@ -40,6 +40,7 @@ struct raop_device
   unsigned selected:1;
   unsigned advertised:1;
 
+  unsigned wants_metadata:1;
   unsigned has_password:1;
   const char *password;
 

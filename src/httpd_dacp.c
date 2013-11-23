@@ -1347,11 +1347,12 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
   editquery = evhttp_find_header(query, "query");
   if (editquery)
     {
-      /* This query kind needs special treatment */
-      quirkyquery = (mode == 1) && strstr(editquery, "dmap.itemid:");
+      sort = evhttp_find_header(query, "sort");
 
       queuefilter = evhttp_find_header(query, "queuefilter");
-      sort = evhttp_find_header(query, "sort");
+
+      /* Detect the quirky query - a query that needs special treatment */
+      quirkyquery = (mode == 1) && strstr(editquery, "dmap.itemid:") && ((!queuefilter) || strstr(queuefilter, "(null)"));
 
       ret = player_queue_make_daap(&ps, editquery, queuefilter, sort, quirkyquery);
       if (ret < 0)
@@ -1429,7 +1430,7 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
 	?command=playnow&index=...&session-id=...
 	-> play index
 
-      And the quirky query - no sort and no queuefilter:
+      And the quirky query - no sort, and either no queuefilter or queuefilter=album:(null)
       User selected track (artist tab):
 	?command=add&query='dmap.itemid:...'&mode=1&session-id=...
 	-> clear queue, play itemid and the rest of artist tracks

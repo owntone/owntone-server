@@ -724,7 +724,15 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 
   id = 0;
 
-  if (queuefilter)
+  if (quirk && dbmfi.album_artist)
+    {
+      safe_atou32(dbmfi.id, &id);
+      qp.sort = S_ALBUM;
+      qp.type = Q_ITEMS;
+      snprintf(buf, sizeof(buf), "f.album_artist = \"%s\"", db_escape_string(dbmfi.album_artist));
+      qp.filter = strdup(buf);
+    }
+  else if (queuefilter)
     {
       safe_atou32(dbmfi.id, &id);
       if ((strlen(queuefilter) > 6) && (strncmp(queuefilter, "album:", 6) == 0))
@@ -760,17 +768,8 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 	  return -1;
 	}
     }
-  else if (quirk && dbmfi.album_artist)
-    {
-      safe_atou32(dbmfi.id, &id);
-      qp.sort = S_ALBUM;
-      qp.type = Q_ITEMS;
-      snprintf(buf, sizeof(buf), "f.album_artist = \"%s\"", dbmfi.album_artist);
-      qp.filter = strdup(buf);
-    }
   else
     {
-      id = 0;
       qp.type = Q_ITEMS;
       qp.filter = daap_query_parse_sql(query);
     }
@@ -3716,6 +3715,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   char *at_name;
   char *password;
   uint64_t id;
+  char wants_metadata;
   char has_password;
   enum raop_devtype devtype;
   int ret;
@@ -3850,6 +3850,25 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     devtype = OTHER;
 
  no_am:
+  wants_metadata = 0;
+  p = keyval_get(txt, "md");
+  if (!p)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no md field in TXT record!\n", name);
+
+      goto no_md;
+    }
+
+  if (*p == '\0')
+    {
+      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: md has no value\n", name);
+
+      goto no_md;
+    }
+
+  wants_metadata = 1;
+
+ no_md:
   DPRINTF(E_DBG, L_PLAYER, "AirTunes device %s: password: %s, type %s\n", name, (password) ? "yes" : "no", raop_devtype[devtype]);
 
   rd->advertised = 1;
@@ -3869,6 +3888,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   rd->devtype = devtype;
 
+  rd->wants_metadata = wants_metadata;
   rd->has_password = has_password;
   rd->password = password;
 

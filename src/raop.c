@@ -1848,31 +1848,28 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   rs->server_fd = -1;
 
   rs->password = rd->password;
+  rs->wants_metadata = rd->wants_metadata;
 
   switch (rd->devtype)
     {
       case RAOP_DEV_APEX_80211G:
 	rs->encrypt = 1;
 	rs->auth_quirk_itunes = 1;
-	rs->wants_metadata = 0;
 	break;
 
       case RAOP_DEV_APEX_80211N:
 	rs->encrypt = 1;
 	rs->auth_quirk_itunes = 0;
-	rs->wants_metadata = 0;
 	break;
 
       case RAOP_DEV_APPLETV:
 	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
-	rs->wants_metadata = 1;
 	break;
 
       case OTHER:
 	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
-	rs->wants_metadata = 0;
 	break;
     }
 
