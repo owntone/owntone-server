@@ -579,7 +579,9 @@ main(int argc, char **argv)
     }
 
   av_register_all();
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 13)
   avformat_network_init();
+#endif
   av_log_set_callback(logger_ffmpeg);
 #if LIBAVFORMAT_VERSION_MAJOR < 53
   register_ffmpeg_evbuffer_url_protocol();
@@ -815,7 +817,9 @@ main(int argc, char **argv)
 
  signal_block_fail:
  gcrypt_init_fail:
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 13)
   avformat_network_deinit();
+#endif
   av_lockmgr_register(NULL);
 
  ffmpeg_init_fail:

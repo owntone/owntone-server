@@ -441,7 +441,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   pkt.size = ret;
 #endif
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
   ret = avformat_write_header(dst_ctx, NULL);
 #else
   ret = av_write_header(dst_ctx);
@@ -532,7 +532,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
 
   src_ctx = NULL;
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
   ret = avformat_open_input(&src_ctx, filename, NULL, NULL);
 #else
   ret = av_open_input_file(&src_ctx, filename, NULL, 0, NULL);
@@ -544,7 +544,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
       return -1;
     }
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
   ret = avformat_find_stream_info(src_ctx, NULL);
 #else
   ret = av_find_stream_info(src_ctx);

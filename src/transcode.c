@@ -397,7 +397,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
     }
   memset(ctx, 0, sizeof(struct transcode_ctx));
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
   ret = avformat_open_input(&ctx->fmtctx, mfi->path, NULL, NULL);
 #else
   ret = av_open_input_file(&ctx->fmtctx, mfi->path, NULL, 0, NULL);
@@ -410,7 +410,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
       return NULL;
     }
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
   ret = avformat_find_stream_info(ctx->fmtctx, NULL);
 #else
   ret = av_find_stream_info(ctx->fmtctx);
@@ -505,7 +505,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 	}
 
       ctx->need_resample = 1;
-#if LIBAVUTIL_VERSION_MAJOR >= 51 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 4)
+#if LIBAVUTIL_VERSION_MAJOR >= 52 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 4)
       ctx->input_size = ctx->acodec->channels * av_get_bytes_per_sample(ctx->acodec->sample_fmt);
 #elif LIBAVCODEC_VERSION_MAJOR >= 53
       ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_fmt(ctx->acodec->sample_fmt) / 8;
