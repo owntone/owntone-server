@@ -651,6 +651,36 @@ db_purge_cruft(time_t ref)
 
 }
 
+void
+db_purge_all(void)
+{
+  char *queries[4] =
+    {
+      "DELETE FROM inotify;",
+      "DELETE FROM playlistitems;",
+      "DELETE FROM playlists WHERE type <> 1;",
+      "DELETE FROM files;"
+    };
+  char *errmsg;
+  int i;
+  int ret;
+
+  for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
+    {
+      DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", queries[i]);
+
+      ret = db_exec(queries[i], &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
+
+	  sqlite3_free(errmsg);
+	}
+      else
+	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+    }
+}
+
 static int
 db_get_count(char *query)
 {

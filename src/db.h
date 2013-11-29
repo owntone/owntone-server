@@ -295,6 +295,9 @@ db_hook_post_scan(void);
 void
 db_purge_cruft(time_t ref);
 
+void
+db_purge_all(void);
+
 /* Queries */
 int
 db_query_start(struct query_params *qp);

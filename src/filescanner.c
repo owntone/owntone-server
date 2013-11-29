@@ -90,6 +90,9 @@ static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
 
+/* Forward */
+static void
+bulk_scan(void);
 
 static int
 push_dir(struct stacked_dir **s, char *path)
@@ -559,6 +562,19 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	  remote_pairing_read_pin(file);
 
 	  return;
+	}
+      else if (strcmp(ext, ".force-rescan") == 0)
+	{
+	  if (flags & F_SCAN_BULK)
+	    return;
+	  else
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Forcing full rescan, found force-rescan file: %s\n", file);
+	      db_purge_all();
+	      bulk_scan();
+
+	      return;
+	    }
 	}
     }
 
