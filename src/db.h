@@ -325,7 +325,7 @@ int
 db_files_get_count(void);
 
 int
-db_files_get_count_bypathpattern(char *path);
+db_files_get_count_bymatch(char *path);
 
 void
 db_files_update_songalbumid(void);
@@ -336,6 +336,9 @@ db_file_inc_playcount(int id);
 void
 db_file_ping(int id);
 
+void
+db_file_ping_bymatch(char *path);
+
 char *
 db_file_path_byid(int id);
 
@@ -343,7 +346,7 @@ int
 db_file_id_bypath(char *path);
 
 int
-db_file_id_bypathpattern(char *path);
+db_file_id_bymatch(char *path);
 
 int
 db_file_id_byfilebase(char *filename, char *base);
@@ -384,6 +387,9 @@ db_pl_get_count(void);
 
 void
 db_pl_ping(int id);
+
+void
+db_pl_ping_bymatch(char *path);
 
 struct playlist_info *
 db_pl_fetch_bypath(char *path);

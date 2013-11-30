@@ -1645,12 +1645,13 @@ db_files_get_count(void)
 }
 
 int
-db_files_get_count_bypathpattern(char *path)
+db_files_get_count_bymatch(char *path)
 {
+#define Q_TMPL "SELECT COUNT(*) FROM files f WHERE f.path LIKE '%%%q';"
   char *query;
   int count;
 
-  query = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.path LIKE '%%%q';", path);
+  query = sqlite3_mprintf(Q_TMPL, path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory making count query string.\n");
@@ -1662,6 +1663,7 @@ db_files_get_count_bypathpattern(char *path)
   sqlite3_free(query);
 
   return count;
+#undef Q_TMPL
 }
 
 void
@@ -1731,6 +1733,34 @@ db_file_ping(int id)
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging file ID %d: %s\n", id, errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
+void
+db_file_ping_bymatch(char *path)
+{
+#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error pinging files matching %s: %s\n", path, errmsg);
 
   sqlite3_free(errmsg);
   sqlite3_free(query);
@@ -1864,7 +1894,7 @@ db_file_id_bypath(char *path)
 }
 
 int
-db_file_id_bypathpattern(char *path)
+db_file_id_bymatch(char *path)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.path LIKE '%%%q';"
   char *query;
@@ -2513,6 +2543,34 @@ db_pl_ping(int id)
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging playlist %d: %s\n", id, errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
+void
+db_pl_ping_bymatch(char *path)
+{
+#define Q_TMPL "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error pinging playlists matching %s: %s\n", path, errmsg);
 
   sqlite3_free(errmsg);
   sqlite3_free(query);

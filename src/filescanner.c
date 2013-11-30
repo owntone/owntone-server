@@ -847,6 +847,13 @@ bulk_scan(void)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Skipping library directory %s, could not dereference: %s\n", path, strerror(errno));
 
+	  /* Assume dir is mistakenly not mounted, so just disable everything and update timestamps */
+	  db_file_disable_bymatch(path, "", 0);
+	  db_pl_disable_bymatch(path, "", 0);
+
+	  db_file_ping_bymatch(path);
+	  db_pl_ping_bymatch(path);
+
 	  continue;
 	}
 
