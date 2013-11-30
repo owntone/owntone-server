@@ -588,6 +588,55 @@ db_analyze(void)
     }
 }
 
+/* Set names of default playlists according to config */
+static void
+db_set_cfg_names(void)
+{
+#define Q_TMPL "UPDATE playlists SET title = '%q' WHERE type = 1 AND special_id = %d;"
+  char *cfg_item[5] = { "name_library", "name_music", "name_movies", "name_tvshows", "name_podcasts" };
+  char special_id[5] = { 0, 6, 4, 5, 1 };
+  cfg_t *lib;
+  char *query;
+  char *title;
+  char *errmsg;
+  int ret;
+  int i;
+
+  lib = cfg_getsec(cfg, "library");
+
+  for (i = 0; i < (sizeof(cfg_item) / sizeof(cfg_item[0])); i++)
+    {
+      title = cfg_getstr(lib, cfg_item[i]);
+      if (!title)
+	{
+	  DPRINTF(E_LOG, L_DB, "Internal error, unknown config item '%s'\n", cfg_item[i]);
+
+	  continue;
+	}
+
+      query = sqlite3_mprintf(Q_TMPL, title, special_id[i]);
+      if (!query)
+	{
+	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+	  return;
+	}
+
+      ret = db_exec(query, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Error setting playlist title, query %s, error: %s\n", query, errmsg);
+
+	  sqlite3_free(errmsg);
+	}
+      else
+	DPRINTF(E_DBG, L_DB, "Playlist title for config item '%s' set with query '%s'\n", cfg_item[i], query);
+
+      sqlite3_free(query);
+    }
+#undef Q_TMPL
+}
+
 void
 db_hook_post_scan(void)
 {
@@ -4988,6 +5037,8 @@ db_init(void)
     }
 
   db_analyze();
+
+  db_set_cfg_names();
 
   files = db_files_get_count();
   pls = db_pl_get_count();
