@@ -171,6 +171,34 @@ normalize_fixup_tag(char **tag, char *src_tag)
     }
 }
 
+static char *
+strip_article(char *tag)
+{
+  int len;
+
+  if (!tag)
+    return NULL;
+
+  len = strlen(tag);
+
+  if ((strncmp(tag, "A ", 2) == 0) && (len > 2))
+    return tag + 2;
+
+  if ((strncmp(tag, "An ", 3) == 0) && (len > 3))
+    return tag + 3;
+
+  if ((strncmp(tag, "AN ", 3) == 0) && (len > 3))
+    return tag + 3;
+
+  if ((strncmp(tag, "The ", 4) == 0) && (len > 4))
+    return tag + 4;
+
+  if ((strncmp(tag, "THE ", 4) == 0) && (len > 4))
+    return tag + 4;
+
+  return tag;
+}
+
 static void
 fixup_tags(struct media_file_info *mfi)
 {
@@ -287,10 +315,10 @@ fixup_tags(struct media_file_info *mfi)
 	mfi->title = strdup(mfi->fname);
     }
 
-  /* Ensure sort tags are filled and normalized */
-  normalize_fixup_tag(&mfi->artist_sort, mfi->artist);
-  normalize_fixup_tag(&mfi->album_sort, mfi->album);
-  normalize_fixup_tag(&mfi->title_sort, mfi->title);
+  /* Ensure sort tags are filled and normalized, and that "The"/"A"/"An" are stripped */
+  normalize_fixup_tag(&mfi->artist_sort, strip_article(mfi->artist));
+  normalize_fixup_tag(&mfi->album_sort, strip_article(mfi->album));
+  normalize_fixup_tag(&mfi->title_sort, strip_article(mfi->title));
 
   /* We need to set album_artist according to media type and config */
   if (mfi->compilation)          /* Compilation */
