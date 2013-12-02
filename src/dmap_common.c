@@ -410,7 +410,10 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
 	    break;
 
 	  df = meta[i];
-	  dfm = df->dfm;
+	  if (df->dfm)
+	    dfm = df->dfm;
+	  else
+	    break;
 	}
       /* No specific meta tags requested, send out everything */
       else

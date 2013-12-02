@@ -585,7 +585,7 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, const struc
 
   nmeta = 1;
   ptr = metastr;
-  while ((ptr = strchr(ptr + 1, ',')))
+  while ((ptr = strchr(ptr + 1, ',')) && (strlen(ptr) > 1))
     nmeta++;
 
   DPRINTF(E_DBG, L_DAAP, "Asking for %d meta tags\n", nmeta);
