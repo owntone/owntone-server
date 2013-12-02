@@ -709,7 +709,9 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
   int plid;
   int idx;
   int ret;
-  char buf[200];
+  int len;
+  char *s;
+  char buf[1024];
 
   /* If query doesn't give even a single result give up */
   ret = fetch_first_query_match(query, &dbmfi);
@@ -729,13 +731,17 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
       safe_atou32(dbmfi.id, &id);
       qp.sort = S_ALBUM;
       qp.type = Q_ITEMS;
-      snprintf(buf, sizeof(buf), "f.album_artist = \"%s\"", db_escape_string(dbmfi.album_artist));
+      s = db_escape_string(dbmfi.album_artist);
+      if (!s)
+	return -1;
+      snprintf(buf, sizeof(buf), "f.album_artist = '%s'", s);
       qp.filter = strdup(buf);
     }
   else if (queuefilter)
     {
       safe_atou32(dbmfi.id, &id);
-      if ((strlen(queuefilter) > 6) && (strncmp(queuefilter, "album:", 6) == 0))
+      len = strlen(queuefilter);
+      if ((len > 6) && (strncmp(queuefilter, "album:", 6) == 0))
 	{
 	  qp.type = Q_ITEMS;
 	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &albumid);
@@ -748,7 +754,7 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 	  snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, albumid);
 	  qp.filter = strdup(buf);
 	}
-      else if ((strlen(queuefilter) > 9) && (strncmp(queuefilter, "playlist:", 9) == 0))
+      else if ((len > 9) && (strncmp(queuefilter, "playlist:", 9) == 0))
 	{
 	  qp.type = Q_PLITEMS;
 	  ret = safe_atoi32(strchr(queuefilter, ':') + 1, &plid);
@@ -760,6 +766,15 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 	    }
 	  qp.id = plid;
 	  qp.filter = strdup("1 = 1");
+	}
+      else if ((len > 6) && (strncmp(queuefilter, "genre:", 6) == 0))
+	{
+	  qp.type = Q_ITEMS;
+	  s = db_escape_string(queuefilter + 6);
+	  if (!s)
+	    return -1;
+	  snprintf(buf, sizeof(buf), "f.genre = '%s'", s);
+	  qp.filter = strdup(buf);
 	}
       else
 	{
