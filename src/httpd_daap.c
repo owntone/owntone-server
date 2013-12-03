@@ -1504,7 +1504,6 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   struct daap_session *s;
   struct evbuffer *group;
   struct evbuffer *grouplist;
-  enum query_type group_type;
   const struct dmap_field_map *dfm;
   const struct dmap_field *df;
   const struct dmap_field **meta;
@@ -1523,16 +1522,20 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   if (!s)
     return;
 
+  memset(&qp, 0, sizeof(struct query_params));
+
+  get_query_params(query, &sort_headers, &qp);
+
   param = evhttp_find_header(query, "group-type");
   if (strcmp(param, "artists") == 0)
     {
       tag = "agar";
-      group_type = Q_GROUP_ARTISTS;
+      qp.type = Q_GROUP_ARTISTS;
     }
   else
     {
       tag = "agal";
-      group_type = Q_GROUP_ALBUMS;
+      qp.type = Q_GROUP_ALBUMS;
     }
 
   ret = evbuffer_expand(evbuf, 61);
@@ -1541,7 +1544,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP groups reply\n");
 
       dmap_send_error(req, tag, "Out of memory");
-      return;
+      goto out_qfilter_free;
     }
 
   grouplist = evbuffer_new();
@@ -1550,7 +1553,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP group list\n");
 
       dmap_send_error(req, tag, "Out of memory");
-      return;
+      goto out_qfilter_free;
     }
 
   /* Start with a big enough evbuffer - it'll expand as needed */
@@ -1597,10 +1600,6 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
       goto out_group_free;
     }
-
-  memset(&qp, 0, sizeof(struct query_params));
-  get_query_params(query, &sort_headers, &qp);
-  qp.type = group_type;
 
   sctx = NULL;
   if (sort_headers)
@@ -1675,7 +1674,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	dmap_add_int(group, "mimc", val);
 
       /* Song album artist (asaa), always added if group-type is albums  */
-      if (group_type == Q_GROUP_ALBUMS)
+      if (qp.type == Q_GROUP_ALBUMS)
         dmap_add_string(group, "asaa", dbgri.songalbumartist);
 
       /* Item id (miid) */
@@ -1775,14 +1774,16 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
  out_query_free:
   free(meta);
-  if (qp.filter)
-    free(qp.filter);
 
  out_group_free:
   evbuffer_free(group);
 
  out_list_free:
   evbuffer_free(grouplist);
+
+ out_qfilter_free:
+  if (qp.filter)
+    free(qp.filter);
 }
 
 static void
@@ -1805,20 +1806,24 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   memset(&qp, 0, sizeof(struct query_params));
 
+  get_query_params(query, &sort_headers, &qp);
+
   if (strcmp(uri[3], "artists") == 0)
     {
       tag = "abar";
       qp.type = Q_BROWSE_ARTISTS;
-    }
-  else if (strcmp(uri[3], "genres") == 0)
-    {
-      tag = "abgn";
-      qp.type = Q_BROWSE_GENRES;
+      qp.sort = S_ARTIST;
     }
   else if (strcmp(uri[3], "albums") == 0)
     {
       tag = "abal";
       qp.type = Q_BROWSE_ALBUMS;
+      qp.sort = S_ALBUM;
+    }
+  else if (strcmp(uri[3], "genres") == 0)
+    {
+      tag = "abgn";
+      qp.type = Q_BROWSE_GENRES;
     }
   else if (strcmp(uri[3], "composers") == 0)
     {
@@ -1830,7 +1835,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Invalid DAAP browse request type '%s'\n", uri[3]);
 
       dmap_send_error(req, "abro", "Invalid browse type");
-      return;
+      goto out_qfilter_free;
     }
 
   ret = evbuffer_expand(evbuf, 52);
@@ -1839,7 +1844,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP browse reply\n");
 
       dmap_send_error(req, "abro", "Out of memory");
-      return;
+      goto out_qfilter_free;
     }
 
   itemlist = evbuffer_new();
@@ -1848,7 +1853,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DMAP browse item list\n");
 
       dmap_send_error(req, "abro", "Out of memory");
-      return;
+      goto out_qfilter_free;
     }
 
   /* Start with a big enough evbuffer - it'll expand as needed */
@@ -1859,11 +1864,8 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
       dmap_send_error(req, "abro", "Out of memory");
 
-      evbuffer_free(itemlist);
-      return;
+      goto out_itemlist_free;
     }
-
-  get_query_params(query, &sort_headers, &qp);
 
   sctx = NULL;
   if (sort_headers)
@@ -1875,10 +1877,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
 	  dmap_send_error(req, "abro", "Out of memory");
 
-	  evbuffer_free(itemlist);
-	  if (qp.filter)
-	    free(qp.filter);
-	  return;
+          goto out_itemlist_free;
 	}
     }
 
@@ -1889,13 +1888,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
       dmap_send_error(req, "abro", "Could not start query");
 
-      if (sort_headers)
-	daap_sort_context_free(sctx);
-
-      evbuffer_free(itemlist);
-      if (qp.filter)
-	free(qp.filter);
-      return;
+      goto out_sort_headers_free;
     }
 
   nitems = 0;
@@ -1917,9 +1910,6 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       dmap_add_string(itemlist, "mlit", browse_item);
     }
 
-  if (qp.filter)
-    free(qp.filter);
-
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Error fetching/building results\n");
@@ -1927,11 +1917,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       dmap_send_error(req, "abro", "Error fetching/building query results");
       db_query_end(&qp);
 
-      if (sort_headers)
-	daap_sort_context_free(sctx);
-
-      evbuffer_free(itemlist);
-      return;
+      goto out_sort_headers_free;
     }
 
   if (sort_headers)
@@ -1951,35 +1937,42 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   db_query_end(&qp);
 
   ret = evbuffer_add_buffer(evbuf, itemlist);
-  evbuffer_free(itemlist);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not add item list to DAAP browse reply\n");
 
       dmap_send_error(req, tag, "Out of memory");
 
-      if (sort_headers)
-	daap_sort_context_free(sctx);
-
-      return;
+      goto out_sort_headers_free;
     }
 
   if (sort_headers)
     {
       dmap_add_container(evbuf, "mshl", EVBUFFER_LENGTH(sctx->headerlist)); /* 8 */
       ret = evbuffer_add_buffer(evbuf, sctx->headerlist);
-      daap_sort_context_free(sctx);
 
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Could not add sort headers to DAAP browse reply\n");
 
 	  dmap_send_error(req, tag, "Out of memory");
-	  return;
+
+	  goto out_sort_headers_free;
 	}
     }
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+
+ out_sort_headers_free:
+  if (sort_headers)
+    daap_sort_context_free(sctx);
+
+ out_itemlist_free:
+  evbuffer_free(itemlist);
+
+ out_qfilter_free:
+  if (qp.filter)
+    free(qp.filter);
 }
 
 /* NOTE: We only handle artwork at the moment */
