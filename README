@@ -257,6 +257,12 @@ be offered until they've been scanned.
 Changes to the library are reflected in real time after the initial scan. The
 directories are monitored for changes and rescanned on the fly.
 
+If you place a file with the filename ending .force-rescan in your library,
+you can trigger a full rescan of your library. This will clear all music and
+playlists from forked-daapd's database and initiate a fresh bulk scan. Pairing
+and speaker information will be kept. Only use this for troubleshooting, it is
+not necessary during normal operation.
+
 Symlinks are supported and dereferenced. This does interact in tricky ways
 with the above monitoring and rescanning, so you've been warned. Changes to
 symlinks themselves won't be taken into account, or not the way you'd expect.

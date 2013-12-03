@@ -301,13 +301,13 @@ find_track_file(char *location)
 	entry = location;
 
       DPRINTF(E_SPAM, L_SCAN, "iTunes XML playlist entry is now %s\n", entry);
-      ret = db_files_get_count_bypathpattern(entry);
+      ret = db_files_get_count_bymatch(entry);
 
     } while (ptr && (ret > 1));
 
   if (ret > 0)
     {
-      mfi_id = db_file_id_bypathpattern(entry);
+      mfi_id = db_file_id_bymatch(entry);
       DPRINTF(E_DBG, L_SCAN, "Found iTunes XML playlist entry match, id is %d, entry is %s\n", mfi_id, entry);
 
       free(location);

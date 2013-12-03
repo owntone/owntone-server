@@ -90,6 +90,9 @@ static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
 
+/* Forward */
+static void
+bulk_scan(void);
 
 static int
 push_dir(struct stacked_dir **s, char *path)
@@ -588,6 +591,19 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 
 	  return;
 	}
+      else if (strcmp(ext, ".force-rescan") == 0)
+	{
+	  if (flags & F_SCAN_BULK)
+	    return;
+	  else
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Forcing full rescan, found force-rescan file: %s\n", file);
+	      db_purge_all();
+	      bulk_scan();
+
+	      return;
+	    }
+	}
     }
 
   /* Not any kind of special file, so let's see if it's a media file */
@@ -858,6 +874,13 @@ bulk_scan(void)
       if (!deref)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Skipping library directory %s, could not dereference: %s\n", path, strerror(errno));
+
+	  /* Assume dir is mistakenly not mounted, so just disable everything and update timestamps */
+	  db_file_disable_bymatch(path, "", 0);
+	  db_pl_disable_bymatch(path, "", 0);
+
+	  db_file_ping_bymatch(path);
+	  db_pl_ping_bymatch(path);
 
 	  continue;
 	}

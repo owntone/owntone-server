@@ -588,6 +588,55 @@ db_analyze(void)
     }
 }
 
+/* Set names of default playlists according to config */
+static void
+db_set_cfg_names(void)
+{
+#define Q_TMPL "UPDATE playlists SET title = '%q' WHERE type = 1 AND special_id = %d;"
+  char *cfg_item[5] = { "name_library", "name_music", "name_movies", "name_tvshows", "name_podcasts" };
+  char special_id[5] = { 0, 6, 4, 5, 1 };
+  cfg_t *lib;
+  char *query;
+  char *title;
+  char *errmsg;
+  int ret;
+  int i;
+
+  lib = cfg_getsec(cfg, "library");
+
+  for (i = 0; i < (sizeof(cfg_item) / sizeof(cfg_item[0])); i++)
+    {
+      title = cfg_getstr(lib, cfg_item[i]);
+      if (!title)
+	{
+	  DPRINTF(E_LOG, L_DB, "Internal error, unknown config item '%s'\n", cfg_item[i]);
+
+	  continue;
+	}
+
+      query = sqlite3_mprintf(Q_TMPL, title, special_id[i]);
+      if (!query)
+	{
+	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+	  return;
+	}
+
+      ret = db_exec(query, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Error setting playlist title, query %s, error: %s\n", query, errmsg);
+
+	  sqlite3_free(errmsg);
+	}
+      else
+	DPRINTF(E_DBG, L_DB, "Playlist title for config item '%s' set with query '%s'\n", cfg_item[i], query);
+
+      sqlite3_free(query);
+    }
+#undef Q_TMPL
+}
+
 void
 db_hook_post_scan(void)
 {
@@ -649,6 +698,36 @@ db_purge_cruft(time_t ref)
       sqlite3_free(queries[i]);
     }
 
+}
+
+void
+db_purge_all(void)
+{
+  char *queries[4] =
+    {
+      "DELETE FROM inotify;",
+      "DELETE FROM playlistitems;",
+      "DELETE FROM playlists WHERE type <> 1;",
+      "DELETE FROM files;"
+    };
+  char *errmsg;
+  int i;
+  int ret;
+
+  for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
+    {
+      DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", queries[i]);
+
+      ret = db_exec(queries[i], &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
+
+	  sqlite3_free(errmsg);
+	}
+      else
+	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+    }
 }
 
 static int
@@ -1566,12 +1645,13 @@ db_files_get_count(void)
 }
 
 int
-db_files_get_count_bypathpattern(char *path)
+db_files_get_count_bymatch(char *path)
 {
+#define Q_TMPL "SELECT COUNT(*) FROM files f WHERE f.path LIKE '%%%q';"
   char *query;
   int count;
 
-  query = sqlite3_mprintf("SELECT COUNT(*) FROM files f WHERE f.path LIKE '%%%q';", path);
+  query = sqlite3_mprintf(Q_TMPL, path);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory making count query string.\n");
@@ -1583,6 +1663,7 @@ db_files_get_count_bypathpattern(char *path)
   sqlite3_free(query);
 
   return count;
+#undef Q_TMPL
 }
 
 void
@@ -1652,6 +1733,34 @@ db_file_ping(int id)
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging file ID %d: %s\n", id, errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
+void
+db_file_ping_bymatch(char *path)
+{
+#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error pinging files matching %s: %s\n", path, errmsg);
 
   sqlite3_free(errmsg);
   sqlite3_free(query);
@@ -1785,7 +1894,7 @@ db_file_id_bypath(char *path)
 }
 
 int
-db_file_id_bypathpattern(char *path)
+db_file_id_bymatch(char *path)
 {
 #define Q_TMPL "SELECT f.id FROM files f WHERE f.path LIKE '%%%q';"
   char *query;
@@ -2434,6 +2543,34 @@ db_pl_ping(int id)
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging playlist %d: %s\n", id, errmsg);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+#undef Q_TMPL
+}
+
+void
+db_pl_ping_bymatch(char *path)
+{
+#define Q_TMPL "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error pinging playlists matching %s: %s\n", path, errmsg);
 
   sqlite3_free(errmsg);
   sqlite3_free(query);
@@ -4958,6 +5095,8 @@ db_init(void)
     }
 
   db_analyze();
+
+  db_set_cfg_names();
 
   files = db_files_get_count();
   pls = db_pl_get_count();
