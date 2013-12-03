@@ -1531,11 +1531,13 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       tag = "agar";
       qp.type = Q_GROUP_ARTISTS;
+      qp.sort = S_ARTIST;
     }
   else
     {
       tag = "agal";
       qp.type = Q_GROUP_ALBUMS;
+      qp.sort = S_ALBUM;
     }
 
   ret = evbuffer_expand(evbuf, 61);
