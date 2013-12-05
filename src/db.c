@@ -1233,7 +1233,7 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
 }
 
 static int
-db_build_query_browse(struct query_params *qp, char *field, char **q)
+db_build_query_browse(struct query_params *qp, char *field, char *sort_field, char **q)
 {
   char *query;
   char *count;
@@ -1281,16 +1281,16 @@ db_build_query_browse(struct query_params *qp, char *field, char **q)
 
   if (idx && qp->filter)
     query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
-			    " AND %s %s %s;", field, field, field, qp->filter, sort, idx);
+			    " AND %s %s %s;", field, sort_field, field, qp->filter, sort, idx);
   else if (idx)
     query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
-			    " %s %s;", field, field, field, sort, idx);
+			    " %s %s;", field, sort_field, field, sort, idx);
   else if (qp->filter)
     query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
-			    " AND %s %s;", field, field, field, qp->filter, sort);
+			    " AND %s %s;", field, sort_field, field, qp->filter, sort);
   else
     query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != '' %s",
-			    field, field, field, sort);
+			    field, sort_field, field, sort);
 
   free(sort);
 
@@ -1344,19 +1344,19 @@ db_query_start(struct query_params *qp)
 	break;
 
       case Q_BROWSE_ALBUMS:
-	ret = db_build_query_browse(qp, "album", &query);
+	ret = db_build_query_browse(qp, "album", "album_sort", &query);
 	break;
 
       case Q_BROWSE_ARTISTS:
-	ret = db_build_query_browse(qp, "album_artist", &query);
+	ret = db_build_query_browse(qp, "album_artist", "album_artist_sort", &query);
 	break;
 
       case Q_BROWSE_GENRES:
-	ret = db_build_query_browse(qp, "genre", &query);
+	ret = db_build_query_browse(qp, "genre", "genre", &query);
 	break;
 
       case Q_BROWSE_COMPOSERS:
-	ret = db_build_query_browse(qp, "composer", &query);
+	ret = db_build_query_browse(qp, "composer", "composer", &query);
 	break;
 
       default:
