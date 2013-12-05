@@ -1356,7 +1356,7 @@ db_query_start(struct query_params *qp)
 	break;
 
       case Q_BROWSE_COMPOSERS:
-	ret = db_build_query_browse(qp, "composer", "composer", &query);
+	ret = db_build_query_browse(qp, "composer", "composer_sort", &query);
 	break;
 
       default:

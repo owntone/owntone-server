@@ -358,11 +358,11 @@ fixup_tags(struct media_file_info *mfi)
   if (!mfi->album_artist_sort && (strcmp(mfi->album_artist, mfi->artist) == 0))
     mfi->album_artist_sort = strdup(mfi->artist_sort);
   else
-    normalize_fixup_tag(&mfi->album_artist_sort, mfi->album_artist);
+    normalize_fixup_tag(&mfi->album_artist_sort, strip_article(mfi->album_artist));
 
   /* Composer is not one of our mandatory tags, so take extra care */
   if (mfi->composer_sort || mfi->composer)
-    normalize_fixup_tag(&mfi->composer_sort, mfi->composer);
+    normalize_fixup_tag(&mfi->composer_sort, strip_article(mfi->composer));
 }
 
 
