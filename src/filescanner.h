@@ -5,8 +5,9 @@
 #include "db.h"
 
 #define F_SCAN_TYPE_PODCAST      (1 << 0)
-#define F_SCAN_TYPE_COMPILATION  (1 << 1)
-#define F_SCAN_TYPE_URL          (1 << 2)
+#define F_SCAN_TYPE_AUDIOBOOK    (1 << 1)
+#define F_SCAN_TYPE_COMPILATION  (1 << 2)
+#define F_SCAN_TYPE_URL          (1 << 3)
 
 int
 filescanner_init(void);
