@@ -3259,9 +3259,9 @@ raop_v2_resend_range(struct raop_session *rs, uint16_t seqnum, uint16_t len)
   uint16_t distance;
 
   /* Check that seqnum is in the retransmit buffer */
-  if ((seqnum > pktbuf_head->seqnum) && (seqnum < pktbuf_tail->seqnum))
+  if ((seqnum > pktbuf_head->seqnum) || (seqnum < pktbuf_tail->seqnum))
     {
-      DPRINTF(E_LOG, L_RAOP, "RAOP device %s asking for seqnum %u; not in buffer (h %u t %u)\n", rs->devname, seqnum, pktbuf_head->seqnum, pktbuf_tail->seqnum);
+      DPRINTF(E_WARN, L_RAOP, "RAOP device %s asking for seqnum %u; not in buffer (h %u t %u)\n", rs->devname, seqnum, pktbuf_head->seqnum, pktbuf_tail->seqnum);
       return;
     }
 
