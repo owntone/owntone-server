@@ -394,16 +394,21 @@ daap_sort_build(struct sort_ctx *ctx, char *str)
   char fl;
 
   len = strlen(str);
-  ret = u8_normalize(UNINORM_NFD, (uint8_t *)str, len, NULL, &len);
-  if (!ret)
+  if (len > 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not normalize string for sort header\n");
+      ret = u8_normalize(UNINORM_NFD, (uint8_t *)str, len, NULL, &len);
+      if (!ret)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not normalize string for sort header\n");
 
-      return -1;
+	  return -1;
+	}
+
+      fl = ret[0];
+      free(ret);
     }
-
-  fl = ret[0];
-  free(ret);
+  else
+    fl = 0;
 
   if (isascii(fl) && isalpha(fl))
     {
@@ -1634,6 +1639,10 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   ngrp = 0;
   while ((ret = db_query_fetch_group(&qp, &dbgri)) == 0)
     {
+      /* Don't add item if no name (eg blank album name) */
+      if (strlen(dbgri.itemname) == 0)
+	continue;
+
       ngrp++;
 
       for (i = 0; i < nmeta; i++)
