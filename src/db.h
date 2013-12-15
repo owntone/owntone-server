@@ -181,6 +181,7 @@ struct group_info {
   uint64_t persistentid; /* ulonglong id (mper) */
   char *itemname;        /* playlist name as displayed in iTunes (minm) */
   uint32_t itemcount;    /* number of items (mimc) */
+  uint32_t groupalbumcount; /* number of albums (agac) */
   char *songalbumartist; /* song album artist (asaa) */
 };
 

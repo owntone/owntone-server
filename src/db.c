@@ -237,12 +237,12 @@ static const ssize_t dbpli_cols_map[] =
  */
 static const ssize_t dbgri_cols_map[] =
   {
-    dbgri_offsetof(itemcount),
-    dbgri_offsetof(groupalbumcount),
     dbgri_offsetof(id),
     dbgri_offsetof(persistentid),
-    dbgri_offsetof(songalbumartist),
     dbgri_offsetof(itemname),
+    dbgri_offsetof(itemcount),
+    dbgri_offsetof(groupalbumcount),
+    dbgri_offsetof(songalbumartist),
   };
 
 /* This list must be kept in sync with
@@ -1066,13 +1066,13 @@ db_build_query_group_albums(struct query_params *qp, char **q)
   sort = sort_clause[qp->sort];
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), 1, g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name %s %s;", G_ALBUMS, qp->filter, sort, idx);
+    query = sqlite3_mprintf("SELECT g.id, g.persistentid, g.name, COUNT(*), 1, f.album_artist FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name %s %s;", G_ALBUMS, qp->filter, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT COUNT(*), 1, g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name %s %s;", G_ALBUMS, sort, idx);
+    query = sqlite3_mprintf("SELECT g.id, g.persistentid, g.name, COUNT(*), 1, f.album_artist FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name %s %s;", G_ALBUMS, sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), 1, g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name %s;", G_ALBUMS, qp->filter, sort);
+    query = sqlite3_mprintf("SELECT g.id, g.persistentid, g.name, COUNT(*), 1, f.album_artist FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name %s;", G_ALBUMS, qp->filter, sort);
   else
-    query = sqlite3_mprintf("SELECT COUNT(*), 1, g.id, g.persistentid, f.album_artist, g.name FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name %s;", G_ALBUMS, sort);
+    query = sqlite3_mprintf("SELECT g.id, g.persistentid, g.name, COUNT(*), 1, f.album_artist FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name %s;", G_ALBUMS, sort);
 
   if (!query)
     {
@@ -1105,13 +1105,13 @@ db_build_query_group_artists(struct query_params *qp, char **q)
   sort = sort_clause[qp->sort];
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), COUNT(DISTINCT f.album), 1, 1, f.album_artist, f.album_artist FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.album_artist %s %s;", qp->filter, sort, idx);
+    query = sqlite3_mprintf("SELECT 1, 1, f.album_artist, COUNT(*), COUNT(DISTINCT f.album), f.album_artist FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.album_artist %s %s;", qp->filter, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT COUNT(*), COUNT(DISTINCT f.album), 1, 1, f.album_artist, f.album_artist FROM files f WHERE f.disabled = 0 GROUP BY f.album_artist %s %s;", sort, idx);
+    query = sqlite3_mprintf("SELECT 1, 1, f.album_artist, COUNT(*), COUNT(DISTINCT f.album), f.album_artist FROM files f WHERE f.disabled = 0 GROUP BY f.album_artist %s %s;", sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT COUNT(*), COUNT(DISTINCT f.album), 1, 1, f.album_artist, f.album_artist FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.album_artist %s;", qp->filter, sort);
+    query = sqlite3_mprintf("SELECT 1, 1, f.album_artist, COUNT(*), COUNT(DISTINCT f.album), f.album_artist FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.album_artist %s;", qp->filter, sort);
   else
-    query = sqlite3_mprintf("SELECT COUNT(*), COUNT(DISTINCT f.album), 1, 1, f.album_artist, f.album_artist FROM files f WHERE f.disabled = 0 GROUP BY f.album_artist %s;", sort);
+    query = sqlite3_mprintf("SELECT 1, 1, f.album_artist, COUNT(*), COUNT(DISTINCT f.album), f.album_artist FROM files f WHERE f.disabled = 0 GROUP BY f.album_artist %s;", sort);
 
   if (!query)
     {
