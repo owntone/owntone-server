@@ -1275,7 +1275,12 @@ db_build_query_browse(struct query_params *qp, char *field, char *sort_field, ch
   else
     {
       size = strlen("ORDER BY f.") + strlen(field) + 1;
-      sort = (char *)malloc(size);
+      sort = malloc(size);
+      if (!sort)
+	{
+	  DPRINTF(E_LOG, L_DB, "Out of memory for sort string\n");
+	  return -1;
+	}
       snprintf(sort, size, "ORDER BY f.%s", field);
     }
 
