@@ -703,12 +703,13 @@ db_purge_cruft(time_t ref)
 void
 db_purge_all(void)
 {
-  char *queries[4] =
+  char *queries[5] =
     {
       "DELETE FROM inotify;",
       "DELETE FROM playlistitems;",
       "DELETE FROM playlists WHERE type <> 1;",
-      "DELETE FROM files;"
+      "DELETE FROM files;",
+      "DELETE FROM groups;",
     };
   char *errmsg;
   int i;
