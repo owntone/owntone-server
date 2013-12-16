@@ -580,6 +580,7 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, const struc
 
   int nmeta;
   int i;
+  int n;
 
   metastr = strdup(param);
   if (!metastr)
@@ -612,11 +613,23 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, const struc
   field = strtok_r(metastr, ",", &ptr);
   for (i = 0; i < nmeta; i++)
     {
-      meta[i] = dmap_find_field(field, strlen(field));
+      for (n = 0; (n < i) && (strcmp(field, meta[n]->desc) != 0); n++);
 
-      if (!meta[i])
+      if (n == i)
 	{
-	  DPRINTF(E_WARN, L_DAAP, "Could not find requested meta field '%s'\n", field);
+	  meta[i] = dmap_find_field(field, strlen(field));
+
+	  if (!meta[i])
+	    {
+	      DPRINTF(E_WARN, L_DAAP, "Could not find requested meta field '%s'\n", field);
+
+	      i--;
+	      nmeta--;
+	    }
+	}
+      else
+	{
+	  DPRINTF(E_WARN, L_DAAP, "Parser will ignore duplicate occurrence of meta field '%s'\n", field);
 
 	  i--;
 	  nmeta--;
