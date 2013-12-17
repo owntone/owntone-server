@@ -939,10 +939,11 @@ filescanner(void *arg)
       pthread_exit(NULL);
     }
 
-  /* Recompute all songalbumids, in case the SQLite DB got transferred
+  /* Recompute all songartistids and songalbumids, in case the SQLite DB got transferred
    * to a different host; the hash is not portable.
    * It will also rebuild the groups we just cleared.
    */
+  db_files_update_songartistid();
   db_files_update_songalbumid();
 
   bulk_scan();

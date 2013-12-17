@@ -97,6 +97,7 @@ struct media_file_info {
   uint32_t time_played;
 
   uint32_t play_count;
+  uint32_t seek;
   uint32_t rating;
   uint32_t db_timestamp;
 
@@ -129,6 +130,7 @@ struct media_file_info {
 
   char *album_artist;
 
+  int64_t songartistid;
   int64_t songalbumid;
 
   char *title_sort;
@@ -226,6 +228,7 @@ struct db_media_file_info {
   char *compilation;
   char *rating;
   char *play_count;
+  char *seek;
   char *data_kind;
   char *item_kind;
   char *description;
@@ -247,6 +250,7 @@ struct db_media_file_info {
   char *tv_series_name;
   char *tv_episode_num_str;
   char *tv_network_name;
+  char *songartistid;
   char *songalbumid;
   char *title_sort;
   char *artist_sort;
@@ -327,6 +331,9 @@ db_files_get_count(void);
 
 int
 db_files_get_count_bymatch(char *path);
+
+void
+db_files_update_songartistid(void);
 
 void
 db_files_update_songalbumid(void);
