@@ -1295,7 +1295,9 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   char **strval;
   int nmeta;
   int npls;
-  int32_t val;
+  int32_t plid;
+  int32_t pltype;
+  int32_t plitems;
   int i;
   int ret;
 
@@ -1382,6 +1384,22 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   npls = 0;
   while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
     {
+      plid = 1;
+      if (safe_atoi32(dbpli.id, &plid) != 0)
+	continue;
+
+      pltype = 0;
+      if (safe_atoi32(dbpli.type, &pltype) != 0)
+	continue;
+
+      plitems = 0;
+      if (safe_atoi32(dbpli.items, &plitems) != 0)
+	continue;
+
+      /* Don't add empty smart playlists */
+      if ((plid > 1) && (pltype == 1) && (plitems == 0))
+	continue;
+
       npls++;
 
       for (i = 0; i < nmeta; i++)
@@ -1396,21 +1414,14 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	  /* com.apple.itunes.smart-playlist - type = 1 AND id != 1 */
 	  if (dfm == &dfm_dmap_aeSP)
 	    {
-	      val = 0;
-	      ret = safe_atoi32(dbpli.type, &val);
-	      if ((ret == 0) && (val == PL_SMART))
+	      if ((pltype == PL_SMART) && (plid != 1))
 		{
-		  val = 1;
-		  ret = safe_atoi32(dbpli.id, &val);
-		  if ((ret == 0) && (val != 1))
-		    {
-		      int32_t aePS = 0;
-		      dmap_add_char(playlist, "aeSP", 1);
+		  int32_t aePS = 0;
+		  dmap_add_char(playlist, "aeSP", 1);
 
-		      ret = safe_atoi32(dbpli.special_id, &aePS);
-		      if ((ret == 0) && (aePS > 0))
-			dmap_add_char(playlist, "aePS", aePS);
-		    }
+		  ret = safe_atoi32(dbpli.special_id, &aePS);
+		  if ((ret == 0) && (aePS > 0))
+		    dmap_add_char(playlist, "aePS", aePS);
 		}
 
 	      continue;
@@ -1431,18 +1442,14 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	}
 
       /* Item count (mimc) */
-      val = 0;
-      ret = safe_atoi32(dbpli.items, &val);
-      if ((ret == 0) && (val > 0))
-	dmap_add_int(playlist, "mimc", val);
+      if (plitems > 0)
+	dmap_add_int(playlist, "mimc", plitems);
 
       /* Container ID (mpco) */
       dmap_add_int(playlist, "mpco", 0);
 
       /* Base playlist (abpl), id = 1 */
-      val = 0;
-      ret = safe_atoi32(dbpli.id, &val);
-      if ((ret == 0) && (val == 1))
+      if (plid == 1)
 	dmap_add_char(playlist, "abpl", 1);
 
       DPRINTF(E_DBG, L_DAAP, "Done with playlist\n");
