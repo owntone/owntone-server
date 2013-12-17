@@ -472,6 +472,8 @@ process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf
     mfi.compilation = 1;
   if (type & F_SCAN_TYPE_PODCAST)
     mfi.media_kind = 4; /* podcast */
+  if (type & F_SCAN_TYPE_AUDIOBOOK)
+    mfi.media_kind = 8; /* audiobook */
 
   if (!mfi.item_kind)
     mfi.item_kind = 2; /* music */
@@ -612,38 +614,17 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 
 /* Thread: scan */
 static int
-check_podcast(char *path)
+check_speciallib(char *path, const char *libtype)
 {
   cfg_t *lib;
   int ndirs;
   int i;
 
   lib = cfg_getsec(cfg, "library");
-  ndirs = cfg_size(lib, "podcasts");
-
+  ndirs = cfg_size(lib, libtype);
   for (i = 0; i < ndirs; i++)
     {
-      if (strstr(path, cfg_getnstr(lib, "podcasts", i)))
-	return 1;
-    }
-
-  return 0;
-}
-
-/* Thread: scan */
-static int
-check_compilation(char *path)
-{
-  cfg_t *lib;
-  int ndirs;
-  int i;
-
-  lib = cfg_getsec(cfg, "library");
-  ndirs = cfg_size(lib, "compilations");
-
-  for (i = 0; i < ndirs; i++)
-    {
-      if (strstr(path, cfg_getnstr(lib, "compilations", i)))
+      if (strstr(path, cfg_getnstr(lib, libtype, i)))
 	return 1;
     }
 
@@ -698,10 +679,12 @@ process_directory(char *path, int flags)
 
   /* Check if compilation and/or podcast directory */
   type = 0;
-  if (check_compilation(path))
+  if (check_speciallib(path, "compilations"))
     type |= F_SCAN_TYPE_COMPILATION;
-  if (check_podcast(path))
+  if (check_speciallib(path, "podcasts"))
     type |= F_SCAN_TYPE_PODCAST;
+  if (check_speciallib(path, "audiobooks"))
+    type |= F_SCAN_TYPE_AUDIOBOOK;
 
   for (;;)
     {
@@ -1160,10 +1143,12 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	}
 
       type = 0;
-      if (check_compilation(path))
+      if (check_speciallib(path, "compilations"))
 	type |= F_SCAN_TYPE_COMPILATION;
-      if (check_podcast(path))
+      if (check_speciallib(path, "podcasts"))
 	type |= F_SCAN_TYPE_PODCAST;
+      if (check_speciallib(path, "audiobooks"))
+	type |= F_SCAN_TYPE_AUDIOBOOK;
 
       process_file(file, sb.st_mtime, sb.st_size, type, 0);
 

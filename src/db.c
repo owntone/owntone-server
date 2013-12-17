@@ -598,8 +598,8 @@ static void
 db_set_cfg_names(void)
 {
 #define Q_TMPL "UPDATE playlists SET title = '%q' WHERE type = 1 AND special_id = %d;"
-  char *cfg_item[5] = { "name_library", "name_music", "name_movies", "name_tvshows", "name_podcasts" };
-  char special_id[5] = { 0, 6, 4, 5, 1 };
+  char *cfg_item[6] = { "name_library", "name_music", "name_movies", "name_tvshows", "name_podcasts", "name_audiobooks" };
+  char special_id[6] = { 0, 6, 4, 5, 1, 7 };
   cfg_t *lib;
   char *query;
   char *title;
@@ -4352,10 +4352,13 @@ db_perthread_deinit(void)
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
   " VALUES(5, 'Podcasts', 1, 'f.media_kind = 4', 0, '', 0, 1);"
 
+#define Q_PL6								\
+  "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
+  " VALUES(6, 'Audiobooks', 1, 'f.media_kind = 8', 0, '', 0, 7);"
+
 /* These are the remaining automatically-created iTunes playlists, but
  * their query is unknown
   " VALUES(6, 'iTunes U', 0, 'media_kind = 256', 0, '', 0, 13);"
-  " VALUES(7, 'Audiobooks', 0, 'media_kind = 512', 0, '', 0, 7);"
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
@@ -4409,6 +4412,7 @@ static const struct db_init_query db_init_queries[] =
     { Q_PL3,       "create default smart playlist 'Movies'" },
     { Q_PL4,       "create default smart playlist 'TV Shows'" },
     { Q_PL5,       "create default smart playlist 'Podcasts'" },
+    { Q_PL6,       "create default smart playlist 'Audiobooks'" },
 
     { Q_SCVER,     "set schema version" },
   };
