@@ -16,6 +16,7 @@ struct dmap_query_field_map;
 "daap.songalbum",             "f.album",            0
 "daap.songalbumid",           "f.songalbumid",      1
 "daap.songartist",            "f.album_artist",     0
+"daap.songartistid",          "f.songartistid",     1
 "daap.songalbumartist",       "f.album_artist",     0
 "daap.songbitrate",           "f.bitrate",          1
 "daap.songcomment",           "f.comment",          0

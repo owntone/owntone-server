@@ -65,6 +65,7 @@ static const struct dmap_field_map dfm_dmap_asal = { dbmfi_offsetof(album),     
 static const struct dmap_field_map dfm_dmap_asai = { dbmfi_offsetof(songalbumid),             -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asaa = { dbmfi_offsetof(album_artist),            -1,                            dbgri_offsetof(songalbumartist) };
 static const struct dmap_field_map dfm_dmap_asar = { dbmfi_offsetof(artist),                  -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asri = { dbmfi_offsetof(songartistid),            -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asbt = { dbmfi_offsetof(bpm),                     -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asbr = { dbmfi_offsetof(bitrate),                 -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_ascm = { dbmfi_offsetof(comment),                 -1,                            -1 };
@@ -177,6 +178,7 @@ struct dmap_field;
 "daap.songalbumid",                          "asai", &dfm_dmap_asai, DMAP_TYPE_ULONG
 "daap.songalbum",                            "asal", &dfm_dmap_asal, DMAP_TYPE_STRING
 "daap.songartist",                           "asar", &dfm_dmap_asar, DMAP_TYPE_STRING
+"daap.songartistid",                         "asri", &dfm_dmap_asri, DMAP_TYPE_ULONG
 "daap.songbitrate",                          "asbr", &dfm_dmap_asbr, DMAP_TYPE_USHORT
 "daap.songbeatsperminute",                   "asbt", &dfm_dmap_asbt, DMAP_TYPE_USHORT
 "daap.songcodectype",                        "ascd", &dfm_dmap_ascd, DMAP_TYPE_UINT
