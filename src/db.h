@@ -181,7 +181,8 @@ struct db_playlist_info {
 struct group_info {
   uint32_t id;           /* integer id (miid) */
   uint64_t persistentid; /* ulonglong id (mper) */
-  char *itemname;        /* playlist name as displayed in iTunes (minm) */
+  char *itemname;        /* album or album_artist (minm) */
+  char *itemname_sort;   /* album_sort or album_artist_sort (~mshc) */
   uint32_t itemcount;    /* number of items (mimc) */
   uint32_t groupalbumcount; /* number of albums (agac) */
   char *songalbumartist; /* song album artist (asaa) */
@@ -193,6 +194,7 @@ struct db_group_info {
   char *id;
   char *persistentid;
   char *itemname;
+  char *itemname_sort;
   char *itemcount;
   char *groupalbumcount;
   char *songalbumartist;

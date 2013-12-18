@@ -1690,7 +1690,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
       if (sort_headers)
 	{
-	  ret = daap_sort_build(sctx, dbgri.itemname);
+	  ret = daap_sort_build(sctx, dbgri.itemname_sort);
 	  if (ret < 0)
 	    {
 	      DPRINTF(E_LOG, L_DAAP, "Could not add sort header to DAAP groups reply\n");
