@@ -2270,7 +2270,7 @@ db_file_add(struct media_file_info *mfi)
 {
 #define Q_TMPL "INSERT INTO files (id, path, fname, title, artist, album, genre, comment, type, composer," \
                " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
-               " total_tracks, disc, total_discs, bpm, compilation, rating, play_count, data_kind, item_kind," \
+               " total_tracks, disc, total_discs, bpm, compilation, rating, play_count, seek, data_kind, item_kind," \
                " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
                " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
                " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
@@ -2278,9 +2278,10 @@ db_file_add(struct media_file_info *mfi)
                " ) " \
                " VALUES (NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, TRIM(%Q)," \
                " TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
-               " %d, %d, %d, %d, %d, %d, %d, %d, %d," \
+               " %d, %d, %d, %d, %d, %d, %d, %d, %d, %d," \
                " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
-               " %Q, %d, %d, %d, %d, TRIM(%Q), %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d," \
+               " %Q, %d, %d, %d, %d, TRIM(%Q)," \
+               " %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d," \
                " daap_songalbumid(TRIM(%Q), ''), daap_songalbumid(TRIM(%Q), TRIM(%Q)),TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q));"
 
   char *query;
@@ -2306,7 +2307,7 @@ db_file_add(struct media_file_info *mfi)
 			  mfi->orchestra, mfi->conductor, mfi->grouping, mfi->url, mfi->bitrate,
 			  mfi->samplerate, mfi->song_length, mfi->file_size, mfi->year, mfi->track,
 			  mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm, mfi->compilation,
-			  mfi->rating, mfi->play_count, mfi->data_kind, mfi->item_kind,
+			  mfi->rating, mfi->play_count, mfi->seek, mfi->data_kind, mfi->item_kind,
 			  mfi->description, (int64_t)mfi->time_added, (int64_t)mfi->time_modified,
 			  (int64_t)mfi->time_played, (int64_t)mfi->db_timestamp, mfi->disabled, mfi->sample_count,
 			  mfi->codectype, mfi->index, mfi->has_video,
@@ -2348,7 +2349,7 @@ db_file_update(struct media_file_info *mfi)
                " comment = TRIM(%Q), type = %Q, composer = TRIM(%Q), orchestra = TRIM(%Q), conductor = TRIM(%Q), grouping = TRIM(%Q)," \
                " url = %Q, bitrate = %d, samplerate = %d, song_length = %d, file_size = %" PRIi64 "," \
                " year = %d, track = %d, total_tracks = %d, disc = %d, total_discs = %d, bpm = %d," \
-               " compilation = %d, rating = %d, data_kind = %d, item_kind = %d," \
+               " compilation = %d, rating = %d, seek = %d, data_kind = %d, item_kind = %d," \
                " description = %Q, time_modified = %" PRIi64 "," \
                " db_timestamp = %" PRIi64 ", sample_count = %" PRIi64 "," \
                " codectype = %Q, idx = %d, has_video = %d," \
@@ -2378,7 +2379,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->comment, mfi->type, mfi->composer, mfi->orchestra, mfi->conductor, mfi->grouping, 
 			  mfi->url, mfi->bitrate, mfi->samplerate, mfi->song_length, mfi->file_size,
 			  mfi->year, mfi->track, mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm,
-			  mfi->compilation, mfi->rating, mfi->data_kind, mfi->item_kind,
+			  mfi->compilation, mfi->rating, mfi->seek, mfi->data_kind, mfi->item_kind,
 			  mfi->description, (int64_t)mfi->time_modified,
 			  (int64_t)mfi->db_timestamp, mfi->sample_count,
 			  mfi->codectype, mfi->index, mfi->has_video,
