@@ -1,14 +1,8 @@
 Installation instructions for forked-daapd
 ------------------------------------------
 
-There are two ways to install forked-daapd: from a tarball or from the git
-tree. The tarball contains a working build system and pre-generated ANTLR3
-parsers; the git tree doesn't and requires more tools to generate the build
-system and the ANTLR3 parsers.
-
-In both cases the installation procedure is the traditional ./configure;
-make; make install. Please read this file carefully before proceeding.
-
+This document contains instructions for installing forked-daapd from the git
+tree.
 
 System-specific requirements:
  - Linux:
@@ -18,10 +12,13 @@ System-specific requirements:
    + OSS4 sound support
    + libiconv
 
-Tools:
- - pkg-config
- - gperf 3.x
-        from <http://www.gnu.org/software/gperf/>
+Tools required:
+ - autotools-dev
+ - autoconf
+ - libtool
+ - gettext
+ - gawk
+ - gperf
 
 Libraries:
  - libantlr3c (ANTLR3 C runtime, version 3.2 for tarball builds)
@@ -34,7 +31,7 @@ Libraries:
         from <http://libav.org/releases/>
  - libconfuse
         from <http://www.nongnu.org/confuse/>
- - libevent 1.4+
+ - libevent 1.4 (** NOT libevent 2 **)
         from <http://www.monkey.org/~provos/libevent/>
  - libavl
         /!\ Read below
@@ -75,21 +72,23 @@ libav (ffmpeg) is a central piece of forked-daapd and most other FLOSS
 multimedia applications. The version of libav you use will potentially have a
 great influence on your experience with forked-daapd.
 
-The following versions of libav (ffmpeg) are supported and known to work:
- - ffmpeg 0.5.x: has issues with metadata (tags) extraction, notably with
-   MP3 files and ID3 tags in general;
- - libav 0.6.x: known to work better with regard to metadata extraction;
- - libav 0.7.x: better yet
-
-Note that forked-daapd uses libav since the ffmpeg/libav fork during the
-0.6.x series.
+forked-daapd supports older versions of libav and ffmpeg, but for libav 0.8.x
+is known to be working. If you use a new version of libav or ffmpeg you may
+encounter issues with MP3 files with embedded artwork, as forked-daapd may
+classify them as video files.
 
 
 Building from the git tree
 --------------------------
 
-Gitweb: <http://git.debian.org/?p=users/jblache/forked-daapd.git>
-Git tree: <git://git.debian.org/users/jblache/forked-daapd.git>
+The source for this version of forked-daapd can be found here:
+
+  <https://github.com/ejurgensen/forked-daapd.git>
+
+The original (now unmaintained) source can be found here:
+
+  <http://git.debian.org/?p=users/jblache/forked-daapd.git>
+  <http://alioth.debian.org/~jblache/forked-daapd/>
 
 Required tools:
  - ANTLR v3 is required to build forked-daapd, along with its C runtime
@@ -122,14 +121,7 @@ by ANTLR3.
 The parsers will be generated during the build, no manual intervention is
 needed.
 
-
-Building from the tarball
--------------------------
-
-Download URL: <http://alioth.debian.org/~jblache/forked-daapd/>
-
-When building forked-daapd from a release tarball, the usual ./configure;
-make; make install procedure applies.
+To display the configure options run ./configure --help
 
 FLAC and Musepack support are optional. If not enabled, metadata extraction
 will fail on these files.
@@ -138,14 +130,15 @@ Support for iTunes Music Library XML format is optional. Use --enable-itunes
 to enable this feature.
 
 Recommended build settings:
- ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac --enable-musepack
+ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac
+
+After configure run the usual make, and if that went well, sudo make install
 
 After installation, edit the configuration file, /etc/forked-daapd.conf and
 adjust the values at your convenience.
 
 forked-daapd will drop privileges to any user you'll specify in the
-configuration file if it's started as root. It's recommended to create a
-dedicated user without login privileges.
+configuration file if it's started as root.
 
 This user must have read permission on your library (you can create a group for
 this and make the user a member of the group, for instance) and read/write
@@ -169,13 +162,15 @@ The LSB header below sums it up:
 
 ### BEGIN INIT INFO
 # Provides:          forked-daapd
-# Required-Start:    $local_fs $remote_fs $network $time avahi
+# Required-Start:    $local_fs $remote_fs $network $time
 # Required-Stop:     $local_fs $remote_fs $network $time
+# Should-Start:      avahi
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: media server with support for RSP, DAAP, DACP and AirTunes
 # Description:       forked-daapd is an iTunes-compatible media server for
-#                    sharing your music library over the local network with RSP
-#                    clients like the SoundBridge from Roku and DAAP clients like
-#                    iTunes. It can also stream music to AirTunes devices.
+#                    sharing your media library over the local network with RSP
+#                    clients like the SoundBridge from Roku and DAAP clients
+#                    like iTunes. It can also stream music to AirTunes devices, 
+#                    and it can be controlled by Apple Remote (and compatibles).
 ### END INIT INFO

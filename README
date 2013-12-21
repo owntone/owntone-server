@@ -32,26 +32,36 @@ or RSP.
 A single forked-daapd instance can handle several clients concurrently,
 regardless of the protocol.
 
+forked-daapd support streaming to AirTunes devices (like the AirPort Express,
+Shairport and various AirPlay speakers).
+
+Like iTunes, you can control forked-daapd with Apple Remote, or with a 
+compatible Android app like Retune, TunesRemote+ or Hyperfine Remote. Another
+controller is TunesRemoteSE, which is based on Java and runs in Windows, MacOS
+and Linux.
+
 
 Using Remote
 ------------
 
 If you plan to use Remote with forked-daapd, read the following sections
-carefully.
+carefully. The pairing process described is similar for other controllers, but
+some do not require pairing.
 
   Pairing with Remote on iPod/iPhone
   ----------------------------------
 
-forked-daapd can be paired with Apple's Remote application for iPod/iPhone;
+forked-daapd can be paired with Apple's Remote application for iPod/iPhone/iPad;
 this is how the pairing process works:
+
  - start forked-daapd
- - start Remote, go to Choose Library, Add Library
+ - start Remote, go to Settings, Add Library
  - prepare a text file with a filename ending with .remote; the filename
    doesn't matter, only the .remote ending does. This file must contain
-   two lines: the first line is the name of your iPod/iPhone, the second
+   two lines: the first line is the name of your iPod/iPhone/iPad, the second
    is the 4-digit pairing code displayed by Remote.
 
-   If your iPod/iPhone is named "Foobar" and Remote gives you the pairing
+   If your iPod/iPhone/iPad is named "Foobar" and Remote gives you the pairing
    code 5387, the file content will be:
 
       Foobar
@@ -74,10 +84,10 @@ receives the mDNS announcement from your iPod/iPhone when the pairing code is
 displayed by Remote (you can also use avahi-browse for this purpose, see below).
 If not, you have a network issue and mDNS doesn't work properly on your network.
 
-If you are unsure about your iPod/iPhone's name, here's how you can check for
-the correct value:
+If you are unsure about your iPod/iPhone/iPad's name, here's how you can check
+for the correct value:
  - in a terminal, run avahi-browse -r -k _touch-remote._tcp
- - start Remote, goto Choose Library, Add Library
+ - start Remote, goto Settings, Add Library
  - after a couple seconds at most, you should get something similar to this:
 
 + ath0 IPv4 59eff13ea2f98dbbef6c162f9df71b784a3ef9a3      _touch-remote._tcp   local
@@ -87,7 +97,7 @@ the correct value:
    port = [49160]
    txt = ["DvTy=iPod touch" "RemN=Remote" "txtvers=1" "RemV=10000" "Pair=FAEA410630AEC05E" "DvNm=Foobar"]
 
-The name of your iPod/iPhone is the value of the DvNm field above. In this
+The name of your iPod/iPhone/iPad is the value of the DvNm field above. In this
 example, the correct value is Foobar.
 
 Watch out for fancy characters; for instance, the name of your device may
@@ -111,13 +121,6 @@ device will be used, following the principle of least surprise (ie not
 selecting an output device at random that can be anywhere in the house or
 elsewhere). forked-daapd will error out if the local output is not usable
 (no soundcard, bad permissions, ...).
-
-There are two ways to select the output devices in Remote:
- - in the settings panel;
- - in the AirPlay panel during playback.
-
-Be aware that the settings panel doesn't show any output device when there
-is only one; the one output device that is available is automatically used.
 
 forked-daapd remembers your selection and the individual volume for each
 output device; selected devices will be automatically re-selected at the next
@@ -151,10 +154,6 @@ Supported formats
 forked-daapd should support pretty much all media formats. It relies on libav
 (ffmpeg) to extract metadata and decode the files on the fly when the client
 doesn't support the format.
-
-However, libav is not necessarily very good at extracting metadata, so some
-formats may cause problems. FLAC, Musepack and WMA use custom metadata
-extractors to work around that.
 
 Formats are attributed a code, so any new format will need to be explicitely
 added. Currently supported:
@@ -262,6 +261,16 @@ you can trigger a full rescan of your library. This will clear all music and
 playlists from forked-daapd's database and initiate a fresh bulk scan. Pairing
 and speaker information will be kept. Only use this for troubleshooting, it is
 not necessary during normal operation.
+
+A full rescan might take some time, and sometimes you just want a rescan of a
+particular part of your library. In this case the standard "touch" command is
+very usefull, as it will update the timestamps of the arguments and thus trigger
+a rescan.
+
+If you change any of the directory settings in the library section of the
+configuration file a rescan is required before the new setting will take effect.
+Currently, this will not be done automatically, so you need to trigger the
+rescan as described above.
 
 Symlinks are supported and dereferenced. This does interact in tricky ways
 with the above monitoring and rescanning, so you've been warned. Changes to
