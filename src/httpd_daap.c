@@ -667,7 +667,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   passwd = cfg_getstr(lib, "password");
   name = cfg_getstr(lib, "name");
 
-  len = 157 + strlen(name);
+  len = 167 + strlen(name);
 
   ret = evbuffer_expand(evbuf, len);
   if (ret < 0)
@@ -701,6 +701,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_int(evbuf, "mpro", mpro); /* 12 */
   dmap_add_string(evbuf, "minm", name); /* 8 + strlen(name) */
   dmap_add_int(evbuf, "apro", apro); /* 12 */
+  dmap_add_short(evbuf, "ated", 1);   /* 10 daap.supportsextradata */
 
   dmap_add_char(evbuf, "mslr", 1);   /* 9 */
   dmap_add_int(evbuf, "mstm", DAAP_SESSION_TIMEOUT_CAPABILITY); /* 12 */
@@ -1131,7 +1132,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
       transcode = transcode_needed(req->input_headers, dbmfi.codectype);
 
-      ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, 1, transcode);
+      ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, sort_headers, transcode);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Failed to encode song metadata\n");
@@ -2032,40 +2033,34 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
       return;
     }
 
-  param = evhttp_find_header(query, "mw");
-  if (!param)
+  if (evhttp_find_header(query, "mw") && evhttp_find_header(query, "mh"))
     {
-      DPRINTF(E_LOG, L_DAAP, "Request for artwork without mw parameter\n");
+      param = evhttp_find_header(query, "mw");
+      ret = safe_atoi32(param, &max_w);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not convert mw parameter to integer\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
-      return;
+	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  return;
+	}
+
+      param = evhttp_find_header(query, "mh");
+      ret = safe_atoi32(param, &max_h);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Could not convert mh parameter to integer\n");
+
+	  evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
+	  return;
+	}
     }
-
-  ret = safe_atoi32(param, &max_w);
-  if (ret < 0)
+  else
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not convert mw parameter to integer\n");
+      DPRINTF(E_DBG, L_DAAP, "Request for artwork without mw/mh parameter\n");
 
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
-      return;
-    }
-
-  param = evhttp_find_header(query, "mh");
-  if (!param)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Request for artwork without mh parameter\n");
-
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
-      return;
-    }
-
-  ret = safe_atoi32(param, &max_h);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DAAP, "Could not convert mh parameter to integer\n");
-
-      evhttp_send_error(req, HTTP_BADREQUEST, "Bad Request");
-      return;
+      max_w = 0;
+      max_h = 0;
     }
 
   if (strcmp(uri[2], "groups") == 0)

@@ -392,11 +392,13 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
   int32_t val;
   int want_mikd;
   int want_asdk;
+  int want_ased;
   int i;
   int ret;
 
   want_mikd = 0;
   want_asdk = 0;
+  want_ased = 0;
 
   i = -1;
   while (1)
@@ -424,6 +426,13 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
 
 	  df = &dmap_fields[i];
 	  dfm = dmap_fields[i].dfm;
+	}
+
+      /* Extradata not in media_file_info but flag for reply */
+      if (dfm == &dfm_dmap_ased)
+	{
+	  want_ased = 1;
+	  continue;
 	}
 
       /* Not in struct media_file_info */
@@ -494,6 +503,13 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
       dmap_add_field(song, df, *strval, val);
 
       DPRINTF(E_SPAM, L_DAAP, "Done with meta tag %s (%s)\n", df->desc, *strval);
+    }
+
+  /* Required for artwork in iTunes, set songartworkcount (asac) = 1 */
+  if (want_ased)
+    {
+      dmap_add_short(song, "ased", 1);
+      dmap_add_short(song, "asac", 1);
     }
 
   if (sort_tags)

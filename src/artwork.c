@@ -594,7 +594,14 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
 
   need_rescale = 1;
 
-  if ((src->width <= max_w) && (src->height <= max_h)) /* Smaller than target */
+  if ((max_w <= 0) || (max_h <= 0)) /* No valid dimensions, use original */
+    {
+      need_rescale = 0;
+
+      target_w = src->width;
+      target_h = src->height;
+    }
+  else if ((src->width <= max_w) && (src->height <= max_h)) /* Smaller than target */
     {
       need_rescale = 0;
 
@@ -614,13 +621,13 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
 
   DPRINTF(E_DBG, L_ART, "Raw destination width %d height %d\n", target_w, target_h);
 
-  if (target_h > max_h)
+  if ((target_h > max_h) && (max_h > 0))
     target_h = max_h;
 
   /* PNG prefers even row count */
   target_w += target_w % 2;
 
-  if (target_w > max_w)
+  if ((target_w > max_w) && (max_w > 0))
     target_w = max_w - (max_w % 2);
 
   DPRINTF(E_DBG, L_ART, "Destination width %d height %d\n", target_w, target_h);
