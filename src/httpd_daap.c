@@ -667,7 +667,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   passwd = cfg_getstr(lib, "password");
   name = cfg_getstr(lib, "name");
 
-  len = 166 + strlen(name);
+  len = 163 + strlen(name);
 
   ret = evbuffer_expand(evbuf, len);
   if (ret < 0)
@@ -715,7 +715,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_char(evbuf, "msqy", 1);   /* 9 */
 
   dmap_add_int(evbuf, "msdc", 1);    /* 12 */
-  dmap_add_char(evbuf, "ated", 1);   /* 9 supportsextradata */
+  dmap_add_short(evbuf, "ated", 1);   /* 6 supportsextradata */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
