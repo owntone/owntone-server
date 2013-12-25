@@ -506,6 +506,7 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
       if (dbmfi->composer_sort)
 	dmap_add_string(song, "assc", dbmfi->composer_sort);
     }
+  dmap_add_char(song, "asac", 1);   /* 9 songartworkcount */
 
   val = 0;
   if (want_mikd)
