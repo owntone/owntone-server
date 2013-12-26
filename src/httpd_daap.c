@@ -716,6 +716,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_char(evbuf, "msqy", 1);   /* 9 */
 
   dmap_add_int(evbuf, "msdc", 1);    /* 12 */
+  dmap_add_short(evbuf, "ated", 1);   /* 10 supportsextradata */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
