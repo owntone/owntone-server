@@ -385,6 +385,12 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 #else
 	  case CODEC_TYPE_VIDEO:
 #endif
+	    if (ctx->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC)
+	      {
+		DPRINTF(E_DBG, L_SCAN, "Found embedded artwork (stream %d)\n", i);
+
+		break;
+	      }
 	    if (!video_stream)
 	      {
 		DPRINTF(E_DBG, L_SCAN, "File has video (stream %d)\n", i);
