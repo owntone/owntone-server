@@ -276,6 +276,9 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 
   ctx->offset += processed;
 
+  if (frame)
+    avcodec_free_frame(&frame);
+
   return processed;
 }
 
@@ -472,7 +475,16 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 
   if (ctx->need_resample)
     {
-      DPRINTF(E_DBG, L_XCODE, "Setting up resampling (%d@%d)\n", ctx->acodec->channels, ctx->acodec->sample_rate);
+      if (!ctx->acodec->channel_layout)
+	{
+	  ctx->acodec->channel_layout = av_get_default_channel_layout(ctx->acodec->channels);
+
+	  DPRINTF(E_DBG, L_XCODE, "Resample requires channel_layout, but none from ffmpeg. Setting to default.\n");
+	}
+
+      DPRINTF(E_DBG, L_XCODE, "Will resample, decoded stream is: %s, %d channels (layout %" PRIu64 "), %d Hz\n",
+              av_get_sample_fmt_name(ctx->acodec->sample_fmt),  ctx->acodec->channels,
+              ctx->acodec->channel_layout, ctx->acodec->sample_rate);
 
       ctx->resample_ctx = avresample_alloc_context();
       if (!ctx->resample_ctx)
