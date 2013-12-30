@@ -27,7 +27,7 @@ Libraries:
         from <http://avahi.org/>
  - sqlite3 3.5.0+ with unlock notify API enabled (read below)
         from <http://sqlite.org/download.html>
- - libav 0.6+/0.7+ (or ffmpeg 0.5.1+)
+ - libav 0.6.x - 0.8.x (or ffmpeg 0.5.x - 0.10.x)
         from <http://libav.org/releases/>
  - libconfuse
         from <http://www.nongnu.org/confuse/>
@@ -68,14 +68,13 @@ documentation, look for SQLITE_ENABLE_UNLOCK_NOTIFY.
 Note about libav (ffmpeg)
 -------------------------
 
-libav (ffmpeg) is a central piece of forked-daapd and most other FLOSS
+libav (or ffmpeg) is a central piece of forked-daapd and most other FLOSS
 multimedia applications. The version of libav you use will potentially have a
 great influence on your experience with forked-daapd.
 
-forked-daapd supports older versions of libav and ffmpeg, but for libav 0.8.x
-is known to be working. If you use a new version of libav or ffmpeg you may
-encounter issues with MP3 files with embedded artwork, as forked-daapd may
-classify them as video files.
+forked-daapd is known to be working with libav 0.8.x, but it also supports older
+versions of libav and ffmpeg. Versions of libav/ffmpeg newer than 0.8.x/0.11.x
+do not work well with forked-daapd.
 
 
 Building from the git tree
