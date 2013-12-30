@@ -68,7 +68,6 @@ struct transcode_ctx {
 
   /* Resampling */
   int need_resample;
-  int input_size;
   AVAudioResampleContext *resample_ctx;
   int16_t *re_abuffer;
 
@@ -152,6 +151,9 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 #if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
   AVFrame *frame = NULL;
   int got_frame;
+  int out_size;
+  int out_linesize;
+  int out_samples;
 #endif
 
   processed = 0;
@@ -169,7 +171,6 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
       /* Decode data */
       while (ctx->apacket2.size > 0)
 	{
-#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
 	  got_frame = 0;
 
 	  if (!frame)
@@ -189,12 +190,6 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	  used = avcodec_decode_audio4(ctx->acodec,
 				       frame, &got_frame,
 				       &ctx->apacket2);
-#else
-	  buflen = XCODE_BUFFER_SIZE;
-	  used = avcodec_decode_audio3(ctx->acodec,
-				       ctx->abuffer, &buflen,
-				       &ctx->apacket2);
-#endif
 
 	  if (used < 0)
 	    {
@@ -206,44 +201,38 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	  ctx->apacket2.data += used;
 	  ctx->apacket2.size -= used;
 
-#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
 	  /* No frame decoded this time around */
 	  if (!got_frame)
 	    continue;
 
-	  buflen = av_samples_get_buffer_size(NULL, ctx->acodec->channels, frame->nb_samples, ctx->acodec->sample_fmt, 1);
-
-	  if (buflen > XCODE_BUFFER_SIZE)
-	    {
-	      DPRINTF(E_LOG, L_XCODE, "Output buffer too small for frame (%d > %d)\n", buflen, XCODE_BUFFER_SIZE);
-
-	      return -1;
-	    }
-
-	  memcpy(ctx->abuffer, frame->data[0], buflen);
-#else
-	  /* No frame decoded this time around */
-	  if (buflen == 0)
-	    continue;
-#endif
-
 	  if (ctx->need_resample)
 	    {
-//FIXME	      buflen = audio_resample(ctx->resample_ctx, ctx->re_abuffer, ctx->abuffer, buflen / ctx->input_size);
-buflen = 0;
+	      out_size = av_samples_get_buffer_size(&out_linesize, 2, frame->nb_samples, AV_SAMPLE_FMT_S16, 0);
 
-	      if (buflen == 0)
+	      buf = av_realloc(ctx->re_abuffer, out_size);
+	      if (!buf)
+		{
+		  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample buffer!\n");
+
+		  return -1;
+		}
+
+	      out_samples = avresample_convert(ctx->resample_ctx, (uint8_t **)&buf, out_linesize, frame->nb_samples,
+	                                       (uint8_t **)frame->data, frame->linesize[0], frame->nb_samples);
+	      if (out_samples < 0)
 		{
 		  DPRINTF(E_LOG, L_XCODE, "Resample returned no samples!\n");
 
 		  return -1;
 		}
 
-	      buflen = buflen * 2 * 2; /* 16bit samples, 2 channels */
-	      buf = ctx->re_abuffer;
+	      buflen = out_samples * av_get_bytes_per_sample(AV_SAMPLE_FMT_S16) * 2; /* 16bit samples, 2 channels */
 	    }
 	  else
-	    buf = ctx->abuffer;
+	    {
+	      buf = (int16_t *)frame->data[0];
+	      buflen = av_samples_get_buffer_size(NULL, ctx->acodec->channels, frame->nb_samples, ctx->acodec->sample_fmt, 1);
+	    }
 
 #if BYTE_ORDER == BIG_ENDIAN
 	  /* swap buffer, LE16 */
@@ -478,7 +467,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
     }
 
   ctx->need_resample = (ctx->acodec->sample_fmt != AV_SAMPLE_FMT_S16)
-                       || (ctx->acodec->channel_layout != AV_CH_LAYOUT_STEREO)
+                       || (ctx->acodec->channels != 2)
                        || (ctx->acodec->sample_rate != 44100);
 
   if (ctx->need_resample)
@@ -488,7 +477,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
       ctx->resample_ctx = avresample_alloc_context();
       if (!ctx->resample_ctx)
 	{
-	  DPRINTF(E_WARN, L_XCODE, "Out of memory for resample context\n");
+	  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample context\n");
 
 	  goto setup_fail_codec;
 	}
@@ -503,28 +492,11 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
       ret = avresample_open(ctx->resample_ctx);
       if (ret < 0)
 	{
-	  DPRINTF(E_WARN, L_XCODE, "Out of memory for resample context\n");
+	  DPRINTF(E_LOG, L_XCODE, "Could not open resample context\n");
 
 	  avresample_free(&ctx->resample_ctx);
 	  goto setup_fail_codec;
 	}
-
-      ctx->re_abuffer = (int16_t *)av_malloc(XCODE_BUFFER_SIZE * 2);
-      if (!ctx->re_abuffer)
-	{
-	  DPRINTF(E_WARN, L_XCODE, "Could not allocate resample buffer\n");
-
-	  avresample_free(&ctx->resample_ctx);
-	  goto setup_fail_codec;
-	}
-
-#if LIBAVUTIL_VERSION_MAJOR >= 52 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 4)
-      ctx->input_size = ctx->acodec->channels * av_get_bytes_per_sample(ctx->acodec->sample_fmt);
-#elif LIBAVCODEC_VERSION_MAJOR >= 53
-      ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_fmt(ctx->acodec->sample_fmt) / 8;
-#else
-      ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_format(ctx->acodec->sample_fmt) / 8;
-#endif
     }
 
   ctx->duration = mfi->song_length;
