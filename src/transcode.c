@@ -477,9 +477,9 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
     {
       if (!ctx->acodec->channel_layout)
 	{
-	  ctx->acodec->channel_layout = av_get_default_channel_layout(ctx->acodec->channels);
-
 	  DPRINTF(E_DBG, L_XCODE, "Resample requires channel_layout, but none from ffmpeg. Setting to default.\n");
+
+	  ctx->acodec->channel_layout = av_get_default_channel_layout(ctx->acodec->channels);
 	}
 
       DPRINTF(E_DBG, L_XCODE, "Will resample, decoded stream is: %s, %d channels (layout %" PRIu64 "), %d Hz\n",
