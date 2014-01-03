@@ -1495,7 +1495,7 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
       return;
     }
 
-  if (reqd_rev == 1)
+  if ((reqd_rev == 0) || (reqd_rev == 1))
     {
       ret = make_playstatusupdate(evbuf);
       if (ret < 0)
