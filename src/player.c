@@ -635,14 +635,16 @@ player_queue_make(struct query_params *qp, const char *sort)
 }
 
 static int
-fetch_first_query_match(const char *query, struct db_media_file_info *dbmfi)
+find_first_song_id(const char *query)
 {
+  struct db_media_file_info dbmfi;
   struct query_params qp;
-  uint32_t id;
+  int id;
   int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
 
+  /* We only want the id of the first song */
   qp.type = Q_ITEMS;
   qp.idx_type = I_FIRST;
   qp.sort = S_NONE;
@@ -664,9 +666,9 @@ fetch_first_query_match(const char *query, struct db_media_file_info *dbmfi)
       goto no_query_start;
     }
 
-  if (((ret = db_query_fetch_file(&qp, dbmfi)) == 0) && (dbmfi->id))
+  if (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      ret = safe_atou32(dbmfi->id, &id);
+      ret = safe_atoi32(dbmfi.id, &id);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Invalid song id in query result!\n");
@@ -674,12 +676,12 @@ fetch_first_query_match(const char *query, struct db_media_file_info *dbmfi)
 	  goto no_result;
 	}
 
-      DPRINTF(E_DBG, L_PLAYER, "Found index song\n");
+      DPRINTF(E_DBG, L_PLAYER, "Found index song (id %d)\n", id);
       ret = 1;
     }
   else
     {
-      DPRINTF(E_LOG, L_PLAYER, "No song matches query (num %d): %s\n", qp.results, qp.filter);
+      DPRINTF(E_LOG, L_PLAYER, "No song matches query (results %d): %s\n", qp.results, qp.filter);
 
       goto no_result;
     }
@@ -690,8 +692,9 @@ fetch_first_query_match(const char *query, struct db_media_file_info *dbmfi)
  no_query_start:
   if (qp.filter)
     free(qp.filter);
+
   if (ret == 1)
-    return 0;
+    return id;
   else
     return -1;
 }
@@ -701,22 +704,20 @@ fetch_first_query_match(const char *query, struct db_media_file_info *dbmfi)
 int
 player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk)
 {
+  struct media_file_info *mfi;
   struct query_params qp;
   struct player_source *ps;
-  struct db_media_file_info dbmfi;
-  uint32_t id;
   int64_t albumid;
-  int64_t artistid;
   int plid;
+  int id;
   int idx;
   int ret;
   int len;
   char *s;
   char buf[1024];
 
-  /* If query doesn't give even a single result give up */
-  ret = fetch_first_query_match(query, &dbmfi);
-  if (ret < 0)
+  id = find_first_song_id(query);
+  if (id < 0)
     return -1;
 
   memset(&qp, 0, sizeof(struct query_params));
@@ -725,26 +726,19 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
   qp.limit = 0;
   qp.sort = S_NONE;
 
-  id = 0;
-
-  if (quirk && dbmfi.songartistid)
+  if (quirk)
     {
-      safe_atou32(dbmfi.id, &id);
       qp.sort = S_ALBUM;
       qp.type = Q_ITEMS;
-      ret = safe_atoi64(dbmfi.songartistid, &artistid);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "User requested song from artist list, but artistid is not a valid number!\n");
-
-	  return -1;
-	}
-      snprintf(buf, sizeof(buf), "f.songartistid = %" PRIi64, artistid);
+      mfi = db_file_fetch_byid(id);
+      if (!mfi)
+	return -1;
+      snprintf(buf, sizeof(buf), "f.songartistid = %" PRIi64, mfi->songartistid);
+      free_mfi(mfi, 0);
       qp.filter = strdup(buf);
     }
   else if (queuefilter)
     {
-      safe_atou32(dbmfi.id, &id);
       len = strlen(queuefilter);
       if ((len > 6) && (strncmp(queuefilter, "album:", 6) == 0))
 	{
@@ -790,6 +784,7 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
     }
   else
     {
+      id = 0;
       qp.type = Q_ITEMS;
       qp.filter = daap_query_parse_sql(query);
     }
