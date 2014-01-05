@@ -706,6 +706,7 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
   struct db_media_file_info dbmfi;
   uint32_t id;
   int64_t albumid;
+  int64_t artistid;
   int plid;
   int idx;
   int ret;
@@ -726,15 +727,19 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 
   id = 0;
 
-  if (quirk && dbmfi.album_artist)
+  if (quirk && dbmfi.songartistid)
     {
       safe_atou32(dbmfi.id, &id);
       qp.sort = S_ALBUM;
       qp.type = Q_ITEMS;
-      s = db_escape_string(dbmfi.album_artist);
-      if (!s)
-	return -1;
-      snprintf(buf, sizeof(buf), "f.album_artist = '%s'", s);
+      ret = safe_atoi64(dbmfi.songartistid, &artistid);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "User requested song from artist list, but artistid is not a valid number!\n");
+
+	  return -1;
+	}
+      snprintf(buf, sizeof(buf), "f.songartistid = %" PRIi64, artistid);
       qp.filter = strdup(buf);
     }
   else if (queuefilter)
