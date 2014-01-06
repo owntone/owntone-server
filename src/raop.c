@@ -1191,7 +1191,7 @@ raop_check_cseq(struct raop_session *rs, struct evrtsp_request *req)
   /* AirFoil won't return cseq, so skip the check */
   if (reply_cseq < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "No CSeq in reply, skipping check\n");
+      DPRINTF(E_INFO, L_RAOP, "No CSeq in reply, skipping check\n");
 
       return 0;
     }
