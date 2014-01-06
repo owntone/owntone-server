@@ -347,9 +347,12 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 
   ctx->offset += processed;
 
-#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
   if (frame)
     avcodec_free_frame(&frame);
+#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+  if (frame)
+    av_free(frame);
 #endif
 
   return processed;
