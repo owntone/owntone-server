@@ -31,8 +31,8 @@ Libraries:
         from <http://libav.org/releases/>
  - libconfuse
         from <http://www.nongnu.org/confuse/>
- - libevent 1.4 (** NOT libevent 2 **)
-        from <http://www.monkey.org/~provos/libevent/>
+ - libevent 2.1.4+
+        from <http://libevent.org/>
  - libavl
         /!\ Read below
  - MiniXML (aka mxml or libmxml)
