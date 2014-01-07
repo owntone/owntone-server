@@ -39,7 +39,7 @@
 #endif
 
 #include <event.h>
-#include "evhttp/evhttp.h"
+#include <evhttp.h>
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>

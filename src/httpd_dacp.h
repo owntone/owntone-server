@@ -3,7 +3,7 @@
 #define __HTTPD_DACP_H__
 
 #include <event.h>
-#include "evhttp/evhttp.h"
+#include <evhttp.h>
 
 int
 dacp_init(void);

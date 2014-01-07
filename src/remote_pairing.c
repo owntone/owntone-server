@@ -47,7 +47,7 @@
 #endif
 
 #include <event.h>
-#include "evhttp/evhttp.h"
+#include <evhttp.h>
 
 #include <gcrypt.h>
 
