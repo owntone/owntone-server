@@ -72,9 +72,6 @@ struct icy_ctx
 static void
 free_icy(struct icy_ctx *ctx)
 {
-  if (ctx->url)
-    free(ctx->url);
-
   if (ctx)
     free(ctx);
 }
@@ -170,7 +167,7 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
     }
   memset(ctx, 0, sizeof(struct icy_ctx));
 
-  ctx->url = evhttp_encode_uri(url);
+  ctx->url = url;
 
   /* TODO https */
   av_url_split(NULL, 0, NULL, 0, ctx->hostname, sizeof(ctx->hostname), &ctx->port, ctx->path, sizeof(ctx->path), ctx->url);
