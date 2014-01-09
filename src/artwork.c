@@ -579,7 +579,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
   int format_ok;
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for %s, max w = %d, max h = %d\n", filename, max_w, max_h);
+  DPRINTF(E_DBG, L_ART, "Getting artwork (parameters: max w %d, max h = %d)\n", max_w, max_h);
 
   src_ctx = NULL;
 
@@ -678,7 +678,11 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
   int format_ok;
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for %s, max w = %d, max h = %d\n", filename, max_w, max_h);
+  /* If item is an internet stream don't look for artwork */
+  if (strncmp(filename, "http://", strlen("http://")) == 0)
+    return -1;
+
+  DPRINTF(E_SPAM, L_ART, "Trying embedded artwork in %s\n", filename);
 
   src_ctx = NULL;
 
@@ -719,11 +723,13 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
 
   if (s == src_ctx->nb_streams)
     {
-      DPRINTF(E_DBG, L_ART, "Did not find embedded artwork in '%s'\n", filename);
+      DPRINTF(E_SPAM, L_ART, "Did not find embedded artwork in '%s'\n", filename);
 
       avformat_close_input(&src_ctx);
       return -1;
     }
+  else
+    DPRINTF(E_DBG, L_ART, "Found embedded artwork in '%s'\n", filename);
 
   src_st = src_ctx->streams[s];
 
@@ -732,7 +738,7 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
   /* Fastpath */
   if (!ret && format_ok)
     {
-      DPRINTF(E_DBG, L_ART, "Artwork does not need rescale, sending original picture\n");
+      DPRINTF(E_DBG, L_ART, "Artwork not too large, using original image\n");
 
       ret = evbuffer_expand(evbuf, src_st->attached_pic.size);
       if (ret < 0)
@@ -752,7 +758,11 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
         ret = format_ok;
     }
   else
-    ret = artwork_rescale(src_ctx, s, target_w, target_h, format, evbuf);
+    {
+      DPRINTF(E_DBG, L_ART, "Artwork too large, rescaling image\n");
+
+      ret = artwork_rescale(src_ctx, s, target_w, target_h, format, evbuf);
+    }
 
   avformat_close_input(&src_ctx);
 
@@ -774,6 +784,10 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
   int len;
   int i;
   int ret;
+
+  /* If item is an internet stream don't look for artwork */
+  if (strncmp(path, "http://", strlen("http://")) == 0)
+    return -1;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -799,7 +813,7 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
 	  continue;
 	}
 
-      DPRINTF(E_DBG, L_ART, "Trying own artwork file %s\n", artwork);
+      DPRINTF(E_SPAM, L_ART, "Trying own artwork file %s\n", artwork);
 
       ret = access(artwork, F_OK);
       if (ret < 0)
@@ -810,6 +824,8 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
 
   if (i == (sizeof(cover_extension) / sizeof(cover_extension[0])))
     return -1;
+
+  DPRINTF(E_DBG, L_ART, "Found own artwork file %s\n", artwork);
 
   return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
@@ -825,6 +841,10 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
   int ret;
   cfg_t *lib;
   int nbasenames;
+
+  /* If item is an internet stream don't look for artwork */
+  if (strncmp(path, "http://", strlen("http://")) == 0)
+    return -1;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -861,7 +881,7 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
 	      continue;
 	    }
 
-	  DPRINTF(E_DBG, L_ART, "Trying directory artwork file %s\n", artwork);
+	  DPRINTF(E_SPAM, L_ART, "Trying directory artwork file %s\n", artwork);
 
 	  ret = access(artwork, F_OK);
 	  if (ret < 0)
@@ -877,6 +897,8 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
   if (i == nbasenames)
     return -1;
 
+  DPRINTF(E_DBG, L_ART, "Found directory artwork file %s\n", artwork);
+
   return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
 
@@ -889,6 +911,10 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
   int len;
   int i;
   int ret;
+
+  /* If item is an internet stream don't look for artwork */
+  if (strncmp(path, "http://", strlen("http://")) == 0)
+    return -1;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -922,7 +948,7 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
 	  continue;
 	}
 
-      DPRINTF(E_DBG, L_ART, "Trying parent directory artwork file %s\n", artwork);
+      DPRINTF(E_SPAM, L_ART, "Trying parent directory artwork file %s\n", artwork);
 
       ret = access(artwork, F_OK);
       if (ret < 0)
@@ -934,6 +960,8 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
   if (i == (sizeof(cover_extension) / sizeof(cover_extension[0])))
     return -1;
 
+  DPRINTF(E_DBG, L_ART, "Found parent directory artwork file %s\n", artwork);
+
   return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
 
@@ -943,10 +971,6 @@ int
 artwork_get_item_filename(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   int ret;
-
-  /* If item is an internet stream don't look for artwork */
-  if (strncmp(filename, "http://", strlen("http://")) == 0)
-    return -1;
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
   /* Look for embedded artwork */
@@ -1020,12 +1044,11 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
       goto files_art;
     }
 
-  got_art = -1;
-  while ((got_art < 0) && ((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
+  got_art = 0;
+  while (!got_art && ((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
     {
-      got_art = artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf);
-      if (got_art < 0)
-        got_art = artwork_get_parentdir_image(dir, 1, max_w, max_h, format, evbuf);
+      got_art = (artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf) > 0)
+                || (artwork_get_parentdir_image(dir, 1, max_w, max_h, format, evbuf) > 0);
     }
 
   db_query_end(&qp);
@@ -1051,10 +1074,11 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
       return -1;
     }
 
-  got_art = -1;
-  while ((got_art < 0) && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  got_art = 0;
+  while (!got_art && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      got_art = artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf);
+      got_art = (artwork_get_embedded_image(dbmfi.path, max_w, max_h, format, evbuf) > 0)
+                || (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
     }
 
   db_query_end(&qp);
@@ -1063,6 +1087,8 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_ITEMS results\n");
   else if (got_art > 0)
     return got_art;
+
+  DPRINTF(E_DBG, L_ART, "No artwork found for group %d\n", id);
 
   return -1;
 }
