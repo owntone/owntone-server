@@ -663,6 +663,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
   return ret;
 }
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
 static int
 artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
@@ -760,6 +761,7 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
 
   return ret;
 }
+#endif
 
 static int
 artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuffer *evbuf)
