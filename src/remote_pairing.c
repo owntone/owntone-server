@@ -748,7 +748,7 @@ touch_remote_cb(const char *name, const char *type, const char *domain, const ch
 	  return;
 	}
 
-      DPRINTF(E_LOG, L_REMOTE, "Discovered remote %s (id %s) at %s:%d, paircode %s\n", devname, name, address, port, paircode);
+      DPRINTF(E_LOG, L_REMOTE, "Discovered remote '%s' (id %s) at %s:%d, paircode %s\n", devname, name, address, port, paircode);
 
       /* Add the data to the list, adding the remote to the list if needed */
       pthread_mutex_lock(&remote_lck);
