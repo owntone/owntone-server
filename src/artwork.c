@@ -161,9 +161,6 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   AVCodec *img_decoder;
   AVCodec *img_encoder;
 
-  int64_t pix_fmt_mask;
-  const enum PixelFormat *pix_fmts;
-
   AVFrame *i_frame;
   AVFrame *o_frame;
 
@@ -294,7 +291,12 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   dst->codec_type = CODEC_TYPE_VIDEO;
 #endif
 
-  pix_fmt_mask = 0;
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  dst->pix_fmt = avcodec_find_best_pix_fmt2((enum AVPixelFormat *)img_encoder->pix_fmts, src->pix_fmt, 1, NULL);
+#else
+  const enum PixelFormat *pix_fmts;
+  int64_t pix_fmt_mask = 0;
+
   pix_fmts = img_encoder->pix_fmts;
   while (pix_fmts && (*pix_fmts != -1))
     {
@@ -303,6 +305,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
     }
 
   dst->pix_fmt = avcodec_find_best_pix_fmt(pix_fmt_mask, src->pix_fmt, 1, NULL);
+#endif
 
   if (dst->pix_fmt < 0)
     {
