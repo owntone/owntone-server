@@ -579,7 +579,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
   int format_ok;
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Getting artwork (parameters: max w %d, max h = %d)\n", max_w, max_h);
+  DPRINTF(E_DBG, L_ART, "Getting artwork (max destination width %d height %d)\n", max_w, max_h);
 
   src_ctx = NULL;
 
@@ -1077,8 +1077,12 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   got_art = 0;
   while (!got_art && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
       got_art = (artwork_get_embedded_image(dbmfi.path, max_w, max_h, format, evbuf) > 0)
                 || (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
+#else
+      got_art = (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
+#endif
     }
 
   db_query_end(&qp);
