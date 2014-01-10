@@ -851,7 +851,7 @@ raop_metadata_prepare(int id, uint64_t rtptime)
   ret = artwork_get_item_filename(dbmfi.path, 600, 600, ART_CAN_PNG | ART_CAN_JPEG, rmd->artwork);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Failed to retrieve artwork for '%s' (%d); no artwork will be sent\n", dbmfi.title, id);
+      DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for '%s' (%d); no artwork will be sent\n", dbmfi.title, id);
 
       evbuffer_free(rmd->artwork);
       rmd->artwork = NULL;

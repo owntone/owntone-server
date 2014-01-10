@@ -19,9 +19,10 @@ Tools required:
  - gettext
  - gawk
  - gperf
+ - antlr3 (see below)
 
 Libraries:
- - libantlr3c (ANTLR3 C runtime, version 3.2 for tarball builds)
+ - libantlr3c (ANTLR3 C runtime, use the same version as antlr3, see below)
         from <http://www.antlr.org/download/C>
  - Avahi client libraries (avahi-client), 0.6.24 minimum
         from <http://avahi.org/>
@@ -73,8 +74,10 @@ multimedia applications. The version of libav you use will potentially have a
 great influence on your experience with forked-daapd.
 
 forked-daapd is known to be working with libav 0.8.x, but it also supports older
-versions of libav and ffmpeg. Versions of libav/ffmpeg newer than 0.8.x/0.11.x
-do not work well with forked-daapd.
+versions of libav and ffmpeg.
+
+Embedded artwork is only supported if your version of forked-daapd is built
+with libav 9+ or ffmpeg 0.11+.
 
 
 Building from the git tree
@@ -87,7 +90,6 @@ The source for this version of forked-daapd can be found here:
 The original (now unmaintained) source can be found here:
 
   <http://git.debian.org/?p=users/jblache/forked-daapd.git>
-  <http://alioth.debian.org/~jblache/forked-daapd/>
 
 Required tools:
  - ANTLR v3 is required to build forked-daapd, along with its C runtime

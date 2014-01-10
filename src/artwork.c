@@ -96,6 +96,56 @@ artwork_read(char *filename, struct evbuffer *evbuf)
 }
 
 static int
+rescale_needed(AVCodecContext *src, int max_w, int max_h, int *target_w, int *target_h)
+{
+  int need_rescale;
+
+  DPRINTF(E_DBG, L_ART, "Original image dimensions: w %d h %d\n", src->width, src->height);
+
+  need_rescale = 1;
+
+  if ((max_w <= 0) || (max_h <= 0)) /* No valid dimensions, use original */
+    {
+      need_rescale = 0;
+
+      *target_w = src->width;
+      *target_h = src->height;
+    }
+  else if ((src->width <= max_w) && (src->height <= max_h)) /* Smaller than target */
+    {
+      need_rescale = 0;
+
+      *target_w = src->width;
+      *target_h = src->height;
+    }
+  else if (src->width * max_h > src->height * max_w)   /* Wider aspect ratio than target */
+    {
+      *target_w = max_w;
+      *target_h = (double)max_w * ((double)src->height / (double)src->width);
+    }
+  else                                                 /* Taller or equal aspect ratio */
+    {
+      *target_w = (double)max_h * ((double)src->width / (double)src->height);
+      *target_h = max_h;
+    }
+
+  DPRINTF(E_DBG, L_ART, "Raw destination width %d height %d\n", *target_w, *target_h);
+
+  if ((*target_h > max_h) && (max_h > 0))
+    *target_h = max_h;
+
+  /* PNG prefers even row count */
+  *target_w += *target_w % 2;
+
+  if ((*target_w > max_w) && (max_w > 0))
+    *target_w = max_w - (max_w % 2);
+
+  DPRINTF(E_DBG, L_ART, "Destination width %d height %d\n", *target_w, *target_h);
+
+  return need_rescale;
+}
+
+static int
 artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int format, struct evbuffer *evbuf)
 {
   uint8_t *buf;
@@ -110,9 +160,6 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
 
   AVCodec *img_decoder;
   AVCodec *img_encoder;
-
-  int64_t pix_fmt_mask;
-  const enum PixelFormat *pix_fmts;
 
   AVFrame *i_frame;
   AVFrame *o_frame;
@@ -244,7 +291,12 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   dst->codec_type = CODEC_TYPE_VIDEO;
 #endif
 
-  pix_fmt_mask = 0;
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  dst->pix_fmt = avcodec_find_best_pix_fmt2((enum AVPixelFormat *)img_encoder->pix_fmts, src->pix_fmt, 1, NULL);
+#else
+  const enum PixelFormat *pix_fmts;
+  int64_t pix_fmt_mask = 0;
+
   pix_fmts = img_encoder->pix_fmts;
   while (pix_fmts && (*pix_fmts != -1))
     {
@@ -253,6 +305,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
     }
 
   dst->pix_fmt = avcodec_find_best_pix_fmt(pix_fmt_mask, src->pix_fmt, 1, NULL);
+#endif
 
   if (dst->pix_fmt < 0)
     {
@@ -520,15 +573,13 @@ static int
 artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   AVFormatContext *src_ctx;
-  AVCodecContext *src;
   int s;
   int target_w;
   int target_h;
-  int need_rescale;
   int format_ok;
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request parameters: max w = %d, max h = %d\n", max_w, max_h);
+  DPRINTF(E_DBG, L_ART, "Getting artwork (max destination width %d height %d)\n", max_w, max_h);
 
   src_ctx = NULL;
 
@@ -588,52 +639,10 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
       return -1;
     }
 
-  src = src_ctx->streams[s]->codec;
-
-  DPRINTF(E_DBG, L_ART, "Original image '%s': w %d h %d\n", filename, src->width, src->height);
-
-  need_rescale = 1;
-
-  if ((max_w <= 0) || (max_h <= 0)) /* No valid dimensions, use original */
-    {
-      need_rescale = 0;
-
-      target_w = src->width;
-      target_h = src->height;
-    }
-  else if ((src->width <= max_w) && (src->height <= max_h)) /* Smaller than target */
-    {
-      need_rescale = 0;
-
-      target_w = src->width;
-      target_h = src->height;
-    }
-  else if (src->width * max_h > src->height * max_w)   /* Wider aspect ratio than target */
-    {
-      target_w = max_w;
-      target_h = (double)max_w * ((double)src->height / (double)src->width);
-    }
-  else                                                 /* Taller or equal aspect ratio */
-    {
-      target_w = (double)max_h * ((double)src->width / (double)src->height);
-      target_h = max_h;
-    }
-
-  DPRINTF(E_DBG, L_ART, "Raw destination width %d height %d\n", target_w, target_h);
-
-  if ((target_h > max_h) && (max_h > 0))
-    target_h = max_h;
-
-  /* PNG prefers even row count */
-  target_w += target_w % 2;
-
-  if ((target_w > max_w) && (max_w > 0))
-    target_w = max_w - (max_w % 2);
-
-  DPRINTF(E_DBG, L_ART, "Destination width %d height %d\n", target_w, target_h);
+  ret = rescale_needed(src_ctx->streams[s]->codec, max_w, max_h, &target_w, &target_h);
 
   /* Fastpath */
-  if (!need_rescale && format_ok)
+  if (!ret && format_ok)
     {
       ret = artwork_read(filename, evbuf);
       if (ret == 0)
@@ -657,6 +666,115 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
   return ret;
 }
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
+static int
+artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
+{
+  AVFormatContext *src_ctx;
+  AVStream *src_st;
+  int s;
+  int target_w;
+  int target_h;
+  int format_ok;
+  int ret;
+
+  /* If item is an internet stream don't look for artwork */
+  if (strncmp(filename, "http://", strlen("http://")) == 0)
+    return -1;
+
+  DPRINTF(E_SPAM, L_ART, "Trying embedded artwork in %s\n", filename);
+
+  src_ctx = NULL;
+
+  ret = avformat_open_input(&src_ctx, filename, NULL, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_ART, "Cannot open media file '%s': %s\n", filename, strerror(AVUNERROR(ret)));
+
+      return -1;
+    }
+
+  ret = avformat_find_stream_info(src_ctx, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_ART, "Cannot get stream info: %s\n", strerror(AVUNERROR(ret)));
+
+      avformat_close_input(&src_ctx);
+      return -1;
+    }
+
+  format_ok = 0;
+  for (s = 0; s < src_ctx->nb_streams; s++)
+    {
+      if (src_ctx->streams[s]->disposition & AV_DISPOSITION_ATTACHED_PIC)
+	{
+	  if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_PNG)
+	    {
+	      format_ok = (format & ART_CAN_PNG) ? ART_FMT_PNG : 0;
+	      break;
+	    }
+	  else if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_MJPEG)
+	    {
+	      format_ok = (format & ART_CAN_JPEG) ? ART_FMT_JPEG : 0;
+	      break;
+	    }
+	}
+    }
+
+  if (s == src_ctx->nb_streams)
+    {
+      DPRINTF(E_SPAM, L_ART, "Did not find embedded artwork in '%s'\n", filename);
+
+      avformat_close_input(&src_ctx);
+      return -1;
+    }
+  else
+    DPRINTF(E_DBG, L_ART, "Found embedded artwork in '%s'\n", filename);
+
+  src_st = src_ctx->streams[s];
+
+  ret = rescale_needed(src_st->codec, max_w, max_h, &target_w, &target_h);
+
+  /* Fastpath */
+  if (!ret && format_ok)
+    {
+      DPRINTF(E_DBG, L_ART, "Artwork not too large, using original image\n");
+
+      ret = evbuffer_expand(evbuf, src_st->attached_pic.size);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_ART, "Out of memory for artwork\n");
+
+	  avformat_close_input(&src_ctx);
+	  return -1;
+	}
+
+      ret = evbuffer_add(evbuf, src_st->attached_pic.data, src_st->attached_pic.size);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_ART, "Could not add embedded image to event buffer\n");
+	}
+      else
+        ret = format_ok;
+    }
+  else
+    {
+      DPRINTF(E_DBG, L_ART, "Artwork too large, rescaling image\n");
+
+      ret = artwork_rescale(src_ctx, s, target_w, target_h, format, evbuf);
+    }
+
+  avformat_close_input(&src_ctx);
+
+  if (ret < 0)
+    {
+      if (EVBUFFER_LENGTH(evbuf) > 0)
+	evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+    }
+
+  return ret;
+}
+#endif
 
 static int
 artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuffer *evbuf)
@@ -666,6 +784,10 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
   int len;
   int i;
   int ret;
+
+  /* If item is an internet stream don't look for artwork */
+  if (strncmp(path, "http://", strlen("http://")) == 0)
+    return -1;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -691,7 +813,7 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
 	  continue;
 	}
 
-      DPRINTF(E_DBG, L_ART, "Trying own artwork file %s\n", artwork);
+      DPRINTF(E_SPAM, L_ART, "Trying own artwork file %s\n", artwork);
 
       ret = access(artwork, F_OK);
       if (ret < 0)
@@ -702,6 +824,8 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
 
   if (i == (sizeof(cover_extension) / sizeof(cover_extension[0])))
     return -1;
+
+  DPRINTF(E_DBG, L_ART, "Found own artwork file %s\n", artwork);
 
   return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
@@ -717,6 +841,10 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
   int ret;
   cfg_t *lib;
   int nbasenames;
+
+  /* If item is an internet stream don't look for artwork */
+  if (strncmp(path, "http://", strlen("http://")) == 0)
+    return -1;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -753,7 +881,7 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
 	      continue;
 	    }
 
-	  DPRINTF(E_DBG, L_ART, "Trying directory artwork file %s\n", artwork);
+	  DPRINTF(E_SPAM, L_ART, "Trying directory artwork file %s\n", artwork);
 
 	  ret = access(artwork, F_OK);
 	  if (ret < 0)
@@ -769,6 +897,8 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
   if (i == nbasenames)
     return -1;
 
+  DPRINTF(E_DBG, L_ART, "Found directory artwork file %s\n", artwork);
+
   return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
 
@@ -781,6 +911,10 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
   int len;
   int i;
   int ret;
+
+  /* If item is an internet stream don't look for artwork */
+  if (strncmp(path, "http://", strlen("http://")) == 0)
+    return -1;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -814,7 +948,7 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
 	  continue;
 	}
 
-      DPRINTF(E_DBG, L_ART, "Trying parent directory artwork file %s\n", artwork);
+      DPRINTF(E_SPAM, L_ART, "Trying parent directory artwork file %s\n", artwork);
 
       ret = access(artwork, F_OK);
       if (ret < 0)
@@ -826,6 +960,8 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
   if (i == (sizeof(cover_extension) / sizeof(cover_extension[0])))
     return -1;
 
+  DPRINTF(E_DBG, L_ART, "Found parent directory artwork file %s\n", artwork);
+
   return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
 
@@ -836,7 +972,12 @@ artwork_get_item_filename(char *filename, int max_w, int max_h, int format, stru
 {
   int ret;
 
-  /* FUTURE: look at embedded artwork */
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
+  /* Look for embedded artwork */
+  ret = artwork_get_embedded_image(filename, max_w, max_h, format, evbuf);
+  if (ret > 0)
+    return ret;
+#endif
 
   /* Look for basename(filename).{png,jpg} */
   ret = artwork_get_own_image(filename, max_w, max_h, format, evbuf);
@@ -903,12 +1044,11 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
       goto files_art;
     }
 
-  got_art = -1;
-  while ((got_art < 0) && ((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
+  got_art = 0;
+  while (!got_art && ((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
     {
-      got_art = artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf);
-      if (got_art < 0)
-        got_art = artwork_get_parentdir_image(dir, 1, max_w, max_h, format, evbuf);
+      got_art = (artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf) > 0)
+                || (artwork_get_parentdir_image(dir, 1, max_w, max_h, format, evbuf) > 0);
     }
 
   db_query_end(&qp);
@@ -934,10 +1074,15 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
       return -1;
     }
 
-  got_art = -1;
-  while ((got_art < 0) && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+  got_art = 0;
+  while (!got_art && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      got_art = artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf);
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
+      got_art = (artwork_get_embedded_image(dbmfi.path, max_w, max_h, format, evbuf) > 0)
+                || (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
+#else
+      got_art = (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
+#endif
     }
 
   db_query_end(&qp);
@@ -946,6 +1091,8 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_ITEMS results\n");
   else if (got_art > 0)
     return got_art;
+
+  DPRINTF(E_DBG, L_ART, "No artwork found for group %d\n", id);
 
   return -1;
 }

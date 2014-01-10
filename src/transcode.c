@@ -44,6 +44,10 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/mathematics.h>
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+# include <libavutil/opt.h>
+# include <libavresample/avresample.h>
+#endif
 
 #include "logger.h"
 #include "conffile.h"
@@ -65,9 +69,13 @@ struct transcode_ctx {
   int16_t *abuffer;
 
   /* Resampling */
-  int need_resample;
-  int input_size;
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  AVAudioResampleContext *resample_ctx;
+#else
   ReSampleContext *resample_ctx;
+  int input_size;
+#endif
+  int need_resample;
   int16_t *re_abuffer;
 
   off_t offset;
@@ -147,9 +155,15 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 #if BYTE_ORDER == BIG_ENDIAN
   int i;
 #endif
-#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
-  AVFrame frame;
-  int got_frame = 0;
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  AVFrame *frame = NULL;
+  int got_frame;
+  int out_size;
+  int out_linesize;
+  int out_samples;
+#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+  AVFrame *frame = NULL;
+  int got_frame;
 #endif
 
   processed = 0;
@@ -167,19 +181,29 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
       /* Decode data */
       while (ctx->apacket2.size > 0)
 	{
-	  buflen = XCODE_BUFFER_SIZE;
-
 #if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
-	  if (ctx->acodec->get_buffer != avcodec_default_get_buffer)
-	    {
-	      DPRINTF(E_WARN, L_XCODE, "Custom get_buffer, not allowed by ffmpeg/libav. Setting to default.\n");
+	  got_frame = 0;
 
-	      ctx->acodec->get_buffer = avcodec_default_get_buffer;
+	  if (!frame)
+	    {
+	      frame = avcodec_alloc_frame();
+	      if (!frame)
+		{
+		  DPRINTF(E_LOG, L_XCODE, "Out of memory for decoded frame\n");
+
+		  return -1;
+		}
 	    }
+	  else
+            avcodec_get_frame_defaults(frame);
+
+
 	  used = avcodec_decode_audio4(ctx->acodec,
-				       &frame, &got_frame,
+				       frame, &got_frame,
 				       &ctx->apacket2);
 #else
+	  buflen = XCODE_BUFFER_SIZE;
+
 	  used = avcodec_decode_audio3(ctx->acodec,
 				       ctx->abuffer, &buflen,
 				       &ctx->apacket2);
@@ -195,14 +219,20 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	  ctx->apacket2.data += used;
 	  ctx->apacket2.size -= used;
 
-#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
-	  /* This part is from the libav wrapper for avcodec_decode_audio3 - it may be useless in this context */
-	  if (got_frame != 0)
+	  /* No frame decoded this time around */
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+	  if (!got_frame)
+	    continue;
+#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+	  if (!got_frame)
+	    continue;
+	  else
 	    {
+	      /* This part is from the libav wrapper for avcodec_decode_audio3 */
 	      int ch, plane_size;
 	      int planar = av_sample_fmt_is_planar(ctx->acodec->sample_fmt);
 	      int data_size = av_samples_get_buffer_size(&plane_size, ctx->acodec->channels, 
-				frame.nb_samples, ctx->acodec->sample_fmt, 1);
+				frame->nb_samples, ctx->acodec->sample_fmt, 1);
 
 	      if (XCODE_BUFFER_SIZE < data_size)
 		{
@@ -211,28 +241,54 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 		  continue;
 		}
 
-	      memcpy(ctx->abuffer, frame.extended_data[0], plane_size);
+	      memcpy(ctx->abuffer, frame->extended_data[0], plane_size);
 
 	      if (planar && ctx->acodec->channels > 1)
 		{
 		  uint8_t *out = ((uint8_t *)ctx->abuffer) + plane_size;
 		  for (ch = 1; ch < ctx->acodec->channels; ch++)
 		    {
-		      memcpy(out, frame.extended_data[ch], plane_size);
+		      memcpy(out, frame->extended_data[ch], plane_size);
 		      out += plane_size;
 		    }
 		}
 	      buflen = data_size;
 	    }
-	  else
-	    continue;
 #else
-	  /* No frame decoded this time around */
 	  if (buflen == 0)
 	    continue;
 #endif
 
 	  if (ctx->need_resample)
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+	    {
+	      out_size = av_samples_get_buffer_size(&out_linesize, 2, frame->nb_samples, AV_SAMPLE_FMT_S16, 0);
+
+	      buf = av_realloc(ctx->re_abuffer, out_size);
+	      if (!buf)
+		{
+		  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample buffer!\n");
+
+		  return -1;
+		}
+
+	      out_samples = avresample_convert(ctx->resample_ctx, (uint8_t **)&buf, out_linesize, frame->nb_samples,
+	                                       (uint8_t **)frame->data, frame->linesize[0], frame->nb_samples);
+	      if (out_samples < 0)
+		{
+		  DPRINTF(E_LOG, L_XCODE, "Resample returned no samples!\n");
+
+		  return -1;
+		}
+
+	      buflen = out_samples * 2 * 2; /* 16bit samples, 2 channels */
+	    }
+	  else
+	    {
+	      buf = (int16_t *)frame->data[0];
+	      buflen = av_samples_get_buffer_size(NULL, ctx->acodec->channels, frame->nb_samples, ctx->acodec->sample_fmt, 1);
+	    }
+#else
 	    {
 	      buflen = audio_resample(ctx->resample_ctx, ctx->re_abuffer, ctx->abuffer, buflen / ctx->input_size);
 
@@ -247,6 +303,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	    }
 	  else
 	    buf = ctx->abuffer;
+#endif
 
 #if BYTE_ORDER == BIG_ENDIAN
 	  /* swap buffer, LE16 */
@@ -289,6 +346,14 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
     }
 
   ctx->offset += processed;
+
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  if (frame)
+    avcodec_free_frame(&frame);
+#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+  if (frame)
+    av_free(frame);
+#endif
 
   return processed;
 }
@@ -385,7 +450,6 @@ struct transcode_ctx *
 transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 {
   struct transcode_ctx *ctx;
-  int i;
   int ret;
 
   ctx = (struct transcode_ctx *)malloc(sizeof(struct transcode_ctx));
@@ -422,14 +486,21 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
       goto setup_fail;
     }
 
+#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 64)
+  ctx->astream = av_find_best_stream(ctx->fmtctx, AVMEDIA_TYPE_AUDIO, -1, -1, &ctx->adecoder, 0);
+
+  if (ctx->astream < 0)
+    {
+      DPRINTF(E_WARN, L_XCODE, "Did not find audio stream or suitable decoder for %s\n", mfi->fname);
+
+      goto setup_fail;
+    }
+#else
+  int i;
   ctx->astream = -1;
   for (i = 0; i < ctx->fmtctx->nb_streams; i++)
     {
-#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 64)
-      if (ctx->fmtctx->streams[i]->codec->codec_type == AVMEDIA_TYPE_AUDIO)
-#else
       if (ctx->fmtctx->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO)
-#endif
 	{
 	  ctx->astream = i;
 
@@ -444,20 +515,23 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
       goto setup_fail;
     }
 
-  ctx->acodec = ctx->fmtctx->streams[ctx->astream]->codec;
-
-  ctx->adecoder = avcodec_find_decoder(ctx->acodec->codec_id);
+  ctx->adecoder = avcodec_find_decoder(ctx->fmtctx->streams[ctx->astream]->codec->codec_id);
   if (!ctx->adecoder)
     {
       DPRINTF(E_WARN, L_XCODE, "No suitable decoder found for codec\n");
 
       goto setup_fail;
     }
+#endif
+  ctx->acodec = ctx->fmtctx->streams[ctx->astream]->codec;
 
   if (ctx->adecoder->capabilities & CODEC_CAP_TRUNCATED)
     ctx->acodec->flags |= CODEC_FLAG_TRUNCATED;
 
 #if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 6)
+  ctx->acodec->request_sample_fmt = AV_SAMPLE_FMT_S16;
+  ctx->acodec->request_channel_layout = AV_CH_LAYOUT_STEREO;
+
   ret = avcodec_open2(ctx->acodec, ctx->adecoder, NULL);
 #else
   ret = avcodec_open(ctx->acodec, ctx->adecoder);
@@ -477,10 +551,48 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
       goto setup_fail_codec;
     }
 
-  if ((ctx->acodec->sample_fmt != AV_SAMPLE_FMT_S16)
-      || (ctx->acodec->channels != 2)
-      || (ctx->acodec->sample_rate != 44100))
+  ctx->need_resample = (ctx->acodec->sample_fmt != AV_SAMPLE_FMT_S16)
+                       || (ctx->acodec->channels != 2)
+                       || (ctx->acodec->sample_rate != 44100);
+
+  if (ctx->need_resample)
     {
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      if (!ctx->acodec->channel_layout)
+	{
+	  DPRINTF(E_DBG, L_XCODE, "Resample requires channel_layout, but none from ffmpeg. Setting to default.\n");
+
+	  ctx->acodec->channel_layout = av_get_default_channel_layout(ctx->acodec->channels);
+	}
+
+      DPRINTF(E_DBG, L_XCODE, "Will resample, decoded stream is: %s, %d channels (layout %" PRIu64 "), %d Hz\n",
+              av_get_sample_fmt_name(ctx->acodec->sample_fmt),  ctx->acodec->channels,
+              ctx->acodec->channel_layout, ctx->acodec->sample_rate);
+
+      ctx->resample_ctx = avresample_alloc_context();
+      if (!ctx->resample_ctx)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample context\n");
+
+	  goto setup_fail_codec;
+	}
+
+      av_opt_set_int(ctx->resample_ctx, "in_sample_fmt",      ctx->acodec->sample_fmt, 0);
+      av_opt_set_int(ctx->resample_ctx, "out_sample_fmt",     AV_SAMPLE_FMT_S16, 0);
+      av_opt_set_int(ctx->resample_ctx, "in_channel_layout",  ctx->acodec->channel_layout, 0);
+      av_opt_set_int(ctx->resample_ctx, "out_channel_layout", AV_CH_LAYOUT_STEREO, 0);
+      av_opt_set_int(ctx->resample_ctx, "in_sample_rate",     ctx->acodec->sample_rate, 0);
+      av_opt_set_int(ctx->resample_ctx, "out_sample_rate",    44100, 0);
+
+      ret = avresample_open(ctx->resample_ctx);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Could not open resample context\n");
+
+	  avresample_free(&ctx->resample_ctx);
+	  goto setup_fail_codec;
+	}
+#else
       DPRINTF(E_DBG, L_XCODE, "Setting up resampling (%d@%d)\n", ctx->acodec->channels, ctx->acodec->sample_rate);
 
       ctx->resample_ctx = av_audio_resample_init(2,              ctx->acodec->channels,
@@ -503,9 +615,11 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 	  audio_resample_close(ctx->resample_ctx);
 	  goto setup_fail_codec;
 	}
+#endif
 
-      ctx->need_resample = 1;
-#if LIBAVUTIL_VERSION_MAJOR >= 52 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 4)
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+
+#elif LIBAVUTIL_VERSION_MAJOR >= 52 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 4)
       ctx->input_size = ctx->acodec->channels * av_get_bytes_per_sample(ctx->acodec->sample_fmt);
 #elif LIBAVCODEC_VERSION_MAJOR >= 53
       ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_fmt(ctx->acodec->sample_fmt) / 8;
@@ -554,7 +668,11 @@ transcode_cleanup(struct transcode_ctx *ctx)
 
   if (ctx->need_resample)
     {
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      avresample_free(&ctx->resample_ctx);
+#else
       audio_resample_close(ctx->resample_ctx);
+#endif
       av_free(ctx->re_abuffer);
     }
 

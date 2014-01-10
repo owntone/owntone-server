@@ -1,8 +1,8 @@
 forked-daapd
 ------------
 
-forked-daapd is a DAAP and RSP media server, with support for Linux and
-FreeBSD. It is a complete rewrite of mt-daapd (Firefly Media Server).
+forked-daapd is a DAAP (iTunes) and RSP (Roku) media server, with support for
+Linux and FreeBSD. 
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
@@ -17,7 +17,8 @@ The source for this version of forked-daapd can be found here:
 The original (now unmaintained) source can be found here:
 
   <http://git.debian.org/?p=users/jblache/forked-daapd.git>
-  <http://alioth.debian.org/~jblache/forked-daapd/>
+
+forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 
 
 Supported clients
@@ -54,20 +55,30 @@ some do not require pairing.
 forked-daapd can be paired with Apple's Remote application for iPod/iPhone/iPad;
 this is how the pairing process works:
 
- - start forked-daapd
- - start Remote, go to Settings, Add Library
- - prepare a text file with a filename ending with .remote; the filename
-   doesn't matter, only the .remote ending does. This file must contain
-   two lines: the first line is the name of your iPod/iPhone/iPad, the second
-   is the 4-digit pairing code displayed by Remote.
+ 1. Start forked-daapd
+ 2. Start Remote, go to Settings, Add Library
+ 3. Look in the log file for a message saying:
 
-   If your iPod/iPhone/iPad is named "Foobar" and Remote gives you the pairing
-   code 5387, the file content will be:
+      "Discovered remote 'Foobar' (id 71624..."
+
+    This tells you the name of your device (Foobar in this example).
+
+    If you cannot find this message, it means that forked-daapd did not receive
+    a mDNS announcement from your Remote. You have a network issue and mDNS
+    doesn't work properly on your network.
+
+ 4. Prepare a text file with a filename ending with .remote; the filename
+    doesn't matter, only the .remote ending does. This file must contain
+    two lines: the first line is the name of your iPod/iPhone/iPad, the second
+    is the 4-digit pairing code displayed by Remote.
+
+    If your iPod/iPhone/iPad is named "Foobar" and Remote gives you the pairing
+    code 5387, the file content must be:
 
       Foobar
       5387 
 
- - move this file somewhere in your library
+ 5. Move this file somewhere in your library
 
 At this point, you should be done with the pairing process and Remote should
 display the name of your forked-daapd library. You can delete the .remote file
@@ -79,13 +90,8 @@ the pairing process failed.
 This will usually be because the .remote file did not contain the correct name
 or pairing code. Start over the pairing process and try again.
 
-If in doubt, enable a more verbose level of logging and check that forked-daapd
-receives the mDNS announcement from your iPod/iPhone when the pairing code is
-displayed by Remote (you can also use avahi-browse for this purpose, see below).
-If not, you have a network issue and mDNS doesn't work properly on your network.
-
-If you are unsure about your iPod/iPhone/iPad's name, here's how you can check
-for the correct value:
+If you have trouble pairing with forked-daapd, you can use avahi-browse for 
+troubleshooting:
  - in a terminal, run avahi-browse -r -k _touch-remote._tcp
  - start Remote, goto Settings, Add Library
  - after a couple seconds at most, you should get something similar to this:
@@ -128,8 +134,8 @@ server startup, provided they appear in the 5 minutes following the startup
 and no playback has occured yet. Again, principle of least surprise.
 
 
-AirTunes devices
-----------------
+AirTunes devices (AirPlay speakers)
+-----------------------------------
 
 forked-daapd will discover the AirTunes devices available on your network. For
 devices that are password-protected, the device's AirTunes name and password
@@ -210,9 +216,10 @@ Smart playlists are not supported at the moment.
 Artwork
 -------
 
-forked-daapd has /some/ support for artwork, with a number of limitations.
+forked-daapd has support for artwork.
 
-Embedded artwork is not currently supported.
+Embedded artwork is only supported if your version of forked-daapd was built
+with libav 9+ or ffmpeg 0.11+.
 
 Your artwork must be in PNG or JPEG format, dimensions do not matter;
 forked-daapd scales down (never up) the artwork on-the-fly to match the
@@ -221,9 +228,10 @@ the more time and resources it takes to perform the scaling operation.
 
 As for the naming convention, it is quite simple; consider your foo.mp3 song,
 residing at /bar/foo.mp3:
- - if /bar/foo.{png,jpg} exists, this will be used as the artwork for this file;
- - failing that, if /bar/{artwork,cover,Folder}.{png,jpg} exists, it is used.
- - failing that, if /bar/bar.{png,jpg} exists, it will be used
+ - if it has embedded artwork, this will be used as the artwork for this file;
+ - failing that, if /bar/foo.{png,jpg} exists, it is used;
+ - failing that, if /bar/{artwork,cover,Folder}.{png,jpg} exists, it is used;
+ - failing that, if /bar/bar.{png,jpg} exists, it is used
 
 For "groups" (same album name and album artist), the situation is a bit
 different:
@@ -233,8 +241,9 @@ different:
  - failing that, if [directory name].{png,jpg} is found in one of the
    directories containing files that are part of the group, it is used as the
    artwork. The first file found is used, ordering is not guaranteed;
- - failing that, individual files are examined and the first artwork found is
-   used. Here again, ordering is not guaranteed.
+ - failing that, individual files are examined and the first artwork found 
+   (embedded or in the same dir and named the same as the file) is used. Here
+   again, ordering is not guaranteed.
 
 {artwork,cover,Folder} are the default, you can add other base names in the
 configuration file.
