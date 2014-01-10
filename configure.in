@@ -130,12 +130,11 @@ AC_RUN_IFELSE(
 AC_LANG_POP([C])
 LIBS="$save_LIBS"
 
-_PKG_CONFIG([libavcodec_VERSION], [atleast-version=54.35], [libavcodec])
-if test $pkg_failed = yes; then
-	PKG_CHECK_MODULES(LIBAV, [ libavcodec libavformat libswscale libavutil ])
-else
-	PKG_CHECK_MODULES(LIBAV, [ libavcodec libavformat libswscale libavutil libavresample ])
-fi
+PKG_CHECK_EXISTS([libavresample], [ 
+  PKG_CHECK_MODULES(LIBAV, [ libavcodec libavformat libswscale libavutil libavresample ]) 
+], [ 
+  PKG_CHECK_MODULES(LIBAV, [ libavcodec libavformat libswscale libavutil ])
+])
 
 dnl Check for av_lock_manager (ffmpeg >= 0.5.1)
 save_LIBS="$LIBS"
