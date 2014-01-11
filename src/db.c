@@ -101,6 +101,7 @@ static const struct col_type_map mfi_cols_map[] =
     { mfi_offsetof(total_discs),        DB_TYPE_INT },
     { mfi_offsetof(bpm),                DB_TYPE_INT },
     { mfi_offsetof(compilation),        DB_TYPE_CHAR },
+    { mfi_offsetof(artwork),            DB_TYPE_CHAR },
     { mfi_offsetof(rating),             DB_TYPE_INT },
     { mfi_offsetof(play_count),         DB_TYPE_INT },
     { mfi_offsetof(seek),               DB_TYPE_INT },
@@ -184,6 +185,7 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(total_discs),
     dbmfi_offsetof(bpm),
     dbmfi_offsetof(compilation),
+    dbmfi_offsetof(artwork),
     dbmfi_offsetof(rating),
     dbmfi_offsetof(play_count),
     dbmfi_offsetof(seek),
@@ -2270,7 +2272,7 @@ db_file_add(struct media_file_info *mfi)
 {
 #define Q_TMPL "INSERT INTO files (id, path, fname, title, artist, album, genre, comment, type, composer," \
                " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
-               " total_tracks, disc, total_discs, bpm, compilation, rating, play_count, seek, data_kind, item_kind," \
+               " total_tracks, disc, total_discs, bpm, compilation, artwork, rating, play_count, seek, data_kind, item_kind," \
                " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
                " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
                " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
@@ -2278,7 +2280,7 @@ db_file_add(struct media_file_info *mfi)
                " ) " \
                " VALUES (NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, TRIM(%Q)," \
                " TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
-               " %d, %d, %d, %d, %d, %d, %d, %d, %d, %d," \
+               " %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d," \
                " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
                " %Q, %d, %d, %d, %d, TRIM(%Q)," \
                " %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d," \
@@ -2306,7 +2308,7 @@ db_file_add(struct media_file_info *mfi)
 			  mfi->genre, mfi->comment, mfi->type, mfi->composer,
 			  mfi->orchestra, mfi->conductor, mfi->grouping, mfi->url, mfi->bitrate,
 			  mfi->samplerate, mfi->song_length, mfi->file_size, mfi->year, mfi->track,
-			  mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm, mfi->compilation,
+			  mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm, mfi->compilation, mfi->artwork,
 			  mfi->rating, mfi->play_count, mfi->seek, mfi->data_kind, mfi->item_kind,
 			  mfi->description, (int64_t)mfi->time_added, (int64_t)mfi->time_modified,
 			  (int64_t)mfi->time_played, (int64_t)mfi->db_timestamp, mfi->disabled, mfi->sample_count,
@@ -2349,7 +2351,7 @@ db_file_update(struct media_file_info *mfi)
                " comment = TRIM(%Q), type = %Q, composer = TRIM(%Q), orchestra = TRIM(%Q), conductor = TRIM(%Q), grouping = TRIM(%Q)," \
                " url = %Q, bitrate = %d, samplerate = %d, song_length = %d, file_size = %" PRIi64 "," \
                " year = %d, track = %d, total_tracks = %d, disc = %d, total_discs = %d, bpm = %d," \
-               " compilation = %d, rating = %d, seek = %d, data_kind = %d, item_kind = %d," \
+               " compilation = %d, artwork = %d, rating = %d, seek = %d, data_kind = %d, item_kind = %d," \
                " description = %Q, time_modified = %" PRIi64 "," \
                " db_timestamp = %" PRIi64 ", sample_count = %" PRIi64 "," \
                " codectype = %Q, idx = %d, has_video = %d," \
@@ -2379,7 +2381,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->comment, mfi->type, mfi->composer, mfi->orchestra, mfi->conductor, mfi->grouping, 
 			  mfi->url, mfi->bitrate, mfi->samplerate, mfi->song_length, mfi->file_size,
 			  mfi->year, mfi->track, mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm,
-			  mfi->compilation, mfi->rating, mfi->seek, mfi->data_kind, mfi->item_kind,
+			  mfi->compilation, mfi->artwork, mfi->rating, mfi->seek, mfi->data_kind, mfi->item_kind,
 			  mfi->description, (int64_t)mfi->time_modified,
 			  (int64_t)mfi->db_timestamp, mfi->sample_count,
 			  mfi->codectype, mfi->index, mfi->has_video,
@@ -4188,6 +4190,7 @@ db_perthread_deinit(void)
   "   total_discs        INTEGER DEFAULT 0,"		\
   "   bpm                INTEGER DEFAULT 0,"		\
   "   compilation        INTEGER DEFAULT 0,"		\
+  "   artwork            INTEGER DEFAULT 0,"		\
   "   rating             INTEGER DEFAULT 0,"		\
   "   play_count         INTEGER DEFAULT 0,"		\
   "   seek               INTEGER DEFAULT 0,"		\
@@ -4364,9 +4367,9 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION 14
+#define SCHEMA_VERSION 15
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '14');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '15');"
 
 struct db_init_query {
   char *query;
@@ -5046,6 +5049,7 @@ static const struct db_init_query db_upgrade_v13_queries[] =
   };
 
 /* Upgrade from schema v13 to v14 */
+/* Adds seek, songartistid, and two new smart playlists */
 
 #define U_V14_NEW_FILES_TABLE				\
   "CREATE TABLE IF NOT EXISTS files ("			\
@@ -5235,6 +5239,170 @@ db_upgrade_v14(void)
 #undef Q_DUMP
 }
 
+/* Upgrade from schema v14 to v15 */
+/* Adds artwork field - nothing else */
+
+#define U_V15_NEW_FILES_TABLE				\
+  "CREATE TABLE IF NOT EXISTS files ("			\
+  "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
+  "   path               VARCHAR(4096) NOT NULL,"	\
+  "   fname              VARCHAR(255) NOT NULL,"	\
+  "   title              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist             VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album              VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   genre              VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   comment            VARCHAR(4096) DEFAULT NULL COLLATE DAAP,"	\
+  "   type               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
+  "   composer           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   orchestra          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   conductor          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   grouping           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   url                VARCHAR(1024) DEFAULT NULL,"	\
+  "   bitrate            INTEGER DEFAULT 0,"		\
+  "   samplerate         INTEGER DEFAULT 0,"		\
+  "   song_length        INTEGER DEFAULT 0,"		\
+  "   file_size          INTEGER DEFAULT 0,"		\
+  "   year               INTEGER DEFAULT 0,"		\
+  "   track              INTEGER DEFAULT 0,"		\
+  "   total_tracks       INTEGER DEFAULT 0,"		\
+  "   disc               INTEGER DEFAULT 0,"		\
+  "   total_discs        INTEGER DEFAULT 0,"		\
+  "   bpm                INTEGER DEFAULT 0,"		\
+  "   compilation        INTEGER DEFAULT 0,"		\
+  "   artwork            INTEGER DEFAULT 0,"		\
+  "   rating             INTEGER DEFAULT 0,"		\
+  "   play_count         INTEGER DEFAULT 0,"		\
+  "   seek               INTEGER DEFAULT 0,"		\
+  "   data_kind          INTEGER DEFAULT 0,"		\
+  "   item_kind          INTEGER DEFAULT 0,"		\
+  "   description        INTEGER DEFAULT 0,"		\
+  "   time_added         INTEGER DEFAULT 0,"		\
+  "   time_modified      INTEGER DEFAULT 0,"		\
+  "   time_played        INTEGER DEFAULT 0,"		\
+  "   db_timestamp       INTEGER DEFAULT 0,"		\
+  "   disabled           INTEGER DEFAULT 0,"		\
+  "   sample_count       INTEGER DEFAULT 0,"		\
+  "   codectype          VARCHAR(5) DEFAULT NULL,"	\
+  "   idx                INTEGER NOT NULL,"		\
+  "   has_video          INTEGER DEFAULT 0,"		\
+  "   contentrating      INTEGER DEFAULT 0,"		\
+  "   bits_per_sample    INTEGER DEFAULT 0,"		\
+  "   album_artist       VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
+  "   media_kind         INTEGER NOT NULL,"		\
+  "   tv_series_name     VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_network_name    VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   tv_episode_sort    INTEGER NOT NULL,"		\
+  "   tv_season_num      INTEGER NOT NULL,"		\
+  "   songartistid       INTEGER NOT NULL,"		\
+  "   songalbumid        INTEGER NOT NULL,"		\
+  "   title_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
+  "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
+  ");"
+
+#define U_V15_IDX_RESCAN				\
+  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
+
+#define U_V15_IDX_SONGARTISTID				\
+  "CREATE INDEX IF NOT EXISTS idx_sari ON files(songartistid);"
+
+#define U_V15_IDX_SONGALBUMID				\
+  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid);"
+
+#define U_V15_IDX_STATEMKINDSARI				\
+  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sari ON files(disabled, media_kind, songartistid);"
+
+#define U_V15_IDX_STATEMKINDSALI				\
+  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sali ON files(disabled, media_kind, songalbumid);"
+
+#define U_V15_IDX_ARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
+
+#define U_V15_IDX_ALBUMARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
+
+#define U_V15_IDX_COMPOSER				\
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
+
+#define U_V15_IDX_TITLE					\
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
+
+#define U_V15_IDX_ALBUM					\
+  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
+
+#define U_V15_TRG1							\
+  "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
+  " BEGIN"								\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
+  " END;"
+
+#define U_V15_TRG2							\
+  "CREATE TRIGGER update_groups_update_file AFTER UPDATE OF songalbumid ON files FOR EACH ROW" \
+  " BEGIN"								\
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
+  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
+  " END;"
+
+#define U_V15_SCVER				\
+  "UPDATE admin SET value = '15' WHERE key = 'schema_version';"
+
+static const struct db_init_query db_upgrade_v15_queries[] =
+  {
+    { U_V15_IDX_RESCAN,         "create rescan index table files" },
+    { U_V15_IDX_SONGARTISTID,   "create songartistid index table files" },
+    { U_V15_IDX_SONGALBUMID,    "create songalbumid index table files" },
+    { U_V15_IDX_STATEMKINDSARI, "create state/mkind/sari index table files" },
+    { U_V15_IDX_STATEMKINDSALI, "create state/mkind/sali index table files" },
+
+    { U_V15_IDX_ARTIST,      "create artist index table files" },
+    { U_V15_IDX_ALBUMARTIST, "create album_artist index table files" },
+    { U_V15_IDX_COMPOSER,    "create composer index table files" },
+    { U_V15_IDX_TITLE,       "create title index table files" },
+    { U_V15_IDX_ALBUM,       "create album index table files" },
+
+    { U_V15_TRG1,     "create trigger update_groups_new_file" },
+    { U_V15_TRG2,     "create trigger update_groups_update_file" },
+
+    { U_V15_SCVER,    "set schema_version to 15" },
+  };
+
+static int
+db_upgrade_v15(void)
+{
+#define Q_DUMP "SELECT 'INSERT INTO files " \
+    "(id, path, fname, title, artist, album, genre, comment, type, composer," \
+    " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
+    " total_tracks, disc, total_discs, bpm, compilation, artwork, rating, play_count, seek, data_kind, item_kind," \
+    " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
+    " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
+    " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
+    " songartistid, songalbumid, " \
+    " title_sort, artist_sort, album_sort, composer_sort, album_artist_sort)" \
+    " VALUES (' || id || ', ' || QUOTE(path) || ', ' || QUOTE(fname) || ', ' || QUOTE(title) || ', '" \
+    " || QUOTE(artist) || ', ' || QUOTE(album) || ', ' || QUOTE(genre) || ', ' || QUOTE(comment) || ', '" \
+    " || QUOTE(type) || ', ' || QUOTE(composer) || ', ' || QUOTE(orchestra) || ', ' || QUOTE(conductor) || ', '" \
+    " || QUOTE(grouping) || ', ' || QUOTE(url) || ', ' || bitrate || ', ' || samplerate || ', '" \
+    " || song_length || ', ' || file_size || ', ' || year || ', ' || track || ', ' || total_tracks || ', '" \
+    " || disc || ', ' || total_discs || ', ' || bpm || ', ' || compilation || ', 0, ' || rating || ', '" \
+    " || play_count || ',  ' || seek || ', ' || data_kind || ', ' || item_kind || ', ' ||  QUOTE(description) || ', '" \
+    " || time_added || ', ' || time_modified || ', ' || time_played || ', ' || db_timestamp || ', '" \
+    " || disabled || ', ' || sample_count || ', ' || QUOTE(codectype) || ', ' || idx || ', '" \
+    " || has_video || ', ' || contentrating || ', ' || bits_per_sample || ', ' || QUOTE(album_artist) || ', '" \
+    " || media_kind || ', ' || QUOTE(tv_series_name) || ', ' || QUOTE(tv_episode_num_str) || ', '" \
+    " || QUOTE(tv_network_name) || ', ' || tv_episode_sort || ', ' || tv_season_num || ', '" \
+    " || songartistid ||', ' || songalbumid || ', '" \
+    " || QUOTE(title_sort) || ', ' || QUOTE(artist_sort) || ', ' || QUOTE(album_sort) || ', '" \
+    " || QUOTE(composer_sort) || ', ' || QUOTE(album_artist_sort) || ');' FROM files;"
+
+  return db_upgrade_files_table(Q_DUMP, U_V15_NEW_FILES_TABLE);
+  
+#undef Q_DUMP
+}
+
 static int
 db_check_version(void)
 {
@@ -5314,6 +5482,17 @@ db_check_version(void)
 	      return -1;
 
 	    ret = db_generic_upgrade(db_upgrade_v14_queries, sizeof(db_upgrade_v14_queries) / sizeof(db_upgrade_v14_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    /* FALLTHROUGH */
+
+	  case 14:
+	    ret = db_upgrade_v15();
+	    if (ret < 0)
+	      return -1;
+
+	    ret = db_generic_upgrade(db_upgrade_v15_queries, sizeof(db_upgrade_v15_queries) / sizeof(db_upgrade_v15_queries[0]));
 	    if (ret < 0)
 	      return -1;
 

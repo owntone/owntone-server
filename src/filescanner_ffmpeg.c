@@ -389,6 +389,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	    if (ctx->streams[i]->disposition & AV_DISPOSITION_ATTACHED_PIC)
 	      {
 		DPRINTF(E_DBG, L_SCAN, "Found embedded artwork (stream %d)\n", i);
+		mfi->artwork = ARTWORK_EMBEDDED;
 
 		break;
 	      }

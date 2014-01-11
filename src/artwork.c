@@ -1025,6 +1025,7 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   struct db_media_file_info dbmfi;
   char *dir;
   int got_art;
+  int artwork_t;
   int ret;
 
   DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
@@ -1078,10 +1079,11 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   while (!got_art && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
 #if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
-/* Searching for embedded artwork disabled, not good for performance */
-/*      got_art = (artwork_get_embedded_image(dbmfi.path, max_w, max_h, format, evbuf) > 0)
-                || (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);*/
-      got_art = (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
+      safeatoi32(&dbmfi->artwork, &artwork_t);
+      if (artwork_t == ARTWORK_EMBEDDED)
+	got_art = (artwork_get_embedded_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
+      else
+	got_art = (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
 #else
       got_art = (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
 #endif

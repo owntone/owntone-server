@@ -39,6 +39,13 @@ enum query_type {
   Q_GROUP_DIRS       = Q_F_BROWSE | (1 << 10),
 };
 
+#define ARTWORK_UNKNOWN   0
+#define ARTWORK_NONE      1
+#define ARTWORK_EMBEDDED  2
+#define ARTWORK_OWN       3
+#define ARTWORK_DIR       4
+#define ARTWORK_PARENTDIR 5
+
 struct query_params {
   /* Query parameters, filled in by caller */
   enum query_type type;
@@ -113,6 +120,7 @@ struct media_file_info {
   uint32_t data_kind;    /* dmap.datakind (asdk) */
   uint64_t sample_count;
   char compilation;
+  char artwork;
 
   /* iTunes 5+ */
   uint32_t contentrating;
@@ -228,6 +236,7 @@ struct db_media_file_info {
   char *total_discs;
   char *bpm;
   char *compilation;
+  char *artwork;
   char *rating;
   char *play_count;
   char *seek;
