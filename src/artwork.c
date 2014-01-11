@@ -667,7 +667,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
   return ret;
 }
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
 static int
 artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
@@ -973,7 +973,7 @@ artwork_get_item_filename(char *filename, int max_w, int max_h, int format, stru
 {
   int ret;
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
   /* Look for embedded artwork */
   ret = artwork_get_embedded_image(filename, max_w, max_h, format, evbuf);
   if (ret > 0)
@@ -1079,7 +1079,7 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   got_art = 0;
   while (!got_art && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
       if ((safe_atoi32(dbmfi.artwork, &artwork_t) == 0) && (artwork_t == ARTWORK_EMBEDDED))
 	got_art = (artwork_get_embedded_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
       else
