@@ -36,6 +36,7 @@
 #include <libswscale/swscale.h>
 
 #include "db.h"
+#include "misc.h"
 #include "logger.h"
 #include "conffile.h"
 
@@ -1079,8 +1080,7 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   while (!got_art && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
 #if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 20)
-      safeatoi32(&dbmfi->artwork, &artwork_t);
-      if (artwork_t == ARTWORK_EMBEDDED)
+      if ((safe_atoi32(dbmfi.artwork, &artwork_t) == 0) && (artwork_t == ARTWORK_EMBEDDED))
 	got_art = (artwork_get_embedded_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
       else
 	got_art = (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
