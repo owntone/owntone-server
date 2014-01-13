@@ -2371,6 +2371,28 @@ playback_start(struct player_command *cmd)
 	}
     }
 
+  /* Try to autoselect a non-selected RAOP device if the above failed */
+  if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (raop_sessions == 0))
+    for (rd = dev_list; rd; rd = rd->next)
+      {
+        if (!rd->session)
+	  {
+	    speaker_select_raop(rd);
+	    ret = raop_device_start(rd, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+	    if (ret < 0)
+	      {
+		DPRINTF(E_DBG, L_PLAYER, "Could not autoselect AirTunes device %s\n", rd->name);
+		speaker_deselect_raop(rd);
+		continue;
+	      }
+
+	    DPRINTF(E_INFO, L_PLAYER, "Autoselecting AirTunes device %s\n", rd->name);
+	    cmd->raop_pending++;
+	    break;
+	  }
+      }
+
+  /* No luck finding valid output */
   if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (raop_sessions == 0))
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
