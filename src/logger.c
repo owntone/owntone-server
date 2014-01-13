@@ -140,7 +140,7 @@ logger_ffmpeg(void *ptr, int level, const char *fmt, va_list ap)
 {
   int severity;
 
-  if (level <= AV_LOG_ERROR)
+  if (level <= AV_LOG_FATAL)
     severity = E_LOG;
   else if (level <= AV_LOG_WARNING)
     severity = E_WARN;
