@@ -4577,6 +4577,17 @@ db_upgrade_files_table(const char *dumpquery, const char *newtablequery)
 	}
     }
 
+  /* Drop remnants from last upgrade if still present */
+  DPRINTF(E_LOG, L_DB, "Clearing old backups...\n");
+
+  ret = sqlite3_exec(hdl, "DROP TABLE IF EXISTS files_backup;", NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error clearing old backup - will continue anyway: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+    }
+
   /* Move old table out of the way */
   DPRINTF(E_LOG, L_DB, "Moving old files table out of the way...\n");
 
