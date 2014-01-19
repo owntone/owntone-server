@@ -264,15 +264,15 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	    {
 	      out_size = av_samples_get_buffer_size(&out_linesize, 2, frame->nb_samples, AV_SAMPLE_FMT_S16, 0);
 
-	      buf = av_realloc(ctx->re_abuffer, out_size);
-	      if (!buf)
+	      ctx->re_abuffer = av_realloc(ctx->re_abuffer, out_size);
+	      if (!ctx->re_abuffer)
 		{
 		  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample buffer!\n");
 
 		  return -1;
 		}
 
-	      out_samples = avresample_convert(ctx->resample_ctx, (uint8_t **)&buf, out_linesize, frame->nb_samples,
+	      out_samples = avresample_convert(ctx->resample_ctx, (uint8_t **)&ctx->re_abuffer, out_linesize, frame->nb_samples,
 	                                       (uint8_t **)frame->data, frame->linesize[0], frame->nb_samples);
 	      if (out_samples < 0)
 		{
@@ -282,6 +282,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 		}
 
 	      buflen = out_samples * 2 * 2; /* 16bit samples, 2 channels */
+	      buf = ctx->re_abuffer;
 	    }
 	  else
 	    {
