@@ -158,7 +158,6 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
   AVFrame *frame = NULL;
   int got_frame;
-  int out_size;
   int out_linesize;
   int out_samples;
 #elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
@@ -262,15 +261,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	  if (ctx->need_resample)
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
 	    {
-	      out_size = av_samples_get_buffer_size(&out_linesize, 2, frame->nb_samples, AV_SAMPLE_FMT_S16, 0);
-
-	      ctx->re_abuffer = av_realloc(ctx->re_abuffer, out_size);
-	      if (!ctx->re_abuffer)
-		{
-		  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample buffer!\n");
-
-		  return -1;
-		}
+	      av_samples_get_buffer_size(&out_linesize, 2, frame->nb_samples, AV_SAMPLE_FMT_S16, 0);
 
 	      out_samples = avresample_convert(ctx->resample_ctx, (uint8_t **)&ctx->re_abuffer, out_linesize, frame->nb_samples,
 	                                       (uint8_t **)frame->data, frame->linesize[0], frame->nb_samples);
@@ -593,6 +584,16 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 	  avresample_free(&ctx->resample_ctx);
 	  goto setup_fail_codec;
 	}
+
+      ctx->re_abuffer = av_realloc(ctx->re_abuffer, XCODE_BUFFER_SIZE * 2);
+      if (!ctx->re_abuffer)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Could not allocate resample buffer\n");
+
+	  avresample_free(&ctx->resample_ctx);
+	  goto setup_fail_codec;
+	}
+
 #else
       DPRINTF(E_DBG, L_XCODE, "Setting up resampling (%d@%d)\n", ctx->acodec->channels, ctx->acodec->sample_rate);
 
