@@ -55,7 +55,11 @@
 #include "transcode.h"
 
 
-#define XCODE_BUFFER_SIZE ((AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2)
+#if LIBAVCODEC_VERSION_MAJOR >= 56 || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR >= 18)
+# define XCODE_BUFFER_SIZE ((192000 * 3) / 2)
+#else
+# define XCODE_BUFFER_SIZE ((AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2)
+#endif
 
 
 struct transcode_ctx {

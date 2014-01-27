@@ -318,9 +318,15 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 {
   AVFormatContext *ctx;
   const struct metadata_map *extra_md_map;
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  enum AVCodecID codec_id;
+  enum AVCodecID video_codec_id;
+  enum AVCodecID audio_codec_id;
+#else
   enum CodecID codec_id;
   enum CodecID video_codec_id;
   enum CodecID audio_codec_id;
+#endif
   AVStream *video_stream;
   AVStream *audio_stream;
   int mdcount;
