@@ -419,7 +419,11 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
   ri = (struct remote_info *)arg;
 
   if (!req)
-    goto cleanup;
+    {
+      DPRINTF(E_LOG, L_REMOTE, "Empty pairing request callback\n");
+
+      goto cleanup;
+    }
 
   if (req->response_code != HTTP_OK)
     {
@@ -553,6 +557,8 @@ send_pairing_request(struct remote_info *ri, char *req_uri, int family)
 
       goto request_fail;
     }
+
+  DPRINTF(E_DBG, L_REMOTE, "Pairing requested to %s\n", req_uri);
 
   ri->evcon = evcon;
 
