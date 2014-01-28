@@ -63,6 +63,7 @@
 
 #define F_SCAN_BULK    (1 << 0)
 #define F_SCAN_RESCAN  (1 << 1)
+#define F_SCAN_FAST    (1 << 2)
 
 struct deferred_pl {
   char *path;
@@ -92,7 +93,7 @@ static struct stacked_dir *dirstack;
 
 /* Forward */
 static void
-bulk_scan(void);
+bulk_scan(int flags);
 
 static int
 push_dir(struct stacked_dir **s, char *path)
@@ -601,7 +602,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Forcing full rescan, found force-rescan file: %s\n", file);
 	      db_purge_all();
-	      bulk_scan();
+	      bulk_scan(F_SCAN_BULK);
 
 	      return;
 	    }
@@ -748,7 +749,10 @@ process_directory(char *path, int flags)
 	}
 
       if (S_ISREG(sb.st_mode))
-	process_file(entry, sb.st_mtime, sb.st_size, type, flags);
+	{
+	  if (!(flags & F_SCAN_FAST))
+	    process_file(entry, sb.st_mtime, sb.st_size, type, flags);
+	}
       else if (S_ISDIR(sb.st_mode))
 	push_dir(&dirstack, entry);
       else
@@ -832,7 +836,7 @@ process_directories(char *root, int flags)
 
 /* Thread: scan */
 static void
-bulk_scan(void)
+bulk_scan(int flags)
 {
   cfg_t *lib;
   int ndirs;
@@ -868,7 +872,7 @@ bulk_scan(void)
 	  continue;
 	}
 
-      process_directories(deref, F_SCAN_BULK);
+      process_directories(deref, flags);
 
       free(deref);
 
@@ -876,7 +880,7 @@ bulk_scan(void)
 	return;
     }
 
-  if (playlists)
+  if (!(flags & F_SCAN_FAST) && playlists)
     process_deferred_playlists();
 
   if (scan_exit)
@@ -885,10 +889,15 @@ bulk_scan(void)
   if (dirstack)
     DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
 
-  DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
-  db_purge_cruft(start);
+  if (flags & F_SCAN_FAST)
+    DPRINTF(E_LOG, L_SCAN, "Bulk library scan complete (with file scan disabled)\n");
+  else
+    {
+      DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
+      db_purge_cruft(start);
 
-  DPRINTF(E_LOG, L_SCAN, "Bulk library scan complete\n");
+      DPRINTF(E_LOG, L_SCAN, "Bulk library scan complete\n");
+    }
 }
 
 
@@ -929,7 +938,10 @@ filescanner(void *arg)
   db_files_update_songartistid();
   db_files_update_songalbumid();
 
-  bulk_scan();
+  if (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable"))
+    bulk_scan(F_SCAN_BULK | F_SCAN_FAST);
+  else
+    bulk_scan(F_SCAN_BULK);
 
   db_hook_post_scan();
 
