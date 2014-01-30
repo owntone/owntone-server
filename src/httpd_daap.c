@@ -779,15 +779,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
     }
 
   ua = evhttp_find_header(req->input_headers, "User-Agent");
-  if (!ua)
-    {
-      DPRINTF(E_LOG, L_DAAP, "No User-Agent header, rejecting login request\n");
-
-      evhttp_send_error(req, 403, "Forbidden");
-      return;
-    }
-
-  if (strncmp(ua, "Remote", strlen("Remote")) == 0)
+  if (ua && (strncmp(ua, "Remote", strlen("Remote")) == 0))
     {
       guid = evhttp_find_header(query, "pairing-guid");
       if (!guid)

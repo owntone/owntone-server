@@ -49,7 +49,7 @@ static cfg_opt_t sec_general[] =
     CFG_STR("logfile", STATEDIR "/log/" PACKAGE ".log", CFGF_NONE),
     CFG_STR("db_path", STATEDIR "/cache/" PACKAGE "/songs3.db", CFGF_NONE),
     CFG_INT_CB("loglevel", E_LOG, CFGF_NONE, &cb_loglevel),
-    CFG_BOOL("ipv6", cfg_true, CFGF_NONE),
+    CFG_BOOL("ipv6", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
@@ -72,6 +72,7 @@ static cfg_opt_t sec_library[] =
     CFG_STR("name_audiobooks", "Audiobooks", CFGF_NONE),
     CFG_STR_LIST("artwork_basenames", "{artwork,cover,Folder}", CFGF_NONE),
     CFG_STR_LIST("filetypes_ignore", "{.db,.ini}", CFGF_NONE),
+    CFG_BOOL("filescan_disable", cfg_false, CFGF_NONE),
     CFG_BOOL("itunes_overrides", cfg_false, CFGF_NONE),
     CFG_STR_LIST("no_transcode", NULL, CFGF_NONE),
     CFG_STR_LIST("force_transcode", NULL, CFGF_NONE),
