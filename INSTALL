@@ -4,6 +4,44 @@ Installation instructions for forked-daapd
 This document contains instructions for installing forked-daapd from the git
 tree.
 
+The source for this version of forked-daapd can be found here:
+
+  <https://github.com/ejurgensen/forked-daapd.git>
+
+The original (now unmaintained) source can be found here:
+
+  <http://git.debian.org/?p=users/jblache/forked-daapd.git>
+
+
+Quick version for Debian users
+------------------------------
+
+If you are the lucky kind, this should get you all the required tools and
+libraries:
+
+sudo apt-get install \
+ build-essential git autotools-dev autoconf libtool gettext gawk gperf \
+ antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev \
+ libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libasound2-dev \
+ libmxml-dev libgcrypt11-dev libavahi-client-dev libavl-dev libevent1-dev \
+ libflac-dev
+
+Then run the following:
+
+ git clone https://github.com/ejurgensen/forked-daapd.git
+ cd forked-daapd
+ autoreconf -i
+ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac
+ make
+ sudo make install
+
+Finally, read the bit in the bottom of this document about init scripts, read
+the README, edit the configuration file and restart the server.
+
+
+Long version - requirements
+---------------------------
+
 System-specific requirements:
  - Linux:
    + glibc 2.9+ (for signalfd)
@@ -12,18 +50,27 @@ System-specific requirements:
    + OSS4 sound support
    + libiconv
 
-Tools required:
- - autotools-dev
- - autoconf
- - libtool
- - gettext
- - gawk
+
+Required tools:
+ - ANTLR v3 is required to build forked-daapd, along with its C runtime
+   (libantlr3c). Use a version between 3.1.3 and 3.4 of ANTLR v3 and the
+   matching C runtime version. Get it from <http://www.antlr3.org/>
+
+ - Java runtime: ANTLR is written in Java and as such a JRE is required to
+   run the tool. The JRE is enough, you don't need a full JDK.
+
+ - autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run autoreconf -i
+   at the top of the source tree to generate the build system.
+
+ - gettext: libunistring requires iconv and gettext provides the autotools
+   macro definitions for iconv.
+
  - gperf
- - antlr3 (see below)
+
 
 Libraries:
- - libantlr3c (ANTLR3 C runtime, use the same version as antlr3, see below)
-        from <http://www.antlr.org/download/C>
+ - libantlr3c (ANTLR3 C runtime, use the same version as antlr3)
+        from <https://github.com/antlr/website-antlr3/tree/gh-pages/download/C>
  - Avahi client libraries (avahi-client), 0.6.24 minimum
         from <http://avahi.org/>
  - sqlite3 3.5.0+ with unlock notify API enabled (read below)
@@ -34,8 +81,8 @@ Libraries:
         from <http://www.nongnu.org/confuse/>
  - libevent 1.4 (** NOT libevent 2 **)
         from <http://www.monkey.org/~provos/libevent/>
- - libavl
-        /!\ Read below
+ - libavl 0.3.5
+        from <http://ftp.debian.org/debian/pool/main/liba/libavl>
  - MiniXML (aka mxml or libmxml)
         from <http://minixml.org/software.php>
  - gcrypt 1.2.0+
@@ -55,19 +102,13 @@ If using binary packages, remember that you need the development packages to
 build forked-daapd (usually named -dev or -devel).
 
 libavl is not the GNU libavl. There doesn't seem to be an upstream website
-anymore, but you'll find the source tarball alongside the forked-daapd
-release tarballs (see below for the URL). Alternatively, you can fetch it from
-any Debian mirror, too (it'll be in /debian/pool/main/liba/libavl).
+anymore, but you can fetch it from any Debian mirror.
 
 sqlite3 needs to be built with support for the unlock notify API; this isn't
 always the case in binary packages, so you may need to rebuild sqlite3 to
 enable the unlock notify API (you can check for the presence of the
 sqlite3_unlock_notify symbol in the sqlite3 library). Refer to the sqlite3
 documentation, look for SQLITE_ENABLE_UNLOCK_NOTIFY.
-
-
-Note about libav (ffmpeg)
--------------------------
 
 libav (or ffmpeg) is a central piece of forked-daapd and most other FLOSS
 multimedia applications. The version of libav you use will potentially have a
@@ -80,30 +121,8 @@ Embedded artwork is only supported if your version of forked-daapd is built
 with libav 9+ or ffmpeg 0.11+.
 
 
-Building from the git tree
---------------------------
-
-The source for this version of forked-daapd can be found here:
-
-  <https://github.com/ejurgensen/forked-daapd.git>
-
-The original (now unmaintained) source can be found here:
-
-  <http://git.debian.org/?p=users/jblache/forked-daapd.git>
-
-Required tools:
- - ANTLR v3 is required to build forked-daapd, along with its C runtime
-   (libantlr3c). Use at least version 3.1.3 of ANTLR v3 and the matching
-   C runtime version.
-
- - Java runtime: ANTLR is written in Java and as such a JRE is required to
-   run the tool. The JRE is enough, you don't need a full JDK.
-
- - autotools: autoconf 2.63+, automake 1.10+, libtool 2.2. Run autoreconf -i
-   at the top of the source tree to generate the build system.
-
- - gettext: libunistring requires iconv and gettext provides the autotools
-   macro definitions for iconv.
+Long version - building and installing
+--------------------------------------
 
 Start by generating the build system by running autoreconf -i. This will
 generate the configure script and Makefile.in.
@@ -134,6 +153,10 @@ Recommended build settings:
  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac
 
 After configure run the usual make, and if that went well, sudo make install
+
+
+Long version - after installation
+---------------------------------
 
 After installation, edit the configuration file, /etc/forked-daapd.conf and
 adjust the values at your convenience.
