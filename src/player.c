@@ -1710,7 +1710,7 @@ device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_
 	  return;
 	}
 
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes device %s stopped\n", dev->name);
+      DPRINTF(E_INFO, L_PLAYER, "AirTunes device %s stopped\n", dev->name);
 
       dev->session = NULL;
 
@@ -3891,7 +3891,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "md");
   if (!p)
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no md field in TXT record!\n", name);
+      DPRINTF(E_INFO, L_PLAYER, "AirTunes %s: no md field in TXT record.\n", name);
 
       goto no_md;
     }
