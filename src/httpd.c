@@ -296,7 +296,7 @@ stream_fail_cb(struct evhttp_connection *evcon, void *arg)
 
   st = (struct stream_ctx *)arg;
 
-  DPRINTF(E_LOG, L_HTTPD, "Connection failed; stopping streaming of file ID %d\n", st->id);
+  DPRINTF(E_WARN, L_HTTPD, "Connection failed; stopping streaming of file ID %d\n", st->id);
 
   /* Stop streaming */
   event_del(&st->ev);
