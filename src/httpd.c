@@ -341,7 +341,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       else
 	{
 	  param_end = strchr(param, '-');
-	  if (param_end)
+	  if (param_end && (strlen(param_end) > 1))
 	    {
 	      ret = safe_atoi64(param_end + 1, &end_offset);
 	      if (ret < 0)
