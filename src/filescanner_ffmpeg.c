@@ -537,6 +537,8 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	extra_md_map = md_map_vorbis;
 	break;
 
+      case CODEC_ID_WMAV1:
+      case CODEC_ID_WMAV2:
       case CODEC_ID_WMAVOICE:
 	DPRINTF(E_DBG, L_SCAN, "WMA Voice\n");
 	mfi->type = strdup("wma");
