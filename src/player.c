@@ -359,11 +359,6 @@ speaker_deselect_raop(struct raop_device *rd)
     volume_master_find();
 }
 
-int
-player_is_playing(void)
-{
-  return player_state == PLAY_PLAYING ? 1 : 0;
-}
 
 static int
 player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
