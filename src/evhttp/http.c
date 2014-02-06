@@ -2014,7 +2014,9 @@ evhttp_send_reply_start(struct evhttp_request *req, int code,
 	evhttp_connection_stop_detectclose(req->evcon);
 
 	evhttp_response_code(req, code, reason);
-	if (req->major == 1 && req->minor == 1) {
+	/* If the client is requesting a partial file, don't use
+	 * chunked encoding, or video files won't work in iTunes. */
+	if (req->major == 1 && req->minor == 1 && code == 200) {
 		/* use chunked encoding for HTTP/1.1 */
 		evhttp_add_header(req->output_headers, "Transfer-Encoding",
 		    "chunked");
