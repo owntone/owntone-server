@@ -751,6 +751,10 @@ murmur_hash64(const void *key, int len, uint32_t seed)
   return h;
 }
 
+#else
+# error Platform not supported
+#endif
+
 int
 clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec *res)
 {
@@ -801,7 +805,3 @@ timespec_cmp(struct timespec time1, struct timespec time2)
   else
     return 0;
 }
-
-#else
-# error Platform not supported
-#endif
