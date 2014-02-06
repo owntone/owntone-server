@@ -764,6 +764,12 @@ transcode_needed(struct evkeyvalq *headers, char *file_codectype)
 
 	      client_codecs = itunes_codecs;
 	    }
+	  else if (strncmp(user_agent, "AppleCoreMedia", strlen("AppleCoreMedia")) == 0)
+	    {
+	      DPRINTF(E_DBG, L_XCODE, "Client is AppleCoreMedia, using iTunes codecs\n");
+
+	      client_codecs = itunes_codecs;
+	    }
 	  else if (strncmp(user_agent, "Roku", strlen("Roku")) == 0)
 	    {
 	      DPRINTF(E_DBG, L_XCODE, "Client is a Roku device\n");
