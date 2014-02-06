@@ -3286,12 +3286,12 @@ raop_v2_resend_range(struct raop_session *rs, uint16_t seqnum, uint16_t len)
 
   if (pktbuf == pktbuf_head)
     {
-      while (seqnum != pktbuf->seqnum)
+      while (pktbuf && seqnum != pktbuf->seqnum)
 	pktbuf = pktbuf->next;
     }
   else
     {
-      while (seqnum != pktbuf->seqnum)
+      while (pktbuf && seqnum != pktbuf->seqnum)
 	pktbuf = pktbuf->prev;
     }
 
