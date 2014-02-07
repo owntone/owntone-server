@@ -170,7 +170,7 @@ static uint64_t pb_pos;
 /* Stream position (packets) */
 static uint64_t last_rtptime;
 
-/* AirTunes devices */
+/* AirPlay devices */
 static int dev_autoselect;
 static struct raop_device *dev_list;
 
@@ -1535,7 +1535,7 @@ device_remove(struct raop_device *dev)
   if (!rd)
     return;
 
-  DPRINTF(E_DBG, L_PLAYER, "Removing AirTunes device %s; stopped advertising\n", dev->name);
+  DPRINTF(E_DBG, L_PLAYER, "Removing AirPlay device %s; stopped advertising\n", dev->name);
 
   /* Make sure device isn't selected anymore */
   if (dev->selected)
@@ -1662,7 +1662,7 @@ device_remove_family(struct player_command *cmd)
 
   if (!rd)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirTunes device %s stopped advertising, but not in our list\n", dev->name);
+      DPRINTF(E_WARN, L_PLAYER, "AirPlay device %s stopped advertising, but not in our list\n", dev->name);
 
       device_free(dev);
       return 0;
@@ -1709,12 +1709,12 @@ device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_
       ret = device_check(dev);
       if (ret < 0)
 	{
-	  DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during streaming!\n");
+	  DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during streaming!\n");
 
 	  return;
 	}
 
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes device %s FAILED\n", dev->name);
+      DPRINTF(E_LOG, L_PLAYER, "AirPlay device %s FAILED\n", dev->name);
 
       if (player_state == PLAY_PLAYING)
 	speaker_deselect_raop(dev);
@@ -1731,12 +1731,12 @@ device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_
       ret = device_check(dev);
       if (ret < 0)
 	{
-	  DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during streaming!\n");
+	  DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during streaming!\n");
 
 	  return;
 	}
 
-      DPRINTF(E_INFO, L_PLAYER, "AirTunes device %s stopped\n", dev->name);
+      DPRINTF(E_INFO, L_PLAYER, "AirPlay device %s stopped\n", dev->name);
 
       dev->session = NULL;
 
@@ -1779,7 +1779,7 @@ device_shutdown_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
   ret = device_check(dev);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared before shutdown completion!\n");
+      DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared before shutdown completion!\n");
 
       if (cur_cmd->ret != -2)
 	cur_cmd->ret = -1;
@@ -1823,7 +1823,7 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
   ret = device_check(dev);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during startup!\n");
+      DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during startup!\n");
 
       raop_set_status_cb(rs, device_lost_cb);
       raop_device_stop(rs);
@@ -1900,7 +1900,7 @@ device_probe_cb(struct raop_device *dev, struct raop_session *rs, enum raop_sess
   ret = device_check(dev);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during probe!\n");
+      DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during probe!\n");
 
       if (cur_cmd->ret != -2)
 	cur_cmd->ret = -1;
@@ -1947,7 +1947,7 @@ device_restart_cb(struct raop_device *dev, struct raop_session *rs, enum raop_se
   ret = device_check(dev);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirTunes device disappeared during restart!\n");
+      DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during restart!\n");
 
       raop_set_status_cb(rs, device_lost_cb);
       raop_device_stop(rs);
@@ -2396,7 +2396,7 @@ playback_start(struct player_command *cmd)
 	  ret = raop_device_start(rd, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not start selected AirTunes device %s\n", rd->name);
+	      DPRINTF(E_LOG, L_PLAYER, "Could not start selected AirPlay device %s\n", rd->name);
 	      continue;
 	    }
 
@@ -2414,12 +2414,12 @@ playback_start(struct player_command *cmd)
 	    ret = raop_device_start(rd, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 	    if (ret < 0)
 	      {
-		DPRINTF(E_DBG, L_PLAYER, "Could not autoselect AirTunes device %s\n", rd->name);
+		DPRINTF(E_DBG, L_PLAYER, "Could not autoselect AirPlay device %s\n", rd->name);
 		speaker_deselect_raop(rd);
 		continue;
 	      }
 
-	    DPRINTF(E_INFO, L_PLAYER, "Autoselecting AirTunes device %s\n", rd->name);
+	    DPRINTF(E_INFO, L_PLAYER, "Autoselecting AirPlay device %s\n", rd->name);
 	    cmd->raop_pending++;
 	    break;
 	  }
@@ -2654,7 +2654,7 @@ speaker_enumerate(struct player_command *cmd)
 
   laudio_name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
 
-  /* Auto-select local audio if there are no AirTunes devices */
+  /* Auto-select local audio if there are no AirPlay devices */
   if (!dev_list && !laudio_selected)
     speaker_select_laudio();
 
@@ -3793,7 +3793,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   ret = safe_hextou64(name, &id);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not extract AirTunes device ID (%s)\n", name);
+      DPRINTF(E_LOG, L_PLAYER, "Could not extract AirPlay device ID (%s)\n", name);
 
       return;
     }
@@ -3801,18 +3801,18 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   at_name = strchr(name, '@');
   if (!at_name)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not extract AirTunes device name (%s)\n", name);
+      DPRINTF(E_LOG, L_PLAYER, "Could not extract AirPlay device name (%s)\n", name);
 
       return;
     }
   at_name++;
 
-  DPRINTF(E_DBG, L_PLAYER, "Event for AirTunes device %" PRIx64 "/%s (%d)\n", id, at_name, port);
+  DPRINTF(E_DBG, L_PLAYER, "Event for AirPlay device %" PRIx64 "/%s (%d)\n", id, at_name, port);
 
   rd = (struct raop_device *)malloc(sizeof(struct raop_device));
   if (!rd)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirTunes device\n");
+      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirPlay device\n");
 
       return;
     }
@@ -3844,21 +3844,21 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "tp");
   if (!p)
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: no tp field in TXT record!\n", name);
+      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: no tp field in TXT record!\n", name);
 
       goto free_rd;
     }
 
   if (*p == '\0')
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: tp has no value\n", name);
+      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: tp has no value\n", name);
 
       goto free_rd;
     }
 
   if (!strstr(p, "UDP"))
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, p);
+      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, p);
 
       goto free_rd;
     }
@@ -3867,13 +3867,13 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "pw");
   if (!p)
     {
-      DPRINTF(E_INFO, L_PLAYER, "AirTunes %s: no pw field in TXT record, assuming no password protection\n", name);
+      DPRINTF(E_INFO, L_PLAYER, "AirPlay %s: no pw field in TXT record, assuming no password protection\n", name);
 
       has_password = 0;
     }
   else if (*p == '\0')
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: pw has no value\n", name);
+      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: pw has no value\n", name);
 
       goto free_rd;
     }
@@ -3884,14 +3884,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   if (has_password)
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes device %s is password-protected\n", name);
+      DPRINTF(E_LOG, L_PLAYER, "AirPlay device %s is password-protected\n", name);
 
       apex = cfg_gettsec(cfg, "apex", at_name);
       if (apex)
 	password = cfg_getstr(apex, "password");
 
       if (!password)
-	DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirTunes device %s\n", name);
+	DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirPlay device %s\n", name);
     }
 
   devtype = RAOP_DEV_APEX_80211N;
@@ -3899,7 +3899,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "am");
   if (!p)
     {
-      DPRINTF(E_INFO, L_PLAYER, "AirTunes %s: no am field in TXT record, assuming old Airport Express\n", name);
+      DPRINTF(E_INFO, L_PLAYER, "AirPlay %s: no am field in TXT record, assuming old Airport Express\n", name);
 
       /* Old AirPort Express */
       devtype = RAOP_DEV_APEX_80211G;
@@ -3909,7 +3909,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
   if (*p == '\0')
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: am has no value\n", name);
+      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: am has no value\n", name);
 
       goto no_am;
     }
@@ -3924,14 +3924,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   p = keyval_get(txt, "md");
   if (!p)
     {
-      DPRINTF(E_INFO, L_PLAYER, "AirTunes %s: no md field in TXT record.\n", name);
+      DPRINTF(E_INFO, L_PLAYER, "AirPlay %s: no md field in TXT record.\n", name);
 
       goto no_md;
     }
 
   if (*p == '\0')
     {
-      DPRINTF(E_LOG, L_PLAYER, "AirTunes %s: md has no value\n", name);
+      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: md has no value\n", name);
 
       goto no_md;
     }
@@ -3939,7 +3939,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   wants_metadata = 1;
 
  no_md:
-  DPRINTF(E_DBG, L_PLAYER, "AirTunes device %s: password: %s, type %s\n", name, (password) ? "yes" : "no", raop_devtype[devtype]);
+  DPRINTF(E_DBG, L_PLAYER, "AirPlay device %s: password: %s, type %s\n", name, (password) ? "yes" : "no", raop_devtype[devtype]);
 
   rd->advertised = 1;
 
@@ -4167,7 +4167,7 @@ player_init(void)
   ret = mdns_browse("_raop._tcp", mdns_flags, raop_device_cb);
   if (ret < 0)
     {
-      DPRINTF(E_FATAL, L_PLAYER, "Could not add mDNS browser for AirTunes devices\n");
+      DPRINTF(E_FATAL, L_PLAYER, "Could not add mDNS browser for AirPlay devices\n");
 
       goto mdns_browse_fail;
     }

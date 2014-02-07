@@ -191,10 +191,10 @@ The LSB header below sums it up:
 # Should-Start:      avahi
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: media server with support for RSP, DAAP, DACP and AirTunes
+# Short-Description: media server with support for RSP, DAAP, DACP and AirPlay
 # Description:       forked-daapd is an iTunes-compatible media server for
 #                    sharing your media library over the local network with RSP
 #                    clients like the SoundBridge from Roku and DAAP clients
-#                    like iTunes. It can also stream music to AirTunes devices, 
+#                    like iTunes. It can also stream music to AirPlay devices, 
 #                    and it can be controlled by Apple Remote (and compatibles).
 ### END INIT INFO

@@ -24,6 +24,14 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 Supported clients
 -----------------
 
+forked-daapd supports streaming to AirPlay devices (like the AirPort Express,
+Shairport and various AirPlay speakers).
+
+Like iTunes, you can control forked-daapd with Apple Remote, or with a 
+compatible Android app like Retune, TunesRemote+ or Hyperfine Remote. Another
+controller is TunesRemoteSE, which is based on Java and runs in Windows, MacOS
+and Linux.
+
 forked-daapd supports iTunes clients as well as a number of devices similar
 to the SoundBridge.
 
@@ -32,14 +40,6 @@ or RSP.
 
 A single forked-daapd instance can handle several clients concurrently,
 regardless of the protocol.
-
-forked-daapd support streaming to AirTunes devices (like the AirPort Express,
-Shairport and various AirPlay speakers).
-
-Like iTunes, you can control forked-daapd with Apple Remote, or with a 
-compatible Android app like Retune, TunesRemote+ or Hyperfine Remote. Another
-controller is TunesRemoteSE, which is based on Java and runs in Windows, MacOS
-and Linux.
 
 
 Using Remote
@@ -118,7 +118,7 @@ Hit Ctrl-C to terminate avahi-browse.
   ------------------------
 
 Remote gets a list of output devices from the server; this list includes any
-and all devices on the network we know of that advertise AirTunes: AirPort
+and all devices on the network we know of that advertise AirPlay: AirPort
 Express, Apple TV, ... It also includes the local audio output, that is, the
 sound card on the server (even if there is no soundcard).
 
@@ -132,11 +132,11 @@ server startup, provided they appear in the 5 minutes following the startup
 and no playback has occured yet.
 
 
-AirTunes devices (AirPlay speakers)
------------------------------------
+AirPlay devices/speakers
+------------------------
 
-forked-daapd will discover the AirTunes devices available on your network. For
-devices that are password-protected, the device's AirTunes name and password
+forked-daapd will discover the AirPlay devices available on your network. For
+devices that are password-protected, the device's AirPlay name and password
 must be given in the configuration file. See the sample configuration file
 for the syntax.
 
