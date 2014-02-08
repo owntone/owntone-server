@@ -3,7 +3,9 @@
 #define __MISC_H__
 
 #include <stdint.h>
-#include <time.h>
+#if defined(__linux__)
+# include <time.h>
+#endif
 
 struct onekeyval {
   char *name;
@@ -72,7 +74,8 @@ b64_encode(uint8_t *in, size_t len);
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
 
-/* timer functions */
+#if defined(__linux__)
+/* Timer functions for platforms without hi-res timers */
 int
 clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec *res);
 
@@ -81,6 +84,6 @@ timespec_add(struct timespec time1, struct timespec time2);
 
 int
 timespec_cmp(struct timespec time1, struct timespec time2);
-
+#endif /* __linux__ */
 
 #endif /* !__MISC_H__ */

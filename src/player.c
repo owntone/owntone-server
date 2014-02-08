@@ -366,7 +366,11 @@ player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
   uint64_t delta;
   int ret;
 
+#if defined(__linux__)
   ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
+#else
+  ret = clock_gettime(CLOCK_MONOTONIC, ts);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
@@ -410,7 +414,11 @@ player_get_current_pos_laudio(uint64_t *pos, struct timespec *ts, int commit)
 
   *pos = laudio_get_pos();
 
+#if defined(__linux__)
   ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
+#else
+  ret = clock_gettime(CLOCK_MONOTONIC, ts);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
@@ -1420,14 +1428,16 @@ player_playback_cb(int fd, short what, void *arg)
       packet_timer_last = timespec_add(packet_timer_last, packet_time);
       packet_send_count++;
       /* not possible to have more than 126 audio packets per second */
-      if(packet_send_count > 126)
-        {
-          DPRINTF(E_LOG, L_PLAYER, "Timing error detected during playback! Aborting.\n");
-          playback_abort();
-          return;
-        }
+      if (packet_send_count > 126)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Timing error detected during playback! Aborting.\n");
+
+	  playback_abort();
+	  return;
+	}
     }
-  while(timespec_cmp(packet_timer_last, next_tick) < 0 );
+
+  while(timespec_cmp(packet_timer_last, next_tick) < 0);
 
   /* Make sure playback is still running */
   if (player_state == PLAY_STOPPED)
@@ -1857,7 +1867,11 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 
   if ((player_state == PLAY_PLAYING) && (raop_sessions == 1))
     {
+#if defined(__linux__)
       ret = clock_gettime_with_res(CLOCK_MONOTONIC, &ts, &timer_res);
+#else
+      ret = clock_gettime(CLOCK_MONOTONIC, &ts);
+#endif
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not get current time: %s\n", strerror(errno));
@@ -2183,7 +2197,11 @@ playback_start_bh(struct player_command *cmd)
 	}
     }
 
+#if defined(__linux__)
   ret = clock_gettime_with_res(CLOCK_MONOTONIC, &pb_pos_stamp, &timer_res);
+#else
+  ret = clock_gettime(CLOCK_MONOTONIC, &pb_pos_stamp);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get current clock: %s\n", strerror(errno));
@@ -4054,17 +4072,20 @@ player_init(void)
 
   update_handler = NULL;
 
+#if defined(__linux__)
   /*
    * Determine if the resolution of the system timer is > or < the size
    * of an audio packet. NOTE: this assumes the system clock resolution
    * is less than one second.
    */
-  if(clock_getres(CLOCK_MONOTONIC, &timer_res) < 0)
+  if (clock_getres(CLOCK_MONOTONIC, &timer_res) < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get the system timer resolution.\n");
+
       return -1;
     }
   MINIMUM_STREAM_PERIOD = MAX(timer_res.tv_nsec, AIRTUNES_V2_STREAM_PERIOD);
+#endif
 
   /* Random RTP time start */
   gcry_randomize(&rnd, sizeof(rnd), GCRY_STRONG_RANDOM);
