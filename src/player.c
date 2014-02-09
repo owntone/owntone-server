@@ -3798,7 +3798,7 @@ static void
 raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
   struct raop_device *rd;
-  cfg_t *apex;
+  cfg_t *airplay;
   const char *p;
   char *at_name;
   char *password;
@@ -3904,9 +3904,9 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     {
       DPRINTF(E_LOG, L_PLAYER, "AirPlay device %s is password-protected\n", name);
 
-      apex = cfg_gettsec(cfg, "apex", at_name);
-      if (apex)
-	password = cfg_getstr(apex, "password");
+      airplay = cfg_gettsec(cfg, "airplay", at_name);
+      if (airplay)
+	password = cfg_getstr(airplay, "password");
 
       if (!password)
 	DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirPlay device %s\n", name);

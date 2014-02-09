@@ -85,6 +85,9 @@
 #define RAOP_MD_DELAY_STARTUP      15360
 #define RAOP_MD_DELAY_SWITCH       (RAOP_MD_DELAY_STARTUP * 2)
 
+/* This is an arbitrary value which just needs to be kept in sync with the config */
+#define RAOP_CONFIG_MAX_VOLUME     11
+
 struct raop_v2_packet
 {
   uint8_t clear[AIRTUNES_V2_PKT_LEN];
@@ -2231,9 +2234,26 @@ raop_metadata_send(int id, uint64_t rtptime, uint64_t offset, int startup)
 
 /* Volume handling */
 static float
-raop_volume_convert(int volume)
+raop_volume_convert(int volume, char *name)
 {
   float raop_volume;
+  cfg_t *airplay;
+  int max_volume;
+
+  max_volume = RAOP_CONFIG_MAX_VOLUME;
+
+  airplay = cfg_gettsec(cfg, "airplay", name);
+  if (airplay)
+    max_volume = cfg_getint(airplay, "max_volume");
+
+  if ((max_volume < 1) || (max_volume > RAOP_CONFIG_MAX_VOLUME))
+    {
+      DPRINTF(E_LOG, L_RAOP, "Config has bad max_volume (%d) for device %s, using default instead\n", max_volume, name);
+
+      max_volume = RAOP_CONFIG_MAX_VOLUME;
+    }
+
+  DPRINTF(E_DBG, L_RAOP, "Setting max_volume for device %s to %d\n", name, max_volume);
 
   /* RAOP volume
    *  -144.0 is off
@@ -2242,7 +2262,7 @@ raop_volume_convert(int volume)
   if (volume == 0)
     raop_volume = -144.0;
   else
-    raop_volume = -30.0 + ((float)volume * 30.0) / 100.0;
+    raop_volume = -30.0 + ((float)max_volume * (float)volume * 30.0) / (100.0 * RAOP_CONFIG_MAX_VOLUME);
 
   return raop_volume;
 }
@@ -2262,7 +2282,7 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
       return -1;
     }
 
-  raop_volume = raop_volume_convert(volume);
+  raop_volume = raop_volume_convert(volume, rs->devname);
 
   /* Don't let locales get in the way here */
   ret = evbuffer_add_printf(evbuf, "volume: %d.%06d\r\n", (int)raop_volume, -(int)(1000000.0 * (raop_volume - (int)raop_volume)));
