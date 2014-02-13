@@ -1391,11 +1391,8 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
       return;
     }
 
-  dmap_add_container(evbuf, "cacr", 24); /* 8 + len */
-  dmap_add_int(evbuf, "mstt", 200);      /* 12 */
-  dmap_add_int(evbuf, "miid", ps->id);   /* 12 */
-
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  /* 204 No Content is the canonical reply */
+  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
 }
 
 static void
