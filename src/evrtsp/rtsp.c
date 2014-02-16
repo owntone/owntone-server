@@ -1075,7 +1075,7 @@ evrtsp_parse_headers(struct evrtsp_request *req, struct evbuffer *buffer)
 	enum message_read_status status = MORE_DATA_EXPECTED;
 
 	struct evkeyvalq *headers = req->input_headers;
-	while ((line = evbuffer_readln(buffer, NULL, EVBUFFER_EOL_ANY))
+	while ((line = evbuffer_readln(buffer, NULL, EVBUFFER_EOL_CRLF))
 	       != NULL) {
 		char *skey, *svalue;
 
