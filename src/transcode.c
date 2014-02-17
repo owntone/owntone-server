@@ -184,7 +184,26 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
       /* Decode data */
       while (ctx->apacket2.size > 0)
 	{
-#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+#if LIBAVCODEC_VERSION_MAJOR >= 56 || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR >= 29)
+	  got_frame = 0;
+
+	  if (!frame)
+	    {
+	      frame = av_frame_alloc();
+	      if (!frame)
+		{
+		  DPRINTF(E_LOG, L_XCODE, "Out of memory for decoded frame\n");
+
+		  return -1;
+		}
+	    }
+	  else
+            av_frame_unref(frame);
+
+	  used = avcodec_decode_audio4(ctx->acodec,
+				       frame, &got_frame,
+				       &ctx->apacket2);
+#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
 	  got_frame = 0;
 
 	  if (!frame)
@@ -199,7 +218,6 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	    }
 	  else
             avcodec_get_frame_defaults(frame);
-
 
 	  used = avcodec_decode_audio4(ctx->acodec,
 				       frame, &got_frame,
@@ -343,10 +361,13 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 
   ctx->offset += processed;
 
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+#if LIBAVCODEC_VERSION_MAJOR >= 56 || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR >= 29)
+  if (frame)
+    av_frame_free(&frame);
+#elif LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
   if (frame)
     avcodec_free_frame(&frame);
-#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
+#else
   if (frame)
     av_free(frame);
 #endif

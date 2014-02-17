@@ -211,6 +211,24 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
       goto out_close_src;
     }
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  dst_fmt->video_codec = AV_CODEC_ID_NONE;
+
+  /* Try to keep same codec if possible */
+  if ((src->codec_id == AV_CODEC_ID_PNG) && (format & ART_CAN_PNG))
+    dst_fmt->video_codec = AV_CODEC_ID_PNG;
+  else if ((src->codec_id == AV_CODEC_ID_MJPEG) && (format & ART_CAN_JPEG))
+    dst_fmt->video_codec = AV_CODEC_ID_MJPEG;
+
+  /* If not possible, select new codec */
+  if (dst_fmt->video_codec == AV_CODEC_ID_NONE)
+    {
+      if (format & ART_CAN_PNG)
+	dst_fmt->video_codec = AV_CODEC_ID_PNG;
+      else if (format & ART_CAN_JPEG)
+	dst_fmt->video_codec = AV_CODEC_ID_MJPEG;
+    }
+#else
   dst_fmt->video_codec = CODEC_ID_NONE;
 
   /* Try to keep same codec if possible */
@@ -227,6 +245,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
       else if (format & ART_CAN_JPEG)
 	dst_fmt->video_codec = CODEC_ID_MJPEG;
     }
+#endif
 
   img_encoder = avcodec_find_encoder(dst_fmt->video_codec);
   if (!img_encoder)
@@ -353,8 +372,13 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
       goto out_free_dst_ctx;
     }
 
+#if LIBAVCODEC_VERSION_MAJOR >= 56 || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR >= 29)
+  i_frame = av_frame_alloc();
+  o_frame = av_frame_alloc();
+#else
   i_frame = avcodec_alloc_frame();
   o_frame = avcodec_alloc_frame();
+#endif
 
   if (!i_frame || !o_frame)
     {
@@ -533,11 +557,19 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
 
   switch (dst_fmt->video_codec)
     {
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_PNG:
+#else
       case CODEC_ID_PNG:
+#endif
 	ret = ART_FMT_PNG;
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_MJPEG:
+#else
       case CODEC_ID_MJPEG:
+#endif
 	ret = ART_FMT_JPEG;
 	break;
 
@@ -559,10 +591,22 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   av_free(buf);
 
  out_free_frames:
+#if LIBAVCODEC_VERSION_MAJOR >= 56 || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR >= 29)
+  if (i_frame)
+    av_frame_free(&i_frame);
+  if (o_frame)
+    av_frame_free(&o_frame);
+#elif LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  if (i_frame)
+    avcodec_free_frame(&i_frame);
+  if (o_frame)
+    avcodec_free_frame(&o_frame);
+#else
   if (i_frame)
     av_free(i_frame);
   if (o_frame)
     av_free(o_frame);
+#endif
   avcodec_close(dst);
 
  out_free_dst_ctx:
@@ -620,12 +664,20 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
   format_ok = 0;
   for (s = 0; s < src_ctx->nb_streams; s++)
     {
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_PNG)
+#else
       if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_PNG)
+#endif
 	{
 	  format_ok = (format & ART_CAN_PNG) ? ART_FMT_PNG : 0;
 	  break;
 	}
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      else if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_MJPEG)
+#else
       else if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_MJPEG)
+#endif
 	{
 	  format_ok = (format & ART_CAN_JPEG) ? ART_FMT_JPEG : 0;
 	  break;
@@ -713,12 +765,20 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
     {
       if (src_ctx->streams[s]->disposition & AV_DISPOSITION_ATTACHED_PIC)
 	{
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+	  if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_PNG)
+#else
 	  if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_PNG)
+#endif
 	    {
 	      format_ok = (format & ART_CAN_PNG) ? ART_FMT_PNG : 0;
 	      break;
 	    }
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+	  else if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_MJPEG)
+#else
 	  else if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_MJPEG)
+#endif
 	    {
 	      format_ok = (format & ART_CAN_JPEG) ? ART_FMT_JPEG : 0;
 	      break;
@@ -1030,8 +1090,10 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   struct db_media_file_info dbmfi;
   char *dir;
   int got_art;
-  int artwork_t;
   int ret;
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
+  int artwork_t;
+#endif
 
   DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
 
