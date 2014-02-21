@@ -1408,6 +1408,9 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
       User selected track (album tab):
 	?command=add&query='dmap.itemid:...'&queuefilter=album:...&sort=album&mode=1&session-id=...
 	-> clear queue, play itemid and the rest of album
+      User selected track (artist tab):
+	?command=add&query='dmap.itemid:...'&queuefilter=artist:...&sort=album&mode=1&session-id=...
+	-> clear queue, play itemid and the rest of artist tracks
       User selected track (song tab):
 	?command=add&query='dmap.itemid:...'&queuefilter=playlist:...&sort=name&mode=1&session-id=...
 	-> clear queue, play itemid and the rest of playlist
@@ -1427,7 +1430,7 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
 	?command=playnow&index=...&session-id=...
 	-> play index
 
-      And the quirky query - no sort, and either no queuefilter or queuefilter=album:(null)
+      And the quirky query from iPad Remote - no sort and no queuefilter
       User selected track (artist tab):
 	?command=add&query='dmap.itemid:...'&mode=1&session-id=...
 	-> clear queue, play itemid and the rest of artist tracks

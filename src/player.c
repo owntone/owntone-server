@@ -724,6 +724,7 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
   struct query_params qp;
   struct player_source *ps;
   int64_t albumid;
+  int64_t artistid;
   int plid;
   int id;
   int idx;
@@ -767,6 +768,19 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 	      return -1;
 	    }
 	  snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, albumid);
+	  qp.filter = strdup(buf);
+	}
+      else if ((len > 7) && (strncmp(queuefilter, "artist:", 7) == 0))
+	{
+	  qp.type = Q_ITEMS;
+	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &artistid);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_PLAYER, "Invalid artist id in queuefilter: %s\n", queuefilter);
+
+	      return -1;
+	    }
+	  snprintf(buf, sizeof(buf), "f.songartistid = %" PRIi64, artistid);
 	  qp.filter = strdup(buf);
 	}
       else if ((len > 9) && (strncmp(queuefilter, "playlist:", 9) == 0))
