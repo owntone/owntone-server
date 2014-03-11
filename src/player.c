@@ -59,6 +59,9 @@
 #include "raop.h"
 #include "laudio.h"
 
+#ifdef HAVE_SPOTIFY_H
+# include "spotify.h"
+#endif
 
 #ifndef MIN
 # define MIN(a, b) ((a < b) ? a : b)
@@ -882,8 +885,19 @@ player_queue_make_pl(int plid, uint32_t *id)
 static void
 source_free(struct player_source *ps)
 {
-  if (ps->ctx)
-    transcode_cleanup(ps->ctx);
+  switch (ps->type)
+    {
+      case SOURCE_FFMPEG:
+	if (ps->ctx)
+	  transcode_cleanup(ps->ctx);
+	break;
+
+      case SOURCE_SPOTIFY:
+#ifdef HAVE_SPOTIFY_H
+	spotify_playback_stop();
+#endif
+	break;
+    }
 
   free(ps);
 }
@@ -895,11 +909,22 @@ source_stop(struct player_source *ps)
 
   while (ps)
     {
-      if (ps->ctx)
+      switch (ps->type)
 	{
-	  transcode_cleanup(ps->ctx);
-	  ps->ctx = NULL;
-	}
+	  case SOURCE_FFMPEG:
+	    if (ps->ctx)
+	      {
+		transcode_cleanup(ps->ctx);
+		ps->ctx = NULL;
+	      }
+	    break;
+
+          case SOURCE_SPOTIFY:
+#ifdef HAVE_SPOTIFY_H
+	    spotify_playback_stop();
+#endif
+	    break;
+        }
 
       tmp = ps;
       ps = ps->play_next;
@@ -989,7 +1014,9 @@ static int
 source_open(struct player_source *ps, int no_md)
 {
   struct media_file_info *mfi;
+  int ret;
 
+  ps->setup_done = 0;
   ps->stream_start = 0;
   ps->output_start = 0;
   ps->end = 0;
@@ -1013,11 +1040,24 @@ source_open(struct player_source *ps, int no_md)
 
   DPRINTF(E_DBG, L_PLAYER, "Opening %s\n", mfi->path);
 
-  ps->ctx = transcode_setup(mfi, NULL, 0);
+  if (strncmp(mfi->path, "spotify:", strlen("spotify:")) == 0)
+    {
+      ps->type = SOURCE_SPOTIFY;
+#ifdef HAVE_SPOTIFY_H
+      ret = spotify_playback_play(mfi);
+#else
+      ret = -1;
+#endif
+    }
+  else
+    {
+      ps->type = SOURCE_FFMPEG;
+      ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
+    }
 
   free_mfi(mfi, 0);
 
-  if (!ps->ctx)
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not open file id %d\n", ps->id);
 
@@ -1026,6 +1066,8 @@ source_open(struct player_source *ps, int no_md)
 
   if (!no_md)
     metadata_send(ps, (player_state == PLAY_PLAYING) ? 0 : 1);
+
+  ps->setup_done = 1;
 
   return 0;
 }
@@ -1067,7 +1109,7 @@ source_next(int force)
 	if (!cur_streaming)
 	  break;
 
-	if (cur_streaming->ctx)
+	if ((cur_streaming->type == SOURCE_FFMPEG) && cur_streaming->ctx)
 	  {
 	    ret = transcode_seek(cur_streaming->ctx, 0);
 
@@ -1276,10 +1318,13 @@ source_check(void)
 	{
 	  cur_playing = cur_playing->play_next;
 
-	  if (ps->ctx)
+	  if (ps->setup_done)
 	    {
-	      transcode_cleanup(ps->ctx);
-	      ps->ctx = NULL;
+	      if ((ps->type == SOURCE_FFMPEG) && ps->ctx)
+		{
+	          transcode_cleanup(ps->ctx);
+	          ps->ctx = NULL;
+		}
 	      ps->play_next = NULL;
 	    }
         }
@@ -1324,10 +1369,13 @@ source_check(void)
       cur_playing->stream_start = ps->end + 1;
       cur_playing->output_start = cur_playing->stream_start;
 
-      if (ps->ctx)
+      if (ps->setup_done)
 	{
-	  transcode_cleanup(ps->ctx);
-	  ps->ctx = NULL;
+	  if ((ps->type == SOURCE_FFMPEG) && ps->ctx)
+	    {
+	      transcode_cleanup(ps->ctx);
+	      ps->ctx = NULL;
+	    }
 	  ps->play_next = NULL;
 	}
     }
@@ -1371,7 +1419,22 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 
       if (EVBUFFER_LENGTH(audio_buf) == 0)
 	{
-	  ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes);
+	  switch (cur_streaming->type)
+	    {
+	      case SOURCE_FFMPEG:
+		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes);
+		break;
+
+#ifdef HAVE_SPOTIFY_H
+	      case SOURCE_SPOTIFY:
+		ret = spotify_audio_get(audio_buf, len - nbytes);
+		break;
+#endif
+
+	      default:
+		ret = -1;
+	    }
+	    
 	  if (ret <= 0)
 	    {
 	      /* EOF or error */
@@ -2555,7 +2618,20 @@ playback_seek_bh(struct player_command *cmd)
   ps->end = 0;
 
   /* Seek to commanded position */
-  ret = transcode_seek(ps->ctx, ms);
+  switch (ps->type)
+    {
+      case SOURCE_FFMPEG:
+	ret = transcode_seek(ps->ctx, ms);
+	break;
+#ifdef HAVE_SPOTIFY_H
+      case SOURCE_SPOTIFY:
+	ret = spotify_playback_seek(ms);
+	break;
+#endif
+      default:
+	ret = -1;
+    }
+
   if (ret < 0)
     {
       playback_abort();
@@ -2596,7 +2672,20 @@ playback_pause_bh(struct player_command *cmd)
   pos -= ps->stream_start;
   ms = (int)((pos * 1000) / 44100);
 
-  ret = transcode_seek(ps->ctx, ms);
+  switch (ps->type)
+    {
+      case SOURCE_FFMPEG:
+	ret = transcode_seek(ps->ctx, ms);
+	break;
+#ifdef HAVE_SPOTIFY_H
+      case SOURCE_SPOTIFY:
+	ret = spotify_playback_seek(ms);
+	break;
+#endif
+      default:
+	ret = -1;
+    }
+
   if (ret < 0)
     {
       playback_abort();

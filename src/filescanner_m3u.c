@@ -42,7 +42,7 @@
 
 /* Get metadata from the EXTINF tag */
 static int
-extinf_get(char *string, struct extinf_ctx *extinf)
+extinf_get(char *string, struct media_file_info *mfi, int *extinf)
 {
   char *ptr;
 
@@ -54,20 +54,20 @@ extinf_get(char *string, struct extinf_ctx *extinf)
     return 0;
 
   /* New extinf found, so clear old data */
-  if (extinf->found)
+  if (*extinf)
     {
-      free(extinf->artist);
-      free(extinf->title);
+      free(mfi->artist);
+      free(mfi->title);
     }
 
-  extinf->found = 1;
-  extinf->artist = strdup(ptr + 1);
+  *extinf = 1;
+  mfi->artist = strdup(ptr + 1);
 
-  ptr = strstr(extinf->artist, " -");
+  ptr = strstr(mfi->artist, " -");
   if (ptr && strlen(ptr) > 3)
-    extinf->title = strdup(ptr + 3);
+    mfi->title = strdup(ptr + 3);
   else
-    extinf->title = strdup("");
+    mfi->title = strdup("");
   if (ptr)
     *ptr = '\0';
 
@@ -75,34 +75,37 @@ extinf_get(char *string, struct extinf_ctx *extinf)
 }
 
 static void
-extinf_reset(struct extinf_ctx *extinf)
+extinf_reset(struct media_file_info *mfi, int *extinf)
 {
-  if (extinf->found)
+  if (*extinf)
     {
-      free(extinf->artist);
-      free(extinf->title);
+      free(mfi->artist);
+      free(mfi->title);
     }
-  extinf->found = 0;
+  *extinf = 0;
 }
 
 void
 scan_m3u_playlist(char *file, time_t mtime)
 {
   FILE *fp;
+  struct media_file_info mfi;
   struct playlist_info *pli;
   struct stat sb;
-  struct extinf_ctx extinf;
   char buf[PATH_MAX];
   char *entry;
   char *filename;
   char *ptr;
   size_t len;
+  int extinf;
   int pl_id;
   int mfi_id;
   int ret;
   int i;
 
   DPRINTF(E_INFO, L_SCAN, "Processing static playlist: %s\n", file);
+
+  memset(&mfi, 0, sizeof(struct media_file_info));
 
   ret = stat(file, &sb);
   if (ret < 0)
@@ -167,7 +170,7 @@ scan_m3u_playlist(char *file, time_t mtime)
       DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
     }
 
-  extinf.found = 0;
+  extinf = 0;
 
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
@@ -189,7 +192,7 @@ scan_m3u_playlist(char *file, time_t mtime)
 	continue;
 
       /* Saves metadata in extinf if EXTINF metadata line */
-      if (extinf_get(buf, &extinf))
+      if (extinf_get(buf, &mfi, &extinf))
 	continue;
 
       /* Check that first char is sane for a path */
@@ -209,10 +212,10 @@ scan_m3u_playlist(char *file, time_t mtime)
 	      continue;
 	    }
 
-	  if (extinf.found)
-	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", extinf.artist, extinf.title);
+	  if (extinf)
+	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi.artist, mfi.title);
 
-	  process_media_file(filename, mtime, 0, F_SCAN_TYPE_URL, &extinf);
+	  filescanner_process_media(filename, mtime, 0, F_SCAN_TYPE_URL, &mfi);
 	}
       /* Regular file */
       else
@@ -271,7 +274,7 @@ scan_m3u_playlist(char *file, time_t mtime)
       if (ret < 0)
 	DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
 
-      extinf_reset(&extinf);
+      extinf_reset(&mfi, &extinf);
       free(filename);
     }
 

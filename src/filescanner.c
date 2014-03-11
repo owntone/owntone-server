@@ -60,6 +60,10 @@
 #include "misc.h"
 #include "remote_pairing.h"
 
+#ifdef HAVE_SPOTIFY_H
+# include "spotify.h"
+#endif
+
 
 #define F_SCAN_BULK    (1 << 0)
 #define F_SCAN_RESCAN  (1 << 1)
@@ -368,25 +372,23 @@ fixup_tags(struct media_file_info *mfi)
 
 
 void
-process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf_ctx *extinf)
+filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi)
 {
-  struct media_file_info mfi;
+  struct media_file_info *mfi;
   char *filename;
   char *ext;
   time_t stamp;
   int id;
   int ret;
 
-  filename = strrchr(file, '/');
-  if (!filename)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not determine filename for %s\n", file);
-
-      return;
-    }
+  filename = strrchr(path, '/');
+  if ((!filename) || (strlen(filename) == 1))
+    filename = path;
+  else
+    filename++;
 
   /* File types which should never be processed */
-  ext = strrchr(file, '.');
+  ext = strrchr(path, '.');
   if (ext)
     {
       if ((strcasecmp(ext, ".pls") == 0) || (strcasecmp(ext, ".url") == 0))
@@ -400,7 +402,7 @@ process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf
 	  /* Artwork files - don't scan */
 	  return;
 	}
-      else if ((strlen(filename) > 1) && ((filename[1] == '_') || (filename[1] == '.')))
+      else if ((filename[0] == '_') || (filename[0] == '.'))
 	{
 	  /* Hidden files - don't scan */
 	  return;
@@ -412,7 +414,7 @@ process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf
 	}
     }
 
-  db_file_stamp_bypath(file, &stamp, &id);
+  db_file_stamp_bypath(path, &stamp, &id);
 
   if (stamp >= mtime)
     {
@@ -420,78 +422,88 @@ process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf
       return;
     }
 
-  memset(&mfi, 0, sizeof(struct media_file_info));
-
-  if (stamp)
-    mfi.id = db_file_id_bypath(file);
-
-  mfi.fname = strdup(filename + 1);
-  if (!mfi.fname)
+  if (!external_mfi)
     {
-      DPRINTF(E_WARN, L_SCAN, "Out of memory for fname\n");
+      mfi = (struct media_file_info*)malloc(sizeof(struct media_file_info));
+      if (!mfi)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Out of memory for mfi\n");
+	  return;
+	}
 
-      return;
-    }
-
-  mfi.path = strdup(file);
-  if (!mfi.path)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Out of memory for path\n");
-
-      free(mfi.fname);
-      return;
-    }
-
-  mfi.time_modified = mtime;
-  mfi.file_size = size;
-
-  if (!(type & F_SCAN_TYPE_URL))
-    {
-      mfi.data_kind = 0; /* real file */
-      ret = scan_metadata_ffmpeg(file, &mfi);
+      memset(mfi, 0, sizeof(struct media_file_info));
     }
   else
+    mfi = external_mfi;
+
+  if (stamp)
+    mfi->id = db_file_id_bypath(path);
+
+  mfi->fname = strdup(filename);
+  if (!mfi->fname)
     {
-      mfi.data_kind = 1; /* url/stream */
-      if (extinf && extinf->found)
-        {
-	  mfi.artist = strdup(extinf->artist);
-	  mfi.title = strdup(extinf->artist);
-	  mfi.album = strdup(extinf->title);
-	}
-      ret = scan_metadata_icy(file, &mfi);
+      DPRINTF(E_LOG, L_SCAN, "Out of memory for fname\n");
+      goto out;
     }
+
+  mfi->path = strdup(path);
+  if (!mfi->path)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Out of memory for path\n");
+      goto out;
+    }
+
+  mfi->time_modified = mtime;
+  mfi->file_size = size;
+
+  if (type & F_SCAN_TYPE_FILE)
+    {
+      mfi->data_kind = 0; /* real file */
+      ret = scan_metadata_ffmpeg(path, mfi);
+    }
+  else if (type & F_SCAN_TYPE_URL)
+    {
+      mfi->data_kind = 1; /* url/stream */
+      ret = scan_metadata_icy(path, mfi);
+    }
+  else if (type & F_SCAN_TYPE_SPOTIFY)
+    {
+      mfi->data_kind = 2; /* iTunes has no spotify data kind, but we use 2 */
+      ret = mfi->artist && mfi->album && mfi->title;
+    }
+  else
+    ret = -1;
 
   if (ret < 0)
     {
-      DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for %s\n", file);
-
+      DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for %s\n", path);
       goto out;
     }
 
   if (type & F_SCAN_TYPE_COMPILATION)
-    mfi.compilation = 1;
+    mfi->compilation = 1;
   if (type & F_SCAN_TYPE_PODCAST)
-    mfi.media_kind = 4; /* podcast */
+    mfi->media_kind = 4; /* podcast */
   if (type & F_SCAN_TYPE_AUDIOBOOK)
-    mfi.media_kind = 8; /* audiobook */
+    mfi->media_kind = 8; /* audiobook */
 
-  if (!mfi.item_kind)
-    mfi.item_kind = 2; /* music */
-  if (!mfi.media_kind)
-    mfi.media_kind = 1; /* music */
+  if (!mfi->item_kind)
+    mfi->item_kind = 2; /* music */
+  if (!mfi->media_kind)
+    mfi->media_kind = 1; /* music */
 
-  unicode_fixup_mfi(&mfi);
+  unicode_fixup_mfi(mfi);
 
-  fixup_tags(&mfi);
+  fixup_tags(mfi);
 
-  if (mfi.id == 0)
-    db_file_add(&mfi);
+  if (mfi->id == 0)
+    db_file_add(mfi);
   else
-    db_file_update(&mfi);
+    db_file_update(mfi);
 
  out:
-  free_mfi(&mfi, 1);
+  if (!external_mfi)
+    free_mfi(mfi, 0);
 }
 
 static void
@@ -594,6 +606,14 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 
 	  return;
 	}
+#ifdef HAVE_SPOTIFY_H
+      else if (strcmp(ext, ".spotify") == 0)
+	{
+	  spotify_login(file);
+
+	  return;
+	}
+#endif
       else if (strcmp(ext, ".force-rescan") == 0)
 	{
 	  if (flags & F_SCAN_BULK)
@@ -610,7 +630,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
     }
 
   /* Not any kind of special file, so let's see if it's a media file */
-  process_media_file(file, mtime, size, type, NULL);
+  filescanner_process_media(file, mtime, size, type, NULL);
 }
 
 /* Thread: scan */
@@ -1109,12 +1129,12 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	   * We want to scan the new file and we want to rescan the
 	   * playlist to update playlist items (relative items).
 	   */
-	  ie->mask |= IN_CREATE;
+	  ie->mask |= IN_CLOSE_WRITE;
 	  db_pl_enable_bycookie(ie->cookie, wi->path);
 	}
     }
 
-  if (ie->mask & (IN_MODIFY | IN_CREATE | IN_CLOSE_WRITE))
+  if (ie->mask & IN_CLOSE_WRITE)
     {
       ret = lstat(path, &sb);
       if (ret < 0)
@@ -1474,6 +1494,12 @@ exit_cb(int fd, short event, void *arg)
   scan_exit = 1;
 }
 
+
+int
+filescanner_status(void)
+{
+  return scan_exit;
+}
 
 /* Thread: main */
 int

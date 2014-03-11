@@ -73,7 +73,7 @@ struct uri_map {
 
 struct daap_session {
   int id;
-
+  char *user_agent;
   struct event timeout;
 };
 
@@ -132,7 +132,12 @@ daap_session_free(void *item)
 
   s = (struct daap_session *)item;
 
-  if (event_initialized(&s->timeout)) evtimer_del(&s->timeout);
+  if (event_initialized(&s->timeout))
+    evtimer_del(&s->timeout);
+
+  if (s->user_agent)
+    free(s->user_agent);
+
   free(s);
 }
 
@@ -155,7 +160,7 @@ daap_session_timeout_cb(int fd, short what, void *arg)
 }
 
 static struct daap_session *
-daap_session_register(void)
+daap_session_register(const char *user_agent)
 {
   struct timeval tv;
   struct daap_session *s;
@@ -175,6 +180,9 @@ daap_session_register(void)
 
   next_session_id++;
 
+  if (user_agent)
+    s->user_agent = strdup(user_agent);
+
   if (DAAP_SESSION_TIMEOUT > 0) {
     evtimer_set(&s->timeout, daap_session_timeout_cb, s);
     event_base_set(evbase_httpd, &s->timeout);
@@ -184,6 +192,9 @@ daap_session_register(void)
   if (!node)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not register DAAP session: %s\n", strerror(errno));
+
+      if (user_agent)
+	free(s->user_agent);
 
       free(s);
       return NULL;
@@ -466,6 +477,47 @@ daap_sort_finalize(struct sort_ctx *ctx)
   dmap_add_int(ctx->headerlist, "mshn", ctx->misc_mshn); /* 12 */
 }
 
+/* We try not to return items that the client cannot play (like Spotify and
+ * internet streams in iTunes), or which are inappropriate (like internet streams
+ * in the album tab in Remote
+ */
+static void
+user_agent_filter(const char *user_agent, struct query_params *qp)
+{
+  char *filter;
+  char *buffer;
+  int len;
+
+  if (!user_agent)
+    return;
+
+  if (strcasestr(user_agent, "itunes"))
+    filter = strdup("(f.data_kind = 0)"); // Only real files
+  else if (strcasestr(user_agent, "daap"))
+    filter = strdup("(f.data_kind = 0)"); // Only real files
+  else if (strcasestr(user_agent, "remote"))
+    filter = strdup("(f.data_kind <> 1)"); // No internet radio
+  else if (strcasestr(user_agent, "android"))
+    filter = strdup("(f.data_kind <> 1)"); // No internet radio
+  else
+    return;
+
+  if (qp->filter)
+    {
+      len = strlen(qp->filter) + strlen(" AND ") + strlen(filter);
+      buffer = (char *)malloc(len + 1);
+      snprintf(buffer, len + 1, "%s AND %s", qp->filter, filter);
+      free(qp->filter);
+      qp->filter = strdup(buffer);
+      free(buffer);
+    }
+  else
+    qp->filter = strdup(filter);
+
+  DPRINTF(E_DBG, L_DAAP, "SQL filter w/client mod: %s\n", qp->filter);
+
+  free(filter);
+}
 
 static void
 get_query_params(struct evkeyvalq *query, int *sort_headers, struct query_params *qp)
@@ -807,7 +859,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
       free_pi(&pi, 1);
     }
 
-  s = daap_session_register();
+  s = daap_session_register(ua);
   if (!s)
     {
       dmap_send_error(req, "mlog", "Could not start session");
@@ -987,6 +1039,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 static void
 daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, int playlist, struct evkeyvalq *query)
 {
+  struct daap_session *s;
   struct query_params qp;
   struct db_media_file_info dbmfi;
   struct evbuffer *song;
@@ -1000,6 +1053,10 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   int nsongs;
   int transcode;
   int ret;
+
+  s = daap_session_find(req, query, evbuf);
+  if (!s)
+    return;
 
   DPRINTF(E_DBG, L_DAAP, "Fetching song list for playlist %d\n", playlist);
 
@@ -1082,6 +1139,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   memset(&qp, 0, sizeof(struct query_params));
   get_query_params(query, &sort_headers, &qp);
+  if (playlist == -1)
+    user_agent_filter(s->user_agent, &qp);
 
   sctx = NULL;
   if (sort_headers)
@@ -1242,25 +1301,14 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 static void
 daap_reply_dbsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
-
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
-    return;
-
   daap_reply_songlist_generic(req, evbuf, -1, query);
 }
 
 static void
 daap_reply_plsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
-  struct daap_session *s;
   int playlist;
   int ret;
-
-  s = daap_session_find(req, query, evbuf);
-  if (!s)
-    return;
 
   ret = safe_atoi32(uri[3], &playlist);
   if (ret < 0)
@@ -1364,6 +1412,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   memset(&qp, 0, sizeof(struct query_params));
   get_query_params(query, NULL, &qp);
   qp.type = Q_PL;
+  qp.sort = S_PLAYLIST;
 
   ret = db_query_start(&qp);
   if (ret < 0)
@@ -1545,6 +1594,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   memset(&qp, 0, sizeof(struct query_params));
 
   get_query_params(query, &sort_headers, &qp);
+  user_agent_filter(s->user_agent, &qp);
 
   param = evhttp_find_header(query, "group-type");
   if (strcmp(param, "artists") == 0)
@@ -1833,6 +1883,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   memset(&qp, 0, sizeof(struct query_params));
 
   get_query_params(query, &sort_headers, &qp);
+  user_agent_filter(s->user_agent, &qp);
 
   if (strcmp(uri[3], "artists") == 0)
     {

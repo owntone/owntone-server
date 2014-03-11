@@ -54,6 +54,9 @@
 #include "db.h"
 #include "transcode.h"
 
+#ifdef HAVE_SPOTIFY_H
+# include "spotify.h"
+#endif
 
 #if LIBAVCODEC_VERSION_MAJOR >= 56 || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR >= 18)
 # define XCODE_BUFFER_SIZE ((192000 * 3) / 2)
@@ -462,9 +465,8 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   return got_ms;
 }
 
-
-struct transcode_ctx *
-transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
+int
+transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t *est_size, int wavhdr)
 {
   struct transcode_ctx *ctx;
   int ret;
@@ -474,7 +476,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
     {
       DPRINTF(E_WARN, L_XCODE, "Could not allocate transcode context\n");
 
-      return NULL;
+      return -1;
     }
   memset(ctx, 0, sizeof(struct transcode_ctx));
 
@@ -488,7 +490,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
       DPRINTF(E_WARN, L_XCODE, "Could not open file %s: %s\n", mfi->fname, strerror(AVUNERROR(ret)));
 
       free(ctx);
-      return NULL;
+      return -1;
     }
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
@@ -662,7 +664,9 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
   if (wavhdr)
     make_wav_header(ctx, est_size);
 
-  return ctx;
+  *nctx = ctx;
+
+  return 0;
 
  setup_fail_codec:
   avcodec_close(ctx->acodec);
@@ -675,7 +679,7 @@ transcode_setup(struct media_file_info *mfi, off_t *est_size, int wavhdr)
 #endif
   free(ctx);
 
-  return NULL;
+  return -1;
 }
 
 void
@@ -684,11 +688,14 @@ transcode_cleanup(struct transcode_ctx *ctx)
   if (ctx->apacket.data)
     av_free_packet(&ctx->apacket);
 
-  avcodec_close(ctx->acodec);
+  if (ctx->acodec)
+    avcodec_close(ctx->acodec);
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
-  avformat_close_input(&ctx->fmtctx);
+  if (ctx->fmtctx)
+    avformat_close_input(&ctx->fmtctx);
 #else
-  av_close_input_file(ctx->fmtctx);
+  if (ctx->fmtctx)
+    av_close_input_file(ctx->fmtctx);
 #endif
 
   av_free(ctx->abuffer);
@@ -716,6 +723,12 @@ transcode_needed(struct evkeyvalq *headers, char *file_codectype)
   cfg_t *lib;
   int size;
   int i;
+
+  if (!file_codectype)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Can't proceed, codectype is unknown (null)\n");
+      return -1;
+    }
 
   DPRINTF(E_DBG, L_XCODE, "Determining transcoding status for codectype %s\n", file_codectype);
 

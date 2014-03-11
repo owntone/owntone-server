@@ -67,6 +67,9 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 # include "ffmpeg_url_evbuffer.h"
 #endif
 
+#ifdef HAVE_SPOTIFY_H
+# include "spotify.h"
+#endif
 
 #define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
 
@@ -678,6 +681,15 @@ main(int argc, char **argv)
       goto filescanner_fail;
     }
 
+#ifdef HAVE_SPOTIFY_H
+  /* Spawn Spotify thread */
+  ret = spotify_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_INFO, L_MAIN, "Spotify thread not started\n");;
+    }
+#endif
+
   /* Spawn player thread */
   ret = player_init();
   if (ret != 0)
@@ -786,6 +798,10 @@ main(int argc, char **argv)
   player_deinit();
 
  player_fail:
+#ifdef HAVE_SPOTIFY_H
+  DPRINTF(E_LOG, L_MAIN, "Spotify deinit\n");
+  spotify_deinit();
+#endif
   DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
   filescanner_deinit();
 

@@ -26,8 +26,9 @@
 #define L_LAUDIO  17
 #define L_DMAP    18
 #define L_DBPERF  19
+#define L_SPOTIFY 20
 
-#define N_LOGDOMAINS  20
+#define N_LOGDOMAINS  21
 
 /* Severities */
 #define E_FATAL   0

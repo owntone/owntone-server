@@ -21,6 +21,7 @@ enum sort_type {
   S_NAME,
   S_ALBUM,
   S_ARTIST,
+  S_PLAYLIST,
 };
 
 #define Q_F_BROWSE (1 << 15)
@@ -45,6 +46,7 @@ enum query_type {
 #define ARTWORK_OWN       3
 #define ARTWORK_DIR       4
 #define ARTWORK_PARENTDIR 5
+#define ARTWORK_SPOTIFY   6
 
 struct query_params {
   /* Query parameters, filled in by caller */
@@ -430,6 +432,9 @@ db_pl_add_item_byid(int plid, int fileid);
 void
 db_pl_clear_items(int id);
 
+int
+db_pl_update(char *title, char *path, int id);
+
 void
 db_pl_delete(int id);
 
@@ -458,6 +463,15 @@ db_pairing_add(struct pairing_info *pi);
 
 int
 db_pairing_fetch_byguid(struct pairing_info *pi);
+
+#ifdef HAVE_SPOTIFY_H
+/* Spotify */
+void
+db_spotify_purge(void);
+
+void
+db_spotify_pl_delete(int id);
+#endif
 
 /* Speakers */
 int

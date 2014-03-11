@@ -33,6 +33,11 @@ enum repeat_mode {
   REPEAT_ALL  = 2,
 };
 
+enum source_type {
+  SOURCE_FFMPEG = 0,
+  SOURCE_SPOTIFY = 1,
+};
+
 struct spk_flags {
   unsigned selected:1;
   unsigned has_password:1;
@@ -59,6 +64,9 @@ typedef void (*player_status_handler)(void);
 struct player_source
 {
   uint32_t id;
+
+  enum source_type type;
+  int setup_done;
 
   uint64_t stream_start;
   uint64_t output_start;

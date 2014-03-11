@@ -8,5 +8,5 @@ SUBDIRS = sqlext src
 man_MANS = forked-daapd.8
 
 install-data-hook:
-	$(MKDIR_P) $(DESTDIR)$(localstatedir)/cache/forked-daapd
+	$(MKDIR_P) $(DESTDIR)$(localstatedir)/cache/forked-daapd/libspotify
 

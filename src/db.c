@@ -273,6 +273,7 @@ static const char *sort_clause[] =
     "ORDER BY f.title_sort ASC",
     "ORDER BY f.album_sort ASC, f.disc ASC, f.track ASC",
     "ORDER BY f.album_artist_sort ASC",
+    "ORDER BY f.special_id DESC, f.title ASC",
   };
 
 static char *db_path;
@@ -876,6 +877,7 @@ db_build_query_pls(struct query_params *qp, char **q)
 {
   char *query;
   char *idx;
+  const char *sort;
   int ret;
 
   qp->results = db_get_count("SELECT COUNT(*) FROM playlists p WHERE p.disabled = 0;");
@@ -887,14 +889,16 @@ db_build_query_pls(struct query_params *qp, char **q)
   if (ret < 0)
     return -1;
 
+  sort = sort_clause[qp->sort];
+
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 AND %s %s;", qp->filter, idx);
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 AND %s %s %s;", qp->filter, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 %s;", idx);
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 %s %s;", sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 AND %s;", qp->filter);
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 AND %s %s;", qp->filter, sort);
   else
-    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0;");
+    query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 %s;", sort);
 
   if (!query)
     {
@@ -1281,10 +1285,10 @@ db_build_query_browse(struct query_params *qp, char *field, char *sort_field, ch
   int ret;
 
   if (qp->filter)
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.%s) FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != '' AND %s;",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.%s) FROM files f WHERE f.disabled = 0 AND f.%s != '' AND %s;",
 			    field, field, qp->filter);
   else
-    count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.%s) FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != '';",
+    count = sqlite3_mprintf("SELECT COUNT(DISTINCT f.%s) FROM files f WHERE f.disabled = 0 AND f.%s != '';",
 			    field, field);
 
   if (!count)
@@ -1323,16 +1327,16 @@ db_build_query_browse(struct query_params *qp, char *field, char *sort_field, ch
     }
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
 			    " AND %s %s %s;", field, sort_field, field, qp->filter, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
 			    " %s %s;", field, sort_field, field, sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != ''"
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
 			    " AND %s %s;", field, sort_field, field, qp->filter, sort);
   else
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.data_kind = 0 AND f.disabled = 0 AND f.%s != '' %s",
+    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != '' %s",
 			    field, sort_field, field, sort);
 
   free(sort);
@@ -3045,6 +3049,41 @@ db_pl_add_item_byid(int plid, int fileid)
 #undef Q_TMPL
 }
 
+int
+db_pl_update(char *title, char *path, int id)
+{
+#define Q_TMPL "UPDATE playlists SET title = '%q', db_timestamp = %" PRIi64 ", path = '%q' WHERE id = %d;"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, title, (int64_t)time(NULL), path, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+  return 0;
+#undef Q_TMPL
+}
+
 void
 db_pl_clear_items(int id)
 {
@@ -3426,6 +3465,79 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 
 #undef Q_TMPL
 }
+
+#ifdef HAVE_SPOTIFY_H
+/* Spotify */
+void
+db_spotify_purge(void)
+{
+  char *queries[3] =
+    {
+      "DELETE FROM files WHERE path LIKE 'spotify:%%';",
+      "DELETE FROM playlistitems WHERE filepath LIKE 'spotify:%%';",
+      "DELETE FROM playlists WHERE path LIKE 'spotify:%%';",
+    };
+  char *errmsg;
+  int i;
+  int ret;
+
+  for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
+    {
+      DPRINTF(E_DBG, L_DB, "Running spotify purge query '%s'\n", queries[i]);
+
+      ret = db_exec(queries[i], &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
+
+	  sqlite3_free(errmsg);
+	}
+      else
+	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+    }
+}
+
+/* Spotify */
+void
+db_spotify_pl_delete(int id)
+{
+  char *queries[3] = { NULL, NULL, NULL };
+  char *queries_tmpl[3] =
+    {
+      "DELETE FROM playlists WHERE id = %d;",
+      "DELETE FROM playlistitems WHERE playlistid = %d;",
+      "DELETE FROM files WHERE path LIKE 'spotify:%%' AND NOT path IN (SELECT filepath FROM playlistitems WHERE id <> %d);",
+    };
+  char *errmsg;
+  int i;
+  int ret;
+
+  for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
+    {
+      queries[i] = sqlite3_mprintf(queries_tmpl[i], id);
+      if (!queries[i])
+	{
+	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+	  return;
+	}
+    }
+
+  for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
+    {
+      DPRINTF(E_DBG, L_DB, "Running spotify playlist delete query '%s'\n", queries[i]);
+
+      ret = db_exec(queries[i], &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Spotify playlist delete %d error: %s\n", i, errmsg);
+
+	  sqlite3_free(errmsg);
+	}
+      else
+	DPRINTF(E_DBG, L_DB, "Deleted %d rows\n", sqlite3_changes(hdl));
+    }
+}
+#endif
 
 
 /* Speakers */

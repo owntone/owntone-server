@@ -1,8 +1,10 @@
 forked-daapd
 ------------
 
-forked-daapd is a DAAP (iTunes) and RSP (Roku) media server, with support for
-Linux and FreeBSD. 
+forked-daapd is a Linux/FreeBSD DAAP (iTunes) and RSP (Roku) media server.
+
+It has support for AirPlay devices/speakers, Apple Remote (and compatibles),
+internet radio and Spotify.
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
@@ -19,6 +21,21 @@ The original (now unmaintained) source can be found here:
   <http://git.debian.org/?p=users/jblache/forked-daapd.git>
 
 forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
+
+
+Contents of this README
+-----------------------
+
+- Supported clients
+- Using Remote
+- AirPlay devices/speakers
+- Local audio output
+- Supported formats
+- Streaming MPEG4
+- Playlists and internet radio
+- Artwork
+- Library
+- Spotify
 
 
 Supported clients
@@ -198,11 +215,14 @@ happily write the metadata back at the end of the file after you've modified
 them. Watch out for that.
 
 
-Playlists
----------
+Playlists and internet radio
+----------------------------
 
 forked-daapd supports M3U playlists. Just drop your playlist somewhere in
 your library with an .m3u extension and it will pick it up.
+
+If the m3u contains an http URL it will be added as an internet radio station,
+and the URL will be probed for Shoutcast (ICY) metadata.
 
 Support for iTunes Music Library XML format is available as a compile-time
 option. By default, metadata from our parsers is preferred over what's in
@@ -289,3 +309,39 @@ so changes won't be noticed unless the file happens to be in a directory that
 is monitored.
 
 Bottom line: symlinks are for directories only.
+
+
+Spotify
+-------
+
+forked-daapd has *some* support for Spotify. It must be compiled with the
+--enable-spotify option (see INSTALL). You must have also have libspotify
+installed, otherwise the Spotify integration will not be available. You can
+get libspotify here:
+
+  - Original (binary) tar.gz, see <https://developer.spotify.com>
+  - Debian package (libspotify12), see <https://apt.mopidy.com>
+  
+You must also have a Spotify premium account.
+
+The procedure for logging in to Spotify is very much like the Remote pairing
+procedure. You must prepare a file, which should have the ending ".spotify".
+The file must have two lines: The first is your Spotify user name, and the
+second is your password. Move the file to your forked-daapd library.
+Forked-daapd will then log in and add all the music in your Spotify playlists
+to its database.
+
+Spotify will automatically notify forked-daapd about playlist updates, so you
+should not need to restart forked-daapd to syncronize with Spotify.
+
+For safety you should delete the ".spotify" file after first login. Forked-daapd
+will not store your password, but will still be able to log you in automatically
+afterwards, because libspotify saves a login token. You can configure the
+location of your Spotify user data in the configuration file.
+
+Limitations: You will only be able to play tracks from your Spotify playlists,
+so you can't search and listen to music from the rest of the Spotify catalogue.
+You will not be able to do any playlist management through forked-daapd - use
+a Spotify client for that. You also can only listen to your music by letting
+forked-daapd do the playback - so that means you can't stream from forked-daapd
+to iTunes. Finally, Spotify artwork is not currently supported.

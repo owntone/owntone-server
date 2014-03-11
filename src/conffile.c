@@ -100,6 +100,14 @@ static cfg_opt_t sec_airplay[] =
     CFG_END()
   };
 
+/* Spotify section structure */
+static cfg_opt_t sec_spotify[] =
+  {
+    CFG_STR("settings_dir", STATEDIR "/cache/" PACKAGE "/libspotify", CFGF_NONE),
+    CFG_STR("cache_dir", "/tmp", CFGF_NONE),
+    CFG_END()
+  };
+
 /* Config file structure */
 static cfg_opt_t toplvl_cfg[] =
   {
@@ -107,6 +115,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("library", sec_library, CFGF_NONE),
     CFG_SEC("audio", sec_audio, CFGF_NONE),
     CFG_SEC("airplay", sec_airplay, CFGF_MULTI | CFGF_TITLE),
+    CFG_SEC("spotify", sec_spotify, CFGF_NONE),
     CFG_END()
   };
 

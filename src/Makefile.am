@@ -13,6 +13,10 @@ if COND_ITUNES
 ITUNESSRC=filescanner_itunes.c
 endif
 
+if COND_SPOTIFY
+SPOTIFYSRC=spotify.c spotify.h
+endif
+
 if COND_ALSA
 ALSASRC=laudio_alsa.c
 endif
@@ -59,13 +63,13 @@ forked_daapd_CPPFLAGS = -D_GNU_SOURCE \
 forked_daapd_CFLAGS = \
 	@ZLIB_CFLAGS@ @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @LIBAV_CFLAGS@ \
 	@CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ \
-	@LIBGCRYPT_CFLAGS@ @GPG_ERROR_CFLAGS@ @ALSA_CFLAGS@
+	@LIBGCRYPT_CFLAGS@ @GPG_ERROR_CFLAGS@ @ALSA_CFLAGS@ @SPOTIFY_CFLAGS@
 
 forked_daapd_LDADD = -lrt \
 	@ZLIB_LIBS@ @AVAHI_LIBS@ @SQLITE3_LIBS@ @LIBAV_LIBS@ \
 	@CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ \
 	@LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ \
-	@LIBGCRYPT_LIBS@ @GPG_ERROR_LIBS@ @ALSA_LIBS@ @LIBUNISTRING@
+	@LIBGCRYPT_LIBS@ @GPG_ERROR_LIBS@ @ALSA_LIBS@ @LIBUNISTRING@ @SPOTIFY_LIBS@
 
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
@@ -95,6 +99,7 @@ forked_daapd_SOURCES = main.c \
 	evrtsp/rtsp.c evrtp/evrtsp.h \
 	evrtsp/rtsp-internal.h evrtsp/log.h \
 	scan-wma.c \
+  $(SPOTIFYSRC) \
 	$(FLACSRC) $(MUSEPACKSRC)
 
 nodist_forked_daapd_SOURCES = \

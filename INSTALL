@@ -97,6 +97,8 @@ Libraries:
         from <http://developer.kde.org/~wheeler/taglib.html>
  - libplist 0.16+ (optional - iTunes XML support)
         from <http://github.com/JonathanBeck/libplist/downloads>
+ - libspotify (optional - Spotify support)
+        from <https://developer.spotify.com>
 
 If using binary packages, remember that you need the development packages to
 build forked-daapd (usually named -dev or -devel).
@@ -143,14 +145,22 @@ needed.
 
 To display the configure options run ./configure --help
 
-FLAC and Musepack support are optional. If not enabled, metadata extraction
-will fail on these files.
+Support for Spotify is optional. Use --enable-spotify to enable this feature.
+If you enable this feature libspotify/api.h is required at compile time.
+Forked-daapd uses runtime dynamic linking to the libspotify library, so even
+though you compiled with --enable-spotify, the executable will still be able
+to run on systems without libspotify (the Spotify features will then be 
+disabled).
 
 Support for iTunes Music Library XML format is optional. Use --enable-itunes
 to enable this feature.
 
+FLAC and Musepack support are optional, and they are probably only required
+if your version of libav/ffmpeg is very old (version 0.5 or 0.6). Use
+--enable-flac and --enable-musepack to enable.
+
 Recommended build settings:
- ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac
+ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
 
 After configure run the usual make, and if that went well, sudo make install
 
@@ -189,12 +199,14 @@ The LSB header below sums it up:
 # Required-Start:    $local_fs $remote_fs $network $time
 # Required-Stop:     $local_fs $remote_fs $network $time
 # Should-Start:      avahi
+# Should-Stop:       avahi
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: media server with support for RSP, DAAP, DACP and AirPlay
+# Short-Description: DAAP/DACP (iTunes) server, support for AirPlay and Spotify
 # Description:       forked-daapd is an iTunes-compatible media server for
-#                    sharing your media library over the local network with RSP
-#                    clients like the SoundBridge from Roku and DAAP clients
-#                    like iTunes. It can also stream music to AirPlay devices, 
-#                    and it can be controlled by Apple Remote (and compatibles).
+#                    sharing your media library over the local network with DAAP
+#                    clients like iTunes. Like iTunes, it can be controlled by
+#                    Apple Remote (and compatibles) and stream music directly to
+#                    AirPlay devices. It also supports streaming to RSP clients
+#                    (Roku devices) and streaming from Spotify.
 ### END INIT INFO

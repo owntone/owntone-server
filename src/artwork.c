@@ -739,6 +739,10 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
   if (strncmp(filename, "http://", strlen("http://")) == 0)
     return -1;
 
+  /* If Spotify item don't look for artwork */
+  if (strncmp(filename, "spotify:", strlen("spotify:")) == 0)
+    return -1;
+
   DPRINTF(E_SPAM, L_ART, "Trying embedded artwork in %s\n", filename);
 
   src_ctx = NULL;
@@ -854,6 +858,10 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
   if (strncmp(path, "http://", strlen("http://")) == 0)
     return -1;
 
+  /* If Spotify item don't look for artwork */
+  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
+    return -1;
+
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
     {
@@ -909,6 +917,10 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
 
   /* If item is an internet stream don't look for artwork */
   if (strncmp(path, "http://", strlen("http://")) == 0)
+    return -1;
+
+  /* If Spotify item don't look for artwork */
+  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
     return -1;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
@@ -979,6 +991,10 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
 
   /* If item is an internet stream don't look for artwork */
   if (strncmp(path, "http://", strlen("http://")) == 0)
+    return -1;
+
+  /* If Spotify item don't look for artwork */
+  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
     return -1;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
