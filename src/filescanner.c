@@ -472,7 +472,10 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
       ret = mfi->artist && mfi->album && mfi->title;
     }
   else
-    ret = -1;
+    {
+      DPRINTF(E_LOG, L_SCAN, "Unknown scan type for %s, this error should not occur\n", path);
+      ret = -1;
+    }
 
   if (ret < 0)
     {
@@ -699,7 +702,7 @@ process_directory(char *path, int flags)
     }
 
   /* Check if compilation and/or podcast directory */
-  type = 0;
+  type = F_SCAN_TYPE_FILE;
   if (check_speciallib(path, "compilations"))
     type |= F_SCAN_TYPE_COMPILATION;
   if (check_speciallib(path, "podcasts"))
@@ -1174,7 +1177,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	    }
 	}
 
-      type = 0;
+      type = F_SCAN_TYPE_FILE;
       if (check_speciallib(path, "compilations"))
 	type |= F_SCAN_TYPE_COMPILATION;
       if (check_speciallib(path, "podcasts"))
