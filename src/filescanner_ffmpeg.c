@@ -695,9 +695,15 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     }
 
  skip_extract:
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+  avformat_close_input(&ctx);
+#else
+  av_close_input_file(ctx);
+#endif
+
   if (mdcount == 0)
     {
-#if LIBAVFORMAT_VERSION_MAJOR < 53 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR < 21)
+#if LIBAVFORMAT_VERSION_MAJOR < 54 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR < 35)
       /* ffmpeg doesn't support FLAC nor Musepack metadata,
        * and is buggy for some WMA variants, so fall back to the
        * legacy format-specific parsers until it gets fixed */
@@ -706,14 +712,12 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	  || (codec_id == CODEC_ID_WMALOSSLESS))
 	{
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy WMA scanner\n");
-	  av_close_input_file(ctx);
 	  return (scan_get_wmainfo(file, mfi) ? 0 : -1);
 	}
 #ifdef FLAC
       else if (codec_id == CODEC_ID_FLAC)
 	{
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy FLAC scanner\n");
-	  av_close_input_file(ctx);
 	  return (scan_get_flacinfo(file, mfi) ? 0 : -1);
 	}
 #endif /* FLAC */
@@ -722,7 +726,6 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	       || (codec_id == CODEC_ID_MUSEPACK8))
 	{
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy Musepack scanner\n");
-	  av_close_input_file(ctx);
 	  return (scan_get_mpcinfo(file, mfi) ? 0 : -1);
 	}
 #endif /* MUSEPACK */
@@ -736,11 +739,6 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     mfi->title = strdup(mfi->fname);
 
   /* All done */
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
-  avformat_close_input(&ctx);
-#else
-  av_close_input_file(ctx);
-#endif
 
   return 0;
 }
