@@ -57,22 +57,22 @@ regardless of the protocol.
 Here is a list of working and non-working DAAP and Remote clients. The list is
 probably obsolete when you read it :-)
 
-+--------------------------+------------+--------+---------------+----------------+---------+
-|          Client          | Developer  |  Type  |   Platform    | Last v. tested | Working |
-+--------------------------+------------+--------+---------------+----------------+---------+
-| iTunes                   | Apple      | DAAP   | Win, OSX      | 11.2           | Yes     |
-| Rhythmbox                | Gnome      | DAAP   | Linux         |                | Yes     |
-| WinAmp DAAPClient        | WardFamily | DAAP   | WinAmp        |                | Yes     |
-| Banshee                  |            | DAAP   | Linux/Win/OSX | 2.6.2          | No      |
-| jtunes4                  |            | DAAP   | Java          |                | No      |
-| Firefly Client           |            | (DAAP) | Java          |                | No      |
-| Remote                   | Apple      | Remote | iOS           | 4.2            | Yes     |
-| Retune                   | SquallyDoc | Remote | Android       | 3.5.23         | Yes     |
-| TunesRemote+             | Melloware  | Remote | Android       | 2.5.3          | Yes     |
-| Remote for iTunes        | Hyperfine  | Remote | Android       |                | Yes     |
-| Remote for Windows Phone | Komodex    | Remote | Windows Phone | 2.2.1.0        | Yes     |
-| TunesRemote SE           |            | Remote | Java          | r108           | Yes     |
-+--------------------------+------------+--------+---------------+----------------+---------+
++--------------------------+------------+--------+---------------+-----------------+
+|          Client          | Developer  |  Type  |   Platform    | Working (vers.) |
++--------------------------+------------+--------+---------------+-----------------+
+| iTunes                   | Apple      | DAAP   | Win, OSX      | Yes (11.2)      |
+| Rhythmbox                | Gnome      | DAAP   | Linux         | Yes             |
+| WinAmp DAAPClient        | WardFamily | DAAP   | WinAmp        | Yes             |
+| Banshee                  |            | DAAP   | Linux/Win/OSX | No (2.6.2)      |
+| jtunes4                  |            | DAAP   | Java          | No              |
+| Firefly Client           |            | (DAAP) | Java          | No              |
+| Remote                   | Apple      | Remote | iOS           | Yes (4.2)       |
+| Retune                   | SquallyDoc | Remote | Android       | Yes (3.5.23)    |
+| TunesRemote+             | Melloware  | Remote | Android       | Yes (2.5.3)     |
+| Remote for iTunes        | Hyperfine  | Remote | Android       | Yes             |
+| Remote for Windows Phone | Komodex    | Remote | Windows Phone | Yes (2.2.1.0)   |
+| TunesRemote SE           |            | Remote | Java          | Yes (r108)      |
++--------------------------+------------+--------+---------------+-----------------+
 
 
 
