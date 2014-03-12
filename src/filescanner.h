@@ -5,9 +5,9 @@
 #include "db.h"
 
 #define F_SCAN_TYPE_FILE         (1 << 0)
-#define F_SCAN_TYPE_PODCAST      (F_SCAN_TYPE_FILE | (1 << 1))
-#define F_SCAN_TYPE_AUDIOBOOK    (F_SCAN_TYPE_FILE | (1 << 2))
-#define F_SCAN_TYPE_COMPILATION  (F_SCAN_TYPE_FILE | (1 << 3))
+#define F_SCAN_TYPE_PODCAST      (1 << 1)
+#define F_SCAN_TYPE_AUDIOBOOK    (1 << 2)
+#define F_SCAN_TYPE_COMPILATION  (1 << 3)
 #define F_SCAN_TYPE_URL          (1 << 4)
 #define F_SCAN_TYPE_SPOTIFY      (1 << 5)
 
