@@ -79,8 +79,8 @@ Libraries:
         from <http://libav.org/releases/>
  - libconfuse
         from <http://www.nongnu.org/confuse/>
- - libevent 1.4 (** NOT libevent 2 **)
-        from <http://www.monkey.org/~provos/libevent/>
+ - libevent 1.4 or 2.1.4+
+        from <http://libevent.org/>
  - libavl 0.3.5
         from <http://ftp.debian.org/debian/pool/main/liba/libavl>
  - MiniXML (aka mxml or libmxml)

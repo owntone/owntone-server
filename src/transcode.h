@@ -2,7 +2,12 @@
 #ifndef __TRANSCODE_H__
 #define __TRANSCODE_H__
 
-#include "evhttp/evhttp.h"
+#include <event.h>
+#ifdef HAVE_LIBEVENT2
+# include <evhttp.h>
+#else
+# include "evhttp/evhttp.h"
+#endif
 
 struct transcode_ctx;
 

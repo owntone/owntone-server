@@ -31,9 +31,6 @@
 #include <regex.h>
 #include <limits.h>
 
-#include <event.h>
-#include "evhttp/evhttp.h"
-
 #include <mxml.h>
 
 #include "logger.h"

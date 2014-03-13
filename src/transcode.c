@@ -38,9 +38,6 @@
 # include <sys/endian.h>
 #endif
 
-#include <event.h>
-#include "evhttp/evhttp.h"
-
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/mathematics.h>

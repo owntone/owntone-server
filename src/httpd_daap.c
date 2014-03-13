@@ -38,8 +38,6 @@
 
 #include <uninorm.h>
 
-#include <event.h>
-#include "evhttp/evhttp.h"
 #include <avl.h>
 
 #include "logger.h"

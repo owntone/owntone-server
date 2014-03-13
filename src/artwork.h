@@ -8,6 +8,7 @@
 #define ART_FMT_PNG     1
 #define ART_FMT_JPEG    2
 
+#include <event.h>
 
 int
 artwork_get_item_filename(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf);

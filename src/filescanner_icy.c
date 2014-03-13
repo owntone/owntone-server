@@ -43,7 +43,11 @@
 #endif
 
 #include <event.h>
-#include "evhttp/evhttp.h"
+#ifdef HAVE_LIBEVENT2
+# include <evhttp.h>
+#else
+# include "evhttp/evhttp.h"
+#endif
 
 #include <libavformat/avformat.h>
 

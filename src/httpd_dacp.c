@@ -37,9 +37,6 @@
 # include <sys/eventfd.h>
 #endif
 
-#include <event.h>
-#include "evhttp/evhttp.h"
-
 #include "logger.h"
 #include "misc.h"
 #include "conffile.h"
