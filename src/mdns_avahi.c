@@ -184,7 +184,6 @@ ev_watch_new(const AvahiPoll *api, int fd, AvahiWatchEvent a_events, AvahiWatchC
 static void
 ev_watch_update(AvahiWatch *w, AvahiWatchEvent a_events)
 {
-  DPRINTF(E_DBG, L_MDNS, "DEBUG ev_watch_update\n");
   if (w->ev)
     event_del(w->ev);
 
@@ -216,7 +215,6 @@ ev_watch_free(AvahiWatch *w)
   AvahiWatch *prev;
   AvahiWatch *cur;
 
-  DPRINTF(E_DBG, L_MDNS, "DEBUG ev_watch_free\n");
   if (w->ev)
     {
       event_del(w->ev);
@@ -329,7 +327,6 @@ ev_timeout_new(const AvahiPoll *api, const struct timeval *tv, AvahiTimeoutCallb
 static void
 ev_timeout_update(AvahiTimeout *t, const struct timeval *tv)
 {
-  DPRINTF(E_DBG, L_MDNS, "DEBUG ev_timeout_update\n");
   if (t->ev)
     event_del(t->ev);
 
@@ -343,7 +340,6 @@ ev_timeout_free(AvahiTimeout *t)
   AvahiTimeout *prev;
   AvahiTimeout *cur;
 
-  DPRINTF(E_DBG, L_MDNS, "DEBUG ev_timeout_free\n");
   if (t->ev)
     {
       event_del(t->ev);
