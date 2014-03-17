@@ -66,6 +66,7 @@ enum spotify_event
     SPOTIFY_EVENT_LIBCB,
     SPOTIFY_EVENT_PLAY,
     SPOTIFY_EVENT_PAUSE,
+    SPOTIFY_EVENT_EOT,
     SPOTIFY_EVENT_STOP,
     SPOTIFY_EVENT_SEEK,
     SPOTIFY_EVENT_EXIT,
@@ -78,6 +79,7 @@ enum spotify_state
     SPOTIFY_STATE_WAIT,
     SPOTIFY_STATE_PLAYING,
     SPOTIFY_STATE_PAUSED,
+    SPOTIFY_STATE_STOPPING,
     SPOTIFY_STATE_STOPPED,
     SPOTIFY_STATE_SEEKED,
     SPOTIFY_STATE_EXITING,
@@ -815,7 +817,7 @@ static void play_token_lost(sp_session *sess)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Play token lost - init\n");
   pthread_mutex_lock(&g_notify_mutex);
-  g_event = SPOTIFY_EVENT_STOP;
+  g_event = SPOTIFY_EVENT_EOT;
   pthread_cond_signal(&g_notify_cond);
   pthread_mutex_unlock(&g_notify_mutex);
   DPRINTF(E_DBG, L_SPOTIFY, "Play token lost - done\n");
@@ -830,7 +832,7 @@ static void end_of_track(sp_session *sess)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "End of track - init\n");
   pthread_mutex_lock(&g_notify_mutex);
-  g_event = SPOTIFY_EVENT_STOP;
+  g_event = SPOTIFY_EVENT_EOT;
   pthread_cond_signal(&g_notify_cond);
   pthread_mutex_unlock(&g_notify_mutex);
   DPRINTF(E_DBG, L_SPOTIFY, "End of track - done\n");
@@ -1063,6 +1065,11 @@ spotify(void *arg)
 	      state = SPOTIFY_STATE_PAUSED;
 	    break;
 
+	  case SPOTIFY_EVENT_EOT:
+	    playback_stop();
+	    state = SPOTIFY_STATE_STOPPING;
+	    break;
+
 	  case SPOTIFY_EVENT_STOP:
 	    if ((ret = playback_stop()) == 0)
 	      state = SPOTIFY_STATE_STOPPED;
@@ -1240,6 +1247,7 @@ spotify_playback_seek(int ms)
 int
 spotify_audio_get(struct evbuffer *evbuf, int wanted)
 {
+  struct timespec ts;
   audio_fifo_data_t *afd;
   int processed;
   int ret;
@@ -1260,30 +1268,51 @@ spotify_audio_get(struct evbuffer *evbuf, int wanted)
   pthread_mutex_lock(&g_audio_fifo->mutex);
 
   while ((processed < wanted) && (g_state != SPOTIFY_STATE_STOPPED))
-  {
-    while ((g_state != SPOTIFY_STATE_STOPPED) && !(afd = TAILQ_FIRST(&g_audio_fifo->q)))
-      {
-	DPRINTF(E_DBG, L_SPOTIFY, "Audio get is blocking now\n");
-	pthread_cond_wait(&g_audio_fifo->cond, &g_audio_fifo->mutex); // TODO protect against indefinite wait
-	DPRINTF(E_DBG, L_SPOTIFY, "Audio get is released now\n");
-      }
+    {
+      // If track has ended and buffer is empty
+      if ((g_state == SPOTIFY_STATE_STOPPING) && (g_audio_fifo->qlen <= 0))
+	g_state = SPOTIFY_STATE_STOPPED;
 
-    TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
-    g_audio_fifo->qlen -= afd->nsamples;
+      // If buffer is empty wait for audio, but use timed wait so we don't
+      // risk waiting forever (maybe the player stopped while we were waiting)
+      while ( !(afd = TAILQ_FIRST(&g_audio_fifo->q)) && 
+	      (g_state != SPOTIFY_STATE_STOPPED) &&
+	      (g_state != SPOTIFY_STATE_STOPPING) )
+	{
+	  DPRINTF(E_DBG, L_SPOTIFY, "Audio get is blocking now\n");
+#if _POSIX_TIMERS > 0
+	  clock_gettime(CLOCK_REALTIME, &ts);
+#else
+	  struct timeval tv;
+	  gettimeofday(&tv, NULL);
+	  TIMEVAL_TO_TIMESPEC(&tv, &ts);
+#endif
+	  ts.tv_sec += 5;
 
-    s = afd->nsamples * sizeof(int16_t) * 2;
+	  pthread_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts);
+	  DPRINTF(E_DBG, L_SPOTIFY, "Audio get is released now\n");
+	}
+
+      if (!afd)
+	break;
+
+      TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
+      g_audio_fifo->qlen -= afd->nsamples;
+
+      s = afd->nsamples * sizeof(int16_t) * 2;
   
-    ret = evbuffer_add(evbuf, afd->samples, s);
-    free(afd);
-    if (ret < 0)
-      {
-	DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for evbuffer (tried to add %d bytes)\n", s);
-	pthread_mutex_unlock(&g_audio_fifo->mutex);
-	return -1;
-      }
+      ret = evbuffer_add(evbuf, afd->samples, s);
+      free(afd);
+      afd = NULL;
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for evbuffer (tried to add %d bytes)\n", s);
+	  pthread_mutex_unlock(&g_audio_fifo->mutex);
+	  return -1;
+	}
 
-    processed += s;
-  }
+      processed += s;
+    }
 
   pthread_mutex_unlock(&g_audio_fifo->mutex);
 
