@@ -1038,7 +1038,7 @@ source_open(struct player_source *ps, int no_md)
       return -1;
     }
 
-  DPRINTF(E_INFO, L_PLAYER, "Opening %s (%s)\n", mfi->title, mfi->path);
+  DPRINTF(E_INFO, L_PLAYER, "Opening "%s" (%s)\n", mfi->title, mfi->path);
 
   if (strncmp(mfi->path, "spotify:", strlen("spotify:")) == 0)
     {

@@ -122,16 +122,20 @@ const uint8_t g_appkey[] = {
 
 // Spotify thread
 static pthread_t tid_spotify;
+
 // Synchronization mutex for the spotify thread
 static pthread_mutex_t g_notify_mutex;
 // Synchronization condition variable for the spotify thread
 static pthread_cond_t g_notify_cond;
+// Synchronization variable telling the spotify thread to process libspotify events
+static int g_notify;
+// Synchronization variable telling the spotify thread to process player events
+static enum spotify_event g_event;
+
 // Synchronization mutex for the spotify player state
 static pthread_mutex_t g_state_mutex;
 // Synchronization condition variable for the spotify player state
 static pthread_cond_t g_state_cond;
-// Synchronization variable telling the spotify thread to process events
-static enum spotify_event g_event;
 // Synchronization variable telling the caller thread about the state
 static enum spotify_state g_state;
 
@@ -786,7 +790,7 @@ notify_main_thread(sp_session *sess)
 {
   DPRINTF(E_SPAM, L_SPOTIFY, "Notify main thread\n");
   pthread_mutex_lock(&g_notify_mutex);
-  g_event = SPOTIFY_EVENT_LIBCB;
+  g_notify = 1;
   pthread_cond_signal(&g_notify_cond);
   pthread_mutex_unlock(&g_notify_mutex);
 }
@@ -1005,7 +1009,7 @@ spotify(void *arg)
 
       if (next_timeout == 0)
 	{
-	  while(g_event == SPOTIFY_EVENT_NONE)
+	  while(!g_notify)
 	    pthread_cond_wait(&g_notify_cond, &g_notify_mutex);
 	}
       else
@@ -1020,12 +1024,13 @@ spotify(void *arg)
 	  ts.tv_sec += next_timeout / 1000;
 	  ts.tv_nsec += (next_timeout % 1000) * 1000000;
 
-	  while (g_event == SPOTIFY_EVENT_NONE)
+	  while (!g_notify && (g_event == SPOTIFY_EVENT_NONE))
 	    if (pthread_cond_timedwait(&g_notify_cond, &g_notify_mutex, &ts))
 	      break;
 	}
 
       this_event = g_event;
+      g_notify = 0;
       g_event = SPOTIFY_EVENT_NONE;
       pthread_mutex_unlock(&g_notify_mutex);
 
@@ -1118,6 +1123,7 @@ spotify(void *arg)
 int
 spotify_playback_play(struct media_file_info *mfi)
 {
+  enum spotify_state state;
   sp_link *link;
 
   DPRINTF(E_DBG, L_SPOTIFY, "Playback request\n");
@@ -1145,11 +1151,12 @@ spotify_playback_play(struct media_file_info *mfi)
   pthread_mutex_lock(&g_state_mutex);
   while (g_state == SPOTIFY_STATE_WAIT)
     pthread_cond_wait(&g_state_cond, &g_state_mutex);
+  state = g_state;
   pthread_mutex_unlock(&g_state_mutex);
 
   DPRINTF(E_DBG, L_SPOTIFY, "Playback reply\n");
 
-  if (g_state == SPOTIFY_STATE_PLAYING)
+  if (state == SPOTIFY_STATE_PLAYING)
     return 0;
   else
     return -1;
@@ -1161,6 +1168,8 @@ spotify_playback_play(struct media_file_info *mfi)
 int
 spotify_playback_pause(void)
 {
+  enum spotify_state state;
+
   pthread_mutex_lock(&g_notify_mutex);
 
   g_state = SPOTIFY_STATE_WAIT;
@@ -1173,9 +1182,10 @@ spotify_playback_pause(void)
   pthread_mutex_lock(&g_state_mutex);
   while (g_state == SPOTIFY_STATE_WAIT)
     pthread_cond_wait(&g_state_cond, &g_state_mutex);
+  state = g_state;
   pthread_mutex_unlock(&g_state_mutex);
 
-  if (g_state == SPOTIFY_STATE_PAUSED)
+  if (state == SPOTIFY_STATE_PAUSED)
     return 0;
   else
     return -1;
@@ -1185,6 +1195,8 @@ spotify_playback_pause(void)
 int
 spotify_playback_stop(void)
 {
+  enum spotify_state state;
+
   DPRINTF(E_DBG, L_SPOTIFY, "Stop request\n");
 
   pthread_mutex_lock(&g_notify_mutex);
@@ -1199,11 +1211,12 @@ spotify_playback_stop(void)
   pthread_mutex_lock(&g_state_mutex);
   while (g_state == SPOTIFY_STATE_WAIT)
     pthread_cond_wait(&g_state_cond, &g_state_mutex);
+  state = g_state;
   pthread_mutex_unlock(&g_state_mutex);
 
   DPRINTF(E_DBG, L_SPOTIFY, "Stop reply\n");
 
-  if (g_state == SPOTIFY_STATE_STOPPED)
+  if (state == SPOTIFY_STATE_STOPPED)
     return 0;
   else
     return -1;
@@ -1462,6 +1475,7 @@ spotify_init(void)
     return -1;
 
   /* Initialize session */
+  g_notify = 0;
   g_event = SPOTIFY_EVENT_NONE;
   g_state = SPOTIFY_STATE_INACTIVE;
 
