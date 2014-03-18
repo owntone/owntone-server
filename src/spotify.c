@@ -505,7 +505,7 @@ spotify_audio_fifo_flush(void)
 {
     audio_fifo_data_t *afd;
 
-    DPRINTF(E_DBG, L_SPOTIFY, "Flushing fifo\n");
+    DPRINTF(E_DBG, L_SPOTIFY, "Flushing audio fifo\n");
 
     pthread_mutex_lock(&g_audio_fifo->mutex);
 
@@ -517,8 +517,6 @@ spotify_audio_fifo_flush(void)
     g_audio_fifo->qlen = 0;
     g_audio_fifo->fullcount = 0;
     pthread_mutex_unlock(&g_audio_fifo->mutex);
-
-    DPRINTF(E_DBG, L_SPOTIFY, "fifo flushed\n");
 }
 
 /* --------------------------  PLAYLIST CALLBACKS  ------------------------- */
@@ -535,10 +533,10 @@ spotify_audio_fifo_flush(void)
  */
 static void playlist_update_in_progress(sp_playlist *pl, bool done, void *userdata)
 {
-  DPRINTF(E_DBG, L_SPOTIFY, "Playlist update in progress (status %d): %s\n", done, fptr_sp_playlist_name(pl));
-
   if (done)
     {
+      DPRINTF(E_DBG, L_SPOTIFY, "Playlist update (status %d): %s\n", done, fptr_sp_playlist_name(pl));
+
       pthread_mutex_lock(&g_db_mutex);
       spotify_playlist_save(pl);
       pthread_mutex_unlock(&g_db_mutex);
@@ -786,12 +784,11 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
 static void
 notify_main_thread(sp_session *sess)
 {
-  DPRINTF(E_SPAM, L_SPOTIFY, "Notify main thread - init\n");
+  DPRINTF(E_SPAM, L_SPOTIFY, "Notify main thread\n");
   pthread_mutex_lock(&g_notify_mutex);
   g_event = SPOTIFY_EVENT_LIBCB;
   pthread_cond_signal(&g_notify_cond);
   pthread_mutex_unlock(&g_notify_mutex);
-  DPRINTF(E_SPAM, L_SPOTIFY, "Notify main thread - done\n");
 }
 
 /**
@@ -815,12 +812,11 @@ static void metadata_updated(sp_session *session)
  */
 static void play_token_lost(sp_session *sess)
 {
-  DPRINTF(E_DBG, L_SPOTIFY, "Play token lost - init\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "Play token lost - playback has been stopped\n");
   pthread_mutex_lock(&g_notify_mutex);
   g_event = SPOTIFY_EVENT_EOT;
   pthread_cond_signal(&g_notify_cond);
   pthread_mutex_unlock(&g_notify_mutex);
-  DPRINTF(E_DBG, L_SPOTIFY, "Play token lost - done\n");
 }
 
 /**
@@ -830,12 +826,11 @@ static void play_token_lost(sp_session *sess)
  */
 static void end_of_track(sp_session *sess)
 {
-  DPRINTF(E_DBG, L_SPOTIFY, "End of track - init\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "End of track\n");
   pthread_mutex_lock(&g_notify_mutex);
   g_event = SPOTIFY_EVENT_EOT;
   pthread_cond_signal(&g_notify_cond);
   pthread_mutex_unlock(&g_notify_mutex);
-  DPRINTF(E_DBG, L_SPOTIFY, "End of track - done\n");
 }
 
 /**
@@ -905,8 +900,6 @@ playback_play(void)
       return -1;
     }
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Playback started\n");
-
   return 0;
 }
 
@@ -924,8 +917,6 @@ playback_pause(void)
       DPRINTF(E_LOG, L_SPOTIFY, "Playback pause failed: %s\n", fptr_sp_error_message(err));
       return -1;
     }
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Playback paused\n");
 
   return 0;
 }
@@ -945,8 +936,6 @@ playback_resume(void)
       return -1;
     }
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Playback resumed\n");
-
   return 0;
 }
 
@@ -964,8 +953,6 @@ playback_stop(void)
       DPRINTF(E_LOG, L_SPOTIFY, "Playback stop failed: %s\n", fptr_sp_error_message(err));
       return -1;
     }
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Playback stopped\n");
 
   return 0;
 }
@@ -1111,7 +1098,7 @@ spotify(void *arg)
       if (state)
 	{
 	  g_state = state;
-	  DPRINTF(E_LOG, L_SPOTIFY, "Event was %d, new state is %d\n", this_event, g_state);
+	  DPRINTF(E_DBG, L_SPOTIFY, "Event was %d, new state is %d\n", this_event, g_state);
 	  pthread_cond_signal(&g_state_cond);
 	}
       pthread_mutex_unlock(&g_state_mutex);
@@ -1169,7 +1156,8 @@ spotify_playback_play(struct media_file_info *mfi)
 }
 
 /* Thread: player */
-//TODO This is not currently used by player.c - should it?
+// This is not used by player.c, because the player pauses music by a 
+// combintation of ending audio_get requests and seeking back
 int
 spotify_playback_pause(void)
 {
@@ -1279,7 +1267,7 @@ spotify_audio_get(struct evbuffer *evbuf, int wanted)
 	      (g_state != SPOTIFY_STATE_STOPPED) &&
 	      (g_state != SPOTIFY_STATE_STOPPING) )
 	{
-	  DPRINTF(E_DBG, L_SPOTIFY, "Audio get is blocking now\n");
+	  DPRINTF(E_DBG, L_SPOTIFY, "Waiting for audio\n");
 #if _POSIX_TIMERS > 0
 	  clock_gettime(CLOCK_REALTIME, &ts);
 #else
@@ -1290,7 +1278,6 @@ spotify_audio_get(struct evbuffer *evbuf, int wanted)
 	  ts.tv_sec += 5;
 
 	  pthread_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts);
-	  DPRINTF(E_DBG, L_SPOTIFY, "Audio get is released now\n");
 	}
 
       if (!afd)
