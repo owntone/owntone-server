@@ -788,7 +788,7 @@ process_directory(char *path, int flags)
 
 #if defined(__linux__)
   /* Add inotify watch */
-  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
+  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
