@@ -849,16 +849,35 @@ player_queue_make_pl(int plid, uint32_t *id)
   struct player_source *ps;
   struct player_source *p;
   uint32_t i;
+  char buf[124];
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  qp.id = plid;
-  qp.type = Q_PLITEMS;
-  qp.offset = 0;
-  qp.limit = 0;
-  qp.sort = S_NONE;
+  if (plid)
+    {
+      qp.id = plid;
+      qp.type = Q_PLITEMS;
+      qp.offset = 0;
+      qp.limit = 0;
+      qp.sort = S_NONE;
+    }
+  else if (*id)
+    {
+      qp.id = 0;
+      qp.type = Q_ITEMS;
+      qp.offset = 0;
+      qp.limit = 0;
+      qp.sort = S_NONE;
+      snprintf(buf, sizeof(buf), "f.id = %" PRIu32, *id);
+      qp.filter = strdup(buf);
+    }
+  else
+    return NULL;
 
   ps = player_queue_make(&qp, NULL);
+
+  if (qp.filter)
+    free(qp.filter);
 
   /* Shortcut for shuffled playlist */
   if (*id == 0)
