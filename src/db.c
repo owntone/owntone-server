@@ -273,7 +273,7 @@ static const char *sort_clause[] =
     "ORDER BY f.title_sort ASC",
     "ORDER BY f.album_sort ASC, f.disc ASC, f.track ASC",
     "ORDER BY f.album_artist_sort ASC",
-    "ORDER BY f.special_id DESC, f.title ASC",
+    "ORDER BY f.type DESC, f.special_id ASC, f.title ASC",
   };
 
 static char *db_path;

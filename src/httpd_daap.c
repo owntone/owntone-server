@@ -1007,7 +1007,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   name = cfg_getstr(lib, "name");
   namelen = strlen(name);
 
-  ret = evbuffer_expand(evbuf, 129 + namelen);
+  ret = evbuffer_expand(evbuf, 141 + namelen);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP dblist reply\n");
@@ -1016,21 +1016,22 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       return;
     }
 
-  dmap_add_container(evbuf, "avdb", 121 + namelen);
+  dmap_add_container(evbuf, "avdb", 133 + namelen);
   dmap_add_int(evbuf, "mstt", 200);     /* 12 */
   dmap_add_char(evbuf, "muty", 0);      /* 9 */
   dmap_add_int(evbuf, "mtco", 1);       /* 12 */
   dmap_add_int(evbuf, "mrco", 1);       /* 12 */
-  dmap_add_container(evbuf, "mlcl", 68 + namelen);
-  dmap_add_container(evbuf, "mlit", 60 + namelen);
+  dmap_add_container(evbuf, "mlcl", 80 + namelen);
+  dmap_add_container(evbuf, "mlit", 72 + namelen);
   dmap_add_int(evbuf, "miid", 1);       /* 12 */
   dmap_add_long(evbuf, "mper", 1);      /* 16 */
+  dmap_add_int(evbuf, "mdbk", 1);       /* 12 */
   dmap_add_string(evbuf, "minm", name); /* 8 + namelen */
 
   count = db_files_get_count();
   dmap_add_int(evbuf, "mimc", count); /* 12 */
 
-  count = db_pl_get_count();
+  count = db_pl_get_count(); // TODO Don't count empty smart playlists, because they get excluded in aply
   dmap_add_int(evbuf, "mctc", count); /* 12 */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
