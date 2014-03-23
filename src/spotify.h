@@ -8,11 +8,14 @@
 int
 spotify_playback_play(struct media_file_info *mfi);
 
-int
-spotify_playback_pause(void);
+void
+spotify_playback_pause_nonblock(void);
 
 int
 spotify_playback_stop(void);
+
+void
+spotify_playback_stop_nonblock(void);
 
 int
 spotify_playback_seek(int ms);

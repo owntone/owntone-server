@@ -1107,7 +1107,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   int type;
   int ret;
 
-  DPRINTF(E_DBG, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+  DPRINTF(E_SPAM, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   if (ie->mask & IN_DELETE)
     {

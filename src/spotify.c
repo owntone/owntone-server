@@ -25,6 +25,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <fcntl.h>
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
@@ -46,13 +47,15 @@
 
 
 /* --- Types --- */
-typedef struct audio_fifo_data {
+typedef struct audio_fifo_data
+{
   TAILQ_ENTRY(audio_fifo_data) link;
   int nsamples;
   int16_t samples[0];
 } audio_fifo_data_t;
 
-typedef struct audio_fifo {
+typedef struct audio_fifo
+{
   TAILQ_HEAD(, audio_fifo_data) q;
   int qlen;
   int fullcount;
@@ -60,37 +63,71 @@ typedef struct audio_fifo {
   pthread_cond_t cond;
 } audio_fifo_t;
 
-enum spotify_event
-  {
-    SPOTIFY_EVENT_NONE,
-    SPOTIFY_EVENT_LIBCB,
-    SPOTIFY_EVENT_PLAY,
-    SPOTIFY_EVENT_PAUSE,
-    SPOTIFY_EVENT_EOT,
-    SPOTIFY_EVENT_STOP,
-    SPOTIFY_EVENT_SEEK,
-    SPOTIFY_EVENT_EXIT,
-    SPOTIFY_EVENT_RESUME,
-  };
-
 enum spotify_state
-  {
-    SPOTIFY_STATE_INACTIVE,
-    SPOTIFY_STATE_WAIT,
-    SPOTIFY_STATE_PLAYING,
-    SPOTIFY_STATE_PAUSED,
-    SPOTIFY_STATE_STOPPING,
-    SPOTIFY_STATE_STOPPED,
-    SPOTIFY_STATE_SEEKED,
-    SPOTIFY_STATE_EXITING,
-  };
+{
+  SPOTIFY_STATE_INACTIVE,
+  SPOTIFY_STATE_WAIT,
+  SPOTIFY_STATE_PLAYING,
+  SPOTIFY_STATE_PAUSED,
+  SPOTIFY_STATE_STOPPING,
+  SPOTIFY_STATE_STOPPED,
+  SPOTIFY_STATE_SEEKED,
+};
 
-/* Context for communicating with player */
-struct spotify_ctx
-  {
+struct audio_get_param
+{
+  struct evbuffer *evbuf;
+  int wanted;
+};
+
+struct spotify_command;
+
+typedef int (*cmd_func)(struct spotify_command *cmd);
+
+struct spotify_command
+{
+  pthread_mutex_t lck;
+  pthread_cond_t cond;
+
+  cmd_func func;
+  cmd_func func_bh;
+
+  int nonblock;
+
+  union {
+    void *noarg;
     sp_link *link;
     int seek_ms;
-  };
+    struct audio_get_param agp;
+  } arg;
+
+  int ret;
+};
+
+/* --- Globals --- */
+// Spotify thread
+static pthread_t tid_spotify;
+
+// Event base, pipes and events
+struct event_base *evbase_spotify;
+static int g_exit_pipe[2];
+static int g_cmd_pipe[2];
+static int g_notify_pipe[2];
+static struct event *g_exitev;
+static struct event *g_cmdev;
+static struct event *g_notifyev;
+
+// The global session handle
+static sp_session *g_sess;
+// The global library handle
+static void *g_libhandle;
+// The global state telling us what the thread is currently doing
+static enum spotify_state g_state;
+/* (not used) Tells which commmand is currently being processed */
+static struct spotify_command *g_cmd;
+
+// Audio fifo
+static audio_fifo_t *g_audio_fifo;
 
 /**
  * The application key is specific to forked-daapd, and allows Spotify
@@ -120,39 +157,6 @@ const uint8_t g_appkey[] = {
 	0x09,
 };
 
-// Spotify thread
-static pthread_t tid_spotify;
-
-// Synchronization mutex for the spotify thread
-static pthread_mutex_t g_notify_mutex;
-// Synchronization condition variable for the spotify thread
-static pthread_cond_t g_notify_cond;
-// Synchronization variable telling the spotify thread to process libspotify events
-static int g_notify;
-// Synchronization variable telling the spotify thread to process player events
-static enum spotify_event g_event;
-
-// Synchronization mutex for the spotify player state
-static pthread_mutex_t g_state_mutex;
-// Synchronization condition variable for the spotify player state
-static pthread_cond_t g_state_cond;
-// Synchronization variable telling the caller thread about the state
-static enum spotify_state g_state;
-
-// The global session handle
-static sp_session *g_sess;
-// The global library handle
-static void *g_libhandle;
-// The global spotify context
-static struct spotify_ctx g_ctx;
-
-// Synchronization mutex for the database (possibly useless)
-static pthread_mutex_t g_db_mutex;
-
-// Audio fifo
-static audio_fifo_t *g_audio_fifo;
-
-
 // This section defines and assigns function pointers to the libspotify functions
 // The arguments and return values must be in sync with the spotify api
 // Please scroll through the ugliness which follows
@@ -170,6 +174,7 @@ typedef sp_error     (*fptr_sp_session_player_load_t)(sp_session *session, sp_tr
 typedef sp_error     (*fptr_sp_session_player_unload_t)(sp_session *session);
 typedef sp_error     (*fptr_sp_session_player_play_t)(sp_session *session, bool play);
 typedef sp_error     (*fptr_sp_session_player_seek_t)(sp_session *session, int offset);
+typedef sp_connectionstate (*fptr_sp_session_connectionstate_t)(sp_session *session);
 
 typedef sp_error     (*fptr_sp_playlistcontainer_add_callbacks_t)(sp_playlistcontainer *pc, sp_playlistcontainer_callbacks *callbacks, void *userdata);
 typedef int          (*fptr_sp_playlistcontainer_num_playlists_t)(sp_playlistcontainer *pc);
@@ -218,6 +223,7 @@ fptr_sp_session_player_load_t fptr_sp_session_player_load;
 fptr_sp_session_player_unload_t fptr_sp_session_player_unload;
 fptr_sp_session_player_play_t fptr_sp_session_player_play;
 fptr_sp_session_player_seek_t fptr_sp_session_player_seek;
+fptr_sp_session_connectionstate_t fptr_sp_session_connectionstate;
 
 fptr_sp_playlistcontainer_add_callbacks_t fptr_sp_playlistcontainer_add_callbacks;
 fptr_sp_playlistcontainer_num_playlists_t fptr_sp_playlistcontainer_num_playlists;
@@ -275,6 +281,7 @@ fptr_assign_all()
    && (fptr_sp_session_player_unload = dlsym(h, "sp_session_player_unload"))
    && (fptr_sp_session_player_play = dlsym(h, "sp_session_player_play"))
    && (fptr_sp_session_player_seek = dlsym(h, "sp_session_player_seek"))
+   && (fptr_sp_session_connectionstate = dlsym(h, "sp_session_connectionstate"))
    && (fptr_sp_playlistcontainer_add_callbacks = dlsym(h, "sp_playlistcontainer_add_callbacks"))
    && (fptr_sp_playlistcontainer_num_playlists = dlsym(h, "sp_playlistcontainer_num_playlists"))
    && (fptr_sp_playlistcontainer_playlist = dlsym(h, "sp_playlistcontainer_playlist"))
@@ -318,7 +325,94 @@ fptr_assign_all()
 // End of ugly part
 
 
+/* ---------------------------- COMMAND EXECUTION -------------------------- */
+
+static void
+command_init(struct spotify_command *cmd)
+{
+  memset(cmd, 0, sizeof(struct spotify_command));
+
+  pthread_mutex_init(&cmd->lck, NULL);
+  pthread_cond_init(&cmd->cond, NULL);
+}
+
+static void
+command_deinit(struct spotify_command *cmd)
+{
+  pthread_cond_destroy(&cmd->cond);
+  pthread_mutex_destroy(&cmd->lck);
+}
+
+static int
+send_command(struct spotify_command *cmd)
+{
+  int ret;
+
+  if (!cmd->func)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "BUG: cmd->func is NULL!\n");
+      return -1;
+    }
+
+  ret = write(g_cmd_pipe[1], &cmd, sizeof(cmd));
+  if (ret != sizeof(cmd))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not send command: %s\n", strerror(errno));
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+sync_command(struct spotify_command *cmd)
+{
+  int ret;
+
+  pthread_mutex_lock(&cmd->lck);
+
+  ret = send_command(cmd);
+  if (ret < 0)
+    {
+      pthread_mutex_unlock(&cmd->lck);
+      return -1;
+    }
+
+  pthread_cond_wait(&cmd->cond, &cmd->lck);
+  pthread_mutex_unlock(&cmd->lck);
+
+  ret = cmd->ret;
+
+  return ret;
+}
+
+static int
+nonblock_command(struct spotify_command *cmd)
+{
+  int ret;
+
+  ret = send_command(cmd);
+  if (ret < 0)
+    return -1;
+
+  return 0;
+}
+
+/* Thread: main and filescanner */
+static void
+thread_exit(void)
+{
+  int dummy = 42;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Killing Spotify thread\n");
+
+  if (write(g_exit_pipe[1], &dummy, sizeof(dummy)) != sizeof(dummy))
+    DPRINTF(E_LOG, L_SPOTIFY, "Could not write to exit fd: %s\n", strerror(errno));
+}
+
+
 /* --------------------------  PLAYLIST HELPERS    ------------------------- */
+/*            Should only be called from within the spotify thread           */
 
 static int
 spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
@@ -502,26 +596,6 @@ spotify_playlist_save(sp_playlist *pl)
   return plid;
 }
 
-/* --------------------------  AUDIO HELPER  ------------------------------- */
-
-static void
-spotify_audio_fifo_flush(void)
-{
-    audio_fifo_data_t *afd;
-
-    DPRINTF(E_DBG, L_SPOTIFY, "Flushing audio fifo\n");
-
-    pthread_mutex_lock(&g_audio_fifo->mutex);
-
-    while((afd = TAILQ_FIRST(&g_audio_fifo->q))) {
-	TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
-	free(afd);
-    }
-
-    g_audio_fifo->qlen = 0;
-    g_audio_fifo->fullcount = 0;
-    pthread_mutex_unlock(&g_audio_fifo->mutex);
-}
 
 /* --------------------------  PLAYLIST CALLBACKS  ------------------------- */
 /**
@@ -541,9 +615,7 @@ static void playlist_update_in_progress(sp_playlist *pl, bool done, void *userda
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Playlist update (status %d): %s\n", done, fptr_sp_playlist_name(pl));
 
-      pthread_mutex_lock(&g_db_mutex);
       spotify_playlist_save(pl);
-      pthread_mutex_unlock(&g_db_mutex);
     }
 }
 
@@ -551,9 +623,7 @@ static void playlist_metadata_updated(sp_playlist *pl, void *userdata)
 {
   DPRINTF(E_DBG, L_SPOTIFY, "Playlist metadata updated: %s\n", fptr_sp_playlist_name(pl));
 
-  pthread_mutex_lock(&g_db_mutex);
   spotify_playlist_save(pl);
-  pthread_mutex_unlock(&g_db_mutex);
 }
 
 /**
@@ -583,9 +653,7 @@ static void playlist_added(sp_playlistcontainer *pc, sp_playlist *pl,
 
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
-  pthread_mutex_lock(&g_db_mutex);
   spotify_playlist_save(pl);
-  pthread_mutex_unlock(&g_db_mutex);
 }
 
 /**
@@ -625,14 +693,11 @@ playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl, int position, void *
     }
   fptr_sp_link_release(link);
 
-  pthread_mutex_lock(&g_db_mutex);
-
   pli = db_pl_fetch_bypath(url);
 
   if (!pli)
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Playlist %s not found, can't delete\n", url);
-      pthread_mutex_unlock(&g_db_mutex);
       return;
     }
 
@@ -641,8 +706,6 @@ playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl, int position, void *
   free_pli(pli, 0);
 
   db_spotify_pl_delete(plid);
-
-  pthread_mutex_unlock(&g_db_mutex);
 }
 
 /**
@@ -672,6 +735,249 @@ static sp_playlistcontainer_callbacks pc_callbacks = {
 };
 
 
+/* --------------------- INTERNAL PLAYBACK AND AUDIO ----------------------- */
+/*            Should only be called from within the spotify thread           */
+
+static void
+audio_fifo_flush(void)
+{
+    audio_fifo_data_t *afd;
+
+    DPRINTF(E_DBG, L_SPOTIFY, "Flushing audio fifo\n");
+
+    pthread_mutex_lock(&g_audio_fifo->mutex);
+
+    while((afd = TAILQ_FIRST(&g_audio_fifo->q))) {
+	TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
+	free(afd);
+    }
+
+    g_audio_fifo->qlen = 0;
+    g_audio_fifo->fullcount = 0;
+    pthread_mutex_unlock(&g_audio_fifo->mutex);
+}
+
+static int
+playback_play(struct spotify_command *cmd)
+{
+  sp_track *track;
+  sp_error err;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Starting playback\n");
+
+  if (SP_CONNECTION_STATE_LOGGED_IN != fptr_sp_session_connectionstate(g_sess))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Can't play music, not connected and logged in to Spotify\n");
+      return -1;
+    }
+
+  if (!cmd->arg.link)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed, no Spotify link\n");
+      return -1;
+    }
+
+  track = fptr_sp_link_as_track(cmd->arg.link);
+  if (!track)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed, invalid Spotify track\n");
+      return -1;
+    }
+  
+  err = fptr_sp_session_player_load(g_sess, track);
+  if (SP_ERROR_OK != err)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed: %s\n", fptr_sp_error_message(err));
+      return -1;
+    }
+
+  audio_fifo_flush();
+
+  err = fptr_sp_session_player_play(g_sess, 1);
+  if (SP_ERROR_OK != err)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Playback failed: %s\n", fptr_sp_error_message(err));
+      return -1;
+    }
+
+  g_state = SPOTIFY_STATE_PLAYING;
+
+  return 0;
+}
+
+static int
+playback_pause(struct spotify_command *cmd)
+{
+  sp_error err;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Pausing playback\n");
+
+  err = fptr_sp_session_player_play(g_sess, 0);
+  DPRINTF(E_DBG, L_SPOTIFY, "Playback paused\n");
+
+  if (SP_ERROR_OK != err)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Playback pause failed: %s\n", fptr_sp_error_message(err));
+      return -1;
+    }
+
+  g_state = SPOTIFY_STATE_PAUSED;
+
+  return 0;
+}
+
+static int
+playback_resume(struct spotify_command *cmd)
+{
+  sp_error err;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Resuming playback\n");
+
+  err = fptr_sp_session_player_play(g_sess, 1);
+  if (SP_ERROR_OK != err)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Playback resume failed: %s\n", fptr_sp_error_message(err));
+      return -1;
+    }
+
+  g_state = SPOTIFY_STATE_PLAYING;
+
+  return 0;
+}
+
+static int
+playback_stop(struct spotify_command *cmd)
+{
+  sp_error err;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Stopping playback\n");
+
+  err = fptr_sp_session_player_unload(g_sess);
+  if (SP_ERROR_OK != err)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Playback stop failed: %s\n", fptr_sp_error_message(err));
+      return -1;
+    }
+
+  g_state = SPOTIFY_STATE_STOPPED;
+
+  return 0;
+}
+
+static int
+playback_seek(struct spotify_command *cmd)
+{
+  sp_error err;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Playback seek\n");
+
+  err = fptr_sp_session_player_seek(g_sess, cmd->arg.seek_ms);
+  if (SP_ERROR_OK != err)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not seek: %s\n", fptr_sp_error_message(err));
+      return -1;
+    }
+
+  audio_fifo_flush();
+
+  g_state = SPOTIFY_STATE_SEEKED;
+
+  return 0;
+}
+
+static int
+playback_eot(struct spotify_command *cmd)
+{
+  sp_error err;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Playback end of track\n");
+
+  err = fptr_sp_session_player_unload(g_sess);
+  if (SP_ERROR_OK != err)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Playback end of track failed: %s\n", fptr_sp_error_message(err));
+      return -1;
+    }
+
+  g_state = SPOTIFY_STATE_STOPPING;
+
+  return 0;
+}
+
+static int
+audio_get(struct spotify_command *cmd)
+{
+  struct timespec ts;
+  audio_fifo_data_t *afd;
+  int processed;
+  int ret;
+  int s;
+
+  afd = NULL;
+  processed = 0;
+
+  // If spotify was paused begin by resuming playback
+  if (g_state == SPOTIFY_STATE_PAUSED)
+    playback_resume(NULL);
+
+  pthread_mutex_lock(&g_audio_fifo->mutex);
+
+  while ((processed < cmd->arg.agp.wanted) && (g_state != SPOTIFY_STATE_STOPPED))
+    {
+      // If track has ended and buffer is empty
+      if ((g_state == SPOTIFY_STATE_STOPPING) && (g_audio_fifo->qlen <= 0))
+	{
+	  DPRINTF(E_DBG, L_SPOTIFY, "Track finished\n");
+	  g_state = SPOTIFY_STATE_STOPPED;
+	  break;
+	}
+
+      // If buffer is empty, wait for audio, but use timed wait so we don't
+      // risk waiting forever (maybe the player stopped while we were waiting)
+      while ( !(afd = TAILQ_FIRST(&g_audio_fifo->q)) && 
+	       (g_state != SPOTIFY_STATE_STOPPED) &&
+	       (g_state != SPOTIFY_STATE_STOPPING) )
+	{
+	  DPRINTF(E_DBG, L_SPOTIFY, "Waiting for audio\n");
+#if _POSIX_TIMERS > 0
+	  clock_gettime(CLOCK_REALTIME, &ts);
+#else
+	  struct timeval tv;
+	  gettimeofday(&tv, NULL);
+	  TIMEVAL_TO_TIMESPEC(&tv, &ts);
+#endif
+	  ts.tv_sec += 5;
+
+	  pthread_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts);
+	}
+
+      if (!afd)
+	break;
+
+      TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
+      g_audio_fifo->qlen -= afd->nsamples;
+
+      s = afd->nsamples * sizeof(int16_t) * 2;
+  
+      ret = evbuffer_add(cmd->arg.agp.evbuf, afd->samples, s);
+      free(afd);
+      afd = NULL;
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for evbuffer (tried to add %d bytes)\n", s);
+	  pthread_mutex_unlock(&g_audio_fifo->mutex);
+	  return -1;
+	}
+
+      processed += s;
+    }
+
+  pthread_mutex_unlock(&g_audio_fifo->mutex);
+
+  return processed;
+}
+
+
 /* ---------------------------  SESSION CALLBACKS  ------------------------- */
 /**
  * This callback is called when an attempt to login has succeeded or failed.
@@ -688,14 +994,13 @@ logged_in(sp_session *sess, sp_error error)
   if (SP_ERROR_OK != error)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Login failed: %s\n",	fptr_sp_error_message(error));
-      pthread_exit(NULL);
+      thread_exit();
+      return;
     }
 
   DPRINTF(E_LOG, L_SPOTIFY, "Login to Spotify succeeded. Reloading playlists.\n");
 
-  pthread_mutex_lock(&g_db_mutex);
   db_spotify_purge();
-  pthread_mutex_unlock(&g_db_mutex);
 
   pc = fptr_sp_session_playlistcontainer(sess);
 
@@ -725,10 +1030,7 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
   if ((format->sample_rate != 44100) || (format->channels != 2))
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Got music with unsupported samplerate or channels, stopping playback\n");
-      pthread_mutex_lock(&g_notify_mutex);
-      g_event = SPOTIFY_EVENT_STOP;
-      pthread_cond_signal(&g_notify_cond);
-      pthread_mutex_unlock(&g_notify_mutex);
+      spotify_playback_stop_nonblock();
       return num_frames;
     }
 
@@ -746,11 +1048,8 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
 	g_audio_fifo->fullcount++;
       else
 	{
-	  DPRINTF(E_WARN, L_SPOTIFY, "Buffer full more than 300 times, signaling pause\n");
-	  pthread_mutex_lock(&g_notify_mutex);
-	  g_event = SPOTIFY_EVENT_PAUSE;
-	  pthread_cond_signal(&g_notify_cond);
-	  pthread_mutex_unlock(&g_notify_mutex);
+	  DPRINTF(E_WARN, L_SPOTIFY, "Buffer full more than 300 times, pausing\n");
+	  spotify_playback_pause_nonblock();
 	  g_audio_fifo->fullcount = 0;
 	}
 
@@ -779,20 +1078,19 @@ static int music_delivery(sp_session *sess, const sp_audioformat *format,
 
 /**
  * This callback is called from an internal libspotify thread to ask us to
- * reiterate the main loop.
- *
- * We notify the main thread using a condition variable and a protected variable.
+ * reiterate the main loop. This must not block.
  *
  * @sa sp_session_callbacks#notify_main_thread
  */
 static void
 notify_main_thread(sp_session *sess)
 {
-  DPRINTF(E_SPAM, L_SPOTIFY, "Notify main thread\n");
-  pthread_mutex_lock(&g_notify_mutex);
-  g_notify = 1;
-  pthread_cond_signal(&g_notify_cond);
-  pthread_mutex_unlock(&g_notify_mutex);
+  int dummy = 42;
+  int ret;
+
+  ret = write(g_notify_pipe[1], &dummy, sizeof(dummy));
+  if (ret != sizeof(dummy))
+    DPRINTF(E_LOG, L_SPOTIFY, "Could not write to notify fd: %s\n", strerror(errno));
 }
 
 /**
@@ -805,22 +1103,28 @@ notify_main_thread(sp_session *sess)
  */
 static void metadata_updated(sp_session *session)
 {
-  DPRINTF(E_DBG, L_SPOTIFY, "Session metadata updated.\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "Session metadata updated\n");
 }
 
-/**
- * Notification that some other connection has started playing on this account.
- * Playback has been stopped.
- *
- * @sa sp_session_callbacks#play_token_lost
- */
+/* Misc connection error callbacks */
 static void play_token_lost(sp_session *sess)
 {
-  DPRINTF(E_DBG, L_SPOTIFY, "Play token lost - playback has been stopped\n");
-  pthread_mutex_lock(&g_notify_mutex);
-  g_event = SPOTIFY_EVENT_EOT;
-  pthread_cond_signal(&g_notify_cond);
-  pthread_mutex_unlock(&g_notify_mutex);
+  DPRINTF(E_LOG, L_SPOTIFY, "Music interrupted - some other session is playing on the account\n");
+
+  spotify_playback_stop_nonblock();
+}
+
+static void connectionstate_updated(sp_session *session)
+{
+  if (SP_CONNECTION_STATE_LOGGED_IN == fptr_sp_session_connectionstate(session))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Connection to Spotify (re)established\n");
+    }
+  else if ((g_state == SPOTIFY_STATE_PLAYING) || (g_state == SPOTIFY_STATE_SEEKED))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Music interrupted - connection error or logged out\n");
+      spotify_playback_stop_nonblock();
+    }
 }
 
 /**
@@ -830,11 +1134,24 @@ static void play_token_lost(sp_session *sess)
  */
 static void end_of_track(sp_session *sess)
 {
+  struct spotify_command *cmd;
+
   DPRINTF(E_DBG, L_SPOTIFY, "End of track\n");
-  pthread_mutex_lock(&g_notify_mutex);
-  g_event = SPOTIFY_EVENT_EOT;
-  pthread_cond_signal(&g_notify_cond);
-  pthread_mutex_unlock(&g_notify_mutex);
+
+  cmd = (struct spotify_command *)malloc(sizeof(struct spotify_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not allocate spotify_command\n");
+      return;
+    }
+  memset(cmd, 0, sizeof(struct spotify_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = playback_eot;
+  cmd->arg.noarg = NULL;
+
+  nonblock_command(cmd);
 }
 
 /**
@@ -842,6 +1159,7 @@ static void end_of_track(sp_session *sess)
  */
 static sp_session_callbacks session_callbacks = {
   .logged_in = &logged_in,
+  .connectionstate_updated = &connectionstate_updated,
   .notify_main_thread = &notify_main_thread,
   .music_delivery = &music_delivery,
   .metadata_updated = &metadata_updated,
@@ -863,268 +1181,135 @@ static sp_session_config spconfig = {
   .callbacks = &session_callbacks,
   NULL,
 };
-/* -------------------------  END SESSION CALLBACKS  ----------------------- */
 
 
-/* Thread: spotify */
-static int
-playback_play(void)
-{
-  sp_track *track;
-  sp_error err;
+/* ------------------------------- MAIN LOOP ------------------------------- */
+/*                              Thread: spotify                              */
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Starting playback\n");
-
-  if (!g_ctx.link)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed, no Spotify link");
-      return -1;
-    }
-
-  track = fptr_sp_link_as_track(g_ctx.link);
-  if (!track)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed, invalid Spotify track");
-      return -1;
-    }
-  
-  err = fptr_sp_session_player_load(g_sess, track);
-  if (SP_ERROR_OK != err)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playback setup failed: %s\n", fptr_sp_error_message(err));
-      return -1;
-    }
-
-  spotify_audio_fifo_flush();
-
-  err = fptr_sp_session_player_play(g_sess, 1);
-  if (SP_ERROR_OK != err)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playback failed: %s\n", fptr_sp_error_message(err));
-      return -1;
-    }
-
-  return 0;
-}
-
-/* Thread: spotify */
-static int
-playback_pause(void)
-{
-  sp_error err;
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Pausing playback\n");
-
-  err = fptr_sp_session_player_play(g_sess, 0);
-  if (SP_ERROR_OK != err)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playback pause failed: %s\n", fptr_sp_error_message(err));
-      return -1;
-    }
-
-  return 0;
-}
-
-/* Thread: spotify */
-static int
-playback_resume(void)
-{
-  sp_error err;
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Resuming playback\n");
-
-  err = fptr_sp_session_player_play(g_sess, 1);
-  if (SP_ERROR_OK != err)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playback resume failed: %s\n", fptr_sp_error_message(err));
-      return -1;
-    }
-
-  return 0;
-}
-
-/* Thread: spotify */
-static int
-playback_stop(void)
-{
-  sp_error err;
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Stopping playback\n");
-
-  err = fptr_sp_session_player_unload(g_sess);
-  if (SP_ERROR_OK != err)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playback stop failed: %s\n", fptr_sp_error_message(err));
-      return -1;
-    }
-
-  return 0;
-}
-
-/* Thread: spotify */
-static int
-playback_seek(void)
-{
-  sp_error err;
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Playback seek\n");
-
-  err = fptr_sp_session_player_seek(g_sess, g_ctx.seek_ms);
-  if (SP_ERROR_OK != err)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not seek: %s\n", fptr_sp_error_message(err));
-      return -1;
-    }
-
-  spotify_audio_fifo_flush();
-
-  return 0;
-}
-
-/* Thread: spotify */
 static void *
 spotify(void *arg)
 {
-  struct timespec ts;
-  enum spotify_event this_event;
-  enum spotify_state state;
   int ret;
-  int next_timeout;
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Main loop begin\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "Main loop initiating\n");
 
   ret = db_perthread_init();
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Error: DB init failed\n");
-
       pthread_exit(NULL);
     }
 
-  state = SPOTIFY_STATE_WAIT;
-  next_timeout = 0;
-  for (;;)
+  g_state = SPOTIFY_STATE_WAIT;
+
+  event_base_dispatch(evbase_spotify);
+
+  if (g_state != SPOTIFY_STATE_INACTIVE)
     {
-      pthread_mutex_lock(&g_notify_mutex);
-
-      if (next_timeout == 0)
-	{
-	  while(!g_notify)
-	    pthread_cond_wait(&g_notify_cond, &g_notify_mutex);
-	}
-      else
-        {
-#if _POSIX_TIMERS > 0
-	  clock_gettime(CLOCK_REALTIME, &ts);
-#else
-	  struct timeval tv;
-	  gettimeofday(&tv, NULL);
-	  TIMEVAL_TO_TIMESPEC(&tv, &ts);
-#endif
-	  ts.tv_sec += next_timeout / 1000;
-	  ts.tv_nsec += (next_timeout % 1000) * 1000000;
-
-	  while (!g_notify && (g_event == SPOTIFY_EVENT_NONE))
-	    if (pthread_cond_timedwait(&g_notify_cond, &g_notify_mutex, &ts))
-	      break;
-	}
-
-      this_event = g_event;
-      g_notify = 0;
-      g_event = SPOTIFY_EVENT_NONE;
-      pthread_mutex_unlock(&g_notify_mutex);
-
-      switch (this_event)
-	{
-	  case SPOTIFY_EVENT_PLAY:
-	    if ((ret = playback_play()) == 0)
-	      state = SPOTIFY_STATE_PLAYING;
-	    else
-	      state = SPOTIFY_STATE_STOPPED;
-	    break;
-
-	  case SPOTIFY_EVENT_PAUSE:
-	    if ((ret = playback_pause()) == 0)
-	      state = SPOTIFY_STATE_PAUSED;
-	    else
-	      state = SPOTIFY_STATE_PLAYING;
-	    break;
-
-	  case SPOTIFY_EVENT_RESUME:
-	    if ((ret = playback_resume()) == 0)
-	      state = SPOTIFY_STATE_PLAYING;
-	    else
-	      state = SPOTIFY_STATE_PAUSED;
-	    break;
-
-	  case SPOTIFY_EVENT_EOT:
-	    playback_stop();
-	    state = SPOTIFY_STATE_STOPPING;
-	    break;
-
-	  case SPOTIFY_EVENT_STOP:
-	    if ((ret = playback_stop()) == 0)
-	      state = SPOTIFY_STATE_STOPPED;
-	    else
-	      state = SPOTIFY_STATE_PLAYING;
-	    break;
-
-	  case SPOTIFY_EVENT_SEEK:
-	    if ((ret = playback_seek()) == 0)
-	      state = SPOTIFY_STATE_SEEKED;
-	    break;
-
-	  case SPOTIFY_EVENT_EXIT:
-	    ret = playback_stop();
-	    fptr_sp_session_logout(g_sess);
-	    state = SPOTIFY_STATE_EXITING;
-	    break;
-
-	  default:
-	    ret = 0;
-	    state = 0;
-	}
-
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Playback action failed (event code %d)\n", this_event);
-	}
-
-      if (state == SPOTIFY_STATE_EXITING)
-	break;
-
-      do
-	{
-	  fptr_sp_session_process_events(g_sess, &next_timeout);
-	}
-      while (next_timeout == 0);
-
-      pthread_mutex_lock(&g_state_mutex);
-      if (state)
-	{
-	  g_state = state;
-	  DPRINTF(E_DBG, L_SPOTIFY, "Event was %d, new state is %d\n", this_event, g_state);
-	  pthread_cond_signal(&g_state_cond);
-	}
-      pthread_mutex_unlock(&g_state_mutex);
+      DPRINTF(E_LOG, L_SPOTIFY, "Spotify event loop terminated ahead of time!\n");
+      g_state = SPOTIFY_STATE_INACTIVE;
     }
 
   db_perthread_deinit();
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Main loop end\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "Main loop terminating\n");
 
   pthread_exit(NULL);
 }
 
+static void
+exit_cb(int fd, short what, void *arg)
+{
+  int dummy;
+  int ret;
 
-/* -------------------------  PLAYER API             ----------------------- */
+  ret = read(g_exit_pipe[0], &dummy, sizeof(dummy));
+  if (ret != sizeof(dummy))
+    DPRINTF(E_LOG, L_SPOTIFY, "Error reading from exit pipe\n");
+
+  fptr_sp_session_player_unload(g_sess);
+  fptr_sp_session_logout(g_sess);
+
+  event_base_loopbreak(evbase_spotify);
+
+  g_state = SPOTIFY_STATE_INACTIVE;
+
+  event_add(g_exitev, NULL);
+}
+
+static void
+command_cb(int fd, short what, void *arg)
+{
+  struct spotify_command *cmd;
+  int ret;
+
+  ret = read(g_cmd_pipe[0], &cmd, sizeof(cmd));
+  if (ret != sizeof(cmd))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
+      goto readd;
+    }
+
+  if (cmd->nonblock)
+    {
+      cmd->func(cmd);
+
+      free(cmd);
+      goto readd;
+    }
+
+  pthread_mutex_lock(&cmd->lck);
+
+  g_cmd = cmd;
+  ret = cmd->func(cmd);
+  cmd->ret = ret;
+  g_cmd = NULL;
+
+  pthread_cond_signal(&cmd->cond);
+  pthread_mutex_unlock(&cmd->lck);
+
+ readd:
+  event_add(g_cmdev, NULL);
+}
+
+/* Process events when timeout expires or triggered by libspotify's notify_main_thread */
+static void
+notify_cb(int fd, short what, void *arg)
+{
+  struct timeval tv;
+  int next_timeout;
+  int dummy;
+  int ret;
+
+  if (what & EV_READ)
+    {
+      ret = read(g_notify_pipe[0], &dummy, sizeof(dummy));
+      if (ret != sizeof(dummy))
+	DPRINTF(E_LOG, L_SPOTIFY, "Error reading from notify pipe\n");
+    }
+
+  do
+    {
+      fptr_sp_session_process_events(g_sess, &next_timeout);
+    }
+  while (next_timeout == 0);
+
+  tv.tv_sec  = next_timeout / 1000;
+  tv.tv_usec = (next_timeout % 1000) * 1000;
+
+  event_add(g_notifyev, &tv);
+}
+
+
+/* ---------------------------- Our Spotify API  --------------------------- */
 
 /* Thread: player */
 int
 spotify_playback_play(struct media_file_info *mfi)
 {
-  enum spotify_state state;
+  struct spotify_command cmd;
   sp_link *link;
+  int ret;
 
   DPRINTF(E_DBG, L_SPOTIFY, "Playback request\n");
 
@@ -1135,188 +1320,150 @@ spotify_playback_play(struct media_file_info *mfi)
       return -1;
     }
 
-  pthread_mutex_lock(&g_notify_mutex);
+  command_init(&cmd);
 
-  g_state = SPOTIFY_STATE_WAIT;
-  g_event = SPOTIFY_EVENT_PLAY;
+  cmd.func = playback_play;
+  cmd.arg.link = link;
 
-  if (g_ctx.link)
-    fptr_sp_link_release(g_ctx.link);
-  g_ctx.link = link;
-  
-  pthread_cond_signal(&g_notify_cond);
-  pthread_mutex_unlock(&g_notify_mutex);
+  ret = sync_command(&cmd);
 
-  // Wait until state changed so we know the event was processed
-  pthread_mutex_lock(&g_state_mutex);
-  while (g_state == SPOTIFY_STATE_WAIT)
-    pthread_cond_wait(&g_state_cond, &g_state_mutex);
-  state = g_state;
-  pthread_mutex_unlock(&g_state_mutex);
+  command_deinit(&cmd);
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Playback reply\n");
-
-  if (state == SPOTIFY_STATE_PLAYING)
-    return 0;
-  else
-    return -1;
+  return ret;
 }
 
-/* Thread: player */
-// This is not used by player.c, because the player pauses music by a 
-// combintation of ending audio_get requests and seeking back
-int
-spotify_playback_pause(void)
+/* Thread: libspotify */
+void
+spotify_playback_pause_nonblock(void)
 {
-  enum spotify_state state;
+  struct spotify_command *cmd;
 
-  pthread_mutex_lock(&g_notify_mutex);
+  DPRINTF(E_DBG, L_SPOTIFY, "Nonblock pause request\n");
 
-  g_state = SPOTIFY_STATE_WAIT;
-  g_event = SPOTIFY_EVENT_PAUSE;
-  
-  pthread_cond_signal(&g_notify_cond);
-  pthread_mutex_unlock(&g_notify_mutex);
+  cmd = (struct spotify_command *)malloc(sizeof(struct spotify_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not allocate spotify_command\n");
+      return;
+    }
 
-  // Wait until state changed so we know the event was processed
-  pthread_mutex_lock(&g_state_mutex);
-  while (g_state == SPOTIFY_STATE_WAIT)
-    pthread_cond_wait(&g_state_cond, &g_state_mutex);
-  state = g_state;
-  pthread_mutex_unlock(&g_state_mutex);
+  memset(cmd, 0, sizeof(struct spotify_command));
 
-  if (state == SPOTIFY_STATE_PAUSED)
-    return 0;
-  else
-    return -1;
+  cmd->nonblock = 1;
+
+  cmd->func = playback_pause;
+  cmd->arg.noarg = NULL;
+
+  nonblock_command(cmd);
 }
 
-/* Thread: player */
+/* Not used */
+int
+spotify_playback_resume(void)
+{
+  struct spotify_command cmd;
+  int ret;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Resume request\n");
+
+  command_init(&cmd);
+
+  cmd.func = playback_resume;
+  cmd.arg.noarg = NULL;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+/* Thread: player and libspotify */
 int
 spotify_playback_stop(void)
 {
-  enum spotify_state state;
+  struct spotify_command cmd;
+  int ret;
 
   DPRINTF(E_DBG, L_SPOTIFY, "Stop request\n");
 
-  pthread_mutex_lock(&g_notify_mutex);
+  command_init(&cmd);
 
-  g_state = SPOTIFY_STATE_WAIT;
-  g_event = SPOTIFY_EVENT_STOP;
-  
-  pthread_cond_signal(&g_notify_cond);
-  pthread_mutex_unlock(&g_notify_mutex);
+  cmd.func = playback_stop;
+  cmd.arg.noarg = NULL;
 
-  // Wait until state changed so we know the event was processed
-  pthread_mutex_lock(&g_state_mutex);
-  while (g_state == SPOTIFY_STATE_WAIT)
-    pthread_cond_wait(&g_state_cond, &g_state_mutex);
-  state = g_state;
-  pthread_mutex_unlock(&g_state_mutex);
+  ret = sync_command(&cmd);
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Stop reply\n");
+  command_deinit(&cmd);
 
-  if (state == SPOTIFY_STATE_STOPPED)
-    return 0;
-  else
-    return -1;
+  return ret;
+}
+
+/* Thread: libspotify */
+void
+spotify_playback_stop_nonblock(void)
+{
+  struct spotify_command *cmd;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Nonblock stop request\n");
+
+  cmd = (struct spotify_command *)malloc(sizeof(struct spotify_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not allocate spotify_command\n");
+      return;
+    }
+
+  memset(cmd, 0, sizeof(struct spotify_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = playback_stop;
+  cmd->arg.noarg = NULL;
+
+  nonblock_command(cmd);
 }
 
 /* Thread: player */
 int
 spotify_playback_seek(int ms)
 {
-  pthread_mutex_lock(&g_notify_mutex);
+  struct spotify_command cmd;
+  int ret;
 
-  g_state = SPOTIFY_STATE_WAIT;
-  g_event = SPOTIFY_EVENT_SEEK;
-  g_ctx.seek_ms = ms;
-  
-  pthread_cond_signal(&g_notify_cond);
-  pthread_mutex_unlock(&g_notify_mutex);
+  command_init(&cmd);
 
-  // Wait until state changed so we know the event was processed
-  pthread_mutex_lock(&g_state_mutex);
-  while (g_state == SPOTIFY_STATE_WAIT)
-    pthread_cond_wait(&g_state_cond, &g_state_mutex);
-  pthread_mutex_unlock(&g_state_mutex);
+  cmd.func = playback_seek;
+  cmd.arg.seek_ms = ms;
 
-  return ms;
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  if (ret == 0)
+    return ms;
+  else
+    return -1;
 }
 
 /* Thread: player */
 int
 spotify_audio_get(struct evbuffer *evbuf, int wanted)
 {
-  struct timespec ts;
-  audio_fifo_data_t *afd;
-  int processed;
+  struct spotify_command cmd;
   int ret;
-  int s;
 
-  afd = NULL;
-  processed = 0;
+  command_init(&cmd);
 
-  // If spotify was paused begin by resuming playback
-  if (g_state == SPOTIFY_STATE_PAUSED)
-    {
-      pthread_mutex_lock(&g_notify_mutex);
-      g_event = SPOTIFY_EVENT_RESUME;
-      pthread_cond_signal(&g_notify_cond);
-      pthread_mutex_unlock(&g_notify_mutex);
-    }
+  cmd.func = audio_get;
+  cmd.arg.agp.evbuf  = evbuf;
+  cmd.arg.agp.wanted = wanted;
 
-  pthread_mutex_lock(&g_audio_fifo->mutex);
+  ret = sync_command(&cmd);
 
-  while ((processed < wanted) && (g_state != SPOTIFY_STATE_STOPPED))
-    {
-      // If track has ended and buffer is empty
-      if ((g_state == SPOTIFY_STATE_STOPPING) && (g_audio_fifo->qlen <= 0))
-	g_state = SPOTIFY_STATE_STOPPED;
+  command_deinit(&cmd);
 
-      // If buffer is empty wait for audio, but use timed wait so we don't
-      // risk waiting forever (maybe the player stopped while we were waiting)
-      while ( !(afd = TAILQ_FIRST(&g_audio_fifo->q)) && 
-	      (g_state != SPOTIFY_STATE_STOPPED) &&
-	      (g_state != SPOTIFY_STATE_STOPPING) )
-	{
-	  DPRINTF(E_DBG, L_SPOTIFY, "Waiting for audio\n");
-#if _POSIX_TIMERS > 0
-	  clock_gettime(CLOCK_REALTIME, &ts);
-#else
-	  struct timeval tv;
-	  gettimeofday(&tv, NULL);
-	  TIMEVAL_TO_TIMESPEC(&tv, &ts);
-#endif
-	  ts.tv_sec += 5;
-
-	  pthread_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts);
-	}
-
-      if (!afd)
-	break;
-
-      TAILQ_REMOVE(&g_audio_fifo->q, afd, link);
-      g_audio_fifo->qlen -= afd->nsamples;
-
-      s = afd->nsamples * sizeof(int16_t) * 2;
-  
-      ret = evbuffer_add(evbuf, afd->samples, s);
-      free(afd);
-      afd = NULL;
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for evbuffer (tried to add %d bytes)\n", s);
-	  pthread_mutex_unlock(&g_audio_fifo->mutex);
-	  return -1;
-	}
-
-      processed += s;
-    }
-
-  pthread_mutex_unlock(&g_audio_fifo->mutex);
-
-  return processed;
+  return ret;
 }
 
 /* Thread: filescanner */
@@ -1424,17 +1571,19 @@ spotify_login(char *path)
 
   if (g_state != SPOTIFY_STATE_INACTIVE)
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Killing previous Spotify thread\n");
-      pthread_mutex_lock(&g_notify_mutex);
-      g_event = SPOTIFY_EVENT_EXIT;
-      pthread_cond_signal(&g_notify_cond);
-      pthread_mutex_unlock(&g_notify_mutex);
+      DPRINTF(E_DBG, L_SPOTIFY, "Existing login terminating (state %d)\n", g_state);
 
-      pthread_join(tid_spotify, NULL);
-      g_state = SPOTIFY_STATE_INACTIVE;
+      thread_exit();
+
+      ret = pthread_join(tid_spotify, NULL);
+      if (ret != 0)
+	{
+	  DPRINTF(E_FATAL, L_SPOTIFY, "Could not join Spotify thread: %s\n", strerror(errno));
+	  return;
+	}
     }
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Spotify credentials file OK, logging in with %s/%s\n", username, password);
+  DPRINTF(E_DBG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", username);
 
   err = fptr_sp_session_login(g_sess, username, password, 1, NULL);
   if (SP_ERROR_OK != err)
@@ -1452,6 +1601,7 @@ spotify_login(char *path)
     }
 }
 
+
 /* Thread: main */
 int
 spotify_init(void)
@@ -1466,18 +1616,108 @@ spotify_init(void)
   if (!g_libhandle)
     {
       DPRINTF(E_INFO, L_SPOTIFY, "libspotify.so not installed or not found\n");
-      return -1;
+      goto libspotify_fail;
     }
 
-  DPRINTF(E_INFO, L_SPOTIFY, "Spotify session init\n");
   ret = fptr_assign_all();
   if (ret < 0)
-    return -1;
+    goto assign_fail;
 
-  /* Initialize session */
-  g_notify = 0;
-  g_event = SPOTIFY_EVENT_NONE;
-  g_state = SPOTIFY_STATE_INACTIVE;
+# if defined(__linux__)
+  ret = pipe2(g_exit_pipe, O_CLOEXEC);
+# else
+  ret = pipe(g_exit_pipe);
+# endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create pipe: %s\n", strerror(errno));
+      goto exit_fail;
+    }
+
+# if defined(__linux__)
+  ret = pipe2(g_cmd_pipe, O_CLOEXEC);
+# else
+  ret = pipe(g_cmd_pipe);
+# endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create command pipe: %s\n", strerror(errno));
+      goto cmd_fail;
+    }
+
+# if defined(__linux__)
+  ret = pipe2(g_notify_pipe, O_CLOEXEC);
+# else
+  ret = pipe(g_notify_pipe);
+# endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not notify command pipe: %s\n", strerror(errno));
+      goto notify_fail;
+    }
+
+  evbase_spotify = event_base_new();
+  if (!evbase_spotify)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create an event base\n");
+      goto evbase_fail;
+    }
+
+#ifdef HAVE_LIBEVENT2
+  g_exitev = event_new(evbase_spotify, g_exit_pipe[0], EV_READ, exit_cb, NULL);
+  if (!g_exitev)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create exit event\n");
+      goto evnew_fail;
+    }
+
+  g_cmdev = event_new(evbase_spotify, g_cmd_pipe[0], EV_READ, command_cb, NULL);
+  if (!g_cmdev)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create cmd event\n");
+      goto evnew_fail;
+    }
+
+  g_notifyev = event_new(evbase_spotify, g_notify_pipe[0], EV_READ | EV_TIMEOUT, notify_cb, NULL);
+  if (!g_notifyev)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create notify event\n");
+      goto evnew_fail;
+    }
+#else
+  g_exitev = (struct event *)malloc(sizeof(struct event));
+  if (!g_exitev)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create exit event\n");
+      goto evnew_fail;
+    }
+  event_set(g_exitev, g_exit_pipe[0], EV_READ, exit_cb, NULL);
+  event_base_set(evbase_spotify, g_exitev);
+
+  g_cmdev = (struct event *)malloc(sizeof(struct event));
+  if (!g_cmdev)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create cmd event\n");
+      goto evnew_fail;
+    }
+  event_set(g_cmdev, g_cmd_pipe[0], EV_READ, command_cb, NULL);
+  event_base_set(evbase_spotify, g_cmdev);
+
+  g_notifyev = (struct event *)malloc(sizeof(struct event));
+  if (!g_notifyev)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create notify event\n");
+      goto evnew_fail;
+    }
+  event_set(g_notifyev, g_notify_pipe[0], EV_READ | EV_TIMEOUT, notify_cb, NULL);
+  event_base_set(evbase_spotify, g_notifyev);
+#endif
+
+  event_add(g_exitev, NULL);
+  event_add(g_cmdev, NULL);
+  event_add(g_notifyev, NULL);
+
+  DPRINTF(E_INFO, L_SPOTIFY, "Spotify session init\n");
 
   lib = cfg_getsec(cfg, "spotify");
   spconfig.settings_location = cfg_getstr(lib, "settings_dir");
@@ -1488,22 +1728,21 @@ spotify_init(void)
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not create Spotify session: %s\n", fptr_sp_error_message(err));
-      return -1;
+      goto session_fail;
     }
 
   g_sess = sp;
+  g_state = SPOTIFY_STATE_INACTIVE;
 
-  /* Prepare thread and audio buffer */
-  pthread_mutex_init(&g_notify_mutex, NULL);
-  pthread_cond_init(&g_notify_cond, NULL);
-  pthread_mutex_init(&g_state_mutex, NULL);
-  pthread_cond_init(&g_state_cond, NULL);
-  pthread_mutex_init(&g_db_mutex, NULL);
-
+  /* Prepare audio buffer */
   g_audio_fifo = (audio_fifo_t *)malloc(sizeof(audio_fifo_t));
+  if (!g_audio_fifo)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for audio buffer\n");
+      goto audio_fifo_fail;
+    }
   TAILQ_INIT(&g_audio_fifo->q);
   g_audio_fifo->qlen = 0;
-
   pthread_mutex_init(&g_audio_fifo->mutex, NULL);
   pthread_cond_init(&g_audio_fifo->cond, NULL);
 
@@ -1513,19 +1752,53 @@ spotify_init(void)
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not login into Spotify: %s\n", fptr_sp_error_message(err));
-      return -1;
+      goto login_fail;
     }
 
   ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not spawn Spotify thread: %s\n", strerror(errno));
-
-      return -1;
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not spawn Spotify thread: %s\n", strerror(errno));
+      goto thread_fail;
     }
 
   DPRINTF(E_DBG, L_SPOTIFY, "Spotify init complete\n");
   return 0;
+
+ thread_fail:
+  pthread_cond_destroy(&g_audio_fifo->cond);
+  pthread_mutex_destroy(&g_audio_fifo->mutex);
+  free(g_audio_fifo);
+
+ audio_fifo_fail:
+  fptr_sp_session_release(g_sess);
+  g_sess = NULL;
+  
+ session_fail:
+ evnew_fail:
+  event_base_free(evbase_spotify);
+  evbase_spotify = NULL;
+
+ evbase_fail:
+  close(g_notify_pipe[0]);
+  close(g_notify_pipe[1]);
+
+ notify_fail:
+  close(g_cmd_pipe[0]);
+  close(g_cmd_pipe[1]);
+
+ cmd_fail:
+  close(g_exit_pipe[0]);
+  close(g_exit_pipe[1]);
+
+ exit_fail:
+ assign_fail:
+  dlclose(g_libhandle);
+  g_libhandle = NULL;
+
+ libspotify_fail:
+ login_fail:
+  return -1;
 }
 
 void
@@ -1533,17 +1806,13 @@ spotify_deinit(void)
 {
   int ret;
 
-  /* libspotify not installed or no session - just exit */
-  if (!g_libhandle || !g_sess)
+  if (!g_libhandle)
     return;
 
   /* Send exit signal to thread (if active) */
   if (g_state != SPOTIFY_STATE_INACTIVE)
     {
-      pthread_mutex_lock(&g_notify_mutex);
-      g_event = SPOTIFY_EVENT_EXIT;
-      pthread_cond_signal(&g_notify_cond);
-      pthread_mutex_unlock(&g_notify_mutex);
+      thread_exit();
 
       ret = pthread_join(tid_spotify, NULL);
       if (ret != 0)
@@ -1553,26 +1822,25 @@ spotify_deinit(void)
 	}
     }
 
-  /* Release session and destroy pthread mutex/cond */
+  /* Release session */
   fptr_sp_session_release(g_sess);
 
-  DPRINTF(E_SPAM, L_SPOTIFY, "Destroy pthread mutex and cond\n");
-  pthread_cond_destroy(&g_notify_cond);
-  pthread_mutex_destroy(&g_notify_mutex);
+  /* Free event base (should free events too) */
+  event_base_free(evbase_spotify);
 
-  pthread_cond_destroy(&g_state_cond);
-  pthread_mutex_destroy(&g_state_mutex);
+  /* Close pipes */
+  close(g_notify_pipe[0]);
+  close(g_notify_pipe[1]);
+  close(g_cmd_pipe[0]);
+  close(g_cmd_pipe[1]);
+  close(g_exit_pipe[0]);
+  close(g_exit_pipe[1]);
 
-  pthread_mutex_destroy(&g_db_mutex);
-
+  /* Clear audio fifo */
   pthread_cond_destroy(&g_audio_fifo->cond);
   pthread_mutex_destroy(&g_audio_fifo->mutex);
-
-  /* Free audio buffer */
-  DPRINTF(E_SPAM, L_SPOTIFY, "Free audio fifo\n");
   free(g_audio_fifo);
 
   /* Release libspotify handle */
-  if (g_libhandle)
-    dlclose(g_libhandle);
+  dlclose(g_libhandle);
 }
