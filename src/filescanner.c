@@ -37,6 +37,8 @@
 #include <dirent.h>
 #include <pthread.h>
 
+#include <unistr.h>
+#include <unictype.h>
 #include <uninorm.h>
 
 #if defined(__linux__)
@@ -162,49 +164,99 @@ ignore_filetype(char *ext)
 }
 
 static void
-normalize_fixup_tag(char **tag, char *src_tag)
+sort_tag_create(char **sort_tag, char *src_tag)
 {
-  char *norm;
+  const uint8_t *i_ptr;
+  const uint8_t *n_ptr;
+  const uint8_t *number;
+  uint8_t out[1024];
+  uint8_t *o_ptr;
+  int append_number;
+  ucs4_t puc;
+  int numlen;
   size_t len;
 
   /* Note: include terminating NUL in string length for u8_normalize */
 
-  if (!*tag)
-    *tag = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)src_tag, strlen(src_tag) + 1, NULL, &len);
-  else
+  if (*sort_tag)
     {
-      norm = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)*tag, strlen(*tag) + 1, NULL, &len);
-      free(*tag);
-      *tag = norm;
+      DPRINTF(E_DBG, L_SCAN, "Existing sort tag will be normalized: %s\n", *sort_tag);
+      o_ptr = u8_normalize(UNINORM_NFD, (uint8_t *)*sort_tag, strlen(*sort_tag) + 1, NULL, &len);
+      free(*sort_tag);
+      *sort_tag = (char *)o_ptr;
+      return;
     }
-}
 
-static char *
-strip_article(char *tag)
-{
-  int len;
+  if (!src_tag || ((len = strlen(src_tag)) == 0))
+    {
+      *sort_tag = NULL;
+      return;
+    }
 
-  if (!tag)
-    return NULL;
+  // Set input pointer past article if present
+  if ((strncasecmp(src_tag, "a ", 2) == 0) && (len > 2))
+    i_ptr = (uint8_t *)(src_tag + 2);
+  else if ((strncasecmp(src_tag, "an ", 3) == 0) && (len > 3))
+    i_ptr = (uint8_t *)(src_tag + 3);
+  else if ((strncasecmp(src_tag, "the ", 4) == 0) && (len > 4))
+    i_ptr = (uint8_t *)(src_tag + 4);
+  else
+    i_ptr = (uint8_t *)src_tag;
 
-  len = strlen(tag);
+  // Poor man's natural sort. Makes sure we sort like this: a1, a2, a10, a11, a21, a111
+  // We do this by padding zeroes to (short) numbers. As an alternative we could have
+  // made a proper natural sort algorithm in sqlext.c, but we don't, since we don't
+  // want any risk of hurting response times
+  memset(&out, 0, sizeof(out));
+  o_ptr = (uint8_t *)&out;
+  number = NULL;
+  append_number = 0;
 
-  if ((strncmp(tag, "A ", 2) == 0) && (len > 2))
-    return tag + 2;
+  do
+    {
+      n_ptr = u8_next(&puc, i_ptr);
 
-  if ((strncmp(tag, "An ", 3) == 0) && (len > 3))
-    return tag + 3;
+      if (uc_is_digit(puc))
+	{
+	  if (!number) // We have encountered the beginning of a number
+	    number = i_ptr;
+	  append_number = (n_ptr == NULL); // If last char in string append number now
+	}
+      else
+	{
+	  if (number)
+	    append_number = 1; // A number has ended so time to append it
+	  else
+	    o_ptr = u8_stpncpy(o_ptr, i_ptr, u8_strmblen(i_ptr)); // No numbers in sight, just append char
+	}
 
-  if ((strncmp(tag, "AN ", 3) == 0) && (len > 3))
-    return tag + 3;
+      // Break if less than 100 bytes remain (prevent buffer overflow)
+      if (sizeof(out) - u8_strlen(out) < 100)
+	break;
 
-  if ((strncmp(tag, "The ", 4) == 0) && (len > 4))
-    return tag + 4;
+      // Break if number is very large (prevent buffer overflow)
+      if (number && (i_ptr - number > 50))
+	break;
 
-  if ((strncmp(tag, "THE ", 4) == 0) && (len > 4))
-    return tag + 4;
+      if (append_number)
+	{
+	  numlen = i_ptr - number;
+	  if (numlen < 5) // Max pad width
+	    {
+	      u8_strcpy(o_ptr, (uint8_t *)"00000");
+	      o_ptr += (5 - numlen);
+	    }
+	  o_ptr = u8_stpncpy(o_ptr, number, numlen + u8_strmblen(i_ptr));
 
-  return tag;
+	  number = NULL;
+	  append_number = 0;
+	}
+
+      i_ptr = n_ptr;
+    }
+  while (n_ptr);
+
+  *sort_tag = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)&out, u8_strlen(out) + 1, NULL, &len);
 }
 
 static void
@@ -323,10 +375,10 @@ fixup_tags(struct media_file_info *mfi)
 	mfi->title = strdup(mfi->fname);
     }
 
-  /* Ensure sort tags are filled and normalized, and that "The"/"A"/"An" are stripped */
-  normalize_fixup_tag(&mfi->artist_sort, strip_article(mfi->artist));
-  normalize_fixup_tag(&mfi->album_sort, strip_article(mfi->album));
-  normalize_fixup_tag(&mfi->title_sort, strip_article(mfi->title));
+  /* Ensure sort tags are filled, manipulated and normalized */
+  sort_tag_create(&mfi->artist_sort, mfi->artist);
+  sort_tag_create(&mfi->album_sort, mfi->album);
+  sort_tag_create(&mfi->title_sort, mfi->title);
 
   /* We need to set album_artist according to media type and config */
   if (mfi->compilation)          /* Compilation */
@@ -363,11 +415,11 @@ fixup_tags(struct media_file_info *mfi)
   if (!mfi->album_artist_sort && (strcmp(mfi->album_artist, mfi->artist) == 0))
     mfi->album_artist_sort = strdup(mfi->artist_sort);
   else
-    normalize_fixup_tag(&mfi->album_artist_sort, strip_article(mfi->album_artist));
+    sort_tag_create(&mfi->album_artist_sort, mfi->album_artist);
 
   /* Composer is not one of our mandatory tags, so take extra care */
   if (mfi->composer_sort || mfi->composer)
-    normalize_fixup_tag(&mfi->composer_sort, strip_article(mfi->composer));
+    sort_tag_create(&mfi->composer_sort, mfi->composer);
 }
 
 
