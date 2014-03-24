@@ -3,7 +3,11 @@
 #define __HTTPD_DAAP_H__
 
 #include <event.h>
-#include "evhttp/evhttp.h"
+#ifdef HAVE_LIBEVENT2
+# include <evhttp.h>
+#else
+# include "evhttp/evhttp.h"
+#endif
 
 int
 daap_init(void);

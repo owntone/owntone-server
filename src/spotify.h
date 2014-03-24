@@ -3,7 +3,7 @@
 #define __SPOTIFY_H__
 
 #include "db.h"
-#include "evhttp/evhttp.h"
+#include <event.h>
 
 int
 spotify_playback_play(struct media_file_info *mfi);

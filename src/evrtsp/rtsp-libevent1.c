@@ -28,19 +28,19 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <event.h>
+#include <event-config.h>
 
-#ifdef EVENT__HAVE_SYS_PARAM_H
+#ifdef _EVENT_HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
-#ifdef EVENT__HAVE_SYS_TYPES_H
+#ifdef _EVENT_HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
 
-#ifdef EVENT__HAVE_SYS_TIME_H
+#ifdef _EVENT_HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
-#ifdef EVENT__HAVE_SYS_IOCCOM_H
+#ifdef _EVENT_HAVE_SYS_IOCCOM_H
 #include <sys/ioccom.h>
 #endif
 
@@ -74,17 +74,19 @@
 #endif
 #include <signal.h>
 #include <time.h>
-#ifdef EVENT__HAVE_UNISTD_H
+#ifdef _EVENT_HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef EVENT__HAVE_FCNTL_H
+#ifdef _EVENT_HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
 
 #undef timeout_pending
 #undef timeout_initialized
 
+#include <event.h>
 #include "evrtsp.h"
+#include <evutil.h>
 /* #define USE_DEBUG */
 #include "log.h"
 #include "rtsp-internal.h"
@@ -95,7 +97,7 @@
 #define strdup _strdup
 #endif
 
-#ifndef EVENT__HAVE_GETNAMEINFO
+#ifndef _EVENT_HAVE_GETNAMEINFO
 #define NI_MAXSERV 32
 #define NI_MAXHOST 1025
 
@@ -144,7 +146,7 @@ fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host,
 
 #endif
 
-#ifndef EVENT__HAVE_GETADDRINFO
+#ifndef _EVENT_HAVE_GETADDRINFO
 struct addrinfo {
 	int ai_family;
 	int ai_socktype;
@@ -218,7 +220,7 @@ static int evrtsp_add_header_internal(struct evkeyvalq *headers,
 void evrtsp_read(int, short, void *);
 void evrtsp_write(int, short, void *);
 
-#ifndef EVENT__HAVE_STRSEP
+#ifndef _EVENT_HAVE_STRSEP
 /* strsep replacement for platforms that lack it.  Only works if
  * del is one character long. */
 static char *
@@ -317,7 +319,8 @@ evrtsp_write_buffer(struct evrtsp_connection *evcon,
 	if (event_pending(&evcon->ev, EV_WRITE|EV_TIMEOUT, NULL))
 		event_del(&evcon->ev);
 
-	event_assign(&evcon->ev, evcon->base, evcon->fd, EV_WRITE, evrtsp_write, evcon);
+	event_set(&evcon->ev, evcon->fd, EV_WRITE, evrtsp_write, evcon);
+	EVRTSP_BASE_SET(evcon, &evcon->ev);
 	evrtsp_add_event(&evcon->ev, evcon->timeout, RTSP_WRITE_TIMEOUT);
 }
 
@@ -354,12 +357,12 @@ evrtsp_make_header_request(struct evrtsp_connection *evcon,
 	    method, req->uri, req->major, req->minor);
 
 	/* Content-Length is mandatory, absent means 0 */
-	if ((evbuffer_get_length(req->output_buffer) > 0)
+	if ((EVBUFFER_LENGTH(req->output_buffer) > 0)
 	    && (evrtsp_find_header(req->output_headers, "Content-Length") == NULL))
 	  {
 	    char size[12];
 	    evutil_snprintf(size, sizeof(size), "%ld",
-			    (long)evbuffer_get_length(req->output_buffer));
+			    (long)EVBUFFER_LENGTH(req->output_buffer));
 	    evrtsp_add_header(req->output_headers, "Content-Length", size);
 	  }
 }
@@ -377,7 +380,7 @@ evrtsp_make_header(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 	}
 	evbuffer_add(evcon->output_buffer, "\r\n", 2);
 
-	if (evbuffer_get_length(req->output_buffer) > 0) {
+	if (EVBUFFER_LENGTH(req->output_buffer) > 0) {
 		evbuffer_add_buffer(evcon->output_buffer, req->output_buffer);
 	}
 }
@@ -495,7 +498,7 @@ evrtsp_write(int fd, short what, void *arg)
 		return;
 	}
 
-	if (evbuffer_get_length(evcon->output_buffer) != 0) {
+	if (EVBUFFER_LENGTH(evcon->output_buffer) != 0) {
 		evrtsp_add_event(&evcon->ev, 
 		    evcon->timeout, RTSP_WRITE_TIMEOUT);
 		return;
@@ -574,9 +577,9 @@ evrtsp_read_body(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 	if (req->ntoread < 0) {
 		/* Read until connection close. */
 		evbuffer_add_buffer(req->input_buffer, buf);
-	} else if (evbuffer_get_length(buf) >= req->ntoread) {
+	} else if (EVBUFFER_LENGTH(buf) >= req->ntoread) {
 		/* Completed content length */
-		evbuffer_add(req->input_buffer, evbuffer_pullup(buf,-1),
+		evbuffer_add(req->input_buffer, EVBUFFER_DATA(buf),
 		    (size_t)req->ntoread);
 		evbuffer_drain(buf, (size_t)req->ntoread);
 		req->ntoread = 0;
@@ -584,7 +587,8 @@ evrtsp_read_body(struct evrtsp_connection *evcon, struct evrtsp_request *req)
 		return;
 	}
 	/* Read more! */
-	event_assign(&evcon->ev, evcon->base, evcon->fd, EV_READ, evrtsp_read, evcon);
+	event_set(&evcon->ev, evcon->fd, EV_READ, evrtsp_read, evcon);
+	EVRTSP_BASE_SET(evcon, &evcon->ev);
 	evrtsp_add_event(&evcon->ev, evcon->timeout, RTSP_READ_TIMEOUT);
 }
 
@@ -752,9 +756,9 @@ evrtsp_connection_reset(struct evrtsp_connection *evcon)
 	evcon->state = EVCON_DISCONNECTED;
 
 	evbuffer_drain(evcon->input_buffer,
-	    evbuffer_get_length(evcon->input_buffer));
+	    EVBUFFER_LENGTH(evcon->input_buffer));
 	evbuffer_drain(evcon->output_buffer,
-	    evbuffer_get_length(evcon->output_buffer));
+	    EVBUFFER_LENGTH(evcon->output_buffer));
 }
 
 static void
@@ -772,8 +776,9 @@ evrtsp_connection_start_detectclose(struct evrtsp_connection *evcon)
 
 	if (event_initialized(&evcon->close_ev))
 		event_del(&evcon->close_ev);
-	event_assign(&evcon->close_ev, evcon->base, evcon->fd, EV_READ,
+	event_set(&evcon->close_ev, evcon->fd, EV_READ,
 	    evrtsp_detect_close_cb, evcon);
+	EVRTSP_BASE_SET(evcon, &evcon->close_ev);
 	event_add(&evcon->close_ev, NULL);
 }
 
@@ -1028,7 +1033,7 @@ evrtsp_parse_firstline(struct evrtsp_request *req, struct evbuffer *buffer)
 	char *line;
 	enum message_read_status status = ALL_DATA_READ;
 
-	line = evbuffer_readln(buffer, NULL, EVBUFFER_EOL_ANY);
+	line = evbuffer_readline(buffer);
 	if (line == NULL)
 		return (MORE_DATA_EXPECTED);
 
@@ -1069,13 +1074,13 @@ evrtsp_append_to_last_header(struct evkeyvalq *headers, const char *line)
 }
 
 enum message_read_status
-evrtsp_parse_headers(struct evrtsp_request *req, struct evbuffer *buffer)
+evrtsp_parse_headers(struct evrtsp_request *req, struct evbuffer* buffer)
 {
 	char *line;
 	enum message_read_status status = MORE_DATA_EXPECTED;
 
-	struct evkeyvalq *headers = req->input_headers;
-	while ((line = evbuffer_readln(buffer, NULL, EVBUFFER_EOL_CRLF))
+	struct evkeyvalq* headers = req->input_headers;
+	while ((line = evbuffer_readline(buffer))
 	       != NULL) {
 		char *skey, *svalue;
 
@@ -1138,7 +1143,7 @@ evrtsp_get_body_length(struct evrtsp_request *req)
 		
 	event_debug(("%s: bytes to read: %lld (in buffer %ld)\n",
 		__func__, req->ntoread,
-		evbuffer_get_length(req->evcon->input_buffer)));
+		EVBUFFER_LENGTH(req->evcon->input_buffer)));
 
 	return (0);
 }
@@ -1396,7 +1401,8 @@ evrtsp_connection_connect(struct evrtsp_connection *evcon)
 	}
 
 	/* Set up a callback for successful connection setup */
-	event_assign(&evcon->ev, evcon->base, evcon->fd, EV_WRITE, evrtsp_connectioncb, evcon);
+	event_set(&evcon->ev, evcon->fd, EV_WRITE, evrtsp_connectioncb, evcon);
+	EVRTSP_BASE_SET(evcon, &evcon->ev);
 	evrtsp_add_event(&evcon->ev, evcon->timeout, RTSP_CONNECT_TIMEOUT);
 
 	evcon->state = EVCON_CONNECTING;
@@ -1461,7 +1467,9 @@ evrtsp_start_read(struct evrtsp_connection *evcon)
 	/* Set up an event to read the headers */
 	if (event_initialized(&evcon->ev))
 		event_del(&evcon->ev);
-	event_assign(&evcon->ev, evcon->base, evcon->fd, EV_READ, evrtsp_read, evcon);
+	event_set(&evcon->ev, evcon->fd, EV_READ, evrtsp_read, evcon);
+	EVRTSP_BASE_SET(evcon, &evcon->ev);
+	
 	evrtsp_add_event(&evcon->ev, evcon->timeout, RTSP_READ_TIMEOUT);
 	evcon->state = EVCON_READING_FIRSTLINE;
 }
@@ -1596,7 +1604,7 @@ evrtsp_request_uri(struct evrtsp_request *req) {
 static struct addrinfo *
 addr_from_name(char *address)
 {
-#ifdef EVENT__HAVE_GETADDRINFO
+#ifdef _EVENT_HAVE_GETADDRINFO
         struct addrinfo ai, *aitop;
         int ai_result;
 
@@ -1627,7 +1635,7 @@ name_from_addr(struct sockaddr *sa, socklen_t salen,
 	char strport[NI_MAXSERV];
 	int ni_result;
 
-#ifdef EVENT__HAVE_GETNAMEINFO
+#ifdef _EVENT_HAVE_GETNAMEINFO
 	ni_result = getnameinfo(sa, salen,
 		ntop, sizeof(ntop), strport, sizeof(strport),
 		NI_NUMERICHOST|NI_NUMERICSERV);
@@ -1709,7 +1717,7 @@ make_addrinfo(const char *address, u_short port)
 {
         struct addrinfo *aitop = NULL;
 
-#ifdef EVENT__HAVE_GETADDRINFO
+#ifdef _EVENT_HAVE_GETADDRINFO
         struct addrinfo ai;
         char strport[NI_MAXSERV];
         int ai_result;
@@ -1759,7 +1767,7 @@ bind_socket(int family, const char *address, u_short port, int reuse)
 
 	fd = bind_socket_ai(family, aitop, reuse);
 
-#ifdef EVENT__HAVE_GETADDRINFO
+#ifdef _EVENT_HAVE_GETADDRINFO
 	freeaddrinfo(aitop);
 #else
 	fake_freeaddrinfo(aitop);
@@ -1798,7 +1806,7 @@ socket_connect(int fd, const char *address, unsigned short port)
 	res = 0;
 
 out:
-#ifdef EVENT__HAVE_GETADDRINFO
+#ifdef _EVENT_HAVE_GETADDRINFO
 	freeaddrinfo(ai);
 #else
 	fake_freeaddrinfo(ai);

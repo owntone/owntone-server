@@ -159,9 +159,24 @@ fi
 
 PKG_CHECK_MODULES(MINIXML, [ mxml ])
 
-AC_CHECK_HEADER(event.h, , AC_MSG_ERROR([event.h not found]))
-AC_CHECK_LIB([event_core], [event_init], [LIBEVENT_LIBS="-levent_core"], AC_MSG_ERROR([libevent not found]))
-AC_SUBST(LIBEVENT_LIBS)
+PKG_CHECK_MODULES(LIBEVENT, [ libevent >= 2],
+	AC_CHECK_LIB([event], [evhttp_request_set_header_cb],
+	        AC_DEFINE(HAVE_LIBEVENT2, 1, [Define to 1 if you have libevent 2 with evhttp_request_set_header_cb()]),
+		AC_MSG_ERROR([found libevent 2 but without evhttp_request_set_header_cb() - try version >= 2.1.4])
+	),
+	try_libevent1=true;
+)
+
+if test x$try_libevent1 = xtrue; then
+        AC_CHECK_HEADER(event.h,
+                AC_CHECK_LIB([event_core], [event_init], [LIBEVENT_LIBS="-levent_core"], AC_MSG_ERROR([libevent not found])),
+                AC_MSG_ERROR([event.h not found])
+        )
+	AC_SUBST(LIBEVENT_LIBS)
+	AM_CONDITIONAL(COND_LIBEVENT2, false)
+else
+	AM_CONDITIONAL(COND_LIBEVENT2, true)
+fi
 
 AC_CHECK_HEADER(avl.h, , AC_MSG_ERROR([avl.h not found]))
 AC_CHECK_LIB([avl], [avl_alloc_tree], [LIBAVL_LIBS="-lavl"], AC_MSG_ERROR([libavl not found]))
@@ -191,12 +206,12 @@ fi
 
 if test x$use_spotify = xtrue; then
 	AC_CHECK_HEADER(libspotify/api.h, , AC_MSG_ERROR([libspotify/api.h not found]))
-  AC_DEFINE(HAVE_SPOTIFY_H, 1, [Define to 1 if you have the <libspotify/api.h> header file.])
-dnl Don't link to libspotify, but instead enable dynamic linking
-  SPOTIFY_CFLAGS="-rdynamic"
-  SPOTIFY_LIBS="-ldl"
-  AC_SUBST(SPOTIFY_CFLAGS)
-  AC_SUBST(SPOTIFY_LIBS)
+	AC_DEFINE(HAVE_SPOTIFY_H, 1, [Define to 1 if you have the <libspotify/api.h> header file.])
+	dnl Don't link to libspotify, but instead enable dynamic linking
+	SPOTIFY_CFLAGS="-rdynamic"
+	SPOTIFY_LIBS="-ldl"
+	AC_SUBST(SPOTIFY_CFLAGS)
+	AC_SUBST(SPOTIFY_LIBS)
 fi
 
 case "$host" in

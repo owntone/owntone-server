@@ -13,8 +13,8 @@ The original (now unmaintained) source can be found here:
   <http://git.debian.org/?p=users/jblache/forked-daapd.git>
 
 
-Quick version for Debian users
-------------------------------
+Quick version for Debian/Ubuntu users
+-------------------------------------
 
 If you are the lucky kind, this should get you all the required tools and
 libraries:
@@ -23,15 +23,18 @@ sudo apt-get install \
  build-essential git autotools-dev autoconf libtool gettext gawk gperf \
  antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev \
  libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libasound2-dev \
- libmxml-dev libgcrypt11-dev libavahi-client-dev libavl-dev libevent1-dev \
- libflac-dev
+ libmxml-dev libgcrypt11-dev libavahi-client-dev libavl-dev zlib1g-dev \
+ libevent1-dev
+
+Note that libevent1-dev is not in the Debian repository, but you can get the
+packages in the Ubuntu repository.
 
 Then run the following:
 
  git clone https://github.com/ejurgensen/forked-daapd.git
  cd forked-daapd
  autoreconf -i
- ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac
+ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
  make
  sudo make install
 
@@ -79,8 +82,8 @@ Libraries:
         from <http://libav.org/releases/>
  - libconfuse
         from <http://www.nongnu.org/confuse/>
- - libevent 1.4 (** NOT libevent 2 **)
-        from <http://www.monkey.org/~provos/libevent/>
+ - libevent 1.4 or 2.1.4+
+        from <http://libevent.org/>
  - libavl 0.3.5
         from <http://ftp.debian.org/debian/pool/main/liba/libavl>
  - MiniXML (aka mxml or libmxml)

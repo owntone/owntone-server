@@ -31,6 +31,13 @@ else
 FFURL_SRC=ffmpeg_url_evbuffer.c ffmpeg_url_evbuffer.h
 endif
 
+if COND_LIBEVENT2
+RTSP_SRC=evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
+else
+EVHTTP_SRC=evhttp/http.c evhttp/evhttp.h evhttp/http-internal.h evhttp/log.h
+RTSP_SRC=evrtsp/rtsp-libevent1.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
+endif
+
 GPERF_FILES = \
 	daap_query.gperf \
 	rsp_query.gperf \
@@ -79,8 +86,7 @@ forked_daapd_SOURCES = main.c \
 	filescanner_ffmpeg.c filescanner_m3u.c filescanner_icy.c $(ITUNESSRC) \
 	mdns_avahi.c mdns.h \
 	remote_pairing.c remote_pairing.h \
-	evhttp/http.c evhttp/evhttp.h \
-	evhttp/http-internal.h evhttp/log.h \
+	$(EVHTTP_SRC) \
 	$(FFURL_SRC) $(AVIO_SRC) \
 	httpd.c httpd.h \
 	httpd_rsp.c httpd_rsp.h \
@@ -96,10 +102,9 @@ forked_daapd_SOURCES = main.c \
 	player.c player.h \
 	$(ALSASRC) $(OSS4SRC) laudio.h \
 	raop.c raop.h \
-	evrtsp/rtsp.c evrtp/evrtsp.h \
-	evrtsp/rtsp-internal.h evrtsp/log.h \
+	$(RTSP_SRC) \
 	scan-wma.c \
-  $(SPOTIFYSRC) \
+	$(SPOTIFYSRC) \
 	$(FLACSRC) $(MUSEPACKSRC)
 
 nodist_forked_daapd_SOURCES = \
