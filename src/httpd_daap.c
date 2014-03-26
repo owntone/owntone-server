@@ -704,32 +704,29 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, const struc
 static void
 daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct evbuffer *content;
   cfg_t *lib;
   char *name;
   char *passwd;
   const char *clientver;
   int mpro;
   int apro;
-  int len;
-  int ret;
 
   lib = cfg_getsec(cfg, "library");
   passwd = cfg_getstr(lib, "password");
   name = cfg_getstr(lib, "name");
 
-  len = 167 + strlen(name);
-
-  ret = evbuffer_expand(evbuf, len);
-  if (ret < 0)
+  content = evbuffer_new();
+  if (!content)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP server-info reply\n");
+      DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP server-info reply\n");
 
       dmap_send_error(req, "msrv", "Out of memory");
       return;
     }
 
-  mpro = 2 << 16;
-  apro = 3 << 16;
+  mpro = 2 << 16 | 10;
+  apro = 3 << 16 | 12;
 
   clientver = evhttp_find_header(req->input_headers, "Client-DAAP-Version");
   if (clientver)
@@ -746,26 +743,53 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
 	}
     }
 
-  dmap_add_container(evbuf, "msrv", len - 8);
-  dmap_add_int(evbuf, "mstt", 200);  /* 12 */
-  dmap_add_int(evbuf, "mpro", mpro); /* 12 */
-  dmap_add_string(evbuf, "minm", name); /* 8 + strlen(name) */
-  dmap_add_int(evbuf, "apro", apro); /* 12 */
-  dmap_add_short(evbuf, "ated", 1);   /* 10 daap.supportsextradata */
+  dmap_add_int(content, "mstt", 200);
+  dmap_add_int(content, "mpro", mpro);       // dmap.protocolversion
+  dmap_add_string(content, "minm", name);    // dmap.itemname (server name)
 
-  dmap_add_char(evbuf, "mslr", 1);   /* 9 */
-  dmap_add_int(evbuf, "mstm", DAAP_SESSION_TIMEOUT_CAPABILITY); /* 12 */
-  dmap_add_char(evbuf, "msal", 1);   /* 9 */
-  dmap_add_char(evbuf, "msau", (passwd) ? 2 : 0); /* 9 */
-  dmap_add_char(evbuf, "msup", 1);   /* 9 */
+  dmap_add_int(content, "apro", apro);       // daap.protocolversion
+  dmap_add_int(content, "aeSV", apro);       // com.apple.itunes.music-sharing-version (determines if itunes shows share types)
 
-  dmap_add_char(evbuf, "mspi", 1);   /* 9 */
-  dmap_add_char(evbuf, "msex", 1);   /* 9 */
-  dmap_add_char(evbuf, "msix", 1);   /* 9 */
-  dmap_add_char(evbuf, "msbr", 1);   /* 9 */
-  dmap_add_char(evbuf, "msqy", 1);   /* 9 */
+  dmap_add_short(content, "ated", 7);        // daap.supportsextradata
+  dmap_add_short(content, "asgr", 3);        // daap.supportsgroups
 
-  dmap_add_int(evbuf, "msdc", 1);    /* 12 */
+//  dmap_add_long(content, "asse", 0x80000); // unknown - used by iTunes
+
+  dmap_add_char(content, "aeMQ", 1);         // unknown - used by iTunes
+
+//  dmap_add_long(content, "mscu", );        // unknown - used by iTunes
+//  dmap_add_char(content, "aeFR", );        // unknown - used by iTunes
+
+  dmap_add_char(content, "aeTr", 1);         // unknown - used by iTunes
+  dmap_add_char(content, "aeSL", 1);         // unknown - used by iTunes
+  dmap_add_char(content, "aeSR", 1);         // unknown - used by iTunes
+//  dmap_add_char(content, "aeFP", 2);       // triggers FairPlay request
+//  dmap_add_long(content, "aeSX", );        // unknown - used by iTunes
+
+//  dmap_add_int(content, "ppro", );         // dpap.protocolversion
+
+  dmap_add_char(content, "msed", 1);         // unknown - used by iTunes
+
+  dmap_add_char(content, "mslr", 1);         // dmap.loginrequired
+  dmap_add_int(content, "mstm", DAAP_SESSION_TIMEOUT_CAPABILITY); // dmap.timeoutinterval
+  dmap_add_char(content, "msal", 1);         // dmap.supportsautologout
+//  dmap_add_char(content, "msas", 3);       // dmap.authenticationschemes
+  dmap_add_char(content, "msau", (passwd) ? 2 : 0); // dmap.authenticationmethod
+
+  dmap_add_char(content, "msup", 1);         // dmap.supportsupdate
+  dmap_add_char(content, "mspi", 1);         // dmap.supportspersistentids
+  dmap_add_char(content, "msex", 1);         // dmap.supportsextensions
+  dmap_add_char(content, "msbr", 1);         // dmap.supportsbrowse
+  dmap_add_char(content, "msqy", 1);         // dmap.supportsquery
+  dmap_add_char(content, "msix", 1);         // dmap.supportsindex
+//  dmap_add_char(content, "msrs", 1);       // dmap.supportsresolve
+
+  dmap_add_int(content, "msdc", 1);          // dmap.databasescount
+
+  // Create container
+  dmap_add_container(evbuf, "msrv", EVBUFFER_LENGTH(content));
+  evbuffer_add_buffer(evbuf, content);
+  evbuffer_free(content);
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
@@ -990,12 +1014,11 @@ daap_reply_activity(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 static void
 daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  struct evbuffer *content;
   struct daap_session *s;
   cfg_t *lib;
   char *name;
-  int namelen;
   int count;
-  int ret;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
@@ -1003,34 +1026,41 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
-  namelen = strlen(name);
 
-  ret = evbuffer_expand(evbuf, 141 + namelen);
-  if (ret < 0)
+  content = evbuffer_new();
+  if (!content)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not expand evbuffer for DAAP dblist reply\n");
+      DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP dblist reply\n");
 
       dmap_send_error(req, "avdb", "Out of memory");
       return;
     }
 
-  dmap_add_container(evbuf, "avdb", 133 + namelen);
+  dmap_add_int(content, "miid", 1);
+  dmap_add_long(content, "mper", 1);
+  dmap_add_int(content, "mdbk", 1);
+  dmap_add_int(content, "aeCs", 1);
+  dmap_add_string(content, "minm", name);
+
+  count = db_files_get_count();
+  dmap_add_int(content, "mimc", count);
+
+  count = db_pl_get_count(); // TODO Don't count empty smart playlists, because they get excluded in aply
+  dmap_add_int(content, "mctc", count);
+
+  dmap_add_int(content, "aeMk", 0x405);   // com.apple.itunes.extended-media-kind (OR of all in library)
+  dmap_add_int(content, "meds", 3);
+
+  // Create container
+  dmap_add_container(evbuf, "avdb", EVBUFFER_LENGTH(content) + 61);
   dmap_add_int(evbuf, "mstt", 200);     /* 12 */
   dmap_add_char(evbuf, "muty", 0);      /* 9 */
   dmap_add_int(evbuf, "mtco", 1);       /* 12 */
   dmap_add_int(evbuf, "mrco", 1);       /* 12 */
-  dmap_add_container(evbuf, "mlcl", 80 + namelen);
-  dmap_add_container(evbuf, "mlit", 72 + namelen);
-  dmap_add_int(evbuf, "miid", 1);       /* 12 */
-  dmap_add_long(evbuf, "mper", 1);      /* 16 */
-  dmap_add_int(evbuf, "mdbk", 1);       /* 12 */
-  dmap_add_string(evbuf, "minm", name); /* 8 + namelen */
-
-  count = db_files_get_count();
-  dmap_add_int(evbuf, "mimc", count); /* 12 */
-
-  count = db_pl_get_count(); // TODO Don't count empty smart playlists, because they get excluded in aply
-  dmap_add_int(evbuf, "mctc", count); /* 12 */
+  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(content) + 8); /* 8 */
+  dmap_add_container(evbuf, "mlit", EVBUFFER_LENGTH(content));     /* 8 */
+  evbuffer_add_buffer(evbuf, content);
+  evbuffer_free(content);
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
