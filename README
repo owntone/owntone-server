@@ -339,7 +339,10 @@ get libspotify here:
   - Original (binary) tar.gz, see <https://developer.spotify.com>
   - Debian package (libspotify12), see <https://apt.mopidy.com>
   
-You must also have a Spotify premium account.
+You must also have a Spotify premium account. If you normally log into Spotify
+with your Facebook account you must first go to Spotify's web site where you can
+get the Spotify username and password that matches your account. With
+forked-daapd you cannot login into Spotify with your Facebook username/password.
 
 The procedure for logging in to Spotify is very much like the Remote pairing
 procedure. You must prepare a file, which should have the ending ".spotify".
