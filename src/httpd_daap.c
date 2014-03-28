@@ -1048,7 +1048,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   count = db_pl_get_count(); // TODO Don't count empty smart playlists, because they get excluded in aply
   dmap_add_int(content, "mctc", count);
 
-  dmap_add_int(content, "aeMk", 0x405);   // com.apple.itunes.extended-media-kind (OR of all in library)
+//  dmap_add_int(content, "aeMk", 0x405);   // com.apple.itunes.extended-media-kind (OR of all in library)
   dmap_add_int(content, "meds", 3);
 
   // Create container
