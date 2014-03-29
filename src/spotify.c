@@ -175,6 +175,7 @@ typedef sp_error     (*fptr_sp_session_player_unload_t)(sp_session *session);
 typedef sp_error     (*fptr_sp_session_player_play_t)(sp_session *session, bool play);
 typedef sp_error     (*fptr_sp_session_player_seek_t)(sp_session *session, int offset);
 typedef sp_connectionstate (*fptr_sp_session_connectionstate_t)(sp_session *session);
+typedef sp_error     (*fptr_sp_session_preferred_bitrate_t)(sp_session *session, sp_bitrate bitrate);
 
 typedef sp_error     (*fptr_sp_playlistcontainer_add_callbacks_t)(sp_playlistcontainer *pc, sp_playlistcontainer_callbacks *callbacks, void *userdata);
 typedef int          (*fptr_sp_playlistcontainer_num_playlists_t)(sp_playlistcontainer *pc);
@@ -224,6 +225,7 @@ fptr_sp_session_player_unload_t fptr_sp_session_player_unload;
 fptr_sp_session_player_play_t fptr_sp_session_player_play;
 fptr_sp_session_player_seek_t fptr_sp_session_player_seek;
 fptr_sp_session_connectionstate_t fptr_sp_session_connectionstate;
+fptr_sp_session_preferred_bitrate_t fptr_sp_session_preferred_bitrate;
 
 fptr_sp_playlistcontainer_add_callbacks_t fptr_sp_playlistcontainer_add_callbacks;
 fptr_sp_playlistcontainer_num_playlists_t fptr_sp_playlistcontainer_num_playlists;
@@ -282,6 +284,7 @@ fptr_assign_all()
    && (fptr_sp_session_player_play = dlsym(h, "sp_session_player_play"))
    && (fptr_sp_session_player_seek = dlsym(h, "sp_session_player_seek"))
    && (fptr_sp_session_connectionstate = dlsym(h, "sp_session_connectionstate"))
+   && (fptr_sp_session_preferred_bitrate = dlsym(h, "sp_session_preferred_bitrate"))
    && (fptr_sp_playlistcontainer_add_callbacks = dlsym(h, "sp_playlistcontainer_add_callbacks"))
    && (fptr_sp_playlistcontainer_num_playlists = dlsym(h, "sp_playlistcontainer_num_playlists"))
    && (fptr_sp_playlistcontainer_playlist = dlsym(h, "sp_playlistcontainer_playlist"))
@@ -1606,7 +1609,7 @@ spotify_login(char *path)
 int
 spotify_init(void)
 {
-  cfg_t *lib;
+  cfg_t *spotify_cfg;
   sp_session *sp;
   sp_error err;
   int ret;
@@ -1719,9 +1722,9 @@ spotify_init(void)
 
   DPRINTF(E_INFO, L_SPOTIFY, "Spotify session init\n");
 
-  lib = cfg_getsec(cfg, "spotify");
-  spconfig.settings_location = cfg_getstr(lib, "settings_dir");
-  spconfig.cache_location = cfg_getstr(lib, "cache_dir");
+  spotify_cfg = cfg_getsec(cfg, "spotify");
+  spconfig.settings_location = cfg_getstr(spotify_cfg, "settings_dir");
+  spconfig.cache_location = cfg_getstr(spotify_cfg, "cache_dir");
 
   DPRINTF(E_DBG, L_SPOTIFY, "Creating Spotify session\n");
   err = fptr_sp_session_create(&spconfig, &sp);
@@ -1733,6 +1736,19 @@ spotify_init(void)
 
   g_sess = sp;
   g_state = SPOTIFY_STATE_INACTIVE;
+
+  switch (cfg_getint(spotify_cfg, "bitrate"))
+    {
+      case 1:
+	fptr_sp_session_preferred_bitrate(g_sess, SP_BITRATE_96k);
+	break;
+      case 2:
+	fptr_sp_session_preferred_bitrate(g_sess, SP_BITRATE_160k);
+	break;
+      case 3:
+	fptr_sp_session_preferred_bitrate(g_sess, SP_BITRATE_320k);
+	break;
+    }
 
   /* Prepare audio buffer */
   g_audio_fifo = (audio_fifo_t *)malloc(sizeof(audio_fifo_t));

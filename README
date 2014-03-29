@@ -337,7 +337,7 @@ installed, otherwise the Spotify integration will not be available. You can
 get libspotify here:
 
   - Original (binary) tar.gz, see <https://developer.spotify.com>
-  - Debian package (libspotify12), see <https://apt.mopidy.com>
+  - Debian package (libspotify-dev), see <https://apt.mopidy.com>
   
 You must also have a Spotify premium account. If you normally log into Spotify
 with your Facebook account you must first go to Spotify's web site where you can
