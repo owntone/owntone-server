@@ -1314,10 +1314,13 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
   struct player_source *ps;
   const char *editquery;
   const char *queuefilter;
+  const char *querymodifier;
   const char *sort;
   const char *param;
+  char modifiedquery[32];
   uint32_t idx;
   int mode;
+  int plid;
   int ret;
   int quirkyquery;
 
@@ -1347,10 +1350,28 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 
       queuefilter = evhttp_find_header(query, "queuefilter");
 
-      /* Detect the quirky query - a query that needs special treatment */
-      quirkyquery = (mode == 1) && strstr(editquery, "dmap.itemid:") && ((!queuefilter) || strstr(queuefilter, "(null)"));
+      querymodifier = evhttp_find_header(query, "query-modifier");
+      if (!querymodifier || (strcmp(querymodifier, "containers") != 0))
+	{
+	  quirkyquery = (mode == 1) && strstr(editquery, "dmap.itemid:") && ((!queuefilter) || strstr(queuefilter, "(null)"));
+	  ret = player_queue_make_daap(&ps, editquery, queuefilter, sort, quirkyquery);  
+	}
+      else
+	{
+	  // Modify the query: Take the id from the editquery and use it as a queuefilter playlist id
+	  ret = safe_atoi32(strchr(editquery, ':') + 1, &plid);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DACP, "Invalid playlist id in request: %s\n", editquery);
 
-      ret = player_queue_make_daap(&ps, editquery, queuefilter, sort, quirkyquery);
+	      dmap_send_error(req, "cacr", "Invalid request");
+	      return;
+	    }
+	  
+	  snprintf(modifiedquery, sizeof(modifiedquery), "playlist:%d", plid);
+	  ret = player_queue_make_daap(&ps, NULL, modifiedquery, sort, 0);
+	}
+
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
@@ -1401,6 +1422,9 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
       User selected play (album or artist tab):
 	?command=add&query='...'&sort=album&mode=1&session-id=...
 	-> clear queue, play query results
+      User selected play (playlist):
+	?command=add&query='dmap.itemid:...'&query-modifier=containers&mode=1&session-id=...
+	-> clear queue, play playlist with the id specified by itemid
       User selected track (album tab):
 	?command=add&query='dmap.itemid:...'&queuefilter=album:...&sort=album&mode=1&session-id=...
 	-> clear queue, play itemid and the rest of album

@@ -736,9 +736,14 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
   char *s;
   char buf[1024];
 
-  id = find_first_song_id(query);
-  if (id < 0)
-    return -1;
+  if (query)
+    {
+      id = find_first_song_id(query);
+      if (id < 0)
+        return -1;
+    }
+  else
+    id = 0;
 
   memset(&qp, 0, sizeof(struct query_params));
 
