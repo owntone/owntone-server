@@ -762,7 +762,7 @@ process_directory(char *path, int flags)
     }
 
   /* Check if compilation and/or podcast directory */
-  type = F_SCAN_TYPE_FILE;
+  type = 0;
   if (check_speciallib(path, "compilations"))
     type |= F_SCAN_TYPE_COMPILATION;
   if (check_speciallib(path, "podcasts"))
@@ -834,12 +834,12 @@ process_directory(char *path, int flags)
       if (S_ISREG(sb.st_mode))
 	{
 	  if (!(flags & F_SCAN_FAST))
-	    process_file(entry, sb.st_mtime, sb.st_size, type, flags);
+	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, flags);
 	}
       else if (S_ISFIFO(sb.st_mode))
 	{
 	  if (!(flags & F_SCAN_FAST))
-	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE, flags);
+	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, flags);
 	}
       else if (S_ISDIR(sb.st_mode))
 	push_dir(&dirstack, entry);
@@ -1261,7 +1261,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	    }
 	}
 
-      type = F_SCAN_TYPE_FILE;
+      type = 0;
       if (check_speciallib(path, "compilations"))
 	type |= F_SCAN_TYPE_COMPILATION;
       if (check_speciallib(path, "podcasts"))
@@ -1269,10 +1269,10 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
       if (check_speciallib(path, "audiobooks"))
 	type |= F_SCAN_TYPE_AUDIOBOOK;
 
-      if (!S_ISFIFO(sb.st_mode))
-	process_file(file, sb.st_mtime, sb.st_size, type, 0);
-      else
-	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE, 0);
+      if (S_ISREG(sb.st_mode))
+	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, 0);
+      else if (S_ISFIFO(sb.st_mode))
+	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, 0);
 
       if (deref)
 	free(deref);
