@@ -523,6 +523,14 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
       mfi->data_kind = 2; /* iTunes has no spotify data kind, but we use 2 */
       ret = mfi->artist && mfi->album && mfi->title;
     }
+  else if (type & F_SCAN_TYPE_PIPE)
+    {
+      mfi->data_kind = 3; /* iTunes has no pipe data kind, but we use 3 */
+      mfi->type = strdup("wav");
+      mfi->codectype = strdup("wav");
+      mfi->description = strdup("PCM16 pipe");
+      ret = 1;
+    }
   else
     {
       DPRINTF(E_LOG, L_SCAN, "Unknown scan type for %s, this error should not occur\n", path);
@@ -828,10 +836,15 @@ process_directory(char *path, int flags)
 	  if (!(flags & F_SCAN_FAST))
 	    process_file(entry, sb.st_mtime, sb.st_size, type, flags);
 	}
+      else if (S_ISFIFO(sb.st_mode))
+	{
+	  if (!(flags & F_SCAN_FAST))
+	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE, flags);
+	}
       else if (S_ISDIR(sb.st_mode))
 	push_dir(&dirstack, entry);
       else
-	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink nor regular file\n", entry);
+	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink, pipe nor regular file\n", entry);
     }
 
   closedir(dirp);
@@ -1163,19 +1176,22 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
   if (ie->mask & IN_DELETE)
     {
+      DPRINTF(E_DBG, L_SCAN, "File deleted: %s\n", path);
       db_file_delete_bypath(path);
       db_pl_delete_bypath(path);
     }
 
   if (ie->mask & IN_MOVED_FROM)
     {
-      db_file_disable_bypath(path, wi->path, ie->cookie);
-      db_pl_disable_bypath(path, wi->path, ie->cookie);
+      DPRINTF(E_DBG, L_SCAN, "File moved from: %s\n", path);
+      db_file_disable_bypath(path, path, ie->cookie);
+      db_pl_disable_bypath(path, path, ie->cookie);
     }
 
   if (ie->mask & IN_MOVED_TO)
     {
-      ret = db_file_enable_bycookie(ie->cookie, wi->path);
+      DPRINTF(E_DBG, L_SCAN, "File moved to: %s\n", path);
+      ret = db_file_enable_bycookie(ie->cookie, path);
 
       if (ret <= 0)
 	{
@@ -1185,12 +1201,28 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	   * playlist to update playlist items (relative items).
 	   */
 	  ie->mask |= IN_CLOSE_WRITE;
-	  db_pl_enable_bycookie(ie->cookie, wi->path);
+	  db_pl_enable_bycookie(ie->cookie, path);
 	}
+    }
+
+  if (ie->mask & IN_CREATE)
+    {
+      DPRINTF(E_DBG, L_SCAN, "File created: %s\n", path);
+      ret = lstat(path, &sb);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Could not lstat() '%s': %s\n", path, strerror(errno));
+
+	  return;
+	}
+
+      if (S_ISFIFO(sb.st_mode))
+	ie->mask |= IN_CLOSE_WRITE;
     }
 
   if (ie->mask & IN_CLOSE_WRITE)
     {
+      DPRINTF(E_DBG, L_SCAN, "File closed: %s\n", path);
       ret = lstat(path, &sb);
       if (ret < 0)
 	{
@@ -1237,7 +1269,10 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
       if (check_speciallib(path, "audiobooks"))
 	type |= F_SCAN_TYPE_AUDIOBOOK;
 
-      process_file(file, sb.st_mtime, sb.st_size, type, 0);
+      if (!S_ISFIFO(sb.st_mode))
+	process_file(file, sb.st_mtime, sb.st_size, type, 0);
+      else
+	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE, 0);
 
       if (deref)
 	free(deref);

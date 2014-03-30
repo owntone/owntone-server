@@ -10,6 +10,7 @@
 #define F_SCAN_TYPE_COMPILATION  (1 << 3)
 #define F_SCAN_TYPE_URL          (1 << 4)
 #define F_SCAN_TYPE_SPOTIFY      (1 << 5)
+#define F_SCAN_TYPE_PIPE         (1 << 6)
 
 int
 filescanner_init(void);
