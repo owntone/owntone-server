@@ -65,6 +65,8 @@ pipe_setup(struct media_file_info *mfi)
       return -1;
     }
 
+  pipe_cleanup();
+
   g_fd = open(mfi->path, O_RDONLY);
   if (g_fd < 0)
     {
