@@ -94,6 +94,7 @@ forked_daapd_SOURCES = main.c \
 	httpd_dacp.c httpd_dacp.h \
 	dmap_common.c dmap_common.h \
 	transcode.c transcode.h \
+	pipe.c pipe.h \
 	artwork.c artwork.h \
 	misc.c misc.h \
 	rng.c rng.h \

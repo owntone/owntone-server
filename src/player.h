@@ -35,7 +35,8 @@ enum repeat_mode {
 
 enum source_type {
   SOURCE_FFMPEG = 0,
-  SOURCE_SPOTIFY = 1,
+  SOURCE_SPOTIFY,
+  SOURCE_PIPE,
 };
 
 struct spk_flags {

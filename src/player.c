@@ -54,11 +54,13 @@
 #include "conffile.h"
 #include "misc.h"
 #include "rng.h"
-#include "transcode.h"
 #include "player.h"
 #include "raop.h"
 #include "laudio.h"
 
+/* These handle getting the media data */
+#include "transcode.h"
+#include "pipe.h"
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
@@ -921,6 +923,10 @@ source_free(struct player_source *ps)
 	spotify_playback_stop();
 #endif
 	break;
+
+      case SOURCE_PIPE:
+	pipe_cleanup();
+	break;
     }
 
   free(ps);
@@ -947,6 +953,10 @@ source_stop(struct player_source *ps)
 #ifdef HAVE_SPOTIFY_H
 	    spotify_playback_stop();
 #endif
+	    break;
+
+	  case SOURCE_PIPE:
+	    pipe_cleanup();
 	    break;
         }
 
@@ -1064,19 +1074,26 @@ source_open(struct player_source *ps, int no_md)
 
   DPRINTF(E_INFO, L_PLAYER, "Opening '%s' (%s)\n", mfi->title, mfi->path);
 
-  if (strncmp(mfi->path, "spotify:", strlen("spotify:")) == 0)
+  // Setup the source type responsible for getting the audio
+  switch (mfi->data_kind)
     {
-      ps->type = SOURCE_SPOTIFY;
+      case 2:
+	ps->type = SOURCE_SPOTIFY;
 #ifdef HAVE_SPOTIFY_H
-      ret = spotify_playback_play(mfi);
+	ret = spotify_playback_play(mfi);
 #else
-      ret = -1;
+	ret = -1;
 #endif
-    }
-  else
-    {
-      ps->type = SOURCE_FFMPEG;
-      ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
+	break;
+
+      case 3:
+	ps->type = SOURCE_PIPE;
+	ret = pipe_setup(mfi);
+	break;
+
+      default:
+	ps->type = SOURCE_FFMPEG;
+	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
     }
 
   free_mfi(mfi, 0);
@@ -1454,6 +1471,10 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 		ret = spotify_audio_get(audio_buf, len - nbytes);
 		break;
 #endif
+
+	      case SOURCE_PIPE:
+		ret = pipe_audio_get(audio_buf, len - nbytes);
+		break;
 
 	      default:
 		ret = -1;
@@ -2652,6 +2673,9 @@ playback_seek_bh(struct player_command *cmd)
 	ret = spotify_playback_seek(ms);
 	break;
 #endif
+      case SOURCE_PIPE:
+	ret = 1;
+	break;
       default:
 	ret = -1;
     }
