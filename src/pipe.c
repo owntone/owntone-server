@@ -38,7 +38,7 @@
 #define PIPE_BUFFER_SIZE 8192
 
 static int g_fd = -1;
-static void *g_buf = NULL;
+static uint16_t *g_buf = NULL;
 
 int
 pipe_setup(struct media_file_info *mfi)
@@ -67,14 +67,14 @@ pipe_setup(struct media_file_info *mfi)
 
   pipe_cleanup();
 
-  g_fd = open(mfi->path, O_RDONLY);
+  g_fd = open(mfi->path, O_RDONLY | O_NONBLOCK);
   if (g_fd < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not open pipe for reading '%s': %s\n", mfi->path, strerror(errno));
       return -1;
     }
 
-  g_buf = (void *)malloc(PIPE_BUFFER_SIZE);
+  g_buf = (uint16_t *)malloc(PIPE_BUFFER_SIZE);
   if (!g_buf)
     {
       DPRINTF(E_LOG, L_PLAYER, "Out of memory for buffer\n");
