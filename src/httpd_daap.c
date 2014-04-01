@@ -489,6 +489,9 @@ user_agent_filter(const char *user_agent, struct query_params *qp)
   if (!user_agent)
     return;
 
+  // Valgrind doesn't like strlen(filter) below, so instead we allocate 128 bytes
+  // to hold the string and the leading " AND ". Remember to adjust the 128 if
+  // you define strings here that will be too large for the buffer.
   if (strcasestr(user_agent, "itunes"))
     filter = strdup("(f.data_kind = 0)"); // Only real files
   else if (strcasestr(user_agent, "daap"))
@@ -502,9 +505,9 @@ user_agent_filter(const char *user_agent, struct query_params *qp)
 
   if (qp->filter)
     {
-      len = strlen(qp->filter) + strlen(" AND ") + strlen(filter);
-      buffer = (char *)malloc(len + 1);
-      snprintf(buffer, len + 1, "%s AND %s", qp->filter, filter);
+      len = strlen(qp->filter) + 128;
+      buffer = (char *)malloc(len);
+      snprintf(buffer, len, "%s AND %s", qp->filter, filter);
       free(qp->filter);
       qp->filter = strdup(buffer);
       free(buffer);
