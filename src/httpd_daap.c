@@ -54,7 +54,8 @@
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
 
-
+/* First session id to use */
+#define DAAP_BASE_SESSION_ID 100
 /* Session timeout in seconds */
 #define DAAP_SESSION_TIMEOUT 0 /* By default the session never times out */
 /* We announce this timeout to the client when returning server capabilities */
@@ -158,7 +159,7 @@ daap_session_timeout_cb(int fd, short what, void *arg)
 }
 
 static struct daap_session *
-daap_session_register(const char *user_agent)
+daap_session_register(const char *user_agent, int request_session_id)
 {
   struct timeval tv;
   struct daap_session *s;
@@ -174,9 +175,25 @@ daap_session_register(const char *user_agent)
 
   memset(s, 0, sizeof(struct daap_session));
 
-  s->id = next_session_id;
-
-  next_session_id++;
+  if (!request_session_id)
+    {
+      s->id = next_session_id;
+      next_session_id++;
+    }
+  else if (request_session_id < DAAP_BASE_SESSION_ID)
+    {
+      s->id = request_session_id;
+      if (avl_search(daap_sessions, s))
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Session id requested in login (%d) is not available\n", request_session_id);
+	  return NULL;
+	}
+    }    
+  else
+    {
+      DPRINTF(E_LOG, L_DAAP, "Session id requested in login (%d) must be below %d\n", request_session_id, DAAP_BASE_SESSION_ID);
+      return NULL;
+    }
 
   if (user_agent)
     s->user_agent = strdup(user_agent);
@@ -843,7 +860,8 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
   struct pairing_info pi;
   struct daap_session *s;
   const char *ua;
-  const char *guid;
+  const char *param;
+  int request_session_id;
   int ret;
 
   ret = evbuffer_expand(evbuf, 32);
@@ -858,8 +876,8 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
   ua = evhttp_find_header(req->input_headers, "User-Agent");
   if (ua && (strncmp(ua, "Remote", strlen("Remote")) == 0))
     {
-      guid = evhttp_find_header(query, "pairing-guid");
-      if (!guid)
+      param = evhttp_find_header(query, "pairing-guid");
+      if (!param)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Login attempt with U-A: Remote and no pairing-guid\n");
 
@@ -868,7 +886,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 	}
 
       memset(&pi, 0, sizeof(struct pairing_info));
-      pi.guid = strdup(guid + 2); /* Skip leading 0X */
+      pi.guid = strdup(param + 2); /* Skip leading 0X */
 
       ret = db_pairing_fetch_byguid(&pi);
       if (ret < 0)
@@ -884,7 +902,20 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
       free_pi(&pi, 1);
     }
 
-  s = daap_session_register(ua);
+  param = evhttp_find_header(query, "request-session-id");
+  if (param)
+    {
+      ret = safe_atoi32(param, &request_session_id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Login request where request-session-id is not an integer\n");
+	  request_session_id = 0;
+	}
+    }
+  else
+    request_session_id = 0;
+
+  s = daap_session_register(ua, request_session_id);
   if (!s)
     {
       dmap_send_error(req, "mlog", "Could not start session");
@@ -2611,7 +2642,7 @@ daap_init(void)
   int i;
   int ret;
 
-  next_session_id = 100; /* gotta start somewhere, right? */
+  next_session_id = DAAP_BASE_SESSION_ID;
   current_rev = 2;
   update_requests = NULL;
 
