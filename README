@@ -35,6 +35,7 @@ Contents of this README
 - Playlists and internet radio
 - Artwork
 - Library
+- Command line and web interface
 - Spotify
 
 
@@ -326,6 +327,38 @@ so changes won't be noticed unless the file happens to be in a directory that
 is monitored.
 
 Bottom line: symlinks are for directories only.
+
+Pipes made with mkfifo are also supported. This feature can be useful if you
+have a program that can stream PCM16 audio to a pipe. Forked-daapd can then
+forward the audio to one or more AirPlay speakers.
+
+Pipes have no metadata, so they will be added with "Unknown artist" and "Unknown
+album". The name of the pipe will be used as the track title.
+
+
+Command line and web interface
+------------------------------
+
+forked-daapd is meant to be used with the clients mentioned above, so it does
+not have a command line interface nor does it have a web interface. You can,
+however, to some extent control forked-daapd from the command line by issuing
+DAAP/DACP commands with a program like curl. Here is an example of how to do
+that.
+
+Say you have a playlist with a radio station, and you want to make a script that
+starts playback of that station:
+
+1. Run 'sqlite3 [your forked-daapd db]'. Use 'select id,title from files' to get
+the id of the radio station, and use 'select id,title from playlists' to get the
+id of the playlist.
+2. Convert the two ids to hex.
+3. Put the following lines in the script with the relevant ids inserted (also
+observe that you must use a session-id < 100, and that you must login and
+logout):
+
+curl "http://localhost:3689/login?pairing-guid=0x1&request-session-id=50"
+curl "http://localhost:3689/ctrl-int/1/playspec?database-spec='dmap.persistentid:0x1'&container-spec='dmap.persistentid:0x[PLAYLIST-ID]'&container-item-spec='dmap.containeritemid:0x[FILE ID]'&session-id=50"
+curl "http://localhost:3689/logout?session-id=50"
 
 
 Spotify
