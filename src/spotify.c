@@ -195,6 +195,7 @@ typedef int          (*fptr_sp_track_duration_t)(sp_track *track);
 typedef int          (*fptr_sp_track_index_t)(sp_track *track);
 typedef int          (*fptr_sp_track_disc_t)(sp_track *track);
 typedef sp_album*    (*fptr_sp_track_album_t)(sp_track *track);
+typedef sp_track_availability (*fptr_sp_track_get_availability_t)(sp_session *session, sp_track *track);
 
 typedef sp_link*     (*fptr_sp_link_create_from_playlist_t)(sp_playlist *playlist);
 typedef sp_link*     (*fptr_sp_link_create_from_track_t)(sp_track *track, int offset);
@@ -245,6 +246,7 @@ fptr_sp_track_duration_t fptr_sp_track_duration;
 fptr_sp_track_index_t fptr_sp_track_index;
 fptr_sp_track_disc_t fptr_sp_track_disc;
 fptr_sp_track_album_t fptr_sp_track_album;
+fptr_sp_track_get_availability_t fptr_sp_track_get_availability;
 
 fptr_sp_link_create_from_playlist_t fptr_sp_link_create_from_playlist;
 fptr_sp_link_create_from_track_t fptr_sp_link_create_from_track;
@@ -301,6 +303,7 @@ fptr_assign_all()
    && (fptr_sp_track_index = dlsym(h, "sp_track_index"))
    && (fptr_sp_track_disc = dlsym(h, "sp_track_disc"))
    && (fptr_sp_track_album = dlsym(h, "sp_track_album"))
+   && (fptr_sp_track_get_availability = dlsym(h, "sp_track_get_availability"))
    && (fptr_sp_link_create_from_playlist = dlsym(h, "sp_link_create_from_playlist"))
    && (fptr_sp_link_create_from_track = dlsym(h, "sp_link_create_from_track"))
    && (fptr_sp_link_create_from_string = dlsym(h, "sp_link_create_from_string"))
@@ -461,6 +464,12 @@ spotify_track_save(int plid, sp_track *track)
   if (!fptr_sp_track_is_loaded(track))
     {
       DPRINTF(E_INFO, L_SPOTIFY, "Metadata for track not ready yet\n");
+      return 0;
+    }
+
+  if (fptr_sp_track_get_availability(g_sess, track) != SP_TRACK_AVAILABILITY_AVAILABLE)
+    {
+      DPRINTF(E_INFO, L_SPOTIFY, "Track not available for playback\n");
       return 0;
     }
 
