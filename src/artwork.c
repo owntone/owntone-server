@@ -43,6 +43,9 @@
 #endif
 #include "artwork.h"
 
+#ifdef HAVE_SPOTIFY_H
+# include "spotify.h"
+#endif
 
 static const char *cover_extension[] =
   {
@@ -856,9 +859,18 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
   if (strncmp(path, "http://", strlen("http://")) == 0)
     return -1;
 
-  /* If Spotify item don't look for artwork */
   if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
-    return -1;
+    {
+      if (!(format & ART_CAN_JPEG))
+	return -1;
+
+      ret = spotify_artwork_get(evbuf, path, max_w, max_h);
+
+      if (ret < 0)
+	return -1;
+      else
+        return ART_FMT_JPEG;
+    }
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))

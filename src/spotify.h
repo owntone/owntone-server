@@ -23,6 +23,9 @@ spotify_playback_seek(int ms);
 int
 spotify_audio_get(struct evbuffer *evbuf, int wanted);
 
+int
+spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h);
+
 void
 spotify_login(char *path);
 

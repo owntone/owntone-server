@@ -80,6 +80,14 @@ struct audio_get_param
   int wanted;
 };
 
+struct artwork_get_param
+{
+  struct evbuffer *evbuf;
+  char *path;
+  int max_w;
+  int max_h;
+};
+
 struct spotify_command;
 
 typedef int (*cmd_func)(struct spotify_command *cmd);
@@ -98,7 +106,8 @@ struct spotify_command
     void *noarg;
     sp_link *link;
     int seek_ms;
-    struct audio_get_param agp;
+    struct audio_get_param audio;
+    struct artwork_get_param artwork;
   } arg;
 
   int ret;
@@ -208,8 +217,16 @@ typedef const char*  (*fptr_sp_album_name_t)(sp_album *album);
 typedef sp_artist*   (*fptr_sp_album_artist_t)(sp_album *album);
 typedef int          (*fptr_sp_album_year_t)(sp_album *album);
 typedef sp_albumtype (*fptr_sp_album_type_t)(sp_album *album);
+typedef const byte*  (*fptr_sp_album_cover_t)(sp_album *album, sp_image_size size);
 
 typedef const char*  (*fptr_sp_artist_name_t)(sp_artist *artist);
+
+typedef sp_image*    (*fptr_sp_image_create_t)(sp_session *session, const byte image_id[20]);
+typedef bool         (*fptr_sp_image_is_loaded_t)(sp_image *image);
+typedef sp_error     (*fptr_sp_image_error_t)(sp_image *image);
+typedef sp_imageformat (*fptr_sp_image_format_t)(sp_image *image);
+typedef const void*  (*fptr_sp_image_data_t)(sp_image *image, size_t *data_size);
+typedef sp_error     (*fptr_sp_image_release_t)(sp_image *image);
 
 /* Define actual function pointers */
 fptr_sp_error_message_t fptr_sp_error_message;
@@ -259,8 +276,16 @@ fptr_sp_album_name_t fptr_sp_album_name;
 fptr_sp_album_artist_t fptr_sp_album_artist;
 fptr_sp_album_year_t fptr_sp_album_year;
 fptr_sp_album_type_t fptr_sp_album_type;
+fptr_sp_album_cover_t fptr_sp_album_cover;
 
 fptr_sp_artist_name_t fptr_sp_artist_name;
+
+fptr_sp_image_create_t fptr_sp_image_create;
+fptr_sp_image_is_loaded_t fptr_sp_image_is_loaded;
+fptr_sp_image_error_t fptr_sp_image_error;
+fptr_sp_image_format_t fptr_sp_image_format;
+fptr_sp_image_data_t fptr_sp_image_data;
+fptr_sp_image_release_t fptr_sp_image_release;
 
 /* Assign function pointers to libspotify symbol */
 static int
@@ -314,7 +339,14 @@ fptr_assign_all()
    && (fptr_sp_album_artist = dlsym(h, "sp_album_artist"))
    && (fptr_sp_album_year = dlsym(h, "sp_album_year"))
    && (fptr_sp_album_type = dlsym(h, "sp_album_type"))
+   && (fptr_sp_album_cover = dlsym(h, "sp_album_cover"))
    && (fptr_sp_artist_name = dlsym(h, "sp_artist_name"))
+   && (fptr_sp_image_create = dlsym(h, "sp_image_create"))
+   && (fptr_sp_image_is_loaded = dlsym(h, "sp_image_is_loaded"))
+   && (fptr_sp_image_error = dlsym(h, "sp_image_error"))
+   && (fptr_sp_image_format = dlsym(h, "sp_image_format"))
+   && (fptr_sp_image_data = dlsym(h, "sp_image_data"))
+   && (fptr_sp_image_release = dlsym(h, "sp_image_release"))
    ;
 
   err = dlerror();
@@ -934,7 +966,7 @@ audio_get(struct spotify_command *cmd)
 
   pthread_mutex_lock(&g_audio_fifo->mutex);
 
-  while ((processed < cmd->arg.agp.wanted) && (g_state != SPOTIFY_STATE_STOPPED))
+  while ((processed < cmd->arg.audio.wanted) && (g_state != SPOTIFY_STATE_STOPPED))
     {
       // If track has ended and buffer is empty
       if ((g_state == SPOTIFY_STATE_STOPPING) && (g_audio_fifo->qlen <= 0))
@@ -971,7 +1003,7 @@ audio_get(struct spotify_command *cmd)
 
       s = afd->nsamples * sizeof(int16_t) * 2;
   
-      ret = evbuffer_add(cmd->arg.agp.evbuf, afd->samples, s);
+      ret = evbuffer_add(cmd->arg.audio.evbuf, afd->samples, s);
       free(afd);
       afd = NULL;
       if (ret < 0)
@@ -987,6 +1019,122 @@ audio_get(struct spotify_command *cmd)
   pthread_mutex_unlock(&g_audio_fifo->mutex);
 
   return processed;
+}
+
+static int
+artwork_get(struct spotify_command *cmd)
+{
+  char *path;
+  sp_link *link;
+  sp_track *track;
+  sp_album *album;
+  const byte *image_id;
+  sp_image *image;
+  sp_image_size image_size;
+  sp_imageformat imageformat;
+  sp_error err;
+  const void *data;
+  size_t data_size;
+  int ret;
+
+  path = cmd->arg.artwork.path;
+
+  // Now begins: path -> link -> track -> album -> image_id -> image -> format -> data
+  link = fptr_sp_link_create_from_string(path);
+  if (!link)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, invalid Spotify link: %s\n", path);
+      goto level1_exit;
+    }
+
+  track = fptr_sp_link_as_track(link);
+  if (!track)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, invalid Spotify track: %s\n", path);
+      goto level2_exit;
+    }
+
+  album = fptr_sp_track_album(track);
+  if (!album)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, invalid Spotify album: %s\n", path);
+      goto level2_exit;
+    }
+
+  // TODO rescale
+  image_size = SP_IMAGE_SIZE_SMALL; // 64x64
+  if ((cmd->arg.artwork.max_w > 200) && (cmd->arg.artwork.max_h > 200))
+    image_size = SP_IMAGE_SIZE_NORMAL; // 300x300
+  if ((cmd->arg.artwork.max_w > 500) && (cmd->arg.artwork.max_h > 500))
+    image_size = SP_IMAGE_SIZE_LARGE; // 640x640
+
+  image_id = fptr_sp_album_cover(album, image_size);
+  if (!image_id)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Getting artwork failed, no Spotify image id: %s\n", path);
+      goto level2_exit;
+    }
+
+  image = fptr_sp_image_create(g_sess, image_id);
+  if (!image)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Getting artwork failed, no Spotify image: %s\n", path);
+      goto level2_exit;
+    }
+
+  // We want to be fast, so no waiting for the image to load
+  if (!fptr_sp_image_is_loaded(image))
+    goto level3_exit;
+
+  err = fptr_sp_image_error(image);
+  if (err != SP_ERROR_OK)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, Spotify error: %s\n", fptr_sp_error_message(err));
+      goto level3_exit;
+    }
+
+  imageformat = fptr_sp_image_format(image);
+  if (imageformat != SP_IMAGE_FORMAT_JPEG)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, invalid image format from Spotify: %s\n", path);
+      goto level3_exit;
+    }
+
+  data = fptr_sp_image_data(image, &data_size);
+  if (!data || (data_size == 0))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Getting artwork failed, no image data from Spotify: %s\n", path);
+      goto level3_exit;
+    }
+
+  ret = evbuffer_expand(cmd->arg.artwork.evbuf, data_size);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for artwork\n");
+      goto level3_exit;
+    }
+
+  ret = evbuffer_add(cmd->arg.artwork.evbuf, data, data_size);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not add Spotify image to event buffer\n");
+      goto level3_exit;
+    }
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Spotify artwork loaded ok\n");
+
+  fptr_sp_image_release(image);
+
+  return data_size;
+
+ level3_exit:
+  fptr_sp_image_release(image);
+
+ level2_exit:
+  fptr_sp_link_release(link);
+
+ level1_exit:
+  return -1;
 }
 
 
@@ -1468,8 +1616,30 @@ spotify_audio_get(struct evbuffer *evbuf, int wanted)
   command_init(&cmd);
 
   cmd.func = audio_get;
-  cmd.arg.agp.evbuf  = evbuf;
-  cmd.arg.agp.wanted = wanted;
+  cmd.arg.audio.evbuf  = evbuf;
+  cmd.arg.audio.wanted = wanted;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+/* Thread: httpd (artwork) */
+int
+spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
+{
+  struct spotify_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = artwork_get;
+  cmd.arg.artwork.evbuf  = evbuf;
+  cmd.arg.artwork.path = path;
+  cmd.arg.artwork.max_w = max_w;
+  cmd.arg.artwork.max_h = max_h;
 
   ret = sync_command(&cmd);
 
