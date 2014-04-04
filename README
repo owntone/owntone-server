@@ -397,4 +397,4 @@ so you can't search and listen to music from the rest of the Spotify catalogue.
 You will not be able to do any playlist management through forked-daapd - use
 a Spotify client for that. You also can only listen to your music by letting
 forked-daapd do the playback - so that means you can't stream from forked-daapd
-to iTunes. Finally, Spotify artwork is not currently supported.
+to iTunes.
