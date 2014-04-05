@@ -860,6 +860,7 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
     return -1;
 
   if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
+#ifdef HAVE_SPOTIFY_H
     {
       if (!(format & ART_CAN_JPEG))
 	return -1;
@@ -871,6 +872,9 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
       else
         return ART_FMT_JPEG;
     }
+#else
+    return -1;
+#endif
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
