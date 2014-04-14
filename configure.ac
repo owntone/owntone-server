@@ -1,9 +1,10 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT(config.h.in)
+AC_INIT([forked-daapd], [20.0])
+AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_HEADER(config.h)
-AM_INIT_AUTOMAKE(forked-daapd, 20.0)
+AC_CONFIG_HEADERS([config.h])
+AM_INIT_AUTOMAKE([-Wno-portability])
 
 AC_USE_SYSTEM_EXTENSIONS
 
@@ -48,19 +49,19 @@ dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
 AC_TYPE_OFF_T
 
-AC_ARG_ENABLE(flac, AC_HELP_STRING([--enable-flac], [Enable FLAC support]),
+AC_ARG_ENABLE(flac, AS_HELP_STRING([--enable-flac], [extract FLAC metadata with libflac (default=no)]),
                       use_flac=true;
                       CPPFLAGS="${CPPFLAGS} -DFLAC")
 
-AC_ARG_ENABLE(musepack, AC_HELP_STRING([--enable-musepack], [Enable Musepack support]),
+AC_ARG_ENABLE(musepack, AS_HELP_STRING([--enable-musepack], [extract Musepack metadata with taglib (default=no)]),
                       use_musepack=true;
                       CPPFLAGS="${CPPFLAGS} -DMUSEPACK")
 
-AC_ARG_ENABLE(itunes, AC_HELP_STRING([--enable-itunes], [Enable iTunes library support]),
+AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes library support (default=no)]),
                       use_itunes=true;
                       CPPFLAGS="${CPPFLAGS} -DITUNES")
 
-AC_ARG_ENABLE(spotify, AC_HELP_STRING([--enable-spotify], [Enable Spotify library support]),
+AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify library support (default=no)]),
                       use_spotify=true;
                       CPPFLAGS="${CPPFLAGS} -DSPOTIFY")
 
@@ -69,7 +70,7 @@ AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 AM_CONDITIONAL(COND_ITUNES, test x$use_itunes = xtrue)
 AM_CONDITIONAL(COND_SPOTIFY, test x$use_spotify = xtrue)
 
-AC_ARG_WITH(oss4, AC_HELP_STRING([--with-oss4=includedir], [Use OSS4 with soundcard.h in includedir (default /usr/lib/oss/include/sys)]),
+AC_ARG_WITH(oss4, AS_HELP_STRING([--with-oss4=includedir], [use OSS4 with soundcard.h in includedir (default /usr/lib/oss/include/sys)]),
   [ case "$withval" in
     no)
     case "$host" in
