@@ -585,6 +585,72 @@ db_exec(const char *query, char **errmsg)
 }
 
 
+// This will run in its own shortlived, detached thread, created by db_exec_nonblock
+static void *
+db_exec_thread(void *arg)
+{
+  char *query = arg;
+  char *errmsg;
+  time_t start, end;
+  int ret;
+
+  // When switching tracks we update playcount and select the next track's
+  // metadata. We want the update to run after the selects so it won't lock
+  // the database.
+  sleep(3);
+
+  ret = db_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error in db_exec_thread: Could not init thread\n");
+      return NULL;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running delayed query '%s'\n", query);
+
+  time(&start);
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error running query '%s': %s\n", query, errmsg);
+
+  time(&end);
+  if (end - start > 1)
+    DPRINTF(E_LOG, L_DB, "Warning: Slow query detected '%s' - database performance problems?\n", query);
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+  db_perthread_deinit();
+
+  return NULL;
+}
+
+// Creates a one-off thread to run a delayed, fire-and-forget, non-blocking query
+static void
+db_exec_nonblock(char *query)
+{
+  pthread_t tid;
+  pthread_attr_t attr;
+  int ret;
+
+  ret = pthread_attr_init(&attr);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error in db_exec_nonblock: Could not init attributes\n");
+      return;
+    }
+
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+  ret = pthread_create(&tid, &attr, db_exec_thread, query);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error in db_exec_nonblock: Could not create thread\n");
+    }
+
+  pthread_attr_destroy(&attr);
+}
+
+
 /* Maintenance and DB hygiene */
 static void
 db_analyze(void)
@@ -1782,8 +1848,6 @@ db_file_inc_playcount(int id)
 {
 #define Q_TMPL "UPDATE files SET play_count = play_count + 1, time_played = %" PRIi64 " WHERE id = %d;"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
   if (!query)
@@ -1793,15 +1857,8 @@ db_file_inc_playcount(int id)
       return;
     }
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error incrementing play count on %d: %s\n", id, errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
+  // Run the query non-blocking so we don't block playback if the update is slow
+  db_exec_nonblock(query);
 #undef Q_TMPL
 }
 
