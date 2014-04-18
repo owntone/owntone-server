@@ -760,7 +760,7 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
       mfi = db_file_fetch_byid(id);
       if (!mfi)
 	return -1;
-      snprintf(buf, sizeof(buf), "f.songartistid = %" PRIi64, mfi->songartistid);
+      snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, mfi->songalbumid);
       free_mfi(mfi, 0);
       qp.filter = strdup(buf);
     }

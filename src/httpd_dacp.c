@@ -1450,10 +1450,10 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
 	?command=playnow&index=...&session-id=...
 	-> play index
 
-      And the quirky query from iPad Remote - no sort and no queuefilter
-      User selected track (artist tab):
+      And the quirky query from Remote - no sort and no queuefilter
+      User selected track (Audiobooks):
 	?command=add&query='dmap.itemid:...'&mode=1&session-id=...
-	-> clear queue, play itemid and the rest of artist tracks
+	-> clear queue, play itemid and the rest of album tracks
    */
 
   s = daap_session_find(req, query, evbuf);
