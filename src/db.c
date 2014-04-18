@@ -326,6 +326,8 @@ free_pi(struct pairing_info *pi, int content_only)
 
   if (!content_only)
     free(pi);
+  else
+    memset(pi, 0, sizeof(struct pairing_info));
 }
 
 void
@@ -402,6 +404,8 @@ free_mfi(struct media_file_info *mfi, int content_only)
 
   if (!content_only)
     free(mfi);
+  else
+    memset(mfi, 0, sizeof(struct media_file_info));
 }
 
 void
@@ -452,6 +456,8 @@ free_pli(struct playlist_info *pli, int content_only)
 
   if (!content_only)
     free(pli);
+  else
+    memset(pli, 0, sizeof(struct playlist_info));
 }
 
 

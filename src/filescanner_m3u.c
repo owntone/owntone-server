@@ -46,7 +46,7 @@ extinf_get(char *string, struct media_file_info *mfi, int *extinf)
 {
   char *ptr;
 
-  if (strcmp(string, "#EXTINF:") <= 0)
+  if (strncmp(string, "#EXTINF:", strlen("#EXTINF:")) != 0)
     return 0;
 
   ptr = strchr(string, ',');
@@ -54,11 +54,7 @@ extinf_get(char *string, struct media_file_info *mfi, int *extinf)
     return 0;
 
   /* New extinf found, so clear old data */
-  if (*extinf)
-    {
-      free(mfi->artist);
-      free(mfi->title);
-    }
+  free_mfi(mfi, 1);
 
   *extinf = 1;
   mfi->artist = strdup(ptr + 1);
@@ -72,17 +68,6 @@ extinf_get(char *string, struct media_file_info *mfi, int *extinf)
     *ptr = '\0';
 
   return 1;
-}
-
-static void
-extinf_reset(struct media_file_info *mfi, int *extinf)
-{
-  if (*extinf)
-    {
-      free(mfi->artist);
-      free(mfi->title);
-    }
-  *extinf = 0;
 }
 
 void
@@ -104,8 +89,6 @@ scan_m3u_playlist(char *file, time_t mtime)
   int i;
 
   DPRINTF(E_INFO, L_SCAN, "Processing static playlist: %s\n", file);
-
-  memset(&mfi, 0, sizeof(struct media_file_info));
 
   ret = stat(file, &sb);
   if (ret < 0)
@@ -171,6 +154,7 @@ scan_m3u_playlist(char *file, time_t mtime)
     }
 
   extinf = 0;
+  memset(&mfi, 0, sizeof(struct media_file_info));
 
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
@@ -191,7 +175,7 @@ scan_m3u_playlist(char *file, time_t mtime)
       if (len < 1)
 	continue;
 
-      /* Saves metadata in extinf if EXTINF metadata line */
+      /* Saves metadata in mfi if EXTINF metadata line */
       if (extinf_get(buf, &mfi, &extinf))
 	continue;
 
@@ -199,7 +183,7 @@ scan_m3u_playlist(char *file, time_t mtime)
       if ((!isalnum(buf[0])) && (buf[0] != '/') && (buf[0] != '.'))
 	continue;
 
-      /* Check if line is an URL */
+      /* Check if line is an URL, will be added to library */
       if (strcmp(buf, "http://") > 0)
 	{
 	  DPRINTF(E_DBG, L_SCAN, "Playlist contains URL entry\n");
@@ -217,7 +201,7 @@ scan_m3u_playlist(char *file, time_t mtime)
 
 	  filescanner_process_media(filename, mtime, 0, F_SCAN_TYPE_URL, &mfi);
 	}
-      /* Regular file */
+      /* Regular file, should already be in library */
       else
 	{
 	  /* m3u might be from Windows so we change backslash to forward slash */
@@ -274,7 +258,9 @@ scan_m3u_playlist(char *file, time_t mtime)
       if (ret < 0)
 	DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
 
-      extinf_reset(&mfi, &extinf);
+      /* Clean up in preparation for next item */
+      extinf = 0;
+      free_mfi(&mfi, 1);
       free(filename);
     }
 
