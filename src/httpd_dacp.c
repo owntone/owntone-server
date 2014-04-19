@@ -1311,6 +1311,13 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 static void
 dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
+  //?command=add&query='dmap.itemid:156'&sort=album&mode=3&session-id=100
+  // -> mode=3: add to playqueue position 0 (play next)
+  //?command=add&query='dmap.itemid:158'&sort=album&mode=0&session-id=100
+  // -> mode=0: add to end of playqueue
+  //?command=add&query='dmap.itemid:306'&queuefilter=album:6525753023700533274&sort=album&mode=1&session-id=100
+  // -> mode 1: stop playblack, clear playqueue, add songs to playqueue
+
   struct player_source *ps;
   const char *editquery;
   const char *queuefilter;
@@ -1336,12 +1343,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	  return;
 	}
     }
-  //?command=add&query='dmap.itemid:156'&sort=album&mode=3&session-id=100
-  // -> mode=3: add to playqueue position 0 (play next)
-  //?command=add&query='dmap.itemid:158'&sort=album&mode=0&session-id=100
-  // -> mode=0: add to end of playqueue
-  //?command=add&query='dmap.itemid:306'&queuefilter=album:6525753023700533274&sort=album&mode=1&session-id=100
-  // -> mode 1: stop playblack, clear playqueue, add songs to playqueue
+
   if ((mode == 1) || (mode == 2))
     {
       player_playback_stop();
@@ -1387,7 +1389,14 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 
       idx = ret;
 
-      player_queue_add(ps);
+      if (mode == 3)
+      {
+        player_queue_add_next(ps);
+      }
+      else
+      {
+        player_queue_add(ps);
+      }
     }
   else
     {

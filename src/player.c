@@ -3357,7 +3357,46 @@ queue_add(struct player_command *cmd)
   return 0;
 }
 
-static int queue_move(struct player_command *cmd)
+static int
+queue_add_next(struct player_command *cmd)
+{
+  struct player_source *ps;
+  struct player_source *ps_shuffle;
+  struct player_source *ps_playing;
+  struct player_source *ps_tail;
+
+  ps = cmd->arg.ps;
+
+  ps_shuffle = source_shuffle(ps);
+  if (!ps_shuffle)
+    ps_shuffle = ps;
+
+  if (source_head)
+  {
+    ps_playing = cur_playing ? cur_playing : cur_streaming;
+    ps_tail = ps->pl_prev;
+
+    ps_tail->pl_next = ps_playing->pl_next;
+    ps_tail->shuffle_next = ps_playing->shuffle_next;
+    ps_playing->pl_next = ps;
+    ps_playing->shuffle_next = ps;
+    ps->pl_prev = ps_playing;
+    ps->shuffle_prev = ps_playing;
+  }
+  else
+  {
+    source_head = ps;
+    shuffle_head = ps_shuffle;
+  }
+
+  if (cur_plid != 0)
+    cur_plid = 0;
+
+  return 0;
+}
+
+static int
+queue_move(struct player_command *cmd)
 {
   struct player_source *ps_src = NULL;
   struct player_source *ps_dst = NULL;
@@ -3421,7 +3460,8 @@ static int queue_move(struct player_command *cmd)
   return 0;
 }
 
-static int queue_remove(struct player_command *cmd)
+static int
+queue_remove(struct player_command *cmd)
 {
   struct player_source *ps_src = NULL;
 
@@ -3920,6 +3960,25 @@ player_queue_add(struct player_source *ps)
   command_init(&cmd);
 
   cmd.func = queue_add;
+  cmd.func_bh = NULL;
+  cmd.arg.ps = ps;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+player_queue_add_next(struct player_source *ps)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = queue_add_next;
   cmd.func_bh = NULL;
   cmd.arg.ps = ps;
 

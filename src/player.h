@@ -146,6 +146,9 @@ int
 player_queue_add(struct player_source *ps);
 
 int
+player_queue_add_next(struct player_source *ps);
+
+int
 player_queue_move(int ps_pos_from, int ps_pos_to);
 
 int
