@@ -204,6 +204,8 @@ static struct player_source *cur_streaming;
 static uint32_t cur_plid;
 static struct evbuffer *audio_buf;
 
+/* Play history */
+static struct player_history *history;
 
 /* Command helpers */
 static void
@@ -1434,6 +1436,28 @@ source_check(void)
   return pos;
 }
 
+struct player_history *
+player_history_get(void)
+{
+  return history;
+}
+
+/*
+ * Add the song with the given id to the list of previously played songs
+ */
+static void
+history_add(uint32_t id)
+{
+  unsigned int next_index = (history->start_index + history->count) % MAX_HISTORY_COUNT;
+  if (next_index == history->start_index && history->count > 0)
+    history->start_index = (history->start_index + 1) % MAX_HISTORY_COUNT;
+
+  history->buffer[next_index] = id;
+
+  if (history->count < MAX_HISTORY_COUNT)
+    history->count++;
+}
+
 static int
 source_read(uint8_t *buf, int len, uint64_t rtptime)
 {
@@ -1447,17 +1471,20 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   nbytes = 0;
   new = 0;
   while (nbytes < len)
+  {
+    if (new)
     {
-      if (new)
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "New file\n");
+      DPRINTF(E_DBG, L_PLAYER, "New file\n");
 
-	  new = 0;
+      new = 0;
 
-	  ret = source_next(0);
-	  if (ret < 0)
-	    return -1;
-	}
+      // add song to the played history
+      history_add(cur_streaming->id);
+
+      ret = source_next(0);
+      if (ret < 0)
+        return -1;
+    }
 
       if (EVBUFFER_LENGTH(audio_buf) == 0)
 	{
@@ -2268,9 +2295,15 @@ playback_stop(struct player_command *cmd)
   pb_timer_fd = -1;
 
   if (cur_playing)
+  {
+    history_add(cur_playing->id);
     source_stop(cur_playing);
-  else
+  }
+  else if (cur_streaming)
+  {
+    history_add(cur_streaming->id);
     source_stop(cur_streaming);
+  }
 
   cur_playing = NULL;
   cur_streaming = NULL;
@@ -2589,9 +2622,15 @@ playback_prev_bh(struct player_command *cmd)
   int ret;
 
   if (cur_playing)
+  {
+    history_add(cur_playing->id);
     source_stop(cur_playing);
-  else
+  }
+  else if (cur_streaming)
+  {
+    history_add(cur_streaming->id);
     source_stop(cur_streaming);
+  }
 
   ret = source_prev();
   if (ret < 0)
@@ -2621,9 +2660,15 @@ playback_next_bh(struct player_command *cmd)
   int ret;
 
   if (cur_playing)
+  {
+    history_add(cur_playing->id);
     source_stop(cur_playing);
-  else
+  }
+  else if (cur_streaming)
+  {
+    history_add(cur_streaming->id);
     source_stop(cur_streaming);
+  }
 
   ret = source_next(1);
   if (ret < 0)
@@ -4429,6 +4474,8 @@ player_init(void)
 
   update_handler = NULL;
 
+  history = (struct player_history *) calloc(1, sizeof(struct player_history));
+
 #if defined(__linux__)
   /*
    * Determine if the resolution of the system timer is > or < the size
@@ -4619,6 +4666,8 @@ player_deinit(void)
 
   if (source_head)
     queue_clear(NULL);
+
+  free(history);
 
   evbuffer_free(audio_buf);
 

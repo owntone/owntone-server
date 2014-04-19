@@ -21,6 +21,9 @@
 #define STOB(s) ((s) * 4)
 #define BTOS(b) ((b) / 4)
 
+/* Maximum number of previously played songs that are remembered */
+#define MAX_HISTORY_COUNT 20
+
 enum play_status {
   PLAY_STOPPED = 2,
   PLAY_PAUSED  = 3,
@@ -83,6 +86,19 @@ struct player_source
 
   struct player_source *play_next;
 };
+
+struct player_history
+{
+  /* Buffer index of the oldest remembered song */
+  unsigned int start_index;
+
+  /* Count of song ids in the buffer */
+  unsigned int count;
+
+  /* Circular buffer of song ids previously played by forked-daapd */
+  uint32_t buffer[MAX_HISTORY_COUNT];
+};
+
 
 int
 player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit);
@@ -159,6 +175,9 @@ player_queue_clear(void);
 
 void
 player_queue_plid(uint32_t plid);
+
+struct player_history *
+player_history_get(void);
 
 void
 player_set_update_handler(player_status_handler handler);
