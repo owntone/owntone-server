@@ -1463,6 +1463,38 @@ dacp_reply_playqueueedit_move(struct evhttp_request *req, struct evbuffer *evbuf
 }
 
 static void
+dacp_reply_playqueueedit_remove(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  /*
+   * Handles the remove command.
+   * Exampe request (removes song at position 1 in the playqueue):
+   * ?command=remove&items=1&session-id=100
+   */
+  int ret;
+
+  const char *itemsparam;
+  int item_index;
+
+  itemsparam = evhttp_find_header(query, "items");
+  if (itemsparam)
+  {
+    ret = safe_atoi32(itemsparam, &item_index);
+    if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Invalid edit-params remove item value in playqueue-edit request\n");
+
+      dmap_send_error(req, "cacr", "Invalid request");
+      return;
+    }
+
+    player_queue_remove(item_index);
+  }
+
+  /* 204 No Content is the canonical reply */
+  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+}
+
+static void
 dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
@@ -1507,6 +1539,8 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
 
 	?command=move&edit-params='edit-param.move-pair:3,0'&session-id=100
 	-> move song from playqueue position 3 to be played after song at position 0
+	?command=remove&items=1&session-id=100
+  -> remove song on position 1 from the playqueue
    */
 
   s = daap_session_find(req, query, evbuf);
@@ -1530,6 +1564,8 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
     dacp_reply_playqueueedit_add(req, evbuf, uri, query);
   else if (strcmp(param, "move") == 0)
     dacp_reply_playqueueedit_move(req, evbuf, uri, query);
+  else if (strcmp(param, "remove") == 0)
+    dacp_reply_playqueueedit_remove(req, evbuf, uri, query);
   else
     {
       DPRINTF(E_LOG, L_DACP, "Unknown playqueue-edit command %s\n", param);
