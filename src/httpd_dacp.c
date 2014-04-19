@@ -1336,7 +1336,12 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	  return;
 	}
     }
-
+  //?command=add&query='dmap.itemid:156'&sort=album&mode=3&session-id=100
+  // -> mode=3: add to playqueue position 0 (play next)
+  //?command=add&query='dmap.itemid:158'&sort=album&mode=0&session-id=100
+  // -> mode=0: add to end of playqueue
+  //?command=add&query='dmap.itemid:306'&queuefilter=album:6525753023700533274&sort=album&mode=1&session-id=100
+  // -> mode 1: stop playblack, clear playqueue, add songs to playqueue
   if ((mode == 1) || (mode == 2))
     {
       player_playback_stop();
@@ -1413,6 +1418,51 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 }
 
 static void
+dacp_reply_playqueueedit_move(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  /*
+   * Handles the move command.
+   * Exampe request:
+   * playqueue-edit?command=move&edit-params='edit-param.move-pair:3,0'&session-id=100
+   *
+   * The 'edit-param.move-pair' param contains the index of the song in the playqueue to be moved (index 3 in the example)
+   * and the index of the song after which it should be inserted (index 0 in the exampe, the now playing song).
+   */
+  int ret;
+
+  const char *editparams;
+  int src;
+  int dst;
+
+  editparams = evhttp_find_header(query, "edit-params");
+  if (editparams)
+  {
+    ret = safe_atoi32(strchr(editparams, ':') + 1, &src);
+    if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-from value in playqueue-edit request\n");
+
+      dmap_send_error(req, "cacr", "Invalid request");
+      return;
+    }
+
+    ret = safe_atoi32(strchr(editparams, ',') + 1, &dst);
+    if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-to value in playqueue-edit request\n");
+
+      dmap_send_error(req, "cacr", "Invalid request");
+      return;
+    }
+
+    player_queue_move(src, dst);
+  }
+
+  /* 204 No Content is the canonical reply */
+  evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
+}
+
+static void
 dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct daap_session *s;
@@ -1454,6 +1504,9 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
       User selected track (Audiobooks):
 	?command=add&query='dmap.itemid:...'&mode=1&session-id=...
 	-> clear queue, play itemid and the rest of album tracks
+
+	?command=move&edit-params='edit-param.move-pair:3,0'&session-id=100
+	-> move song from playqueue position 3 to be played after song at position 0
    */
 
   s = daap_session_find(req, query, evbuf);
@@ -1475,6 +1528,8 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
     dacp_reply_cue_play(req, evbuf, uri, query);
   else if (strcmp(param, "add") == 0)
     dacp_reply_playqueueedit_add(req, evbuf, uri, query);
+  else if (strcmp(param, "move") == 0)
+    dacp_reply_playqueueedit_move(req, evbuf, uri, query);
   else
     {
       DPRINTF(E_LOG, L_DACP, "Unknown playqueue-edit command %s\n", param);
