@@ -1439,14 +1439,14 @@ dacp_reply_playqueueedit_move(struct evhttp_request *req, struct evbuffer *evbuf
    */
   int ret;
 
-  const char *editparams;
+  const char *param;
   int src;
   int dst;
 
-  editparams = evhttp_find_header(query, "edit-params");
-  if (editparams)
+  param = evhttp_find_header(query, "edit-params");
+  if (param)
   {
-    ret = safe_atoi32(strchr(editparams, ':') + 1, &src);
+    ret = safe_atoi32(strchr(param, ':') + 1, &src);
     if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-from value in playqueue-edit request\n");
@@ -1455,7 +1455,7 @@ dacp_reply_playqueueedit_move(struct evhttp_request *req, struct evbuffer *evbuf
       return;
     }
 
-    ret = safe_atoi32(strchr(editparams, ',') + 1, &dst);
+    ret = safe_atoi32(strchr(param, ',') + 1, &dst);
     if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Invalid edit-params move-to value in playqueue-edit request\n");
@@ -1481,13 +1481,13 @@ dacp_reply_playqueueedit_remove(struct evhttp_request *req, struct evbuffer *evb
    */
   int ret;
 
-  const char *itemsparam;
+  const char *param;
   int item_index;
 
-  itemsparam = evhttp_find_header(query, "items");
-  if (itemsparam)
+  param = evhttp_find_header(query, "items");
+  if (param)
   {
-    ret = safe_atoi32(itemsparam, &item_index);
+    ret = safe_atoi32(param, &item_index);
     if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Invalid edit-params remove item value in playqueue-edit request\n");

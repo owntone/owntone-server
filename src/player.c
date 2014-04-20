@@ -3398,22 +3398,24 @@ queue_add_next(struct player_command *cmd)
 static int
 queue_move(struct player_command *cmd)
 {
-  struct player_source *ps_src = NULL;
-  struct player_source *ps_dst = NULL;
+  struct player_source *ps_src;
+  struct player_source *ps_dst;
+  int i;
 
   int pos_max = MAX(cmd->arg.ps_pos[0], cmd->arg.ps_pos[1]);
-  DPRINTF(E_LOG, L_PLAYER, "Move song from position %d to be next song after %d\n", cmd->arg.ps_pos[0],
+  DPRINTF(E_DBG, L_PLAYER, "Move song from position %d to be next song after %d\n", cmd->arg.ps_pos[0],
       cmd->arg.ps_pos[1]);
 
   struct player_source *ps_tmp = cur_playing ? cur_playing : cur_streaming;
   if (!ps_tmp)
   {
-    DPRINTF(E_DBG, L_PLAYER, "Current playing/streaming song not found\n");
+    DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song not found\n");
     return 0;
   }
 
-  int i = 0;
-  for (i = 0; i <= pos_max; ++i)
+  ps_src = NULL;
+  ps_dst = NULL;
+  for (i = 0; i <= pos_max; i++)
   {
     if (i == cmd->arg.ps_pos[0])
       ps_src = ps_tmp;
@@ -3465,12 +3467,12 @@ queue_remove(struct player_command *cmd)
 {
   struct player_source *ps_src = NULL;
 
-  DPRINTF(E_LOG, L_PLAYER, "Remove song from position %d\n", cmd->arg.ps_pos[0]);
+  DPRINTF(E_DBG, L_PLAYER, "Remove song from position %d\n", cmd->arg.ps_pos[0]);
 
   struct player_source *ps_tmp = cur_playing ? cur_playing : cur_streaming;
   if (!ps_tmp)
   {
-    DPRINTF(E_DBG, L_PLAYER, "Current playing/streaming song not found\n");
+    DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song not found\n");
     return 0;
   }
 
