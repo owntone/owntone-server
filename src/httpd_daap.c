@@ -788,7 +788,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
 //  dmap_add_int(content, "ppro", );         // dpap.protocolversion
 
-  dmap_add_char(content, "msed", 1);         // dmap.supportsedit?
+  dmap_add_char(content, "msed", 0);         // dmap.supportsedit? - we don't support playlist editing
 
   dmap_add_char(content, "mslr", 1);         // dmap.loginrequired
   dmap_add_int(content, "mstm", DAAP_SESSION_TIMEOUT_CAPABILITY); // dmap.timeoutinterval
