@@ -116,6 +116,7 @@ struct player_command
     enum repeat_mode mode;
     uint32_t id;
     int intval;
+    int ps_pos[2];
   } arg;
 
   int ret;
@@ -3357,6 +3358,148 @@ queue_add(struct player_command *cmd)
 }
 
 static int
+queue_add_next(struct player_command *cmd)
+{
+  struct player_source *ps;
+  struct player_source *ps_shuffle;
+  struct player_source *ps_playing;
+  struct player_source *ps_tail;
+
+  ps = cmd->arg.ps;
+
+  ps_shuffle = source_shuffle(ps);
+  if (!ps_shuffle)
+    ps_shuffle = ps;
+
+  if (source_head)
+  {
+    ps_playing = cur_playing ? cur_playing : cur_streaming;
+    ps_tail = ps->pl_prev;
+
+    ps_tail->pl_next = ps_playing->pl_next;
+    ps_tail->shuffle_next = ps_playing->shuffle_next;
+    ps_playing->pl_next = ps;
+    ps_playing->shuffle_next = ps;
+    ps->pl_prev = ps_playing;
+    ps->shuffle_prev = ps_playing;
+  }
+  else
+  {
+    source_head = ps;
+    shuffle_head = ps_shuffle;
+  }
+
+  if (cur_plid != 0)
+    cur_plid = 0;
+
+  return 0;
+}
+
+static int
+queue_move(struct player_command *cmd)
+{
+  struct player_source *ps_src;
+  struct player_source *ps_dst;
+  int i;
+
+  int pos_max = MAX(cmd->arg.ps_pos[0], cmd->arg.ps_pos[1]);
+  DPRINTF(E_DBG, L_PLAYER, "Move song from position %d to be next song after %d\n", cmd->arg.ps_pos[0],
+      cmd->arg.ps_pos[1]);
+
+  struct player_source *ps_tmp = cur_playing ? cur_playing : cur_streaming;
+  if (!ps_tmp)
+  {
+    DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song not found\n");
+    return 0;
+  }
+
+  ps_src = NULL;
+  ps_dst = NULL;
+  for (i = 0; i <= pos_max; i++)
+  {
+    if (i == cmd->arg.ps_pos[0])
+      ps_src = ps_tmp;
+    if (i == cmd->arg.ps_pos[1])
+      ps_dst = ps_tmp;
+
+    ps_tmp = shuffle ? ps_tmp->shuffle_next : ps_tmp->pl_next;
+  }
+
+  if (ps_src && ps_dst)
+  {
+    struct player_source *ps_src_prev;
+    struct player_source *ps_src_next;
+    struct player_source *ps_dst_next;
+
+    if (shuffle)
+    {
+      ps_src_prev = ps_src->shuffle_prev;
+      ps_src_next = ps_src->shuffle_next;
+      ps_src_prev->shuffle_next = ps_src_next;
+      ps_src_next->shuffle_prev = ps_src_prev;
+
+      ps_dst_next = ps_dst->shuffle_next;
+      ps_dst->shuffle_next = ps_src;
+      ps_src->shuffle_prev = ps_dst;
+      ps_dst_next->shuffle_prev = ps_src;
+      ps_src->shuffle_next = ps_dst_next;
+    }
+    else
+    {
+      ps_src_prev = ps_src->pl_prev;
+      ps_src_next = ps_src->pl_next;
+      ps_src_prev->pl_next = ps_src_next;
+      ps_src_next->pl_prev = ps_src_prev;
+
+      ps_dst_next = ps_dst->pl_next;
+      ps_dst->pl_next = ps_src;
+      ps_src->pl_prev = ps_dst;
+      ps_dst_next->pl_prev = ps_src;
+      ps_src->pl_next = ps_dst_next;
+    }
+  }
+
+  return 0;
+}
+
+static int
+queue_remove(struct player_command *cmd)
+{
+  struct player_source *ps_src = NULL;
+
+  DPRINTF(E_DBG, L_PLAYER, "Remove song from position %d\n", cmd->arg.ps_pos[0]);
+
+  struct player_source *ps_tmp = cur_playing ? cur_playing : cur_streaming;
+  if (!ps_tmp)
+  {
+    DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song not found\n");
+    return 0;
+  }
+
+  int i = 0;
+  for (i = 0; i <= cmd->arg.ps_pos[0]; ++i)
+  {
+    if (i == cmd->arg.ps_pos[0])
+      ps_src = ps_tmp;
+
+    ps_tmp = shuffle ? ps_tmp->shuffle_next : ps_tmp->pl_next;
+  }
+
+  if (ps_src)
+  {
+    ps_src->shuffle_prev->shuffle_next = ps_src->shuffle_next;
+    ps_src->shuffle_next->shuffle_prev = ps_src->shuffle_prev;
+
+    ps_src->pl_prev->pl_next = ps_src->pl_next;
+    ps_src->pl_next->pl_prev = ps_src->pl_prev;
+
+    source_free(ps_src);
+  }
+
+  return 0;
+}
+
+static int
 queue_clear(struct player_command *cmd)
 {
   struct player_source *ps;
@@ -3821,6 +3964,63 @@ player_queue_add(struct player_source *ps)
   cmd.func = queue_add;
   cmd.func_bh = NULL;
   cmd.arg.ps = ps;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+player_queue_add_next(struct player_source *ps)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = queue_add_next;
+  cmd.func_bh = NULL;
+  cmd.arg.ps = ps;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+player_queue_move(int ps_pos_from, int ps_pos_to)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = queue_move;
+  cmd.func_bh = NULL;
+  cmd.arg.ps_pos[0] = ps_pos_from;
+  cmd.arg.ps_pos[1] = ps_pos_to;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int player_queue_remove(int ps_pos_remove)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = queue_remove;
+  cmd.func_bh = NULL;
+  cmd.arg.ps_pos[0] = ps_pos_remove;
 
   ret = sync_command(&cmd);
 
