@@ -1355,6 +1355,12 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       sort = evhttp_find_header(query, "sort");
 
+      // if sort param is missing and an album or artist is added to the queue, set sort to "album"
+      if (!sort && (strstr(editquery, "daap.songalbumid:") || strstr(editquery, "daap.songartistid:")))
+      {
+        sort = "album";
+      }
+
       queuefilter = evhttp_find_header(query, "queuefilter");
 
       querymodifier = evhttp_find_header(query, "query-modifier");
