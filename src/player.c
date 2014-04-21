@@ -3398,65 +3398,65 @@ queue_add_next(struct player_command *cmd)
 static int
 queue_move(struct player_command *cmd)
 {
+  struct player_source *ps;
   struct player_source *ps_src;
   struct player_source *ps_dst;
+  int pos_max;
   int i;
 
-  int pos_max = MAX(cmd->arg.ps_pos[0], cmd->arg.ps_pos[1]);
-  DPRINTF(E_DBG, L_PLAYER, "Move song from position %d to be next song after %d\n", cmd->arg.ps_pos[0],
+  DPRINTF(E_DBG, L_PLAYER, "Moving song from position %d to be the next song after %d\n", cmd->arg.ps_pos[0],
       cmd->arg.ps_pos[1]);
 
-  struct player_source *ps_tmp = cur_playing ? cur_playing : cur_streaming;
-  if (!ps_tmp)
+  ps = cur_playing ? cur_playing : cur_streaming;
+  if (!ps)
   {
     DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song not found\n");
-    return 0;
+    return -1;
   }
 
+  pos_max = MAX(cmd->arg.ps_pos[0], cmd->arg.ps_pos[1]);
   ps_src = NULL;
   ps_dst = NULL;
+
   for (i = 0; i <= pos_max; i++)
   {
     if (i == cmd->arg.ps_pos[0])
-      ps_src = ps_tmp;
+      ps_src = ps;
     if (i == cmd->arg.ps_pos[1])
-      ps_dst = ps_tmp;
+      ps_dst = ps;
 
-    ps_tmp = shuffle ? ps_tmp->shuffle_next : ps_tmp->pl_next;
+    ps = shuffle ? ps->shuffle_next : ps->pl_next;
   }
 
-  if (ps_src && ps_dst)
+  if (!ps_src || !ps_dst || (ps_src == ps_dst))
   {
-    struct player_source *ps_src_prev;
-    struct player_source *ps_src_next;
-    struct player_source *ps_dst_next;
+    DPRINTF(E_LOG, L_PLAYER, "Invalid source and/or destination for queue_move\n");
+    return -1;
+  }
 
-    if (shuffle)
-    {
-      ps_src_prev = ps_src->shuffle_prev;
-      ps_src_next = ps_src->shuffle_next;
-      ps_src_prev->shuffle_next = ps_src_next;
-      ps_src_next->shuffle_prev = ps_src_prev;
+  if (shuffle)
+  {
+    // Remove ps_src from shuffle queue
+    ps_src->shuffle_prev->shuffle_next = ps_src->shuffle_next;
+    ps_src->shuffle_next->shuffle_prev = ps_src->shuffle_prev;
 
-      ps_dst_next = ps_dst->shuffle_next;
-      ps_dst->shuffle_next = ps_src;
-      ps_src->shuffle_prev = ps_dst;
-      ps_dst_next->shuffle_prev = ps_src;
-      ps_src->shuffle_next = ps_dst_next;
-    }
-    else
-    {
-      ps_src_prev = ps_src->pl_prev;
-      ps_src_next = ps_src->pl_next;
-      ps_src_prev->pl_next = ps_src_next;
-      ps_src_next->pl_prev = ps_src_prev;
+    // Insert after ps_dst
+    ps_src->shuffle_prev = ps_dst;
+    ps_src->shuffle_next = ps_dst->shuffle_next;
+    ps_dst->shuffle_next->shuffle_prev = ps_src;
+    ps_dst->shuffle_next = ps_src;
+  }
+  else
+  {
+    // Remove ps_src from queue
+    ps_src->pl_prev->pl_next = ps_src->pl_next;
+    ps_src->pl_next->pl_prev = ps_src->pl_prev;
 
-      ps_dst_next = ps_dst->pl_next;
-      ps_dst->pl_next = ps_src;
-      ps_src->pl_prev = ps_dst;
-      ps_dst_next->pl_prev = ps_src;
-      ps_src->pl_next = ps_dst_next;
-    }
+    // Insert after ps_dst
+    ps_src->pl_prev = ps_dst;
+    ps_src->pl_next = ps_dst->pl_next;
+    ps_dst->pl_next->pl_prev = ps_src;
+    ps_dst->pl_next = ps_src;
   }
 
   return 0;
@@ -3465,36 +3465,39 @@ queue_move(struct player_command *cmd)
 static int
 queue_remove(struct player_command *cmd)
 {
-  struct player_source *ps_src = NULL;
+  struct player_source *ps;
+  int pos;
+  int i;
 
-  DPRINTF(E_DBG, L_PLAYER, "Remove song from position %d\n", cmd->arg.ps_pos[0]);
+  pos = cmd->arg.ps_pos[0];
 
-  struct player_source *ps_tmp = cur_playing ? cur_playing : cur_streaming;
-  if (!ps_tmp)
+  DPRINTF(E_DBG, L_PLAYER, "Removing song from position %d\n", pos);
+
+  if (pos < 1)
+  {
+    DPRINTF(E_LOG, L_PLAYER, "Can't remove song, invalid position %d\n", pos);
+    return -1;
+  }
+
+  ps = cur_playing ? cur_playing : cur_streaming;
+  if (!ps)
   {
     DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song not found\n");
-    return 0;
+    return -1;
   }
 
-  int i = 0;
-  for (i = 0; i <= cmd->arg.ps_pos[0]; ++i)
+  for (i = 0; i <= pos; i++)
   {
-    if (i == cmd->arg.ps_pos[0])
-      ps_src = ps_tmp;
-
-    ps_tmp = shuffle ? ps_tmp->shuffle_next : ps_tmp->pl_next;
+    ps = shuffle ? ps->shuffle_next : ps->pl_next;
   }
 
-  if (ps_src)
-  {
-    ps_src->shuffle_prev->shuffle_next = ps_src->shuffle_next;
-    ps_src->shuffle_next->shuffle_prev = ps_src->shuffle_prev;
+  ps->shuffle_prev->shuffle_next = ps->shuffle_next;
+  ps->shuffle_next->shuffle_prev = ps->shuffle_prev;
 
-    ps_src->pl_prev->pl_next = ps_src->pl_next;
-    ps_src->pl_next->pl_prev = ps_src->pl_prev;
+  ps->pl_prev->pl_next = ps->pl_next;
+  ps->pl_next->pl_prev = ps->pl_prev;
 
-    source_free(ps_src);
-  }
+  source_free(ps);
 
   return 0;
 }
