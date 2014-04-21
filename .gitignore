@@ -32,3 +32,6 @@ build-stamp
 # ignore debian packaging for convenience
 debian/
 
+/.settings
+/.cproject
+/.project
