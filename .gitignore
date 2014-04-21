@@ -6,6 +6,7 @@ Makefile
 *.lo
 *.a
 *.la
+.dirstamp
 .deps/
 .libs/
 
