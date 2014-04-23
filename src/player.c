@@ -3374,14 +3374,18 @@ queue_add_next(struct player_command *cmd)
   if (source_head)
   {
     ps_playing = cur_playing ? cur_playing : cur_streaming;
-    ps_tail = ps->pl_prev;
 
-    ps_tail->pl_next = ps_playing->pl_next;
-    ps_tail->shuffle_next = ps_playing->shuffle_next;
-    ps_playing->pl_next = ps;
-    ps_playing->shuffle_next = ps;
+    // Insert ps after ps_playing
+    ps->pl_prev->pl_next = ps_playing->pl_next;
+    ps_playing->pl_next->pl_prev = ps->pl_prev;
     ps->pl_prev = ps_playing;
-    ps->shuffle_prev = ps_playing;
+    ps_playing->pl_next = ps;
+
+    // Insert ps_shuffle after ps_playing
+    ps_shuffle->shuffle_prev->shuffle_next = ps_playing->shuffle_next;
+    ps_playing->shuffle_next->shuffle_prev = ps_shuffle->shuffle_prev;
+    ps_shuffle->shuffle_prev = ps_playing;
+    ps_playing->shuffle_next = ps_shuffle;
   }
   else
   {
