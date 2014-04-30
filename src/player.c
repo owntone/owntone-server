@@ -3363,7 +3363,6 @@ queue_add_next(struct player_command *cmd)
   struct player_source *ps;
   struct player_source *ps_shuffle;
   struct player_source *ps_playing;
-  struct player_source *ps_tail;
 
   ps = cmd->arg.ps;
 
