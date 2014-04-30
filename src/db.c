@@ -1810,7 +1810,7 @@ db_files_get_count_bymatch(char *path)
 void
 db_files_update_songartistid(void)
 {
-#define Q_SONGARTISTID "UPDATE files SET songartistid = daap_songalbumid(album_artist, '');"
+#define Q_SONGARTISTID "UPDATE files SET songartistid = daap_songalbumid(LOWER(album_artist), '');"
   char *errmsg;
   int ret;
 
@@ -1828,7 +1828,7 @@ db_files_update_songartistid(void)
 void
 db_files_update_songalbumid(void)
 {
-#define Q_SONGALBUMID "UPDATE files SET songalbumid = daap_songalbumid(album_artist, album);"
+#define Q_SONGALBUMID "UPDATE files SET songalbumid = daap_songalbumid(LOWER(album_artist), LOWER(album));"
   char *errmsg;
   int ret;
 
@@ -2344,7 +2344,8 @@ db_file_add(struct media_file_info *mfi)
                " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
                " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
                " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
-               " songartistid, songalbumid, title_sort, artist_sort, album_sort, composer_sort, album_artist_sort" \
+               " songartistid, songalbumid, " \
+               " title_sort, artist_sort, album_sort, composer_sort, album_artist_sort" \
                " ) " \
                " VALUES (NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, TRIM(%Q)," \
                " TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
@@ -2352,7 +2353,8 @@ db_file_add(struct media_file_info *mfi)
                " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
                " %Q, %d, %d, %d, %d, TRIM(%Q)," \
                " %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d," \
-               " daap_songalbumid(TRIM(%Q), ''), daap_songalbumid(TRIM(%Q), TRIM(%Q)),TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q));"
+               " daap_songalbumid(LOWER(TRIM(%Q)), ''), daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q))), " \
+               " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q));"
 
   char *query;
   char *errmsg;
@@ -2426,7 +2428,7 @@ db_file_update(struct media_file_info *mfi)
                " bits_per_sample = %d, album_artist = TRIM(%Q)," \
                " media_kind = %d, tv_series_name = TRIM(%Q), tv_episode_num_str = TRIM(%Q)," \
                " tv_network_name = TRIM(%Q), tv_episode_sort = %d, tv_season_num = %d," \
-               " songartistid = daap_songalbumid(TRIM(%Q), ''), songalbumid = daap_songalbumid(TRIM(%Q), TRIM(%Q))," \
+               " songartistid = daap_songalbumid(LOWER(TRIM(%Q)), ''), songalbumid = daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q)))," \
                " title_sort = TRIM(%Q), artist_sort = TRIM(%Q), album_sort = TRIM(%Q), composer_sort = TRIM(%Q), album_artist_sort = TRIM(%Q)" \
                " WHERE id = %d;"
   char *query;
