@@ -1448,11 +1448,23 @@ player_history_get(void)
 static void
 history_add(uint32_t id)
 {
-  unsigned int next_index = (history->start_index + history->count) % MAX_HISTORY_COUNT;
+  unsigned int cur_index;
+  unsigned int next_index;
+  
+  /* Check if the current song is already the last in the history to avoid duplicates */
+  cur_index = (history->start_index + history->count - 1) % MAX_HISTORY_COUNT;
+  if (id == history->id[cur_index])
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song already in history\n");
+      return;
+    }
+
+  /* Calculate the next index and update the start-index and count for the id-buffer */
+  next_index = (history->start_index + history->count) % MAX_HISTORY_COUNT;
   if (next_index == history->start_index && history->count > 0)
     history->start_index = (history->start_index + 1) % MAX_HISTORY_COUNT;
 
-  history->buffer[next_index] = id;
+  history->id[next_index] = id;
 
   if (history->count < MAX_HISTORY_COUNT)
     history->count++;
@@ -1471,20 +1483,20 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   nbytes = 0;
   new = 0;
   while (nbytes < len)
-  {
-    if (new)
     {
-      DPRINTF(E_DBG, L_PLAYER, "New file\n");
+      if (new)
+        {
+          DPRINTF(E_DBG, L_PLAYER, "New file\n");
 
-      new = 0;
+          new = 0;
 
-      // add song to the played history
-      history_add(cur_streaming->id);
+          // add song to the played history
+          history_add(cur_streaming->id);
 
-      ret = source_next(0);
-      if (ret < 0)
-        return -1;
-    }
+          ret = source_next(0);
+          if (ret < 0)
+            return -1;
+        }
 
       if (EVBUFFER_LENGTH(audio_buf) == 0)
 	{
@@ -2295,15 +2307,15 @@ playback_stop(struct player_command *cmd)
   pb_timer_fd = -1;
 
   if (cur_playing)
-  {
-    history_add(cur_playing->id);
-    source_stop(cur_playing);
-  }
+    {
+      history_add(cur_playing->id);
+      source_stop(cur_playing);
+    }
   else if (cur_streaming)
-  {
-    history_add(cur_streaming->id);
-    source_stop(cur_streaming);
-  }
+    {
+      history_add(cur_streaming->id);
+      source_stop(cur_streaming);
+    }
 
   cur_playing = NULL;
   cur_streaming = NULL;
@@ -2622,15 +2634,17 @@ playback_prev_bh(struct player_command *cmd)
   int ret;
 
   if (cur_playing)
-  {
-    history_add(cur_playing->id);
-    source_stop(cur_playing);
-  }
+    {
+      if (cur_playing->end > cur_playing->stream_start)
+        history_add(cur_playing->id);
+      source_stop(cur_playing);
+    }
   else if (cur_streaming)
-  {
-    history_add(cur_streaming->id);
-    source_stop(cur_streaming);
-  }
+    {
+      if (cur_streaming->end > cur_streaming->stream_start)
+        history_add(cur_streaming->id);
+      source_stop(cur_streaming);
+    }
 
   ret = source_prev();
   if (ret < 0)
@@ -2660,15 +2674,17 @@ playback_next_bh(struct player_command *cmd)
   int ret;
 
   if (cur_playing)
-  {
-    history_add(cur_playing->id);
-    source_stop(cur_playing);
-  }
+    {
+      if (cur_playing->end > cur_playing->stream_start)
+        history_add(cur_playing->id);
+      source_stop(cur_playing);
+    }
   else if (cur_streaming)
-  {
-    history_add(cur_streaming->id);
-    source_stop(cur_streaming);
-  }
+    {
+      if (cur_streaming->end > cur_streaming->stream_start)
+        history_add(cur_streaming->id);
+      source_stop(cur_streaming);
+    }
 
   ret = source_next(1);
   if (ret < 0)

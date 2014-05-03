@@ -96,7 +96,7 @@ struct player_history
   unsigned int count;
 
   /* Circular buffer of song ids previously played by forked-daapd */
-  uint32_t buffer[MAX_HISTORY_COUNT];
+  uint32_t id[MAX_HISTORY_COUNT];
 };
 
 

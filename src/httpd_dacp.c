@@ -1140,12 +1140,17 @@ playqueuecontents_add_source(struct evbuffer *songlist, uint32_t source_id, int 
 
   song = evbuffer_new();
   if (!song)
-  {
-    DPRINTF(E_LOG, L_DACP, "Could not allocate song evbuffer for playqueue-contents\n");
-    return -1;
-  }
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not allocate song evbuffer for playqueue-contents\n");
+      return -1;
+    }
 
   mfi = db_file_fetch_byid(source_id);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not fetch file id %d\n", source_id);
+      return -1;
+    }
   dmap_add_container(song, "ceQs", 16);
   dmap_add_raw_uint32(song, 1); /* Database */
   dmap_add_raw_uint32(song, plid);
@@ -1167,14 +1172,13 @@ playqueuecontents_add_source(struct evbuffer *songlist, uint32_t source_id, int 
 
   ret = evbuffer_add_buffer(songlist, song);
   evbuffer_free(song);
-  if (mfi)
-    free_mfi(mfi, 0);
+  free_mfi(mfi, 0);
 
   if (ret < 0)
-  {
-    DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
-    return ret;
-  }
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+      return ret;
+    }
 
   return 0;
 }
@@ -1246,10 +1250,9 @@ static void dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbu
       {
         start_index = (history->start_index + history->count - abs(span)) % MAX_HISTORY_COUNT;
       }
-      for (i = 0; i < history->count && i < abs(span); i++)
+      for (n = 0; n < history->count && n < abs(span); n++)
       {
-        n++;
-        ret = playqueuecontents_add_source(songlist, history->buffer[(start_index + i) % MAX_HISTORY_COUNT], (n + i + 1), status.plid);
+        ret = playqueuecontents_add_source(songlist, history->id[(start_index + n) % MAX_HISTORY_COUNT], (n + 1), status.plid);
         if (ret < 0)
         {
           DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
@@ -1286,6 +1289,7 @@ static void dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbu
     }
   }
 
+  /* Playlists are hist, curr and main. */
   playlists = evbuffer_new();
   if (!playlists)
     {
