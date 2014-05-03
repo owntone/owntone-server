@@ -1183,7 +1183,8 @@ playqueuecontents_add_source(struct evbuffer *songlist, uint32_t source_id, int 
   return 0;
 }
 
-static void dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
+static void
+dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
     struct evkeyvalq *query)
 {
   struct daap_session *s;
@@ -1212,11 +1213,11 @@ static void dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbu
   span = 50; /* Default */
   param = evhttp_find_header(query, "span");
   if (param)
-  {
-    ret = safe_atoi32(param, &span);
-    if (ret < 0)
-      DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
-  }
+    {
+      ret = safe_atoi32(param, &span);
+      if (ret < 0)
+        DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
+    }
 
   songlist = NULL;
   i = 0;
@@ -1225,69 +1226,70 @@ static void dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbu
 
   /* Get queue and make songlist only if playing or paused */
   if (status.status != PLAY_STOPPED)
-  {
-    songlist = evbuffer_new();
-    if (!songlist)
     {
-      DPRINTF(E_LOG, L_DACP, "Could not allocate songlist evbuffer for playqueue-contents\n");
-
-      dmap_send_error(req, "ceQR", "Out of memory");
-      return;
-    }
-
-    /*
-     * If the span parameter is negativ make song list for Previously Played,
-     * otherwise make song list for Up Next and begin with first song after playlist position.
-     */
-    if (span < 0)
-    {
-      history = player_history_get();
-      if (abs(span) > history->count)
-      {
-        start_index = history->start_index;
-      }
-      else
-      {
-        start_index = (history->start_index + history->count - abs(span)) % MAX_HISTORY_COUNT;
-      }
-      for (n = 0; n < history->count && n < abs(span); n++)
-      {
-        ret = playqueuecontents_add_source(songlist, history->id[(start_index + n) % MAX_HISTORY_COUNT], (n + 1), status.plid);
-        if (ret < 0)
+      songlist = evbuffer_new();
+      if (!songlist)
         {
-          DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+          DPRINTF(E_LOG, L_DACP, "Could not allocate songlist evbuffer for playqueue-contents\n");
 
           dmap_send_error(req, "ceQR", "Out of memory");
           return;
         }
-      }
-    }
-    else
-    {
-      /* Fast forward to song currently being played */
-      head = player_queue_get();
-      if (head)
-      {
-        ps = head;
-        while ((ps->id != status.id) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
-          i++;
 
-        while ((n < abs(span)) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
+      /*
+       * If the span parameter is negativ make song list for Previously Played,
+       * otherwise make song list for Up Next and begin with first song after playlist position.
+       */
+      if (span < 0)
         {
-          n++;
+          history = player_history_get();
+          if (abs(span) > history->count)
+            {
+              start_index = history->start_index;
+            }
+          else
+            {
+              start_index = (history->start_index + history->count - abs(span)) % MAX_HISTORY_COUNT;
+            }
+          for (n = 0; n < history->count && n < abs(span); n++)
+            {
+              ret = playqueuecontents_add_source(songlist, history->id[(start_index + n) % MAX_HISTORY_COUNT], (n + 1),
+                  status.plid);
+              if (ret < 0)
+                {
+                  DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
 
-          ret = playqueuecontents_add_source(songlist, ps->id, (n + i + 1), status.plid);
-          if (ret < 0)
-          {
-            DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
-
-            dmap_send_error(req, "ceQR", "Out of memory");
-            return;
-          }
+                  dmap_send_error(req, "ceQR", "Out of memory");
+                  return;
+                }
+            }
         }
-      }
+      else
+        {
+          /* Fast forward to song currently being played */
+          head = player_queue_get();
+          if (head)
+            {
+              ps = head;
+              while ((ps->id != status.id) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
+                i++;
+
+              while ((n < abs(span)) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
+                {
+                  n++;
+
+                  ret = playqueuecontents_add_source(songlist, ps->id, (n + i + 1), status.plid);
+                  if (ret < 0)
+                    {
+                      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+
+                      dmap_send_error(req, "ceQR", "Out of memory");
+                      return;
+                    }
+                }
+            }
+        }
     }
-  }
 
   /* Playlists are hist, curr and main. */
   playlists = evbuffer_new();
