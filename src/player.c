@@ -204,6 +204,8 @@ static struct player_source *cur_streaming;
 static uint32_t cur_plid;
 static struct evbuffer *audio_buf;
 
+/* Play history */
+static struct player_history *history;
 
 /* Command helpers */
 static void
@@ -1434,6 +1436,40 @@ source_check(void)
   return pos;
 }
 
+struct player_history *
+player_history_get(void)
+{
+  return history;
+}
+
+/*
+ * Add the song with the given id to the list of previously played songs
+ */
+static void
+history_add(uint32_t id)
+{
+  unsigned int cur_index;
+  unsigned int next_index;
+  
+  /* Check if the current song is already the last in the history to avoid duplicates */
+  cur_index = (history->start_index + history->count - 1) % MAX_HISTORY_COUNT;
+  if (id == history->id[cur_index])
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song already in history\n");
+      return;
+    }
+
+  /* Calculate the next index and update the start-index and count for the id-buffer */
+  next_index = (history->start_index + history->count) % MAX_HISTORY_COUNT;
+  if (next_index == history->start_index && history->count > 0)
+    history->start_index = (history->start_index + 1) % MAX_HISTORY_COUNT;
+
+  history->id[next_index] = id;
+
+  if (history->count < MAX_HISTORY_COUNT)
+    history->count++;
+}
+
 static int
 source_read(uint8_t *buf, int len, uint64_t rtptime)
 {
@@ -1453,6 +1489,9 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	  DPRINTF(E_DBG, L_PLAYER, "New file\n");
 
 	  new = 0;
+
+	  // add song to the played history
+	  history_add(cur_streaming->id);
 
 	  ret = source_next(0);
 	  if (ret < 0)
@@ -2268,9 +2307,15 @@ playback_stop(struct player_command *cmd)
   pb_timer_fd = -1;
 
   if (cur_playing)
-    source_stop(cur_playing);
-  else
-    source_stop(cur_streaming);
+    {
+      history_add(cur_playing->id);
+      source_stop(cur_playing);
+    }
+  else if (cur_streaming)
+    {
+      history_add(cur_streaming->id);
+      source_stop(cur_streaming);
+    }
 
   cur_playing = NULL;
   cur_streaming = NULL;
@@ -2588,10 +2633,17 @@ playback_prev_bh(struct player_command *cmd)
 {
   int ret;
 
-  if (cur_playing)
-    source_stop(cur_playing);
-  else
-    source_stop(cur_streaming);
+  if (!cur_streaming)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
+      return -1;
+    }
+
+  /* Only add to history if playback started. */
+  if (cur_streaming->end > cur_streaming->stream_start)
+    history_add(cur_streaming->id);
+
+  source_stop(cur_streaming);
 
   ret = source_prev();
   if (ret < 0)
@@ -2620,10 +2672,17 @@ playback_next_bh(struct player_command *cmd)
 {
   int ret;
 
-  if (cur_playing)
-    source_stop(cur_playing);
-  else
-    source_stop(cur_streaming);
+  if (!cur_streaming)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
+      return -1;
+    }
+
+  /* Only add to history if playback started. */
+  if (cur_streaming->end > cur_streaming->stream_start)
+    history_add(cur_streaming->id);
+
+  source_stop(cur_streaming);
 
   ret = source_next(1);
   if (ret < 0)
@@ -4429,6 +4488,8 @@ player_init(void)
 
   update_handler = NULL;
 
+  history = (struct player_history *) calloc(1, sizeof(struct player_history));
+
 #if defined(__linux__)
   /*
    * Determine if the resolution of the system timer is > or < the size
@@ -4619,6 +4680,8 @@ player_deinit(void)
 
   if (source_head)
     queue_clear(NULL);
+
+  free(history);
 
   evbuffer_free(audio_buf);
 
