@@ -1216,7 +1216,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       ret = safe_atoi32(param, &span);
       if (ret < 0)
-        DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
+	DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
     }
 
   songlist = NULL;
@@ -1241,54 +1241,53 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
        * otherwise make song list for Up Next and begin with first song after playlist position.
        */
       if (span < 0)
-        {
-          history = player_history_get();
-          if (abs(span) > history->count)
-            {
-              start_index = history->start_index;
-            }
-          else
-            {
-              start_index = (history->start_index + history->count - abs(span)) % MAX_HISTORY_COUNT;
-            }
-          for (n = 0; n < history->count && n < abs(span); n++)
-            {
-              ret = playqueuecontents_add_source(songlist, history->id[(start_index + n) % MAX_HISTORY_COUNT], (n + 1),
-                  status.plid);
-              if (ret < 0)
-                {
-                  DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+	{
+	  history = player_history_get();
+	  if (abs(span) > history->count)
+	    {
+	      start_index = history->start_index;
+	    }
+	  else
+	    {
+	      start_index = (history->start_index + history->count - abs(span)) % MAX_HISTORY_COUNT;
+	    }
+	  for (n = 0; n < history->count && n < abs(span); n++)
+	    {
+	      ret = playqueuecontents_add_source(songlist, history->id[(start_index + n) % MAX_HISTORY_COUNT], (n + 1), status.plid);
+	      if (ret < 0)
+		{
+		  DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
 
-                  dmap_send_error(req, "ceQR", "Out of memory");
-                  return;
-                }
-            }
-        }
+		  dmap_send_error(req, "ceQR", "Out of memory");
+		  return;
+		}
+	    }
+	}
       else
-        {
-          /* Fast forward to song currently being played */
-          head = player_queue_get();
-          if (head)
-            {
-              ps = head;
-              while ((ps->id != status.id) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
-                i++;
+	{
+	  /* Fast forward to song currently being played */
+	  head = player_queue_get();
+	  if (head)
+	    {
+	      ps = head;
+	      while ((ps->id != status.id) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
+	        i++;
 
-              while ((n < abs(span)) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
-                {
-                  n++;
+	      while ((n < abs(span)) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
+		{
+		  n++;
 
-                  ret = playqueuecontents_add_source(songlist, ps->id, (n + i + 1), status.plid);
-                  if (ret < 0)
-                    {
-                      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+		  ret = playqueuecontents_add_source(songlist, ps->id, (n + i + 1), status.plid);
+		  if (ret < 0)
+		    {
+		      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
 
-                      dmap_send_error(req, "ceQR", "Out of memory");
-                      return;
-                    }
-                }
-            }
-        }
+		      dmap_send_error(req, "ceQR", "Out of memory");
+		      return;
+		    }
+		}
+	    }
+	}
     }
 
   /* Playlists are hist, curr and main. */

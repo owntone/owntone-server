@@ -1485,18 +1485,18 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   while (nbytes < len)
     {
       if (new)
-        {
-          DPRINTF(E_DBG, L_PLAYER, "New file\n");
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "New file\n");
 
-          new = 0;
+	  new = 0;
 
-          // add song to the played history
-          history_add(cur_streaming->id);
+	  // add song to the played history
+	  history_add(cur_streaming->id);
 
-          ret = source_next(0);
-          if (ret < 0)
-            return -1;
-        }
+	  ret = source_next(0);
+	  if (ret < 0)
+	    return -1;
+	}
 
       if (EVBUFFER_LENGTH(audio_buf) == 0)
 	{
