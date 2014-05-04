@@ -2633,18 +2633,17 @@ playback_prev_bh(struct player_command *cmd)
 {
   int ret;
 
-  if (cur_playing)
+  if (!cur_streaming)
     {
-      if (cur_playing->end > cur_playing->stream_start)
-        history_add(cur_playing->id);
-      source_stop(cur_playing);
+      DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
+      return -1;
     }
-  else if (cur_streaming)
-    {
-      if (cur_streaming->end > cur_streaming->stream_start)
-        history_add(cur_streaming->id);
-      source_stop(cur_streaming);
-    }
+
+  /* Only add to history if playback started. */
+  if (cur_streaming->end > cur_streaming->stream_start)
+    history_add(cur_streaming->id);
+
+  source_stop(cur_streaming);
 
   ret = source_prev();
   if (ret < 0)
@@ -2673,18 +2672,17 @@ playback_next_bh(struct player_command *cmd)
 {
   int ret;
 
-  if (cur_playing)
+  if (!cur_streaming)
     {
-      if (cur_playing->end > cur_playing->stream_start)
-        history_add(cur_playing->id);
-      source_stop(cur_playing);
+      DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
+      return -1;
     }
-  else if (cur_streaming)
-    {
-      if (cur_streaming->end > cur_streaming->stream_start)
-        history_add(cur_streaming->id);
-      source_stop(cur_streaming);
-    }
+
+  /* Only add to history if playback started. */
+  if (cur_streaming->end > cur_streaming->stream_start)
+    history_add(cur_streaming->id);
+
+  source_stop(cur_streaming);
 
   ret = source_next(1);
   if (ret < 0)
