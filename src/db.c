@@ -719,14 +719,45 @@ db_set_cfg_names(void)
 #undef Q_TMPL
 }
 
-void
+int
+db_hook_pre_scan(void)
+{
+  char *sErrMsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running pre-scan DB maintenance tasks...\n");
+  sErrMsg = 0;
+  ret = sqlite3_exec(hdl, "BEGIN IMMEDIATE TRANSACTION", NULL, NULL, &sErrMsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "SQL error on BEGIN TRANSACTION: %s\n", sErrMsg);
+      sqlite3_free(sErrMsg);
+    }
+
+  DPRINTF(E_DBG, L_DB, "Done with pre-scan DB maintenance\n");
+  return ret;
+}
+
+int
 db_hook_post_scan(void)
 {
+  char *sErrMsg;
+  int ret;
+
   DPRINTF(E_DBG, L_DB, "Running post-scan DB maintenance tasks...\n");
 
   db_analyze();
 
+  sErrMsg = 0;
+  ret = sqlite3_exec(hdl, "END TRANSACTION", NULL, NULL, &sErrMsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DB, "SQL error on END TRANSACTION: %s\n", sErrMsg);
+      sqlite3_free(sErrMsg);
+    }
+
   DPRINTF(E_DBG, L_DB, "Done with post-scan DB maintenance\n");
+  return ret;
 }
 
 void

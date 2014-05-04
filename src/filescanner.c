@@ -993,6 +993,8 @@ bulk_scan(int flags)
 static void *
 filescanner(void *arg)
 {
+  time_t start;
+  time_t end;
   int ret;
 
   ret = db_perthread_init();
@@ -1026,12 +1028,30 @@ filescanner(void *arg)
   db_files_update_songartistid();
   db_files_update_songalbumid();
 
+  start = time(NULL);
+  ret = db_hook_pre_scan();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error: db hook pre scan failed\n");
+
+      pthread_exit(NULL);
+    }
+
   if (cfg_getbool(cfg_getsec(cfg, "library"), "filescan_disable"))
     bulk_scan(F_SCAN_BULK | F_SCAN_FAST);
   else
     bulk_scan(F_SCAN_BULK);
 
-  db_hook_post_scan();
+  ret = db_hook_post_scan();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error: db hook post scan failed\n");
+
+      pthread_exit(NULL);
+    }
+
+  end = time(NULL);
+  DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %f sec\n", difftime(end, start));
 
   if (!scan_exit)
     {
