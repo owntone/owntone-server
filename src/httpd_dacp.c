@@ -1131,23 +1131,76 @@ next_ps(struct player_source *ps, char shuffle)
     return ps->pl_next;
 }
 
+static int
+playqueuecontents_add_source(struct evbuffer *songlist, uint32_t source_id, int pos_in_queue, uint32_t plid)
+{
+  struct evbuffer *song;
+  struct media_file_info *mfi;
+  int ret;
+
+  song = evbuffer_new();
+  if (!song)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not allocate song evbuffer for playqueue-contents\n");
+      return -1;
+    }
+
+  mfi = db_file_fetch_byid(source_id);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not fetch file id %d\n", source_id);
+      return -1;
+    }
+  dmap_add_container(song, "ceQs", 16);
+  dmap_add_raw_uint32(song, 1); /* Database */
+  dmap_add_raw_uint32(song, plid);
+  dmap_add_raw_uint32(song, 0); /* Should perhaps be playlist index? */
+  dmap_add_raw_uint32(song, mfi->id);
+  dmap_add_string(song, "ceQn", mfi->title);
+  dmap_add_string(song, "ceQr", mfi->artist);
+  dmap_add_string(song, "ceQa", mfi->album);
+  dmap_add_string(song, "ceQg", mfi->genre);
+  dmap_add_long(song, "asai", mfi->songalbumid);
+  dmap_add_int(song, "cmmk", mfi->media_kind);
+  dmap_add_int(song, "casa", 1); /* Unknown  */
+  dmap_add_int(song, "astm", mfi->song_length);
+  dmap_add_char(song, "casc", 1); /* Maybe an indication of extra data? */
+  dmap_add_char(song, "caks", 6); /* Unknown */
+  dmap_add_int(song, "ceQI", pos_in_queue);
+
+  dmap_add_container(songlist, "mlit", EVBUFFER_LENGTH(song));
+
+  ret = evbuffer_add_buffer(songlist, song);
+  evbuffer_free(song);
+  free_mfi(mfi, 0);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+      return ret;
+    }
+
+  return 0;
+}
+
 static void
-dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
+    struct evkeyvalq *query)
 {
   struct daap_session *s;
-  struct evbuffer *song;
   struct evbuffer *songlist;
   struct evbuffer *playlists;
-  struct media_file_info *mfi;
   struct player_source *ps;
   struct player_source *head;
   struct player_status status;
+  struct player_history *history;
   const char *param;
   int span;
   int i;
   int n;
   int songlist_length;
   int ret;
+  int start_index;
 
   /* /ctrl-int/1/playqueue-contents?span=50&session-id=... */
 
@@ -1163,22 +1216,17 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       ret = safe_atoi32(param, &span);
       if (ret < 0)
-	DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
+        DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
     }
 
   songlist = NULL;
   i = 0;
-  n = 0;
+  n = 0; // count of songs in songlist
   player_get_status(&status);
-  /* Get queue and make songlist only if playing or paused */
-  if ((status.status != PLAY_STOPPED) && (head = player_queue_get()))
-    {
-      /* Fast forward to song currently being played */
-      ps = head;
-      while ((ps->id != status.id) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
-	i++;
 
-      /* Make song list for Up Next, begin with first song after playlist position */
+  /* Get queue and make songlist only if playing or paused */
+  if (status.status != PLAY_STOPPED)
+    {
       songlist = evbuffer_new();
       if (!songlist)
         {
@@ -1188,52 +1236,62 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
           return;
         }
 
-      while ((n < abs(span)) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
-	{
-	  n++;
-	  song = evbuffer_new();
-	  if (!song)
-	    {
-	      DPRINTF(E_LOG, L_DACP, "Could not allocate song evbuffer for playqueue-contents\n");
+      /*
+       * If the span parameter is negativ make song list for Previously Played,
+       * otherwise make song list for Up Next and begin with first song after playlist position.
+       */
+      if (span < 0)
+        {
+          history = player_history_get();
+          if (abs(span) > history->count)
+            {
+              start_index = history->start_index;
+            }
+          else
+            {
+              start_index = (history->start_index + history->count - abs(span)) % MAX_HISTORY_COUNT;
+            }
+          for (n = 0; n < history->count && n < abs(span); n++)
+            {
+              ret = playqueuecontents_add_source(songlist, history->id[(start_index + n) % MAX_HISTORY_COUNT], (n + 1),
+                  status.plid);
+              if (ret < 0)
+                {
+                  DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
 
-	      dmap_send_error(req, "ceQR", "Out of memory");
-	      return;
-	    }
+                  dmap_send_error(req, "ceQR", "Out of memory");
+                  return;
+                }
+            }
+        }
+      else
+        {
+          /* Fast forward to song currently being played */
+          head = player_queue_get();
+          if (head)
+            {
+              ps = head;
+              while ((ps->id != status.id) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
+                i++;
 
-	  mfi = db_file_fetch_byid(ps->id);
-	  dmap_add_container(song, "ceQs", 16);
-	  dmap_add_raw_uint32(song, 1); /* Database */
-	  dmap_add_raw_uint32(song, status.plid);
-	  dmap_add_raw_uint32(song, 0); /* Should perhaps be playlist index? */
-	  dmap_add_raw_uint32(song, mfi->id);
-	  dmap_add_string(song, "ceQn", mfi->title);
-	  dmap_add_string(song, "ceQr", mfi->artist);
-	  dmap_add_string(song, "ceQa", mfi->album);
-	  dmap_add_string(song, "ceQg", mfi->genre);
-	  dmap_add_long(song, "asai", mfi->songalbumid);
-	  dmap_add_int(song, "cmmk", mfi->media_kind);
-	  dmap_add_int(song, "casa", 1); /* Unknown  */
-	  dmap_add_int(song, "astm", mfi->song_length);
-	  dmap_add_char(song, "casc", 1); /* Maybe an indication of extra data? */
-	  dmap_add_char(song, "caks", 6); /* Unknown */
-	  dmap_add_int(song, "ceQI", n + i + 1);
+              while ((n < abs(span)) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
+                {
+                  n++;
 
-	  dmap_add_container(songlist, "mlit", EVBUFFER_LENGTH(song));
-	  ret = evbuffer_add_buffer(songlist, song);
-	  evbuffer_free(song);
-          if (mfi)
-	    free_mfi(mfi, 0);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+                  ret = playqueuecontents_add_source(songlist, ps->id, (n + i + 1), status.plid);
+                  if (ret < 0)
+                    {
+                      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
 
-	      dmap_send_error(req, "ceQR", "Out of memory");
-	      return;
-	    }
-	}  
+                      dmap_send_error(req, "ceQR", "Out of memory");
+                      return;
+                    }
+                }
+            }
+        }
     }
 
-  /* Playlists are hist, curr and main. Currently we don't support hist. */
+  /* Playlists are hist, curr and main. */
   playlists = evbuffer_new();
   if (!playlists)
     {
