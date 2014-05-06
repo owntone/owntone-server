@@ -309,7 +309,10 @@ void
 free_pli(struct playlist_info *pli, int content_only);
 
 /* Maintenance and DB hygiene */
-void
+int
+db_hook_pre_scan(void);
+
+int
 db_hook_post_scan(void);
 
 void
