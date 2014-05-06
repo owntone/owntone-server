@@ -3548,7 +3548,7 @@ queue_remove(struct player_command *cmd)
     return -1;
   }
 
-  for (i = 0; i <= pos; i++)
+  for (i = 0; i < pos; i++)
   {
     ps = shuffle ? ps->shuffle_next : ps->pl_next;
   }
