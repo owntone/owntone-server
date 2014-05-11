@@ -103,6 +103,10 @@ static int counter;
 /* Forward */
 static void
 bulk_scan(int flags);
+static int
+inofd_event_set(void);
+static void
+inofd_event_unset(void);
 
 static int
 push_dir(struct stacked_dir **s, char *path)
@@ -687,7 +691,10 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	  else
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Forcing full rescan, found force-rescan file: %s\n", file);
-	      db_purge_all();
+	      inofd_event_unset(); // Clears all inotify watches
+	      db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
+
+	      inofd_event_set();
 	      bulk_scan(F_SCAN_BULK);
 
 	      return;
@@ -1596,6 +1603,46 @@ kqueue_cb(int fd, short event, void *arg)
 }
 #endif /* __FreeBSD__ || __FreeBSD_kernel__ */
 
+/* Thread: main & scan */
+static int
+inofd_event_set(void)
+{
+#if defined(__linux__)
+  inofd = inotify_init1(IN_CLOEXEC);
+  if (inofd < 0)
+    {
+      DPRINTF(E_FATAL, L_SCAN, "Could not create inotify fd: %s\n", strerror(errno));
+
+      return -1;
+    }
+
+  event_set(&inoev, inofd, EV_READ, inotify_cb, NULL);
+
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+
+  inofd = kqueue();
+  if (inofd < 0)
+    {
+      DPRINTF(E_FATAL, L_SCAN, "Could not create kqueue: %s\n", strerror(errno));
+
+      return -1;
+    }
+
+  event_set(&inoev, inofd, EV_READ, kqueue_cb, NULL);
+#endif
+
+  event_base_set(evbase_scan, &inoev);
+
+  return 0;
+}
+
+/* Thread: main & scan */
+static void
+inofd_event_unset(void)
+{
+  event_del(&inoev);
+  close(inofd);
+}
 
 /* Thread: scan */
 static void
@@ -1651,31 +1698,11 @@ filescanner_init(void)
     }
 #endif /* USE_EVENTFD */
 
-#if defined(__linux__)
-  inofd = inotify_init1(IN_CLOEXEC);
-  if (inofd < 0)
+  ret = inofd_event_set();
+  if (ret < 0)
     {
-      DPRINTF(E_FATAL, L_SCAN, "Could not create inotify fd: %s\n", strerror(errno));
-
       goto ino_fail;
     }
-
-  event_set(&inoev, inofd, EV_READ, inotify_cb, NULL);
-
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-
-  inofd = kqueue();
-  if (inofd < 0)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not create kqueue: %s\n", strerror(errno));
-
-      goto ino_fail;
-    }
-
-  event_set(&inoev, inofd, EV_READ, kqueue_cb, NULL);
-#endif
-
-  event_base_set(evbase_scan, &inoev);
 
 #ifdef USE_EVENTFD
   event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
@@ -1744,7 +1771,7 @@ filescanner_deinit(void)
       return;
     }
 
-  event_del(&inoev);
+  inofd_event_unset();
 
 #ifdef USE_EVENTFD
   close(exit_efd);
@@ -1752,6 +1779,5 @@ filescanner_deinit(void)
   close(exit_pipe[0]);
   close(exit_pipe[1]);
 #endif
-  close(inofd);
   event_base_free(evbase_scan);
 }
