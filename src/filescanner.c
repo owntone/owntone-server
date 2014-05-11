@@ -61,6 +61,7 @@
 #include "conffile.h"
 #include "misc.h"
 #include "remote_pairing.h"
+#include "player.h"
 
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
@@ -684,15 +685,32 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	  return;
 	}
 #endif
-      else if (strcmp(ext, ".force-rescan") == 0)
+      else if (strcmp(ext, ".full-rescan") == 0)
 	{
 	  if (flags & F_SCAN_BULK)
 	    return;
 	  else
 	    {
-	      DPRINTF(E_LOG, L_SCAN, "Forcing full rescan, found force-rescan file: %s\n", file);
+	      DPRINTF(E_LOG, L_SCAN, "Forcing full rescan, found full-rescan file: %s\n", file);
+	      player_playback_stop();
+	      player_queue_clear();
 	      inofd_event_unset(); // Clears all inotify watches
 	      db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
+
+	      inofd_event_set();
+	      bulk_scan(F_SCAN_BULK);
+
+	      return;
+	    }
+	}
+      else if (strcmp(ext, ".init-rescan") == 0)
+	{
+	  if (flags & F_SCAN_BULK)
+	    return;
+	  else
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Forcing startup rescan, found init-rescan file: %s\n", file);
+	      inofd_event_unset(); // Clears all inotify watches
 
 	      inofd_event_set();
 	      bulk_scan(F_SCAN_BULK);
