@@ -1006,6 +1006,9 @@ bulk_scan(int flags)
       db_purge_cruft(start);
 
       DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
+
+      DPRINTF(E_DBG, L_SCAN, "Running post library scan jobs\n");
+      db_hook_post_scan();
     }
 }
 
@@ -1051,8 +1054,6 @@ filescanner(void *arg)
     bulk_scan(F_SCAN_BULK | F_SCAN_FAST);
   else
     bulk_scan(F_SCAN_BULK);
-
-  db_hook_post_scan();
 
   if (!scan_exit)
     {
