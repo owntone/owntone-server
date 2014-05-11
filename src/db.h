@@ -318,6 +318,13 @@ db_purge_cruft(time_t ref);
 void
 db_purge_all(void);
 
+/* Transactions */
+void
+db_transaction_begin(void);
+
+void
+db_transaction_end(void);
+
 /* Queries */
 int
 db_query_start(struct query_params *qp);

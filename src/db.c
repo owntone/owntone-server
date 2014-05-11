@@ -850,6 +850,44 @@ db_get_count(char *query)
 }
 
 
+/* Transactions */
+void
+db_transaction_begin(void)
+{
+  char *query = "BEGIN TRANSACTION;";
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "SQL error running '%s': %s\n", query, errmsg);
+
+      sqlite3_free(errmsg);
+    }
+}
+
+void
+db_transaction_end(void)
+{
+  char *query = "END TRANSACTION;";
+  char *errmsg;
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "SQL error running '%s': %s\n", query, errmsg);
+
+      sqlite3_free(errmsg);
+    }
+}
+
+
 /* Queries */
 static int
 db_build_query_index_clause(struct query_params *qp, char **i)

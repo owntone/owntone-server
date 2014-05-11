@@ -97,6 +97,9 @@ static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
 
+/* Count of files scanned during a bulk scan */
+static int counter;
+
 /* Forward */
 static void
 bulk_scan(int flags);
@@ -694,6 +697,16 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 
   /* Not any kind of special file, so let's see if it's a media file */
   filescanner_process_media(file, mtime, size, type, NULL);
+
+  counter++;
+
+  /* When in bulk mode, split transaction in pieces of 200 */
+  if ((flags & F_SCAN_BULK) && (counter % 200 == 0))
+    {
+      DPRINTF(E_LOG, L_SCAN, "Scanned %d files...\n", counter);
+      db_transaction_end();
+      db_transaction_begin();
+    }
 }
 
 /* Thread: scan */
@@ -931,6 +944,7 @@ bulk_scan(int flags)
   char *path;
   char *deref;
   time_t start;
+  time_t end;
   int i;
 
   start = time(NULL);
@@ -960,7 +974,10 @@ bulk_scan(int flags)
 	  continue;
 	}
 
+      counter = 0;
+      db_transaction_begin();
       process_directories(deref, flags);
+      db_transaction_end();
 
       free(deref);
 
@@ -977,14 +994,18 @@ bulk_scan(int flags)
   if (dirstack)
     DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
 
+  end = time(NULL);
+
   if (flags & F_SCAN_FAST)
-    DPRINTF(E_LOG, L_SCAN, "Bulk library scan complete (with file scan disabled)\n");
+    {
+      DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec (with file scan disabled)\n", difftime(end, start));
+    }
   else
     {
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);
 
-      DPRINTF(E_LOG, L_SCAN, "Bulk library scan complete\n");
+      DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
     }
 }
 
