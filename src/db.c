@@ -497,7 +497,10 @@ db_wait_unlock(void)
       pthread_mutex_lock(&u.lck);
 
       if (!u.proceed)
-	pthread_cond_wait(&u.cond, &u.lck);
+	{
+	  DPRINTF(E_INFO, L_DB, "Waiting for database unlock\n");
+	  pthread_cond_wait(&u.cond, &u.lck);
+	}
 
       pthread_mutex_unlock(&u.lck);
     }
