@@ -71,6 +71,7 @@
 #define F_SCAN_BULK    (1 << 0)
 #define F_SCAN_RESCAN  (1 << 1)
 #define F_SCAN_FAST    (1 << 2)
+#define F_SCAN_MOVED   (1 << 3)
 
 struct deferred_pl {
   char *path;
@@ -710,6 +711,9 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	  else
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Forcing startup rescan, found init-rescan file: %s\n", file);
+	      inofd_event_unset(); // Clears all inotify watches
+
+	      inofd_event_set();
 	      bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
 
 	      return;
@@ -896,7 +900,7 @@ process_directory(char *path, int flags)
       return;
     }
 
-  if (!(flags & F_SCAN_RESCAN))
+  if (!(flags & F_SCAN_MOVED))
     {
       wi.cookie = 0;
       wi.path = path;
@@ -1198,7 +1202,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	  db_pl_enable_bycookie(ie->cookie, path);
 
 	  /* We'll rescan the directory tree to update playlists */
-	  flags |= F_SCAN_RESCAN;
+	  flags |= F_SCAN_MOVED;
 	}
 
       ie->mask |= IN_CREATE;
