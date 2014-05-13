@@ -710,10 +710,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	  else
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Forcing startup rescan, found init-rescan file: %s\n", file);
-	      inofd_event_unset(); // Clears all inotify watches
-
-	      inofd_event_set();
-	      bulk_scan(F_SCAN_BULK);
+	      bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
 
 	      return;
 	    }
@@ -1027,6 +1024,13 @@ bulk_scan(int flags)
     }
   else
     {
+      /* Protect spotify from the imminent purge if rescanning */
+      if (flags & F_SCAN_RESCAN)
+	{
+	  db_file_ping_bymatch("spotify:");
+	  db_pl_ping_bymatch("spotify:");
+	}
+
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);
 
