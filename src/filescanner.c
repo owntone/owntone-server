@@ -712,6 +712,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Forcing startup rescan, found init-rescan file: %s\n", file);
 	      inofd_event_unset(); // Clears all inotify watches
+	      db_watch_clear();
 
 	      inofd_event_set();
 	      bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
