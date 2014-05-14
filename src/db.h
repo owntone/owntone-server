@@ -367,7 +367,7 @@ void
 db_file_ping(int id);
 
 void
-db_file_ping_bymatch(char *path);
+db_file_ping_bymatch(char *path, int isdir);
 
 char *
 db_file_path_byid(int id);
@@ -419,7 +419,7 @@ void
 db_pl_ping(int id);
 
 void
-db_pl_ping_bymatch(char *path);
+db_pl_ping_bymatch(char *path, int isdir);
 
 struct playlist_info *
 db_pl_fetch_bypath(char *path);

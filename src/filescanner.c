@@ -994,8 +994,8 @@ bulk_scan(int flags)
 	  db_file_disable_bymatch(path, "", 0);
 	  db_pl_disable_bymatch(path, "", 0);
 
-	  db_file_ping_bymatch(path);
-	  db_pl_ping_bymatch(path);
+	  db_file_ping_bymatch(path, 1);
+	  db_pl_ping_bymatch(path, 1);
 
 	  continue;
 	}
@@ -1031,8 +1031,8 @@ bulk_scan(int flags)
       /* Protect spotify from the imminent purge if rescanning */
       if (flags & F_SCAN_RESCAN)
 	{
-	  db_file_ping_bymatch("spotify:");
-	  db_pl_ping_bymatch("spotify:");
+	  db_file_ping_bymatch("spotify:", 0);
+	  db_pl_ping_bymatch("spotify:", 0);
 	}
 
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");

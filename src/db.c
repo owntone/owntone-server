@@ -1932,14 +1932,19 @@ db_file_ping(int id)
 }
 
 void
-db_file_ping_bymatch(char *path)
+db_file_ping_bymatch(char *path, int isdir)
 {
-#define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
+#define Q_TMPL_DIR "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
+#define Q_TMPL_NODIR "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q%%';"
   char *query;
   char *errmsg;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path);
+  if (isdir)
+    query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path);
+  else
+    query = sqlite3_mprintf(Q_TMPL_NODIR, (int64_t)time(NULL), path);
+
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1956,7 +1961,8 @@ db_file_ping_bymatch(char *path)
   sqlite3_free(errmsg);
   sqlite3_free(query);
 
-#undef Q_TMPL
+#undef Q_TMPL_DIR
+#undef Q_TMPL_NODIR
 }
 
 char *
@@ -2745,14 +2751,19 @@ db_pl_ping(int id)
 }
 
 void
-db_pl_ping_bymatch(char *path)
+db_pl_ping_bymatch(char *path, int isdir)
 {
-#define Q_TMPL "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
+#define Q_TMPL_DIR "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
+#define Q_TMPL_NODIR "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q%%';"
   char *query;
   char *errmsg;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), path);
+  if (isdir)
+    query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path);
+  else
+    query = sqlite3_mprintf(Q_TMPL_NODIR, (int64_t)time(NULL), path);
+
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -2769,7 +2780,8 @@ db_pl_ping_bymatch(char *path)
   sqlite3_free(errmsg);
   sqlite3_free(query);
 
-#undef Q_TMPL
+#undef Q_TMPL_DIR
+#undef Q_TMPL_NODIR
 }
 
 static int
