@@ -329,8 +329,8 @@ Pipes have no metadata, so they will be added with "Unknown artist" and "Unknown
 album". The name of the pipe will be used as the track title.
 
 
-Libraries on network mounts
---------------------------- 
+  Libraries on network mounts
+  --------------------------- 
 Most network filesharing protocols do not offer notifications when the library
 is changed. So that means forked-daapd cannot update its database in real time.
 Instead you can schedule a cron job to update the database.
@@ -338,7 +338,7 @@ Instead you can schedule a cron job to update the database.
 The first step in doing this is to add two entries to the 'directories'
 configuration item in forked-daapd.conf:
 
-  directories = { "/some/local/dir", "/your/network/mount/library/" }
+  directories = { "/some/local/dir", "/your/network/mount/library" }
 
 Now you can make a cron job that runs this command:
 
@@ -348,8 +348,8 @@ When forked-daapd detects a file with filename ending .init-rescan it will
 perform a bulk scan similar to the startup scan.
 
 
-Troubleshooting library issues
-------------------------------
+  Troubleshooting library issues
+  ------------------------------
 If you place a file with the filename ending .full-rescan in your library,
 you can trigger a full rescan of your library. This will clear all music and
 playlists from forked-daapd's database and initiate a fresh bulk scan. Pairing
