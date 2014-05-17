@@ -2633,6 +2633,7 @@ static int
 playback_prev_bh(struct player_command *cmd)
 {
   int ret;
+  int pos_sec;
 
   if (!cur_streaming)
     {
@@ -2646,12 +2647,34 @@ playback_prev_bh(struct player_command *cmd)
 
   source_stop(cur_streaming);
 
-  ret = source_prev();
-  if (ret < 0)
-    {
-      playback_abort();
+  /* Compute the playing time in seconds for the current song. */
+  if (cur_streaming->end > cur_streaming->stream_start)
+    pos_sec = (cur_streaming->end - cur_streaming->stream_start) / 44100;
+  else
+    pos_sec = 0;
 
-      return -1;
+  /* Only skip to the previous song if the playing time is less than 3 seconds,
+   otherwise restart the current song. */
+  DPRINTF(E_DBG, L_PLAYER, "Skipping song played %d sec\n", pos_sec);
+  if (pos_sec < 3)
+    {
+      ret = source_prev();
+      if (ret < 0)
+	{
+	  playback_abort();
+
+	  return -1;
+	}
+    }
+  else
+    {
+      ret = source_open(cur_streaming, 1);
+      if (ret < 0)
+	{
+	  playback_abort();
+
+	  return -1;
+	}
     }
 
   if (player_state == PLAY_STOPPED)
@@ -2667,6 +2690,7 @@ playback_prev_bh(struct player_command *cmd)
 
   return 0;
 }
+
 
 static int
 playback_next_bh(struct player_command *cmd)
