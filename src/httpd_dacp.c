@@ -1219,51 +1219,50 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	DPRINTF(E_LOG, L_DACP, "Invalid span value in playqueue-contents request\n");
     }
 
-  songlist = NULL;
   i = 0;
   n = 0; // count of songs in songlist
-  player_get_status(&status);
-
-  /* Get queue and make songlist only if playing or paused */
-  if (status.status != PLAY_STOPPED)
+  songlist = evbuffer_new();
+  if (!songlist)
     {
-      songlist = evbuffer_new();
-      if (!songlist)
-        {
-          DPRINTF(E_LOG, L_DACP, "Could not allocate songlist evbuffer for playqueue-contents\n");
+      DPRINTF(E_LOG, L_DACP, "Could not allocate songlist evbuffer for playqueue-contents\n");
 
-          dmap_send_error(req, "ceQR", "Out of memory");
-          return;
-        }
+      dmap_send_error(req, "ceQR", "Out of memory");
+      return;
+    }
 
-      /*
-       * If the span parameter is negativ make song list for Previously Played,
-       * otherwise make song list for Up Next and begin with first song after playlist position.
-       */
-      if (span < 0)
+  /*
+   * If the span parameter is negativ make song list for Previously Played,
+   * otherwise make song list for Up Next and begin with first song after playlist position.
+   */
+  if (span < 0)
+    {
+      history = player_history_get();
+      if (abs(span) > history->count)
 	{
-	  history = player_history_get();
-	  if (abs(span) > history->count)
-	    {
-	      start_index = history->start_index;
-	    }
-	  else
-	    {
-	      start_index = (history->start_index + history->count - abs(span)) % MAX_HISTORY_COUNT;
-	    }
-	  for (n = 0; n < history->count && n < abs(span); n++)
-	    {
-	      ret = playqueuecontents_add_source(songlist, history->id[(start_index + n) % MAX_HISTORY_COUNT], (n + 1), status.plid);
-	      if (ret < 0)
-		{
-		  DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
-
-		  dmap_send_error(req, "ceQR", "Out of memory");
-		  return;
-		}
-	    }
+	  start_index = history->start_index;
 	}
       else
+	{
+	  start_index = (history->start_index + history->count - abs(span)) % MAX_HISTORY_COUNT;
+	}
+      for (n = 0; n < history->count && n < abs(span); n++)
+	{
+	  ret = playqueuecontents_add_source(songlist, history->id[(start_index + n) % MAX_HISTORY_COUNT], (n + 1), status.plid);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+
+	      dmap_send_error(req, "ceQR", "Out of memory");
+	      return;
+	    }
+	}
+    }
+  else
+    {
+      player_get_status(&status);
+
+      /* Get queue and make songlist only if playing or paused */
+      if (status.status != PLAY_STOPPED)
 	{
 	  /* Fast forward to song currently being played */
 	  head = player_queue_get();
@@ -1271,7 +1270,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	    {
 	      ps = head;
 	      while ((ps->id != status.id) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
-	        i++;
+		i++;
 
 	      while ((n < abs(span)) && (ps = next_ps(ps, status.shuffle)) && (ps != head))
 		{
@@ -1361,6 +1360,32 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
     } 
   dmap_add_char(evbuf, "apsm", status.shuffle); /*  9, daap.playlistshufflemode - not part of mlcl container */
   dmap_add_char(evbuf, "aprm", status.repeat);  /*  9, daap.playlistrepeatmode  - not part of mlcl container */
+
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+}
+
+static void
+dacp_reply_playqueueedit_clear(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+{
+  const char *param;
+  int clear_hist;
+
+  clear_hist = 0;
+  param = evhttp_find_header(query, "mode");
+
+  /*
+   * The mode parameter contains the playlist to be cleared.
+   * If mode=0x68697374 (hex representation of the ascii string "hist") clear the history,
+   * otherwise the current playlist.
+   */
+  if (strcmp(param,"0x68697374") == 0)
+    clear_hist = 1;
+
+  player_queue_empty(clear_hist);
+
+  dmap_add_container(evbuf, "cacr", 24); /* 8 + len */
+  dmap_add_int(evbuf, "mstt", 200);      /* 12 */
+  dmap_add_int(evbuf, "miid", 0);        /* 12 */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 }
@@ -1630,7 +1655,7 @@ dacp_reply_playqueueedit(struct evhttp_request *req, struct evbuffer *evbuf, cha
     }
 
   if (strcmp(param, "clear") == 0)
-    dacp_reply_cue_clear(req, evbuf, uri, query);
+    dacp_reply_playqueueedit_clear(req, evbuf, uri, query);
   else if (strcmp(param, "playnow") == 0)
     dacp_reply_cue_play(req, evbuf, uri, query);
   else if (strcmp(param, "add") == 0)
