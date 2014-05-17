@@ -3429,9 +3429,9 @@ queue_add_next(struct player_command *cmd)
   if (!ps_shuffle)
     ps_shuffle = ps;
 
-  if (source_head)
+  if (source_head && cur_streaming)
   {
-    ps_playing = cur_playing ? cur_playing : cur_streaming;
+    ps_playing = cur_streaming;
 
     // Insert ps after ps_playing
     ps->pl_prev->pl_next = ps_playing->pl_next;
