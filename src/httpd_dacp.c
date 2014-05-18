@@ -1418,13 +1418,14 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	sort = "album";
       }
 
-      queuefilter = evhttp_find_header(query, "queuefilter");
+      // only use queryfilter if mode is not equal 3 (play next) or 5 (add to up next)
+      queuefilter = (mode == 3 || mode == 5) ? NULL : evhttp_find_header(query, "queuefilter");
 
       querymodifier = evhttp_find_header(query, "query-modifier");
       if (!querymodifier || (strcmp(querymodifier, "containers") != 0))
 	{
 	  quirkyquery = (mode == 1) && strstr(editquery, "dmap.itemid:") && ((!queuefilter) || strstr(queuefilter, "(null)"));
-	  ret = player_queue_make_daap(&ps, editquery, queuefilter, sort, quirkyquery);  
+	  ret = player_queue_make_daap(&ps, editquery, queuefilter, sort, quirkyquery);
 	}
       else
 	{
