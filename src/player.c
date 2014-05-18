@@ -127,8 +127,9 @@ struct player_command
 /* Keep in sync with enum raop_devtype */
 static const char *raop_devtype[] =
   {
-    "AirPort Express 802.11g",
-    "AirPort Express 802.11n",
+    "AirPort Express 1 - 802.11g",
+    "AirPort Express 2 - 802.11n",
+    "AirPort Express 3 - 802.11n",
     "AppleTV",
     "Other",
   };
@@ -4210,6 +4211,28 @@ player_device_remove(struct raop_device *rd)
 
 /* RAOP devices discovery - mDNS callback */
 /* Thread: main (mdns) */
+/* Examples of txt content:
+ * Apple TV 2:
+     ["sf=0x4" "am=AppleTV2,1" "vs=130.14" "vn=65537" "tp=UDP" "ss=16" "sr=4 4100" "sv=false" "pw=false" "md=0,1,2" "et=0,3,5" "da=true" "cn=0,1,2,3" "ch=2"]
+     ["sf=0x4" "am=AppleTV2,1" "vs=105.5" "md=0,1,2" "tp=TCP,UDP" "vn=65537" "pw=false" "ss=16" "sr=44100" "da=true" "sv=false" "et=0,3" "cn=0,1" "ch=2" "txtvers=1"]
+ * Apple TV 3:
+     ["vv=2" "vs=200.54" "vn=65537" "tp=UDP" "sf=0x44" "pk=8...f" "am=AppleTV3,1" "md=0,1,2" "ft=0x5A7FFFF7,0xE" "et=0,3,5" "da=true" "cn=0,1,2,3"]
+ * Sony STR-DN1040:
+     ["fv=s9327.1090.0" "am=STR-DN1040" "vs=141.9" "vn=65537" "tp=UDP" "ss=16" "sr=44100" "sv=false" "pw=false" "md=0,2" "ft=0x44F0A00" "et=0,4" "da=true" "cn=0,1" "ch=2" "txtvers=1"]
+ * AirFoil:
+     ["rastx=iafs" "sm=false" "raver=3.5.3.0" "ek=1" "md=0,1,2" "ramach=Win32NT.6" "et=0,1" "cn=0,1" "sr=44100" "ss=16" "raAudioFormats=ALAC" "raflakyzeroconf=true" "pw=false" "rast=afs" "vn=3" "sv=false" "txtvers=1" "ch=2" "tp=UDP"]
+ * Xbmc 13:
+     ["am=Xbmc,1" "md=0,1,2" "vs=130.14" "da=true" "vn=3" "pw=false" "sr=44100" "ss=16" "sm=false" "tp=UDP" "sv=false" "et=0,1" "ek=1" "ch=2" "cn=0,1" "txtvers=1"]
+ * Shairport (abrasive/1.0):
+     ["pw=false" "txtvers=1" "vn=3" "sr=44100" "ss=16" "ch=2" "cn=0,1" "et=0,1" "ek=1" "sm=false" "tp=UDP"]
+ * JB2:
+     ["fv=95.8947" "am=JB2 Gen" "vs=103.2" "tp=UDP" "vn=65537" "pw=false" "s s=16" "sr=44100" "da=true" "sv=false" "et=0,4" "cn=0,1" "ch=2" "txtvers=1"]
+ * Airport Express 802.11g (Gen 1):
+     ["tp=TCP,UDP" "sm=false" "sv=false" "ek=1" "et=0,1" "cn=0,1" "ch=2" "ss=16" "sr=44100" "pw=false" "vn=3" "txtvers=1"]
+ * Airport Express 802.11n:
+     802.11n Gen 2 model (firmware 7.6.4): "am=Airport4,107", "et=0,1"
+     802.11n Gen 3 model (firmware 7.6.4): "am=Airport10,115", "et=0,4"
+ */
 static void
 raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
@@ -4219,9 +4242,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   char *at_name;
   char *password;
   uint64_t id;
-  char wants_metadata;
-  char has_password;
-  enum raop_devtype devtype;
   int ret;
 
   ret = safe_hextou64(name, &id);
@@ -4275,6 +4295,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       return;
     }
 
+  /* Protocol */
   p = keyval_get(txt, "tp");
   if (!p)
     {
@@ -4297,13 +4318,14 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
       goto free_rd;
     }
 
+  /* Password protection */
   password = NULL;
   p = keyval_get(txt, "pw");
   if (!p)
     {
       DPRINTF(E_INFO, L_PLAYER, "AirPlay %s: no pw field in TXT record, assuming no password protection\n", name);
 
-      has_password = 0;
+      rd->has_password = 0;
     }
   else if (*p == '\0')
     {
@@ -4313,10 +4335,10 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
   else
     {
-      has_password = (strcmp(p, "false") != 0);
+      rd->has_password = (strcmp(p, "false") != 0);
     }
 
-  if (has_password)
+  if (rd->has_password)
     {
       DPRINTF(E_LOG, L_PLAYER, "AirPlay device %s is password-protected\n", name);
 
@@ -4328,52 +4350,39 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirPlay device %s\n", name);
     }
 
-  devtype = RAOP_DEV_APEX_80211N;
+  rd->password = password;
 
+  /* Device type */
+  rd->devtype = RAOP_DEV_OTHER;
   p = keyval_get(txt, "am");
+
   if (!p)
-    {
-      DPRINTF(E_INFO, L_PLAYER, "AirPlay %s: no am field in TXT record, assuming old Airport Express\n", name);
+    rd->devtype = RAOP_DEV_APEX1_80211G; // First generation AirPort Express
+  else if (strncmp(p, "AirPort4", strlen("AirPort4")) == 0)
+    rd->devtype = RAOP_DEV_APEX2_80211N; // Second generation
+  else if (strncmp(p, "AirPort", strlen("AirPort")) == 0)
+    rd->devtype = RAOP_DEV_APEX3_80211N; // Third generation and newer
+  else if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
+    rd->devtype = RAOP_DEV_APPLETV;
+  else if (*p == '\0')
+    DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: am has no value\n", name);
 
-      /* Old AirPort Express */
-      devtype = RAOP_DEV_APEX_80211G;
+  /* Encrypt stream */
+  p = keyval_get(txt, "ek");
+  if (p && (*p == '1'))
+    rd->encrypt = 1;
+  else
+    rd->encrypt = 0;
 
-      goto no_am;
-    }
-
-  if (*p == '\0')
-    {
-      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: am has no value\n", name);
-
-      goto no_am;
-    }
-
-  if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
-    devtype = RAOP_DEV_APPLETV;
-  else if (strncmp(p, "AirPort4", strlen("AirPort4")) != 0)
-    devtype = OTHER;
-
- no_am:
-  wants_metadata = 0;
+  /* Metadata support */
   p = keyval_get(txt, "md");
-  if (!p)
-    {
-      DPRINTF(E_INFO, L_PLAYER, "AirPlay %s: no md field in TXT record.\n", name);
+  if (p && (*p != '\0'))
+    rd->wants_metadata = 1;
+  else
+    rd->wants_metadata = 0;
 
-      goto no_md;
-    }
-
-  if (*p == '\0')
-    {
-      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: md has no value\n", name);
-
-      goto no_md;
-    }
-
-  wants_metadata = 1;
-
- no_md:
-  DPRINTF(E_DBG, L_PLAYER, "AirPlay device %s: password: %s, type %s\n", name, (password) ? "yes" : "no", raop_devtype[devtype]);
+  DPRINTF(E_INFO, L_PLAYER, "AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s\n", 
+    name, rd->has_password, rd->encrypt, rd->wants_metadata, raop_devtype[rd->devtype]);
 
   rd->advertised = 1;
 
@@ -4389,12 +4398,6 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 	rd->v6_port = port;
 	break;
     }
-
-  rd->devtype = devtype;
-
-  rd->wants_metadata = wants_metadata;
-  rd->has_password = has_password;
-  rd->password = password;
 
   player_device_add(rd);
 

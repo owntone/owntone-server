@@ -1855,13 +1855,18 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 
   switch (rd->devtype)
     {
-      case RAOP_DEV_APEX_80211G:
+      case RAOP_DEV_APEX1_80211G:
 	rs->encrypt = 1;
 	rs->auth_quirk_itunes = 1;
 	break;
 
-      case RAOP_DEV_APEX_80211N:
+      case RAOP_DEV_APEX2_80211N:
 	rs->encrypt = 1;
+	rs->auth_quirk_itunes = 0;
+	break;
+
+      case RAOP_DEV_APEX3_80211N:
+	rs->encrypt = 0;
 	rs->auth_quirk_itunes = 0;
 	break;
 
@@ -1870,8 +1875,8 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 	rs->auth_quirk_itunes = 0;
 	break;
 
-      case OTHER:
-	rs->encrypt = 0;
+      case RAOP_DEV_OTHER:
+	rs->encrypt = rd->encrypt;
 	rs->auth_quirk_itunes = 0;
 	break;
     }
