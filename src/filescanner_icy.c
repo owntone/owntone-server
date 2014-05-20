@@ -175,6 +175,13 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
 
   /* TODO https */
   av_url_split(NULL, 0, NULL, 0, ctx->hostname, sizeof(ctx->hostname), &ctx->port, ctx->path, sizeof(ctx->path), ctx->url);
+  if ((!ctx->hostname) || (strlen(ctx->hostname) == 0))
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error extracting hostname from playlist URL: %s\n", ctx->url);
+
+      return -1;
+    }
+
   if (ctx->port < 0)
     ctx->port = 80;
 
