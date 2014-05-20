@@ -26,8 +26,12 @@ sudo apt-get install \
  libmxml-dev libgcrypt11-dev libavahi-client-dev libavl-dev zlib1g-dev \
  libevent1-dev
 
+Depending on the version of libav/ffmpeg in your distribution you may also need
+libavresample-dev.
+
 Note that libevent1-dev is not in the Debian repository, but you can get the
-packages in the Ubuntu repository.
+packages in the Ubuntu repository. You can also use libevent 2, but it must be
+version 2.1.4 or newer.
 
 Then run the following:
 
