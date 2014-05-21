@@ -477,7 +477,7 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
 
   db_file_stamp_bypath(path, &stamp, &id);
 
-  if (stamp >= mtime)
+  if (stamp && (stamp >= mtime))
     {
       db_file_ping(id);
       return;
