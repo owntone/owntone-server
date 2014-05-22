@@ -136,7 +136,7 @@ AC_RUN_IFELSE(
 AC_LANG_POP([C])
 LIBS="$save_LIBS"
 
-PKG_CHECK_EXISTS([libavresample], [ 
+PKG_CHECK_EXISTS([ libavcodec >= 54.35 ], [ 
   PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavresample libavutil ]) 
 ], [ 
   PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavutil ])
@@ -160,19 +160,15 @@ fi
 
 PKG_CHECK_MODULES(MINIXML, [ mxml ])
 
-PKG_CHECK_MODULES(LIBEVENT, [ libevent >= 2],
-	AC_CHECK_LIB([event], [evhttp_request_set_header_cb],
-	        AC_DEFINE(HAVE_LIBEVENT2, 1, [Define to 1 if you have libevent 2 with evhttp_request_set_header_cb()]),
-		AC_MSG_ERROR([found libevent 2 but without evhttp_request_set_header_cb() - try version >= 2.1.4])
-	),
+PKG_CHECK_MODULES(LIBEVENT, [ libevent >= 2.1.4 ],
+        AC_DEFINE(HAVE_LIBEVENT2, 1, [Define to 1 if you have libevent >= 2.1.4]),
 	try_libevent1=true;
 )
 
 if test x$try_libevent1 = xtrue; then
-        AC_CHECK_HEADER(event.h,
-                AC_CHECK_LIB([event_core], [event_init], [LIBEVENT_LIBS="-levent_core"], AC_MSG_ERROR([libevent not found])),
-                AC_MSG_ERROR([event.h not found])
-        )
+        AC_CHECK_HEADER(event.h, , AC_MSG_ERROR([event.h not found]))
+        AC_CHECK_LIB([event_core], [event_init], [LIBEVENT_LIBS="-levent_core"], AC_MSG_ERROR([libevent not found]))
+        AC_CHECK_LIB([event_core], [event_new], AC_MSG_ERROR([found libevent 2 but version should be at least 2.1.4]))
 	AC_SUBST(LIBEVENT_LIBS)
 	AM_CONDITIONAL(COND_LIBEVENT2, false)
 else
