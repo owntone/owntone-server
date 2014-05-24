@@ -174,6 +174,9 @@ void
 player_queue_clear(void);
 
 void
+player_queue_empty(int clear_hist);
+
+void
 player_queue_plid(uint32_t plid);
 
 struct player_history *

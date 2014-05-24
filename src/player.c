@@ -3589,6 +3589,50 @@ queue_clear(struct player_command *cmd)
 }
 
 static int
+queue_empty(struct player_command *cmd)
+{
+  int clear_hist;
+  struct player_source *ps;
+
+  clear_hist = cmd->arg.intval;
+  if (clear_hist)
+    {
+      memset(history, 0, sizeof(struct player_history));
+    }
+  else
+    {
+      if (!source_head || !cur_streaming)
+	return 0;
+
+      // Stop playback if playing and streaming song are not the same
+      if (!cur_playing || cur_playing != cur_streaming)
+	{
+	  playback_stop(cmd);
+	  queue_clear(cmd);
+	  return 0;
+	}
+
+      // Set head to the current playing song
+      shuffle_head = cur_playing;
+      source_head = cur_playing;
+
+      // Free all items in the queue except the current playing song
+      for (ps = source_head->pl_next; ps != source_head; ps = ps->pl_next)
+	{
+	  source_free(ps);
+	}
+
+      // Make the queue circular again
+      source_head->pl_next = source_head;
+      source_head->pl_prev = source_head;
+      source_head->shuffle_next = source_head;
+      source_head->shuffle_prev = source_head;
+    }
+
+  return 0;
+}
+
+static int
 queue_plid(struct player_command *cmd)
 {
   if (!source_head)
@@ -4105,6 +4149,22 @@ player_queue_clear(void)
   cmd.func = queue_clear;
   cmd.func_bh = NULL;
   cmd.arg.noarg = NULL;
+
+  sync_command(&cmd);
+
+  command_deinit(&cmd);
+}
+
+void
+player_queue_empty(int clear_hist)
+{
+  struct player_command cmd;
+
+  command_init(&cmd);
+
+  cmd.func = queue_empty;
+  cmd.func_bh = NULL;
+  cmd.arg.intval = clear_hist;
 
   sync_command(&cmd);
 
