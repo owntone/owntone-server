@@ -862,7 +862,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_char(content, "msix", 1);         // dmap.supportsindex
 //  dmap_add_char(content, "msrs", 1);       // dmap.supportsresolve
 
-  dmap_add_int(content, "msdc", 1);          // dmap.databasescount
+  dmap_add_int(content, "msdc", 2);          // dmap.databasescount
 
 //  dmap_add_int(content, "mstc", );          // dmap.utctime
 //  dmap_add_int(content, "msto", );          // dmap.utcoffset
@@ -1123,6 +1123,7 @@ static int
 daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct evbuffer *content;
+  struct evbuffer *item;
   struct daap_session *s;
   cfg_t *lib;
   char *name;
@@ -1144,29 +1145,64 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       return -1;
     }
 
-  dmap_add_int(content, "miid", 1);
-  dmap_add_long(content, "mper", 1);
-  dmap_add_int(content, "mdbk", 1);
-  dmap_add_int(content, "aeCs", 1);
-  dmap_add_string(content, "minm", name);
+  // Add db entry for library with dbid = 1
+  item = evbuffer_new();
+    if (!content)
+      {
+        DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP dblist library item\n");
 
+        dmap_send_error(req, "avdb", "Out of memory");
+        return;
+      }
+  dmap_add_int(item, "miid", 1);
+  dmap_add_long(item, "mper", 1);
+  dmap_add_int(item, "mdbk", 1);
+  dmap_add_int(item, "aeCs", 1);
+  dmap_add_string(item, "minm", name);
   count = db_files_get_count();
-  dmap_add_int(content, "mimc", count);
-
+  dmap_add_int(item, "mimc", count);
   count = db_pl_get_count(); // TODO Don't count empty smart playlists, because they get excluded in aply
-  dmap_add_int(content, "mctc", count);
-
+  dmap_add_int(item, "mctc", count);
 //  dmap_add_int(content, "aeMk", 0x405);   // com.apple.itunes.extended-media-kind (OR of all in library)
-  dmap_add_int(content, "meds", 3);
+  dmap_add_int(item, "meds", 3);
+
+  // Create container for library db
+  dmap_add_container(content, "mlit", EVBUFFER_LENGTH(item));
+  evbuffer_add_buffer(content, item);
+  evbuffer_free(item);
+
+  // Add second db entry for radio with dbid = 2
+  item =  evbuffer_new();
+  if (!content)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP dblist radio item\n");
+
+      dmap_send_error(req, "avdb", "Out of memory");
+      return;
+    }
+  dmap_add_int(item, "miid", 2);
+  dmap_add_long(item, "mper", 2);
+  dmap_add_int(item, "mdbk", 0x64);
+  dmap_add_int(item, "aeCs", 0);
+  dmap_add_string(item, "minm", "Radio");
+  count = 3; // TODO Get count of radio streams
+  dmap_add_int(item, "mimc", count);
+  dmap_add_int(item, "mctc", 0);
+  dmap_add_int(item, "aeMk", 1);   // com.apple.itunes.extended-media-kind (OR of all in library)
+  dmap_add_int(item, "meds", 3);
+
+  // Create container for radio db
+  dmap_add_container(content, "mlit", EVBUFFER_LENGTH(item));
+  evbuffer_add_buffer(content, item);
+  evbuffer_free(item);
 
   // Create container
-  dmap_add_container(evbuf, "avdb", EVBUFFER_LENGTH(content) + 61);
+  dmap_add_container(evbuf, "avdb", EVBUFFER_LENGTH(content) + 53);
   dmap_add_int(evbuf, "mstt", 200);     /* 12 */
   dmap_add_char(evbuf, "muty", 0);      /* 9 */
-  dmap_add_int(evbuf, "mtco", 1);       /* 12 */
-  dmap_add_int(evbuf, "mrco", 1);       /* 12 */
-  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(content) + 8); /* 8 */
-  dmap_add_container(evbuf, "mlit", EVBUFFER_LENGTH(content));     /* 8 */
+  dmap_add_int(evbuf, "mtco", 2);       /* 12 */
+  dmap_add_int(evbuf, "mrco", 2);       /* 12 */
+  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(content)); /* 8 */
   evbuffer_add_buffer(evbuf, content);
   evbuffer_free(content);
 
