@@ -51,6 +51,10 @@
 #include "daap_query.h"
 #include "dmap_common.h"
 
+#ifdef HAVE_LIBEVENT2
+# include <event2/http_struct.h>
+#endif
+
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
 
@@ -313,6 +317,7 @@ static void
 update_refresh_cb(int fd, short event, void *arg)
 {
   struct daap_update_request *ur;
+  struct evhttp_connection *evcon;
   struct evbuffer *evbuf;
   int ret;
 
@@ -339,7 +344,8 @@ update_refresh_cb(int fd, short event, void *arg)
   dmap_add_int(evbuf, "mstt", 200);         /* 12 */
   dmap_add_int(evbuf, "musr", current_rev); /* 12 */
 
-  evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+  evcon = evhttp_request_get_connection(ur->req);
+  evhttp_connection_set_closecb(evcon, NULL, NULL);
 
   httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
 
@@ -350,14 +356,16 @@ update_refresh_cb(int fd, short event, void *arg)
 static void
 update_fail_cb(struct evhttp_connection *evcon, void *arg)
 {
+  struct evhttp_connection *evc;
   struct daap_update_request *ur;
 
   ur = (struct daap_update_request *)arg;
 
   DPRINTF(E_DBG, L_DAAP, "Update request: client closed connection\n");
 
-  if (ur->req->evcon)
-    evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+  evc = evhttp_request_get_connection(ur->req);
+  if (evc)
+    evhttp_connection_set_closecb(evc, NULL, NULL);
 
   update_remove(ur);
   update_free(ur);
@@ -725,6 +733,7 @@ static void
 daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
 {
   struct evbuffer *content;
+  struct evkeyvalq *headers;
   cfg_t *lib;
   char *name;
   char *passwd;
@@ -748,7 +757,8 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   mpro = 2 << 16 | 10;
   apro = 3 << 16 | 12;
 
-  clientver = evhttp_find_header(req->input_headers, "Client-DAAP-Version");
+  headers = evhttp_request_get_input_headers(req);
+  clientver = evhttp_find_header(headers, "Client-DAAP-Version");
   if (clientver)
     {
       if (strcmp(clientver, "1.0") == 0)
@@ -859,6 +869,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 {
   struct pairing_info pi;
   struct daap_session *s;
+  struct evkeyvalq *headers;
   const char *ua;
   const char *param;
   int request_session_id;
@@ -873,7 +884,8 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
       return;
     }
 
-  ua = evhttp_find_header(req->input_headers, "User-Agent");
+  headers = evhttp_request_get_input_headers(req);
+  ua = evhttp_find_header(headers, "User-Agent");
   if (ua && (strncmp(ua, "Remote", strlen("Remote")) == 0))
     {
       param = evhttp_find_header(query, "pairing-guid");
@@ -949,6 +961,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   struct timeval tv;
   struct daap_session *s;
   struct daap_update_request *ur;
+  struct evhttp_connection *evcon;
   const char *param;
   int reqd_rev;
   int ret;
@@ -1035,7 +1048,9 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   /* If the connection fails before we have an update to push out
    * to the client, we need to know.
    */
-  evhttp_connection_set_closecb(req->evcon, update_fail_cb, ur);
+  evcon = evhttp_request_get_connection(req);
+  if (evcon)
+    evhttp_connection_set_closecb(evcon, update_fail_cb, ur);
 }
 
 static void
@@ -1107,6 +1122,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   struct db_media_file_info dbmfi;
   struct evbuffer *song;
   struct evbuffer *songlist;
+  struct evkeyvalq *headers;
   const struct dmap_field **meta;
   struct sort_ctx *sctx;
   const char *param;
@@ -1244,7 +1260,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       nsongs++;
 
-      transcode = transcode_needed(req->input_headers, dbmfi.codectype);
+      headers = evhttp_request_get_input_headers(req);
+      transcode = transcode_needed(headers, dbmfi.codectype);
 
       ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, sort_headers, transcode);
       if (ret < 0)
@@ -2121,6 +2138,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 {
   char clen[32];
   struct daap_session *s;
+  struct evkeyvalq *headers;
   const char *param;
   char *ctype;
   int id;
@@ -2191,10 +2209,11 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 	goto no_artwork;
     }
 
-  evhttp_remove_header(req->output_headers, "Content-Type");
-  evhttp_add_header(req->output_headers, "Content-Type", ctype);
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_remove_header(headers, "Content-Type");
+  evhttp_add_header(headers, "Content-Type", ctype);
   snprintf(clen, sizeof(clen), "%ld", (long)EVBUFFER_LENGTH(evbuf));
-  evhttp_add_header(req->output_headers, "Content-Length", clen);
+  evhttp_add_header(headers, "Content-Length", clen);
 
   /* No gzip compression for artwork */
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
@@ -2435,6 +2454,7 @@ daap_request(struct evhttp_request *req)
   char *uri_parts[7];
   struct evbuffer *evbuf;
   struct evkeyvalq query;
+  struct evkeyvalq *headers;
   const char *ua;
   cfg_t *lib;
   char *libname;
@@ -2532,7 +2552,8 @@ daap_request(struct evhttp_request *req)
    * valid session-id that Remote can only obtain if its pairing-guid is in
    * our database. So HTTP authentication is waived for Remote.
    */
-  ua = evhttp_find_header(req->input_headers, "User-Agent");
+  headers = evhttp_request_get_input_headers(req);
+  ua = evhttp_find_header(headers, "User-Agent");
   if ((ua) && (strncmp(ua, "Remote", strlen("Remote")) == 0))
     passwd = NULL;
 
@@ -2587,13 +2608,14 @@ daap_request(struct evhttp_request *req)
 
   evhttp_parse_query(full_uri, &query);
 
-  evhttp_add_header(req->output_headers, "Accept-Ranges", "bytes");
-  evhttp_add_header(req->output_headers, "DAAP-Server", "forked-daapd/" VERSION);
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(headers, "Accept-Ranges", "bytes");
+  evhttp_add_header(headers, "DAAP-Server", "forked-daapd/" VERSION);
   /* Content-Type for all replies, even the actual audio streaming. Note that
    * video streaming will override this Content-Type with a more appropriate
    * video/<type> Content-Type as expected by clients like Front Row.
    */
-  evhttp_add_header(req->output_headers, "Content-Type", "application/x-dmap-tagged");
+  evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
 
   daap_handlers[handler].handler(req, evbuf, uri_parts, &query);
 
@@ -2679,6 +2701,7 @@ void
 daap_deinit(void)
 {
   struct daap_update_request *ur;
+  struct evhttp_connection *evcon;
   int i;
 
   for (i = 0; daap_handlers[i].handler; i++)
@@ -2690,10 +2713,11 @@ daap_deinit(void)
     {
       update_requests = ur->next;
 
-      if (ur->req->evcon)
+      evcon = evhttp_request_get_connection(ur->req);
+      if (evcon)
 	{
-	  evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
-	  evhttp_connection_free(ur->req->evcon);
+	  evhttp_connection_set_closecb(evcon, NULL, NULL);
+	  evhttp_connection_free(evcon);
 	}
 
       update_free(ur);

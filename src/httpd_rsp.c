@@ -42,7 +42,6 @@
 #include "httpd_rsp.h"
 #include "rsp_query.h"
 
-
 #define RSP_VERSION "1.0"
 #define RSP_XML_ROOT "?xml version=\"1.0\" encoding=\"UTF-8\" standalone=\"yes\" ?"
 
@@ -219,6 +218,7 @@ static void
 rsp_send_error(struct evhttp_request *req, char *errmsg)
 {
   struct evbuffer *evbuf;
+  struct evkeyvalq *headers;
   mxml_node_t *reply;
   mxml_node_t *status;
   mxml_node_t *node;
@@ -254,8 +254,9 @@ rsp_send_error(struct evhttp_request *req, char *errmsg)
       return;
     }
 
-  evhttp_add_header(req->output_headers, "Content-Type", "text/xml; charset=utf-8");
-  evhttp_add_header(req->output_headers, "Connection", "close");
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
+  evhttp_add_header(headers, "Connection", "close");
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
 
   evbuffer_free(evbuf);
@@ -265,6 +266,7 @@ static void
 rsp_send_reply(struct evhttp_request *req, mxml_node_t *reply)
 {
   struct evbuffer *evbuf;
+  struct evkeyvalq *headers;
 
   evbuf = mxml_to_evbuf(reply);
   mxmlDelete(reply);
@@ -276,8 +278,9 @@ rsp_send_reply(struct evhttp_request *req, mxml_node_t *reply)
       return;
     }
 
-  evhttp_add_header(req->output_headers, "Content-Type", "text/xml; charset=utf-8");
-  evhttp_add_header(req->output_headers, "Connection", "close");
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(headers, "Content-Type", "text/xml; charset=utf-8");
+  evhttp_add_header(headers, "Connection", "close");
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
   evbuffer_free(evbuf);
@@ -434,6 +437,7 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
+  struct evkeyvalq *headers;
   const char *param;
   char **strval;
   mxml_node_t *reply;
@@ -526,7 +530,8 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   /* Items block (all items) */
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-      transcode = transcode_needed(req->input_headers, dbmfi.codectype);
+      headers = evhttp_request_get_input_headers(req);
+      transcode = transcode_needed(headers, dbmfi.codectype);
 
       /* Item block (one item) */
       item = mxmlNewElement(items, "item");

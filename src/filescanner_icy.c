@@ -44,7 +44,7 @@
 #if defined HAVE_LIBEVENT2
 # include <event2/http.h>
 #else
-# include "evhttp/evhttp.h"
+# include "evhttp/evhttp_compat.h"
 #endif
 
 #include <libavformat/avformat.h>
@@ -138,12 +138,7 @@ scan_icy_header_cb(struct evhttp_request *req, void *arg)
 
   DPRINTF(E_DBG, L_SCAN, "ICY metadata request: Headers received\n");
 
-#ifdef HAVE_LIBEVENT2
   headers = evhttp_request_get_input_headers(req);
-#else
-  headers = req->input_headers;
-#endif
-
   if ( (ptr = evhttp_find_header(headers, "icy-name")) )
     {
       ctx->icy_name = strdup(ptr);
@@ -255,13 +250,9 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
       goto no_icy;
     }
 
-#ifdef HAVE_LIBEVENT2
   evhttp_request_set_header_cb(req, scan_icy_header_cb);
+
   headers = evhttp_request_get_output_headers(req);
-#else
-  req->header_cb = scan_icy_header_cb;
-  headers = req->output_headers;
-#endif
   snprintf(s, PATH_MAX, "%s:%d", ctx->hostname, ctx->port);
   evhttp_add_header(headers, "Host", s);
   evhttp_add_header(headers, "Icy-MetaData", "1");

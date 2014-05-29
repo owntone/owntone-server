@@ -48,9 +48,9 @@
 
 #include <event.h>
 #ifdef HAVE_LIBEVENT2
-# include <evhttp.h>
+# include <event2/http.h>
 #else
-# include "evhttp/evhttp.h"
+# include "evhttp/evhttp_compat.h"
 #endif
 
 #include <gcrypt.h>
@@ -414,8 +414,10 @@ static void
 pairing_request_cb(struct evhttp_request *req, void *arg)
 {
   struct remote_info *ri;
+  struct evbuffer *input_buffer;
   uint8_t *response;
   char guid[17];
+  int response_code;
   int len;
   int i;
   int ret;
@@ -429,21 +431,24 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
       goto cleanup;
     }
 
-  if (req->response_code != HTTP_OK)
+  response_code = evhttp_request_get_response_code(req);
+  if (response_code != HTTP_OK)
     {
-      DPRINTF(E_LOG, L_REMOTE, "Pairing failed with Remote %s/%s, HTTP response code %d\n", ri->pi.remote_id, ri->pi.name, req->response_code);
+      DPRINTF(E_LOG, L_REMOTE, "Pairing failed with Remote %s/%s, HTTP response code %d\n", ri->pi.remote_id, ri->pi.name, response_code);
 
       goto cleanup;
     }
 
-  if (EVBUFFER_LENGTH(req->input_buffer) < 8)
+  input_buffer = evhttp_request_get_input_buffer(req);
+
+  if (EVBUFFER_LENGTH(input_buffer) < 8)
     {
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response too short\n", ri->pi.remote_id, ri->pi.name);
 
       goto cleanup;
     }
 
-  response = EVBUFFER_DATA(req->input_buffer);
+  response = EVBUFFER_DATA(input_buffer);
 
   if ((response[0] != 'c') || (response[1] != 'm') || (response[2] != 'p') || (response[3] != 'a'))
     {
@@ -453,10 +458,10 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
     }
 
   len = (response[4] << 24) | (response[5] << 16) | (response[6] << 8) | (response[7]);
-  if (EVBUFFER_LENGTH(req->input_buffer) < 8 + len)
+  if (EVBUFFER_LENGTH(input_buffer) < 8 + len)
     {
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response truncated (got %d expected %d)\n",
-	      ri->pi.remote_id, ri->pi.name, (int)EVBUFFER_LENGTH(req->input_buffer), len + 8);
+	      ri->pi.remote_id, ri->pi.name, (int)EVBUFFER_LENGTH(input_buffer), len + 8);
 
       goto cleanup;
     }
@@ -536,15 +541,13 @@ send_pairing_request(struct remote_info *ri, char *req_uri, int family)
 	return -1;
     }
 
-  evcon = evhttp_connection_new(address, port);
+  evcon = evhttp_connection_base_new(evbase_main, NULL, address, port);
   if (!evcon)
     {
       DPRINTF(E_LOG, L_REMOTE, "Could not create connection for pairing with %s\n", ri->pi.name);
 
       return -1;
     }
-
-  evhttp_connection_set_base(evcon, evbase_main);
 
   req = evhttp_request_new(pairing_request_cb, ri);
   if (!req)

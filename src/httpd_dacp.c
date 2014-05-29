@@ -47,7 +47,6 @@
 #include "db.h"
 #include "player.h"
 
-
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
 
@@ -268,6 +267,7 @@ playstatusupdate_cb(int fd, short what, void *arg)
   struct dacp_update_request *ur;
   struct evbuffer *evbuf;
   struct evbuffer *update;
+  struct evhttp_connection *evcon;
   int ret;
 
 #ifdef USE_EVENTFD
@@ -313,7 +313,9 @@ playstatusupdate_cb(int fd, short what, void *arg)
     {
       update_requests = ur->next;
 
-      evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+      evcon = evhttp_request_get_connection(ur->req);
+      if (evcon)
+	evhttp_connection_set_closecb(evcon, NULL, NULL);
 
       evbuffer_add(evbuf, EVBUFFER_DATA(update), EVBUFFER_LENGTH(update));
 
@@ -358,13 +360,15 @@ update_fail_cb(struct evhttp_connection *evcon, void *arg)
 {
   struct dacp_update_request *ur;
   struct dacp_update_request *p;
+  struct evhttp_connection *evc;
 
   ur = (struct dacp_update_request *)arg;
 
   DPRINTF(E_DBG, L_DACP, "Update request: client closed connection\n");
 
-  if (ur->req->evcon)
-    evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
+  evc = evhttp_request_get_connection(ur->req);
+  if (evc)
+    evhttp_connection_set_closecb(evc, NULL, NULL);
 
   if (ur == update_requests)
     update_requests = ur->next;
@@ -1678,6 +1682,7 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
 {
   struct daap_session *s;
   struct dacp_update_request *ur;
+  struct evhttp_connection *evcon;
   const char *param;
   int reqd_rev;
   int ret;
@@ -1733,7 +1738,9 @@ dacp_reply_playstatusupdate(struct evhttp_request *req, struct evbuffer *evbuf, 
   /* If the connection fails before we have an update to push out
    * to the client, we need to know.
    */
-  evhttp_connection_set_closecb(req->evcon, update_fail_cb, ur);
+  evcon = evhttp_request_get_connection(req);
+  if (evcon)
+    evhttp_connection_set_closecb(evcon, update_fail_cb, ur);
 }
 
 static void
@@ -1741,6 +1748,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
 {
   char clen[32];
   struct daap_session *s;
+  struct evkeyvalq *headers;
   const char *param;
   char *ctype;
   uint32_t id;
@@ -1810,10 +1818,11 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
 	goto no_artwork;
     }
 
-  evhttp_remove_header(req->output_headers, "Content-Type");
-  evhttp_add_header(req->output_headers, "Content-Type", ctype);
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_remove_header(headers, "Content-Type");
+  evhttp_add_header(headers, "Content-Type", ctype);
   snprintf(clen, sizeof(clen), "%ld", (long)EVBUFFER_LENGTH(evbuf));
-  evhttp_add_header(req->output_headers, "Content-Length", clen);
+  evhttp_add_header(headers, "Content-Length", clen);
 
   /* No gzip compression for artwork */
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
@@ -2216,6 +2225,7 @@ dacp_request(struct evhttp_request *req)
   char *uri_parts[7];
   struct evbuffer *evbuf;
   struct evkeyvalq query;
+  struct evkeyvalq *headers;
   int handler;
   int ret;
   int i;
@@ -2307,9 +2317,10 @@ dacp_request(struct evhttp_request *req)
 
   evhttp_parse_query(full_uri, &query);
 
-  evhttp_add_header(req->output_headers, "DAAP-Server", "forked-daapd/" VERSION);
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(headers, "DAAP-Server", "forked-daapd/" VERSION);
   /* Content-Type for all DACP replies; can be overriden as needed */
-  evhttp_add_header(req->output_headers, "Content-Type", "application/x-dmap-tagged");
+  evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
 
   dacp_handlers[handler].handler(req, evbuf, uri_parts, &query);
 
@@ -2401,6 +2412,7 @@ void
 dacp_deinit(void)
 {
   struct dacp_update_request *ur;
+  struct evhttp_connection *evcon;
   int i;
 
   player_set_update_handler(NULL);
@@ -2412,10 +2424,11 @@ dacp_deinit(void)
     {
       update_requests = ur->next;
 
-      if (ur->req->evcon)
+      evcon = evhttp_request_get_connection(ur->req);
+      if (evcon)
 	{
-	  evhttp_connection_set_closecb(ur->req->evcon, NULL, NULL);
-	  evhttp_connection_free(ur->req->evcon);
+	  evhttp_connection_set_closecb(evcon, NULL, NULL);
+	  evhttp_connection_free(evcon);
 	}
 
       free(ur);

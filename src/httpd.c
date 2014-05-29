@@ -53,7 +53,6 @@
 #include "httpd_dacp.h"
 #include "transcode.h"
 
-
 /*
  * HTTP client quirks by User-Agent, from mt-daapd
  *
@@ -127,8 +126,12 @@ static pthread_t tid_httpd;
 static void
 stream_end(struct stream_ctx *st, int failed)
 {
-  if (st->req->evcon)
-    evhttp_connection_set_closecb(st->req->evcon, NULL, NULL);
+  struct evhttp_connection *evcon;
+
+  evcon = evhttp_request_get_connection(st->req);
+
+  if (evcon)
+    evhttp_connection_set_closecb(evcon, NULL, NULL);
 
   if (!failed)
     evhttp_send_reply_end(st->req);
@@ -312,6 +315,9 @@ httpd_stream_file(struct evhttp_request *req, int id)
   void (*stream_cb)(int fd, short event, void *arg);
   struct stat sb;
   struct timeval tv;
+  struct evhttp_connection *evcon;
+  struct evkeyvalq *input_headers;
+  struct evkeyvalq *output_headers;
   const char *param;
   const char *param_end;
   char buf[64];
@@ -323,7 +329,10 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
   offset = 0;
   end_offset = 0;
-  param = evhttp_find_header(req->input_headers, "Range");
+
+  input_headers = evhttp_request_get_input_headers(req);
+
+  param = evhttp_find_header(input_headers, "Range");
   if (param)
     {
       DPRINTF(E_DBG, L_HTTPD, "Found Range header: %s\n", param);
@@ -385,7 +394,9 @@ httpd_stream_file(struct evhttp_request *req, int id)
   memset(st, 0, sizeof(struct stream_ctx));
   st->fd = -1;
 
-  transcode = transcode_needed(req->input_headers, mfi->codectype);
+  transcode = transcode_needed(input_headers, mfi->codectype);
+
+  output_headers = evhttp_request_get_output_headers(req);
 
   if (transcode)
     {
@@ -403,8 +414,8 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	  goto out_free_st;
 	}
 
-      if (!evhttp_find_header(req->output_headers, "Content-Type"))
-	evhttp_add_header(req->output_headers, "Content-Type", "audio/wav");
+      if (!evhttp_find_header(output_headers, "Content-Type"))
+	evhttp_add_header(output_headers, "Content-Type", "audio/wav");
     }
   else
     {
@@ -468,21 +479,21 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Type too large for buffer, dropping\n");
 	  else
 	    {
-	      evhttp_remove_header(req->output_headers, "Content-Type");
-	      evhttp_add_header(req->output_headers, "Content-Type", buf);
+	      evhttp_remove_header(output_headers, "Content-Type");
+	      evhttp_add_header(output_headers, "Content-Type", buf);
 	    }
 	}
       /* If no Content-Type has been set and we're streaming audio, add a proper
        * Content-Type for the file we're streaming. Remember DAAP streams audio
        * with application/x-dmap-tagged as the Content-Type (ugh!).
        */
-      else if (!evhttp_find_header(req->output_headers, "Content-Type") && mfi->type)
+      else if (!evhttp_find_header(output_headers, "Content-Type") && mfi->type)
 	{
 	  ret = snprintf(buf, sizeof(buf), "audio/%s", mfi->type);
 	  if ((ret < 0) || (ret >= sizeof(buf)))
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Type too large for buffer, dropping\n");
 	  else
-	    evhttp_add_header(req->output_headers, "Content-Type", buf);
+	    evhttp_add_header(output_headers, "Content-Type", buf);
 	}
     }
 
@@ -491,7 +502,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not allocate an evbuffer for streaming\n");
 
-      evhttp_clear_headers(req->output_headers);
+      evhttp_clear_headers(output_headers);
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_cleanup;
@@ -502,7 +513,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not expand evbuffer for streaming\n");
 
-      evhttp_clear_headers(req->output_headers);
+      evhttp_clear_headers(output_headers);
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_cleanup;
@@ -516,7 +527,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not add one-shot event for streaming\n");
 
-      evhttp_clear_headers(req->output_headers);
+      evhttp_clear_headers(output_headers);
       evhttp_send_error(req, HTTP_SERVUNAVAIL, "Internal Server Error");
 
       goto out_cleanup;
@@ -539,7 +550,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
 	  if ((ret < 0) || (ret >= sizeof(buf)))
 	    DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
 	  else
-	    evhttp_add_header(req->output_headers, "Content-Length", buf);
+	    evhttp_add_header(output_headers, "Content-Length", buf);
 	}
 
       evhttp_send_reply_start(req, HTTP_OK, "OK");
@@ -558,13 +569,13 @@ httpd_stream_file(struct evhttp_request *req, int id)
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Range too large for buffer, dropping\n");
       else
-	evhttp_add_header(req->output_headers, "Content-Range", buf);
+	evhttp_add_header(output_headers, "Content-Range", buf);
 
       ret = snprintf(buf, sizeof(buf), "%" PRIi64, ((end_offset) ? end_offset + 1 : (int64_t)st->size) - offset);
       if ((ret < 0) || (ret >= sizeof(buf)))
 	DPRINTF(E_LOG, L_HTTPD, "Content-Length too large for buffer, dropping\n");
       else
-	evhttp_add_header(req->output_headers, "Content-Length", buf);
+	evhttp_add_header(output_headers, "Content-Length", buf);
 
       evhttp_send_reply_start(req, 206, "Partial Content");
     }
@@ -579,7 +590,9 @@ httpd_stream_file(struct evhttp_request *req, int id)
     }
 #endif
 
-  evhttp_connection_set_closecb(req->evcon, stream_fail_cb, st);
+  evcon = evhttp_request_get_connection(req);
+
+  evhttp_connection_set_closecb(evcon, stream_fail_cb, st);
 
   DPRINTF(E_INFO, L_HTTPD, "Kicking off streaming for %s\n", mfi->path);
 
@@ -609,6 +622,7 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   unsigned char outbuf[128 * 1024];
   z_stream strm;
   struct evbuffer *gzbuf;
+  struct evkeyvalq *headers;
   const char *param;
   int flush;
   int zret;
@@ -621,7 +635,9 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
       goto no_gzip;
     }
 
-  param = evhttp_find_header(req->input_headers, "Accept-Encoding");
+  headers = evhttp_request_get_input_headers(req);
+
+  param = evhttp_find_header(headers, "Accept-Encoding");
   if (!param)
     {
       DPRINTF(E_DBG, L_HTTPD, "Not gzipping; no Accept-Encoding header\n");
@@ -702,7 +718,9 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
 
   deflateEnd(&strm);
 
-  evhttp_add_header(req->output_headers, "Content-Encoding", "gzip");
+  headers = evhttp_request_get_output_headers(req);
+
+  evhttp_add_header(headers, "Content-Encoding", "gzip");
   evhttp_send_reply(req, code, reason, gzbuf);
 
   evbuffer_free(gzbuf);
@@ -731,6 +749,7 @@ path_is_legal(char *path)
 static void
 redirect_to_index(struct evhttp_request *req, char *uri)
 {
+  struct evkeyvalq *headers;
   char buf[256];
   int slashed;
   int ret;
@@ -746,7 +765,9 @@ redirect_to_index(struct evhttp_request *req, char *uri)
       return;
     }
 
-  evhttp_add_header(req->output_headers, "Location", buf);
+  headers = evhttp_request_get_output_headers(req);
+
+  evhttp_add_header(headers, "Location", buf);
   evhttp_send_reply(req, HTTP_MOVETEMP, "Moved", NULL);
 }
 
@@ -754,12 +775,14 @@ redirect_to_index(struct evhttp_request *req, char *uri)
 static void
 serve_file(struct evhttp_request *req, char *uri)
 {
+  const char *host;
   char *ext;
   char path[PATH_MAX];
   char *deref;
   char *ctype;
   char *passwd;
   struct evbuffer *evbuf;
+  struct evkeyvalq *headers;
   struct stat sb;
   int fd;
   int i;
@@ -779,8 +802,9 @@ serve_file(struct evhttp_request *req, char *uri)
     }
   else
     {
-      if ((strcmp(req->remote_host, "::1") != 0)
-	  && (strcmp(req->remote_host, "127.0.0.1") != 0))
+      host = evhttp_request_get_host(req);
+      if ((strcmp(host, "::1") != 0)
+	  && (strcmp(host, "127.0.0.1") != 0))
 	{
 	  DPRINTF(E_LOG, L_HTTPD, "Remote web interface request denied; no password set\n");
 
@@ -910,8 +934,9 @@ serve_file(struct evhttp_request *req, char *uri)
 	}
     }
 
-  evhttp_add_header(req->output_headers, "Content-Type", ctype);
+  headers = evhttp_request_get_output_headers(req);
 
+  evhttp_add_header(headers, "Content-Type", ctype);
   evhttp_send_reply(req, HTTP_OK, "OK", evbuf);
 
   evbuffer_free(evbuf);
@@ -925,7 +950,7 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   char *uri;
   char *ptr;
 
-  req_uri = evhttp_request_uri(req);
+  req_uri = evhttp_request_get_uri(req);
   if (!req_uri)
     {
       redirect_to_index(req, "/");
@@ -1011,6 +1036,7 @@ exit_cb(int fd, short event, void *arg)
 char *
 httpd_fixup_uri(struct evhttp_request *req)
 {
+  struct evkeyvalq *headers;
   const char *ua;
   const char *uri;
   const char *u;
@@ -1019,7 +1045,7 @@ httpd_fixup_uri(struct evhttp_request *req)
   char *f;
   int len;
 
-  uri = evhttp_request_uri(req);
+  uri = evhttp_request_get_uri(req);
   if (!uri)
     return NULL;
 
@@ -1028,7 +1054,8 @@ httpd_fixup_uri(struct evhttp_request *req)
   if (!q)
     return strdup(uri);
 
-  ua = evhttp_find_header(req->input_headers, "User-Agent");
+  headers = evhttp_request_get_input_headers(req);
+  ua = evhttp_find_header(headers, "User-Agent");
   if (!ua)
     return strdup(uri);
 
@@ -1093,6 +1120,7 @@ int
 httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *realm)
 {
   struct evbuffer *evbuf;
+  struct evkeyvalq *headers;
   char *header;
   const char *auth;
   char *authuser;
@@ -1100,7 +1128,8 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
   int len;
   int ret;
 
-  auth = evhttp_find_header(req->input_headers, "Authorization");
+  headers = evhttp_request_get_input_headers(req);
+  auth = evhttp_find_header(headers, "Authorization");
   if (!auth)
     {
       DPRINTF(E_DBG, L_HTTPD, "No Authorization header\n");
@@ -1183,7 +1212,8 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
       return -1;
     }
 
-  evhttp_add_header(req->output_headers, "WWW-Authenticate", header);
+  headers = evhttp_request_get_output_headers(req);
+  evhttp_add_header(headers, "WWW-Authenticate", header);
   evbuffer_add(evbuf, http_reply_401, strlen(http_reply_401));
   evhttp_send_reply(req, 401, "Unauthorized", evbuf);
 

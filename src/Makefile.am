@@ -34,7 +34,7 @@ endif
 if COND_LIBEVENT2
 RTSP_SRC=evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
 else
-EVHTTP_SRC=evhttp/http.c evhttp/evhttp.h evhttp/http-internal.h evhttp/log.h
+EVHTTP_SRC=evhttp/http.c evhttp/evhttp.h evhttp/evhttp_compat.c evhttp/evhttp_compat.h evhttp/http-internal.h evhttp/log.h
 RTSP_SRC=evrtsp/rtsp-libevent1.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
 endif
 
