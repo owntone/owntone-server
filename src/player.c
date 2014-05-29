@@ -3565,6 +3565,9 @@ queue_remove(struct player_command *cmd)
   return 0;
 }
 
+/*
+ * queue_clear removes all items from the playqueue, playback must be stopped before calling queue_clear
+ */
 static int
 queue_clear(struct player_command *cmd)
 {
@@ -3588,6 +3591,11 @@ queue_clear(struct player_command *cmd)
   return 0;
 }
 
+/*
+ * Depending on cmd->arg.intval queue_empty removes all items from the history (arg.intval = 1),
+ * or removes all upcoming songs from the playqueue (arg.intval != 1). After calling queue_empty
+ * to remove the upcoming songs, the playqueue will only contain the current playing song.
+ */
 static int
 queue_empty(struct player_command *cmd)
 {
