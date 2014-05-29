@@ -42,7 +42,7 @@
 
 #include <event.h>
 #if defined HAVE_LIBEVENT2
-# include <evhttp.h>
+# include <event2/http.h>
 #else
 # include "evhttp/evhttp.h"
 #endif
@@ -124,8 +124,6 @@ scan_icy_request_cb(struct evhttp_request *req, void *arg)
   status = ICY_DONE;
   pthread_cond_signal(&ctx->cond);
   pthread_mutex_unlock(&ctx->lck);
-
-  return;
 }
 
 /* Will always return -1 to make evhttp close the connection - we only need the http headers */
@@ -172,6 +170,7 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
   struct evhttp_request *req;
   struct evkeyvalq *headers;
   struct icy_ctx *ctx;
+  char s[PATH_MAX];
   time_t start;
   time_t end;
   int ret;
@@ -207,6 +206,12 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
 
   if (ctx->port < 0)
     ctx->port = 80;
+
+  if (strlen(ctx->path) == 0)
+    {
+      ctx->path[0] = '/';
+      ctx->path[1] = '\0';
+    }
 
 #ifdef HAVE_LIBEVENT2
   evcon = evhttp_connection_base_new(evbase_main, NULL, ctx->hostname, (unsigned short)ctx->port);
@@ -257,7 +262,8 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
   req->header_cb = scan_icy_header_cb;
   headers = req->output_headers;
 #endif
-  evhttp_add_header(headers, "Host", ctx->hostname);
+  snprintf(s, PATH_MAX, "%s:%d", ctx->hostname, ctx->port);
+  evhttp_add_header(headers, "Host", s);
   evhttp_add_header(headers, "Icy-MetaData", "1");
 
   /* Make request */
@@ -275,6 +281,7 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
 
   /* Can't count on server support for ICY metadata, so
    * while waiting for a reply make a parallel call to scan_metadata_ffmpeg.
+   * TODO ffmpeg 2/libav 10 has ICY/Shoutcast support
    */
  no_icy:
   ret = scan_metadata_ffmpeg(url, mfi);
