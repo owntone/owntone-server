@@ -110,6 +110,7 @@ resolve_address(char *hostname, char *s, size_t maxlen)
 }
 #endif
 
+#ifndef HAVE_LIBEVENT2_OLD
 static void
 scan_icy_request_cb(struct evhttp_request *req, void *arg)
 {
@@ -157,15 +158,18 @@ scan_icy_header_cb(struct evhttp_request *req, void *arg)
 
   return -1;
 }
+#endif
 
 int
 scan_metadata_icy(char *url, struct media_file_info *mfi)
 {
+  struct icy_ctx *ctx;
   struct evhttp_connection *evcon;
+#ifndef HAVE_LIBEVENT2_OLD
   struct evhttp_request *req;
   struct evkeyvalq *headers;
-  struct icy_ctx *ctx;
   char s[PATH_MAX];
+#endif
   time_t start;
   time_t end;
   int ret;
@@ -239,6 +243,9 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
   evhttp_connection_set_base(evcon, evbase_main);
 #endif
 
+#ifdef HAVE_LIBEVENT2_OLD
+  DPRINTF(E_LOG, L_SCAN, "Skipping Shoutcast metadata request for %s (requires libevent>=2.1.4)\n", ctx->hostname);
+#else
   evhttp_connection_set_timeout(evcon, ICY_TIMEOUT);
   
   /* Set up request */
@@ -269,6 +276,7 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
       status = ICY_DONE;
       goto no_icy;
     }
+#endif
 
   /* Can't count on server support for ICY metadata, so
    * while waiting for a reply make a parallel call to scan_metadata_ffmpeg.
