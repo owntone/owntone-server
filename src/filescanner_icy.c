@@ -244,7 +244,7 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
 #endif
 
 #ifdef HAVE_LIBEVENT2_OLD
-  DPRINTF(E_LOG, L_SCAN, "Skipping Shoutcast metadata request for %s (requires libevent>=2.1.4)\n", ctx->hostname);
+  DPRINTF(E_LOG, L_SCAN, "Skipping Shoutcast metadata request for %s (requires libevent>=2.1.4 or libav 10)\n", ctx->hostname);
 #else
   evhttp_connection_set_timeout(evcon, ICY_TIMEOUT);
   

@@ -32,6 +32,7 @@
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/opt.h>
 
 #include "logger.h"
 #include "filescanner.h"
@@ -313,10 +314,82 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
   return mdcount;
 }
 
+/* Extracts ICY metadata (requires libav 10: libavformat 55.13) */
+static void
+extract_metadata_icy(struct media_file_info *mfi, AVFormatContext *ctx)
+{
+  uint8_t *icy_meta;
+  char *icy_token;
+  char *icy_str;
+  char *ptr;
+
+  icy_meta = NULL;
+  // TODO Also get icy_metadata_packet to show current track
+  av_opt_get(ctx, "icy_metadata_headers", AV_OPT_SEARCH_CHILDREN, &icy_meta);
+
+  if (!icy_meta)
+    return;
+
+  icy_str = strdup((char *)icy_meta);
+  icy_token = strtok(icy_str, "\r\n");
+
+  while (icy_token != NULL)
+    {
+      ptr = strchr(icy_token, ':');
+      if (!ptr || (strlen(ptr) < 3))
+	icy_token = strtok(NULL, "\r\n");
+
+      ptr++;
+      if (ptr[0] == ' ')
+	ptr++;
+
+      if (strstr(icy_token, "icy-name"))
+	{
+	  DPRINTF(E_DBG, L_SCAN, "Libav/ffmpeg found ICY metadata, name is '%s'\n", ptr);
+
+	  if (mfi->title)
+	    free(mfi->title);
+	  if (mfi->artist)
+	    free(mfi->artist);
+	  if (mfi->album_artist)
+	    free(mfi->album_artist);
+
+	  mfi->title = strdup(ptr);
+	  mfi->artist = strdup(ptr);
+	  mfi->album_artist = strdup(ptr);
+	}
+
+      if (strstr(icy_token, "icy-description"))
+	{
+	  DPRINTF(E_DBG, L_SCAN, "Libav/ffmpeg found ICY metadata, description is '%s'\n", ptr);
+
+	  if (mfi->album)
+	    free(mfi->album);
+
+	  mfi->album = strdup(ptr);
+	}
+
+      if (strstr(icy_token, "icy-genre"))
+	{
+	  DPRINTF(E_DBG, L_SCAN, "Libav/ffmpeg found ICY metadata, genre is '%s'\n", ptr);
+
+	  if (mfi->genre)
+	    free(mfi->genre);
+
+	  mfi->genre = strdup(ptr);
+	}
+
+      icy_token = strtok(NULL, "\r\n");
+    }
+  av_free(icy_meta);
+  free(icy_str);
+}
+
 int
 scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 {
   AVFormatContext *ctx;
+  AVDictionary *options;
   const struct metadata_map *extra_md_map;
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
   enum AVCodecID codec_id;
@@ -334,9 +407,13 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   int ret;
 
   ctx = NULL;
+  options = NULL;
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
-  ret = avformat_open_input(&ctx, file, NULL, NULL);
+  if (mfi->data_kind == 1)
+    av_dict_set(&options, "icy", "1", 0);
+
+  ret = avformat_open_input(&ctx, file, NULL, &options);
 #else
   ret = av_open_input_file(&ctx, file, NULL, 0, NULL);
 #endif
@@ -461,6 +538,10 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     mfi->bitrate = ((mfi->file_size * 8) / (ctx->duration / AV_TIME_BASE)) / 1000;
 
   DPRINTF(E_DBG, L_SCAN, "Duration %d ms, bitrate %d kbps\n", mfi->song_length, mfi->bitrate);
+
+  /* Try to extract ICY metadata if url/stream */
+  if (mfi->data_kind == 1)
+    extract_metadata_icy(mfi, ctx);
 
   /* Get some more information on the audio stream */
   if (audio_stream)
