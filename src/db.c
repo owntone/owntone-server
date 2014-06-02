@@ -1580,7 +1580,7 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
   ret = db_blocking_step(qp->stmt);
   if (ret == SQLITE_DONE)
     {
-      DPRINTF(E_INFO, L_DB, "End of query results\n");
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
       dbmfi->id = NULL;
       return 0;
     }
@@ -1636,7 +1636,7 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
   ret = db_blocking_step(qp->stmt);
   if (ret == SQLITE_DONE)
     {
-      DPRINTF(E_INFO, L_DB, "End of query results\n");
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
       dbpli->id = NULL;
       return 0;
     }
@@ -1716,7 +1716,7 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
   ret = db_blocking_step(qp->stmt);
   if (ret == SQLITE_DONE)
     {
-      DPRINTF(E_INFO, L_DB, "End of query results\n");
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
       return 1;
     }
   else if (ret != SQLITE_ROW)
@@ -1765,7 +1765,7 @@ db_query_fetch_string(struct query_params *qp, char **string)
   ret = db_blocking_step(qp->stmt);
   if (ret == SQLITE_DONE)
     {
-      DPRINTF(E_INFO, L_DB, "End of query results\n");
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
       *string = NULL;
       return 0;
     }
@@ -1802,7 +1802,7 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
   ret = db_blocking_step(qp->stmt);
   if (ret == SQLITE_DONE)
     {
-      DPRINTF(E_INFO, L_DB, "End of query results\n");
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
       *string = NULL;
       return 0;
     }
@@ -1997,7 +1997,7 @@ db_file_path_byid(int id)
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
-	DPRINTF(E_INFO, L_DB, "No results\n");
+	DPRINTF(E_DBG, L_DB, "No results\n");
       else
 	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
 
@@ -2046,7 +2046,7 @@ db_file_id_byquery(char *query)
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
-	DPRINTF(E_INFO, L_DB, "No results\n");
+	DPRINTF(E_DBG, L_DB, "No results\n");
       else
 	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
 
@@ -2219,7 +2219,7 @@ db_file_stamp_bypath(char *path, time_t *stamp, int *id)
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
-	DPRINTF(E_INFO, L_DB, "No results\n");
+	DPRINTF(E_DBG, L_DB, "No results\n");
       else
 	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
 
@@ -2283,7 +2283,7 @@ db_file_fetch_byquery(char *query)
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
-	DPRINTF(E_INFO, L_DB, "No results\n");
+	DPRINTF(E_DBG, L_DB, "No results\n");
       else
 	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
 
@@ -2815,7 +2815,7 @@ db_pl_id_bypath(char *path, int *id)
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
-	DPRINTF(E_INFO, L_DB, "No results\n");
+	DPRINTF(E_DBG, L_DB, "No results\n");
       else
 	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
 
@@ -2878,7 +2878,7 @@ db_pl_fetch_byquery(char *query)
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
-	DPRINTF(E_INFO, L_DB, "No results\n");
+	DPRINTF(E_DBG, L_DB, "No results\n");
       else
 	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
 
@@ -3432,7 +3432,7 @@ db_group_type_byid(int id)
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
-	DPRINTF(E_INFO, L_DB, "No results\n");
+	DPRINTF(E_DBG, L_DB, "No results\n");
       else
 	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
 

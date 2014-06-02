@@ -31,11 +31,19 @@ else
 FFURL_SRC=ffmpeg_url_evbuffer.c ffmpeg_url_evbuffer.h
 endif
 
-if COND_LIBEVENT2
-RTSP_SRC=evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
-else
-EVHTTP_SRC=evhttp/http.c evhttp/evhttp.h evhttp/http-internal.h evhttp/log.h
+if COND_LIBEVENT1
+EVHTTP_SRC=evhttp/http.c evhttp/evhttp.h evhttp/evhttp_compat.c evhttp/evhttp_compat.h evhttp/http-internal.h evhttp/log.h
 RTSP_SRC=evrtsp/rtsp-libevent1.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
+endif
+
+if COND_LIBEVENT20
+EVHTTP_SRC=
+RTSP_SRC=evrtsp/rtsp-libevent20.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
+endif
+
+if COND_LIBEVENT21
+EVHTTP_SRC=
+RTSP_SRC=evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
 endif
 
 GPERF_FILES = \

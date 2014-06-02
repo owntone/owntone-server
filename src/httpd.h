@@ -4,9 +4,9 @@
 
 #include <event.h>
 #ifdef HAVE_LIBEVENT2
-# include <evhttp.h>
+# include <event2/http.h>
 #else
-# include "evhttp/evhttp.h"
+# include "evhttp/evhttp_compat.h"
 #endif
 
 void
