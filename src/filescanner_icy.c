@@ -280,7 +280,6 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
 
   /* Can't count on server support for ICY metadata, so
    * while waiting for a reply make a parallel call to scan_metadata_ffmpeg.
-   * TODO ffmpeg 2/libav 10 has ICY/Shoutcast support
    */
  no_icy:
   ret = scan_metadata_ffmpeg(url, mfi);

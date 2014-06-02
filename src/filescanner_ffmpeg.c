@@ -336,8 +336,11 @@ extract_metadata_icy(struct media_file_info *mfi, AVFormatContext *ctx)
   while (icy_token != NULL)
     {
       ptr = strchr(icy_token, ':');
-      if (!ptr || (strlen(ptr) < 3))
-	icy_token = strtok(NULL, "\r\n");
+      if (!ptr || (strlen(ptr) < 4))
+	{
+	  icy_token = strtok(NULL, "\r\n");
+	  continue;
+	}
 
       ptr++;
       if (ptr[0] == ' ')
