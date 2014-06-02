@@ -886,7 +886,7 @@ remote_pairing_read_pin(char *path)
       return;
     }
 
-  DPRINTF(E_DBG, L_REMOTE, "Adding Remote pin data: name '%s', pin '%s'\n", devname, pin);
+  DPRINTF(E_LOG, L_REMOTE, "Read Remote pairing data (name '%s', pin '%s') from %s\n", devname, pin, path);
 
   pthread_mutex_lock(&remote_lck);
 
