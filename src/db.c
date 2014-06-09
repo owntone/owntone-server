@@ -2470,7 +2470,7 @@ db_file_update(struct media_file_info *mfi)
                " year = %d, track = %d, total_tracks = %d, disc = %d, total_discs = %d, bpm = %d," \
                " compilation = %d, artwork = %d, rating = %d, seek = %d, data_kind = %d, item_kind = %d," \
                " description = %Q, time_modified = %" PRIi64 "," \
-               " db_timestamp = %" PRIi64 ", sample_count = %" PRIi64 "," \
+               " db_timestamp = %" PRIi64 ", disabled = %" PRIi64 ", sample_count = %" PRIi64 "," \
                " codectype = %Q, idx = %d, has_video = %d," \
                " bits_per_sample = %d, album_artist = TRIM(%Q)," \
                " media_kind = %d, tv_series_name = TRIM(%Q), tv_episode_num_str = TRIM(%Q)," \
@@ -2500,7 +2500,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->year, mfi->track, mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm,
 			  mfi->compilation, mfi->artwork, mfi->rating, mfi->seek, mfi->data_kind, mfi->item_kind,
 			  mfi->description, (int64_t)mfi->time_modified,
-			  (int64_t)mfi->db_timestamp, mfi->sample_count,
+			  (int64_t)mfi->db_timestamp, (int64_t)mfi->disabled, mfi->sample_count,
 			  mfi->codectype, mfi->index, mfi->has_video,
 			  mfi->bits_per_sample, mfi->album_artist,
 			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
@@ -3170,7 +3170,7 @@ db_pl_add_item_byid(int plid, int fileid)
 int
 db_pl_update(char *title, char *path, int id)
 {
-#define Q_TMPL "UPDATE playlists SET title = '%q', db_timestamp = %" PRIi64 ", path = '%q' WHERE id = %d;"
+#define Q_TMPL "UPDATE playlists SET title = '%q', db_timestamp = %" PRIi64 ", disabled = 0, path = '%q' WHERE id = %d;"
   char *query;
   char *errmsg;
   int ret;
@@ -3949,11 +3949,9 @@ db_watch_delete_bycookie(uint32_t cookie)
 #undef Q_TMPL
 }
 
-int
-db_watch_get_bywd(struct watch_info *wi)
+static int
+db_watch_get_byquery(struct watch_info *wi, char *query)
 {
-#define Q_TMPL "SELECT * FROM inotify WHERE wd = %d;"
-  char *query;
   sqlite3_stmt *stmt;
   char **strval;
   char *cval;
@@ -3962,13 +3960,6 @@ db_watch_get_bywd(struct watch_info *wi)
   int ncols;
   int i;
   int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, wi->wd);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
@@ -3982,7 +3973,7 @@ db_watch_get_bywd(struct watch_info *wi)
   ret = db_blocking_step(stmt);
   if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_LOG, L_DB, "Watch wd %d not found\n", wi->wd);
+      DPRINTF(E_WARN, L_DB, "Watch not found: '%s'\n", query);
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
@@ -4041,7 +4032,39 @@ db_watch_get_bywd(struct watch_info *wi)
   sqlite3_free(query);
 
   return 0;
+}
 
+int
+db_watch_get_bywd(struct watch_info *wi)
+{
+#define Q_TMPL "SELECT * FROM inotify WHERE wd = %d;"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, wi->wd);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  return db_watch_get_byquery(wi, query);
+#undef Q_TMPL
+}
+
+int
+db_watch_get_bypath(struct watch_info *wi)
+{
+#define Q_TMPL "SELECT * FROM inotify WHERE path = '%q';"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL, wi->path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  return db_watch_get_byquery(wi, query);
 #undef Q_TMPL
 }
 

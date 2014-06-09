@@ -897,7 +897,7 @@ process_directory(char *path, int flags)
 
 #if defined(__linux__)
   /* Add inotify watch */
-  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
+  wi.wd = inotify_add_watch(inofd, path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
@@ -1111,16 +1111,47 @@ filescanner(void *arg)
 
 
 #if defined(__linux__)
+static int
+watches_clear(uint32_t wd, char *path)
+{
+  struct watch_enum we;
+  uint32_t rm_wd;
+  int ret;
+
+  inotify_rm_watch(inofd, wd);
+  db_watch_delete_bywd(wd);
+
+  memset(&we, 0, sizeof(struct watch_enum));
+
+  we.match = path;
+
+  ret = db_watch_enum_start(&we);
+  if (ret < 0)
+    return -1;
+
+  while ((db_watch_enum_fetchwd(&we, &rm_wd) == 0) && (rm_wd))
+    {
+      inotify_rm_watch(inofd, rm_wd);
+    }
+
+  db_watch_enum_end(&we);
+
+  db_watch_delete_bymatch(path);
+
+  return 0;
+}
+
 /* Thread: scan */
 static void
 process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 {
   struct watch_enum we;
   uint32_t rm_wd;
+  char *s;
   int flags = 0;
   int ret;
 
-  DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+  DPRINTF(E_SPAM, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   if (ie->mask & IN_UNMOUNT)
     {
@@ -1165,25 +1196,9 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	   * and we can't tell where it's going
 	   */
 
-	  inotify_rm_watch(inofd, ie->wd);
-	  db_watch_delete_bywd(ie->wd);
-
-	  memset(&we, 0, sizeof(struct watch_enum));
-
-	  we.match = path;
-
-	  ret = db_watch_enum_start(&we);
+	  ret = watches_clear(ie->wd, path);
 	  if (ret < 0)
 	    return;
-
-	  while ((db_watch_enum_fetchwd(&we, &rm_wd) == 0) && (rm_wd))
-	    {
-	      inotify_rm_watch(inofd, rm_wd);
-	    }
-
-	  db_watch_enum_end(&we);
-
-	  db_watch_delete_bymatch(path);
 
 	  db_file_disable_bymatch(path, "", 0);
 	  db_pl_disable_bymatch(path, "", 0);
@@ -1213,6 +1228,40 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
       ie->mask |= IN_CREATE;
     }
 
+  if (ie->mask & IN_ATTRIB)
+    {
+      DPRINTF(E_DBG, L_SCAN, "Directory permissions changed (%s): %s\n", wi->path, path);
+
+      // Find out if we are already watching the dir (ret will be 0)
+      s = wi->path;
+      wi->path = path;
+      ret = db_watch_get_bypath(wi);
+      if (ret == 0)
+	free(wi->path);
+      wi->path = s;
+
+      if (euidaccess(path, (R_OK | X_OK)) < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Directory access to '%s' failed: %s\n", path, strerror(errno));
+
+	  if (ret == 0)
+	    watches_clear(wi->wd, path);
+
+	  db_file_disable_bymatch(path, "", 0);
+	  db_pl_disable_bymatch(path, "", 0);
+	}
+      else if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Directory access to '%s' achieved\n", path);
+
+	  ie->mask |= IN_CREATE;
+	}
+      else
+	{
+	  DPRINTF(E_INFO, L_SCAN, "Directory event, but '%s' already being watched\n", path);
+	}
+    }
+
   if (ie->mask & IN_CREATE)
     {
       process_directories(path, flags);
@@ -1237,6 +1286,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   if (ie->mask & IN_DELETE)
     {
       DPRINTF(E_DBG, L_SCAN, "File deleted: %s\n", path);
+
       db_file_delete_bypath(path);
       db_pl_delete_bypath(path);
     }
@@ -1244,13 +1294,33 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   if (ie->mask & IN_MOVED_FROM)
     {
       DPRINTF(E_DBG, L_SCAN, "File moved from: %s\n", path);
+
       db_file_disable_bypath(path, path, ie->cookie);
       db_pl_disable_bypath(path, path, ie->cookie);
+    }
+
+  if (ie->mask & IN_ATTRIB)
+    {
+      DPRINTF(E_DBG, L_SCAN, "File permissions changed: %s\n", path);
+
+      if (euidaccess(path, R_OK) < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' failed: %s\n", path, strerror(errno));
+
+	  db_file_delete_bypath(path);;
+	}
+      else if (db_file_id_bypath(path) <= 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' achieved\n", path);
+
+	  ie->mask |= IN_CLOSE_WRITE;
+	}
     }
 
   if (ie->mask & IN_MOVED_TO)
     {
       DPRINTF(E_DBG, L_SCAN, "File moved to: %s\n", path);
+
       ret = db_file_enable_bycookie(ie->cookie, path);
 
       if (ret <= 0)
@@ -1268,6 +1338,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   if (ie->mask & IN_CREATE)
     {
       DPRINTF(E_DBG, L_SCAN, "File created: %s\n", path);
+
       ret = lstat(path, &sb);
       if (ret < 0)
 	{
@@ -1283,6 +1354,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   if (ie->mask & IN_CLOSE_WRITE)
     {
       DPRINTF(E_DBG, L_SCAN, "File closed: %s\n", path);
+
       ret = lstat(path, &sb);
       if (ret < 0)
 	{
