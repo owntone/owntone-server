@@ -501,21 +501,21 @@ spotify_track_save(int plid, sp_track *track)
 
   if (fptr_sp_track_get_availability(g_sess, track) != SP_TRACK_AVAILABILITY_AVAILABLE)
     {
-      DPRINTF(E_INFO, L_SPOTIFY, "Track not available for playback\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Track not available for playback: '%s'\n", fptr_sp_track_name(track));
       return 0;
     }
 
   link = fptr_sp_link_create_from_track(track, 0);
   if (!link)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create link for track\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create link for track: '%s'\n", fptr_sp_track_name(track));
       return -1;
     }
 
   ret = fptr_sp_link_as_string(link, url, sizeof(url));
   if (ret == sizeof(url))
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Spotify link truncated: %s\n", url);
+      DPRINTF(E_DBG, L_SPOTIFY, "Spotify link truncated: '%s'\n", url);
     }
   fptr_sp_link_release(link);
 
@@ -523,7 +523,7 @@ spotify_track_save(int plid, sp_track *track)
   ret = db_pl_add_item_bypath(plid, url);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not save playlist item\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not save playlist item: '%s'\n", url);
       return -1;
     }
 
@@ -532,7 +532,7 @@ spotify_track_save(int plid, sp_track *track)
   ret = spotify_metadata_get(track, &mfi);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Metadata missing (but track should be loaded?)\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Metadata missing (but track should be loaded?): '%s'\n", fptr_sp_track_name(track));
       free_mfi(&mfi, 1);
       return -1;
     }
@@ -566,13 +566,13 @@ spotify_playlist_save(sp_playlist *pl)
 
   name = fptr_sp_playlist_name(pl);
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Saving playlist: %s\n", name);
+  DPRINTF(E_INFO, L_SPOTIFY, "Saving playlist: '%s'\n", name);
 
   /* Save playlist (playlists table) */
   link = fptr_sp_link_create_from_playlist(pl);
   if (!link)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create link for playlist (wait)\n");
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not create link for playlist (wait): '%s'\n", name);
       return -1;
     }
 
@@ -583,14 +583,14 @@ spotify_playlist_save(sp_playlist *pl)
     }
   fptr_sp_link_release(link);
 
-  sleep(1); // Primitive way of preventing database locking (the mutex wasn't working)
+//  sleep(1); // Primitive way of preventing database locking (the mutex wasn't working)
 
   pli = db_pl_fetch_bypath(url);
   snprintf(title, sizeof(title), "[s] %s", name);
 
   if (pli)
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Playlist found (%s, link %s), updating\n", name, url);
+      DPRINTF(E_DBG, L_SPOTIFY, "Playlist found ('%s', link %s), updating\n", name, url);
 
       plid = pli->id;
 
@@ -599,7 +599,7 @@ spotify_playlist_save(sp_playlist *pl)
       ret = db_pl_update(title, url, plid);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Error updating playlist (%s, link %s)\n", name, url);
+	  DPRINTF(E_LOG, L_SPOTIFY, "Error updating playlist ('%s', link %s)\n", name, url);
 	  return -1;
 	}
 
@@ -608,12 +608,12 @@ spotify_playlist_save(sp_playlist *pl)
     }
   else
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Adding playlist (%s, link %s)\n", name, url);
+      DPRINTF(E_DBG, L_SPOTIFY, "Adding playlist ('%s', link %s)\n", name, url);
 
       ret = db_pl_add(title, url, &plid);
       if ((ret < 0) || (plid < 1))
 	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist (%s, link %s, ret %d, plid %d)\n", name, url, ret, plid);
+	  DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist ('%s', link %s, ret %d, plid %d)\n", name, url, ret, plid);
 	  return -1;
 	}
     }
@@ -625,14 +625,14 @@ spotify_playlist_save(sp_playlist *pl)
       track = fptr_sp_playlist_track(pl, i);
       if (!track)
 	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Track %d in playlist %s (id %d) is invalid\n", i, name, plid);
+	  DPRINTF(E_LOG, L_SPOTIFY, "Track %d in playlist '%s' (id %d) is invalid\n", i, name, plid);
 	  continue;
 	}
 
       ret = spotify_track_save(plid, track);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_SPOTIFY, "Error saving track %d to playlist %s (id %d)\n", i, name, plid);
+	  DPRINTF(E_LOG, L_SPOTIFY, "Error saving track %d to playlist '%s' (id %d)\n", i, name, plid);
 	  continue;
 	}
     }
@@ -1648,47 +1648,38 @@ spotify_artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
   return ret;
 }
 
-/* Thread: filescanner */
-void
-spotify_login(char *path)
+static int
+spotify_file_read(char *path, char **username, char **password)
 {
-  char buf[256];
   FILE *fp;
-  char *username;
-  char *password;
+  char *u;
+  char *p;
+  char buf[256];
   int len;
-  int ret;
-  sp_error err;
-
-  if (!g_sess)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Can't login! No valid Spotify session.\n");
-      return;
-    }
 
   fp = fopen(path, "rb");
   if (!fp)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not open Spotify credentials file %s: %s\n", path, strerror(errno));
-      return;
+      return -1;
     }
 
-  username = fgets(buf, sizeof(buf), fp);
-  if (!username)
+  u = fgets(buf, sizeof(buf), fp);
+  if (!u)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Empty Spotify credentials file %s\n", path);
 
       fclose(fp);
-      return;
+      return -1;
     }
 
-  len = strlen(username);
+  len = strlen(u);
   if (buf[len - 1] != '\n')
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Invalid Spotify credentials file %s: username name too long or missing password\n", path);
 
       fclose(fp);
-      return;
+      return -1;
     }
 
   while (len)
@@ -1707,29 +1698,29 @@ spotify_login(char *path)
       DPRINTF(E_LOG, L_SPOTIFY, "Invalid Spotify credentials file %s: empty line where username expected\n", path);
 
       fclose(fp);
-      return;
+      return -1;
     }
 
-  username = strdup(buf);
-  if (!username)
+  u = strdup(buf);
+  if (!u)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for username while reading %s\n", path);
 
       fclose(fp);
-      return;
+      return -1;
     }
 
-  password = fgets(buf, sizeof(buf), fp);
+  p = fgets(buf, sizeof(buf), fp);
   fclose(fp);
-  if (!password)
+  if (!p)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Invalid Spotify credentials file %s: no password\n", path);
 
-      free(username);
-      return;
+      free(u);
+      return -1;
     }
 
-  len = strlen(password);
+  len = strlen(p);
 
   while (len)
     {
@@ -1742,18 +1733,42 @@ spotify_login(char *path)
 	break;
     }
 
-  password = strdup(buf);
-  if (!password)
+  p = strdup(buf);
+  if (!p)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Out of memory for password while reading %s\n", path);
 
-      free(username);
+      free(u);
+      return -1;
+    }
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", u);
+
+  *username = u;
+  *password = p;
+
+  return 0;
+}
+
+/* Thread: filescanner */
+void
+spotify_login(char *path)
+{
+  char *username;
+  char *password;
+  int ret;
+  sp_error err;
+
+  if (!g_sess)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Can't login! No valid Spotify session.\n");
       return;
     }
 
+  /* Log out if thread already running */
   if (g_state != SPOTIFY_STATE_INACTIVE)
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Existing login terminating (state %d)\n", g_state);
+      DPRINTF(E_LOG, L_SPOTIFY, "Existing login terminating (state %d)\n", g_state);
 
       thread_exit();
 
@@ -1765,15 +1780,29 @@ spotify_login(char *path)
 	}
     }
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Spotify credentials file OK, logging in with username %s\n", username);
+  /* Log in */
+  if (path)
+    {
+      ret = spotify_file_read(path, &username, &password);
+      if (ret < 0)
+	return;
 
-  err = fptr_sp_session_login(g_sess, username, password, 1, NULL);
+      DPRINTF(E_INFO, L_SPOTIFY, "Logging into Spotify\n");
+      err = fptr_sp_session_login(g_sess, username, password, 1, NULL);
+    }
+  else
+    {
+      DPRINTF(E_INFO, L_SPOTIFY, "Logging into Spotify\n");
+      err = fptr_sp_session_relogin(g_sess);
+    }
+
   if (SP_ERROR_OK != err)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not login into Spotify: %s\n", fptr_sp_error_message(err));
       return;
     }
 
+  /* Spawn thread */
   ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
   if (ret < 0)
     {
@@ -1941,29 +1970,8 @@ spotify_init(void)
   pthread_mutex_init(&g_audio_fifo->mutex, NULL);
   pthread_cond_init(&g_audio_fifo->cond, NULL);
 
-  /* Log in and spawn thread */
-  DPRINTF(E_DBG, L_SPOTIFY, "Logging into Spotify\n");
-  err = fptr_sp_session_relogin(sp);
-  if (SP_ERROR_OK != err)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not login into Spotify: %s\n", fptr_sp_error_message(err));
-      goto login_fail;
-    }
-
-  ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not spawn Spotify thread: %s\n", strerror(errno));
-      goto thread_fail;
-    }
-
   DPRINTF(E_DBG, L_SPOTIFY, "Spotify init complete\n");
   return 0;
-
- thread_fail:
-  pthread_cond_destroy(&g_audio_fifo->cond);
-  pthread_mutex_destroy(&g_audio_fifo->mutex);
-  free(g_audio_fifo);
 
  audio_fifo_fail:
   fptr_sp_session_release(g_sess);
@@ -1992,7 +2000,6 @@ spotify_init(void)
   g_libhandle = NULL;
 
  libspotify_fail:
- login_fail:
   return -1;
 }
 
