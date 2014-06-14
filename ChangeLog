@@ -1,6 +1,25 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 21.0:
+	- filescanner performance enhancements (db transactions)
+	- support for queue editing
+	- support for showing history
+	- compability with libevent 2
+	- compability with libav 10
+	- support for Spotify
+	- fix for Seafile libraries
+	- support for permission changes in a library (IN_ATTRIB)
+	- some DAAP changes to align with iTunes
+	- properly show media kind shares in iTunes
+	- support for named pipes/fifos
+	- natural sorting and better handling of capitalization
+	- introduce .init-rescan and .full-rescan triggers
+	- fix for XBMC (libshairplay) crash
+	- fix missing songartistid (fixes some remotes)
+	- fix bug in m3u scanner
+	- ICY metadata fixes
+
 version 20.0:
 	- includes patch against timeouts
 	- configurable artwork file names
