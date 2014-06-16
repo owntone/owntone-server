@@ -314,7 +314,8 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
   return mdcount;
 }
 
-/* Extracts ICY metadata (requires libav 10: libavformat 55.13) */
+#if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
+/* Extracts ICY metadata (requires libav 10) */
 static void
 extract_metadata_icy(struct media_file_info *mfi, AVFormatContext *ctx)
 {
@@ -387,6 +388,7 @@ extract_metadata_icy(struct media_file_info *mfi, AVFormatContext *ctx)
   av_free(icy_meta);
   free(icy_str);
 }
+#endif
 
 int
 scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
@@ -542,9 +544,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   DPRINTF(E_DBG, L_SCAN, "Duration %d ms, bitrate %d kbps\n", mfi->song_length, mfi->bitrate);
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
   /* Try to extract ICY metadata if url/stream */
   if (mfi->data_kind == 1)
     extract_metadata_icy(mfi, ctx);
+#endif
 
   /* Get some more information on the audio stream */
   if (audio_stream)
