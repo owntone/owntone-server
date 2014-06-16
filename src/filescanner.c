@@ -1244,7 +1244,11 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	free(wi->path);
       wi->path = s;
 
+#ifdef HAVE_EUIDACCESS
       if (euidaccess(path, (R_OK | X_OK)) < 0)
+#else
+      if (access(path, (R_OK | X_OK)) < 0)
+#endif
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Directory access to '%s' failed: %s\n", path, strerror(errno));
 
@@ -1307,7 +1311,11 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
     {
       DPRINTF(E_DBG, L_SCAN, "File permissions changed: %s\n", path);
 
+#ifdef HAVE_EUIDACCESS
       if (euidaccess(path, R_OK) < 0)
+#else
+      if (access(path, R_OK) < 0)
+#endif
 	{
 	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' failed: %s\n", path, strerror(errno));
 
