@@ -2104,7 +2104,7 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 	}
       else
 	{
-	  DPRINTF(E_DBG, L_DACP, "Speaker id converted with ret %d, param %s, dec val %llu.\n", ret, param, ids[i]);
+	  DPRINTF(E_DBG, L_DACP, "Speaker id converted with ret %d, param %s, dec val %" PRIu64 ".\n", ret, param, ids[i]);
 	}
       i++;
     }
