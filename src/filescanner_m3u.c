@@ -88,7 +88,7 @@ scan_m3u_playlist(char *file, time_t mtime)
   int ret;
   int i;
 
-  DPRINTF(E_INFO, L_SCAN, "Processing static playlist: %s\n", file);
+  DPRINTF(E_LOG, L_SCAN, "Processing static playlist: %s\n", file);
 
   ret = stat(file, &sb);
   if (ret < 0)
@@ -123,7 +123,7 @@ scan_m3u_playlist(char *file, time_t mtime)
   fp = fopen(file, "r");
   if (!fp)
     {
-      DPRINTF(E_WARN, L_SCAN, "Could not open playlist '%s': %s\n", file, strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "Could not open playlist '%s': %s\n", file, strerror(errno));
 
       return;
     }
