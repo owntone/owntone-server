@@ -71,7 +71,6 @@ enum spotify_state
   SPOTIFY_STATE_PAUSED,
   SPOTIFY_STATE_STOPPING,
   SPOTIFY_STATE_STOPPED,
-  SPOTIFY_STATE_SEEKED,
 };
 
 struct audio_get_param
@@ -924,8 +923,6 @@ playback_seek(struct spotify_command *cmd)
 
   audio_fifo_flush();
 
-  g_state = SPOTIFY_STATE_SEEKED;
-
   return 0;
 }
 
@@ -1280,7 +1277,7 @@ static void connectionstate_updated(sp_session *session)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Connection to Spotify (re)established\n");
     }
-  else if ((g_state == SPOTIFY_STATE_PLAYING) || (g_state == SPOTIFY_STATE_SEEKED))
+  else if (g_state == SPOTIFY_STATE_PLAYING)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Music interrupted - connection error or logged out\n");
       spotify_playback_stop_nonblock();
