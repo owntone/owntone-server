@@ -285,7 +285,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	    {
 	      av_samples_get_buffer_size(&out_linesize, 2, frame->nb_samples, AV_SAMPLE_FMT_S16, 0);
 
-	      out_samples = avresample_convert(ctx->resample_ctx, (uint8_t **)&ctx->re_abuffer, out_linesize, frame->nb_samples,
+	      out_samples = avresample_convert(ctx->resample_ctx, (uint8_t **)&ctx->re_abuffer, out_linesize, XCODE_BUFFER_SIZE,
 	                                       (uint8_t **)frame->data, frame->linesize[0], frame->nb_samples);
 	      if (out_samples < 0)
 		{
