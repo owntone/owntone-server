@@ -469,6 +469,9 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 static void
 playback_abort(void);
 
+static int
+queue_clear(struct player_command *cmd);
+
 static void
 player_laudio_status_cb(enum laudio_state status)
 {
@@ -2215,6 +2218,8 @@ playback_abort(void)
     source_stop(cur_playing);
   else
     source_stop(cur_streaming);
+
+  queue_clear(NULL);
 
   cur_playing = NULL;
   cur_streaming = NULL;
