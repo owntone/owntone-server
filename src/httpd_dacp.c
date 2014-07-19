@@ -1447,8 +1447,8 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	sort = "album";
       }
 
-      // only use queryfilter if mode is not equal 3 (play next) or 5 (add to up next)
-      queuefilter = (mode == 3 || mode == 5) ? NULL : evhttp_find_header(query, "queuefilter");
+      // only use queryfilter if mode is not equal 0 (add to up next), 3 (play next) or 5 (add to up next)
+      queuefilter = (mode == 0 || mode == 3 || mode == 5) ? NULL : evhttp_find_header(query, "queuefilter");
 
       querymodifier = evhttp_find_header(query, "query-modifier");
       if (!querymodifier || (strcmp(querymodifier, "containers") != 0))
