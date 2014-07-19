@@ -826,9 +826,12 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 	}
       else
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Unknown queuefilter: %s\n", queuefilter);
+	  DPRINTF(E_LOG, L_PLAYER, "Unknown queuefilter %s\n", queuefilter);
 
-	  return -1;
+	  // If the queuefilter is unkown, ignore it and use the query parameter instead to build the sql query
+	  id = 0;
+	  qp.type = Q_ITEMS;
+	  qp.filter = daap_query_parse_sql(query);
 	}
     }
   else
