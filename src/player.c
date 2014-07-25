@@ -982,7 +982,7 @@ source_stop(struct player_source *ps)
 /*
  * Shuffles the items between head and tail (excluding head and tail)
  */
-static struct player_source *
+static void
 source_shuffle(struct player_source *head, struct player_source *tail)
 {
   struct player_source *ps;
@@ -991,10 +991,10 @@ source_shuffle(struct player_source *head, struct player_source *tail)
   int i;
 
   if (!head)
-    return NULL;
+    return;
 
   if (!tail)
-    return NULL;
+    return;
 
   if (!shuffle)
     {
@@ -1019,14 +1019,14 @@ source_shuffle(struct player_source *head, struct player_source *tail)
 
   // Do not reshuffle queue with one item
   if (nitems < 1)
-    return NULL;
+    return;
 
   // Construct array for number of items in queue
   ps_array = (struct player_source **)malloc(nitems * sizeof(struct player_source *));
   if (!ps_array)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not allocate memory for shuffle array\n");
-      return NULL;
+      return;
     }
 
   // Fill array with items in queue (excluding head and tail)
@@ -1060,17 +1060,14 @@ source_shuffle(struct player_source *head, struct player_source *tail)
   head->shuffle_next = ps_array[0];
   tail->shuffle_prev = ps_array[nitems - 1];
 
-  ps = ps_array[0];
-
   free(ps_array);
 
-  return ps;
+  return;
 }
 
 static void
 source_reshuffle(void)
 {
-  struct player_source *ps;
   struct player_source *head;
   struct player_source *tail;
 
@@ -1086,13 +1083,10 @@ source_reshuffle(void)
   else
     tail = source_head;
 
-  ps = source_shuffle(head, tail);
-
-  if (!ps)
-    return;
+  source_shuffle(head, tail);
 
   if (repeat == REPEAT_ALL)
-    shuffle_head = ps;
+    shuffle_head = head;
 }
 
 /* Helper */
