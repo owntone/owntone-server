@@ -1017,6 +1017,10 @@ source_shuffle(struct player_source *head, struct player_source *tail)
       ps = ps->shuffle_next;
     }
 
+  // Do not reshuffle queue with one item
+  if (nitems < 1)
+    return NULL;
+
   // Construct array for number of items in queue
   ps_array = (struct player_source **)malloc(nitems * sizeof(struct player_source *));
   if (!ps_array)
@@ -1050,6 +1054,7 @@ source_shuffle(struct player_source *head, struct player_source *tail)
 	ps->shuffle_next = ps_array[i + 1];
     }
 
+  // Insert shuffled items between head and tail
   ps_array[0]->shuffle_prev = head;
   ps_array[nitems - 1]->shuffle_next = tail;
   head->shuffle_next = ps_array[0];
