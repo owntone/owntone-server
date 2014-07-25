@@ -45,6 +45,7 @@
 
 #include "logger.h"
 #include "db.h"
+#include "db_artwork.h"
 #include "conffile.h"
 #include "misc.h"
 #include "httpd.h"
@@ -986,7 +987,9 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   const char *req_uri;
   char *uri;
   char *ptr;
+  time_t start, end;
 
+  start = time(NULL);
   req_uri = evhttp_request_get_uri(req);
   if (!req_uri)
     {
@@ -1034,6 +1037,9 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   serve_file(req, uri);
 
  out:
+  end = time(NULL);
+  if (end - start > 0)
+    DPRINTF(E_LOG, L_HTTPD, "Slow response to '%s' took %.f sec\n", uri, difftime(end, start));
   free(uri);
 }
 
@@ -1047,6 +1053,14 @@ httpd(void *arg)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Error: DB init failed\n");
+
+      pthread_exit(NULL);
+    }
+
+  ret = db_artwork_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTPD, "Error: Artwork cache DB init failed\n");
 
       pthread_exit(NULL);
     }

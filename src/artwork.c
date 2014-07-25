@@ -34,6 +34,7 @@
 #include <libswscale/swscale.h>
 
 #include "db.h"
+#include "db_artwork.h"
 #include "misc.h"
 #include "logger.h"
 #include "conffile.h"
@@ -1092,6 +1093,86 @@ artwork_get_item_filename(char *filename, int max_w, int max_h, int format, stru
   return -1;
 }
 
+static int
+artwork_cache_get(int itemid, int groupid, int max_w, int max_h, struct evbuffer *evbuf)
+{
+  int cached;
+  int dataid;
+  char *data;
+  int datalen;
+  int format;
+  int ret;
+
+  format = 0;
+  cached = 0;
+  dataid = 0;
+
+  ret = db_artwork_get(itemid, groupid, max_w, max_h, &cached, &dataid);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Error fetching image cache entry for item %d and group %d\n", itemid, groupid);
+      return ret;
+    }
+
+  if (!cached)
+    {
+      DPRINTF(E_DBG, L_ART, "Artwork entry not found in image cache for item %d and group %d\n", itemid, groupid);
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_ART, "Artwork entry found in image cache for item %d and group %d\n", itemid, groupid);
+  if (!dataid)
+    {
+      DPRINTF(E_DBG, L_ART, "No artwork avaiable for item %d and group %d\n", itemid, groupid);
+    }
+    else
+    {
+      ret = db_artwork_file_get(dataid, &format, &data, &datalen);
+
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_ART, "Error fetching imagedata entry for dataid %d, item %d and group %d\n", dataid, itemid, groupid);
+	  return ret;
+	}
+
+      /* DEBUGGING: write data from DB to file: * /
+      FILE *ptr_myfile;
+      ptr_myfile=fopen("from_db.jpg","wb");
+      fwrite(data, datalen, 1, ptr_myfile);
+      fclose(ptr_myfile);
+      / * DEBUGGING-END */
+
+      evbuffer_add(evbuf, data, datalen);
+      free(data);
+      DPRINTF(E_DBG, L_ART, "Artwork with length %d found for item %d and group %d\n", datalen, itemid, groupid);
+    }
+
+  return format;
+}
+
+static int
+artwork_cache_save(int itemid, int groupid, int max_w, int max_h, int format, struct evbuffer *evbuf)
+{
+  int dataid;
+  char *data;
+  //int ret;
+
+  data = malloc(EVBUFFER_LENGTH(evbuf));
+  evbuffer_copyout(evbuf, data, EVBUFFER_LENGTH(evbuf));
+
+  /* DEBUGGING: write data from DB to file: * /
+  FILE *ptr_myfile;
+  ptr_myfile=fopen("to_db.jpg","wb");
+  fwrite(data, EVBUFFER_LENGTH(evbuf), 1, ptr_myfile);
+  fclose(ptr_myfile);
+  / * DEBUGGING-END */
+
+  dataid = db_artwork_file_add(format, "", max_w, max_h, data, EVBUFFER_LENGTH(evbuf));
+  db_artwork_add(itemid, groupid, max_w, max_h, dataid);
+  free(data);
+  return format;
+}
+
 int
 artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
@@ -1100,6 +1181,13 @@ artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbu
 
   DPRINTF(E_DBG, L_ART, "Artwork request for item %d\n", id);
 
+  ret = artwork_cache_get(id, 0, max_w, max_h, evbuf);
+  if (ret >= 0)
+    {
+      // Image found in cache "ret" contains the format of the image
+      return ret;
+    }
+
   filename = db_file_path_byid(id);
   if (!filename)
     return -1;
@@ -1107,7 +1195,14 @@ artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbu
   ret = artwork_get_item_filename(filename, max_w, max_h, format, evbuf);
   if (ret < 0)
     DPRINTF(E_DBG, L_ART, "No artwork found for item id %d\n", id);
+  else if (ret > 0)
+    {
+      ret = artwork_cache_save(id, 0, max_h, max_w, ret, evbuf);
+      return ret;
+    }
 
+  DPRINTF(E_DBG, L_ART, "No artwork found for item %d\n", id);
+  db_artwork_add(id, 0, max_w, max_h, 0);
   free(filename);
 
   return ret;
@@ -1126,6 +1221,13 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
 #endif
 
   DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
+
+  ret = artwork_cache_get(id, 0, max_w, max_h, evbuf);
+  if (ret >= 0)
+    {
+      // Image found in cache "ret" contains the format of the image
+      return ret;
+    }
 
   /* Try directory artwork first */
   memset(&qp, 0, sizeof(struct query_params));
@@ -1154,7 +1256,10 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   if (ret < 0)
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_DIRS results\n");
   else if (got_art > 0)
-    return got_art;
+    {
+      ret = artwork_cache_save(id, 0, max_h, max_w, got_art, evbuf);
+      return ret;
+    }
 
 
   /* Then try individual files */
@@ -1190,9 +1295,13 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   if (ret < 0)
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_ITEMS results\n");
   else if (got_art > 0)
-    return got_art;
+    {
+      ret = artwork_cache_save(id, 0, max_h, max_w, got_art, evbuf);
+      return ret;
+    }
 
   DPRINTF(E_DBG, L_ART, "No artwork found for group %d\n", id);
+  db_artwork_add(0, id, max_w, max_h, 0);
 
   return -1;
 }

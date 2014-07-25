@@ -462,7 +462,7 @@ free_pli(struct playlist_info *pli, int content_only)
 
 
 /* Unlock notification support */
-static void
+void
 unlock_notify_cb(void **args, int nargs)
 {
   struct db_unlock *u;
@@ -481,8 +481,8 @@ unlock_notify_cb(void **args, int nargs)
     }
 }
 
-static int
-db_wait_unlock(void)
+int
+db_wait_unlock(sqlite3 *db)
 {
   struct db_unlock u;
   int ret;
@@ -491,7 +491,7 @@ db_wait_unlock(void)
   pthread_mutex_init(&u.lck, NULL);
   pthread_cond_init(&u.cond, NULL);
 
-  ret = sqlite3_unlock_notify(hdl, unlock_notify_cb, &u);
+  ret = sqlite3_unlock_notify(db, unlock_notify_cb, &u);
   if (ret == SQLITE_OK)
     {
       pthread_mutex_lock(&u.lck);
@@ -511,14 +511,14 @@ db_wait_unlock(void)
   return ret;
 }
 
-static int
-db_blocking_step(sqlite3_stmt *stmt)
+int
+db_blocking_step(sqlite3 *db, sqlite3_stmt *stmt)
 {
   int ret;
 
   while ((ret = sqlite3_step(stmt)) == SQLITE_LOCKED)
     {
-      ret = db_wait_unlock();
+      ret = db_wait_unlock(db);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Database deadlocked!\n");
@@ -531,14 +531,14 @@ db_blocking_step(sqlite3_stmt *stmt)
   return ret;
 }
 
-static int
-db_blocking_prepare_v2(const char *query, int len, sqlite3_stmt **stmt, const char **end)
+int
+db_blocking_prepare_v2(sqlite3 *db, const char *query, int len, sqlite3_stmt **stmt, const char **end)
 {
   int ret;
 
-  while ((ret = sqlite3_prepare_v2(hdl, query, len, stmt, end)) == SQLITE_LOCKED)
+  while ((ret = sqlite3_prepare_v2(db, query, len, stmt, end)) == SQLITE_LOCKED)
     {
-      ret = db_wait_unlock();
+      ret = db_wait_unlock(db);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Database deadlocked!\n");
@@ -551,8 +551,8 @@ db_blocking_prepare_v2(const char *query, int len, sqlite3_stmt **stmt, const ch
 
 
 /* Modelled after sqlite3_exec() */
-static int
-db_exec(const char *query, char **errmsg)
+int
+db_exec(sqlite3 *db, const char *query, char **errmsg)
 {
   sqlite3_stmt *stmt;
   int try;
@@ -562,14 +562,14 @@ db_exec(const char *query, char **errmsg)
 
   for (try = 0; try < 5; try++)
     {
-      ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+      ret = db_blocking_prepare_v2(db, query, -1, &stmt, NULL);
       if (ret != SQLITE_OK)
 	{
-	  *errmsg = sqlite3_mprintf("prepare failed: %s", sqlite3_errmsg(hdl));
+	  *errmsg = sqlite3_mprintf("prepare failed: %s", sqlite3_errmsg(db));
 	  return ret;
 	}
 
-      while ((ret = db_blocking_step(stmt)) == SQLITE_ROW)
+      while ((ret = db_blocking_step(db, stmt)) == SQLITE_ROW)
 	; /* EMPTY */
 
       sqlite3_finalize(stmt);
@@ -612,7 +612,7 @@ db_exec_thread(void *arg)
   DPRINTF(E_DBG, L_DB, "Running delayed query '%s'\n", query);
 
   time(&start);
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error running query '%s': %s\n", query, errmsg);
 
@@ -664,7 +664,7 @@ db_analyze(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "ANALYZE failed: %s\n", errmsg);
@@ -707,7 +707,7 @@ db_set_cfg_names(void)
 	  return;
 	}
 
-      ret = db_exec(query, &errmsg);
+      ret = db_exec(hdl, query, &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Error setting playlist title, query %s, error: %s\n", query, errmsg);
@@ -766,7 +766,7 @@ db_purge_cruft(time_t ref)
     {
       DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", queries[i]);
 
-      ret = db_exec(queries[i], &errmsg);
+      ret = db_exec(hdl, queries[i], &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
@@ -804,7 +804,7 @@ db_purge_all(void)
     {
       DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", queries[i]);
 
-      ret = db_exec(queries[i], &errmsg);
+      ret = db_exec(hdl, queries[i], &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
@@ -824,14 +824,14 @@ db_get_count(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
       return -1;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
@@ -843,7 +843,7 @@ db_get_count(char *query)
   ret = sqlite3_column_int(stmt, 0);
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -863,7 +863,7 @@ db_transaction_begin(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "SQL error running '%s': %s\n", query, errmsg);
@@ -881,7 +881,7 @@ db_transaction_end(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "SQL error running '%s': %s\n", query, errmsg);
@@ -1529,7 +1529,7 @@ db_query_start(struct query_params *qp)
 
   DPRINTF(E_DBG, L_DB, "Starting query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &qp->stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &qp->stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -1577,7 +1577,7 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
       return -1;
     }
 
-  ret = db_blocking_step(qp->stmt);
+  ret = db_blocking_step(hdl, qp->stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
@@ -1633,7 +1633,7 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
       return -1;
     }
 
-  ret = db_blocking_step(qp->stmt);
+  ret = db_blocking_step(hdl, qp->stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
@@ -1713,7 +1713,7 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
       return -1;
     }
 
-  ret = db_blocking_step(qp->stmt);
+  ret = db_blocking_step(hdl, qp->stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
@@ -1762,7 +1762,7 @@ db_query_fetch_string(struct query_params *qp, char **string)
       return -1;
     }
 
-  ret = db_blocking_step(qp->stmt);
+  ret = db_blocking_step(hdl, qp->stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
@@ -1799,7 +1799,7 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
       return -1;
     }
 
-  ret = db_blocking_step(qp->stmt);
+  ret = db_blocking_step(hdl, qp->stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
@@ -1857,7 +1857,7 @@ db_files_update_songartistid(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_SONGARTISTID);
 
-  ret = db_exec(Q_SONGARTISTID, &errmsg);
+  ret = db_exec(hdl, Q_SONGARTISTID, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error updating songartistid: %s\n", errmsg);
 
@@ -1875,7 +1875,7 @@ db_files_update_songalbumid(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_SONGALBUMID);
 
-  ret = db_exec(Q_SONGALBUMID, &errmsg);
+  ret = db_exec(hdl, Q_SONGALBUMID, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error updating songalbumid: %s\n", errmsg);
 
@@ -1921,7 +1921,7 @@ db_file_ping(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging file ID %d: %s\n", id, errmsg);
 
@@ -1954,7 +1954,7 @@ db_file_ping_bymatch(char *path, int isdir)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging files matching %s: %s\n", path, errmsg);
 
@@ -1984,7 +1984,7 @@ db_file_path_byid(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -1993,7 +1993,7 @@ db_file_path_byid(int id)
       return NULL;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
@@ -2011,7 +2011,7 @@ db_file_path_byid(int id)
     res = strdup(res);
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -2034,7 +2034,7 @@ db_file_id_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -2042,7 +2042,7 @@ db_file_id_byquery(char *query)
       return 0;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
@@ -2057,7 +2057,7 @@ db_file_id_byquery(char *query)
   ret = sqlite3_column_int(stmt, 0);
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -2206,7 +2206,7 @@ db_file_stamp_bypath(char *path, time_t *stamp, int *id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -2215,7 +2215,7 @@ db_file_stamp_bypath(char *path, time_t *stamp, int *id)
       return;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
@@ -2232,7 +2232,7 @@ db_file_stamp_bypath(char *path, time_t *stamp, int *id)
   *stamp = (time_t)sqlite3_column_int64(stmt, 1);
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -2269,7 +2269,7 @@ db_file_fetch_byquery(char *query)
     }
   memset(mfi, 0, sizeof(struct media_file_info));
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -2278,7 +2278,7 @@ db_file_fetch_byquery(char *query)
       return NULL;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
 
   if (ret != SQLITE_ROW)
     {
@@ -2349,7 +2349,7 @@ db_file_fetch_byquery(char *query)
     }
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -2444,7 +2444,7 @@ db_file_add(struct media_file_info *mfi)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -2518,7 +2518,7 @@ db_file_update(struct media_file_info *mfi)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -2553,7 +2553,7 @@ db_file_delete_bypath(char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error deleting file: %s\n", errmsg);
 
@@ -2571,7 +2571,7 @@ db_file_disable_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error disabling file: %s\n", errmsg);
 
@@ -2648,7 +2648,7 @@ db_file_enable_bycookie(uint32_t cookie, char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error enabling files: %s\n", errmsg);
@@ -2740,7 +2740,7 @@ db_pl_ping(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging playlist %d: %s\n", id, errmsg);
 
@@ -2773,7 +2773,7 @@ db_pl_ping_bymatch(char *path, int isdir)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error pinging playlists matching %s: %s\n", path, errmsg);
 
@@ -2802,7 +2802,7 @@ db_pl_id_bypath(char *path, int *id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -2811,7 +2811,7 @@ db_pl_id_bypath(char *path, int *id)
       return -1;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
@@ -2827,7 +2827,7 @@ db_pl_id_bypath(char *path, int *id)
   *id = sqlite3_column_int(stmt, 0);
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -2865,7 +2865,7 @@ db_pl_fetch_byquery(char *query)
     }
   memset(pli, 0, sizeof(struct playlist_info));
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -2874,7 +2874,7 @@ db_pl_fetch_byquery(char *query)
       return NULL;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
@@ -2931,7 +2931,7 @@ db_pl_fetch_byquery(char *query)
 	}
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   sqlite3_finalize(stmt);
 
   if (ret != SQLITE_DONE)
@@ -3072,7 +3072,7 @@ db_pl_add(char *title, char *path, int *id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -3116,7 +3116,7 @@ db_pl_add_item_bypath(int plid, char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -3150,7 +3150,7 @@ db_pl_add_item_byid(int plid, int fileid)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -3185,7 +3185,7 @@ db_pl_update(char *title, char *path, int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -3220,7 +3220,7 @@ db_pl_clear_items(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error clearing playlist %d items: %s\n", id, errmsg);
 
@@ -3251,7 +3251,7 @@ db_pl_delete(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error deleting playlist %d: %s\n", id, errmsg);
 
@@ -3284,7 +3284,7 @@ db_pl_disable_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error disabling playlist: %s\n", errmsg);
 
@@ -3361,7 +3361,7 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error enabling playlists: %s\n", errmsg);
@@ -3389,7 +3389,7 @@ db_groups_clear(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -3419,7 +3419,7 @@ db_group_type_byid(int id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -3428,7 +3428,7 @@ db_group_type_byid(int id)
       return 0;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
@@ -3444,7 +3444,7 @@ db_group_type_byid(int id)
   ret = sqlite3_column_int(stmt, 0);
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -3475,7 +3475,7 @@ db_pairing_delete_byremote(char *remote_id)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error deleting pairing: %s\n", errmsg);
@@ -3514,7 +3514,7 @@ db_pairing_add(struct pairing_info *pi)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error adding pairing: %s\n", errmsg);
@@ -3548,14 +3548,14 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
       return -1;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
@@ -3572,7 +3572,7 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
   pi->name = strdup((char *)sqlite3_column_text(stmt, 1));
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -3603,7 +3603,7 @@ db_spotify_purge(void)
     {
       DPRINTF(E_DBG, L_DB, "Running spotify purge query '%s'\n", queries[i]);
 
-      ret = db_exec(queries[i], &errmsg);
+      ret = db_exec(hdl, queries[i], &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
@@ -3644,7 +3644,7 @@ db_spotify_pl_delete(int id)
     {
       DPRINTF(E_DBG, L_DB, "Running spotify playlist delete query '%s'\n", queries[i]);
 
-      ret = db_exec(queries[i], &errmsg);
+      ret = db_exec(hdl, queries[i], &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_DB, "Spotify playlist delete %d error: %s\n", i, errmsg);
@@ -3844,7 +3844,7 @@ db_speaker_save(uint64_t id, int selected, int volume)
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
   errmsg = NULL;
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error saving speaker state: %s\n", errmsg);
@@ -3879,7 +3879,7 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -3888,7 +3888,7 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
       goto out;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret != SQLITE_DONE)
@@ -3904,7 +3904,7 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
   *volume = sqlite3_column_int(stmt, 1);
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -3928,7 +3928,7 @@ db_speaker_clear_all(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -3936,7 +3936,6 @@ db_speaker_clear_all(void)
       sqlite3_free(errmsg);
     }
 }
-
 
 /* Inotify */
 int
@@ -3948,7 +3947,7 @@ db_watch_clear(void)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
@@ -3978,7 +3977,7 @@ db_watch_add(struct watch_info *wi)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error adding watch: %s\n", errmsg);
@@ -4003,7 +4002,7 @@ db_watch_delete_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error deleting watch: %s\n", errmsg);
@@ -4129,14 +4128,14 @@ db_watch_get_byquery(struct watch_info *wi, char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
       return -1;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       DPRINTF(E_WARN, L_DB, "Watch not found: '%s'\n", query);
@@ -4190,7 +4189,7 @@ db_watch_get_byquery(struct watch_info *wi, char *query)
     }
 
 #ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
     ; /* EMPTY */
 #endif
 
@@ -4242,7 +4241,7 @@ db_watch_mark_byquery(char *query)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error marking watch: %s\n", errmsg);
 
@@ -4322,7 +4321,7 @@ db_watch_move_bycookie(uint32_t cookie, char *path)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error moving watch: %s\n", errmsg);
 
@@ -4388,7 +4387,7 @@ db_watch_enum_start(struct watch_enum *we)
 
   DPRINTF(E_DBG, L_DB, "Starting enum '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &we->stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &we->stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -4428,7 +4427,7 @@ db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd)
       return -1;
     }
 
-  ret = db_blocking_step(we->stmt);
+  ret = db_blocking_step(hdl, we->stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_INFO, L_DB, "End of watch enum results\n");
@@ -4473,7 +4472,7 @@ db_xprofile(void *notused, const char *pquery, sqlite3_uint64 ptime)
       goto out;
     }
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
   sqlite3_free(query);
   if (ret != SQLITE_OK)
     {
@@ -4484,7 +4483,7 @@ db_xprofile(void *notused, const char *pquery, sqlite3_uint64 ptime)
 
   DPRINTF(E_DBG, L_DBPERF, "Query plan:\n");
 
-  while ((ret = db_blocking_step(stmt)) == SQLITE_ROW)
+  while ((ret = db_blocking_step(hdl, stmt)) == SQLITE_ROW)
     {
       DPRINTF(E_DBG, L_DBPERF, "(%d,%d,%d) %s\n",
 	      sqlite3_column_int(stmt, 0), sqlite3_column_int(stmt, 1), sqlite3_column_int(stmt, 2),
@@ -4504,8 +4503,8 @@ db_xprofile(void *notused, const char *pquery, sqlite3_uint64 ptime)
 }
 #endif
 
-static int
-db_pragma_get_cache_size()
+int
+db_pragma_get_cache_size(sqlite3 *db)
 {
   sqlite3_stmt *stmt;
   char *query = "PRAGMA cache_size;";
@@ -4513,16 +4512,16 @@ db_pragma_get_cache_size()
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(db, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(db));
 
       sqlite3_free(query);
       return 0;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(db, stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
@@ -4531,7 +4530,7 @@ db_pragma_get_cache_size()
     }
   else if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(db));
       sqlite3_free(query);
       return -1;
     }
@@ -4542,8 +4541,8 @@ db_pragma_get_cache_size()
   return ret;
 }
 
-static int
-db_pragma_set_cache_size(int pages)
+int
+db_pragma_set_cache_size(sqlite3 *db, int pages)
 {
 #define Q_TMPL "PRAGMA cache_size=%d;"
   sqlite3_stmt *stmt;
@@ -4553,10 +4552,10 @@ db_pragma_set_cache_size(int pages)
   query = sqlite3_mprintf(Q_TMPL, pages);
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(db, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(db));
 
       sqlite3_free(query);
       return 0;
@@ -4568,8 +4567,8 @@ db_pragma_set_cache_size(int pages)
 #undef Q_TMPL
 }
 
-static char *
-db_pragma_set_journal_mode(char *mode)
+char *
+db_pragma_set_journal_mode(sqlite3 *db, char *mode)
 {
 #define Q_TMPL "PRAGMA journal_mode=%s;"
   sqlite3_stmt *stmt;
@@ -4580,16 +4579,16 @@ db_pragma_set_journal_mode(char *mode)
   query = sqlite3_mprintf(Q_TMPL, mode);
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(db, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(db));
 
       sqlite3_free(query);
       return NULL;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(db, stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
@@ -4598,7 +4597,7 @@ db_pragma_set_journal_mode(char *mode)
     }
   else if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(db));
       sqlite3_free(query);
       return NULL;
     }
@@ -4610,8 +4609,8 @@ db_pragma_set_journal_mode(char *mode)
 #undef Q_TMPL
 }
 
-static int
-db_pragma_get_synchronous()
+int
+db_pragma_get_synchronous(sqlite3 *db)
 {
   sqlite3_stmt *stmt;
   char *query = "PRAGMA synchronous;";
@@ -4619,16 +4618,16 @@ db_pragma_get_synchronous()
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(db, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(db));
 
       sqlite3_free(query);
       return 0;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(db, stmt);
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
@@ -4637,7 +4636,7 @@ db_pragma_get_synchronous()
     }
   else if (ret != SQLITE_ROW)
     {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(db));
       sqlite3_free(query);
       return -1;
     }
@@ -4648,8 +4647,8 @@ db_pragma_get_synchronous()
   return ret;
 }
 
-static int
-db_pragma_set_synchronous(int synchronous)
+int
+db_pragma_set_synchronous(sqlite3 *db, int synchronous)
 {
 #define Q_TMPL "PRAGMA synchronous=%d;"
   sqlite3_stmt *stmt;
@@ -4659,10 +4658,10 @@ db_pragma_set_synchronous(int synchronous)
   query = sqlite3_mprintf(Q_TMPL, synchronous);
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(db, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(db));
 
       sqlite3_free(query);
       return 0;
@@ -4733,23 +4732,23 @@ db_perthread_init(void)
   cache_size = cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_cache_size");
   if (cache_size > -1)
     {
-      db_pragma_set_cache_size(cache_size);
-      cache_size = db_pragma_get_cache_size();
+      db_pragma_set_cache_size(hdl, cache_size);
+      cache_size = db_pragma_get_cache_size(hdl);
       DPRINTF(E_DBG, L_DB, "Database cache size in pages: %d\n", cache_size);
     }
 
   journal_mode = cfg_getstr(cfg_getsec(cfg, "general"), "db_pragma_journal_mode");
   if (journal_mode)
     {
-      journal_mode = db_pragma_set_journal_mode(journal_mode);
+      journal_mode = db_pragma_set_journal_mode(hdl, journal_mode);
       DPRINTF(E_DBG, L_DB, "Database journal mode: %s\n", journal_mode);
     }
 
   synchronous = cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_synchronous");
   if (synchronous > -1)
     {
-      db_pragma_set_synchronous(synchronous);
-      synchronous = db_pragma_get_synchronous();
+      db_pragma_set_synchronous(hdl, synchronous);
+      synchronous = db_pragma_get_synchronous(hdl);
       DPRINTF(E_DBG, L_DB, "Database synchronous: %d\n", synchronous);
     }
 
@@ -4876,7 +4875,7 @@ db_perthread_deinit(void)
   ");"
 
 #define T_SPEAKERS					\
-  "CREATE TABLE IF NOT EXISTS speakers("		\
+  "CREATE TABLE IF NOT EXISTS speakers ("		\
   "   id             INTEGER PRIMARY KEY NOT NULL,"	\
   "   selected       INTEGER NOT NULL,"			\
   "   volume         INTEGER NOT NULL"			\
@@ -4986,10 +4985,6 @@ db_perthread_deinit(void)
 #define Q_SCVER					\
   "INSERT INTO admin (key, value) VALUES ('schema_version', '15');"
 
-struct db_init_query {
-  char *query;
-  char *desc;
-};
 
 static const struct db_init_query db_init_queries[] =
   {

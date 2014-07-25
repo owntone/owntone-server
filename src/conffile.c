@@ -48,6 +48,7 @@ static cfg_opt_t sec_general[] =
     CFG_STR("admin_password", NULL, CFGF_NONE),
     CFG_STR("logfile", STATEDIR "/log/" PACKAGE ".log", CFGF_NONE),
     CFG_STR("db_path", STATEDIR "/cache/" PACKAGE "/songs3.db", CFGF_NONE),
+    CFG_STR("artwork_cache_path", NULL, CFGF_NONE),
     CFG_INT("db_pragma_cache_size", -1, CFGF_NONE),
     CFG_STR("db_pragma_journal_mode", NULL, CFGF_NONE),
     CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),

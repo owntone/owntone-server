@@ -48,6 +48,7 @@
 #include <gcrypt.h>
 
 #include "db.h"
+#include "db_artwork.h"
 #include "daap_query.h"
 #include "logger.h"
 #include "mdns.h"
@@ -4534,6 +4535,14 @@ player(void *arg)
   int ret;
 
   ret = db_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Error: DB init failed\n");
+
+      pthread_exit(NULL);
+    }
+
+  ret = db_artwork_perthread_init();
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Error: DB init failed\n");
