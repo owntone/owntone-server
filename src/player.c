@@ -469,6 +469,9 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 static void
 playback_abort(void);
 
+static int
+queue_clear(struct player_command *cmd);
+
 static void
 player_laudio_status_cb(enum laudio_state status)
 {
@@ -655,6 +658,8 @@ player_queue_make(struct query_params *qp, const char *sort)
 
   q_head->pl_prev = q_tail;
   q_tail->pl_next = q_head;
+  q_head->shuffle_prev = q_tail;
+  q_tail->shuffle_next = q_head;
 
   return q_head;
 }
@@ -821,9 +826,12 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
 	}
       else
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Unknown queuefilter: %s\n", queuefilter);
+	  DPRINTF(E_LOG, L_PLAYER, "Unknown queuefilter %s\n", queuefilter);
 
-	  return -1;
+	  // If the queuefilter is unkown, ignore it and use the query parameter instead to build the sql query
+	  id = 0;
+	  qp.type = Q_ITEMS;
+	  qp.filter = daap_query_parse_sql(query);
 	}
     }
   else
@@ -971,8 +979,11 @@ source_stop(struct player_source *ps)
     }
 }
 
-static struct player_source *
-source_shuffle(struct player_source *head)
+/*
+ * Shuffles the items between head and tail (excluding head and tail)
+ */
+static void
+source_shuffle(struct player_source *head, struct player_source *tail)
 {
   struct player_source *ps;
   struct player_source **ps_array;
@@ -980,34 +991,55 @@ source_shuffle(struct player_source *head)
   int i;
 
   if (!head)
-    return NULL;
+    return;
 
-  ps = head;
+  if (!tail)
+    return;
+
+  if (!shuffle)
+    {
+      ps = head;
+      do
+	{
+	  ps->shuffle_next = ps->pl_next;
+	  ps->shuffle_prev = ps->pl_prev;
+	  ps = ps->pl_next;
+	}
+      while (ps != head);
+    }
+
+  // Count items in queue (excluding head and tail)
+  ps = head->shuffle_next;
   nitems = 0;
-  do
+  while (ps != tail)
     {
       nitems++;
-      ps = ps->pl_next;
+      ps = ps->shuffle_next;
     }
-  while (ps != head);
 
+  // Do not reshuffle queue with one item
+  if (nitems < 1)
+    return;
+
+  // Construct array for number of items in queue
   ps_array = (struct player_source **)malloc(nitems * sizeof(struct player_source *));
   if (!ps_array)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not allocate memory for shuffle array\n");
-      return NULL;
+      return;
     }
 
-  ps = head;
+  // Fill array with items in queue (excluding head and tail)
+  ps = head->shuffle_next;
   i = 0;
   do
     {
       ps_array[i] = ps;
 
-      ps = ps->pl_next;
+      ps = ps->shuffle_next;
       i++;
     }
-  while (ps != head);
+  while (ps != tail);
 
   shuffle_ptr(&shuffle_rng, (void **)ps_array, nitems);
 
@@ -1022,29 +1054,39 @@ source_shuffle(struct player_source *head)
 	ps->shuffle_next = ps_array[i + 1];
     }
 
-  ps_array[0]->shuffle_prev = ps_array[nitems - 1];
-  ps_array[nitems - 1]->shuffle_next = ps_array[0];
-
-  ps = ps_array[0];
+  // Insert shuffled items between head and tail
+  ps_array[0]->shuffle_prev = head;
+  ps_array[nitems - 1]->shuffle_next = tail;
+  head->shuffle_next = ps_array[0];
+  tail->shuffle_prev = ps_array[nitems - 1];
 
   free(ps_array);
 
-  return ps;
+  return;
 }
 
 static void
 source_reshuffle(void)
 {
-  struct player_source *ps;
-
-  ps = source_shuffle(source_head);
-  if (!ps)
-    return;
+  struct player_source *head;
+  struct player_source *tail;
 
   if (cur_streaming)
-    shuffle_head = cur_streaming;
+    head = cur_streaming;
   else
-    shuffle_head = ps;
+    head = source_head;
+
+  if (repeat == REPEAT_ALL)
+    tail = head;
+  else if (shuffle)
+    tail = shuffle_head;
+  else
+    tail = source_head;
+
+  source_shuffle(head, tail);
+
+  if (repeat == REPEAT_ALL)
+    shuffle_head = head;
 }
 
 /* Helper */
@@ -2178,6 +2220,8 @@ playback_abort(void)
     source_stop(cur_playing);
   else
     source_stop(cur_streaming);
+
+  queue_clear(NULL);
 
   cur_playing = NULL;
   cur_streaming = NULL;
@@ -3378,10 +3422,7 @@ queue_add(struct player_command *cmd)
   struct player_source *ps_tail;
 
   ps = cmd->arg.ps;
-
-  ps_shuffle = source_shuffle(ps);
-  if (!ps_shuffle)
-    ps_shuffle = ps;
+  ps_shuffle = ps;
 
   if (source_head)
     {
@@ -3411,6 +3452,9 @@ queue_add(struct player_command *cmd)
       shuffle_head = ps_shuffle;
     }
 
+  if (shuffle)
+    source_reshuffle();
+
   if (cur_plid != 0)
     cur_plid = 0;
 
@@ -3425,10 +3469,7 @@ queue_add_next(struct player_command *cmd)
   struct player_source *ps_playing;
 
   ps = cmd->arg.ps;
-
-  ps_shuffle = source_shuffle(ps);
-  if (!ps_shuffle)
-    ps_shuffle = ps;
+  ps_shuffle = ps;
 
   if (source_head && cur_streaming)
   {
@@ -3451,6 +3492,9 @@ queue_add_next(struct player_command *cmd)
     source_head = ps;
     shuffle_head = ps_shuffle;
   }
+
+  if (shuffle)
+    source_reshuffle();
 
   if (cur_plid != 0)
     cur_plid = 0;
