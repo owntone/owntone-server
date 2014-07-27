@@ -4399,6 +4399,7 @@ db_pragma_set_cache_size(int pages)
   sqlite3_finalize(stmt);
   sqlite3_free(query);
   return 0;
+#undef Q_TMPL
 }
 
 static char *
@@ -4504,6 +4505,7 @@ db_pragma_set_synchronous(int synchronous)
   sqlite3_finalize(stmt);
   sqlite3_free(query);
   return 0;
+#undef Q_TMPL
 }
 
 int
