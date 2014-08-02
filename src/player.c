@@ -1085,6 +1085,7 @@ source_reshuffle(void)
 
   source_shuffle(head, tail);
 
+  // Setting shuffle_head to the current song (head) will show all reshuffled songs in the playlist
   if (repeat == REPEAT_ALL)
     shuffle_head = head;
 }
@@ -1230,7 +1231,12 @@ source_next(int force)
 	if (cur_streaming && (ps == shuffle_head))
 	  {
 	    source_reshuffle();
-	    ps = shuffle_head;
+
+	    /* After source_reshuffle with "repeat all", shuffle_head is (re-)set to cur_streaming,
+	     * therefor get the next song in queue and set the start of the playlist to this song.
+	     */
+	    ps = cur_streaming->shuffle_next;
+	    shuffle_head = ps;
 	  }
 
 	limit = shuffle_head;
