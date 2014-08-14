@@ -184,6 +184,7 @@ sort_tag_create(char **sort_tag, char *src_tag)
   ucs4_t puc;
   int numlen;
   size_t len;
+  int charlen;
 
   /* Note: include terminating NUL in string length for u8_normalize */
 
@@ -236,7 +237,11 @@ sort_tag_create(char **sort_tag, char *src_tag)
 	  if (number)
 	    append_number = 1; // A number has ended so time to append it
 	  else
-	    o_ptr = u8_stpncpy(o_ptr, i_ptr, u8_strmblen(i_ptr)); // No numbers in sight, just append char
+	    {
+              charlen = u8_strmblen(i_ptr);
+              if (charlen >= 0)
+	    	o_ptr = u8_stpncpy(o_ptr, i_ptr, charlen); // No numbers in sight, just append char
+	    }
 	}
 
       // Break if less than 100 bytes remain (prevent buffer overflow)
