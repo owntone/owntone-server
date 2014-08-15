@@ -12,6 +12,7 @@ struct onekeyval {
   char *value;
 
   struct onekeyval *next;
+  struct onekeyval *sort;
 };
 
 struct keyval {
@@ -40,6 +41,9 @@ safe_hextou64(const char *str, uint64_t *val);
 
 
 /* Key/value functions */
+struct keyval *
+keyval_alloc(void);
+
 int
 keyval_add(struct keyval *kv, const char *name, const char *value);
 
@@ -55,12 +59,18 @@ keyval_get(struct keyval *kv, const char *name);
 void
 keyval_clear(struct keyval *kv);
 
+void
+keyval_sort(struct keyval *kv);
+
 
 char *
 m_realpath(const char *pathname);
 
 char *
 unicode_fixup_string(char *str);
+
+char *
+trimwhitespace(const char *str);
 
 uint32_t
 djb_hash(void *data, size_t len);
