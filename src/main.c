@@ -67,6 +67,9 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 # include "ffmpeg_url_evbuffer.h"
 #endif
 
+#ifdef LASTFM
+# include "lastfm.h"
+#endif
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
@@ -798,6 +801,10 @@ main(int argc, char **argv)
   player_deinit();
 
  player_fail:
+#ifdef LASTFM
+  DPRINTF(E_LOG, L_MAIN, "LastFM deinit\n");
+  lastfm_deinit();
+#endif
 #ifdef HAVE_SPOTIFY_H
   DPRINTF(E_LOG, L_MAIN, "Spotify deinit\n");
   spotify_deinit();

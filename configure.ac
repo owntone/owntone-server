@@ -66,10 +66,15 @@ AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify librar
                       use_spotify=true;
                       CPPFLAGS="${CPPFLAGS} -DSPOTIFY")
 
+AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]),
+                      use_lastfm=true;
+                      CPPFLAGS="${CPPFLAGS} -DLASTFM")
+
 AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 AM_CONDITIONAL(COND_ITUNES, test x$use_itunes = xtrue)
 AM_CONDITIONAL(COND_SPOTIFY, test x$use_spotify = xtrue)
+AM_CONDITIONAL(COND_LASTFM, test x$use_lastfm = xtrue)
 
 AC_ARG_WITH(oss4, AS_HELP_STRING([--with-oss4=includedir], [use OSS4 with soundcard.h in includedir (default /usr/lib/oss/include/sys)]),
   [ case "$withval" in
@@ -219,6 +224,12 @@ if test x$use_spotify = xtrue; then
 	SPOTIFY_LIBS="-ldl"
 	AC_SUBST(SPOTIFY_CFLAGS)
 	AC_SUBST(SPOTIFY_LIBS)
+fi
+
+if test x$use_lastfm = xtrue; then
+	PKG_CHECK_MODULES(LIBCURL, [ libcurl ])
+	AC_CHECK_LIB([mxml], [mxmlGetOpaque],
+		AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
 fi
 
 case "$host" in

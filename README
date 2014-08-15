@@ -4,7 +4,7 @@ forked-daapd
 forked-daapd is a Linux/FreeBSD DAAP (iTunes) and RSP (Roku) media server.
 
 It has support for AirPlay devices/speakers, Apple Remote (and compatibles),
-internet radio and Spotify.
+internet radio, Spotify and LastFM.
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
@@ -37,6 +37,7 @@ Contents of this README
 - Library
 - Command line and web interface
 - Spotify
+- LastFM
 
 
 Supported clients
@@ -420,3 +421,21 @@ You will not be able to do any playlist management through forked-daapd - use
 a Spotify client for that. You also can only listen to your music by letting
 forked-daapd do the playback - so that means you can't stream from forked-daapd
 to iTunes.
+
+
+LastFM
+------
+
+If forked-daapd was built with LastFM scrobbling enabled (see the INSTALL file)
+you can have it scrobble the music you listen to. To set up scrobbling you must
+create a text file with the file name ending ".lastfm". The file must have two
+lines: The first is your LastFM user name, and the second is your password. Move
+the file to your forked-daapd library. Forked-daapd will then log in and get a
+permanent session key.
+
+You should delete the .lastfm file immediately after completing the first login.
+For safety, forked-daapd will not store your LastFM username/password, only the
+session key. The session key does not expire.
+
+To stop scrobbling from forked-daapd, add an empty ".lastfm" file to your
+library.

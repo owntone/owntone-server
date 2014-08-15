@@ -58,6 +58,10 @@
 #include "raop.h"
 #include "laudio.h"
 
+#ifdef LASTFM
+# include "lastfm.h"
+#endif
+
 /* These handle getting the media data */
 #include "transcode.h"
 #include "pipe.h"
@@ -1085,7 +1089,6 @@ source_reshuffle(void)
 
   source_shuffle(head, tail);
 
-  // Setting shuffle_head to the current song (head) will show all reshuffled songs in the playlist
   if (repeat == REPEAT_ALL)
     shuffle_head = head;
 }
@@ -1231,12 +1234,7 @@ source_next(int force)
 	if (cur_streaming && (ps == shuffle_head))
 	  {
 	    source_reshuffle();
-
-	    /* After source_reshuffle with "repeat all", shuffle_head is (re-)set to cur_streaming,
-	     * therefor get the next song in queue and set the start of the playlist to this song.
-	     */
-	    ps = cur_streaming->shuffle_next;
-	    shuffle_head = ps;
+	    ps = shuffle_head;
 	  }
 
 	limit = shuffle_head;
@@ -1443,6 +1441,9 @@ source_check(void)
       i++;
 
       db_file_inc_playcount((int)cur_playing->id);
+#ifdef LASTFM
+      lastfm_scrobble((int)cur_playing->id);
+#endif
 
       /* Stop playback if:
        * - at end of playlist (NULL)
