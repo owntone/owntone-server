@@ -3657,6 +3657,172 @@ db_spotify_pl_delete(int id)
 }
 #endif
 
+/* Admin */
+int
+db_admin_add(const char *key, const char *value)
+{
+#define Q_TMPL "INSERT INTO admin (key, value) VALUES ('%q', '%q');"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, key, value);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error adding key to admin: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+char *
+db_admin_get(const char *key)
+{
+#define Q_TMPL "SELECT value FROM admin a WHERE a.key = '%q';"
+  char *query;
+  sqlite3_stmt *stmt;
+  char *res;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, key);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return NULL;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return NULL;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_DBG, L_DB, "No results\n");
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return NULL;
+    }
+
+  res = (char *)sqlite3_column_text(stmt, 0);
+  if (res)
+    res = strdup(res);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  return res;
+
+#undef Q_TMPL
+}
+
+int
+db_admin_update(const char *key, const char *value)
+{
+#define Q_TMPL "UPDATE admin SET value='%q' WHERE key='%q';"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, key, value);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error updating key in admin: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+int
+db_admin_delete(const char *key)
+{
+#define Q_TMPL "DELETE FROM admin where key='%q';"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, key);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  errmsg = NULL;
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error deleting key from admin: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
 
 /* Speakers */
 int

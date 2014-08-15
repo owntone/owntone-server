@@ -480,6 +480,19 @@ void
 db_spotify_pl_delete(int id);
 #endif
 
+/* Admin */
+int
+db_admin_add(const char *key, const char *value);
+
+char *
+db_admin_get(const char *key);
+
+int
+db_admin_update(const char *key, const char *value);
+
+int
+db_admin_delete(const char *key);
+
 /* Speakers */
 int
 db_speaker_save(uint64_t id, int selected, int volume);
