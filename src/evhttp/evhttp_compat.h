@@ -1,3 +1,6 @@
+#ifndef _EVHTTP_COMPAT_H_
+#define _EVHTTP_COMPAT_H_
+
 #include "evhttp.h"
 
 /* This file should only be included if using libevent 1
@@ -24,4 +27,4 @@ evhttp_connection_base_new(struct event_base *base, void *ignore, const char *ad
 void
 evhttp_request_set_header_cb(struct evhttp_request *req, int (*cb)(struct evhttp_request *, void *));
 
-
+#endif /* _EVHTTP_COMPAT_H_ */
