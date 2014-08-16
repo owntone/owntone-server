@@ -23,6 +23,9 @@ int
 db_artwork_file_get(int id, int *format, char **data, int *datalen);
 
 int
+db_artwork_file_get_by_path_and_size(char *path, int max_w, int max_h, int *id, int *format, char **data, int *datalen);
+
+int
 db_artwork_perthread_init(void);
 
 void

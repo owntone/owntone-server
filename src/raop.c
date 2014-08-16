@@ -851,7 +851,7 @@ raop_metadata_prepare(int id, uint64_t rtptime)
       goto skip_artwork;
     }
 
-  ret = artwork_get_item_filename(dbmfi.path, 600, 600, ART_CAN_PNG | ART_CAN_JPEG, rmd->artwork);
+  ret = artwork_get_item_id(id, 600, 600, ART_CAN_PNG | ART_CAN_JPEG, rmd->artwork);
   if (ret < 0)
     {
       DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for '%s' (%d); no artwork will be sent\n", dbmfi.title, id);

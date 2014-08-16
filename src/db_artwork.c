@@ -93,7 +93,7 @@ db_artwork_file_add(int format, char *filename, int max_w, int max_h, char *data
   char *query;
   int ret;
 
-  query = "INSERT INTO imagedata (id, format, filepath, max_w, max_h, data) VALUES (NULL, ?, '', ?, ?, ?);";
+  query = "INSERT INTO imagedata (id, format, filepath, max_w, max_h, data) VALUES (NULL, ?, ?, ?, ?, ?);";
   ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
@@ -104,10 +104,10 @@ db_artwork_file_add(int format, char *filename, int max_w, int max_h, char *data
     }
 
   sqlite3_bind_int(stmt, 1, format);
-  //sqlite3_bind_text(stmt, 2, filename, -1, SQLITE_STATIC);
-  sqlite3_bind_int(stmt, 2, max_w);
-  sqlite3_bind_int(stmt, 3, max_h);
-  sqlite3_bind_blob(stmt, 4, data, datalen, SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 2, filename, -1, SQLITE_STATIC);
+  sqlite3_bind_int(stmt, 3, max_w);
+  sqlite3_bind_int(stmt, 4, max_h);
+  sqlite3_bind_blob(stmt, 5, data, datalen, SQLITE_STATIC);
 
   ret = db_blocking_step(hdl, stmt);
   if (ret == SQLITE_DONE)
@@ -162,11 +162,15 @@ db_artwork_get(int itemid, int groupid, int max_w, int max_h, int *cached, int *
   if (ret != SQLITE_ROW)
     {
       if (ret != SQLITE_DONE)
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+	  ret = -1;
+	}
+      else
+	ret = 0;
 
       sqlite3_finalize(stmt);
 
-      ret = -1;
       goto out;
     }
 
@@ -232,6 +236,67 @@ db_artwork_file_get(int id, int *format, char **data, int *datalen)
   *datalen = sqlite3_column_bytes(stmt, 1);
   *data = (char *)malloc(*datalen);
   memcpy(*data, sqlite3_column_blob(stmt, 1), *datalen);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
+    ; /* EMPTY */
+#endif
+
+  sqlite3_finalize(stmt);
+
+  ret = 0;
+
+ out:
+  sqlite3_free(query);
+  return ret;
+
+#undef Q_TMPL
+}
+
+int
+db_artwork_file_get_by_path_and_size(char *path, int max_w, int max_h, int *id, int *format, char **data, int *datalen)
+{
+#define Q_TMPL "SELECT i.id, i.format, i.data FROM imagedata i WHERE i.filepath = '%q' AND max_w = %d AND max_h = %d;"
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path, max_w, max_h);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      ret = -1;
+      goto out;
+    }
+
+  ret = db_blocking_step(hdl, stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret != SQLITE_DONE)
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+
+      ret = -1;
+      goto out;
+    }
+
+  *id      = sqlite3_column_int(stmt, 0);
+  *format  = sqlite3_column_int(stmt, 1);
+  *datalen = sqlite3_column_bytes(stmt, 2);
+  *data = (char *)malloc(*datalen);
+  memcpy(*data, sqlite3_column_blob(stmt, 2), *datalen);
 
 #ifdef DB_PROFILE
   while (db_blocking_step(hdl, stmt) == SQLITE_ROW)
