@@ -58,6 +58,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "db.h"
 #include "logger.h"
 #include "misc.h"
+#include "daap_cache.h"
 #include "filescanner.h"
 #include "httpd.h"
 #include "mdns.h"
@@ -674,6 +675,16 @@ main(int argc, char **argv)
       goto db_fail;
     }
 
+  /* Spawn DAAP cache thread */
+  ret = daapcache_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "DAAP cache thread failed to start\n");
+
+      ret = EXIT_FAILURE;
+      goto cache_fail;
+    }
+
   /* Spawn file scanner thread */
   ret = filescanner_init();
   if (ret != 0)
@@ -813,9 +824,14 @@ main(int argc, char **argv)
   filescanner_deinit();
 
  filescanner_fail:
+  DPRINTF(E_LOG, L_MAIN, "DAAP cache deinit\n");
+  daapcache_deinit();
+
+ cache_fail:
   DPRINTF(E_LOG, L_MAIN, "Database deinit\n");
   db_perthread_deinit();
   db_deinit();
+
  db_fail:
   if (ret == EXIT_FAILURE)
     {

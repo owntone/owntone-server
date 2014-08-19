@@ -2657,6 +2657,19 @@ daap_is_request(struct evhttp_request *req, char *uri)
   return 0;
 }
 
+struct evbuffer *
+daap_reply_build(char *query)
+{
+  struct evbuffer *evbuf;
+  char test[16] = "1234test\n";
+
+  evbuf = evbuffer_new();
+
+  evbuffer_add(evbuf, test, sizeof(test));
+
+  return evbuf;
+}
+
 int
 daap_init(void)
 {

@@ -40,6 +40,7 @@
 
 #include "conffile.h"
 #include "logger.h"
+#include "daap_cache.h"
 #include "misc.h"
 #include "db.h"
 
@@ -2499,6 +2500,8 @@ db_file_update(struct media_file_info *mfi)
     }
 
   sqlite3_free(query);
+
+  daapcache_trigger();
 
   return 0;
 
