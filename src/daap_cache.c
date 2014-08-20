@@ -31,6 +31,7 @@
 #include <string.h>
 #include <pthread.h>
 
+#include "conffile.h"
 #include "logger.h"
 #include "httpd_daap.h"
 #include "db.h"
@@ -74,7 +75,7 @@ static int g_initialized;
 
 // Global cache database handle
 static sqlite3 *g_db_hdl;
-static char *g_db_path = "/home/espen/daapcache.db";
+static char *g_db_path;
 
 // After being triggered wait 5 seconds before rebuilding daapcache
 static struct timeval g_wait = { 5, 0 };
@@ -490,6 +491,9 @@ daapcache_trigger(void)
 {
   struct daapcache_command *cmd; 
 
+  if (!g_initialized)
+    return;
+
   cmd = (struct daapcache_command *)malloc(sizeof(struct daapcache_command));
   if (!cmd)
     {
@@ -513,6 +517,9 @@ daapcache_get(const char *query)
   struct evbuffer *evbuf;
   int ret;
 
+  if (!g_initialized)
+    return NULL;
+
   command_init(&cmd);
 
   cmd.func = daapcache_query_get;
@@ -531,6 +538,14 @@ int
 daapcache_init(void)
 {
   int ret;
+
+  g_db_path = cfg_getstr(cfg_getsec(cfg, "general"), "daapcache_path");
+  if (!g_db_path)
+    {
+      DPRINTF(E_LOG, L_DCACHE, "Cache disabled\n");
+      g_initialized = 0;
+      return 0;
+    }
 
 # if defined(__linux__)
   ret = pipe2(g_exit_pipe, O_CLOEXEC);

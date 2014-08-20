@@ -53,6 +53,7 @@ static cfg_opt_t sec_general[] =
     CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
     CFG_INT_CB("loglevel", E_LOG, CFGF_NONE, &cb_loglevel),
     CFG_BOOL("ipv6", cfg_false, CFGF_NONE),
+    CFG_STR("daapcache_path", NULL, CFGF_NONE),
     CFG_END()
   };
 
