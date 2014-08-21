@@ -37,6 +37,7 @@
 #include "db.h"
 #include "daap_cache.h"
 
+#define Q_C1 "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbumartist,daap.songalbum,com.apple.itunes.cloud-id,dmap.containeritemid,com.apple.itunes.has-video,com.apple.itunes.itms-songid,com.apple.itunes.extended-media-kind,dmap.downloadstatus,daap.songdisabled&type=music&sort=name&include-sort-headers=1&query=('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32')"
 
 struct daapcache_command;
 
@@ -284,6 +285,8 @@ daapcache_query_add(const char *query, struct evbuffer *evbuf)
       return -1;
     }
 
+  DPRINTF(E_DBG, L_DCACHE, "Wrote cache reply, size %d\n", datlen);
+
   return 0;
 #undef Q_TMPL
 }
@@ -354,7 +357,7 @@ daapcache_update_cb(int fd, short what, void *arg)
 {
   struct evbuffer *evbuf;
   char *errmsg;
-  char *query = "test";
+  char *query;
   int ret;
 
   DPRINTF(E_INFO, L_DCACHE, "Timeout reached, time to update DAAP cache\n");
@@ -367,6 +370,8 @@ daapcache_update_cb(int fd, short what, void *arg)
       return;
     }
 
+  query = strdup(Q_C1);
+
   evbuf = daap_reply_build(query);
   if (!evbuf)
     {
@@ -376,7 +381,10 @@ daapcache_update_cb(int fd, short what, void *arg)
 
   daapcache_query_add(query, evbuf);
 
+  free(query);
   evbuffer_free(evbuf);
+
+  DPRINTF(E_INFO, L_DCACHE, "DAAP cache updated\n");
 }
 
 /* This function will just set a timer, which when it times out will trigger
@@ -662,6 +670,9 @@ void
 daapcache_deinit(void)
 {
   int ret;
+
+  if (!g_initialized)
+    return;
 
   thread_exit();
 
