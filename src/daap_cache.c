@@ -37,7 +37,24 @@
 #include "db.h"
 #include "daap_cache.h"
 
-#define Q_C1 "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbumartist,daap.songalbum,com.apple.itunes.cloud-id,dmap.containeritemid,com.apple.itunes.has-video,com.apple.itunes.itms-songid,com.apple.itunes.extended-media-kind,dmap.downloadstatus,daap.songdisabled&type=music&sort=name&include-sort-headers=1&query=('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32')"
+/* The DAAP cache will only cache raw daap replies for these queries.
+ * Remove session_id and revision-number from the query, if you add a new one
+ */
+static const char *daapcache_queries[] =
+  {
+    // Remote 4.2, Playlist 1 - Library
+    "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbumartist,daap.songalbum,com.apple.itunes.cloud-id,dmap.containeritemid,com.apple.itunes.has-video,com.apple.itunes.itms-songid,com.apple.itunes.extended-media-kind,dmap.downloadstatus,daap.songdisabled&type=music&sort=name&include-sort-headers=1&query=('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32')",
+    // Remote 4.2, Albums
+    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,com.apple.itunes.cloud-id,daap.songartistid,daap.songalbumid,dmap.persistentid,daap.songtime,daap.songdatereleased,dmap.downloadstatus&type=music&group-type=albums&sort=album&include-sort-headers=0&query=('daap.songalbum!:'%2B('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32'))",
+    // Remote 4.2, Artists
+    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.groupalbumcount,daap.songartistid&type=music&group-type=artists&sort=album&include-sort-headers=1&query=('daap.songartist!:'%2B('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32'))",
+    // iTunes 11.3, DB song list
+    "/databases/1/items?delta=0&type=music&meta=all",
+    // iTunes 11.3, Playlist 1 - Library
+    "/databases/1/containers/1/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid",
+    // iTunes 11.3, Playlist 2 - Music
+    "/databases/1/containers/2/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid",
+  };
 
 struct daapcache_command;
 
@@ -297,19 +314,52 @@ daapcache_query_get(struct daapcache_command *cmd)
 {
 #define Q_TMPL "SELECT reply FROM cache WHERE query = ?;"
   sqlite3_stmt *stmt;
+  char *query;
+  char *buf;
+  char *ptr;
   int datlen;
   int ret;
 
   cmd->arg.evbuf = NULL;
 
+  // Remove session-id and revision-number from the query
+  buf = strdup(cmd->arg.query);
+
+  query = (char *)malloc(strlen(buf) + 1);
+  query[0] = '\0';
+
+  ptr = strtok(buf, "&");
+  while (ptr)
+    {
+      if ( (strncmp(ptr, "session-id=", strlen("session-id=")) == 0) ||
+           (strncmp(ptr, "revision-number=", strlen("revision-number=")) == 0) )
+	{
+	  ptr = strtok (NULL, "&");
+	  continue;
+	}
+
+      if (ptr != buf)
+	strcat(query, "&");
+
+      strcat(query, ptr);
+
+      ptr = strtok(NULL, "&");
+    }
+
+  free(buf);
+
+  DPRINTF(E_DBG, L_DCACHE, "Query after removing session-id and revision-number: %s\n", query);
+
+  // Look in the DB
   ret = sqlite3_prepare_v2(g_db_hdl, Q_TMPL, -1, &stmt, 0);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DCACHE, "Error preparing query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+      free(query);
       return -1;
     }
 
-  sqlite3_bind_text(stmt, 1, cmd->arg.query, -1, SQLITE_STATIC);
+  sqlite3_bind_text(stmt, 1, query, -1, SQLITE_STATIC);
 
   ret = sqlite3_step(stmt);
   if (ret != SQLITE_ROW)  
@@ -341,16 +391,19 @@ daapcache_query_get(struct daapcache_command *cmd)
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DCACHE, "Error finalizing query for getting cache: %s\n", sqlite3_errmsg(g_db_hdl));
 
+  free(query);
+
   return 0;
 
  error:
   sqlite3_finalize(stmt);
+  free(query);
   return -1;  
 #undef Q_TMPL
 }
 
-/* Here we actually update the cache by asking to httpd_daap for responses
- * to known queries
+/* Here we actually update the cache by asking httpd_daap for responses
+ * to the queries set for caching
  */
 static void
 daapcache_update_cb(int fd, short what, void *arg)
@@ -359,6 +412,7 @@ daapcache_update_cb(int fd, short what, void *arg)
   char *errmsg;
   char *query;
   int ret;
+  int i;
 
   DPRINTF(E_INFO, L_DCACHE, "Timeout reached, time to update DAAP cache\n");
 
@@ -370,19 +424,23 @@ daapcache_update_cb(int fd, short what, void *arg)
       return;
     }
 
-  query = strdup(Q_C1);
-
-  evbuf = daap_reply_build(query);
-  if (!evbuf)
+  for (i = 0; i < (sizeof(daapcache_queries) / sizeof(daapcache_queries[0])); i++)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error building DAAP reply for cache\n");
-      return;
+      query = strdup(daapcache_queries[i]);
+
+      evbuf = daap_reply_build(query);
+      if (!evbuf)
+	{
+	  DPRINTF(E_LOG, L_DCACHE, "Error building DAAP reply for query: %s\n", query);
+	  free(query);
+	  continue;
+	}
+
+      daapcache_query_add(query, evbuf);
+
+      free(query);
+      evbuffer_free(evbuf);
     }
-
-  daapcache_query_add(query, evbuf);
-
-  free(query);
-  evbuffer_free(evbuf);
 
   DPRINTF(E_INFO, L_DCACHE, "DAAP cache updated\n");
 }

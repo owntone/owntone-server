@@ -2523,6 +2523,8 @@ db_file_delete_bypath(char *path)
   query = sqlite3_mprintf(Q_TMPL, path);
 
   db_query_run(query, 1);
+
+  daapcache_trigger();
 #undef Q_TMPL
 }
 
@@ -2540,6 +2542,8 @@ db_file_disable_bypath(char *path, char *strip, uint32_t cookie)
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
 
   db_query_run(query, 1);
+
+  daapcache_trigger();
 #undef Q_TMPL
 }
 
@@ -2557,6 +2561,8 @@ db_file_disable_bymatch(char *path, char *strip, uint32_t cookie)
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
 
   db_query_run(query, 1);
+
+  daapcache_trigger();
 #undef Q_TMPL
 }
 
@@ -2570,6 +2576,8 @@ db_file_enable_bycookie(uint32_t cookie, char *path)
   query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
 
   ret = db_query_run(query, 1);
+
+  daapcache_trigger();
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL

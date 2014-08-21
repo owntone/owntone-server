@@ -1262,7 +1262,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   memset(&qp, 0, sizeof(struct query_params));
   get_query_params(query, &sort_headers, &qp);
-  if (playlist == -1)
+
+  if (req && (playlist == -1))
     user_agent_filter(s->user_agent, &qp);
 
   sctx = NULL;
@@ -1722,13 +1723,15 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   char *tag;
 
   s = daap_session_find(req, query, evbuf);
-  if (!s)
+  if (!s && req)
     return -1;
 
   memset(&qp, 0, sizeof(struct query_params));
 
   get_query_params(query, &sort_headers, &qp);
-  user_agent_filter(s->user_agent, &qp);
+
+  if (req)
+    user_agent_filter(s->user_agent, &qp);
 
   param = evhttp_find_header(query, "group-type");
   if (strcmp(param, "artists") == 0)
@@ -1978,7 +1981,8 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	}
     }
 
-  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  if (req)
+    httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
   return 0;
 
@@ -2664,10 +2668,6 @@ daap_request(struct evhttp_request *req)
   evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
 
   // Try the cache
-  ptr = strstr(full_uri, "&session-id");
-  if (ptr)
-    *ptr = '\0';
-
   evbuf = daapcache_get(full_uri);
   if (evbuf)
     {
@@ -2679,9 +2679,6 @@ daap_request(struct evhttp_request *req)
       free(full_uri);
       return;
     }
-
-  if (ptr)
-    *ptr = '&';
 
   // No cache, so prepare handler arguments and send to the handler
   evbuf = evbuffer_new();
