@@ -1916,6 +1916,8 @@ db_file_ping(int id)
   query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
 
   db_query_run(query, 1);
+
+  daapcache_trigger();
 #undef Q_TMPL
 }
 
@@ -1932,6 +1934,8 @@ db_file_ping_bymatch(char *path, int isdir)
     query = sqlite3_mprintf(Q_TMPL_NODIR, (int64_t)time(NULL), path);
 
   db_query_run(query, 1);
+
+  daapcache_trigger();
 #undef Q_TMPL_DIR
 #undef Q_TMPL_NODIR
 }
@@ -2426,6 +2430,8 @@ db_file_add(struct media_file_info *mfi)
     }
 
   sqlite3_free(query);
+
+  daapcache_trigger();
 
   return 0;
 
