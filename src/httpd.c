@@ -357,6 +357,8 @@ httpd_stream_file(struct evhttp_request *req, int id)
   struct evkeyvalq *output_headers;
   const char *param;
   const char *param_end;
+  const char *ua;
+  const char *client_codecs;
   char buf[64];
   int64_t offset;
   int64_t end_offset;
@@ -431,7 +433,10 @@ httpd_stream_file(struct evhttp_request *req, int id)
   memset(st, 0, sizeof(struct stream_ctx));
   st->fd = -1;
 
-  transcode = transcode_needed(input_headers, mfi->codectype);
+  ua = evhttp_find_header(input_headers, "User-Agent");
+  client_codecs = evhttp_find_header(input_headers, "Accept-Codecs");
+
+  transcode = transcode_needed(ua, client_codecs, mfi->codectype);
 
   output_headers = evhttp_request_get_output_headers(req);
 
@@ -664,6 +669,9 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   int flush;
   int zret;
   int ret;
+
+  if (!req)
+    return;
 
   if (!evbuf || (EVBUFFER_LENGTH(evbuf) == 0))
     {

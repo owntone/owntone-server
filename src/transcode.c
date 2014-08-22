@@ -712,14 +712,16 @@ transcode_cleanup(struct transcode_ctx *ctx)
 
 
 int
-transcode_needed(struct evkeyvalq *headers, char *file_codectype)
+transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype)
 {
-  const char *client_codecs;
-  const char *user_agent;
   char *codectype;
   cfg_t *lib;
   int size;
   int i;
+
+  // If client is a Remote we will AirPlay, which means we will transcode to PCM
+  if (user_agent && strcasestr(user_agent, "remote"))
+    return 1;
 
   if (!file_codectype)
     {
@@ -763,10 +765,8 @@ transcode_needed(struct evkeyvalq *headers, char *file_codectype)
 	}
     }
 
-  client_codecs = evhttp_find_header(headers, "Accept-Codecs");
   if (!client_codecs)
     {
-      user_agent = evhttp_find_header(headers, "User-Agent");
       if (user_agent)
 	{
 	  DPRINTF(E_DBG, L_XCODE, "User-Agent: %s\n", user_agent);
@@ -786,12 +786,6 @@ transcode_needed(struct evkeyvalq *headers, char *file_codectype)
 	  else if (strncmp(user_agent, "Front%20Row", strlen("Front%20Row")) == 0)
 	    {
 	      DPRINTF(E_DBG, L_XCODE, "Client is Front Row, using iTunes codecs\n");
-
-	      client_codecs = itunes_codecs;
-	    }
-	  else if (strncmp(user_agent, "Remote", strlen("Remote")) == 0)
-	    {
-	      DPRINTF(E_DBG, L_XCODE, "Client is Remote, using iTunes codecs\n");
 
 	      client_codecs = itunes_codecs;
 	    }

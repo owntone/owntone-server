@@ -72,7 +72,7 @@ extern struct event_base *evbase_httpd;
 struct uri_map {
   regex_t preg;
   char *regexp;
-  int (*handler)(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query);
+  int (*handler)(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua);
 };
 
 struct daap_session {
@@ -760,7 +760,7 @@ parse_meta(struct evhttp_request *req, char *tag, const char *param, const struc
 
 
 static int
-daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct evbuffer *content;
   struct evkeyvalq *headers;
@@ -857,7 +857,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
 }
 
 static int
-daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   const struct dmap_field *dmap_fields;
   int nfields;
@@ -899,12 +899,10 @@ daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, cha
 }
 
 static int
-daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct pairing_info pi;
   struct daap_session *s;
-  struct evkeyvalq *headers;
-  const char *ua;
   const char *param;
   int request_session_id;
   int ret;
@@ -918,8 +916,6 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
       return -1;
     }
 
-  headers = evhttp_request_get_input_headers(req);
-  ua = evhttp_find_header(headers, "User-Agent");
   if (ua && (strncmp(ua, "Remote", strlen("Remote")) == 0))
     {
       param = evhttp_find_header(query, "pairing-guid");
@@ -978,7 +974,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
 }
 
 static int
-daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct daap_session *s;
 
@@ -994,7 +990,7 @@ daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 }
 
 static int
-daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct timeval tv;
   struct daap_session *s;
@@ -1094,7 +1090,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 }
 
 static int
-daap_reply_activity(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_activity(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   /* That's so nice, thanks for letting us know */
   evhttp_send_reply(req, HTTP_NOCONTENT, "No Content", evbuf);
@@ -1103,7 +1099,7 @@ daap_reply_activity(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 }
 
 static int
-daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct evbuffer *content;
   struct daap_session *s;
@@ -1159,7 +1155,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 }
 
 static int
-daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, int playlist, struct evkeyvalq *query)
+daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, int playlist, struct evkeyvalq *query, const char *ua)
 {
   struct daap_session *s;
   struct query_params qp;
@@ -1170,6 +1166,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   const struct dmap_field **meta;
   struct sort_ctx *sctx;
   const char *param;
+  const char *client_codecs;
   char *tag;
   int nmeta;
   int sort_headers;
@@ -1263,8 +1260,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   memset(&qp, 0, sizeof(struct query_params));
   get_query_params(query, &sort_headers, &qp);
 
-  if (req && (playlist == -1))
-    user_agent_filter(s->user_agent, &qp);
+  if (playlist == -1)
+    user_agent_filter(ua, &qp);
 
   sctx = NULL;
   if (sort_headers)
@@ -1305,13 +1302,14 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     {
       nsongs++;
 
-// TODO
-if (req) {
-      headers = evhttp_request_get_input_headers(req);
-      transcode = transcode_needed(headers, dbmfi.codectype);
-} else {
-  transcode = 1;
-}
+      client_codecs = NULL;
+      if (req)
+	{
+	  headers = evhttp_request_get_input_headers(req);
+	  client_codecs = evhttp_find_header(headers, "Accept-Codecs");
+	}
+
+      transcode = transcode_needed(ua, client_codecs, dbmfi.codectype);
 
       ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, sort_headers, transcode);
       if (ret < 0)
@@ -1410,8 +1408,7 @@ if (req) {
 	}
     }
 
-  if (req)
-    httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
   return 0;
 
@@ -1432,13 +1429,13 @@ if (req) {
 }
 
 static int
-daap_reply_dbsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_dbsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
-  return daap_reply_songlist_generic(req, evbuf, -1, query);
+  return daap_reply_songlist_generic(req, evbuf, -1, query, ua);
 }
 
 static int
-daap_reply_plsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_plsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   int playlist;
   int ret;
@@ -1451,11 +1448,11 @@ daap_reply_plsonglist(struct evhttp_request *req, struct evbuffer *evbuf, char *
       return -1;
     }
 
-  return daap_reply_songlist_generic(req, evbuf, playlist, query);
+  return daap_reply_songlist_generic(req, evbuf, playlist, query, ua);
 }
 
 static int
-daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct query_params qp;
   struct db_playlist_info dbpli;
@@ -1701,7 +1698,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 }
 
 static int
-daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct query_params qp;
   struct db_group_info dbgri;
@@ -1730,8 +1727,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   get_query_params(query, &sort_headers, &qp);
 
-  if (req)
-    user_agent_filter(s->user_agent, &qp);
+  user_agent_filter(ua, &qp);
 
   param = evhttp_find_header(query, "group-type");
   if (strcmp(param, "artists") == 0)
@@ -1981,8 +1977,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	}
     }
 
-  if (req)
-    httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+  httpd_send_reply(req, HTTP_OK, "OK", evbuf);
 
   return 0;
 
@@ -2003,7 +1998,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 }
 
 static int
-daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct query_params qp;
   struct daap_session *s;
@@ -2017,13 +2012,14 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   int ret;
 
   s = daap_session_find(req, query, evbuf);
-  if (!s)
+  if (!s && req)
     return -1;
 
   memset(&qp, 0, sizeof(struct query_params));
 
   get_query_params(query, &sort_headers, &qp);
-  user_agent_filter(s->user_agent, &qp);
+
+  user_agent_filter(ua, &qp);
 
   if (strcmp(uri[3], "artists") == 0)
     {
@@ -2203,7 +2199,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
 /* NOTE: We only handle artwork at the moment */
 static int
-daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   char clen[32];
   struct daap_session *s;
@@ -2294,7 +2290,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 }
 
 static int
-daap_stream(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_stream(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct daap_session *s;
   int id;
@@ -2356,7 +2352,7 @@ static const struct dmap_field dmap_TST8 = { "test.long",      "TST8", NULL, DMA
 static const struct dmap_field dmap_TST9 = { "test.string",    "TST9", NULL, DMAP_TYPE_STRING };
 
 static int
-daap_reply_dmap_test(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query)
+daap_reply_dmap_test(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   char buf[64];
   struct evbuffer *test;
@@ -2694,7 +2690,7 @@ daap_request(struct evhttp_request *req)
 
   evhttp_parse_query(full_uri, &query);
 
-  daap_handlers[handler].handler(req, evbuf, uri_parts, &query);
+  daap_handlers[handler].handler(req, evbuf, uri_parts, &query, ua);
 
   evhttp_clear_headers(&query);
   evbuffer_free(evbuf);
@@ -2735,7 +2731,7 @@ daap_is_request(struct evhttp_request *req, char *uri)
 }
 
 struct evbuffer *
-daap_reply_build(char *full_uri)
+daap_reply_build(char *full_uri, const char *ua)
 {
   char *uri;
   char *ptr;
@@ -2802,7 +2798,7 @@ daap_reply_build(char *full_uri)
 
   evhttp_parse_query(full_uri, &query);
 
-  ret = daap_handlers[handler].handler(NULL, evbuf, uri_parts, &query);
+  ret = daap_handlers[handler].handler(NULL, evbuf, uri_parts, &query, ua);
   if (ret < 0)
     {
       evbuffer_free(evbuf);

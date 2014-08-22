@@ -38,34 +38,43 @@
 #include "daap_cache.h"
 
 /* The DAAP cache will only cache raw daap replies for these queries.
- * Remove session_id and revision-number from the query, if you add a new one
+ * Remove session_id and revision-number from the query, if you add a new one.
+ * You can't add queries where the canonical reply is not HTTP_OK, because
+ * daap_request will use that as default for cache replies.
+ *
  * TODO: Don't hardcode, detect slow queries and add them dynamically
  */
-static const char *daapcache_queries[] =
-  {
-    // Remote 4.2, Playlist 1 - Library
-    "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbumartist,daap.songalbum,com.apple.itunes.cloud-id,dmap.containeritemid,com.apple.itunes.has-video,com.apple.itunes.itms-songid,com.apple.itunes.extended-media-kind,dmap.downloadstatus,daap.songdisabled&type=music&sort=name&include-sort-headers=1&query=('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32')",
-    // Remote 4.2, Albums
-    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,com.apple.itunes.cloud-id,daap.songartistid,daap.songalbumid,dmap.persistentid,daap.songtime,daap.songdatereleased,dmap.downloadstatus&type=music&group-type=albums&sort=album&include-sort-headers=0&query=('daap.songalbum!:'%2B('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32'))",
-    // Remote 4.2, Artists
-    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.groupalbumcount,daap.songartistid&type=music&group-type=artists&sort=album&include-sort-headers=1&query=('daap.songartist!:'%2B('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32'))",
-    // iTunes 11.3, DB song list
-    "/databases/1/items?delta=0&type=music&meta=all",
-    // iTunes 11.3, Playlist 1 - Library
-    "/databases/1/containers/1/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid",
-    // iTunes 11.3, Playlist 2 - Music
-    "/databases/1/containers/2/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid",
-    // TunesRemote+, Albums
-    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist&type=music&group-type=albums&sort=album&include-sort-headers=1",
-    // TunesRemote+, Artists
-    "/databases/1/browse/artists?include-sort-headers=1",
-    // Retune, Artists
-    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.groupalbumcount&type=music&group-type=artists&sort=album&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32')+'daap.songartist!:')",
-    // Retune, Albums
-    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.songdatereleased,dmap.itemcount,daap.songtime&type=music&group-type=albums&sort=album&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32')+'daap.songalbum!:')",
-    // Retune, Playlist 1 - Library
-    "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbum,daap.songtime,dmap.containeritemid,com.apple.tunes.has-video,com.apple.itunes.can-be-genius-seed&type=music&sort=artist&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32'))",
-  };
+struct daapcache_query_t
+{
+  const char *ua;
+  const char *query;
+};
+
+static const struct daapcache_query_t daapcache_queries[] =
+{
+  // Remote 4.2, Playlist 1 - Library
+  { "Remote", "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbumartist,daap.songalbum,com.apple.itunes.cloud-id,dmap.containeritemid,com.apple.itunes.has-video,com.apple.itunes.itms-songid,com.apple.itunes.extended-media-kind,dmap.downloadstatus,daap.songdisabled&type=music&sort=name&include-sort-headers=1&query=('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32')" },
+  // Remote 4.2, Albums
+  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,com.apple.itunes.cloud-id,daap.songartistid,daap.songalbumid,dmap.persistentid,daap.songtime,daap.songdatereleased,dmap.downloadstatus&type=music&group-type=albums&sort=album&include-sort-headers=0&query=('daap.songalbum!:'%2B('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32'))" },
+  // Remote 4.2, Artists
+  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.groupalbumcount,daap.songartistid&type=music&group-type=artists&sort=album&include-sort-headers=1&query=('daap.songartist!:'%2B('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32'))" },
+  // iTunes 11.3, DB song list
+  { "iTunes", "/databases/1/items?delta=0&type=music&meta=all" },
+  // iTunes 11.3, Playlist 1 - Library
+  { "iTunes", "/databases/1/containers/1/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid" },
+  // iTunes 11.3, Playlist 2 - Music
+  { "iTunes", "/databases/1/containers/2/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid" },
+  // TunesRemote+, Albums
+  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist&type=music&group-type=albums&sort=album&include-sort-headers=1" },
+  // TunesRemote+, Artists
+  { "Remote", "/databases/1/browse/artists?include-sort-headers=1" },
+  // Retune, Artists
+  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.groupalbumcount&type=music&group-type=artists&sort=album&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32')+'daap.songartist!:')" },
+  // Retune, Albums
+  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.songdatereleased,dmap.itemcount,daap.songtime&type=music&group-type=albums&sort=album&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32')+'daap.songalbum!:')" },
+  // Retune, Playlist 1 - Library
+  { "Remote", "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbum,daap.songtime,dmap.containeritemid,com.apple.tunes.has-video,com.apple.itunes.can-be-genius-seed&type=music&sort=artist&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32'))" },
+};
 
 struct daapcache_command;
 
@@ -432,9 +441,9 @@ daapcache_update_cb(int fd, short what, void *arg)
 
   for (i = 0; i < (sizeof(daapcache_queries) / sizeof(daapcache_queries[0])); i++)
     {
-      query = strdup(daapcache_queries[i]);
+      query = strdup(daapcache_queries[i].query);
 
-      evbuf = daap_reply_build(query);
+      evbuf = daap_reply_build(query, daapcache_queries[i].ua);
       if (!evbuf)
 	{
 	  DPRINTF(E_LOG, L_DCACHE, "Error building DAAP reply for query: %s\n", query);
