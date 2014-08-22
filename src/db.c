@@ -1557,7 +1557,7 @@ db_query_end(struct query_params *qp)
 }
 
 static int
-db_query_run(char *query, int free)
+db_query_run(char *query, int free, int cache_update)
 {
   char *errmsg;
   int ret;
@@ -1579,6 +1579,9 @@ db_query_run(char *query, int free)
 
   if (free)
     sqlite3_free(query);
+
+  if (cache_update)
+    daapcache_trigger();
 
   return ((ret != SQLITE_OK) ? -1 : 0);
 }
@@ -1879,13 +1882,13 @@ db_files_get_count_bymatch(char *path)
 void
 db_files_update_songartistid(void)
 {
-  db_query_run("UPDATE files SET songartistid = daap_songalbumid(LOWER(album_artist), '');", 0);
+  db_query_run("UPDATE files SET songartistid = daap_songalbumid(LOWER(album_artist), '');", 0, 1);
 }
 
 void
 db_files_update_songalbumid(void)
 {
-  db_query_run("UPDATE files SET songalbumid = daap_songalbumid(LOWER(album_artist), LOWER(album));", 0);
+  db_query_run("UPDATE files SET songalbumid = daap_songalbumid(LOWER(album_artist), LOWER(album));", 0, 1);
 }
 
 void
@@ -1915,9 +1918,7 @@ db_file_ping(int id)
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
 
-  db_query_run(query, 1);
-
-  daapcache_trigger();
+  db_query_run(query, 1, 1);
 #undef Q_TMPL
 }
 
@@ -1933,9 +1934,7 @@ db_file_ping_bymatch(char *path, int isdir)
   else
     query = sqlite3_mprintf(Q_TMPL_NODIR, (int64_t)time(NULL), path);
 
-  db_query_run(query, 1);
-
-  daapcache_trigger();
+  db_query_run(query, 1, 1);
 #undef Q_TMPL_DIR
 #undef Q_TMPL_NODIR
 }
@@ -2522,9 +2521,7 @@ db_file_delete_bypath(char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path);
 
-  db_query_run(query, 1);
-
-  daapcache_trigger();
+  db_query_run(query, 1, 1);
 #undef Q_TMPL
 }
 
@@ -2541,9 +2538,7 @@ db_file_disable_bypath(char *path, char *strip, uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
 
-  db_query_run(query, 1);
-
-  daapcache_trigger();
+  db_query_run(query, 1, 1);
 #undef Q_TMPL
 }
 
@@ -2560,9 +2555,7 @@ db_file_disable_bymatch(char *path, char *strip, uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
 
-  db_query_run(query, 1);
-
-  daapcache_trigger();
+  db_query_run(query, 1, 1);
 #undef Q_TMPL
 }
 
@@ -2575,9 +2568,7 @@ db_file_enable_bycookie(uint32_t cookie, char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
 
-  ret = db_query_run(query, 1);
-
-  daapcache_trigger();
+  ret = db_query_run(query, 1, 1);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
@@ -2648,7 +2639,7 @@ db_pl_ping(int id)
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
 
-  db_query_run(query, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -2664,7 +2655,7 @@ db_pl_ping_bymatch(char *path, int isdir)
   else
     query = sqlite3_mprintf(Q_TMPL_NODIR, (int64_t)time(NULL), path);
 
-  db_query_run(query, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL_DIR
 #undef Q_TMPL_NODIR
 }
@@ -2992,7 +2983,7 @@ db_pl_add_item_bypath(int plid, char *path)
 
   query = sqlite3_mprintf(Q_TMPL, plid, path);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3004,7 +2995,7 @@ db_pl_add_item_byid(int plid, int fileid)
 
   query = sqlite3_mprintf(Q_TMPL, plid, fileid);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3016,7 +3007,7 @@ db_pl_update(char *title, char *path, int id)
 
   query = sqlite3_mprintf(Q_TMPL, title, (int64_t)time(NULL), path, id);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3028,7 +3019,7 @@ db_pl_clear_items(int id)
 
   query = sqlite3_mprintf(Q_TMPL, id);
 
-  db_query_run(query, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3044,7 +3035,7 @@ db_pl_delete(int id)
 
   query = sqlite3_mprintf(Q_TMPL, id);
 
-  ret = db_query_run(query, 1);
+  ret = db_query_run(query, 1, 0);
 
   if (ret == 0)
     db_pl_clear_items(id);
@@ -3077,7 +3068,7 @@ db_pl_disable_bypath(char *path, char *strip, uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
 
-  db_query_run(query, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3094,7 +3085,7 @@ db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
 
-  db_query_run(query, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3107,7 +3098,7 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
 
-  ret = db_query_run(query, 1);
+  ret = db_query_run(query, 1, 0);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
@@ -3118,7 +3109,7 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 int
 db_groups_clear(void)
 {
-  return db_query_run("DELETE FROM groups;", 0);
+  return db_query_run("DELETE FROM groups;", 0, 1);
 }
 
 enum group_type
@@ -3185,7 +3176,7 @@ db_pairing_delete_byremote(char *remote_id)
 
   query = sqlite3_mprintf(Q_TMPL, remote_id);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3202,7 +3193,7 @@ db_pairing_add(struct pairing_info *pi)
 
   query = sqlite3_mprintf(Q_TMPL, pi->remote_id, pi->name, pi->guid);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3275,7 +3266,7 @@ db_spotify_purge(void)
 
   for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
     {
-      ret = db_query_run(queries[i], 0);
+      ret = db_query_run(queries[i], 0, 1);
 
       if (ret == 0)
 	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
@@ -3300,7 +3291,7 @@ db_spotify_pl_delete(int id)
     {
       query = sqlite3_mprintf(queries_tmpl[i], id);
 
-      ret = db_query_run(query, 1);
+      ret = db_query_run(query, 1, 1);
 
       if (ret == 0)
 	DPRINTF(E_DBG, L_DB, "Deleted %d rows\n", sqlite3_changes(hdl));
@@ -3317,7 +3308,7 @@ db_admin_add(const char *key, const char *value)
 
   query = sqlite3_mprintf(Q_TMPL, key, value);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3387,7 +3378,7 @@ db_admin_update(const char *key, const char *value)
 
   query = sqlite3_mprintf(Q_TMPL, key, value);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3399,7 +3390,7 @@ db_admin_delete(const char *key)
 
   query = sqlite3_mprintf(Q_TMPL, key);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3412,7 +3403,7 @@ db_speaker_save(uint64_t id, int selected, int volume)
 
   query = sqlite3_mprintf(Q_TMPL, id, selected, volume);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3477,7 +3468,7 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
 void
 db_speaker_clear_all(void)
 {
-  db_query_run("UPDATE speakers SET selected = 0;", 0);
+  db_query_run("UPDATE speakers SET selected = 0;", 0, 0);
 }
 
 
@@ -3485,7 +3476,7 @@ db_speaker_clear_all(void)
 int
 db_watch_clear(void)
 {
-  return db_query_run("DELETE FROM inotify;", 0);
+  return db_query_run("DELETE FROM inotify;", 0, 0);
 }
 
 int
@@ -3496,7 +3487,7 @@ db_watch_add(struct watch_info *wi)
 
   query = sqlite3_mprintf(Q_TMPL, wi->wd, wi->path);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3508,7 +3499,7 @@ db_watch_delete_bywd(uint32_t wd)
 
   query = sqlite3_mprintf(Q_TMPL, wd);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3520,7 +3511,7 @@ db_watch_delete_bypath(char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3532,7 +3523,7 @@ db_watch_delete_bymatch(char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3547,7 +3538,7 @@ db_watch_delete_bycookie(uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)cookie);
 
-  return db_query_run(query, 1);
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3683,7 +3674,7 @@ db_watch_mark_bypath(char *path, char *strip, uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
 
-  db_query_run(query, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3700,7 +3691,7 @@ db_watch_mark_bymatch(char *path, char *strip, uint32_t cookie)
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
 
-  db_query_run(query, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3715,7 +3706,7 @@ db_watch_move_bycookie(uint32_t cookie, char *path)
 
   query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
 
-  db_query_run(query, 1);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 

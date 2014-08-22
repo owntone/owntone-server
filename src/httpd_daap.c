@@ -1334,7 +1334,7 @@ if (req) {
 	    }
    	}
 
-      DPRINTF(E_DBG, L_DAAP, "Done with song\n");
+      DPRINTF(E_SPAM, L_DAAP, "Done with song\n");
     }
 
   DPRINTF(E_DBG, L_DAAP, "Done with song list, %d songs\n", nsongs);
@@ -2671,9 +2671,8 @@ daap_request(struct evhttp_request *req)
   evbuf = daapcache_get(full_uri);
   if (evbuf)
     {
-      DPRINTF(E_DBG, L_DAAP, "Cache hit: %s\n", full_uri);
-
       httpd_send_reply(req, HTTP_OK, "OK", evbuf); // TODO not all want this reply
+
       evbuffer_free(evbuf);
       free(uri);
       free(full_uri);

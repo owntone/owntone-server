@@ -39,6 +39,7 @@
 
 /* The DAAP cache will only cache raw daap replies for these queries.
  * Remove session_id and revision-number from the query, if you add a new one
+ * TODO: Don't hardcode, detect slow queries and add them dynamically
  */
 static const char *daapcache_queries[] =
   {
@@ -54,6 +55,16 @@ static const char *daapcache_queries[] =
     "/databases/1/containers/1/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid",
     // iTunes 11.3, Playlist 2 - Music
     "/databases/1/containers/2/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid",
+    // TunesRemote+, Albums
+    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist&type=music&group-type=albums&sort=album&include-sort-headers=1",
+    // TunesRemote+, Artists
+    "/databases/1/browse/artists?include-sort-headers=1",
+    // Retune, Artists
+    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.groupalbumcount&type=music&group-type=artists&sort=album&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32')+'daap.songartist!:')",
+    // Retune, Albums
+    "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.songdatereleased,dmap.itemcount,daap.songtime&type=music&group-type=albums&sort=album&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32')+'daap.songalbum!:')",
+    // Retune, Playlist 1 - Library
+    "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbum,daap.songtime,dmap.containeritemid,com.apple.tunes.has-video,com.apple.itunes.can-be-genius-seed&type=music&sort=artist&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32'))",
   };
 
 struct daapcache_command;
@@ -100,6 +111,25 @@ static struct timeval g_wait = { 5, 0 };
 
 /* --------------------------------- HELPERS ------------------------------- */
 
+/* The purpose of this function is to remove transient tags from a request 
+ * url (query), eg remove session-id=xxx
+ */
+static void
+remove_tag(char *in, const char *tag)
+{
+  char *s;
+  char *e;
+
+  s = strstr(in, tag);
+  if (!s)
+    return;
+
+  e = strchr(s, '&');
+  if (e)
+    memmove(s, (e + 1), strlen(e + 1) + 1);
+  else if (s > in)
+    *(s - 1) = '\0';
+}
 
 /* ---------------------------- COMMAND EXECUTION -------------------------- */
 
@@ -315,40 +345,14 @@ daapcache_query_get(struct daapcache_command *cmd)
 #define Q_TMPL "SELECT reply FROM cache WHERE query = ?;"
   sqlite3_stmt *stmt;
   char *query;
-  char *buf;
-  char *ptr;
   int datlen;
   int ret;
 
   cmd->arg.evbuf = NULL;
 
-  // Remove session-id and revision-number from the query
-  buf = strdup(cmd->arg.query);
-
-  query = (char *)malloc(strlen(buf) + 1);
-  query[0] = '\0';
-
-  ptr = strtok(buf, "&");
-  while (ptr)
-    {
-      if ( (strncmp(ptr, "session-id=", strlen("session-id=")) == 0) ||
-           (strncmp(ptr, "revision-number=", strlen("revision-number=")) == 0) )
-	{
-	  ptr = strtok (NULL, "&");
-	  continue;
-	}
-
-      if (ptr != buf)
-	strcat(query, "&");
-
-      strcat(query, ptr);
-
-      ptr = strtok(NULL, "&");
-    }
-
-  free(buf);
-
-  DPRINTF(E_DBG, L_DCACHE, "Query after removing session-id and revision-number: %s\n", query);
+  query = strdup(cmd->arg.query);
+  remove_tag(query, "session-id");
+  remove_tag(query, "revision-number");
 
   // Look in the DB
   ret = sqlite3_prepare_v2(g_db_hdl, Q_TMPL, -1, &stmt, 0);
@@ -390,6 +394,8 @@ daapcache_query_get(struct daapcache_command *cmd)
   ret = sqlite3_finalize(stmt);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DCACHE, "Error finalizing query for getting cache: %s\n", sqlite3_errmsg(g_db_hdl));
+
+  DPRINTF(E_INFO, L_DCACHE, "Cache hit: %s\n", query);
 
   free(query);
 
