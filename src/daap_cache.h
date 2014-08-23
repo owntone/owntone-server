@@ -15,6 +15,12 @@ daapcache_trigger(void);
 struct evbuffer *
 daapcache_get(const char *query);
 
+void
+daapcache_add(const char *query, const char *ua);
+
+int
+daapcache_threshold(void);
+
 int
 daapcache_init(void);
 

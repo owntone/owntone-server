@@ -34,9 +34,11 @@
 #include <limits.h>
 #include <stdint.h>
 #include <inttypes.h>
+#include <time.h>
 #include <ctype.h>
 
 #include <uninorm.h>
+#include <unistd.h>
 
 #include <avl.h>
 
@@ -2525,10 +2527,13 @@ daap_request(struct evhttp_request *req)
   struct evbuffer *evbuf;
   struct evkeyvalq query;
   struct evkeyvalq *headers;
+  struct timespec start;
+  struct timespec end;
   const char *ua;
   cfg_t *lib;
   char *libname;
   char *passwd;
+  int msec;
   int handler;
   int ret;
   int i;
@@ -2690,7 +2695,18 @@ daap_request(struct evhttp_request *req)
 
   evhttp_parse_query(full_uri, &query);
 
+  clock_gettime(CLOCK_MONOTONIC, &start);
+
   daap_handlers[handler].handler(req, evbuf, uri_parts, &query, ua);
+
+  clock_gettime(CLOCK_MONOTONIC, &end);
+
+  msec = (end.tv_sec * 1000 + end.tv_nsec / 1000000) - (start.tv_sec * 1000 + start.tv_nsec / 1000000);
+
+  DPRINTF(E_DBG, L_DB, "DAAP request handled in %d milliseconds\n", msec);
+
+  if (msec > daapcache_threshold())
+    daapcache_add(full_uri, ua);
 
   evhttp_clear_headers(&query);
   evbuffer_free(evbuf);

@@ -37,44 +37,12 @@
 #include "db.h"
 #include "daap_cache.h"
 
-/* The DAAP cache will only cache raw daap replies for these queries.
- * Remove session_id and revision-number from the query, if you add a new one.
+/* The DAAP cache will cache raw daap replies for queries added with
+ * daapcache_add(). Only some query types are supported.
  * You can't add queries where the canonical reply is not HTTP_OK, because
  * daap_request will use that as default for cache replies.
  *
- * TODO: Don't hardcode, detect slow queries and add them dynamically
  */
-struct daapcache_query_t
-{
-  const char *ua;
-  const char *query;
-};
-
-static const struct daapcache_query_t daapcache_queries[] =
-{
-  // Remote 4.2, Playlist 1 - Library
-  { "Remote", "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbumartist,daap.songalbum,com.apple.itunes.cloud-id,dmap.containeritemid,com.apple.itunes.has-video,com.apple.itunes.itms-songid,com.apple.itunes.extended-media-kind,dmap.downloadstatus,daap.songdisabled&type=music&sort=name&include-sort-headers=1&query=('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32')" },
-  // Remote 4.2, Albums
-  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,com.apple.itunes.cloud-id,daap.songartistid,daap.songalbumid,dmap.persistentid,daap.songtime,daap.songdatereleased,dmap.downloadstatus&type=music&group-type=albums&sort=album&include-sort-headers=0&query=('daap.songalbum!:'%2B('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32'))" },
-  // Remote 4.2, Artists
-  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.groupalbumcount,daap.songartistid&type=music&group-type=artists&sort=album&include-sort-headers=1&query=('daap.songartist!:'%2B('com.apple.itunes.extended-media-kind:1','com.apple.itunes.extended-media-kind:32'))" },
-  // iTunes 11.3, DB song list
-  { "iTunes", "/databases/1/items?delta=0&type=music&meta=all" },
-  // iTunes 11.3, Playlist 1 - Library
-  { "iTunes", "/databases/1/containers/1/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid" },
-  // iTunes 11.3, Playlist 2 - Music
-  { "iTunes", "/databases/1/containers/2/items?delta=0&type=music&meta=dmap.itemkind,dmap.itemid,dmap.containeritemid" },
-  // TunesRemote+, Albums
-  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist&type=music&group-type=albums&sort=album&include-sort-headers=1" },
-  // TunesRemote+, Artists
-  { "Remote", "/databases/1/browse/artists?include-sort-headers=1" },
-  // Retune, Artists
-  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.groupalbumcount&type=music&group-type=artists&sort=album&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32')+'daap.songartist!:')" },
-  // Retune, Albums
-  { "Remote", "/databases/1/groups?meta=dmap.itemname,dmap.itemid,dmap.persistentid,daap.songartist,daap.songdatereleased,dmap.itemcount,daap.songtime&type=music&group-type=albums&sort=album&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32')+'daap.songalbum!:')" },
-  // Retune, Playlist 1 - Library
-  { "Remote", "/databases/1/containers/1/items?meta=dmap.itemname,dmap.itemid,daap.songartist,daap.songalbum,daap.songtime,dmap.containeritemid,com.apple.tunes.has-video,com.apple.itunes.can-be-genius-seed&type=music&sort=artist&include-sort-headers=1&query=(('com.apple.itunes.mediakind:1','com.apple.itunes.mediakind:32'))" },
-};
 
 struct daapcache_command;
 
@@ -90,7 +58,8 @@ struct daapcache_command
   int nonblock;
 
   struct {
-    const char *query;
+    char *query;
+    char *ua;
     struct evbuffer *evbuf;
   } arg;
 
@@ -117,6 +86,10 @@ static char *g_db_path;
 
 // After being triggered wait 5 seconds before rebuilding daapcache
 static struct timeval g_wait = { 5, 0 };
+
+// The user may configure a threshold (in msec), and queries slower than
+// that will have their reply cached
+static int g_cfg_threshold;
 
 /* --------------------------------- HELPERS ------------------------------- */
 
@@ -231,14 +204,21 @@ thread_exit(void)
 static int
 daapcache_create(void)
 {
-#define T_CACHE						\
-  "CREATE TABLE IF NOT EXISTS cache ("			\
-  "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
-  "   query              VARCHAR(4096) NOT NULL,"	\
-  "   reply              BLOB"	\
+#define T_REPLIES						\
+  "CREATE TABLE IF NOT EXISTS replies ("			\
+  "   id                 INTEGER PRIMARY KEY NOT NULL,"		\
+  "   query              VARCHAR(4096) NOT NULL,"		\
+  "   reply              BLOB"					\
   ");"
-#define I_QUERY				\
-  "CREATE INDEX IF NOT EXISTS idx_query ON cache(query);"
+#define T_QUERIES						\
+  "CREATE TABLE IF NOT EXISTS queries ("			\
+  "   id                 INTEGER PRIMARY KEY NOT NULL,"		\
+  "   query              VARCHAR(4096) UNIQUE NOT NULL,"	\
+  "   user_agent         VARCHAR(1024),"			\
+  "   timestamp          INTEGER DEFAULT 0"			\
+  ");"
+#define I_QUERY							\
+  "CREATE INDEX IF NOT EXISTS idx_query ON replies (query);"
   char *errmsg;
   int ret;
 
@@ -255,11 +235,22 @@ daapcache_create(void)
       return -1;
     }
 
-  // Create cache table
-  ret = sqlite3_exec(g_db_hdl, T_CACHE, NULL, NULL, &errmsg);
+  // Create reply cache table
+  ret = sqlite3_exec(g_db_hdl, T_REPLIES, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_DCACHE, "Error creating cache table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_DCACHE, "Error creating reply cache table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+  // Create query table (the queries for which we will generate and cache replies)
+  ret = sqlite3_exec(g_db_hdl, T_QUERIES, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_DCACHE, "Error creating query table: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -303,11 +294,11 @@ daapcache_destroy(void)
   DPRINTF(E_DBG, L_DCACHE, "Cache destroyed\n");
 }
 
-/* Adds the reply in evbuf to the cache */
+/* Adds the reply (stored in evbuf) to the cache */
 static int
-daapcache_query_add(const char *query, struct evbuffer *evbuf)
+daapcache_reply_add(const char *query, struct evbuffer *evbuf)
 {
-#define Q_TMPL "INSERT INTO cache(query, reply) VALUES(?, ?);"
+#define Q_TMPL "INSERT INTO replies (query, reply) VALUES (?, ?);"
   sqlite3_stmt *stmt;
   unsigned char *data;
   size_t datlen;
@@ -347,11 +338,80 @@ daapcache_query_add(const char *query, struct evbuffer *evbuf)
 #undef Q_TMPL
 }
 
+/* Adds the query to the list of queries for which we will build and cache a reply */
+static int
+daapcache_query_add(struct daapcache_command *cmd)
+{
+#define Q_TMPL "INSERT OR REPLACE INTO queries (user_agent, query, timestamp) VALUES ('%q', '%q', %" PRIi64 ");"
+#define Q_CLEANUP "DELETE FROM queries WHERE id NOT IN (SELECT id FROM queries ORDER BY timestamp DESC LIMIT 20);"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  if (!cmd->arg.ua)
+    {
+      DPRINTF(E_LOG, L_DCACHE, "Couldn't add slow query to cache, unknown user-agent\n");
+
+      free(cmd->arg.query);
+      return -1;
+    }
+
+  // Currently we are only able to pre-build and cache these reply types
+  if ( (strncmp(cmd->arg.query, "/databases/1/containers/", strlen("/databases/1/containers/")) != 0) &&
+       (strncmp(cmd->arg.query, "/databases/1/groups?", strlen("/databases/1/groups?")) != 0) &&
+       (strncmp(cmd->arg.query, "/databases/1/items?", strlen("/databases/1/items?")) != 0) &&
+       (strncmp(cmd->arg.query, "/databases/1/browse/", strlen("/databases/1/browse/")) != 0) )
+    return -1;
+
+  remove_tag(cmd->arg.query, "session-id");
+  remove_tag(cmd->arg.query, "revision-number");
+
+  query = sqlite3_mprintf(Q_TMPL, cmd->arg.ua, cmd->arg.query, (int64_t)time(NULL));
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DCACHE, "Out of memory making query string.\n");
+
+      return -1;
+    }
+
+  ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DCACHE, "Error adding query to query list: %s\n", errmsg);
+
+      sqlite3_free(query);
+      sqlite3_free(errmsg);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  DPRINTF(E_DBG, L_DCACHE, "Added query to query list (user-agent %s): %s\n", cmd->arg.ua, cmd->arg.query);
+
+  free(cmd->arg.ua);
+  free(cmd->arg.query);
+
+  // Limits the size of the cache to only contain replies for 20 most recent queries
+  ret = sqlite3_exec(g_db_hdl, Q_CLEANUP, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DCACHE, "Error cleaning up query list before update: %s\n", errmsg);
+      sqlite3_free(errmsg);
+      return -1;
+    }
+
+  daapcache_trigger();
+
+  return 0;
+#undef Q_CLEANUP
+#undef Q_TMPL
+}
+
 /* Gets a reply from the cache */
 static int
 daapcache_query_get(struct daapcache_command *cmd)
 {
-#define Q_TMPL "SELECT reply FROM cache WHERE query = ?;"
+#define Q_TMPL "SELECT reply FROM replies WHERE query = ?;"
   sqlite3_stmt *stmt;
   char *query;
   int datlen;
@@ -359,7 +419,7 @@ daapcache_query_get(struct daapcache_command *cmd)
 
   cmd->arg.evbuf = NULL;
 
-  query = strdup(cmd->arg.query);
+  query = cmd->arg.query;
   remove_tag(query, "session-id");
   remove_tag(query, "revision-number");
 
@@ -423,27 +483,34 @@ daapcache_query_get(struct daapcache_command *cmd)
 static void
 daapcache_update_cb(int fd, short what, void *arg)
 {
+  sqlite3_stmt *stmt;
   struct evbuffer *evbuf;
   char *errmsg;
   char *query;
   int ret;
-  int i;
 
   DPRINTF(E_INFO, L_DCACHE, "Timeout reached, time to update DAAP cache\n");
 
-  ret = sqlite3_exec(g_db_hdl, "DELETE FROM cache;", NULL, NULL, &errmsg);
+  ret = sqlite3_exec(g_db_hdl, "DELETE FROM replies;", NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error clearing cache before update: %s\n", errmsg);
+      DPRINTF(E_LOG, L_DCACHE, "Error clearing reply cache before update: %s\n", errmsg);
       sqlite3_free(errmsg);
       return;
     }
 
-  for (i = 0; i < (sizeof(daapcache_queries) / sizeof(daapcache_queries[0])); i++)
+  ret = sqlite3_prepare_v2(g_db_hdl, "SELECT user_agent, query FROM queries;", -1, &stmt, 0);
+  if (ret != SQLITE_OK)
     {
-      query = strdup(daapcache_queries[i].query);
+      DPRINTF(E_LOG, L_DCACHE, "Error preparing for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+      return;
+    }
 
-      evbuf = daap_reply_build(query, daapcache_queries[i].ua);
+  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+    {
+      query = strdup((char *)sqlite3_column_text(stmt, 1));
+
+      evbuf = daap_reply_build(query, (char *)sqlite3_column_text(stmt, 0));
       if (!evbuf)
 	{
 	  DPRINTF(E_LOG, L_DCACHE, "Error building DAAP reply for query: %s\n", query);
@@ -451,11 +518,16 @@ daapcache_update_cb(int fd, short what, void *arg)
 	  continue;
 	}
 
-      daapcache_query_add(query, evbuf);
+      daapcache_reply_add(query, evbuf);
 
       free(query);
       evbuffer_free(evbuf);
     }
+
+  if (ret != SQLITE_DONE)
+    DPRINTF(E_LOG, L_DCACHE, "Could not step: %s\n", sqlite3_errmsg(g_db_hdl));
+
+  sqlite3_finalize(stmt);
 
   DPRINTF(E_INFO, L_DCACHE, "DAAP cache updated\n");
 }
@@ -604,7 +676,7 @@ daapcache_get(const char *query)
   command_init(&cmd);
 
   cmd.func = daapcache_query_get;
-  cmd.arg.query = query;
+  cmd.arg.query = strdup(query);
 
   ret = sync_command(&cmd);
 
@@ -615,15 +687,55 @@ daapcache_get(const char *query)
   return ((ret < 0) ? NULL : evbuf);
 }
 
+void
+daapcache_add(const char *query, const char *ua)
+{
+  struct daapcache_command *cmd; 
+
+  if (!g_initialized)
+    return;
+
+  cmd = (struct daapcache_command *)malloc(sizeof(struct daapcache_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_DCACHE, "Could not allocate daapcache_command\n");
+      return;
+    }
+
+  memset(cmd, 0, sizeof(struct daapcache_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = daapcache_query_add;
+  cmd->arg.query = strdup(query);
+  cmd->arg.ua = strdup(ua);
+
+  nonblock_command(cmd);
+}
+
+int
+daapcache_threshold(void)
+{
+  return g_cfg_threshold;
+}
+
 int
 daapcache_init(void)
 {
   int ret;
 
   g_db_path = cfg_getstr(cfg_getsec(cfg, "general"), "daapcache_path");
-  if (!g_db_path)
+  if (!g_db_path || (strlen(g_db_path) == 0))
     {
-      DPRINTF(E_LOG, L_DCACHE, "Cache disabled\n");
+      DPRINTF(E_LOG, L_DCACHE, "Cache path invalid, disabling cache\n");
+      g_initialized = 0;
+      return 0;
+    }
+
+  g_cfg_threshold = cfg_getint(cfg_getsec(cfg, "general"), "daapcache_threshold");
+  if (g_cfg_threshold == 0)
+    {
+      DPRINTF(E_LOG, L_DCACHE, "Cache threshold set to 0, disabling cache\n");
       g_initialized = 0;
       return 0;
     }
