@@ -2706,7 +2706,7 @@ daap_request(struct evhttp_request *req)
   DPRINTF(E_DBG, L_DB, "DAAP request handled in %d milliseconds\n", msec);
 
   if (msec > daapcache_threshold())
-    daapcache_add(full_uri, ua);
+    daapcache_add(full_uri, ua, msec);
 
   evhttp_clear_headers(&query);
   evbuffer_free(evbuf);

@@ -60,6 +60,7 @@ struct daapcache_command
   struct {
     char *query;
     char *ua;
+    int msec;
     struct evbuffer *evbuf;
   } arg;
 
@@ -215,6 +216,7 @@ daapcache_create(void)
   "   id                 INTEGER PRIMARY KEY NOT NULL,"		\
   "   query              VARCHAR(4096) UNIQUE NOT NULL,"	\
   "   user_agent         VARCHAR(1024),"			\
+  "   msec               INTEGER DEFAULT 0,"			\
   "   timestamp          INTEGER DEFAULT 0"			\
   ");"
 #define I_QUERY							\
@@ -342,7 +344,7 @@ daapcache_reply_add(const char *query, struct evbuffer *evbuf)
 static int
 daapcache_query_add(struct daapcache_command *cmd)
 {
-#define Q_TMPL "INSERT OR REPLACE INTO queries (user_agent, query, timestamp) VALUES ('%q', '%q', %" PRIi64 ");"
+#define Q_TMPL "INSERT OR REPLACE INTO queries (user_agent, query, msec, timestamp) VALUES ('%q', '%q', %d, %" PRIi64 ");"
 #define Q_CLEANUP "DELETE FROM queries WHERE id NOT IN (SELECT id FROM queries ORDER BY timestamp DESC LIMIT 20);"
   char *query;
   char *errmsg;
@@ -366,7 +368,7 @@ daapcache_query_add(struct daapcache_command *cmd)
   remove_tag(cmd->arg.query, "session-id");
   remove_tag(cmd->arg.query, "revision-number");
 
-  query = sqlite3_mprintf(Q_TMPL, cmd->arg.ua, cmd->arg.query, (int64_t)time(NULL));
+  query = sqlite3_mprintf(Q_TMPL, cmd->arg.ua, cmd->arg.query, cmd->arg.msec, (int64_t)time(NULL));
   if (!query)
     {
       DPRINTF(E_LOG, L_DCACHE, "Out of memory making query string.\n");
@@ -386,7 +388,7 @@ daapcache_query_add(struct daapcache_command *cmd)
 
   sqlite3_free(query);
 
-  DPRINTF(E_DBG, L_DCACHE, "Added query to query list (user-agent %s): %s\n", cmd->arg.ua, cmd->arg.query);
+  DPRINTF(E_INFO, L_DCACHE, "Slow query (%d ms) added to cache: '%s' (user-agent: '%s')\n", cmd->arg.msec, cmd->arg.query, cmd->arg.ua);
 
   free(cmd->arg.ua);
   free(cmd->arg.query);
@@ -688,7 +690,7 @@ daapcache_get(const char *query)
 }
 
 void
-daapcache_add(const char *query, const char *ua)
+daapcache_add(const char *query, const char *ua, int msec)
 {
   struct daapcache_command *cmd; 
 
@@ -709,6 +711,7 @@ daapcache_add(const char *query, const char *ua)
   cmd->func = daapcache_query_add;
   cmd->arg.query = strdup(query);
   cmd->arg.ua = strdup(ua);
+  cmd->arg.msec = msec;
 
   nonblock_command(cmd);
 }
