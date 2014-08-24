@@ -2190,7 +2190,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
   if (strcmp(uri[2], "groups") == 0)
     ret = artwork_get_group(id, max_w, max_h, ART_CAN_PNG | ART_CAN_JPEG, evbuf);
   else if (strcmp(uri[2], "items") == 0)
-    ret = artwork_get_item(id, max_w, max_h, ART_CAN_PNG | ART_CAN_JPEG, evbuf);
+    ret = artwork_get_item_id(id, max_w, max_h, ART_CAN_PNG | ART_CAN_JPEG, evbuf);
 
   switch (ret)
     {

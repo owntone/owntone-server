@@ -56,6 +56,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 
 #include "conffile.h"
 #include "db.h"
+#include "db_artwork.h"
 #include "logger.h"
 #include "misc.h"
 #include "filescanner.h"
@@ -663,6 +664,15 @@ main(int argc, char **argv)
       ret = EXIT_FAILURE;
       goto db_fail;
     }
+  DPRINTF(E_INFO, L_MAIN, "Initializing artwork cache database\n");
+    ret = db_artwork_init();
+    if (ret < 0)
+      {
+        DPRINTF(E_FATAL, L_MAIN, "Artwork cache database init failed\n");
+
+        ret = EXIT_FAILURE;
+        goto db_fail;
+      }
 
   /* Open a DB connection for the main thread */
   ret = db_perthread_init();
@@ -673,6 +683,14 @@ main(int argc, char **argv)
       ret = EXIT_FAILURE;
       goto db_fail;
     }
+  ret = db_artwork_perthread_init();
+    if (ret < 0)
+      {
+        DPRINTF(E_FATAL, L_MAIN, "Could not perform perthread artwork cache DB init for main\n");
+
+        ret = EXIT_FAILURE;
+        goto db_fail;
+      }
 
   /* Spawn file scanner thread */
   ret = filescanner_init();

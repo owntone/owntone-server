@@ -94,6 +94,7 @@ forked_daapd_LDADD = -lrt \
 
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
+	db_artwork.c db_artwork.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
 	filescanner.c filescanner.h \

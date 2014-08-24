@@ -48,6 +48,11 @@ enum query_type {
 #define ARTWORK_PARENTDIR 5
 #define ARTWORK_SPOTIFY   6
 
+struct db_init_query {
+  char *query;
+  char *desc;
+};
+
 struct query_params {
   /* Query parameters, filled in by caller */
   enum query_type type;
@@ -549,6 +554,38 @@ db_watch_enum_end(struct watch_enum *we);
 int
 db_watch_enum_fetchwd(struct watch_enum *we, uint32_t *wd);
 
+
+int
+db_pragma_get_cache_size(sqlite3 *db);
+
+int
+db_pragma_set_cache_size(sqlite3 *db, int pages);
+
+char *
+db_pragma_set_journal_mode(sqlite3 *db, char *mode);
+
+int
+db_pragma_get_synchronous(sqlite3 *db);
+
+int
+db_pragma_set_synchronous(sqlite3 *db, int synchronous);
+
+/* Unlock notification support */
+void
+unlock_notify_cb(void **args, int nargs);
+
+int
+db_wait_unlock(sqlite3 *db);
+
+int
+db_blocking_step(sqlite3 *db, sqlite3_stmt *stmt);
+
+int
+db_blocking_prepare_v2(sqlite3 *db, const char *query, int len, sqlite3_stmt **stmt, const char **end);
+
+/* Modelled after sqlite3_exec() */
+int
+db_exec(sqlite3 *db, const char *query, char **errmsg);
 
 int
 db_perthread_init(void);
