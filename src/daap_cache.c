@@ -306,8 +306,13 @@ daapcache_reply_add(const char *query, struct evbuffer *evbuf)
   size_t datlen;
   int ret;
 
+#ifdef HAVE_LIBEVENT2
   datlen = evbuffer_get_length(evbuf);
   data = evbuffer_pullup(evbuf, -1);
+#else
+  datlen = EVBUFFER_LENGTH(evbuf);
+  data = EVBUFFER_DATA(evbuf);
+#endif
 
   ret = sqlite3_prepare_v2(g_db_hdl, Q_TMPL, -1, &stmt, 0);
   if (ret != SQLITE_OK)
