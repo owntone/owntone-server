@@ -3677,7 +3677,7 @@ db_admin_add(const char *key, const char *value)
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
   errmsg = NULL;
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error adding key to admin: %s\n", errmsg);
@@ -3713,7 +3713,7 @@ db_admin_get(const char *key)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
-  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
+  ret = db_blocking_prepare_v2(hdl, query, strlen(query) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
@@ -3722,7 +3722,7 @@ db_admin_get(const char *key)
       return NULL;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = db_blocking_step(hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
@@ -3771,7 +3771,7 @@ db_admin_update(const char *key, const char *value)
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
   errmsg = NULL;
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error updating key in admin: %s\n", errmsg);
@@ -3807,7 +3807,7 @@ db_admin_delete(const char *key)
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
   errmsg = NULL;
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_DB, "Error deleting key from admin: %s\n", errmsg);
