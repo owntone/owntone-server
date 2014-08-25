@@ -359,8 +359,7 @@ daapcache_query_add(struct daapcache_command *cmd)
     {
       DPRINTF(E_LOG, L_DCACHE, "Couldn't add slow query to cache, unknown user-agent\n");
 
-      free(cmd->arg.query);
-      return -1;
+      goto error_add;
     }
 
   // Currently we are only able to pre-build and cache these reply types
@@ -368,7 +367,7 @@ daapcache_query_add(struct daapcache_command *cmd)
        (strncmp(cmd->arg.query, "/databases/1/groups?", strlen("/databases/1/groups?")) != 0) &&
        (strncmp(cmd->arg.query, "/databases/1/items?", strlen("/databases/1/items?")) != 0) &&
        (strncmp(cmd->arg.query, "/databases/1/browse/", strlen("/databases/1/browse/")) != 0) )
-    return -1;
+    goto error_add;
 
   remove_tag(cmd->arg.query, "session-id");
   remove_tag(cmd->arg.query, "revision-number");
@@ -378,7 +377,7 @@ daapcache_query_add(struct daapcache_command *cmd)
     {
       DPRINTF(E_LOG, L_DCACHE, "Out of memory making query string.\n");
 
-      return -1;
+      goto error_add;
     }
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
@@ -388,7 +387,7 @@ daapcache_query_add(struct daapcache_command *cmd)
 
       sqlite3_free(query);
       sqlite3_free(errmsg);
-      return -1;
+      goto error_add;
     }
 
   sqlite3_free(query);
@@ -410,6 +409,15 @@ daapcache_query_add(struct daapcache_command *cmd)
   daapcache_trigger();
 
   return 0;
+
+ error_add:
+  if (cmd->arg.ua)
+    free(cmd->arg.ua);
+
+  if (cmd->arg.query)
+    free(cmd->arg.query);
+
+  return -1;
 #undef Q_CLEANUP
 #undef Q_TMPL
 }
@@ -446,7 +454,7 @@ daapcache_query_get(struct daapcache_command *cmd)
     {
       if (ret != SQLITE_DONE)
 	DPRINTF(E_LOG, L_DCACHE, "Error stepping query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
-      goto error;
+      goto error_get;
     }
 
   datlen = sqlite3_column_bytes(stmt, 0);
@@ -455,7 +463,7 @@ daapcache_query_get(struct daapcache_command *cmd)
   if (!cmd->arg.evbuf)
     {
       DPRINTF(E_LOG, L_DCACHE, "Could not create reply evbuffer\n");
-      goto error;
+      goto error_get;
     }
 
   ret = evbuffer_add(cmd->arg.evbuf, sqlite3_column_blob(stmt, 0), datlen);
@@ -464,7 +472,7 @@ daapcache_query_get(struct daapcache_command *cmd)
       DPRINTF(E_LOG, L_DCACHE, "Out of memory for reply evbuffer\n");
       evbuffer_free(cmd->arg.evbuf);
       cmd->arg.evbuf = NULL;
-      goto error;
+      goto error_get;
     }
 
   ret = sqlite3_finalize(stmt);
@@ -477,7 +485,7 @@ daapcache_query_get(struct daapcache_command *cmd)
 
   return 0;
 
- error:
+ error_get:
   sqlite3_finalize(stmt);
   free(query);
   return -1;  
