@@ -43,7 +43,7 @@ dmap_get_fields_table(int *nfields)
 
 
 void
-dmap_add_container(struct evbuffer *evbuf, char *tag, int len)
+dmap_add_container(struct evbuffer *evbuf, const char *tag, int len)
 {
   unsigned char buf[4];
 
@@ -59,7 +59,7 @@ dmap_add_container(struct evbuffer *evbuf, char *tag, int len)
 }
 
 void
-dmap_add_long(struct evbuffer *evbuf, char *tag, int64_t val)
+dmap_add_long(struct evbuffer *evbuf, const char *tag, int64_t val)
 {
   unsigned char buf[12];
 
@@ -85,7 +85,7 @@ dmap_add_long(struct evbuffer *evbuf, char *tag, int64_t val)
 }
 
 void
-dmap_add_int(struct evbuffer *evbuf, char *tag, int val)
+dmap_add_int(struct evbuffer *evbuf, const char *tag, int val)
 {
   unsigned char buf[8];
 
@@ -107,7 +107,7 @@ dmap_add_int(struct evbuffer *evbuf, char *tag, int val)
 }
 
 void
-dmap_add_short(struct evbuffer *evbuf, char *tag, short val)
+dmap_add_short(struct evbuffer *evbuf, const char *tag, short val)
 {
   unsigned char buf[6];
 
@@ -127,7 +127,7 @@ dmap_add_short(struct evbuffer *evbuf, char *tag, short val)
 }
 
 void
-dmap_add_char(struct evbuffer *evbuf, char *tag, char val)
+dmap_add_char(struct evbuffer *evbuf, const char *tag, char val)
 {
   unsigned char buf[5];
 
@@ -146,7 +146,7 @@ dmap_add_char(struct evbuffer *evbuf, char *tag, char val)
 }
 
 void
-dmap_add_literal(struct evbuffer *evbuf, char *tag, char *str, int len)
+dmap_add_literal(struct evbuffer *evbuf, const char *tag, char *str, int len)
 {
   char buf[4];
 
@@ -179,7 +179,7 @@ dmap_add_raw_uint32(struct evbuffer *evbuf, uint32_t val)
 }
 
 void
-dmap_add_string(struct evbuffer *evbuf, char *tag, const char *str)
+dmap_add_string(struct evbuffer *evbuf, const char *tag, const char *str)
 {
   unsigned char buf[4];
   int len;
@@ -341,11 +341,14 @@ dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval
 
 
 void
-dmap_send_error(struct evhttp_request *req, char *container, char *errmsg)
+dmap_send_error(struct evhttp_request *req, const char *container, const char *errmsg)
 {
   struct evbuffer *evbuf;
   int len;
   int ret;
+
+  if (!req)
+    return;
 
   evbuf = evbuffer_new();
   if (!evbuf)

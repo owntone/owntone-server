@@ -3,11 +3,6 @@
 #define __TRANSCODE_H__
 
 #include <event.h>
-#ifdef HAVE_LIBEVENT2
-# include <event2/http.h>
-#else
-# include "evhttp/evhttp.h"
-#endif
 
 struct transcode_ctx;
 
@@ -24,6 +19,6 @@ void
 transcode_cleanup(struct transcode_ctx *ctx);
 
 int
-transcode_needed(struct evkeyvalq *headers, char *file_codectype);
+transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype);
 
 #endif /* !__TRANSCODE_H__ */

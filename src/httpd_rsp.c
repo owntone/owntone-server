@@ -439,6 +439,8 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   struct db_media_file_info dbmfi;
   struct evkeyvalq *headers;
   const char *param;
+  const char *ua;
+  const char *client_codecs;
   char **strval;
   mxml_node_t *reply;
   mxml_node_t *status;
@@ -531,7 +533,11 @@ rsp_reply_playlist(struct evhttp_request *req, char **uri, struct evkeyvalq *que
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
       headers = evhttp_request_get_input_headers(req);
-      transcode = transcode_needed(headers, dbmfi.codectype);
+
+      ua = evhttp_find_header(headers, "User-Agent");
+      client_codecs = evhttp_find_header(headers, "Accept-Codecs");
+
+      transcode = transcode_needed(ua, client_codecs, dbmfi.codectype);
 
       /* Item block (one item) */
       item = mxmlNewElement(items, "item");

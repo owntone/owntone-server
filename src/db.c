@@ -40,6 +40,7 @@
 
 #include "conffile.h"
 #include "logger.h"
+#include "daap_cache.h"
 #include "misc.h"
 #include "db.h"
 
@@ -1555,6 +1556,36 @@ db_query_end(struct query_params *qp)
   qp->stmt = NULL;
 }
 
+static int
+db_query_run(char *query, int free, int cache_update)
+{
+  char *errmsg;
+  int ret;
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    DPRINTF(E_LOG, L_DB, "Error '%s' while runnning '%s'\n", errmsg, query);
+
+  sqlite3_free(errmsg);
+
+  if (free)
+    sqlite3_free(query);
+
+  if (cache_update)
+    daapcache_trigger();
+
+  return ((ret != SQLITE_OK) ? -1 : 0);
+}
+
 int
 db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
 {
@@ -1851,37 +1882,13 @@ db_files_get_count_bymatch(char *path)
 void
 db_files_update_songartistid(void)
 {
-#define Q_SONGARTISTID "UPDATE files SET songartistid = daap_songalbumid(LOWER(album_artist), '');"
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_SONGARTISTID);
-
-  ret = db_exec(Q_SONGARTISTID, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error updating songartistid: %s\n", errmsg);
-
-  sqlite3_free(errmsg);
-
-#undef Q_SONGARTISTID
+  db_query_run("UPDATE files SET songartistid = daap_songalbumid(LOWER(album_artist), '');", 0, 1);
 }
 
 void
 db_files_update_songalbumid(void)
 {
-#define Q_SONGALBUMID "UPDATE files SET songalbumid = daap_songalbumid(LOWER(album_artist), LOWER(album));"
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_SONGALBUMID);
-
-  ret = db_exec(Q_SONGALBUMID, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error updating songalbumid: %s\n", errmsg);
-
-  sqlite3_free(errmsg);
-
-#undef Q_SONGALBUMID
+  db_query_run("UPDATE files SET songalbumid = daap_songalbumid(LOWER(album_artist), LOWER(album));", 0, 1);
 }
 
 void
@@ -1908,26 +1915,10 @@ db_file_ping(int id)
 {
 #define Q_TMPL "UPDATE files SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE id = %d;"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error pinging file ID %d: %s\n", id, errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 1);
 #undef Q_TMPL
 }
 
@@ -1937,30 +1928,13 @@ db_file_ping_bymatch(char *path, int isdir)
 #define Q_TMPL_DIR "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
 #define Q_TMPL_NODIR "UPDATE files SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q%%';"
   char *query;
-  char *errmsg;
-  int ret;
 
   if (isdir)
     query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path);
   else
     query = sqlite3_mprintf(Q_TMPL_NODIR, (int64_t)time(NULL), path);
 
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error pinging files matching %s: %s\n", path, errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 1);
 #undef Q_TMPL_DIR
 #undef Q_TMPL_NODIR
 }
@@ -2456,6 +2430,8 @@ db_file_add(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
+  daapcache_trigger();
+
   return 0;
 
 #undef Q_TMPL
@@ -2530,6 +2506,8 @@ db_file_update(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
+  daapcache_trigger();
+
   return 0;
 
 #undef Q_TMPL
@@ -2540,42 +2518,11 @@ db_file_delete_bypath(char *path)
 {
 #define Q_TMPL "DELETE FROM files WHERE path = '%q';"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error deleting file: %s\n", errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 1);
 #undef Q_TMPL
-}
-
-static void
-db_file_disable_byquery(char *query)
-{
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error disabling file: %s\n", errmsg);
-
-  sqlite3_free(errmsg);
 }
 
 void
@@ -2590,17 +2537,8 @@ db_file_disable_bypath(char *path, char *strip, uint32_t cookie)
   striplen = strlen(strip) + 1;
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  db_file_disable_byquery(query);
-
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 1);
 #undef Q_TMPL
 }
 
@@ -2616,17 +2554,8 @@ db_file_disable_bymatch(char *path, char *strip, uint32_t cookie)
   striplen = strlen(strip) + 1;
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  db_file_disable_byquery(query);
-
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 1);
 #undef Q_TMPL
 }
 
@@ -2635,33 +2564,13 @@ db_file_enable_bycookie(uint32_t cookie, char *path)
 {
 #define Q_TMPL "UPDATE files SET path = '%q' || path, disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
-  char *errmsg;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
+  ret = db_query_run(query, 1, 1);
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error enabling files: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return sqlite3_changes(hdl);
-
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
 }
 
@@ -2727,26 +2636,10 @@ db_pl_ping(int id)
 {
 #define Q_TMPL "UPDATE playlists SET db_timestamp = %" PRIi64 ", disabled = 0 WHERE id = %d;"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error pinging playlist %d: %s\n", id, errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -2756,30 +2649,13 @@ db_pl_ping_bymatch(char *path, int isdir)
 #define Q_TMPL_DIR "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q/%%';"
 #define Q_TMPL_NODIR "UPDATE playlists SET db_timestamp = %" PRIi64 " WHERE path LIKE '%q%%';"
   char *query;
-  char *errmsg;
-  int ret;
 
   if (isdir)
     query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path);
   else
     query = sqlite3_mprintf(Q_TMPL_NODIR, (int64_t)time(NULL), path);
 
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error pinging playlists matching %s: %s\n", path, errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 0);
 #undef Q_TMPL_DIR
 #undef Q_TMPL_NODIR
 }
@@ -3104,32 +2980,10 @@ db_pl_add_item_bypath(int plid, char *path)
 {
 #define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, '%q');"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, plid, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3138,32 +2992,10 @@ db_pl_add_item_byid(int plid, int fileid)
 {
 #define Q_TMPL "INSERT INTO playlistitems (playlistid, filepath) VALUES (%d, (SELECT f.path FROM files f WHERE f.id = %d));"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, plid, fileid);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3172,33 +3004,10 @@ db_pl_update(char *title, char *path, int id)
 {
 #define Q_TMPL "UPDATE playlists SET title = '%q', db_timestamp = %" PRIi64 ", disabled = 0, path = '%q' WHERE id = %d;"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, title, (int64_t)time(NULL), path, id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
-  return 0;
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3207,26 +3016,10 @@ db_pl_clear_items(int id)
 {
 #define Q_TMPL "DELETE FROM playlistitems WHERE playlistid = %d;"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error clearing playlist %d items: %s\n", id, errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3235,31 +3028,17 @@ db_pl_delete(int id)
 {
 #define Q_TMPL "DELETE FROM playlists WHERE id = %d;"
   char *query;
-  char *errmsg;
   int ret;
 
   if (id == 1)
     return;
 
   query = sqlite3_mprintf(Q_TMPL, id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
+  ret = db_query_run(query, 1, 0);
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error deleting playlist %d: %s\n", id, errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
-  db_pl_clear_items(id);
-
+  if (ret == 0)
+    db_pl_clear_items(id);
 #undef Q_TMPL
 }
 
@@ -3276,21 +3055,6 @@ db_pl_delete_bypath(char *path)
   db_pl_delete(id);
 }
 
-static void
-db_pl_disable_byquery(char *query)
-{
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error disabling playlist: %s\n", errmsg);
-
-  sqlite3_free(errmsg);
-}
-
 void
 db_pl_disable_bypath(char *path, char *strip, uint32_t cookie)
 {
@@ -3303,17 +3067,8 @@ db_pl_disable_bypath(char *path, char *strip, uint32_t cookie)
   striplen = strlen(strip) + 1;
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  db_pl_disable_byquery(query);
-
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3329,17 +3084,8 @@ db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie)
   striplen = strlen(strip) + 1;
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  db_pl_disable_byquery(query);
-
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3348,33 +3094,13 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 {
 #define Q_TMPL "UPDATE playlists SET path = '%q' || path, disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
-  char *errmsg;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
+  ret = db_query_run(query, 1, 0);
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error enabling playlists: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return sqlite3_changes(hdl);
-
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
 }
 
@@ -3383,22 +3109,7 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 int
 db_groups_clear(void)
 {
-  char *query = "DELETE FROM groups;";
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      return -1;
-    }
-
-  return 0;
+  return db_query_run("DELETE FROM groups;", 0, 1);
 }
 
 enum group_type
@@ -3462,33 +3173,10 @@ db_pairing_delete_byremote(char *remote_id)
 {
 #define Q_TMPL "DELETE FROM pairings WHERE remote = '%q';"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, remote_id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error deleting pairing: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3497,7 +3185,6 @@ db_pairing_add(struct pairing_info *pi)
 {
 #define Q_TMPL "INSERT INTO pairings (remote, name, guid) VALUES ('%q', '%q', '%q');"
   char *query;
-  char *errmsg;
   int ret;
 
   ret = db_pairing_delete_byremote(pi->remote_id);
@@ -3505,29 +3192,8 @@ db_pairing_add(struct pairing_info *pi)
     return ret;
 
   query = sqlite3_mprintf(Q_TMPL, pi->remote_id, pi->name, pi->guid);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error adding pairing: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3595,22 +3261,14 @@ db_spotify_purge(void)
       "DELETE FROM playlistitems WHERE filepath LIKE 'spotify:%%';",
       "DELETE FROM playlists WHERE path LIKE 'spotify:%%';",
     };
-  char *errmsg;
   int i;
   int ret;
 
   for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
     {
-      DPRINTF(E_DBG, L_DB, "Running spotify purge query '%s'\n", queries[i]);
+      ret = db_query_run(queries[i], 0, 1);
 
-      ret = db_exec(queries[i], &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
-
-	  sqlite3_free(errmsg);
-	}
-      else
+      if (ret == 0)
 	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
     }
 }
@@ -3619,39 +3277,23 @@ db_spotify_purge(void)
 void
 db_spotify_pl_delete(int id)
 {
-  char *queries[3] = { NULL, NULL, NULL };
   char *queries_tmpl[3] =
     {
       "DELETE FROM playlists WHERE id = %d;",
       "DELETE FROM playlistitems WHERE playlistid = %d;",
       "DELETE FROM files WHERE path LIKE 'spotify:%%' AND NOT path IN (SELECT filepath FROM playlistitems WHERE id <> %d);",
     };
-  char *errmsg;
+  char *query;
   int i;
   int ret;
 
   for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
     {
-      queries[i] = sqlite3_mprintf(queries_tmpl[i], id);
-      if (!queries[i])
-	{
-	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-	  return;
-	}
-    }
+      query = sqlite3_mprintf(queries_tmpl[i], id);
 
-  for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
-    {
-      DPRINTF(E_DBG, L_DB, "Running spotify playlist delete query '%s'\n", queries[i]);
+      ret = db_query_run(query, 1, 1);
 
-      ret = db_exec(queries[i], &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Spotify playlist delete %d error: %s\n", i, errmsg);
-
-	  sqlite3_free(errmsg);
-	}
-      else
+      if (ret == 0)
 	DPRINTF(E_DBG, L_DB, "Deleted %d rows\n", sqlite3_changes(hdl));
     }
 }
@@ -3663,34 +3305,10 @@ db_admin_add(const char *key, const char *value)
 {
 #define Q_TMPL "INSERT INTO admin (key, value) VALUES ('%q', '%q');"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, key, value);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  errmsg = NULL;
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error adding key to admin: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3757,34 +3375,10 @@ db_admin_update(const char *key, const char *value)
 {
 #define Q_TMPL "UPDATE admin SET value='%q' WHERE key='%q';"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, key, value);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  errmsg = NULL;
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error updating key in admin: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3793,34 +3387,10 @@ db_admin_delete(const char *key)
 {
 #define Q_TMPL "DELETE FROM admin where key='%q';"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, key);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  errmsg = NULL;
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error deleting key from admin: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3830,34 +3400,10 @@ db_speaker_save(uint64_t id, int selected, int volume)
 {
 #define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume) VALUES (%" PRIi64 ", %d, %d);"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, id, selected, volume);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  errmsg = NULL;
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error saving speaker state: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -3922,19 +3468,7 @@ db_speaker_get(uint64_t id, int *selected, int *volume)
 void
 db_speaker_clear_all(void)
 {
-  char *query = "UPDATE speakers SET selected = 0;";
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-    }
+  db_query_run("UPDATE speakers SET selected = 0;", 0, 0);
 }
 
 
@@ -3942,22 +3476,7 @@ db_speaker_clear_all(void)
 int
 db_watch_clear(void)
 {
-  char *query = "DELETE FROM inotify;";
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      return -1;
-    }
-
-  return 0;
+  return db_query_run("DELETE FROM inotify;", 0, 0);
 }
 
 int
@@ -3965,55 +3484,11 @@ db_watch_add(struct watch_info *wi)
 {
 #define Q_TMPL "INSERT INTO inotify (wd, cookie, path) VALUES (%d, 0, '%q');"
   char *query;
-  char *errmsg;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, wi->wd, wi->path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error adding watch: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
-}
-
-static int
-db_watch_delete_byquery(char *query)
-{
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error deleting watch: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  return 0;
 }
 
 int
@@ -4021,22 +3496,10 @@ db_watch_delete_bywd(uint32_t wd)
 {
 #define Q_TMPL "DELETE FROM inotify WHERE wd = %d;"
   char *query;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, wd);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  ret = db_watch_delete_byquery(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -4045,22 +3508,10 @@ db_watch_delete_bypath(char *path)
 {
 #define Q_TMPL "DELETE FROM inotify WHERE path = '%q';"
   char *query;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  ret = db_watch_delete_byquery(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -4069,22 +3520,10 @@ db_watch_delete_bymatch(char *path)
 {
 #define Q_TMPL "DELETE FROM inotify WHERE path LIKE '%q/%%';"
   char *query;
-  int ret;
 
   query = sqlite3_mprintf(Q_TMPL, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  ret = db_watch_delete_byquery(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -4093,25 +3532,13 @@ db_watch_delete_bycookie(uint32_t cookie)
 {
 #define Q_TMPL "DELETE FROM inotify WHERE cookie = %" PRIi64 ";"
   char *query;
-  int ret;
 
   if (cookie == 0)
     return -1;
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)cookie);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return -1;
-    }
-
-  ret = db_watch_delete_byquery(query);
-
-  sqlite3_free(query);
-
-  return ret;
-
+  return db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -4234,21 +3661,6 @@ db_watch_get_bypath(struct watch_info *wi)
 #undef Q_TMPL
 }
 
-static void
-db_watch_mark_byquery(char *query)
-{
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error marking watch: %s\n", errmsg);
-
-  sqlite3_free(errmsg);
-}
-
 void
 db_watch_mark_bypath(char *path, char *strip, uint32_t cookie)
 {
@@ -4261,17 +3673,8 @@ db_watch_mark_bypath(char *path, char *strip, uint32_t cookie)
   striplen = strlen(strip) + 1;
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  db_watch_mark_byquery(query);
-
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -4287,17 +3690,8 @@ db_watch_mark_bymatch(char *path, char *strip, uint32_t cookie)
   striplen = strlen(strip) + 1;
 
   query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  db_watch_mark_byquery(query);
-
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -4306,29 +3700,13 @@ db_watch_move_bycookie(uint32_t cookie, char *path)
 {
 #define Q_TMPL "UPDATE inotify SET path = '%q' || path, cookie = 0 WHERE cookie = %" PRIi64 ";"
   char *query;
-  char *errmsg;
-  int ret;
 
   if (cookie == 0)
     return;
 
   query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
 
-      return;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error moving watch: %s\n", errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
