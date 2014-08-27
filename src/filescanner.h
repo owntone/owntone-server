@@ -32,7 +32,7 @@ int
 scan_metadata_icy(char *url, struct media_file_info *mfi);
 
 void
-scan_m3u_playlist(char *file, time_t mtime);
+scan_playlist(char *file, time_t mtime);
 
 #ifdef ITUNES
 void

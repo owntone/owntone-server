@@ -460,9 +460,9 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
   ext = strrchr(path, '.');
   if (ext)
     {
-      if ((strcasecmp(ext, ".pls") == 0) || (strcasecmp(ext, ".url") == 0))
+      if (strcasecmp(ext, ".url") == 0)
 	{
-	  DPRINTF(E_INFO, L_SCAN, "No support for .url and .pls in this version, use .m3u\n");
+	  DPRINTF(E_INFO, L_SCAN, "No support for .url in this version, use .m3u or .pls\n");
 
 	  return;
 	}
@@ -599,7 +599,9 @@ process_playlist(char *file, time_t mtime)
   if (ext)
     {
       if (strcasecmp(ext, ".m3u") == 0)
-	scan_m3u_playlist(file, mtime);
+	scan_playlist(file, mtime);
+      else if (strcasecmp(ext, ".pls") == 0)
+	scan_playlist(file, mtime);
 #ifdef ITUNES
       else if (strcasecmp(ext, ".xml") == 0)
 	scan_itunes_itml(file);
@@ -672,6 +674,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
   if (ext)
     {
       if ((strcasecmp(ext, ".m3u") == 0)
+	  || (strcasecmp(ext, ".pls") == 0)
 #ifdef ITUNES
 	  || (strcasecmp(ext, ".xml") == 0)
 #endif

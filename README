@@ -237,11 +237,14 @@ them. Watch out for that.
 Playlists and internet radio
 ----------------------------
 
-forked-daapd supports M3U playlists. Just drop your playlist somewhere in
-your library with an .m3u extension and it will pick it up.
+forked-daapd supports M3U and PLS playlists. Just drop your playlist somewhere
+in your library with an .m3u or .pls extension and it will pick it up.
 
-If the m3u contains an http URL it will be added as an internet radio station,
-and the URL will be probed for Shoutcast (ICY) metadata.
+If the playlist contains an http URL it will be added as an internet radio
+station, and the URL will be probed for Shoutcast (ICY) metadata.
+
+forked-daapd does not support playlists in playlists (so for instance a .m3u
+where one of the items is another .m3u or .pls).
 
 Support for iTunes Music Library XML format is available as a compile-time
 option. By default, metadata from our parsers is preferred over what's in
