@@ -3303,7 +3303,7 @@ db_spotify_pl_delete(int id)
 int
 db_admin_add(const char *key, const char *value)
 {
-#define Q_TMPL "INSERT INTO admin (key, value) VALUES ('%q', '%q');"
+#define Q_TMPL "INSERT OR REPLACE INTO admin (key, value) VALUES ('%q', '%q');"
   char *query;
 
   query = sqlite3_mprintf(Q_TMPL, key, value);
