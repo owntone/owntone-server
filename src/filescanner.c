@@ -656,9 +656,6 @@ process_deferred_playlists(void)
       free(pl->path);
       free(pl);
 
-      /* Run the event loop */
-      event_base_loop(evbase_scan, EVLOOP_ONCE | EVLOOP_NONBLOCK);
-
       if (scan_exit)
 	return;
     }
@@ -782,7 +779,6 @@ check_speciallib(char *path, const char *libtype)
 static void
 process_directory(char *path, int flags)
 {
-  struct stacked_dir *bulkstack;
   DIR *dirp;
   struct dirent buf;
   struct dirent *de;
@@ -795,24 +791,6 @@ process_directory(char *path, int flags)
 #endif
   int type;
   int ret;
-
-  if (flags & F_SCAN_BULK)
-    {
-      /* Save our directory stack so it won't get handled inside
-       * the event loop - not its business, we're in bulk mode here.
-       */
-      bulkstack = dirstack;
-      dirstack = NULL;
-
-      /* Run the event loop */
-      event_base_loop(evbase_scan, EVLOOP_ONCE | EVLOOP_NONBLOCK);
-
-      /* Restore our directory stack */
-      dirstack = bulkstack;
-
-      if (scan_exit)
-	return;
-    }
 
   DPRINTF(E_DBG, L_SCAN, "Processing directory %s (flags = 0x%x)\n", path, flags);
 
@@ -835,6 +813,9 @@ process_directory(char *path, int flags)
 
   for (;;)
     {
+      if (scan_exit)
+	break;
+
       ret = readdir_r(dirp, &buf, &de);
       if (ret != 0)
 	{
@@ -1799,13 +1780,6 @@ exit_cb(int fd, short event, void *arg)
   scan_exit = 1;
 }
 
-
-int
-filescanner_status(void)
-{
-  return scan_exit;
-}
-
 /* Thread: main */
 int
 filescanner_init(void)
@@ -1908,6 +1882,8 @@ filescanner_deinit(void)
       return;
     }
 #endif
+
+  scan_exit = 1;
 
   ret = pthread_join(tid_scan, NULL);
   if (ret != 0)

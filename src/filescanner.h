@@ -18,9 +18,6 @@ filescanner_init(void);
 void
 filescanner_deinit(void);
 
-int
-filescanner_status(void);
-
 void
 filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi);
 
