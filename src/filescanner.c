@@ -1105,12 +1105,12 @@ filescanner(void *arg)
   else
     bulk_scan(F_SCAN_BULK);
 
-#ifdef HAVE_SPOTIFY_H
-  spotify_login(NULL);
-#endif
-
   if (!scan_exit)
     {
+#ifdef HAVE_SPOTIFY_H
+      spotify_login(NULL);
+#endif
+
       /* Enable inotify */
       event_add(&inoev, NULL);
 
