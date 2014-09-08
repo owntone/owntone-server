@@ -816,7 +816,10 @@ lastfm_scrobble(int id)
     return -1;
 
   // No session key in mem or in db
-  if ((!g_session_key) || !(g_session_key = db_admin_get("lastfm_sk")))
+  if (!g_session_key)
+    g_session_key = db_admin_get("lastfm_sk");
+
+  if (!g_session_key)
     {
       DPRINTF(E_INFO, L_LASTFM, "No valid LastFM session key\n");
       g_disabled = 1;
