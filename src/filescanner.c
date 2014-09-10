@@ -76,6 +76,20 @@
 #define F_SCAN_FAST    (1 << 2)
 #define F_SCAN_MOVED   (1 << 3)
 
+enum file_type {
+  FILE_UNKNOWN = 0,
+  FILE_IGNORE,
+  FILE_REGULAR,
+  FILE_PLAYLIST,
+  FILE_ITUNES,
+  FILE_ARTWORK,
+  FILE_CTRL_REMOTE,
+  FILE_CTRL_LASTFM,
+  FILE_CTRL_SPOTIFY,
+  FILE_CTRL_INITSCAN,
+  FILE_CTRL_FULLSCAN,
+};
+
 struct deferred_pl {
   char *path;
   time_t mtime;
@@ -156,8 +170,9 @@ pop_dir(struct stacked_dir **s)
   return ret;
 }
 
+/* Checks if the file extension is in the ignore list */
 static int
-ignore_filetype(char *ext)
+file_type_ignore(const char *ext)
 {
   cfg_t *lib;
   int n;
@@ -173,6 +188,66 @@ ignore_filetype(char *ext)
     }
 
   return 0;
+}
+
+static enum file_type
+file_type_get(const char *path) {
+  const char *filename;
+  const char *ext;
+
+  filename = strrchr(path, '/');
+  if ((!filename) || (strlen(filename) == 1))
+    filename = path;
+  else
+    filename++;
+
+  ext = strrchr(path, '.');
+  if (!ext || (strlen(ext) == 1))
+    return FILE_REGULAR;
+
+  if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
+    return FILE_PLAYLIST;
+
+  if ((strcasecmp(ext, ".png") == 0) || (strcasecmp(ext, ".jpg") == 0))
+    return FILE_ARTWORK;
+
+#ifdef ITUNES
+  if (strcasecmp(ext, ".xml") == 0)
+    return FILE_ITUNES;
+#endif
+
+  if (strcasecmp(ext, ".remote") == 0)
+    return FILE_CTRL_REMOTE;
+
+#ifdef LASTFM
+  if (strcasecmp(ext, ".lastfm") == 0)
+    return FILE_CTRL_LASTFM;
+#endif
+
+#ifdef HAVE_SPOTIFY_H
+  if (strcasecmp(ext, ".spotify") == 0)
+    return FILE_CTRL_SPOTIFY;
+#endif
+
+  if (strcasecmp(ext, ".init-rescan") == 0)
+    return FILE_CTRL_INITSCAN;
+
+  if (strcasecmp(ext, ".full-rescan") == 0)
+    return FILE_CTRL_FULLSCAN;
+
+  if (strcasecmp(ext, ".url") == 0)
+    {
+      DPRINTF(E_INFO, L_SCAN, "No support for .url, use .m3u or .pls\n");
+      return FILE_IGNORE;
+    }
+
+  if (file_type_ignore(ext))
+    return FILE_IGNORE;
+
+  if ((filename[0] == '_') || (filename[0] == '.'))
+    return FILE_IGNORE;
+
+  return FILE_REGULAR;
 }
 
 static void
@@ -445,7 +520,6 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
 {
   struct media_file_info *mfi;
   char *filename;
-  char *ext;
   time_t stamp;
   int id;
   int ret;
@@ -455,33 +529,6 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
     filename = path;
   else
     filename++;
-
-  /* File types which should never be processed */
-  ext = strrchr(path, '.');
-  if (ext)
-    {
-      if (strcasecmp(ext, ".url") == 0)
-	{
-	  DPRINTF(E_INFO, L_SCAN, "No support for .url in this version, use .m3u or .pls\n");
-
-	  return;
-	}
-      else if ((strcasecmp(ext, ".png") == 0) || (strcasecmp(ext, ".jpg") == 0))
-	{
-	  /* Artwork files - don't scan */
-	  return;
-	}
-      else if ((filename[0] == '_') || (filename[0] == '.'))
-	{
-	  /* Hidden files - don't scan */
-	  return;
-	}
-      else if (ignore_filetype(ext))
-	{
-	  /* File extension is in ignore list - don't scan */
-	  return;
-	}
-    }
 
   db_file_stamp_bypath(path, &stamp, &id);
 
@@ -593,20 +640,15 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
 static void
 process_playlist(char *file, time_t mtime)
 {
-  char *ext;
+  enum file_type ft;
 
-  ext = strrchr(file, '.');
-  if (ext)
-    {
-      if (strcasecmp(ext, ".m3u") == 0)
-	scan_playlist(file, mtime);
-      else if (strcasecmp(ext, ".pls") == 0)
-	scan_playlist(file, mtime);
+  ft = file_type_get(file);
+  if (ft == FILE_PLAYLIST)
+    scan_playlist(file, mtime);
 #ifdef ITUNES
-      else if (strcasecmp(ext, ".xml") == 0)
-	scan_itunes_itml(file);
+  else if (ft == FILE_ITUNES)
+    scan_itunes_itml(file);
 #endif
-    }
 }
 
 /* Thread: scan */
@@ -665,94 +707,76 @@ process_deferred_playlists(void)
 static void
 process_file(char *file, time_t mtime, off_t size, int type, int flags)
 {
-  char *ext;
-
-  ext = strrchr(file, '.');
-  if (ext)
+  switch (file_type_get(file))
     {
-      if ((strcasecmp(ext, ".m3u") == 0)
-	  || (strcasecmp(ext, ".pls") == 0)
-#ifdef ITUNES
-	  || (strcasecmp(ext, ".xml") == 0)
-#endif
-	  )
-	{
-	  if (flags & F_SCAN_BULK)
-	    defer_playlist(file, mtime);
-	  else
-	    process_playlist(file, mtime);
+      case FILE_REGULAR:
+	filescanner_process_media(file, mtime, size, type, NULL);
 
-	  return;
-	}
-      else if (strcmp(ext, ".remote") == 0)
-	{
-	  remote_pairing_read_pin(file);
+	counter++;
 
-	  return;
-	}
+	/* When in bulk mode, split transaction in pieces of 200 */
+	if ((flags & F_SCAN_BULK) && (counter % 200 == 0))
+	  {
+	    DPRINTF(E_LOG, L_SCAN, "Scanned %d files...\n", counter);
+	    db_transaction_end();
+	    db_transaction_begin();
+	  }
+	break;
+
+      case FILE_PLAYLIST:
+      case FILE_ITUNES:
+	if (flags & F_SCAN_BULK)
+	  defer_playlist(file, mtime);
+	else
+	  process_playlist(file, mtime);
+	break;
+
+      case FILE_CTRL_REMOTE:
+	remote_pairing_read_pin(file);
+	break;
+
 #ifdef LASTFM
-      else if (strcmp(ext, ".lastfm") == 0)
-	{
-	  lastfm_login(file);
-
-	  return;
-	}
+      case FILE_CTRL_LASTFM:
+	lastfm_login(file);
+	break;
 #endif
+
 #ifdef HAVE_SPOTIFY_H
-      else if (strcmp(ext, ".spotify") == 0)
-	{
-	  spotify_login(file);
-
-	  return;
-	}
+      case FILE_CTRL_SPOTIFY:
+	spotify_login(file);
+	break;
 #endif
-      else if (strcmp(ext, ".full-rescan") == 0)
-	{
-	  if (flags & F_SCAN_BULK)
-	    return;
-	  else
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Forcing full rescan, found full-rescan file: %s\n", file);
-	      player_playback_stop();
-	      player_queue_clear();
-	      inofd_event_unset(); // Clears all inotify watches
-	      db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
 
-	      inofd_event_set();
-	      bulk_scan(F_SCAN_BULK);
+      case FILE_CTRL_INITSCAN:
+	if (flags & F_SCAN_BULK)
+	  break;
 
-	      return;
-	    }
-	}
-      else if (strcmp(ext, ".init-rescan") == 0)
-	{
-	  if (flags & F_SCAN_BULK)
-	    return;
-	  else
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Forcing startup rescan, found init-rescan file: %s\n", file);
-	      inofd_event_unset(); // Clears all inotify watches
-	      db_watch_clear();
+	DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered, found init-rescan file: %s\n", file);
 
-	      inofd_event_set();
-	      bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
+	inofd_event_unset(); // Clears all inotify watches
+	db_watch_clear();
 
-	      return;
-	    }
-	}
-    }
+	inofd_event_set();
+	bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
+	break;
 
-  /* Not any kind of special file, so let's see if it's a media file */
-  filescanner_process_media(file, mtime, size, type, NULL);
+      case FILE_CTRL_FULLSCAN:
+	if (flags & F_SCAN_BULK)
+	  break;
 
-  counter++;
+	DPRINTF(E_LOG, L_SCAN, "Full rescan triggered, found full-rescan file: %s\n", file);
 
-  /* When in bulk mode, split transaction in pieces of 200 */
-  if ((flags & F_SCAN_BULK) && (counter % 200 == 0))
-    {
-      DPRINTF(E_LOG, L_SCAN, "Scanned %d files...\n", counter);
-      db_transaction_end();
-      db_transaction_begin();
+	player_playback_stop();
+	player_queue_clear();
+	inofd_event_unset(); // Clears all inotify watches
+	db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
+
+	inofd_event_set();
+	bulk_scan(F_SCAN_BULK);
+	break;
+
+      default:
+	DPRINTF(E_WARN, L_SCAN, "Ignoring file: %s\n", file);
     }
 }
 
@@ -1333,7 +1357,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
 	  db_file_delete_bypath(path);;
 	}
-      else if (db_file_id_bypath(path) <= 0)
+      else if ((file_type_get(path) == FILE_REGULAR) && (db_file_id_bypath(path) <= 0)) // TODO Playlists
 	{
 	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' achieved\n", path);
 
