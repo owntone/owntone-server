@@ -362,7 +362,7 @@ laudio_start(uint64_t cur_pos, uint64_t next_pkt)
   pcm_start_pos = next_pkt + pcm_buf_threshold;
 
   /* Compensate threshold, as it's taken into account by snd_pcm_delay() */
-  pcm_pos += pcm_buf_threshold;
+  //pcm_pos += pcm_buf_threshold;
 
   DPRINTF(E_DBG, L_LAUDIO, "PCM pos %" PRIu64 ", start pos %" PRIu64 "\n", pcm_pos, pcm_start_pos);
 
