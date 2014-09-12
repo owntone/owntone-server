@@ -1079,8 +1079,9 @@ bulk_scan(int flags)
 static void *
 filescanner(void *arg)
 {
-  struct sched_param param;
   int ret;
+#if defined(__linux__)
+  struct sched_param param;
 
   /* Lower the priority of the thread so forked-daapd may still respond
    * during file scan on low power devices. Param must be 0 for the SCHED_BATCH
@@ -1092,6 +1093,7 @@ filescanner(void *arg)
     {
       DPRINTF(E_LOG, L_SCAN, "Warning: Could not set thread priority to SCHED_BATCH\n");
     }
+#endif
 
   ret = db_perthread_init();
   if (ret < 0)
