@@ -211,7 +211,7 @@ laudio_write(uint8_t *buf, uint64_t rtptime)
 
       return;
     }
-  else if ((pcm_status != LAUDIO_RUNNING) && (pcm_pos >= pcm_start_pos))
+  else if ((pcm_status != LAUDIO_RUNNING) && (pcm_pos + pcm_buf_threshold >= pcm_start_pos))
     {
       /* Kill threshold */
       ret = laudio_set_start_threshold(0);
