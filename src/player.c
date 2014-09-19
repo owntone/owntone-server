@@ -1590,7 +1590,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 static void
 playback_write(void)
 {
-  uint8_t rawbuf[AIRTUNES_V2_PACKET_SAMPLES * 2 * 2];
+  uint8_t rawbuf[STOB(AIRTUNES_V2_PACKET_SAMPLES)];
   int ret;
 
   source_check();
