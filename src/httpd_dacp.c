@@ -1417,6 +1417,8 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
   int ret;
   int quirkyquery;
 
+  mode = 1;
+
   param = evhttp_find_header(query, "mode");
   if (param)
     {
