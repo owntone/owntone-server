@@ -34,7 +34,7 @@
 #if defined(__linux__)
 # include <sys/timerfd.h>
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-
+# include <signal.h>
 #endif
 
 #ifdef HAVE_LIBEVENT2
