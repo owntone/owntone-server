@@ -34,16 +34,14 @@
 #if defined(__linux__)
 # include <sys/timerfd.h>
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-# include <sys/time.h>
-# include <sys/event.h>
+
 #endif
 
-#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
-# define USE_EVENTFD
-# include <sys/eventfd.h>
+#ifdef HAVE_LIBEVENT2
+# include <event2/event.h>
+#else
+# include <event.h>
 #endif
-
-#include <event.h>
 
 #include <gcrypt.h>
 
@@ -141,15 +139,11 @@ static const char *raop_devtype[] =
 
 struct event_base *evbase_player;
 
-#ifdef USE_EVENTFD
-static int exit_efd;
-#else
 static int exit_pipe[2];
-#endif
 static int cmd_pipe[2];
 static int player_exit;
-static struct event exitev;
-static struct event cmdev;
+static struct event *exitev;
+static struct event *cmdev;
 static pthread_t tid_player;
 
 /* Player status */
@@ -161,15 +155,17 @@ static char shuffle;
 static player_status_handler update_handler;
 
 /* Playback timer */
-static int pb_timer_fd;
-static struct event pb_timer_ev;
 #if defined(__linux__)
+static int pb_timer_fd;
+#else
+timer_t pb_timer;
+#endif
+static struct event *pb_timer_ev;
 static struct timespec pb_timer_last;
 static struct timespec packet_timer_last;
 static uint64_t MINIMUM_STREAM_PERIOD;
 static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
 static struct timespec timer_res;
-#endif
 
 /* Sync source */
 static enum player_sync_source pb_sync_source;
@@ -222,7 +218,7 @@ command_async_end(struct player_command *cmd)
   pthread_mutex_unlock(&cmd->lck);
 
   /* Process commands again */
-  event_add(&cmdev, NULL);
+  event_add(cmdev, NULL);
 }
 
 static void
@@ -379,11 +375,7 @@ player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
   uint64_t delta;
   int ret;
 
-#if defined(__linux__)
   ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
-#else
-  ret = clock_gettime(CLOCK_MONOTONIC, ts);
-#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
@@ -427,11 +419,7 @@ player_get_current_pos_laudio(uint64_t *pos, struct timespec *ts, int commit)
 
   *pos = laudio_get_pos();
 
-#if defined(__linux__)
   ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
-#else
-  ret = clock_gettime(CLOCK_MONOTONIC, ts);
-#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
@@ -467,6 +455,71 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
     }
 
   return -1;
+}
+
+static int
+pb_timer_start(struct timespec *ts)
+{
+  struct itimerspec next;
+  int ret;
+
+  next.it_interval.tv_sec = 0;
+  next.it_interval.tv_nsec = 0;
+  next.it_value.tv_sec = ts->tv_sec;
+  next.it_value.tv_nsec = ts->tv_nsec;
+
+#if defined(__linux__)
+  ret = timerfd_settime(pb_timer_fd, TFD_TIMER_ABSTIME, &next, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not arm playback timer: %s\n", strerror(errno));
+
+      return -1;
+    }
+
+  ret = event_add(pb_timer_ev, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not add playback timer event\n");
+
+      return -1;
+    }
+#else
+  ret = timer_settime(pb_timer, TIMER_ABSTIME, &next, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not arm playback timer: %s\n", strerror(errno));
+
+      return -1;
+    }
+#endif
+
+  return 0;
+}
+
+static int
+pb_timer_stop(void)
+{
+  struct itimerspec next;
+  int ret;
+
+  memset(&next, 0, sizeof(struct itimerspec));
+
+#if defined(__linux__)
+  event_del(pb_timer_ev);
+
+  ret = timerfd_settime(pb_timer_fd, TFD_TIMER_ABSTIME, &next, NULL);
+#else
+  ret = timer_settime(pb_timer, TIMER_ABSTIME, &next, NULL);
+#endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not disarm playback timer: %s\n", strerror(errno));
+
+      return -1;
+    }
+
+  return 0;
 }
 
 /* Forward */
@@ -1618,19 +1671,19 @@ playback_write(void)
     raop_v2_write(rawbuf, last_rtptime);
 }
 
-#if defined(__linux__)
 static void
 player_playback_cb(int fd, short what, void *arg)
 {
-  struct itimerspec next;
-  uint64_t ticks;
-  int ret;
   uint32_t packet_send_count = 0;
   struct timespec next_tick;
   struct timespec stream_period  = { 0, MINIMUM_STREAM_PERIOD };
+#if defined(__linux__)
+  uint64_t ticks;
+  int ret;
 
   /* Acknowledge timer */
   read(fd, &ticks, sizeof(ticks));
+#endif /* __linux__ */
 
   /* Decide how many packets to send */
   next_tick = timespec_add(pb_timer_last, stream_period);
@@ -1648,80 +1701,18 @@ player_playback_cb(int fd, short what, void *arg)
 	  return;
 	}
     }
-
-  while(timespec_cmp(packet_timer_last, next_tick) < 0);
+  while (timespec_cmp(packet_timer_last, next_tick) < 0);
 
   /* Make sure playback is still running */
   if (player_state == PLAY_STOPPED)
     return;
 
-  pb_timer_last.tv_nsec += MINIMUM_STREAM_PERIOD;
-  if (pb_timer_last.tv_nsec >= 1000000000)
-    {
-      pb_timer_last.tv_sec++;
-      pb_timer_last.tv_nsec -= 1000000000;
-    }
+  pb_timer_last = timespec_add(pb_timer_last, stream_period);
 
-  next.it_interval.tv_sec = 0;
-  next.it_interval.tv_nsec = 0;
-  next.it_value.tv_sec = pb_timer_last.tv_sec;
-  next.it_value.tv_nsec = pb_timer_last.tv_nsec;
-
-  ret = timerfd_settime(pb_timer_fd, TFD_TIMER_ABSTIME, &next, NULL);
+  ret = pb_timer_start(&pb_timer_last);
   if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not set playback timer: %s\n", strerror(errno));
-
-      playback_abort();
-      return;
-    }
-
-  ret = event_add(&pb_timer_ev, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not re-add playback timer event\n");
-
-      playback_abort();
-      return;
-    }
+    playback_abort();
 }
-#endif /* __linux__ */
-
-
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-static void
-player_playback_cb(int fd, short what, void *arg)
-{
-  struct timespec ts;
-  struct kevent kev;
-  int ret;
-
-  ts.tv_sec = 0;
-  ts.tv_nsec = 0;
-
-  while (kevent(pb_timer_fd, NULL, 0, &kev, 1, &ts) > 0)
-    {
-      if (kev.filter != EVFILT_TIMER)
-        continue;
-
-      playback_write();
-
-      /* Make sure playback is still running */
-      if (player_state == PLAY_STOPPED)
-	return;
-    }
-
-  ret = event_add(&pb_timer_ev, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not re-add playback timer event\n");
-
-      playback_abort();
-      return;
-    }
-}
-#endif /* __FreeBSD__ || __FreeBSD_kernel__ */
-
 
 static void
 device_free(struct raop_device *dev)
@@ -2079,24 +2070,14 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 
   if ((player_state == PLAY_PLAYING) && (raop_sessions == 1))
     {
-#if defined(__linux__)
       ret = clock_gettime_with_res(CLOCK_MONOTONIC, &ts, &timer_res);
-#else
-      ret = clock_gettime(CLOCK_MONOTONIC, &ts);
-#endif
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Could not get current time: %s\n", strerror(errno));
 
-#if defined(__linux__)
 	  /* Fallback to nearest timer expiration time */
 	  ts.tv_sec = pb_timer_last.tv_sec;
 	  ts.tv_nsec = pb_timer_last.tv_nsec;
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-	  if (cur_cmd->ret != -2)
-	    cur_cmd->ret = -1;
-	  goto out;
-#endif
 	}
 
       raop_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &ts);
@@ -2216,12 +2197,7 @@ playback_abort(void)
   if (raop_sessions > 0)
     raop_playback_stop();
 
-  if (event_initialized(&pb_timer_ev))
-    event_del(&pb_timer_ev);
-
-  if (pb_timer_fd != -1)
-    close(pb_timer_fd);
-  pb_timer_fd = -1;
+  pb_timer_stop();
 
   if (cur_playing)
     source_stop(cur_playing);
@@ -2351,12 +2327,7 @@ playback_stop(struct player_command *cmd)
    */
   cmd->raop_pending = raop_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
-  if (event_initialized(&pb_timer_ev))
-    event_del(&pb_timer_ev);
-
-  if (pb_timer_fd != -1)
-    close(pb_timer_fd);
-  pb_timer_fd = -1;
+  pb_timer_stop();
 
   if (cur_playing)
     {
@@ -2389,11 +2360,6 @@ playback_stop(struct player_command *cmd)
 static int
 playback_start_bh(struct player_command *cmd)
 {
-#if defined(__linux__)
-  struct itimerspec next;
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-  struct kevent kev;
-#endif
   int ret;
 
   if ((laudio_status == LAUDIO_CLOSED) && (raop_sessions == 0))
@@ -2417,11 +2383,7 @@ playback_start_bh(struct player_command *cmd)
 	}
     }
 
-#if defined(__linux__)
   ret = clock_gettime_with_res(CLOCK_MONOTONIC, &pb_pos_stamp, &timer_res);
-#else
-  ret = clock_gettime(CLOCK_MONOTONIC, &pb_pos_stamp);
-#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Couldn't get current clock: %s\n", strerror(errno));
@@ -2429,9 +2391,8 @@ playback_start_bh(struct player_command *cmd)
       goto out_fail;
     }
 
-  memset(&pb_timer_ev, 0, sizeof(struct event));
+  pb_timer_stop();
 
-#if defined(__linux__)
   /*
    * initialize the packet timer to the same relative time that we have 
    * for the playback timer.
@@ -2442,58 +2403,9 @@ playback_start_bh(struct player_command *cmd)
   pb_timer_last.tv_sec = pb_pos_stamp.tv_sec;
   pb_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
 
-  pb_timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
-  if (pb_timer_fd < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create playback timer: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  next.it_interval.tv_sec = 0;
-  next.it_interval.tv_nsec = 0;
-  next.it_value.tv_sec = pb_timer_last.tv_sec;
-  next.it_value.tv_nsec = pb_timer_last.tv_nsec;
-
-  ret = timerfd_settime(pb_timer_fd, TFD_TIMER_ABSTIME, &next, NULL);
+  ret = pb_timer_start(&pb_timer_last);
   if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not set playback timer: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-  pb_timer_fd = kqueue();
-  if (pb_timer_fd < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create kqueue: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-
-  memset(&kev, 0, sizeof(struct kevent));
-
-  EV_SET(&kev, 1, EVFILT_TIMER, EV_ADD | EV_ENABLE, 0, AIRTUNES_V2_STREAM_PERIOD, 0);
-
-  ret = kevent(pb_timer_fd, &kev, 1, NULL, 0, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not add kevent timer: %s\n", strerror(errno));
-
-      goto out_fail;
-    }
-#endif
-
-  event_set(&pb_timer_ev, pb_timer_fd, EV_READ, player_playback_cb, NULL);
-  event_base_set(evbase_player, &pb_timer_ev);
-
-  ret = event_add(&pb_timer_ev, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not set up playback timer event\n");
-
-      goto out_fail;
-    }
+    goto out_fail;
 
   /* Everything OK, start RAOP */
   if (raop_sessions > 0)
@@ -2504,9 +2416,6 @@ playback_start_bh(struct player_command *cmd)
   return 0;
 
  out_fail:
-  if (pb_timer_fd != -1)
-    close(pb_timer_fd);
-  pb_timer_fd = -1;
   playback_abort();
 
   return -1;
@@ -2921,12 +2830,7 @@ playback_pause(struct player_command *cmd)
   if (laudio_status != LAUDIO_CLOSED)
     laudio_stop();
 
-  if (event_initialized(&pb_timer_ev))
-    event_del(&pb_timer_ev);
-
-  if (pb_timer_fd != -1)
-    close(pb_timer_fd);
-  pb_timer_fd = -1;
+  pb_timer_stop();
 
   if (ps->play_next)
     source_stop(ps->play_next);
@@ -3783,7 +3687,7 @@ command_cb(int fd, short what, void *arg)
     }
 
  readd:
-  event_add(&cmdev, NULL);
+  event_add(cmdev, NULL);
 }
 
 
@@ -4620,8 +4524,6 @@ player_init(void)
 
   cur_cmd = NULL;
 
-  pb_timer_fd = -1;
-
   source_head = NULL;
   shuffle_head = NULL;
   cur_playing = NULL;
@@ -4634,9 +4536,8 @@ player_init(void)
 
   update_handler = NULL;
 
-  history = (struct player_history *) calloc(1, sizeof(struct player_history));
+  history = (struct player_history *)calloc(1, sizeof(struct player_history));
 
-#if defined(__linux__)
   /*
    * Determine if the resolution of the system timer is > or < the size
    * of an audio packet. NOTE: this assumes the system clock resolution
@@ -4648,8 +4549,30 @@ player_init(void)
 
       return -1;
     }
-  MINIMUM_STREAM_PERIOD = MAX(timer_res.tv_nsec, AIRTUNES_V2_STREAM_PERIOD);
+
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  /* FreeBSD will report a resolution of 1, but actually has a resolution
+   * larger than an audio packet
+   */
+  if (timer_res.tv_nsec == 1)
+    timer_res.tv_nsec = 2 * AIRTUNES_V2_STREAM_PERIOD;
 #endif
+
+  MINIMUM_STREAM_PERIOD = MAX(timer_res.tv_nsec, AIRTUNES_V2_STREAM_PERIOD);
+
+  /* Create a timer */
+#if defined(__linux__)
+  pb_timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+  ret = pb_timer_fd;
+#else
+  ret = timer_create(CLOCK_MONOTONIC, NULL, &pb_timer);
+#endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create playback timer: %s\n", strerror(errno));
+
+      return -1;
+    }
 
   /* Random RTP time start */
   gcry_randomize(&rnd, sizeof(rnd), GCRY_STRONG_RANDOM);
@@ -4668,33 +4591,22 @@ player_init(void)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not allocate evbuffer for audio buffer\n");
 
-      return -1;
+      goto audio_fail;
     }
 
   raop_v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
 
-
-#ifdef USE_EVENTFD
-  exit_efd = eventfd(0, EFD_CLOEXEC);
-  if (exit_efd < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create eventfd: %s\n", strerror(errno));
-
-      goto exit_fail;
-    }
-#else
-# if defined(__linux__)
+#if defined(__linux__)
   ret = pipe2(exit_pipe, O_CLOEXEC);
-# else
+#else
   ret = pipe(exit_pipe);
-# endif
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create pipe: %s\n", strerror(errno));
 
       goto exit_fail;
     }
-#endif /* USE_EVENTFD */
 
 # if defined(__linux__)
   ret = pipe2(cmd_pipe, O_CLOEXEC);
@@ -4716,17 +4628,70 @@ player_init(void)
       goto evbase_fail;
     }
 
-#ifdef USE_EVENTFD
-  event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
-#else
-  event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
-#endif
-  event_base_set(evbase_player, &exitev);
-  event_add(&exitev, NULL);
+#ifdef HAVE_LIBEVENT2
+  exitev = event_new(evbase_player, exit_pipe[0], EV_READ, exit_cb, NULL);
+  if (!exitev)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create exit event\n");
+      goto evnew_fail;
+    }
 
-  event_set(&cmdev, cmd_pipe[0], EV_READ, command_cb, NULL);
-  event_base_set(evbase_player, &cmdev);
-  event_add(&cmdev, NULL);
+  cmdev = event_new(evbase_player, cmd_pipe[0], EV_READ, command_cb, NULL);
+  if (!cmdev)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create cmd event\n");
+      goto evnew_fail;
+    }
+
+# if defined(__linux__)
+  pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ, player_playback_cb, NULL);
+# else
+  pb_timer_ev = evsignal_new(evbase_player, SIGALRM, player_playback_cb, NULL);
+# endif
+  if (!pb_timer_ev)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create playback timer event\n");
+      goto evnew_fail;
+    }
+#else
+  exitev = (struct event *)malloc(sizeof(struct event));
+  if (!exitev)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create exit event\n");
+      goto evnew_fail;
+    }
+  event_set(exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
+  event_base_set(evbase_player, exitev);
+
+  cmdev = (struct event *)malloc(sizeof(struct event));
+  if (!cmdev)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create cmd event\n");
+      goto evnew_fail;
+    }
+  event_set(cmdev, cmd_pipe[0], EV_READ, command_cb, NULL);
+  event_base_set(evbase_player, cmdev);
+
+  pb_timer_ev = (struct event *)malloc(sizeof(struct event));
+  if (!pb_timer_ev)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not create playback timer event\n");
+      goto evnew_fail;
+    }
+# if defined(__linux__)
+  event_set(pb_timer_ev, pb_timer_fd, EV_READ, player_playback_cb, NULL);
+# else
+  signal_set(pb_timer_ev, SIGALRM, player_playback_cb, NULL);
+# endif
+  event_base_set(evbase_player, pb_timer_ev);
+#endif /* HAVE_LIBEVENT2 */
+
+  event_add(exitev, NULL);
+  event_add(cmdev, NULL);
+
+#ifndef __linux__
+  event_add(pb_timer_ev, NULL);
+#endif
 
   ret = laudio_init(player_laudio_status_cb);
   if (ret < 0)
@@ -4773,19 +4738,18 @@ player_init(void)
  raop_fail:
   laudio_deinit();
  laudio_fail:
+ evnew_fail:
   event_base_free(evbase_player);
  evbase_fail:
   close(cmd_pipe[0]);
   close(cmd_pipe[1]);
  cmd_fail:
-#ifdef USE_EVENTFD
-  close(exit_efd);
-#else
   close(exit_pipe[0]);
   close(exit_pipe[1]);
-#endif
  exit_fail:
   evbuffer_free(audio_buf);
+ audio_fail:
+  close(pb_timer_fd);
 
   return -1;
 }
@@ -4795,26 +4759,15 @@ void
 player_deinit(void)
 {
   int ret;
-
-#ifdef USE_EVENTFD
-  ret = eventfd_write(exit_efd, 1);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not send exit event: %s\n", strerror(errno));
-
-      return;
-    }
-#else
   int dummy = 42;
 
   ret = write(exit_pipe[1], &dummy, sizeof(dummy));
   if (ret != sizeof(dummy))
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not write to exit fd: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_PLAYER, "Could not write to exit pipe: %s\n", strerror(errno));
 
       return;
     }
-#endif
 
   ret = pthread_join(tid_player, NULL);
   if (ret != 0)
@@ -4829,22 +4782,16 @@ player_deinit(void)
 
   free(history);
 
+  pb_timer_stop();
+  close(pb_timer_fd);
+
   evbuffer_free(audio_buf);
 
   laudio_deinit();
   raop_deinit();
 
-  if (event_initialized(&pb_timer_ev))
-    event_del(&pb_timer_ev);
-
-  event_del(&cmdev);
-
-#ifdef USE_EVENTFD
-  close(exit_efd);
-#else
   close(exit_pipe[0]);
   close(exit_pipe[1]);
-#endif
   close(cmd_pipe[0]);
   close(cmd_pipe[1]);
   cmd_pipe[0] = -1;
