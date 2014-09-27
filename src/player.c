@@ -4749,7 +4749,11 @@ player_init(void)
  exit_fail:
   evbuffer_free(audio_buf);
  audio_fail:
+#if defined(__linux__)
   close(pb_timer_fd);
+#else
+  timer_delete(pb_timer);
+#endif
 
   return -1;
 }
@@ -4783,7 +4787,11 @@ player_deinit(void)
   free(history);
 
   pb_timer_stop();
+#if defined(__linux__)
   close(pb_timer_fd);
+#else
+  timer_delete(pb_timer);
+#endif
 
   evbuffer_free(audio_buf);
 
