@@ -1677,9 +1677,9 @@ player_playback_cb(int fd, short what, void *arg)
   uint32_t packet_send_count = 0;
   struct timespec next_tick;
   struct timespec stream_period  = { 0, MINIMUM_STREAM_PERIOD };
+  int ret;
 #if defined(__linux__)
   uint64_t ticks;
-  int ret;
 
   /* Acknowledge timer */
   read(fd, &ticks, sizeof(ticks));
