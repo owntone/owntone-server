@@ -39,8 +39,10 @@
 
 #ifdef HAVE_LIBEVENT2
 # include <event2/event.h>
+# include <event2/buffer.h>
 #else
 # include <event.h>
+# define evbuffer_get_length(x) EVBUFFER_LENGTH(x)
 #endif
 
 #include <gcrypt.h>
@@ -1601,7 +1603,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	    return -1;
 	}
 
-      if (EVBUFFER_LENGTH(audio_buf) == 0)
+      if (evbuffer_get_length(audio_buf) == 0)
 	{
 	  switch (cur_streaming->type)
 	    {
@@ -2209,7 +2211,7 @@ playback_abort(void)
   cur_playing = NULL;
   cur_streaming = NULL;
 
-  evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
+  evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
   status_update(PLAY_STOPPED);
 
@@ -2343,7 +2345,7 @@ playback_stop(struct player_command *cmd)
   cur_playing = NULL;
   cur_streaming = NULL;
 
-  evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
+  evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
   status_update(PLAY_STOPPED);
 
@@ -2839,7 +2841,7 @@ playback_pause(struct player_command *cmd)
   cur_streaming = ps;
   cur_streaming->play_next = NULL;
 
-  evbuffer_drain(audio_buf, EVBUFFER_LENGTH(audio_buf));
+  evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
   metadata_purge();
 
