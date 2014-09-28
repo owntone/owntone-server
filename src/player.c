@@ -506,9 +506,9 @@ pb_timer_stop(void)
   memset(&next, 0, sizeof(struct itimerspec));
 
 #if defined(__linux__)
-  event_del(pb_timer_ev);
-
   ret = timerfd_settime(pb_timer_fd, TFD_TIMER_ABSTIME, &next, NULL);
+
+  event_del(pb_timer_ev);
 #else
   ret = timer_settime(pb_timer, TIMER_ABSTIME, &next, NULL);
 #endif
