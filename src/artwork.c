@@ -43,6 +43,10 @@
 #endif
 #include "artwork.h"
 
+#ifndef HAVE_LIBEVENT2
+# define evbuffer_get_length(x) (x)->off
+#endif
+
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
@@ -717,8 +721,8 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
 
   if (ret < 0)
     {
-      if (EVBUFFER_LENGTH(evbuf) > 0)
-	evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+      if (evbuffer_get_length(evbuf) > 0)
+	evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
     }
 
   return ret;
@@ -838,8 +842,8 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
 
   if (ret < 0)
     {
-      if (EVBUFFER_LENGTH(evbuf) > 0)
-	evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+      if (evbuffer_get_length(evbuf) > 0)
+	evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
     }
 
   return ret;
