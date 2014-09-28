@@ -42,7 +42,7 @@
 # include <event2/buffer.h>
 #else
 # include <event.h>
-# define evbuffer_get_length(x) EVBUFFER_LENGTH(x)
+# define evbuffer_get_length(x) (x)->off
 #endif
 
 #include <gcrypt.h>
