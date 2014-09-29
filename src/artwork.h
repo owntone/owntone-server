@@ -11,9 +11,6 @@
 #include <event.h>
 
 int
-artwork_get_item_filename(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf);
-
-int
 artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbuf);
 
 int

@@ -736,14 +736,6 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
   int format_ok;
   int ret;
 
-  /* If item is an internet stream don't look for artwork */
-  if (strncmp(filename, "http://", strlen("http://")) == 0)
-    return -1;
-
-  /* If Spotify item don't look for artwork */
-  if (strncmp(filename, "spotify:", strlen("spotify:")) == 0)
-    return -1;
-
   DPRINTF(E_SPAM, L_ART, "Trying embedded artwork in %s\n", filename);
 
   src_ctx = NULL;
@@ -855,27 +847,6 @@ artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuf
   int i;
   int ret;
 
-  /* If item is an internet stream don't look for artwork */
-  if (strncmp(path, "http://", strlen("http://")) == 0)
-    return -1;
-
-  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
-#ifdef HAVE_SPOTIFY_H
-    {
-      if (!(format & ART_CAN_JPEG))
-	return -1;
-
-      ret = spotify_artwork_get(evbuf, path, max_w, max_h);
-
-      if (ret < 0)
-	return -1;
-      else
-        return ART_FMT_JPEG;
-    }
-#else
-    return -1;
-#endif
-
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
     {
@@ -928,14 +899,6 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
   int ret;
   cfg_t *lib;
   int nbasenames;
-
-  /* If item is an internet stream don't look for artwork */
-  if (strncmp(path, "http://", strlen("http://")) == 0)
-    return -1;
-
-  /* If Spotify item don't look for artwork */
-  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
-    return -1;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -1003,14 +966,6 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
   int i;
   int ret;
 
-  /* If item is an internet stream don't look for artwork */
-  if (strncmp(path, "http://", strlen("http://")) == 0)
-    return -1;
-
-  /* If Spotify item don't look for artwork */
-  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
-    return -1;
-
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
     {
@@ -1060,55 +1015,81 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
   return artwork_get(artwork, max_w, max_h, format, evbuf);
 }
 
-
-
-int
-artwork_get_item_filename(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
+static int
+artwork_get_item_path(char *path, char artwork, uint32_t data_kind, int nodir, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   int ret;
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
-  /* Look for embedded artwork */
-  ret = artwork_get_embedded_image(filename, max_w, max_h, format, evbuf);
-  if (ret > 0)
-    return ret;
+  ret = 0;
+  switch (artwork)
+    {
+      case ARTWORK_NONE:
+	break;
+#ifdef HAVE_SPOTIFY_H
+      case ARTWORK_SPOTIFY:
+	if (!(format & ART_CAN_JPEG))
+	  break;
+
+	ret = spotify_artwork_get(evbuf, path, max_w, max_h);
+	(ret < 0) ? (ret = 0) : (ret = ART_FMT_JPEG);
+	break;
 #endif
+#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
+      case ARTWORK_EMBEDDED:
+	ret = artwork_get_embedded_image(path, max_w, max_h, format, evbuf);
 
-  /* Look for basename(filename).{png,jpg} */
-  ret = artwork_get_own_image(filename, max_w, max_h, format, evbuf);
+	/* Fall through if embedded artwork not found */
+	if (ret > 0)
+	  break;
+#endif
+      default:
+	/* Not a normal file */
+	if (data_kind != 0)
+	  break;
+
+	/* Look for basename(filename).{png,jpg} */
+	ret = artwork_get_own_image(path, max_w, max_h, format, evbuf);
+	if (ret > 0)
+	  break;
+
+	if (nodir)
+	  break;
+
+	/* Look for basedir(filename)/{artwork,cover}.{png,jpg} */
+	ret = artwork_get_dir_image(path, 0, max_w, max_h, format, evbuf);
+	if (ret > 0)
+	  break;
+
+	/* Look for parentdir(filename).{png,jpg} */
+	ret = artwork_get_parentdir_image(path, 0, max_w, max_h, format, evbuf);
+	if (ret > 0)
+	  break;
+    }
+
   if (ret > 0)
     return ret;
-
-  /* Look for basedir(filename)/{artwork,cover}.{png,jpg} */
-  ret = artwork_get_dir_image(filename, 0, max_w, max_h, format, evbuf);
-  if (ret > 0)
-    return ret;
-
-  /* Look for parentdir(filename).{png,jpg} */
-  ret = artwork_get_parentdir_image(filename, 0, max_w, max_h, format, evbuf);
-  if (ret > 0)
-    return ret;
-
-  return -1;
+  else
+    return -1;
 }
+
 
 int
 artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
-  char *filename;
+  struct media_file_info *mfi;
   int ret;
 
   DPRINTF(E_DBG, L_ART, "Artwork request for item %d\n", id);
 
-  filename = db_file_path_byid(id);
-  if (!filename)
+  mfi = db_file_fetch_byid(id);
+  if (!mfi)
     return -1;
 
-  ret = artwork_get_item_filename(filename, max_w, max_h, format, evbuf);
+  ret = artwork_get_item_path(mfi->path, mfi->artwork, mfi->data_kind, 0, max_w, max_h, format, evbuf);
   if (ret < 0)
-    DPRINTF(E_DBG, L_ART, "No artwork found for item id %d\n", id);
+    DPRINTF(E_DBG, L_ART, "No artwork found for item id %d (%s)\n", id, mfi->fname);
 
-  free(filename);
+  free_mfi(mfi, 0);
 
   return ret;
 }
@@ -1121,9 +1102,8 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   char *dir;
   int got_art;
   int ret;
-#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
-  int artwork_t;
-#endif
+  int artwork;
+  uint32_t data_kind;
 
   DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
 
@@ -1145,6 +1125,14 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   got_art = 0;
   while (!got_art && ((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
     {
+      /* If item is an internet stream don't look for artwork */
+      if (strncmp(dir, "http://", strlen("http://")) == 0)
+	continue;
+
+      /* If Spotify item don't look for artwork */
+      if (strncmp(dir, "spotify:", strlen("spotify:")) == 0)
+	continue;
+
       got_art = (artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf) > 0)
                 || (artwork_get_parentdir_image(dir, 1, max_w, max_h, format, evbuf) > 0);
     }
@@ -1175,14 +1163,10 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
   got_art = 0;
   while (!got_art && ((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
-#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
-      if ((safe_atoi32(dbmfi.artwork, &artwork_t) == 0) && (artwork_t == ARTWORK_EMBEDDED))
-	got_art = (artwork_get_embedded_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
-      else
-	got_art = (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
-#else
-      got_art = (artwork_get_own_image(dbmfi.path, max_w, max_h, format, evbuf) > 0);
-#endif
+      if ((safe_atoi32(dbmfi.artwork, &artwork) != 0) && (safe_atou32(dbmfi.data_kind, &data_kind) != 0))
+	continue;
+
+      got_art = (artwork_get_item_path(dbmfi.path, artwork, data_kind, 1, max_w, max_h, format, evbuf) > 0);
     }
 
   db_query_end(&qp);
