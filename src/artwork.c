@@ -1016,7 +1016,7 @@ artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int for
 }
 
 static int
-artwork_get_item_path(char *path, char artwork, uint32_t data_kind, int nodir, int max_w, int max_h, int format, struct evbuffer *evbuf)
+artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   int ret;
 

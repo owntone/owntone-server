@@ -10,9 +10,11 @@
 
 #include <event.h>
 
+/* Get artwork for individual track */
 int
 artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbuf);
 
+/* Get artwork for album or artist */
 int
 artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evbuf);
 
