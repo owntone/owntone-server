@@ -3,7 +3,11 @@
 #define __PIPE_H__
 
 #include "db.h"
-#include <event.h>
+#ifdef HAVE_LIBEVENT2
+# include <event2/buffer.h>
+#else
+# include <event.h>
+#endif
 
 int
 pipe_setup(struct media_file_info *mfi);

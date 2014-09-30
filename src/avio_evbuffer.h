@@ -2,7 +2,11 @@
 #ifndef __AVIO_EVBUFFER_H__
 #define __AVIO_EVBUFFER_H__
 
-#include <event.h>
+#ifdef HAVE_LIBEVENT2
+# include <event2/buffer.h>
+#else
+# include <event.h>
+#endif
 
 AVIOContext *
 avio_evbuffer_open(struct evbuffer *evbuf);

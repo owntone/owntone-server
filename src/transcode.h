@@ -2,7 +2,11 @@
 #ifndef __TRANSCODE_H__
 #define __TRANSCODE_H__
 
-#include <event.h>
+#ifdef HAVE_LIBEVENT2
+# include <event2/buffer.h>
+#else
+# include <event.h>
+#endif
 
 struct transcode_ctx;
 

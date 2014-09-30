@@ -2,10 +2,11 @@
 #ifndef __DMAP_HELPERS_H__
 #define __DMAP_HELPERS_H__
 
-#include <event.h>
 #ifdef HAVE_LIBEVENT2
+# include <event2/buffer.h>
 # include <event2/http.h>
 #else
+# include <event.h>
 # include "evhttp/evhttp.h"
 #endif
 

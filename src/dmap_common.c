@@ -23,6 +23,10 @@
 #include <string.h>
 #include <stdint.h>
 
+#ifndef HAVE_LIBEVENT2
+# define evbuffer_get_length(x) (x)->off
+#endif
+
 #include "db.h"
 #include "misc.h"
 #include "logger.h"
@@ -529,7 +533,7 @@ dmap_encode_file_metadata(struct evbuffer *songlist, struct evbuffer *song, stru
   if (want_asdk)
     val += 9;
 
-  dmap_add_container(songlist, "mlit", EVBUFFER_LENGTH(song) + val);
+  dmap_add_container(songlist, "mlit", evbuffer_get_length(song) + val);
 
   /* Prepend mikd & asdk if needed */
   if (want_mikd)
