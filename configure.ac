@@ -142,11 +142,21 @@ AC_RUN_IFELSE(
 AC_LANG_POP([C])
 LIBS="$save_LIBS"
 
-PKG_CHECK_EXISTS([ libavcodec >= 54.35 ], [ 
-  PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavresample libavutil ]) 
-], [ 
-  PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavutil ])
-])
+PKG_CHECK_EXISTS([ libavcodec >= 54.35 ],
+	[PKG_CHECK_EXISTS([ libswresample ],
+		libxxresample=libswresample;
+	,
+		libxxresample=libavresample;
+	)]
+)
+
+if test x$libxxresample = xlibswresample; then
+	AC_DEFINE(HAVE_LIBSWRESAMPLE, 1, [Define to 1 if you have ffmpeg's libswresample])
+elif test x$libxxresample = xlibavresample; then
+	AC_DEFINE(HAVE_LIBAVRESAMPLE, 1, [Define to 1 if you have libav's libavresample])
+fi
+
+PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavutil $libxxresample ])
 
 save_LIBS="$LIBS"
 dnl Check for av_lock_manager (ffmpeg >= 0.5.1)

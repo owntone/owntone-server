@@ -41,7 +41,9 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libavutil/mathematics.h>
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+#if defined(HAVE_LIBSWRESAMPLE)
+# include <libswresample/swresample.h>
+#elif defined(HAVE_LIBAVRESAMPLE)
 # include <libavutil/opt.h>
 # include <libavresample/avresample.h>
 #endif
@@ -73,7 +75,9 @@ struct transcode_ctx {
   int16_t *abuffer;
 
   /* Resampling */
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+#if defined(HAVE_LIBSWRESAMPLE)
+  SwrContext *resample_ctx;
+#elif defined(HAVE_LIBAVRESAMPLE)
   AVAudioResampleContext *resample_ctx;
 #else
   ReSampleContext *resample_ctx;
@@ -162,11 +166,13 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
   AVFrame *frame = NULL;
   int got_frame;
-  int out_linesize;
   int out_samples;
 #elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
   AVFrame *frame = NULL;
   int got_frame;
+#endif
+#if defined(HAVE_LIBAVRESAMPLE)
+  int out_linesize;
 #endif
 
   processed = 0;
@@ -280,13 +286,27 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
 	    continue;
 #endif
 
+	  // TODO Use the AVFrame resampling API's - probably much safer and easier than the following mess
 	  if (ctx->need_resample)
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
 	    {
+	      out_samples = 0;
+# if defined(HAVE_LIBSWRESAMPLE)
+	      out_samples = av_rescale_rnd(
+		swr_get_delay(ctx->resample_ctx, ctx->acodec->sample_rate) + frame->nb_samples,
+		44100,
+		ctx->acodec->sample_rate,
+		AV_ROUND_UP
+	      );
+
+	      out_samples = swr_convert(ctx->resample_ctx, (uint8_t **)&ctx->re_abuffer, out_samples,
+	                                       (const uint8_t **)frame->data, frame->nb_samples);
+# elif defined(HAVE_LIBAVRESAMPLE)
 	      av_samples_get_buffer_size(&out_linesize, 2, frame->nb_samples, AV_SAMPLE_FMT_S16, 0);
 
 	      out_samples = avresample_convert(ctx->resample_ctx, (uint8_t **)&ctx->re_abuffer, out_linesize, XCODE_BUFFER_SIZE,
 	                                       (uint8_t **)frame->data, frame->linesize[0], frame->nb_samples);
+# endif
 	      if (out_samples < 0)
 		{
 		  DPRINTF(E_LOG, L_XCODE, "Resample returned no samples!\n");
@@ -573,7 +593,7 @@ transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t 
 
   if (ctx->need_resample)
     {
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+#if defined(HAVE_LIBSWRESAMPLE) || defined(HAVE_LIBAVRESAMPLE)
       if (!ctx->acodec->channel_layout)
 	{
 	  DPRINTF(E_DBG, L_XCODE, "Resample requires channel_layout, but none from ffmpeg. Setting to default.\n");
@@ -584,8 +604,19 @@ transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t 
       DPRINTF(E_DBG, L_XCODE, "Will resample, decoded stream is: %s, %d channels (layout %" PRIu64 "), %d Hz\n",
               av_get_sample_fmt_name(ctx->acodec->sample_fmt),  ctx->acodec->channels,
               ctx->acodec->channel_layout, ctx->acodec->sample_rate);
+#endif
+#if defined(HAVE_LIBSWRESAMPLE)
+      ctx->resample_ctx = swr_alloc_set_opts(
+	NULL,                 // we're allocating a new context
+	AV_CH_LAYOUT_STEREO,  // out_ch_layout
+	AV_SAMPLE_FMT_S16,    // out_sample_fmt
+	44100,                // out_sample_rate
+	ctx->acodec->channel_layout, // in_ch_layout
+	ctx->acodec->sample_fmt,     // in_sample_fmt
+	ctx->acodec->sample_rate,    // in_sample_rate
+	0,                    // log_offset
+	NULL);
 
-      ctx->resample_ctx = avresample_alloc_context();
       if (!ctx->resample_ctx)
 	{
 	  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample context\n");
@@ -593,6 +624,31 @@ transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t 
 	  goto setup_fail_codec;
 	}
 
+      ret = swr_init(ctx->resample_ctx);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Could not open resample context\n");
+
+	  swr_free(&ctx->resample_ctx);
+	  goto setup_fail_codec;
+	}
+
+      ctx->re_abuffer = av_realloc(ctx->re_abuffer, XCODE_BUFFER_SIZE * 2);
+      if (!ctx->re_abuffer)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Could not allocate resample buffer\n");
+
+	  swr_free(&ctx->resample_ctx);
+	  goto setup_fail_codec;
+	}
+#elif defined(HAVE_LIBAVRESAMPLE)
+      ctx->resample_ctx = avresample_alloc_context();
+      if (!ctx->resample_ctx)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample context\n");
+
+	  goto setup_fail_codec;
+	}
       av_opt_set_int(ctx->resample_ctx, "in_sample_fmt",      ctx->acodec->sample_fmt, 0);
       av_opt_set_int(ctx->resample_ctx, "out_sample_fmt",     AV_SAMPLE_FMT_S16, 0);
       av_opt_set_int(ctx->resample_ctx, "in_channel_layout",  ctx->acodec->channel_layout, 0);
@@ -617,7 +673,6 @@ transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t 
 	  avresample_free(&ctx->resample_ctx);
 	  goto setup_fail_codec;
 	}
-
 #else
       DPRINTF(E_DBG, L_XCODE, "Setting up resampling (%d@%d)\n", ctx->acodec->channels, ctx->acodec->sample_rate);
 
@@ -699,7 +754,9 @@ transcode_cleanup(struct transcode_ctx *ctx)
 
   if (ctx->need_resample)
     {
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+#if defined(HAVE_LIBSWRESAMPLE)
+      swr_free(&ctx->resample_ctx);
+#elif defined(HAVE_LIBAVRESAMPLE)
       avresample_free(&ctx->resample_ctx);
 #else
       audio_resample_close(ctx->resample_ctx);
