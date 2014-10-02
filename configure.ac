@@ -159,8 +159,8 @@ fi
 PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavutil $libxxresample ])
 
 dnl For ffmpeg compability
-PKG_CHECK_MODULES([LIBAVCODEC], [libavcodec])
-avc_name=`echo $LIBAVCODEC_LIBS | sed 's/-l//'`
+_PKG_CONFIG([lname], [libs-only-l], [libavcodec])
+avc_name=`echo $pkg_cv_lname | sed 's/-l//'`
 
 save_LIBS="$LIBS"
 dnl Check for av_lock_manager (ffmpeg >= 0.5.1)
