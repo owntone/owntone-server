@@ -108,14 +108,15 @@ pipe_audio_get(struct evbuffer *evbuf, int wanted)
 
   got = read(g_fd, g_buf, wanted);
 
-  if (got < 0)
+  if ((got < 0) && (errno != EAGAIN))
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not read from pipe: %s\n", strerror(errno));
       return -1;
     }
 
-  // If the other end of the pipe is not writing we just return silence
-  if (got == 0)
+  // If the other end of the pipe is not writing or the read was blocked,
+  // we just return silence
+  if (got <= 0)
     {
       memset(g_buf, 0, wanted);
       got = wanted;
