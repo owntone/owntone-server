@@ -26,6 +26,7 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 Contents of this README
 -----------------------
 
+- Getting started
 - Supported clients
 - Using Remote
 - AirPlay devices/speakers
@@ -38,6 +39,20 @@ Contents of this README
 - Command line and web interface
 - Spotify
 - LastFM
+
+
+Getting started
+---------------
+
+After installation (see INSTALL) do the following:
+
+ 1. Edit the configuration file (usually /etc/forked-daapd.conf) to suit your
+    needs
+ 2. Start or restart the server (usually /etc/init.d/forked-daapd restart)
+ 3. Wait for the library scan to complete. You can follow the progress with
+    tail -f /var/log/forked-daapd.log
+ 4. If you are going to use a remote app, pair it following the procedure
+    described below
 
 
 Supported clients
