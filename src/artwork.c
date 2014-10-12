@@ -839,10 +839,9 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, struct evbuffer
 #endif
 
 static int
-artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_get_dir_image(char *path, int max_w, int max_h, struct evbuffer *evbuf)
 {
   char artwork[PATH_MAX];
-  char *ptr;
   int i;
   int j;
   int len;
@@ -856,13 +855,6 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, struct evbuff
       DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX\n");
 
       return -1;
-    }
-
-  if (!isdir)
-    {
-      ptr = strrchr(artwork, '/');
-      if (ptr)
-	*ptr = '\0';
     }
 
   len = strlen(artwork);
@@ -907,7 +899,7 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, struct evbuff
 }
 
 static int
-artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_get_item_path(char *path, int artwork, int max_w, int max_h, struct evbuffer *evbuf)
 {
   int ret;
 
@@ -926,22 +918,8 @@ artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, in
       case ARTWORK_EMBEDDED:
 	ret = artwork_get_embedded_image(path, max_w, max_h, evbuf);
 
-	/* Fall through if embedded artwork not found */
-	if (ret > 0)
-	  break;
+	break;
 #endif
-      default:
-	/* Not a normal file */
-	if (data_kind != 0)
-	  break;
-
-	if (nodir)
-	  break;
-
-	/* Look for basedir(filename)/{artwork,cover}.{png,jpg} */
-	ret = artwork_get_dir_image(path, 0, max_w, max_h, evbuf);
-	if (ret > 0)
-	  break;
     }
 
   if (ret > 0)
@@ -989,7 +967,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       if (strncmp(dir, "spotify:", strlen("spotify:")) == 0)
 	continue;
 
-      got_art = (artwork_get_dir_image(dir, 1, max_w, max_h, evbuf) > 0);
+      got_art = (artwork_get_dir_image(dir, max_w, max_h, evbuf) > 0);
     }
 
   db_query_end(&qp);
@@ -1021,7 +999,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       if ((safe_atoi32(dbmfi.artwork, &artwork) != 0) && (safe_atou32(dbmfi.data_kind, &data_kind) != 0))
 	continue;
 
-      got_art = (artwork_get_item_path(dbmfi.path, artwork, data_kind, 1, max_w, max_h, evbuf) > 0);
+      got_art = (artwork_get_item_path(dbmfi.path, artwork, max_w, max_h, evbuf) > 0);
     }
 
   db_query_end(&qp);
