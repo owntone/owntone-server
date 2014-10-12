@@ -843,56 +843,6 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
 #endif
 
 static int
-artwork_get_own_image(char *path, int max_w, int max_h, int format, struct evbuffer *evbuf)
-{
-  char artwork[PATH_MAX];
-  char *ptr;
-  int len;
-  int i;
-  int ret;
-
-  ret = snprintf(artwork, sizeof(artwork), "%s", path);
-  if ((ret < 0) || (ret >= sizeof(artwork)))
-    {
-      DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX\n");
-
-      return -1;
-    }
-
-  ptr = strrchr(artwork, '.');
-  if (ptr)
-    *ptr = '\0';
-
-  len = strlen(artwork);
-
-  for (i = 0; i < (sizeof(cover_extension) / sizeof(cover_extension[0])); i++)
-    {
-      ret = snprintf(artwork + len, sizeof(artwork) - len, ".%s", cover_extension[i]);
-      if ((ret < 0) || (ret >= sizeof(artwork) - len))
-	{
-	  DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX (ext %s)\n", cover_extension[i]);
-
-	  continue;
-	}
-
-      DPRINTF(E_SPAM, L_ART, "Trying own artwork file %s\n", artwork);
-
-      ret = access(artwork, F_OK);
-      if (ret < 0)
-	continue;
-
-      break;
-    }
-
-  if (i == (sizeof(cover_extension) / sizeof(cover_extension[0])))
-    return -1;
-
-  DPRINTF(E_DBG, L_ART, "Found own artwork file %s\n", artwork);
-
-  return artwork_get(artwork, max_w, max_h, format, evbuf);
-}
-
-static int
 artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   char artwork[PATH_MAX];
@@ -961,65 +911,6 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
 }
 
 static int
-artwork_get_parentdir_image(char *path, int isdir, int max_w, int max_h, int format, struct evbuffer *evbuf)
-{
-  char artwork[PATH_MAX];
-  char parentdir[PATH_MAX];
-  char *ptr;
-  int len;
-  int i;
-  int ret;
-
-  ret = snprintf(artwork, sizeof(artwork), "%s", path);
-  if ((ret < 0) || (ret >= sizeof(artwork)))
-    {
-      DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX\n");
-
-      return -1;
-    }
-
-  if (!isdir)
-    {
-      ptr = strrchr(artwork, '/');
-      if (ptr)
-	*ptr = '\0';
-    }
-
-  ptr = strrchr(artwork, '/');
-  if ((!ptr) || (strlen(ptr) <= 1))
-    return -1;
-  strcpy(parentdir, ptr + 1);
-
-  len = strlen(artwork);
-
-  for (i = 0; i < (sizeof(cover_extension) / sizeof(cover_extension[0])); i++)
-    {
-      ret = snprintf(artwork + len, sizeof(artwork) - len, "/%s.%s", parentdir, cover_extension[i]);
-      if ((ret < 0) || (ret >= sizeof(artwork) - len))
-	{
-	  DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX (%s.%s)\n", parentdir, cover_extension[i]);
-
-	  continue;
-	}
-
-      DPRINTF(E_SPAM, L_ART, "Trying parent directory artwork file %s\n", artwork);
-
-      ret = access(artwork, F_OK);
-      if (ret < 0)
-	continue;
-
-      break;
-    }
-
-  if (i == (sizeof(cover_extension) / sizeof(cover_extension[0])))
-    return -1;
-
-  DPRINTF(E_DBG, L_ART, "Found parent directory artwork file %s\n", artwork);
-
-  return artwork_get(artwork, max_w, max_h, format, evbuf);
-}
-
-static int
 artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, int max_w, int max_h, int format, struct evbuffer *evbuf)
 {
   int ret;
@@ -1051,21 +942,11 @@ artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, in
 	if (data_kind != 0)
 	  break;
 
-	/* Look for basename(filename).{png,jpg} */
-	ret = artwork_get_own_image(path, max_w, max_h, format, evbuf);
-	if (ret > 0)
-	  break;
-
 	if (nodir)
 	  break;
 
 	/* Look for basedir(filename)/{artwork,cover}.{png,jpg} */
 	ret = artwork_get_dir_image(path, 0, max_w, max_h, format, evbuf);
-	if (ret > 0)
-	  break;
-
-	/* Look for parentdir(filename).{png,jpg} */
-	ret = artwork_get_parentdir_image(path, 0, max_w, max_h, format, evbuf);
 	if (ret > 0)
 	  break;
     }
@@ -1137,8 +1018,7 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
       if (strncmp(dir, "spotify:", strlen("spotify:")) == 0)
 	continue;
 
-      got_art = (artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf) > 0)
-                || (artwork_get_parentdir_image(dir, 1, max_w, max_h, format, evbuf) > 0);
+      got_art = (artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf) > 0);
     }
 
   db_query_end(&qp);
