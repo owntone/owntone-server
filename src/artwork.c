@@ -918,9 +918,6 @@ artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, in
 	break;
 #ifdef HAVE_SPOTIFY_H
       case ARTWORK_SPOTIFY:
-	if (!(format & ART_CAN_JPEG))
-	  break;
-
 	ret = spotify_artwork_get(evbuf, path, max_w, max_h);
 	(ret < 0) ? (ret = 0) : (ret = ART_FMT_JPEG);
 	break;
