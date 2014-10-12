@@ -152,7 +152,7 @@ rescale_needed(AVCodecContext *src, int max_w, int max_h, int *target_w, int *ta
 }
 
 static int
-artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int format, struct evbuffer *evbuf)
+artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct evbuffer *evbuf)
 {
   uint8_t *buf;
   uint8_t *outbuf;
@@ -220,35 +220,31 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
   dst_fmt->video_codec = AV_CODEC_ID_NONE;
 
   /* Try to keep same codec if possible */
-  if ((src->codec_id == AV_CODEC_ID_PNG) && (format & ART_CAN_PNG))
+  if (src->codec_id == AV_CODEC_ID_PNG)
     dst_fmt->video_codec = AV_CODEC_ID_PNG;
-  else if ((src->codec_id == AV_CODEC_ID_MJPEG) && (format & ART_CAN_JPEG))
+  else if (src->codec_id == AV_CODEC_ID_MJPEG)
     dst_fmt->video_codec = AV_CODEC_ID_MJPEG;
 
   /* If not possible, select new codec */
   if (dst_fmt->video_codec == AV_CODEC_ID_NONE)
     {
-      if (format & ART_CAN_PNG)
-	dst_fmt->video_codec = AV_CODEC_ID_PNG;
-      else if (format & ART_CAN_JPEG)
-	dst_fmt->video_codec = AV_CODEC_ID_MJPEG;
+      dst_fmt->video_codec = AV_CODEC_ID_PNG;
+      //dst_fmt->video_codec = AV_CODEC_ID_MJPEG;
     }
 #else
   dst_fmt->video_codec = CODEC_ID_NONE;
 
   /* Try to keep same codec if possible */
-  if ((src->codec_id == CODEC_ID_PNG) && (format & ART_CAN_PNG))
+  if (src->codec_id == CODEC_ID_PNG)
     dst_fmt->video_codec = CODEC_ID_PNG;
-  else if ((src->codec_id == CODEC_ID_MJPEG) && (format & ART_CAN_JPEG))
+  else if (src->codec_id == CODEC_ID_MJPEG)
     dst_fmt->video_codec = CODEC_ID_MJPEG;
 
   /* If not possible, select new codec */
   if (dst_fmt->video_codec == CODEC_ID_NONE)
     {
-      if (format & ART_CAN_PNG)
-	dst_fmt->video_codec = CODEC_ID_PNG;
-      else if (format & ART_CAN_JPEG)
-	dst_fmt->video_codec = CODEC_ID_MJPEG;
+      dst_fmt->video_codec = CODEC_ID_PNG;
+      //dst_fmt->video_codec = CODEC_ID_MJPEG;
     }
 #endif
 
@@ -624,7 +620,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, int forma
 }
 
 static int
-artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
+artwork_get(char *filename, int max_w, int max_h, struct evbuffer *evbuf)
 {
   AVFormatContext *src_ctx;
   int s;
@@ -675,7 +671,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
       if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_PNG)
 #endif
 	{
-	  format_ok = (format & ART_CAN_PNG) ? ART_FMT_PNG : 0;
+	  format_ok = ART_FMT_PNG;
 	  break;
 	}
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
@@ -684,7 +680,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
       else if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_MJPEG)
 #endif
 	{
-	  format_ok = (format & ART_CAN_JPEG) ? ART_FMT_JPEG : 0;
+	  format_ok = ART_FMT_JPEG;
 	  break;
 	}
     }
@@ -711,7 +707,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
 	ret = format_ok;
     }
   else
-    ret = artwork_rescale(src_ctx, s, target_w, target_h, format, evbuf);
+    ret = artwork_rescale(src_ctx, s, target_w, target_h, evbuf);
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
   avformat_close_input(&src_ctx);
@@ -730,7 +726,7 @@ artwork_get(char *filename, int max_w, int max_h, int format, struct evbuffer *e
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
 static int
-artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, struct evbuffer *evbuf)
+artwork_get_embedded_image(char *filename, int max_w, int max_h, struct evbuffer *evbuf)
 {
   AVFormatContext *src_ctx;
   AVStream *src_st;
@@ -772,7 +768,7 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
 	  if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_PNG)
 #endif
 	    {
-	      format_ok = (format & ART_CAN_PNG) ? ART_FMT_PNG : 0;
+	      format_ok = ART_FMT_PNG;
 	      break;
 	    }
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
@@ -781,7 +777,7 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
 	  else if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_MJPEG)
 #endif
 	    {
-	      format_ok = (format & ART_CAN_JPEG) ? ART_FMT_JPEG : 0;
+	      format_ok = ART_FMT_JPEG;
 	      break;
 	    }
 	}
@@ -827,7 +823,7 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
     {
       DPRINTF(E_DBG, L_ART, "Artwork too large, rescaling image\n");
 
-      ret = artwork_rescale(src_ctx, s, target_w, target_h, format, evbuf);
+      ret = artwork_rescale(src_ctx, s, target_w, target_h, evbuf);
     }
 
   avformat_close_input(&src_ctx);
@@ -843,7 +839,7 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, int format, str
 #endif
 
 static int
-artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, struct evbuffer *evbuf)
+artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, struct evbuffer *evbuf)
 {
   char artwork[PATH_MAX];
   char *ptr;
@@ -907,11 +903,11 @@ artwork_get_dir_image(char *path, int isdir, int max_w, int max_h, int format, s
 
   DPRINTF(E_DBG, L_ART, "Found directory artwork file %s\n", artwork);
 
-  return artwork_get(artwork, max_w, max_h, format, evbuf);
+  return artwork_get(artwork, max_w, max_h, evbuf);
 }
 
 static int
-artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, int max_w, int max_h, int format, struct evbuffer *evbuf)
+artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, int max_w, int max_h, struct evbuffer *evbuf)
 {
   int ret;
 
@@ -931,7 +927,7 @@ artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, in
 #endif
 #if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
       case ARTWORK_EMBEDDED:
-	ret = artwork_get_embedded_image(path, max_w, max_h, format, evbuf);
+	ret = artwork_get_embedded_image(path, max_w, max_h, evbuf);
 
 	/* Fall through if embedded artwork not found */
 	if (ret > 0)
@@ -946,7 +942,7 @@ artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, in
 	  break;
 
 	/* Look for basedir(filename)/{artwork,cover}.{png,jpg} */
-	ret = artwork_get_dir_image(path, 0, max_w, max_h, format, evbuf);
+	ret = artwork_get_dir_image(path, 0, max_w, max_h, evbuf);
 	if (ret > 0)
 	  break;
     }
@@ -959,7 +955,7 @@ artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, in
 
 
 int
-artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbuf)
+artwork_get_item(int id, int max_w, int max_h, struct evbuffer *evbuf)
 {
   struct media_file_info *mfi;
   int ret;
@@ -970,7 +966,7 @@ artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbu
   if (!mfi)
     return -1;
 
-  ret = artwork_get_item_path(mfi->path, mfi->artwork, mfi->data_kind, 0, max_w, max_h, format, evbuf);
+  ret = artwork_get_item_path(mfi->path, mfi->artwork, mfi->data_kind, 0, max_w, max_h, evbuf);
   if (ret < 0)
     DPRINTF(E_DBG, L_ART, "No artwork found for item id %d (%s)\n", id, mfi->fname);
 
@@ -980,7 +976,7 @@ artwork_get_item(int id, int max_w, int max_h, int format, struct evbuffer *evbu
 }
 
 int
-artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evbuf)
+artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
@@ -1018,7 +1014,7 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
       if (strncmp(dir, "spotify:", strlen("spotify:")) == 0)
 	continue;
 
-      got_art = (artwork_get_dir_image(dir, 1, max_w, max_h, format, evbuf) > 0);
+      got_art = (artwork_get_dir_image(dir, 1, max_w, max_h, evbuf) > 0);
     }
 
   db_query_end(&qp);
@@ -1050,7 +1046,7 @@ artwork_get_group(int id, int max_w, int max_h, int format, struct evbuffer *evb
       if ((safe_atoi32(dbmfi.artwork, &artwork) != 0) && (safe_atou32(dbmfi.data_kind, &data_kind) != 0))
 	continue;
 
-      got_art = (artwork_get_item_path(dbmfi.path, artwork, data_kind, 1, max_w, max_h, format, evbuf) > 0);
+      got_art = (artwork_get_item_path(dbmfi.path, artwork, data_kind, 1, max_w, max_h, evbuf) > 0);
     }
 
   db_query_end(&qp);
