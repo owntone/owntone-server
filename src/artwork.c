@@ -953,30 +953,8 @@ artwork_get_item_path(char *path, int artwork, uint32_t data_kind, int nodir, in
     return -1;
 }
 
-
-int
-artwork_get_item(int id, int max_w, int max_h, struct evbuffer *evbuf)
-{
-  struct media_file_info *mfi;
-  int ret;
-
-  DPRINTF(E_DBG, L_ART, "Artwork request for item %d\n", id);
-
-  mfi = db_file_fetch_byid(id);
-  if (!mfi)
-    return -1;
-
-  ret = artwork_get_item_path(mfi->path, mfi->artwork, mfi->data_kind, 0, max_w, max_h, evbuf);
-  if (ret < 0)
-    DPRINTF(E_DBG, L_ART, "No artwork found for item id %d (%s)\n", id, mfi->fname);
-
-  free_mfi(mfi, 0);
-
-  return ret;
-}
-
-int
-artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
+static int
+artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struct evbuffer *evbuf)
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
@@ -986,13 +964,13 @@ artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
   int artwork;
   uint32_t data_kind;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
+  DPRINTF(E_DBG, L_ART, "Artwork request for group %" PRId64 "\n", persistentid);
 
   /* Try directory artwork first */
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_GROUP_DIRS;
-  qp.id = id;
+  qp.persistentid = persistentid;
 
   ret = db_query_start(&qp);
   if (ret < 0)
@@ -1030,7 +1008,7 @@ artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_GROUP_ITEMS;
-  qp.id = id;
+  qp.persistentid = persistentid;
 
   ret = db_query_start(&qp);
   if (ret < 0)
@@ -1056,7 +1034,48 @@ artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
   else if (got_art > 0)
     return got_art;
 
-  DPRINTF(E_DBG, L_ART, "No artwork found for group %d\n", id);
+  DPRINTF(E_DBG, L_ART, "No artwork found for group %" PRId64 "\n", persistentid);
 
   return -1;
+}
+
+int
+artwork_get_item(int id, int max_w, int max_h, struct evbuffer *evbuf)
+{
+  struct media_file_info *mfi;
+  int ret;
+
+  DPRINTF(E_DBG, L_ART, "Artwork request for item %d\n", id);
+
+  mfi = db_file_fetch_byid(id);
+  if (!mfi)
+    return -1;
+
+  ret = artwork_get_group_persistentid(mfi->songalbumid, max_w, max_h, evbuf);
+  if (ret < 0)
+    DPRINTF(E_DBG, L_ART, "No artwork found for item id %d (%s)\n", id, mfi->fname);
+
+  free_mfi(mfi, 0);
+
+  return ret;
+}
+
+int
+artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
+{
+  int64_t persistentid;
+  int ret;
+
+  DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
+
+  ret = db_group_persistentid_byid(id, &persistentid);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_ART, "Error fetching persistent id for group id %d\n", id);
+    return -1;
+
+  ret = artwork_get_group_persistentid(persistentid, max_w, max_h, evbuf);
+  if (ret < 0)
+    DPRINTF(E_DBG, L_ART, "No artwork found for group id %d\n", id);
+
+  return ret;
 }

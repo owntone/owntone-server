@@ -54,6 +54,7 @@ struct query_params {
   enum index_type idx_type;
   enum sort_type sort;
   int id;
+  int64_t persistentid;
   int offset;
   int limit;
 
@@ -461,8 +462,8 @@ db_pl_enable_bycookie(uint32_t cookie, char *path);
 int
 db_groups_clear(void);
 
-enum group_type
-db_group_type_byid(int id);
+int
+db_group_persistentid_byid(int id, int64_t *persistentid);
 
 /* Remotes */
 int
