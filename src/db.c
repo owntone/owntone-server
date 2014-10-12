@@ -3169,6 +3169,7 @@ db_group_type_bypersistentid(int64_t persistentid)
 
 #undef Q_TMPL
 }
+
 int
 db_group_persistentid_byid(int id, int64_t *persistentid)
 {
