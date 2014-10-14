@@ -1,6 +1,19 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 22.0:
+	- queue handling improvements
+	- added DAAP cache, good for low-power devices like the RPi
+	- support for LastFM scrobbling
+	- support for .pls playlists
+	- added compability with ffmpeg libswresample
+	- added options to modify the operation of the SQLite database
+	- stop init-rescan/full-rescan from running twice
+	- fix misc local audio problems
+	- fix some FreeBSD sound timing problems
+	- fix segfault on invalid utf8 while sorting
+	- fix misc bugs
+
 version 21.0:
 	- filescanner performance enhancements (db transactions)
 	- support for queue editing
