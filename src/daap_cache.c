@@ -85,8 +85,8 @@ static int g_initialized;
 static sqlite3 *g_db_hdl;
 static char *g_db_path;
 
-// After being triggered wait 5 seconds before rebuilding daapcache
-static struct timeval g_wait = { 5, 0 };
+// After being triggered wait 60 seconds before rebuilding daapcache
+static struct timeval g_wait = { 60, 0 };
 
 // The user may configure a threshold (in msec), and queries slower than
 // that will have their reply cached
