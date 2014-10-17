@@ -55,6 +55,7 @@ static cfg_opt_t sec_general[] =
     CFG_BOOL("ipv6", cfg_false, CFGF_NONE),
     CFG_STR("daapcache_path", STATEDIR "/cache/" PACKAGE "/daapcache.db", CFGF_NONE),
     CFG_INT("daapcache_threshold", 1000, CFGF_NONE),
+    CFG_STR("artworkcache_path", STATEDIR "/cache/" PACKAGE "/artworkcache.db", CFGF_NONE),
     CFG_END()
   };
 

@@ -59,6 +59,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "logger.h"
 #include "misc.h"
 #include "daap_cache.h"
+#include "artwork_cache.h"
 #include "filescanner.h"
 #include "httpd.h"
 #include "mdns.h"
@@ -675,6 +676,27 @@ main(int argc, char **argv)
       goto db_fail;
     }
 
+  /* Initialize the artwork cache database before starting */
+  DPRINTF(E_INFO, L_MAIN, "Initializing artwork cache database\n");
+  ret = artworkcache_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Artwork cache database init failed\n");
+
+      ret = EXIT_FAILURE;
+      goto artworkcache_fail;
+    }
+
+  /* Open an artwork cache DB connection for the main thread */
+  ret = artworkcache_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Could not perform perthread artwork cache DB init for main\n");
+
+      ret = EXIT_FAILURE;
+      goto artworkcache_fail;
+    }
+
   /* Spawn DAAP cache thread */
   ret = daapcache_init();
   if (ret != 0)
@@ -828,6 +850,10 @@ main(int argc, char **argv)
   daapcache_deinit();
 
  cache_fail:
+  DPRINTF(E_LOG, L_MAIN, "Artwork cache database deinit\n");
+  artworkcache_perthread_deinit();
+
+ artworkcache_fail:
   DPRINTF(E_LOG, L_MAIN, "Database deinit\n");
   db_perthread_deinit();
   db_deinit();

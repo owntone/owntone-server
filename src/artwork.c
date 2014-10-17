@@ -37,6 +37,7 @@
 #include "misc.h"
 #include "logger.h"
 #include "conffile.h"
+#include "artwork_cache.h"
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 53
 # include "avio_evbuffer.h"
@@ -928,6 +929,72 @@ artwork_get_item_path(char *path, int artwork, int max_w, int max_h, struct evbu
     return -1;
 }
 
+static int artwork_cache_get(int64_t persistentid, int max_w, int max_h, struct evbuffer *evbuf)
+{
+  int cached;
+  char *data;
+  int datalen;
+  int format;
+  int ret;
+
+  format = 0;
+  cached = 0;
+
+  ret = artworkcache_get(persistentid, max_w, max_h, &cached, &format, &data, &datalen);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Error fetching artwork cache entry for persistent id %" PRId64 "\n", persistentid);
+      return ret;
+    }
+
+  if (!cached)
+    {
+      DPRINTF(E_DBG, L_ART, "Artwork entry not found in artwork cache for persistent id %" PRId64 "\n", persistentid);
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_ART, "Artwork entry found in artwork cache for persistent id %" PRId64 "\n", persistentid);
+
+  if (format == 0)
+    {
+      DPRINTF(E_DBG, L_ART, "No artwork avaiable for persistent id %" PRId64 "\n", persistentid);
+    }
+  else
+    {
+      /* DEBUGGING: write data from DB to file: * /
+       FILE *ptr_myfile;
+       ptr_myfile=fopen("from_db.jpg","wb");
+       fwrite(data, datalen, 1, ptr_myfile);
+       fclose(ptr_myfile);
+       / * DEBUGGING-END */
+      evbuffer_add(evbuf, data, datalen);
+      free(data);
+      DPRINTF(E_DBG, L_ART, "Artwork with length %d found for persistent id %" PRId64 "\n", datalen, persistentid);
+    }
+
+  return format;
+}
+static int artwork_cache_save(int64_t persistentid, int max_w, int max_h, int format, char *path, struct evbuffer *evbuf)
+{
+  char *data;
+
+  data = malloc(evbuffer_get_length(evbuf));
+  evbuffer_copyout(evbuf, data, evbuffer_get_length(evbuf));
+
+  /* DEBUGGING: write data from DB to file: * /
+   FILE *ptr_myfile;
+   ptr_myfile=fopen("to_db.jpg","wb");
+   fwrite(data, EVBUFFER_LENGTH(evbuf), 1, ptr_myfile);
+   fclose(ptr_myfile);
+   / * DEBUGGING-END */
+
+  artworkcache_add(persistentid, max_w, max_h, format, path, data, evbuffer_get_length(evbuf));
+
+  free(data);
+
+  return format;
+}
+
 static int
 artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struct evbuffer *evbuf)
 {
@@ -935,11 +1002,28 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   struct db_media_file_info dbmfi;
   char *dir;
   int got_art;
+  int format;
+  //char *filename;
   int ret;
   int artwork;
   uint32_t data_kind;
 
   DPRINTF(E_DBG, L_ART, "Artwork request for group %" PRId64 "\n", persistentid);
+
+  // Check for cached artwork
+  ret = artwork_cache_get(persistentid, max_w, max_h, evbuf);
+  if (ret > 0)
+    {
+      // Artwork found in cache "ret" contains the format of the image
+      DPRINTF(E_DBG, L_ART, "Artwork found in cache for group %" PRId64 "\n", persistentid);
+      return ret;
+    }
+  else if (ret == 0)
+    {
+      // Entry found in cache but there is not artwork available
+      DPRINTF(E_DBG, L_ART, "Artwork found in cache but no image available for group %" PRId64 "\n", persistentid);
+      return -1;
+    }
 
   /* Try directory artwork first */
   memset(&qp, 0, sizeof(struct query_params));
@@ -967,7 +1051,8 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       if (strncmp(dir, "spotify:", strlen("spotify:")) == 0)
 	continue;
 
-      got_art = (artwork_get_dir_image(dir, max_w, max_h, evbuf) > 0);
+      format = artwork_get_dir_image(dir, max_w, max_h, evbuf);
+      got_art = (format > 0);
     }
 
   db_query_end(&qp);
@@ -975,7 +1060,10 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   if (ret < 0)
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_DIRS results\n");
   else if (got_art > 0)
-    return got_art;
+    {
+      artwork_cache_save(persistentid, max_w, max_h, format, "", evbuf);
+      return got_art;
+    }
 
 
   /* Then try individual files */
@@ -999,7 +1087,8 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       if ((safe_atoi32(dbmfi.artwork, &artwork) != 0) && (safe_atou32(dbmfi.data_kind, &data_kind) != 0))
 	continue;
 
-      got_art = (artwork_get_item_path(dbmfi.path, artwork, max_w, max_h, evbuf) > 0);
+      format = artwork_get_item_path(dbmfi.path, artwork, max_w, max_h, evbuf);
+      got_art = (format > 0);
     }
 
   db_query_end(&qp);
@@ -1007,7 +1096,13 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   if (ret < 0)
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_ITEMS results\n");
   else if (got_art > 0)
-    return got_art;
+    {
+      artwork_cache_save(persistentid, max_w, max_h, format, "", evbuf);
+      return got_art;
+    }
+
+  // Add cache entry for no artwork available
+  artwork_cache_save(persistentid, max_w, max_h, 0, "", evbuf);
 
   DPRINTF(E_DBG, L_ART, "No artwork found for group %" PRId64 "\n", persistentid);
 

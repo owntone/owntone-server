@@ -57,6 +57,7 @@
 #include "player.h"
 #include "raop.h"
 #include "laudio.h"
+#include "artwork_cache.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -4471,6 +4472,14 @@ player(void *arg)
       pthread_exit(NULL);
     }
 
+  ret = artworkcache_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Error: Artwork cache init failed\n");
+
+      pthread_exit(NULL);
+    }
+
   event_base_dispatch(evbase_player);
 
   if (!player_exit)
@@ -4491,6 +4500,7 @@ player(void *arg)
     }
 
   db_perthread_deinit();
+  artworkcache_perthread_deinit();
 
   pthread_exit(NULL);
 }
