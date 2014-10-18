@@ -62,6 +62,7 @@
 #include "misc.h"
 #include "remote_pairing.h"
 #include "player.h"
+#include "artwork_cache.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -190,6 +191,47 @@ file_type_ignore(const char *ext)
   return 0;
 }
 
+static const char *cover_extension[] =
+  {
+    "jpg", "png",
+  };
+
+/* Checks if the file is an artwork file */
+static int
+file_is_artwork(const char *filename)
+{
+  cfg_t *lib;
+  int n;
+  int i;
+  int j;
+  int ret;
+  char artwork[PATH_MAX];
+
+  lib = cfg_getsec(cfg, "library");
+  n = cfg_size(lib, "artwork_basenames");
+
+  for (i = 0; i < n; i++)
+    {
+      for (j = 0; j < (sizeof(cover_extension) / sizeof(cover_extension[0])); j++)
+	{
+	  ret = snprintf(artwork, sizeof(artwork), "%s.%s", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
+	  if ((ret < 0) || (ret >= sizeof(artwork)))
+	    {
+	      DPRINTF(E_INFO, L_SCAN, "Artwork path exceeds PATH_MAX (%s.%s)\n", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
+	      continue;
+	    }
+
+	  if (strcmp(artwork, filename) == 0)
+	    return 1;
+	}
+
+      if (j < (sizeof(cover_extension) / sizeof(cover_extension[0])))
+	break;
+    }
+
+  return 0;
+}
+
 static enum file_type
 file_type_get(const char *path) {
   const char *filename;
@@ -208,7 +250,7 @@ file_type_get(const char *path) {
   if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
     return FILE_PLAYLIST;
 
-  if ((strcasecmp(ext, ".png") == 0) || (strcasecmp(ext, ".jpg") == 0))
+  if (file_is_artwork(filename))
     return FILE_ARTWORK;
 
 #ifdef ITUNES
@@ -712,6 +754,9 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
       case FILE_REGULAR:
 	filescanner_process_media(file, mtime, size, type, NULL);
 
+	artworkcache_ping(file, mtime, !(flags & F_SCAN_BULK));
+	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
+
 	counter++;
 
 	/* When in bulk mode, split transaction in pieces of 200 */
@@ -729,6 +774,14 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	  defer_playlist(file, mtime);
 	else
 	  process_playlist(file, mtime);
+	break;
+
+      case FILE_ARTWORK:
+	DPRINTF(E_DBG, L_SCAN, "Artwork file: %s\n", file);
+	artworkcache_ping(file, mtime, !(flags & F_SCAN_BULK));
+
+	// TODO [artworkcache] If entry in artwork cache exists for no artwork available for a album with files in the same directory, delete the entry
+
 	break;
 
       case FILE_CTRL_REMOTE:
@@ -1066,6 +1119,7 @@ bulk_scan(int flags)
 
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);
+      artworkcache_purge_cruft(start);
 
       DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
 
@@ -1099,6 +1153,14 @@ filescanner(void *arg)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Error: DB init failed\n");
+
+      pthread_exit(NULL);
+    }
+
+  ret = artworkcache_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error: Artwork cache init failed\n");
 
       pthread_exit(NULL);
     }
@@ -1147,6 +1209,7 @@ filescanner(void *arg)
     DPRINTF(E_FATAL, L_SCAN, "Scan event loop terminated ahead of time!\n");
 
   db_perthread_deinit();
+  artworkcache_perthread_deinit();
 
   pthread_exit(NULL);
 }

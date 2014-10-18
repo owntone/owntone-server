@@ -57,7 +57,6 @@ static const char *cover_extension[] =
     "jpg", "png",
   };
 
-
 static int
 artwork_read(char *filename, struct evbuffer *evbuf)
 {

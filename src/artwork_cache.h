@@ -11,6 +11,11 @@
 #include <stddef.h>
 #include <stdint.h>
 
+int
+artworkcache_ping(char *path, time_t mtime, int del);
+
+int
+artworkcache_purge_cruft(time_t ref);
 
 int
 artworkcache_add(int64_t peristentid, int max_w, int max_h, int format, char *filename, char *data, int datalen);

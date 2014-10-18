@@ -141,6 +141,127 @@ db_blocking_prepare_v2(const char *query, int len, sqlite3_stmt **stmt, const ch
   return ret;
 }
 
+/* Modelled after sqlite3_exec() */
+static int
+db_exec(const char *query, char **errmsg)
+{
+  sqlite3_stmt *stmt;
+  int try;
+  int ret;
+
+  *errmsg = NULL;
+
+  for (try = 0; try < 5; try++)
+    {
+      ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+      if (ret != SQLITE_OK)
+	{
+	  *errmsg = sqlite3_mprintf("prepare failed: %s", sqlite3_errmsg(g_db_hdl));
+	  return ret;
+	}
+
+      while ((ret = db_blocking_step(stmt)) == SQLITE_ROW)
+	; /* EMPTY */
+
+      sqlite3_finalize(stmt);
+
+      if (ret != SQLITE_SCHEMA)
+	break;
+    }
+
+  if (ret != SQLITE_DONE)
+    {
+      *errmsg = sqlite3_mprintf("step failed: %s", sqlite3_errmsg(g_db_hdl));
+      return ret;
+    }
+
+  return SQLITE_OK;
+}
+
+
+int
+artworkcache_ping(char *path, time_t mtime, int del)
+{
+#define Q_TMPL_PING "UPDATE artwork SET db_timestamp = %" PRIi64 " WHERE filepath = '%q' AND db_timestamp >= %" PRIi64 ";"
+#define Q_TMPL_DEL "DELETE FROM artwork WHERE filepath = '%q' AND db_timestamp < %" PRIi64 ";"
+
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL_PING, (int64_t)time(NULL), path, (int64_t)mtime);
+
+  DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  if (!del)
+    return 0;
+
+  query = sqlite3_mprintf(Q_TMPL_DEL, path, (int64_t)mtime);
+
+  DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL_PING
+#undef Q_TMPL_DEL
+}
+
+int
+artworkcache_purge_cruft(time_t ref)
+{
+#define Q_TMPL "DELETE FROM artwork WHERE db_timestamp < %" PRIi64 ";"
+
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, (int64_t)ref);
+
+  DPRINTF(E_DBG, L_ACACHE, "Running purge query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_ACACHE, "Purged %d rows\n", sqlite3_changes(g_db_hdl));
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
 int
 artworkcache_add(int64_t peristentid, int max_w, int max_h, int format, char *filename, char *data, int datalen)
 {
@@ -214,7 +335,7 @@ artworkcache_get(int64_t persistentid, int max_w, int max_h, int *cached, int *f
       if (ret == SQLITE_DONE)
 	{
 	  ret = 0;
-	  DPRINTF(E_DBG, L_DB, "No results\n");
+	  DPRINTF(E_DBG, L_ACACHE, "No results\n");
 	}
       else
 	{
