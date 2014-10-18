@@ -41,142 +41,12 @@
 #include "conffile.h"
 #include "logger.h"
 #include "misc.h"
+#include "db_utils.h"
 
 
 static int g_initialized;
 static __thread sqlite3 *g_db_hdl;
 static char *g_db_path;
-
-struct db_unlock {
-  int proceed;
-  pthread_cond_t cond;
-  pthread_mutex_t lck;
-};
-
-/* Unlock notification support */
-static void
-unlock_notify_cb(void **args, int nargs)
-{
-  struct db_unlock *u;
-  int i;
-
-  for (i = 0; i < nargs; i++)
-    {
-      u = (struct db_unlock *)args[i];
-
-      pthread_mutex_lock(&u->lck);
-
-      u->proceed = 1;
-      pthread_cond_signal(&u->cond);
-
-      pthread_mutex_unlock(&u->lck);
-    }
-}
-
-static int
-db_wait_unlock(void)
-{
-  struct db_unlock u;
-  int ret;
-
-  u.proceed = 0;
-  pthread_mutex_init(&u.lck, NULL);
-  pthread_cond_init(&u.cond, NULL);
-
-  ret = sqlite3_unlock_notify(g_db_hdl, unlock_notify_cb, &u);
-  if (ret == SQLITE_OK)
-    {
-      pthread_mutex_lock(&u.lck);
-
-      if (!u.proceed)
-	{
-	  DPRINTF(E_INFO, L_ACACHE, "Waiting for database unlock\n");
-	  pthread_cond_wait(&u.cond, &u.lck);
-	}
-
-      pthread_mutex_unlock(&u.lck);
-    }
-
-  pthread_cond_destroy(&u.cond);
-  pthread_mutex_destroy(&u.lck);
-
-  return ret;
-}
-
-static int
-db_blocking_step(sqlite3_stmt *stmt)
-{
-  int ret;
-
-  while ((ret = sqlite3_step(stmt)) == SQLITE_LOCKED)
-    {
-      ret = db_wait_unlock();
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_ACACHE, "Database deadlocked!\n");
-	  break;
-	}
-
-      sqlite3_reset(stmt);
-    }
-
-  return ret;
-}
-
-static int
-db_blocking_prepare_v2(const char *query, int len, sqlite3_stmt **stmt, const char **end)
-{
-  int ret;
-
-  while ((ret = sqlite3_prepare_v2(g_db_hdl, query, len, stmt, end)) == SQLITE_LOCKED)
-    {
-      ret = db_wait_unlock();
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_ACACHE, "Database deadlocked!\n");
-	  break;
-	}
-    }
-
-  return ret;
-}
-
-/* Modelled after sqlite3_exec() */
-static int
-db_exec(const char *query, char **errmsg)
-{
-  sqlite3_stmt *stmt;
-  int try;
-  int ret;
-
-  *errmsg = NULL;
-
-  for (try = 0; try < 5; try++)
-    {
-      ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
-      if (ret != SQLITE_OK)
-	{
-	  *errmsg = sqlite3_mprintf("prepare failed: %s", sqlite3_errmsg(g_db_hdl));
-	  return ret;
-	}
-
-      while ((ret = db_blocking_step(stmt)) == SQLITE_ROW)
-	; /* EMPTY */
-
-      sqlite3_finalize(stmt);
-
-      if (ret != SQLITE_SCHEMA)
-	break;
-    }
-
-  if (ret != SQLITE_DONE)
-    {
-      *errmsg = sqlite3_mprintf("step failed: %s", sqlite3_errmsg(g_db_hdl));
-      return ret;
-    }
-
-  return SQLITE_OK;
-}
 
 
 int
@@ -193,7 +63,7 @@ artworkcache_ping(char *path, time_t mtime, int del)
 
   DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = dbutils_exec(g_db_hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
@@ -212,7 +82,7 @@ artworkcache_ping(char *path, time_t mtime, int del)
 
   DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = dbutils_exec(g_db_hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
@@ -243,7 +113,7 @@ artworkcache_purge_cruft(time_t ref)
 
   DPRINTF(E_DBG, L_ACACHE, "Running purge query '%s'\n", query);
 
-  ret = db_exec(query, &errmsg);
+  ret = dbutils_exec(g_db_hdl, query, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
@@ -271,7 +141,7 @@ artworkcache_add(int64_t peristentid, int max_w, int max_h, int format, char *fi
 
   query = "INSERT INTO artwork (id, persistentid, max_w, max_h, format, filepath, db_timestamp, data) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?);";
 
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = dbutils_blocking_prepare_v2(g_db_hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_ACACHE, "Could not prepare statement: %s\n", sqlite3_errmsg(g_db_hdl));
@@ -286,7 +156,7 @@ artworkcache_add(int64_t peristentid, int max_w, int max_h, int format, char *fi
   sqlite3_bind_int(stmt, 6, (uint64_t)time(NULL));
   sqlite3_bind_blob(stmt, 7, data, datalen, SQLITE_STATIC);
 
-  ret = db_blocking_step(stmt);
+  ret = dbutils_blocking_step(g_db_hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       if (ret == SQLITE_DONE)
@@ -319,7 +189,7 @@ artworkcache_get(int64_t persistentid, int max_w, int max_h, int *cached, int *f
     }
 
   DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  ret = dbutils_blocking_prepare_v2(g_db_hdl, query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_ACACHE, "Could not prepare statement: %s\n", sqlite3_errmsg(g_db_hdl));
@@ -327,7 +197,7 @@ artworkcache_get(int64_t persistentid, int max_w, int max_h, int *cached, int *f
       goto out;
     }
 
-  ret = db_blocking_step(stmt);
+  ret = dbutils_blocking_step(g_db_hdl, stmt);
   if (ret != SQLITE_ROW)
     {
       *cached = 0;
@@ -369,11 +239,11 @@ artworkcache_get(int64_t persistentid, int max_w, int max_h, int *cached, int *f
 int
 artworkcache_perthread_init(void)
 {
-  //char *errmsg;
   int ret;
-  //int cache_size;
-  //char *journal_mode;
-  //int synchronous;
+  int cache_size;
+  int page_size;
+  char *journal_mode;
+  int synchronous;
 
   ret = sqlite3_open(g_db_path, &g_db_hdl);
   if (ret != SQLITE_OK)
@@ -388,29 +258,37 @@ artworkcache_perthread_init(void)
   sqlite3_profile(g_db_hdl, db_xprofile, NULL);
 #endif
 
-  /*cache_size = cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_cache_size");
+  page_size = 4096; //cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_page_size");
+  if (page_size > -1)
+    {
+      dbutils_pragma_set_page_size(g_db_hdl, page_size);
+      page_size = dbutils_pragma_get_page_size(g_db_hdl);
+      DPRINTF(E_DBG, L_ACACHE, "Artwork cache page size in pages: %d\n", page_size);
+    }
+
+  cache_size = 5000; //cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_cache_size");
   if (cache_size > -1)
     {
-      db_pragma_set_cache_size(hdl, cache_size);
-      cache_size = db_pragma_get_cache_size(hdl);
-      DPRINTF(E_DBG, L_ACACHE, "Database cache size in pages: %d\n", cache_size);
+      dbutils_pragma_set_cache_size(g_db_hdl, cache_size);
+      page_size = dbutils_pragma_get_cache_size(g_db_hdl);
+      DPRINTF(E_DBG, L_ACACHE, "Artwork cache cache size in pages: %d\n", cache_size);
     }
 
-  journal_mode = cfg_getstr(cfg_getsec(cfg, "general"), "db_pragma_journal_mode");
+  journal_mode = "OFF"; //cfg_getstr(cfg_getsec(cfg, "general"), "db_pragma_journal_mode");
   if (journal_mode)
     {
-      journal_mode = db_pragma_set_journal_mode(hdl, journal_mode);
-      DPRINTF(E_DBG, L_ACACHE, "Database journal mode: %s\n", journal_mode);
+      journal_mode = dbutils_pragma_set_journal_mode(g_db_hdl, journal_mode);
+      DPRINTF(E_DBG, L_ACACHE, "Artwork cache journal mode: %s\n", journal_mode);
     }
 
-  synchronous = cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_synchronous");
+  synchronous = 0; //cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_synchronous");
   if (synchronous > -1)
     {
-      db_pragma_set_synchronous(hdl, synchronous);
-      synchronous = db_pragma_get_synchronous(hdl);
-      DPRINTF(E_DBG, L_ACACHE, "Database synchronous: %d\n", synchronous);
+      dbutils_pragma_set_synchronous(g_db_hdl, synchronous);
+      synchronous = dbutils_pragma_get_synchronous(g_db_hdl);
+      DPRINTF(E_DBG, L_ACACHE, "Artwork cache synchronous: %d\n", synchronous);
     }
-*/
+
   return 0;
 }
 
