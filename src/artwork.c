@@ -961,32 +961,21 @@ static int artwork_cache_get(int64_t persistentid, int max_w, int max_h, struct 
     }
   else
     {
-      /* DEBUGGING: write data from DB to file: * /
-       FILE *ptr_myfile;
-       ptr_myfile=fopen("from_db.jpg","wb");
-       fwrite(data, datalen, 1, ptr_myfile);
-       fclose(ptr_myfile);
-       / * DEBUGGING-END */
       evbuffer_add(evbuf, data, datalen);
-      free(data);
       DPRINTF(E_DBG, L_ART, "Artwork with length %d found for persistent id %" PRId64 "\n", datalen, persistentid);
     }
 
+  free(data);
+
   return format;
 }
+
 static int artwork_cache_save(int64_t persistentid, int max_w, int max_h, int format, char *path, struct evbuffer *evbuf)
 {
   char *data;
 
   data = malloc(evbuffer_get_length(evbuf));
   evbuffer_copyout(evbuf, data, evbuffer_get_length(evbuf));
-
-  /* DEBUGGING: write data from DB to file: * /
-   FILE *ptr_myfile;
-   ptr_myfile=fopen("to_db.jpg","wb");
-   fwrite(data, EVBUFFER_LENGTH(evbuf), 1, ptr_myfile);
-   fclose(ptr_myfile);
-   / * DEBUGGING-END */
 
   artworkcache_add(persistentid, max_w, max_h, format, path, data, evbuffer_get_length(evbuf));
 

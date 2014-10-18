@@ -90,7 +90,7 @@ db_wait_unlock(void)
 
       if (!u.proceed)
 	{
-	  DPRINTF(E_INFO, L_DB, "Waiting for database unlock\n");
+	  DPRINTF(E_INFO, L_ACACHE, "Waiting for database unlock\n");
 	  pthread_cond_wait(&u.cond, &u.lck);
 	}
 
@@ -113,7 +113,7 @@ db_blocking_step(sqlite3_stmt *stmt)
       ret = db_wait_unlock();
       if (ret != SQLITE_OK)
 	{
-	  DPRINTF(E_LOG, L_DB, "Database deadlocked!\n");
+	  DPRINTF(E_LOG, L_ACACHE, "Database deadlocked!\n");
 	  break;
 	}
 
@@ -133,7 +133,7 @@ db_blocking_prepare_v2(const char *query, int len, sqlite3_stmt **stmt, const ch
       ret = db_wait_unlock();
       if (ret != SQLITE_OK)
 	{
-	  DPRINTF(E_LOG, L_DB, "Database deadlocked!\n");
+	  DPRINTF(E_LOG, L_ACACHE, "Database deadlocked!\n");
 	  break;
 	}
     }
@@ -149,7 +149,7 @@ artworkcache_add(int64_t peristentid, int max_w, int max_h, int format, char *fi
   int ret;
 
   query = "INSERT INTO artwork (id, persistentid, max_w, max_h, format, filepath, db_timestamp, data) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?);";
-  //query = "INSERT INTO artwork (id, persistentid, max_w, max_h, format, filepath) VALUES (NULL, ?, ?, ?, ?, ?);";
+
   ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
@@ -211,11 +211,18 @@ artworkcache_get(int64_t persistentid, int max_w, int max_h, int *cached, int *f
     {
       *cached = 0;
 
-      if (ret != SQLITE_DONE)
-	DPRINTF(E_LOG, L_ACACHE, "Could not step: %s\n", sqlite3_errmsg(g_db_hdl));
+      if (ret == SQLITE_DONE)
+	{
+	  ret = 0;
+	  DPRINTF(E_DBG, L_DB, "No results\n");
+	}
+      else
+	{
+	  ret = -1;
+	  DPRINTF(E_LOG, L_ACACHE, "Could not step: %s\n", sqlite3_errmsg(g_db_hdl));
+	}
 
       sqlite3_finalize(stmt);
-      ret = -1;
       goto out;
     }
 
