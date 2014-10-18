@@ -840,7 +840,7 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, struct evbuffer
 #endif
 
 static int
-artwork_get_dir_image(char *path, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_get_dir_image(char *path, int max_w, int max_h, char *filename, struct evbuffer *evbuf)
 {
   char artwork[PATH_MAX];
   int i;
@@ -895,6 +895,7 @@ artwork_get_dir_image(char *path, int max_w, int max_h, struct evbuffer *evbuf)
     return -1;
 
   DPRINTF(E_DBG, L_ART, "Found directory artwork file %s\n", artwork);
+  strcpy(filename, artwork);
 
   return artwork_get(artwork, max_w, max_h, evbuf);
 }
@@ -992,12 +993,14 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   char *dir;
   int got_art;
   int format;
-  //char *filename;
+  char filename[PATH_MAX];
   int ret;
   int artwork;
   uint32_t data_kind;
 
   DPRINTF(E_DBG, L_ART, "Artwork request for group %" PRId64 "\n", persistentid);
+
+  ret = 0;
 
   // Check for cached artwork
   ret = artwork_cache_get(persistentid, max_w, max_h, evbuf);
@@ -1040,7 +1043,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       if (strncmp(dir, "spotify:", strlen("spotify:")) == 0)
 	continue;
 
-      format = artwork_get_dir_image(dir, max_w, max_h, evbuf);
+      format = artwork_get_dir_image(dir, max_w, max_h, filename, evbuf);
       got_art = (format > 0);
     }
 
@@ -1050,8 +1053,8 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_DIRS results\n");
   else if (got_art > 0)
     {
-      artwork_cache_save(persistentid, max_w, max_h, format, "", evbuf);
-      return got_art;
+      artwork_cache_save(persistentid, max_w, max_h, format, filename, evbuf);
+      return format;
     }
 
 
@@ -1078,6 +1081,9 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
 
       format = artwork_get_item_path(dbmfi.path, artwork, max_w, max_h, evbuf);
       got_art = (format > 0);
+
+      if (got_art)
+	strcpy(filename, dbmfi.path);
     }
 
   db_query_end(&qp);
@@ -1086,8 +1092,8 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_ITEMS results\n");
   else if (got_art > 0)
     {
-      artwork_cache_save(persistentid, max_w, max_h, format, "", evbuf);
-      return got_art;
+      artwork_cache_save(persistentid, max_w, max_h, format, filename, evbuf);
+      return format;
     }
 
   // Add cache entry for no artwork available
