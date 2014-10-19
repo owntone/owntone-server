@@ -1398,6 +1398,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
       db_file_delete_bypath(path);
       db_pl_delete_bypath(path);
+      artworkcache_delete_by_path(path);
     }
 
   if (ie->mask & IN_MOVED_FROM)
@@ -1420,7 +1421,8 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	{
 	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' failed: %s\n", path, strerror(errno));
 
-	  db_file_delete_bypath(path);;
+	  db_file_delete_bypath(path);
+	  artworkcache_delete_by_path(path);
 	}
       else if ((file_type_get(path) == FILE_REGULAR) && (db_file_id_bypath(path) <= 0)) // TODO Playlists
 	{

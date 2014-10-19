@@ -101,6 +101,36 @@ artworkcache_ping(char *path, time_t mtime, int del)
 }
 
 int
+artworkcache_delete_by_path(char *path)
+{
+#define Q_TMPL_DEL "DELETE FROM artwork WHERE filepath = '%q';"
+
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL_DEL, path);
+
+  DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
+
+  ret = dbutils_exec(g_db_hdl, query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL_DEL
+}
+
+int
 artworkcache_purge_cruft(time_t ref)
 {
 #define Q_TMPL "DELETE FROM artwork WHERE db_timestamp < %" PRIi64 ";"

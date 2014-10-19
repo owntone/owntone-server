@@ -15,6 +15,9 @@ int
 artworkcache_ping(char *path, time_t mtime, int del);
 
 int
+artworkcache_delete_by_path(char *path);
+
+int
 artworkcache_purge_cruft(time_t ref);
 
 int
