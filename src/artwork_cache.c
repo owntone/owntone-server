@@ -405,8 +405,11 @@ artworkcache_perthread_deinit(void)
   "   data                BLOB"				\
   ");"
 
-#define I_ARTWORK				\
+#define I_ARTWORK_ID				\
   "CREATE INDEX IF NOT EXISTS idx_persistentidwh ON artwork(persistentid, max_w, max_h);"
+#define I_ARTWORK_PATH				\
+  "CREATE INDEX IF NOT EXISTS idx_pathtime ON artwork(filepath, db_timestamp);"
+
 
 #define CACHE_VERSION 1
 #define Q_CACHE_VERSION					\
@@ -425,14 +428,18 @@ static const struct db_init_query db_init_queries[] =
     { T_ADMIN_ARTWORK,   "create table admin" },
     { T_ARTWORK,         "create table artwork" },
 
-    { I_ARTWORK,         "create image index" },
+    { I_ARTWORK_ID,      "create artwork persistentid index" },
+    { I_ARTWORK_PATH,    "create artwork filepath index" },
 
     { Q_CACHE_VERSION,   "set cache version" },
   };
 
 
-#define D_DROP_IDX_ARTWORK		\
+#define D_DROP_IDX_ARTWORK_ID		\
   "DROP INDEX IF EXISTS idx_persistentidwh;"
+
+#define D_DROP_IDX_ARTWORK_PATH		\
+  "DROP INDEX IF EXISTS idx_pathtime;"
 
 #define D_DROP_ARTWORK			\
   "DROP TABLE IF EXISTS artwork;"
@@ -442,7 +449,8 @@ static const struct db_init_query db_init_queries[] =
 
 static const struct db_init_query db_drop_queries[] =
   {
-    { D_DROP_IDX_ARTWORK,      "drop artwork index" },
+    { D_DROP_IDX_ARTWORK_ID,   "drop artwork persistentid index" },
+    { D_DROP_IDX_ARTWORK_PATH, "drop artwork path index" },
     { D_DROP_ARTWORK,          "drop table artwork" },
     { D_DROP_ADMIN_ARTWORK,    "drop table admin artwork" },
   };
