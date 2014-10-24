@@ -1,6 +1,5 @@
 /*
- * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
- * Copyright (C) 2010 Kai Elwert <elwertk@googlemail.com>
+ * Copyright (C) 2014 Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,6 +48,18 @@ static __thread sqlite3 *g_db_hdl;
 static char *g_db_path;
 
 
+/*
+ * Updates cached timestamps to current time for all cache entries for the given path, if the file was not modfied
+ * after the cached timestamp.
+ *
+ * If the parameter "del" is greater than 0, all cache entries for the given path are deleted, if the file was
+ * modified after the cached timestamp.
+ *
+ * @param path the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork)
+ * @param mtime modified timestamp of the artwork file
+ * @param del if > 0 cached entries for the given path are deleted if the cached timestamp (db_timestamp) is older than mtime
+ * @return 0 if successful, -1 if an error occurred
+ */
 int
 artworkcache_ping(char *path, time_t mtime, int del)
 {
@@ -100,6 +111,12 @@ artworkcache_ping(char *path, time_t mtime, int del)
 #undef Q_TMPL_DEL
 }
 
+/*
+ * Removes all cache entries for the given path
+ *
+ * @param path the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork)
+ * @return 0 if successful, -1 if an error occurred
+ */
 int
 artworkcache_delete_by_path(char *path)
 {
@@ -130,6 +147,12 @@ artworkcache_delete_by_path(char *path)
 #undef Q_TMPL_DEL
 }
 
+/*
+ * Removes all cache entries with cached timestamp older than the given reference timestamp
+ *
+ * @param ref reference timestamp
+ * @return 0 if successful, -1 if an error occurred
+ */
 int
 artworkcache_purge_cruft(time_t ref)
 {
@@ -162,6 +185,18 @@ artworkcache_purge_cruft(time_t ref)
 #undef Q_TMPL
 }
 
+/*
+ * Adds the given (scaled) artwork image to the artwork cache
+ *
+ * @param persistentid persistent songalbumid or songartistid
+ * @param max_w maximum image width
+ * @param max_h maximum image height
+ * @param format ART_FMT_PNG for png, ART_FMT_JPEG for jpeg or 0 if no artwork available
+ * @param filename the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork) or empty if no artwork available
+ * @param data the (scaled) image
+ * @param datalen lengt of data
+ * @return 0 if successful, -1 if an error occurred
+ */
 int
 artworkcache_add(int64_t peristentid, int max_w, int max_h, int format, char *filename, char *data, int datalen)
 {
@@ -203,6 +238,21 @@ artworkcache_add(int64_t peristentid, int max_w, int max_h, int format, char *fi
   return 0;
 }
 
+/*
+ * Get the cached artwork image for the given persistentid and maximum width/height
+ *
+ * If there is a cached entry for the given id and width/height, the parameter cached is set to 1.
+ * In this case format and data contain the cached values.
+ *
+ * @param persistentid persistent songalbumid or songartistid
+ * @param max_w maximum image width
+ * @param max_h maximum image height
+ * @param cached set by this function to 0 if no cache entry exists, otherwise 1
+ * @param format set by this function to the format of the cache entry
+ * @param data set by this function to the scaled image
+ * @param datalen set by this function to the length of data
+ * @return 0 if successful, -1 if an error occurred
+ */
 int
 artworkcache_get(int64_t persistentid, int max_w, int max_h, int *cached, int *format, char **data, int *datalen)
 {
@@ -367,6 +417,9 @@ struct db_init_query {
   char *desc;
 };
 
+/*
+ * List of all queries necessary to initialize the cache database
+ */
 static const struct db_init_query db_init_queries[] =
   {
     { T_ADMIN_ARTWORK,   "create table admin" },

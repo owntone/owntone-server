@@ -929,6 +929,15 @@ artwork_get_item_path(char *path, int artwork, int max_w, int max_h, struct evbu
     return -1;
 }
 
+/*
+ * Get the cached artwork image for the given persistent id and width/height
+ *
+ * @param persistentid persistent songalbumid or songartistid
+ * @param max_w maximum image width
+ * @param max_h maximum image height
+ * @param evbuf the event buffer that will contain the cached image
+ * @return -1 if no cache entry exists, otherwise the format of the cache entry
+ */
 static int artwork_cache_get(int64_t persistentid, int max_w, int max_h, struct evbuffer *evbuf)
 {
   int cached;
@@ -970,6 +979,17 @@ static int artwork_cache_get(int64_t persistentid, int max_w, int max_h, struct 
   return format;
 }
 
+/*
+ * Save the artwork image for the given persistent id and width/height in the artwork cache
+ *
+ * @param persistentid persistent songalbumid or songartistid
+ * @param max_w maximum image width
+ * @param max_h maximum image height
+ * @param format ART_FMT_PNG for png, ART_FMT_JPEG for jpeg or 0 if no artwork available
+ * @param path the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork) or empty if no artwork available
+ * @param evbuf the event buffer that contain the (scaled) image
+ * @return the format of the artwork image
+ */
 static int artwork_cache_save(int64_t persistentid, int max_w, int max_h, int format, char *path, struct evbuffer *evbuf)
 {
   char *data;
@@ -984,6 +1004,17 @@ static int artwork_cache_save(int64_t persistentid, int max_w, int max_h, int fo
   return format;
 }
 
+/*
+ * Get the artwork image for the given persistentid and the given maximum width/height
+ *
+ * The function first checks if there is a cache entry, if not it will first look for directory artwork files.
+ * If no directory artwork files are found, it looks for individual artwork (embedded images or images from spotify).
+ *
+ * @param persistentid persistent songalbumid or songartistid
+ * @param max_w maximum image width
+ * @param max_h maximum image height
+ * @param evbuf the event buffer that will contain the (scaled) image
+ */
 static int
 artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struct evbuffer *evbuf)
 {
@@ -1001,7 +1032,9 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
 
   ret = 0;
 
-  // Check for cached artwork
+  /*
+   * First check if the artwork cache has a cached entry for the given persistent id and requested width/height
+   */
   ret = artwork_cache_get(persistentid, max_w, max_h, evbuf);
   if (ret > 0)
     {
@@ -1016,7 +1049,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       return -1;
     }
 
-  /* Try directory artwork first */
+  /* Image is not in the artwork cache. Try directory artwork first */
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_GROUP_DIRS;
@@ -1038,7 +1071,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       if (strncmp(dir, "http://", strlen("http://")) == 0)
 	continue;
 
-      /* If Spotify item don't look for artwork */
+      /* If Spotify item don't look for files artwork */
       if (strncmp(dir, "spotify:", strlen("spotify:")) == 0)
 	continue;
 
@@ -1095,7 +1128,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       return format;
     }
 
-  // Add cache entry for no artwork available
+  /* Add cache entry for no artwork available */
   artwork_cache_save(persistentid, max_w, max_h, 0, "", evbuf);
 
   DPRINTF(E_DBG, L_ART, "No artwork found for group %" PRId64 "\n", persistentid);
@@ -1115,6 +1148,9 @@ artwork_get_item(int id, int max_w, int max_h, struct evbuffer *evbuf)
   if (!mfi)
     return -1;
 
+  /*
+   * Load artwork image for the persistent id
+   */
   ret = artwork_get_group_persistentid(mfi->songalbumid, max_w, max_h, evbuf);
   if (ret < 0)
     DPRINTF(E_DBG, L_ART, "No artwork found for item id %d (%s)\n", id, mfi->fname);
@@ -1132,12 +1168,18 @@ artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
 
   DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
 
+  /*
+   * Get the persistent id for the given group id
+   */
   ret = db_group_persistentid_byid(id, &persistentid);
   if (ret < 0) {
     DPRINTF(E_LOG, L_ART, "Error fetching persistent id for group id %d\n", id);
     return -1;
   }
 
+  /*
+   * Load artwork image for the persistent id
+   */
   ret = artwork_get_group_persistentid(persistentid, max_w, max_h, evbuf);
   if (ret < 0)
     DPRINTF(E_DBG, L_ART, "No artwork found for group id %d\n", id);
