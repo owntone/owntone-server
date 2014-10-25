@@ -70,6 +70,9 @@ artworkcache_ping(char *path, time_t mtime, int del)
   char *errmsg;
   int ret;
 
+  if (!g_initialized)
+    return -1;
+
   query = sqlite3_mprintf(Q_TMPL_PING, (int64_t)time(NULL), path, (int64_t)mtime);
 
   DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
@@ -126,6 +129,9 @@ artworkcache_delete_by_path(char *path)
   char *errmsg;
   int ret;
 
+  if (!g_initialized)
+    return -1;
+
   query = sqlite3_mprintf(Q_TMPL_DEL, path);
 
   DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
@@ -161,6 +167,9 @@ artworkcache_purge_cruft(time_t ref)
   char *query;
   char *errmsg;
   int ret;
+
+  if (!g_initialized)
+    return -1;
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)ref);
 
@@ -203,6 +212,9 @@ artworkcache_add(int64_t peristentid, int max_w, int max_h, int format, char *fi
   sqlite3_stmt *stmt;
   char *query;
   int ret;
+
+  if (!g_initialized)
+    return -1;
 
   query = "INSERT INTO artwork (id, persistentid, max_w, max_h, format, filepath, db_timestamp, data) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?);";
 
@@ -260,6 +272,9 @@ artworkcache_get(int64_t persistentid, int max_w, int max_h, int *cached, int *f
   sqlite3_stmt *stmt;
   char *query;
   int ret;
+
+  if (!g_initialized)
+    return -1;
 
   query = sqlite3_mprintf(Q_TMPL, persistentid, max_w, max_h);
   if (!query)
@@ -558,11 +573,12 @@ artworkcache_init(void)
 {
   int ret;
 
+  g_initialized = 0;
+
   g_db_path = cfg_getstr(cfg_getsec(cfg, "general"), "artworkcache_path");
   if (!g_db_path || (strlen(g_db_path) == 0))
     {
       DPRINTF(E_LOG, L_ACACHE, "Artwork cache path invalid, disabling cache\n");
-      g_initialized = 0;
       return 0;
     }
 
@@ -590,6 +606,8 @@ artworkcache_init(void)
 	return -1;
       }
     }
+
+  g_initialized = 1;
 
   artworkcache_perthread_deinit();
 
