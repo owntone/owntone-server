@@ -3999,7 +3999,7 @@ db_perthread_init(void)
   sqlite3_profile(hdl, db_xprofile, NULL);
 #endif
 
-  cache_size = cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_cache_size");
+  cache_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_cache_size_library");
   if (cache_size > -1)
     {
       dbutils_pragma_set_cache_size(hdl, cache_size);
@@ -4007,14 +4007,14 @@ db_perthread_init(void)
       DPRINTF(E_DBG, L_DB, "Database cache size in pages: %d\n", cache_size);
     }
 
-  journal_mode = cfg_getstr(cfg_getsec(cfg, "general"), "db_pragma_journal_mode");
+  journal_mode = cfg_getstr(cfg_getsec(cfg, "sqlite"), "pragma_journal_mode");
   if (journal_mode)
     {
       journal_mode = dbutils_pragma_set_journal_mode(hdl, journal_mode);
       DPRINTF(E_DBG, L_DB, "Database journal mode: %s\n", journal_mode);
     }
 
-  synchronous = cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_synchronous");
+  synchronous = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_synchronous");
   if (synchronous > -1)
     {
       dbutils_pragma_set_synchronous(hdl, synchronous);

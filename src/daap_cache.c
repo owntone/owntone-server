@@ -221,8 +221,15 @@ daapcache_create(void)
   ");"
 #define I_QUERY							\
   "CREATE INDEX IF NOT EXISTS idx_query ON replies (query);"
+#define Q_PRAGMA_CACHE_SIZE "PRAGMA cache_size=%d;"
+#define Q_PRAGMA_JOURNAL_MODE "PRAGMA journal_mode=%s;"
+#define Q_PRAGMA_SYNCHRONOUS "PRAGMA synchronous=%d;"
   char *errmsg;
   int ret;
+  int cache_size;
+  char *journal_mode;
+  int synchronous;
+  char *query;
 
   // A fresh start
   unlink(g_db_path);
@@ -270,11 +277,60 @@ daapcache_create(void)
       return -1;
     }
 
+  cache_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_cache_size_daapcache");
+  if (cache_size > -1)
+    {
+      query = sqlite3_mprintf(Q_PRAGMA_CACHE_SIZE, cache_size);
+      ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_DCACHE, "Error creating query index: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  sqlite3_close(g_db_hdl);
+	  return -1;
+	}
+    }
+
+  journal_mode = cfg_getstr(cfg_getsec(cfg, "sqlite"), "pragma_journal_mode");
+  if (journal_mode)
+    {
+      query = sqlite3_mprintf(Q_PRAGMA_JOURNAL_MODE, journal_mode);
+      ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_DCACHE, "Error creating query index: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  sqlite3_close(g_db_hdl);
+	  return -1;
+	}
+    }
+
+  synchronous = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_synchronous");
+  if (synchronous > -1)
+    {
+      query = sqlite3_mprintf(Q_PRAGMA_SYNCHRONOUS, synchronous);
+      ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_DCACHE, "Error creating query index: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  sqlite3_close(g_db_hdl);
+	  return -1;
+	}
+    }
+
   DPRINTF(E_DBG, L_DCACHE, "Cache created\n");
 
   return 0;
-#undef T_CACHE
+#undef T_REPLIES
+#undef T_QUERIES
 #undef I_QUERY
+#undef Q_PRAGMA_CACHE_SIZE
+#undef Q_PRAGMA_JOURNAL_MODE
+#undef Q_PRAGMA_SYNCHRONOUS
 }
 
 static void

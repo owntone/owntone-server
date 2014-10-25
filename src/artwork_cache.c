@@ -361,7 +361,7 @@ artworkcache_perthread_init(void)
       DPRINTF(E_DBG, L_ACACHE, "Artwork cache page size in pages: %d\n", page_size);
     }
 
-  cache_size = 5000; //cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_cache_size");
+  cache_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_cache_size_artworkcache");
   if (cache_size > -1)
     {
       dbutils_pragma_set_cache_size(g_db_hdl, cache_size);
@@ -369,14 +369,14 @@ artworkcache_perthread_init(void)
       DPRINTF(E_DBG, L_ACACHE, "Artwork cache cache size in pages: %d\n", cache_size);
     }
 
-  journal_mode = "OFF"; //cfg_getstr(cfg_getsec(cfg, "general"), "db_pragma_journal_mode");
+  journal_mode = cfg_getstr(cfg_getsec(cfg, "sqlite"), "pragma_journal_mode");
   if (journal_mode)
     {
       journal_mode = dbutils_pragma_set_journal_mode(g_db_hdl, journal_mode);
       DPRINTF(E_DBG, L_ACACHE, "Artwork cache journal mode: %s\n", journal_mode);
     }
 
-  synchronous = 0; //cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_synchronous");
+  synchronous = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_synchronous");
   if (synchronous > -1)
     {
       dbutils_pragma_set_synchronous(g_db_hdl, synchronous);
