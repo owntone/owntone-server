@@ -93,6 +93,7 @@ forked_daapd_LDADD = -lrt \
 	@LIBCURL_LIBS@
 
 forked_daapd_SOURCES = main.c \
+	db_utils.c db_utils.h \
 	db.c db.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
@@ -111,6 +112,7 @@ forked_daapd_SOURCES = main.c \
 	transcode.c transcode.h \
 	pipe.c pipe.h \
 	artwork.c artwork.h \
+	artwork_cache.c artwork_cache.h \
 	misc.c misc.h \
 	rng.c rng.h \
 	rsp_query.c rsp_query.h \
