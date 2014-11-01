@@ -1066,11 +1066,13 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   char filename[PATH_MAX];
   int ret;
   int artwork;
+  int got_spotifyitem;
   uint32_t data_kind;
 
   DPRINTF(E_DBG, L_ART, "Artwork request for group %" PRId64 "\n", persistentid);
 
   ret = 0;
+  got_spotifyitem = 0;
 
   /*
    * First check if the artwork cache has a cached entry for the given persistent id and requested width/height
@@ -1154,6 +1156,9 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       format = artwork_get_item_path(dbmfi.path, artwork, max_w, max_h, evbuf);
       got_art = (format > 0);
 
+      if (artwork == ARTWORK_SPOTIFY)
+	got_spotifyitem = 1;
+
       if (got_art)
 	strcpy(filename, dbmfi.path);
     }
@@ -1169,7 +1174,8 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
     }
 
   /* Add cache entry for no artwork available */
-  artwork_cache_save(persistentid, max_w, max_h, 0, "", evbuf);
+  if (!got_spotifyitem)
+    artwork_cache_save(persistentid, max_w, max_h, 0, "", evbuf);
 
   DPRINTF(E_DBG, L_ART, "No artwork found for group %" PRId64 "\n", persistentid);
 
