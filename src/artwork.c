@@ -842,12 +842,15 @@ static int
 artwork_get_dir_image(char *path, int max_w, int max_h, char *filename, struct evbuffer *evbuf)
 {
   char artwork[PATH_MAX];
+  char parentdir[PATH_MAX];
   int i;
   int j;
   int len;
   int ret;
   cfg_t *lib;
   int nbasenames;
+  int nextensions;
+  char *ptr;
 
   ret = snprintf(artwork, sizeof(artwork), "%s", path);
   if ((ret < 0) || (ret >= sizeof(artwork)))
@@ -865,9 +868,11 @@ artwork_get_dir_image(char *path, int max_w, int max_h, char *filename, struct e
   if (nbasenames == 0)
     return -1;
 
+  nextensions = sizeof(cover_extension) / sizeof(cover_extension[0]);
+
   for (i = 0; i < nbasenames; i++)
     {
-      for (j = 0; j < (sizeof(cover_extension) / sizeof(cover_extension[0])); j++)
+      for (j = 0; j < nextensions; j++)
 	{
 	  ret = snprintf(artwork + len, sizeof(artwork) - len, "/%s.%s", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
 	  if ((ret < 0) || (ret >= sizeof(artwork) - len))
@@ -883,15 +888,50 @@ artwork_get_dir_image(char *path, int max_w, int max_h, char *filename, struct e
 	  if (ret < 0)
 	    continue;
 
+	  // If artwork file exists (ret == 0), exit the loop
 	  break;
 	}
 
-      if (j < (sizeof(cover_extension) / sizeof(cover_extension[0])))
+      // In case the previous loop exited early, we found an existing artwork file and exit the outer loop
+      if (j < nextensions)
 	break;
     }
 
+  // If the loop for directory artwork did not exit early, look for parent directory artwork
   if (i == nbasenames)
-    return -1;
+    {
+      ptr = strrchr(artwork, '/');
+      if (ptr)
+	*ptr = '\0';
+
+      ptr = strrchr(artwork, '/');
+      if ((!ptr) || (strlen(ptr) <= 1))
+	return -1;
+      strcpy(parentdir, ptr + 1);
+
+      len = strlen(artwork);
+
+      for (i = 0; i < nextensions; i++)
+	{
+	  ret = snprintf(artwork + len, sizeof(artwork) - len, "/%s.%s", parentdir, cover_extension[i]);
+	  if ((ret < 0) || (ret >= sizeof(artwork) - len))
+	    {
+	      DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX (%s.%s)\n", parentdir, cover_extension[i]);
+	      continue;
+	    }
+
+	  DPRINTF(E_SPAM, L_ART, "Trying parent directory artwork file %s\n", artwork);
+
+	  ret = access(artwork, F_OK);
+	  if (ret < 0)
+	    continue;
+
+	  break;
+	}
+
+      if (i == nextensions)
+	return -1;
+    }
 
   DPRINTF(E_DBG, L_ART, "Found directory artwork file %s\n", artwork);
   strcpy(filename, artwork);
