@@ -40,7 +40,7 @@
 
 #include "conffile.h"
 #include "logger.h"
-#include "daap_cache.h"
+#include "cache.h"
 #include "misc.h"
 #include "db.h"
 #include "db_utils.h"
@@ -1585,7 +1585,7 @@ db_query_run(char *query, int free, int cache_update)
     sqlite3_free(query);
 
   if (cache_update)
-    daapcache_trigger();
+    cache_daap_trigger();
 
   return ((ret != SQLITE_OK) ? -1 : 0);
 }
@@ -2434,7 +2434,7 @@ db_file_add(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  daapcache_trigger();
+  cache_daap_trigger();
 
   return 0;
 
@@ -2510,7 +2510,7 @@ db_file_update(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  daapcache_trigger();
+  cache_daap_trigger();
 
   return 0;
 

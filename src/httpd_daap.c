@@ -52,7 +52,7 @@
 #include "httpd_daap.h"
 #include "daap_query.h"
 #include "dmap_common.h"
-#include "daap_cache.h"
+#include "cache.h"
 
 #ifdef HAVE_LIBEVENT2
 # include <event2/http_struct.h>
@@ -2669,7 +2669,7 @@ daap_request(struct evhttp_request *req)
   evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
 
   // Try the cache
-  evbuf = daapcache_get(full_uri);
+  evbuf = cache_daap_get(full_uri);
   if (evbuf)
     {
       httpd_send_reply(req, HTTP_OK, "OK", evbuf); // TODO not all want this reply
@@ -2705,8 +2705,8 @@ daap_request(struct evhttp_request *req)
 
   DPRINTF(E_DBG, L_DB, "DAAP request handled in %d milliseconds\n", msec);
 
-  if (msec > daapcache_threshold())
-    daapcache_add(full_uri, ua, msec);
+  if (msec > cache_daap_threshold())
+    cache_daap_add(full_uri, ua, msec);
 
   evhttp_clear_headers(&query);
   evbuffer_free(evbuf);

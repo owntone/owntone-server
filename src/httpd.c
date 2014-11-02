@@ -52,7 +52,7 @@
 #include "httpd_daap.h"
 #include "httpd_dacp.h"
 #include "transcode.h"
-#include "artwork_cache.h"
+#include "cache.h"
 
 /*
  * HTTP client quirks by User-Agent, from mt-daapd
@@ -1060,13 +1060,13 @@ httpd(void *arg)
       pthread_exit(NULL);
     }
 
-  ret = artworkcache_perthread_init();
+  /*ret = artworkcache_perthread_init();
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Error: Artwork cache init failed\n");
 
       pthread_exit(NULL);
-    }
+    }*/
 
   event_base_dispatch(evbase_httpd);
 
@@ -1074,7 +1074,7 @@ httpd(void *arg)
     DPRINTF(E_FATAL, L_HTTPD, "HTTPd event loop terminated ahead of time!\n");
 
   db_perthread_deinit();
-  artworkcache_perthread_deinit();
+  //artworkcache_perthread_deinit();
 
   pthread_exit(NULL);
 }
