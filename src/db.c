@@ -43,7 +43,6 @@
 #include "cache.h"
 #include "misc.h"
 #include "db.h"
-#include "db_utils.h"
 
 
 #define STR(x) ((x) ? (x) : "")
@@ -3942,6 +3941,177 @@ db_xprofile(void *notused, const char *pquery, sqlite3_uint64 ptime)
 }
 #endif
 
+static int
+db_pragma_get_cache_size()
+{
+  sqlite3_stmt *stmt;
+  char *query = "PRAGMA cache_size;";
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return 0;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
+      sqlite3_free(query);
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      sqlite3_free(query);
+      return -1;
+    }
+
+  ret = sqlite3_column_int(stmt, 0);
+
+  sqlite3_finalize(stmt);
+  return ret;
+}
+
+static int
+db_pragma_set_cache_size(int pages)
+{
+#define Q_TMPL "PRAGMA cache_size=%d;"
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, pages);
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return 0;
+    }
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+  return 0;
+#undef Q_TMPL
+}
+
+static char *
+db_pragma_set_journal_mode(char *mode)
+{
+#define Q_TMPL "PRAGMA journal_mode=%s;"
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+  char *new_mode;
+
+  query = sqlite3_mprintf(Q_TMPL, mode);
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return NULL;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
+      sqlite3_free(query);
+      return NULL;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      sqlite3_free(query);
+      return NULL;
+    }
+
+  new_mode = (char *) sqlite3_column_text(stmt, 0);
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+  return new_mode;
+#undef Q_TMPL
+}
+
+static int
+db_pragma_get_synchronous()
+{
+  sqlite3_stmt *stmt;
+  char *query = "PRAGMA synchronous;";
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return 0;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
+      sqlite3_free(query);
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      sqlite3_free(query);
+      return -1;
+    }
+
+  ret = sqlite3_column_int(stmt, 0);
+
+  sqlite3_finalize(stmt);
+  return ret;
+}
+
+static int
+db_pragma_set_synchronous(int synchronous)
+{
+#define Q_TMPL "PRAGMA synchronous=%d;"
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, synchronous);
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return 0;
+    }
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+  return 0;
+#undef Q_TMPL
+}
+
+
 
 int
 db_perthread_init(void)
@@ -4002,23 +4172,23 @@ db_perthread_init(void)
   cache_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_cache_size_library");
   if (cache_size > -1)
     {
-      dbutils_pragma_set_cache_size(hdl, cache_size);
-      cache_size = dbutils_pragma_get_cache_size(hdl);
+      db_pragma_set_cache_size(cache_size);
+      cache_size = db_pragma_get_cache_size();
       DPRINTF(E_DBG, L_DB, "Database cache size in pages: %d\n", cache_size);
     }
 
   journal_mode = cfg_getstr(cfg_getsec(cfg, "sqlite"), "pragma_journal_mode");
   if (journal_mode)
     {
-      journal_mode = dbutils_pragma_set_journal_mode(hdl, journal_mode);
+      journal_mode = db_pragma_set_journal_mode(journal_mode);
       DPRINTF(E_DBG, L_DB, "Database journal mode: %s\n", journal_mode);
     }
 
   synchronous = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_synchronous");
   if (synchronous > -1)
     {
-      dbutils_pragma_set_synchronous(hdl, synchronous);
-      synchronous = dbutils_pragma_get_synchronous(hdl);
+      db_pragma_set_synchronous(synchronous);
+      synchronous = db_pragma_get_synchronous();
       DPRINTF(E_DBG, L_DB, "Database synchronous: %d\n", synchronous);
     }
 

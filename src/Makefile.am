@@ -93,7 +93,6 @@ forked_daapd_LDADD = -lrt \
 	@LIBCURL_LIBS@
 
 forked_daapd_SOURCES = main.c \
-	db_utils.c db_utils.h \
 	db.c db.h \
 	logger.c logger.h \
 	conffile.c conffile.h \

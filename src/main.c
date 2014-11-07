@@ -676,32 +676,11 @@ main(int argc, char **argv)
       goto db_fail;
     }
 
-  /* Initialize the artwork cache database before starting */
-  DPRINTF(E_INFO, L_MAIN, "Initializing artwork cache database\n");
-  /*ret = artworkcache_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_MAIN, "Artwork cache database init failed\n");
-
-      ret = EXIT_FAILURE;
-      goto artworkcache_fail;
-    }*/
-
-  /* Open an artwork cache DB connection for the main thread */
-  /*ret = artworkcache_perthread_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_MAIN, "Could not perform perthread artwork cache DB init for main\n");
-
-      ret = EXIT_FAILURE;
-      goto artworkcache_fail;
-    }*/
-
-  /* Spawn DAAP cache thread */
+  /* Spawn cache thread */
   ret = cache_init();
   if (ret != 0)
     {
-      DPRINTF(E_FATAL, L_MAIN, "DAAP cache thread failed to start\n");
+      DPRINTF(E_FATAL, L_MAIN, "Cache thread failed to start\n");
 
       ret = EXIT_FAILURE;
       goto cache_fail;
@@ -846,14 +825,10 @@ main(int argc, char **argv)
   filescanner_deinit();
 
  filescanner_fail:
-  DPRINTF(E_LOG, L_MAIN, "DAAP cache deinit\n");
+  DPRINTF(E_LOG, L_MAIN, "Cache deinit\n");
   cache_deinit();
 
  cache_fail:
-  DPRINTF(E_LOG, L_MAIN, "Artwork cache database deinit\n");
-  //artworkcache_perthread_deinit();
-
- artworkcache_fail:
   DPRINTF(E_LOG, L_MAIN, "Database deinit\n");
   db_perthread_deinit();
   db_deinit();

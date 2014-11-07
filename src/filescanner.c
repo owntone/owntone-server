@@ -1157,14 +1157,6 @@ filescanner(void *arg)
       pthread_exit(NULL);
     }
 
-  /*ret = artworkcache_perthread_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Error: Artwork cache init failed\n");
-
-      pthread_exit(NULL);
-    }*/
-
   ret = db_watch_clear();
   if (ret < 0)
     {

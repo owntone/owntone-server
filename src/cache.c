@@ -148,14 +148,14 @@ send_command(struct cache_command *cmd)
 
   if (!cmd->func)
     {
-      DPRINTF(E_LOG, L_DCACHE, "BUG: cmd->func is NULL!\n");
+      DPRINTF(E_LOG, L_CACHE, "BUG: cmd->func is NULL!\n");
       return -1;
     }
 
   ret = write(g_cmd_pipe[1], &cmd, sizeof(cmd));
   if (ret != sizeof(cmd))
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not send command: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_CACHE, "Could not send command: %s\n", strerror(errno));
       return -1;
     }
 
@@ -201,10 +201,10 @@ thread_exit(void)
 {
   int dummy = 42;
 
-  DPRINTF(E_DBG, L_DCACHE, "Killing cache thread\n");
+  DPRINTF(E_DBG, L_CACHE, "Killing cache thread\n");
 
   if (write(g_exit_pipe[1], &dummy, sizeof(dummy)) != sizeof(dummy))
-    DPRINTF(E_LOG, L_DCACHE, "Could not write to exit fd: %s\n", strerror(errno));
+    DPRINTF(E_LOG, L_CACHE, "Could not write to exit fd: %s\n", strerror(errno));
 }
 
 
@@ -262,7 +262,7 @@ cache_create(void)
   ret = sqlite3_open(g_db_path, &g_db_hdl);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_DCACHE, "Could not create database: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_FATAL, L_CACHE, "Could not create database: %s\n", sqlite3_errmsg(g_db_hdl));
 
       sqlite3_close(g_db_hdl);
       return -1;
@@ -272,7 +272,7 @@ cache_create(void)
   ret = sqlite3_exec(g_db_hdl, T_REPLIES, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_DCACHE, "Error creating reply cache table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating reply cache table: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -283,7 +283,7 @@ cache_create(void)
   ret = sqlite3_exec(g_db_hdl, T_QUERIES, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_DCACHE, "Error creating query table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating query table: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -294,7 +294,7 @@ cache_create(void)
   ret = sqlite3_exec(g_db_hdl, I_QUERY, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_DCACHE, "Error creating query index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -305,7 +305,7 @@ cache_create(void)
   ret = sqlite3_exec(g_db_hdl, T_ARTWORK, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_DCACHE, "Error creating query table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating query table: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -316,7 +316,7 @@ cache_create(void)
   ret = sqlite3_exec(g_db_hdl, I_ARTWORK_ID, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_DCACHE, "Error creating query index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -325,21 +325,21 @@ cache_create(void)
   ret = sqlite3_exec(g_db_hdl, I_ARTWORK_PATH, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_DCACHE, "Error creating query index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
       return -1;
     }
 
-  cache_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_cache_size_daapcache");
+  cache_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_cache_size_cache");
   if (cache_size > -1)
     {
       query = sqlite3_mprintf(Q_PRAGMA_CACHE_SIZE, cache_size);
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
-	  DPRINTF(E_FATAL, L_DCACHE, "Error creating query index: %s\n", errmsg);
+	  DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
 
 	  sqlite3_free(errmsg);
 	  sqlite3_close(g_db_hdl);
@@ -354,7 +354,7 @@ cache_create(void)
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
-	  DPRINTF(E_FATAL, L_DCACHE, "Error creating query index: %s\n", errmsg);
+	  DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
 
 	  sqlite3_free(errmsg);
 	  sqlite3_close(g_db_hdl);
@@ -369,7 +369,7 @@ cache_create(void)
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
-	  DPRINTF(E_FATAL, L_DCACHE, "Error creating query index: %s\n", errmsg);
+	  DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
 
 	  sqlite3_free(errmsg);
 	  sqlite3_close(g_db_hdl);
@@ -377,7 +377,7 @@ cache_create(void)
 	}
     }
 
-  DPRINTF(E_DBG, L_DCACHE, "Cache created\n");
+  DPRINTF(E_DBG, L_CACHE, "Cache created\n");
 
   return 0;
 #undef T_REPLIES
@@ -407,7 +407,7 @@ cache_destroy(void)
 
   unlink(g_db_path);
 
-  DPRINTF(E_DBG, L_DCACHE, "Cache destroyed\n");
+  DPRINTF(E_DBG, L_CACHE, "Cache destroyed\n");
 }
 
 /* Adds the reply (stored in evbuf) to the cache */
@@ -431,7 +431,7 @@ cache_daap_reply_add(const char *query, struct evbuffer *evbuf)
   ret = sqlite3_prepare_v2(g_db_hdl, Q_TMPL, -1, &stmt, 0);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error preparing query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Error preparing query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
       return -1;
     }
 
@@ -441,7 +441,7 @@ cache_daap_reply_add(const char *query, struct evbuffer *evbuf)
   ret = sqlite3_step(stmt);
   if (ret != SQLITE_DONE)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error stepping query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Error stepping query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
       sqlite3_finalize(stmt);
       return -1;
     }
@@ -449,11 +449,11 @@ cache_daap_reply_add(const char *query, struct evbuffer *evbuf)
   ret = sqlite3_finalize(stmt);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error finalizing query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Error finalizing query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
       return -1;
     }
 
-  //DPRINTF(E_DBG, L_DCACHE, "Wrote cache reply, size %d\n", datlen);
+  //DPRINTF(E_DBG, L_CACHE, "Wrote cache reply, size %d\n", datlen);
 
   return 0;
 #undef Q_TMPL
@@ -471,7 +471,7 @@ cache_daap_query_add(struct cache_command *cmd)
 
   if (!cmd->arg.ua)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Couldn't add slow query to cache, unknown user-agent\n");
+      DPRINTF(E_LOG, L_CACHE, "Couldn't add slow query to cache, unknown user-agent\n");
 
       goto error_add;
     }
@@ -489,7 +489,7 @@ cache_daap_query_add(struct cache_command *cmd)
   query = sqlite3_mprintf(Q_TMPL, cmd->arg.ua, cmd->arg.query, cmd->arg.msec, (int64_t)time(NULL));
   if (!query)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Out of memory making query string.\n");
+      DPRINTF(E_LOG, L_CACHE, "Out of memory making query string.\n");
 
       goto error_add;
     }
@@ -497,7 +497,7 @@ cache_daap_query_add(struct cache_command *cmd)
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error adding query to query list: %s\n", errmsg);
+      DPRINTF(E_LOG, L_CACHE, "Error adding query to query list: %s\n", errmsg);
 
       sqlite3_free(query);
       sqlite3_free(errmsg);
@@ -506,7 +506,7 @@ cache_daap_query_add(struct cache_command *cmd)
 
   sqlite3_free(query);
 
-  DPRINTF(E_INFO, L_DCACHE, "Slow query (%d ms) added to cache: '%s' (user-agent: '%s')\n", cmd->arg.msec, cmd->arg.query, cmd->arg.ua);
+  DPRINTF(E_INFO, L_CACHE, "Slow query (%d ms) added to cache: '%s' (user-agent: '%s')\n", cmd->arg.msec, cmd->arg.query, cmd->arg.ua);
 
   free(cmd->arg.ua);
   free(cmd->arg.query);
@@ -515,7 +515,7 @@ cache_daap_query_add(struct cache_command *cmd)
   ret = sqlite3_exec(g_db_hdl, Q_CLEANUP, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error cleaning up query list before update: %s\n", errmsg);
+      DPRINTF(E_LOG, L_CACHE, "Error cleaning up query list before update: %s\n", errmsg);
       sqlite3_free(errmsg);
       return -1;
     }
@@ -556,7 +556,7 @@ cache_daap_query_get(struct cache_command *cmd)
   ret = sqlite3_prepare_v2(g_db_hdl, Q_TMPL, -1, &stmt, 0);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error preparing query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Error preparing query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
       free(query);
       return -1;
     }
@@ -567,7 +567,7 @@ cache_daap_query_get(struct cache_command *cmd)
   if (ret != SQLITE_ROW)  
     {
       if (ret != SQLITE_DONE)
-	DPRINTF(E_LOG, L_DCACHE, "Error stepping query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+	DPRINTF(E_LOG, L_CACHE, "Error stepping query for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
       goto error_get;
     }
 
@@ -576,14 +576,14 @@ cache_daap_query_get(struct cache_command *cmd)
   cmd->arg.evbuf = evbuffer_new();
   if (!cmd->arg.evbuf)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create reply evbuffer\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not create reply evbuffer\n");
       goto error_get;
     }
 
   ret = evbuffer_add(cmd->arg.evbuf, sqlite3_column_blob(stmt, 0), datlen);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Out of memory for reply evbuffer\n");
+      DPRINTF(E_LOG, L_CACHE, "Out of memory for reply evbuffer\n");
       evbuffer_free(cmd->arg.evbuf);
       cmd->arg.evbuf = NULL;
       goto error_get;
@@ -591,9 +591,9 @@ cache_daap_query_get(struct cache_command *cmd)
 
   ret = sqlite3_finalize(stmt);
   if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DCACHE, "Error finalizing query for getting cache: %s\n", sqlite3_errmsg(g_db_hdl));
+    DPRINTF(E_LOG, L_CACHE, "Error finalizing query for getting cache: %s\n", sqlite3_errmsg(g_db_hdl));
 
-  DPRINTF(E_INFO, L_DCACHE, "Cache hit: %s\n", query);
+  DPRINTF(E_INFO, L_CACHE, "Cache hit: %s\n", query);
 
   free(query);
 
@@ -618,12 +618,12 @@ cache_daap_update_cb(int fd, short what, void *arg)
   char *query;
   int ret;
 
-  DPRINTF(E_INFO, L_DCACHE, "Timeout reached, time to update DAAP cache\n");
+  DPRINTF(E_INFO, L_CACHE, "Timeout reached, time to update DAAP cache\n");
 
   ret = sqlite3_exec(g_db_hdl, "DELETE FROM replies;", NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error clearing reply cache before update: %s\n", errmsg);
+      DPRINTF(E_LOG, L_CACHE, "Error clearing reply cache before update: %s\n", errmsg);
       sqlite3_free(errmsg);
       return;
     }
@@ -631,7 +631,7 @@ cache_daap_update_cb(int fd, short what, void *arg)
   ret = sqlite3_prepare_v2(g_db_hdl, "SELECT user_agent, query FROM queries;", -1, &stmt, 0);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error preparing for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Error preparing for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
       return;
     }
 
@@ -642,7 +642,7 @@ cache_daap_update_cb(int fd, short what, void *arg)
       evbuf = daap_reply_build(query, (char *)sqlite3_column_text(stmt, 0));
       if (!evbuf)
 	{
-	  DPRINTF(E_LOG, L_DCACHE, "Error building DAAP reply for query: %s\n", query);
+	  DPRINTF(E_LOG, L_CACHE, "Error building DAAP reply for query: %s\n", query);
 	  free(query);
 	  continue;
 	}
@@ -654,11 +654,11 @@ cache_daap_update_cb(int fd, short what, void *arg)
     }
 
   if (ret != SQLITE_DONE)
-    DPRINTF(E_LOG, L_DCACHE, "Could not step: %s\n", sqlite3_errmsg(g_db_hdl));
+    DPRINTF(E_LOG, L_CACHE, "Could not step: %s\n", sqlite3_errmsg(g_db_hdl));
 
   sqlite3_finalize(stmt);
 
-  DPRINTF(E_INFO, L_DCACHE, "DAAP cache updated\n");
+  DPRINTF(E_INFO, L_CACHE, "DAAP cache updated\n");
 }
 
 /* This function will just set a timer, which when it times out will trigger
@@ -679,14 +679,11 @@ cache_daap_update_timer(struct cache_command *cmd)
 
 /*
  * Updates cached timestamps to current time for all cache entries for the given path, if the file was not modfied
- * after the cached timestamp.
- *
- * If the parameter "del" is greater than 0, all cache entries for the given path are deleted, if the file was
+ * after the cached timestamp. All cache entries for the given path are deleted, if the file was
  * modified after the cached timestamp.
  *
- * @param path the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork)
- * @param mtime modified timestamp of the artwork file
- * @param del if > 0 cached entries for the given path are deleted if the cached timestamp (db_timestamp) is older than mtime
+ * @param cmd->arg.path the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork)
+ * @param cmd->arg.mtime modified timestamp of the artwork file
  * @return 0 if successful, -1 if an error occurred
  */
 static int
@@ -704,12 +701,12 @@ cache_artwork_ping_impl(struct cache_command *cmd)
 
   query = sqlite3_mprintf(Q_TMPL_PING, (int64_t)time(NULL), cmd->arg.path, (int64_t)cmd->arg.mtime);
 
-  DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
+  DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
+      DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_free(query);
@@ -720,12 +717,12 @@ cache_artwork_ping_impl(struct cache_command *cmd)
 
   query = sqlite3_mprintf(Q_TMPL_DEL, (int64_t)time(NULL), cmd->arg.path, (int64_t)cmd->arg.mtime);
 
-  DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
+  DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
+      DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_free(query);
@@ -743,7 +740,7 @@ cache_artwork_ping_impl(struct cache_command *cmd)
 /*
  * Removes all cache entries for the given path
  *
- * @param path the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork)
+ * @param cmd->arg.path the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork)
  * @return 0 if successful, -1 if an error occurred
  */
 static int
@@ -760,12 +757,12 @@ cache_artwork_delete_by_path_impl(struct cache_command *cmd)
 
   query = sqlite3_mprintf(Q_TMPL_DEL, cmd->arg.path);
 
-  DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
+  DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
+      DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_free(query);
@@ -782,7 +779,7 @@ cache_artwork_delete_by_path_impl(struct cache_command *cmd)
 /*
  * Removes all cache entries with cached timestamp older than the given reference timestamp
  *
- * @param ref reference timestamp
+ * @param cmd->arg.mtime reference timestamp
  * @return 0 if successful, -1 if an error occurred
  */
 static int
@@ -799,19 +796,19 @@ cache_artwork_purge_cruft_impl(struct cache_command *cmd)
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)cmd->arg.mtime);
 
-  DPRINTF(E_DBG, L_ACACHE, "Running purge query '%s'\n", query);
+  DPRINTF(E_DBG, L_CACHE, "Running purge query '%s'\n", query);
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_ACACHE, "Query error: %s\n", errmsg);
+      DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_free(query);
       return -1;
     }
 
-  DPRINTF(E_DBG, L_ACACHE, "Purged %d rows\n", sqlite3_changes(g_db_hdl));
+  DPRINTF(E_DBG, L_CACHE, "Purged %d rows\n", sqlite3_changes(g_db_hdl));
 
   sqlite3_free(query);
 
@@ -823,13 +820,12 @@ cache_artwork_purge_cruft_impl(struct cache_command *cmd)
 /*
  * Adds the given (scaled) artwork image to the artwork cache
  *
- * @param persistentid persistent songalbumid or songartistid
- * @param max_w maximum image width
- * @param max_h maximum image height
- * @param format ART_FMT_PNG for png, ART_FMT_JPEG for jpeg or 0 if no artwork available
- * @param filename the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork) or empty if no artwork available
- * @param data the (scaled) image
- * @param datalen lengt of data
+ * @param cmd->arg.persistentid persistent songalbumid or songartistid
+ * @param cmd->arg.max_w maximum image width
+ * @param cmd->arg.max_h maximum image height
+ * @param cmd->arg.format ART_FMT_PNG for png, ART_FMT_JPEG for jpeg or 0 if no artwork available
+ * @param cmd->arg.filename the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork) or empty if no artwork available
+ * @param cmd->arg.evbuf event buffer containing the (scaled) image
  * @return 0 if successful, -1 if an error occurred
  */
 static int
@@ -849,7 +845,7 @@ cache_artwork_add_impl(struct cache_command *cmd)
   ret = sqlite3_prepare_v2(g_db_hdl, query, -1, &stmt, 0);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_ACACHE, "Could not prepare statement: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Could not prepare statement: %s\n", sqlite3_errmsg(g_db_hdl));
       return -1;
     }
 
@@ -869,7 +865,7 @@ cache_artwork_add_impl(struct cache_command *cmd)
   ret = sqlite3_step(stmt);
   if (ret != SQLITE_DONE)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error stepping query for artwork add: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Error stepping query for artwork add: %s\n", sqlite3_errmsg(g_db_hdl));
       sqlite3_finalize(stmt);
       return -1;
     }
@@ -877,7 +873,7 @@ cache_artwork_add_impl(struct cache_command *cmd)
   ret = sqlite3_finalize(stmt);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error finalizing query for artwork add: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Error finalizing query for artwork add: %s\n", sqlite3_errmsg(g_db_hdl));
       return -1;
     }
 
@@ -890,13 +886,12 @@ cache_artwork_add_impl(struct cache_command *cmd)
  * If there is a cached entry for the given id and width/height, the parameter cached is set to 1.
  * In this case format and data contain the cached values.
  *
- * @param persistentid persistent songalbumid or songartistid
- * @param max_w maximum image width
- * @param max_h maximum image height
- * @param cached set by this function to 0 if no cache entry exists, otherwise 1
- * @param format set by this function to the format of the cache entry
- * @param data set by this function to the scaled image
- * @param datalen set by this function to the length of data
+ * @param cmd->arg.persistentid persistent songalbumid or songartistid
+ * @param cmd->arg.max_w maximum image width
+ * @param cmd->arg.max_h maximum image height
+ * @param cmd->arg.cached set by this function to 0 if no cache entry exists, otherwise 1
+ * @param cmd->arg.format set by this function to the format of the cache entry
+ * @param cmd->arg.evbuf event buffer filled by this function with the scaled image
  * @return 0 if successful, -1 if an error occurred
  */
 static int
@@ -914,15 +909,15 @@ cache_artwork_get_impl(struct cache_command *cmd)
   query = sqlite3_mprintf(Q_TMPL, cmd->arg.peristentid, cmd->arg.max_w, cmd->arg.max_h);
   if (!query)
     {
-      DPRINTF(E_LOG, L_ACACHE, "Out of memory for query string\n");
+      DPRINTF(E_LOG, L_CACHE, "Out of memory for query string\n");
       return -1;
     }
 
-  DPRINTF(E_DBG, L_ACACHE, "Running query '%s'\n", query);
+  DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
   ret = sqlite3_prepare_v2(g_db_hdl, query, -1, &stmt, 0);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_ACACHE, "Could not prepare statement: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Could not prepare statement: %s\n", sqlite3_errmsg(g_db_hdl));
       ret = -1;
       goto error_get;
     }
@@ -935,12 +930,12 @@ cache_artwork_get_impl(struct cache_command *cmd)
       if (ret == SQLITE_DONE)
 	{
 	  ret = 0;
-	  DPRINTF(E_DBG, L_ACACHE, "No results\n");
+	  DPRINTF(E_DBG, L_CACHE, "No results\n");
 	}
       else
 	{
 	  ret = -1;
-	  DPRINTF(E_LOG, L_ACACHE, "Could not step: %s\n", sqlite3_errmsg(g_db_hdl));
+	  DPRINTF(E_LOG, L_CACHE, "Could not step: %s\n", sqlite3_errmsg(g_db_hdl));
 	}
 
       goto error_get;
@@ -950,14 +945,14 @@ cache_artwork_get_impl(struct cache_command *cmd)
   datalen = sqlite3_column_bytes(stmt, 1);
   if (!cmd->arg.evbuf)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create reply evbuffer\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not create reply evbuffer\n");
       goto error_get;
     }
 
   ret = evbuffer_add(cmd->arg.evbuf, sqlite3_column_blob(stmt, 1), datalen);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Out of memory for reply evbuffer\n");
+      DPRINTF(E_LOG, L_CACHE, "Out of memory for reply evbuffer\n");
       goto error_get;
     }
   cmd->arg.cached = 1;
@@ -965,9 +960,9 @@ cache_artwork_get_impl(struct cache_command *cmd)
 
   ret = sqlite3_finalize(stmt);
   if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DCACHE, "Error finalizing query for getting cache: %s\n", sqlite3_errmsg(g_db_hdl));
+    DPRINTF(E_LOG, L_CACHE, "Error finalizing query for getting cache: %s\n", sqlite3_errmsg(g_db_hdl));
 
-  DPRINTF(E_INFO, L_DCACHE, "Cache hit: %s\n", query);
+  DPRINTF(E_DBG, L_CACHE, "Cache hit: %s\n", query);
 
 
   return 0;
@@ -987,14 +982,14 @@ cache(void *arg)
   ret = cache_create();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error: Cache create failed\n");
+      DPRINTF(E_LOG, L_CACHE, "Error: Cache create failed\n");
       pthread_exit(NULL);
     }
 
   ret = db_perthread_init();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Error: DB init failed\n");
+      DPRINTF(E_LOG, L_CACHE, "Error: DB init failed\n");
       cache_destroy();
 
       pthread_exit(NULL);
@@ -1006,7 +1001,7 @@ cache(void *arg)
 
   if (g_initialized)
     {
-      DPRINTF(E_LOG, L_DCACHE, "cache event loop terminated ahead of time!\n");
+      DPRINTF(E_LOG, L_CACHE, "cache event loop terminated ahead of time!\n");
       g_initialized = 0;
     }
 
@@ -1025,7 +1020,7 @@ exit_cb(int fd, short what, void *arg)
 
   ret = read(g_exit_pipe[0], &dummy, sizeof(dummy));
   if (ret != sizeof(dummy))
-    DPRINTF(E_LOG, L_DCACHE, "Error reading from exit pipe\n");
+    DPRINTF(E_LOG, L_CACHE, "Error reading from exit pipe\n");
 
   event_base_loopbreak(evbase_cache);
 
@@ -1043,7 +1038,7 @@ command_cb(int fd, short what, void *arg)
   ret = read(g_cmd_pipe[0], &cmd, sizeof(cmd));
   if (ret != sizeof(cmd))
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
+      DPRINTF(E_LOG, L_CACHE, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
       goto readd;
     }
 
@@ -1082,7 +1077,7 @@ cache_daap_trigger(void)
   cmd = (struct cache_command *)malloc(sizeof(struct cache_command));
   if (!cmd)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not allocate cache_command\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_command\n");
       return;
     }
 
@@ -1130,7 +1125,7 @@ cache_daap_add(const char *query, const char *ua, int msec)
   cmd = (struct cache_command *)malloc(sizeof(struct cache_command));
   if (!cmd)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not allocate cache_command\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_command\n");
       return;
     }
 
@@ -1251,8 +1246,7 @@ cache_artwork_purge_cruft(time_t ref)
  * @param max_h maximum image height
  * @param format ART_FMT_PNG for png, ART_FMT_JPEG for jpeg or 0 if no artwork available
  * @param filename the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork) or empty if no artwork available
- * @param data the (scaled) image
- * @param datalen lengt of data
+ * @param evbuf event buffer containing the (scaled) image
  * @return 0 if successful, -1 if an error occurred
  */
 int
@@ -1292,8 +1286,7 @@ cache_artwork_add(int64_t persistentid, int max_w, int max_h, int format, char *
  * @param max_h maximum image height
  * @param cached set by this function to 0 if no cache entry exists, otherwise 1
  * @param format set by this function to the format of the cache entry
- * @param data set by this function to the scaled image
- * @param datalen set by this function to the length of data
+ * @param evbuf event buffer filled by this function with the scaled image
  * @return 0 if successful, -1 if an error occurred
  */
 int
@@ -1332,18 +1325,18 @@ cache_init(void)
 {
   int ret;
 
-  g_db_path = cfg_getstr(cfg_getsec(cfg, "general"), "daapcache_path");
+  g_db_path = cfg_getstr(cfg_getsec(cfg, "general"), "cache_path");
   if (!g_db_path || (strlen(g_db_path) == 0))
     {
-      DPRINTF(E_LOG, L_DCACHE, "Cache path invalid, disabling cache\n");
+      DPRINTF(E_LOG, L_CACHE, "Cache path invalid, disabling cache\n");
       g_initialized = 0;
       return 0;
     }
 
-  g_cfg_threshold = cfg_getint(cfg_getsec(cfg, "general"), "daapcache_threshold");
+  g_cfg_threshold = cfg_getint(cfg_getsec(cfg, "general"), "cache_daap_threshold");
   if (g_cfg_threshold == 0)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Cache threshold set to 0, disabling cache\n");
+      DPRINTF(E_LOG, L_CACHE, "Cache threshold set to 0, disabling cache\n");
       g_initialized = 0;
       return 0;
     }
@@ -1355,7 +1348,7 @@ cache_init(void)
 # endif
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create pipe: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_CACHE, "Could not create pipe: %s\n", strerror(errno));
       goto exit_fail;
     }
 
@@ -1366,14 +1359,14 @@ cache_init(void)
 # endif
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create command pipe: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_CACHE, "Could not create command pipe: %s\n", strerror(errno));
       goto cmd_fail;
     }
 
   evbase_cache = event_base_new();
   if (!evbase_cache)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create an event base\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not create an event base\n");
       goto evbase_fail;
     }
 
@@ -1381,28 +1374,28 @@ cache_init(void)
   g_exitev = event_new(evbase_cache, g_exit_pipe[0], EV_READ, exit_cb, NULL);
   if (!g_exitev)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create exit event\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not create exit event\n");
       goto evnew_fail;
     }
 
   g_cmdev = event_new(evbase_cache, g_cmd_pipe[0], EV_READ, command_cb, NULL);
   if (!g_cmdev)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create cmd event\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not create cmd event\n");
       goto evnew_fail;
     }
 
   g_cacheev = evtimer_new(evbase_cache, cache_daap_update_cb, NULL);
   if (!g_cmdev)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create cache event\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not create cache event\n");
       goto evnew_fail;
     }
 #else
   g_exitev = (struct event *)malloc(sizeof(struct event));
   if (!g_exitev)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create exit event\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not create exit event\n");
       goto evnew_fail;
     }
   event_set(g_exitev, g_exit_pipe[0], EV_READ, exit_cb, NULL);
@@ -1411,7 +1404,7 @@ cache_init(void)
   g_cmdev = (struct event *)malloc(sizeof(struct event));
   if (!g_cmdev)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create cmd event\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not create cmd event\n");
       goto evnew_fail;
     }
   event_set(g_cmdev, g_cmd_pipe[0], EV_READ, command_cb, NULL);
@@ -1420,7 +1413,7 @@ cache_init(void)
   g_cacheev = (struct event *)malloc(sizeof(struct event));
   if (!g_cacheev)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not create cache event\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not create cache event\n");
       goto evnew_fail;
     }
   event_set(g_cacheev, -1, EV_TIMEOUT, cache_daap_update_cb, NULL);
@@ -1430,12 +1423,12 @@ cache_init(void)
   event_add(g_exitev, NULL);
   event_add(g_cmdev, NULL);
 
-  DPRINTF(E_INFO, L_DCACHE, "cache thread init\n");
+  DPRINTF(E_INFO, L_CACHE, "cache thread init\n");
 
   ret = pthread_create(&tid_cache, NULL, cache, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DCACHE, "Could not spawn cache thread: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_CACHE, "Could not spawn cache thread: %s\n", strerror(errno));
 
       goto thread_fail;
     }
@@ -1472,7 +1465,7 @@ cache_deinit(void)
   ret = pthread_join(tid_cache, NULL);
   if (ret != 0)
     {
-      DPRINTF(E_FATAL, L_DCACHE, "Could not join cache thread: %s\n", strerror(errno));
+      DPRINTF(E_FATAL, L_CACHE, "Could not join cache thread: %s\n", strerror(errno));
       return;
     }
 
