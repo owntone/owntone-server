@@ -37,6 +37,9 @@
 #include "db.h"
 #include "cache.h"
 
+
+#define CACHE_VERSION 1
+
 /* The DAAP cache will cache raw daap replies for queries added with
  * cache_add(). Only some query types are supported.
  * You can't add queries where the canonical reply is not HTTP_OK, because
@@ -212,7 +215,7 @@ thread_exit(void)
 /*                              Thread: cache                              */
 
 static int
-cache_create(void)
+cache_create_tables(void)
 {
 #define T_REPLIES						\
   "CREATE TABLE IF NOT EXISTS replies ("			\
@@ -245,28 +248,17 @@ cache_create(void)
   "CREATE INDEX IF NOT EXISTS idx_persistentidwh ON artwork(persistentid, max_w, max_h);"
 #define I_ARTWORK_PATH				\
   "CREATE INDEX IF NOT EXISTS idx_pathtime ON artwork(filepath, db_timestamp);"
-#define Q_PRAGMA_CACHE_SIZE "PRAGMA cache_size=%d;"
-#define Q_PRAGMA_JOURNAL_MODE "PRAGMA journal_mode=%s;"
-#define Q_PRAGMA_SYNCHRONOUS "PRAGMA synchronous=%d;"
+#define T_ADMIN_CACHE	\
+  "CREATE TABLE IF NOT EXISTS admin_cache("	\
+  " key VARCHAR(32) PRIMARY KEY NOT NULL,"	\
+  " value VARCHAR(32) NOT NULL"	\
+  ");"
+#define Q_CACHE_VERSION	\
+  "INSERT INTO admin_cache (key, value) VALUES ('cache_version', '1');"
+
   char *errmsg;
   int ret;
-  int cache_size;
-  char *journal_mode;
-  int synchronous;
-  char *query;
 
-  // A fresh start
-  unlink(g_db_path);
-
-  // Create db
-  ret = sqlite3_open(g_db_path, &g_db_hdl);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_FATAL, L_CACHE, "Could not create database: %s\n", sqlite3_errmsg(g_db_hdl));
-
-      sqlite3_close(g_db_hdl);
-      return -1;
-    }
 
   // Create reply cache table
   ret = sqlite3_exec(g_db_hdl, T_REPLIES, NULL, NULL, &errmsg);
@@ -301,11 +293,11 @@ cache_create(void)
       return -1;
     }
 
-  // Create query table (the queries for which we will generate and cache replies)
+  // Create artwork table
   ret = sqlite3_exec(g_db_hdl, T_ARTWORK, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating query table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating artwork table: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -316,7 +308,7 @@ cache_create(void)
   ret = sqlite3_exec(g_db_hdl, I_ARTWORK_ID, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating artwork index: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -325,13 +317,256 @@ cache_create(void)
   ret = sqlite3_exec(g_db_hdl, I_ARTWORK_PATH, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating artwork index: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
       return -1;
     }
 
+  // Create admin cache table
+  ret = sqlite3_exec(g_db_hdl, T_ADMIN_CACHE, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error creating admin cache table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+  ret = sqlite3_exec(g_db_hdl, Q_CACHE_VERSION, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error creating admin cache table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+
+  DPRINTF(E_DBG, L_CACHE, "Cache tables created\n");
+
+  return 0;
+#undef T_REPLIES
+#undef T_QUERIES
+#undef I_QUERY
+#undef T_ARTWORK
+#undef I_ARTWORK_ID
+#undef I_ARTWORK_PATH
+#undef T_ADMIN_CACHE
+#undef Q_CACHE_VERSION
+}
+
+static int
+cache_drop_tables(void)
+{
+#define D_REPLIES	"DROP TABLE IF EXISTS replies;"
+#define D_QUERIES	"DROP TABLE IF EXISTS queries;"
+#define D_QUERY		"DROP INDEX IF EXISTS idx_query;"
+#define D_ARTWORK	"DROP TABLE IF EXISTS artwork;"
+#define D_ARTWORK_ID	"DROP INDEX IF EXISTS idx_persistentidwh;"
+#define D_ARTWORK_PATH	"DROP INDEX IF EXISTS idx_pathtime;"
+#define D_ADMIN_CACHE	"DROP TABLE IF EXISTS admin_cache;"
+#define Q_VACUUM	"VACUUM;"
+
+  char *errmsg;
+  int ret;
+
+
+  // Drop reply cache table
+  ret = sqlite3_exec(g_db_hdl, D_REPLIES, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error dropping reply cache table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+  // Drop query table
+  ret = sqlite3_exec(g_db_hdl, D_QUERIES, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error dropping query table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+  // Drop index
+  ret = sqlite3_exec(g_db_hdl, D_QUERY, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error dropping query index: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+  // Drop artwork table
+  ret = sqlite3_exec(g_db_hdl, D_ARTWORK, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+  // Drop index
+  ret = sqlite3_exec(g_db_hdl, D_ARTWORK_ID, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork index: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+  ret = sqlite3_exec(g_db_hdl, D_ARTWORK_PATH, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork index: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+  // Drop admin cache table
+  ret = sqlite3_exec(g_db_hdl, D_ADMIN_CACHE, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error dropping admin cache table: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+  // Vacuum
+  ret = sqlite3_exec(g_db_hdl, Q_VACUUM, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Error vacuum cache database: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_CACHE, "Cache tables dropped\n");
+
+  return 0;
+#undef D_REPLIES
+#undef D_QUERIES
+#undef D_QUERY
+#undef D_ARTWORK
+#undef D_ARTWORK_ID
+#undef D_ARTWORK_PATH
+#undef D_ADMIN_CACHE
+#undef Q_VACUUM
+}
+
+/*
+ * Compares the CACHE_VERSION against the version stored in the cache admin table.
+ * Drops the tables and indexes if the versions are different.
+ *
+ * @return 0 if versions are equal, 1 if versions are different or the admin table does not exist, -1 if an error occurred
+ */
+static int
+cache_check_version(void)
+{
+#define Q_VER "SELECT value FROM admin_cache WHERE key = 'cache_version';"
+  sqlite3_stmt *stmt;
+  int cur_ver;
+  int ret;
+
+  DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", Q_VER);
+
+  ret = sqlite3_prepare_v2(g_db_hdl, Q_VER, strlen(Q_VER) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not prepare statement: %s\n", sqlite3_errmsg(g_db_hdl));
+      return 1;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not step: %s\n", sqlite3_errmsg(g_db_hdl));
+      sqlite3_finalize(stmt);
+      return -1;
+    }
+
+  cur_ver = sqlite3_column_int(stmt, 0);
+  sqlite3_finalize(stmt);
+
+  if (cur_ver != CACHE_VERSION)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Database schema outdated, deleting cache v%d -> v%d\n", cur_ver, CACHE_VERSION);
+      ret = cache_drop_tables();
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_CACHE, "Error deleting database tables\n");
+	  return -1;
+	}
+      return 1;
+    }
+  return 0;
+#undef Q_VER
+}
+
+static int
+cache_create(void)
+{
+#define Q_PRAGMA_CACHE_SIZE "PRAGMA cache_size=%d;"
+#define Q_PRAGMA_JOURNAL_MODE "PRAGMA journal_mode=%s;"
+#define Q_PRAGMA_SYNCHRONOUS "PRAGMA synchronous=%d;"
+  char *errmsg;
+  int ret;
+  int cache_size;
+  char *journal_mode;
+  int synchronous;
+  char *query;
+
+  // Open db
+  ret = sqlite3_open(g_db_path, &g_db_hdl);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Could not open database: %s\n", sqlite3_errmsg(g_db_hdl));
+
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+
+  // Check cache version
+  ret = cache_check_version();
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_CACHE, "Could not check cache database version\n");
+
+      sqlite3_close(g_db_hdl);
+      return -1;
+    }
+  else if (ret > 0)
+    {
+      ret = cache_create_tables();
+      if (ret < 0)
+	{
+	  DPRINTF(E_FATAL, L_CACHE, "Could not create database tables\n");
+
+	  sqlite3_close(g_db_hdl);
+	  return -1;
+	}
+    }
+
+  // Set page cache size in number of pages
   cache_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_cache_size_cache");
   if (cache_size > -1)
     {
@@ -347,6 +582,7 @@ cache_create(void)
 	}
     }
 
+  // Set journal mode
   journal_mode = cfg_getstr(cfg_getsec(cfg, "sqlite"), "pragma_journal_mode");
   if (journal_mode)
     {
@@ -362,6 +598,7 @@ cache_create(void)
 	}
     }
 
+  // Set synchronous flag
   synchronous = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_synchronous");
   if (synchronous > -1)
     {
@@ -380,19 +617,13 @@ cache_create(void)
   DPRINTF(E_DBG, L_CACHE, "Cache created\n");
 
   return 0;
-#undef T_REPLIES
-#undef T_QUERIES
-#undef I_QUERY
-#undef T_ARTWORK
-#undef I_ARTWORK_ID
-#undef I_ARTWORK_PATH
 #undef Q_PRAGMA_CACHE_SIZE
 #undef Q_PRAGMA_JOURNAL_MODE
 #undef Q_PRAGMA_SYNCHRONOUS
 }
 
 static void
-cache_destroy(void)
+cache_close(void)
 {
   sqlite3_stmt *stmt;
 
@@ -405,9 +636,7 @@ cache_destroy(void)
 
   sqlite3_close(g_db_hdl);
 
-  unlink(g_db_path);
-
-  DPRINTF(E_DBG, L_CACHE, "Cache destroyed\n");
+  DPRINTF(E_DBG, L_CACHE, "Cache closed\n");
 }
 
 /* Adds the reply (stored in evbuf) to the cache */
@@ -715,7 +944,7 @@ cache_artwork_ping_impl(struct cache_command *cmd)
 
   sqlite3_free(query);
 
-  query = sqlite3_mprintf(Q_TMPL_DEL, (int64_t)time(NULL), cmd->arg.path, (int64_t)cmd->arg.mtime);
+  query = sqlite3_mprintf(Q_TMPL_DEL, cmd->arg.path, (int64_t)cmd->arg.mtime);
 
   DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
 
@@ -990,7 +1219,7 @@ cache(void *arg)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CACHE, "Error: DB init failed\n");
-      cache_destroy();
+      cache_close();
 
       pthread_exit(NULL);
     }
@@ -1007,7 +1236,7 @@ cache(void *arg)
 
   db_perthread_deinit();
 
-  cache_destroy();
+  cache_close();
 
   pthread_exit(NULL);
 }
@@ -1163,7 +1392,7 @@ cache_daap_threshold(void)
  * @return 0 if successful, -1 if an error occurred
  */
 int
-cache_artwork_ping(char *path, time_t mtime, int del)
+cache_artwork_ping(char *path, time_t mtime)
 {
   struct cache_command cmd;
   int ret;

@@ -754,7 +754,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
       case FILE_REGULAR:
 	filescanner_process_media(file, mtime, size, type, NULL);
 
-	//cache_artwork_ping(file, mtime, !(flags & F_SCAN_BULK));
+	cache_artwork_ping(file, mtime);
 	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
 
 	counter++;
@@ -778,7 +778,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 
       case FILE_ARTWORK:
 	DPRINTF(E_DBG, L_SCAN, "Artwork file: %s\n", file);
-	//cache_artwork_ping(file, mtime, !(flags & F_SCAN_BULK));
+	cache_artwork_ping(file, mtime);
 
 	// TODO [artworkcache] If entry in artwork cache exists for no artwork available for a album with files in the same directory, delete the entry
 

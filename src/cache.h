@@ -28,7 +28,7 @@ cache_daap_threshold(void);
 /* ---------------------------- Artwork cache API  --------------------------- */
 
 int
-cache_artwork_ping(char *path, time_t mtime, int del);
+cache_artwork_ping(char *path, time_t mtime);
 
 int
 cache_artwork_delete_by_path(char *path);

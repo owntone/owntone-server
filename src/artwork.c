@@ -1079,7 +1079,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
    * First check if the artwork cache has a cached entry for the given persistent id and requested width/height
    */
   ret = cache_artwork_get(persistentid, max_w, max_h, &cached, &format, evbuf);
-  if (cached)
+  if (ret == 0 && cached)
     {
       if (format > 0)
 	{
