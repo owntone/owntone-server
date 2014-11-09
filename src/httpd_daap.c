@@ -2668,19 +2668,6 @@ daap_request(struct evhttp_request *req)
    */
   evhttp_add_header(headers, "Content-Type", "application/x-dmap-tagged");
 
-  // Try the cache
-  evbuf = cache_daap_get(full_uri);
-  if (evbuf)
-    {
-      httpd_send_reply(req, HTTP_OK, "OK", evbuf); // TODO not all want this reply
-
-      evbuffer_free(evbuf);
-      free(uri);
-      free(full_uri);
-      return;
-    }
-
-  // No cache, so prepare handler arguments and send to the handler
   evbuf = evbuffer_new();
   if (!evbuf)
     {
@@ -2693,6 +2680,19 @@ daap_request(struct evhttp_request *req)
       return;
     }
 
+  // Try the cache
+  ret = cache_daap_get(full_uri, evbuf);
+  if (ret == 0)
+    {
+      httpd_send_reply(req, HTTP_OK, "OK", evbuf); // TODO not all want this reply
+
+      evbuffer_free(evbuf);
+      free(uri);
+      free(full_uri);
+      return;
+    }
+
+  // No cache, so prepare handler arguments and send to the handler
   evhttp_parse_query(full_uri, &query);
 
   clock_gettime(CLOCK_MONOTONIC, &start);

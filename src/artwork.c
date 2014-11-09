@@ -229,7 +229,6 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
   if (dst_fmt->video_codec == AV_CODEC_ID_NONE)
     {
       dst_fmt->video_codec = AV_CODEC_ID_PNG;
-      //dst_fmt->video_codec = AV_CODEC_ID_MJPEG;
     }
 #else
   dst_fmt->video_codec = CODEC_ID_NONE;
@@ -244,7 +243,6 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
   if (dst_fmt->video_codec == CODEC_ID_NONE)
     {
       dst_fmt->video_codec = CODEC_ID_PNG;
-      //dst_fmt->video_codec = CODEC_ID_MJPEG;
     }
 #endif
 
@@ -970,81 +968,6 @@ artwork_get_item_path(char *path, int artwork, int max_w, int max_h, struct evbu
 }
 
 /*
- * Get the cached artwork image for the given persistent id and width/height
- *
- * @param persistentid persistent songalbumid or songartistid
- * @param max_w maximum image width
- * @param max_h maximum image height
- * @param evbuf the event buffer that will contain the cached image
- * @return -1 if no cache entry exists, otherwise the format of the cache entry
-
-static int artwork_cache_get(int64_t persistentid, int max_w, int max_h, struct evbuffer *evbuf)
-{
-  int cached;
-  char *data;
-  int datalen;
-  int format;
-  int ret;
-
-  format = 0;
-  cached = 0;
-
-  ret = cache_artwork_get(persistentid, max_w, max_h, &cached, &format, evbuf);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_ART, "Error fetching artwork cache entry for persistent id %" PRId64 "\n", persistentid);
-      return ret;
-    }
-
-  if (!cached)
-    {
-      DPRINTF(E_DBG, L_ART, "Artwork entry not found in artwork cache for persistent id %" PRId64 "\n", persistentid);
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_ART, "Artwork entry found in artwork cache for persistent id %" PRId64 "\n", persistentid);
-
-  if (format == 0)
-    {
-      DPRINTF(E_DBG, L_ART, "No artwork avaiable for persistent id %" PRId64 "\n", persistentid);
-    }
-  else
-    {
-      evbuffer_add(evbuf, data, datalen);
-      DPRINTF(E_DBG, L_ART, "Artwork with length %d found for persistent id %" PRId64 "\n", datalen, persistentid);
-    }
-
-  free(data);
-
-  return format;
-}*/
-
-/*
- * Save the artwork image for the given persistent id and width/height in the artwork cache
- *
- * @param persistentid persistent songalbumid or songartistid
- * @param max_w maximum image width
- * @param max_h maximum image height
- * @param format ART_FMT_PNG for png, ART_FMT_JPEG for jpeg or 0 if no artwork available
- * @param path the full path to the artwork file (could be an jpg/png image or a media file with embedded artwork) or empty if no artwork available
- * @param evbuf the event buffer that contain the (scaled) image
- * @return the format of the artwork image
-
-static int artwork_cache_save(int64_t persistentid, int max_w, int max_h, int format, char *path, struct evbuffer *evbuf)
-{
-  char *data;
-
-  data = malloc(evbuffer_get_length(evbuf));
-  evbuffer_copyout(evbuf, data, evbuffer_get_length(evbuf));
-
-  cache_artwork_add(persistentid, max_w, max_h, format, path, evbuf);
-
-  free(data);
-
-  return format;
-}*/
-
-/*
  * Get the artwork image for the given persistentid and the given maximum width/height
  *
  * The function first checks if there is a cache entry, if not it will first look for directory artwork files.
@@ -1070,7 +993,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   int got_spotifyitem;
   uint32_t data_kind;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for group %" PRId64 "\n", persistentid);
+  DPRINTF(E_DBG, L_ART, "Artwork request for group %"PRIi64 "\n", persistentid);
 
   ret = 0;
   got_spotifyitem = 0;
@@ -1084,13 +1007,13 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       if (format > 0)
 	{
 	  // Artwork found in cache "ret" contains the format of the image
-	  DPRINTF(E_DBG, L_ART, "Artwork found in cache for group %" PRId64 "\n", persistentid);
+	  DPRINTF(E_DBG, L_ART, "Artwork found in cache for group %"PRIi64 "\n", persistentid);
 	  return format;
 	}
       else if (format == 0)
 	{
 	  // Entry found in cache but there is not artwork available
-	  DPRINTF(E_DBG, L_ART, "Artwork found in cache but no image available for group %" PRId64 "\n", persistentid);
+	  DPRINTF(E_DBG, L_ART, "Artwork found in cache but no image available for group %"PRIi64 "\n", persistentid);
 	  return -1;
 	}
     }
@@ -1181,7 +1104,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   if (!got_spotifyitem)
     cache_artwork_add(persistentid, max_w, max_h, 0, "", evbuf);
 
-  DPRINTF(E_DBG, L_ART, "No artwork found for group %" PRId64 "\n", persistentid);
+  DPRINTF(E_DBG, L_ART, "No artwork found for group %"PRIi64 "\n", persistentid);
 
   return -1;
 }

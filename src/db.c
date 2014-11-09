@@ -1268,16 +1268,16 @@ db_build_query_group_items(struct query_params *qp, char **q)
     {
       case G_ALBUMS:
 	count = sqlite3_mprintf("SELECT COUNT(*) FROM files f"
-				" WHERE f.songalbumid = %" PRId64 " AND f.disabled = 0;", qp->persistentid);
+				" WHERE f.songalbumid = %"PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       case G_ARTISTS:
 	count = sqlite3_mprintf("SELECT COUNT(*) FROM files f"
-				" WHERE f.songartistid = %" PRId64 " AND f.disabled = 0;", qp->persistentid);
+				" WHERE f.songartistid = %"PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       default:
-	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %" PRId64 "\n", gt, qp->persistentid);
+	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %"PRIi64 "\n", gt, qp->persistentid);
 	return -1;
     }
 
@@ -1298,12 +1298,12 @@ db_build_query_group_items(struct query_params *qp, char **q)
     {
       case G_ALBUMS:
 	query = sqlite3_mprintf("SELECT f.* FROM files f"
-				" WHERE f.songalbumid = %" PRId64 " AND f.disabled = 0;", qp->persistentid);
+				" WHERE f.songalbumid = %"PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       case G_ARTISTS:
 	query = sqlite3_mprintf("SELECT f.* FROM files f"
-				" WHERE f.songartistid = %" PRId64 " AND f.disabled = 0;", qp->persistentid);
+				" WHERE f.songartistid = %"PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       default:
@@ -1335,17 +1335,17 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
       case G_ALBUMS:
 	count = sqlite3_mprintf("SELECT COUNT(DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1)))"
 				" FROM files f"
-				" WHERE f.songalbumid = %" PRId64 " AND f.disabled = 0;", qp->persistentid);
+				" WHERE f.songalbumid = %"PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       case G_ARTISTS:
 	count = sqlite3_mprintf("SELECT COUNT(DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1)))"
 				" FROM files f"
-				" WHERE f.songartistid = %" PRId64 " AND f.disabled = 0;", qp->persistentid);
+				" WHERE f.songartistid = %"PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       default:
-	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %" PRId64 "\n", gt, qp->persistentid);
+	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %"PRIi64 "\n", gt, qp->persistentid);
 	return -1;
     }
 
@@ -1367,13 +1367,13 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
       case G_ALBUMS:
 	query = sqlite3_mprintf("SELECT DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1))"
 				" FROM files f"
-				" WHERE f.songalbumid = %" PRId64 " AND f.disabled = 0;", qp->persistentid);
+				" WHERE f.songalbumid = %"PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       case G_ARTISTS:
 	query = sqlite3_mprintf("SELECT DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1))"
 				" FROM files f"
-				" WHERE f.songartistid = %" PRId64 " AND f.disabled = 0;", qp->persistentid);
+				" WHERE f.songartistid = %"PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       default:
@@ -3118,7 +3118,7 @@ db_groups_clear(void)
 static enum group_type
 db_group_type_bypersistentid(int64_t persistentid)
 {
-#define Q_TMPL "SELECT g.type FROM groups g WHERE g.persistentid = '%" PRId64 "';"
+#define Q_TMPL "SELECT g.type FROM groups g WHERE g.persistentid = '%"PRIi64 "';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;

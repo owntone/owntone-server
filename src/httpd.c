@@ -52,7 +52,6 @@
 #include "httpd_daap.h"
 #include "httpd_dacp.h"
 #include "transcode.h"
-#include "cache.h"
 
 /*
  * HTTP client quirks by User-Agent, from mt-daapd

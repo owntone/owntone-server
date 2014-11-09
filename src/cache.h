@@ -15,8 +15,8 @@
 void
 cache_daap_trigger(void);
 
-struct evbuffer *
-cache_daap_get(const char *query);
+int
+cache_daap_get(const char *query, struct evbuffer *evbuf);
 
 void
 cache_daap_add(const char *query, const char *ua, int msec);
@@ -37,7 +37,7 @@ int
 cache_artwork_purge_cruft(time_t ref);
 
 int
-cache_artwork_add(int64_t peristentid, int max_w, int max_h, int format, char *filename, struct evbuffer *evbuf);
+cache_artwork_add(int64_t persistentid, int max_w, int max_h, int format, char *filename, struct evbuffer *evbuf);
 
 int
 cache_artwork_get(int64_t persistentid, int max_w, int max_h, int *cached, int *format, struct evbuffer *evbuf);

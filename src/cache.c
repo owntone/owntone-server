@@ -254,8 +254,9 @@ cache_create_tables(void)
   " value VARCHAR(32) NOT NULL"	\
   ");"
 #define Q_CACHE_VERSION	\
-  "INSERT INTO admin_cache (key, value) VALUES ('cache_version', '1');"
+  "INSERT INTO admin_cache (key, value) VALUES ('cache_version', '%d');"
 
+  char *query;
   char *errmsg;
   int ret;
 
@@ -334,7 +335,8 @@ cache_create_tables(void)
       sqlite3_close(g_db_hdl);
       return -1;
     }
-  ret = sqlite3_exec(g_db_hdl, Q_CACHE_VERSION, NULL, NULL, &errmsg);
+  query = sqlite3_mprintf(Q_CACHE_VERSION, CACHE_VERSION);
+  ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_CACHE, "Error creating admin cache table: %s\n", errmsg);
@@ -344,6 +346,7 @@ cache_create_tables(void)
       return -1;
     }
 
+  sqlite3_free(query);
 
   DPRINTF(E_DBG, L_CACHE, "Cache tables created\n");
 
@@ -775,8 +778,6 @@ cache_daap_query_get(struct cache_command *cmd)
   int datlen;
   int ret;
 
-  cmd->arg.evbuf = NULL;
-
   query = cmd->arg.query;
   remove_tag(query, "session-id");
   remove_tag(query, "revision-number");
@@ -802,7 +803,6 @@ cache_daap_query_get(struct cache_command *cmd)
 
   datlen = sqlite3_column_bytes(stmt, 0);
 
-  cmd->arg.evbuf = evbuffer_new();
   if (!cmd->arg.evbuf)
     {
       DPRINTF(E_LOG, L_CACHE, "Could not create reply evbuffer\n");
@@ -1062,7 +1062,7 @@ cache_artwork_add_impl(struct cache_command *cmd)
 {
   sqlite3_stmt *stmt;
   char *query;
-  char *data;
+  uint8_t *data;
   int datalen;
   int ret;
 
@@ -1126,7 +1126,7 @@ cache_artwork_add_impl(struct cache_command *cmd)
 static int
 cache_artwork_get_impl(struct cache_command *cmd)
 {
-#define Q_TMPL "SELECT a.format, a.data FROM artwork a WHERE a.persistentid = '%" PRId64 "' AND a.max_w = %d AND a.max_h = %d;"
+#define Q_TMPL "SELECT a.format, a.data FROM artwork a WHERE a.persistentid = '%"PRIi64 "' AND a.max_w = %d AND a.max_h = %d;"
   sqlite3_stmt *stmt;
   char *query;
   int datalen;
@@ -1319,11 +1319,10 @@ cache_daap_trigger(void)
   nonblock_command(cmd);
 }
 
-struct evbuffer *
-cache_daap_get(const char *query)
+int
+cache_daap_get(const char *query, struct evbuffer *evbuf)
 {
   struct cache_command cmd;
-  struct evbuffer *evbuf;
   int ret;
 
   if (!g_initialized)
@@ -1333,14 +1332,13 @@ cache_daap_get(const char *query)
 
   cmd.func = cache_daap_query_get;
   cmd.arg.query = strdup(query);
+  cmd.arg.evbuf = evbuf;
 
   ret = sync_command(&cmd);
 
-  evbuf = cmd.arg.evbuf;
-
   command_deinit(&cmd);
 
-  return ((ret < 0) ? NULL : evbuf);
+  return ret;
 }
 
 void

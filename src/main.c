@@ -59,7 +59,6 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "logger.h"
 #include "misc.h"
 #include "cache.h"
-//#include "artwork_cache.h"
 #include "filescanner.h"
 #include "httpd.h"
 #include "mdns.h"

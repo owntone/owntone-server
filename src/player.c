@@ -57,7 +57,6 @@
 #include "player.h"
 #include "raop.h"
 #include "laudio.h"
-#include "cache.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
