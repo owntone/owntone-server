@@ -649,14 +649,14 @@ cache_daap_reply_add(const char *query, struct evbuffer *evbuf)
 #define Q_TMPL "INSERT INTO replies (query, reply) VALUES (?, ?);"
   sqlite3_stmt *stmt;
   unsigned char *data;
-  size_t datlen;
+  size_t datalen;
   int ret;
 
 #ifdef HAVE_LIBEVENT2
-  datlen = evbuffer_get_length(evbuf);
+  datalen = evbuffer_get_length(evbuf);
   data = evbuffer_pullup(evbuf, -1);
 #else
-  datlen = EVBUFFER_LENGTH(evbuf);
+  datalen = EVBUFFER_LENGTH(evbuf);
   data = EVBUFFER_DATA(evbuf);
 #endif
 
@@ -668,7 +668,7 @@ cache_daap_reply_add(const char *query, struct evbuffer *evbuf)
     }
 
   sqlite3_bind_text(stmt, 1, query, -1, SQLITE_STATIC);
-  sqlite3_bind_blob(stmt, 2, data, datlen, SQLITE_STATIC);
+  sqlite3_bind_blob(stmt, 2, data, datalen, SQLITE_STATIC);
 
   ret = sqlite3_step(stmt);
   if (ret != SQLITE_DONE)
@@ -685,7 +685,7 @@ cache_daap_reply_add(const char *query, struct evbuffer *evbuf)
       return -1;
     }
 
-  //DPRINTF(E_DBG, L_CACHE, "Wrote cache reply, size %d\n", datlen);
+  //DPRINTF(E_DBG, L_CACHE, "Wrote cache reply, size %d\n", datalen);
 
   return 0;
 #undef Q_TMPL
@@ -775,7 +775,7 @@ cache_daap_query_get(struct cache_command *cmd)
 #define Q_TMPL "SELECT reply FROM replies WHERE query = ?;"
   sqlite3_stmt *stmt;
   char *query;
-  int datlen;
+  int datalen;
   int ret;
 
   query = cmd->arg.query;
@@ -801,20 +801,18 @@ cache_daap_query_get(struct cache_command *cmd)
       goto error_get;
     }
 
-  datlen = sqlite3_column_bytes(stmt, 0);
+  datalen = sqlite3_column_bytes(stmt, 0);
 
   if (!cmd->arg.evbuf)
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not create reply evbuffer\n");
+      DPRINTF(E_LOG, L_CACHE, "Error: DAAP reply evbuffer is NULL\n");
       goto error_get;
     }
 
-  ret = evbuffer_add(cmd->arg.evbuf, sqlite3_column_blob(stmt, 0), datlen);
+  ret = evbuffer_add(cmd->arg.evbuf, sqlite3_column_blob(stmt, 0), datalen);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_CACHE, "Out of memory for reply evbuffer\n");
-      evbuffer_free(cmd->arg.evbuf);
-      cmd->arg.evbuf = NULL;
+      DPRINTF(E_LOG, L_CACHE, "Out of memory for DAAP reply evbuffer\n");
       goto error_get;
     }
 
@@ -1078,9 +1076,13 @@ cache_artwork_add_impl(struct cache_command *cmd)
       return -1;
     }
 
-  data = malloc(evbuffer_get_length(cmd->arg.evbuf));
-  evbuffer_copyout(cmd->arg.evbuf, data, evbuffer_get_length(cmd->arg.evbuf));
+#ifdef HAVE_LIBEVENT2
   datalen = evbuffer_get_length(cmd->arg.evbuf);
+  data = evbuffer_pullup(cmd->arg.evbuf, -1);
+#else
+  datalen = EVBUFFER_LENGTH(cmd->arg.evbuf);
+  data = EVBUFFER_DATA(cmd->arg.evbuf);
+#endif
 
   sqlite3_bind_int64(stmt, 1, cmd->arg.peristentid);
   sqlite3_bind_int(stmt, 2, cmd->arg.max_w);
@@ -1089,7 +1091,6 @@ cache_artwork_add_impl(struct cache_command *cmd)
   sqlite3_bind_text(stmt, 5, cmd->arg.path, -1, SQLITE_STATIC);
   sqlite3_bind_int(stmt, 6, (uint64_t)time(NULL));
   sqlite3_bind_blob(stmt, 7, data, datalen, SQLITE_STATIC);
-
 
   ret = sqlite3_step(stmt);
   if (ret != SQLITE_DONE)
@@ -1174,18 +1175,18 @@ cache_artwork_get_impl(struct cache_command *cmd)
   datalen = sqlite3_column_bytes(stmt, 1);
   if (!cmd->arg.evbuf)
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not create reply evbuffer\n");
+      DPRINTF(E_LOG, L_CACHE, "Error: Artwork evbuffer is NULL\n");
       goto error_get;
     }
 
   ret = evbuffer_add(cmd->arg.evbuf, sqlite3_column_blob(stmt, 1), datalen);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_CACHE, "Out of memory for reply evbuffer\n");
+      DPRINTF(E_LOG, L_CACHE, "Out of memory for artwork evbuffer\n");
       goto error_get;
     }
-  cmd->arg.cached = 1;
 
+  cmd->arg.cached = 1;
 
   ret = sqlite3_finalize(stmt);
   if (ret != SQLITE_OK)
@@ -1193,12 +1194,11 @@ cache_artwork_get_impl(struct cache_command *cmd)
 
   DPRINTF(E_DBG, L_CACHE, "Cache hit: %s\n", query);
 
-
   return 0;
 
-  error_get:
-   sqlite3_finalize(stmt);
-   return -1;
+ error_get:
+  sqlite3_finalize(stmt);
+  return -1;
 #undef Q_TMPL
 }
 
@@ -1326,7 +1326,7 @@ cache_daap_get(const char *query, struct evbuffer *evbuf)
   int ret;
 
   if (!g_initialized)
-    return NULL;
+    return -1;
 
   command_init(&cmd);
 
