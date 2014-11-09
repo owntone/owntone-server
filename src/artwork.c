@@ -993,7 +993,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   int got_spotifyitem;
   uint32_t data_kind;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for group %"PRIi64 "\n", persistentid);
+  DPRINTF(E_DBG, L_ART, "Artwork request for group %" PRIi64 "\n", persistentid);
 
   ret = 0;
   got_spotifyitem = 0;
@@ -1007,13 +1007,13 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
       if (format > 0)
 	{
 	  // Artwork found in cache "ret" contains the format of the image
-	  DPRINTF(E_DBG, L_ART, "Artwork found in cache for group %"PRIi64 "\n", persistentid);
+	  DPRINTF(E_DBG, L_ART, "Artwork found in cache for group %" PRIi64 "\n", persistentid);
 	  return format;
 	}
       else if (format == 0)
 	{
 	  // Entry found in cache but there is not artwork available
-	  DPRINTF(E_DBG, L_ART, "Artwork found in cache but no image available for group %"PRIi64 "\n", persistentid);
+	  DPRINTF(E_DBG, L_ART, "Artwork found in cache but no image available for group %" PRIi64 "\n", persistentid);
 	  return -1;
 	}
     }
@@ -1104,7 +1104,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   if (!got_spotifyitem)
     cache_artwork_add(persistentid, max_w, max_h, 0, "", evbuf);
 
-  DPRINTF(E_DBG, L_ART, "No artwork found for group %"PRIi64 "\n", persistentid);
+  DPRINTF(E_DBG, L_ART, "No artwork found for group %" PRIi64 "\n", persistentid);
 
   return -1;
 }
