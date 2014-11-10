@@ -923,9 +923,6 @@ cache_artwork_ping_impl(struct cache_command *cmd)
   char *errmsg;
   int ret;
 
-  if (!g_initialized)
-    return -1;
-
   query = sqlite3_mprintf(Q_TMPL_PING, (int64_t)time(NULL), cmd->arg.path, (int64_t)cmd->arg.mtime);
 
   DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
@@ -979,9 +976,6 @@ cache_artwork_delete_by_path_impl(struct cache_command *cmd)
   char *errmsg;
   int ret;
 
-  if (!g_initialized)
-    return -1;
-
   query = sqlite3_mprintf(Q_TMPL_DEL, cmd->arg.path);
 
   DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
@@ -1017,9 +1011,6 @@ cache_artwork_purge_cruft_impl(struct cache_command *cmd)
   char *query;
   char *errmsg;
   int ret;
-
-  if (!g_initialized)
-    return -1;
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)cmd->arg.mtime);
 
@@ -1063,9 +1054,6 @@ cache_artwork_add_impl(struct cache_command *cmd)
   uint8_t *data;
   int datalen;
   int ret;
-
-  if (!g_initialized)
-    return -1;
 
   query = "INSERT INTO artwork (id, persistentid, max_w, max_h, format, filepath, db_timestamp, data) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?);";
 
@@ -1132,9 +1120,6 @@ cache_artwork_get_impl(struct cache_command *cmd)
   char *query;
   int datalen;
   int ret;
-
-  if (!g_initialized)
-    return -1;
 
   query = sqlite3_mprintf(Q_TMPL, cmd->arg.peristentid, cmd->arg.max_w, cmd->arg.max_h);
   if (!query)
