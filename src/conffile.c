@@ -53,8 +53,8 @@ static cfg_opt_t sec_general[] =
     CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
     CFG_INT_CB("loglevel", E_LOG, CFGF_NONE, &cb_loglevel),
     CFG_BOOL("ipv6", cfg_false, CFGF_NONE),
-    CFG_STR("daapcache_path", STATEDIR "/cache/" PACKAGE "/daapcache.db", CFGF_NONE),
-    CFG_INT("daapcache_threshold", 1000, CFGF_NONE),
+    CFG_STR("cache_path", STATEDIR "/cache/" PACKAGE "/cache.db", CFGF_NONE),
+    CFG_INT("cache_daap_threshold", 1000, CFGF_NONE),
     CFG_END()
   };
 
@@ -114,6 +114,16 @@ static cfg_opt_t sec_spotify[] =
     CFG_END()
   };
 
+/* SQLite section structure */
+static cfg_opt_t sec_sqlite[] =
+  {
+    CFG_INT("pragma_cache_size_library", -1, CFGF_NONE),
+    CFG_INT("pragma_cache_size_cache", -1, CFGF_NONE),
+    CFG_STR("pragma_journal_mode", NULL, CFGF_NONE),
+    CFG_INT("pragma_synchronous", -1, CFGF_NONE),
+    CFG_END()
+  };
+
 /* Config file structure */
 static cfg_opt_t toplvl_cfg[] =
   {
@@ -122,6 +132,7 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("audio", sec_audio, CFGF_NONE),
     CFG_SEC("airplay", sec_airplay, CFGF_MULTI | CFGF_TITLE),
     CFG_SEC("spotify", sec_spotify, CFGF_NONE),
+    CFG_SEC("sqlite", sec_sqlite, CFGF_NONE),
     CFG_END()
   };
 

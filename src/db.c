@@ -40,7 +40,7 @@
 
 #include "conffile.h"
 #include "logger.h"
-#include "daap_cache.h"
+#include "cache.h"
 #include "misc.h"
 #include "db.h"
 
@@ -290,6 +290,9 @@ db_smartpl_count_items(const char *smartpl_query);
 
 struct playlist_info *
 db_pl_fetch_byid(int id);
+
+static enum group_type
+db_group_type_bypersistentid(int64_t persistentid);
 
 
 char *
@@ -1259,22 +1262,22 @@ db_build_query_group_items(struct query_params *qp, char **q)
   char *count;
   enum group_type gt;
 
-  gt = db_group_type_byid(qp->id);
+  gt = db_group_type_bypersistentid(qp->persistentid);
 
   switch (gt)
     {
       case G_ALBUMS:
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
-				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
+	count = sqlite3_mprintf("SELECT COUNT(*) FROM files f"
+				" WHERE f.songalbumid = %" PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       case G_ARTISTS:
-	count = sqlite3_mprintf("SELECT COUNT(*) FROM files f JOIN groups g ON f.songartistid = g.persistentid"
-				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
+	count = sqlite3_mprintf("SELECT COUNT(*) FROM files f"
+				" WHERE f.songartistid = %" PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       default:
-	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %d\n", gt, qp->id);
+	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %" PRIi64 "\n", gt, qp->persistentid);
 	return -1;
     }
 
@@ -1294,13 +1297,13 @@ db_build_query_group_items(struct query_params *qp, char **q)
   switch (gt)
     {
       case G_ALBUMS:
-	query = sqlite3_mprintf("SELECT f.* FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
-				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
+	query = sqlite3_mprintf("SELECT f.* FROM files f"
+				" WHERE f.songalbumid = %" PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       case G_ARTISTS:
-	query = sqlite3_mprintf("SELECT f.* FROM files f JOIN groups g ON f.songartistid = g.persistentid"
-				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
+	query = sqlite3_mprintf("SELECT f.* FROM files f"
+				" WHERE f.songartistid = %" PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       default:
@@ -1325,24 +1328,24 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
   char *count;
   enum group_type gt;
 
-  gt = db_group_type_byid(qp->id);
+  gt = db_group_type_bypersistentid(qp->persistentid);
 
   switch (gt)
     {
       case G_ALBUMS:
 	count = sqlite3_mprintf("SELECT COUNT(DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1)))"
-				" FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
-				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
+				" FROM files f"
+				" WHERE f.songalbumid = %" PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       case G_ARTISTS:
 	count = sqlite3_mprintf("SELECT COUNT(DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1)))"
-				" FROM files f JOIN groups g ON f.songartistid = g.persistentid"
-				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
+				" FROM files f"
+				" WHERE f.songartistid = %" PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       default:
-	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %d\n", gt, qp->id);
+	DPRINTF(E_LOG, L_DB, "Unsupported group type %d for group id %" PRIi64 "\n", gt, qp->persistentid);
 	return -1;
     }
 
@@ -1363,14 +1366,14 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
     {
       case G_ALBUMS:
 	query = sqlite3_mprintf("SELECT DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1))"
-				" FROM files f JOIN groups g ON f.songalbumid = g.persistentid"
-				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
+				" FROM files f"
+				" WHERE f.songalbumid = %" PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       case G_ARTISTS:
 	query = sqlite3_mprintf("SELECT DISTINCT(SUBSTR(f.path, 1, LENGTH(f.path) - LENGTH(f.fname) - 1))"
-				" FROM files f JOIN groups g ON f.songartistid = g.persistentid"
-				" WHERE g.id = %d AND f.disabled = 0;", qp->id);
+				" FROM files f"
+				" WHERE f.songartistid = %" PRIi64 " AND f.disabled = 0;", qp->persistentid);
 	break;
 
       default:
@@ -1581,7 +1584,7 @@ db_query_run(char *query, int free, int cache_update)
     sqlite3_free(query);
 
   if (cache_update)
-    daapcache_trigger();
+    cache_daap_trigger();
 
   return ((ret != SQLITE_OK) ? -1 : 0);
 }
@@ -2430,7 +2433,7 @@ db_file_add(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  daapcache_trigger();
+  cache_daap_trigger();
 
   return 0;
 
@@ -2506,7 +2509,7 @@ db_file_update(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  daapcache_trigger();
+  cache_daap_trigger();
 
   return 0;
 
@@ -3112,15 +3115,15 @@ db_groups_clear(void)
   return db_query_run("DELETE FROM groups;", 0, 1);
 }
 
-enum group_type
-db_group_type_byid(int id)
+static enum group_type
+db_group_type_bypersistentid(int64_t persistentid)
 {
-#define Q_TMPL "SELECT g.type FROM groups g WHERE g.id = '%d';"
+#define Q_TMPL "SELECT g.type FROM groups g WHERE g.persistentid = '%" PRIi64 "';"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, id);
+  query = sqlite3_mprintf(Q_TMPL, persistentid);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3166,6 +3169,62 @@ db_group_type_byid(int id)
 
 #undef Q_TMPL
 }
+
+int
+db_group_persistentid_byid(int id, int64_t *persistentid)
+{
+#define Q_TMPL "SELECT g.persistentid FROM groups g WHERE g.id = %d;"
+  char *query;
+  sqlite3_stmt *stmt;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return -1;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret != SQLITE_ROW)
+    {
+      if (ret == SQLITE_DONE)
+	DPRINTF(E_DBG, L_DB, "No results\n");
+      else
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  *persistentid = sqlite3_column_int64(stmt, 0);
+
+#ifdef DB_PROFILE
+  while (db_blocking_step(stmt) == SQLITE_ROW)
+  ; /* EMPTY */
+#endif
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
 
 /* Remotes */
 static int
@@ -4052,6 +4111,8 @@ db_pragma_set_synchronous(int synchronous)
 #undef Q_TMPL
 }
 
+
+
 int
 db_perthread_init(void)
 {
@@ -4108,7 +4169,7 @@ db_perthread_init(void)
   sqlite3_profile(hdl, db_xprofile, NULL);
 #endif
 
-  cache_size = cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_cache_size");
+  cache_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_cache_size_library");
   if (cache_size > -1)
     {
       db_pragma_set_cache_size(cache_size);
@@ -4116,14 +4177,14 @@ db_perthread_init(void)
       DPRINTF(E_DBG, L_DB, "Database cache size in pages: %d\n", cache_size);
     }
 
-  journal_mode = cfg_getstr(cfg_getsec(cfg, "general"), "db_pragma_journal_mode");
+  journal_mode = cfg_getstr(cfg_getsec(cfg, "sqlite"), "pragma_journal_mode");
   if (journal_mode)
     {
       journal_mode = db_pragma_set_journal_mode(journal_mode);
       DPRINTF(E_DBG, L_DB, "Database journal mode: %s\n", journal_mode);
     }
 
-  synchronous = cfg_getint(cfg_getsec(cfg, "general"), "db_pragma_synchronous");
+  synchronous = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_synchronous");
   if (synchronous > -1)
     {
       db_pragma_set_synchronous(synchronous);

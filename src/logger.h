@@ -28,7 +28,7 @@
 #define L_DBPERF  19
 #define L_SPOTIFY 20
 #define L_LASTFM  21
-#define L_DCACHE  22
+#define L_CACHE   22
 
 #define N_LOGDOMAINS  23
 

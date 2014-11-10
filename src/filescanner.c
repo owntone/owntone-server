@@ -62,6 +62,8 @@
 #include "misc.h"
 #include "remote_pairing.h"
 #include "player.h"
+#include "cache.h"
+#include "artwork.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -208,7 +210,7 @@ file_type_get(const char *path) {
   if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
     return FILE_PLAYLIST;
 
-  if ((strcasecmp(ext, ".png") == 0) || (strcasecmp(ext, ".jpg") == 0))
+  if (artwork_file_is_artwork(filename))
     return FILE_ARTWORK;
 
 #ifdef ITUNES
@@ -712,6 +714,9 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
       case FILE_REGULAR:
 	filescanner_process_media(file, mtime, size, type, NULL);
 
+	cache_artwork_ping(file, mtime);
+	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
+
 	counter++;
 
 	/* When in bulk mode, split transaction in pieces of 200 */
@@ -729,6 +734,14 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	  defer_playlist(file, mtime);
 	else
 	  process_playlist(file, mtime);
+	break;
+
+      case FILE_ARTWORK:
+	DPRINTF(E_DBG, L_SCAN, "Artwork file: %s\n", file);
+	cache_artwork_ping(file, mtime);
+
+	// TODO [artworkcache] If entry in artwork cache exists for no artwork available for a album with files in the same directory, delete the entry
+
 	break;
 
       case FILE_CTRL_REMOTE:
@@ -1066,6 +1079,7 @@ bulk_scan(int flags)
 
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);
+      cache_artwork_purge_cruft(start);
 
       DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
 
@@ -1147,6 +1161,7 @@ filescanner(void *arg)
     DPRINTF(E_FATAL, L_SCAN, "Scan event loop terminated ahead of time!\n");
 
   db_perthread_deinit();
+  //artworkcache_perthread_deinit();
 
   pthread_exit(NULL);
 }
@@ -1335,6 +1350,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
       db_file_delete_bypath(path);
       db_pl_delete_bypath(path);
+      cache_artwork_delete_by_path(path);
     }
 
   if (ie->mask & IN_MOVED_FROM)
@@ -1357,7 +1373,8 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	{
 	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' failed: %s\n", path, strerror(errno));
 
-	  db_file_delete_bypath(path);;
+	  db_file_delete_bypath(path);
+	  cache_artwork_delete_by_path(path);
 	}
       else if ((file_type_get(path) == FILE_REGULAR) && (db_file_id_bypath(path) <= 0)) // TODO Playlists
 	{

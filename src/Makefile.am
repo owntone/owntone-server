@@ -96,7 +96,7 @@ forked_daapd_SOURCES = main.c \
 	db.c db.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
-	daap_cache.h daap_cache.c \
+	cache.h cache.c \
 	filescanner.c filescanner.h \
 	filescanner_ffmpeg.c filescanner_playlist.c filescanner_icy.c $(ITUNES_SRC) \
 	mdns_avahi.c mdns.h \
