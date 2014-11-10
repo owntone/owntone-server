@@ -1159,3 +1159,39 @@ artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
 
   return ret;
 }
+
+/* Checks if the file is an artwork file */
+int
+artwork_file_is_artwork(const char *filename)
+{
+  cfg_t *lib;
+  int n;
+  int i;
+  int j;
+  int ret;
+  char artwork[PATH_MAX];
+
+  lib = cfg_getsec(cfg, "library");
+  n = cfg_size(lib, "artwork_basenames");
+
+  for (i = 0; i < n; i++)
+    {
+      for (j = 0; j < (sizeof(cover_extension) / sizeof(cover_extension[0])); j++)
+	{
+	  ret = snprintf(artwork, sizeof(artwork), "%s.%s", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
+	  if ((ret < 0) || (ret >= sizeof(artwork)))
+	    {
+	      DPRINTF(E_INFO, L_ART, "Artwork path exceeds PATH_MAX (%s.%s)\n", cfg_getnstr(lib, "artwork_basenames", i), cover_extension[j]);
+	      continue;
+	    }
+
+	  if (strcmp(artwork, filename) == 0)
+	    return 1;
+	}
+
+      if (j < (sizeof(cover_extension) / sizeof(cover_extension[0])))
+	break;
+    }
+
+  return 0;
+}
