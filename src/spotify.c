@@ -1058,11 +1058,11 @@ artwork_get(struct spotify_command *cmd)
       goto level2_exit;
     }
 
-  // TODO rescale
+  // Get an image at least the same size as requested
   image_size = SP_IMAGE_SIZE_SMALL; // 64x64
-  if ((cmd->arg.artwork.max_w > 200) && (cmd->arg.artwork.max_h > 200))
+  if ((cmd->arg.artwork.max_w > 64) || (cmd->arg.artwork.max_h > 64))
     image_size = SP_IMAGE_SIZE_NORMAL; // 300x300
-  if ((cmd->arg.artwork.max_w > 500) && (cmd->arg.artwork.max_h > 500))
+  if ((cmd->arg.artwork.max_w > 300) || (cmd->arg.artwork.max_h > 300))
     image_size = SP_IMAGE_SIZE_LARGE; // 640x640
 
   image_id = fptr_sp_album_cover(album, image_size);
