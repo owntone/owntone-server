@@ -47,7 +47,7 @@
 
 
 /* How long to wait for audio (in sec) before giving up */
-#define SPOTIFY_TIMEOUT 30
+#define SPOTIFY_TIMEOUT 20
 
 /* --- Types --- */
 typedef struct audio_fifo_data
