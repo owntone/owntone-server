@@ -46,6 +46,9 @@
 #include "filescanner.h"
 
 
+/* How long to wait for audio (in sec) before giving up */
+#define SPOTIFY_TIMEOUT 30
+
 /* --- Types --- */
 typedef struct audio_fifo_data
 {
@@ -951,6 +954,7 @@ audio_get(struct spotify_command *cmd)
   struct timespec ts;
   audio_fifo_data_t *afd;
   int processed;
+  int timeout;
   int ret;
   int s;
 
@@ -975,9 +979,11 @@ audio_get(struct spotify_command *cmd)
 
       // If buffer is empty, wait for audio, but use timed wait so we don't
       // risk waiting forever (maybe the player stopped while we were waiting)
+      timeout = 0;
       while ( !(afd = TAILQ_FIRST(&g_audio_fifo->q)) && 
 	       (g_state != SPOTIFY_STATE_STOPPED) &&
-	       (g_state != SPOTIFY_STATE_STOPPING) )
+	       (g_state != SPOTIFY_STATE_STOPPING) &&
+	       (timeout < SPOTIFY_TIMEOUT) )
 	{
 	  DPRINTF(E_DBG, L_SPOTIFY, "Waiting for audio\n");
 #if _POSIX_TIMERS > 0
@@ -988,8 +994,16 @@ audio_get(struct spotify_command *cmd)
 	  TIMEVAL_TO_TIMESPEC(&tv, &ts);
 #endif
 	  ts.tv_sec += 5;
+	  timeout += 5;
 
 	  pthread_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts);
+	}
+
+      if ((!afd) && (timeout >= SPOTIFY_TIMEOUT))
+	{
+	  DPRINTF(E_LOG, L_SPOTIFY, "Timeout waiting for audio (waited %d sec)\n", timeout);
+
+	  spotify_playback_stop_nonblock();
 	}
 
       if (!afd)
@@ -1556,7 +1570,7 @@ spotify_playback_stop(void)
   return ret;
 }
 
-/* Thread: libspotify */
+/* Thread: player and libspotify */
 void
 spotify_playback_stop_nonblock(void)
 {
