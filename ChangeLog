@@ -1,6 +1,10 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 22.1:
+	- artwork cache
+	- some Spotify fixing up
+
 version 22.0:
 	- queue handling improvements
 	- added DAAP cache, good for low-power devices like the RPi
