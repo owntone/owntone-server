@@ -996,6 +996,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   DPRINTF(E_DBG, L_ART, "Artwork request for group %" PRIi64 "\n", persistentid);
 
   ret = 0;
+  format = 0;
   got_spotifyitem = 0;
 
   /*
@@ -1093,7 +1094,15 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   db_query_end(&qp);
 
   if (ret < 0)
-    DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_ITEMS results\n");
+    {
+      DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_ITEMS results\n");
+      return -1;
+    }
+  else if (format < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Error reading artwork\n");
+      return -1;
+    }
   else if (got_art > 0)
     {
       cache_artwork_add(persistentid, max_w, max_h, format, filename, evbuf);
