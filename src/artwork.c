@@ -181,6 +181,9 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
 
   src = src_ctx->streams[s]->codec;
 
+  // Avoids threading issue in both ffmpeg and libav that prevents decoding embedded png's
+  src->thread_count = 1;
+
   img_decoder = avcodec_find_decoder(src->codec_id);
   if (!img_decoder)
     {
