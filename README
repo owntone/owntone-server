@@ -281,31 +281,29 @@ forked-daapd scales down (never up) the artwork on-the-fly to match the
 constraints given by the client. Note, however, that the bigger the picture,
 the more time and resources it takes to perform the scaling operation.
 
-As for the naming convention, it is quite simple; consider your foo.mp3 song,
-residing at /bar/foo.mp3:
- - if it has embedded artwork, this will be used as the artwork for this file;
- - failing that, if /bar/foo.{png,jpg} exists, it is used;
- - failing that, if /bar/{artwork,cover,Folder}.{png,jpg} exists, it is used;
- - failing that, if /bar/bar.{png,jpg} exists, it is used
-
-For "groups" (same album name and album artist), the situation is a bit
-different:
+The naming convention for album and artist artwork (group artwork) is as 
+follows:
  - if a file {artwork,cover,Folder}.{png,jpg} is found in one of the directories
    containing files that are part of the group, it is used as the artwork. The
    first file found is used, ordering is not guaranteed;
  - failing that, if [directory name].{png,jpg} is found in one of the
    directories containing files that are part of the group, it is used as the
    artwork. The first file found is used, ordering is not guaranteed;
- - failing that, individual files are examined and the first artwork found 
-   (embedded or in the same dir and named the same as the file) is used. Here
-   again, ordering is not guaranteed.
+ - failing that, individual files are examined and the first file found 
+   with an embedded artwork is used. Here again, ordering is not guaranteed.
+
+Artwork for individual songs is not supported, artwork for individual songs is 
+found by resolving to the group artwork.
 
 {artwork,cover,Folder} are the default, you can add other base names in the
 configuration file.
 
-You can use symlinks for the artwork files; the artwork is not scanned/indexed
-in any way in the database and there is no caching on forked-daapd's side.
+You can use symlinks for the artwork files; the artwork is not scanned/indexed.
 
+forked-daapd caches artwork in a separate cache file. The default path is 
+/var/cache/forked-daapd/cache.db and can be configured in the configuration 
+file. The cache.db file can be deleted without losing the library and pairing 
+informations.
 
 Library
 -------
