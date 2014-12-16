@@ -16,11 +16,13 @@ union sockaddr_all
   struct sockaddr_storage ss;
 };
 
+/* Keep in sync with raop_devtype[] in player.c */
 enum raop_devtype {
-  RAOP_DEV_APEX_80211G,
-  RAOP_DEV_APEX_80211N,
+  RAOP_DEV_APEX1_80211G,
+  RAOP_DEV_APEX2_80211N,
+  RAOP_DEV_APEX3_80211N,
   RAOP_DEV_APPLETV,
-  OTHER,
+  RAOP_DEV_OTHER,
 };
 
 struct raop_session;
@@ -40,6 +42,7 @@ struct raop_device
   unsigned selected:1;
   unsigned advertised:1;
 
+  unsigned encrypt:1;
   unsigned wants_metadata:1;
   unsigned has_password:1;
   const char *password;

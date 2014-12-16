@@ -4,10 +4,13 @@
 
 #include "db.h"
 
-#define F_SCAN_TYPE_PODCAST      (1 << 0)
-#define F_SCAN_TYPE_AUDIOBOOK    (1 << 1)
-#define F_SCAN_TYPE_COMPILATION  (1 << 2)
-#define F_SCAN_TYPE_URL          (1 << 3)
+#define F_SCAN_TYPE_FILE         (1 << 0)
+#define F_SCAN_TYPE_PODCAST      (1 << 1)
+#define F_SCAN_TYPE_AUDIOBOOK    (1 << 2)
+#define F_SCAN_TYPE_COMPILATION  (1 << 3)
+#define F_SCAN_TYPE_URL          (1 << 4)
+#define F_SCAN_TYPE_SPOTIFY      (1 << 5)
+#define F_SCAN_TYPE_PIPE         (1 << 6)
 
 int
 filescanner_init(void);
@@ -15,15 +18,8 @@ filescanner_init(void);
 void
 filescanner_deinit(void);
 
-struct extinf_ctx
-{
-  char *artist;
-  char *title;
-  int found;
-};
-
 void
-process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf_ctx *extinf);
+filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi);
 
 /* Actual scanners */
 int
@@ -33,7 +29,7 @@ int
 scan_metadata_icy(char *url, struct media_file_info *mfi);
 
 void
-scan_m3u_playlist(char *file, time_t mtime);
+scan_playlist(char *file, time_t mtime);
 
 #ifdef ITUNES
 void

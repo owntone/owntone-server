@@ -10,6 +10,7 @@ struct onekeyval {
   char *value;
 
   struct onekeyval *next;
+  struct onekeyval *sort;
 };
 
 struct keyval {
@@ -38,6 +39,9 @@ safe_hextou64(const char *str, uint64_t *val);
 
 
 /* Key/value functions */
+struct keyval *
+keyval_alloc(void);
+
 int
 keyval_add(struct keyval *kv, const char *name, const char *value);
 
@@ -53,12 +57,18 @@ keyval_get(struct keyval *kv, const char *name);
 void
 keyval_clear(struct keyval *kv);
 
+void
+keyval_sort(struct keyval *kv);
+
 
 char *
 m_realpath(const char *pathname);
 
 char *
 unicode_fixup_string(char *str);
+
+char *
+trimwhitespace(const char *str);
 
 uint32_t
 djb_hash(void *data, size_t len);
@@ -72,7 +82,7 @@ b64_encode(uint8_t *in, size_t len);
 uint64_t
 murmur_hash64(const void *key, int len, uint32_t seed);
 
-/* timer functions */
+/* Timer function for platforms without hi-res timers */
 int
 clock_gettime_with_res(clockid_t clock_id, struct timespec *tp, struct timespec *res);
 
@@ -81,6 +91,5 @@ timespec_add(struct timespec time1, struct timespec time2);
 
 int
 timespec_cmp(struct timespec time1, struct timespec time2);
-
 
 #endif /* !__MISC_H__ */

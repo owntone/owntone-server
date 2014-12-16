@@ -13,8 +13,8 @@ The original (now unmaintained) source can be found here:
   <http://git.debian.org/?p=users/jblache/forked-daapd.git>
 
 
-Quick version for Debian users
-------------------------------
+Quick version for Debian/Ubuntu users
+-------------------------------------
 
 If you are the lucky kind, this should get you all the required tools and
 libraries:
@@ -23,15 +23,26 @@ sudo apt-get install \
  build-essential git autotools-dev autoconf libtool gettext gawk gperf \
  antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev \
  libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libasound2-dev \
- libmxml-dev libgcrypt11-dev libavahi-client-dev libavl-dev libevent1-dev \
- libflac-dev
+ libmxml-dev libgcrypt11-dev libavahi-client-dev libavl-dev zlib1g-dev \
+ libevent-dev
+
+Depending on the version of libav/ffmpeg in your distribution you may also need
+libavresample-dev.
+
+To build with LastFM support, you should also install libcurl4-openssl-dev.
+
+Note that while forked-daapd will work with versions of libevent between 2.0.0
+and 2.1.3, it is recommended to use either libevent 1 or 2.1.4+. Otherwise you
+will not have support for Shoutcast metadata and simultaneous streaming to
+multiple clients. Libevent 1 is not in the Debian repository, but you can get
+the packages in the Ubuntu repository.
 
 Then run the following:
 
  git clone https://github.com/ejurgensen/forked-daapd.git
  cd forked-daapd
  autoreconf -i
- ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac
+ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
  make
  sudo make install
 
@@ -79,8 +90,8 @@ Libraries:
         from <http://libav.org/releases/>
  - libconfuse
         from <http://www.nongnu.org/confuse/>
- - libevent 1.4 (** NOT libevent 2 **)
-        from <http://www.monkey.org/~provos/libevent/>
+ - libevent 1.4+ (best with version 1.4 or 2.1.4+)
+        from <http://libevent.org/>
  - libavl 0.3.5
         from <http://ftp.debian.org/debian/pool/main/liba/libavl>
  - MiniXML (aka mxml or libmxml)
@@ -97,6 +108,10 @@ Libraries:
         from <http://developer.kde.org/~wheeler/taglib.html>
  - libplist 0.16+ (optional - iTunes XML support)
         from <http://github.com/JonathanBeck/libplist/downloads>
+ - libspotify (optional - Spotify support)
+        from <https://developer.spotify.com>
+ - libcurl (optional - LastFM support)
+        from <http://curl.haxx.se/libcurl/>
 
 If using binary packages, remember that you need the development packages to
 build forked-daapd (usually named -dev or -devel).
@@ -143,14 +158,25 @@ needed.
 
 To display the configure options run ./configure --help
 
-FLAC and Musepack support are optional. If not enabled, metadata extraction
-will fail on these files.
+Support for Spotify is optional. Use --enable-spotify to enable this feature.
+If you enable this feature libspotify/api.h is required at compile time.
+Forked-daapd uses runtime dynamic linking to the libspotify library, so even
+though you compiled with --enable-spotify, the executable will still be able
+to run on systems without libspotify (the Spotify features will then be 
+disabled).
+
+Support for LastFM scrobbling is optional. Use --enable-lastfm to enable this
+feature.
 
 Support for iTunes Music Library XML format is optional. Use --enable-itunes
 to enable this feature.
 
+FLAC and Musepack support are optional, and they are probably only required
+if your version of libav/ffmpeg is very old (version 0.5 or 0.6). Use
+--enable-flac and --enable-musepack to enable.
+
 Recommended build settings:
- ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var --enable-flac
+ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
 
 After configure run the usual make, and if that went well, sudo make install
 
@@ -189,12 +215,14 @@ The LSB header below sums it up:
 # Required-Start:    $local_fs $remote_fs $network $time
 # Required-Stop:     $local_fs $remote_fs $network $time
 # Should-Start:      avahi
+# Should-Stop:       avahi
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
-# Short-Description: media server with support for RSP, DAAP, DACP and AirTunes
+# Short-Description: DAAP/DACP (iTunes) server, support for AirPlay and Spotify
 # Description:       forked-daapd is an iTunes-compatible media server for
-#                    sharing your media library over the local network with RSP
-#                    clients like the SoundBridge from Roku and DAAP clients
-#                    like iTunes. It can also stream music to AirTunes devices, 
-#                    and it can be controlled by Apple Remote (and compatibles).
+#                    sharing your media library over the local network with DAAP
+#                    clients like iTunes. Like iTunes, it can be controlled by
+#                    Apple Remote (and compatibles) and stream music directly to
+#                    AirPlay devices. It also supports streaming to RSP clients
+#                    (Roku devices) and streaming from Spotify.
 ### END INIT INFO

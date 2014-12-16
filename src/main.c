@@ -58,6 +58,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "db.h"
 #include "logger.h"
 #include "misc.h"
+#include "cache.h"
 #include "filescanner.h"
 #include "httpd.h"
 #include "mdns.h"
@@ -67,6 +68,12 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 # include "ffmpeg_url_evbuffer.h"
 #endif
 
+#ifdef LASTFM
+# include "lastfm.h"
+#endif
+#ifdef HAVE_SPOTIFY_H
+# include "spotify.h"
+#endif
 
 #define PIDFILE   STATEDIR "/run/" PACKAGE ".pid"
 
@@ -668,6 +675,16 @@ main(int argc, char **argv)
       goto db_fail;
     }
 
+  /* Spawn cache thread */
+  ret = cache_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Cache thread failed to start\n");
+
+      ret = EXIT_FAILURE;
+      goto cache_fail;
+    }
+
   /* Spawn file scanner thread */
   ret = filescanner_init();
   if (ret != 0)
@@ -677,6 +694,15 @@ main(int argc, char **argv)
       ret = EXIT_FAILURE;
       goto filescanner_fail;
     }
+
+#ifdef HAVE_SPOTIFY_H
+  /* Spawn Spotify thread */
+  ret = spotify_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_INFO, L_MAIN, "Spotify thread not started\n");;
+    }
+#endif
 
   /* Spawn player thread */
   ret = player_init();
@@ -786,13 +812,26 @@ main(int argc, char **argv)
   player_deinit();
 
  player_fail:
+#ifdef LASTFM
+  DPRINTF(E_LOG, L_MAIN, "LastFM deinit\n");
+  lastfm_deinit();
+#endif
+#ifdef HAVE_SPOTIFY_H
+  DPRINTF(E_LOG, L_MAIN, "Spotify deinit\n");
+  spotify_deinit();
+#endif
   DPRINTF(E_LOG, L_MAIN, "File scanner deinit\n");
   filescanner_deinit();
 
  filescanner_fail:
+  DPRINTF(E_LOG, L_MAIN, "Cache deinit\n");
+  cache_deinit();
+
+ cache_fail:
   DPRINTF(E_LOG, L_MAIN, "Database deinit\n");
   db_perthread_deinit();
   db_deinit();
+
  db_fail:
   if (ret == EXIT_FAILURE)
     {

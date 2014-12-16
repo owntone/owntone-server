@@ -21,6 +21,7 @@ enum sort_type {
   S_NAME,
   S_ALBUM,
   S_ARTIST,
+  S_PLAYLIST,
 };
 
 #define Q_F_BROWSE (1 << 15)
@@ -45,6 +46,7 @@ enum query_type {
 #define ARTWORK_OWN       3
 #define ARTWORK_DIR       4
 #define ARTWORK_PARENTDIR 5
+#define ARTWORK_SPOTIFY   6
 
 struct query_params {
   /* Query parameters, filled in by caller */
@@ -52,6 +54,7 @@ struct query_params {
   enum index_type idx_type;
   enum sort_type sort;
   int id;
+  int64_t persistentid;
   int offset;
   int limit;
 
@@ -194,6 +197,7 @@ struct group_info {
   uint32_t itemcount;    /* number of items (mimc) */
   uint32_t groupalbumcount; /* number of albums (agac) */
   char *songalbumartist; /* song album artist (asaa) */
+  uint64_t songartistid; /* song artist id (asri) */
 };
 
 #define gri_offsetof(field) offsetof(struct group_info, field)
@@ -206,6 +210,7 @@ struct db_group_info {
   char *itemcount;
   char *groupalbumcount;
   char *songalbumartist;
+  char *songartistid;
 };
 
 #define dbgri_offsetof(field) offsetof(struct db_group_info, field)
@@ -314,6 +319,13 @@ db_purge_cruft(time_t ref);
 void
 db_purge_all(void);
 
+/* Transactions */
+void
+db_transaction_begin(void);
+
+void
+db_transaction_end(void);
+
 /* Queries */
 int
 db_query_start(struct query_params *qp);
@@ -356,7 +368,7 @@ void
 db_file_ping(int id);
 
 void
-db_file_ping_bymatch(char *path);
+db_file_ping_bymatch(char *path, int isdir);
 
 char *
 db_file_path_byid(int id);
@@ -408,7 +420,7 @@ void
 db_pl_ping(int id);
 
 void
-db_pl_ping_bymatch(char *path);
+db_pl_ping_bymatch(char *path, int isdir);
 
 struct playlist_info *
 db_pl_fetch_bypath(char *path);
@@ -427,6 +439,9 @@ db_pl_add_item_byid(int plid, int fileid);
 
 void
 db_pl_clear_items(int id);
+
+int
+db_pl_update(char *title, char *path, int id);
 
 void
 db_pl_delete(int id);
@@ -447,8 +462,8 @@ db_pl_enable_bycookie(uint32_t cookie, char *path);
 int
 db_groups_clear(void);
 
-enum group_type
-db_group_type_byid(int id);
+int
+db_group_persistentid_byid(int id, int64_t *persistentid);
 
 /* Remotes */
 int
@@ -456,6 +471,28 @@ db_pairing_add(struct pairing_info *pi);
 
 int
 db_pairing_fetch_byguid(struct pairing_info *pi);
+
+#ifdef HAVE_SPOTIFY_H
+/* Spotify */
+void
+db_spotify_purge(void);
+
+void
+db_spotify_pl_delete(int id);
+#endif
+
+/* Admin */
+int
+db_admin_add(const char *key, const char *value);
+
+char *
+db_admin_get(const char *key);
+
+int
+db_admin_update(const char *key, const char *value);
+
+int
+db_admin_delete(const char *key);
 
 /* Speakers */
 int
@@ -488,6 +525,9 @@ db_watch_delete_bycookie(uint32_t cookie);
 
 int
 db_watch_get_bywd(struct watch_info *wi);
+
+int
+db_watch_get_bypath(struct watch_info *wi);
 
 void
 db_watch_mark_bypath(char *path, char *strip, uint32_t cookie);

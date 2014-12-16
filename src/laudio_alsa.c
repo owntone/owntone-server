@@ -211,7 +211,7 @@ laudio_write(uint8_t *buf, uint64_t rtptime)
 
       return;
     }
-  else if ((pcm_status != LAUDIO_RUNNING) && (pcm_pos >= pcm_start_pos))
+  else if ((pcm_status != LAUDIO_RUNNING) && (pcm_pos + pcm_buf_threshold >= pcm_start_pos))
     {
       /* Kill threshold */
       ret = laudio_set_start_threshold(0);
@@ -362,7 +362,7 @@ laudio_start(uint64_t cur_pos, uint64_t next_pkt)
   pcm_start_pos = next_pkt + pcm_buf_threshold;
 
   /* Compensate threshold, as it's taken into account by snd_pcm_delay() */
-  pcm_pos += pcm_buf_threshold;
+  //pcm_pos += pcm_buf_threshold;
 
   DPRINTF(E_DBG, L_LAUDIO, "PCM pos %" PRIu64 ", start pos %" PRIu64 "\n", pcm_pos, pcm_start_pos);
 

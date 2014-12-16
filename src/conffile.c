@@ -48,8 +48,13 @@ static cfg_opt_t sec_general[] =
     CFG_STR("admin_password", NULL, CFGF_NONE),
     CFG_STR("logfile", STATEDIR "/log/" PACKAGE ".log", CFGF_NONE),
     CFG_STR("db_path", STATEDIR "/cache/" PACKAGE "/songs3.db", CFGF_NONE),
+    CFG_INT("db_pragma_cache_size", -1, CFGF_NONE),
+    CFG_STR("db_pragma_journal_mode", NULL, CFGF_NONE),
+    CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
     CFG_INT_CB("loglevel", E_LOG, CFGF_NONE, &cb_loglevel),
     CFG_BOOL("ipv6", cfg_false, CFGF_NONE),
+    CFG_STR("cache_path", STATEDIR "/cache/" PACKAGE "/cache.db", CFGF_NONE),
+    CFG_INT("cache_daap_threshold", 1000, CFGF_NONE),
     CFG_END()
   };
 
@@ -71,7 +76,7 @@ static cfg_opt_t sec_library[] =
     CFG_STR("name_podcasts", "Podcasts", CFGF_NONE),
     CFG_STR("name_audiobooks", "Audiobooks", CFGF_NONE),
     CFG_STR_LIST("artwork_basenames", "{artwork,cover,Folder}", CFGF_NONE),
-    CFG_STR_LIST("filetypes_ignore", "{.db,.ini}", CFGF_NONE),
+    CFG_STR_LIST("filetypes_ignore", "{.db,.ini,.db-journal,.pdf}", CFGF_NONE),
     CFG_BOOL("filescan_disable", cfg_false, CFGF_NONE),
     CFG_BOOL("itunes_overrides", cfg_false, CFGF_NONE),
     CFG_STR_LIST("no_transcode", NULL, CFGF_NONE),
@@ -92,10 +97,30 @@ static cfg_opt_t sec_audio[] =
     CFG_END()
   };
 
-/* ApEx device section structure */
-static cfg_opt_t sec_apex[] =
+/* AirPlay/ApEx device section structure */
+static cfg_opt_t sec_airplay[] =
   {
+    CFG_INT("max_volume", 11, CFGF_NONE),
     CFG_STR("password", NULL, CFGF_NONE),
+    CFG_END()
+  };
+
+/* Spotify section structure */
+static cfg_opt_t sec_spotify[] =
+  {
+    CFG_STR("settings_dir", STATEDIR "/cache/" PACKAGE "/libspotify", CFGF_NONE),
+    CFG_STR("cache_dir", "/tmp", CFGF_NONE),
+    CFG_INT("bitrate", 0, CFGF_NONE),
+    CFG_END()
+  };
+
+/* SQLite section structure */
+static cfg_opt_t sec_sqlite[] =
+  {
+    CFG_INT("pragma_cache_size_library", -1, CFGF_NONE),
+    CFG_INT("pragma_cache_size_cache", -1, CFGF_NONE),
+    CFG_STR("pragma_journal_mode", NULL, CFGF_NONE),
+    CFG_INT("pragma_synchronous", -1, CFGF_NONE),
     CFG_END()
   };
 
@@ -105,7 +130,9 @@ static cfg_opt_t toplvl_cfg[] =
     CFG_SEC("general", sec_general, CFGF_NONE),
     CFG_SEC("library", sec_library, CFGF_NONE),
     CFG_SEC("audio", sec_audio, CFGF_NONE),
-    CFG_SEC("apex", sec_apex, CFGF_MULTI | CFGF_TITLE),
+    CFG_SEC("airplay", sec_airplay, CFGF_MULTI | CFGF_TITLE),
+    CFG_SEC("spotify", sec_spotify, CFGF_NONE),
+    CFG_SEC("sqlite", sec_sqlite, CFGF_NONE),
     CFG_END()
   };
 

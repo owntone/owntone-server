@@ -3,8 +3,11 @@
 #define __HTTPD_H__
 
 #include <event.h>
-#include "evhttp/evhttp.h"
-
+#ifdef HAVE_LIBEVENT2
+# include <event2/http.h>
+#else
+# include "evhttp/evhttp_compat.h"
+#endif
 
 void
 httpd_stream_file(struct evhttp_request *req, int id);

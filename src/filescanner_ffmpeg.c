@@ -32,6 +32,7 @@
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
+#include <libavutil/opt.h>
 
 #include "logger.h"
 #include "filescanner.h"
@@ -313,10 +314,87 @@ extract_metadata(struct media_file_info *mfi, AVFormatContext *ctx, AVStream *au
   return mdcount;
 }
 
+#if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
+/* Extracts ICY metadata (requires libav 10) */
+static void
+extract_metadata_icy(struct media_file_info *mfi, AVFormatContext *ctx)
+{
+  uint8_t *icy_meta;
+  char *icy_token;
+  char *icy_str;
+  char *ptr;
+
+  icy_meta = NULL;
+  // TODO Also get icy_metadata_packet to show current track
+  av_opt_get(ctx, "icy_metadata_headers", AV_OPT_SEARCH_CHILDREN, &icy_meta);
+
+  if (!icy_meta)
+    return;
+
+  icy_str = strdup((char *)icy_meta);
+  icy_token = strtok(icy_str, "\r\n");
+
+  while (icy_token != NULL)
+    {
+      ptr = strchr(icy_token, ':');
+      if (!ptr || (strlen(ptr) < 4))
+	{
+	  icy_token = strtok(NULL, "\r\n");
+	  continue;
+	}
+
+      ptr++;
+      if (ptr[0] == ' ')
+	ptr++;
+
+      if (strstr(icy_token, "icy-name"))
+	{
+	  DPRINTF(E_DBG, L_SCAN, "Libav/ffmpeg found ICY metadata, name is '%s'\n", ptr);
+
+	  if (mfi->title)
+	    free(mfi->title);
+	  if (mfi->artist)
+	    free(mfi->artist);
+	  if (mfi->album_artist)
+	    free(mfi->album_artist);
+
+	  mfi->title = strdup(ptr);
+	  mfi->artist = strdup(ptr);
+	  mfi->album_artist = strdup(ptr);
+	}
+
+      if (strstr(icy_token, "icy-description"))
+	{
+	  DPRINTF(E_DBG, L_SCAN, "Libav/ffmpeg found ICY metadata, description is '%s'\n", ptr);
+
+	  if (mfi->album)
+	    free(mfi->album);
+
+	  mfi->album = strdup(ptr);
+	}
+
+      if (strstr(icy_token, "icy-genre"))
+	{
+	  DPRINTF(E_DBG, L_SCAN, "Libav/ffmpeg found ICY metadata, genre is '%s'\n", ptr);
+
+	  if (mfi->genre)
+	    free(mfi->genre);
+
+	  mfi->genre = strdup(ptr);
+	}
+
+      icy_token = strtok(NULL, "\r\n");
+    }
+  av_free(icy_meta);
+  free(icy_str);
+}
+#endif
+
 int
 scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 {
   AVFormatContext *ctx;
+  AVDictionary *options;
   const struct metadata_map *extra_md_map;
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
   enum AVCodecID codec_id;
@@ -334,9 +412,13 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   int ret;
 
   ctx = NULL;
+  options = NULL;
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
-  ret = avformat_open_input(&ctx, file, NULL, NULL);
+  if (mfi->data_kind == 1)
+    av_dict_set(&options, "icy", "1", 0);
+
+  ret = avformat_open_input(&ctx, file, NULL, &options);
 #else
   ret = av_open_input_file(&ctx, file, NULL, 0, NULL);
 #endif
@@ -376,11 +458,19 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   DPRINTF(E_DBG, L_SCAN, "File has %d streams\n", ctx->nb_streams);
 
   /* Extract codec IDs, check for video */
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  video_codec_id = AV_CODEC_ID_NONE;
+  video_stream = NULL;
+
+  audio_codec_id = AV_CODEC_ID_NONE;
+  audio_stream = NULL;
+#else
   video_codec_id = CODEC_ID_NONE;
   video_stream = NULL;
 
   audio_codec_id = CODEC_ID_NONE;
   audio_stream = NULL;
+#endif
 
   for (i = 0; i < ctx->nb_streams; i++)
     {
@@ -427,7 +517,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	}
     }
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+  if (audio_codec_id == AV_CODEC_ID_NONE)
+#else
   if (audio_codec_id == CODEC_ID_NONE)
+#endif
     {
       DPRINTF(E_DBG, L_SCAN, "File has no audio streams, discarding\n");
 
@@ -449,6 +543,12 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     mfi->bitrate = ((mfi->file_size * 8) / (ctx->duration / AV_TIME_BASE)) / 1000;
 
   DPRINTF(E_DBG, L_SCAN, "Duration %d ms, bitrate %d kbps\n", mfi->song_length, mfi->bitrate);
+
+#if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
+  /* Try to extract ICY metadata if url/stream */
+  if (mfi->data_kind == 1)
+    extract_metadata_icy(mfi, ctx);
+#endif
 
   /* Get some more information on the audio stream */
   if (audio_stream)
@@ -478,21 +578,33 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   codec_id = (mfi->has_video) ? video_codec_id : audio_codec_id;
   switch (codec_id)
     {
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_AAC:
+#else
       case CODEC_ID_AAC:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "AAC\n");
 	mfi->type = strdup("m4a");
 	mfi->codectype = strdup("mp4a");
 	mfi->description = strdup("AAC audio file");
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_ALAC:
+#else
       case CODEC_ID_ALAC:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "ALAC\n");
 	mfi->type = strdup("m4a");
 	mfi->codectype = strdup("alac");
 	mfi->description = strdup("Apple Lossless audio file");
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_FLAC:
+#else
       case CODEC_ID_FLAC:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "FLAC\n");
 	mfi->type = strdup("flac");
 	mfi->codectype = strdup("flac");
@@ -501,16 +613,26 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	extra_md_map = md_map_vorbis;
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_MUSEPACK7:
+      case AV_CODEC_ID_MUSEPACK8:
+#else
       case CODEC_ID_MUSEPACK7:
       case CODEC_ID_MUSEPACK8:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "Musepack\n");
 	mfi->type = strdup("mpc");
 	mfi->codectype = strdup("mpc");
 	mfi->description = strdup("Musepack audio file");
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_MPEG4: /* Video */
+      case AV_CODEC_ID_H264:
+#else
       case CODEC_ID_MPEG4: /* Video */
       case CODEC_ID_H264:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "MPEG4 video\n");
 	mfi->type = strdup("m4v");
 	mfi->codectype = strdup("mp4v");
@@ -519,7 +641,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	extra_md_map = md_map_tv;
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_MP3:
+#else
       case CODEC_ID_MP3:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "MP3\n");
 	mfi->type = strdup("mp3");
 	mfi->codectype = strdup("mpeg");
@@ -528,7 +654,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	extra_md_map = md_map_id3;
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_VORBIS:
+#else
       case CODEC_ID_VORBIS:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "VORBIS\n");
 	mfi->type = strdup("ogg");
 	mfi->codectype = strdup("ogg");
@@ -537,30 +667,48 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	extra_md_map = md_map_vorbis;
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_WMAV1:
+      case AV_CODEC_ID_WMAV2:
+      case AV_CODEC_ID_WMAVOICE:
+#else
       case CODEC_ID_WMAV1:
       case CODEC_ID_WMAV2:
       case CODEC_ID_WMAVOICE:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "WMA Voice\n");
 	mfi->type = strdup("wma");
 	mfi->codectype = strdup("wmav");
 	mfi->description = strdup("WMA audio file");
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_WMAPRO:
+#else
       case CODEC_ID_WMAPRO:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "WMA Pro\n");
 	mfi->type = strdup("wmap");
 	mfi->codectype = strdup("wma");
 	mfi->description = strdup("WMA audio file");
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_WMALOSSLESS:
+#else
       case CODEC_ID_WMALOSSLESS:
+#endif
 	DPRINTF(E_DBG, L_SCAN, "WMA Lossless\n");
 	mfi->type = strdup("wma");
 	mfi->codectype = strdup("wmal");
 	mfi->description = strdup("WMA audio file");
 	break;
 
+#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
+      case AV_CODEC_ID_PCM_S16LE ... AV_CODEC_ID_PCM_F64LE:
+#else
       case CODEC_ID_PCM_S16LE ... CODEC_ID_PCM_F64LE:
+#endif
 	if (strcmp(ctx->iformat->name, "aiff") == 0)
 	  {
 	    DPRINTF(E_DBG, L_SCAN, "AIFF\n");
@@ -635,8 +783,15 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     }
 
  skip_extract:
+#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
+  avformat_close_input(&ctx);
+#else
+  av_close_input_file(ctx);
+#endif
+
   if (mdcount == 0)
     {
+#if LIBAVFORMAT_VERSION_MAJOR < 54 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR < 35)
       /* ffmpeg doesn't support FLAC nor Musepack metadata,
        * and is buggy for some WMA variants, so fall back to the
        * legacy format-specific parsers until it gets fixed */
@@ -645,24 +800,12 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	  || (codec_id == CODEC_ID_WMALOSSLESS))
 	{
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy WMA scanner\n");
-
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
-	  avformat_close_input(&ctx);
-#else
-	  av_close_input_file(ctx);
-#endif
 	  return (scan_get_wmainfo(file, mfi) ? 0 : -1);
 	}
 #ifdef FLAC
       else if (codec_id == CODEC_ID_FLAC)
 	{
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy FLAC scanner\n");
-
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
-	  avformat_close_input(&ctx);
-#else
-	  av_close_input_file(ctx);
-#endif
 	  return (scan_get_flacinfo(file, mfi) ? 0 : -1);
 	}
 #endif /* FLAC */
@@ -671,16 +814,11 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	       || (codec_id == CODEC_ID_MUSEPACK8))
 	{
 	  DPRINTF(E_WARN, L_SCAN, "Falling back to legacy Musepack scanner\n");
-
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
-	  avformat_close_input(&ctx);
-#else
-	  av_close_input_file(ctx);
-#endif
 	  return (scan_get_mpcinfo(file, mfi) ? 0 : -1);
 	}
 #endif /* MUSEPACK */
       else
+#endif /* LIBAVFORMAT */
 	DPRINTF(E_WARN, L_SCAN, "ffmpeg/libav could not extract any metadata\n");
     }
 
@@ -689,11 +827,6 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     mfi->title = strdup(mfi->fname);
 
   /* All done */
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
-  avformat_close_input(&ctx);
-#else
-  av_close_input_file(ctx);
-#endif
 
   return 0;
 }

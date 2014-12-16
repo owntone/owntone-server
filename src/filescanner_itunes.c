@@ -37,7 +37,11 @@
 #include <avl.h>
 #include <plist/plist.h>
 
-#include "evhttp/evhttp.h"
+#ifdef HAVE_LIBEVENT2
+# include <event2/http.h>
+#else
+# include "evhttp/evhttp.h"
+#endif
 
 #include "logger.h"
 #include "db.h"
@@ -761,12 +765,12 @@ scan_itunes_itml(char *file)
   int fd;
   int ret;
 
-  DPRINTF(E_INFO, L_SCAN, "Processing iTunes library: %s\n", file);
+  DPRINTF(E_LOG, L_SCAN, "Processing iTunes library: %s\n", file);
 
   fd = open(file, O_RDONLY);
   if (fd < 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Could not open iTunes library '%s': %s\n", file, strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "Could not open iTunes library '%s': %s\n", file, strerror(errno));
 
       return;
     }
@@ -774,7 +778,7 @@ scan_itunes_itml(char *file)
   ret = fstat(fd, &sb);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Could not stat iTunes library '%s': %s\n", file, strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "Could not stat iTunes library '%s': %s\n", file, strerror(errno));
 
       close(fd);
       return;
@@ -783,7 +787,7 @@ scan_itunes_itml(char *file)
   itml_xml = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
   if (itml_xml == MAP_FAILED)
     {
-      DPRINTF(E_WARN, L_SCAN, "Could not map iTunes library: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "Could not map iTunes library: %s\n", strerror(errno));
 
       close(fd);
       return;
@@ -800,14 +804,14 @@ scan_itunes_itml(char *file)
 
   if (!itml)
     {
-      DPRINTF(E_WARN, L_SCAN, "iTunes XML playlist '%s' failed to parse\n", file);
+      DPRINTF(E_LOG, L_SCAN, "iTunes XML playlist '%s' failed to parse\n", file);
 
       return;
     }
 
   if (plist_get_node_type(itml) != PLIST_DICT)
     {
-      DPRINTF(E_WARN, L_SCAN, "Malformed iTunes XML playlist '%s'\n", file);
+      DPRINTF(E_LOG, L_SCAN, "Malformed iTunes XML playlist '%s'\n", file);
 
       plist_free(itml);
       return;
@@ -825,7 +829,7 @@ scan_itunes_itml(char *file)
   ret = get_dictval_dict_from_key(itml, "Tracks", &node);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Could not find Tracks dict\n");
+      DPRINTF(E_LOG, L_SCAN, "Could not find Tracks dict\n");
 
       plist_free(itml);
       return;
@@ -855,7 +859,7 @@ scan_itunes_itml(char *file)
   ret = process_tracks(node);
   if (ret <= 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "No tracks loaded\n");
+      DPRINTF(E_LOG, L_SCAN, "No tracks loaded\n");
 
       avl_free_tree(itml_to_db);
       plist_free(itml);
@@ -870,7 +874,7 @@ scan_itunes_itml(char *file)
   ret = get_dictval_array_from_key(itml, "Playlists", &node);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Could not find Playlists dict\n");
+      DPRINTF(E_LOG, L_SCAN, "Could not find Playlists dict\n");
 
       avl_free_tree(itml_to_db);
       plist_free(itml);

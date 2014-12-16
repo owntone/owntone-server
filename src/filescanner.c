@@ -37,6 +37,8 @@
 #include <dirent.h>
 #include <pthread.h>
 
+#include <unistr.h>
+#include <unictype.h>
 #include <uninorm.h>
 
 #if defined(__linux__)
@@ -59,11 +61,36 @@
 #include "conffile.h"
 #include "misc.h"
 #include "remote_pairing.h"
+#include "player.h"
+#include "cache.h"
+#include "artwork.h"
+
+#ifdef LASTFM
+# include "lastfm.h"
+#endif
+#ifdef HAVE_SPOTIFY_H
+# include "spotify.h"
+#endif
 
 
 #define F_SCAN_BULK    (1 << 0)
 #define F_SCAN_RESCAN  (1 << 1)
 #define F_SCAN_FAST    (1 << 2)
+#define F_SCAN_MOVED   (1 << 3)
+
+enum file_type {
+  FILE_UNKNOWN = 0,
+  FILE_IGNORE,
+  FILE_REGULAR,
+  FILE_PLAYLIST,
+  FILE_ITUNES,
+  FILE_ARTWORK,
+  FILE_CTRL_REMOTE,
+  FILE_CTRL_LASTFM,
+  FILE_CTRL_SPOTIFY,
+  FILE_CTRL_INITSCAN,
+  FILE_CTRL_FULLSCAN,
+};
 
 struct deferred_pl {
   char *path;
@@ -91,9 +118,16 @@ static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
 
+/* Count of files scanned during a bulk scan */
+static int counter;
+
 /* Forward */
 static void
 bulk_scan(int flags);
+static int
+inofd_event_set(void);
+static void
+inofd_event_unset(void);
 
 static int
 push_dir(struct stacked_dir **s, char *path)
@@ -138,8 +172,9 @@ pop_dir(struct stacked_dir **s)
   return ret;
 }
 
+/* Checks if the file extension is in the ignore list */
 static int
-ignore_filetype(char *ext)
+file_type_ignore(const char *ext)
 {
   cfg_t *lib;
   int n;
@@ -157,50 +192,165 @@ ignore_filetype(char *ext)
   return 0;
 }
 
+static enum file_type
+file_type_get(const char *path) {
+  const char *filename;
+  const char *ext;
+
+  filename = strrchr(path, '/');
+  if ((!filename) || (strlen(filename) == 1))
+    filename = path;
+  else
+    filename++;
+
+  ext = strrchr(path, '.');
+  if (!ext || (strlen(ext) == 1))
+    return FILE_REGULAR;
+
+  if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
+    return FILE_PLAYLIST;
+
+  if (artwork_file_is_artwork(filename))
+    return FILE_ARTWORK;
+
+#ifdef ITUNES
+  if (strcasecmp(ext, ".xml") == 0)
+    return FILE_ITUNES;
+#endif
+
+  if (strcasecmp(ext, ".remote") == 0)
+    return FILE_CTRL_REMOTE;
+
+#ifdef LASTFM
+  if (strcasecmp(ext, ".lastfm") == 0)
+    return FILE_CTRL_LASTFM;
+#endif
+
+#ifdef HAVE_SPOTIFY_H
+  if (strcasecmp(ext, ".spotify") == 0)
+    return FILE_CTRL_SPOTIFY;
+#endif
+
+  if (strcasecmp(ext, ".init-rescan") == 0)
+    return FILE_CTRL_INITSCAN;
+
+  if (strcasecmp(ext, ".full-rescan") == 0)
+    return FILE_CTRL_FULLSCAN;
+
+  if (strcasecmp(ext, ".url") == 0)
+    {
+      DPRINTF(E_INFO, L_SCAN, "No support for .url, use .m3u or .pls\n");
+      return FILE_IGNORE;
+    }
+
+  if (file_type_ignore(ext))
+    return FILE_IGNORE;
+
+  if ((filename[0] == '_') || (filename[0] == '.'))
+    return FILE_IGNORE;
+
+  return FILE_REGULAR;
+}
+
 static void
-normalize_fixup_tag(char **tag, char *src_tag)
+sort_tag_create(char **sort_tag, char *src_tag)
 {
-  char *norm;
+  const uint8_t *i_ptr;
+  const uint8_t *n_ptr;
+  const uint8_t *number;
+  uint8_t out[1024];
+  uint8_t *o_ptr;
+  int append_number;
+  ucs4_t puc;
+  int numlen;
   size_t len;
+  int charlen;
 
   /* Note: include terminating NUL in string length for u8_normalize */
 
-  if (!*tag)
-    *tag = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)src_tag, strlen(src_tag) + 1, NULL, &len);
-  else
+  if (*sort_tag)
     {
-      norm = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)*tag, strlen(*tag) + 1, NULL, &len);
-      free(*tag);
-      *tag = norm;
+      DPRINTF(E_DBG, L_SCAN, "Existing sort tag will be normalized: %s\n", *sort_tag);
+      o_ptr = u8_normalize(UNINORM_NFD, (uint8_t *)*sort_tag, strlen(*sort_tag) + 1, NULL, &len);
+      free(*sort_tag);
+      *sort_tag = (char *)o_ptr;
+      return;
     }
-}
 
-static char *
-strip_article(char *tag)
-{
-  int len;
+  if (!src_tag || ((len = strlen(src_tag)) == 0))
+    {
+      *sort_tag = NULL;
+      return;
+    }
 
-  if (!tag)
-    return NULL;
+  // Set input pointer past article if present
+  if ((strncasecmp(src_tag, "a ", 2) == 0) && (len > 2))
+    i_ptr = (uint8_t *)(src_tag + 2);
+  else if ((strncasecmp(src_tag, "an ", 3) == 0) && (len > 3))
+    i_ptr = (uint8_t *)(src_tag + 3);
+  else if ((strncasecmp(src_tag, "the ", 4) == 0) && (len > 4))
+    i_ptr = (uint8_t *)(src_tag + 4);
+  else
+    i_ptr = (uint8_t *)src_tag;
 
-  len = strlen(tag);
+  // Poor man's natural sort. Makes sure we sort like this: a1, a2, a10, a11, a21, a111
+  // We do this by padding zeroes to (short) numbers. As an alternative we could have
+  // made a proper natural sort algorithm in sqlext.c, but we don't, since we don't
+  // want any risk of hurting response times
+  memset(&out, 0, sizeof(out));
+  o_ptr = (uint8_t *)&out;
+  number = NULL;
+  append_number = 0;
 
-  if ((strncmp(tag, "A ", 2) == 0) && (len > 2))
-    return tag + 2;
+  do
+    {
+      n_ptr = u8_next(&puc, i_ptr);
 
-  if ((strncmp(tag, "An ", 3) == 0) && (len > 3))
-    return tag + 3;
+      if (uc_is_digit(puc))
+	{
+	  if (!number) // We have encountered the beginning of a number
+	    number = i_ptr;
+	  append_number = (n_ptr == NULL); // If last char in string append number now
+	}
+      else
+	{
+	  if (number)
+	    append_number = 1; // A number has ended so time to append it
+	  else
+	    {
+              charlen = u8_strmblen(i_ptr);
+              if (charlen >= 0)
+	    	o_ptr = u8_stpncpy(o_ptr, i_ptr, charlen); // No numbers in sight, just append char
+	    }
+	}
 
-  if ((strncmp(tag, "AN ", 3) == 0) && (len > 3))
-    return tag + 3;
+      // Break if less than 100 bytes remain (prevent buffer overflow)
+      if (sizeof(out) - u8_strlen(out) < 100)
+	break;
 
-  if ((strncmp(tag, "The ", 4) == 0) && (len > 4))
-    return tag + 4;
+      // Break if number is very large (prevent buffer overflow)
+      if (number && (i_ptr - number > 50))
+	break;
 
-  if ((strncmp(tag, "THE ", 4) == 0) && (len > 4))
-    return tag + 4;
+      if (append_number)
+	{
+	  numlen = i_ptr - number;
+	  if (numlen < 5) // Max pad width
+	    {
+	      u8_strcpy(o_ptr, (uint8_t *)"00000");
+	      o_ptr += (5 - numlen);
+	    }
+	  o_ptr = u8_stpncpy(o_ptr, number, numlen + u8_strmblen(i_ptr));
 
-  return tag;
+	  number = NULL;
+	  append_number = 0;
+	}
+
+      i_ptr = n_ptr;
+    }
+  while (n_ptr);
+
+  *sort_tag = (char *)u8_normalize(UNINORM_NFD, (uint8_t *)&out, u8_strlen(out) + 1, NULL, &len);
 }
 
 static void
@@ -319,10 +469,10 @@ fixup_tags(struct media_file_info *mfi)
 	mfi->title = strdup(mfi->fname);
     }
 
-  /* Ensure sort tags are filled and normalized, and that "The"/"A"/"An" are stripped */
-  normalize_fixup_tag(&mfi->artist_sort, strip_article(mfi->artist));
-  normalize_fixup_tag(&mfi->album_sort, strip_article(mfi->album));
-  normalize_fixup_tag(&mfi->title_sort, strip_article(mfi->title));
+  /* Ensure sort tags are filled, manipulated and normalized */
+  sort_tag_create(&mfi->artist_sort, mfi->artist);
+  sort_tag_create(&mfi->album_sort, mfi->album);
+  sort_tag_create(&mfi->title_sort, mfi->title);
 
   /* We need to set album_artist according to media type and config */
   if (mfi->compilation)          /* Compilation */
@@ -359,156 +509,148 @@ fixup_tags(struct media_file_info *mfi)
   if (!mfi->album_artist_sort && (strcmp(mfi->album_artist, mfi->artist) == 0))
     mfi->album_artist_sort = strdup(mfi->artist_sort);
   else
-    normalize_fixup_tag(&mfi->album_artist_sort, strip_article(mfi->album_artist));
+    sort_tag_create(&mfi->album_artist_sort, mfi->album_artist);
 
   /* Composer is not one of our mandatory tags, so take extra care */
   if (mfi->composer_sort || mfi->composer)
-    normalize_fixup_tag(&mfi->composer_sort, strip_article(mfi->composer));
+    sort_tag_create(&mfi->composer_sort, mfi->composer);
 }
 
 
 void
-process_media_file(char *file, time_t mtime, off_t size, int type, struct extinf_ctx *extinf)
+filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi)
 {
-  struct media_file_info mfi;
+  struct media_file_info *mfi;
   char *filename;
-  char *ext;
   time_t stamp;
   int id;
   int ret;
 
-  filename = strrchr(file, '/');
-  if (!filename)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not determine filename for %s\n", file);
+  filename = strrchr(path, '/');
+  if ((!filename) || (strlen(filename) == 1))
+    filename = path;
+  else
+    filename++;
 
-      return;
-    }
+  db_file_stamp_bypath(path, &stamp, &id);
 
-  /* File types which should never be processed */
-  ext = strrchr(file, '.');
-  if (ext)
-    {
-      if ((strcasecmp(ext, ".pls") == 0) || (strcasecmp(ext, ".url") == 0))
-	{
-	  DPRINTF(E_INFO, L_SCAN, "No support for .url and .pls in this version, use .m3u\n");
-
-	  return;
-	}
-      else if ((strcasecmp(ext, ".png") == 0) || (strcasecmp(ext, ".jpg") == 0))
-	{
-	  /* Artwork files - don't scan */
-	  return;
-	}
-      else if ((strlen(filename) > 1) && ((filename[1] == '_') || (filename[1] == '.')))
-	{
-	  /* Hidden files - don't scan */
-	  return;
-	}
-      else if (ignore_filetype(ext))
-	{
-	  /* File extension is in ignore list - don't scan */
-	  return;
-	}
-    }
-
-  db_file_stamp_bypath(file, &stamp, &id);
-
-  if (stamp >= mtime)
+  if (stamp && (stamp >= mtime))
     {
       db_file_ping(id);
       return;
     }
 
-  memset(&mfi, 0, sizeof(struct media_file_info));
+  if (!external_mfi)
+    {
+      mfi = (struct media_file_info*)malloc(sizeof(struct media_file_info));
+      if (!mfi)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Out of memory for mfi\n");
+	  return;
+	}
+
+      memset(mfi, 0, sizeof(struct media_file_info));
+    }
+  else
+    mfi = external_mfi;
 
   if (stamp)
-    mfi.id = db_file_id_bypath(file);
+    mfi->id = db_file_id_bypath(path);
 
-  mfi.fname = strdup(filename + 1);
-  if (!mfi.fname)
+  mfi->fname = strdup(filename);
+  if (!mfi->fname)
     {
-      DPRINTF(E_WARN, L_SCAN, "Out of memory for fname\n");
-
-      return;
+      DPRINTF(E_LOG, L_SCAN, "Out of memory for fname\n");
+      goto out;
     }
 
-  mfi.path = strdup(file);
-  if (!mfi.path)
+  mfi->path = strdup(path);
+  if (!mfi->path)
     {
-      DPRINTF(E_WARN, L_SCAN, "Out of memory for path\n");
-
-      free(mfi.fname);
-      return;
+      DPRINTF(E_LOG, L_SCAN, "Out of memory for path\n");
+      goto out;
     }
 
-  mfi.time_modified = mtime;
-  mfi.file_size = size;
+  mfi->time_modified = mtime;
+  mfi->file_size = size;
 
-  if (!(type & F_SCAN_TYPE_URL))
+  if (type & F_SCAN_TYPE_FILE)
     {
-      mfi.data_kind = 0; /* real file */
-      ret = scan_metadata_ffmpeg(file, &mfi);
+      mfi->data_kind = 0; /* real file */
+      ret = scan_metadata_ffmpeg(path, mfi);
+    }
+  else if (type & F_SCAN_TYPE_URL)
+    {
+      mfi->data_kind = 1; /* url/stream */
+#if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
+      ret = scan_metadata_ffmpeg(path, mfi);
+#else
+      ret = scan_metadata_icy(path, mfi);
+#endif
+    }
+  else if (type & F_SCAN_TYPE_SPOTIFY)
+    {
+      mfi->data_kind = 2; /* iTunes has no spotify data kind, but we use 2 */
+      ret = mfi->artist && mfi->album && mfi->title;
+    }
+  else if (type & F_SCAN_TYPE_PIPE)
+    {
+      mfi->data_kind = 3; /* iTunes has no pipe data kind, but we use 3 */
+      mfi->type = strdup("wav");
+      mfi->codectype = strdup("wav");
+      mfi->description = strdup("PCM16 pipe");
+      ret = 1;
     }
   else
     {
-      mfi.data_kind = 1; /* url/stream */
-      if (extinf && extinf->found)
-        {
-	  mfi.artist = strdup(extinf->artist);
-	  mfi.title = strdup(extinf->artist);
-	  mfi.album = strdup(extinf->title);
-	}
-      ret = scan_metadata_icy(file, &mfi);
+      DPRINTF(E_LOG, L_SCAN, "Unknown scan type for %s, this error should not occur\n", path);
+      ret = -1;
     }
 
   if (ret < 0)
     {
-      DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for %s\n", file);
-
+      DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for %s\n", path);
       goto out;
     }
 
   if (type & F_SCAN_TYPE_COMPILATION)
-    mfi.compilation = 1;
+    mfi->compilation = 1;
   if (type & F_SCAN_TYPE_PODCAST)
-    mfi.media_kind = 4; /* podcast */
+    mfi->media_kind = 4; /* podcast */
   if (type & F_SCAN_TYPE_AUDIOBOOK)
-    mfi.media_kind = 8; /* audiobook */
+    mfi->media_kind = 8; /* audiobook */
 
-  if (!mfi.item_kind)
-    mfi.item_kind = 2; /* music */
-  if (!mfi.media_kind)
-    mfi.media_kind = 1; /* music */
+  if (!mfi->item_kind)
+    mfi->item_kind = 2; /* music */
+  if (!mfi->media_kind)
+    mfi->media_kind = 1; /* music */
 
-  unicode_fixup_mfi(&mfi);
+  unicode_fixup_mfi(mfi);
 
-  fixup_tags(&mfi);
+  fixup_tags(mfi);
 
-  if (mfi.id == 0)
-    db_file_add(&mfi);
+  if (mfi->id == 0)
+    db_file_add(mfi);
   else
-    db_file_update(&mfi);
+    db_file_update(mfi);
 
  out:
-  free_mfi(&mfi, 1);
+  if (!external_mfi)
+    free_mfi(mfi, 0);
 }
 
 static void
 process_playlist(char *file, time_t mtime)
 {
-  char *ext;
+  enum file_type ft;
 
-  ext = strrchr(file, '.');
-  if (ext)
-    {
-      if (strcasecmp(ext, ".m3u") == 0)
-	scan_m3u_playlist(file, mtime);
+  ft = file_type_get(file);
+  if (ft == FILE_PLAYLIST)
+    scan_playlist(file, mtime);
 #ifdef ITUNES
-      else if (strcasecmp(ext, ".xml") == 0)
-	scan_itunes_itml(file);
+  else if (ft == FILE_ITUNES)
+    scan_itunes_itml(file);
 #endif
-    }
 }
 
 /* Thread: scan */
@@ -558,9 +700,6 @@ process_deferred_playlists(void)
       free(pl->path);
       free(pl);
 
-      /* Run the event loop */
-      event_base_loop(evbase_scan, EVLOOP_ONCE | EVLOOP_NONBLOCK);
-
       if (scan_exit)
 	return;
     }
@@ -570,47 +709,88 @@ process_deferred_playlists(void)
 static void
 process_file(char *file, time_t mtime, off_t size, int type, int flags)
 {
-  char *ext;
-
-  ext = strrchr(file, '.');
-  if (ext)
+  switch (file_type_get(file))
     {
-      if ((strcasecmp(ext, ".m3u") == 0)
-#ifdef ITUNES
-	  || (strcasecmp(ext, ".xml") == 0)
+      case FILE_REGULAR:
+	filescanner_process_media(file, mtime, size, type, NULL);
+
+	cache_artwork_ping(file, mtime);
+	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
+
+	counter++;
+
+	/* When in bulk mode, split transaction in pieces of 200 */
+	if ((flags & F_SCAN_BULK) && (counter % 200 == 0))
+	  {
+	    DPRINTF(E_LOG, L_SCAN, "Scanned %d files...\n", counter);
+	    db_transaction_end();
+	    db_transaction_begin();
+	  }
+	break;
+
+      case FILE_PLAYLIST:
+      case FILE_ITUNES:
+	if (flags & F_SCAN_BULK)
+	  defer_playlist(file, mtime);
+	else
+	  process_playlist(file, mtime);
+	break;
+
+      case FILE_ARTWORK:
+	DPRINTF(E_DBG, L_SCAN, "Artwork file: %s\n", file);
+	cache_artwork_ping(file, mtime);
+
+	// TODO [artworkcache] If entry in artwork cache exists for no artwork available for a album with files in the same directory, delete the entry
+
+	break;
+
+      case FILE_CTRL_REMOTE:
+	remote_pairing_read_pin(file);
+	break;
+
+#ifdef LASTFM
+      case FILE_CTRL_LASTFM:
+	lastfm_login(file);
+	break;
 #endif
-	  )
-	{
-	  if (flags & F_SCAN_BULK)
-	    defer_playlist(file, mtime);
-	  else
-	    process_playlist(file, mtime);
 
-	  return;
-	}
-      else if (strcmp(ext, ".remote") == 0)
-	{
-	  remote_pairing_read_pin(file);
+#ifdef HAVE_SPOTIFY_H
+      case FILE_CTRL_SPOTIFY:
+	spotify_login(file);
+	break;
+#endif
 
-	  return;
-	}
-      else if (strcmp(ext, ".force-rescan") == 0)
-	{
-	  if (flags & F_SCAN_BULK)
-	    return;
-	  else
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Forcing full rescan, found force-rescan file: %s\n", file);
-	      db_purge_all();
-	      bulk_scan(F_SCAN_BULK);
+      case FILE_CTRL_INITSCAN:
+	if (flags & F_SCAN_BULK)
+	  break;
 
-	      return;
-	    }
-	}
+	DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered, found init-rescan file: %s\n", file);
+
+	inofd_event_unset(); // Clears all inotify watches
+	db_watch_clear();
+
+	inofd_event_set();
+	bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
+	break;
+
+      case FILE_CTRL_FULLSCAN:
+	if (flags & F_SCAN_BULK)
+	  break;
+
+	DPRINTF(E_LOG, L_SCAN, "Full rescan triggered, found full-rescan file: %s\n", file);
+
+	player_playback_stop();
+	player_queue_clear();
+	inofd_event_unset(); // Clears all inotify watches
+	db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
+
+	inofd_event_set();
+	bulk_scan(F_SCAN_BULK);
+	break;
+
+      default:
+	DPRINTF(E_WARN, L_SCAN, "Ignoring file: %s\n", file);
     }
-
-  /* Not any kind of special file, so let's see if it's a media file */
-  process_media_file(file, mtime, size, type, NULL);
 }
 
 /* Thread: scan */
@@ -636,7 +816,6 @@ check_speciallib(char *path, const char *libtype)
 static void
 process_directory(char *path, int flags)
 {
-  struct stacked_dir *bulkstack;
   DIR *dirp;
   struct dirent buf;
   struct dirent *de;
@@ -649,24 +828,6 @@ process_directory(char *path, int flags)
 #endif
   int type;
   int ret;
-
-  if (flags & F_SCAN_BULK)
-    {
-      /* Save our directory stack so it won't get handled inside
-       * the event loop - not its business, we're in bulk mode here.
-       */
-      bulkstack = dirstack;
-      dirstack = NULL;
-
-      /* Run the event loop */
-      event_base_loop(evbase_scan, EVLOOP_ONCE | EVLOOP_NONBLOCK);
-
-      /* Restore our directory stack */
-      dirstack = bulkstack;
-
-      if (scan_exit)
-	return;
-    }
 
   DPRINTF(E_DBG, L_SCAN, "Processing directory %s (flags = 0x%x)\n", path, flags);
 
@@ -689,6 +850,9 @@ process_directory(char *path, int flags)
 
   for (;;)
     {
+      if (scan_exit)
+	break;
+
       ret = readdir_r(dirp, &buf, &de);
       if (ret != 0)
 	{
@@ -751,12 +915,17 @@ process_directory(char *path, int flags)
       if (S_ISREG(sb.st_mode))
 	{
 	  if (!(flags & F_SCAN_FAST))
-	    process_file(entry, sb.st_mtime, sb.st_size, type, flags);
+	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, flags);
+	}
+      else if (S_ISFIFO(sb.st_mode))
+	{
+	  if (!(flags & F_SCAN_FAST))
+	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, flags);
 	}
       else if (S_ISDIR(sb.st_mode))
 	push_dir(&dirstack, entry);
       else
-	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink nor regular file\n", entry);
+	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink, pipe nor regular file\n", entry);
     }
 
   closedir(dirp);
@@ -765,7 +934,7 @@ process_directory(char *path, int flags)
 
 #if defined(__linux__)
   /* Add inotify watch */
-  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MODIFY | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
+  wi.wd = inotify_add_watch(inofd, path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
@@ -773,7 +942,7 @@ process_directory(char *path, int flags)
       return;
     }
 
-  if (!(flags & F_SCAN_RESCAN))
+  if (!(flags & F_SCAN_MOVED))
     {
       wi.cookie = 0;
       wi.path = path;
@@ -843,6 +1012,7 @@ bulk_scan(int flags)
   char *path;
   char *deref;
   time_t start;
+  time_t end;
   int i;
 
   start = time(NULL);
@@ -866,13 +1036,16 @@ bulk_scan(int flags)
 	  db_file_disable_bymatch(path, "", 0);
 	  db_pl_disable_bymatch(path, "", 0);
 
-	  db_file_ping_bymatch(path);
-	  db_pl_ping_bymatch(path);
+	  db_file_ping_bymatch(path, 1);
+	  db_pl_ping_bymatch(path, 1);
 
 	  continue;
 	}
 
+      counter = 0;
+      db_transaction_begin();
       process_directories(deref, flags);
+      db_transaction_end();
 
       free(deref);
 
@@ -889,14 +1062,29 @@ bulk_scan(int flags)
   if (dirstack)
     DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
 
+  end = time(NULL);
+
   if (flags & F_SCAN_FAST)
-    DPRINTF(E_LOG, L_SCAN, "Bulk library scan complete (with file scan disabled)\n");
+    {
+      DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec (with file scan disabled)\n", difftime(end, start));
+    }
   else
     {
+      /* Protect spotify from the imminent purge if rescanning */
+      if (flags & F_SCAN_RESCAN)
+	{
+	  db_file_ping_bymatch("spotify:", 0);
+	  db_pl_ping_bymatch("spotify:", 0);
+	}
+
       DPRINTF(E_DBG, L_SCAN, "Purging old database content\n");
       db_purge_cruft(start);
+      cache_artwork_purge_cruft(start);
 
-      DPRINTF(E_LOG, L_SCAN, "Bulk library scan complete\n");
+      DPRINTF(E_LOG, L_SCAN, "Bulk library scan completed in %.f sec\n", difftime(end, start));
+
+      DPRINTF(E_DBG, L_SCAN, "Running post library scan jobs\n");
+      db_hook_post_scan();
     }
 }
 
@@ -906,6 +1094,20 @@ static void *
 filescanner(void *arg)
 {
   int ret;
+#if defined(__linux__)
+  struct sched_param param;
+
+  /* Lower the priority of the thread so forked-daapd may still respond
+   * during file scan on low power devices. Param must be 0 for the SCHED_BATCH
+   * policy.
+   */
+  memset(&param, 0, sizeof(struct sched_param));
+  ret = pthread_setschedparam(pthread_self(), SCHED_BATCH, &param);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Warning: Could not set thread priority to SCHED_BATCH\n");
+    }
+#endif
 
   ret = db_perthread_init();
   if (ret < 0)
@@ -943,10 +1145,12 @@ filescanner(void *arg)
   else
     bulk_scan(F_SCAN_BULK);
 
-  db_hook_post_scan();
-
   if (!scan_exit)
     {
+#ifdef HAVE_SPOTIFY_H
+      spotify_login(NULL);
+#endif
+
       /* Enable inotify */
       event_add(&inoev, NULL);
 
@@ -957,22 +1161,54 @@ filescanner(void *arg)
     DPRINTF(E_FATAL, L_SCAN, "Scan event loop terminated ahead of time!\n");
 
   db_perthread_deinit();
+  //artworkcache_perthread_deinit();
 
   pthread_exit(NULL);
 }
 
 
 #if defined(__linux__)
+static int
+watches_clear(uint32_t wd, char *path)
+{
+  struct watch_enum we;
+  uint32_t rm_wd;
+  int ret;
+
+  inotify_rm_watch(inofd, wd);
+  db_watch_delete_bywd(wd);
+
+  memset(&we, 0, sizeof(struct watch_enum));
+
+  we.match = path;
+
+  ret = db_watch_enum_start(&we);
+  if (ret < 0)
+    return -1;
+
+  while ((db_watch_enum_fetchwd(&we, &rm_wd) == 0) && (rm_wd))
+    {
+      inotify_rm_watch(inofd, rm_wd);
+    }
+
+  db_watch_enum_end(&we);
+
+  db_watch_delete_bymatch(path);
+
+  return 0;
+}
+
 /* Thread: scan */
 static void
 process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 {
   struct watch_enum we;
   uint32_t rm_wd;
+  char *s;
   int flags = 0;
   int ret;
 
-  DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+  DPRINTF(E_SPAM, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   if (ie->mask & IN_UNMOUNT)
     {
@@ -1017,25 +1253,9 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	   * and we can't tell where it's going
 	   */
 
-	  inotify_rm_watch(inofd, ie->wd);
-	  db_watch_delete_bywd(ie->wd);
-
-	  memset(&we, 0, sizeof(struct watch_enum));
-
-	  we.match = path;
-
-	  ret = db_watch_enum_start(&we);
+	  ret = watches_clear(ie->wd, path);
 	  if (ret < 0)
 	    return;
-
-	  while ((db_watch_enum_fetchwd(&we, &rm_wd) == 0) && (rm_wd))
-	    {
-	      inotify_rm_watch(inofd, rm_wd);
-	    }
-
-	  db_watch_enum_end(&we);
-
-	  db_watch_delete_bymatch(path);
 
 	  db_file_disable_bymatch(path, "", 0);
 	  db_pl_disable_bymatch(path, "", 0);
@@ -1059,10 +1279,48 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	  db_pl_enable_bycookie(ie->cookie, path);
 
 	  /* We'll rescan the directory tree to update playlists */
-	  flags |= F_SCAN_RESCAN;
+	  flags |= F_SCAN_MOVED;
 	}
 
       ie->mask |= IN_CREATE;
+    }
+
+  if (ie->mask & IN_ATTRIB)
+    {
+      DPRINTF(E_DBG, L_SCAN, "Directory permissions changed (%s): %s\n", wi->path, path);
+
+      // Find out if we are already watching the dir (ret will be 0)
+      s = wi->path;
+      wi->path = path;
+      ret = db_watch_get_bypath(wi);
+      if (ret == 0)
+	free(wi->path);
+      wi->path = s;
+
+#ifdef HAVE_EUIDACCESS
+      if (euidaccess(path, (R_OK | X_OK)) < 0)
+#else
+      if (access(path, (R_OK | X_OK)) < 0)
+#endif
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Directory access to '%s' failed: %s\n", path, strerror(errno));
+
+	  if (ret == 0)
+	    watches_clear(wi->wd, path);
+
+	  db_file_disable_bymatch(path, "", 0);
+	  db_pl_disable_bymatch(path, "", 0);
+	}
+      else if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Directory access to '%s' achieved\n", path);
+
+	  ie->mask |= IN_CREATE;
+	}
+      else
+	{
+	  DPRINTF(E_INFO, L_SCAN, "Directory event, but '%s' already being watched\n", path);
+	}
     }
 
   if (ie->mask & IN_CREATE)
@@ -1084,23 +1342,53 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   int type;
   int ret;
 
-  DPRINTF(E_DBG, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+  DPRINTF(E_SPAM, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   if (ie->mask & IN_DELETE)
     {
+      DPRINTF(E_DBG, L_SCAN, "File deleted: %s\n", path);
+
       db_file_delete_bypath(path);
       db_pl_delete_bypath(path);
+      cache_artwork_delete_by_path(path);
     }
 
   if (ie->mask & IN_MOVED_FROM)
     {
-      db_file_disable_bypath(path, wi->path, ie->cookie);
-      db_pl_disable_bypath(path, wi->path, ie->cookie);
+      DPRINTF(E_DBG, L_SCAN, "File moved from: %s\n", path);
+
+      db_file_disable_bypath(path, path, ie->cookie);
+      db_pl_disable_bypath(path, path, ie->cookie);
+    }
+
+  if (ie->mask & IN_ATTRIB)
+    {
+      DPRINTF(E_DBG, L_SCAN, "File permissions changed: %s\n", path);
+
+#ifdef HAVE_EUIDACCESS
+      if (euidaccess(path, R_OK) < 0)
+#else
+      if (access(path, R_OK) < 0)
+#endif
+	{
+	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' failed: %s\n", path, strerror(errno));
+
+	  db_file_delete_bypath(path);
+	  cache_artwork_delete_by_path(path);
+	}
+      else if ((file_type_get(path) == FILE_REGULAR) && (db_file_id_bypath(path) <= 0)) // TODO Playlists
+	{
+	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' achieved\n", path);
+
+	  ie->mask |= IN_CLOSE_WRITE;
+	}
     }
 
   if (ie->mask & IN_MOVED_TO)
     {
-      ret = db_file_enable_bycookie(ie->cookie, wi->path);
+      DPRINTF(E_DBG, L_SCAN, "File moved to: %s\n", path);
+
+      ret = db_file_enable_bycookie(ie->cookie, path);
 
       if (ret <= 0)
 	{
@@ -1109,13 +1397,31 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	   * We want to scan the new file and we want to rescan the
 	   * playlist to update playlist items (relative items).
 	   */
-	  ie->mask |= IN_CREATE;
-	  db_pl_enable_bycookie(ie->cookie, wi->path);
+	  ie->mask |= IN_CLOSE_WRITE;
+	  db_pl_enable_bycookie(ie->cookie, path);
 	}
     }
 
-  if (ie->mask & (IN_MODIFY | IN_CREATE | IN_CLOSE_WRITE))
+  if (ie->mask & IN_CREATE)
     {
+      DPRINTF(E_DBG, L_SCAN, "File created: %s\n", path);
+
+      ret = lstat(path, &sb);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Could not lstat() '%s': %s\n", path, strerror(errno));
+
+	  return;
+	}
+
+      if (S_ISFIFO(sb.st_mode))
+	ie->mask |= IN_CLOSE_WRITE;
+    }
+
+  if (ie->mask & IN_CLOSE_WRITE)
+    {
+      DPRINTF(E_DBG, L_SCAN, "File closed: %s\n", path);
+
       ret = lstat(path, &sb);
       if (ret < 0)
 	{
@@ -1162,7 +1468,10 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
       if (check_speciallib(path, "audiobooks"))
 	type |= F_SCAN_TYPE_AUDIOBOOK;
 
-      process_file(file, sb.st_mtime, sb.st_size, type, 0);
+      if (S_ISREG(sb.st_mode))
+	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, 0);
+      else if (S_ISFIFO(sb.st_mode))
+	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, 0);
 
       if (deref)
 	free(deref);
@@ -1464,6 +1773,46 @@ kqueue_cb(int fd, short event, void *arg)
 }
 #endif /* __FreeBSD__ || __FreeBSD_kernel__ */
 
+/* Thread: main & scan */
+static int
+inofd_event_set(void)
+{
+#if defined(__linux__)
+  inofd = inotify_init1(IN_CLOEXEC);
+  if (inofd < 0)
+    {
+      DPRINTF(E_FATAL, L_SCAN, "Could not create inotify fd: %s\n", strerror(errno));
+
+      return -1;
+    }
+
+  event_set(&inoev, inofd, EV_READ, inotify_cb, NULL);
+
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+
+  inofd = kqueue();
+  if (inofd < 0)
+    {
+      DPRINTF(E_FATAL, L_SCAN, "Could not create kqueue: %s\n", strerror(errno));
+
+      return -1;
+    }
+
+  event_set(&inoev, inofd, EV_READ, kqueue_cb, NULL);
+#endif
+
+  event_base_set(evbase_scan, &inoev);
+
+  return 0;
+}
+
+/* Thread: main & scan */
+static void
+inofd_event_unset(void)
+{
+  event_del(&inoev);
+  close(inofd);
+}
 
 /* Thread: scan */
 static void
@@ -1473,7 +1822,6 @@ exit_cb(int fd, short event, void *arg)
 
   scan_exit = 1;
 }
-
 
 /* Thread: main */
 int
@@ -1513,31 +1861,11 @@ filescanner_init(void)
     }
 #endif /* USE_EVENTFD */
 
-#if defined(__linux__)
-  inofd = inotify_init1(IN_CLOEXEC);
-  if (inofd < 0)
+  ret = inofd_event_set();
+  if (ret < 0)
     {
-      DPRINTF(E_FATAL, L_SCAN, "Could not create inotify fd: %s\n", strerror(errno));
-
       goto ino_fail;
     }
-
-  event_set(&inoev, inofd, EV_READ, inotify_cb, NULL);
-
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-
-  inofd = kqueue();
-  if (inofd < 0)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not create kqueue: %s\n", strerror(errno));
-
-      goto ino_fail;
-    }
-
-  event_set(&inoev, inofd, EV_READ, kqueue_cb, NULL);
-#endif
-
-  event_base_set(evbase_scan, &inoev);
 
 #ifdef USE_EVENTFD
   event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
@@ -1598,6 +1926,8 @@ filescanner_deinit(void)
     }
 #endif
 
+  scan_exit = 1;
+
   ret = pthread_join(tid_scan, NULL);
   if (ret != 0)
     {
@@ -1606,7 +1936,7 @@ filescanner_deinit(void)
       return;
     }
 
-  event_del(&inoev);
+  inofd_event_unset();
 
 #ifdef USE_EVENTFD
   close(exit_efd);
@@ -1614,6 +1944,5 @@ filescanner_deinit(void)
   close(exit_pipe[0]);
   close(exit_pipe[1]);
 #endif
-  close(inofd);
   event_base_free(evbase_scan);
 }

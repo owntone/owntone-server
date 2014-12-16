@@ -2,8 +2,13 @@
 #ifndef __DMAP_HELPERS_H__
 #define __DMAP_HELPERS_H__
 
-#include <event.h>
-#include "evhttp/evhttp.h"
+#ifdef HAVE_LIBEVENT2
+# include <event2/buffer.h>
+# include <event2/http.h>
+#else
+# include <event.h>
+# include "evhttp/evhttp.h"
+#endif
 
 #include "db.h"
 
@@ -50,35 +55,35 @@ dmap_find_field (register const char *str, register unsigned int len);
 
 
 void
-dmap_add_container(struct evbuffer *evbuf, char *tag, int len);
+dmap_add_container(struct evbuffer *evbuf, const char *tag, int len);
 
 void
-dmap_add_long(struct evbuffer *evbuf, char *tag, int64_t val);
+dmap_add_long(struct evbuffer *evbuf, const char *tag, int64_t val);
 
 void
-dmap_add_int(struct evbuffer *evbuf, char *tag, int val);
+dmap_add_int(struct evbuffer *evbuf, const char *tag, int val);
 
 void
-dmap_add_short(struct evbuffer *evbuf, char *tag, short val);
+dmap_add_short(struct evbuffer *evbuf, const char *tag, short val);
 
 void
-dmap_add_char(struct evbuffer *evbuf, char *tag, char val);
+dmap_add_char(struct evbuffer *evbuf, const char *tag, char val);
 
 void
-dmap_add_literal(struct evbuffer *evbuf, char *tag, char *str, int len);
+dmap_add_literal(struct evbuffer *evbuf, const char *tag, char *str, int len);
 
 void
 dmap_add_raw_uint32(struct evbuffer *evbuf, uint32_t val);
 
 void
-dmap_add_string(struct evbuffer *evbuf, char *tag, const char *str);
+dmap_add_string(struct evbuffer *evbuf, const char *tag, const char *str);
 
 void
 dmap_add_field(struct evbuffer *evbuf, const struct dmap_field *df, char *strval, int32_t intval);
 
 
 void
-dmap_send_error(struct evhttp_request *req, char *container, char *errmsg);
+dmap_send_error(struct evhttp_request *req, const char *container, const char *errmsg);
 
 
 int

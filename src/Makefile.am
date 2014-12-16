@@ -2,29 +2,52 @@
 sbin_PROGRAMS = forked-daapd
 
 if COND_FLAC
-FLACSRC=scan-flac.c
+FLAC_SRC=scan-flac.c
 endif
 
 if COND_MUSEPACK
-MUSEPACKSRC=scan-mpc.c
+MUSEPACK_SRC=scan-mpc.c
 endif
 
 if COND_ITUNES
-ITUNESSRC=filescanner_itunes.c
+ITUNES_SRC=filescanner_itunes.c
+endif
+
+if COND_SPOTIFY
+SPOTIFY_SRC=spotify.c spotify.h
+endif
+
+if COND_LASTFM
+LASTFM_SRC=lastfm.c lastfm.h
 endif
 
 if COND_ALSA
-ALSASRC=laudio_alsa.c
+ALSA_SRC=laudio_alsa.c
 endif
 
 if COND_OSS4
-OSS4SRC=laudio_oss4.c
+OSS4_SRC=laudio_oss4.c
 endif
 
 if COND_AVIO
 AVIO_SRC=avio_evbuffer.c avio_evbuffer.h
 else
 FFURL_SRC=ffmpeg_url_evbuffer.c ffmpeg_url_evbuffer.h
+endif
+
+if COND_LIBEVENT1
+EVHTTP_SRC=evhttp/http.c evhttp/evhttp.h evhttp/evhttp_compat.c evhttp/evhttp_compat.h evhttp/http-internal.h evhttp/log.h
+RTSP_SRC=evrtsp/rtsp-libevent1.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
+endif
+
+if COND_LIBEVENT20
+EVHTTP_SRC=
+RTSP_SRC=evrtsp/rtsp-libevent20.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
+endif
+
+if COND_LIBEVENT21
+EVHTTP_SRC=
+RTSP_SRC=evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
 endif
 
 GPERF_FILES = \
@@ -59,24 +82,26 @@ forked_daapd_CPPFLAGS = -D_GNU_SOURCE \
 forked_daapd_CFLAGS = \
 	@ZLIB_CFLAGS@ @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @LIBAV_CFLAGS@ \
 	@CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ \
-	@LIBGCRYPT_CFLAGS@ @GPG_ERROR_CFLAGS@ @ALSA_CFLAGS@
+	@LIBGCRYPT_CFLAGS@ @GPG_ERROR_CFLAGS@ @ALSA_CFLAGS@ @SPOTIFY_CFLAGS@ \
+	@LIBCURL_CFLAGS@
 
 forked_daapd_LDADD = -lrt \
 	@ZLIB_LIBS@ @AVAHI_LIBS@ @SQLITE3_LIBS@ @LIBAV_LIBS@ \
 	@CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ \
 	@LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ \
-	@LIBGCRYPT_LIBS@ @GPG_ERROR_LIBS@ @ALSA_LIBS@ @LIBUNISTRING@
+	@LIBGCRYPT_LIBS@ @GPG_ERROR_LIBS@ @ALSA_LIBS@ @LIBUNISTRING@ @SPOTIFY_LIBS@ \
+	@LIBCURL_LIBS@
 
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
+	cache.h cache.c \
 	filescanner.c filescanner.h \
-	filescanner_ffmpeg.c filescanner_m3u.c filescanner_icy.c $(ITUNESSRC) \
+	filescanner_ffmpeg.c filescanner_playlist.c filescanner_icy.c $(ITUNES_SRC) \
 	mdns_avahi.c mdns.h \
 	remote_pairing.c remote_pairing.h \
-	evhttp/http.c evhttp/evhttp.h \
-	evhttp/http-internal.h evhttp/log.h \
+	$(EVHTTP_SRC) \
 	$(FFURL_SRC) $(AVIO_SRC) \
 	httpd.c httpd.h \
 	httpd_rsp.c httpd_rsp.h \
@@ -84,18 +109,19 @@ forked_daapd_SOURCES = main.c \
 	httpd_dacp.c httpd_dacp.h \
 	dmap_common.c dmap_common.h \
 	transcode.c transcode.h \
+	pipe.c pipe.h \
 	artwork.c artwork.h \
 	misc.c misc.h \
 	rng.c rng.h \
 	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \
 	player.c player.h \
-	$(ALSASRC) $(OSS4SRC) laudio.h \
+	$(ALSA_SRC) $(OSS4_SRC) laudio.h \
 	raop.c raop.h \
-	evrtsp/rtsp.c evrtp/evrtsp.h \
-	evrtsp/rtsp-internal.h evrtsp/log.h \
+	$(RTSP_SRC) \
 	scan-wma.c \
-	$(FLACSRC) $(MUSEPACKSRC)
+	$(SPOTIFY_SRC) $(LASTFM_SRC) \
+	$(FLAC_SRC) $(MUSEPACK_SRC)
 
 nodist_forked_daapd_SOURCES = \
 	$(ANTLR_SOURCES)

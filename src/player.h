@@ -4,14 +4,9 @@
 
 #include <stdint.h>
 
-#if defined(__linux__)
 /* AirTunes v2 packet interval in ns */
 /* (352 samples/packet * 1e9 ns/s) / 44100 samples/s = 7981859 ns/packet */
-#define AIRTUNES_V2_STREAM_PERIOD 7981859
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-/* AirTunes v2 packet interval in ms */
-# define AIRTUNES_V2_STREAM_PERIOD   8
-#endif
+# define AIRTUNES_V2_STREAM_PERIOD 7981859
 
 /* AirTunes v2 number of samples per packet */
 #define AIRTUNES_V2_PACKET_SAMPLES  352
@@ -20,6 +15,9 @@
 /* Samples to bytes, bytes to samples */
 #define STOB(s) ((s) * 4)
 #define BTOS(b) ((b) / 4)
+
+/* Maximum number of previously played songs that are remembered */
+#define MAX_HISTORY_COUNT 20
 
 enum play_status {
   PLAY_STOPPED = 2,
@@ -31,6 +29,12 @@ enum repeat_mode {
   REPEAT_OFF  = 0,
   REPEAT_SONG = 1,
   REPEAT_ALL  = 2,
+};
+
+enum source_type {
+  SOURCE_FFMPEG = 0,
+  SOURCE_SPOTIFY,
+  SOURCE_PIPE,
 };
 
 struct spk_flags {
@@ -60,6 +64,9 @@ struct player_source
 {
   uint32_t id;
 
+  enum source_type type;
+  int setup_done;
+
   uint64_t stream_start;
   uint64_t output_start;
   uint64_t end;
@@ -74,6 +81,19 @@ struct player_source
 
   struct player_source *play_next;
 };
+
+struct player_history
+{
+  /* Buffer index of the oldest remembered song */
+  unsigned int start_index;
+
+  /* Count of song ids in the buffer */
+  unsigned int count;
+
+  /* Circular buffer of song ids previously played by forked-daapd */
+  uint32_t id[MAX_HISTORY_COUNT];
+};
+
 
 int
 player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit);
@@ -136,11 +156,26 @@ player_queue_get(void);
 int
 player_queue_add(struct player_source *ps);
 
+int
+player_queue_add_next(struct player_source *ps);
+
+int
+player_queue_move(int ps_pos_from, int ps_pos_to);
+
+int
+player_queue_remove(int ps_pos_remove);
+
 void
 player_queue_clear(void);
 
 void
+player_queue_empty(int clear_hist);
+
+void
 player_queue_plid(uint32_t plid);
+
+struct player_history *
+player_history_get(void);
 
 void
 player_set_update_handler(player_status_handler handler);

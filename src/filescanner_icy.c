@@ -1,9 +1,6 @@
 /*
  * Copyright (C) 2009-2010 Julien BLACHE <jb@jblache.org>
  *
- * Rewritten from mt-daapd code:
- * Copyright (C) 2003 Ron Pedde (ron@pedde.com)
- *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
  * the Free Software Foundation; either version 2 of the License, or
@@ -37,13 +34,18 @@
 #include <netdb.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #include <netinet/in.h>
 #endif
 
 #include <event.h>
-#include "evhttp/evhttp.h"
+#if defined HAVE_LIBEVENT2
+# include <event2/http.h>
+#else
+# include "evhttp/evhttp_compat.h"
+#endif
 
 #include <libavformat/avformat.h>
 
@@ -67,15 +69,16 @@ struct icy_ctx
   char hostname[PATH_MAX];
   char path[PATH_MAX];
   int port;
+
+  char *icy_name;
+  char *icy_description;
+  char *icy_genre;
+
+  pthread_mutex_t lck;
+  pthread_cond_t cond;
 };
 
-static void
-free_icy(struct icy_ctx *ctx)
-{
-  if (ctx)
-    free(ctx);
-}
-
+#ifndef HAVE_LIBEVENT2
 static int
 resolve_address(char *hostname, char *s, size_t maxlen)
 {
@@ -98,62 +101,81 @@ resolve_address(char *hostname, char *s, size_t maxlen)
 
       default:
 	strncpy(s, "Unknown AF", maxlen);
+	freeaddrinfo(result);
 	return -1;
     }
 
   freeaddrinfo(result);
   return 0;
 }
+#endif
 
+#ifndef HAVE_LIBEVENT2_OLD
 static void
 scan_icy_request_cb(struct evhttp_request *req, void *arg)
 {
-  DPRINTF(E_DBG, L_SCAN, "ICY metadata request completed\n");
+  struct icy_ctx *ctx;
+
+  ctx = (struct icy_ctx *)arg;
+
+  pthread_mutex_lock(&ctx->lck);
+
+  DPRINTF(E_DBG, L_SCAN, "ICY metadata request: Signal callback\n");
 
   status = ICY_DONE;
-  return;
+  pthread_cond_signal(&ctx->cond);
+  pthread_mutex_unlock(&ctx->lck);
 }
 
 /* Will always return -1 to make evhttp close the connection - we only need the http headers */
 static int
 scan_icy_header_cb(struct evhttp_request *req, void *arg)
 {
-  struct media_file_info *mfi;
+  struct icy_ctx *ctx;
+  struct evkeyvalq *headers;
   const char *ptr;
 
-  mfi = (struct media_file_info *)arg;
+  ctx = (struct icy_ctx *)arg;
 
-  if ( (ptr = evhttp_find_header(req->input_headers, "icy-name")) )
+  DPRINTF(E_DBG, L_SCAN, "ICY metadata request: Headers received\n");
+
+  headers = evhttp_request_get_input_headers(req);
+  if ( (ptr = evhttp_find_header(headers, "icy-name")) )
     {
-      mfi->title = strdup(ptr);
-      mfi->artist = strdup(ptr);
-      DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, name (title/artist) is %s\n", mfi->title);
+      ctx->icy_name = strdup(ptr);
+      DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, name is %s\n", ctx->icy_name);
     }
-  if ( (ptr = evhttp_find_header(req->input_headers, "icy-description")) )
+  if ( (ptr = evhttp_find_header(headers, "icy-description")) )
     {
-      mfi->album = strdup(ptr);
-      DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, description (album) is %s\n", mfi->album);
+      ctx->icy_description = strdup(ptr);
+      DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, description is %s\n", ctx->icy_description);
     }
-  if ( (ptr = evhttp_find_header(req->input_headers, "icy-genre")) )
+  if ( (ptr = evhttp_find_header(headers, "icy-genre")) )
     {
-      mfi->genre = strdup(ptr);
-      DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, genre is %s\n", mfi->genre);
+      ctx->icy_genre = strdup(ptr);
+      DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, genre is %s\n", ctx->icy_genre);
     }
 
-  status = ICY_DONE;
   return -1;
 }
+#endif
 
 int
 scan_metadata_icy(char *url, struct media_file_info *mfi)
 {
-  struct evhttp_connection *evcon;
-  struct evhttp_request *req;
   struct icy_ctx *ctx;
+  struct evhttp_connection *evcon;
+#ifndef HAVE_LIBEVENT2_OLD
+  struct evhttp_request *req;
+  struct evkeyvalq *headers;
+  char s[PATH_MAX];
+#endif
+  time_t start;
+  time_t end;
   int ret;
-  int i;
 
   status = ICY_INIT;
+  start = time(NULL);
 
   /* We can set this straight away */
   mfi->url = strdup(url);
@@ -163,17 +185,42 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
     {
       DPRINTF(E_LOG, L_SCAN, "Out of memory for ICY metadata context\n");
 
-      goto no_icy;
+      return -1;
     }
   memset(ctx, 0, sizeof(struct icy_ctx));
+
+  pthread_mutex_init(&ctx->lck, NULL);
+  pthread_cond_init(&ctx->cond, NULL);
 
   ctx->url = url;
 
   /* TODO https */
   av_url_split(NULL, 0, NULL, 0, ctx->hostname, sizeof(ctx->hostname), &ctx->port, ctx->path, sizeof(ctx->path), ctx->url);
+  if ((!ctx->hostname) || (strlen(ctx->hostname) == 0))
+    {
+      DPRINTF(E_LOG, L_SCAN, "Error extracting hostname from playlist URL: %s\n", ctx->url);
+
+      return -1;
+    }
+
   if (ctx->port < 0)
     ctx->port = 80;
 
+  if (strlen(ctx->path) == 0)
+    {
+      ctx->path[0] = '/';
+      ctx->path[1] = '\0';
+    }
+
+#ifdef HAVE_LIBEVENT2
+  evcon = evhttp_connection_base_new(evbase_main, NULL, ctx->hostname, (unsigned short)ctx->port);
+  if (!evcon)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not create connection to %s\n", ctx->hostname);
+
+      goto no_icy;
+    }
+#else
   /* Resolve IP address */
   ret = resolve_address(ctx->hostname, ctx->address, sizeof(ctx->address));
   if (ret < 0)
@@ -194,37 +241,45 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
       goto no_icy;
     }
   evhttp_connection_set_base(evcon, evbase_main);
+#endif
+
+#ifdef HAVE_LIBEVENT2_OLD
+  DPRINTF(E_LOG, L_SCAN, "Skipping Shoutcast metadata request for %s (requires libevent>=2.1.4 or libav 10)\n", ctx->hostname);
+#else
   evhttp_connection_set_timeout(evcon, ICY_TIMEOUT);
   
   /* Set up request */
-  req = evhttp_request_new(scan_icy_request_cb, mfi);
+  req = evhttp_request_new(scan_icy_request_cb, ctx);
   if (!req)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not create request to %s\n", ctx->hostname);
 
-      evhttp_connection_free(evcon);
       goto no_icy;
     }
-  req->header_cb = scan_icy_header_cb;
-  evhttp_add_header(req->output_headers, "Host", ctx->hostname);
-  evhttp_add_header(req->output_headers, "Icy-MetaData", "1");
+
+  evhttp_request_set_header_cb(req, scan_icy_header_cb);
+
+  headers = evhttp_request_get_output_headers(req);
+  snprintf(s, PATH_MAX, "%s:%d", ctx->hostname, ctx->port);
+  evhttp_add_header(headers, "Host", s);
+  evhttp_add_header(headers, "Icy-MetaData", "1");
 
   /* Make request */
+  DPRINTF(E_INFO, L_SCAN, "Making request to %s asking for ICY (Shoutcast) metadata\n", ctx->hostname);
+
   status = ICY_WAITING;
   ret = evhttp_make_request(evcon, req, EVHTTP_REQ_GET, ctx->path);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not make request to %s\n", ctx->hostname);
+      DPRINTF(E_LOG, L_SCAN, "Error making request to %s\n", ctx->hostname);
 
       status = ICY_DONE;
-      evhttp_connection_free(evcon);
       goto no_icy;
     }
-  DPRINTF(E_INFO, L_SCAN, "Making request to %s asking for ICY (Shoutcast) metadata\n", url);
+#endif
 
   /* Can't count on server support for ICY metadata, so
    * while waiting for a reply make a parallel call to scan_metadata_ffmpeg.
-   * This call will also determine final return value.
    */
  no_icy:
   ret = scan_metadata_ffmpeg(url, mfi);
@@ -236,13 +291,58 @@ scan_metadata_icy(char *url, struct media_file_info *mfi)
       mfi->description = strdup("MPEG audio file");
     }
 
-  /* Wait till ICY request completes or we reach timeout */
-  for (i = 0; (status == ICY_WAITING) && (i <= ICY_TIMEOUT); i++)
-    sleep(1);
+  /* Wait for ICY request to complete or timeout */
+  pthread_mutex_lock(&ctx->lck);
 
-  free_icy(ctx);
+  if (status == ICY_WAITING)
+    pthread_cond_wait(&ctx->cond, &ctx->lck);
 
-  DPRINTF(E_DBG, L_SCAN, "scan_metadata_icy exiting with status %d after waiting %d sec\n", status, i);
+  pthread_mutex_unlock(&ctx->lck);
+
+  /* Copy result to mfi */
+  if (ctx->icy_name)
+    {
+      if (mfi->title)
+	free(mfi->title);
+      if (mfi->artist)
+	free(mfi->artist);
+      if (mfi->album_artist)
+	free(mfi->album_artist);
+
+      mfi->title = strdup(ctx->icy_name);
+      mfi->artist = strdup(ctx->icy_name);
+      mfi->album_artist = strdup(ctx->icy_name);
+
+      free(ctx->icy_name);
+    }
+
+  if (ctx->icy_description)
+    {
+      if (mfi->album)
+	free(mfi->album);
+
+      mfi->album = ctx->icy_description;
+    }
+
+  if (ctx->icy_genre)
+    {
+      if (mfi->genre)
+	free(mfi->genre);
+
+      mfi->genre = ctx->icy_genre;
+    }
+
+  /* Clean up */
+  if (evcon)
+    evhttp_connection_free(evcon);
+
+  pthread_cond_destroy(&ctx->cond);
+  pthread_mutex_destroy(&ctx->lck);
+  free(ctx);
+
+  end = time(NULL);
+
+  DPRINTF(E_DBG, L_SCAN, "ICY metadata scan of %s completed in %.f sec\n", url, difftime(end, start));
 
   return 1;
 }

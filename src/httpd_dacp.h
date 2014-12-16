@@ -3,7 +3,11 @@
 #define __HTTPD_DACP_H__
 
 #include <event.h>
-#include "evhttp/evhttp.h"
+#ifdef HAVE_LIBEVENT2
+# include <event2/http.h>
+#else
+# include "evhttp/evhttp_compat.h"
+#endif
 
 int
 dacp_init(void);

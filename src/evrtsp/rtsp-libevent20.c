@@ -30,17 +30,17 @@
 
 #include <event.h>
 
-#ifdef EVENT__HAVE_SYS_PARAM_H
+#ifdef _EVENT_HAVE_SYS_PARAM_H
 #include <sys/param.h>
 #endif
-#ifdef EVENT__HAVE_SYS_TYPES_H
+#ifdef _EVENT_HAVE_SYS_TYPES_H
 #include <sys/types.h>
 #endif
 
-#ifdef EVENT__HAVE_SYS_TIME_H
+#ifdef _EVENT_HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
-#ifdef EVENT__HAVE_SYS_IOCCOM_H
+#ifdef _EVENT_HAVE_SYS_IOCCOM_H
 #include <sys/ioccom.h>
 #endif
 
@@ -74,10 +74,10 @@
 #endif
 #include <signal.h>
 #include <time.h>
-#ifdef EVENT__HAVE_UNISTD_H
+#ifdef _EVENT_HAVE_UNISTD_H
 #include <unistd.h>
 #endif
-#ifdef EVENT__HAVE_FCNTL_H
+#ifdef _EVENT_HAVE_FCNTL_H
 #include <fcntl.h>
 #endif
 
@@ -95,7 +95,7 @@
 #define strdup _strdup
 #endif
 
-#ifndef EVENT__HAVE_GETNAMEINFO
+#ifndef _EVENT_HAVE_GETNAMEINFO
 #define NI_MAXSERV 32
 #define NI_MAXHOST 1025
 
@@ -144,7 +144,7 @@ fake_getnameinfo(const struct sockaddr *sa, size_t salen, char *host,
 
 #endif
 
-#ifndef EVENT__HAVE_GETADDRINFO
+#ifndef _EVENT_HAVE_GETADDRINFO
 struct addrinfo {
 	int ai_family;
 	int ai_socktype;
@@ -218,7 +218,7 @@ static int evrtsp_add_header_internal(struct evkeyvalq *headers,
 void evrtsp_read(int, short, void *);
 void evrtsp_write(int, short, void *);
 
-#ifndef EVENT__HAVE_STRSEP
+#ifndef _EVENT_HAVE_STRSEP
 /* strsep replacement for platforms that lack it.  Only works if
  * del is one character long. */
 static char *
@@ -1596,7 +1596,7 @@ evrtsp_request_uri(struct evrtsp_request *req) {
 static struct addrinfo *
 addr_from_name(char *address)
 {
-#ifdef EVENT__HAVE_GETADDRINFO
+#ifdef _EVENT_HAVE_GETADDRINFO
         struct addrinfo ai, *aitop;
         int ai_result;
 
@@ -1627,7 +1627,7 @@ name_from_addr(struct sockaddr *sa, socklen_t salen,
 	char strport[NI_MAXSERV];
 	int ni_result;
 
-#ifdef EVENT__HAVE_GETNAMEINFO
+#ifdef _EVENT_HAVE_GETNAMEINFO
 	ni_result = getnameinfo(sa, salen,
 		ntop, sizeof(ntop), strport, sizeof(strport),
 		NI_NUMERICHOST|NI_NUMERICSERV);
@@ -1709,7 +1709,7 @@ make_addrinfo(const char *address, u_short port)
 {
         struct addrinfo *aitop = NULL;
 
-#ifdef EVENT__HAVE_GETADDRINFO
+#ifdef _EVENT_HAVE_GETADDRINFO
         struct addrinfo ai;
         char strport[NI_MAXSERV];
         int ai_result;
@@ -1759,7 +1759,7 @@ bind_socket(int family, const char *address, u_short port, int reuse)
 
 	fd = bind_socket_ai(family, aitop, reuse);
 
-#ifdef EVENT__HAVE_GETADDRINFO
+#ifdef _EVENT_HAVE_GETADDRINFO
 	freeaddrinfo(aitop);
 #else
 	fake_freeaddrinfo(aitop);
@@ -1798,7 +1798,7 @@ socket_connect(int fd, const char *address, unsigned short port)
 	res = 0;
 
 out:
-#ifdef EVENT__HAVE_GETADDRINFO
+#ifdef _EVENT_HAVE_GETADDRINFO
 	freeaddrinfo(ai);
 #else
 	fake_freeaddrinfo(ai);

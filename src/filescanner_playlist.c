@@ -39,14 +39,17 @@
 #include "filescanner.h"
 #include "misc.h"
 
+/* Formats we can read so far */
+#define PLAYLIST_PLS 1
+#define PLAYLIST_M3U 2
 
 /* Get metadata from the EXTINF tag */
 static int
-extinf_get(char *string, struct extinf_ctx *extinf)
+extinf_get(char *string, struct media_file_info *mfi, int *extinf)
 {
   char *ptr;
 
-  if (strcmp(string, "#EXTINF:") <= 0)
+  if (strncmp(string, "#EXTINF:", strlen("#EXTINF:")) != 0)
     return 0;
 
   ptr = strchr(string, ',');
@@ -54,55 +57,43 @@ extinf_get(char *string, struct extinf_ctx *extinf)
     return 0;
 
   /* New extinf found, so clear old data */
-  if (extinf->found)
-    {
-      free(extinf->artist);
-      free(extinf->title);
-    }
+  free_mfi(mfi, 1);
 
-  extinf->found = 1;
-  extinf->artist = strdup(ptr + 1);
+  *extinf = 1;
+  mfi->artist = strdup(ptr + 1);
 
-  ptr = strstr(extinf->artist, " -");
+  ptr = strstr(mfi->artist, " -");
   if (ptr && strlen(ptr) > 3)
-    extinf->title = strdup(ptr + 3);
+    mfi->title = strdup(ptr + 3);
   else
-    extinf->title = strdup("");
+    mfi->title = strdup("");
   if (ptr)
     *ptr = '\0';
 
   return 1;
 }
 
-static void
-extinf_reset(struct extinf_ctx *extinf)
-{
-  if (extinf->found)
-    {
-      free(extinf->artist);
-      free(extinf->title);
-    }
-  extinf->found = 0;
-}
-
 void
-scan_m3u_playlist(char *file, time_t mtime)
+scan_playlist(char *file, time_t mtime)
 {
   FILE *fp;
+  struct media_file_info mfi;
   struct playlist_info *pli;
   struct stat sb;
-  struct extinf_ctx extinf;
   char buf[PATH_MAX];
+  char *path;
   char *entry;
   char *filename;
   char *ptr;
   size_t len;
+  int extinf;
   int pl_id;
+  int pl_format;
   int mfi_id;
   int ret;
   int i;
 
-  DPRINTF(E_INFO, L_SCAN, "Processing static playlist: %s\n", file);
+  DPRINTF(E_LOG, L_SCAN, "Processing static playlist: %s\n", file);
 
   ret = stat(file, &sb);
   if (ret < 0)
@@ -111,6 +102,17 @@ scan_m3u_playlist(char *file, time_t mtime)
 
       return;
     }
+
+  ptr = strrchr(file, '.');
+  if (!ptr)
+    return;
+
+  if (strcasecmp(ptr, ".m3u") == 0)
+    pl_format = PLAYLIST_M3U;
+  else if (strcasecmp(ptr, ".pls") == 0)
+    pl_format = PLAYLIST_PLS;
+  else
+    return;
 
   filename = strrchr(file, '/');
   if (!filename)
@@ -137,7 +139,7 @@ scan_m3u_playlist(char *file, time_t mtime)
   fp = fopen(file, "r");
   if (!fp)
     {
-      DPRINTF(E_WARN, L_SCAN, "Could not open playlist '%s': %s\n", file, strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "Could not open playlist '%s': %s\n", file, strerror(errno));
 
       return;
     }
@@ -159,7 +161,7 @@ scan_m3u_playlist(char *file, time_t mtime)
       ret = db_pl_add(buf, file, &pl_id);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_SCAN, "Error adding m3u playlist '%s'\n", file);
+	  DPRINTF(E_LOG, L_SCAN, "Error adding playlist '%s'\n", file);
 
 	  return;
 	}
@@ -167,17 +169,12 @@ scan_m3u_playlist(char *file, time_t mtime)
       DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
     }
 
-  extinf.found = 0;
+  extinf = 0;
+  memset(&mfi, 0, sizeof(struct media_file_info));
 
   while (fgets(buf, sizeof(buf), fp) != NULL)
     {
       len = strlen(buf);
-      if (len >= (sizeof(buf) - 1))
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Playlist entry exceeds PATH_MAX, discarding\n");
-
-	  continue;
-	}
 
       /* rtrim and check that length is sane (ignore blank lines) */
       while ((len > 0) && isspace(buf[len - 1]))
@@ -188,20 +185,30 @@ scan_m3u_playlist(char *file, time_t mtime)
       if (len < 1)
 	continue;
 
-      /* Saves metadata in extinf if EXTINF metadata line */
-      if (extinf_get(buf, &extinf))
+      /* Saves metadata in mfi if EXTINF metadata line */
+      if ((pl_format == PLAYLIST_M3U) && extinf_get(buf, &mfi, &extinf))
+	continue;
+
+      /* For pls files we are only interested in the part after the FileX= entry */
+      path = NULL;
+      if ((pl_format == PLAYLIST_PLS) && (strncasecmp(buf, "file", strlen("file")) == 0))
+	path = strchr(buf, '=') + 1;
+      else if (pl_format == PLAYLIST_M3U)
+	path = buf;
+
+      if (!path)
 	continue;
 
       /* Check that first char is sane for a path */
-      if ((!isalnum(buf[0])) && (buf[0] != '/') && (buf[0] != '.'))
+      if ((!isalnum(path[0])) && (path[0] != '/') && (path[0] != '.'))
 	continue;
 
-      /* Check if line is an URL */
-      if (strcmp(buf, "http://") > 0)
+      /* Check if line is an URL, will be added to library */
+      if (strncasecmp(path, "http://", strlen("http://")) == 0)
 	{
 	  DPRINTF(E_DBG, L_SCAN, "Playlist contains URL entry\n");
 
-	  filename = strdup(buf);
+	  filename = strdup(path);
 	  if (!filename)
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Out of memory for playlist filename\n");
@@ -209,19 +216,19 @@ scan_m3u_playlist(char *file, time_t mtime)
 	      continue;
 	    }
 
-	  if (extinf.found)
-	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", extinf.artist, extinf.title);
+	  if (extinf)
+	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi.artist, mfi.title);
 
-	  process_media_file(filename, mtime, 0, F_SCAN_TYPE_URL, &extinf);
+	  filescanner_process_media(filename, mtime, 0, F_SCAN_TYPE_URL, &mfi);
 	}
-      /* Regular file */
+      /* Regular file, should already be in library */
       else
 	{
-	  /* m3u might be from Windows so we change backslash to forward slash */
-	  for (i = 0; i < strlen(buf); i++)
+	  /* Playlist might be from Windows so we change backslash to forward slash */
+	  for (i = 0; i < strlen(path); i++)
 	    {
-	      if (buf[i] == '\\')
-	        buf[i] = '/';
+	      if (path[i] == '\\')
+	        path[i] = '/';
 	    }
 
           /* Now search for the library item where the path has closest match to playlist item */
@@ -230,7 +237,7 @@ scan_m3u_playlist(char *file, time_t mtime)
 	  entry = NULL;
 	  do
 	    {
-	      ptr = strrchr(buf, '/');
+	      ptr = strrchr(path, '/');
 	      if (entry)
 		*(entry - 1) = '/';
 	      if (ptr)
@@ -239,7 +246,7 @@ scan_m3u_playlist(char *file, time_t mtime)
 		  entry = ptr + 1;
 		}
 	      else
-		entry = buf;
+		entry = path;
 
 	      DPRINTF(E_SPAM, L_SCAN, "Playlist entry is now %s\n", entry);
 	      ret = db_files_get_count_bymatch(entry);
@@ -271,7 +278,9 @@ scan_m3u_playlist(char *file, time_t mtime)
       if (ret < 0)
 	DPRINTF(E_WARN, L_SCAN, "Could not add %s to playlist\n", filename);
 
-      extinf_reset(&extinf);
+      /* Clean up in preparation for next item */
+      extinf = 0;
+      free_mfi(&mfi, 1);
       free(filename);
     }
 

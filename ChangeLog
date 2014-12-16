@@ -1,6 +1,78 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 22.1:
+	- artwork cache
+	- some Spotify fixing up
+
+version 22.0:
+	- queue handling improvements
+	- added DAAP cache, good for low-power devices like the RPi
+	- support for LastFM scrobbling
+	- support for .pls playlists
+	- added compability with ffmpeg libswresample
+	- added options to modify the operation of the SQLite database
+	- stop init-rescan/full-rescan from running twice
+	- fix misc local audio problems
+	- fix some FreeBSD sound timing problems
+	- fix segfault on invalid utf8 while sorting
+	- fix misc bugs
+
+version 21.0:
+	- filescanner performance enhancements (db transactions)
+	- support for queue editing
+	- support for showing history
+	- compability with libevent 2
+	- compability with libav 10
+	- support for Spotify
+	- fix for Seafile libraries
+	- support for permission changes in a library (IN_ATTRIB)
+	- some DAAP changes to align with iTunes
+	- properly show media kind shares in iTunes
+	- support for named pipes/fifos
+	- natural sorting and better handling of capitalization
+	- introduce .init-rescan and .full-rescan triggers
+	- fix for XBMC (libshairplay) crash
+	- fix missing songartistid (fixes some remotes)
+	- fix bug in m3u scanner
+	- ICY metadata fixes
+
+version 20.0:
+	- includes patch against timeouts
+	- configurable artwork file names
+	- support for Remote 3 and 4
+	- preference for album artist if it is available
+	- bug fix for certain Airport Express models
+	- bug fix for AirFoil Speakers
+	- added support for internet radio with m3u
+	- fixed fatal error when stopping player
+	- m3u and iTunes playlist scanner improvements
+	- improved compability with Hyperfine Remote for Android
+	- speaker selection and m3u bug fixes
+	- Shoutcast (icy) metadata support for internet radio
+	- fix for Apple TV update 6.0
+	- fix artwork memory leak
+	- basic support for podcasts, compilations and audiobooks
+	- user can tell file scanner to ignore certain file types
+	- fix for metadata on non-Apple airplay devices
+	- configurable library names
+	- sorting changes, ignore The/A/An
+	- fix for TunesRemote SE
+	- force library rescan with .force-rescan
+	- fix for the Retune remote on Android
+	- fix for AirBubble speakers (shairport)
+	- support for artwork in iTunes
+	- fixed ffmpeg/libav logging
+	- logging and documentation adjustments
+	- autoselect AirPlay device if none selected
+	- support for embedded artwork
+	- config option to disable startup scan
+	- config option for max volume for AirPlay devices
+	- support for embedded platforms without hi-res timers
+	- fix for WMA files
+	- fixes for video playback
+	- other fixes: non apple players, ffmpeg/libav updates...
+
 version 0.19:
 	- more libav 0.7 updates.
 	- database speedups.

@@ -6,6 +6,7 @@ Makefile
 *.lo
 *.a
 *.la
+.dirstamp
 .deps/
 .libs/
 
@@ -32,3 +33,6 @@ build-stamp
 # ignore debian packaging for convenience
 debian/
 
+/.settings
+/.cproject
+/.project
