@@ -1913,7 +1913,10 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   evbuffer_free(group);
 
   if (qp.filter)
-    free(qp.filter);
+    {
+        free(qp.filter);
+        qp.filter = NULL;
+    }
 
   if (ret < 0)
     {
@@ -1993,8 +1996,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   evbuffer_free(grouplist);
 
  out_qfilter_free:
-  if (qp.filter)
-    free(qp.filter);
+  free(qp.filter);
 
   return -1;
 }
