@@ -1009,7 +1009,7 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   param = evhttp_find_header(query, "revision-number");
   if (!param)
     {
-      DPRINTF(E_LOG, L_DAAP, "Missing revision-number in client update request\n");
+      DPRINTF(E_DBG, L_DAAP, "Missing revision-number in client update request\n");
       /* Some players (Amarok, Banshee) don't supply a revision number.
 	 They get a standard update of everything. */
       param = "1";  /* Default to "1" will insure update */
@@ -1913,7 +1913,10 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   evbuffer_free(group);
 
   if (qp.filter)
-    free(qp.filter);
+    {
+        free(qp.filter);
+        qp.filter = NULL;
+    }
 
   if (ret < 0)
     {
@@ -1993,8 +1996,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   evbuffer_free(grouplist);
 
  out_qfilter_free:
-  if (qp.filter)
-    free(qp.filter);
+  free(qp.filter);
 
   return -1;
 }

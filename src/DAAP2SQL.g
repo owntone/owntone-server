@@ -252,7 +252,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 					val[0] = '\%';
 				}
 
-				if (val[strlen((char *)val) - 1] == '*')
+				if (val[0] && val[1] && val[strlen((char *)val) - 1] == '*')
 				{
 					op = '\%';
 					val[strlen((char *)val) - 1] = '\%';
