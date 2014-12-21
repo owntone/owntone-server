@@ -742,12 +742,14 @@ db_purge_cruft(time_t ref)
   char *errmsg;
   int i;
   int ret;
-  char *queries[3] = { NULL, NULL, NULL };
-  char *queries_tmpl[3] =
+  char *queries[5] = { NULL, NULL, NULL, NULL, NULL };
+  char *queries_tmpl[5] =
     {
       "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> 1 AND p.db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlists WHERE type <> 1 AND db_timestamp < %" PRIi64 ";",
-      "DELETE FROM files WHERE db_timestamp < %" PRIi64 ";"
+      "DELETE FROM files WHERE db_timestamp < %" PRIi64 ";",
+      "DELETE FROM groups WHERE type = 1 AND id NOT IN (SELECT songalbumid FROM files);",
+      "DELETE FROM groups WHERE type = 2 AND id NOT IN (SELECT songartistid FROM files);"
     };
 
   if (sizeof(queries) != sizeof(queries_tmpl))
@@ -758,7 +760,11 @@ db_purge_cruft(time_t ref)
 
   for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
     {
-      queries[i] = sqlite3_mprintf(queries_tmpl[i], (int64_t)ref);
+      if (i < 3)
+	queries[i] = sqlite3_mprintf(queries_tmpl[i], (int64_t)ref);
+      else
+	queries[i] = sqlite3_mprintf(queries_tmpl[i]);
+
       if (!queries[i])
 	{
 	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1197,13 +1203,13 @@ db_build_query_group_albums(struct query_params *qp, char **q)
   sort = sort_clause[qp->sort];
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name %s %s;", G_ALBUMS, qp->filter, sort, idx);
+    query = sqlite3_mprintf("SELECT f.songalbumid, f.songalbumid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.songalbumid %s %s;", qp->filter, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name %s %s;", G_ALBUMS, sort, idx);
+    query = sqlite3_mprintf("SELECT f.songalbumid, f.songalbumid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f WHERE f.disabled = 0 GROUP BY f.songalbumid %s %s;", sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album, g.name %s;", G_ALBUMS, qp->filter, sort);
+    query = sqlite3_mprintf("SELECT f.songalbumid, f.songalbumid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.songalbumid %s;", qp->filter, sort);
   else
-    query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f, groups g WHERE f.songalbumid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album, g.name %s;", G_ALBUMS, sort);
+    query = sqlite3_mprintf("SELECT f.songalbumid, f.songalbumid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f WHERE f.disabled = 0 GROUP BY f.songalbumid %s;", sort);
 
   if (!query)
     {
@@ -1236,13 +1242,13 @@ db_build_query_group_artists(struct query_params *qp, char **q)
   sort = sort_clause[qp->sort];
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f, groups g WHERE f.songartistid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album_artist, g.name %s %s;", G_ARTISTS, qp->filter, sort, idx);
+    query = sqlite3_mprintf("SELECT f.songartistid, f.songartistid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.songartistid %s %s;", qp->filter, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f, groups g WHERE f.songartistid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album_artist, g.name %s %s;", G_ARTISTS, sort, idx);
+    query = sqlite3_mprintf("SELECT f.songartistid, f.songartistid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f WHERE f.disabled = 0 GROUP BY f.songartistid %s %s;", sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f, groups g WHERE f.songartistid = g.persistentid AND g.type = %d AND f.disabled = 0 AND %s GROUP BY f.album_artist, g.name %s;", G_ARTISTS, qp->filter, sort);
+    query = sqlite3_mprintf("SELECT f.songartistid, f.songartistid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f WHERE f.disabled = 0 AND %s GROUP BY f.songartistid %s;", qp->filter, sort);
   else
-    query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f, groups g WHERE f.songartistid = g.persistentid AND g.type = %d AND f.disabled = 0 GROUP BY f.album_artist, g.name %s;", G_ARTISTS, sort);
+    query = sqlite3_mprintf("SELECT f.songartistid, f.songartistid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f WHERE f.disabled = 0 GROUP BY f.songartistid %s;", sort);
 
   if (!query)
     {
@@ -2359,6 +2365,101 @@ db_file_fetch_byid(int id)
 #undef Q_TMPL
 }
 
+static int
+db_group_get_id(enum group_type type, const char *artist, const char *album, uint32_t *id)
+{
+#define Q_TMPL "SELECT id FROM groups WHERE type = %d AND name = LOWER(TRIM(%Q)) || '==' || LOWER(TRIM(%Q));"
+
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  // Select artist and album from groups
+  query = sqlite3_mprintf(Q_TMPL, type, artist, (album ? album : ""));
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return -1;
+    }
+
+  ret = db_blocking_step(stmt);
+
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "No results\n");
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+
+      *id = 0;
+      return 0;
+    }
+  else if (ret == SQLITE_ROW)
+    {
+      *id = sqlite3_column_int(stmt, 0);
+
+      sqlite3_finalize(stmt);
+      sqlite3_free(query);
+      return 0;
+    }
+
+  DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+  return -1;
+
+#undef Q_TMPL
+}
+
+static int
+db_group_add(enum group_type type, const char *artist, const char *album, uint32_t *id)
+{
+#define Q_TMPL "INSERT OR REPLACE INTO groups (type, name) VALUES (%d, LOWER(TRIM(%Q)) || '==' || LOWER(TRIM(%Q)));"
+
+  char *query;
+  char *errmsg;
+  int ret;
+
+  // Select artist and album from groups
+  query = sqlite3_mprintf(Q_TMPL, type, artist, (album ? album : ""));
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Error '%s' while runnning '%s'\n", errmsg, query);
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      *id = 0;
+      return -1;
+    }
+
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+  *id = sqlite3_last_insert_rowid(hdl);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
 int
 db_file_add(struct media_file_info *mfi)
 {
@@ -2377,11 +2478,13 @@ db_file_add(struct media_file_info *mfi)
                " %Q, %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %" PRIi64 ", %d, %" PRIi64 "," \
                " %Q, %d, %d, %d, %d, TRIM(%Q)," \
                " %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d," \
-               " daap_songalbumid(LOWER(TRIM(%Q)), ''), daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q))), " \
+               " %" PRIi64 ", %" PRIi64 ", " \
                " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q));"
 
   char *query;
   char *errmsg;
+  uint32_t albumid;
+  uint32_t artistid;
   int ret;
 
 
@@ -2391,6 +2494,43 @@ db_file_add(struct media_file_info *mfi)
       return -1;
     }
 
+  // Select artist and album from groups
+  ret = db_group_get_id(G_ALBUMS, mfi->album_artist, mfi->album, &albumid);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not get albumid for artist '%s' album '%s'\n", mfi->album_artist, mfi->album);
+      return -1;
+    }
+
+  if (albumid == 0)
+    {
+      ret = db_group_add(G_ALBUMS, mfi->album_artist, mfi->album, &albumid);
+      if (ret < 0)
+        {
+          DPRINTF(E_LOG, L_DB, "Could not add artist '%s' album '%s'\n", mfi->album_artist, mfi->album);
+          return -1;
+        }
+    }
+
+  ret = db_group_get_id(G_ARTISTS, mfi->album_artist, NULL, &artistid);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not get artistid for artist '%s'\n", mfi->album_artist);
+      return -1;
+    }
+
+  if (artistid == 0)
+    {
+      ret = db_group_add(G_ARTISTS, mfi->album_artist, NULL, &artistid);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not add artist '%s'\n", mfi->album_artist);
+	  return -1;
+	}
+    }
+
+  mfi->songalbumid = albumid;
+  mfi->songartistid = artistid;
   mfi->db_timestamp = (uint64_t)time(NULL);
   mfi->time_added = mfi->db_timestamp;
 
@@ -2410,7 +2550,8 @@ db_file_add(struct media_file_info *mfi)
 			  mfi->contentrating, mfi->bits_per_sample, mfi->album_artist,
                           mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
                           mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
-			  mfi->album_artist, mfi->album_artist, mfi->album, mfi->title_sort, mfi->artist_sort, mfi->album_sort,
+			  mfi->songartistid, mfi->songalbumid,
+			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
 			  mfi->composer_sort, mfi->album_artist_sort);
 
   if (!query)
@@ -2454,11 +2595,15 @@ db_file_update(struct media_file_info *mfi)
                " bits_per_sample = %d, album_artist = TRIM(%Q)," \
                " media_kind = %d, tv_series_name = TRIM(%Q), tv_episode_num_str = TRIM(%Q)," \
                " tv_network_name = TRIM(%Q), tv_episode_sort = %d, tv_season_num = %d," \
-               " songartistid = daap_songalbumid(LOWER(TRIM(%Q)), ''), songalbumid = daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q)))," \
+               " songartistid = %" PRIi64 ", songalbumid = %" PRIi64 "," \
                " title_sort = TRIM(%Q), artist_sort = TRIM(%Q), album_sort = TRIM(%Q), composer_sort = TRIM(%Q), album_artist_sort = TRIM(%Q)" \
                " WHERE id = %d;"
+
+//  struct media_file_info *oldmfi;
   char *query;
   char *errmsg;
+  uint32_t albumid;
+  uint32_t artistid;
   int ret;
 
   if (mfi->id == 0)
@@ -2466,6 +2611,56 @@ db_file_update(struct media_file_info *mfi)
       DPRINTF(E_WARN, L_DB, "Trying to update file with id 0; use db_file_add()?\n");
       return -1;
     }
+
+  /*
+  oldmfi = db_file_fetch_byid(mfi->id);
+
+  if (!oldmfi)
+    {
+      DPRINTF(E_WARN, L_DB, "File with id '%d' does not exist\n", mfi->id);
+      return -1;
+    }
+
+  free_mfi(oldmfi, 0);
+  */
+
+  //TODO insert/update/delete groups
+  ret = db_group_get_id(G_ALBUMS, mfi->album_artist, mfi->album, &albumid);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not get albumid for artist '%s' album '%s'\n", mfi->album_artist, mfi->album);
+      return -1;
+    }
+
+  if (albumid == 0)
+    {
+      ret = db_group_add(G_ALBUMS, mfi->album_artist, mfi->album, &albumid);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not add artist '%s' album '%s'\n", mfi->album_artist, mfi->album);
+	  return -1;
+	}
+    }
+
+  ret = db_group_get_id(G_ARTISTS, mfi->album_artist, NULL, &artistid);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not get artistid for artist '%s'\n", mfi->album_artist);
+      return -1;
+    }
+
+  if (artistid == 0)
+    {
+      ret = db_group_add(G_ARTISTS, mfi->album_artist, NULL, &artistid);
+      if (ret < 0)
+      {
+	DPRINTF(E_LOG, L_DB, "Could not add artist '%s'\n", mfi->album_artist);
+	return -1;
+      }
+    }
+
+  mfi->songalbumid = albumid;
+  mfi->songartistid = artistid;
 
   mfi->db_timestamp = (uint64_t)time(NULL);
 
@@ -2484,7 +2679,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->bits_per_sample, mfi->album_artist,
 			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
 			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
-			  mfi->album_artist, mfi->album_artist, mfi->album,
+			  mfi->songartistid, mfi->songalbumid,
 			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
 			  mfi->composer_sort, mfi->album_artist_sort,
 			  mfi->id);
@@ -3109,16 +3304,11 @@ db_pl_enable_bycookie(uint32_t cookie, char *path)
 
 
 /* Groups */
-int
-db_groups_clear(void)
-{
-  return db_query_run("DELETE FROM groups;", 0, 1);
-}
 
 static enum group_type
 db_group_type_bypersistentid(int64_t persistentid)
 {
-#define Q_TMPL "SELECT g.type FROM groups g WHERE g.persistentid = %" PRIi64 ";"
+#define Q_TMPL "SELECT g.type FROM groups g WHERE g.id = %" PRIi64 ";"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
@@ -3166,61 +3356,6 @@ db_group_type_bypersistentid(int64_t persistentid)
   sqlite3_free(query);
 
   return ret;
-
-#undef Q_TMPL
-}
-
-int
-db_group_persistentid_byid(int id, int64_t *persistentid)
-{
-#define Q_TMPL "SELECT g.persistentid FROM groups g WHERE g.id = %d;"
-  char *query;
-  sqlite3_stmt *stmt;
-  int ret;
-
-  query = sqlite3_mprintf(Q_TMPL, id);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
-      return -1;
-    }
-
-  ret = db_blocking_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      if (ret == SQLITE_DONE)
-	DPRINTF(E_DBG, L_DB, "No results\n");
-      else
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  *persistentid = sqlite3_column_int64(stmt, 0);
-
-#ifdef DB_PROFILE
-  while (db_blocking_step(stmt) == SQLITE_ROW)
-  ; /* EMPTY */
-#endif
-
-  sqlite3_finalize(stmt);
-  sqlite3_free(query);
-
-  return 0;
 
 #undef Q_TMPL
 }
@@ -4303,8 +4438,7 @@ db_perthread_deinit(void)
   "   id             INTEGER PRIMARY KEY NOT NULL,"			\
   "   type           INTEGER NOT NULL,"					\
   "   name           VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
-  "   persistentid   INTEGER NOT NULL,"					\
-  "CONSTRAINT groups_type_unique_persistentid UNIQUE (type, persistentid)" \
+  "CONSTRAINT groups_type_unique_name UNIQUE (type, name)" \
   ");"
 
 #define T_PAIRINGS					\
@@ -4371,25 +4505,11 @@ db_perthread_deinit(void)
   "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
 
 #define I_GRP_TYPE_PERSIST				\
-  "CREATE INDEX IF NOT EXISTS idx_grp_type_persist ON groups(type, persistentid);"
+  "CREATE INDEX IF NOT EXISTS idx_grp_type_persist ON groups(type, name);"
 
 #define I_PAIRING				\
   "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
 
-
-#define TRG_GROUPS_INSERT_FILES						\
-  "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
-  " END;"
-
-#define TRG_GROUPS_UPDATE_FILES						\
-  "CREATE TRIGGER update_groups_update_file AFTER UPDATE OF songalbumid ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
-  " END;"
 
 #define Q_PL1								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
@@ -4462,9 +4582,6 @@ static const struct db_init_query db_init_queries[] =
     { I_GRP_TYPE_PERSIST, "create groups type/persistentid index" },
 
     { I_PAIRING,   "create pairing guid index" },
-
-    { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
-    { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
 
     { Q_PL1,       "create default playlist" },
     { Q_PL2,       "create default smart playlist 'Music'" },

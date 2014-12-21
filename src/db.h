@@ -458,13 +458,6 @@ db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie);
 int
 db_pl_enable_bycookie(uint32_t cookie, char *path);
 
-/* Groups */
-int
-db_groups_clear(void);
-
-int
-db_group_persistentid_byid(int id, int64_t *persistentid);
-
 /* Remotes */
 int
 db_pairing_add(struct pairing_info *pi);

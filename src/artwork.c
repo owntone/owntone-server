@@ -1154,18 +1154,9 @@ artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf)
   DPRINTF(E_DBG, L_ART, "Artwork request for group %d\n", id);
 
   /*
-   * Get the persistent id for the given group id
-   */
-  ret = db_group_persistentid_byid(id, &persistentid);
-  if (ret < 0) {
-    DPRINTF(E_LOG, L_ART, "Error fetching persistent id for group id %d\n", id);
-    return -1;
-  }
-
-  /*
    * Load artwork image for the persistent id
    */
-  ret = artwork_get_group_persistentid(persistentid, max_w, max_h, evbuf);
+  ret = artwork_get_group_persistentid(id, max_w, max_h, evbuf);
   if (ret < 0)
     DPRINTF(E_DBG, L_ART, "No artwork found for group id %d\n", id);
 
