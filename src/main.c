@@ -61,6 +61,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "cache.h"
 #include "filescanner.h"
 #include "httpd.h"
+#include "mpd.h"
 #include "mdns.h"
 #include "remote_pairing.h"
 #include "player.h"
@@ -724,6 +725,18 @@ main(int argc, char **argv)
       goto httpd_fail;
     }
 
+#ifdef MPD
+  /* Spawn MPD thread */
+  ret = mpd_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "MPD thread failed to start\n");
+
+      ret = EXIT_FAILURE;
+      goto mpd_fail;
+    }
+#endif
+
   /* Start Remote pairing service */
   ret = remote_pairing_init();
   if (ret != 0)
@@ -808,6 +821,13 @@ main(int argc, char **argv)
   httpd_deinit();
 
  httpd_fail:
+  DPRINTF(E_LOG, L_MAIN, "TCPd deinit\n");
+#ifdef MPD
+  DPRINTF(E_LOG, L_MAIN, "MPD deinit\n");
+  mpd_deinit();
+#endif
+
+ mpd_fail:
   DPRINTF(E_LOG, L_MAIN, "Player deinit\n");
   player_deinit();
 

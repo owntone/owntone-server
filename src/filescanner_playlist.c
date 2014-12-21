@@ -91,6 +91,7 @@ scan_playlist(char *file, time_t mtime)
   int pl_format;
   int mfi_id;
   int ret;
+  char virtual_path[PATH_MAX];
   int i;
 
   DPRINTF(E_LOG, L_SCAN, "Processing static playlist: %s\n", file);
@@ -158,7 +159,9 @@ scan_playlist(char *file, time_t mtime)
       if (ptr)
 	*ptr = '.';
 
-      ret = db_pl_add(buf, file, &pl_id);
+      snprintf(virtual_path, PATH_MAX, "/file:%s", file);
+
+      ret = db_pl_add(buf, file, virtual_path, &pl_id);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Error adding playlist '%s'\n", file);

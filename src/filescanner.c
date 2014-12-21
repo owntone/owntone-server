@@ -77,6 +77,22 @@
 #endif
 
 
+struct filescanner_command;
+
+typedef int (*cmd_func)(struct filescanner_command *cmd);
+
+struct filescanner_command
+{
+  pthread_mutex_t lck;
+  pthread_cond_t cond;
+
+  cmd_func func;
+
+  int nonblock;
+
+  int ret;
+};
+
 #define F_SCAN_BULK    (1 << 0)
 #define F_SCAN_RESCAN  (1 << 1)
 #define F_SCAN_FAST    (1 << 2)
@@ -108,6 +124,7 @@ struct stacked_dir {
 };
 
 
+static int cmd_pipe[2];
 #ifdef USE_EVENTFD
 static int exit_efd;
 #else
@@ -118,6 +135,7 @@ static int inofd;
 static struct event_base *evbase_scan;
 static struct event inoev;
 static struct event exitev;
+static struct event cmdev;
 static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
@@ -132,6 +150,46 @@ static int
 inofd_event_set(void);
 static void
 inofd_event_unset(void);
+static int
+filescanner_initscan(struct filescanner_command *cmd);
+static int
+filescanner_fullrescan(struct filescanner_command *cmd);
+
+
+/* ---------------------------- COMMAND EXECUTION -------------------------- */
+
+static int
+send_command(struct filescanner_command *cmd)
+{
+  int ret;
+
+  if (!cmd->func)
+    {
+      DPRINTF(E_LOG, L_CACHE, "BUG: cmd->func is NULL!\n");
+      return -1;
+    }
+
+  ret = write(cmd_pipe[1], &cmd, sizeof(cmd));
+  if (ret != sizeof(cmd))
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not send command: %s\n", strerror(errno));
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+nonblock_command(struct filescanner_command *cmd)
+{
+  int ret;
+
+  ret = send_command(cmd);
+  if (ret < 0)
+    return -1;
+
+  return 0;
+}
 
 static int
 push_dir(struct stacked_dir **s, char *path)
@@ -573,6 +631,7 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
   char *filename;
   time_t stamp;
   int id;
+  char virtual_path[PATH_MAX];
   int ret;
 
   filename = strrchr(path, '/');
@@ -677,6 +736,22 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
   unicode_fixup_mfi(mfi);
 
   fixup_tags(mfi);
+
+  if (type & F_SCAN_TYPE_FILE)
+    {
+      snprintf(virtual_path, PATH_MAX, "/file:%s", mfi->path);
+      mfi->virtual_path = strdup(virtual_path);
+    }
+  else if (type & F_SCAN_TYPE_URL)
+    {
+      snprintf(virtual_path, PATH_MAX, "/http:/%s", mfi->title);
+      mfi->virtual_path = strdup(virtual_path);
+    }
+  else if (type & F_SCAN_TYPE_SPOTIFY)
+    {
+      snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi->album_artist, mfi->album, mfi->title);
+      mfi->virtual_path = strdup(virtual_path);
+    }
 
   if (mfi->id == 0)
     db_file_add(mfi);
@@ -815,11 +890,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 
 	DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered, found init-rescan file: %s\n", file);
 
-	inofd_event_unset(); // Clears all inotify watches
-	db_watch_clear();
-
-	inofd_event_set();
-	bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
+	filescanner_initscan(NULL);
 	break;
 
       case FILE_CTRL_FULLSCAN:
@@ -828,13 +899,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 
 	DPRINTF(E_LOG, L_SCAN, "Full rescan triggered, found full-rescan file: %s\n", file);
 
-	player_playback_stop();
-	player_queue_clear();
-	inofd_event_unset(); // Clears all inotify watches
-	db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
-
-	inofd_event_set();
-	bulk_scan(F_SCAN_BULK);
+	filescanner_fullrescan(NULL);
 	break;
 
       default:
@@ -1210,7 +1275,6 @@ filescanner(void *arg)
     DPRINTF(E_FATAL, L_SCAN, "Scan event loop terminated ahead of time!\n");
 
   db_perthread_deinit();
-  //artworkcache_perthread_deinit();
 
   pthread_exit(NULL);
 }
@@ -1872,6 +1936,111 @@ exit_cb(int fd, short event, void *arg)
   scan_exit = 1;
 }
 
+static void
+command_cb(int fd, short what, void *arg)
+{
+  struct filescanner_command *cmd;
+  int ret;
+
+  ret = read(cmd_pipe[0], &cmd, sizeof(cmd));
+  if (ret != sizeof(cmd))
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
+      goto readd;
+    }
+
+  if (cmd->nonblock)
+    {
+      cmd->func(cmd);
+
+      free(cmd);
+      goto readd;
+    }
+
+  pthread_mutex_lock(&cmd->lck);
+
+  ret = cmd->func(cmd);
+  cmd->ret = ret;
+
+  pthread_cond_signal(&cmd->cond);
+  pthread_mutex_unlock(&cmd->lck);
+
+ readd:
+  event_add(&cmdev, NULL);
+}
+
+static int
+filescanner_initscan(struct filescanner_command *cmd)
+{
+  DPRINTF(E_LOG, L_SCAN, "Startup rescan triggered\n");
+
+  inofd_event_unset(); // Clears all inotify watches
+  db_watch_clear();
+
+  inofd_event_set();
+  bulk_scan(F_SCAN_BULK | F_SCAN_RESCAN);
+
+  return 0;
+}
+
+static int
+filescanner_fullrescan(struct filescanner_command *cmd)
+{
+  DPRINTF(E_LOG, L_SCAN, "Full rescan triggered\n");
+
+  player_playback_stop();
+  player_queue_clear();
+  inofd_event_unset(); // Clears all inotify watches
+  db_purge_all(); // Clears files, playlists, playlistitems, inotify and groups
+
+  inofd_event_set();
+  bulk_scan(F_SCAN_BULK);
+
+  return 0;
+}
+
+void
+filescanner_trigger_initscan(void)
+{
+  struct filescanner_command *cmd;
+
+  cmd = (struct filescanner_command *)malloc(sizeof(struct filescanner_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_command\n");
+      return;
+    }
+
+  memset(cmd, 0, sizeof(struct filescanner_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = filescanner_initscan;
+
+  nonblock_command(cmd);
+}
+
+void
+filescanner_trigger_fullrescan(void)
+{
+  struct filescanner_command *cmd;
+
+  cmd = (struct filescanner_command *)malloc(sizeof(struct filescanner_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_command\n");
+      return;
+    }
+
+  memset(cmd, 0, sizeof(struct filescanner_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = filescanner_fullrescan;
+
+  nonblock_command(cmd);
+}
+
 /* Thread: main */
 int
 filescanner_init(void)
@@ -1924,6 +2093,21 @@ filescanner_init(void)
   event_base_set(evbase_scan, &exitev);
   event_add(&exitev, NULL);
 
+# if defined(__linux__)
+  ret = pipe2(cmd_pipe, O_CLOEXEC);
+# else
+  ret = pipe(cmd_pipe);
+# endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not create command pipe: %s\n", strerror(errno));
+      goto cmd_fail;
+    }
+
+  event_set(&cmdev, cmd_pipe[0], EV_READ, command_cb, NULL);
+  event_base_set(evbase_scan, &exitev);
+  event_add(&cmdev, NULL);
+
   ret = pthread_create(&tid_scan, NULL, filescanner, NULL);
   if (ret != 0)
     {
@@ -1935,6 +2119,9 @@ filescanner_init(void)
   return 0;
 
  thread_fail:
+ cmd_fail:
+  close(cmd_pipe[0]);
+  close(cmd_pipe[1]);
   close(inofd);
  ino_fail:
 #ifdef USE_EVENTFD
@@ -1993,5 +2180,7 @@ filescanner_deinit(void)
   close(exit_pipe[0]);
   close(exit_pipe[1]);
 #endif
+  close(cmd_pipe[0]);
+  close(cmd_pipe[1]);
   event_base_free(evbase_scan);
 }

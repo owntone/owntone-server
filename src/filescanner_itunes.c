@@ -680,6 +680,7 @@ process_pls(plist_t playlists, char *file)
   int pl_id;
   uint32_t alen;
   uint32_t i;
+  char virtual_path[PATH_MAX];
   int ret;
 
   alen = plist_array_get_size(playlists);
@@ -735,7 +736,8 @@ process_pls(plist_t playlists, char *file)
 
       if (pl_id == 0)
 	{
-	  ret = db_pl_add(name, file, &pl_id);
+	  snprintf(virtual_path, PATH_MAX, "/file:%s", file);
+	  ret = db_pl_add(name, file, virtual_path, &pl_id);
 	  if (ret < 0)
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Error adding iTunes playlist '%s' (%s)\n", name, file);

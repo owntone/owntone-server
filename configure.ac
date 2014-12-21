@@ -88,6 +88,10 @@ AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default Linux=yes, Fr
                   use_oss4=false;
                   )
 
+AC_ARG_ENABLE(mpd, AS_HELP_STRING([--enable-mpd], [enable MPD client protocol support (default=no)]),
+                      use_mpd=true;
+                      CPPFLAGS="${CPPFLAGS} -DMPD")
+
 AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 AM_CONDITIONAL(COND_ITUNES, test x$use_itunes = xtrue)
@@ -95,6 +99,7 @@ AM_CONDITIONAL(COND_SPOTIFY, test x$use_spotify = xtrue)
 AM_CONDITIONAL(COND_LASTFM, test x$use_lastfm = xtrue)
 AM_CONDITIONAL(COND_OSS4, test x$use_oss4 = xtrue)
 AM_CONDITIONAL(COND_ALSA, test x$use_oss4 != xtrue)
+AM_CONDITIONAL(COND_MPD, test x$use_mpd = xtrue)
 
 dnl Checks for libraries.
 gl_LIBUNISTRING

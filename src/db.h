@@ -48,6 +48,13 @@ enum query_type {
 #define ARTWORK_PARENTDIR 5
 #define ARTWORK_SPOTIFY   6
 
+enum filelistitem_type {
+  F_PLAYLIST = 1,
+  F_DIR  = 2,
+  F_FILE = 3,
+  F_URL  = 4,
+};
+
 struct query_params {
   /* Query parameters, filled in by caller */
   enum query_type type;
@@ -149,6 +156,8 @@ struct media_file_info {
   char *album_sort;
   char *composer_sort;
   char *album_artist_sort;
+
+  char *virtual_path;
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
@@ -170,6 +179,7 @@ struct playlist_info {
   char *path;            /* path of underlying playlist */
   uint32_t index;        /* index of playlist for paths with multiple playlists */
   uint32_t special_id;   /* iTunes identifies certain 'special' playlists with special meaning */
+  char *virtual_path;    /* virtual path of underlying playlist */
 };
 
 #define pli_offsetof(field) offsetof(struct playlist_info, field)
@@ -273,9 +283,18 @@ struct db_media_file_info {
   char *album_sort;
   char *composer_sort;
   char *album_artist_sort;
+  char *virtual_path;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
+
+struct filelist_info {
+  char *path;
+  char *name;
+  enum filelistitem_type type;
+  char *parentpath;
+  int disabled;
+};
 
 struct watch_info {
   int wd;
@@ -299,6 +318,9 @@ db_escape_string(const char *str);
 
 void
 free_pi(struct pairing_info *pi, int content_only);
+
+void
+free_fi(struct filelist_info *fi, int content_only);
 
 void
 free_mfi(struct media_file_info *mfi, int content_only);
@@ -394,6 +416,9 @@ db_file_stamp_bypath(char *path, time_t *stamp, int *id);
 struct media_file_info *
 db_file_fetch_byid(int id);
 
+struct media_file_info *
+db_file_fetch_byvirtualpath(char *path);
+
 int
 db_file_add(struct media_file_info *mfi);
 
@@ -426,10 +451,13 @@ struct playlist_info *
 db_pl_fetch_bypath(char *path);
 
 struct playlist_info *
+db_pl_fetch_byvirtualpath(char *virtual_path);
+
+struct playlist_info *
 db_pl_fetch_bytitlepath(char *title, char *path);
 
 int
-db_pl_add(char *title, char *path, int *id);
+db_pl_add(char *title, char *path, char *virtual_path, int *id);
 
 int
 db_pl_add_item_bypath(int plid, char *path);
@@ -441,7 +469,7 @@ void
 db_pl_clear_items(int id);
 
 int
-db_pl_update(char *title, char *path, int id);
+db_pl_update(char *title, char *path, char *virtual_path, int id);
 
 void
 db_pl_delete(int id);
@@ -464,6 +492,16 @@ db_groups_clear(void);
 
 int
 db_group_persistentid_byid(int id, int64_t *persistentid);
+
+/* Filelist */
+int
+db_build_query_filelist(struct query_params *qp, char *path);
+
+int
+db_query_fetch_filelist(struct query_params *qp, struct filelist_info *fi);
+
+struct filelist_info *
+db_filelist_fetch_bypath(const char *path);
 
 /* Remotes */
 int

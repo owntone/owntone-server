@@ -97,6 +97,28 @@ struct spk_enum
   void *arg;
 };
 
+enum range_type
+  {
+    RANGEARG_NONE,
+    RANGEARG_ID,
+    RANGEARG_POS,
+    RANGEARG_RANGE
+  };
+
+struct item_range
+{
+  enum range_type type;
+
+  uint32_t id;
+  int start_pos;
+  int end_pos;
+  int to_pos;
+
+  char shuffle;
+
+  uint32_t *id_ptr;
+};
+
 struct player_command
 {
   pthread_mutex_t lck;
@@ -121,11 +143,14 @@ struct player_command
     uint32_t id;
     int intval;
     int ps_pos[2];
+    struct item_range item_range;
   } arg;
 
   int ret;
 
   int raop_pending;
+
+  struct player_queue *queue;
 };
 
 /* Keep in sync with enum raop_devtype */
@@ -637,6 +662,7 @@ player_queue_make(struct query_params *qp, const char *sort)
   struct player_source *q_tail;
   struct player_source *ps;
   uint32_t id;
+  uint32_t song_length;
   int ret;
 
   qp->idx_type = I_NONE;
@@ -673,6 +699,14 @@ player_queue_make(struct query_params *qp, const char *sort)
 	  continue;
 	}
 
+      ret = safe_atou32(dbmfi.song_length, &song_length);
+      if (ret < 0)
+      	{
+      	  DPRINTF(E_LOG, L_PLAYER, "Invalid song id in query result!\n");
+
+      	  continue;
+      	}
+
       ps = (struct player_source *)malloc(sizeof(struct player_source));
       if (!ps)
 	{
@@ -685,6 +719,7 @@ player_queue_make(struct query_params *qp, const char *sort)
       memset(ps, 0, sizeof(struct player_source));
 
       ps->id = id;
+      ps->song_length = song_length;
 
       if (!q_head)
 	q_head = ps;
@@ -976,6 +1011,38 @@ player_queue_make_pl(int plid, uint32_t *id)
     }
   while (p != ps);
 
+  return ps;
+}
+
+struct player_source *
+player_queue_make_mpd(char *path, int recursive)
+{
+  struct query_params qp;
+  struct player_source *ps;
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_ITEMS;
+  qp.idx_type = I_NONE;
+  qp.sort = S_ALBUM;
+
+  if (recursive)
+    {
+      ret = asprintf(&(qp.filter), "f.virtual_path LIKE '/%s%%'", path);
+      if (ret < 0)
+	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
+    }
+  else
+    {
+      ret = asprintf(&(qp.filter), "f.virtual_path LIKE '/%s'", path);
+      if (ret < 0)
+	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
+    }
+
+  ps = player_queue_make(&qp, NULL);
+
+  free(qp.filter);
   return ps;
 }
 
@@ -1414,15 +1481,42 @@ source_prev(void)
   return 0;
 }
 
+/*
+ * Returns the position of the given song (ps) in the playqueue or shufflequeue.
+ * First song in the queue has position 0. Depending on the 'shuffle' argument,
+ * the position is either determined in the playqueue or shufflequeue.
+ *
+ * @param ps the song to search in the queue
+ * @param shuffle 0 search in the playqueue, 1 search in the shufflequeue
+ * @return position 0-based in the queue
+ */
 static int
-source_position(struct player_source *ps)
+source_position(struct player_source *ps, char shuffle)
 {
   struct player_source *p;
   int ret;
 
   ret = 0;
-  for (p = source_head; p != ps; p = p->pl_next)
+  for (p = (shuffle ? shuffle_head : source_head); p != ps; p = (shuffle ? p->shuffle_next : p->pl_next))
     ret++;
+
+  return ret;
+}
+
+static uint32_t
+source_count()
+{
+  struct player_source *ps;
+  uint32_t ret;
+
+  ret = 0;
+
+  if (source_head)
+    {
+      ret++;
+      for (ps = source_head->pl_next; ps != source_head; ps = ps->pl_next)
+	ret++;
+    }
 
   return ret;
 }
@@ -2248,6 +2342,8 @@ get_status(struct player_command *cmd)
 
   status = cmd->arg.status;
 
+  memset(status, 0, sizeof(struct player_status));
+
   status->shuffle = shuffle;
   status->repeat = repeat;
 
@@ -2258,27 +2354,29 @@ get_status(struct player_command *cmd)
   switch (player_state)
     {
       case PLAY_STOPPED:
-	DPRINTF(E_DBG, L_PLAYER, "Player status: stopped\n");
+	DPRINTF(E_SPAM, L_PLAYER, "Player status: stopped\n");
 
 	status->status = PLAY_STOPPED;
 	break;
 
       case PLAY_PAUSED:
-	DPRINTF(E_DBG, L_PLAYER, "Player status: paused\n");
+	DPRINTF(E_SPAM, L_PLAYER, "Player status: paused\n");
 
 	status->status = PLAY_PAUSED;
 	status->id = cur_streaming->id;
 
 	pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - cur_streaming->stream_start;
 	status->pos_ms = (pos * 1000) / 44100;
+	status->songlength_ms = cur_streaming->song_length;
 
-	status->pos_pl = source_position(cur_streaming);
+	status->pos_pl = source_position(cur_streaming, 0);
+
 	break;
 
       case PLAY_PLAYING:
 	if (!cur_playing)
 	  {
-	    DPRINTF(E_DBG, L_PLAYER, "Player status: playing (buffering)\n");
+	    DPRINTF(E_SPAM, L_PLAYER, "Player status: playing (buffering)\n");
 
 	    status->status = PLAY_PAUSED;
 	    ps = cur_streaming;
@@ -2288,7 +2386,7 @@ get_status(struct player_command *cmd)
 	  }
 	else
 	  {
-	    DPRINTF(E_DBG, L_PLAYER, "Player status: playing\n");
+	    DPRINTF(E_SPAM, L_PLAYER, "Player status: playing\n");
 
 	    status->status = PLAY_PLAYING;
 	    ps = cur_playing;
@@ -2308,9 +2406,16 @@ get_status(struct player_command *cmd)
 	  }
 
 	status->pos_ms = (pos * 1000) / 44100;
+	status->songlength_ms = ps->song_length;
 
 	status->id = ps->id;
-	status->pos_pl = source_position(ps);
+	status->pos_pl = source_position(ps, 0);
+
+	ps = next_ps(ps, shuffle);
+	status->nextsong_id = ps->id;
+	status->nextsong_pos_pl = source_position(ps, 0);
+
+	status->playlistlength = source_count();
 	break;
     }
 
@@ -2445,6 +2550,8 @@ playback_start(struct player_command *cmd)
 {
   struct raop_device *rd;
   uint32_t *idx_id;
+  uint32_t pos;
+  uint32_t id;
   int ret;
 
   if (!source_head)
@@ -2454,10 +2561,15 @@ playback_start(struct player_command *cmd)
       return -1;
     }
 
-  idx_id = cmd->arg.id_ptr;
+  idx_id = cmd->arg.item_range.id_ptr;
 
   if (player_state == PLAY_PLAYING)
     {
+      /*
+       * If player is already playing a song, only return current playing song id
+       * and do not change player state (ignores given arguments for playing a
+       * specified song by pos or id).
+       */
       if (idx_id)
 	{
 	  if (cur_playing)
@@ -2471,10 +2583,15 @@ playback_start(struct player_command *cmd)
       return 0;
     }
 
+  // Update global playback position
   pb_pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - 88200;
 
-  if (idx_id)
+  if (cmd->arg.item_range.type == RANGEARG_POS
+      || cmd->arg.item_range.type == RANGEARG_ID)
     {
+      /*
+       * A song is specified in the arguments (by id or pos)
+       */
       if (cur_playing)
 	source_stop(cur_playing);
       else if (cur_streaming)
@@ -2491,26 +2608,50 @@ playback_start(struct player_command *cmd)
       else
 	cur_streaming = source_head;
 
-      if (*idx_id > 0)
+      if (cmd->arg.item_range.type == RANGEARG_POS)
 	{
-	  cur_streaming = source_head;
-	  for (; *idx_id > 0; (*idx_id)--)
-	    cur_streaming = cur_streaming->pl_next;
-
-	  if (shuffle)
-	    shuffle_head = cur_streaming;
+	  /*
+	   * Find start song by position in playqueue
+	   */
+	  pos = cmd->arg.item_range.start_pos;
+	  if (pos > 0)
+	    {
+	      cur_streaming = source_head;
+	      for (; pos > 0; pos--)
+		cur_streaming = cur_streaming->pl_next;
+	    }
 	}
+      else
+	{
+	  /*
+	   * Find start song by id
+	   */
+	  id = cmd->arg.item_range.id;
+	  if (id > 0)
+	    {
+	      cur_streaming = source_head->pl_next;
+	      while (cur_streaming->id != id && cur_streaming != source_head)
+		{
+		  cur_streaming = cur_streaming->pl_next;
+		}
+	    }
+	}
+
+      if (shuffle)
+	shuffle_head = cur_streaming;
 
       ret = source_open(cur_streaming, 0);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Couldn't jump to queue position %d\n", *idx_id);
+	  DPRINTF(E_LOG, L_PLAYER, "Couldn't jump to queue position %d\n", pos);
 
 	  playback_abort();
 	  return -1;
 	}
 
-      *idx_id = cur_streaming->id;
+      if (idx_id)
+	*idx_id = cur_streaming->id;
+
       cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
       cur_streaming->output_start = cur_streaming->stream_start;
     }
@@ -3362,6 +3503,101 @@ shuffle_set(struct player_command *cmd)
   return 0;
 }
 
+static unsigned int
+queue_count()
+{
+  struct player_source *ps;
+  int count;
+
+  if (!source_head)
+    return 0;
+
+  count = 1;
+  ps = source_head->pl_next;
+  while (ps != source_head)
+    {
+      count++;
+      ps = ps->pl_next;
+    }
+
+  return count;
+}
+
+static int
+queue_get(struct player_command *cmd)
+{
+  int start_pos;
+  int end_pos;
+  struct player_queue *queue;
+  uint32_t *ids;
+  unsigned int qlength;
+  unsigned int count;
+  struct player_source *ps;
+  int i;
+  int pos;
+  char qshuffle;
+
+  queue = malloc(sizeof(struct player_queue));
+
+  qlength = queue_count();
+  qshuffle = cmd->arg.item_range.shuffle;
+
+  start_pos = cmd->arg.item_range.start_pos;
+  if (start_pos < 0)
+    {
+      ps = cur_playing ? cur_playing : cur_streaming;
+      start_pos = ps ? source_position(ps, qshuffle) + 1 : 0;
+    }
+
+  end_pos = cmd->arg.item_range.end_pos;
+  if (cmd->arg.item_range.start_pos < 0)
+    end_pos += start_pos;
+  if (end_pos <= 0 || end_pos > qlength)
+    end_pos = qlength;
+
+  if (end_pos > start_pos)
+    count = end_pos - start_pos;
+  else
+    count = 0;
+
+  ids = malloc(count * sizeof(uint32_t));
+
+  pos = 0;
+  ps = qshuffle ? shuffle_head : source_head;
+  for (i = 0; i < end_pos; i++)
+    {
+      if (i >= start_pos)
+	{
+	  ids[pos] = ps->id;
+	  pos++;
+	}
+
+	ps = qshuffle ? ps->shuffle_next : ps->pl_next;
+    }
+
+  queue->start_pos = start_pos;
+  queue->count = count;
+  queue->queue = ids;
+
+  queue->length = qlength;
+  queue->playingid = 0;
+  if (cur_playing)
+    queue->playingid = cur_playing->id;
+  else if (cur_streaming)
+    queue->playingid = cur_streaming->id;
+
+  cmd->queue = queue;
+
+  return 0;
+}
+
+void
+queue_free(struct player_queue *queue)
+{
+  free(queue->queue);
+  free(queue);
+}
+
 static int
 queue_add(struct player_command *cmd)
 {
@@ -3522,18 +3758,9 @@ static int
 queue_remove(struct player_command *cmd)
 {
   struct player_source *ps;
-  int pos;
+  uint32_t pos;
+  uint32_t id;
   int i;
-
-  pos = cmd->arg.ps_pos[0];
-
-  DPRINTF(E_DBG, L_PLAYER, "Removing song from position %d\n", pos);
-
-  if (pos < 1)
-  {
-    DPRINTF(E_LOG, L_PLAYER, "Can't remove song, invalid position %d\n", pos);
-    return -1;
-  }
 
   ps = cur_playing ? cur_playing : cur_streaming;
   if (!ps)
@@ -3542,10 +3769,44 @@ queue_remove(struct player_command *cmd)
     return -1;
   }
 
-  for (i = 0; i < pos; i++)
-  {
-    ps = shuffle ? ps->shuffle_next : ps->pl_next;
-  }
+  if (cmd->arg.item_range.type == RANGEARG_ID)
+    {
+      id = cmd->arg.item_range.id;
+      DPRINTF(E_DBG, L_PLAYER, "Removing song with id %d\n", id);
+
+      if (id < 1)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Can't remove song, invalid id %d\n", id);
+	  return -1;
+	}
+      else if (id == ps->id)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Can't remove current playing song, id %d\n", id);
+	  return -1;
+	}
+
+      ps = source_head->pl_next;
+      while (ps->id != id && ps != source_head)
+	{
+	  ps = ps->pl_next;
+	}
+    }
+  else
+    {
+      pos = cmd->arg.item_range.start_pos;
+      DPRINTF(E_DBG, L_PLAYER, "Removing song from position %d\n", pos);
+
+      if (pos < 1)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Can't remove song, invalid position %d\n", pos);
+	  return -1;
+	}
+
+      for (i = 0; i < pos; i++)
+	{
+	  ps = shuffle ? ps->shuffle_next : ps->pl_next;
+	}
+    }
 
   ps->shuffle_prev->shuffle_next = ps->shuffle_next;
   ps->shuffle_next->shuffle_prev = ps->shuffle_prev;
@@ -3807,7 +4068,7 @@ player_now_playing(uint32_t *id)
 }
 
 int
-player_playback_start(uint32_t *idx_id)
+player_playback_start(uint32_t *itemid)
 {
   struct player_command cmd;
   int ret;
@@ -3816,8 +4077,49 @@ player_playback_start(uint32_t *idx_id)
 
   cmd.func = playback_start;
   cmd.func_bh = playback_start_bh;
-  cmd.arg.id_ptr = idx_id;
+  cmd.arg.item_range.type = RANGEARG_NONE;
+  cmd.arg.item_range.id_ptr = itemid;
 
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+player_playback_startpos(int pos, uint32_t *itemid)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = playback_start;
+  cmd.func_bh = playback_start_bh;
+  cmd.arg.item_range.type = RANGEARG_POS;
+  cmd.arg.item_range.start_pos = pos;
+  cmd.arg.item_range.id_ptr = itemid;
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+player_playback_startid(uint32_t id, uint32_t *itemid)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = playback_start;
+  cmd.func_bh = playback_start_bh;
+  cmd.arg.item_range.type = RANGEARG_ID;
+  cmd.arg.item_range.id = id;
+  cmd.arg.item_range.id_ptr = itemid;
   ret = sync_command(&cmd);
 
   command_deinit(&cmd);
@@ -4055,13 +4357,38 @@ player_shuffle_set(int enable)
   return ret;
 }
 
+struct player_queue *
+player_queue_get(int start_pos, int end_pos, char shuffle)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = queue_get;
+  cmd.func_bh = NULL;
+  cmd.arg.item_range.start_pos = start_pos;
+  cmd.arg.item_range.end_pos = end_pos;
+  cmd.arg.item_range.shuffle = shuffle;
+  cmd.queue = NULL;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  if (ret != 0)
+    return NULL;
+
+  return cmd.queue;
+}
+
 struct player_source *
-player_queue_get(void)
+next_ps(struct player_source *ps, char shuffle)
 {
   if (shuffle)
-    return shuffle_head;
+    return ps->shuffle_next;
   else
-    return source_head;
+    return ps->pl_next;
 }
 
 int
@@ -4122,7 +4449,8 @@ player_queue_move(int ps_pos_from, int ps_pos_to)
   return ret;
 }
 
-int player_queue_remove(int ps_pos_remove)
+int
+player_queue_remove(int ps_pos_remove)
 {
   struct player_command cmd;
   int ret;
@@ -4131,7 +4459,28 @@ int player_queue_remove(int ps_pos_remove)
 
   cmd.func = queue_remove;
   cmd.func_bh = NULL;
-  cmd.arg.ps_pos[0] = ps_pos_remove;
+  cmd.arg.item_range.type = RANGEARG_POS;
+  cmd.arg.item_range.start_pos = ps_pos_remove;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+player_queue_removeid(uint32_t id)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = queue_remove;
+  cmd.func_bh = NULL;
+  cmd.arg.item_range.type = RANGEARG_ID;
+  cmd.arg.item_range.id = id;
 
   ret = sync_command(&cmd);
 

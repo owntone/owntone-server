@@ -561,6 +561,7 @@ spotify_playlist_save(sp_playlist *pl)
   char title[512];
   int plid;
   int num_tracks;
+  char virtual_path[PATH_MAX];
   int ret;
   int i;
   
@@ -594,6 +595,8 @@ spotify_playlist_save(sp_playlist *pl)
   pli = db_pl_fetch_bypath(url);
   snprintf(title, sizeof(title), "[s] %s", name);
 
+  snprintf(virtual_path, PATH_MAX, "/spotify:/%s", title);
+
   if (pli)
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Playlist found ('%s', link %s), updating\n", name, url);
@@ -602,7 +605,7 @@ spotify_playlist_save(sp_playlist *pl)
 
       free_pli(pli, 0);
 
-      ret = db_pl_update(title, url, plid);
+      ret = db_pl_update(title, url, virtual_path, plid);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Error updating playlist ('%s', link %s)\n", name, url);
@@ -616,7 +619,7 @@ spotify_playlist_save(sp_playlist *pl)
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Adding playlist ('%s', link %s)\n", name, url);
 
-      ret = db_pl_add(title, url, &plid);
+      ret = db_pl_add(title, url, virtual_path, &plid);
       if ((ret < 0) || (plid < 1))
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist ('%s', link %s, ret %d, plid %d)\n", name, url, ret, plid);

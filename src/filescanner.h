@@ -36,4 +36,10 @@ void
 scan_itunes_itml(char *file);
 #endif
 
+void
+filescanner_trigger_initscan(void);
+
+void
+filescanner_trigger_fullrescan(void);
+
 #endif /* !__FILESCANNER_H__ */

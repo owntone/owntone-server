@@ -51,10 +51,22 @@ struct player_status {
 
   int volume;
 
+  /* Playlist id */
   uint32_t plid;
+  /* Playlist length */
+  uint32_t playlistlength;
+  /* Playing song id*/
   uint32_t id;
+  /* Elapsed time in ms of playing song */
   uint32_t pos_ms;
+  /* Song length in ms of playing song */
+  uint32_t songlength_ms;
+  /* Playlist position of playing song*/
   int pos_pl;
+  /* Song id of next song in playlist */
+  uint32_t nextsong_id;
+  /* Playlist position of next song */
+  int nextsong_pos_pl;
 };
 
 typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg);
@@ -63,6 +75,7 @@ typedef void (*player_status_handler)(void);
 struct player_source
 {
   uint32_t id;
+  uint32_t song_length;
 
   enum source_type type;
   int setup_done;
@@ -80,6 +93,16 @@ struct player_source
   struct player_source *shuffle_prev;
 
   struct player_source *play_next;
+};
+
+struct player_queue
+{
+  uint32_t playingid;
+  unsigned int length;
+
+  unsigned int start_pos;
+  unsigned int count;
+  uint32_t *queue;
 };
 
 struct player_history
@@ -112,6 +135,12 @@ player_speaker_set(uint64_t *ids);
 
 int
 player_playback_start(uint32_t *idx_id);
+
+int
+player_playback_startpos(int pos, uint32_t *itemid);
+
+int
+player_playback_startid(uint32_t id, uint32_t *itemid);
 
 int
 player_playback_stop(void);
@@ -151,7 +180,16 @@ struct player_source *
 player_queue_make_pl(int plid, uint32_t *id);
 
 struct player_source *
-player_queue_get(void);
+player_queue_make_mpd(char *path, int recursive);
+
+struct player_queue *
+player_queue_get(int start_pos, int end_pos, char shuffle);
+
+void
+queue_free(struct player_queue *queue);
+
+struct player_source *
+next_ps(struct player_source *ps, char shuffle);
 
 int
 player_queue_add(struct player_source *ps);
@@ -164,6 +202,9 @@ player_queue_move(int ps_pos_from, int ps_pos_to);
 
 int
 player_queue_remove(int ps_pos_remove);
+
+int
+player_queue_removeid(uint32_t id);
 
 void
 player_queue_clear(void);
