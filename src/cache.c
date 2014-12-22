@@ -38,7 +38,7 @@
 #include "cache.h"
 
 
-#define CACHE_VERSION 1
+#define CACHE_VERSION 2
 
 /* The DAAP cache will cache raw daap replies for queries added with
  * cache_add(). Only some query types are supported.

@@ -2624,7 +2624,6 @@ db_file_update(struct media_file_info *mfi)
   free_mfi(oldmfi, 0);
   */
 
-  //TODO insert/update/delete groups
   ret = db_group_get_id(G_ALBUMS, mfi->album_artist, mfi->album, &albumid);
   if (ret < 0)
     {
@@ -4504,8 +4503,8 @@ db_perthread_deinit(void)
 #define I_PLITEMID							\
   "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
 
-#define I_GRP_TYPE_PERSIST				\
-  "CREATE INDEX IF NOT EXISTS idx_grp_type_persist ON groups(type, name);"
+#define I_GRP_TYPE_NAME				\
+  "CREATE INDEX IF NOT EXISTS idx_grp_type_name ON groups(type, name);"
 
 #define I_PAIRING				\
   "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
@@ -4541,9 +4540,9 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION 15
+#define SCHEMA_VERSION 16
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '15');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '16');"
 
 struct db_init_query {
   char *query;
@@ -4579,7 +4578,7 @@ static const struct db_init_query db_init_queries[] =
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
 
-    { I_GRP_TYPE_PERSIST, "create groups type/persistentid index" },
+    { I_GRP_TYPE_NAME, "create groups type/name index" },
 
     { I_PAIRING,   "create pairing guid index" },
 
@@ -5585,6 +5584,162 @@ db_upgrade_v15(void)
 #undef Q_DUMP
 }
 
+
+/* Upgrade from schema v15 to v16 */
+
+#define U_V16_DROP_IDX						\
+  "DROP INDEX idx_grp_type_persist;"
+
+#define U_V16_DROP_TRG_NEW					\
+  "DROP TRIGGER update_groups_new_file;"
+
+#define U_V16_DROP_TRG_UPDATE					\
+  "DROP TRIGGER update_groups_update_file;"
+
+#define U_V16_DROP_TBL_GROUPS					\
+  "DROP TABLE groups;"
+
+#define U_V16_CREATE_TBL_GROUPS					\
+    "CREATE TABLE IF NOT EXISTS groups ("			\
+    "   id             INTEGER PRIMARY KEY NOT NULL,"		\
+    "   type           INTEGER NOT NULL,"			\
+    "   name           VARCHAR(1024) NOT NULL COLLATE DAAP,"	\
+    "CONSTRAINT groups_type_unique_name UNIQUE (type, name)" 	\
+    ");"
+
+#define U_V16_CREATE_IDX					\
+  "CREATE INDEX IF NOT EXISTS idx_grp_type_name ON groups(type, name);"
+
+#define U_V16_SCVER						\
+  "UPDATE admin SET value = '16' WHERE key = 'schema_version';"
+
+static const struct db_init_query db_upgrade_v16_queries[] =
+  {
+    { U_V16_DROP_IDX,          "drop index type/persistentid" },
+    { U_V16_DROP_TRG_NEW,      "drop trigger new files" },
+    { U_V16_DROP_TRG_UPDATE,   "drop trigger update files" },
+    { U_V16_DROP_TBL_GROUPS,   "drop table groups" },
+    { U_V16_CREATE_TBL_GROUPS, "create table groups" },
+    { U_V16_CREATE_IDX,        "create index type/name" },
+    { U_V16_SCVER,             "set schema_version to 16" },
+  };
+
+static int
+db_upgrade_v16_persistentid(enum group_type type, char *artist, char *album)
+{
+  sqlite3_stmt *stmt;
+  char *query;
+  char *errmsg;
+  int id;
+  int ret;
+
+  id = 0;
+
+  query = sqlite3_mprintf("SELECT id FROM groups WHERE type = %d AND name = LOWER(TRIM(%Q)) || '==' || LOWER(TRIM(%Q));", type, (artist ? artist : ""), (album ? album : ""));
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  ret = sqlite3_step(stmt);
+  if (ret == SQLITE_ROW)
+    {
+      id = sqlite3_column_int(stmt, 0);
+    }
+  else
+    {
+      if (ret != SQLITE_DONE)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+	}
+      id = 0;
+    }
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
+  if (id > 0)
+    return id;
+
+  query = sqlite3_mprintf("INSERT INTO groups (type, name) VALUES (%d, LOWER(TRIM(%Q)) || '==' || LOWER(TRIM(%Q)));", type, (artist ? artist : ""), (album ? album : ""));
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret == SQLITE_OK)
+    {
+      id = sqlite3_last_insert_rowid(hdl);
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_DB, "Error adding group: %s\n", errmsg);
+      return -1;
+    }
+
+  sqlite3_free(query);
+  sqlite3_free(errmsg);
+
+  return id;
+}
+
+static int
+db_upgrade_v16(void)
+{
+  sqlite3_stmt *stmt;
+  char *query;
+  char *uquery;
+  char *errmsg;
+  char *artist;
+  char *album;
+  int id;
+  int artistid;
+  int albumid;
+  int ret;
+
+  query = "SELECT id, album_artist, album FROM files;";
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+    {
+      id = sqlite3_column_int(stmt, 0);
+      artist = (char *)sqlite3_column_text(stmt, 1);
+      album = (char *)sqlite3_column_text(stmt, 2);
+
+      artistid = db_upgrade_v16_persistentid(G_ARTISTS, artist, NULL);
+      albumid = db_upgrade_v16_persistentid(G_ALBUMS, artist, album);
+
+      if (artistid <= 0)
+	{
+
+	}
+      if (albumid <= 0)
+	{
+
+	}
+      uquery = sqlite3_mprintf("UPDATE files SET songartistid = %d, songalbumid = %d WHERE id = %d;", artistid, albumid, id);
+      ret = sqlite3_exec(hdl, uquery, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Error updating files: %s\n", errmsg);
+	}
+
+      sqlite3_free(uquery);
+      sqlite3_free(errmsg);
+    }
+
+  sqlite3_finalize(stmt);
+
+  return 0;
+}
+
 static int
 db_check_version(void)
 {
@@ -5675,6 +5830,15 @@ db_check_version(void)
 	      return -1;
 
 	    ret = db_generic_upgrade(db_upgrade_v15_queries, sizeof(db_upgrade_v15_queries) / sizeof(db_upgrade_v15_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	  case 15:
+	    ret = db_generic_upgrade(db_upgrade_v16_queries, sizeof(db_upgrade_v16_queries) / sizeof(db_upgrade_v16_queries[0]));
+	    if (ret < 0)
+	      return -1;
+
+	    ret = db_upgrade_v16();
 	    if (ret < 0)
 	      return -1;
 
