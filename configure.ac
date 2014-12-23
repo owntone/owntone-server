@@ -251,7 +251,7 @@ case "$host" in
     fi
 
     AC_CHECK_HEADERS([sys/eventfd.h])
-    AC_CHECK_FUNCS(eventfd_write)
+    AC_CHECK_FUNC(eventfd_write, AC_DEFINE(HAVE_EVENTFD, 1, [Define to 1 if you have eventfd]))
 
     AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
 
