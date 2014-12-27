@@ -840,7 +840,7 @@ artwork_get_embedded_image(char *filename, int max_w, int max_h, struct evbuffer
 #endif
 
 static int
-artwork_get_own_image(char *path, int max_w, int max_h, struct evbuffer *evbuf)
+artwork_get_own_image(char *path, int max_w, int max_h, char *filename, struct evbuffer *evbuf)
 {
   char artwork[PATH_MAX];
   char *ptr;
@@ -888,6 +888,7 @@ artwork_get_own_image(char *path, int max_w, int max_h, struct evbuffer *evbuf)
     return -1;
 
   DPRINTF(E_DBG, L_ART, "Found own artwork file %s\n", artwork);
+  strcpy(filename, artwork);
 
   return artwork_get(artwork, max_w, max_h, evbuf);
 }
@@ -1015,11 +1016,6 @@ artwork_get_item_path(char *path, int artwork, int max_w, int max_h, struct evbu
 
 	break;
 #endif
-      default:
-	/* Look for basename(filename).{png,jpg} */
-	ret = artwork_get_own_image(path, max_w, max_h, evbuf);
-	if (ret > 0)
-	  break;
     }
 
   if (ret > 0)
@@ -1040,9 +1036,48 @@ artwork_get_item_path(char *path, int artwork, int max_w, int max_h, struct evbu
 static int
 artwork_get_item_mfi(struct media_file_info *mfi, int max_w, int max_h, struct evbuffer *evbuf)
 {
+    int ret;
+    int cached;
+    int format;
+    char filename[PATH_MAX];
+
+    DPRINTF(E_DBG, L_ART, "Artwork request for item %d\n", mfi->id);
+
+    ret = 0;
+    format = 0;
+
+    ret = cache_artwork_get(CACHE_ARTWORK_INDIVIDUAL, mfi->id, max_w, max_h, &cached, &format, evbuf);
+    if (ret == 0 && cached)
+      {
+        if (format > 0)
+  	{
+  	  // Artwork found in cache "ret" contains the format of the image
+  	  DPRINTF(E_DBG, L_ART, "Artwork found in cache for item %d\n", mfi->id);
+  	  return format;
+  	}
+        else if (format == 0)
+  	{
+  	  // Entry found in cache but there is not artwork available
+  	  DPRINTF(E_DBG, L_ART, "Artwork found in cache but no image available for item %d\n", mfi->id);
+  	  return -1;
+  	}
+      }
+
     if (mfi->data_kind == 0)
-       {
-         return artwork_get_item_path(mfi->path, mfi->artwork, max_w, max_h, evbuf);
+      {
+	if (mfi->artwork == ARTWORK_OWN || mfi->artwork == ARTWORK_UNKNOWN)
+	  {
+	    /* Look for basename(filename).{png,jpg} */
+	    format = artwork_get_own_image(mfi->path, max_w, max_h, filename, evbuf);
+	  }
+	else
+	  {
+            format = artwork_get_item_path(mfi->path, mfi->artwork, max_w, max_h, evbuf);
+            strcpy(filename, mfi->path);
+	  }
+	 if (format > 0)
+           cache_artwork_add(CACHE_ARTWORK_INDIVIDUAL, mfi->id, max_w, max_h, format, filename, evbuf);
+         return format;
        }
     else
       return -1;
