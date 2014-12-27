@@ -4468,7 +4468,7 @@ db_perthread_deinit(void)
   "CREATE INDEX IF NOT EXISTS idx_sari ON files(songartistid);"
 
 #define I_SONGALBUMID				\
-  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid);"
+  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid, disabled, media_kind, album_sort, disc, track);"
 
 #define I_STATEMKINDSARI				\
   "CREATE INDEX IF NOT EXISTS idx_state_mkind_sari ON files(disabled, media_kind, songartistid);"
@@ -4486,7 +4486,7 @@ db_perthread_deinit(void)
   "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
 
 #define I_TITLE					\
-  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(disabled, media_kind, title_sort, data_kind);"
 
 #define I_ALBUM					\
   "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
@@ -5610,18 +5610,34 @@ db_upgrade_v15(void)
 #define U_V16_CREATE_IDX					\
   "CREATE INDEX IF NOT EXISTS idx_grp_type_name ON groups(type, name);"
 
+#define U_V16_DROP_IDX_TITLE					\
+  "DROP INDEX idx_title;"
+
+#define U_V16_CREATE_IDX_TITLE					\
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(disabled, media_kind, title_sort, data_kind);"
+
+#define U_V16_DROP_IDX_SONGALBUMID				\
+  "DROP INDEX idx_sali;"
+
+#define U_V16_CREATE_IDX_SONGALBUMID				\
+  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid, disabled, media_kind, album_sort, disc, track);"
+
 #define U_V16_SCVER						\
   "UPDATE admin SET value = '16' WHERE key = 'schema_version';"
 
 static const struct db_init_query db_upgrade_v16_queries[] =
   {
-    { U_V16_DROP_IDX,          "drop index type/persistentid" },
-    { U_V16_DROP_TRG_NEW,      "drop trigger new files" },
-    { U_V16_DROP_TRG_UPDATE,   "drop trigger update files" },
-    { U_V16_DROP_TBL_GROUPS,   "drop table groups" },
-    { U_V16_CREATE_TBL_GROUPS, "create table groups" },
-    { U_V16_CREATE_IDX,        "create index type/name" },
-    { U_V16_SCVER,             "set schema_version to 16" },
+    { U_V16_DROP_IDX,               "drop index type/persistentid" },
+    { U_V16_DROP_TRG_NEW,           "drop trigger new files" },
+    { U_V16_DROP_TRG_UPDATE,        "drop trigger update files" },
+    { U_V16_DROP_TBL_GROUPS,        "drop table groups" },
+    { U_V16_CREATE_TBL_GROUPS,      "create table groups" },
+    { U_V16_CREATE_IDX,             "create index type/name" },
+    { U_V16_DROP_IDX_TITLE,         "drop index title on files" },
+    { U_V16_CREATE_IDX_TITLE,       "create index title on files" },
+    { U_V16_DROP_IDX_SONGALBUMID,   "drop index songalbumid on files" },
+    { U_V16_CREATE_IDX_SONGALBUMID, "create index songalbumid on files" },
+    { U_V16_SCVER,                  "set schema_version to 16" },
   };
 
 static int
@@ -5782,6 +5798,14 @@ db_check_version(void)
     {
       DPRINTF(E_LOG, L_DB, "Database schema outdated, schema upgrade needed v%d -> v%d\n", cur_ver, SCHEMA_VERSION);
 
+      ret = sqlite3_exec(hdl, "BEGIN TRANSACTION;", NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Error starting transaction: %s\n", errmsg);
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+
       switch (cur_ver)
 	{
 	  case 10:
@@ -5847,6 +5871,14 @@ db_check_version(void)
 	  default:
 	    DPRINTF(E_LOG, L_DB, "No upgrade path from DB schema v%d to v%d\n", cur_ver, SCHEMA_VERSION);
 	    return -1;
+	}
+
+      ret = sqlite3_exec(hdl, "END TRANSACTION;", NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Error ending transaction: %s\n", errmsg);
+	  sqlite3_free(errmsg);
+	  return -1;
 	}
 
       /* What about some housekeeping work, eh? */
