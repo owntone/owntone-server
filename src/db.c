@@ -3340,7 +3340,7 @@ db_spotify_pl_delete(int id)
     {
       "DELETE FROM playlists WHERE id = %d;",
       "DELETE FROM playlistitems WHERE playlistid = %d;",
-      "DELETE FROM files WHERE path LIKE 'spotify:%%' AND NOT path IN (SELECT filepath FROM playlistitems WHERE id <> %d);",
+      "DELETE FROM files WHERE path LIKE 'spotify:%%' AND NOT path IN (SELECT filepath FROM playlistitems);",
     };
   char *query;
   int i;
