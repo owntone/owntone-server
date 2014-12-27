@@ -194,6 +194,17 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 					goto STR_result_valid_0; /* ABORT */
 				}
 
+				/* No need to exclude empty artist and album, as forked-daapd makes sure there always exists an artist/album. */
+				if (neg_op && op == ':'
+					&& (strcmp((char *)field, "daap.songalbumartist") == 0 
+						|| strcmp((char *)field, "daap.songartist") == 0 
+						|| strcmp((char *)field, "daap.songalbum") == 0))
+				{
+					DPRINTF(E_DBG, L_DAAP, "Ignoring clause '\%s\%s\%c'\n", field, (neg_op) ? "!" : "", op);
+					$result->append8($result, "1 = 1");
+					goto STR_out;
+				}
+				
 				/* Need to check against NULL too */
 				if (op == ':')
 					$result->append8($result, "(");
