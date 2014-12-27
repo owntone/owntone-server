@@ -27,6 +27,9 @@ cache_daap_threshold(void);
 
 /* ---------------------------- Artwork cache API  --------------------------- */
 
+#define CACHE_ARTWORK_GROUP 0
+#define CACHE_ARTWORK_INDIVIDUAL 1
+
 int
 cache_artwork_ping(char *path, time_t mtime);
 
@@ -37,10 +40,10 @@ int
 cache_artwork_purge_cruft(time_t ref);
 
 int
-cache_artwork_add(int64_t persistentid, int max_w, int max_h, int format, char *filename, struct evbuffer *evbuf);
+cache_artwork_add(int artwork_type, int64_t persistentid, int max_w, int max_h, int format, char *filename, struct evbuffer *evbuf);
 
 int
-cache_artwork_get(int64_t persistentid, int max_w, int max_h, int *cached, int *format, struct evbuffer *evbuf);
+cache_artwork_get(int artwork_type, int64_t persistentid, int max_w, int max_h, int *cached, int *format, struct evbuffer *evbuf);
 
 
 /* ---------------------------- Cache API  --------------------------- */

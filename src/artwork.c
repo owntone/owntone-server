@@ -1083,7 +1083,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   /*
    * First check if the artwork cache has a cached entry for the given persistent id and requested width/height
    */
-  ret = cache_artwork_get(persistentid, max_w, max_h, &cached, &format, evbuf);
+  ret = cache_artwork_get(CACHE_ARTWORK_GROUP, persistentid, max_w, max_h, &cached, &format, evbuf);
   if (ret == 0 && cached)
     {
       if (format > 0)
@@ -1136,7 +1136,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
     DPRINTF(E_LOG, L_ART, "Error fetching Q_GROUP_DIRS results\n");
   else if (got_art > 0)
     {
-      cache_artwork_add(persistentid, max_w, max_h, format, filename, evbuf);
+      cache_artwork_add(CACHE_ARTWORK_GROUP, persistentid, max_w, max_h, format, filename, evbuf);
       return format;
     }
 
@@ -1186,13 +1186,13 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
     }
   else if (got_art > 0)
     {
-      cache_artwork_add(persistentid, max_w, max_h, format, filename, evbuf);
+      cache_artwork_add(CACHE_ARTWORK_GROUP, persistentid, max_w, max_h, format, filename, evbuf);
       return format;
     }
 
   /* Add cache entry for no artwork available */
   if (!got_spotifyitem)
-    cache_artwork_add(persistentid, max_w, max_h, 0, "", evbuf);
+    cache_artwork_add(CACHE_ARTWORK_GROUP, persistentid, max_w, max_h, 0, "", evbuf);
 
   DPRINTF(E_DBG, L_ART, "No artwork found for group %" PRIi64 "\n", persistentid);
 
