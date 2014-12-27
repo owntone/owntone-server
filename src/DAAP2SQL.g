@@ -69,11 +69,7 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 @init { $result = NULL; $valid = 1; }
 	:	^(OPAND a = expr b = expr)
 		{
-			if (!$a.valid || !$b.valid)
-			{
-				$valid = 0;
-			}
-			else
+			if ($a.valid && $b.valid)
 			{
 				$result = $a.result->factory->newRaw($a.result->factory);
 				$result->append8($result, "(");
@@ -82,14 +78,24 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 				$result->appendS($result, $b.result);
 				$result->append8($result, ")");
 			}
-		}
-	|	^(OPOR a = expr b = expr)
-		{
-			if (!$a.valid || !$b.valid)
+			else if ($a.valid)
+			{
+				$result = $a.result->factory->newRaw($a.result->factory);
+				$result->appendS($result, $a.result);
+			}
+			else if ($b.valid)
+			{
+				$result = $b.result->factory->newRaw($b.result->factory);
+				$result->appendS($result, $b.result);
+			}
+			else
 			{
 				$valid = 0;
 			}
-			else
+		}
+	|	^(OPOR a = expr b = expr)
+		{
+			if ($a.valid && $b.valid)
 			{
 				$result = $a.result->factory->newRaw($a.result->factory);
 				$result->append8($result, "(");
@@ -97,6 +103,20 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 				$result->append8($result, " OR ");
 				$result->appendS($result, $b.result);
 				$result->append8($result, ")");
+			}
+			else if ($a.valid)
+			{
+				$result = $a.result->factory->newRaw($a.result->factory);
+				$result->appendS($result, $a.result);
+			}
+			else if ($b.valid)
+			{
+				$result = $b.result->factory->newRaw($b.result->factory);
+				$result->appendS($result, $b.result);
+			}
+			else
+			{
+				$valid = 0;
 			}
 		}
 	|	STR
@@ -201,16 +221,14 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 						|| strcmp((char *)field, "daap.songalbum") == 0))
 				{
 					DPRINTF(E_DBG, L_DAAP, "Ignoring clause '\%s\%s\%c'\n", field, (neg_op) ? "!" : "", op);
-					$result->append8($result, "1 = 1");
-					goto STR_out;
+					$valid = 0;
+					goto STR_result_valid_0;
 				}
 				
 				/* Need to check against NULL too */
 				if (op == ':')
 					$result->append8($result, "(");
 			}
-
-			$result->append8($result, dqfm->db_col);
 
 			/* Int field: check integer conversion */
 			if (dqfm->as_int)
@@ -236,6 +254,16 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 				}
 
 				*end = '\0'; /* Cut out potential garbage - we're being kind */
+
+				/* forked-daapd only has media_kind = 1 for music - so remove media_kind = 32 to imporve select query performance. */
+				if (llval == 32
+					&& (strcmp((char *)field, "com.apple.itunes.mediakind") == 0 
+						|| strcmp((char *)field, "com.apple.itunes.extended-media-kind") == 0))
+				{
+					DPRINTF(E_DBG, L_DAAP, "Ignoring clause '\%s\%s\%c\%s'\n", field, (neg_op) ? "!" : "", op, val);
+					$valid = 0;
+					goto STR_result_valid_0;
+				}
 			}
 			/* String field: escape string, check for '*' */
 			else
@@ -269,6 +297,8 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 					val[strlen((char *)val) - 1] = '\%';
 				}
 			}
+			
+			$result->append8($result, dqfm->db_col);
 
 			switch(op)
 			{
