@@ -3118,7 +3118,7 @@ db_groups_clear(void)
 static enum group_type
 db_group_type_bypersistentid(int64_t persistentid)
 {
-#define Q_TMPL "SELECT g.type FROM groups g WHERE g.persistentid = '%" PRIi64 "';"
+#define Q_TMPL "SELECT g.type FROM groups g WHERE g.persistentid = %" PRIi64 ";"
   char *query;
   sqlite3_stmt *stmt;
   int ret;
