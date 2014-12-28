@@ -779,6 +779,8 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
   // If client is a Remote we will AirPlay, which means we will transcode to PCM
   if (user_agent && strcasestr(user_agent, "remote"))
     return 1;
+  else if (user_agent && strcasestr(user_agent, "android"))
+    return 1;
 
   if (!file_codectype)
     {
