@@ -119,6 +119,10 @@ struct spotify_command
 // Spotify thread
 static pthread_t tid_spotify;
 
+// Used to make sure no login is attempted before the logout cb from Spotify
+static pthread_mutex_t login_lck;
+static pthread_cond_t login_cond;
+
 // Event base, pipes and events
 struct event_base *evbase_spotify;
 static int g_exit_pipe[2];
@@ -1165,7 +1169,6 @@ logged_in(sp_session *sess, sp_error error)
   if (SP_ERROR_OK != error)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Login failed: %s\n",	fptr_sp_error_message(error));
-      thread_exit();
       return;
     }
 
@@ -1184,6 +1187,24 @@ logged_in(sp_session *sess, sp_error error)
       pl = fptr_sp_playlistcontainer_playlist(pc, i);
       fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
     }
+}
+
+/**
+ * Called when logout has been processed.
+ * Either called explicitly if you initialize a logout operation, or implicitly
+ * if there is a permanent connection error
+ *
+ * @sa sp_session_callbacks#logged_out
+ */
+static void
+logged_out(sp_session *sess)
+{
+  DPRINTF(E_INFO, L_SPOTIFY, "Logout complete\n");
+
+  pthread_mutex_lock(&login_lck);
+
+  pthread_cond_signal(&login_cond);
+  pthread_mutex_unlock(&login_lck);
 }
 
 /**
@@ -1330,6 +1351,7 @@ static void end_of_track(sp_session *sess)
  */
 static sp_session_callbacks session_callbacks = {
   .logged_in = &logged_in,
+  .logged_out = &logged_out,
   .connectionstate_updated = &connectionstate_updated,
   .notify_main_thread = &notify_main_thread,
   .music_delivery = &music_delivery,
@@ -1765,10 +1787,10 @@ spotify_file_read(char *path, char **username, char **password)
 void
 spotify_login(char *path)
 {
+  sp_error err;
   char *username;
   char *password;
   int ret;
-  sp_error err;
 
   if (!g_sess)
     {
@@ -1776,34 +1798,39 @@ spotify_login(char *path)
       return;
     }
 
-  /* Log out if thread already running */
-  if (g_state != SPOTIFY_STATE_INACTIVE)
+  if (SP_CONNECTION_STATE_LOGGED_IN == fptr_sp_session_connectionstate(g_sess))
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Existing login terminating (state %d)\n", g_state);
+      pthread_mutex_lock(&login_lck);
 
-      thread_exit();
+      DPRINTF(E_LOG, L_SPOTIFY, "Logging out of Spotify (current state is %d)\n", g_state);
 
-      ret = pthread_join(tid_spotify, NULL);
-      if (ret != 0)
+      fptr_sp_session_player_unload(g_sess);
+      err = fptr_sp_session_logout(g_sess);
+
+      if (SP_ERROR_OK != err)
 	{
-	  DPRINTF(E_FATAL, L_SPOTIFY, "Could not join Spotify thread: %s\n", strerror(errno));
+	  DPRINTF(E_LOG, L_SPOTIFY, "Could not logout of Spotify: %s\n", fptr_sp_error_message(err));
+	  pthread_mutex_unlock(&login_lck);
 	  return;
 	}
+
+      pthread_cond_wait(&login_cond, &login_lck);
+      pthread_mutex_unlock(&login_lck);
     }
 
-  /* Log in */
+  DPRINTF(E_INFO, L_SPOTIFY, "Logging into Spotify\n");
   if (path)
     {
       ret = spotify_file_read(path, &username, &password);
       if (ret < 0)
 	return;
 
-      DPRINTF(E_INFO, L_SPOTIFY, "Logging into Spotify\n");
       err = fptr_sp_session_login(g_sess, username, password, 1, NULL);
+      free(username);
+      free(password);
     }
   else
     {
-      DPRINTF(E_INFO, L_SPOTIFY, "Logging into Spotify\n");
       err = fptr_sp_session_relogin(g_sess);
     }
 
@@ -1812,17 +1839,7 @@ spotify_login(char *path)
       DPRINTF(E_LOG, L_SPOTIFY, "Could not login into Spotify: %s\n", fptr_sp_error_message(err));
       return;
     }
-
-  /* Spawn thread */
-  ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not spawn Spotify thread: %s\n", strerror(errno));
-
-      return;
-    }
 }
-
 
 /* Thread: main */
 int
@@ -1981,8 +1998,27 @@ spotify_init(void)
   pthread_mutex_init(&g_audio_fifo->mutex, NULL);
   pthread_cond_init(&g_audio_fifo->cond, NULL);
 
+  pthread_mutex_init(&login_lck, NULL);
+  pthread_cond_init(&login_cond, NULL);
+
+  /* Spawn thread */
+  ret = pthread_create(&tid_spotify, NULL, spotify, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_SPOTIFY, "Could not spawn Spotify thread: %s\n", strerror(errno));
+      goto thread_fail;
+    }
+
   DPRINTF(E_DBG, L_SPOTIFY, "Spotify init complete\n");
   return 0;
+
+ thread_fail:
+  pthread_cond_destroy(&login_cond);
+  pthread_mutex_destroy(&login_lck);
+
+  pthread_cond_destroy(&g_audio_fifo->cond);
+  pthread_mutex_destroy(&g_audio_fifo->mutex);
+  free(g_audio_fifo);  
 
  audio_fifo_fail:
   fptr_sp_session_release(g_sess);
@@ -2048,6 +2084,10 @@ spotify_deinit(void)
   close(g_cmd_pipe[1]);
   close(g_exit_pipe[0]);
   close(g_exit_pipe[1]);
+
+  /* Destroy locks */
+  pthread_cond_destroy(&login_cond);
+  pthread_mutex_destroy(&login_lck);
 
   /* Clear audio fifo */
   pthread_cond_destroy(&g_audio_fifo->cond);
