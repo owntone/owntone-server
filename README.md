@@ -1,5 +1,4 @@
-forked-daapd
-------------
+# forked-daapd
 
 forked-daapd is a Linux/FreeBSD DAAP (iTunes) and RSP (Roku) media server.
 
@@ -10,53 +9,50 @@ DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
 
 RSP is Roku's own media sharing protocol. Roku are the makers of the
-SoundBridge devices. See <http://www.roku.com>.
+SoundBridge devices. See http://www.roku.com.
 
 The source for this version of forked-daapd can be found here:
 
-  <https://github.com/ejurgensen/forked-daapd.git>
+  https://github.com/ejurgensen/forked-daapd.git
 
 The original (now unmaintained) source can be found here:
 
-  <http://git.debian.org/?p=users/jblache/forked-daapd.git>
+  http://git.debian.org/?p=users/jblache/forked-daapd.git
 
 forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 
 
-Contents of this README
------------------------
+## Contents of this README
 
-- Getting started
-- Supported clients
-- Using Remote
-- AirPlay devices/speakers
-- Local audio output
-- Supported formats
-- Streaming MPEG4
-- Playlists and internet radio
-- Artwork
-- Library
-- Command line and web interface
-- Spotify
-- LastFM
+- [Getting started](#getting-started)
+- [Supported clients](#supported-clients)
+- [Using Remote](#using-remote)
+- [AirPlay devices/speakers](#airplay-devicesspeakers)
+- [Local audio output](#local-audio-output)
+- [Supported formats](#supported-formats)
+- [Streaming MPEG4](#streaming-mpeg4)
+- [Playlists and internet radio](#playlists-and-internet-radio)
+- [Artwork](#artwork)
+- [Library](#library)
+- [Command line and web interface](#command-line-and-web-interface)
+- [Spotify](#spotify)
+- [LastFM](#lastfm)
 
 
-Getting started
----------------
+## Getting started
 
-After installation (see INSTALL) do the following:
+After installation (see [INSTALL](INSTALL)) do the following:
 
- 1. Edit the configuration file (usually /etc/forked-daapd.conf) to suit your
+ 1. Edit the configuration file (usually `/etc/forked-daapd.conf`) to suit your
     needs
- 2. Start or restart the server (usually /etc/init.d/forked-daapd restart)
+ 2. Start or restart the server (usually `/etc/init.d/forked-daapd restart`)
  3. Wait for the library scan to complete. You can follow the progress with
-    tail -f /var/log/forked-daapd.log
+    `tail -f /var/log/forked-daapd.log`
  4. If you are going to use a remote app, pair it following the procedure
     described below
 
 
-Supported clients
------------------
+## Supported clients
 
 forked-daapd supports 4 kinds of clients:
 
@@ -74,9 +70,8 @@ regardless of the protocol.
 Here is a list of working and non-working DAAP and Remote clients. The list is
 probably obsolete when you read it :-)
 
-+--------------------------+------------+--------+---------------+-----------------+
 |          Client          | Developer  |  Type  |   Platform    | Working (vers.) |
-+--------------------------+------------+--------+---------------+-----------------+
+| ------------------------ | ---------- | ------ | ------------- | --------------- |
 | iTunes                   | Apple      | DAAP   | Win, OSX      | Yes (11.2)      |
 | Rhythmbox                | Gnome      | DAAP   | Linux         | Yes             |
 | WinAmp DAAPClient        | WardFamily | DAAP   | WinAmp        | Yes             |
@@ -89,19 +84,16 @@ probably obsolete when you read it :-)
 | Remote for iTunes        | Hyperfine  | Remote | Android       | Yes             |
 | Remote for Windows Phone | Komodex    | Remote | Windows Phone | Yes (2.2.1.0)   |
 | TunesRemote SE           |            | Remote | Java          | Yes (r108)      |
-+--------------------------+------------+--------+---------------+-----------------+
 
 
 
-Using Remote
-------------
+## Using Remote
 
 If you plan to use Remote with forked-daapd, read the following sections
 carefully. The pairing process described is similar for other controllers, but
 some do not require pairing.
 
-  Pairing with Remote on iPod/iPhone
-  ----------------------------------
+### Pairing with Remote on iPod/iPhone
 
 forked-daapd can be paired with Apple's Remote application for iPod/iPhone/iPad;
 this is how the pairing process works:
@@ -109,26 +101,29 @@ this is how the pairing process works:
  1. Start forked-daapd
  2. Start Remote, go to Settings, Add Library
  3. Look in the log file for a message saying:
-
-      "Discovered remote 'Foobar' (id 71624..."
-
+    
+    ```
+    "Discovered remote 'Foobar' (id 71624..."
+    ```
+   
     This tells you the name of your device (Foobar in this example).
-
+    
     If you cannot find this message, it means that forked-daapd did not receive
     a mDNS announcement from your Remote. You have a network issue and mDNS
     doesn't work properly on your network.
-
+    
  4. Prepare a text file with a filename ending with .remote; the filename
     doesn't matter, only the .remote ending does. This file must contain
     two lines: the first line is the name of your iPod/iPhone/iPad, the second
     is the 4-digit pairing code displayed by Remote.
-
+    
     If your iPod/iPhone/iPad is named "Foobar" and Remote gives you the pairing
     code 5387, the file content must be:
-
-      Foobar
-      5387 
-
+    ```
+    Foobar
+    5387 
+    ```
+    
  5. Move this file somewhere in your library
 
 At this point, you should be done with the pairing process and Remote should
@@ -143,16 +138,18 @@ or pairing code. Start over the pairing process and try again.
 
 If you have trouble pairing with forked-daapd, you can use avahi-browse for 
 troubleshooting:
- - in a terminal, run avahi-browse -r -k _touch-remote._tcp
+ - in a terminal, run `avahi-browse -r -k _touch-remote._tcp`
  - start Remote, goto Settings, Add Library
  - after a couple seconds at most, you should get something similar to this:
 
+```
 + ath0 IPv4 59eff13ea2f98dbbef6c162f9df71b784a3ef9a3      _touch-remote._tcp   local
 = ath0 IPv4 59eff13ea2f98dbbef6c162f9df71b784a3ef9a3      _touch-remote._tcp   local
    hostname = [Foobar.local]
    address = [192.168.1.1]
    port = [49160]
    txt = ["DvTy=iPod touch" "RemN=Remote" "txtvers=1" "RemV=10000" "Pair=FAEA410630AEC05E" "DvNm=Foobar"]
+```
 
 The name of your iPod/iPhone/iPad is the value of the DvNm field above. In this
 example, the correct value is Foobar.
@@ -165,8 +162,7 @@ capture the output in a file to extract the real, correct name.
 
 Hit Ctrl-C to terminate avahi-browse.
 
-  Selecting output devices
-  ------------------------
+### Selecting output devices
 
 Remote gets a list of output devices from the server; this list includes any
 and all devices on the network we know of that advertise AirPlay: AirPort
@@ -183,8 +179,7 @@ server startup, provided they appear in the 5 minutes following the startup
 and no playback has occured yet.
 
 
-AirPlay devices/speakers
-------------------------
+## AirPlay devices/speakers
 
 forked-daapd will discover the AirPlay devices available on your network. For
 devices that are password-protected, the device's AirPlay name and password
@@ -192,8 +187,7 @@ must be given in the configuration file. See the sample configuration file
 for the syntax.
 
 
-Local audio output
-------------------
+## Local audio output
 
 The audio section of the configuration file supports 2 parameters for the local
 audio device:
@@ -203,8 +197,7 @@ audio device:
    OSS4.
 
 
-Supported formats
------------------
+## Supported formats
 
 forked-daapd should support pretty much all media formats. It relies on libav
 (ffmpeg) to extract metadata and decode the files on the fly when the client
@@ -223,8 +216,7 @@ added. Currently supported:
  - WAV: wav
 
 
-Streaming MPEG4
----------------
+## Streaming MPEG4
 
 Depending on the client application, you may need to optimize your MPEG4 files
 for streaming. Stream-optimized MPEG4 files have their metadata at the beginning
@@ -240,7 +232,9 @@ for that.
 
 The mp4creator tool from the mpeg4ip suite can be used to optimize MPEG4 files,
 with the -optimize option:
+```
   $ mp4creator -optimize foo.m4a
+```
 
 Don't forget to make a backup copy of your file, just in case.
 
@@ -249,8 +243,7 @@ happily write the metadata back at the end of the file after you've modified
 them. Watch out for that.
 
 
-Playlists and internet radio
-----------------------------
+## Playlists and internet radio
 
 forked-daapd supports M3U and PLS playlists. Just drop your playlist somewhere
 in your library with an .m3u or .pls extension and it will pick it up.
@@ -268,8 +261,7 @@ the iTunes DB; use itunes_overrides = true if you prefer iTunes' metadata.
 Smart playlists are not supported at the moment.
 
 
-Artwork
--------
+## Artwork
 
 forked-daapd has support for artwork.
 
@@ -301,12 +293,11 @@ configuration file.
 You can use symlinks for the artwork files; the artwork is not scanned/indexed.
 
 forked-daapd caches artwork in a separate cache file. The default path is 
-/var/cache/forked-daapd/cache.db and can be configured in the configuration 
+`/var/cache/forked-daapd/cache.db` and can be configured in the configuration 
 file. The cache.db file can be deleted without losing the library and pairing 
 informations.
 
-Library
--------
+## Library
 
 The library is scanned in bulk mode at startup, but the server will be available
 even while this scan is in progress. You can follow the progress of the scan in
@@ -346,8 +337,8 @@ Pipes have no metadata, so they will be added with "Unknown artist" and "Unknown
 album". The name of the pipe will be used as the track title.
 
 
-  Libraries on network mounts
-  --------------------------- 
+### Libraries on network mounts
+
 Most network filesharing protocols do not offer notifications when the library
 is changed. So that means forked-daapd cannot update its database in real time.
 Instead you can schedule a cron job to update the database.
@@ -355,18 +346,22 @@ Instead you can schedule a cron job to update the database.
 The first step in doing this is to add two entries to the 'directories'
 configuration item in forked-daapd.conf:
 
+```
   directories = { "/some/local/dir", "/your/network/mount/library" }
+```
 
 Now you can make a cron job that runs this command:
 
+```
   touch /some/local/dir/trigger.init-rescan
+```
 
 When forked-daapd detects a file with filename ending .init-rescan it will
 perform a bulk scan similar to the startup scan.
 
 
-  Troubleshooting library issues
-  ------------------------------
+### Troubleshooting library issues
+
 If you place a file with the filename ending .full-rescan in your library,
 you can trigger a full rescan of your library. This will clear all music and
 playlists from forked-daapd's database and initiate a fresh bulk scan. Pairing
@@ -375,8 +370,7 @@ not necessary during normal operation.
 
 
 
-Command line and web interface
-------------------------------
+## Command line and web interface
 
 forked-daapd is meant to be used with the clients mentioned above, so it does
 not have a command line interface nor does it have a web interface. You can,
@@ -388,28 +382,29 @@ Say you have a playlist with a radio station, and you want to make a script that
 starts playback of that station:
 
 1. Run 'sqlite3 [your forked-daapd db]'. Use 'select id,title from files' to get
-the id of the radio station, and use 'select id,title from playlists' to get the
-id of the playlist.
+   the id of the radio station, and use 'select id,title from playlists' to get the
+   id of the playlist.
 2. Convert the two ids to hex.
 3. Put the following lines in the script with the relevant ids inserted (also
-observe that you must use a session-id < 100, and that you must login and
-logout):
+   observe that you must use a session-id < 100, and that you must login and
+   logout):
 
+```
 curl "http://localhost:3689/login?pairing-guid=0x1&request-session-id=50"
 curl "http://localhost:3689/ctrl-int/1/playspec?database-spec='dmap.persistentid:0x1'&container-spec='dmap.persistentid:0x[PLAYLIST-ID]'&container-item-spec='dmap.containeritemid:0x[FILE ID]'&session-id=50"
 curl "http://localhost:3689/logout?session-id=50"
+```
 
 
-Spotify
--------
+## Spotify
 
 forked-daapd has *some* support for Spotify. It must be compiled with the
---enable-spotify option (see INSTALL). You must have also have libspotify
+`--enable-spotify option` (see [INSTALL](INSTALL)). You must have also have libspotify
 installed, otherwise the Spotify integration will not be available. You can
 get libspotify here:
 
-  - Original (binary) tar.gz, see <https://developer.spotify.com>
-  - Debian package (libspotify-dev), see <https://apt.mopidy.com>
+  - Original (binary) tar.gz, see https://developer.spotify.com
+  - Debian package (libspotify-dev), see https://apt.mopidy.com
   
 You must also have a Spotify premium account. If you normally log into Spotify
 with your Facebook account you must first go to Spotify's web site where you can
@@ -439,10 +434,9 @@ forked-daapd do the playback - so that means you can't stream from forked-daapd
 to iTunes.
 
 
-LastFM
-------
+## LastFM
 
-If forked-daapd was built with LastFM scrobbling enabled (see the INSTALL file)
+If forked-daapd was built with LastFM scrobbling enabled (see the [INSTALL](INSTALL) file)
 you can have it scrobble the music you listen to. To set up scrobbling you must
 create a text file with the file name ending ".lastfm". The file must have two
 lines: The first is your LastFM user name, and the second is your password. Move
