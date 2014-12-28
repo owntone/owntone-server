@@ -1450,17 +1450,17 @@ db_build_query_browse(struct query_params *qp, char *field, char *sort_field, ch
     }
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-			    " AND %s %s %s;", field, sort_field, field, qp->filter, sort, idx);
+    query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
+			    " AND %s GROUP BY f.%s %s %s;", field, sort_field, field, qp->filter, field, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-			    " %s %s;", field, sort_field, field, sort, idx);
+    query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
+			    " GROUP BY f.%s %s %s;", field, sort_field, field, field, sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-			    " AND %s %s;", field, sort_field, field, qp->filter, sort);
+    query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
+			    " AND %s GROUP BY f.%s %s;", field, sort_field, field, qp->filter, field, sort);
   else
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != '' %s",
-			    field, sort_field, field, sort);
+    query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != '' GROUP BY f.%s %s",
+			    field, sort_field, field, field, sort);
 
   free(sort);
 
@@ -4483,7 +4483,10 @@ db_perthread_deinit(void)
   "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
 
 #define I_COMPOSER				\
-  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(disabled, media_kind, composer, data_kind);"
+
+#define I_GENRE				\
+  "CREATE INDEX IF NOT EXISTS idx_genre ON files(disabled, media_kind, genre, data_kind);"
 
 #define I_TITLE					\
   "CREATE INDEX IF NOT EXISTS idx_title ON files(disabled, media_kind, title_sort, data_kind);"
@@ -4566,11 +4569,12 @@ static const struct db_init_query db_init_queries[] =
     { I_STATEMKINDSARI, "create state/mkind/sari index" },
     { I_STATEMKINDSALI, "create state/mkind/sali index" },
 
-    { I_ARTIST,    "create artist index" },
+    { I_ARTIST,      "create artist index" },
     { I_ALBUMARTIST, "create album_artist index" },
-    { I_COMPOSER,  "create composer index" },
-    { I_TITLE,     "create title index" },
-    { I_ALBUM,     "create album index" },
+    { I_COMPOSER,    "create composer index" },
+    { I_GENRE,       "create genre index" },
+    { I_TITLE,       "create title index" },
+    { I_ALBUM,       "create album index" },
 
     { I_PL_PATH,   "create playlist path index" },
     { I_PL_DISABLED, "create playlist state index" },
@@ -5622,6 +5626,15 @@ db_upgrade_v15(void)
 #define U_V16_CREATE_IDX_SONGALBUMID				\
   "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid, disabled, media_kind, album_sort, disc, track);"
 
+#define U_V16_CREATE_IDX_GENRE				\
+  "CREATE INDEX IF NOT EXISTS idx_genre ON files(disabled, media_kind, genre, data_kind);"
+
+#define U_V16_DROP_IDX_COMPOSER				\
+  "DROP INDEX idx_composer;"
+
+#define U_V16_CREATE_IDX_COMPOSER				\
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(disabled, media_kind, composer, data_kind);"
+
 #define U_V16_SCVER						\
   "UPDATE admin SET value = '16' WHERE key = 'schema_version';"
 
@@ -5637,6 +5650,9 @@ static const struct db_init_query db_upgrade_v16_queries[] =
     { U_V16_CREATE_IDX_TITLE,       "create index title on files" },
     { U_V16_DROP_IDX_SONGALBUMID,   "drop index songalbumid on files" },
     { U_V16_CREATE_IDX_SONGALBUMID, "create index songalbumid on files" },
+    { U_V16_CREATE_IDX_GENRE,       "create index genre on files" },
+    { U_V16_DROP_IDX_COMPOSER,      "drop index composer on files" },
+    { U_V16_CREATE_IDX_COMPOSER,    "create index composer on files" },
     { U_V16_SCVER,                  "set schema_version to 16" },
   };
 
