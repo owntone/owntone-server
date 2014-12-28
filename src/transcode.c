@@ -767,7 +767,6 @@ transcode_cleanup(struct transcode_ctx *ctx)
   free(ctx);
 }
 
-
 int
 transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype)
 {
@@ -776,15 +775,9 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
   int size;
   int i;
 
-  // If client is a Remote we will AirPlay, which means we will transcode to PCM
-  if (user_agent && strcasestr(user_agent, "remote"))
-    return 1;
-  else if (user_agent && strcasestr(user_agent, "android"))
-    return 1;
-
   if (!file_codectype)
     {
-      DPRINTF(E_LOG, L_XCODE, "Can't proceed, codectype is unknown (null)\n");
+      DPRINTF(E_LOG, L_XCODE, "Can't determine transcode status, codec type is unknown\n");
       return -1;
     }
 

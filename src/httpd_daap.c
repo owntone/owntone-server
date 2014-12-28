@@ -506,14 +506,31 @@ daap_sort_finalize(struct sort_ctx *ctx)
   dmap_add_int(ctx->headerlist, "mshn", ctx->misc_mshn); /* 12 */
 }
 
+/* Remotes are clients that will issue DACP commands. For these clients we will
+ * do the playback, and we will not stream to them. This is a crude function to
+ * identify them, so we can give them appropriate treatment.
+ */
+static int
+is_remote(const char *user_agent)
+{
+  if (!user_agent)
+    return 0;
+  if (strcasestr(user_agent, "remote"))
+    return 1;
+  if (strstr(user_agent, "Retune"))
+    return 1;
+
+  return 0;
+}
+
 /* We try not to return items that the client cannot play (like Spotify and
  * internet streams in iTunes), or which are inappropriate (like internet streams
- * in the album tab in Remote
+ * in the album tab of remotes)
  */
 static void
 user_agent_filter(const char *user_agent, struct query_params *qp)
 {
-  char *filter;
+  const char *filter;
   char *buffer;
   int len;
 
@@ -523,16 +540,10 @@ user_agent_filter(const char *user_agent, struct query_params *qp)
   // Valgrind doesn't like strlen(filter) below, so instead we allocate 128 bytes
   // to hold the string and the leading " AND ". Remember to adjust the 128 if
   // you define strings here that will be too large for the buffer.
-  if (strcasestr(user_agent, "itunes"))
-    filter = strdup("(f.data_kind = 0)"); // Only real files
-  else if (strcasestr(user_agent, "daap"))
-    filter = strdup("(f.data_kind = 0)"); // Only real files
-  else if (strcasestr(user_agent, "remote"))
-    filter = strdup("(f.data_kind <> 1)"); // No internet radio
-  else if (strcasestr(user_agent, "android"))
-    filter = strdup("(f.data_kind <> 1)"); // No internet radio
+  if (is_remote(user_agent))
+    filter = "(f.data_kind <> 1)"; // No internet radio
   else
-    return;
+    filter = "(f.data_kind = 0)"; // Only real files
 
   if (qp->filter)
     {
@@ -547,8 +558,6 @@ user_agent_filter(const char *user_agent, struct query_params *qp)
     qp->filter = strdup(filter);
 
   DPRINTF(E_DBG, L_DAAP, "SQL filter w/client mod: %s\n", qp->filter);
-
-  free(filter);
 }
 
 /* Returns eg /databases/1/containers from /databases/1/containers?meta=dmap.item... */
@@ -1169,10 +1178,12 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   struct sort_ctx *sctx;
   const char *param;
   const char *client_codecs;
+  char *last_codectype;
   char *tag;
   int nmeta;
   int sort_headers;
   int nsongs;
+  int remote;
   int transcode;
   int ret;
 
@@ -1299,19 +1310,40 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
       goto out_query_free;
     }
 
+  remote = is_remote(ua);
+
+  client_codecs = NULL;
+  if (!remote && req)
+    {
+      headers = evhttp_request_get_input_headers(req);
+      client_codecs = evhttp_find_header(headers, "Accept-Codecs");
+    }
+
   nsongs = 0;
+  last_codectype = NULL;
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
     {
       nsongs++;
 
-      client_codecs = NULL;
-      if (req)
+      if (!dbmfi.codectype)
 	{
-	  headers = evhttp_request_get_input_headers(req);
-	  client_codecs = evhttp_find_header(headers, "Accept-Codecs");
-	}
+	  DPRINTF(E_LOG, L_DAAP, "Cannot transcode '%s', codec type is unknown\n", dbmfi.fname);
 
-      transcode = transcode_needed(ua, client_codecs, dbmfi.codectype);
+	  transcode = 0;
+	}
+      else if (remote)
+	{
+	  transcode = 1;
+	}
+      else if (!last_codectype || (strcmp(last_codectype, dbmfi.codectype) != 0))
+	{
+	  transcode = transcode_needed(ua, client_codecs, dbmfi.codectype);
+
+	  if (last_codectype)
+	    free(last_codectype);
+
+	  last_codectype = strdup(dbmfi.codectype);
+	}
 
       ret = dmap_encode_file_metadata(songlist, song, &dbmfi, meta, nmeta, sort_headers, transcode);
       if (ret < 0)
@@ -1338,6 +1370,9 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     }
 
   DPRINTF(E_DBG, L_DAAP, "Done with song list, %d songs\n", nsongs);
+
+  if (last_codectype)
+    free(last_codectype);
 
   if (nmeta > 0)
     free(meta);
