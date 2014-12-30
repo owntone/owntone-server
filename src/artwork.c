@@ -1246,13 +1246,16 @@ artwork_get_item(int id, int max_w, int max_h, struct evbuffer *evbuf)
   if (!mfi)
     return -1;
 
-  /*
-   * Try the individual artwork first
-   */
-  ret = artwork_get_item_mfi(mfi, max_w, max_h, evbuf);
+  if (cfg_getbool(cfg_getsec(cfg, "library"), "ownartwork_disable"))
+    ret = -1;
+  else
+    /*
+     * Try the individual artwork first
+     */
+    ret = artwork_get_item_mfi(mfi, max_w, max_h, evbuf);
 
   /*
-   * No individual artwork, try group artwork
+   * No individual artwork or individual artwork disabled, try group artwork
    */
   if (ret < 0)
   {
