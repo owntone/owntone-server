@@ -4,7 +4,7 @@ AC_INIT([forked-daapd], [22.1])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
-AM_INIT_AUTOMAKE([-Wno-portability subdir-objects])
+AM_INIT_AUTOMAKE([foreign -Wno-portability subdir-objects])
 
 AC_USE_SYSTEM_EXTENSIONS
 
