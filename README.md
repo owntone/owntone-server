@@ -37,6 +37,7 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 - [Command line and web interface](#command-line-and-web-interface)
 - [Spotify](#spotify)
 - [LastFM](#lastfm)
+- [MPD clients](#mpd-clients)
 
 
 ## Getting started
@@ -374,9 +375,9 @@ not necessary during normal operation.
 
 forked-daapd is meant to be used with the clients mentioned above, so it does
 not have a command line interface nor does it have a web interface. You can,
-however, to some extent control forked-daapd from the command line by issuing
-DAAP/DACP commands with a program like curl. Here is an example of how to do
-that.
+however, to some extent control forked-daapd with [MPD clients](#mpd-clients) or 
+from the command line by issuing DAAP/DACP commands with a program like curl. Here 
+is an example of how to do that.
 
 Say you have a playlist with a radio station, and you want to make a script that
 starts playback of that station:
@@ -394,6 +395,7 @@ curl "http://localhost:3689/login?pairing-guid=0x1&request-session-id=50"
 curl "http://localhost:3689/ctrl-int/1/playspec?database-spec='dmap.persistentid:0x1'&container-spec='dmap.persistentid:0x[PLAYLIST-ID]'&container-item-spec='dmap.containeritemid:0x[FILE ID]'&session-id=50"
 curl "http://localhost:3689/logout?session-id=50"
 ```
+
 
 
 ## Spotify
@@ -449,3 +451,38 @@ session key. The session key does not expire.
 
 To stop scrobbling from forked-daapd, add an empty ".lastfm" file to your
 library.
+
+## MPD clients
+If forked-daapd was build with support for the [Music Player Deamon](http://musicpd.org/) 
+protocol (see the [INSTALL](INSTALL) file) you can - to some extent - use clients for MPD 
+to control forked-daapd. 
+By default forked-daapd listens on port 6600 for MPD clients. You can change this by
+adding a section "mpd" to the forked-daapd.conf file:
+
+```
+# MPD configuration (only have effect if MPD enabled - see README/INSTALL)
+mpd {
+	port = 8800
+}
+```
+
+Currently only a subset of the commands offered by MPD (see [MPD protocol documentation](http://www.musicpd.org/doc/protocol/)) 
+are supported by forked-daapd.
+
+Due to some differences between forked-daapd and MPD not all commands will act the same way they would running MPD:
+
+- consume, crossfade, mixrampdb, mixrampdelay and replaygain will have no effect
+- single, repeat: unlike MPD forked-daapd does not support setting single and repeat separately 
+  on/off, instead repeat off, repeat all and repeat single are supported. Thus setting single on 
+  will result in repeat single, repeat on results in repeat all.
+
+Following table shows what is working for a selection of MPD clients:
+
+|          Client                               |  Type  | Status          |
+| --------------------------------------------- | ------ | --------------- |
+| [mpc](http://www.musicpd.org/clients/mpc/)    | CLI    | Working commands: mpc, add, crop, current, del (ranges are not yet supported), play, next, prev (behaves like cdprev), pause, toggle, cdprev, seek, clear, playlist, ls, load, volume, repeat, random, single, update (initiates an init-rescan, the path argument is not supported)   |
+| [ympd](http://www.ympd.org/)                  | Web    | Everything except "search" should work |
+
+
+
+
