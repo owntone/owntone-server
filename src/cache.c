@@ -1115,7 +1115,7 @@ cache_artwork_add_impl(struct cache_command *cmd)
 static int
 cache_artwork_get_impl(struct cache_command *cmd)
 {
-#define Q_TMPL "SELECT a.format, a.data FROM artwork a WHERE a.persistentid = '%" PRIi64 "' AND a.max_w = %d AND a.max_h = %d;"
+#define Q_TMPL "SELECT a.format, a.data FROM artwork a WHERE a.persistentid = %" PRIi64 " AND a.max_w = %d AND a.max_h = %d;"
   sqlite3_stmt *stmt;
   char *query;
   int datalen;
