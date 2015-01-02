@@ -48,6 +48,8 @@
 # include <libavresample/avresample.h>
 #endif
 
+#include <curl/curl.h>
+
 #include "logger.h"
 #include "conffile.h"
 #include "db.h"
@@ -482,10 +484,111 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   return got_ms;
 }
 
+
+struct memory_struct {
+  char *memory;
+  size_t size;
+};
+
+
+static size_t
+write_memory_callback(void *contents, size_t size, size_t nmemb, void *userp)
+{
+  size_t realsize = size * nmemb;
+  struct memory_struct *mem = (struct memory_struct *)userp;
+
+  mem->memory = realloc(mem->memory, mem->size + realsize + 1);
+  if(mem->memory == NULL) {
+    /* out of memory! */
+    printf("not enough memory (realloc returned NULL)\n");
+    return 0;
+  }
+
+  memcpy(&(mem->memory[mem->size]), contents, realsize);
+  mem->size += realsize;
+  mem->memory[mem->size] = 0;
+
+  return realsize;
+}
+
+static int
+find_stream_in_playlist(const char *url, char *stream)
+{
+  CURL *curl_handle;
+  CURLcode res;
+  struct memory_struct chunk;
+  char *line;
+  int ret;
+
+  ret = 0;
+
+  chunk.memory = malloc(1);  /* will be grown as needed by the realloc above */
+  chunk.size = 0;    /* no data at this point */
+
+  /* init the curl session */
+  curl_handle = curl_easy_init();
+
+  /* specify URL to get */
+  curl_easy_setopt(curl_handle, CURLOPT_URL, url);
+
+  /* send all data to this function  */
+  curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_memory_callback);
+
+  /* we pass our 'chunk' struct to the callback function */
+  curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, (void *)&chunk);
+
+  /* some servers don't like requests that are made without a user-agent
+   field, so we provide one */
+  curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "libcurl-agent/1.0");
+
+  /* get it! */
+  res = curl_easy_perform(curl_handle);
+
+  /* check for errors */
+  if (res != CURLE_OK)
+    {
+      fprintf(stderr, "curl_easy_perform() failed: %s\n", curl_easy_strerror(res));
+    }
+  else
+    {
+      /*
+       * Now, our chunk.memory points to a memory block that is chunk.size
+       * bytes big and contains the remote file.
+       *
+       * Do something nice with it!
+       */
+
+      printf("%lu bytes retrieved\n", (long) chunk.size);
+
+      for (line = strtok(chunk.memory, "\n"); line; line = strtok(NULL, "\n"))
+	{
+	  if (strncasecmp(line, "http://", strlen("http://")) == 0)
+	    {
+	      ret = snprintf(stream, PATH_MAX, "%s", line);
+	      if ((ret < 0) || (ret >= PATH_MAX))
+	      	{
+	      	  DPRINTF(E_LOG, L_ART, "STREAM path exceeds PATH_MAX\n");
+	      	}
+	      break;
+	    }
+	}
+    }
+
+  /* cleanup curl stuff */
+  curl_easy_cleanup(curl_handle);
+
+  if (chunk.memory)
+    free(chunk.memory);
+
+  return 0;
+}
+
 int
 transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t *est_size, int wavhdr)
 {
   struct transcode_ctx *ctx;
+  char path[PATH_MAX];
+  char *ptr;
   int ret;
 
   ctx = (struct transcode_ctx *)malloc(sizeof(struct transcode_ctx));
@@ -496,6 +599,26 @@ transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t 
       return -1;
     }
   memset(ctx, 0, sizeof(struct transcode_ctx));
+
+  ptr = strrchr(mfi->path, '.');
+  if (ptr && mfi->data_kind == 1 && strcasecmp(ptr, ".m3u") == 0)
+    {
+      // url points to a playlist instead of a stream
+      find_stream_in_playlist(mfi->path, path);
+    }
+  else
+    {
+      ret = snprintf(path, sizeof(path), "%s", mfi->path);
+      if ((ret < 0) || (ret >= sizeof(path)))
+	{
+	  DPRINTF(E_INFO, L_XCODE, "URL path exceeds PATH_MAX\n");
+
+	  free(ctx);
+	  return -1;
+	}
+    }
+
+  DPRINTF(E_INFO, L_XCODE, "Open path '%s'\n", path);
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
 # ifndef HAVE_FFMPEG
