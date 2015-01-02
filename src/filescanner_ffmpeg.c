@@ -415,6 +415,15 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   options = NULL;
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
+# ifndef HAVE_FFMPEG
+  // Without this, libav is slow to probe some internet streams
+  if (mfi->data_kind == 1)
+    {
+      ctx = avformat_alloc_context();
+      ctx->probesize = 64000;
+    }
+# endif
+
   if (mfi->data_kind == 1)
     av_dict_set(&options, "icy", "1", 0);
 

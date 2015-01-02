@@ -314,7 +314,7 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
 #endif
 
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
-# ifndef FFMPEG_INCOMPATIBLE_API
+# ifndef HAVE_FFMPEG
   dst->pix_fmt = avcodec_find_best_pix_fmt2((enum AVPixelFormat *)img_encoder->pix_fmts, src->pix_fmt, 1, NULL);
 # else
   dst->pix_fmt = avcodec_find_best_pix_fmt_of_list((enum AVPixelFormat *)img_encoder->pix_fmts, src->pix_fmt, 1, NULL);
