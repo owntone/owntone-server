@@ -44,6 +44,7 @@ static int console;
 static char *logfilename;
 static FILE *logfile;
 static char *labels[] = { "config", "daap", "db", "httpd", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp", "ffmpeg", "artwork", "player", "raop", "laudio", "dmap", "dbperf", "spotify", "lastfm", "cache" };
+static char *severities[] = { "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "SPAM" };
 
 
 static int
@@ -104,7 +105,7 @@ vlogger(int severity, int domain, const char *fmt, va_list args)
       if (ret == 0)
 	stamp[0] = '\0';
 
-      fprintf(logfile, "[%s] %8s: ", stamp, labels[domain]);
+      fprintf(logfile, "[%s] [%5s] %8s: ", stamp, severities[severity], labels[domain]);
 
       va_copy(ap, args);
       vfprintf(logfile, fmt, ap);
@@ -115,7 +116,7 @@ vlogger(int severity, int domain, const char *fmt, va_list args)
 
   if (console)
     {
-      fprintf(stderr, "%8s: ", labels[domain]);
+      fprintf(stderr, "[%5s] %8s: ", severities[severity], labels[domain]);
 
       va_copy(ap, args);
       vfprintf(stderr, fmt, ap);
