@@ -28,6 +28,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include <pthread.h>
+#include <limits.h>
 
 #include <event.h>
 
@@ -245,6 +246,7 @@ logger_detach(void)
 int
 logger_init(char *file, char *domains, int severity)
 {
+  char oldfile[PATH_MAX];
   int ret;
 
   if ((sizeof(labels) / sizeof(labels[0])) != N_LOGDOMAINS)
@@ -268,6 +270,19 @@ logger_init(char *file, char *domains, int severity)
 
   if (!file)
     return 0;
+
+  ret = snprintf(oldfile, sizeof(oldfile), "%s.old", file);
+  if ((ret < 0) || (ret >= sizeof(oldfile)))
+    {
+      fprintf(stderr, "Old logfile exceeds PATH_MAX (%s.old)\n", file);
+    }
+  else
+    {
+      ret = rename(file, oldfile);
+
+      if (ret < 0)
+	fprintf(stderr, "Renaming logfile from '%s' to '%s' failed: %s\n", file, oldfile, strerror(errno));
+    }
 
   logfile = fopen(file, "a");
   if (!logfile)
