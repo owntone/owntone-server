@@ -887,7 +887,7 @@ artwork_get_own_image(char *in_path, int max_w, int max_h, char *out_path, struc
       DPRINTF(E_SPAM, L_ART, "Trying own artwork file %s\n", path);
 
       ret = access(path, F_OK);
-      if (ret == 0)
+      if (ret < 0)
 	continue;
 
       break;
@@ -1084,7 +1084,7 @@ artwork_get_item_mfi(struct media_file_info *mfi, int max_w, int max_h, struct e
   int format;
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for item %d\n", mfi->id);
+  DPRINTF(E_DBG, L_ART, "Looking for artwork for item with id %d\n", mfi->id);
 
   ret = cache_artwork_get(CACHE_ARTWORK_INDIVIDUAL, mfi->id, max_w, max_h, &cached, &format, evbuf);
   if ((ret == 0) && cached)
@@ -1132,7 +1132,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   int got_spotifyitem;
   uint32_t data_kind;
 
-  DPRINTF(E_DBG, L_ART, "Artwork request for group %" PRIi64 "\n", persistentid);
+  DPRINTF(E_DBG, L_ART, "Looking for artwork for group with persistentid %" PRIi64 "\n", persistentid);
 
   got_spotifyitem = 0;
 
@@ -1164,12 +1164,8 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   format = 0;
   while (((ret = db_query_fetch_string(&qp, &dir)) == 0) && (dir))
     {
-      /* If item is an internet stream don't look for artwork */
-      if (strncmp(dir, "http://", strlen("http://")) == 0)
-	continue;
-
-      /* If Spotify item don't look for files artwork */
-      if (strncmp(dir, "spotify:", strlen("spotify:")) == 0)
+      /* The db query may return non-directories (eg if item is an internet stream or Spotify) */
+      if (access(dir, F_OK) < 0)
 	continue;
 
       format = artwork_get_dir_image(dir, max_w, max_h, path, evbuf);
@@ -1239,7 +1235,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
     }
   else if (format < 0)
     {
-      DPRINTF(E_WARN, L_ART, "Failure occured getting artwork for group %" PRIi64 "\n", persistentid);
+      DPRINTF(E_WARN, L_ART, "Error getting artwork for group %" PRIi64 "\n", persistentid);
       return -1;
     }
 
