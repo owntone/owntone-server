@@ -38,7 +38,7 @@
 #include "cache.h"
 
 
-#define CACHE_VERSION 1
+#define CACHE_VERSION 2
 
 /* The DAAP cache will cache raw daap replies for queries added with
  * cache_add(). Only some query types are supported.
@@ -66,6 +66,7 @@ struct cache_command
     int msec;
 
     char *path;  // artwork path
+    int type;    // individual or group artwork
     int64_t peristentid;
     int max_w;
     int max_h;
@@ -236,6 +237,7 @@ cache_create_tables(void)
 #define T_ARTWORK					\
   "CREATE TABLE IF NOT EXISTS artwork ("		\
   "   id                  INTEGER PRIMARY KEY NOT NULL,"\
+  "   type                INTEGER NOT NULL DEFAULT 0,"  \
   "   persistentid        INTEGER NOT NULL,"		\
   "   max_w               INTEGER NOT NULL,"		\
   "   max_h               INTEGER NOT NULL,"		\
@@ -245,7 +247,7 @@ cache_create_tables(void)
   "   data                BLOB"				\
   ");"
 #define I_ARTWORK_ID				\
-  "CREATE INDEX IF NOT EXISTS idx_persistentidwh ON artwork(persistentid, max_w, max_h);"
+  "CREATE INDEX IF NOT EXISTS idx_persistentidwh ON artwork(type, persistentid, max_w, max_h);"
 #define I_ARTWORK_PATH				\
   "CREATE INDEX IF NOT EXISTS idx_pathtime ON artwork(filepath, db_timestamp);"
 #define T_ADMIN_CACHE	\
@@ -1055,7 +1057,7 @@ cache_artwork_add_impl(struct cache_command *cmd)
   int datalen;
   int ret;
 
-  query = "INSERT INTO artwork (id, persistentid, max_w, max_h, format, filepath, db_timestamp, data) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?);";
+  query = "INSERT INTO artwork (id, persistentid, max_w, max_h, format, filepath, db_timestamp, data, type) VALUES (NULL, ?, ?, ?, ?, ?, ?, ?, ?);";
 
   ret = sqlite3_prepare_v2(g_db_hdl, query, -1, &stmt, 0);
   if (ret != SQLITE_OK)
@@ -1079,6 +1081,7 @@ cache_artwork_add_impl(struct cache_command *cmd)
   sqlite3_bind_text(stmt, 5, cmd->arg.path, -1, SQLITE_STATIC);
   sqlite3_bind_int(stmt, 6, (uint64_t)time(NULL));
   sqlite3_bind_blob(stmt, 7, data, datalen, SQLITE_STATIC);
+  sqlite3_bind_int(stmt, 8, cmd->arg.type);
 
   ret = sqlite3_step(stmt);
   if (ret != SQLITE_DONE)
@@ -1104,7 +1107,8 @@ cache_artwork_add_impl(struct cache_command *cmd)
  * If there is a cached entry for the given id and width/height, the parameter cached is set to 1.
  * In this case format and data contain the cached values.
  *
- * @param cmd->arg.persistentid persistent songalbumid or songartistid
+ * @param cmd->arg.type individual or group artwork
+ * @param cmd->arg.persistentid persistent itemid, songalbumid or songartistid
  * @param cmd->arg.max_w maximum image width
  * @param cmd->arg.max_h maximum image height
  * @param cmd->arg.cached set by this function to 0 if no cache entry exists, otherwise 1
@@ -1115,13 +1119,13 @@ cache_artwork_add_impl(struct cache_command *cmd)
 static int
 cache_artwork_get_impl(struct cache_command *cmd)
 {
-#define Q_TMPL "SELECT a.format, a.data FROM artwork a WHERE a.persistentid = %" PRIi64 " AND a.max_w = %d AND a.max_h = %d;"
+#define Q_TMPL "SELECT a.format, a.data FROM artwork a WHERE a.type = %d AND a.persistentid = %" PRIi64 " AND a.max_w = %d AND a.max_h = %d;"
   sqlite3_stmt *stmt;
   char *query;
   int datalen;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, cmd->arg.peristentid, cmd->arg.max_w, cmd->arg.max_h);
+  query = sqlite3_mprintf(Q_TMPL, cmd->arg.type, cmd->arg.peristentid, cmd->arg.max_w, cmd->arg.max_h);
   if (!query)
     {
       DPRINTF(E_LOG, L_CACHE, "Out of memory for query string\n");
@@ -1453,7 +1457,8 @@ cache_artwork_purge_cruft(time_t ref)
 /*
  * Adds the given (scaled) artwork image to the artwork cache
  *
- * @param persistentid persistent songalbumid or songartistid
+ * @param type individual or group artwork
+ * @param persistentid persistent itemid, songalbumid or songartistid
  * @param max_w maximum image width
  * @param max_h maximum image height
  * @param format ART_FMT_PNG for png, ART_FMT_JPEG for jpeg or 0 if no artwork available
@@ -1462,7 +1467,7 @@ cache_artwork_purge_cruft(time_t ref)
  * @return 0 if successful, -1 if an error occurred
  */
 int
-cache_artwork_add(int64_t persistentid, int max_w, int max_h, int format, char *filename, struct evbuffer *evbuf)
+cache_artwork_add(int type, int64_t persistentid, int max_w, int max_h, int format, char *filename, struct evbuffer *evbuf)
 {
   struct cache_command cmd;
   int ret;
@@ -1473,6 +1478,7 @@ cache_artwork_add(int64_t persistentid, int max_w, int max_h, int format, char *
   command_init(&cmd);
 
   cmd.func = cache_artwork_add_impl;
+  cmd.arg.type = type;
   cmd.arg.peristentid = persistentid;
   cmd.arg.max_w = max_w;
   cmd.arg.max_h = max_h;
@@ -1502,7 +1508,7 @@ cache_artwork_add(int64_t persistentid, int max_w, int max_h, int format, char *
  * @return 0 if successful, -1 if an error occurred
  */
 int
-cache_artwork_get(int64_t persistentid, int max_w, int max_h, int *cached, int *format, struct evbuffer *evbuf)
+cache_artwork_get(int type, int64_t persistentid, int max_w, int max_h, int *cached, int *format, struct evbuffer *evbuf)
 {
   struct cache_command cmd;
   int ret;
@@ -1513,6 +1519,7 @@ cache_artwork_get(int64_t persistentid, int max_w, int max_h, int *cached, int *
   command_init(&cmd);
 
   cmd.func = cache_artwork_get_impl;
+  cmd.arg.type = type;
   cmd.arg.peristentid = persistentid;
   cmd.arg.max_w = max_w;
   cmd.arg.max_h = max_h;
