@@ -2740,7 +2740,7 @@ daap_request(struct evhttp_request *req)
 
   msec = (end.tv_sec * 1000 + end.tv_nsec / 1000000) - (start.tv_sec * 1000 + start.tv_nsec / 1000000);
 
-  DPRINTF(E_DBG, L_DB, "DAAP request handled in %d milliseconds\n", msec);
+  DPRINTF(E_DBG, L_DAAP, "DAAP request handled in %d milliseconds\n", msec);
 
   if (msec > cache_daap_threshold())
     cache_daap_add(full_uri, ua, msec);
