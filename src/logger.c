@@ -44,7 +44,7 @@ static int console;
 static char *logfilename;
 static FILE *logfile;
 static char *labels[] = { "config", "daap", "db", "httpd", "main", "mdns", "misc", "rsp", "scan", "xcode", "event", "remote", "dacp", "ffmpeg", "artwork", "player", "raop", "laudio", "dmap", "dbperf", "spotify", "lastfm", "cache" };
-static char *severities[] = { "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "SPAM" };
+static char *severities[] = { "FATAL", "LOG", "WARN", "INFO", "DEBUG", "SPAM" };
 
 
 static int
