@@ -4328,55 +4328,6 @@ db_perthread_deinit(void)
   "   path        VARCHAR(4096) NOT NULL"		\
   ");"
 
-#define I_RESCAN				\
-  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
-
-#define I_SONGARTISTID				\
-  "CREATE INDEX IF NOT EXISTS idx_sari ON files(songartistid);"
-
-#define I_SONGALBUMID				\
-  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid);"
-
-#define I_STATEMKINDSARI				\
-  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sari ON files(disabled, media_kind, songartistid);"
-
-#define I_STATEMKINDSALI				\
-  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sali ON files(disabled, media_kind, songalbumid);"
-
-#define I_ARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
-
-#define I_ALBUMARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
-
-#define I_COMPOSER				\
-  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
-
-#define I_TITLE					\
-  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
-
-#define I_ALBUM					\
-  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
-
-#define I_PL_PATH				\
-  "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
-
-#define I_PL_DISABLED				\
-  "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled);"
-
-#define I_FILEPATH							\
-  "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
-
-#define I_PLITEMID							\
-  "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
-
-#define I_GRP_TYPE_PERSIST				\
-  "CREATE INDEX IF NOT EXISTS idx_grp_type_persist ON groups(type, persistentid);"
-
-#define I_PAIRING				\
-  "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
-
-
 #define TRG_GROUPS_INSERT_FILES						\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
   " BEGIN"								\
@@ -4430,7 +4381,7 @@ struct db_init_query {
   char *desc;
 };
 
-static const struct db_init_query db_init_queries[] =
+static const struct db_init_query db_init_table_queries[] =
   {
     { T_ADMIN,     "create table admin" },
     { T_FILES,     "create table files" },
@@ -4441,6 +4392,70 @@ static const struct db_init_query db_init_queries[] =
     { T_SPEAKERS,  "create table speakers" },
     { T_INOTIFY,   "create table inotify" },
 
+    { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
+    { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
+
+    { Q_PL1,       "create default playlist" },
+    { Q_PL2,       "create default smart playlist 'Music'" },
+    { Q_PL3,       "create default smart playlist 'Movies'" },
+    { Q_PL4,       "create default smart playlist 'TV Shows'" },
+    { Q_PL5,       "create default smart playlist 'Podcasts'" },
+    { Q_PL6,       "create default smart playlist 'Audiobooks'" },
+
+    { Q_SCVER,     "set schema version" },
+  };
+
+
+#define I_RESCAN				\
+  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
+
+#define I_SONGARTISTID				\
+  "CREATE INDEX IF NOT EXISTS idx_sari ON files(songartistid);"
+
+#define I_SONGALBUMID				\
+  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid);"
+
+#define I_STATEMKINDSARI				\
+  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sari ON files(disabled, media_kind, songartistid);"
+
+#define I_STATEMKINDSALI				\
+  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sali ON files(disabled, media_kind, songalbumid);"
+
+#define I_ARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
+
+#define I_ALBUMARTIST				\
+  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
+
+#define I_COMPOSER				\
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
+
+#define I_TITLE					\
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
+
+#define I_ALBUM					\
+  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
+
+#define I_PL_PATH				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
+
+#define I_PL_DISABLED				\
+  "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled);"
+
+#define I_FILEPATH							\
+  "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
+
+#define I_PLITEMID							\
+  "CREATE INDEX IF NOT EXISTS idx_playlistid ON playlistitems(playlistid, filepath);"
+
+#define I_GRP_TYPE_PERSIST				\
+  "CREATE INDEX IF NOT EXISTS idx_grp_type_persist ON groups(type, persistentid);"
+
+#define I_PAIRING				\
+  "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
+
+static const struct db_init_query db_init_index_queries[] =
+  {
     { I_RESCAN,    "create rescan index" },
     { I_SONGARTISTID, "create songartistid index" },
     { I_SONGALBUMID, "create songalbumid index" },
@@ -4462,32 +4477,20 @@ static const struct db_init_query db_init_queries[] =
     { I_GRP_TYPE_PERSIST, "create groups type/persistentid index" },
 
     { I_PAIRING,   "create pairing guid index" },
-
-    { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
-    { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
-
-    { Q_PL1,       "create default playlist" },
-    { Q_PL2,       "create default smart playlist 'Music'" },
-    { Q_PL3,       "create default smart playlist 'Movies'" },
-    { Q_PL4,       "create default smart playlist 'TV Shows'" },
-    { Q_PL5,       "create default smart playlist 'Podcasts'" },
-    { Q_PL6,       "create default smart playlist 'Audiobooks'" },
-
-    { Q_SCVER,     "set schema version" },
   };
 
 static int
-db_create_tables(void)
+db_create_indices(void)
 {
   char *errmsg;
   int i;
   int ret;
 
-  for (i = 0; i < (sizeof(db_init_queries) / sizeof(db_init_queries[0])); i++)
+  for (i = 0; i < (sizeof(db_init_index_queries) / sizeof(db_init_index_queries[0])); i++)
     {
-      DPRINTF(E_DBG, L_DB, "DB init query: %s\n", db_init_queries[i].desc);
+      DPRINTF(E_DBG, L_DB, "DB init index query: %s\n", db_init_index_queries[i].desc);
 
-      ret = sqlite3_exec(hdl, db_init_queries[i].query, NULL, NULL, &errmsg);
+      ret = sqlite3_exec(hdl, db_init_index_queries[i].query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);
@@ -4498,6 +4501,95 @@ db_create_tables(void)
     }
 
   return 0;
+}
+
+static int
+db_drop_indices(void)
+{
+#define Q_INDEX "SELECT name FROM sqlite_master WHERE type == 'index' AND name LIKE 'idx_%';"
+#define Q_TMPL "DROP INDEX %q;"
+  sqlite3_stmt *stmt;
+  char *errmsg;
+  char *query;
+  char *index[256];
+  int ret;
+  int i;
+  int n;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_INDEX);
+
+  ret = sqlite3_prepare_v2(hdl, Q_INDEX, strlen(Q_INDEX) + 1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  n = 0;
+  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+    {
+      index[n] = strdup((char *)sqlite3_column_text(stmt, 0));
+      n++;
+    }
+
+  if (ret != SQLITE_DONE)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_finalize(stmt);
+      return -1;
+    }
+
+  sqlite3_finalize(stmt);
+
+  for (i = 0; i < n; i++)
+    {
+      query = sqlite3_mprintf(Q_TMPL, index[i]);
+      free(index[i]);
+
+      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+      ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "DB error while running '%s': %s\n", query, errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+
+      sqlite3_free(query);
+    }
+
+  return 0;
+#undef Q_TMPL
+#undef Q_INDEX
+}
+
+static int
+db_create_tables(void)
+{
+  char *errmsg;
+  int i;
+  int ret;
+
+  for (i = 0; i < (sizeof(db_init_table_queries) / sizeof(db_init_table_queries[0])); i++)
+    {
+      DPRINTF(E_DBG, L_DB, "DB init table query: %s\n", db_init_table_queries[i].desc);
+
+      ret = sqlite3_exec(hdl, db_init_table_queries[i].query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_FATAL, L_DB, "DB init error: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+    }
+
+  ret = db_create_indices();
+
+  return ret;
 }
 
 static int
@@ -4954,18 +5046,6 @@ db_upgrade_v11(void)
   "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
   ");"
 
-#define U_V12_IDX_PATH						\
-  "CREATE INDEX IF NOT EXISTS idx_path ON files(path, idx);"
-
-#define U_V12_IDX_TS							\
-  "CREATE INDEX IF NOT EXISTS idx_titlesort ON files(title_sort);"
-
-#define U_V12_IDX_AS							\
-  "CREATE INDEX IF NOT EXISTS idx_artistsort ON files(artist_sort);"
-
-#define U_V12_IDX_BS							\
-  "CREATE INDEX IF NOT EXISTS idx_albumsort ON files(album_sort);"
-
 #define U_V12_TRG1							\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
   " BEGIN"								\
@@ -4983,11 +5063,6 @@ db_upgrade_v11(void)
 
 static const struct db_init_query db_upgrade_v12_queries[] =
   {
-    { U_V12_IDX_PATH, "create index path table files" },
-    { U_V12_IDX_TS,   "create index titlesort table files" },
-    { U_V12_IDX_AS,   "create index artistsort table files" },
-    { U_V12_IDX_BS,   "create index albumsort table files" },
-
     { U_V12_TRG1,     "create trigger update_groups_new_file" },
     { U_V12_TRG2,     "create trigger update_groups_update_file" },
 
@@ -5028,51 +5103,6 @@ db_upgrade_v12(void)
 
 /* Upgrade from schema v12 to v13 */
 
-#define U_V13_DROP_IDX_PATH						\
-  "DROP INDEX idx_path;"
-
-#define U_V13_DROP_IDX_TS						\
-  "DROP INDEX idx_titlesort;"
-
-#define U_V13_DROP_IDX_AS						\
-  "DROP INDEX idx_artistsort;"
-
-#define U_V13_DROP_IDX_BS						\
-  "DROP INDEX idx_albumsort;"
-
-#define U_V13_IDX_RESCAN						\
-  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
-
-#define U_V13_IDX_SONGALBUMID					\
-  "CREATE INDEX IF NOT EXISTS idx_sai ON files(songalbumid);"
-
-#define U_V13_IDX_STATEMKINDSAI						\
-  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sai ON files(disabled, media_kind, songalbumid);"
-
-#define U_V13_IDX_ARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
-
-#define U_V13_IDX_ALBUMARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
-
-#define U_V13_IDX_COMPOSER				\
-  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
-
-#define U_V13_IDX_TITLE					\
-  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
-
-#define U_V13_IDX_ALBUM					\
-  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
-
-#define U_V13_IDX_GRP_TYPE_PERSIST					\
-  "CREATE INDEX IF NOT EXISTS idx_grp_type_persist ON groups(type, persistentid);"
-
-#define U_V13_IDX_PL_PATH				\
-  "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
-
-#define U_V13_IDX_PL_DISABLED				\
-  "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled);"
-
 #define U_V13_PL2							\
   "UPDATE playlists SET query = 'f.media_kind = 1' where id = 2;"
 
@@ -5087,25 +5117,6 @@ db_upgrade_v12(void)
 
 static const struct db_init_query db_upgrade_v13_queries[] =
   {
-    { U_V13_DROP_IDX_PATH, "drop index path table files" },
-    { U_V13_DROP_IDX_TS,   "drop index titlesort table files" },
-    { U_V13_DROP_IDX_AS,   "drop index artistsort table files" },
-    { U_V13_DROP_IDX_BS,   "drop index albumsort table files" },
-
-    { U_V13_IDX_RESCAN,    "create rescan index" },
-    { U_V13_IDX_SONGALBUMID, "create songalbumid index" },
-    { U_V13_IDX_STATEMKINDSAI, "create state/mkind/sai index" },
-    { U_V13_IDX_ARTIST,    "create artist index" },
-    { U_V13_IDX_ALBUMARTIST, "create album_artist index" },
-    { U_V13_IDX_COMPOSER,  "create composer index" },
-    { U_V13_IDX_TITLE,     "create title index" },
-    { U_V13_IDX_ALBUM,     "create album index" },
-
-    { U_V13_IDX_GRP_TYPE_PERSIST, "create groups type/persistentid index" },
-
-    { U_V13_IDX_PL_PATH,   "create playlist path index" },
-    { U_V13_IDX_PL_DISABLED, "create playlist state index" },
-
     { U_V13_PL2,           "update default smart playlist 'Music'" },
     { U_V13_PL3,           "update default smart playlist 'Movies'" },
     { U_V13_PL4,           "update default smart playlist 'TV Shows'" },
@@ -5188,36 +5199,6 @@ static const struct db_init_query db_upgrade_v13_queries[] =
 #define U_V14_DELETE_PL6_2			\
   "DELETE FROM playlistitems WHERE playlistid=6;"
 
-#define U_V14_IDX_RESCAN				\
-  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
-
-#define U_V14_IDX_SONGARTISTID				\
-  "CREATE INDEX IF NOT EXISTS idx_sari ON files(songartistid);"
-
-#define U_V14_IDX_SONGALBUMID				\
-  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid);"
-
-#define U_V14_IDX_STATEMKINDSARI				\
-  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sari ON files(disabled, media_kind, songartistid);"
-
-#define U_V14_IDX_STATEMKINDSALI				\
-  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sali ON files(disabled, media_kind, songalbumid);"
-
-#define U_V14_IDX_ARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
-
-#define U_V14_IDX_ALBUMARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
-
-#define U_V14_IDX_COMPOSER				\
-  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
-
-#define U_V14_IDX_TITLE					\
-  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
-
-#define U_V14_IDX_ALBUM					\
-  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
-
 #define U_V14_TRG1							\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
   " BEGIN"								\
@@ -5249,18 +5230,6 @@ static const struct db_init_query db_upgrade_v14_queries[] =
     { U_V14_DELETE_PL5_2, "delete playlist id 5 table playlistitems" },
     { U_V14_DELETE_PL6_1, "delete playlist id 6 table playlists" },
     { U_V14_DELETE_PL6_2, "delete playlist id 6 table playlistitems" },
-
-    { U_V14_IDX_RESCAN,         "create rescan index table files" },
-    { U_V14_IDX_SONGARTISTID,   "create songartistid index table files" },
-    { U_V14_IDX_SONGALBUMID,    "create songalbumid index table files" },
-    { U_V14_IDX_STATEMKINDSARI, "create state/mkind/sari index table files" },
-    { U_V14_IDX_STATEMKINDSALI, "create state/mkind/sali index table files" },
-
-    { U_V14_IDX_ARTIST,      "create artist index table files" },
-    { U_V14_IDX_ALBUMARTIST, "create album_artist index table files" },
-    { U_V14_IDX_COMPOSER,    "create composer index table files" },
-    { U_V14_IDX_TITLE,       "create title index table files" },
-    { U_V14_IDX_ALBUM,       "create album index table files" },
 
     { U_V14_TRG1,     "create trigger update_groups_new_file" },
     { U_V14_TRG2,     "create trigger update_groups_update_file" },
@@ -5368,36 +5337,6 @@ db_upgrade_v14(void)
   "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
   ");"
 
-#define U_V15_IDX_RESCAN				\
-  "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
-
-#define U_V15_IDX_SONGARTISTID				\
-  "CREATE INDEX IF NOT EXISTS idx_sari ON files(songartistid);"
-
-#define U_V15_IDX_SONGALBUMID				\
-  "CREATE INDEX IF NOT EXISTS idx_sali ON files(songalbumid);"
-
-#define U_V15_IDX_STATEMKINDSARI				\
-  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sari ON files(disabled, media_kind, songartistid);"
-
-#define U_V15_IDX_STATEMKINDSALI				\
-  "CREATE INDEX IF NOT EXISTS idx_state_mkind_sali ON files(disabled, media_kind, songalbumid);"
-
-#define U_V15_IDX_ARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_artist ON files(artist, artist_sort);"
-
-#define U_V15_IDX_ALBUMARTIST				\
-  "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
-
-#define U_V15_IDX_COMPOSER				\
-  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
-
-#define U_V15_IDX_TITLE					\
-  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
-
-#define U_V15_IDX_ALBUM					\
-  "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
-
 #define U_V15_TRG1							\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
   " BEGIN"								\
@@ -5417,18 +5356,6 @@ db_upgrade_v14(void)
 
 static const struct db_init_query db_upgrade_v15_queries[] =
   {
-    { U_V15_IDX_RESCAN,         "create rescan index table files" },
-    { U_V15_IDX_SONGARTISTID,   "create songartistid index table files" },
-    { U_V15_IDX_SONGALBUMID,    "create songalbumid index table files" },
-    { U_V15_IDX_STATEMKINDSARI, "create state/mkind/sari index table files" },
-    { U_V15_IDX_STATEMKINDSALI, "create state/mkind/sali index table files" },
-
-    { U_V15_IDX_ARTIST,      "create artist index table files" },
-    { U_V15_IDX_ALBUMARTIST, "create album_artist index table files" },
-    { U_V15_IDX_COMPOSER,    "create composer index table files" },
-    { U_V15_IDX_TITLE,       "create title index table files" },
-    { U_V15_IDX_ALBUM,       "create album index table files" },
-
     { U_V15_TRG1,     "create trigger update_groups_new_file" },
     { U_V15_TRG2,     "create trigger update_groups_update_file" },
 
@@ -5510,6 +5437,10 @@ db_check_version(void)
     {
       DPRINTF(E_LOG, L_DB, "Database schema outdated, schema upgrade needed v%d -> v%d\n", cur_ver, SCHEMA_VERSION);
 
+      ret = db_drop_indices();
+      if (ret < 0)
+	return -1;
+
       switch (cur_ver)
 	{
 	  case 10:
@@ -5567,6 +5498,10 @@ db_check_version(void)
 	    DPRINTF(E_LOG, L_DB, "No upgrade path from DB schema v%d to v%d\n", cur_ver, SCHEMA_VERSION);
 	    return -1;
 	}
+
+      ret = db_create_indices();
+      if (ret < 0)
+	return -1;
 
       /* What about some housekeeping work, eh? */
       DPRINTF(E_INFO, L_DB, "Now vacuuming database, this may take some time...\n");
