@@ -2290,7 +2290,8 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
   raop_volume = raop_volume_convert(volume, rs->devname);
 
   /* Don't let locales get in the way here */
-  ret = evbuffer_add_printf(evbuf, "volume: %d.%06d\r\n", (int)raop_volume, -(int)(1000000.0 * (raop_volume - (int)raop_volume)));
+  /* We use -%d and -(int)raop_volume so -0.3 won't become 0.3 */
+  ret = evbuffer_add_printf(evbuf, "volume: -%d.%06d\r\n", -(int)raop_volume, -(int)(1000000.0 * (raop_volume - (int)raop_volume)));
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for SET_PARAMETER payload (volume)\n");
