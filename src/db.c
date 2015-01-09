@@ -1445,16 +1445,16 @@ db_build_query_browse(struct query_params *qp, char *field, char *sort_field, ch
 
   if (idx && qp->filter)
     query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-                            " AND %s GROUP BY f.%s %s %s;", field, sort_field, field, qp->filter, field, sort, idx);
+                            " AND %s GROUP BY f.%s %s %s;", field, sort_field, field, qp->filter, sort_field, sort, idx);
   else if (idx)
     query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-                            " GROUP BY f.%s %s %s;", field, sort_field, field, field, sort, idx);
+                            " GROUP BY f.%s %s %s;", field, sort_field, field, sort_field, sort, idx);
   else if (qp->filter)
     query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-                            " AND %s GROUP BY f.%s %s;", field, sort_field, field, qp->filter, field, sort);
+                            " AND %s GROUP BY f.%s %s;", field, sort_field, field, qp->filter, sort_field, sort);
   else
     query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-                            " GROUP BY f.%s %s", field, sort_field, field, field, sort);
+                            " GROUP BY f.%s %s", field, sort_field, field, sort_field, sort);
 
   free(sort);
 
@@ -4475,6 +4475,7 @@ static const struct db_init_query db_init_index_queries[] =
     { I_ARTIST,    "create artist index" },
     { I_ALBUMARTIST, "create album_artist index" },
     { I_COMPOSER,  "create composer index" },
+    { I_GENRE,     "create genre index" },
     { I_TITLE,     "create title index" },
     { I_ALBUM,     "create album index" },
 
