@@ -1433,28 +1433,28 @@ db_build_query_browse(struct query_params *qp, char *field, char *sort_field, ch
     }
   else
     {
-      size = strlen("ORDER BY f.") + strlen(field) + 1;
+      size = strlen("ORDER BY f.") + strlen(sort_field) + 1;
       sort = malloc(size);
       if (!sort)
 	{
 	  DPRINTF(E_LOG, L_DB, "Out of memory for sort string\n");
 	  return -1;
 	}
-      snprintf(sort, size, "ORDER BY f.%s", field);
+      snprintf(sort, size, "ORDER BY f.%s", sort_field);
     }
 
   if (idx && qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-			    " AND %s %s %s;", field, sort_field, field, qp->filter, sort, idx);
+    query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
+                            " AND %s GROUP BY f.%s %s %s;", field, sort_field, field, qp->filter, field, sort, idx);
   else if (idx)
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-			    " %s %s;", field, sort_field, field, sort, idx);
+    query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
+                            " GROUP BY f.%s %s %s;", field, sort_field, field, field, sort, idx);
   else if (qp->filter)
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-			    " AND %s %s;", field, sort_field, field, qp->filter, sort);
+    query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
+                            " AND %s GROUP BY f.%s %s;", field, sort_field, field, qp->filter, field, sort);
   else
-    query = sqlite3_mprintf("SELECT DISTINCT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != '' %s",
-			    field, sort_field, field, sort);
+    query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
+                            " GROUP BY f.%s %s", field, sort_field, field, field, sort);
 
   free(sort);
 
@@ -4431,11 +4431,17 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_ALBUMARTIST				\
   "CREATE INDEX IF NOT EXISTS idx_albumartist ON files(album_artist, album_artist_sort);"
 
+/* Used by Q_BROWSE_COMPOSERS */
 #define I_COMPOSER				\
-  "CREATE INDEX IF NOT EXISTS idx_composer ON files(composer, composer_sort);"
+  "CREATE INDEX IF NOT EXISTS idx_composer ON files(disabled, media_kind, composer_sort);"
 
+/* Used by Q_BROWSE_GENRES */
+#define I_GENRE					\
+  "CREATE INDEX IF NOT EXISTS idx_genre ON files(disabled, media_kind, genre);"
+
+/* Used by Q_PLITEMS for smart playlists */
 #define I_TITLE					\
-  "CREATE INDEX IF NOT EXISTS idx_title ON files(title, title_sort);"
+  "CREATE INDEX IF NOT EXISTS idx_title ON files(disabled, media_kind, title_sort);"
 
 #define I_ALBUM					\
   "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
