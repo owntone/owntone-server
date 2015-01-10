@@ -5448,10 +5448,6 @@ db_check_version(void)
     {
       DPRINTF(E_LOG, L_DB, "Database schema outdated, schema upgrade needed v%d -> v%d\n", cur_ver, SCHEMA_VERSION);
 
-      ret = db_drop_indices();
-      if (ret < 0)
-	return -1;
-
       switch (cur_ver)
 	{
 	  case 10:
@@ -5509,28 +5505,32 @@ db_check_version(void)
 	    DPRINTF(E_LOG, L_DB, "No upgrade path from DB schema v%d to v%d\n", cur_ver, SCHEMA_VERSION);
 	    return -1;
 	}
-
-      ret = db_create_indices();
-      if (ret < 0)
-	return -1;
-
-      /* What about some housekeeping work, eh? */
-      DPRINTF(E_INFO, L_DB, "Now vacuuming database, this may take some time...\n");
-
-      ret = sqlite3_exec(hdl, Q_VACUUM, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not VACUUM database: %s\n", errmsg);
-
-	  sqlite3_free(errmsg);
-	  return -1;
-	}
     }
   else if (cur_ver > SCHEMA_VERSION)
     {
-      DPRINTF(E_LOG, L_DB, "Database schema is newer than the supported version\n");
+      DPRINTF(E_FATAL, L_DB, "Database schema is newer than the supported version\n");
       return -1;
     }
+
+  /* Drop and create indices on startup so that change of a index can be done without a schema update */
+  ret = db_drop_indices();
+  if (ret < 0)
+    return -1;
+
+  DPRINTF(E_INFO, L_DB, "Now vacuuming database, this may take some time...\n");
+
+  ret = sqlite3_exec(hdl, Q_VACUUM, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not VACUUM database: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      return -1;
+    }
+
+  ret = db_create_indices();
+  if (ret < 0)
+    return -1;
 
   return 0;
 
