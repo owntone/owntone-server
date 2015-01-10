@@ -4406,7 +4406,7 @@ static const struct db_init_query db_init_table_queries[] =
   };
 
 
-/* Indexes must be prefixed with idx_ for db_drop_indices() to id them */
+/* Indices must be prefixed with idx_ for db_drop_indices() to id them */
 
 #define I_RESCAN				\
   "CREATE INDEX IF NOT EXISTS idx_rescan ON files(path, db_timestamp);"
