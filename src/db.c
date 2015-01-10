@@ -4372,9 +4372,9 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION 16
+#define SCHEMA_VERSION 15
 #define Q_SCVER					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '16');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version', '15');"
 
 struct db_init_query {
   char *query;
@@ -5406,14 +5406,6 @@ db_upgrade_v15(void)
 #undef Q_DUMP
 }
 
-#define U_V16_SCVER				\
-  "UPDATE admin SET value = '16' WHERE key = 'schema_version';"
-
-static const struct db_init_query db_upgrade_v16_queries[] =
-  {
-    { U_V16_SCVER,    "set schema_version to 16" },
-  };
-
 static int
 db_check_version(void)
 {
@@ -5508,13 +5500,6 @@ db_check_version(void)
 	      return -1;
 
 	    ret = db_generic_upgrade(db_upgrade_v15_queries, sizeof(db_upgrade_v15_queries) / sizeof(db_upgrade_v15_queries[0]));
-	    if (ret < 0)
-	      return -1;
-
-	    /* FALLTHROUGH */
-
-	  case 15:
-	    ret = db_generic_upgrade(db_upgrade_v16_queries, sizeof(db_upgrade_v16_queries) / sizeof(db_upgrade_v16_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
