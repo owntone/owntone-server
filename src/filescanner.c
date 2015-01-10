@@ -213,6 +213,9 @@ file_type_get(const char *path) {
   if (artwork_file_is_artwork(filename))
     return FILE_ARTWORK;
 
+  if ((strcasecmp(ext, ".jpg") == 0) || (strcasecmp(ext, ".png") == 0))
+    return FILE_IGNORE;
+
 #ifdef ITUNES
   if (strcasecmp(ext, ".xml") == 0)
     return FILE_ITUNES;
