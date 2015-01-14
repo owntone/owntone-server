@@ -53,6 +53,10 @@
 # include <sys/eventfd.h>
 #endif
 
+#ifdef HAVE_REGEX_H
+# include <regex.h>
+#endif
+
 #include <event.h>
 
 #include "logger.h"
@@ -172,6 +176,43 @@ pop_dir(struct stacked_dir **s)
   return ret;
 }
 
+#ifdef HAVE_REGEX_H
+/* Checks if the file path is configured to be ignored */
+static int
+file_path_ignore(const char *path)
+{
+  cfg_t *lib;
+  regex_t regex;
+  int n;
+  int i;
+  int ret;
+
+  lib = cfg_getsec(cfg, "library");
+  n = cfg_size(lib, "filepath_ignore");
+
+  for (i = 0; i < n; i++)
+    {
+      ret = regcomp(&regex, cfg_getnstr(lib, "filepath_ignore", i), 0);
+      if (ret != 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Could not compile regex for matching with file path\n");
+	  return 0;
+	}
+
+      ret = regexec(&regex, path, 0, NULL, 0);
+      regfree(&regex);
+
+      if (ret == 0)
+	{
+	  DPRINTF(E_DBG, L_SCAN, "Regex match: %s\n", path);
+	  return 1;
+	}
+    }
+
+  return 0;
+}
+#endif
+
 /* Checks if the file extension is in the ignore list */
 static int
 file_type_ignore(const char *ext)
@@ -202,6 +243,11 @@ file_type_get(const char *path) {
     filename = path;
   else
     filename++;
+
+#ifdef HAVE_REGEX_H
+  if (file_path_ignore(path))
+    return FILE_IGNORE;
+#endif
 
   ext = strrchr(path, '.');
   if (!ext || (strlen(ext) == 1))

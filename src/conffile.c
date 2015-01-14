@@ -78,6 +78,7 @@ static cfg_opt_t sec_library[] =
     CFG_STR_LIST("artwork_basenames", "{artwork,cover,Folder}", CFGF_NONE),
     CFG_BOOL("artwork_individual", cfg_false, CFGF_NONE),
     CFG_STR_LIST("filetypes_ignore", "{.db,.ini,.db-journal,.pdf}", CFGF_NONE),
+    CFG_STR_LIST("filepath_ignore", NULL, CFGF_NONE),
     CFG_BOOL("filescan_disable", cfg_false, CFGF_NONE),
     CFG_BOOL("itunes_overrides", cfg_false, CFGF_NONE),
     CFG_STR_LIST("no_transcode", NULL, CFGF_NONE),
