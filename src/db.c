@@ -3393,7 +3393,7 @@ db_admin_get(const char *key)
   ret = db_blocking_prepare_v2(query, strlen(query) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_WARN, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_free(query);
       return NULL;
@@ -3405,7 +3405,7 @@ db_admin_get(const char *key)
       if (ret == SQLITE_DONE)
 	DPRINTF(E_DBG, L_DB, "No results\n");
       else
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+	DPRINTF(E_WARN, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
@@ -4372,8 +4372,10 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION 15
-#define Q_SCVER					\
+#define SCHEMA_VERSION_MAJOR 15
+#define SCHEMA_VERSION_MINOR 00
+// Q_SCVER should be deprecated/removed at v16
+#define Q_SCVER						\
   "INSERT INTO admin (key, value) VALUES ('schema_version', '15');"
 
 struct db_init_query {
@@ -4402,7 +4404,7 @@ static const struct db_init_query db_init_table_queries[] =
     { Q_PL5,       "create default smart playlist 'Podcasts'" },
     { Q_PL6,       "create default smart playlist 'Audiobooks'" },
 
-    { Q_SCVER,     "set schema version" },
+    { Q_SCVER,       "set schema version" },
   };
 
 
@@ -5409,48 +5411,62 @@ db_upgrade_v15(void)
 static int
 db_check_version(void)
 {
-#define Q_VER "SELECT value FROM admin WHERE key = 'schema_version';"
 #define Q_VACUUM "VACUUM;"
-  sqlite3_stmt *stmt;
+  char *buf;
   char *errmsg;
-  int cur_ver;
+  int db_ver_major;
+  int db_ver_minor;
+  int db_ver;
+  int vacuum;
   int ret;
 
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_VER);
+  vacuum = cfg_getbool(cfg_getsec(cfg, "sqlite"), "vacuum");
 
-  ret = sqlite3_prepare_v2(hdl, Q_VER, strlen(Q_VER) + 1, &stmt, NULL);
-  if (ret != SQLITE_OK)
+  buf = db_admin_get("schema_version_major");
+  if (!buf)
+    buf = db_admin_get("schema_version"); // Pre schema v15.1
+
+  if (!buf)
+    return 1; // Will create new database
+
+  safe_atoi32(buf, &db_ver_major);
+  free(buf);
+
+  buf = db_admin_get("schema_version_minor");
+  if (buf)
     {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-      return 1;
+      safe_atoi32(buf, &db_ver_minor);
+      free(buf);
     }
+  else
+    db_ver_minor = 0;
 
-  ret = sqlite3_step(stmt);
-  if (ret != SQLITE_ROW)
+  db_ver = db_ver_major * 100 + db_ver_minor;
+
+  if (db_ver_major < 10)
     {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      DPRINTF(E_FATAL, L_DB, "Database schema v%d too old, cannot upgrade\n", db_ver_major);
 
-      sqlite3_finalize(stmt);
       return -1;
     }
-
-  cur_ver = sqlite3_column_int(stmt, 0);
-
-  sqlite3_finalize(stmt);
-
-  if (cur_ver < 10)
+  else if (db_ver_major > SCHEMA_VERSION_MAJOR)
     {
-      DPRINTF(E_FATAL, L_DB, "Database schema v%d too old, cannot upgrade\n", cur_ver);
+      DPRINTF(E_FATAL, L_DB, "Database schema v%d is newer than the supported version\n", db_ver_major);
 
       return -1;
     }
-  else if (cur_ver < SCHEMA_VERSION)
+  else if (db_ver < (SCHEMA_VERSION_MAJOR * 100 + SCHEMA_VERSION_MINOR))
     {
-      DPRINTF(E_LOG, L_DB, "Database schema outdated, schema upgrade needed v%d -> v%d\n", cur_ver, SCHEMA_VERSION);
+      DPRINTF(E_LOG, L_DB, "Database schema outdated, schema upgrade needed v%d.%d -> v%d.%d\n",
+                           db_ver_major, db_ver_minor, SCHEMA_VERSION_MAJOR, SCHEMA_VERSION_MINOR);
 
-      switch (cur_ver)
+      ret = db_drop_indices();
+      if (ret < 0)
+	return -1;
+
+      switch (db_ver)
 	{
-	  case 10:
+	  case 1000:
 	    ret = db_generic_upgrade(db_upgrade_v11_queries, sizeof(db_upgrade_v11_queries) / sizeof(db_upgrade_v11_queries[0]));
 	    if (ret < 0)
 	      return -1;
@@ -5461,7 +5477,7 @@ db_check_version(void)
 
 	    /* FALLTHROUGH */
 
-	  case 11:
+	  case 1100:
 	    ret = db_upgrade_v12();
 	    if (ret < 0)
 	      return -1;
@@ -5472,14 +5488,14 @@ db_check_version(void)
 
 	    /* FALLTHROUGH */
 
-	  case 12:
+	  case 1200:
 	    ret = db_generic_upgrade(db_upgrade_v13_queries, sizeof(db_upgrade_v13_queries) / sizeof(db_upgrade_v13_queries[0]));
 	    if (ret < 0)
 	      return -1;
 
 	    /* FALLTHROUGH */
 
-	  case 13:
+	  case 1300:
 	    ret = db_upgrade_v14();
 	    if (ret < 0)
 	      return -1;
@@ -5490,7 +5506,7 @@ db_check_version(void)
 
 	    /* FALLTHROUGH */
 
-	  case 14:
+	  case 1400:
 	    ret = db_upgrade_v15();
 	    if (ret < 0)
 	      return -1;
@@ -5502,39 +5518,33 @@ db_check_version(void)
 	    break;
 
 	  default:
-	    DPRINTF(E_LOG, L_DB, "No upgrade path from DB schema v%d to v%d\n", cur_ver, SCHEMA_VERSION);
+	    DPRINTF(E_FATAL, L_DB, "No upgrade path from the current DB schema\n");
 	    return -1;
 	}
+
+      vacuum = 1;
+
+      ret = db_create_indices();
+      if (ret < 0)
+	return -1;
     }
-  else if (cur_ver > SCHEMA_VERSION)
+
+  if (vacuum)
     {
-      DPRINTF(E_FATAL, L_DB, "Database schema is newer than the supported version\n");
-      return -1;
+      DPRINTF(E_INFO, L_DB, "Now vacuuming database, this may take some time...\n");
+
+      ret = sqlite3_exec(hdl, Q_VACUUM, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not VACUUM database: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
     }
-
-  /* Drop and create indices on startup so that change of a index can be done without a schema update */
-  ret = db_drop_indices();
-  if (ret < 0)
-    return -1;
-
-  DPRINTF(E_INFO, L_DB, "Now vacuuming database, this may take some time...\n");
-
-  ret = sqlite3_exec(hdl, Q_VACUUM, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not VACUUM database: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      return -1;
-    }
-
-  ret = db_create_indices();
-  if (ret < 0)
-    return -1;
 
   return 0;
 
-#undef Q_VER
 #undef Q_VACUUM
 }
 
@@ -5583,7 +5593,7 @@ db_init(void)
     }
   else if (ret > 0)
     {
-      DPRINTF(E_FATAL, L_DB, "Could not check database version, trying DB init\n");
+      DPRINTF(E_LOG, L_DB, "Could not check database version, trying DB init\n");
 
       ret = db_create_tables();
       if (ret < 0)
