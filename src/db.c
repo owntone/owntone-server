@@ -5477,7 +5477,7 @@ db_check_version(void)
     }
   else if (db_ver < (SCHEMA_VERSION_MAJOR * 100 + SCHEMA_VERSION_MINOR))
     {
-      DPRINTF(E_LOG, L_DB, "Database schema outdated, schema upgrade needed v%d.%d -> v%d.%d\n",
+      DPRINTF(E_LOG, L_DB, "Database schema outdated, upgrading schema v%d.%d -> v%d.%d...\n",
                            db_ver_major, db_ver_minor, SCHEMA_VERSION_MAJOR, SCHEMA_VERSION_MINOR);
 
       ret = db_drop_indices();
@@ -5558,7 +5558,7 @@ db_check_version(void)
 
   if (vacuum)
     {
-      DPRINTF(E_INFO, L_DB, "Now vacuuming database, this may take some time...\n");
+      DPRINTF(E_LOG, L_DB, "Now vacuuming database, this may take some time...\n");
 
       ret = sqlite3_exec(hdl, Q_VACUUM, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
@@ -5640,7 +5640,7 @@ db_init(void)
 
   db_perthread_deinit();
 
-  DPRINTF(E_INFO, L_DB, "Database OK with %d active files and %d active playlists\n", files, pls);
+  DPRINTF(E_LOG, L_DB, "Database OK with %d active files and %d active playlists\n", files, pls);
 
   return 0;
 }
