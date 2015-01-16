@@ -2527,12 +2527,7 @@ playback_start(struct player_command *cmd)
     {
       ret = laudio_open();
       if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Could not open local audio\n");
-
-	  playback_abort();
-	  return -1;
-	}
+	DPRINTF(E_LOG, L_PLAYER, "Could not open local audio, will try AirPlay\n");
     }
 
   /* Start RAOP sessions on selected devices if needed */
