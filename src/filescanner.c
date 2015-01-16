@@ -678,19 +678,6 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
 
   fixup_tags(mfi);
 
-  if (db_file_is_duplicate(mfi))
-    {
-      DPRINTF(E_LOG, L_SCAN, "Skipping '%s' (duplicate filename, artist, album and title)\n", mfi->path);
-
-      /* Can't just disable because db_file_ping() will reenable on startup */
-      if (mfi->id > 0)
-	{
-	  db_file_delete_bypath(mfi->path);
-	  cache_artwork_delete_by_path(mfi->path);
-	}
-      goto out;
-    }
-
   if (mfi->id == 0)
     db_file_add(mfi);
   else

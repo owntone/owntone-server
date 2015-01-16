@@ -2360,23 +2360,6 @@ db_file_fetch_byid(int id)
 }
 
 int
-db_file_is_duplicate(struct media_file_info *mfi)
-{
-#define Q_TMPL "SELECT f.id FROM files f WHERE f.title = TRIM(%Q) AND f.artist = TRIM(%Q) AND f.album = TRIM(%Q) AND f.fname = '%q';"
-  char *query;
-  int id;
-
-  query = sqlite3_mprintf(Q_TMPL, mfi->title, mfi->artist, mfi->album, mfi->fname);
-
-  id = db_file_id_byquery(query);
-
-  sqlite3_free(query);
-
-  return ((id > 0) && (id != mfi->id));
-#undef Q_TMPL
-}
-
-int
 db_file_add(struct media_file_info *mfi)
 {
 #define Q_TMPL "INSERT INTO files (id, path, fname, title, artist, album, genre, comment, type, composer," \
