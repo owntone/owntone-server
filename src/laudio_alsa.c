@@ -281,8 +281,9 @@ laudio_write(uint8_t *buf, uint64_t rtptime)
 	}
 
       /* Don't let ALSA fill up the buffer too much */
-      if (nsamp == AIRTUNES_V2_PACKET_SAMPLES)
-	return;
+// Disabled - seems to cause buffer underruns
+//      if (nsamp == AIRTUNES_V2_PACKET_SAMPLES)
+//	return;
     }
 }
 
