@@ -40,13 +40,6 @@
 
 #define CACHE_VERSION 2
 
-/* The DAAP cache will cache raw daap replies for queries added with
- * cache_add(). Only some query types are supported.
- * You can't add queries where the canonical reply is not HTTP_OK, because
- * daap_request will use that as default for cache replies.
- *
- */
-
 struct cache_command;
 
 typedef int (*cmd_func)(struct cache_command *cmd);
@@ -267,7 +260,7 @@ cache_create_tables(void)
   ret = sqlite3_exec(g_db_hdl, T_REPLIES, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating reply cache table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating cache table 'replies': %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -278,7 +271,7 @@ cache_create_tables(void)
   ret = sqlite3_exec(g_db_hdl, T_QUERIES, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating query table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating cache table 'queries': %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -289,7 +282,7 @@ cache_create_tables(void)
   ret = sqlite3_exec(g_db_hdl, I_QUERY, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating index on replies(query): %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -300,7 +293,7 @@ cache_create_tables(void)
   ret = sqlite3_exec(g_db_hdl, T_ARTWORK, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating artwork table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating cache table 'artwork': %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -311,7 +304,7 @@ cache_create_tables(void)
   ret = sqlite3_exec(g_db_hdl, I_ARTWORK_ID, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating artwork index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating index on artwork(type, persistentid, max_w, max_h): %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -320,7 +313,7 @@ cache_create_tables(void)
   ret = sqlite3_exec(g_db_hdl, I_ARTWORK_PATH, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating artwork index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating index on artwork(filepath, db_timestamp): %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -331,7 +324,7 @@ cache_create_tables(void)
   ret = sqlite3_exec(g_db_hdl, T_ADMIN_CACHE, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating admin cache table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error creating cache table 'admin_cache': %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -341,7 +334,7 @@ cache_create_tables(void)
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error creating admin cache table: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error inserting cache version: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -427,7 +420,7 @@ cache_drop_tables(void)
   ret = sqlite3_exec(g_db_hdl, D_ARTWORK_ID, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork id index: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -436,7 +429,7 @@ cache_drop_tables(void)
   ret = sqlite3_exec(g_db_hdl, D_ARTWORK_PATH, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork index: %s\n", errmsg);
+      DPRINTF(E_FATAL, L_CACHE, "Error dropping artwork path index: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -458,7 +451,7 @@ cache_drop_tables(void)
   ret = sqlite3_exec(g_db_hdl, Q_VACUUM, NULL, NULL, &errmsg);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Error vacuum cache database: %s\n", errmsg);
+      DPRINTF(E_LOG, L_CACHE, "Error vacuuming cache database: %s\n", errmsg);
 
       sqlite3_free(errmsg);
       sqlite3_close(g_db_hdl);
@@ -497,7 +490,7 @@ cache_check_version(void)
   ret = sqlite3_prepare_v2(g_db_hdl, Q_VER, strlen(Q_VER) + 1, &stmt, NULL);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not prepare statement: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_WARN, L_CACHE, "Could not prepare statement: %s\n", sqlite3_errmsg(g_db_hdl));
       return 1;
     }
 
@@ -544,7 +537,7 @@ cache_create(void)
   ret = sqlite3_open(g_db_path, &g_db_hdl);
   if (ret != SQLITE_OK)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Could not open database: %s\n", sqlite3_errmsg(g_db_hdl));
+      DPRINTF(E_LOG, L_CACHE, "Could not open cache database: %s\n", sqlite3_errmsg(g_db_hdl));
 
       sqlite3_close(g_db_hdl);
       return -1;
@@ -554,7 +547,7 @@ cache_create(void)
   ret = cache_check_version();
   if (ret < 0)
     {
-      DPRINTF(E_FATAL, L_CACHE, "Could not check cache database version\n");
+      DPRINTF(E_LOG, L_CACHE, "Could not check cache database version\n");
 
       sqlite3_close(g_db_hdl);
       return -1;
@@ -564,7 +557,7 @@ cache_create(void)
       ret = cache_create_tables();
       if (ret < 0)
 	{
-	  DPRINTF(E_FATAL, L_CACHE, "Could not create database tables\n");
+	  DPRINTF(E_LOG, L_CACHE, "Could not create cache database tables\n");
 
 	  sqlite3_close(g_db_hdl);
 	  return -1;
@@ -579,7 +572,7 @@ cache_create(void)
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
-	  DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
+	  DPRINTF(E_LOG, L_CACHE, "Error setting pragma_cache_size_cache: %s\n", errmsg);
 
 	  sqlite3_free(errmsg);
 	  sqlite3_close(g_db_hdl);
@@ -595,7 +588,7 @@ cache_create(void)
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
-	  DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
+	  DPRINTF(E_LOG, L_CACHE, "Error setting pragma_journal_mode: %s\n", errmsg);
 
 	  sqlite3_free(errmsg);
 	  sqlite3_close(g_db_hdl);
@@ -611,7 +604,7 @@ cache_create(void)
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
       if (ret != SQLITE_OK)
 	{
-	  DPRINTF(E_FATAL, L_CACHE, "Error creating query index: %s\n", errmsg);
+	  DPRINTF(E_LOG, L_CACHE, "Error setting pragma_synchronous: %s\n", errmsg);
 
 	  sqlite3_free(errmsg);
 	  sqlite3_close(g_db_hdl);
@@ -1200,14 +1193,17 @@ cache(void *arg)
   ret = cache_create();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_CACHE, "Error: Cache create failed\n");
+      DPRINTF(E_LOG, L_CACHE, "Error: Cache create failed. Cache will be disabled.\n");
       pthread_exit(NULL);
     }
 
+  /* The thread needs a connection with the main db, so it can generate DAAP
+   * replies through httpd_daap.c
+   */
   ret = db_perthread_init();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_CACHE, "Error: DB init failed\n");
+      DPRINTF(E_LOG, L_CACHE, "Error: DB init failed. Cache will be disabled.\n");
       cache_close();
 
       pthread_exit(NULL);
@@ -1219,7 +1215,7 @@ cache(void *arg)
 
   if (g_initialized)
     {
-      DPRINTF(E_LOG, L_CACHE, "cache event loop terminated ahead of time!\n");
+      DPRINTF(E_LOG, L_CACHE, "Cache event loop terminated ahead of time!\n");
       g_initialized = 0;
     }
 
@@ -1283,6 +1279,13 @@ command_cb(int fd, short what, void *arg)
 
 
 /* ---------------------------- DAAP cache API  --------------------------- */
+
+/* The DAAP cache will cache raw daap replies for queries added with
+ * cache_daap_add(). Only some query types are supported.
+ * You can't add queries where the canonical reply is not HTTP_OK, because
+ * daap_request will use that as default for cache replies.
+ *
+ */
 
 void
 cache_daap_trigger(void)
@@ -1364,7 +1367,7 @@ cache_daap_threshold(void)
 }
 
 
-/* ---------------------------- Artwork cache API  --------------------------- */
+/* --------------------------- Artwork cache API -------------------------- */
 
 /*
  * Updates cached timestamps to current time for all cache entries for the given path, if the file was not modfied
@@ -1537,18 +1540,19 @@ cache_artwork_get(int type, int64_t persistentid, int max_w, int max_h, int *cac
 
 
 
-/* ---------------------------- Cache API  --------------------------- */
+/* -------------------------- Cache general API --------------------------- */
 
 int
 cache_init(void)
 {
   int ret;
 
+  g_initialized = 0;
+
   g_db_path = cfg_getstr(cfg_getsec(cfg, "general"), "cache_path");
   if (!g_db_path || (strlen(g_db_path) == 0))
     {
       DPRINTF(E_LOG, L_CACHE, "Cache path invalid, disabling cache\n");
-      g_initialized = 0;
       return 0;
     }
 
@@ -1556,7 +1560,6 @@ cache_init(void)
   if (g_cfg_threshold == 0)
     {
       DPRINTF(E_LOG, L_CACHE, "Cache threshold set to 0, disabling cache\n");
-      g_initialized = 0;
       return 0;
     }
 
