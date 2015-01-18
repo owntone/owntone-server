@@ -5806,9 +5806,6 @@ static const struct db_init_query db_upgrade_v1501_queries[] =
     "   disabled    INTEGER DEFAULT 0"			\
     ");"
 
-#define U_V16_CREATE_IDX_FILELIST				\
-  "CREATE INDEX IF NOT EXISTS idx_parentpath_disabled ON filelist(disabled, parentpath, type, name);"
-
 #define U_V16_ALTER_TBL_FILES_ADD_COL					\
   "ALTER TABLE files ADD COLUMN virtual_path VARCHAR(4096) DEFAULT NULL;"
 
@@ -5825,7 +5822,6 @@ static const struct db_init_query db_upgrade_v1501_queries[] =
 static const struct db_init_query db_upgrade_v16_queries[] =
   {
     { U_V16_CREATE_TBL_FILELIST, "create new table filelist" },
-    { U_V16_CREATE_IDX_FILELIST, "create index filelist" },
     { U_V16_ALTER_TBL_FILES_ADD_COL, "alter table files add column virtual_path" },
     { U_V16_ALTER_TBL_PL_ADD_COL,    "alter table playlists add column virtual_path" },
 
