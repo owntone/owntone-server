@@ -1403,6 +1403,8 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
   // -> mode=0: add to end of playqueue
   //?command=add&query='dmap.itemid:306'&queuefilter=album:6525753023700533274&sort=album&mode=1&session-id=100
   // -> mode 1: stop playblack, clear playqueue, add songs to playqueue
+  //?command=add&query='dmap.itemid:2'&query-modifier=containers&sort=name&mode=2&session-id=100
+  // -> mode 2: stop playblack, clear playqueue, add shuffled songs from playlist=itemid to playqueue
 
   struct player_source *ps;
   const char *editquery;
