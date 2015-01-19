@@ -140,6 +140,8 @@ static void *g_libhandle;
 static enum spotify_state g_state;
 /* (not used) Tells which commmand is currently being processed */
 static struct spotify_command *g_cmd;
+// The global base playlist id (parent of all Spotify playlists in the db)
+static int g_base_plid;
 
 // Audio fifo
 static audio_fifo_t *g_audio_fifo;
@@ -465,7 +467,7 @@ thread_exit(void)
 /*            Should only be called from within the spotify thread           */
 
 static int
-spotify_metadata_get(sp_track *track, struct media_file_info *mfi, char *pltitle)
+spotify_metadata_get(sp_track *track, struct media_file_info *mfi, const char *pltitle)
 {
   cfg_t *spotify_cfg;
   bool artist_override;
@@ -547,7 +549,7 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi, char *pltitle
 }
 
 static int
-spotify_track_save(int plid, sp_track *track, char *pltitle)
+spotify_track_save(int plid, sp_track *track, const char *pltitle)
 {
   struct media_file_info mfi;
   sp_link *link;
@@ -613,7 +615,6 @@ spotify_playlist_save(sp_playlist *pl)
   sp_link *link;
   char url[1024];
   const char *name;
-  char title[512];
   int plid;
   int num_tracks;
   char virtual_path[PATH_MAX];
@@ -627,6 +628,10 @@ spotify_playlist_save(sp_playlist *pl)
     }
 
   name = fptr_sp_playlist_name(pl);
+
+  // The starred playlist has an empty name, set it manually to "Starred"
+  if (*name == '\0')
+    name = "Starred";
 
   DPRINTF(E_INFO, L_SPOTIFY, "Saving playlist: '%s'\n", name);
 
@@ -647,13 +652,7 @@ spotify_playlist_save(sp_playlist *pl)
 
   pli = db_pl_fetch_bypath(url);
 
-  // The starred playlist has an empty name, set it manually to "Starred"
-  if (*name == '\0')
-    snprintf(title, sizeof(title), "[s] Starred");
-  else
-    snprintf(title, sizeof(title), "[s] %s", name);
-
-  snprintf(virtual_path, PATH_MAX, "/spotify:/%s", title);
+  snprintf(virtual_path, PATH_MAX, "/spotify:/%s", name);
 
   if (pli)
     {
@@ -662,7 +661,7 @@ spotify_playlist_save(sp_playlist *pl)
       plid = pli->id;
 
       free(pli->title);
-      pli->title = strdup(title);
+      pli->title = strdup(name);
       free(pli->virtual_path);
       pli->virtual_path = strdup(virtual_path);
 
@@ -690,9 +689,11 @@ spotify_playlist_save(sp_playlist *pl)
 	}
 
       memset(pli, 0, sizeof(struct playlist_info));
-      pli->title = strdup(title);
+
+      pli->title = strdup(name);
       pli->path = strdup(url);
       pli->virtual_path = strdup(virtual_path);
+      pli->parent_id = g_base_plid;
 
       ret = db_pl_add(pli, &plid);
       if ((ret < 0) || (plid < 1))
@@ -717,7 +718,7 @@ spotify_playlist_save(sp_playlist *pl)
 	  continue;
 	}
 
-      ret = spotify_track_save(plid, track, title);
+      ret = spotify_track_save(plid, track, name);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Error saving track %d to playlist '%s' (id %d)\n", i, name, plid);
@@ -1246,6 +1247,8 @@ logged_in(sp_session *sess, sp_error error)
 {
   sp_playlist *pl;
   sp_playlistcontainer *pc;
+  struct playlist_info pli;
+  int ret;
   int i;
 
   if (SP_ERROR_OK != error)
@@ -1260,6 +1263,17 @@ logged_in(sp_session *sess, sp_error error)
 
   pl = fptr_sp_session_starred_create(sess);
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
+
+  memset(&pli, 0, sizeof(struct playlist_info));
+  pli.title = "Spotify";
+  pli.path = "spotify:base_playlist";
+
+  ret = db_pl_add(&pli, &g_base_plid);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
+      return;
+    }
 
   pc = fptr_sp_session_playlistcontainer(sess);
 
