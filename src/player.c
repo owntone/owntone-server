@@ -1069,7 +1069,10 @@ source_shuffle(struct player_source *head, struct player_source *tail)
 
   // Count items in queue (excluding head and tail)
   ps = head->shuffle_next;
-  nitems = 0;
+  if (!cur_streaming)
+    nitems = 1;
+  else
+    nitems = 0;
   while (ps != tail)
     {
       nitems++;
@@ -1089,7 +1092,10 @@ source_shuffle(struct player_source *head, struct player_source *tail)
     }
 
   // Fill array with items in queue (excluding head and tail)
-  ps = head->shuffle_next;
+  if (cur_streaming)
+    ps = head->shuffle_next;
+  else
+    ps = head;
   i = 0;
   do
     {
@@ -1114,10 +1120,19 @@ source_shuffle(struct player_source *head, struct player_source *tail)
     }
 
   // Insert shuffled items between head and tail
-  ps_array[0]->shuffle_prev = head;
-  ps_array[nitems - 1]->shuffle_next = tail;
-  head->shuffle_next = ps_array[0];
-  tail->shuffle_prev = ps_array[nitems - 1];
+  if (cur_streaming)
+    {
+      ps_array[0]->shuffle_prev = head;
+      ps_array[nitems - 1]->shuffle_next = tail;
+      head->shuffle_next = ps_array[0];
+      tail->shuffle_prev = ps_array[nitems - 1];
+    }
+  else
+    {
+      ps_array[0]->shuffle_prev = ps_array[nitems - 1];
+      ps_array[nitems - 1]->shuffle_next = ps_array[0];
+      shuffle_head = ps_array[0];
+    }
 
   free(ps_array);
 
@@ -1132,6 +1147,8 @@ source_reshuffle(void)
 
   if (cur_streaming)
     head = cur_streaming;
+  else if (shuffle)
+    head = shuffle_head;
   else
     head = source_head;
 
