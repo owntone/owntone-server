@@ -160,9 +160,6 @@ fi
 PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavutil $libxxresample ])
 
 save_LIBS="$LIBS"
-dnl Check for av_lock_manager (ffmpeg >= 0.5.1)
-AC_CHECK_LIB([avcodec], [av_lockmgr_register], , AC_MSG_ERROR([libav (ffmpeg) >= 0.5.1 required]))
-dnl Check for avcodec_find_best_pix_fmt_of_list (is only in ffmpeg, not libav)
 AC_CHECK_LIB([avcodec], [avcodec_find_best_pix_fmt_of_list],
 	AC_DEFINE(HAVE_FFMPEG, 1, [Define to 1 if you have ffmpeg (and not libav).]))
 LIBS="$save_LIBS"
