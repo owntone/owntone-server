@@ -638,10 +638,13 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query)
       return;
     }
 
-  param = evhttp_find_header(query, "item-spec");
+  param = evhttp_find_header(query, "item-spec"); // Remote
+  if (!param)
+    param = evhttp_find_header(query, "song-spec"); // Retune
+
   if (!param)
     {
-      DPRINTF(E_LOG, L_DACP, "Missing item-spec parameter in dacp.userrating query\n");
+      DPRINTF(E_LOG, L_DACP, "Missing item-spec/song-spec parameter in dacp.userrating query\n");
 
       return;
     }
@@ -649,7 +652,7 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query)
   param = strchr(param, ':');
   if (!param)
     {
-      DPRINTF(E_LOG, L_DACP, "Malformed item-spec parameter in dacp.userrating query\n");
+      DPRINTF(E_LOG, L_DACP, "Malformed item-spec/song-spec parameter in dacp.userrating query\n");
 
       return;
     }
@@ -658,7 +661,7 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query)
   ret = safe_hextou32(param, &itemid);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_DACP, "Couldn't convert item-spec to an integer in dacp.userrating (%s)\n", param);
+      DPRINTF(E_LOG, L_DACP, "Couldn't convert item-spec/song-spec to an integer in dacp.userrating (%s)\n", param);
 
       return;
     }
@@ -2093,12 +2096,8 @@ dacp_reply_setspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
   do
     {
       param++;
-      /* Hyperfine Remote for Android will send in decimal, others use hex */
-      if ((strlen(param) > 1) && (param[1] != 'x'))
-	ret = safe_atou64(param, &ids[i]);
-      else
-	ret = safe_hextou64(param, &ids[i]);
 
+      ret = safe_hextou64(param, &ids[i]);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Invalid speaker id in request: %s\n", param);
