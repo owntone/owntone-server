@@ -1794,7 +1794,11 @@ spotify_login(char *path)
 
   if (!g_sess)
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Can't login! No valid Spotify session.\n");
+      if (!g_libhandle)
+	DPRINTF(E_LOG, L_SPOTIFY, "Can't login! - could not find libspotify\n");
+      else
+	DPRINTF(E_LOG, L_SPOTIFY, "Can't login! - no valid Spotify session\n");
+
       return;
     }
 
