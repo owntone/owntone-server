@@ -281,10 +281,10 @@ find_track_file(char *location)
       return 0;
     }
 
-  plen = strlen("file://localhost/");
+  plen = strlen("file://");
 
   /* Not a local file ... */
-  if (strncmp(location, "file://localhost/", plen) != 0)
+  if (strncmp(location, "file://", plen) != 0)
     return 0;
 
   /* Now search for the library item where the path has closest match to playlist item */
