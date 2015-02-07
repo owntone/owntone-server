@@ -533,6 +533,20 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  status.nextsong_id);
     }
 
+  if (filescanner_scanning())
+    {
+      evbuffer_add(evbuf, "updating_db: 1\n", 15);
+    }
+
+  if (status.status != PLAY_STOPPED)
+    {
+      evbuffer_add_printf(evbuf,
+	  "nextsong: %d\n"
+	  "nextsongid: %d\n",
+	  status.nextsong_pos_pl,
+	  status.nextsong_id);
+    }
+
   return 0;
 }
 

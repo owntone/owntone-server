@@ -143,6 +143,9 @@ static struct stacked_dir *dirstack;
 /* Count of files scanned during a bulk scan */
 static int counter;
 
+/* Flag for scan in progress */
+static int scanning;
+
 /* Forward */
 static void
 bulk_scan(int flags);
@@ -165,14 +168,14 @@ send_command(struct filescanner_command *cmd)
 
   if (!cmd->func)
     {
-      DPRINTF(E_LOG, L_CACHE, "BUG: cmd->func is NULL!\n");
+      DPRINTF(E_LOG, L_SCAN, "BUG: cmd->func is NULL!\n");
       return -1;
     }
 
   ret = write(cmd_pipe[1], &cmd, sizeof(cmd));
   if (ret != sizeof(cmd))
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not send command: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "Could not send command: %s\n", strerror(errno));
       return -1;
     }
 
@@ -737,12 +740,7 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
 
   fixup_tags(mfi);
 
-  if (type & F_SCAN_TYPE_FILE)
-    {
-      snprintf(virtual_path, PATH_MAX, "/file:%s", mfi->path);
-      mfi->virtual_path = strdup(virtual_path);
-    }
-  else if (type & F_SCAN_TYPE_URL)
+  if (type & F_SCAN_TYPE_URL)
     {
       snprintf(virtual_path, PATH_MAX, "/http:/%s", mfi->title);
       mfi->virtual_path = strdup(virtual_path);
@@ -750,6 +748,11 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
   else if (type & F_SCAN_TYPE_SPOTIFY)
     {
       snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", mfi->album_artist, mfi->album, mfi->title);
+      mfi->virtual_path = strdup(virtual_path);
+    }
+  else
+    {
+      snprintf(virtual_path, PATH_MAX, "/file:%s", mfi->path);
       mfi->virtual_path = strdup(virtual_path);
     }
 
@@ -1129,6 +1132,9 @@ bulk_scan(int flags)
   time_t end;
   int i;
 
+  // Set global flag to avoid queued scan requests
+  scanning = 1;
+
   start = time(NULL);
 
   playlists = NULL;
@@ -1200,6 +1206,9 @@ bulk_scan(int flags)
       DPRINTF(E_DBG, L_SCAN, "Running post library scan jobs\n");
       db_hook_post_scan();
     }
+
+  // Set scan in progress flag to FALSE
+  scanning = 0;
 }
 
 
@@ -1945,7 +1954,7 @@ command_cb(int fd, short what, void *arg)
   ret = read(cmd_pipe[0], &cmd, sizeof(cmd));
   if (ret != sizeof(cmd))
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
+      DPRINTF(E_LOG, L_SCAN, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
       goto readd;
     }
 
@@ -2004,10 +2013,17 @@ filescanner_trigger_initscan(void)
 {
   struct filescanner_command *cmd;
 
+  if (scanning)
+    {
+      DPRINTF(E_INFO, L_SCAN, "Scan already running, ignoring request to trigger a new init scan\n");
+      return;
+    }
+
+
   cmd = (struct filescanner_command *)malloc(sizeof(struct filescanner_command));
   if (!cmd)
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_command\n");
+      DPRINTF(E_LOG, L_SCAN, "Could not allocate cache_command\n");
       return;
     }
 
@@ -2025,10 +2041,16 @@ filescanner_trigger_fullrescan(void)
 {
   struct filescanner_command *cmd;
 
+  if (scanning)
+    {
+      DPRINTF(E_INFO, L_SCAN, "Scan already running, ignoring request to trigger a new init scan\n");
+      return;
+    }
+
   cmd = (struct filescanner_command *)malloc(sizeof(struct filescanner_command));
   if (!cmd)
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_command\n");
+      DPRINTF(E_LOG, L_SCAN, "Could not allocate cache_command\n");
       return;
     }
 
@@ -2041,6 +2063,16 @@ filescanner_trigger_fullrescan(void)
   nonblock_command(cmd);
 }
 
+/*
+ * Query the status of the filescanner
+ * @return 1 if scan is running, otherwise 0
+ */
+int
+filescanner_scanning(void)
+{
+  return scanning;
+}
+
 /* Thread: main */
 int
 filescanner_init(void)
@@ -2048,6 +2080,7 @@ filescanner_init(void)
   int ret;
 
   scan_exit = 0;
+  scanning = 0;
 
   evbase_scan = event_base_new();
   if (!evbase_scan)
@@ -2100,7 +2133,7 @@ filescanner_init(void)
 # endif
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not create command pipe: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "Could not create command pipe: %s\n", strerror(errno));
       goto cmd_fail;
     }
 
