@@ -349,6 +349,33 @@ mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, int pos_p
   return ret;
 }
 
+static int
+mpd_add_mediainfo_byid(struct evbuffer *evbuf, int id, int pos_pl)
+{
+  struct media_file_info *mfi;
+  int ret;
+
+  mfi = db_file_fetch_byid(id);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_MPD, "Error fetching file by id: %d\n", id);
+      return -1;
+    }
+
+  ret = mpd_add_mediainfo(evbuf, mfi, pos_pl);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Error adding media info for file with id: %d\n", id);
+
+      free_mfi(mfi, 0);
+
+      return -1;
+    }
+
+  free_mfi(mfi, 0);
+  return 0;
+}
+
 /*
  * Adds the informations (path, id, tags, etc.) for the given song to the given buffer.
  *
@@ -413,7 +440,6 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
 {
 
   struct player_status status;
-  struct media_file_info *mfi;
   int ret;
 
   player_get_status(&status);
@@ -424,17 +450,7 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
       return 0;
     }
 
-  mfi = db_file_fetch_byid(status.id);
-  if (!mfi)
-    {
-      DPRINTF(E_LOG, L_MPD, "Error fetching file by id: %d\n", status.id);
-      ret = asprintf(errmsg, "Error fetching file by id: %d", status.id);
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_UNKNOWN;
-    }
-
-  ret = mpd_add_mediainfo(evbuf, mfi, status.pos_pl);
+  ret = mpd_add_mediainfo_byid(evbuf, status.id, status.pos_pl);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Error adding media info for file with id: %d\n", status.id);
@@ -442,11 +458,27 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 
-      free_mfi(mfi, 0);
       return ACK_ERROR_UNKNOWN;
     }
 
-  free_mfi(mfi, 0);
+  return 0;
+}
+
+/*
+ *
+ * Example input:
+ * idle "database" "mixer" "options" "output" "player" "playlist" "sticker" "update"
+ */
+static int
+mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  DPRINTF(E_WARN, L_MPD, "Idle command is not supported by forked-daapd, there will be no notifications about changes\n");
+  return 0;
+}
+
+static int
+mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
   return 0;
 }
 
@@ -1447,6 +1479,67 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return 0;
 }
 
+static int
+mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct player_queue *queue;
+  uint32_t songid;
+  int pos_pl;
+  int i;
+  int ret;
+
+  songid = 0;
+
+  if (argc > 1)
+    {
+      ret = safe_atou32(argv[1], &songid);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Argument doesn't convert to integer: '%s'\n", argv[1]);
+	  ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  return ACK_ERROR_ARG;
+	}
+    }
+
+  // Get the whole queue (start_pos = 0, end_pos = -1)
+  queue = player_queue_get(0, -1, 0);
+
+  if (!queue)
+    {
+      // Queue is emtpy
+      return 0;
+    }
+
+  pos_pl = queue->start_pos;
+  for (i = 0; i < queue->count; i++)
+    {
+      if (songid == 0 || songid == queue->queue[i])
+	{
+	  ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i], pos_pl);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_MPD, "Error adding media info for file with id: %d\n", queue->queue[i]);
+	      ret = asprintf(errmsg, "Error adding media info for file with id: %d\n", queue->queue[i]);
+
+	      queue_free(queue);
+
+	      if (ret < 0)
+		DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	      return ACK_ERROR_UNKNOWN;
+	    }
+	}
+
+      pos_pl++;
+    }
+
+  queue_free(queue);
+
+  return 0;
+}
+
+
 /*
  * Command handler function for 'playlistinfo'
  * Displays a list of all songs in the queue, or if the optional argument is given, displays information
@@ -1458,7 +1551,6 @@ static int
 mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   struct player_queue *queue;
-  struct media_file_info *mfi;
   int start_pos;
   int end_pos;
   int pos_pl;
@@ -1492,34 +1584,19 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   pos_pl = queue->start_pos;
   for (i = 0; i < queue->count; i++)
     {
-      mfi = db_file_fetch_byid(queue->queue[i]);
-      if (!mfi)
-	{
-	  DPRINTF(E_LOG, L_MPD, "Error fetching file by id: %d\n", queue->queue[i]);
-	  ret = asprintf(errmsg, "Error fetching file by id: %d", queue->queue[i]);
-
-	  queue_free(queue);
-
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-	  return ACK_ERROR_UNKNOWN;
-	}
-
-      ret = mpd_add_mediainfo(evbuf, mfi, pos_pl);
+      ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i], pos_pl);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_MPD, "Error adding media info for file with id: %d\n", queue->queue[i]);
 	  ret = asprintf(errmsg, "Error adding media info for file with id: %d\n", queue->queue[i]);
 
 	  queue_free(queue);
-	  free_mfi(mfi, 0);
 
 	  if (ret < 0)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 	  return ACK_ERROR_UNKNOWN;
 	}
 
-      free_mfi(mfi, 0);
       pos_pl++;
     }
 
@@ -1608,7 +1685,11 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   struct media_file_info *mfi;
   int ret;
 
-  if (strncmp(argv[1], "/", 1) == 0)
+  if (argc < 2)
+    {
+      ret = snprintf(parent, sizeof(parent), "/");
+    }
+  else if (strncmp(argv[1], "/", 1) == 0)
     {
       ret = snprintf(parent, sizeof(parent), "%s", argv[1]);
     }
@@ -1766,6 +1847,9 @@ mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 }
 */
 
+static int
+mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg);
+
 /*
  * Dummy function to handle commands that are not supported by forked-daapd and should
  * not raise an error.
@@ -1808,12 +1892,14 @@ static struct command mpd_handlers[] =
       .mpdcommand = "currentsong",
       .handler = mpd_command_currentsong
     },
-    /*
     {
       .mpdcommand = "idle",
       .handler = mpd_command_idle
     },
-    */
+    {
+      .mpdcommand = "idle",
+      .handler = mpd_command_noidle
+    },
     {
       .mpdcommand = "status",
       .handler = mpd_command_status
@@ -1954,11 +2040,11 @@ static struct command mpd_handlers[] =
       .mpdcommand = "playlistfind",
       .handler = mpd_command_playlistfind
     },
+    */
     {
       .mpdcommand = "playlistid",
       .handler = mpd_command_playlistid
     },
-    */
     {
       .mpdcommand = "playlistinfo",
       .handler = mpd_command_playlistinfo
@@ -2212,10 +2298,12 @@ static struct command mpd_handlers[] =
       .mpdcommand = "config",
       .handler = mpd_command_config
     },
+    */
     {
       .mpdcommand = "commands",
       .handler = mpd_command_commands
     },
+    /*
     {
       .mpdcommand = "notcommands",
       .handler = mpd_command_notcommands
@@ -2291,6 +2379,22 @@ mpd_find_command(const char *name)
   return NULL;
 }
 
+static int
+mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  int i;
+
+  for (i = 0; mpd_handlers[i].handler; i++)
+    {
+      evbuffer_add_printf(evbuf,
+          "command: %s\n",
+	  mpd_handlers[i].mpdcommand);
+    }
+
+  return 0;
+}
+
+
 /*
  * The read callback function is invoked if a complete command sequence was received from the client
  * (see mpd_input_filter function).
@@ -2309,6 +2413,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
   char *errmsg;
   struct command *command;
   enum command_list_type listtype;
+  int idle_cmd;
   char *argv[COMMAND_ARGV_MAX];
   int argc;
 
@@ -2319,12 +2424,14 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 
   DPRINTF(E_SPAM, L_MPD, "Received MPD command sequence\n");
 
+  idle_cmd = 0;
+
   listtype = COMMAND_LIST_NONE;
   ncmd = 0;
 
   while ((line = evbuffer_readln(input, NULL, EVBUFFER_EOL_ANY)))
     {
-      DPRINTF(E_SPAM, L_MPD, "MPD message: %s\n", line);
+      DPRINTF(E_DBG, L_MPD, "MPD message: %s\n", line);
 
       // Split the read line into command name and arguments
       ret = mpd_parse_args(line, &argc, argv);
@@ -2362,6 +2469,10 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	  free(line);
 	  break;
 	}
+      else if (0 == strcmp(argv[0], "idle"))
+	idle_cmd = 1;
+      else if (0 == strcmp(argv[0], "noidle"))
+	idle_cmd = 0;
 
       /*
        * Find the command handler and execute the command function
@@ -2409,7 +2520,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
    * If everything was successful add OK line to signal clients end of message.
    * If an error occured the necessary ACK line should already be added to the response buffer.
    */
-  if (ret == 0)
+  if (ret == 0 && idle_cmd == 0)
     {
       evbuffer_add(output, "OK\n", 3);
     }
