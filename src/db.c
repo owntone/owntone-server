@@ -482,6 +482,9 @@ free_pli(struct playlist_info *pli, int content_only)
   if (pli->path)
     free(pli->path);
 
+  if (pli->virtual_path)
+    free(pli->virtual_path);
+
   if (!content_only)
     free(pli);
   else
