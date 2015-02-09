@@ -1162,57 +1162,15 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
   return 0;
 }
 
-static int
-raop_grab_cseq(struct evkeyvalq *headers)
-{
-  const char *param;
-  int cseq;
-  int ret;
-
-  param = evrtsp_find_header(headers, "CSeq");
-  if (!param)
-    return -1;
-
-  ret = safe_atoi32(param, &cseq);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Could not convert CSeq value to integer (%s)\n", param);
-
-      return -1;
-    }
-
-  return cseq;
-}
-
+/* This check should compare the reply CSeq with the request CSeq, but it has
+ * been removed because RAOP targets like Reflector and AirFoil don't return
+ * the CSeq according to the rtsp spec, and the CSeq is not really important
+ * anyway.
+ */
 static int
 raop_check_cseq(struct raop_session *rs, struct evrtsp_request *req)
 {
-  int reply_cseq;
-  int request_cseq;
-
-  reply_cseq = raop_grab_cseq(req->input_headers);
-  /* AirFoil won't return cseq, so skip the check */
-  if (reply_cseq < 0)
-    {
-      DPRINTF(E_INFO, L_RAOP, "No CSeq in reply, skipping check\n");
-
-      return 0;
-    }
-
-  request_cseq = raop_grab_cseq(req->output_headers);
-  if (request_cseq < 0)
-    {
-      DPRINTF(E_LOG, L_RAOP, "No CSeq in request\n");
-
-      return -1;
-    }
-
-  if (reply_cseq == request_cseq)
-    return 0;
-
-  DPRINTF(E_LOG, L_RAOP, "Reply CSeq does not match request CSeq: got %d expected %d\n", reply_cseq, request_cseq);
-
-  return -1;
+  return 0;
 }
 
 static int
