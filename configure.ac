@@ -71,45 +71,30 @@ AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (
                       use_lastfm=true;
                       CPPFLAGS="${CPPFLAGS} -DLASTFM")
 
+case "$host" in
+	*-*-linux-*)
+		use_oss4=false
+		;;
+	*-*-kfreebsd*-*|*-*-freebsd*)
+		use_oss4=true
+		;;
+esac
+
+AC_ARG_WITH(oss4, AS_HELP_STRING([--with-oss4], [use OSS4 (default Linux=no, FreeBSD=yes)]),
+                  use_oss4=true;
+                  )
+
+AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default Linux=yes, FreeBSD=no)]),
+                  use_oss4=false;
+                  )
+
 AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
 AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 AM_CONDITIONAL(COND_ITUNES, test x$use_itunes = xtrue)
 AM_CONDITIONAL(COND_SPOTIFY, test x$use_spotify = xtrue)
 AM_CONDITIONAL(COND_LASTFM, test x$use_lastfm = xtrue)
-
-AC_ARG_WITH(oss4, AS_HELP_STRING([--with-oss4=includedir], [use OSS4 with soundcard.h in includedir (default /usr/lib/oss/include/sys)]),
-  [ case "$withval" in
-    no)
-    case "$host" in
-      *-*-linux-*)
-      use_oss4=false
-      ;;
-      *-*-kfreebsd*-*|*-*-freebsd-*)
-      AC_MSG_ERROR([OSS4 must be enabled on FreeBSD systems])
-      ;;
-    esac
-    ;;
-    yes)
-    use_oss4=true
-    oss4_includedir=/usr/lib/oss/include/sys
-    ;;
-    [[\\/$]]* | ?:[[\\/]]* )
-    use_oss4=true
-    oss4_includedir="$withval"
-    ;;
-    *)
-    AC_MSG_ERROR([expected an absolute directory name for --with-oss4: $withval])
-    ;;
-    esac ],
-  [ case "$host" in
-    *-*-linux-*)
-    use_oss4=false
-    ;;
-    *-*-kfreebsd*-*|*-*-freebsd-*)
-    use_oss4=true
-    oss4_includedir=/usr/lib/oss/include/sys
-    ;;
-    esac ])
+AM_CONDITIONAL(COND_OSS4, test x$use_oss4 = xtrue)
+AM_CONDITIONAL(COND_ALSA, test x$use_oss4 != xtrue)
 
 dnl Checks for libraries.
 gl_LIBUNISTRING
@@ -240,38 +225,24 @@ if test x$use_lastfm = xtrue; then
 		AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
 fi
 
-case "$host" in
-  *-*-linux-*)
-    if test x$use_oss4 != xtrue; then
-        use_alsa=true
+if test x$use_oss4 != xtrue; then
 	PKG_CHECK_MODULES(ALSA, [ alsa ])
 	AC_DEFINE(LAUDIO_USE_ALSA, 1, [define if local audio output uses ALSA])
-    fi
-
-    AC_CHECK_HEADERS([sys/eventfd.h])
-    AC_CHECK_FUNC(eventfd_write, AC_DEFINE(HAVE_EVENTFD, 1, [Define to 1 if you have eventfd]))
-
-    AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
-
-    AC_CHECK_HEADER(sys/timerfd.h, , AC_MSG_ERROR([timerfd required; glibc 2.8+ recommended]))
-    AC_CHECK_FUNC(timerfd_create, , AC_MSG_ERROR([timerfd required; glibc 2.8+ recommended]))
-    ;;
-esac
-
-if test x$use_oss4 = xtrue; then
-   OSS4CPPFLAGS="-I$oss4_includedir"
-
-   save_CPPFLAGS="$CPPFLAGS"
-   CPPFLAGS="$OSS4CPPFLAGS"
-
-   AC_CHECK_HEADER(soundcard.h, , AC_MSG_ERROR([soundcard.h not found in $oss4_includedir]))
-
-   CPPFLAGS="$save_CPPFLAGS"
+else
+	AC_CHECK_HEADER(sys/soundcard.h, , AC_MSG_ERROR([sys/soundcard.h not found]))
 fi
 
-AM_CONDITIONAL(COND_ALSA, test x$use_alsa = xtrue)
-AM_CONDITIONAL(COND_OSS4, test x$use_oss4 = xtrue)
-AC_SUBST(OSS4CPPFLAGS)
+case "$host" in
+  *-*-linux-*)
+	AC_CHECK_HEADERS([sys/eventfd.h])
+	AC_CHECK_FUNC(eventfd_write, AC_DEFINE(HAVE_EVENTFD, 1, [Define to 1 if you have eventfd]))
+
+	AC_CHECK_HEADER(sys/signalfd.h, , AC_MSG_ERROR([signalfd required; glibc 2.9+ recommended]))
+
+	AC_CHECK_HEADER(sys/timerfd.h, , AC_MSG_ERROR([timerfd required; glibc 2.8+ recommended]))
+	AC_CHECK_FUNC(timerfd_create, , AC_MSG_ERROR([timerfd required; glibc 2.8+ recommended]))
+	;;
+esac
 
 AC_CHECK_SIZEOF(void *)
 

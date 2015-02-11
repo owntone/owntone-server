@@ -32,7 +32,7 @@
 #include <fcntl.h>
 #include <sys/ioctl.h>
 
-#include <soundcard.h>
+#include <sys/soundcard.h>
 
 #include "conffile.h"
 #include "logger.h"

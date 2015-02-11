@@ -76,8 +76,7 @@ ANTLR_PRODUCTS =
 
 forked_daapd_CPPFLAGS = -D_GNU_SOURCE \
 	-DDATADIR="\"$(pkgdatadir)\"" -DCONFDIR="\"$(sysconfdir)\"" \
-	-DSTATEDIR="\"$(localstatedir)\"" -DPKGLIBDIR="\"$(pkglibdir)\"" \
-	@OSS4CPPFLAGS@
+	-DSTATEDIR="\"$(localstatedir)\"" -DPKGLIBDIR="\"$(pkglibdir)\""
 
 forked_daapd_CFLAGS = \
 	@ZLIB_CFLAGS@ @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @LIBAV_CFLAGS@ \
