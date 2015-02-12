@@ -15,16 +15,16 @@ DEPS="gmake autoconf automake libtool gettext gperf glib pkgconf wget git \
 echo "The script can install the following dependency packages for you:"
 echo $DEPS
 read -p "Should the script install these packages? [y/N] " yn
-if [ "$yn" == "y" ]; then
+if [ "$yn" = "y" ]; then
 	sudo pkg install $DEPS;
 fi
 
 JRE="openjdk8-jre"
 read -p "Should the script install $JRE for you? [y/N] " yn
-if [ "$yn" == "y" ]; then
+if [ "$yn" = "y" ]; then
 	sudo pkg install $JRE;
 	read -p "Should the script add the mount points to /etc/fstab that $JRE requests? [y/N] " yn
-	if [ "$yn" == "y" ]; then
+	if [ "$yn" = "y" ]; then
 		sudo sh -c 'echo "fdesc	/dev/fd	fdescfs	rw	0	0" >> /etc/fstab'
 		sudo sh -c 'echo "proc	/proc	procfs	rw	0	0" >> /etc/fstab'
 		sudo mount /dev/fd
@@ -35,7 +35,7 @@ fi
 WORKDIR=~/forked-daapd_build
 CONFIG=/usr/local/etc/forked-daapd.conf
 read -p "Should the script create $WORKDIR and use it for building? [Y/n] " yn
-if [ "$yn" == "n" ]; then
+if [ "$yn" = "n" ]; then
 	exit
 fi
 mkdir -p $WORKDIR
@@ -46,7 +46,7 @@ fi
 cd $WORKDIR
 
 read -p "Should the script install libavl, antlr and libantlr3c? [y/N] " yn
-if [ "$yn" == "y" ]; then
+if [ "$yn" = "y" ]; then
 	wget http://ftp.debian.org/debian/pool/main/liba/libavl/libavl_0.3.5.orig.tar.gz
 	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/antlr-3.4-complete.jar
 	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/C/libantlr3c-3.4.tar.gz
@@ -73,7 +73,7 @@ CLASSPATH=$CLASSPATH:/usr/local/share/java/antlr-3.4-complete.jar:/usr/share/jav
 fi
 
 read -p "Should the script build forked-daapd? [y/N] " yn
-if [ "$yn" == "y" ]; then
+if [ "$yn" = "y" ]; then
 	git clone https://github.com/ejurgensen/forked-daapd.git
 	cd forked-daapd
 
@@ -94,7 +94,7 @@ if [ "$yn" == "y" ]; then
 	./configure --build=i386-portbld-freebsd10.1 && gmake
 
 	read -p "Should the script install forked-daapd and add service startup scripts? [y/N] " yn
-	if [ "$yn" == "y" ]; then
+	if [ "$yn" = "y" ]; then
 		if [ -f $CONFIG ]; then
 			echo "Backing up old config file to $CONFIG.bak"
 			sudo cp "$CONFIG" "$CONFIG.bak"
@@ -122,7 +122,7 @@ if [ "$yn" == "y" ]; then
 fi
 
 read -p "Should the script enable and start dbus and avahi-daemon? [y/N] " yn
-if [ "$yn" == "y" ]; then
+if [ "$yn" = "y" ]; then
 	service dbus enabled
 	if [ $? -ne 0 ]; then
 		sudo sh -c 'echo "dbus_enable=\"YES\"" >> /etc/rc.conf'
@@ -137,7 +137,7 @@ if [ "$yn" == "y" ]; then
 fi
 
 read -p "Should the script (re)start forked-daapd and display the log output? [y/N] " yn
-if [ "$yn" == "y" ]; then
+if [ "$yn" = "y" ]; then
 	sudo service forked-daapd restart
 	tail -f /var/log/forked-daapd.log
 fi
