@@ -35,12 +35,11 @@ cd libantlr3c-3.4
 cd $WORKDIR
 
 sudo mkdir -p "$PREFIX/share/java"
-sudo mv antlr-3.4-complete.jar "$PREFIX/share/java"
+sudo install antlr-3.4-complete.jar "$PREFIX/share/java"
 printf "#!/bin/sh
 export CLASSPATH
 CLASSPATH=\$CLASSPATH:$PREFIX/share/java/antlr-3.4-complete.jar:$PREFIX/share/java
 /usr/bin/java org.antlr.Tool \$*
 " > antlr3
-chmod a+x antlr3
-sudo mv antlr3 "$PREFIX/bin"
+sudo install antlr3 "$PREFIX/bin"
 

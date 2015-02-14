@@ -55,14 +55,13 @@ if [ "$yn" = "y" ]; then
 	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/antlr-3.4-complete.jar
 	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/C/libantlr3c-3.4.tar.gz
 
-	sudo mv antlr-3.4-complete.jar /usr/local/share/java
+	sudo install antlr-3.4-complete.jar /usr/local/share/java
 	printf "#!/bin/sh
 export CLASSPATH
 CLASSPATH=\$CLASSPATH:/usr/local/share/java/antlr-3.4-complete.jar:/usr/local/share/java
 /usr/local/bin/java org.antlr.Tool \$*
 " > antlr3
-	chmod a+x antlr3
-	sudo mv antlr3 /usr/local/bin
+	sudo install antlr3 /usr/local/bin
 
 	tar xzf libantlr3c-3.4.tar.gz
 	cd libantlr3c-3.4
@@ -107,8 +106,7 @@ if [ "$yn" = "y" ]; then
 			echo "Could not find FreeBSD startup script"
 			exit
 		fi
-		sudo cp scripts/freebsd_start_10.1.sh /usr/local/etc/rc.d/forked-daapd
-		sudo chmod a+x /usr/local/etc/rc.d/forked-daapd
+		sudo install scripts/freebsd_start_10.1.sh /usr/local/etc/rc.d/forked-daapd
 
 		service forked-daapd enabled
 		if [ $? -ne 0 ]; then
