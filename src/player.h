@@ -57,16 +57,16 @@ struct player_status {
   uint32_t playlistlength;
   /* Playing song id*/
   uint32_t id;
-  /* Elapsed time in ms of playing song */
+  /* Elapsed time in ms of playing item */
   uint32_t pos_ms;
-  /* Song length in ms of playing song */
-  uint32_t songlength_ms;
-  /* Playlist position of playing song*/
+  /* Length in ms of playing item */
+  uint32_t len_ms;
+  /* Playlist position of playing item*/
   int pos_pl;
-  /* Song id of next song in playlist */
-  uint32_t nextsong_id;
-  /* Playlist position of next song */
-  int nextsong_pos_pl;
+  /* Item id of next item in playlist */
+  uint32_t next_id;
+  /* Playlist position of next item */
+  int next_pos_pl;
 };
 
 typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg);
@@ -75,7 +75,7 @@ typedef void (*player_status_handler)(void);
 struct player_source
 {
   uint32_t id;
-  uint32_t song_length;
+  uint32_t len_ms;
 
   enum source_type type;
   int setup_done;
@@ -97,11 +97,16 @@ struct player_source
 
 struct player_queue
 {
+  // The item id of the current playing item
   uint32_t playingid;
+  // The number of items in the queue
   unsigned int length;
 
+  // The position in the queue for the first item in the queue array
   unsigned int start_pos;
+  // The number of items in the queue array
   unsigned int count;
+  // The queue array (array of item ids)
   uint32_t *queue;
 };
 
@@ -187,9 +192,6 @@ player_queue_get(int start_pos, int end_pos, char shuffle);
 
 void
 queue_free(struct player_queue *queue);
-
-struct player_source *
-next_ps(struct player_source *ps, char shuffle);
 
 int
 player_queue_add(struct player_source *ps);

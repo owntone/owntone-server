@@ -559,10 +559,10 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  "nextsongid: %d\n",
 	  status.pos_pl,
 	  status.id,
-	  (status.pos_ms / 1000), (status.songlength_ms / 1000),
+	  (status.pos_ms / 1000), (status.len_ms / 1000),
 	  (status.pos_ms / 1000.0),
-	  status.nextsong_pos_pl,
-	  status.nextsong_id);
+	  status.next_pos_pl,
+	  status.next_id);
     }
 
   if (filescanner_scanning())
@@ -575,8 +575,8 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       evbuffer_add_printf(evbuf,
 	  "nextsong: %d\n"
 	  "nextsongid: %d\n",
-	  status.nextsong_pos_pl,
-	  status.nextsong_id);
+	  status.next_pos_pl,
+	  status.next_id);
     }
 
   return 0;

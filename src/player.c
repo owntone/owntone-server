@@ -105,6 +105,16 @@ enum range_type
     RANGEARG_RANGE
   };
 
+/*
+ * Identifies an item or a range of items
+ *
+ * Depending on item_range.type the item(s) are identified by:
+ * - item id (type = RANGEARG_ID) given in item_range.id
+ * - item position (type = RANGEARG_POS) given in item_range.start_pos
+ * - start and end position (type = RANGEARG_RANGE) given in item_range.start_pos to item_range.end_pos
+ *
+ * The pointer id_ptr may be set to an item id by the called function.
+ */
 struct item_range
 {
   enum range_type type;
@@ -112,7 +122,6 @@ struct item_range
   uint32_t id;
   int start_pos;
   int end_pos;
-  int to_pos;
 
   char shuffle;
 
@@ -719,7 +728,7 @@ player_queue_make(struct query_params *qp, const char *sort)
       memset(ps, 0, sizeof(struct player_source));
 
       ps->id = id;
-      ps->song_length = song_length;
+      ps->len_ms = song_length;
 
       if (!q_head)
 	q_head = ps;
@@ -2329,6 +2338,14 @@ playback_abort(void)
   metadata_purge();
 }
 
+static struct player_source *
+next_ps(struct player_source *ps, char shuffle)
+{
+  if (shuffle)
+    return ps->shuffle_next;
+  else
+    return ps->pl_next;
+}
 
 /* Actual commands, executed in the player thread */
 static int
@@ -2354,20 +2371,20 @@ get_status(struct player_command *cmd)
   switch (player_state)
     {
       case PLAY_STOPPED:
-	DPRINTF(E_SPAM, L_PLAYER, "Player status: stopped\n");
+	DPRINTF(E_DBG, L_PLAYER, "Player status: stopped\n");
 
 	status->status = PLAY_STOPPED;
 	break;
 
       case PLAY_PAUSED:
-	DPRINTF(E_SPAM, L_PLAYER, "Player status: paused\n");
+	DPRINTF(E_DBG, L_PLAYER, "Player status: paused\n");
 
 	status->status = PLAY_PAUSED;
 	status->id = cur_streaming->id;
 
 	pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - cur_streaming->stream_start;
 	status->pos_ms = (pos * 1000) / 44100;
-	status->songlength_ms = cur_streaming->song_length;
+	status->len_ms = cur_streaming->len_ms;
 
 	status->pos_pl = source_position(cur_streaming, 0);
 
@@ -2376,7 +2393,7 @@ get_status(struct player_command *cmd)
       case PLAY_PLAYING:
 	if (!cur_playing)
 	  {
-	    DPRINTF(E_SPAM, L_PLAYER, "Player status: playing (buffering)\n");
+	    DPRINTF(E_DBG, L_PLAYER, "Player status: playing (buffering)\n");
 
 	    status->status = PLAY_PAUSED;
 	    ps = cur_streaming;
@@ -2386,7 +2403,7 @@ get_status(struct player_command *cmd)
 	  }
 	else
 	  {
-	    DPRINTF(E_SPAM, L_PLAYER, "Player status: playing\n");
+	    DPRINTF(E_DBG, L_PLAYER, "Player status: playing\n");
 
 	    status->status = PLAY_PLAYING;
 	    ps = cur_playing;
@@ -2406,14 +2423,14 @@ get_status(struct player_command *cmd)
 	  }
 
 	status->pos_ms = (pos * 1000) / 44100;
-	status->songlength_ms = ps->song_length;
+	status->len_ms = ps->len_ms;
 
 	status->id = ps->id;
 	status->pos_pl = source_position(ps, 0);
 
 	ps = next_ps(ps, shuffle);
-	status->nextsong_id = ps->id;
-	status->nextsong_pos_pl = source_position(ps, 0);
+	status->next_id = ps->id;
+	status->next_pos_pl = source_position(ps, 0);
 
 	status->playlistlength = source_count();
 	break;
@@ -2545,13 +2562,45 @@ playback_start_bh(struct player_command *cmd)
   return -1;
 }
 
+static struct player_source *
+queue_get_source_byid(uint32_t id)
+{
+  struct player_source *ps;
+
+  if (!source_head)
+    return NULL;
+
+  ps = source_head->pl_next;
+  while (ps->id != id && ps != source_head)
+    {
+      ps = ps->pl_next;
+    }
+
+  return ps;
+}
+
+static struct player_source *
+queue_get_source_bypos(int pos)
+{
+  struct player_source *ps;
+  int i;
+
+  if (!source_head)
+    return NULL;
+
+  ps = source_head;
+  for (i = pos; i > 0; i--)
+    ps = ps->pl_next;
+
+  return ps;
+}
+
 static int
 playback_start(struct player_command *cmd)
 {
   struct raop_device *rd;
   uint32_t *idx_id;
-  uint32_t pos;
-  uint32_t id;
+  struct player_source *ps;
   int ret;
 
   if (!source_head)
@@ -2586,11 +2635,29 @@ playback_start(struct player_command *cmd)
   // Update global playback position
   pb_pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - 88200;
 
-  if (cmd->arg.item_range.type == RANGEARG_POS
-      || cmd->arg.item_range.type == RANGEARG_ID)
+  /*
+   * If either an item id or an item position is given, get the corresponding
+   * player_source from the queue.
+   */
+  if (cmd->arg.item_range.type == RANGEARG_ID)
+    ps = queue_get_source_byid(cmd->arg.item_range.id);
+  else if (cmd->arg.item_range.type == RANGEARG_POS)
+    ps = queue_get_source_bypos(cmd->arg.item_range.start_pos);
+  else
+    ps = NULL;
+
+  /*
+   * Update queue and cur_streaming depending on
+   * - given player_source to start playing
+   * - player state
+   */
+  if (ps)
     {
       /*
-       * A song is specified in the arguments (by id or pos)
+       * A song is specified in the arguments (by id or pos) and the corresponding
+       * player_source (ps) from the queue was found.
+       *
+       * Stop playback (if it was paused) and prepare to start playback on ps.
        */
       if (cur_playing)
 	source_stop(cur_playing);
@@ -2601,41 +2668,9 @@ playback_start(struct player_command *cmd)
       cur_streaming = NULL;
 
       if (shuffle)
-	{
-	  source_reshuffle();
-	  cur_streaming = shuffle_head;
-	}
-      else
-	cur_streaming = source_head;
+	source_reshuffle();
 
-      if (cmd->arg.item_range.type == RANGEARG_POS)
-	{
-	  /*
-	   * Find start song by position in playqueue
-	   */
-	  pos = cmd->arg.item_range.start_pos;
-	  if (pos > 0)
-	    {
-	      cur_streaming = source_head;
-	      for (; pos > 0; pos--)
-		cur_streaming = cur_streaming->pl_next;
-	    }
-	}
-      else
-	{
-	  /*
-	   * Find start song by id
-	   */
-	  id = cmd->arg.item_range.id;
-	  if (id > 0)
-	    {
-	      cur_streaming = source_head->pl_next;
-	      while (cur_streaming->id != id && cur_streaming != source_head)
-		{
-		  cur_streaming = cur_streaming->pl_next;
-		}
-	    }
-	}
+      cur_streaming = ps;
 
       if (shuffle)
 	shuffle_head = cur_streaming;
@@ -2643,7 +2678,7 @@ playback_start(struct player_command *cmd)
       ret = source_open(cur_streaming, 0);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Couldn't jump to queue position %d\n", pos);
+	  DPRINTF(E_LOG, L_PLAYER, "Couldn't jump to source %d in queue\n", cur_streaming->id);
 
 	  playback_abort();
 	  return -1;
@@ -2657,6 +2692,9 @@ playback_start(struct player_command *cmd)
     }
   else if (!cur_streaming)
     {
+      /*
+       * Player was stopped, start playing the queue
+       */
       if (shuffle)
 	source_reshuffle();
 
@@ -2674,7 +2712,10 @@ playback_start(struct player_command *cmd)
     }
   else
     {
-      /* After a pause, the source is still open so source_open() doesn't get
+      /*
+       * Player was paused, resume playing cur_streaming
+       *
+       * After a pause, the source is still open so source_open() doesn't get
        * called and we have to handle metadata ourselves.
        */
       metadata_send(cur_streaming, 1);
@@ -3545,6 +3586,7 @@ queue_get(struct player_command *cmd)
   start_pos = cmd->arg.item_range.start_pos;
   if (start_pos < 0)
     {
+      // Set start_pos to the position of the current item + 1
       ps = cur_playing ? cur_playing : cur_streaming;
       start_pos = ps ? source_position(ps, qshuffle) + 1 : 0;
     }
@@ -3765,23 +3807,23 @@ queue_remove(struct player_command *cmd)
   ps = cur_playing ? cur_playing : cur_streaming;
   if (!ps)
   {
-    DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song not found\n");
+    DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming item not found\n");
     return -1;
   }
 
   if (cmd->arg.item_range.type == RANGEARG_ID)
     {
       id = cmd->arg.item_range.id;
-      DPRINTF(E_DBG, L_PLAYER, "Removing song with id %d\n", id);
+      DPRINTF(E_DBG, L_PLAYER, "Removing item with id %d\n", id);
 
       if (id < 1)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Can't remove song, invalid id %d\n", id);
+	  DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid id %d\n", id);
 	  return -1;
 	}
       else if (id == ps->id)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Can't remove current playing song, id %d\n", id);
+	  DPRINTF(E_LOG, L_PLAYER, "Can't remove current playing item, id %d\n", id);
 	  return -1;
 	}
 
@@ -3794,11 +3836,11 @@ queue_remove(struct player_command *cmd)
   else
     {
       pos = cmd->arg.item_range.start_pos;
-      DPRINTF(E_DBG, L_PLAYER, "Removing song from position %d\n", pos);
+      DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
 
       if (pos < 1)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Can't remove song, invalid position %d\n", pos);
+	  DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid position %d\n", pos);
 	  return -1;
 	}
 
@@ -4067,6 +4109,19 @@ player_now_playing(uint32_t *id)
   return ret;
 }
 
+/*
+ * Starts/resumes playback
+ *
+ * Depending on the player state, this will either resumes playing the current item (player is paused)
+ * or begins playing the queue from the beginning.
+ *
+ * If shuffle is set, the queue is reshuffled prior to starting playback.
+ *
+ * If a pointer is given as argument "itemid", its value will be set to the playing item id.
+ *
+ * @param *itemid if not NULL, will be set to the playing item id
+ * @return 0 if successful, -1 if an error occurred
+ */
 int
 player_playback_start(uint32_t *itemid)
 {
@@ -4087,6 +4142,16 @@ player_playback_start(uint32_t *itemid)
   return ret;
 }
 
+/*
+ * Starts playback at item number "pos" of the current queue
+ *
+ * If shuffle is set, the queue is reshuffled prior to starting playback.
+ *
+ * If a pointer is given as argument "itemid", its value will be set to the playing item id.
+ *
+ * @param *itemid if not NULL, will be set to the playing item id
+ * @return 0 if successful, -1 if an error occurred
+ */
 int
 player_playback_startpos(int pos, uint32_t *itemid)
 {
@@ -4107,6 +4172,16 @@ player_playback_startpos(int pos, uint32_t *itemid)
   return ret;
 }
 
+/*
+ * Starts playback at item with "id" of the current queue
+ *
+ * If shuffle is set, the queue is reshuffled prior to starting playback.
+ *
+ * If a pointer is given as argument "itemid", its value will be set to the playing item id.
+ *
+ * @param *itemid if not NULL, will be set to the playing item id
+ * @return 0 if successful, -1 if an error occurred
+ */
 int
 player_playback_startid(uint32_t id, uint32_t *itemid)
 {
@@ -4357,6 +4432,20 @@ player_shuffle_set(int enable)
   return ret;
 }
 
+/*
+ * Retrieves a list of item ids in the queue from postion 'start_pos' to 'end_pos'
+ *
+ * If start_pos is -1, the list starts with the item next from the current playing item.
+ * If end_pos is -1, this list contains all songs starting from 'start_pos'
+ *
+ * The 'shuffle' argument determines if the items are taken from the playqueue (shuffle = 0)
+ * or the shufflequeue (shuffle = 1).
+ *
+ * @param start_pos Start the listing from 'start_pos'
+ * @param end_pos   End the listing at 'end_pos'
+ * @param shuffle   If set to 1 use the shuffle queue, otherwise the playqueue
+ * @return List of items (ids) in the queue
+ */
 struct player_queue *
 player_queue_get(int start_pos, int end_pos, char shuffle)
 {
@@ -4367,6 +4456,7 @@ player_queue_get(int start_pos, int end_pos, char shuffle)
 
   cmd.func = queue_get;
   cmd.func_bh = NULL;
+  cmd.arg.item_range.type = RANGEARG_POS;
   cmd.arg.item_range.start_pos = start_pos;
   cmd.arg.item_range.end_pos = end_pos;
   cmd.arg.item_range.shuffle = shuffle;
@@ -4380,15 +4470,6 @@ player_queue_get(int start_pos, int end_pos, char shuffle)
     return NULL;
 
   return cmd.queue;
-}
-
-struct player_source *
-next_ps(struct player_source *ps, char shuffle)
-{
-  if (shuffle)
-    return ps->shuffle_next;
-  else
-    return ps->pl_next;
 }
 
 int
