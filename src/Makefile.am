@@ -50,6 +50,8 @@ EVHTTP_SRC=
 RTSP_SRC=evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
 endif
 
+AVL_SRC=avl/avl.c avl/avl.h
+
 GPERF_FILES = \
 	daap_query.gperf \
 	rsp_query.gperf \
@@ -87,7 +89,7 @@ forked_daapd_CFLAGS = \
 forked_daapd_LDADD = -lrt \
 	@ZLIB_LIBS@ @AVAHI_LIBS@ @SQLITE3_LIBS@ @LIBAV_LIBS@ \
 	@CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ \
-	@LIBAVL_LIBS@ @MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ \
+	@MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ \
 	@LIBGCRYPT_LIBS@ @GPG_ERROR_LIBS@ @ALSA_LIBS@ @LIBUNISTRING@ @SPOTIFY_LIBS@ \
 	@LIBCURL_LIBS@
 
@@ -95,7 +97,8 @@ forked_daapd_SOURCES = main.c \
 	db.c db.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
-	cache.h cache.c \
+	cache.c cache.h \
+	$(AVL_SRC) \
 	filescanner.c filescanner.h \
 	filescanner_ffmpeg.c filescanner_playlist.c filescanner_icy.c $(ITUNES_SRC) \
 	mdns_avahi.c mdns.h \

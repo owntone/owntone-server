@@ -183,10 +183,6 @@ else
 	)
 fi
 
-AC_CHECK_HEADER(avl.h, , AC_MSG_ERROR([avl.h not found]))
-AC_CHECK_LIB([avl], [avl_alloc_tree], [LIBAVL_LIBS="-lavl"], AC_MSG_ERROR([libavl not found]))
-AC_SUBST(LIBAVL_LIBS)
-
 AC_CHECK_HEADER(antlr3.h, , AC_MSG_ERROR([antlr3.h not found]))
 AC_CHECK_LIB([antlr3c], [antlr3BaseRecognizerNew], [ANTLR3C_LIBS="-lantlr3c"], AC_MSG_ERROR([ANTLR3 C runtime (libantlr3c) not found]))
 AC_CHECK_LIB([antlr3c], [antlr3NewAsciiStringInPlaceStream],

@@ -23,8 +23,7 @@ sudo apt-get install \
  build-essential git autotools-dev autoconf libtool gettext gawk gperf \
  antlr3 libantlr3c-dev libconfuse-dev libunistring-dev libsqlite3-dev \
  libavcodec-dev libavformat-dev libswscale-dev libavutil-dev libasound2-dev \
- libmxml-dev libgcrypt11-dev libavahi-client-dev libavl-dev zlib1g-dev \
- libevent-dev
+ libmxml-dev libgcrypt11-dev libavahi-client-dev zlib1g-dev libevent-dev
 
 Depending on the version of libav/ffmpeg in your distribution you may also need
 libavresample-dev.
@@ -92,8 +91,6 @@ Libraries:
         from <http://www.nongnu.org/confuse/>
  - libevent 1.4+ (best with version 1.4 or 2.1.4+)
         from <http://libevent.org/>
- - libavl 0.3.5
-        from <http://ftp.debian.org/debian/pool/main/liba/libavl>
  - MiniXML (aka mxml or libmxml)
         from <http://minixml.org/software.php>
  - gcrypt 1.2.0+
@@ -117,9 +114,6 @@ Libraries:
 
 If using binary packages, remember that you need the development packages to
 build forked-daapd (usually named -dev or -devel).
-
-libavl is not the GNU libavl. There doesn't seem to be an upstream website
-anymore, but you can fetch it from any Debian mirror.
 
 sqlite3 needs to be built with support for the unlock notify API; this isn't
 always the case in binary packages, so you may need to rebuild sqlite3 to

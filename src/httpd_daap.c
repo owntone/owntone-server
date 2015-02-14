@@ -40,8 +40,7 @@
 #include <uninorm.h>
 #include <unistd.h>
 
-#include <avl.h>
-
+#include "avl/avl.h"
 #include "logger.h"
 #include "db.h"
 #include "conffile.h"

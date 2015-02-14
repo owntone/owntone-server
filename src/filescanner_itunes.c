@@ -34,7 +34,6 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#include <avl.h>
 #include <plist/plist.h>
 
 #ifdef HAVE_LIBEVENT2
@@ -43,6 +42,7 @@
 # include "evhttp/evhttp.h"
 #endif
 
+#include "avl/avl.h"
 #include "logger.h"
 #include "db.h"
 #include "filescanner.h"
