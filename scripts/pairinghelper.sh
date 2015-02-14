@@ -36,6 +36,7 @@ fi
 echo "Please start the pairing process in Remote by selecting Add library"
 read -p "Press ENTER when ready..." yn
 echo -n "Looking in $logfile for Remote announcement..."
+sleep 5
 
 remote=`grep "Discovered remote" $logfile | tail -1 | grep -Po "'.*?'"`
 remote="${remote%\'}"
@@ -55,7 +56,7 @@ if [ -z "$pin" ]; then
 fi
 
 echo "Writing pair.remote to $library_path..."
-echo "$remote\n$pin" > "$library_path/pair.remote"
+echo -e "$remote\n$pin" > "$library_path/pair.remote"
 sleep 1
 echo "Removing pair.remote from library again..."
 rm "$library_path/pair.remote"
