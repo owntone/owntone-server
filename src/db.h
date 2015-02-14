@@ -52,7 +52,6 @@ enum filelistitem_type {
   F_PLAYLIST = 1,
   F_DIR  = 2,
   F_FILE = 3,
-  F_URL  = 4,
 };
 
 struct query_params {
@@ -289,11 +288,9 @@ struct db_media_file_info {
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)
 
 struct filelist_info {
-  char *path;
-  char *name;
+  char *virtual_path;
+  uint32_t time_modified;
   enum filelistitem_type type;
-  char *parentpath;
-  int disabled;
 };
 
 struct watch_info {
@@ -495,10 +492,10 @@ db_group_persistentid_byid(int id, int64_t *persistentid);
 
 /* Filelist */
 int
-db_build_query_filelist(struct query_params *qp, char *path);
+db_mpd_build_query_filelist(struct query_params *qp, char *path);
 
 int
-db_query_fetch_filelist(struct query_params *qp, struct filelist_info *fi);
+db_mpd_query_fetch_filelist(struct query_params *qp, struct filelist_info *fi);
 
 struct filelist_info *
 db_filelist_fetch_bypath(const char *path);

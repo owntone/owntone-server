@@ -244,6 +244,112 @@ sqlext_daap_unicode_xcollation(void *notused, int llen, const void *left, int rl
   return rpp;
 }
 
+static void
+sqlext_daap_substring_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
+{
+  const unsigned char *s1;
+  const unsigned char *s2;
+  int index;
+
+  char *start;
+  char *end;
+  char *result;
+
+  if (n < 2)
+    {
+      sqlite3_result_error(pv, "daap_substring() requires at least 2 parameters", -1);
+      return;
+    }
+
+  if (SQLITE_TEXT != sqlite3_value_type(ppv[0]) || SQLITE_TEXT != sqlite3_value_type(ppv[1]))
+    {
+      sqlite3_result_null(pv);
+      return;
+    }
+
+  s1 = sqlite3_value_text(ppv[0]);
+  s2 = sqlite3_value_text(ppv[1]);
+
+  if (n > 2)
+    index = sqlite3_value_int(ppv[2]);
+  else
+    index = 0;
+
+  if (strlen((char *) s1) < index)
+    {
+      sqlite3_result_null(pv);
+      return;
+    }
+
+  start = (char *) s1 + index;
+  end = strstr(start, (char *) s2);
+
+  if (!end)
+    {
+      sqlite3_result_null(pv);
+      return;
+    }
+
+  result = sqlite3_malloc(end - (char *) s1 + 1);
+  if (!result)
+    {
+      sqlite3_result_error_nomem(pv);
+      return;
+    }
+
+  strncpy((char*) result, (char*) s1, end - (char *) s1);
+  *(result + (end - (char *) s1)) = '\0';
+  sqlite3_result_text(pv, (char*) result, -1, SQLITE_TRANSIENT);
+  sqlite3_free(result);
+}
+
+static void
+sqlext_daap_charindex_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
+{
+  const unsigned char *s1;
+  const unsigned char *s2;
+  int index;
+
+  char *start;
+  char *end;
+
+  if (n < 2)
+    {
+      sqlite3_result_error(pv, "daap_charindex() requires at least 2 parameters", -1);
+      return;
+    }
+
+  if (SQLITE_TEXT != sqlite3_value_type(ppv[0]) || SQLITE_TEXT != sqlite3_value_type(ppv[1]))
+    {
+      sqlite3_result_int(pv, -1);
+      return;
+    }
+
+  s1 = sqlite3_value_text(ppv[0]);
+  s2 = sqlite3_value_text(ppv[1]);
+
+  if (n > 2)
+    index = sqlite3_value_int(ppv[2]);
+  else
+    index = 0;
+
+  if (strlen((char *) s1) < index)
+    {
+      sqlite3_result_int(pv, -1);
+      return;
+    }
+
+  start = (char *) s1 + index;
+  end = strstr(start, (char *) s2);
+
+  if (!end)
+    {
+      sqlite3_result_int(pv, -1);
+      return;
+    }
+
+  sqlite3_result_int(pv, end - (char *) s1);
+}
 
 int
 sqlite3_extension_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines *pApi)
@@ -265,6 +371,24 @@ sqlite3_extension_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines 
     {
       if (pzErrMsg)
 	*pzErrMsg = sqlite3_mprintf("Could not create sqlite3 custom collation DAAP: %s\n", sqlite3_errmsg(db));
+
+      return -1;
+    }
+
+  ret = sqlite3_create_function(db, "daap_substring", 3, SQLITE_UTF8, NULL, sqlext_daap_substring_xfunc, NULL, NULL);
+  if (ret != SQLITE_OK)
+    {
+      if (pzErrMsg)
+      *pzErrMsg = sqlite3_mprintf("Could not create daap_substring function: %s\n", sqlite3_errmsg(db));
+
+      return -1;
+    }
+
+  ret = sqlite3_create_function(db, "daap_charindex", 3, SQLITE_UTF8, NULL, sqlext_daap_charindex_xfunc, NULL, NULL);
+  if (ret != SQLITE_OK)
+    {
+      if (pzErrMsg)
+      *pzErrMsg = sqlite3_mprintf("Could not create daap_charindex function: %s\n", sqlite3_errmsg(db));
 
       return -1;
     }

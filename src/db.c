@@ -324,12 +324,8 @@ db_escape_string(const char *str)
 void
 free_fi(struct filelist_info *fi, int content_only)
 {
-  if (fi->path)
-    free(fi->path);
-  if (fi->name)
-    free(fi->name);
-  if (fi->parentpath)
-    free(fi->parentpath);
+  if (fi->virtual_path)
+    free(fi->virtual_path);
 
   if (!content_only)
     free(fi);
@@ -769,13 +765,9 @@ db_purge_cruft(time_t ref)
   char *errmsg;
   int i;
   int ret;
-  int changes;
-  char *query;
-  char *queries[5] = { NULL, NULL, NULL, NULL, NULL };
-  char *queries_tmpl[5] =
+  char *queries[3] = { NULL, NULL, NULL };
+  char *queries_tmpl[3] =
     {
-      "DELETE FROM filelist WHERE type = 3 AND path IN (SELECT path FROM files f WHERE f.db_timestamp < %" PRIi64 ");",
-      "DELETE FROM filelist WHERE type = 1 AND path IN (SELECT path FROM playlists p WHERE p.type <> 1 AND p.db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> 1 AND p.db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlists WHERE type <> 1 AND db_timestamp < %" PRIi64 ";",
       "DELETE FROM files WHERE db_timestamp < %" PRIi64 ";"
@@ -812,29 +804,6 @@ db_purge_cruft(time_t ref)
 	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
     }
 
-  // Remove empty directories from filelist table
-  query = "DELETE FROM filelist WHERE type = 2 AND 0 = (SELECT COUNT(path) FROM filelist f WHERE f.parentpath = filelist.path);";
-
-  do
-    {
-      DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
-
-      ret = db_exec(query, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Purge query %d error: %s\n", i, errmsg);
-
-	  sqlite3_free(errmsg);
-	  break;
-	}
-      else
-	{
-	  changes = sqlite3_changes(hdl);
-	  DPRINTF(E_DBG, L_DB, "Purged %d rows\n", changes);
-	}
-
-    } while (changes > 0);
-
  purge_fail:
   for (i = 0; i < (sizeof(queries) / sizeof(queries[0])); i++)
     {
@@ -853,7 +822,6 @@ db_purge_all(void)
       "DELETE FROM playlists WHERE type <> 1;",
       "DELETE FROM files;",
       "DELETE FROM groups;",
-      "DELETE FROM filelist;"
     };
   char *errmsg;
   int i;
@@ -1909,85 +1877,54 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 
 /* Filelist */
 
-static int
-db_filelist_add(const char *virtual_path, enum filelistitem_type type)
-{
-  char path[PATH_MAX];
-  char parentpath[PATH_MAX];
-  char *name;
-  char *query;
-  char *errmsg;
-  int ret;
-
-  DPRINTF(E_DBG, L_DB, "Add file to filelist with type %d and virtual path '%s'\n", type, virtual_path);
-
-  strcpy(path, virtual_path);
-  strcpy(parentpath, path);
-  name = strrchr(parentpath, '/');
-  *name = '\0';
-  name++;
-
-  query = sqlite3_mprintf("INSERT INTO filelist (path, name, type, parentpath, disabled) VALUES ('%q', '%q', %d, '%q', %d);",
-      path, name, type, parentpath, 0);
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-  ret = db_exec(query, &errmsg);
-
-  if (ret == SQLITE_CONSTRAINT)
-    {
-      DPRINTF(E_DBG, L_DB, "Path already exists in filelist '%s'\n", path);
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return 0;
-    }
-  else if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error '%s' while runnning '%s'\n", errmsg, query);
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  while ((name = strrchr(parentpath, '/')))
-    {
-      strcpy(path, parentpath);
-      *name = '\0';
-      name++;
-
-      query = sqlite3_mprintf("INSERT INTO filelist (path, name, type, parentpath, disabled) VALUES ('%q', '%q', %d, '%q', %d);",
-	  path, name, F_DIR, (*parentpath == '\0' ? "/" : parentpath), 0);
-      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-      ret = db_exec(query, &errmsg);
-
-      if (ret == SQLITE_CONSTRAINT)
-	{
-	  DPRINTF(E_DBG, L_DB, "Path already exists in filelist '%s'\n", path);
-	  sqlite3_free(errmsg);
-	  sqlite3_free(query);
-	  return 0;
-	}
-      else if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Error '%s' while runnning '%s'\n", errmsg, query);
-	  sqlite3_free(errmsg);
-	  sqlite3_free(query);
-	  return -1;
-	}
-
-      sqlite3_free(query);
-    }
-
-  return 0;
-}
-
 int
-db_build_query_filelist(struct query_params *qp, char *parentpath)
+db_mpd_build_query_filelist(struct query_params *qp, char *parentpath)
 {
   char *query;
   int ret;
 
-  query = sqlite3_mprintf("SELECT * FROM filelist WHERE disabled = 0 AND parentpath = '%q' ORDER BY type, name;", parentpath);
+  /*
+  query = sqlite3_mprintf(
+      "SELECT "
+      "  CASE WHEN INSTR(SUBSTR(virtual_path, LENGTH(%Q)+1), '/') = 0 "
+      "    THEN "
+      "      virtual_path "
+      "    ELSE "
+      "      SUBSTR(virtual_path, 1, LENGTH(%Q)+INSTR(SUBSTR(virtual_path, LENGTH(%Q)+1), '/')-1) "
+      "  END AS path, "
+      "  MAX(time_modified), "
+      "  CASE WHEN INSTR(SUBSTR(virtual_path, LENGTH(%Q)+1), '/') = 0 "
+      "    THEN "
+      "      type "
+      "    ELSE "
+      "      2 "
+      "  END AS ftype, "
+      "  disabled "
+      "FROM filelist "
+      "WHERE virtual_path LIKE '%q%%' "
+      "GROUP BY ftype, path "
+      "ORDER BY ftype, path;", parentpath, parentpath, parentpath, parentpath, parentpath);
+   */
+  query = sqlite3_mprintf(
+      "SELECT "
+      "  CASE WHEN daap_charindex(virtual_path, '/', LENGTH(%Q)) = -1 "
+      "    THEN "
+      "      virtual_path "
+      "    ELSE "
+      "      daap_substring(virtual_path, '/', LENGTH(%Q)) "
+      "  END AS path, "
+      "  MAX(time_modified), "
+      "  CASE WHEN daap_charindex(virtual_path, '/', LENGTH(%Q)) = -1 "
+      "    THEN "
+      "      type "
+      "    ELSE "
+      "      2 "
+      "  END AS ftype "
+      "FROM filelist "
+      "WHERE virtual_path LIKE '%q%%' "
+      "GROUP BY ftype, path "
+      "ORDER BY ftype, path;", parentpath, parentpath, parentpath, parentpath);
+
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -2011,7 +1948,7 @@ db_build_query_filelist(struct query_params *qp, char *parentpath)
 }
 
 int
-db_query_fetch_filelist(struct query_params *qp, struct filelist_info *fi)
+db_mpd_query_fetch_filelist(struct query_params *qp, struct filelist_info *fi)
 {
   int ret;
 
@@ -2027,7 +1964,7 @@ db_query_fetch_filelist(struct query_params *qp, struct filelist_info *fi)
   if (ret == SQLITE_DONE)
     {
       DPRINTF(E_DBG, L_DB, "End of query results\n");
-      fi->path = NULL;
+      fi->virtual_path = NULL;
       return 0;
     }
   else if (ret != SQLITE_ROW)
@@ -2036,93 +1973,13 @@ db_query_fetch_filelist(struct query_params *qp, struct filelist_info *fi)
       return -1;
     }
 
-  fi->path = strdup((char *)sqlite3_column_text(qp->stmt, 0));
-  fi->name = strdup((char *)sqlite3_column_text(qp->stmt, 1));
+  fi->virtual_path = strdup((char *)sqlite3_column_text(qp->stmt, 0));
+  fi->time_modified = sqlite3_column_int(qp->stmt, 1);
   fi->type = sqlite3_column_int(qp->stmt, 2);
-  fi->parentpath = strdup((char *)sqlite3_column_text(qp->stmt, 3));
-  fi->disabled = sqlite3_column_int(qp->stmt, 4);
 
   return 0;
 }
 
-static struct filelist_info *
-db_filelist_fetch_byquery(char *query)
-{
-  struct filelist_info *fi;
-  sqlite3_stmt *stmt;
-  int ret;
-
-  if (!query)
-    return NULL;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  fi = (struct filelist_info *)malloc(sizeof(struct filelist_info));
-  if (!fi)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not allocate struct filelist_info, out of memory\n");
-      return NULL;
-    }
-  memset(fi, 0, sizeof(struct filelist_info));
-
-  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      free(fi);
-      return NULL;
-    }
-
-  ret = db_blocking_step(stmt);
-
-  if (ret != SQLITE_ROW)
-    {
-      if (ret == SQLITE_DONE)
-	DPRINTF(E_DBG, L_DB, "No results\n");
-      else
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      free(fi);
-      return NULL;
-    }
-
-
-  fi->path = strdup((char *)sqlite3_column_text(stmt, 0));
-  fi->name = strdup((char *)sqlite3_column_text(stmt, 1));
-  fi->type = sqlite3_column_int(stmt, 2);
-  fi->parentpath = strdup((char *)sqlite3_column_text(stmt, 3));
-  fi->disabled = sqlite3_column_int(stmt, 4);
-
-  sqlite3_finalize(stmt);
-
-  return fi;
-}
-
-struct filelist_info *
-db_filelist_fetch_bypath(const char *path)
-{
-#define Q_TMPL "SELECT f.* FROM filelist f WHERE f.path = %Q;"
-  struct filelist_info *fi;
-  char *query;
-
-  query = sqlite3_mprintf(Q_TMPL, path);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return NULL;
-    }
-
-  fi = db_filelist_fetch_byquery(query);
-
-  sqlite3_free(query);
-
-  return fi;
-
-#undef Q_TMPL
-}
 
 /* Files */
 int
@@ -2728,8 +2585,6 @@ db_file_add(struct media_file_info *mfi)
 
   sqlite3_free(query);
 
-  db_filelist_add(mfi->virtual_path, F_FILE);
-
   cache_daap_trigger();
 
   return 0;
@@ -2820,8 +2675,6 @@ db_file_update(struct media_file_info *mfi)
     }
 
   sqlite3_free(query);
-
-  db_filelist_add(mfi->virtual_path, F_FILE);
 
   cache_daap_trigger();
 
@@ -3310,8 +3163,6 @@ db_pl_add(char *title, char *path, char *virtual_path, int *id)
 
   DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s) with id %d\n", title, path, *id);
 
-  db_filelist_add(virtual_path, F_PLAYLIST);
-
   return 0;
 
 #undef QDUP_TMPL
@@ -3352,11 +3203,6 @@ db_pl_update(char *title, char *path, char *virtual_path, int id)
   query = sqlite3_mprintf(Q_TMPL, title, (int64_t)time(NULL), path, virtual_path, id);
 
   ret = db_query_run(query, 1, 0);
-
-  if (ret == 0)
-    {
-      db_filelist_add(virtual_path, F_PLAYLIST);
-    }
 
   return ret;
 #undef Q_TMPL
@@ -3663,12 +3509,11 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 void
 db_spotify_purge(void)
 {
-  char *queries[4] =
+  char *queries[3] =
     {
       "DELETE FROM files WHERE path LIKE 'spotify:%%';",
       "DELETE FROM playlistitems WHERE filepath LIKE 'spotify:%%';",
       "DELETE FROM playlists WHERE path LIKE 'spotify:%%';",
-      "DELETE FROM filelist WHERE path LIKE '/spotify:%%';",
     };
   int i;
   int ret;
@@ -3686,13 +3531,11 @@ db_spotify_purge(void)
 void
 db_spotify_pl_delete(int id)
 {
-  char *queries_tmpl[5] =
+  char *queries_tmpl[3] =
     {
-      "DELETE FROM filelist WHERE path IN (SELECT virtual_path FROM playlists WHERE id = %d);",
       "DELETE FROM playlists WHERE id = %d;",
       "DELETE FROM playlistitems WHERE playlistid = %d;",
       "DELETE FROM files WHERE path LIKE 'spotify:%%' AND NOT path IN (SELECT filepath FROM playlistitems);",
-      "DELETE FROM filelist WHERE path LIKE 'spotify:%%' AND NOT path IN (SELECT virtual_path FROM FILES WHERE path LIKE 'spotify:%%');",
     };
   char *query;
   int i;
@@ -4682,14 +4525,16 @@ db_perthread_deinit(void)
   "   path        VARCHAR(4096) NOT NULL"		\
   ");"
 
-#define T_FILELIST					\
-  "CREATE TABLE IF NOT EXISTS filelist ("		\
-  "   path        VARCHAR(4096) PRIMARY KEY NOT NULL,"	\
-  "   name        VARCHAR(255) NOT NULL,"		\
-  "   type        INTEGER NOT NULL,"			\
-  "   parentpath  VARCHAR(4096) NOT NULL,"		\
-  "   disabled    INTEGER DEFAULT 0"			\
-  ");"
+#define V_FILELIST					\
+  "CREATE VIEW IF NOT EXISTS filelist as"		\
+  "     SELECT "					\
+  "       virtual_path, time_modified, 3 as type "	\
+  "     FROM files WHERE disabled = 0"			\
+  "   UNION "						\
+  "     SELECT "					\
+  "       virtual_path, db_timestamp, 1 as type "	\
+  "     FROM playlists where disabled = 0 AND type = 0"	\
+  ";"
 
 #define TRG_GROUPS_INSERT_FILES						\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
@@ -4761,7 +4606,7 @@ static const struct db_init_query db_init_table_queries[] =
     { T_SPEAKERS,  "create table speakers" },
     { T_INOTIFY,   "create table inotify" },
 
-    { T_FILELIST,    "create table filelist" },
+    { V_FILELIST,  "create view filelist" },
 
     { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
     { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
@@ -4819,11 +4664,14 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_ALBUM					\
   "CREATE INDEX IF NOT EXISTS idx_album ON files(album, album_sort);"
 
+#define I_FILELIST					\
+  "CREATE INDEX IF NOT EXISTS idx_filelist ON files(disabled, virtual_path, time_modified);"
+
 #define I_PL_PATH				\
   "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
 
 #define I_PL_DISABLED				\
-  "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled);"
+  "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled, type, virtual_path, db_timestamp);"
 
 #define I_FILEPATH							\
   "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
@@ -4836,9 +4684,6 @@ static const struct db_init_query db_init_table_queries[] =
 
 #define I_PAIRING				\
   "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
-
-#define I_FILELIST				\
-  "CREATE INDEX IF NOT EXISTS idx_parentpath_disabled ON filelist(disabled, parentpath, type, name);"
 
 static const struct db_init_query db_init_index_queries[] =
   {
@@ -4854,6 +4699,7 @@ static const struct db_init_query db_init_index_queries[] =
     { I_GENRE,     "create genre index" },
     { I_TITLE,     "create title index" },
     { I_ALBUM,     "create album index" },
+    { I_FILELIST,  "create filelist index" },
 
     { I_PL_PATH,   "create playlist path index" },
     { I_PL_DISABLED, "create playlist state index" },
@@ -4864,8 +4710,6 @@ static const struct db_init_query db_init_index_queries[] =
     { I_GRP_PERSIST, "create groups persistentid index" },
 
     { I_PAIRING,   "create pairing guid index" },
-
-    { I_FILELIST,   "create filelist index" },
   };
 
 static int
@@ -5800,14 +5644,16 @@ static const struct db_init_query db_upgrade_v1501_queries[] =
 
 /* Upgrade from schema v15.01 to v16 */
 
-#define U_V16_CREATE_TBL_FILELIST			\
-    "CREATE TABLE IF NOT EXISTS filelist ("		\
-    "   path        VARCHAR(4096) PRIMARY KEY NOT NULL,"\
-    "   name        VARCHAR(255) NOT NULL,"		\
-    "   type        INTEGER NOT NULL,"			\
-    "   parentpath  VARCHAR(4096) NOT NULL,"		\
-    "   disabled    INTEGER DEFAULT 0"			\
-    ");"
+#define U_V16_CREATE_VIEW_FILELIST			\
+  "CREATE VIEW IF NOT EXISTS filelist as"		\
+  "     SELECT "					\
+  "       virtual_path, time_modified, 3 as type "	\
+  "     FROM files WHERE disabled = 0"			\
+  "   UNION "						\
+  "     SELECT "					\
+  "       virtual_path, db_timestamp, 1 as type "	\
+  "     FROM playlists WHERE disabled = 0 AND type = 0"	\
+  ";"
 
 #define U_V16_ALTER_TBL_FILES_ADD_COL					\
   "ALTER TABLE files ADD COLUMN virtual_path VARCHAR(4096) DEFAULT NULL;"
@@ -5824,82 +5670,14 @@ static const struct db_init_query db_upgrade_v1501_queries[] =
 
 static const struct db_init_query db_upgrade_v16_queries[] =
   {
-    { U_V16_CREATE_TBL_FILELIST, "create new table filelist" },
     { U_V16_ALTER_TBL_FILES_ADD_COL, "alter table files add column virtual_path" },
     { U_V16_ALTER_TBL_PL_ADD_COL,    "alter table playlists add column virtual_path" },
+    { U_V16_CREATE_VIEW_FILELIST,    "create new view filelist" },
 
     { U_V16_SCVER,                  "set schema_version to 16" },
     { U_V1600_SCVER_MAJOR,          "set schema_version_major to 16" },
     { U_V1600_SCVER_MINOR,          "set schema_version_minor to 00" },
   };
-
-static int
-db_upgrade_v16_filelist_add(const char *virtual_path, int type)
-{
-  char path[PATH_MAX];
-  char parentpath[PATH_MAX];
-  char *name;
-  char *query;
-  char *errmsg;
-  int ret;
-
-  strcpy(path, virtual_path);
-  strcpy(parentpath, path);
-  name = strrchr(parentpath, '/');
-  *name = '\0';
-  name++;
-
-  query = sqlite3_mprintf("INSERT INTO filelist (path, name, type, parentpath, disabled) VALUES ('%q', '%q', %d, '%q', %d);", path, name, type, parentpath, 0);
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
-
-  if (ret == SQLITE_CONSTRAINT)
-    {
-      DPRINTF(E_DBG, L_DB, "Path already exists in filelist '%s'\n", path);
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return 0;
-    }
-  else if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error '%s' while runnning '%s'\n", errmsg, query);
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  while ((name = strrchr(parentpath, '/')))
-    {
-      strcpy(path, parentpath);
-      *name = '\0';
-      name++;
-
-      query = sqlite3_mprintf("INSERT INTO filelist (path, name, type, parentpath, disabled) VALUES ('%q', '%q', %d, '%q', %d);", path, name, F_DIR, (*parentpath == '\0' ? "/" : parentpath), 0);
-      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-      ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
-
-      if (ret == SQLITE_CONSTRAINT)
-	{
-	  DPRINTF(E_DBG, L_DB, "Path already exists in filelist '%s'\n", path);
-	  sqlite3_free(errmsg);
-	  sqlite3_free(query);
-	  return 0;
-	}
-      else if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Error '%s' while runnning '%s'\n", errmsg, query);
-	  sqlite3_free(errmsg);
-	  sqlite3_free(query);
-	  return -1;
-	}
-
-      sqlite3_free(query);
-    }
-
-  return 0;
-}
 
 static int
 db_upgrade_v16(void)
@@ -5957,17 +5735,6 @@ db_upgrade_v16(void)
 	  DPRINTF(E_LOG, L_DB, "Error updating files: %s\n", errmsg);
 	}
 
-      if (data_kind == 0 /* Real file*/
-	  || data_kind == 1 /* URL */
-	  || data_kind == 2 /* Spotify */)
-	{
-	  ret = db_upgrade_v16_filelist_add(virtual_path, 3); /* Real file, spotify url, http url */
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_DB, "Error updating filelist for file %d\n", id);
-	    }
-	}
-
       sqlite3_free(uquery);
       sqlite3_free(errmsg);
     }
@@ -6013,12 +5780,6 @@ db_upgrade_v16(void)
 
 	  sqlite3_free(uquery);
 	  sqlite3_free(errmsg);
-
-	  ret = db_upgrade_v16_filelist_add(virtual_path, 1); /* Playlists */
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_DB, "Error updating filelist for playlist %d\n", id);
-	    }
 	}
     }
 

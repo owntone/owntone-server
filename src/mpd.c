@@ -1685,17 +1685,18 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   struct media_file_info *mfi;
   int ret;
 
-  if (argc < 2)
+  if (argc < 2 || strlen(argv[1]) == 0
+      || (strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1))
     {
       ret = snprintf(parent, sizeof(parent), "/");
     }
   else if (strncmp(argv[1], "/", 1) == 0)
     {
-      ret = snprintf(parent, sizeof(parent), "%s", argv[1]);
+      ret = snprintf(parent, sizeof(parent), "%s/", argv[1]);
     }
   else
     {
-      ret = snprintf(parent, sizeof(parent), "/%s", argv[1]);
+      ret = snprintf(parent, sizeof(parent), "/%s/", argv[1]);
     }
 
   if ((ret < 0) || (ret >= sizeof(parent)))
@@ -1713,7 +1714,7 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  ret = db_build_query_filelist(&qp, parent);
+  ret = db_mpd_build_query_filelist(&qp, parent);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Could not start query for path '%s'\n", argv[1]);
@@ -1725,31 +1726,31 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  while (((ret = db_query_fetch_filelist(&qp, fi)) == 0) && (fi->path))
+  while (((ret = db_mpd_query_fetch_filelist(&qp, fi)) == 0) && (fi->virtual_path))
     {
       if (fi->type == F_DIR)
 	{
 	  evbuffer_add_printf(evbuf,
 	    "directory: %s\n"
 	    "Last-Modified: 2014-07-11T14:13:56Z\n", //TODO Send correct last modified timestamp
-	    (fi->path + 1));
+	    (fi->virtual_path + 1));
 	}
       else if (fi->type == F_PLAYLIST)
 	{
 	  evbuffer_add_printf(evbuf,
 	    "playlist: %s\n"
 	    "Last-Modified: 2014-07-11T14:13:56Z\n", //TODO Send correct last modified timestamp
-	    (fi->path + 1));
+	    (fi->virtual_path + 1));
 	}
       else if (fi->type == F_FILE)
 	{
-	  mfi = db_file_fetch_byvirtualpath(fi->path);
+	  mfi = db_file_fetch_byvirtualpath(fi->virtual_path);
 	  if (mfi)
 	    {
 	      ret = mpd_add_mediainfo(evbuf, mfi, -1);
 	      if (ret < 0)
 		{
-		  DPRINTF(E_LOG, L_MPD, "Could not add mediainfo for path '%s'\n", fi->path);
+		  DPRINTF(E_LOG, L_MPD, "Could not add mediainfo for path '%s'\n", fi->virtual_path);
 		}
 
 	      free_mfi(mfi, 0);
