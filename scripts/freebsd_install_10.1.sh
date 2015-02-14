@@ -45,30 +45,23 @@ if [ ! -d $WORKDIR ]; then
 fi
 cd $WORKDIR
 
-read -p "Should the script install libavl, antlr and libantlr3c? [y/N] " yn
+read -p "Should the script install antlr and libantlr3c? [y/N] " yn
 if [ "$yn" = "y" ]; then
-	wget http://ftp.debian.org/debian/pool/main/liba/libavl/libavl_0.3.5.orig.tar.gz
 	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/antlr-3.4-complete.jar
 	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/C/libantlr3c-3.4.tar.gz
 
 	sudo mv antlr-3.4-complete.jar /usr/local/share/java
 	printf "#!/bin/sh
 export CLASSPATH
-CLASSPATH=$CLASSPATH:/usr/local/share/java/antlr-3.4-complete.jar:/usr/share/java
-/usr/local/openjdk8-jre/bin/java org.antlr.Tool \$*
+CLASSPATH=\$CLASSPATH:/usr/local/share/java/antlr-3.4-complete.jar:/usr/local/share/java
+/usr/local/bin/java org.antlr.Tool \$*
 " > antlr3
 	chmod a+x antlr3
 	sudo mv antlr3 /usr/local/bin
 
 	tar xzf libantlr3c-3.4.tar.gz
 	cd libantlr3c-3.4
-	./configure && gmake && sudo gmake install
-	cd $WORKDIR
-
-	tar xzf libavl_0.3.5.orig.tar.gz
-	cd avl-0.3.5
-	sed -i -- 's/LIBRARIES/LIBRARY/g' GNUmakefile
-	gmake && sudo gmake install
+	./configure --disable-abiflags && gmake && sudo gmake install
 	cd $WORKDIR
 fi
 
