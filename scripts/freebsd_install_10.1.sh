@@ -47,6 +47,11 @@ cd $WORKDIR
 
 read -p "Should the script install antlr and libantlr3c? [y/N] " yn
 if [ "$yn" = "y" ]; then
+	read -p "Should the script build libantlr3c for 64 bit? [Y/n] " yn
+	if [ "$yn" != "n" ]; then
+		ENABLE64BIT="--enable-64bit"
+	fi
+
 	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/antlr-3.4-complete.jar
 	wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/C/libantlr3c-3.4.tar.gz
 
@@ -61,7 +66,7 @@ CLASSPATH=\$CLASSPATH:/usr/local/share/java/antlr-3.4-complete.jar:/usr/local/sh
 
 	tar xzf libantlr3c-3.4.tar.gz
 	cd libantlr3c-3.4
-	./configure --disable-abiflags && gmake && sudo gmake install
+	./configure $ENABLE64BIT && gmake && sudo gmake install
 	cd $WORKDIR
 fi
 

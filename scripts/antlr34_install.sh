@@ -23,11 +23,15 @@ if [ "$yn" = "l" ]; then
 else
 	PREFIX=/usr
 fi
+read -p "Should the script build libantlr3c for 64 bit? [Y/n] " yn
+if [ "$yn" != "n" ]; then
+	ENABLE64BIT="--enable-64bit"
+fi
 wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/antlr-3.4-complete.jar
 wget --no-check-certificate https://github.com/antlr/website-antlr3/raw/gh-pages/download/C/libantlr3c-3.4.tar.gz
 tar xzf libantlr3c-3.4.tar.gz
 cd libantlr3c-3.4
-./configure --disable-abiflags --prefix=$PREFIX && make && sudo make install
+./configure $ENABLE64BIT --prefix=$PREFIX && make && sudo make install
 cd $WORKDIR
 
 sudo mkdir -p "$PREFIX/share/java"
