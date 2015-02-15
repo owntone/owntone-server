@@ -492,13 +492,10 @@ db_group_persistentid_byid(int id, int64_t *persistentid);
 
 /* Filelist */
 int
-db_mpd_build_query_filelist(struct query_params *qp, char *path);
+db_mpd_start_query_filelist(struct query_params *qp, char *path);
 
 int
 db_mpd_query_fetch_filelist(struct query_params *qp, struct filelist_info *fi);
-
-struct filelist_info *
-db_filelist_fetch_bypath(const char *path);
 
 /* Remotes */
 int

@@ -1878,7 +1878,7 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
 /* Filelist */
 
 int
-db_mpd_build_query_filelist(struct query_params *qp, char *parentpath)
+db_mpd_start_query_filelist(struct query_params *qp, char *parentpath)
 {
   char *query;
   int ret;

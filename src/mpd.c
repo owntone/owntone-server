@@ -1933,7 +1933,7 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  ret = db_mpd_build_query_filelist(&qp, parent);
+  ret = db_mpd_start_query_filelist(&qp, parent);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Could not start query for path '%s'\n", argv[1]);
