@@ -403,7 +403,7 @@ mpd_add_mediainfo_byid(struct evbuffer *evbuf, int id, int pos_pl)
  * @param mfi media information
  * @return the number of bytes added if successful, or -1 if an error occurred.
  */
-/*static int
+static int
 mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *dbmfi)
 {
   uint32_t songlength;
@@ -422,7 +422,7 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
       "Album: %s\n"
       "Title: %s\n"
       "Id: %s\n",
-      (dbmfi->path + 1),
+      (dbmfi->virtual_path + 1),
       (songlength / 1000),
       dbmfi->artist,
       dbmfi->album,
@@ -430,7 +430,7 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
       dbmfi->id);
 
   return ret;
-}*/
+}
 
 /*
  * Command handler function for 'currentsong'
@@ -1479,6 +1479,13 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return 0;
 }
 
+/*
+ * Command handler function for 'playlistid'
+ * Displays a list of all songs in the queue, or if the optional argument is given, displays information
+ * only for the song with ID.
+ *
+ * The order of the songs is always the not shuffled order.
+ */
 static int
 mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
@@ -1672,6 +1679,13 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   return 0;
 }
 
+static int
+mpd_command_list()
+{
+
+  return 0;
+}
+
 /*
  * Command handler function for 'lsinfo'
  * Lists the contents of the directory given in argv[1].
@@ -1766,6 +1780,156 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   return 0;
 }
 
+static int
+mpd_get_query_params(int argc, char **argv, struct query_params *qp)
+{
+  char *c1;
+  char *c2;
+  int start_pos;
+  int end_pos;
+  int i;
+  int ret;
+
+  c1 = NULL;
+  c2 = NULL;
+
+  for (i = 0; i < argc; i += 2)
+    {
+      if (0 == strcasecmp(argv[i], "any"))
+	{
+	  c1 = sqlite3_mprintf("(f.artist LIKE '%%%q%%' OR f.album LIKE '%%%q%%' OR f.title LIKE '%%%q%%')", argv[i + 1], argv[i + 1], argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "file"))
+	{
+	  c1 = sqlite3_mprintf("(f.virtual_path LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "base"))
+	{
+	  c1 = sqlite3_mprintf("(f.virtual_path LIKE '/%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "modified-since"))
+	{
+	  DPRINTF(E_WARN, L_MPD, "Special parameter 'modified-since' is not supported by forked-daapd and will be ignored\n");
+	}
+      else if (0 == strcasecmp(argv[i], "window"))
+	{
+	  ret = mpd_pars_range_arg(argv[i + 1], &start_pos, &end_pos);
+	  if (ret == 0)
+	    {
+	      qp->idx_type = I_SUB;
+	      qp->limit = end_pos - start_pos;
+	      qp->offset = start_pos;
+	    }
+	  else
+	    {
+	      DPRINTF(E_LOG, L_MPD, "Window argument doesn't convert to integer or range: '%s'\n", argv[i + 1]);
+	    }
+	}
+      else if (0 == strcasecmp(argv[i], "artist"))
+	{
+	  c1 = sqlite3_mprintf("(f.artist LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "albumartist"))
+	{
+	  c1 = sqlite3_mprintf("(f.album_artist LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "album"))
+	{
+	  c1 = sqlite3_mprintf("(f.album LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "title"))
+	{
+	  c1 = sqlite3_mprintf("(f.title LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else
+	{
+	  DPRINTF(E_WARN, L_MPD, "Parameter '%s' is not supported by forked-daapd and will be ignored\n", argv[i]);
+	}
+
+      if (c1)
+	{
+	  if (qp->filter)
+	    c2 = sqlite3_mprintf("%s AND %s", qp->filter, c1);
+	  else
+	    c2 = sqlite3_mprintf("%s", c1);
+
+	  if (qp->filter)
+	    sqlite3_free(qp->filter);
+
+	  qp->filter = c2;
+	  c2 = NULL;
+	  sqlite3_free(c1);
+	  c1 = NULL;
+	}
+    }
+
+  return 0;
+}
+
+/*
+ * Command handler function for 'search'
+ * Lists any song that matches the given list of arguments. Arguments are pairs of TYPE and WHAT, where
+ * TYPE is the tag that contains WHAT (case insensitiv).
+ *
+ * TYPE can also be one of the special parameter:
+ * - any: checks all tags
+ * - file: checks the virtual_path
+ * - base: restricts result to the given directory
+ * - modified-since (not supported)
+ * - window: limits result to the given range of "START:END"
+ *
+ * Example request: "search artist foo album bar"
+ */
+static int
+mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct query_params qp;
+  struct db_media_file_info dbmfi;
+  int ret;
+
+  if (argc < 3 || ((argc - 1) % 2) != 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Missing argument(s) for command 'update'\n");
+      ret = asprintf(errmsg, "Missing argument(s) for command 'update'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_ITEMS;
+  qp.sort = S_NAME;
+  qp.idx_type = I_NONE;
+
+  mpd_get_query_params(argc - 1, argv + 1, &qp);
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+
+      DPRINTF(E_LOG, L_MPD, "Could not start query\n");
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Error adding song to the evbuffer, song id: %s\n", dbmfi.id);
+	}
+    }
+
+  db_query_end(&qp);
+
+  return 0;
+}
+
 /*
  * Command handler function for 'update'
  * Initiates an init-rescan (scans for new files)
@@ -1847,10 +2011,6 @@ mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   return 0;
 }
 */
-
-static int
-mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg);
-
 /*
  * Dummy function to handle commands that are not supported by forked-daapd and should
  * not raise an error.
@@ -1862,6 +2022,10 @@ mpd_command_ignore(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   DPRINTF(E_DBG, L_MPD, "Ignore command %s\n", argv[0]);
   return 0;
 }
+
+static int
+mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg);
+
 
 struct command
 {
@@ -2165,10 +2329,12 @@ static struct command mpd_handlers[] =
       .mpdcommand = "findadd",
       .handler = mpd_command_findadd
     },
+    */
     {
       .mpdcommand = "list",
       .handler = mpd_command_list
     },
+    /*
     {
       .mpdcommand = "listall",
       .handler = mpd_command_listall
@@ -2191,10 +2357,12 @@ static struct command mpd_handlers[] =
       .mpdcommand = "readcomments",
       .handler = mpd_command_readcomments
     },
+    */
     {
       .mpdcommand = "search",
       .handler = mpd_command_search
     },
+    /*
     {
       .mpdcommand = "searchadd",
       .handler = mpd_command_searchadd
