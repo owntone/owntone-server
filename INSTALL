@@ -49,13 +49,44 @@ Finally, read the bit in the bottom of this document about init scripts, read
 the README, edit the configuration file and restart the server.
 
 
-Quick version for FreeBSD 10+
------------------------------
+Quick version for Fedora
+------------------------
+
+If you haven't already enabled the free RPM fusion packages do that, since you
+will need ffmpeg. You can google how to do that. Then run:
+
+sudo yum install \
+ git automake autoconf gettext-devel gperf gawk libtool \
+ sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
+ avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel
+
+Now you need to install ANTLR3, but you probably can't use the version that
+comes with the package manager. Instead you can install it by running this
+script:
+
+scripts/antlr34_install.sh
+
+Then run the following:
+
+ git clone https://github.com/ejurgensen/forked-daapd.git
+ cd forked-daapd
+ autoreconf -i
+ ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
+ make
+ sudo make install
+
+Finally, read the bit in the bottom of this document about init scripts, read
+the README, edit the configuration file and start the server.
+
+
+Quick version for FreeBSD
+-------------------------
 
 The build process for FreeBSD is rather complicated, but the good news is that
 there is a script in the 'scripts' folder that will at least attempt to do all
 the work for you. And should the script not work for you, you can still look
 through it and use it as an installation guide.
+
 
 
 Long version - requirements
