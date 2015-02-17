@@ -86,7 +86,7 @@ if [ "$yn" = "y" ]; then
 #export ZLIB_CFLAGS=-I/usr/include
 #export ZLIB_LIBS=-L/usr/lib
 
-	export CFLAGS="-march=native -g -Ofast -pipe -I/usr/local/include -I/usr/include"
+	export CFLAGS="-march=native -g -I/usr/local/include -I/usr/include"
 	export LDFLAGS="-L/usr/local/lib -L/usr/lib"
 	./configure --build=i386-portbld-freebsd10.1 && gmake
 
