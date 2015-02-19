@@ -280,6 +280,7 @@ int
 laudio_open(void)
 {
   audio_buf_info bi;
+  oss_sysinfo si;
   int scratch;
   int ret;
 
@@ -289,6 +290,14 @@ laudio_open(void)
       DPRINTF(E_LOG, L_LAUDIO, "Could not open sound device: %s\n", strerror(errno));
 
       return -1;
+    }
+
+  ret = ioctl(oss_fd, SNDCTL_SYSINFO, &si);
+  if ((ret < 0) || (si.versionnum < 0x040000))
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Your OSS version (%s) is unavailable or too old; version 4.0.0+ is required\n", si.version);
+
+      goto out_fail;
     }
 
   scratch = 0;
@@ -390,40 +399,9 @@ laudio_close(void)
 int
 laudio_init(laudio_status_cb cb)
 {
-  oss_sysinfo si;
-  int ret;
-
   status_cb = cb;
-  pcm_status = LAUDIO_CLOSED;
 
   card_name = cfg_getstr(cfg_getsec(cfg, "audio"), "card");
-
-  oss_fd = open(card_name, O_RDWR);
-  if (oss_fd < 0)
-    {
-      DPRINTF(E_FATAL, L_LAUDIO, "Could not open sound device: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  ret = ioctl(oss_fd, SNDCTL_SYSINFO, &si);
-
-  close(oss_fd);
-  oss_fd = -1;
-
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_LAUDIO, "Could not check OSS version: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  if (si.versionnum < 0x040000)
-    {
-      DPRINTF(E_FATAL, L_LAUDIO, "Your OSS version (%s) is too old; version 4.0.0+ is required\n", si.version);
-
-      return -1;
-    }
 
   return 0;
 }
