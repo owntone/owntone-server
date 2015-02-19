@@ -86,8 +86,8 @@ if [ "$yn" = "y" ]; then
 #export ZLIB_CFLAGS=-I/usr/include
 #export ZLIB_LIBS=-L/usr/lib
 
-	export CPATH="/usr/local/include:/usr/include"
-	export LIBRARY_PATH="/usr/local/lib:/usr/lib"
+	export CFLAGS="-march=native -g -I/usr/local/include -I/usr/include"
+	export LDFLAGS="-L/usr/local/lib -L/usr/lib"
 	./configure --build=i386-portbld-freebsd10.1 && gmake
 
 	read -p "Should the script install forked-daapd and add service startup scripts? [y/N] " yn
