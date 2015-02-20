@@ -202,6 +202,9 @@ FLAC and Musepack support are optional, and they are probably only required
 if your version of libav/ffmpeg is very old (version 0.5 or 0.6). Use
 --enable-flac and --enable-musepack to enable.
 
+Support for the MPD protocol is optional. Use --enable-mpd to enable this
+feature.
+
 Recommended build settings:
  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
 

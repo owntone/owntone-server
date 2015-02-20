@@ -21,6 +21,10 @@ if COND_LASTFM
 LASTFM_SRC=lastfm.c lastfm.h
 endif
 
+if COND_MPD
+MPD_SRC=mpd.c mpd.h
+endif
+
 if COND_ALSA
 ALSA_SRC=laudio_alsa.c
 endif
@@ -123,6 +127,7 @@ forked_daapd_SOURCES = main.c \
 	$(RTSP_SRC) \
 	scan-wma.c \
 	$(SPOTIFY_SRC) $(LASTFM_SRC) \
+	$(MPD_SRC) \
 	$(FLAC_SRC) $(MUSEPACK_SRC)
 
 nodist_forked_daapd_SOURCES = \

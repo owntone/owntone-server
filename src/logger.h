@@ -29,8 +29,9 @@
 #define L_SPOTIFY 20
 #define L_LASTFM  21
 #define L_CACHE   22
+#define L_MPD     23
 
-#define N_LOGDOMAINS  23
+#define N_LOGDOMAINS  24
 
 /* Severities */
 #define E_FATAL   0
