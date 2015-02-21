@@ -58,6 +58,7 @@
 #include "raop.h"
 #include "laudio.h"
 #include "worker.h"
+#include "listener.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -301,6 +302,8 @@ status_update(enum play_status status)
 
   if (update_handler)
     update_handler();
+
+  listener_notify(LISTENER_PLAYER);
 
   if (status == PLAY_PLAYING)
     dev_autoselect = 0;
