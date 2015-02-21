@@ -82,6 +82,41 @@ enum command_list_type
   COMMAND_LIST_NONE = 3
 };
 
+struct output
+{
+  unsigned short shortid;
+  uint64_t id;
+  char *name;
+
+  unsigned selected;
+
+  struct output *next;
+};
+
+struct outputs
+{
+  unsigned int count;
+  unsigned int active;
+  struct output *outputs;
+};
+
+static void
+free_outputs(struct output *outputs)
+{
+  struct output *temp;
+  struct output *next;
+
+  temp = outputs;
+  next = outputs ? outputs->next : NULL;
+  while (temp)
+    {
+      free(temp->name);
+      free(temp);
+      temp = next;
+      next = next ? next->next : NULL;
+    }
+}
+
 static void
 thread_exit(void)
 {
@@ -2184,38 +2219,361 @@ mpd_command_rescan(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 */
 
 /*
+ * Callback function for the 'player_speaker_enumerate' function.
+ * Adds a new struct output to the given struct outputs in *arg for the given speaker (id, name, etc.).
+ */
+static void
+outputs_enum_cb(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg)
+{
+  struct outputs *outputs;
+  struct output *output;
+
+  outputs = (struct outputs *)arg;
+
+  DPRINTF(E_DBG, L_MPD, "outputid: %" PRIu64 ", outputname: %s, outputenabled: %d\n",
+      id, name, flags.selected);
+
+  output = (struct output*)malloc(sizeof(struct output));
+
+  output->id = id;
+  output->shortid = (unsigned short) id;
+  output->name = strdup(name);
+  output->selected = flags.selected;
+
+  output->next = outputs->outputs;
+  outputs->outputs = output;
+  outputs->count++;
+  if (flags.selected)
+    outputs->active++;
+}
+
+/*
+ * Command handler function for 'disableoutput'
+ * Expects argument argv[1] to be the id of the speaker to disable.
+ */
+static int
+mpd_command_disableoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct outputs outputs;
+  struct output *output;
+  uint32_t num;
+  uint64_t *ids;
+  int nspk;
+  int i;
+  int ret;
+
+  if (argc < 2)
+    {
+      DPRINTF(E_LOG, L_MPD, "Missing argument for command 'disableoutput'\n");
+      ret = asprintf(errmsg, "Missing argument for command 'disableoutput'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atou32(argv[1], &num);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Argument doesn't convert to integer: '%s'\n", argv[1]);
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  outputs.count = 0;
+  outputs.active = 0;
+  outputs.outputs = NULL;
+
+  player_speaker_enumerate(outputs_enum_cb, &outputs);
+
+  nspk = outputs.active;
+  output = outputs.outputs;
+  while (output)
+    {
+      if (output->shortid == num && output->selected)
+	{
+	  nspk--;
+	  break;
+	}
+      output = output->next;
+    }
+
+  if (nspk == outputs.active)
+    {
+      DPRINTF(E_LOG, L_MPD, "No speaker to deactivate\n");
+      free_outputs(outputs.outputs);
+      return 0;
+    }
+
+  ids = (uint64_t *)malloc((nspk + 1) * sizeof(uint64_t));
+
+  ids[0] = nspk;
+
+  i = 1;
+  output = outputs.outputs;
+  while (output)
+    {
+      if (output->shortid != num && output->selected)
+      {
+	ids[i] = output->id;
+	i++;
+      }
+
+      output = output->next;
+    }
+
+  ret = player_speaker_set(ids);
+
+  free(ids);
+  free_outputs(outputs.outputs);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Speaker deactivation failed: %d\n", num);
+      ret = asprintf(errmsg, "Speakers deactivation failed: %d", num);
+
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  return 0;
+}
+
+/*
+ * Command handler function for 'enableoutput'
+ * Expects argument argv[1] to be the id of the speaker to enable.
+ */
+static int
+mpd_command_enableoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct outputs outputs;
+  struct output *output;
+  uint32_t num;
+  uint64_t *ids;
+  int nspk;
+  int i;
+  int ret;
+
+  if (argc < 2)
+    {
+      DPRINTF(E_LOG, L_MPD, "Missing argument for command 'disableoutput'\n");
+      ret = asprintf(errmsg, "Missing argument for command 'disableoutput'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atou32(argv[1], &num);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Argument doesn't convert to integer: '%s'\n", argv[1]);
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  outputs.count = 0;
+  outputs.active = 0;
+  outputs.outputs = NULL;
+
+  player_speaker_enumerate(outputs_enum_cb, &outputs);
+
+  nspk = outputs.active;
+  output = outputs.outputs;
+  while (output)
+    {
+      if (output->shortid == num && !output->selected)
+	{
+	  nspk++;
+	  break;
+	}
+      output = output->next;
+    }
+
+  if (nspk == outputs.active)
+    {
+      DPRINTF(E_LOG, L_MPD, "No speaker to activate\n");
+      free_outputs(outputs.outputs);
+      return 0;
+    }
+
+  ids = (uint64_t *)malloc((nspk + 1) * sizeof(uint64_t));
+
+  ids[0] = nspk;
+
+  i = 1;
+  output = outputs.outputs;
+  while (output)
+    {
+      if (output->shortid == num || output->selected)
+      {
+	ids[i] = output->id;
+	i++;
+      }
+
+      output = output->next;
+    }
+
+  ret = player_speaker_set(ids);
+
+  if (ids)
+    free(ids);
+  free_outputs(outputs.outputs);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Speaker activation failed: %d\n", num);
+      ret = asprintf(errmsg, "Speakers activation failed: %d", num);
+
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  return 0;
+}
+
+/*
+ * Command handler function for 'toggleoutput'
+ * Expects argument argv[1] to be the id of the speaker to enable/disable.
+ */
+static int
+mpd_command_toggleoutput(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct outputs outputs;
+  struct output *output;
+  uint32_t num;
+  uint64_t *ids;
+  int nspk;
+  int i;
+  int ret;
+
+  if (argc < 2)
+    {
+      DPRINTF(E_LOG, L_MPD, "Missing argument for command 'disableoutput'\n");
+      ret = asprintf(errmsg, "Missing argument for command 'disableoutput'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atou32(argv[1], &num);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Argument doesn't convert to integer: '%s'\n", argv[1]);
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  outputs.count = 0;
+  outputs.active = 0;
+  outputs.outputs = NULL;
+
+  player_speaker_enumerate(outputs_enum_cb, &outputs);
+
+  nspk = outputs.active;
+  output = outputs.outputs;
+  while (output)
+    {
+      if (output->shortid == num && !output->selected)
+	{
+	  nspk++;
+	  break;
+	}
+      else if (output->shortid == num && output->selected)
+	{
+	  nspk--;
+	  break;
+	}
+      output = output->next;
+    }
+
+  if (nspk == outputs.active)
+    {
+      DPRINTF(E_LOG, L_MPD, "No speaker to de/activate\n");
+      free_outputs(outputs.outputs);
+      return 0;
+    }
+
+  ids = (uint64_t *)malloc((nspk + 1) * sizeof(uint64_t));
+
+  ids[0] = nspk;
+
+  i = 1;
+  output = outputs.outputs;
+  while (output)
+    {
+      if ((output->shortid == num && !output->selected)
+	  || (output->shortid != num && output->selected))
+      {
+	ids[i] = output->id;
+	i++;
+      }
+
+      output = output->next;
+    }
+
+  ret = player_speaker_set(ids);
+
+  if (ids)
+    free(ids);
+  free_outputs(outputs.outputs);
+
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Speaker de/activation failed: %d\n", num);
+      ret = asprintf(errmsg, "Speakers de/activation failed: %d", num);
+
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  return 0;
+}
+
+/*
+ * Callback function for the 'outputs' command.
+ * Gets called for each available speaker and prints the speaker information to the evbuffer given in *arg.
+ *
+ * Example output:
+ *   outputid: 0
+ *   outputname: Computer
+ *   outputenabled: 1
+ */
 static void
 speaker_enum_cb(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg)
 {
-  / *
-   * outputid: 0
-   * outputname: My ALSA Device
-   * outputenabled: 0
-   * OK
-   * /
   struct evbuffer *evbuf;
 
   evbuf = (struct evbuffer *)arg;
 
   evbuffer_add_printf(evbuf,
-    "outputid: %" PRIi64 "\n"
+    "outputid: %d\n"
     "outputname: %s\n"
     "outputenabled: %d\n",
-    id,
+    (unsigned short) id,
     name,
     flags.selected);
 }
 
+/*
+ * Command handler function for 'outputs'
+ * Returns a lists with the avaiable speakers.
+ */
 static int
 mpd_command_outputs(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  int ret;
-
   player_speaker_enumerate(speaker_enum_cb, evbuf);
 
   return 0;
 }
-*/
+
 /*
  * Dummy function to handle commands that are not supported by forked-daapd and should
  * not raise an error.
@@ -2645,7 +3003,6 @@ static struct command mpd_handlers[] =
     /*
      * Audio output devices
      */
-    /*
     {
       .mpdcommand = "disableoutput",
       .handler = mpd_command_disableoutput
@@ -2662,7 +3019,6 @@ static struct command mpd_handlers[] =
       .mpdcommand = "outputs",
       .handler = mpd_command_outputs
     },
-    */
 
     /*
      * Reflection
