@@ -925,7 +925,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	}
       param++;
 
-      ret = safe_hextou32(param, &id);
+      ret = safe_hextou32(param, &pos);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Couldn't convert container-item-spec/item-spec to an integer in playspec (%s)\n", param);
@@ -934,9 +934,9 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	}
     }
   else
-    id = 0;
+    pos = 0;
 
-  DPRINTF(E_DBG, L_DACP, "Playspec request for playlist %d, start song id %d%s\n", plid, id, (shuffle) ? ", shuffle" : "");
+  DPRINTF(E_DBG, L_DACP, "Playspec request for playlist %d, start song id %d%s\n", plid, pos, (shuffle) ? ", shuffle" : "");
 
   ps = player_queue_make_pl(plid, &pos);
   if (!ps)
