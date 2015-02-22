@@ -727,6 +727,8 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   uint32_t id;
   uint32_t pos;
   int clear;
+  struct player_history *history;
+  int hist;
   int ret;
 
   /* /cue?command=play&query=...&sort=...&index=N */
@@ -783,12 +785,43 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	DPRINTF(E_LOG, L_DACP, "Invalid index (%s) in cue request\n", param);
     }
 
-  /* If selection was from Up Next queue (command will be playnow), then index is relative */
-  //TODO playnow for mode = 1 (index is relativ to the history queue
+  /* If selection was from Up Next queue or history queue (command will be playnow), then index is relative */
+  hist = 0;
   if ((param = evhttp_find_header(query, "command")) && (strcmp(param, "playnow") == 0))
-    pos += status.pos_pl;
+    {
+      /* If mode parameter is -1, the index is relative to the history queue, otherwise to the Up Next queue */
+      param = evhttp_find_header(query, "mode");
+      if (param && (strcmp(param, "-1") == 0))
+	{
+	  /* Play from history queue */
+	  hist = 1;
+	  history = player_history_get();
+	  if (history->count > pos)
+	    {
+	      pos = (history->start_index + history->count - pos - 1) % MAX_HISTORY_COUNT;
+	      id = history->id[pos];
+	    }
+	  else
+	    {
+	      DPRINTF(E_LOG, L_DACP, "Could not start playback from history\n");
 
-  ret = player_playback_startpos(pos, &id);
+	      dmap_send_error(req, "cacr", "Playback failed to start");
+	      return;
+	    }
+	}
+      else
+	{
+	  /* Play from Up Next queue */
+	  pos += status.pos_pl;
+	}
+    }
+
+  /* If playing from history queue, the pos holds the id of the item to play */
+  if (hist)
+    ret = player_playback_startid(id, &id);
+  else
+    ret = player_playback_startpos(pos, &id);
+
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
