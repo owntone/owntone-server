@@ -2138,7 +2138,7 @@ filescanner_init(void)
     }
 
   event_set(&cmdev, cmd_pipe[0], EV_READ, command_cb, NULL);
-  event_base_set(evbase_scan, &exitev);
+  event_base_set(evbase_scan, &cmdev);
   event_add(&cmdev, NULL);
 
   ret = pthread_create(&tid_scan, NULL, filescanner, NULL);
