@@ -239,7 +239,7 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(path),
     dbpli_offsetof(index),
     dbpli_offsetof(special_id),
-    dbmfi_offsetof(virtual_path),
+    dbpli_offsetof(virtual_path),
 
     /* items is computed on the fly */
   };
