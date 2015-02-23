@@ -239,7 +239,7 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(path),
     dbpli_offsetof(index),
     dbpli_offsetof(special_id),
-    dbmfi_offsetof(virtual_path),
+    dbpli_offsetof(virtual_path),
 
     /* items is computed on the fly */
   };
@@ -815,7 +815,7 @@ db_purge_cruft(time_t ref)
 void
 db_purge_all(void)
 {
-  char *queries[6] =
+  char *queries[5] =
     {
       "DELETE FROM inotify;",
       "DELETE FROM playlistitems;",
@@ -2104,7 +2104,7 @@ db_file_path_byid(int id)
       if (ret == SQLITE_DONE)
 	DPRINTF(E_DBG, L_DB, "No results\n");
       else
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
@@ -2153,7 +2153,7 @@ db_file_id_byquery(char *query)
       if (ret == SQLITE_DONE)
 	DPRINTF(E_DBG, L_DB, "No results\n");
       else
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_finalize(stmt);
       return 0;
@@ -2326,7 +2326,7 @@ db_file_stamp_bypath(char *path, time_t *stamp, int *id)
       if (ret == SQLITE_DONE)
 	DPRINTF(E_DBG, L_DB, "No results\n");
       else
-	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));	
+	DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
 
       sqlite3_finalize(stmt);
       sqlite3_free(query);
@@ -2641,7 +2641,7 @@ db_file_update(struct media_file_info *mfi)
 
   query = sqlite3_mprintf(Q_TMPL,
 			  STR(mfi->path), STR(mfi->fname), mfi->title, mfi->artist, mfi->album, mfi->genre,
-			  mfi->comment, mfi->type, mfi->composer, mfi->orchestra, mfi->conductor, mfi->grouping, 
+			  mfi->comment, mfi->type, mfi->composer, mfi->orchestra, mfi->conductor, mfi->grouping,
 			  mfi->url, mfi->bitrate, mfi->samplerate, mfi->song_length, mfi->file_size,
 			  mfi->year, mfi->track, mfi->total_tracks, mfi->disc, mfi->total_discs, mfi->bpm,
 			  mfi->compilation, mfi->artwork, mfi->rating, mfi->seek, mfi->data_kind, mfi->item_kind,
@@ -2649,7 +2649,7 @@ db_file_update(struct media_file_info *mfi)
 			  (int64_t)mfi->db_timestamp, (int64_t)mfi->disabled, mfi->sample_count,
 			  mfi->codectype, mfi->index, mfi->has_video,
 			  mfi->bits_per_sample, mfi->album_artist,
-			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str, 
+			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str,
 			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
 			  mfi->album_artist, mfi->album_artist, mfi->album,
 			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
@@ -5624,7 +5624,7 @@ db_upgrade_v15(void)
     " || QUOTE(composer_sort) || ', ' || QUOTE(album_artist_sort) || ');' FROM files;"
 
   return db_upgrade_files_table(Q_DUMP, U_V15_NEW_FILES_TABLE);
-  
+
 #undef Q_DUMP
 }
 

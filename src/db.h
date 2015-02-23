@@ -194,6 +194,7 @@ struct db_playlist_info {
   char *path;
   char *index;
   char *special_id;
+  char *virtual_path;
 };
 
 #define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
