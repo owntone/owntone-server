@@ -825,9 +825,9 @@ main(int argc, char **argv)
 #ifdef MPD
   DPRINTF(E_LOG, L_MAIN, "MPD deinit\n");
   mpd_deinit();
+ mpd_fail:
 #endif
 
- mpd_fail:
   DPRINTF(E_LOG, L_MAIN, "Player deinit\n");
   player_deinit();
 
