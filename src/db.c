@@ -280,6 +280,7 @@ static const char *sort_clause[] =
     "ORDER BY f.album_sort ASC, f.disc ASC, f.track ASC",
     "ORDER BY f.album_artist_sort ASC",
     "ORDER BY f.type DESC, f.special_id ASC, f.title ASC",
+    "ORDER BY f.year ASC",
   };
 
 static char *db_path;
@@ -1544,6 +1545,10 @@ db_query_start(struct query_params *qp)
 
       case Q_BROWSE_COMPOSERS:
 	ret = db_build_query_browse(qp, "composer", "composer_sort", &query);
+	break;
+
+      case Q_BROWSE_YEARS:
+	ret = db_build_query_browse(qp, "year", "year", &query);
 	break;
 
       default:

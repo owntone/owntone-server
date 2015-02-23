@@ -169,6 +169,17 @@ exit_cb(int fd, short what, void *arg)
   event_add(g_exitev, NULL);
 }
 
+static void
+mpd_time(char *buffer, size_t bufferlen, time_t t)
+{
+  struct tm tm;
+  const struct tm *tm2 = gmtime_r(&t, &tm);
+  if (tm2 == NULL)
+    return;
+
+  strftime(buffer, bufferlen, "%FT%TZ", tm2);
+}
+
 /*
  * Parses a rage argument of the form START:END (the END item is not included in the range)
  * into its start and end position.
@@ -348,42 +359,49 @@ mpd_parse_args(char *args, int *argc, char **argv)
 static int
 mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, int pos_pl)
 {
+  char modified[32];
   int ret;
 
-  if (pos_pl < 0)
+  mpd_time(modified, sizeof(modified), mfi->time_modified);
+
+  ret = evbuffer_add_printf(evbuf,
+    "file: %s\n"
+    "Last-Modified: %s\n"
+    "Time: %d\n"
+    "Artist: %s\n"
+    "AlbumArtist: %s\n"
+    "ArtistSort: %s\n"
+    "AlbumArtistSort: %s\n"
+    "Album: %s\n"
+    "Title: %s\n"
+    "Track: %d\n"
+    "Date: %d\n"
+    "Genre: %s\n"
+    "Disc: %d\n",
+    (mfi->virtual_path + 1),
+    modified,
+    (mfi->song_length / 1000),
+    mfi->artist,
+    mfi->album_artist,
+    mfi->artist_sort,
+    mfi->album_artist_sort,
+    mfi->album,
+    mfi->title,
+    mfi->track,
+    mfi->year,
+    mfi->genre,
+    mfi->disc);
+
+  if (pos_pl >= 0)
     {
       ret = evbuffer_add_printf(evbuf,
-	"file: %s\n"
-	"Time: %d\n"
-	"Artist: %s\n"
-	"Album: %s\n"
-	"Title: %s\n"
-	"Id: %d\n",
-	(mfi->virtual_path + 1),
-	(mfi->song_length / 1000),
-	mfi->artist,
-	mfi->album,
-	mfi->title,
-	mfi->id);
+	"Pos: %d\n",
+	pos_pl);
     }
-  else
-    {
-      ret = evbuffer_add_printf(evbuf,
-	"file: %s\n"
-	"Time: %d\n"
-	"Artist: %s\n"
-	"Album: %s\n"
-	"Title: %s\n"
-	"Pos: %d\n"
-	"Id: %d\n",
-	(mfi->virtual_path + 1),
-	(mfi->song_length / 1000),
-	mfi->artist,
-	mfi->album,
-	mfi->title,
-	pos_pl,
-	mfi->id);
-    }
+
+  ret = evbuffer_add_printf(evbuf,
+    "Id: %d\n",
+    mfi->id);
 
   return ret;
 }
@@ -445,8 +463,18 @@ mpd_add_mediainfo_byid(struct evbuffer *evbuf, int id, int pos_pl)
 static int
 mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *dbmfi)
 {
+  char modified[32];
+  uint32_t time_modified;
   uint32_t songlength;
   int ret;
+
+  if (safe_atou32(dbmfi->time_modified, &time_modified) != 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Error converting time modified to uint32_t: %s\n", dbmfi->time_modified);
+      return -1;
+    }
+
+  mpd_time(modified, sizeof(modified), time_modified);
 
   if (safe_atou32(dbmfi->song_length, &songlength) != 0)
     {
@@ -456,16 +484,32 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
 
   ret = evbuffer_add_printf(evbuf,
       "file: %s\n"
+      "Last-Modified: %s\n"
       "Time: %d\n"
       "Artist: %s\n"
+      "AlbumArtist: %s\n"
+      "ArtistSort: %s\n"
+      "AlbumArtistSort: %s\n"
       "Album: %s\n"
       "Title: %s\n"
+      "Track: %s\n"
+      "Date: %s\n"
+      "Genre: %s\n"
+      "Disc: %s\n"
       "Id: %s\n",
       (dbmfi->virtual_path + 1),
+      modified,
       (songlength / 1000),
       dbmfi->artist,
+      dbmfi->album_artist,
+      dbmfi->artist_sort,
+      dbmfi->album_artist_sort,
       dbmfi->album,
       dbmfi->title,
+      dbmfi->track,
+      dbmfi->year,
+      dbmfi->genre,
+      dbmfi->disc,
       dbmfi->id);
 
   return ret;
@@ -1651,6 +1695,218 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   return 0;
 }
 
+static int
+mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  return 0;
+}
+
+/*
+ * Command handler function for 'listplaylist'
+ * Lists all songs in the playlist given by virtual-path in argv[1].
+ */
+static int
+mpd_command_listplaylist(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  char path[PATH_MAX];
+  struct playlist_info *pli;
+  struct query_params qp;
+  struct db_media_file_info dbmfi;
+  int ret;
+
+  if (argc < 2)
+    {
+      DPRINTF(E_LOG, L_MPD, "Missing argument for command 'load'\n");
+      ret = asprintf(errmsg, "Missing argument for command 'load'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  if (strncmp(argv[1], "/", 1) == 0)
+    {
+      ret = snprintf(path, sizeof(path), "%s", argv[1]);
+    }
+  else
+    {
+      ret = snprintf(path, sizeof(path), "/%s", argv[1]);
+    }
+
+  pli = db_pl_fetch_byvirtualpath(path);
+  if (!pli)
+    {
+      DPRINTF(E_LOG, L_MPD, "Playlist not found for path '%s'\n", argv[1]);
+      ret = asprintf(errmsg, "Playlist not found for path '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_PLITEMS;
+  qp.idx_type = I_NONE;
+  qp.id = pli->id;
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+
+      free_pli(pli, 0);
+
+      DPRINTF(E_LOG, L_MPD, "Could not start query\n");
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      evbuffer_add_printf(evbuf,
+	  "file: %s\n",
+	  (dbmfi.virtual_path + 1));
+    }
+
+  db_query_end(&qp);
+
+  free_pli(pli, 0);
+
+  return 0;
+}
+
+/*
+ * Command handler function for 'listplaylistinfo'
+ * Lists all songs in the playlist given by virtual-path in argv[1] with metadata.
+ */
+static int
+mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  char path[PATH_MAX];
+  struct playlist_info *pli;
+  struct query_params qp;
+  struct db_media_file_info dbmfi;
+  int ret;
+
+  if (argc < 2)
+    {
+      DPRINTF(E_LOG, L_MPD, "Missing argument for command 'load'\n");
+      ret = asprintf(errmsg, "Missing argument for command 'load'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  if (strncmp(argv[1], "/", 1) == 0)
+    {
+      ret = snprintf(path, sizeof(path), "%s", argv[1]);
+    }
+  else
+    {
+      ret = snprintf(path, sizeof(path), "/%s", argv[1]);
+    }
+
+  pli = db_pl_fetch_byvirtualpath(path);
+  if (!pli)
+    {
+      DPRINTF(E_LOG, L_MPD, "Playlist not found for path '%s'\n", argv[1]);
+      ret = asprintf(errmsg, "Playlist not found for path '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_PLITEMS;
+  qp.idx_type = I_NONE;
+  qp.id = pli->id;
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+
+      free_pli(pli, 0);
+
+      DPRINTF(E_LOG, L_MPD, "Could not start query\n");
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Error adding song to the evbuffer, song id: %s\n", dbmfi.id);
+	}
+    }
+
+  db_query_end(&qp);
+
+  free_pli(pli, 0);
+
+  return 0;
+}
+
+/*
+ * Command handler function for 'listplaylists'
+ * Lists all playlists with their last modified date.
+ */
+static int
+mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct query_params qp;
+  struct db_playlist_info dbpli;
+  char modified[32];
+  uint32_t time_modified;
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_PL;
+  qp.sort = S_PLAYLIST;
+  qp.idx_type = I_NONE;
+  qp.filter = "(f.type = 0)";
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+
+      DPRINTF(E_LOG, L_MPD, "Could not start query\n");
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+    {
+      if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
+        {
+          DPRINTF(E_LOG, L_MPD, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
+          return -1;
+        }
+
+      mpd_time(modified, sizeof(modified), time_modified);
+
+      evbuffer_add_printf(evbuf,
+	  "playlist: %s\n"
+	  "Last-Modified: %s\n",
+	  (dbpli.virtual_path + 1),
+	  modified);
+    }
+
+  db_query_end(&qp);
+
+  return 0;
+}
+
 /*
  * Command handler function for 'load'
  * Adds the playlist given by virtual-path in argv[1] to the queue.
@@ -1871,6 +2127,8 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   struct query_params qp;
   struct db_group_info dbgri;
   char *type;
+  char *browse_item;
+  char *sort_item;
   int ret;
 
   if (argc < 2 || ((argc % 2) != 0))
@@ -1900,6 +2158,12 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       qp.sort = S_ALBUM;
       type = "Album: ";
     }
+  else if (0 == strcasecmp(argv[1], "date"))
+    {
+      qp.type = Q_BROWSE_YEARS;
+      qp.sort = S_YEAR;
+      type = "Date: ";
+    }
   else
     {
       DPRINTF(E_WARN, L_MPD, "Unsupported type argument for command 'list': %s\n", argv[1]);
@@ -1925,12 +2189,25 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  while ((ret = db_query_fetch_group(&qp, &dbgri)) == 0)
+  if (qp.type == Q_BROWSE_YEARS)
     {
-      evbuffer_add_printf(evbuf,
-            "%s%s\n",
-	    type,
-            dbgri.itemname);
+      while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
+	{
+	  evbuffer_add_printf(evbuf,
+		"%s%s\n",
+		type,
+		browse_item);
+	}
+    }
+  else
+    {
+      while ((ret = db_query_fetch_group(&qp, &dbgri)) == 0)
+	{
+	  evbuffer_add_printf(evbuf,
+		"%s%s\n",
+		type,
+		dbgri.itemname);
+	}
     }
 
   db_query_end(&qp);
@@ -1949,6 +2226,7 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   char parent[PATH_MAX];
   struct filelist_info *fi;
   struct media_file_info *mfi;
+  char modified[32];
   int ret;
 
   if (argc < 2 || strlen(argv[1]) == 0
@@ -1996,17 +2274,23 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     {
       if (fi->type == F_DIR)
 	{
+	  mpd_time(modified, sizeof(modified), fi->time_modified);
+
 	  evbuffer_add_printf(evbuf,
 	    "directory: %s\n"
-	    "Last-Modified: 2014-07-11T14:13:56Z\n", //TODO Send correct last modified timestamp
-	    (fi->virtual_path + 1));
+	    "Last-Modified: %s\n",
+	    (fi->virtual_path + 1),
+	    modified);
 	}
       else if (fi->type == F_PLAYLIST)
 	{
+	  mpd_time(modified, sizeof(modified), fi->time_modified);
+
 	  evbuffer_add_printf(evbuf,
 	    "playlist: %s\n"
-	    "Last-Modified: 2014-07-11T14:13:56Z\n", //TODO Send correct last modified timestamp
-	    (fi->virtual_path + 1));
+	    "Last-Modified: %s\n",
+	    (fi->virtual_path + 1),
+	    modified);
 	}
       else if (fi->type == F_FILE)
 	{
@@ -2794,10 +3078,12 @@ static struct command mpd_handlers[] =
       .mpdcommand = "playlistsearch",
       .handler = mpd_command_playlistsearch
     },
+    */
     {
       .mpdcommand = "plchanges",
       .handler = mpd_command_plchanges
     },
+    /*
     {
       .mpdcommand = "plchangesposid",
       .handler = mpd_command_plchangesposid
@@ -2839,7 +3125,6 @@ static struct command mpd_handlers[] =
     /*
      * Stored playlists
      */
-    /*
     {
       .mpdcommand = "listplaylist",
       .handler = mpd_command_listplaylist
@@ -2851,8 +3136,7 @@ static struct command mpd_handlers[] =
     {
       .mpdcommand = "listplaylists",
       .handler = mpd_command_listplaylists
-    },load
-    */
+    },
     {
       .mpdcommand = "load",
       .handler = mpd_command_load
@@ -3006,11 +3290,11 @@ static struct command mpd_handlers[] =
       .mpdcommand = "password",
       .handler = mpd_command_password
     },
+     */
     {
       .mpdcommand = "ping",
-      .handler = mpd_command_ping
+      .handler = mpd_command_ignore
     },
-     */
 
     /*
      * Audio output devices
