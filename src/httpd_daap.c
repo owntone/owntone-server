@@ -40,7 +40,6 @@
 #include <uninorm.h>
 #include <unistd.h>
 
-#include "avl/avl.h"
 #include "logger.h"
 #include "db.h"
 #include "conffile.h"
@@ -54,14 +53,13 @@
 #include "cache.h"
 
 #ifdef HAVE_LIBEVENT2
+# include <event2/util.h>
 # include <event2/http_struct.h>
 #endif
 
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
 
-/* First session id to use */
-#define DAAP_BASE_SESSION_ID 100
 /* Session timeout in seconds */
 #define DAAP_SESSION_TIMEOUT 0 /* By default the session never times out */
 /* We announce this timeout to the client when returning server capabilities */
@@ -79,7 +77,9 @@ struct uri_map {
 struct daap_session {
   int id;
   char *user_agent;
-  struct event timeout;
+  struct event *timeout;
+
+  struct daap_session *next;
 };
 
 struct daap_update_request {
@@ -106,8 +106,8 @@ static char *default_meta_pl = "dmap.itemid,dmap.itemname,dmap.persistentid,com.
 static char *default_meta_group = "dmap.itemname,dmap.persistentid,daap.songalbumartist";
 
 /* DAAP session tracking */
-static avl_tree_t *daap_sessions;
-static int next_session_id;
+static struct daap_session *daap_sessions;
+static struct timeval daap_session_timeout_tv = { DAAP_SESSION_TIMEOUT, 0 };
 
 /* Update requests */
 static int current_rev;
@@ -115,30 +115,11 @@ static struct daap_update_request *update_requests;
 
 
 /* Session handling */
-static int
-daap_session_compare(const void *aa, const void *bb)
-{
-  struct daap_session *a = (struct daap_session *)aa;
-  struct daap_session *b = (struct daap_session *)bb;
-
-  if (a->id < b->id)
-    return -1;
-
-  if (a->id > b->id)
-    return 1;
-
-  return 0;
-}
-
 static void
-daap_session_free(void *item)
+daap_session_free(struct daap_session *s)
 {
-  struct daap_session *s;
-
-  s = (struct daap_session *)item;
-
-  if (event_initialized(&s->timeout))
-    evtimer_del(&s->timeout);
+  if (s->timeout)
+    event_free(s->timeout);
 
   if (s->user_agent)
     free(s->user_agent);
@@ -147,9 +128,32 @@ daap_session_free(void *item)
 }
 
 static void
-daap_session_kill(struct daap_session *s)
+daap_session_remove(struct daap_session *s)
 {
-  avl_delete(daap_sessions, s);
+  struct daap_session *ptr;
+  struct daap_session *prev;
+
+  prev = NULL;
+  for (ptr = daap_sessions; ptr; ptr = ptr->next)
+    {
+      if (ptr == s)
+	break;
+
+      prev = ptr;
+    }
+
+  if (!ptr)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Error: Request to remove non-existent session. BUG!\n");
+      return;
+    }
+
+  if (!prev)
+    daap_sessions = s->next;
+  else
+    prev->next = s->next;
+
+  daap_session_free(s);
 }
 
 static void
@@ -161,16 +165,27 @@ daap_session_timeout_cb(int fd, short what, void *arg)
 
   DPRINTF(E_DBG, L_DAAP, "Session %d timed out\n", s->id);
 
-  daap_session_kill(s);
+  daap_session_remove(s);
 }
 
 static struct daap_session *
-daap_session_register(const char *user_agent, int request_session_id)
+daap_session_get(int id)
 {
-  struct timeval tv;
   struct daap_session *s;
-  avl_node_t *node;
-  int ret;
+
+  for (s = daap_sessions; s; s = s->next)
+    {
+      if (id == s->id)
+	return s;
+    }
+
+  return NULL;
+}
+
+static struct daap_session *
+daap_session_add(const char *user_agent, int request_session_id)
+{
+  struct daap_session *s;
 
   s = (struct daap_session *)malloc(sizeof(struct daap_session));
   if (!s)
@@ -181,54 +196,37 @@ daap_session_register(const char *user_agent, int request_session_id)
 
   memset(s, 0, sizeof(struct daap_session));
 
-  if (!request_session_id)
+  if (request_session_id)
     {
-      s->id = next_session_id;
-      next_session_id++;
-    }
-  else if (request_session_id < DAAP_BASE_SESSION_ID)
-    {
-      s->id = request_session_id;
-      if (avl_search(daap_sessions, s))
+      if (daap_session_get(request_session_id))
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Session id requested in login (%d) is not available\n", request_session_id);
 	  return NULL;
 	}
-    }    
+      
+      s->id = request_session_id;
+    }
   else
     {
-      DPRINTF(E_LOG, L_DAAP, "Session id requested in login (%d) must be below %d\n", request_session_id, DAAP_BASE_SESSION_ID);
-      return NULL;
+      while ( (s->id = rand() + 100) && daap_session_get(s->id) );
     }
 
   if (user_agent)
     s->user_agent = strdup(user_agent);
 
-  if (DAAP_SESSION_TIMEOUT > 0) {
-    evtimer_set(&s->timeout, daap_session_timeout_cb, s);
-    event_base_set(evbase_httpd, &s->timeout);
-  }
+  if (daap_sessions)
+    s->next = daap_sessions;
 
-  node = avl_insert(daap_sessions, s);
-  if (!node)
+  daap_sessions = s;
+
+  if (DAAP_SESSION_TIMEOUT > 0)
     {
-      DPRINTF(E_LOG, L_DAAP, "Could not register DAAP session: %s\n", strerror(errno));
-
-      if (user_agent)
-	free(s->user_agent);
-
-      free(s);
-      return NULL;
+      s->timeout = evtimer_new(evbase_httpd, daap_session_timeout_cb, s);
+      if (!s->timeout)
+	DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
+      else
+        evtimer_add(s->timeout, &daap_session_timeout_tv);
     }
-
-  if (DAAP_SESSION_TIMEOUT > 0) {
-    evutil_timerclear(&tv);
-    tv.tv_sec = DAAP_SESSION_TIMEOUT;
-    
-    ret = evtimer_add(&s->timeout, &tv);
-    if (ret < 0)
-      DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
-  }
 
   return s;
 }
@@ -236,11 +234,9 @@ daap_session_register(const char *user_agent, int request_session_id)
 struct daap_session *
 daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct evbuffer *evbuf)
 {
-  struct daap_session needle;
-  struct timeval tv;
   struct daap_session *s;
-  avl_node_t *node;
   const char *param;
+  int id;
   int ret;
 
   if (!req)
@@ -253,31 +249,19 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
       goto invalid;
     }
 
-  ret = safe_atoi32(param, &needle.id);
+  ret = safe_atoi32(param, &id);
   if (ret < 0)
     goto invalid;
 
-  node = avl_search(daap_sessions, &needle);
-  if (!node)
+  s = daap_session_get(id);
+  if (!s)
     {
-      DPRINTF(E_WARN, L_DAAP, "DAAP session id %d not found\n", needle.id);
+      DPRINTF(E_WARN, L_DAAP, "DAAP session id %d not found\n", id);
       goto invalid;
     }
 
-  s = (struct daap_session *)node->item;
-
-  if (DAAP_SESSION_TIMEOUT > 0) {
-    event_del(&s->timeout);
-  }
-
-  evutil_timerclear(&tv);
-  tv.tv_sec = DAAP_SESSION_TIMEOUT;
-
-  if (DAAP_SESSION_TIMEOUT > 0) {
-    ret = evtimer_add(&s->timeout, &tv);
-    if (ret < 0)
-      DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
-  }
+  if (s->timeout)
+    evtimer_add(s->timeout, &daap_session_timeout_tv);
 
   return s;
 
@@ -288,6 +272,14 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
 
 
 /* Update requests helpers */
+static void
+update_free(struct daap_update_request *ur)
+{
+  if (event_initialized(&ur->timeout))
+    evtimer_del(&ur->timeout);
+  free(ur);
+}
+
 static void
 update_remove(struct daap_update_request *ur)
 {
@@ -308,14 +300,8 @@ update_remove(struct daap_update_request *ur)
 
       p->next = ur->next;
     }
-}
 
-static void
-update_free(struct daap_update_request *ur)
-{
-  if (event_initialized(&ur->timeout))
-    evtimer_del(&ur->timeout);
-  free(ur);
+  update_free(ur);
 }
 
 static void
@@ -355,7 +341,6 @@ update_refresh_cb(int fd, short event, void *arg)
   httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
 
   update_remove(ur);
-  update_free(ur);
 }
 
 static void
@@ -373,7 +358,6 @@ update_fail_cb(struct evhttp_connection *evcon, void *arg)
     evhttp_connection_set_closecb(evc, NULL, NULL);
 
   update_remove(ur);
-  update_free(ur);
 }
 
 
@@ -978,7 +962,7 @@ daap_reply_login(struct evhttp_request *req, struct evbuffer *evbuf, char **uri,
   else
     request_session_id = 0;
 
-  s = daap_session_register(ua, request_session_id);
+  s = daap_session_add(ua, request_session_id);
   if (!s)
     {
       dmap_send_error(req, "mlog", "Could not start session");
@@ -1003,7 +987,7 @@ daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   if (!s)
     return -1;
 
-  daap_session_kill(s);
+  daap_session_remove(s);
 
   httpd_send_reply(req, 204, "Logout Successful", evbuf);
 
@@ -2889,7 +2873,7 @@ daap_init(void)
   int i;
   int ret;
 
-  next_session_id = DAAP_BASE_SESSION_ID;
+  srand((unsigned)time(NULL));
   current_rev = 2;
   update_requests = NULL;
 
@@ -2905,26 +2889,13 @@ daap_init(void)
         }
     }
 
-  daap_sessions = avl_alloc_tree(daap_session_compare, daap_session_free);
-  if (!daap_sessions)
-    {
-      DPRINTF(E_FATAL, L_DAAP, "DAAP init could not allocate DAAP sessions AVL tree\n");
-
-      goto daap_avl_alloc_fail;
-    }
-
   return 0;
-
- daap_avl_alloc_fail:
-  for (i = 0; daap_handlers[i].handler; i++)
-    regfree(&daap_handlers[i].preg);
-
-  return -1;
 }
 
 void
 daap_deinit(void)
 {
+  struct daap_session *s;
   struct daap_update_request *ur;
   struct evhttp_connection *evcon;
   int i;
@@ -2932,7 +2903,11 @@ daap_deinit(void)
   for (i = 0; daap_handlers[i].handler; i++)
     regfree(&daap_handlers[i].preg);
 
-  avl_free_tree(daap_sessions);
+  for (s = daap_sessions; daap_sessions; s = daap_sessions)
+    {
+      daap_sessions = s->next;
+      daap_session_free(s);
+    }
 
   for (ur = update_requests; update_requests; ur = update_requests)
     {
