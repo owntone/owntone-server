@@ -885,7 +885,7 @@ mpd_command_next(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Player returned an error for start after nextitem\n");
-      ret = asprintf(errmsg, "Player returned an error for start after nextitem\n");
+      ret = asprintf(errmsg, "Player returned an error for start after nextitem");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
@@ -1079,7 +1079,7 @@ mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errms
     if (ret < 0)
       {
         DPRINTF(E_LOG, L_MPD, "Player returned an error for start after previtem\n");
-        ret = asprintf(errmsg, "Player returned an error for start after previtem\n");
+        ret = asprintf(errmsg, "Player returned an error for start after previtem");
 	if (ret < 0)
 	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 	return ACK_ERROR_UNKNOWN;
@@ -1124,7 +1124,7 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (songpos != 0)
     {
       DPRINTF(E_LOG, L_MPD, "Given song is not the current playing one, seeking is not supported\n");
-      ret = asprintf(errmsg, "Given song is not the current playing one, seeking is not supported\n");
+      ret = asprintf(errmsg, "Given song is not the current playing one, seeking is not supported");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
@@ -1138,7 +1138,7 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       DPRINTF(E_DBG, L_MPD, "Failed to seek current song to time %d msec\n", seek_target_msec);
-      ret = asprintf(errmsg, "Failed to seek current song to time %d msec\n", seek_target_msec);
+      ret = asprintf(errmsg, "Failed to seek current song to time %d msec", seek_target_msec);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
@@ -1148,7 +1148,7 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     if (ret < 0)
       {
         DPRINTF(E_LOG, L_MPD, "Player returned an error for start after seekcur\n");
-        ret = asprintf(errmsg, "Player returned an error for start after seekcur\n");
+        ret = asprintf(errmsg, "Player returned an error for start after seekcur");
 	if (ret < 0)
 	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 	return ACK_ERROR_UNKNOWN;
@@ -1195,7 +1195,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (status.id != id)
     {
       DPRINTF(E_LOG, L_MPD, "Given song is not the current playing one, seeking is not supported\n");
-      ret = asprintf(errmsg, "Given song is not the current playing one, seeking is not supported\n");
+      ret = asprintf(errmsg, "Given song is not the current playing one, seeking is not supported");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
@@ -1209,7 +1209,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       DPRINTF(E_DBG, L_MPD, "Failed to seek current song to time %d msec\n", seek_target_msec);
-      ret = asprintf(errmsg, "Failed to seek current song to time %d msec\n", seek_target_msec);
+      ret = asprintf(errmsg, "Failed to seek current song to time %d msec", seek_target_msec);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
@@ -1219,7 +1219,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     if (ret < 0)
       {
         DPRINTF(E_LOG, L_MPD, "Player returned an error for start after seekcur\n");
-        ret = asprintf(errmsg, "Player returned an error for start after seekcur\n");
+        ret = asprintf(errmsg, "Player returned an error for start after seekcur");
 	if (ret < 0)
 	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 	return ACK_ERROR_UNKNOWN;
@@ -1257,7 +1257,7 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   if (ret < 0)
     {
       DPRINTF(E_DBG, L_MPD, "Failed to seek current song to time %d msec\n", seek_target_msec);
-      ret = asprintf(errmsg, "Failed to seek current song to time %d msec\n", seek_target_msec);
+      ret = asprintf(errmsg, "Failed to seek current song to time %d msec", seek_target_msec);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
@@ -1267,7 +1267,7 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
     if (ret < 0)
       {
         DPRINTF(E_LOG, L_MPD, "Player returned an error for start after seekcur\n");
-        ret = asprintf(errmsg, "Player returned an error for start after seekcur\n");
+        ret = asprintf(errmsg, "Player returned an error for start after seekcur");
 	if (ret < 0)
 	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 	return ACK_ERROR_UNKNOWN;
@@ -1324,7 +1324,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (!ps)
     {
       DPRINTF(E_DBG, L_MPD, "Failed to add song '%s' to playlist\n", argv[1]);
-      ret = asprintf(errmsg, "Failed to add song '%s' to playlist\n", argv[1]);
+      ret = asprintf(errmsg, "Failed to add song '%s' to playlist", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
@@ -1373,7 +1373,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (!ps)
     {
       DPRINTF(E_DBG, L_MPD, "Failed to add song '%s' to playlist\n", argv[1]);
-      ret = asprintf(errmsg, "Failed to add song '%s' to playlist\n", argv[1]);
+      ret = asprintf(errmsg, "Failed to add song '%s' to playlist", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
@@ -1567,7 +1567,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
 	  if (ret < 0)
 	    {
 	      DPRINTF(E_LOG, L_MPD, "Error adding media info for file with id: %d\n", queue->queue[i]);
-	      ret = asprintf(errmsg, "Error adding media info for file with id: %d\n", queue->queue[i]);
+	      ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i]);
 
 	      queue_free(queue);
 
@@ -1634,7 +1634,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_MPD, "Error adding media info for file with id: %d\n", queue->queue[i]);
-	  ret = asprintf(errmsg, "Error adding media info for file with id: %d\n", queue->queue[i]);
+	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i]);
 
 	  queue_free(queue);
 
@@ -1701,7 +1701,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       free_pli(pli, 0);
 
       DPRINTF(E_DBG, L_MPD, "Failed to add song '%s' to playlist\n", argv[1]);
-      ret = asprintf(errmsg, "Failed to add song '%s' to playlist\n", argv[1]);
+      ret = asprintf(errmsg, "Failed to add song '%s' to playlist", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
@@ -1778,6 +1778,11 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
       else if (0 == strcasecmp(argv[i], "title"))
 	{
 	  c1 = sqlite3_mprintf("(f.title = '%q')", argv[i + 1]);
+	}
+      else if (i == 0 && argc == 1)
+	{
+	  // Special case: a single token is allowed if listing albums for an artist
+	  c1 = sqlite3_mprintf("(f.album_artist = '%q')", argv[i]);
 	}
       else
 	{
@@ -1868,13 +1873,16 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   char *type;
   int ret;
 
-  if (argc < 2 || (argc % 2) != 0)
+  if (argc < 2 || ((argc % 2) != 0))
     {
-      DPRINTF(E_LOG, L_MPD, "Missing argument(s) for command 'list'\n");
-      ret = asprintf(errmsg, "Missing argument(s) for command 'list'");
-      if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_ARG;
+      if (argc != 3 || (0 != strcasecmp(argv[1], "album")))
+	{
+	  DPRINTF(E_LOG, L_MPD, "Missing argument(s) for command 'list'\n");
+	  ret = asprintf(errmsg, "Missing argument(s) for command 'list'");
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  return ACK_ERROR_ARG;
+	}
     }
 
   memset(&qp, 0, sizeof(struct query_params));
@@ -1976,7 +1984,7 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Could not start query for path '%s'\n", argv[1]);
-      ret = asprintf(errmsg, "Could not start query for path '%s'\n", argv[1]);
+      ret = asprintf(errmsg, "Could not start query for path '%s'", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
 
@@ -2629,7 +2637,7 @@ static struct command mpd_handlers[] =
       .handler = mpd_command_idle
     },
     {
-      .mpdcommand = "idle",
+      .mpdcommand = "noidle",
       .handler = mpd_command_noidle
     },
     {
