@@ -54,8 +54,6 @@ EVHTTP_SRC=
 RTSP_SRC=evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
 endif
 
-AVL_SRC=avl/avl.c avl/avl.h
-
 GPERF_FILES = \
 	daap_query.gperf \
 	rsp_query.gperf \
@@ -102,7 +100,6 @@ forked_daapd_SOURCES = main.c \
 	logger.c logger.h \
 	conffile.c conffile.h \
 	cache.c cache.h \
-	$(AVL_SRC) \
 	filescanner.c filescanner.h \
 	filescanner_ffmpeg.c filescanner_playlist.c filescanner_icy.c $(ITUNES_SRC) \
 	mdns_avahi.c mdns.h \
