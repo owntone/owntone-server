@@ -43,7 +43,6 @@
 # include "evhttp/evhttp.h"
 #endif
 
-#include "avl/avl.h"
 #include "logger.h"
 #include "db.h"
 #include "filescanner.h"
@@ -51,11 +50,17 @@
 #include "misc.h"
 
 
-/* Mapping between iTunes library IDs and our DB IDs */
+/* Mapping between iTunes library IDs and our DB IDs using a "hash" table of
+ * size ID_MAP_SIZE
+ */
+#define ID_MAP_SIZE 16384
 struct itml_to_db_map {
   uint64_t itml_id;
   uint32_t db_id;
+  struct itml_to_db_map *next;
 };
+struct itml_to_db_map **id_map;
+
 
 /* Mapping between iTunes library metadata keys and the offset
  * of the equivalent metadata field in struct media_file_info */
@@ -89,24 +94,65 @@ static struct metadata_map md_map[] =
     { NULL,           0, 0 }
   };
 
-static avl_tree_t *itml_to_db;
-
-
-static int
-itml_to_db_compare(const void *aa, const void *bb)
+static void
+id_map_free(void)
 {
-  struct itml_to_db_map *a = (struct itml_to_db_map *)aa;
-  struct itml_to_db_map *b = (struct itml_to_db_map *)bb;
+  struct itml_to_db_map *map;
+  int i;
 
-  if (a->itml_id < b->itml_id)
+  for (i = 0; i < ID_MAP_SIZE; i++)
+    {
+      if (!id_map[i])
+	continue;
+
+      for (map = id_map[i]; id_map[i]; map = id_map[i])
+	{
+	  id_map[i] = map->next;
+	  free(map);
+	}
+    }
+
+  free(id_map);
+}
+
+/* Inserts a linked list item into "hash" position in the id_table */
+static int
+id_map_add(uint64_t itml_id, uint32_t db_id)
+{
+  struct itml_to_db_map *new_map;
+  struct itml_to_db_map *cur_map;
+  int i;
+
+  new_map = malloc(sizeof(struct itml_to_db_map));
+  if (!new_map)
     return -1;
 
-  if (a->itml_id > b->itml_id)
-    return 1;
+  new_map->itml_id = itml_id;
+  new_map->db_id = db_id;
+
+  i = itml_id % ID_MAP_SIZE;
+  cur_map = id_map[i];
+  new_map->next = cur_map;
+  id_map[i] = new_map;
 
   return 0;
 }
 
+static uint32_t
+id_map_get(uint64_t itml_id)
+{
+  struct itml_to_db_map *map;
+  int i;
+
+  i = itml_id % ID_MAP_SIZE;
+  for (map = id_map[i]; map; map = map->next)
+    {
+      if (itml_id == map->itml_id)
+	return map->db_id;
+    }
+
+  return 0;
+}
 
 /* plist helpers */
 static int
@@ -474,8 +520,6 @@ process_tracks(plist_t tracks)
 {
   plist_t trk;
   plist_dict_iter iter;
-  struct itml_to_db_map *map;
-  avl_node_t *mapnode;
   char *str;
   uint64_t trk_id;
   uint8_t disabled;
@@ -561,28 +605,9 @@ process_tracks(plist_t tracks)
 
       ntracks++;
 
-      map = (struct itml_to_db_map *)malloc(sizeof(struct itml_to_db_map));
-      if (!map)
-	{
-	  DPRINTF(E_WARN, L_SCAN, "Out of memory for itml -> db mapping\n");
-
-	  plist_dict_next_item(tracks, iter, NULL, &trk);
-	  continue;
-	}
-
-      map->itml_id = trk_id;
-      map->db_id = mfi_id;
-
-      mapnode = avl_insert(itml_to_db, map);
-      if (!mapnode)
-	{
-	  if (errno == EEXIST)
-	    DPRINTF(E_WARN, L_SCAN, "Track %" PRIu64 " already in itml -> db map?!\n", trk_id);
-	  else
-	    DPRINTF(E_WARN, L_SCAN, "Track %" PRIu64 ": AVL insert error: %s\n", trk_id, strerror(errno));
-
-	  free(map);
-	}
+      ret = id_map_add(trk_id, mfi_id);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_SCAN, "Out of memory for itml -> db mapping\n");
 
       plist_dict_next_item(tracks, iter, NULL, &trk);
     }
@@ -596,10 +621,9 @@ process_tracks(plist_t tracks)
 static void
 process_pl_items(plist_t items, int pl_id)
 {
-  struct itml_to_db_map needle;
-  struct itml_to_db_map *map;
   plist_t trk;
-  avl_node_t *mapnode;
+  uint64_t itml_id;
+  uint32_t db_id;
   uint32_t alen;
   uint32_t i;
   int ret;
@@ -612,25 +636,23 @@ process_pl_items(plist_t items, int pl_id)
       if (plist_get_node_type(trk) != PLIST_DICT)
 	continue;
 
-      ret = get_dictval_int_from_key(trk, "Track ID", &needle.itml_id);
+      ret = get_dictval_int_from_key(trk, "Track ID", &itml_id);
       if (ret < 0)
 	{
 	  DPRINTF(E_WARN, L_SCAN, "No Track ID found for playlist item %u\n", i);
 	  continue;
 	}
 
-      mapnode = avl_search(itml_to_db, &needle);
-      if (!mapnode)
+      db_id = id_map_get(itml_id);
+      if (!db_id)
 	{
-	  DPRINTF(E_INFO, L_SCAN, "Track ID %" PRIu64 " dropped\n", needle.itml_id);
+	  DPRINTF(E_INFO, L_SCAN, "Track ID %" PRIu64 " dropped\n", itml_id);
 	  continue;
 	}
 
-      map = (struct itml_to_db_map *)mapnode->item;
-
-      ret = db_pl_add_item_byid(pl_id, map->db_id);
+      ret = db_pl_add_item_byid(pl_id, db_id);
       if (ret < 0)
-	DPRINTF(E_WARN, L_SCAN, "Could not add ID %d to playlist\n", map->db_id);
+	DPRINTF(E_WARN, L_SCAN, "Could not add ID %d to playlist\n", db_id);
     }
 }
 
@@ -766,6 +788,7 @@ scan_itunes_itml(char *file)
   plist_t itml;
   plist_t node;
   int fd;
+  int size;
   int ret;
 
   DPRINTF(E_LOG, L_SCAN, "Processing iTunes library: %s\n", file);
@@ -838,21 +861,23 @@ scan_itunes_itml(char *file)
       return;
     }
 
-  itml_to_db = avl_alloc_tree(itml_to_db_compare, free);
-  if (!itml_to_db)
+  size = ID_MAP_SIZE * sizeof(struct itml_to_db_map *);
+  id_map = malloc(size);
+  if (!id_map)
     {
-      DPRINTF(E_FATAL, L_SCAN, "iTunes library parser could not allocate AVL tree\n");
+      DPRINTF(E_FATAL, L_SCAN, "iTunes library parser could not allocate ID map\n");
 
       plist_free(itml);
       return;
     }
+  memset(id_map, 0, size);
 
   ptr = strrchr(file, '/');
   if (!ptr)
     {
       DPRINTF(E_FATAL, L_SCAN, "Invalid filename\n");
 
-      avl_free_tree(itml_to_db);
+      id_map_free();
       plist_free(itml);
       return;
     }
@@ -864,7 +889,7 @@ scan_itunes_itml(char *file)
     {
       DPRINTF(E_LOG, L_SCAN, "No tracks loaded\n");
 
-      avl_free_tree(itml_to_db);
+      id_map_free();
       plist_free(itml);
       return;
     }
@@ -879,13 +904,13 @@ scan_itunes_itml(char *file)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not find Playlists dict\n");
 
-      avl_free_tree(itml_to_db);
+      id_map_free();
       plist_free(itml);
       return;
     }
 
   process_pls(node, file);
 
-  avl_free_tree(itml_to_db);
+  id_map_free();
   plist_free(itml);
 }
