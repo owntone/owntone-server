@@ -56,7 +56,7 @@ if [ -z "$pin" ]; then
 fi
 
 echo "Writing pair.remote to $library_path..."
-echo -e "$remote\n$pin" > "$library_path/pair.remote"
+echo "$remote\n$pin" > "$library_path/pair.remote"
 sleep 1
 echo "Removing pair.remote from library again..."
 rm "$library_path/pair.remote"
