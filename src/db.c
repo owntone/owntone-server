@@ -5790,6 +5790,96 @@ db_upgrade_v16(void)
 }
 
 static int
+db_upgrade(int db_ver)
+{
+  int ret;
+
+  ret = db_drop_indices();
+  if (ret < 0)
+    return -1;
+
+  switch (db_ver)
+    {
+    case 1000:
+      ret = db_generic_upgrade(db_upgrade_v11_queries, sizeof(db_upgrade_v11_queries) / sizeof(db_upgrade_v11_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      ret = db_upgrade_v11();
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1100:
+      ret = db_upgrade_v12();
+      if (ret < 0)
+	return -1;
+
+      ret = db_generic_upgrade(db_upgrade_v12_queries, sizeof(db_upgrade_v12_queries) / sizeof(db_upgrade_v12_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1200:
+      ret = db_generic_upgrade(db_upgrade_v13_queries, sizeof(db_upgrade_v13_queries) / sizeof(db_upgrade_v13_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1300:
+      ret = db_upgrade_v14();
+      if (ret < 0)
+	return -1;
+
+      ret = db_generic_upgrade(db_upgrade_v14_queries, sizeof(db_upgrade_v14_queries) / sizeof(db_upgrade_v14_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1400:
+      ret = db_upgrade_v15();
+      if (ret < 0)
+	return -1;
+
+      ret = db_generic_upgrade(db_upgrade_v15_queries, sizeof(db_upgrade_v15_queries) / sizeof(db_upgrade_v15_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1500:
+      ret = db_generic_upgrade(db_upgrade_v1501_queries, sizeof(db_upgrade_v1501_queries) / sizeof(db_upgrade_v1501_queries[0]));
+
+      /* FALLTHROUGH */
+
+    case 1501:
+      ret = db_generic_upgrade(db_upgrade_v16_queries, sizeof(db_upgrade_v16_queries) / sizeof(db_upgrade_v16_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      ret = db_upgrade_v16();
+      if (ret < 0)
+	return -1;
+
+      break;
+
+    default:
+      DPRINTF(E_FATAL, L_DB, "No upgrade path from the current DB schema\n");
+      return -1;
+    }
+
+  ret = db_create_indices();
+  if (ret < 0)
+    return -1;
+
+  return 0;
+}
+
+static int
 db_check_version(void)
 {
 #define Q_VACUUM "VACUUM;"
@@ -5841,89 +5931,42 @@ db_check_version(void)
       DPRINTF(E_LOG, L_DB, "Database schema outdated, upgrading schema v%d.%d -> v%d.%d...\n",
                            db_ver_major, db_ver_minor, SCHEMA_VERSION_MAJOR, SCHEMA_VERSION_MINOR);
 
-      ret = db_drop_indices();
-      if (ret < 0)
-	return -1;
-
-      switch (db_ver)
+      ret = sqlite3_exec(hdl, "BEGIN TRANSACTION;", NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
 	{
-	  case 1000:
-	    ret = db_generic_upgrade(db_upgrade_v11_queries, sizeof(db_upgrade_v11_queries) / sizeof(db_upgrade_v11_queries[0]));
-	    if (ret < 0)
-	      return -1;
+	  DPRINTF(E_LOG, L_DB, "DB error while running 'BEGIN TRANSACTION': %s\n",  errmsg);
 
-	    ret = db_upgrade_v11();
-	    if (ret < 0)
-	      return -1;
-
-	    /* FALLTHROUGH */
-
-	  case 1100:
-	    ret = db_upgrade_v12();
-	    if (ret < 0)
-	      return -1;
-
-	    ret = db_generic_upgrade(db_upgrade_v12_queries, sizeof(db_upgrade_v12_queries) / sizeof(db_upgrade_v12_queries[0]));
-	    if (ret < 0)
-	      return -1;
-
-	    /* FALLTHROUGH */
-
-	  case 1200:
-	    ret = db_generic_upgrade(db_upgrade_v13_queries, sizeof(db_upgrade_v13_queries) / sizeof(db_upgrade_v13_queries[0]));
-	    if (ret < 0)
-	      return -1;
-
-	    /* FALLTHROUGH */
-
-	  case 1300:
-	    ret = db_upgrade_v14();
-	    if (ret < 0)
-	      return -1;
-
-	    ret = db_generic_upgrade(db_upgrade_v14_queries, sizeof(db_upgrade_v14_queries) / sizeof(db_upgrade_v14_queries[0]));
-	    if (ret < 0)
-	      return -1;
-
-	    /* FALLTHROUGH */
-
-	  case 1400:
-	    ret = db_upgrade_v15();
-	    if (ret < 0)
-	      return -1;
-
-	    ret = db_generic_upgrade(db_upgrade_v15_queries, sizeof(db_upgrade_v15_queries) / sizeof(db_upgrade_v15_queries[0]));
-	    if (ret < 0)
-	      return -1;
-
-	    /* FALLTHROUGH */
-
-	  case 1500:
-	    ret = db_generic_upgrade(db_upgrade_v1501_queries, sizeof(db_upgrade_v1501_queries) / sizeof(db_upgrade_v1501_queries[0]));
-
-	    /* FALLTHROUGH */
-
-	  case 1501:
-	    ret = db_generic_upgrade(db_upgrade_v16_queries, sizeof(db_upgrade_v16_queries) / sizeof(db_upgrade_v16_queries[0]));
-	    if (ret < 0)
-	      return -1;
-
-	    ret = db_upgrade_v16();
-	    if (ret < 0)
-	      return -1;
-
-	    break;
-
-	  default:
-	    DPRINTF(E_FATAL, L_DB, "No upgrade path from the current DB schema\n");
-	    return -1;
+	  sqlite3_free(errmsg);
+	  return -1;
 	}
 
-      vacuum = 1;
-
-      ret = db_create_indices();
+      ret = db_upgrade(db_ver);
       if (ret < 0)
-	return -1;
+	{
+	  DPRINTF(E_LOG, L_DB, "Database upgrade errored out, rolling back changes ...\n");
+	  ret = sqlite3_exec(hdl, "ROLLBACK TRANSACTION;", NULL, NULL, &errmsg);
+	  if (ret != SQLITE_OK)
+	    {
+	      DPRINTF(E_LOG, L_DB, "DB error while running 'ROLLBACK TRANSACTION': %s\n",  errmsg);
+
+	      sqlite3_free(errmsg);
+	    }
+
+	  return -1;
+	}
+
+      ret = sqlite3_exec(hdl, "COMMIT TRANSACTION;", NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_DB, "DB error while running 'COMMIT TRANSACTION': %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  return -1;
+	}
+
+      DPRINTF(E_LOG, L_DB, "Upgrading schema to v%d.%d completed\n", SCHEMA_VERSION_MAJOR, SCHEMA_VERSION_MINOR);
+
+      vacuum = 1;
     }
 
   if (vacuum)
