@@ -12,9 +12,9 @@ fi
 logfile=`awk '$1=="logfile"{print $3}' $conf_path`
 logfile="${logfile%\"}"
 logfile="${logfile#\"}"
-library_path=`awk '$1=="directories"{print $4}' $conf_path`
-library_path="${library_path%\"}"
-library_path="${library_path#\"}"
+library_path=`awk '$1=="directories"{print}' $conf_path`
+library_path="${library_path#*\"}"
+library_path="${library_path%%\"*}"
 
 if [ ! -f $logfile ]; then
 	echo "Error: Couldn't find logfile in $logfile"
@@ -56,7 +56,7 @@ if [ -z "$pin" ]; then
 fi
 
 echo "Writing pair.remote to $library_path..."
-echo -e "$remote\n$pin" > "$library_path/pair.remote"
+printf "$remote\n$pin" > "$library_path/pair.remote"
 sleep 1
 echo "Removing pair.remote from library again..."
 rm "$library_path/pair.remote"
