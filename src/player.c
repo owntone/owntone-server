@@ -1082,6 +1082,7 @@ struct player_source *
 player_queue_make_pl(int plid, uint32_t *id)
 {
   struct query_params qp;
+  struct media_file_info *mfi;
   struct player_source *ps;
   struct player_source *p;
   uint32_t i;
@@ -1089,7 +1090,30 @@ player_queue_make_pl(int plid, uint32_t *id)
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  if (plid)
+  if (plid == 6 && (*id))
+    {
+      /*
+       * Special handling for playlist id == 6 (audiobooks)
+       * Fetch item with given id and make query to fetch all and add all items for this album.
+       */
+      mfi = db_file_fetch_byid(*id);
+      if (!mfi)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Invalid song id '%" PRIu32 "' given! Failed to create queue for audiobooks\n", *id);
+	  return NULL;
+	}
+
+      qp.id = 0;
+      qp.type = Q_ITEMS;
+      qp.offset = 0;
+      qp.limit = 0;
+      qp.sort = S_ALBUM;
+      snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, mfi->songalbumid);
+      qp.filter = strdup(buf);
+
+      free_mfi(mfi, 0);
+    }
+  else if (plid)
     {
       qp.id = plid;
       qp.type = Q_PLITEMS;
