@@ -1806,7 +1806,7 @@ player_playback_cb(int fd, short what, void *arg)
   /* Acknowledge timer */
   ret = read(fd, &ticks, sizeof(ticks));
   if (ret <= 0)
-    DPRINTF(E_LOG, L_PLAYER, "Error reading timer.\n");
+    DPRINTF(E_WARN, L_PLAYER, "Error reading timer.\n");
 #endif /* __linux__ */
 
   /* Decide how many packets to send */
