@@ -1923,7 +1923,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       if ((ret == 0) && (val > 0))
 	dmap_add_int(group, "miid", val);
 
-      DPRINTF(E_DBG, L_DAAP, "Done with group\n");
+      DPRINTF(E_SPAM, L_DAAP, "Done with group\n");
 
       dmap_add_container(grouplist, "mlit", EVBUFFER_LENGTH(group));
       ret = evbuffer_add_buffer(grouplist, group);
