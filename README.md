@@ -73,13 +73,13 @@ probably obsolete when you read it :-)
 
 |          Client          | Developer  |  Type  |   Platform    | Working (vers.) |
 | ------------------------ | ---------- | ------ | ------------- | --------------- |
-| iTunes                   | Apple      | DAAP   | Win, OSX      | Yes (11.2)      |
+| iTunes                   | Apple      | DAAP   | Win, OSX      | Yes (12.1)      |
 | Rhythmbox                | Gnome      | DAAP   | Linux         | Yes             |
 | WinAmp DAAPClient        | WardFamily | DAAP   | WinAmp        | Yes             |
 | Banshee                  |            | DAAP   | Linux/Win/OSX | No (2.6.2)      |
 | jtunes4                  |            | DAAP   | Java          | No              |
 | Firefly Client           |            | (DAAP) | Java          | No              |
-| Remote                   | Apple      | Remote | iOS           | Yes (4.2)       |
+| Remote                   | Apple      | Remote | iOS           | Yes (4.2.1)     |
 | Retune                   | SquallyDoc | Remote | Android       | Yes (3.5.23)    |
 | TunesRemote+             | Melloware  | Remote | Android       | Yes (2.5.3)     |
 | Remote for iTunes        | Hyperfine  | Remote | Android       | Yes             |
@@ -144,7 +144,8 @@ local path. See [Libraries on network mounts](#libraries-on-network-mounts).
 You will see an error in the log about pairing failure with a HTTP response code
 that is not 0.
 Solution: Copy-paste the name to be sure to get specials characters right. You
-can also try the pairinghelper script found in scripts-folder of the source.
+can also try the pairinghelper script located in the scripts-folder of the
+source.
 
 #### No response from Remote, possibly a network issue
 If you see an error in the log with a HTTP response code that is 0 it means that
