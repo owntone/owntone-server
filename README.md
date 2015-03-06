@@ -128,17 +128,29 @@ this is how the pairing process works:
  5. Move this file somewhere in your library
 
 At this point, you should be done with the pairing process and Remote should
-display the name of your forked-daapd library. You can delete the .remote file
-once the pairing process is done.
+display the name of your forked-daapd library. You should delete the .remote
+file once the pairing process is done.
 
 If Remote doesn't display the name of your forked-daapd library at this point,
-the pairing process failed.
+the pairing process failed. Here are some common reasons:
 
-This will usually be because the .remote file did not contain the correct name
-or pairing code. Start over the pairing process and try again.
+#### Your library is a network mount
+forked-daapd does not get notified about new files on network mounts, so the
+.remote file was not detected. You will see no log file messages about the file.
+Solution: Set two library paths in the config, and add the .remote file to the
+local path. See [Libraries on network mounts](#libraries-on-network-mounts).
 
-If you have trouble pairing with forked-daapd, you can use avahi-browse for 
-troubleshooting:
+#### You did not enter the correct name or pairing code
+You will see an error in the log about pairing failure with a HTTP response code
+that is not 0.
+Solution: Copy-paste the name to be sure to get specials characters right. You
+can also try the pairinghelper script found in scripts-folder of the source.
+
+#### No response from Remote, possibly a network issue
+If you see an error in the log with a HTTP response code that is 0 it means that
+forked-daapd could not establish a connection to Remote. This might be a network
+issue.
+Solution: You can use avahi-browse for troubleshooting:
  - in a terminal, run `avahi-browse -r -k _touch-remote._tcp`
  - start Remote, goto Settings, Add Library
  - after a couple seconds at most, you should get something similar to this:
@@ -152,16 +164,11 @@ troubleshooting:
    txt = ["DvTy=iPod touch" "RemN=Remote" "txtvers=1" "RemV=10000" "Pair=FAEA410630AEC05E" "DvNm=Foobar"]
 ```
 
-The name of your iPod/iPhone/iPad is the value of the DvNm field above. In this
-example, the correct value is Foobar.
-
-Watch out for fancy characters; for instance, the name of your device may
-include Unicode characters that aren't visually different from plain ASCII
-characters (like the single quote if your device name follows the default
-scheme of "Foo's iPhone"). If unsure, change the name of your device or
-capture the output in a file to extract the real, correct name.
-
 Hit Ctrl-C to terminate avahi-browse.
+
+The name of your iPod/iPhone/iPad is the value of the DvNm field above. In this
+example, the correct value is Foobar. To check for network issues you can try to
+connect to address and port with telnet.
 
 ### Selecting output devices
 
