@@ -2,7 +2,6 @@
 #ifndef __HTTPD_DAAP_H__
 #define __HTTPD_DAAP_H__
 
-#include <event.h>
 #ifdef HAVE_LIBEVENT2
 # include <event2/http.h>
 #else

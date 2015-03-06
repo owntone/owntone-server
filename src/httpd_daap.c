@@ -53,8 +53,10 @@
 #include "cache.h"
 
 #ifdef HAVE_LIBEVENT2
-# include <event2/util.h>
+# include <event2/event.h>
 # include <event2/http_struct.h>
+#else
+# include <event.h>
 #endif
 
 /* httpd event base, from httpd.c */
@@ -86,7 +88,7 @@ struct daap_update_request {
   struct evhttp_request *req;
 
   /* Refresh tiemout */
-  struct event timeout;
+  struct event *timeout;
 
   struct daap_update_request *next;
 };
@@ -112,14 +114,20 @@ static struct timeval daap_session_timeout_tv = { DAAP_SESSION_TIMEOUT, 0 };
 /* Update requests */
 static int current_rev;
 static struct daap_update_request *update_requests;
+static struct timeval daap_update_refresh_tv = { DAAP_UPDATE_REFRESH, 0 };
 
 
 /* Session handling */
 static void
 daap_session_free(struct daap_session *s)
 {
+#ifdef HAVE_LIBEVENT2
   if (s->timeout)
     event_free(s->timeout);
+#else
+  if (s->timeout)
+    free(s->timeout);
+#endif
 
   if (s->user_agent)
     free(s->user_agent);
@@ -219,6 +227,7 @@ daap_session_add(const char *user_agent, int request_session_id)
 
   daap_sessions = s;
 
+#ifdef HAVE_LIBEVENT2
   if (DAAP_SESSION_TIMEOUT > 0)
     {
       s->timeout = evtimer_new(evbase_httpd, daap_session_timeout_cb, s);
@@ -227,6 +236,7 @@ daap_session_add(const char *user_agent, int request_session_id)
       else
         evtimer_add(s->timeout, &daap_session_timeout_tv);
     }
+#endif
 
   return s;
 }
@@ -275,8 +285,14 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
 static void
 update_free(struct daap_update_request *ur)
 {
-  if (event_initialized(&ur->timeout))
-    evtimer_del(&ur->timeout);
+#ifdef HAVE_LIBEVENT2
+  if (ur->timeout)
+    event_free(ur->timeout);
+#else
+  if (ur->timeout)
+    free(ur->timeout);
+#endif
+
   free(ur);
 }
 
@@ -997,7 +1013,6 @@ daap_reply_logout(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 static int
 daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
-  struct timeval tv;
   struct daap_session *s;
   struct daap_update_request *ur;
   struct evhttp_connection *evcon;
@@ -1059,24 +1074,25 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
   memset(ur, 0, sizeof(struct daap_update_request));
 
-  if (DAAP_UPDATE_REFRESH > 0) {
-    evtimer_set(&ur->timeout, update_refresh_cb, ur);
-    event_base_set(evbase_httpd, &ur->timeout);
-    
-    evutil_timerclear(&tv);
-    tv.tv_sec = DAAP_UPDATE_REFRESH;
-    
-    ret = evtimer_add(&ur->timeout, &tv);
-    if (ret < 0)
-      {
-	DPRINTF(E_LOG, L_DAAP, "Could not add update timeout event\n");
-	
-	dmap_send_error(req, "mupd", "Could not register timer");
-	
-	update_free(ur);
-	return -1;
-      }
-  }
+#ifdef HAVE_LIBEVENT2
+  if (DAAP_UPDATE_REFRESH > 0)
+    {
+      ur->timeout = evtimer_new(evbase_httpd, update_refresh_cb, ur);
+      if (ur->timeout)
+	ret = evtimer_add(ur->timeout, &daap_update_refresh_tv);
+      else
+	ret = -1;
+
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Out of memory for update request event\n");
+
+	  dmap_send_error(req, "mupd", "Could not register timer");	
+	  update_free(ur);
+	  return -1;
+	}
+    }
+#endif
 
   /* NOTE: we may need to keep reqd_rev in there too */
   ur->req = req;
