@@ -212,6 +212,7 @@ typedef int          (*fptr_sp_track_index_t)(sp_track *track);
 typedef int          (*fptr_sp_track_disc_t)(sp_track *track);
 typedef sp_album*    (*fptr_sp_track_album_t)(sp_track *track);
 typedef sp_track_availability (*fptr_sp_track_get_availability_t)(sp_session *session, sp_track *track);
+typedef bool         (*fptr_sp_track_is_starred_t)(sp_session *session, sp_track *track);
 
 typedef sp_link*     (*fptr_sp_link_create_from_playlist_t)(sp_playlist *playlist);
 typedef sp_link*     (*fptr_sp_link_create_from_track_t)(sp_track *track, int offset);
@@ -272,6 +273,7 @@ fptr_sp_track_index_t fptr_sp_track_index;
 fptr_sp_track_disc_t fptr_sp_track_disc;
 fptr_sp_track_album_t fptr_sp_track_album;
 fptr_sp_track_get_availability_t fptr_sp_track_get_availability;
+fptr_sp_track_is_starred_t fptr_sp_track_is_starred;
 
 fptr_sp_link_create_from_playlist_t fptr_sp_link_create_from_playlist;
 fptr_sp_link_create_from_track_t fptr_sp_link_create_from_track;
@@ -338,6 +340,7 @@ fptr_assign_all()
    && (fptr_sp_track_disc = dlsym(h, "sp_track_disc"))
    && (fptr_sp_track_album = dlsym(h, "sp_track_album"))
    && (fptr_sp_track_get_availability = dlsym(h, "sp_track_get_availability"))
+   && (fptr_sp_track_is_starred = dlsym(h, "sp_track_is_starred"))
    && (fptr_sp_link_create_from_playlist = dlsym(h, "sp_link_create_from_playlist"))
    && (fptr_sp_link_create_from_track = dlsym(h, "sp_link_create_from_track"))
    && (fptr_sp_link_create_from_string = dlsym(h, "sp_link_create_from_string"))
@@ -467,6 +470,7 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
   sp_album *album;
   sp_artist *artist;
   sp_albumtype albumtype;
+  bool starred;
 
   album = fptr_sp_track_album(track);
   if (!album)
@@ -477,6 +481,8 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
     return -1;
 
   albumtype = fptr_sp_album_type(album);
+
+  starred = fptr_sp_track_is_starred(g_sess, track);
 
   mfi->title       = strdup(fptr_sp_track_name(track));
   mfi->album       = strdup(fptr_sp_album_name(album));
@@ -490,6 +496,24 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
   mfi->type        = strdup("spotify");
   mfi->codectype   = strdup("wav");
   mfi->description = strdup("Spotify audio");
+
+  DPRINTF(E_SPAM, L_SPOTIFY, "Metadata for track:\n"
+      "Title:       %s\n"
+      "Album:       %s\n"
+      "Artist:      %s\n"
+      "Year:        %u\n"
+      "Track:       %u\n"
+      "Disc:        %u\n"
+      "Compilation: %d\n"
+      "Starred:     %d\n",
+      mfi->title,
+      mfi->album,
+      mfi->artist,
+      mfi->year,
+      mfi->track,
+      mfi->disc,
+      mfi->compilation,
+      starred);
 
   return 0;
 }
