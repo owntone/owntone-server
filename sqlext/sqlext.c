@@ -244,111 +244,255 @@ sqlext_daap_unicode_xcollation(void *notused, int llen, const void *left, int rl
   return rpp;
 }
 
-static void
-sqlext_daap_substring_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
-{
-  const unsigned char *s1;
-  const unsigned char *s2;
-  int index;
 
-  char *start;
-  char *end;
-  char *result;
+/* Taken from "extension-functions.c" by Liam Healy (2010-02-06 15:45:07)
+   http://www.sqlite.org/contrib/download/extension-functions.c?get=25 */
+/* LMH from sqlite3 3.3.13 */
+/*
+** This table maps from the first byte of a UTF-8 character to the number
+** of trailing bytes expected. A value '4' indicates that the table key
+** is not a legal first byte for a UTF-8 character.
+*/
+static const uint8_t xtra_utf8_bytes[256]  = {
+/* 0xxxxxxx */
+0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0,
+0, 0, 0, 0, 0, 0, 0, 0,     0, 0, 0, 0, 0, 0, 0, 0,
 
-  if (n < 2)
-    {
-      sqlite3_result_error(pv, "daap_substring() requires at least 2 parameters", -1);
-      return;
-    }
+/* 10wwwwww */
+4, 4, 4, 4, 4, 4, 4, 4,     4, 4, 4, 4, 4, 4, 4, 4,
+4, 4, 4, 4, 4, 4, 4, 4,     4, 4, 4, 4, 4, 4, 4, 4,
+4, 4, 4, 4, 4, 4, 4, 4,     4, 4, 4, 4, 4, 4, 4, 4,
+4, 4, 4, 4, 4, 4, 4, 4,     4, 4, 4, 4, 4, 4, 4, 4,
 
-  if (SQLITE_TEXT != sqlite3_value_type(ppv[0]) || SQLITE_TEXT != sqlite3_value_type(ppv[1]))
-    {
-      sqlite3_result_null(pv);
-      return;
-    }
+/* 110yyyyy */
+1, 1, 1, 1, 1, 1, 1, 1,     1, 1, 1, 1, 1, 1, 1, 1,
+1, 1, 1, 1, 1, 1, 1, 1,     1, 1, 1, 1, 1, 1, 1, 1,
 
-  s1 = sqlite3_value_text(ppv[0]);
-  s2 = sqlite3_value_text(ppv[1]);
+/* 1110zzzz */
+2, 2, 2, 2, 2, 2, 2, 2,     2, 2, 2, 2, 2, 2, 2, 2,
 
-  if (n > 2)
-    index = sqlite3_value_int(ppv[2]);
-  else
-    index = 0;
+/* 11110yyy */
+3, 3, 3, 3, 3, 3, 3, 3,     4, 4, 4, 4, 4, 4, 4, 4,
+};
 
-  if (strlen((char *) s1) < index)
-    {
-      sqlite3_result_null(pv);
-      return;
-    }
 
-  start = (char *) s1 + index;
-  end = strstr(start, (char *) s2);
+/*
+** This table maps from the number of trailing bytes in a UTF-8 character
+** to an integer constant that is effectively calculated for each character
+** read by a naive implementation of a UTF-8 character reader. The code
+** in the READ_UTF8 macro explains things best.
+*/
+static const int xtra_utf8_bits[] =  {
+  0,
+  12416,          /* (0xC0 << 6) + (0x80) */
+  925824,         /* (0xE0 << 12) + (0x80 << 6) + (0x80) */
+  63447168        /* (0xF0 << 18) + (0x80 << 12) + (0x80 << 6) + 0x80 */
+};
 
-  if (!end)
-    {
-      sqlite3_result_null(pv);
-      return;
-    }
+/*
+** If a UTF-8 character contains N bytes extra bytes (N bytes follow
+** the initial byte so that the total character length is N+1) then
+** masking the character with utf8_mask[N] must produce a non-zero
+** result.  Otherwise, we have an (illegal) overlong encoding.
+*/
+static const int utf_mask[] = {
+  0x00000000,
+  0xffffff80,
+  0xfffff800,
+  0xffff0000,
+};
 
-  result = sqlite3_malloc(end - (char *) s1 + 1);
-  if (!result)
-    {
-      sqlite3_result_error_nomem(pv);
-      return;
-    }
-
-  strncpy((char*) result, (char*) s1, end - (char *) s1);
-  *(result + (end - (char *) s1)) = '\0';
-  sqlite3_result_text(pv, (char*) result, -1, SQLITE_TRANSIENT);
-  sqlite3_free(result);
+/* LMH salvaged from sqlite3 3.3.13 source code src/utf.c */
+#define READ_UTF8(zIn, c) { \
+  int xtra;                                            \
+  c = *(zIn)++;                                        \
+  xtra = xtra_utf8_bytes[c];                           \
+  switch( xtra ){                                      \
+    case 4: c = (int)0xFFFD; break;                    \
+    case 3: c = (c<<6) + *(zIn)++;                     \
+    case 2: c = (c<<6) + *(zIn)++;                     \
+    case 1: c = (c<<6) + *(zIn)++;                     \
+    c -= xtra_utf8_bits[xtra];                         \
+    if( (utf_mask[xtra]&c)==0                          \
+        || (c&0xFFFFF800)==0xD800                      \
+        || (c&0xFFFFFFFE)==0xFFFE ){  c = 0xFFFD; }    \
+  }                                                    \
 }
 
-static void
-sqlext_daap_charindex_xfunc(sqlite3_context *pv, int n, sqlite3_value **ppv)
+static int sqlite3ReadUtf8(const unsigned char *z)
 {
-  const unsigned char *s1;
-  const unsigned char *s2;
-  int index;
+  int c;
+  READ_UTF8(z, c);
+  return c;
+}
 
-  char *start;
-  char *end;
+/*
+ * X is a pointer to the first byte of a UTF-8 character.  Increment
+ * X so that it points to the next character.  This only works right
+ * if X points to a well-formed UTF-8 string.
+ */
+#define sqliteNextChar(X)  while( (0xc0&*++(X))==0x80 ){}
+#define sqliteCharVal(X)   sqlite3ReadUtf8(X)
 
-  if (n < 2)
+/*
+ * Given a string z1, retutns the (0 based) index of it's first occurence
+ * in z2 after the first s characters.
+ * Returns -1 when there isn't a match.
+ * updates p to point to the character where the match occured.
+ * This is an auxiliary function.
+*/
+static int _substr(const char* z1, const char* z2, int s, const char** p)
+{
+  int c = 0;
+  int rVal = -1;
+  const char* zt1;
+  const char* zt2;
+  int c1, c2;
+
+  if ('\0' == *z1)
     {
-      sqlite3_result_error(pv, "daap_charindex() requires at least 2 parameters", -1);
+      return -1;
+    }
+
+  while ((sqliteCharVal((unsigned char *)z2) != 0) && (c++) < s)
+    {
+      sqliteNextChar(z2);
+    }
+
+  c = 0;
+  while ((sqliteCharVal((unsigned char * )z2)) != 0)
+    {
+      zt1 = z1;
+      zt2 = z2;
+
+      do
+	{
+	  c1 = sqliteCharVal((unsigned char * )zt1);
+	  c2 = sqliteCharVal((unsigned char * )zt2);
+	  sqliteNextChar(zt1);
+	  sqliteNextChar(zt2);
+	} while (c1 == c2 && c1 != 0 && c2 != 0);
+
+      if (c1 == 0)
+	{
+	  rVal = c;
+	  break;
+	}
+
+      sqliteNextChar(z2);
+      ++c;
+    }
+  if (p)
+    {
+      *p = z2;
+    }
+  return rVal >= 0 ? rVal + s : rVal;
+}
+
+/*
+ * Taken from "extension-functions.c" (function charindexFunc) by Liam Healy (2010-02-06 15:45:07)
+ * http://www.sqlite.org/contrib/download/extension-functions.c?get=25
+ *
+ * Given 2 input strings (s1,s2) and an integer (n) searches from the nth character
+ * for the string s1. Returns the position where the match occured.
+ * Characters are counted from 1.
+ * 0 is returned when no match occurs.
+ */
+static void sqlext_daap_charindex_xfunc(sqlite3_context *context, int argc, sqlite3_value **argv)
+{
+  const uint8_t *z1; /* s1 string */
+  uint8_t *z2; /* s2 string */
+  int s = 0;
+  int rVal = 0;
+
+  //assert(argc == 3 || argc == 2);
+  if (argc != 2 && argc != 3)
+    {
+      sqlite3_result_error(context, "daap_charindex() requires 2 or 3 parameters", -1);
       return;
     }
 
-  if (SQLITE_TEXT != sqlite3_value_type(ppv[0]) || SQLITE_TEXT != sqlite3_value_type(ppv[1]))
+  if ( SQLITE_NULL == sqlite3_value_type(argv[0]) || SQLITE_NULL == sqlite3_value_type(argv[1]))
     {
-      sqlite3_result_int(pv, -1);
+      sqlite3_result_null(context);
       return;
     }
 
-  s1 = sqlite3_value_text(ppv[0]);
-  s2 = sqlite3_value_text(ppv[1]);
-
-  if (n > 2)
-    index = sqlite3_value_int(ppv[2]);
+  z1 = sqlite3_value_text(argv[0]);
+  if (z1 == 0)
+    return;
+  z2 = (uint8_t*) sqlite3_value_text(argv[1]);
+  if (argc == 3)
+    {
+      s = sqlite3_value_int(argv[2]) - 1;
+      if (s < 0)
+	{
+	  s = 0;
+	}
+    }
   else
-    index = 0;
-
-  if (strlen((char *) s1) < index)
     {
-      sqlite3_result_int(pv, -1);
+      s = 0;
+    }
+
+  rVal = _substr((char *) z1, (char *) z2, s, NULL);
+  sqlite3_result_int(context, rVal + 1);
+}
+
+/*
+ * Taken from "extension-functions.c" (function leftFunc) by Liam Healy (2010-02-06 15:45:07)
+ * http://www.sqlite.org/contrib/download/extension-functions.c?get=25
+ *
+ * Given a string (s) and an integer (n) returns the n leftmost (UTF-8) characters
+ * if the string has a length<=n or is NULL this function is NOP
+ */
+static void sqlext_daap_leftstr_xfunc(sqlite3_context *context, int argc, sqlite3_value **argv)
+{
+  int c = 0;
+  int cc = 0;
+  int l = 0;
+  const unsigned char *z; /* input string */
+  const unsigned char *zt;
+  unsigned char *rz; /* output string */
+
+  //assert( argc==2);
+  if (argc != 2 && argc != 3)
+    {
+      sqlite3_result_error(context, "daap_leftstr() requires 2 parameters", -1);
       return;
     }
 
-  start = (char *) s1 + index;
-  end = strstr(start, (char *) s2);
-
-  if (!end)
+  if ( SQLITE_NULL == sqlite3_value_type(argv[0]) || SQLITE_NULL == sqlite3_value_type(argv[1]))
     {
-      sqlite3_result_int(pv, -1);
+      sqlite3_result_null(context);
       return;
     }
 
-  sqlite3_result_int(pv, end - (char *) s1);
+  z = sqlite3_value_text(argv[0]);
+  l = sqlite3_value_int(argv[1]);
+  zt = z;
+
+  while ( sqliteCharVal(zt) && c++ < l)
+    sqliteNextChar(zt);
+
+  cc = zt - z;
+
+  rz = sqlite3_malloc(zt - z + 1);
+  if (!rz)
+    {
+      sqlite3_result_error_nomem(context);
+      return;
+    }
+  strncpy((char*) rz, (char*) z, zt - z);
+  *(rz + cc) = '\0';
+  sqlite3_result_text(context, (char*) rz, -1, SQLITE_TRANSIENT);
+  sqlite3_free(rz);
 }
 
 int
@@ -375,11 +519,11 @@ sqlite3_extension_init(sqlite3 *db, char **pzErrMsg, const sqlite3_api_routines 
       return -1;
     }
 
-  ret = sqlite3_create_function(db, "daap_substring", 3, SQLITE_UTF8, NULL, sqlext_daap_substring_xfunc, NULL, NULL);
+  ret = sqlite3_create_function(db, "daap_leftstr", 2, SQLITE_UTF8, NULL, sqlext_daap_leftstr_xfunc, NULL, NULL);
   if (ret != SQLITE_OK)
     {
       if (pzErrMsg)
-      *pzErrMsg = sqlite3_mprintf("Could not create daap_substring function: %s\n", sqlite3_errmsg(db));
+      *pzErrMsg = sqlite3_mprintf("Could not create daap_leftstr function: %s\n", sqlite3_errmsg(db));
 
       return -1;
     }

@@ -1883,38 +1883,16 @@ db_mpd_start_query_filelist(struct query_params *qp, char *parentpath)
   char *query;
   int ret;
 
-  /*
   query = sqlite3_mprintf(
       "SELECT "
-      "  CASE WHEN INSTR(SUBSTR(virtual_path, LENGTH(%Q)+1), '/') = 0 "
+      "  CASE WHEN daap_charindex('/', virtual_path, LENGTH(%Q)+1) = 0 "
       "    THEN "
       "      virtual_path "
       "    ELSE "
-      "      SUBSTR(virtual_path, 1, LENGTH(%Q)+INSTR(SUBSTR(virtual_path, LENGTH(%Q)+1), '/')-1) "
+      "      daap_leftstr(virtual_path, daap_charindex('/', virtual_path, LENGTH(%Q)+1)-1) "
       "  END AS path, "
       "  MAX(time_modified), "
-      "  CASE WHEN INSTR(SUBSTR(virtual_path, LENGTH(%Q)+1), '/') = 0 "
-      "    THEN "
-      "      type "
-      "    ELSE "
-      "      2 "
-      "  END AS ftype, "
-      "  disabled "
-      "FROM filelist "
-      "WHERE virtual_path LIKE '%q%%' "
-      "GROUP BY ftype, path "
-      "ORDER BY ftype, path;", parentpath, parentpath, parentpath, parentpath, parentpath);
-   */
-  query = sqlite3_mprintf(
-      "SELECT "
-      "  CASE WHEN daap_charindex(virtual_path, '/', LENGTH(%Q)) = -1 "
-      "    THEN "
-      "      virtual_path "
-      "    ELSE "
-      "      daap_substring(virtual_path, '/', LENGTH(%Q)) "
-      "  END AS path, "
-      "  MAX(time_modified), "
-      "  CASE WHEN daap_charindex(virtual_path, '/', LENGTH(%Q)) = -1 "
+      "  CASE WHEN daap_charindex('/', virtual_path, LENGTH(%Q)+1) = 0 "
       "    THEN "
       "      type "
       "    ELSE "
