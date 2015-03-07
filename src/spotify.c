@@ -184,6 +184,7 @@ typedef sp_error     (*fptr_sp_session_login_t)(sp_session *session, const char 
 typedef sp_error     (*fptr_sp_session_relogin_t)(sp_session *session);
 typedef sp_error     (*fptr_sp_session_logout_t)(sp_session *session);
 typedef sp_error     (*fptr_sp_session_process_events_t)(sp_session *session, int *next_timeout);
+typedef sp_playlist* (*fptr_sp_session_starred_create_t)(sp_session *session);
 typedef sp_playlistcontainer* (*fptr_sp_session_playlistcontainer_t)(sp_session *session);
 typedef sp_error     (*fptr_sp_session_player_load_t)(sp_session *session, sp_track *track);
 typedef sp_error     (*fptr_sp_session_player_unload_t)(sp_session *session);
@@ -242,6 +243,7 @@ fptr_sp_session_release_t fptr_sp_session_release;
 fptr_sp_session_login_t fptr_sp_session_login;
 fptr_sp_session_relogin_t fptr_sp_session_relogin;
 fptr_sp_session_logout_t fptr_sp_session_logout;
+fptr_sp_session_starred_create_t fptr_sp_session_starred_create;
 fptr_sp_session_playlistcontainer_t fptr_sp_session_playlistcontainer;
 fptr_sp_session_process_events_t fptr_sp_session_process_events;
 fptr_sp_session_player_load_t fptr_sp_session_player_load;
@@ -320,6 +322,7 @@ fptr_assign_all()
    && (fptr_sp_session_preferred_bitrate = dlsym(h, "sp_session_preferred_bitrate"))
    && (fptr_sp_playlistcontainer_add_callbacks = dlsym(h, "sp_playlistcontainer_add_callbacks"))
    && (fptr_sp_playlistcontainer_num_playlists = dlsym(h, "sp_playlistcontainer_num_playlists"))
+   && (fptr_sp_session_starred_create = dlsym(h, "sp_session_starred_create"))
    && (fptr_sp_playlistcontainer_playlist = dlsym(h, "sp_playlistcontainer_playlist"))
    && (fptr_sp_playlist_add_callbacks = dlsym(h, "sp_playlist_add_callbacks"))
    && (fptr_sp_playlist_name = dlsym(h, "sp_playlist_name"))
@@ -1178,6 +1181,9 @@ logged_in(sp_session *sess, sp_error error)
   DPRINTF(E_LOG, L_SPOTIFY, "Login to Spotify succeeded. Reloading playlists.\n");
 
   db_spotify_purge();
+
+  pl = fptr_sp_session_starred_create(sess);
+  fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
   pc = fptr_sp_session_playlistcontainer(sess);
 
