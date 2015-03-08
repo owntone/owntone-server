@@ -465,20 +465,25 @@ thread_exit(void)
 /*            Should only be called from within the spotify thread           */
 
 static int
-spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
+spotify_metadata_get(sp_track *track, struct media_file_info *mfi, char *pltitle)
 {
   cfg_t *spotify_cfg;
   bool artist_override;
   bool starred_artist_override;
+  bool album_override;
+  bool starred_album_override;
   sp_album *album;
   sp_artist *artist;
   sp_albumtype albumtype;
   bool starred;
   char compilation;
+  char *albumname;
 
   spotify_cfg = cfg_getsec(cfg, "spotify");
   artist_override = cfg_getbool(spotify_cfg, "artist_override");
   starred_artist_override = cfg_getbool(spotify_cfg, "starred_artist_override");
+  album_override = cfg_getbool(spotify_cfg, "album_override");
+  starred_album_override = cfg_getbool(spotify_cfg, "starred_album_override");
 
   album = fptr_sp_track_album(track);
   if (!album)
@@ -501,8 +506,14 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
 		  || (starred && starred_artist_override)
 		  || (!starred && artist_override));
 
+  if ((starred && starred_album_override)
+      || (!starred && album_override))
+    albumname = strdup(pltitle);
+  else
+    albumname = strdup(fptr_sp_album_name(album));
+
   mfi->title       = strdup(fptr_sp_track_name(track));
-  mfi->album       = strdup(fptr_sp_album_name(album));
+  mfi->album       = albumname;
   mfi->artist      = strdup(fptr_sp_artist_name(artist));
   mfi->year        = fptr_sp_album_year(album);
   mfi->song_length = fptr_sp_track_duration(track);
@@ -536,7 +547,7 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
 }
 
 static int
-spotify_track_save(int plid, sp_track *track)
+spotify_track_save(int plid, sp_track *track, char *pltitle)
 {
   struct media_file_info mfi;
   sp_link *link;
@@ -579,7 +590,7 @@ spotify_track_save(int plid, sp_track *track)
 
   memset(&mfi, 0, sizeof(struct media_file_info));
 
-  ret = spotify_metadata_get(track, &mfi);
+  ret = spotify_metadata_get(track, &mfi, pltitle);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Metadata missing (but track should be loaded?): '%s'\n", fptr_sp_track_name(track));
@@ -687,7 +698,7 @@ spotify_playlist_save(sp_playlist *pl)
 	  continue;
 	}
 
-      ret = spotify_track_save(plid, track);
+      ret = spotify_track_save(plid, track, title);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Error saving track %d to playlist '%s' (id %d)\n", i, name, plid);
