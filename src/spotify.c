@@ -596,7 +596,12 @@ spotify_playlist_save(sp_playlist *pl)
 //  sleep(1); // Primitive way of preventing database locking (the mutex wasn't working)
 
   pli = db_pl_fetch_bypath(url);
-  snprintf(title, sizeof(title), "[s] %s", name);
+
+  // The starred playlist has an empty name, set it manually to "Starred"
+  if (*name == '\0')
+    snprintf(title, sizeof(title), "[s] Starred");
+  else
+    snprintf(title, sizeof(title), "[s] %s", name);
 
   snprintf(virtual_path, PATH_MAX, "/spotify:/%s", title);
 
