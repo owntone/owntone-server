@@ -467,10 +467,18 @@ thread_exit(void)
 static int
 spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
 {
+  cfg_t *spotify_cfg;
+  bool artist_override;
+  bool starred_artist_override;
   sp_album *album;
   sp_artist *artist;
   sp_albumtype albumtype;
   bool starred;
+  char compilation;
+
+  spotify_cfg = cfg_getsec(cfg, "spotify");
+  artist_override = cfg_getbool(spotify_cfg, "artist_override");
+  starred_artist_override = cfg_getbool(spotify_cfg, "starred_artist_override");
 
   album = fptr_sp_track_album(track);
   if (!album)
@@ -481,8 +489,17 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
     return -1;
 
   albumtype = fptr_sp_album_type(album);
-
   starred = fptr_sp_track_is_starred(g_sess, track);
+
+  /*
+   * Treat album as compilation if one of the following conditions is true:
+   * - spotfy album type is compilation
+   * - artist_override in config is set to true and track is not part of the starred playlist
+   * - starred_artist_override in config is set to true and track is part of the starred playlist
+   */
+  compilation = ((albumtype == SP_ALBUMTYPE_COMPILATION)
+		  || (starred && starred_artist_override)
+		  || (!starred && artist_override));
 
   mfi->title       = strdup(fptr_sp_track_name(track));
   mfi->album       = strdup(fptr_sp_album_name(album));
@@ -491,7 +508,7 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
   mfi->song_length = fptr_sp_track_duration(track);
   mfi->track       = fptr_sp_track_index(track);
   mfi->disc        = fptr_sp_track_disc(track);
-  mfi->compilation = (albumtype == SP_ALBUMTYPE_COMPILATION);
+  mfi->compilation = compilation;
   mfi->artwork     = ARTWORK_SPOTIFY;
   mfi->type        = strdup("spotify");
   mfi->codectype   = strdup("wav");
