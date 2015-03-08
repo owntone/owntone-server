@@ -184,6 +184,7 @@ typedef sp_error     (*fptr_sp_session_login_t)(sp_session *session, const char 
 typedef sp_error     (*fptr_sp_session_relogin_t)(sp_session *session);
 typedef sp_error     (*fptr_sp_session_logout_t)(sp_session *session);
 typedef sp_error     (*fptr_sp_session_process_events_t)(sp_session *session, int *next_timeout);
+typedef sp_playlist* (*fptr_sp_session_starred_create_t)(sp_session *session);
 typedef sp_playlistcontainer* (*fptr_sp_session_playlistcontainer_t)(sp_session *session);
 typedef sp_error     (*fptr_sp_session_player_load_t)(sp_session *session, sp_track *track);
 typedef sp_error     (*fptr_sp_session_player_unload_t)(sp_session *session);
@@ -211,6 +212,7 @@ typedef int          (*fptr_sp_track_index_t)(sp_track *track);
 typedef int          (*fptr_sp_track_disc_t)(sp_track *track);
 typedef sp_album*    (*fptr_sp_track_album_t)(sp_track *track);
 typedef sp_track_availability (*fptr_sp_track_get_availability_t)(sp_session *session, sp_track *track);
+typedef bool         (*fptr_sp_track_is_starred_t)(sp_session *session, sp_track *track);
 
 typedef sp_link*     (*fptr_sp_link_create_from_playlist_t)(sp_playlist *playlist);
 typedef sp_link*     (*fptr_sp_link_create_from_track_t)(sp_track *track, int offset);
@@ -242,6 +244,7 @@ fptr_sp_session_release_t fptr_sp_session_release;
 fptr_sp_session_login_t fptr_sp_session_login;
 fptr_sp_session_relogin_t fptr_sp_session_relogin;
 fptr_sp_session_logout_t fptr_sp_session_logout;
+fptr_sp_session_starred_create_t fptr_sp_session_starred_create;
 fptr_sp_session_playlistcontainer_t fptr_sp_session_playlistcontainer;
 fptr_sp_session_process_events_t fptr_sp_session_process_events;
 fptr_sp_session_player_load_t fptr_sp_session_player_load;
@@ -270,6 +273,7 @@ fptr_sp_track_index_t fptr_sp_track_index;
 fptr_sp_track_disc_t fptr_sp_track_disc;
 fptr_sp_track_album_t fptr_sp_track_album;
 fptr_sp_track_get_availability_t fptr_sp_track_get_availability;
+fptr_sp_track_is_starred_t fptr_sp_track_is_starred;
 
 fptr_sp_link_create_from_playlist_t fptr_sp_link_create_from_playlist;
 fptr_sp_link_create_from_track_t fptr_sp_link_create_from_track;
@@ -320,6 +324,7 @@ fptr_assign_all()
    && (fptr_sp_session_preferred_bitrate = dlsym(h, "sp_session_preferred_bitrate"))
    && (fptr_sp_playlistcontainer_add_callbacks = dlsym(h, "sp_playlistcontainer_add_callbacks"))
    && (fptr_sp_playlistcontainer_num_playlists = dlsym(h, "sp_playlistcontainer_num_playlists"))
+   && (fptr_sp_session_starred_create = dlsym(h, "sp_session_starred_create"))
    && (fptr_sp_playlistcontainer_playlist = dlsym(h, "sp_playlistcontainer_playlist"))
    && (fptr_sp_playlist_add_callbacks = dlsym(h, "sp_playlist_add_callbacks"))
    && (fptr_sp_playlist_name = dlsym(h, "sp_playlist_name"))
@@ -335,6 +340,7 @@ fptr_assign_all()
    && (fptr_sp_track_disc = dlsym(h, "sp_track_disc"))
    && (fptr_sp_track_album = dlsym(h, "sp_track_album"))
    && (fptr_sp_track_get_availability = dlsym(h, "sp_track_get_availability"))
+   && (fptr_sp_track_is_starred = dlsym(h, "sp_track_is_starred"))
    && (fptr_sp_link_create_from_playlist = dlsym(h, "sp_link_create_from_playlist"))
    && (fptr_sp_link_create_from_track = dlsym(h, "sp_link_create_from_track"))
    && (fptr_sp_link_create_from_string = dlsym(h, "sp_link_create_from_string"))
@@ -459,11 +465,25 @@ thread_exit(void)
 /*            Should only be called from within the spotify thread           */
 
 static int
-spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
+spotify_metadata_get(sp_track *track, struct media_file_info *mfi, char *pltitle)
 {
+  cfg_t *spotify_cfg;
+  bool artist_override;
+  bool starred_artist_override;
+  bool album_override;
+  bool starred_album_override;
   sp_album *album;
   sp_artist *artist;
   sp_albumtype albumtype;
+  bool starred;
+  char compilation;
+  char *albumname;
+
+  spotify_cfg = cfg_getsec(cfg, "spotify");
+  artist_override = cfg_getbool(spotify_cfg, "artist_override");
+  starred_artist_override = cfg_getbool(spotify_cfg, "starred_artist_override");
+  album_override = cfg_getbool(spotify_cfg, "album_override");
+  starred_album_override = cfg_getbool(spotify_cfg, "starred_album_override");
 
   album = fptr_sp_track_album(track);
   if (!album)
@@ -474,25 +494,60 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi)
     return -1;
 
   albumtype = fptr_sp_album_type(album);
+  starred = fptr_sp_track_is_starred(g_sess, track);
+
+  /*
+   * Treat album as compilation if one of the following conditions is true:
+   * - spotfy album type is compilation
+   * - artist_override in config is set to true and track is not part of the starred playlist
+   * - starred_artist_override in config is set to true and track is part of the starred playlist
+   */
+  compilation = ((albumtype == SP_ALBUMTYPE_COMPILATION)
+		  || (starred && starred_artist_override)
+		  || (!starred && artist_override));
+
+  if ((starred && starred_album_override)
+      || (!starred && album_override))
+    albumname = strdup(pltitle);
+  else
+    albumname = strdup(fptr_sp_album_name(album));
 
   mfi->title       = strdup(fptr_sp_track_name(track));
-  mfi->album       = strdup(fptr_sp_album_name(album));
+  mfi->album       = albumname;
   mfi->artist      = strdup(fptr_sp_artist_name(artist));
   mfi->year        = fptr_sp_album_year(album);
   mfi->song_length = fptr_sp_track_duration(track);
   mfi->track       = fptr_sp_track_index(track);
   mfi->disc        = fptr_sp_track_disc(track);
-  mfi->compilation = (albumtype == SP_ALBUMTYPE_COMPILATION);
+  mfi->compilation = compilation;
   mfi->artwork     = ARTWORK_SPOTIFY;
   mfi->type        = strdup("spotify");
   mfi->codectype   = strdup("wav");
   mfi->description = strdup("Spotify audio");
 
+  DPRINTF(E_SPAM, L_SPOTIFY, "Metadata for track:\n"
+      "Title:       %s\n"
+      "Album:       %s\n"
+      "Artist:      %s\n"
+      "Year:        %u\n"
+      "Track:       %u\n"
+      "Disc:        %u\n"
+      "Compilation: %d\n"
+      "Starred:     %d\n",
+      mfi->title,
+      mfi->album,
+      mfi->artist,
+      mfi->year,
+      mfi->track,
+      mfi->disc,
+      mfi->compilation,
+      starred);
+
   return 0;
 }
 
 static int
-spotify_track_save(int plid, sp_track *track)
+spotify_track_save(int plid, sp_track *track, char *pltitle)
 {
   struct media_file_info mfi;
   sp_link *link;
@@ -535,7 +590,7 @@ spotify_track_save(int plid, sp_track *track)
 
   memset(&mfi, 0, sizeof(struct media_file_info));
 
-  ret = spotify_metadata_get(track, &mfi);
+  ret = spotify_metadata_get(track, &mfi, pltitle);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Metadata missing (but track should be loaded?): '%s'\n", fptr_sp_track_name(track));
@@ -593,7 +648,12 @@ spotify_playlist_save(sp_playlist *pl)
 //  sleep(1); // Primitive way of preventing database locking (the mutex wasn't working)
 
   pli = db_pl_fetch_bypath(url);
-  snprintf(title, sizeof(title), "[s] %s", name);
+
+  // The starred playlist has an empty name, set it manually to "Starred"
+  if (*name == '\0')
+    snprintf(title, sizeof(title), "[s] Starred");
+  else
+    snprintf(title, sizeof(title), "[s] %s", name);
 
   snprintf(virtual_path, PATH_MAX, "/spotify:/%s", title);
 
@@ -638,7 +698,7 @@ spotify_playlist_save(sp_playlist *pl)
 	  continue;
 	}
 
-      ret = spotify_track_save(plid, track);
+      ret = spotify_track_save(plid, track, title);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Error saving track %d to playlist '%s' (id %d)\n", i, name, plid);
@@ -1178,6 +1238,9 @@ logged_in(sp_session *sess, sp_error error)
   DPRINTF(E_LOG, L_SPOTIFY, "Login to Spotify succeeded. Reloading playlists.\n");
 
   db_spotify_purge();
+
+  pl = fptr_sp_session_starred_create(sess);
+  fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
   pc = fptr_sp_session_playlistcontainer(sess);
 
