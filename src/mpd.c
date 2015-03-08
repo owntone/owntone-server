@@ -39,6 +39,10 @@
 # include <sys/eventfd.h>
 #endif
 
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+# include <netinet/in.h>
+#endif
+
 #include "logger.h"
 #include "db.h"
 #include "conffile.h"
