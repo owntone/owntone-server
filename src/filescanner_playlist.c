@@ -96,14 +96,6 @@ scan_playlist(char *file, time_t mtime)
 
   DPRINTF(E_LOG, L_SCAN, "Processing static playlist: %s\n", file);
 
-  ret = stat(file, &sb);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Could not stat() '%s': %s\n", file, strerror(errno));
-
-      return;
-    }
-
   ptr = strrchr(file, '.');
   if (!ptr)
     return;
@@ -121,21 +113,13 @@ scan_playlist(char *file, time_t mtime)
   else
     filename++;
 
-  pli = db_pl_fetch_bypath(file);
-
-  if (pli)
+  ret = stat(file, &sb);
+  if (ret < 0)
     {
-      DPRINTF(E_DBG, L_SCAN, "Playlist found, updating\n");
+      DPRINTF(E_LOG, L_SCAN, "Could not stat() '%s': %s\n", file, strerror(errno));
 
-      pl_id = pli->id;
-
-      free_pli(pli, 0);
-
-      db_pl_ping(pl_id);
-      db_pl_clear_items(pl_id);
+      return;
     }
-  else
-    pl_id = 0;
 
   fp = fopen(file, "r");
   if (!fp)
@@ -145,32 +129,57 @@ scan_playlist(char *file, time_t mtime)
       return;
     }
 
-  if (pl_id == 0)
+  /* Fetch or create playlist */
+  pli = db_pl_fetch_bypath(file);
+  if (pli)
     {
-      /* Get only the basename, to be used as the playlist name */
+      DPRINTF(E_DBG, L_SCAN, "Found playlist '%s', updating\n", file);
+
+      pl_id = pli->id;
+
+      db_pl_ping(pl_id);
+      db_pl_clear_items(pl_id);
+    }
+  else
+    {
+      pli = (struct playlist_info *)malloc(sizeof(struct playlist_info));
+      if (!pli)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Out of memory\n");
+
+	  return;
+	}
+
+      memset(pli, 0, sizeof(struct playlist_info));
+
+      /* Get only the basename, to be used as the playlist title */
       ptr = strrchr(filename, '.');
       if (ptr)
 	*ptr = '\0';
 
-      /* Safe: filename is a subset of file which is <= PATH_MAX already */
-      strncpy(buf, filename, sizeof(buf));
+      pli->title = strdup(filename);
 
       /* Restore the full filename */
       if (ptr)
 	*ptr = '.';
 
+      pli->path = strdup(file);
       snprintf(virtual_path, PATH_MAX, "/file:%s", file);
+      pli->virtual_path = strdup(virtual_path);
 
-      ret = db_pl_add(buf, file, virtual_path, &pl_id);
+      ret = db_pl_add(pli, &pl_id);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Error adding playlist '%s'\n", file);
 
+	  free_pli(pli, 0);
 	  return;
 	}
 
       DPRINTF(E_INFO, L_SCAN, "Added playlist as id %d\n", pl_id);
     }
+
+  free_pli(pli, 0);
 
   extinf = 0;
   memset(&mfi, 0, sizeof(struct media_file_info));

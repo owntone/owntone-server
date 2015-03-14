@@ -645,8 +645,6 @@ spotify_playlist_save(sp_playlist *pl)
     }
   fptr_sp_link_release(link);
 
-//  sleep(1); // Primitive way of preventing database locking (the mutex wasn't working)
-
   pli = db_pl_fetch_bypath(url);
 
   // The starred playlist has an empty name, set it manually to "Starred"
@@ -663,29 +661,50 @@ spotify_playlist_save(sp_playlist *pl)
 
       plid = pli->id;
 
-      free_pli(pli, 0);
+      free(pli->title);
+      pli->title = strdup(title);
+      free(pli->virtual_path);
+      pli->virtual_path = strdup(virtual_path);
 
-      ret = db_pl_update(title, url, virtual_path, plid);
+      ret = db_pl_update(pli);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Error updating playlist ('%s', link %s)\n", name, url);
+
+	  free_pli(pli, 0);
 	  return -1;
 	}
 
-      db_pl_ping(plid);
       db_pl_clear_items(plid);
     }
   else
     {
       DPRINTF(E_DBG, L_SPOTIFY, "Adding playlist ('%s', link %s)\n", name, url);
 
-      ret = db_pl_add(title, url, virtual_path, &plid);
+      pli = (struct playlist_info *)malloc(sizeof(struct playlist_info));
+      if (!pli)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Out of memory\n");
+
+	  return -1;
+	}
+
+      memset(pli, 0, sizeof(struct playlist_info));
+      pli->title = strdup(title);
+      pli->path = strdup(url);
+      pli->virtual_path = strdup(virtual_path);
+
+      ret = db_pl_add(pli, &plid);
       if ((ret < 0) || (plid < 1))
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Error adding playlist ('%s', link %s, ret %d, plid %d)\n", name, url, ret, plid);
+
+	  free_pli(pli, 0);
 	  return -1;
 	}
     }
+
+  free_pli(pli, 0);
 
   /* Save tracks and playlistitems (files and playlistitems table) */
   num_tracks = fptr_sp_playlist_num_tracks(pl);

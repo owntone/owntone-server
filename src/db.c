@@ -158,8 +158,8 @@ static const struct col_type_map pli_cols_map[] =
     { pli_offsetof(path),         DB_TYPE_STRING },
     { pli_offsetof(index),        DB_TYPE_INT },
     { pli_offsetof(special_id),   DB_TYPE_INT },
-    { pli_offsetof(virtual_path), DB_TYPE_STRING },
     { pli_offsetof(parent_id),    DB_TYPE_INT },
+    { pli_offsetof(virtual_path), DB_TYPE_STRING },
 
     /* items is computed on the fly */
   };
@@ -245,8 +245,8 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(path),
     dbpli_offsetof(index),
     dbpli_offsetof(special_id),
-    dbpli_offsetof(virtual_path),
     dbpli_offsetof(parent_id),
+    dbpli_offsetof(virtual_path),
 
     /* items is computed on the fly */
   };
@@ -3127,17 +3127,17 @@ db_pl_fetch_bytitlepath(char *title, char *path)
 }
 
 int
-db_pl_add(char *title, char *path, char *virtual_path, int *id)
+db_pl_add(struct playlist_info *pli, int *id)
 {
-#define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = '%q' AND p.path = '%q';"
-#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, virtual_path)" \
-                  " VALUES ('%q', 0, NULL, %" PRIi64 ", 0, '%q', 0, 0, '%q');"
+#define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = TRIM(%Q) AND p.path = '%q';"
+#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, parent_id, virtual_path)" \
+                  " VALUES (TRIM(%Q), %d, NULL, %" PRIi64 ", %d, '%q', %d, %d, %d, '%q');"
   char *query;
   char *errmsg;
   int ret;
 
   /* Check duplicates */
-  query = sqlite3_mprintf(QDUP_TMPL, title, path);
+  query = sqlite3_mprintf(QDUP_TMPL, pli->title, STR(pli->path));
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3150,12 +3150,15 @@ db_pl_add(char *title, char *path, char *virtual_path, int *id)
 
   if (ret > 0)
     {
-      DPRINTF(E_WARN, L_DB, "Duplicate playlist with title '%s' path '%s'\n", title, path);
+      DPRINTF(E_WARN, L_DB, "Duplicate playlist with title '%s' path '%s'\n", pli->title, pli->path);
       return -1;
     }
 
   /* Add */
-  query = sqlite3_mprintf(QADD_TMPL, title, (int64_t)time(NULL), path, virtual_path);
+  query = sqlite3_mprintf(QADD_TMPL,
+			  pli->title, pli->type, (int64_t)time(NULL), pli->disabled, STR(pli->path),
+			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path);
+
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3183,7 +3186,7 @@ db_pl_add(char *title, char *path, char *virtual_path, int *id)
       return -1;
     }
 
-  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s) with id %d\n", title, path, *id);
+  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s) with id %d\n", pli->title, pli->path, *id);
 
   return 0;
 
@@ -3216,13 +3219,17 @@ db_pl_add_item_byid(int plid, int fileid)
 }
 
 int
-db_pl_update(char *title, char *path, char *virtual_path, int id)
+db_pl_update(struct playlist_info *pli)
 {
-#define Q_TMPL "UPDATE playlists SET title = '%q', db_timestamp = %" PRIi64 ", disabled = 0, path = '%q', virtual_path = '%q' WHERE id = %d;"
+#define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, db_timestamp = %" PRIi64 ", disabled = %d, path = '%q', " \
+               " idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q' " \
+               " WHERE id = %d;"
   char *query;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, title, (int64_t)time(NULL), path, virtual_path, id);
+  query = sqlite3_mprintf(Q_TMPL,
+			  pli->title, pli->type, (int64_t)time(NULL), pli->disabled, STR(pli->path),
+			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->id);
 
   ret = db_query_run(query, 1, 0);
 
@@ -4507,8 +4514,8 @@ db_perthread_deinit(void)
   "   path           VARCHAR(4096),"			\
   "   idx            INTEGER NOT NULL,"			\
   "   special_id     INTEGER DEFAULT 0,"		\
-  "   virtual_path   VARCHAR(4096),"			\
-  "   parent_id      INTEGER DEFAULT 0"			\
+  "   parent_id      INTEGER DEFAULT 0,"			\
+  "   virtual_path   VARCHAR(4096)"			\
   ");"
 
 #define T_PLITEMS				\
@@ -4638,7 +4645,6 @@ static const struct db_init_query db_init_table_queries[] =
     { Q_PL5,       "create default smart playlist 'Podcasts'" },
     { Q_PL6,       "create default smart playlist 'Audiobooks'" },
 
-    { Q_SCVER,       "set schema version" },
     { Q_SCVER_MAJOR, "set schema version major" },
     { Q_SCVER_MINOR, "set schema version minor" },
   };
