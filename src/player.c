@@ -1028,7 +1028,6 @@ player_queue_make_mpd(char *path, int recursive)
 {
   struct query_params qp;
   struct player_source *ps;
-  int ret;
 
   memset(&qp, 0, sizeof(struct query_params));
 
@@ -1038,20 +1037,20 @@ player_queue_make_mpd(char *path, int recursive)
 
   if (recursive)
     {
-      ret = asprintf(&(qp.filter), "f.virtual_path LIKE '/%s%%'", path);
-      if (ret < 0)
+      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q%%'", path);
+      if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
   else
     {
-      ret = asprintf(&(qp.filter), "f.virtual_path LIKE '/%s'", path);
-      if (ret < 0)
+      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q'", path);
+      if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
 
   ps = player_queue_make(&qp, NULL);
 
-  free(qp.filter);
+  sqlite3_free(qp.filter);
   return ps;
 }
 

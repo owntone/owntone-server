@@ -22,6 +22,7 @@ enum sort_type {
   S_ALBUM,
   S_ARTIST,
   S_PLAYLIST,
+  S_YEAR,
 };
 
 #define Q_F_BROWSE (1 << 15)
@@ -38,6 +39,7 @@ enum query_type {
   Q_GROUP_ARTISTS    = (1 << 8),
   Q_GROUP_ITEMS      = (1 << 9),
   Q_GROUP_DIRS       = Q_F_BROWSE | (1 << 10),
+  Q_BROWSE_YEARS     = Q_F_BROWSE | (1 << 11),
 };
 
 #define ARTWORK_UNKNOWN   0
