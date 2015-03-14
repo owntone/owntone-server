@@ -61,6 +61,7 @@
 #include "evrtsp/evrtsp.h"
 
 #include <gcrypt.h>
+#include <pthread.h>
 
 #include "conffile.h"
 #include "logger.h"
@@ -155,6 +156,14 @@ struct raop_metadata
   uint64_t end;
 
   struct raop_metadata *next;
+};
+
+struct raop_metadata_send_ctx
+{
+  int id;
+  uint64_t rtptime;
+  uint64_t offset;
+  int startup;
 };
 
 struct raop_service
@@ -2162,17 +2171,25 @@ raop_metadata_startup_send(struct raop_session *rs)
     }
 }
 
-void
-raop_metadata_send(int id, uint64_t rtptime, uint64_t offset, int startup)
+static void *
+raop_metadata_send_thread(void *arg)
 {
+  struct raop_metadata_send_ctx *ctx = arg;
   struct raop_session *rs;
   struct raop_metadata *rmd;
   uint32_t delay;
   int ret;
 
-  rmd = raop_metadata_prepare(id, rtptime);
+  ret = db_perthread_init();
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error in raop_metadata_send_thread: Could not init thread\n");
+      return NULL;
+    }
+
+  rmd = raop_metadata_prepare(ctx->id, ctx->rtptime);
   if (!rmd)
-    return;
+    goto no_metadata;
 
   for (rs = sessions; rs; rs = rs->next)
     {
@@ -2182,18 +2199,59 @@ raop_metadata_send(int id, uint64_t rtptime, uint64_t offset, int startup)
       if (!rs->wants_metadata)
 	continue;
 
-      delay = (startup) ? RAOP_MD_DELAY_STARTUP : RAOP_MD_DELAY_SWITCH;
+      delay = (ctx->startup) ? RAOP_MD_DELAY_STARTUP : RAOP_MD_DELAY_SWITCH;
 
-      ret = raop_metadata_send_internal(rs, rmd, offset, delay);
+      ret = raop_metadata_send_internal(rs, rmd, ctx->offset, delay);
       if (ret < 0)
 	{
 	  raop_session_failure(rs);
-
 	  continue;
 	}
     }
+
+ no_metadata:
+  db_perthread_deinit();
+  free(ctx);
+
+  return NULL;
 }
 
+void
+raop_metadata_send(int id, uint64_t rtptime, uint64_t offset, int startup)
+{
+  struct raop_metadata_send_ctx *ctx;
+  pthread_t tid;
+  pthread_attr_t attr;
+  int ret;
+
+  ctx = malloc(sizeof(struct raop_metadata_send_ctx));
+  if (!ctx)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory\n");
+      return;
+    }
+
+  ctx->id = id;
+  ctx->rtptime = rtptime;
+  ctx->offset = offset;
+  ctx->startup = startup;
+
+  ret = pthread_attr_init(&attr);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error in raop_metadata_send: Could not init attributes\n");
+      return;
+    }
+
+  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+  ret = pthread_create(&tid, &attr, raop_metadata_send_thread, ctx);
+  if (ret != 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error in raop_metadata_send: Could not create thread\n");
+    }
+
+  pthread_attr_destroy(&attr);
+}
 
 /* Volume handling */
 static float

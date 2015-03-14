@@ -65,6 +65,7 @@
 /* These handle getting the media data */
 #include "transcode.h"
 #include "pipe.h"
+#include "icy.h"
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
@@ -76,6 +77,9 @@
 #ifndef MAX
 #define MAX(a, b) ((a > b) ? a : b)
 #endif
+
+/* Interval between ICY metadata polls for streams, in seconds */
+#define METADATA_ICY_POLL 5
 
 enum player_sync_source
   {
@@ -128,6 +132,12 @@ struct item_range
   uint32_t *id_ptr;
 };
 
+struct icy_artwork
+{
+  char *stream_url;
+  char *artwork_url;
+};
+
 struct player_command
 {
   pthread_mutex_t lck;
@@ -153,6 +163,7 @@ struct player_command
     int intval;
     int ps_pos[2];
     struct item_range item_range;
+    struct icy_artwork icy_artwork;
   } arg;
 
   int ret;
@@ -180,6 +191,7 @@ static int cmd_pipe[2];
 static int player_exit;
 static struct event *exitev;
 static struct event *cmdev;
+static struct event *metaev;
 static pthread_t tid_player;
 
 /* Player status */
@@ -661,6 +673,59 @@ metadata_send(struct player_source *ps, int startup)
   raop_metadata_send(ps->id, rtptime, offset, startup);
 }
 
+static void
+metadata_icy_poll_cb(int fd, short what, void *arg)
+{
+  struct timeval tv = { METADATA_ICY_POLL, 0 };
+  struct icy_metadata *metadata;
+  int changed;
+
+  /* Playback of stream has stopped, so stop polling */
+  if (!cur_streaming || cur_streaming->type != SOURCE_HTTP || !cur_streaming->ctx)
+    {
+      if (metaev)
+	event_free(metaev);
+
+      metaev = NULL;
+      return;
+    }
+
+  transcode_metadata(cur_streaming->ctx, &metadata, &changed);
+  if (!metadata)
+    goto no_metadata;
+
+  if (!changed)
+    goto no_update;
+
+  /* Update db (async) and send status update to clients */
+  db_file_update_icy(cur_streaming->id, metadata->artist, metadata->title);
+  status_update(player_state);
+  metadata_send(cur_streaming, 0);
+
+ no_update:
+  icy_metadata_free(metadata);
+
+ no_metadata:
+  evtimer_add(metaev, &tv);
+}
+
+static void
+metadata_icy_poll_start(void)
+{
+  struct timeval tv = { METADATA_ICY_POLL, 0 };
+
+  DPRINTF(E_DBG, L_PLAYER, "Starting ICY polling\n");
+
+  if (metaev)
+    return;
+
+  metaev = evtimer_new(evbase_player, metadata_icy_poll_cb, NULL);
+  if (!metaev)
+    return;
+
+  evtimer_add(metaev, &tv);
+}
+
 /* Audio sources */
 /* Thread: httpd (DACP) */
 static struct player_source *
@@ -1059,7 +1124,8 @@ source_free(struct player_source *ps)
 {
   switch (ps->type)
     {
-      case SOURCE_FFMPEG:
+      case SOURCE_FILE:
+      case SOURCE_HTTP:
 	if (ps->ctx)
 	  transcode_cleanup(ps->ctx);
 	break;
@@ -1087,7 +1153,8 @@ source_stop(struct player_source *ps)
     {
       switch (ps->type)
 	{
-	  case SOURCE_FFMPEG:
+	  case SOURCE_FILE:
+	  case SOURCE_HTTP:
 	    if (ps->ctx)
 	      {
 		transcode_cleanup(ps->ctx);
@@ -1274,6 +1341,13 @@ source_open(struct player_source *ps, int no_md)
   // Setup the source type responsible for getting the audio
   switch (mfi->data_kind)
     {
+      case 1:
+	ps->type = SOURCE_HTTP;
+	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
+	if (ret >= 0)
+	  metadata_icy_poll_start();
+	break;
+
       case 2:
 	ps->type = SOURCE_SPOTIFY;
 #ifdef HAVE_SPOTIFY_H
@@ -1289,7 +1363,7 @@ source_open(struct player_source *ps, int no_md)
 	break;
 
       default:
-	ps->type = SOURCE_FFMPEG;
+	ps->type = SOURCE_FILE;
 	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
     }
 
@@ -1347,7 +1421,7 @@ source_next(int force)
 	if (!cur_streaming)
 	  break;
 
-	if ((cur_streaming->type == SOURCE_FFMPEG) && cur_streaming->ctx)
+	if ((cur_streaming->type == SOURCE_FILE) && cur_streaming->ctx)
 	  {
 	    ret = transcode_seek(cur_streaming->ctx, 0);
 
@@ -1585,7 +1659,7 @@ source_check(void)
 
 	  if (ps->setup_done)
 	    {
-	      if ((ps->type == SOURCE_FFMPEG) && ps->ctx)
+	      if ((ps->type == SOURCE_FILE) && ps->ctx)
 		{
 	          transcode_cleanup(ps->ctx);
 	          ps->ctx = NULL;
@@ -1639,7 +1713,7 @@ source_check(void)
 
       if (ps->setup_done)
 	{
-	  if ((ps->type == SOURCE_FFMPEG) && ps->ctx)
+	  if ((ps->type == SOURCE_FILE) && ps->ctx)
 	    {
 	      transcode_cleanup(ps->ctx);
 	      ps->ctx = NULL;
@@ -1726,7 +1800,8 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	{
 	  switch (cur_streaming->type)
 	    {
-	      case SOURCE_FFMPEG:
+	      case SOURCE_FILE:
+	      case SOURCE_HTTP:
 		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes);
 		break;
 
@@ -2458,6 +2533,22 @@ now_playing(struct player_command *cmd)
 }
 
 static int
+artwork_url_get(struct player_command *cmd)
+{
+  DPRINTF(E_DBG, L_PLAYER, "ICY artwork url call\n");
+
+  cmd->arg.icy_artwork.artwork_url = NULL;
+
+  /* Not playing a stream */
+  if (!cur_playing || cur_playing->type != SOURCE_HTTP || !cur_playing->ctx)
+    return -1;
+
+  transcode_metadata_artwork_url(cur_playing->ctx, &cmd->arg.icy_artwork.artwork_url, cmd->arg.icy_artwork.stream_url);
+
+  return 0;
+}
+
+static int
 playback_stop(struct player_command *cmd)
 {
   if (laudio_status != LAUDIO_CLOSED)
@@ -2907,7 +2998,7 @@ playback_seek_bh(struct player_command *cmd)
   /* Seek to commanded position */
   switch (ps->type)
     {
-      case SOURCE_FFMPEG:
+      case SOURCE_FILE:
 	ret = transcode_seek(ps->ctx, ms);
 	break;
 #ifdef HAVE_SPOTIFY_H
@@ -2916,8 +3007,10 @@ playback_seek_bh(struct player_command *cmd)
 	break;
 #endif
       case SOURCE_PIPE:
+      case SOURCE_HTTP:
 	ret = 1;
 	break;
+
       default:
 	ret = -1;
     }
@@ -2964,7 +3057,7 @@ playback_pause_bh(struct player_command *cmd)
 
   switch (ps->type)
     {
-      case SOURCE_FFMPEG:
+      case SOURCE_FILE:
 	ret = transcode_seek(ps->ctx, ms);
 	break;
 #ifdef HAVE_SPOTIFY_H
@@ -4104,6 +4197,30 @@ player_now_playing(uint32_t *id)
   cmd.arg.id_ptr = id;
 
   ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+player_icy_artwork_url(char **artwork_url, char *stream_url)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = artwork_url_get;
+  cmd.func_bh = NULL;
+  cmd.arg.icy_artwork.stream_url = stream_url;
+
+  if (pthread_self() != tid_player)
+    ret = sync_command(&cmd);
+  else
+    ret = artwork_url_get(&cmd);
+
+  *artwork_url = cmd.arg.icy_artwork.artwork_url;
 
   command_deinit(&cmd);
 

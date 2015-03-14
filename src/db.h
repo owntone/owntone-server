@@ -49,6 +49,7 @@ enum query_type {
 #define ARTWORK_DIR       4
 #define ARTWORK_PARENTDIR 5
 #define ARTWORK_SPOTIFY   6
+#define ARTWORK_HTTP      7
 
 enum filelistitem_type {
   F_PLAYLIST = 1,
@@ -424,6 +425,9 @@ db_file_add(struct media_file_info *mfi);
 
 int
 db_file_update(struct media_file_info *mfi);
+
+void
+db_file_update_icy(int id, char *artist, char *album);
 
 void
 db_file_delete_bypath(char *path);

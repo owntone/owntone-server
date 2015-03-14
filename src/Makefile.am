@@ -114,6 +114,7 @@ forked_daapd_SOURCES = main.c \
 	transcode.c transcode.h \
 	pipe.c pipe.h \
 	artwork.c artwork.h \
+	icy.h icy.c \
 	misc.c misc.h \
 	rng.c rng.h \
 	rsp_query.c rsp_query.h \

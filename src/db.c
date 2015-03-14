@@ -62,6 +62,11 @@ struct db_unlock {
   pthread_mutex_t lck;
 };
 
+struct async_query {
+  char *query;
+  int delay;
+};
+
 #define DB_TYPE_CHAR    1
 #define DB_TYPE_INT     2
 #define DB_TYPE_INT64   3
@@ -620,7 +625,7 @@ db_exec(const char *query, char **errmsg)
 static void *
 db_exec_thread(void *arg)
 {
-  char *query = arg;
+  struct async_query *async = arg;
   char *errmsg;
   time_t start, end;
   int ret;
@@ -628,7 +633,7 @@ db_exec_thread(void *arg)
   // When switching tracks we update playcount and select the next track's
   // metadata. We want the update to run after the selects so it won't lock
   // the database.
-  sleep(3);
+  sleep(async->delay);
 
   ret = db_perthread_init();
   if (ret < 0)
@@ -637,19 +642,20 @@ db_exec_thread(void *arg)
       return NULL;
     }
 
-  DPRINTF(E_DBG, L_DB, "Running delayed query '%s'\n", query);
+  DPRINTF(E_DBG, L_DB, "Running delayed query '%s'\n", async->query);
 
   time(&start);
-  ret = db_exec(query, &errmsg);
+  ret = db_exec(async->query, &errmsg);
   if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error running query '%s': %s\n", query, errmsg);
+    DPRINTF(E_LOG, L_DB, "Error running query '%s': %s\n", async->query, errmsg);
 
   time(&end);
   if (end - start > 1)
-    DPRINTF(E_LOG, L_DB, "Warning: Slow query detected '%s' - database performance problems?\n", query);
+    DPRINTF(E_LOG, L_DB, "Warning: Slow query detected '%s' - database performance problems?\n", async->query);
 
   sqlite3_free(errmsg);
-  sqlite3_free(query);
+  sqlite3_free(async->query);
+  free(async);
 
   db_perthread_deinit();
 
@@ -658,8 +664,9 @@ db_exec_thread(void *arg)
 
 // Creates a one-off thread to run a delayed, fire-and-forget, non-blocking query
 static void
-db_exec_nonblock(char *query)
+db_exec_nonblock(char *query, int delay)
 {
+  struct async_query *async;
   pthread_t tid;
   pthread_attr_t attr;
   int ret;
@@ -671,8 +678,17 @@ db_exec_nonblock(char *query)
       return;
     }
 
+  async = malloc(sizeof(struct async_query));
+  if (!async)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory\n");
+      return;
+    }
+  async->query = query;
+  async->delay = delay;
+
   pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-  ret = pthread_create(&tid, &attr, db_exec_thread, query);
+  ret = pthread_create(&tid, &attr, db_exec_thread, async);
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_DB, "Error in db_exec_nonblock: Could not create thread\n");
@@ -2020,7 +2036,7 @@ db_file_inc_playcount(int id)
     }
 
   // Run the query non-blocking so we don't block playback if the update is slow
-  db_exec_nonblock(query);
+  db_exec_nonblock(query, 5);
 #undef Q_TMPL
 }
 
@@ -2663,6 +2679,27 @@ db_file_update(struct media_file_info *mfi)
 
   return 0;
 
+#undef Q_TMPL
+}
+
+void
+db_file_update_icy(int id, char *artist, char *album)
+{
+#define Q_TMPL "UPDATE files SET artist = TRIM(%Q), album = TRIM(%Q) WHERE id = %d;"
+  char *query;
+
+  if (id == 0)
+    return;
+
+  query = sqlite3_mprintf(Q_TMPL, artist, album, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  db_exec_nonblock(query, 0);
 #undef Q_TMPL
 }
 

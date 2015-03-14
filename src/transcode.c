@@ -90,6 +90,7 @@ struct transcode_ctx {
 
   uint32_t duration;
   uint64_t samples;
+  uint32_t icy_hash;
 
   /* WAV header */
   int wavhdr;
@@ -893,4 +894,42 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
   DPRINTF(E_DBG, L_XCODE, "Will transcode\n");
 
   return 1;
+}
+
+void
+transcode_metadata(struct transcode_ctx *ctx, struct icy_metadata **metadata, int *changed)
+{
+  struct icy_metadata *m;
+
+  *metadata = NULL;
+
+  if (!ctx->fmtctx)
+    return;
+
+  m = icy_metadata_get(ctx->fmtctx, 1);
+
+  *changed = (m->hash != ctx->icy_hash);
+
+  ctx->icy_hash = m->hash;
+
+  *metadata = m;
+}
+
+void
+transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url, char *stream_url)
+{
+  struct icy_metadata *m;
+
+  *artwork_url = NULL;
+
+  if (!ctx->fmtctx || !ctx->fmtctx->filename)
+    return;
+
+  if (strcmp(ctx->fmtctx->filename, stream_url) != 0)
+    return;
+
+  m = icy_metadata_get(ctx->fmtctx, 1);
+
+  if (m->artwork_url)
+    *artwork_url = strdup(m->artwork_url);
 }
