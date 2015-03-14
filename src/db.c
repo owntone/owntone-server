@@ -158,8 +158,8 @@ static const struct col_type_map pli_cols_map[] =
     { pli_offsetof(path),         DB_TYPE_STRING },
     { pli_offsetof(index),        DB_TYPE_INT },
     { pli_offsetof(special_id),   DB_TYPE_INT },
-    { pli_offsetof(parent_id),    DB_TYPE_INT },
     { pli_offsetof(virtual_path), DB_TYPE_STRING },
+    { pli_offsetof(parent_id),    DB_TYPE_INT },
 
     /* items is computed on the fly */
   };
@@ -245,8 +245,8 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(path),
     dbpli_offsetof(index),
     dbpli_offsetof(special_id),
-    dbpli_offsetof(parent_id),
     dbpli_offsetof(virtual_path),
+    dbpli_offsetof(parent_id),
 
     /* items is computed on the fly */
   };
@@ -4514,8 +4514,8 @@ db_perthread_deinit(void)
   "   path           VARCHAR(4096),"			\
   "   idx            INTEGER NOT NULL,"			\
   "   special_id     INTEGER DEFAULT 0,"		\
-  "   parent_id      INTEGER DEFAULT 0,"			\
-  "   virtual_path   VARCHAR(4096)"			\
+  "   virtual_path   VARCHAR(4096),"			\
+  "   parent_id      INTEGER DEFAULT 0"			\
   ");"
 
 #define T_PLITEMS				\
@@ -5687,6 +5687,8 @@ static const struct db_init_query db_upgrade_v1501_queries[] =
 #define U_V16_ALTER_TBL_PL_ADD_COL					\
   "ALTER TABLE playlists ADD COLUMN virtual_path VARCHAR(4096) DEFAULT NULL;"
 
+#define D_V1600_SCVER				\
+  "DELETE FROM admin WHERE key = 'schema_version';"
 #define U_V1600_SCVER_MAJOR			\
   "UPDATE admin SET value = '16' WHERE key = 'schema_version_major';"
 #define U_V1600_SCVER_MINOR			\
@@ -5698,6 +5700,7 @@ static const struct db_init_query db_upgrade_v16_queries[] =
     { U_V16_ALTER_TBL_PL_ADD_COL,    "alter table playlists add column virtual_path" },
     { U_V16_CREATE_VIEW_FILELIST,    "create new view filelist" },
 
+    { D_V1600_SCVER,                "delete schema_version" },
     { U_V1600_SCVER_MAJOR,          "set schema_version_major to 16" },
     { U_V1600_SCVER_MINOR,          "set schema_version_minor to 00" },
   };

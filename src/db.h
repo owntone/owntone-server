@@ -181,8 +181,8 @@ struct playlist_info {
   char *path;            /* path of underlying playlist */
   uint32_t index;        /* index of playlist for paths with multiple playlists */
   uint32_t special_id;   /* iTunes identifies certain 'special' playlists with special meaning */
-  uint32_t parent_id;    /* Id of parent playlist if the playlist is nested */
   char *virtual_path;    /* virtual path of underlying playlist */
+  uint32_t parent_id;    /* Id of parent playlist if the playlist is nested */
 };
 
 #define pli_offsetof(field) offsetof(struct playlist_info, field)
@@ -198,8 +198,8 @@ struct db_playlist_info {
   char *path;
   char *index;
   char *special_id;
-  char *parent_id;
   char *virtual_path;
+  char *parent_id;
 };
 
 #define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
