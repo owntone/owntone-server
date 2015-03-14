@@ -1516,6 +1516,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   int32_t plid;
   int32_t pltype;
   int32_t plitems;
+  int32_t plparent;
   int i;
   int ret;
 
@@ -1665,7 +1666,11 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	dmap_add_int(playlist, "mimc", plitems);
 
       /* Container ID (mpco) */
-      dmap_add_int(playlist, "mpco", 0);
+      ret = safe_atoi32(dbpli.parent_id, &plparent);
+      if (ret == 0)
+	dmap_add_int(playlist, "mpco", plparent);
+      else
+	dmap_add_int(playlist, "mpco", 0);
 
       /* Base playlist (abpl), id = 1 */
       if (plid == 1)

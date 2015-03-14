@@ -159,6 +159,7 @@ static const struct col_type_map pli_cols_map[] =
     { pli_offsetof(index),        DB_TYPE_INT },
     { pli_offsetof(special_id),   DB_TYPE_INT },
     { pli_offsetof(virtual_path), DB_TYPE_STRING },
+    { pli_offsetof(parent_id),    DB_TYPE_INT },
 
     /* items is computed on the fly */
   };
@@ -245,6 +246,7 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(index),
     dbpli_offsetof(special_id),
     dbpli_offsetof(virtual_path),
+    dbpli_offsetof(parent_id),
 
     /* items is computed on the fly */
   };
@@ -4505,7 +4507,8 @@ db_perthread_deinit(void)
   "   path           VARCHAR(4096),"			\
   "   idx            INTEGER NOT NULL,"			\
   "   special_id     INTEGER DEFAULT 0,"		\
-  "   virtual_path   VARCHAR(4096)"			\
+  "   virtual_path   VARCHAR(4096),"			\
+  "   parent_id      INTEGER DEFAULT 0"			\
   ");"
 
 #define T_PLITEMS				\
@@ -4601,14 +4604,11 @@ db_perthread_deinit(void)
  */
 
 #define SCHEMA_VERSION_MAJOR 16
-#define SCHEMA_VERSION_MINOR 00
-// Q_SCVER should be deprecated/removed at v16
-#define Q_SCVER						\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '16');"
+#define SCHEMA_VERSION_MINOR 01
 #define Q_SCVER_MAJOR					\
   "INSERT INTO admin (key, value) VALUES ('schema_version_major', '16');"
 #define Q_SCVER_MINOR					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '00');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '01');"
 
 struct db_init_query {
   char *query;
@@ -5681,8 +5681,6 @@ static const struct db_init_query db_upgrade_v1501_queries[] =
 #define U_V16_ALTER_TBL_PL_ADD_COL					\
   "ALTER TABLE playlists ADD COLUMN virtual_path VARCHAR(4096) DEFAULT NULL;"
 
-#define U_V16_SCVER						\
-  "UPDATE admin SET value = '16' WHERE key = 'schema_version';"
 #define U_V1600_SCVER_MAJOR			\
   "UPDATE admin SET value = '16' WHERE key = 'schema_version_major';"
 #define U_V1600_SCVER_MINOR			\
@@ -5694,7 +5692,6 @@ static const struct db_init_query db_upgrade_v16_queries[] =
     { U_V16_ALTER_TBL_PL_ADD_COL,    "alter table playlists add column virtual_path" },
     { U_V16_CREATE_VIEW_FILELIST,    "create new view filelist" },
 
-    { U_V16_SCVER,                  "set schema_version to 16" },
     { U_V1600_SCVER_MAJOR,          "set schema_version_major to 16" },
     { U_V1600_SCVER_MINOR,          "set schema_version_minor to 00" },
   };
@@ -5809,6 +5806,25 @@ db_upgrade_v16(void)
   return 0;
 }
 
+/* Upgrade from schema v16.00 to v16.01 */
+/* Expand data model to allow for nested playlists */
+
+#define U_V1601_PL_PARENTID_ADD			\
+  "ALTER TABLE playlists ADD COLUMN parent_id INTEGER DEFAULT 0;"
+
+#define U_V1601_SCVER_MAJOR			\
+  "UPDATE admin SET value = '16' WHERE key = 'schema_version_major';"
+#define U_V1601_SCVER_MINOR			\
+  "UPDATE admin SET value = '01' WHERE key = 'schema_version_minor';"
+
+static const struct db_init_query db_upgrade_v1601_queries[] =
+  {
+    { U_V1601_PL_PARENTID_ADD,"expanding table playlists with parent_id column" },
+
+    { U_V1601_SCVER_MAJOR,    "set schema_version_major to 16" },
+    { U_V1601_SCVER_MINOR,    "set schema_version_minor to 01" },
+  };
+
 static int
 db_upgrade(int db_ver)
 {
@@ -5884,6 +5900,11 @@ db_upgrade(int db_ver)
       ret = db_upgrade_v16();
       if (ret < 0)
 	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1600:
+      ret = db_generic_upgrade(db_upgrade_v1601_queries, sizeof(db_upgrade_v1601_queries) / sizeof(db_upgrade_v1601_queries[0]));
 
       break;
 
