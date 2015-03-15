@@ -1147,13 +1147,14 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   // Add db entry for library with dbid = 1
   item = evbuffer_new();
-    if (!content)
-      {
-        DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP dblist library item\n");
+  if (!item)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP dblist library item\n");
 
-        dmap_send_error(req, "avdb", "Out of memory");
-        return;
-      }
+      dmap_send_error(req, "avdb", "Out of memory");
+      return -1;
+    }
+
   dmap_add_int(item, "miid", 1);
   dmap_add_long(item, "mper", 1);
   dmap_add_int(item, "mdbk", 1);
@@ -1173,13 +1174,14 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   // Add second db entry for radio with dbid = 2
   item =  evbuffer_new();
-  if (!content)
+  if (!item)
     {
       DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP dblist radio item\n");
 
       dmap_send_error(req, "avdb", "Out of memory");
-      return;
+      return -1;
     }
+
   dmap_add_int(item, "miid", 2);
   dmap_add_long(item, "mper", 2);
   dmap_add_int(item, "mdbk", 0x64);
