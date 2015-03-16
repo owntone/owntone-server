@@ -296,7 +296,7 @@ static __thread sqlite3 *hdl;
 
 /* Forward */
 static int
-db_pl_count_items(int id);
+db_pl_count_items(int id, int streams_only);
 
 static int
 db_smartpl_count_items(const char *smartpl_query);
@@ -1696,6 +1696,7 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
   int id;
   int type;
   int nitems;
+  int nstreams;
   int i;
   int ret;
 
@@ -1747,11 +1748,13 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
     {
       case PL_PLAIN:
 	id = sqlite3_column_int(qp->stmt, 0);
-	nitems = db_pl_count_items(id);
+	nitems = db_pl_count_items(id, 0);
+	nstreams = db_pl_count_items(id, 1);
 	break;
 
       case PL_SMART:
 	nitems = db_smartpl_count_items(dbpli->query);
+	nstreams = 0;
 	break;
 
       default:
@@ -1759,13 +1762,21 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
 	return -1;
     }
 
-  dbpli->items = qp->buf;
-  ret = snprintf(qp->buf, sizeof(qp->buf), "%d", nitems);
-  if ((ret < 0) || (ret >= sizeof(qp->buf)))
+  dbpli->items = qp->buf1;
+  ret = snprintf(qp->buf1, sizeof(qp->buf1), "%d", nitems);
+  if ((ret < 0) || (ret >= sizeof(qp->buf1)))
     {
-      DPRINTF(E_LOG, L_DB, "Could not convert items, buffer too small\n");
+      DPRINTF(E_LOG, L_DB, "Could not convert item count, buffer too small\n");
 
-      strcpy(qp->buf, "0");
+      strcpy(qp->buf1, "0");
+    }
+  dbpli->streams = qp->buf2;
+  ret = snprintf(qp->buf2, sizeof(qp->buf2), "%d", nstreams);
+  if ((ret < 0) || (ret >= sizeof(qp->buf2)))
+    {
+      DPRINTF(E_LOG, L_DB, "Could not convert stream count, buffer too small\n");
+
+      strcpy(qp->buf2, "0");
     }
 
   return 0;
@@ -2775,14 +2786,19 @@ db_pl_get_count(void)
 }
 
 static int
-db_pl_count_items(int id)
+db_pl_count_items(int id, int streams_only)
 {
 #define Q_TMPL "SELECT COUNT(*) FROM playlistitems pi JOIN files f" \
                " ON pi.filepath = f.path WHERE f.disabled = 0 AND pi.playlistid = %d;"
+#define Q_TMPL_STREAMS "SELECT COUNT(*) FROM playlistitems pi JOIN files f" \
+               " ON pi.filepath = f.path WHERE f.disabled = 0 AND f.data_kind = 1 AND pi.playlistid = %d;"
   char *query;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!streams_only)
+    query = sqlite3_mprintf(Q_TMPL, id);
+  else
+    query = sqlite3_mprintf(Q_TMPL_STREAMS, id);
 
   if (!query)
     {
@@ -2796,6 +2812,7 @@ db_pl_count_items(int id)
 
   return ret;
 
+#undef Q_TMPL_STREAMS
 #undef Q_TMPL
 }
 
@@ -3013,7 +3030,8 @@ db_pl_fetch_byquery(char *query)
   switch (pli->type)
     {
       case PL_PLAIN:
-	pli->items = db_pl_count_items(pli->id);
+	pli->items = db_pl_count_items(pli->id, 0);
+	pli->streams = db_pl_count_items(pli->id, 1);
 	break;
 
       case PL_SMART:

@@ -69,6 +69,7 @@ extern struct event_base *evbase_httpd;
 /* Update requests refresh interval in seconds */
 #define DAAP_UPDATE_REFRESH  0
 
+#define DAAP_DB_RADIO 2
 
 struct uri_map {
   regex_t preg;
@@ -1172,7 +1173,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   evbuffer_add_buffer(content, item);
   evbuffer_free(item);
 
-  // Add second db entry for radio with dbid = 2
+  // Add second db entry for radio with dbid = DAAP_DB_RADIO
   item =  evbuffer_new();
   if (!item)
     {
@@ -1182,12 +1183,12 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       return -1;
     }
 
-  dmap_add_int(item, "miid", 2);
-  dmap_add_long(item, "mper", 2);
+  dmap_add_int(item, "miid", DAAP_DB_RADIO);
+  dmap_add_long(item, "mper", DAAP_DB_RADIO);
   dmap_add_int(item, "mdbk", 0x64);
   dmap_add_int(item, "aeCs", 0);
   dmap_add_string(item, "minm", "Radio");
-  count = 3; // TODO Get count of radio streams
+  count = db_pl_get_count();       // TODO This counts too much, should only include stream playlists
   dmap_add_int(item, "mimc", count);
   dmap_add_int(item, "mctc", 0);
   dmap_add_int(item, "aeMk", 1);   // com.apple.itunes.extended-media-kind (OR of all in library)
@@ -1549,11 +1550,13 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   const struct dmap_field **meta;
   const char *param;
   char **strval;
+  int database;
   int nmeta;
   int npls;
   int32_t plid;
   int32_t pltype;
   int32_t plitems;
+  int32_t plstreams;
   int32_t plparent;
   int i;
   int ret;
@@ -1561,6 +1564,14 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return -1;
+
+  ret = safe_atoi32(uri[1], &database);
+  if (ret < 0)
+    {
+      dmap_send_error(req, "aply", "Invalid database ID");
+
+      return -1;
+    }
 
   ret = evbuffer_expand(evbuf, 61);
   if (ret < 0)
@@ -1654,8 +1665,20 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       if (safe_atoi32(dbpli.items, &plitems) != 0)
 	continue;
 
-      /* Don't add empty smart playlists */
-      if ((plid > 1) && (pltype == 1) && (plitems == 0))
+      plstreams = 0;
+      if (safe_atoi32(dbpli.streams, &plstreams) != 0)
+	continue;
+
+      /* Database DAAP_DB_RADIO is radio, so for that db skip playlists without
+       * streams and for other databases skip playlists which are just streams
+       */
+      if ((database == DAAP_DB_RADIO) && (plstreams == 0))
+	continue;
+      if ((database != DAAP_DB_RADIO) && (plstreams == plitems))
+	continue;
+
+      /* Don't add empty playlists */
+      if ((plid > 1) && (plitems == 0))
 	continue;
 
       npls++;

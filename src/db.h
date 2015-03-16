@@ -74,7 +74,8 @@ struct query_params {
 
   /* Private query context, keep out */
   sqlite3_stmt *stmt;
-  char buf[32];
+  char buf1[32];
+  char buf2[32];
 };
 
 struct pairing_info {
@@ -175,6 +176,7 @@ struct playlist_info {
   char *title;           /* playlist name as displayed in iTunes (minm) */
   enum pl_type type;     /* see PL_ types */
   uint32_t items;        /* number of items (mimc) */
+  uint32_t streams;      /* number of internet streams */
   char *query;           /* where clause if type 1 (MSPS) */
   uint32_t db_timestamp; /* time last updated */
   uint32_t disabled;
@@ -192,6 +194,7 @@ struct db_playlist_info {
   char *title;
   char *type;
   char *items;
+  char *streams;
   char *query;
   char *db_timestamp;
   char *disabled;
