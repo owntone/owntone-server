@@ -797,7 +797,7 @@ artwork_get_player_image(char *path, int max_w, int max_h, struct evbuffer *evbu
 
   if (!ret)
     {
-      DPRINTF(E_LOG, L_ART, "Could not read artwork: '%s'\n", path);
+      DPRINTF(E_WARN, L_ART, "Could not read artwork: '%s'\n", path);
 
       avformat_close_input(&src_ctx);
       return 0;
