@@ -1355,7 +1355,8 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   /* Found artwork, cache it and return */
   if (format > 0)
     {
-      cache_artwork_add(CACHE_ARTWORK_GROUP, persistentid, max_w, max_h, format, path, evbuf);
+      if (artwork != ARTWORK_HTTP)
+	cache_artwork_add(CACHE_ARTWORK_GROUP, persistentid, max_w, max_h, format, path, evbuf);
       return format;
     }
   else if (format < 0)
@@ -1367,7 +1368,7 @@ artwork_get_group_persistentid(int64_t persistentid, int max_w, int max_h, struc
   DPRINTF(E_DBG, L_ART, "No artwork found for group %" PRIi64 "\n", persistentid);
 
   /* Add cache entry for no artwork available */
-  if (!got_spotifyitem)
+  if ((artwork != ARTWORK_HTTP) && (!got_spotifyitem))
     cache_artwork_add(CACHE_ARTWORK_GROUP, persistentid, max_w, max_h, 0, "", evbuf);
 
   return 0;
