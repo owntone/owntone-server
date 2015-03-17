@@ -67,7 +67,7 @@ metadata_packet_get(struct icy_metadata *metadata, AVFormatContext *fmtctx)
       if (end)
         *end = '\0';
 
-      if (strncmp(icy_token, "StreamTitle", strlen("StreamTitle")) == 0)
+      if ((strncmp(icy_token, "StreamTitle", strlen("StreamTitle")) == 0) && !metadata->title)
 	{
 	  metadata->title = ptr;
 
@@ -84,8 +84,10 @@ metadata_packet_get(struct icy_metadata *metadata, AVFormatContext *fmtctx)
 	  else
 	    metadata->title = strdup(metadata->title);
 	}
-      else if (strncmp(icy_token, "StreamUrl", strlen("StreamUrl")) == 0)
-	metadata->artwork_url = strdup(ptr);
+      else if ((strncmp(icy_token, "StreamUrl", strlen("StreamUrl")) == 0) && !metadata->artwork_url)
+	{
+	  metadata->artwork_url = strdup(ptr);
+	}
 
       if (end)
 	*end = '\'';
@@ -125,11 +127,11 @@ metadata_header_get(struct icy_metadata *metadata, AVFormatContext *fmtctx)
       if (ptr[0] == ' ')
 	ptr++;
 
-      if (strncmp(icy_token, "icy-name", strlen("icy-name")) == 0)
+      if ((strncmp(icy_token, "icy-name", strlen("icy-name")) == 0) && !metadata->name)
 	metadata->name = strdup(ptr);
-      else if (strncmp(icy_token, "icy-description", strlen("icy-description")) == 0)
+      else if ((strncmp(icy_token, "icy-description", strlen("icy-description")) == 0) && !metadata->description)
 	metadata->description = strdup(ptr);
-      else if (strncmp(icy_token, "icy-genre", strlen("icy-genre")) == 0)
+      else if ((strncmp(icy_token, "icy-genre", strlen("icy-genre")) == 0) && !metadata->genre)
 	metadata->genre = strdup(ptr);
 
       icy_token = strtok(NULL, "\r\n");
