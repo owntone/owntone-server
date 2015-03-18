@@ -41,5 +41,5 @@ export CLASSPATH
 CLASSPATH=\$CLASSPATH:$PREFIX/share/java/antlr-3.4-complete.jar:$PREFIX/share/java
 /usr/bin/java org.antlr.Tool \$*
 " > antlr3
-sudo install antlr3 "$PREFIX/bin"
+sudo install --mode=755 antlr3 "$PREFIX/bin"
 
