@@ -110,11 +110,11 @@ forked_daapd_SOURCES = main.c \
 	httpd_rsp.c httpd_rsp.h \
 	httpd_daap.c httpd_daap.h \
 	httpd_dacp.c httpd_dacp.h \
+	http.c http.h \
 	dmap_common.c dmap_common.h \
 	transcode.c transcode.h \
 	pipe.c pipe.h \
 	artwork.c artwork.h \
-	icy.h icy.c \
 	misc.c misc.h \
 	rng.c rng.h \
 	rsp_query.c rsp_query.h \

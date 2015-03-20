@@ -897,16 +897,16 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
 }
 
 void
-transcode_metadata(struct transcode_ctx *ctx, struct icy_metadata **metadata, int *changed)
+transcode_metadata(struct transcode_ctx *ctx, struct http_icy_metadata **metadata, int *changed)
 {
-  struct icy_metadata *m;
+  struct http_icy_metadata *m;
 
   *metadata = NULL;
 
   if (!ctx->fmtctx)
     return;
 
-  m = icy_metadata_get(ctx->fmtctx, 1);
+  m = http_icy_metadata_get(ctx->fmtctx, 1);
 
   *changed = (m->hash != ctx->icy_hash);
 
@@ -918,7 +918,7 @@ transcode_metadata(struct transcode_ctx *ctx, struct icy_metadata **metadata, in
 void
 transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url, char *stream_url)
 {
-  struct icy_metadata *m;
+  struct http_icy_metadata *m;
 
   *artwork_url = NULL;
 
@@ -928,7 +928,7 @@ transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url, ch
   if (strcmp(ctx->fmtctx->filename, stream_url) != 0)
     return;
 
-  m = icy_metadata_get(ctx->fmtctx, 1);
+  m = http_icy_metadata_get(ctx->fmtctx, 1);
 
   if (m->artwork_url)
     *artwork_url = strdup(m->artwork_url);

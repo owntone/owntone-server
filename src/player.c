@@ -65,7 +65,7 @@
 /* These handle getting the media data */
 #include "transcode.h"
 #include "pipe.h"
-#include "icy.h"
+#include "http.h"
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
@@ -677,7 +677,7 @@ static void
 metadata_icy_poll_cb(int fd, short what, void *arg)
 {
   struct timeval tv = { METADATA_ICY_POLL, 0 };
-  struct icy_metadata *metadata;
+  struct http_icy_metadata *metadata;
   int changed;
 
   /* Playback of stream has stopped, so stop polling */
@@ -703,7 +703,7 @@ metadata_icy_poll_cb(int fd, short what, void *arg)
   metadata_send(cur_streaming, 0);
 
  no_update:
-  icy_metadata_free(metadata);
+  http_icy_metadata_free(metadata);
 
  no_metadata:
   evtimer_add(metaev, &tv);
@@ -1312,6 +1312,7 @@ static int
 source_open(struct player_source *ps, int no_md)
 {
   struct media_file_info *mfi;
+  char *url;
   int ret;
 
   ps->setup_done = 0;
@@ -1343,9 +1344,19 @@ source_open(struct player_source *ps, int no_md)
     {
       case 1:
 	ps->type = SOURCE_HTTP;
+
+	ret = http_stream_setup(&url, mfi->path);
+	if (ret < 0)
+	  break;
+
+	free(mfi->path);
+	mfi->path = url;
+
 	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
-	if (ret >= 0)
-	  metadata_icy_poll_start();
+	if (ret < 0)
+	  break;
+
+	metadata_icy_poll_start();
 	break;
 
       case 2:

@@ -37,7 +37,7 @@
 #include "logger.h"
 #include "filescanner.h"
 #include "misc.h"
-#include "icy.h"
+#include "http.h"
 
 
 /* Legacy format-specific scanners */
@@ -321,7 +321,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   AVFormatContext *ctx;
   AVDictionary *options;
   const struct metadata_map *extra_md_map;
-  struct icy_metadata *icy_metadata;
+  struct http_icy_metadata *icy_metadata;
 #if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
   enum AVCodecID codec_id;
   enum AVCodecID video_codec_id;
@@ -333,12 +333,14 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 #endif
   AVStream *video_stream;
   AVStream *audio_stream;
+  char *path;
   int mdcount;
   int i;
   int ret;
 
   ctx = NULL;
   options = NULL;
+  path = strdup(file);
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
 # ifndef HAVE_FFMPEG
@@ -352,20 +354,28 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
   if (mfi->data_kind == 1)
     {
+      free(path);
+      ret = http_stream_setup(&path, file);
+      if (ret < 0)
+	return -1;
+
       av_dict_set(&options, "icy", "1", 0);
       mfi->artwork = ARTWORK_HTTP;
     }
 
-  ret = avformat_open_input(&ctx, file, NULL, &options);
+  ret = avformat_open_input(&ctx, path, NULL, &options);
 #else
-  ret = av_open_input_file(&ctx, file, NULL, 0, NULL);
+  ret = av_open_input_file(&ctx, path, NULL, 0, NULL);
 #endif
   if (ret != 0)
     {
-      DPRINTF(E_WARN, L_SCAN, "Cannot open media file '%s': %s\n", file, strerror(AVUNERROR(ret)));
+      DPRINTF(E_WARN, L_SCAN, "Cannot open media file '%s': %s\n", path, strerror(AVUNERROR(ret)));
 
+      free(path);
       return -1;
     }
+
+  free(path);
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
   ret = avformat_find_stream_info(ctx, NULL);
@@ -485,7 +495,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   /* Try to extract ICY metadata if url/stream */
   if (mfi->data_kind == 1)
     {
-      icy_metadata = icy_metadata_get(ctx, 0);
+      icy_metadata = http_icy_metadata_get(ctx, 0);
       if (icy_metadata && icy_metadata->name)
 	{
 	  DPRINTF(E_DBG, L_SCAN, "libav/ffmpeg found ICY metadata, name is '%s'\n", icy_metadata->name);
@@ -520,7 +530,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	  mfi->genre = strdup(icy_metadata->genre);
 	}
       if (icy_metadata)
-	icy_metadata_free(icy_metadata);
+	http_icy_metadata_free(icy_metadata);
     }
 
   /* Get some more information on the audio stream */

@@ -7,7 +7,7 @@
 #else
 # include <event.h>
 #endif
-#include "icy.h"
+#include "http.h"
 
 struct transcode_ctx;
 
@@ -27,7 +27,7 @@ int
 transcode_needed(const char *user_agent, const char *client_codecs, char *file_codectype);
 
 void
-transcode_metadata(struct transcode_ctx *ctx, struct icy_metadata **metadata, int *changed);
+transcode_metadata(struct transcode_ctx *ctx, struct http_icy_metadata **metadata, int *changed);
 
 void
 transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url, char *stream_url);
