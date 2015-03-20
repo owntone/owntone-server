@@ -3673,9 +3673,14 @@ mpd_accept_error_cb(struct evconnlistener *listener, void *ctx)
 int mpd_init(void)
 {
   struct evconnlistener *listener;
+  struct sockaddr *saddr;
+  size_t saddr_length;
   struct sockaddr_in sin;
+  struct sockaddr_in6 sin6;
   unsigned short port;
+  int v6enabled;
   int ret;
+
 
   port = cfg_getint(cfg_getsec(cfg, "mpd"), "port");
   if (port <= 0)
@@ -3683,6 +3688,8 @@ int mpd_init(void)
       DPRINTF(E_INFO, L_MPD, "MPD not enabled\n");
       return 0;
     }
+
+  v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
 
 # if defined(__linux__)
   ret = pipe2(g_exit_pipe, O_CLOEXEC);
@@ -3711,11 +3718,23 @@ int mpd_init(void)
 
   event_add(g_exitev, NULL);
 
-  //TODO ipv6
-  memset(&sin, 0, sizeof(sin));
-  sin.sin_family = AF_INET;
-  sin.sin_addr.s_addr = htonl(0);
-  sin.sin_port = htons(port);
+  if (v6enabled)
+    {
+      saddr_length = sizeof(sin6);
+      memset(&sin6, 0, saddr_length);
+      sin6.sin6_family = AF_INET6;
+      sin6.sin6_port = htons(port);
+      saddr = (struct sockaddr *)&sin6;
+    }
+  else
+    {
+      saddr_length = sizeof(struct sockaddr_in);
+      memset(&sin, 0, saddr_length);
+      sin.sin_family = AF_INET;
+      sin.sin_addr.s_addr = htonl(0);
+      sin.sin_port = htons(port);
+      saddr = (struct sockaddr *)&sin;
+    }
 
   listener = evconnlistener_new_bind(
       evbase_mpd,
@@ -3723,8 +3742,8 @@ int mpd_init(void)
       NULL,
       LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
       -1,
-      (struct sockaddr*) &sin,
-      sizeof(sin));
+      saddr,
+      saddr_length);
 
   if (!listener)
     {

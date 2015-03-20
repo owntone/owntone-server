@@ -5674,11 +5674,11 @@ db_upgrade_v16(void)
   char *title;
   int id;
   char *path;
-  int data_kind;
+  int type;
   char virtual_path[PATH_MAX];
   int ret;
 
-  query = "SELECT id, album_artist, album, title, path, data_kind FROM files;";
+  query = "SELECT id, album_artist, album, title, path FROM files;";
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
@@ -5696,7 +5696,6 @@ db_upgrade_v16(void)
       album = (char *)sqlite3_column_text(stmt, 2);
       title = (char *)sqlite3_column_text(stmt, 3);
       path = (char *)sqlite3_column_text(stmt, 4);
-      data_kind = sqlite3_column_int(stmt, 5);
 
       if (strncmp(path, "http:", strlen("http:")) == 0)
 	{
@@ -5741,9 +5740,9 @@ db_upgrade_v16(void)
       id = sqlite3_column_int(stmt, 0);
       title = (char *)sqlite3_column_text(stmt, 1);
       path = (char *)sqlite3_column_text(stmt, 2);
-      data_kind = sqlite3_column_int(stmt, 3);
+      type = sqlite3_column_int(stmt, 3);
 
-      if (data_kind == 0) /* Excludes default playlists */
+      if (type == 0) /* Excludes default playlists */
 	{
 	  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
 	    {
