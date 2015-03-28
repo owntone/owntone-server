@@ -101,7 +101,7 @@ forked_daapd_SOURCES = main.c \
 	conffile.c conffile.h \
 	cache.c cache.h \
 	filescanner.c filescanner.h \
-	filescanner_ffmpeg.c filescanner_playlist.c filescanner_icy.c $(ITUNES_SRC) \
+	filescanner_ffmpeg.c filescanner_playlist.c $(ITUNES_SRC) \
 	mdns_avahi.c mdns.h \
 	remote_pairing.c remote_pairing.h \
 	$(EVHTTP_SRC) \

@@ -498,7 +498,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
       icy_metadata = http_icy_metadata_get(ctx, 0);
       if (icy_metadata && icy_metadata->name)
 	{
-	  DPRINTF(E_DBG, L_SCAN, "libav/ffmpeg found ICY metadata, name is '%s'\n", icy_metadata->name);
+	  DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, name is '%s'\n", icy_metadata->name);
 
 	  if (mfi->title)
 	    free(mfi->title);
@@ -513,7 +513,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	}
       if (icy_metadata && icy_metadata->description)
 	{
-	  DPRINTF(E_DBG, L_SCAN, "libav/ffmpeg found ICY metadata, description is '%s'\n", icy_metadata->description);
+	  DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, description is '%s'\n", icy_metadata->description);
 
 	  if (mfi->album)
 	    free(mfi->album);
@@ -522,7 +522,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	}
       if (icy_metadata && icy_metadata->genre)
 	{
-	  DPRINTF(E_DBG, L_SCAN, "libav/ffmpeg found ICY metadata, genre is '%s'\n", icy_metadata->genre);
+	  DPRINTF(E_DBG, L_SCAN, "Found ICY metadata, genre is '%s'\n", icy_metadata->genre);
 
 	  if (mfi->genre)
 	    free(mfi->genre);

@@ -46,6 +46,38 @@
 // Number of seconds the client will wait for a response before aborting
 #define HTTP_CLIENT_TIMEOUT 5
 
+/* The strict libevent api does not permit walking through an evkeyvalq and saving
+ * all the http headers, so we predefine what we are looking for. You can add 
+ * extra headers here that you would like to save.
+ */
+static char *header_list[] =
+{
+  "icy-name",
+  "icy-description",
+  "icy-metaint",
+  "icy-genre",
+};
+
+/* Copies headers we are searching for from one keyval struct to another
+ *
+ */
+static void
+headers_save(struct keyval *kv, struct evkeyvalq *headers)
+{
+  const char *value;
+  int i;
+
+  if (!kv || !headers)
+    return;
+
+  for (i = 0; i < (sizeof(header_list) / sizeof(header_list[0])); i++)
+    {
+      if ( (value = evhttp_find_header(headers, header_list[i])) )
+	keyval_add(kv, header_list[i], value);
+    }
+  
+}
+
 static void
 request_cb(struct evhttp_request *req, void *arg)
 {
@@ -55,15 +87,28 @@ request_cb(struct evhttp_request *req, void *arg)
 
   ctx = (struct http_client_ctx *)arg;
 
-  response_code = evhttp_request_get_response_code(req);
-  response_code_line = evhttp_request_get_response_code_line(req);
+  if (ctx->headers_only)
+    {
+      ctx->ret = 0;
 
-  if (req == NULL)
+      event_base_loopbreak(ctx->evbase);
+
+      if (ctx->async)
+	free(ctx);
+
+      return;
+    }
+
+  if (!req)
     {
       DPRINTF(E_LOG, L_HTTP, "Connection to %s failed: Connection timed out\n", ctx->url);
       goto connection_error;
     }
-  else if (response_code == 0)
+
+  response_code = evhttp_request_get_response_code(req);
+  response_code_line = evhttp_request_get_response_code_line(req);
+
+  if (response_code == 0)
     {
       DPRINTF(E_LOG, L_HTTP, "Connection to %s failed: Connection refused\n", ctx->url);
       goto connection_error;
@@ -77,10 +122,15 @@ request_cb(struct evhttp_request *req, void *arg)
   /* Async: we make a callback to caller, Sync: we move the body into the callers evbuf */
   ctx->ret = 0;
 
-  if (ctx->async)
-    ctx->cb(req, arg);
+  if (!ctx->async)
+    {
+      if (ctx->headers)
+	headers_save(ctx->headers, evhttp_request_get_input_headers(req));
+      if (ctx->body)
+	evbuffer_add_buffer(ctx->body, evhttp_request_get_input_buffer(req));
+    }
   else
-    evbuffer_add_buffer(ctx->evbuf, evhttp_request_get_input_buffer(req));
+    ctx->cb(req, arg);
       
   event_base_loopbreak(ctx->evbase);
 
@@ -100,6 +150,31 @@ request_cb(struct evhttp_request *req, void *arg)
 
   return;
 }
+
+/* This callback is only invoked if ctx->headers_only is set. Since that means
+ * we only want headers, it will always return -1 to make evhttp close the 
+ * connection. The headers will be saved in a keyval struct in ctx, since we
+ * cannot address the *evkeyvalq after the connection is free'd.
+ */
+#ifndef HAVE_LIBEVENT2_OLD
+static int
+request_header_cb(struct evhttp_request *req, void *arg)
+{
+  struct http_client_ctx *ctx;
+
+  ctx = (struct http_client_ctx *)arg;
+
+  if (!ctx->headers)
+    {
+      DPRINTF(E_LOG, L_HTTP, "BUG: Header callback invoked but caller did not say where to save the headers\n");
+      return -1;
+    }
+
+  headers_save(ctx->headers, evhttp_request_get_input_headers(req));
+
+  return -1;
+}
+#endif
 
 static void *
 request_make(void *arg)
@@ -165,19 +240,25 @@ request_make(void *arg)
       return NULL;
     }
 
+#ifndef HAVE_LIBEVENT2_OLD
+  if (ctx->headers_only)
+    evhttp_request_set_header_cb(req, request_header_cb);
+#endif
+
   headers = evhttp_request_get_output_headers(req);
   snprintf(s, PATH_MAX, "%s:%d", hostname, port);
   evhttp_add_header(headers, "Host", s);
   evhttp_add_header(headers, "Content-Length", "0");
   evhttp_add_header(headers, "User-Agent", "forked-daapd/" VERSION);
+  evhttp_add_header(headers, "Icy-MetaData", "1");
 
   /* Make request */
-  DPRINTF(E_INFO, L_HTTP, "Making request to %s asking for playlist\n", hostname);
+  DPRINTF(E_INFO, L_HTTP, "Making request to %s:%d\n", hostname, port);
 
   ret = evhttp_make_request(evcon, req, EVHTTP_REQ_GET, path);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_HTTP, "Error making http request to %s\n", hostname);
+      DPRINTF(E_LOG, L_HTTP, "Error making http request to %s:%d\n", hostname, port);
 
       evhttp_connection_free(evcon);
       event_base_free(ctx->evbase);
@@ -254,7 +335,7 @@ http_stream_setup(char **stream, const char *url)
 
   ctx.async = 0;
   ctx.url = url;
-  ctx.evbuf = evbuf;
+  ctx.body = evbuf;
 
   ret = http_client_request(&ctx);
   if (ret < 0)
@@ -269,7 +350,7 @@ http_stream_setup(char **stream, const char *url)
    * nothing is found in the first 10 lines
    */
   n = 0;
-  while ((line = evbuffer_readln(ctx.evbuf, NULL, EVBUFFER_EOL_ANY)) && (n < 10))
+  while ((line = evbuffer_readln(ctx.body, NULL, EVBUFFER_EOL_ANY)) && (n < 10))
     {
       n++;
       if (strncasecmp(line, "http://", strlen("http://")) == 0)
@@ -283,7 +364,7 @@ http_stream_setup(char **stream, const char *url)
       free(line);
     }
 
-  evbuffer_free(ctx.evbuf);
+  evbuffer_free(ctx.body);
 
   if (n != -1)
     {
@@ -300,6 +381,8 @@ http_stream_setup(char **stream, const char *url)
 
 /* ======================= ICY metadata handling =============================*/
 
+
+#if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
 static int
 metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 {
@@ -404,31 +487,6 @@ metadata_header_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
   return 0;
 }
 
-void
-http_icy_metadata_free(struct http_icy_metadata *metadata)
-{
-  if (metadata->name)
-    free(metadata->name);
-
-  if (metadata->description)
-    free(metadata->description);
-
-  if (metadata->genre)
-    free(metadata->genre);
-
-  if (metadata->title)
-    free(metadata->title);
-
-  if (metadata->artist)
-    free(metadata->artist);
-
-  if (metadata->artwork_url)
-    free(metadata->artwork_url);
-
-  free(metadata);
-}
-
-#if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
 struct http_icy_metadata *
 http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
 {
@@ -462,11 +520,121 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
 */
   return metadata;
 }
-#else
+
+#elif defined(HAVE_LIBEVENT2_OLD)
 struct http_icy_metadata *
 http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
 {
+  DPRINTF(E_INFO, L_HTTP, "Skipping Shoutcast metadata request for %s (requires libevent>=2.1.4 or libav 10)\n", fmtctx->filename);
   return NULL;
+}
+
+#else
+/* Earlier versions of ffmpeg/libav do not seem to allow access to the http
+ * headers, so we must instead open the stream ourselves to get the metadata.
+ * Sorry about the extra connections, you radio streaming people!
+ *
+ * TODO: Get packet metadata from fmtctx->packet_buffer
+ */
+struct http_icy_metadata *
+http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
+{
+  struct http_icy_metadata *metadata;
+  struct http_client_ctx ctx;
+  struct keyval *kv;
+  const char *value;
+  int got_header;
+  int ret;
+
+  /* Can only get header metadata at the moment */
+  if (packet_only)
+    return NULL;
+
+  kv = keyval_alloc();
+  if (!kv)
+    return NULL;
+
+  memset(&ctx, 0, sizeof(struct http_client_ctx));
+  ctx.async = 0;
+  ctx.url = fmtctx->filename;
+  ctx.headers = kv;
+  ctx.headers_only = 1;
+  ctx.body = NULL;
+
+  ret = http_client_request(&ctx);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_HTTP, "Error fetching %s\n", fmtctx->filename);
+
+      free(kv);
+      return NULL;
+    }
+
+  metadata = malloc(sizeof(struct http_icy_metadata));
+  if (!metadata)
+    return NULL;
+  memset(metadata, 0, sizeof(struct http_icy_metadata));
+
+  got_header = 0;
+  if ( (value = keyval_get(ctx.headers, "icy-name")) )
+    {
+      metadata->name = strdup(value);
+      got_header = 1;
+    }
+  if ( (value = keyval_get(ctx.headers, "icy-description")) )
+    {
+      metadata->description = strdup(value);
+      got_header = 1;
+    }
+  if ( (value = keyval_get(ctx.headers, "icy-genre")) )
+    {
+      metadata->genre = strdup(value);
+      got_header = 1;
+    }
+
+  keyval_clear(kv);
+  free(kv);
+
+  if (!got_header)
+   {
+     free(metadata);
+     return NULL;
+   }
+
+/*  DPRINTF(E_DBG, L_HTTP, "Found ICY: N %s, D %s, G %s, T %s, A %s, U %s, I %" PRIu32 "\n",
+	metadata->name,
+	metadata->description,
+	metadata->genre,
+	metadata->title,
+	metadata->artist,
+	metadata->artwork_url,
+	metadata->hash
+	);*/
+
+  return metadata;
 }
 #endif
 
+void
+http_icy_metadata_free(struct http_icy_metadata *metadata)
+{
+  if (metadata->name)
+    free(metadata->name);
+
+  if (metadata->description)
+    free(metadata->description);
+
+  if (metadata->genre)
+    free(metadata->genre);
+
+  if (metadata->title)
+    free(metadata->title);
+
+  if (metadata->artist)
+    free(metadata->artist);
+
+  if (metadata->artwork_url)
+    free(metadata->artwork_url);
+
+  free(metadata);
+}

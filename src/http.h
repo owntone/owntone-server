@@ -4,6 +4,7 @@
 
 #include <event2/buffer.h>
 #include <event2/http.h>
+#include "misc.h"
 
 #include <libavformat/avformat.h>
 
@@ -13,8 +14,17 @@ struct http_client_ctx
   const char *url;
   int ret;
 
-  /* For sync mode */
-  struct evbuffer *evbuf;
+  /* For sync mode, a keyval/evbuf to store response headers and body
+   * Can be set to NULL to ignore that part of the response
+   */
+  struct keyval *headers;
+  struct evbuffer *body;
+
+  /* Cut the connection after the headers have been received
+   * Used for getting Shoutcast/ICY headers for old versions of libav/ffmpeg
+   * (requires libevent 1 or 2.1.4+)
+   */
+  int headers_only;
 
   /* For async mode */
   void (*cb)(struct evhttp_request *, void *);
@@ -60,14 +70,6 @@ int
 http_stream_setup(char **stream, const char *url);
 
 
-/* Frees a ICY metadata struct
- *
- * @param metadata struct to free
- */
-void
-http_icy_metadata_free(struct http_icy_metadata *metadata);
-
-
 /* Extracts ICY header and packet metadata (requires libav 10)
  *
  *   example header metadata (standard http header format):
@@ -85,5 +87,12 @@ http_icy_metadata_free(struct http_icy_metadata *metadata);
 struct http_icy_metadata *
 http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only);
 
+
+/* Frees an ICY metadata struct
+ *
+ * @param metadata struct to free
+ */
+void
+http_icy_metadata_free(struct http_icy_metadata *metadata);
 
 #endif /* !__HTTP_H__ */

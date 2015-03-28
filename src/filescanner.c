@@ -693,11 +693,7 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
   else if (type & F_SCAN_TYPE_URL)
     {
       mfi->data_kind = 1; /* url/stream */
-#if LIBAVFORMAT_VERSION_MAJOR >= 56 || (LIBAVFORMAT_VERSION_MAJOR == 55 && LIBAVFORMAT_VERSION_MINOR >= 13)
       ret = scan_metadata_ffmpeg(path, mfi);
-#else
-      ret = scan_metadata_icy(path, mfi);
-#endif
     }
   else if (type & F_SCAN_TYPE_SPOTIFY)
     {
