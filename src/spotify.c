@@ -1245,6 +1245,7 @@ artwork_get(struct spotify_command *cmd)
 static void
 logged_in(sp_session *sess, sp_error error)
 {
+  cfg_t *spotify_cfg;
   sp_playlist *pl;
   sp_playlistcontainer *pc;
   struct playlist_info pli;
@@ -1264,17 +1265,23 @@ logged_in(sp_session *sess, sp_error error)
   pl = fptr_sp_session_starred_create(sess);
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
-  memset(&pli, 0, sizeof(struct playlist_info));
-  pli.title = "Spotify";
-  pli.type = PL_PLAIN;
-  pli.path = "spotify:playlistfolder";
-
-  ret = db_pl_add(&pli, &g_base_plid);
-  if (ret < 0)
+  spotify_cfg = cfg_getsec(cfg, "spotify");
+  if (! cfg_getbool(spotify_cfg, "base_playlist_disable"))
     {
-      DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
-      return;
+      memset(&pli, 0, sizeof(struct playlist_info));
+      pli.title = "Spotify";
+      pli.type = PL_FOLDER;
+      pli.path = "spotify:playlistfolder";
+
+      ret = db_pl_add(&pli, &g_base_plid);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SPOTIFY, "Error adding base playlist\n");
+	  return;
+	}
     }
+  else
+    g_base_plid = 0;
 
   pc = fptr_sp_session_playlistcontainer(sess);
 
