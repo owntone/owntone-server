@@ -53,6 +53,12 @@
 # include "spotify.h"
 #endif
 
+#if LIBAVCODEC_VERSION_MAJOR <= 53 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR <= 34)
+# define AV_CODEC_ID_MJPEG CODEC_ID_MJPEG
+# define AV_CODEC_ID_PNG CODEC_ID_PNG
+# define AV_CODEC_ID_NONE CODEC_ID_NONE
+#endif
+
 static const char *cover_extension[] =
   {
     "jpg", "png",
@@ -220,7 +226,6 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
       goto out_close_src;
     }
 
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
   dst_fmt->video_codec = AV_CODEC_ID_NONE;
 
   /* Try to keep same codec if possible */
@@ -234,21 +239,6 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
     {
       dst_fmt->video_codec = AV_CODEC_ID_PNG;
     }
-#else
-  dst_fmt->video_codec = CODEC_ID_NONE;
-
-  /* Try to keep same codec if possible */
-  if (src->codec_id == CODEC_ID_PNG)
-    dst_fmt->video_codec = CODEC_ID_PNG;
-  else if (src->codec_id == CODEC_ID_MJPEG)
-    dst_fmt->video_codec = CODEC_ID_MJPEG;
-
-  /* If not possible, select new codec */
-  if (dst_fmt->video_codec == CODEC_ID_NONE)
-    {
-      dst_fmt->video_codec = CODEC_ID_PNG;
-    }
-#endif
 
   img_encoder = avcodec_find_encoder(dst_fmt->video_codec);
   if (!img_encoder)
@@ -560,19 +550,11 @@ artwork_rescale(AVFormatContext *src_ctx, int s, int out_w, int out_h, struct ev
 
   switch (dst_fmt->video_codec)
     {
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
       case AV_CODEC_ID_PNG:
-#else
-      case CODEC_ID_PNG:
-#endif
 	ret = ART_FMT_PNG;
 	break;
 
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
       case AV_CODEC_ID_MJPEG:
-#else
-      case CODEC_ID_MJPEG:
-#endif
 	ret = ART_FMT_JPEG;
 	break;
 
@@ -667,20 +649,12 @@ artwork_get(char *path, int max_w, int max_h, struct evbuffer *evbuf)
   format_ok = 0;
   for (s = 0; s < src_ctx->nb_streams; s++)
     {
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
       if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_PNG)
-#else
-      if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_PNG)
-#endif
 	{
 	  format_ok = ART_FMT_PNG;
 	  break;
 	}
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
       else if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_MJPEG)
-#else
-      else if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_MJPEG)
-#endif
 	{
 	  format_ok = ART_FMT_JPEG;
 	  break;
@@ -885,20 +859,12 @@ artwork_get_embedded_image(char *path, int max_w, int max_h, struct evbuffer *ev
     {
       if (src_ctx->streams[s]->disposition & AV_DISPOSITION_ATTACHED_PIC)
 	{
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
 	  if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_PNG)
-#else
-	  if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_PNG)
-#endif
 	    {
 	      format_ok = ART_FMT_PNG;
 	      break;
 	    }
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
 	  else if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_MJPEG)
-#else
-	  else if (src_ctx->streams[s]->codec->codec_id == CODEC_ID_MJPEG)
-#endif
 	    {
 	      format_ok = ART_FMT_JPEG;
 	      break;
