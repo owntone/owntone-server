@@ -1266,7 +1266,8 @@ logged_in(sp_session *sess, sp_error error)
 
   memset(&pli, 0, sizeof(struct playlist_info));
   pli.title = "Spotify";
-  pli.path = "spotify:base_playlist";
+  pli.type = PL_PLAIN;
+  pli.path = "spotify:playlistfolder";
 
   ret = db_pl_add(&pli, &g_base_plid);
   if (ret < 0)

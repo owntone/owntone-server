@@ -1674,11 +1674,11 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
        */
       if ((database == DAAP_DB_RADIO) && (plstreams == 0))
 	continue;
-      if ((database != DAAP_DB_RADIO) && (plstreams == plitems))
+      if ((database != DAAP_DB_RADIO) && (plstreams > 0) && (plstreams == plitems))
 	continue;
 
-      /* Don't add empty playlists */
-      if ((plid > 1) && (plitems == 0))
+      /* Don't add empty Smart playlists */
+      if ((plid > 1) && (plitems == 0) && (pltype == PL_SMART))
 	continue;
 
       npls++;
@@ -1723,8 +1723,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	}
 
       /* Item count (mimc) */
-      if (plitems > 0)
-	dmap_add_int(playlist, "mimc", plitems);
+      dmap_add_int(playlist, "mimc", plitems);
 
       /* Container ID (mpco) */
       ret = safe_atoi32(dbpli.parent_id, &plparent);
