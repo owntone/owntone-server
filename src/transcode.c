@@ -907,6 +907,8 @@ transcode_metadata(struct transcode_ctx *ctx, struct http_icy_metadata **metadat
     return;
 
   m = http_icy_metadata_get(ctx->fmtctx, 1);
+  if (!m)
+    return;
 
   *changed = (m->hash != ctx->icy_hash);
 
@@ -929,7 +931,11 @@ transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url, ch
     return;
 
   m = http_icy_metadata_get(ctx->fmtctx, 1);
+  if (!m)
+    return;
 
   if (m->artwork_url)
     *artwork_url = strdup(m->artwork_url);
+
+  http_icy_metadata_free(m);
 }
