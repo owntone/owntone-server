@@ -1692,7 +1692,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	  if (dfm == &dfm_dmap_mimc)
 	    continue;
 
-	  /* com.apple.itunes.smart-playlist - type = 1 AND id != 1 */
+	  /* com.apple.itunes.smart-playlist - type = PL_SMART AND id != 1 */
 	  if (dfm == &dfm_dmap_aeSP)
 	    {
 	      if ((pltype == PL_SMART) && (plid != 1))
