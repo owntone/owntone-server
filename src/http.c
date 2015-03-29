@@ -106,7 +106,11 @@ request_cb(struct evhttp_request *req, void *arg)
     }
 
   response_code = evhttp_request_get_response_code(req);
+#ifndef HAVE_LIBEVENT2_OLD
   response_code_line = evhttp_request_get_response_code_line(req);
+#else
+  response_code_line = "no error text";
+#endif
 
   if (response_code == 0)
     {
