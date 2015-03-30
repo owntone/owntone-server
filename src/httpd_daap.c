@@ -69,6 +69,7 @@ extern struct event_base *evbase_httpd;
 /* Update requests refresh interval in seconds */
 #define DAAP_UPDATE_REFRESH  0
 
+/* Database number for the Radio item */
 #define DAAP_DB_RADIO 2
 
 struct uri_map {
@@ -1128,6 +1129,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   struct daap_session *s;
   cfg_t *lib;
   char *name;
+  char *name_radio;
   int count;
 
   s = daap_session_find(req, query, evbuf);
@@ -1136,6 +1138,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
+  name_radio = cfg_getstr(lib, "name_radio");
 
   content = evbuffer_new();
   if (!content)
@@ -1187,7 +1190,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   dmap_add_long(item, "mper", DAAP_DB_RADIO);
   dmap_add_int(item, "mdbk", 0x64);
   dmap_add_int(item, "aeCs", 0);
-  dmap_add_string(item, "minm", "Radio");
+  dmap_add_string(item, "minm", name_radio);
   count = db_pl_get_count();       // TODO This counts too much, should only include stream playlists
   dmap_add_int(item, "mimc", count);
   dmap_add_int(item, "mctc", 0);
@@ -1545,12 +1548,14 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   struct daap_session *s;
   struct evbuffer *playlistlist;
   struct evbuffer *playlist;
+  cfg_t *lib;
   const struct dmap_field_map *dfm;
   const struct dmap_field *df;
   const struct dmap_field **meta;
   const char *param;
   char **strval;
   int database;
+  int cfg_radiopl;
   int nmeta;
   int npls;
   int32_t plid;
@@ -1572,6 +1577,9 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 
       return -1;
     }
+
+  lib = cfg_getsec(cfg, "library");
+  cfg_radiopl = cfg_getbool(lib, "radio_playlists");
 
   ret = evbuffer_expand(evbuf, 61);
   if (ret < 0)
@@ -1674,7 +1682,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
        */
       if ((database == DAAP_DB_RADIO) && (plstreams == 0))
 	continue;
-      if ((database != DAAP_DB_RADIO) && (plstreams > 0) && (plstreams == plitems))
+      if (!cfg_radiopl && (database != DAAP_DB_RADIO) && (plstreams > 0) && (plstreams == plitems))
 	continue;
 
       /* Don't add empty Smart playlists */
