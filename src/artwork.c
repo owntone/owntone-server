@@ -111,27 +111,21 @@ artwork_read(char *path, struct evbuffer *evbuf)
 static int
 rescale_needed(AVCodecContext *src, int max_w, int max_h, int *target_w, int *target_h)
 {
-  int need_rescale;
-
   DPRINTF(E_DBG, L_ART, "Original image dimensions: w %d h %d\n", src->width, src->height);
 
-  need_rescale = 1;
+  *target_w = src->width;
+  *target_h = src->height;
 
-  if ((max_w <= 0) || (max_h <= 0)) /* No valid dimensions, use original */
-    {
-      need_rescale = 0;
+  if ((src->width == 0) || (src->height == 0))         /* Unknown source size, can't rescale */
+    return 0;
 
-      *target_w = src->width;
-      *target_h = src->height;
-    }
-  else if ((src->width <= max_w) && (src->height <= max_h)) /* Smaller than target */
-    {
-      need_rescale = 0;
+  if ((max_w <= 0) || (max_h <= 0))                    /* No valid target dimensions, use original */
+    return 0;
 
-      *target_w = src->width;
-      *target_h = src->height;
-    }
-  else if (src->width * max_h > src->height * max_w)   /* Wider aspect ratio than target */
+  if ((src->width <= max_w) && (src->height <= max_h)) /* Smaller than target */
+    return 0;
+
+  if (src->width * max_h > src->height * max_w)        /* Wider aspect ratio than target */
     {
       *target_w = max_w;
       *target_h = (double)max_w * ((double)src->height / (double)src->width);
@@ -155,7 +149,7 @@ rescale_needed(AVCodecContext *src, int max_w, int max_h, int *target_w, int *ta
 
   DPRINTF(E_DBG, L_ART, "Destination width %d height %d\n", *target_w, *target_h);
 
-  return need_rescale;
+  return 1;
 }
 
 static int
