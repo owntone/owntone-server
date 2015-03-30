@@ -12,7 +12,6 @@ struct http_client_ctx
 {
   int async;
   const char *url;
-  int ret;
 
   /* For sync mode, a keyval/evbuf to store response headers and body
    * Can be set to NULL to ignore that part of the response
@@ -30,6 +29,7 @@ struct http_client_ctx
   void (*cb)(struct evhttp_request *, void *);
 
   /* Private */
+  int ret;
   void *evbase;
 };
 

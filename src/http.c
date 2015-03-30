@@ -44,7 +44,7 @@
 /* ======================= libevent HTTP client  =============================*/
 
 // Number of seconds the client will wait for a response before aborting
-#define HTTP_CLIENT_TIMEOUT 5
+#define HTTP_CLIENT_TIMEOUT 8
 
 /* The strict libevent api does not permit walking through an evkeyvalq and saving
  * all the http headers, so we predefine what we are looking for. You can add 
@@ -56,6 +56,7 @@ static char *header_list[] =
   "icy-description",
   "icy-metaint",
   "icy-genre",
+  "Content-Type",
 };
 
 /* Copies headers we are searching for from one keyval struct to another
@@ -257,12 +258,12 @@ request_make(void *arg)
   evhttp_add_header(headers, "Icy-MetaData", "1");
 
   /* Make request */
-  DPRINTF(E_INFO, L_HTTP, "Making request to %s:%d\n", hostname, port);
+  DPRINTF(E_INFO, L_HTTP, "Making request for http://%s:%d%s\n", hostname, port, path);
 
   ret = evhttp_make_request(evcon, req, EVHTTP_REQ_GET, path);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_HTTP, "Error making http request to %s:%d\n", hostname, port);
+      DPRINTF(E_LOG, L_HTTP, "Error making request for http://%s:%d%s\n", hostname, port, path);
 
       evhttp_connection_free(evcon);
       event_base_free(ctx->evbase);

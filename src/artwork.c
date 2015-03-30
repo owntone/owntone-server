@@ -39,6 +39,7 @@
 #include "conffile.h"
 #include "cache.h"
 #include "player.h"
+#include "http.h"
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 53
 # include "avio_evbuffer.h"
@@ -697,14 +698,11 @@ artwork_get(char *path, int max_w, int max_h, struct evbuffer *evbuf)
 static int
 artwork_get_player_image(char *path, int max_w, int max_h, struct evbuffer *evbuf)
 {
-  AVFormatContext *src_ctx;
-  AVPacket pkt;
+  struct http_client_ctx ctx;
+  struct keyval *kv;
+  const char *content_type;
   char *url;
   int len;
-  int s;
-  int target_w;
-  int target_h;
-  int format_ok;
   int ret;
 
   DPRINTF(E_DBG, L_ART, "Trying internet stream artwork in %s\n", path);
@@ -717,100 +715,33 @@ artwork_get_player_image(char *path, int max_w, int max_h, struct evbuffer *evbu
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
     return 0;
 
-  src_ctx = NULL;
-  ret = avformat_open_input(&src_ctx, url, NULL, NULL);
+  kv = keyval_alloc();
+  if (!kv)
+    return 0;
+
+  memset(&ctx, 0, sizeof(ctx));
+  ctx.url = url;
+  ctx.async = 0;
+  ctx.headers = kv;
+  ctx.body = evbuf;
+
+  ret = http_client_request(&ctx);
   if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_ART, "Cannot open artwork file '%s': %s\n", url, strerror(AVUNERROR(ret)));
+    return 0;
 
-      return 0;
-    }
-  free(url);
-
-  format_ok = 0;
-  for (s = 0; s < src_ctx->nb_streams; s++)
-    {
-      if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_PNG)
-	{
-	  format_ok = ART_FMT_PNG;
-	  break;
-	}
-      else if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_MJPEG)
-	{
-	  format_ok = ART_FMT_JPEG;
-	  break;
-	}
-    }
-
-  if (s == src_ctx->nb_streams)
-    {
-      DPRINTF(E_LOG, L_ART, "Artwork file '%s' not a PNG or JPEG file\n", path);
-
-      avformat_close_input(&src_ctx);
-      return 0;
-    }
-
-  ret = 0;
-  while (av_read_frame(src_ctx, &pkt) == 0)
-    {
-      if (pkt.stream_index != s)
-	{
-	  av_free_packet(&pkt);
-	  continue;
-	}
-
-      ret = 1;
-      break;
-    }
-
-  if (!ret)
-    {
-      DPRINTF(E_WARN, L_ART, "Could not read artwork: '%s'\n", path);
-
-      avformat_close_input(&src_ctx);
-      return 0;
-    }
-
-  ret = rescale_needed(src_ctx->streams[s]->codec, max_w, max_h, &target_w, &target_h);
-
-  /* Fastpath */
-  if (!ret && format_ok)
-    {
-      DPRINTF(E_DBG, L_ART, "Artwork not too large, using original image\n");
-
-      ret = evbuffer_expand(evbuf, pkt.size);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_ART, "Out of memory for artwork\n");
-
-	  av_free_packet(&pkt);
-	  avformat_close_input(&src_ctx);
-	  return -1;
-	}
-
-      ret = evbuffer_add(evbuf, pkt.data, pkt.size);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_ART, "Could not add image to event buffer\n");
-	}
-      else
-        ret = format_ok;
-    }
+  content_type = keyval_get(kv, "Content-Type");
+  if (strcmp(content_type, "image/jpeg") == 0)
+    ret = ART_FMT_JPEG;
+  else if (strcmp(content_type, "image/png") == 0)
+    ret = ART_FMT_PNG;
   else
-    {
-      DPRINTF(E_DBG, L_ART, "Artwork too large, rescaling image\n");
+    ret = 0;
 
-      ret = artwork_rescale(src_ctx, s, target_w, target_h, evbuf);
-    }
+  if (ret)
+    DPRINTF(E_DBG, L_ART, "Found internet stream artwork in %s (%s)\n", url, content_type);
 
-  av_free_packet(&pkt);
-  avformat_close_input(&src_ctx);
-
-  if (ret < 0)
-    {
-      if (evbuffer_get_length(evbuf) > 0)
-	evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
-    }
+  keyval_clear(kv);
+  free(kv);
 
   return ret;
 }
