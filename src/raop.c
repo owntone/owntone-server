@@ -781,6 +781,30 @@ raop_metadata_prepare(int id, uint64_t rtptime)
 
   memset(rmd, 0, sizeof(struct raop_metadata));
 
+  /* Get artwork first (thus waiting a bit so that db metadata has a moment to
+   * update in case it is a live stream)
+   */
+  rmd->artwork = evbuffer_new();
+  if (!rmd->artwork)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for artwork evbuffer; no artwork will be sent\n");
+
+      goto skip_artwork;
+    }
+
+  ret = artwork_get_item(id, 600, 600, rmd->artwork);
+  if (ret < 0)
+    {
+      DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file id %d; no artwork will be sent\n", id);
+
+      evbuffer_free(rmd->artwork);
+      rmd->artwork = NULL;
+    }
+
+  rmd->artwork_fmt = ret;
+
+ skip_artwork:
+
   /* Get dbmfi */
   memset(&qp, 0, sizeof(struct query_params));
   qp.type = Q_ITEMS;
@@ -848,31 +872,10 @@ raop_metadata_prepare(int id, uint64_t rtptime)
       goto out_metadata;
     }
 
+  db_query_end(&qp);
+
   rmd->start = rtptime;
   rmd->end = rtptime + (duration * 44100UL) / 1000UL;
-
-  /* Get artwork */
-  rmd->artwork = evbuffer_new();
-  if (!rmd->artwork)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for artwork evbuffer; no artwork will be sent\n");
-
-      goto skip_artwork;
-    }
-
-  ret = artwork_get_item(id, 600, 600, rmd->artwork);
-  if (ret < 0)
-    {
-      DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for '%s' (%d); no artwork will be sent\n", dbmfi.title, id);
-
-      evbuffer_free(rmd->artwork);
-      rmd->artwork = NULL;
-    }
-
-  rmd->artwork_fmt = ret;
-
- skip_artwork:
-  db_query_end(&qp);
 
   /* Add rmd to metadata list */
   if (metadata_tail)
