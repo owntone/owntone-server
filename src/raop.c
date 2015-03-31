@@ -772,9 +772,7 @@ raop_metadata_prepare(int id, uint64_t rtptime)
 
   memset(rmd, 0, sizeof(struct raop_metadata));
 
-  /* Get artwork first (thus waiting a bit so that db metadata has a moment to
-   * update in case it is a live stream)
-   */
+  /* Get artwork */
   rmd->artwork = evbuffer_new();
   if (!rmd->artwork)
     {
