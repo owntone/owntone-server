@@ -76,7 +76,7 @@ update_status(enum laudio_state status)
 }
 
 static int
-laudio_xrun_recover(int err)
+laudio_alsa_xrun_recover(int err)
 {
   int ret;
 
@@ -127,7 +127,7 @@ laudio_xrun_recover(int err)
 }
 
 static int
-laudio_set_start_threshold(snd_pcm_uframes_t threshold)
+laudio_alsa_set_start_threshold(snd_pcm_uframes_t threshold)
 {
   snd_pcm_sw_params_t *sw_params;
   int ret;
@@ -172,12 +172,13 @@ laudio_set_start_threshold(snd_pcm_uframes_t threshold)
   return -1;
 }
 
-void
-laudio_write(uint8_t *buf, uint64_t rtptime)
+static void
+laudio_alsa_write(uint8_t *buf, uint64_t rtptime)
 {
   struct pcm_packet *pkt;
   snd_pcm_sframes_t nsamp;
   int ret;
+  snd_pcm_sframes_t delay;
 
   pkt = (struct pcm_packet *)malloc(sizeof(struct pcm_packet));
   if (!pkt)
@@ -214,7 +215,7 @@ laudio_write(uint8_t *buf, uint64_t rtptime)
   else if ((pcm_status != LAUDIO_RUNNING) && (pcm_pos + pcm_buf_threshold >= pcm_start_pos))
     {
       /* Kill threshold */
-      ret = laudio_set_start_threshold(0);
+      ret = laudio_alsa_set_start_threshold(0);
       if (ret < 0)
 	DPRINTF(E_WARN, L_LAUDIO, "Couldn't set PCM start threshold to 0 for output start\n");
 
@@ -223,11 +224,23 @@ laudio_write(uint8_t *buf, uint64_t rtptime)
 
   pkt = pcm_pkt_head;
 
+  ret = snd_pcm_delay(hdl, &delay);
+  DPRINTF(E_SPAM, L_LAUDIO, "Current delay %" PRIu64 "\n", delay);
+  snd_pcm_state_t pcmstate = snd_pcm_state(hdl);
+  if (pcmstate == SND_PCM_STATE_RUNNING)
+    {
+      DPRINTF(E_SPAM, L_LAUDIO, "PCM-state == RUNNING\n");
+    }
+  else if (pcmstate == SND_PCM_STATE_PREPARED)
+    {
+      DPRINTF(E_SPAM, L_LAUDIO, "PCM-state == PREPARED\n");
+    }
+
   while (pkt)
     {
       if (pcm_recovery)
 	{
-	  ret = laudio_xrun_recover(0);
+	  ret = laudio_alsa_xrun_recover(0);
 	  if ((ret == 2) && (pcm_recovery < 10))
 	    return;
 	  else
@@ -243,7 +256,7 @@ laudio_write(uint8_t *buf, uint64_t rtptime)
       nsamp = snd_pcm_writei(hdl, pkt->samples + pkt->offset, BTOS(sizeof(pkt->samples) - pkt->offset));
       if ((nsamp == -EPIPE) || (nsamp == -ESTRPIPE))
 	{
-	  ret = laudio_xrun_recover(nsamp);
+	  ret = laudio_alsa_xrun_recover(nsamp);
 	  if ((ret < 0) || (ret == 1))
 	    {
 	      if (ret < 0)
@@ -287,8 +300,8 @@ laudio_write(uint8_t *buf, uint64_t rtptime)
     }
 }
 
-uint64_t
-laudio_get_pos(void)
+static uint64_t
+laudio_alsa_get_pos(void)
 {
   snd_pcm_sframes_t delay;
   int ret;
@@ -307,8 +320,8 @@ laudio_get_pos(void)
   return pcm_pos - delay;
 }
 
-void
-laudio_set_volume(int vol)
+static void
+laudio_alsa_set_volume(int vol)
 {
   int pcm_vol;
 
@@ -340,8 +353,8 @@ laudio_set_volume(int vol)
   snd_mixer_selem_set_playback_volume_all(vol_elem, pcm_vol);
 }
 
-int
-laudio_start(uint64_t cur_pos, uint64_t next_pkt)
+static int
+laudio_alsa_start(uint64_t cur_pos, uint64_t next_pkt)
 {
   int ret;
 
@@ -353,6 +366,7 @@ laudio_start(uint64_t cur_pos, uint64_t next_pkt)
       return -1;
     }
 
+  DPRINTF(E_DBG, L_LAUDIO, "Start local audio curpos %" PRIu64 ", next_pkt %" PRIu64 "\n", cur_pos, next_pkt);
   DPRINTF(E_DBG, L_LAUDIO, "PCM will start after %d samples (%d packets)\n", pcm_buf_threshold, pcm_buf_threshold / AIRTUNES_V2_PACKET_SAMPLES);
 
   /* Make pcm_pos the rtptime of the packet containing cur_pos */
@@ -373,7 +387,7 @@ laudio_start(uint64_t cur_pos, uint64_t next_pkt)
   pcm_last_error = 0;
   pcm_recovery = 0;
 
-  ret = laudio_set_start_threshold(pcm_buf_threshold);
+  ret = laudio_alsa_set_start_threshold(pcm_buf_threshold);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Could not set PCM start threshold for local audio start\n");
@@ -386,8 +400,8 @@ laudio_start(uint64_t cur_pos, uint64_t next_pkt)
   return 0;
 }
 
-void
-laudio_stop(void)
+static void
+laudio_alsa_stop(void)
 {
   struct pcm_packet *pkt;
 
@@ -509,8 +523,8 @@ mixer_open(void)
   return -1;
 }
 
-int
-laudio_open(void)
+static int
+laudio_alsa_open(void)
 {
   snd_pcm_hw_params_t *hw_params;
   snd_pcm_uframes_t bufsize;
@@ -633,8 +647,8 @@ laudio_open(void)
   return -1;
 }
 
-void
-laudio_close(void)
+static void
+laudio_alsa_close(void)
 {
   struct pcm_packet *pkt;
 
@@ -664,15 +678,15 @@ laudio_close(void)
 }
 
 
-int
-laudio_init(laudio_status_cb cb)
+static int
+laudio_alsa_init(laudio_status_cb cb, cfg_t *cfg_audio)
 {
   snd_lib_error_set_handler(logger_alsa);
 
   status_cb = cb;
 
-  card_name = cfg_getstr(cfg_getsec(cfg, "audio"), "card");
-  mixer_name = cfg_getstr(cfg_getsec(cfg, "audio"), "mixer");
+  card_name = cfg_getstr(cfg_audio, "card");
+  mixer_name = cfg_getstr(cfg_audio, "mixer");
 
   hdl = NULL;
   mixer_hdl = NULL;
@@ -681,8 +695,21 @@ laudio_init(laudio_status_cb cb)
   return 0;
 }
 
-void
-laudio_deinit(void)
+static void
+laudio_alsa_deinit(void)
 {
   snd_lib_error_set_handler(NULL);
 }
+
+audio_output audio_alsa = {
+    .name = "alsa",
+    .init = &laudio_alsa_init,
+    .deinit = &laudio_alsa_deinit,
+    .start = &laudio_alsa_start,
+    .stop = &laudio_alsa_stop,
+    .open = &laudio_alsa_open,
+    .close = &laudio_alsa_close,
+    .pos = &laudio_alsa_get_pos,
+    .write = &laudio_alsa_write,
+    .volume = &laudio_alsa_set_volume,
+    };

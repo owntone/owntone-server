@@ -17,6 +17,39 @@ enum laudio_state
 
 typedef void (*laudio_status_cb)(enum laudio_state status);
 
+typedef struct
+{
+  // Identifier of th audio output
+  char *name;
+
+  // Initialization function called during startup
+  int (*init)(laudio_status_cb cb, cfg_t *cfg_audio);
+
+  // Deinitialization function called at shutdown
+  void (*deinit)(void);
+
+  // Function to open the output called at playback start or speaker activiation
+  int (*open)(void);
+
+  // Function called after opening the output (during playback start or speaker activiation
+  int (*start)(uint64_t cur_pos, uint64_t next_pkt);
+
+  // block of samples
+  void (*write)(uint8_t *buf, uint64_t rtptime);
+
+  // Stopping audio playback
+  void (*stop)(void);
+
+  // Closes the output
+  void (*close)(void);
+
+  // Returns the rtptime of the packet thats is currently playing
+  uint64_t (*pos)();
+
+  // Sets the volum for the output
+  void (*volume)(int vol);
+} audio_output;
+
 void
 laudio_write(uint8_t *buf, uint64_t rtptime);
 

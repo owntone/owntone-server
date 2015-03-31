@@ -73,19 +73,21 @@ AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (
 
 case "$host" in
 	*-*-linux-*)
+		use_alsa=true
 		use_oss4=false
 		;;
 	*-*-kfreebsd*-*|*-*-freebsd*)
+		use_alsa=false
 		use_oss4=true
 		;;
 esac
 
 AC_ARG_WITH(oss4, AS_HELP_STRING([--with-oss4], [use OSS4 (default Linux=no, FreeBSD=yes)]),
-                  use_oss4=true;
+                  AS_IF([test "x$with_oss4" = "xyes"],[use_oss4=true],[use_oss4=false]);
                   )
 
 AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default Linux=yes, FreeBSD=no)]),
-                  use_oss4=false;
+                  AS_IF([test "x$with_alsa" = "xyes"],[use_alsa=true],[use_alsa=false]);
                   )
 
 AC_ARG_ENABLE(mpd, AS_HELP_STRING([--enable-mpd], [enable MPD client protocol support (default=no)]),
@@ -98,7 +100,7 @@ AM_CONDITIONAL(COND_ITUNES, test x$use_itunes = xtrue)
 AM_CONDITIONAL(COND_SPOTIFY, test x$use_spotify = xtrue)
 AM_CONDITIONAL(COND_LASTFM, test x$use_lastfm = xtrue)
 AM_CONDITIONAL(COND_OSS4, test x$use_oss4 = xtrue)
-AM_CONDITIONAL(COND_ALSA, test x$use_oss4 != xtrue)
+AM_CONDITIONAL(COND_ALSA, test x$use_alsa = xtrue)
 AM_CONDITIONAL(COND_MPD, test x$use_mpd = xtrue)
 
 dnl Checks for libraries.
@@ -226,11 +228,15 @@ if test x$use_lastfm = xtrue; then
 		AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
 fi
 
-if test x$use_oss4 != xtrue; then
+if test x$use_alsa = xtrue; then
 	PKG_CHECK_MODULES(ALSA, [ alsa ])
 	AC_DEFINE(LAUDIO_USE_ALSA, 1, [define if local audio output uses ALSA])
-else
+	CPPFLAGS="${CPPFLAGS} -DALSA"
+fi
+
+if test x$use_oss4 = xtrue; then
 	AC_CHECK_HEADER(sys/soundcard.h, , AC_MSG_ERROR([sys/soundcard.h not found]))
+	CPPFLAGS="${CPPFLAGS} -DOSS4"
 fi
 
 case "$host" in
