@@ -54,6 +54,14 @@ struct raop_device
   struct raop_device *next;
 };
 
+struct raop_metadata_arg
+{
+  int id;
+  uint64_t rtptime;
+  uint64_t offset;
+  int startup;
+};
+
 /* RAOP session state */
 
 /* Session is starting up */
@@ -115,7 +123,7 @@ raop_playback_stop(void);
 
 
 void
-raop_metadata_send(int id, uint64_t rtptime, uint64_t offset, int startup);
+raop_metadata_send(struct raop_metadata_arg *rma);
 
 int
 raop_set_volume_one(struct raop_session *rs, int volume, raop_status_cb cb);

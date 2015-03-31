@@ -120,6 +120,7 @@ forked_daapd_SOURCES = main.c \
 	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \
 	player.c player.h \
+	worker.c worker.h \
 	$(ALSA_SRC) $(OSS4_SRC) laudio.h \
 	raop.c raop.h \
 	$(RTSP_SRC) \

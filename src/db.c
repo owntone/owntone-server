@@ -62,11 +62,6 @@ struct db_unlock {
   pthread_mutex_t lck;
 };
 
-struct async_query {
-  char *query;
-  int delay;
-};
-
 #define DB_TYPE_CHAR    1
 #define DB_TYPE_INT     2
 #define DB_TYPE_INT64   3
@@ -620,83 +615,6 @@ db_exec(const char *query, char **errmsg)
     }
 
   return SQLITE_OK;
-}
-
-
-// This will run in its own shortlived, detached thread, created by db_exec_nonblock
-static void *
-db_exec_thread(void *arg)
-{
-  struct async_query *async = arg;
-  char *errmsg;
-  time_t start, end;
-  int ret;
-
-  // When switching tracks we update playcount and select the next track's
-  // metadata. We want the update to run after the selects so it won't lock
-  // the database.
-  sleep(async->delay);
-
-  ret = db_perthread_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Error in db_exec_thread: Could not init thread\n");
-      return NULL;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running delayed query '%s'\n", async->query);
-
-  time(&start);
-  ret = db_exec(async->query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error running query '%s': %s\n", async->query, errmsg);
-
-  time(&end);
-  if (end - start > 1)
-    DPRINTF(E_LOG, L_DB, "Warning: Slow query detected '%s' - database performance problems?\n", async->query);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(async->query);
-  free(async);
-
-  db_perthread_deinit();
-
-  return NULL;
-}
-
-// Creates a one-off thread to run a delayed, fire-and-forget, non-blocking query
-static void
-db_exec_nonblock(char *query, int delay)
-{
-  struct async_query *async;
-  pthread_t tid;
-  pthread_attr_t attr;
-  int ret;
-
-  ret = pthread_attr_init(&attr);
-  if (ret != 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Error in db_exec_nonblock: Could not init attributes\n");
-      return;
-    }
-
-  async = malloc(sizeof(struct async_query));
-  if (!async)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory\n");
-      return;
-    }
-  async->query = query;
-  async->delay = delay;
-
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-  ret = pthread_create(&tid, &attr, db_exec_thread, async);
-  if (ret != 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Error in db_exec_nonblock: Could not create thread\n");
-    }
-
-  pthread_attr_destroy(&attr);
 }
 
 
@@ -2073,8 +1991,7 @@ db_file_inc_playcount(int id)
       return;
     }
 
-  // Run the query non-blocking so we don't block playback if the update is slow
-  db_exec_nonblock(query, 5);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -2737,7 +2654,7 @@ db_file_update_icy(int id, char *artist, char *album)
       return;
     }
 
-  db_exec_nonblock(query, 0);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 

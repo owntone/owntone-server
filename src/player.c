@@ -57,6 +57,7 @@
 #include "player.h"
 #include "raop.h"
 #include "laudio.h"
+#include "worker.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -625,6 +626,32 @@ player_laudio_status_cb(enum laudio_state status)
     }
 }
 
+/* Callbacks from the worker thread */
+static void
+playcount_inc_cb(void *arg)
+{
+  int *id = arg;
+
+  db_file_inc_playcount(*id);
+}
+
+static void
+metadata_send_cb(void *arg)
+{
+  struct raop_metadata_arg *rma = arg;
+
+  raop_metadata_send(rma);
+}
+
+static void
+update_icy_cb(void *arg)
+{
+  struct http_icy_metadata *metadata = arg;
+
+  db_file_update_icy(metadata->id, metadata->artist, metadata->title);
+
+  http_icy_metadata_free(metadata, 1);
+}
 
 /* Metadata */
 static void
@@ -642,35 +669,37 @@ metadata_purge(void)
 static void
 metadata_send(struct player_source *ps, int startup)
 {
-  uint64_t offset;
-  uint64_t rtptime;
+  struct raop_metadata_arg rma;
 
-  offset = 0;
+  rma.id = ps->id;
+  rma.offset = 0;
+  rma.startup = startup;
 
   /* Determine song boundaries, dependent on context */
 
   /* Restart after pause/seek */
   if (ps->stream_start)
     {
-      offset = ps->output_start - ps->stream_start;
-      rtptime = ps->stream_start;
+      rma.offset = ps->output_start - ps->stream_start;
+      rma.rtptime = ps->stream_start;
     }
   else if (startup)
     {
-      rtptime = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+      rma.rtptime = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
     }
   /* Generic case */
   else if (cur_streaming && (cur_streaming->end))
     {
-      rtptime = cur_streaming->end + 1;
+      rma.rtptime = cur_streaming->end + 1;
     }
   else
     {
-      rtptime = 0;
+      rma.rtptime = 0;
       DPRINTF(E_LOG, L_PLAYER, "PTOH! Unhandled song boundary case in metadata_send()\n");
     }
 
-  raop_metadata_send(ps->id, rtptime, offset, startup);
+  /* Defer the actual work of sending the metadata to the worker thread */
+  worker_execute(metadata_send_cb, &rma, sizeof(struct raop_metadata_arg), 0);
 }
 
 static void
@@ -697,13 +726,23 @@ metadata_icy_poll_cb(int fd, short what, void *arg)
   if (!changed)
     goto no_update;
 
-  /* Update db (async) and send status update to clients */
-  db_file_update_icy(cur_streaming->id, metadata->artist, metadata->title);
+  metadata->id = cur_streaming->id;
+
+  /* Defer the database update to the worker thread */
+  worker_execute(update_icy_cb, metadata, sizeof(struct http_icy_metadata), 0);
+
   status_update(player_state);
   metadata_send(cur_streaming, 0);
 
+  /* Only free the struct, the content must be preserved for update_icy_cb */
+  free(metadata);
+
+  evtimer_add(metaev, &tv);
+
+  return;
+
  no_update:
-  http_icy_metadata_free(metadata);
+  http_icy_metadata_free(metadata, 0);
 
  no_metadata:
   evtimer_add(metaev, &tv);
@@ -1623,6 +1662,7 @@ source_check(void)
   uint64_t pos;
   enum repeat_mode r_mode;
   int i;
+  int id;
   int ret;
 
   if (!cur_streaming)
@@ -1699,9 +1739,10 @@ source_check(void)
     {
       i++;
 
-      db_file_inc_playcount((int)cur_playing->id);
+      id = (int)cur_playing->id;
+      worker_execute(playcount_inc_cb, &id, sizeof(int), 5);
 #ifdef LASTFM
-      lastfm_scrobble((int)cur_playing->id);
+      lastfm_scrobble(id);
 #endif
 
       /* Stop playback if:

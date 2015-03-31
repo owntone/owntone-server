@@ -937,5 +937,5 @@ transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url, ch
   if (m->artwork_url)
     *artwork_url = strdup(m->artwork_url);
 
-  http_icy_metadata_free(m);
+  http_icy_metadata_free(m, 0);
 }

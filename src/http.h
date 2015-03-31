@@ -35,6 +35,8 @@ struct http_client_ctx
 
 struct http_icy_metadata
 {
+  uint32_t id;
+
   /* Static stream metadata from icy_metadata_headers */
   char *name;
   char *description;
@@ -91,8 +93,9 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only);
 /* Frees an ICY metadata struct
  *
  * @param metadata struct to free
+ * @param content_only just free content, not the struct
  */
 void
-http_icy_metadata_free(struct http_icy_metadata *metadata);
+http_icy_metadata_free(struct http_icy_metadata *metadata, int content_only);
 
 #endif /* !__HTTP_H__ */

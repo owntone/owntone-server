@@ -621,7 +621,7 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
 #endif
 
 void
-http_icy_metadata_free(struct http_icy_metadata *metadata)
+http_icy_metadata_free(struct http_icy_metadata *metadata, int content_only)
 {
   if (metadata->name)
     free(metadata->name);
@@ -641,5 +641,6 @@ http_icy_metadata_free(struct http_icy_metadata *metadata)
   if (metadata->artwork_url)
     free(metadata->artwork_url);
 
-  free(metadata);
+  if (!content_only)
+    free(metadata);
 }

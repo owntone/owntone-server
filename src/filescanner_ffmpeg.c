@@ -530,7 +530,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 	  mfi->genre = strdup(icy_metadata->genre);
 	}
       if (icy_metadata)
-	http_icy_metadata_free(icy_metadata);
+	http_icy_metadata_free(icy_metadata, 0);
     }
 
   /* Get some more information on the audio stream */
