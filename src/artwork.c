@@ -721,7 +721,6 @@ artwork_get_player_image(char *path, int max_w, int max_h, struct evbuffer *evbu
 
   memset(&ctx, 0, sizeof(ctx));
   ctx.url = url;
-  ctx.async = 0;
   ctx.headers = kv;
   ctx.body = evbuf;
 

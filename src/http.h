@@ -10,11 +10,10 @@
 
 struct http_client_ctx
 {
-  int async;
   const char *url;
 
-  /* For sync mode, a keyval/evbuf to store response headers and body
-   * Can be set to NULL to ignore that part of the response
+  /* A keyval/evbuf to store response headers and body.
+   * Can be set to NULL to ignore that part of the response.
    */
   struct keyval *headers;
   struct evbuffer *body;
@@ -24,9 +23,6 @@ struct http_client_ctx
    * (requires libevent 1 or 2.1.4+)
    */
   int headers_only;
-
-  /* For async mode */
-  void (*cb)(struct evhttp_request *, void *);
 
   /* Private */
   int ret;
@@ -51,8 +47,7 @@ struct http_icy_metadata
 };
 
 
-/* Generic HTTP client
- * Can be called blocking or non-blocking. No support for https.
+/* Generic HTTP client. No support for https.
  *
  * @param ctx HTTP request params, see above
  * @return 0 if successful, -1 if an error occurred

@@ -31,8 +31,6 @@
 #include <sys/stat.h>
 #include <errno.h>
 
-#include <pthread.h>
-
 #include <libavutil/opt.h>
 
 #include <event2/event.h>
@@ -94,9 +92,6 @@ request_cb(struct evhttp_request *req, void *arg)
 
       event_base_loopbreak(ctx->evbase);
 
-      if (ctx->async)
-	free(ctx);
-
       return;
     }
 
@@ -124,23 +119,14 @@ request_cb(struct evhttp_request *req, void *arg)
       goto connection_error;
     }
 
-  /* Async: we make a callback to caller, Sync: we move the body into the callers evbuf */
   ctx->ret = 0;
 
-  if (!ctx->async)
-    {
-      if (ctx->headers)
-	headers_save(ctx->headers, evhttp_request_get_input_headers(req));
-      if (ctx->body)
-	evbuffer_add_buffer(ctx->body, evhttp_request_get_input_buffer(req));
-    }
-  else
-    ctx->cb(req, arg);
+  if (ctx->headers)
+    headers_save(ctx->headers, evhttp_request_get_input_headers(req));
+  if (ctx->body)
+    evbuffer_add_buffer(ctx->body, evhttp_request_get_input_buffer(req));
       
   event_base_loopbreak(ctx->evbase);
-
-  if (ctx->async)
-    free(ctx);
 
   return;
 
@@ -149,9 +135,6 @@ request_cb(struct evhttp_request *req, void *arg)
   ctx->ret = -1;
 
   event_base_loopbreak(ctx->evbase);
-
-  if (ctx->async)
-    free(ctx);
 
   return;
 }
@@ -181,10 +164,9 @@ request_header_cb(struct evhttp_request *req, void *arg)
 }
 #endif
 
-static void *
-request_make(void *arg)
+int
+http_client_request(struct http_client_ctx *ctx)
 {
-  struct http_client_ctx *ctx;
   struct evhttp_connection *evcon;
   struct evhttp_request *req;
   struct evkeyvalq *headers;
@@ -194,8 +176,6 @@ request_make(void *arg)
   int port;
   int ret;
 
-  ctx = (struct http_client_ctx *)arg;
-
   ctx->ret = -1;
 
   av_url_split(NULL, 0, NULL, 0, hostname, sizeof(hostname), &port, path, sizeof(path), ctx->url);
@@ -203,7 +183,7 @@ request_make(void *arg)
     {
       DPRINTF(E_LOG, L_HTTP, "Error extracting hostname from URL: %s\n", ctx->url);
 
-      return NULL;
+      return ctx->ret;
     }
 
   if (port <= 0)
@@ -220,7 +200,7 @@ request_make(void *arg)
     {
       DPRINTF(E_LOG, L_HTTP, "Could not create or find http client event base\n");
 
-      return NULL;
+      return ctx->ret;
     }
 
   evcon = evhttp_connection_base_new(ctx->evbase, NULL, hostname, (unsigned short)port);
@@ -229,7 +209,7 @@ request_make(void *arg)
       DPRINTF(E_LOG, L_HTTP, "Could not create connection to %s\n", hostname);
 
       event_base_free(ctx->evbase);
-      return NULL;
+      return ctx->ret;
     }
 
   evhttp_connection_set_timeout(evcon, HTTP_CLIENT_TIMEOUT);
@@ -242,7 +222,7 @@ request_make(void *arg)
 
       evhttp_connection_free(evcon);
       event_base_free(ctx->evbase);
-      return NULL;
+      return ctx->ret;
     }
 
 #ifndef HAVE_LIBEVENT2_OLD
@@ -267,7 +247,7 @@ request_make(void *arg)
 
       evhttp_connection_free(evcon);
       event_base_free(ctx->evbase);
-      return NULL;
+      return ctx->ret;
     }
 
   event_base_dispatch(ctx->evbase);
@@ -275,41 +255,7 @@ request_make(void *arg)
   evhttp_connection_free(evcon);
   event_base_free(ctx->evbase);
 
-  return NULL;
-}
-
-int
-http_client_request(struct http_client_ctx *ctx)
-{
-  pthread_t tid;
-  pthread_attr_t attr;  
-  int ret;
-
-  /* If async make the request in a spawned thread, otherwise just make it */
-  if (ctx->async)
-    {
-      ret = pthread_attr_init(&attr);
-      if (ret != 0)
-	{
-	  DPRINTF(E_LOG, L_HTTP, "Error in http_client_request: Could not init attributes\n");
-          return -1;
-        }
-
-      pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-      ret = pthread_create(&tid, &attr, request_make, ctx);
-      if (ret != 0)
-	{
-	  DPRINTF(E_LOG, L_HTTP, "Error in http_client_request: Could not create thread\n");
-	  return -1;
-	}
-    }
-  else
-    {
-      request_make(ctx);
-      ret = ctx->ret;
-    }
-
-  return ret;
+  return ctx->ret;
 }
 
 int
@@ -338,7 +284,6 @@ http_stream_setup(char **stream, const char *url)
   if (!evbuf)
     return -1;
 
-  ctx.async = 0;
   ctx.url = url;
   ctx.body = evbuf;
 
@@ -560,7 +505,6 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
     return NULL;
 
   memset(&ctx, 0, sizeof(struct http_client_ctx));
-  ctx.async = 0;
   ctx.url = fmtctx->filename;
   ctx.headers = kv;
   ctx.headers_only = 1;
