@@ -296,6 +296,10 @@ scan_playlist(char *file, time_t mtime)
       free(filename);
     }
 
+  /* We had some extinf that we never got to use, free it now */
+  if (extinf)
+    free_mfi(&mfi, 1);
+
   if (!feof(fp))
     {
       DPRINTF(E_LOG, L_SCAN, "Error reading playlist '%s': %s\n", file, strerror(errno));
