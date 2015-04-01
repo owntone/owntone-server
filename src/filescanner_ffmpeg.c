@@ -118,6 +118,7 @@ static const struct metadata_map md_map_generic[] =
     { "title-sort",   0, mfi_offsetof(title_sort),         NULL },
     { "artist-sort",  0, mfi_offsetof(artist_sort),        NULL },
     { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
+    { "compilation",  1, mfi_offsetof(compilation),        NULL },
 
     { NULL,           0, 0,                                NULL }
   };

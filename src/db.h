@@ -130,7 +130,7 @@ struct media_file_info {
   uint32_t item_kind;    /* song or movie */
   uint32_t data_kind;    /* dmap.datakind (asdk) */
   uint64_t sample_count;
-  char compilation;
+  uint32_t compilation;
   char artwork;
 
   /* iTunes 5+ */

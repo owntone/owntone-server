@@ -476,7 +476,7 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi, char *pltitle
   sp_artist *artist;
   sp_albumtype albumtype;
   bool starred;
-  char compilation;
+  int compilation;
   char *albumname;
 
   spotify_cfg = cfg_getsec(cfg, "spotify");
