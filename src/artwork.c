@@ -707,40 +707,43 @@ artwork_get_player_image(char *path, int max_w, int max_h, struct evbuffer *evbu
 
   DPRINTF(E_DBG, L_ART, "Trying internet stream artwork in %s\n", path);
 
+  ret = 0;
+
   player_icy_artwork_url(&url, path);
   if (!url)
     return 0;
 
   len = strlen(url);
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
-    return 0;
+    goto out_url;
 
   kv = keyval_alloc();
   if (!kv)
-    return 0;
+    goto out_url;
 
   memset(&ctx, 0, sizeof(ctx));
   ctx.url = url;
   ctx.headers = kv;
   ctx.body = evbuf;
 
-  ret = http_client_request(&ctx);
-  if (ret < 0)
-    return 0;
+  if (http_client_request(&ctx) < 0)
+    goto out_kv;
 
   content_type = keyval_get(kv, "Content-Type");
-  if (strcmp(content_type, "image/jpeg") == 0)
+  if (content_type && (strcmp(content_type, "image/jpeg") == 0))
     ret = ART_FMT_JPEG;
-  else if (strcmp(content_type, "image/png") == 0)
+  else if (content_type && (strcmp(content_type, "image/png") == 0))
     ret = ART_FMT_PNG;
-  else
-    ret = 0;
 
   if (ret)
     DPRINTF(E_DBG, L_ART, "Found internet stream artwork in %s (%s)\n", url, content_type);
 
+ out_kv:
   keyval_clear(kv);
   free(kv);
+
+ out_url:
+  free(url);
 
   return ret;
 }
