@@ -364,6 +364,9 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
     }
 
   ret = avformat_open_input(&ctx, path, NULL, &options);
+
+  if (options)
+    av_dict_free(&options);
 #else
   ret = av_open_input_file(&ctx, path, NULL, 0, NULL);
 #endif
