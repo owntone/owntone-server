@@ -27,7 +27,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <time.h>
-	#include <string.h>
+#include <string.h>
 #include <errno.h>
 #include <pthread.h>
 
@@ -74,7 +74,8 @@ static int g_cmd_pipe[2];
 static struct event *g_exitev;
 static struct event *g_cmdev;
 
-/* --------------------------------- HELPERS ------------------------------- */
+/* ---------------------------- CALLBACK EXECUTION ------------------------- */
+/*                                Thread: worker                             */
 
 static void
 execute_cb(int fd, short what, void *arg)
@@ -85,6 +86,7 @@ execute_cb(int fd, short what, void *arg)
 
   event_free(cmd->arg.timer);
   free(cmd->arg.cb_arg);
+  free(cmd);
 }
 
 
@@ -117,14 +119,14 @@ send_command(struct worker_command *cmd)
 
   if (!cmd->func)
     {
-      DPRINTF(E_LOG, L_MISC, "BUG: cmd->func is NULL!\n");
+      DPRINTF(E_LOG, L_MAIN, "BUG: cmd->func is NULL!\n");
       return -1;
     }
 
   ret = write(g_cmd_pipe[1], &cmd, sizeof(cmd));
   if (ret != sizeof(cmd))
     {
-      DPRINTF(E_LOG, L_MISC, "Could not send command: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_MAIN, "Could not send command: %s\n", strerror(errno));
       return -1;
     }
 
@@ -149,10 +151,10 @@ thread_exit(void)
 {
   int dummy = 42;
 
-  DPRINTF(E_DBG, L_MISC, "Killing worker thread\n");
+  DPRINTF(E_DBG, L_MAIN, "Killing worker thread\n");
 
   if (write(g_exit_pipe[1], &dummy, sizeof(dummy)) != sizeof(dummy))
-    DPRINTF(E_LOG, L_MISC, "Could not write to exit fd: %s\n", strerror(errno));
+    DPRINTF(E_LOG, L_MAIN, "Could not write to exit fd: %s\n", strerror(errno));
 }
 
 
@@ -165,12 +167,10 @@ worker(void *arg)
 {
   int ret;
 
-  DPRINTF(E_DBG, L_MISC, "Worker loop initiating\n");
-
   ret = db_perthread_init();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_MISC, "Error: DB init failed\n");
+      DPRINTF(E_LOG, L_MAIN, "Error: DB init failed (worker thread)\n");
       pthread_exit(NULL);
     }
 
@@ -180,13 +180,11 @@ worker(void *arg)
 
   if (g_initialized)
     {
-      DPRINTF(E_LOG, L_MISC, "Worker event loop terminated ahead of time!\n");
+      DPRINTF(E_LOG, L_MAIN, "Worker event loop terminated ahead of time!\n");
       g_initialized = 0;
     }
 
   db_perthread_deinit();
-
-  DPRINTF(E_DBG, L_MISC, "Worker loop terminating\n");
 
   pthread_exit(NULL);
 }
@@ -199,7 +197,7 @@ exit_cb(int fd, short what, void *arg)
 
   ret = read(g_exit_pipe[0], &dummy, sizeof(dummy));
   if (ret != sizeof(dummy))
-    DPRINTF(E_LOG, L_MISC, "Error reading from exit pipe\n");
+    DPRINTF(E_LOG, L_MAIN, "Error reading from exit pipe\n");
 
   event_base_loopbreak(evbase_worker);
 
@@ -217,7 +215,7 @@ command_cb(int fd, short what, void *arg)
   ret = read(g_cmd_pipe[0], &cmd, sizeof(cmd));
   if (ret != sizeof(cmd))
     {
-      DPRINTF(E_LOG, L_MISC, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
+      DPRINTF(E_LOG, L_MAIN, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
       goto readd;
     }
 
@@ -252,12 +250,12 @@ worker_execute(void (*cb)(void *), void *cb_arg, size_t arg_size, int delay)
   struct worker_command *cmd;
   void *argcpy;
 
-  DPRINTF(E_DBG, L_MISC, "Got worker execute request\n");
+  DPRINTF(E_DBG, L_MAIN, "Got worker execute request\n");
 
   cmd = (struct worker_command *)malloc(sizeof(struct worker_command));
   if (!cmd)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not allocate worker_command\n");
+      DPRINTF(E_LOG, L_MAIN, "Could not allocate worker_command\n");
       return;
     }
 
@@ -266,7 +264,7 @@ worker_execute(void (*cb)(void *), void *cb_arg, size_t arg_size, int delay)
   argcpy = malloc(arg_size);
   if (!argcpy)
     {
-      DPRINTF(E_LOG, L_MISC, "Out of memory\n");
+      DPRINTF(E_LOG, L_MAIN, "Out of memory\n");
       return;
     }
 
@@ -295,7 +293,7 @@ worker_init(void)
 # endif
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not create pipe: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_MAIN, "Could not create pipe: %s\n", strerror(errno));
       goto exit_fail;
     }
 
@@ -306,28 +304,28 @@ worker_init(void)
 # endif
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not create command pipe: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_MAIN, "Could not create command pipe: %s\n", strerror(errno));
       goto cmd_fail;
     }
 
   evbase_worker = event_base_new();
   if (!evbase_worker)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not create an event base\n");
+      DPRINTF(E_LOG, L_MAIN, "Could not create an event base\n");
       goto evbase_fail;
     }
 
   g_exitev = event_new(evbase_worker, g_exit_pipe[0], EV_READ, exit_cb, NULL);
   if (!g_exitev)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not create exit event\n");
+      DPRINTF(E_LOG, L_MAIN, "Could not create exit event\n");
       goto evnew_fail;
     }
 
   g_cmdev = event_new(evbase_worker, g_cmd_pipe[0], EV_READ, command_cb, NULL);
   if (!g_cmdev)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not create cmd event\n");
+      DPRINTF(E_LOG, L_MAIN, "Could not create cmd event\n");
       goto evnew_fail;
     }
 
@@ -337,7 +335,7 @@ worker_init(void)
   ret = pthread_create(&tid_worker, NULL, worker, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_MISC, "Could not spawn worker thread: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_MAIN, "Could not spawn worker thread: %s\n", strerror(errno));
 
       goto thread_fail;
     }
@@ -371,7 +369,7 @@ worker_deinit(void)
   ret = pthread_join(tid_worker, NULL);
   if (ret != 0)
     {
-      DPRINTF(E_FATAL, L_MISC, "Could not join worker thread: %s\n", strerror(errno));
+      DPRINTF(E_FATAL, L_MAIN, "Could not join worker thread: %s\n", strerror(errno));
       return;
     }
 
