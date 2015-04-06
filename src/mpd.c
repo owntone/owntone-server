@@ -2066,6 +2066,63 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 }
 
 static int
+mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct query_params qp;
+  struct count_info ci;
+  int ret;
+
+  if (argc < 3 || ((argc - 1) % 2) != 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Missing argument(s) for command 'find'\n");
+      ret = asprintf(errmsg, "Missing argument(s) for command 'find'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_COUNT_ITEMS;
+
+  mpd_get_query_params_find(argc - 1, argv + 1, &qp);
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+
+      DPRINTF(E_LOG, L_MPD, "Could not start query\n");
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  ret = db_query_fetch_count(&qp, &ci);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+
+      DPRINTF(E_LOG, L_MPD, "Could not fetch query count\n");
+      ret = asprintf(errmsg, "Could not fetch query count");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  evbuffer_add_printf(evbuf,
+      "songs: %d\n"
+      "playtime: %d\n",
+        ci.count,
+        (ci.length / 1000));
+
+  db_query_end(&qp);
+
+  return 0;
+}
+
+static int
 mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   struct query_params qp;
@@ -3175,12 +3232,10 @@ static struct command mpd_handlers[] =
     /*
      * The music database
      */
-    /*
     {
       .mpdcommand = "count",
       .handler = mpd_command_count
     },
-    */
     {
       .mpdcommand = "find",
       .handler = mpd_command_find
