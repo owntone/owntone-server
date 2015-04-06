@@ -2202,13 +2202,18 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   memset(&qp, 0, sizeof(struct query_params));
 
-  if (0 == strcasecmp(argv[1], "artist")
-      || 0 == strcasecmp(argv[1], "albumartist"))
+  if (0 == strcasecmp(argv[1], "artist"))
     {
       qp.type = Q_GROUP_ARTISTS;
       qp.sort = S_ARTIST;
       type = "Artist: ";
     }
+  if (0 == strcasecmp(argv[1], "albumartist"))
+      {
+        qp.type = Q_GROUP_ARTISTS;
+        qp.sort = S_ARTIST;
+        type = "AlbumArtist: ";
+      }
   else if (0 == strcasecmp(argv[1], "album"))
     {
       qp.type = Q_GROUP_ALBUMS;
