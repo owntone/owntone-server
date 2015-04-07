@@ -154,6 +154,7 @@ struct player_command
     void *noarg;
     struct spk_enum *spk_enum;
     struct raop_device *rd;
+    struct raop_metadata *rmd;
     struct player_status *status;
     struct player_source *ps;
     player_status_handler status_handler;
@@ -579,6 +580,9 @@ static int
 queue_clear(struct player_command *cmd);
 
 static void
+player_metadata_send(struct raop_metadata *rmd);
+
+static void
 player_laudio_status_cb(enum laudio_state status)
 {
   struct timespec ts;
@@ -626,7 +630,7 @@ player_laudio_status_cb(enum laudio_state status)
     }
 }
 
-/* Callbacks from the worker thread */
+/* Callback from the worker thread (async operation as it may block) */
 static void
 playcount_inc_cb(void *arg)
 {
@@ -635,14 +639,23 @@ playcount_inc_cb(void *arg)
   db_file_inc_playcount(*id);
 }
 
+/* Callback from the worker thread
+ * This prepares metadata in the worker thread, since especially the artwork
+ * retrieval may take some time. raop_metadata_prepare() is thread safe. The
+ * sending, however, must be done in the player thread.
+ */
 static void
-metadata_send_cb(void *arg)
+metadata_prepare_cb(void *arg)
 {
-  struct raop_metadata_arg *rma = arg;
+  struct raop_metadata *rmd;
 
-  raop_metadata_send(rma);
+  rmd = raop_metadata_prepare(arg);
+
+  if (rmd)
+    player_metadata_send(rmd);
 }
 
+/* Callback from the worker thread (async operation as it may block) */
 static void
 update_icy_cb(void *arg)
 {
@@ -667,7 +680,7 @@ metadata_purge(void)
 }
 
 static void
-metadata_send(struct player_source *ps, int startup)
+metadata_trigger(struct player_source *ps, int startup)
 {
   struct raop_metadata_arg rma;
 
@@ -695,11 +708,11 @@ metadata_send(struct player_source *ps, int startup)
   else
     {
       rma.rtptime = 0;
-      DPRINTF(E_LOG, L_PLAYER, "PTOH! Unhandled song boundary case in metadata_send()\n");
+      DPRINTF(E_LOG, L_PLAYER, "PTOH! Unhandled song boundary case in metadata_trigger()\n");
     }
 
-  /* Defer the actual work of sending the metadata to the worker thread */
-  worker_execute(metadata_send_cb, &rma, sizeof(struct raop_metadata_arg), 0);
+  /* Defer the actual work of preparing the metadata to the worker thread */
+  worker_execute(metadata_prepare_cb, &rma, sizeof(struct raop_metadata_arg), 0);
 }
 
 static void
@@ -732,7 +745,7 @@ metadata_icy_poll_cb(int fd, short what, void *arg)
   worker_execute(update_icy_cb, metadata, sizeof(struct http_icy_metadata), 0);
 
   status_update(player_state);
-  metadata_send(cur_streaming, 0);
+  metadata_trigger(cur_streaming, 0);
 
   /* Only free the struct, the content must be preserved for update_icy_cb */
   free(metadata);
@@ -1427,7 +1440,7 @@ source_open(struct player_source *ps, int no_md)
     }
 
   if (!no_md)
-    metadata_send(ps, (player_state == PLAY_PLAYING) ? 0 : 1);
+    metadata_trigger(ps, (player_state == PLAY_PLAYING) ? 0 : 1);
 
   ps->setup_done = 1;
 
@@ -1480,7 +1493,7 @@ source_next(int force)
 	     * so we have to handle metadata ourselves here
 	     */
 	    if (ret >= 0)
-	      metadata_send(cur_streaming, 0);
+	      metadata_trigger(cur_streaming, 0);
 	  }
 	else
 	  ret = source_open(cur_streaming, force);
@@ -2155,6 +2168,18 @@ device_remove_family(struct player_command *cmd)
     }
 
   device_free(dev);
+
+  return 0;
+}
+
+static int
+metadata_send(struct player_command *cmd)
+{
+  struct raop_metadata *rmd;
+
+  rmd = cmd->arg.rmd;
+
+  raop_metadata_send(rmd);
 
   return 0;
 }
@@ -2862,7 +2887,7 @@ playback_start(struct player_command *cmd)
        * After a pause, the source is still open so source_open() doesn't get
        * called and we have to handle metadata ourselves.
        */
-      metadata_send(cur_streaming, 1);
+      metadata_trigger(cur_streaming, 1);
     }
 
   /* Start local audio if needed */
@@ -4864,6 +4889,39 @@ player_device_remove(struct raop_device *rd)
     {
       free(cmd);
       device_free(rd);
+
+      return;
+    }
+}
+
+/* Thread: worker */
+static void
+player_metadata_send(struct raop_metadata *rmd)
+{
+  struct player_command *cmd;
+  int ret;
+
+  cmd = (struct player_command *)malloc(sizeof(struct player_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not allocate player_command\n");
+
+      raop_metadata_free(rmd);
+      return;
+    }
+
+  memset(cmd, 0, sizeof(struct player_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = metadata_send;
+  cmd->arg.rmd = rmd;
+
+  ret = nonblock_command(cmd);
+  if (ret < 0)
+    {
+      free(cmd);
+      raop_metadata_free(rmd);
 
       return;
     }
