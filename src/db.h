@@ -40,6 +40,7 @@ enum query_type {
   Q_GROUP_ITEMS      = (1 << 9),
   Q_GROUP_DIRS       = Q_F_BROWSE | (1 << 10),
   Q_BROWSE_YEARS     = Q_F_BROWSE | (1 << 11),
+  Q_COUNT_ITEMS      = (1 << 12),
 };
 
 #define ARTWORK_UNKNOWN   0
@@ -312,6 +313,10 @@ struct watch_enum {
   sqlite3_stmt *stmt;
 };
 
+struct count_info {
+  uint32_t count;
+  uint32_t length;
+};
 
 char *
 db_escape_string(const char *str);
@@ -363,6 +368,9 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli);
 
 int
 db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri);
+
+int
+db_query_fetch_count(struct query_params *qp, struct count_info *ci);
 
 int
 db_query_fetch_string(struct query_params *qp, char **string);

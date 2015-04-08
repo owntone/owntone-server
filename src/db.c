@@ -1493,6 +1493,29 @@ db_build_query_browse(struct query_params *qp, char *field, char *sort_field, ch
   return 0;
 }
 
+static int
+db_build_query_count_items(struct query_params *qp, char **q)
+{
+  char *query;
+
+  qp->results = 1;
+
+  if (qp->filter)
+    query = sqlite3_mprintf("SELECT COUNT(*), SUM(song_length) FROM files f WHERE f.disabled = 0 AND %s;", qp->filter);
+  else
+    return -1;
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  *q = query;
+
+  return 0;
+}
+
 int
 db_query_start(struct query_params *qp)
 {
@@ -1549,6 +1572,10 @@ db_query_start(struct query_params *qp)
 
       case Q_BROWSE_YEARS:
 	ret = db_build_query_browse(qp, "year", "year", &query);
+	break;
+
+      case Q_COUNT_ITEMS:
+	ret = db_build_query_count_items(qp, &query);
 	break;
 
       default:
@@ -1801,6 +1828,43 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
 
       *strcol = (char *)sqlite3_column_text(qp->stmt, i);
     }
+
+  return 0;
+}
+
+int
+db_query_fetch_count(struct query_params *qp, struct count_info *ci)
+{
+  int ret;
+
+  memset(ci, 0, sizeof(struct count_info));
+
+  if (!qp->stmt)
+    {
+      DPRINTF(E_LOG, L_DB, "Query not started!\n");
+      return -1;
+    }
+
+  if (qp->type != Q_COUNT_ITEMS)
+    {
+      DPRINTF(E_LOG, L_DB, "Not a count query!\n");
+      return -1;
+    }
+
+  ret = db_blocking_step(qp->stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of query results for count query\n");
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  ci->count = sqlite3_column_int(qp->stmt, 0);
+  ci->length = sqlite3_column_int(qp->stmt, 1);
 
   return 0;
 }
