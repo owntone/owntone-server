@@ -154,9 +154,6 @@ struct raop_metadata
   uint64_t start;
   uint64_t end;
 
-  uint64_t offset;
-  int startup;
-
   struct raop_metadata *next;
 };
 
@@ -756,7 +753,7 @@ raop_metadata_prune(uint64_t rtptime)
 
 /* Thread: worker */
 struct raop_metadata *
-raop_metadata_prepare(struct raop_metadata_arg *rma)
+raop_metadata_prepare(int id)
 {
   struct query_params qp;
   struct db_media_file_info dbmfi;
@@ -785,10 +782,10 @@ raop_metadata_prepare(struct raop_metadata_arg *rma)
       goto skip_artwork;
     }
 
-  ret = artwork_get_item(rma->id, 600, 600, rmd->artwork);
+  ret = artwork_get_item(id, 600, 600, rmd->artwork);
   if (ret < 0)
     {
-      DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file id %d; no artwork will be sent\n", rma->id);
+      DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file id %d; no artwork will be sent\n", id);
 
       evbuffer_free(rmd->artwork);
       rmd->artwork = NULL;
@@ -805,10 +802,10 @@ raop_metadata_prepare(struct raop_metadata_arg *rma)
   qp.sort = S_NONE;
   qp.filter = filter;
 
-  ret = snprintf(filter, sizeof(filter), "id = %d", rma->id);
+  ret = snprintf(filter, sizeof(filter), "id = %d", id);
   if ((ret < 0) || (ret >= sizeof(filter)))
     {
-      DPRINTF(E_LOG, L_RAOP, "Could not build filter for file id %d; metadata will not be sent\n", rma->id);
+      DPRINTF(E_LOG, L_RAOP, "Could not build filter for file id %d; metadata will not be sent\n", id);
 
       goto out_rmd;
     }
@@ -824,7 +821,7 @@ raop_metadata_prepare(struct raop_metadata_arg *rma)
   ret = db_query_fetch_file(&qp, &dbmfi);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't fetch file id %d; metadata will not be sent\n", rma->id);
+      DPRINTF(E_LOG, L_RAOP, "Couldn't fetch file id %d; metadata will not be sent\n", id);
 
       goto out_query;
     }
@@ -867,11 +864,9 @@ raop_metadata_prepare(struct raop_metadata_arg *rma)
 
   db_query_end(&qp);
 
-  rmd->start = rma->rtptime;
-  rmd->end = rma->rtptime + (duration * 44100UL) / 1000UL;
-
-  rmd->startup = rma->startup;
-  rmd->offset = rma->offset;
+  /* raop_metadata_send() will add rtptime to these */
+  rmd->start = 0;
+  rmd->end = (duration * 44100UL) / 1000UL;
 
   return rmd;
 
@@ -2162,11 +2157,14 @@ raop_metadata_startup_send(struct raop_session *rs)
 }
 
 void
-raop_metadata_send(struct raop_metadata *rmd)
+raop_metadata_send(struct raop_metadata *rmd, uint64_t rtptime, uint64_t offset, int startup)
 {
   struct raop_session *rs;
   uint32_t delay;
   int ret;
+
+  rmd->start += rtptime;
+  rmd->end += rtptime;
 
   /* Add the rmd to the metadata list */
   if (metadata_tail)
@@ -2185,9 +2183,9 @@ raop_metadata_send(struct raop_metadata *rmd)
       if (!rs->wants_metadata)
 	continue;
 
-      delay = (rmd->startup) ? RAOP_MD_DELAY_STARTUP : RAOP_MD_DELAY_SWITCH;
+      delay = (startup) ? RAOP_MD_DELAY_STARTUP : RAOP_MD_DELAY_SWITCH;
 
-      ret = raop_metadata_send_internal(rs, rmd, rmd->offset, delay);
+      ret = raop_metadata_send_internal(rs, rmd, offset, delay);
       if (ret < 0)
 	{
 	  raop_session_failure(rs);

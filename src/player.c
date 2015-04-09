@@ -139,6 +139,16 @@ struct icy_artwork
   char *artwork_url;
 };
 
+struct player_metadata
+{
+  int id;
+  uint64_t rtptime;
+  uint64_t offset;
+  int startup;
+
+  struct raop_metadata *rmd;
+};
+
 struct player_command
 {
   pthread_mutex_t lck;
@@ -154,9 +164,9 @@ struct player_command
     void *noarg;
     struct spk_enum *spk_enum;
     struct raop_device *rd;
-    struct raop_metadata *rmd;
     struct player_status *status;
     struct player_source *ps;
+    struct player_metadata *pmd;
     player_status_handler status_handler;
     uint32_t *id_ptr;
     uint64_t *raop_ids;
@@ -580,7 +590,7 @@ static int
 queue_clear(struct player_command *cmd);
 
 static void
-player_metadata_send(struct raop_metadata *rmd);
+player_metadata_send(struct player_metadata *pmd);
 
 static void
 player_laudio_status_cb(enum laudio_state status)
@@ -647,12 +657,12 @@ playcount_inc_cb(void *arg)
 static void
 metadata_prepare_cb(void *arg)
 {
-  struct raop_metadata *rmd;
+  struct player_metadata *pmd = arg;
 
-  rmd = raop_metadata_prepare(arg);
+  pmd->rmd = raop_metadata_prepare(pmd->id);
 
-  if (rmd)
-    player_metadata_send(rmd);
+  if (pmd->rmd)
+    player_metadata_send(pmd);
 }
 
 /* Callback from the worker thread (async operation as it may block) */
@@ -682,37 +692,37 @@ metadata_purge(void)
 static void
 metadata_trigger(struct player_source *ps, int startup)
 {
-  struct raop_metadata_arg rma;
+  struct player_metadata pmd;
 
-  rma.id = ps->id;
-  rma.offset = 0;
-  rma.startup = startup;
+  memset(&pmd, 0, sizeof(struct player_metadata));
+
+  pmd.id = ps->id;
+  pmd.startup = startup;
 
   /* Determine song boundaries, dependent on context */
 
   /* Restart after pause/seek */
   if (ps->stream_start)
     {
-      rma.offset = ps->output_start - ps->stream_start;
-      rma.rtptime = ps->stream_start;
+      pmd.offset = ps->output_start - ps->stream_start;
+      pmd.rtptime = ps->stream_start;
     }
   else if (startup)
     {
-      rma.rtptime = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+      /* Will be set later, right before sending */
     }
   /* Generic case */
   else if (cur_streaming && (cur_streaming->end))
     {
-      rma.rtptime = cur_streaming->end + 1;
+      pmd.rtptime = cur_streaming->end + 1;
     }
   else
     {
-      rma.rtptime = 0;
       DPRINTF(E_LOG, L_PLAYER, "PTOH! Unhandled song boundary case in metadata_trigger()\n");
     }
 
   /* Defer the actual work of preparing the metadata to the worker thread */
-  worker_execute(metadata_prepare_cb, &rma, sizeof(struct raop_metadata_arg), 0);
+  worker_execute(metadata_prepare_cb, &pmd, sizeof(struct player_metadata), 0);
 }
 
 static void
@@ -2175,11 +2185,17 @@ device_remove_family(struct player_command *cmd)
 static int
 metadata_send(struct player_command *cmd)
 {
-  struct raop_metadata *rmd;
+  struct player_metadata *pmd;
 
-  rmd = cmd->arg.rmd;
+  pmd = cmd->arg.pmd;
 
-  raop_metadata_send(rmd);
+  /* Do the setting of rtptime which was deferred in metadata_trigger because we
+   * wanted to wait until we had the actual last_rtptime
+   */
+  if ((pmd->rtptime == 0) && (pmd->startup))
+    pmd->rtptime = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+
+  raop_metadata_send(pmd->rmd, pmd->rtptime, pmd->offset, pmd->startup);
 
   return 0;
 }
@@ -4896,35 +4912,19 @@ player_device_remove(struct raop_device *rd)
 
 /* Thread: worker */
 static void
-player_metadata_send(struct raop_metadata *rmd)
+player_metadata_send(struct player_metadata *pmd)
 {
-  struct player_command *cmd;
-  int ret;
+  struct player_command cmd;
 
-  cmd = (struct player_command *)malloc(sizeof(struct player_command));
-  if (!cmd)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not allocate player_command\n");
+  command_init(&cmd);
 
-      raop_metadata_free(rmd);
-      return;
-    }
+  cmd.func = metadata_send;
+  cmd.func_bh = NULL;
+  cmd.arg.pmd = pmd;
 
-  memset(cmd, 0, sizeof(struct player_command));
+  sync_command(&cmd);
 
-  cmd->nonblock = 1;
-
-  cmd->func = metadata_send;
-  cmd->arg.rmd = rmd;
-
-  ret = nonblock_command(cmd);
-  if (ret < 0)
-    {
-      free(cmd);
-      raop_metadata_free(rmd);
-
-      return;
-    }
+  command_deinit(&cmd);
 }
 
 

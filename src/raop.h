@@ -55,14 +55,6 @@ struct raop_device
   struct raop_device *next;
 };
 
-struct raop_metadata_arg
-{
-  int id;
-  uint64_t rtptime;
-  uint64_t offset;
-  int startup;
-};
-
 /* RAOP session state */
 
 /* Session is starting up */
@@ -109,10 +101,10 @@ void
 raop_metadata_prune(uint64_t rtptime);
 
 struct raop_metadata *
-raop_metadata_prepare(struct raop_metadata_arg *rma);
+raop_metadata_prepare(int id);
 
 void
-raop_metadata_send(struct raop_metadata *rmd);
+raop_metadata_send(struct raop_metadata *rmd, uint64_t rtptime, uint64_t offset, int startup);
 
 int
 raop_device_probe(struct raop_device *rd, raop_status_cb cb);
