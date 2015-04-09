@@ -2628,13 +2628,22 @@ now_playing(struct player_command *cmd)
 static int
 artwork_url_get(struct player_command *cmd)
 {
+  struct player_source *ps;
+
   cmd->arg.icy.artwork_url = NULL;
 
-  /* Check that we are playing a viable stream, and that it has the requested id */
-  if (!cur_streaming || cur_streaming->id != cmd->arg.icy.id || cur_streaming->type != SOURCE_HTTP || !cur_streaming->ctx)
+  if (cur_playing)
+    ps = cur_playing;
+  else if (cur_streaming)
+    ps = cur_streaming;
+  else
     return -1;
 
-  transcode_metadata_artwork_url(cur_streaming->ctx, &cmd->arg.icy.artwork_url);
+  /* Check that we are playing a viable stream, and that it has the requested id */
+  if (!ps->ctx || ps->type != SOURCE_HTTP || ps->id != cmd->arg.icy.id)
+    return -1;
+
+  transcode_metadata_artwork_url(ps->ctx, &cmd->arg.icy.artwork_url);
 
   return 0;
 }
