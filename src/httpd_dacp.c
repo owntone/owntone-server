@@ -1829,7 +1829,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   if (ret < 0)
     goto no_artwork;
 
-  ret = artwork_get_item(id, max_w, max_h, evbuf);
+  ret = artwork_get_item(evbuf, id, max_w, max_h);
   switch (ret)
     {
       case ART_FMT_PNG:

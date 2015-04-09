@@ -2375,9 +2375,9 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
     }
 
   if (strcmp(uri[2], "groups") == 0)
-    ret = artwork_get_group(id, max_w, max_h, evbuf);
+    ret = artwork_get_group(evbuf, id, max_w, max_h);
   else if (strcmp(uri[2], "items") == 0)
-    ret = artwork_get_item(id, max_w, max_h, evbuf);
+    ret = artwork_get_item(evbuf, id, max_w, max_h);
 
   switch (ret)
     {

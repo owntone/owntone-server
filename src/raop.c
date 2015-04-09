@@ -782,7 +782,7 @@ raop_metadata_prepare(int id)
       goto skip_artwork;
     }
 
-  ret = artwork_get_item(id, 600, 600, rmd->artwork);
+  ret = artwork_get_item(rmd->artwork, id, 600, 600);
   if (ret < 0)
     {
       DPRINTF(E_INFO, L_RAOP, "Failed to retrieve artwork for file id %d; no artwork will be sent\n", id);

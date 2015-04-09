@@ -13,11 +13,11 @@
 
 /* Get artwork for individual track */
 int
-artwork_get_item(int id, int max_w, int max_h, struct evbuffer *evbuf);
+artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h);
 
 /* Get artwork for album or artist */
 int
-artwork_get_group(int id, int max_w, int max_h, struct evbuffer *evbuf);
+artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h);
 
 /* Checks if the file is an artwork file */
 int
