@@ -695,6 +695,18 @@ artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
   return ret;
 }
 
+/*
+ * Downloads the artwork pointed to by the ICY metadata tag in an internet radio
+ * stream (the StreamUrl tag). The path will be converted back to the id, which
+ * is given to the player. If the id is currently being played, and there is a
+ * valid ICY metadata artwork URL available, it will be returned to this
+ * function, which will then use the http client to get the artwork. Notice: No
+ * rescaling is done.
+ *
+ * @param evbuf the event buffer that will contain the (scaled) image
+ * @param path path to the item we are getting artwork for
+ * @return ART_FMT_* on success, 0 on error and nothing found
+ */
 static int
 artwork_get_player_image(struct evbuffer *evbuf, char *path)
 {
@@ -702,6 +714,7 @@ artwork_get_player_image(struct evbuffer *evbuf, char *path)
   struct keyval *kv;
   const char *content_type;
   char *url;
+  int id;
   int len;
   int ret;
 
@@ -709,7 +722,11 @@ artwork_get_player_image(struct evbuffer *evbuf, char *path)
 
   ret = 0;
 
-  player_icy_artwork_url(&url, path);
+  id = db_file_id_bypath(path);
+  if (!id)
+    return 0;
+
+  url = player_get_icy_artwork_url(id);
   if (!url)
     return 0;
 

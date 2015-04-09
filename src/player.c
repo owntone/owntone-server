@@ -135,7 +135,7 @@ struct item_range
 
 struct icy_artwork
 {
-  char *stream_url;
+  uint32_t id;
   char *artwork_url;
 };
 
@@ -175,7 +175,7 @@ struct player_command
     int intval;
     int ps_pos[2];
     struct item_range item_range;
-    struct icy_artwork icy_artwork;
+    struct icy_artwork icy;
   } arg;
 
   int ret;
@@ -2628,15 +2628,13 @@ now_playing(struct player_command *cmd)
 static int
 artwork_url_get(struct player_command *cmd)
 {
-  DPRINTF(E_DBG, L_PLAYER, "ICY artwork url call\n");
+  cmd->arg.icy.artwork_url = NULL;
 
-  cmd->arg.icy_artwork.artwork_url = NULL;
-
-  /* Not playing a stream */
-  if (!cur_playing || cur_playing->type != SOURCE_HTTP || !cur_playing->ctx)
+  /* Check that we are playing a viable stream, and that it has the requested id */
+  if (!cur_streaming || cur_streaming->id != cmd->arg.icy.id || cur_streaming->type != SOURCE_HTTP || !cur_streaming->ctx)
     return -1;
 
-  transcode_metadata_artwork_url(cur_playing->ctx, &cmd->arg.icy_artwork.artwork_url, cmd->arg.icy_artwork.stream_url);
+  transcode_metadata_artwork_url(cur_streaming->ctx, &cmd->arg.icy.artwork_url);
 
   return 0;
 }
@@ -4296,8 +4294,8 @@ player_now_playing(uint32_t *id)
   return ret;
 }
 
-int
-player_icy_artwork_url(char **artwork_url, char *stream_url)
+char *
+player_get_icy_artwork_url(uint32_t id)
 {
   struct player_command cmd;
   int ret;
@@ -4306,18 +4304,19 @@ player_icy_artwork_url(char **artwork_url, char *stream_url)
 
   cmd.func = artwork_url_get;
   cmd.func_bh = NULL;
-  cmd.arg.icy_artwork.stream_url = stream_url;
+  cmd.arg.icy.id = id;
 
   if (pthread_self() != tid_player)
     ret = sync_command(&cmd);
   else
     ret = artwork_url_get(&cmd);
 
-  *artwork_url = cmd.arg.icy_artwork.artwork_url;
-
   command_deinit(&cmd);
 
-  return ret;
+  if (ret < 0)
+    return NULL;
+  else
+    return cmd.arg.icy.artwork_url;
 }
 
 /*

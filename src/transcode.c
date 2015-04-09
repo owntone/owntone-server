@@ -926,16 +926,13 @@ transcode_metadata(struct transcode_ctx *ctx, struct http_icy_metadata **metadat
 }
 
 void
-transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url, char *stream_url)
+transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url)
 {
   struct http_icy_metadata *m;
 
   *artwork_url = NULL;
 
   if (!ctx->fmtctx || !ctx->fmtctx->filename)
-    return;
-
-  if (strcmp(ctx->fmtctx->filename, stream_url) != 0)
     return;
 
   m = http_icy_metadata_get(ctx->fmtctx, 1);

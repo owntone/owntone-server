@@ -30,6 +30,6 @@ void
 transcode_metadata(struct transcode_ctx *ctx, struct http_icy_metadata **metadata, int *changed);
 
 void
-transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url, char *stream_url);
+transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url);
 
 #endif /* !__TRANSCODE_H__ */
