@@ -759,8 +759,22 @@ process_pls(plist_t playlists, char *file)
 
       if (pl_id == 0)
 	{
+	  pli = (struct playlist_info *)malloc(sizeof(struct playlist_info));
+	  if (!pli)
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Out of memory\n");
+
+	      return;
+	    }
+	  memset(pli, 0, sizeof(struct playlist_info));
+
+	  pli->title = strdup(name);
+	  pli->path = strdup(file);
 	  snprintf(virtual_path, PATH_MAX, "/file:%s", file);
-	  ret = db_pl_add(name, file, virtual_path, &pl_id);
+	  pli->virtual_path = strdup(virtual_path);
+
+	  ret = db_pl_add(pli, &pl_id);
+	  free_pli(pli, 0);
 	  if (ret < 0)
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Error adding iTunes playlist '%s' (%s)\n", name, file);

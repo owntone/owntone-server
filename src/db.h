@@ -50,6 +50,7 @@ enum query_type {
 #define ARTWORK_DIR       4
 #define ARTWORK_PARENTDIR 5
 #define ARTWORK_SPOTIFY   6
+#define ARTWORK_HTTP      7
 
 enum filelistitem_type {
   F_PLAYLIST = 1,
@@ -74,7 +75,8 @@ struct query_params {
 
   /* Private query context, keep out */
   sqlite3_stmt *stmt;
-  char buf[32];
+  char buf1[32];
+  char buf2[32];
 };
 
 struct pairing_info {
@@ -164,10 +166,12 @@ struct media_file_info {
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
 
+/* PL_SMART value must be in sync with type value in Q_PL* in db.c */
 enum pl_type {
-  PL_PLAIN,
-  PL_SMART,
-  PL_MAX
+  PL_PLAIN = 0,
+  PL_FOLDER = 1,
+  PL_SMART = 2,
+  PL_MAX,
 };
 
 struct playlist_info {
@@ -175,6 +179,7 @@ struct playlist_info {
   char *title;           /* playlist name as displayed in iTunes (minm) */
   enum pl_type type;     /* see PL_ types */
   uint32_t items;        /* number of items (mimc) */
+  uint32_t streams;      /* number of internet streams */
   char *query;           /* where clause if type 1 (MSPS) */
   uint32_t db_timestamp; /* time last updated */
   uint32_t disabled;
@@ -182,6 +187,7 @@ struct playlist_info {
   uint32_t index;        /* index of playlist for paths with multiple playlists */
   uint32_t special_id;   /* iTunes identifies certain 'special' playlists with special meaning */
   char *virtual_path;    /* virtual path of underlying playlist */
+  uint32_t parent_id;    /* Id of parent playlist if the playlist is nested */
 };
 
 #define pli_offsetof(field) offsetof(struct playlist_info, field)
@@ -191,6 +197,7 @@ struct db_playlist_info {
   char *title;
   char *type;
   char *items;
+  char *streams;
   char *query;
   char *db_timestamp;
   char *disabled;
@@ -198,6 +205,7 @@ struct db_playlist_info {
   char *index;
   char *special_id;
   char *virtual_path;
+  char *parent_id;
 };
 
 #define dbpli_offsetof(field) offsetof(struct db_playlist_info, field)
@@ -434,6 +442,9 @@ int
 db_file_update(struct media_file_info *mfi);
 
 void
+db_file_update_icy(int id, char *artist, char *album);
+
+void
 db_file_delete_bypath(char *path);
 
 void
@@ -465,7 +476,7 @@ struct playlist_info *
 db_pl_fetch_bytitlepath(char *title, char *path);
 
 int
-db_pl_add(char *title, char *path, char *virtual_path, int *id);
+db_pl_add(struct playlist_info *pli, int *id);
 
 int
 db_pl_add_item_bypath(int plid, char *path);
@@ -477,7 +488,7 @@ void
 db_pl_clear_items(int id);
 
 int
-db_pl_update(char *title, char *path, char *virtual_path, int id);
+db_pl_update(struct playlist_info *pli);
 
 void
 db_pl_delete(int id);

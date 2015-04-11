@@ -57,6 +57,7 @@
 #include "player.h"
 #include "raop.h"
 #include "laudio.h"
+#include "worker.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -65,6 +66,7 @@
 /* These handle getting the media data */
 #include "transcode.h"
 #include "pipe.h"
+#include "http.h"
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
@@ -128,6 +130,22 @@ struct item_range
   uint32_t *id_ptr;
 };
 
+struct icy_artwork
+{
+  uint32_t id;
+  char *artwork_url;
+};
+
+struct player_metadata
+{
+  int id;
+  uint64_t rtptime;
+  uint64_t offset;
+  int startup;
+
+  struct raop_metadata *rmd;
+};
+
 struct player_command
 {
   pthread_mutex_t lck;
@@ -145,6 +163,7 @@ struct player_command
     struct raop_device *rd;
     struct player_status *status;
     struct player_source *ps;
+    struct player_metadata *pmd;
     player_status_handler status_handler;
     uint32_t *id_ptr;
     uint64_t *raop_ids;
@@ -153,6 +172,7 @@ struct player_command
     int intval;
     int ps_pos[2];
     struct item_range item_range;
+    struct icy_artwork icy;
   } arg;
 
   int ret;
@@ -566,6 +586,9 @@ static int
 queue_clear(struct player_command *cmd);
 
 static void
+player_metadata_send(struct player_metadata *pmd);
+
+static void
 player_laudio_status_cb(enum laudio_state status)
 {
   struct timespec ts;
@@ -613,6 +636,41 @@ player_laudio_status_cb(enum laudio_state status)
     }
 }
 
+/* Callback from the worker thread (async operation as it may block) */
+static void
+playcount_inc_cb(void *arg)
+{
+  int *id = arg;
+
+  db_file_inc_playcount(*id);
+}
+
+/* Callback from the worker thread
+ * This prepares metadata in the worker thread, since especially the artwork
+ * retrieval may take some time. raop_metadata_prepare() is thread safe. The
+ * sending, however, must be done in the player thread.
+ */
+static void
+metadata_prepare_cb(void *arg)
+{
+  struct player_metadata *pmd = arg;
+
+  pmd->rmd = raop_metadata_prepare(pmd->id);
+
+  if (pmd->rmd)
+    player_metadata_send(pmd);
+}
+
+/* Callback from the worker thread (async operation as it may block) */
+static void
+update_icy_cb(void *arg)
+{
+  struct http_icy_metadata *metadata = arg;
+
+  db_file_update_icy(metadata->id, metadata->artist, metadata->title);
+
+  http_icy_metadata_free(metadata, 1);
+}
 
 /* Metadata */
 static void
@@ -628,37 +686,72 @@ metadata_purge(void)
 }
 
 static void
-metadata_send(struct player_source *ps, int startup)
+metadata_trigger(struct player_source *ps, int startup)
 {
-  uint64_t offset;
-  uint64_t rtptime;
+  struct player_metadata pmd;
 
-  offset = 0;
+  memset(&pmd, 0, sizeof(struct player_metadata));
+
+  pmd.id = ps->id;
+  pmd.startup = startup;
 
   /* Determine song boundaries, dependent on context */
 
   /* Restart after pause/seek */
   if (ps->stream_start)
     {
-      offset = ps->output_start - ps->stream_start;
-      rtptime = ps->stream_start;
+      pmd.offset = ps->output_start - ps->stream_start;
+      pmd.rtptime = ps->stream_start;
     }
   else if (startup)
     {
-      rtptime = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+      /* Will be set later, right before sending */
     }
   /* Generic case */
   else if (cur_streaming && (cur_streaming->end))
     {
-      rtptime = cur_streaming->end + 1;
+      pmd.rtptime = cur_streaming->end + 1;
     }
   else
     {
-      rtptime = 0;
-      DPRINTF(E_LOG, L_PLAYER, "PTOH! Unhandled song boundary case in metadata_send()\n");
+      DPRINTF(E_LOG, L_PLAYER, "PTOH! Unhandled song boundary case in metadata_trigger()\n");
     }
 
-  raop_metadata_send(ps->id, rtptime, offset, startup);
+  /* Defer the actual work of preparing the metadata to the worker thread */
+  worker_execute(metadata_prepare_cb, &pmd, sizeof(struct player_metadata), 0);
+}
+
+/* Checks if there is new HTTP ICY metadata, and if so sends updates to clients */
+void
+metadata_check_icy(void)
+{
+  struct http_icy_metadata *metadata;
+  int changed;
+
+  transcode_metadata(cur_streaming->ctx, &metadata, &changed);
+  if (!metadata)
+    return;
+
+  if (!changed)
+    goto no_update;
+
+  metadata->id = cur_streaming->id;
+
+  /* Defer the database update to the worker thread */
+  worker_execute(update_icy_cb, metadata, sizeof(struct http_icy_metadata), 0);
+
+  /* Triggers preparing and sending RAOP metadata */
+  metadata_trigger(cur_streaming, 0);
+
+  /* Only free the struct, the content must be preserved for update_icy_cb */
+  free(metadata);
+
+  status_update(player_state);
+
+  return;
+
+ no_update:
+  http_icy_metadata_free(metadata, 0);
 }
 
 /* Audio sources */
@@ -1059,7 +1152,8 @@ source_free(struct player_source *ps)
 {
   switch (ps->type)
     {
-      case SOURCE_FFMPEG:
+      case SOURCE_FILE:
+      case SOURCE_HTTP:
 	if (ps->ctx)
 	  transcode_cleanup(ps->ctx);
 	break;
@@ -1087,7 +1181,8 @@ source_stop(struct player_source *ps)
     {
       switch (ps->type)
 	{
-	  case SOURCE_FFMPEG:
+	  case SOURCE_FILE:
+	  case SOURCE_HTTP:
 	    if (ps->ctx)
 	      {
 		transcode_cleanup(ps->ctx);
@@ -1245,6 +1340,7 @@ static int
 source_open(struct player_source *ps, int no_md)
 {
   struct media_file_info *mfi;
+  char *url;
   int ret;
 
   ps->setup_done = 0;
@@ -1274,6 +1370,19 @@ source_open(struct player_source *ps, int no_md)
   // Setup the source type responsible for getting the audio
   switch (mfi->data_kind)
     {
+      case 1:
+	ps->type = SOURCE_HTTP;
+
+	ret = http_stream_setup(&url, mfi->path);
+	if (ret < 0)
+	  break;
+
+	free(mfi->path);
+	mfi->path = url;
+
+	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
+	break;
+
       case 2:
 	ps->type = SOURCE_SPOTIFY;
 #ifdef HAVE_SPOTIFY_H
@@ -1289,7 +1398,7 @@ source_open(struct player_source *ps, int no_md)
 	break;
 
       default:
-	ps->type = SOURCE_FFMPEG;
+	ps->type = SOURCE_FILE;
 	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
     }
 
@@ -1303,7 +1412,7 @@ source_open(struct player_source *ps, int no_md)
     }
 
   if (!no_md)
-    metadata_send(ps, (player_state == PLAY_PLAYING) ? 0 : 1);
+    metadata_trigger(ps, (player_state == PLAY_PLAYING) ? 0 : 1);
 
   ps->setup_done = 1;
 
@@ -1347,7 +1456,7 @@ source_next(int force)
 	if (!cur_streaming)
 	  break;
 
-	if ((cur_streaming->type == SOURCE_FFMPEG) && cur_streaming->ctx)
+	if ((cur_streaming->type == SOURCE_FILE) && cur_streaming->ctx)
 	  {
 	    ret = transcode_seek(cur_streaming->ctx, 0);
 
@@ -1356,7 +1465,7 @@ source_next(int force)
 	     * so we have to handle metadata ourselves here
 	     */
 	    if (ret >= 0)
-	      metadata_send(cur_streaming, 0);
+	      metadata_trigger(cur_streaming, 0);
 	  }
 	else
 	  ret = source_open(cur_streaming, force);
@@ -1538,6 +1647,7 @@ source_check(void)
   uint64_t pos;
   enum repeat_mode r_mode;
   int i;
+  int id;
   int ret;
 
   if (!cur_streaming)
@@ -1585,7 +1695,7 @@ source_check(void)
 
 	  if (ps->setup_done)
 	    {
-	      if ((ps->type == SOURCE_FFMPEG) && ps->ctx)
+	      if ((ps->type == SOURCE_FILE) && ps->ctx)
 		{
 	          transcode_cleanup(ps->ctx);
 	          ps->ctx = NULL;
@@ -1614,9 +1724,10 @@ source_check(void)
     {
       i++;
 
-      db_file_inc_playcount((int)cur_playing->id);
+      id = (int)cur_playing->id;
+      worker_execute(playcount_inc_cb, &id, sizeof(int), 5);
 #ifdef LASTFM
-      lastfm_scrobble((int)cur_playing->id);
+      lastfm_scrobble(id);
 #endif
 
       /* Stop playback if:
@@ -1639,7 +1750,7 @@ source_check(void)
 
       if (ps->setup_done)
 	{
-	  if ((ps->type == SOURCE_FFMPEG) && ps->ctx)
+	  if ((ps->type == SOURCE_FILE) && ps->ctx)
 	    {
 	      transcode_cleanup(ps->ctx);
 	      ps->ctx = NULL;
@@ -1700,6 +1811,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   int new;
   int ret;
   int nbytes;
+  int icy_timer;
 
   if (!cur_streaming)
     return 0;
@@ -1726,8 +1838,15 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	{
 	  switch (cur_streaming->type)
 	    {
-	      case SOURCE_FFMPEG:
-		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes);
+	      case SOURCE_HTTP:
+		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes, &icy_timer);
+
+		if (icy_timer)
+		  metadata_check_icy();
+		break;
+
+	      case SOURCE_FILE:
+		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes, &icy_timer);
 		break;
 
 #ifdef HAVE_SPOTIFY_H
@@ -2028,6 +2147,24 @@ device_remove_family(struct player_command *cmd)
     }
 
   device_free(dev);
+
+  return 0;
+}
+
+static int
+metadata_send(struct player_command *cmd)
+{
+  struct player_metadata *pmd;
+
+  pmd = cmd->arg.pmd;
+
+  /* Do the setting of rtptime which was deferred in metadata_trigger because we
+   * wanted to wait until we had the actual last_rtptime
+   */
+  if ((pmd->rtptime == 0) && (pmd->startup))
+    pmd->rtptime = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+
+  raop_metadata_send(pmd->rmd, pmd->rtptime, pmd->offset, pmd->startup);
 
   return 0;
 }
@@ -2458,6 +2595,29 @@ now_playing(struct player_command *cmd)
 }
 
 static int
+artwork_url_get(struct player_command *cmd)
+{
+  struct player_source *ps;
+
+  cmd->arg.icy.artwork_url = NULL;
+
+  if (cur_playing)
+    ps = cur_playing;
+  else if (cur_streaming)
+    ps = cur_streaming;
+  else
+    return -1;
+
+  /* Check that we are playing a viable stream, and that it has the requested id */
+  if (!ps->ctx || ps->type != SOURCE_HTTP || ps->id != cmd->arg.icy.id)
+    return -1;
+
+  transcode_metadata_artwork_url(ps->ctx, &cmd->arg.icy.artwork_url);
+
+  return 0;
+}
+
+static int
 playback_stop(struct player_command *cmd)
 {
   if (laudio_status != LAUDIO_CLOSED)
@@ -2719,7 +2879,7 @@ playback_start(struct player_command *cmd)
        * After a pause, the source is still open so source_open() doesn't get
        * called and we have to handle metadata ourselves.
        */
-      metadata_send(cur_streaming, 1);
+      metadata_trigger(cur_streaming, 1);
     }
 
   /* Start local audio if needed */
@@ -2907,7 +3067,7 @@ playback_seek_bh(struct player_command *cmd)
   /* Seek to commanded position */
   switch (ps->type)
     {
-      case SOURCE_FFMPEG:
+      case SOURCE_FILE:
 	ret = transcode_seek(ps->ctx, ms);
 	break;
 #ifdef HAVE_SPOTIFY_H
@@ -2916,8 +3076,10 @@ playback_seek_bh(struct player_command *cmd)
 	break;
 #endif
       case SOURCE_PIPE:
+      case SOURCE_HTTP:
 	ret = 1;
 	break;
+
       default:
 	ret = -1;
     }
@@ -2964,7 +3126,7 @@ playback_pause_bh(struct player_command *cmd)
 
   switch (ps->type)
     {
-      case SOURCE_FFMPEG:
+      case SOURCE_FILE:
 	ret = transcode_seek(ps->ctx, ms);
 	break;
 #ifdef HAVE_SPOTIFY_H
@@ -4110,6 +4272,31 @@ player_now_playing(uint32_t *id)
   return ret;
 }
 
+char *
+player_get_icy_artwork_url(uint32_t id)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = artwork_url_get;
+  cmd.func_bh = NULL;
+  cmd.arg.icy.id = id;
+
+  if (pthread_self() != tid_player)
+    ret = sync_command(&cmd);
+  else
+    ret = artwork_url_get(&cmd);
+
+  command_deinit(&cmd);
+
+  if (ret < 0)
+    return NULL;
+  else
+    return cmd.arg.icy.artwork_url;
+}
+
 /*
  * Starts/resumes playback
  *
@@ -4698,6 +4885,23 @@ player_device_remove(struct raop_device *rd)
 
       return;
     }
+}
+
+/* Thread: worker */
+static void
+player_metadata_send(struct player_metadata *pmd)
+{
+  struct player_command cmd;
+
+  command_init(&cmd);
+
+  cmd.func = metadata_send;
+  cmd.func_bh = NULL;
+  cmd.arg.pmd = pmd;
+
+  sync_command(&cmd);
+
+  command_deinit(&cmd);
 }
 
 

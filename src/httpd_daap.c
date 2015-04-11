@@ -69,6 +69,8 @@ extern struct event_base *evbase_httpd;
 /* Update requests refresh interval in seconds */
 #define DAAP_UPDATE_REFRESH  0
 
+/* Database number for the Radio item */
+#define DAAP_DB_RADIO 2
 
 struct uri_map {
   regex_t preg;
@@ -862,7 +864,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   dmap_add_char(content, "msix", 1);         // dmap.supportsindex
 //  dmap_add_char(content, "msrs", 1);       // dmap.supportsresolve
 
-  dmap_add_int(content, "msdc", 1);          // dmap.databasescount
+  dmap_add_int(content, "msdc", 2);          // dmap.databasescount
 
 //  dmap_add_int(content, "mstc", );          // dmap.utctime
 //  dmap_add_int(content, "msto", );          // dmap.utcoffset
@@ -1123,9 +1125,11 @@ static int
 daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   struct evbuffer *content;
+  struct evbuffer *item;
   struct daap_session *s;
   cfg_t *lib;
   char *name;
+  char *name_radio;
   int count;
 
   s = daap_session_find(req, query, evbuf);
@@ -1134,6 +1138,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   lib = cfg_getsec(cfg, "library");
   name = cfg_getstr(lib, "name");
+  name_radio = cfg_getstr(lib, "name_radio");
 
   content = evbuffer_new();
   if (!content)
@@ -1144,29 +1149,66 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       return -1;
     }
 
-  dmap_add_int(content, "miid", 1);
-  dmap_add_long(content, "mper", 1);
-  dmap_add_int(content, "mdbk", 1);
-  dmap_add_int(content, "aeCs", 1);
-  dmap_add_string(content, "minm", name);
+  // Add db entry for library with dbid = 1
+  item = evbuffer_new();
+  if (!item)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP dblist library item\n");
 
+      dmap_send_error(req, "avdb", "Out of memory");
+      return -1;
+    }
+
+  dmap_add_int(item, "miid", 1);
+  dmap_add_long(item, "mper", 1);
+  dmap_add_int(item, "mdbk", 1);
+  dmap_add_int(item, "aeCs", 1);
+  dmap_add_string(item, "minm", name);
   count = db_files_get_count();
-  dmap_add_int(content, "mimc", count);
-
+  dmap_add_int(item, "mimc", count);
   count = db_pl_get_count(); // TODO Don't count empty smart playlists, because they get excluded in aply
-  dmap_add_int(content, "mctc", count);
-
+  dmap_add_int(item, "mctc", count);
 //  dmap_add_int(content, "aeMk", 0x405);   // com.apple.itunes.extended-media-kind (OR of all in library)
-  dmap_add_int(content, "meds", 3);
+  dmap_add_int(item, "meds", 3);
+
+  // Create container for library db
+  dmap_add_container(content, "mlit", EVBUFFER_LENGTH(item));
+  evbuffer_add_buffer(content, item);
+  evbuffer_free(item);
+
+  // Add second db entry for radio with dbid = DAAP_DB_RADIO
+  item =  evbuffer_new();
+  if (!item)
+    {
+      DPRINTF(E_LOG, L_DAAP, "Could not create evbuffer for DAAP dblist radio item\n");
+
+      dmap_send_error(req, "avdb", "Out of memory");
+      return -1;
+    }
+
+  dmap_add_int(item, "miid", DAAP_DB_RADIO);
+  dmap_add_long(item, "mper", DAAP_DB_RADIO);
+  dmap_add_int(item, "mdbk", 0x64);
+  dmap_add_int(item, "aeCs", 0);
+  dmap_add_string(item, "minm", name_radio);
+  count = db_pl_get_count();       // TODO This counts too much, should only include stream playlists
+  dmap_add_int(item, "mimc", count);
+  dmap_add_int(item, "mctc", 0);
+  dmap_add_int(item, "aeMk", 1);   // com.apple.itunes.extended-media-kind (OR of all in library)
+  dmap_add_int(item, "meds", 3);
+
+  // Create container for radio db
+  dmap_add_container(content, "mlit", EVBUFFER_LENGTH(item));
+  evbuffer_add_buffer(content, item);
+  evbuffer_free(item);
 
   // Create container
-  dmap_add_container(evbuf, "avdb", EVBUFFER_LENGTH(content) + 61);
+  dmap_add_container(evbuf, "avdb", EVBUFFER_LENGTH(content) + 53);
   dmap_add_int(evbuf, "mstt", 200);     /* 12 */
   dmap_add_char(evbuf, "muty", 0);      /* 9 */
-  dmap_add_int(evbuf, "mtco", 1);       /* 12 */
-  dmap_add_int(evbuf, "mrco", 1);       /* 12 */
-  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(content) + 8); /* 8 */
-  dmap_add_container(evbuf, "mlit", EVBUFFER_LENGTH(content));     /* 8 */
+  dmap_add_int(evbuf, "mtco", 2);       /* 12 */
+  dmap_add_int(evbuf, "mrco", 2);       /* 12 */
+  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(content)); /* 8 */
   evbuffer_add_buffer(evbuf, content);
   evbuffer_free(content);
 
@@ -1506,22 +1548,38 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   struct daap_session *s;
   struct evbuffer *playlistlist;
   struct evbuffer *playlist;
+  cfg_t *lib;
   const struct dmap_field_map *dfm;
   const struct dmap_field *df;
   const struct dmap_field **meta;
   const char *param;
   char **strval;
+  int database;
+  int cfg_radiopl;
   int nmeta;
   int npls;
   int32_t plid;
   int32_t pltype;
   int32_t plitems;
+  int32_t plstreams;
+  int32_t plparent;
   int i;
   int ret;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
     return -1;
+
+  ret = safe_atoi32(uri[1], &database);
+  if (ret < 0)
+    {
+      dmap_send_error(req, "aply", "Invalid database ID");
+
+      return -1;
+    }
+
+  lib = cfg_getsec(cfg, "library");
+  cfg_radiopl = cfg_getbool(lib, "radio_playlists");
 
   ret = evbuffer_expand(evbuf, 61);
   if (ret < 0)
@@ -1615,8 +1673,20 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       if (safe_atoi32(dbpli.items, &plitems) != 0)
 	continue;
 
-      /* Don't add empty smart playlists */
-      if ((plid > 1) && (pltype == 1) && (plitems == 0))
+      plstreams = 0;
+      if (safe_atoi32(dbpli.streams, &plstreams) != 0)
+	continue;
+
+      /* Database DAAP_DB_RADIO is radio, so for that db skip playlists without
+       * streams and for other databases skip playlists which are just streams
+       */
+      if ((database == DAAP_DB_RADIO) && (plstreams == 0))
+	continue;
+      if (!cfg_radiopl && (database != DAAP_DB_RADIO) && (plstreams > 0) && (plstreams == plitems))
+	continue;
+
+      /* Don't add empty Smart playlists */
+      if ((plid > 1) && (plitems == 0) && (pltype == PL_SMART))
 	continue;
 
       npls++;
@@ -1630,7 +1700,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	  if (dfm == &dfm_dmap_mimc)
 	    continue;
 
-	  /* com.apple.itunes.smart-playlist - type = 1 AND id != 1 */
+	  /* com.apple.itunes.smart-playlist - type = PL_SMART AND id != 1 */
 	  if (dfm == &dfm_dmap_aeSP)
 	    {
 	      if ((pltype == PL_SMART) && (plid != 1))
@@ -1661,11 +1731,14 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	}
 
       /* Item count (mimc) */
-      if (plitems > 0)
-	dmap_add_int(playlist, "mimc", plitems);
+      dmap_add_int(playlist, "mimc", plitems);
 
       /* Container ID (mpco) */
-      dmap_add_int(playlist, "mpco", 0);
+      ret = safe_atoi32(dbpli.parent_id, &plparent);
+      if (ret == 0)
+	dmap_add_int(playlist, "mpco", plparent);
+      else
+	dmap_add_int(playlist, "mpco", 0);
 
       /* Base playlist (abpl), id = 1 */
       if (plid == 1)
@@ -2302,9 +2375,9 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
     }
 
   if (strcmp(uri[2], "groups") == 0)
-    ret = artwork_get_group(id, max_w, max_h, evbuf);
+    ret = artwork_get_group(evbuf, id, max_w, max_h);
   else if (strcmp(uri[2], "items") == 0)
-    ret = artwork_get_item(id, max_w, max_h, evbuf);
+    ret = artwork_get_item(evbuf, id, max_w, max_h);
 
   switch (ret)
     {

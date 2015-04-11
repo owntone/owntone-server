@@ -101,7 +101,7 @@ forked_daapd_SOURCES = main.c \
 	conffile.c conffile.h \
 	cache.c cache.h \
 	filescanner.c filescanner.h \
-	filescanner_ffmpeg.c filescanner_playlist.c filescanner_icy.c $(ITUNES_SRC) \
+	filescanner_ffmpeg.c filescanner_playlist.c $(ITUNES_SRC) \
 	mdns_avahi.c mdns.h \
 	remote_pairing.c remote_pairing.h \
 	$(EVHTTP_SRC) \
@@ -110,6 +110,7 @@ forked_daapd_SOURCES = main.c \
 	httpd_rsp.c httpd_rsp.h \
 	httpd_daap.c httpd_daap.h \
 	httpd_dacp.c httpd_dacp.h \
+	http.c http.h \
 	dmap_common.c dmap_common.h \
 	transcode.c transcode.h \
 	pipe.c pipe.h \
@@ -119,6 +120,7 @@ forked_daapd_SOURCES = main.c \
 	rsp_query.c rsp_query.h \
 	daap_query.c daap_query.h \
 	player.c player.h \
+	worker.c worker.h \
 	$(ALSA_SRC) $(OSS4_SRC) laudio.h \
 	raop.c raop.h \
 	$(RTSP_SRC) \

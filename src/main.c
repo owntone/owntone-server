@@ -65,6 +65,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "mdns.h"
 #include "remote_pairing.h"
 #include "player.h"
+#include "worker.h"
 #if LIBAVFORMAT_VERSION_MAJOR < 53
 # include "ffmpeg_url_evbuffer.h"
 #endif
@@ -676,6 +677,16 @@ main(int argc, char **argv)
       goto db_fail;
     }
 
+  /* Spawn worker thread */
+  ret = worker_init();
+  if (ret != 0)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Worker thread failed to start\n");
+
+      ret = EXIT_FAILURE;
+      goto worker_fail;
+    }
+
   /* Spawn cache thread */
   ret = cache_init();
   if (ret != 0)
@@ -848,6 +859,10 @@ main(int argc, char **argv)
   cache_deinit();
 
  cache_fail:
+  DPRINTF(E_LOG, L_MAIN, "Worker deinit\n");
+  worker_deinit();
+
+ worker_fail:
   DPRINTF(E_LOG, L_MAIN, "Database deinit\n");
   db_perthread_deinit();
   db_deinit();

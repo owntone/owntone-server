@@ -26,6 +26,7 @@ enum raop_devtype {
 };
 
 struct raop_session;
+struct raop_metadata;
 
 struct raop_device
 {
@@ -90,13 +91,17 @@ enum raop_session_state
 
 typedef void (*raop_status_cb)(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status);
 
-
 void
 raop_metadata_purge(void);
 
 void
 raop_metadata_prune(uint64_t rtptime);
 
+struct raop_metadata *
+raop_metadata_prepare(int id);
+
+void
+raop_metadata_send(struct raop_metadata *rmd, uint64_t rtptime, uint64_t offset, int startup);
 
 int
 raop_device_probe(struct raop_device *rd, raop_status_cb cb);
@@ -112,10 +117,6 @@ raop_playback_start(uint64_t next_pkt, struct timespec *ts);
 
 void
 raop_playback_stop(void);
-
-
-void
-raop_metadata_send(int id, uint64_t rtptime, uint64_t offset, int startup);
 
 int
 raop_set_volume_one(struct raop_session *rs, int volume, raop_status_cb cb);

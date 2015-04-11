@@ -154,6 +154,7 @@ static const struct col_type_map pli_cols_map[] =
     { pli_offsetof(index),        DB_TYPE_INT },
     { pli_offsetof(special_id),   DB_TYPE_INT },
     { pli_offsetof(virtual_path), DB_TYPE_STRING },
+    { pli_offsetof(parent_id),    DB_TYPE_INT },
 
     /* items is computed on the fly */
   };
@@ -240,6 +241,7 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(index),
     dbpli_offsetof(special_id),
     dbpli_offsetof(virtual_path),
+    dbpli_offsetof(parent_id),
 
     /* items is computed on the fly */
   };
@@ -279,7 +281,7 @@ static const char *sort_clause[] =
     "ORDER BY f.title_sort ASC",
     "ORDER BY f.album_sort ASC, f.disc ASC, f.track ASC",
     "ORDER BY f.album_artist_sort ASC",
-    "ORDER BY f.type DESC, f.special_id ASC, f.title ASC",
+    "ORDER BY f.type DESC, f.parent_id ASC, f.special_id ASC, f.title ASC",
     "ORDER BY f.year ASC",
   };
 
@@ -289,7 +291,7 @@ static __thread sqlite3 *hdl;
 
 /* Forward */
 static int
-db_pl_count_items(int id);
+db_pl_count_items(int id, int streams_only);
 
 static int
 db_smartpl_count_items(const char *smartpl_query);
@@ -616,72 +618,6 @@ db_exec(const char *query, char **errmsg)
 }
 
 
-// This will run in its own shortlived, detached thread, created by db_exec_nonblock
-static void *
-db_exec_thread(void *arg)
-{
-  char *query = arg;
-  char *errmsg;
-  time_t start, end;
-  int ret;
-
-  // When switching tracks we update playcount and select the next track's
-  // metadata. We want the update to run after the selects so it won't lock
-  // the database.
-  sleep(3);
-
-  ret = db_perthread_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Error in db_exec_thread: Could not init thread\n");
-      return NULL;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running delayed query '%s'\n", query);
-
-  time(&start);
-  ret = db_exec(query, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error running query '%s': %s\n", query, errmsg);
-
-  time(&end);
-  if (end - start > 1)
-    DPRINTF(E_LOG, L_DB, "Warning: Slow query detected '%s' - database performance problems?\n", query);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
-  db_perthread_deinit();
-
-  return NULL;
-}
-
-// Creates a one-off thread to run a delayed, fire-and-forget, non-blocking query
-static void
-db_exec_nonblock(char *query)
-{
-  pthread_t tid;
-  pthread_attr_t attr;
-  int ret;
-
-  ret = pthread_attr_init(&attr);
-  if (ret != 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Error in db_exec_nonblock: Could not init attributes\n");
-      return;
-    }
-
-  pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-  ret = pthread_create(&tid, &attr, db_exec_thread, query);
-  if (ret != 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Error in db_exec_nonblock: Could not create thread\n");
-    }
-
-  pthread_attr_destroy(&attr);
-}
-
-
 /* Maintenance and DB hygiene */
 static void
 db_analyze(void)
@@ -705,7 +641,7 @@ db_analyze(void)
 static void
 db_set_cfg_names(void)
 {
-#define Q_TMPL "UPDATE playlists SET title = '%q' WHERE type = 1 AND special_id = %d;"
+#define Q_TMPL "UPDATE playlists SET title = '%q' WHERE type = %d AND special_id = %d;"
   char *cfg_item[6] = { "name_library", "name_music", "name_movies", "name_tvshows", "name_podcasts", "name_audiobooks" };
   char special_id[6] = { 0, 6, 4, 5, 1, 7 };
   cfg_t *lib;
@@ -727,7 +663,7 @@ db_set_cfg_names(void)
 	  continue;
 	}
 
-      query = sqlite3_mprintf(Q_TMPL, title, special_id[i]);
+      query = sqlite3_mprintf(Q_TMPL, title, PL_SMART, special_id[i]);
       if (!query)
 	{
 	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -769,9 +705,9 @@ db_purge_cruft(time_t ref)
   char *queries[3] = { NULL, NULL, NULL };
   char *queries_tmpl[3] =
     {
-      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> 1 AND p.db_timestamp < %" PRIi64 ");",
-      "DELETE FROM playlists WHERE type <> 1 AND db_timestamp < %" PRIi64 ";",
-      "DELETE FROM files WHERE db_timestamp < %" PRIi64 ";"
+      "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> %d AND p.db_timestamp < %" PRIi64 ");",
+      "DELETE FROM playlists WHERE type <> %d AND db_timestamp < %" PRIi64 ";",
+      "DELETE FROM files WHERE -1 <> %d AND db_timestamp < %" PRIi64 ";"
     };
 
   if (sizeof(queries) != sizeof(queries_tmpl))
@@ -782,7 +718,7 @@ db_purge_cruft(time_t ref)
 
   for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
     {
-      queries[i] = sqlite3_mprintf(queries_tmpl[i], (int64_t)ref);
+      queries[i] = sqlite3_mprintf(queries_tmpl[i], PL_SMART, (int64_t)ref);
       if (!queries[i])
 	{
 	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -816,15 +752,16 @@ db_purge_cruft(time_t ref)
 void
 db_purge_all(void)
 {
+#define Q_TMPL "DELETE FROM playlists WHERE type <> %d;"
   char *queries[5] =
     {
       "DELETE FROM inotify;",
       "DELETE FROM playlistitems;",
-      "DELETE FROM playlists WHERE type <> 1;",
       "DELETE FROM files;",
       "DELETE FROM groups;",
     };
   char *errmsg;
+  char *query;
   int i;
   int ret;
 
@@ -842,6 +779,28 @@ db_purge_all(void)
       else
 	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
     }
+
+  query = sqlite3_mprintf(Q_TMPL, PL_SMART);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running purge query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Purge query '%s' error: %s\n", query, errmsg);
+
+      sqlite3_free(errmsg);
+    }
+  else
+    DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
+
+  sqlite3_free(query);
+#undef Q_TMPL
 }
 
 static int
@@ -1187,6 +1146,7 @@ db_build_query_plitems(struct query_params *qp, char **q)
 	break;
 
       case PL_PLAIN:
+      case PL_FOLDER:
 	ret = db_build_query_plitems_plain(qp, q);
 	break;
 
@@ -1705,6 +1665,7 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
   int id;
   int type;
   int nitems;
+  int nstreams;
   int i;
   int ret;
 
@@ -1755,12 +1716,15 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
   switch (type)
     {
       case PL_PLAIN:
+      case PL_FOLDER:
 	id = sqlite3_column_int(qp->stmt, 0);
-	nitems = db_pl_count_items(id);
+	nitems = db_pl_count_items(id, 0);
+	nstreams = db_pl_count_items(id, 1);
 	break;
 
       case PL_SMART:
 	nitems = db_smartpl_count_items(dbpli->query);
+	nstreams = 0;
 	break;
 
       default:
@@ -1768,13 +1732,21 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
 	return -1;
     }
 
-  dbpli->items = qp->buf;
-  ret = snprintf(qp->buf, sizeof(qp->buf), "%d", nitems);
-  if ((ret < 0) || (ret >= sizeof(qp->buf)))
+  dbpli->items = qp->buf1;
+  ret = snprintf(qp->buf1, sizeof(qp->buf1), "%d", nitems);
+  if ((ret < 0) || (ret >= sizeof(qp->buf1)))
     {
-      DPRINTF(E_LOG, L_DB, "Could not convert items, buffer too small\n");
+      DPRINTF(E_LOG, L_DB, "Could not convert item count, buffer too small\n");
 
-      strcpy(qp->buf, "0");
+      strcpy(qp->buf1, "0");
+    }
+  dbpli->streams = qp->buf2;
+  ret = snprintf(qp->buf2, sizeof(qp->buf2), "%d", nstreams);
+  if ((ret < 0) || (ret >= sizeof(qp->buf2)))
+    {
+      DPRINTF(E_LOG, L_DB, "Could not convert stream count, buffer too small\n");
+
+      strcpy(qp->buf2, "0");
     }
 
   return 0;
@@ -2083,8 +2055,7 @@ db_file_inc_playcount(int id)
       return;
     }
 
-  // Run the query non-blocking so we don't block playback if the update is slow
-  db_exec_nonblock(query);
+  db_query_run(query, 1, 0);
 #undef Q_TMPL
 }
 
@@ -2731,6 +2702,27 @@ db_file_update(struct media_file_info *mfi)
 }
 
 void
+db_file_update_icy(int id, char *artist, char *album)
+{
+#define Q_TMPL "UPDATE files SET artist = TRIM(%Q), album = TRIM(%Q) WHERE id = %d;"
+  char *query;
+
+  if (id == 0)
+    return;
+
+  query = sqlite3_mprintf(Q_TMPL, artist, album, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  db_query_run(query, 1, 0);
+#undef Q_TMPL
+}
+
+void
 db_file_delete_bypath(char *path)
 {
 #define Q_TMPL "DELETE FROM files WHERE path = '%q';"
@@ -2800,14 +2792,19 @@ db_pl_get_count(void)
 }
 
 static int
-db_pl_count_items(int id)
+db_pl_count_items(int id, int streams_only)
 {
 #define Q_TMPL "SELECT COUNT(*) FROM playlistitems pi JOIN files f" \
                " ON pi.filepath = f.path WHERE f.disabled = 0 AND pi.playlistid = %d;"
+#define Q_TMPL_STREAMS "SELECT COUNT(*) FROM playlistitems pi JOIN files f" \
+               " ON pi.filepath = f.path WHERE f.disabled = 0 AND f.data_kind = 1 AND pi.playlistid = %d;"
   char *query;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, id);
+  if (!streams_only)
+    query = sqlite3_mprintf(Q_TMPL, id);
+  else
+    query = sqlite3_mprintf(Q_TMPL_STREAMS, id);
 
   if (!query)
     {
@@ -2821,6 +2818,7 @@ db_pl_count_items(int id)
 
   return ret;
 
+#undef Q_TMPL_STREAMS
 #undef Q_TMPL
 }
 
@@ -3038,7 +3036,9 @@ db_pl_fetch_byquery(char *query)
   switch (pli->type)
     {
       case PL_PLAIN:
-	pli->items = db_pl_count_items(pli->id);
+      case PL_FOLDER:
+	pli->items = db_pl_count_items(pli->id, 0);
+	pli->streams = db_pl_count_items(pli->id, 1);
 	break;
 
       case PL_SMART:
@@ -3152,17 +3152,17 @@ db_pl_fetch_bytitlepath(char *title, char *path)
 }
 
 int
-db_pl_add(char *title, char *path, char *virtual_path, int *id)
+db_pl_add(struct playlist_info *pli, int *id)
 {
-#define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = '%q' AND p.path = '%q';"
-#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, virtual_path)" \
-                  " VALUES ('%q', 0, NULL, %" PRIi64 ", 0, '%q', 0, 0, '%q');"
+#define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = TRIM(%Q) AND p.path = '%q';"
+#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, parent_id, virtual_path)" \
+                  " VALUES (TRIM(%Q), %d, NULL, %" PRIi64 ", %d, '%q', %d, %d, %d, '%q');"
   char *query;
   char *errmsg;
   int ret;
 
   /* Check duplicates */
-  query = sqlite3_mprintf(QDUP_TMPL, title, path);
+  query = sqlite3_mprintf(QDUP_TMPL, pli->title, STR(pli->path));
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3175,12 +3175,15 @@ db_pl_add(char *title, char *path, char *virtual_path, int *id)
 
   if (ret > 0)
     {
-      DPRINTF(E_WARN, L_DB, "Duplicate playlist with title '%s' path '%s'\n", title, path);
+      DPRINTF(E_WARN, L_DB, "Duplicate playlist with title '%s' path '%s'\n", pli->title, pli->path);
       return -1;
     }
 
   /* Add */
-  query = sqlite3_mprintf(QADD_TMPL, title, (int64_t)time(NULL), path, virtual_path);
+  query = sqlite3_mprintf(QADD_TMPL,
+			  pli->title, pli->type, (int64_t)time(NULL), pli->disabled, STR(pli->path),
+			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path);
+
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -3208,7 +3211,7 @@ db_pl_add(char *title, char *path, char *virtual_path, int *id)
       return -1;
     }
 
-  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s) with id %d\n", title, path, *id);
+  DPRINTF(E_DBG, L_DB, "Added playlist %s (path %s) with id %d\n", pli->title, pli->path, *id);
 
   return 0;
 
@@ -3241,13 +3244,17 @@ db_pl_add_item_byid(int plid, int fileid)
 }
 
 int
-db_pl_update(char *title, char *path, char *virtual_path, int id)
+db_pl_update(struct playlist_info *pli)
 {
-#define Q_TMPL "UPDATE playlists SET title = '%q', db_timestamp = %" PRIi64 ", disabled = 0, path = '%q', virtual_path = '%q' WHERE id = %d;"
+#define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, db_timestamp = %" PRIi64 ", disabled = %d, path = '%q', " \
+               " idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q' " \
+               " WHERE id = %d;"
   char *query;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, title, (int64_t)time(NULL), path, virtual_path, id);
+  query = sqlite3_mprintf(Q_TMPL,
+			  pli->title, pli->type, (int64_t)time(NULL), pli->disabled, STR(pli->path),
+			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->id);
 
   ret = db_query_run(query, 1, 0);
 
@@ -4532,7 +4539,8 @@ db_perthread_deinit(void)
   "   path           VARCHAR(4096),"			\
   "   idx            INTEGER NOT NULL,"			\
   "   special_id     INTEGER DEFAULT 0,"		\
-  "   virtual_path   VARCHAR(4096)"			\
+  "   virtual_path   VARCHAR(4096),"			\
+  "   parent_id      INTEGER DEFAULT 0"			\
   ");"
 
 #define T_PLITEMS				\
@@ -4599,27 +4607,27 @@ db_perthread_deinit(void)
 
 #define Q_PL1								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(1, 'Library', 1, '1 = 1', 0, '', 0, 0);"
+  " VALUES(1, 'Library', 2, '1 = 1', 0, '', 0, 0);"
 
 #define Q_PL2								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(2, 'Music', 1, 'f.media_kind = 1', 0, '', 0, 6);"
+  " VALUES(2, 'Music', 2, 'f.media_kind = 1', 0, '', 0, 6);"
 
 #define Q_PL3								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(3, 'Movies', 1, 'f.media_kind = 2', 0, '', 0, 4);"
+  " VALUES(3, 'Movies', 2, 'f.media_kind = 2', 0, '', 0, 4);"
 
 #define Q_PL4								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(4, 'TV Shows', 1, 'f.media_kind = 64', 0, '', 0, 5);"
+  " VALUES(4, 'TV Shows', 2, 'f.media_kind = 64', 0, '', 0, 5);"
 
 #define Q_PL5								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(5, 'Podcasts', 1, 'f.media_kind = 4', 0, '', 0, 1);"
+  " VALUES(5, 'Podcasts', 2, 'f.media_kind = 4', 0, '', 0, 1);"
 
 #define Q_PL6								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(6, 'Audiobooks', 1, 'f.media_kind = 8', 0, '', 0, 7);"
+  " VALUES(6, 'Audiobooks', 2, 'f.media_kind = 8', 0, '', 0, 7);"
 
 /* These are the remaining automatically-created iTunes playlists, but
  * their query is unknown
@@ -4627,13 +4635,10 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION_MAJOR 16
+#define SCHEMA_VERSION_MAJOR 17
 #define SCHEMA_VERSION_MINOR 00
-// Q_SCVER should be deprecated/removed at v16
-#define Q_SCVER						\
-  "INSERT INTO admin (key, value) VALUES ('schema_version', '16');"
 #define Q_SCVER_MAJOR					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '16');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '17');"
 #define Q_SCVER_MINOR					\
   "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '00');"
 
@@ -4665,7 +4670,6 @@ static const struct db_init_query db_init_table_queries[] =
     { Q_PL5,       "create default smart playlist 'Podcasts'" },
     { Q_PL6,       "create default smart playlist 'Audiobooks'" },
 
-    { Q_SCVER,       "set schema version" },
     { Q_SCVER_MAJOR, "set schema version major" },
     { Q_SCVER_MINOR, "set schema version minor" },
   };
@@ -5708,8 +5712,8 @@ static const struct db_init_query db_upgrade_v1501_queries[] =
 #define U_V16_ALTER_TBL_PL_ADD_COL					\
   "ALTER TABLE playlists ADD COLUMN virtual_path VARCHAR(4096) DEFAULT NULL;"
 
-#define U_V16_SCVER						\
-  "UPDATE admin SET value = '16' WHERE key = 'schema_version';"
+#define D_V1600_SCVER				\
+  "DELETE FROM admin WHERE key = 'schema_version';"
 #define U_V1600_SCVER_MAJOR			\
   "UPDATE admin SET value = '16' WHERE key = 'schema_version_major';"
 #define U_V1600_SCVER_MINOR			\
@@ -5721,7 +5725,7 @@ static const struct db_init_query db_upgrade_v16_queries[] =
     { U_V16_ALTER_TBL_PL_ADD_COL,    "alter table playlists add column virtual_path" },
     { U_V16_CREATE_VIEW_FILELIST,    "create new view filelist" },
 
-    { U_V16_SCVER,                  "set schema_version to 16" },
+    { D_V1600_SCVER,                "delete schema_version" },
     { U_V1600_SCVER_MAJOR,          "set schema_version_major to 16" },
     { U_V1600_SCVER_MINOR,          "set schema_version_minor to 00" },
   };
@@ -5806,23 +5810,18 @@ db_upgrade_v16(void)
       path = (char *)sqlite3_column_text(stmt, 2);
       type = sqlite3_column_int(stmt, 3);
 
-      if (type == 0) /* Excludes default playlists */
+      if (type == PL_PLAIN) /* Excludes default/Smart playlists and playlist folders */
 	{
 	  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
-	    {
-	      snprintf(virtual_path, PATH_MAX, "/spotify:/%s", title);
-	    }
-	    else
-	    {
-	      snprintf(virtual_path, PATH_MAX, "/file:%s", path);
-	    }
+	    snprintf(virtual_path, PATH_MAX, "/spotify:/%s", title);
+	  else
+	    snprintf(virtual_path, PATH_MAX, "/file:%s", path);
 
 	  uquery = sqlite3_mprintf("UPDATE playlists SET virtual_path = '%q' WHERE id = %d;", virtual_path, id);
+
 	  ret = sqlite3_exec(hdl, uquery, NULL, NULL, &errmsg);
 	  if (ret != SQLITE_OK)
-	  {
 	    DPRINTF(E_LOG, L_DB, "Error updating playlists: %s\n", errmsg);
-	  }
 
 	  sqlite3_free(uquery);
 	  sqlite3_free(errmsg);
@@ -5834,6 +5833,30 @@ db_upgrade_v16(void)
 
   return 0;
 }
+
+/* Upgrade from schema v16.00 to v17.00 */
+/* Expand data model to allow for nested playlists and change default playlist
+ * enumeration
+ */
+
+#define U_V17_PL_PARENTID_ADD			\
+  "ALTER TABLE playlists ADD COLUMN parent_id INTEGER DEFAULT 0;"
+#define U_V17_PL_TYPE_CHANGE			\
+  "UPDATE playlists SET type = 2 WHERE type = 1;"
+
+#define U_V17_SCVER_MAJOR			\
+  "UPDATE admin SET value = '17' WHERE key = 'schema_version_major';"
+#define U_V17_SCVER_MINOR			\
+  "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
+
+static const struct db_init_query db_upgrade_v17_queries[] =
+  {
+    { U_V17_PL_PARENTID_ADD,"expanding table playlists with parent_id column" },
+    { U_V17_PL_TYPE_CHANGE, "changing numbering of default playlists 1 -> 2" },
+
+    { U_V17_SCVER_MAJOR,    "set schema_version_major to 17" },
+    { U_V17_SCVER_MINOR,    "set schema_version_minor to 00" },
+  };
 
 static int
 db_upgrade(int db_ver)
@@ -5910,6 +5933,11 @@ db_upgrade(int db_ver)
       ret = db_upgrade_v16();
       if (ret < 0)
 	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1600:
+      ret = db_generic_upgrade(db_upgrade_v17_queries, sizeof(db_upgrade_v17_queries) / sizeof(db_upgrade_v17_queries[0]));
 
       break;
 

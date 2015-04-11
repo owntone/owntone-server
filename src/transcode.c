@@ -63,6 +63,8 @@
 # define XCODE_BUFFER_SIZE ((AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2)
 #endif
 
+/* Interval between ICY metadata checks for streams, in seconds */
+#define METADATA_ICY_INTERVAL 5
 
 struct transcode_ctx {
   AVFormatContext *fmtctx;
@@ -90,6 +92,7 @@ struct transcode_ctx {
 
   uint32_t duration;
   uint64_t samples;
+  uint32_t icy_hash;
 
   /* WAV header */
   int wavhdr;
@@ -152,7 +155,7 @@ make_wav_header(struct transcode_ctx *ctx, off_t *est_size)
 
 
 int
-transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
+transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted, int *icy_timer)
 {
   int16_t *buf;
   int buflen;
@@ -392,6 +395,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
     av_free(frame);
 #endif
 
+  *icy_timer = (ctx->offset % (METADATA_ICY_INTERVAL * 2 * 2 * 44100) < processed);
   return processed;
 }
 
@@ -485,6 +489,7 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
 int
 transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t *est_size, int wavhdr)
 {
+  AVDictionary *options;
   struct transcode_ctx *ctx;
   int ret;
 
@@ -497,6 +502,8 @@ transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t 
     }
   memset(ctx, 0, sizeof(struct transcode_ctx));
 
+  options = NULL;
+
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
 # ifndef HAVE_FFMPEG
   // Without this, libav is slow to probe some internet streams, which leads to RAOP timeouts
@@ -506,8 +513,13 @@ transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t 
       ctx->fmtctx->probesize = 64000;
     }
 # endif
+  if (mfi->data_kind == 1)
+    av_dict_set(&options, "icy", "1", 0);
 
-  ret = avformat_open_input(&ctx->fmtctx, mfi->path, NULL, NULL);
+  ret = avformat_open_input(&ctx->fmtctx, mfi->path, NULL, &options);
+
+  if (options)
+    av_dict_free(&options);
 #else
   ret = av_open_input_file(&ctx->fmtctx, mfi->path, NULL, 0, NULL);
 #endif
@@ -893,4 +905,45 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
   DPRINTF(E_DBG, L_XCODE, "Will transcode\n");
 
   return 1;
+}
+
+void
+transcode_metadata(struct transcode_ctx *ctx, struct http_icy_metadata **metadata, int *changed)
+{
+  struct http_icy_metadata *m;
+
+  *metadata = NULL;
+
+  if (!ctx->fmtctx)
+    return;
+
+  m = http_icy_metadata_get(ctx->fmtctx, 1);
+  if (!m)
+    return;
+
+  *changed = (m->hash != ctx->icy_hash);
+
+  ctx->icy_hash = m->hash;
+
+  *metadata = m;
+}
+
+void
+transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url)
+{
+  struct http_icy_metadata *m;
+
+  *artwork_url = NULL;
+
+  if (!ctx->fmtctx || !ctx->fmtctx->filename)
+    return;
+
+  m = http_icy_metadata_get(ctx->fmtctx, 1);
+  if (!m)
+    return;
+
+  if (m->artwork_url)
+    *artwork_url = strdup(m->artwork_url);
+
+  http_icy_metadata_free(m, 0);
 }

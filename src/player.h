@@ -32,9 +32,10 @@ enum repeat_mode {
 };
 
 enum source_type {
-  SOURCE_FFMPEG = 0,
+  SOURCE_FILE = 0,
   SOURCE_SPOTIFY,
   SOURCE_PIPE,
+  SOURCE_HTTP,
 };
 
 struct spk_flags {
@@ -131,6 +132,9 @@ player_get_status(struct player_status *status);
 
 int
 player_now_playing(uint32_t *id);
+
+char *
+player_get_icy_artwork_url(uint32_t id);
 
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg);
