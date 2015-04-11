@@ -79,9 +79,6 @@
 #define MAX(a, b) ((a > b) ? a : b)
 #endif
 
-/* Interval between ICY metadata polls for streams, in seconds */
-#define METADATA_ICY_POLL 5
-
 enum player_sync_source
   {
     PLAYER_SYNC_CLOCK,
@@ -203,7 +200,6 @@ static int cmd_pipe[2];
 static int player_exit;
 static struct event *exitev;
 static struct event *cmdev;
-static struct event *metaev;
 static pthread_t tid_player;
 
 /* Player status */
@@ -725,26 +721,16 @@ metadata_trigger(struct player_source *ps, int startup)
   worker_execute(metadata_prepare_cb, &pmd, sizeof(struct player_metadata), 0);
 }
 
-static void
-metadata_icy_poll_cb(int fd, short what, void *arg)
+/* Checks if there is new HTTP ICY metadata, and if so sends updates to clients */
+void
+metadata_check_icy(void)
 {
-  struct timeval tv = { METADATA_ICY_POLL, 0 };
   struct http_icy_metadata *metadata;
   int changed;
 
-  /* Playback of stream has stopped, so stop polling */
-  if (!cur_streaming || cur_streaming->type != SOURCE_HTTP || !cur_streaming->ctx)
-    {
-      if (metaev)
-	event_free(metaev);
-
-      metaev = NULL;
-      return;
-    }
-
   transcode_metadata(cur_streaming->ctx, &metadata, &changed);
   if (!metadata)
-    goto no_metadata;
+    return;
 
   if (!changed)
     goto no_update;
@@ -754,38 +740,18 @@ metadata_icy_poll_cb(int fd, short what, void *arg)
   /* Defer the database update to the worker thread */
   worker_execute(update_icy_cb, metadata, sizeof(struct http_icy_metadata), 0);
 
-  status_update(player_state);
+  /* Triggers preparing and sending RAOP metadata */
   metadata_trigger(cur_streaming, 0);
 
   /* Only free the struct, the content must be preserved for update_icy_cb */
   free(metadata);
 
-  evtimer_add(metaev, &tv);
+  status_update(player_state);
 
   return;
 
  no_update:
   http_icy_metadata_free(metadata, 0);
-
- no_metadata:
-  evtimer_add(metaev, &tv);
-}
-
-static void
-metadata_icy_poll_start(void)
-{
-  struct timeval tv = { METADATA_ICY_POLL, 0 };
-
-  DPRINTF(E_DBG, L_PLAYER, "Starting ICY polling\n");
-
-  if (metaev)
-    return;
-
-  metaev = evtimer_new(evbase_player, metadata_icy_poll_cb, NULL);
-  if (!metaev)
-    return;
-
-  evtimer_add(metaev, &tv);
 }
 
 /* Audio sources */
@@ -1415,10 +1381,6 @@ source_open(struct player_source *ps, int no_md)
 	mfi->path = url;
 
 	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
-	if (ret < 0)
-	  break;
-
-	metadata_icy_poll_start();
 	break;
 
       case 2:
@@ -1849,6 +1811,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   int new;
   int ret;
   int nbytes;
+  int icy_timer;
 
   if (!cur_streaming)
     return 0;
@@ -1875,9 +1838,15 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	{
 	  switch (cur_streaming->type)
 	    {
-	      case SOURCE_FILE:
 	      case SOURCE_HTTP:
-		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes);
+		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes, &icy_timer);
+
+		if (icy_timer)
+		  metadata_check_icy();
+		break;
+
+	      case SOURCE_FILE:
+		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes, &icy_timer);
 		break;
 
 #ifdef HAVE_SPOTIFY_H

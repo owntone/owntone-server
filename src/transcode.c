@@ -63,6 +63,8 @@
 # define XCODE_BUFFER_SIZE ((AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2)
 #endif
 
+/* Interval between ICY metadata checks for streams, in seconds */
+#define METADATA_ICY_INTERVAL 5
 
 struct transcode_ctx {
   AVFormatContext *fmtctx;
@@ -153,7 +155,7 @@ make_wav_header(struct transcode_ctx *ctx, off_t *est_size)
 
 
 int
-transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
+transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted, int *icy_timer)
 {
   int16_t *buf;
   int buflen;
@@ -393,6 +395,7 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted)
     av_free(frame);
 #endif
 
+  *icy_timer = (ctx->offset % (METADATA_ICY_INTERVAL * 2 * 2 * 44100) < processed);
   return processed;
 }
 

@@ -12,7 +12,7 @@
 struct transcode_ctx;
 
 int
-transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted);
+transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted, int *icy_timer);
 
 int
 transcode_seek(struct transcode_ctx *ctx, int ms);
