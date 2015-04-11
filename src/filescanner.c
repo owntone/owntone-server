@@ -694,6 +694,14 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
     {
       mfi->data_kind = 1; /* url/stream */
       ret = scan_metadata_ffmpeg(path, mfi);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Playlist URL is unavailable for probe/metadata, assuming MP3 encoding\n");
+	  mfi->type = strdup("mp3");
+	  mfi->codectype = strdup("mpeg");
+	  mfi->description = strdup("MPEG audio file");
+	  ret = 1;
+	}
     }
   else if (type & F_SCAN_TYPE_SPOTIFY)
     {
