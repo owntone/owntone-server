@@ -663,7 +663,7 @@ db_set_cfg_names(void)
 	  continue;
 	}
 
-      query = sqlite3_mprintf(Q_TMPL, title, PL_SMART, special_id[i]);
+      query = sqlite3_mprintf(Q_TMPL, title, PL_SPECIAL, special_id[i]);
       if (!query)
 	{
 	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -718,7 +718,7 @@ db_purge_cruft(time_t ref)
 
   for (i = 0; i < (sizeof(queries_tmpl) / sizeof(queries_tmpl[0])); i++)
     {
-      queries[i] = sqlite3_mprintf(queries_tmpl[i], PL_SMART, (int64_t)ref);
+      queries[i] = sqlite3_mprintf(queries_tmpl[i], PL_SPECIAL, (int64_t)ref);
       if (!queries[i])
 	{
 	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -780,7 +780,7 @@ db_purge_all(void)
 	DPRINTF(E_DBG, L_DB, "Purged %d rows\n", sqlite3_changes(hdl));
     }
 
-  query = sqlite3_mprintf(Q_TMPL, PL_SMART);
+  query = sqlite3_mprintf(Q_TMPL, PL_SPECIAL);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1141,6 +1141,7 @@ db_build_query_plitems(struct query_params *qp, char **q)
 
   switch (pli->type)
     {
+      case PL_SPECIAL:
       case PL_SMART:
 	ret = db_build_query_plitems_smart(qp, pli->query, q);
 	break;
@@ -1722,6 +1723,7 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
 	nstreams = db_pl_count_items(id, 1);
 	break;
 
+      case PL_SPECIAL:
       case PL_SMART:
 	nitems = db_smartpl_count_items(dbpli->query);
 	nstreams = 0;
@@ -3041,6 +3043,7 @@ db_pl_fetch_byquery(char *query)
 	pli->streams = db_pl_count_items(pli->id, 1);
 	break;
 
+      case PL_SPECIAL:
       case PL_SMART:
 	pli->items = db_smartpl_count_items(pli->query);
 	break;

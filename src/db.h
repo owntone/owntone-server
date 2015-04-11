@@ -166,11 +166,12 @@ struct media_file_info {
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
 
-/* PL_SMART value must be in sync with type value in Q_PL* in db.c */
+/* PL_SPECIAL value must be in sync with type value in Q_PL* in db.c */
 enum pl_type {
   PL_PLAIN = 0,
   PL_FOLDER = 1,
-  PL_SMART = 2,
+  PL_SPECIAL = 2,
+  PL_SMART = 3,
   PL_MAX,
 };
 
