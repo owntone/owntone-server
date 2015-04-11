@@ -670,8 +670,8 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   return 0;
 }
 
-static int
-mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+static void
+mpd_remove_idle_client(struct evbuffer *evbuf)
 {
   struct idle_client *client;
   struct idle_client *prev;
@@ -683,7 +683,7 @@ mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     {
       if (client->evbuffer == evbuf)
 	{
-	  DPRINTF(E_DBG, L_MPD, "Found idle client for noidle command\n");
+	  DPRINTF(E_DBG, L_MPD, "Removing idle client for evbuffer\n");
 
 	  if (prev)
 	    prev->next = client->next;
@@ -697,7 +697,12 @@ mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       prev = client;
       client = client->next;
     }
+}
 
+static int
+mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  mpd_remove_idle_client(evbuf);
   return 0;
 }
 
@@ -3675,11 +3680,20 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 static void
 mpd_event_cb(struct bufferevent *bev, short events, void *ctx)
 {
+  struct evbuffer *evbuf;
+
   if (events & BEV_EVENT_ERROR)
-    DPRINTF(E_LOG, L_MPD, "Error from buffer event\n");
+    {
+      DPRINTF(E_LOG, L_MPD, "Error from bufferevent: %s\n",
+	  evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
+    }
 
   if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR))
+    {
+      evbuf = bufferevent_get_output(bev);
+      mpd_remove_idle_client(evbuf);
       bufferevent_free(bev);
+    }
 }
 
 /*
