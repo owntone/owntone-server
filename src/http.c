@@ -484,7 +484,7 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
  * headers, so we must instead open the stream ourselves to get the metadata.
  * Sorry about the extra connections, you radio streaming people!
  *
- * TODO: Get packet metadata from fmtctx->packet_buffer
+ * It is not possible to get the packet metadata with these versions of ffmpeg
  */
 struct http_icy_metadata *
 http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
@@ -496,7 +496,7 @@ http_icy_metadata_get(AVFormatContext *fmtctx, int packet_only)
   int got_header;
   int ret;
 
-  /* Can only get header metadata at the moment */
+  /* Can only get header metadata */
   if (packet_only)
     return NULL;
 

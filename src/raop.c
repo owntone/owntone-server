@@ -708,7 +708,7 @@ raop_crypt_encrypt_aes_key_base64(void)
 
 
 /* RAOP metadata */
-void
+static void
 raop_metadata_free(struct raop_metadata *rmd)
 {
   evbuffer_free(rmd->metadata);

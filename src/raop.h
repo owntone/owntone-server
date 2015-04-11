@@ -92,9 +92,6 @@ enum raop_session_state
 typedef void (*raop_status_cb)(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status);
 
 void
-raop_metadata_free(struct raop_metadata *rmd);
-
-void
 raop_metadata_purge(void);
 
 void
