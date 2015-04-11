@@ -178,7 +178,11 @@ dacp_playingtime(struct evbuffer *evbuf, struct player_status *status, struct me
   if ((status->status == PLAY_STOPPED) || !mfi)
     return;
 
-  dmap_add_int(evbuf, "cant", mfi->song_length - status->pos_ms); /* Remaining time in ms */
+  if (mfi->song_length)
+    dmap_add_int(evbuf, "cant", mfi->song_length - status->pos_ms); /* Remaining time in ms */
+  else
+    dmap_add_int(evbuf, "cant", 0); /* Unknown remaining time */
+
   dmap_add_int(evbuf, "cast", mfi->song_length); /* Song length in ms */
 }
 
