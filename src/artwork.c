@@ -41,9 +41,7 @@
 #include "player.h"
 #include "http.h"
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53
-# include "avio_evbuffer.h"
-#endif
+#include "avio_evbuffer.h"
 #include "artwork.h"
 
 #ifndef HAVE_LIBEVENT2
@@ -207,12 +205,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
     }
 
   /* Set up output */
-#if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 52 && LIBAVFORMAT_VERSION_MINOR >= 45)
-  /* FFmpeg 0.6 */
   dst_fmt = av_guess_format("image2", NULL, NULL);
-#else
-  dst_fmt = guess_format("image2", NULL, NULL);
-#endif
   if (!dst_fmt)
     {
       DPRINTF(E_LOG, L_ART, "ffmpeg image2 muxer not available\n");
@@ -255,18 +248,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
 
   dst_ctx->oformat = dst_fmt;
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53
   dst_fmt->flags &= ~AVFMT_NOFILE;
-#else
-  ret = snprintf(dst_ctx->filename, sizeof(dst_ctx->filename), "evbuffer:%p", evbuf);
-  if ((ret < 0) || (ret >= sizeof(dst_ctx->filename)))
-    {
-      DPRINTF(E_LOG, L_ART, "Output artwork URL too long\n");
-
-      ret = -1;
-      goto out_free_dst_ctx;
-    }
-#endif
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
   dst_st = avformat_new_stream(dst_ctx, NULL);
@@ -445,11 +427,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
   av_free_packet(&pkt);
 
   /* Open output file */
-#if LIBAVFORMAT_VERSION_MAJOR >= 53
   dst_ctx->pb = avio_evbuffer_open(evbuf);
-#else
-  ret = url_fopen(&dst_ctx->pb, dst_ctx->filename, URL_WRONLY);
-#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_ART, "Could not open artwork destination buffer\n");
@@ -468,11 +446,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
     {
       DPRINTF(E_LOG, L_ART, "Out of memory for encoded artwork buffer\n");
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 53
       avio_evbuffer_close(dst_ctx->pb);
-#else
-      url_fclose(dst_ctx->pb);
-#endif
 
       ret = -1;
       goto out_free_buf;
@@ -560,11 +534,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
     }
 
  out_fclose_dst:
-#if LIBAVFORMAT_VERSION_MAJOR >= 53
   avio_evbuffer_close(dst_ctx->pb);
-#else
-  url_fclose(dst_ctx->pb);
-#endif
   av_free(outbuf);
 
  out_free_buf:

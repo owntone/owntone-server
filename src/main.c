@@ -66,9 +66,6 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "remote_pairing.h"
 #include "player.h"
 #include "worker.h"
-#if LIBAVFORMAT_VERSION_MAJOR < 53
-# include "ffmpeg_url_evbuffer.h"
-#endif
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -592,9 +589,6 @@ main(int argc, char **argv)
   avformat_network_init();
 #endif
   av_log_set_callback(logger_ffmpeg);
-#if LIBAVFORMAT_VERSION_MAJOR < 53
-  register_ffmpeg_evbuffer_url_protocol();
-#endif
 
   /* Initialize libgcrypt */
   gcry_control(GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);

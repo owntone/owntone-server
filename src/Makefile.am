@@ -33,12 +33,6 @@ if COND_OSS4
 OSS4_SRC=laudio_oss4.c
 endif
 
-if COND_AVIO
-AVIO_SRC=avio_evbuffer.c avio_evbuffer.h
-else
-FFURL_SRC=ffmpeg_url_evbuffer.c ffmpeg_url_evbuffer.h
-endif
-
 if COND_LIBEVENT1
 EVHTTP_SRC=evhttp/http.c evhttp/evhttp.h evhttp/evhttp_compat.c evhttp/evhttp_compat.h evhttp/http-internal.h evhttp/log.h
 RTSP_SRC=evrtsp/rtsp-libevent1.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
@@ -105,7 +99,7 @@ forked_daapd_SOURCES = main.c \
 	mdns_avahi.c mdns.h \
 	remote_pairing.c remote_pairing.h \
 	$(EVHTTP_SRC) \
-	$(FFURL_SRC) $(AVIO_SRC) \
+	avio_evbuffer.c avio_evbuffer.h \
 	httpd.c httpd.h \
 	httpd_rsp.c httpd_rsp.h \
 	httpd_daap.c httpd_daap.h \

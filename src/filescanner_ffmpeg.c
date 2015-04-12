@@ -400,11 +400,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
 #if 0
   /* Dump input format as determined by ffmpeg */
-# if LIBAVFORMAT_VERSION_MAJOR >= 53 || (LIBAVFORMAT_VERSION_MAJOR == 52 && LIBAVFORMAT_VERSION_MINOR >= 101)
   av_dump_format(ctx, 0, file, 0);
-# else
-  dump_format(ctx, 0, file, FALSE);
-# endif
 #endif
 
   DPRINTF(E_DBG, L_SCAN, "File has %d streams\n", ctx->nb_streams);
@@ -747,10 +743,6 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 
       DPRINTF(E_DBG, L_SCAN, "Picked up %d tags with extra md_map\n", ret);
     }
-
-#if LIBAVFORMAT_VERSION_MAJOR < 53
-  av_metadata_conv(ctx, NULL, ctx->iformat->metadata_conv);
-#endif
 
   ret = extract_metadata(mfi, ctx, audio_stream, video_stream, md_map_generic);
   mdcount += ret;
