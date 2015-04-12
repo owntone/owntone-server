@@ -258,10 +258,12 @@ forked-daapd supports M3U and PLS playlists. Just drop your playlist somewhere
 in your library with an .m3u or .pls extension and it will pick it up.
 
 If the playlist contains an http URL it will be added as an internet radio
-station, and the URL will be probed for Shoutcast (ICY) metadata.
+station, and the URL will be probed for Shoutcast (ICY) metadata. If the radio
+station provides artwork, forked-daapd will download it during playback and send
+it to any remotes or AirPlay devices requesting it.
 
-forked-daapd does not support playlists in playlists (so for instance a .m3u
-where one of the items is another .m3u or .pls).
+Instead of downloading M3U's from your radio stations, you can also make an
+empty M3U file and in it insert links to the M3U's of your radio stations.
 
 Support for iTunes Music Library XML format is available as a compile-time
 option. By default, metadata from our parsers is preferred over what's in
