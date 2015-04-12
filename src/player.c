@@ -732,7 +732,10 @@ metadata_check_icy(void)
   if (!metadata)
     return;
 
-  if (!changed)
+  if (!changed || !metadata->title)
+    goto no_update;
+
+  if (metadata->title[0] == '\0')
     goto no_update;
 
   metadata->id = cur_streaming->id;
