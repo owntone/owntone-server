@@ -3159,7 +3159,7 @@ db_pl_add(struct playlist_info *pli, int *id)
 {
 #define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = TRIM(%Q) AND p.path = '%q';"
 #define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, parent_id, virtual_path)" \
-                  " VALUES (TRIM(%Q), %d, NULL, %" PRIi64 ", %d, '%q', %d, %d, %d, '%q');"
+                  " VALUES (TRIM(%Q), %d, '%q', %" PRIi64 ", %d, '%q', %d, %d, %d, '%q');"
   char *query;
   char *errmsg;
   int ret;
@@ -3184,7 +3184,7 @@ db_pl_add(struct playlist_info *pli, int *id)
 
   /* Add */
   query = sqlite3_mprintf(QADD_TMPL,
-			  pli->title, pli->type, (int64_t)time(NULL), pli->disabled, STR(pli->path),
+			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
 			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path);
 
   if (!query)
@@ -3249,14 +3249,14 @@ db_pl_add_item_byid(int plid, int fileid)
 int
 db_pl_update(struct playlist_info *pli)
 {
-#define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, db_timestamp = %" PRIi64 ", disabled = %d, path = '%q', " \
-               " idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q' " \
+#define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, query = '%q', db_timestamp = %" PRIi64 ", disabled = %d, " \
+               " path = '%q', idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q' " \
                " WHERE id = %d;"
   char *query;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL,
-			  pli->title, pli->type, (int64_t)time(NULL), pli->disabled, STR(pli->path),
+			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
 			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->id);
 
   ret = db_query_run(query, 1, 0);

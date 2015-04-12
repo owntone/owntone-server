@@ -103,6 +103,7 @@ enum file_type {
   FILE_IGNORE,
   FILE_REGULAR,
   FILE_PLAYLIST,
+  FILE_SMARTPL,
   FILE_ITUNES,
   FILE_ARTWORK,
   FILE_CTRL_REMOTE,
@@ -316,6 +317,9 @@ file_type_get(const char *path) {
 
   if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
     return FILE_PLAYLIST;
+
+  if (strcasecmp(ext, ".smartpl") == 0)
+    return FILE_SMARTPL;
 
   if (artwork_file_is_artwork(filename))
     return FILE_ARTWORK;
@@ -865,6 +869,11 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	  defer_playlist(file, mtime);
 	else
 	  process_playlist(file, mtime);
+	break;
+
+      case FILE_SMARTPL:
+	DPRINTF(E_DBG, L_SCAN, "Smart playlist file: %s\n", file);
+	scan_smartpl(file, mtime);
 	break;
 
       case FILE_ARTWORK:

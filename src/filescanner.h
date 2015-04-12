@@ -31,6 +31,9 @@ scan_metadata_icy(char *url, struct media_file_info *mfi);
 void
 scan_playlist(char *file, time_t mtime);
 
+void
+scan_smartpl(char *file, time_t mtime);
+
 #ifdef ITUNES
 void
 scan_itunes_itml(char *file);
