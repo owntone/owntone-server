@@ -97,7 +97,7 @@ request_cb(struct evhttp_request *req, void *arg)
 
   if (!req)
     {
-      DPRINTF(E_LOG, L_HTTP, "Connection to %s failed: Connection timed out\n", ctx->url);
+      DPRINTF(E_WARN, L_HTTP, "Connection to %s failed: Connection timed out\n", ctx->url);
       goto connection_error;
     }
 
@@ -110,12 +110,12 @@ request_cb(struct evhttp_request *req, void *arg)
 
   if (response_code == 0)
     {
-      DPRINTF(E_LOG, L_HTTP, "Connection to %s failed: Connection refused\n", ctx->url);
+      DPRINTF(E_WARN, L_HTTP, "Connection to %s failed: Connection refused\n", ctx->url);
       goto connection_error;
     }
   else if (response_code != 200)
     {
-      DPRINTF(E_LOG, L_HTTP, "Connection to %s failed: %s (error %d)\n", ctx->url, response_code_line, response_code);
+      DPRINTF(E_WARN, L_HTTP, "Connection to %s failed: %s (error %d)\n", ctx->url, response_code_line, response_code);
       goto connection_error;
     }
 
