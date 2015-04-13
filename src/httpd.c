@@ -1008,7 +1008,7 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
   ptr = strchr(uri, '?');
   if (ptr)
     {
-      DPRINTF(E_DBG, L_HTTPD, "Found query string\n");
+      DPRINTF(E_SPAM, L_HTTPD, "Found query string\n");
 
       *ptr = '\0';
     }
