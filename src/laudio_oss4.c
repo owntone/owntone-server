@@ -73,8 +73,8 @@ update_status(enum laudio_state status)
   status_cb(status);
 }
 
-void
-laudio_write(uint8_t *buf, uint64_t rtptime)
+static void
+laudio_oss4_write(uint8_t *buf, uint64_t rtptime)
 {
   struct pcm_packet *pkt;
   int scratch;
@@ -175,8 +175,8 @@ laudio_write(uint8_t *buf, uint64_t rtptime)
     }
 }
 
-uint64_t
-laudio_get_pos(void)
+static uint64_t
+laudio_oss4_get_pos(void)
 {
   int delay;
   int ret;
@@ -192,8 +192,8 @@ laudio_get_pos(void)
   return pcm_pos - BTOS(delay);
 }
 
-void
-laudio_set_volume(int vol)
+static void
+laudio_oss4_set_volume(int vol)
 {
   int oss_vol;
   int ret;
@@ -212,8 +212,8 @@ laudio_set_volume(int vol)
   DPRINTF(E_DBG, L_LAUDIO, "Setting PCM volume to %d (real: %d)\n", vol, (oss_vol & 0xff));
 }
 
-int
-laudio_start(uint64_t cur_pos, uint64_t next_pkt)
+static int
+laudio_oss4_start(uint64_t cur_pos, uint64_t next_pkt)
 {
   int scratch;
   int ret;
@@ -251,8 +251,8 @@ laudio_start(uint64_t cur_pos, uint64_t next_pkt)
   return 0;
 }
 
-void
-laudio_stop(void)
+static void
+laudio_oss4_stop(void)
 {
   struct pcm_packet *pkt;
   int ret;
@@ -276,8 +276,8 @@ laudio_stop(void)
   update_status(LAUDIO_OPEN);
 }
 
-int
-laudio_open(void)
+static int
+laudio_oss4_open(void)
 {
   audio_buf_info bi;
   oss_sysinfo si;
@@ -369,8 +369,8 @@ laudio_open(void)
   return -1;
 }
 
-void
-laudio_close(void)
+static void
+laudio_oss4_close(void)
 {
   struct pcm_packet *pkt;
   int ret;
@@ -396,18 +396,32 @@ laudio_close(void)
 }
 
 
-int
-laudio_init(laudio_status_cb cb)
+static int
+laudio_oss4_init(laudio_status_cb cb, cfg_t *cfg_audio)
 {
   status_cb = cb;
 
-  card_name = cfg_getstr(cfg_getsec(cfg, "audio"), "card");
+  card_name = cfg_getstr(cfg_audio, "card");
 
   return 0;
 }
 
-void
-laudio_deinit(void)
+static void
+laudio_oss4_deinit(void)
 {
   /* EMPTY */
 }
+
+audio_output audio_oss4 = {
+    .name = "oss4",
+    .init = &laudio_oss4_init,
+    .deinit = &laudio_oss4_deinit,
+    .start = &laudio_oss4_start,
+    .stop = &laudio_oss4_stop,
+    .open = &laudio_oss4_open,
+    .close = &laudio_oss4_close,
+    .pos = &laudio_oss4_get_pos,
+    .write = &laudio_oss4_write,
+    .volume = &laudio_oss4_set_volume,
+    };
+
