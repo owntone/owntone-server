@@ -178,7 +178,6 @@ laudio_alsa_write(uint8_t *buf, uint64_t rtptime)
   struct pcm_packet *pkt;
   snd_pcm_sframes_t nsamp;
   int ret;
-  snd_pcm_sframes_t delay;
 
   pkt = (struct pcm_packet *)malloc(sizeof(struct pcm_packet));
   if (!pkt)
@@ -223,18 +222,6 @@ laudio_alsa_write(uint8_t *buf, uint64_t rtptime)
     }
 
   pkt = pcm_pkt_head;
-
-  ret = snd_pcm_delay(hdl, &delay);
-  DPRINTF(E_SPAM, L_LAUDIO, "Current delay %" PRIu64 "\n", delay);
-  snd_pcm_state_t pcmstate = snd_pcm_state(hdl);
-  if (pcmstate == SND_PCM_STATE_RUNNING)
-    {
-      DPRINTF(E_SPAM, L_LAUDIO, "PCM-state == RUNNING\n");
-    }
-  else if (pcmstate == SND_PCM_STATE_PREPARED)
-    {
-      DPRINTF(E_SPAM, L_LAUDIO, "PCM-state == PREPARED\n");
-    }
 
   while (pkt)
     {
