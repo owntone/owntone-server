@@ -187,6 +187,11 @@ http_client_request(struct http_client_ctx *ctx)
     }
 
   if (port <= 0)
+    snprintf(s, PATH_MAX, "%s", hostname);
+  else
+    snprintf(s, PATH_MAX, "%s:%d", hostname, port);
+
+  if (port <= 0)
     port = 80;
 
   if (strlen(path) == 0)
@@ -231,7 +236,6 @@ http_client_request(struct http_client_ctx *ctx)
 #endif
 
   headers = evhttp_request_get_output_headers(req);
-  snprintf(s, PATH_MAX, "%s:%d", hostname, port);
   evhttp_add_header(headers, "Host", s);
   evhttp_add_header(headers, "Content-Length", "0");
   evhttp_add_header(headers, "User-Agent", "forked-daapd/" VERSION);
