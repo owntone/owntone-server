@@ -45,6 +45,11 @@ cache_artwork_add(int type, int64_t persistentid, int max_w, int max_h, int form
 int
 cache_artwork_get(int type, int64_t persistentid, int max_w, int max_h, int *cached, int *format, struct evbuffer *evbuf);
 
+int
+cache_artwork_stash(struct evbuffer *evbuf, char *path, int format);
+
+int
+cache_artwork_read(struct evbuffer *evbuf, char *path, int *format);
 
 /* ---------------------------- Cache API  --------------------------- */
 

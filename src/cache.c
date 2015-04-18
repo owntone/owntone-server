@@ -60,7 +60,7 @@ struct cache_command
 
     char *path;  // artwork path
     int type;    // individual or group artwork
-    int64_t peristentid;
+    int64_t persistentid;
     int max_w;
     int max_h;
     int format;
@@ -90,6 +90,15 @@ static int g_initialized;
 // Global cache database handle
 static sqlite3 *g_db_hdl;
 static char *g_db_path;
+
+// Global artwork stash
+struct stash
+{
+  char *path;
+  int format;
+  size_t size;
+  uint8_t *data;
+} g_stash;
 
 // After being triggered wait 60 seconds before rebuilding cache
 static struct timeval g_wait = { 60, 0 };
@@ -1067,7 +1076,7 @@ cache_artwork_add_impl(struct cache_command *cmd)
   data = EVBUFFER_DATA(cmd->arg.evbuf);
 #endif
 
-  sqlite3_bind_int64(stmt, 1, cmd->arg.peristentid);
+  sqlite3_bind_int64(stmt, 1, cmd->arg.persistentid);
   sqlite3_bind_int(stmt, 2, cmd->arg.max_w);
   sqlite3_bind_int(stmt, 3, cmd->arg.max_h);
   sqlite3_bind_int(stmt, 4, cmd->arg.format);
@@ -1118,7 +1127,7 @@ cache_artwork_get_impl(struct cache_command *cmd)
   int datalen;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, cmd->arg.type, cmd->arg.peristentid, cmd->arg.max_w, cmd->arg.max_h);
+  query = sqlite3_mprintf(Q_TMPL, cmd->arg.type, cmd->arg.persistentid, cmd->arg.max_w, cmd->arg.max_h);
   if (!query)
     {
       DPRINTF(E_LOG, L_CACHE, "Out of memory for query string\n");
@@ -1184,6 +1193,52 @@ cache_artwork_get_impl(struct cache_command *cmd)
 #undef Q_TMPL
 }
 
+static int
+cache_artwork_stash_impl(struct cache_command *cmd)
+{
+  /* Clear current stash */
+  if (g_stash.path)
+    {
+      free(g_stash.path);
+      free(g_stash.data);
+      memset(&g_stash, 0, sizeof(struct stash));
+    }
+
+  g_stash.size = evbuffer_get_length(cmd->arg.evbuf);
+  g_stash.data = malloc(g_stash.size);
+  if (!g_stash.data)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Out of memory for artwork stash data\n");
+      return -1;
+    }
+
+  g_stash.path = strdup(cmd->arg.path);
+  if (!g_stash.path)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Out of memory for artwork stash path\n");
+      free(g_stash.data);
+      return -1;
+    }
+
+  g_stash.format = cmd->arg.format;
+
+  return evbuffer_copyout(cmd->arg.evbuf, g_stash.data, g_stash.size);
+}
+
+static int
+cache_artwork_read_impl(struct cache_command *cmd)
+{
+  cmd->arg.format = 0;
+
+  if (!g_stash.path || !g_stash.data || (strcmp(g_stash.path, cmd->arg.path) != 0))
+    return -1;
+
+  cmd->arg.format = g_stash.format;
+
+  DPRINTF(E_DBG, L_CACHE, "Stash hit (format %d, size %d): %s\n", g_stash.format, g_stash.size, g_stash.path);  
+
+  return evbuffer_add(cmd->arg.evbuf, g_stash.data, g_stash.size);
+}
 
 static void *
 cache(void *arg)
@@ -1482,7 +1537,7 @@ cache_artwork_add(int type, int64_t persistentid, int max_w, int max_h, int form
 
   cmd.func = cache_artwork_add_impl;
   cmd.arg.type = type;
-  cmd.arg.peristentid = persistentid;
+  cmd.arg.persistentid = persistentid;
   cmd.arg.max_w = max_w;
   cmd.arg.max_h = max_h;
   cmd.arg.format = format;
@@ -1523,7 +1578,7 @@ cache_artwork_get(int type, int64_t persistentid, int max_w, int max_h, int *cac
 
   cmd.func = cache_artwork_get_impl;
   cmd.arg.type = type;
-  cmd.arg.peristentid = persistentid;
+  cmd.arg.persistentid = persistentid;
   cmd.arg.max_w = max_w;
   cmd.arg.max_h = max_h;
   cmd.arg.evbuf = evbuf;
@@ -1538,6 +1593,68 @@ cache_artwork_get(int type, int64_t persistentid, int max_w, int max_h, int *cac
   return ret;
 }
 
+/*
+ * Put an artwork image in the in-memory stash (the previous will be deleted)
+ *
+ * @param evbuf event buffer with the cached image to cache
+ * @param path the source (url) of the image to stash
+ * @param format the format of the image
+ * @return 0 if successful, -1 if an error occurred
+ */
+int
+cache_artwork_stash(struct evbuffer *evbuf, char *path, int format)
+{
+  struct cache_command cmd;
+  int ret;
+
+  if (!g_initialized)
+    return -1;
+
+  command_init(&cmd);
+
+  cmd.func = cache_artwork_stash_impl;
+  cmd.arg.evbuf = evbuf;
+  cmd.arg.path = path;
+  cmd.arg.format = format;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+/*
+ * Read the cached artwork image in the in-memory stash into evbuffer
+ *
+ * @param evbuf event buffer filled by this function with the cached image
+ * @param path this function will check that the path matches the cached image's path
+ * @param format set by this function to the format of the image
+ * @return 0 if successful, -1 if an error occurred
+ */
+int
+cache_artwork_read(struct evbuffer *evbuf, char *path, int *format)
+{
+  struct cache_command cmd;
+  int ret;
+
+  if (!g_initialized)
+    return -1;
+
+  command_init(&cmd);
+
+  cmd.func = cache_artwork_read_impl;
+  cmd.arg.evbuf = evbuf;
+  cmd.arg.path = path;
+
+  ret = sync_command(&cmd);
+
+  *format = cmd.arg.format;
+
+  command_deinit(&cmd);
+
+  return ret;
+}
 
 
 /* -------------------------- Cache general API --------------------------- */

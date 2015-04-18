@@ -684,13 +684,13 @@ artwork_get_player_image(struct evbuffer *evbuf, char *path)
   struct keyval *kv;
   const char *content_type;
   char *url;
+  int format;
   int id;
   int len;
-  int ret;
 
   DPRINTF(E_DBG, L_ART, "Trying internet stream artwork in %s\n", path);
 
-  ret = 0;
+  format = 0;
 
   id = db_file_id_bypath(path);
   if (!id)
@@ -702,6 +702,10 @@ artwork_get_player_image(struct evbuffer *evbuf, char *path)
 
   len = strlen(url);
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
+    goto out_url;
+
+  cache_artwork_read(evbuf, url, &format);
+  if (format > 0)
     goto out_url;
 
   kv = keyval_alloc();
@@ -718,12 +722,16 @@ artwork_get_player_image(struct evbuffer *evbuf, char *path)
 
   content_type = keyval_get(kv, "Content-Type");
   if (content_type && (strcmp(content_type, "image/jpeg") == 0))
-    ret = ART_FMT_JPEG;
+    format = ART_FMT_JPEG;
   else if (content_type && (strcmp(content_type, "image/png") == 0))
-    ret = ART_FMT_PNG;
+    format = ART_FMT_PNG;
 
-  if (ret)
-    DPRINTF(E_DBG, L_ART, "Found internet stream artwork in %s (%s)\n", url, content_type);
+  if (format)
+    {
+      DPRINTF(E_DBG, L_ART, "Found internet stream artwork in %s (%s)\n", url, content_type);
+
+      cache_artwork_stash(evbuf, url, format);
+    }
 
  out_kv:
   keyval_clear(kv);
@@ -732,7 +740,7 @@ artwork_get_player_image(struct evbuffer *evbuf, char *path)
  out_url:
   free(url);
 
-  return ret;
+  return format;
 }
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
