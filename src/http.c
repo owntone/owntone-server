@@ -242,12 +242,12 @@ http_client_request(struct http_client_ctx *ctx)
   evhttp_add_header(headers, "Icy-MetaData", "1");
 
   /* Make request */
-  DPRINTF(E_INFO, L_HTTP, "Making request for http://%s:%d%s\n", hostname, port, path);
+  DPRINTF(E_INFO, L_HTTP, "Making request for http://%s%s\n", s, path);
 
   ret = evhttp_make_request(evcon, req, EVHTTP_REQ_GET, path);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_HTTP, "Error making request for http://%s:%d%s\n", hostname, port, path);
+      DPRINTF(E_LOG, L_HTTP, "Error making request for http://%s%s\n", s, path);
 
       evhttp_connection_free(evcon);
       event_base_free(ctx->evbase);
