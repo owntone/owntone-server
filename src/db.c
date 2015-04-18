@@ -4583,15 +4583,15 @@ db_perthread_deinit(void)
   "   path        VARCHAR(4096) NOT NULL"		\
   ");"
 
-#define V_FILELIST					\
-  "CREATE VIEW IF NOT EXISTS filelist as"		\
-  "     SELECT "					\
-  "       virtual_path, time_modified, 3 as type "	\
-  "     FROM files WHERE disabled = 0"			\
-  "   UNION "						\
-  "     SELECT "					\
-  "       virtual_path, db_timestamp, 1 as type "	\
-  "     FROM playlists where disabled = 0 AND type = 0"	\
+#define V_FILELIST						\
+  "CREATE VIEW IF NOT EXISTS filelist as"			\
+  "     SELECT "						\
+  "       virtual_path, time_modified, 3 as type "		\
+  "     FROM files WHERE disabled = 0"				\
+  "   UNION "							\
+  "     SELECT "						\
+  "       virtual_path, db_timestamp, 1 as type "		\
+  "     FROM playlists where disabled = 0 AND type IN (0, 3)"	\
   ";"
 
 #define TRG_GROUPS_INSERT_FILES						\
@@ -5846,6 +5846,18 @@ db_upgrade_v16(void)
   "ALTER TABLE playlists ADD COLUMN parent_id INTEGER DEFAULT 0;"
 #define U_V17_PL_TYPE_CHANGE			\
   "UPDATE playlists SET type = 2 WHERE type = 1;"
+#define U_V17_DROP_VIEW_FILELIST		\
+  "DROP VIEW IF EXISTS filelist;"
+#define U_V17_CREATE_VIEW_FILELIST				\
+  "CREATE VIEW IF NOT EXISTS filelist as"			\
+  "     SELECT "						\
+  "       virtual_path, time_modified, 3 as type "		\
+  "     FROM files WHERE disabled = 0"				\
+  "   UNION "							\
+  "     SELECT "						\
+  "       virtual_path, db_timestamp, 1 as type "		\
+  "     FROM playlists where disabled = 0 AND type IN (0, 3)"	\
+  ";"
 
 #define U_V17_SCVER_MAJOR			\
   "UPDATE admin SET value = '17' WHERE key = 'schema_version_major';"
@@ -5856,6 +5868,8 @@ static const struct db_init_query db_upgrade_v17_queries[] =
   {
     { U_V17_PL_PARENTID_ADD,"expanding table playlists with parent_id column" },
     { U_V17_PL_TYPE_CHANGE, "changing numbering of default playlists 1 -> 2" },
+    { U_V17_DROP_VIEW_FILELIST, "dropping view filelist" },
+    { U_V17_CREATE_VIEW_FILELIST, "creating view filelist" },
 
     { U_V17_SCVER_MAJOR,    "set schema_version_major to 17" },
     { U_V17_SCVER_MINOR,    "set schema_version_minor to 00" },
