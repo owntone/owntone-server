@@ -768,6 +768,7 @@ process_pls(plist_t playlists, char *file)
 	    }
 	  memset(pli, 0, sizeof(struct playlist_info));
 
+	  pli->type = PL_PLAIN;
 	  pli->title = strdup(name);
 	  pli->path = strdup(file);
 	  snprintf(virtual_path, PATH_MAX, "/file:%s", file);

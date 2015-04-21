@@ -281,7 +281,7 @@ static const char *sort_clause[] =
     "ORDER BY f.title_sort ASC",
     "ORDER BY f.album_sort ASC, f.disc ASC, f.track ASC",
     "ORDER BY f.album_artist_sort ASC",
-    "ORDER BY f.type DESC, f.parent_id ASC, f.special_id ASC, f.title ASC",
+    "ORDER BY f.type ASC, f.parent_id ASC, f.special_id ASC, f.title ASC",
     "ORDER BY f.year ASC",
   };
 
@@ -4591,7 +4591,7 @@ db_perthread_deinit(void)
   "   UNION "							\
   "     SELECT "						\
   "       virtual_path, db_timestamp, 1 as type "		\
-  "     FROM playlists where disabled = 0 AND type IN (0, 3)"	\
+  "     FROM playlists where disabled = 0 AND type IN (2, 3)"	\
   ";"
 
 #define TRG_GROUPS_INSERT_FILES						\
@@ -4610,27 +4610,27 @@ db_perthread_deinit(void)
 
 #define Q_PL1								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(1, 'Library', 2, '1 = 1', 0, '', 0, 0);"
+  " VALUES(1, 'Library', 0, '1 = 1', 0, '', 0, 0);"
 
 #define Q_PL2								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(2, 'Music', 2, 'f.media_kind = 1', 0, '', 0, 6);"
+  " VALUES(2, 'Music', 0, 'f.media_kind = 1', 0, '', 0, 6);"
 
 #define Q_PL3								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(3, 'Movies', 2, 'f.media_kind = 2', 0, '', 0, 4);"
+  " VALUES(3, 'Movies', 0, 'f.media_kind = 2', 0, '', 0, 4);"
 
 #define Q_PL4								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(4, 'TV Shows', 2, 'f.media_kind = 64', 0, '', 0, 5);"
+  " VALUES(4, 'TV Shows', 0, 'f.media_kind = 64', 0, '', 0, 5);"
 
 #define Q_PL5								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(5, 'Podcasts', 2, 'f.media_kind = 4', 0, '', 0, 1);"
+  " VALUES(5, 'Podcasts', 0, 'f.media_kind = 4', 0, '', 0, 1);"
 
 #define Q_PL6								\
   "INSERT INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(6, 'Audiobooks', 2, 'f.media_kind = 8', 0, '', 0, 7);"
+  " VALUES(6, 'Audiobooks', 0, 'f.media_kind = 8', 0, '', 0, 7);"
 
 /* These are the remaining automatically-created iTunes playlists, but
  * their query is unknown
@@ -4638,10 +4638,10 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION_MAJOR 17
+#define SCHEMA_VERSION_MAJOR 18
 #define SCHEMA_VERSION_MINOR 00
 #define Q_SCVER_MAJOR					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '17');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '18');"
 #define Q_SCVER_MINOR					\
   "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '00');"
 
@@ -5813,7 +5813,7 @@ db_upgrade_v16(void)
       path = (char *)sqlite3_column_text(stmt, 2);
       type = sqlite3_column_int(stmt, 3);
 
-      if (type == PL_PLAIN) /* Excludes default/Smart playlists and playlist folders */
+      if (type == 0) /* Excludes default/Smart playlists and playlist folders */
 	{
 	  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
 	    snprintf(virtual_path, PATH_MAX, "/spotify:/%s", title);
@@ -5846,18 +5846,6 @@ db_upgrade_v16(void)
   "ALTER TABLE playlists ADD COLUMN parent_id INTEGER DEFAULT 0;"
 #define U_V17_PL_TYPE_CHANGE			\
   "UPDATE playlists SET type = 2 WHERE type = 1;"
-#define U_V17_DROP_VIEW_FILELIST		\
-  "DROP VIEW IF EXISTS filelist;"
-#define U_V17_CREATE_VIEW_FILELIST				\
-  "CREATE VIEW IF NOT EXISTS filelist as"			\
-  "     SELECT "						\
-  "       virtual_path, time_modified, 3 as type "		\
-  "     FROM files WHERE disabled = 0"				\
-  "   UNION "							\
-  "     SELECT "						\
-  "       virtual_path, db_timestamp, 1 as type "		\
-  "     FROM playlists where disabled = 0 AND type IN (0, 3)"	\
-  ";"
 
 #define U_V17_SCVER_MAJOR			\
   "UPDATE admin SET value = '17' WHERE key = 'schema_version_major';"
@@ -5868,11 +5856,47 @@ static const struct db_init_query db_upgrade_v17_queries[] =
   {
     { U_V17_PL_PARENTID_ADD,"expanding table playlists with parent_id column" },
     { U_V17_PL_TYPE_CHANGE, "changing numbering of default playlists 1 -> 2" },
-    { U_V17_DROP_VIEW_FILELIST, "dropping view filelist" },
-    { U_V17_CREATE_VIEW_FILELIST, "creating view filelist" },
 
     { U_V17_SCVER_MAJOR,    "set schema_version_major to 17" },
     { U_V17_SCVER_MINOR,    "set schema_version_minor to 00" },
+  };
+
+/* Upgrade from schema v17.00 to v18.00 */
+/* Change playlist type enumeration and recreate filelist view (include smart
+ * playlists in view)
+ */
+
+#define U_V18_PL_TYPE_CHANGE_PLAIN				\
+  "UPDATE playlists SET type = 3 WHERE type = 0;"
+#define U_V18_PL_TYPE_CHANGE_SPECIAL				\
+  "UPDATE playlists SET type = 0 WHERE type = 2;"
+#define U_V18_DROP_VIEW_FILELIST				\
+  "DROP VIEW IF EXISTS filelist;"
+#define U_V18_CREATE_VIEW_FILELIST				\
+  "CREATE VIEW IF NOT EXISTS filelist as"			\
+  "     SELECT "						\
+  "       virtual_path, time_modified, 3 as type "		\
+  "     FROM files WHERE disabled = 0"				\
+  "   UNION "							\
+  "     SELECT "						\
+  "       virtual_path, db_timestamp, 1 as type "		\
+  "     FROM playlists where disabled = 0 AND type IN (2, 3)"	\
+  ";"
+
+#define U_V18_SCVER_MAJOR			\
+  "UPDATE admin SET value = '18' WHERE key = 'schema_version_major';"
+#define U_V18_SCVER_MINOR			\
+  "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
+
+static const struct db_init_query db_upgrade_v18_queries[] =
+  {
+    { U_V18_PL_TYPE_CHANGE_PLAIN, "changing numbering of plain playlists 0 -> 3" },
+    { U_V18_PL_TYPE_CHANGE_SPECIAL, "changing numbering of default playlists 2 -> 0" },
+    { U_V18_DROP_VIEW_FILELIST, "dropping view filelist" },
+    { U_V18_CREATE_VIEW_FILELIST, "creating view filelist" },
+
+    { U_V18_SCVER_MAJOR,    "set schema_version_major to 18" },
+    { U_V18_SCVER_MINOR,    "set schema_version_minor to 00" },
   };
 
 static int
@@ -5955,6 +5979,15 @@ db_upgrade(int db_ver)
 
     case 1600:
       ret = db_generic_upgrade(db_upgrade_v17_queries, sizeof(db_upgrade_v17_queries) / sizeof(db_upgrade_v17_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1700:
+      ret = db_generic_upgrade(db_upgrade_v18_queries, sizeof(db_upgrade_v18_queries) / sizeof(db_upgrade_v18_queries[0]));
+      if (ret < 0)
+	return -1;
 
       break;
 
