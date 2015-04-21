@@ -1686,7 +1686,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	continue;
 
       /* Don't add empty Special playlists */
-      if ((plid > 1) && (plitems == PL_SPECIAL) && (pltype == 1))
+      if ((plid > 1) && (plitems == 0) && (pltype == PL_SPECIAL))
 	continue;
 
       npls++;
