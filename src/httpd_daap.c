@@ -686,7 +686,7 @@ get_query_params(struct evkeyvalq *query, int *sort_headers, struct query_params
 
       qp->filter = daap_query_parse_sql(param);
       if (!qp->filter)
-	DPRINTF(E_LOG, L_DAAP, "Ignoring improper DAAP query\n");
+	DPRINTF(E_LOG, L_DAAP, "Ignoring improper DAAP query: %s\n", param);
     }
 }
 

@@ -136,7 +136,7 @@ daap_query_parse_sql(const char *daap_query)
     }
   else
     {
-      DPRINTF(E_LOG, L_DAAP, "Invalid DAAP query\n");
+      DPRINTF(E_LOG, L_DAAP, "Invalid DAAP query -%s-\n", daap_query);
       ret = NULL;
     }
 
