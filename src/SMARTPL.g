@@ -41,6 +41,7 @@ crit		:	LPAR expression RPAR	->	expression
 			|	STRTAG (INCLUDES|IS) STR
 			|	INTTAG INTBOOL INT
 			|	DATETAG	(AFTER|BEFORE) dateval
+			|	ENUMTAG IS ENUMVAL
 			;
 
 dateval		:	DATE
@@ -62,18 +63,24 @@ STRTAG		:	'artist'
 			|	'type'
 			;
 
+INTTAG		:	'play_count'
+			|	'rating'
+			|	'year'
+			|	'compilation'
+			;
+
+DATETAG		:	'time_added'
+			|	'time_played'
+			;
+
+ENUMTAG		:	'data_kind'
+			|	'media_kind'
+			;
+
 INCLUDES	:	'includes'
 			;
 
 IS			:	'is'
-			;
-
-INTTAG		:	'data_kind'
-			|	'media_kind'
-			|	'play_count'
-			|	'rating'
-			|	'year'
-			|	'compilation'
 			;
 
 INTBOOL		:	(GREATER|GREATEREQUAL|LESS|LESSEQUAL|EQUAL)
@@ -97,10 +104,6 @@ LESSEQUAL	:	'<='
 
 fragment
 EQUAL		:	'='
-			;
-
-DATETAG		:	'time_added'
-			|	'time_played'
 			;
 
 AFTER		:	'after'
@@ -142,6 +145,17 @@ DATINTERVAL	:	'days'
 			|	'weeks'
 			|	'months'
 			|	'years'
+			;
+
+ENUMVAL		:	'music'
+			|	'movie'
+			|	'podcast'
+			|	'audiobook'
+			|	'tvshow'
+			|	'file'
+			|	'url'
+			|	'spotify'
+			|	'pipe'
 			;
 
 STR			:	'"' ~('"')+ '"'

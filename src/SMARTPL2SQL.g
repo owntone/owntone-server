@@ -34,6 +34,7 @@ options {
 	#include <sqlite3.h>
 
 	#include "logger.h"
+	#include "db.h"
 }
 
 @members {
@@ -143,6 +144,62 @@ expression	returns [ pANTLR3_STRING result ]
 			$result->append8($result, "f.");
 			$result->appendS($result, $DATETAG.text->toUTF8($DATETAG.text));
 			$result->append8($result, " > ");
+			$result->append8($result, str);
+		}
+	|	ENUMTAG IS ENUMVAL
+		{
+			pANTLR3_UINT8 tag;
+			pANTLR3_UINT8 val;
+			char str[20];
+			
+			sprintf(str, "1=1");
+			
+			tag = $ENUMTAG.text->chars;
+			val = $ENUMVAL.text->chars;
+			if (strcmp((char *)tag, "media_kind") == 0)
+			{
+				if (strcmp((char *)val, "music") == 0)
+				{
+					sprintf(str, "f.media_kind = \%d", MEDIA_KIND_MUSIC);
+				}
+				else if (strcmp((char *)val, "movie") == 0)
+				{
+					sprintf(str, "f.media_kind = \%d", MEDIA_KIND_MOVIE);
+				}
+				else if (strcmp((char *)val, "podcast") == 0)
+				{
+					sprintf(str, "f.media_kind = \%d", MEDIA_KIND_PODCAST);
+				}
+				else if (strcmp((char *)val, "audiobook") == 0)
+				{
+					sprintf(str, "f.media_kind = \%d", MEDIA_KIND_AUDIOBOOK);
+				}
+				else if (strcmp((char *)val, "tvshow") == 0)
+				{
+					sprintf(str, "f.media_kind = \%d", MEDIA_KIND_TVSHOW);
+				}
+			}
+			else if (strcmp((char *)tag, "data_kind") == 0)
+			{
+				if (strcmp((char *)val, "file") == 0)
+				{
+					sprintf(str, "f.data_kind = \%d", DATA_KIND_FILE);
+				}
+				else if (strcmp((char *)val, "url") == 0)
+				{
+					sprintf(str, "f.data_kind = \%d", DATA_KIND_URL);
+				}
+				else if (strcmp((char *)val, "spotify") == 0)
+				{
+					sprintf(str, "f.data_kind = \%d", DATA_KIND_SPOTIFY);
+				}
+				else if (strcmp((char *)val, "pipe") == 0)
+				{
+					sprintf(str, "f.data_kind = \%d", DATA_KIND_PIPE);
+				}
+			}
+			
+			$result = $ENUMTAG.text->factory->newRaw($ENUMTAG.text->factory);
 			$result->append8($result, str);
 		}
 	;
