@@ -5963,6 +5963,8 @@ db_upgrade(int db_ver)
 
     case 1500:
       ret = db_generic_upgrade(db_upgrade_v1501_queries, sizeof(db_upgrade_v1501_queries) / sizeof(db_upgrade_v1501_queries[0]));
+      if (ret < 0)
+	return -1;
 
       /* FALLTHROUGH */
 
