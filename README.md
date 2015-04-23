@@ -269,7 +269,8 @@ Support for iTunes Music Library XML format is available as a compile-time
 option. By default, metadata from our parsers is preferred over what's in
 the iTunes DB; use itunes_overrides = true if you prefer iTunes' metadata.
 
-Smart playlists are not supported at the moment.
+forked-daapd has support for smart playlists. How to create a smart playlist is
+documented in [README_SMARTPL.md](README_SMARTPL.md).
 
 
 ## Artwork
