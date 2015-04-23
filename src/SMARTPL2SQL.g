@@ -110,7 +110,7 @@ expression	returns [ pANTLR3_STRING result ]
 			$result = $STR.text->factory->newRaw($STR.text->factory);
 			$result->append8($result, "f.");
 			$result->appendS($result, $STRTAG.text->toUTF8($STRTAG.text));
-			$result->append8($result, " = '");
+			$result->append8($result, " LIKE '");
 			$result->append8($result, sqlite3_mprintf("\%q", (const char *)val));
 			$result->append8($result, "'");
 		}
