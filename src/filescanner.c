@@ -103,6 +103,7 @@ enum file_type {
   FILE_IGNORE,
   FILE_REGULAR,
   FILE_PLAYLIST,
+  FILE_SMARTPL,
   FILE_ITUNES,
   FILE_ARTWORK,
   FILE_CTRL_REMOTE,
@@ -316,6 +317,9 @@ file_type_get(const char *path) {
 
   if ((strcasecmp(ext, ".m3u") == 0) || (strcasecmp(ext, ".pls") == 0))
     return FILE_PLAYLIST;
+
+  if (strcasecmp(ext, ".smartpl") == 0)
+    return FILE_SMARTPL;
 
   if (artwork_file_is_artwork(filename))
     return FILE_ARTWORK;
@@ -533,7 +537,7 @@ fixup_tags(struct media_file_info *mfi)
   /* Handle TV shows, try to present prettier metadata */
   if (mfi->tv_series_name && strlen(mfi->tv_series_name) != 0)
     {
-      mfi->media_kind = 64;  /* tv show */
+      mfi->media_kind = MEDIA_KIND_TVSHOW;  /* tv show */
 
       /* Default to artist = series_name */
       if (mfi->artist && strlen(mfi->artist) == 0)
@@ -604,7 +608,7 @@ fixup_tags(struct media_file_info *mfi)
 	  mfi->album_artist_sort = strdup("");
 	}
     }
-  else if (mfi->media_kind == 4) /* Podcast */
+  else if (mfi->media_kind == MEDIA_KIND_PODCAST) /* Podcast */
     {
       if (mfi->album_artist)
 	free(mfi->album_artist);
@@ -687,12 +691,12 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
 
   if (type & F_SCAN_TYPE_FILE)
     {
-      mfi->data_kind = 0; /* real file */
+      mfi->data_kind = DATA_KIND_FILE; /* real file */
       ret = scan_metadata_ffmpeg(path, mfi);
     }
   else if (type & F_SCAN_TYPE_URL)
     {
-      mfi->data_kind = 1; /* url/stream */
+      mfi->data_kind = DATA_KIND_URL; /* url/stream */
       ret = scan_metadata_ffmpeg(path, mfi);
       if (ret < 0)
 	{
@@ -705,12 +709,12 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
     }
   else if (type & F_SCAN_TYPE_SPOTIFY)
     {
-      mfi->data_kind = 2; /* iTunes has no spotify data kind, but we use 2 */
+      mfi->data_kind = DATA_KIND_SPOTIFY; /* iTunes has no spotify data kind, but we use 2 */
       ret = mfi->artist && mfi->album && mfi->title;
     }
   else if (type & F_SCAN_TYPE_PIPE)
     {
-      mfi->data_kind = 3; /* iTunes has no pipe data kind, but we use 3 */
+      mfi->data_kind = DATA_KIND_PIPE; /* iTunes has no pipe data kind, but we use 3 */
       mfi->type = strdup("wav");
       mfi->codectype = strdup("wav");
       mfi->description = strdup("PCM16 pipe");
@@ -731,14 +735,14 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
   if (type & F_SCAN_TYPE_COMPILATION)
     mfi->compilation = 1;
   if (type & F_SCAN_TYPE_PODCAST)
-    mfi->media_kind = 4; /* podcast */
+    mfi->media_kind = MEDIA_KIND_PODCAST; /* podcast */
   if (type & F_SCAN_TYPE_AUDIOBOOK)
-    mfi->media_kind = 8; /* audiobook */
+    mfi->media_kind = MEDIA_KIND_AUDIOBOOK; /* audiobook */
 
   if (!mfi->item_kind)
     mfi->item_kind = 2; /* music */
   if (!mfi->media_kind)
-    mfi->media_kind = 1; /* music */
+    mfi->media_kind = MEDIA_KIND_MUSIC; /* music */
 
   unicode_fixup_mfi(mfi);
 
@@ -865,6 +869,11 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 	  defer_playlist(file, mtime);
 	else
 	  process_playlist(file, mtime);
+	break;
+
+      case FILE_SMARTPL:
+	DPRINTF(E_DBG, L_SCAN, "Smart playlist file: %s\n", file);
+	scan_smartpl(file, mtime);
 	break;
 
       case FILE_ARTWORK:

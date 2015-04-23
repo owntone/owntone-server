@@ -474,7 +474,7 @@ process_track_file(plist_t trk)
   ret = get_dictval_bool_from_key(trk, "Podcast", &boolean); 
   if ((ret == 0) && boolean)
     {
-      mfi->media_kind = 4;
+      mfi->media_kind = MEDIA_KIND_PODCAST;
     }
 
   /* Don't let album_artist set to "Unknown artist" if we've
@@ -768,6 +768,7 @@ process_pls(plist_t playlists, char *file)
 	    }
 	  memset(pli, 0, sizeof(struct playlist_info));
 
+	  pli->type = PL_PLAIN;
 	  pli->title = strdup(name);
 	  pli->path = strdup(file);
 	  snprintf(virtual_path, PATH_MAX, "/file:%s", file);

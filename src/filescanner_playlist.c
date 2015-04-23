@@ -152,6 +152,8 @@ scan_playlist(char *file, time_t mtime)
 
       memset(pli, 0, sizeof(struct playlist_info));
 
+      pli->type = PL_PLAIN;
+
       /* Get only the basename, to be used as the playlist title */
       ptr = strrchr(filename, '.');
       if (ptr)

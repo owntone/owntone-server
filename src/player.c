@@ -1373,7 +1373,7 @@ source_open(struct player_source *ps, int no_md)
   // Setup the source type responsible for getting the audio
   switch (mfi->data_kind)
     {
-      case 1:
+      case DATA_KIND_URL:
 	ps->type = SOURCE_HTTP;
 
 	ret = http_stream_setup(&url, mfi->path);
@@ -1386,7 +1386,7 @@ source_open(struct player_source *ps, int no_md)
 	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
 	break;
 
-      case 2:
+      case DATA_KIND_SPOTIFY:
 	ps->type = SOURCE_SPOTIFY;
 #ifdef HAVE_SPOTIFY_H
 	ret = spotify_playback_play(mfi);
@@ -1395,7 +1395,7 @@ source_open(struct player_source *ps, int no_md)
 #endif
 	break;
 
-      case 3:
+      case DATA_KIND_PIPE:
 	ps->type = SOURCE_PIPE;
 	ret = pipe_setup(mfi);
 	break;

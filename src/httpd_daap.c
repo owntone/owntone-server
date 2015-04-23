@@ -1685,8 +1685,8 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
       if (!cfg_radiopl && (database != DAAP_DB_RADIO) && (plstreams > 0) && (plstreams == plitems))
 	continue;
 
-      /* Don't add empty Smart playlists */
-      if ((plid > 1) && (plitems == 0) && (pltype == PL_SMART))
+      /* Don't add empty Special playlists */
+      if ((plid > 1) && (plitems == 0) && (pltype == PL_SPECIAL))
 	continue;
 
       npls++;
@@ -1700,14 +1700,20 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 	  if (dfm == &dfm_dmap_mimc)
 	    continue;
 
-	  /* com.apple.itunes.smart-playlist - type = PL_SMART AND id != 1 */
+	  /* Add field "com.apple.itunes.smart-playlist" for special and smart playlists
+	     (excluding the special playlist for "library" with id = 1) */
 	  if (dfm == &dfm_dmap_aeSP)
 	    {
-	      if ((pltype == PL_SMART) && (plid != 1))
+	      if ((pltype == PL_SMART) || ((pltype == PL_SPECIAL) && (plid != 1)))
+		{
+		  dmap_add_char(playlist, "aeSP", 1);
+		}
+
+	      /* Add field "com.apple.itunes.special-playlist" for special playlists
+		 (excluding the special playlist for "library" with id = 1) */
+	      if ((pltype == PL_SPECIAL) && (plid != 1))
 		{
 		  int32_t aePS = 0;
-		  dmap_add_char(playlist, "aeSP", 1);
-
 		  ret = safe_atoi32(dbpli.special_id, &aePS);
 		  if ((ret == 0) && (aePS > 0))
 		    dmap_add_char(playlist, "aePS", aePS);

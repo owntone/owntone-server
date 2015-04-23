@@ -590,7 +590,7 @@ scrobble(struct lastfm_command *cmd)
     goto noscrobble;
 
   // Don't scrobble non-music and radio stations
-  if ((mfi->media_kind != 1) || (mfi->data_kind == 1))
+  if ((mfi->media_kind != MEDIA_KIND_MUSIC) || (mfi->data_kind == DATA_KIND_URL))
     goto noscrobble;
 
   // Don't scrobble songs with unknown artist

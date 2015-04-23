@@ -62,13 +62,16 @@ GPERF_PRODUCTS = \
 
 ANTLR_GRAMMARS = \
 	RSP.g RSP2SQL.g \
-	DAAP.g DAAP2SQL.g
+	DAAP.g DAAP2SQL.g \
+	SMARTPL.g SMARTPL2SQL.g 
 
 ANTLR_SOURCES = \
 	RSPLexer.c RSPLexer.h RSPParser.c RSPParser.h \
 	RSP2SQL.c RSP2SQL.h \
 	DAAPLexer.c DAAPLexer.h DAAPParser.c DAAPParser.h \
-	DAAP2SQL.c DAAP2SQL.h
+	DAAP2SQL.c DAAP2SQL.h \
+	SMARTPLLexer.c SMARTPLLexer.h SMARTPLParser.c SMARTPLParser.h  \
+	SMARTPL2SQL.c SMARTPL2SQL.h
 
 ANTLR_PRODUCTS =
 
@@ -95,7 +98,8 @@ forked_daapd_SOURCES = main.c \
 	conffile.c conffile.h \
 	cache.c cache.h \
 	filescanner.c filescanner.h \
-	filescanner_ffmpeg.c filescanner_playlist.c $(ITUNES_SRC) \
+	filescanner_ffmpeg.c filescanner_playlist.c \
+	filescanner_smartpl.c $(ITUNES_SRC) \
 	mdns_avahi.c mdns.h \
 	remote_pairing.c remote_pairing.h \
 	$(EVHTTP_SRC) \

@@ -690,6 +690,7 @@ spotify_playlist_save(sp_playlist *pl)
 
       memset(pli, 0, sizeof(struct playlist_info));
 
+      pli->type = PL_PLAIN;
       pli->title = strdup(name);
       pli->path = strdup(url);
       pli->virtual_path = strdup(virtual_path);

@@ -5,6 +5,7 @@ forked-daapd
 *Parser.[ch]
 DAAP2SQL.[ch]
 RSP2SQL.[ch]
+SMARTPL2SQL.[ch]
 
 *.u
 
