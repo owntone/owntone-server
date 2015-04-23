@@ -844,12 +844,16 @@ process_deferred_playlists(void)
 static void
 process_file(char *file, time_t mtime, off_t size, int type, int flags)
 {
+  int is_bulkscan;
+
+  is_bulkscan = (flags & F_SCAN_BULK);
+
   switch (file_type_get(file))
     {
       case FILE_REGULAR:
 	filescanner_process_media(file, mtime, size, type, NULL);
 
-	cache_artwork_ping(file, mtime);
+	cache_artwork_ping(file, mtime, !is_bulkscan);
 	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
 
 	counter++;
@@ -878,7 +882,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
 
       case FILE_ARTWORK:
 	DPRINTF(E_DBG, L_SCAN, "Artwork file: %s\n", file);
-	cache_artwork_ping(file, mtime);
+	cache_artwork_ping(file, mtime, !is_bulkscan);
 
 	// TODO [artworkcache] If entry in artwork cache exists for no artwork available for a album with files in the same directory, delete the entry
 

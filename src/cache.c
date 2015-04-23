@@ -66,6 +66,7 @@ struct cache_command
     int format;
     time_t mtime;
     int cached;
+    int del;
 
     struct evbuffer *evbuf;
   } arg;
@@ -943,21 +944,24 @@ cache_artwork_ping_impl(struct cache_command *cmd)
 
   sqlite3_free(query);
 
-  query = sqlite3_mprintf(Q_TMPL_DEL, cmd->arg.path, (int64_t)cmd->arg.mtime);
-
-  DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
-
-  ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
+  if (cmd->arg.del > 0)
     {
-      DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
+      query = sqlite3_mprintf(Q_TMPL_DEL, cmd->arg.path, (int64_t)cmd->arg.mtime);
 
-      sqlite3_free(errmsg);
+      DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
+
+      ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+      if (ret != SQLITE_OK)
+	{
+	  DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
+
+	  sqlite3_free(errmsg);
+	  sqlite3_free(query);
+	  return -1;
+	}
+
       sqlite3_free(query);
-      return -1;
     }
-
-  sqlite3_free(query);
 
   return 0;
 
@@ -1235,7 +1239,7 @@ cache_artwork_read_impl(struct cache_command *cmd)
 
   cmd->arg.format = g_stash.format;
 
-  DPRINTF(E_DBG, L_CACHE, "Stash hit (format %d, size %d): %s\n", g_stash.format, g_stash.size, g_stash.path);  
+  DPRINTF(E_DBG, L_CACHE, "Stash hit (format %d, size %zu): %s\n", g_stash.format, g_stash.size, g_stash.path);
 
   return evbuffer_add(cmd->arg.evbuf, g_stash.data, g_stash.size);
 }
@@ -1437,7 +1441,7 @@ cache_daap_threshold(void)
  * @return 0 if successful, -1 if an error occurred
  */
 int
-cache_artwork_ping(char *path, time_t mtime)
+cache_artwork_ping(char *path, time_t mtime, int del)
 {
   struct cache_command cmd;
   int ret;
@@ -1450,6 +1454,7 @@ cache_artwork_ping(char *path, time_t mtime)
   cmd.func = cache_artwork_ping_impl;
   cmd.arg.path = strdup(path);
   cmd.arg.mtime = mtime;
+  cmd.arg.del = del;
 
   ret = sync_command(&cmd);
 
