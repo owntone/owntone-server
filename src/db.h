@@ -85,6 +85,21 @@ struct pairing_info {
   char *guid;
 };
 
+enum media_kind {
+  MEDIA_KIND_MUSIC = 0,
+  MEDIA_KIND_MOVIE = 2,
+  MEDIA_KIND_PODCAST = 4,
+  MEDIA_KIND_AUDIOBOOK = 8,
+  MEDIA_KIND_TVSHOW = 64,
+};
+
+enum data_kind {
+  DATA_KIND_FILE = 0,
+  DATA_KIND_URL = 1,
+  DATA_KIND_SPOTIFY = 2,
+  DATA_KIND_PIPE = 3,
+};
+
 struct media_file_info {
   char *path;
   uint32_t index;

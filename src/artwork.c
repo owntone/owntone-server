@@ -1106,7 +1106,7 @@ artwork_get_item_mfi(struct evbuffer *evbuf, struct media_file_info *mfi, int ma
       return format;
     }
 
-  if (mfi->data_kind == 0)
+  if (mfi->data_kind == DATA_KIND_FILE)
     {
       format = artwork_get_item_path(evbuf, mfi->path, mfi->artwork, max_w, max_h, path);
       

@@ -346,14 +346,14 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
 # ifndef HAVE_FFMPEG
   // Without this, libav is slow to probe some internet streams
-  if (mfi->data_kind == 1)
+  if (mfi->data_kind == DATA_KIND_URL)
     {
       ctx = avformat_alloc_context();
       ctx->probesize = 64000;
     }
 # endif
 
-  if (mfi->data_kind == 1)
+  if (mfi->data_kind == DATA_KIND_URL)
     {
       free(path);
       ret = http_stream_setup(&path, file);
@@ -493,7 +493,7 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   DPRINTF(E_DBG, L_SCAN, "Duration %d ms, bitrate %d kbps\n", mfi->song_length, mfi->bitrate);
 
   /* Try to extract ICY metadata if url/stream */
-  if (mfi->data_kind == 1)
+  if (mfi->data_kind == DATA_KIND_URL)
     {
       icy_metadata = http_icy_metadata_get(ctx, 0);
       if (icy_metadata && icy_metadata->name)
@@ -753,12 +753,12 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
   if (mfi->media_kind == 10)
     {
       /* I have no idea why this is, but iTunes reports a media kind of 64 for stik==10 (?!) */
-      mfi->media_kind = 64;
+      mfi->media_kind = MEDIA_KIND_TVSHOW;
     }
   /* Unspecified video files are "Movies", media_kind 2 */
   else if (mfi->has_video == 1)
     {
-      mfi->media_kind = 2;
+      mfi->media_kind = MEDIA_KIND_MOVIE;
     }
 
  skip_extract:

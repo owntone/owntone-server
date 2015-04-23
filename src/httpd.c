@@ -415,7 +415,7 @@ httpd_stream_file(struct evhttp_request *req, int id)
       return;
     }
 
-  if (mfi->data_kind != 0)
+  if (mfi->data_kind != DATA_KIND_FILE)
     {
       evhttp_send_error(req, 500, "Cannot stream radio station");
 

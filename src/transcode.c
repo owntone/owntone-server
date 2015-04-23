@@ -507,13 +507,13 @@ transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
 # ifndef HAVE_FFMPEG
   // Without this, libav is slow to probe some internet streams, which leads to RAOP timeouts
-  if (mfi->data_kind == 1)
+  if (mfi->data_kind == DATA_KIND_URL)
     {
       ctx->fmtctx = avformat_alloc_context();
       ctx->fmtctx->probesize = 64000;
     }
 # endif
-  if (mfi->data_kind == 1)
+  if (mfi->data_kind == DATA_KIND_URL)
     av_dict_set(&options, "icy", "1", 0);
 
   ret = avformat_open_input(&ctx->fmtctx, mfi->path, NULL, &options);
