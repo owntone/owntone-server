@@ -691,12 +691,12 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
 
   if (type & F_SCAN_TYPE_FILE)
     {
-      mfi->data_kind = DATA_KIND_FILE; /* real file */
+      mfi->data_kind = DATA_KIND_FILE;
       ret = scan_metadata_ffmpeg(path, mfi);
     }
   else if (type & F_SCAN_TYPE_URL)
     {
-      mfi->data_kind = DATA_KIND_URL; /* url/stream */
+      mfi->data_kind = DATA_KIND_URL;
       ret = scan_metadata_ffmpeg(path, mfi);
       if (ret < 0)
 	{
@@ -709,12 +709,12 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
     }
   else if (type & F_SCAN_TYPE_SPOTIFY)
     {
-      mfi->data_kind = DATA_KIND_SPOTIFY; /* iTunes has no spotify data kind, but we use 2 */
+      mfi->data_kind = DATA_KIND_SPOTIFY;
       ret = mfi->artist && mfi->album && mfi->title;
     }
   else if (type & F_SCAN_TYPE_PIPE)
     {
-      mfi->data_kind = DATA_KIND_PIPE; /* iTunes has no pipe data kind, but we use 3 */
+      mfi->data_kind = DATA_KIND_PIPE;
       mfi->type = strdup("wav");
       mfi->codectype = strdup("wav");
       mfi->description = strdup("PCM16 pipe");

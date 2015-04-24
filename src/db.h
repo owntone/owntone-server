@@ -95,12 +95,13 @@ enum media_kind {
 };
 
 enum data_kind {
-  DATA_KIND_FILE = 0,
-  DATA_KIND_URL = 1,
-  DATA_KIND_SPOTIFY = 2,
-  DATA_KIND_PIPE = 3,
+  DATA_KIND_FILE = 0,    /* normal file */
+  DATA_KIND_URL = 1,     /* url/stream */
+  DATA_KIND_SPOTIFY = 2, /* iTunes has no spotify data kind, but we use 2 */
+  DATA_KIND_PIPE = 3,    /* iTunes has no pipe data kind, but we use 3 */
 };
 
+/* Note that fields marked as integers in the metadata map in filescanner_ffmpeg must be uint32_t here */
 struct media_file_info {
   char *path;
   uint32_t index;
