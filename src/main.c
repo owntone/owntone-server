@@ -267,11 +267,11 @@ register_services(char *ffid, int no_rsp, int no_daap)
 
   port = cfg_getint(lib, "port");
 
-  /* Register web server service */
-  ret = mdns_register(libname, "_http._tcp", port, txtrecord);
+  /* Register web server service - disabled since we have no web interface */
+/*  ret = mdns_register(libname, "_http._tcp", port, txtrecord);
   if (ret < 0)
     return ret;
-
+*/
   /* Register RSP service */
   if (!no_rsp)
     {
