@@ -86,7 +86,7 @@ struct pairing_info {
 };
 
 enum media_kind {
-  MEDIA_KIND_MUSIC = 0,
+  MEDIA_KIND_MUSIC = 1,
   MEDIA_KIND_MOVIE = 2,
   MEDIA_KIND_PODCAST = 4,
   MEDIA_KIND_AUDIOBOOK = 8,
