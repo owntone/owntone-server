@@ -70,7 +70,7 @@ Valid operands for the enumeration "media_kind" are:
 
 Multiple expressions can be anded or ored together, using the keywords OR and AND. The unary not operator is also supported using the keyword NOT.
 
-Example:
+Examples:
 
 ```
 "techno" {
@@ -111,7 +111,7 @@ This would match all songs added as files to the library that are not placed und
 This would match any podcast and audiobook file that was never played with forked-daapd.
 
 
-## Date oprand syntax
+## Date operand syntax
 
 One example of a valid date is a date in yyyy-mm-dd format:
 
