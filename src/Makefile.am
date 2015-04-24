@@ -33,18 +33,11 @@ if COND_OSS4
 OSS4_SRC=laudio_oss4.c
 endif
 
-if COND_LIBEVENT1
-EVHTTP_SRC=evhttp/http.c evhttp/evhttp.h evhttp/evhttp_compat.c evhttp/evhttp_compat.h evhttp/http-internal.h evhttp/log.h
-RTSP_SRC=evrtsp/rtsp-libevent1.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
-endif
-
 if COND_LIBEVENT20
-EVHTTP_SRC=
 RTSP_SRC=evrtsp/rtsp-libevent20.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
 endif
 
 if COND_LIBEVENT21
-EVHTTP_SRC=
 RTSP_SRC=evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
 endif
 
@@ -102,7 +95,6 @@ forked_daapd_SOURCES = main.c \
 	filescanner_smartpl.c $(ITUNES_SRC) \
 	mdns_avahi.c mdns.h \
 	remote_pairing.c remote_pairing.h \
-	$(EVHTTP_SRC) \
 	avio_evbuffer.c avio_evbuffer.h \
 	httpd.c httpd.h \
 	httpd_rsp.c httpd_rsp.h \

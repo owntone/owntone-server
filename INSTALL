@@ -31,10 +31,8 @@ libavresample-dev.
 To build with LastFM support, you should also install libcurl4-openssl-dev.
 
 Note that while forked-daapd will work with versions of libevent between 2.0.0
-and 2.1.3, it is recommended to use either libevent 1 or 2.1.4+. Otherwise you
-will not have support for Shoutcast metadata and simultaneous streaming to
-multiple clients. Libevent 1 is not in the Debian repository, but you can get
-the packages in the Ubuntu repository.
+and 2.1.3, it is recommended to use 2.1.4+. Otherwise you may not have support
+for Shoutcast metadata and simultaneous streaming to multiple clients.
 
 Then run the following:
 
@@ -120,7 +118,7 @@ Libraries:
         from <http://libav.org/releases/>
  - libconfuse
         from <http://www.nongnu.org/confuse/>
- - libevent 1.4+ (best with version 1.4 or 2.1.4+)
+ - libevent 2.0+ (best with 2.1.4+)
         from <http://libevent.org/>
  - MiniXML (aka mxml or libmxml)
         from <http://minixml.org/software.php>
