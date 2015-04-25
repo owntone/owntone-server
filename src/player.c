@@ -1644,6 +1644,10 @@ source_count()
   return ret;
 }
 
+/*
+ * Updates cur_playing and notifies remotes and raop devices about
+ * changes.
+ */
 static uint64_t
 source_check(void)
 {
@@ -1667,6 +1671,7 @@ source_check(void)
       return 0;
     }
 
+  /* If cur_playing is NULL, we are still in the first two seconds after starting the stream */
   if (!cur_playing)
     {
       if (pos >= cur_streaming->output_start)
@@ -1680,8 +1685,12 @@ source_check(void)
       return pos;
     }
 
+  /* Check if we are still in the middle of the current playing song */
   if ((cur_playing->end == 0) || (pos < cur_playing->end))
     return pos;
+
+  /* We have reached the end of the current playing song, update cur_playing to the next song in the queue
+     and initialize stream_start and output_start values. */
 
   r_mode = repeat;
   /* Playlist has only one file, treat REPEAT_ALL as REPEAT_SONG */
