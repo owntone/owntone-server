@@ -2143,7 +2143,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       qp.sort = S_ARTIST;
       type = "Artist: ";
     }
-  if (0 == strcasecmp(argv[1], "albumartist"))
+  else if (0 == strcasecmp(argv[1], "albumartist"))
       {
         qp.type = Q_GROUP_ARTISTS;
         qp.sort = S_ARTIST;
