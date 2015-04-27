@@ -838,6 +838,32 @@ cache_daap_query_get(struct cache_command *cmd)
 #undef Q_TMPL
 }
 
+/* Removes the query from the cache */
+static int
+cache_daap_query_delete(const int id)
+{
+#define Q_TMPL "DELETE FROM queries WHERE id = %d;"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, id);
+
+  ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Error deleting query from cache: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+  return 0;
+#undef Q_TMPL
+}
+
 /* Here we actually update the cache by asking httpd_daap for responses
  * to the queries set for caching
  */
@@ -860,7 +886,7 @@ cache_daap_update_cb(int fd, short what, void *arg)
       return;
     }
 
-  ret = sqlite3_prepare_v2(g_db_hdl, "SELECT user_agent, query FROM queries;", -1, &stmt, 0);
+  ret = sqlite3_prepare_v2(g_db_hdl, "SELECT id, user_agent, query FROM queries;", -1, &stmt, 0);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_CACHE, "Error preparing for cache update: %s\n", sqlite3_errmsg(g_db_hdl));
@@ -869,13 +895,15 @@ cache_daap_update_cb(int fd, short what, void *arg)
 
   while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
     {
-      query = strdup((char *)sqlite3_column_text(stmt, 1));
+      query = strdup((char *)sqlite3_column_text(stmt, 2));
 
-      evbuf = daap_reply_build(query, (char *)sqlite3_column_text(stmt, 0));
+      evbuf = daap_reply_build(query, (char *)sqlite3_column_text(stmt, 1));
       if (!evbuf)
 	{
 	  DPRINTF(E_LOG, L_CACHE, "Error building DAAP reply for query: %s\n", query);
+	  cache_daap_query_delete(sqlite3_column_int(stmt, 0));
 	  free(query);
+
 	  continue;
 	}
 

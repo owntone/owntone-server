@@ -261,8 +261,13 @@ expr	returns [ pANTLR3_STRING result, int valid ]
 						|| strcmp((char *)field, "com.apple.itunes.extended-media-kind") == 0))
 				{
 					DPRINTF(E_DBG, L_DAAP, "Ignoring clause '\%s\%s\%c\%s'\n", field, (neg_op) ? "!" : "", op, val);
-					$valid = 0;
-					goto STR_result_valid_0;
+					
+					if (neg_op)
+						$result->append8($result, "1 = 1");
+					else
+						$result->append8($result, "1 = 0");
+					
+					goto STR_out;
 				}
 			}
 			/* String field: escape string, check for '*' */
