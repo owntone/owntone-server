@@ -52,7 +52,12 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
   pSMARTPL2SQL sqlconv;
   SMARTPL2SQL_playlist_return plreturn;
 
+#if ANTLR3C_NEW_INPUT
+  input = antlr3FileStreamNew((pANTLR3_UINT8) file, ANTLR3_ENC_8BIT);
+#else
   input = antlr3AsciiFileStreamNew((pANTLR3_UINT8) file);
+#endif
+
 
   // The input will be created successfully, providing that there is enough memory and the file exists etc
   if (input == NULL)
