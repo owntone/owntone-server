@@ -3318,10 +3318,12 @@ static struct command mpd_handlers[] =
       .mpdcommand = "tagtypes",
       .handler = mpd_command_tagtypes
     },
+     */
     {
       .mpdcommand = "urlhandlers",
-      .handler = mpd_command_urlhandlers
+      .handler = mpd_command_ignore
     },
+    /*
     {
       .mpdcommand = "decoders",
       .handler = mpd_command_decoders
