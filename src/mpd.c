@@ -2499,6 +2499,50 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   return 0;
 }
 
+static int
+mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct query_params qp;
+  struct player_source *ps;
+  int ret;
+
+  if (argc < 3 || ((argc - 1) % 2) != 0)
+    {
+      ret = asprintf(errmsg, "Missing argument(s) for command 'search'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_ITEMS;
+  qp.sort = S_NAME;
+  qp.idx_type = I_NONE;
+
+  mpd_get_query_params_search(argc - 1, argv + 1, &qp);
+
+  ps = player_queue_make(&qp);
+
+  if (!ps)
+    {
+      ret = asprintf(errmsg, "Failed to add songs to playlist");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  player_queue_add(ps);
+
+  ret = player_playback_start(NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
+    }
+
+  return 0;
+}
+
 /*
  * Command handler function for 'update'
  * Initiates an init-rescan (scans for new files)
@@ -3261,11 +3305,11 @@ static struct command mpd_handlers[] =
       .mpdcommand = "search",
       .handler = mpd_command_search
     },
-    /*
     {
       .mpdcommand = "searchadd",
       .handler = mpd_command_searchadd
     },
+    /*
     {
       .mpdcommand = "searchaddpl",
       .handler = mpd_command_searchaddpl
