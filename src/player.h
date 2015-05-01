@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 
+#include "db.h"
+
 /* AirTunes v2 packet interval in ns */
 /* (352 samples/packet * 1e9 ns/s) / 44100 samples/s = 7981859 ns/packet */
 # define AIRTUNES_V2_STREAM_PERIOD 7981859
@@ -181,6 +183,9 @@ player_repeat_set(enum repeat_mode mode);
 
 int
 player_shuffle_set(int enable);
+
+struct player_source *
+player_queue_make(struct query_params *qp);
 
 int
 player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk);

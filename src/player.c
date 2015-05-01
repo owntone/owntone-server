@@ -759,7 +759,7 @@ metadata_check_icy(void)
 
 /* Audio sources */
 /* Thread: httpd (DACP) */
-static struct player_source *
+struct player_source *
 player_queue_make(struct query_params *qp)
 {
   struct db_media_file_info dbmfi;
