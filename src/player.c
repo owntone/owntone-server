@@ -760,7 +760,7 @@ metadata_check_icy(void)
 /* Audio sources */
 /* Thread: httpd (DACP) */
 static struct player_source *
-player_queue_make(struct query_params *qp, const char *sort)
+player_queue_make(struct query_params *qp)
 {
   struct db_media_file_info dbmfi;
   struct player_source *q_head;
@@ -769,16 +769,6 @@ player_queue_make(struct query_params *qp, const char *sort)
   uint32_t id;
   uint32_t song_length;
   int ret;
-
-  if (sort)
-    {
-      if (strcmp(sort, "name") == 0)
-	qp->sort = S_NAME;
-      else if (strcmp(sort, "album") == 0)
-	qp->sort = S_ALBUM;
-      else if (strcmp(sort, "artist") == 0)
-	qp->sort = S_ARTIST;
-    }
 
   ret = db_query_start(qp);
   if (ret < 0)
@@ -1039,7 +1029,17 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
       qp.filter = daap_query_parse_sql(query);
     }
 
-  ps = player_queue_make(&qp, sort);
+  if (sort)
+    {
+      if (strcmp(sort, "name") == 0)
+	qp.sort = S_NAME;
+      else if (strcmp(sort, "album") == 0)
+	qp.sort = S_ALBUM;
+      else if (strcmp(sort, "artist") == 0)
+	qp.sort = S_ARTIST;
+    }
+
+  ps = player_queue_make(&qp);
 
   if (qp.filter)
     free(qp.filter);
@@ -1093,7 +1093,7 @@ player_queue_make_pl(int plid, uint32_t *id)
 
   qp.idx_type = I_NONE;
 
-  ps = player_queue_make(&qp, NULL);
+  ps = player_queue_make(&qp);
 
   if (qp.filter)
     free(qp.filter);
@@ -1145,7 +1145,7 @@ player_queue_make_mpd(char *path, int recursive)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
 
-  ps = player_queue_make(&qp, NULL);
+  ps = player_queue_make(&qp);
 
   sqlite3_free(qp.filter);
   return ps;
