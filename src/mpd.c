@@ -2867,6 +2867,28 @@ mpd_command_ignore(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg);
 
+/*
+ * Command handler function for 'tagtypes'
+ * Returns a lists with supported tags in the form:
+ *   tagtype: Artist
+ */
+static int
+mpd_command_tagtypes(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  evbuffer_add_printf(evbuf,
+      "tagtype: Artist\n"
+      "tagtype: AlbumArtist\n"
+      "tagtype: ArtistSort\n"
+      "tagtype: AlbumArtistSort\n"
+      "tagtype: Album\n"
+      "tagtype: Title\n"
+      "tagtype: Track\n"
+      "tagtype: Genre\n"
+      "tagtype: Disc\n");
+
+  return 0;
+}
+
 
 struct command
 {
@@ -3313,12 +3335,10 @@ static struct command mpd_handlers[] =
       .mpdcommand = "notcommands",
       .handler = mpd_command_ignore
     },
-    /*
     {
       .mpdcommand = "tagtypes",
       .handler = mpd_command_tagtypes
     },
-     */
     {
       .mpdcommand = "urlhandlers",
       .handler = mpd_command_ignore
