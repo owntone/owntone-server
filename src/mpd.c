@@ -3309,11 +3309,11 @@ static struct command mpd_handlers[] =
       .mpdcommand = "commands",
       .handler = mpd_command_commands
     },
-    /*
     {
       .mpdcommand = "notcommands",
-      .handler = mpd_command_notcommands
+      .handler = mpd_command_ignore
     },
+    /*
     {
       .mpdcommand = "tagtypes",
       .handler = mpd_command_tagtypes
