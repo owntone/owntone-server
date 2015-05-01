@@ -770,8 +770,6 @@ player_queue_make(struct query_params *qp, const char *sort)
   uint32_t song_length;
   int ret;
 
-  qp->idx_type = I_NONE;
-
   if (sort)
     {
       if (strcmp(sort, "name") == 0)
@@ -960,6 +958,7 @@ player_queue_make_daap(struct player_source **head, const char *query, const cha
   qp.offset = 0;
   qp.limit = 0;
   qp.sort = S_NONE;
+  qp.idx_type = I_NONE;
 
   if (quirk)
     {
@@ -1091,6 +1090,8 @@ player_queue_make_pl(int plid, uint32_t *id)
     }
   else
     return NULL;
+
+  qp.idx_type = I_NONE;
 
   ps = player_queue_make(&qp, NULL);
 
