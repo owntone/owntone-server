@@ -1816,7 +1816,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
   qp.type = Q_PL;
   qp.sort = S_PLAYLIST;
   qp.idx_type = I_NONE;
-  qp.filter = "(f.type = 0)";
+  qp.filter = sqlite3_mprintf("(f.type = %d OR f.type = %d)", PL_PLAIN, PL_SMART);
 
   ret = db_query_start(&qp);
   if (ret < 0)
@@ -1847,6 +1847,8 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
     }
 
   db_query_end(&qp);
+
+  sqlite3_free(qp.filter);
 
   return 0;
 }
