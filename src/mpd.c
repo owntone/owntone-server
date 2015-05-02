@@ -1925,6 +1925,7 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
   int start_pos;
   int end_pos;
   int i;
+  uint32_t num;
   int ret;
 
   c1 = NULL;
@@ -1981,6 +1982,14 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
       else if (0 == strcasecmp(argv[i], "genre"))
 	{
 	  c1 = sqlite3_mprintf("(f.genre = '%q')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "disc"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = sqlite3_mprintf("(f.disc = %d)", num);
 	}
       else if (i == 0 && argc == 1)
 	{
@@ -2211,6 +2220,12 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       qp.sort = S_NONE;
       type = "Genre: ";
     }
+  else if (0 == strcasecmp(argv[1], "disc"))
+    {
+      qp.type = Q_BROWSE_DISCS;
+      qp.sort = S_NONE;
+      type = "Disc: ";
+    }
   else
     {
       DPRINTF(E_WARN, L_MPD, "Unsupported type argument for command 'list': %s\n", argv[1]);
@@ -2369,6 +2384,7 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
   int start_pos;
   int end_pos;
   int i;
+  uint32_t num;
   int ret;
 
   c1 = NULL;
@@ -2425,6 +2441,14 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
       else if (0 == strcasecmp(argv[i], "genre"))
 	{
 	  c1 = sqlite3_mprintf("(f.genre LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "disc"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = sqlite3_mprintf("(f.disc = %d)", num);
 	}
       else
 	{
