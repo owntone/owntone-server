@@ -1978,6 +1978,10 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 	{
 	  c1 = sqlite3_mprintf("(f.title = '%q')", argv[i + 1]);
 	}
+      else if (0 == strcasecmp(argv[i], "genre"))
+	{
+	  c1 = sqlite3_mprintf("(f.genre = '%q')", argv[i + 1]);
+	}
       else if (i == 0 && argc == 1)
 	{
 	  // Special case: a single token is allowed if listing albums for an artist
@@ -2201,6 +2205,12 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       qp.sort = S_YEAR;
       type = "Date: ";
     }
+  else if (0 == strcasecmp(argv[1], "genre"))
+    {
+      qp.type = Q_BROWSE_GENRES;
+      qp.sort = S_NONE;
+      type = "Genre: ";
+    }
   else
     {
       DPRINTF(E_WARN, L_MPD, "Unsupported type argument for command 'list': %s\n", argv[1]);
@@ -2225,7 +2235,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  if (qp.type == Q_BROWSE_YEARS)
+  if (qp.type & Q_F_BROWSE)
     {
       while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
 	{
@@ -2411,6 +2421,10 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
       else if (0 == strcasecmp(argv[i], "title"))
 	{
 	  c1 = sqlite3_mprintf("(f.title LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "genre"))
+	{
+	  c1 = sqlite3_mprintf("(f.genre LIKE '%%%q%%')", argv[i + 1]);
 	}
       else
 	{
