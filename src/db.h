@@ -42,6 +42,7 @@ enum query_type {
   Q_BROWSE_YEARS     = Q_F_BROWSE | (1 << 11),
   Q_COUNT_ITEMS      = (1 << 12),
   Q_BROWSE_DISCS     = Q_F_BROWSE | (1 << 13),
+  Q_BROWSE_TRACKS     = Q_F_BROWSE | (1 << 14),
 };
 
 #define ARTWORK_UNKNOWN   0

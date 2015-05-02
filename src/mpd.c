@@ -1991,6 +1991,14 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 	  else
 	    c1 = sqlite3_mprintf("(f.disc = %d)", num);
 	}
+      else if (0 == strcasecmp(argv[i], "track"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = sqlite3_mprintf("(f.track = %d)", num);
+	}
       else if (i == 0 && argc == 1)
 	{
 	  // Special case: a single token is allowed if listing albums for an artist
@@ -2226,6 +2234,12 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       qp.sort = S_NONE;
       type = "Disc: ";
     }
+  else if (0 == strcasecmp(argv[1], "track"))
+    {
+      qp.type = Q_BROWSE_TRACKS;
+      qp.sort = S_NONE;
+      type = "Track: ";
+    }
   else
     {
       DPRINTF(E_WARN, L_MPD, "Unsupported type argument for command 'list': %s\n", argv[1]);
@@ -2449,6 +2463,14 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
 	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
 	  else
 	    c1 = sqlite3_mprintf("(f.disc = %d)", num);
+	}
+      else if (0 == strcasecmp(argv[i], "track"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = sqlite3_mprintf("(f.track = %d)", num);
 	}
       else
 	{
