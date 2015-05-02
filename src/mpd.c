@@ -1760,7 +1760,7 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
       ret = asprintf(errmsg, "Playlist not found for path '%s'", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_ARG;
+      return ACK_ERROR_NO_EXIST;
     }
 
   memset(&qp, 0, sizeof(struct query_params));
