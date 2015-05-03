@@ -46,6 +46,7 @@
 #include "dmap_common.h"
 #include "db.h"
 #include "player.h"
+#include "listener.h"
 
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
@@ -342,9 +343,13 @@ playstatusupdate_cb(int fd, short what, void *arg)
 
 /* Thread: player */
 static void
-dacp_playstatus_update_handler(void)
+dacp_playstatus_update_handler(enum listener_event_type type)
 {
   int ret;
+
+  // Only send status update on player change events
+  if (type != LISTENER_PLAYER)
+    return;
 
 #ifdef USE_EVENTFD
   ret = eventfd_write(update_efd, 1);
@@ -2423,7 +2428,7 @@ dacp_init(void)
   event_base_set(evbase_httpd, &updateev);
   event_add(&updateev, NULL);
 
-  player_set_update_handler(dacp_playstatus_update_handler);
+  listener_add(dacp_playstatus_update_handler);
 
   return 0;
 
@@ -2444,7 +2449,7 @@ dacp_deinit(void)
   struct evhttp_connection *evcon;
   int i;
 
-  player_set_update_handler(NULL);
+  listener_remove(dacp_playstatus_update_handler);
 
   for (i = 0; dacp_handlers[i].handler; i++)
     regfree(&dacp_handlers[i].preg);

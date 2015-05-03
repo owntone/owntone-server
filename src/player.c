@@ -165,7 +165,6 @@ struct player_command
     struct player_status *status;
     struct player_source *ps;
     struct player_metadata *pmd;
-    player_status_handler status_handler;
     uint32_t *id_ptr;
     uint64_t *raop_ids;
     enum repeat_mode mode;
@@ -207,9 +206,6 @@ static pthread_t tid_player;
 static enum play_status player_state;
 static enum repeat_mode repeat;
 static char shuffle;
-
-/* Status updates (for DACP) */
-static player_status_handler update_handler;
 
 /* Playback timer */
 #if defined(__linux__)
@@ -299,9 +295,6 @@ static void
 status_update(enum play_status status)
 {
   player_state = status;
-
-  if (update_handler)
-    update_handler();
 
   listener_notify(LISTENER_PLAYER);
 
@@ -4125,14 +4118,6 @@ queue_plid(struct player_command *cmd)
   return 0;
 }
 
-static int
-set_update_handler(struct player_command *cmd)
-{
-  update_handler = cmd->arg.status_handler;
-
-  return 0;
-}
-
 /* Command processing */
 /* Thread: player */
 static void
@@ -4821,22 +4806,6 @@ player_queue_plid(uint32_t plid)
   command_deinit(&cmd);
 }
 
-void
-player_set_update_handler(player_status_handler handler)
-{
-  struct player_command cmd;
-
-  command_init(&cmd);
-
-  cmd.func = set_update_handler;
-  cmd.func_bh = NULL;
-  cmd.arg.status_handler = handler;
-
-  sync_command(&cmd);
-
-  command_deinit(&cmd);
-}
-
 /* Non-blocking commands used by mDNS */
 static void
 player_device_add(struct raop_device *rd)
@@ -5197,8 +5166,6 @@ player_init(void)
   player_state = PLAY_STOPPED;
   repeat = REPEAT_OFF;
   shuffle = 0;
-
-  update_handler = NULL;
 
   history = (struct player_history *)calloc(1, sizeof(struct player_history));
 
