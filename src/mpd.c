@@ -657,13 +657,29 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
       for (i = 1; i < argc; i++)
 	{
-	  if (0 == strcmp(argv[i], "player"))
+	  if (0 == strcmp(argv[i], "database"))
+	    {
+	      client->types[i - 1] = LISTENER_DATABASE;
+	    }
+	  else if (0 == strcmp(argv[i], "player"))
 	    {
 	      client->types[i - 1] = LISTENER_PLAYER;
 	    }
-	  else if (0 == strcmp(argv[i], "database"))
+	  else if (0 == strcmp(argv[i], "playlist"))
 	    {
-	      client->types[i - 1] = LISTENER_DATABASE;
+	      client->types[i - 1] = LISTENER_PLAYLIST;
+	    }
+	  else if (0 == strcmp(argv[i], "mixer"))
+	    {
+	      client->types[i - 1] = LISTENER_VOLUME;
+	    }
+	  else if (0 == strcmp(argv[i], "output"))
+	    {
+	      client->types[i - 1] = LISTENER_SPEAKER;
+	    }
+	  else if (0 == strcmp(argv[i], "options"))
+	    {
+	      client->types[i - 1] = LISTENER_OPTIONS;
 	    }
 	  else
 	    {
@@ -3829,7 +3845,33 @@ mpd_notify_idle_client(struct idle_client *client, enum listener_event_type type
       return 1;
     }
 
-  evbuffer_add(client->evbuffer, "changed: player\n", 16);
+  switch (type)
+    {
+      case LISTENER_PLAYER:
+	evbuffer_add(client->evbuffer, "changed: player\n", 16);
+	break;
+
+      case LISTENER_PLAYLIST:
+	evbuffer_add(client->evbuffer, "changed: playlist\n", 18);
+	break;
+
+      case LISTENER_VOLUME:
+	evbuffer_add(client->evbuffer, "changed: mixer\n", 15);
+	break;
+
+      case LISTENER_SPEAKER:
+	evbuffer_add(client->evbuffer, "changed: output\n", 16);
+	break;
+
+      case LISTENER_OPTIONS:
+	evbuffer_add(client->evbuffer, "changed: options\n", 17);
+	break;
+
+      default:
+	DPRINTF(E_WARN, L_MPD, "Unsupported event type (%d) in notify idle clients.\n", type);
+	return -1;
+    }
+
   evbuffer_add(client->evbuffer, "OK\n", 3);
 
   return 0;

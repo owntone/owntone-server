@@ -5,8 +5,12 @@
 enum listener_event_type
 {
   LISTENER_NONE = 0,
-  LISTENER_DATABASE = 1,
-  LISTENER_PLAYER = 2,
+  LISTENER_DATABASE,
+  LISTENER_PLAYER,
+  LISTENER_PLAYLIST,
+  LISTENER_VOLUME,
+  LISTENER_SPEAKER,
+  LISTENER_OPTIONS,
 };
 
 typedef void (*notify)(enum listener_event_type type);

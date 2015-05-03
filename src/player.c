@@ -3514,6 +3514,8 @@ speaker_set(struct player_command *cmd)
 	}
     }
 
+  listener_notify(LISTENER_SPEAKER);
+
   if (cmd->raop_pending > 0)
     return 1; /* async */
 
@@ -3559,6 +3561,8 @@ volume_set(struct player_command *cmd)
       if (rd->session)
 	cmd->raop_pending += raop_set_volume_one(rd->session, rd->volume, device_command_cb);
     }
+
+  listener_notify(LISTENER_VOLUME);
 
   if (cmd->raop_pending > 0)
     return 1; /* async */
@@ -3609,6 +3613,8 @@ volume_setrel_speaker(struct player_command *cmd)
 	  break;
         }
     }
+
+  listener_notify(LISTENER_VOLUME);
 
   if (cmd->raop_pending > 0)
     return 1; /* async */
@@ -3669,6 +3675,8 @@ volume_setabs_speaker(struct player_command *cmd)
 	}
     }
 
+  listener_notify(LISTENER_VOLUME);
+
   if (cmd->raop_pending > 0)
     return 1; /* async */
 
@@ -3678,6 +3686,9 @@ volume_setabs_speaker(struct player_command *cmd)
 static int
 repeat_set(struct player_command *cmd)
 {
+  if (cmd->arg.mode == repeat)
+    return 0;
+
   switch (cmd->arg.mode)
     {
       case REPEAT_OFF:
@@ -3690,6 +3701,8 @@ repeat_set(struct player_command *cmd)
 	DPRINTF(E_LOG, L_PLAYER, "Invalid repeat mode: %d\n", cmd->arg.mode);
 	return -1;
     }
+
+  listener_notify(LISTENER_OPTIONS);
 
   return 0;
 }
@@ -3711,6 +3724,8 @@ shuffle_set(struct player_command *cmd)
 	DPRINTF(E_LOG, L_PLAYER, "Invalid shuffle mode: %d\n", cmd->arg.intval);
 	return -1;
     }
+
+  listener_notify(LISTENER_OPTIONS);
 
   return 0;
 }
@@ -3856,6 +3871,8 @@ queue_add(struct player_command *cmd)
   if (cur_plid != 0)
     cur_plid = 0;
 
+  listener_notify(LISTENER_PLAYLIST);
+
   return 0;
 }
 
@@ -3896,6 +3913,8 @@ queue_add_next(struct player_command *cmd)
 
   if (cur_plid != 0)
     cur_plid = 0;
+
+  listener_notify(LISTENER_PLAYLIST);
 
   return 0;
 }
@@ -3964,6 +3983,8 @@ queue_move(struct player_command *cmd)
     ps_dst->pl_next = ps_src;
   }
 
+  listener_notify(LISTENER_PLAYLIST);
+
   return 0;
 }
 
@@ -4029,6 +4050,8 @@ queue_remove(struct player_command *cmd)
 
   source_free(ps);
 
+  listener_notify(LISTENER_PLAYLIST);
+
   return 0;
 }
 
@@ -4054,6 +4077,8 @@ queue_clear(struct player_command *cmd)
     }
 
   cur_plid = 0;
+
+  listener_notify(LISTENER_PLAYLIST);
 
   return 0;
 }
@@ -4103,6 +4128,8 @@ queue_empty(struct player_command *cmd)
       source_head->shuffle_next = source_head;
       source_head->shuffle_prev = source_head;
     }
+
+  listener_notify(LISTENER_PLAYLIST);
 
   return 0;
 }
