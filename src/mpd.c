@@ -4098,6 +4098,8 @@ void mpd_deinit(void)
       return;
     }
 
+  listener_remove(mpd_listener_cb);
+
   while (idle_clients)
     {
       temp = idle_clients;

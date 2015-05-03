@@ -15,6 +15,9 @@ int
 listener_add(notify notify_cb);
 
 int
+listener_remove(notify notify_cb);
+
+int
 listener_notify(enum listener_event_type type);
 
 #endif /* !__LISTENER_H__ */

@@ -46,6 +46,35 @@ listener_add(notify notify_cb)
 }
 
 int
+listener_remove(notify notify_cb)
+{
+  struct listener *listener;
+  struct listener *prev;
+
+  listener = listener_list;
+  prev = NULL;
+
+  while (listener)
+    {
+      if (listener->notify_cb == notify_cb)
+	{
+	  if (prev)
+	    prev->next = listener->next;
+	  else
+	    listener_list = NULL;
+
+	  free(listener);
+	  return 0;
+	}
+
+      prev = listener;
+      listener = listener->next;
+    }
+
+  return -1;
+}
+
+int
 listener_notify(enum listener_event_type type)
 {
   struct listener *listener;
