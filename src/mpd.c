@@ -790,7 +790,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       status.shuffle,
       (status.repeat == REPEAT_SONG ? 1 : 0),
       0 /* consume: not supported by forked-daapd, always return 'off' */,
-      status.plid,
+      status.plversion,
       status.playlistlength,
       state);
 
@@ -1815,6 +1815,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 static int
 mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
+  DPRINTF(E_WARN, L_MPD, "Ignore command %s\n", argv[0]);
   return 0;
 }
 

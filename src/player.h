@@ -54,6 +54,8 @@ struct player_status {
 
   /* Playlist id */
   uint32_t plid;
+  /* Playlist version */
+  uint32_t plversion;
   /* Playlist length */
   uint32_t playlistlength;
   /* Playing song id*/

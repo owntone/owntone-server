@@ -256,6 +256,7 @@ static struct player_source *shuffle_head;
 static struct player_source *cur_playing;
 static struct player_source *cur_streaming;
 static uint32_t cur_plid;
+static uint32_t cur_plversion;
 static struct evbuffer *audio_buf;
 
 /* Play history */
@@ -2513,6 +2514,7 @@ get_status(struct player_command *cmd)
   status->volume = master_volume;
 
   status->plid = cur_plid;
+  status->plversion = cur_plversion;
 
   switch (player_state)
     {
@@ -3870,6 +3872,7 @@ queue_add(struct player_command *cmd)
 
   if (cur_plid != 0)
     cur_plid = 0;
+  cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
 
@@ -3913,6 +3916,7 @@ queue_add_next(struct player_command *cmd)
 
   if (cur_plid != 0)
     cur_plid = 0;
+  cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
 
@@ -3983,6 +3987,8 @@ queue_move(struct player_command *cmd)
     ps_dst->pl_next = ps_src;
   }
 
+  cur_plversion++;
+
   listener_notify(LISTENER_PLAYLIST);
 
   return 0;
@@ -4050,6 +4056,8 @@ queue_remove(struct player_command *cmd)
 
   source_free(ps);
 
+  cur_plversion++;
+
   listener_notify(LISTENER_PLAYLIST);
 
   return 0;
@@ -4077,6 +4085,7 @@ queue_clear(struct player_command *cmd)
     }
 
   cur_plid = 0;
+  cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
 
@@ -4128,6 +4137,8 @@ queue_empty(struct player_command *cmd)
       source_head->shuffle_next = source_head;
       source_head->shuffle_prev = source_head;
     }
+
+  cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
 
@@ -5189,6 +5200,7 @@ player_init(void)
   cur_playing = NULL;
   cur_streaming = NULL;
   cur_plid = 0;
+  cur_plversion = 0;
 
   player_state = PLAY_STOPPED;
   repeat = REPEAT_OFF;
