@@ -687,6 +687,10 @@ get_query_params(struct evkeyvalq *query, int *sort_headers, struct query_params
       qp->filter = daap_query_parse_sql(param);
       if (!qp->filter)
 	DPRINTF(E_LOG, L_DAAP, "Ignoring improper DAAP query: %s\n", param);
+
+      /* iTunes seems to default to this when there is a query (which there is for audiobooks, but not for normal playlists) */
+      if (qp->sort == S_NONE)
+	qp->sort = S_ALBUM;
     }
 }
 
