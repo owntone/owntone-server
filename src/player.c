@@ -2832,12 +2832,12 @@ playback_start(struct player_command *cmd)
       cur_streaming = NULL;
 
       if (shuffle)
-	source_reshuffle();
-
-      cur_streaming = ps;
-
-      if (shuffle)
-	shuffle_head = cur_streaming;
+	{
+	  source_reshuffle();
+	  cur_streaming = shuffle_head;
+	}
+      else
+	cur_streaming = ps;
 
       ret = source_open(cur_streaming, 0);
       if (ret < 0)
