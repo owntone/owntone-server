@@ -753,7 +753,7 @@ void
 db_purge_all(void)
 {
 #define Q_TMPL "DELETE FROM playlists WHERE type <> %d;"
-  char *queries[5] =
+  char *queries[4] =
     {
       "DELETE FROM inotify;",
       "DELETE FROM playlistitems;",
