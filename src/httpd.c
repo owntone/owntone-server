@@ -1357,7 +1357,7 @@ httpd_init(void)
    * as IPv6 might not be supported on the system.
    * We still warn about the failure, in case there's another issue.
    */
-  ret = evhttp_bind_socket(evhttpd, "0.0.0.0", port);
+  ret = evhttp_bind_socket(evhttpd, v6enabled?"::":"0.0.0.0", port);
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not bind INADDR_ANY:%d\n", port);
