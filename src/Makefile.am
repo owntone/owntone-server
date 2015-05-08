@@ -153,7 +153,7 @@ if COND_ANTLR
 SUFFIXES = .g .u
 
 %.tokens %.c %Lexer.c %Parser.c %Lexer.h %Parser.h %.h: %.g
-	$(ANTLR) $(ANTLR_OPTIONS) $<
+	$(ANTLR) -Xconversiontimeout 30000 $(ANTLR_OPTIONS) $<
 
 %.u: %.g
 	$(ANTLR) -depend $< > $@
