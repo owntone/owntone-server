@@ -397,11 +397,13 @@ mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, int pos_p
       ret = evbuffer_add_printf(evbuf,
 	"Pos: %d\n",
 	pos_pl);
+
+      //TODO mpd does not return the persistent id of a file but instead a unique id in the current playlist
+      ret = evbuffer_add_printf(evbuf,
+	"Id: %d\n",
+	mfi->id);
     }
 
-  ret = evbuffer_add_printf(evbuf,
-    "Id: %d\n",
-    mfi->id);
 
   return ret;
 }
@@ -454,7 +456,6 @@ mpd_add_mediainfo_byid(struct evbuffer *evbuf, int id, int pos_pl)
  *   MUSICBRAINZ_ARTISTID: c5c2ea1c-4bde-4f4d-bd0b-47b200bf99d6
  *   MUSICBRAINZ_ALBUMID: 812f4b87-8ad9-41bd-be79-38151f17a2b4
  *   MUSICBRAINZ_TRACKID: fde95c39-ee51-48f6-a7f9-b5631c2ed156
- *   Id: 1
  *
  * @param evbuf the response event buffer
  * @param mfi media information
@@ -495,8 +496,7 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
       "Track: %s\n"
       "Date: %s\n"
       "Genre: %s\n"
-      "Disc: %s\n"
-      "Id: %s\n",
+      "Disc: %s\n",
       (dbmfi->virtual_path + 1),
       modified,
       (songlength / 1000),
@@ -509,8 +509,7 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
       dbmfi->track,
       dbmfi->year,
       dbmfi->genre,
-      dbmfi->disc,
-      dbmfi->id);
+      dbmfi->disc);
 
   return ret;
 }
