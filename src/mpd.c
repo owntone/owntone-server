@@ -3492,30 +3492,26 @@ static struct command mpd_handlers[] =
     /*
      * Client to client
      */
-    /*
     {
       .mpdcommand = "subscribe",
-      .handler = mpd_command_subscribe
+      .handler = mpd_command_ignore
     },
     {
       .mpdcommand = "unsubscribe",
-      .handler = mpd_command_unsubscribe
+      .handler = mpd_command_ignore
     },
-     */
     {
       .mpdcommand = "channels",
       .handler = mpd_command_ignore
     },
-    /*
     {
       .mpdcommand = "readmessages",
-      .handler = mpd_command_readmessages
+      .handler = mpd_command_ignore
     },
     {
       .mpdcommand = "sendmessage",
-      .handler = mpd_command_sendmessage
+      .handler = mpd_command_ignore
     },
-     */
 
     /*
      * NULL command to terminate loop
