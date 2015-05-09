@@ -3411,12 +3411,10 @@ static struct command mpd_handlers[] =
     /*
      * Stickers
      */
-    /*
     {
       .mpdcommand = "sticker",
-      .handler = mpd_command_sticker
+      .handler = mpd_command_ignore
     },
-     */
 
     /*
      * Connection settings
