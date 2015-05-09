@@ -3892,7 +3892,7 @@ int mpd_init(void)
     }
   evconnlistener_set_error_cb(listener, mpd_accept_error_cb);
 
-  DPRINTF(E_INFO, L_MPD, "cache thread init\n");
+  DPRINTF(E_INFO, L_MPD, "mpd thread init\n");
 
   ret = pthread_create(&tid_mpd, NULL, mpd, NULL);
   if (ret < 0)
