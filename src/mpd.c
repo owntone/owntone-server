@@ -3504,10 +3504,12 @@ static struct command mpd_handlers[] =
       .mpdcommand = "unsubscribe",
       .handler = mpd_command_unsubscribe
     },
+     */
     {
       .mpdcommand = "channels",
-      .handler = mpd_command_channels
+      .handler = mpd_command_ignore
     },
+    /*
     {
       .mpdcommand = "readmessages",
       .handler = mpd_command_readmessages
