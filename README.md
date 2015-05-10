@@ -55,7 +55,7 @@ After installation (see [INSTALL](INSTALL)) do the following:
 
 ## Supported clients
 
-forked-daapd supports 4 kinds of clients:
+forked-daapd supports these kinds of clients:
 
 - DAAP clients, like iTunes or Rhythmbox
 - Remote clients, like Apple Remote or compatibles for Android/Windows Phone
