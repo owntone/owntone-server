@@ -61,6 +61,7 @@ forked-daapd supports 4 kinds of clients:
 - Remote clients, like Apple Remote or compatibles for Android/Windows Phone
 - AirPlay devices, like AirPort Express, Shairport and various AirPlay speakers
 - RSP clients, like Roku Soundbridge
+- MPD clients, like mpc (see [mpd-clients](#mpd-clients))
 
 Like iTunes, you can control forked-daapd with Remote and stream your music
 to AirPlay devices.
@@ -76,6 +77,7 @@ probably obsolete when you read it :-)
 | iTunes                   | Apple      | DAAP   | Win, OSX      | Yes (12.1)      |
 | Rhythmbox                | Gnome      | DAAP   | Linux         | Yes             |
 | WinAmp DAAPClient        | WardFamily | DAAP   | WinAmp        | Yes             |
+| Amarok w/DAAP plugin     | KDE        | DAAP   | Linux/Win     | Yes (2.8.0)     |
 | Banshee                  |            | DAAP   | Linux/Win/OSX | No (2.6.2)      |
 | jtunes4                  |            | DAAP   | Java          | No              |
 | Firefly Client           |            | (DAAP) | Java          | No              |
