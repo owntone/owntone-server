@@ -2428,7 +2428,7 @@ dacp_init(void)
   event_base_set(evbase_httpd, &updateev);
   event_add(&updateev, NULL);
 
-  listener_add(dacp_playstatus_update_handler);
+  listener_add(dacp_playstatus_update_handler, LISTENER_PLAYER);
 
   return 0;
 

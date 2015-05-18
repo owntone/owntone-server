@@ -4,19 +4,18 @@
 
 enum listener_event_type
 {
-  LISTENER_NONE = 0,
-  LISTENER_DATABASE,
-  LISTENER_PLAYER,
-  LISTENER_PLAYLIST,
-  LISTENER_VOLUME,
-  LISTENER_SPEAKER,
-  LISTENER_OPTIONS,
+  LISTENER_PLAYER    = (1 << 0),
+  LISTENER_PLAYLIST  = (1 << 1),
+  LISTENER_VOLUME    = (1 << 2),
+  LISTENER_SPEAKER   = (1 << 3),
+  LISTENER_OPTIONS   = (1 << 4),
+  LISTENER_DATABASE  = (1 << 5),
 };
 
 typedef void (*notify)(enum listener_event_type type);
 
 int
-listener_add(notify notify_cb);
+listener_add(notify notify_cb, short events);
 
 int
 listener_remove(notify notify_cb);

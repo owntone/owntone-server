@@ -153,8 +153,7 @@ free_outputs(struct output *outputs)
 struct idle_client
 {
   struct evbuffer *evbuffer;
-  enum listener_event_type *types;
-  unsigned int types_len;
+  short events;
 
   struct idle_client *next;
 };
@@ -640,54 +639,45 @@ mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   client->evbuffer = evbuf;
-  client->types = NULL;
-  client->types_len = 0;
+  client->events = 0;
   client->next = idle_clients;
 
   if (argc > 1)
     {
-      client->types_len = argc - 1;
-      client->types = (enum listener_event_type*)malloc(client->types_len * sizeof(enum listener_event_type));
-
-      if (!client->types)
-	{
-	  DPRINTF(E_LOG, L_MPD, "Out of memory for types\n");
-	  return ACK_ERROR_UNKNOWN;
-	}
-
       for (i = 1; i < argc; i++)
 	{
 	  if (0 == strcmp(argv[i], "database"))
 	    {
-	      client->types[i - 1] = LISTENER_DATABASE;
+	      client->events |= LISTENER_DATABASE;
 	    }
 	  else if (0 == strcmp(argv[i], "player"))
 	    {
-	      client->types[i - 1] = LISTENER_PLAYER;
+	      client->events |= LISTENER_PLAYER;
 	    }
 	  else if (0 == strcmp(argv[i], "playlist"))
 	    {
-	      client->types[i - 1] = LISTENER_PLAYLIST;
+	      client->events |= LISTENER_PLAYLIST;
 	    }
 	  else if (0 == strcmp(argv[i], "mixer"))
 	    {
-	      client->types[i - 1] = LISTENER_VOLUME;
+	      client->events |= LISTENER_VOLUME;
 	    }
 	  else if (0 == strcmp(argv[i], "output"))
 	    {
-	      client->types[i - 1] = LISTENER_SPEAKER;
+	      client->events |= LISTENER_SPEAKER;
 	    }
 	  else if (0 == strcmp(argv[i], "options"))
 	    {
-	      client->types[i - 1] = LISTENER_OPTIONS;
+	      client->events |= LISTENER_OPTIONS;
 	    }
 	  else
 	    {
 	      DPRINTF(E_DBG, L_MPD, "Idle command for '%s' not supported\n", argv[i]);
-	      client->types[i - 1] = LISTENER_NONE;
 	    }
 	}
     }
+  else
+    client->events = LISTENER_PLAYER | LISTENER_PLAYLIST | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS;
 
   idle_clients = client;
 
@@ -3827,20 +3817,7 @@ mpd_accept_error_cb(struct evconnlistener *listener, void *ctx)
 static int
 mpd_notify_idle_client(struct idle_client *client, enum listener_event_type type)
 {
-  int i;
-  int has_type;
-
-  if (client->types_len == 0)
-    has_type = 1;
-  else
-    has_type = 0;
-
-  for (i = 0; !has_type && (i < client->types_len); i++)
-    {
-      has_type = (client->types[i] == type);
-    }
-
-  if (!has_type)
+  if (!(client->events & type))
     {
       DPRINTF(E_DBG, L_MPD, "Client not listening for event: %d\n", type);
       return 1;
@@ -4095,7 +4072,7 @@ int mpd_init(void)
     }
 
   idle_clients = NULL;
-  listener_add(mpd_listener_cb);
+  listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_PLAYLIST | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS);
 
   return 0;
 

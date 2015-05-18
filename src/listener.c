@@ -27,18 +27,20 @@
 struct listener
 {
   notify notify_cb;
+  short events;
   struct listener *next;
 };
 
 struct listener *listener_list = NULL;
 
 int
-listener_add(notify notify_cb)
+listener_add(notify notify_cb, short events)
 {
   struct listener *listener;
 
   listener = (struct listener*)malloc(sizeof(struct listener));
   listener->notify_cb = notify_cb;
+  listener->events = events;
   listener->next = listener_list;
   listener_list = listener;
 
@@ -82,7 +84,8 @@ listener_notify(enum listener_event_type type)
   listener = listener_list;
   while (listener)
     {
-      listener->notify_cb(type);
+      if (type & listener->events)
+	listener->notify_cb(type);
       listener = listener->next;
     }
 
