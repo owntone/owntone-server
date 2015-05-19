@@ -150,10 +150,14 @@ can also try the pairinghelper script located in the scripts-folder of the
 source.
 
 #### No response from Remote, possibly a network issue
-If you see an error in the log with a HTTP response code that is 0 it means that
-forked-daapd could not establish a connection to Remote. This might be a network
-issue.
-Solution: You can use avahi-browse for troubleshooting:
+If you see an error in the log with either:
+ - a HTTP response code that is 0
+ - "Empty pairing request callback"
+it means that forked-daapd could not establish a connection to Remote. This 
+might be a network issue.
+Solution: Sometimes it resolves the issue if you force Remote to quit, restart
+it and do the pairing proces again. Otherwise try using avahi-browse for
+troubleshooting:
  - in a terminal, run `avahi-browse -r -k _touch-remote._tcp`
  - start Remote, goto Settings, Add Library
  - after a couple seconds at most, you should get something similar to this:
