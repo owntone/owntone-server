@@ -147,6 +147,16 @@ static int counter;
 /* Flag for scan in progress */
 static int scanning;
 
+/* When copying into the lib (eg. if a file is moved to the lib by copying into
+ * a Samba network share) inotify might give us IN_CREATE -> n x IN_ATTRIB ->
+ * IN_CLOSE_WRITE, but we don't want to do any scanning before the
+ * IN_CLOSE_WRITE. So we register new files (by path hashes) in this ring buffer
+ * when we get the IN_CREATE and then ignore the IN_ATTRIB for these files.
+ */
+#define INCOMINGFILES_BUFFER_SIZE 50
+int incomingfiles_idx;
+uint32_t incomingfiles_buffer[INCOMINGFILES_BUFFER_SIZE];
+
 /* Forward */
 static void
 bulk_scan(int flags);
@@ -1476,12 +1486,16 @@ static void
 process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie)
 {
   struct stat sb;
+  uint32_t path_hash;
   char *deref = NULL;
   char *file = path;
   int type;
+  int i;
   int ret;
 
   DPRINTF(E_SPAM, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+
+  path_hash = djb_hash(path, strlen(path));
 
   if (ie->mask & IN_DELETE)
     {
@@ -1502,7 +1516,14 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
   if (ie->mask & IN_ATTRIB)
     {
-      DPRINTF(E_DBG, L_SCAN, "File permissions changed: %s\n", path);
+      DPRINTF(E_DBG, L_SCAN, "File attributes changed: %s\n", path);
+
+      // Ignore the IN_ATTRIB if we just got an IN_CREATE
+      for (i = 0; i < INCOMINGFILES_BUFFER_SIZE; i++)
+	{
+	  if (incomingfiles_buffer[i] == path_hash)
+	    return;
+	}
 
 #ifdef HAVE_EUIDACCESS
       if (euidaccess(path, R_OK) < 0)
@@ -1553,13 +1574,30 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	  return;
 	}
 
-      if (S_ISFIFO(sb.st_mode))
+      // Add to the list of files where we ignore IN_ATTRIB until the file is closed again
+      if (S_ISREG(sb.st_mode))
+	{
+	  DPRINTF(E_SPAM, L_SCAN, "Incoming file created '%s' (%d), index %d\n", path, (int)path_hash, incomingfiles_idx);
+
+	  incomingfiles_buffer[incomingfiles_idx] = path_hash;
+	  incomingfiles_idx = (incomingfiles_idx + 1) % INCOMINGFILES_BUFFER_SIZE;
+	}
+      else if (S_ISFIFO(sb.st_mode))
 	ie->mask |= IN_CLOSE_WRITE;
     }
 
   if (ie->mask & IN_CLOSE_WRITE)
     {
       DPRINTF(E_DBG, L_SCAN, "File closed: %s\n", path);
+
+      // File has been closed so remove from the IN_ATTRIB ignore list
+      for (i = 0; i < INCOMINGFILES_BUFFER_SIZE; i++)
+	if (incomingfiles_buffer[i] == path_hash)
+	  {
+	    DPRINTF(E_SPAM, L_SCAN, "Incoming file closed '%s' (%d), index %d\n", path, (int)path_hash, i);
+
+	    incomingfiles_buffer[i] = 0;
+	  }
 
       ret = lstat(path, &sb);
       if (ret < 0)
