@@ -56,6 +56,11 @@ struct player_status {
 
   /* Playlist id */
   uint32_t plid;
+  /* Playlist version
+     After startup plversion is 0 and gets incremented after each change of the playlist
+     (e. g. after adding/moving/removing items). It is used by mpd clients to recognize if
+     they need to update the current playlist. */
+  uint32_t plversion;
   /* Playlist length */
   uint32_t playlistlength;
   /* Playing song id*/
@@ -73,7 +78,6 @@ struct player_status {
 };
 
 typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg);
-typedef void (*player_status_handler)(void);
 
 struct player_source
 {
@@ -228,9 +232,6 @@ player_queue_plid(uint32_t plid);
 
 struct player_history *
 player_history_get(void);
-
-void
-player_set_update_handler(player_status_handler handler);
 
 int
 player_init(void);

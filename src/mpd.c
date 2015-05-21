@@ -34,6 +34,11 @@
 #include <stdint.h>
 #include <inttypes.h>
 
+# include <event2/event.h>
+# include <event2/buffer.h>
+# include <event2/bufferevent.h>
+# include <event2/listener.h>
+
 #if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
 # define USE_EVENTFD
 # include <sys/eventfd.h>
@@ -47,7 +52,7 @@
 #include "db.h"
 #include "conffile.h"
 #include "misc.h"
-#include "mpd.h"
+#include "listener.h"
 
 #include "player.h"
 #include "filescanner.h"
@@ -58,6 +63,26 @@ static pthread_t tid_mpd;
 struct event_base *evbase_mpd;
 static int g_exit_pipe[2];
 static struct event *g_exitev;
+
+static int g_cmd_pipe[2];
+static struct event *g_cmdev;
+
+struct mpd_command;
+
+typedef int (*cmd_func)(struct mpd_command *cmd);
+
+struct mpd_command
+{
+  pthread_mutex_t lck;
+  pthread_cond_t cond;
+
+  cmd_func func;
+
+  enum listener_event_type arg_evtype;
+  int nonblock;
+
+  int ret;
+};
 
 #define COMMAND_ARGV_MAX 37
 
@@ -119,6 +144,51 @@ free_outputs(struct output *outputs)
       temp = next;
       next = next ? next->next : NULL;
     }
+}
+
+struct idle_client
+{
+  struct evbuffer *evbuffer;
+  short events;
+
+  struct idle_client *next;
+};
+
+struct idle_client *idle_clients;
+
+/* ---------------------------- COMMAND EXECUTION -------------------------- */
+
+static int
+send_command(struct mpd_command *cmd)
+{
+  int ret;
+
+  if (!cmd->func)
+    {
+      DPRINTF(E_LOG, L_MPD, "BUG: cmd->func is NULL!\n");
+      return -1;
+    }
+
+  ret = write(g_cmd_pipe[1], &cmd, sizeof(cmd));
+  if (ret != sizeof(cmd))
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not send command: %s\n", strerror(errno));
+      return -1;
+    }
+
+  return 0;
+}
+
+static int
+nonblock_command(struct mpd_command *cmd)
+{
+  int ret;
+
+  ret = send_command(cmd);
+  if (ret < 0)
+    return -1;
+
+  return 0;
 }
 
 static void
@@ -553,13 +623,95 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
 static int
 mpd_command_idle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  DPRINTF(E_WARN, L_MPD, "Idle command is not supported by forked-daapd, there will be no notifications about changes\n");
+  struct idle_client *client;
+  int i;
+
+  client = (struct idle_client*)malloc(sizeof(struct idle_client));
+  if (!client)
+    {
+      DPRINTF(E_LOG, L_MPD, "Out of memory for idle_client\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  client->evbuffer = evbuf;
+  client->events = 0;
+  client->next = idle_clients;
+
+  if (argc > 1)
+    {
+      for (i = 1; i < argc; i++)
+	{
+	  if (0 == strcmp(argv[i], "database"))
+	    {
+	      client->events |= LISTENER_DATABASE;
+	    }
+	  else if (0 == strcmp(argv[i], "player"))
+	    {
+	      client->events |= LISTENER_PLAYER;
+	    }
+	  else if (0 == strcmp(argv[i], "playlist"))
+	    {
+	      client->events |= LISTENER_PLAYLIST;
+	    }
+	  else if (0 == strcmp(argv[i], "mixer"))
+	    {
+	      client->events |= LISTENER_VOLUME;
+	    }
+	  else if (0 == strcmp(argv[i], "output"))
+	    {
+	      client->events |= LISTENER_SPEAKER;
+	    }
+	  else if (0 == strcmp(argv[i], "options"))
+	    {
+	      client->events |= LISTENER_OPTIONS;
+	    }
+	  else
+	    {
+	      DPRINTF(E_DBG, L_MPD, "Idle command for '%s' not supported\n", argv[i]);
+	    }
+	}
+    }
+  else
+    client->events = LISTENER_PLAYER | LISTENER_PLAYLIST | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS;
+
+  idle_clients = client;
+
   return 0;
+}
+
+static void
+mpd_remove_idle_client(struct evbuffer *evbuf)
+{
+  struct idle_client *client;
+  struct idle_client *prev;
+
+  client = idle_clients;
+  prev = NULL;
+
+  while (client)
+    {
+      if (client->evbuffer == evbuf)
+	{
+	  DPRINTF(E_DBG, L_MPD, "Removing idle client for evbuffer\n");
+
+	  if (prev)
+	    prev->next = client->next;
+	  else
+	    idle_clients = client->next;
+
+	  free(client);
+	  break;
+	}
+
+      prev = client;
+      client = client->next;
+    }
 }
 
 static int
 mpd_command_noidle(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
+  mpd_remove_idle_client(evbuf);
   return 0;
 }
 
@@ -623,7 +775,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       status.shuffle,
       (status.repeat == REPEAT_SONG ? 1 : 0),
       0 /* consume: not supported by forked-daapd, always return 'off' */,
-      status.plid,
+      status.plversion,
       status.playlistlength,
       state);
 
@@ -1648,6 +1800,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 static int
 mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
+  DPRINTF(E_WARN, L_MPD, "Ignore command %s\n", argv[0]);
   return 0;
 }
 
@@ -3697,11 +3850,20 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 static void
 mpd_event_cb(struct bufferevent *bev, short events, void *ctx)
 {
+  struct evbuffer *evbuf;
+
   if (events & BEV_EVENT_ERROR)
-    DPRINTF(E_LOG, L_MPD, "Error from buffer event\n");
+    {
+      DPRINTF(E_LOG, L_MPD, "Error from bufferevent: %s\n",
+	  evutil_socket_error_to_string(EVUTIL_SOCKET_ERROR()));
+    }
 
   if (events & (BEV_EVENT_EOF | BEV_EVENT_ERROR))
+    {
+      evbuf = bufferevent_get_output(bev);
+      mpd_remove_idle_client(evbuf);
       bufferevent_free(bev);
+    }
 }
 
 /*
@@ -3807,6 +3969,147 @@ mpd_accept_error_cb(struct evconnlistener *listener, void *ctx)
   DPRINTF(E_LOG, L_MPD, "Error occured %d (%s) on the listener.\n", err, evutil_socket_error_to_string(err));
 }
 
+static int
+mpd_notify_idle_client(struct idle_client *client, enum listener_event_type type)
+{
+  if (!(client->events & type))
+    {
+      DPRINTF(E_DBG, L_MPD, "Client not listening for event: %d\n", type);
+      return 1;
+    }
+
+  switch (type)
+    {
+      case LISTENER_PLAYER:
+	evbuffer_add(client->evbuffer, "changed: player\n", 16);
+	break;
+
+      case LISTENER_PLAYLIST:
+	evbuffer_add(client->evbuffer, "changed: playlist\n", 18);
+	break;
+
+      case LISTENER_VOLUME:
+	evbuffer_add(client->evbuffer, "changed: mixer\n", 15);
+	break;
+
+      case LISTENER_SPEAKER:
+	evbuffer_add(client->evbuffer, "changed: output\n", 16);
+	break;
+
+      case LISTENER_OPTIONS:
+	evbuffer_add(client->evbuffer, "changed: options\n", 17);
+	break;
+
+      default:
+	DPRINTF(E_WARN, L_MPD, "Unsupported event type (%d) in notify idle clients.\n", type);
+	return -1;
+    }
+
+  evbuffer_add(client->evbuffer, "OK\n", 3);
+
+  return 0;
+}
+
+static int
+mpd_notify_idle(struct mpd_command *cmd)
+{
+  struct idle_client *client;
+  struct idle_client *prev;
+  struct idle_client *next;
+  int i;
+  int ret;
+
+  DPRINTF(E_DBG, L_MPD, "Notify clients waiting for idle results: %d\n", cmd->arg_evtype);
+
+  prev = NULL;
+  next = NULL;
+  i = 0;
+  client = idle_clients;
+  while (client)
+    {
+      DPRINTF(E_DBG, L_MPD, "Notify client #%d\n", i);
+
+      next = client->next;
+
+      ret = mpd_notify_idle_client(client, cmd->arg_evtype);
+
+      if (ret == 0)
+	{
+	  if (prev)
+	    prev->next = next;
+	  else
+	    idle_clients = next;
+
+	  free(client);
+	}
+      else
+	{
+	  prev = client;
+	}
+
+      client = next;
+      i++;
+    }
+
+  return 0;
+}
+
+static void
+mpd_listener_cb(enum listener_event_type type)
+{
+  DPRINTF(E_DBG, L_MPD, "Listener callback called with event type %d.\n", type);
+  struct mpd_command *cmd;
+
+  cmd = (struct mpd_command *)malloc(sizeof(struct mpd_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not allocate cache_command\n");
+      return;
+    }
+
+  memset(cmd, 0, sizeof(struct mpd_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = mpd_notify_idle;
+  cmd->arg_evtype = type;
+
+  nonblock_command(cmd);
+}
+
+static void
+command_cb(int fd, short what, void *arg)
+{
+  struct mpd_command *cmd;
+  int ret;
+
+  ret = read(g_cmd_pipe[0], &cmd, sizeof(cmd));
+  if (ret != sizeof(cmd))
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
+      goto readd;
+    }
+
+  if (cmd->nonblock)
+    {
+      cmd->func(cmd);
+
+      free(cmd);
+      goto readd;
+    }
+
+  pthread_mutex_lock(&cmd->lck);
+
+  ret = cmd->func(cmd);
+  cmd->ret = ret;
+
+  pthread_cond_signal(&cmd->cond);
+  pthread_mutex_unlock(&cmd->lck);
+
+ readd:
+  event_add(g_cmdev, NULL);
+}
+
 
 /* Thread: main */
 int mpd_init(void)
@@ -3841,6 +4144,17 @@ int mpd_init(void)
       goto exit_fail;
     }
 
+# if defined(__linux__)
+  ret = pipe2(g_cmd_pipe, O_CLOEXEC);
+# else
+  ret = pipe(g_cmd_pipe);
+# endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not create command pipe: %s\n", strerror(errno));
+      goto cmd_fail;
+    }
+
   evbase_mpd = event_base_new();
   if (!evbase_mpd)
     {
@@ -3856,6 +4170,16 @@ int mpd_init(void)
     }
 
   event_add(g_exitev, NULL);
+
+
+  g_cmdev = event_new(evbase_mpd, g_cmd_pipe[0], EV_READ, command_cb, NULL);
+  if (!g_cmdev)
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not create cmd event\n");
+      goto evnew_fail;
+    }
+
+  event_add(g_cmdev, NULL);
 
   if (v6enabled)
     {
@@ -3902,6 +4226,9 @@ int mpd_init(void)
       goto thread_fail;
     }
 
+  idle_clients = NULL;
+  listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_PLAYLIST | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS);
+
   return 0;
 
 
@@ -3912,6 +4239,10 @@ int mpd_init(void)
   evbase_mpd = NULL;
 
  evbase_fail:
+  close(g_cmd_pipe[0]);
+  close(g_cmd_pipe[1]);
+
+ cmd_fail:
   close(g_exit_pipe[0]);
   close(g_exit_pipe[1]);
 
@@ -3922,6 +4253,7 @@ int mpd_init(void)
 /* Thread: main */
 void mpd_deinit(void)
 {
+  struct idle_client *temp;
   unsigned short port;
   int ret;
 
@@ -3939,6 +4271,15 @@ void mpd_deinit(void)
     {
       DPRINTF(E_FATAL, L_MPD, "Could not join cache thread: %s\n", strerror(errno));
       return;
+    }
+
+  listener_remove(mpd_listener_cb);
+
+  while (idle_clients)
+    {
+      temp = idle_clients;
+      idle_clients = idle_clients->next;
+      free(temp);
     }
 
   // Free event base (should free events too)

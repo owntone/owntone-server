@@ -58,6 +58,7 @@
 #include "raop.h"
 #include "laudio.h"
 #include "worker.h"
+#include "listener.h"
 
 #ifdef LASTFM
 # include "lastfm.h"
@@ -164,7 +165,6 @@ struct player_command
     struct player_status *status;
     struct player_source *ps;
     struct player_metadata *pmd;
-    player_status_handler status_handler;
     uint32_t *id_ptr;
     uint64_t *raop_ids;
     enum repeat_mode mode;
@@ -206,9 +206,6 @@ static pthread_t tid_player;
 static enum play_status player_state;
 static enum repeat_mode repeat;
 static char shuffle;
-
-/* Status updates (for DACP) */
-static player_status_handler update_handler;
 
 /* Playback timer */
 #if defined(__linux__)
@@ -259,6 +256,7 @@ static struct player_source *shuffle_head;
 static struct player_source *cur_playing;
 static struct player_source *cur_streaming;
 static uint32_t cur_plid;
+static uint32_t cur_plversion;
 static struct evbuffer *audio_buf;
 
 /* Play history */
@@ -299,8 +297,7 @@ status_update(enum play_status status)
 {
   player_state = status;
 
-  if (update_handler)
-    update_handler();
+  listener_notify(LISTENER_PLAYER);
 
   if (status == PLAY_PLAYING)
     dev_autoselect = 0;
@@ -1642,6 +1639,10 @@ source_count()
   return ret;
 }
 
+/*
+ * Updates cur_playing and notifies remotes and raop devices about
+ * changes.
+ */
 static uint64_t
 source_check(void)
 {
@@ -1665,6 +1666,7 @@ source_check(void)
       return 0;
     }
 
+  /* If cur_playing is NULL, we are still in the first two seconds after starting the stream */
   if (!cur_playing)
     {
       if (pos >= cur_streaming->output_start)
@@ -1678,8 +1680,12 @@ source_check(void)
       return pos;
     }
 
+  /* Check if we are still in the middle of the current playing song */
   if ((cur_playing->end == 0) || (pos < cur_playing->end))
     return pos;
+
+  /* We have reached the end of the current playing song, update cur_playing to the next song in the queue
+     and initialize stream_start and output_start values. */
 
   r_mode = repeat;
   /* Playlist has only one file, treat REPEAT_ALL as REPEAT_SONG */
@@ -2509,6 +2515,7 @@ get_status(struct player_command *cmd)
   status->volume = master_volume;
 
   status->plid = cur_plid;
+  status->plversion = cur_plversion;
 
   switch (player_state)
     {
@@ -3510,6 +3517,8 @@ speaker_set(struct player_command *cmd)
 	}
     }
 
+  listener_notify(LISTENER_SPEAKER);
+
   if (cmd->raop_pending > 0)
     return 1; /* async */
 
@@ -3555,6 +3564,8 @@ volume_set(struct player_command *cmd)
       if (rd->session)
 	cmd->raop_pending += raop_set_volume_one(rd->session, rd->volume, device_command_cb);
     }
+
+  listener_notify(LISTENER_VOLUME);
 
   if (cmd->raop_pending > 0)
     return 1; /* async */
@@ -3605,6 +3616,8 @@ volume_setrel_speaker(struct player_command *cmd)
 	  break;
         }
     }
+
+  listener_notify(LISTENER_VOLUME);
 
   if (cmd->raop_pending > 0)
     return 1; /* async */
@@ -3665,6 +3678,8 @@ volume_setabs_speaker(struct player_command *cmd)
 	}
     }
 
+  listener_notify(LISTENER_VOLUME);
+
   if (cmd->raop_pending > 0)
     return 1; /* async */
 
@@ -3674,6 +3689,9 @@ volume_setabs_speaker(struct player_command *cmd)
 static int
 repeat_set(struct player_command *cmd)
 {
+  if (cmd->arg.mode == repeat)
+    return 0;
+
   switch (cmd->arg.mode)
     {
       case REPEAT_OFF:
@@ -3686,6 +3704,8 @@ repeat_set(struct player_command *cmd)
 	DPRINTF(E_LOG, L_PLAYER, "Invalid repeat mode: %d\n", cmd->arg.mode);
 	return -1;
     }
+
+  listener_notify(LISTENER_OPTIONS);
 
   return 0;
 }
@@ -3707,6 +3727,8 @@ shuffle_set(struct player_command *cmd)
 	DPRINTF(E_LOG, L_PLAYER, "Invalid shuffle mode: %d\n", cmd->arg.intval);
 	return -1;
     }
+
+  listener_notify(LISTENER_OPTIONS);
 
   return 0;
 }
@@ -3851,6 +3873,9 @@ queue_add(struct player_command *cmd)
 
   if (cur_plid != 0)
     cur_plid = 0;
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
 
   return 0;
 }
@@ -3892,6 +3917,9 @@ queue_add_next(struct player_command *cmd)
 
   if (cur_plid != 0)
     cur_plid = 0;
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
 
   return 0;
 }
@@ -3960,6 +3988,10 @@ queue_move(struct player_command *cmd)
     ps_dst->pl_next = ps_src;
   }
 
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
+
   return 0;
 }
 
@@ -4025,6 +4057,10 @@ queue_remove(struct player_command *cmd)
 
   source_free(ps);
 
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
+
   return 0;
 }
 
@@ -4050,6 +4086,9 @@ queue_clear(struct player_command *cmd)
     }
 
   cur_plid = 0;
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
 
   return 0;
 }
@@ -4100,6 +4139,10 @@ queue_empty(struct player_command *cmd)
       source_head->shuffle_prev = source_head;
     }
 
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
+
   return 0;
 }
 
@@ -4110,14 +4153,6 @@ queue_plid(struct player_command *cmd)
     return 0;
 
   cur_plid = cmd->arg.id;
-
-  return 0;
-}
-
-static int
-set_update_handler(struct player_command *cmd)
-{
-  update_handler = cmd->arg.status_handler;
 
   return 0;
 }
@@ -4810,22 +4845,6 @@ player_queue_plid(uint32_t plid)
   command_deinit(&cmd);
 }
 
-void
-player_set_update_handler(player_status_handler handler)
-{
-  struct player_command cmd;
-
-  command_init(&cmd);
-
-  cmd.func = set_update_handler;
-  cmd.func_bh = NULL;
-  cmd.arg.status_handler = handler;
-
-  sync_command(&cmd);
-
-  command_deinit(&cmd);
-}
-
 /* Non-blocking commands used by mDNS */
 static void
 player_device_add(struct raop_device *rd)
@@ -5182,12 +5201,11 @@ player_init(void)
   cur_playing = NULL;
   cur_streaming = NULL;
   cur_plid = 0;
+  cur_plversion = 0;
 
   player_state = PLAY_STOPPED;
   repeat = REPEAT_OFF;
   shuffle = 0;
-
-  update_handler = NULL;
 
   history = (struct player_history *)calloc(1, sizeof(struct player_history));
 

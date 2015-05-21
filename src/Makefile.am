@@ -119,7 +119,8 @@ forked_daapd_SOURCES = main.c \
 	scan-wma.c \
 	$(SPOTIFY_SRC) $(LASTFM_SRC) \
 	$(MPD_SRC) \
-	$(FLAC_SRC) $(MUSEPACK_SRC)
+	$(FLAC_SRC) $(MUSEPACK_SRC) \
+	listener.c listener.h
 
 nodist_forked_daapd_SOURCES = \
 	$(ANTLR_SOURCES)
