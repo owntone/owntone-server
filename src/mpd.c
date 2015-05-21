@@ -34,14 +34,10 @@
 #include <stdint.h>
 #include <inttypes.h>
 
-#ifdef HAVE_LIBEVENT2
 # include <event2/event.h>
 # include <event2/buffer.h>
 # include <event2/bufferevent.h>
 # include <event2/listener.h>
-#else
-# include <event.h>
-#endif
 
 #if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
 # define USE_EVENTFD
