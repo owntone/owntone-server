@@ -397,11 +397,13 @@ mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, int pos_p
       ret = evbuffer_add_printf(evbuf,
 	"Pos: %d\n",
 	pos_pl);
+
+      //TODO mpd does not return the persistent id of a file but instead a unique id in the current playlist
+      ret = evbuffer_add_printf(evbuf,
+	"Id: %d\n",
+	mfi->id);
     }
 
-  ret = evbuffer_add_printf(evbuf,
-    "Id: %d\n",
-    mfi->id);
 
   return ret;
 }
@@ -454,7 +456,6 @@ mpd_add_mediainfo_byid(struct evbuffer *evbuf, int id, int pos_pl)
  *   MUSICBRAINZ_ARTISTID: c5c2ea1c-4bde-4f4d-bd0b-47b200bf99d6
  *   MUSICBRAINZ_ALBUMID: 812f4b87-8ad9-41bd-be79-38151f17a2b4
  *   MUSICBRAINZ_TRACKID: fde95c39-ee51-48f6-a7f9-b5631c2ed156
- *   Id: 1
  *
  * @param evbuf the response event buffer
  * @param mfi media information
@@ -495,8 +496,7 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
       "Track: %s\n"
       "Date: %s\n"
       "Genre: %s\n"
-      "Disc: %s\n"
-      "Id: %s\n",
+      "Disc: %s\n",
       (dbmfi->virtual_path + 1),
       modified,
       (songlength / 1000),
@@ -509,8 +509,7 @@ mpd_add_db_media_file_info(struct evbuffer *evbuf, struct db_media_file_info *db
       dbmfi->track,
       dbmfi->year,
       dbmfi->genre,
-      dbmfi->disc,
-      dbmfi->id);
+      dbmfi->disc);
 
   return ret;
 }
@@ -1760,7 +1759,7 @@ mpd_command_listplaylistinfo(struct evbuffer *evbuf, int argc, char **argv, char
       ret = asprintf(errmsg, "Playlist not found for path '%s'", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_ARG;
+      return ACK_ERROR_NO_EXIST;
     }
 
   memset(&qp, 0, sizeof(struct query_params));
@@ -1925,6 +1924,7 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
   int start_pos;
   int end_pos;
   int i;
+  uint32_t num;
   int ret;
 
   c1 = NULL;
@@ -1977,6 +1977,26 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
       else if (0 == strcasecmp(argv[i], "title"))
 	{
 	  c1 = sqlite3_mprintf("(f.title = '%q')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "genre"))
+	{
+	  c1 = sqlite3_mprintf("(f.genre = '%q')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "disc"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = sqlite3_mprintf("(f.disc = %d)", num);
+	}
+      else if (0 == strcasecmp(argv[i], "track"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = sqlite3_mprintf("(f.track = %d)", num);
 	}
       else if (i == 0 && argc == 1)
 	{
@@ -2113,6 +2133,44 @@ mpd_command_find(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
+  struct query_params qp;
+  struct player_source *ps;
+  int ret;
+
+  if (argc < 3 || ((argc - 1) % 2) != 0)
+    {
+      ret = asprintf(errmsg, "Missing argument(s) for command 'findadd'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_ITEMS;
+  qp.sort = S_NAME;
+  qp.idx_type = I_NONE;
+
+  mpd_get_query_params_find(argc - 1, argv + 1, &qp);
+
+  ps = player_queue_make(&qp);
+
+  if (!ps)
+    {
+      ret = asprintf(errmsg, "Failed to add songs to playlist");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  player_queue_add(ps);
+
+  ret = player_playback_start(NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
+    }
+
   return 0;
 }
 
@@ -2163,6 +2221,24 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       qp.sort = S_YEAR;
       type = "Date: ";
     }
+  else if (0 == strcasecmp(argv[1], "genre"))
+    {
+      qp.type = Q_BROWSE_GENRES;
+      qp.sort = S_NONE;
+      type = "Genre: ";
+    }
+  else if (0 == strcasecmp(argv[1], "disc"))
+    {
+      qp.type = Q_BROWSE_DISCS;
+      qp.sort = S_NONE;
+      type = "Disc: ";
+    }
+  else if (0 == strcasecmp(argv[1], "track"))
+    {
+      qp.type = Q_BROWSE_TRACKS;
+      qp.sort = S_NONE;
+      type = "Track: ";
+    }
   else
     {
       DPRINTF(E_WARN, L_MPD, "Unsupported type argument for command 'list': %s\n", argv[1]);
@@ -2187,7 +2263,7 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  if (qp.type == Q_BROWSE_YEARS)
+  if (qp.type & Q_F_BROWSE)
     {
       while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
 	{
@@ -2321,6 +2397,7 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
   int start_pos;
   int end_pos;
   int i;
+  uint32_t num;
   int ret;
 
   c1 = NULL;
@@ -2373,6 +2450,26 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
       else if (0 == strcasecmp(argv[i], "title"))
 	{
 	  c1 = sqlite3_mprintf("(f.title LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "genre"))
+	{
+	  c1 = sqlite3_mprintf("(f.genre LIKE '%%%q%%')", argv[i + 1]);
+	}
+      else if (0 == strcasecmp(argv[i], "disc"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Disc parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = sqlite3_mprintf("(f.disc = %d)", num);
+	}
+      else if (0 == strcasecmp(argv[i], "track"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
+	  else
+	    c1 = sqlite3_mprintf("(f.track = %d)", num);
 	}
       else
 	{
@@ -2457,6 +2554,50 @@ mpd_command_search(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   db_query_end(&qp);
+
+  return 0;
+}
+
+static int
+mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct query_params qp;
+  struct player_source *ps;
+  int ret;
+
+  if (argc < 3 || ((argc - 1) % 2) != 0)
+    {
+      ret = asprintf(errmsg, "Missing argument(s) for command 'search'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_ITEMS;
+  qp.sort = S_NAME;
+  qp.idx_type = I_NONE;
+
+  mpd_get_query_params_search(argc - 1, argv + 1, &qp);
+
+  ps = player_queue_make(&qp);
+
+  if (!ps)
+    {
+      ret = asprintf(errmsg, "Failed to add songs to playlist");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  player_queue_add(ps);
+
+  ret = player_playback_start(NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
+    }
 
   return 0;
 }
@@ -2867,6 +3008,28 @@ mpd_command_ignore(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_commands(struct evbuffer *evbuf, int argc, char **argv, char **errmsg);
 
+/*
+ * Command handler function for 'tagtypes'
+ * Returns a lists with supported tags in the form:
+ *   tagtype: Artist
+ */
+static int
+mpd_command_tagtypes(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  evbuffer_add_printf(evbuf,
+      "tagtype: Artist\n"
+      "tagtype: AlbumArtist\n"
+      "tagtype: ArtistSort\n"
+      "tagtype: AlbumArtistSort\n"
+      "tagtype: Album\n"
+      "tagtype: Title\n"
+      "tagtype: Track\n"
+      "tagtype: Genre\n"
+      "tagtype: Disc\n");
+
+  return 0;
+}
+
 
 struct command
 {
@@ -3201,11 +3364,11 @@ static struct command mpd_handlers[] =
       .mpdcommand = "search",
       .handler = mpd_command_search
     },
-    /*
     {
       .mpdcommand = "searchadd",
       .handler = mpd_command_searchadd
     },
+    /*
     {
       .mpdcommand = "searchaddpl",
       .handler = mpd_command_searchaddpl
@@ -3247,12 +3410,10 @@ static struct command mpd_handlers[] =
     /*
      * Stickers
      */
-    /*
     {
       .mpdcommand = "sticker",
-      .handler = mpd_command_sticker
+      .handler = mpd_command_ignore
     },
-     */
 
     /*
      * Connection settings
@@ -3309,10 +3470,9 @@ static struct command mpd_handlers[] =
       .mpdcommand = "commands",
       .handler = mpd_command_commands
     },
-    /*
     {
       .mpdcommand = "notcommands",
-      .handler = mpd_command_notcommands
+      .handler = mpd_command_ignore
     },
     {
       .mpdcommand = "tagtypes",
@@ -3320,8 +3480,9 @@ static struct command mpd_handlers[] =
     },
     {
       .mpdcommand = "urlhandlers",
-      .handler = mpd_command_urlhandlers
+      .handler = mpd_command_ignore
     },
+    /*
     {
       .mpdcommand = "decoders",
       .handler = mpd_command_decoders
@@ -3331,28 +3492,26 @@ static struct command mpd_handlers[] =
     /*
      * Client to client
      */
-    /*
     {
       .mpdcommand = "subscribe",
-      .handler = mpd_command_subscribe
+      .handler = mpd_command_ignore
     },
     {
       .mpdcommand = "unsubscribe",
-      .handler = mpd_command_unsubscribe
+      .handler = mpd_command_ignore
     },
     {
       .mpdcommand = "channels",
-      .handler = mpd_command_channels
+      .handler = mpd_command_ignore
     },
     {
       .mpdcommand = "readmessages",
-      .handler = mpd_command_readmessages
+      .handler = mpd_command_ignore
     },
     {
       .mpdcommand = "sendmessage",
-      .handler = mpd_command_sendmessage
+      .handler = mpd_command_ignore
     },
-     */
 
     /*
      * NULL command to terminate loop
@@ -3733,7 +3892,7 @@ int mpd_init(void)
     }
   evconnlistener_set_error_cb(listener, mpd_accept_error_cb);
 
-  DPRINTF(E_INFO, L_MPD, "cache thread init\n");
+  DPRINTF(E_INFO, L_MPD, "mpd thread init\n");
 
   ret = pthread_create(&tid_mpd, NULL, mpd, NULL);
   if (ret < 0)

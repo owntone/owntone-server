@@ -1535,6 +1535,14 @@ db_query_start(struct query_params *qp)
 	ret = db_build_query_browse(qp, "year", "year", &query);
 	break;
 
+      case Q_BROWSE_DISCS:
+	ret = db_build_query_browse(qp, "disc", "disc", &query);
+	break;
+
+      case Q_BROWSE_TRACKS:
+	ret = db_build_query_browse(qp, "track", "track", &query);
+	break;
+
       case Q_COUNT_ITEMS:
 	ret = db_build_query_count_items(qp, &query);
 	break;
