@@ -61,6 +61,7 @@ STRTAG		:	'artist'
 			|	'composer'
 			|	'path'
 			|	'type'
+			|	'grouping'
 			;
 
 INTTAG		:	'play_count'
