@@ -32,6 +32,7 @@ Where valid field-names (with there types) are:
 * composer (string)
 * path (string)
 * type (string)
+* grouping (string)
 * data_kind (enumeration)
 * media_kind (enumeration)
 * play_count (integer)
