@@ -21,7 +21,6 @@
 #include <unistd.h>
 #include <string.h>
 
-#include "logger.h"
 #include "listener.h"
 
 struct listener
@@ -39,6 +38,10 @@ listener_add(notify notify_cb, short events)
   struct listener *listener;
 
   listener = (struct listener*)malloc(sizeof(struct listener));
+  if (!listener)
+    {
+      return -1;
+    }
   listener->notify_cb = notify_cb;
   listener->events = events;
   listener->next = listener_list;
@@ -63,7 +66,9 @@ listener_remove(notify notify_cb)
     }
 
   if (!listener)
-    return 0;
+    {
+      return -1;
+    }
 
   if (prev)
     prev->next = listener->next;
@@ -74,12 +79,10 @@ listener_remove(notify notify_cb)
   return 0;
 }
 
-int
+void
 listener_notify(enum listener_event_type type)
 {
   struct listener *listener;
-
-  DPRINTF(E_DBG, L_MPD, "Notify event type %d\n", type);
 
   listener = listener_list;
   while (listener)
@@ -88,6 +91,4 @@ listener_notify(enum listener_event_type type)
 	listener->notify_cb(type);
       listener = listener->next;
     }
-
-  return 0;
 }

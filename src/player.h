@@ -54,7 +54,10 @@ struct player_status {
 
   /* Playlist id */
   uint32_t plid;
-  /* Playlist version */
+  /* Playlist version
+     After startup plversion is 0 and gets incremented after each change of the playlist
+     (e. g. after adding/moving/removing items). It is used by mpd clients to recognize if
+     they need to update the current playlist. */
   uint32_t plversion;
   /* Playlist length */
   uint32_t playlistlength;
