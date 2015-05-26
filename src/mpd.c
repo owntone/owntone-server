@@ -2377,19 +2377,19 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   else if (0 == strcasecmp(argv[1], "genre"))
     {
       qp.type = Q_BROWSE_GENRES;
-      qp.sort = S_NONE;
+      qp.sort = S_GENRE;
       type = "Genre: ";
     }
   else if (0 == strcasecmp(argv[1], "disc"))
     {
       qp.type = Q_BROWSE_DISCS;
-      qp.sort = S_NONE;
+      qp.sort = S_DISC;
       type = "Disc: ";
     }
   else if (0 == strcasecmp(argv[1], "track"))
     {
       qp.type = Q_BROWSE_TRACKS;
-      qp.sort = S_NONE;
+      qp.sort = S_TRACK;
       type = "Track: ";
     }
   else

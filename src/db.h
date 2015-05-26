@@ -23,6 +23,10 @@ enum sort_type {
   S_ARTIST,
   S_PLAYLIST,
   S_YEAR,
+  S_GENRE,
+  S_COMPOSER,
+  S_DISC,
+  S_TRACK,
 };
 
 #define Q_F_BROWSE (1 << 15)

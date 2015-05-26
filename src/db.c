@@ -283,6 +283,10 @@ static const char *sort_clause[] =
     "ORDER BY f.album_artist_sort ASC",
     "ORDER BY f.type ASC, f.parent_id ASC, f.special_id ASC, f.title ASC",
     "ORDER BY f.year ASC",
+    "ORDER BY f.genre ASC",
+    "ORDER BY f.composer_sort ASC",
+    "ORDER BY f.disc ASC",
+    "ORDER BY f.track ASC",
   };
 
 static char *db_path;
@@ -1377,13 +1381,12 @@ db_build_query_group_dirs(struct query_params *qp, char **q)
 }
 
 static int
-db_build_query_browse(struct query_params *qp, char *field, char *sort_field, char **q)
+db_build_query_browse(struct query_params *qp, const char *field, const char *group_field, char **q)
 {
   char *query;
   char *count;
   char *idx;
-  char *sort;
-  int size;
+  const char *sort;
   int ret;
 
   if (qp->filter)
@@ -1411,37 +1414,20 @@ db_build_query_browse(struct query_params *qp, char *field, char *sort_field, ch
   if (ret < 0)
     return -1;
 
-  /* qp->sort does not have an option for sorting genre/composer, so it will then be set to S_NONE */
-  if (qp->sort != S_NONE)
-    {
-      sort = strdup(sort_clause[qp->sort]);
-    }
-  else
-    {
-      size = strlen("ORDER BY f.") + strlen(sort_field) + 1;
-      sort = malloc(size);
-      if (!sort)
-	{
-	  DPRINTF(E_LOG, L_DB, "Out of memory for sort string\n");
-	  return -1;
-	}
-      snprintf(sort, size, "ORDER BY f.%s", sort_field);
-    }
+  sort = sort_clause[qp->sort];
 
   if (idx && qp->filter)
     query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-                            " AND %s GROUP BY f.%s %s %s;", field, sort_field, field, qp->filter, sort_field, sort, idx);
+                            " AND %s GROUP BY f.%s %s %s;", field, group_field, field, qp->filter, group_field, sort, idx);
   else if (idx)
     query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-                            " GROUP BY f.%s %s %s;", field, sort_field, field, sort_field, sort, idx);
+                            " GROUP BY f.%s %s %s;", field, group_field, field, group_field, sort, idx);
   else if (qp->filter)
     query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-                            " AND %s GROUP BY f.%s %s;", field, sort_field, field, qp->filter, sort_field, sort);
+                            " AND %s GROUP BY f.%s %s;", field, group_field, field, qp->filter, group_field, sort);
   else
     query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
-                            " GROUP BY f.%s %s", field, sort_field, field, sort_field, sort);
-
-  free(sort);
+                            " GROUP BY f.%s %s", field, group_field, field, group_field, sort);
 
   if (!query)
     {

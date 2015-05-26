@@ -2169,11 +2169,13 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       tag = "abgn";
       qp.type = Q_BROWSE_GENRES;
+      qp.sort = S_GENRE;
     }
   else if (strcmp(uri[3], "composers") == 0)
     {
       tag = "abcp";
       qp.type = Q_BROWSE_COMPOSERS;
+      qp.sort = S_COMPOSER;
     }
   else
     {
