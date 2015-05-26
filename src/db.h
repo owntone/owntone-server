@@ -345,7 +345,7 @@ struct watch_enum {
   sqlite3_stmt *stmt;
 };
 
-struct count_info {
+struct filecount_info {
   uint32_t count;
   uint32_t length;
 };
@@ -402,7 +402,7 @@ int
 db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri);
 
 int
-db_query_fetch_count(struct query_params *qp, struct count_info *ci);
+db_query_fetch_count(struct query_params *qp, struct filecount_info *fci);
 
 int
 db_query_fetch_string(struct query_params *qp, char **string);

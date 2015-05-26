@@ -2185,7 +2185,7 @@ static int
 mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   struct query_params qp;
-  struct count_info ci;
+  struct filecount_info fci;
   int ret;
 
   if (argc < 3 || ((argc - 1) % 2) != 0)
@@ -2213,7 +2213,7 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  ret = db_query_fetch_count(&qp, &ci);
+  ret = db_query_fetch_count(&qp, &fci);
   if (ret < 0)
     {
       db_query_end(&qp);
@@ -2227,8 +2227,8 @@ mpd_command_count(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   evbuffer_add_printf(evbuf,
       "songs: %d\n"
       "playtime: %d\n",
-        ci.count,
-        (ci.length / 1000));
+        fci.count,
+        (fci.length / 1000));
 
   db_query_end(&qp);
 

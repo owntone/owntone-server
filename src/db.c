@@ -1801,11 +1801,11 @@ db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri)
 }
 
 int
-db_query_fetch_count(struct query_params *qp, struct count_info *ci)
+db_query_fetch_count(struct query_params *qp, struct filecount_info *fci)
 {
   int ret;
 
-  memset(ci, 0, sizeof(struct count_info));
+  memset(fci, 0, sizeof(struct filecount_info));
 
   if (!qp->stmt)
     {
@@ -1831,8 +1831,8 @@ db_query_fetch_count(struct query_params *qp, struct count_info *ci)
       return -1;
     }
 
-  ci->count = sqlite3_column_int(qp->stmt, 0);
-  ci->length = sqlite3_column_int(qp->stmt, 1);
+  fci->count = sqlite3_column_int(qp->stmt, 0);
+  fci->length = sqlite3_column_int(qp->stmt, 1);
 
   return 0;
 }
