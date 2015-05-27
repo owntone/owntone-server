@@ -558,7 +558,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle)
 
   if (!fptr_sp_track_is_loaded(track))
     {
-      DPRINTF(E_INFO, L_SPOTIFY, "Metadata for track not ready yet\n");
+      DPRINTF(E_SPAM, L_SPOTIFY, "Metadata for track not ready yet\n");
       return 0;
     }
 
