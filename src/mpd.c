@@ -1797,10 +1797,49 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   return 0;
 }
 
+/*
+ * Command handler function for 'plchanges'
+ * Lists all changed songs in the queue since the given playlist version in argv[1].
+ */
 static int
 mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  DPRINTF(E_WARN, L_MPD, "Ignore command %s\n", argv[0]);
+  struct player_queue *queue;
+  int pos_pl;
+  int i;
+  int ret;
+
+  /*
+   * forked-daapd does not keep track of changes in the queue based on the playlist version,
+   * therefor plchanges returns all songs in the queue as changed ignoring the given version.
+   */
+  queue = player_queue_get(0, -1, 0);
+
+  if (!queue)
+    {
+      // Queue is emtpy
+      return 0;
+    }
+
+  pos_pl = queue->start_pos;
+  for (i = 0; i < queue->count; i++)
+    {
+      ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i], pos_pl);
+      if (ret < 0)
+	{
+	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i]);
+
+	  queue_free(queue);
+
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  return ACK_ERROR_UNKNOWN;
+	}
+
+      pos_pl++;
+    }
+
+  queue_free(queue);
   return 0;
 }
 
