@@ -2558,7 +2558,9 @@ db_file_add(struct media_file_info *mfi)
     }
 
   mfi->db_timestamp = (uint64_t)time(NULL);
-  mfi->time_added = mfi->db_timestamp;
+
+  if (mfi->time_added == 0)
+    mfi->time_added = mfi->db_timestamp;
 
   if (mfi->time_modified == 0)
     mfi->time_modified = mfi->db_timestamp;

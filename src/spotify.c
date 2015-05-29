@@ -205,6 +205,7 @@ typedef sp_error     (*fptr_sp_playlist_remove_callbacks_t)(sp_playlist *playlis
 typedef int          (*fptr_sp_playlist_num_tracks_t)(sp_playlist *playlist);
 typedef sp_track*    (*fptr_sp_playlist_track_t)(sp_playlist *playlist, int index);
 typedef bool         (*fptr_sp_playlist_is_loaded_t)(sp_playlist *playlist);
+typedef int          (*fptr_sp_playlist_track_create_time_t)(sp_playlist *playlist, int index);
 
 typedef sp_error     (*fptr_sp_track_error_t)(sp_track *track);
 typedef bool         (*fptr_sp_track_is_loaded_t)(sp_track *track);
@@ -266,6 +267,7 @@ fptr_sp_playlist_remove_callbacks_t fptr_sp_playlist_remove_callbacks;
 fptr_sp_playlist_num_tracks_t fptr_sp_playlist_num_tracks;
 fptr_sp_playlist_track_t fptr_sp_playlist_track;
 fptr_sp_playlist_is_loaded_t fptr_sp_playlist_is_loaded;
+fptr_sp_playlist_track_create_time_t fptr_sp_playlist_track_create_time;
 
 fptr_sp_track_error_t fptr_sp_track_error;
 fptr_sp_track_is_loaded_t fptr_sp_track_is_loaded;
@@ -334,6 +336,7 @@ fptr_assign_all()
    && (fptr_sp_playlist_num_tracks = dlsym(h, "sp_playlist_num_tracks"))
    && (fptr_sp_playlist_track = dlsym(h, "sp_playlist_track"))
    && (fptr_sp_playlist_is_loaded = dlsym(h, "sp_playlist_is_loaded"))
+   && (fptr_sp_playlist_track_create_time = dlsym(h, "sp_playlist_track_create_time"))
    && (fptr_sp_track_error = dlsym(h, "sp_track_error"))
    && (fptr_sp_track_is_loaded = dlsym(h, "sp_track_is_loaded"))
    && (fptr_sp_track_name = dlsym(h, "sp_track_name"))
@@ -467,7 +470,7 @@ thread_exit(void)
 /*            Should only be called from within the spotify thread           */
 
 static int
-spotify_metadata_get(sp_track *track, struct media_file_info *mfi, const char *pltitle)
+spotify_metadata_get(sp_track *track, struct media_file_info *mfi, const char *pltitle, int time_added)
 {
   cfg_t *spotify_cfg;
   bool artist_override;
@@ -526,6 +529,7 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi, const char *p
   mfi->type        = strdup("spotify");
   mfi->codectype   = strdup("wav");
   mfi->description = strdup("Spotify audio");
+  mfi->time_added  = time_added;
 
   DPRINTF(E_SPAM, L_SPOTIFY, "Metadata for track:\n"
       "Title:       %s\n"
@@ -549,7 +553,7 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi, const char *p
 }
 
 static int
-spotify_track_save(int plid, sp_track *track, const char *pltitle)
+spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_added)
 {
   struct media_file_info mfi;
   sp_link *link;
@@ -558,8 +562,8 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle)
 
   if (!fptr_sp_track_is_loaded(track))
     {
-      DPRINTF(E_SPAM, L_SPOTIFY, "Metadata for track not ready yet\n");
-      return 0;
+      DPRINTF(E_LOG, L_SPOTIFY, "Track appears to no longer have the proper status\n");
+      return -1;
     }
 
   if (fptr_sp_track_get_availability(g_sess, track) != SP_TRACK_AVAILABILITY_AVAILABLE)
@@ -592,7 +596,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle)
 
   memset(&mfi, 0, sizeof(struct media_file_info));
 
-  ret = spotify_metadata_get(track, &mfi, pltitle);
+  ret = spotify_metadata_get(track, &mfi, pltitle, time_added);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Metadata missing (but track should be loaded?): '%s'\n", fptr_sp_track_name(track));
@@ -618,22 +622,35 @@ spotify_playlist_save(sp_playlist *pl)
   int plid;
   int num_tracks;
   char virtual_path[PATH_MAX];
+  int time;
   int ret;
   int i;
   
   if (!fptr_sp_playlist_is_loaded(pl))
     {
-      DPRINTF(E_DBG, L_SPOTIFY, "Playlist still not loaded - wait for rename callback\n");
+      DPRINTF(E_DBG, L_SPOTIFY, "Playlist still not loaded - will wait for next callback\n");
       return 0;
     }
 
   name = fptr_sp_playlist_name(pl);
+  num_tracks = fptr_sp_playlist_num_tracks(pl);
 
   // The starred playlist has an empty name, set it manually to "Starred"
   if (*name == '\0')
     name = "Starred";
 
-  DPRINTF(E_INFO, L_SPOTIFY, "Saving playlist: '%s'\n", name);
+  for (i = 0; i < num_tracks; i++)
+    {
+      track = fptr_sp_playlist_track(pl, i);
+
+      if (track && !fptr_sp_track_is_loaded(track))
+	{
+	  DPRINTF(E_DBG, L_SPOTIFY, "All playlist tracks not loaded (will wait for next callback): %s\n", name);
+	  return 0;
+	}
+    }
+
+  DPRINTF(E_LOG, L_SPOTIFY, "Saving playlist (%d tracks): '%s'\n", num_tracks, name);
 
   /* Save playlist (playlists table) */
   link = fptr_sp_link_create_from_playlist(pl);
@@ -709,7 +726,7 @@ spotify_playlist_save(sp_playlist *pl)
   free_pli(pli, 0);
 
   /* Save tracks and playlistitems (files and playlistitems table) */
-  num_tracks = fptr_sp_playlist_num_tracks(pl);
+  db_transaction_begin();
   for (i = 0; i < num_tracks; i++)
     {
       track = fptr_sp_playlist_track(pl, i);
@@ -719,13 +736,16 @@ spotify_playlist_save(sp_playlist *pl)
 	  continue;
 	}
 
-      ret = spotify_track_save(plid, track, name);
+      time = fptr_sp_playlist_track_create_time(pl, i);
+
+      ret = spotify_track_save(plid, track, name, time);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Error saving track %d to playlist '%s' (id %d)\n", i, name, plid);
 	  continue;
 	}
     }
+  db_transaction_end();
 
   return plid;
 }
