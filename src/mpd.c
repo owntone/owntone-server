@@ -1797,10 +1797,49 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   return 0;
 }
 
+/*
+ * Command handler function for 'plchanges'
+ * Lists all changed songs in the queue since the given playlist version in argv[1].
+ */
 static int
 mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  DPRINTF(E_WARN, L_MPD, "Ignore command %s\n", argv[0]);
+  struct player_queue *queue;
+  int pos_pl;
+  int i;
+  int ret;
+
+  /*
+   * forked-daapd does not keep track of changes in the queue based on the playlist version,
+   * therefor plchanges returns all songs in the queue as changed ignoring the given version.
+   */
+  queue = player_queue_get(0, -1, 0);
+
+  if (!queue)
+    {
+      // Queue is emtpy
+      return 0;
+    }
+
+  pos_pl = queue->start_pos;
+  for (i = 0; i < queue->count; i++)
+    {
+      ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i], pos_pl);
+      if (ret < 0)
+	{
+	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i]);
+
+	  queue_free(queue);
+
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	  return ACK_ERROR_UNKNOWN;
+	}
+
+      pos_pl++;
+    }
+
+  queue_free(queue);
   return 0;
 }
 
@@ -2151,6 +2190,14 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 	  else
 	    c1 = sqlite3_mprintf("(f.track = %d)", num);
 	}
+      else if (0 == strcasecmp(argv[i], "date"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    c1 = sqlite3_mprintf("(f.year = 0 OR f.year IS NULL)");
+	  else
+	    c1 = sqlite3_mprintf("(f.year = %d)", num);
+	}
       else if (i == 0 && argc == 1)
 	{
 	  // Special case: a single token is allowed if listing albums for an artist
@@ -2392,6 +2439,12 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       qp.sort = S_TRACK;
       type = "Track: ";
     }
+  else if (0 == strcasecmp(argv[1], "file"))
+    {
+      qp.type = Q_BROWSE_VPATH;
+      qp.sort = S_VPATH;
+      type = "file: ";
+    }
   else
     {
       DPRINTF(E_WARN, L_MPD, "Unsupported type argument for command 'list': %s\n", argv[1]);
@@ -2418,12 +2471,26 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (qp.type & Q_F_BROWSE)
     {
-      while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
+      if (qp.type == Q_BROWSE_VPATH)
 	{
-	  evbuffer_add_printf(evbuf,
-		"%s%s\n",
-		type,
-		browse_item);
+	  while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
+	    {
+		// Remove the first "/" from the virtual_path
+		evbuffer_add_printf(evbuf,
+		      "%s%s\n",
+		      type,
+		      (browse_item + 1));
+	    }
+	}
+      else
+	{
+	  while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
+	    {
+		evbuffer_add_printf(evbuf,
+		      "%s%s\n",
+		      type,
+		      browse_item);
+	    }
 	}
     }
   else
@@ -2623,6 +2690,14 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
 	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
 	  else
 	    c1 = sqlite3_mprintf("(f.track = %d)", num);
+	}
+      else if (0 == strcasecmp(argv[i], "date"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    c1 = sqlite3_mprintf("(f.year = 0 OR f.year IS NULL)");
+	  else
+	    c1 = sqlite3_mprintf("(f.year = %d)", num);
 	}
       else
 	{
