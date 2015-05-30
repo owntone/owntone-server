@@ -2190,6 +2190,14 @@ mpd_get_query_params_find(int argc, char **argv, struct query_params *qp)
 	  else
 	    c1 = sqlite3_mprintf("(f.track = %d)", num);
 	}
+      else if (0 == strcasecmp(argv[i], "date"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    c1 = sqlite3_mprintf("(f.year = 0 OR f.year IS NULL)");
+	  else
+	    c1 = sqlite3_mprintf("(f.year = %d)", num);
+	}
       else if (i == 0 && argc == 1)
 	{
 	  // Special case: a single token is allowed if listing albums for an artist
@@ -2682,6 +2690,14 @@ mpd_get_query_params_search(int argc, char **argv, struct query_params *qp)
 	    DPRINTF(E_WARN, L_MPD, "Track parameter '%s' is not an integer and will be ignored\n", argv[i + 1]);
 	  else
 	    c1 = sqlite3_mprintf("(f.track = %d)", num);
+	}
+      else if (0 == strcasecmp(argv[i], "date"))
+	{
+	  ret = safe_atou32(argv[i + 1], &num);
+	  if (ret < 0)
+	    c1 = sqlite3_mprintf("(f.year = 0 OR f.year IS NULL)");
+	  else
+	    c1 = sqlite3_mprintf("(f.year = %d)", num);
 	}
       else
 	{
