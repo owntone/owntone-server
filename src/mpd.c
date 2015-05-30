@@ -2431,6 +2431,12 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       qp.sort = S_TRACK;
       type = "Track: ";
     }
+  else if (0 == strcasecmp(argv[1], "file"))
+    {
+      qp.type = Q_BROWSE_VPATH;
+      qp.sort = S_VPATH;
+      type = "file: ";
+    }
   else
     {
       DPRINTF(E_WARN, L_MPD, "Unsupported type argument for command 'list': %s\n", argv[1]);
@@ -2457,12 +2463,26 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (qp.type & Q_F_BROWSE)
     {
-      while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
+      if (qp.type == Q_BROWSE_VPATH)
 	{
-	  evbuffer_add_printf(evbuf,
-		"%s%s\n",
-		type,
-		browse_item);
+	  while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
+	    {
+		// Remove the first "/" from the virtual_path
+		evbuffer_add_printf(evbuf,
+		      "%s%s\n",
+		      type,
+		      (browse_item + 1));
+	    }
+	}
+      else
+	{
+	  while (((ret = db_query_fetch_string_sort(&qp, &browse_item, &sort_item)) == 0) && (browse_item))
+	    {
+		evbuffer_add_printf(evbuf,
+		      "%s%s\n",
+		      type,
+		      browse_item);
+	    }
 	}
     }
   else

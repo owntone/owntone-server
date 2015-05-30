@@ -27,26 +27,28 @@ enum sort_type {
   S_COMPOSER,
   S_DISC,
   S_TRACK,
+  S_VPATH,
 };
 
 #define Q_F_BROWSE (1 << 15)
 
 enum query_type {
-  Q_ITEMS            = (1 << 0),
-  Q_PL               = (1 << 1),
-  Q_PLITEMS          = (1 << 2),
-  Q_BROWSE_ARTISTS   = Q_F_BROWSE | (1 << 3),
-  Q_BROWSE_ALBUMS    = Q_F_BROWSE | (1 << 4),
-  Q_BROWSE_GENRES    = Q_F_BROWSE | (1 << 5),
-  Q_BROWSE_COMPOSERS = Q_F_BROWSE | (1 << 6),
-  Q_GROUP_ALBUMS     = (1 << 7),
-  Q_GROUP_ARTISTS    = (1 << 8),
-  Q_GROUP_ITEMS      = (1 << 9),
-  Q_GROUP_DIRS       = Q_F_BROWSE | (1 << 10),
-  Q_BROWSE_YEARS     = Q_F_BROWSE | (1 << 11),
-  Q_COUNT_ITEMS      = (1 << 12),
-  Q_BROWSE_DISCS     = Q_F_BROWSE | (1 << 13),
-  Q_BROWSE_TRACKS     = Q_F_BROWSE | (1 << 14),
+  Q_ITEMS            = 1,
+  Q_PL               = 2,
+  Q_PLITEMS          = 3,
+  Q_BROWSE_ARTISTS   = Q_F_BROWSE | 4,
+  Q_BROWSE_ALBUMS    = Q_F_BROWSE | 5,
+  Q_BROWSE_GENRES    = Q_F_BROWSE | 6,
+  Q_BROWSE_COMPOSERS = Q_F_BROWSE | 7,
+  Q_GROUP_ALBUMS     = 8,
+  Q_GROUP_ARTISTS    = 9,
+  Q_GROUP_ITEMS      = 10,
+  Q_GROUP_DIRS       = Q_F_BROWSE | 11,
+  Q_BROWSE_YEARS     = Q_F_BROWSE | 12,
+  Q_COUNT_ITEMS      = 13,
+  Q_BROWSE_DISCS     = Q_F_BROWSE | 14,
+  Q_BROWSE_TRACKS    = Q_F_BROWSE | 15,
+  Q_BROWSE_VPATH     = Q_F_BROWSE | 16,
 };
 
 #define ARTWORK_UNKNOWN   0

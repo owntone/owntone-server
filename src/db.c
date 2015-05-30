@@ -287,6 +287,7 @@ static const char *sort_clause[] =
     "ORDER BY f.composer_sort ASC",
     "ORDER BY f.disc ASC",
     "ORDER BY f.track ASC",
+    "ORDER BY f.virtual_path ASC",
   };
 
 static char *db_path;
@@ -1527,6 +1528,10 @@ db_query_start(struct query_params *qp)
 
       case Q_BROWSE_TRACKS:
 	ret = db_build_query_browse(qp, "track", "track", &query);
+	break;
+
+      case Q_BROWSE_VPATH:
+	ret = db_build_query_browse(qp, "virtual_path", "virtual_path", &query);
 	break;
 
       case Q_COUNT_ITEMS:
