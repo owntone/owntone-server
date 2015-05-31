@@ -588,7 +588,7 @@ fixup_tags(struct media_file_info *mfi)
       /* fname is left untouched by unicode_fixup_mfi() for
        * obvious reasons, so ensure it is proper UTF-8
        */
-      mfi->title = unicode_fixup_string(mfi->fname);
+      mfi->title = unicode_fixup_string(mfi->fname,"ascii");
       if (mfi->title == mfi->fname)
 	mfi->title = strdup(mfi->fname);
     }

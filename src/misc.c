@@ -486,8 +486,9 @@ m_realpath(const char *pathname)
   return ret;
 }
 
+
 char *
-unicode_fixup_string(char *str)
+unicode_fixup_string(char *str, const char *fromcode)
 {
   uint8_t *ret;
   size_t len;
@@ -510,7 +511,7 @@ unicode_fixup_string(char *str)
       return str;
     }
 
-  ret = u8_conv_from_encoding("ascii", iconveh_question_mark, str, len, NULL, NULL, &len);
+  ret = u8_conv_from_encoding(fromcode, iconveh_question_mark, str, len, NULL, NULL, &len);
   if (!ret)
     {
       DPRINTF(E_LOG, L_MISC, "Could not convert string '%s' to UTF-8: %s\n", str, strerror(errno));

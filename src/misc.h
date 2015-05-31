@@ -65,7 +65,7 @@ char *
 m_realpath(const char *pathname);
 
 char *
-unicode_fixup_string(char *str);
+unicode_fixup_string(char *str, const char *fromcode);
 
 char *
 trimwhitespace(const char *str);
