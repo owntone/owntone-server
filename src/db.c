@@ -4639,10 +4639,10 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
-#define SCHEMA_VERSION_MAJOR 18
+#define SCHEMA_VERSION_MAJOR 19
 #define SCHEMA_VERSION_MINOR 00
 #define Q_SCVER_MAJOR					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '18');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '19');"
 #define Q_SCVER_MINOR					\
   "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '00');"
 
@@ -5900,6 +5900,32 @@ static const struct db_init_query db_upgrade_v18_queries[] =
     { U_V18_SCVER_MINOR,    "set schema_version_minor to 00" },
   };
 
+/* Upgrade from schema v18.00 to v19.00 */
+/* Change virtual_path for playlists: remove file extension
+ */
+
+#define U_V19_UPDATE_PLAYLISTS_M3U						\
+  "UPDATE playlists SET virtual_path = replace(virtual_path, '.m3u', '');"
+#define U_V19_UPDATE_PLAYLISTS_PLS						\
+  "UPDATE playlists SET virtual_path = replace(virtual_path, '.pls', '');"
+#define U_V19_UPDATE_PLAYLISTS_SMARTPL						\
+    "UPDATE playlists SET virtual_path = replace(virtual_path, '.smartpl', '');"
+
+#define U_V19_SCVER_MAJOR			\
+  "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"
+#define U_V19_SCVER_MINOR			\
+  "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
+
+static const struct db_init_query db_upgrade_v19_queries[] =
+  {
+    { U_V19_UPDATE_PLAYLISTS_M3U, "update table playlists" },
+    { U_V19_UPDATE_PLAYLISTS_PLS, "update table playlists" },
+    { U_V19_UPDATE_PLAYLISTS_SMARTPL, "update table playlists" },
+
+    { U_V19_SCVER_MAJOR,    "set schema_version_major to 19" },
+    { U_V19_SCVER_MINOR,    "set schema_version_minor to 00" },
+  };
+
 static int
 db_upgrade(int db_ver)
 {
@@ -5989,6 +6015,13 @@ db_upgrade(int db_ver)
 
     case 1700:
       ret = db_generic_upgrade(db_upgrade_v18_queries, sizeof(db_upgrade_v18_queries) / sizeof(db_upgrade_v18_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1800:
+      ret = db_generic_upgrade(db_upgrade_v19_queries, sizeof(db_upgrade_v19_queries) / sizeof(db_upgrade_v19_queries[0]));
       if (ret < 0)
 	return -1;
 

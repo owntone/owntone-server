@@ -165,6 +165,7 @@ scan_smartpl(char *file, time_t mtime)
   struct playlist_info *pli;
   int pl_id;
   char virtual_path[PATH_MAX];
+  char *ptr;
   int ret;
 
   /* Fetch or create playlist */
@@ -182,6 +183,9 @@ scan_smartpl(char *file, time_t mtime)
 
       pli->path = strdup(file);
       snprintf(virtual_path, PATH_MAX, "/file:%s", file);
+      ptr = strrchr(virtual_path, '.');
+      if (ptr)
+	*ptr = '\0';
       pli->virtual_path = strdup(virtual_path);
       pli->type = PL_SMART;
     }
