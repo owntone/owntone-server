@@ -280,7 +280,7 @@ static const char *sort_clause[] =
     "",
     "ORDER BY f.title_sort ASC",
     "ORDER BY f.album_sort ASC, f.disc ASC, f.track ASC",
-    "ORDER BY f.album_artist_sort ASC",
+    "ORDER BY f.album_artist_sort ASC, f.album_sort ASC, f.disc ASC, f.track ASC",
     "ORDER BY f.type ASC, f.parent_id ASC, f.special_id ASC, f.title ASC",
     "ORDER BY f.year ASC",
     "ORDER BY f.genre ASC",
