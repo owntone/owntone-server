@@ -444,11 +444,11 @@ metadata_header_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
       */
 
       if ((strncmp(icy_token, "icy-name", strlen("icy-name")) == 0) && !metadata->name)
-	metadata->name = strdup(unicode_fixup_string(ptr,headerenc));
+	metadata->name = strdup(unicode_fixup_string(ptr, headerenc));
       else if ((strncmp(icy_token, "icy-description", strlen("icy-description")) == 0) && !metadata->description)
-	metadata->description = strdup(unicode_fixup_string(ptr,headerenc));
+	metadata->description = strdup(unicode_fixup_string(ptr, headerenc));
       else if ((strncmp(icy_token, "icy-genre", strlen("icy-genre")) == 0) && !metadata->genre)
-	metadata->genre = strdup(unicode_fixup_string(ptr,headerenc));
+	metadata->genre = strdup(unicode_fixup_string(ptr, headerenc));
 
       icy_token = strtok(NULL, "\r\n");
     }
