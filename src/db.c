@@ -465,7 +465,7 @@ unicode_fixup_mfi(struct media_file_info *mfi)
       if (!*field)
 	continue;
 
-      ret = unicode_fixup_string(*field);
+      ret = unicode_fixup_string(*field,"ascii");
       if (ret != *field)
 	{
 	  free(*field);
