@@ -3688,7 +3688,7 @@ db_admin_update(const char *key, const char *value)
 #define Q_TMPL "UPDATE admin SET value='%q' WHERE key='%q';"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, key, value);
+  query = sqlite3_mprintf(Q_TMPL, value, key);
 
   return db_query_run(query, 1, 0);
 #undef Q_TMPL
