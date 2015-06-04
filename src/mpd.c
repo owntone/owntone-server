@@ -2568,7 +2568,19 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   struct filelist_info *fi;
   struct media_file_info *mfi;
   char modified[32];
+  int print_playlists;
   int ret;
+
+  print_playlists = 0;
+  if (argc > 1 && strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1)
+    {
+      /*
+       * Special handling necessary if the root directory '/' is given.
+       * In this case additional to the directory contents the stored playlists will be returned.
+       * This behavior is deprecated in the mpd protocol but clients like ncmpccp or ympd uses it.
+       */
+      print_playlists = 1;
+    }
 
   if (argc < 2 || strlen(argv[1]) == 0
       || (strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1))
@@ -2652,6 +2664,12 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (fi)
     free_fi(fi, 0);
+
+  if (print_playlists)
+    {
+      // If the root directory was passed as argument add the stored playlists to the response
+      return mpd_command_listplaylists(evbuf, argc, argv, errmsg);
+    }
 
   return 0;
 }
