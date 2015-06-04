@@ -6025,7 +6025,7 @@ db_upgrade(int db_ver)
       /* FALLTHROUGH */
 
     case 1800:
-      ret = db_generic_upgrade(db_upgrade_V1801_queries, sizeof(db_upgrade_v1801_queries) / sizeof(db_upgrade_v1801_queries[0]));
+      ret = db_generic_upgrade(db_upgrade_v1801_queries, sizeof(db_upgrade_v1801_queries) / sizeof(db_upgrade_v1801_queries[0]));
       if (ret < 0)
 	return -1;
 
