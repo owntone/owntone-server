@@ -1766,6 +1766,12 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 	}
     }
 
+  if (start_pos < 0)
+    {
+      DPRINTF(E_DBG, L_MPD, "Command 'playlistinfo' called with pos < 0 (arg = '%s'), ignore arguments and return whole queue\n", argv[1]);
+      start_pos = 0;
+      end_pos = -1;
+    }
   queue = player_queue_get(start_pos, end_pos, 0);
 
   if (!queue)
