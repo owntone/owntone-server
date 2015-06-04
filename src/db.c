@@ -4639,12 +4639,16 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
+/* Rule of thumb: Will the current version of forked-daapd work with the new
+ * version of the database? If yes, then it is a minor upgrade, if no, then it 
+ * is a major upgrade. In other words minor version upgrades permit downgrading
+ * forked-daapd after the database was upgraded. */
 #define SCHEMA_VERSION_MAJOR 18
-#define SCHEMA_VERSION_MINOR 00
+#define SCHEMA_VERSION_MINOR 01
 #define Q_SCVER_MAJOR					\
   "INSERT INTO admin (key, value) VALUES ('schema_version_major', '18');"
 #define Q_SCVER_MINOR					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '00');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '01');"
 
 struct db_init_query {
   char *query;
@@ -5900,6 +5904,32 @@ static const struct db_init_query db_upgrade_v18_queries[] =
     { U_V18_SCVER_MINOR,    "set schema_version_minor to 00" },
   };
 
+/* Upgrade from schema v18.00 to v18.01 */
+/* Change virtual_path for playlists: remove file extension
+ */
+
+#define U_V1801_UPDATE_PLAYLISTS_M3U						\
+  "UPDATE playlists SET virtual_path = replace(virtual_path, '.m3u', '');"
+#define U_V1801_UPDATE_PLAYLISTS_PLS						\
+  "UPDATE playlists SET virtual_path = replace(virtual_path, '.pls', '');"
+#define U_V1801_UPDATE_PLAYLISTS_SMARTPL					\
+  "UPDATE playlists SET virtual_path = replace(virtual_path, '.smartpl', '');"
+
+#define U_V1801_SCVER_MAJOR			\
+  "UPDATE admin SET value = '18' WHERE key = 'schema_version_major';"
+#define U_V1801_SCVER_MINOR			\
+  "UPDATE admin SET value = '01' WHERE key = 'schema_version_minor';"
+
+static const struct db_init_query db_upgrade_v1801_queries[] =
+  {
+    { U_V1801_UPDATE_PLAYLISTS_M3U, "update table playlists" },
+    { U_V1801_UPDATE_PLAYLISTS_PLS, "update table playlists" },
+    { U_V1801_UPDATE_PLAYLISTS_SMARTPL, "update table playlists" },
+
+    { U_V1801_SCVER_MAJOR,    "set schema_version_major to 18" },
+    { U_V1801_SCVER_MINOR,    "set schema_version_minor to 01" },
+  };
+
 static int
 db_upgrade(int db_ver)
 {
@@ -5989,6 +6019,13 @@ db_upgrade(int db_ver)
 
     case 1700:
       ret = db_generic_upgrade(db_upgrade_v18_queries, sizeof(db_upgrade_v18_queries) / sizeof(db_upgrade_v18_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1800:
+      ret = db_generic_upgrade(db_upgrade_V1801_queries, sizeof(db_upgrade_v1801_queries) / sizeof(db_upgrade_v1801_queries[0]));
       if (ret < 0)
 	return -1;
 

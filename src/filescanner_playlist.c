@@ -167,6 +167,9 @@ scan_playlist(char *file, time_t mtime)
 
       pli->path = strdup(file);
       snprintf(virtual_path, PATH_MAX, "/file:%s", file);
+      ptr = strrchr(virtual_path, '.');
+      if (ptr)
+	*ptr = '\0';
       pli->virtual_path = strdup(virtual_path);
 
       ret = db_pl_add(pli, &pl_id);
