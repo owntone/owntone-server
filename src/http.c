@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <unistd.h>
+#include <uniconv.h>
 #include <stdlib.h>
 #include <string.h>
 #include <ctype.h>
@@ -64,16 +65,22 @@ static void
 headers_save(struct keyval *kv, struct evkeyvalq *headers)
 {
   const char *value;
+  uint8_t *utf;
   int i;
 
   if (!kv || !headers)
     return;
 
   for (i = 0; i < (sizeof(header_list) / sizeof(header_list[0])); i++)
-    {
-      if ( (value = evhttp_find_header(headers, header_list[i])) )
-	keyval_add(kv, header_list[i], value);
-    }
+    if ( (value = evhttp_find_header(headers, header_list[i])) )
+      {
+	utf = u8_strconv_from_encoding(value, "ISO−8859−1", iconveh_question_mark);
+	if (!utf)
+	  continue;
+
+	keyval_add(kv, header_list[i], (char *)utf);
+	free(utf);
+      }
   
 }
 
@@ -406,15 +413,23 @@ static int
 metadata_header_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 {
   uint8_t *buffer;
+  uint8_t *utf;
   char *icy_token;
   char *ptr;
-  const char *headerenc = "ISO−8859−1";
 
   av_opt_get(fmtctx, "icy_metadata_headers", AV_OPT_SEARCH_CHILDREN, &buffer);
   if (!buffer)
     return -1;
 
-  icy_token = strtok((char *)buffer, "\r\n");
+  /* Headers are ascii or iso-8859-1 according to:
+   * http://www.w3.org/Protocols/rfc2616/rfc2616-sec2.html#sec2.2
+   */
+  utf = u8_strconv_from_encoding((char *)buffer, "ISO−8859−1", iconveh_question_mark);
+  av_free(buffer);
+  if (!utf)
+    return -1;
+
+  icy_token = strtok((char *)utf, "\r\n");
   while (icy_token != NULL)
     {
       ptr = strchr(icy_token, ':');
@@ -428,31 +443,16 @@ metadata_header_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
       if (ptr[0] == ' ')
 	ptr++;
 
-
-      /*
-      Reference:
-      http://www.w3.org/Protocols/rfc2616/rfc2616-sec4.html#sec4.2
-      http://www.w3.org/Protocols/rfc2616/rfc2616-sec2.html#sec2.2
-
-      Based on rfc2616 the field-content is defined as follows: <the OCTETs making up the field-value
-      and consisting of either *TEXT or combinations of token, separators, and quoted-string>
-      The TEXT rule is only used for descriptive field contents and values that are not intended to be interpreted
-      by the message parser. Words of *TEXT MAY contain characters from character sets other than ISO- 8859-1
-      only when encoded according to the rules of RFC 2047.
-
-      Incoming icy header field-values should be encoded as "ISO−8859−1" before adding them to the metadata structure.
-      */
-
       if ((strncmp(icy_token, "icy-name", strlen("icy-name")) == 0) && !metadata->name)
-	metadata->name = strdup(unicode_fixup_string(ptr, headerenc));
+	metadata->name = strdup(ptr);
       else if ((strncmp(icy_token, "icy-description", strlen("icy-description")) == 0) && !metadata->description)
-	metadata->description = strdup(unicode_fixup_string(ptr, headerenc));
+	metadata->description = strdup(ptr);
       else if ((strncmp(icy_token, "icy-genre", strlen("icy-genre")) == 0) && !metadata->genre)
-	metadata->genre = strdup(unicode_fixup_string(ptr, headerenc));
+	metadata->genre = strdup(ptr);
 
       icy_token = strtok(NULL, "\r\n");
     }
-  av_free(buffer);
+  free(utf);
 
   return 0;
 }
