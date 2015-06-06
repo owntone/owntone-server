@@ -437,7 +437,7 @@ daap_sort_build(struct sort_ctx *ctx, char *str)
   len = strlen(str);
   if (len > 0)
     {
-      ret = u8_normalize(UNINORM_NFD, (uint8_t *)str, len, NULL, &len);
+      ret = u8_normalize(UNINORM_NFD, (uint8_t *)str, len + 1, NULL, &len);
       if (!ret)
 	{
 	  DPRINTF(E_LOG, L_DAAP, "Could not normalize string for sort header\n");
