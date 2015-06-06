@@ -511,7 +511,7 @@ unicode_fixup_string(char *str, const char *fromcode)
       return str;
     }
 
-  ret = u8_conv_from_encoding(fromcode, iconveh_question_mark, str, len, NULL, NULL, &len);
+  ret = u8_strconv_from_encoding(str, fromcode, iconveh_question_mark);
   if (!ret)
     {
       DPRINTF(E_LOG, L_MISC, "Could not convert string '%s' to UTF-8: %s\n", str, strerror(errno));
