@@ -755,6 +755,17 @@ metadata_check_icy(void)
 }
 
 /* Audio sources */
+
+/* Helper */
+static struct player_source *
+next_ps(struct player_source *ps, char shuffle)
+{
+  if (shuffle)
+    return ps->shuffle_next;
+  else
+    return ps->pl_next;
+}
+
 /* Thread: httpd (DACP) */
 struct player_source *
 player_queue_make(struct query_params *qp)
@@ -1449,7 +1460,7 @@ source_next(int force)
   if (!cur_streaming)
     ps = head;
   else
-    ps = (shuffle) ? cur_streaming->shuffle_next : cur_streaming->pl_next;
+    ps = next_ps(cur_streaming, shuffle);
 
   switch (r_mode)
     {
@@ -1600,25 +1611,39 @@ source_prev(void)
 }
 
 /*
- * Returns the position of the given song (ps) in the playqueue or shufflequeue.
+ * Returns the position of the given player_source (ps) in the playqueue or shufflequeue.
  * First song in the queue has position 0. Depending on the 'shuffle' argument,
  * the position is either determined in the playqueue or shufflequeue.
  *
- * @param ps the song to search in the queue
+ * @param ps the source to search in the queue
  * @param shuffle 0 search in the playqueue, 1 search in the shufflequeue
- * @return position 0-based in the queue
+ * @return position 0-based in the queue (-1 if not found)
  */
 static int
-source_position(struct player_source *ps, char shuffle)
+source_position(struct player_source *source, char shuffle)
 {
-  struct player_source *p;
+  struct player_source *ps;
+  struct player_source *head;
   int ret;
 
-  ret = 0;
-  for (p = (shuffle ? shuffle_head : source_head); p != ps; p = (shuffle ? p->shuffle_next : p->pl_next))
-    ret++;
+  head = shuffle ? shuffle_head : source_head;
+  if (!head)
+    return -1;
 
-  return ret;
+  if (source == head)
+    return 0;
+
+  ret = 0;
+  for (ps = next_ps(head, shuffle); ps != head; ps = next_ps(ps, shuffle))
+    {
+      ret++;
+      if (ps == source)
+	return ret;
+    }
+
+  DPRINTF(E_LOG, L_PLAYER, "Bug! source_position was given non-existent source\n");
+
+  return -1;
 }
 
 static uint32_t
@@ -2484,15 +2509,6 @@ playback_abort(void)
   status_update(PLAY_STOPPED);
 
   metadata_purge();
-}
-
-static struct player_source *
-next_ps(struct player_source *ps, char shuffle)
-{
-  if (shuffle)
-    return ps->shuffle_next;
-  else
-    return ps->pl_next;
 }
 
 /* Actual commands, executed in the player thread */
@@ -3954,7 +3970,7 @@ queue_move(struct player_command *cmd)
     if (i == cmd->arg.ps_pos[1])
       ps_dst = ps;
 
-    ps = shuffle ? ps->shuffle_next : ps->pl_next;
+    ps = next_ps(ps, shuffle);
   }
 
   if (!ps_src || !ps_dst || (ps_src == ps_dst))
@@ -3999,55 +4015,66 @@ static int
 queue_remove(struct player_command *cmd)
 {
   struct player_source *ps;
+  struct player_source *ps_current;
   uint32_t pos;
   uint32_t id;
   int i;
 
-  ps = cur_playing ? cur_playing : cur_streaming;
-  if (!ps)
-  {
-    DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming item not found\n");
-    return -1;
-  }
-
   if (cmd->arg.item_range.type == RANGEARG_ID)
     {
       id = cmd->arg.item_range.id;
-      DPRINTF(E_DBG, L_PLAYER, "Removing item with id %d\n", id);
-
+      pos = 0;
       if (id < 1)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid id %d\n", id);
 	  return -1;
 	}
-      else if (id == ps->id)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Can't remove current playing item, id %d\n", id);
-	  return -1;
-	}
 
-      ps = source_head->pl_next;
-      while (ps->id != id && ps != source_head)
-	{
-	  ps = ps->pl_next;
-	}
+      DPRINTF(E_DBG, L_PLAYER, "Removing item with id %d\n", id);
     }
   else
     {
+      id = 0;
       pos = cmd->arg.item_range.start_pos;
-      DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
-
       if (pos < 1)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid position %d\n", pos);
 	  return -1;
 	}
 
-      for (i = 0; i < pos; i++)
-	{
-	  ps = shuffle ? ps->shuffle_next : ps->pl_next;
-	}
+      DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
     }
+
+  ps_current = cur_playing ? cur_playing : cur_streaming;
+  if (!ps_current)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming item not found\n");
+      return -1;
+    }
+
+  i = 0;
+  ps = ps_current;
+  while (ps)
+    {
+      i++;
+      ps = next_ps(ps, shuffle);
+
+      if (ps == ps_current)
+	ps = NULL;
+      else if ((i == pos) || (ps->id == id))
+	break;
+    }
+
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove requested item from queue (id %d, pos %d)\n", id, pos);
+      return -1;
+    }
+
+  if (ps == source_head)
+    source_head = ps->pl_next;
+  if (ps == shuffle_head)
+    shuffle_head = ps->shuffle_next;
 
   ps->shuffle_prev->shuffle_next = ps->shuffle_next;
   ps->shuffle_next->shuffle_prev = ps->shuffle_prev;
