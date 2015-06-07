@@ -4049,6 +4049,18 @@ queue_remove(struct player_command *cmd)
 	}
     }
 
+  // Check if the item to remove is not the cur_playing or cur_streaming item
+  if (cur_playing && cur_playing->id == ps->id)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove current playing item, id %d\n", ps->id);
+      return -1;
+    }
+  if (cur_streaming && cur_streaming->id == ps->id)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove current streaming item, id %d\n", ps->id);
+      return -1;
+    }
+
   ps->shuffle_prev->shuffle_next = ps->shuffle_next;
   ps->shuffle_next->shuffle_prev = ps->shuffle_prev;
 
