@@ -1589,6 +1589,9 @@ db_query_run(char *query, int free, int cache_update)
 
   DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
 
+  /* If the query will be long running we don't want the cache to start regenerating */
+  cache_daap_suspend();
+
   ret = db_exec(query, &errmsg);
   if (ret != SQLITE_OK)
     DPRINTF(E_LOG, L_DB, "Error '%s' while runnning '%s'\n", errmsg, query);
@@ -1600,6 +1603,8 @@ db_query_run(char *query, int free, int cache_update)
 
   if (cache_update)
     cache_daap_trigger();
+  else
+    cache_daap_resume();
 
   return ((ret != SQLITE_OK) ? -1 : 0);
 }

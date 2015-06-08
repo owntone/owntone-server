@@ -15,6 +15,12 @@
 void
 cache_daap_trigger(void);
 
+void
+cache_daap_suspend(void);
+
+void
+cache_daap_resume(void);
+
 int
 cache_daap_get(const char *query, struct evbuffer *evbuf);
 

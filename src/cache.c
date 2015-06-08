@@ -103,6 +103,7 @@ struct stash
 
 // After being triggered wait 60 seconds before rebuilding cache
 static struct timeval g_wait = { 60, 0 };
+static int g_suspended;
 
 // The user may configure a threshold (in msec), and queries slower than
 // that will have their reply cached
@@ -936,6 +937,30 @@ cache_daap_update_timer(struct cache_command *cmd)
   return 0;
 }
 
+static int
+cache_daap_suspend_timer(struct cache_command *cmd)
+{
+  if (!g_cacheev)
+    return -1;
+
+  g_suspended = evtimer_pending(g_cacheev, NULL);
+  if (g_suspended)
+    evtimer_del(g_cacheev);
+
+  return 0;
+}
+
+static int
+cache_daap_resume_timer(struct cache_command *cmd)
+{
+  if (!g_cacheev)
+    return -1;
+
+  if (g_suspended)
+    evtimer_add(g_cacheev, &g_wait);
+
+  return 0;
+}
 
 /*
  * Updates cached timestamps to current time for all cache entries for the given path, if the file was not modfied
@@ -1400,6 +1425,54 @@ cache_daap_trigger(void)
   cmd->nonblock = 1;
 
   cmd->func = cache_daap_update_timer;
+
+  nonblock_command(cmd);
+}
+
+void
+cache_daap_suspend(void)
+{
+  struct cache_command *cmd;
+
+  if (!g_initialized)
+    return;
+
+  cmd = (struct cache_command *)malloc(sizeof(struct cache_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_command\n");
+      return;
+    }
+
+  memset(cmd, 0, sizeof(struct cache_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = cache_daap_suspend_timer;
+
+  nonblock_command(cmd);
+}
+
+void
+cache_daap_resume(void)
+{
+  struct cache_command *cmd;
+
+  if (!g_initialized)
+    return;
+
+  cmd = (struct cache_command *)malloc(sizeof(struct cache_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_command\n");
+      return;
+    }
+
+  memset(cmd, 0, sizeof(struct cache_command));
+
+  cmd->nonblock = 1;
+
+  cmd->func = cache_daap_resume_timer;
 
   nonblock_command(cmd);
 }
