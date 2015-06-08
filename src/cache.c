@@ -965,9 +965,7 @@ cache_artwork_ping_impl(struct cache_command *cmd)
     {
       DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-      return -1;
+      goto error_ping;
     }
 
   sqlite3_free(query);
@@ -983,16 +981,24 @@ cache_artwork_ping_impl(struct cache_command *cmd)
 	{
 	  DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
-	  sqlite3_free(errmsg);
-	  sqlite3_free(query);
-	  return -1;
+	  goto error_ping;
 	}
 
       sqlite3_free(query);
     }
 
+  free(cmd->arg.path);
+
   return 0;
 
+ error_ping:
+  sqlite3_free(errmsg);
+  sqlite3_free(query);
+
+  free(cmd->arg.path);
+
+  return -1;
+  
 #undef Q_TMPL_PING
 #undef Q_TMPL_DEL
 }
@@ -1468,27 +1474,31 @@ cache_daap_threshold(void)
  * @param del if > 0 cached entries for the given path are deleted if the cached timestamp (db_timestamp) is older than mtime
  * @return 0 if successful, -1 if an error occurred
  */
-int
+void
 cache_artwork_ping(char *path, time_t mtime, int del)
 {
-  struct cache_command cmd;
-  int ret;
+  struct cache_command *cmd;
 
   if (!g_initialized)
-    return -1;
+    return;
 
-  command_init(&cmd);
+  cmd = (struct cache_command *)malloc(sizeof(struct cache_command));
+  if (!cmd)
+    {
+      DPRINTF(E_LOG, L_CACHE, "Could not allocate cache_command\n");
+      return;
+    }
 
-  cmd.func = cache_artwork_ping_impl;
-  cmd.arg.path = strdup(path);
-  cmd.arg.mtime = mtime;
-  cmd.arg.del = del;
+  memset(cmd, 0, sizeof(struct cache_command));
 
-  ret = sync_command(&cmd);
+  cmd->nonblock = 1;
 
-  command_deinit(&cmd);
+  cmd->func = cache_artwork_ping_impl;
+  cmd->arg.path = strdup(path);
+  cmd->arg.mtime = mtime;
+  cmd->arg.del = del;
 
-  return ret;
+  nonblock_command(cmd);
 }
 
 /*

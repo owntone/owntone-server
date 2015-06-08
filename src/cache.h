@@ -30,7 +30,7 @@ cache_daap_threshold(void);
 #define CACHE_ARTWORK_GROUP 0
 #define CACHE_ARTWORK_INDIVIDUAL 1
 
-int
+void
 cache_artwork_ping(char *path, time_t mtime, int del);
 
 int
