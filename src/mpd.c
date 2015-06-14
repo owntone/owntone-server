@@ -111,6 +111,47 @@ enum command_list_type
   COMMAND_LIST_NONE = 3
 };
 
+/**
+ * This lists for ffmpeg suffixes and mime types are taken from the ffmpeg decoder plugin from mpd
+ * (FfmpegDecoderPlugin.cxx, git revision 9fb351a139a56fc7b1ece549894f8fc31fa887cd).
+ *
+ * forked-daapd does not support different decoders and always uses ffmpeg or libav for decoding.
+ * Some clients rely on a response for the decoder commands (e.g. ncmpccp) therefor return something
+ * valid for this command.
+ */
+static const char * const ffmpeg_suffixes[] = { "16sv", "3g2", "3gp", "4xm", "8svx", "aa3", "aac", "ac3", "afc", "aif",
+    "aifc", "aiff", "al", "alaw", "amr", "anim", "apc", "ape", "asf", "atrac", "au", "aud", "avi", "avm2", "avs", "bap",
+    "bfi", "c93", "cak", "cin", "cmv", "cpk", "daud", "dct", "divx", "dts", "dv", "dvd", "dxa", "eac3", "film", "flac",
+    "flc", "fli", "fll", "flx", "flv", "g726", "gsm", "gxf", "iss", "m1v", "m2v", "m2t", "m2ts", "m4a", "m4b", "m4v",
+    "mad", "mj2", "mjpeg", "mjpg", "mka", "mkv", "mlp", "mm", "mmf", "mov", "mp+", "mp1", "mp2", "mp3", "mp4", "mpc",
+    "mpeg", "mpg", "mpga", "mpp", "mpu", "mve", "mvi", "mxf", "nc", "nsv", "nut", "nuv", "oga", "ogm", "ogv", "ogx",
+    "oma", "ogg", "omg", "psp", "pva", "qcp", "qt", "r3d", "ra", "ram", "rl2", "rm", "rmvb", "roq", "rpl", "rvc", "shn",
+    "smk", "snd", "sol", "son", "spx", "str", "swf", "tgi", "tgq", "tgv", "thp", "ts", "tsp", "tta", "xa", "xvid", "uv",
+    "uv2", "vb", "vid", "vob", "voc", "vp6", "vmd", "wav", "webm", "wma", "wmv", "wsaud", "wsvga", "wv", "wve",
+    NULL
+};
+static const char * const ffmpeg_mime_types[] = { "application/flv", "application/m4a", "application/mp4",
+    "application/octet-stream", "application/ogg", "application/x-ms-wmz", "application/x-ms-wmd", "application/x-ogg",
+    "application/x-shockwave-flash", "application/x-shorten", "audio/8svx", "audio/16sv", "audio/aac", "audio/ac3",
+    "audio/aiff", "audio/amr", "audio/basic", "audio/flac", "audio/m4a", "audio/mp4", "audio/mpeg", "audio/musepack",
+    "audio/ogg", "audio/qcelp", "audio/vorbis", "audio/vorbis+ogg", "audio/x-8svx", "audio/x-16sv", "audio/x-aac",
+    "audio/x-ac3", "audio/x-aiff", "audio/x-alaw", "audio/x-au", "audio/x-dca", "audio/x-eac3", "audio/x-flac",
+    "audio/x-gsm", "audio/x-mace", "audio/x-matroska", "audio/x-monkeys-audio", "audio/x-mpeg", "audio/x-ms-wma",
+    "audio/x-ms-wax", "audio/x-musepack", "audio/x-ogg", "audio/x-vorbis", "audio/x-vorbis+ogg", "audio/x-pn-realaudio",
+    "audio/x-pn-multirate-realaudio", "audio/x-speex", "audio/x-tta", "audio/x-voc", "audio/x-wav", "audio/x-wma",
+    "audio/x-wv", "video/anim", "video/quicktime", "video/msvideo", "video/ogg", "video/theora", "video/webm",
+    "video/x-dv", "video/x-flv", "video/x-matroska", "video/x-mjpeg", "video/x-mpeg", "video/x-ms-asf",
+    "video/x-msvideo", "video/x-ms-wmv", "video/x-ms-wvx", "video/x-ms-wm", "video/x-ms-wmx", "video/x-nut",
+    "video/x-pva", "video/x-theora", "video/x-vid", "video/x-wmv", "video/x-xvid",
+
+    /* special value for the "ffmpeg" input plugin: all streams by
+     the "ffmpeg" input plugin shall be decoded by this
+     plugin */
+    "audio/x-mpd-ffmpeg",
+
+    NULL
+};
+
 struct output
 {
   unsigned short shortid;
@@ -1766,6 +1807,12 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 	}
     }
 
+  if (start_pos < 0)
+    {
+      DPRINTF(E_DBG, L_MPD, "Command 'playlistinfo' called with pos < 0 (arg = '%s'), ignore arguments and return whole queue\n", argv[1]);
+      start_pos = 0;
+      end_pos = -1;
+    }
   queue = player_queue_get(start_pos, end_pos, 0);
 
   if (!queue)
@@ -2521,7 +2568,19 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   struct filelist_info *fi;
   struct media_file_info *mfi;
   char modified[32];
+  int print_playlists;
   int ret;
+
+  print_playlists = 0;
+  if (argc > 1 && strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1)
+    {
+      /*
+       * Special handling necessary if the root directory '/' is given.
+       * In this case additional to the directory contents the stored playlists will be returned.
+       * This behavior is deprecated in the mpd protocol but clients like ncmpccp or ympd uses it.
+       */
+      print_playlists = 1;
+    }
 
   if (argc < 2 || strlen(argv[1]) == 0
       || (strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1))
@@ -2605,6 +2664,12 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (fi)
     free_fi(fi, 0);
+
+  if (print_playlists)
+    {
+      // If the root directory was passed as argument add the stored playlists to the response
+      return mpd_command_listplaylists(evbuf, argc, argv, errmsg);
+    }
 
   return 0;
 }
@@ -3258,6 +3323,32 @@ mpd_command_tagtypes(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return 0;
 }
 
+/*
+ * Command handler function for 'decoders'
+ * MPD returns the decoder plugins with their supported suffix and mime types.
+ *
+ * forked-daapd only uses libav/ffmepg for decoding and does not support decoder plugins,
+ * therefor the function reports only ffmpeg as available.
+ */
+static int
+mpd_command_decoders(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  int i;
+
+  evbuffer_add_printf(evbuf, "plugin: ffmpeg\n");
+
+  for (i = 0; ffmpeg_suffixes[i]; i++)
+    {
+      evbuffer_add_printf(evbuf, "suffix: %s\n", ffmpeg_suffixes[i]);
+    }
+
+  for (i = 0; ffmpeg_suffixes[i]; i++)
+    {
+      evbuffer_add_printf(evbuf, "mime_type: %s\n", ffmpeg_mime_types[i]);
+    }
+
+  return 0;
+}
 
 struct command
 {
@@ -3710,12 +3801,10 @@ static struct command mpd_handlers[] =
       .mpdcommand = "urlhandlers",
       .handler = mpd_command_ignore
     },
-    /*
     {
       .mpdcommand = "decoders",
       .handler = mpd_command_decoders
     },
-     */
 
     /*
      * Client to client
