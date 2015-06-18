@@ -307,6 +307,9 @@ http_stream_setup(char **stream, const char *url)
       return -1;
     }
 
+  // Pad with CRLF because evbuffer_readln() might not read the last line otherwise
+  evbuffer_add(ctx.body, "\r\n", 2);
+
   /* Read the playlist until the first stream link is found, but give up if
    * nothing is found in the first 10 lines
    */
