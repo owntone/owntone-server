@@ -684,6 +684,7 @@ artwork_get_player_image(struct evbuffer *evbuf, char *path)
   struct keyval *kv;
   const char *content_type;
   char *url;
+  char *ext;
   int format;
   int id;
   int len;
@@ -702,6 +703,12 @@ artwork_get_player_image(struct evbuffer *evbuf, char *path)
 
   len = strlen(url);
   if ((len < 14) || (len > PATH_MAX)) // Can't be shorter than http://a/1.jpg
+    goto out_url;
+
+  ext = strrchr(url, '.');
+  if (!ext)
+    goto out_url;
+  if ((strcmp(ext, ".jpg") != 0) && (strcmp(ext, ".png") != 0))
     goto out_url;
 
   cache_artwork_read(evbuf, url, &format);
