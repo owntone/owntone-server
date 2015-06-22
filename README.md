@@ -1,9 +1,11 @@
 # forked-daapd
 
-forked-daapd is a Linux/FreeBSD DAAP (iTunes) and RSP (Roku) media server.
+forked-daapd is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
+RSP (Roku) media server.
 
 It has support for AirPlay devices/speakers, Apple Remote (and compatibles),
-internet radio, Spotify and LastFM. It does not support AirPlay video.
+MPD clients, internet radio, Spotify and LastFM. It does not support AirPlay
+video.
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
