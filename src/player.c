@@ -642,6 +642,17 @@ playcount_inc_cb(void *arg)
   db_file_inc_playcount(*id);
 }
 
+#ifdef LASTFM
+/* Callback from the worker thread (async operation as it may block) */
+static void
+scrobble_cb(void *arg)
+{
+  int *id = arg;
+
+  lastfm_scrobble(*id);
+}
+#endif
+
 /* Callback from the worker thread
  * This prepares metadata in the worker thread, since especially the artwork
  * retrieval may take some time. raop_metadata_prepare() is thread safe. The
@@ -1762,7 +1773,7 @@ source_check(void)
       id = (int)cur_playing->id;
       worker_execute(playcount_inc_cb, &id, sizeof(int), 5);
 #ifdef LASTFM
-      lastfm_scrobble(id);
+      worker_execute(scrobble_cb, &id, sizeof(int), 8);
 #endif
 
       /* Stop playback if:

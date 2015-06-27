@@ -68,7 +68,7 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "worker.h"
 
 #ifdef LASTFM
-# include "lastfm.h"
+# include <curl/curl.h>
 #endif
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
@@ -590,6 +590,11 @@ main(int argc, char **argv)
 #endif
   av_log_set_callback(logger_ffmpeg);
 
+#ifdef LASTFM
+  /* Initialize libcurl */
+  curl_global_init(CURL_GLOBAL_DEFAULT);
+#endif
+
   /* Initialize libgcrypt */
   gcry_control(GCRYCTL_SET_THREAD_CBS, &gcry_threads_pthread);
 
@@ -837,10 +842,6 @@ main(int argc, char **argv)
   player_deinit();
 
  player_fail:
-#ifdef LASTFM
-  DPRINTF(E_LOG, L_MAIN, "LastFM deinit\n");
-  lastfm_deinit();
-#endif
 #ifdef HAVE_SPOTIFY_H
   DPRINTF(E_LOG, L_MAIN, "Spotify deinit\n");
   spotify_deinit();
@@ -885,6 +886,9 @@ main(int argc, char **argv)
 
  signal_block_fail:
  gcrypt_init_fail:
+#ifdef LASTFM
+  curl_global_cleanup();
+#endif
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 13)
   avformat_network_deinit();
 #endif

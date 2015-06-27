@@ -28,11 +28,9 @@
 #include <unistd.h>
 #include <time.h>
 #include <string.h>
-#include <pthread.h>
 
 #include <gcrypt.h>
 #include <mxml.h>
-#include <event2/event.h>
 #include <event2/buffer.h>
 #include <event2/http.h>
 #include <curl/curl.h>
@@ -43,28 +41,6 @@
 #include "misc.h"
 
 
-struct lastfm_command;
-
-typedef int (*cmd_func)(struct lastfm_command *cmd);
-
-struct lastfm_command
-{
-  pthread_mutex_t lck;
-  pthread_cond_t cond;
-
-  cmd_func func;
-
-  int nonblock;
-
-  union {
-    void *noarg;
-    int id;
-    struct keyval *kv;
-  } arg;
-
-  int ret;
-};
-
 struct https_client_ctx
 {
   const char *url;
@@ -72,37 +48,22 @@ struct https_client_ctx
   struct evbuffer *data;
 };
 
-
-/* --- Globals --- */
-// lastfm thread
-static pthread_t tid_lastfm;
-
-// Event base, pipes and events
-struct event_base *evbase_lastfm;
-static int g_exit_pipe[2];
-static int g_cmd_pipe[2];
-static struct event *g_exitev;
-static struct event *g_cmdev;
-
-// Tells us if the LastFM thread has been set up
-static int g_initialized = 0;
-
 // LastFM becomes disabled if we get a scrobble, try initialising session,
 // but can't (probably no session key in db because user does not use LastFM)
-static int g_disabled = 0;
+static int lastfm_disabled = 0;
 
 /**
  * The API key and secret (not so secret being open source) is specific to 
  * forked-daapd, and is used to identify forked-daapd and to sign requests
  */
-const char *g_api_key = "579593f2ed3f49673c7364fd1c9c829b";
-const char *g_secret = "ce45a1d275c10b3edf0ecfa27791cb2b";
+const char *lastfm_api_key = "579593f2ed3f49673c7364fd1c9c829b";
+const char *lastfm_secret = "ce45a1d275c10b3edf0ecfa27791cb2b";
 
 const char *api_url = "http://ws.audioscrobbler.com/2.0/";
 const char *auth_url = "https://ws.audioscrobbler.com/2.0/";
 
 // Session key
-char *g_session_key = NULL;
+char *lastfm_session_key = NULL;
 
 
 
@@ -285,7 +246,7 @@ param_sign(struct keyval *kv)
       gcry_md_write(md_hdl, okv->value, strlen(okv->value));
     }  
 
-  gcry_md_write(md_hdl, g_secret, strlen(g_secret));
+  gcry_md_write(md_hdl, lastfm_secret, strlen(lastfm_secret));
 
   hash_bytes = gcry_md_read(md_hdl, GCRY_MD_MD5);
   if (!hash_bytes)
@@ -325,57 +286,7 @@ mxmlGetOpaque(mxml_node_t *node)	/* I - Node to get */
 }
 #endif
 
-/* ---------------------------- COMMAND EXECUTION -------------------------- */
-
-static int
-send_command(struct lastfm_command *cmd)
-{
-  int ret;
-
-  if (!cmd->func)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "BUG: cmd->func is NULL!\n");
-      return -1;
-    }
-
-  ret = write(g_cmd_pipe[1], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not send command: %s\n", strerror(errno));
-      return -1;
-    }
-
-  return 0;
-}
-
-static int
-nonblock_command(struct lastfm_command *cmd)
-{
-  int ret;
-
-  ret = send_command(cmd);
-  if (ret < 0)
-    return -1;
-
-  return 0;
-}
-
-/* Thread: main */
-static void
-thread_exit(void)
-{
-  int dummy = 42;
-
-  DPRINTF(E_DBG, L_LASTFM, "Killing lastfm thread\n");
-
-  if (write(g_exit_pipe[1], &dummy, sizeof(dummy)) != sizeof(dummy))
-    DPRINTF(E_LOG, L_LASTFM, "Could not write to exit fd: %s\n", strerror(errno));
-}
-
-
-
 /* --------------------------------- MAIN --------------------------------- */
-/*                              Thread: lastfm                              */
 
 static size_t
 request_cb(char *ptr, size_t size, size_t nmemb, void *userdata)
@@ -460,10 +371,10 @@ response_proces(struct https_client_ctx *ctx)
       DPRINTF(E_LOG, L_LASTFM, "Got session key from LastFM: %s\n", sk);
       db_admin_add("lastfm_sk", sk);
 
-      if (g_session_key)
-	free(g_session_key);
+      if (lastfm_session_key)
+	free(lastfm_session_key);
 
-      g_session_key = sk;
+      lastfm_session_key = sk;
     }
 
   mxmlDelete(tree);
@@ -529,7 +440,7 @@ request_post(char *method, struct keyval *kv, int auth)
     return -1;
 
   if (!auth)
-    ret = keyval_add(kv, "sk", g_session_key);
+    ret = keyval_add(kv, "sk", lastfm_session_key);
   if (ret < 0)
     return -1;
 
@@ -559,17 +470,7 @@ request_post(char *method, struct keyval *kv, int auth)
 }
 
 static int
-login(struct lastfm_command *cmd)
-{
-  request_post("auth.getMobileSession", cmd->arg.kv, 1);
-
-  keyval_clear(cmd->arg.kv);
-
-  return 0;
-}
-
-static int
-scrobble(struct lastfm_command *cmd)
+scrobble(int id)
 {
   struct media_file_info *mfi;
   struct keyval *kv;
@@ -578,10 +479,10 @@ scrobble(struct lastfm_command *cmd)
   char timestamp[16];
   int ret;
 
-  mfi = db_file_fetch_byid(cmd->arg.id);
+  mfi = db_file_fetch_byid(id);
   if (!mfi)
     {
-      DPRINTF(E_LOG, L_LASTFM, "Scrobble failed, track id %d is unknown\n", cmd->arg.id);
+      DPRINTF(E_LOG, L_LASTFM, "Scrobble failed, track id %d is unknown\n", id);
       return -1;
     }
 
@@ -605,8 +506,8 @@ scrobble(struct lastfm_command *cmd)
   snprintf(trackNumber, sizeof(trackNumber), "%" PRIu32, mfi->track);
   snprintf(timestamp, sizeof(timestamp), "%" PRIi64, (int64_t)time(NULL));
 
-  ret = ( (keyval_add(kv, "api_key", g_api_key) == 0) &&
-          (keyval_add(kv, "sk", g_session_key) == 0) &&
+  ret = ( (keyval_add(kv, "api_key", lastfm_api_key) == 0) &&
+          (keyval_add(kv, "sk", lastfm_session_key) == 0) &&
           (keyval_add(kv, "artist", mfi->artist) == 0) &&
           (keyval_add(kv, "track", mfi->title) == 0) &&
           (keyval_add(kv, "album", mfi->album) == 0) &&
@@ -621,16 +522,18 @@ scrobble(struct lastfm_command *cmd)
   if (!ret)
     {
       keyval_clear(kv);
+      free(kv);
       return -1;
     }
 
   DPRINTF(E_INFO, L_LASTFM, "Scrobbling '%s' by '%s'\n", keyval_get(kv, "track"), keyval_get(kv, "artist"));
 
-  request_post("track.scrobble", kv, 0);
+  ret = request_post("track.scrobble", kv, 0);
 
   keyval_clear(kv);
+  free(kv);
 
-  return 0;
+  return ret;
 
  noscrobble:
   free_mfi(mfi, 0);
@@ -640,96 +543,12 @@ scrobble(struct lastfm_command *cmd)
 
 
 
-static void *
-lastfm(void *arg)
-{
-  int ret;
-
-  DPRINTF(E_DBG, L_LASTFM, "Main loop initiating\n");
-
-  ret = db_perthread_init();
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Error: DB init failed\n");
-      pthread_exit(NULL);
-    }
-
-  event_base_dispatch(evbase_lastfm);
-
-  if (g_initialized)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "LastFM event loop terminated ahead of time!\n");
-      g_initialized = 0;
-    }
-
-  db_perthread_deinit();
-
-  DPRINTF(E_DBG, L_LASTFM, "Main loop terminating\n");
-
-  pthread_exit(NULL);
-}
-
-static void
-exit_cb(int fd, short what, void *arg)
-{
-  int dummy;
-  int ret;
-
-  ret = read(g_exit_pipe[0], &dummy, sizeof(dummy));
-  if (ret != sizeof(dummy))
-    DPRINTF(E_LOG, L_LASTFM, "Error reading from exit pipe\n");
-
-  event_base_loopbreak(evbase_lastfm);
-
-  g_initialized = 0;
-
-  event_add(g_exitev, NULL);
-}
-
-static void
-command_cb(int fd, short what, void *arg)
-{
-  struct lastfm_command *cmd;
-  int ret;
-
-  ret = read(g_cmd_pipe[0], &cmd, sizeof(cmd));
-  if (ret != sizeof(cmd))
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not read command! (read %d): %s\n", ret, (ret < 0) ? strerror(errno) : "-no error-");
-      goto readd;
-    }
-
-  if (cmd->nonblock)
-    {
-      cmd->func(cmd);
-
-      free(cmd);
-      goto readd;
-    }
-
-  pthread_mutex_lock(&cmd->lck);
-
-  ret = cmd->func(cmd);
-  cmd->ret = ret;
-
-  pthread_cond_signal(&cmd->cond);
-  pthread_mutex_unlock(&cmd->lck);
-
- readd:
-  event_add(g_cmdev, NULL);
-}
-
-
 /* ---------------------------- Our lastfm API  --------------------------- */
 
-static int
-lastfm_init(void);
-
 /* Thread: filescanner */
-void
+int
 lastfm_login(char *path)
 {
-  struct lastfm_command *cmd;
   struct keyval *kv;
   char *username;
   char *password;
@@ -738,252 +557,66 @@ lastfm_login(char *path)
   DPRINTF(E_DBG, L_LASTFM, "Got LastFM login request\n");
 
   // Delete any existing session key
-  if (g_session_key)
-    free(g_session_key);
+  if (lastfm_session_key)
+    free(lastfm_session_key);
 
-  g_session_key = NULL;
+  lastfm_session_key = NULL;
 
   db_admin_delete("lastfm_sk");
 
   // Read the credentials file
   ret = credentials_read(path, &username, &password);
   if (ret < 0)
-    return;
+    return -1;
 
   // Enable LastFM now that we got a login attempt
-  g_disabled = 0;
+  lastfm_disabled = 0;
 
   kv = keyval_alloc();
   if (!kv)
     {
       free(username);
       free(password);
-      return;
+      return -1;
     }
 
-  ret = ( (keyval_add(kv, "api_key", g_api_key) == 0) &&
+  ret = ( (keyval_add(kv, "api_key", lastfm_api_key) == 0) &&
           (keyval_add(kv, "username", username) == 0) &&
           (keyval_add(kv, "password", password) == 0) );
 
   free(username);
   free(password);
 
-  if (!ret)
-    {
-      keyval_clear(kv);
-      return;
-    }
+  // Send the login request
+  ret = request_post("auth.getMobileSession", kv, 1);
 
-  // Spawn thread
-  ret = lastfm_init();
-  if (ret < 0)
-    {
-      g_disabled = 1;
-      return;
-    }
-  g_initialized = 1;
+  keyval_clear(kv);
+  free(kv);
 
-  // Send login command to the thread
-  cmd = (struct lastfm_command *)malloc(sizeof(struct lastfm_command));
-  if (!cmd)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not allocate lastfm_command\n");
-      return;
-    }
-
-  memset(cmd, 0, sizeof(struct lastfm_command));
-
-  cmd->nonblock = 1;
-  cmd->func = login;
-  cmd->arg.kv = kv;
-
-  nonblock_command(cmd);
-
-  return;
+  return ret;
 }
 
-/* Thread: http and player */
+/* Thread: worker */
 int
 lastfm_scrobble(int id)
 {
-  struct lastfm_command *cmd;
-  int ret;
-
   DPRINTF(E_DBG, L_LASTFM, "Got LastFM scrobble request\n");
 
   // LastFM is disabled because we already tried looking for a session key, but failed
-  if (g_disabled)
+  if (lastfm_disabled)
     return -1;
 
   // No session key in mem or in db
-  if (!g_session_key)
-    g_session_key = db_admin_get("lastfm_sk");
+  if (!lastfm_session_key)
+    lastfm_session_key = db_admin_get("lastfm_sk");
 
-  if (!g_session_key)
+  if (!lastfm_session_key)
     {
       DPRINTF(E_INFO, L_LASTFM, "No valid LastFM session key\n");
-      g_disabled = 1;
+      lastfm_disabled = 1;
       return -1;
     }
 
-  // Spawn LastFM thread
-  ret = lastfm_init();
-  if (ret < 0)
-    {
-      g_disabled = 1;
-      return -1;
-    }
-  g_initialized = 1;
-
-  // Send scrobble command to the thread
-  cmd = (struct lastfm_command *)malloc(sizeof(struct lastfm_command));
-  if (!cmd)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not allocate lastfm_command\n");
-      return -1;
-    }
-
-  memset(cmd, 0, sizeof(struct lastfm_command));
-
-  cmd->nonblock = 1;
-  cmd->func = scrobble;
-  cmd->arg.id = id;
-
-  nonblock_command(cmd);
-
-  return 0;
+  return scrobble(id);
 }
 
-static int
-lastfm_init(void)
-{
-  int ret;
-
-  if (g_initialized)
-    return 0;
-
-  curl_global_init(CURL_GLOBAL_DEFAULT);
-
-# if defined(__linux__)
-  ret = pipe2(g_exit_pipe, O_CLOEXEC);
-# else
-  ret = pipe(g_exit_pipe);
-# endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not create pipe: %s\n", strerror(errno));
-      goto exit_fail;
-    }
-
-# if defined(__linux__)
-  ret = pipe2(g_cmd_pipe, O_CLOEXEC);
-# else
-  ret = pipe(g_cmd_pipe);
-# endif
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not create command pipe: %s\n", strerror(errno));
-      goto cmd_fail;
-    }
-
-  evbase_lastfm = event_base_new();
-  if (!evbase_lastfm)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not create an event base\n");
-      goto evbase_fail;
-    }
-
-#ifdef HAVE_LIBEVENT2
-  g_exitev = event_new(evbase_lastfm, g_exit_pipe[0], EV_READ, exit_cb, NULL);
-  if (!g_exitev)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not create exit event\n");
-      goto evnew_fail;
-    }
-
-  g_cmdev = event_new(evbase_lastfm, g_cmd_pipe[0], EV_READ, command_cb, NULL);
-  if (!g_cmdev)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not create cmd event\n");
-      goto evnew_fail;
-    }
-#else
-  g_exitev = (struct event *)malloc(sizeof(struct event));
-  if (!g_exitev)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not create exit event\n");
-      goto evnew_fail;
-    }
-  event_set(g_exitev, g_exit_pipe[0], EV_READ, exit_cb, NULL);
-  event_base_set(evbase_lastfm, g_exitev);
-
-  g_cmdev = (struct event *)malloc(sizeof(struct event));
-  if (!g_cmdev)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not create cmd event\n");
-      goto evnew_fail;
-    }
-  event_set(g_cmdev, g_cmd_pipe[0], EV_READ, command_cb, NULL);
-  event_base_set(evbase_lastfm, g_cmdev);
-#endif
-
-  event_add(g_exitev, NULL);
-  event_add(g_cmdev, NULL);
-
-  DPRINTF(E_INFO, L_LASTFM, "LastFM thread init\n");
-
-  ret = pthread_create(&tid_lastfm, NULL, lastfm, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_LASTFM, "Could not spawn LastFM thread: %s\n", strerror(errno));
-
-      goto thread_fail;
-    }
-
-  return 0;
-  
- thread_fail:
- evnew_fail:
-  event_base_free(evbase_lastfm);
-  evbase_lastfm = NULL;
-
- evbase_fail:
-  close(g_cmd_pipe[0]);
-  close(g_cmd_pipe[1]);
-
- cmd_fail:
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
-
- exit_fail:
-  return -1;
-}
-
-void
-lastfm_deinit(void)
-{
-  int ret;
-
-  if (!g_initialized)
-    return;
-
-  curl_global_cleanup();
-
-  thread_exit();
-
-  ret = pthread_join(tid_lastfm, NULL);
-  if (ret != 0)
-    {
-      DPRINTF(E_FATAL, L_LASTFM, "Could not join lastfm thread: %s\n", strerror(errno));
-      return;
-    }
-
-  // Free event base (should free events too)
-  event_base_free(evbase_lastfm);
-
-  // Close pipes
-  close(g_cmd_pipe[0]);
-  close(g_cmd_pipe[1]);
-  close(g_exit_pipe[0]);
-  close(g_exit_pipe[1]);
-}
