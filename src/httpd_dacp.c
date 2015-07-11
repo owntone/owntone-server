@@ -48,6 +48,7 @@
 #include "httpd_dacp.h"
 #include "dmap_common.h"
 #include "db.h"
+#include "daap_query.h"
 #include "player.h"
 #include "listener.h"
 
@@ -751,6 +752,214 @@ dacp_reply_ctrlint(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
   dmap_add_long(evbuf, "ceSX", (1 << 1 | 1));  /* 16, unknown dacp - lowest bit announces support for playqueue-contents/-edit */
 
   httpd_send_reply(req, HTTP_OK, "OK", evbuf);
+}
+
+static int
+find_first_song_id(const char *query)
+{
+  struct db_media_file_info dbmfi;
+  struct query_params qp;
+  int id;
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  /* We only want the id of the first song */
+  qp.type = Q_ITEMS;
+  qp.idx_type = I_FIRST;
+  qp.sort = S_NONE;
+  qp.offset = 0;
+  qp.limit = 1;
+  qp.filter = daap_query_parse_sql(query);
+  if (!qp.filter)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Improper DAAP query!\n");
+
+      return -1;
+    }
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not start query\n");
+
+      goto no_query_start;
+    }
+
+  if (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      ret = safe_atoi32(dbmfi.id, &id);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Invalid song id in query result!\n");
+
+	  goto no_result;
+	}
+
+      DPRINTF(E_DBG, L_PLAYER, "Found index song (id %d)\n", id);
+      ret = 1;
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_PLAYER, "No song matches query (results %d): %s\n", qp.results, qp.filter);
+
+      goto no_result;
+    }
+
+ no_result:
+  db_query_end(&qp);
+
+ no_query_start:
+  if (qp.filter)
+    free(qp.filter);
+
+  if (ret == 1)
+    return id;
+  else
+    return -1;
+}
+
+
+/* Thread: httpd (DACP) */
+int
+player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk)
+{
+  struct media_file_info *mfi;
+  struct query_params qp;
+  struct player_source *ps;
+  int64_t albumid;
+  int64_t artistid;
+  int plid;
+  int id;
+  int idx;
+  int ret;
+  int len;
+  char *s;
+  char buf[1024];
+
+  if (query)
+    {
+      id = find_first_song_id(query);
+      if (id < 0)
+        return -1;
+    }
+  else
+    id = 0;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.offset = 0;
+  qp.limit = 0;
+  qp.sort = S_NONE;
+  qp.idx_type = I_NONE;
+
+  if (quirk)
+    {
+      qp.sort = S_ALBUM;
+      qp.type = Q_ITEMS;
+      mfi = db_file_fetch_byid(id);
+      if (!mfi)
+	return -1;
+      snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, mfi->songalbumid);
+      free_mfi(mfi, 0);
+      qp.filter = strdup(buf);
+    }
+  else if (queuefilter)
+    {
+      len = strlen(queuefilter);
+      if ((len > 6) && (strncmp(queuefilter, "album:", 6) == 0))
+	{
+	  qp.type = Q_ITEMS;
+	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &albumid);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_PLAYER, "Invalid album id in queuefilter: %s\n", queuefilter);
+
+	      return -1;
+	    }
+	  snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, albumid);
+	  qp.filter = strdup(buf);
+	}
+      else if ((len > 7) && (strncmp(queuefilter, "artist:", 7) == 0))
+	{
+	  qp.type = Q_ITEMS;
+	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &artistid);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_PLAYER, "Invalid artist id in queuefilter: %s\n", queuefilter);
+
+	      return -1;
+	    }
+	  snprintf(buf, sizeof(buf), "f.songartistid = %" PRIi64, artistid);
+	  qp.filter = strdup(buf);
+	}
+      else if ((len > 9) && (strncmp(queuefilter, "playlist:", 9) == 0))
+	{
+	  qp.type = Q_PLITEMS;
+	  ret = safe_atoi32(strchr(queuefilter, ':') + 1, &plid);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_PLAYER, "Invalid playlist id in queuefilter: %s\n", queuefilter);
+
+	      return -1;
+	    }
+	  qp.id = plid;
+	  qp.filter = strdup("1 = 1");
+	}
+      else if ((len > 6) && (strncmp(queuefilter, "genre:", 6) == 0))
+	{
+	  qp.type = Q_ITEMS;
+	  s = db_escape_string(queuefilter + 6);
+	  if (!s)
+	    return -1;
+	  snprintf(buf, sizeof(buf), "f.genre = '%s'", s);
+	  qp.filter = strdup(buf);
+	}
+      else
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Unknown queuefilter %s\n", queuefilter);
+
+	  // If the queuefilter is unkown, ignore it and use the query parameter instead to build the sql query
+	  id = 0;
+	  qp.type = Q_ITEMS;
+	  qp.filter = daap_query_parse_sql(query);
+	}
+    }
+  else
+    {
+      id = 0;
+      qp.type = Q_ITEMS;
+      qp.filter = daap_query_parse_sql(query);
+    }
+
+  if (sort)
+    {
+      if (strcmp(sort, "name") == 0)
+	qp.sort = S_NAME;
+      else if (strcmp(sort, "album") == 0)
+	qp.sort = S_ALBUM;
+      else if (strcmp(sort, "artist") == 0)
+	qp.sort = S_ARTIST;
+    }
+
+  ps = player_queue_make(&qp);
+
+  if (qp.filter)
+    free(qp.filter);
+
+  if (ps)
+    *head = ps;
+  else
+    return -1;
+
+  idx = 0;
+  while (id && ps && ps->pl_next && (ps->id != id) && (ps->pl_next != *head))
+    {
+      idx++;
+      ps = ps->pl_next;
+    }
+
+  return idx;
 }
 
 static void

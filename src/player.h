@@ -185,14 +185,14 @@ player_shuffle_set(int enable);
 struct player_source *
 player_queue_make(struct query_params *qp);
 
-int
-player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk);
+//int
+//player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk);
 
 struct player_source *
 player_queue_make_pl(int plid, uint32_t *id);
 
-struct player_source *
-player_queue_make_mpd(char *path, int recursive);
+//struct player_source *
+//player_queue_make_mpd(char *path, int recursive);
 
 struct player_queue *
 player_queue_get(int start_pos, int end_pos, char shuffle);

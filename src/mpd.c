@@ -1506,6 +1506,37 @@ mpd_command_stop(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   return 0;
 }
 
+struct player_source *
+player_queue_make_mpd(char *path, int recursive)
+{
+  struct query_params qp;
+  struct player_source *ps;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_ITEMS;
+  qp.idx_type = I_NONE;
+  qp.sort = S_ALBUM;
+
+  if (recursive)
+    {
+      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q%%'", path);
+      if (!qp.filter)
+	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
+    }
+  else
+    {
+      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q'", path);
+      if (!qp.filter)
+	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
+    }
+
+  ps = player_queue_make(&qp);
+
+  sqlite3_free(qp.filter);
+  return ps;
+}
+
 /*
  * Command handler function for 'add'
  * Adds the all songs under the given path to the end of the playqueue (directories add recursively).
