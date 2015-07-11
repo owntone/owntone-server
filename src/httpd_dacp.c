@@ -820,9 +820,8 @@ find_first_song_id(const char *query)
 }
 
 
-/* Thread: httpd (DACP) */
-int
-player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk)
+static int
+make_queue_for_query(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk)
 {
   struct media_file_info *mfi;
   struct query_params qp;
@@ -998,7 +997,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       sort = evhttp_find_header(query, "sort");
 
-      ret = player_queue_make_daap(&ps, cuequery, NULL, sort, 0);
+      ret = make_queue_for_query(&ps, cuequery, NULL, sort, 0);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
@@ -1731,7 +1730,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
       if (!querymodifier || (strcmp(querymodifier, "containers") != 0))
 	{
 	  quirkyquery = (mode == 1) && strstr(editquery, "dmap.itemid:") && ((!queuefilter) || strstr(queuefilter, "(null)"));
-	  ret = player_queue_make_daap(&ps, editquery, queuefilter, sort, quirkyquery);
+	  ret = make_queue_for_query(&ps, editquery, queuefilter, sort, quirkyquery);
 	}
       else
 	{
@@ -1746,7 +1745,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	    }
 	  
 	  snprintf(modifiedquery, sizeof(modifiedquery), "playlist:%d", plid);
-	  ret = player_queue_make_daap(&ps, NULL, modifiedquery, sort, 0);
+	  ret = make_queue_for_query(&ps, NULL, modifiedquery, sort, 0);
 	}
 
       if (ret < 0)
