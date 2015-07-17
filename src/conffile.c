@@ -139,6 +139,7 @@ static cfg_opt_t sec_sqlite[] =
 static cfg_opt_t sec_mpd[] =
   {
     CFG_INT("port", 6600, CFGF_NONE),
+    CFG_INT("http_port", 0, CFGF_NONE),
     CFG_END()
   };
 

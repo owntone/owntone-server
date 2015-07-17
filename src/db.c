@@ -2315,6 +2315,30 @@ db_file_id_byurl(char *url)
 #undef Q_TMPL
 }
 
+int
+db_file_id_by_virtualpath_match(char *path)
+{
+#define Q_TMPL "SELECT f.id FROM files f WHERE f.virtual_path LIKE '%%%q%%';"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  ret = db_file_id_byquery(query);
+
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
 void
 db_file_stamp_bypath(char *path, time_t *stamp, int *id)
 {

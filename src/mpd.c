@@ -37,6 +37,7 @@
 # include <event2/event.h>
 # include <event2/buffer.h>
 # include <event2/bufferevent.h>
+#include <event2/http.h>
 # include <event2/listener.h>
 
 #if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
@@ -53,6 +54,7 @@
 #include "conffile.h"
 #include "misc.h"
 #include "listener.h"
+#include "artwork.h"
 
 #include "player.h"
 #include "filescanner.h"
@@ -66,6 +68,8 @@ static struct event *g_exitev;
 
 static int g_cmd_pipe[2];
 static struct event *g_cmdev;
+
+static struct evhttp *evhttpd;
 
 struct mpd_command;
 
@@ -4274,6 +4278,118 @@ command_cb(int fd, short what, void *arg)
   event_add(g_cmdev, NULL);
 }
 
+/*
+ * Callback function that handles http requests for artwork files
+ *
+ * Some MPD clients allow retrieval of local artwork by making http request for artwork
+ * files.
+ *
+ * A request for the artwork of an item with virtual path "file:/path/to/example.mp3" looks
+ * like:
+ * GET http://<host>:<port>/path/to/cover.jpg
+ *
+ * Artwork is found by taking the uri and removing everything after the last '/'. The first
+ * item in the library with a virtual path that matches *path/to* is used to read the artwork
+ * file through the default forked-daapd artwork logic.
+ */
+static void
+artwork_cb(struct evhttp_request *req, void *arg)
+{
+  struct evbuffer *evbuffer;
+  struct evhttp_uri *decoded;
+  const char *uri;
+  const char *path;
+  char *decoded_path;
+  char *last_slash;
+  int itemid;
+  int format;
+
+  if (evhttp_request_get_command(req) != EVHTTP_REQ_GET)
+    {
+      DPRINTF(E_LOG, L_MPD, "Unsupported request type for artwork\n");
+      evhttp_send_error(req, HTTP_BADMETHOD, "Method not allowed");
+      return;
+    }
+
+  uri = evhttp_request_get_uri(req);
+  DPRINTF(E_DBG, L_MPD, "Got artwork request with uri '%s'\n", uri);
+
+  decoded = evhttp_uri_parse(uri);
+  if (!decoded)
+    {
+      DPRINTF(E_LOG, L_MPD, "Bad artwork request with uri '%s'\n", uri);
+      evhttp_send_error(req, HTTP_BADREQUEST, 0);
+      return;
+    }
+
+  path = evhttp_uri_get_path(decoded);
+  if (!path)
+    {
+      DPRINTF(E_LOG, L_MPD, "Invalid path from artwork request with uri '%s'\n", uri);
+      evhttp_send_error(req, HTTP_BADREQUEST, 0);
+      evhttp_uri_free(decoded);
+      return;
+    }
+
+  decoded_path = evhttp_uridecode(path, 0, NULL);
+  if (!decoded_path)
+    {
+      DPRINTF(E_LOG, L_MPD, "Error decoding path from artwork request with uri '%s'\n", uri);
+      evhttp_send_error(req, HTTP_BADREQUEST, 0);
+      evhttp_uri_free(decoded);
+      return;
+    }
+
+  last_slash = strrchr(decoded_path, '/');
+  if (last_slash)
+    *last_slash = '\0';
+
+  DPRINTF(E_DBG, L_MPD, "Artwork request for path: %s\n", decoded_path);
+
+  itemid = db_file_id_by_virtualpath_match(decoded_path);
+  if (!itemid)
+    {
+      DPRINTF(E_WARN, L_MPD, "No item found for path '%s' from request uri '%s'\n", decoded_path, uri);
+      evhttp_send_error(req, HTTP_NOTFOUND, "Document was not found");
+      evhttp_uri_free(decoded);
+      free(decoded_path);
+      return;
+    }
+
+  evbuffer = evbuffer_new();
+  if (!evbuffer)
+    {
+      DPRINTF(E_LOG, L_MPD, "Could not allocate an evbuffer for artwork request\n");
+      evhttp_send_error(req, HTTP_INTERNAL, "Document was not found");
+      evhttp_uri_free(decoded);
+      free(decoded_path);
+      return;
+    }
+
+  format = artwork_get_item(evbuffer, itemid, 500, 500);
+  if (format < 0)
+    {
+      evhttp_send_error(req, HTTP_NOTFOUND, "Document was not found");
+    }
+  else
+    {
+      switch (format)
+	{
+	  case ART_FMT_PNG:
+	    evhttp_add_header(evhttp_request_get_output_headers(req), "Content-Type", "image/png");
+	    break;
+
+	  default:
+	    evhttp_add_header(evhttp_request_get_output_headers(req), "Content-Type", "image/jpeg");
+	    break;
+	}
+      evhttp_send_reply(req, HTTP_OK, "OK", evbuffer);
+    }
+
+  evbuffer_free(evbuffer);
+  evhttp_uri_free(decoded);
+  free(decoded_path);
+}
 
 /* Thread: main */
 int mpd_init(void)
@@ -4284,6 +4400,8 @@ int mpd_init(void)
   struct sockaddr_in sin;
   struct sockaddr_in6 sin6;
   unsigned short port;
+  unsigned short http_port;
+  const char *http_addr;
   int v6enabled;
   int ret;
 
@@ -4380,6 +4498,33 @@ int mpd_init(void)
     }
   evconnlistener_set_error_cb(listener, mpd_accept_error_cb);
 
+  http_port = cfg_getint(cfg_getsec(cfg, "mpd"), "http_port");
+  if (http_port > 0)
+    {
+      evhttpd = evhttp_new(evbase_mpd);
+      if (!evhttpd)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Could not create HTTP artwork server\n");
+
+	  goto evhttp_fail;
+	}
+
+      evhttp_set_gencb(evhttpd, artwork_cb, NULL);
+
+      if (v6enabled)
+          http_addr = "::";
+        else
+          http_addr = "0.0.0.0";
+
+      ret = evhttp_bind_socket(evhttpd, http_addr, http_port);
+      if (ret < 0)
+	{
+	  DPRINTF(E_FATAL, L_MPD, "Could not bind HTTP artwork server at %s:%d\n", http_addr, port);
+
+	  goto bind_fail;
+	}
+    }
+
   DPRINTF(E_INFO, L_MPD, "mpd thread init\n");
 
   ret = pthread_create(&tid_mpd, NULL, mpd, NULL);
@@ -4397,6 +4542,10 @@ int mpd_init(void)
 
 
  thread_fail:
+ bind_fail:
+  if (http_port > 0)
+    evhttp_free(evhttpd);
+ evhttp_fail:
  connew_fail:
  evnew_fail:
   event_base_free(evbase_mpd);
@@ -4419,6 +4568,7 @@ void mpd_deinit(void)
 {
   struct idle_client *temp;
   unsigned short port;
+  unsigned short http_port;
   int ret;
 
   port = cfg_getint(cfg_getsec(cfg, "mpd"), "port");
@@ -4445,6 +4595,10 @@ void mpd_deinit(void)
       idle_clients = idle_clients->next;
       free(temp);
     }
+
+  http_port = cfg_getint(cfg_getsec(cfg, "mpd"), "http_port");
+  if (http_port > 0)
+    evhttp_free(evhttpd);
 
   // Free event base (should free events too)
   event_base_free(evbase_mpd);

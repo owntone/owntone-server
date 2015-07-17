@@ -452,6 +452,9 @@ db_file_id_byfile(char *filename);
 int
 db_file_id_byurl(char *url);
 
+int
+db_file_id_by_virtualpath_match(char *path);
+
 void
 db_file_stamp_bypath(char *path, time_t *stamp, int *id);
 
