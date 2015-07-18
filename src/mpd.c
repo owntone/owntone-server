@@ -4366,7 +4366,7 @@ artwork_cb(struct evhttp_request *req, void *arg)
       return;
     }
 
-  format = artwork_get_item(evbuffer, itemid, 500, 500);
+  format = artwork_get_item(evbuffer, itemid, 600, 600);
   if (format < 0)
     {
       evhttp_send_error(req, HTTP_NOTFOUND, "Document was not found");
