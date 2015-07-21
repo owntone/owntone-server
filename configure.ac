@@ -51,56 +51,6 @@ dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
 AC_TYPE_OFF_T
 
-AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes library support (default=no)]))
-AS_IF([test "x$enable_itunes" = "xyes"], [
-  use_itunes=true;
-  CPPFLAGS="${CPPFLAGS} -DITUNES"
-])
-
-AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify library support (default=no)]))
-AS_IF([test "x$enable_spotify" = "xyes"], [
-  use_spotify=true;
-  CPPFLAGS="${CPPFLAGS} -DSPOTIFY"
-])
-
-AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]))
-AS_IF([test "x$enable_lastfm" = "xyes"], [
-  use_lastfm=true;
-  CPPFLAGS="${CPPFLAGS} -DLASTFM"
-])
-
-AC_ARG_ENABLE(mpd, AS_HELP_STRING([--enable-mpd], [enable MPD client protocol support (default=no)]))
-AS_IF([test "x$enable_mpd" = "xyes"], [
-  use_mpd=true;
-  CPPFLAGS="${CPPFLAGS} -DMPD"
-])
-
-case "$host" in
-	*-*-linux-*)
-		use_alsa=true
-		use_oss4=false
-		;;
-	*-*-kfreebsd*-*|*-*-freebsd*)
-		use_alsa=false
-		use_oss4=true
-		;;
-esac
-
-AC_ARG_WITH(oss4, AS_HELP_STRING([--with-oss4], [use OSS4 (default Linux=no, FreeBSD=yes)]),
-                  AS_IF([test "x$with_oss4" = "xyes"],[use_oss4=true],[use_oss4=false]);
-                  )
-
-AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default Linux=yes, FreeBSD=no)]),
-                  AS_IF([test "x$with_alsa" = "xyes"],[use_alsa=true],[use_alsa=false]);
-                  )
-
-AM_CONDITIONAL(COND_ITUNES, test x$use_itunes = xtrue)
-AM_CONDITIONAL(COND_SPOTIFY, test x$use_spotify = xtrue)
-AM_CONDITIONAL(COND_LASTFM, test x$use_lastfm = xtrue)
-AM_CONDITIONAL(COND_MPD, test x$use_mpd = xtrue)
-AM_CONDITIONAL(COND_OSS4, test x$use_oss4 = xtrue)
-AM_CONDITIONAL(COND_ALSA, test x$use_alsa = xtrue)
-
 dnl Checks for libraries.
 gl_LIBUNISTRING
 
@@ -181,37 +131,6 @@ AC_SUBST(ANTLR3C_LIBS)
 AM_PATH_LIBGCRYPT([1:1.2.0], , AC_MSG_ERROR([libgcrypt not found]))
 AM_PATH_GPG_ERROR([1.6], , AC_MSG_ERROR([libgpg-error not found]))
 
-if test x$use_itunes = xtrue; then
-	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.16 ])
-fi
-
-if test x$use_spotify = xtrue; then
-	AC_CHECK_HEADER(libspotify/api.h, , AC_MSG_ERROR([libspotify/api.h not found]))
-	AC_DEFINE(HAVE_SPOTIFY_H, 1, [Define to 1 if you have the <libspotify/api.h> header file.])
-	dnl Don't link to libspotify, but instead enable dynamic linking
-	SPOTIFY_CFLAGS="-rdynamic"
-	SPOTIFY_LIBS="-ldl"
-	AC_SUBST(SPOTIFY_CFLAGS)
-	AC_SUBST(SPOTIFY_LIBS)
-fi
-
-if test x$use_lastfm = xtrue; then
-	PKG_CHECK_MODULES(LIBCURL, [ libcurl ])
-	AC_CHECK_LIB([mxml], [mxmlGetOpaque],
-		AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
-fi
-
-if test x$use_alsa = xtrue; then
-	PKG_CHECK_MODULES(ALSA, [ alsa ])
-	AC_DEFINE(LAUDIO_USE_ALSA, 1, [define if local audio output uses ALSA])
-	CPPFLAGS="${CPPFLAGS} -DALSA"
-fi
-
-if test x$use_oss4 = xtrue; then
-	AC_CHECK_HEADER(sys/soundcard.h, , AC_MSG_ERROR([sys/soundcard.h not found]))
-	CPPFLAGS="${CPPFLAGS} -DOSS4"
-fi
-
 case "$host" in
   *-*-linux-*)
 	AC_CHECK_HEADERS([sys/eventfd.h])
@@ -228,6 +147,77 @@ AC_CHECK_SIZEOF(void *)
 
 AC_CHECK_HEADERS(getopt.h,,)
 AC_CHECK_HEADERS(stdint.h,,)
+
+dnl --- Begin configuring the options ---
+dnl iTunes playlists with libplist
+AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes library support (default=no)]))
+AS_IF([test "x$enable_itunes" = "xyes"], [
+	CPPFLAGS="${CPPFLAGS} -DITUNES"
+	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.16 ])
+])
+AM_CONDITIONAL(COND_ITUNES, [test "x$enable_itunes" = "xyes"])
+
+dnl Spotify with dynamic linking to libspotify
+AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify library support (default=no)]))
+AS_IF([test "x$enable_spotify" = "xyes"], [
+	CPPFLAGS="${CPPFLAGS} -DSPOTIFY"
+	AC_CHECK_HEADER(libspotify/api.h, , AC_MSG_ERROR([libspotify/api.h not found]))
+	AC_DEFINE(HAVE_SPOTIFY_H, 1, [Define to 1 if you have the <libspotify/api.h> header file.])
+
+	dnl Don't link to libspotify, but instead enable dynamic linking
+	SPOTIFY_CFLAGS="-rdynamic"
+	SPOTIFY_LIBS="-ldl"
+	AC_SUBST(SPOTIFY_CFLAGS)
+	AC_SUBST(SPOTIFY_LIBS)
+])
+AM_CONDITIONAL(COND_SPOTIFY, [test "x$enable_spotify" = "xyes"])
+
+dnl LastFM support with libcurl
+AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]))
+AS_IF([test "x$enable_lastfm" = "xyes"], [
+	CPPFLAGS="${CPPFLAGS} -DLASTFM"
+	PKG_CHECK_MODULES(LIBCURL, [ libcurl ])
+	AC_CHECK_LIB([mxml], [mxmlGetOpaque], AC_DEFINE(HAVE_MXML_GETOPAQUE, 1, [Define to 1 if your mxml has mxmlGetOpaque.]))
+])
+AM_CONDITIONAL(COND_LASTFM, [test "x$enable_lastfm" = "xyes"])
+
+dnl MPD support
+AC_ARG_ENABLE(mpd, AS_HELP_STRING([--enable-mpd], [enable MPD client protocol support (default=no)]))
+AS_IF([test "x$enable_mpd" = "xyes"], [
+	CPPFLAGS="${CPPFLAGS} -DMPD"
+])
+AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" = "xyes"])
+dnl --- End options ---
+
+dnl Selection of local audio sound system
+case "$host" in
+	*-*-linux-*)
+		use_alsa=true
+		use_oss4=false
+		;;
+	*-*-kfreebsd*-*|*-*-freebsd*)
+		use_alsa=false
+		use_oss4=true
+		;;
+esac
+
+AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default Linux=yes, FreeBSD=no)]), [
+	AS_IF([test "x$with_alsa" = "xyes"], [use_alsa=true], [use_alsa=false])
+])
+if test x$use_alsa = xtrue; then
+	CPPFLAGS="${CPPFLAGS} -DALSA"
+	PKG_CHECK_MODULES(ALSA, [ alsa ])
+fi
+AM_CONDITIONAL(COND_ALSA, test x$use_alsa = xtrue)
+
+AC_ARG_WITH(oss4, AS_HELP_STRING([--with-oss4], [use OSS4 (default Linux=no, FreeBSD=yes)]), [
+	AS_IF([test "x$with_oss4" = "xyes"], [use_oss4=true], [use_oss4=false])
+])
+if test x$use_oss4 = xtrue; then
+	CPPFLAGS="${CPPFLAGS} -DOSS4"
+	AC_CHECK_HEADER(sys/soundcard.h, , AC_MSG_ERROR([sys/soundcard.h not found]))
+fi
+AM_CONDITIONAL(COND_OSS4, test x$use_oss4 = xtrue)
 
 dnl Checks for header files.
 AC_HEADER_STDC
