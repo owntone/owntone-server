@@ -51,18 +51,6 @@ dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
 AC_TYPE_OFF_T
 
-AC_ARG_ENABLE(flac, AS_HELP_STRING([--enable-flac], [extract FLAC metadata with libflac (default=no)]))
-AS_IF([test "x$enable_flac" = "xyes"], [
-  use_flac=true;
-  CPPFLAGS="${CPPFLAGS} -DFLAC"
-])
-
-AC_ARG_ENABLE(musepack, AS_HELP_STRING([--enable-musepack], [extract Musepack metadata with taglib (default=no)]))
-AS_IF([test "x$enable_musepack" = "xyes"], [
-  use_musepack=true;
-  CPPFLAGS="${CPPFLAGS} -DMUSEPACK"
-])
-
 AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes library support (default=no)]))
 AS_IF([test "x$enable_itunes" = "xyes"], [
   use_itunes=true;
@@ -79,6 +67,12 @@ AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (
 AS_IF([test "x$enable_lastfm" = "xyes"], [
   use_lastfm=true;
   CPPFLAGS="${CPPFLAGS} -DLASTFM"
+])
+
+AC_ARG_ENABLE(mpd, AS_HELP_STRING([--enable-mpd], [enable MPD client protocol support (default=no)]))
+AS_IF([test "x$enable_mpd" = "xyes"], [
+  use_mpd=true;
+  CPPFLAGS="${CPPFLAGS} -DMPD"
 ])
 
 case "$host" in
@@ -100,18 +94,12 @@ AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default Linux=yes, Fr
                   AS_IF([test "x$with_alsa" = "xyes"],[use_alsa=true],[use_alsa=false]);
                   )
 
-AC_ARG_ENABLE(mpd, AS_HELP_STRING([--enable-mpd], [enable MPD client protocol support (default=no)]),
-                      use_mpd=true;
-                      CPPFLAGS="${CPPFLAGS} -DMPD")
-
-AM_CONDITIONAL(COND_FLAC, test x$use_flac = xtrue)
-AM_CONDITIONAL(COND_MUSEPACK, test x$use_musepack = xtrue)
 AM_CONDITIONAL(COND_ITUNES, test x$use_itunes = xtrue)
 AM_CONDITIONAL(COND_SPOTIFY, test x$use_spotify = xtrue)
 AM_CONDITIONAL(COND_LASTFM, test x$use_lastfm = xtrue)
+AM_CONDITIONAL(COND_MPD, test x$use_mpd = xtrue)
 AM_CONDITIONAL(COND_OSS4, test x$use_oss4 = xtrue)
 AM_CONDITIONAL(COND_ALSA, test x$use_alsa = xtrue)
-AM_CONDITIONAL(COND_MPD, test x$use_mpd = xtrue)
 
 dnl Checks for libraries.
 gl_LIBUNISTRING
@@ -192,14 +180,6 @@ AC_SUBST(ANTLR3C_LIBS)
 
 AM_PATH_LIBGCRYPT([1:1.2.0], , AC_MSG_ERROR([libgcrypt not found]))
 AM_PATH_GPG_ERROR([1.6], , AC_MSG_ERROR([libgpg-error not found]))
-
-if test x$use_flac = xtrue; then
-	PKG_CHECK_MODULES(FLAC, [ flac ])
-fi
-
-if test x$use_musepack = xtrue; then
-	PKG_CHECK_MODULES(TAGLIB, [ taglib_c ])
-fi
 
 if test x$use_itunes = xtrue; then
 	PKG_CHECK_MODULES(LIBPLIST, [ libplist >= 0.16 ])

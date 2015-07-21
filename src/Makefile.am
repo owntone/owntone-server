@@ -1,14 +1,6 @@
 
 sbin_PROGRAMS = forked-daapd
 
-if COND_FLAC
-FLAC_SRC=scan-flac.c
-endif
-
-if COND_MUSEPACK
-MUSEPACK_SRC=scan-mpc.c
-endif
-
 if COND_ITUNES
 ITUNES_SRC=filescanner_itunes.c
 endif
@@ -74,13 +66,13 @@ forked_daapd_CPPFLAGS = -D_GNU_SOURCE \
 
 forked_daapd_CFLAGS = \
 	@ZLIB_CFLAGS@ @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @LIBAV_CFLAGS@ \
-	@CONFUSE_CFLAGS@ @TAGLIB_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ \
+	@CONFUSE_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ \
 	@LIBGCRYPT_CFLAGS@ @GPG_ERROR_CFLAGS@ @ALSA_CFLAGS@ @SPOTIFY_CFLAGS@ \
 	@LIBCURL_CFLAGS@
 
 forked_daapd_LDADD = -lrt \
 	@ZLIB_LIBS@ @AVAHI_LIBS@ @SQLITE3_LIBS@ @LIBAV_LIBS@ \
-	@CONFUSE_LIBS@ @FLAC_LIBS@ @TAGLIB_LIBS@ @LIBEVENT_LIBS@ \
+	@CONFUSE_LIBS@ @LIBEVENT_LIBS@ \
 	@MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ \
 	@LIBGCRYPT_LIBS@ @GPG_ERROR_LIBS@ @ALSA_LIBS@ @LIBUNISTRING@ @SPOTIFY_LIBS@ \
 	@LIBCURL_LIBS@
@@ -116,10 +108,9 @@ forked_daapd_SOURCES = main.c \
 	laudio.c laudio.h \
 	raop.c raop.h \
 	$(RTSP_SRC) \
-	scan-wma.c \
-	$(SPOTIFY_SRC) $(LASTFM_SRC) \
+	$(SPOTIFY_SRC) \
+	$(LASTFM_SRC) \
 	$(MPD_SRC) \
-	$(FLAC_SRC) $(MUSEPACK_SRC) \
 	listener.c listener.h
 
 nodist_forked_daapd_SOURCES = \
@@ -129,9 +120,7 @@ BUILT_SOURCES = \
 	$(GPERF_PRODUCTS)
 
 EXTRA_DIST = \
-	$(ANTLR_GRAMMARS) \
-	scan-mpc.c \
-	scan-flac.c
+	$(ANTLR_GRAMMARS)
 
 CLEANFILES = \
 	$(GPERF_PRODUCTS)
