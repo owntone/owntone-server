@@ -51,25 +51,35 @@ dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
 AC_TYPE_OFF_T
 
-AC_ARG_ENABLE(flac, AS_HELP_STRING([--enable-flac], [extract FLAC metadata with libflac (default=no)]),
-                      use_flac=true;
-                      CPPFLAGS="${CPPFLAGS} -DFLAC")
+AC_ARG_ENABLE(flac, AS_HELP_STRING([--enable-flac], [extract FLAC metadata with libflac (default=no)]))
+AS_IF([test "x$enable_flac" = "xyes"], [
+  use_flac=true;
+  CPPFLAGS="${CPPFLAGS} -DFLAC"
+])
 
-AC_ARG_ENABLE(musepack, AS_HELP_STRING([--enable-musepack], [extract Musepack metadata with taglib (default=no)]),
-                      use_musepack=true;
-                      CPPFLAGS="${CPPFLAGS} -DMUSEPACK")
+AC_ARG_ENABLE(musepack, AS_HELP_STRING([--enable-musepack], [extract Musepack metadata with taglib (default=no)]))
+AS_IF([test "x$enable_musepack" = "xyes"], [
+  use_musepack=true;
+  CPPFLAGS="${CPPFLAGS} -DMUSEPACK"
+])
 
-AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes library support (default=no)]),
-                      use_itunes=true;
-                      CPPFLAGS="${CPPFLAGS} -DITUNES")
+AC_ARG_ENABLE(itunes, AS_HELP_STRING([--enable-itunes], [enable iTunes library support (default=no)]))
+AS_IF([test "x$enable_itunes" = "xyes"], [
+  use_itunes=true;
+  CPPFLAGS="${CPPFLAGS} -DITUNES"
+])
 
-AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify library support (default=no)]),
-                      use_spotify=true;
-                      CPPFLAGS="${CPPFLAGS} -DSPOTIFY")
+AC_ARG_ENABLE(spotify, AS_HELP_STRING([--enable-spotify], [enable Spotify library support (default=no)]))
+AS_IF([test "x$enable_spotify" = "xyes"], [
+  use_spotify=true;
+  CPPFLAGS="${CPPFLAGS} -DSPOTIFY"
+])
 
-AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]),
-                      use_lastfm=true;
-                      CPPFLAGS="${CPPFLAGS} -DLASTFM")
+AC_ARG_ENABLE(lastfm, AS_HELP_STRING([--enable-lastfm], [enable LastFM support (default=no)]))
+AS_IF([test "x$enable_lastfm" = "xyes"], [
+  use_lastfm=true;
+  CPPFLAGS="${CPPFLAGS} -DLASTFM"
+])
 
 case "$host" in
 	*-*-linux-*)
