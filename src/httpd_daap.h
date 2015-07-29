@@ -2,11 +2,7 @@
 #ifndef __HTTPD_DAAP_H__
 #define __HTTPD_DAAP_H__
 
-#ifdef HAVE_LIBEVENT2
-# include <event2/http.h>
-#else
-# include "evhttp/evhttp_compat.h"
-#endif
+#include <event2/http.h>
 
 int
 daap_init(void);

@@ -52,12 +52,9 @@
 #include "dmap_common.h"
 #include "cache.h"
 
-#ifdef HAVE_LIBEVENT2
-# include <event2/event.h>
-# include <event2/http_struct.h>
-#else
-# include <event.h>
-#endif
+#include <event2/event.h>
+#include <event2/buffer.h>
+#include <event2/http_struct.h>
 
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
@@ -123,13 +120,8 @@ static struct timeval daap_update_refresh_tv = { DAAP_UPDATE_REFRESH, 0 };
 static void
 daap_session_free(struct daap_session *s)
 {
-#ifdef HAVE_LIBEVENT2
   if (s->timeout)
     event_free(s->timeout);
-#else
-  if (s->timeout)
-    free(s->timeout);
-#endif
 
   if (s->user_agent)
     free(s->user_agent);
@@ -229,7 +221,6 @@ daap_session_add(const char *user_agent, int request_session_id)
 
   daap_sessions = s;
 
-#ifdef HAVE_LIBEVENT2
   if (DAAP_SESSION_TIMEOUT > 0)
     {
       s->timeout = evtimer_new(evbase_httpd, daap_session_timeout_cb, s);
@@ -238,7 +229,6 @@ daap_session_add(const char *user_agent, int request_session_id)
       else
         evtimer_add(s->timeout, &daap_session_timeout_tv);
     }
-#endif
 
   return s;
 }
@@ -287,13 +277,8 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
 static void
 update_free(struct daap_update_request *ur)
 {
-#ifdef HAVE_LIBEVENT2
   if (ur->timeout)
     event_free(ur->timeout);
-#else
-  if (ur->timeout)
-    free(ur->timeout);
-#endif
 
   free(ur);
 }
@@ -784,6 +769,7 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
   char *name;
   char *passwd;
   const char *clientver;
+  size_t len;
   int mpro;
   int apro;
 
@@ -874,7 +860,8 @@ daap_reply_server_info(struct evhttp_request *req, struct evbuffer *evbuf, char 
 //  dmap_add_int(content, "msto", );          // dmap.utcoffset
 
   // Create container
-  dmap_add_container(evbuf, "msrv", EVBUFFER_LENGTH(content));
+  len = evbuffer_get_length(content);
+  dmap_add_container(evbuf, "msrv", len);
   evbuffer_add_buffer(evbuf, content);
   evbuffer_free(content);
 
@@ -887,9 +874,9 @@ static int
 daap_reply_content_codes(struct evhttp_request *req, struct evbuffer *evbuf, char **uri, struct evkeyvalq *query, const char *ua)
 {
   const struct dmap_field *dmap_fields;
+  size_t len;
   int nfields;
   int i;
-  int len;
   int ret;
 
   dmap_fields = dmap_get_fields_table(&nfields);
@@ -1080,7 +1067,6 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
   memset(ur, 0, sizeof(struct daap_update_request));
 
-#ifdef HAVE_LIBEVENT2
   if (DAAP_UPDATE_REFRESH > 0)
     {
       ur->timeout = evtimer_new(evbase_httpd, update_refresh_cb, ur);
@@ -1098,7 +1084,6 @@ daap_reply_update(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 	  return -1;
 	}
     }
-#endif
 
   /* NOTE: we may need to keep reqd_rev in there too */
   ur->req = req;
@@ -1134,6 +1119,7 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   cfg_t *lib;
   char *name;
   char *name_radio;
+  size_t len;
   int count;
 
   s = daap_session_find(req, query, evbuf);
@@ -1176,7 +1162,8 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   dmap_add_int(item, "meds", 3);
 
   // Create container for library db
-  dmap_add_container(content, "mlit", EVBUFFER_LENGTH(item));
+  len = evbuffer_get_length(item);
+  dmap_add_container(content, "mlit", len);
   evbuffer_add_buffer(content, item);
   evbuffer_free(item);
 
@@ -1202,17 +1189,19 @@ daap_reply_dblist(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   dmap_add_int(item, "meds", 3);
 
   // Create container for radio db
-  dmap_add_container(content, "mlit", EVBUFFER_LENGTH(item));
+  len = evbuffer_get_length(item);
+  dmap_add_container(content, "mlit", len);
   evbuffer_add_buffer(content, item);
   evbuffer_free(item);
 
   // Create container
-  dmap_add_container(evbuf, "avdb", EVBUFFER_LENGTH(content) + 53);
+  len = evbuffer_get_length(content);
+  dmap_add_container(evbuf, "avdb", len + 53);
   dmap_add_int(evbuf, "mstt", 200);     /* 12 */
   dmap_add_char(evbuf, "muty", 0);      /* 9 */
   dmap_add_int(evbuf, "mtco", 2);       /* 12 */
   dmap_add_int(evbuf, "mrco", 2);       /* 12 */
-  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(content)); /* 8 */
+  dmap_add_container(evbuf, "mlcl", len); /* 8 */
   evbuffer_add_buffer(evbuf, content);
   evbuffer_free(content);
 
@@ -1236,6 +1225,7 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
   const char *client_codecs;
   char *last_codectype;
   char *tag;
+  size_t len;
   int nmeta;
   int sort_headers;
   int nsongs;
@@ -1457,18 +1447,19 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
     }
 
   /* Add header to evbuf, add songlist to evbuf */
+  len = evbuffer_get_length(songlist);
   if (sort_headers)
     {
       daap_sort_finalize(sctx);
-      dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(songlist) + EVBUFFER_LENGTH(sctx->headerlist) + 61);
+      dmap_add_container(evbuf, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
     }
   else
-    dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(songlist) + 53);
+    dmap_add_container(evbuf, tag, len + 53);
   dmap_add_int(evbuf, "mstt", 200);    /* 12 */
   dmap_add_char(evbuf, "muty", 0);     /* 9 */
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf, "mrco", nsongs); /* 12 */
-  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(songlist)); /* 8 */
+  dmap_add_container(evbuf, "mlcl", len); /* 8 */
 
   db_query_end(&qp);
 
@@ -1488,7 +1479,8 @@ daap_reply_songlist_generic(struct evhttp_request *req, struct evbuffer *evbuf, 
 
   if (sort_headers)
     {
-      dmap_add_container(evbuf, "mshl", EVBUFFER_LENGTH(sctx->headerlist)); /* 8 */
+      len = evbuffer_get_length(sctx->headerlist);
+      dmap_add_container(evbuf, "mshl", len); /* 8 */
       ret = evbuffer_add_buffer(evbuf, sctx->headerlist);
       daap_sort_context_free(sctx);
 
@@ -1558,6 +1550,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
   const struct dmap_field **meta;
   const char *param;
   char **strval;
+  size_t len;
   int database;
   int cfg_radiopl;
   int nmeta;
@@ -1756,7 +1749,8 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
 
       DPRINTF(E_DBG, L_DAAP, "Done with playlist\n");
 
-      dmap_add_container(playlistlist, "mlit", EVBUFFER_LENGTH(playlist));
+      len = evbuffer_get_length(playlist);
+      dmap_add_container(playlistlist, "mlit", len);
       ret = evbuffer_add_buffer(playlistlist, playlist);
       if (ret < 0)
 	{
@@ -1790,12 +1784,13 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     }
 
   /* Add header to evbuf, add playlistlist to evbuf */
-  dmap_add_container(evbuf, "aply", EVBUFFER_LENGTH(playlistlist) + 53);
+  len = evbuffer_get_length(playlistlist);
+  dmap_add_container(evbuf, "aply", len + 53);
   dmap_add_int(evbuf, "mstt", 200); /* 12 */
   dmap_add_char(evbuf, "muty", 0);  /* 9 */
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf,"mrco", npls); /* 12 */
-  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(playlistlist));
+  dmap_add_container(evbuf, "mlcl", len);
 
   db_query_end(&qp);
 
@@ -1841,13 +1836,14 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   struct sort_ctx *sctx;
   const char *param;
   char **strval;
+  char *tag;
+  size_t len;
   int nmeta;
   int sort_headers;
   int ngrp;
   int32_t val;
   int i;
   int ret;
-  char *tag;
 
   s = daap_session_find(req, query, evbuf);
   if (!s && req)
@@ -2024,7 +2020,8 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
       DPRINTF(E_SPAM, L_DAAP, "Done with group\n");
 
-      dmap_add_container(grouplist, "mlit", EVBUFFER_LENGTH(group));
+      len = evbuffer_get_length(group);
+      dmap_add_container(grouplist, "mlit", len);
       ret = evbuffer_add_buffer(grouplist, group);
       if (ret < 0)
 	{
@@ -2065,19 +2062,20 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     }
 
   /* Add header to evbuf, add grouplist to evbuf */
+  len = evbuffer_get_length(grouplist);
   if (sort_headers)
     {
       daap_sort_finalize(sctx);
-      dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(grouplist) + EVBUFFER_LENGTH(sctx->headerlist) + 61);
+      dmap_add_container(evbuf, tag, len + evbuffer_get_length(sctx->headerlist) + 61);
     }
   else
-    dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(grouplist) + 53);
+    dmap_add_container(evbuf, tag, len + 53);
 
   dmap_add_int(evbuf, "mstt", 200); /* 12 */
   dmap_add_char(evbuf, "muty", 0);  /* 9 */
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf,"mrco", ngrp); /* 12 */
-  dmap_add_container(evbuf, "mlcl", EVBUFFER_LENGTH(grouplist)); /* 8 */
+  dmap_add_container(evbuf, "mlcl", len); /* 8 */
 
   db_query_end(&qp);
 
@@ -2097,7 +2095,8 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   if (sort_headers)
     {
-      dmap_add_container(evbuf, "mshl", EVBUFFER_LENGTH(sctx->headerlist)); /* 8 */
+      len = evbuffer_get_length(sctx->headerlist);
+      dmap_add_container(evbuf, "mshl", len); /* 8 */
       ret = evbuffer_add_buffer(evbuf, sctx->headerlist);
       daap_sort_context_free(sctx);
 
@@ -2139,6 +2138,7 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   char *browse_item;
   char *sort_item;
   char *tag;
+  size_t len;
   int sort_headers;
   int nitems;
   int ret;
@@ -2272,19 +2272,20 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
       goto out_sort_headers_free;
     }
 
+  len = evbuffer_get_length(itemlist);
   if (sort_headers)
     {
       daap_sort_finalize(sctx);
-      dmap_add_container(evbuf, "abro", EVBUFFER_LENGTH(itemlist) + EVBUFFER_LENGTH(sctx->headerlist) + 52);
+      dmap_add_container(evbuf, "abro", len + evbuffer_get_length(sctx->headerlist) + 52);
     }
   else
-    dmap_add_container(evbuf, "abro", EVBUFFER_LENGTH(itemlist) + 44);
+    dmap_add_container(evbuf, "abro", len + 44);
 
   dmap_add_int(evbuf, "mstt", 200);    /* 12 */
   dmap_add_int(evbuf, "mtco", qp.results); /* 12 */
   dmap_add_int(evbuf, "mrco", nitems); /* 12 */
 
-  dmap_add_container(evbuf, tag, EVBUFFER_LENGTH(itemlist)); /* 8 */
+  dmap_add_container(evbuf, tag, len); /* 8 */
 
   db_query_end(&qp);
 
@@ -2300,7 +2301,8 @@ daap_reply_browse(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
 
   if (sort_headers)
     {
-      dmap_add_container(evbuf, "mshl", EVBUFFER_LENGTH(sctx->headerlist)); /* 8 */
+      len = evbuffer_get_length(sctx->headerlist);
+      dmap_add_container(evbuf, "mshl", len); /* 8 */
       ret = evbuffer_add_buffer(evbuf, sctx->headerlist);
 
       if (ret < 0)
@@ -2340,6 +2342,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
   struct evkeyvalq *headers;
   const char *param;
   char *ctype;
+  size_t len;
   int id;
   int max_w;
   int max_h;
@@ -2391,6 +2394,8 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
   else if (strcmp(uri[2], "items") == 0)
     ret = artwork_get_item(evbuf, id, max_w, max_h);
 
+  len = evbuffer_get_length(evbuf);
+
   switch (ret)
     {
       case ART_FMT_PNG:
@@ -2402,8 +2407,8 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
 	break;
 
       default:
-	if (EVBUFFER_LENGTH(evbuf) > 0)
-	  evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+	if (len > 0)
+	  evbuffer_drain(evbuf, len);
 
 	goto no_artwork;
     }
@@ -2411,7 +2416,7 @@ daap_reply_extra_data(struct evhttp_request *req, struct evbuffer *evbuf, char *
   headers = evhttp_request_get_output_headers(req);
   evhttp_remove_header(headers, "Content-Type");
   evhttp_add_header(headers, "Content-Type", ctype);
-  snprintf(clen, sizeof(clen), "%ld", (long)EVBUFFER_LENGTH(evbuf));
+  snprintf(clen, sizeof(clen), "%ld", (long)len);
   evhttp_add_header(headers, "Content-Length", clen);
 
   /* No gzip compression for artwork */
@@ -2561,7 +2566,7 @@ daap_reply_dmap_test(struct evhttp_request *req, struct evbuffer *evbuf, char **
   dmap_add_field(test, &dmap_TST8, buf, 0);
   dmap_add_field(test, &dmap_TST9, buf, 0);
 
-  dmap_add_container(evbuf, dmap_TEST.tag, EVBUFFER_LENGTH(test));
+  dmap_add_container(evbuf, dmap_TEST.tag, evbuffer_get_length(test));
 
   ret = evbuffer_add_buffer(evbuf, test);
   evbuffer_free(test);
