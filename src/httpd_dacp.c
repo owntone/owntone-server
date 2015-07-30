@@ -37,6 +37,9 @@
 # include <sys/eventfd.h>
 #endif
 
+#include <event2/event.h>
+#include <event2/buffer.h>
+
 #include "logger.h"
 #include "misc.h"
 #include "conffile.h"
@@ -140,14 +143,14 @@ static int update_efd;
 #else
 static int update_pipe[2];
 #endif
-static struct event updateev;
+static struct event *updateev;
 static int current_rev;
 
 /* Play status update requests */
 static struct dacp_update_request *update_requests;
 
 /* Seek timer */
-static struct event seek_timer;
+static struct event *seek_timer;
 static int seek_target;
 
 
@@ -336,7 +339,7 @@ playstatusupdate_cb(int fd, short what, void *arg)
  out_free_evbuf:
   evbuffer_free(evbuf);
  readd:
-  ret = event_add(&updateev, NULL);
+  ret = event_add(updateev, NULL);
   if (ret < 0)
     DPRINTF(E_LOG, L_DACP, "Couldn't re-add event for playstatusupdate\n");
 }
@@ -578,9 +581,6 @@ dacp_propset_playingtime(const char *value, struct evkeyvalq *query)
   struct timeval tv;
   int ret;
 
-  if (event_initialized(&seek_timer))
-    event_del(&seek_timer);
-
   ret = safe_atoi32(value, &seek_target);
   if (ret < 0)
     {
@@ -589,11 +589,9 @@ dacp_propset_playingtime(const char *value, struct evkeyvalq *query)
       return;
     }
 
-  evtimer_set(&seek_timer, seek_timer_cb, NULL);
-  event_base_set(evbase_httpd, &seek_timer);
   evutil_timerclear(&tv);
   tv.tv_usec = 200 * 1000;
-  evtimer_add(&seek_timer, &tv);
+  evtimer_add(seek_timer, &tv);
 }
 
 static void
@@ -1238,10 +1236,11 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   struct player_history *history;
   struct player_queue *queue;
   const char *param;
+  size_t songlist_length;
+  size_t playlist_length;
   int span;
   int i;
   int n;
-  int songlist_length;
   int ret;
   int start_index;
 
@@ -1359,19 +1358,20 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
       dmap_add_string(playlists, "ceQl", "Up Next");         /* 15 = 8 + 7 */
       dmap_add_string(playlists, "ceQh", "from Music");      /* 18 = 8 + 10 */
 
-      songlist_length = EVBUFFER_LENGTH(songlist);
+      songlist_length = evbuffer_get_length(songlist);
     }
   else
     songlist_length = 0;
 
   /* Final construction of reply */
-  dmap_add_container(evbuf, "ceQR", 79 + EVBUFFER_LENGTH(playlists) + songlist_length); /* size of entire container */
+  playlist_length = evbuffer_get_length(playlists);
+  dmap_add_container(evbuf, "ceQR", 79 + playlist_length + songlist_length); /* size of entire container */
   dmap_add_int(evbuf, "mstt", 200);                                                     /* 12, dmap.status */
   dmap_add_int(evbuf, "mtco", abs(span));                                               /* 12 */
   dmap_add_int(evbuf, "mrco", n);                                                       /* 12 */
   dmap_add_char(evbuf, "ceQu", 0);                                                      /*  9 */
-  dmap_add_container(evbuf, "mlcl", 8 + EVBUFFER_LENGTH(playlists) + songlist_length);  /*  8 */
-  dmap_add_container(evbuf, "ceQS", EVBUFFER_LENGTH(playlists));                        /*  8 */
+  dmap_add_container(evbuf, "mlcl", 8 + playlist_length + songlist_length);  /*  8 */
+  dmap_add_container(evbuf, "ceQS", playlist_length);                        /*  8 */
   ret = evbuffer_add_buffer(evbuf, playlists);
   evbuffer_free(playlists);
   if (ret < 0)
@@ -1789,6 +1789,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   struct evkeyvalq *headers;
   const char *param;
   char *ctype;
+  size_t len;
   uint32_t id;
   int max_w;
   int max_h;
@@ -1839,6 +1840,8 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
     goto no_artwork;
 
   ret = artwork_get_item(evbuf, id, max_w, max_h);
+  len = evbuffer_get_length(evbuf);
+
   switch (ret)
     {
       case ART_FMT_PNG:
@@ -1850,8 +1853,8 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
 	break;
 
       default:
-	if (EVBUFFER_LENGTH(evbuf) > 0)
-	  evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+	if (len > 0)
+	  evbuffer_drain(evbuf, len);
 
 	goto no_artwork;
     }
@@ -1859,7 +1862,7 @@ dacp_reply_nowplayingartwork(struct evhttp_request *req, struct evbuffer *evbuf,
   headers = evhttp_request_get_output_headers(req);
   evhttp_remove_header(headers, "Content-Type");
   evhttp_add_header(headers, "Content-Type", ctype);
-  snprintf(clen, sizeof(clen), "%ld", (long)EVBUFFER_LENGTH(evbuf));
+  snprintf(clen, sizeof(clen), "%ld", (long)len);
   evhttp_add_header(headers, "Content-Length", clen);
 
   /* No gzip compression for artwork */
@@ -1882,6 +1885,7 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
   char *ptr;
   char *prop;
   char *propstr;
+  size_t len;
   int ret;
 
   s = daap_session_find(req, query, evbuf);
@@ -1953,7 +1957,8 @@ dacp_reply_getproperty(struct evhttp_request *req, struct evbuffer *evbuf, char 
   if (mfi)
     free_mfi(mfi, 0);
 
-  dmap_add_container(evbuf, "cmgt", 12 + EVBUFFER_LENGTH(proplist)); /* 8 + len */
+  len = evbuffer_get_length(proplist);
+  dmap_add_container(evbuf, "cmgt", 12 + len);
   dmap_add_int(evbuf, "mstt", 200);      /* 12 */
 
   ret = evbuffer_add_buffer(evbuf, proplist);
@@ -2051,6 +2056,7 @@ dacp_reply_getspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 {
   struct daap_session *s;
   struct evbuffer *spklist;
+  size_t len;
 
   s = daap_session_find(req, query, evbuf);
   if (!s)
@@ -2068,7 +2074,8 @@ dacp_reply_getspeakers(struct evhttp_request *req, struct evbuffer *evbuf, char 
 
   player_speaker_enumerate(speaker_enum_cb, spklist);
 
-  dmap_add_container(evbuf, "casp", 12 + EVBUFFER_LENGTH(spklist)); /* 8 + len */
+  len = evbuffer_get_length(spklist);
+  dmap_add_container(evbuf, "casp", 12 + len);
   dmap_add_int(evbuf, "mstt", 200); /* 12 */
 
   evbuffer_add_buffer(evbuf, spklist);
@@ -2421,12 +2428,25 @@ dacp_init(void)
     }
 
 #ifdef USE_EVENTFD
-  event_set(&updateev, update_efd, EV_READ, playstatusupdate_cb, NULL);
+  updateev = event_new(evbase_httpd, update_efd, EV_READ, playstatusupdate_cb, NULL);
 #else
-  event_set(&updateev, update_pipe[0], EV_READ, playstatusupdate_cb, NULL);
+  updateev = event_new(evbase_httpd, update_pipe[0], EV_READ, playstatusupdate_cb, NULL);
 #endif
-  event_base_set(evbase_httpd, &updateev);
-  event_add(&updateev, NULL);
+  if (!updateev)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not create update event\n");
+
+      return -1;
+    }
+  event_add(updateev, NULL);
+
+  seek_timer = evtimer_new(evbase_httpd, seek_timer_cb, NULL);
+  if (!seek_timer)
+    {
+      DPRINTF(E_LOG, L_DACP, "Could not create seek_timer event\n");
+
+      return -1;
+    }
 
   listener_add(dacp_playstatus_update_handler, LISTENER_PLAYER);
 
@@ -2451,6 +2471,8 @@ dacp_deinit(void)
 
   listener_remove(dacp_playstatus_update_handler);
 
+  event_free(seek_timer);
+
   for (i = 0; dacp_handlers[i].handler; i++)
     regfree(&dacp_handlers[i].preg);
 
@@ -2468,7 +2490,7 @@ dacp_deinit(void)
       free(ur);
     }
 
-  event_del(&updateev);
+  event_free(updateev);
 
 #ifdef USE_EVENTFD
   close(update_efd);
