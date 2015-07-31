@@ -158,20 +158,40 @@ static int seek_target;
 static void
 dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct media_file_info *mfi)
 {
+  uint32_t id;
+  int64_t songalbumid;
+
   if ((status->status == PLAY_STOPPED) || !mfi)
     return;
+
+  /* Send bogus id's if playing internet radio, because clients like
+   * Remote and Retune will only update metadata (like artwork) if the id's
+   * change (which they wouldn't do if we sent the real ones)
+   * FIXME: Giving the client invalid ids on purpose is hardly ideal, but the
+   * clients don't seem to use these ids for anything other than rating.
+   */
+  if (mfi->data_kind == DATA_KIND_URL)
+    {
+      id = djb_hash(mfi->album, strlen(mfi->album));
+      songalbumid = (int64_t)id;
+    }
+  else
+    {
+      id = status->id;
+      songalbumid = mfi->songalbumid;
+    }
 
   dmap_add_container(evbuf, "canp", 16);
   dmap_add_raw_uint32(evbuf, 1); /* Database */
   dmap_add_raw_uint32(evbuf, status->plid);
   dmap_add_raw_uint32(evbuf, status->pos_pl);
-  dmap_add_raw_uint32(evbuf, status->id);
+  dmap_add_raw_uint32(evbuf, id);
 
   dmap_add_string(evbuf, "cann", mfi->title);
   dmap_add_string(evbuf, "cana", mfi->artist);
   dmap_add_string(evbuf, "canl", mfi->album);
   dmap_add_string(evbuf, "cang", mfi->genre);
-  dmap_add_long(evbuf, "asai", mfi->songalbumid);
+  dmap_add_long(evbuf, "asai", songalbumid);
 
   dmap_add_int(evbuf, "cmmk", 1);
 }
@@ -674,11 +694,21 @@ dacp_propset_userrating(const char *value, struct evkeyvalq *query)
     }
 
   mfi = db_file_fetch_byid(itemid);
+
+  /* If no mfi, it may be because we sent an invalid nowplaying itemid. In this
+   * case request the real one from the player and default to that.
+   */
   if (!mfi)
     {
-      DPRINTF(E_LOG, L_DACP, "Could not fetch file id %d\n", itemid);
+      DPRINTF(E_WARN, L_DACP, "Invalid id %d for rating, defaulting to player id\n", itemid);
 
-      return;
+      ret = player_now_playing(&itemid);
+      if ((ret < 0) || !(mfi = db_file_fetch_byid(itemid)))
+	{
+	  DPRINTF(E_WARN, L_DACP, "Could not find an id for rating\n");
+
+	  return;
+	}
     }
 
   mfi->rating = rating;
