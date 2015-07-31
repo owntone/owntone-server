@@ -129,11 +129,7 @@ Libraries:
  - libunistring 0.9.3+
         from <http://www.gnu.org/software/libunistring/#downloading>
  - libasound (optional - ALSA support, recommended for Linux)
-	from <http://www.alsa-project.org/>
- - libflac (optional - FLAC support)
-        from <http://flac.sourceforge.net/download.html>
- - taglib (optional - Musepack support)
-        from <http://developer.kde.org/~wheeler/taglib.html>
+	normally already installed as part of your distro
  - libplist 0.16+ (optional - iTunes XML support)
         from <http://github.com/JonathanBeck/libplist/downloads>
  - libspotify (optional - Spotify support)
@@ -195,10 +191,6 @@ feature.
 
 Support for iTunes Music Library XML format is optional. Use --enable-itunes
 to enable this feature.
-
-FLAC and Musepack support are optional, and they are probably only required
-if your version of libav/ffmpeg is very old (version 0.5 or 0.6). Use
---enable-flac and --enable-musepack to enable.
 
 Support for the MPD protocol is optional. Use --enable-mpd to enable this
 feature.
