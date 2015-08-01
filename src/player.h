@@ -210,10 +210,10 @@ int
 player_queue_move(int ps_pos_from, int ps_pos_to);
 
 int
-player_queue_remove(int ps_pos_remove);
+player_queue_remove_pos_relative(int pos);
 
 int
-player_queue_removeid(uint32_t id);
+player_queue_remove_queueitemid(uint32_t id);
 
 void
 player_queue_clear(void);

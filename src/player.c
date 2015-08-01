@@ -3797,65 +3797,8 @@ queue_move(struct player_command *cmd)
 }
 
 static int
-queue_remove(struct player_command *cmd)
+queue_remove(struct player_source *ps)
 {
-  struct player_source *ps;
-  struct player_source *ps_current;
-  uint32_t pos;
-  uint32_t id;
-  int i;
-
-  if (cmd->arg.item_range.type == RANGEARG_ID)
-    {
-      id = cmd->arg.item_range.id;
-      pos = 0;
-      if (id < 1)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid id %d\n", id);
-	  return -1;
-	}
-
-      DPRINTF(E_DBG, L_PLAYER, "Removing item with id %d\n", id);
-    }
-  else
-    {
-      id = 0;
-      pos = cmd->arg.item_range.start_pos;
-      if (pos < 1)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid position %d\n", pos);
-	  return -1;
-	}
-
-      DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
-    }
-
-  ps_current = cur_playing ? cur_playing : cur_streaming;
-  if (!ps_current)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming item not found\n");
-      return -1;
-    }
-
-  i = 0;
-  ps = ps_current;
-  while (ps)
-    {
-      i++;
-      ps = next_ps(ps, shuffle);
-
-      if (ps == ps_current)
-	ps = NULL;
-      else if ((i == pos) || (ps->id == id))
-	break;
-    }
-
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Can't remove requested item from queue (id %d, pos %d)\n", id, pos);
-      return -1;
-    }
-
   if (ps == source_head)
     source_head = ps->pl_next;
   if (ps == shuffle_head)
@@ -3874,6 +3817,106 @@ queue_remove(struct player_command *cmd)
   listener_notify(LISTENER_PLAYLIST);
 
   return 0;
+}
+
+static int
+queue_remove_pos_relative(struct player_command *cmd)
+{
+  struct player_source *ps;
+  struct player_source *ps_current;
+  int pos;
+  int i;
+  int ret;
+
+  pos = cmd->arg.intval;
+  if (pos < 1)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid position %d\n", pos);
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
+
+  ps_current = cur_playing ? cur_playing : cur_streaming;
+  if (!ps_current)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming item not found\n");
+      return -1;
+    }
+
+  i = 0;
+  ps = ps_current;
+  while (ps)
+    {
+      i++;
+      ps = next_ps(ps, shuffle);
+
+      if (ps == ps_current)
+	ps = NULL;
+      else if (i == pos)
+	break;
+    }
+
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove requested item from queue (pos %d)\n", pos);
+      return -1;
+    }
+
+  ret = queue_remove(ps);
+
+  return ret;
+}
+
+static int
+queue_remove_queueitemid(struct player_command *cmd)
+{
+  struct player_source *ps;
+  struct player_source *ps_current;
+  uint32_t pos;
+  uint32_t id;
+  int i;
+  int ret;
+
+  id = cmd->arg.id;
+  pos = 0;
+  if (id < 1)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid id %d\n", id);
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Removing item with id %d\n", id);
+
+  ps_current = cur_playing ? cur_playing : cur_streaming;
+  if (!ps_current)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming item not found\n");
+      return -1;
+    }
+
+  i = 0;
+  ps = ps_current;
+  while (ps)
+    {
+      i++;
+      ps = next_ps(ps, shuffle);
+
+      if (ps == ps_current)
+	ps = NULL;
+      else if (ps->id == id)
+	break;
+    }
+
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove requested item from queue (id %d, pos %d)\n", id, pos);
+      return -1;
+    }
+
+  ret = queue_remove(ps);
+
+  return ret;
 }
 
 /*
@@ -4569,18 +4612,27 @@ player_queue_move(int ps_pos_from, int ps_pos_to)
   return ret;
 }
 
+/*
+ * Removes the item at the given position from the queue, where the
+ * position is relative to the now playing item and dependent on the
+ * shuffle state of the player.
+ * If shuffle is on, the position determines the position in the shuffle
+ * queue.
+ *
+ * @param pos Position relative to the now playing item and the shuffle state
+ * @return 0 on success, -1 on failure
+ */
 int
-player_queue_remove(int ps_pos_remove)
+player_queue_remove_pos_relative(int pos)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = queue_remove;
+  cmd.func = queue_remove_pos_relative;
   cmd.func_bh = NULL;
-  cmd.arg.item_range.type = RANGEARG_POS;
-  cmd.arg.item_range.start_pos = ps_pos_remove;
+  cmd.arg.intval = pos;
 
   ret = sync_command(&cmd);
 
@@ -4589,18 +4641,23 @@ player_queue_remove(int ps_pos_remove)
   return ret;
 }
 
+/*
+ * Removes the item with the given item id from the queue
+ *
+ * @param id Id of the queue item to remove
+ * @return 0 on success, -1 on failure
+ */
 int
-player_queue_removeid(uint32_t id)
+player_queue_remove_queueitemid(uint32_t id)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = queue_remove;
+  cmd.func = queue_remove_queueitemid;
   cmd.func_bh = NULL;
-  cmd.arg.item_range.type = RANGEARG_ID;
-  cmd.arg.item_range.id = id;
+  cmd.arg.id = id;
 
   ret = sync_command(&cmd);
 

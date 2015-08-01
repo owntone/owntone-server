@@ -1695,7 +1695,7 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_ARG;
     }
 
-  ret = player_queue_remove(pos);
+  ret = player_queue_remove_pos_relative(pos);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to remove song at position '%d'", pos);
@@ -1734,7 +1734,7 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
       return ACK_ERROR_ARG;
     }
 
-  ret = player_queue_removeid(songid);
+  ret = player_queue_remove_queueitemid(songid);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Failed to remove song with id '%s'", argv[1]);

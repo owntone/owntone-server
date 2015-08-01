@@ -1865,7 +1865,7 @@ dacp_reply_playqueueedit_remove(struct evhttp_request *req, struct evbuffer *evb
       return;
     }
 
-    player_queue_remove(item_index);
+    player_queue_remove_pos_relative(item_index);
   }
 
   /* 204 No Content is the canonical reply */
