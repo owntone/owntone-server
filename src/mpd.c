@@ -1777,7 +1777,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
     }
 
   // Get the whole queue (start_pos = 0, end_pos = -1)
-  queue = player_queue_get(0, -1, 0);
+  queue = player_queue_get(0, 0);
 
   if (!queue)
     {
@@ -1825,12 +1825,13 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   struct player_queue *queue;
   int start_pos;
   int end_pos;
+  int count;
   int pos_pl;
   int i;
   int ret;
 
   start_pos = 0;
-  end_pos = -1;
+  end_pos = 0;
 
   if (argc > 1)
     {
@@ -1844,13 +1845,16 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 	}
     }
 
+  count = end_pos - start_pos;
+
   if (start_pos < 0)
     {
       DPRINTF(E_DBG, L_MPD, "Command 'playlistinfo' called with pos < 0 (arg = '%s'), ignore arguments and return whole queue\n", argv[1]);
       start_pos = 0;
-      end_pos = -1;
+      count = 0;
     }
-  queue = player_queue_get(start_pos, end_pos, 0);
+
+  queue = player_queue_get(start_pos, count);
 
   if (!queue)
     {
@@ -1897,7 +1901,7 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
    * forked-daapd does not keep track of changes in the queue based on the playlist version,
    * therefor plchanges returns all songs in the queue as changed ignoring the given version.
    */
-  queue = player_queue_get(0, -1, 0);
+  queue = player_queue_get(0, 0);
 
   if (!queue)
     {

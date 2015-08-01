@@ -1544,7 +1544,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
       /* Get queue and make songlist only if playing or paused */
       if (status.status != PLAY_STOPPED)
 	{
-	  queue = player_queue_get(-1, abs(span), status.shuffle);
+	  queue = player_queue_get_relative(abs(span));
 	  if (queue)
 	    {
 	      i = queue->start_pos;

@@ -133,6 +133,14 @@ struct item_range
   uint32_t *id_ptr;
 };
 
+struct playerqueue_get_param
+{
+  int pos;
+  int count;
+
+  struct player_queue *queue;
+};
+
 struct icy_artwork
 {
   uint32_t id;
@@ -175,13 +183,12 @@ struct player_command
     int ps_pos[2];
     struct item_range item_range;
     struct icy_artwork icy;
+    struct playerqueue_get_param queue_get_param;
   } arg;
 
   int ret;
 
   int raop_pending;
-
-  struct player_queue *queue;
 };
 
 /* Keep in sync with enum raop_devtype */
@@ -3554,61 +3561,44 @@ queue_count()
   return count;
 }
 
-static int
-queue_get(struct player_command *cmd)
+static struct player_queue *
+queue_get(int pos, int count, char shuffle)
 {
-  int start_pos;
-  int end_pos;
   struct player_queue *queue;
   uint32_t *ids;
   unsigned int qlength;
-  unsigned int count;
   struct player_source *ps;
+  int nitems;
   int i;
-  int pos;
-  char qshuffle;
 
   queue = malloc(sizeof(struct player_queue));
 
   qlength = queue_count();
-  qshuffle = cmd->arg.item_range.shuffle;
 
-  start_pos = cmd->arg.item_range.start_pos;
-  if (start_pos < 0)
-    {
-      // Set start_pos to the position of the current item + 1
-      ps = cur_playing ? cur_playing : cur_streaming;
-      start_pos = ps ? source_position(ps, qshuffle) + 1 : 0;
-    }
-
-  end_pos = cmd->arg.item_range.end_pos;
-  if (cmd->arg.item_range.start_pos < 0)
-    end_pos += start_pos;
-  if (end_pos <= 0 || end_pos > qlength)
-    end_pos = qlength;
-
-  if (end_pos > start_pos)
-    count = end_pos - start_pos;
+  if (count > 0)
+    nitems = count;
   else
-    count = 0;
+    nitems = qlength - pos;
 
-  ids = malloc(count * sizeof(uint32_t));
+  ids = malloc(nitems * sizeof(uint32_t));
 
   pos = 0;
-  ps = qshuffle ? shuffle_head : source_head;
-  for (i = 0; i < end_pos; i++)
+  ps = shuffle ? shuffle_head : source_head;
+  for (i = 0; i < pos && ps; i++)
     {
-      if (i >= start_pos)
-	{
-	  ids[pos] = ps->id;
-	  pos++;
-	}
-
-	ps = qshuffle ? ps->shuffle_next : ps->pl_next;
+      ps = shuffle ? ps->shuffle_next : ps->pl_next;
     }
 
-  queue->start_pos = start_pos;
-  queue->count = count;
+  for (i = 0; i < nitems && ps; i++)
+    {
+      ids[pos] = ps->id;
+      pos++;
+
+      ps = shuffle ? ps->shuffle_next : ps->pl_next;
+    }
+
+  queue->start_pos = pos;
+  queue->count = nitems;
   queue->queue = ids;
 
   queue->length = qlength;
@@ -3618,7 +3608,41 @@ queue_get(struct player_command *cmd)
   else if (cur_streaming)
     queue->playingid = cur_streaming->id;
 
-  cmd->queue = queue;
+  return queue;
+}
+
+static int
+queue_get_relative(struct player_command *cmd)
+{
+  int pos;
+  int count;
+  struct player_queue *queue;
+  struct player_source *ps;
+
+  count = cmd->arg.queue_get_param.count;
+
+  // Set pos to the position of the current item + 1
+  ps = cur_playing ? cur_playing : cur_streaming;
+  pos = ps ? source_position(ps, shuffle) + 1 : 0;
+
+  queue = queue_get(pos, count, shuffle);
+  cmd->arg.queue_get_param.queue = queue;
+
+  return 0;
+}
+
+static int
+queue_get_absolute(struct player_command *cmd)
+{
+  int pos;
+  int count;
+  struct player_queue *queue;
+
+  pos = cmd->arg.queue_get_param.pos;
+  count = cmd->arg.queue_get_param.count;
+
+  queue = queue_get(pos, count, shuffle);
+  cmd->arg.queue_get_param.queue = queue;
 
   return 0;
 }
@@ -4529,20 +4553,18 @@ player_shuffle_set(int enable)
  * @return List of items (ids) in the queue
  */
 struct player_queue *
-player_queue_get(int start_pos, int end_pos, char shuffle)
+player_queue_get_relative(int count)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = queue_get;
+  cmd.func = queue_get_relative;
   cmd.func_bh = NULL;
-  cmd.arg.item_range.type = RANGEARG_POS;
-  cmd.arg.item_range.start_pos = start_pos;
-  cmd.arg.item_range.end_pos = end_pos;
-  cmd.arg.item_range.shuffle = shuffle;
-  cmd.queue = NULL;
+  cmd.arg.queue_get_param.pos = -1;
+  cmd.arg.queue_get_param.count = count;
+  cmd.arg.queue_get_param.queue = NULL;
 
   ret = sync_command(&cmd);
 
@@ -4551,7 +4573,31 @@ player_queue_get(int start_pos, int end_pos, char shuffle)
   if (ret != 0)
     return NULL;
 
-  return cmd.queue;
+  return cmd.arg.queue_get_param.queue;
+}
+
+struct player_queue *
+player_queue_get(int pos, int count)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = queue_get_absolute;
+  cmd.func_bh = NULL;
+  cmd.arg.queue_get_param.pos = pos;
+  cmd.arg.queue_get_param.count = count;
+  cmd.arg.queue_get_param.queue = NULL;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  if (ret != 0)
+    return NULL;
+
+  return cmd.arg.queue_get_param.queue;
 }
 
 int

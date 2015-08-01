@@ -195,7 +195,10 @@ player_queue_make_pl(int plid, uint32_t *id);
 //player_queue_make_mpd(char *path, int recursive);
 
 struct player_queue *
-player_queue_get(int start_pos, int end_pos, char shuffle);
+player_queue_get_relative(int count);
+
+struct player_queue *
+player_queue_get(int pos, int count);
 
 void
 queue_free(struct player_queue *queue);
