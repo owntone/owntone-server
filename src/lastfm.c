@@ -491,7 +491,7 @@ scrobble(int id)
     goto noscrobble;
 
   // Don't scrobble non-music and radio stations
-  if ((mfi->media_kind != MEDIA_KIND_MUSIC) || (mfi->data_kind == DATA_KIND_URL))
+  if ((mfi->media_kind != MEDIA_KIND_MUSIC) || (mfi->data_kind == DATA_KIND_HTTP))
     goto noscrobble;
 
   // Don't scrobble songs with unknown artist

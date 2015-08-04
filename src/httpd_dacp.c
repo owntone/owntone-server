@@ -170,7 +170,7 @@ dacp_nowplaying(struct evbuffer *evbuf, struct player_status *status, struct med
    * FIXME: Giving the client invalid ids on purpose is hardly ideal, but the
    * clients don't seem to use these ids for anything other than rating.
    */
-  if (mfi->data_kind == DATA_KIND_URL)
+  if (mfi->data_kind == DATA_KIND_HTTP)
     {
       id = djb_hash(mfi->album, strlen(mfi->album));
       songalbumid = (int64_t)id;

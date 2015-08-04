@@ -2050,7 +2050,7 @@ db_files_update_songalbumid(void)
 void
 db_file_inc_playcount(int id)
 {
-#define Q_TMPL "UPDATE files SET play_count = play_count + 1, time_played = %" PRIi64 " WHERE id = %d;"
+#define Q_TMPL "UPDATE files SET play_count = play_count + 1, time_played = %" PRIi64 ", seek = 0 WHERE id = %d;"
   char *query;
 
   query = sqlite3_mprintf(Q_TMPL, (int64_t)time(NULL), id);
@@ -2743,6 +2743,27 @@ db_file_update_icy(int id, char *artist, char *album)
     return;
 
   query = sqlite3_mprintf(Q_TMPL, artist, album, id);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return;
+    }
+
+  db_query_run(query, 1, 0);
+#undef Q_TMPL
+}
+
+void
+db_file_save_seek(int id, uint32_t seek)
+{
+#define Q_TMPL "UPDATE files SET seek = %d WHERE id = %d;"
+  char *query;
+
+  if (id == 0)
+    return;
+
+  query = sqlite3_mprintf(Q_TMPL, seek, id);
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");

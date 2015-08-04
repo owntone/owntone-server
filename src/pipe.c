@@ -81,7 +81,7 @@ pipe_setup(struct media_file_info *mfi)
       return -1;
     }
 
-  return 1;
+  return 0;
 }
 
 void

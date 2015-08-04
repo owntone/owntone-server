@@ -1173,21 +1173,21 @@ player_queue_make_mpd(char *path, int recursive)
 static void
 source_free(struct player_source *ps)
 {
-  switch (ps->type)
+  switch (ps->data_kind)
     {
-      case SOURCE_FILE:
-      case SOURCE_HTTP:
+      case DATA_KIND_FILE:
+      case DATA_KIND_HTTP:
 	if (ps->ctx)
 	  transcode_cleanup(ps->ctx);
 	break;
 
-      case SOURCE_SPOTIFY:
+      case DATA_KIND_SPOTIFY:
 #ifdef HAVE_SPOTIFY_H
 	spotify_playback_stop();
 #endif
 	break;
 
-      case SOURCE_PIPE:
+      case DATA_KIND_PIPE:
 	pipe_cleanup();
 	break;
     }
@@ -1202,10 +1202,10 @@ source_stop(struct player_source *ps)
 
   while (ps)
     {
-      switch (ps->type)
+      switch (ps->data_kind)
 	{
-	  case SOURCE_FILE:
-	  case SOURCE_HTTP:
+	  case DATA_KIND_FILE:
+	  case DATA_KIND_HTTP:
 	    if (ps->ctx)
 	      {
 		transcode_cleanup(ps->ctx);
@@ -1213,13 +1213,13 @@ source_stop(struct player_source *ps)
 	      }
 	    break;
 
-          case SOURCE_SPOTIFY:
+          case DATA_KIND_SPOTIFY:
 #ifdef HAVE_SPOTIFY_H
 	    spotify_playback_stop();
 #endif
 	    break;
 
-	  case SOURCE_PIPE:
+	  case DATA_KIND_PIPE:
 	    pipe_cleanup();
 	    break;
         }
@@ -1360,7 +1360,7 @@ source_reshuffle(void)
 
 /* Helper */
 static int
-source_open(struct player_source *ps, int no_md)
+source_open(struct player_source *ps, int no_md, int seek)
 {
   struct media_file_info *mfi;
   char *url;
@@ -1390,12 +1390,13 @@ source_open(struct player_source *ps, int no_md)
 
   DPRINTF(E_INFO, L_PLAYER, "Opening '%s' (%s)\n", mfi->title, mfi->path);
 
+  ps->data_kind = mfi->data_kind;
+  ps->media_kind = mfi->media_kind;
+
   // Setup the source type responsible for getting the audio
   switch (mfi->data_kind)
     {
-      case DATA_KIND_URL:
-	ps->type = SOURCE_HTTP;
-
+      case DATA_KIND_HTTP:
 	ret = http_stream_setup(&url, mfi->path);
 	if (ret < 0)
 	  break;
@@ -1407,22 +1408,29 @@ source_open(struct player_source *ps, int no_md)
 	break;
 
       case DATA_KIND_SPOTIFY:
-	ps->type = SOURCE_SPOTIFY;
 #ifdef HAVE_SPOTIFY_H
 	ret = spotify_playback_play(mfi);
+	if (seek && mfi->seek)
+	  {
+	    DPRINTF(E_DBG, L_PLAYER, "Source id %d started with seek %d\n", ps->id, mfi->seek);
+	    ret = spotify_playback_seek(mfi->seek);
+	  }
 #else
 	ret = -1;
 #endif
 	break;
 
       case DATA_KIND_PIPE:
-	ps->type = SOURCE_PIPE;
 	ret = pipe_setup(mfi);
 	break;
 
       default:
-	ps->type = SOURCE_FILE;
 	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
+	if (seek && mfi->seek)
+	  {
+	    DPRINTF(E_DBG, L_PLAYER, "Source id %d started with seek %d\n", ps->id, mfi->seek);
+	    ret = transcode_seek(ps->ctx, mfi->seek);
+	  }
     }
 
   free_mfi(mfi, 0);
@@ -1439,7 +1447,7 @@ source_open(struct player_source *ps, int no_md)
 
   ps->setup_done = 1;
 
-  return 0;
+  return ret;
 }
 
 static int
@@ -1479,7 +1487,7 @@ source_next(int force)
 	if (!cur_streaming)
 	  break;
 
-	if ((cur_streaming->type == SOURCE_FILE) && cur_streaming->ctx)
+	if ((cur_streaming->data_kind == DATA_KIND_FILE) && cur_streaming->ctx)
 	  {
 	    ret = transcode_seek(cur_streaming->ctx, 0);
 
@@ -1491,7 +1499,7 @@ source_next(int force)
 	      metadata_trigger(cur_streaming, 0);
 	  }
 	else
-	  ret = source_open(cur_streaming, force);
+	  ret = source_open(cur_streaming, force, 0);
 
 	if (ret < 0)
 	  {
@@ -1535,7 +1543,7 @@ source_next(int force)
 
   do
     {
-      ret = source_open(ps, force);
+      ret = source_open(ps, force, 0);
       if (ret < 0)
 	{
 	  if (shuffle)
@@ -1593,7 +1601,7 @@ source_prev(void)
 
   do
     {
-      ret = source_open(ps, 1);
+      ret = source_open(ps, 1, 0);
       if (ret < 0)
 	{
 	  if (shuffle)
@@ -1741,7 +1749,7 @@ source_check(void)
 
 	  if (ps->setup_done)
 	    {
-	      if ((ps->type == SOURCE_FILE) && ps->ctx)
+	      if ((ps->data_kind == DATA_KIND_FILE) && ps->ctx)
 		{
 	          transcode_cleanup(ps->ctx);
 	          ps->ctx = NULL;
@@ -1796,7 +1804,7 @@ source_check(void)
 
       if (ps->setup_done)
 	{
-	  if ((ps->type == SOURCE_FILE) && ps->ctx)
+	  if ((ps->data_kind == DATA_KIND_FILE) && ps->ctx)
 	    {
 	      transcode_cleanup(ps->ctx);
 	      ps->ctx = NULL;
@@ -1882,26 +1890,26 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 
       if (evbuffer_get_length(audio_buf) == 0)
 	{
-	  switch (cur_streaming->type)
+	  switch (cur_streaming->data_kind)
 	    {
-	      case SOURCE_HTTP:
+	      case DATA_KIND_HTTP:
 		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes, &icy_timer);
 
 		if (icy_timer)
 		  metadata_check_icy();
 		break;
 
-	      case SOURCE_FILE:
+	      case DATA_KIND_FILE:
 		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes, &icy_timer);
 		break;
 
 #ifdef HAVE_SPOTIFY_H
-	      case SOURCE_SPOTIFY:
+	      case DATA_KIND_SPOTIFY:
 		ret = spotify_audio_get(audio_buf, len - nbytes);
 		break;
 #endif
 
-	      case SOURCE_PIPE:
+	      case DATA_KIND_PIPE:
 		ret = pipe_audio_get(audio_buf, len - nbytes);
 		break;
 
@@ -2647,7 +2655,7 @@ artwork_url_get(struct player_command *cmd)
     return -1;
 
   /* Check that we are playing a viable stream, and that it has the requested id */
-  if (!ps->ctx || ps->type != SOURCE_HTTP || ps->id != cmd->arg.icy.id)
+  if (!ps->ctx || ps->data_kind != DATA_KIND_HTTP || ps->id != cmd->arg.icy.id)
     return -1;
 
   transcode_metadata_artwork_url(ps->ctx, &cmd->arg.icy.artwork_url);
@@ -2874,7 +2882,7 @@ playback_start(struct player_command *cmd)
       else
 	cur_streaming = ps;
 
-      ret = source_open(cur_streaming, 0);
+      ret = source_open(cur_streaming, 0, 1);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_PLAYER, "Couldn't jump to source %d in queue\n", cur_streaming->id);
@@ -2886,7 +2894,7 @@ playback_start(struct player_command *cmd)
       if (idx_id)
 	*idx_id = cur_streaming->id;
 
-      cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+      cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
       cur_streaming->output_start = cur_streaming->stream_start;
     }
   else if (!cur_streaming)
@@ -3023,7 +3031,7 @@ playback_prev_bh(struct player_command *cmd)
     }
   else
     {
-      ret = source_open(cur_streaming, 1);
+      ret = source_open(cur_streaming, 1, 0);
       if (ret < 0)
 	{
 	  playback_abort();
@@ -3103,18 +3111,18 @@ playback_seek_bh(struct player_command *cmd)
   ps->end = 0;
 
   /* Seek to commanded position */
-  switch (ps->type)
+  switch (ps->data_kind)
     {
-      case SOURCE_FILE:
+      case DATA_KIND_FILE:
 	ret = transcode_seek(ps->ctx, ms);
 	break;
 #ifdef HAVE_SPOTIFY_H
-      case SOURCE_SPOTIFY:
+      case DATA_KIND_SPOTIFY:
 	ret = spotify_playback_seek(ms);
 	break;
 #endif
-      case SOURCE_PIPE:
-      case SOURCE_HTTP:
+      case DATA_KIND_PIPE:
+      case DATA_KIND_HTTP:
 	ret = 1;
 	break;
 
@@ -3162,13 +3170,13 @@ playback_pause_bh(struct player_command *cmd)
   pos -= ps->stream_start;
   ms = (int)((pos * 1000) / 44100);
 
-  switch (ps->type)
+  switch (ps->data_kind)
     {
-      case SOURCE_FILE:
+      case DATA_KIND_FILE:
 	ret = transcode_seek(ps->ctx, ms);
 	break;
 #ifdef HAVE_SPOTIFY_H
-      case SOURCE_SPOTIFY:
+      case DATA_KIND_SPOTIFY:
 	ret = spotify_playback_seek(ms);
 	break;
 #endif
@@ -3191,6 +3199,9 @@ playback_pause_bh(struct player_command *cmd)
   cur_playing = NULL;
 
   status_update(PLAY_PAUSED);
+
+  if (ps->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW))
+    db_file_save_seek(ps->id, ret);
 
   return 0;
 }

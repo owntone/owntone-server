@@ -187,7 +187,7 @@ expression	returns [ pANTLR3_STRING result ]
 				}
 				else if (strcmp((char *)val, "url") == 0)
 				{
-					sprintf(str, "f.data_kind = \%d", DATA_KIND_URL);
+					sprintf(str, "f.data_kind = \%d", DATA_KIND_HTTP);
 				}
 				else if (strcmp((char *)val, "spotify") == 0)
 				{

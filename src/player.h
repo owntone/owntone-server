@@ -33,13 +33,6 @@ enum repeat_mode {
   REPEAT_ALL  = 2,
 };
 
-enum source_type {
-  SOURCE_FILE = 0,
-  SOURCE_SPOTIFY,
-  SOURCE_PIPE,
-  SOURCE_HTTP,
-};
-
 struct spk_flags {
   unsigned selected:1;
   unsigned has_password:1;
@@ -84,7 +77,8 @@ struct player_source
   uint32_t id;
   uint32_t len_ms;
 
-  enum source_type type;
+  enum data_kind data_kind;
+  enum media_kind media_kind;
   int setup_done;
 
   uint64_t stream_start;

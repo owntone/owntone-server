@@ -706,7 +706,7 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
     }
   else if (type & F_SCAN_TYPE_URL)
     {
-      mfi->data_kind = DATA_KIND_URL;
+      mfi->data_kind = DATA_KIND_HTTP;
       ret = scan_metadata_ffmpeg(path, mfi);
       if (ret < 0)
 	{

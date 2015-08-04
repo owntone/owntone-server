@@ -104,7 +104,7 @@ enum media_kind {
 
 enum data_kind {
   DATA_KIND_FILE = 0,    /* normal file */
-  DATA_KIND_URL = 1,     /* url/stream */
+  DATA_KIND_HTTP = 1,    /* network stream (radio) */
   DATA_KIND_SPOTIFY = 2, /* iTunes has no spotify data kind, but we use 2 */
   DATA_KIND_PIPE = 3,    /* iTunes has no pipe data kind, but we use 3 */
 };
@@ -472,6 +472,9 @@ db_file_update(struct media_file_info *mfi);
 
 void
 db_file_update_icy(int id, char *artist, char *album);
+
+void
+db_file_save_seek(int id, uint32_t seek);
 
 void
 db_file_delete_bypath(char *path);
