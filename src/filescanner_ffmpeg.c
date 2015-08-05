@@ -427,6 +427,10 @@ scan_metadata_ffmpeg(char *file, struct media_file_info *mfi)
 		break;
 	      }
 #endif
+	    // We treat these as audio no matter what
+	    if (mfi->compilation || (mfi->media_kind & (MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK)))
+	      break;
+
 	    if (!video_stream)
 	      {
 		DPRINTF(E_DBG, L_SCAN, "File has video (stream %d)\n", i);

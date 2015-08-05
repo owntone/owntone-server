@@ -699,6 +699,13 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
   mfi->time_modified = mtime;
   mfi->file_size = size;
 
+  if (type & F_SCAN_TYPE_COMPILATION)
+    mfi->compilation = 1;
+  if (type & F_SCAN_TYPE_PODCAST)
+    mfi->media_kind = MEDIA_KIND_PODCAST; /* podcast */
+  if (type & F_SCAN_TYPE_AUDIOBOOK)
+    mfi->media_kind = MEDIA_KIND_AUDIOBOOK; /* audiobook */
+
   if (type & F_SCAN_TYPE_FILE)
     {
       mfi->data_kind = DATA_KIND_FILE;
@@ -741,13 +748,6 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
       DPRINTF(E_INFO, L_SCAN, "Could not extract metadata for %s\n", path);
       goto out;
     }
-
-  if (type & F_SCAN_TYPE_COMPILATION)
-    mfi->compilation = 1;
-  if (type & F_SCAN_TYPE_PODCAST)
-    mfi->media_kind = MEDIA_KIND_PODCAST; /* podcast */
-  if (type & F_SCAN_TYPE_AUDIOBOOK)
-    mfi->media_kind = MEDIA_KIND_AUDIOBOOK; /* audiobook */
 
   if (!mfi->item_kind)
     mfi->item_kind = 2; /* music */
