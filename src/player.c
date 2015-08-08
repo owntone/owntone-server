@@ -589,7 +589,7 @@ static void
 playback_abort(void);
 
 static int
-queue_clear(struct player_command *cmd);
+playerqueue_clear(struct player_command *cmd);
 
 static void
 player_metadata_send(struct player_metadata *pmd);
@@ -2288,7 +2288,7 @@ playback_abort(void)
   else
     source_stop(cur_streaming);
 
-  queue_clear(NULL);
+  playerqueue_clear(NULL);
 
   cur_playing = NULL;
   cur_streaming = NULL;
@@ -2540,7 +2540,7 @@ playback_start_bh(struct player_command *cmd)
 }
 
 static struct player_source *
-queue_get_source_byid(uint32_t id)
+playerqueue_get_source_byid(uint32_t id)
 {
   struct player_source *ps;
 
@@ -2557,7 +2557,7 @@ queue_get_source_byid(uint32_t id)
 }
 
 static struct player_source *
-queue_get_source_bypos(int pos)
+playerqueue_get_source_bypos(int pos)
 {
   struct player_source *ps;
   int i;
@@ -2617,9 +2617,9 @@ playback_start(struct player_command *cmd)
    * player_source from the queue.
    */
   if (cmd->arg.item_range.type == RANGEARG_ID)
-    ps = queue_get_source_byid(cmd->arg.item_range.id);
+    ps = playerqueue_get_source_byid(cmd->arg.item_range.id);
   else if (cmd->arg.item_range.type == RANGEARG_POS)
-    ps = queue_get_source_bypos(cmd->arg.item_range.start_pos);
+    ps = playerqueue_get_source_bypos(cmd->arg.item_range.start_pos);
   else
     ps = NULL;
 
@@ -3542,7 +3542,7 @@ shuffle_set(struct player_command *cmd)
 }
 
 static unsigned int
-queue_count()
+playerqueue_count()
 {
   struct player_source *ps;
   int count;
@@ -3562,7 +3562,7 @@ queue_count()
 }
 
 static struct player_queue *
-queue_get(int pos, int count, char shuffle)
+playerqueue_get(int pos, int count, char shuffle)
 {
   struct player_queue *queue;
   uint32_t *ids;
@@ -3573,7 +3573,7 @@ queue_get(int pos, int count, char shuffle)
 
   queue = malloc(sizeof(struct player_queue));
 
-  qlength = queue_count();
+  qlength = playerqueue_count();
 
   if (count > 0)
     nitems = count;
@@ -3612,7 +3612,7 @@ queue_get(int pos, int count, char shuffle)
 }
 
 static int
-queue_get_relative(struct player_command *cmd)
+playerqueue_get_relative(struct player_command *cmd)
 {
   int pos;
   int count;
@@ -3625,14 +3625,14 @@ queue_get_relative(struct player_command *cmd)
   ps = cur_playing ? cur_playing : cur_streaming;
   pos = ps ? source_position(ps, shuffle) + 1 : 0;
 
-  queue = queue_get(pos, count, shuffle);
+  queue = playerqueue_get(pos, count, shuffle);
   cmd->arg.queue_get_param.queue = queue;
 
   return 0;
 }
 
 static int
-queue_get_absolute(struct player_command *cmd)
+playerqueue_get_absolute(struct player_command *cmd)
 {
   int pos;
   int count;
@@ -3641,21 +3641,21 @@ queue_get_absolute(struct player_command *cmd)
   pos = cmd->arg.queue_get_param.pos;
   count = cmd->arg.queue_get_param.count;
 
-  queue = queue_get(pos, count, shuffle);
+  queue = playerqueue_get(pos, count, shuffle);
   cmd->arg.queue_get_param.queue = queue;
 
   return 0;
 }
 
 void
-queue_free(struct player_queue *queue)
+playerqueue_free(struct player_queue *queue)
 {
   free(queue->queue);
   free(queue);
 }
 
 static int
-queue_add(struct player_command *cmd)
+playerqueue_add(struct player_command *cmd)
 {
   struct player_source *ps;
   struct player_source *ps_shuffle;
@@ -3706,7 +3706,7 @@ queue_add(struct player_command *cmd)
 }
 
 static int
-queue_add_next(struct player_command *cmd)
+playerqueue_add_next(struct player_command *cmd)
 {
   struct player_source *ps;
   struct player_source *ps_shuffle;
@@ -3750,7 +3750,7 @@ queue_add_next(struct player_command *cmd)
 }
 
 static int
-queue_move(struct player_command *cmd)
+playerqueue_move(struct player_command *cmd)
 {
   struct player_source *ps;
   struct player_source *ps_src;
@@ -3821,7 +3821,7 @@ queue_move(struct player_command *cmd)
 }
 
 static int
-queue_remove(struct player_source *ps)
+playerqueue_remove(struct player_source *ps)
 {
   if (ps == source_head)
     source_head = ps->pl_next;
@@ -3844,7 +3844,7 @@ queue_remove(struct player_source *ps)
 }
 
 static int
-queue_remove_pos_relative(struct player_command *cmd)
+playerqueue_remove_pos_relative(struct player_command *cmd)
 {
   struct player_source *ps;
   struct player_source *ps_current;
@@ -3887,13 +3887,13 @@ queue_remove_pos_relative(struct player_command *cmd)
       return -1;
     }
 
-  ret = queue_remove(ps);
+  ret = playerqueue_remove(ps);
 
   return ret;
 }
 
 static int
-queue_remove_queueitemid(struct player_command *cmd)
+playerqueue_remove_queueitemid(struct player_command *cmd)
 {
   struct player_source *ps;
   struct player_source *ps_current;
@@ -3938,16 +3938,16 @@ queue_remove_queueitemid(struct player_command *cmd)
       return -1;
     }
 
-  ret = queue_remove(ps);
+  ret = playerqueue_remove(ps);
 
   return ret;
 }
 
 /*
- * queue_clear removes all items from the playqueue, playback must be stopped before calling queue_clear
+ * playerqueue_clear removes all items from the playqueue, playback must be stopped before calling playerqueue_clear
  */
 static int
-queue_clear(struct player_command *cmd)
+playerqueue_clear(struct player_command *cmd)
 {
   struct player_source *ps;
 
@@ -3973,12 +3973,12 @@ queue_clear(struct player_command *cmd)
 }
 
 /*
- * Depending on cmd->arg.intval queue_empty removes all items from the history (arg.intval = 1),
- * or removes all upcoming songs from the playqueue (arg.intval != 1). After calling queue_empty
+ * Depending on cmd->arg.intval playerqueue_empty removes all items from the history (arg.intval = 1),
+ * or removes all upcoming songs from the playqueue (arg.intval != 1). After calling playerqueue_empty
  * to remove the upcoming songs, the playqueue will only contain the current playing song.
  */
 static int
-queue_empty(struct player_command *cmd)
+playerqueue_empty(struct player_command *cmd)
 {
   int clear_hist;
   struct player_source *ps;
@@ -3997,7 +3997,7 @@ queue_empty(struct player_command *cmd)
       if (!cur_playing || cur_playing != cur_streaming)
 	{
 	  playback_stop(cmd);
-	  queue_clear(cmd);
+	  playerqueue_clear(cmd);
 	  return 0;
 	}
 
@@ -4026,7 +4026,7 @@ queue_empty(struct player_command *cmd)
 }
 
 static int
-queue_plid(struct player_command *cmd)
+playerqueue_plid(struct player_command *cmd)
 {
   if (!source_head)
     return 0;
@@ -4560,7 +4560,7 @@ player_queue_get_relative(int count)
 
   command_init(&cmd);
 
-  cmd.func = queue_get_relative;
+  cmd.func = playerqueue_get_relative;
   cmd.func_bh = NULL;
   cmd.arg.queue_get_param.pos = -1;
   cmd.arg.queue_get_param.count = count;
@@ -4584,7 +4584,7 @@ player_queue_get(int pos, int count)
 
   command_init(&cmd);
 
-  cmd.func = queue_get_absolute;
+  cmd.func = playerqueue_get_absolute;
   cmd.func_bh = NULL;
   cmd.arg.queue_get_param.pos = pos;
   cmd.arg.queue_get_param.count = count;
@@ -4608,7 +4608,7 @@ player_queue_add(struct player_source *ps)
 
   command_init(&cmd);
 
-  cmd.func = queue_add;
+  cmd.func = playerqueue_add;
   cmd.func_bh = NULL;
   cmd.arg.ps = ps;
 
@@ -4627,7 +4627,7 @@ player_queue_add_next(struct player_source *ps)
 
   command_init(&cmd);
 
-  cmd.func = queue_add_next;
+  cmd.func = playerqueue_add_next;
   cmd.func_bh = NULL;
   cmd.arg.ps = ps;
 
@@ -4646,7 +4646,7 @@ player_queue_move(int ps_pos_from, int ps_pos_to)
 
   command_init(&cmd);
 
-  cmd.func = queue_move;
+  cmd.func = playerqueue_move;
   cmd.func_bh = NULL;
   cmd.arg.ps_pos[0] = ps_pos_from;
   cmd.arg.ps_pos[1] = ps_pos_to;
@@ -4676,7 +4676,7 @@ player_queue_remove_pos_relative(int pos)
 
   command_init(&cmd);
 
-  cmd.func = queue_remove_pos_relative;
+  cmd.func = playerqueue_remove_pos_relative;
   cmd.func_bh = NULL;
   cmd.arg.intval = pos;
 
@@ -4701,7 +4701,7 @@ player_queue_remove_queueitemid(uint32_t id)
 
   command_init(&cmd);
 
-  cmd.func = queue_remove_queueitemid;
+  cmd.func = playerqueue_remove_queueitemid;
   cmd.func_bh = NULL;
   cmd.arg.id = id;
 
@@ -4719,7 +4719,7 @@ player_queue_clear(void)
 
   command_init(&cmd);
 
-  cmd.func = queue_clear;
+  cmd.func = playerqueue_clear;
   cmd.func_bh = NULL;
   cmd.arg.noarg = NULL;
 
@@ -4735,7 +4735,7 @@ player_queue_empty(int clear_hist)
 
   command_init(&cmd);
 
-  cmd.func = queue_empty;
+  cmd.func = playerqueue_empty;
   cmd.func_bh = NULL;
   cmd.arg.intval = clear_hist;
 
@@ -4751,7 +4751,7 @@ player_queue_plid(uint32_t plid)
 
   command_init(&cmd);
 
-  cmd.func = queue_plid;
+  cmd.func = playerqueue_plid;
   cmd.func_bh = NULL;
   cmd.arg.id = plid;
 
@@ -5368,7 +5368,7 @@ player_deinit(void)
     }
 
   if (source_head)
-    queue_clear(NULL);
+    playerqueue_clear(NULL);
 
   free(history);
 
