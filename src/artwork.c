@@ -204,6 +204,14 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
       return -1;
     }
 
+  if (src->pix_fmt < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Unknown pixel format for artwork %s\n", src_ctx->filename);
+
+      ret = -1;
+      goto out_close_src;
+    }
+
   /* Set up output */
   dst_fmt = av_guess_format("image2", NULL, NULL);
   if (!dst_fmt)
