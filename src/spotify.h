@@ -17,6 +17,9 @@ void
 spotify_playback_pause_nonblock(void);
 
 int
+spotify_playback_resume(void);
+
+int
 spotify_playback_stop(void);
 
 void
