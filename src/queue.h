@@ -3,6 +3,8 @@
 #define SRC_QUEUE_H_
 
 
+#include "db.h"
+
 enum repeat_mode {
   REPEAT_OFF  = 0,
   REPEAT_SONG = 1,
@@ -125,5 +127,8 @@ queue_make(struct query_params *qp);
 
 struct queue_item *
 queue_make_pl(int plid);
+
+struct queue_item *
+queue_make_item(uint32_t dbmfi_id);
 
 #endif /* SRC_QUEUE_H_ */

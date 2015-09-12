@@ -758,7 +758,6 @@ dacp_reply_ctrlint(struct evhttp_request *req, struct evbuffer *evbuf, char **ur
 static int
 find_first_song_id(const char *query)
 {
-  //TODO [refactor][performance] Unnecessary query, it is enough to extract the item id from the query string. Accessing the db to verify the item exists is not needed.
   struct db_media_file_info dbmfi;
   struct query_params qp;
   int id;
@@ -1214,7 +1213,12 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
   DPRINTF(E_DBG, L_DACP, "Playspec request for playlist %d, start song id %d%s\n", plid, pos, (shuffle) ? ", shuffle" : "");
 
-  items = queue_make_pl(plid); //TODO [queue] get queue-item-id or pos for first song to play (dacp) --- , &pos);
+  items = NULL;
+  if (plid > 0)
+    items = queue_make_pl(plid);
+  else if (pos > 0)
+    items = queue_make_item(pos);
+
   if (!items)
     {
       DPRINTF(E_LOG, L_DACP, "Could not build song queue from playlist %d\n", plid);

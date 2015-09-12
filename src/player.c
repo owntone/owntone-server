@@ -1527,7 +1527,6 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	  if (item)
 	    {
 	      ret = source_open(item, cur_streaming->end + 1, 0);
-
 	      if (ret < 0)
 		return -1;
 

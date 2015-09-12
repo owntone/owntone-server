@@ -16,14 +16,16 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
  */
 
+
+#include "queue.h"
+
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#include "db.h"
 #include "logger.h"
 #include "misc.h"
-#include "queue.h"
 #include "rng.h"
 
 
@@ -1070,11 +1072,17 @@ queue_make(struct query_params *qp)
   return item_head;
 }
 
+/*
+ * Makes a list of queue-items for the given playlist id (plid)
+ *
+ * @param plid Id of the playlist
+ * @return List of items for all playlist items
+ */
 struct queue_item *
 queue_make_pl(int plid)
 {
   struct query_params qp;
-  struct queue_item *item;;
+  struct queue_item *item;
 
   memset(&qp, 0, sizeof(struct query_params));
 
@@ -1084,6 +1092,34 @@ queue_make_pl(int plid)
   qp.limit = 0;
   qp.sort = S_NONE;
   qp.idx_type = I_NONE;
+
+  item = queue_make(&qp);
+
+  return item;
+}
+
+/*
+ * Makes a queue-item for the item/file with the given id (dbmfi_id)
+ *
+ * @param dbmfi_id Id of the item/file
+ * @return List of items containing only the item with the given id
+ */
+struct queue_item *
+queue_make_item(uint32_t dbmfi_id)
+{
+  struct query_params qp;
+  struct queue_item *item;
+  char buf[124];
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.id = 0;
+  qp.type = Q_ITEMS;
+  qp.offset = 0;
+  qp.limit = 0;
+  qp.sort = S_NONE;
+  snprintf(buf, sizeof(buf), "f.id = %" PRIu32, dbmfi_id);
+  qp.filter = strdup(buf);
 
   item = queue_make(&qp);
 
