@@ -11,7 +11,13 @@
 #endif
 
 int
-spotify_playback_play(struct media_file_info *mfi);
+spotify_playback_setup(struct media_file_info *mfi);
+
+int
+spotify_playback_play();
+
+int
+spotify_playback_pause();
 
 void
 spotify_playback_pause_nonblock(void);

@@ -874,7 +874,7 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
 
       case DATA_KIND_SPOTIFY:
 #ifdef HAVE_SPOTIFY_H
-	ret = spotify_playback_play(mfi); //TODO [player] split spotify setup/play into separate functions
+	ret = spotify_playback_setup(mfi);
 #else
 	ret = -1;
 #endif
@@ -904,13 +904,13 @@ stream_play(struct player_source *ps)
 
   if (!ps)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Stream pause called with no active streaming player source\n");
+      DPRINTF(E_LOG, L_PLAYER, "Stream play called with no active streaming player source\n");
       return -1;
     }
 
   if (!ps->setup_done)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, pause not possible\n");
+      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, play not possible\n");
       return -1;
     }
 
@@ -924,7 +924,7 @@ stream_play(struct player_source *ps)
 
 #ifdef HAVE_SPOTIFY_H
       case DATA_KIND_SPOTIFY:
-	ret = spotify_playback_resume();
+	ret = spotify_playback_play();
 	break;
 #endif
 
@@ -1022,7 +1022,7 @@ stream_pause(struct player_source *ps)
 
 #ifdef HAVE_SPOTIFY_H
       case DATA_KIND_SPOTIFY:
-	spotify_playback_pause_nonblock(); //TODO [player] spotify blocking pause command missing
+	spotify_playback_pause();
 	ret = 0;
 	break;
 #endif
@@ -1162,7 +1162,7 @@ stream_cleanup(struct player_source *ps)
 
       case DATA_KIND_SPOTIFY:
 #ifdef HAVE_SPOTIFY_H
-	spotify_playback_stop();  //TODO [player] spotify cleanup functions
+	spotify_playback_stop();  //TODO [player] spotify cleanup functions?
 #endif
 	break;
 
@@ -1528,6 +1528,10 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	    {
 	      ret = source_open(item, cur_streaming->end + 1, 0);
 
+	      if (ret < 0)
+		return -1;
+
+	      ret = source_play();
 	      if (ret < 0)
 		return -1;
 	    }
