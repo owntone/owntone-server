@@ -1533,6 +1533,8 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	      ret = source_play();
 	      if (ret < 0)
 		return -1;
+
+	      metadata_trigger(cur_streaming, 0);
 	    }
 	  else
 	    {
