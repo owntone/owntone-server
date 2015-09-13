@@ -850,7 +850,7 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
 
   if (ps->setup_done)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source already setup\n");
+      DPRINTF(E_LOG, L_PLAYER, "Given player source already setup (id = %d)\n", ps->id);
       return -1;
     }
 
@@ -876,6 +876,8 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
 #ifdef HAVE_SPOTIFY_H
 	ret = spotify_playback_setup(mfi);
 #else
+	DPRINTF(E_LOG, L_PLAYER, "Player source has data kind 'spotify' (%d), but forked-daapd is compiled without spotify support - cannot setup source '%s' (%s)\n",
+		    ps->data_kind, mfi->title, mfi->path);
 	ret = -1;
 #endif
 	break;
@@ -885,11 +887,15 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
 	break;
 
       default:
+	DPRINTF(E_LOG, L_PLAYER, "Unknown data kind (%d) for player source - cannot setup source '%s' (%s)\n",
+	    ps->data_kind, mfi->title, mfi->path);
 	ret = -1;
     }
 
   if (ret == 0)
-    ps->setup_done = 1;
+      ps->setup_done = 1;
+  else
+      DPRINTF(E_LOG, L_PLAYER, "Failed to setup player source (id = %d)\n", ps->id);
 
   return ret;
 }
@@ -1022,8 +1028,7 @@ stream_pause(struct player_source *ps)
 
 #ifdef HAVE_SPOTIFY_H
       case DATA_KIND_SPOTIFY:
-	spotify_playback_pause();
-	ret = 0;
+	ret = spotify_playback_pause();
 	break;
 #endif
 
@@ -1096,13 +1101,13 @@ stream_stop(struct player_source *ps)
 
   if (!ps)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Stream pause called with no active streaming player source\n");
+      DPRINTF(E_LOG, L_PLAYER, "Stream stop called with no active streaming player source\n");
       return -1;
     }
 
   if (!ps->setup_done)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, pause not possible\n");
+      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, stop not possible\n");
       return -1;
     }
 
@@ -1258,11 +1263,23 @@ source_pause(uint64_t pos)
 
   if (ps_playing != cur_streaming)
     {
-      stream_stop(cur_streaming);
-      stream_cleanup(cur_streaming);
+      DPRINTF(E_DBG, L_PLAYER,
+	  "Pause called on playing source (id=%d) and streaming source already "
+	  "switched to the next item (id=%d)\n", ps_playing->id, cur_streaming->id);
+      ret = stream_stop(cur_streaming);
+      if (ret < 0)
+	return -1;
+
+      ret = stream_cleanup(cur_streaming);
+      if (ret < 0)
+	return -1;
     }
   else
-    stream_pause(cur_streaming);
+    {
+      ret = stream_pause(cur_streaming);
+      if (ret < 0)
+	return -1;
+    }
 
   ps_playnext = ps_playing->play_next;
   while (ps_playnext)
@@ -1298,9 +1315,18 @@ source_pause(uint64_t pos)
 
       DPRINTF(E_INFO, L_PLAYER, "Opening '%s' (%s)\n", mfi->title, mfi->path);
 
-      stream_setup(cur_streaming, mfi);
+      ret = stream_setup(cur_streaming, mfi);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s' (%s)\n", mfi->title, mfi->path);
+	  free_mfi(mfi, 0);
+	  return -1;
+	}
+
+      free_mfi(mfi, 0);
     }
 
+  /* Seek back to the pause position */
   seek_frames = (pos - cur_streaming->stream_start);
   seek_ms = (int)((seek_frames * 1000) / 44100);
   ret = stream_seek(cur_streaming, seek_ms);
@@ -1323,6 +1349,8 @@ source_seek(int seek_ms)
   int ret;
 
   ret = stream_seek(cur_streaming, seek_ms);
+  if (ret < 0)
+    return -1;
 
   /* Adjust start_pos to take into account the pause and seek back */
   cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
@@ -1387,7 +1415,15 @@ source_open(struct queue_item_info *qii, uint64_t start_pos, int seek)
   ps = source_new(qii);
 
   ret = stream_setup(ps, mfi);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s' (%s)\n", mfi->title, mfi->path);
+      free_mfi(mfi, 0);
+      return -1;
+    }
 
+  /* If a streaming source exists, append the new source as play-next and set it
+     as the new streaming source */
   if (cur_streaming)
     {
       cur_streaming->play_next = ps;
@@ -1399,6 +1435,7 @@ source_open(struct queue_item_info *qii, uint64_t start_pos, int seek)
   cur_streaming->output_start = cur_streaming->stream_start;
   cur_streaming->end = 0;
 
+  /* Seek to the saved seek position */
   if (seek && mfi->seek)
     source_seek(mfi->seek);
 
@@ -1561,6 +1598,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	  if (ret <= 0)
 	    {
 	      /* EOF or error */
+	      //TODO [player] distinguish between eof and error - on error remove item from queue two avoid endless loops if repeat is set
 	      source_close(rtptime + BTOS(nbytes) - 1);
 
 	      new = 1;
