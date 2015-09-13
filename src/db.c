@@ -6037,6 +6037,70 @@ db_pragma_set_synchronous(int synchronous)
 #undef Q_TMPL
 }
 
+static int
+db_pragma_get_mmap_size()
+{
+  sqlite3_stmt *stmt;
+  char *query = "PRAGMA mmap_size;";
+  int ret;
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return 0;
+    }
+
+  ret = db_blocking_step(stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of query results\n");
+      sqlite3_free(query);
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      sqlite3_free(query);
+      return -1;
+    }
+
+  ret = sqlite3_column_int(stmt, 0);
+
+  sqlite3_finalize(stmt);
+  return ret;
+}
+
+static int
+db_pragma_set_mmap_size(int mmap_size)
+{
+#define Q_TMPL "PRAGMA mmap_size=%d;"
+  sqlite3_stmt *stmt;
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, mmap_size);
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return 0;
+    }
+
+  sqlite3_finalize(stmt);
+  sqlite3_free(query);
+  return 0;
+#undef Q_TMPL
+}
+
 
 
 int
@@ -6047,6 +6111,7 @@ db_perthread_init(void)
   int cache_size;
   char *journal_mode;
   int synchronous;
+  int mmap_size;
 
   ret = sqlite3_open(db_path, &hdl);
   if (ret != SQLITE_OK)
@@ -6118,6 +6183,13 @@ db_perthread_init(void)
       DPRINTF(E_DBG, L_DB, "Database synchronous: %d\n", synchronous);
     }
 
+  mmap_size = cfg_getint(cfg_getsec(cfg, "sqlite"), "pragma_mmap_size_library");
+  if (mmap_size > -1)
+    {
+      db_pragma_set_mmap_size(mmap_size);
+      mmap_size = db_pragma_get_mmap_size();
+      DPRINTF(E_DBG, L_DB, "Database mmap_size: %d\n", mmap_size);
+    }
   return 0;
 }
 
