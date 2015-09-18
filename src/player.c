@@ -1122,7 +1122,7 @@ stream_stop(struct player_source *ps)
 
       case DATA_KIND_SPOTIFY:
 #ifdef HAVE_SPOTIFY_H
-	spotify_playback_stop();  //TODO [player] spotify cleanup functions?
+	spotify_playback_stop();
 #endif
 	break;
 
@@ -1215,20 +1215,23 @@ source_pause(uint64_t pos)
 
   ps_playing = source_now_playing();
 
-  if (ps_playing != cur_streaming)
+  if (cur_streaming)
     {
-      DPRINTF(E_DBG, L_PLAYER,
-	  "Pause called on playing source (id=%d) and streaming source already "
-	  "switched to the next item (id=%d)\n", ps_playing->id, cur_streaming->id);
-      ret = stream_stop(cur_streaming);
-      if (ret < 0)
-	return -1;
-    }
-  else
-    {
-      ret = stream_pause(cur_streaming);
-      if (ret < 0)
-	return -1;
+      if (ps_playing != cur_streaming)
+	{
+	  DPRINTF(E_DBG, L_PLAYER,
+	      "Pause called on playing source (id=%d) and streaming source already "
+	      "switched to the next item (id=%d)\n", ps_playing->id, cur_streaming->id);
+	  ret = stream_stop(cur_streaming);
+	  if (ret < 0)
+	    return -1;
+	}
+      else
+	{
+	  ret = stream_pause(cur_streaming);
+	  if (ret < 0)
+	    return -1;
+	}
     }
 
   ps_playnext = ps_playing->play_next;
@@ -1504,31 +1507,6 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   new = 0;
   while (nbytes < len)
     {
-      if (new)
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "New file\n");
-
-	  new = 0;
-
-	  item = queue_next(queue, cur_streaming->queueitem_id, shuffle, repeat);
-	  if (item)
-	    {
-	      ret = source_open(item, cur_streaming->end + 1, 0);
-	      if (ret < 0)
-		return -1;
-
-	      ret = source_play();
-	      if (ret < 0)
-		return -1;
-
-	      metadata_trigger(cur_streaming, 0);
-	    }
-	  else
-	    {
-	      cur_streaming = NULL;
-	    }
-	}
-
       if (evbuffer_get_length(audio_buf) == 0)
 	{
 	  if (cur_streaming)
@@ -1544,14 +1522,38 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	      free(silence_buf);
 	      ret = len - nbytes;
 	    }
-	    
+
 	  if (ret <= 0)
 	    {
 	      /* EOF or error */
-	      //TODO [player] distinguish between eof and error - on error remove item from queue two avoid endless loops if repeat is set
 	      source_close(rtptime + BTOS(nbytes) - 1);
 
-	      new = 1;
+	      DPRINTF(E_DBG, L_PLAYER, "New file\n");
+
+	      item = queue_next(queue, cur_streaming->queueitem_id, shuffle, repeat);
+
+	      if (ret < 0)
+		{
+		  DPRINTF(E_LOG, L_PLAYER, "Error reading source %d\n", cur_streaming->id);
+		  queue_remove_byitemid(queue, cur_streaming->queueitem_id);
+		}
+
+	      if (item)
+		{
+		  ret = source_open(item, cur_streaming->end + 1, 0);
+		  if (ret < 0)
+		    return -1;
+
+		  ret = source_play();
+		  if (ret < 0)
+		    return -1;
+
+		  metadata_trigger(cur_streaming, 0);
+		}
+	      else
+		{
+		  cur_streaming = NULL;
+		}
 	      continue;
 	    }
 	}
