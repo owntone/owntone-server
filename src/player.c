@@ -264,7 +264,7 @@ static uint64_t pb_pos;
 static uint64_t last_rtptime;
 
 /* AirPlay devices */
-static int dev_autoselect;
+static int dev_autoselect; //TODO [player] Is this still necessary?
 static struct raop_device *dev_list;
 
 /* Device status */
@@ -1092,55 +1092,10 @@ stream_seek(struct player_source *ps, int seek_ms)
 }
 
 /*
- * Stops playback for the given player source
+ * Stops playback and cleanup for the given player source
  */
 static int
 stream_stop(struct player_source *ps)
-{
-  int ret;
-
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Stream stop called with no active streaming player source\n");
-      return -1;
-    }
-
-  if (!ps->setup_done)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, stop not possible\n");
-      return -1;
-    }
-
-  // Pause playback depending on data kind
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_HTTP:
-      case DATA_KIND_FILE:
-	ret = 0;
-	break;
-
-#ifdef HAVE_SPOTIFY_H
-      case DATA_KIND_SPOTIFY:
-	ret = spotify_playback_stop();
-	break;
-#endif
-
-      case DATA_KIND_PIPE:
-	ret = 0;
-	break;
-
-      default:
-	ret = -1;
-    }
-
-  return ret;
-}
-
-/*
- * Cleanup given player source
- */
-static int
-stream_cleanup(struct player_source *ps)
 {
   if (!ps)
     {
@@ -1223,7 +1178,6 @@ source_stop()
   struct player_source *ps_temp;
 
   stream_stop(cur_streaming);
-  stream_cleanup(cur_streaming);
 
   ps_playing = source_now_playing();
 
@@ -1267,10 +1221,6 @@ source_pause(uint64_t pos)
 	  "Pause called on playing source (id=%d) and streaming source already "
 	  "switched to the next item (id=%d)\n", ps_playing->id, cur_streaming->id);
       ret = stream_stop(cur_streaming);
-      if (ret < 0)
-	return -1;
-
-      ret = stream_cleanup(cur_streaming);
       if (ret < 0)
 	return -1;
     }
@@ -1450,7 +1400,7 @@ source_open(struct queue_item_info *qii, uint64_t start_pos, int seek)
 static int
 source_close(uint64_t end_pos)
 {
-  stream_cleanup(cur_streaming);
+  stream_stop(cur_streaming);
 
   cur_streaming->end = end_pos;
 
