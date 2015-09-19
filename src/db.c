@@ -966,6 +966,9 @@ db_build_query_items(struct query_params *qp, char **q)
   else
     query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 %s;", sort);
 
+  if (idx)
+    sqlite3_free(idx);
+
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
