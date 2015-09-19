@@ -51,8 +51,10 @@ struct player_status {
   uint32_t plversion;
   /* Playlist length */
   uint32_t playlistlength;
-  /* Playing song id*/
+  /* Id of the playing file/item in the files database */
   uint32_t id;
+  /* Item-Id of the playing file/item in the queue */
+  uint32_t queueitem_id;
   /* Elapsed time in ms of playing item */
   uint32_t pos_ms;
   /* Length in ms of playing item */
@@ -61,6 +63,8 @@ struct player_status {
   int pos_pl;
   /* Item id of next item in playlist */
   uint32_t next_id;
+  /* Item-Id of the next file/item in the queue */
+  uint32_t next_queueitem_id;
   /* Playlist position of next item */
   int next_pos_pl;
 };

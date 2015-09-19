@@ -471,11 +471,12 @@ mpd_parse_args(char *args, int *argc, char **argv)
  *
  * @param evbuf the response event buffer
  * @param mfi media information
+ * @param item_id queue-item id
  * @param pos_pl position in the playqueue, if -1 the position is ignored
  * @return the number of bytes added if successful, or -1 if an error occurred.
  */
 static int
-mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, int pos_pl)
+mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, unsigned int item_id, int pos_pl)
 {
   char modified[32];
   int ret;
@@ -516,10 +517,9 @@ mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, int pos_p
 	"Pos: %d\n",
 	pos_pl);
 
-      //TODO mpd does not return the persistent id of a file but instead a unique id in the current playlist
       ret = evbuffer_add_printf(evbuf,
 	"Id: %d\n",
-	mfi->id);
+	item_id);
     }
 
 
@@ -527,7 +527,7 @@ mpd_add_mediainfo(struct evbuffer *evbuf, struct media_file_info *mfi, int pos_p
 }
 
 static int
-mpd_add_mediainfo_byid(struct evbuffer *evbuf, int id, int pos_pl)
+mpd_add_mediainfo_byid(struct evbuffer *evbuf, int id, unsigned int item_id, int pos_pl)
 {
   struct media_file_info *mfi;
   int ret;
@@ -539,7 +539,7 @@ mpd_add_mediainfo_byid(struct evbuffer *evbuf, int id, int pos_pl)
       return -1;
     }
 
-  ret = mpd_add_mediainfo(evbuf, mfi, pos_pl);
+  ret = mpd_add_mediainfo(evbuf, mfi, item_id, pos_pl);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Error adding media info for file with id: %d\n", id);
@@ -650,7 +650,7 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
       return 0;
     }
 
-  ret = mpd_add_mediainfo_byid(evbuf, status.id, status.pos_pl);
+  ret = mpd_add_mediainfo_byid(evbuf, status.id, status.queueitem_id, status.pos_pl);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Error adding media info for file with id: %d", status.id);
@@ -839,11 +839,11 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  "nextsong: %d\n"
 	  "nextsongid: %d\n",
 	  status.pos_pl,
-	  status.id,
+	  status.queueitem_id,
 	  (status.pos_ms / 1000), (status.len_ms / 1000),
 	  (status.pos_ms / 1000.0),
 	  status.next_pos_pl,
-	  status.next_id);
+	  status.next_queueitem_id);
     }
 
   if (filescanner_scanning())
@@ -1792,7 +1792,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
     {
       if (songid == 0 || songid == queue->queue[i].item_id)
 	{
-	  ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i].dbmfi_id, pos_pl);
+	  ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i].dbmfi_id, queue->queue[i].item_id, pos_pl);
 	  if (ret < 0)
 	    {
 	      ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i].dbmfi_id);
@@ -1867,7 +1867,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
   pos_pl = queue->start_pos;
   for (i = 0; i < queue->count; i++)
     {
-      ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i].dbmfi_id, pos_pl);
+      ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i].dbmfi_id, queue->queue[i].item_id, pos_pl);
       if (ret < 0)
 	{
 	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i].dbmfi_id);
@@ -1914,7 +1914,7 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
   pos_pl = queue->start_pos;
   for (i = 0; i < queue->count; i++)
     {
-      ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i].dbmfi_id, pos_pl);
+      ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i].dbmfi_id, queue->queue[i].item_id, pos_pl);
       if (ret < 0)
 	{
 	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i].dbmfi_id);
@@ -2691,7 +2691,7 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  mfi = db_file_fetch_byvirtualpath(fi->virtual_path);
 	  if (mfi)
 	    {
-	      ret = mpd_add_mediainfo(evbuf, mfi, -1);
+	      ret = mpd_add_mediainfo(evbuf, mfi, 0, -1);
 	      if (ret < 0)
 		{
 		  DPRINTF(E_LOG, L_MPD, "Could not add mediainfo for path '%s'\n", fi->virtual_path);

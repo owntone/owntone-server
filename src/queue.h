@@ -84,7 +84,7 @@ int
 queue_index_byitemid(struct queue *queue, unsigned int item_id, char shuffle);
 
 struct queue_item_info *
-queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_mode r_mode);
+queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_mode r_mode, int reshuffle);
 
 struct queue_item_info *
 queue_prev(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_mode r_mode);

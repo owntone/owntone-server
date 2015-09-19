@@ -1494,7 +1494,6 @@ source_check(void)
 static int
 source_read(uint8_t *buf, int len, uint64_t rtptime)
 {
-  int new;
   int ret;
   int nbytes;
   char *silence_buf;
@@ -1504,7 +1503,6 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
     return 0;
 
   nbytes = 0;
-  new = 0;
   while (nbytes < len)
     {
       if (evbuffer_get_length(audio_buf) == 0)
@@ -1530,7 +1528,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 
 	      DPRINTF(E_DBG, L_PLAYER, "New file\n");
 
-	      item = queue_next(queue, cur_streaming->queueitem_id, shuffle, repeat);
+	      item = queue_next(queue, cur_streaming->queueitem_id, shuffle, repeat, 1);
 
 	      if (ret < 0)
 		{
@@ -2192,6 +2190,7 @@ get_status(struct player_command *cmd)
 
 	status->status = PLAY_PAUSED;
 	status->id = cur_streaming->id;
+	status->queueitem_id = cur_streaming->queueitem_id;
 
 	pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - cur_streaming->stream_start;
 	status->pos_ms = (pos * 1000) / 44100;
@@ -2237,12 +2236,14 @@ get_status(struct player_command *cmd)
 	status->len_ms = ps->len_ms;
 
 	status->id = ps->id;
+	status->queueitem_id = ps->queueitem_id;
 	status->pos_pl = queue_index_byitemid(queue, ps->queueitem_id, 0);
 
-	item_next = queue_next(queue, ps->queueitem_id, shuffle, repeat);
+	item_next = queue_next(queue, ps->queueitem_id, shuffle, repeat, 0);
 	if (item_next)
 	  {
 	    status->next_id = item_next->dbmfi_id;
+	    status->next_queueitem_id = item_next->item_id;
 	    status->next_pos_pl = queue_index_byitemid(queue, item_next->item_id, 0);
 	  }
 	else
@@ -2444,7 +2445,7 @@ playback_start_item(struct player_command *cmd, struct queue_item_info *qii)
     {
       if (shuffle)
       	queue_shuffle(queue, 0);
-      item = queue_next(queue, 0, shuffle, repeat);
+      item = queue_next(queue, 0, shuffle, repeat, 0);
     }
 
   if (item)
@@ -2668,7 +2669,7 @@ playback_next_bh(struct player_command *cmd)
   if (cur_streaming->output_start > cur_streaming->stream_start)
     history_add(cur_streaming->id);
 
-  item = queue_next(queue, cur_streaming->queueitem_id, shuffle, repeat);
+  item = queue_next(queue, cur_streaming->queueitem_id, shuffle, repeat, 0);
   if (!item)
     {
       playback_abort();

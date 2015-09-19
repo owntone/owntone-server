@@ -392,10 +392,11 @@ queue_index_byitemid(struct queue *queue, unsigned int item_id, char shuffle)
  * @param item_id The id of the item in the queue
  * @param shuffle If 0 return the next item in the play-queue, if 1 the next item in the shuffle-queue
  * @param r_mode  Repeat mode
+ * @param reshuffle If 1 and repeat mode is "repeat all" reshuffles the queue on wrap around
  * @return The next item
  */
 struct queue_item_info *
-queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_mode r_mode)
+queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_mode r_mode, int reshuffle)
 {
   struct queue_item *item;
 
@@ -413,6 +414,8 @@ queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_
   if (item == queue->head && r_mode == REPEAT_ALL)
     {
       // Repeat all and end of queue reached, return first item in the queue
+      if (reshuffle)
+	queue_shuffle(queue, 0);
       item = item_next(queue->head, shuffle);
     }
 
