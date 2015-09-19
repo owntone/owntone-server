@@ -71,6 +71,8 @@ static struct event *g_cmdev;
 
 static struct evhttp *evhttpd;
 
+struct evconnlistener *listener;
+
 struct mpd_command;
 
 typedef int (*cmd_func)(struct mpd_command *cmd);
@@ -4394,7 +4396,6 @@ artwork_cb(struct evhttp_request *req, void *arg)
 /* Thread: main */
 int mpd_init(void)
 {
-  struct evconnlistener *listener;
   struct sockaddr *saddr;
   size_t saddr_length;
   struct sockaddr_in sin;
@@ -4546,6 +4547,7 @@ int mpd_init(void)
   if (http_port > 0)
     evhttp_free(evhttpd);
  evhttp_fail:
+  evconnlistener_free(listener);
  connew_fail:
  evnew_fail:
   event_base_free(evbase_mpd);
@@ -4599,6 +4601,8 @@ void mpd_deinit(void)
   http_port = cfg_getint(cfg_getsec(cfg, "mpd"), "http_port");
   if (http_port > 0)
     evhttp_free(evhttpd);
+
+  evconnlistener_free(listener);
 
   // Free event base (should free events too)
   event_base_free(evbase_mpd);
