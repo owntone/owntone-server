@@ -51,6 +51,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
   pANTLR3_COMMON_TREE_NODE_STREAM nodes;
   pSMARTPL2SQL sqlconv;
   SMARTPL2SQL_playlist_return plreturn;
+  int ret;
 
 #if ANTLR3C_NEW_INPUT
   input = antlr3FileStreamNew((pANTLR3_UINT8) file, ANTLR3_ENC_8BIT);
@@ -72,6 +73,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
   if (lxr == NULL)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not create SMARTPL lexer\n");
+      ret = -1;
       goto lxr_fail;
     }
 
@@ -80,6 +82,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
   if (tstream == NULL)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not create SMARTPL token stream\n");
+      ret = -1;
       goto tkstream_fail;
     }
 
@@ -89,6 +92,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
   if (tstream == NULL)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not create SMARTPL parser\n");
+      ret = -1;
       goto psr_fail;
     }
 
@@ -98,6 +102,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
   if (psr->pParser->rec->state->errorCount > 0)
     {
       DPRINTF(E_LOG, L_SCAN, "SMARTPL query parser terminated with %d errors\n", psr->pParser->rec->state->errorCount);
+      ret = -1;
       goto psr_error;
     }
 
@@ -107,6 +112,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
   if (!nodes)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not create node stream\n");
+      ret = -1;
       goto psr_error;
     }
 
@@ -114,6 +120,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
   if (!sqlconv)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not create SQL converter\n");
+      ret = -1;
       goto sql_fail;
     }
 
@@ -123,6 +130,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
   if (sqlconv->pTreeParser->rec->state->errorCount > 0)
     {
       DPRINTF(E_LOG, L_SCAN, "SMARTPL query tree parser terminated with %d errors\n", sqlconv->pTreeParser->rec->state->errorCount);
+      ret = -1;
       goto sql_error;
     }
 
@@ -138,10 +146,13 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
 	free(pli->query);
       pli->query = strdup((char *)plreturn.query->chars);
 
-      return 0;
+      ret = 0;
     }
   else
-    DPRINTF(E_LOG, L_SCAN, "Invalid SMARTPL query\n");
+    {
+      DPRINTF(E_LOG, L_SCAN, "Invalid SMARTPL query\n");
+      ret = -1;
+    }
 
  sql_error:
   sqlconv->free(sqlconv);
@@ -156,7 +167,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
  lxr_fail:
   input->close(input);
 
-  return -1;
+  return ret;
 }
 
 void
