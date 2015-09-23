@@ -341,8 +341,10 @@ cache_create_tables(void)
       sqlite3_close(g_db_hdl);
       return -1;
     }
+
   query = sqlite3_mprintf(Q_CACHE_VERSION, CACHE_VERSION);
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  sqlite3_free(query);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_FATAL, L_CACHE, "Error inserting cache version: %s\n", errmsg);
@@ -351,8 +353,6 @@ cache_create_tables(void)
       sqlite3_close(g_db_hdl);
       return -1;
     }
-
-  sqlite3_free(query);
 
   DPRINTF(E_DBG, L_CACHE, "Cache tables created\n");
 
@@ -581,6 +581,7 @@ cache_create(void)
     {
       query = sqlite3_mprintf(Q_PRAGMA_CACHE_SIZE, cache_size);
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+      sqlite3_free(query);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_CACHE, "Error setting pragma_cache_size_cache: %s\n", errmsg);
@@ -597,6 +598,7 @@ cache_create(void)
     {
       query = sqlite3_mprintf(Q_PRAGMA_JOURNAL_MODE, journal_mode);
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+      sqlite3_free(query);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_CACHE, "Error setting pragma_journal_mode: %s\n", errmsg);
@@ -613,6 +615,7 @@ cache_create(void)
     {
       query = sqlite3_mprintf(Q_PRAGMA_SYNCHRONOUS, synchronous);
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+      sqlite3_free(query);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_CACHE, "Error setting pragma_synchronous: %s\n", errmsg);
@@ -733,16 +736,14 @@ cache_daap_query_add(struct cache_command *cmd)
     }
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  sqlite3_free(query);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_CACHE, "Error adding query to query list: %s\n", errmsg);
 
-      sqlite3_free(query);
       sqlite3_free(errmsg);
       goto error_add;
     }
-
-  sqlite3_free(query);
 
   DPRINTF(E_INFO, L_CACHE, "Slow query (%d ms) added to cache: '%s' (user-agent: '%s')\n", cmd->arg.msec, cmd->arg.query, cmd->arg.ua);
 
@@ -851,16 +852,15 @@ cache_daap_query_delete(const int id)
   query = sqlite3_mprintf(Q_TMPL, id);
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  sqlite3_free(query);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_CACHE, "Error deleting query from cache: %s\n", errmsg);
 
       sqlite3_free(errmsg);
-      sqlite3_free(query);
       return -1;
     }
 
-  sqlite3_free(query);
   return 0;
 #undef Q_TMPL
 }
@@ -986,14 +986,13 @@ cache_artwork_ping_impl(struct cache_command *cmd)
   DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  sqlite3_free(query);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
       goto error_ping;
     }
-
-  sqlite3_free(query);
 
   if (cmd->arg.del > 0)
     {
@@ -1002,14 +1001,13 @@ cache_artwork_ping_impl(struct cache_command *cmd)
       DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
 
       ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+      sqlite3_free(query);
       if (ret != SQLITE_OK)
 	{
 	  DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
 	  goto error_ping;
 	}
-
-      sqlite3_free(query);
     }
 
   free(cmd->arg.path);
@@ -1018,8 +1016,6 @@ cache_artwork_ping_impl(struct cache_command *cmd)
 
  error_ping:
   sqlite3_free(errmsg);
-  sqlite3_free(query);
-
   free(cmd->arg.path);
 
   return -1;
@@ -1048,16 +1044,14 @@ cache_artwork_delete_by_path_impl(struct cache_command *cmd)
   DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  sqlite3_free(query);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
       sqlite3_free(errmsg);
-      sqlite3_free(query);
       return -1;
     }
-
-  sqlite3_free(query);
 
   return 0;
 
@@ -1084,18 +1078,16 @@ cache_artwork_purge_cruft_impl(struct cache_command *cmd)
   DPRINTF(E_DBG, L_CACHE, "Running purge query '%s'\n", query);
 
   ret = sqlite3_exec(g_db_hdl, query, NULL, NULL, &errmsg);
+  sqlite3_free(query);
   if (ret != SQLITE_OK)
     {
       DPRINTF(E_LOG, L_CACHE, "Query error: %s\n", errmsg);
 
       sqlite3_free(errmsg);
-      sqlite3_free(query);
       return -1;
     }
 
   DPRINTF(E_DBG, L_CACHE, "Purged %d rows\n", sqlite3_changes(g_db_hdl));
-
-  sqlite3_free(query);
 
   return 0;
 
@@ -1198,6 +1190,7 @@ cache_artwork_get_impl(struct cache_command *cmd)
     }
 
   DPRINTF(E_DBG, L_CACHE, "Running query '%s'\n", query);
+
   ret = sqlite3_prepare_v2(g_db_hdl, query, -1, &stmt, 0);
   if (ret != SQLITE_OK)
     {
@@ -1248,10 +1241,14 @@ cache_artwork_get_impl(struct cache_command *cmd)
 
   DPRINTF(E_DBG, L_CACHE, "Cache hit: %s\n", query);
 
+  sqlite3_free(query);
+
   return 0;
 
  error_get:
   sqlite3_finalize(stmt);
+  sqlite3_free(query);
+
   return -1;
 #undef Q_TMPL
 }
@@ -1592,7 +1589,7 @@ cache_artwork_delete_by_path(char *path)
   command_init(&cmd);
 
   cmd.func = cache_artwork_delete_by_path_impl;
-  cmd.arg.path = strdup(path);
+  cmd.arg.path = path;
 
   ret = sync_command(&cmd);
 
@@ -1657,7 +1654,7 @@ cache_artwork_add(int type, int64_t persistentid, int max_w, int max_h, int form
   cmd.arg.max_w = max_w;
   cmd.arg.max_h = max_h;
   cmd.arg.format = format;
-  cmd.arg.path = strdup(filename);
+  cmd.arg.path = filename;
   cmd.arg.evbuf = evbuf;
 
   ret = sync_command(&cmd);
