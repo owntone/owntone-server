@@ -1122,7 +1122,7 @@ queue_make_item(uint32_t dbmfi_id)
   qp.limit = 0;
   qp.sort = S_NONE;
   snprintf(buf, sizeof(buf), "f.id = %" PRIu32, dbmfi_id);
-  qp.filter = strdup(buf);
+  qp.filter = buf;
 
   item = queue_make(&qp);
 
