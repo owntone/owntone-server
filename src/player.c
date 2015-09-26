@@ -725,31 +725,19 @@ metadata_purge(void)
 }
 
 static void
-metadata_trigger(struct player_source *ps, int startup)
+metadata_trigger(int startup)
 {
   struct player_metadata pmd;
 
   memset(&pmd, 0, sizeof(struct player_metadata));
 
-  pmd.id = ps->id;
+  pmd.id = cur_streaming->id;
   pmd.startup = startup;
 
-  /* Determine song boundaries, dependent on context */
-
-  /* Restart after pause/seek */
-  if (ps->stream_start)
+  if (cur_streaming->stream_start && cur_streaming->output_start)
     {
-      pmd.offset = ps->output_start - ps->stream_start;
-      pmd.rtptime = ps->stream_start;
-    }
-  else if (startup)
-    {
-      /* Will be set later, right before sending */
-    }
-  /* Generic case */
-  else if (cur_streaming && (cur_streaming->end))
-    {
-      pmd.rtptime = cur_streaming->end + 1;
+      pmd.offset = cur_streaming->output_start - cur_streaming->stream_start;
+      pmd.rtptime = cur_streaming->stream_start;
     }
   else
     {
@@ -783,7 +771,7 @@ metadata_check_icy(void)
   worker_execute(update_icy_cb, metadata, sizeof(struct http_icy_metadata), 0);
 
   /* Triggers preparing and sending RAOP metadata */
-  metadata_trigger(cur_streaming, 0);
+  metadata_trigger(0);
 
   /* Only free the struct, the content must be preserved for update_icy_cb */
   free(metadata);
@@ -815,7 +803,7 @@ history_add(uint32_t id)
   cur_index = (history->start_index + history->count - 1) % MAX_HISTORY_COUNT;
   if (id == history->id[cur_index])
     {
-      DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song already in history\n");
+      DPRINTF(E_DBG, L_PLAYER, "Current playing/streaming song already in history\n");
       return;
     }
 
@@ -1551,7 +1539,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 		  if (ret < 0)
 		    return -1;
 
-		  metadata_trigger(cur_streaming, 0);
+		  metadata_trigger(0);
 		}
 	      else
 		{
@@ -2475,7 +2463,7 @@ playback_start_item(struct player_command *cmd, struct queue_item_info *qii)
   if (dbmfi_id)
     *dbmfi_id = cur_streaming->id;
 
-  metadata_trigger(cur_streaming, 1);
+  metadata_trigger(1);
 
 
   /* Start local audio if needed */
