@@ -951,6 +951,7 @@ db_build_query_items(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
+  idx = NULL;
   ret = db_build_query_index_clause(qp, &idx);
   if (ret < 0)
     return -1;
@@ -993,6 +994,7 @@ db_build_query_pls(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
+  idx = NULL;
   ret = db_build_query_index_clause(qp, &idx);
   if (ret < 0)
     return -1;
@@ -1007,6 +1009,9 @@ db_build_query_pls(struct query_params *qp, char **q)
     query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 AND %s %s;", qp->filter, sort);
   else
     query = sqlite3_mprintf("SELECT f.* FROM playlists f WHERE f.disabled = 0 %s;", sort);
+
+  if (idx)
+    sqlite3_free(idx);
 
   if (!query)
     {
@@ -1048,6 +1053,7 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
+  idx = NULL;
   ret = db_build_query_index_clause(qp, &idx);
   if (ret < 0)
     return -1;
@@ -1068,6 +1074,9 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
     query = sqlite3_mprintf("SELECT f.* FROM files f JOIN playlistitems pi ON f.path = pi.filepath"
 			    " WHERE pi.playlistid = %d AND f.disabled = 0 ORDER BY pi.id ASC;",
 			    qp->id);
+
+  if (idx)
+    sqlite3_free(idx);
 
   if (!query)
     {
@@ -1110,16 +1119,21 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
     return -1;
 
   /* Get index clause */
+  idx = NULL;
   ret = db_build_query_index_clause(qp, &idx);
   if (ret < 0)
     return -1;
 
-  if (!idx)
-    idx = "";
-
   sort = sort_clause[qp->sort];
 
-  query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 AND %s AND %s %s %s;", smartpl_query, filter, sort, idx);
+  if (idx)
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 AND %s AND %s %s %s;", smartpl_query, filter, sort, idx);
+  else
+    query = sqlite3_mprintf("SELECT f.* FROM files f WHERE f.disabled = 0 AND %s AND %s %s;", smartpl_query, filter, sort);
+
+  if (idx)
+    sqlite3_free(idx);
+
   if (!query)
     {
       DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
@@ -1183,6 +1197,7 @@ db_build_query_group_albums(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
+  idx = NULL;
   ret = db_build_query_index_clause(qp, &idx);
   if (ret < 0)
     return -1;
@@ -1197,6 +1212,9 @@ db_build_query_group_albums(struct query_params *qp, char **q)
     query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f JOIN groups g ON f.songalbumid = g.persistentid WHERE f.disabled = 0 AND %s GROUP BY f.songalbumid %s;", qp->filter, sort);
   else
     query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album, f.album_sort, COUNT(f.id), 1, f.album_artist, f.songartistid FROM files f JOIN groups g ON f.songalbumid = g.persistentid WHERE f.disabled = 0 GROUP BY f.songalbumid %s;", sort);
+
+  if (idx)
+    sqlite3_free(idx);
 
   if (!query)
     {
@@ -1222,6 +1240,7 @@ db_build_query_group_artists(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
+  idx = NULL;
   ret = db_build_query_index_clause(qp, &idx);
   if (ret < 0)
     return -1;
@@ -1236,6 +1255,9 @@ db_build_query_group_artists(struct query_params *qp, char **q)
     query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f JOIN groups g ON f.songartistid = g.persistentid WHERE f.disabled = 0 AND %s GROUP BY f.songartistid %s;", qp->filter, sort);
   else
     query = sqlite3_mprintf("SELECT g.id, g.persistentid, f.album_artist, f.album_artist_sort, COUNT(f.id), COUNT(DISTINCT f.songalbumid), f.album_artist, f.songartistid FROM files f JOIN groups g ON f.songartistid = g.persistentid WHERE f.disabled = 0 GROUP BY f.songartistid %s;", sort);
+
+  if (idx)
+    sqlite3_free(idx);
 
   if (!query)
     {
@@ -1414,6 +1436,7 @@ db_build_query_browse(struct query_params *qp, const char *field, const char *gr
     return -1;
 
   /* Get index clause */
+  idx = NULL;
   ret = db_build_query_index_clause(qp, &idx);
   if (ret < 0)
     return -1;
@@ -1432,6 +1455,9 @@ db_build_query_browse(struct query_params *qp, const char *field, const char *gr
   else
     query = sqlite3_mprintf("SELECT f.%s, f.%s FROM files f WHERE f.disabled = 0 AND f.%s != ''"
                             " GROUP BY f.%s %s", field, group_field, field, group_field, sort);
+
+  if (idx)
+    sqlite3_free(idx);
 
   if (!query)
     {
