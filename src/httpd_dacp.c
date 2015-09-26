@@ -978,7 +978,11 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       /* Start song ID */
       if ((param = evhttp_find_header(query, "item-spec")))
-	plid = 0; // This is a podcast/audiobook - just play a single item, not a playlist
+	{
+	  // This is a podcast (plid == 5) or audiobook (plid == 6)
+	  if (plid != 6)
+	    plid = 0; // This is a podcast - just play a single item, not a playlist (audiobooks are handled in 'player_queue_make_pl')
+	}
       else if (!(param = evhttp_find_header(query, "container-item-spec")))
 	{
 	  DPRINTF(E_LOG, L_DACP, "No container-item-spec/item-spec in playspec request\n");
