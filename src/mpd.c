@@ -1508,7 +1508,7 @@ mpd_command_stop(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 
 static struct queue_item *
-make_queue_for_path(char *path, int recursive)
+make_queue_bypath(char *path, int recursive)
 {
   struct query_params qp;
   struct queue_item *items;
@@ -1557,7 +1557,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_ARG;
     }
 
-  items = make_queue_for_path(argv[1], 1);
+  items = make_queue_bypath(argv[1], 1);
 
   if (!items)
     {
@@ -1604,7 +1604,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       DPRINTF(E_LOG, L_MPD, "Adding at a specified position not supported for 'addid', adding songs at end of queue.\n");
     }
 
-  items = make_queue_for_path(argv[1], 0);
+  items = make_queue_bypath(argv[1], 0);
 
   if (!items)
     {

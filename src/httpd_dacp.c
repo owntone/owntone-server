@@ -822,7 +822,7 @@ find_first_song_id(const char *query)
 
 
 static int
-make_queue_for_query(struct queue_item **head, const char *query, const char *queuefilter, const char *sort, int quirk)
+make_queue_byquery(struct queue_item **head, const char *query, const char *queuefilter, const char *sort, int quirk)
 {
   struct media_file_info *mfi;
   struct query_params qp;
@@ -994,7 +994,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       sort = evhttp_find_header(query, "sort");
 
-      ret = make_queue_for_query(&items, cuequery, NULL, sort, 0);
+      ret = make_queue_byquery(&items, cuequery, NULL, sort, 0);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
@@ -1060,7 +1060,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
   /* If playing from history queue, the pos holds the id of the item to play */
   if (hist)
-    ret = player_playback_start_byitemid(id, &id);
+    ret = player_playback_start_byitemid(id, &id); //TODO [queue/history] id does not hold the queueitemid but the dbmfiid
   else
     ret = player_playback_start_bypos(pos, &id);
 
@@ -1730,7 +1730,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
       if (!querymodifier || (strcmp(querymodifier, "containers") != 0))
 	{
 	  quirkyquery = (mode == 1) && strstr(editquery, "dmap.itemid:") && ((!queuefilter) || strstr(queuefilter, "(null)"));
-	  ret = make_queue_for_query(&items, editquery, queuefilter, sort, quirkyquery);
+	  ret = make_queue_byquery(&items, editquery, queuefilter, sort, quirkyquery);
 	}
       else
 	{
@@ -1745,7 +1745,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	    }
 	  
 	  snprintf(modifiedquery, sizeof(modifiedquery), "playlist:%d", plid);
-	  ret = make_queue_for_query(&items, NULL, modifiedquery, sort, 0);
+	  ret = make_queue_byquery(&items, NULL, modifiedquery, sort, 0);
 	}
 
       if (ret < 0)
