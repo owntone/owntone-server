@@ -80,6 +80,9 @@
 #define MAX(a, b) ((a > b) ? a : b)
 #endif
 
+// Default volume (must be from 0 - 100)
+#define PLAYER_DEFAULT_VOLUME 50
+
 enum player_sync_source
   {
     PLAYER_SYNC_CLOCK,
@@ -378,7 +381,7 @@ speaker_select_laudio(void)
 
   if (laudio_volume > master_volume)
     {
-      if (player_state == PLAY_STOPPED)
+      if (player_state == PLAY_STOPPED || master_volume == -1)
 	volume_master_update(laudio_volume);
       else
 	laudio_volume = master_volume;
@@ -394,7 +397,7 @@ speaker_select_raop(struct raop_device *rd)
 
   if (rd->volume > master_volume)
     {
-      if (player_state == PLAY_STOPPED)
+      if (player_state == PLAY_STOPPED || master_volume == -1)
 	volume_master_update(rd->volume);
       else
 	rd->volume = master_volume;
@@ -2102,7 +2105,7 @@ device_add(struct player_command *cmd)
       if (ret < 0)
 	{
 	  selected = 0;
-	  rd->volume = (master_volume >= 0) ? master_volume : 75;
+	  rd->volume = (master_volume >= 0) ? master_volume : PLAYER_DEFAULT_VOLUME;
 	}
 
       if (dev_autoselect && selected)
@@ -5302,7 +5305,7 @@ player_init(void)
 
   ret = db_speaker_get(0, &laudio_selected, &laudio_volume);
   if (ret < 0)
-    laudio_volume = 75;
+    laudio_volume = PLAYER_DEFAULT_VOLUME;
   else if (laudio_selected)
     speaker_select_laudio(); /* Run the select helper */
 

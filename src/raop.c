@@ -2219,12 +2219,12 @@ raop_volume_convert(int volume, char *name)
 
   /* RAOP volume
    *  -144.0 is off
-   *  0 - -30.0 maps to 100 - 0
+   *  0 - 100 maps to -30.0 - 0
    */
-  if (volume == 0)
-    raop_volume = -144.0;
-  else
+  if (volume > 0 && volume <= 100)
     raop_volume = -30.0 + ((float)max_volume * (float)volume * 30.0) / (100.0 * RAOP_CONFIG_MAX_VOLUME);
+  else
+    raop_volume = -144.0;
 
   return raop_volume;
 }
