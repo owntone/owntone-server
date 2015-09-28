@@ -56,14 +56,14 @@ static int lastfm_disabled = 0;
  * The API key and secret (not so secret being open source) is specific to 
  * forked-daapd, and is used to identify forked-daapd and to sign requests
  */
-const char *lastfm_api_key = "579593f2ed3f49673c7364fd1c9c829b";
-const char *lastfm_secret = "ce45a1d275c10b3edf0ecfa27791cb2b";
+static const char *lastfm_api_key = "579593f2ed3f49673c7364fd1c9c829b";
+static const char *lastfm_secret = "ce45a1d275c10b3edf0ecfa27791cb2b";
 
-const char *api_url = "http://ws.audioscrobbler.com/2.0/";
-const char *auth_url = "https://ws.audioscrobbler.com/2.0/";
+static const char *api_url = "http://ws.audioscrobbler.com/2.0/";
+static const char *auth_url = "https://ws.audioscrobbler.com/2.0/";
 
 // Session key
-char *lastfm_session_key = NULL;
+static char *lastfm_session_key = NULL;
 
 
 
