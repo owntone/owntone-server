@@ -827,17 +827,16 @@ main(int argc, char **argv)
   remote_pairing_deinit();
 
  remote_fail:
+#ifdef MPD
+  DPRINTF(E_LOG, L_MAIN, "MPD deinit\n");
+  mpd_deinit();
+
+ mpd_fail:
+#endif
   DPRINTF(E_LOG, L_MAIN, "HTTPd deinit\n");
   httpd_deinit();
 
  httpd_fail:
-  DPRINTF(E_LOG, L_MAIN, "TCPd deinit\n");
-#ifdef MPD
-  DPRINTF(E_LOG, L_MAIN, "MPD deinit\n");
-  mpd_deinit();
- mpd_fail:
-#endif
-
   DPRINTF(E_LOG, L_MAIN, "Player deinit\n");
   player_deinit();
 
