@@ -885,9 +885,11 @@ db_transaction_end(void)
 
 /* Queries */
 static int
-db_build_query_index_clause(struct query_params *qp, char **i)
+db_build_query_index_clause(char **i, struct query_params *qp)
 {
   char *idx;
+
+  *i = NULL;
 
   switch (qp->idx_type)
     {
@@ -904,7 +906,6 @@ db_build_query_index_clause(struct query_params *qp, char **i)
 	break;
 
       case I_NONE:
-	*i = NULL;
 	return 0;
 
       default:
@@ -951,8 +952,7 @@ db_build_query_items(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
-  idx = NULL;
-  ret = db_build_query_index_clause(qp, &idx);
+  ret = db_build_query_index_clause(&idx, qp);
   if (ret < 0)
     return -1;
 
@@ -994,8 +994,7 @@ db_build_query_pls(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
-  idx = NULL;
-  ret = db_build_query_index_clause(qp, &idx);
+  ret = db_build_query_index_clause(&idx, qp);
   if (ret < 0)
     return -1;
 
@@ -1053,8 +1052,7 @@ db_build_query_plitems_plain(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
-  idx = NULL;
-  ret = db_build_query_index_clause(qp, &idx);
+  ret = db_build_query_index_clause(&idx, qp);
   if (ret < 0)
     return -1;
 
@@ -1119,8 +1117,7 @@ db_build_query_plitems_smart(struct query_params *qp, char *smartpl_query, char 
     return -1;
 
   /* Get index clause */
-  idx = NULL;
-  ret = db_build_query_index_clause(qp, &idx);
+  ret = db_build_query_index_clause(&idx, qp);
   if (ret < 0)
     return -1;
 
@@ -1197,8 +1194,7 @@ db_build_query_group_albums(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
-  idx = NULL;
-  ret = db_build_query_index_clause(qp, &idx);
+  ret = db_build_query_index_clause(&idx, qp);
   if (ret < 0)
     return -1;
 
@@ -1240,8 +1236,7 @@ db_build_query_group_artists(struct query_params *qp, char **q)
     return -1;
 
   /* Get index clause */
-  idx = NULL;
-  ret = db_build_query_index_clause(qp, &idx);
+  ret = db_build_query_index_clause(&idx, qp);
   if (ret < 0)
     return -1;
 
@@ -1436,8 +1431,7 @@ db_build_query_browse(struct query_params *qp, const char *field, const char *gr
     return -1;
 
   /* Get index clause */
-  idx = NULL;
-  ret = db_build_query_index_clause(qp, &idx);
+  ret = db_build_query_index_clause(&idx, qp);
   if (ret < 0)
     return -1;
 
