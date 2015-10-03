@@ -1508,7 +1508,7 @@ mpd_command_stop(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 }
 
 static struct queue_item *
-make_queue_bypath(char *path, int recursive)
+mpd_queueitem_make(char *path, int recursive)
 {
   struct query_params qp;
   struct queue_item *items;
@@ -1532,7 +1532,7 @@ make_queue_bypath(char *path, int recursive)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
 
-  items = queue_make(&qp);
+  items = queueitem_make_byquery(&qp);
 
   sqlite3_free(qp.filter);
   return items;
@@ -1557,7 +1557,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_ARG;
     }
 
-  items = make_queue_bypath(argv[1], 1);
+  items = mpd_queueitem_make(argv[1], 1);
 
   if (!items)
     {
@@ -1604,7 +1604,7 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       DPRINTF(E_LOG, L_MPD, "Adding at a specified position not supported for 'addid', adding songs at end of queue.\n");
     }
 
-  items = make_queue_bypath(argv[1], 0);
+  items = mpd_queueitem_make(argv[1], 0);
 
   if (!items)
     {
@@ -1758,9 +1758,11 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
 static int
 mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct queue_info *queue;
+  struct queue *queue;
+  struct queue_item *item;
   uint32_t songid;
   int pos_pl;
+  int count;
   int i;
   int ret;
 
@@ -1787,17 +1789,19 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
       return 0;
     }
 
-  pos_pl = queue->start_pos;
-  for (i = 0; i < queue->count; i++)
+  pos_pl = 0;
+  count = queue_count(queue);
+  for (i = 0; i < count; i++)
     {
-      if (songid == 0 || songid == queue->queue[i].item_id)
+      item = queue_get_byindex(queue, i, 0);
+      if (songid == 0 || songid == queueitem_item_id(item))
 	{
-	  ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i].dbmfi_id, queue->queue[i].item_id, pos_pl);
+	  ret = mpd_add_mediainfo_byid(evbuf, queueitem_id(item), queueitem_item_id(item), pos_pl);
 	  if (ret < 0)
 	    {
-	      ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i].dbmfi_id);
+	      ret = asprintf(errmsg, "Error adding media info for file with id: %d", queueitem_id(item));
 
-	      queue_info_free(queue);
+	      queue_free(queue);
 
 	      if (ret < 0)
 		DPRINTF(E_LOG, L_MPD, "Out of memory\n");
@@ -1808,7 +1812,7 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
       pos_pl++;
     }
 
-  queue_info_free(queue);
+  queue_free(queue);
 
   return 0;
 }
@@ -1824,7 +1828,8 @@ mpd_command_playlistid(struct evbuffer *evbuf, int argc, char **argv, char **err
 static int
 mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct queue_info *queue;
+  struct queue *queue;
+  struct queue_item *item;
   int start_pos;
   int end_pos;
   int count;
@@ -1864,15 +1869,17 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
       return 0;
     }
 
-  pos_pl = queue->start_pos;
-  for (i = 0; i < queue->count; i++)
+  pos_pl = start_pos;
+  count = queue_count(queue);
+  for (i = 0; i < count; i++)
     {
-      ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i].dbmfi_id, queue->queue[i].item_id, pos_pl);
+      item = queue_get_byindex(queue, i, 0);
+      ret = mpd_add_mediainfo_byid(evbuf, queueitem_id(item), queueitem_item_id(item), pos_pl);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i].dbmfi_id);
+	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queueitem_id(item));
 
-	  queue_info_free(queue);
+	  queue_free(queue);
 
 	  if (ret < 0)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
@@ -1882,7 +1889,7 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
       pos_pl++;
     }
 
-  queue_info_free(queue);
+  queue_free(queue);
 
   return 0;
 }
@@ -1894,8 +1901,10 @@ mpd_command_playlistinfo(struct evbuffer *evbuf, int argc, char **argv, char **e
 static int
 mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct queue_info *queue;
+  struct queue *queue;
+  struct queue_item *item;
   int pos_pl;
+  int count;
   int i;
   int ret;
 
@@ -1911,15 +1920,17 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
       return 0;
     }
 
-  pos_pl = queue->start_pos;
-  for (i = 0; i < queue->count; i++)
+  pos_pl = 0;
+  count = queue_count(queue);
+  for (i = 0; i < count; i++)
     {
-      ret = mpd_add_mediainfo_byid(evbuf, queue->queue[i].dbmfi_id, queue->queue[i].item_id, pos_pl);
+      item = queue_get_byindex(queue, i, 0);
+      ret = mpd_add_mediainfo_byid(evbuf, queueitem_id(item), queueitem_item_id(item), pos_pl);
       if (ret < 0)
 	{
-	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queue->queue[i].dbmfi_id);
+	  ret = asprintf(errmsg, "Error adding media info for file with id: %d", queueitem_id(item));
 
-	  queue_info_free(queue);
+	  queue_free(queue);
 
 	  if (ret < 0)
 	    DPRINTF(E_LOG, L_MPD, "Out of memory\n");
@@ -1929,7 +1940,7 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
       pos_pl++;
     }
 
-  queue_info_free(queue);
+  queue_free(queue);
   return 0;
 }
 
@@ -2174,7 +2185,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   //TODO If a second parameter is given only add the specified range of songs to the playqueue
 
-  items = queue_make_pl(pli->id);
+  items = queueitem_make_byplid(pli->id);
 
   if (!items)
     {
@@ -2442,7 +2453,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   mpd_get_query_params_find(argc - 1, argv + 1, &qp);
 
-  items = queue_make(&qp);
+  items = queueitem_make_byquery(&qp);
 
   if (!items)
     {
@@ -2916,7 +2927,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
 
   mpd_get_query_params_search(argc - 1, argv + 1, &qp);
 
-  items = queue_make(&qp);
+  items = queueitem_make_byquery(&qp);
 
   if (!items)
     {

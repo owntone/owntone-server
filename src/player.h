@@ -161,10 +161,10 @@ int
 player_shuffle_set(int enable);
 
 
-struct queue_info *
+struct queue *
 player_queue_get_bypos(int count);
 
-struct queue_info *
+struct queue *
 player_queue_get_byindex(int pos, int count);
 
 int

@@ -155,7 +155,7 @@ struct playerqueue_get_param
   int pos;
   int count;
 
-  struct queue_info *queue;
+  struct queue *queue;
 };
 
 struct playerqueue_add_param
@@ -1138,17 +1138,17 @@ source_now_playing()
  * Creates a new player source for the given queue item
  */
 static struct player_source *
-source_new(struct queue_item_info *item)
+source_new(struct queue_item *item)
 {
   struct player_source *ps;
 
   ps = (struct player_source *)calloc(1, sizeof(struct player_source));
 
-  ps->id = item->dbmfi_id;
-  ps->queueitem_id = item->item_id;
-  ps->data_kind = item->data_kind;
-  ps->media_kind = item->media_kind;
-  ps->len_ms = item->len_ms;
+  ps->id = queueitem_id(item);
+  ps->queueitem_id = queueitem_item_id(item);
+  ps->data_kind = queueitem_data_kind(item);
+  ps->media_kind = queueitem_media_kind(item);
+  ps->len_ms = queueitem_len(item);
   ps->play_next = NULL;
 
   return ps;
@@ -1326,10 +1326,11 @@ source_play()
  * Stream-start and output-start values are set to the given start position.
  */
 static int
-source_open(struct queue_item_info *qii, uint64_t start_pos, int seek)
+source_open(struct queue_item *qii, uint64_t start_pos, int seek)
 {
   struct player_source *ps;
   struct media_file_info *mfi;
+  uint32_t id;
   int ret;
 
   if (cur_streaming && cur_streaming->end == 0)
@@ -1338,17 +1339,18 @@ source_open(struct queue_item_info *qii, uint64_t start_pos, int seek)
       return -1;
     }
 
-  mfi = db_file_fetch_byid(qii->dbmfi_id);
+  id = queueitem_id(qii);
+  mfi = db_file_fetch_byid(id);
   if (!mfi)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Couldn't fetch file id %d\n", qii->dbmfi_id);
+      DPRINTF(E_LOG, L_PLAYER, "Couldn't fetch file id %d\n", id);
 
       return -1;
     }
 
   if (mfi->disabled)
     {
-      DPRINTF(E_DBG, L_PLAYER, "File id %d is disabled, skipping\n", qii->dbmfi_id);
+      DPRINTF(E_DBG, L_PLAYER, "File id %d is disabled, skipping\n", id);
 
       free_mfi(mfi, 0);
       return -1;
@@ -1490,7 +1492,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   int ret;
   int nbytes;
   char *silence_buf;
-  struct queue_item_info *item;
+  struct queue_item *item;
 
   if (!cur_streaming)
     return 0;
@@ -2154,7 +2156,7 @@ get_status(struct player_command *cmd)
   struct timespec ts;
   struct player_source *ps;
   struct player_status *status;
-  struct queue_item_info *item_next;
+  struct queue_item *item_next;
   uint64_t pos;
   int ret;
 
@@ -2235,9 +2237,9 @@ get_status(struct player_command *cmd)
 	item_next = queue_next(queue, ps->queueitem_id, shuffle, repeat, 0);
 	if (item_next)
 	  {
-	    status->next_id = item_next->dbmfi_id;
-	    status->next_queueitem_id = item_next->item_id;
-	    status->next_pos_pl = queue_index_byitemid(queue, item_next->item_id, 0);
+	    status->next_id = queueitem_id(item_next);
+	    status->next_queueitem_id = queueitem_item_id(item_next);
+	    status->next_pos_pl = queue_index_byitemid(queue, status->next_queueitem_id, 0);
 	  }
 	else
 	  {
@@ -2397,12 +2399,12 @@ playback_start_bh(struct player_command *cmd)
 }
 
 static int
-playback_start_item(struct player_command *cmd, struct queue_item_info *qii)
+playback_start_item(struct player_command *cmd, struct queue_item *qii)
 {
   uint32_t *dbmfi_id;
   struct raop_device *rd;
   struct player_source *ps_playing;
-  struct queue_item_info *item;
+  struct queue_item *item;
   int ret;
 
   dbmfi_id = cmd->arg.playback_start_param.id_ptr;
@@ -2540,7 +2542,7 @@ static int
 playback_start_byitemid(struct player_command *cmd)
 {
   int item_id;
-  struct queue_item_info *qii;
+  struct queue_item *qii;
 
   item_id = cmd->arg.playback_start_param.id;
 
@@ -2553,7 +2555,7 @@ static int
 playback_start_byindex(struct player_command *cmd)
 {
   int pos;
-  struct queue_item_info *qii;
+  struct queue_item *qii;
 
   pos = cmd->arg.playback_start_param.pos;
 
@@ -2567,7 +2569,7 @@ playback_start_bypos(struct player_command *cmd)
 {
   int offset;
   struct player_source *ps_playing;
-  struct queue_item_info *qii;
+  struct queue_item *qii;
 
   offset = cmd->arg.playback_start_param.pos;
 
@@ -2590,7 +2592,7 @@ playback_prev_bh(struct player_command *cmd)
 {
   int ret;
   int pos_sec;
-  struct queue_item_info *item;
+  struct queue_item *item;
 
   /*
    * The upper half is playback_pause, therefor the current playing item is
@@ -2661,7 +2663,7 @@ static int
 playback_next_bh(struct player_command *cmd)
 {
   int ret;
-  struct queue_item_info *item;
+  struct queue_item *item;
 
   /*
    * The upper half is playback_pause, therefor the current playing item is
@@ -3301,7 +3303,7 @@ static int
 playerqueue_get_bypos(struct player_command *cmd)
 {
   int count;
-  struct queue_info *qi;
+  struct queue *qi;
   struct player_source *ps;
   int item_id;
 
@@ -3315,7 +3317,7 @@ playerqueue_get_bypos(struct player_command *cmd)
       item_id = ps->queueitem_id;
     }
 
-  qi = queue_info_new_bypos(queue, item_id, count, shuffle);
+  qi = queue_new_bypos(queue, item_id, count, shuffle);
 
   cmd->arg.queue_get_param.queue = qi;
 
@@ -3327,12 +3329,12 @@ playerqueue_get_byindex(struct player_command *cmd)
 {
   int pos;
   int count;
-  struct queue_info *qi;
+  struct queue *qi;
 
   pos = cmd->arg.queue_get_param.pos;
   count = cmd->arg.queue_get_param.count;
 
-  qi = queue_info_new_byindex(queue, pos, count, 0);
+  qi = queue_new_byindex(queue, pos, count, 0);
   cmd->arg.queue_get_param.queue = qi;
 
   return 0;
@@ -4053,7 +4055,7 @@ player_shuffle_set(int enable)
  * @param count max number of media items to return
  * @return queue info
  */
-struct queue_info *
+struct queue *
 player_queue_get_bypos(int count)
 {
   struct player_command cmd;
@@ -4085,7 +4087,7 @@ player_queue_get_bypos(int count)
  * @param count max number of media items to return
  * @return queue info
  */
-struct queue_info *
+struct queue *
 player_queue_get_byindex(int index, int count)
 {
   struct player_command cmd;

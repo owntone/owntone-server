@@ -31,12 +31,24 @@
 
 /*
  * Internal representation of an item in a queue. It links to the previous and the next item
- * in the queue for shuffle on/off. Only the queue_item_info can be exposed.
+ * in the queue for shuffle on/off. To access the properties use the queueitem_* functions.
  */
 struct queue_item
 {
-  /* Identifies the item in the db and the queue */
-  struct queue_item_info qii;
+  /* Item-Id is a unique id for this queue item. If the same item appears multiple
+     times in the queue each corresponding queue item has its own id. */
+  unsigned int item_id;
+
+  /* Id of the file/item in the files database */
+  uint32_t id;
+
+  /* Length of the item in ms */
+  unsigned int len_ms;
+
+  /* Data type of the item */
+  enum data_kind data_kind;
+  /* Media type of the item */
+  enum media_kind media_kind;
 
   /* Link to the previous/next item in the queue */
   struct queue_item *next;
@@ -183,27 +195,72 @@ item_prev(struct queue_item *item, char shuffle)
  * If no item is found for the given id, it returns -1.
  */
 int
-queueitem_pos(struct queue_item *item, uint32_t dbmfi_id)
+queueitem_pos(struct queue_item *item, uint32_t id)
 {
   struct queue_item *temp;
   int pos;
 
-  if (dbmfi_id == 0 || item->qii.dbmfi_id == dbmfi_id)
+  if (id == 0 || item->id == id)
     return 0;
 
   pos = 1;
-  for (temp = item->next; (temp != item) && temp->qii.dbmfi_id != dbmfi_id; temp = temp->next)
+  for (temp = item->next; (temp != item) && temp->id != id; temp = temp->next)
     {
       pos++;
     }
 
   if (temp == item)
     {
-      // Item with given dbmfi_id does not exists
+      // Item with given (database) id does not exists
       return -1;
     }
 
   return pos;
+}
+
+/*
+ * Returns the id of the item/file in the files database table
+ */
+uint32_t
+queueitem_id(struct queue_item *item)
+{
+  return item->id;
+}
+
+/*
+ * Returns the queue-item-id
+ */
+unsigned int
+queueitem_item_id(struct queue_item *item)
+{
+  return item->item_id;
+}
+
+/*
+ * Returns the length of the item in milliseconds
+ */
+unsigned int
+queueitem_len(struct queue_item *item)
+{
+  return item->len_ms;
+}
+
+/*
+ * Returns the data-kind
+ */
+enum data_kind
+queueitem_data_kind(struct queue_item *item)
+{
+  return item->data_kind;
+}
+
+/*
+ * Returns the media-kind
+ */
+enum media_kind
+queueitem_media_kind(struct queue_item *item)
+{
+  return item->media_kind;
 }
 
 /*
@@ -218,7 +275,7 @@ queueitem_get_byitemid(struct queue *queue, int item_id)
 {
   struct queue_item *item;
 
-  for (item = queue->head->next; item != queue->head && item->qii.item_id != item_id; item = item->next)
+  for (item = queue->head->next; item != queue->head && item->item_id != item_id; item = item->next)
     {
       // Iterate through the queue until the item with item_id is found
     }
@@ -297,7 +354,7 @@ queueitem_get_bypos(struct queue *queue, unsigned int item_id, unsigned int pos,
  * @param item_id The unique id of the item in the queue
  * @return        Item with the given item_id or NULL if not found
  */
-struct queue_item_info *
+struct queue_item *
 queue_get_byitemid(struct queue *queue, unsigned int item_id)
 {
   struct queue_item *item;
@@ -307,7 +364,7 @@ queue_get_byitemid(struct queue *queue, unsigned int item_id)
   if (!item)
     return NULL;
 
-  return &item->qii;
+  return item;
 }
 
 /*
@@ -318,7 +375,7 @@ queue_get_byitemid(struct queue *queue, unsigned int item_id)
  * @param shuffle Play queue (shuffle = 0) or shuffle queue (shuffle = 1)
  * @return        Item at index in the queue or NULL if not found
  */
-struct queue_item_info *
+struct queue_item *
 queue_get_byindex(struct queue *queue, unsigned int index, char shuffle)
 {
   struct queue_item *item;
@@ -328,7 +385,7 @@ queue_get_byindex(struct queue *queue, unsigned int index, char shuffle)
   if (!item)
     return NULL;
 
-  return &item->qii;
+  return item;
 }
 
 /*
@@ -343,7 +400,7 @@ queue_get_byindex(struct queue *queue, unsigned int index, char shuffle)
  * @param shuffle If 0 the position in the play-queue, 1 the position in the shuffle-queue
  * @return        Item at position in the queue or NULL if not found
  */
-struct queue_item_info *
+struct queue_item *
 queue_get_bypos(struct queue *queue, unsigned int item_id, unsigned int pos, char shuffle)
 {
   struct queue_item *item;
@@ -353,7 +410,7 @@ queue_get_bypos(struct queue *queue, unsigned int item_id, unsigned int pos, cha
   if (!item)
     return NULL;
 
-  return &item->qii;
+  return item;
 }
 
 /*
@@ -373,7 +430,7 @@ queue_index_byitemid(struct queue *queue, unsigned int item_id, char shuffle)
   int pos;
 
   pos = 0;
-  for (item = item_next(queue->head, shuffle); item != queue->head && item->qii.item_id != item_id; item = item_next(item, shuffle))
+  for (item = item_next(queue->head, shuffle); item != queue->head && item->item_id != item_id; item = item_next(item, shuffle))
     {
       pos++;
     }
@@ -395,7 +452,7 @@ queue_index_byitemid(struct queue *queue, unsigned int item_id, char shuffle)
  * @param reshuffle If 1 and repeat mode is "repeat all" reshuffles the queue on wrap around
  * @return The next item
  */
-struct queue_item_info *
+struct queue_item *
 queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_mode r_mode, int reshuffle)
 {
   struct queue_item *item;
@@ -407,7 +464,7 @@ queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_
     return NULL;
 
   if (r_mode == REPEAT_SONG && item != queue->head)
-    return &item->qii;
+    return item;
 
   item = item_next(item, shuffle);
 
@@ -422,7 +479,7 @@ queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_
   if (item == queue->head)
     return NULL;
 
-  return &item->qii;
+  return item;
 }
 
 /*
@@ -434,7 +491,7 @@ queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_
  * @param r_mode  Repeat mode
  * @return The previous item
  */
-struct queue_item_info *
+struct queue_item *
 queue_prev(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_mode r_mode)
 {
   struct queue_item *item;
@@ -446,7 +503,7 @@ queue_prev(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_
     return NULL;
 
   if (r_mode == REPEAT_SONG && item != queue->head)
-    return &item->qii;
+    return item;
 
   item = item_prev(item, shuffle);
 
@@ -459,11 +516,11 @@ queue_prev(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_
   if (item == queue->head)
     return NULL;
 
-  return &item->qii;
+  return item;
 }
 
 /*
- * Creates a new queue-info for the given queue.
+ * Creates a new queue with a copy of the items of the given queue.
  *
  * The given number of items (count) are copied from the play-queue (shuffle = 0) or shuffle-queue (shuffle = 1)
  * starting with the item at the given index (0-based).
@@ -474,18 +531,19 @@ queue_prev(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_
  * @param index   Index of the first item in the queue
  * @param count   Maximum number of items to copy (if 0 all remaining items after index)
  * @param shuffle If 0 the play-queue, if 1 the shuffle queue
- * @return A new queue-info with the specified items
+ * @return A new queue with the specified items
  */
-struct queue_info *
-queue_info_new_byindex(struct queue *queue, unsigned int index, unsigned int count, char shuffle)
+struct queue *
+queue_new_byindex(struct queue *queue, unsigned int index, unsigned int count, char shuffle)
 {
-  struct queue_info *qi;
-  struct queue_item_info *qii;
-  struct queue_item *item_base;
+  struct queue *qi;
+  struct queue_item *qii;
   struct queue_item *item;
-  unsigned int i;
+  int i;
   unsigned int qlength;
   int qii_size;
+
+  qi = queue_new();
 
   qlength = queue_count(queue);
 
@@ -495,39 +553,37 @@ queue_info_new_byindex(struct queue *queue, unsigned int index, unsigned int cou
 
   if (qii_size <= 0)
     {
-      return NULL;
+      return qi;
     }
 
-  item_base = queueitem_get_byindex(queue, index, shuffle);
+  item = queueitem_get_byindex(queue, index, shuffle);
 
-  if (!item_base)
+  if (!item)
     return NULL;
 
-  qi = malloc(sizeof(struct queue_info));
-  qii = malloc(qii_size * sizeof(struct queue_item_info));
-
   i = 0;
-  for (item = item_base; item != queue->head && i < qii_size; item = item_next(item, shuffle))
+  for (; item != queue->head && i < qii_size; item = item_next(item, shuffle))
     {
-      qii[i].dbmfi_id = item->qii.dbmfi_id;
-      qii[i].item_id = item->qii.item_id;
-      qii[i].len_ms = item->qii.len_ms;
-      qii[i].data_kind = item->qii.data_kind;
-      qii[i].media_kind = item->qii.media_kind;
+      qii = malloc(sizeof(struct queue_item));
+      qii->id = item->id;
+      qii->item_id = item->item_id;
+      qii->len_ms = item->len_ms;
+      qii->data_kind = item->data_kind;
+      qii->media_kind = item->media_kind;
+      qii->next = qii;
+      qii->prev = qii;
+      qii->shuffle_next = qii;
+      qii->shuffle_prev = qii;
 
+      queue_add(qi, qii);
       i++;
     }
-
-  qi->count = i;
-  qi->length = qlength;
-  qi->start_pos = index;
-  qi->queue = qii;
 
   return qi;
 }
 
 /*
- * Creates a new queue-info for the given queue.
+ * Creates a new queue with a copy of the items of the given queue.
  *
  * The given number of items (count) are copied from the play-queue (shuffle = 0) or shuffle-queue (shuffle = 1)
  * starting after the item with the given item_id. The item with item_id is excluded, therefor the first item
@@ -539,13 +595,13 @@ queue_info_new_byindex(struct queue *queue, unsigned int index, unsigned int cou
  * @param item_id The unique id of the item in the queue
  * @param count   Maximum number of items to copy (if 0 all remaining items after index)
  * @param shuffle If 0 the play-queue, if 1 the shuffle queue
- * @return A new queue-info with the specified items
+ * @return A new queue with the specified items
  */
-struct queue_info *
-queue_info_new_bypos(struct queue *queue, unsigned int item_id, unsigned int count, char shuffle)
+struct queue *
+queue_new_bypos(struct queue *queue, unsigned int item_id, unsigned int count, char shuffle)
 {
   int pos;
-  struct queue_info *qi;
+  struct queue *qi;
 
   pos = queue_index_byitemid(queue, item_id, shuffle);
 
@@ -554,19 +610,9 @@ queue_info_new_bypos(struct queue *queue, unsigned int item_id, unsigned int cou
   else
     pos = pos + 1; // exclude the item with the given item-id
 
-  qi = queue_info_new_byindex(queue, pos, count, shuffle);
+  qi = queue_new_byindex(queue, pos, count, shuffle);
 
   return qi;
-}
-
-/*
- * Frees the queue info
- */
-void
-queue_info_free(struct queue_info *qi)
-{
-  free(qi->queue);
-  free(qi);
 }
 
 /*
@@ -598,11 +644,11 @@ queue_add_afteritem(struct queue *queue, struct queue_item *item_new, struct que
 
   // Set item-id for all new items
   queue->last_inserted_item_id++;
-  item_new->qii.item_id = queue->last_inserted_item_id;
+  item_new->item_id = queue->last_inserted_item_id;
   for (item = item_new->next; item != item_new; item = item->next)
     {
       queue->last_inserted_item_id++;
-      item->qii.item_id = queue->last_inserted_item_id;
+      item->item_id = queue->last_inserted_item_id;
     }
 
   // Add items into the queue
@@ -872,7 +918,7 @@ queue_reset_and_find(struct queue *queue, unsigned int item_id)
       temp->shuffle_next = temp->next;
       temp->shuffle_prev = temp->prev;
 
-      if (temp->qii.item_id == item_id)
+      if (temp->item_id == item_id)
 	item = temp;
     }
 
@@ -1006,16 +1052,16 @@ queue_item_new(struct db_media_file_info *dbmfi)
       return NULL;
     }
 
-  item->qii.dbmfi_id = id;
-  item->qii.len_ms = len_ms;
-  item->qii.data_kind = data_kind;
-  item->qii.media_kind = media_kind;
+  item->id = id;
+  item->len_ms = len_ms;
+  item->data_kind = data_kind;
+  item->media_kind = media_kind;
 
   return item;
 }
 
 struct queue_item *
-queue_make(struct query_params *qp)
+queueitem_make_byquery(struct query_params *qp)
 {
   struct db_media_file_info dbmfi;
   struct queue_item *item_head;
@@ -1082,7 +1128,7 @@ queue_make(struct query_params *qp)
  * @return List of items for all playlist items
  */
 struct queue_item *
-queue_make_pl(int plid)
+queueitem_make_byplid(int plid)
 {
   struct query_params qp;
   struct queue_item *item;
@@ -1096,19 +1142,19 @@ queue_make_pl(int plid)
   qp.sort = S_NONE;
   qp.idx_type = I_NONE;
 
-  item = queue_make(&qp);
+  item = queueitem_make_byquery(&qp);
 
   return item;
 }
 
 /*
- * Makes a queue-item for the item/file with the given id (dbmfi_id)
+ * Makes a queue-item for the item/file with the given id
  *
- * @param dbmfi_id Id of the item/file
+ * @param id Id of the item/file in the db
  * @return List of items containing only the item with the given id
  */
 struct queue_item *
-queue_make_item(uint32_t dbmfi_id)
+queueitem_make_byid(uint32_t id)
 {
   struct query_params qp;
   struct queue_item *item;
@@ -1121,10 +1167,10 @@ queue_make_item(uint32_t dbmfi_id)
   qp.offset = 0;
   qp.limit = 0;
   qp.sort = S_NONE;
-  snprintf(buf, sizeof(buf), "f.id = %" PRIu32, dbmfi_id);
+  snprintf(buf, sizeof(buf), "f.id = %" PRIu32, id);
   qp.filter = buf;
 
-  item = queue_make(&qp);
+  item = queueitem_make_byquery(&qp);
 
   return item;
 }

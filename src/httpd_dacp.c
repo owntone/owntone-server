@@ -822,7 +822,7 @@ find_first_song_id(const char *query)
 
 
 static int
-make_queue_byquery(struct queue_item **head, const char *query, const char *queuefilter, const char *sort, int quirk)
+dacp_queueitem_make(struct queue_item **head, const char *query, const char *queuefilter, const char *sort, int quirk)
 {
   struct media_file_info *mfi;
   struct query_params qp;
@@ -942,7 +942,7 @@ make_queue_byquery(struct queue_item **head, const char *query, const char *queu
 	qp.sort = S_ARTIST;
     }
 
-  items = queue_make(&qp);
+  items = queueitem_make_byquery(&qp);
 
   if (qp.filter)
     free(qp.filter);
@@ -994,7 +994,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     {
       sort = evhttp_find_header(query, "sort");
 
-      ret = make_queue_byquery(&items, cuequery, NULL, sort, 0);
+      ret = dacp_queueitem_make(&items, cuequery, NULL, sort, 0);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not build song queue\n");
@@ -1215,9 +1215,9 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
   items = NULL;
   if (plid > 0)
-    items = queue_make_pl(plid);
+    items = queueitem_make_byplid(plid);
   else if (pos > 0)
-    items = queue_make_item(pos);
+    items = queueitem_make_byid(pos);
 
   if (!items)
     {
@@ -1474,11 +1474,13 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
   struct evbuffer *playlists;
   struct player_status status;
   struct player_history *history;
-  struct queue_info *queue;
+  struct queue *queue;
+  struct queue_item *item;
   const char *param;
   size_t songlist_length;
   size_t playlist_length;
   int span;
+  int count;
   int i;
   int n;
   int ret;
@@ -1549,10 +1551,12 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 	  queue = player_queue_get_bypos(abs(span));
 	  if (queue)
 	    {
-	      i = queue->start_pos;
-	      for (n = 0; (n < queue->count) && (n < abs(span)); n++)
+	      i = 0;
+	      count = queue_count(queue);
+	      for (n = 0; (n < count) && (n < abs(span)); n++)
 		{
-		  ret = playqueuecontents_add_source(songlist, queue->queue[n].dbmfi_id, (n + i + 1), status.plid);
+		  item = queue_get_byindex(queue, n, 0);
+		  ret = playqueuecontents_add_source(songlist, queueitem_id(item), (n + i + 1), status.plid);
 		  if (ret < 0)
 		    {
 		      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
@@ -1561,7 +1565,7 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
 		      return;
 		    }
 		}
-	      queue_info_free(queue);
+	      queue_free(queue);
 	    }
 	}
     }
@@ -1730,7 +1734,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
       if (!querymodifier || (strcmp(querymodifier, "containers") != 0))
 	{
 	  quirkyquery = (mode == 1) && strstr(editquery, "dmap.itemid:") && ((!queuefilter) || strstr(queuefilter, "(null)"));
-	  ret = make_queue_byquery(&items, editquery, queuefilter, sort, quirkyquery);
+	  ret = dacp_queueitem_make(&items, editquery, queuefilter, sort, quirkyquery);
 	}
       else
 	{
@@ -1745,7 +1749,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
 	    }
 	  
 	  snprintf(modifiedquery, sizeof(modifiedquery), "playlist:%d", plid);
-	  ret = make_queue_byquery(&items, NULL, modifiedquery, sort, 0);
+	  ret = dacp_queueitem_make(&items, NULL, modifiedquery, sort, 0);
 	}
 
       if (ret < 0)
