@@ -1,6 +1,34 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 23.3:
+	- fix issue where volume gets set to -1 on startup of raop devices
+	- plug various minor memleaks
+	- audiobook improvements, eg resuming playback from saved position
+	- live icy metadata
+	- libevent 1 support removed
+	- LastFM performance improvement
+	- drop legacy ffmpeg stuff
+	- drop legacy flac, musepack and wma scanner
+
+version 23.2:
+	- fix db lock, m3u and Windows Phone bugs
+	- improvements for Spotify and mpd
+	- fixing bugs as always
+	- sorting of genres and composers
+
+version 23.1:
+	- support for more mpd commands
+
+version 23.0:
+	- add support for the mpd protocol
+	- add support for smart playlists
+	- playlist and internet stream overhaul
+
+version 22.2:
+	- fix for iTunes 12.1
+	- fix misc bugs
+
 version 22.1:
 	- artwork cache
 	- some Spotify fixing up
