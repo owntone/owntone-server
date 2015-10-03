@@ -967,6 +967,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   const char *cuequery;
   const char *param;
   uint32_t id;
+  uint32_t item_id;
   uint32_t pos;
   int clear;
   struct player_history *history;
@@ -1018,6 +1019,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     dacp_propset_shufflestate(param, NULL);
 
   id = 0;
+  item_id = 0;
   pos = 0;
   param = evhttp_find_header(query, "index");
   if (param)
@@ -1041,7 +1043,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	  if (history->count > pos)
 	    {
 	      pos = (history->start_index + history->count - pos - 1) % MAX_HISTORY_COUNT;
-	      id = history->id[pos];
+	      item_id = history->item_id[pos];
 	    }
 	  else
 	    {
@@ -1060,7 +1062,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 
   /* If playing from history queue, the pos holds the id of the item to play */
   if (hist)
-    ret = player_playback_start_byitemid(id, &id); //TODO [queue/history] id does not hold the queueitemid but the dbmfiid
+    ret = player_playback_start_byitemid(item_id, &id);
   else
     ret = player_playback_start_bypos(pos, &id);
 

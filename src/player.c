@@ -87,7 +87,7 @@ struct player_source
   uint32_t id;
 
   /* Item-Id of the file/item in the queue */
-  uint32_t queueitem_id;
+  uint32_t item_id;
 
   /* Length of the file/item in milliseconds */
   uint32_t len_ms;
@@ -794,7 +794,7 @@ player_history_get(void)
  * Add the song with the given id to the list of previously played songs
  */
 static void
-history_add(uint32_t id)
+history_add(uint32_t id, uint32_t item_id)
 {
   unsigned int cur_index;
   unsigned int next_index;
@@ -813,6 +813,7 @@ history_add(uint32_t id)
     history->start_index = (history->start_index + 1) % MAX_HISTORY_COUNT;
 
   history->id[next_index] = id;
+  history->item_id[next_index] = item_id;
 
   if (history->count < MAX_HISTORY_COUNT)
     history->count++;
@@ -1145,7 +1146,7 @@ source_new(struct queue_item *item)
   ps = (struct player_source *)calloc(1, sizeof(struct player_source));
 
   ps->id = queueitem_id(item);
-  ps->queueitem_id = queueitem_item_id(item);
+  ps->item_id = queueitem_item_id(item);
   ps->data_kind = queueitem_data_kind(item);
   ps->media_kind = queueitem_media_kind(item);
   ps->len_ms = queueitem_len(item);
@@ -1458,7 +1459,7 @@ source_check(void)
 #ifdef LASTFM
       worker_execute(scrobble_cb, &id, sizeof(int), 8);
 #endif
-      history_add(cur_playing->id);
+      history_add(cur_playing->id, cur_playing->item_id);
 
       /* Stop playback */
       if (!cur_playing->play_next)
@@ -1523,12 +1524,12 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 
 	      DPRINTF(E_DBG, L_PLAYER, "New file\n");
 
-	      item = queue_next(queue, cur_streaming->queueitem_id, shuffle, repeat, 1);
+	      item = queue_next(queue, cur_streaming->item_id, shuffle, repeat, 1);
 
 	      if (ret < 0)
 		{
 		  DPRINTF(E_LOG, L_PLAYER, "Error reading source %d\n", cur_streaming->id);
-		  queue_remove_byitemid(queue, cur_streaming->queueitem_id);
+		  queue_remove_byitemid(queue, cur_streaming->item_id);
 		}
 
 	      if (item)
@@ -2185,13 +2186,13 @@ get_status(struct player_command *cmd)
 
 	status->status = PLAY_PAUSED;
 	status->id = cur_streaming->id;
-	status->queueitem_id = cur_streaming->queueitem_id;
+	status->item_id = cur_streaming->item_id;
 
 	pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - cur_streaming->stream_start;
 	status->pos_ms = (pos * 1000) / 44100;
 	status->len_ms = cur_streaming->len_ms;
 
-	status->pos_pl = queue_index_byitemid(queue, cur_streaming->queueitem_id, 0);
+	status->pos_pl = queue_index_byitemid(queue, cur_streaming->item_id, 0);
 
 	break;
 
@@ -2231,15 +2232,15 @@ get_status(struct player_command *cmd)
 	status->len_ms = ps->len_ms;
 
 	status->id = ps->id;
-	status->queueitem_id = ps->queueitem_id;
-	status->pos_pl = queue_index_byitemid(queue, ps->queueitem_id, 0);
+	status->item_id = ps->item_id;
+	status->pos_pl = queue_index_byitemid(queue, ps->item_id, 0);
 
-	item_next = queue_next(queue, ps->queueitem_id, shuffle, repeat, 0);
+	item_next = queue_next(queue, ps->item_id, shuffle, repeat, 0);
 	if (item_next)
 	  {
 	    status->next_id = queueitem_id(item_next);
-	    status->next_queueitem_id = queueitem_item_id(item_next);
-	    status->next_pos_pl = queue_index_byitemid(queue, status->next_queueitem_id, 0);
+	    status->next_item_id = queueitem_item_id(item_next);
+	    status->next_pos_pl = queue_index_byitemid(queue, status->next_item_id, 0);
 	  }
 	else
 	  {
@@ -2315,7 +2316,7 @@ playback_stop(struct player_command *cmd)
   ps_playing = source_now_playing();
   if (ps_playing)
     {
-      history_add(ps_playing->id);
+      history_add(ps_playing->id, ps_playing->item_id);
     }
 
   source_stop();
@@ -2577,7 +2578,7 @@ playback_start_bypos(struct player_command *cmd)
 
   if (ps_playing)
     {
-      qii = queue_get_bypos(queue, ps_playing->queueitem_id, offset, shuffle);
+      qii = queue_get_bypos(queue, ps_playing->item_id, offset, shuffle);
     }
   else
     {
@@ -2606,7 +2607,7 @@ playback_prev_bh(struct player_command *cmd)
 
   /* Only add to history if playback started. */
   if (cur_streaming->output_start > cur_streaming->stream_start)
-    history_add(cur_streaming->id);
+    history_add(cur_streaming->id, cur_streaming->item_id);
 
   /* Compute the playing time in seconds for the current song. */
   if (cur_streaming->output_start > cur_streaming->stream_start)
@@ -2619,7 +2620,7 @@ playback_prev_bh(struct player_command *cmd)
   DPRINTF(E_DBG, L_PLAYER, "Skipping song played %d sec\n", pos_sec);
   if (pos_sec < 3)
     {
-      item = queue_prev(queue, cur_streaming->queueitem_id, shuffle, repeat);
+      item = queue_prev(queue, cur_streaming->item_id, shuffle, repeat);
       if (!item)
         {
           playback_abort();
@@ -2677,9 +2678,9 @@ playback_next_bh(struct player_command *cmd)
 
   /* Only add to history if playback started. */
   if (cur_streaming->output_start > cur_streaming->stream_start)
-    history_add(cur_streaming->id);
+    history_add(cur_streaming->id, cur_streaming->item_id);
 
-  item = queue_next(queue, cur_streaming->queueitem_id, shuffle, repeat, 0);
+  item = queue_next(queue, cur_streaming->item_id, shuffle, repeat, 0);
   if (!item)
     {
       playback_abort();
@@ -3281,7 +3282,7 @@ shuffle_set(struct player_command *cmd)
       case 1:
 	if (!shuffle)
 	  {
-	    cur_id = cur_streaming ? cur_streaming->queueitem_id : 0;
+	    cur_id = cur_streaming ? cur_streaming->item_id : 0;
 	    queue_shuffle(queue, cur_id);
 	  }
 	/* FALLTHROUGH*/
@@ -3314,7 +3315,7 @@ playerqueue_get_bypos(struct player_command *cmd)
   item_id = 0;
   if (ps)
     {
-      item_id = ps->queueitem_id;
+      item_id = ps->item_id;
     }
 
   qi = queue_new_bypos(queue, item_id, count, shuffle);
@@ -3352,7 +3353,7 @@ playerqueue_add(struct player_command *cmd)
 
   if (shuffle)
     {
-      cur_id = cur_streaming ? cur_streaming->queueitem_id : 0;
+      cur_id = cur_streaming ? cur_streaming->item_id : 0;
       queue_shuffle(queue, cur_id);
     }
 
@@ -3374,7 +3375,7 @@ playerqueue_add_next(struct player_command *cmd)
 
   items = cmd->arg.queue_add_param.items;
 
-  cur_id = cur_streaming ? cur_streaming->queueitem_id : 0;
+  cur_id = cur_streaming ? cur_streaming->item_id : 0;
 
   queue_add_after(queue, items, cur_id);
 
@@ -3407,7 +3408,7 @@ playerqueue_move_bypos(struct player_command *cmd)
       return -1;
     }
 
-  queue_move_bypos(queue, ps_playing->queueitem_id, cmd->arg.ps_pos[0], cmd->arg.ps_pos[1], shuffle);
+  queue_move_bypos(queue, ps_playing->item_id, cmd->arg.ps_pos[0], cmd->arg.ps_pos[1], shuffle);
 
   cur_plversion++;
 
@@ -3438,7 +3439,7 @@ playerqueue_remove_bypos(struct player_command *cmd)
     }
 
   DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
-  queue_remove_bypos(queue, ps_playing->queueitem_id, pos, shuffle);
+  queue_remove_bypos(queue, ps_playing->item_id, pos, shuffle);
 
   return 0;
 }

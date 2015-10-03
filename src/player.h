@@ -54,7 +54,7 @@ struct player_status {
   /* Id of the playing file/item in the files database */
   uint32_t id;
   /* Item-Id of the playing file/item in the queue */
-  uint32_t queueitem_id;
+  uint32_t item_id;
   /* Elapsed time in ms of playing item */
   uint32_t pos_ms;
   /* Length in ms of playing item */
@@ -64,7 +64,7 @@ struct player_status {
   /* Item id of next item in playlist */
   uint32_t next_id;
   /* Item-Id of the next file/item in the queue */
-  uint32_t next_queueitem_id;
+  uint32_t next_item_id;
   /* Playlist position of next item */
   int next_pos_pl;
 };
@@ -81,6 +81,7 @@ struct player_history
 
   /* Circular buffer of song ids previously played by forked-daapd */
   uint32_t id[MAX_HISTORY_COUNT];
+  uint32_t item_id[MAX_HISTORY_COUNT];
 };
 
 

@@ -650,7 +650,7 @@ mpd_command_currentsong(struct evbuffer *evbuf, int argc, char **argv, char **er
       return 0;
     }
 
-  ret = mpd_add_mediainfo_byid(evbuf, status.id, status.queueitem_id, status.pos_pl);
+  ret = mpd_add_mediainfo_byid(evbuf, status.id, status.item_id, status.pos_pl);
   if (ret < 0)
     {
       ret = asprintf(errmsg, "Error adding media info for file with id: %d", status.id);
@@ -839,11 +839,11 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  "nextsong: %d\n"
 	  "nextsongid: %d\n",
 	  status.pos_pl,
-	  status.queueitem_id,
+	  status.item_id,
 	  (status.pos_ms / 1000), (status.len_ms / 1000),
 	  (status.pos_ms / 1000.0),
 	  status.next_pos_pl,
-	  status.next_queueitem_id);
+	  status.next_item_id);
     }
 
   if (filescanner_scanning())
