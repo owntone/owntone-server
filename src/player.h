@@ -71,21 +71,6 @@ struct player_status {
 
 typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg);
 
-struct player_queue
-{
-  // The item id of the current playing item
-  uint32_t playingid;
-  // The number of items in the queue
-  unsigned int length;
-
-  // The position in the queue for the first item in the queue array
-  unsigned int start_pos;
-  // The number of items in the queue array
-  unsigned int count;
-  // The queue array (array of item ids)
-  uint32_t *queue;
-};
-
 struct player_history
 {
   /* Buffer index of the oldest remembered song */

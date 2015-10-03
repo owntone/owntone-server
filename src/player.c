@@ -3340,13 +3340,6 @@ playerqueue_get_byindex(struct player_command *cmd)
   return 0;
 }
 
-void
-playerqueue_free(struct player_queue *queue)
-{
-  free(queue->queue);
-  free(queue);
-}
-
 static int
 playerqueue_add(struct player_command *cmd)
 {
