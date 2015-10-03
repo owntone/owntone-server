@@ -59,10 +59,17 @@
 /* httpd event base, from httpd.c */
 extern struct event_base *evbase_httpd;
 
-/* Session timeout in seconds */
-#define DAAP_SESSION_TIMEOUT 0 /* By default the session never times out */
+/* Max number of sessions and session timeout
+ * Many clients (including iTunes) don't seem to respect the timeout capability
+ * that we announce, and just keep using the same session. Therefore we take a
+ * lenient approach to actually timing out: We wait an entire week, and to
+ * avoid running a timer for that long, we only check for expiration when adding
+ * new sessions - see daap_session_cleanup().
+ */
+#define DAAP_SESSION_MAX 200
+#define DAAP_SESSION_TIMEOUT 604800            // One week in seconds
 /* We announce this timeout to the client when returning server capabilities */
-#define DAAP_SESSION_TIMEOUT_CAPABILITY 1800 
+#define DAAP_SESSION_TIMEOUT_CAPABILITY 1800   // 30 minutes
 /* Update requests refresh interval in seconds */
 #define DAAP_UPDATE_REFRESH  0
 
@@ -78,7 +85,7 @@ struct uri_map {
 struct daap_session {
   int id;
   char *user_agent;
-  struct event *timeout;
+  time_t mtime;
 
   struct daap_session *next;
 };
@@ -108,7 +115,6 @@ static char *default_meta_group = "dmap.itemname,dmap.persistentid,daap.songalbu
 
 /* DAAP session tracking */
 static struct daap_session *daap_sessions;
-static struct timeval daap_session_timeout_tv = { DAAP_SESSION_TIMEOUT, 0 };
 
 /* Update requests */
 static int current_rev;
@@ -120,9 +126,6 @@ static struct timeval daap_update_refresh_tv = { DAAP_UPDATE_REFRESH, 0 };
 static void
 daap_session_free(struct daap_session *s)
 {
-  if (s->timeout)
-    event_free(s->timeout);
-
   if (s->user_agent)
     free(s->user_agent);
 
@@ -158,18 +161,6 @@ daap_session_remove(struct daap_session *s)
   daap_session_free(s);
 }
 
-static void
-daap_session_timeout_cb(int fd, short what, void *arg)
-{
-  struct daap_session *s;
-
-  s = (struct daap_session *)arg;
-
-  DPRINTF(E_DBG, L_DAAP, "Session %d timed out\n", s->id);
-
-  daap_session_remove(s);
-}
-
 static struct daap_session *
 daap_session_get(int id)
 {
@@ -184,10 +175,40 @@ daap_session_get(int id)
   return NULL;
 }
 
+/* Removes stale sessions and also drops the oldest sessions if DAAP_SESSION_MAX
+ * will otherwise be exceeded
+ */
+static void
+daap_session_cleanup(void)
+{
+  struct daap_session *s;
+  struct daap_session *next;
+  time_t now;
+  int count;
+
+  count = 0;
+  now = time(NULL);
+
+  for (s = daap_sessions; s; s = next)
+    {
+      count++;
+      next = s->next;
+
+      if ((difftime(now, s->mtime) > DAAP_SESSION_TIMEOUT) || (count > DAAP_SESSION_MAX))
+	{
+	  DPRINTF(E_LOG, L_DAAP, "Cleaning up DAAP session (id %d)\n", s->id);
+
+	  daap_session_remove(s);
+	}
+    }
+}
+
 static struct daap_session *
 daap_session_add(const char *user_agent, int request_session_id)
 {
   struct daap_session *s;
+
+  daap_session_cleanup();
 
   s = (struct daap_session *)malloc(sizeof(struct daap_session));
   if (!s)
@@ -213,6 +234,8 @@ daap_session_add(const char *user_agent, int request_session_id)
       while ( (s->id = rand() + 100) && daap_session_get(s->id) );
     }
 
+  s->mtime = time(NULL);
+
   if (user_agent)
     s->user_agent = strdup(user_agent);
 
@@ -220,15 +243,6 @@ daap_session_add(const char *user_agent, int request_session_id)
     s->next = daap_sessions;
 
   daap_sessions = s;
-
-  if (DAAP_SESSION_TIMEOUT > 0)
-    {
-      s->timeout = evtimer_new(evbase_httpd, daap_session_timeout_cb, s);
-      if (!s->timeout)
-	DPRINTF(E_LOG, L_DAAP, "Could not add session timeout event for session %d\n", s->id);
-      else
-        evtimer_add(s->timeout, &daap_session_timeout_tv);
-    }
 
   return s;
 }
@@ -258,12 +272,11 @@ daap_session_find(struct evhttp_request *req, struct evkeyvalq *query, struct ev
   s = daap_session_get(id);
   if (!s)
     {
-      DPRINTF(E_WARN, L_DAAP, "DAAP session id %d not found\n", id);
+      DPRINTF(E_LOG, L_DAAP, "DAAP session id %d not found\n", id);
       goto invalid;
     }
 
-  if (s->timeout)
-    evtimer_add(s->timeout, &daap_session_timeout_tv);
+  s->mtime = time(NULL);
 
   return s;
 
