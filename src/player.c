@@ -3702,11 +3702,11 @@ player_get_icy_artwork_url(uint32_t id)
  *
  * If a pointer is given as argument "itemid", its value will be set to the playing item dbmfi-id.
  *
- * @param *itemid if not NULL, will be set to the playing item dbmfi-id
+ * @param *id if not NULL, will be set to the playing item dbmfi-id
  * @return 0 if successful, -1 if an error occurred
  */
 int
-player_playback_start(uint32_t *itemid)
+player_playback_start(uint32_t *id)
 {
   struct player_command cmd;
   int ret;
@@ -3715,7 +3715,7 @@ player_playback_start(uint32_t *itemid)
 
   cmd.func = playback_start;
   cmd.func_bh = playback_start_bh;
-  cmd.arg.playback_start_param.id_ptr = itemid;
+  cmd.arg.playback_start_param.id_ptr = id;
 
   ret = sync_command(&cmd);
 
@@ -3732,11 +3732,11 @@ player_playback_start(uint32_t *itemid)
  * If a pointer is given as argument "itemid", its value will be set to the playing item id.
  *
  * @param index the index of the item in the play-queue
- * @param *itemid if not NULL, will be set to the playing item id
+ * @param *id if not NULL, will be set to the playing item id
  * @return 0 if successful, -1 if an error occurred
  */
 int
-player_playback_start_byindex(int index, uint32_t *itemid)
+player_playback_start_byindex(int index, uint32_t *id)
 {
   struct player_command cmd;
   int ret;
@@ -3746,7 +3746,7 @@ player_playback_start_byindex(int index, uint32_t *itemid)
   cmd.func = playback_start_byindex;
   cmd.func_bh = playback_start_bh;
   cmd.arg.playback_start_param.pos = index;
-  cmd.arg.playback_start_param.id_ptr = itemid;
+  cmd.arg.playback_start_param.id_ptr = id;
   ret = sync_command(&cmd);
 
   command_deinit(&cmd);
@@ -3764,11 +3764,11 @@ player_playback_start_byindex(int index, uint32_t *itemid)
  * If a pointer is given as argument "itemid", its value will be set to the playing item dbmfi-id.
  *
  * @param pos the position in the UpNext-queue (zero-based)
- * @param *itemid if not NULL, will be set to the playing item dbmfi-id
+ * @param *id if not NULL, will be set to the playing item dbmfi-id
  * @return 0 if successful, -1 if an error occurred
  */
 int
-player_playback_start_bypos(int pos, uint32_t *itemid)
+player_playback_start_bypos(int pos, uint32_t *id)
 {
   struct player_command cmd;
   int ret;
@@ -3778,7 +3778,7 @@ player_playback_start_bypos(int pos, uint32_t *itemid)
   cmd.func = playback_start_bypos;
   cmd.func_bh = playback_start_bh;
   cmd.arg.playback_start_param.pos = pos;
-  cmd.arg.playback_start_param.id_ptr = itemid;
+  cmd.arg.playback_start_param.id_ptr = id;
   ret = sync_command(&cmd);
 
   command_deinit(&cmd);
@@ -3793,12 +3793,12 @@ player_playback_start_bypos(int pos, uint32_t *itemid)
  *
  * If a pointer is given as argument "itemid", its value will be set to the playing item dbmfi-id.
  *
- * @param id The queue-item-id
- * @param *itemid if not NULL, will be set to the playing item dbmfi-id
+ * @param item_id The queue-item-id
+ * @param *id if not NULL, will be set to the playing item dbmfi-id
  * @return 0 if successful, -1 if an error occurred
  */
 int
-player_playback_start_byitemid(uint32_t id, uint32_t *itemid)
+player_playback_start_byitemid(uint32_t item_id, uint32_t *id)
 {
   struct player_command cmd;
   int ret;
@@ -3807,8 +3807,8 @@ player_playback_start_byitemid(uint32_t id, uint32_t *itemid)
 
   cmd.func = playback_start_byitemid;
   cmd.func_bh = playback_start_bh;
-  cmd.arg.playback_start_param.id = id;
-  cmd.arg.playback_start_param.id_ptr = itemid;
+  cmd.arg.playback_start_param.id = item_id;
+  cmd.arg.playback_start_param.id_ptr = id;
   ret = sync_command(&cmd);
 
   command_deinit(&cmd);

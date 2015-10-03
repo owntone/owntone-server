@@ -118,16 +118,16 @@ int
 player_speaker_set(uint64_t *ids);
 
 int
-player_playback_start(uint32_t *idx_id);
+player_playback_start(uint32_t *id);
 
 int
-player_playback_start_byindex(int pos, uint32_t *itemid);
+player_playback_start_byindex(int pos, uint32_t *id);
 
 int
-player_playback_start_bypos(int pos, uint32_t *itemid);
+player_playback_start_bypos(int pos, uint32_t *id);
 
 int
-player_playback_start_byitemid(uint32_t id, uint32_t *itemid);
+player_playback_start_byitemid(uint32_t item_id, uint32_t *id);
 
 int
 player_playback_stop(void);
