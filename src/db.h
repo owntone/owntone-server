@@ -157,7 +157,7 @@ struct media_file_info {
 
   uint32_t item_kind;    /* song or movie */
   uint32_t data_kind;    /* dmap.datakind (asdk) */
-  uint64_t sample_count;
+  uint64_t sample_count; //TODO [unused] sample count is never set and therefor always 0
   uint32_t compilation;
   char artwork;
 

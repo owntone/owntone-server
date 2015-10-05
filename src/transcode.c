@@ -731,7 +731,7 @@ transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t 
     }
 
   ctx->duration = mfi->song_length;
-  ctx->samples = mfi->sample_count;
+  ctx->samples = mfi->sample_count; //TODO [unused] sample count is never set and therefor always 0
   ctx->wavhdr = wavhdr;
 
   if (wavhdr)

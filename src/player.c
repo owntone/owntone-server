@@ -48,12 +48,10 @@
 #include <gcrypt.h>
 
 #include "db.h"
-#include "daap_query.h"
 #include "logger.h"
 #include "mdns.h"
 #include "conffile.h"
 #include "misc.h"
-#include "rng.h"
 #include "player.h"
 #include "raop.h"
 #include "laudio.h"
@@ -83,6 +81,47 @@
 // Default volume (must be from 0 - 100)
 #define PLAYER_DEFAULT_VOLUME 50
 
+struct player_source
+{
+  /* Id of the file/item in the files database */
+  uint32_t id;
+
+  /* Item-Id of the file/item in the queue */
+  uint32_t item_id;
+
+  /* Length of the file/item in milliseconds */
+  uint32_t len_ms;
+
+  enum data_kind data_kind;
+  enum media_kind media_kind;
+
+  /* Start time of the media item as rtp-time
+     The stream-start is the rtp-time the media item did or would have
+     started playing (after seek or pause), therefor the elapsed time of the
+     media item is always:
+     elapsed time = current rtptime - stream-start */
+  uint64_t stream_start;
+
+  /* Output start time of the media item as rtp-time
+     The output start time is the rtp-time of the first audio packet send
+     to the audio outputs.
+     It differs from stream-start especially after a seek, where the first audio
+     packet has the next rtp-time as output start and stream start becomes the
+     rtp-time the media item would have been started playing if the seek did
+     not happen. */
+  uint64_t output_start;
+
+  /* End time of media item as rtp-time
+     The end time is set if the reading (source_read) of the media item reached
+     end of file, until then it is 0. */
+  uint64_t end;
+
+  struct transcode_ctx *ctx;
+  int setup_done;
+
+  struct player_source *play_next;
+};
+
 enum player_sync_source
   {
     PLAYER_SYNC_CLOCK,
@@ -103,35 +142,26 @@ struct spk_enum
   void *arg;
 };
 
-enum range_type
-  {
-    RANGEARG_NONE,
-    RANGEARG_ID,
-    RANGEARG_POS,
-    RANGEARG_RANGE
-  };
-
-/*
- * Identifies an item or a range of items
- *
- * Depending on item_range.type the item(s) are identified by:
- * - item id (type = RANGEARG_ID) given in item_range.id
- * - item position (type = RANGEARG_POS) given in item_range.start_pos
- * - start and end position (type = RANGEARG_RANGE) given in item_range.start_pos to item_range.end_pos
- *
- * The pointer id_ptr may be set to an item id by the called function.
- */
-struct item_range
+struct playback_start_param
 {
-  enum range_type type;
-
   uint32_t id;
-  int start_pos;
-  int end_pos;
-
-  char shuffle;
+  int pos;
 
   uint32_t *id_ptr;
+};
+
+struct playerqueue_get_param
+{
+  int pos;
+  int count;
+
+  struct queue *queue;
+};
+
+struct playerqueue_add_param
+{
+  struct queue_item *items;
+  int pos;
 };
 
 struct icy_artwork
@@ -174,15 +204,15 @@ struct player_command
     uint32_t id;
     int intval;
     int ps_pos[2];
-    struct item_range item_range;
     struct icy_artwork icy;
+    struct playback_start_param playback_start_param;
+    struct playerqueue_get_param queue_get_param;
+    struct playerqueue_add_param queue_add_param;
   } arg;
 
   int ret;
 
   int raop_pending;
-
-  struct player_queue *queue;
 };
 
 /* Keep in sync with enum raop_devtype */
@@ -234,7 +264,7 @@ static uint64_t pb_pos;
 static uint64_t last_rtptime;
 
 /* AirPlay devices */
-static int dev_autoselect;
+static int dev_autoselect; //TODO [player] Is this still necessary?
 static struct raop_device *dev_list;
 
 /* Device status */
@@ -250,17 +280,15 @@ static struct player_command *cur_cmd;
 /* Last commanded volume */
 static int master_volume;
 
-/* Shuffle RNG state */
-struct rng_ctx shuffle_rng;
-
 /* Audio source */
-static struct player_source *source_head;
-static struct player_source *shuffle_head;
 static struct player_source *cur_playing;
 static struct player_source *cur_streaming;
 static uint32_t cur_plid;
 static uint32_t cur_plversion;
 static struct evbuffer *audio_buf;
+
+/* Play queue */
+static struct queue *queue;
 
 /* Play history */
 static struct player_history *history;
@@ -583,7 +611,7 @@ static void
 playback_abort(void);
 
 static int
-queue_clear(struct player_command *cmd);
+playerqueue_clear(struct player_command *cmd);
 
 static void
 player_metadata_send(struct player_metadata *pmd);
@@ -697,31 +725,19 @@ metadata_purge(void)
 }
 
 static void
-metadata_trigger(struct player_source *ps, int startup)
+metadata_trigger(int startup)
 {
   struct player_metadata pmd;
 
   memset(&pmd, 0, sizeof(struct player_metadata));
 
-  pmd.id = ps->id;
+  pmd.id = cur_streaming->id;
   pmd.startup = startup;
 
-  /* Determine song boundaries, dependent on context */
-
-  /* Restart after pause/seek */
-  if (ps->stream_start)
+  if (cur_streaming->stream_start && cur_streaming->output_start)
     {
-      pmd.offset = ps->output_start - ps->stream_start;
-      pmd.rtptime = ps->stream_start;
-    }
-  else if (startup)
-    {
-      /* Will be set later, right before sending */
-    }
-  /* Generic case */
-  else if (cur_streaming && (cur_streaming->end))
-    {
-      pmd.rtptime = cur_streaming->end + 1;
+      pmd.offset = cur_streaming->output_start - cur_streaming->stream_start;
+      pmd.rtptime = cur_streaming->stream_start;
     }
   else
     {
@@ -755,7 +771,7 @@ metadata_check_icy(void)
   worker_execute(update_icy_cb, metadata, sizeof(struct http_icy_metadata), 0);
 
   /* Triggers preparing and sending RAOP metadata */
-  metadata_trigger(cur_streaming, 0);
+  metadata_trigger(0);
 
   /* Only free the struct, the content must be preserved for update_icy_cb */
   free(metadata);
@@ -768,637 +784,72 @@ metadata_check_icy(void)
   http_icy_metadata_free(metadata, 0);
 }
 
-/* Audio sources */
-
-/* Helper */
-static struct player_source *
-next_ps(struct player_source *ps, char shuffle)
+struct player_history *
+player_history_get(void)
 {
-  if (shuffle)
-    return ps->shuffle_next;
-  else
-    return ps->pl_next;
-}
-
-/* Thread: httpd (DACP) */
-struct player_source *
-player_queue_make(struct query_params *qp)
-{
-  struct db_media_file_info dbmfi;
-  struct player_source *q_head;
-  struct player_source *q_tail;
-  struct player_source *ps;
-  uint32_t id;
-  uint32_t song_length;
-  int ret;
-
-  ret = db_query_start(qp);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not start query\n");
-
-      return NULL;
-    }
-
-  DPRINTF(E_DBG, L_PLAYER, "Player queue query returned %d items\n", qp->results);
-
-  q_head = NULL;
-  q_tail = NULL;
-  while (((ret = db_query_fetch_file(qp, &dbmfi)) == 0) && (dbmfi.id))
-    {
-      ret = safe_atou32(dbmfi.id, &id);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Invalid song id in query result!\n");
-
-	  continue;
-	}
-
-      ret = safe_atou32(dbmfi.song_length, &song_length);
-      if (ret < 0)
-      	{
-      	  DPRINTF(E_LOG, L_PLAYER, "Invalid song id in query result!\n");
-
-      	  continue;
-      	}
-
-      ps = (struct player_source *)malloc(sizeof(struct player_source));
-      if (!ps)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Out of memory for struct player_source\n");
-
-	  ret = -1;
-	  break;
-	}
-
-      memset(ps, 0, sizeof(struct player_source));
-
-      ps->id = id;
-      ps->len_ms = song_length;
-
-      if (!q_head)
-	q_head = ps;
-
-      if (q_tail)
-	{
-	  q_tail->pl_next = ps;
-	  ps->pl_prev = q_tail;
-
-	  q_tail->shuffle_next = ps;
-	  ps->shuffle_prev = q_tail;
-	}
-
-      q_tail = ps;
-
-      DPRINTF(E_DBG, L_PLAYER, "Added song id %d (%s)\n", id, dbmfi.title);
-    }
-
-  db_query_end(qp);
-
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Error fetching results\n");
-
-      return NULL;
-    }
-
-  if (!q_head)
-    return NULL;
-
-  q_head->pl_prev = q_tail;
-  q_tail->pl_next = q_head;
-  q_head->shuffle_prev = q_tail;
-  q_tail->shuffle_next = q_head;
-
-  return q_head;
-}
-
-static int
-find_first_song_id(const char *query)
-{
-  struct db_media_file_info dbmfi;
-  struct query_params qp;
-  int id;
-  int ret;
-
-  memset(&qp, 0, sizeof(struct query_params));
-
-  /* We only want the id of the first song */
-  qp.type = Q_ITEMS;
-  qp.idx_type = I_FIRST;
-  qp.sort = S_NONE;
-  qp.offset = 0;
-  qp.limit = 1;
-  qp.filter = daap_query_parse_sql(query);
-  if (!qp.filter)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Improper DAAP query!\n");
-
-      return -1;
-    }
-
-  ret = db_query_start(&qp);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not start query\n");
-
-      goto no_query_start;
-    }
-
-  if (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
-    {
-      ret = safe_atoi32(dbmfi.id, &id);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Invalid song id in query result!\n");
-
-	  goto no_result;
-	}
-
-      DPRINTF(E_DBG, L_PLAYER, "Found index song (id %d)\n", id);
-      ret = 1;
-    }
-  else
-    {
-      DPRINTF(E_LOG, L_PLAYER, "No song matches query (results %d): %s\n", qp.results, qp.filter);
-
-      goto no_result;
-    }
-
- no_result:
-  db_query_end(&qp);
-
- no_query_start:
-  if (qp.filter)
-    free(qp.filter);
-
-  if (ret == 1)
-    return id;
-  else
-    return -1;
-}
-
-
-/* Thread: httpd (DACP) */
-int
-player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk)
-{
-  struct media_file_info *mfi;
-  struct query_params qp;
-  struct player_source *ps;
-  int64_t albumid;
-  int64_t artistid;
-  int plid;
-  int id;
-  int idx;
-  int ret;
-  int len;
-  char *s;
-  char buf[1024];
-
-  if (query)
-    {
-      id = find_first_song_id(query);
-      if (id < 0)
-        return -1;
-    }
-  else
-    id = 0;
-
-  memset(&qp, 0, sizeof(struct query_params));
-
-  qp.offset = 0;
-  qp.limit = 0;
-  qp.sort = S_NONE;
-  qp.idx_type = I_NONE;
-
-  if (quirk)
-    {
-      qp.sort = S_ALBUM;
-      qp.type = Q_ITEMS;
-      mfi = db_file_fetch_byid(id);
-      if (!mfi)
-	return -1;
-      snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, mfi->songalbumid);
-      free_mfi(mfi, 0);
-      qp.filter = strdup(buf);
-    }
-  else if (queuefilter)
-    {
-      len = strlen(queuefilter);
-      if ((len > 6) && (strncmp(queuefilter, "album:", 6) == 0))
-	{
-	  qp.type = Q_ITEMS;
-	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &albumid);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Invalid album id in queuefilter: %s\n", queuefilter);
-
-	      return -1;
-	    }
-	  snprintf(buf, sizeof(buf), "f.songalbumid = %" PRIi64, albumid);
-	  qp.filter = strdup(buf);
-	}
-      else if ((len > 7) && (strncmp(queuefilter, "artist:", 7) == 0))
-	{
-	  qp.type = Q_ITEMS;
-	  ret = safe_atoi64(strchr(queuefilter, ':') + 1, &artistid);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Invalid artist id in queuefilter: %s\n", queuefilter);
-
-	      return -1;
-	    }
-	  snprintf(buf, sizeof(buf), "f.songartistid = %" PRIi64, artistid);
-	  qp.filter = strdup(buf);
-	}
-      else if ((len > 9) && (strncmp(queuefilter, "playlist:", 9) == 0))
-	{
-	  qp.type = Q_PLITEMS;
-	  ret = safe_atoi32(strchr(queuefilter, ':') + 1, &plid);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Invalid playlist id in queuefilter: %s\n", queuefilter);
-
-	      return -1;
-	    }
-	  qp.id = plid;
-	  qp.filter = strdup("1 = 1");
-	}
-      else if ((len > 6) && (strncmp(queuefilter, "genre:", 6) == 0))
-	{
-	  qp.type = Q_ITEMS;
-	  s = db_escape_string(queuefilter + 6);
-	  if (!s)
-	    return -1;
-	  snprintf(buf, sizeof(buf), "f.genre = '%s'", s);
-	  qp.filter = strdup(buf);
-	}
-      else
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Unknown queuefilter %s\n", queuefilter);
-
-	  // If the queuefilter is unkown, ignore it and use the query parameter instead to build the sql query
-	  id = 0;
-	  qp.type = Q_ITEMS;
-	  qp.filter = daap_query_parse_sql(query);
-	}
-    }
-  else
-    {
-      id = 0;
-      qp.type = Q_ITEMS;
-      qp.filter = daap_query_parse_sql(query);
-    }
-
-  if (sort)
-    {
-      if (strcmp(sort, "name") == 0)
-	qp.sort = S_NAME;
-      else if (strcmp(sort, "album") == 0)
-	qp.sort = S_ALBUM;
-      else if (strcmp(sort, "artist") == 0)
-	qp.sort = S_ARTIST;
-    }
-
-  ps = player_queue_make(&qp);
-
-  if (qp.filter)
-    free(qp.filter);
-
-  if (ps)
-    *head = ps;
-  else
-    return -1;
-
-  idx = 0;
-  while (id && ps && ps->pl_next && (ps->id != id) && (ps->pl_next != *head))
-    {
-      idx++;
-      ps = ps->pl_next;
-    }
-
-  return idx;
-}
-
-struct player_source *
-player_queue_make_pl(int plid, uint32_t *id)
-{
-  struct query_params qp;
-  struct player_source *ps;
-  struct player_source *p;
-  uint32_t i;
-  char buf[124];
-
-  memset(&qp, 0, sizeof(struct query_params));
-
-  if (plid)
-    {
-      qp.id = plid;
-      qp.type = Q_PLITEMS;
-      qp.offset = 0;
-      qp.limit = 0;
-      qp.sort = S_NONE;
-    }
-  else if (*id)
-    {
-      qp.id = 0;
-      qp.type = Q_ITEMS;
-      qp.offset = 0;
-      qp.limit = 0;
-      qp.sort = S_NONE;
-      snprintf(buf, sizeof(buf), "f.id = %" PRIu32, *id);
-      qp.filter = strdup(buf);
-    }
-  else
-    return NULL;
-
-  qp.idx_type = I_NONE;
-
-  ps = player_queue_make(&qp);
-
-  if (qp.filter)
-    free(qp.filter);
-
-  /* Shortcut for shuffled playlist */
-  if (*id == 0)
-    return ps;
-
-  p = ps;
-  i = 0;
-  do
-    {
-      if (p->id == *id)
-	{
-	  *id = i;
-	  break;
-	}
-
-      p = p->pl_next;
-      i++;
-    }
-  while (p != ps);
-
-  return ps;
-}
-
-struct player_source *
-player_queue_make_mpd(char *path, int recursive)
-{
-  struct query_params qp;
-  struct player_source *ps;
-
-  memset(&qp, 0, sizeof(struct query_params));
-
-  qp.type = Q_ITEMS;
-  qp.idx_type = I_NONE;
-  qp.sort = S_ALBUM;
-
-  if (recursive)
-    {
-      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q%%'", path);
-      if (!qp.filter)
-	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
-    }
-  else
-    {
-      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q'", path);
-      if (!qp.filter)
-	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
-    }
-
-  ps = player_queue_make(&qp);
-
-  sqlite3_free(qp.filter);
-  return ps;
-}
-
-static void
-source_free(struct player_source *ps)
-{
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_FILE:
-      case DATA_KIND_HTTP:
-	if (ps->ctx)
-	  transcode_cleanup(ps->ctx);
-	break;
-
-      case DATA_KIND_SPOTIFY:
-#ifdef HAVE_SPOTIFY_H
-	spotify_playback_stop();
-#endif
-	break;
-
-      case DATA_KIND_PIPE:
-	pipe_cleanup();
-	break;
-    }
-
-  free(ps);
-}
-
-static void
-source_stop(struct player_source *ps)
-{
-  struct player_source *tmp;
-
-  while (ps)
-    {
-      switch (ps->data_kind)
-	{
-	  case DATA_KIND_FILE:
-	  case DATA_KIND_HTTP:
-	    if (ps->ctx)
-	      {
-		transcode_cleanup(ps->ctx);
-		ps->ctx = NULL;
-	      }
-	    break;
-
-          case DATA_KIND_SPOTIFY:
-#ifdef HAVE_SPOTIFY_H
-	    spotify_playback_stop();
-#endif
-	    break;
-
-	  case DATA_KIND_PIPE:
-	    pipe_cleanup();
-	    break;
-        }
-
-      tmp = ps;
-      ps = ps->play_next;
-
-      tmp->play_next = NULL;
-    }
+  return history;
 }
 
 /*
- * Shuffles the items between head and tail (excluding head and tail)
+ * Add the song with the given id to the list of previously played songs
  */
 static void
-source_shuffle(struct player_source *head, struct player_source *tail)
+history_add(uint32_t id, uint32_t item_id)
 {
-  struct player_source *ps;
-  struct player_source **ps_array;
-  int nitems;
-  int i;
+  unsigned int cur_index;
+  unsigned int next_index;
 
-  if (!head)
-    return;
-
-  if (!tail)
-    return;
-
-  if (!shuffle)
+  /* Check if the current song is already the last in the history to avoid duplicates */
+  cur_index = (history->start_index + history->count - 1) % MAX_HISTORY_COUNT;
+  if (id == history->id[cur_index])
     {
-      ps = head;
-      do
-	{
-	  ps->shuffle_next = ps->pl_next;
-	  ps->shuffle_prev = ps->pl_prev;
-	  ps = ps->pl_next;
-	}
-      while (ps != head);
-    }
-
-  // Count items in queue (excluding head and tail)
-  ps = head->shuffle_next;
-  if (!cur_streaming)
-    nitems = 1;
-  else
-    nitems = 0;
-  while (ps != tail)
-    {
-      nitems++;
-      ps = ps->shuffle_next;
-    }
-
-  // Do not reshuffle queue with one item
-  if (nitems < 1)
-    return;
-
-  // Construct array for number of items in queue
-  ps_array = (struct player_source **)malloc(nitems * sizeof(struct player_source *));
-  if (!ps_array)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not allocate memory for shuffle array\n");
+      DPRINTF(E_DBG, L_PLAYER, "Current playing/streaming song already in history\n");
       return;
     }
 
-  // Fill array with items in queue (excluding head and tail)
-  if (cur_streaming)
-    ps = head->shuffle_next;
-  else
-    ps = head;
-  i = 0;
-  do
-    {
-      ps_array[i] = ps;
+  /* Calculate the next index and update the start-index and count for the id-buffer */
+  next_index = (history->start_index + history->count) % MAX_HISTORY_COUNT;
+  if (next_index == history->start_index && history->count > 0)
+    history->start_index = (history->start_index + 1) % MAX_HISTORY_COUNT;
 
-      ps = ps->shuffle_next;
-      i++;
-    }
-  while (ps != tail);
+  history->id[next_index] = id;
+  history->item_id[next_index] = item_id;
 
-  shuffle_ptr(&shuffle_rng, (void **)ps_array, nitems);
-
-  for (i = 0; i < nitems; i++)
-    {
-      ps = ps_array[i];
-
-      if (i > 0)
-	ps->shuffle_prev = ps_array[i - 1];
-
-      if (i < (nitems - 1))
-	ps->shuffle_next = ps_array[i + 1];
-    }
-
-  // Insert shuffled items between head and tail
-  if (cur_streaming)
-    {
-      ps_array[0]->shuffle_prev = head;
-      ps_array[nitems - 1]->shuffle_next = tail;
-      head->shuffle_next = ps_array[0];
-      tail->shuffle_prev = ps_array[nitems - 1];
-    }
-  else
-    {
-      ps_array[0]->shuffle_prev = ps_array[nitems - 1];
-      ps_array[nitems - 1]->shuffle_next = ps_array[0];
-      shuffle_head = ps_array[0];
-    }
-
-  free(ps_array);
-
-  return;
+  if (history->count < MAX_HISTORY_COUNT)
+    history->count++;
 }
 
-static void
-source_reshuffle(void)
-{
-  struct player_source *head;
-  struct player_source *tail;
 
-  if (cur_streaming)
-    head = cur_streaming;
-  else if (shuffle)
-    head = shuffle_head;
-  else
-    head = source_head;
+/* Audio sources */
 
-  if (repeat == REPEAT_ALL)
-    tail = head;
-  else if (shuffle)
-    tail = shuffle_head;
-  else
-    tail = source_head;
-
-  source_shuffle(head, tail);
-
-  if (repeat == REPEAT_ALL)
-    shuffle_head = head;
-}
-
-/* Helper */
+/*
+ * Initializes the given player source for playback
+ */
 static int
-source_open(struct player_source *ps, int no_md, int seek)
+stream_setup(struct player_source *ps, struct media_file_info *mfi)
 {
-  struct media_file_info *mfi;
   char *url;
   int ret;
 
-  ps->setup_done = 0;
-  ps->stream_start = 0;
-  ps->output_start = 0;
-  ps->end = 0;
-  ps->play_next = NULL;
-
-  mfi = db_file_fetch_byid(ps->id);
-  if (!mfi)
+  if (!ps || !mfi)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Couldn't fetch file id %d\n", ps->id);
-
+      DPRINTF(E_LOG, L_PLAYER, "No player source and/or media info given to stream_setup\n");
       return -1;
     }
 
-  if (mfi->disabled)
+  if (ps->setup_done)
     {
-      DPRINTF(E_DBG, L_PLAYER, "File id %d is disabled, skipping\n", ps->id);
-
-      free_mfi(mfi, 0);
+      DPRINTF(E_LOG, L_PLAYER, "Given player source already setup (id = %d)\n", ps->id);
       return -1;
     }
 
-  DPRINTF(E_INFO, L_PLAYER, "Opening '%s' (%s)\n", mfi->title, mfi->path);
-
-  ps->data_kind = mfi->data_kind;
-  ps->media_kind = mfi->media_kind;
-
-  // Setup the source type responsible for getting the audio
-  switch (mfi->data_kind)
+  // Setup depending on data kind
+  switch (ps->data_kind)
     {
+      case DATA_KIND_FILE:
+	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
+	break;
+
       case DATA_KIND_HTTP:
 	ret = http_stream_setup(&url, mfi->path);
 	if (ret < 0)
@@ -1412,13 +863,10 @@ source_open(struct player_source *ps, int no_md, int seek)
 
       case DATA_KIND_SPOTIFY:
 #ifdef HAVE_SPOTIFY_H
-	ret = spotify_playback_play(mfi);
-	if (seek && mfi->seek)
-	  {
-	    DPRINTF(E_DBG, L_PLAYER, "Source id %d started with seek %d\n", ps->id, mfi->seek);
-	    ret = spotify_playback_seek(mfi->seek);
-	  }
+	ret = spotify_playback_setup(mfi);
 #else
+	DPRINTF(E_LOG, L_PLAYER, "Player source has data kind 'spotify' (%d), but forked-daapd is compiled without spotify support - cannot setup source '%s' (%s)\n",
+		    ps->data_kind, mfi->title, mfi->path);
 	ret = -1;
 #endif
 	break;
@@ -1428,282 +876,549 @@ source_open(struct player_source *ps, int no_md, int seek)
 	break;
 
       default:
-	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
-	if (seek && mfi->seek)
-	  {
-	    DPRINTF(E_DBG, L_PLAYER, "Source id %d started with seek %d\n", ps->id, mfi->seek);
-	    ret = transcode_seek(ps->ctx, mfi->seek);
-	  }
+	DPRINTF(E_LOG, L_PLAYER, "Unknown data kind (%d) for player source - cannot setup source '%s' (%s)\n",
+	    ps->data_kind, mfi->title, mfi->path);
+	ret = -1;
     }
 
-  free_mfi(mfi, 0);
-
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not open file id %d\n", ps->id);
-
-      return -1;
-    }
-
-  if (!no_md)
-    metadata_trigger(ps, (player_state == PLAY_PLAYING) ? 0 : 1);
-
-  ps->setup_done = 1;
+  if (ret == 0)
+      ps->setup_done = 1;
+  else
+      DPRINTF(E_LOG, L_PLAYER, "Failed to setup player source (id = %d)\n", ps->id);
 
   return ret;
 }
 
-static int
-source_next(int force)
-{
-  struct player_source *ps;
-  struct player_source *head;
-  struct player_source *limit;
-  enum repeat_mode r_mode;
-  int ret;
-
-  head = (shuffle) ? shuffle_head : source_head;
-  limit = head;
-  r_mode = repeat;
-
-  /* Force repeat mode at user request */
-  if (force && (r_mode == REPEAT_SONG))
-    r_mode = REPEAT_ALL;
-
-  /* Playlist has only one file, treat REPEAT_ALL as REPEAT_SONG */
-  if ((r_mode == REPEAT_ALL) && (source_head == source_head->pl_next))
-    r_mode = REPEAT_SONG;
-  /* Playlist has only one file, not a user action, treat as REPEAT_ALL
-   * and source_check() will stop playback
-   */
-  else if (!force && (r_mode == REPEAT_OFF) && (source_head == source_head->pl_next))
-    r_mode = REPEAT_SONG;
-
-  if (!cur_streaming)
-    ps = head;
-  else
-    ps = next_ps(cur_streaming, shuffle);
-
-  switch (r_mode)
-    {
-      case REPEAT_SONG:
-	if (!cur_streaming)
-	  break;
-
-	if ((cur_streaming->data_kind == DATA_KIND_FILE) && cur_streaming->ctx)
-	  {
-	    ret = transcode_seek(cur_streaming->ctx, 0);
-
-	    /* source_open() takes care of sending metadata, but we don't
-	     * call it when repeating a song as we just seek back to 0
-	     * so we have to handle metadata ourselves here
-	     */
-	    if (ret >= 0)
-	      metadata_trigger(cur_streaming, 0);
-	  }
-	else
-	  ret = source_open(cur_streaming, force, 0);
-
-	if (ret < 0)
-	  {
-	    DPRINTF(E_LOG, L_PLAYER, "Failed to restart song for song repeat\n");
-
-	    return -1;
-	  }
-
-	return 0;
-
-      case REPEAT_ALL:
-	if (!shuffle)
-	  {
-	    limit = ps;
-	    break;
-	  }
-
-	/* Reshuffle before repeating playlist */
-	if (cur_streaming && (ps == shuffle_head))
-	  {
-	    source_reshuffle();
-	    ps = shuffle_head;
-	  }
-
-	limit = shuffle_head;
-
-	break;
-
-      case REPEAT_OFF:
-	limit = head;
-
-	if (force && (ps == limit))
-	  {
-	    DPRINTF(E_DBG, L_PLAYER, "End of playlist reached and repeat is OFF\n");
-
-	    playback_abort();
-	    return 0;
-	  }
-	break;
-    }
-
-  do
-    {
-      ret = source_open(ps, force, 0);
-      if (ret < 0)
-	{
-	  if (shuffle)
-	    ps = ps->shuffle_next;
-	  else
-	    ps = ps->pl_next;
-
-	  continue;
-	}
-
-      break;
-    }
-  while (ps != limit);
-
-  /* Couldn't open any of the files in our queue */
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_PLAYER, "Could not open any file in the queue (next)\n");
-
-      return -1;
-    }
-
-  if (!force && cur_streaming)
-    cur_streaming->play_next = ps;
-
-  cur_streaming = ps;
-
-  return 0;
-}
-
-static int
-source_prev(void)
-{
-  struct player_source *ps;
-  struct player_source *head;
-  struct player_source *limit;
-  int ret;
-
-  if (!cur_streaming)
-    return -1;
-
-  head = (shuffle) ? shuffle_head : source_head;
-  ps = (shuffle) ? cur_streaming->shuffle_prev : cur_streaming->pl_prev;
-  limit = ps;
-
-  if ((repeat == REPEAT_OFF) && (cur_streaming == head))
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Start of playlist reached and repeat is OFF\n");
-
-      playback_abort();
-      return 0;
-    }
-
-  /* We are not reshuffling on prev calls in the shuffle case - should we? */
-
-  do
-    {
-      ret = source_open(ps, 1, 0);
-      if (ret < 0)
-	{
-	  if (shuffle)
-	    ps = ps->shuffle_prev;
-	  else
-	    ps = ps->pl_prev;
-
-	  continue;
-	}
-
-      break;
-    }
-  while (ps != limit);
-
-  /* Couldn't open any of the files in our queue */
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_PLAYER, "Could not open any file in the queue (prev)\n");
-
-      return -1;
-    }
-
-  cur_streaming = ps;
-
-  return 0;
-}
-
 /*
- * Returns the position of the given player_source (ps) in the playqueue or shufflequeue.
- * First song in the queue has position 0. Depending on the 'shuffle' argument,
- * the position is either determined in the playqueue or shufflequeue.
- *
- * @param ps the source to search in the queue
- * @param shuffle 0 search in the playqueue, 1 search in the shufflequeue
- * @return position 0-based in the queue (-1 if not found)
+ * Starts or resumes plaback for the given player source
  */
 static int
-source_position(struct player_source *source, char shuffle)
+stream_play(struct player_source *ps)
 {
-  struct player_source *ps;
-  struct player_source *head;
   int ret;
 
-  head = shuffle ? shuffle_head : source_head;
-  if (!head)
-    return -1;
-
-  if (source == head)
-    return 0;
-
-  ret = 0;
-  for (ps = next_ps(head, shuffle); ps != head; ps = next_ps(ps, shuffle))
+  if (!ps)
     {
-      ret++;
-      if (ps == source)
-	return ret;
+      DPRINTF(E_LOG, L_PLAYER, "Stream play called with no active streaming player source\n");
+      return -1;
     }
 
-  DPRINTF(E_LOG, L_PLAYER, "Bug! source_position was given non-existent source\n");
-
-  return -1;
-}
-
-static uint32_t
-source_count()
-{
-  struct player_source *ps;
-  uint32_t ret;
-
-  ret = 0;
-
-  if (source_head)
+  if (!ps->setup_done)
     {
-      ret++;
-      for (ps = source_head->pl_next; ps != source_head; ps = ps->pl_next)
-	ret++;
+      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, play not possible\n");
+      return -1;
+    }
+
+  // Start/resume playback depending on data kind
+  switch (ps->data_kind)
+    {
+      case DATA_KIND_HTTP:
+      case DATA_KIND_FILE:
+	ret = 0;
+	break;
+
+#ifdef HAVE_SPOTIFY_H
+      case DATA_KIND_SPOTIFY:
+	ret = spotify_playback_play();
+	break;
+#endif
+
+      case DATA_KIND_PIPE:
+	ret = 0;
+	break;
+
+      default:
+	ret = -1;
     }
 
   return ret;
 }
 
 /*
- * Updates cur_playing and notifies remotes and raop devices about
- * changes.
+ * Read up to "len" data from the given player source and returns
+ * the actual amount of data read.
+ */
+static int
+stream_read(struct player_source *ps, int len)
+{
+  int icy_timer;
+  int ret;
+
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Stream read called with no active streaming player source\n");
+      return -1;
+    }
+
+  if (!ps->setup_done)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup for reading data\n");
+      return -1;
+    }
+
+  // Read up to len data depending on data kind
+  switch (ps->data_kind)
+    {
+      case DATA_KIND_HTTP:
+	ret = transcode(ps->ctx, audio_buf, len, &icy_timer);
+
+	if (icy_timer)
+	  metadata_check_icy();
+	break;
+
+      case DATA_KIND_FILE:
+	ret = transcode(ps->ctx, audio_buf, len, &icy_timer);
+	break;
+
+#ifdef HAVE_SPOTIFY_H
+      case DATA_KIND_SPOTIFY:
+	ret = spotify_audio_get(audio_buf, len);
+	break;
+#endif
+
+      case DATA_KIND_PIPE:
+	ret = pipe_audio_get(audio_buf, len);
+	break;
+
+      default:
+	ret = -1;
+    }
+
+  return ret;
+}
+
+/*
+ * Pauses playback of the given player source
+ */
+static int
+stream_pause(struct player_source *ps)
+{
+  int ret;
+
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Stream pause called with no active streaming player source\n");
+      return -1;
+    }
+
+  if (!ps->setup_done)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, pause not possible\n");
+      return -1;
+    }
+
+  // Pause playback depending on data kind
+  switch (ps->data_kind)
+    {
+      case DATA_KIND_HTTP:
+      case DATA_KIND_FILE:
+	ret = 0;
+	break;
+
+#ifdef HAVE_SPOTIFY_H
+      case DATA_KIND_SPOTIFY:
+	ret = spotify_playback_pause();
+	break;
+#endif
+
+      case DATA_KIND_PIPE:
+	ret = 0;
+	break;
+
+      default:
+	ret = -1;
+    }
+
+  return ret;
+}
+
+/*
+ * Seeks to the given position in milliseconds of the given player source
+ */
+static int
+stream_seek(struct player_source *ps, int seek_ms)
+{
+  int ret;
+
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Stream seek called with no active streaming player source\n");
+      return -1;
+    }
+
+  if (!ps->setup_done)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, seek not possible\n");
+      return -1;
+    }
+
+  // Seek depending on data kind
+  switch (ps->data_kind)
+    {
+      case DATA_KIND_HTTP:
+	ret = 0;
+	break;
+
+      case DATA_KIND_FILE:
+	ret = transcode_seek(ps->ctx, seek_ms);
+	break;
+
+#ifdef HAVE_SPOTIFY_H
+      case DATA_KIND_SPOTIFY:
+	ret = spotify_playback_seek(seek_ms);
+	break;
+#endif
+
+      case DATA_KIND_PIPE:
+	ret = 0;
+	break;
+
+      default:
+	ret = -1;
+    }
+
+  return ret;
+}
+
+/*
+ * Stops playback and cleanup for the given player source
+ */
+static int
+stream_stop(struct player_source *ps)
+{
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Stream cleanup called with no active streaming player source\n");
+      return -1;
+    }
+
+  if (!ps->setup_done)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, cleanup not possible\n");
+      return -1;
+    }
+
+  switch (ps->data_kind)
+    {
+      case DATA_KIND_FILE:
+      case DATA_KIND_HTTP:
+	if (ps->ctx)
+	  {
+	    transcode_cleanup(ps->ctx);
+	    ps->ctx = NULL;
+	  }
+	break;
+
+      case DATA_KIND_SPOTIFY:
+#ifdef HAVE_SPOTIFY_H
+	spotify_playback_stop();
+#endif
+	break;
+
+      case DATA_KIND_PIPE:
+	pipe_cleanup();
+	break;
+    }
+
+  ps->setup_done = 0;
+
+  return 0;
+}
+
+
+static struct player_source *
+source_now_playing()
+{
+  if (cur_playing)
+    return cur_playing;
+
+  return cur_streaming;
+}
+
+/*
+ * Creates a new player source for the given queue item
+ */
+static struct player_source *
+source_new(struct queue_item *item)
+{
+  struct player_source *ps;
+
+  ps = (struct player_source *)calloc(1, sizeof(struct player_source));
+
+  ps->id = queueitem_id(item);
+  ps->item_id = queueitem_item_id(item);
+  ps->data_kind = queueitem_data_kind(item);
+  ps->media_kind = queueitem_media_kind(item);
+  ps->len_ms = queueitem_len(item);
+  ps->play_next = NULL;
+
+  return ps;
+}
+
+/*
+ * Stops playback for the current streaming source and frees all
+ * player sources (starting from the playing source). Sets current streaming
+ * and playing sources to NULL.
+ */
+static void
+source_stop()
+{
+  struct player_source *ps_playing;
+  struct player_source *ps_temp;
+
+  if (cur_streaming)
+    stream_stop(cur_streaming);
+
+  ps_playing = source_now_playing();
+
+  while (ps_playing)
+    {
+      ps_temp = ps_playing;
+      ps_playing = ps_playing->play_next;
+
+      ps_temp->play_next = NULL;
+      free(ps_temp);
+    }
+
+  cur_playing = NULL;
+  cur_streaming = NULL;
+}
+
+/*
+ * Pauses playback
+ *
+ * Resets the streaming source to the playing source and adjusts stream-start
+ * and output-start values to the playing time. Sets the current streaming
+ * source to NULL.
+ */
+static int
+source_pause(uint64_t pos)
+{
+  struct player_source *ps_playing;
+  struct player_source *ps_playnext;
+  struct player_source *ps_temp;
+  struct media_file_info *mfi;
+  uint64_t seek_frames;
+  int seek_ms;
+  int ret;
+
+  ps_playing = source_now_playing();
+
+  if (cur_streaming)
+    {
+      if (ps_playing != cur_streaming)
+	{
+	  DPRINTF(E_DBG, L_PLAYER,
+	      "Pause called on playing source (id=%d) and streaming source already "
+	      "switched to the next item (id=%d)\n", ps_playing->id, cur_streaming->id);
+	  ret = stream_stop(cur_streaming);
+	  if (ret < 0)
+	    return -1;
+	}
+      else
+	{
+	  ret = stream_pause(cur_streaming);
+	  if (ret < 0)
+	    return -1;
+	}
+    }
+
+  ps_playnext = ps_playing->play_next;
+  while (ps_playnext)
+    {
+      ps_temp = ps_playnext;
+      ps_playnext = ps_playnext->play_next;
+
+      ps_temp->play_next = NULL;
+      free(ps_temp);
+    }
+  ps_playing->play_next = NULL;
+
+  cur_playing = NULL;
+  cur_streaming = ps_playing;
+
+  if (!cur_streaming->setup_done)
+    {
+      mfi = db_file_fetch_byid(cur_streaming->id);
+      if (!mfi)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Couldn't fetch file id %d\n", cur_streaming->id);
+
+	  return -1;
+	}
+
+      if (mfi->disabled)
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "File id %d is disabled, skipping\n", cur_streaming->id);
+
+	  free_mfi(mfi, 0);
+	  return -1;
+	}
+
+      DPRINTF(E_INFO, L_PLAYER, "Opening '%s' (%s)\n", mfi->title, mfi->path);
+
+      ret = stream_setup(cur_streaming, mfi);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s' (%s)\n", mfi->title, mfi->path);
+	  free_mfi(mfi, 0);
+	  return -1;
+	}
+
+      free_mfi(mfi, 0);
+    }
+
+  /* Seek back to the pause position */
+  seek_frames = (pos - cur_streaming->stream_start);
+  seek_ms = (int)((seek_frames * 1000) / 44100);
+  ret = stream_seek(cur_streaming, seek_ms);
+
+  /* Adjust start_pos to take into account the pause and seek back */
+  cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
+  cur_streaming->output_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+  cur_streaming->end = 0;
+
+  return 0;
+}
+
+/*
+ * Seeks the current streaming source to the given postion in milliseconds
+ * and adjusts stream-start and output-start values.
+ *
+ * @param seek_ms Position in milliseconds to seek
+ * @return The new position in milliseconds or -1 on error
+ */
+static int
+source_seek(int seek_ms)
+{
+  int ret;
+
+  ret = stream_seek(cur_streaming, seek_ms);
+  if (ret < 0)
+    return -1;
+
+  /* Adjust start_pos to take into account the pause and seek back */
+  cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
+  cur_streaming->output_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
+
+  return ret;
+}
+
+/*
+ * Starts or resumes playback
+ */
+static int
+source_play()
+{
+  int ret;
+
+  ret = stream_play(cur_streaming);
+
+  return ret;
+}
+
+/*
+ * Initializes playback of the given queue item (but does not start playback)
+ *
+ * A new source is created for the given queue item and is set as the current
+ * streaming source. If a streaming source already existed (and reached eof)
+ * the new source is appended as the play-next item to it.
+ *
+ * Stream-start and output-start values are set to the given start position.
+ */
+static int
+source_open(struct queue_item *qii, uint64_t start_pos, int seek)
+{
+  struct player_source *ps;
+  struct media_file_info *mfi;
+  uint32_t id;
+  int ret;
+
+  if (cur_streaming && cur_streaming->end == 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Current streaming source not at eof %d\n", cur_streaming->id);
+      return -1;
+    }
+
+  id = queueitem_id(qii);
+  mfi = db_file_fetch_byid(id);
+  if (!mfi)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Couldn't fetch file id %d\n", id);
+
+      return -1;
+    }
+
+  if (mfi->disabled)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "File id %d is disabled, skipping\n", id);
+
+      free_mfi(mfi, 0);
+      return -1;
+    }
+
+  DPRINTF(E_INFO, L_PLAYER, "Opening '%s' (%s)\n", mfi->title, mfi->path);
+
+  ps = source_new(qii);
+
+  ret = stream_setup(ps, mfi);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Failed to open '%s' (%s)\n", mfi->title, mfi->path);
+      free_mfi(mfi, 0);
+      return -1;
+    }
+
+  /* If a streaming source exists, append the new source as play-next and set it
+     as the new streaming source */
+  if (cur_streaming)
+    {
+      cur_streaming->play_next = ps;
+    }
+
+  cur_streaming = ps;
+
+  cur_streaming->stream_start = start_pos;
+  cur_streaming->output_start = cur_streaming->stream_start;
+  cur_streaming->end = 0;
+
+  /* Seek to the saved seek position */
+  if (seek && mfi->seek)
+    source_seek(mfi->seek);
+
+  free_mfi(mfi, 0);
+  return ret;
+}
+
+/*
+ * Closes the current streaming source and sets its end-time to the given
+ * position
+ */
+static int
+source_close(uint64_t end_pos)
+{
+  stream_stop(cur_streaming);
+
+  cur_streaming->end = end_pos;
+
+  return 0;
+}
+
+/*
+ * Updates the now playing item (cur_playing) and notifies remotes and raop devices
+ * about changes. Also takes care of stopping playback after the last item.
+ *
+ * @return Returns the current playback position as rtp-time
  */
 static uint64_t
 source_check(void)
 {
   struct timespec ts;
   struct player_source *ps;
-  struct player_source *head;
   uint64_t pos;
-  enum repeat_mode r_mode;
   int i;
   int id;
   int ret;
-
-  if (!cur_streaming)
-    return 0;
 
   ret = player_get_current_pos(&pos, &ts, 0);
   if (ret < 0)
@@ -1734,48 +1449,6 @@ source_check(void)
   /* We have reached the end of the current playing song, update cur_playing to the next song in the queue
      and initialize stream_start and output_start values. */
 
-  r_mode = repeat;
-  /* Playlist has only one file, treat REPEAT_ALL as REPEAT_SONG */
-  if ((r_mode == REPEAT_ALL) && (source_head == source_head->pl_next))
-    r_mode = REPEAT_SONG;
-
-  if (r_mode == REPEAT_SONG)
-    {
-      ps = cur_playing;
-
-      /* Check that we haven't gone to the next file already
-       * (repeat song toggled in the last 2 seconds of a song)
-       */
-      if (cur_playing->play_next)
-	{
-	  cur_playing = cur_playing->play_next;
-
-	  if (ps->setup_done)
-	    {
-	      if ((ps->data_kind == DATA_KIND_FILE) && ps->ctx)
-		{
-	          transcode_cleanup(ps->ctx);
-	          ps->ctx = NULL;
-		}
-	      ps->play_next = NULL;
-	    }
-        }
-
-      cur_playing->stream_start = ps->end + 1;
-      cur_playing->output_start = cur_playing->stream_start;
-
-      /* Do not use cur_playing to reset the end position, it may have changed */
-      ps->end = 0;
-
-      status_update(PLAY_PLAYING);
-
-      metadata_prune(pos);
-
-      return pos;
-    }
-
-  head = (shuffle) ? shuffle_head : source_head;
-
   i = 0;
   while (cur_playing && (cur_playing->end != 0) && (pos > cur_playing->end))
     {
@@ -1786,13 +1459,10 @@ source_check(void)
 #ifdef LASTFM
       worker_execute(scrobble_cb, &id, sizeof(int), 8);
 #endif
+      history_add(cur_playing->id, cur_playing->item_id);
 
-      /* Stop playback if:
-       * - at end of playlist (NULL)
-       * - repeat OFF and at end of playlist (wraparound)
-       */
-      if (!cur_playing->play_next
-	  || ((r_mode == REPEAT_OFF) && (cur_playing->play_next == head)))
+      /* Stop playback */
+      if (!cur_playing->play_next)
 	{
 	  playback_abort();
 
@@ -1802,18 +1472,7 @@ source_check(void)
       ps = cur_playing;
       cur_playing = cur_playing->play_next;
 
-      cur_playing->stream_start = ps->end + 1;
-      cur_playing->output_start = cur_playing->stream_start;
-
-      if (ps->setup_done)
-	{
-	  if ((ps->data_kind == DATA_KIND_FILE) && ps->ctx)
-	    {
-	      transcode_cleanup(ps->ctx);
-	      ps->ctx = NULL;
-	    }
-	  ps->play_next = NULL;
-	}
+      free(ps);
     }
 
   if (i > 0)
@@ -1828,104 +1487,67 @@ source_check(void)
   return pos;
 }
 
-struct player_history *
-player_history_get(void)
-{
-  return history;
-}
-
-/*
- * Add the song with the given id to the list of previously played songs
- */
-static void
-history_add(uint32_t id)
-{
-  unsigned int cur_index;
-  unsigned int next_index;
-  
-  /* Check if the current song is already the last in the history to avoid duplicates */
-  cur_index = (history->start_index + history->count - 1) % MAX_HISTORY_COUNT;
-  if (id == history->id[cur_index])
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song already in history\n");
-      return;
-    }
-
-  /* Calculate the next index and update the start-index and count for the id-buffer */
-  next_index = (history->start_index + history->count) % MAX_HISTORY_COUNT;
-  if (next_index == history->start_index && history->count > 0)
-    history->start_index = (history->start_index + 1) % MAX_HISTORY_COUNT;
-
-  history->id[next_index] = id;
-
-  if (history->count < MAX_HISTORY_COUNT)
-    history->count++;
-}
-
 static int
 source_read(uint8_t *buf, int len, uint64_t rtptime)
 {
-  int new;
   int ret;
   int nbytes;
-  int icy_timer;
+  char *silence_buf;
+  struct queue_item *item;
 
   if (!cur_streaming)
     return 0;
 
   nbytes = 0;
-  new = 0;
   while (nbytes < len)
     {
-      if (new)
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "New file\n");
-
-	  new = 0;
-
-	  // add song to the played history
-	  history_add(cur_streaming->id);
-
-	  ret = source_next(0);
-	  if (ret < 0)
-	    return -1;
-	}
-
       if (evbuffer_get_length(audio_buf) == 0)
 	{
-	  switch (cur_streaming->data_kind)
+	  if (cur_streaming)
 	    {
-	      case DATA_KIND_HTTP:
-		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes, &icy_timer);
-
-		if (icy_timer)
-		  metadata_check_icy();
-		break;
-
-	      case DATA_KIND_FILE:
-		ret = transcode(cur_streaming->ctx, audio_buf, len - nbytes, &icy_timer);
-		break;
-
-#ifdef HAVE_SPOTIFY_H
-	      case DATA_KIND_SPOTIFY:
-		ret = spotify_audio_get(audio_buf, len - nbytes);
-		break;
-#endif
-
-	      case DATA_KIND_PIPE:
-		ret = pipe_audio_get(audio_buf, len - nbytes);
-		break;
-
-	      default:
-		ret = -1;
+	      ret = stream_read(cur_streaming, len - nbytes);
 	    }
-	    
+	  else
+	    {
+	      // Reached end of playlist (cur_playing is NULL) send silence and source_check will abort playback if the last item was played
+	      DPRINTF(E_SPAM, L_PLAYER, "End of playlist reached, stream silence until playback of last item ends\n");
+	      silence_buf = (char *)calloc((len - nbytes), sizeof(char));
+	      evbuffer_add(audio_buf, silence_buf, (len - nbytes));
+	      free(silence_buf);
+	      ret = len - nbytes;
+	    }
+
 	  if (ret <= 0)
 	    {
 	      /* EOF or error */
-	      cur_streaming->end = rtptime + BTOS(nbytes) - 1;
+	      source_close(rtptime + BTOS(nbytes) - 1);
 
-	      new = 1;
+	      DPRINTF(E_DBG, L_PLAYER, "New file\n");
+
+	      item = queue_next(queue, cur_streaming->item_id, shuffle, repeat, 1);
+
+	      if (ret < 0)
+		{
+		  DPRINTF(E_LOG, L_PLAYER, "Error reading source %d\n", cur_streaming->id);
+		  queue_remove_byitemid(queue, cur_streaming->item_id);
+		}
+
+	      if (item)
+		{
+		  ret = source_open(item, cur_streaming->end + 1, 0);
+		  if (ret < 0)
+		    return -1;
+
+		  ret = source_play();
+		  if (ret < 0)
+		    return -1;
+
+		  metadata_trigger(0);
+		}
+	      else
+		{
+		  cur_streaming = NULL;
+		}
 	      continue;
 	    }
 	}
@@ -1944,6 +1566,7 @@ playback_write(void)
   int ret;
 
   source_check();
+
   /* Make sure playback is still running after source_check() */
   if (player_state == PLAY_STOPPED)
     return;
@@ -2516,15 +2139,9 @@ playback_abort(void)
 
   pb_timer_stop();
 
-  if (cur_playing)
-    source_stop(cur_playing);
-  else
-    source_stop(cur_streaming);
+  source_stop();
 
-  queue_clear(NULL);
-
-  cur_playing = NULL;
-  cur_streaming = NULL;
+  playerqueue_clear(NULL);
 
   evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
@@ -2540,6 +2157,7 @@ get_status(struct player_command *cmd)
   struct timespec ts;
   struct player_source *ps;
   struct player_status *status;
+  struct queue_item *item_next;
   uint64_t pos;
   int ret;
 
@@ -2568,12 +2186,13 @@ get_status(struct player_command *cmd)
 
 	status->status = PLAY_PAUSED;
 	status->id = cur_streaming->id;
+	status->item_id = cur_streaming->item_id;
 
 	pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - cur_streaming->stream_start;
 	status->pos_ms = (pos * 1000) / 44100;
 	status->len_ms = cur_streaming->len_ms;
 
-	status->pos_pl = source_position(cur_streaming, 0);
+	status->pos_pl = queue_index_byitemid(queue, cur_streaming->item_id, 0);
 
 	break;
 
@@ -2613,13 +2232,24 @@ get_status(struct player_command *cmd)
 	status->len_ms = ps->len_ms;
 
 	status->id = ps->id;
-	status->pos_pl = source_position(ps, 0);
+	status->item_id = ps->item_id;
+	status->pos_pl = queue_index_byitemid(queue, ps->item_id, 0);
 
-	ps = next_ps(ps, shuffle);
-	status->next_id = ps->id;
-	status->next_pos_pl = source_position(ps, 0);
+	item_next = queue_next(queue, ps->item_id, shuffle, repeat, 0);
+	if (item_next)
+	  {
+	    status->next_id = queueitem_id(item_next);
+	    status->next_item_id = queueitem_item_id(item_next);
+	    status->next_pos_pl = queue_index_byitemid(queue, status->next_item_id, 0);
+	  }
+	else
+	  {
+	    //TODO [queue/mpd] Check how mpd sets the next-id/-pos if the last song is playing
+	    status->next_id = 0;
+	    status->next_pos_pl = 0;
+	  }
 
-	status->playlistlength = source_count();
+	status->playlistlength = queue_count(queue);
 	break;
     }
 
@@ -2630,13 +2260,14 @@ static int
 now_playing(struct player_command *cmd)
 {
   uint32_t *id;
+  struct player_source *ps_playing;
 
   id = cmd->arg.id_ptr;
 
-  if (cur_playing)
-    *id = cur_playing->id;
-  else if (cur_streaming)
-    *id = cur_streaming->id;
+  ps_playing = source_now_playing();
+
+  if (ps_playing)
+    *id = ps_playing->id;
   else
     return -1;
 
@@ -2669,6 +2300,8 @@ artwork_url_get(struct player_command *cmd)
 static int
 playback_stop(struct player_command *cmd)
 {
+  struct player_source *ps_playing;
+
   if (laudio_status != LAUDIO_CLOSED)
     laudio_close();
 
@@ -2680,19 +2313,13 @@ playback_stop(struct player_command *cmd)
 
   pb_timer_stop();
 
-  if (cur_playing)
+  ps_playing = source_now_playing();
+  if (ps_playing)
     {
-      history_add(cur_playing->id);
-      source_stop(cur_playing);
-    }
-  else if (cur_streaming)
-    {
-      history_add(cur_streaming->id);
-      source_stop(cur_streaming);
+      history_add(ps_playing->id, ps_playing->item_id);
     }
 
-  cur_playing = NULL;
-  cur_streaming = NULL;
+  source_stop();
 
   evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
@@ -2772,55 +2399,18 @@ playback_start_bh(struct player_command *cmd)
   return -1;
 }
 
-static struct player_source *
-queue_get_source_byid(uint32_t id)
-{
-  struct player_source *ps;
-
-  if (!source_head)
-    return NULL;
-
-  ps = source_head->pl_next;
-  while (ps->id != id && ps != source_head)
-    {
-      ps = ps->pl_next;
-    }
-
-  return ps;
-}
-
-static struct player_source *
-queue_get_source_bypos(int pos)
-{
-  struct player_source *ps;
-  int i;
-
-  if (!source_head)
-    return NULL;
-
-  ps = source_head;
-  for (i = pos; i > 0; i--)
-    ps = ps->pl_next;
-
-  return ps;
-}
-
 static int
-playback_start(struct player_command *cmd)
+playback_start_item(struct player_command *cmd, struct queue_item *qii)
 {
+  uint32_t *dbmfi_id;
   struct raop_device *rd;
-  uint32_t *idx_id;
-  struct player_source *ps;
+  struct player_source *ps_playing;
+  struct queue_item *item;
   int ret;
 
-  if (!source_head)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Nothing to play!\n");
+  dbmfi_id = cmd->arg.playback_start_param.id_ptr;
 
-      return -1;
-    }
-
-  idx_id = cmd->arg.item_range.id_ptr;
+  ps_playing = source_now_playing();
 
   if (player_state == PLAY_PLAYING)
     {
@@ -2829,12 +2419,9 @@ playback_start(struct player_command *cmd)
        * and do not change player state (ignores given arguments for playing a
        * specified song by pos or id).
        */
-      if (idx_id)
+      if (dbmfi_id && ps_playing)
 	{
-	  if (cur_playing)
-	    *idx_id = cur_playing->id;
-	  else
-	    *idx_id = cur_streaming->id;
+	  *dbmfi_id = ps_playing->id;
 	}
 
       status_update(player_state);
@@ -2845,91 +2432,42 @@ playback_start(struct player_command *cmd)
   // Update global playback position
   pb_pos = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - 88200;
 
-  /*
-   * If either an item id or an item position is given, get the corresponding
-   * player_source from the queue.
-   */
-  if (cmd->arg.item_range.type == RANGEARG_ID)
-    ps = queue_get_source_byid(cmd->arg.item_range.id);
-  else if (cmd->arg.item_range.type == RANGEARG_POS)
-    ps = queue_get_source_bypos(cmd->arg.item_range.start_pos);
-  else
-    ps = NULL;
-
-  /*
-   * Update queue and cur_streaming depending on
-   * - given player_source to start playing
-   * - player state
-   */
-  if (ps)
+  item = NULL;
+  if (qii)
     {
-      /*
-       * A song is specified in the arguments (by id or pos) and the corresponding
-       * player_source (ps) from the queue was found.
-       *
-       * Stop playback (if it was paused) and prepare to start playback on ps.
-       */
-      if (cur_playing)
-	source_stop(cur_playing);
-      else if (cur_streaming)
-	source_stop(cur_streaming);
-
-      cur_playing = NULL;
-      cur_streaming = NULL;
-
-      if (shuffle)
-	{
-	  source_reshuffle();
-	  cur_streaming = shuffle_head;
-	}
-      else
-	cur_streaming = ps;
-
-      ret = source_open(cur_streaming, 0, 1);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Couldn't jump to source %d in queue\n", cur_streaming->id);
-
-	  playback_abort();
-	  return -1;
-	}
-
-      if (idx_id)
-	*idx_id = cur_streaming->id;
-
-      cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
-      cur_streaming->output_start = cur_streaming->stream_start;
+      item = qii;
     }
   else if (!cur_streaming)
     {
-      /*
-       * Player was stopped, start playing the queue
-       */
       if (shuffle)
-	source_reshuffle();
+      	queue_shuffle(queue, 0);
+      item = queue_next(queue, 0, shuffle, repeat, 0);
+    }
 
-      ret = source_next(0);
+  if (item)
+    {
+      source_stop();
+      ret = source_open(item, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, 1);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_PLAYER, "Couldn't find anything to play!\n");
-
 	  playback_abort();
 	  return -1;
 	}
+    }
 
-      cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
-      cur_streaming->output_start = cur_streaming->stream_start;
-    }
-  else
+  ret = source_play();
+  if (ret < 0)
     {
-      /*
-       * Player was paused, resume playing cur_streaming
-       *
-       * After a pause, the source is still open so source_open() doesn't get
-       * called and we have to handle metadata ourselves.
-       */
-      metadata_trigger(cur_streaming, 1);
+      playback_abort();
+      return -1;
     }
+
+
+  if (dbmfi_id)
+    *dbmfi_id = cur_streaming->id;
+
+  metadata_trigger(1);
+
 
   /* Start local audio if needed */
   if (laudio_selected && (laudio_status == LAUDIO_CLOSED))
@@ -2996,11 +2534,71 @@ playback_start(struct player_command *cmd)
 }
 
 static int
+playback_start(struct player_command *cmd)
+{
+  return playback_start_item(cmd, NULL);
+}
+
+static int
+playback_start_byitemid(struct player_command *cmd)
+{
+  int item_id;
+  struct queue_item *qii;
+
+  item_id = cmd->arg.playback_start_param.id;
+
+  qii = queue_get_byitemid(queue, item_id);
+
+  return playback_start_item(cmd, qii);
+}
+
+static int
+playback_start_byindex(struct player_command *cmd)
+{
+  int pos;
+  struct queue_item *qii;
+
+  pos = cmd->arg.playback_start_param.pos;
+
+  qii = queue_get_byindex(queue, pos, 0);
+
+  return playback_start_item(cmd, qii);
+}
+
+static int
+playback_start_bypos(struct player_command *cmd)
+{
+  int offset;
+  struct player_source *ps_playing;
+  struct queue_item *qii;
+
+  offset = cmd->arg.playback_start_param.pos;
+
+  ps_playing = source_now_playing();
+
+  if (ps_playing)
+    {
+      qii = queue_get_bypos(queue, ps_playing->item_id, offset, shuffle);
+    }
+  else
+    {
+      qii = queue_get_byindex(queue, offset, shuffle);
+    }
+
+  return playback_start_item(cmd, qii);
+}
+
+static int
 playback_prev_bh(struct player_command *cmd)
 {
   int ret;
   int pos_sec;
+  struct queue_item *item;
 
+  /*
+   * The upper half is playback_pause, therefor the current playing item is
+   * already set as the cur_streaming (cur_playing is NULL).
+   */
   if (!cur_streaming)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
@@ -3008,14 +2606,12 @@ playback_prev_bh(struct player_command *cmd)
     }
 
   /* Only add to history if playback started. */
-  if (cur_streaming->end > cur_streaming->stream_start)
-    history_add(cur_streaming->id);
-
-  source_stop(cur_streaming);
+  if (cur_streaming->output_start > cur_streaming->stream_start)
+    history_add(cur_streaming->id, cur_streaming->item_id);
 
   /* Compute the playing time in seconds for the current song. */
-  if (cur_streaming->end > cur_streaming->stream_start)
-    pos_sec = (cur_streaming->end - cur_streaming->stream_start) / 44100;
+  if (cur_streaming->output_start > cur_streaming->stream_start)
+    pos_sec = (cur_streaming->output_start - cur_streaming->stream_start) / 44100;
   else
     pos_sec = 0;
 
@@ -3024,7 +2620,16 @@ playback_prev_bh(struct player_command *cmd)
   DPRINTF(E_DBG, L_PLAYER, "Skipping song played %d sec\n", pos_sec);
   if (pos_sec < 3)
     {
-      ret = source_prev();
+      item = queue_prev(queue, cur_streaming->item_id, shuffle, repeat);
+      if (!item)
+        {
+          playback_abort();
+          return -1;
+        }
+
+      source_stop();
+
+      ret = source_open(item, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, 0);
       if (ret < 0)
 	{
 	  playback_abort();
@@ -3034,7 +2639,7 @@ playback_prev_bh(struct player_command *cmd)
     }
   else
     {
-      ret = source_open(cur_streaming, 1, 0);
+      ret = source_seek(0);
       if (ret < 0)
 	{
 	  playback_abort();
@@ -3046,23 +2651,25 @@ playback_prev_bh(struct player_command *cmd)
   if (player_state == PLAY_STOPPED)
     return -1;
 
-  cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
-  cur_streaming->output_start = cur_streaming->stream_start;
-
-  cur_playing = NULL;
-
   /* Silent status change - playback_start() sends the real status update */
   player_state = PLAY_PAUSED;
 
   return 0;
 }
 
-
+/*
+ * The bottom half of the next command
+ */
 static int
 playback_next_bh(struct player_command *cmd)
 {
   int ret;
+  struct queue_item *item;
 
+  /*
+   * The upper half is playback_pause, therefor the current playing item is
+   * already set as the cur_streaming (cur_playing is NULL).
+   */
   if (!cur_streaming)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not get current stream source\n");
@@ -3070,26 +2677,27 @@ playback_next_bh(struct player_command *cmd)
     }
 
   /* Only add to history if playback started. */
-  if (cur_streaming->end > cur_streaming->stream_start)
-    history_add(cur_streaming->id);
+  if (cur_streaming->output_start > cur_streaming->stream_start)
+    history_add(cur_streaming->id, cur_streaming->item_id);
 
-  source_stop(cur_streaming);
+  item = queue_next(queue, cur_streaming->item_id, shuffle, repeat, 0);
+  if (!item)
+    {
+      playback_abort();
+      return -1;
+    }
 
-  ret = source_next(1);
+  source_stop();
+
+  ret = source_open(item, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, 0);
   if (ret < 0)
     {
       playback_abort();
-
       return -1;
     }
 
   if (player_state == PLAY_STOPPED)
     return -1;
-
-  cur_streaming->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
-  cur_streaming->output_start = cur_streaming->stream_start;
-
-  cur_playing = NULL;
 
   /* Silent status change - playback_start() sends the real status update */
   player_state = PLAY_PAUSED;
@@ -3100,38 +2708,12 @@ playback_next_bh(struct player_command *cmd)
 static int
 playback_seek_bh(struct player_command *cmd)
 {
-  struct player_source *ps;
   int ms;
   int ret;
 
   ms = cmd->arg.intval;
 
-  if (cur_playing)
-    ps = cur_playing;
-  else
-    ps = cur_streaming;
-
-  ps->end = 0;
-
-  /* Seek to commanded position */
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_FILE:
-	ret = transcode_seek(ps->ctx, ms);
-	break;
-#ifdef HAVE_SPOTIFY_H
-      case DATA_KIND_SPOTIFY:
-	ret = spotify_playback_seek(ms);
-	break;
-#endif
-      case DATA_KIND_PIPE:
-      case DATA_KIND_HTTP:
-	ret = 1;
-	break;
-
-      default:
-	ret = -1;
-    }
+  ret = source_seek(ms);
 
   if (ret < 0)
     {
@@ -3139,13 +2721,6 @@ playback_seek_bh(struct player_command *cmd)
 
       return -1;
     }
-
-  /* Adjust start_pos for the new position */
-  ps->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
-  ps->output_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
-
-  cur_streaming = ps;
-  cur_playing = NULL;
 
   /* Silent status change - playback_start() sends the real status update */
   player_state = PLAY_PAUSED;
@@ -3156,55 +2731,15 @@ playback_seek_bh(struct player_command *cmd)
 static int
 playback_pause_bh(struct player_command *cmd)
 {
-  struct player_source *ps;
-  uint64_t pos;
-  int ms;
   int ret;
-
-  if (cur_playing)
-    ps = cur_playing;
-  else
-    ps = cur_streaming;
-
-  pos = ps->end;
-  ps->end = 0;
-
-  /* Seek back to current playback position */
-  pos -= ps->stream_start;
-  ms = (int)((pos * 1000) / 44100);
-
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_FILE:
-	ret = transcode_seek(ps->ctx, ms);
-	break;
-#ifdef HAVE_SPOTIFY_H
-      case DATA_KIND_SPOTIFY:
-	ret = spotify_playback_seek(ms);
-	break;
-#endif
-      default:
-	ret = -1;
-    }
-
-  if (ret < 0)
-    {
-      playback_abort();
-
-      return -1;
-    }
-
-  /* Adjust start_pos to take into account the pause and seek back */
-  ps->stream_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES - ((uint64_t)ret * 44100) / 1000;
-  ps->output_start = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
-
-  cur_streaming = ps;
-  cur_playing = NULL;
 
   status_update(PLAY_PAUSED);
 
-  if (ps->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW))
-    db_file_save_seek(ps->id, ret);
+  if (cur_streaming->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW))
+    {
+      ret = (cur_streaming->output_start - cur_streaming->stream_start) / 44100 * 1000;
+      db_file_save_seek(cur_streaming->id, ret);
+    }
 
   return 0;
 }
@@ -3212,7 +2747,6 @@ playback_pause_bh(struct player_command *cmd)
 static int
 playback_pause(struct player_command *cmd)
 {
-  struct player_source *ps;
   uint64_t pos;
 
   pos = source_check();
@@ -3228,14 +2762,6 @@ playback_pause(struct player_command *cmd)
   if (player_state == PLAY_STOPPED)
     return -1;
 
-  if (cur_playing)
-    ps = cur_playing;
-  else
-    ps = cur_streaming;
-
-  /* Store pause position */
-  ps->end = pos;
-
   cmd->raop_pending = raop_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
   if (laudio_status != LAUDIO_CLOSED)
@@ -3243,12 +2769,7 @@ playback_pause(struct player_command *cmd)
 
   pb_timer_stop();
 
-  if (ps->play_next)
-    source_stop(ps->play_next);
-
-  cur_playing = NULL;
-  cur_streaming = ps;
-  cur_streaming->play_next = NULL;
+  source_pause(pos);
 
   evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
 
@@ -3754,11 +3275,16 @@ repeat_set(struct player_command *cmd)
 static int
 shuffle_set(struct player_command *cmd)
 {
+  uint32_t cur_id;
+
   switch (cmd->arg.intval)
     {
       case 1:
 	if (!shuffle)
-	  source_reshuffle();
+	  {
+	    cur_id = cur_streaming ? cur_streaming->item_id : 0;
+	    queue_shuffle(queue, cur_id);
+	  }
 	/* FALLTHROUGH*/
       case 0:
 	shuffle = cmd->arg.intval;
@@ -3774,144 +3300,64 @@ shuffle_set(struct player_command *cmd)
   return 0;
 }
 
-static unsigned int
-queue_count()
+static int
+playerqueue_get_bypos(struct player_command *cmd)
 {
-  struct player_source *ps;
   int count;
+  struct queue *qi;
+  struct player_source *ps;
+  int item_id;
 
-  if (!source_head)
-    return 0;
+  count = cmd->arg.queue_get_param.count;
 
-  count = 1;
-  ps = source_head->pl_next;
-  while (ps != source_head)
+  ps = source_now_playing();
+
+  item_id = 0;
+  if (ps)
     {
-      count++;
-      ps = ps->pl_next;
+      item_id = ps->item_id;
     }
 
-  return count;
+  qi = queue_new_bypos(queue, item_id, count, shuffle);
+
+  cmd->arg.queue_get_param.queue = qi;
+
+  return 0;
 }
 
 static int
-queue_get(struct player_command *cmd)
+playerqueue_get_byindex(struct player_command *cmd)
 {
-  int start_pos;
-  int end_pos;
-  struct player_queue *queue;
-  uint32_t *ids;
-  unsigned int qlength;
-  unsigned int count;
-  struct player_source *ps;
-  int i;
   int pos;
-  char qshuffle;
+  int count;
+  struct queue *qi;
 
-  queue = malloc(sizeof(struct player_queue));
+  pos = cmd->arg.queue_get_param.pos;
+  count = cmd->arg.queue_get_param.count;
 
-  qlength = queue_count();
-  qshuffle = cmd->arg.item_range.shuffle;
-
-  start_pos = cmd->arg.item_range.start_pos;
-  if (start_pos < 0)
-    {
-      // Set start_pos to the position of the current item + 1
-      ps = cur_playing ? cur_playing : cur_streaming;
-      start_pos = ps ? source_position(ps, qshuffle) + 1 : 0;
-    }
-
-  end_pos = cmd->arg.item_range.end_pos;
-  if (cmd->arg.item_range.start_pos < 0)
-    end_pos += start_pos;
-  if (end_pos <= 0 || end_pos > qlength)
-    end_pos = qlength;
-
-  if (end_pos > start_pos)
-    count = end_pos - start_pos;
-  else
-    count = 0;
-
-  ids = malloc(count * sizeof(uint32_t));
-
-  pos = 0;
-  ps = qshuffle ? shuffle_head : source_head;
-  for (i = 0; i < end_pos; i++)
-    {
-      if (i >= start_pos)
-	{
-	  ids[pos] = ps->id;
-	  pos++;
-	}
-
-	ps = qshuffle ? ps->shuffle_next : ps->pl_next;
-    }
-
-  queue->start_pos = start_pos;
-  queue->count = count;
-  queue->queue = ids;
-
-  queue->length = qlength;
-  queue->playingid = 0;
-  if (cur_playing)
-    queue->playingid = cur_playing->id;
-  else if (cur_streaming)
-    queue->playingid = cur_streaming->id;
-
-  cmd->queue = queue;
+  qi = queue_new_byindex(queue, pos, count, 0);
+  cmd->arg.queue_get_param.queue = qi;
 
   return 0;
 }
 
-void
-queue_free(struct player_queue *queue)
-{
-  free(queue->queue);
-  free(queue);
-}
-
 static int
-queue_add(struct player_command *cmd)
+playerqueue_add(struct player_command *cmd)
 {
-  struct player_source *ps;
-  struct player_source *ps_shuffle;
-  struct player_source *source_tail;
-  struct player_source *ps_tail;
+  struct queue_item *items;
+  uint32_t cur_id;
 
-  ps = cmd->arg.ps;
-  ps_shuffle = ps;
+  items = cmd->arg.queue_add_param.items;
 
-  if (source_head)
-    {
-      /* Playlist order */
-      source_tail = source_head->pl_prev;
-      ps_tail = ps->pl_prev;
-
-      source_tail->pl_next = ps;
-      ps_tail->pl_next = source_head;
-
-      source_head->pl_prev = ps_tail;
-      ps->pl_prev = source_tail;
-
-      /* Shuffle */
-      source_tail = shuffle_head->shuffle_prev;
-      ps_tail = ps_shuffle->shuffle_prev;
-
-      source_tail->shuffle_next = ps_shuffle;
-      ps_tail->shuffle_next = shuffle_head;
-
-      shuffle_head->shuffle_prev = ps_tail;
-      ps_shuffle->shuffle_prev = source_tail;
-    }
-  else
-    {
-      source_head = ps;
-      shuffle_head = ps_shuffle;
-    }
+  queue_add(queue, items);
 
   if (shuffle)
-    source_reshuffle();
+    {
+      cur_id = cur_streaming ? cur_streaming->item_id : 0;
+      queue_shuffle(queue, cur_id);
+    }
 
+  //TODO [refactor] Unnecessary if, always set plid to 0 after adding items
   if (cur_plid != 0)
     cur_plid = 0;
   cur_plversion++;
@@ -3922,112 +3368,47 @@ queue_add(struct player_command *cmd)
 }
 
 static int
-queue_add_next(struct player_command *cmd)
+playerqueue_add_next(struct player_command *cmd)
 {
-  struct player_source *ps;
-  struct player_source *ps_shuffle;
+  struct queue_item *items;
+  uint32_t cur_id;
+
+  items = cmd->arg.queue_add_param.items;
+
+  cur_id = cur_streaming ? cur_streaming->item_id : 0;
+
+  queue_add_after(queue, items, cur_id);
+
+  if (shuffle)
+    queue_shuffle(queue, cur_id);
+
+  //TODO [refactor] Unnecessary if, always set plid to 0 after adding items
+  if (cur_plid != 0)
+    cur_plid = 0;
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
+
+  return 0;
+}
+
+static int
+playerqueue_move_bypos(struct player_command *cmd)
+{
   struct player_source *ps_playing;
-
-  ps = cmd->arg.ps;
-  ps_shuffle = ps;
-
-  if (source_head && cur_streaming)
-  {
-    ps_playing = cur_streaming;
-
-    // Insert ps after ps_playing
-    ps->pl_prev->pl_next = ps_playing->pl_next;
-    ps_playing->pl_next->pl_prev = ps->pl_prev;
-    ps->pl_prev = ps_playing;
-    ps_playing->pl_next = ps;
-
-    // Insert ps_shuffle after ps_playing
-    ps_shuffle->shuffle_prev->shuffle_next = ps_playing->shuffle_next;
-    ps_playing->shuffle_next->shuffle_prev = ps_shuffle->shuffle_prev;
-    ps_shuffle->shuffle_prev = ps_playing;
-    ps_playing->shuffle_next = ps_shuffle;
-  }
-  else
-  {
-    source_head = ps;
-    shuffle_head = ps_shuffle;
-  }
-
-  if (shuffle)
-    source_reshuffle();
-
-  if (cur_plid != 0)
-    cur_plid = 0;
-  cur_plversion++;
-
-  listener_notify(LISTENER_PLAYLIST);
-
-  return 0;
-}
-
-static int
-queue_move(struct player_command *cmd)
-{
-  struct player_source *ps;
-  struct player_source *ps_src;
-  struct player_source *ps_dst;
-  int pos_max;
-  int i;
 
   DPRINTF(E_DBG, L_PLAYER, "Moving song from position %d to be the next song after %d\n", cmd->arg.ps_pos[0],
       cmd->arg.ps_pos[1]);
 
-  ps = cur_playing ? cur_playing : cur_streaming;
-  if (!ps)
-  {
-    DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming song not found\n");
-    return -1;
-  }
+  ps_playing = source_now_playing();
 
-  pos_max = MAX(cmd->arg.ps_pos[0], cmd->arg.ps_pos[1]);
-  ps_src = NULL;
-  ps_dst = NULL;
+  if (!ps_playing)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't move item, no playing item found\n");
+      return -1;
+    }
 
-  for (i = 0; i <= pos_max; i++)
-  {
-    if (i == cmd->arg.ps_pos[0])
-      ps_src = ps;
-    if (i == cmd->arg.ps_pos[1])
-      ps_dst = ps;
-
-    ps = next_ps(ps, shuffle);
-  }
-
-  if (!ps_src || !ps_dst || (ps_src == ps_dst))
-  {
-    DPRINTF(E_LOG, L_PLAYER, "Invalid source and/or destination for queue_move\n");
-    return -1;
-  }
-
-  if (shuffle)
-  {
-    // Remove ps_src from shuffle queue
-    ps_src->shuffle_prev->shuffle_next = ps_src->shuffle_next;
-    ps_src->shuffle_next->shuffle_prev = ps_src->shuffle_prev;
-
-    // Insert after ps_dst
-    ps_src->shuffle_prev = ps_dst;
-    ps_src->shuffle_next = ps_dst->shuffle_next;
-    ps_dst->shuffle_next->shuffle_prev = ps_src;
-    ps_dst->shuffle_next = ps_src;
-  }
-  else
-  {
-    // Remove ps_src from queue
-    ps_src->pl_prev->pl_next = ps_src->pl_next;
-    ps_src->pl_next->pl_prev = ps_src->pl_prev;
-
-    // Insert after ps_dst
-    ps_src->pl_prev = ps_dst;
-    ps_src->pl_next = ps_dst->pl_next;
-    ps_dst->pl_next->pl_prev = ps_src;
-    ps_dst->pl_next = ps_src;
-  }
+  queue_move_bypos(queue, ps_playing->item_id, cmd->arg.ps_pos[0], cmd->arg.ps_pos[1], shuffle);
 
   cur_plversion++;
 
@@ -4037,105 +3418,57 @@ queue_move(struct player_command *cmd)
 }
 
 static int
-queue_remove(struct player_command *cmd)
+playerqueue_remove_bypos(struct player_command *cmd)
 {
-  struct player_source *ps;
-  struct player_source *ps_current;
-  uint32_t pos;
+  int pos;
+  struct player_source *ps_playing;
+
+  pos = cmd->arg.intval;
+  if (pos < 1)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid position %d\n", pos);
+      return -1;
+    }
+
+  ps_playing = source_now_playing();
+
+  if (!ps_playing)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove item at pos %d, no playing item found\n", pos);
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
+  queue_remove_bypos(queue, ps_playing->item_id, pos, shuffle);
+
+  return 0;
+}
+
+static int
+playerqueue_remove_byitemid(struct player_command *cmd)
+{
   uint32_t id;
-  int i;
 
-  if (cmd->arg.item_range.type == RANGEARG_ID)
+  id = cmd->arg.id;
+  if (id < 1)
     {
-      id = cmd->arg.item_range.id;
-      pos = 0;
-      if (id < 1)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid id %d\n", id);
-	  return -1;
-	}
-
-      DPRINTF(E_DBG, L_PLAYER, "Removing item with id %d\n", id);
-    }
-  else
-    {
-      id = 0;
-      pos = cmd->arg.item_range.start_pos;
-      if (pos < 1)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid position %d\n", pos);
-	  return -1;
-	}
-
-      DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
-    }
-
-  ps_current = cur_playing ? cur_playing : cur_streaming;
-  if (!ps_current)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Current playing/streaming item not found\n");
+      DPRINTF(E_LOG, L_PLAYER, "Can't remove item, invalid id %d\n", id);
       return -1;
     }
 
-  i = 0;
-  ps = ps_current;
-  while (ps)
-    {
-      i++;
-      ps = next_ps(ps, shuffle);
-
-      if (ps == ps_current)
-	ps = NULL;
-      else if ((i == pos) || (ps->id == id))
-	break;
-    }
-
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Can't remove requested item from queue (id %d, pos %d)\n", id, pos);
-      return -1;
-    }
-
-  if (ps == source_head)
-    source_head = ps->pl_next;
-  if (ps == shuffle_head)
-    shuffle_head = ps->shuffle_next;
-
-  ps->shuffle_prev->shuffle_next = ps->shuffle_next;
-  ps->shuffle_next->shuffle_prev = ps->shuffle_prev;
-
-  ps->pl_prev->pl_next = ps->pl_next;
-  ps->pl_next->pl_prev = ps->pl_prev;
-
-  source_free(ps);
-
-  cur_plversion++;
-
-  listener_notify(LISTENER_PLAYLIST);
+  DPRINTF(E_DBG, L_PLAYER, "Removing item with id %d\n", id);
+  queue_remove_byitemid(queue, id);
 
   return 0;
 }
 
 /*
- * queue_clear removes all items from the playqueue, playback must be stopped before calling queue_clear
+ * Removes all media items from the queue
  */
 static int
-queue_clear(struct player_command *cmd)
+playerqueue_clear(struct player_command *cmd)
 {
-  struct player_source *ps;
-
-  if (!source_head)
-    return 0;
-
-  shuffle_head = NULL;
-  source_head->pl_prev->pl_next = NULL;
-
-  for (ps = source_head; ps; ps = source_head)
-    {
-      source_head = ps->pl_next;
-
-      source_free(ps);
-    }
+  queue_clear(queue);
 
   cur_plid = 0;
   cur_plversion++;
@@ -4146,50 +3479,12 @@ queue_clear(struct player_command *cmd)
 }
 
 /*
- * Depending on cmd->arg.intval queue_empty removes all items from the history (arg.intval = 1),
- * or removes all upcoming songs from the playqueue (arg.intval != 1). After calling queue_empty
- * to remove the upcoming songs, the playqueue will only contain the current playing song.
+ * Removes all items from the history
  */
 static int
-queue_empty(struct player_command *cmd)
+playerqueue_clear_history(struct player_command *cmd)
 {
-  int clear_hist;
-  struct player_source *ps;
-
-  clear_hist = cmd->arg.intval;
-  if (clear_hist)
-    {
-      memset(history, 0, sizeof(struct player_history));
-    }
-  else
-    {
-      if (!source_head || !cur_streaming)
-	return 0;
-
-      // Stop playback if playing and streaming song are not the same
-      if (!cur_playing || cur_playing != cur_streaming)
-	{
-	  playback_stop(cmd);
-	  queue_clear(cmd);
-	  return 0;
-	}
-
-      // Set head to the current playing song
-      shuffle_head = cur_playing;
-      source_head = cur_playing;
-
-      // Free all items in the queue except the current playing song
-      for (ps = source_head->pl_next; ps != source_head; ps = ps->pl_next)
-	{
-	  source_free(ps);
-	}
-
-      // Make the queue circular again
-      source_head->pl_next = source_head;
-      source_head->pl_prev = source_head;
-      source_head->shuffle_next = source_head;
-      source_head->shuffle_prev = source_head;
-    }
+  memset(history, 0, sizeof(struct player_history));
 
   cur_plversion++;
 
@@ -4199,11 +3494,8 @@ queue_empty(struct player_command *cmd)
 }
 
 static int
-queue_plid(struct player_command *cmd)
+playerqueue_plid(struct player_command *cmd)
 {
-  if (!source_head)
-    return 0;
-
   cur_plid = cmd->arg.id;
 
   return 0;
@@ -4344,6 +3636,12 @@ player_get_status(struct player_status *status)
   return ret;
 }
 
+/*
+ * Stores the now playing media item dbmfi-id in the given id pointer.
+ *
+ * @param id Pointer will hold the playing item (dbmfi) id if the function returns 0
+ * @return 0 on success, -1 on failure (e. g. no playing item found)
+ */
 int
 player_now_playing(uint32_t *id)
 {
@@ -4391,18 +3689,18 @@ player_get_icy_artwork_url(uint32_t id)
 /*
  * Starts/resumes playback
  *
- * Depending on the player state, this will either resumes playing the current item (player is paused)
- * or begins playing the queue from the beginning.
+ * Depending on the player state, this will either resume playing the current item (player is paused)
+ * or begin playing the queue from the beginning.
  *
  * If shuffle is set, the queue is reshuffled prior to starting playback.
  *
- * If a pointer is given as argument "itemid", its value will be set to the playing item id.
+ * If a pointer is given as argument "itemid", its value will be set to the playing item dbmfi-id.
  *
- * @param *itemid if not NULL, will be set to the playing item id
+ * @param *id if not NULL, will be set to the playing item dbmfi-id
  * @return 0 if successful, -1 if an error occurred
  */
 int
-player_playback_start(uint32_t *itemid)
+player_playback_start(uint32_t *id)
 {
   struct player_command cmd;
   int ret;
@@ -4411,8 +3709,7 @@ player_playback_start(uint32_t *itemid)
 
   cmd.func = playback_start;
   cmd.func_bh = playback_start_bh;
-  cmd.arg.item_range.type = RANGEARG_NONE;
-  cmd.arg.item_range.id_ptr = itemid;
+  cmd.arg.playback_start_param.id_ptr = id;
 
   ret = sync_command(&cmd);
 
@@ -4422,28 +3719,28 @@ player_playback_start(uint32_t *itemid)
 }
 
 /*
- * Starts playback at item number "pos" of the current queue
+ * Starts playback with the media item at the given index of the play-queue.
  *
  * If shuffle is set, the queue is reshuffled prior to starting playback.
  *
  * If a pointer is given as argument "itemid", its value will be set to the playing item id.
  *
- * @param *itemid if not NULL, will be set to the playing item id
+ * @param index the index of the item in the play-queue
+ * @param *id if not NULL, will be set to the playing item id
  * @return 0 if successful, -1 if an error occurred
  */
 int
-player_playback_startpos(int pos, uint32_t *itemid)
+player_playback_start_byindex(int index, uint32_t *id)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = playback_start;
+  cmd.func = playback_start_byindex;
   cmd.func_bh = playback_start_bh;
-  cmd.arg.item_range.type = RANGEARG_POS;
-  cmd.arg.item_range.start_pos = pos;
-  cmd.arg.item_range.id_ptr = itemid;
+  cmd.arg.playback_start_param.pos = index;
+  cmd.arg.playback_start_param.id_ptr = id;
   ret = sync_command(&cmd);
 
   command_deinit(&cmd);
@@ -4452,28 +3749,60 @@ player_playback_startpos(int pos, uint32_t *itemid)
 }
 
 /*
- * Starts playback at item with "id" of the current queue
+ * Starts playback with the media item at the given position in the UpNext-queue.
+ * The UpNext-queue consists of all items of the play-queue (shuffle off) or shuffle-queue
+ * (shuffle on) after the current playing item (starting with position 0).
  *
  * If shuffle is set, the queue is reshuffled prior to starting playback.
  *
- * If a pointer is given as argument "itemid", its value will be set to the playing item id.
+ * If a pointer is given as argument "itemid", its value will be set to the playing item dbmfi-id.
  *
- * @param *itemid if not NULL, will be set to the playing item id
+ * @param pos the position in the UpNext-queue (zero-based)
+ * @param *id if not NULL, will be set to the playing item dbmfi-id
  * @return 0 if successful, -1 if an error occurred
  */
 int
-player_playback_startid(uint32_t id, uint32_t *itemid)
+player_playback_start_bypos(int pos, uint32_t *id)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = playback_start;
+  cmd.func = playback_start_bypos;
   cmd.func_bh = playback_start_bh;
-  cmd.arg.item_range.type = RANGEARG_ID;
-  cmd.arg.item_range.id = id;
-  cmd.arg.item_range.id_ptr = itemid;
+  cmd.arg.playback_start_param.pos = pos;
+  cmd.arg.playback_start_param.id_ptr = id;
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+/*
+ * Starts playback with the media item with the given (queueitem) item-id in queue
+ *
+ * If shuffle is set, the queue is reshuffled prior to starting playback.
+ *
+ * If a pointer is given as argument "itemid", its value will be set to the playing item dbmfi-id.
+ *
+ * @param item_id The queue-item-id
+ * @param *id if not NULL, will be set to the playing item dbmfi-id
+ * @return 0 if successful, -1 if an error occurred
+ */
+int
+player_playback_start_byitemid(uint32_t item_id, uint32_t *id)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = playback_start_byitemid;
+  cmd.func_bh = playback_start_bh;
+  cmd.arg.playback_start_param.id = item_id;
+  cmd.arg.playback_start_param.id_ptr = id;
   ret = sync_command(&cmd);
 
   command_deinit(&cmd);
@@ -4712,34 +4041,27 @@ player_shuffle_set(int enable)
 }
 
 /*
- * Retrieves a list of item ids in the queue from postion 'start_pos' to 'end_pos'
+ * Returns the queue info for max "count" media items in the UpNext-queue
  *
- * If start_pos is -1, the list starts with the item next from the current playing item.
- * If end_pos is -1, this list contains all songs starting from 'start_pos'
+ * The UpNext-queue consists of all items of the play-queue (shuffle off) or shuffle-queue
+ * (shuffle on) after the current playing item (starting with position 0).
  *
- * The 'shuffle' argument determines if the items are taken from the playqueue (shuffle = 0)
- * or the shufflequeue (shuffle = 1).
- *
- * @param start_pos Start the listing from 'start_pos'
- * @param end_pos   End the listing at 'end_pos'
- * @param shuffle   If set to 1 use the shuffle queue, otherwise the playqueue
- * @return List of items (ids) in the queue
+ * @param count max number of media items to return
+ * @return queue info
  */
-struct player_queue *
-player_queue_get(int start_pos, int end_pos, char shuffle)
+struct queue *
+player_queue_get_bypos(int count)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = queue_get;
+  cmd.func = playerqueue_get_bypos;
   cmd.func_bh = NULL;
-  cmd.arg.item_range.type = RANGEARG_POS;
-  cmd.arg.item_range.start_pos = start_pos;
-  cmd.arg.item_range.end_pos = end_pos;
-  cmd.arg.item_range.shuffle = shuffle;
-  cmd.queue = NULL;
+  cmd.arg.queue_get_param.pos = -1;
+  cmd.arg.queue_get_param.count = count;
+  cmd.arg.queue_get_param.queue = NULL;
 
   ret = sync_command(&cmd);
 
@@ -4748,20 +4070,55 @@ player_queue_get(int start_pos, int end_pos, char shuffle)
   if (ret != 0)
     return NULL;
 
-  return cmd.queue;
+  return cmd.arg.queue_get_param.queue;
 }
 
-int
-player_queue_add(struct player_source *ps)
+/*
+ * Returns the queue info for max "count" media items starting with the item at the given
+ * index in the play-queue
+ *
+ * @param index Index of the play-queue for the first item
+ * @param count max number of media items to return
+ * @return queue info
+ */
+struct queue *
+player_queue_get_byindex(int index, int count)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = queue_add;
+  cmd.func = playerqueue_get_byindex;
   cmd.func_bh = NULL;
-  cmd.arg.ps = ps;
+  cmd.arg.queue_get_param.pos = index;
+  cmd.arg.queue_get_param.count = count;
+  cmd.arg.queue_get_param.queue = NULL;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  if (ret != 0)
+    return NULL;
+
+  return cmd.arg.queue_get_param.queue;
+}
+
+/*
+ * Appends the given media items to the queue
+ */
+int
+player_queue_add(struct queue_item *items)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = playerqueue_add;
+  cmd.func_bh = NULL;
+  cmd.arg.queue_add_param.items = items;
 
   ret = sync_command(&cmd);
 
@@ -4770,17 +4127,20 @@ player_queue_add(struct player_source *ps)
   return ret;
 }
 
+/*
+ * Adds the given media items directly after the current playing/streaming media item
+ */
 int
-player_queue_add_next(struct player_source *ps)
+player_queue_add_next(struct queue_item *items)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = queue_add_next;
+  cmd.func = playerqueue_add_next;
   cmd.func_bh = NULL;
-  cmd.arg.ps = ps;
+  cmd.arg.queue_add_param.items = items;
 
   ret = sync_command(&cmd);
 
@@ -4789,18 +4149,24 @@ player_queue_add_next(struct player_source *ps)
   return ret;
 }
 
+/*
+ * Moves the media item at 'pos_from' to 'pos_to' in the UpNext-queue.
+ *
+ * The UpNext-queue consists of all items of the play-queue (shuffle off) or shuffle-queue
+ * (shuffle on) after the current playing item (starting with position 0).
+ */
 int
-player_queue_move(int ps_pos_from, int ps_pos_to)
+player_queue_move_bypos(int pos_from, int pos_to)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = queue_move;
+  cmd.func = playerqueue_move_bypos;
   cmd.func_bh = NULL;
-  cmd.arg.ps_pos[0] = ps_pos_from;
-  cmd.arg.ps_pos[1] = ps_pos_to;
+  cmd.arg.ps_pos[0] = pos_from;
+  cmd.arg.ps_pos[1] = pos_to;
 
   ret = sync_command(&cmd);
 
@@ -4809,18 +4175,26 @@ player_queue_move(int ps_pos_from, int ps_pos_to)
   return ret;
 }
 
+/*
+ * Removes the media item at the given position from the UpNext-queue
+ *
+ * The UpNext-queue consists of all items of the play-queue (shuffle off) or shuffle-queue
+ * (shuffle on) after the current playing item (starting with position 0).
+ *
+ * @param pos Position in the UpNext-queue (0-based)
+ * @return 0 on success, -1 on failure
+ */
 int
-player_queue_remove(int ps_pos_remove)
+player_queue_remove_bypos(int pos)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = queue_remove;
+  cmd.func = playerqueue_remove_bypos;
   cmd.func_bh = NULL;
-  cmd.arg.item_range.type = RANGEARG_POS;
-  cmd.arg.item_range.start_pos = ps_pos_remove;
+  cmd.arg.intval = pos;
 
   ret = sync_command(&cmd);
 
@@ -4829,18 +4203,23 @@ player_queue_remove(int ps_pos_remove)
   return ret;
 }
 
+/*
+ * Removes the item with the given (queueitem) item id from the queue
+ *
+ * @param id Id of the queue item to remove
+ * @return 0 on success, -1 on failure
+ */
 int
-player_queue_removeid(uint32_t id)
+player_queue_remove_byitemid(uint32_t id)
 {
   struct player_command cmd;
   int ret;
 
   command_init(&cmd);
 
-  cmd.func = queue_remove;
+  cmd.func = playerqueue_remove_byitemid;
   cmd.func_bh = NULL;
-  cmd.arg.item_range.type = RANGEARG_ID;
-  cmd.arg.item_range.id = id;
+  cmd.arg.id = id;
 
   ret = sync_command(&cmd);
 
@@ -4856,7 +4235,7 @@ player_queue_clear(void)
 
   command_init(&cmd);
 
-  cmd.func = queue_clear;
+  cmd.func = playerqueue_clear;
   cmd.func_bh = NULL;
   cmd.arg.noarg = NULL;
 
@@ -4866,15 +4245,14 @@ player_queue_clear(void)
 }
 
 void
-player_queue_empty(int clear_hist)
+player_queue_clear_history()
 {
   struct player_command cmd;
 
   command_init(&cmd);
 
-  cmd.func = queue_empty;
+  cmd.func = playerqueue_clear_history;
   cmd.func_bh = NULL;
-  cmd.arg.intval = clear_hist;
 
   sync_command(&cmd);
 
@@ -4888,7 +4266,7 @@ player_queue_plid(uint32_t plid)
 
   command_init(&cmd);
 
-  cmd.func = queue_plid;
+  cmd.func = playerqueue_plid;
   cmd.func_bh = NULL;
   cmd.arg.id = plid;
 
@@ -5248,8 +4626,6 @@ player_init(void)
 
   cur_cmd = NULL;
 
-  source_head = NULL;
-  shuffle_head = NULL;
   cur_playing = NULL;
   cur_streaming = NULL;
   cur_plid = 0;
@@ -5259,6 +4635,7 @@ player_init(void)
   repeat = REPEAT_OFF;
   shuffle = 0;
 
+  queue = queue_new();
   history = (struct player_history *)calloc(1, sizeof(struct player_history));
 
   /*
@@ -5300,8 +4677,6 @@ player_init(void)
   /* Random RTP time start */
   gcry_randomize(&rnd, sizeof(rnd), GCRY_STRONG_RANDOM);
   last_rtptime = ((uint64_t)1 << 32) | rnd;
-
-  rng_init(&shuffle_rng);
 
   ret = db_speaker_get(0, &laudio_selected, &laudio_volume);
   if (ret < 0)
@@ -5504,9 +4879,7 @@ player_deinit(void)
       return;
     }
 
-  if (source_head)
-    queue_clear(NULL);
-
+  queue_free(queue);
   free(history);
 
   pb_timer_stop();

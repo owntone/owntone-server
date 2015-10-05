@@ -912,12 +912,12 @@ audio_fifo_flush(void)
 }
 
 static int
-playback_play(struct spotify_command *cmd)
+playback_setup(struct spotify_command *cmd)
 {
   sp_track *track;
   sp_error err;
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Starting playback\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "Setting up for playback\n");
 
   if (SP_CONNECTION_STATE_LOGGED_IN != fptr_sp_session_connectionstate(g_sess))
     {
@@ -946,6 +946,16 @@ playback_play(struct spotify_command *cmd)
     }
 
   audio_fifo_flush();
+
+  return 0;
+}
+
+static int
+playback_play(struct spotify_command *cmd)
+{
+  sp_error err;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Starting playback\n");
 
   err = fptr_sp_session_player_play(g_sess, 1);
   if (SP_ERROR_OK != err)
@@ -976,25 +986,6 @@ playback_pause(struct spotify_command *cmd)
     }
 
   g_state = SPOTIFY_STATE_PAUSED;
-
-  return 0;
-}
-
-static int
-playback_resume(struct spotify_command *cmd)
-{
-  sp_error err;
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Resuming playback\n");
-
-  err = fptr_sp_session_player_play(g_sess, 1);
-  if (SP_ERROR_OK != err)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Playback resume failed: %s\n", fptr_sp_error_message(err));
-      return -1;
-    }
-
-  g_state = SPOTIFY_STATE_PLAYING;
 
   return 0;
 }
@@ -1071,7 +1062,7 @@ audio_get(struct spotify_command *cmd)
 
   // If spotify was paused begin by resuming playback
   if (g_state == SPOTIFY_STATE_PAUSED)
-    playback_resume(NULL);
+    playback_play(NULL);
 
   pthread_mutex_lock(&g_audio_fifo->mutex);
 
@@ -1626,13 +1617,13 @@ notify_cb(int fd, short what, void *arg)
 
 /* Thread: player */
 int
-spotify_playback_play(struct media_file_info *mfi)
+spotify_playback_setup(struct media_file_info *mfi)
 {
   struct spotify_command cmd;
   sp_link *link;
   int ret;
 
-  DPRINTF(E_DBG, L_SPOTIFY, "Playback request\n");
+  DPRINTF(E_DBG, L_SPOTIFY, "Playback setup request\n");
 
   link = fptr_sp_link_create_from_string(mfi->path);
   if (!link)
@@ -1643,8 +1634,48 @@ spotify_playback_play(struct media_file_info *mfi)
 
   command_init(&cmd);
 
-  cmd.func = playback_play;
+  cmd.func = playback_setup;
   cmd.arg.link = link;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+spotify_playback_play()
+{
+  struct spotify_command cmd;
+  int ret;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Playback request\n");
+
+  command_init(&cmd);
+
+  cmd.func = playback_play;
+  cmd.arg.noarg = NULL;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+spotify_playback_pause()
+{
+  struct spotify_command cmd;
+  int ret;
+
+  DPRINTF(E_DBG, L_SPOTIFY, "Pause request\n");
+
+  command_init(&cmd);
+
+  cmd.func = playback_pause;
+  cmd.arg.noarg = NULL;
 
   ret = sync_command(&cmd);
 
@@ -1676,27 +1707,6 @@ spotify_playback_pause_nonblock(void)
   cmd->arg.noarg = NULL;
 
   nonblock_command(cmd);
-}
-
-/* Not used */
-int
-spotify_playback_resume(void)
-{
-  struct spotify_command cmd;
-  int ret;
-
-  DPRINTF(E_DBG, L_SPOTIFY, "Resume request\n");
-
-  command_init(&cmd);
-
-  cmd.func = playback_resume;
-  cmd.arg.noarg = NULL;
-
-  ret = sync_command(&cmd);
-
-  command_deinit(&cmd);
-
-  return ret;
 }
 
 /* Thread: player and libspotify */

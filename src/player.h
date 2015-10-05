@@ -5,6 +5,7 @@
 #include <stdint.h>
 
 #include "db.h"
+#include "queue.h"
 
 /* AirTunes v2 packet interval in ns */
 /* (352 samples/packet * 1e9 ns/s) / 44100 samples/s = 7981859 ns/packet */
@@ -25,12 +26,6 @@ enum play_status {
   PLAY_STOPPED = 2,
   PLAY_PAUSED  = 3,
   PLAY_PLAYING = 4,
-};
-
-enum repeat_mode {
-  REPEAT_OFF  = 0,
-  REPEAT_SONG = 1,
-  REPEAT_ALL  = 2,
 };
 
 struct spk_flags {
@@ -56,8 +51,10 @@ struct player_status {
   uint32_t plversion;
   /* Playlist length */
   uint32_t playlistlength;
-  /* Playing song id*/
+  /* Id of the playing file/item in the files database */
   uint32_t id;
+  /* Item-Id of the playing file/item in the queue */
+  uint32_t item_id;
   /* Elapsed time in ms of playing item */
   uint32_t pos_ms;
   /* Length in ms of playing item */
@@ -66,50 +63,13 @@ struct player_status {
   int pos_pl;
   /* Item id of next item in playlist */
   uint32_t next_id;
+  /* Item-Id of the next file/item in the queue */
+  uint32_t next_item_id;
   /* Playlist position of next item */
   int next_pos_pl;
 };
 
 typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg);
-
-struct player_source
-{
-  uint32_t id;
-  uint32_t len_ms;
-
-  enum data_kind data_kind;
-  enum media_kind media_kind;
-  int setup_done;
-
-  uint64_t stream_start;
-  uint64_t output_start;
-  uint64_t end;
-
-  struct transcode_ctx *ctx;
-
-  struct player_source *pl_next;
-  struct player_source *pl_prev;
-
-  struct player_source *shuffle_next;
-  struct player_source *shuffle_prev;
-
-  struct player_source *play_next;
-};
-
-struct player_queue
-{
-  // The item id of the current playing item
-  uint32_t playingid;
-  // The number of items in the queue
-  unsigned int length;
-
-  // The position in the queue for the first item in the queue array
-  unsigned int start_pos;
-  // The number of items in the queue array
-  unsigned int count;
-  // The queue array (array of item ids)
-  uint32_t *queue;
-};
 
 struct player_history
 {
@@ -121,6 +81,7 @@ struct player_history
 
   /* Circular buffer of song ids previously played by forked-daapd */
   uint32_t id[MAX_HISTORY_COUNT];
+  uint32_t item_id[MAX_HISTORY_COUNT];
 };
 
 
@@ -143,13 +104,16 @@ int
 player_speaker_set(uint64_t *ids);
 
 int
-player_playback_start(uint32_t *idx_id);
+player_playback_start(uint32_t *id);
 
 int
-player_playback_startpos(int pos, uint32_t *itemid);
+player_playback_start_byindex(int pos, uint32_t *id);
 
 int
-player_playback_startid(uint32_t id, uint32_t *itemid);
+player_playback_start_bypos(int pos, uint32_t *id);
+
+int
+player_playback_start_byitemid(uint32_t item_id, uint32_t *id);
 
 int
 player_playback_stop(void);
@@ -182,47 +146,37 @@ player_repeat_set(enum repeat_mode mode);
 int
 player_shuffle_set(int enable);
 
-struct player_source *
-player_queue_make(struct query_params *qp);
+
+struct queue *
+player_queue_get_bypos(int count);
+
+struct queue *
+player_queue_get_byindex(int pos, int count);
 
 int
-player_queue_make_daap(struct player_source **head, const char *query, const char *queuefilter, const char *sort, int quirk);
-
-struct player_source *
-player_queue_make_pl(int plid, uint32_t *id);
-
-struct player_source *
-player_queue_make_mpd(char *path, int recursive);
-
-struct player_queue *
-player_queue_get(int start_pos, int end_pos, char shuffle);
-
-void
-queue_free(struct player_queue *queue);
+player_queue_add(struct queue_item *items);
 
 int
-player_queue_add(struct player_source *ps);
+player_queue_add_next(struct queue_item *items);
 
 int
-player_queue_add_next(struct player_source *ps);
+player_queue_move_bypos(int ps_pos_from, int ps_pos_to);
 
 int
-player_queue_move(int ps_pos_from, int ps_pos_to);
+player_queue_remove_bypos(int pos);
 
 int
-player_queue_remove(int ps_pos_remove);
-
-int
-player_queue_removeid(uint32_t id);
+player_queue_remove_byitemid(uint32_t id);
 
 void
 player_queue_clear(void);
 
 void
-player_queue_empty(int clear_hist);
+player_queue_clear_history(void);
 
 void
 player_queue_plid(uint32_t plid);
+
 
 struct player_history *
 player_history_get(void);
