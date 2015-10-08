@@ -43,43 +43,43 @@ strcrit	:	FIELD strop STR			->	^(strop FIELD STR)
 	|	FIELD NOT strop STR		->	^(NOT ^(strop FIELD STR))
 	;
 
-strop	:	EQUAL
-	|	INCLUDES
-	|	STARTSW
-	|	ENDSW
+strop	:	equal=EQUAL
+	|	includes=INCLUDES
+	|	startsw=STARTSW
+	|	endsw=ENDSW
 	;
 
 intcrit	:	FIELD intop INT			->	^(intop FIELD INT)
 	|	FIELD NOT intop INT		->	^(NOT ^(intop FIELD INT))
 	;
 
-intop	:	EQUAL
-	|	LESS
-	|	GREATER
-	|	LTE
-	|	GTE
+intop	:	equal=EQUAL
+	|	less=LESS
+	|	greater=GREATER
+	|	lte=LTE
+	|	gte=GTE
 	;
 
 datecrit:	FIELD dateop datespec		->	^(dateop FIELD datespec)
 	;
 
-dateop	:	BEFORE
-	|	AFTER
+dateop	:	before=BEFORE
+	|	after=AFTER
 	;
 
 datespec:	dateref
 	|	INT dateintval dateop dateref	->	^(dateop dateref INT dateintval)
 	;
 
-dateref	:	DATE
-	|	TODAY
+dateref	:	date=DATE
+	|	today=TODAY
 	;
 
 dateintval
-	:	DAY
-	|	WEEK
-	|	MONTH
-	|	YEAR
+	:	day=DAY
+	|	week=WEEK
+	|	month=MONTH
+	|	year=YEAR
 	;
 
 QUOTE	:	'"';
