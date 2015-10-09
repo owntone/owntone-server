@@ -1,8 +1,5 @@
 /*
- * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
- *
- * Adapted from mt-daapd:
- * Copyright (C) 2006-2007 Ron Pedde <ron@pedde.com>
+ * Copyright (C) 2015 Espen Jurgensen
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,84 +23,167 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <stdint.h>
-
-#if defined(__linux__) || defined(__GLIBC__)
-# include <endian.h>
-# include <byteswap.h>
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-# include <sys/endian.h>
-#endif
 
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
-#include <libavutil/mathematics.h>
-#if defined(HAVE_LIBSWRESAMPLE)
-# include <libswresample/swresample.h>
-#elif defined(HAVE_LIBAVRESAMPLE)
-# include <libavutil/opt.h>
-# include <libavresample/avresample.h>
+#include <libavfilter/avfiltergraph.h>
+#include <libavfilter/buffersink.h>
+#include <libavfilter/buffersrc.h>
+#include <libavutil/opt.h>
+#include <libavutil/pixdesc.h>
+
+#ifdef HAVE_LIBAVFILTER
+# include <libavfilter/avcodec.h>
+#else
+# include "ffmpeg-compat.c"
 #endif
 
 #include "logger.h"
 #include "conffile.h"
 #include "db.h"
+#include "avio_evbuffer.h"
 #include "transcode.h"
 
-#ifdef HAVE_SPOTIFY_H
-# include "spotify.h"
-#endif
-
-#if LIBAVCODEC_VERSION_MAJOR >= 56 || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR >= 18)
-# define XCODE_BUFFER_SIZE ((192000 * 3) / 2)
-#else
-# define XCODE_BUFFER_SIZE ((AVCODEC_MAX_AUDIO_FRAME_SIZE * 3) / 2)
-#endif
-
-/* Interval between ICY metadata checks for streams, in seconds */
+// Interval between ICY metadata checks for streams, in seconds
 #define METADATA_ICY_INTERVAL 5
-
-struct transcode_ctx {
-  AVFormatContext *fmtctx;
-  /* Audio stream */
-  int astream;
-  AVCodecContext *acodec; /* pCodecCtx */
-  AVCodec *adecoder; /* pCodec */
-  AVPacket apacket;
-  AVPacket apacket2;
-  int16_t *abuffer;
-
-  /* Resampling */
-#if defined(HAVE_LIBSWRESAMPLE)
-  SwrContext *resample_ctx;
-#elif defined(HAVE_LIBAVRESAMPLE)
-  AVAudioResampleContext *resample_ctx;
-#else
-  ReSampleContext *resample_ctx;
-  int input_size;
-#endif
-  int need_resample;
-  int16_t *re_abuffer;
-
-  off_t offset;
-
-  uint32_t duration;
-  uint64_t samples;
-  uint32_t icy_hash;
-
-  /* WAV header */
-  int wavhdr;
-  uint8_t header[44];
-};
-
+// Maximum number of streams in a file that we will accept
+#define MAX_STREAMS 64
 
 static char *default_codecs = "mpeg,wav";
 static char *roku_codecs = "mpeg,mp4a,wma,wav";
 static char *itunes_codecs = "mpeg,mp4a,mp4v,alac,wav";
 
+struct filter_ctx {
+  AVFilterContext *buffersink_ctx;
+  AVFilterContext *buffersrc_ctx;
+  AVFilterGraph *filter_graph;
+};
+
+struct decode_ctx {
+  // Input format context
+  AVFormatContext *ifmt_ctx;
+
+  // Will point to the max 3 streams that we will transcode
+  AVStream *audio_stream;
+  AVStream *video_stream;
+  AVStream *subtitle_stream;
+
+  // Duration (used to make wav header)
+  uint32_t duration;
+
+  // Used for seeking
+  int resume;
+  AVPacket seek_packet;
+
+  // Used to keep track of retries when decoding fails
+  int retry;
+};
+
+struct encode_ctx {
+  // Output format context
+  AVFormatContext *ofmt_ctx;
+
+  // We use filters to resample
+  struct filter_ctx *filter_ctx;
+
+  // The ffmpeg muxer writes to this buffer using the avio_evbuffer interface
+  struct evbuffer *obuf;
+
+  // Maps input stream number -> output stream number
+  // So if we are decoding audio stream 3 and encoding it to 0, then
+  // out_stream_map[3] is 0. A value of -1 means the stream is ignored.
+  int out_stream_map[MAX_STREAMS];
+
+  // Maps output stream number -> input stream number
+  unsigned int in_stream_map[MAX_STREAMS];
+
+  // Used for seeking
+  int64_t prev_pts[MAX_STREAMS];
+  int64_t offset_pts[MAX_STREAMS];
+
+  // Settings for encoding and muxing
+  const char *format;
+  int encode_video;
+
+  // Audio settings
+  enum AVCodecID audio_codec;
+  int sample_rate;
+  uint64_t channel_layout;
+  int channels;
+  enum AVSampleFormat sample_format;
+  int byte_depth;
+
+  // Video settings
+  enum AVCodecID video_codec;
+  int video_height;
+  int video_width;
+
+  // How many output bytes we have processed in total
+  off_t total_bytes;
+
+  // Used to check for ICY metadata changes at certain intervals
+  uint32_t icy_interval;
+  uint32_t icy_hash;
+
+  // WAV header
+  int wavhdr;
+  uint8_t header[44];
+};
+
+struct transcode_ctx {
+  struct decode_ctx *decode_ctx;
+  struct encode_ctx *encode_ctx;
+};
+
+struct decoded_frame
+{
+  AVFrame *frame;
+  unsigned int stream_index;
+};
+
+
+/* -------------------------- PROFILE CONFIGURATION ------------------------ */
+
+static int
+init_profile(struct encode_ctx *ctx, enum transcode_profile profile)
+{
+  switch (profile)
+    {
+      case XCODE_PCM16_NOHEADER:
+      case XCODE_PCM16_HEADER:
+        ctx->encode_video = 0;
+	ctx->format = "s16le";
+	ctx->audio_codec = AV_CODEC_ID_PCM_S16LE;
+	ctx->sample_rate = 44100;
+	ctx->channel_layout = AV_CH_LAYOUT_STEREO;
+	ctx->channels = 2;
+	ctx->sample_format = AV_SAMPLE_FMT_S16;
+	ctx->byte_depth = 2; // Bytes per sample = 16/8
+	return 0;
+
+      case XCODE_MP3:
+        ctx->encode_video = 0;
+	ctx->format = "mp3";
+	ctx->audio_codec = AV_CODEC_ID_MP3;
+	ctx->sample_rate = 44100;
+	ctx->channel_layout = AV_CH_LAYOUT_STEREO;
+	ctx->channels = 2;
+	ctx->sample_format = AV_SAMPLE_FMT_S16P;
+	ctx->byte_depth = 2; // Bytes per sample = 16/8
+	return 0;
+
+      case XCODE_H264_AAC:
+        ctx->encode_video = 1;
+	return 0;
+
+      default:
+	DPRINTF(E_LOG, L_XCODE, "Bug! Unknown transcoding profile\n");
+	return -1;
+    }
+}
+
+
+/* -------------------------------- HELPERS -------------------------------- */
 
 static inline void
 add_le16(uint8_t *dst, uint16_t val)
@@ -122,20 +202,17 @@ add_le32(uint8_t *dst, uint32_t val)
 }
 
 static void
-make_wav_header(struct transcode_ctx *ctx, off_t *est_size)
+make_wav_header(struct encode_ctx *ctx, struct decode_ctx *src_ctx, off_t *est_size)
 {
   uint32_t wav_len;
   int duration;
 
-  if (ctx->duration)
-    duration = ctx->duration;
+  if (src_ctx->duration)
+    duration = src_ctx->duration;
   else
     duration = 3 * 60 * 1000; /* 3 minutes, in ms */
 
-  if (ctx->samples && !ctx->need_resample)
-    wav_len = 2 * 2 * ctx->samples;
-  else
-    wav_len = 2 * 2 * 44100 * (duration / 1000);
+  wav_len = ctx->channels * ctx->byte_depth * ctx->sample_rate * (duration / 1000);
 
   *est_size = wav_len + sizeof(ctx->header);
 
@@ -144,648 +221,969 @@ make_wav_header(struct transcode_ctx *ctx, off_t *est_size)
   memcpy(ctx->header + 8, "WAVEfmt ", 8);
   add_le32(ctx->header + 16, 16);
   add_le16(ctx->header + 20, 1);
-  add_le16(ctx->header + 22, 2);               /* channels */
-  add_le32(ctx->header + 24, 44100);           /* samplerate */
-  add_le32(ctx->header + 28, 44100 * 2 * 2);   /* byte rate */
-  add_le16(ctx->header + 32, 2 * 2);           /* block align */
-  add_le16(ctx->header + 34, 16);              /* bits per sample */
+  add_le16(ctx->header + 22, ctx->channels);     /* channels */
+  add_le32(ctx->header + 24, ctx->sample_rate);  /* samplerate */
+  add_le32(ctx->header + 28, ctx->sample_rate * ctx->channels * ctx->byte_depth); /* byte rate */
+  add_le16(ctx->header + 32, ctx->channels * ctx->byte_depth);                        /* block align */
+  add_le16(ctx->header + 34, ctx->byte_depth * 8);                                        /* bits per sample */
   memcpy(ctx->header + 36, "data", 4);
   add_le32(ctx->header + 40, wav_len);
 }
 
-
-int
-transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted, int *icy_timer)
+static int
+decode_stream(struct decode_ctx *ctx, AVStream *in_stream)
 {
-  int16_t *buf;
-  int buflen;
-  int processed;
-  int used;
-  int stop;
-  int ret;
-#if BYTE_ORDER == BIG_ENDIAN
-  int i;
-#endif
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
-  AVFrame *frame = NULL;
-  int got_frame;
-  int out_samples;
-#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
-  AVFrame *frame = NULL;
-  int got_frame;
-#endif
-#if defined(HAVE_LIBAVRESAMPLE)
-  int out_linesize;
-#endif
-
-  processed = 0;
-
-  if (ctx->wavhdr && (ctx->offset == 0))
-    {
-      evbuffer_add(evbuf, ctx->header, sizeof(ctx->header));
-      processed += sizeof(ctx->header);
-      ctx->offset += sizeof(ctx->header);
-    }
-
-  stop = 0;
-  while ((processed < wanted) && !stop)
-    {
-      /* Decode data */
-      while (ctx->apacket2.size > 0)
-	{
-#if LIBAVCODEC_VERSION_MAJOR >= 56 || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR >= 29)
-	  got_frame = 0;
-
-	  if (!frame)
-	    {
-	      frame = av_frame_alloc();
-	      if (!frame)
-		{
-		  DPRINTF(E_LOG, L_XCODE, "Out of memory for decoded frame\n");
-
-		  return -1;
-		}
-	    }
-	  else
-            av_frame_unref(frame);
-
-	  used = avcodec_decode_audio4(ctx->acodec,
-				       frame, &got_frame,
-				       &ctx->apacket2);
-#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
-	  got_frame = 0;
-
-	  if (!frame)
-	    {
-	      frame = avcodec_alloc_frame();
-	      if (!frame)
-		{
-		  DPRINTF(E_LOG, L_XCODE, "Out of memory for decoded frame\n");
-
-		  return -1;
-		}
-	    }
-	  else
-            avcodec_get_frame_defaults(frame);
-
-	  used = avcodec_decode_audio4(ctx->acodec,
-				       frame, &got_frame,
-				       &ctx->apacket2);
-#else
-	  buflen = XCODE_BUFFER_SIZE;
-
-	  used = avcodec_decode_audio3(ctx->acodec,
-				       ctx->abuffer, &buflen,
-				       &ctx->apacket2);
-#endif
-
-	  if (used < 0)
-	    {
-	      /* Something happened, skip this packet */
-	      ctx->apacket2.size = 0;
-	      break;
-	    }
-
-	  ctx->apacket2.data += used;
-	  ctx->apacket2.size -= used;
-
-	  /* No frame decoded this time around */
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
-	  if (!got_frame)
-	    continue;
-#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
-	  if (!got_frame)
-	    continue;
-	  else
-	    {
-	      /* This part is from the libav wrapper for avcodec_decode_audio3 */
-	      int ch, plane_size;
-	      int planar = av_sample_fmt_is_planar(ctx->acodec->sample_fmt);
-	      int data_size = av_samples_get_buffer_size(&plane_size, ctx->acodec->channels, 
-				frame->nb_samples, ctx->acodec->sample_fmt, 1);
-
-	      if (XCODE_BUFFER_SIZE < data_size)
-		{
-		  DPRINTF(E_WARN, L_XCODE, "Output buffer too small for frame (%d < %d)\n", XCODE_BUFFER_SIZE, data_size);
-
-		  continue;
-		}
-
-	      memcpy(ctx->abuffer, frame->extended_data[0], plane_size);
-
-	      if (planar && ctx->acodec->channels > 1)
-		{
-		  uint8_t *out = ((uint8_t *)ctx->abuffer) + plane_size;
-		  for (ch = 1; ch < ctx->acodec->channels; ch++)
-		    {
-		      memcpy(out, frame->extended_data[ch], plane_size);
-		      out += plane_size;
-		    }
-		}
-	      buflen = data_size;
-	    }
-#else
-	  if (buflen == 0)
-	    continue;
-#endif
-
-	  // TODO Use the AVFrame resampling API's - probably much safer and easier than the following mess
-	  if (ctx->need_resample)
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
-	    {
-	      out_samples = 0;
-# if defined(HAVE_LIBSWRESAMPLE)
-	      out_samples = av_rescale_rnd(
-		swr_get_delay(ctx->resample_ctx, ctx->acodec->sample_rate) + frame->nb_samples,
-		44100,
-		ctx->acodec->sample_rate,
-		AV_ROUND_UP
-	      );
-
-	      out_samples = swr_convert(ctx->resample_ctx, (uint8_t **)&ctx->re_abuffer, out_samples,
-	                                       (const uint8_t **)frame->data, frame->nb_samples);
-# elif defined(HAVE_LIBAVRESAMPLE)
-	      av_samples_get_buffer_size(&out_linesize, 2, frame->nb_samples, AV_SAMPLE_FMT_S16, 0);
-
-	      out_samples = avresample_convert(ctx->resample_ctx, (uint8_t **)&ctx->re_abuffer, out_linesize, XCODE_BUFFER_SIZE,
-	                                       (uint8_t **)frame->data, frame->linesize[0], frame->nb_samples);
-# endif
-	      if (out_samples < 0)
-		{
-		  DPRINTF(E_LOG, L_XCODE, "Resample returned no samples!\n");
-
-		  return -1;
-		}
-
-	      buflen = out_samples * 2 * 2; /* 16bit samples, 2 channels */
-	      buf = ctx->re_abuffer;
-	    }
-	  else
-	    {
-	      buf = (int16_t *)frame->data[0];
-	      buflen = av_samples_get_buffer_size(NULL, ctx->acodec->channels, frame->nb_samples, ctx->acodec->sample_fmt, 1);
-	    }
-#else
-	    {
-	      buflen = audio_resample(ctx->resample_ctx, ctx->re_abuffer, ctx->abuffer, buflen / ctx->input_size);
-
-	      if (buflen == 0)
-		{
-		  DPRINTF(E_WARN, L_XCODE, "Resample returned no samples!\n");
-		  continue;
-		}
-
-	      buflen = buflen * 2 * 2; /* 16bit samples, 2 channels */
-	      buf = ctx->re_abuffer;
-	    }
-	  else
-	    buf = ctx->abuffer;
-#endif
-
-#if BYTE_ORDER == BIG_ENDIAN
-	  /* swap buffer, LE16 */
-	  for (i = 0; i < (buflen / 2); i++)
-	    {
-	      buf[i] = htole16(buf[i]);
-	    }
-#endif
-
-	  ret = evbuffer_add(evbuf, buf, buflen);
-	  if (ret != 0)
-	    {
-	      DPRINTF(E_WARN, L_XCODE, "Could not copy WAV data to buffer\n");
-
-	      return -1;
-	    }
-
-	  processed += buflen;
-	}
-
-      /* Read more data */
-      do
-	{
-	  if (ctx->apacket.data)
-	    av_free_packet(&ctx->apacket);
-
-	  ret = av_read_frame(ctx->fmtctx, &ctx->apacket);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_WARN, L_XCODE, "Could not read more data\n");
-
-	      stop = 1;
-	      break;
-	    }
-	}
-      while (ctx->apacket.stream_index != ctx->astream);
-
-      /* Copy apacket and do not mess with it */
-      ctx->apacket2 = ctx->apacket;
-    }
-
-  ctx->offset += processed;
-
-#if LIBAVCODEC_VERSION_MAJOR >= 56 || (LIBAVCODEC_VERSION_MAJOR == 55 && LIBAVCODEC_VERSION_MINOR >= 29)
-  if (frame)
-    av_frame_free(&frame);
-#elif LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
-  if (frame)
-    avcodec_free_frame(&frame);
-#elif LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 35)
-  if (frame)
-    av_free(frame);
-#endif
-
-  *icy_timer = (ctx->offset % (METADATA_ICY_INTERVAL * 2 * 2 * 44100) < processed);
-  return processed;
+  return ((in_stream == ctx->audio_stream) ||
+          (in_stream == ctx->video_stream) ||
+          (in_stream == ctx->subtitle_stream));
 }
 
-int
-transcode_seek(struct transcode_ctx *ctx, int ms)
+static int
+encode_write_frame(struct encode_ctx *ctx, AVFrame *filt_frame, unsigned int stream_index, int *got_frame)
 {
-  int64_t start_time;
-  int64_t target_pts;
-  int64_t got_pts;
-  int got_ms;
-  int flags;
+  AVStream *out_stream;
+  AVPacket enc_pkt;
+  int ret;
+  int got_frame_local;
+
+  if (!got_frame)
+    got_frame = &got_frame_local;
+
+  out_stream = ctx->ofmt_ctx->streams[stream_index];
+
+  // Encode filtered frame
+  enc_pkt.data = NULL;
+  enc_pkt.size = 0;
+  av_init_packet(&enc_pkt);
+
+  if (out_stream->codec->codec_type == AVMEDIA_TYPE_AUDIO)
+    ret = avcodec_encode_audio2(out_stream->codec, &enc_pkt, filt_frame, got_frame);
+  else if (out_stream->codec->codec_type == AVMEDIA_TYPE_VIDEO)
+    ret = avcodec_encode_video2(out_stream->codec, &enc_pkt, filt_frame, got_frame);
+  else
+    return -1;
+
+  if (ret < 0)
+    return -1;
+  if (!(*got_frame))
+    return 0;
+
+  // Prepare packet for muxing
+  enc_pkt.stream_index = stream_index;
+
+  // This "wonderful" peace of code makes sure that the timestamp never decreases,
+  // even if the user seeked backwards. The muxer will not accept decreasing
+  // timestamps
+  enc_pkt.pts += ctx->offset_pts[stream_index];
+  if (enc_pkt.pts < ctx->prev_pts[stream_index])
+    {
+      ctx->offset_pts[stream_index] += ctx->prev_pts[stream_index] - enc_pkt.pts;
+      enc_pkt.pts = ctx->prev_pts[stream_index];
+    }
+  ctx->prev_pts[stream_index] = enc_pkt.pts;
+  enc_pkt.dts = enc_pkt.pts; //FIXME
+
+  av_packet_rescale_ts(&enc_pkt, out_stream->codec->time_base, out_stream->time_base);
+
+  // Mux encoded frame
+  ret = av_interleaved_write_frame(ctx->ofmt_ctx, &enc_pkt);
+  return ret;
+}
+
+#if defined(HAVE_LIBAV_BUFFERSRC_ADD_FRAME_FLAGS) && defined(HAVE_LIBAV_BUFFERSINK_GET_FRAME)
+static int
+filter_encode_write_frame(struct encode_ctx *ctx, AVFrame *frame, unsigned int stream_index)
+{
+  AVFrame *filt_frame;
   int ret;
 
-  start_time = ctx->fmtctx->streams[ctx->astream]->start_time;
-
-  target_pts = ms;
-  target_pts = target_pts * AV_TIME_BASE / 1000;
-  target_pts = av_rescale_q(target_pts, AV_TIME_BASE_Q, ctx->fmtctx->streams[ctx->astream]->time_base);
-
-  if ((start_time != AV_NOPTS_VALUE) && (start_time > 0))
-    target_pts += start_time;
-
-  ret = av_seek_frame(ctx->fmtctx, ctx->astream, target_pts, AVSEEK_FLAG_BACKWARD);
+  // Push the decoded frame into the filtergraph
+  ret = av_buffersrc_add_frame_flags(ctx->filter_ctx[stream_index].buffersrc_ctx, frame, 0);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_XCODE, "Could not seek into stream: %s\n", strerror(AVUNERROR(ret)));
-
+      DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph\n");
       return -1;
     }
 
-  avcodec_flush_buffers(ctx->acodec);
-
-#if LIBAVCODEC_VERSION_MAJOR >= 53
-  ctx->acodec->skip_frame = AVDISCARD_NONREF;
-#else
-  ctx->acodec->hurry_up = 1;
-#endif
-
-  flags = 0;
+  // Pull filtered frames from the filtergraph
   while (1)
     {
-      if (ctx->apacket.data)
-	av_free_packet(&ctx->apacket);
+      filt_frame = av_frame_alloc();
+      if (!filt_frame)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Out of memory for filt_frame\n");
+	  return -1;
+	}
 
-      ret = av_read_frame(ctx->fmtctx, &ctx->apacket);
+      ret = av_buffersink_get_frame(ctx->filter_ctx[stream_index].buffersink_ctx, filt_frame);
       if (ret < 0)
 	{
-	  DPRINTF(E_WARN, L_XCODE, "Could not read more data while seeking\n");
-
-	  flags = 1;
+	  /* if no more frames for output - returns AVERROR(EAGAIN)
+	   * if flushed and no more frames for output - returns AVERROR_EOF
+	   * rewrite retcode to 0 to show it as normal procedure completion
+	   */
+	  if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+	    ret = 0;
+	  av_frame_free(&filt_frame);
 	  break;
 	}
 
-      if (ctx->apacket.stream_index != ctx->astream)
-	continue;
-
-      /* Need a pts to return the real position */
-      if (ctx->apacket.pts == AV_NOPTS_VALUE)
-	continue;
-
-      break;
+      filt_frame->pict_type = AV_PICTURE_TYPE_NONE;
+      ret = encode_write_frame(ctx, filt_frame, stream_index, NULL);
+      av_frame_free(&filt_frame);
+      if (ret < 0)
+	break;
     }
 
-#if LIBAVCODEC_VERSION_MAJOR >= 53
-  ctx->acodec->skip_frame = AVDISCARD_DEFAULT;
-#else
-  ctx->acodec->hurry_up = 0;
-#endif
-
-  /* Error while reading frame above */
-  if (flags)
-    return -1;
-
-  /* Copy apacket and do not mess with it */
-  ctx->apacket2 = ctx->apacket;
-
-  /* Compute position in ms from pts */
-  got_pts = ctx->apacket.pts;
-
-  if ((start_time != AV_NOPTS_VALUE) && (start_time > 0))
-    got_pts -= start_time;
-
-  got_pts = av_rescale_q(got_pts, ctx->fmtctx->streams[ctx->astream]->time_base, AV_TIME_BASE_Q);
-  got_ms = got_pts / (AV_TIME_BASE / 1000);
-
-  DPRINTF(E_DBG, L_XCODE, "Seek wanted %d ms, got %d ms\n", ms, got_ms);
-
-  return got_ms;
+  return ret;
 }
-
-int
-transcode_setup(struct transcode_ctx **nctx, struct media_file_info *mfi, off_t *est_size, int wavhdr)
+#else
+static int
+filter_encode_write_frame(struct encode_ctx *ctx, AVFrame *frame, unsigned int stream_index)
 {
-  AVDictionary *options;
-  struct transcode_ctx *ctx;
+  AVFilterBufferRef *picref;
+  AVCodecContext *enc_ctx;
+  AVFrame *filt_frame;
   int ret;
 
-  ctx = (struct transcode_ctx *)malloc(sizeof(struct transcode_ctx));
-  if (!ctx)
-    {
-      DPRINTF(E_WARN, L_XCODE, "Could not allocate transcode context\n");
+  enc_ctx = ctx->ofmt_ctx->streams[stream_index]->codec;
 
+  // Push the decoded frame into the filtergraph
+  ret = av_buffersrc_write_frame(ctx->filter_ctx[stream_index].buffersrc_ctx, frame);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph\n");
       return -1;
     }
-  memset(ctx, 0, sizeof(struct transcode_ctx));
+
+  // Pull filtered frames from the filtergraph
+  while (1)
+    {
+      filt_frame = av_frame_alloc();
+      if (!filt_frame)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Out of memory for filt_frame\n");
+	  return -1;
+	}
+
+      if (enc_ctx->codec_type == AVMEDIA_TYPE_AUDIO && !(enc_ctx->codec->capabilities & CODEC_CAP_VARIABLE_FRAME_SIZE))
+	ret = av_buffersink_read_samples(ctx->filter_ctx[stream_index].buffersink_ctx, &picref, enc_ctx->frame_size);
+      else
+	ret = av_buffersink_read(ctx->filter_ctx[stream_index].buffersink_ctx, &picref);
+
+      if (ret < 0)
+	{
+	  /* if no more frames for output - returns AVERROR(EAGAIN)
+	   * if flushed and no more frames for output - returns AVERROR_EOF
+	   * rewrite retcode to 0 to show it as normal procedure completion
+	   */
+	  if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+	    ret = 0;
+	  av_frame_free(&filt_frame);
+	  break;
+	}
+
+      avfilter_copy_buf_props(filt_frame, picref);
+      ret = encode_write_frame(ctx, filt_frame, stream_index, NULL);
+      av_frame_free(&filt_frame);
+      avfilter_unref_buffer(picref);
+      if (ret < 0)
+	break;
+    }
+
+  return ret;
+}
+#endif
+
+static void
+flush_encoder(struct encode_ctx *ctx, unsigned int stream_index)
+{
+  int ret;
+  int got_frame;
+
+  DPRINTF(E_DBG, L_XCODE, "Flushing output stream #%u encoder\n", stream_index);
+
+  if (!(ctx->ofmt_ctx->streams[stream_index]->codec->codec->capabilities & CODEC_CAP_DELAY))
+    return;
+
+  do
+    {
+      ret = encode_write_frame(ctx, NULL, stream_index, &got_frame);
+    }
+  while ((ret == 0) && got_frame);
+}
+
+
+/* --------------------------- INPUT/OUTPUT INIT --------------------------- */
+
+static int
+open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video)
+{
+  AVDictionary *options;
+  AVCodec *decoder;
+  unsigned int stream_index;
+  int ret;
 
   options = NULL;
+  ctx->ifmt_ctx = NULL;
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
 # ifndef HAVE_FFMPEG
   // Without this, libav is slow to probe some internet streams, which leads to RAOP timeouts
   if (mfi->data_kind == DATA_KIND_HTTP)
     {
-      ctx->fmtctx = avformat_alloc_context();
-      ctx->fmtctx->probesize = 64000;
+      ctx->ifmt_ctx = avformat_alloc_context();
+      ctx->ifmt_ctx->probesize = 64000;
     }
 # endif
   if (mfi->data_kind == DATA_KIND_HTTP)
     av_dict_set(&options, "icy", "1", 0);
 
-  ret = avformat_open_input(&ctx->fmtctx, mfi->path, NULL, &options);
-
+  ret = avformat_open_input(&ctx->ifmt_ctx, mfi->path, NULL, &options);
   if (options)
     av_dict_free(&options);
-#else
-  ret = av_open_input_file(&ctx->fmtctx, mfi->path, NULL, 0, NULL);
-#endif
-  if (ret != 0)
+  if (ret < 0)
     {
-      DPRINTF(E_WARN, L_XCODE, "Could not open file %s: %s\n", mfi->fname, strerror(AVUNERROR(ret)));
-
-      free(ctx);
+      DPRINTF(E_LOG, L_XCODE, "Cannot open input path\n");
       return -1;
     }
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
-  ret = avformat_find_stream_info(ctx->fmtctx, NULL);
-#else
-  ret = av_find_stream_info(ctx->fmtctx);
-#endif
+  ret = avformat_find_stream_info(ctx->ifmt_ctx, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_XCODE, "Could not find stream info: %s\n", strerror(AVUNERROR(ret)));
-
-      goto setup_fail;
+      DPRINTF(E_LOG, L_XCODE, "Cannot find stream information\n");
+      goto out_fail;
     }
 
-#if LIBAVCODEC_VERSION_MAJOR >= 53 || (LIBAVCODEC_VERSION_MAJOR == 52 && LIBAVCODEC_VERSION_MINOR >= 64)
-  ctx->astream = av_find_best_stream(ctx->fmtctx, AVMEDIA_TYPE_AUDIO, -1, -1, &ctx->adecoder, 0);
-
-  if (ctx->astream < 0)
+  if (ctx->ifmt_ctx->nb_streams > MAX_STREAMS)
     {
-      DPRINTF(E_WARN, L_XCODE, "Did not find audio stream or suitable decoder for %s\n", mfi->fname);
-
-      goto setup_fail;
+      DPRINTF(E_LOG, L_XCODE, "File '%s' has too many streams (%u)\n", mfi->path, ctx->ifmt_ctx->nb_streams);
+      goto out_fail;
     }
-#else
-  int i;
-  ctx->astream = -1;
-  for (i = 0; i < ctx->fmtctx->nb_streams; i++)
+
+  // Find audio stream and open decoder    
+  stream_index = av_find_best_stream(ctx->ifmt_ctx, AVMEDIA_TYPE_AUDIO, -1, -1, &decoder, 0);
+  if ((stream_index < 0) || (!decoder))
     {
-      if (ctx->fmtctx->streams[i]->codec->codec_type == CODEC_TYPE_AUDIO)
-	{
-	  ctx->astream = i;
-
-	  break;
-	}
+      DPRINTF(E_LOG, L_XCODE, "Did not find audio stream or suitable decoder for %s\n", mfi->path);
+      goto out_fail;
     }
 
-  if (ctx->astream < 0)
+  ctx->ifmt_ctx->streams[stream_index]->codec->request_sample_fmt = AV_SAMPLE_FMT_S16;
+  ctx->ifmt_ctx->streams[stream_index]->codec->request_channel_layout = AV_CH_LAYOUT_STEREO;
+
+// Disabled to see if it is still required
+//  if (decoder->capabilities & CODEC_CAP_TRUNCATED)
+//    ctx->ifmt_ctx->streams[stream_index]->codec->flags |= CODEC_FLAG_TRUNCATED;
+
+  ret = avcodec_open2(ctx->ifmt_ctx->streams[stream_index]->codec, decoder, NULL);
+  if (ret < 0)
     {
-      DPRINTF(E_WARN, L_XCODE, "No audio stream found in file %s\n", mfi->fname);
-
-      goto setup_fail;
+      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%u\n", stream_index);
+      goto out_fail;
     }
 
-  ctx->adecoder = avcodec_find_decoder(ctx->fmtctx->streams[ctx->astream]->codec->codec_id);
-  if (!ctx->adecoder)
+  ctx->audio_stream = ctx->ifmt_ctx->streams[stream_index];
+
+  // If no video then we are all done
+  if (!decode_video)
+    return 0;
+
+  // Find video stream and open decoder    
+  stream_index = av_find_best_stream(ctx->ifmt_ctx, AVMEDIA_TYPE_VIDEO, -1, -1, &decoder, 0);
+  if ((stream_index < 0) || (!decoder))
     {
-      DPRINTF(E_WARN, L_XCODE, "No suitable decoder found for codec\n");
-
-      goto setup_fail;
+      DPRINTF(E_LOG, L_XCODE, "Did not find video stream or suitable decoder for %s\n", mfi->path);
+      return 0;
     }
-#endif
-  ctx->acodec = ctx->fmtctx->streams[ctx->astream]->codec;
 
-  if (ctx->adecoder->capabilities & CODEC_CAP_TRUNCATED)
-    ctx->acodec->flags |= CODEC_FLAG_TRUNCATED;
-
-#if LIBAVCODEC_VERSION_MAJOR >= 54 || (LIBAVCODEC_VERSION_MAJOR == 53 && LIBAVCODEC_VERSION_MINOR >= 6)
-  ctx->acodec->request_sample_fmt = AV_SAMPLE_FMT_S16;
-  ctx->acodec->request_channel_layout = AV_CH_LAYOUT_STEREO;
-
-  ret = avcodec_open2(ctx->acodec, ctx->adecoder, NULL);
-#else
-  ret = avcodec_open(ctx->acodec, ctx->adecoder);
-#endif
-  if (ret != 0)
+  ret = avcodec_open2(ctx->ifmt_ctx->streams[stream_index]->codec, decoder, NULL);
+  if (ret < 0)
     {
-      DPRINTF(E_WARN, L_XCODE, "Could not open codec: %s\n", strerror(AVUNERROR(ret)));
-
-      goto setup_fail;
+      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%u\n", stream_index);
+      return 0;
     }
 
-  ctx->abuffer = (int16_t *)av_malloc(XCODE_BUFFER_SIZE);
-  if (!ctx->abuffer)
+  ctx->video_stream = ctx->ifmt_ctx->streams[stream_index];
+
+  // Find a (random) subtitle stream which will be remuxed
+  stream_index = av_find_best_stream(ctx->ifmt_ctx, AVMEDIA_TYPE_SUBTITLE, -1, -1, NULL, 0);
+  if (stream_index >= 0)
     {
-      DPRINTF(E_WARN, L_XCODE, "Could not allocate transcode buffer\n");
-
-      goto setup_fail_codec;
+      ctx->subtitle_stream = ctx->ifmt_ctx->streams[stream_index];
     }
-
-  ctx->need_resample = (ctx->acodec->sample_fmt != AV_SAMPLE_FMT_S16)
-                       || (ctx->acodec->channels != 2)
-                       || (ctx->acodec->sample_rate != 44100);
-
-  if (ctx->need_resample)
-    {
-#if defined(HAVE_LIBSWRESAMPLE) || defined(HAVE_LIBAVRESAMPLE)
-      if (!ctx->acodec->channel_layout)
-	{
-	  DPRINTF(E_DBG, L_XCODE, "Resample requires channel_layout, but none from ffmpeg. Setting to default.\n");
-
-	  ctx->acodec->channel_layout = av_get_default_channel_layout(ctx->acodec->channels);
-	}
-
-      DPRINTF(E_DBG, L_XCODE, "Will resample, decoded stream is: %s, %d channels (layout %" PRIu64 "), %d Hz\n",
-              av_get_sample_fmt_name(ctx->acodec->sample_fmt),  ctx->acodec->channels,
-              ctx->acodec->channel_layout, ctx->acodec->sample_rate);
-#endif
-#if defined(HAVE_LIBSWRESAMPLE)
-      ctx->resample_ctx = swr_alloc_set_opts(
-	NULL,                 // we're allocating a new context
-	AV_CH_LAYOUT_STEREO,  // out_ch_layout
-	AV_SAMPLE_FMT_S16,    // out_sample_fmt
-	44100,                // out_sample_rate
-	ctx->acodec->channel_layout, // in_ch_layout
-	ctx->acodec->sample_fmt,     // in_sample_fmt
-	ctx->acodec->sample_rate,    // in_sample_rate
-	0,                    // log_offset
-	NULL);
-
-      if (!ctx->resample_ctx)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample context\n");
-
-	  goto setup_fail_codec;
-	}
-
-      ret = swr_init(ctx->resample_ctx);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Could not open resample context\n");
-
-	  swr_free(&ctx->resample_ctx);
-	  goto setup_fail_codec;
-	}
-
-      ctx->re_abuffer = av_realloc(ctx->re_abuffer, XCODE_BUFFER_SIZE * 2);
-      if (!ctx->re_abuffer)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Could not allocate resample buffer\n");
-
-	  swr_free(&ctx->resample_ctx);
-	  goto setup_fail_codec;
-	}
-#elif defined(HAVE_LIBAVRESAMPLE)
-      ctx->resample_ctx = avresample_alloc_context();
-      if (!ctx->resample_ctx)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Out of memory for resample context\n");
-
-	  goto setup_fail_codec;
-	}
-      av_opt_set_int(ctx->resample_ctx, "in_sample_fmt",      ctx->acodec->sample_fmt, 0);
-      av_opt_set_int(ctx->resample_ctx, "out_sample_fmt",     AV_SAMPLE_FMT_S16, 0);
-      av_opt_set_int(ctx->resample_ctx, "in_channel_layout",  ctx->acodec->channel_layout, 0);
-      av_opt_set_int(ctx->resample_ctx, "out_channel_layout", AV_CH_LAYOUT_STEREO, 0);
-      av_opt_set_int(ctx->resample_ctx, "in_sample_rate",     ctx->acodec->sample_rate, 0);
-      av_opt_set_int(ctx->resample_ctx, "out_sample_rate",    44100, 0);
-
-      ret = avresample_open(ctx->resample_ctx);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Could not open resample context\n");
-
-	  avresample_free(&ctx->resample_ctx);
-	  goto setup_fail_codec;
-	}
-
-      ctx->re_abuffer = av_realloc(ctx->re_abuffer, XCODE_BUFFER_SIZE * 2);
-      if (!ctx->re_abuffer)
-	{
-	  DPRINTF(E_LOG, L_XCODE, "Could not allocate resample buffer\n");
-
-	  avresample_free(&ctx->resample_ctx);
-	  goto setup_fail_codec;
-	}
-#else
-      DPRINTF(E_DBG, L_XCODE, "Setting up resampling (%d@%d)\n", ctx->acodec->channels, ctx->acodec->sample_rate);
-
-      ctx->resample_ctx = av_audio_resample_init(2,              ctx->acodec->channels,
-						 44100,          ctx->acodec->sample_rate,
-						 AV_SAMPLE_FMT_S16, ctx->acodec->sample_fmt,
-						 16, 10, 0, 0.8);
-
-      if (!ctx->resample_ctx)
-	{
-	  DPRINTF(E_WARN, L_XCODE, "Could not init resample from %d@%d to 2@44100\n", ctx->acodec->channels, ctx->acodec->sample_rate);
-
-	  goto setup_fail_codec;
-	}
-
-      ctx->re_abuffer = (int16_t *)av_malloc(XCODE_BUFFER_SIZE * 2);
-      if (!ctx->re_abuffer)
-	{
-	  DPRINTF(E_WARN, L_XCODE, "Could not allocate resample buffer\n");
-
-	  audio_resample_close(ctx->resample_ctx);
-	  goto setup_fail_codec;
-	}
-#endif
-
-#if LIBAVCODEC_VERSION_MAJOR >= 55 || (LIBAVCODEC_VERSION_MAJOR == 54 && LIBAVCODEC_VERSION_MINOR >= 35)
-
-#elif LIBAVUTIL_VERSION_MAJOR >= 52 || (LIBAVUTIL_VERSION_MAJOR == 51 && LIBAVUTIL_VERSION_MINOR >= 4)
-      ctx->input_size = ctx->acodec->channels * av_get_bytes_per_sample(ctx->acodec->sample_fmt);
-#elif LIBAVCODEC_VERSION_MAJOR >= 53
-      ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_fmt(ctx->acodec->sample_fmt) / 8;
-#else
-      ctx->input_size = ctx->acodec->channels * av_get_bits_per_sample_format(ctx->acodec->sample_fmt) / 8;
-#endif
-    }
-
-  ctx->duration = mfi->song_length;
-  ctx->samples = mfi->sample_count; //TODO [unused] sample count is never set and therefor always 0
-  ctx->wavhdr = wavhdr;
-
-  if (wavhdr)
-    make_wav_header(ctx, est_size);
-
-  *nctx = ctx;
 
   return 0;
 
- setup_fail_codec:
-  avcodec_close(ctx->acodec);
-
- setup_fail:
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
-  avformat_close_input(&ctx->fmtctx);
-#else
-  av_close_input_file(ctx->fmtctx);
-#endif
-  free(ctx);
+ out_fail:
+  avformat_close_input(&ctx->ifmt_ctx);
 
   return -1;
 }
 
-void
-transcode_cleanup(struct transcode_ctx *ctx)
+static void
+close_input(struct decode_ctx *ctx)
 {
-  if (ctx->apacket.data)
-    av_free_packet(&ctx->apacket);
+  if (ctx->audio_stream)
+    avcodec_close(ctx->audio_stream->codec);
+  if (ctx->video_stream)
+    avcodec_close(ctx->video_stream->codec);
 
-  if (ctx->acodec)
-    avcodec_close(ctx->acodec);
-#if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 21)
-  if (ctx->fmtctx)
-    avformat_close_input(&ctx->fmtctx);
-#else
-  if (ctx->fmtctx)
-    av_close_input_file(ctx->fmtctx);
-#endif
+  avformat_close_input(&ctx->ifmt_ctx);
+}
 
-  av_free(ctx->abuffer);
+static int
+open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
+{
+  AVStream *out_stream;
+  AVStream *in_stream;
+  AVCodecContext *dec_ctx;
+  AVCodecContext *enc_ctx;
+  AVCodec *encoder;
+  const AVCodecDescriptor *codec_desc;
+  enum AVCodecID codec_id;
+  int ret;
+  int i;
 
-  if (ctx->need_resample)
+  ctx->ofmt_ctx = NULL;
+  avformat_alloc_output_context2(&ctx->ofmt_ctx, NULL, ctx->format, NULL);
+  if (!ctx->ofmt_ctx)
     {
-#if defined(HAVE_LIBSWRESAMPLE)
-      swr_free(&ctx->resample_ctx);
-#elif defined(HAVE_LIBAVRESAMPLE)
-      avresample_free(&ctx->resample_ctx);
-#else
-      audio_resample_close(ctx->resample_ctx);
-#endif
-      av_free(ctx->re_abuffer);
+      DPRINTF(E_LOG, L_XCODE, "Could not create output context\n");
+      return -1;
     }
 
-  free(ctx);
+  ctx->obuf = evbuffer_new();
+  if (!ctx->obuf)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Could not create output evbuffer\n");
+      goto out_fail_evbuf;
+    }
+
+  ctx->ofmt_ctx->pb = avio_evbuffer_open(ctx->obuf);
+  if (!ctx->ofmt_ctx->pb)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Could not create output avio pb\n");
+      goto out_fail_pb;
+    }
+
+  for (i = 0; i < src_ctx->ifmt_ctx->nb_streams; i++)
+    { 
+      in_stream = src_ctx->ifmt_ctx->streams[i];
+      if (!decode_stream(src_ctx, in_stream))
+	{
+	  ctx->out_stream_map[i] = -1;
+	  continue;
+	}
+
+      out_stream = avformat_new_stream(ctx->ofmt_ctx, NULL);
+      if (!out_stream)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Failed allocating output stream\n");
+	  goto out_fail_stream;
+        }
+
+      ctx->out_stream_map[i] = out_stream->index;
+      ctx->in_stream_map[out_stream->index] = i;
+
+      dec_ctx = in_stream->codec;
+      enc_ctx = out_stream->codec;
+
+      // TODO Enough to just remux subtitles?
+      if (dec_ctx->codec_type == AVMEDIA_TYPE_SUBTITLE)
+	{
+	  avcodec_copy_context(enc_ctx, dec_ctx);
+	  continue;
+	}
+
+      if (dec_ctx->codec_type == AVMEDIA_TYPE_AUDIO)
+	codec_id = ctx->audio_codec;
+      else if (dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO)
+	codec_id = ctx->video_codec;
+      else
+	continue;
+
+      codec_desc = avcodec_descriptor_get(codec_id);
+      encoder = avcodec_find_encoder(codec_id);
+      if (!encoder)
+	{
+	  if (codec_desc)
+	    DPRINTF(E_LOG, L_XCODE, "Necessary encoder (%s) for input stream %u not found\n", codec_desc->name, i);
+	  else
+	    DPRINTF(E_LOG, L_XCODE, "Necessary encoder (unknown) for input stream %u not found\n", i);
+	  goto out_fail_stream;
+	}
+
+      if (dec_ctx->codec_type == AVMEDIA_TYPE_AUDIO)
+	{
+	  enc_ctx->sample_rate = ctx->sample_rate;
+	  enc_ctx->channel_layout = ctx->channel_layout;
+	  enc_ctx->channels = ctx->channels;
+	  enc_ctx->sample_fmt = ctx->sample_format;
+	  enc_ctx->time_base = (AVRational){1, ctx->sample_rate};
+	}
+      else
+	{
+	  enc_ctx->height = ctx->video_height;
+	  enc_ctx->width = ctx->video_width;
+	  enc_ctx->sample_aspect_ratio = dec_ctx->sample_aspect_ratio; //FIXME
+	  enc_ctx->pix_fmt = avcodec_find_best_pix_fmt_of_list(encoder->pix_fmts, dec_ctx->pix_fmt, 1, NULL);
+	  enc_ctx->time_base = dec_ctx->time_base;
+	}
+
+      ret = avcodec_open2(enc_ctx, encoder, NULL);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot open encoder (%s) for input stream #%u\n", codec_desc->name, i);
+	  goto out_fail_codec;
+	}
+
+      if (ctx->ofmt_ctx->oformat->flags & AVFMT_GLOBALHEADER)
+	enc_ctx->flags |= CODEC_FLAG_GLOBAL_HEADER;
+    }
+
+  // Notice, this will not write WAV header (so we do that manually)
+  ret = avformat_write_header(ctx->ofmt_ctx, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Error occurred when writing header to output buffer\n");
+      goto out_fail_write;
+    }
+
+  return 0;
+
+ out_fail_write:
+ out_fail_codec:
+  for (i = 0; i < ctx->ofmt_ctx->nb_streams; i++)
+    {
+      enc_ctx = ctx->ofmt_ctx->streams[i]->codec;
+      if (enc_ctx)
+	avcodec_close(enc_ctx);
+    }
+ out_fail_stream:
+  avio_evbuffer_close(ctx->ofmt_ctx->pb);
+ out_fail_pb:
+  evbuffer_free(ctx->obuf);
+ out_fail_evbuf:
+  avformat_free_context(ctx->ofmt_ctx);
+
+  return -1;
+}
+
+static void
+close_output(struct encode_ctx *ctx)
+{
+  int i;
+
+  for (i = 0; i < ctx->ofmt_ctx->nb_streams; i++)
+    {
+      if (ctx->ofmt_ctx->streams[i]->codec)
+	avcodec_close(ctx->ofmt_ctx->streams[i]->codec);
+    }
+
+  avio_evbuffer_close(ctx->ofmt_ctx->pb);
+  evbuffer_free(ctx->obuf);
+  avformat_free_context(ctx->ofmt_ctx);
+}
+
+#ifdef HAVE_LIBAV_GRAPH_PARSE_PTR
+static int
+open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecContext *enc_ctx, const char *filter_spec)
+{
+  AVFilter *buffersrc = NULL;
+  AVFilter *buffersink = NULL;
+  AVFilterContext *buffersrc_ctx = NULL;
+  AVFilterContext *buffersink_ctx = NULL;
+  AVFilterInOut *outputs = avfilter_inout_alloc();
+  AVFilterInOut *inputs  = avfilter_inout_alloc();
+  AVFilterGraph *filter_graph = avfilter_graph_alloc();
+  char args[512];
+  int ret;
+
+  if (!outputs || !inputs || !filter_graph)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for filter_graph, input or output\n");
+      goto out_fail;
+    }
+
+  if (dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO)
+    {
+      buffersrc = avfilter_get_by_name("buffer");
+      buffersink = avfilter_get_by_name("buffersink");
+      if (!buffersrc || !buffersink)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Filtering source or sink element not found\n");
+	  goto out_fail;
+	}
+
+      snprintf(args, sizeof(args),
+               "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+               dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
+               dec_ctx->time_base.num, dec_ctx->time_base.den,
+               dec_ctx->sample_aspect_ratio.num,
+               dec_ctx->sample_aspect_ratio.den);
+
+      ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer source\n");
+	  goto out_fail;
+	}
+
+      ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer sink\n");
+	  goto out_fail;
+	}
+
+      ret = av_opt_set_bin(buffersink_ctx, "pix_fmts", (uint8_t*)&enc_ctx->pix_fmt, sizeof(enc_ctx->pix_fmt), AV_OPT_SEARCH_CHILDREN);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot set output pixel format\n");
+	  goto out_fail;
+	}
+    }
+  else if (dec_ctx->codec_type == AVMEDIA_TYPE_AUDIO)
+    {
+      buffersrc = avfilter_get_by_name("abuffer");
+      buffersink = avfilter_get_by_name("abuffersink");
+      if (!buffersrc || !buffersink)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Filtering source or sink element not found\n");
+	  ret = AVERROR_UNKNOWN;
+	  goto out_fail;
+	}
+
+      if (!dec_ctx->channel_layout)
+	dec_ctx->channel_layout = av_get_default_channel_layout(dec_ctx->channels);
+
+      snprintf(args, sizeof(args),
+               "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
+               dec_ctx->time_base.num, dec_ctx->time_base.den, dec_ctx->sample_rate,
+               av_get_sample_fmt_name(dec_ctx->sample_fmt),
+               dec_ctx->channel_layout);
+
+      ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer source\n");
+	  goto out_fail;
+	}
+
+      ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer sink\n");
+	  goto out_fail;
+	}
+
+      ret = av_opt_set_bin(buffersink_ctx, "sample_fmts",
+                           (uint8_t*)&enc_ctx->sample_fmt, sizeof(enc_ctx->sample_fmt), AV_OPT_SEARCH_CHILDREN);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot set output sample format\n");
+	  goto out_fail;
+	}
+
+      ret = av_opt_set_bin(buffersink_ctx, "channel_layouts",
+                           (uint8_t*)&enc_ctx->channel_layout, sizeof(enc_ctx->channel_layout), AV_OPT_SEARCH_CHILDREN);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot set output channel layout\n");
+	  goto out_fail;
+	}
+
+      ret = av_opt_set_bin(buffersink_ctx, "sample_rates",
+                           (uint8_t*)&enc_ctx->sample_rate, sizeof(enc_ctx->sample_rate), AV_OPT_SEARCH_CHILDREN);
+      if (ret < 0)
+	{
+          DPRINTF(E_LOG, L_XCODE, "Cannot set output sample rate\n");
+	  goto out_fail;
+	}
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_XCODE, "Bug! Unknown type passed to filter graph init\n");
+      goto out_fail;
+    }
+
+  /* Endpoints for the filter graph. */
+  outputs->name       = av_strdup("in");
+  outputs->filter_ctx = buffersrc_ctx;
+  outputs->pad_idx    = 0;
+  outputs->next       = NULL;
+  inputs->name       = av_strdup("out");
+  inputs->filter_ctx = buffersink_ctx;
+  inputs->pad_idx    = 0;
+  inputs->next       = NULL;
+  if (!outputs->name || !inputs->name)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for outputs/inputs\n");
+      goto out_fail;
+    }
+
+  ret = avfilter_graph_parse_ptr(filter_graph, filter_spec, &inputs, &outputs, NULL);
+  if (ret < 0)
+    goto out_fail;
+
+  ret = avfilter_graph_config(filter_graph, NULL);
+  if (ret < 0)
+    goto out_fail;
+
+  /* Fill filtering context */
+  filter_ctx->buffersrc_ctx = buffersrc_ctx;
+  filter_ctx->buffersink_ctx = buffersink_ctx;
+  filter_ctx->filter_graph = filter_graph;
+
+  avfilter_inout_free(&inputs);
+  avfilter_inout_free(&outputs);
+
+  return 0;
+
+ out_fail:
+  avfilter_graph_free(&filter_graph);
+  avfilter_inout_free(&inputs);
+  avfilter_inout_free(&outputs);
+
+  return -1;
+}
+#else
+static int
+open_filter(struct filter_ctx *filter_ctx, AVCodecContext *dec_ctx, AVCodecContext *enc_ctx, const char *filter_spec)
+{
+
+  AVFilter *buffersrc = NULL;
+  AVFilter *format = NULL;
+  AVFilter *buffersink = NULL;
+  AVFilterContext *buffersrc_ctx = NULL;
+  AVFilterContext *format_ctx = NULL;
+  AVFilterContext *buffersink_ctx = NULL;
+  AVFilterGraph *filter_graph = avfilter_graph_alloc();
+  char args[512];
+  int ret;
+
+  if (!filter_graph)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for filter_graph\n");
+      goto out_fail;
+    }
+
+  if (dec_ctx->codec_type == AVMEDIA_TYPE_VIDEO)
+    {
+      buffersrc = avfilter_get_by_name("buffer");
+      format = avfilter_get_by_name("format");
+      buffersink = avfilter_get_by_name("buffersink");
+      if (!buffersrc || !format || !buffersink)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Filtering source, format or sink element not found\n");
+	  goto out_fail;
+	}
+
+      snprintf(args, sizeof(args),
+               "video_size=%dx%d:pix_fmt=%d:time_base=%d/%d:pixel_aspect=%d/%d",
+               dec_ctx->width, dec_ctx->height, dec_ctx->pix_fmt,
+               dec_ctx->time_base.num, dec_ctx->time_base.den,
+               dec_ctx->sample_aspect_ratio.num,
+               dec_ctx->sample_aspect_ratio.den);
+
+      ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer source\n");
+	  goto out_fail;
+	}
+
+      snprintf(args, sizeof(args),
+               "pix_fmt=%d",
+               enc_ctx->pix_fmt);
+
+      ret = avfilter_graph_create_filter(&format_ctx, format, "format", args, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create format filter\n");
+	  goto out_fail;
+	}
+
+      ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create buffer sink\n");
+	  goto out_fail;
+	}
+    }
+  else if (dec_ctx->codec_type == AVMEDIA_TYPE_AUDIO)
+    {
+      buffersrc = avfilter_get_by_name("abuffer");
+      format = avfilter_get_by_name("aformat");
+      buffersink = avfilter_get_by_name("abuffersink");
+      if (!buffersrc || !format || !buffersink)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Filtering source, format or sink element not found\n");
+	  ret = AVERROR_UNKNOWN;
+	  goto out_fail;
+	}
+
+      if (!dec_ctx->channel_layout)
+	dec_ctx->channel_layout = av_get_default_channel_layout(dec_ctx->channels);
+
+      snprintf(args, sizeof(args),
+               "time_base=%d/%d:sample_rate=%d:sample_fmt=%s:channel_layout=0x%"PRIx64,
+               dec_ctx->time_base.num, dec_ctx->time_base.den, dec_ctx->sample_rate,
+               av_get_sample_fmt_name(dec_ctx->sample_fmt),
+               dec_ctx->channel_layout);
+
+      ret = avfilter_graph_create_filter(&buffersrc_ctx, buffersrc, "in", args, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer source\n");
+	  goto out_fail;
+	}
+
+      snprintf(args, sizeof(args),
+               "sample_fmts=%s:sample_rates=%d:channel_layouts=0x%"PRIx64,
+               av_get_sample_fmt_name(enc_ctx->sample_fmt), enc_ctx->sample_rate,
+               enc_ctx->channel_layout);
+
+      ret = avfilter_graph_create_filter(&format_ctx, format, "format", args, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio format filter\n");
+	  goto out_fail;
+	}
+
+      ret = avfilter_graph_create_filter(&buffersink_ctx, buffersink, "out", NULL, NULL, filter_graph);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Cannot create audio buffer sink\n");
+	  goto out_fail;
+	}
+    }
+  else
+    {
+      DPRINTF(E_LOG, L_XCODE, "Bug! Unknown type passed to filter graph init\n");
+      goto out_fail;
+    }
+
+  ret = avfilter_link(buffersrc_ctx, 0, format_ctx, 0);
+  if (ret >= 0)
+    ret = avfilter_link(format_ctx, 0, buffersink_ctx, 0);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_XCODE, "Error connecting filters\n");
+
+  ret = avfilter_graph_config(filter_graph, NULL);
+  if (ret < 0)
+    goto out_fail;
+
+  /* Fill filtering context */
+  filter_ctx->buffersrc_ctx = buffersrc_ctx;
+  filter_ctx->buffersink_ctx = buffersink_ctx;
+  filter_ctx->filter_graph = filter_graph;
+
+  return 0;
+
+ out_fail:
+  avfilter_graph_free(&filter_graph);
+
+  return -1;
+}
+#endif
+
+static int
+open_filters(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
+{
+  AVCodecContext *enc_ctx;
+  AVCodecContext *dec_ctx;
+  const char *filter_spec;
+  unsigned int stream_index;
+  int i;
+  int ret;
+
+  ctx->filter_ctx = av_malloc_array(ctx->ofmt_ctx->nb_streams, sizeof(*ctx->filter_ctx));
+  if (!ctx->filter_ctx)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for outputs/inputs\n");
+      return -1;
+    }
+
+  for (i = 0; i < ctx->ofmt_ctx->nb_streams; i++)
+    {
+      ctx->filter_ctx[i].buffersrc_ctx  = NULL;
+      ctx->filter_ctx[i].buffersink_ctx = NULL;
+      ctx->filter_ctx[i].filter_graph   = NULL;
+
+      stream_index = ctx->in_stream_map[i];
+
+      enc_ctx = ctx->ofmt_ctx->streams[i]->codec;
+      dec_ctx = src_ctx->ifmt_ctx->streams[stream_index]->codec;
+
+      if (enc_ctx->codec_type == AVMEDIA_TYPE_VIDEO)
+	filter_spec = "null"; /* passthrough (dummy) filter for video */
+      else if (enc_ctx->codec_type == AVMEDIA_TYPE_AUDIO)
+	filter_spec = "anull"; /* passthrough (dummy) filter for audio */
+      else
+	continue;
+
+      ret = open_filter(&ctx->filter_ctx[i], dec_ctx, enc_ctx, filter_spec);
+      if (ret < 0)
+	goto out_fail;
+    }
+
+  return 0;
+
+ out_fail:
+  for (i = 0; i < ctx->ofmt_ctx->nb_streams; i++)
+    {
+      if (ctx->filter_ctx && ctx->filter_ctx[i].filter_graph)
+	avfilter_graph_free(&ctx->filter_ctx[i].filter_graph);
+    }
+  av_free(ctx->filter_ctx);
+
+  return -1;
+}
+
+static void
+close_filters(struct encode_ctx *ctx)
+{
+  int i;
+
+  for (i = 0; i < ctx->ofmt_ctx->nb_streams; i++)
+    {
+      if (ctx->filter_ctx && ctx->filter_ctx[i].filter_graph)
+	avfilter_graph_free(&ctx->filter_ctx[i].filter_graph);
+    }
+  av_free(ctx->filter_ctx);
+}
+
+
+/* ----------------------------- TRANSCODE API ----------------------------- */
+
+/*                                  Setup                                    */
+
+struct decode_ctx *
+transcode_decode_setup(struct media_file_info *mfi, int decode_video)
+{
+  struct decode_ctx *ctx;
+
+  ctx = calloc(1, sizeof(struct decode_ctx));
+  if (!ctx)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for decode ctx\n");
+      return NULL;
+    }
+
+  if (open_input(ctx, mfi, decode_video) < 0)
+    {
+      free(ctx);
+      return NULL;
+    }
+
+  ctx->duration = mfi->song_length;
+
+  return ctx;
+}
+
+struct encode_ctx *
+transcode_encode_setup(struct decode_ctx *src_ctx, enum transcode_profile profile, off_t *est_size)
+{
+  struct encode_ctx *ctx;
+
+  ctx = calloc(1, sizeof(struct encode_ctx));
+  if (!ctx)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for encode ctx\n");
+      return NULL;
+    }
+
+  if ((init_profile(ctx, profile) < 0) || (open_output(ctx, src_ctx) < 0))
+    {
+      free(ctx);
+      return NULL;
+    }
+
+  if (open_filters(ctx, src_ctx) < 0)
+    {
+      close_output(ctx);
+      free(ctx);
+      return NULL;
+    }
+
+  ctx->icy_interval = METADATA_ICY_INTERVAL * ctx->channels * ctx->byte_depth * ctx->sample_rate;
+
+  if (profile == XCODE_PCM16_HEADER)
+    {
+      ctx->wavhdr = 1;
+      make_wav_header(ctx, src_ctx, est_size);
+    }
+
+  return ctx;
+}
+
+struct transcode_ctx *
+transcode_setup(struct media_file_info *mfi, enum transcode_profile profile, off_t *est_size)
+{
+  struct transcode_ctx *ctx;
+
+  ctx = malloc(sizeof(struct transcode_ctx));
+  if (!ctx)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for transcode ctx\n");
+      return NULL;
+    }
+
+  ctx->decode_ctx = transcode_decode_setup(mfi, profile & XCODE_HAS_VIDEO);
+  if (!ctx->decode_ctx)
+    {
+      free(ctx);
+      return NULL;
+    }
+
+  ctx->encode_ctx = transcode_encode_setup(ctx->decode_ctx, profile, est_size);
+  if (!ctx->encode_ctx)
+    {
+      transcode_decode_cleanup(ctx->decode_ctx);
+      free(ctx);
+      return NULL;
+    }
+
+  return ctx;
+}
+
+struct decode_ctx *
+transcode_decode_setup_raw(void)
+{
+  struct decode_ctx *ctx;
+  struct AVCodec *decoder;
+
+  ctx = calloc(1, sizeof(struct decode_ctx));
+  if (!ctx)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for decode ctx\n");
+      return NULL;
+    }
+
+  ctx->ifmt_ctx = avformat_alloc_context();
+  if (!ctx->ifmt_ctx)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for decode format ctx\n");
+      return NULL;
+    }
+
+  decoder = avcodec_find_decoder(AV_CODEC_ID_PCM_S16LE);
+
+  ctx->audio_stream = avformat_new_stream(ctx->ifmt_ctx, decoder);
+  if (!ctx->audio_stream)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Could not create stream with PCM16 decoder\n");
+      return NULL;
+    }
+
+  ctx->audio_stream->codec->time_base.num  = 1;
+  ctx->audio_stream->codec->time_base.den  = 44100;
+  ctx->audio_stream->codec->sample_rate    = 44100;
+  ctx->audio_stream->codec->sample_fmt     = AV_SAMPLE_FMT_S16;
+  ctx->audio_stream->codec->channel_layout = AV_CH_LAYOUT_STEREO;
+
+  return ctx;
 }
 
 int
@@ -798,43 +1196,33 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
 
   if (!file_codectype)
     {
-      DPRINTF(E_LOG, L_XCODE, "Can't determine transcode status, codec type is unknown\n");
+      DPRINTF(E_LOG, L_XCODE, "Can't determine decode status, codec type is unknown\n");
       return -1;
     }
 
-  DPRINTF(E_DBG, L_XCODE, "Determining transcoding status for codectype %s\n", file_codectype);
-
   lib = cfg_getsec(cfg, "library");
 
-  size = cfg_size(lib, "no_transcode");
+  size = cfg_size(lib, "no_decode");
   if (size > 0)
     {
       for (i = 0; i < size; i++)
 	{
-	  codectype = cfg_getnstr(lib, "no_transcode", i);
+	  codectype = cfg_getnstr(lib, "no_decode", i);
 
 	  if (strcmp(file_codectype, codectype) == 0)
-	    {
-	      DPRINTF(E_DBG, L_XCODE, "Codectype is in no_transcode\n");
-
-	      return 0;
-	    }
+	    return 0; // Codectype is in no_decode
 	}
     }
 
-  size = cfg_size(lib, "force_transcode");
+  size = cfg_size(lib, "force_decode");
   if (size > 0)
     {
       for (i = 0; i < size; i++)
 	{
-	  codectype = cfg_getnstr(lib, "force_transcode", i);
+	  codectype = cfg_getnstr(lib, "force_decode", i);
 
 	  if (strcmp(file_codectype, codectype) == 0)
-	    {
-	      DPRINTF(E_DBG, L_XCODE, "Codectype is in force_transcode\n");
-
-	      return 1;
-	    }
+	    return 1; // Codectype is in force_decode
 	}
     }
 
@@ -842,48 +1230,22 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
     {
       if (user_agent)
 	{
-	  DPRINTF(E_DBG, L_XCODE, "User-Agent: %s\n", user_agent);
-
 	  if (strncmp(user_agent, "iTunes", strlen("iTunes")) == 0)
-	    {
-	      DPRINTF(E_DBG, L_XCODE, "Client is iTunes\n");
-
-	      client_codecs = itunes_codecs;
-	    }
+	    client_codecs = itunes_codecs;
 	  else if (strncmp(user_agent, "QuickTime", strlen("QuickTime")) == 0)
-	    {
-	      DPRINTF(E_DBG, L_XCODE, "Client is QuickTime, using iTunes codecs\n");
-
-	      client_codecs = itunes_codecs;
-	    }
+	    client_codecs = itunes_codecs; // Use iTunes codecs
 	  else if (strncmp(user_agent, "Front%20Row", strlen("Front%20Row")) == 0)
-	    {
-	      DPRINTF(E_DBG, L_XCODE, "Client is Front Row, using iTunes codecs\n");
-
-	      client_codecs = itunes_codecs;
-	    }
+	    client_codecs = itunes_codecs; // Use iTunes codecs
 	  else if (strncmp(user_agent, "AppleCoreMedia", strlen("AppleCoreMedia")) == 0)
-	    {
-	      DPRINTF(E_DBG, L_XCODE, "Client is AppleCoreMedia, using iTunes codecs\n");
-
-	      client_codecs = itunes_codecs;
-	    }
+	    client_codecs = itunes_codecs; // Use iTunes codecs
 	  else if (strncmp(user_agent, "Roku", strlen("Roku")) == 0)
-	    {
-	      DPRINTF(E_DBG, L_XCODE, "Client is a Roku device\n");
-
-	      client_codecs = roku_codecs;
-	    }
+	    client_codecs = roku_codecs;
 	  else if (strncmp(user_agent, "Hifidelio", strlen("Hifidelio")) == 0)
-	    {
-	      DPRINTF(E_DBG, L_XCODE, "Client is a Hifidelio device, allegedly cannot transcode\n");
-
-	      /* Allegedly can't transcode for Hifidelio because their
-	       * HTTP implementation doesn't honour Connection: close.
-	       * At least, that's why mt-daapd didn't do it.
-	       */
-	      return 0;
-	    }
+	    /* Allegedly can't transcode for Hifidelio because their
+	     * HTTP implementation doesn't honour Connection: close.
+	     * At least, that's why mt-daapd didn't do it.
+	     */
+	    return 0;
 	}
     }
   else
@@ -892,58 +1254,399 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
   if (!client_codecs)
     {
       DPRINTF(E_DBG, L_XCODE, "Could not identify client, using default codectype set\n");
-
       client_codecs = default_codecs;
     }
 
   if (strstr(client_codecs, file_codectype))
     {
-      DPRINTF(E_DBG, L_XCODE, "Codectype supported by client, no transcoding needed\n");
+      DPRINTF(E_DBG, L_XCODE, "Codectype supported by client, no decoding needed\n");
       return 0;
     }
 
-  DPRINTF(E_DBG, L_XCODE, "Will transcode\n");
-
+  DPRINTF(E_DBG, L_XCODE, "Will decode\n");
   return 1;
 }
 
+
+/*                                  Cleanup                                  */
+
 void
-transcode_metadata(struct transcode_ctx *ctx, struct http_icy_metadata **metadata, int *changed)
+transcode_decode_cleanup(struct decode_ctx *ctx)
 {
-  struct http_icy_metadata *m;
-
-  *metadata = NULL;
-
-  if (!ctx->fmtctx)
-    return;
-
-  m = http_icy_metadata_get(ctx->fmtctx, 1);
-  if (!m)
-    return;
-
-  *changed = (m->hash != ctx->icy_hash);
-
-  ctx->icy_hash = m->hash;
-
-  *metadata = m;
+  av_free_packet(&ctx->seek_packet);
+  close_input(ctx);
+  free(ctx);
 }
 
 void
-transcode_metadata_artwork_url(struct transcode_ctx *ctx, char **artwork_url)
+transcode_encode_cleanup(struct encode_ctx *ctx)
+{
+  int i;
+
+  // Flush filters and encoders
+  for (i = 0; i < ctx->ofmt_ctx->nb_streams; i++)
+    {
+      if (!ctx->filter_ctx[i].filter_graph)
+	continue;
+      filter_encode_write_frame(ctx, NULL, i);
+      flush_encoder(ctx, i);
+    }
+
+  av_write_trailer(ctx->ofmt_ctx);
+
+  close_filters(ctx);
+  close_output(ctx);
+  free(ctx);
+}
+
+void
+transcode_cleanup(struct transcode_ctx *ctx)
+{
+  transcode_encode_cleanup(ctx->encode_ctx);
+  transcode_decode_cleanup(ctx->decode_ctx);
+  free(ctx);
+}
+
+void
+transcode_decoded_free(struct decoded_frame *decoded)
+{
+  av_frame_free(&decoded->frame);
+  free(decoded);
+}
+
+
+/*                       Encoding, decoding and transcoding                  */
+
+struct decoded_frame *
+transcode_decode(struct decode_ctx *ctx)
+{
+  struct decoded_frame *decoded;
+  AVPacket packet;
+  AVStream *in_stream;
+  AVFrame *frame;
+  char *errmsg;
+  unsigned int stream_index;
+  int got_frame;
+  int ret;
+
+  // Read a packet
+  packet.data = NULL;
+  packet.size = 0;
+  av_init_packet(&packet);
+
+  while (1)
+    {
+      if (ctx->resume)
+	{
+	  av_copy_packet(&packet, &ctx->seek_packet);
+	  av_init_packet(&ctx->seek_packet);
+	  ctx->resume = 0;
+        }
+      else if ((ret = av_read_frame(ctx->ifmt_ctx, &packet)) < 0)
+	{
+	  errmsg = malloc(128);
+	  av_strerror(ret, errmsg, 128);
+	  DPRINTF(E_WARN, L_XCODE, "Could not read frame: %s\n", errmsg);
+	  free(errmsg);
+          return NULL;
+	}
+
+      stream_index = packet.stream_index;
+      in_stream = ctx->ifmt_ctx->streams[stream_index];
+      if (decode_stream(ctx, in_stream))
+	break;
+
+      av_free_packet(&packet);
+    }
+
+  // Decode into a frame
+  frame = av_frame_alloc();
+  if (!frame)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for decode frame\n");
+      av_free_packet(&packet);
+      return NULL;
+    }
+
+  av_packet_rescale_ts(&packet, in_stream->time_base, in_stream->codec->time_base);
+
+  if (in_stream->codec->codec_type == AVMEDIA_TYPE_AUDIO)
+    ret = avcodec_decode_audio4(in_stream->codec, frame, &got_frame, &packet);
+  else
+    ret = avcodec_decode_video2(in_stream->codec, frame, &got_frame, &packet);
+
+  av_free_packet(&packet);
+
+  // On failure, try reading another packet (just one)
+  // TODO Check if treating !got_frame like this is ok
+  if (!got_frame || (ret < 0))
+    {
+      av_frame_free(&frame);
+
+      if (ctx->retry)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Couldn't decode packet after two attempts, giving up\n");
+	  return NULL;
+	}
+      else
+	{
+	  DPRINTF(E_WARN, L_XCODE, "Couldn't decode packet, let's try the next one\n");
+	  ctx->retry = 1;
+	  decoded = transcode_decode(ctx);
+	  if (!decoded)
+	    return NULL;
+
+	  frame = decoded->frame;
+	  stream_index = decoded->stream_index;
+	  free(decoded);
+	}
+    }
+
+  // Return the decoded frame and stream index
+  frame->pts = av_frame_get_best_effort_timestamp(frame);
+
+  decoded = malloc(sizeof(struct decoded_frame));
+  if (!decoded)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for decoded result\n");
+      av_frame_free(&frame);
+      return NULL;
+    }
+
+  decoded->frame = frame;
+  decoded->stream_index = stream_index;
+
+  return decoded;
+}
+
+// Filters and encodes
+int
+transcode_encode(struct evbuffer *evbuf, struct decoded_frame *decoded, struct encode_ctx *ctx)
+{
+  char *errmsg;
+  int stream_index;
+  int encoded_length;
+  int ret;
+
+  encoded_length = 0;
+
+  stream_index = ctx->out_stream_map[decoded->stream_index];
+  if (stream_index < 0)
+    return -1;
+
+  if (ctx->wavhdr)
+    {
+      encoded_length += sizeof(ctx->header);
+      evbuffer_add(evbuf, ctx->header, sizeof(ctx->header));
+      ctx->wavhdr = 0;
+    }
+
+  ret = filter_encode_write_frame(ctx, decoded->frame, stream_index);
+  if (ret < 0)
+    {
+      errmsg = malloc(128);
+      av_strerror(ret, errmsg, 128);
+      DPRINTF(E_LOG, L_XCODE, "Error occurred: %s\n", errmsg);
+      free(errmsg);
+      return ret;
+    }
+
+  encoded_length += evbuffer_get_length(ctx->obuf);
+  evbuffer_add_buffer(evbuf, ctx->obuf);
+
+  return encoded_length;
+}
+
+int
+transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted, int *icy_timer)
+{
+  struct decoded_frame *decoded;
+  int processed;
+  int ret;
+
+  processed = 0;
+  while (processed < wanted)
+    {
+      decoded = transcode_decode(ctx->decode_ctx);
+      if (!decoded)
+	return -1;
+
+      ret = transcode_encode(evbuf, decoded, ctx->encode_ctx);
+      transcode_decoded_free(decoded);
+      if (ret < 0)
+	return -1;
+
+      processed += ret;
+    }
+
+  ctx->encode_ctx->total_bytes += processed;
+  *icy_timer = (ctx->encode_ctx->total_bytes % ctx->encode_ctx->icy_interval < processed);
+
+  return processed;
+}
+
+struct decoded_frame *
+transcode_raw2frame(uint8_t *data, size_t size)
+{
+  struct decoded_frame *decoded;
+  AVFrame *frame;
+
+  decoded = malloc(sizeof(struct decoded_frame));
+  frame = av_frame_alloc();
+  if (!decoded || !frame)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Out of memory for decoded struct or frame\n");
+      return NULL;
+    }
+
+  decoded->stream_index = 0;
+  decoded->frame = frame;
+
+  frame->nb_samples     = size / 4;
+  frame->format         = AV_SAMPLE_FMT_S16;
+  frame->channel_layout = AV_CH_LAYOUT_STEREO;
+  frame->pts            = AV_NOPTS_VALUE;
+  frame->sample_rate    = 44100;
+
+  if (avcodec_fill_audio_frame(frame, 2, frame->format, data, size, 0) < 0)
+    {
+      DPRINTF(E_LOG, L_XCODE, "Error filling frame with rawbuf\n");
+      return NULL;
+    }
+
+  return decoded;
+}
+
+
+/* TODO remux this frame without reencoding
+	  av_packet_rescale_ts(&packet, in_stream->time_base, out_stream->time_base);
+
+	  ret = av_interleaved_write_frame(ctx->ofmt_ctx, &packet);
+	  if (ret < 0)
+	    goto end;*/
+
+
+/*                                  Seeking                                  */
+
+int
+transcode_seek(struct transcode_ctx *ctx, int ms)
+{
+  struct decode_ctx *decode_ctx;
+  AVStream *in_stream;
+  int64_t start_time;
+  int64_t target_pts;
+  int64_t got_pts;
+  int got_ms;
+  int ret;
+  int i;
+
+  decode_ctx = ctx->decode_ctx;
+  in_stream = ctx->decode_ctx->audio_stream;
+  start_time = in_stream->start_time;
+
+  target_pts = ms;
+  target_pts = target_pts * AV_TIME_BASE / 1000;
+  target_pts = av_rescale_q(target_pts, AV_TIME_BASE_Q, in_stream->time_base);
+
+  if ((start_time != AV_NOPTS_VALUE) && (start_time > 0))
+    target_pts += start_time;
+
+  ret = av_seek_frame(decode_ctx->ifmt_ctx, in_stream->index, target_pts, AVSEEK_FLAG_BACKWARD);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_XCODE, "Could not seek into stream: %s\n", strerror(AVUNERROR(ret)));
+      return -1;
+    }
+
+  for (i = 0; i < decode_ctx->ifmt_ctx->nb_streams; i++)
+    {
+      if (decode_stream(decode_ctx, decode_ctx->ifmt_ctx->streams[i]))
+	avcodec_flush_buffers(decode_ctx->ifmt_ctx->streams[i]->codec);
+//      avcodec_flush_buffers(ctx->ofmt_ctx->streams[stream_nb]->codec);
+    }
+
+  // Fast forward until first packet with a timestamp is found
+  in_stream->codec->skip_frame = AVDISCARD_NONREF;
+  while (1)
+    {
+      av_free_packet(&decode_ctx->seek_packet);
+
+      ret = av_read_frame(decode_ctx->ifmt_ctx, &decode_ctx->seek_packet);
+      if (ret < 0)
+	{
+	  DPRINTF(E_WARN, L_XCODE, "Could not read more data while seeking\n");
+	  in_stream->codec->skip_frame = AVDISCARD_DEFAULT;
+	  return -1;
+	}
+
+      if (decode_ctx->seek_packet.stream_index != in_stream->index)
+	continue;
+
+      // Need a pts to return the real position
+      if (decode_ctx->seek_packet.pts == AV_NOPTS_VALUE)
+	continue;
+
+      break;
+    }
+  in_stream->codec->skip_frame = AVDISCARD_DEFAULT;
+
+  // Tell transcode_decode() to resume with seek_packet
+  decode_ctx->resume = 1;
+
+  // Compute position in ms from pts
+  got_pts = decode_ctx->seek_packet.pts;
+
+  if ((start_time != AV_NOPTS_VALUE) && (start_time > 0))
+    got_pts -= start_time;
+
+  got_pts = av_rescale_q(got_pts, in_stream->time_base, AV_TIME_BASE_Q);
+  got_ms = got_pts / (AV_TIME_BASE / 1000);
+
+  DPRINTF(E_DBG, L_XCODE, "Seek wanted %d ms, got %d ms\n", ms, got_ms);
+
+  return got_ms;
+}
+
+
+/*                                  Metadata                                 */
+
+struct http_icy_metadata *
+transcode_metadata(struct transcode_ctx *ctx, int *changed)
 {
   struct http_icy_metadata *m;
 
-  *artwork_url = NULL;
+  if (!ctx->decode_ctx->ifmt_ctx)
+    return NULL;
 
-  if (!ctx->fmtctx || !ctx->fmtctx->filename)
-    return;
-
-  m = http_icy_metadata_get(ctx->fmtctx, 1);
+  m = http_icy_metadata_get(ctx->decode_ctx->ifmt_ctx, 1);
   if (!m)
-    return;
+    return NULL;
 
-  if (m->artwork_url)
-    *artwork_url = strdup(m->artwork_url);
+  *changed = (m->hash != ctx->encode_ctx->icy_hash);
 
-  http_icy_metadata_free(m, 0);
+  ctx->encode_ctx->icy_hash = m->hash;
+
+  return m;
 }
+
+char *
+transcode_metadata_artwork_url(struct transcode_ctx *ctx)
+{
+  struct http_icy_metadata *m;
+  char *artwork_url;
+
+  if (!ctx->decode_ctx->ifmt_ctx || !ctx->decode_ctx->ifmt_ctx->filename)
+    return NULL;
+
+  artwork_url = NULL;
+
+  m = http_icy_metadata_get(ctx->decode_ctx->ifmt_ctx, 1);
+  if (m && m->artwork_url)
+    artwork_url = strdup(m->artwork_url);
+
+  if (m)
+    http_icy_metadata_free(m, 0);
+
+  return artwork_url;
+}
+

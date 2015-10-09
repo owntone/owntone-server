@@ -51,6 +51,7 @@
 #include "httpd_rsp.h"
 #include "httpd_daap.h"
 #include "httpd_dacp.h"
+#include "httpd_streaming.h"
 #include "transcode.h"
 
 /*
@@ -125,6 +126,7 @@ static pthread_t tid_httpd;
 #ifdef HAVE_LIBEVENT2_OLD
 struct stream_ctx *g_st;
 #endif
+
 
 static void
 stream_end(struct stream_ctx *st, int failed)
@@ -447,8 +449,8 @@ httpd_stream_file(struct evhttp_request *req, int id)
 
       stream_cb = stream_chunk_xcode_cb;
 
-      ret = transcode_setup(&st->xcode, mfi, &st->size, 1);
-      if (ret < 0)
+      st->xcode = transcode_setup(mfi, XCODE_PCM16_HEADER, &st->size);
+      if (!st->xcode)
 	{
 	  DPRINTF(E_WARN, L_HTTPD, "Transcoding setup failed, aborting streaming\n");
 
@@ -1036,6 +1038,12 @@ httpd_gen_cb(struct evhttp_request *req, void *arg)
 
       goto out;
     }
+  else if (streaming_is_request(req, uri))
+    {
+      streaming_request(req);
+
+      goto out;
+    }
 
   DPRINTF(E_DBG, L_HTTPD, "HTTP request: %s\n", uri);
 
@@ -1311,6 +1319,8 @@ httpd_init(void)
       goto dacp_fail;
     }
 
+  streaming_init();
+
 #ifdef USE_EVENTFD
   exit_efd = eventfd(0, EFD_CLOEXEC);
   if (exit_efd < 0)
@@ -1387,6 +1397,7 @@ httpd_init(void)
   close(exit_pipe[1]);
 #endif
  pipe_fail:
+  streaming_deinit();
   dacp_deinit();
  dacp_fail:
   daap_deinit();
@@ -1432,6 +1443,7 @@ httpd_deinit(void)
       return;
     }
 
+  streaming_deinit();
   rsp_deinit();
   dacp_deinit();
   daap_deinit();

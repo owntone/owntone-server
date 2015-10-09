@@ -50,6 +50,7 @@
 #include <event.h>
 #include <libavutil/log.h>
 #include <libavformat/avformat.h>
+#include <libavfilter/avfilter.h>
 
 #include <gcrypt.h>
 GCRY_THREAD_OPTION_PTHREAD_IMPL;
@@ -585,6 +586,7 @@ main(int argc, char **argv)
     }
 
   av_register_all();
+  avfilter_register_all();
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 13)
   avformat_network_init();
 #endif

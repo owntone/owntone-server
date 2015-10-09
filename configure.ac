@@ -83,25 +83,32 @@ AC_RUN_IFELSE(
 AC_LANG_POP([C])
 LIBS="$save_LIBS"
 
-PKG_CHECK_EXISTS([ libavcodec >= 54.35 ],
-	[PKG_CHECK_EXISTS([ libswresample ],
-		libxxresample=libswresample;
-	,
-		libxxresample=libavresample;
-	)]
-)
+PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavutil libavfilter ])
 
-if test x$libxxresample = xlibswresample; then
-	AC_DEFINE(HAVE_LIBSWRESAMPLE, 1, [Define to 1 if you have ffmpeg's libswresample])
-elif test x$libxxresample = xlibavresample; then
-	AC_DEFINE(HAVE_LIBAVRESAMPLE, 1, [Define to 1 if you have libav's libavresample])
-fi
-
-PKG_CHECK_MODULES(LIBAV, [ libavformat libavcodec libswscale libavutil $libxxresample ])
-
+dnl Checks for misc libav and ffmpeg API differences
 save_LIBS="$LIBS"
 AC_CHECK_LIB([avcodec], [avcodec_find_best_pix_fmt_of_list],
-	AC_DEFINE(HAVE_FFMPEG, 1, [Define to 1 if you have ffmpeg (and not libav).]))
+	AC_DEFINE(HAVE_FFMPEG, 1, [Define to 1 if you have ffmpeg/libav with avcodec_find_best_pix_fmt_of_list]))
+
+AC_CHECK_LIB([avfilter], [av_buffersrc_add_frame_flags],
+	AC_DEFINE(HAVE_LIBAV_BUFFERSRC_ADD_FRAME_FLAGS, 1, [Define to 1 if you have ffmpeg/libav with av_buffersrc_add_frame_flags]))
+AC_CHECK_LIB([avfilter], [av_buffersink_get_frame],
+	AC_DEFINE(HAVE_LIBAV_BUFFERSINK_GET_FRAME, 1, [Define to 1 if you have ffmpeg/libav with av_buffersink_get_frame]))
+AC_CHECK_LIB([avfilter], [avfilter_graph_parse_ptr],
+	AC_DEFINE(HAVE_LIBAV_GRAPH_PARSE_PTR, 1, [Define to 1 if you have ffmpeg/libav with avfilter_graph_parse_ptr]))
+AC_CHECK_LIB([avcodec], [av_copy_packet],
+	AC_DEFINE(HAVE_LIBAV_COPY_PACKET, 1, [Define to 1 if you have ffmpeg/libav with av_copy_packet]))
+AC_CHECK_LIB([avcodec], [av_packet_rescale_ts],
+	AC_DEFINE(HAVE_LIBAV_PACKET_RESCALE_TS, 1, [Define to 1 if you have ffmpeg/libav with av_packet_rescale_ts]))
+AC_CHECK_LIB([avformat], [avformat_alloc_output_context2],
+	AC_DEFINE(HAVE_LIBAV_ALLOC_OUTPUT_CONTEXT2, 1, [Define to 1 if you have ffmpeg/libav with avformat_alloc_output_context2]))
+AC_CHECK_LIB([avutil], [av_frame_alloc],
+	AC_DEFINE(HAVE_LIBAV_FRAME_ALLOC, 1, [Define to 1 if you have ffmpeg/libav with av_frame_alloc]))
+AC_CHECK_LIB([avutil], [av_frame_get_best_effort_timestamp],
+	AC_DEFINE(HAVE_LIBAV_BEST_EFFORT_TIMESTAMP, 1, [Define to 1 if you have ffmpeg/libav with av_frame_get_best_effort_timestamp]))
+
+AC_CHECK_HEADERS([libavutil/channel_layout.h])
+AC_CHECK_HEADERS([libavutil/mathematics.h])
 LIBS="$save_LIBS"
 
 PKG_CHECK_MODULES(MINIXML, [ mxml ])

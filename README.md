@@ -4,8 +4,8 @@ forked-daapd is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
 RSP (Roku) media server.
 
 It has support for AirPlay devices/speakers, Apple Remote (and compatibles),
-MPD clients, internet radio, Spotify and LastFM. It does not support AirPlay
-video.
+MPD clients, network streaming, internet radio, Spotify and LastFM. It does not
+support AirPlay video.
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
@@ -31,6 +31,7 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 - [Using Remote](#using-remote)
 - [AirPlay devices/speakers](#airplay-devicesspeakers)
 - [Local audio output](#local-audio-output)
+- [MP3 network streaming (streaming to iOS)](#MP3-network-streaming-(streaming-to-iOS))
 - [Supported formats](#supported-formats)
 - [Streaming MPEG4](#streaming-mpeg4)
 - [Playlists and internet radio](#playlists-and-internet-radio)
@@ -62,8 +63,9 @@ forked-daapd supports these kinds of clients:
 - DAAP clients, like iTunes or Rhythmbox
 - Remote clients, like Apple Remote or compatibles for Android/Windows Phone
 - AirPlay devices, like AirPort Express, Shairport and various AirPlay speakers
-- RSP clients, like Roku Soundbridge
 - MPD clients, like mpc (see [mpd-clients](#mpd-clients))
+- MP3 network stream clients, like VLC and almost any other music player
+- RSP clients, like Roku Soundbridge
 
 Like iTunes, you can control forked-daapd with Remote and stream your music
 to AirPlay devices.
@@ -76,14 +78,14 @@ probably obsolete when you read it :-)
 
 |          Client          | Developer  |  Type  |   Platform    | Working (vers.) |
 | ------------------------ | ---------- | ------ | ------------- | --------------- |
-| iTunes                   | Apple      | DAAP   | Win, OSX      | Yes (12.1)      |
+| iTunes                   | Apple      | DAAP   | Win, OSX      | Yes (12.3)      |
 | Rhythmbox                | Gnome      | DAAP   | Linux         | Yes             |
 | WinAmp DAAPClient        | WardFamily | DAAP   | WinAmp        | Yes             |
 | Amarok w/DAAP plugin     | KDE        | DAAP   | Linux/Win     | Yes (2.8.0)     |
 | Banshee                  |            | DAAP   | Linux/Win/OSX | No (2.6.2)      |
 | jtunes4                  |            | DAAP   | Java          | No              |
 | Firefly Client           |            | (DAAP) | Java          | No              |
-| Remote                   | Apple      | Remote | iOS           | Yes (4.2.1)     |
+| Remote                   | Apple      | Remote | iOS           | Yes (4.2.2)     |
 | Retune                   | SquallyDoc | Remote | Android       | Yes (3.5.23)    |
 | TunesRemote+             | Melloware  | Remote | Android       | Yes (2.5.3)     |
 | Remote for iTunes        | Hyperfine  | Remote | Android       | Yes             |
@@ -146,7 +148,7 @@ local path. See [Libraries on network mounts](#libraries-on-network-mounts).
 
 #### You did not enter the correct name or pairing code
 You will see an error in the log about pairing failure with a HTTP response code
-that is not 0.
+that is *not* 0.
 Solution: Copy-paste the name to be sure to get specials characters right. You
 can also try the pairinghelper script located in the scripts-folder of the
 source.
@@ -158,8 +160,10 @@ If you see an error in the log with either:
 it means that forked-daapd could not establish a connection to Remote. This 
 might be a network issue.
 Solution: Sometimes it resolves the issue if you force Remote to quit, restart
-it and do the pairing proces again. Otherwise try using avahi-browse for
-troubleshooting:
+it and do the pairing proces again. Another trick is to establish some other
+connection (eg SSH) from the iPod/iPhone/iPad to the host.
+
+Otherwise try using avahi-browse for troubleshooting:
  - in a terminal, run `avahi-browse -r -k _touch-remote._tcp`
  - start Remote, goto Settings, Add Library
  - after a couple seconds at most, you should get something similar to this:
@@ -214,10 +218,29 @@ audio device:
    OSS4.
 
 
+## MP3 network streaming (streaming to iOS)
+
+You can listen to audio being played by forked-daapd by opening this network
+stream address in pretty much any music player:
+
+ http://[your hostname/ip address]:3689/stream.mp3
+
+This is currently the only way of listening to your audio on iOS devices, since
+Apple does not allow AirPlay receiver apps, and because Apple Home Sharing
+cannot be supported by forked-daapd. So what you can do instead is install a
+music player app like VLC, connect to the stream and control playback with
+Remote. You can also use MPoD in "On the go"-mode, where control and playback is
+integrated in one app (see (#mpd-clients)).
+
+Note that MP3 encoding must be supported by ffmpeg/libav for this to work. If
+it is not available you will see a message in the log file. In Debian/Ubuntu you
+get MP3 encoding support by installing the package "libavcodec-extra".
+
+
 ## Supported formats
 
 forked-daapd should support pretty much all media formats. It relies on libav
-(ffmpeg) to extract metadata and decode the files on the fly when the client
+(or ffmpeg) to extract metadata and decode the files on the fly when the client
 doesn't support the format.
 
 Formats are attributed a code, so any new format will need to be explicitely
@@ -338,6 +361,9 @@ configuration file a rescan is required before the new setting will take effect.
 Currently, this will not be done automatically, so you need to trigger the
 rescan as described below.
 
+
+### Symlinks and pipes
+
 Symlinks are supported and dereferenced. This does interact in tricky ways
 with the above monitoring and rescanning, so you've been warned. Changes to
 symlinks themselves won't be taken into account, or not the way you'd expect.
@@ -395,15 +421,15 @@ not necessary during normal operation.
 forked-daapd is meant to be used with the clients mentioned above, so it does
 not have a command line interface nor does it have a web interface. You can,
 however, to some extent control forked-daapd with [MPD clients](#mpd-clients) or 
-from the command line by issuing DAAP/DACP commands with a program like curl. Here 
-is an example of how to do that.
+from the command line by issuing DAAP/DACP commands with a program like curl.
+Here is an example of how to do that.
 
 Say you have a playlist with a radio station, and you want to make a script that
 starts playback of that station:
 
 1. Run 'sqlite3 [your forked-daapd db]'. Use 'select id,title from files' to get
-   the id of the radio station, and use 'select id,title from playlists' to get the
-   id of the playlist.
+   the id of the radio station, and use 'select id,title from playlists' to get
+   the id of the playlist.
 2. Convert the two ids to hex.
 3. Put the following lines in the script with the relevant ids inserted (also
    observe that you must use a session-id < 100, and that you must login and
@@ -420,9 +446,9 @@ curl "http://localhost:3689/logout?session-id=50"
 ## Spotify
 
 forked-daapd has *some* support for Spotify. It must be compiled with the
-`--enable-spotify option` (see [INSTALL](INSTALL)). You must have also have libspotify
-installed, otherwise the Spotify integration will not be available. You can
-get libspotify here:
+`--enable-spotify option` (see [INSTALL](INSTALL)). You must have also have
+libspotify installed, otherwise the Spotify integration will not be available.
+You can get libspotify here:
 
   - Original (binary) tar.gz, see https://developer.spotify.com
   - Debian package (libspotify-dev), see https://apt.mopidy.com

@@ -70,6 +70,7 @@ struct player_status {
 };
 
 typedef void (*spk_enum_cb)(uint64_t id, const char *name, int relvol, struct spk_flags flags, void *arg);
+typedef int (*player_streaming_cb)(uint8_t *rawbuf, size_t size);
 
 struct player_history
 {
@@ -129,6 +130,12 @@ player_playback_next(void);
 
 int
 player_playback_prev(void);
+
+void
+player_streaming_start(player_streaming_cb cb);
+
+void
+player_streaming_stop(void);
 
 
 int

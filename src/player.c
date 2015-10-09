@@ -116,7 +116,7 @@ struct player_source
      end of file, until then it is 0. */
   uint64_t end;
 
-  struct transcode_ctx *ctx;
+  struct transcode_ctx *xcode;
   int setup_done;
 
   struct player_source *play_next;
@@ -267,12 +267,15 @@ static uint64_t last_rtptime;
 static int dev_autoselect; //TODO [player] Is this still necessary?
 static struct raop_device *dev_list;
 
-/* Device status */
+/* Output status */
 static enum laudio_state laudio_status;
 static int laudio_selected;
 static int laudio_volume;
 static int laudio_relvol;
 static int raop_sessions;
+static int streaming_selected;
+
+static player_streaming_cb streaming_write;
 
 /* Commands */
 static struct player_command *cur_cmd;
@@ -755,7 +758,7 @@ metadata_check_icy(void)
   struct http_icy_metadata *metadata;
   int changed;
 
-  transcode_metadata(cur_streaming->ctx, &metadata, &changed);
+  metadata = transcode_metadata(cur_streaming->xcode, &changed);
   if (!metadata)
     return;
 
@@ -847,7 +850,8 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
   switch (ps->data_kind)
     {
       case DATA_KIND_FILE:
-	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
+	ps->xcode = transcode_setup(mfi, XCODE_PCM16_NOHEADER, NULL);
+	ret = ps->xcode ? 0 : -1;
 	break;
 
       case DATA_KIND_HTTP:
@@ -858,7 +862,8 @@ stream_setup(struct player_source *ps, struct media_file_info *mfi)
 	free(mfi->path);
 	mfi->path = url;
 
-	ret = transcode_setup(&ps->ctx, mfi, NULL, 0);
+	ps->xcode = transcode_setup(mfi, XCODE_PCM16_NOHEADER, NULL);
+	ret = ps->xcode ? 0 : -1;
 	break;
 
       case DATA_KIND_SPOTIFY:
@@ -960,14 +965,14 @@ stream_read(struct player_source *ps, int len)
   switch (ps->data_kind)
     {
       case DATA_KIND_HTTP:
-	ret = transcode(ps->ctx, audio_buf, len, &icy_timer);
+	ret = transcode(ps->xcode, audio_buf, len, &icy_timer);
 
 	if (icy_timer)
 	  metadata_check_icy();
 	break;
 
       case DATA_KIND_FILE:
-	ret = transcode(ps->ctx, audio_buf, len, &icy_timer);
+	ret = transcode(ps->xcode, audio_buf, len, &icy_timer);
 	break;
 
 #ifdef HAVE_SPOTIFY_H
@@ -1060,7 +1065,7 @@ stream_seek(struct player_source *ps, int seek_ms)
 	break;
 
       case DATA_KIND_FILE:
-	ret = transcode_seek(ps->ctx, seek_ms);
+	ret = transcode_seek(ps->xcode, seek_ms);
 	break;
 
 #ifdef HAVE_SPOTIFY_H
@@ -1102,10 +1107,10 @@ stream_stop(struct player_source *ps)
     {
       case DATA_KIND_FILE:
       case DATA_KIND_HTTP:
-	if (ps->ctx)
+	if (ps->xcode)
 	  {
-	    transcode_cleanup(ps->ctx);
-	    ps->ctx = NULL;
+	    transcode_cleanup(ps->xcode);
+	    ps->xcode = NULL;
 	  }
 	break;
 
@@ -1583,6 +1588,9 @@ playback_write(void)
       playback_abort();
       return;
     }
+
+  if (streaming_selected)
+    streaming_write(rawbuf, sizeof(rawbuf));
 
   if (laudio_status & LAUDIO_F_STARTED)
     laudio_write(rawbuf, last_rtptime);
@@ -2289,10 +2297,10 @@ artwork_url_get(struct player_command *cmd)
     return -1;
 
   /* Check that we are playing a viable stream, and that it has the requested id */
-  if (!ps->ctx || ps->data_kind != DATA_KIND_HTTP || ps->id != cmd->arg.icy.id)
+  if (!ps->xcode || ps->data_kind != DATA_KIND_HTTP || ps->id != cmd->arg.icy.id)
     return -1;
 
-  transcode_metadata_artwork_url(ps->ctx, &cmd->arg.icy.artwork_url);
+  cmd->arg.icy.artwork_url = transcode_metadata_artwork_url(ps->xcode);
 
   return 0;
 }
@@ -3903,6 +3911,20 @@ player_playback_prev(void)
 
   return ret;
 }
+
+void
+player_streaming_start(player_streaming_cb cb)
+{
+  streaming_write = cb;
+  streaming_selected = 1;
+}
+
+void
+player_streaming_stop(void)
+{
+  streaming_selected = 0;
+}
+
 
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg)
