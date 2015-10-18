@@ -576,6 +576,10 @@ queue_new_byindex(struct queue *queue, unsigned int index, unsigned int count, c
       qii->shuffle_prev = qii;
 
       queue_add(qi, qii);
+
+      // queue_add(...) changes the queue item-id, reset the item-id to the original value
+      qii->item_id = item->item_id;
+
       i++;
     }
 
