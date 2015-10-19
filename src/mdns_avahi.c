@@ -34,11 +34,7 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 
-#ifdef HAVE_LIBEVENT2
-# include <event2/event.h>
-#else
-# include <event.h>
-#endif
+#include <event2/event.h>
 
 #include <avahi-common/watch.h>
 #include <avahi-common/malloc.h>
@@ -125,7 +121,6 @@ _ev_watch_add(AvahiWatch *w, int fd, AvahiWatchEvent a_events)
   if (a_events & AVAHI_WATCH_OUT)
     ev_events |= EV_WRITE;
 
-#ifdef HAVE_LIBEVENT2
   if (w->ev)
     event_free(w->ev);
 
@@ -135,20 +130,6 @@ _ev_watch_add(AvahiWatch *w, int fd, AvahiWatchEvent a_events)
       DPRINTF(E_LOG, L_MDNS, "Could not make new event in _ev_watch_add\n");
       return -1;
     }
-#else
-  if (w->ev)
-    free(w->ev);
-
-  w->ev = (struct event *)malloc(sizeof(struct event));
-  if (!w->ev)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory in _ev_watch_add\n");
-      return -1;
-    }
-
-  event_set(w->ev, fd, ev_events, evcb_watch, w);
-  event_base_set(evbase_main, w->ev);
-#endif
 
   return event_add(w->ev, NULL);
 }
@@ -187,11 +168,7 @@ ev_watch_update(AvahiWatch *w, AvahiWatchEvent a_events)
   if (w->ev)
     event_del(w->ev);
 
-#ifdef HAVE_LIBEVENT2
   _ev_watch_add(w, (int)event_get_fd(w->ev), a_events);
-#else
-  _ev_watch_add(w, EVENT_FD(w->ev), a_events);
-#endif
 }
 
 static AvahiWatchEvent
@@ -217,12 +194,7 @@ ev_watch_free(AvahiWatch *w)
 
   if (w->ev)
     {
-      event_del(w->ev);
-#ifdef HAVE_LIBEVENT2
       event_free(w->ev);
-#else
-      free(w->ev);
-#endif
       w->ev = NULL;
     }
 
@@ -251,7 +223,6 @@ _ev_timeout_add(AvahiTimeout *t, const struct timeval *tv)
   struct timeval now;
   int ret;
 
-#ifdef HAVE_LIBEVENT2
   if (t->ev)
     event_free(t->ev);
 
@@ -261,20 +232,6 @@ _ev_timeout_add(AvahiTimeout *t, const struct timeval *tv)
       DPRINTF(E_LOG, L_MDNS, "Could not make event in _ev_timeout_add - out of memory?\n");
       return -1;
     }
-#else
-  if (t->ev)
-    free(t->ev);
-
-  t->ev = (struct event *)malloc(sizeof(struct event));
-  if (!t->ev)
-    {
-      DPRINTF(E_LOG, L_MDNS, "Out of memory in _ev_timeout_add\n");
-      return -1;
-    }
-
-  evtimer_set(t->ev, evcb_timeout, t);
-  event_base_set(evbase_main, t->ev);
-#endif
 
   if ((tv->tv_sec == 0) && (tv->tv_usec == 0))
     {
@@ -342,12 +299,7 @@ ev_timeout_free(AvahiTimeout *t)
 
   if (t->ev)
     {
-      event_del(t->ev);
-#ifdef HAVE_LIBEVENT2
       event_free(t->ev);
-#else
-      free(t->ev);
-#endif
       t->ev = NULL;
     }
 
@@ -1028,24 +980,14 @@ mdns_deinit(void)
   for (t = all_t; t; t = t->next)
     if (t->ev)
       {
-	event_del(t->ev);
-#ifdef HAVE_LIBEVENT2
 	event_free(t->ev);
-#else
-	free(t->ev);
-#endif
 	t->ev = NULL;
       }
 
   for (w = all_w; w; w = w->next)
     if (w->ev)
       {
-	event_del(w->ev);
-#ifdef HAVE_LIBEVENT2
 	event_free(w->ev);
-#else
-	free(w->ev);
-#endif
 	w->ev = NULL;
       }
 

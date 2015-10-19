@@ -29,7 +29,7 @@
 #include <sys/stat.h>
 #include <pthread.h>
 
-#include <event.h>
+#include <event2/event.h>
 
 #include <libavutil/log.h>
 
@@ -160,19 +160,19 @@ logger_libevent(int severity, const char *msg)
 {
   switch (severity)
     {
-      case _EVENT_LOG_DEBUG:
+      case EVENT_LOG_DEBUG:
 	severity = E_DBG;
 	break;
 
-      case _EVENT_LOG_ERR:
+      case EVENT_LOG_ERR:
 	severity = E_LOG;
 	break;
 
-      case _EVENT_LOG_WARN:
+      case EVENT_LOG_WARN:
 	severity = E_WARN;
 	break;
 
-      case _EVENT_LOG_MSG:
+      case EVENT_LOG_MSG:
 	severity = E_INFO;
 	break;
 

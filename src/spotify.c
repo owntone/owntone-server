@@ -2004,33 +2004,21 @@ spotify_init(void)
   if (ret < 0)
     goto assign_fail;
 
-# if defined(__linux__)
   ret = pipe2(g_exit_pipe, O_CLOEXEC);
-# else
-  ret = pipe(g_exit_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not create pipe: %s\n", strerror(errno));
       goto exit_fail;
     }
 
-# if defined(__linux__)
   ret = pipe2(g_cmd_pipe, O_CLOEXEC);
-# else
-  ret = pipe(g_cmd_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not create command pipe: %s\n", strerror(errno));
       goto cmd_fail;
     }
 
-# if defined(__linux__)
   ret = pipe2(g_notify_pipe, O_CLOEXEC);
-# else
-  ret = pipe(g_notify_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not notify command pipe: %s\n", strerror(errno));
@@ -2044,7 +2032,6 @@ spotify_init(void)
       goto evbase_fail;
     }
 
-#ifdef HAVE_LIBEVENT2
   g_exitev = event_new(evbase_spotify, g_exit_pipe[0], EV_READ, exit_cb, NULL);
   if (!g_exitev)
     {
@@ -2065,34 +2052,6 @@ spotify_init(void)
       DPRINTF(E_LOG, L_SPOTIFY, "Could not create notify event\n");
       goto evnew_fail;
     }
-#else
-  g_exitev = (struct event *)malloc(sizeof(struct event));
-  if (!g_exitev)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create exit event\n");
-      goto evnew_fail;
-    }
-  event_set(g_exitev, g_exit_pipe[0], EV_READ, exit_cb, NULL);
-  event_base_set(evbase_spotify, g_exitev);
-
-  g_cmdev = (struct event *)malloc(sizeof(struct event));
-  if (!g_cmdev)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create cmd event\n");
-      goto evnew_fail;
-    }
-  event_set(g_cmdev, g_cmd_pipe[0], EV_READ, command_cb, NULL);
-  event_base_set(evbase_spotify, g_cmdev);
-
-  g_notifyev = (struct event *)malloc(sizeof(struct event));
-  if (!g_notifyev)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not create notify event\n");
-      goto evnew_fail;
-    }
-  event_set(g_notifyev, g_notify_pipe[0], EV_READ | EV_TIMEOUT, notify_cb, NULL);
-  event_base_set(evbase_spotify, g_notifyev);
-#endif
 
   event_add(g_exitev, NULL);
   event_add(g_cmdev, NULL);

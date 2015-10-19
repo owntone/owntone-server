@@ -31,6 +31,8 @@
 #include <string.h>
 #include <pthread.h>
 
+#include <event2/event.h>
+
 #include "conffile.h"
 #include "logger.h"
 #include "httpd_daap.h"
@@ -661,13 +663,8 @@ cache_daap_reply_add(const char *query, struct evbuffer *evbuf)
   size_t datalen;
   int ret;
 
-#ifdef HAVE_LIBEVENT2
   datalen = evbuffer_get_length(evbuf);
   data = evbuffer_pullup(evbuf, -1);
-#else
-  datalen = EVBUFFER_LENGTH(evbuf);
-  data = EVBUFFER_DATA(evbuf);
-#endif
 
   ret = sqlite3_prepare_v2(g_db_hdl, Q_TMPL, -1, &stmt, 0);
   if (ret != SQLITE_OK)
@@ -1123,13 +1120,8 @@ cache_artwork_add_impl(struct cache_command *cmd)
       return -1;
     }
 
-#ifdef HAVE_LIBEVENT2
   datalen = evbuffer_get_length(cmd->arg.evbuf);
   data = evbuffer_pullup(cmd->arg.evbuf, -1);
-#else
-  datalen = EVBUFFER_LENGTH(cmd->arg.evbuf);
-  data = EVBUFFER_DATA(cmd->arg.evbuf);
-#endif
 
   sqlite3_bind_int64(stmt, 1, cmd->arg.persistentid);
   sqlite3_bind_int(stmt, 2, cmd->arg.max_w);
@@ -1793,22 +1785,14 @@ cache_init(void)
       return 0;
     }
 
-# if defined(__linux__)
   ret = pipe2(g_exit_pipe, O_CLOEXEC);
-# else
-  ret = pipe(g_exit_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CACHE, "Could not create pipe: %s\n", strerror(errno));
       goto exit_fail;
     }
 
-# if defined(__linux__)
   ret = pipe2(g_cmd_pipe, O_CLOEXEC);
-# else
-  ret = pipe(g_cmd_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CACHE, "Could not create command pipe: %s\n", strerror(errno));
@@ -1822,7 +1806,6 @@ cache_init(void)
       goto evbase_fail;
     }
 
-#ifdef HAVE_LIBEVENT2
   g_exitev = event_new(evbase_cache, g_exit_pipe[0], EV_READ, exit_cb, NULL);
   if (!g_exitev)
     {
@@ -1843,34 +1826,6 @@ cache_init(void)
       DPRINTF(E_LOG, L_CACHE, "Could not create cache event\n");
       goto evnew_fail;
     }
-#else
-  g_exitev = (struct event *)malloc(sizeof(struct event));
-  if (!g_exitev)
-    {
-      DPRINTF(E_LOG, L_CACHE, "Could not create exit event\n");
-      goto evnew_fail;
-    }
-  event_set(g_exitev, g_exit_pipe[0], EV_READ, exit_cb, NULL);
-  event_base_set(evbase_cache, g_exitev);
-
-  g_cmdev = (struct event *)malloc(sizeof(struct event));
-  if (!g_cmdev)
-    {
-      DPRINTF(E_LOG, L_CACHE, "Could not create cmd event\n");
-      goto evnew_fail;
-    }
-  event_set(g_cmdev, g_cmd_pipe[0], EV_READ, command_cb, NULL);
-  event_base_set(evbase_cache, g_cmdev);
-
-  g_cacheev = (struct event *)malloc(sizeof(struct event));
-  if (!g_cacheev)
-    {
-      DPRINTF(E_LOG, L_CACHE, "Could not create cache event\n");
-      goto evnew_fail;
-    }
-  event_set(g_cacheev, -1, EV_TIMEOUT, cache_daap_update_cb, NULL);
-  event_base_set(evbase_cache, g_cacheev);
-#endif
 
   event_add(g_exitev, NULL);
   event_add(g_cmdev, NULL);

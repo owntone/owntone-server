@@ -23,10 +23,6 @@
 #include <string.h>
 #include <stdint.h>
 
-#ifndef HAVE_LIBEVENT2
-# define evbuffer_get_length(x) (x)->off
-#endif
-
 #include "db.h"
 #include "misc.h"
 #include "logger.h"

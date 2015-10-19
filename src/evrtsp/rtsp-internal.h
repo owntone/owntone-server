@@ -13,6 +13,9 @@
 #ifndef _RTSP_H_
 #define _RTSP_H_
 
+#include <event2/buffer.h>
+#include <event2/event_struct.h>
+
 #define RTSP_CONNECT_TIMEOUT	45
 #define RTSP_WRITE_TIMEOUT	50
 #define RTSP_READ_TIMEOUT	50

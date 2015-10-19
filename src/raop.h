@@ -4,10 +4,6 @@
 
 #include <netinet/in.h>
 
-#include <event.h>
-#include "evrtsp/evrtsp.h"
-
-
 union sockaddr_all
 {
   struct sockaddr_in sin;

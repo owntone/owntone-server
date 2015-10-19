@@ -40,7 +40,11 @@
 # define USE_EVENTFD
 # include <sys/eventfd.h>
 #endif
-
+#include <event2/event.h>
+#ifdef HAVE_LIBEVENT2_OLD
+# include <event2/bufferevent.h>
+# include <event2/bufferevent_struct.h>
+#endif
 #include <zlib.h>
 
 #include "logger.h"
@@ -85,7 +89,7 @@ struct stream_ctx {
   struct evhttp_request *req;
   uint8_t *buf;
   struct evbuffer *evbuf;
-  struct event ev;
+  struct event *ev;
   int id;
   int fd;
   off_t size;
@@ -119,7 +123,7 @@ static int exit_efd;
 static int exit_pipe[2];
 #endif
 static int httpd_exit;
-static struct event exitev;
+static struct event *exitev;
 static struct evhttp *evhttpd;
 static pthread_t tid_httpd;
 
@@ -142,6 +146,7 @@ stream_end(struct stream_ctx *st, int failed)
     evhttp_send_reply_end(st->req);
 
   evbuffer_free(st->evbuf);
+  event_free(st->ev);
 
   if (st->xcode)
     transcode_cleanup(st->xcode);
@@ -181,7 +186,7 @@ stream_chunk_resched_cb(struct evhttp_connection *evcon, void *arg)
   st = (struct stream_ctx *)arg;
 
   evutil_timerclear(&tv);
-  ret = event_add(&st->ev, &tv);
+  ret = event_add(st->ev, &tv);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming\n");
@@ -267,7 +272,7 @@ stream_chunk_xcode_cb(int fd, short event, void *arg)
 
  consume: /* reschedule immediately - consume up to start_offset */
   evutil_timerclear(&tv);
-  ret = event_add(&st->ev, &tv);
+  ret = event_add(st->ev, &tv);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not re-add one-shot event for streaming (xcode)\n");
@@ -340,7 +345,7 @@ stream_fail_cb(struct evhttp_connection *evcon, void *arg)
   DPRINTF(E_WARN, L_HTTPD, "Connection failed; stopping streaming of file ID %d\n", st->id);
 
   /* Stop streaming */
-  event_del(&st->ev);
+  event_del(st->ev);
 
   stream_end(st, 1);
 }
@@ -564,11 +569,9 @@ httpd_stream_file(struct evhttp_request *req, int id)
       goto out_cleanup;
     }
 
+  st->ev = event_new(evbase_httpd, -1, EV_TIMEOUT, stream_cb, st);
   evutil_timerclear(&tv);
-  event_set(&st->ev, -1, EV_TIMEOUT, stream_cb, st);
-  event_base_set(evbase_httpd, &st->ev);
-  ret = event_add(&st->ev, &tv);
-  if (ret < 0)
+  if (!st->ev || (event_add(st->ev, &tv) < 0))
     {
       DPRINTF(E_LOG, L_HTTPD, "Could not add one-shot event for streaming\n");
 
@@ -676,7 +679,7 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   if (!req)
     return;
 
-  if (!evbuf || (EVBUFFER_LENGTH(evbuf) == 0))
+  if (!evbuf || (evbuffer_get_length(evbuf) == 0))
     {
       DPRINTF(E_DBG, L_HTTPD, "Not gzipping body-less reply\n");
 
@@ -720,8 +723,8 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
       goto out_fail_init;
     }
 
-  strm.next_in = EVBUFFER_DATA(evbuf);
-  strm.avail_in = EVBUFFER_LENGTH(evbuf);
+  strm.next_in = evbuffer_pullup(evbuf, -1);
+  strm.avail_in = evbuffer_get_length(evbuf);
 
   flush = Z_NO_FLUSH;
 
@@ -774,7 +777,7 @@ httpd_send_reply(struct evhttp_request *req, int code, const char *reason, struc
   evbuffer_free(gzbuf);
 
   /* Drain original buffer, as would be after evhttp_send_reply() */
-  evbuffer_drain(evbuf, EVBUFFER_LENGTH(evbuf));
+  evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
 
   return;
 
@@ -1329,34 +1332,33 @@ httpd_init(void)
 
       goto pipe_fail;
     }
+
+  exitev = event_new(evbase_httpd, exit_efd, EV_READ, exit_cb, NULL);
 #else
-# if defined(__linux__)
   ret = pipe2(exit_pipe, O_CLOEXEC);
-# else
-  ret = pipe(exit_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create pipe: %s\n", strerror(errno));
 
       goto pipe_fail;
     }
-#endif /* USE_EVENTFD */
 
-#ifdef USE_EVENTFD
-  event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
-#else
-  event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
-#endif
-  event_base_set(evbase_httpd, &exitev);
-  event_add(&exitev, NULL);
+  exitev = event_new(evbase_httpd, exit_pipe[0], EV_READ, exit_cb, NULL);
+#endif /* USE_EVENTFD */
+  if (!exitev)
+    {
+      DPRINTF(E_FATAL, L_HTTPD, "Could not create exit event\n");
+
+      goto event_fail;
+    }
+  event_add(exitev, NULL);
 
   evhttpd = evhttp_new(evbase_httpd);
   if (!evhttpd)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create HTTP server\n");
 
-      goto evhttp_fail;
+      goto event_fail;
     }
 
   if (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
@@ -1389,7 +1391,7 @@ httpd_init(void)
  thread_fail:
  bind_fail:
   evhttp_free(evhttpd);
- evhttp_fail:
+ event_fail:
 #ifdef USE_EVENTFD
   close(exit_efd);
 #else

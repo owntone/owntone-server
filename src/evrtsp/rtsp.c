@@ -28,40 +28,18 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <event.h>
-
-#ifdef EVENT__HAVE_SYS_PARAM_H
 #include <sys/param.h>
-#endif
-#ifdef EVENT__HAVE_SYS_TYPES_H
 #include <sys/types.h>
-#endif
-
-#ifdef EVENT__HAVE_SYS_TIME_H
 #include <sys/time.h>
-#endif
-#ifdef EVENT__HAVE_SYS_IOCCOM_H
-#include <sys/ioccom.h>
-#endif
-
-#ifndef WIN32
 #include <sys/resource.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
-#endif
-
 #include <sys/queue.h>
 
-#ifndef WIN32
 #include <netinet/in.h>
 #include <netdb.h>
 #include <arpa/inet.h>
-#endif
-
-#ifdef WIN32
-#include <winsock2.h>
-#endif
 
 #include <assert.h>
 #include <ctype.h>
@@ -69,17 +47,13 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#ifndef WIN32
 #include <syslog.h>
-#endif
 #include <signal.h>
 #include <time.h>
-#ifdef EVENT__HAVE_UNISTD_H
 #include <unistd.h>
-#endif
-#ifdef EVENT__HAVE_FCNTL_H
 #include <fcntl.h>
-#endif
+
+#include <event2/event-config.h>
 
 #undef timeout_pending
 #undef timeout_initialized
@@ -89,10 +63,15 @@
 #include "log.h"
 #include "rtsp-internal.h"
 
-#ifdef WIN32
-#define strcasecmp _stricmp
-#define strncasecmp _strnicmp
-#define strdup _strdup
+// For compability with libevent 2.0 (HAVE_LIBEVENT2_OLD)
+#if defined(_EVENT_HAVE_GETNAMEINFO)
+# define EVENT__HAVE_GETNAMEINFO 1
+#endif
+#if defined(_EVENT_HAVE_GETADDRINFO)
+# define EVENT__HAVE_GETADDRINFO 1
+#endif
+#if defined(_EVENT_HAVE_STRSEP)
+# define EVENT__HAVE_STRSEP 1
 #endif
 
 #ifndef EVENT__HAVE_GETNAMEINFO

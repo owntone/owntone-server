@@ -2,13 +2,7 @@
 #ifndef __CACHE_H__
 #define __CACHE_H__
 
-#ifdef HAVE_LIBEVENT2
-# include <event2/event.h>
-# include <event2/buffer.h>
-#else
-# include <event.h>
-#endif
-
+#include <event2/buffer.h>
 
 /* ---------------------------- DAAP cache API  --------------------------- */
 

@@ -37,13 +37,8 @@
 # include <signal.h>
 #endif
 
-#ifdef HAVE_LIBEVENT2
-# include <event2/event.h>
-# include <event2/buffer.h>
-#else
-# include <event.h>
-# define evbuffer_get_length(x) (x)->off
-#endif
+#include <event2/event.h>
+#include <event2/buffer.h>
 
 #include <gcrypt.h>
 
@@ -4716,11 +4711,7 @@ player_init(void)
 
   raop_v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
 
-#if defined(__linux__)
   ret = pipe2(exit_pipe, O_CLOEXEC);
-#else
-  ret = pipe(exit_pipe);
-#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create pipe: %s\n", strerror(errno));
@@ -4728,11 +4719,7 @@ player_init(void)
       goto exit_fail;
     }
 
-# if defined(__linux__)
   ret = pipe2(cmd_pipe, O_CLOEXEC);
-# else
-  ret = pipe(cmd_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create command pipe: %s\n", strerror(errno));
@@ -4748,7 +4735,6 @@ player_init(void)
       goto evbase_fail;
     }
 
-#ifdef HAVE_LIBEVENT2
   exitev = event_new(evbase_player, exit_pipe[0], EV_READ, exit_cb, NULL);
   if (!exitev)
     {
@@ -4763,48 +4749,16 @@ player_init(void)
       goto evnew_fail;
     }
 
-# if defined(__linux__)
+#if defined(__linux__)
   pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ, player_playback_cb, NULL);
-# else
-  pb_timer_ev = evsignal_new(evbase_player, SIGALRM, player_playback_cb, NULL);
-# endif
-  if (!pb_timer_ev)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create playback timer event\n");
-      goto evnew_fail;
-    }
 #else
-  exitev = (struct event *)malloc(sizeof(struct event));
-  if (!exitev)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create exit event\n");
-      goto evnew_fail;
-    }
-  event_set(exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
-  event_base_set(evbase_player, exitev);
-
-  cmdev = (struct event *)malloc(sizeof(struct event));
-  if (!cmdev)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not create cmd event\n");
-      goto evnew_fail;
-    }
-  event_set(cmdev, cmd_pipe[0], EV_READ, command_cb, NULL);
-  event_base_set(evbase_player, cmdev);
-
-  pb_timer_ev = (struct event *)malloc(sizeof(struct event));
+  pb_timer_ev = evsignal_new(evbase_player, SIGALRM, player_playback_cb, NULL);
+#endif
   if (!pb_timer_ev)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create playback timer event\n");
       goto evnew_fail;
     }
-# if defined(__linux__)
-  event_set(pb_timer_ev, pb_timer_fd, EV_READ, player_playback_cb, NULL);
-# else
-  signal_set(pb_timer_ev, SIGALRM, player_playback_cb, NULL);
-# endif
-  event_base_set(evbase_player, pb_timer_ev);
-#endif /* HAVE_LIBEVENT2 */
 
   event_add(exitev, NULL);
   event_add(cmdev, NULL);

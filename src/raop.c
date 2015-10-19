@@ -57,11 +57,11 @@
 #include <arpa/inet.h>
 #include <net/if.h>
 
-#include <event.h>
-#include "evrtsp/evrtsp.h"
-
+#include <event2/event.h>
+#include <event2/buffer.h>
 #include <gcrypt.h>
 
+#include "evrtsp/evrtsp.h"
 #include "conffile.h"
 #include "logger.h"
 #include "misc.h"
@@ -108,6 +108,8 @@ struct raop_session
   unsigned encrypt:1;
   unsigned auth_quirk_itunes:1;
   unsigned wants_metadata:1;
+
+  struct event *deferredev;
 
   int reqs_in_flight;
   int cseq;
@@ -161,13 +163,7 @@ struct raop_service
 {
   int fd;
   unsigned short port;
-  struct event ev;
-};
-
-struct raop_deferred_eh
-{
-  struct event ev;
-  struct raop_session *session;
+  struct event *ev;
 };
 
 typedef void (*evrtsp_req_cb)(struct evrtsp_request *req, void *arg);
@@ -242,7 +238,7 @@ static struct raop_metadata *metadata_head;
 static struct raop_metadata *metadata_tail;
 
 /* FLUSH timer */
-static struct event flush_timer;
+static struct event *flush_timer;
 
 /* Sessions */
 static struct raop_session *sessions;
@@ -1639,6 +1635,8 @@ raop_session_free(struct raop_session *rs)
 
   evrtsp_connection_free(rs->ctrl);
 
+  event_free(rs->deferredev);
+
   close(rs->server_fd);
 
   if (rs->realm)
@@ -1708,16 +1706,11 @@ raop_session_failure(struct raop_session *rs)
 }
 
 static void
-raop_deferred_eh_cb(int fd, short what, void *arg)
+raop_deferredev_cb(int fd, short what, void *arg)
 {
-  struct raop_deferred_eh *deh;
   struct raop_session *rs;
 
-  deh = (struct raop_deferred_eh *)arg;
-
-  rs = deh->session;
-
-  free(deh);
+  rs = (struct raop_session *)arg;
 
   DPRINTF(E_DBG, L_RAOP, "Cleaning up failed session (deferred) on device %s\n", rs->devname);
 
@@ -1728,7 +1721,6 @@ static void
 raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
 {
   struct timeval tv;
-  struct raop_deferred_eh *deh;
   struct raop_session *rs;
 
   rs = (struct raop_session *)arg;
@@ -1737,20 +1729,8 @@ raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
 
   rs->state = RAOP_FAILED;
 
-  deh = (struct raop_deferred_eh *)malloc(sizeof(struct raop_deferred_eh));
-  if (!deh)
-    {
-      DPRINTF(E_LOG, L_RAOP, "Out of memory for deferred error handling!\n");
-
-      return;
-    }
-
-  deh->session = rs;
-
-  evtimer_set(&deh->ev, raop_deferred_eh_cb, deh);
-  event_base_set(evbase_player, &deh->ev);
   evutil_timerclear(&tv);
-  evtimer_add(&deh->ev, &tv);
+  evtimer_add(rs->deferredev, &tv);
 }
 
 static struct raop_session *
@@ -1833,12 +1813,20 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 	break;
     }
 
+  rs->deferredev = evtimer_new(evbase_player, raop_deferredev_cb, rs);
+  if (!rs->deferredev)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for deferred error handling!\n");
+
+      goto out_free_rs;
+    }
+
   rs->ctrl = evrtsp_connection_new(address, port);
   if (!rs->ctrl)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not create control connection to %s\n", address);
 
-      goto out_free_rs;
+      goto out_free_event;
     }
 
   evrtsp_connection_set_base(rs->ctrl, evbase_player);
@@ -1905,6 +1893,8 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 
  out_free_evcon:
   evrtsp_connection_free(rs->ctrl);
+ out_free_event:
+  event_free(rs->deferredev);
  out_free_rs:
   free(rs);
 
@@ -1999,6 +1989,8 @@ static int
 raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, char *rtptime)
 {
   char *ctype;
+  uint8_t *buf;
+  size_t len;
   int ret;
 
   switch (rmd->artwork_fmt)
@@ -2017,7 +2009,10 @@ raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, stru
 	return -1;
     }
 
-  ret = evbuffer_add(evbuf, EVBUFFER_DATA(rmd->artwork), EVBUFFER_LENGTH(rmd->artwork));
+  buf = evbuffer_pullup(rmd->artwork, -1);
+  len = evbuffer_get_length(rmd->artwork);
+
+  ret = evbuffer_add(evbuf, buf, len);
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not copy artwork for sending\n");
@@ -2035,9 +2030,14 @@ raop_metadata_send_artwork(struct raop_session *rs, struct evbuffer *evbuf, stru
 static int
 raop_metadata_send_metadata(struct raop_session *rs, struct evbuffer *evbuf, struct raop_metadata *rmd, char *rtptime)
 {
+  uint8_t *buf;
+  size_t len;
   int ret;
 
-  ret = evbuffer_add(evbuf, EVBUFFER_DATA(rmd->metadata), EVBUFFER_LENGTH(rmd->metadata));
+  buf = evbuffer_pullup(rmd->metadata, -1);
+  len = evbuffer_get_length(rmd->metadata);
+
+  ret = evbuffer_add(evbuf, buf, len);
   if (ret != 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Could not copy metadata for sending\n");
@@ -2412,11 +2412,9 @@ raop_flush(raop_status_cb cb, uint64_t rtptime)
 
   if (pending > 0)
     {
-      evtimer_set(&flush_timer, raop_flush_timer_cb, NULL);
-      event_base_set(evbase_player, &flush_timer);
       evutil_timerclear(&tv);
       tv.tv_sec = 10;
-      evtimer_add(&flush_timer, &tv);
+      evtimer_add(flush_timer, &tv);
     }
 
   return pending;
@@ -2565,7 +2563,7 @@ raop_v2_timing_cb(int fd, short what, void *arg)
     }
 
  readd:
-  ret = event_add(&svc->ev, NULL);
+  ret = event_add(svc->ev, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't re-add event for timing requests\n");
@@ -2654,15 +2652,15 @@ raop_v2_timing_start_one(struct raop_service *svc, int family)
 	break;
     }
 
-  event_set(&svc->ev, svc->fd, EV_READ, raop_v2_timing_cb, svc);
-  event_base_set(evbase_player, &svc->ev);
-  ret = event_add(&svc->ev, NULL);
-  if (ret < 0)
+  svc->ev = event_new(evbase_player, svc->fd, EV_READ, raop_v2_timing_cb, svc);
+  if (!svc->ev)
     {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't add event for timing requests\n");
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for raop_service event\n");
 
       goto out_fail;
     }
+
+  event_add(svc->ev, NULL);
 
   return 0;
 
@@ -2677,11 +2675,11 @@ raop_v2_timing_start_one(struct raop_service *svc, int family)
 static void
 raop_v2_timing_stop(void)
 {
-  if (event_initialized(&timing_4svc.ev))
-    event_del(&timing_4svc.ev);
+  if (timing_4svc.ev)
+    event_free(timing_4svc.ev);
 
-  if (event_initialized(&timing_6svc.ev))
-    event_del(&timing_6svc.ev);
+  if (timing_6svc.ev)
+    event_free(timing_6svc.ev);
 
   close(timing_4svc.fd);
 
@@ -2897,7 +2895,7 @@ raop_v2_control_cb(int fd, short what, void *arg)
   raop_v2_resend_range(rs, seq_start, seq_len);
 
  readd:
-  ret = event_add(&svc->ev, NULL);
+  ret = event_add(svc->ev, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "Couldn't re-add event for control requests\n");
@@ -2986,15 +2984,15 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
 	break;
     }
 
-  event_set(&svc->ev, svc->fd, EV_READ, raop_v2_control_cb, svc);
-  event_base_set(evbase_player, &svc->ev);
-  ret = event_add(&svc->ev, NULL);
-  if (ret < 0)
+  svc->ev = event_new(evbase_player, svc->fd, EV_READ, raop_v2_control_cb, svc);
+  if (!svc->ev)
     {
-      DPRINTF(E_LOG, L_RAOP, "Couldn't add event for control requests\n");
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for control event\n");
 
       goto out_fail;
     }
+
+  event_add(svc->ev, NULL);
 
   return 0;
 
@@ -3009,11 +3007,11 @@ raop_v2_control_start_one(struct raop_service *svc, int family)
 static void
 raop_v2_control_stop(void)
 {
-  if (event_initialized(&control_4svc.ev))
-    event_del(&control_4svc.ev);
+  if (control_4svc.ev)
+    event_free(control_4svc.ev);
 
-  if (event_initialized(&control_6svc.ev))
-    event_del(&control_6svc.ev);
+  if (control_6svc.ev)
+    event_free(control_6svc.ev);
 
   close(control_4svc.fd);
 
@@ -3920,8 +3918,7 @@ raop_playback_start(uint64_t next_pkt, struct timespec *ts)
 {
   struct raop_session *rs;
 
-  if (event_initialized(&flush_timer))
-    event_del(&flush_timer);
+  event_del(flush_timer);
 
   sync_counter = 0;
 
@@ -4043,12 +4040,20 @@ raop_init(int *v6enabled)
   if (ptr)
     *ptr = '\0';
 
+  flush_timer = evtimer_new(evbase_player, raop_flush_timer_cb, NULL);
+  if (!flush_timer)
+    {
+      DPRINTF(E_LOG, L_RAOP, "AirTunes v2 playback synchronization failed to start\n");
+
+      goto out_free_b64_iv;
+    }
+
   ret = raop_v2_timing_start(*v6enabled);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirTunes v2 time synchronization failed to start\n");
 
-      goto out_free_b64_iv;
+      goto out_free_flush_timer;
     }
 
   ret = raop_v2_control_start(*v6enabled);
@@ -4066,6 +4071,8 @@ raop_init(int *v6enabled)
 
  out_stop_timing:
   raop_v2_timing_stop();
+ out_free_flush_timer:
+  event_free(flush_timer);
  out_free_b64_iv:
   free(raop_aes_iv_b64);
  out_free_b64_key:
@@ -4088,8 +4095,10 @@ raop_deinit(void)
       raop_session_free(rs);
     }
 
-  raop_v2_timing_stop();
   raop_v2_control_stop();
+  raop_v2_timing_stop();
+
+  event_free(flush_timer);
 
   gcry_cipher_close(raop_aes_ctx);
 

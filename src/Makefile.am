@@ -25,14 +25,6 @@ if COND_OSS4
 OSS4_SRC=laudio_oss4.c
 endif
 
-if COND_LIBEVENT20
-RTSP_SRC=evrtsp/rtsp-libevent20.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
-endif
-
-if COND_LIBEVENT21
-RTSP_SRC=evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h
-endif
-
 GPERF_FILES = \
 	daap_query.gperf \
 	rsp_query.gperf \
@@ -109,7 +101,7 @@ forked_daapd_SOURCES = main.c \
 	laudio_dummy.c \
 	laudio.c laudio.h \
 	raop.c raop.h \
-	$(RTSP_SRC) \
+	evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \
 	$(MPD_SRC) \

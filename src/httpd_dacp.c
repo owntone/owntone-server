@@ -39,6 +39,7 @@
 
 #include <event2/event.h>
 #include <event2/buffer.h>
+#include <event2/keyvalq_struct.h>
 
 #include "logger.h"
 #include "misc.h"
@@ -277,7 +278,7 @@ make_playstatusupdate(struct evbuffer *evbuf)
   dmap_add_char(psu, "casu", 1);              /*  9 */ /* unknown */
   dmap_add_char(psu, "ceQu", 0);              /*  9 */ /* unknown */
 
-  dmap_add_container(evbuf, "cmst", EVBUFFER_LENGTH(psu));    /* 8 + len */
+  dmap_add_container(evbuf, "cmst", evbuffer_get_length(psu));    /* 8 + len */
 
   ret = evbuffer_add_buffer(evbuf, psu);
   evbuffer_free(psu);
@@ -298,6 +299,8 @@ playstatusupdate_cb(int fd, short what, void *arg)
   struct evbuffer *evbuf;
   struct evbuffer *update;
   struct evhttp_connection *evcon;
+  uint8_t *buf;
+  size_t len;
   int ret;
 
 #ifdef USE_EVENTFD
@@ -339,6 +342,8 @@ playstatusupdate_cb(int fd, short what, void *arg)
   if (ret < 0)
     goto out_free_update;
 
+  len = evbuffer_get_length(update);
+
   for (ur = update_requests; update_requests; ur = update_requests)
     {
       update_requests = ur->next;
@@ -347,9 +352,15 @@ playstatusupdate_cb(int fd, short what, void *arg)
       if (evcon)
 	evhttp_connection_set_closecb(evcon, NULL, NULL);
 
-      evbuffer_add(evbuf, EVBUFFER_DATA(update), EVBUFFER_LENGTH(update));
-
-      httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+      // Only copy buffer if we actually need to reuse it
+      if (ur->next)
+	{
+	  buf = evbuffer_pullup(update, -1);
+	  evbuffer_add(evbuf, buf, len);
+	  httpd_send_reply(ur->req, HTTP_OK, "OK", evbuf);
+	}
+      else
+	httpd_send_reply(ur->req, HTTP_OK, "OK", update);
 
       free(ur);
     }
@@ -1452,7 +1463,7 @@ playqueuecontents_add_source(struct evbuffer *songlist, uint32_t source_id, int 
   dmap_add_char(song, "caks", 6); /* Unknown */
   dmap_add_int(song, "ceQI", pos_in_queue);
 
-  dmap_add_container(songlist, "mlit", EVBUFFER_LENGTH(song));
+  dmap_add_container(songlist, "mlit", evbuffer_get_length(song));
 
   ret = evbuffer_add_buffer(songlist, song);
   evbuffer_free(song);
@@ -2646,11 +2657,7 @@ dacp_init(void)
       return -1;
     }
 #else
-# if defined(__linux__)
   ret = pipe2(update_pipe, O_CLOEXEC);
-# else
-  ret = pipe(update_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Could not create update pipe: %s\n", strerror(errno));

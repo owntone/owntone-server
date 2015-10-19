@@ -44,10 +44,6 @@
 #include "avio_evbuffer.h"
 #include "artwork.h"
 
-#ifndef HAVE_LIBEVENT2
-# define evbuffer_get_length(x) (x)->off
-#endif
-
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif

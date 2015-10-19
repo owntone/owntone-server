@@ -32,6 +32,8 @@
 #include <limits.h>
 
 #include <mxml.h>
+#include <event2/buffer.h>
+#include <event2/keyvalq_struct.h>
 
 #include "logger.h"
 #include "db.h"

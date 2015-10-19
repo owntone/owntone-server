@@ -47,7 +47,7 @@
 #include <pthread.h>
 
 #include <getopt.h>
-#include <event.h>
+#include <event2/event.h>
 #include <libavutil/log.h>
 #include <libavformat/avformat.h>
 #include <libavfilter/avfilter.h>
@@ -79,14 +79,14 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 
 struct event_base *evbase_main;
 
-static struct event sig_event;
+static struct event *sig_event;
 static int main_exit;
 
 static void
 version(void)
 {
   fprintf(stdout, "Forked Media Server: Version %s\n", VERSION);
-  fprintf(stdout, "Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>\n");
+  fprintf(stdout, "Copyright (C) 2009-2015 Julien BLACHE <jb@jblache.org>\n");
   fprintf(stdout, "Based on mt-daapd, Copyright (C) 2003-2007 Ron Pedde <ron@pedde.com>\n");
   fprintf(stdout, "Released under the GNU General Public License version 2 or later\n");
 }
@@ -359,7 +359,7 @@ signal_signalfd_cb(int fd, short event, void *arg)
   if (main_exit)
     event_base_loopbreak(evbase_main);
   else
-    event_add(&sig_event, NULL);
+    event_add(sig_event, NULL);
 }
 
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
@@ -404,7 +404,7 @@ signal_kqueue_cb(int fd, short event, void *arg)
   if (main_exit)
     event_base_loopbreak(evbase_main);
   else
-    event_add(&sig_event, NULL);
+    event_add(sig_event, NULL);
 }
 #endif
 
@@ -644,8 +644,8 @@ main(int argc, char **argv)
       goto daemon_fail;
     }
 
-  /* Initialize libevent (after forking) */
-  evbase_main = event_init();
+  /* Initialize event base (after forking) */
+  evbase_main = event_base_new();
 
   DPRINTF(E_LOG, L_MAIN, "mDNS init\n");
   ret = mdns_init();
@@ -778,8 +778,7 @@ main(int argc, char **argv)
       goto signalfd_fail;
     }
 
-  event_set(&sig_event, sigfd, EV_READ, signal_signalfd_cb, NULL);
-
+  sig_event = event_new(evbase_main, sigfd, EV_READ, signal_signalfd_cb, NULL);
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
   sigfd = kqueue();
   if (sigfd < 0)
@@ -804,11 +803,17 @@ main(int argc, char **argv)
       goto signalfd_fail;
     }
 
-  event_set(&sig_event, sigfd, EV_READ, signal_kqueue_cb, NULL);
+  sig_event = event_new(evbase_main, sigfd, EV_READ, signal_kqueue_cb, NULL);
 #endif
+  if (!sig_event)
+    {
+      DPRINTF(E_FATAL, L_MAIN, "Could not create signal event\n");
 
-  event_base_set(evbase_main, &sig_event);
-  event_add(&sig_event, NULL);
+      ret = EXIT_FAILURE;
+      goto sig_event_fail;
+    }
+
+  event_add(sig_event, NULL);
 
   /* Run the loop */
   event_base_dispatch(evbase_main);
@@ -823,6 +828,7 @@ main(int argc, char **argv)
   DPRINTF(E_LOG, L_MAIN, "mDNS deinit\n");
   mdns_deinit();
 
+ sig_event_fail:
  signalfd_fail:
  mdns_reg_fail:
   DPRINTF(E_LOG, L_MAIN, "Remote pairing deinit\n");

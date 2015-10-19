@@ -48,16 +48,11 @@
 # include <sys/event.h>
 #endif
 
-#if defined(HAVE_SYS_EVENTFD_H) && defined(HAVE_EVENTFD)
-# define USE_EVENTFD
-# include <sys/eventfd.h>
-#endif
-
 #ifdef HAVE_REGEX_H
 # include <regex.h>
 #endif
 
-#include <event.h>
+#include <event2/event.h>
 
 #include "logger.h"
 #include "db.h"
@@ -126,17 +121,13 @@ struct stacked_dir {
 
 
 static int cmd_pipe[2];
-#ifdef USE_EVENTFD
-static int exit_efd;
-#else
 static int exit_pipe[2];
-#endif
 static int scan_exit;
 static int inofd;
 static struct event_base *evbase_scan;
-static struct event inoev;
-static struct event exitev;
-static struct event cmdev;
+static struct event *inoev;
+static struct event *exitev;
+static struct event *cmdev;
 static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
@@ -154,8 +145,8 @@ static int scanning;
  * when we get the IN_CREATE and then ignore the IN_ATTRIB for these files.
  */
 #define INCOMINGFILES_BUFFER_SIZE 50
-int incomingfiles_idx;
-uint32_t incomingfiles_buffer[INCOMINGFILES_BUFFER_SIZE];
+static int incomingfiles_idx;
+static uint32_t incomingfiles_buffer[INCOMINGFILES_BUFFER_SIZE];
 
 /* Forward */
 static void
@@ -1302,7 +1293,7 @@ filescanner(void *arg)
 #endif
 
       /* Enable inotify */
-      event_add(&inoev, NULL);
+      event_add(inoev, NULL);
 
       event_base_dispatch(evbase_scan);
     }
@@ -1763,7 +1754,7 @@ inotify_cb(int fd, short event, void *arg)
 
   free(buf);
 
-  event_add(&inoev, NULL);
+  event_add(inoev, NULL);
 }
 #endif /* __linux__ */
 
@@ -1946,7 +1937,7 @@ kqueue_cb(int fd, short event, void *arg)
 	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
     }
 
-  event_add(&inoev, NULL);
+  event_add(inoev, NULL);
 }
 #endif /* __FreeBSD__ || __FreeBSD_kernel__ */
 
@@ -1963,7 +1954,7 @@ inofd_event_set(void)
       return -1;
     }
 
-  event_set(&inoev, inofd, EV_READ, inotify_cb, NULL);
+  inoev = event_new(evbase_scan, inofd, EV_READ, inotify_cb, NULL);
 
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 
@@ -1975,10 +1966,8 @@ inofd_event_set(void)
       return -1;
     }
 
-  event_set(&inoev, inofd, EV_READ, kqueue_cb, NULL);
+  inoev = event_new(evbase_scan, inofd, EV_READ, kqueue_cb, NULL);
 #endif
-
-  event_base_set(evbase_scan, &inoev);
 
   return 0;
 }
@@ -1987,7 +1976,7 @@ inofd_event_set(void)
 static void
 inofd_event_unset(void)
 {
-  event_del(&inoev);
+  event_free(inoev);
   close(inofd);
 }
 
@@ -2030,7 +2019,7 @@ command_cb(int fd, short what, void *arg)
   pthread_mutex_unlock(&cmd->lck);
 
  readd:
-  event_add(&cmdev, NULL);
+  event_add(cmdev, NULL);
 }
 
 static int
@@ -2145,27 +2134,20 @@ filescanner_init(void)
       return -1;
     }
 
-#ifdef USE_EVENTFD
-  exit_efd = eventfd(0, EFD_CLOEXEC);
-  if (exit_efd < 0)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not create eventfd: %s\n", strerror(errno));
-
-      goto pipe_fail;
-    }
-#else
-# if defined(__linux__)
   ret = pipe2(exit_pipe, O_CLOEXEC);
-# else
-  ret = pipe(exit_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_SCAN, "Could not create pipe: %s\n", strerror(errno));
 
       goto pipe_fail;
     }
-#endif /* USE_EVENTFD */
+
+  exitev = event_new(evbase_scan, exit_pipe[0], EV_READ, exit_cb, NULL);
+  if (!exitev || (event_add(exitev, NULL) < 0))
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not create/add command event\n");
+      goto exitev_fail;
+    }
 
   ret = inofd_event_set();
   if (ret < 0)
@@ -2173,28 +2155,19 @@ filescanner_init(void)
       goto ino_fail;
     }
 
-#ifdef USE_EVENTFD
-  event_set(&exitev, exit_efd, EV_READ, exit_cb, NULL);
-#else
-  event_set(&exitev, exit_pipe[0], EV_READ, exit_cb, NULL);
-#endif
-  event_base_set(evbase_scan, &exitev);
-  event_add(&exitev, NULL);
-
-# if defined(__linux__)
   ret = pipe2(cmd_pipe, O_CLOEXEC);
-# else
-  ret = pipe(cmd_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not create command pipe: %s\n", strerror(errno));
       goto cmd_fail;
     }
 
-  event_set(&cmdev, cmd_pipe[0], EV_READ, command_cb, NULL);
-  event_base_set(evbase_scan, &cmdev);
-  event_add(&cmdev, NULL);
+  cmdev = event_new(evbase_scan, cmd_pipe[0], EV_READ, command_cb, NULL);
+  if (!cmdev || (event_add(cmdev, NULL) < 0))
+    {
+      DPRINTF(E_LOG, L_SCAN, "Could not create/add command event\n");
+      goto cmd_fail;
+    }
 
   ret = pthread_create(&tid_scan, NULL, filescanner, NULL);
   if (ret != 0)
@@ -2211,13 +2184,10 @@ filescanner_init(void)
   close(cmd_pipe[0]);
   close(cmd_pipe[1]);
   close(inofd);
+ exitev_fail:
  ino_fail:
-#ifdef USE_EVENTFD
-  close(exit_efd);
-#else
   close(exit_pipe[0]);
   close(exit_pipe[1]);
-#endif
  pipe_fail:
   event_base_free(evbase_scan);
 
@@ -2229,16 +2199,6 @@ void
 filescanner_deinit(void)
 {
   int ret;
-
-#ifdef USE_EVENTFD
-  ret = eventfd_write(exit_efd, 1);
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_SCAN, "Could not send exit event: %s\n", strerror(errno));
-
-      return;
-    }
-#else
   int dummy = 42;
 
   ret = write(exit_pipe[1], &dummy, sizeof(dummy));
@@ -2248,7 +2208,6 @@ filescanner_deinit(void)
 
       return;
     }
-#endif
 
   scan_exit = 1;
 
@@ -2262,12 +2221,8 @@ filescanner_deinit(void)
 
   inofd_event_unset();
 
-#ifdef USE_EVENTFD
-  close(exit_efd);
-#else
   close(exit_pipe[0]);
   close(exit_pipe[1]);
-#endif
   close(cmd_pipe[0]);
   close(cmd_pipe[1]);
   event_base_free(evbase_scan);

@@ -24,7 +24,8 @@
 #endif
 
 #ifndef HAVE_LIBAV_PACKET_RESCALE_TS
-void av_packet_rescale_ts(AVPacket *pkt, AVRational src_tb, AVRational dst_tb)
+static void
+av_packet_rescale_ts(AVPacket *pkt, AVRational src_tb, AVRational dst_tb)
 {
     if (pkt->pts != AV_NOPTS_VALUE)
         pkt->pts = av_rescale_q(pkt->pts, src_tb, dst_tb);
@@ -38,8 +39,8 @@ void av_packet_rescale_ts(AVPacket *pkt, AVRational src_tb, AVRational dst_tb)
 #endif
 
 #ifndef HAVE_LIBAV_ALLOC_OUTPUT_CONTEXT2
-int avformat_alloc_output_context2(AVFormatContext **avctx, AVOutputFormat *oformat,
-                                   const char *format, const char *filename)
+static int
+avformat_alloc_output_context2(AVFormatContext **avctx, AVOutputFormat *oformat, const char *format, const char *filename)
 {
     AVFormatContext *s = avformat_alloc_context();
     int ret = 0;

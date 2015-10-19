@@ -113,17 +113,7 @@ LIBS="$save_LIBS"
 
 PKG_CHECK_MODULES(MINIXML, [ mxml ])
 
-PKG_CHECK_MODULES(LIBEVENT, [ libevent >= 2 ],
-        AC_DEFINE(HAVE_LIBEVENT2, 1, [Define to 1 if you have libevent 2])
-)
-
-AM_CONDITIONAL(COND_LIBEVENT20, false)
-AM_CONDITIONAL(COND_LIBEVENT21, false)
-
-PKG_CHECK_EXISTS([ libevent >= 2.1 ],
-	AM_CONDITIONAL(COND_LIBEVENT21, true),
-	AM_CONDITIONAL(COND_LIBEVENT20, true)
-)
+PKG_CHECK_MODULES(LIBEVENT, [ libevent >= 2 ])
 PKG_CHECK_EXISTS([ libevent >= 2.1.4 ], ,
 	AC_DEFINE(HAVE_LIBEVENT2_OLD, 1, [Define to 1 if you have libevent 2 (<2.1.4)])
 )

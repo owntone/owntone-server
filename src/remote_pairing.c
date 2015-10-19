@@ -46,12 +46,9 @@
 # include <sys/eventfd.h>
 #endif
 
-#include <event.h>
-#ifdef HAVE_LIBEVENT2
-# include <event2/http.h>
-#else
-# include "evhttp/evhttp_compat.h"
-#endif
+#include <event2/event.h>
+#include <event2/buffer.h>
+#include <event2/http.h>
 
 #include <gcrypt.h>
 
@@ -88,7 +85,7 @@ static int pairing_efd;
 #else
 static int pairing_pipe[2];
 #endif
-static struct event pairingev;
+static struct event *pairingev;
 static pthread_mutex_t remote_lck = PTHREAD_MUTEX_INITIALIZER;
 static struct remote_info *remote_list;
 
@@ -417,6 +414,7 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
   struct evbuffer *input_buffer;
   uint8_t *response;
   char guid[17];
+  int buflen;
   int response_code;
   int len;
   int i;
@@ -441,14 +439,15 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
 
   input_buffer = evhttp_request_get_input_buffer(req);
 
-  if (EVBUFFER_LENGTH(input_buffer) < 8)
+  buflen = evbuffer_get_length(input_buffer);
+  if (buflen < 8)
     {
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response too short\n", ri->pi.remote_id, ri->pi.name);
 
       goto cleanup;
     }
 
-  response = EVBUFFER_DATA(input_buffer);
+  response = evbuffer_pullup(input_buffer, -1);
 
   if ((response[0] != 'c') || (response[1] != 'm') || (response[2] != 'p') || (response[3] != 'a'))
     {
@@ -458,10 +457,10 @@ pairing_request_cb(struct evhttp_request *req, void *arg)
     }
 
   len = (response[4] << 24) | (response[5] << 16) | (response[6] << 8) | (response[7]);
-  if (EVBUFFER_LENGTH(input_buffer) < 8 + len)
+  if (buflen < 8 + len)
     {
       DPRINTF(E_LOG, L_REMOTE, "Remote %s/%s: pairing response truncated (got %d expected %d)\n",
-	      ri->pi.remote_id, ri->pi.name, (int)EVBUFFER_LENGTH(input_buffer), len + 8);
+	      ri->pi.remote_id, ri->pi.name, buflen, len + 8);
 
       goto cleanup;
     }
@@ -683,7 +682,7 @@ pairing_cb(int fd, short event, void *arg)
       do_pairing(ri);
     }
 
-  event_add(&pairingev, NULL);
+  event_add(pairingev, NULL);
 }
 
 
@@ -918,27 +917,13 @@ remote_pairing_init(void)
       return -1;
     }
 #else
-# if defined(__linux__)
   ret = pipe2(pairing_pipe, O_CLOEXEC | O_NONBLOCK);
-# else
-  ret = pipe(pairing_pipe);
-# endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_REMOTE, "Could not create pairing pipe: %s\n", strerror(errno));
 
       return -1;
     }
-
-# ifndef __linux__
-  ret = fcntl(pairing_pipe[0], F_SETFL, O_NONBLOCK);
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_REMOTE, "Could not set O_NONBLOCK: %s\n", strerror(errno));
-
-      goto pairing_pipe_fail;
-    }
-# endif
 #endif /* USE_EVENTFD */
 
   ret = mdns_browse("_touch-remote._tcp", MDNS_WANT_V4, touch_remote_cb);
@@ -950,18 +935,22 @@ remote_pairing_init(void)
     }
 
 #ifdef USE_EVENTFD
-  event_set(&pairingev, pairing_efd, EV_READ, pairing_cb, NULL);
+  pairingev = event_new(evbase_main, pairing_efd, EV_READ, pairing_cb, NULL);
 #else
-  event_set(&pairingev, pairing_pipe[0], EV_READ, pairing_cb, NULL);
+  pairingev = event_new(evbase_main, pairing_pipe[0], EV_READ, pairing_cb, NULL);
 #endif
-  event_base_set(evbase_main, &pairingev);
-  event_add(&pairingev, NULL);
+  if (!pairingev)
+    {
+      DPRINTF(E_FATAL, L_REMOTE, "Out of memory for pairing event\n");
+
+      goto pairingev_fail;
+    }
+
+  event_add(pairingev, NULL);
 
   return 0;
 
-#ifndef __linux__
- pairing_pipe_fail:
-#endif
+ pairingev_fail:
  mdns_browse_fail:
 #ifdef USE_EVENTFD
   close(pairing_efd);

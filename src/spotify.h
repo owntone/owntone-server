@@ -3,12 +3,8 @@
 #define __SPOTIFY_H__
 
 #include "db.h"
-#ifdef HAVE_LIBEVENT2
-# include <event2/event.h>
-# include <event2/buffer.h>
-#else
-# include <event.h>
-#endif
+#include <event2/event.h>
+#include <event2/buffer.h>
 
 int
 spotify_playback_setup(struct media_file_info *mfi);
