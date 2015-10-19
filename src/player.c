@@ -1512,7 +1512,7 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	    {
 	      ret = stream_read(cur_streaming, len - nbytes);
 	    }
-	  else
+	  else if (cur_playing)
 	    {
 	      // Reached end of playlist (cur_playing is NULL) send silence and source_check will abort playback if the last item was played
 	      DPRINTF(E_SPAM, L_PLAYER, "End of playlist reached, stream silence until playback of last item ends\n");
@@ -1520,6 +1520,11 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
 	      evbuffer_add(audio_buf, silence_buf, (len - nbytes));
 	      free(silence_buf);
 	      ret = len - nbytes;
+	    }
+	  else
+	    {
+	      // If cur_streaming and cur_playing are NULL, source_read for all queue items failed. Playback will be aborted in the calling function
+	      return -1;
 	    }
 
 	  if (ret <= 0)
