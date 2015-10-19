@@ -1150,7 +1150,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   const char *shuffle;
   uint32_t plid;
   uint32_t id;
-  uint32_t pos;
+  int pos;
   int ret;
 
   /* /ctrl-int/1/playspec?database-spec='dmap.persistentid:0x1'&container-spec='dmap.persistentid:0x5'&container-item-spec='dmap.containeritemid:0x9'
@@ -1213,7 +1213,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	}
       param++;
 
-      ret = safe_hextou32(param, &pos);
+      ret = safe_hextou32(param, &id);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Couldn't convert container-item-spec/item-spec to an integer in playspec (%s)\n", param);
@@ -1222,15 +1222,15 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	}
     }
   else
-    pos = 0;
+    id = 0;
 
-  DPRINTF(E_DBG, L_DACP, "Playspec request for playlist %d, start song id %d%s\n", plid, pos, (shuffle) ? ", shuffle" : "");
+  DPRINTF(E_DBG, L_DACP, "Playspec request for playlist %d, start song id %d%s\n", plid, id, (shuffle) ? ", shuffle" : "");
 
   items = NULL;
   if (plid > 0)
     items = queueitem_make_byplid(plid);
-  else if (pos > 0)
-    items = queueitem_make_byid(pos);
+  else if (id > 0)
+    items = queueitem_make_byid(id);
 
   if (!items)
     {
@@ -1239,6 +1239,12 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
       goto out_fail;
     }
 
+  pos = queueitem_pos(items, id);
+  if (pos < 0)
+    {
+      DPRINTF(E_DBG, L_DACP, "No item with %d found in queue\n", id);
+      pos = 0;
+    }
   DPRINTF(E_DBG, L_DACP, "Playspec start song index is %d\n", pos);
 
   player_get_status(&status);
@@ -1253,7 +1259,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   if (shuffle)
     dacp_propset_shufflestate(shuffle, NULL);
 
-  ret = player_playback_start_bypos(pos, &id);
+  ret = player_playback_start_bypos(pos, NULL);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Could not start playback\n");
