@@ -48,6 +48,8 @@
 #define METADATA_ICY_INTERVAL 5
 // Maximum number of streams in a file that we will accept
 #define MAX_STREAMS 64
+// Maximum number of times we retry when we encounter bad packets
+#define MAX_BAD_PACKETS 3
 
 static char *default_codecs = "mpeg,wav";
 static char *roku_codecs = "mpeg,mp4a,wma,wav";
@@ -71,12 +73,12 @@ struct decode_ctx {
   // Duration (used to make wav header)
   uint32_t duration;
 
-  // Used for seeking
+  // Contains the most recent packet from av_read_frame
+  // Used for resuming after seek and for freeing correctly
+  // in transcode_decode()
+  AVPacket packet;
   int resume;
-  AVPacket seek_packet;
-
-  // Used to keep track of retries when decoding fails
-  int retry;
+  int resume_offset;
 };
 
 struct encode_ctx {
@@ -238,6 +240,61 @@ decode_stream(struct decode_ctx *ctx, AVStream *in_stream)
           (in_stream == ctx->subtitle_stream));
 }
 
+/* Will read the next packet from the source, unless we are in resume mode,
+ * where the previous packet is returned (again), but with an adjusted data
+ * pointer. *packet must already be an already allocated AVPacket, which will be
+ * updated by this function. Must not be freed with av_free_packet().
+ */
+static int
+read_packet(AVPacket *packet, AVStream **stream, unsigned int *stream_index, struct decode_ctx *ctx)
+{
+  AVStream *in_stream;
+  char *errmsg;
+  int ret;
+
+  do
+    {
+      if (ctx->resume)
+	{
+	  // Copies packet struct, but not actual packet payload, and adjusts
+	  // data pointer to somewhere inside the payload if resume_offset is set
+	  *packet = ctx->packet;
+	  packet->data += ctx->resume_offset;
+	  packet->size -= ctx->resume_offset;
+	  ctx->resume = 0;
+        }
+      else
+	{
+	  // We are going to read a new packet from source, so now it is safe to
+	  // discard the previous packet and reset resume_offset
+	  av_free_packet(&ctx->packet);
+	  ctx->resume_offset = 0;
+
+	  ret = av_read_frame(ctx->ifmt_ctx, &ctx->packet);
+	  if (ret < 0)
+	    {
+	      errmsg = malloc(128);
+	      av_strerror(ret, errmsg, 128);
+	      DPRINTF(E_WARN, L_XCODE, "Could not read frame: %s\n", errmsg);
+	      free(errmsg);
+              return -1;
+	    }
+
+	  *packet = ctx->packet;
+	}
+
+      in_stream = ctx->ifmt_ctx->streams[packet->stream_index];
+    }
+  while (!decode_stream(ctx, in_stream));
+
+  av_packet_rescale_ts(packet, in_stream->time_base, in_stream->codec->time_base);
+
+  *stream = in_stream;
+  *stream_index = packet->stream_index;
+
+  return 0;
+}
+
 static int
 encode_write_frame(struct encode_ctx *ctx, AVFrame *filt_frame, unsigned int stream_index, int *got_frame)
 {
@@ -394,6 +451,44 @@ filter_encode_write_frame(struct encode_ctx *ctx, AVFrame *frame, unsigned int s
   return ret;
 }
 #endif
+
+/* Will step through each stream and feed the stream decoder with empty packets
+ * to see if the decoder has more frames lined up. Will return non-zero if a
+ * frame is found. Should be called until it stops returning anything.
+ */
+static int
+flush_decoder(AVFrame *frame, AVStream **stream, unsigned int *stream_index, struct decode_ctx *ctx)
+{
+  AVStream *in_stream;
+  AVPacket dummypacket;
+  int got_frame;
+  int i;
+
+  memset(&dummypacket, 0, sizeof(AVPacket));
+
+  for (i = 0; i < ctx->ifmt_ctx->nb_streams; i++)
+    {
+      in_stream = ctx->ifmt_ctx->streams[i];
+      if (!decode_stream(ctx, in_stream))
+	continue;
+
+      if (in_stream->codec->codec_type == AVMEDIA_TYPE_AUDIO)
+	avcodec_decode_audio4(in_stream->codec, frame, &got_frame, &dummypacket);
+      else
+	avcodec_decode_video2(in_stream->codec, frame, &got_frame, &dummypacket);
+
+      if (!got_frame)
+	continue;
+
+      DPRINTF(E_DBG, L_XCODE, "Flushing decoders produced a frame from stream %d\n", i);
+
+      *stream = in_stream;
+      *stream_index = i;
+      return got_frame;
+    }
+
+  return 0;
+}
 
 static void
 flush_encoder(struct encode_ctx *ctx, unsigned int stream_index)
@@ -1079,6 +1174,8 @@ transcode_decode_setup(struct media_file_info *mfi, int decode_video)
 
   ctx->duration = mfi->song_length;
 
+  av_init_packet(&ctx->packet);
+
   return ctx;
 }
 
@@ -1273,7 +1370,7 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
 void
 transcode_decode_cleanup(struct decode_ctx *ctx)
 {
-  av_free_packet(&ctx->seek_packet);
+  av_free_packet(&ctx->packet);
   close_input(ctx);
   free(ctx);
 }
@@ -1324,83 +1421,71 @@ transcode_decode(struct decode_ctx *ctx)
   AVPacket packet;
   AVStream *in_stream;
   AVFrame *frame;
-  char *errmsg;
   unsigned int stream_index;
   int got_frame;
+  int retry;
   int ret;
+  int used;
 
-  // Read a packet
-  packet.data = NULL;
-  packet.size = 0;
-  av_init_packet(&packet);
-
-  while (1)
-    {
-      if (ctx->resume)
-	{
-	  av_copy_packet(&packet, &ctx->seek_packet);
-	  av_init_packet(&ctx->seek_packet);
-	  ctx->resume = 0;
-        }
-      else if ((ret = av_read_frame(ctx->ifmt_ctx, &packet)) < 0)
-	{
-	  errmsg = malloc(128);
-	  av_strerror(ret, errmsg, 128);
-	  DPRINTF(E_WARN, L_XCODE, "Could not read frame: %s\n", errmsg);
-	  free(errmsg);
-          return NULL;
-	}
-
-      stream_index = packet.stream_index;
-      in_stream = ctx->ifmt_ctx->streams[stream_index];
-      if (decode_stream(ctx, in_stream))
-	break;
-
-      av_free_packet(&packet);
-    }
-
-  // Decode into a frame
+  // Alloc the frame we will return on success
   frame = av_frame_alloc();
   if (!frame)
     {
       DPRINTF(E_LOG, L_XCODE, "Out of memory for decode frame\n");
-      av_free_packet(&packet);
       return NULL;
     }
 
-  av_packet_rescale_ts(&packet, in_stream->time_base, in_stream->codec->time_base);
-
-  if (in_stream->codec->codec_type == AVMEDIA_TYPE_AUDIO)
-    ret = avcodec_decode_audio4(in_stream->codec, frame, &got_frame, &packet);
-  else
-    ret = avcodec_decode_video2(in_stream->codec, frame, &got_frame, &packet);
-
-  av_free_packet(&packet);
-
-  // On failure, try reading another packet (just one)
-  // TODO Check if treating !got_frame like this is ok
-  if (!got_frame || (ret < 0))
+  // Loop until we either fail or get a frame
+  retry = 0;
+  do
     {
-      av_frame_free(&frame);
-
-      if (ctx->retry)
+      ret = read_packet(&packet, &in_stream, &stream_index, ctx);
+      if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_XCODE, "Couldn't decode packet after two attempts, giving up\n");
-	  return NULL;
+	  // Some decoders need to be flushed, meaning the decoder is to be called
+	  // with empty input until no more frames are returned
+	  DPRINTF(E_DBG, L_XCODE, "Could not read packet (eof?), will flush decoders\n");
+
+	  got_frame = flush_decoder(frame, &in_stream, &stream_index, ctx);
+	  if (got_frame)
+	    break;
+	  else
+	    goto out_error;
 	}
-      else
-	{
-	  DPRINTF(E_WARN, L_XCODE, "Couldn't decode packet, let's try the next one\n");
-	  ctx->retry = 1;
-	  decoded = transcode_decode(ctx);
-	  if (!decoded)
-	    return NULL;
 
-	  frame = decoded->frame;
-	  stream_index = decoded->stream_index;
-	  free(decoded);
+      // "used" will tell us how much of the packet was decoded. We may
+      // not get a frame because of insufficient input, in which case we loop to
+      // read another packet.
+      if (in_stream->codec->codec_type == AVMEDIA_TYPE_AUDIO)
+	used = avcodec_decode_audio4(in_stream->codec, frame, &got_frame, &packet);
+      else
+	used = avcodec_decode_video2(in_stream->codec, frame, &got_frame, &packet);
+
+      // decoder returned an error, but maybe the packet was just a bad apple,
+      // so let's try MAX_BAD_PACKETS times before giving up
+      if (used < 0)
+	{
+	  DPRINTF(E_WARN, L_XCODE, "Couldn't decode packet\n");
+
+	  retry += 1;
+	  if (retry < MAX_BAD_PACKETS)
+	    continue;
+	  else
+	    goto out_error;
+	}
+
+      // decoder didn't process the entire packet, so flag a resume, meaning
+      // that the next read_packet() will return this same packet, but where the
+      // data pointer is adjusted with an offset
+      if (used < packet.size)
+	{
+	  DPRINTF(E_DBG, L_XCODE, "Decoder did not finish packet, packet will be resumed\n");
+
+	  ctx->resume_offset += used;
+	  ctx->resume = 1;
 	}
     }
+  while (!got_frame);
 
   // Return the decoded frame and stream index
   frame->pts = av_frame_get_best_effort_timestamp(frame);
@@ -1409,14 +1494,20 @@ transcode_decode(struct decode_ctx *ctx)
   if (!decoded)
     {
       DPRINTF(E_LOG, L_XCODE, "Out of memory for decoded result\n");
-      av_frame_free(&frame);
-      return NULL;
+      goto out_error;
     }
 
   decoded->frame = frame;
   decoded->stream_index = stream_index;
 
   return decoded;
+
+ out_error:
+  DPRINTF(E_DBG, L_XCODE, "Decode failure - probably EOF\n");
+
+  av_frame_free(&frame);
+
+  return NULL;
 }
 
 // Filters and encodes
@@ -1569,9 +1660,9 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   in_stream->codec->skip_frame = AVDISCARD_NONREF;
   while (1)
     {
-      av_free_packet(&decode_ctx->seek_packet);
+      av_free_packet(&decode_ctx->packet);
 
-      ret = av_read_frame(decode_ctx->ifmt_ctx, &decode_ctx->seek_packet);
+      ret = av_read_frame(decode_ctx->ifmt_ctx, &decode_ctx->packet);
       if (ret < 0)
 	{
 	  DPRINTF(E_WARN, L_XCODE, "Could not read more data while seeking\n");
@@ -1579,22 +1670,23 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
 	  return -1;
 	}
 
-      if (decode_ctx->seek_packet.stream_index != in_stream->index)
+      if (decode_ctx->packet.stream_index != in_stream->index)
 	continue;
 
       // Need a pts to return the real position
-      if (decode_ctx->seek_packet.pts == AV_NOPTS_VALUE)
+      if (decode_ctx->packet.pts == AV_NOPTS_VALUE)
 	continue;
 
       break;
     }
   in_stream->codec->skip_frame = AVDISCARD_DEFAULT;
 
-  // Tell transcode_decode() to resume with seek_packet
+  // Tell transcode_decode() to resume with ctx->packet
   decode_ctx->resume = 1;
+  decode_ctx->resume_offset = 0;
 
   // Compute position in ms from pts
-  got_pts = decode_ctx->seek_packet.pts;
+  got_pts = decode_ctx->packet.pts;
 
   if ((start_time != AV_NOPTS_VALUE) && (start_time > 0))
     got_pts -= start_time;

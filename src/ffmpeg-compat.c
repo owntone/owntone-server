@@ -10,10 +10,6 @@
 # define avcodec_find_best_pix_fmt_of_list(a, b, c, d) avcodec_find_best_pix_fmt2((enum AVPixelFormat *)(a), (b), (c), (d))
 #endif
 
-#ifndef HAVE_LIBAV_COPY_PACKET
-# define av_copy_packet(dst, src) memcpy(dst, src, sizeof(AVPacket))
-#endif
-
 #ifndef HAVE_LIBAV_FRAME_ALLOC
 # define av_frame_alloc() avcodec_alloc_frame()
 # define av_frame_free(x) avcodec_free_frame((x))

@@ -96,8 +96,6 @@ AC_CHECK_LIB([avfilter], [av_buffersink_get_frame],
 	AC_DEFINE(HAVE_LIBAV_BUFFERSINK_GET_FRAME, 1, [Define to 1 if you have ffmpeg/libav with av_buffersink_get_frame]))
 AC_CHECK_LIB([avfilter], [avfilter_graph_parse_ptr],
 	AC_DEFINE(HAVE_LIBAV_GRAPH_PARSE_PTR, 1, [Define to 1 if you have ffmpeg/libav with avfilter_graph_parse_ptr]))
-AC_CHECK_LIB([avcodec], [av_copy_packet],
-	AC_DEFINE(HAVE_LIBAV_COPY_PACKET, 1, [Define to 1 if you have ffmpeg/libav with av_copy_packet]))
 AC_CHECK_LIB([avcodec], [av_packet_rescale_ts],
 	AC_DEFINE(HAVE_LIBAV_PACKET_RESCALE_TS, 1, [Define to 1 if you have ffmpeg/libav with av_packet_rescale_ts]))
 AC_CHECK_LIB([avformat], [avformat_alloc_output_context2],
