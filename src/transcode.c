@@ -49,7 +49,7 @@
 // Maximum number of streams in a file that we will accept
 #define MAX_STREAMS 64
 // Maximum number of times we retry when we encounter bad packets
-#define MAX_BAD_PACKETS 3
+#define MAX_BAD_PACKETS 5
 
 static char *default_codecs = "mpeg,wav";
 static char *roku_codecs = "mpeg,mp4a,wma,wav";
@@ -232,6 +232,13 @@ make_wav_header(struct encode_ctx *ctx, struct decode_ctx *src_ctx, off_t *est_s
   add_le32(ctx->header + 40, wav_len);
 }
 
+/*
+ * Returns true if in_stream is a stream we should decode, otherwise false
+ *
+ * @in ctx        Decode context
+ * @in in_stream  Pointer to AVStream
+ * @return        True if stream should be decoded, otherwise false
+ */
 static int
 decode_stream(struct decode_ctx *ctx, AVStream *in_stream)
 {
@@ -240,10 +247,21 @@ decode_stream(struct decode_ctx *ctx, AVStream *in_stream)
           (in_stream == ctx->subtitle_stream));
 }
 
-/* Will read the next packet from the source, unless we are in resume mode,
- * where the previous packet is returned (again), but with an adjusted data
- * pointer. *packet must already be an already allocated AVPacket, which will be
- * updated by this function. Must not be freed with av_free_packet().
+/* Will read the next packet from the source, unless we are in resume mode, in
+ * which case the most recent packet will be returned, but with an adjusted data
+ * pointer. Use ctx->resume and ctx->resume_offset to make the function resume
+ * from the most recent packet.
+ *
+ * @out packet    Pointer to an already allocated AVPacket. The content of the
+ *                packet will be updated, and packet->data is pointed to the data
+ *                returned by av_read_frame(). The packet struct is owned by the
+ *                caller, but *not* packet->data, so don't free the packet with
+ *                av_free_packet()
+ * @out stream    Set to the input AVStream corresponding to the packet
+ * @out stream_index
+ *                Set to the input stream index corresponding to the packet
+ * @in  ctx       Decode context
+ * @return        0 on success, -1 on failure (including eof)
  */
 static int
 read_packet(AVPacket *packet, AVStream **stream, unsigned int *stream_index, struct decode_ctx *ctx)
@@ -455,6 +473,13 @@ filter_encode_write_frame(struct encode_ctx *ctx, AVFrame *frame, unsigned int s
 /* Will step through each stream and feed the stream decoder with empty packets
  * to see if the decoder has more frames lined up. Will return non-zero if a
  * frame is found. Should be called until it stops returning anything.
+ *
+ * @out frame     AVFrame if there was anything to flush, otherwise undefined
+ * @out stream    Set to the AVStream where a decoder returned a frame
+ * @out stream_index
+ *                Set to the stream index of the stream returning a frame
+ * @in  ctx       Decode context
+ * @return        Non-zero (true) if frame found, otherwise 0 (false)
  */
 static int
 flush_decoder(AVFrame *frame, AVStream **stream, unsigned int *stream_index, struct decode_ctx *ctx)
