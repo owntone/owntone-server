@@ -56,14 +56,38 @@ void
 transcode_decoded_free(struct decoded_frame *decoded);
 
 // Transcoding
-struct decoded_frame *
-transcode_decode(struct decode_ctx *ctx);
 
+/* Demuxes and decodes the next packet from the input.
+ *
+ * @out decoded   A newly allocated struct with a pointer to the frame and the
+ *                stream. Must be freed with transcode_decoded_free().
+ * @in  ctx       Decode context
+ * @return        Bytes read if OK, negative if error, 0 if EOF
+ */
+int
+transcode_decode(struct decoded_frame **decoded, struct decode_ctx *ctx);
+
+/* Encodes and remuxes a frame. Also resamples if needed.
+ *
+ * @out evbuf     An evbuffer filled with remuxed data
+ * @in  frame     The frame to encode, e.g. from transcode_decode
+ * @in  wanted    Bytes that the caller wants processed
+ * @in  ctx       Encode context
+ * @return        Length of evbuf if OK, negative if error
+ */
 int
 transcode_encode(struct evbuffer *evbuf, struct decoded_frame *decoded, struct encode_ctx *ctx);
 
+/* Demuxes, decodes, encodes and remuxes the next packet from the input.
+ *
+ * @out evbuf     An evbuffer filled with remuxed data
+ * @in  wanted    Bytes that the caller wants processed
+ * @in  ctx       Transcode context
+ * @out icy_timer True if METADATA_ICY_INTERVAL has elapsed
+ * @return        Bytes processed if OK, negative if error, 0 if EOF
+ */
 int
-transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted, int *icy_timer);
+transcode(struct evbuffer *evbuf, int wanted, struct transcode_ctx *ctx, int *icy_timer);
 
 struct decoded_frame *
 transcode_raw2frame(uint8_t *data, size_t size);

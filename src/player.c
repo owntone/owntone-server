@@ -960,14 +960,14 @@ stream_read(struct player_source *ps, int len)
   switch (ps->data_kind)
     {
       case DATA_KIND_HTTP:
-	ret = transcode(ps->xcode, audio_buf, len, &icy_timer);
+	ret = transcode(audio_buf, len, ps->xcode, &icy_timer);
 
 	if (icy_timer)
 	  metadata_check_icy();
 	break;
 
       case DATA_KIND_FILE:
-	ret = transcode(ps->xcode, audio_buf, len, &icy_timer);
+	ret = transcode(audio_buf, len, ps->xcode, &icy_timer);
 	break;
 
 #ifdef HAVE_SPOTIFY_H

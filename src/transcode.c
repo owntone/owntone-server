@@ -261,7 +261,7 @@ decode_stream(struct decode_ctx *ctx, AVStream *in_stream)
  * @out stream_index
  *                Set to the input stream index corresponding to the packet
  * @in  ctx       Decode context
- * @return        0 on success, -1 on failure (including eof)
+ * @return        0 if OK, < 0 on error or end of file
  */
 static int
 read_packet(AVPacket *packet, AVStream **stream, unsigned int *stream_index, struct decode_ctx *ctx)
@@ -295,7 +295,7 @@ read_packet(AVPacket *packet, AVStream **stream, unsigned int *stream_index, str
 	      av_strerror(ret, errmsg, 128);
 	      DPRINTF(E_WARN, L_XCODE, "Could not read frame: %s\n", errmsg);
 	      free(errmsg);
-              return -1;
+              return ret;
 	    }
 
 	  *packet = ctx->packet;
@@ -1439,10 +1439,10 @@ transcode_decoded_free(struct decoded_frame *decoded)
 
 /*                       Encoding, decoding and transcoding                  */
 
-struct decoded_frame *
-transcode_decode(struct decode_ctx *ctx)
+
+int
+transcode_decode(struct decoded_frame **decoded, struct decode_ctx *ctx)
 {
-  struct decoded_frame *decoded;
   AVPacket packet;
   AVStream *in_stream;
   AVFrame *frame;
@@ -1457,7 +1457,8 @@ transcode_decode(struct decode_ctx *ctx)
   if (!frame)
     {
       DPRINTF(E_LOG, L_XCODE, "Out of memory for decode frame\n");
-      return NULL;
+
+      return -1;
     }
 
   // Loop until we either fail or get a frame
@@ -1471,11 +1472,16 @@ transcode_decode(struct decode_ctx *ctx)
 	  // with empty input until no more frames are returned
 	  DPRINTF(E_DBG, L_XCODE, "Could not read packet (eof?), will flush decoders\n");
 
+	  used = 1;
 	  got_frame = flush_decoder(frame, &in_stream, &stream_index, ctx);
 	  if (got_frame)
 	    break;
+
+	  av_frame_free(&frame);
+	  if (ret == AVERROR_EOF)
+	    return 0;
 	  else
-	    goto out_error;
+	    return -1;
 	}
 
       // "used" will tell us how much of the packet was decoded. We may
@@ -1490,13 +1496,16 @@ transcode_decode(struct decode_ctx *ctx)
       // so let's try MAX_BAD_PACKETS times before giving up
       if (used < 0)
 	{
-	  DPRINTF(E_WARN, L_XCODE, "Couldn't decode packet\n");
+	  DPRINTF(E_DBG, L_XCODE, "Couldn't decode packet\n");
 
 	  retry += 1;
 	  if (retry < MAX_BAD_PACKETS)
 	    continue;
-	  else
-	    goto out_error;
+
+	  DPRINTF(E_LOG, L_XCODE, "Couldn't decode packet after %i retries\n", MAX_BAD_PACKETS);
+
+	  av_frame_free(&frame);
+	  return -1;
 	}
 
       // decoder didn't process the entire packet, so flag a resume, meaning
@@ -1515,24 +1524,19 @@ transcode_decode(struct decode_ctx *ctx)
   // Return the decoded frame and stream index
   frame->pts = av_frame_get_best_effort_timestamp(frame);
 
-  decoded = malloc(sizeof(struct decoded_frame));
-  if (!decoded)
+  *decoded = malloc(sizeof(struct decoded_frame));
+  if (!*decoded)
     {
       DPRINTF(E_LOG, L_XCODE, "Out of memory for decoded result\n");
-      goto out_error;
+
+      av_frame_free(&frame);
+      return -1;
     }
 
-  decoded->frame = frame;
-  decoded->stream_index = stream_index;
+  (*decoded)->frame = frame;
+  (*decoded)->stream_index = stream_index;
 
-  return decoded;
-
- out_error:
-  DPRINTF(E_DBG, L_XCODE, "Decode failure - probably EOF\n");
-
-  av_frame_free(&frame);
-
-  return NULL;
+  return used;
 }
 
 // Filters and encodes
@@ -1574,7 +1578,7 @@ transcode_encode(struct evbuffer *evbuf, struct decoded_frame *decoded, struct e
 }
 
 int
-transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted, int *icy_timer)
+transcode(struct evbuffer *evbuf, int wanted, struct transcode_ctx *ctx, int *icy_timer)
 {
   struct decoded_frame *decoded;
   int processed;
@@ -1583,9 +1587,9 @@ transcode(struct transcode_ctx *ctx, struct evbuffer *evbuf, int wanted, int *ic
   processed = 0;
   while (processed < wanted)
     {
-      decoded = transcode_decode(ctx->decode_ctx);
-      if (!decoded)
-	return -1;
+      ret = transcode_decode(&decoded, ctx->decode_ctx);
+      if (ret <= 0)
+	return ret;
 
       ret = transcode_encode(evbuf, decoded, ctx->encode_ctx);
       transcode_decoded_free(decoded);
