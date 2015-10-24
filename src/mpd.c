@@ -4559,7 +4559,7 @@ int mpd_init(void)
       ret = evhttp_bind_socket(evhttpd, http_addr, http_port);
       if (ret < 0)
 	{
-	  DPRINTF(E_FATAL, L_MPD, "Could not bind HTTP artwork server at %s:%d\n", http_addr, port);
+	  DPRINTF(E_FATAL, L_MPD, "Could not bind HTTP artwork server at %s:%d\n", http_addr, http_port);
 
 	  goto bind_fail;
 	}
