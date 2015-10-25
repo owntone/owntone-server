@@ -1011,6 +1011,9 @@ stream_pause(struct player_source *ps)
   switch (ps->data_kind)
     {
       case DATA_KIND_HTTP:
+	ret = 0;
+	break;
+
       case DATA_KIND_FILE:
 	ret = 0;
 	break;
@@ -2741,6 +2744,14 @@ playback_pause_bh(struct player_command *cmd)
 {
   int ret;
 
+  if (cur_streaming->data_kind == DATA_KIND_HTTP
+      || cur_streaming->data_kind == DATA_KIND_PIPE)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Source is not pausable, abort playback\n");
+
+      playback_abort();
+      return -1;
+    }
   status_update(PLAY_PAUSED);
 
   if (cur_streaming->media_kind & (MEDIA_KIND_MOVIE | MEDIA_KIND_PODCAST | MEDIA_KIND_AUDIOBOOK | MEDIA_KIND_TVSHOW))
