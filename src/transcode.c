@@ -373,11 +373,14 @@ filter_encode_write_frame(struct encode_ctx *ctx, AVFrame *frame, unsigned int s
   int ret;
 
   // Push the decoded frame into the filtergraph
-  ret = av_buffersrc_add_frame_flags(ctx->filter_ctx[stream_index].buffersrc_ctx, frame, 0);
-  if (ret < 0)
+  if (frame)
     {
-      DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph\n");
-      return -1;
+      ret = av_buffersrc_add_frame_flags(ctx->filter_ctx[stream_index].buffersrc_ctx, frame, 0);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph\n");
+	  return -1;
+	}
     }
 
   // Pull filtered frames from the filtergraph
@@ -424,11 +427,14 @@ filter_encode_write_frame(struct encode_ctx *ctx, AVFrame *frame, unsigned int s
   enc_ctx = ctx->ofmt_ctx->streams[stream_index]->codec;
 
   // Push the decoded frame into the filtergraph
-  ret = av_buffersrc_write_frame(ctx->filter_ctx[stream_index].buffersrc_ctx, frame);
-  if (ret < 0)
+  if (frame)
     {
-      DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph\n");
-      return -1;
+      ret = av_buffersrc_write_frame(ctx->filter_ctx[stream_index].buffersrc_ctx, frame);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_XCODE, "Error while feeding the filtergraph\n");
+	  return -1;
+	}
     }
 
   // Pull filtered frames from the filtergraph
