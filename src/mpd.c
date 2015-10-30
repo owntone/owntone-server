@@ -3839,11 +3839,11 @@ static struct command mpd_handlers[] =
     /*
      * Connection settings
      */
-    /*
     {
       .mpdcommand = "close",
-      .handler = mpd_command_close
+      .handler = mpd_command_ignore
     },
+    /*
     {
       .mpdcommand = "kill",
       .handler = mpd_command_kill
@@ -3998,6 +3998,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
   struct command *command;
   enum command_list_type listtype;
   int idle_cmd;
+  int close_cmd;
   char *argv[COMMAND_ARGV_MAX];
   int argc;
 
@@ -4009,6 +4010,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
   DPRINTF(E_SPAM, L_MPD, "Received MPD command sequence\n");
 
   idle_cmd = 0;
+  close_cmd = 0;
 
   listtype = COMMAND_LIST_NONE;
   ncmd = 0;
@@ -4057,6 +4059,8 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	idle_cmd = 1;
       else if (0 == strcmp(argv[0], "noidle"))
 	idle_cmd = 0;
+      else if (0 == strcmp(argv[0], "close"))
+	close_cmd = 1;
 
       /*
        * Find the command handler and execute the command function
@@ -4104,7 +4108,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
    * If everything was successful add OK line to signal clients end of message.
    * If an error occured the necessary ACK line should already be added to the response buffer.
    */
-  if (ret == 0 && idle_cmd == 0)
+  if (ret == 0 && idle_cmd == 0 && close_cmd == 0)
     {
       evbuffer_add(output, "OK\n", 3);
     }
