@@ -1748,6 +1748,57 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return 0;
 }
 
+static int
+mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  return 0;
+}
+
+static int
+mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  uint32_t songid;
+  uint32_t to_pos;
+  int ret;
+
+  if (argc < 3)
+    {
+      ret = asprintf(errmsg, "Missing argument for command 'moveid'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atou32(argv[1], &songid);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atou32(argv[2], &to_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[2]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = player_queue_move_byitemid(songid, to_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Failed to move song with id '%s' to index '%s'", argv[1], argv[2]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  return 0;
+}
+
 /*
  * Command handler function for 'playlistid'
  * Displays a list of all songs in the queue, or if the optional argument is given, displays information
@@ -3561,7 +3612,6 @@ static struct command mpd_handlers[] =
       .mpdcommand = "deleteid",
       .handler = mpd_command_deleteid
     },
-    /*
     {
       .mpdcommand = "move",
       .handler = mpd_command_move
@@ -3570,7 +3620,6 @@ static struct command mpd_handlers[] =
       .mpdcommand = "moveid",
       .handler = mpd_command_moveid
     },
-    */
     // According to the mpd protocol the use of "playlist" is deprecated
     {
       .mpdcommand = "playlist",
