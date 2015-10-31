@@ -84,6 +84,9 @@ void
 queue_move_bypos(struct queue *queue, unsigned int item_id, unsigned int from_pos, unsigned int to_offset, char shuffle);
 
 void
+queue_move_byitemid(struct queue *queue, unsigned int item_id, unsigned int to_pos, char shuffle);
+
+void
 queue_remove_byitemid(struct queue *queue, unsigned int item_id);
 
 void

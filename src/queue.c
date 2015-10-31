@@ -725,7 +725,7 @@ queue_move_bypos(struct queue *queue, unsigned int item_id, unsigned int from_po
     }
 
   // Get the item at the target position
-  item_next = queueitem_get_bypos(queue, item_id, to_offset, shuffle);
+  item_next = queueitem_get_bypos(queue, item_id, (to_offset + 1), shuffle);
   if (!item_next)
     {
       DPRINTF(E_LOG, L_PLAYER, "Invalid position given to move items\n");
@@ -744,7 +744,7 @@ queue_move_bypos(struct queue *queue, unsigned int item_id, unsigned int from_po
       item->next->prev = item->prev;
     }
 
-  // Insert item into the queue befor the item at the target postion
+  // Insert item into the queue before the item at the target postion
   if (shuffle)
     {
       item_next->shuffle_prev->shuffle_next = item;
@@ -755,11 +755,81 @@ queue_move_bypos(struct queue *queue, unsigned int item_id, unsigned int from_po
     }
   else
     {
-      item_next->next->prev = item;
-      item->next = item_next->next;
+      item_next->prev->next = item;
+      item->prev = item_next->prev;
 
-      item_next->next = item;
-      item->prev = item_next;
+      item_next->prev = item;
+      item->next = item_next;
+    }
+}
+
+/*
+ * Moves the item with the given item-id to the index to_pos in the play-queue (shuffle = 0)
+ * or shuffle-queue (shuffle = 1)
+ *
+ * @param queue     The queue to move item
+ * @param item_id   The item-id of the to be moved
+ * @param to_pos    The index to move the item
+ * @param shuffle   If 0 the position in the play-queue, 1 the position in the shuffle-queue
+ */
+void
+queue_move_byitemid(struct queue *queue, unsigned int item_id, unsigned int to_pos, char shuffle)
+{
+  struct queue_item *item;
+  struct queue_item *item_next;
+  int index;
+
+  // Get the item to be moved
+  item = queueitem_get_byitemid(queue, item_id);
+  if (!item)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Item with item-id %d does not exist in the queue\n", item_id);
+      return;
+    }
+
+  // Check if the index of the item to move is lower than the target index
+  // If that is the case, increment the target position, because the given to_pos
+  // is based on the queue without the moved item.
+  index = queue_index_byitemid(queue, item_id, shuffle);
+  if (index < to_pos)
+    to_pos++;
+
+  // Get the item at the target position
+  item_next = queueitem_get_byindex(queue, to_pos, shuffle);
+  if (!item_next)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Invalid position given to move items\n");
+      return;
+    }
+
+  // Remove item from the queue
+  if (shuffle)
+    {
+      item->shuffle_prev->shuffle_next = item->shuffle_next;
+      item->shuffle_next->shuffle_prev = item->shuffle_prev;
+    }
+  else
+    {
+      item->prev->next = item->next;
+      item->next->prev = item->prev;
+    }
+
+  // Insert item into the queue before the item at the target postion
+  if (shuffle)
+    {
+      item_next->shuffle_prev->shuffle_next = item;
+      item->shuffle_prev = item_next->shuffle_prev;
+
+      item_next->shuffle_prev = item;
+      item->shuffle_next = item_next;
+    }
+  else
+    {
+      item_next->prev->next = item;
+      item->prev = item_next->prev;
+
+      item_next->prev = item;
+      item->next = item_next;
     }
 }
 

@@ -1748,6 +1748,57 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return 0;
 }
 
+static int
+mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  return 0;
+}
+
+static int
+mpd_command_moveid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  uint32_t songid;
+  uint32_t to_pos;
+  int ret;
+
+  if (argc < 3)
+    {
+      ret = asprintf(errmsg, "Missing argument for command 'moveid'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atou32(argv[1], &songid);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = safe_atou32(argv[2], &to_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[2]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = player_queue_move_byitemid(songid, to_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Failed to move song with id '%s' to index '%s'", argv[1], argv[2]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  return 0;
+}
+
 /*
  * Command handler function for 'playlistid'
  * Displays a list of all songs in the queue, or if the optional argument is given, displays information
@@ -3561,7 +3612,6 @@ static struct command mpd_handlers[] =
       .mpdcommand = "deleteid",
       .handler = mpd_command_deleteid
     },
-    /*
     {
       .mpdcommand = "move",
       .handler = mpd_command_move
@@ -3570,7 +3620,6 @@ static struct command mpd_handlers[] =
       .mpdcommand = "moveid",
       .handler = mpd_command_moveid
     },
-    */
     // According to the mpd protocol the use of "playlist" is deprecated
     {
       .mpdcommand = "playlist",
@@ -3790,11 +3839,11 @@ static struct command mpd_handlers[] =
     /*
      * Connection settings
      */
-    /*
     {
       .mpdcommand = "close",
-      .handler = mpd_command_close
+      .handler = mpd_command_ignore
     },
+    /*
     {
       .mpdcommand = "kill",
       .handler = mpd_command_kill
@@ -3949,6 +3998,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
   struct command *command;
   enum command_list_type listtype;
   int idle_cmd;
+  int close_cmd;
   char *argv[COMMAND_ARGV_MAX];
   int argc;
 
@@ -3960,6 +4010,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
   DPRINTF(E_SPAM, L_MPD, "Received MPD command sequence\n");
 
   idle_cmd = 0;
+  close_cmd = 0;
 
   listtype = COMMAND_LIST_NONE;
   ncmd = 0;
@@ -4008,6 +4059,8 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
 	idle_cmd = 1;
       else if (0 == strcmp(argv[0], "noidle"))
 	idle_cmd = 0;
+      else if (0 == strcmp(argv[0], "close"))
+	close_cmd = 1;
 
       /*
        * Find the command handler and execute the command function
@@ -4055,7 +4108,7 @@ mpd_read_cb(struct bufferevent *bev, void *ctx)
    * If everything was successful add OK line to signal clients end of message.
    * If an error occured the necessary ACK line should already be added to the response buffer.
    */
-  if (ret == 0 && idle_cmd == 0)
+  if (ret == 0 && idle_cmd == 0 && close_cmd == 0)
     {
       evbuffer_add(output, "OK\n", 3);
     }
