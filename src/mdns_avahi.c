@@ -4,7 +4,7 @@
  * Copyright (C) 2009-2011 Julien BLACHE <jb@jblache.org>
  *
  * Pieces coming from mt-daapd:
- * Copyright (C) 2005 Sebastian Dröge <slomo@ubuntu.com>
+ * Copyright (C) 2005 Sebastian DrÃ¶ge <slomo@ubuntu.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1032,11 +1032,14 @@ mdns_register(char *name, char *type, int port, char **txt)
   ge->port = port;
 
   txt_sl = NULL;
-  for (i = 0; txt[i]; i++)
+  if (txt)
     {
-      txt_sl = avahi_string_list_add(txt_sl, txt[i]);
+      for (i = 0; txt[i]; i++)
+	{
+	  txt_sl = avahi_string_list_add(txt_sl, txt[i]);
 
-      DPRINTF(E_DBG, L_MDNS, "Added key %s\n", txt[i]);
+	  DPRINTF(E_DBG, L_MDNS, "Added key %s\n", txt[i]);
+	}
     }
 
   ge->txt = txt_sl;
