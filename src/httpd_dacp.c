@@ -1044,9 +1044,9 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
   hist = 0;
   if ((param = evhttp_find_header(query, "command")) && (strcmp(param, "playnow") == 0))
     {
-      /* If mode parameter is -1, the index is relative to the history queue, otherwise to the Up Next queue */
+      /* If mode parameter is -1 or 1, the index is relative to the history queue, otherwise to the Up Next queue */
       param = evhttp_find_header(query, "mode");
-      if (param && (strcmp(param, "-1") == 0))
+      if (param && ((strcmp(param, "-1") == 0) || (strcmp(param, "1") == 0)))
 	{
 	  /* Play from history queue */
 	  hist = 1;
