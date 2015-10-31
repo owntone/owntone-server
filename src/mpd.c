@@ -2675,17 +2675,6 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   int print_playlists;
   int ret;
 
-  print_playlists = 0;
-  if (argc > 1 && strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1)
-    {
-      /*
-       * Special handling necessary if the root directory '/' is given.
-       * In this case additional to the directory contents the stored playlists will be returned.
-       * This behavior is deprecated in the mpd protocol but clients like ncmpccp or ympd uses it.
-       */
-      print_playlists = 1;
-    }
-
   if (argc < 2 || strlen(argv[1]) == 0
       || (strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1))
     {
@@ -2704,6 +2693,17 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     {
       DPRINTF(E_INFO, L_MPD, "Parent path exceeds PATH_MAX\n");
       return -1;
+    }
+
+  print_playlists = 0;
+  if (argc > 1 && (strncmp(parent, "/", 1) == 0 && strlen(parent) == 1))
+    {
+      /*
+       * Special handling necessary if the root directory '/' is given.
+       * In this case additional to the directory contents the stored playlists will be returned.
+       * This behavior is deprecated in the mpd protocol but clients like ncmpccp or ympd uses it.
+       */
+      print_playlists = 1;
     }
 
   fi = (struct filelist_info*)malloc(sizeof(struct filelist_info));
