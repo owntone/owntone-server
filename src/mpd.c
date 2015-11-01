@@ -1407,7 +1407,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   //TODO Allow seeking in songs not currently playing
   player_get_status(&status);
-  if (status.id != id)
+  if (status.item_id != id)
     {
       ret = asprintf(errmsg, "Given song is not the current playing one, seeking is not supported");
       if (ret < 0)
