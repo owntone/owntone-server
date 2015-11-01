@@ -1517,7 +1517,7 @@ mpd_queueitem_make(char *path, int recursive)
 
   qp.type = Q_ITEMS;
   qp.idx_type = I_NONE;
-  qp.sort = S_ALBUM;
+  qp.sort = S_ARTIST;
 
   if (recursive)
     {
@@ -2499,7 +2499,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_ITEMS;
-  qp.sort = S_NAME;
+  qp.sort = S_ARTIST;
   qp.idx_type = I_NONE;
 
   mpd_get_query_params_find(argc - 1, argv + 1, &qp);
@@ -2973,7 +2973,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_ITEMS;
-  qp.sort = S_NAME;
+  qp.sort = S_ARTIST;
   qp.idx_type = I_NONE;
 
   mpd_get_query_params_search(argc - 1, argv + 1, &qp);
