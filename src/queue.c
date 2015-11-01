@@ -1187,6 +1187,12 @@ queueitem_make_byquery(struct query_params *qp)
       return NULL;
     }
 
+  if (!item_head || !item_tail)
+    {
+      DPRINTF(E_INFO, L_PLAYER, "No item found to add to queue\n");
+      return NULL;
+    }
+
   item_head->prev = item_tail;
   item_tail->next = item_head;
   item_head->shuffle_prev = item_tail;
