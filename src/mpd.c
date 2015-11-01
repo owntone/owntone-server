@@ -1407,7 +1407,7 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   //TODO Allow seeking in songs not currently playing
   player_get_status(&status);
-  if (status.id != id)
+  if (status.item_id != id)
     {
       ret = asprintf(errmsg, "Given song is not the current playing one, seeking is not supported");
       if (ret < 0)
@@ -1517,7 +1517,7 @@ mpd_queueitem_make(char *path, int recursive)
 
   qp.type = Q_ITEMS;
   qp.idx_type = I_NONE;
-  qp.sort = S_ALBUM;
+  qp.sort = S_ARTIST;
 
   if (recursive)
     {
@@ -2499,7 +2499,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_ITEMS;
-  qp.sort = S_NAME;
+  qp.sort = S_ARTIST;
   qp.idx_type = I_NONE;
 
   mpd_get_query_params_find(argc - 1, argv + 1, &qp);
@@ -2973,7 +2973,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
   memset(&qp, 0, sizeof(struct query_params));
 
   qp.type = Q_ITEMS;
-  qp.sort = S_NAME;
+  qp.sort = S_ARTIST;
   qp.idx_type = I_NONE;
 
   mpd_get_query_params_search(argc - 1, argv + 1, &qp);

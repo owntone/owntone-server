@@ -460,8 +460,8 @@ queue_next(struct queue *queue, unsigned int item_id, char shuffle, enum repeat_
   item = queueitem_get_byitemid(queue, item_id);
 
   if (!item)
-    // Item not found
-    return NULL;
+    // Item not found, start playing from the start of the queue
+    item = queue->head;
 
   if (r_mode == REPEAT_SONG && item != queue->head)
     return item;
