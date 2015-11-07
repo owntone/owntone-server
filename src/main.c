@@ -221,14 +221,16 @@ daemonize(int background, char *pidfile)
 }
 
 static int
-register_services(char *ffid, int no_rsp, int no_daap)
+register_services(char *ffid, int no_rsp, int no_daap, int mdns_no_mpd)
 {
   cfg_t *lib;
+  cfg_t *mpd;
   char *libname;
   char *password;
   char *txtrecord[10];
   char records[9][128];
   int port;
+  int mpd_port;
   uint32_t hash;
   int i;
   int ret;
@@ -317,6 +319,16 @@ register_services(char *ffid, int no_rsp, int no_daap)
   ret = mdns_register(records[7], "_touch-able._tcp", port, txtrecord);
   if (ret < 0)
     return ret;
+
+  /* Register MPD serivce */
+  mpd = cfg_getsec(cfg, "mpd");
+  mpd_port = cfg_getint(mpd, "port");
+  if (!mdns_no_mpd && mpd_port > 0)
+    {
+      ret = mdns_register(libname, "_mpd._tcp", mpd_port, NULL);
+            if (ret < 0)
+      	return ret;
+    }
 
   return 0;
 }
@@ -446,6 +458,7 @@ main(int argc, char **argv)
   int background;
   int mdns_no_rsp;
   int mdns_no_daap;
+  int mdns_no_mpd;
   int loglevel;
   char *logdomains;
   char *logfile;
@@ -484,6 +497,7 @@ main(int argc, char **argv)
   ffid = NULL;
   mdns_no_rsp = 0;
   mdns_no_daap = 0;
+  mdns_no_mpd = 1; // only announce if mpd protocol support is activated
 
   while ((option = getopt_long(argc, argv, "D:d:c:P:fb:v", option_map, NULL)) != -1)
     {
@@ -747,6 +761,7 @@ main(int argc, char **argv)
       ret = EXIT_FAILURE;
       goto mpd_fail;
     }
+  mdns_no_mpd = 0;
 #endif
 
   /* Start Remote pairing service */
@@ -760,7 +775,7 @@ main(int argc, char **argv)
     }
 
   /* Register mDNS services */
-  ret = register_services(ffid, mdns_no_rsp, mdns_no_daap);
+  ret = register_services(ffid, mdns_no_rsp, mdns_no_daap, mdns_no_mpd);
   if (ret < 0)
     {
       ret = EXIT_FAILURE;
