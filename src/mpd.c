@@ -869,7 +869,41 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  //TODO implement command stats
+  struct query_params qp;
+  struct filecount_info fci;
+  int artists;
+  int albums;
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_COUNT_ITEMS;
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  ret = db_query_fetch_count(&qp, &fci);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+
+      ret = asprintf(errmsg, "Could not fetch query count");
+      if (ret < 0)
+      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  artists = db_files_get_artist_count();
+  albums = db_files_get_album_count();
+
+  //TODO [mpd] Implement missing stats attributes (uptime, db_update, playtime)
   evbuffer_add_printf(evbuf,
       "artists: %d\n"
       "albums: %d\n"
@@ -878,11 +912,11 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       "db_playtime: %d\n"
       "db_update: %d\n"
       "playtime: %d\n",
-        1,
-        2,
-        3,
+        artists,
+        albums,
+        fci.count,
         4,
-        5,
+        (fci.length / 1000),
         6,
         7);
 

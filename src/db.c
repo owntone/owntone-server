@@ -1474,7 +1474,7 @@ db_build_query_count_items(struct query_params *qp, char **q)
   if (qp->filter)
     query = sqlite3_mprintf("SELECT COUNT(*), SUM(song_length) FROM files f WHERE f.disabled = 0 AND %s;", qp->filter);
   else
-    return -1;
+    query = sqlite3_mprintf("SELECT COUNT(*), SUM(song_length) FROM files f WHERE f.disabled = 0;");
 
   if (!query)
     {
@@ -2034,6 +2034,18 @@ int
 db_files_get_count(void)
 {
   return db_get_count("SELECT COUNT(*) FROM files f WHERE f.disabled = 0;");
+}
+
+int
+db_files_get_artist_count(void)
+{
+  return db_get_count("SELECT COUNT(DISTINCT songartistid) FROM files f WHERE f.disabled = 0;");
+}
+
+int
+db_files_get_album_count(void)
+{
+  return db_get_count("SELECT COUNT(DISTINCT songalbumid) FROM files f WHERE f.disabled = 0;");
 }
 
 int

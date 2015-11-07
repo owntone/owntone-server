@@ -417,6 +417,12 @@ int
 db_files_get_count(void);
 
 int
+db_files_get_artist_count(void);
+
+int
+db_files_get_album_count(void);
+
+int
 db_files_get_count_bymatch(char *path);
 
 void
