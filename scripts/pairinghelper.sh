@@ -38,8 +38,8 @@ read -p "Press ENTER when ready..." yn
 echo -n "Looking in $logfile for Remote announcement..."
 sleep 5
 
-remote=`grep "Discovered remote" $logfile | tail -1 | grep -Po "'.*?'"`
-remote="${remote%\'}"
+remote=`grep "Discovered remote" $logfile | tail -1 | grep -Po "'.*' \("`
+remote="${remote%\'\ \(}"
 remote="${remote#\'}"
 
 if [ -z "$remote" ]; then
