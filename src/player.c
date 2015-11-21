@@ -3483,6 +3483,10 @@ playerqueue_remove_bypos(struct player_command *cmd)
   DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
   queue_remove_bypos(queue, ps_playing->item_id, pos, shuffle);
 
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
+
   return 0;
 }
 
@@ -3500,6 +3504,10 @@ playerqueue_remove_byitemid(struct player_command *cmd)
 
   DPRINTF(E_DBG, L_PLAYER, "Removing item with id %d\n", id);
   queue_remove_byitemid(queue, id);
+
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
 
   return 0;
 }
