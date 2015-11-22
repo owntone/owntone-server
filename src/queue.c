@@ -787,10 +787,17 @@ queue_move_byitemid(struct queue *queue, unsigned int item_id, unsigned int to_p
       return;
     }
 
+  index = queue_index_byitemid(queue, item_id, shuffle);
+
+  if (index == to_pos)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Ignore moving item %d from index %d to %d\n", item_id, index, to_pos);
+      return;
+    }
+
   // Check if the index of the item to move is lower than the target index
   // If that is the case, increment the target position, because the given to_pos
   // is based on the queue without the moved item.
-  index = queue_index_byitemid(queue, item_id, shuffle);
   if (index < to_pos)
     to_pos++;
 
