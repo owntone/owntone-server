@@ -3480,7 +3480,7 @@ mpd_command_decoders(struct evbuffer *evbuf, int argc, char **argv, char **errms
       evbuffer_add_printf(evbuf, "suffix: %s\n", ffmpeg_suffixes[i]);
     }
 
-  for (i = 0; ffmpeg_suffixes[i]; i++)
+  for (i = 0; ffmpeg_mime_types[i]; i++)
     {
       evbuffer_add_printf(evbuf, "mime_type: %s\n", ffmpeg_mime_types[i]);
     }
