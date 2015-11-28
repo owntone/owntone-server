@@ -167,6 +167,12 @@ struct playerqueue_move_param
   int count;
 };
 
+struct playerqueue_remove_param
+{
+  int from_pos;
+  int count;
+};
+
 struct icy_artwork
 {
   uint32_t id;
@@ -211,6 +217,7 @@ struct player_command
     struct playerqueue_get_param queue_get_param;
     struct playerqueue_add_param queue_add_param;
     struct playerqueue_move_param queue_move_param;
+    struct playerqueue_remove_param queue_remove_param;
   } arg;
 
   int ret;
@@ -3491,6 +3498,28 @@ playerqueue_remove_bypos(struct player_command *cmd)
 }
 
 static int
+playerqueue_remove_byindex(struct player_command *cmd)
+{
+  int pos;
+  int count;
+  int i;
+
+  pos = cmd->arg.queue_remove_param.from_pos;
+  count = cmd->arg.queue_remove_param.count;
+
+  DPRINTF(E_DBG, L_PLAYER, "Removing %d items starting from position %d\n", count, pos);
+
+  for (i = 0; i < count; i++)
+    queue_remove_byindex(queue, pos, 0);
+
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
+
+  return 0;
+}
+
+static int
 playerqueue_remove_byitemid(struct player_command *cmd)
 {
   uint32_t id;
@@ -4279,6 +4308,35 @@ player_queue_remove_bypos(int pos)
   cmd.func = playerqueue_remove_bypos;
   cmd.func_bh = NULL;
   cmd.arg.intval = pos;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+/*
+ * Removes the media item at the given position from the UpNext-queue
+ *
+ * The UpNext-queue consists of all items of the play-queue (shuffle off) or shuffle-queue
+ * (shuffle on) after the current playing item (starting with position 0).
+ *
+ * @param pos Position in the UpNext-queue (0-based)
+ * @return 0 on success, -1 on failure
+ */
+int
+player_queue_remove_byindex(int pos, int count)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = playerqueue_remove_byindex;
+  cmd.func_bh = NULL;
+  cmd.arg.queue_remove_param.from_pos = pos;
+  cmd.arg.queue_remove_param.count = count;
 
   ret = sync_command(&cmd);
 

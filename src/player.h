@@ -176,6 +176,9 @@ int
 player_queue_remove_bypos(int pos);
 
 int
+player_queue_remove_byindex(int pos, int count);
+
+int
 player_queue_remove_byitemid(uint32_t id);
 
 void

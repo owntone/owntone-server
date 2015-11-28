@@ -1696,9 +1696,9 @@ mpd_command_clear(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct player_status status;
-  uint32_t start_pos;
-  int pos;
+  int start_pos;
+  int end_pos;
+  int count;
   int ret;
 
   // If argv[1] is ommited clear the whole queue except the current playing one
@@ -1709,32 +1709,21 @@ mpd_command_delete(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   // If argument argv[1] is present remove only the specified songs
-  //TODO support ranges for argv[1]
-  ret = safe_atou32(argv[1], &start_pos);
+  ret = mpd_pars_range_arg(argv[1], &start_pos, &end_pos);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[1]);
+      ret = asprintf(errmsg, "Argument doesn't convert to integer or range: '%s'", argv[1]);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
     }
 
-  player_get_status(&status);
+  count = end_pos - start_pos;
 
-  pos = start_pos - status.pos_pl;
-
-  if (pos < 1)
-    {
-      ret = asprintf(errmsg, "Removing playing or previously played song not supported (song position %d)", pos);
-      if (ret < 0)
-      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_ARG;
-    }
-
-  ret = player_queue_remove_bypos(pos);
+  ret = player_queue_remove_byindex(start_pos, count);
   if (ret < 0)
     {
-      ret = asprintf(errmsg, "Failed to remove song at position '%d'", pos);
+      ret = asprintf(errmsg, "Failed to remove %d songs starting at position %d", count, start_pos);
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
