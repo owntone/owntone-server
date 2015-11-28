@@ -386,10 +386,10 @@ metadata_packet_get(struct http_icy_metadata *metadata, AVFormatContext *fmtctx)
 	  if (ptr)
 	    {
 	      *ptr = '\0';
-	      metadata->title = strdup(metadata->title);
+	      metadata->artist = strdup(metadata->title);
 	      *ptr = ' ';
 
-	      metadata->artist = strdup(ptr + 3);
+	      metadata->title = strdup(ptr + 3);
 	    }
 	  else
 	    metadata->title = strdup(metadata->title);
