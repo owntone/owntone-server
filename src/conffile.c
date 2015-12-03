@@ -52,7 +52,7 @@ static cfg_opt_t sec_general[] =
     CFG_STR("db_pragma_journal_mode", NULL, CFGF_NONE),
     CFG_INT("db_pragma_synchronous", -1, CFGF_NONE),
     CFG_INT_CB("loglevel", E_LOG, CFGF_NONE, &cb_loglevel),
-    CFG_BOOL("ipv6", cfg_false, CFGF_NONE),
+    CFG_BOOL("ipv6", cfg_true, CFGF_NONE),
     CFG_STR("cache_path", STATEDIR "/cache/" PACKAGE "/cache.db", CFGF_NONE),
     CFG_INT("cache_daap_threshold", 1000, CFGF_NONE),
     CFG_END()
