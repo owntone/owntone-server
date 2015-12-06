@@ -885,7 +885,8 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
       ret = asprintf(errmsg, "Could not start query");
       if (ret < 0)
-      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+
       return ACK_ERROR_UNKNOWN;
     }
 
@@ -896,9 +897,12 @@ mpd_command_stats(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
       ret = asprintf(errmsg, "Could not fetch query count");
       if (ret < 0)
-      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+
       return ACK_ERROR_UNKNOWN;
     }
+
+  db_query_end(&qp);
 
   artists = db_files_get_artist_count();
   albums = db_files_get_album_count();
