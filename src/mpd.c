@@ -1356,6 +1356,7 @@ mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errms
 static int
 mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
+  struct player_status status;
   uint32_t songpos;
   float seek_target_sec;
   int seek_target_msec;
@@ -1363,7 +1364,7 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if (argc < 3)
     {
-      ret = asprintf(errmsg, "Missing argument for command 'seekcur'");
+      ret = asprintf(errmsg, "Missing argument for command 'seek'");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_ARG;
@@ -1379,7 +1380,8 @@ mpd_command_seek(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   //TODO Allow seeking in songs not currently playing
-  if (songpos != 0)
+  player_get_status(&status);
+  if (status.pos_pl != songpos)
     {
       ret = asprintf(errmsg, "Given song is not the current playing one, seeking is not supported");
       if (ret < 0)
