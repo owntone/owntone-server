@@ -69,6 +69,7 @@ static cfg_opt_t sec_library[] =
     CFG_STR_LIST("audiobooks", NULL, CFGF_NONE),
     CFG_STR_LIST("compilations", NULL, CFGF_NONE),
     CFG_STR("compilation_artist", NULL, CFGF_NONE),
+    CFG_BOOL("hide_singles", cfg_false, CFGF_NONE),
     CFG_BOOL("radio_playlists", cfg_false, CFGF_NONE),
     CFG_STR("name_library", "Library", CFGF_NONE),
     CFG_STR("name_music", "Music", CFGF_NONE),

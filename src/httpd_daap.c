@@ -1848,6 +1848,7 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
   const struct dmap_field *df;
   const struct dmap_field **meta;
   struct sort_ctx *sctx;
+  cfg_t *lib;
   const char *param;
   char **strval;
   char *tag;
@@ -1977,6 +1978,11 @@ daap_reply_groups(struct evhttp_request *req, struct evbuffer *evbuf, char **uri
     {
       /* Don't add item if no name (eg blank album name) */
       if (strlen(dbgri.itemname) == 0)
+	continue;
+
+      /* Don't add single item albums/artists if configured to hide */
+      lib = cfg_getsec(cfg, "library");
+      if (cfg_getbool(lib, "hide_singles") && (strcmp(dbgri.itemcount, "1") == 0))
 	continue;
 
       ngrp++;
