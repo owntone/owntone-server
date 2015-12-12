@@ -835,15 +835,11 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  "time: %d:%d\n"
 	  "elapsed: %#.3f\n"
 	  "bitrate: 128\n"
-	  "audio: 44100:16:2\n"
-	  "nextsong: %d\n"
-	  "nextsongid: %d\n",
+	  "audio: 44100:16:2\n",
 	  status.pos_pl,
 	  status.item_id,
 	  (status.pos_ms / 1000), (status.len_ms / 1000),
-	  (status.pos_ms / 1000.0),
-	  status.next_pos_pl,
-	  status.next_item_id);
+	  (status.pos_ms / 1000.0));
     }
 
   if (filescanner_scanning())
@@ -857,7 +853,7 @@ mpd_command_status(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 	  "nextsong: %d\n"
 	  "nextsongid: %d\n",
 	  status.next_pos_pl,
-	  status.next_id);
+	  status.next_item_id);
     }
 
   return 0;
