@@ -950,12 +950,58 @@ stream_play(struct player_source *ps)
 }
 
 /*
+ * Stops playback and cleanup for the given player source
+ */
+static int
+stream_stop(struct player_source *ps)
+{
+  if (!ps)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Stream cleanup called with no active streaming player source\n");
+      return -1;
+    }
+
+  if (!ps->setup_done)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, cleanup not possible\n");
+      return -1;
+    }
+
+  switch (ps->data_kind)
+    {
+      case DATA_KIND_FILE:
+      case DATA_KIND_HTTP:
+	if (ps->xcode)
+	  {
+	    transcode_cleanup(ps->xcode);
+	    ps->xcode = NULL;
+	  }
+	break;
+
+      case DATA_KIND_SPOTIFY:
+#ifdef HAVE_SPOTIFY_H
+	spotify_playback_stop();
+#endif
+	break;
+
+      case DATA_KIND_PIPE:
+	pipe_cleanup();
+	break;
+    }
+
+  ps->setup_done = 0;
+
+  return 0;
+}
+
+/*
  * Read up to "len" data from the given player source and returns
  * the actual amount of data read.
  */
 static int
 stream_read(struct player_source *ps, int len)
 {
+  struct media_file_info *mfi;
   int icy_timer;
   int ret;
 
@@ -976,6 +1022,26 @@ stream_read(struct player_source *ps, int len)
     {
       case DATA_KIND_HTTP:
 	ret = transcode(audio_buf, len, ps->xcode, &icy_timer);
+	if (ret < 0)
+	  {
+	    DPRINTF(E_LOG, L_PLAYER, "Connection lost, trying to reconnect in 5 sec (source id %d)\n", ps->id);
+
+	    stream_stop(ps);
+
+	    mfi = db_file_fetch_byid(ps->id);
+	    if (!mfi)
+	      return -1;
+
+	    sleep(5);
+	    ret = stream_setup(ps, mfi);
+	    free_mfi(mfi, 0);
+	    if (ret < 0)
+	      return -1;
+
+	    stream_play(ps); // Just for good measure - doesn't do anything right now
+
+	    ret = transcode(audio_buf, len, ps->xcode, &icy_timer);
+	  }
 
 	if (icy_timer)
 	  metadata_check_icy();
@@ -1096,51 +1162,6 @@ stream_seek(struct player_source *ps, int seek_ms)
     }
 
   return ret;
-}
-
-/*
- * Stops playback and cleanup for the given player source
- */
-static int
-stream_stop(struct player_source *ps)
-{
-  if (!ps)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Stream cleanup called with no active streaming player source\n");
-      return -1;
-    }
-
-  if (!ps->setup_done)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Given player source not setup, cleanup not possible\n");
-      return -1;
-    }
-
-  switch (ps->data_kind)
-    {
-      case DATA_KIND_FILE:
-      case DATA_KIND_HTTP:
-	if (ps->xcode)
-	  {
-	    transcode_cleanup(ps->xcode);
-	    ps->xcode = NULL;
-	  }
-	break;
-
-      case DATA_KIND_SPOTIFY:
-#ifdef HAVE_SPOTIFY_H
-	spotify_playback_stop();
-#endif
-	break;
-
-      case DATA_KIND_PIPE:
-	pipe_cleanup();
-	break;
-    }
-
-  ps->setup_done = 0;
-
-  return 0;
 }
 
 
