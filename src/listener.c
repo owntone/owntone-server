@@ -73,7 +73,7 @@ listener_remove(notify notify_cb)
   if (prev)
     prev->next = listener->next;
   else
-    listener_list = NULL;
+    listener_list = listener->next;
 
   free(listener);
   return 0;
