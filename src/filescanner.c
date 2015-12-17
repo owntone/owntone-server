@@ -1347,6 +1347,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
   char *s;
   int flags = 0;
   int ret;
+  int check_acess;
 
   DPRINTF(E_SPAM, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
@@ -1438,10 +1439,11 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
       wi->path = s;
 
 #ifdef HAVE_EUIDACCESS
-      if (euidaccess(path, (R_OK | X_OK)) < 0)
+    check_acess = (euidaccess(path, (R_OK | X_OK)) < 0);
 #else
-      if (access(path, (R_OK | X_OK)) < 0)
+    check_acess = (access(path, (R_OK | X_OK)) < 0);
 #endif
+  if (check_acess)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Directory access to '%s' failed: %s\n", path, strerror(errno));
 
@@ -1483,6 +1485,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   int type;
   int i;
   int ret;
+  int check_acess;
 
   DPRINTF(E_SPAM, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
@@ -1517,10 +1520,11 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	}
 
 #ifdef HAVE_EUIDACCESS
-      if (euidaccess(path, R_OK) < 0)
+  check_acess = (euidaccess(path, R_OK) < 0);
 #else
-      if (access(path, R_OK) < 0)
+  check_acess =  (access(path, R_OK) < 0);
 #endif
+  if (check_acess)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "File access to '%s' failed: %s\n", path, strerror(errno));
 
