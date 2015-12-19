@@ -63,7 +63,7 @@
 
 static pthread_t tid_mpd;
 
-struct event_base *evbase_mpd;
+static struct event_base *evbase_mpd;
 static int g_exit_pipe[2];
 static struct event *g_exitev;
 
