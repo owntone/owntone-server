@@ -1284,7 +1284,7 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
 int
 httpd_init(void)
 {
-  const char *addr;
+  int v6enabled;
   unsigned short port;
   int ret;
 
@@ -1361,19 +1361,27 @@ httpd_init(void)
       goto event_fail;
     }
 
-  if (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
-    addr = "::";
-  else
-    addr = "0.0.0.0";
-
+  v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
   port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
-  ret = evhttp_bind_socket(evhttpd, addr, port);
-  if (ret < 0)
+  if (v6enabled)
     {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not bind %s:%d\n", addr, port);
+      ret = evhttp_bind_socket(evhttpd, "::", port);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d, falling back to IPv4\n", port);
+	  v6enabled = 0;
+	}
+    }
 
-      goto bind_fail;
+  if (!v6enabled)
+    {
+      ret = evhttp_bind_socket(evhttpd, "0.0.0.0", port);
+      if (ret < 0)
+	{
+	  DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", port);
+	  goto bind_fail;
+	}
     }
 
   evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
