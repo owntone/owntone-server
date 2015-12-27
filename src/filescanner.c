@@ -112,13 +112,20 @@ struct deferred_pl {
   char *path;
   time_t mtime;
   struct deferred_pl *next;
+  int directory_id;
 };
 
 struct stacked_dir {
   char *path;
+  int parent_id;
   struct stacked_dir *next;
 };
 
+enum root_directories {
+  DIR_FILE = 0,
+  DIR_HTTP = 1,
+  DIR_SPOTIFY = 2,
+};
 
 static int cmd_pipe[2];
 static int exit_pipe[2];
@@ -197,7 +204,7 @@ nonblock_command(struct filescanner_command *cmd)
 }
 
 static int
-push_dir(struct stacked_dir **s, char *path)
+push_dir(struct stacked_dir **s, char *path, int parent_id)
 {
   struct stacked_dir *d;
 
@@ -215,28 +222,26 @@ push_dir(struct stacked_dir **s, char *path)
       return -1;
     }
 
+  d->parent_id = parent_id;
+
   d->next = *s;
   *s = d;
 
   return 0;
 }
 
-static char *
+static struct stacked_dir *
 pop_dir(struct stacked_dir **s)
 {
   struct stacked_dir *d;
-  char *ret;
 
   if (!*s)
     return NULL;
 
   d = *s;
   *s = d->next;
-  ret = d->path;
 
-  free(d);
-
-  return ret;
+  return d;
 }
 
 #ifdef HAVE_REGEX_H
@@ -633,7 +638,7 @@ fixup_tags(struct media_file_info *mfi)
 
 
 void
-filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi)
+filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi, int dir_id)
 {
   struct media_file_info *mfi;
   char *filename;
@@ -765,6 +770,8 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
       mfi->virtual_path = strdup(virtual_path);
     }
 
+  mfi->directory_id = dir_id;
+
   if (mfi->id == 0)
     db_file_add(mfi);
   else
@@ -776,13 +783,13 @@ filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct
 }
 
 static void
-process_playlist(char *file, time_t mtime)
+process_playlist(char *file, time_t mtime, int dir_id)
 {
   enum file_type ft;
 
   ft = file_type_get(file);
   if (ft == FILE_PLAYLIST)
-    scan_playlist(file, mtime);
+    scan_playlist(file, mtime, dir_id);
 #ifdef ITUNES
   else if (ft == FILE_ITUNES)
     scan_itunes_itml(file);
@@ -791,7 +798,7 @@ process_playlist(char *file, time_t mtime)
 
 /* Thread: scan */
 static void
-defer_playlist(char *path, time_t mtime)
+defer_playlist(char *path, time_t mtime, int dir_id)
 {
   struct deferred_pl *pl;
 
@@ -815,6 +822,7 @@ defer_playlist(char *path, time_t mtime)
     }
 
   pl->mtime = mtime;
+  pl->directory_id = dir_id;
   pl->next = playlists;
   playlists = pl;
 
@@ -831,7 +839,7 @@ process_deferred_playlists(void)
     {
       playlists = pl->next;
 
-      process_playlist(pl->path, pl->mtime);
+      process_playlist(pl->path, pl->mtime, pl->directory_id);
 
       free(pl->path);
       free(pl);
@@ -843,7 +851,7 @@ process_deferred_playlists(void)
 
 /* Thread: scan */
 static void
-process_file(char *file, time_t mtime, off_t size, int type, int flags)
+process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_id)
 {
   int is_bulkscan;
 
@@ -852,7 +860,7 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
   switch (file_type_get(file))
     {
       case FILE_REGULAR:
-	filescanner_process_media(file, mtime, size, type, NULL);
+	filescanner_process_media(file, mtime, size, type, NULL, dir_id);
 
 	cache_artwork_ping(file, mtime, !is_bulkscan);
 	// TODO [artworkcache] If entry in artwork cache exists for no artwork available, delete the entry if media file has embedded artwork
@@ -871,14 +879,14 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags)
       case FILE_PLAYLIST:
       case FILE_ITUNES:
 	if (flags & F_SCAN_BULK)
-	  defer_playlist(file, mtime);
+	  defer_playlist(file, mtime, dir_id);
 	else
-	  process_playlist(file, mtime);
+	  process_playlist(file, mtime, dir_id);
 	break;
 
       case FILE_SMARTPL:
 	DPRINTF(E_DBG, L_SCAN, "Smart playlist file: %s\n", file);
-	scan_smartpl(file, mtime);
+	scan_smartpl(file, mtime, dir_id);
 	break;
 
       case FILE_ARTWORK:
@@ -948,8 +956,22 @@ check_speciallib(char *path, const char *libtype)
 }
 
 /* Thread: scan */
+static int
+create_virtual_path(char *path, char *virtual_path, int virtual_path_len)
+{
+  int ret;
+  ret = snprintf(virtual_path, virtual_path_len, "/file:%s", path);
+  if ((ret < 0) || (ret >= virtual_path_len))
+  {
+    DPRINTF(E_LOG, L_SCAN, "Virtual path /file:%s, PATH_MAX exceeded\n", path);
+    return -1;
+  }
+
+  return 0;
+}
+
 static void
-process_directory(char *path, int flags)
+process_directory(char *path, int flags, int parent_id)
 {
   DIR *dirp;
   struct dirent buf;
@@ -962,6 +984,9 @@ process_directory(char *path, int flags)
   struct kevent kev;
 #endif
   int type;
+  struct directory_info di;
+  char virtual_path[PATH_MAX];
+  int dir_id;
   int ret;
 
   DPRINTF(E_DBG, L_SCAN, "Processing directory %s (flags = 0x%x)\n", path, flags);
@@ -972,6 +997,24 @@ process_directory(char *path, int flags)
       DPRINTF(E_LOG, L_SCAN, "Could not open directory %s: %s\n", path, strerror(errno));
 
       return;
+    }
+
+  /* Add/update directories table */
+  memset(&di, 0, sizeof(struct directory_info));
+
+  ret = create_virtual_path(path, virtual_path, sizeof(virtual_path));
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Virtual path /file:%s, PATH_MAX exceeded\n", path);
+
+      return;
+    }
+
+  dir_id = db_directory_addorupdate(virtual_path, 0, parent_id);
+
+  if (dir_id <= 0)
+    {
+      DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '/http:'\n");
     }
 
   /* Check if compilation and/or podcast directory */
@@ -1050,15 +1093,15 @@ process_directory(char *path, int flags)
       if (S_ISREG(sb.st_mode))
 	{
 	  if (!(flags & F_SCAN_FAST))
-	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, flags);
+	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, flags, dir_id);
 	}
       else if (S_ISFIFO(sb.st_mode))
 	{
 	  if (!(flags & F_SCAN_FAST))
-	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, flags);
+	    process_file(entry, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, flags, dir_id);
 	}
       else if (S_ISDIR(sb.st_mode))
-	push_dir(&dirstack, entry);
+	push_dir(&dirstack, entry, dir_id);
       else
 	DPRINTF(E_LOG, L_SCAN, "Skipping %s, not a directory, symlink, pipe nor regular file\n", entry);
     }
@@ -1116,21 +1159,63 @@ process_directory(char *path, int flags)
 }
 
 /* Thread: scan */
-static void
-process_directories(char *root, int flags)
-{
-  char *path;
 
-  process_directory(root, flags);
+static int
+process_parent_directories(char *path)
+{
+  char *ptr;
+  int dir_id;
+  char buf[PATH_MAX];
+  char virtual_path[PATH_MAX];
+  int ret;
+
+  // The root directoy ID
+  dir_id = 1;
+
+  ptr = path;
+  while (ptr && (ptr = strchr(ptr, '/')))
+    {
+      strncpy(buf, path, (ptr - path));
+      buf[(ptr - path)] = '\0';
+
+      ret = create_virtual_path(buf, virtual_path, sizeof(virtual_path));
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Virtual path /file:%s, PATH_MAX exceeded\n", path);
+	  return 0;
+	}
+
+      dir_id = db_directory_addorupdate(virtual_path, 0, dir_id);
+
+      if (dir_id <= 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '%s'\n", virtual_path);
+
+	  return 0;
+	}
+
+      ptr++;
+    }
+
+  return dir_id;
+}
+
+static void
+process_directories(char *root, int parent_id, int flags)
+{
+  struct stacked_dir *dir;
+
+  process_directory(root, flags, parent_id);
 
   if (scan_exit)
     return;
 
-  while ((path = pop_dir(&dirstack)))
+  while ((dir = pop_dir(&dirstack)))
     {
-      process_directory(path, flags);
+      process_directory(dir->path, flags, dir->parent_id);
 
-      free(path);
+      free(dir->path);
+      free(dir);
 
       if (scan_exit)
 	return;
@@ -1148,6 +1233,7 @@ bulk_scan(int flags)
   char *deref;
   time_t start;
   time_t end;
+  int parent_id;
   int i;
 
   // Set global flag to avoid queued scan requests
@@ -1165,6 +1251,8 @@ bulk_scan(int flags)
     {
       path = cfg_getnstr(lib, "directories", i);
 
+      parent_id = process_parent_directories(path);
+
       deref = m_realpath(path);
       if (!deref)
 	{
@@ -1173,16 +1261,19 @@ bulk_scan(int flags)
 	  /* Assume dir is mistakenly not mounted, so just disable everything and update timestamps */
 	  db_file_disable_bymatch(path, "", 0);
 	  db_pl_disable_bymatch(path, "", 0);
+	  db_directory_disable_bymatch(path, "", 0);
 
 	  db_file_ping_bymatch(path, 1);
 	  db_pl_ping_bymatch(path, 1);
+	  db_directory_ping_bymatch(path);
 
 	  continue;
 	}
 
       counter = 0;
       db_transaction_begin();
-      process_directories(deref, flags);
+
+      process_directories(deref, parent_id, flags);
       db_transaction_end();
 
       free(deref);
@@ -1347,6 +1438,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
   char *s;
   int flags = 0;
   int ret;
+  int parent_id;
 
   DPRINTF(E_SPAM, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
@@ -1354,6 +1446,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
     {
       db_file_disable_bymatch(path, "", 0);
       db_pl_disable_bymatch(path, "", 0);
+      db_directory_disable_bymatch(path, "", 0);
     }
 
   if (ie->mask & IN_MOVE_SELF)
@@ -1408,6 +1501,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
       db_watch_mark_bymatch(path, path, ie->cookie);
       db_file_disable_bymatch(path, path, ie->cookie);
       db_pl_disable_bymatch(path, path, ie->cookie);
+      db_directory_disable_bymatch(path, path, ie->cookie);
     }
 
   if (ie->mask & IN_MOVED_TO)
@@ -1417,6 +1511,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 	  db_watch_move_bycookie(ie->cookie, path);
 	  db_file_enable_bycookie(ie->cookie, path);
 	  db_pl_enable_bycookie(ie->cookie, path);
+	  db_directory_enable_bycookie(ie->cookie, path);
 
 	  /* We'll rescan the directory tree to update playlists */
 	  flags |= F_SCAN_MOVED;
@@ -1450,6 +1545,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 
 	  db_file_disable_bymatch(path, "", 0);
 	  db_pl_disable_bymatch(path, "", 0);
+	  db_directory_disable_bymatch(path, "", 0);
 	}
       else if (ret < 0)
 	{
@@ -1465,7 +1561,9 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 
   if (ie->mask & IN_CREATE)
     {
-      process_directories(path, flags);
+      parent_id = process_parent_directories(path);
+
+      process_directories(path, parent_id, flags);
 
       if (dirstack)
 	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
@@ -1480,8 +1578,12 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   uint32_t path_hash;
   char *deref = NULL;
   char *file = path;
+  char *dir;
+  char dir_vpath[PATH_MAX];
   int type;
   int i;
+  int dir_id;
+  char *ptr;
   int ret;
 
   DPRINTF(E_SPAM, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
@@ -1541,7 +1643,30 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 
       ret = db_file_enable_bycookie(ie->cookie, path);
 
-      if (ret <= 0)
+      if (ret > 0)
+	{
+	  // If file was successfully enabled, update the directory id
+	  dir = strdup(path);
+	  ptr = strrchr(dir, '/');
+	  dir[(ptr - dir)] = '\0';
+
+	  ret = create_virtual_path(dir, dir_vpath, sizeof(dir_vpath));
+	  if (ret < 0)
+	    DPRINTF(E_LOG, L_SCAN, "Error creating virtual path for: %s\n", dir);
+	  else
+	    {
+	      dir_id = db_directory_id_byvirtualpath(dir_vpath);
+	      if (dir_id > 0)
+		{
+		  ret = db_file_update_directoryid(path, dir_id);
+		  if (ret < 0)
+		    DPRINTF(E_LOG, L_SCAN, "Error updating directory id for file: %s\n", path);
+		}
+	    }
+
+	  free(dir);
+	}
+      else
 	{
 	  /* It's not a known media file, so it's either a new file
 	   * or a playlist, known or not.
@@ -1636,10 +1761,14 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
       if (check_speciallib(path, "audiobooks"))
 	type |= F_SCAN_TYPE_AUDIOBOOK;
 
+      dir_id = process_parent_directories(file);
+
       if (S_ISREG(sb.st_mode))
-	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, 0);
+	{
+	  process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_FILE | type, 0, dir_id);
+	}
       else if (S_ISFIFO(sb.st_mode))
-	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, 0);
+	process_file(file, sb.st_mtime, sb.st_size, F_SCAN_TYPE_PIPE | type, 0, dir_id);
 
       if (deref)
 	free(deref);

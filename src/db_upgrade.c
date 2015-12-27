@@ -1167,6 +1167,263 @@ static const struct db_upgrade_query db_upgrade_v1801_queries[] =
     { U_V1801_SCVER_MINOR,    "set schema_version_minor to 01" },
   };
 
+/* Upgrade from schema v18.01 to v19.00 */
+/* Replace 'filelist' view with new table 'directories'
+ */
+
+#define U_V1900_CREATE_TABLE_DIRECTORIES						\
+  "CREATE TABLE IF NOT EXISTS directories ("			\
+  "   id                  INTEGER PRIMARY KEY NOT NULL,"	\
+  "   virtual_path        VARCHAR(4096) NOT NULL,"		\
+  "   db_timestamp        INTEGER DEFAULT 0,"			\
+  "   disabled            INTEGER DEFAULT 0,"			\
+  "   parent_id           INTEGER DEFAULT 0"			\
+  ");"
+
+#define U_V1900_DROP_VIEW_FILELIST \
+  "DROP VIEW IF EXISTS filelist;"
+#define U_V1900_ALTER_PL_ADD_DIRECTORYID			\
+  "ALTER TABLE playlists ADD COLUMN directory_id INTEGER DEFAULT 0;"
+#define U_V1900_ALTER_FILES_ADD_DIRECTORYID			\
+  "ALTER TABLE files ADD COLUMN directory_id INTEGER DEFAULT 0;"
+
+#define U_V1900_INSERT_DIR1 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (1, '/', 0, 0, 0);"
+
+#define U_V1900_SCVER_MAJOR			\
+  "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"
+#define U_V1900_SCVER_MINOR			\
+  "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
+
+static const struct db_upgrade_query db_upgrade_v1900_queries[] =
+  {
+    { U_V1900_CREATE_TABLE_DIRECTORIES,    "create table directories" },
+    { U_V1900_ALTER_PL_ADD_DIRECTORYID,    "alter table pl add column directory_id" },
+    { U_V1900_ALTER_FILES_ADD_DIRECTORYID, "alter table files add column directory_id" },
+    { U_V1900_INSERT_DIR1,                 "insert root directory" },
+    { U_V1900_DROP_VIEW_FILELIST,          "drop view directories" },
+
+    { U_V1900_SCVER_MAJOR,    "set schema_version_major to 19" },
+    { U_V1900_SCVER_MINOR,    "set schema_version_minor to 00" },
+  };
+
+int
+db_upgrade_v19_directory_id(sqlite3 *hdl, char *virtual_path)
+{
+  sqlite3_stmt *stmt;
+  char *query;
+  int id;
+  int ret;
+
+  query = sqlite3_mprintf("SELECT d.id FROM directories d WHERE d.disabled = 0 AND d.virtual_path = '%q';", virtual_path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Error preparing query '%s'\n", query);
+      sqlite3_free(query);
+
+      return -1;
+    }
+
+  ret = sqlite3_step(stmt);
+
+  if (ret == SQLITE_ROW)
+    id = sqlite3_column_int(stmt, 0);
+  else if (ret == SQLITE_DONE)
+    id = 0; // Not found
+  else
+    {
+      DPRINTF(E_LOG, L_DB, "Error stepping query '%s'\n", query);
+      sqlite3_free(query);
+      sqlite3_finalize(stmt);
+
+      return -1;
+    }
+
+  sqlite3_free(query);
+  sqlite3_finalize(stmt);
+
+  return id;
+}
+
+int
+db_upgrade_v19_insert_directory(sqlite3 *hdl, char *virtual_path, int parent_id)
+{
+  char *query;
+  char *errmsg;
+  int id;
+  int ret;
+
+  query = sqlite3_mprintf(
+      "INSERT INTO directories (virtual_path, db_timestamp, disabled, parent_id) VALUES (TRIM(%Q), %d, %d, %d);",
+      virtual_path,  (uint64_t)time(NULL), 0, parent_id);
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  id = (int)sqlite3_last_insert_rowid(hdl);
+
+  DPRINTF(E_DBG, L_DB, "Added directory %s with id %d\n", virtual_path, id);
+
+  return id;
+}
+
+static int
+db_upgrade_v19_insert_parent_directories(sqlite3 *hdl, char *virtual_path)
+{
+  char *ptr;
+  int dir_id;
+  int parent_id;
+  char buf[PATH_MAX];
+
+  // The root directoy ID
+  parent_id = 1;
+
+  ptr = virtual_path + 1; // Skip first '/'
+  while (ptr && (ptr = strchr(ptr, '/')))
+    {
+      strncpy(buf, virtual_path, (ptr - virtual_path));
+      buf[(ptr - virtual_path)] = '\0';
+
+      dir_id = db_upgrade_v19_directory_id(hdl, buf);
+
+      if (dir_id < 0)
+	{
+	  DPRINTF(E_LOG, L_SCAN, "Select of directory failed '%s'\n", buf);
+
+	  return -1;
+	}
+      else if (dir_id == 0)
+	{
+	  dir_id = db_upgrade_v19_insert_directory(hdl, buf, parent_id);
+	  if (dir_id < 0)
+	    {
+	      DPRINTF(E_LOG, L_SCAN, "Insert of directory failed '%s'\n", buf);
+
+	      return -1;
+	    }
+	}
+
+      parent_id = dir_id;
+      ptr++;
+    }
+
+  return parent_id;
+}
+
+static int
+db_upgrade_v19(sqlite3 *hdl)
+{
+  sqlite3_stmt *stmt;
+  char *query;
+  char *uquery;
+  char *errmsg;
+  int id;
+  char *virtual_path;
+  int dir_id;
+  int ret;
+
+  query = "SELECT id, virtual_path FROM files;";
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+    {
+      id = sqlite3_column_int(stmt, 0);
+      virtual_path = (char *)sqlite3_column_text(stmt, 1);
+
+      dir_id = db_upgrade_v19_insert_parent_directories(hdl, virtual_path);
+      if (dir_id < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Error processing parent directories for file: %s\n", virtual_path);
+	}
+      else
+	{
+	  uquery = sqlite3_mprintf("UPDATE files SET directory_id = %d WHERE id = %d;", dir_id, id);
+	  ret = sqlite3_exec(hdl, uquery, NULL, NULL, &errmsg);
+	  if (ret != SQLITE_OK)
+	    {
+	      DPRINTF(E_LOG, L_DB, "Error updating files: %s\n", errmsg);
+	    }
+
+	  sqlite3_free(uquery);
+	  sqlite3_free(errmsg);
+	}
+    }
+
+  sqlite3_finalize(stmt);
+
+
+  query = "SELECT id, virtual_path FROM playlists WHERE type = 2 OR type = 3;"; //Only update normal and smart playlists
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
+    {
+      id = sqlite3_column_int(stmt, 0);
+      virtual_path = (char *)sqlite3_column_text(stmt, 1);
+
+      dir_id = db_upgrade_v19_insert_parent_directories(hdl, virtual_path);
+      if (dir_id < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Error processing parent directories for file: %s\n", virtual_path);
+	}
+      else
+	{
+	  uquery = sqlite3_mprintf("UPDATE files SET directory_id = %d WHERE id = %d;", dir_id, id);
+	  ret = sqlite3_exec(hdl, uquery, NULL, NULL, &errmsg);
+	  if (ret != SQLITE_OK)
+	    {
+	      DPRINTF(E_LOG, L_DB, "Error updating files: %s\n", errmsg);
+	    }
+
+	  sqlite3_free(uquery);
+	  sqlite3_free(errmsg);
+	}
+    }
+
+  sqlite3_finalize(stmt);
+
+  return 0;
+}
+
 int
 db_upgrade(sqlite3 *hdl, int db_ver)
 {
@@ -1263,6 +1520,17 @@ db_upgrade(sqlite3 *hdl, int db_ver)
 
     case 1800:
       ret = db_generic_upgrade(hdl, db_upgrade_v1801_queries, sizeof(db_upgrade_v1801_queries) / sizeof(db_upgrade_v1801_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      /* FALLTHROUGH */
+
+    case 1801:
+      ret = db_generic_upgrade(hdl, db_upgrade_v1900_queries, sizeof(db_upgrade_v1900_queries) / sizeof(db_upgrade_v1900_queries[0]));
+      if (ret < 0)
+	return -1;
+
+      ret = db_upgrade_v19(hdl);
       if (ret < 0)
 	return -1;
 
