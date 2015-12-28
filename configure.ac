@@ -177,11 +177,11 @@ AS_IF([test "x$enable_lastfm" = "xyes"], [
 AM_CONDITIONAL(COND_LASTFM, [test "x$enable_lastfm" = "xyes"])
 
 dnl MPD support
-AC_ARG_ENABLE(mpd, AS_HELP_STRING([--enable-mpd], [enable MPD client protocol support (default=no)]))
-AS_IF([test "x$enable_mpd" = "xyes"], [
+AC_ARG_ENABLE(mpd, AS_HELP_STRING([--disable-mpd], [disable MPD client protocol support (default=no)]))
+AS_IF([test "x$enable_mpd" != "xno"], [
 	CPPFLAGS="${CPPFLAGS} -DMPD"
 ])
-AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" = "xyes"])
+AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
 dnl --- End options ---
 
 dnl Selection of local audio sound system
