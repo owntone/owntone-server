@@ -1215,6 +1215,7 @@ cache_artwork_get_impl(struct cache_command *cmd)
   if (!cmd->arg.evbuf)
     {
       DPRINTF(E_LOG, L_CACHE, "Error: Artwork evbuffer is NULL\n");
+      ret = -1;
       goto error_get;
     }
 
@@ -1222,6 +1223,7 @@ cache_artwork_get_impl(struct cache_command *cmd)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CACHE, "Out of memory for artwork evbuffer\n");
+      ret = -1;
       goto error_get;
     }
 
@@ -1241,7 +1243,7 @@ cache_artwork_get_impl(struct cache_command *cmd)
   sqlite3_finalize(stmt);
   sqlite3_free(query);
 
-  return -1;
+  return ret;
 #undef Q_TMPL
 }
 
