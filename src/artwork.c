@@ -97,20 +97,20 @@ struct artwork_ctx {
   // Handler should output artwork data to this evbuffer
   struct evbuffer *evbuf;
 
+  // Input data to handler, requested width and height
+  int max_w;
+  int max_h;
+  // Input data to handler, did user configure to look for individual artwork
+  int individual;
+
   // Input data for item handlers
   struct db_media_file_info *dbmfi;
   int id;
-
   // Input data for group handlers
   int64_t persistentid;
 
-  // Input data for both (requested width and height)
-  int max_w;
-  int max_h;
-
   // Not to be used by handler - query for item or group
   struct query_params qp;
-
   // Not to be used by handler - should the result be cached
   enum artwork_cache cache;
 };
@@ -422,8 +422,6 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
       goto out_free_dst_ctx;
     }
 
-  DPRINTF(E_DBG, L_ART, "Selected pixel format: %d\n", dst->pix_fmt);
-
   dst->time_base.num = 1;
   dst->time_base.den = 25;
 
@@ -687,7 +685,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
  * @in  path      Path to the artwork
  * @in  max_w     Requested width
  * @in  max_h     Requested height
- * @return        ART_FMT_* on success, -1 on error
+ * @return        ART_FMT_* on success, ART_E_ERROR on error
  */
 static int
 artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
@@ -699,7 +697,7 @@ artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
   int format_ok;
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Getting artwork (max destination width %d height %d)\n", max_w, max_h);
+  DPRINTF(E_SPAM, L_ART, "Getting artwork (max destination width %d height %d)\n", max_w, max_h);
 
   src_ctx = NULL;
 
@@ -712,7 +710,7 @@ artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
     {
       DPRINTF(E_WARN, L_ART, "Cannot open artwork file '%s': %s\n", path, strerror(AVUNERROR(ret)));
 
-      return -1;
+      return ART_E_ERROR;
     }
 
 #if LIBAVFORMAT_VERSION_MAJOR >= 54 || (LIBAVFORMAT_VERSION_MAJOR == 53 && LIBAVFORMAT_VERSION_MINOR >= 3)
@@ -729,7 +727,7 @@ artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
 #else
       av_close_input_file(src_ctx);
 #endif
-      return -1;
+      return ART_E_ERROR;
     }
 
   format_ok = 0;
@@ -756,7 +754,7 @@ artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
 #else
       av_close_input_file(src_ctx);
 #endif
-      return -1;
+      return ART_E_ERROR;
     }
 
   ret = rescale_needed(src_ctx->streams[s]->codec, max_w, max_h, &target_w, &target_h);
@@ -781,202 +779,21 @@ artwork_get(struct evbuffer *evbuf, char *path, int max_w, int max_h)
     {
       if (evbuffer_get_length(evbuf) > 0)
 	evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
+
+      ret = ART_E_ERROR;
     }
 
   return ret;
 }
 
-#if LIBAVFORMAT_VERSION_MAJOR >= 55 || (LIBAVFORMAT_VERSION_MAJOR == 54 && LIBAVFORMAT_VERSION_MINOR >= 6)
-/* Get an embedded artwork file from a media file. Will rescale if needed.
+/* Looks for an artwork file in a directory. Will rescale if needed.
  *
  * @out evbuf     Image data
- * @in  path      Path to the artwork
+ * @in  dir       Directory to search
  * @in  max_w     Requested width
  * @in  max_h     Requested height
- * @return        ART_FMT_* on success, -1 on error
- */
-static int
-artwork_get_embedded_image(struct evbuffer *evbuf, char *path, int max_w, int max_h)
-{
-  AVFormatContext *src_ctx;
-  AVStream *src_st;
-  int s;
-  int target_w;
-  int target_h;
-  int format_ok;
-  int ret;
-
-  DPRINTF(E_SPAM, L_ART, "Trying embedded artwork in %s\n", path);
-
-  src_ctx = NULL;
-
-  ret = avformat_open_input(&src_ctx, path, NULL, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_ART, "Cannot open media file '%s': %s\n", path, strerror(AVUNERROR(ret)));
-
-      return -1;
-    }
-
-  ret = avformat_find_stream_info(src_ctx, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_ART, "Cannot get stream info: %s\n", strerror(AVUNERROR(ret)));
-
-      avformat_close_input(&src_ctx);
-      return -1;
-    }
-
-  format_ok = 0;
-  for (s = 0; s < src_ctx->nb_streams; s++)
-    {
-      if (src_ctx->streams[s]->disposition & AV_DISPOSITION_ATTACHED_PIC)
-	{
-	  if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_PNG)
-	    {
-	      format_ok = ART_FMT_PNG;
-	      break;
-	    }
-	  else if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_MJPEG)
-	    {
-	      format_ok = ART_FMT_JPEG;
-	      break;
-	    }
-	}
-    }
-
-  if (s == src_ctx->nb_streams)
-    {
-      DPRINTF(E_DBG, L_ART, "Did not find embedded artwork in '%s'\n", path);
-
-      avformat_close_input(&src_ctx);
-      return 0;
-    }
-  else
-    DPRINTF(E_DBG, L_ART, "Found embedded artwork in '%s'\n", path);
-
-  src_st = src_ctx->streams[s];
-
-  ret = rescale_needed(src_st->codec, max_w, max_h, &target_w, &target_h);
-
-  /* Fastpath */
-  if (!ret && format_ok)
-    {
-      DPRINTF(E_DBG, L_ART, "Artwork not too large, using original image\n");
-
-      ret = evbuffer_expand(evbuf, src_st->attached_pic.size);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_ART, "Out of memory for artwork\n");
-
-	  avformat_close_input(&src_ctx);
-	  return -1;
-	}
-
-      ret = evbuffer_add(evbuf, src_st->attached_pic.data, src_st->attached_pic.size);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_ART, "Could not add embedded image to event buffer\n");
-	}
-      else
-        ret = format_ok;
-    }
-  else
-    {
-      DPRINTF(E_DBG, L_ART, "Artwork too large, rescaling image\n");
-
-      ret = artwork_rescale(evbuf, src_ctx, s, target_w, target_h);
-    }
-
-  avformat_close_input(&src_ctx);
-
-  if (ret < 0)
-    {
-      if (evbuffer_get_length(evbuf) > 0)
-	evbuffer_drain(evbuf, evbuffer_get_length(evbuf));
-    }
-
-  return ret;
-}
-#endif
-
-/*
- * Looks for basename(in_path).{png,jpg}, so if in_path is /foo/bar.mp3 it
- * will look for /foo/bar.png and /foo/bar.jpg
- *
- * @param evbuf the event buffer that will contain the (scaled) image
- * @param in_path path to the item we are getting artwork for
- * @param max_w maximum image width
- * @param max_h maximum image height
- * @param out_path path to artwork, input must be either NULL or char[PATH_MAX]
- * @return ART_FMT_* on success, 0 on nothing found, -1 on error
- */
-static int
-artwork_get_own_image(struct evbuffer *evbuf, char *in_path, int max_w, int max_h, char *out_path)
-{
-  char path[PATH_MAX];
-  char *ptr;
-  int len;
-  int nextensions;
-  int i;
-  int ret;
-
-  ret = snprintf(path, sizeof(path), "%s", in_path);
-  if ((ret < 0) || (ret >= sizeof(path)))
-    {
-      DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", in_path);
-      return -1;
-    }
-
-  ptr = strrchr(path, '.');
-  if (ptr)
-    *ptr = '\0';
-
-  len = strlen(path);
-
-  nextensions = sizeof(cover_extension) / sizeof(cover_extension[0]);
-
-  for (i = 0; i < nextensions; i++)
-    {
-      ret = snprintf(path + len, sizeof(path) - len, ".%s", cover_extension[i]);
-      if ((ret < 0) || (ret >= sizeof(path) - len))
-	{
-	  DPRINTF(E_LOG, L_ART, "Artwork path will exceed PATH_MAX (%s)\n", in_path);
-	  continue;
-	}
-
-      DPRINTF(E_SPAM, L_ART, "Trying own artwork file %s\n", path);
-
-      ret = access(path, F_OK);
-      if (ret < 0)
-	continue;
-
-      break;
-    }
-
-  if (i == nextensions)
-    return 0;
-
-  DPRINTF(E_DBG, L_ART, "Found own artwork file %s\n", path);
-
-  if (out_path)
-    strncpy(out_path, path, PATH_MAX);
-
-  return artwork_get(evbuf, path, max_w, max_h);
-}
-
-/*
- * Looks for cover files in a directory, so if dir is /foo/bar and the user has
- * configured the cover file names "cover" and "artwork" it will look for
- * /foo/bar/cover.{png,jpg}, /foo/bar/artwork.{png,jpg} and also
- * /foo/bar/bar.{png,jpg} (so called parentdir artwork)
- *
- * @param evbuf the event buffer that will contain the (scaled) image
- * @param dir the directory to search
- * @param max_w maximum image width
- * @param max_h maximum image height
- * @param out_path path to artwork, input must be either NULL or char[PATH_MAX]
- * @return ART_FMT_* on success, 0 on nothing found, -1 on error
+ * @out out_path  Path to the artwork file if found, must be a char[PATH_MAX] buffer
+ * @return        ART_FMT_* on success, ART_E_NONE on nothing found, ART_E_ERROR on error
  */
 static int
 artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, char *out_path)
@@ -996,7 +813,7 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
   if ((ret < 0) || (ret >= sizeof(path)))
     {
       DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", dir);
-      return -1;
+      return ART_E_ERROR;
     }
 
   len = strlen(path);
@@ -1005,7 +822,7 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
   nbasenames = cfg_size(lib, "artwork_basenames");
 
   if (nbasenames == 0)
-    return 0;
+    return ART_E_NONE;
 
   nextensions = sizeof(cover_extension) / sizeof(cover_extension[0]);
 
@@ -1046,7 +863,7 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
       if ((!ptr) || (strlen(ptr) <= 1))
 	{
 	  DPRINTF(E_LOG, L_ART, "Could not find parent dir name (%s)\n", path);
-	  return -1;
+	  return ART_E_ERROR;
 	}
       strcpy(parentdir, ptr + 1);
 
@@ -1071,13 +888,10 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
 	}
 
       if (i == nextensions)
-	return 0;
+	return ART_E_NONE;
     }
 
-  DPRINTF(E_DBG, L_ART, "Found directory artwork file %s\n", path);
-
-  if (out_path)
-    strncpy(out_path, path, PATH_MAX);
+  snprintf(out_path, PATH_MAX, "%s", path);
 
   return artwork_get(evbuf, path, max_w, max_h);
 }
@@ -1085,6 +899,8 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
 
 /* -------------------- SOURCE HANDLERS AND DEFINITIONS -------------------- */
 
+/* Looks in the cache for group artwork
+ */
 static int
 source_group_cache_get(struct artwork_ctx *ctx)
 {
@@ -1099,14 +915,17 @@ source_group_cache_get(struct artwork_ctx *ctx)
   if (!cached)
     return ART_E_NONE;
 
-  DPRINTF(E_DBG, L_ART, "Group %" PRIi64 " found in cache with format %d\n", ctx->persistentid, format);
-
   if (!format)
     return ART_E_ABORT;
 
   return format;
 }
 
+/* Looks for cover files in a directory, so if dir is /foo/bar and the user has
+ * configured the cover file names "cover" and "artwork" it will look for
+ * /foo/bar/cover.{png,jpg}, /foo/bar/artwork.{png,jpg} and also
+ * /foo/bar/bar.{png,jpg} (so-called parentdir artwork)
+ */
 static int
 source_group_dir_get(struct artwork_ctx *ctx)
 {
@@ -1152,12 +971,18 @@ source_group_dir_get(struct artwork_ctx *ctx)
   return ART_E_NONE;
 }
 
+/* Looks in the cache for item artwork. Only relevant if configured to look for
+ * individual artwork.
+ */
 static int
 source_item_cache_get(struct artwork_ctx *ctx)
 {
   int format;
   int cached;
   int ret;
+
+  if (!ctx->individual)
+    return ART_E_NONE;
 
   ret = cache_artwork_get(CACHE_ARTWORK_INDIVIDUAL, ctx->id, ctx->max_w, ctx->max_h, &cached, &format, ctx->evbuf);
   if (ret < 0)
@@ -1166,46 +991,157 @@ source_item_cache_get(struct artwork_ctx *ctx)
   if (!cached)
     return ART_E_NONE;
 
-  DPRINTF(E_DBG, L_ART, "Item %d found in cache with format %d\n", ctx->id, format);
-
   if (!format)
     return ART_E_ABORT;
 
   return format;
 }
 
+/* Get an embedded artwork file from a media file. Will rescale if needed.
+ */
 static int
 source_item_embedded_get(struct artwork_ctx *ctx)
 {
+  AVFormatContext *src_ctx;
+  AVStream *src_st;
+  int s;
+  int target_w;
+  int target_h;
+  int format;
   int ret;
 
-  ret = artwork_get_embedded_image(ctx->evbuf, ctx->dbmfi->path, ctx->max_w, ctx->max_h);
+  DPRINTF(E_SPAM, L_ART, "Trying embedded artwork in %s\n", ctx->dbmfi->path);
+
+  src_ctx = NULL;
+
+  ret = avformat_open_input(&src_ctx, ctx->dbmfi->path, NULL, NULL);
   if (ret < 0)
-    return ART_E_ERROR;
+    {
+      DPRINTF(E_WARN, L_ART, "Cannot open media file '%s': %s\n", ctx->dbmfi->path, strerror(AVUNERROR(ret)));
+      return ART_E_ERROR;
+    }
 
-  if (ret == 0)
-    return ART_E_NONE;
+  ret = avformat_find_stream_info(src_ctx, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_ART, "Cannot get stream info: %s\n", strerror(AVUNERROR(ret)));
+      avformat_close_input(&src_ctx);
+      return ART_E_ERROR;
+    }
 
-  // TODO Use a more efficient way, and something that will always NULL-terminate
-  if (ret > 0)
-    strncpy(ctx->path, ctx->dbmfi->path, PATH_MAX);
+  format = 0;
+  for (s = 0; s < src_ctx->nb_streams; s++)
+    {
+      if (src_ctx->streams[s]->disposition & AV_DISPOSITION_ATTACHED_PIC)
+	{
+	  if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_PNG)
+	    {
+	      format = ART_FMT_PNG;
+	      break;
+	    }
+	  else if (src_ctx->streams[s]->codec->codec_id == AV_CODEC_ID_MJPEG)
+	    {
+	      format = ART_FMT_JPEG;
+	      break;
+	    }
+	}
+    }
+
+  if (s == src_ctx->nb_streams)
+    {
+      avformat_close_input(&src_ctx);
+      return ART_E_NONE;
+    }
+
+  src_st = src_ctx->streams[s];
+
+  ret = rescale_needed(src_st->codec, ctx->max_w, ctx->max_h, &target_w, &target_h);
+
+  /* Fastpath */
+  if (!ret && format)
+    {
+      DPRINTF(E_SPAM, L_ART, "Artwork not too large, using original image\n");
+
+      ret = evbuffer_add(ctx->evbuf, src_st->attached_pic.data, src_st->attached_pic.size);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_ART, "Could not add embedded image to event buffer\n");
+      else
+        ret = format;
+    }
+  else
+    {
+      DPRINTF(E_SPAM, L_ART, "Artwork too large, rescaling image\n");
+
+      ret = artwork_rescale(ctx->evbuf, src_ctx, s, target_w, target_h);
+    }
+
+  avformat_close_input(&src_ctx);
+
+  if (ret < 0)
+    {
+      if (evbuffer_get_length(ctx->evbuf) > 0)
+	evbuffer_drain(ctx->evbuf, evbuffer_get_length(ctx->evbuf));
+
+      ret = ART_E_ERROR;
+    }
+  else
+    snprintf(ctx->path, sizeof(ctx->path), "%s", ctx->dbmfi->path);
 
   return ret;
 }
 
+/* Looks for basename(in_path).{png,jpg}, so if in_path is /foo/bar.mp3 it
+ * will look for /foo/bar.png and /foo/bar.jpg
+ */
 static int
 source_item_own_get(struct artwork_ctx *ctx)
 {
+  char path[PATH_MAX];
+  char *ptr;
+  int len;
+  int nextensions;
+  int i;
   int ret;
 
-  ret = artwork_get_own_image(ctx->evbuf, ctx->dbmfi->path, ctx->max_w, ctx->max_h, ctx->path);
-  if (ret < 0)
-    return ART_E_ERROR;
+  ret = snprintf(path, sizeof(path), "%s", ctx->dbmfi->path);
+  if ((ret < 0) || (ret >= sizeof(path)))
+    {
+      DPRINTF(E_LOG, L_ART, "Artwork path exceeds PATH_MAX (%s)\n", ctx->dbmfi->path);
+      return ART_E_ERROR;
+    }
 
-  if (ret == 0)
+  ptr = strrchr(path, '.');
+  if (ptr)
+    *ptr = '\0';
+
+  len = strlen(path);
+
+  nextensions = sizeof(cover_extension) / sizeof(cover_extension[0]);
+
+  for (i = 0; i < nextensions; i++)
+    {
+      ret = snprintf(path + len, sizeof(path) - len, ".%s", cover_extension[i]);
+      if ((ret < 0) || (ret >= sizeof(path) - len))
+	{
+	  DPRINTF(E_LOG, L_ART, "Artwork path will exceed PATH_MAX (%s)\n", ctx->dbmfi->path);
+	  continue;
+	}
+
+      DPRINTF(E_SPAM, L_ART, "Trying own artwork file %s\n", path);
+
+      ret = access(path, F_OK);
+      if (ret < 0)
+	continue;
+
+      break;
+    }
+
+  if (i == nextensions)
     return ART_E_NONE;
 
-  return ret;
+  snprintf(ctx->path, sizeof(ctx->path), "%s", path);
+
+  return artwork_get(ctx->evbuf, path, ctx->max_w, ctx->max_h);
 }
 
 /*
@@ -1227,7 +1163,7 @@ source_item_stream_get(struct artwork_ctx *ctx)
   int len;
   int ret;
 
-  DPRINTF(E_DBG, L_ART, "Trying internet stream artwork in %s\n", ctx->dbmfi->path);
+  DPRINTF(E_SPAM, L_ART, "Trying internet stream artwork in %s\n", ctx->dbmfi->path);
 
   ret = ART_E_NONE;
 
@@ -1269,8 +1205,7 @@ source_item_stream_get(struct artwork_ctx *ctx)
 
   if (ret > 0)
     {
-      DPRINTF(E_DBG, L_ART, "Found internet stream artwork in %s (%s)\n", url, content_type);
-      strncpy(ctx->path, ctx->dbmfi->path, PATH_MAX); // TODO
+      DPRINTF(E_SPAM, L_ART, "Found internet stream artwork in %s (%s)\n", url, content_type);
       cache_artwork_stash(ctx->evbuf, url, ret);
     }
 
@@ -1380,11 +1315,8 @@ process_items(struct artwork_ctx *ctx, int item_mode)
 {
   struct db_media_file_info dbmfi;
   uint32_t data_kind;
-  int artwork_individual;
   int i;
   int ret;
-
-  artwork_individual = cfg_getbool(cfg_getsec(cfg, "library"), "artwork_individual");
 
   ret = db_query_start(&ctx->qp);
   if (ret < 0)
@@ -1400,7 +1332,7 @@ process_items(struct artwork_ctx *ctx, int item_mode)
       if (!ctx->persistentid)
 	safe_atoi64(dbmfi.songalbumid, &ctx->persistentid);
 
-      if (item_mode && !artwork_individual)
+      if (item_mode && !ctx->individual)
 	goto no_artwork;
 
       ret = (safe_atoi32(dbmfi.id, &ctx->id) < 0) ||
@@ -1421,7 +1353,7 @@ process_items(struct artwork_ctx *ctx, int item_mode)
 	  if ((artwork_item_source[i].cache & ON_FAILURE) == 0)
 	    ctx->cache = NEVER;
 
-	  DPRINTF(E_DBG, L_ART, "Checking item source '%s'\n", artwork_item_source[i].name);
+	  DPRINTF(E_SPAM, L_ART, "Checking item source '%s'\n", artwork_item_source[i].name);
 
 	  ctx->dbmfi = &dbmfi;
 	  ret = artwork_item_source[i].handler(ctx);
@@ -1479,7 +1411,7 @@ process_group(struct artwork_ctx *ctx)
       if ((artwork_group_source[i].cache & ON_FAILURE) == 0)
 	ctx->cache = NEVER;
 
-      DPRINTF(E_DBG, L_ART, "Checking group source '%s'\n", artwork_group_source[i].name);
+      DPRINTF(E_SPAM, L_ART, "Checking group source '%s'\n", artwork_group_source[i].name);
 
       ret = artwork_group_source[i].handler(ctx);
       if (ret > 0)
@@ -1526,6 +1458,7 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
   ctx.max_w = max_w;
   ctx.max_h = max_h;
   ctx.cache = ON_FAILURE;
+  ctx.individual = cfg_getbool(cfg_getsec(cfg, "library"), "artwork_individual");
 
   ret = snprintf(filter, sizeof(filter), "id = %d", id);
   if ((ret < 0) || (ret >= sizeof(filter)))
@@ -1535,6 +1468,7 @@ artwork_get_item(struct evbuffer *evbuf, int id, int max_w, int max_h)
     }
 
   // Note: process_items will set ctx.persistentid for the following process_group()
+  // - and do nothing else if artwork_individual is not configured by user
   ret = process_items(&ctx, 1);
   if (ret > 0)
     {
@@ -1588,6 +1522,7 @@ artwork_get_group(struct evbuffer *evbuf, int id, int max_w, int max_h)
   ctx.max_w = max_w;
   ctx.max_h = max_h;
   ctx.cache = ON_FAILURE;
+  ctx.individual = cfg_getbool(cfg_getsec(cfg, "library"), "artwork_individual");
 
   ret = process_group(&ctx);
   if (ret > 0)
