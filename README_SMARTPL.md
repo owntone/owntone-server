@@ -125,7 +125,7 @@ One example of a valid date is a date in yyyy-mm-dd format:
 There are also some special date keywords:
 * "today", "yesterday", "last week", "last month", "last year"
 
-A valid date can also be made by appling an interval to a date. Intervals can be defined as "days", "weeks", "months", "years".
+A valid date can also be made by applying an interval to a date. Intervals can be defined as "days", "weeks", "months", "years".
 As an example, a valid date might be:
 
 ```3 weeks before today``` or ```3 weeks ago```
