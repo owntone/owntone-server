@@ -63,16 +63,19 @@ sudo yum install \
  sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
  avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel
 
+Clone the forked-daapd repo:
+
+ git clone https://github.com/ejurgensen/forked-daapd.git
+ cd forked-daapd
+
 Now you need to install ANTLR3, but you probably can't use the version that
 comes with the package manager (but do try that first). Instead you can install
 it by running this script:
 
-scripts/antlr34_install.sh
+ scripts/antlr35_install.sh
 
 Then run the following:
 
- git clone https://github.com/ejurgensen/forked-daapd.git
- cd forked-daapd
  autoreconf -i
  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
  make
