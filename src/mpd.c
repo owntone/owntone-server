@@ -2685,6 +2685,210 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   return 0;
 }
 
+static int
+mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int listinfo, char **errmsg)
+{
+  struct directory_info subdir;
+  struct query_params qp;
+  struct directory_enum dir_enum;
+  struct db_playlist_info dbpli;
+  char modified[32];
+  uint32_t time_modified;
+  struct db_media_file_info dbmfi;
+  int ret;
+
+  // Load playlists for dir-id
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_PL;
+  qp.sort = S_PLAYLIST;
+  qp.idx_type = I_NONE;
+  qp.filter = sqlite3_mprintf("(directory_id = %d AND (f.type = %d OR f.type = %d))", directory_id, PL_PLAIN, PL_SMART);
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+    {
+      if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
+	  return -1;
+	}
+
+      if (listinfo)
+	{
+	  mpd_time(modified, sizeof(modified), time_modified);
+	  evbuffer_add_printf(evbuf,
+	    "playlist: %s\n"
+	    "Last-Modified: %s\n",
+	    (dbpli.virtual_path + 1),
+	    modified);
+	}
+      else
+	{
+	  evbuffer_add_printf(evbuf,
+	    "playlist: %s\n",
+	    (dbpli.virtual_path + 1));
+	}
+    }
+  db_query_end(&qp);
+  sqlite3_free(qp.filter);
+
+  // Load sub directories for dir-id
+  memset(&dir_enum, 0, sizeof(struct directory_enum));
+  dir_enum.parent_id = directory_id;
+  ret = db_directory_enum_start(&dir_enum);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Failed to start directory enum for parent_id %d\n", directory_id);
+      return -1;
+    }
+  while ((ret = db_directory_enum_fetch(&dir_enum, &subdir)) == 0 && subdir.id > 0)
+    {
+      if (listinfo)
+	{
+	  evbuffer_add_printf(evbuf,
+	    "directory: %s\n"
+	    "Last-Modified: %s\n",
+	    (subdir.virtual_path + 1),
+	    "2015-12-01 00:00");
+	}
+      else
+	{
+	  evbuffer_add_printf(evbuf,
+	    "directory: %s\n",
+	    (subdir.virtual_path + 1));
+	}
+
+      if (listall)
+	{
+	  mpd_add_directory(evbuf, subdir.id, listall, listinfo, errmsg);
+	}
+    }
+  db_directory_enum_end(&dir_enum);
+
+  // Load files for dir-id
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_ITEMS;
+  qp.sort = S_ARTIST;
+  qp.idx_type = I_NONE;
+  qp.filter = sqlite3_mprintf("(directory_id = %d)", directory_id);
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      if (listinfo)
+	{
+	  ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_MPD, "Error adding song to the evbuffer, song id: %s\n", dbmfi.id);
+	    }
+	}
+      else
+	{
+	  evbuffer_add_printf(evbuf,
+	    "file: %s\n",
+	    (dbmfi.virtual_path + 1));
+	}
+    }
+  db_query_end(&qp);
+
+  return 0;
+}
+
+static int
+mpd_command_listall(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  int dir_id;
+  char parent[PATH_MAX];
+  int ret;
+
+  if (argc < 2 || strlen(argv[1]) == 0
+      || (strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1))
+    {
+      ret = snprintf(parent, sizeof(parent), "/");
+    }
+  else if (strncmp(argv[1], "/", 1) == 0)
+    {
+      ret = snprintf(parent, sizeof(parent), "%s/", argv[1]);
+    }
+  else
+    {
+      ret = snprintf(parent, sizeof(parent), "/%s", argv[1]);
+    }
+
+  if ((ret < 0) || (ret >= sizeof(parent)))
+    {
+      DPRINTF(E_INFO, L_MPD, "Parent path exceeds PATH_MAX\n");
+      return -1;
+    }
+
+  // Load dir-id from db for parent-path
+  dir_id = db_directory_id_byvirtualpath(parent);
+  if (dir_id == 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Directory info not found for virtual-path '%s'\n", parent);
+      return -1;
+    }
+
+  ret = mpd_add_directory(evbuf, dir_id, 1, 0, errmsg);
+
+  return ret;
+}
+
+static int
+mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  int dir_id;
+  char parent[PATH_MAX];
+  int ret;
+
+  if (argc < 2 || strlen(argv[1]) == 0
+      || (strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1))
+    {
+      ret = snprintf(parent, sizeof(parent), "/");
+    }
+  else if (strncmp(argv[1], "/", 1) == 0)
+    {
+      ret = snprintf(parent, sizeof(parent), "%s/", argv[1]);
+    }
+  else
+    {
+      ret = snprintf(parent, sizeof(parent), "/%s", argv[1]);
+    }
+
+  if ((ret < 0) || (ret >= sizeof(parent)))
+    {
+      DPRINTF(E_INFO, L_MPD, "Parent path exceeds PATH_MAX\n");
+      return -1;
+    }
+
+  // Load dir-id from db for parent-path
+  dir_id = db_directory_id_byvirtualpath(parent);
+  if (dir_id == 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Directory info not found for virtual-path '%s'\n", parent);
+      return -1;
+    }
+
+  ret = mpd_add_directory(evbuf, dir_id, 1, 1, errmsg);
+
+  return ret;
+}
+
 /*
  * Command handler function for 'lsinfo'
  * Lists the contents of the directory given in argv[1].
@@ -2693,15 +2897,8 @@ static int
 mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   int dir_id;
-  struct directory_info subdir;
-  struct query_params qp;
-  struct directory_enum dir_enum;
   char parent[PATH_MAX];
   int print_playlists;
-  struct db_playlist_info dbpli;
-  char modified[32];
-  uint32_t time_modified;
-  struct db_media_file_info dbmfi;
   int ret;
 
   if (argc < 2 || strlen(argv[1]) == 0
@@ -2744,89 +2941,15 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return -1;
     }
 
-  // Load playlists for dir-id
-  memset(&qp, 0, sizeof(struct query_params));
-  qp.type = Q_PL;
-  qp.sort = S_PLAYLIST;
-  qp.idx_type = I_NONE;
-  qp.filter = sqlite3_mprintf("(directory_id = %d AND (f.type = %d OR f.type = %d))", dir_id, PL_PLAIN, PL_SMART);
-  ret = db_query_start(&qp);
-  if (ret < 0)
-    {
-      db_query_end(&qp);
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_UNKNOWN;
-    }
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
-    {
-      if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
-	{
-	  DPRINTF(E_LOG, L_MPD, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
-	  return -1;
-	}
-      mpd_time(modified, sizeof(modified), time_modified);
-      evbuffer_add_printf(evbuf,
-	"playlist: %s\n"
-	"Last-Modified: %s\n",
-	(dbpli.virtual_path + 1),
-	modified);
-    }
-  db_query_end(&qp);
-  sqlite3_free(qp.filter);
-
-  // Load sub directories for dir-id
-  memset(&dir_enum, 0, sizeof(struct directory_enum));
-  dir_enum.parent_id = dir_id;
-  ret = db_directory_enum_start(&dir_enum);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Failed to start directory enum for parent_id %d\n", dir_id);
-      return -1;
-    }
-  while ((ret = db_directory_enum_fetch(&dir_enum, &subdir)) == 0 && subdir.id > 0)
-    {
-      evbuffer_add_printf(evbuf,
-	"directory: %s\n"
-	"Last-Modified: %s\n",
-	(subdir.virtual_path + 1),
-	"2015-12-01 00:00");
-    }
-  db_directory_enum_end(&dir_enum);
-
-  // Load files for dir-id
-  memset(&qp, 0, sizeof(struct query_params));
-  qp.type = Q_ITEMS;
-  qp.sort = S_ARTIST;
-  qp.idx_type = I_NONE;
-  qp.filter = sqlite3_mprintf("(directory_id = %d)", dir_id);
-  ret = db_query_start(&qp);
-  if (ret < 0)
-    {
-      db_query_end(&qp);
-      ret = asprintf(errmsg, "Could not start query");
-      if (ret < 0)
-      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return ACK_ERROR_UNKNOWN;
-    }
-  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
-    {
-      ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
-      if (ret < 0)
-      {
-	DPRINTF(E_LOG, L_MPD, "Error adding song to the evbuffer, song id: %s\n", dbmfi.id);
-      }
-    }
-  db_query_end(&qp);
+  ret = mpd_add_directory(evbuf, dir_id, 0, 1, errmsg);
 
   // If the root directory was passed as argument add the stored playlists to the response
-  if (print_playlists)
+  if (ret == 0 && print_playlists)
     {
       return mpd_command_listplaylists(evbuf, argc, argv, errmsg);
     }
 
-  return 0;
+  return ret;
 }
 
 static int
@@ -3808,7 +3931,6 @@ static struct command mpd_handlers[] =
       .mpdcommand = "list",
       .handler = mpd_command_list
     },
-    /*
     {
       .mpdcommand = "listall",
       .handler = mpd_command_listall
@@ -3817,6 +3939,7 @@ static struct command mpd_handlers[] =
       .mpdcommand = "listallinfo",
       .handler = mpd_command_listallinfo
     },
+    /*
     {
       .mpdcommand = "listfiles",
       .handler = mpd_command_listfiles
