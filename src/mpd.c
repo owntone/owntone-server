@@ -1557,13 +1557,13 @@ mpd_queueitem_make(char *path, int recursive)
 
   if (recursive)
     {
-      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q%%'", path);
+      qp.filter = sqlite3_mprintf("disabled = 0 AND f.virtual_path LIKE '/%q%%'", path);
       if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
   else
     {
-      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q'", path);
+      qp.filter = sqlite3_mprintf("disabled = 0 AND f.virtual_path LIKE '/%q'", path);
       if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
