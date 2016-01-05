@@ -96,6 +96,8 @@ AC_CHECK_LIB([avfilter], [av_buffersink_get_frame],
 	AC_DEFINE(HAVE_LIBAV_BUFFERSINK_GET_FRAME, 1, [Define to 1 if you have ffmpeg/libav with av_buffersink_get_frame]))
 AC_CHECK_LIB([avfilter], [avfilter_graph_parse_ptr],
 	AC_DEFINE(HAVE_LIBAV_GRAPH_PARSE_PTR, 1, [Define to 1 if you have ffmpeg/libav with avfilter_graph_parse_ptr]))
+AC_CHECK_LIB([avcodec], [av_packet_unref],
+	AC_DEFINE(HAVE_LIBAV_PACKET_UNREF, 1, [Define to 1 if you have ffmpeg/libav with av_packet_unref]),,[-lavutil])
 AC_CHECK_LIB([avcodec], [av_packet_rescale_ts],
 	AC_DEFINE(HAVE_LIBAV_PACKET_RESCALE_TS, 1, [Define to 1 if you have ffmpeg/libav with av_packet_rescale_ts]),,[-lavutil])
 AC_CHECK_LIB([avformat], [avformat_alloc_output_context2],
@@ -104,6 +106,8 @@ AC_CHECK_LIB([avutil], [av_frame_alloc],
 	AC_DEFINE(HAVE_LIBAV_FRAME_ALLOC, 1, [Define to 1 if you have ffmpeg/libav with av_frame_alloc]))
 AC_CHECK_LIB([avutil], [av_frame_get_best_effort_timestamp],
 	AC_DEFINE(HAVE_LIBAV_BEST_EFFORT_TIMESTAMP, 1, [Define to 1 if you have ffmpeg/libav with av_frame_get_best_effort_timestamp]))
+AC_CHECK_LIB([avutil], [av_image_get_buffer_size],
+	AC_DEFINE(HAVE_LIBAV_IMAGE_GET_BUFFER_SIZE, 1, [Define to 1 if you have ffmpeg/libav with av_image_get_buffer_size]))
 
 AC_CHECK_HEADERS([libavutil/channel_layout.h])
 AC_CHECK_HEADERS([libavutil/mathematics.h])

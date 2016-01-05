@@ -33,6 +33,7 @@
 #include <libavcodec/avcodec.h>
 #include <libavformat/avformat.h>
 #include <libswscale/swscale.h>
+#include <libavutil/imgutils.h>
 
 #include "db.h"
 #include "misc.h"
@@ -49,14 +50,7 @@
 # include "spotify.h"
 #endif
 
-#ifndef HAVE_FFMPEG
-# define avcodec_find_best_pix_fmt_of_list(a, b, c, d) avcodec_find_best_pix_fmt2((enum AVPixelFormat *)(a), (b), (c), (d))
-#endif
-
-#ifndef HAVE_LIBAV_FRAME_ALLOC
-# define av_frame_alloc() avcodec_alloc_frame()
-# define av_frame_free(x) avcodec_free_frame((x))
-#endif
+#include "ffmpeg-compat.h"
 
 /* This artwork module will look for artwork by consulting a set of sources one
  * at a time. A source is for instance the local library, the cache or a cover
@@ -261,7 +255,6 @@ static int
 artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out_w, int out_h)
 {
   uint8_t *buf;
-  uint8_t *outbuf;
 
   AVCodecContext *src;
 
@@ -280,9 +273,6 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
 
   AVPacket pkt;
   int have_frame;
-
-  int outbuf_len;
-
   int ret;
 
   src = src_ctx->streams[s]->codec;
@@ -414,7 +404,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
       goto out_free_frames;
     }
 
-  ret = avpicture_get_size(dst->pix_fmt, src->width, src->height);
+  ret = av_image_get_buffer_size(dst->pix_fmt, src->width, src->height, 1);
 
   DPRINTF(E_DBG, L_ART, "Artwork buffer size: %d\n", ret);
 
@@ -446,7 +436,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
     {
       if (pkt.stream_index != s)
 	{
-	  av_free_packet(&pkt);
+	  av_packet_unref(&pkt);
 	  continue;
 	}
 
@@ -458,7 +448,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
     {
       DPRINTF(E_LOG, L_ART, "Could not decode artwork\n");
 
-      av_free_packet(&pkt);
+      av_packet_unref(&pkt);
       sws_freeContext(swsctx);
 
       ret = -1;
@@ -469,7 +459,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
   sws_scale(swsctx, (const uint8_t * const *)i_frame->data, i_frame->linesize, 0, src->height, o_frame->data, o_frame->linesize);
 
   sws_freeContext(swsctx);
-  av_free_packet(&pkt);
+  av_packet_unref(&pkt);
 
   /* Open output file */
   dst_ctx->pb = avio_output_evbuffer_open(evbuf);
@@ -482,31 +472,12 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
     }
 
   /* Encode frame */
-  outbuf_len = dst->width * dst->height * 3;
-  if (outbuf_len < FF_MIN_BUFFER_SIZE)
-    outbuf_len = FF_MIN_BUFFER_SIZE;
-
-  outbuf = (uint8_t *)av_malloc(outbuf_len);
-  if (!outbuf)
-    {
-      DPRINTF(E_LOG, L_ART, "Out of memory for encoded artwork buffer\n");
-
-      avio_evbuffer_close(dst_ctx->pb);
-
-      ret = -1;
-      goto out_free_buf;
-    }
-
   av_init_packet(&pkt);
-  pkt.data = outbuf;
-  pkt.size = outbuf_len;
+  pkt.data = NULL;
+  pkt.size = 0;
+
   ret = avcodec_encode_video2(dst, &pkt, o_frame, &have_frame);
-  if (!ret && have_frame && dst->coded_frame) 
-    {
-      dst->coded_frame->pts       = pkt.pts;
-      dst->coded_frame->key_frame = !!(pkt.flags & AV_PKT_FLAG_KEY);
-    }
-  else if (ret < 0)
+  if (ret < 0)
     {
       DPRINTF(E_LOG, L_ART, "Could not encode artwork\n");
 
@@ -560,7 +531,7 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
 
  out_fclose_dst:
   avio_evbuffer_close(dst_ctx->pb);
-  av_free(outbuf);
+  av_packet_unref(&pkt);
 
  out_free_buf:
   av_free(buf);

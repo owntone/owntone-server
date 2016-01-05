@@ -1,3 +1,6 @@
+#ifndef __FFMPEG_COMPAT_H__
+#define __FFMPEG_COMPAT_H__
+
 #ifdef HAVE_LIBAVUTIL_CHANNEL_LAYOUT_H
 # include <libavutil/channel_layout.h>
 #endif
@@ -19,6 +22,14 @@
 # define av_frame_get_best_effort_timestamp(x) (x)->pts
 #endif
 
+#ifndef HAVE_LIBAV_IMAGE_GET_BUFFER_SIZE
+# define av_image_get_buffer_size(a, b, c, d) avpicture_get_size((a), (b), (c))
+#endif
+
+#ifndef HAVE_LIBAV_PACKET_UNREF
+# define av_packet_unref(a) av_free_packet((a))
+#endif
+
 #ifndef HAVE_LIBAV_PACKET_RESCALE_TS
 static void
 av_packet_rescale_ts(AVPacket *pkt, AVRational src_tb, AVRational dst_tb)
@@ -35,6 +46,8 @@ av_packet_rescale_ts(AVPacket *pkt, AVRational src_tb, AVRational dst_tb)
 #endif
 
 #ifndef HAVE_LIBAV_ALLOC_OUTPUT_CONTEXT2
+# include <libavutil/opt.h>
+
 static int
 avformat_alloc_output_context2(AVFormatContext **avctx, AVOutputFormat *oformat, const char *format, const char *filename)
 {
@@ -88,3 +101,5 @@ error:
     return ret;
 }
 #endif
+
+#endif /* !__FFMPEG_COMPAT_H__ */
