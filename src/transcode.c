@@ -725,7 +725,7 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
       goto out_fail_evbuf;
     }
 
-  ctx->ofmt_ctx->pb = avio_evbuffer_open(ctx->obuf);
+  ctx->ofmt_ctx->pb = avio_output_evbuffer_open(ctx->obuf);
   if (!ctx->ofmt_ctx->pb)
     {
       DPRINTF(E_LOG, L_XCODE, "Could not create output avio pb\n");

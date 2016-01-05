@@ -472,8 +472,8 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
   av_free_packet(&pkt);
 
   /* Open output file */
-  dst_ctx->pb = avio_evbuffer_open(evbuf);
-  if (ret < 0)
+  dst_ctx->pb = avio_output_evbuffer_open(evbuf);
+  if (!dst_ctx->pb)
     {
       DPRINTF(E_LOG, L_ART, "Could not open artwork destination buffer\n");
 
@@ -1105,13 +1105,98 @@ source_item_stream_get(struct artwork_ctx *ctx)
 static int
 source_item_spotify_get(struct artwork_ctx *ctx)
 {
+  AVFormatContext *src_ctx;
+  AVIOContext *avio;
+  AVInputFormat *ifmt;
+  struct evbuffer *evbuf;
+  int target_w;
+  int target_h;
   int ret;
 
-  ret = spotify_artwork_get(ctx->evbuf, ctx->dbmfi->path, ctx->max_w, ctx->max_h);
-  if (ret < 0)
-    return ART_E_NONE;
+  evbuf = evbuffer_new();
+  if (!evbuf)
+    {
+      DPRINTF(E_LOG, L_ART, "Out of memory for Spotify evbuf\n");
+      return ART_E_ERROR;
+    }
 
+  ret = spotify_artwork_get(evbuf, ctx->dbmfi->path, ctx->max_w, ctx->max_h);
+  if (ret < 0)
+    {
+      DPRINTF(E_WARN, L_ART, "No artwork from Spotify for %s\n", ctx->dbmfi->path);
+      evbuffer_free(evbuf);
+      return ART_E_NONE;
+    }
+
+  // Now we take it by ffmpeg, since it probably needs to be rescaled
+  src_ctx = avformat_alloc_context();
+  if (!src_ctx)
+    {
+      DPRINTF(E_LOG, L_ART, "Out of memory for source context\n");
+      goto out_free_evbuf;
+    }
+
+  avio = avio_input_evbuffer_open(evbuf);
+  if (!avio)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not alloc input evbuffer\n");
+      goto out_free_ctx;
+    }
+
+  src_ctx->pb = avio;
+
+  ifmt = av_find_input_format("mjpeg");
+  if (!ifmt)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not find mjpeg input format\n");
+      goto out_close_avio;
+    }
+
+  ret = avformat_open_input(&src_ctx, NULL, ifmt, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not open input\n");
+      goto out_close_avio;
+    }
+
+  ret = avformat_find_stream_info(src_ctx, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not find stream info\n");
+      goto out_close_input;
+    }
+
+  ret = rescale_needed(src_ctx->streams[0]->codec, ctx->max_w, ctx->max_h, &target_w, &target_h);
+  if (!ret)
+    {
+      evbuffer_free(ctx->evbuf);
+      ctx->evbuf = evbuf;
+    }
+  else
+    {
+      ret = artwork_rescale(ctx->evbuf, src_ctx, 0, target_w, target_h);
+      if (ret < 0)
+	goto out_close_input;
+
+      evbuffer_free(evbuf);
+    }
+
+  avformat_close_input(&src_ctx);
+  avio_evbuffer_close(avio);
   return ART_FMT_JPEG;
+
+ out_close_input:
+  avformat_close_input(&src_ctx);
+ out_close_avio:
+  avio_evbuffer_close(avio);
+ out_free_ctx:
+  if (src_ctx)
+    avformat_free_context(src_ctx);
+ out_free_evbuf:
+  evbuffer_free(evbuf);
+
+  return ART_E_ERROR;
+
 }
 #else
 static int
