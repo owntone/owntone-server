@@ -1079,27 +1079,50 @@ source_item_spotify_get(struct artwork_ctx *ctx)
   AVFormatContext *src_ctx;
   AVIOContext *avio;
   AVInputFormat *ifmt;
+  struct evbuffer *raw;
   struct evbuffer *evbuf;
   int target_w;
   int target_h;
   int ret;
 
+  raw = evbuffer_new();
   evbuf = evbuffer_new();
-  if (!evbuf)
+  if (!raw || !evbuf)
     {
       DPRINTF(E_LOG, L_ART, "Out of memory for Spotify evbuf\n");
       return ART_E_ERROR;
     }
 
-  ret = spotify_artwork_get(evbuf, ctx->dbmfi->path, ctx->max_w, ctx->max_h);
+  ret = spotify_artwork_get(raw, ctx->dbmfi->path, ctx->max_w, ctx->max_h);
   if (ret < 0)
     {
       DPRINTF(E_WARN, L_ART, "No artwork from Spotify for %s\n", ctx->dbmfi->path);
+      evbuffer_free(raw);
       evbuffer_free(evbuf);
       return ART_E_NONE;
     }
 
-  // Now we take it by ffmpeg, since it probably needs to be rescaled
+  // Make a refbuf of raw for ffmpeg image size probing and possibly rescaling.
+  // We keep raw around in case rescaling is not necessary.
+#ifdef HAVE_LIBEVENT2_OLD
+  uint8_t *buf = evbuffer_pullup(raw, -1);
+  if (!buf)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not pullup raw artwork\n");
+      goto out_free_evbuf;
+    }
+
+  ret = evbuffer_add_reference(evbuf, buf, evbuffer_get_length(raw), NULL, NULL);
+#else
+  ret = evbuffer_add_buffer_reference(evbuf, raw);
+#endif
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_ART, "Could not copy/ref raw image for ffmpeg\n");
+      goto out_free_evbuf;
+    }
+
+  // Now evbuf will be processed by ffmpeg, since it probably needs to be rescaled
   src_ctx = avformat_alloc_context();
   if (!src_ctx)
     {
@@ -1139,21 +1162,20 @@ source_item_spotify_get(struct artwork_ctx *ctx)
 
   ret = rescale_needed(src_ctx->streams[0]->codec, ctx->max_w, ctx->max_h, &target_w, &target_h);
   if (!ret)
-    {
-      evbuffer_free(ctx->evbuf);
-      ctx->evbuf = evbuf;
-    }
+    ret = evbuffer_add_buffer(ctx->evbuf, raw);
   else
+    ret = artwork_rescale(ctx->evbuf, src_ctx, 0, target_w, target_h);
+  if (ret < 0)
     {
-      ret = artwork_rescale(ctx->evbuf, src_ctx, 0, target_w, target_h);
-      if (ret < 0)
-	goto out_close_input;
-
-      evbuffer_free(evbuf);
+      DPRINTF(E_LOG, L_ART, "Could not add or rescale image to output evbuf\n");
+      goto out_close_input;
     }
 
   avformat_close_input(&src_ctx);
   avio_evbuffer_close(avio);
+  evbuffer_free(evbuf);
+  evbuffer_free(raw);
+
   return ART_FMT_JPEG;
 
  out_close_input:
@@ -1165,6 +1187,7 @@ source_item_spotify_get(struct artwork_ctx *ctx)
     avformat_free_context(src_ctx);
  out_free_evbuf:
   evbuffer_free(evbuf);
+  evbuffer_free(raw);
 
   return ART_E_ERROR;
 
