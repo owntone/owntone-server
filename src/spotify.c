@@ -90,6 +90,13 @@ struct artwork_get_param
   int max_h;
 };
 
+struct artwork_ctx
+{
+  pthread_mutex_t mutex;
+  pthread_cond_t cond;
+  int result;
+};
+
 struct spotify_command;
 
 typedef int (*cmd_func)(struct spotify_command *cmd);
@@ -238,6 +245,8 @@ typedef sp_error     (*fptr_sp_image_error_t)(sp_image *image);
 typedef sp_imageformat (*fptr_sp_image_format_t)(sp_image *image);
 typedef const void*  (*fptr_sp_image_data_t)(sp_image *image, size_t *data_size);
 typedef sp_error     (*fptr_sp_image_release_t)(sp_image *image);
+typedef sp_error     (*fptr_sp_image_add_load_callback_t)(sp_image *image, image_loaded_cb *callback, void *userdata);
+typedef sp_error     (*fptr_sp_image_remove_load_callback_t)(sp_image *image, image_loaded_cb *callback, void *userdata);
 
 /* Define actual function pointers */
 fptr_sp_error_message_t fptr_sp_error_message;
@@ -300,6 +309,8 @@ fptr_sp_image_error_t fptr_sp_image_error;
 fptr_sp_image_format_t fptr_sp_image_format;
 fptr_sp_image_data_t fptr_sp_image_data;
 fptr_sp_image_release_t fptr_sp_image_release;
+fptr_sp_image_add_load_callback_t fptr_sp_image_add_load_callback;
+fptr_sp_image_remove_load_callback_t fptr_sp_image_remove_load_callback;
 
 /* Assign function pointers to libspotify symbol */
 static int
@@ -364,6 +375,8 @@ fptr_assign_all()
    && (fptr_sp_image_format = dlsym(h, "sp_image_format"))
    && (fptr_sp_image_data = dlsym(h, "sp_image_data"))
    && (fptr_sp_image_release = dlsym(h, "sp_image_release"))
+   && (fptr_sp_image_add_load_callback = dlsym(h, "sp_image_add_load_callback"))
+   && (fptr_sp_image_remove_load_callback = dlsym(h, "sp_image_remove_load_callback"))
    ;
 
   err = dlerror();
@@ -893,6 +906,19 @@ static sp_playlistcontainer_callbacks pc_callbacks = {
 /*            Should only be called from within the spotify thread           */
 
 static void
+mk_reltime(struct timespec *ts, time_t sec)
+{
+#if _POSIX_TIMERS > 0
+  clock_gettime(CLOCK_REALTIME, ts);
+#else
+  struct timeval tv;
+  gettimeofday(&tv, NULL);
+  TIMEVAL_TO_TIMESPEC(&tv, ts);
+#endif
+  ts->tv_sec += sec;
+}
+
+static void
 audio_fifo_flush(void)
 {
     audio_fifo_data_t *afd;
@@ -1085,16 +1111,8 @@ audio_get(struct spotify_command *cmd)
 	       (timeout < SPOTIFY_TIMEOUT) )
 	{
 	  DPRINTF(E_DBG, L_SPOTIFY, "Waiting for audio\n");
-#if _POSIX_TIMERS > 0
-	  clock_gettime(CLOCK_REALTIME, &ts);
-#else
-	  struct timeval tv;
-	  gettimeofday(&tv, NULL);
-	  TIMEVAL_TO_TIMESPEC(&tv, &ts);
-#endif
-	  ts.tv_sec += 5;
 	  timeout += 5;
-
+	  mk_reltime(&ts, 5);
 	  pthread_cond_timedwait(&g_audio_fifo->cond, &g_audio_fifo->mutex, &ts);
 	}
 
@@ -1131,6 +1149,28 @@ audio_get(struct spotify_command *cmd)
   return processed;
 }
 
+static void
+artwork_loaded_cb(sp_image *image, void *userdata)
+{
+  sp_error err;
+
+  struct artwork_ctx *ctx = userdata;
+
+  pthread_mutex_lock(&ctx->mutex);
+
+  err = fptr_sp_image_error(image);
+  if (err != SP_ERROR_OK)
+    {
+      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, Spotify error: %s\n", fptr_sp_error_message(err));
+      ctx->result = -1;
+    }
+  else
+    ctx->result = 1;
+
+  pthread_cond_signal(&ctx->cond);
+  pthread_mutex_unlock(&ctx->mutex);
+}
+
 static int
 artwork_get(struct spotify_command *cmd)
 {
@@ -1145,6 +1185,8 @@ artwork_get(struct spotify_command *cmd)
   sp_error err;
   const void *data;
   size_t data_size;
+  struct timespec ts;
+  struct artwork_ctx ctx;
   int ret;
 
   path = cmd->arg.artwork.path;
@@ -1192,15 +1234,32 @@ artwork_get(struct spotify_command *cmd)
       goto level2_exit;
     }
 
-  // We want to be fast, so no waiting for the image to load
   if (!fptr_sp_image_is_loaded(image))
-    goto level3_exit;
-
-  err = fptr_sp_image_error(image);
-  if (err != SP_ERROR_OK)
     {
-      DPRINTF(E_WARN, L_SPOTIFY, "Getting artwork failed, Spotify error: %s\n", fptr_sp_error_message(err));
-      goto level3_exit;
+      pthread_mutex_init(&ctx.mutex, NULL);
+      pthread_cond_init(&ctx.cond, NULL);
+      ctx.result = 0;
+
+      err = fptr_sp_image_add_load_callback(image, artwork_loaded_cb, &ctx);
+      if (err != SP_ERROR_OK)
+	{
+	  DPRINTF(E_WARN, L_SPOTIFY, "Adding artwork cb failed, Spotify error: %s\n", fptr_sp_error_message(err));
+	  goto level3_exit;
+	}
+
+      pthread_mutex_lock(&ctx.mutex);
+      mk_reltime(&ts, 1);
+      if (!ctx.result)
+	pthread_cond_timedwait(&ctx.cond, &ctx.mutex, &ts);
+      pthread_mutex_unlock(&ctx.mutex);
+
+      fptr_sp_image_remove_load_callback(image, artwork_loaded_cb, &ctx);
+
+      if ((ctx.result < 0) || !fptr_sp_image_is_loaded(image))
+	{
+	  DPRINTF(E_DBG, L_SPOTIFY, "Request for artwork gave timeout or error\n");
+	  goto level3_exit;
+	}
     }
 
   imageformat = fptr_sp_image_format(image);
