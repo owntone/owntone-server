@@ -440,9 +440,6 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
       goto out_free_dst_ctx;
     }
 
-  dst_st->time_base.num = 1;
-  dst_st->time_base.den = 25;
-
   dst = dst_st->codec;
 
   avcodec_get_context_defaults3(dst, NULL);
@@ -461,6 +458,9 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
       ret = -1;
       goto out_free_dst_ctx;
     }
+
+  dst->time_base.num = 1;
+  dst->time_base.den = 25;
 
   dst->width = out_w;
   dst->height = out_h;
