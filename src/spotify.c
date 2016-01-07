@@ -1248,7 +1248,7 @@ artwork_get(struct spotify_command *cmd)
 	}
 
       pthread_mutex_lock(&ctx.mutex);
-      mk_reltime(&ts, 1);
+      mk_reltime(&ts, 2);
       if (!ctx.result)
 	pthread_cond_timedwait(&ctx.cond, &ctx.mutex, &ts);
       pthread_mutex_unlock(&ctx.mutex);
@@ -1257,7 +1257,7 @@ artwork_get(struct spotify_command *cmd)
 
       if ((ctx.result < 0) || !fptr_sp_image_is_loaded(image))
 	{
-	  DPRINTF(E_DBG, L_SPOTIFY, "Request for artwork gave timeout or error\n");
+	  DPRINTF(E_DBG, L_SPOTIFY, "Request for artwork gave timeout or error (result=%d)\n", ctx.result);
 	  goto level3_exit;
 	}
     }
