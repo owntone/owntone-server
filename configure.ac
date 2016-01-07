@@ -106,6 +106,8 @@ AC_CHECK_LIB([avutil], [av_frame_alloc],
 	AC_DEFINE(HAVE_LIBAV_FRAME_ALLOC, 1, [Define to 1 if you have ffmpeg/libav with av_frame_alloc]))
 AC_CHECK_LIB([avutil], [av_frame_get_best_effort_timestamp],
 	AC_DEFINE(HAVE_LIBAV_BEST_EFFORT_TIMESTAMP, 1, [Define to 1 if you have ffmpeg/libav with av_frame_get_best_effort_timestamp]))
+AC_CHECK_LIB([avutil], [av_image_fill_arrays],
+	AC_DEFINE(HAVE_LIBAV_IMAGE_FILL_ARRAYS, 1, [Define to 1 if you have ffmpeg/libav with av_image_fill_arrays]))
 AC_CHECK_LIB([avutil], [av_image_get_buffer_size],
 	AC_DEFINE(HAVE_LIBAV_IMAGE_GET_BUFFER_SIZE, 1, [Define to 1 if you have ffmpeg/libav with av_image_get_buffer_size]))
 

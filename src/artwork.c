@@ -134,6 +134,87 @@ static const char *cover_extension[] =
   };
 
 
+/* ----------------- DECLARE AND CONFIGURE SOURCE HANDLERS ----------------- */
+
+/* Forward - group handlers */
+static int source_group_cache_get(struct artwork_ctx *ctx);
+static int source_group_dir_get(struct artwork_ctx *ctx);
+/* Forward - item handlers */
+static int source_item_cache_get(struct artwork_ctx *ctx);
+static int source_item_embedded_get(struct artwork_ctx *ctx);
+static int source_item_own_get(struct artwork_ctx *ctx);
+static int source_item_stream_get(struct artwork_ctx *ctx);
+static int source_item_spotify_get(struct artwork_ctx *ctx);
+
+/* List of sources that can provide artwork for a group (i.e. usually an album
+ * identified by a persistentid). The source handlers will be called in the
+ * order of this list. Must be terminated by a NULL struct.
+ */
+static struct artwork_source artwork_group_source[] =
+  {
+    {
+      .name = "cache",
+      .handler = source_group_cache_get,
+      .cache = ON_FAILURE,
+    },
+    {
+      .name = "directory",
+      .handler = source_group_dir_get,
+      .cache = ON_SUCCESS | ON_FAILURE,
+    },
+    {
+      .name = NULL,
+      .handler = NULL,
+      .cache = 0,
+    }
+  };
+
+/* List of sources that can provide artwork for an item (a track characterized
+ * by a dbmfi). The source handlers will be called in the order of this list.
+ * The handler will only be called if the data_kind matches. Must be terminated
+ * by a NULL struct.
+ */
+static struct artwork_source artwork_item_source[] =
+  {
+    {
+      .name = "cache",
+      .handler = source_item_cache_get,
+      .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_SPOTIFY),
+      .cache = ON_FAILURE,
+    },
+    {
+      .name = "embedded",
+      .handler = source_item_embedded_get,
+      .data_kinds = (1 << DATA_KIND_FILE),
+      .cache = ON_SUCCESS | ON_FAILURE,
+    },
+    {
+      .name = "own",
+      .handler = source_item_own_get,
+      .data_kinds = (1 << DATA_KIND_FILE),
+      .cache = ON_SUCCESS | ON_FAILURE,
+    },
+    {
+      .name = "stream",
+      .handler = source_item_stream_get,
+      .data_kinds = (1 << DATA_KIND_HTTP),
+      .cache = NEVER,
+    },
+    {
+      .name = "Spotify",
+      .handler = source_item_spotify_get,
+      .data_kinds = (1 << DATA_KIND_SPOTIFY),
+      .cache = ON_SUCCESS,
+    },
+    {
+      .name = NULL,
+      .handler = NULL,
+      .data_kinds = 0,
+      .cache = 0,
+    }
+  };
+
+
 
 /* -------------------------------- HELPERS -------------------------------- */
 
@@ -417,7 +498,11 @@ artwork_rescale(struct evbuffer *evbuf, AVFormatContext *src_ctx, int s, int out
       goto out_free_frames;
     }
 
+#ifdef HAVE_LIBAV_IMAGE_FILL_ARRAYS
+  av_image_fill_arrays(o_frame->data, o_frame->linesize, buf, dst->pix_fmt, src->width, src->height, 1);
+#else
   avpicture_fill((AVPicture *)o_frame, buf, dst->pix_fmt, src->width, src->height);
+#endif
 
   swsctx = sws_getContext(src->width, src->height, src->pix_fmt,
 			  dst->width, dst->height, dst->pix_fmt,
@@ -750,7 +835,7 @@ artwork_get_dir_image(struct evbuffer *evbuf, char *dir, int max_w, int max_h, c
 }
 
 
-/* -------------------- SOURCE HANDLERS AND DEFINITIONS -------------------- */
+/* ---------------------- SOURCE HANDLER IMPLEMENTATION -------------------- */
 
 /* Looks in the cache for group artwork
  */
@@ -1200,74 +1285,6 @@ source_item_spotify_get(struct artwork_ctx *ctx)
 }
 #endif
 
-/* List of sources that can provide artwork for a group (i.e. usually an album
- * identified by a persistentid). The source handlers will be called in the
- * order of this list. Must be terminated by a NULL struct.
- */
-static struct artwork_source artwork_group_source[] =
-  {
-    {
-      .name = "cache",
-      .handler = source_group_cache_get,
-      .cache = ON_FAILURE,
-    },
-    {
-      .name = "directory",
-      .handler = source_group_dir_get,
-      .cache = ON_SUCCESS | ON_FAILURE,
-    },
-    { 
-      .name = NULL,
-      .handler = NULL,
-      .cache = 0,
-    }
-  };
-
-/* List of sources that can provide artwork for an item (a track characterized
- * by a dbmfi). The source handlers will be called in the order of this list.
- * The handler will only be called if the data_kind matches. Must be terminated
- * by a NULL struct.
- */
-static struct artwork_source artwork_item_source[] =
-  {
-    {
-      .name = "cache",
-      .handler = source_item_cache_get,
-      .data_kinds = (1 << DATA_KIND_FILE) | (1 << DATA_KIND_SPOTIFY),
-      .cache = ON_FAILURE,
-    },
-    {
-      .name = "embedded",
-      .handler = source_item_embedded_get,
-      .data_kinds = (1 << DATA_KIND_FILE),
-      .cache = ON_SUCCESS | ON_FAILURE,
-    },
-    {
-      .name = "own",
-      .handler = source_item_own_get,
-      .data_kinds = (1 << DATA_KIND_FILE),
-      .cache = ON_SUCCESS | ON_FAILURE,
-    },
-    {
-      .name = "stream",
-      .handler = source_item_stream_get,
-      .data_kinds = (1 << DATA_KIND_HTTP),
-      .cache = NEVER,
-    },
-    {
-      .name = "Spotify",
-      .handler = source_item_spotify_get,
-      .data_kinds = (1 << DATA_KIND_SPOTIFY),
-      .cache = ON_SUCCESS,
-    },
-    { 
-      .name = NULL,
-      .handler = NULL,
-      .data_kinds = 0,
-      .cache = 0,
-    }
-  };
-
 
 /* --------------------------- SOURCE PROCESSING --------------------------- */
 
@@ -1322,14 +1339,14 @@ process_items(struct artwork_ctx *ctx, int item_mode)
 
 	  if (ret > 0)
 	    {
-	      DPRINTF(E_INFO, L_ART, "Artwork for '%s' found in source '%s'\n", dbmfi.title, artwork_item_source[i].name);
+	      DPRINTF(E_DBG, L_ART, "Artwork for '%s' found in source '%s'\n", dbmfi.title, artwork_item_source[i].name);
 	      ctx->cache = (artwork_item_source[i].cache & ON_SUCCESS);
 	      db_query_end(&ctx->qp);
 	      return ret;
 	    }
 	  else if (ret == ART_E_ABORT)
 	    {
-	      DPRINTF(E_INFO, L_ART, "Source '%s' stopped search for artwork for '%s'\n", artwork_item_source[i].name, dbmfi.title);
+	      DPRINTF(E_DBG, L_ART, "Source '%s' stopped search for artwork for '%s'\n", artwork_item_source[i].name, dbmfi.title);
 	      ctx->cache = NEVER;
 	      break;
 	    }
@@ -1377,13 +1394,13 @@ process_group(struct artwork_ctx *ctx)
       ret = artwork_group_source[i].handler(ctx);
       if (ret > 0)
 	{
-	  DPRINTF(E_INFO, L_ART, "Artwork for group %" PRIi64 " found in source '%s'\n", ctx->persistentid, artwork_group_source[i].name);
+	  DPRINTF(E_DBG, L_ART, "Artwork for group %" PRIi64 " found in source '%s'\n", ctx->persistentid, artwork_group_source[i].name);
 	  ctx->cache = (artwork_group_source[i].cache & ON_SUCCESS);
 	  return ret;
 	}
       else if (ret == ART_E_ABORT)
 	{
-	  DPRINTF(E_INFO, L_ART, "Source '%s' stopped search for artwork for group %" PRIi64 "\n", artwork_group_source[i].name, ctx->persistentid);
+	  DPRINTF(E_DBG, L_ART, "Source '%s' stopped search for artwork for group %" PRIi64 "\n", artwork_group_source[i].name, ctx->persistentid);
 	  ctx->cache = NEVER;
 	  return -1;
 	}
