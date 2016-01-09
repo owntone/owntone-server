@@ -1679,7 +1679,11 @@ cache_artwork_get(int type, int64_t persistentid, int max_w, int max_h, int *cac
   int ret;
 
   if (!g_initialized)
-    return -1;
+    {
+      *cached = 0;
+      *format = 0;
+      return 0;
+    }
 
   command_init(&cmd);
 
