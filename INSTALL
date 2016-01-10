@@ -217,7 +217,10 @@ this and make the user a member of the group, for instance) and read/write
 permissions on the database location ($localstatedir/cache/forked-daapd by
 default).
 
-You'll need an init script if you want to start forked-daapd at boot. A simple
+If your system uses systemd then you might be able to use the service file
+included, see forked-daapd.service.
+
+Otherwise you might need an init script to start forked-daapd at boot. A simple
 init script will do, forked-daapd daemonizes all by itself and creates a
 pidfile under /var/run. Different distributions have different standards for
 init scripts and some do not use init scripts anymore; check the documentation
