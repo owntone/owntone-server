@@ -97,14 +97,21 @@ probably obsolete when you read it :-)
 
 ## Using Remote
 
-If you plan to use Remote with forked-daapd, read the following sections
-carefully. The pairing process described is similar for other controllers, but
-some do not require pairing.
+If you plan to use Remote for iPod/iPhone/iPad with forked-daapd, read the
+following sections. The pairing process described is similar for other
+controllers/remotes (e.g. Retune), but some do not require pairing.
 
 ### Pairing with Remote on iPod/iPhone
 
-forked-daapd can be paired with Apple's Remote application for iPod/iPhone/iPad;
-this is how the pairing process works:
+If you just started forked-daapd for the first time, then wait til the library
+scan completes before pairing with Remote (see [library](#library)). Otherwise
+you risk timeouts. Then do the following.
+
+The Quick Way:
+
+ 1. Download and run the helper script from [here](https://raw.githubusercontent.com/ejurgensen/forked-daapd/master/scripts/pairinghelper.sh)
+
+Or, if that doesn't work:
 
  1. Start forked-daapd
  2. Start Remote, go to Settings, Add Library
@@ -340,12 +347,12 @@ informations.
 
 The library is scanned in bulk mode at startup, but the server will be available
 even while this scan is in progress. You can follow the progress of the scan in
-the log file.
+the log file. When the scan is complete you will see the log message: "Bulk
+library scan completed in X sec".
 
-Of course, if files have gone missing while the server was not running a request
-for these files will produce an error until the scan has completed and the file
-is no longer offered. Similarly, new files added while the server was not
-running won't be offered until they've been scanned.
+The very first scan will take longer than subsequent startup scans, since every
+file gets analyzed. At the following startups the server looks for changed files
+and only analyzis those.
 
 Changes to the library are reflected in real time after the initial scan. The
 directories are monitored for changes and rescanned on the fly. Note that if you
