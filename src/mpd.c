@@ -1557,13 +1557,13 @@ mpd_queueitem_make(char *path, int recursive)
 
   if (recursive)
     {
-      qp.filter = sqlite3_mprintf("disabled = 0 AND f.virtual_path LIKE '/%q%%'", path);
+      qp.filter = sqlite3_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q%%'", path);
       if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
   else
     {
-      qp.filter = sqlite3_mprintf("disabled = 0 AND f.virtual_path LIKE '/%q'", path);
+      qp.filter = sqlite3_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q'", path);
       if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
@@ -2702,7 +2702,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
   qp.type = Q_PL;
   qp.sort = S_PLAYLIST;
   qp.idx_type = I_NONE;
-  qp.filter = sqlite3_mprintf("(directory_id = %d AND (f.type = %d OR f.type = %d))", directory_id, PL_PLAIN, PL_SMART);
+  qp.filter = sqlite3_mprintf("(f.directory_id = %d AND (f.type = %d OR f.type = %d))", directory_id, PL_PLAIN, PL_SMART);
   ret = db_query_start(&qp);
   if (ret < 0)
     {
@@ -2777,14 +2777,14 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
   qp.type = Q_ITEMS;
   qp.sort = S_ARTIST;
   qp.idx_type = I_NONE;
-  qp.filter = sqlite3_mprintf("(directory_id = %d)", directory_id);
+  qp.filter = sqlite3_mprintf("(f.directory_id = %d)", directory_id);
   ret = db_query_start(&qp);
   if (ret < 0)
     {
       db_query_end(&qp);
       ret = asprintf(errmsg, "Could not start query");
       if (ret < 0)
-      DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
     }
   while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
@@ -2872,7 +2872,9 @@ mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **er
 
   if ((ret < 0) || (ret >= sizeof(parent)))
     {
-      DPRINTF(E_INFO, L_MPD, "Parent path exceeds PATH_MAX\n");
+      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX\n");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return -1;
     }
 
@@ -2880,7 +2882,9 @@ mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **er
   dir_id = db_directory_id_byvirtualpath(parent);
   if (dir_id == 0)
     {
-      DPRINTF(E_LOG, L_MPD, "Directory info not found for virtual-path '%s'\n", parent);
+      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'\n", parent);
+      if (ret < 0)
+      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return -1;
     }
 
