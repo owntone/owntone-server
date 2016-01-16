@@ -4588,8 +4588,24 @@ int mpd_init(void)
       sin6.sin6_family = AF_INET6;
       sin6.sin6_port = htons(port);
       saddr = (struct sockaddr *)&sin6;
+
+      listener = evconnlistener_new_bind(
+	  evbase_mpd,
+	  mpd_accept_conn_cb,
+	  NULL,
+	  LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
+	  -1,
+	  saddr,
+	  saddr_length);
+
+      if (!listener)
+      	{
+      	  DPRINTF(E_LOG, L_MPD, "Could not bind to port %d, falling back to IPv4\n", port);
+      	  v6enabled = 0;
+      	}
     }
-  else
+
+  if (!v6enabled)
     {
       saddr_length = sizeof(struct sockaddr_in);
       memset(&sin, 0, saddr_length);
@@ -4597,23 +4613,24 @@ int mpd_init(void)
       sin.sin_addr.s_addr = htonl(0);
       sin.sin_port = htons(port);
       saddr = (struct sockaddr *)&sin;
+
+      listener = evconnlistener_new_bind(
+          evbase_mpd,
+          mpd_accept_conn_cb,
+          NULL,
+          LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
+          -1,
+          saddr,
+          saddr_length);
+
+      if (!listener)
+        {
+          DPRINTF(E_LOG, L_MPD, "Could not create connection listener for mpd clients on port %d\n", port);
+
+          goto connew_fail;
+        }
     }
 
-  listener = evconnlistener_new_bind(
-      evbase_mpd,
-      mpd_accept_conn_cb,
-      NULL,
-      LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
-      -1,
-      saddr,
-      saddr_length);
-
-  if (!listener)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not create connection listener for mpd clients on port %d\n", port);
-
-      goto connew_fail;
-    }
   evconnlistener_set_error_cb(listener, mpd_accept_error_cb);
 
   http_port = cfg_getint(cfg_getsec(cfg, "mpd"), "http_port");
