@@ -44,6 +44,7 @@
 #include "logger.h"
 #include "conffile.h"
 #include "filescanner.h"
+#include "cache.h"
 
 
 /* How long to wait for audio (in sec) before giving up */
@@ -625,6 +626,39 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
 }
 
 static int
+spotify_playlist_cleanupfiles()
+{
+  struct query_params qp;
+  char *path;
+  int ret;
+
+  memset(&qp, 0, sizeof(struct query_params));
+
+  qp.type = Q_BROWSE_PATH;
+  qp.sort = S_NONE;
+  qp.filter = "f.path LIKE 'spotify:%%' AND NOT f.path IN (SELECT filepath FROM playlistitems)";
+
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+
+      return -1;
+    }
+
+  while (((ret = db_query_fetch_string(&qp, &path)) == 0) && (path))
+    {
+      cache_artwork_delete_by_path(path);
+    }
+
+  db_query_end(&qp);
+
+  db_spotify_files_delete();
+
+  return 0;
+}
+
+static int
 spotify_playlist_save(sp_playlist *pl)
 {
   struct playlist_info *pli;
@@ -758,6 +792,8 @@ spotify_playlist_save(sp_playlist *pl)
 	  continue;
 	}
     }
+
+  spotify_playlist_cleanupfiles();
   db_transaction_end();
 
   return plid;
@@ -873,6 +909,7 @@ playlist_removed(sp_playlistcontainer *pc, sp_playlist *pl, int position, void *
   free_pli(pli, 0);
 
   db_spotify_pl_delete(plid);
+  spotify_playlist_cleanupfiles();
 }
 
 /**

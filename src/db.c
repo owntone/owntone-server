@@ -1557,6 +1557,10 @@ db_query_start(struct query_params *qp)
 	ret = db_build_query_browse(qp, "virtual_path", "virtual_path", &query);
 	break;
 
+      case Q_BROWSE_PATH:
+	ret = db_build_query_browse(qp, "path", "path", &query);
+	break;
+
       case Q_COUNT_ITEMS:
 	ret = db_build_query_count_items(qp, &query);
 	break;
@@ -3674,11 +3678,10 @@ db_spotify_purge(void)
 void
 db_spotify_pl_delete(int id)
 {
-  char *queries_tmpl[3] =
+  char *queries_tmpl[2] =
     {
       "DELETE FROM playlists WHERE id = %d;",
       "DELETE FROM playlistitems WHERE playlistid = %d;",
-      "DELETE FROM files WHERE path LIKE 'spotify:%%' AND NOT path IN (SELECT filepath FROM playlistitems);",
     };
   char *query;
   int i;
@@ -3693,6 +3696,23 @@ db_spotify_pl_delete(int id)
       if (ret == 0)
 	DPRINTF(E_DBG, L_DB, "Deleted %d rows\n", sqlite3_changes(hdl));
     }
+}
+
+/* Spotify */
+void
+db_spotify_files_delete()
+{
+#define Q_TMPL "DELETE FROM files WHERE path LIKE 'spotify:%%' AND NOT path IN (SELECT filepath FROM playlistitems);"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL);
+
+  ret = db_query_run(query, 1, 1);
+
+  if (ret == 0)
+    DPRINTF(E_DBG, L_DB, "Deleted %d rows\n", sqlite3_changes(hdl));
+#undef Q_TMPL
 }
 #endif
 
