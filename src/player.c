@@ -48,21 +48,27 @@
 #include "conffile.h"
 #include "misc.h"
 #include "player.h"
-#include "raop.h"
-#include "laudio.h"
 #include "worker.h"
 #include "listener.h"
 
-#ifdef LASTFM
-# include "lastfm.h"
+/* Audio outputs */
+#include "raop.h"
+#include "laudio.h"
+#ifdef CHROMECAST
+# include "cast.h"
 #endif
 
-/* These handle getting the media data */
+/* Audio inputs */
 #include "transcode.h"
 #include "pipe.h"
-#include "http.h"
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
+#endif
+
+/* Metadata input/output */
+#include "http.h"
+#ifdef LASTFM
+# include "lastfm.h"
 #endif
 
 #ifndef MIN
@@ -236,6 +242,7 @@ static const char *raop_devtype[] =
     "AirPort Express 2 - 802.11n",
     "AirPort Express 3 - 802.11n",
     "AppleTV",
+    "Chromecast",
     "Other",
   };
 
@@ -4575,17 +4582,15 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
     }
   at_name++;
 
-  DPRINTF(E_DBG, L_PLAYER, "Event for AirPlay device %" PRIx64 "/%s (%d)\n", id, at_name, port);
+  DPRINTF(E_DBG, L_PLAYER, "Event for AirPlay device %s (port %d, id %" PRIx64 ")\n", at_name, port, id);
 
-  rd = (struct raop_device *)malloc(sizeof(struct raop_device));
+  rd = calloc(1, sizeof(struct raop_device));
   if (!rd)
     {
       DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirPlay device\n");
 
       return;
     }
-
-  memset(rd, 0, sizeof(struct raop_device));
 
   rd->id = id;
   rd->name = strdup(at_name);
@@ -4695,7 +4700,7 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
   else
     rd->wants_metadata = 0;
 
-  DPRINTF(E_INFO, L_PLAYER, "AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s\n", 
+  DPRINTF(E_INFO, L_PLAYER, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s\n", 
     name, rd->has_password, rd->encrypt, rd->wants_metadata, raop_devtype[rd->devtype]);
 
   rd->advertised = 1;
@@ -4719,6 +4724,81 @@ raop_device_cb(const char *name, const char *type, const char *domain, const cha
 
  free_rd:
   device_free(rd);
+}
+
+static void
+cast_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
+{
+  struct raop_device *d;
+  const char *p;
+  uint32_t id;
+
+  p = keyval_get(txt, "id");
+  if (p)
+    id = djb_hash(p, strlen(p));
+  else
+    id = 0;
+
+  if (!id)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not extract ChromeCast device ID (%s)\n", name);
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Event for Chromecast device %s (port %d, id %" PRIu32 ")\n", name, port, id);
+
+  d = calloc(1, sizeof(struct raop_device));
+  if (!d)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new Chromecast device\n");
+
+      return;
+    }
+
+  d->id = id;
+  d->name = strdup(name);
+
+  if (port < 0)
+    {
+      /* Device stopped advertising */
+      switch (family)
+	{
+	  case AF_INET:
+	    d->v4_port = 1;
+	    break;
+
+	  case AF_INET6:
+	    d->v6_port = 1;
+	    break;
+	}
+
+      player_device_remove(d);
+
+      return;
+    }
+
+  /* Device type */
+  d->devtype = RAOP_DEV_CHROMECAST;
+
+  DPRINTF(E_INFO, L_PLAYER, "Adding Chromecast device %s\n", name);
+
+  d->advertised = 1;
+
+  switch (family)
+    {
+      case AF_INET:
+	d->v4_address = strdup(address);
+	d->v4_port = port;
+	break;
+
+      case AF_INET6:
+	d->v6_address = strdup(address);
+	d->v6_port = port;
+	break;
+    }
+
+  player_device_add(d);
 }
 
 /* Thread: player */
@@ -4943,6 +5023,16 @@ player_init(void)
 
       goto mdns_browse_fail;
     }
+
+#ifdef CHROMECAST
+  ret = mdns_browse("_googlecast._tcp", mdns_flags, cast_device_cb);
+  if (ret < 0)
+    {
+      DPRINTF(E_FATAL, L_PLAYER, "Could not add mDNS browser for Chromecast devices\n");
+
+      goto mdns_browse_fail;
+    }
+#endif
 
   ret = pthread_create(&tid_player, NULL, player, NULL);
   if (ret < 0)

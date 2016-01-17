@@ -71,7 +71,7 @@ char *
 trimwhitespace(const char *str);
 
 uint32_t
-djb_hash(void *data, size_t len);
+djb_hash(const void *data, size_t len);
 
 char *
 b64_decode(const char *b64);

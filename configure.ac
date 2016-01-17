@@ -182,6 +182,15 @@ AS_IF([test "x$enable_lastfm" = "xyes"], [
 ])
 AM_CONDITIONAL(COND_LASTFM, [test "x$enable_lastfm" = "xyes"])
 
+dnl ChromeCast support with libprotobuf-c
+AC_ARG_ENABLE(chromecast, AS_HELP_STRING([--enable-chromecast], [enable ChromeCast support (default=no)]))
+AS_IF([test "x$enable_chromecast" = "xyes"], [
+	AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
+	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c ], , [ LDFLAGS="${LDFLAGS} -lprotobuf-c" ])
+	PKG_CHECK_MODULES(GNUTLS, [ gnutls ])
+])
+AM_CONDITIONAL(COND_CHROMECAST, [test "x$enable_chromecast" = "xyes"])
+
 dnl MPD support
 AC_ARG_ENABLE(mpd, AS_HELP_STRING([--disable-mpd], [disable MPD client protocol support (default=no)]))
 AS_IF([test "x$enable_mpd" != "xno"], [

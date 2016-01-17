@@ -13,6 +13,10 @@ if COND_LASTFM
 LASTFM_SRC=lastfm.c lastfm.h
 endif
 
+if COND_CHROMECAST
+CHROMECAST_SRC=cast.h cast.c cast_channel.pb-c.h cast_channel.pb-c.c
+endif
+
 if COND_MPD
 MPD_SRC=mpd.c mpd.h
 endif
@@ -60,14 +64,14 @@ forked_daapd_CFLAGS = \
 	@ZLIB_CFLAGS@ @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @LIBAV_CFLAGS@ \
 	@CONFUSE_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ \
 	@LIBGCRYPT_CFLAGS@ @GPG_ERROR_CFLAGS@ @ALSA_CFLAGS@ @SPOTIFY_CFLAGS@ \
-	@LIBCURL_CFLAGS@
+	@LIBCURL_CFLAGS@ @LIBPROTOBUF_C_CFLAGS@ @GNUTLS_CFLAGS@
 
 forked_daapd_LDADD = -lrt \
 	@ZLIB_LIBS@ @AVAHI_LIBS@ @SQLITE3_LIBS@ @LIBAV_LIBS@ \
 	@CONFUSE_LIBS@ @LIBEVENT_LIBS@ \
 	@MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ \
 	@LIBGCRYPT_LIBS@ @GPG_ERROR_LIBS@ @ALSA_LIBS@ @LIBUNISTRING@ @SPOTIFY_LIBS@ \
-	@LIBCURL_LIBS@
+	@LIBCURL_LIBS@ @LIBPROTOBUF_C_LIBS@ @GNUTLS_LIBS@
 
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
@@ -105,6 +109,7 @@ forked_daapd_SOURCES = main.c \
 	evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \
+	$(CHROMECAST_SRC) \
 	$(MPD_SRC) \
 	listener.c listener.h
 
