@@ -1050,6 +1050,8 @@ cache_artwork_delete_by_path_impl(struct cache_command *cmd)
       return -1;
     }
 
+  DPRINTF(E_DBG, L_CACHE, "Deleted %d rows\n", sqlite3_changes(g_db_hdl));
+
   return 0;
 
 #undef Q_TMPL_DEL

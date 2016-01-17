@@ -49,6 +49,7 @@ enum query_type {
   Q_BROWSE_DISCS     = Q_F_BROWSE | 14,
   Q_BROWSE_TRACKS    = Q_F_BROWSE | 15,
   Q_BROWSE_VPATH     = Q_F_BROWSE | 16,
+  Q_BROWSE_PATH      = Q_F_BROWSE | 17,
 };
 
 #define ARTWORK_UNKNOWN   0
@@ -571,6 +572,9 @@ db_spotify_purge(void);
 
 void
 db_spotify_pl_delete(int id);
+
+void
+db_spotify_files_delete();
 #endif
 
 /* Admin */
