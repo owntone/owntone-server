@@ -1383,8 +1383,6 @@ logged_in(sp_session *sess, sp_error error)
 
   DPRINTF(E_LOG, L_SPOTIFY, "Login to Spotify succeeded. Reloading playlists.\n");
 
-  db_spotify_purge();
-
   pl = fptr_sp_session_starred_create(sess);
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
 
@@ -2057,6 +2055,8 @@ spotify_login(char *path)
   char *username;
   char *password;
   int ret;
+
+  db_spotify_purge();
 
   if (!g_sess)
     {
