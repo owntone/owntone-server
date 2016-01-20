@@ -783,7 +783,6 @@ spotify_playlist_save(sp_playlist *pl)
 	}
 
       dir_id = db_directory_addorupdate("/spotify:", 0, 1);
-
       if (dir_id <= 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '/spotify:'\n");

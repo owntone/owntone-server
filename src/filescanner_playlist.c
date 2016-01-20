@@ -240,7 +240,6 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi.artist, mfi.title);
 
 	  di_id = db_directory_addorupdate("/http:", 0, 1);
-
 	  if (di_id <= 0)
 	    {
 	      DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '/http:'\n");

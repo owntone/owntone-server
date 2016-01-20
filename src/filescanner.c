@@ -121,12 +121,6 @@ struct stacked_dir {
   struct stacked_dir *next;
 };
 
-enum root_directories {
-  DIR_FILE = 0,
-  DIR_HTTP = 1,
-  DIR_SPOTIFY = 2,
-};
-
 static int cmd_pipe[2];
 static int exit_pipe[2];
 static int scan_exit;
@@ -984,7 +978,6 @@ process_directory(char *path, int flags, int parent_id)
   struct kevent kev;
 #endif
   int type;
-  struct directory_info di;
   char virtual_path[PATH_MAX];
   int dir_id;
   int ret;
@@ -1000,21 +993,15 @@ process_directory(char *path, int flags, int parent_id)
     }
 
   /* Add/update directories table */
-  memset(&di, 0, sizeof(struct directory_info));
 
   ret = create_virtual_path(path, virtual_path, sizeof(virtual_path));
   if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_SCAN, "Virtual path /file:%s, PATH_MAX exceeded\n", path);
-
-      return;
-    }
+    return;
 
   dir_id = db_directory_addorupdate(virtual_path, 0, parent_id);
-
   if (dir_id <= 0)
     {
-      DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '/http:'\n");
+      DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '%s'\n", virtual_path);
     }
 
   /* Check if compilation and/or podcast directory */
@@ -1180,13 +1167,9 @@ process_parent_directories(char *path)
 
       ret = create_virtual_path(buf, virtual_path, sizeof(virtual_path));
       if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Virtual path /file:%s, PATH_MAX exceeded\n", path);
-	  return 0;
-	}
+	return 0;
 
       dir_id = db_directory_addorupdate(virtual_path, 0, dir_id);
-
       if (dir_id <= 0)
 	{
 	  DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '%s'\n", virtual_path);
@@ -1651,9 +1634,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
 	  dir[(ptr - dir)] = '\0';
 
 	  ret = create_virtual_path(dir, dir_vpath, sizeof(dir_vpath));
-	  if (ret < 0)
-	    DPRINTF(E_LOG, L_SCAN, "Error creating virtual path for: %s\n", dir);
-	  else
+	  if (ret >= 0)
 	    {
 	      dir_id = db_directory_id_byvirtualpath(dir_vpath);
 	      if (dir_id > 0)
