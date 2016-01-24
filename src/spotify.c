@@ -622,7 +622,13 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
       return -1;
     }
 
-  snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s", mfi.artist);
+  ret = snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s", mfi.artist);
+  if ((ret < 0) || (ret >= sizeof(virtual_path)))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Virtual path exceeds PATH_MAX (/spotify:/%s)\n", mfi.artist);
+      free_mfi(&mfi, 1);
+      return -1;
+    }
   dir_id = db_directory_addorupdate(virtual_path, 0, DIR_SPOTIFY);
   if (dir_id <= 0)
     {
@@ -630,7 +636,13 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
       free_mfi(&mfi, 1);
       return -1;
     }
-  snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s/%s", mfi.artist, mfi.album);
+  ret = snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s/%s", mfi.artist, mfi.album);
+  if ((ret < 0) || (ret >= sizeof(virtual_path)))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Virtual path exceeds PATH_MAX (/spotify:/%s/%s)\n", mfi.artist, mfi.album);
+      free_mfi(&mfi, 1);
+      return -1;
+    }
   dir_id = db_directory_addorupdate(virtual_path, 0, dir_id);
   if (dir_id <= 0)
     {
