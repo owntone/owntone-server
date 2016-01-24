@@ -622,7 +622,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
       return -1;
     }
 
-  snprintf(virtual_path, PATH_MAX, "/spotify:");
+  snprintf(virtual_path, sizeof(virtual_path), "/spotify:");
   dir_id = db_directory_addorupdate(virtual_path, 0, 1);
   if (dir_id <= 0)
     {
@@ -630,7 +630,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
       free_mfi(&mfi, 1);
       return -1;
     }
-  snprintf(virtual_path, PATH_MAX, "/spotify:/%s", mfi.artist);
+  snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s", mfi.artist);
   dir_id = db_directory_addorupdate(virtual_path, 0, dir_id);
   if (dir_id <= 0)
     {
@@ -638,7 +638,7 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
       free_mfi(&mfi, 1);
       return -1;
     }
-  snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s", mfi.artist, mfi.album);
+  snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s/%s", mfi.artist, mfi.album);
   dir_id = db_directory_addorupdate(virtual_path, 0, dir_id);
   if (dir_id <= 0)
     {
