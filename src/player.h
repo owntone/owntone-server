@@ -190,6 +190,11 @@ player_queue_clear_history(void);
 void
 player_queue_plid(uint32_t plid);
 
+int
+player_device_add(void *device);
+
+int
+player_device_remove(void *device);
 
 struct player_history *
 player_history_get(void);

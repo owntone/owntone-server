@@ -14,7 +14,7 @@ LASTFM_SRC=lastfm.c lastfm.h
 endif
 
 if COND_CHROMECAST
-CHROMECAST_SRC=cast.h cast.c cast_channel.pb-c.h cast_channel.pb-c.c
+CHROMECAST_SRC=outputs/cast.c outputs/cast_channel.pb-c.h outputs/cast_channel.pb-c.c
 endif
 
 if COND_MPD
@@ -103,9 +103,10 @@ forked_daapd_SOURCES = main.c \
 	queue.c queue.h \
 	worker.c worker.h \
 	$(ALSA_SRC) $(OSS4_SRC) \
+	outputs.h outputs.c \
 	laudio_dummy.c \
 	laudio.c laudio.h \
-	raop.c raop.h \
+	outputs/raop.c \
 	evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \

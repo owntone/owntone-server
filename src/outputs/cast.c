@@ -392,6 +392,81 @@ cast_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   return NULL;
 }
 
+static void
+cast_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
+{
+  struct raop_device *d;
+  const char *p;
+  uint32_t id;
+
+  p = keyval_get(txt, "id");
+  if (p)
+    id = djb_hash(p, strlen(p));
+  else
+    id = 0;
+
+  if (!id)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not extract ChromeCast device ID (%s)\n", name);
+
+      return;
+    }
+
+  DPRINTF(E_DBG, L_PLAYER, "Event for Chromecast device %s (port %d, id %" PRIu32 ")\n", name, port, id);
+
+  d = calloc(1, sizeof(struct raop_device));
+  if (!d)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new Chromecast device\n");
+
+      return;
+    }
+
+  d->id = id;
+  d->name = strdup(name);
+
+  if (port < 0)
+    {
+      /* Device stopped advertising */
+      switch (family)
+	{
+	  case AF_INET:
+	    d->v4_port = 1;
+	    break;
+
+	  case AF_INET6:
+	    d->v6_port = 1;
+	    break;
+	}
+
+      player_device_remove(d);
+
+      return;
+    }
+
+  /* Device type */
+  d->devtype = RAOP_DEV_CHROMECAST;
+
+  DPRINTF(E_INFO, L_PLAYER, "Adding Chromecast device %s\n", name);
+
+  d->advertised = 1;
+
+  switch (family)
+    {
+      case AF_INET:
+	d->v4_address = strdup(address);
+	d->v4_port = port;
+	break;
+
+      case AF_INET6:
+	d->v6_address = strdup(address);
+	d->v6_port = port;
+	break;
+    }
+
+  player_device_add(d);
+}
+
 int
 cast_device_start(struct raop_device *rd, raop_status_cb cb)
 {
@@ -435,7 +510,18 @@ cast_device_start(struct raop_device *rd, raop_status_cb cb)
 int
 cast_init(void)
 {
+  int mdns_flags;
   int ret;
+
+  mdns_flags = MDNS_WANT_V4 | MDNS_WANT_V6 | MDNS_WANT_V6LL;
+
+  ret = mdns_browse("_googlecast._tcp", mdns_flags, cast_device_cb);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not add mDNS browser for Chromecast devices\n");
+
+      goto mdns_browse_cast_fail;
+    }
 
   // TODO Setting the cert file may not be required
   if ( ((ret = gnutls_global_init()) != GNUTLS_E_SUCCESS) ||

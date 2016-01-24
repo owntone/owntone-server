@@ -56,6 +56,7 @@
 
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <netinet/in.h>
 
 #include <event2/event.h>
 #include <event2/buffer.h>
@@ -64,12 +65,13 @@
 #include "evrtsp/evrtsp.h"
 #include "conffile.h"
 #include "logger.h"
+#include "mdns.h"
 #include "misc.h"
 #include "player.h"
 #include "db.h"
 #include "artwork.h"
 #include "dmap_common.h"
-#include "raop.h"
+#include "outputs.h"
 
 #ifndef MIN
 # define MIN(a, b) ((a < b) ? a : b)
@@ -88,6 +90,14 @@
 /* This is an arbitrary value which just needs to be kept in sync with the config */
 #define RAOP_CONFIG_MAX_VOLUME     11
 
+union sockaddr_all
+{
+  struct sockaddr_in sin;
+  struct sockaddr_in6 sin6;
+  struct sockaddr sa;
+  struct sockaddr_storage ss;
+};
+
 struct raop_v2_packet
 {
   uint8_t clear[AIRTUNES_V2_PKT_LEN];
@@ -99,11 +109,28 @@ struct raop_v2_packet
   struct raop_v2_packet *next;
 };
 
+enum raop_devtype {
+  RAOP_DEV_APEX1_80211G,
+  RAOP_DEV_APEX2_80211N,
+  RAOP_DEV_APEX3_80211N,
+  RAOP_DEV_APPLETV,
+  RAOP_DEV_OTHER,
+};
+
+// Info about the device, which is not required by the player, only internally
+struct raop_extra
+{
+  enum raop_devtype devtype;
+
+  unsigned encrypt:1;
+  unsigned wants_metadata:1;
+};
+
 struct raop_session
 {
   struct evrtsp_connection *ctrl;
 
-  enum raop_session_state state;
+  enum output_device_state state;
   unsigned req_has_auth:1;
   unsigned encrypt:1;
   unsigned auth_quirk_itunes:1;
@@ -127,8 +154,9 @@ struct raop_session
   uint64_t start_rtptime;
 
   /* Do not dereference - only passed to the status cb */
-  struct raop_device *dev;
-  raop_status_cb status_cb;
+  struct output_device *device;
+  struct output_session *output_session;
+  output_status_cb status_cb;
 
   /* AirTunes v2 */
   unsigned short server_port;
@@ -202,6 +230,15 @@ static const uint8_t raop_rsa_pubkey[] =
 
 static const uint8_t raop_rsa_exp[] = "\x01\x00\x01";
 
+/* Keep in sync with enum raop_devtype */
+static const char *raop_devtype[] =
+{
+  "AirPort Express 1 - 802.11g",
+  "AirPort Express 2 - 802.11n",
+  "AirPort Express 3 - 802.11n",
+  "AppleTV",
+  "Other",
+};
 
 /* From player.c */
 extern struct event_base *evbase_player;
@@ -713,7 +750,7 @@ raop_metadata_free(struct raop_metadata *rmd)
   free(rmd);
 }
 
-void
+static void
 raop_metadata_purge(void)
 {
   struct raop_metadata *rmd;
@@ -728,7 +765,7 @@ raop_metadata_purge(void)
   metadata_tail = NULL;
 }
 
-void
+static void
 raop_metadata_prune(uint64_t rtptime)
 {
   struct raop_metadata *rmd;
@@ -748,7 +785,7 @@ raop_metadata_prune(uint64_t rtptime)
 }
 
 /* Thread: worker */
-struct raop_metadata *
+static void *
 raop_metadata_prepare(int id)
 {
   struct query_params qp;
@@ -1135,7 +1172,7 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
       DPRINTF(E_LOG, L_RAOP, "Could not add Authorization header\n");
 
       if (ret == -2)
-	rs->state = RAOP_PASSWORD;
+	rs->state = OUTPUT_STATE_PASSWORD;
 
       return -1;
     }
@@ -1652,6 +1689,8 @@ raop_session_free(struct raop_session *rs)
   if (rs->devname)
     free(rs->devname);
 
+  free(rs->output_session);
+
   free(rs);
 }
 
@@ -1698,9 +1737,9 @@ static void
 raop_session_failure(struct raop_session *rs)
 {
   /* Session failed, let our user know */
-  if (rs->state != RAOP_PASSWORD)
-    rs->state = RAOP_FAILED;
-  rs->status_cb(rs->dev, rs, rs->state);
+  if (rs->state != OUTPUT_STATE_PASSWORD)
+    rs->state = OUTPUT_STATE_FAILED;
+  rs->status_cb(rs->device, rs->output_session, rs->state);
 
   raop_session_cleanup(rs);
 }
@@ -1727,20 +1766,24 @@ raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
 
   DPRINTF(E_LOG, L_RAOP, "ApEx %s closed RTSP connection\n", rs->devname);
 
-  rs->state = RAOP_FAILED;
+  rs->state = OUTPUT_STATE_FAILED;
 
   evutil_timerclear(&tv);
   evtimer_add(rs->deferredev, &tv);
 }
 
 static struct raop_session *
-raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
+raop_session_make(struct output_device *rd, int family, output_status_cb cb)
 {
+  struct output_session *os;
   struct raop_session *rs;
+  struct raop_extra *re;
   char *address;
   char *intf;
   unsigned short port;
   int ret;
+
+  re = rd->extra_device_info;
 
   switch (family)
     {
@@ -1765,27 +1808,30 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 	return NULL;
     }
 
-  rs = (struct raop_session *)malloc(sizeof(struct raop_session));
-  if (!rs)
+  os = calloc(1, sizeof(struct output_session));
+  rs = calloc(1, sizeof(struct raop_session));
+  if (!os || !rs)
     {
       DPRINTF(E_LOG, L_RAOP, "Out of memory for RAOP session\n");
       return NULL;
     }
 
-  memset(rs, 0, sizeof(struct raop_session));
+  os->session = rs;
+  os->type = rd->type;
 
-  rs->state = RAOP_STOPPED;
+  rs->output_session = os;
+  rs->state = OUTPUT_STATE_STOPPED;
   rs->reqs_in_flight = 0;
   rs->cseq = 1;
 
-  rs->dev = rd;
+  rs->device = rd;
   rs->status_cb = cb;
   rs->server_fd = -1;
 
   rs->password = rd->password;
-  rs->wants_metadata = rd->wants_metadata;
+  rs->wants_metadata = re->wants_metadata;
 
-  switch (rd->devtype)
+  switch (re->devtype)
     {
       case RAOP_DEV_APEX1_80211G:
 	rs->encrypt = 1;
@@ -1808,7 +1854,7 @@ raop_session_make(struct raop_device *rd, int family, raop_status_cb cb)
 	break;
 
       case RAOP_DEV_OTHER:
-	rs->encrypt = rd->encrypt;
+	rs->encrypt = re->encrypt;
 	rs->auth_quirk_itunes = 0;
 	break;
     }
@@ -2156,13 +2202,15 @@ raop_metadata_startup_send(struct raop_session *rs)
     }
 }
 
-void
-raop_metadata_send(struct raop_metadata *rmd, uint64_t rtptime, uint64_t offset, int startup)
+static void
+raop_metadata_send(void *metadata, uint64_t rtptime, uint64_t offset, int startup)
 {
+  struct raop_metadata *rmd;
   struct raop_session *rs;
   uint32_t delay;
   int ret;
 
+  rmd = metadata;
   rmd->start += rtptime;
   rmd->end += rtptime;
 
@@ -2177,7 +2225,7 @@ raop_metadata_send(struct raop_metadata *rmd, uint64_t rtptime, uint64_t offset,
 
   for (rs = sessions; rs; rs = rs->next)
     {
-      if (!(rs->state & RAOP_F_CONNECTED))
+      if (!(rs->state & OUTPUT_STATE_F_CONNECTED))
 	continue;
 
       if (!rs->wants_metadata)
@@ -2269,7 +2317,7 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
 static void
 raop_cb_set_volume(struct evrtsp_request *req, void *arg)
 {
-  raop_status_cb status_cb;
+  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -2294,7 +2342,7 @@ raop_cb_set_volume(struct evrtsp_request *req, void *arg)
   /* Let our user know */
   status_cb = rs->status_cb;
   rs->status_cb = NULL;
-  status_cb(rs->dev, rs, rs->state);
+  status_cb(rs->device, rs->output_session, rs->state);
 
   if (!rs->reqs_in_flight)
     evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
@@ -2306,15 +2354,21 @@ raop_cb_set_volume(struct evrtsp_request *req, void *arg)
 }
 
 /* Volume in [0 - 100] */
-int
-raop_set_volume_one(struct raop_session *rs, int volume, raop_status_cb cb)
+static int
+raop_set_volume_one(struct output_device *rd, output_status_cb cb)
 {
+  struct raop_session *rs;
   int ret;
 
-  if (!(rs->state & RAOP_F_CONNECTED))
+  if (!rd->session || !rd->session->session)
     return 0;
 
-  ret = raop_set_volume_internal(rs, volume, raop_cb_set_volume);
+  rs = rd->session->session;
+
+  if (!(rs->state & OUTPUT_STATE_F_CONNECTED))
+    return 0;
+
+  ret = raop_set_volume_internal(rs, rd->volume, raop_cb_set_volume);
   if (ret < 0)
     {
       raop_session_failure(rs);
@@ -2330,7 +2384,7 @@ raop_set_volume_one(struct raop_session *rs, int volume, raop_status_cb cb)
 static void
 raop_cb_flush(struct evrtsp_request *req, void *arg)
 {
-  raop_status_cb status_cb;
+  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -2352,12 +2406,12 @@ raop_cb_flush(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto error;
 
-  rs->state = RAOP_CONNECTED;
+  rs->state = OUTPUT_STATE_CONNECTED;
 
   /* Let our user know */
   status_cb = rs->status_cb;
   rs->status_cb = NULL;
-  status_cb(rs->dev, rs, rs->state);
+  status_cb(rs->device, rs->output_session, rs->state);
 
   if (!rs->reqs_in_flight)
     evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
@@ -2368,6 +2422,10 @@ raop_cb_flush(struct evrtsp_request *req, void *arg)
   raop_session_failure(rs);
 }
 
+// Forward
+static void
+raop_device_stop(struct output_session *session);
+
 static void
 raop_flush_timer_cb(int fd, short what, void *arg)
 {
@@ -2377,15 +2435,15 @@ raop_flush_timer_cb(int fd, short what, void *arg)
 
   for (rs = sessions; rs; rs = rs->next)
     {
-      if (!(rs->state & RAOP_F_CONNECTED))
+      if (!(rs->state & OUTPUT_STATE_F_CONNECTED))
 	continue;
 
-      raop_device_stop(rs);
+      raop_device_stop(rs->output_session);
     }
 }
 
-int
-raop_flush(raop_status_cb cb, uint64_t rtptime)
+static int
+raop_flush(output_status_cb cb, uint64_t rtptime)
 {
   struct timeval tv;
   struct raop_session *rs;
@@ -2395,7 +2453,7 @@ raop_flush(raop_status_cb cb, uint64_t rtptime)
   pending = 0;
   for (rs = sessions; rs; rs = rs->next)
     {
-      if (rs->state != RAOP_STREAMING)
+      if (rs->state != OUTPUT_STATE_STREAMING)
 	continue;
 
       ret = raop_send_req_flush(rs, rtptime, raop_cb_flush);
@@ -2767,7 +2825,7 @@ raop_v2_control_send_sync(uint64_t next_pkt, struct timespec *init)
 
   for (rs = sessions; rs; rs = rs->next)
     {
-      if (rs->state != RAOP_STREAMING)
+      if (rs->state != OUTPUT_STATE_STREAMING)
 	continue;
 
       switch (rs->sa.ss.ss_family)
@@ -3198,7 +3256,11 @@ raop_v2_send_packet(struct raop_session *rs, struct raop_v2_packet *pkt)
   return 0;
 }
 
-void
+// Forward
+static void
+raop_playback_stop(void);
+
+static void
 raop_v2_write(uint8_t *buf, uint64_t rtptime)
 {
   struct raop_v2_packet *pkt;
@@ -3223,7 +3285,7 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
 
   for (rs = sessions; rs; rs = rs->next)
     {
-      if (rs->state != RAOP_STREAMING)
+      if (rs->state != OUTPUT_STATE_STREAMING)
 	continue;
 
       raop_v2_send_packet(rs, pkt);
@@ -3341,9 +3403,9 @@ raop_v2_stream_open(struct raop_session *rs)
    * playback is in progress.
    */
   if (sync_counter != 0)
-    rs->state = RAOP_STREAMING;
+    rs->state = OUTPUT_STATE_STREAMING;
   else
-    rs->state = RAOP_CONNECTED;
+    rs->state = OUTPUT_STATE_CONNECTED;
 
   return 0;
 
@@ -3369,7 +3431,7 @@ raop_startup_cancel(struct raop_session *rs)
 static void
 raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
 {
-  raop_status_cb status_cb;
+  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -3405,7 +3467,7 @@ raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
   status_cb = rs->status_cb;
   rs->status_cb = NULL;
 
-  status_cb(rs->dev, rs, rs->state);
+  status_cb(rs->device, rs->output_session, rs->state);
 
   if (!rs->reqs_in_flight)
     evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
@@ -3448,7 +3510,7 @@ raop_cb_startup_record(struct evrtsp_request *req, void *arg)
   else
     DPRINTF(E_DBG, L_RAOP, "RAOP audio latency is %s\n", param);
 
-  rs->state = RAOP_RECORD;
+  rs->state = OUTPUT_STATE_RECORD;
 
   /* Set initial volume */
   raop_set_volume_internal(rs, rs->volume, raop_cb_startup_volume);
@@ -3596,7 +3658,7 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
 
   DPRINTF(E_DBG, L_RAOP, "Negotiated AirTunes v2 UDP streaming session %s; ports s=%u c=%u t=%u\n", rs->session, rs->server_port, rs->control_port, rs->timing_port);
 
-  rs->state = RAOP_SETUP;
+  rs->state = OUTPUT_STATE_SETUP;
 
   /* Send RECORD */
   ret = raop_send_req_record(rs, raop_cb_startup_record);
@@ -3633,7 +3695,7 @@ raop_cb_startup_announce(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto cleanup;
 
-  rs->state = RAOP_ANNOUNCE;
+  rs->state = OUTPUT_STATE_ANNOUNCE;
 
   /* Send SETUP */
   ret = raop_send_req_setup(rs, raop_cb_startup_setup);
@@ -3676,7 +3738,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 	{
 	  DPRINTF(E_LOG, L_RAOP, "Bad password for device %s\n", rs->devname);
 
-	  rs->state = RAOP_PASSWORD;
+	  rs->state = OUTPUT_STATE_PASSWORD;
 	  goto cleanup;
 	}
 
@@ -3695,7 +3757,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
       return;
     }
 
-  rs->state = RAOP_OPTIONS;
+  rs->state = OUTPUT_STATE_OPTIONS;
 
   /* Send ANNOUNCE */
   ret = raop_send_req_announce(rs, raop_cb_startup_announce);
@@ -3712,7 +3774,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 static void
 raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
 {
-  raop_status_cb status_cb;
+  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -3734,13 +3796,13 @@ raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto error;
 
-  rs->state = RAOP_STOPPED;
+  rs->state = OUTPUT_STATE_STOPPED;
 
   /* Session shut down, tell our user */
   status_cb = rs->status_cb;
   rs->status_cb = NULL;
 
-  status_cb(rs->dev, rs, rs->state);
+  status_cb(rs->device, rs->output_session, rs->state);
 
   raop_session_cleanup(rs);
 
@@ -3753,7 +3815,7 @@ raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
 static void
 raop_cb_probe_options(struct evrtsp_request *req, void *arg)
 {
-  raop_status_cb status_cb;
+  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -3781,7 +3843,7 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
 	{
 	  DPRINTF(E_LOG, L_RAOP, "Bad password for device %s\n", rs->devname);
 
-	  rs->state = RAOP_PASSWORD;
+	  rs->state = OUTPUT_STATE_PASSWORD;
 	  goto cleanup;
 	}
 
@@ -3800,13 +3862,13 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
       return;
     }
 
-  rs->state = RAOP_OPTIONS;
+  rs->state = OUTPUT_STATE_OPTIONS;
 
   /* Device probed successfully, tell our user */
   status_cb = rs->status_cb;
   rs->status_cb = NULL;
 
-  status_cb(rs->dev, rs, rs->state);
+  status_cb(rs->device, rs->output_session, rs->state);
 
   /* We're not going further with this session */
   raop_session_cleanup(rs);
@@ -3818,8 +3880,213 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
 }
 
 
-int
-raop_device_probe(struct raop_device *rd, raop_status_cb cb)
+/* RAOP devices discovery - mDNS callback */
+/* Thread: main (mdns) */
+/* Examples of txt content:
+ * Apple TV 2:
+     ["sf=0x4" "am=AppleTV2,1" "vs=130.14" "vn=65537" "tp=UDP" "ss=16" "sr=4 4100" "sv=false" "pw=false" "md=0,1,2" "et=0,3,5" "da=true" "cn=0,1,2,3" "ch=2"]
+     ["sf=0x4" "am=AppleTV2,1" "vs=105.5" "md=0,1,2" "tp=TCP,UDP" "vn=65537" "pw=false" "ss=16" "sr=44100" "da=true" "sv=false" "et=0,3" "cn=0,1" "ch=2" "txtvers=1"]
+ * Apple TV 3:
+     ["vv=2" "vs=200.54" "vn=65537" "tp=UDP" "sf=0x44" "pk=8...f" "am=AppleTV3,1" "md=0,1,2" "ft=0x5A7FFFF7,0xE" "et=0,3,5" "da=true" "cn=0,1,2,3"]
+ * Sony STR-DN1040:
+     ["fv=s9327.1090.0" "am=STR-DN1040" "vs=141.9" "vn=65537" "tp=UDP" "ss=16" "sr=44100" "sv=false" "pw=false" "md=0,2" "ft=0x44F0A00" "et=0,4" "da=true" "cn=0,1" "ch=2" "txtvers=1"]
+ * AirFoil:
+     ["rastx=iafs" "sm=false" "raver=3.5.3.0" "ek=1" "md=0,1,2" "ramach=Win32NT.6" "et=0,1" "cn=0,1" "sr=44100" "ss=16" "raAudioFormats=ALAC" "raflakyzeroconf=true" "pw=false" "rast=afs" "vn=3" "sv=false" "txtvers=1" "ch=2" "tp=UDP"]
+ * Xbmc 13:
+     ["am=Xbmc,1" "md=0,1,2" "vs=130.14" "da=true" "vn=3" "pw=false" "sr=44100" "ss=16" "sm=false" "tp=UDP" "sv=false" "et=0,1" "ek=1" "ch=2" "cn=0,1" "txtvers=1"]
+ * Shairport (abrasive/1.0):
+     ["pw=false" "txtvers=1" "vn=3" "sr=44100" "ss=16" "ch=2" "cn=0,1" "et=0,1" "ek=1" "sm=false" "tp=UDP"]
+ * JB2:
+     ["fv=95.8947" "am=JB2 Gen" "vs=103.2" "tp=UDP" "vn=65537" "pw=false" "s s=16" "sr=44100" "da=true" "sv=false" "et=0,4" "cn=0,1" "ch=2" "txtvers=1"]
+ * Airport Express 802.11g (Gen 1):
+     ["tp=TCP,UDP" "sm=false" "sv=false" "ek=1" "et=0,1" "cn=0,1" "ch=2" "ss=16" "sr=44100" "pw=false" "vn=3" "txtvers=1"]
+ * Airport Express 802.11n:
+     802.11n Gen 2 model (firmware 7.6.4): "am=Airport4,107", "et=0,1"
+     802.11n Gen 3 model (firmware 7.6.4): "am=Airport10,115", "et=0,4"
+ */
+static void
+raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
+{
+  struct output_device *rd;
+  struct raop_extra *re;
+  cfg_t *airplay;
+  const char *p;
+  char *at_name;
+  char *password;
+  uint64_t id;
+  int ret;
+
+  ret = safe_hextou64(name, &id);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not extract AirPlay device ID (%s)\n", name);
+
+      return;
+    }
+
+  at_name = strchr(name, '@');
+  if (!at_name)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not extract AirPlay device name (%s)\n", name);
+
+      return;
+    }
+  at_name++;
+
+  DPRINTF(E_DBG, L_RAOP, "Event for AirPlay device %s (port %d, id %" PRIx64 ")\n", at_name, port, id);
+
+  rd = calloc(1, sizeof(struct output_device));
+  re = calloc(1, sizeof(struct raop_extra));
+  if (!rd || !re)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for new AirPlay device\n");
+
+      return;
+    }
+
+  rd->id = id;
+  rd->name = strdup(at_name);
+  rd->type = OUTPUT_TYPE_RAOP;
+  rd->type_name = outputs_name(rd->type);
+  rd->extra_device_info = re;
+
+  if (port < 0)
+    {
+      /* Device stopped advertising */
+      switch (family)
+	{
+	  case AF_INET:
+	    rd->v4_port = 1;
+	    break;
+
+	  case AF_INET6:
+	    rd->v6_port = 1;
+	    break;
+	}
+
+      ret = player_device_remove(rd);
+      if (ret < 0)
+	goto free_rd;
+
+      return;
+    }
+
+  /* Protocol */
+  p = keyval_get(txt, "tp");
+  if (!p)
+    {
+      DPRINTF(E_LOG, L_RAOP, "AirPlay %s: no tp field in TXT record!\n", name);
+
+      goto free_rd;
+    }
+
+  if (*p == '\0')
+    {
+      DPRINTF(E_LOG, L_RAOP, "AirPlay %s: tp has no value\n", name);
+
+      goto free_rd;
+    }
+
+  if (!strstr(p, "UDP"))
+    {
+      DPRINTF(E_LOG, L_RAOP, "AirPlay %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, p);
+
+      goto free_rd;
+    }
+
+  /* Password protection */
+  password = NULL;
+  p = keyval_get(txt, "pw");
+  if (!p)
+    {
+      DPRINTF(E_INFO, L_RAOP, "AirPlay %s: no pw field in TXT record, assuming no password protection\n", name);
+
+      rd->has_password = 0;
+    }
+  else if (*p == '\0')
+    {
+      DPRINTF(E_LOG, L_RAOP, "AirPlay %s: pw has no value\n", name);
+
+      goto free_rd;
+    }
+  else
+    {
+      rd->has_password = (strcmp(p, "false") != 0);
+    }
+
+  if (rd->has_password)
+    {
+      DPRINTF(E_LOG, L_RAOP, "AirPlay device %s is password-protected\n", name);
+
+      airplay = cfg_gettsec(cfg, "airplay", at_name);
+      if (airplay)
+	password = cfg_getstr(airplay, "password");
+
+      if (!password)
+	DPRINTF(E_LOG, L_RAOP, "No password given in config for AirPlay device %s\n", name);
+    }
+
+  rd->password = password;
+
+  /* Device type */
+  re->devtype = RAOP_DEV_OTHER;
+  p = keyval_get(txt, "am");
+
+  if (!p)
+    re->devtype = RAOP_DEV_APEX1_80211G; // First generation AirPort Express
+  else if (strncmp(p, "AirPort4", strlen("AirPort4")) == 0)
+    re->devtype = RAOP_DEV_APEX2_80211N; // Second generation
+  else if (strncmp(p, "AirPort", strlen("AirPort")) == 0)
+    re->devtype = RAOP_DEV_APEX3_80211N; // Third generation and newer
+  else if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
+    re->devtype = RAOP_DEV_APPLETV;
+  else if (*p == '\0')
+    DPRINTF(E_LOG, L_RAOP, "AirPlay %s: am has no value\n", name);
+
+  /* Encrypt stream */
+  p = keyval_get(txt, "ek");
+  if (p && (*p == '1'))
+    re->encrypt = 1;
+  else
+    re->encrypt = 0;
+
+  /* Metadata support */
+  p = keyval_get(txt, "md");
+  if (p && (*p != '\0'))
+    re->wants_metadata = 1;
+  else
+    re->wants_metadata = 0;
+
+  DPRINTF(E_INFO, L_RAOP, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s\n", 
+    name, rd->has_password, re->encrypt, re->wants_metadata, raop_devtype[re->devtype]);
+
+  rd->advertised = 1;
+
+  switch (family)
+    {
+      case AF_INET:
+	rd->v4_address = strdup(address);
+	rd->v4_port = port;
+	break;
+
+      case AF_INET6:
+	rd->v6_address = strdup(address);
+	rd->v6_port = port;
+	break;
+    }
+
+  ret = player_device_add(rd);
+  if (ret < 0)
+    goto free_rd;
+
+  return;
+
+ free_rd:
+  outputs_device_free(rd);
+}
+
+static int
+raop_device_probe(struct output_device *rd, output_status_cb cb)
 {
   struct raop_session *rs;
   int ret;
@@ -3858,8 +4125,8 @@ raop_device_probe(struct raop_device *rd, raop_status_cb cb)
   return 0;
 }
 
-int
-raop_device_start(struct raop_device *rd, raop_status_cb cb, uint64_t rtptime)
+static int
+raop_device_start(struct output_device *rd, output_status_cb cb, uint64_t rtptime)
 {
   struct raop_session *rs;
   int ret;
@@ -3903,17 +4170,25 @@ raop_device_start(struct raop_device *rd, raop_status_cb cb, uint64_t rtptime)
   return 0;
 }
 
-void
-raop_device_stop(struct raop_session *rs)
+static void
+raop_device_stop(struct output_session *session)
 {
-  if (!(rs->state & RAOP_F_CONNECTED))
+  struct raop_session *rs = session->session;
+
+  if (!(rs->state & OUTPUT_STATE_F_CONNECTED))
     raop_session_cleanup(rs);
   else
     raop_send_req_teardown(rs, raop_cb_shutdown_teardown);
 }
 
 
-void
+static void
+raop_device_free_extra(struct output_device *device)
+{
+  free(device->extra_device_info);
+}
+
+static void
 raop_playback_start(uint64_t next_pkt, struct timespec *ts)
 {
   struct raop_session *rs;
@@ -3924,15 +4199,15 @@ raop_playback_start(uint64_t next_pkt, struct timespec *ts)
 
   for (rs = sessions; rs; rs = rs->next)
     {
-      if (rs->state == RAOP_CONNECTED)
-	rs->state = RAOP_STREAMING;
+      if (rs->state == OUTPUT_STATE_CONNECTED)
+	rs->state = OUTPUT_STATE_STREAMING;
     }
 
   /* Send initial playback sync */
   raop_v2_control_send_sync(next_pkt, ts);
 }
 
-void
+static void
 raop_playback_stop(void)
 {
   struct raop_session *rs;
@@ -3946,20 +4221,23 @@ raop_playback_stop(void)
     }
 }
 
-void
-raop_set_status_cb(struct raop_session *rs, raop_status_cb cb)
+static void
+raop_set_status_cb(struct output_session *session, output_status_cb cb)
 {
+  struct raop_session *rs = session->session;
+
   rs->status_cb = cb;
 }
 
-
-int
-raop_init(int *v6enabled)
+static int
+raop_init(void)
 {
   char ebuf[64];
   char *ptr;
   char *libname;
   gpg_error_t gc_err;
+  int v6enabled;
+  int mdns_flags;
   int ret;
 
   timing_4svc.fd = -1;
@@ -4048,7 +4326,9 @@ raop_init(int *v6enabled)
       goto out_free_b64_iv;
     }
 
-  ret = raop_v2_timing_start(*v6enabled);
+  v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
+
+  ret = raop_v2_timing_start(v6enabled);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirTunes v2 time synchronization failed to start\n");
@@ -4056,7 +4336,7 @@ raop_init(int *v6enabled)
       goto out_free_flush_timer;
     }
 
-  ret = raop_v2_control_start(*v6enabled);
+  ret = raop_v2_control_start(v6enabled);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_RAOP, "AirTunes v2 playback synchronization failed to start\n");
@@ -4064,11 +4344,27 @@ raop_init(int *v6enabled)
       goto out_stop_timing;
     }
 
-  if (*v6enabled)
-    *v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
+  if (v6enabled)
+    v6enabled = !((timing_6svc.fd < 0) || (control_6svc.fd < 0));
+
+  if (v6enabled)
+    mdns_flags = MDNS_WANT_V4 | MDNS_WANT_V6 | MDNS_WANT_V6LL;
+  else
+    mdns_flags = MDNS_WANT_V4;
+
+  ret = mdns_browse("_raop._tcp", mdns_flags, raop_device_cb);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_RAOP, "Could not add mDNS browser for AirPlay devices\n");
+
+      goto out_stop_control;
+    }
+
 
   return 0;
 
+ out_stop_control:
+  raop_v2_control_stop();
  out_stop_timing:
   raop_v2_timing_stop();
  out_free_flush_timer:
@@ -4083,7 +4379,7 @@ raop_init(int *v6enabled)
   return -1;
 }
 
-void
+static void
 raop_deinit(void)
 {
   struct raop_session *rs;
@@ -4105,3 +4401,27 @@ raop_deinit(void)
   free(raop_aes_key_b64);
   free(raop_aes_iv_b64);
 }
+
+struct output_definition output_raop =
+{
+  .name = "AirPlay",
+  .type = OUTPUT_TYPE_RAOP,
+  .priority = 1,
+  .disabled = 0,
+  .init = raop_init,
+  .deinit = raop_deinit,
+  .device_start = raop_device_start,
+  .device_stop = raop_device_stop,
+  .device_probe = raop_device_probe,
+  .device_free_extra = raop_device_free_extra,
+  .device_volume_set = raop_set_volume_one,
+  .playback_start = raop_playback_start,
+  .playback_stop = raop_playback_stop,
+  .write = raop_v2_write,
+  .flush = raop_flush,
+  .status_cb = raop_set_status_cb,
+  .metadata_prepare = raop_metadata_prepare,
+  .metadata_send = raop_metadata_send,
+  .metadata_purge = raop_metadata_purge,
+  .metadata_prune = raop_metadata_prune,
+};

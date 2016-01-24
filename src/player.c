@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2010-2011 Julien BLACHE <jb@jblache.org>
+ * Copyright (C) 2016 Espen Jürgensen <espenjurgensen@gmail.com>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -44,7 +45,6 @@
 
 #include "db.h"
 #include "logger.h"
-#include "mdns.h"
 #include "conffile.h"
 #include "misc.h"
 #include "player.h"
@@ -52,11 +52,8 @@
 #include "listener.h"
 
 /* Audio outputs */
-#include "raop.h"
+#include "outputs.h"
 #include "laudio.h"
-#ifdef CHROMECAST
-# include "cast.h"
-#endif
 
 /* Audio inputs */
 #include "transcode.h"
@@ -196,7 +193,7 @@ struct player_metadata
   uint64_t offset;
   int startup;
 
-  struct raop_metadata *rmd;
+  struct output_metadata *omd;
 };
 
 struct player_command
@@ -213,12 +210,12 @@ struct player_command
     struct volume_param vol_param;
     void *noarg;
     struct spk_enum *spk_enum;
-    struct raop_device *rd;
+    struct output_device *device;
     struct player_status *status;
     struct player_source *ps;
     struct player_metadata *pmd;
     uint32_t *id_ptr;
-    uint64_t *raop_ids;
+    uint64_t *device_ids;
     enum repeat_mode mode;
     uint32_t id;
     int intval;
@@ -234,18 +231,6 @@ struct player_command
 
   int raop_pending;
 };
-
-/* Keep in sync with enum raop_devtype */
-static const char *raop_devtype[] =
-  {
-    "AirPort Express 1 - 802.11g",
-    "AirPort Express 2 - 802.11n",
-    "AirPort Express 3 - 802.11n",
-    "AppleTV",
-    "Chromecast",
-    "Other",
-  };
-
 
 struct event_base *evbase_player;
 
@@ -290,16 +275,16 @@ static uint64_t pb_pos;
 /* Stream position (packets) */
 static uint64_t last_rtptime;
 
-/* AirPlay devices */
+/* Output devices */
 static int dev_autoselect; //TODO [player] Is this still necessary?
-static struct raop_device *dev_list;
+static struct output_device *dev_list;
 
 /* Output status */
 static enum laudio_state laudio_status;
 static int laudio_selected;
 static int laudio_volume;
 static int laudio_relvol;
-static int raop_sessions;
+static int output_sessions;
 static int streaming_selected;
 
 static player_streaming_cb streaming_write;
@@ -396,24 +381,24 @@ vol_to_rel(int volume)
 static void
 volume_master_update(int newvol)
 {
-  struct raop_device *rd;
+  struct output_device *device;
 
   master_volume = newvol;
 
   if (laudio_selected)
     laudio_relvol = vol_to_rel(laudio_volume);
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (rd->selected)
-	rd->relvol = vol_to_rel(rd->volume);
+      if (device->selected)
+	device->relvol = vol_to_rel(device->volume);
     }
 }
 
 static void
 volume_master_find(void)
 {
-  struct raop_device *rd;
+  struct output_device *device;
   int newmaster;
 
   newmaster = -1;
@@ -421,10 +406,10 @@ volume_master_find(void)
   if (laudio_selected)
     newmaster = laudio_volume;
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (rd->selected && (rd->volume > newmaster))
-	newmaster = rd->volume;
+      if (device->selected && (device->volume > newmaster))
+	newmaster = device->volume;
     }
 
   volume_master_update(newmaster);
@@ -449,19 +434,19 @@ speaker_select_laudio(void)
 }
 
 static void
-speaker_select_raop(struct raop_device *rd)
+speaker_select_output(struct output_device *device)
 {
-  rd->selected = 1;
+  device->selected = 1;
 
-  if (rd->volume > master_volume)
+  if (device->volume > master_volume)
     {
       if (player_state == PLAY_STOPPED || master_volume == -1)
-	volume_master_update(rd->volume);
+	volume_master_update(device->volume);
       else
-	rd->volume = master_volume;
+	device->volume = master_volume;
     }
 
-  rd->relvol = vol_to_rel(rd->volume);
+  device->relvol = vol_to_rel(device->volume);
 }
 
 static void
@@ -474,11 +459,11 @@ speaker_deselect_laudio(void)
 }
 
 static void
-speaker_deselect_raop(struct raop_device *rd)
+speaker_deselect_output(struct output_device *device)
 {
-  rd->selected = 0;
+  device->selected = 0;
 
-  if (rd->volume == master_volume)
+  if (device->volume == master_volume)
     volume_master_find();
 }
 
@@ -664,7 +649,7 @@ player_laudio_status_cb(enum laudio_state status)
 
 	laudio_close();
 
-	if (raop_sessions == 0)
+	if (output_sessions == 0)
 	  playback_abort();
 
 	speaker_deselect_laudio();
@@ -698,18 +683,20 @@ scrobble_cb(void *arg)
 
 /* Callback from the worker thread
  * This prepares metadata in the worker thread, since especially the artwork
- * retrieval may take some time. raop_metadata_prepare() is thread safe. The
- * sending, however, must be done in the player thread.
+ * retrieval may take some time. outputs_metadata_prepare() must be thread safe.
+ * The sending must be done in the player thread.
  */
 static void
 metadata_prepare_cb(void *arg)
 {
   struct player_metadata *pmd = arg;
 
-  pmd->rmd = raop_metadata_prepare(pmd->id);
+  pmd->omd = outputs_metadata_prepare(pmd->id);
 
-  if (pmd->rmd)
+  if (pmd->omd)
     player_metadata_send(pmd);
+
+  outputs_metadata_free(pmd->omd);
 }
 
 /* Callback from the worker thread (async operation as it may block) */
@@ -727,13 +714,13 @@ update_icy_cb(void *arg)
 static void
 metadata_prune(uint64_t pos)
 {
-  raop_metadata_prune(pos);
+  outputs_metadata_prune(pos);
 }
 
 static void
 metadata_purge(void)
 {
-  raop_metadata_purge();
+  outputs_metadata_purge();
 }
 
 static void
@@ -782,7 +769,7 @@ metadata_check_icy(void)
   /* Defer the database update to the worker thread */
   worker_execute(update_icy_cb, metadata, sizeof(struct http_icy_metadata), 0);
 
-  /* Triggers preparing and sending RAOP metadata */
+  /* Triggers preparing and sending output metadata */
   metadata_trigger(0);
 
   /* Only free the struct, the content must be preserved for update_icy_cb */
@@ -1612,8 +1599,8 @@ playback_write(void)
   if (laudio_status & LAUDIO_F_STARTED)
     laudio_write(rawbuf, last_rtptime);
 
-  if (raop_sessions > 0)
-    raop_v2_write(rawbuf, last_rtptime);
+  if (output_sessions > 0)
+    outputs_write(rawbuf, last_rtptime);
 }
 
 static void
@@ -1692,146 +1679,131 @@ player_playback_cb(int fd, short what, void *arg)
   pb_timer_last = next_tick;
 }
 
-static void
-device_free(struct raop_device *dev)
-{
-  free(dev->name);
-
-  if (dev->v4_address)
-    free(dev->v4_address);
-
-  if (dev->v6_address)
-    free(dev->v6_address);
-
-  free(dev);
-}
-
 /* Helpers */
 static void
-device_remove(struct raop_device *dev)
+device_remove(struct output_device *remove)
 {
-  struct raop_device *rd;
-  struct raop_device *prev;
+  struct output_device *device;
+  struct output_device *prev;
   int ret;
 
   prev = NULL;
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (rd == dev)
+      if (device == remove)
 	break;
 
-      prev = rd;
+      prev = device;
     }
 
-  if (!rd)
+  if (!device)
     return;
 
-  DPRINTF(E_DBG, L_PLAYER, "Removing AirPlay device %s; stopped advertising\n", dev->name);
+  DPRINTF(E_DBG, L_PLAYER, "Removing %s device '%s'; stopped advertising\n", remove->type_name, remove->name);
 
   /* Make sure device isn't selected anymore */
-  if (dev->selected)
-    speaker_deselect_raop(dev);
+  if (device->selected)
+    speaker_deselect_output(remove);
 
   /* Save device volume */
-  ret = db_speaker_save(dev->id, 0, dev->volume);
+  ret = db_speaker_save(remove->id, 0, remove->volume);
   if (ret < 0)
-    DPRINTF(E_LOG, L_PLAYER, "Could not save state for speaker %s\n", dev->name);
+    DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
 
   if (!prev)
-    dev_list = dev->next;
+    dev_list = remove->next;
   else
-    prev->next = dev->next;
+    prev->next = remove->next;
 
-  device_free(dev);
+  outputs_device_free(remove);
 }
 
 static int
-device_check(struct raop_device *dev)
+device_check(struct output_device *check)
 {
-  struct raop_device *rd;
+  struct output_device *device;
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (rd == dev)
+      if (device == check)
 	break;
     }
 
-  return (rd) ? 0 : -1;
+  return (device) ? 0 : -1;
 }
 
 static int
 device_add(struct player_command *cmd)
 {
-  struct raop_device *dev;
-  struct raop_device *rd;
+  struct output_device *add;
+  struct output_device *device;
   int selected;
   int ret;
 
-  dev = cmd->arg.rd;
+  add = cmd->arg.device;
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (rd->id == dev->id)
+      if (device->id == add->id)
 	break;
     }
 
   /* New device */
-  if (!rd)
+  if (!device)
     {
-      rd = dev;
+      device = add;
 
-      ret = db_speaker_get(rd->id, &selected, &rd->volume);
+      ret = db_speaker_get(device->id, &selected, &device->volume);
       if (ret < 0)
 	{
 	  selected = 0;
-	  rd->volume = (master_volume >= 0) ? master_volume : PLAYER_DEFAULT_VOLUME;
+	  device->volume = (master_volume >= 0) ? master_volume : PLAYER_DEFAULT_VOLUME;
 	}
 
       if (dev_autoselect && selected)
-	speaker_select_raop(rd);
+	speaker_select_output(device);
 
-      rd->next = dev_list;
-      dev_list = rd;
+      device->next = dev_list;
+      dev_list = device;
     }
+  // Update to a device already in the list
   else
     {
-      rd->advertised = 1;
+      device->advertised = 1;
 
-      if (dev->v4_address)
+      if (add->v4_address)
 	{
-	  if (rd->v4_address)
-	    free(rd->v4_address);
+	  if (device->v4_address)
+	    free(device->v4_address);
 
-	  rd->v4_address = dev->v4_address;
-	  rd->v4_port = dev->v4_port;
+	  device->v4_address = add->v4_address;
+	  device->v4_port = add->v4_port;
 
 	  /* Address is ours now */
-	  dev->v4_address = NULL;
+	  add->v4_address = NULL;
 	}
 
-      if (dev->v6_address)
+      if (add->v6_address)
 	{
-	  if (rd->v6_address)
-	    free(rd->v6_address);
+	  if (device->v6_address)
+	    free(device->v6_address);
 
-	  rd->v6_address = dev->v6_address;
-	  rd->v6_port = dev->v6_port;
+	  device->v6_address = add->v6_address;
+	  device->v6_port = add->v6_port;
 
 	  /* Address is ours now */
-	  dev->v6_address = NULL;
+	  add->v6_address = NULL;
 	}
 
-      if (rd->name)
-	free(rd->name);
-      rd->name = dev->name;
-      dev->name = NULL;
+      if (device->name)
+	free(device->name);
+      device->name = add->name;
+      add->name = NULL;
 
-      rd->devtype = dev->devtype;
+      device->has_password = add->has_password;
+      device->password = add->password;
 
-      rd->has_password = dev->has_password;
-      rd->password = dev->password;
-
-      device_free(dev);
+      outputs_device_free(add);
     }
 
   return 0;
@@ -1840,49 +1812,49 @@ device_add(struct player_command *cmd)
 static int
 device_remove_family(struct player_command *cmd)
 {
-  struct raop_device *dev;
-  struct raop_device *rd;
+  struct output_device *remove;
+  struct output_device *device;
 
-  dev = cmd->arg.rd;
+  remove = cmd->arg.device;
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (rd->id == dev->id)
+      if (device->id == remove->id)
         break;
     }
 
-  if (!rd)
+  if (!device)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirPlay device %s stopped advertising, but not in our list\n", dev->name);
+      DPRINTF(E_WARN, L_PLAYER, "The %s device '%s' stopped advertising, but not in our list\n", remove->type_name, remove->name);
 
-      device_free(dev);
+      outputs_device_free(remove);
       return 0;
     }
 
   /* v{4,6}_port non-zero indicates the address family stopped advertising */
-  if (dev->v4_port && rd->v4_address)
+  if (remove->v4_port && device->v4_address)
     {
-      free(rd->v4_address);
-      rd->v4_address = NULL;
-      rd->v4_port = 0;
+      free(device->v4_address);
+      device->v4_address = NULL;
+      device->v4_port = 0;
     }
 
-  if (dev->v6_port && rd->v6_address)
+  if (remove->v6_port && device->v6_address)
     {
-      free(rd->v6_address);
-      rd->v6_address = NULL;
-      rd->v6_port = 0;
+      free(device->v6_address);
+      device->v6_address = NULL;
+      device->v6_port = 0;
     }
 
-  if (!rd->v4_address && !rd->v6_address)
+  if (!device->v4_address && !device->v6_address)
     {
-      rd->advertised = 0;
+      device->advertised = 0;
 
-      if (!rd->session)
-	device_remove(rd);
+      if (!device->session)
+	device_remove(device);
     }
 
-  device_free(dev);
+  outputs_device_free(remove);
 
   return 0;
 }
@@ -1900,69 +1872,69 @@ metadata_send(struct player_command *cmd)
   if ((pmd->rtptime == 0) && (pmd->startup))
     pmd->rtptime = last_rtptime + AIRTUNES_V2_PACKET_SAMPLES;
 
-  raop_metadata_send(pmd->rmd, pmd->rtptime, pmd->offset, pmd->startup);
+  outputs_metadata_send(pmd->omd, pmd->rtptime, pmd->offset, pmd->startup);
 
   return 0;
 }
 
-/* RAOP callbacks executed in the player thread */
+/* Output device callbacks executed in the player thread */
 static void
-device_streaming_cb(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status)
+device_streaming_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   int ret;
 
-  if (status == RAOP_FAILED)
+  if (status == OUTPUT_STATE_FAILED)
     {
-      raop_sessions--;
+      output_sessions--;
 
-      ret = device_check(dev);
+      ret = device_check(device);
       if (ret < 0)
 	{
-	  DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during streaming!\n");
+	  DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during streaming!\n");
 
 	  return;
 	}
 
-      DPRINTF(E_LOG, L_PLAYER, "AirPlay device %s FAILED\n", dev->name);
+      DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' FAILED\n", device->type_name, device->name);
 
       if (player_state == PLAY_PLAYING)
-	speaker_deselect_raop(dev);
+	speaker_deselect_output(device);
 
-      dev->session = NULL;
+      device->session = NULL;
 
-      if (!dev->advertised)
-	device_remove(dev);
+      if (!device->advertised)
+	device_remove(device);
     }
-  else if (status == RAOP_STOPPED)
+  else if (status == OUTPUT_STATE_STOPPED)
     {
-      raop_sessions--;
+      output_sessions--;
 
-      ret = device_check(dev);
+      ret = device_check(device);
       if (ret < 0)
 	{
-	  DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during streaming!\n");
+	  DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during streaming!\n");
 
 	  return;
 	}
 
-      DPRINTF(E_INFO, L_PLAYER, "AirPlay device %s stopped\n", dev->name);
+      DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' stopped\n", device->type_name, device->name);
 
-      dev->session = NULL;
+      device->session = NULL;
 
-      if (!dev->advertised)
-	device_remove(dev);
+      if (!device->advertised)
+	device_remove(device);
     }
 }
 
 static void
-device_command_cb(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status)
+device_command_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   cur_cmd->raop_pending--;
 
-  raop_set_status_cb(rs, device_streaming_cb);
+  outputs_status_cb(session, device_streaming_cb);
 
-  if (status == RAOP_FAILED)
-    device_streaming_cb(dev, rs, status);
+  if (status == OUTPUT_STATE_FAILED)
+    device_streaming_cb(device, session, status);
 
   if (cur_cmd->raop_pending == 0)
     {
@@ -1976,29 +1948,29 @@ device_command_cb(struct raop_device *dev, struct raop_session *rs, enum raop_se
 }
 
 static void
-device_shutdown_cb(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status)
+device_shutdown_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   int ret;
 
   cur_cmd->raop_pending--;
 
-  if (raop_sessions)
-    raop_sessions--;
+  if (output_sessions)
+    output_sessions--;
 
-  ret = device_check(dev);
+  ret = device_check(device);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared before shutdown completion!\n");
+      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared before shutdown completion!\n");
 
       if (cur_cmd->ret != -2)
 	cur_cmd->ret = -1;
       goto out;
     }
 
-  dev->session = NULL;
+  device->session = NULL;
 
-  if (!dev->advertised)
-    device_remove(dev);
+  if (!device->advertised)
+    device_remove(device);
 
  out:
   if (cur_cmd->raop_pending == 0)
@@ -2012,59 +1984,59 @@ device_shutdown_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 }
 
 static void
-device_lost_cb(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status)
+device_lost_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   /* We lost that device during startup for some reason, not much we can do here */
-  if (status == RAOP_FAILED)
+  if (status == OUTPUT_STATE_FAILED)
     DPRINTF(E_WARN, L_PLAYER, "Failed to stop lost device\n");
   else
     DPRINTF(E_INFO, L_PLAYER, "Lost device stopped properly\n");
 }
 
 static void
-device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status)
+device_activate_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   struct timespec ts;
   int ret;
 
   cur_cmd->raop_pending--;
 
-  ret = device_check(dev);
+  ret = device_check(device);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during startup!\n");
+      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during startup!\n");
 
-      raop_set_status_cb(rs, device_lost_cb);
-      raop_device_stop(rs);
+      outputs_status_cb(session, device_lost_cb);
+      outputs_device_stop(session);
 
       if (cur_cmd->ret != -2)
 	cur_cmd->ret = -1;
       goto out;
     }
 
-  if (status == RAOP_PASSWORD)
+  if (status == OUTPUT_STATE_PASSWORD)
     {
-      status = RAOP_FAILED;
+      status = OUTPUT_STATE_FAILED;
       cur_cmd->ret = -2;
     }
 
-  if (status == RAOP_FAILED)
+  if (status == OUTPUT_STATE_FAILED)
     {
-      speaker_deselect_raop(dev);
+      speaker_deselect_output(device);
 
-      if (!dev->advertised)
-	device_remove(dev);
+      if (!device->advertised)
+	device_remove(device);
 
       if (cur_cmd->ret != -2)
 	cur_cmd->ret = -1;
       goto out;
     }
 
-  dev->session = rs;
+  device->session = session;
 
-  raop_sessions++;
+  output_sessions++;
 
-  if ((player_state == PLAY_PLAYING) && (raop_sessions == 1))
+  if ((player_state == PLAY_PLAYING) && (output_sessions == 1))
     {
       ret = clock_gettime_with_res(CLOCK_MONOTONIC, &ts, &timer_res);
       if (ret < 0)
@@ -2076,10 +2048,10 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 	  ts.tv_nsec = pb_timer_last.tv_nsec;
 	}
 
-      raop_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &ts);
+      outputs_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &ts);
     }
 
-  raop_set_status_cb(rs, device_streaming_cb);
+  outputs_status_cb(session, device_streaming_cb);
 
  out:
   if (cur_cmd->raop_pending == 0)
@@ -2094,34 +2066,34 @@ device_activate_cb(struct raop_device *dev, struct raop_session *rs, enum raop_s
 }
 
 static void
-device_probe_cb(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status)
+device_probe_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   int ret;
 
   cur_cmd->raop_pending--;
 
-  ret = device_check(dev);
+  ret = device_check(device);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during probe!\n");
+      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during probe!\n");
 
       if (cur_cmd->ret != -2)
 	cur_cmd->ret = -1;
       goto out;
     }
 
-  if (status == RAOP_PASSWORD)
+  if (status == OUTPUT_STATE_PASSWORD)
     {
-      status = RAOP_FAILED;
+      status = OUTPUT_STATE_FAILED;
       cur_cmd->ret = -2;
     }
 
-  if (status == RAOP_FAILED)
+  if (status == OUTPUT_STATE_FAILED)
     {
-      speaker_deselect_raop(dev);
+      speaker_deselect_output(device);
 
-      if (!dev->advertised)
-	device_remove(dev);
+      if (!device->advertised)
+	device_remove(device);
 
       if (cur_cmd->ret != -2)
 	cur_cmd->ret = -1;
@@ -2141,37 +2113,37 @@ device_probe_cb(struct raop_device *dev, struct raop_session *rs, enum raop_sess
 }
 
 static void
-device_restart_cb(struct raop_device *dev, struct raop_session *rs, enum raop_session_state status)
+device_restart_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   int ret;
 
   cur_cmd->raop_pending--;
 
-  ret = device_check(dev);
+  ret = device_check(device);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_PLAYER, "AirPlay device disappeared during restart!\n");
+      DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during restart!\n");
 
-      raop_set_status_cb(rs, device_lost_cb);
-      raop_device_stop(rs);
+      outputs_status_cb(session, device_lost_cb);
+      outputs_device_stop(session);
 
       goto out;
     }
 
-  if (status == RAOP_FAILED)
+  if (status == OUTPUT_STATE_FAILED)
     {
-      speaker_deselect_raop(dev);
+      speaker_deselect_output(device);
 
-      if (!dev->advertised)
-	device_remove(dev);
+      if (!device->advertised)
+	device_remove(device);
 
       goto out;
     }
 
-  dev->session = rs;
+  device->session = session;
 
-  raop_sessions++;
-  raop_set_status_cb(rs, device_streaming_cb);
+  output_sessions++;
+  outputs_status_cb(session, device_streaming_cb);
 
  out:
   if (cur_cmd->raop_pending == 0)
@@ -2182,7 +2154,6 @@ device_restart_cb(struct raop_device *dev, struct raop_session *rs, enum raop_se
     }
 }
 
-
 /* Internal abort routine */
 static void
 playback_abort(void)
@@ -2190,8 +2161,8 @@ playback_abort(void)
   if (laudio_status != LAUDIO_CLOSED)
     laudio_close();
 
-  if (raop_sessions > 0)
-    raop_playback_stop();
+  if (output_sessions > 0)
+    outputs_playback_stop();
 
   pb_timer_stop();
 
@@ -2365,7 +2336,8 @@ playback_stop(struct player_command *cmd)
    * full stop just yet; this saves time when restarting, which is nicer
    * for the user.
    */
-  cmd->raop_pending = raop_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+//TODO Flush will give wrong result for raop_pending when CAST is also included
+  cmd->raop_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
   pb_timer_stop();
 
@@ -2396,7 +2368,7 @@ playback_start_bh(struct player_command *cmd)
 {
   int ret;
 
-  if ((laudio_status == LAUDIO_CLOSED) && (raop_sessions == 0))
+  if ((laudio_status == LAUDIO_CLOSED) && (output_sessions == 0))
     {
       DPRINTF(E_LOG, L_PLAYER, "Cannot start playback: no output started\n");
 
@@ -2441,9 +2413,9 @@ playback_start_bh(struct player_command *cmd)
   if (ret < 0)
     goto out_fail;
 
-  /* Everything OK, start RAOP */
-  if (raop_sessions > 0)
-    raop_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_pos_stamp);
+  /* Everything OK, start outputs */
+  if (output_sessions > 0)
+    outputs_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_pos_stamp);
 
   status_update(PLAY_PLAYING);
 
@@ -2459,7 +2431,7 @@ static int
 playback_start_item(struct player_command *cmd, struct queue_item *qii)
 {
   uint32_t *dbmfi_id;
-  struct raop_device *rd;
+  struct output_device *device;
   struct player_source *ps_playing;
   struct queue_item *item;
   int ret;
@@ -2536,14 +2508,14 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
   /* Start RAOP sessions on selected devices if needed */
   cmd->raop_pending = 0;
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (rd->selected && !rd->session)
+      if (device->selected && !device->session)
 	{
-	  ret = raop_device_start(rd, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+	  ret = outputs_device_start(device, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not start selected AirPlay device %s\n", rd->name);
+	      DPRINTF(E_LOG, L_PLAYER, "Could not start selected %s device '%s'\n", device->type_name, device->name);
 	      continue;
 	    }
 
@@ -2552,28 +2524,28 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
     }
 
   /* Try to autoselect a non-selected RAOP device if the above failed */
-  if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (raop_sessions == 0))
-    for (rd = dev_list; rd; rd = rd->next)
+  if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (output_sessions == 0))
+    for (device = dev_list; device; device = device->next)
       {
-        if (!rd->session)
+        if (!device->session)
 	  {
-	    speaker_select_raop(rd);
-	    ret = raop_device_start(rd, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+	    speaker_select_output(device);
+	    ret = outputs_device_start(device, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 	    if (ret < 0)
 	      {
-		DPRINTF(E_DBG, L_PLAYER, "Could not autoselect AirPlay device %s\n", rd->name);
-		speaker_deselect_raop(rd);
+		DPRINTF(E_DBG, L_PLAYER, "Could not autoselect %s device '%s'\n", device->type_name, device->name);
+		speaker_deselect_output(device);
 		continue;
 	      }
 
-	    DPRINTF(E_INFO, L_PLAYER, "Autoselecting AirPlay device %s\n", rd->name);
+	    DPRINTF(E_INFO, L_PLAYER, "Autoselecting %s device '%s'\n", device->type_name, device->name);
 	    cmd->raop_pending++;
 	    break;
 	  }
       }
 
   /* No luck finding valid output */
-  if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (raop_sessions == 0))
+  if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (output_sessions == 0))
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
 
@@ -2826,7 +2798,7 @@ playback_pause(struct player_command *cmd)
   if (player_state == PLAY_STOPPED)
     return -1;
 
-  cmd->raop_pending = raop_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  cmd->raop_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
   if (laudio_status != LAUDIO_CLOSED)
     laudio_stop();
@@ -2850,7 +2822,7 @@ playback_pause(struct player_command *cmd)
 static int
 speaker_enumerate(struct player_command *cmd)
 {
-  struct raop_device *rd;
+  struct output_device *device;
   struct spk_enum *spk_enum;
   struct spk_flags flags;
   char *laudio_name;
@@ -2859,7 +2831,7 @@ speaker_enumerate(struct player_command *cmd)
 
   laudio_name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
 
-  /* Auto-select local audio if there are no AirPlay devices */
+  /* Auto-select local audio if there are no other output devices */
   if (!dev_list && !laudio_selected)
     speaker_select_laudio();
 
@@ -2874,18 +2846,18 @@ speaker_enumerate(struct player_command *cmd)
   DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
 #endif
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (rd->advertised || rd->selected)
+      if (device->advertised || device->selected)
 	{
-	  flags.selected = rd->selected;
-	  flags.has_password = rd->has_password;
-	  flags.has_video = (rd->devtype == RAOP_DEV_APPLETV);
+	  flags.selected = device->selected;
+	  flags.has_password = device->has_password;
+	  flags.has_video = device->has_video;
 
-	  spk_enum->cb(rd->id, rd->name, rd->relvol, flags, spk_enum->arg);
+	  spk_enum->cb(device->id, device->name, device->relvol, flags, spk_enum->arg);
 
 #ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
 #endif
 	}
     }
@@ -2894,13 +2866,13 @@ speaker_enumerate(struct player_command *cmd)
 }
 
 static int
-speaker_activate(struct raop_device *rd)
+speaker_activate(struct output_device *device)
 {
   struct timespec ts;
   uint64_t pos;
   int ret;
 
-  if (!rd)
+  if (!device)
     {
       /* Local */
       DPRINTF(E_DBG, L_PLAYER, "Activating local audio\n");
@@ -2943,27 +2915,26 @@ speaker_activate(struct raop_device *rd)
     }
   else
     {
-      /* RAOP */
       if (player_state == PLAY_PLAYING)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Activating RAOP device %s\n", rd->name);
+	  DPRINTF(E_DBG, L_PLAYER, "Activating %s device '%s'\n", device->type_name, device->name);
 
-	  ret = raop_device_start(rd, device_activate_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+	  ret = outputs_device_start(device, device_activate_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not start device %s\n", rd->name);
+	      DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
 
 	      return -1;
 	    }
 	}
       else
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Probing RAOP device %s\n", rd->name);
+	  DPRINTF(E_DBG, L_PLAYER, "Probing %s device '%s'\n", device->type_name, device->name);
 
-	  ret = raop_device_probe(rd, device_probe_cb);
+	  ret = outputs_device_probe(device, device_probe_cb);
 	  if (ret < 0)
 	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not probe device %s\n", rd->name);
+	      DPRINTF(E_LOG, L_PLAYER, "Could not probe %s device '%s'\n", device->type_name, device->name);
 
 	      return -1;
 	    }
@@ -2976,9 +2947,9 @@ speaker_activate(struct raop_device *rd)
 }
 
 static int
-speaker_deactivate(struct raop_device *rd)
+speaker_deactivate(struct output_device *device)
 {
-  if (!rd)
+  if (!device)
     {
       /* Local */
       DPRINTF(E_DBG, L_PLAYER, "Deactivating local audio\n");
@@ -2995,11 +2966,10 @@ speaker_deactivate(struct raop_device *rd)
     }
   else
     {
-      /* RAOP */
-      DPRINTF(E_DBG, L_PLAYER, "Deactivating RAOP device %s\n", rd->name);
+      DPRINTF(E_DBG, L_PLAYER, "Deactivating %s device '%s'\n", device->type_name, device->name);
 
-      raop_set_status_cb(rd->session, device_shutdown_cb);
-      raop_device_stop(rd->session);
+      outputs_status_cb(device->session, device_shutdown_cb);
+      outputs_device_stop(device->session);
 
       return 1;
     }
@@ -3010,13 +2980,13 @@ speaker_deactivate(struct raop_device *rd)
 static int
 speaker_set(struct player_command *cmd)
 {
-  struct raop_device *rd;
+  struct output_device *device;
   uint64_t *ids;
   int nspk;
   int i;
   int ret;
 
-  ids = cmd->arg.raop_ids;
+  ids = cmd->arg.device_ids;
 
   if (ids)
     nspk = ids[0];
@@ -3028,40 +2998,39 @@ speaker_set(struct player_command *cmd)
   cmd->raop_pending = 0;
   cmd->ret = 0;
 
-  /* RAOP devices */
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
       for (i = 1; i <= nspk; i++)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Set %" PRIu64 " device %" PRIu64 "\n", ids[i], rd->id);
+	  DPRINTF(E_DBG, L_PLAYER, "Set %" PRIu64 " device %" PRIu64 "\n", ids[i], device->id);
 
-	  if (ids[i] == rd->id)
+	  if (ids[i] == device->id)
 	    break;
 	}
 
       if (i <= nspk)
 	{
-	  if (rd->has_password && !rd->password)
+	  if (device->has_password && !device->password)
 	    {
-	      DPRINTF(E_INFO, L_PLAYER, "RAOP device %s is password-protected, but we don't have it\n", rd->name);
+	      DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' is password-protected, but we don't have it\n", device->type_name, device->name);
 
 	      cmd->ret = -2;
 	      continue;
 	    }
 
-	  DPRINTF(E_DBG, L_PLAYER, "RAOP device %s selected\n", rd->name);
+	  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is selected\n", device->type_name, device->name);
 
-	  if (!rd->selected)
-	    speaker_select_raop(rd);
+	  if (!device->selected)
+	    speaker_select_output(device);
 
-	  if (!rd->session)
+	  if (!device->session)
 	    {
-	      ret = speaker_activate(rd);
+	      ret = speaker_activate(device);
 	      if (ret < 0)
 		{
-		  DPRINTF(E_LOG, L_PLAYER, "Could not activate RAOP device %s\n", rd->name);
+		  DPRINTF(E_LOG, L_PLAYER, "Could not activate %s device '%s'\n", device->type_name, device->name);
 
-		  speaker_deselect_raop(rd);
+		  speaker_deselect_output(device);
 
 		  if (cmd->ret != -2)
 		    cmd->ret = -1;
@@ -3073,17 +3042,17 @@ speaker_set(struct player_command *cmd)
 	}
       else
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "RAOP device %s NOT selected\n", rd->name);
+	  DPRINTF(E_DBG, L_PLAYER, "The %s device '%s' is NOT selected\n", device->type_name, device->name);
 
-	  if (rd->selected)
-	    speaker_deselect_raop(rd);
+	  if (device->selected)
+	    speaker_deselect_output(device);
 
-	  if (rd->session)
+	  if (device->session)
 	    {
-	      ret = speaker_deactivate(rd);
+	      ret = speaker_deactivate(device);
 	      if (ret < 0)
 		{
-		  DPRINTF(E_LOG, L_PLAYER, "Could not deactivate RAOP device %s\n", rd->name);
+		  DPRINTF(E_LOG, L_PLAYER, "Could not deactivate %s device '%s'\n", device->type_name, device->name);
 
 		  if (cmd->ret != -2)
 		    cmd->ret = -1;
@@ -3154,7 +3123,7 @@ speaker_set(struct player_command *cmd)
 static int
 volume_set(struct player_command *cmd)
 {
-  struct raop_device *rd;
+  struct output_device *device;
   int volume;
 
   volume = cmd->arg.intval;
@@ -3176,19 +3145,19 @@ volume_set(struct player_command *cmd)
 
   cmd->raop_pending = 0;
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (!rd->selected)
+      if (!device->selected)
 	continue;
 
-      rd->volume = rel_to_vol(rd->relvol);
+      device->volume = rel_to_vol(device->relvol);
 
 #ifdef DEBUG_RELVOL
-      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
 #endif
 
-      if (rd->session)
-	cmd->raop_pending += raop_set_volume_one(rd->session, rd->volume, device_command_cb);
+      if (device->session)
+	cmd->raop_pending += outputs_device_volume_set(device, device_command_cb);
     }
 
   listener_notify(LISTENER_VOLUME);
@@ -3202,7 +3171,7 @@ volume_set(struct player_command *cmd)
 static int
 volume_setrel_speaker(struct player_command *cmd)
 {
-  struct raop_device *rd;
+  struct output_device *device;
   uint64_t id;
   int relvol;
 
@@ -3221,23 +3190,23 @@ volume_setrel_speaker(struct player_command *cmd)
     }
   else
     {
-      for (rd = dev_list; rd; rd = rd->next)
+      for (device = dev_list; device; device = device->next)
         {
-	  if (rd->id != id)
+	  if (device->id != id)
 	    continue;
 
-	  if (!rd->selected)
+	  if (!device->selected)
 	    return 0;
 
-	  rd->relvol = relvol;
-	  rd->volume = rel_to_vol(relvol);
+	  device->relvol = relvol;
+	  device->volume = rel_to_vol(relvol);
 
 #ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
 #endif
 
-	  if (rd->session)
-	    cmd->raop_pending = raop_set_volume_one(rd->session, rd->volume, device_command_cb);
+	  if (device->session)
+	    cmd->raop_pending = outputs_device_volume_set(device, device_command_cb);
 
 	  break;
         }
@@ -3254,7 +3223,7 @@ volume_setrel_speaker(struct player_command *cmd)
 static int
 volume_setabs_speaker(struct player_command *cmd)
 {
-  struct raop_device *rd;
+  struct output_device *device;
   uint64_t id;
   int volume;
 
@@ -3276,31 +3245,31 @@ volume_setabs_speaker(struct player_command *cmd)
   DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
 #endif
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      if (!rd->selected)
+      if (!device->selected)
 	continue;
 
-      if (rd->id != id)
+      if (device->id != id)
 	{
-	  rd->relvol = vol_to_rel(rd->volume);
+	  device->relvol = vol_to_rel(device->volume);
 
 #ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
 #endif
 	  continue;
 	}
       else
 	{
-	  rd->relvol = 100;
-	  rd->volume = master_volume;
+	  device->relvol = 100;
+	  device->volume = master_volume;
 
 #ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", rd->name, rd->volume, rd->relvol);
+	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
 #endif
 
-	  if (rd->session)
-	    cmd->raop_pending = raop_set_volume_one(rd->session, rd->volume, device_command_cb);
+	  if (device->session)
+	    cmd->raop_pending = outputs_device_volume_set(device, device_command_cb);
 	}
     }
 
@@ -4057,7 +4026,7 @@ player_speaker_set(uint64_t *ids)
 
   cmd.func = speaker_set;
   cmd.func_bh = NULL;
-  cmd.arg.raop_ids = ids;
+  cmd.arg.device_ids = ids;
 
   ret = sync_command(&cmd);
 
@@ -4448,68 +4417,60 @@ player_queue_plid(uint32_t plid)
 }
 
 /* Non-blocking commands used by mDNS */
-static void
-player_device_add(struct raop_device *rd)
+int
+player_device_add(void *device)
 {
   struct player_command *cmd;
   int ret;
 
-  cmd = (struct player_command *)malloc(sizeof(struct player_command));
+  cmd = calloc(1, sizeof(struct player_command));
   if (!cmd)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not allocate player_command\n");
-
-      device_free(rd);
-      return;
+      return -1;
     }
-
-  memset(cmd, 0, sizeof(struct player_command));
 
   cmd->nonblock = 1;
 
   cmd->func = device_add;
-  cmd->arg.rd = rd;
+  cmd->arg.device = device;
 
   ret = nonblock_command(cmd);
   if (ret < 0)
     {
       free(cmd);
-      device_free(rd);
-
-      return;
+      return -1;
     }
+
+  return 0;
 }
 
-static void
-player_device_remove(struct raop_device *rd)
+int
+player_device_remove(void *device)
 {
   struct player_command *cmd;
   int ret;
 
-  cmd = (struct player_command *)malloc(sizeof(struct player_command));
+  cmd = calloc(1, sizeof(struct player_command));
   if (!cmd)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not allocate player_command\n");
-
-      device_free(rd);
-      return;
+      return -1;
     }
-
-  memset(cmd, 0, sizeof(struct player_command));
 
   cmd->nonblock = 1;
 
   cmd->func = device_remove_family;
-  cmd->arg.rd = rd;
+  cmd->arg.device = device;
 
   ret = nonblock_command(cmd);
   if (ret < 0)
     {
       free(cmd);
-      device_free(rd);
-
-      return;
+      return -1;
     }
+
+  return 0;
 }
 
 /* Thread: worker */
@@ -4529,283 +4490,11 @@ player_metadata_send(struct player_metadata *pmd)
   command_deinit(&cmd);
 }
 
-
-/* RAOP devices discovery - mDNS callback */
-/* Thread: main (mdns) */
-/* Examples of txt content:
- * Apple TV 2:
-     ["sf=0x4" "am=AppleTV2,1" "vs=130.14" "vn=65537" "tp=UDP" "ss=16" "sr=4 4100" "sv=false" "pw=false" "md=0,1,2" "et=0,3,5" "da=true" "cn=0,1,2,3" "ch=2"]
-     ["sf=0x4" "am=AppleTV2,1" "vs=105.5" "md=0,1,2" "tp=TCP,UDP" "vn=65537" "pw=false" "ss=16" "sr=44100" "da=true" "sv=false" "et=0,3" "cn=0,1" "ch=2" "txtvers=1"]
- * Apple TV 3:
-     ["vv=2" "vs=200.54" "vn=65537" "tp=UDP" "sf=0x44" "pk=8...f" "am=AppleTV3,1" "md=0,1,2" "ft=0x5A7FFFF7,0xE" "et=0,3,5" "da=true" "cn=0,1,2,3"]
- * Sony STR-DN1040:
-     ["fv=s9327.1090.0" "am=STR-DN1040" "vs=141.9" "vn=65537" "tp=UDP" "ss=16" "sr=44100" "sv=false" "pw=false" "md=0,2" "ft=0x44F0A00" "et=0,4" "da=true" "cn=0,1" "ch=2" "txtvers=1"]
- * AirFoil:
-     ["rastx=iafs" "sm=false" "raver=3.5.3.0" "ek=1" "md=0,1,2" "ramach=Win32NT.6" "et=0,1" "cn=0,1" "sr=44100" "ss=16" "raAudioFormats=ALAC" "raflakyzeroconf=true" "pw=false" "rast=afs" "vn=3" "sv=false" "txtvers=1" "ch=2" "tp=UDP"]
- * Xbmc 13:
-     ["am=Xbmc,1" "md=0,1,2" "vs=130.14" "da=true" "vn=3" "pw=false" "sr=44100" "ss=16" "sm=false" "tp=UDP" "sv=false" "et=0,1" "ek=1" "ch=2" "cn=0,1" "txtvers=1"]
- * Shairport (abrasive/1.0):
-     ["pw=false" "txtvers=1" "vn=3" "sr=44100" "ss=16" "ch=2" "cn=0,1" "et=0,1" "ek=1" "sm=false" "tp=UDP"]
- * JB2:
-     ["fv=95.8947" "am=JB2 Gen" "vs=103.2" "tp=UDP" "vn=65537" "pw=false" "s s=16" "sr=44100" "da=true" "sv=false" "et=0,4" "cn=0,1" "ch=2" "txtvers=1"]
- * Airport Express 802.11g (Gen 1):
-     ["tp=TCP,UDP" "sm=false" "sv=false" "ek=1" "et=0,1" "cn=0,1" "ch=2" "ss=16" "sr=44100" "pw=false" "vn=3" "txtvers=1"]
- * Airport Express 802.11n:
-     802.11n Gen 2 model (firmware 7.6.4): "am=Airport4,107", "et=0,1"
-     802.11n Gen 3 model (firmware 7.6.4): "am=Airport10,115", "et=0,4"
- */
-static void
-raop_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
-{
-  struct raop_device *rd;
-  cfg_t *airplay;
-  const char *p;
-  char *at_name;
-  char *password;
-  uint64_t id;
-  int ret;
-
-  ret = safe_hextou64(name, &id);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not extract AirPlay device ID (%s)\n", name);
-
-      return;
-    }
-
-  at_name = strchr(name, '@');
-  if (!at_name)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not extract AirPlay device name (%s)\n", name);
-
-      return;
-    }
-  at_name++;
-
-  DPRINTF(E_DBG, L_PLAYER, "Event for AirPlay device %s (port %d, id %" PRIx64 ")\n", at_name, port, id);
-
-  rd = calloc(1, sizeof(struct raop_device));
-  if (!rd)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new AirPlay device\n");
-
-      return;
-    }
-
-  rd->id = id;
-  rd->name = strdup(at_name);
-
-  if (port < 0)
-    {
-      /* Device stopped advertising */
-      switch (family)
-	{
-	  case AF_INET:
-	    rd->v4_port = 1;
-	    break;
-
-	  case AF_INET6:
-	    rd->v6_port = 1;
-	    break;
-	}
-
-      player_device_remove(rd);
-
-      return;
-    }
-
-  /* Protocol */
-  p = keyval_get(txt, "tp");
-  if (!p)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: no tp field in TXT record!\n", name);
-
-      goto free_rd;
-    }
-
-  if (*p == '\0')
-    {
-      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: tp has no value\n", name);
-
-      goto free_rd;
-    }
-
-  if (!strstr(p, "UDP"))
-    {
-      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: device does not support AirTunes v2 (tp=%s), discarding\n", name, p);
-
-      goto free_rd;
-    }
-
-  /* Password protection */
-  password = NULL;
-  p = keyval_get(txt, "pw");
-  if (!p)
-    {
-      DPRINTF(E_INFO, L_PLAYER, "AirPlay %s: no pw field in TXT record, assuming no password protection\n", name);
-
-      rd->has_password = 0;
-    }
-  else if (*p == '\0')
-    {
-      DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: pw has no value\n", name);
-
-      goto free_rd;
-    }
-  else
-    {
-      rd->has_password = (strcmp(p, "false") != 0);
-    }
-
-  if (rd->has_password)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "AirPlay device %s is password-protected\n", name);
-
-      airplay = cfg_gettsec(cfg, "airplay", at_name);
-      if (airplay)
-	password = cfg_getstr(airplay, "password");
-
-      if (!password)
-	DPRINTF(E_LOG, L_PLAYER, "No password given in config for AirPlay device %s\n", name);
-    }
-
-  rd->password = password;
-
-  /* Device type */
-  rd->devtype = RAOP_DEV_OTHER;
-  p = keyval_get(txt, "am");
-
-  if (!p)
-    rd->devtype = RAOP_DEV_APEX1_80211G; // First generation AirPort Express
-  else if (strncmp(p, "AirPort4", strlen("AirPort4")) == 0)
-    rd->devtype = RAOP_DEV_APEX2_80211N; // Second generation
-  else if (strncmp(p, "AirPort", strlen("AirPort")) == 0)
-    rd->devtype = RAOP_DEV_APEX3_80211N; // Third generation and newer
-  else if (strncmp(p, "AppleTV", strlen("AppleTV")) == 0)
-    rd->devtype = RAOP_DEV_APPLETV;
-  else if (*p == '\0')
-    DPRINTF(E_LOG, L_PLAYER, "AirPlay %s: am has no value\n", name);
-
-  /* Encrypt stream */
-  p = keyval_get(txt, "ek");
-  if (p && (*p == '1'))
-    rd->encrypt = 1;
-  else
-    rd->encrypt = 0;
-
-  /* Metadata support */
-  p = keyval_get(txt, "md");
-  if (p && (*p != '\0'))
-    rd->wants_metadata = 1;
-  else
-    rd->wants_metadata = 0;
-
-  DPRINTF(E_INFO, L_PLAYER, "Adding AirPlay device %s: password: %u, encrypt: %u, metadata: %u, type %s\n", 
-    name, rd->has_password, rd->encrypt, rd->wants_metadata, raop_devtype[rd->devtype]);
-
-  rd->advertised = 1;
-
-  switch (family)
-    {
-      case AF_INET:
-	rd->v4_address = strdup(address);
-	rd->v4_port = port;
-	break;
-
-      case AF_INET6:
-	rd->v6_address = strdup(address);
-	rd->v6_port = port;
-	break;
-    }
-
-  player_device_add(rd);
-
-  return;
-
- free_rd:
-  device_free(rd);
-}
-
-static void
-cast_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
-{
-  struct raop_device *d;
-  const char *p;
-  uint32_t id;
-
-  p = keyval_get(txt, "id");
-  if (p)
-    id = djb_hash(p, strlen(p));
-  else
-    id = 0;
-
-  if (!id)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not extract ChromeCast device ID (%s)\n", name);
-
-      return;
-    }
-
-  DPRINTF(E_DBG, L_PLAYER, "Event for Chromecast device %s (port %d, id %" PRIu32 ")\n", name, port, id);
-
-  d = calloc(1, sizeof(struct raop_device));
-  if (!d)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new Chromecast device\n");
-
-      return;
-    }
-
-  d->id = id;
-  d->name = strdup(name);
-
-  if (port < 0)
-    {
-      /* Device stopped advertising */
-      switch (family)
-	{
-	  case AF_INET:
-	    d->v4_port = 1;
-	    break;
-
-	  case AF_INET6:
-	    d->v6_port = 1;
-	    break;
-	}
-
-      player_device_remove(d);
-
-      return;
-    }
-
-  /* Device type */
-  d->devtype = RAOP_DEV_CHROMECAST;
-
-  DPRINTF(E_INFO, L_PLAYER, "Adding Chromecast device %s\n", name);
-
-  d->advertised = 1;
-
-  switch (family)
-    {
-      case AF_INET:
-	d->v4_address = strdup(address);
-	d->v4_port = port;
-	break;
-
-      case AF_INET6:
-	d->v6_address = strdup(address);
-	d->v6_port = port;
-	break;
-    }
-
-  player_device_add(d);
-}
-
 /* Thread: player */
 static void *
 player(void *arg)
 {
-  struct raop_device *rd;
+  struct output_device *device;
   int ret;
 
   ret = db_perthread_init();
@@ -4828,11 +4517,11 @@ player(void *arg)
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for local audio\n");
 
-  for (rd = dev_list; rd; rd = rd->next)
+  for (device = dev_list; device; device = device->next)
     {
-      ret = db_speaker_save(rd->id, rd->selected, rd->volume);
+      ret = db_speaker_save(device->id, device->selected, device->volume);
       if (ret < 0)
-	DPRINTF(E_LOG, L_PLAYER, "Could not save state for speaker %s\n", rd->name);
+	DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", device->type_name, device->name);
     }
 
   db_perthread_deinit();
@@ -4855,8 +4544,6 @@ player_init(void)
 {
   uint64_t interval;
   uint32_t rnd;
-  int raop_v6enabled;
-  int mdns_flags;
   int ret;
 
   player_exit = 0;
@@ -4868,7 +4555,7 @@ player_init(void)
 
   laudio_selected = 0;
   laudio_status = LAUDIO_CLOSED;
-  raop_sessions = 0;
+  output_sessions = 0;
 
   cur_cmd = NULL;
 
@@ -4940,8 +4627,6 @@ player_init(void)
       goto audio_fail;
     }
 
-  raop_v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
-
   ret = pipe2(exit_pipe, O_CLOEXEC);
   if (ret < 0)
     {
@@ -4999,55 +4684,28 @@ player_init(void)
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Local audio init failed\n");
-
       goto laudio_fail;
     }
 
-  ret = raop_init(&raop_v6enabled);
+  ret = outputs_init();
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "RAOP init failed\n");
-
-      goto raop_fail;
+      DPRINTF(E_FATAL, L_PLAYER, "Output initiation failed\n");
+      goto outputs_fail;
     }
-
-  if (raop_v6enabled)
-    mdns_flags = MDNS_WANT_V4 | MDNS_WANT_V6 | MDNS_WANT_V6LL;
-  else
-    mdns_flags = MDNS_WANT_V4;
-
-  ret = mdns_browse("_raop._tcp", mdns_flags, raop_device_cb);
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_PLAYER, "Could not add mDNS browser for AirPlay devices\n");
-
-      goto mdns_browse_fail;
-    }
-
-#ifdef CHROMECAST
-  ret = mdns_browse("_googlecast._tcp", mdns_flags, cast_device_cb);
-  if (ret < 0)
-    {
-      DPRINTF(E_FATAL, L_PLAYER, "Could not add mDNS browser for Chromecast devices\n");
-
-      goto mdns_browse_fail;
-    }
-#endif
 
   ret = pthread_create(&tid_player, NULL, player, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not spawn player thread: %s\n", strerror(errno));
-
+      DPRINTF(E_FATAL, L_PLAYER, "Could not spawn player thread: %s\n", strerror(errno));
       goto thread_fail;
     }
 
   return 0;
 
  thread_fail:
- mdns_browse_fail:
-  raop_deinit();
- raop_fail:
+  outputs_deinit();
+ outputs_fail:
   laudio_deinit();
  laudio_fail:
  evnew_fail:
@@ -5106,7 +4764,7 @@ player_deinit(void)
   evbuffer_free(audio_buf);
 
   laudio_deinit();
-  raop_deinit();
+  outputs_deinit();
 
   close(exit_pipe[0]);
   close(exit_pipe[1]);
