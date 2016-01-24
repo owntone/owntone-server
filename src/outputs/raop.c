@@ -1692,6 +1692,8 @@ raop_session_free(struct raop_session *rs)
   free(rs->output_session);
 
   free(rs);
+
+  rs = NULL;
 }
 
 static void
@@ -3237,6 +3239,9 @@ raop_v2_send_packet(struct raop_session *rs, struct raop_v2_packet *pkt)
   uint8_t *data;
   int ret;
 
+  if (!rs)
+    return -1;
+
   data = (rs->encrypt) ? pkt->encrypted : pkt->clear;
 
   ret = send(rs->server_fd, data, AIRTUNES_V2_PKT_LEN, 0);
@@ -3265,6 +3270,7 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
 {
   struct raop_v2_packet *pkt;
   struct raop_session *rs;
+  struct raop_session *next;
 
   pkt = raop_v2_make_packet(buf, rtptime);
   if (!pkt)
@@ -3283,8 +3289,11 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
   else
     sync_counter++;
 
-  for (rs = sessions; rs; rs = rs->next)
+  for (rs = sessions; rs; rs = next)
     {
+      // raop_v2_send_packet may free rs on failure, so save rs->next now
+      next = rs->next;
+
       if (rs->state != OUTPUT_STATE_STREAMING)
 	continue;
 
@@ -3344,7 +3353,6 @@ raop_v2_resend_range(struct raop_session *rs, uint16_t seqnum, uint16_t len)
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_RAOP, "Error retransmit packet, aborting retransmission\n");
-
 	  return;
 	}
 
