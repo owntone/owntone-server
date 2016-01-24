@@ -31,31 +31,37 @@
 #include "logger.h"
 #include "outputs.h"
 
-/*#ifdef ALSA
-extern audio_output output_alsa;
-#endif
-#ifdef OSS4
-extern audio_output output_oss4;
-#endif
-extern struct output_definition output_dummy;*/
 extern struct output_definition output_raop;
 #ifdef CHROMECAST
 extern struct output_definition output_cast;
 #endif
+/* TODO
+extern struct output_definition output_streaming;
+#ifdef ALSA
+extern struct output_definition output_alsa;
+#endif
+#ifdef OSS4
+extern struct output_definition output_oss4;
+#endif
+extern struct output_definition output_dummy;
+*/
 
 // Must be in sync with enum output_types
 static struct output_definition *outputs[] = {
-/*#ifdef ALSA
+    &output_raop,
+#ifdef CHROMECAST
+    &output_cast,
+#endif
+/* TODO
+    &output_streaming,
+#ifdef ALSA
     &output_alsa,
 #endif
 #ifdef OSS4
     &output_oss4,
 #endif
-    &output_dummy,*/
-    &output_raop,
-#ifdef CHROMECAST
-    &output_cast,
-#endif
+    &output_dummy,
+*/
     NULL
 };
 
@@ -327,6 +333,12 @@ outputs_init(void)
   no_output = 1;
   for (i = 0; outputs[i]; i++)
     {
+      if (outputs[i]->type != i)
+	{
+	  DPRINTF(E_FATAL, L_PLAYER, "BUG! Output definitions are misaligned with output enum\n");
+	  return -1;
+	}
+
       ret = outputs[i]->init();
       if (ret < 0)
 	outputs[i]->disabled = 1;
