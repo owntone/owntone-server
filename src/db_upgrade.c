@@ -1190,6 +1190,15 @@ static const struct db_upgrade_query db_upgrade_v1801_queries[] =
 #define U_V1900_INSERT_DIR1 \
   "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
   " VALUES (1, '/', 0, 0, 0);"
+#define U_V1900_INSERT_DIR2 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (2, '/file:', 0, 0, 1);"
+#define U_V1900_INSERT_DIR3 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (3, '/http:', 0, 0, 1);"
+#define U_V1900_INSERT_DIR4 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (4, '/spotify:', 0, 0, 1);"
 
 #define U_V1900_SCVER_MAJOR			\
   "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"
@@ -1202,6 +1211,9 @@ static const struct db_upgrade_query db_upgrade_v1900_queries[] =
     { U_V1900_ALTER_PL_ADD_DIRECTORYID,    "alter table pl add column directory_id" },
     { U_V1900_ALTER_FILES_ADD_DIRECTORYID, "alter table files add column directory_id" },
     { U_V1900_INSERT_DIR1,                 "insert root directory" },
+    { U_V1900_INSERT_DIR2,                 "insert /file: directory" },
+    { U_V1900_INSERT_DIR3,                 "insert /htttp: directory" },
+    { U_V1900_INSERT_DIR4,                 "insert /spotify: directory" },
     { U_V1900_DROP_VIEW_FILELIST,          "drop view directories" },
 
     { U_V1900_SCVER_MAJOR,    "set schema_version_major to 19" },

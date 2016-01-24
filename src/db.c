@@ -718,7 +718,7 @@ db_purge_cruft(time_t ref)
       "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> %d AND p.db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlists WHERE type <> %d AND db_timestamp < %" PRIi64 ";",
       "DELETE FROM files WHERE -1 <> %d AND db_timestamp < %" PRIi64 ";",
-      "DELETE FROM directories WHERE id > 1 AND -1 <> %d AND db_timestamp < %" PRIi64 ";"
+      "DELETE FROM directories WHERE id > 4 AND -1 <> %d AND db_timestamp < %" PRIi64 ";"
     };
 
   if (sizeof(queries) != sizeof(queries_tmpl))
@@ -4963,6 +4963,15 @@ db_perthread_deinit(void)
 #define Q_DIR1 \
   "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
   " VALUES (1, '/', 0, 0, 0);"
+#define Q_DIR2 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (2, '/file:', 0, 0, 1);"
+#define Q_DIR3 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (3, '/http:', 0, 0, 1);"
+#define Q_DIR4 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (4, '/spotify:', 0, 0, 1);"
 
 /* Rule of thumb: Will the current version of forked-daapd work with the new
  * version of the database? If yes, then it is a minor upgrade, if no, then it 
@@ -5002,6 +5011,9 @@ static const struct db_init_query db_init_table_queries[] =
     { Q_PL5,       "create default smart playlist 'Podcasts'" },
     { Q_PL6,       "create default smart playlist 'Audiobooks'" },
     { Q_DIR1,      "create default root directory '/'" },
+    { Q_DIR2,      "create default base directory '/file:'" },
+    { Q_DIR3,      "create default base directory '/http:'" },
+    { Q_DIR4,      "create default base directory '/spotify:'" },
 
     { Q_SCVER_MAJOR, "set schema version major" },
     { Q_SCVER_MINOR, "set schema version minor" },

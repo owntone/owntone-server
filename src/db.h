@@ -346,6 +346,14 @@ struct filecount_info {
   uint32_t length;
 };
 
+/* Directory ids must be in sync with the ids in Q_DIR* in db.c */
+enum directory_ids {
+  DIR_ROOT = 1,
+  DIR_FILE = 2,
+  DIR_HTTP = 3,
+  DIR_SPOTIFY = 4,
+};
+
 struct directory_info {
   uint32_t id;
   char *virtual_path;

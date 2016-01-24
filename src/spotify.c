@@ -622,16 +622,8 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
       return -1;
     }
 
-  snprintf(virtual_path, sizeof(virtual_path), "/spotify:");
-  dir_id = db_directory_addorupdate(virtual_path, 0, 1);
-  if (dir_id <= 0)
-    {
-      DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory '%s'\n", virtual_path);
-      free_mfi(&mfi, 1);
-      return -1;
-    }
   snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s", mfi.artist);
-  dir_id = db_directory_addorupdate(virtual_path, 0, dir_id);
+  dir_id = db_directory_addorupdate(virtual_path, 0, DIR_SPOTIFY);
   if (dir_id <= 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory '%s'\n", virtual_path);
@@ -701,7 +693,6 @@ spotify_playlist_save(sp_playlist *pl)
   int created;
   int ret;
   int i;
-  int dir_id;
   
   if (!fptr_sp_playlist_is_loaded(pl))
     {
@@ -782,15 +773,6 @@ spotify_playlist_save(sp_playlist *pl)
 	  return -1;
 	}
 
-      dir_id = db_directory_addorupdate("/spotify:", 0, 1);
-      if (dir_id <= 0)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '/spotify:'\n");
-
-	  free_pli(pli, 0);
-	  return -1;
-	}
-
       memset(pli, 0, sizeof(struct playlist_info));
 
       pli->type = PL_PLAIN;
@@ -798,7 +780,7 @@ spotify_playlist_save(sp_playlist *pl)
       pli->path = strdup(url);
       pli->virtual_path = strdup(virtual_path);
       pli->parent_id = g_base_plid;
-      pli->directory_id = dir_id;
+      pli->directory_id = DIR_SPOTIFY;
 
       ret = db_pl_add(pli, &plid);
       if ((ret < 0) || (plid < 1))

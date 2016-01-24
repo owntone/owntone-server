@@ -93,7 +93,6 @@ scan_playlist(char *file, time_t mtime, int dir_id)
   int ret;
   char virtual_path[PATH_MAX];
   int i;
-  int di_id;
 
   DPRINTF(E_LOG, L_SCAN, "Processing static playlist: %s\n", file);
 
@@ -239,13 +238,7 @@ scan_playlist(char *file, time_t mtime, int dir_id)
 	  if (extinf)
 	    DPRINTF(E_INFO, L_SCAN, "Playlist has EXTINF metadata, artist is '%s', title is '%s'\n", mfi.artist, mfi.title);
 
-	  di_id = db_directory_addorupdate("/http:", 0, 1);
-	  if (di_id <= 0)
-	    {
-	      DPRINTF(E_LOG, L_SCAN, "Insert or update of directory failed '/http:'\n");
-	    }
-
-	  filescanner_process_media(filename, mtime, 0, F_SCAN_TYPE_URL, &mfi, di_id);
+	  filescanner_process_media(filename, mtime, 0, F_SCAN_TYPE_URL, &mfi, DIR_HTTP);
 	}
       /* Regular file, should already be in library */
       else

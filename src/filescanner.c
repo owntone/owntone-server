@@ -1156,10 +1156,9 @@ process_parent_directories(char *path)
   char virtual_path[PATH_MAX];
   int ret;
 
-  // The root directoy ID
-  dir_id = 1;
+  dir_id = DIR_FILE;
 
-  ptr = path;
+  ptr = path + 1;
   while (ptr && (ptr = strchr(ptr, '/')))
     {
       strncpy(buf, path, (ptr - path));
