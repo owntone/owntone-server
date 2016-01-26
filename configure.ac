@@ -188,6 +188,7 @@ AS_IF([test "x$enable_chromecast" = "xyes"], [
 	AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
 	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c ], , [ LDFLAGS="${LDFLAGS} -lprotobuf-c" ])
 	PKG_CHECK_MODULES(GNUTLS, [ gnutls ])
+	PKG_CHECK_MODULES(JSON_C, [ json-c ])
 ])
 AM_CONDITIONAL(COND_CHROMECAST, [test "x$enable_chromecast" = "xyes"])
 

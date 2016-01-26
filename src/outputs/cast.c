@@ -30,14 +30,18 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include <endian.h>
 #include <gnutls/gnutls.h>
+#include <json-c/json.h>
 
 #include <event2/event.h>
 
+#include "mdns.h"
 #include "logger.h"
+#include "player.h"
+#include "outputs.h"
 #include "cast_channel.pb-c.h"
-#include "cast.h"
 
 // Number of bytes to request from TLS connection
 #define MAX_BUF 4096
@@ -50,11 +54,36 @@
 #define NS_HEARTBEAT "urn:x-cast:com.google.cast.tp.heartbeat"
 #define NS_MEDIA "urn:x-cast:com.google.cast.media"
 
+#define USE_TRANSPORT_ID     (1 << 1)
+#define USE_REQUEST_ID       (1 << 2)
+#define USE_REQUEST_ID_ONLY  (1 << 3)
+
+#define CALLBACK_REGISTER_SIZE 20
+
+// TODO Find the real IP
+#define TEST_STREAM_URL "http://192.168.1.201:3689/stream.mp3"
+
+union sockaddr_all
+{
+  struct sockaddr_in sin;
+  struct sockaddr_in6 sin6;
+  struct sockaddr sa;
+  struct sockaddr_storage ss;
+};
+
+struct cast_session;
+struct cast_msg_payload;
+
+typedef void (*cast_reply_cb)(struct cast_session *cs, struct cast_msg_payload *payload);
+
 struct cast_session
 {
-  struct event *ev;
+  enum output_device_state state;
 
+  // Connection fd and session, and listener event
+  int server_fd;
   gnutls_session_t tls_session;
+  struct event *ev;
 
   char *devname;
   char *address;
@@ -62,16 +91,25 @@ struct cast_session
 
   int volume;
 
-  int server_fd;
+  // Outgoing request which have the USE_REQUEST_ID flag get a new id, and a
+  // callback is registered. The callback is called when an incoming message
+  // from the peer with that request id arrives.
+  int request_id;
+  cast_reply_cb callback_register[CALLBACK_REGISTER_SIZE];
+
+  // Session info from the ChromeCast
+  char *transport_id;
+  char *session_id;
 
   /* Do not dereference - only passed to the status cb */
-  struct raop_device *dev;
-  raop_status_cb status_cb;
+  struct output_device *device;
+  struct output_session *output_session;
+  output_status_cb status_cb;
 
   struct cast_session *next;
 };
 
-enum cast_msg_type
+enum cast_msg_types
 {
   UNKNOWN,
   PING,
@@ -79,14 +117,118 @@ enum cast_msg_type
   CONNECT,
   CLOSE,
   GET_STATUS,
+  RECEIVER_STATUS,
   LAUNCH,
   MEDIA_CONNECT,
-  MEDIA_LOAD,
   MEDIA_GET_STATUS,
-  MEDIA_PLAY,
+  MEDIA_STATUS,
+  MEDIA_LOAD,
   MEDIA_STOP,
+  MEDIA_LOAD_FAILED,
 };
 
+struct cast_msg_basic
+{
+  enum cast_msg_types type;
+  char *tag;       // Used for looking up incoming message type
+  char *namespace;
+  char *payload;
+
+  int flags;
+};
+
+struct cast_msg_payload
+{
+  enum cast_msg_types type;
+  int request_id;
+  const char *session_id;
+  const char *transport_id;
+};
+
+// Array of the cast messages that we use. Must be in sync with cast_msg_types.
+struct cast_msg_basic cast_msg[] =
+{
+  {
+    .type = UNKNOWN,
+    .namespace = "",
+    .payload = "",
+  },
+  {
+    .type = PING,
+    .tag = "PING",
+    .namespace = NS_HEARTBEAT,
+    .payload = "{'type':'PING'}",
+  },
+  {
+    .type = PONG,
+    .tag = "PONG",
+    .namespace = NS_HEARTBEAT,
+    .payload = "{'type':'PONG'}",
+  },
+  {
+    .type = CONNECT,
+    .namespace = NS_CONNECTION,
+    .payload = "{'type':'CONNECT'}",
+//	msg.payload_utf8 = "{\"origin\":{},\"userAgent\":\"forked-daapd\",\"type\":\"CONNECT\",\"senderInfo\":{\"browserVersion\":\"44.0.2403.30\",\"version\":\"15.605.1.3\",\"connectionType\":1,\"platform\":4,\"sdkType\":2,\"systemVersion\":\"Macintosh; Intel Mac OS X10_10_3\"}}";
+  },
+  {
+    .type = CLOSE,
+    .tag = "CLOSE",
+    .namespace = NS_CONNECTION,
+    .payload = "{'type':'CLOSE'}",
+  },
+  {
+    .type = GET_STATUS,
+    .namespace = NS_RECEIVER,
+    .payload = "{'type':'GET_STATUS','requestId':%d}",
+    .flags = USE_REQUEST_ID_ONLY,
+  },
+  {
+    .type = RECEIVER_STATUS,
+    .tag = "RECEIVER_STATUS",
+  },
+  {
+    .type = LAUNCH,
+    .namespace = NS_RECEIVER,
+    .payload = "{'type':'LAUNCH','requestId':%d,'appId':'CC1AD845'}",
+    .flags = USE_REQUEST_ID_ONLY,
+  },
+  {
+    .type = MEDIA_CONNECT,
+    .namespace = NS_CONNECTION,
+    .payload = "{'type':'CONNECT'}",
+    .flags = USE_TRANSPORT_ID,
+  },
+  {
+    .type = MEDIA_GET_STATUS,
+    .namespace = NS_MEDIA,
+    .payload = "{'type':'GET_STATUS','requestId':%d}",
+    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID_ONLY,
+  },
+  {
+    .type = MEDIA_STATUS,
+    .tag = "MEDIA_STATUS",
+  },
+  {
+    .type = MEDIA_LOAD,
+    .namespace = NS_MEDIA,
+    .payload = "{'currentTime':0,'media':{'contentId':'%s','streamType':'LIVE','contentType':'audio/mp3'},'customData':{},'sessionId':'%s','requestId':%d,'type':'LOAD','autoplay':1}",
+    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
+  },
+  {
+    .type = MEDIA_STOP,
+    .namespace = NS_RECEIVER,
+    .payload = "{'mediaSessionId':1,'sessionId':'%s','type':'STOP','requestId':%d}",
+    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
+  },
+  {
+    .type = MEDIA_LOAD_FAILED,
+    .tag = "LOAD_FAILED",
+  },
+  {
+    .type = 0,
+  },
+};
 
 /* From player.c */
 extern struct event_base *evbase_player;
@@ -94,6 +236,7 @@ extern struct event_base *evbase_player;
 /* Globals */
 static gnutls_certificate_credentials_t tls_credentials;
 static struct cast_session *sessions;
+
 
 
 static int
@@ -104,6 +247,8 @@ tcp_connect(const char *address, unsigned int port, int family)
   int len;
   int ret;
 
+  // TODO Open non-block right away so we don't block the player while connecting
+  // and during TLS handshake (we would probably need to introduce a deferredev)
   fd = socket(family, SOCK_STREAM | SOCK_CLOEXEC, 0);
   if (fd < 0)
     {
@@ -152,51 +297,254 @@ tcp_connect(const char *address, unsigned int port, int family)
 }
 
 static void
-tcp_close (int fd)
+tcp_close(int fd)
 {
   /* no more receptions */
   shutdown(fd, SHUT_RDWR);
   close(fd);
 }
 
-
-enum cast_msg_type
-cast_msg_unpack(const uint8_t *data, size_t len)
+static char *
+squote_to_dquote(char *buf)
 {
-  enum cast_msg_type type;
+  char *ptr;
+
+  for (ptr = buf; *ptr != '\0'; ptr++)
+    if (*ptr == '\'')
+      *ptr = '"';
+
+  return buf;
+}
+
+/*static char *
+copy_tag_value(const char *json, const char *key)
+{
+  char full_key[MAX_BUF];
+  char *ptr;
+  char *end;
+  char *out;
+  int len;
+
+  //TODO check return
+  snprintf(full_key, sizeof(full_key), "\"%s\":", key);
+
+  ptr = strstr(json, full_key);
+  if (!ptr)
+    return NULL;
+
+  len = strlen(json);
+
+  // Advance ptr from beginning of key to beginning of value (first " after key)
+  for (ptr = ptr + strlen(full_key); (ptr - json < len - 1) && (*ptr != '"') && (*ptr != '\0'); ptr++);
+  if (*ptr != '"')
+    return NULL;
+
+  ptr++;
+  for (end = ptr + 1; (end - json < len - 1) && (*end != '"') && (*end != '\0'); end++);
+  if (*end != '"')
+    return NULL;
+
+  // If value is for instance "test", ptr will now be t and end will be "
+  len = (end - ptr);
+
+  out = calloc(1, len + 1);
+  if (!out)
+    return NULL;
+
+  memcpy(out, ptr, len);
+
+  printf("Value is %s\n", out);
+
+  return out;
+}*/
+
+
+static int
+cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb reply_cb)
+{
+  Extensions__CoreApi__CastChannel__CastMessage msg = EXTENSIONS__CORE_API__CAST_CHANNEL__CAST_MESSAGE__INIT;
+  char msg_buf[MAX_BUF];
+  uint8_t buf[MAX_BUF];
+  uint32_t be;
+  size_t len;
+  int ret;
+
+  DPRINTF(E_DBG, L_CAST, "Preparing to send message type %d to %s\n", type, cs->devname);
+
+  msg.source_id = "sender-0";
+  msg.namespace_ = cast_msg[type].namespace;
+
+  if ((cast_msg[type].flags & USE_TRANSPORT_ID) && !cs->transport_id)
+    {
+      DPRINTF(E_LOG, L_CAST, "Error, didn't get transportId for message (type %d) to '%s'\n", type, cs->devname);
+      return -1;
+    }
+
+  if (cast_msg[type].flags & USE_TRANSPORT_ID)
+    msg.destination_id = cs->transport_id;
+  else
+    msg.destination_id = "receiver-0";
+
+  if (cast_msg[type].flags & (USE_REQUEST_ID | USE_REQUEST_ID_ONLY))
+    {
+      cs->request_id++;
+      if (reply_cb)
+	cs->callback_register[cs->request_id % CALLBACK_REGISTER_SIZE] = reply_cb;
+    }
+
+  // Special handling of MEDIA_LOAD and MEDIA_STOP for now
+  if (cast_msg[type].flags & USE_REQUEST_ID_ONLY)
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->request_id);
+  else if (type == MEDIA_LOAD)
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, TEST_STREAM_URL, cs->session_id, cs->request_id);
+  else if (type == MEDIA_STOP)
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->session_id, cs->request_id);
+  else
+    snprintf(msg_buf, sizeof(msg_buf), "%s", cast_msg[type].payload);
+
+  squote_to_dquote(msg_buf);
+  msg.payload_utf8 = msg_buf;
+
+  len = extensions__core_api__cast_channel__cast_message__get_packed_size(&msg);
+  if (len <= 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not send message (type %d), invalid length: %d\n", type, len);
+      return -1;
+    }
+
+  // The message must be prefixed with Big-Endian 32 bit length
+  be = htobe32(len);
+  memcpy(buf, &be, 4);
+
+  // Now add the packed message and send it
+  extensions__core_api__cast_channel__cast_message__pack(&msg, buf + 4);
+
+  ret = gnutls_record_send(cs->tls_session, buf, len + 4);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not send message, TLS error\n");
+      return -1;
+    }
+  else if (ret != len + 4)
+    {
+      DPRINTF(E_LOG, L_CAST, "BUG! Message partially sent, and we are not able to send the rest\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_CAST, "TX %d %s %s %s %s\n", len, msg.source_id, msg.destination_id, msg.namespace_, msg.payload_utf8);
+
+  return 0;
+}
+
+static void *
+cast_msg_parse(struct cast_msg_payload *payload, char *s)
+{
+  json_object *haystack;
+  json_object *somehay;
+  json_object *needle;
+  const char *val;
+  int i;
+
+  haystack = json_tokener_parse(s);
+  if (!haystack)
+    {
+      DPRINTF(E_LOG, L_CAST, "JSON parser returned an error\n");
+      return NULL;
+    }
+
+  payload->type = UNKNOWN;
+  if (json_object_object_get_ex(haystack, "type", &needle))
+    {
+      val = json_object_get_string(needle);
+      for (i = 1; cast_msg[i].type; i++)
+	{
+	  if (cast_msg[i].tag && (strcmp(val, cast_msg[i].tag) == 0))
+	    {
+	      payload->type = cast_msg[i].type;
+	      break;
+	    }
+	}
+    }
+
+  if (json_object_object_get_ex(haystack, "requestId", &needle))
+    payload->request_id = json_object_get_int(needle);
+
+  // Might be done now
+  if (payload->type != RECEIVER_STATUS)
+    return haystack;
+
+  // Isn't this marvelous
+  if ( ! (json_object_object_get_ex(haystack, "status", &somehay) &&
+          json_object_object_get_ex(somehay, "applications", &needle) &&
+          (json_object_get_type(needle) == json_type_array) &&
+          (somehay = json_object_array_get_idx(needle, 0))) )
+    return haystack;
+
+  if ( json_object_object_get_ex(somehay, "sessionId", &needle) &&
+       (json_object_get_type(needle) == json_type_string) )
+    payload->session_id = json_object_get_string(needle);
+
+  if ( json_object_object_get_ex(somehay, "transportId", &needle) &&
+       (json_object_get_type(needle) == json_type_string) )
+    payload->transport_id = json_object_get_string(needle);
+
+  return haystack;
+}
+
+static void
+cast_msg_parse_free(void *haystack)
+{
+  if (json_object_put((json_object *)haystack) != 1)
+    DPRINTF(E_LOG, L_CAST, "Memleak: JSON parser did not free object\n");
+}
+
+static void
+cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
+{
   Extensions__CoreApi__CastChannel__CastMessage *reply;
-//  char *val;
+  struct cast_msg_payload payload = { 0 };
+  void *hdl;
+  int i;
 
   reply = extensions__core_api__cast_channel__cast_message__unpack(NULL, len, data);
+  if (!reply)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not unpack message!\n");
+      return;
+    }
 
   DPRINTF(E_DBG, L_CAST, "RX %d %s %s %s %s\n", len, reply->source_id, reply->destination_id, reply->namespace_, reply->payload_utf8);
 
-  type = UNKNOWN;
-
-/*  val = copy_tag_value(reply->payload_utf8, "type");
-  if (val && (strncmp(val, "PING", 4) == 0))
-    type = PING;
-  free(val);
-
-  val = copy_tag_value(reply->payload_utf8, "sessionId");
-  if (val)
+  hdl = cast_msg_parse(&payload, reply->payload_utf8);
+  if (!hdl)
     {
-      if (session_id)
-	free(session_id);
-      session_id = val;
+      DPRINTF(E_DBG, L_CAST, "Could not parse message: %s\n", reply->payload_utf8);
+      goto out_free_unpacked;
     }
 
-  val = copy_tag_value(reply->payload_utf8, "transportId");
-  if (val)
+  if (payload.type == PING)
     {
-      if (appid)
-	free(appid);
-      appid = val;
+      cast_msg_send(cs, PONG, NULL);
+      goto out_free_parsed;
     }
-*/
+
+  if (payload.type == UNKNOWN)
+    goto out_free_parsed;
+
+  // TODO: UPDATE SESSION STATUS AND READ BROADCASTS
+
+  i = payload.request_id % CALLBACK_REGISTER_SIZE;
+  if (i > 0 && cs->callback_register[i])
+    {
+      cs->callback_register[i](cs, &payload);
+      cs->callback_register[i] = NULL;
+      goto out_free_parsed;
+    }
+
+ out_free_parsed:
+  cast_msg_parse_free(hdl);
+ out_free_unpacked:
   extensions__core_api__cast_channel__cast_message__free_unpacked(reply, NULL);
-
-  return type;
 }
 
 static void
@@ -204,6 +552,7 @@ cast_session_free(struct cast_session *cs)
 {
   event_free(cs->ev);
 
+  // TODO How will this work if device disconnected?
   gnutls_bye(cs->tls_session, GNUTLS_SHUT_RDWR);
 
   close(cs->server_fd);
@@ -214,6 +563,13 @@ cast_session_free(struct cast_session *cs)
     free(cs->address);
   if (cs->devname)
     free(cs->devname);
+
+  if (cs->session_id)
+    free(cs->session_id);
+  if (cs->transport_id)
+    free(cs->transport_id);
+
+  free(cs->output_session);
 
   free(cs);
 }
@@ -242,17 +598,129 @@ cast_session_cleanup(struct cast_session *cs)
 static void
 cast_session_failure(struct cast_session *cs)
 {
-  /* Session failed, let our user know */
-  cs->status_cb(cs->dev, NULL, RAOP_FAILED);
+  // Session failed, let our user know
+  cs->status_cb(cs->device, cs->output_session, OUTPUT_STATE_FAILED);
 
   cast_session_cleanup(cs);
+}
+
+static void
+cast_cb_startup_volume(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  output_status_cb status_cb;
+
+  cs->state = OUTPUT_STATE_CONNECTED;
+
+  /* Session startup and setup is done, tell our user */
+  DPRINTF(E_DBG, L_CAST, "Session ready\n");
+
+  status_cb = cs->status_cb;
+  cs->status_cb = NULL;
+
+  status_cb(cs->device, cs->output_session, cs->state);
+}
+
+static void
+cast_cb_startup_media(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  cs->state = OUTPUT_STATE_RECORD;
+
+  if (payload->type != MEDIA_STATUS)
+    {
+      DPRINTF(E_LOG, L_CAST, "No receiver status or transport id?\n");
+      cast_msg_send(cs, CLOSE, NULL);
+      cast_session_failure(cs);
+      return;
+    }
+
+  // TODO Send a volume message with the cb
+  cast_cb_startup_volume(cs, payload);
+}
+
+static void
+cast_cb_startup_launch(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  int ret;
+
+  if (payload->type != RECEIVER_STATUS || !payload->transport_id)
+    {
+      DPRINTF(E_LOG, L_CAST, "No receiver status or transport id?\n");
+      cast_msg_send(cs, CLOSE, NULL);
+      cast_session_failure(cs);
+      return;
+    }
+
+  if (cs->transport_id)
+    DPRINTF(E_LOG, L_CAST, "Ooops, memleaking...\n");
+
+  cs->transport_id = strdup(payload->transport_id);
+  cs->state = OUTPUT_STATE_ANNOUNCE;
+
+  ret = cast_msg_send(cs, MEDIA_CONNECT, NULL);
+  if (ret == 0)
+    ret = cast_msg_send(cs, MEDIA_GET_STATUS, cast_cb_startup_media);
+
+  if (ret < 0)
+    {
+      cast_msg_send(cs, CLOSE, NULL);
+      cast_session_failure(cs);
+    }
+}
+
+static void
+cast_cb_startup_connect(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  int ret;
+
+  if (payload->type != RECEIVER_STATUS || !payload->session_id)
+    {
+      DPRINTF(E_LOG, L_CAST, "No receiver status or session id? (type: %d, id: %s)\n", payload->type, payload->session_id);
+      cast_msg_send(cs, CLOSE, NULL);
+      cast_session_failure(cs);
+      return;
+    }
+
+  if (cs->session_id)
+    DPRINTF(E_LOG, L_CAST, "Ooops, memleaking...\n");
+
+  cs->session_id = strdup(payload->session_id);
+  cs->state = OUTPUT_STATE_OPTIONS;
+
+  ret = cast_msg_send(cs, LAUNCH, cast_cb_startup_launch);
+  if (ret < 0)
+    {
+      cast_msg_send(cs, CLOSE, NULL);
+      cast_session_failure(cs);
+    }
+}
+
+static void
+cast_cb_close(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+}
+
+static void
+cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  if (payload->type == MEDIA_LOAD_FAILED)
+    {
+      DPRINTF(E_LOG, L_CAST, "The device %s could not start playback\n", cs->devname);
+      cast_msg_send(cs, CLOSE, NULL);
+      cast_session_failure(cs);
+      return;
+    }
+
+  cs->state = OUTPUT_STATE_STREAMING;
+
+  DPRINTF(E_DBG, L_CAST, "Media loaded\n");
+
+  cs->status_cb(cs->device, cs->output_session, cs->state);
 }
 
 static void
 cast_listen_cb(int fd, short what, void *arg)
 {
   struct cast_session *cs;
-  enum cast_msg_type type;
   uint8_t buffer[MAX_BUF + 1]; // Not sure about the +1, but is copied from gnutls examples
   uint32_t be;
   size_t len;
@@ -262,8 +730,7 @@ cast_listen_cb(int fd, short what, void *arg)
 
   DPRINTF(E_DBG, L_CAST, "New data from %s\n", cs->devname);
 
-  len = 0;
-  while ( (ret = gnutls_record_recv(cs->tls_session, buffer, MAX_BUF)) > 0)
+  while ((ret = gnutls_record_recv(cs->tls_session, buffer, MAX_BUF)) > 0)
     {
       DPRINTF(E_DBG, L_CAST, "Received %d bytes\n", ret);
 
@@ -273,67 +740,68 @@ cast_listen_cb(int fd, short what, void *arg)
 	  len = be32toh(be);
 	  DPRINTF(E_DBG, L_CAST, "Incoming %d bytes\n", len);
 	}
-      else if (len > 0)
-	{
-	  len = 0;
-
-	  type = cast_msg_unpack(buffer, ret);
-/*	  if (type == PING)
-	    {
-	      send_message(&session, PONG);
-	      exec = 1;
-	      n++;
-	    }
-*/
-	}
       else
-	DPRINTF(E_WARN, L_CAST, "Unknown reponse from %s\n", cs->devname);
+	{
+	  cast_msg_process(cs, buffer, ret);
+	}
     }
 
-  cast_session_failure(cs);
+  if ((ret != GNUTLS_E_INTERRUPTED) && (ret != GNUTLS_E_AGAIN))
+    {
+      DPRINTF(E_LOG, L_CAST, "Session error: %s\n", gnutls_strerror(ret));
+      cast_session_failure(cs);
+    }
 }
 
 static struct cast_session *
-cast_session_make(struct raop_device *rd, int family, raop_status_cb cb)
+cast_session_make(struct output_device *device, int family, output_status_cb cb)
 {
+  struct output_session *os;
   struct cast_session *cs;
   const char *proto;
   const char *err;
   char *address;
   unsigned short port;
+  int flags;
   int ret;
 
   switch (family)
     {
       case AF_INET:
 	/* We always have the v4 services, so no need to check */
-	if (!rd->v4_address)
+	if (!device->v4_address)
 	  return NULL;
 
-	address = rd->v4_address;
-	port = rd->v4_port;
+	address = device->v4_address;
+	port = device->v4_port;
 	break;
 
       case AF_INET6:
-	if (!rd->v6_address)
+	if (!device->v6_address)
 	  return NULL;
 
-	address = rd->v6_address;
-	port = rd->v6_port;
+	address = device->v6_address;
+	port = device->v6_port;
 	break;
 
       default:
 	return NULL;
     }
 
+  os = calloc(1, sizeof(struct output_session));
   cs = calloc(1, sizeof(struct cast_session));
-  if (!cs)
+  if (!os || !cs)
     {
       DPRINTF(E_LOG, L_CAST, "Out of memory for TLS session\n");
       return NULL;
     }
 
-  cs->dev = rd;
+  os->session = cs;
+  os->type = device->type;
+
+  cs->output_session = os;
+  cs->state = OUTPUT_STATE_STOPPED;
+  cs->device = device;
   cs->status_cb = cb;
 
   /* Init TLS session, use default priorities and put the x509 credentials to the current session */
@@ -349,7 +817,8 @@ cast_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   if (cs->server_fd < 0)
     goto out_deinit_gnutls;
 
-  cs->ev = event_new(evbase_player, cs->server_fd, EV_READ, cast_listen_cb, cs);
+  // TODO Add a timeout to detect connection problems
+  cs->ev = event_new(evbase_player, cs->server_fd, EV_READ | EV_PERSIST, cast_listen_cb, cs);
   if (!cs->ev)
     {
       DPRINTF(E_LOG, L_CAST, "Out of memory for listener event\n");
@@ -364,12 +833,15 @@ cast_session_make(struct raop_device *rd, int family, raop_status_cb cb)
       goto out_free_ev;
     }
 
+  flags = fcntl(cs->server_fd, F_GETFL, 0);
+  fcntl(cs->server_fd, F_SETFL, flags | O_NONBLOCK);
+
   event_add(cs->ev, NULL);
 
-  cs->devname = strdup(rd->name);
+  cs->devname = strdup(device->name);
   cs->address = strdup(address);
 
-  cs->volume = rd->volume;
+  cs->volume = device->volume;
 
   cs->next = sessions;
   sessions = cs;
@@ -392,10 +864,13 @@ cast_session_make(struct raop_device *rd, int family, raop_status_cb cb)
   return NULL;
 }
 
+static int
+cast_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime);
+
 static void
 cast_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
-  struct raop_device *d;
+  struct output_device *device;
   const char *p;
   uint32_t id;
 
@@ -414,16 +889,18 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
 
   DPRINTF(E_DBG, L_PLAYER, "Event for Chromecast device %s (port %d, id %" PRIu32 ")\n", name, port, id);
 
-  d = calloc(1, sizeof(struct raop_device));
-  if (!d)
+  device = calloc(1, sizeof(struct output_device));
+  if (!device)
     {
       DPRINTF(E_LOG, L_PLAYER, "Out of memory for new Chromecast device\n");
 
       return;
     }
 
-  d->id = id;
-  d->name = strdup(name);
+  device->id = id;
+  device->name = strdup(name);
+  device->type = OUTPUT_TYPE_CAST;
+  device->type_name = outputs_name(device->type);
 
   if (port < 0)
     {
@@ -431,96 +908,130 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
       switch (family)
 	{
 	  case AF_INET:
-	    d->v4_port = 1;
+	    device->v4_port = 1;
 	    break;
 
 	  case AF_INET6:
-	    d->v6_port = 1;
+	    device->v6_port = 1;
 	    break;
 	}
 
-      player_device_remove(d);
+      player_device_remove(device);
 
       return;
     }
 
-  /* Device type */
-  d->devtype = RAOP_DEV_CHROMECAST;
-
   DPRINTF(E_INFO, L_PLAYER, "Adding Chromecast device %s\n", name);
 
-  d->advertised = 1;
+  device->advertised = 1;
 
   switch (family)
     {
       case AF_INET:
-	d->v4_address = strdup(address);
-	d->v4_port = port;
+	device->v4_address = strdup(address);
+	device->v4_port = port;
 	break;
 
       case AF_INET6:
-	d->v6_address = strdup(address);
-	d->v6_port = port;
+	device->v6_address = strdup(address);
+	device->v6_port = port;
 	break;
     }
 
-  player_device_add(d);
+  player_device_add(device);
 }
 
-int
-cast_device_start(struct raop_device *rd, raop_status_cb cb)
+static int
+cast_device_start(struct output_device *device, output_status_cb cb, uint64_t rtptime)
 {
-  DPRINTF(E_LOG, L_CAST, "Got start request for %s\n", rd->name);
-
   struct cast_session *cs;
   int ret;
 
-  cs = cast_session_make(rd, AF_INET6, cb);
+  DPRINTF(E_LOG, L_CAST, "Got start request for %s\n", device->name);
+
+  cs = cast_session_make(device, AF_INET6, cb);
   if (cs)
     {
-      return 0;
-/*      ret = raop_send_req_options(rs, raop_cb_startup_options);
+      ret = cast_msg_send(cs, CONNECT, NULL);
       if (ret == 0)
-	return 0;
+	{
+	  cast_msg_send(cs, GET_STATUS, cast_cb_startup_connect);
+	  return 0;
+	}
       else
 	{
-	  DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv6 (start)\n");
+	  DPRINTF(E_WARN, L_CAST, "Could not send CONNECT request on IPv6 (start)\n");
 
-	  raop_session_cleanup(rs);
+	  cast_session_cleanup(cs);
 	}
-*/
     }
 
-  cs = cast_session_make(rd, AF_INET, cb);
+  cs = cast_session_make(device, AF_INET, cb);
   if (!cs)
     return -1;
 
-/*  ret = raop_send_req_options(rs, raop_cb_startup_options);
+  ret = cast_msg_send(cs, CONNECT, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_WARN, L_RAOP, "Could not send OPTIONS request on IPv4 (start)\n");
+      DPRINTF(E_LOG, L_CAST, "Could not send CONNECT request on IPv4 (start)\n");
 
-      raop_session_cleanup(rs);
+      cast_session_cleanup(cs);
       return -1;
     }
-*/
+
+  // TODO Check return value
+  cast_msg_send(cs, GET_STATUS, cast_cb_startup_connect);
+
   return 0;
 }
 
-int
+static void
+cast_device_stop(struct output_session *session)
+{
+  struct cast_session *cs = session->session;
+
+  if (!(cs->state & OUTPUT_STATE_F_CONNECTED))
+    cast_session_cleanup(cs);
+  else
+    cast_msg_send(cs, CLOSE, cast_cb_close);
+}
+
+static void
+cast_playback_start(uint64_t next_pkt, struct timespec *ts)
+{
+  struct cast_session *cs;
+
+  for (cs = sessions; cs; cs = cs->next)
+    {
+      if (cs->state == OUTPUT_STATE_CONNECTED)
+	cast_msg_send(cs, MEDIA_LOAD, cast_cb_load);
+    }
+}
+
+static void
+cast_set_status_cb(struct output_session *session, output_status_cb cb)
+{
+  struct cast_session *cs = session->session;
+
+  cs->status_cb = cb;
+}
+
+
+static int
 cast_init(void)
 {
   int mdns_flags;
+  int i;
   int ret;
 
-  mdns_flags = MDNS_WANT_V4 | MDNS_WANT_V6 | MDNS_WANT_V6LL;
-
-  ret = mdns_browse("_googlecast._tcp", mdns_flags, cast_device_cb);
-  if (ret < 0)
+  // Sanity check
+  for (i = 1; cast_msg[i].type; i++)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not add mDNS browser for Chromecast devices\n");
-
-      goto mdns_browse_cast_fail;
+      if (cast_msg[i].type != i)
+	{
+	  DPRINTF(E_LOG, L_CAST, "BUG! Cast messages and types are misaligned (type %d!=%d). Could not initialize.\n", cast_msg[i].type, i);
+	  return -1;
+	}
     }
 
   // TODO Setting the cert file may not be required
@@ -532,10 +1043,25 @@ cast_init(void)
       return -1;
     }
 
+  mdns_flags = MDNS_WANT_V4 | MDNS_WANT_V6 | MDNS_WANT_V6LL;
+
+  ret = mdns_browse("_googlecast._tcp", mdns_flags, cast_device_cb);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Could not add mDNS browser for Chromecast devices\n");
+      goto out_tls_deinit;
+    }
+
   return 0;
+
+ out_tls_deinit:
+  gnutls_certificate_free_credentials(tls_credentials);
+  gnutls_global_deinit();
+
+  return -1;
 }
 
-void
+static void
 cast_deinit(void)
 {
   struct cast_session *cs;
@@ -549,3 +1075,28 @@ cast_deinit(void)
   gnutls_certificate_free_credentials(tls_credentials);
   gnutls_global_deinit();
 }
+
+struct output_definition output_cast =
+{
+  .name = "Chromecast",
+  .type = OUTPUT_TYPE_CAST,
+  .priority = 2,
+  .disabled = 0,
+  .init = cast_init,
+  .deinit = cast_deinit,
+  .device_start = cast_device_start,
+  .device_stop = cast_device_stop,
+/*  .device_probe = cast_device_probe,
+  .device_free_extra = cast_device_free_extra,
+  .device_volume_set = cast_set_volume_one,*/
+  .playback_start = cast_playback_start,
+/*  .playback_stop = cast_playback_stop,
+  .write = cast_write,
+  .flush = cast_flush,*/
+  .status_cb = cast_set_status_cb,
+/*  .metadata_prepare = cast_metadata_prepare,
+  .metadata_send = cast_metadata_send,
+  .metadata_purge = cast_metadata_purge,
+  .metadata_prune = cast_metadata_prune,
+*/
+};
