@@ -89,7 +89,7 @@ struct cast_session
   char *address;
   unsigned short port;
 
-  int volume;
+  float volume;
 
   // Outgoing request which have the USE_REQUEST_ID flag get a new id, and a
   // callback is registered. The callback is called when an incoming message
@@ -125,6 +125,7 @@ enum cast_msg_types
   MEDIA_LOAD,
   MEDIA_STOP,
   MEDIA_LOAD_FAILED,
+  SET_VOLUME,
 };
 
 struct cast_msg_basic
@@ -224,6 +225,12 @@ struct cast_msg_basic cast_msg[] =
   {
     .type = MEDIA_LOAD_FAILED,
     .tag = "LOAD_FAILED",
+  },
+  {
+    .type = SET_VOLUME,
+    .namespace = NS_RECEIVER,
+    .payload = "{'type':'SET_VOLUME','volume':{'level':%.2f,'muted':0},'requestId':%d}",
+    .flags = USE_REQUEST_ID,
   },
   {
     .type = 0,
@@ -392,13 +399,15 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
 	cs->callback_register[cs->request_id % CALLBACK_REGISTER_SIZE] = reply_cb;
     }
 
-  // Special handling of MEDIA_LOAD and MEDIA_STOP for now
+  // Special handling of some message types
   if (cast_msg[type].flags & USE_REQUEST_ID_ONLY)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->request_id);
   else if (type == MEDIA_LOAD)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, TEST_STREAM_URL, cs->session_id, cs->request_id);
   else if (type == MEDIA_STOP)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->session_id, cs->request_id);
+  else if (type == SET_VOLUME)
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->volume, cs->request_id);
   else
     snprintf(msg_buf, sizeof(msg_buf), "%s", cast_msg[type].payload);
 
@@ -623,7 +632,7 @@ cast_cb_startup_volume(struct cast_session *cs, struct cast_msg_payload *payload
 static void
 cast_cb_startup_media(struct cast_session *cs, struct cast_msg_payload *payload)
 {
-  cs->state = OUTPUT_STATE_RECORD;
+  int ret;
 
   if (payload->type != MEDIA_STATUS)
     {
@@ -634,7 +643,12 @@ cast_cb_startup_media(struct cast_session *cs, struct cast_msg_payload *payload)
     }
 
   // TODO Send a volume message with the cb
-  cast_cb_startup_volume(cs, payload);
+  ret = cast_msg_send(cs, SET_VOLUME, cast_cb_startup_volume);
+  if (ret < 0)
+    {
+      cast_msg_send(cs, CLOSE, NULL);
+      cast_session_failure(cs);
+    }
 }
 
 static void
@@ -654,7 +668,6 @@ cast_cb_startup_launch(struct cast_session *cs, struct cast_msg_payload *payload
     DPRINTF(E_LOG, L_CAST, "Ooops, memleaking...\n");
 
   cs->transport_id = strdup(payload->transport_id);
-  cs->state = OUTPUT_STATE_ANNOUNCE;
 
   ret = cast_msg_send(cs, MEDIA_CONNECT, NULL);
   if (ret == 0)
@@ -684,7 +697,6 @@ cast_cb_startup_connect(struct cast_session *cs, struct cast_msg_payload *payloa
     DPRINTF(E_LOG, L_CAST, "Ooops, memleaking...\n");
 
   cs->session_id = strdup(payload->session_id);
-  cs->state = OUTPUT_STATE_OPTIONS;
 
   ret = cast_msg_send(cs, LAUNCH, cast_cb_startup_launch);
   if (ret < 0)
@@ -718,19 +730,33 @@ cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
 }
 
 static void
+cast_cb_volume(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  output_status_cb status_cb;
+
+  status_cb = cs->status_cb;
+  cs->status_cb = NULL;
+  status_cb(cs->device, cs->output_session, cs->state);
+}
+
+
+
+static void
 cast_listen_cb(int fd, short what, void *arg)
 {
   struct cast_session *cs;
   uint8_t buffer[MAX_BUF + 1]; // Not sure about the +1, but is copied from gnutls examples
   uint32_t be;
   size_t len;
+  int processed;
   int ret;
 
   cs = (struct cast_session *)arg;
 
   DPRINTF(E_DBG, L_CAST, "New data from %s\n", cs->devname);
 
-  while ((ret = gnutls_record_recv(cs->tls_session, buffer, MAX_BUF)) > 0)
+  processed = 0;
+  while ((ret = gnutls_record_recv(cs->tls_session, buffer + processed, MAX_BUF - processed)) > 0)
     {
       DPRINTF(E_DBG, L_CAST, "Received %d bytes\n", ret);
 
@@ -742,7 +768,14 @@ cast_listen_cb(int fd, short what, void *arg)
 	}
       else
 	{
-	  cast_msg_process(cs, buffer, ret);
+	  processed += ret;
+	}
+
+      if (processed >= MAX_BUF)
+	{
+	  DPRINTF(E_LOG, L_CAST, "Receive buffer exhausted!\n");
+	  cast_session_failure(cs);
+	  return;
 	}
     }
 
@@ -750,7 +783,11 @@ cast_listen_cb(int fd, short what, void *arg)
     {
       DPRINTF(E_LOG, L_CAST, "Session error: %s\n", gnutls_strerror(ret));
       cast_session_failure(cs);
+      return;
     }
+
+  if (processed)
+    cast_msg_process(cs, buffer, processed);
 }
 
 static struct cast_session *
@@ -841,7 +878,7 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
   cs->devname = strdup(device->name);
   cs->address = strdup(address);
 
-  cs->volume = device->volume;
+  cs->volume = 0.01 * device->volume;
 
   cs->next = sessions;
   sessions = cs;
@@ -996,6 +1033,34 @@ cast_device_stop(struct output_session *session)
     cast_msg_send(cs, CLOSE, cast_cb_close);
 }
 
+static int
+cast_volume_set(struct output_device *device, output_status_cb cb)
+{
+  struct cast_session *cs;
+  int ret;
+
+  if (!device->session || !device->session->session)
+    return 0;
+
+  cs = device->session->session;
+
+  if (!(cs->state & OUTPUT_STATE_F_CONNECTED))
+    return 0;
+
+  cs->volume = 0.01 * device->volume;
+
+  ret = cast_msg_send(cs, SET_VOLUME, cast_cb_volume);
+  if (ret < 0)
+    {
+      cast_session_failure(cs);
+      return 0;
+    }
+
+  cs->status_cb = cb;
+
+  return 1;
+}
+
 static void
 cast_playback_start(uint64_t next_pkt, struct timespec *ts)
 {
@@ -1087,8 +1152,8 @@ struct output_definition output_cast =
   .device_start = cast_device_start,
   .device_stop = cast_device_stop,
 /*  .device_probe = cast_device_probe,
-  .device_free_extra = cast_device_free_extra,
-  .device_volume_set = cast_set_volume_one,*/
+  .device_free_extra = cast_device_free_extra,*/
+  .device_volume_set = cast_volume_set,
   .playback_start = cast_playback_start,
 /*  .playback_stop = cast_playback_stop,
   .write = cast_write,
