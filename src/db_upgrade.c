@@ -1186,6 +1186,10 @@ static const struct db_upgrade_query db_upgrade_v1801_queries[] =
   "ALTER TABLE playlists ADD COLUMN directory_id INTEGER DEFAULT 0;"
 #define U_V1900_ALTER_FILES_ADD_DIRECTORYID			\
   "ALTER TABLE files ADD COLUMN directory_id INTEGER DEFAULT 0;"
+#define U_V1900_ALTER_FILES_ADD_DATERELEASED			\
+  "ALTER TABLE files ADD COLUMN date_released INTEGER DEFAULT 0;"
+#define U_V1900_ALTER_SPEAKERS_ADD_NAME			\
+  "ALTER TABLE speakers ADD COLUMN name VARCHAR(255) DEFAULT NULL;"
 
 #define U_V1900_INSERT_DIR1 \
   "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
@@ -1210,6 +1214,8 @@ static const struct db_upgrade_query db_upgrade_v1900_queries[] =
     { U_V1900_CREATE_TABLE_DIRECTORIES,    "create table directories" },
     { U_V1900_ALTER_PL_ADD_DIRECTORYID,    "alter table pl add column directory_id" },
     { U_V1900_ALTER_FILES_ADD_DIRECTORYID, "alter table files add column directory_id" },
+    { U_V1900_ALTER_FILES_ADD_DATERELEASED,"alter table files add column date_released" },
+    { U_V1900_ALTER_SPEAKERS_ADD_NAME,     "alter table speakers add column name" },
     { U_V1900_INSERT_DIR1,                 "insert root directory" },
     { U_V1900_INSERT_DIR2,                 "insert /file: directory" },
     { U_V1900_INSERT_DIR3,                 "insert /htttp: directory" },

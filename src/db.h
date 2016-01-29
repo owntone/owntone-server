@@ -184,6 +184,7 @@ struct media_file_info {
   char *virtual_path;
 
   uint32_t directory_id; /* Id of directory */
+  uint32_t date_released;
 };
 
 #define mfi_offsetof(field) offsetof(struct media_file_info, field)
@@ -321,6 +322,7 @@ struct db_media_file_info {
   char *album_artist_sort;
   char *virtual_path;
   char *directory_id;
+  char *date_released;
 };
 
 #define dbmfi_offsetof(field) offsetof(struct db_media_file_info, field)

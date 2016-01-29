@@ -138,6 +138,7 @@ static const struct col_type_map mfi_cols_map[] =
     { mfi_offsetof(album_artist_sort),  DB_TYPE_STRING },
     { mfi_offsetof(virtual_path),       DB_TYPE_STRING },
     { mfi_offsetof(directory_id),       DB_TYPE_INT },
+    { mfi_offsetof(date_released),      DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -227,6 +228,7 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(album_artist_sort),
     dbmfi_offsetof(virtual_path),
     dbmfi_offsetof(directory_id),
+    dbmfi_offsetof(date_released),
   };
 
 /* This list must be kept in sync with
@@ -4850,7 +4852,8 @@ db_perthread_deinit(void)
   "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   virtual_path       VARCHAR(4096) DEFAULT NULL,"	\
-  "   directory_id       INTEGER DEFAULT 0"		\
+  "   directory_id       INTEGER DEFAULT 0,"		\
+  "   date_released      INTEGER DEFAULT 0"             \
   ");"
 
 #define T_PL					\
@@ -4896,7 +4899,8 @@ db_perthread_deinit(void)
   "CREATE TABLE IF NOT EXISTS speakers("		\
   "   id             INTEGER PRIMARY KEY NOT NULL,"	\
   "   selected       INTEGER NOT NULL,"			\
-  "   volume         INTEGER NOT NULL"			\
+  "   volume         INTEGER NOT NULL,"			\
+  "   name           VARCHAR(255) DEFAULT NULL"         \
   ");"
 
 #define T_INOTIFY					\
