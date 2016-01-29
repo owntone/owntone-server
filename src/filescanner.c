@@ -23,6 +23,7 @@
 # include <config.h>
 #endif
 
+#include <libgen.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -1411,6 +1412,28 @@ watches_clear(uint32_t wd, char *path)
   return 0;
 }
 
+static int
+get_parent_dir_id(const char *path)
+{
+  char *pathcopy;
+  char *parent_dir;
+  char virtual_path[PATH_MAX];
+  int parent_id;
+  int ret;
+
+  pathcopy = strdup(path);
+  parent_dir = dirname(pathcopy);
+  ret = create_virtual_path(parent_dir, virtual_path, sizeof(virtual_path));
+  if (ret == 0)
+    parent_id = db_directory_id_byvirtualpath(virtual_path);
+  else
+    parent_id = 0;
+
+  free(pathcopy);
+
+  return parent_id;
+}
+
 /* Thread: scan */
 static void
 process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
@@ -1543,8 +1566,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
 
   if (ie->mask & IN_CREATE)
     {
-      parent_id = process_parent_directories(path);
-
+      parent_id = get_parent_dir_id(path);
       process_directories(path, parent_id, flags);
 
       if (dirstack)
@@ -1741,7 +1763,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
       if (check_speciallib(path, "audiobooks"))
 	type |= F_SCAN_TYPE_AUDIOBOOK;
 
-      dir_id = process_parent_directories(file);
+      dir_id = get_parent_dir_id(file);
 
       if (S_ISREG(sb.st_mode))
 	{
