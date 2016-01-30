@@ -1908,6 +1908,7 @@ kqueue_cb(int fd, short event, void *arg)
   int w_len;
   int need_rescan;
   int ret;
+  int parent_id;
 
   ts.tv_sec = 0;
   ts.tv_nsec = 0;
@@ -1970,6 +1971,7 @@ kqueue_cb(int fd, short event, void *arg)
       /* Disable files */
       db_file_disable_bymatch(wi.path, "", 0);
       db_pl_disable_bymatch(wi.path, "", 0);
+      db_directory_disable_bymatch(wi.path, "", 0);
 
       if (kev.flags & EV_ERROR)
 	{
@@ -2052,17 +2054,21 @@ kqueue_cb(int fd, short event, void *arg)
 	    }
 
 	  if (need_rescan)
-	    push_dir(&rescan, wi.path);
+	    {
+	      parent_id = get_parent_dir_id(wi.path);
+	      push_dir(&rescan, wi.path, parent_id);
+	    }
 	}
 
       free(wi.path);
     }
 
-  while ((path = pop_dir(&rescan)))
+  while ((d = pop_dir(&rescan)))
     {
-      process_directories(path, 0);
+      process_directories(path, 0, d->parent_id);
 
-      free(path);
+      free(d->path);
+      free(d);
 
       if (rescan)
 	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
