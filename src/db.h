@@ -598,6 +598,9 @@ db_directory_disable_bymatch(char *path, char *strip, uint32_t cookie);
 int
 db_directory_enable_bycookie(uint32_t cookie, char *path);
 
+int
+db_directory_enable_bypath(char *path);
+
 /* Remotes */
 int
 db_pairing_add(struct pairing_info *pi);

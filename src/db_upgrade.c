@@ -1202,7 +1202,7 @@ static const struct db_upgrade_query db_upgrade_v1801_queries[] =
   " VALUES (3, '/http:', 0, 0, 1);"
 #define U_V1900_INSERT_DIR4 \
   "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
-  " VALUES (4, '/spotify:', 0, 0, 1);"
+  " VALUES (4, '/spotify:', 0, 4294967296, 1);"
 
 #define U_V1900_SCVER_MAJOR			\
   "UPDATE admin SET value = '19' WHERE key = 'schema_version_major';"

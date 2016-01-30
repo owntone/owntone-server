@@ -3784,6 +3784,21 @@ db_directory_enable_bycookie(uint32_t cookie, char *path)
 #undef Q_TMPL
 }
 
+int
+db_directory_enable_bypath(char *path)
+{
+#define Q_TMPL "UPDATE directories SET disabled = 0 WHERE virtual_path = %Q;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path);
+
+  ret = db_query_run(query, 1, 0);
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL
+}
+
 
 /* Remotes */
 static int
@@ -3873,11 +3888,13 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 void
 db_spotify_purge(void)
 {
-  char *queries[3] =
+  char *queries[5] =
     {
       "DELETE FROM files WHERE path LIKE 'spotify:%%';",
       "DELETE FROM playlistitems WHERE filepath LIKE 'spotify:%%';",
       "DELETE FROM playlists WHERE path LIKE 'spotify:%%';",
+      "DELETE FROM directories WHERE virtual_path LIKE '/spotify:/%%';",
+      "UPDATE directories SET disabled = 4294967296 WHERE virtual_path = '/spotify:';",
     };
   int i;
   int ret;
@@ -4975,7 +4992,7 @@ db_perthread_deinit(void)
   " VALUES (3, '/http:', 0, 0, 1);"
 #define Q_DIR4 \
   "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
-  " VALUES (4, '/spotify:', 0, 0, 1);"
+  " VALUES (4, '/spotify:', 0, 4294967296, 1);"
 
 /* Rule of thumb: Will the current version of forked-daapd work with the new
  * version of the database? If yes, then it is a minor upgrade, if no, then it 
