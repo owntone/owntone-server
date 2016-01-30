@@ -37,6 +37,7 @@
 
 #include <event2/event.h>
 
+#include "conffile.h"
 #include "mdns.h"
 #include "logger.h"
 #include "player.h"
@@ -58,10 +59,8 @@
 #define USE_REQUEST_ID       (1 << 2)
 #define USE_REQUEST_ID_ONLY  (1 << 3)
 
-#define CALLBACK_REGISTER_SIZE 20
+#define CALLBACK_REGISTER_SIZE 32
 
-// TODO Find the real IP
-#define TEST_STREAM_URL "http://192.168.1.201:3689/stream.mp3"
 
 union sockaddr_all
 {
@@ -244,6 +243,7 @@ extern struct event_base *evbase_player;
 static gnutls_certificate_credentials_t tls_credentials;
 static struct cast_session *sessions;
 
+static char cast_stream_url[1024];
 
 
 static int
@@ -543,7 +543,7 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
   // TODO: UPDATE SESSION STATUS AND READ BROADCASTS
 
   i = payload.request_id % CALLBACK_REGISTER_SIZE;
-  if (i > 0 && cs->callback_register[i])
+  if (payload.request_id && cs->callback_register[i])
     {
       cs->callback_register[i](cs, &payload);
       cs->callback_register[i] = NULL;
@@ -748,15 +748,15 @@ cast_listen_cb(int fd, short what, void *arg)
   uint8_t buffer[MAX_BUF + 1]; // Not sure about the +1, but is copied from gnutls examples
   uint32_t be;
   size_t len;
-  int processed;
+  int received;
   int ret;
 
   cs = (struct cast_session *)arg;
 
   DPRINTF(E_DBG, L_CAST, "New data from %s\n", cs->devname);
 
-  processed = 0;
-  while ((ret = gnutls_record_recv(cs->tls_session, buffer + processed, MAX_BUF - processed)) > 0)
+  received = 0;
+  while ((ret = gnutls_record_recv(cs->tls_session, buffer + received, MAX_BUF - received)) > 0)
     {
       DPRINTF(E_DBG, L_CAST, "Received %d bytes\n", ret);
 
@@ -768,10 +768,10 @@ cast_listen_cb(int fd, short what, void *arg)
 	}
       else
 	{
-	  processed += ret;
+	  received += ret;
 	}
 
-      if (processed >= MAX_BUF)
+      if (received >= MAX_BUF)
 	{
 	  DPRINTF(E_LOG, L_CAST, "Receive buffer exhausted!\n");
 	  cast_session_failure(cs);
@@ -786,8 +786,8 @@ cast_listen_cb(int fd, short what, void *arg)
       return;
     }
 
-  if (processed)
-    cast_msg_process(cs, buffer, processed);
+  if (received)
+    cast_msg_process(cs, buffer, received);
 }
 
 static struct cast_session *
@@ -1085,6 +1085,8 @@ cast_set_status_cb(struct output_session *session, output_status_cb cb)
 static int
 cast_init(void)
 {
+  char hostname[256];
+  int port;
   int mdns_flags;
   int i;
   int ret;
@@ -1098,6 +1100,16 @@ cast_init(void)
 	  return -1;
 	}
     }
+
+  ret = gethostname(hostname, sizeof(hostname));
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not determine own hostname: %s\n", strerror(errno));
+      return -1;
+    }
+  port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+
+  snprintf(cast_stream_url, sizeof(cast_stream_url), "http://%s:%d/stream.mp3", hostname, port);
 
   // TODO Setting the cert file may not be required
   if ( ((ret = gnutls_global_init()) != GNUTLS_E_SUCCESS) ||
