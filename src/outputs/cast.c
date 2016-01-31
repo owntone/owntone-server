@@ -29,6 +29,7 @@
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <ifaddrs.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <endian.h>
@@ -90,6 +91,9 @@ struct cast_session
 
   float volume;
 
+  // IP address URL of forked-daapd's mp3 stream
+  char stream_url[128];
+
   // Outgoing request which have the USE_REQUEST_ID flag get a new id, and a
   // callback is registered. The callback is called when an incoming message
   // from the peer with that request id arrives.
@@ -99,6 +103,7 @@ struct cast_session
   // Session info from the ChromeCast
   char *transport_id;
   char *session_id;
+  int media_session_id;
 
   /* Do not dereference - only passed to the status cb */
   struct output_device *device;
@@ -122,6 +127,8 @@ enum cast_msg_types
   MEDIA_GET_STATUS,
   MEDIA_STATUS,
   MEDIA_LOAD,
+  MEDIA_PLAY,
+  MEDIA_PAUSE,
   MEDIA_STOP,
   MEDIA_LOAD_FAILED,
   SET_VOLUME,
@@ -143,6 +150,7 @@ struct cast_msg_payload
   int request_id;
   const char *session_id;
   const char *transport_id;
+  int media_session_id;
 };
 
 // Array of the cast messages that we use. Must be in sync with cast_msg_types.
@@ -216,9 +224,21 @@ struct cast_msg_basic cast_msg[] =
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
+    .type = MEDIA_PLAY,
+    .namespace = NS_MEDIA,
+    .payload = "{'mediaSessionId':%d,'sessionId':'%s','type':'PLAY','requestId':%d}",
+    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
+  },
+  {
+    .type = MEDIA_PAUSE,
+    .namespace = NS_MEDIA,
+    .payload = "{'mediaSessionId':%d,'sessionId':'%s','type':'PAUSE','requestId':%d}",
+    .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
+  },
+  {
     .type = MEDIA_STOP,
-    .namespace = NS_RECEIVER,
-    .payload = "{'mediaSessionId':1,'sessionId':'%s','type':'STOP','requestId':%d}",
+    .namespace = NS_MEDIA,
+    .payload = "{'mediaSessionId':%d,'sessionId':'%s','type':'STOP','requestId':%d}",
     .flags = USE_TRANSPORT_ID | USE_REQUEST_ID,
   },
   {
@@ -242,8 +262,7 @@ extern struct event_base *evbase_player;
 /* Globals */
 static gnutls_certificate_credentials_t tls_credentials;
 static struct cast_session *sessions;
-
-static char cast_stream_url[1024];
+static struct event *flush_timer;
 
 
 static int
@@ -309,6 +328,63 @@ tcp_close(int fd)
   /* no more receptions */
   shutdown(fd, SHUT_RDWR);
   close(fd);
+}
+
+static int
+stream_url_make(char *out, size_t len, const char *peer_addr, int family)
+{
+  struct ifaddrs *ifap;
+  struct ifaddrs *ifa;
+  union sockaddr_all haddr;
+  union sockaddr_all hmask;
+  union sockaddr_all paddr;
+  char host_addr[128];
+  unsigned short port;
+  int found;
+  int ret;
+
+  if (family == AF_INET)
+    ret =  inet_pton(AF_INET, peer_addr, &paddr.sin.sin_addr);
+  else
+    ret =  inet_pton(AF_INET6, peer_addr, &paddr.sin6.sin6_addr);
+
+  if (ret != 1)
+    return -1;
+
+  found = 0;
+  getifaddrs(&ifap);
+  for (ifa = ifap; !found && ifa; ifa = ifa->ifa_next)
+    {
+      if (ifa->ifa_addr->sa_family != family)
+	continue;
+
+      if (family == AF_INET)
+	{
+	  memcpy(&haddr.sin, ifa->ifa_addr, sizeof(struct sockaddr_in));
+	  memcpy(&hmask.sin, ifa->ifa_netmask, sizeof(struct sockaddr_in));
+          found = ((haddr.sin.sin_addr.s_addr & hmask.sin.sin_addr.s_addr) ==
+                   (paddr.sin.sin_addr.s_addr & hmask.sin.sin_addr.s_addr));
+	  if (found)
+	    inet_ntop(family, &haddr.sin.sin_addr, host_addr, sizeof(host_addr));
+	}
+      else if (family == AF_INET6)
+	{
+	  memcpy(&haddr.sin6, ifa->ifa_addr, sizeof(struct sockaddr_in6));
+          found = (memcmp(&haddr.sin6.sin6_addr.s6_addr, &paddr.sin6.sin6_addr.s6_addr, 8) == 0);
+	  if (found)
+	    inet_ntop(family, &haddr.sin6.sin6_addr, host_addr, sizeof(host_addr));
+	}
+    }
+
+  freeifaddrs(ifap);
+
+  if (!found)
+    return -1;
+
+  port = cfg_getint(cfg_getsec(cfg, "library"), "port");
+  snprintf(out, len, "http://%s:%d/stream.mp3", host_addr, port);
+
+  return 0;
 }
 
 static char *
@@ -403,9 +479,9 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
   if (cast_msg[type].flags & USE_REQUEST_ID_ONLY)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->request_id);
   else if (type == MEDIA_LOAD)
-    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, TEST_STREAM_URL, cs->session_id, cs->request_id);
-  else if (type == MEDIA_STOP)
-    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->session_id, cs->request_id);
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->stream_url, cs->session_id, cs->request_id);
+  else if ((type == MEDIA_PLAY) || (type == MEDIA_PAUSE) || (type == MEDIA_STOP))
+    snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->media_session_id, cs->session_id, cs->request_id);
   else if (type == SET_VOLUME)
     snprintf(msg_buf, sizeof(msg_buf), cast_msg[type].payload, cs->volume, cs->request_id);
   else
@@ -479,10 +555,17 @@ cast_msg_parse(struct cast_msg_payload *payload, char *s)
     payload->request_id = json_object_get_int(needle);
 
   // Might be done now
-  if (payload->type != RECEIVER_STATUS)
+  if ((payload->type != RECEIVER_STATUS) && (payload->type != MEDIA_STATUS))
     return haystack;
 
   // Isn't this marvelous
+  if ( json_object_object_get_ex(haystack, "status", &needle) &&
+       (json_object_get_type(needle) == json_type_array) &&
+       (somehay = json_object_array_get_idx(needle, 0)) &&
+       json_object_object_get_ex(somehay, "mediaSessionId", &needle) &&
+       (json_object_get_type(needle) == json_type_int) )
+    payload->media_session_id = json_object_get_int(needle);
+
   if ( ! (json_object_object_get_ex(haystack, "status", &somehay) &&
           json_object_object_get_ex(somehay, "applications", &needle) &&
           (json_object_get_type(needle) == json_type_array) &&
@@ -706,9 +789,21 @@ cast_cb_startup_connect(struct cast_session *cs, struct cast_msg_payload *payloa
     }
 }
 
+// TODO Not really a cb right now
 static void
 cast_cb_close(struct cast_session *cs, struct cast_msg_payload *payload)
 {
+  output_status_cb status_cb;
+
+  cs->state = OUTPUT_STATE_STOPPED;
+
+  /* Session shut down, tell our user */
+  status_cb = cs->status_cb;
+  cs->status_cb = NULL;
+
+  status_cb(cs->device, cs->output_session, cs->state);
+
+  cast_session_cleanup(cs);
 }
 
 static void
@@ -722,6 +817,11 @@ cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
       return;
     }
 
+  if (!payload->media_session_id)
+    DPRINTF(E_LOG, L_CAST, "Did not get a media session id?\n");
+  else
+    cs->media_session_id = payload->media_session_id;
+
   cs->state = OUTPUT_STATE_STREAMING;
 
   DPRINTF(E_DBG, L_CAST, "Media loaded\n");
@@ -730,10 +830,38 @@ cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
 }
 
 static void
+cast_cb_stop(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  output_status_cb status_cb;
+
+  cs->state = OUTPUT_STATE_CONNECTED;
+
+  status_cb = cs->status_cb;
+  cs->status_cb = NULL;
+  status_cb(cs->device, cs->output_session, cs->state);
+  //TODO
+}
+
+static void
 cast_cb_volume(struct cast_session *cs, struct cast_msg_payload *payload)
 {
   output_status_cb status_cb;
 
+  status_cb = cs->status_cb;
+  cs->status_cb = NULL;
+  status_cb(cs->device, cs->output_session, cs->state);
+}
+
+static void
+cast_cb_flush(struct cast_session *cs, struct cast_msg_payload *payload)
+{
+  output_status_cb status_cb;
+
+  DPRINTF(E_DBG, L_CAST, "Cast CB flush called\n");
+
+  cs->state = OUTPUT_STATE_CONNECTED;
+
+  /* Let our user know */
   status_cb = cs->status_cb;
   cs->status_cb = NULL;
   status_cb(cs->device, cs->output_session, cs->state);
@@ -852,7 +980,17 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
 
   cs->server_fd = tcp_connect(address, port, family);
   if (cs->server_fd < 0)
-    goto out_deinit_gnutls;
+    {
+      DPRINTF(E_LOG, L_CAST, "Could not connect to %s\n", device->name);
+      goto out_deinit_gnutls;
+    }
+
+  ret = stream_url_make(cs->stream_url, sizeof(cs->stream_url), address, family);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_CAST, "Bug! Could find a network interface on same subnet as %s\n", device->name);
+      goto out_close_connection;
+    }
 
   // TODO Add a timeout to detect connection problems
   cs->ev = event_new(evbase_player, cs->server_fd, EV_READ | EV_PERSIST, cast_listen_cb, cs);
@@ -1028,9 +1166,13 @@ cast_device_stop(struct output_session *session)
   struct cast_session *cs = session->session;
 
   if (!(cs->state & OUTPUT_STATE_F_CONNECTED))
-    cast_session_cleanup(cs);
-  else
-    cast_msg_send(cs, CLOSE, cast_cb_close);
+    {
+      cast_session_cleanup(cs);
+      return;
+    }
+
+  cast_msg_send(cs, CLOSE, NULL);
+  cast_cb_close(cs, NULL);
 }
 
 static int
@@ -1066,11 +1208,74 @@ cast_playback_start(uint64_t next_pkt, struct timespec *ts)
 {
   struct cast_session *cs;
 
+  if (evtimer_pending(flush_timer, NULL))
+    event_del(flush_timer);
+
   for (cs = sessions; cs; cs = cs->next)
     {
       if (cs->state == OUTPUT_STATE_CONNECTED)
 	cast_msg_send(cs, MEDIA_LOAD, cast_cb_load);
     }
+}
+
+static void
+cast_playback_stop(void)
+{
+  struct cast_session *cs;
+  int ret;
+
+  for (cs = sessions; cs; cs = cs->next)
+    {
+      ret = cast_msg_send(cs, MEDIA_STOP, cast_cb_stop);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_CAST, "MEDIA_STOP request failed!\n");
+    }
+}
+
+static void
+cast_flush_timer_cb(int fd, short what, void *arg)
+{
+  DPRINTF(E_DBG, L_CAST, "Flush timer expired; tearing down all sessions\n");
+
+  cast_playback_stop();
+}
+
+static int
+cast_flush(output_status_cb cb, uint64_t rtptime)
+{
+  struct cast_session *cs;
+  struct cast_session *next;
+  struct timeval tv;
+  int pending;
+  int ret;
+
+  pending = 0;
+  for (cs = sessions; cs; cs = next)
+    {
+      next = cs->next;
+
+      if (cs->state != OUTPUT_STATE_STREAMING)
+	continue;
+
+      ret = cast_msg_send(cs, MEDIA_PAUSE, cast_cb_flush);
+      if (ret < 0)
+	{
+	  cast_session_failure(cs);
+	  continue;
+	}
+
+      cs->status_cb = cb;
+      pending++;
+    }
+
+  if (pending > 0)
+    {
+      evutil_timerclear(&tv);
+      tv.tv_sec = 10;
+      evtimer_add(flush_timer, &tv);
+    }
+
+  return pending;
 }
 
 static void
@@ -1081,12 +1286,9 @@ cast_set_status_cb(struct output_session *session, output_status_cb cb)
   cs->status_cb = cb;
 }
 
-
 static int
 cast_init(void)
 {
-  char hostname[256];
-  int port;
   int mdns_flags;
   int i;
   int ret;
@@ -1101,16 +1303,6 @@ cast_init(void)
 	}
     }
 
-  ret = gethostname(hostname, sizeof(hostname));
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_CAST, "Could not determine own hostname: %s\n", strerror(errno));
-      return -1;
-    }
-  port = cfg_getint(cfg_getsec(cfg, "library"), "port");
-
-  snprintf(cast_stream_url, sizeof(cast_stream_url), "http://%s:%d/stream.mp3", hostname, port);
-
   // TODO Setting the cert file may not be required
   if ( ((ret = gnutls_global_init()) != GNUTLS_E_SUCCESS) ||
        ((ret = gnutls_certificate_allocate_credentials(&tls_credentials)) != GNUTLS_E_SUCCESS) ||
@@ -1120,17 +1312,26 @@ cast_init(void)
       return -1;
     }
 
+  flush_timer = evtimer_new(evbase_player, cast_flush_timer_cb, NULL);
+  if (!flush_timer)
+    {
+      DPRINTF(E_LOG, L_CAST, "Out of memory for flush timer\n");
+      goto out_tls_deinit;
+    }
+
   mdns_flags = MDNS_WANT_V4 | MDNS_WANT_V6 | MDNS_WANT_V6LL;
 
   ret = mdns_browse("_googlecast._tcp", mdns_flags, cast_device_cb);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not add mDNS browser for Chromecast devices\n");
-      goto out_tls_deinit;
+      goto out_free_flush_timer;
     }
 
   return 0;
 
+ out_free_flush_timer:
+  event_free(flush_timer);
  out_tls_deinit:
   gnutls_certificate_free_credentials(tls_credentials);
   gnutls_global_deinit();
@@ -1149,6 +1350,8 @@ cast_deinit(void)
       cast_session_free(cs);
     }
 
+  event_free(flush_timer);
+
   gnutls_certificate_free_credentials(tls_credentials);
   gnutls_global_deinit();
 }
@@ -1163,13 +1366,13 @@ struct output_definition output_cast =
   .deinit = cast_deinit,
   .device_start = cast_device_start,
   .device_stop = cast_device_stop,
-/*  .device_probe = cast_device_probe,
-  .device_free_extra = cast_device_free_extra,*/
+//  .device_probe = cast_device_probe,
+//  .device_free_extra is unset - nothing to free
   .device_volume_set = cast_volume_set,
   .playback_start = cast_playback_start,
-/*  .playback_stop = cast_playback_stop,
-  .write = cast_write,
-  .flush = cast_flush,*/
+  .playback_stop = cast_playback_stop,
+//  .write is unset - we don't write, the Chromecast will read our mp3 stream
+  .flush = cast_flush,
   .status_cb = cast_set_status_cb,
 /*  .metadata_prepare = cast_metadata_prepare,
   .metadata_send = cast_metadata_send,

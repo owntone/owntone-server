@@ -167,7 +167,7 @@ struct output_definition
   // Write stream data to the output devices
   void (*write)(uint8_t *buf, uint64_t rtptime);
 
-  // Flush all sessions
+  // Flush all sessions, the return must be number of sessions pending the flush
   int (*flush)(output_status_cb cb, uint64_t rtptime);
 
   // Change the call back associated with a session

@@ -180,7 +180,6 @@ outputs_write(uint8_t *buf, uint64_t rtptime)
     }
 }
 
-// TODO output of this makes little sense
 int
 outputs_flush(output_status_cb cb, uint64_t rtptime)
 {
@@ -194,7 +193,7 @@ outputs_flush(output_status_cb cb, uint64_t rtptime)
 	continue;
 
       if (outputs[i]->flush)
-	ret = outputs[i]->flush(cb, rtptime);
+	ret += outputs[i]->flush(cb, rtptime);
     }
 
   return ret;
