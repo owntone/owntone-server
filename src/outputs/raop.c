@@ -2209,6 +2209,7 @@ raop_metadata_send(void *metadata, uint64_t rtptime, uint64_t offset, int startu
 {
   struct raop_metadata *rmd;
   struct raop_session *rs;
+  struct raop_session *next;
   uint32_t delay;
   int ret;
 
@@ -2225,8 +2226,10 @@ raop_metadata_send(void *metadata, uint64_t rtptime, uint64_t offset, int startu
       metadata_tail = rmd;
     }
 
-  for (rs = sessions; rs; rs = rs->next)
+  for (rs = sessions; rs; rs = next)
     {
+      next = rs->next;
+
       if (!(rs->state & OUTPUT_STATE_F_CONNECTED))
 	continue;
 
@@ -2449,12 +2452,15 @@ raop_flush(output_status_cb cb, uint64_t rtptime)
 {
   struct timeval tv;
   struct raop_session *rs;
+  struct raop_session *next;
   int pending;
   int ret;
 
   pending = 0;
-  for (rs = sessions; rs; rs = rs->next)
+  for (rs = sessions; rs; rs = next)
     {
+      next = rs->next;
+
       if (rs->state != OUTPUT_STATE_STREAMING)
 	continue;
 
@@ -4329,7 +4335,7 @@ raop_init(void)
   flush_timer = evtimer_new(evbase_player, raop_flush_timer_cb, NULL);
   if (!flush_timer)
     {
-      DPRINTF(E_LOG, L_RAOP, "AirTunes v2 playback synchronization failed to start\n");
+      DPRINTF(E_LOG, L_RAOP, "Out of memory for flush timer\n");
 
       goto out_free_b64_iv;
     }
@@ -4339,7 +4345,7 @@ raop_init(void)
   ret = raop_v2_timing_start(v6enabled);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "AirTunes v2 time synchronization failed to start\n");
+      DPRINTF(E_LOG, L_RAOP, "AirPlay time synchronization failed to start\n");
 
       goto out_free_flush_timer;
     }
@@ -4347,7 +4353,7 @@ raop_init(void)
   ret = raop_v2_control_start(v6enabled);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_RAOP, "AirTunes v2 playback synchronization failed to start\n");
+      DPRINTF(E_LOG, L_RAOP, "AirPlay playback synchronization failed to start\n");
 
       goto out_stop_timing;
     }
