@@ -34,9 +34,9 @@ enum output_types
 /* Output session state */
 
 // Session is starting up
-#define OUTPUT_STATE_F_STARTUP    (1 << 15)
+#define OUTPUT_STATE_F_STARTUP    (1 << 14)
 // Streaming is up (connection established)
-#define OUTPUT_STATE_F_CONNECTED  (1 << 16)
+#define OUTPUT_STATE_F_CONNECTED  (1 << 15)
 enum output_device_state
 {
   OUTPUT_STATE_STOPPED   = 0,
@@ -47,6 +47,8 @@ enum output_device_state
   OUTPUT_STATE_ANNOUNCE  = OUTPUT_STATE_F_STARTUP | 0x02,
   OUTPUT_STATE_SETUP     = OUTPUT_STATE_F_STARTUP | 0x03,
   OUTPUT_STATE_RECORD    = OUTPUT_STATE_F_STARTUP | 0x04,
+
+  OUTPUT_STATE_STARTUP   = OUTPUT_STATE_F_STARTUP,
 
   // Session established
   // - streaming ready (RECORD sent and acked, connection established)

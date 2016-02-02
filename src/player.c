@@ -1883,6 +1883,8 @@ device_streaming_cb(struct output_device *device, struct output_session *session
 {
   int ret;
 
+  DPRINTF(E_DBG, L_PLAYER, "CALLBACK streaming_cb %d\n", status);
+
   if (status == OUTPUT_STATE_FAILED)
     {
       output_sessions--;
@@ -1924,11 +1926,15 @@ device_streaming_cb(struct output_device *device, struct output_session *session
       if (!device->advertised)
 	device_remove(device);
     }
+  else
+    outputs_status_cb(session, device_streaming_cb);
 }
 
 static void
 device_command_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
+  DPRINTF(E_DBG, L_PLAYER, "CALLBACK command_cb %d %d\n", status, cur_cmd->raop_pending);
+
   cur_cmd->raop_pending--;
 
   outputs_status_cb(session, device_streaming_cb);
@@ -1951,6 +1957,8 @@ static void
 device_shutdown_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   int ret;
+
+  DPRINTF(E_DBG, L_PLAYER, "CALLBACK shutdown_cb %d\n", status);
 
   cur_cmd->raop_pending--;
 
@@ -1986,6 +1994,8 @@ device_shutdown_cb(struct output_device *device, struct output_session *session,
 static void
 device_lost_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
+  DPRINTF(E_DBG, L_PLAYER, "CALLBACK lost_cb %d\n", status);
+
   /* We lost that device during startup for some reason, not much we can do here */
   if (status == OUTPUT_STATE_FAILED)
     DPRINTF(E_WARN, L_PLAYER, "Failed to stop lost device\n");
@@ -1998,6 +2008,8 @@ device_activate_cb(struct output_device *device, struct output_session *session,
 {
   struct timespec ts;
   int ret;
+
+  DPRINTF(E_DBG, L_PLAYER, "CALLBACK activate_cb %d %d\n", status, OUTPUT_STATE_F_STARTUP);
 
   cur_cmd->raop_pending--;
 
@@ -2070,6 +2082,8 @@ device_probe_cb(struct output_device *device, struct output_session *session, en
 {
   int ret;
 
+  DPRINTF(E_DBG, L_PLAYER, "CALLBACK probe_cb %d\n", status);
+
   cur_cmd->raop_pending--;
 
   ret = device_check(device);
@@ -2116,6 +2130,8 @@ static void
 device_restart_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   int ret;
+
+  DPRINTF(E_DBG, L_PLAYER, "CALLBACK restart_cb %d %d\n", status, OUTPUT_STATE_F_STARTUP);
 
   cur_cmd->raop_pending--;
 
@@ -2336,7 +2352,6 @@ playback_stop(struct player_command *cmd)
    * full stop just yet; this saves time when restarting, which is nicer
    * for the user.
    */
-//TODO Flush will give wrong result for raop_pending when CAST is also included
   cmd->raop_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
   pb_timer_stop();
