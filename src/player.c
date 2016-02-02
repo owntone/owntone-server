@@ -1885,19 +1885,20 @@ device_streaming_cb(struct output_device *device, struct output_session *session
 
   DPRINTF(E_DBG, L_PLAYER, "CALLBACK streaming_cb %d\n", status);
 
+  ret = device_check(device);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Output device disappeared during streaming!\n");
+
+      output_sessions--;
+      return;
+    }
+
   if (status == OUTPUT_STATE_FAILED)
     {
-      output_sessions--;
-
-      ret = device_check(device);
-      if (ret < 0)
-	{
-	  DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during streaming!\n");
-
-	  return;
-	}
-
       DPRINTF(E_LOG, L_PLAYER, "The %s device '%s' FAILED\n", device->type_name, device->name);
+
+      output_sessions--;
 
       if (player_state == PLAY_PLAYING)
 	speaker_deselect_output(device);
@@ -1906,20 +1907,15 @@ device_streaming_cb(struct output_device *device, struct output_session *session
 
       if (!device->advertised)
 	device_remove(device);
+
+      if (output_sessions == 0)
+	playback_abort();
     }
   else if (status == OUTPUT_STATE_STOPPED)
     {
-      output_sessions--;
-
-      ret = device_check(device);
-      if (ret < 0)
-	{
-	  DPRINTF(E_WARN, L_PLAYER, "Output device disappeared during streaming!\n");
-
-	  return;
-	}
-
       DPRINTF(E_INFO, L_PLAYER, "The %s device '%s' stopped\n", device->type_name, device->name);
+
+      output_sessions--;
 
       device->session = NULL;
 

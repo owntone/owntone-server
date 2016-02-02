@@ -83,9 +83,11 @@ typedef void (*cast_reply_cb)(struct cast_session *cs, struct cast_msg_payload *
 // Session is starting up
 #define CAST_STATE_F_STARTUP         (1 << 14)
 // The default receiver app is ready
-#define CAST_STATE_F_MEDIA_CONNECTED (1 << 15)
+#define CAST_STATE_F_MEDIA_CONNECTED (1 << 14)
 // Media is loaded in the receiver app
-#define CAST_STATE_F_MEDIA_LOADED    (1 << 16)
+#define CAST_STATE_F_MEDIA_LOADED    (1 << 15)
+// Media is playing in the receiver app
+#define CAST_STATE_F_MEDIA_PLAYING   (1 << 16)
 
 // Beware, the order of this enum has meaning
 enum cast_state
@@ -104,14 +106,12 @@ enum cast_state
   CAST_STATE_MEDIA_CONNECTED = CAST_STATE_F_MEDIA_CONNECTED,
   // Receiver app has loaded our media
   CAST_STATE_MEDIA_LOADED    = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED,
-  // After LOAD
-  CAST_STATE_MEDIA_BUFFERING = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | 0x01,
-  // After PLAY
-  CAST_STATE_MEDIA_PLAYING   = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | 0x02,
   // After PAUSE
-  CAST_STATE_MEDIA_PAUSED    = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | 0x03,
-  // After STOP
-  CAST_STATE_MEDIA_IDLE      = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | 0x04,
+  CAST_STATE_MEDIA_PAUSED    = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | 0x01,
+  // After LOAD
+  CAST_STATE_MEDIA_BUFFERING = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | CAST_STATE_F_MEDIA_PLAYING,
+  // After PLAY
+  CAST_STATE_MEDIA_PLAYING   = CAST_STATE_F_MEDIA_CONNECTED | CAST_STATE_F_MEDIA_LOADED | CAST_STATE_F_MEDIA_PLAYING | 0x01,
 };
 
 struct cast_session
@@ -197,6 +197,7 @@ struct cast_msg_payload
   const char *app_id;
   const char *session_id;
   const char *transport_id;
+  const char *player_state;
   int media_session_id;
 };
 
@@ -326,7 +327,7 @@ extern struct event_base *evbase_player;
 static gnutls_certificate_credentials_t tls_credentials;
 static struct cast_session *sessions;
 static struct event *flush_timer;
-
+static struct timeval cast_timeout = { 8, 0 };
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
 
@@ -533,7 +534,7 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
   int ret;
 
 #ifdef DEBUG_LOG_MODE
-  DPRINTF(E_DBG, L_CAST, "Preparing to send message type %d to %s\n", type, cs->devname);
+  DPRINTF(E_DBG, L_CAST, "Preparing to send message type %d to '%s'\n", type, cs->devname);
 #endif
 
   msg.source_id = "sender-0";
@@ -646,28 +647,35 @@ cast_msg_parse(struct cast_msg_payload *payload, char *s)
   // Isn't this marvelous
   if ( json_object_object_get_ex(haystack, "status", &needle) &&
        (json_object_get_type(needle) == json_type_array) &&
-       (somehay = json_object_array_get_idx(needle, 0)) &&
-       json_object_object_get_ex(somehay, "mediaSessionId", &needle) &&
-       (json_object_get_type(needle) == json_type_int) )
-    payload->media_session_id = json_object_get_int(needle);
+       (somehay = json_object_array_get_idx(needle, 0)) )
+    {
+      if ( json_object_object_get_ex(somehay, "mediaSessionId", &needle) &&
+           (json_object_get_type(needle) == json_type_int) )
+	payload->media_session_id = json_object_get_int(needle);
 
-  if ( ! (json_object_object_get_ex(haystack, "status", &somehay) &&
-          json_object_object_get_ex(somehay, "applications", &needle) &&
-          (json_object_get_type(needle) == json_type_array) &&
-          (somehay = json_object_array_get_idx(needle, 0))) )
-    return haystack;
+      if ( json_object_object_get_ex(somehay, "playerState", &needle) &&
+           (json_object_get_type(needle) == json_type_string) )
+	payload->player_state = json_object_get_string(needle);
+    }
 
-  if ( json_object_object_get_ex(somehay, "appId", &needle) &&
-       (json_object_get_type(needle) == json_type_string) )
-    payload->app_id = json_object_get_string(needle);
 
-  if ( json_object_object_get_ex(somehay, "sessionId", &needle) &&
-       (json_object_get_type(needle) == json_type_string) )
-    payload->session_id = json_object_get_string(needle);
+  if ( json_object_object_get_ex(haystack, "status", &somehay) &&
+       json_object_object_get_ex(somehay, "applications", &needle) &&
+       (json_object_get_type(needle) == json_type_array) &&
+       (somehay = json_object_array_get_idx(needle, 0)) )
+    {
+      if ( json_object_object_get_ex(somehay, "appId", &needle) &&
+           (json_object_get_type(needle) == json_type_string) )
+	payload->app_id = json_object_get_string(needle);
 
-  if ( json_object_object_get_ex(somehay, "transportId", &needle) &&
-       (json_object_get_type(needle) == json_type_string) )
-    payload->transport_id = json_object_get_string(needle);
+      if ( json_object_object_get_ex(somehay, "sessionId", &needle) &&
+           (json_object_get_type(needle) == json_type_string) )
+	payload->session_id = json_object_get_string(needle);
+
+      if ( json_object_object_get_ex(somehay, "transportId", &needle) &&
+           (json_object_get_type(needle) == json_type_string) )
+	payload->transport_id = json_object_get_string(needle);
+    }
 
   return haystack;
 }
@@ -714,8 +722,6 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
   if (payload.type == UNKNOWN)
     goto out_free_parsed;
 
-  // TODO: UPDATE SESSION STATUS AND READ BROADCASTS
-
   i = payload.request_id % CALLBACK_REGISTER_SIZE;
   if (payload.request_id && cs->callback_register[i])
     {
@@ -724,20 +730,34 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
       goto out_free_parsed;
     }
 
+  // TODO: UPDATE SESSION STATUS AND READ BROADCASTS
+
   if (payload.type == RECEIVER_STATUS && (cs->state & CAST_STATE_F_MEDIA_CONNECTED))
     {
       unknown_app_id = payload.app_id && (strcmp(payload.app_id, CAST_APP_ID) != 0);
       unknown_session_id = payload.session_id && (strcmp(payload.session_id, cs->session_id) != 0);
       if (unknown_app_id || unknown_session_id)
 	{
-	  DPRINTF(E_WARN, L_CAST, "Our session on %s was hijacked\n", cs->devname);
+	  DPRINTF(E_WARN, L_CAST, "Our session on '%s' was hijacked\n", cs->devname);
 
 	  // Downgrade state, we don't have the receiver app any more
 	  cs->state = CAST_STATE_CONNECTED;
 	  cast_session_shutdown(cs, CAST_STATE_FAILED);
-DPRINTF(E_WARN, L_CAST, "POINT 1\n");
 	  goto out_free_parsed;
 	}
+    }
+
+  if (payload.type == MEDIA_STATUS && (cs->state & CAST_STATE_F_MEDIA_PLAYING))
+    {
+      if (payload.player_state && (strcmp(payload.player_state, "PAUSED") == 0))
+	{
+	  DPRINTF(E_WARN, L_CAST, "Something paused our session on '%s'\n", cs->devname);
+
+/*	  cs->state = CAST_STATE_MEDIA_CONNECTED;
+	  // Kill the session, the player will need to restart it
+	  cast_session_shutdown(cs, CAST_STATE_NULL);
+	  goto out_free_parsed;
+*/	}
     }
 
  out_free_parsed:
@@ -772,7 +792,10 @@ cast_status(struct cast_session *cs)
       case CAST_STATE_MEDIA_CONNECTED:
 	state = OUTPUT_STATE_CONNECTED;
 	break;
-      case CAST_STATE_MEDIA_LOADED ... CAST_STATE_MEDIA_IDLE:
+      case CAST_STATE_MEDIA_LOADED ... CAST_STATE_MEDIA_PAUSED:
+	state = OUTPUT_STATE_CONNECTED;
+	break;
+      case CAST_STATE_MEDIA_BUFFERING ... CAST_STATE_MEDIA_PLAYING:
 	state = OUTPUT_STATE_STREAMING;
 	break;
       default:
@@ -934,7 +957,7 @@ cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
 {
   if ((payload->type == MEDIA_LOAD_FAILED) || (payload->type == MEDIA_LOAD_CANCELLED))
     {
-      DPRINTF(E_LOG, L_CAST, "The device %s could not start playback\n", cs->devname);
+      DPRINTF(E_LOG, L_CAST, "The device '%s' could not start playback\n", cs->devname);
       cast_session_shutdown(cs, CAST_STATE_FAILED);
       return;
     }
@@ -947,7 +970,9 @@ cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
     }
 
   cs->media_session_id = payload->media_session_id;
-  cs->state = CAST_STATE_MEDIA_LOADED;
+// TODO don't autoplay
+//  cs->state = CAST_STATE_MEDIA_LOADED;
+  cs->state = CAST_STATE_MEDIA_PLAYING;
 
   cast_status(cs);
 }
@@ -963,7 +988,7 @@ cast_cb_flush(struct cast_session *cs, struct cast_msg_payload *payload)
 {
   if (payload->type != MEDIA_STATUS)
     {
-      DPRINTF(E_LOG, L_CAST, "Unexpected reply to PAUSE request from %s - will continue\n", cs->devname);
+      DPRINTF(E_LOG, L_CAST, "Unexpected reply to PAUSE request from '%s' - will continue\n", cs->devname);
     }
 
   cs->state = CAST_STATE_MEDIA_PAUSED;
@@ -986,8 +1011,16 @@ cast_listen_cb(int fd, short what, void *arg)
 
   cs = (struct cast_session *)arg;
 
+  if (what == EV_TIMEOUT)
+    {
+      DPRINTF(E_LOG, L_CAST, "No heartbeat from '%s', shutting down\n", cs->devname);
+      cs->state = CAST_STATE_CONNECTED;
+      cast_session_shutdown(cs, CAST_STATE_FAILED);
+      return;
+    }
+
 #ifdef DEBUG_LOG_MODE
-  DPRINTF(E_DBG, L_CAST, "New data from %s\n", cs->devname);
+  DPRINTF(E_DBG, L_CAST, "New data from '%s'\n", cs->devname);
 #endif
 
   received = 0;
@@ -1039,29 +1072,21 @@ static void
 cast_device_cb(const char *name, const char *type, const char *domain, const char *hostname, int family, const char *address, int port, struct keyval *txt)
 {
   struct output_device *device;
-  const char *p;
   uint32_t id;
 
-  p = keyval_get(txt, "id");
-  if (p)
-    id = djb_hash(p, strlen(p));
-  else
-    id = 0;
-
+  id = djb_hash(name, strlen(name));
   if (!id)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not extract ChromeCast device ID (%s)\n", name);
-
+      DPRINTF(E_LOG, L_CAST, "Could not hash ChromeCast device name (%s)\n", name);
       return;
     }
 
-  DPRINTF(E_DBG, L_PLAYER, "Event for Chromecast device %s (port %d, id %" PRIu32 ")\n", name, port, id);
+  DPRINTF(E_DBG, L_CAST, "Event for Chromecast device '%s' (port %d, id %" PRIu32 ")\n", name, port, id);
 
   device = calloc(1, sizeof(struct output_device));
   if (!device)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Out of memory for new Chromecast device\n");
-
+      DPRINTF(E_LOG, L_CAST, "Out of memory for new Chromecast device\n");
       return;
     }
 
@@ -1089,7 +1114,7 @@ cast_device_cb(const char *name, const char *type, const char *domain, const cha
       return;
     }
 
-  DPRINTF(E_INFO, L_PLAYER, "Adding Chromecast device %s\n", name);
+  DPRINTF(E_INFO, L_CAST, "Adding Chromecast device '%s'\n", name);
 
   device->advertised = 1;
 
@@ -1207,7 +1232,7 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
   flags = fcntl(cs->server_fd, F_GETFL, 0);
   fcntl(cs->server_fd, F_SETFL, flags | O_NONBLOCK);
 
-  event_add(cs->ev, NULL);
+  event_add(cs->ev, &cast_timeout);
 
   cs->devname = strdup(device->name);
   cs->address = strdup(address);
@@ -1219,7 +1244,7 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
 
   proto = gnutls_protocol_get_name(gnutls_protocol_get_version(cs->tls_session));
 
-  DPRINTF(E_INFO, L_CAST, "Connection to %s established using %s\n", cs->devname, proto);
+  DPRINTF(E_INFO, L_CAST, "Connection to '%s' established using %s\n", cs->devname, proto);
 
   return cs;
 
@@ -1243,9 +1268,14 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
   int pending;
   int ret;
 
-  if (wanted_state >= cs->state)
+  if (cs->state == wanted_state)
     {
-      DPRINTF(E_LOG, L_CAST, "Bug! Shutdown request wanted_state should be lower than current state\n");
+      cast_status(cs);
+      return;
+    }
+  else if (cs->state < wanted_state)
+    {
+      DPRINTF(E_LOG, L_CAST, "Bug! Shutdown request got wanted_state that is higher than current state\n");
       return;
     }
 
@@ -1254,7 +1284,7 @@ cast_session_shutdown(struct cast_session *cs, enum cast_state wanted_state)
   pending = 0;
   switch (cs->state)
     {
-      case CAST_STATE_MEDIA_LOADED ... CAST_STATE_MEDIA_IDLE:
+      case CAST_STATE_MEDIA_LOADED ... CAST_STATE_MEDIA_PLAYING:
 	ret = cast_msg_send(cs, MEDIA_STOP, cast_cb_stop_media);
 	pending = 1;
 	break;
@@ -1483,7 +1513,7 @@ cast_flush(output_status_cb cb, uint64_t rtptime)
     {
       next = cs->next;
 
-      if (!(cs->state & CAST_STATE_F_MEDIA_LOADED))
+      if (!(cs->state & CAST_STATE_F_MEDIA_PLAYING))
 	continue;
 
       ret = cast_msg_send(cs, MEDIA_PAUSE, cast_cb_flush);
@@ -1553,7 +1583,7 @@ cast_init(void)
   ret = mdns_browse("_googlecast._tcp", mdns_flags, cast_device_cb);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Could not add mDNS browser for Chromecast devices\n");
+      DPRINTF(E_LOG, L_CAST, "Could not add mDNS browser for Chromecast devices\n");
       goto out_free_flush_timer;
     }
 
