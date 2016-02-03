@@ -838,7 +838,7 @@ cast_status(struct cast_session *cs)
 static void
 cast_cb_stop(struct cast_session *cs, struct cast_msg_payload *payload)
 {
-  if (payload->type != RECEIVER_STATUS)
+  if (!payload || (payload->type != RECEIVER_STATUS))
     {
       DPRINTF(E_LOG, L_CAST, "No RECEIVER_STATUS reply to our STOP (got type: %d) - will continue anyway\n", payload->type);
     }
@@ -854,7 +854,7 @@ cast_cb_stop(struct cast_session *cs, struct cast_msg_payload *payload)
 static void
 cast_cb_stop_media(struct cast_session *cs, struct cast_msg_payload *payload)
 {
-  if (payload->type != MEDIA_STATUS)
+  if (!payload || (payload->type != MEDIA_STATUS))
     {
       DPRINTF(E_LOG, L_CAST, "No MEDIA_STATUS reply to our STOP (got type: %d) - will continue anyway\n", payload->type);
     }
@@ -883,7 +883,7 @@ cast_cb_startup_media(struct cast_session *cs, struct cast_msg_payload *payload)
 {
   int ret;
 
-  if (payload->type != MEDIA_STATUS)
+  if (!payload || (payload->type != MEDIA_STATUS))
     {
       DPRINTF(E_LOG, L_CAST, "No MEDIA_STATUS reply to our GET_STATUS (got type: %d) - aborting\n", payload->type);
       cast_session_shutdown(cs, CAST_STATE_FAILED);
@@ -905,7 +905,7 @@ cast_cb_startup_launch(struct cast_session *cs, struct cast_msg_payload *payload
 {
   int ret;
 
-  if (payload->type != RECEIVER_STATUS)
+  if (!payload || (payload->type != RECEIVER_STATUS))
     {
       DPRINTF(E_LOG, L_CAST, "No RECEIVER_STATUS reply to our LAUNCH (got type: %d) - aborting\n", payload->type);
       cast_session_shutdown(cs, CAST_STATE_FAILED);
@@ -943,7 +943,7 @@ cast_cb_startup_connect(struct cast_session *cs, struct cast_msg_payload *payloa
 {
   int ret;
 
-  if (payload->type != RECEIVER_STATUS)
+  if (!payload || (payload->type != RECEIVER_STATUS))
     {
       DPRINTF(E_LOG, L_CAST, "No RECEIVER_STATUS reply to our GET_STATUS (got type: %d) - aborting\n", payload->type);
       cast_session_shutdown(cs, CAST_STATE_FAILED);
@@ -964,7 +964,7 @@ cast_cb_startup_connect(struct cast_session *cs, struct cast_msg_payload *payloa
 static void
 cast_cb_probe(struct cast_session *cs, struct cast_msg_payload *payload)
 {
-  if (payload->type != RECEIVER_STATUS)
+  if (!payload || (payload->type != RECEIVER_STATUS))
     {
       DPRINTF(E_LOG, L_CAST, "No RECEIVER_STATUS reply to our GET_STATUS (got type: %d) - aborting\n", payload->type);
       cast_session_shutdown(cs, CAST_STATE_FAILED);
@@ -982,6 +982,13 @@ cast_cb_probe(struct cast_session *cs, struct cast_msg_payload *payload)
 static void
 cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
 {
+  if (!payload)
+    {
+      DPRINTF(E_LOG, L_CAST, "No reply from '%s' to our LOAD request\n", cs->devname);
+      cast_session_shutdown(cs, CAST_STATE_FAILED);
+      return;
+    }
+
   if ((payload->type == MEDIA_LOAD_FAILED) || (payload->type == MEDIA_LOAD_CANCELLED))
     {
       DPRINTF(E_LOG, L_CAST, "The device '%s' could not start playback\n", cs->devname);
@@ -1012,9 +1019,9 @@ cast_cb_volume(struct cast_session *cs, struct cast_msg_payload *payload)
 static void
 cast_cb_flush(struct cast_session *cs, struct cast_msg_payload *payload)
 {
-  if (payload->type != MEDIA_STATUS)
+  if (!payload || (payload->type != MEDIA_STATUS))
     {
-      DPRINTF(E_LOG, L_CAST, "Unexpected reply to PAUSE request from '%s' - will continue\n", cs->devname);
+      DPRINTF(E_LOG, L_CAST, "Unexpected or no reply to PAUSE request from '%s' - will continue\n", cs->devname);
     }
 
   cs->state = CAST_STATE_MEDIA_PAUSED;
@@ -1526,6 +1533,7 @@ cast_playback_start(uint64_t next_pkt, struct timespec *ts)
   if (evtimer_pending(flush_timer, NULL))
     event_del(flush_timer);
 
+  // TODO Maybe we could avoid reloading and instead support play->pause->play
   for (cs = sessions; cs; cs = cs->next)
     {
       if (cs->state & CAST_STATE_F_MEDIA_CONNECTED)
