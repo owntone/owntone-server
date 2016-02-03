@@ -1,7 +1,8 @@
 /*
  * Copyright (C) 2015-2016 Espen Jürgensen <espenjurgensen@gmail.com>
  *
- * TODO Credits
+ * Credit goes to the authors of pychromecast and those before that who have
+ * discovered how to do this.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -50,6 +51,13 @@
 // CA file location (not very portable...?)
 #define CAFILE "/etc/ssl/certs/ca-certificates.crt"
 
+// Seconds without a heartbeat from the Chromecast before we close the session
+#define HEARTBEAT_TIMEOUT 8
+// Seconds after a flush (pause) before we close the session
+#define FLUSH_TIMEOUT 30
+// Seconds to wait for a reply before making the callback requested by caller
+#define REPLY_TIMEOUT 5
+
 // ID of the default receiver app
 #define CAST_APP_ID "CC1AD845"
 
@@ -65,7 +73,7 @@
 
 #define CALLBACK_REGISTER_SIZE 32
 
-//#define DEBUG_LOG_MODE 1
+//#define DEBUG_CONNECTION 1
 
 union sockaddr_all
 {
@@ -81,7 +89,7 @@ struct cast_msg_payload;
 typedef void (*cast_reply_cb)(struct cast_session *cs, struct cast_msg_payload *payload);
 
 // Session is starting up
-#define CAST_STATE_F_STARTUP         (1 << 14)
+#define CAST_STATE_F_STARTUP         (1 << 13)
 // The default receiver app is ready
 #define CAST_STATE_F_MEDIA_CONNECTED (1 << 14)
 // Media is loaded in the receiver app
@@ -139,9 +147,11 @@ struct cast_session
 
   // Outgoing request which have the USE_REQUEST_ID flag get a new id, and a
   // callback is registered. The callback is called when an incoming message
-  // from the peer with that request id arrives.
+  // from the peer with that request id arrives. If nothing arrives within
+  // REPLY_TIMEOUT we make the callback with a NULL payload pointer.
   int request_id;
   cast_reply_cb callback_register[CALLBACK_REGISTER_SIZE];
+  struct event *reply_timeout;
 
   // Session info from the ChromeCast
   char *transport_id;
@@ -327,7 +337,10 @@ extern struct event_base *evbase_player;
 static gnutls_certificate_credentials_t tls_credentials;
 static struct cast_session *sessions;
 static struct event *flush_timer;
-static struct timeval cast_timeout = { 8, 0 };
+static struct timeval heartbeat_timeout = { HEARTBEAT_TIMEOUT, 0 };
+static struct timeval flush_timeout = { FLUSH_TIMEOUT, 0 };
+static struct timeval reply_timeout = { REPLY_TIMEOUT, 0 };
+
 
 /* ------------------------------- MISC HELPERS ----------------------------- */
 
@@ -473,6 +486,7 @@ squote_to_dquote(char *buf)
 static void
 cast_session_free(struct cast_session *cs)
 {
+  event_free(cs->reply_timeout);
   event_free(cs->ev);
 
   if (cs->server_fd >= 0)
@@ -533,7 +547,7 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
   size_t len;
   int ret;
 
-#ifdef DEBUG_LOG_MODE
+#ifdef DEBUG_CONNECTION
   DPRINTF(E_DBG, L_CAST, "Preparing to send message type %d to '%s'\n", type, cs->devname);
 #endif
 
@@ -555,8 +569,10 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
     {
       cs->request_id++;
       if (reply_cb)
-	cs->callback_register[cs->request_id % CALLBACK_REGISTER_SIZE] = reply_cb;
-      // TODO Timeout if we never get the reply?
+	{
+	  cs->callback_register[cs->request_id % CALLBACK_REGISTER_SIZE] = reply_cb;
+	  event_add(cs->reply_timeout, &reply_timeout);
+	}
     }
 
   // Special handling of some message types
@@ -602,7 +618,8 @@ cast_msg_send(struct cast_session *cs, enum cast_msg_types type, cast_reply_cb r
       return -1;
     }
 
-  DPRINTF(E_DBG, L_CAST, "TX %d %s %s %s %s\n", len, msg.source_id, msg.destination_id, msg.namespace_, msg.payload_utf8);
+  if (type != PONG)
+    DPRINTF(E_DBG, L_CAST, "TX %d %s %s %s %s\n", len, msg.source_id, msg.destination_id, msg.namespace_, msg.payload_utf8);
 
   return 0;
 }
@@ -691,6 +708,7 @@ static void
 cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
 {
   Extensions__CoreApi__CastChannel__CastMessage *reply;
+  cast_reply_cb reply_cb;
   struct cast_msg_payload payload = { 0 };
   void *hdl;
   int unknown_app_id;
@@ -703,8 +721,6 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
       DPRINTF(E_LOG, L_CAST, "Could not unpack message!\n");
       return;
     }
-
-  DPRINTF(E_DBG, L_CAST, "RX %d %s %s %s %s\n", len, reply->source_id, reply->destination_id, reply->namespace_, reply->payload_utf8);
 
   hdl = cast_msg_parse(&payload, reply->payload_utf8);
   if (!hdl)
@@ -719,18 +735,29 @@ cast_msg_process(struct cast_session *cs, const uint8_t *data, size_t len)
       goto out_free_parsed;
     }
 
+  DPRINTF(E_DBG, L_CAST, "RX %d %s %s %s %s\n", len, reply->source_id, reply->destination_id, reply->namespace_, reply->payload_utf8);
+
   if (payload.type == UNKNOWN)
     goto out_free_parsed;
 
   i = payload.request_id % CALLBACK_REGISTER_SIZE;
   if (payload.request_id && cs->callback_register[i])
     {
-      cs->callback_register[i](cs, &payload);
+      reply_cb = cs->callback_register[i];
       cs->callback_register[i] = NULL;
+
+      // Cancel the timeout if no pending callbacks
+      for (i = 0; (i < CALLBACK_REGISTER_SIZE) && (!cs->callback_register[i]); i++);
+
+      if (i == CALLBACK_REGISTER_SIZE)
+	evtimer_del(cs->reply_timeout);
+
+      reply_cb(cs, &payload);
+
       goto out_free_parsed;
     }
 
-  // TODO: UPDATE SESSION STATUS AND READ BROADCASTS
+  // TODO Should we read volume and playerstate changes from the Chromecast?
 
   if (payload.type == RECEIVER_STATUS && (cs->state & CAST_STATE_F_MEDIA_CONNECTED))
     {
@@ -970,8 +997,7 @@ cast_cb_load(struct cast_session *cs, struct cast_msg_payload *payload)
     }
 
   cs->media_session_id = payload->media_session_id;
-// TODO don't autoplay
-//  cs->state = CAST_STATE_MEDIA_LOADED;
+  // We autoplay for the time being
   cs->state = CAST_STATE_MEDIA_PLAYING;
 
   cast_status(cs);
@@ -1019,20 +1045,20 @@ cast_listen_cb(int fd, short what, void *arg)
       return;
     }
 
-#ifdef DEBUG_LOG_MODE
+#ifdef DEBUG_CONNECTION
   DPRINTF(E_DBG, L_CAST, "New data from '%s'\n", cs->devname);
 #endif
 
   received = 0;
   while ((ret = gnutls_record_recv(cs->tls_session, buffer + received, MAX_BUF - received)) > 0)
     {
-#ifdef DEBUG_LOG_MODE
+#ifdef DEBUG_CONNECTION
       DPRINTF(E_DBG, L_CAST, "Received %d bytes\n", ret);
 #endif
 
       if (ret == 4)
 	{
-#ifdef DEBUG_LOG_MODE
+#ifdef DEBUG_CONNECTION
 	  uint32_t be;
 	  size_t len;
 	  memcpy(&be, buffer, 4);
@@ -1066,6 +1092,24 @@ cast_listen_cb(int fd, short what, void *arg)
 
   if (received)
     cast_msg_process(cs, buffer, received);
+}
+
+static void
+cast_reply_timeout_cb(int fd, short what, void *arg)
+{
+  struct cast_session *cs;
+  int i;
+
+  cs = (struct cast_session *)arg;
+
+  DPRINTF(E_WARN, L_CAST, "Request timeout, will run empty callbacks\n");
+
+  for (i = 0; i < CALLBACK_REGISTER_SIZE; i++)
+    if (cs->callback_register[i])
+      {
+	cs->callback_register[i](cs, NULL);
+	cs->callback_register[i] = NULL;
+      }
 }
 
 static void
@@ -1213,11 +1257,17 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
       goto out_close_connection;
     }
 
-  // TODO Add a timeout to detect connection problems
   cs->ev = event_new(evbase_player, cs->server_fd, EV_READ | EV_PERSIST, cast_listen_cb, cs);
   if (!cs->ev)
     {
       DPRINTF(E_LOG, L_CAST, "Out of memory for listener event\n");
+      goto out_close_connection;
+    }
+
+  cs->reply_timeout = evtimer_new(evbase_player, cast_reply_timeout_cb, cs);
+  if (!cs->reply_timeout)
+    {
+      DPRINTF(E_LOG, L_CAST, "Out of memory for reply_timeout\n");
       goto out_close_connection;
     }
 
@@ -1232,7 +1282,7 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
   flags = fcntl(cs->server_fd, F_GETFL, 0);
   fcntl(cs->server_fd, F_SETFL, flags | O_NONBLOCK);
 
-  event_add(cs->ev, &cast_timeout);
+  event_add(cs->ev, &heartbeat_timeout);
 
   cs->devname = strdup(device->name);
   cs->address = strdup(address);
@@ -1249,6 +1299,7 @@ cast_session_make(struct output_device *device, int family, output_status_cb cb)
   return cs;
 
  out_free_ev:
+  event_free(cs->reply_timeout);
   event_free(cs->ev);
  out_close_connection:
   tcp_close(cs->server_fd);
@@ -1504,7 +1555,6 @@ cast_flush(output_status_cb cb, uint64_t rtptime)
 {
   struct cast_session *cs;
   struct cast_session *next;
-  struct timeval tv;
   int pending;
   int ret;
 
@@ -1528,11 +1578,7 @@ cast_flush(output_status_cb cb, uint64_t rtptime)
     }
 
   if (pending > 0)
-    {
-      evutil_timerclear(&tv);
-      tv.tv_sec = 10;
-      evtimer_add(flush_timer, &tv);
-    }
+    evtimer_add(flush_timer, &flush_timeout);
 
   return pending;
 }
@@ -1633,7 +1679,8 @@ struct output_definition output_cast =
 //  .write is unset - we don't write, the Chromecast will read our mp3 stream
   .flush = cast_flush,
   .status_cb = cast_set_status_cb,
-/*  .metadata_prepare = cast_metadata_prepare,
+/* TODO metadata support
+  .metadata_prepare = cast_metadata_prepare,
   .metadata_send = cast_metadata_send,
   .metadata_purge = cast_metadata_purge,
   .metadata_prune = cast_metadata_prune,
