@@ -14,7 +14,11 @@ LASTFM_SRC=lastfm.c lastfm.h
 endif
 
 if COND_CHROMECAST
+if COND_PROTOBUF_OLD
+CHROMECAST_SRC=outputs/cast.c outputs/cast_channel.v0.pb-c.h outputs/cast_channel.v0.pb-c.c
+else
 CHROMECAST_SRC=outputs/cast.c outputs/cast_channel.pb-c.h outputs/cast_channel.pb-c.c
+endif
 endif
 
 if COND_MPD

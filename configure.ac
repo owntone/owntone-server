@@ -186,11 +186,16 @@ dnl ChromeCast support with libprotobuf-c
 AC_ARG_ENABLE(chromecast, AS_HELP_STRING([--enable-chromecast], [enable ChromeCast support (default=no)]))
 AS_IF([test "x$enable_chromecast" = "xyes"], [
 	AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
-	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c ], , [ LDFLAGS="${LDFLAGS} -lprotobuf-c" ])
+	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c >= 1.0.0 ], , [ protobuf_old="yes" ])
 	PKG_CHECK_MODULES(GNUTLS, [ gnutls ])
 	PKG_CHECK_MODULES(JSON_C, [ json-c ])
 ])
+AS_IF([test "x$protobuf_old" = "xyes"], [
+	AC_DEFINE(HAVE_PROTOBUF_OLD, 1, [Define to 1 if you have libprotobuf < 1.0.0])
+	LDFLAGS="${LDFLAGS} -lprotobuf-c"
+])
 AM_CONDITIONAL(COND_CHROMECAST, [test "x$enable_chromecast" = "xyes"])
+AM_CONDITIONAL(COND_PROTOBUF_OLD, [test "x$protobuf_old" = "xyes"])
 
 dnl MPD support
 AC_ARG_ENABLE(mpd, AS_HELP_STRING([--disable-mpd], [disable MPD client protocol support (default=no)]))

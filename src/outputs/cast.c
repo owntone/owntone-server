@@ -44,7 +44,12 @@
 #include "logger.h"
 #include "player.h"
 #include "outputs.h"
+
+#ifdef HAVE_PROTOBUF_OLD
+#include "cast_channel.v0.pb-c.h"
+#else
 #include "cast_channel.pb-c.h"
+#endif
 
 // Number of bytes to request from TLS connection
 #define MAX_BUF 4096
