@@ -2065,7 +2065,7 @@ kqueue_cb(int fd, short event, void *arg)
 
   while ((d = pop_dir(&rescan)))
     {
-      process_directories(path, 0, d->parent_id);
+      process_directories(d->path, 0, d->parent_id);
 
       free(d->path);
       free(d);
