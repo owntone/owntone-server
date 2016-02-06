@@ -2021,6 +2021,46 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
 }
 
 /*
+ * Command handler function for 'plchangesposid'
+ * Lists all changed songs in the queue since the given playlist version in argv[1] without metadata.
+ */
+static int
+mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct queue *queue;
+  struct queue_item *item;
+  int count;
+  int i;
+
+  /*
+   * forked-daapd does not keep track of changes in the queue based on the playlist version,
+   * therefor plchangesposid returns all songs in the queue as changed ignoring the given version.
+   */
+  queue = player_queue_get_byindex(0, 0);
+
+  if (!queue)
+    {
+      // Queue is emtpy
+      return 0;
+    }
+
+  count = queue_count(queue);
+  for (i = 0; i < count; i++)
+    {
+      item = queue_get_byindex(queue, i, 0);
+
+      evbuffer_add_printf(evbuf,
+      	  "cpos: %d\n"
+      	  "Id: %d\n",
+      	  i,
+	  queueitem_item_id(item));
+    }
+
+  queue_free(queue);
+  return 0;
+}
+
+/*
  * Command handler function for 'listplaylist'
  * Lists all songs in the playlist given by virtual-path in argv[1].
  */
@@ -3827,11 +3867,11 @@ static struct command mpd_handlers[] =
       .mpdcommand = "plchanges",
       .handler = mpd_command_plchanges
     },
-    /*
     {
       .mpdcommand = "plchangesposid",
       .handler = mpd_command_plchangesposid
     },
+    /*
     {
       .mpdcommand = "prio",
       .handler = mpd_command_prio
