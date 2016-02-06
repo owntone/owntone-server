@@ -1380,6 +1380,28 @@ filescanner(void *arg)
   pthread_exit(NULL);
 }
 
+static int
+get_parent_dir_id(const char *path)
+{
+  char *pathcopy;
+  char *parent_dir;
+  char virtual_path[PATH_MAX];
+  int parent_id;
+  int ret;
+
+  pathcopy = strdup(path);
+  parent_dir = dirname(pathcopy);
+  ret = create_virtual_path(parent_dir, virtual_path, sizeof(virtual_path));
+  if (ret == 0)
+    parent_id = db_directory_id_byvirtualpath(virtual_path);
+  else
+    parent_id = 0;
+
+  free(pathcopy);
+
+  return parent_id;
+}
+
 
 #if defined(__linux__)
 static int
@@ -1410,28 +1432,6 @@ watches_clear(uint32_t wd, char *path)
   db_watch_delete_bymatch(path);
 
   return 0;
-}
-
-static int
-get_parent_dir_id(const char *path)
-{
-  char *pathcopy;
-  char *parent_dir;
-  char virtual_path[PATH_MAX];
-  int parent_id;
-  int ret;
-
-  pathcopy = strdup(path);
-  parent_dir = dirname(pathcopy);
-  ret = create_virtual_path(parent_dir, virtual_path, sizeof(virtual_path));
-  if (ret == 0)
-    parent_id = db_directory_id_byvirtualpath(virtual_path);
-  else
-    parent_id = 0;
-
-  free(pathcopy);
-
-  return parent_id;
 }
 
 /* Thread: scan */
