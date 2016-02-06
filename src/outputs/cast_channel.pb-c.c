@@ -6,7 +6,7 @@
 #define PROTOBUF_C__NO_DEPRECATED
 #endif
 
-#include "cast_channel.v1.pb-c.h"
+#include "cast_channel.pb-c.h"
 void   extensions__core_api__cast_channel__cast_message__init
                      (Extensions__CoreApi__CastChannel__CastMessage         *message)
 {
