@@ -44,6 +44,7 @@
 #include "cache.h"
 #include "misc.h"
 #include "db.h"
+#include "db_upgrade.h"
 
 
 #define STR(x) ((x) ? (x) : "")
@@ -136,6 +137,8 @@ static const struct col_type_map mfi_cols_map[] =
     { mfi_offsetof(composer_sort),      DB_TYPE_STRING },
     { mfi_offsetof(album_artist_sort),  DB_TYPE_STRING },
     { mfi_offsetof(virtual_path),       DB_TYPE_STRING },
+    { mfi_offsetof(directory_id),       DB_TYPE_INT },
+    { mfi_offsetof(date_released),      DB_TYPE_INT },
   };
 
 /* This list must be kept in sync with
@@ -155,6 +158,7 @@ static const struct col_type_map pli_cols_map[] =
     { pli_offsetof(special_id),   DB_TYPE_INT },
     { pli_offsetof(virtual_path), DB_TYPE_STRING },
     { pli_offsetof(parent_id),    DB_TYPE_INT },
+    { pli_offsetof(directory_id), DB_TYPE_INT },
 
     /* items is computed on the fly */
   };
@@ -223,6 +227,8 @@ static const ssize_t dbmfi_cols_map[] =
     dbmfi_offsetof(composer_sort),
     dbmfi_offsetof(album_artist_sort),
     dbmfi_offsetof(virtual_path),
+    dbmfi_offsetof(directory_id),
+    dbmfi_offsetof(date_released),
   };
 
 /* This list must be kept in sync with
@@ -242,6 +248,7 @@ static const ssize_t dbpli_cols_map[] =
     dbpli_offsetof(special_id),
     dbpli_offsetof(virtual_path),
     dbpli_offsetof(parent_id),
+    dbpli_offsetof(directory_id),
 
     /* items is computed on the fly */
   };
@@ -327,18 +334,6 @@ db_escape_string(const char *str)
   sqlite3_free(escaped);
 
   return ret;
-}
-
-void
-free_fi(struct filelist_info *fi, int content_only)
-{
-  if (fi->virtual_path)
-    free(fi->virtual_path);
-
-  if (!content_only)
-    free(fi);
-  else
-    memset(fi, 0, sizeof(struct filelist_info));
 }
 
 void
@@ -493,6 +488,18 @@ free_pli(struct playlist_info *pli, int content_only)
     free(pli);
   else
     memset(pli, 0, sizeof(struct playlist_info));
+}
+
+void
+free_di(struct directory_info *di, int content_only)
+{
+  if (di->virtual_path)
+    free(di->virtual_path);
+
+  if (!content_only)
+    free(di);
+  else
+    memset(di, 0, sizeof(struct directory_info));
 }
 
 
@@ -707,12 +714,13 @@ db_purge_cruft(time_t ref)
   char *errmsg;
   int i;
   int ret;
-  char *queries[3] = { NULL, NULL, NULL };
-  char *queries_tmpl[3] =
+  char *queries[4] = { NULL, NULL, NULL, NULL };
+  char *queries_tmpl[4] =
     {
       "DELETE FROM playlistitems WHERE playlistid IN (SELECT id FROM playlists p WHERE p.type <> %d AND p.db_timestamp < %" PRIi64 ");",
       "DELETE FROM playlists WHERE type <> %d AND db_timestamp < %" PRIi64 ";",
-      "DELETE FROM files WHERE -1 <> %d AND db_timestamp < %" PRIi64 ";"
+      "DELETE FROM files WHERE -1 <> %d AND db_timestamp < %" PRIi64 ";",
+      "DELETE FROM directories WHERE id > 4 AND -1 <> %d AND db_timestamp < %" PRIi64 ";"
     };
 
   if (sizeof(queries) != sizeof(queries_tmpl))
@@ -1949,89 +1957,6 @@ db_query_fetch_string_sort(struct query_params *qp, char **string, char **sortst
   return 0;
 }
 
-/* Filelist */
-
-int
-db_mpd_start_query_filelist(struct query_params *qp, char *parentpath)
-{
-  char *query;
-  int ret;
-
-  query = sqlite3_mprintf(
-      "SELECT "
-      "  CASE WHEN daap_charindex('/', virtual_path, LENGTH(%Q)+1) = 0 "
-      "    THEN "
-      "      virtual_path "
-      "    ELSE "
-      "      daap_leftstr(virtual_path, daap_charindex('/', virtual_path, LENGTH(%Q)+1)-1) "
-      "  END AS path, "
-      "  MAX(time_modified), "
-      "  CASE WHEN daap_charindex('/', virtual_path, LENGTH(%Q)+1) = 0 "
-      "    THEN "
-      "      type "
-      "    ELSE "
-      "      2 "
-      "  END AS ftype "
-      "FROM filelist "
-      "WHERE virtual_path LIKE '%q%%' "
-      "GROUP BY ftype, path "
-      "ORDER BY ftype, path;", parentpath, parentpath, parentpath, parentpath);
-
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Starting query '%s'\n", query);
-
-  ret = db_blocking_prepare_v2(query, -1, &qp->stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_free(query);
-      return -1;
-    }
-
-  sqlite3_free(query);
-
-  return 0;
-}
-
-int
-db_mpd_query_fetch_filelist(struct query_params *qp, struct filelist_info *fi)
-{
-  int ret;
-
-  memset(fi, 0, sizeof(struct filelist_info));
-
-  if (!qp->stmt)
-    {
-      DPRINTF(E_LOG, L_DB, "Query not started!\n");
-      return -1;
-    }
-
-  ret = db_blocking_step(qp->stmt);
-  if (ret == SQLITE_DONE)
-    {
-      DPRINTF(E_DBG, L_DB, "End of query results\n");
-      fi->virtual_path = NULL;
-      return 0;
-    }
-  else if (ret != SQLITE_ROW)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-      return -1;
-    }
-
-  fi->virtual_path = strdup((char *)sqlite3_column_text(qp->stmt, 0));
-  fi->time_modified = sqlite3_column_int(qp->stmt, 1);
-  fi->type = sqlite3_column_int(qp->stmt, 2);
-
-  return 0;
-}
-
 
 /* Files */
 int
@@ -2282,6 +2207,7 @@ db_file_id_bymatch(char *path)
 #undef Q_TMPL
 }
 
+//TODO [cleanup] unused function(?)
 int
 db_file_id_byfilebase(char *filename, char *base)
 {
@@ -2608,8 +2534,8 @@ db_file_add(struct media_file_info *mfi)
                " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
                " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
                " songartistid, songalbumid, " \
-               " title_sort, artist_sort, album_sort, composer_sort, album_artist_sort, virtual_path" \
-               " ) " \
+               " title_sort, artist_sort, album_sort, composer_sort, album_artist_sort, virtual_path," \
+               " directory_id) " \
                " VALUES (NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, TRIM(%Q)," \
                " TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
                " %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d," \
@@ -2617,7 +2543,7 @@ db_file_add(struct media_file_info *mfi)
                " %Q, %d, %d, %d, %d, TRIM(%Q)," \
                " %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d," \
                " daap_songalbumid(LOWER(TRIM(%Q)), ''), daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q))), " \
-               " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q));"
+               " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %d);"
 
   char *query;
   char *errmsg;
@@ -2652,7 +2578,7 @@ db_file_add(struct media_file_info *mfi)
 			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str,
 			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
 			  mfi->album_artist, mfi->album_artist, mfi->album, mfi->title_sort, mfi->artist_sort, mfi->album_sort,
-			  mfi->composer_sort, mfi->album_artist_sort, mfi->virtual_path);
+			  mfi->composer_sort, mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id);
 
   if (!query)
     {
@@ -2697,10 +2623,9 @@ db_file_update(struct media_file_info *mfi)
 	       " tv_network_name = TRIM(%Q), tv_episode_sort = %d, tv_season_num = %d," \
 	       " songartistid = daap_songalbumid(LOWER(TRIM(%Q)), ''), songalbumid = daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q)))," \
 	       " title_sort = TRIM(%Q), artist_sort = TRIM(%Q), album_sort = TRIM(%Q), composer_sort = TRIM(%Q), album_artist_sort = TRIM(%Q)," \
-	       " virtual_path = TRIM(%Q)" \
+	       " virtual_path = TRIM(%Q), directory_id = %d" \
 	       " WHERE id = %d;"
 
-//  struct media_file_info *oldmfi;
   char *query;
   char *errmsg;
   int ret;
@@ -2710,18 +2635,6 @@ db_file_update(struct media_file_info *mfi)
       DPRINTF(E_WARN, L_DB, "Trying to update file with id 0; use db_file_add()?\n");
       return -1;
     }
-
-  /*
-  oldmfi = db_file_fetch_byid(mfi->id);
-
-  if (!oldmfi)
-    {
-      DPRINTF(E_WARN, L_DB, "File with id '%d' does not exist\n", mfi->id);
-      return -1;
-    }
-
-  free_mfi(oldmfi, 0);
-  */
 
   mfi->db_timestamp = (uint64_t)time(NULL);
 
@@ -2742,7 +2655,7 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
 			  mfi->album_artist, mfi->album_artist, mfi->album,
 			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
-			  mfi->composer_sort, mfi->album_artist_sort, mfi->virtual_path,
+			  mfi->composer_sort, mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id,
 			  mfi->id);
 
   if (!query)
@@ -2829,15 +2742,20 @@ db_file_delete_bypath(char *path)
 void
 db_file_disable_bypath(char *path, char *strip, uint32_t cookie)
 {
-#define Q_TMPL "UPDATE files SET path = substr(path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
+#define Q_TMPL "UPDATE files SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
   char *query;
   int64_t disabled;
   int striplen;
+  int striplenvpath;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
   striplen = strlen(strip) + 1;
+  if (strlen(strip) > 0)
+    striplenvpath = strlen(strip) + strlen("/file:/");
+  else
+    striplenvpath = 0;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
+  query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
 
   db_query_run(query, 1, 1);
 #undef Q_TMPL
@@ -2846,15 +2764,20 @@ db_file_disable_bypath(char *path, char *strip, uint32_t cookie)
 void
 db_file_disable_bymatch(char *path, char *strip, uint32_t cookie)
 {
-#define Q_TMPL "UPDATE files SET path = substr(path, %d), disabled = %" PRIi64 " WHERE path LIKE '%q/%%';"
+#define Q_TMPL "UPDATE files SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path LIKE '%q/%%';"
   char *query;
   int64_t disabled;
   int striplen;
+  int striplenvpath;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
   striplen = strlen(strip) + 1;
+  if (strlen(strip) > 0)
+    striplenvpath = strlen(strip) + strlen("/file:/");
+  else
+    striplenvpath = 0;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
+  query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
 
   db_query_run(query, 1, 1);
 #undef Q_TMPL
@@ -2863,13 +2786,28 @@ db_file_disable_bymatch(char *path, char *strip, uint32_t cookie)
 int
 db_file_enable_bycookie(uint32_t cookie, char *path)
 {
-#define Q_TMPL "UPDATE files SET path = '%q' || path, disabled = 0 WHERE disabled = %" PRIi64 ";"
+#define Q_TMPL "UPDATE files SET path = '%q' || path, virtual_path = '/file:%q' || virtual_path, disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
+  query = sqlite3_mprintf(Q_TMPL, path, path, (int64_t)cookie);
 
   ret = db_query_run(query, 1, 1);
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL
+}
+
+int
+db_file_update_directoryid(char *path, int dir_id)
+{
+#define Q_TMPL "UPDATE files SET directory_id = %d WHERE path = %Q;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, dir_id, path);
+
+  ret = db_query_run(query, 1, 0);
 
   return ((ret < 0) ? -1 : sqlite3_changes(hdl));
 #undef Q_TMPL
@@ -3248,8 +3186,8 @@ int
 db_pl_add(struct playlist_info *pli, int *id)
 {
 #define QDUP_TMPL "SELECT COUNT(*) FROM playlists p WHERE p.title = TRIM(%Q) AND p.path = '%q';"
-#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, parent_id, virtual_path)" \
-                  " VALUES (TRIM(%Q), %d, '%q', %" PRIi64 ", %d, '%q', %d, %d, %d, '%q');"
+#define QADD_TMPL "INSERT INTO playlists (title, type, query, db_timestamp, disabled, path, idx, special_id, parent_id, virtual_path, directory_id)" \
+                  " VALUES (TRIM(%Q), %d, '%q', %" PRIi64 ", %d, '%q', %d, %d, %d, '%q', %d);"
   char *query;
   char *errmsg;
   int ret;
@@ -3275,7 +3213,7 @@ db_pl_add(struct playlist_info *pli, int *id)
   /* Add */
   query = sqlite3_mprintf(QADD_TMPL,
 			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
-			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path);
+			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id);
 
   if (!query)
     {
@@ -3340,14 +3278,14 @@ int
 db_pl_update(struct playlist_info *pli)
 {
 #define Q_TMPL "UPDATE playlists SET title = TRIM(%Q), type = %d, query = '%q', db_timestamp = %" PRIi64 ", disabled = %d, " \
-               " path = '%q', idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q' " \
+               " path = '%q', idx = %d, special_id = %d, parent_id = %d, virtual_path = '%q', directory_id = %d " \
                " WHERE id = %d;"
   char *query;
   int ret;
 
   query = sqlite3_mprintf(Q_TMPL,
 			  pli->title, pli->type, pli->query, (int64_t)time(NULL), pli->disabled, STR(pli->path),
-			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->id);
+			  pli->index, pli->special_id, pli->parent_id, pli->virtual_path, pli->directory_id, pli->id);
 
   ret = db_query_run(query, 1, 0);
 
@@ -3402,15 +3340,20 @@ db_pl_delete_bypath(char *path)
 void
 db_pl_disable_bypath(char *path, char *strip, uint32_t cookie)
 {
-#define Q_TMPL "UPDATE playlists SET path = substr(path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
+#define Q_TMPL "UPDATE playlists SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path = '%q';"
   char *query;
   int64_t disabled;
   int striplen;
+  int striplenvpath;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
   striplen = strlen(strip) + 1;
+  if (strlen(strip) > 0)
+    striplenvpath = strlen(strip) + strlen("/file:/");
+  else
+    striplenvpath = 0;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
+  query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL
@@ -3419,15 +3362,20 @@ db_pl_disable_bypath(char *path, char *strip, uint32_t cookie)
 void
 db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie)
 {
-#define Q_TMPL "UPDATE playlists SET path = substr(path, %d), disabled = %" PRIi64 " WHERE path LIKE '%q/%%';"
+#define Q_TMPL "UPDATE playlists SET path = substr(path, %d), virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE path LIKE '%q/%%';"
   char *query;
   int64_t disabled;
   int striplen;
+  int striplenvpath;
 
   disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
   striplen = strlen(strip) + 1;
+  if (strlen(strip) > 0)
+    striplenvpath = strlen(strip) + strlen("/file:/");
+  else
+    striplenvpath = 0;
 
-  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path);
+  query = sqlite3_mprintf(Q_TMPL, striplen, striplenvpath, disabled, path);
 
   db_query_run(query, 1, 0);
 #undef Q_TMPL
@@ -3436,11 +3384,11 @@ db_pl_disable_bymatch(char *path, char *strip, uint32_t cookie)
 int
 db_pl_enable_bycookie(uint32_t cookie, char *path)
 {
-#define Q_TMPL "UPDATE playlists SET path = '%q' || path, disabled = 0 WHERE disabled = %" PRIi64 ";"
+#define Q_TMPL "UPDATE playlists SET path = '%q' || path, virtual_path = '/file:%q' || virtual_path, disabled = 0 WHERE disabled = %" PRIi64 ";"
   char *query;
   int ret;
 
-  query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
+  query = sqlite3_mprintf(Q_TMPL, path, path, (int64_t)cookie);
 
   ret = db_query_run(query, 1, 0);
 
@@ -3568,6 +3516,290 @@ db_group_persistentid_byid(int id, int64_t *persistentid)
 }
 
 
+/* Directories */
+int
+db_directory_id_byvirtualpath(char *virtual_path)
+{
+#define Q_TMPL "SELECT d.id FROM directories d WHERE d.virtual_path = '%q';"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, virtual_path);
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return 0;
+    }
+
+  ret = db_file_id_byquery(query);
+
+  sqlite3_free(query);
+
+  return ret;
+
+#undef Q_TMPL
+}
+
+int
+db_directory_enum_start(struct directory_enum *de)
+{
+#define Q_TMPL "SELECT * FROM directories WHERE disabled = 0 AND parent_id = %d ORDER BY virtual_path;"
+  char *query;
+  int ret;
+
+  de->stmt = NULL;
+
+  query = sqlite3_mprintf(Q_TMPL, de->parent_id);
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Starting enum '%s'\n", query);
+
+  ret = db_blocking_prepare_v2(query, -1, &de->stmt, NULL);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
+
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  return 0;
+
+#undef Q_TMPL
+}
+
+int
+db_directory_enum_fetch(struct directory_enum *de, struct directory_info *di)
+{
+  uint64_t disabled;
+  int ret;
+
+  memset(di, 0, sizeof(struct directory_info));
+
+  if (!de->stmt)
+    {
+      DPRINTF(E_LOG, L_DB, "Directory enum not started!\n");
+      return -1;
+    }
+
+  ret = db_blocking_step(de->stmt);
+  if (ret == SQLITE_DONE)
+    {
+      DPRINTF(E_DBG, L_DB, "End of directory enum results\n");
+      return 0;
+    }
+  else if (ret != SQLITE_ROW)
+    {
+      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
+      return -1;
+    }
+
+  di->id = sqlite3_column_int(de->stmt, 0);
+  di->virtual_path = (char *)sqlite3_column_text(de->stmt, 1);
+  di->db_timestamp = sqlite3_column_int(de->stmt, 2);
+  disabled = sqlite3_column_int64(de->stmt, 3);
+  di->disabled = (disabled != 0);
+  di->parent_id = sqlite3_column_int(de->stmt, 4);
+
+  return 0;
+}
+
+void
+db_directory_enum_end(struct directory_enum *de)
+{
+  if (!de->stmt)
+    return;
+
+  sqlite3_finalize(de->stmt);
+  de->stmt = NULL;
+}
+
+static int
+db_directory_add(struct directory_info *di, int *id)
+{
+#define QADD_TMPL "INSERT INTO directories (virtual_path, db_timestamp, disabled, parent_id)" \
+                  " VALUES (TRIM(%Q), %d, %d, %d);"
+
+  char *query;
+  char *errmsg;
+  int ret;
+
+  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id);
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  *id = (int)sqlite3_last_insert_rowid(hdl);
+  if (*id == 0)
+    {
+      DPRINTF(E_LOG, L_DB, "Successful insert but no last_insert_rowid!\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Added directory %s with id %d\n", di->virtual_path, *id);
+
+  return 0;
+
+#undef QADD_TMPL
+}
+
+static int
+db_directory_update(struct directory_info *di)
+{
+#define QADD_TMPL "UPDATE directories SET virtual_path = TRIM(%Q), db_timestamp = %d, disabled = %d, parent_id = %d" \
+                  " WHERE id = %d;"
+  char *query;
+  char *errmsg;
+  int ret;
+
+  /* Add */
+  query = sqlite3_mprintf(QADD_TMPL, di->virtual_path, di->db_timestamp, di->disabled, di->parent_id, di->id);
+
+  if (!query)
+    {
+      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
+      return -1;
+    }
+
+  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
+
+  ret = db_exec(query, &errmsg);
+  if (ret != SQLITE_OK)
+    {
+      DPRINTF(E_LOG, L_DB, "Query error: %s\n", errmsg);
+
+      sqlite3_free(errmsg);
+      sqlite3_free(query);
+      return -1;
+    }
+
+  sqlite3_free(query);
+
+  DPRINTF(E_DBG, L_DB, "Updated directory %s with id %d\n", di->virtual_path, di->id);
+
+  return 0;
+
+#undef QADD_TMPL
+}
+
+int
+db_directory_addorupdate(char *virtual_path, int disabled, int parent_id)
+{
+  struct directory_info di;
+  int id;
+  int ret;
+
+  id = db_directory_id_byvirtualpath(virtual_path);
+
+  di.id = id;
+  di.parent_id = parent_id;
+  di.virtual_path = virtual_path;
+  di.disabled = disabled;
+  di.db_timestamp = (uint64_t)time(NULL);
+
+  if (di.id == 0)
+    ret = db_directory_add(&di, &id);
+  else
+    ret = db_directory_update(&di);
+
+  if (ret < 0 || id <= 0)
+  {
+    DPRINTF(E_LOG, L_DB, "Insert or update of directory failed '%s'\n", virtual_path);
+    return -1;
+  }
+
+  return id;
+}
+
+void
+db_directory_ping_bymatch(char *path)
+{
+#define Q_TMPL_DIR "UPDATE directories SET db_timestamp = %" PRIi64 " WHERE virtual_path = '/file:%q' OR virtual_path LIKE '/file:%q/%%';"
+  char *query;
+
+  query = sqlite3_mprintf(Q_TMPL_DIR, (int64_t)time(NULL), path, path);
+
+  db_query_run(query, 1, 1);
+#undef Q_TMPL_DIR
+}
+
+void
+db_directory_disable_bymatch(char *path, char *strip, uint32_t cookie)
+{
+#define Q_TMPL "UPDATE directories SET virtual_path = substr(virtual_path, %d), disabled = %" PRIi64 " WHERE virtual_path = '/file:%q' OR virtual_path LIKE '/file:%q/%%';"
+  char *query;
+  int64_t disabled;
+  int striplen;
+
+  disabled = (cookie != 0) ? cookie : INOTIFY_FAKE_COOKIE;
+  if (strlen(strip) > 0)
+    striplen = strlen(strip) + strlen("/file:/");
+  else
+    striplen = 0;
+
+  query = sqlite3_mprintf(Q_TMPL, striplen, disabled, path, path, path);
+
+  db_query_run(query, 1, 1);
+#undef Q_TMPL
+}
+
+int
+db_directory_enable_bycookie(uint32_t cookie, char *path)
+{
+#define Q_TMPL "UPDATE directories SET virtual_path = '/file:%q' || virtual_path, disabled = 0 WHERE disabled = %" PRIi64 ";"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path, (int64_t)cookie);
+
+  ret = db_query_run(query, 1, 0);
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL
+}
+
+int
+db_directory_enable_bypath(char *path)
+{
+#define Q_TMPL "UPDATE directories SET disabled = 0 WHERE virtual_path = %Q;"
+  char *query;
+  int ret;
+
+  query = sqlite3_mprintf(Q_TMPL, path);
+
+  ret = db_query_run(query, 1, 0);
+
+  return ((ret < 0) ? -1 : sqlite3_changes(hdl));
+#undef Q_TMPL
+}
+
+
 /* Remotes */
 static int
 db_pairing_delete_byremote(char *remote_id)
@@ -3656,11 +3888,13 @@ db_pairing_fetch_byguid(struct pairing_info *pi)
 void
 db_spotify_purge(void)
 {
-  char *queries[3] =
+  char *queries[5] =
     {
       "DELETE FROM files WHERE path LIKE 'spotify:%%';",
       "DELETE FROM playlistitems WHERE filepath LIKE 'spotify:%%';",
       "DELETE FROM playlists WHERE path LIKE 'spotify:%%';",
+      "DELETE FROM directories WHERE virtual_path LIKE '/spotify:/%%';",
+      "UPDATE directories SET disabled = 4294967296 WHERE virtual_path = '/spotify:';",
     };
   int i;
   int ret;
@@ -4634,7 +4868,9 @@ db_perthread_deinit(void)
   "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
   "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   virtual_path       VARCHAR(4096) DEFAULT NULL"	\
+  "   virtual_path       VARCHAR(4096) DEFAULT NULL,"	\
+  "   directory_id       INTEGER DEFAULT 0,"		\
+  "   date_released      INTEGER DEFAULT 0"             \
   ");"
 
 #define T_PL					\
@@ -4649,7 +4885,8 @@ db_perthread_deinit(void)
   "   idx            INTEGER NOT NULL,"			\
   "   special_id     INTEGER DEFAULT 0,"		\
   "   virtual_path   VARCHAR(4096),"			\
-  "   parent_id      INTEGER DEFAULT 0"			\
+  "   parent_id      INTEGER DEFAULT 0,"		\
+  "   directory_id   INTEGER DEFAULT 0"			\
   ");"
 
 #define T_PLITEMS				\
@@ -4679,7 +4916,8 @@ db_perthread_deinit(void)
   "CREATE TABLE IF NOT EXISTS speakers("		\
   "   id             INTEGER PRIMARY KEY NOT NULL,"	\
   "   selected       INTEGER NOT NULL,"			\
-  "   volume         INTEGER NOT NULL"			\
+  "   volume         INTEGER NOT NULL,"			\
+  "   name           VARCHAR(255) DEFAULT NULL"         \
   ");"
 
 #define T_INOTIFY					\
@@ -4689,16 +4927,14 @@ db_perthread_deinit(void)
   "   path        VARCHAR(4096) NOT NULL"		\
   ");"
 
-#define V_FILELIST						\
-  "CREATE VIEW IF NOT EXISTS filelist as"			\
-  "     SELECT "						\
-  "       virtual_path, time_modified, 3 as type "		\
-  "     FROM files WHERE disabled = 0"				\
-  "   UNION "							\
-  "     SELECT "						\
-  "       virtual_path, db_timestamp, 1 as type "		\
-  "     FROM playlists where disabled = 0 AND type IN (2, 3)"	\
-  ";"
+#define T_DIRECTORIES						\
+  "CREATE TABLE IF NOT EXISTS directories ("			\
+  "   id                  INTEGER PRIMARY KEY NOT NULL,"	\
+  "   virtual_path        VARCHAR(4096) NOT NULL,"		\
+  "   db_timestamp        INTEGER DEFAULT 0,"			\
+  "   disabled            INTEGER DEFAULT 0,"			\
+  "   parent_id           INTEGER DEFAULT 0"			\
+  ");"
 
 #define TRG_GROUPS_INSERT_FILES						\
   "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
@@ -4744,16 +4980,30 @@ db_perthread_deinit(void)
   " VALUES(8, 'Purchased', 0, 'media_kind = 1024', 0, '', 0, 8);"
  */
 
+
+#define Q_DIR1 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (1, '/', 0, 0, 0);"
+#define Q_DIR2 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (2, '/file:', 0, 0, 1);"
+#define Q_DIR3 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (3, '/http:', 0, 0, 1);"
+#define Q_DIR4 \
+  "INSERT INTO directories (id, virtual_path, db_timestamp, disabled, parent_id)" \
+  " VALUES (4, '/spotify:', 0, 4294967296, 1);"
+
 /* Rule of thumb: Will the current version of forked-daapd work with the new
  * version of the database? If yes, then it is a minor upgrade, if no, then it 
  * is a major upgrade. In other words minor version upgrades permit downgrading
  * forked-daapd after the database was upgraded. */
-#define SCHEMA_VERSION_MAJOR 18
-#define SCHEMA_VERSION_MINOR 01
+#define SCHEMA_VERSION_MAJOR 19
+#define SCHEMA_VERSION_MINOR 00
 #define Q_SCVER_MAJOR					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '18');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '19');"
 #define Q_SCVER_MINOR					\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '01');"
+  "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '00');"
 
 struct db_init_query {
   char *query;
@@ -4770,8 +5020,7 @@ static const struct db_init_query db_init_table_queries[] =
     { T_PAIRINGS,  "create table pairings" },
     { T_SPEAKERS,  "create table speakers" },
     { T_INOTIFY,   "create table inotify" },
-
-    { V_FILELIST,  "create view filelist" },
+    { T_DIRECTORIES, "create table directories" },
 
     { TRG_GROUPS_INSERT_FILES,    "create trigger update_groups_new_file" },
     { TRG_GROUPS_UPDATE_FILES,    "create trigger update_groups_update_file" },
@@ -4782,6 +5031,10 @@ static const struct db_init_query db_init_table_queries[] =
     { Q_PL4,       "create default smart playlist 'TV Shows'" },
     { Q_PL5,       "create default smart playlist 'Podcasts'" },
     { Q_PL6,       "create default smart playlist 'Audiobooks'" },
+    { Q_DIR1,      "create default root directory '/'" },
+    { Q_DIR2,      "create default base directory '/file:'" },
+    { Q_DIR3,      "create default base directory '/http:'" },
+    { Q_DIR4,      "create default base directory '/spotify:'" },
 
     { Q_SCVER_MAJOR, "set schema version major" },
     { Q_SCVER_MINOR, "set schema version minor" },
@@ -4831,11 +5084,17 @@ static const struct db_init_query db_init_table_queries[] =
 #define I_FILELIST					\
   "CREATE INDEX IF NOT EXISTS idx_filelist ON files(disabled, virtual_path, time_modified);"
 
+#define I_FILE_DIR					\
+  "CREATE INDEX IF NOT EXISTS idx_file_dir ON files(disabled, directory_id);"
+
 #define I_PL_PATH				\
   "CREATE INDEX IF NOT EXISTS idx_pl_path ON playlists(path);"
 
 #define I_PL_DISABLED				\
   "CREATE INDEX IF NOT EXISTS idx_pl_disabled ON playlists(disabled, type, virtual_path, db_timestamp);"
+
+#define I_PL_DIR					\
+  "CREATE INDEX IF NOT EXISTS idx_pl_dir ON files(disabled, directory_id);"
 
 #define I_FILEPATH							\
   "CREATE INDEX IF NOT EXISTS idx_filepath ON playlistitems(filepath ASC);"
@@ -4848,6 +5107,12 @@ static const struct db_init_query db_init_table_queries[] =
 
 #define I_PAIRING				\
   "CREATE INDEX IF NOT EXISTS idx_pairingguid ON pairings(guid);"
+
+#define I_DIR_VPATH				\
+  "CREATE INDEX IF NOT EXISTS idx_dir_vpath ON directories(disabled, virtual_path);"
+
+#define I_DIR_PARENT				\
+  "CREATE INDEX IF NOT EXISTS idx_dir_parentid ON directories(parent_id);"
 
 static const struct db_init_query db_init_index_queries[] =
   {
@@ -4864,9 +5129,11 @@ static const struct db_init_query db_init_index_queries[] =
     { I_TITLE,     "create title index" },
     { I_ALBUM,     "create album index" },
     { I_FILELIST,  "create filelist index" },
+    { I_FILE_DIR,  "create file dir index" },
 
     { I_PL_PATH,   "create playlist path index" },
     { I_PL_DISABLED, "create playlist state index" },
+    { I_PL_DIR, "create playlist dir index" },
 
     { I_FILEPATH,  "create file path index" },
     { I_PLITEMID,  "create playlist id index" },
@@ -4874,6 +5141,9 @@ static const struct db_init_query db_init_index_queries[] =
     { I_GRP_PERSIST, "create groups persistentid index" },
 
     { I_PAIRING,   "create pairing guid index" },
+
+    { I_DIR_VPATH,   "create directories disabled_virtualpath index" },
+    { I_DIR_PARENT,  "create directories parentid index" },
   };
 
 static int
@@ -4899,70 +5169,6 @@ db_create_indices(void)
 
   return 0;
 }
-
-static int
-db_drop_indices(void)
-{
-#define Q_INDEX "SELECT name FROM sqlite_master WHERE type == 'index' AND name LIKE 'idx_%';"
-#define Q_TMPL "DROP INDEX %q;"
-  sqlite3_stmt *stmt;
-  char *errmsg;
-  char *query;
-  char *index[256];
-  int ret;
-  int i;
-  int n;
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", Q_INDEX);
-
-  ret = sqlite3_prepare_v2(hdl, Q_INDEX, strlen(Q_INDEX) + 1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-      return -1;
-    }
-
-  n = 0;
-  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
-    {
-      index[n] = strdup((char *)sqlite3_column_text(stmt, 0));
-      n++;
-    }
-
-  if (ret != SQLITE_DONE)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      return -1;
-    }
-
-  sqlite3_finalize(stmt);
-
-  for (i = 0; i < n; i++)
-    {
-      query = sqlite3_mprintf(Q_TMPL, index[i]);
-      free(index[i]);
-
-      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-      ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "DB error while running '%s': %s\n", query, errmsg);
-
-	  sqlite3_free(errmsg);
-	  return -1;
-	}
-
-      sqlite3_free(query);
-    }
-
-  return 0;
-#undef Q_TMPL
-#undef Q_INDEX
-}
-
 static int
 db_create_tables(void)
 {
@@ -4989,1164 +5195,7 @@ db_create_tables(void)
   return ret;
 }
 
-static int
-db_generic_upgrade(const struct db_init_query *queries, int nqueries)
-{
-  char *errmsg;
-  int i;
-  int ret;
 
-  for (i = 0; i < nqueries; i++, queries++)
-    {
-      DPRINTF(E_DBG, L_DB, "DB upgrade query: %s\n", queries->desc);
-
-      ret = sqlite3_exec(hdl, queries->query, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_FATAL, L_DB, "DB upgrade error: %s\n", errmsg);
-
-	  sqlite3_free(errmsg);
-	  return -1;
-	}
-    }
-
-  return 0;
-}
-
-/* Upgrade the files table to the new schema by dumping and reloading the
- * table. A bit tedious.
- */
-static int
-db_upgrade_files_table(const char *dumpquery, const char *newtablequery)
-{
-  struct stat sb;
-  FILE *fp;
-  sqlite3_stmt *stmt;
-  const unsigned char *dumprow;
-  char *dump;
-  char *errmsg;
-  int fd;
-  int ret;
-
-  DPRINTF(E_LOG, L_DB, "Upgrading files table...\n");
-
-  fp = tmpfile();
-  if (!fp)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not create temporary file for files table dump: %s\n", strerror(errno));
-      return -1;
-    }
-
-  DPRINTF(E_LOG, L_DB, "Dumping old files table...\n");
-
-  /* dump */
-  ret = sqlite3_prepare_v2(hdl, dumpquery, strlen(dumpquery) + 1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      ret = -1;
-      goto out_fclose;
-    }
-
-  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
-    {
-      dumprow = sqlite3_column_text(stmt, 0);
-
-      ret = fprintf(fp, "%s\n", dumprow);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not write dump: %s\n", strerror(errno));
-
-	  sqlite3_finalize(stmt);
-
-	  ret = -1;
-	  goto out_fclose;
-	}
-    }
-
-  if (ret != SQLITE_DONE)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-
-      ret = -1;
-      goto out_fclose;
-    }
-
-  sqlite3_finalize(stmt);
-
-  /* Seek back to start of dump file */
-  ret = fseek(fp, 0, SEEK_SET);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not seek back to start of dump: %s\n", strerror(errno));
-
-      ret = -1;
-      goto out_fclose;
-    }
-
-  /* Map dump file */
-  fd = fileno(fp);
-  if (fd < 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not obtain file descriptor: %s\n", strerror(errno));
-
-      ret = -1;
-      goto out_fclose;
-    }
-
-  ret = fstat(fd, &sb);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not stat dump file: %s\n", strerror(errno));
-
-      ret = -1;
-      goto out_fclose;
-    }
-
-  if (sb.st_size == 0)
-    dump = NULL;
-  else
-    {
-      dump = mmap(NULL, sb.st_size, PROT_READ, MAP_SHARED, fd, 0);
-      if (dump == MAP_FAILED)
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not map dump file: %s\n", strerror(errno));
-
-	  ret = -1;
-	  goto out_fclose;
-	}
-    }
-
-  /* Drop remnants from last upgrade if still present */
-  DPRINTF(E_LOG, L_DB, "Clearing old backups...\n");
-
-  ret = sqlite3_exec(hdl, "DROP TABLE IF EXISTS files_backup;", NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error clearing old backup - will continue anyway: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-    }
-
-  /* Move old table out of the way */
-  DPRINTF(E_LOG, L_DB, "Moving old files table out of the way...\n");
-
-  ret = sqlite3_exec(hdl, "ALTER TABLE files RENAME TO files_backup;", NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error making backup of old files table: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-
-      ret = -1;
-      goto out_munmap;
-    }
-
-  /* Create new table */
-  DPRINTF(E_LOG, L_DB, "Creating new files table...\n");
-
-  ret = sqlite3_exec(hdl, newtablequery, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error creating new files table: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-
-      ret = -1;
-      goto out_munmap;
-    }
-
-  /* Reload dump */
-  DPRINTF(E_LOG, L_DB, "Reloading new files table...\n");
-
-  if (dump)
-    {
-      ret = sqlite3_exec(hdl, dump, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Error reloading files table data: %s\n", errmsg);
-
-	  sqlite3_free(errmsg);
-
-	  ret = -1;
-	  goto out_munmap;
-	}
-    }
-
-  /* Delete old files table */
-  DPRINTF(E_LOG, L_DB, "Deleting backup files table...\n");
-
-  ret = sqlite3_exec(hdl, "DROP TABLE files_backup;", NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Error dropping backup files table: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      /* Not an issue, but takes up space in the database */
-    }
-
- DPRINTF(E_LOG, L_DB, "Upgrade of files table complete!\n");
-
- out_munmap:
-  if (dump)
-    {
-      if (munmap(dump, sb.st_size) < 0)
-	DPRINTF(E_LOG, L_DB, "Could not unmap dump file: %s\n", strerror(errno));
-    }
-
- out_fclose:
-  fclose(fp);
-
-  return ret;
-}
-
-
-/* Upgrade from schema v10 to v11 */
-
-#define U_V11_SPEAKERS					\
-  "CREATE TABLE speakers("				\
-  "   id             INTEGER PRIMARY KEY NOT NULL,"	\
-  "   selected       INTEGER NOT NULL,"			\
-  "   volume         INTEGER NOT NULL"			\
-  ");"
-
-#define U_V11_SCVER					\
-  "UPDATE admin SET value = '11' WHERE key = 'schema_version';"
-
-static const struct db_init_query db_upgrade_v11_queries[] =
-  {
-    { U_V11_SPEAKERS,  "create new table speakers" },
-    { U_V11_SCVER,     "set schema_version to 11" },
-  };
-
-static int
-db_upgrade_v11(void)
-{
-#define Q_NEWSPK "INSERT INTO speakers (id, selected, volume) VALUES (%" PRIi64 ", 1, 75);"
-#define Q_SPKVOL "UPDATE speakers SET volume = %d;"
-  sqlite3_stmt *stmt;
-  char *query;
-  char *errmsg;
-  const char *strid;
-  uint64_t *spkids;
-  int volume;
-  int count;
-  int i;
-  int qret;
-  int ret;
-
-  /* Get saved speakers */
-  count = db_get_count("SELECT COUNT(*) FROM admin WHERE key = 'player:active-spk';");
-  if (count == 0)
-    goto clear_vars;
-  else if (count < 0)
-    return -1;
-
-  spkids = (uint64_t *)malloc(count * sizeof(uint64_t));
-  if (!spkids)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for speaker IDs\n");
-
-      return -1;
-    }
-
-  query = "SELECT value FROM admin WHERE key = 'player:active-spk';";
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      goto out_free_ids;
-    }
-
-  i = 0;
-  ret = 0;
-  while ((qret = sqlite3_step(stmt)) == SQLITE_ROW)
-    {
-      strid = (const char *)sqlite3_column_text(stmt, 0);
-
-      ret = safe_hextou64(strid, spkids + i);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_DB, "Could not convert speaker ID: %s\n", strid);
-	  break;
-	}
-
-      i++;
-    }
-
-  sqlite3_finalize(stmt);
-
-  if ((ret == 0) && (qret != SQLITE_DONE))
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      goto out_free_ids;
-    }
-  else if (ret < 0)
-    goto out_free_ids;
-
-  /* Get saved volume */
-  query = "SELECT value FROM admin WHERE key = 'player:volume';";
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-
-      goto out_free_ids;
-    }
-
-  ret = sqlite3_step(stmt);
-  if (ret != SQLITE_ROW)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not step: %s\n", sqlite3_errmsg(hdl));
-
-      sqlite3_finalize(stmt);
-      goto out_free_ids;
-    }
-
-  volume = sqlite3_column_int(stmt, 0);
-
-  sqlite3_finalize(stmt);
-
-  /* Add speakers to the table */
-  for (i = 0; i < count; i++)
-    {
-      query = sqlite3_mprintf(Q_NEWSPK, spkids[i]);
-      if (!query)
-	{
-	  DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-	  goto out_free_ids;
-	}
-
-      DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-      ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	DPRINTF(E_LOG, L_DB, "Error adding speaker: %s\n", errmsg);
-
-      sqlite3_free(errmsg);
-      sqlite3_free(query);
-    }
-
-  free(spkids);
-
-  /* Update with volume */
-  query = sqlite3_mprintf(Q_SPKVOL, volume);
-  if (!query)
-    {
-      DPRINTF(E_LOG, L_DB, "Out of memory for query string\n");
-
-      return -1;
-    }
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error adding speaker: %s\n", errmsg);
-
-  sqlite3_free(errmsg);
-  sqlite3_free(query);
-
-  /* Clear old config keys */
- clear_vars:
-  query = "DELETE FROM admin WHERE key = 'player:volume' OR key = 'player:active-spk';";
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_exec(hdl, query, NULL, NULL, &errmsg);
-  if (ret != SQLITE_OK)
-    DPRINTF(E_LOG, L_DB, "Error adding speaker: %s\n", errmsg);
-
-  sqlite3_free(errmsg);
-
-  return 0;
-
- out_free_ids:
-  free(spkids);
-
-  return -1;
-
-#undef Q_NEWSPK
-#undef Q_SPKVOL
-}
-
-
-/* Upgrade from schema v11 to v12 */
-
-#define U_V12_NEW_FILES_TABLE				\
-  "CREATE TABLE IF NOT EXISTS files ("			\
-  "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
-  "   path               VARCHAR(4096) NOT NULL,"	\
-  "   fname              VARCHAR(255) NOT NULL,"	\
-  "   title              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   artist             VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   album              VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
-  "   genre              VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
-  "   comment            VARCHAR(4096) DEFAULT NULL COLLATE DAAP,"	\
-  "   type               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
-  "   composer           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   orchestra          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   conductor          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   grouping           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   url                VARCHAR(1024) DEFAULT NULL,"	\
-  "   bitrate            INTEGER DEFAULT 0,"		\
-  "   samplerate         INTEGER DEFAULT 0,"		\
-  "   song_length        INTEGER DEFAULT 0,"		\
-  "   file_size          INTEGER DEFAULT 0,"		\
-  "   year               INTEGER DEFAULT 0,"		\
-  "   track              INTEGER DEFAULT 0,"		\
-  "   total_tracks       INTEGER DEFAULT 0,"		\
-  "   disc               INTEGER DEFAULT 0,"		\
-  "   total_discs        INTEGER DEFAULT 0,"		\
-  "   bpm                INTEGER DEFAULT 0,"		\
-  "   compilation        INTEGER DEFAULT 0,"		\
-  "   rating             INTEGER DEFAULT 0,"		\
-  "   play_count         INTEGER DEFAULT 0,"		\
-  "   data_kind          INTEGER DEFAULT 0,"		\
-  "   item_kind          INTEGER DEFAULT 0,"		\
-  "   description        INTEGER DEFAULT 0,"		\
-  "   time_added         INTEGER DEFAULT 0,"		\
-  "   time_modified      INTEGER DEFAULT 0,"		\
-  "   time_played        INTEGER DEFAULT 0,"		\
-  "   db_timestamp       INTEGER DEFAULT 0,"		\
-  "   disabled           INTEGER DEFAULT 0,"		\
-  "   sample_count       INTEGER DEFAULT 0,"		\
-  "   codectype          VARCHAR(5) DEFAULT NULL,"	\
-  "   idx                INTEGER NOT NULL,"		\
-  "   has_video          INTEGER DEFAULT 0,"		\
-  "   contentrating      INTEGER DEFAULT 0,"		\
-  "   bits_per_sample    INTEGER DEFAULT 0,"		\
-  "   album_artist       VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
-  "   media_kind         INTEGER NOT NULL,"		\
-  "   tv_series_name     VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   tv_network_name    VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   tv_episode_sort    INTEGER NOT NULL,"		\
-  "   tv_season_num      INTEGER NOT NULL,"		\
-  "   songalbumid        INTEGER NOT NULL,"		\
-  "   title_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
-  ");"
-
-#define U_V12_TRG1							\
-  "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  " END;"
-
-#define U_V12_TRG2							\
-  "CREATE TRIGGER update_groups_update_file AFTER UPDATE OF songalbumid ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  " END;"
-
-#define U_V12_SCVER				\
-  "UPDATE admin SET value = '12' WHERE key = 'schema_version';"
-
-static const struct db_init_query db_upgrade_v12_queries[] =
-  {
-    { U_V12_TRG1,     "create trigger update_groups_new_file" },
-    { U_V12_TRG2,     "create trigger update_groups_update_file" },
-
-    { U_V12_SCVER,    "set schema_version to 12" },
-  };
-
-static int
-db_upgrade_v12(void)
-{
-#define Q_DUMP "SELECT 'INSERT INTO files " \
-    "(id, path, fname, title, artist, album, genre, comment, type, composer," \
-    " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
-    " total_tracks, disc, total_discs, bpm, compilation, rating, play_count, data_kind, item_kind," \
-    " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
-    " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
-    " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
-    " songalbumid, title_sort, artist_sort, album_sort, composer_sort, album_artist_sort)" \
-    " VALUES (' || id || ', ' || QUOTE(path) || ', ' || QUOTE(fname) || ', ' || QUOTE(title) || ', '" \
-    " || QUOTE(artist) || ', ' || QUOTE(album) || ', ' || QUOTE(genre) || ', ' || QUOTE(comment) || ', '" \
-    " || QUOTE(type) || ', ' || QUOTE(composer) || ', ' || QUOTE(orchestra) || ', ' || QUOTE(conductor) || ', '" \
-    " || QUOTE(grouping) || ', ' || QUOTE(url) || ', ' || bitrate || ', ' || samplerate || ', '" \
-    " || song_length || ', ' || file_size || ', ' || year || ', ' || track || ', ' || total_tracks || ', '" \
-    " || disc || ', ' || total_discs || ', ' || bpm || ', ' || compilation || ', ' || rating || ', '" \
-    " || play_count || ', ' || data_kind || ', ' || item_kind || ', ' ||  QUOTE(description) || ', '" \
-    " || time_added || ', ' || time_modified || ', ' || time_played || ', 1, '" \
-    " || disabled || ', ' || sample_count || ', ' || QUOTE(codectype) || ', ' || idx || ', '" \
-    " || has_video || ', ' || contentrating || ', ' || bits_per_sample || ', ' || QUOTE(album_artist) || ', '" \
-    " || media_kind || ', ' || QUOTE(tv_series_name) || ', ' || QUOTE(tv_episode_num_str) || ', '" \
-    " || QUOTE(tv_network_name) || ', ' || tv_episode_sort || ', ' || tv_season_num || ', '" \
-    " || songalbumid || ', ' || QUOTE(title) || ', ' || QUOTE(artist) || ', ' || QUOTE(album) || ', '" \
-    " || QUOTE(composer) || ', ' || QUOTE(album_artist) || ');' FROM files;"
-
-  return db_upgrade_files_table(Q_DUMP, U_V12_NEW_FILES_TABLE);
-
-#undef Q_DUMP
-}
-
-
-/* Upgrade from schema v12 to v13 */
-
-#define U_V13_PL2							\
-  "UPDATE playlists SET query = 'f.media_kind = 1' where id = 2;"
-
-#define U_V13_PL3							\
-  "UPDATE playlists SET query = 'f.media_kind = 2' where id = 3;"
-
-#define U_V13_PL4							\
-  "UPDATE playlists SET query = 'f.media_kind = 64' where id = 4;"
-
-#define U_V13_SCVER				\
-  "UPDATE admin SET value = '13' WHERE key = 'schema_version';"
-
-static const struct db_init_query db_upgrade_v13_queries[] =
-  {
-    { U_V13_PL2,           "update default smart playlist 'Music'" },
-    { U_V13_PL3,           "update default smart playlist 'Movies'" },
-    { U_V13_PL4,           "update default smart playlist 'TV Shows'" },
-
-    { U_V13_SCVER,    "set schema_version to 13" },
-  };
-
-/* Upgrade from schema v13 to v14 */
-/* Adds seek, songartistid, and two new smart playlists */
-
-#define U_V14_NEW_FILES_TABLE				\
-  "CREATE TABLE IF NOT EXISTS files ("			\
-  "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
-  "   path               VARCHAR(4096) NOT NULL,"	\
-  "   fname              VARCHAR(255) NOT NULL,"	\
-  "   title              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   artist             VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   album              VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
-  "   genre              VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
-  "   comment            VARCHAR(4096) DEFAULT NULL COLLATE DAAP,"	\
-  "   type               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
-  "   composer           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   orchestra          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   conductor          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   grouping           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   url                VARCHAR(1024) DEFAULT NULL,"	\
-  "   bitrate            INTEGER DEFAULT 0,"		\
-  "   samplerate         INTEGER DEFAULT 0,"		\
-  "   song_length        INTEGER DEFAULT 0,"		\
-  "   file_size          INTEGER DEFAULT 0,"		\
-  "   year               INTEGER DEFAULT 0,"		\
-  "   track              INTEGER DEFAULT 0,"		\
-  "   total_tracks       INTEGER DEFAULT 0,"		\
-  "   disc               INTEGER DEFAULT 0,"		\
-  "   total_discs        INTEGER DEFAULT 0,"		\
-  "   bpm                INTEGER DEFAULT 0,"		\
-  "   compilation        INTEGER DEFAULT 0,"		\
-  "   rating             INTEGER DEFAULT 0,"		\
-  "   play_count         INTEGER DEFAULT 0,"		\
-  "   seek               INTEGER DEFAULT 0,"		\
-  "   data_kind          INTEGER DEFAULT 0,"		\
-  "   item_kind          INTEGER DEFAULT 0,"		\
-  "   description        INTEGER DEFAULT 0,"		\
-  "   time_added         INTEGER DEFAULT 0,"		\
-  "   time_modified      INTEGER DEFAULT 0,"		\
-  "   time_played        INTEGER DEFAULT 0,"		\
-  "   db_timestamp       INTEGER DEFAULT 0,"		\
-  "   disabled           INTEGER DEFAULT 0,"		\
-  "   sample_count       INTEGER DEFAULT 0,"		\
-  "   codectype          VARCHAR(5) DEFAULT NULL,"	\
-  "   idx                INTEGER NOT NULL,"		\
-  "   has_video          INTEGER DEFAULT 0,"		\
-  "   contentrating      INTEGER DEFAULT 0,"		\
-  "   bits_per_sample    INTEGER DEFAULT 0,"		\
-  "   album_artist       VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
-  "   media_kind         INTEGER NOT NULL,"		\
-  "   tv_series_name     VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   tv_network_name    VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   tv_episode_sort    INTEGER NOT NULL,"		\
-  "   tv_season_num      INTEGER NOT NULL,"		\
-  "   songartistid       INTEGER NOT NULL,"		\
-  "   songalbumid        INTEGER NOT NULL,"		\
-  "   title_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
-  ");"
-
-#define U_V14_DELETE_PL5_1			\
-  "DELETE FROM playlists WHERE id=5;"
-
-#define U_V14_DELETE_PL5_2			\
-  "DELETE FROM playlistitems WHERE playlistid=5;"
-
-#define U_V14_DELETE_PL6_1			\
-  "DELETE FROM playlists WHERE id=6;"
-
-#define U_V14_DELETE_PL6_2			\
-  "DELETE FROM playlistitems WHERE playlistid=6;"
-
-#define U_V14_TRG1							\
-  "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
-  " END;"
-
-#define U_V14_TRG2							\
-  "CREATE TRIGGER update_groups_update_file AFTER UPDATE OF songalbumid ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
-  " END;"
-
-#define U_V14_PL5							\
-  "INSERT OR IGNORE INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(5, 'Podcasts', 1, 'f.media_kind = 4', 0, '', 0, 1);"
-
-#define U_V14_PL6							\
-  "INSERT OR IGNORE INTO playlists (id, title, type, query, db_timestamp, path, idx, special_id)" \
-  " VALUES(6, 'Audiobooks', 1, 'f.media_kind = 8', 0, '', 0, 7);"
-
-#define U_V14_SCVER				\
-  "UPDATE admin SET value = '14' WHERE key = 'schema_version';"
-
-static const struct db_init_query db_upgrade_v14_queries[] =
-  {
-    { U_V14_DELETE_PL5_1, "delete playlist id 5 table playlists" },
-    { U_V14_DELETE_PL5_2, "delete playlist id 5 table playlistitems" },
-    { U_V14_DELETE_PL6_1, "delete playlist id 6 table playlists" },
-    { U_V14_DELETE_PL6_2, "delete playlist id 6 table playlistitems" },
-
-    { U_V14_TRG1,     "create trigger update_groups_new_file" },
-    { U_V14_TRG2,     "create trigger update_groups_update_file" },
-
-    { U_V14_PL5,      "create default smart playlist 'Podcasts' table playlists" },
-    { U_V14_PL6,      "create default smart playlist 'Audiobooks' table playlists" },
-
-    { U_V14_SCVER,    "set schema_version to 14" },
-  };
-
-static int
-db_upgrade_v14(void)
-{
-#define Q_DUMP "SELECT 'INSERT INTO files " \
-    "(id, path, fname, title, artist, album, genre, comment, type, composer," \
-    " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
-    " total_tracks, disc, total_discs, bpm, compilation, rating, play_count, seek, data_kind, item_kind," \
-    " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
-    " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
-    " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
-    " songartistid, songalbumid, " \
-    " title_sort, artist_sort, album_sort, composer_sort, album_artist_sort)" \
-    " VALUES (' || id || ', ' || QUOTE(path) || ', ' || QUOTE(fname) || ', ' || QUOTE(title) || ', '" \
-    " || QUOTE(artist) || ', ' || QUOTE(album) || ', ' || QUOTE(genre) || ', ' || QUOTE(comment) || ', '" \
-    " || QUOTE(type) || ', ' || QUOTE(composer) || ', ' || QUOTE(orchestra) || ', ' || QUOTE(conductor) || ', '" \
-    " || QUOTE(grouping) || ', ' || QUOTE(url) || ', ' || bitrate || ', ' || samplerate || ', '" \
-    " || song_length || ', ' || file_size || ', ' || year || ', ' || track || ', ' || total_tracks || ', '" \
-    " || disc || ', ' || total_discs || ', ' || bpm || ', ' || compilation || ', ' || rating || ', '" \
-    " || play_count || ', 0, ' || data_kind || ', ' || item_kind || ', ' ||  QUOTE(description) || ', '" \
-    " || time_added || ', ' || time_modified || ', ' || time_played || ', ' || db_timestamp || ', '" \
-    " || disabled || ', ' || sample_count || ', ' || QUOTE(codectype) || ', ' || idx || ', '" \
-    " || has_video || ', ' || contentrating || ', ' || bits_per_sample || ', ' || QUOTE(album_artist) || ', '" \
-    " || media_kind || ', ' || QUOTE(tv_series_name) || ', ' || QUOTE(tv_episode_num_str) || ', '" \
-    " || QUOTE(tv_network_name) || ', ' || tv_episode_sort || ', ' || tv_season_num || ', " \
-    " daap_songalbumid(' || QUOTE(album_artist) || ', ''''), ' || songalbumid || ', '" \
-    " || QUOTE(title_sort) || ', ' || QUOTE(artist_sort) || ', ' || QUOTE(album_sort) || ', '" \
-    " || QUOTE(composer_sort) || ', ' || QUOTE(album_artist_sort) || ');' FROM files;"
-
-  return db_upgrade_files_table(Q_DUMP, U_V14_NEW_FILES_TABLE);
-  
-#undef Q_DUMP
-}
-
-/* Upgrade from schema v14 to v15 */
-/* Adds artwork field - nothing else */
-
-#define U_V15_NEW_FILES_TABLE				\
-  "CREATE TABLE IF NOT EXISTS files ("			\
-  "   id                 INTEGER PRIMARY KEY NOT NULL,"	\
-  "   path               VARCHAR(4096) NOT NULL,"	\
-  "   fname              VARCHAR(255) NOT NULL,"	\
-  "   title              VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   artist             VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   album              VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
-  "   genre              VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
-  "   comment            VARCHAR(4096) DEFAULT NULL COLLATE DAAP,"	\
-  "   type               VARCHAR(255) DEFAULT NULL COLLATE DAAP,"	\
-  "   composer           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   orchestra          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   conductor          VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   grouping           VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   url                VARCHAR(1024) DEFAULT NULL,"	\
-  "   bitrate            INTEGER DEFAULT 0,"		\
-  "   samplerate         INTEGER DEFAULT 0,"		\
-  "   song_length        INTEGER DEFAULT 0,"		\
-  "   file_size          INTEGER DEFAULT 0,"		\
-  "   year               INTEGER DEFAULT 0,"		\
-  "   track              INTEGER DEFAULT 0,"		\
-  "   total_tracks       INTEGER DEFAULT 0,"		\
-  "   disc               INTEGER DEFAULT 0,"		\
-  "   total_discs        INTEGER DEFAULT 0,"		\
-  "   bpm                INTEGER DEFAULT 0,"		\
-  "   compilation        INTEGER DEFAULT 0,"		\
-  "   artwork            INTEGER DEFAULT 0,"		\
-  "   rating             INTEGER DEFAULT 0,"		\
-  "   play_count         INTEGER DEFAULT 0,"		\
-  "   seek               INTEGER DEFAULT 0,"		\
-  "   data_kind          INTEGER DEFAULT 0,"		\
-  "   item_kind          INTEGER DEFAULT 0,"		\
-  "   description        INTEGER DEFAULT 0,"		\
-  "   time_added         INTEGER DEFAULT 0,"		\
-  "   time_modified      INTEGER DEFAULT 0,"		\
-  "   time_played        INTEGER DEFAULT 0,"		\
-  "   db_timestamp       INTEGER DEFAULT 0,"		\
-  "   disabled           INTEGER DEFAULT 0,"		\
-  "   sample_count       INTEGER DEFAULT 0,"		\
-  "   codectype          VARCHAR(5) DEFAULT NULL,"	\
-  "   idx                INTEGER NOT NULL,"		\
-  "   has_video          INTEGER DEFAULT 0,"		\
-  "   contentrating      INTEGER DEFAULT 0,"		\
-  "   bits_per_sample    INTEGER DEFAULT 0,"		\
-  "   album_artist       VARCHAR(1024) NOT NULL COLLATE DAAP,"		\
-  "   media_kind         INTEGER NOT NULL,"		\
-  "   tv_series_name     VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   tv_episode_num_str VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   tv_network_name    VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   tv_episode_sort    INTEGER NOT NULL,"		\
-  "   tv_season_num      INTEGER NOT NULL,"		\
-  "   songartistid       INTEGER NOT NULL,"		\
-  "   songalbumid        INTEGER NOT NULL,"		\
-  "   title_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   artist_sort        VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   album_sort         VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   composer_sort      VARCHAR(1024) DEFAULT NULL COLLATE DAAP,"	\
-  "   album_artist_sort  VARCHAR(1024) DEFAULT NULL COLLATE DAAP"	\
-  ");"
-
-#define U_V15_TRG1							\
-  "CREATE TRIGGER update_groups_new_file AFTER INSERT ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
-  " END;"
-
-#define U_V15_TRG2							\
-  "CREATE TRIGGER update_groups_update_file AFTER UPDATE OF songalbumid ON files FOR EACH ROW" \
-  " BEGIN"								\
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (1, NEW.album, NEW.songalbumid);" \
-  "   INSERT OR IGNORE INTO groups (type, name, persistentid) VALUES (2, NEW.album_artist, NEW.songartistid);" \
-  " END;"
-
-#define U_V15_SCVER				\
-  "UPDATE admin SET value = '15' WHERE key = 'schema_version';"
-
-static const struct db_init_query db_upgrade_v15_queries[] =
-  {
-    { U_V15_TRG1,     "create trigger update_groups_new_file" },
-    { U_V15_TRG2,     "create trigger update_groups_update_file" },
-
-    { U_V15_SCVER,    "set schema_version to 15" },
-  };
-
-static int
-db_upgrade_v15(void)
-{
-#define Q_DUMP "SELECT 'INSERT INTO files " \
-    "(id, path, fname, title, artist, album, genre, comment, type, composer," \
-    " orchestra, conductor, grouping, url, bitrate, samplerate, song_length, file_size, year, track," \
-    " total_tracks, disc, total_discs, bpm, compilation, artwork, rating, play_count, seek, data_kind, item_kind," \
-    " description, time_added, time_modified, time_played, db_timestamp, disabled, sample_count," \
-    " codectype, idx, has_video, contentrating, bits_per_sample, album_artist," \
-    " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
-    " songartistid, songalbumid, " \
-    " title_sort, artist_sort, album_sort, composer_sort, album_artist_sort)" \
-    " VALUES (' || id || ', ' || QUOTE(path) || ', ' || QUOTE(fname) || ', ' || QUOTE(title) || ', '" \
-    " || QUOTE(artist) || ', ' || QUOTE(album) || ', ' || QUOTE(genre) || ', ' || QUOTE(comment) || ', '" \
-    " || QUOTE(type) || ', ' || QUOTE(composer) || ', ' || QUOTE(orchestra) || ', ' || QUOTE(conductor) || ', '" \
-    " || QUOTE(grouping) || ', ' || QUOTE(url) || ', ' || bitrate || ', ' || samplerate || ', '" \
-    " || song_length || ', ' || file_size || ', ' || year || ', ' || track || ', ' || total_tracks || ', '" \
-    " || disc || ', ' || total_discs || ', ' || bpm || ', ' || compilation || ', 0, ' || rating || ', '" \
-    " || play_count || ',  ' || seek || ', ' || data_kind || ', ' || item_kind || ', ' ||  QUOTE(description) || ', '" \
-    " || time_added || ', ' || time_modified || ', ' || time_played || ', ' || db_timestamp || ', '" \
-    " || disabled || ', ' || sample_count || ', ' || QUOTE(codectype) || ', ' || idx || ', '" \
-    " || has_video || ', ' || contentrating || ', ' || bits_per_sample || ', ' || QUOTE(album_artist) || ', '" \
-    " || media_kind || ', ' || QUOTE(tv_series_name) || ', ' || QUOTE(tv_episode_num_str) || ', '" \
-    " || QUOTE(tv_network_name) || ', ' || tv_episode_sort || ', ' || tv_season_num || ', '" \
-    " || songartistid ||', ' || songalbumid || ', '" \
-    " || QUOTE(title_sort) || ', ' || QUOTE(artist_sort) || ', ' || QUOTE(album_sort) || ', '" \
-    " || QUOTE(composer_sort) || ', ' || QUOTE(album_artist_sort) || ');' FROM files;"
-
-  return db_upgrade_files_table(Q_DUMP, U_V15_NEW_FILES_TABLE);
-
-#undef Q_DUMP
-}
-
-/* Upgrade from schema v15 to v15.01 */
-/* Improved indices (will be generated by generic schema update) */
-
-#define U_V1501_SCVER_MAJOR			\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_major', '15');"
-#define U_V1501_SCVER_MINOR			\
-  "INSERT INTO admin (key, value) VALUES ('schema_version_minor', '01');"
-
-static const struct db_init_query db_upgrade_v1501_queries[] =
-  {
-    { U_V1501_SCVER_MAJOR,    "set schema_version_major to 15" },
-    { U_V1501_SCVER_MINOR,    "set schema_version_minor to 01" },
-  };
-
-/* Upgrade from schema v15.01 to v16 */
-
-#define U_V16_CREATE_VIEW_FILELIST			\
-  "CREATE VIEW IF NOT EXISTS filelist as"		\
-  "     SELECT "					\
-  "       virtual_path, time_modified, 3 as type "	\
-  "     FROM files WHERE disabled = 0"			\
-  "   UNION "						\
-  "     SELECT "					\
-  "       virtual_path, db_timestamp, 1 as type "	\
-  "     FROM playlists WHERE disabled = 0 AND type = 0"	\
-  ";"
-
-#define U_V16_ALTER_TBL_FILES_ADD_COL					\
-  "ALTER TABLE files ADD COLUMN virtual_path VARCHAR(4096) DEFAULT NULL;"
-
-#define U_V16_ALTER_TBL_PL_ADD_COL					\
-  "ALTER TABLE playlists ADD COLUMN virtual_path VARCHAR(4096) DEFAULT NULL;"
-
-#define D_V1600_SCVER				\
-  "DELETE FROM admin WHERE key = 'schema_version';"
-#define U_V1600_SCVER_MAJOR			\
-  "UPDATE admin SET value = '16' WHERE key = 'schema_version_major';"
-#define U_V1600_SCVER_MINOR			\
-  "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
-
-static const struct db_init_query db_upgrade_v16_queries[] =
-  {
-    { U_V16_ALTER_TBL_FILES_ADD_COL, "alter table files add column virtual_path" },
-    { U_V16_ALTER_TBL_PL_ADD_COL,    "alter table playlists add column virtual_path" },
-    { U_V16_CREATE_VIEW_FILELIST,    "create new view filelist" },
-
-    { D_V1600_SCVER,                "delete schema_version" },
-    { U_V1600_SCVER_MAJOR,          "set schema_version_major to 16" },
-    { U_V1600_SCVER_MINOR,          "set schema_version_minor to 00" },
-  };
-
-static int
-db_upgrade_v16(void)
-{
-  sqlite3_stmt *stmt;
-  char *query;
-  char *uquery;
-  char *errmsg;
-  char *artist;
-  char *album;
-  char *title;
-  int id;
-  char *path;
-  int type;
-  char virtual_path[PATH_MAX];
-  int ret;
-
-  query = "SELECT id, album_artist, album, title, path FROM files;";
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-      return -1;
-    }
-
-  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
-    {
-      id = sqlite3_column_int(stmt, 0);
-      artist = (char *)sqlite3_column_text(stmt, 1);
-      album = (char *)sqlite3_column_text(stmt, 2);
-      title = (char *)sqlite3_column_text(stmt, 3);
-      path = (char *)sqlite3_column_text(stmt, 4);
-
-      if (strncmp(path, "http:", strlen("http:")) == 0)
-	{
-	  snprintf(virtual_path, PATH_MAX, "/http:/%s", title);
-	}
-      else if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
-	{
-	  snprintf(virtual_path, PATH_MAX, "/spotify:/%s/%s/%s", artist, album, title);
-	}
-      else
-	{
-	  snprintf(virtual_path, PATH_MAX, "/file:%s", path);
-	}
-
-      uquery = sqlite3_mprintf("UPDATE files SET virtual_path = '%q' WHERE id = %d;", virtual_path, id);
-      ret = sqlite3_exec(hdl, uquery, NULL, NULL, &errmsg);
-      if (ret != SQLITE_OK)
-	{
-	  DPRINTF(E_LOG, L_DB, "Error updating files: %s\n", errmsg);
-	}
-
-      sqlite3_free(uquery);
-      sqlite3_free(errmsg);
-    }
-
-  sqlite3_finalize(stmt);
-
-
-  query = "SELECT id, title, path, type FROM playlists;";
-
-  DPRINTF(E_DBG, L_DB, "Running query '%s'\n", query);
-
-  ret = sqlite3_prepare_v2(hdl, query, -1, &stmt, NULL);
-  if (ret != SQLITE_OK)
-    {
-      DPRINTF(E_LOG, L_DB, "Could not prepare statement: %s\n", sqlite3_errmsg(hdl));
-      return -1;
-    }
-
-  while ((ret = sqlite3_step(stmt)) == SQLITE_ROW)
-    {
-      id = sqlite3_column_int(stmt, 0);
-      title = (char *)sqlite3_column_text(stmt, 1);
-      path = (char *)sqlite3_column_text(stmt, 2);
-      type = sqlite3_column_int(stmt, 3);
-
-      if (type == 0) /* Excludes default/Smart playlists and playlist folders */
-	{
-	  if (strncmp(path, "spotify:", strlen("spotify:")) == 0)
-	    snprintf(virtual_path, PATH_MAX, "/spotify:/%s", title);
-	  else
-	    snprintf(virtual_path, PATH_MAX, "/file:%s", path);
-
-	  uquery = sqlite3_mprintf("UPDATE playlists SET virtual_path = '%q' WHERE id = %d;", virtual_path, id);
-
-	  ret = sqlite3_exec(hdl, uquery, NULL, NULL, &errmsg);
-	  if (ret != SQLITE_OK)
-	    DPRINTF(E_LOG, L_DB, "Error updating playlists: %s\n", errmsg);
-
-	  sqlite3_free(uquery);
-	  sqlite3_free(errmsg);
-	}
-    }
-
-  sqlite3_free(errmsg);
-  sqlite3_finalize(stmt);
-
-  return 0;
-}
-
-/* Upgrade from schema v16.00 to v17.00 */
-/* Expand data model to allow for nested playlists and change default playlist
- * enumeration
- */
-
-#define U_V17_PL_PARENTID_ADD			\
-  "ALTER TABLE playlists ADD COLUMN parent_id INTEGER DEFAULT 0;"
-#define U_V17_PL_TYPE_CHANGE			\
-  "UPDATE playlists SET type = 2 WHERE type = 1;"
-
-#define U_V17_SCVER_MAJOR			\
-  "UPDATE admin SET value = '17' WHERE key = 'schema_version_major';"
-#define U_V17_SCVER_MINOR			\
-  "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
-
-static const struct db_init_query db_upgrade_v17_queries[] =
-  {
-    { U_V17_PL_PARENTID_ADD,"expanding table playlists with parent_id column" },
-    { U_V17_PL_TYPE_CHANGE, "changing numbering of default playlists 1 -> 2" },
-
-    { U_V17_SCVER_MAJOR,    "set schema_version_major to 17" },
-    { U_V17_SCVER_MINOR,    "set schema_version_minor to 00" },
-  };
-
-/* Upgrade from schema v17.00 to v18.00 */
-/* Change playlist type enumeration and recreate filelist view (include smart
- * playlists in view)
- */
-
-#define U_V18_PL_TYPE_CHANGE_PLAIN				\
-  "UPDATE playlists SET type = 3 WHERE type = 0;"
-#define U_V18_PL_TYPE_CHANGE_SPECIAL				\
-  "UPDATE playlists SET type = 0 WHERE type = 2;"
-#define U_V18_DROP_VIEW_FILELIST				\
-  "DROP VIEW IF EXISTS filelist;"
-#define U_V18_CREATE_VIEW_FILELIST				\
-  "CREATE VIEW IF NOT EXISTS filelist as"			\
-  "     SELECT "						\
-  "       virtual_path, time_modified, 3 as type "		\
-  "     FROM files WHERE disabled = 0"				\
-  "   UNION "							\
-  "     SELECT "						\
-  "       virtual_path, db_timestamp, 1 as type "		\
-  "     FROM playlists where disabled = 0 AND type IN (2, 3)"	\
-  ";"
-
-#define U_V18_SCVER_MAJOR			\
-  "UPDATE admin SET value = '18' WHERE key = 'schema_version_major';"
-#define U_V18_SCVER_MINOR			\
-  "UPDATE admin SET value = '00' WHERE key = 'schema_version_minor';"
-
-static const struct db_init_query db_upgrade_v18_queries[] =
-  {
-    { U_V18_PL_TYPE_CHANGE_PLAIN, "changing numbering of plain playlists 0 -> 3" },
-    { U_V18_PL_TYPE_CHANGE_SPECIAL, "changing numbering of default playlists 2 -> 0" },
-    { U_V18_DROP_VIEW_FILELIST, "dropping view filelist" },
-    { U_V18_CREATE_VIEW_FILELIST, "creating view filelist" },
-
-    { U_V18_SCVER_MAJOR,    "set schema_version_major to 18" },
-    { U_V18_SCVER_MINOR,    "set schema_version_minor to 00" },
-  };
-
-/* Upgrade from schema v18.00 to v18.01 */
-/* Change virtual_path for playlists: remove file extension
- */
-
-#define U_V1801_UPDATE_PLAYLISTS_M3U						\
-  "UPDATE playlists SET virtual_path = replace(virtual_path, '.m3u', '');"
-#define U_V1801_UPDATE_PLAYLISTS_PLS						\
-  "UPDATE playlists SET virtual_path = replace(virtual_path, '.pls', '');"
-#define U_V1801_UPDATE_PLAYLISTS_SMARTPL					\
-  "UPDATE playlists SET virtual_path = replace(virtual_path, '.smartpl', '');"
-
-#define U_V1801_SCVER_MAJOR			\
-  "UPDATE admin SET value = '18' WHERE key = 'schema_version_major';"
-#define U_V1801_SCVER_MINOR			\
-  "UPDATE admin SET value = '01' WHERE key = 'schema_version_minor';"
-
-static const struct db_init_query db_upgrade_v1801_queries[] =
-  {
-    { U_V1801_UPDATE_PLAYLISTS_M3U, "update table playlists" },
-    { U_V1801_UPDATE_PLAYLISTS_PLS, "update table playlists" },
-    { U_V1801_UPDATE_PLAYLISTS_SMARTPL, "update table playlists" },
-
-    { U_V1801_SCVER_MAJOR,    "set schema_version_major to 18" },
-    { U_V1801_SCVER_MINOR,    "set schema_version_minor to 01" },
-  };
-
-static int
-db_upgrade(int db_ver)
-{
-  int ret;
-
-  ret = db_drop_indices();
-  if (ret < 0)
-    return -1;
-
-  switch (db_ver)
-    {
-    case 1000:
-      ret = db_generic_upgrade(db_upgrade_v11_queries, sizeof(db_upgrade_v11_queries) / sizeof(db_upgrade_v11_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      ret = db_upgrade_v11();
-      if (ret < 0)
-	return -1;
-
-      /* FALLTHROUGH */
-
-    case 1100:
-      ret = db_upgrade_v12();
-      if (ret < 0)
-	return -1;
-
-      ret = db_generic_upgrade(db_upgrade_v12_queries, sizeof(db_upgrade_v12_queries) / sizeof(db_upgrade_v12_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      /* FALLTHROUGH */
-
-    case 1200:
-      ret = db_generic_upgrade(db_upgrade_v13_queries, sizeof(db_upgrade_v13_queries) / sizeof(db_upgrade_v13_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      /* FALLTHROUGH */
-
-    case 1300:
-      ret = db_upgrade_v14();
-      if (ret < 0)
-	return -1;
-
-      ret = db_generic_upgrade(db_upgrade_v14_queries, sizeof(db_upgrade_v14_queries) / sizeof(db_upgrade_v14_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      /* FALLTHROUGH */
-
-    case 1400:
-      ret = db_upgrade_v15();
-      if (ret < 0)
-	return -1;
-
-      ret = db_generic_upgrade(db_upgrade_v15_queries, sizeof(db_upgrade_v15_queries) / sizeof(db_upgrade_v15_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      /* FALLTHROUGH */
-
-    case 1500:
-      ret = db_generic_upgrade(db_upgrade_v1501_queries, sizeof(db_upgrade_v1501_queries) / sizeof(db_upgrade_v1501_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      /* FALLTHROUGH */
-
-    case 1501:
-      ret = db_generic_upgrade(db_upgrade_v16_queries, sizeof(db_upgrade_v16_queries) / sizeof(db_upgrade_v16_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      ret = db_upgrade_v16();
-      if (ret < 0)
-	return -1;
-
-      /* FALLTHROUGH */
-
-    case 1600:
-      ret = db_generic_upgrade(db_upgrade_v17_queries, sizeof(db_upgrade_v17_queries) / sizeof(db_upgrade_v17_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      /* FALLTHROUGH */
-
-    case 1700:
-      ret = db_generic_upgrade(db_upgrade_v18_queries, sizeof(db_upgrade_v18_queries) / sizeof(db_upgrade_v18_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      /* FALLTHROUGH */
-
-    case 1800:
-      ret = db_generic_upgrade(db_upgrade_v1801_queries, sizeof(db_upgrade_v1801_queries) / sizeof(db_upgrade_v1801_queries[0]));
-      if (ret < 0)
-	return -1;
-
-      break;
-
-    default:
-      DPRINTF(E_FATAL, L_DB, "No upgrade path from the current DB schema\n");
-      return -1;
-    }
-
-  ret = db_create_indices();
-  if (ret < 0)
-    return -1;
-
-  return 0;
-}
 
 static int
 db_check_version(void)
@@ -6209,7 +5258,22 @@ db_check_version(void)
 	  return -1;
 	}
 
-      ret = db_upgrade(db_ver);
+      ret = db_upgrade(hdl, db_ver);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_DB, "Database upgrade errored out, rolling back changes ...\n");
+	  ret = sqlite3_exec(hdl, "ROLLBACK TRANSACTION;", NULL, NULL, &errmsg);
+	  if (ret != SQLITE_OK)
+	    {
+	      DPRINTF(E_LOG, L_DB, "DB error while running 'ROLLBACK TRANSACTION': %s\n",  errmsg);
+
+	      sqlite3_free(errmsg);
+	    }
+
+	  return -1;
+	}
+
+      ret = db_create_indices();
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_DB, "Database upgrade errored out, rolling back changes ...\n");

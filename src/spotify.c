@@ -35,6 +35,7 @@
 #include <sys/stat.h>
 #include <sys/ioctl.h>
 #include <sys/queue.h>
+#include <time.h>
 #include <pthread.h>
 
 #include <dlfcn.h>
@@ -573,6 +574,9 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
   sp_link *link;
   char url[1024];
   int ret;
+  int dir_id;
+  char virtual_path[PATH_MAX];
+
 
   if (!fptr_sp_track_is_loaded(track))
     {
@@ -618,7 +622,36 @@ spotify_track_save(int plid, sp_track *track, const char *pltitle, int time_adde
       return -1;
     }
 
-  filescanner_process_media(url, time(NULL), 0, F_SCAN_TYPE_SPOTIFY, &mfi);
+  ret = snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s", mfi.artist);
+  if ((ret < 0) || (ret >= sizeof(virtual_path)))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Virtual path exceeds PATH_MAX (/spotify:/%s)\n", mfi.artist);
+      free_mfi(&mfi, 1);
+      return -1;
+    }
+  dir_id = db_directory_addorupdate(virtual_path, 0, DIR_SPOTIFY);
+  if (dir_id <= 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory '%s'\n", virtual_path);
+      free_mfi(&mfi, 1);
+      return -1;
+    }
+  ret = snprintf(virtual_path, sizeof(virtual_path), "/spotify:/%s/%s", mfi.artist, mfi.album);
+  if ((ret < 0) || (ret >= sizeof(virtual_path)))
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Virtual path exceeds PATH_MAX (/spotify:/%s/%s)\n", mfi.artist, mfi.album);
+      free_mfi(&mfi, 1);
+      return -1;
+    }
+  dir_id = db_directory_addorupdate(virtual_path, 0, dir_id);
+  if (dir_id <= 0)
+    {
+      DPRINTF(E_LOG, L_SPOTIFY, "Could not add or update directory '%s'\n", virtual_path);
+      free_mfi(&mfi, 1);
+      return -1;
+    }
+
+  filescanner_process_media(url, time(NULL), 0, F_SCAN_TYPE_SPOTIFY, &mfi, dir_id);
 
   free_mfi(&mfi, 1);
 
@@ -669,7 +702,7 @@ spotify_playlist_save(sp_playlist *pl)
   int plid;
   int num_tracks;
   char virtual_path[PATH_MAX];
-  int time;
+  int created;
   int ret;
   int i;
   
@@ -759,6 +792,7 @@ spotify_playlist_save(sp_playlist *pl)
       pli->path = strdup(url);
       pli->virtual_path = strdup(virtual_path);
       pli->parent_id = g_base_plid;
+      pli->directory_id = DIR_SPOTIFY;
 
       ret = db_pl_add(pli, &plid);
       if ((ret < 0) || (plid < 1))
@@ -783,9 +817,9 @@ spotify_playlist_save(sp_playlist *pl)
 	  continue;
 	}
 
-      time = fptr_sp_playlist_track_create_time(pl, i);
+      created = fptr_sp_playlist_track_create_time(pl, i);
 
-      ret = spotify_track_save(plid, track, name, time);
+      ret = spotify_track_save(plid, track, name, created);
       if (ret < 0)
 	{
 	  DPRINTF(E_LOG, L_SPOTIFY, "Error saving track %d to playlist '%s' (id %d)\n", i, name, plid);
@@ -1382,6 +1416,8 @@ logged_in(sp_session *sess, sp_error error)
     }
 
   DPRINTF(E_LOG, L_SPOTIFY, "Login to Spotify succeeded. Reloading playlists.\n");
+
+  db_directory_enable_bypath("/spotify:");
 
   pl = fptr_sp_session_starred_create(sess);
   fptr_sp_playlist_add_callbacks(pl, &pl_callbacks, NULL);
