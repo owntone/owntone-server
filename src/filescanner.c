@@ -1902,7 +1902,6 @@ kqueue_cb(int fd, short event, void *arg)
   struct stacked_dir *rescan;
   struct stacked_dir *d;
   struct stacked_dir *dprev;
-  char *path;
   uint32_t wd;
   int d_len;
   int w_len;
