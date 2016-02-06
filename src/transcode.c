@@ -578,7 +578,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
 {
   AVDictionary *options;
   AVCodec *decoder;
-  unsigned int stream_index;
+  int stream_index;
   int ret;
 
   options = NULL;
@@ -644,7 +644,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
   ret = avcodec_open2(ctx->ifmt_ctx->streams[stream_index]->codec, decoder, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%u\n", stream_index);
+      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d\n", stream_index);
       goto out_fail;
     }
 
@@ -665,7 +665,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
   ret = avcodec_open2(ctx->ifmt_ctx->streams[stream_index]->codec, decoder, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%u\n", stream_index);
+      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d\n", stream_index);
       return 0;
     }
 
