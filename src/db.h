@@ -635,7 +635,7 @@ db_admin_delete(const char *key);
 
 /* Speakers */
 int
-db_speaker_save(uint64_t id, int selected, int volume);
+db_speaker_save(uint64_t id, int selected, int volume, const char *name);
 
 int
 db_speaker_get(uint64_t id, int *selected, int *volume);

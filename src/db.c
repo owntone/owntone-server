@@ -4047,12 +4047,12 @@ db_admin_delete(const char *key)
 
 /* Speakers */
 int
-db_speaker_save(uint64_t id, int selected, int volume)
+db_speaker_save(uint64_t id, int selected, int volume, const char *name)
 {
-#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume) VALUES (%" PRIi64 ", %d, %d);"
+#define Q_TMPL "INSERT OR REPLACE INTO speakers (id, selected, volume, name) VALUES (%" PRIi64 ", %d, %d, '%q');"
   char *query;
 
-  query = sqlite3_mprintf(Q_TMPL, id, selected, volume);
+  query = sqlite3_mprintf(Q_TMPL, id, selected, volume, name);
 
   return db_query_run(query, 1, 0);
 #undef Q_TMPL

@@ -229,7 +229,7 @@ struct player_command
 
   int ret;
 
-  int raop_pending;
+  int output_requests_pending;
 };
 
 struct event_base *evbase_player;
@@ -1706,7 +1706,7 @@ device_remove(struct output_device *remove)
     speaker_deselect_output(remove);
 
   /* Save device volume */
-  ret = db_speaker_save(remove->id, 0, remove->volume);
+  ret = db_speaker_save(remove->id, 0, remove->volume, remove->name);
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", remove->type_name, remove->name);
 
@@ -1929,16 +1929,16 @@ device_streaming_cb(struct output_device *device, struct output_session *session
 static void
 device_command_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
-  DPRINTF(E_DBG, L_PLAYER, "CALLBACK command_cb %d %d\n", status, cur_cmd->raop_pending);
+  DPRINTF(E_DBG, L_PLAYER, "CALLBACK command_cb %d %d\n", status, cur_cmd->output_requests_pending);
 
-  cur_cmd->raop_pending--;
+  cur_cmd->output_requests_pending--;
 
   outputs_status_cb(session, device_streaming_cb);
 
   if (status == OUTPUT_STATE_FAILED)
     device_streaming_cb(device, session, status);
 
-  if (cur_cmd->raop_pending == 0)
+  if (cur_cmd->output_requests_pending == 0)
     {
       if (cur_cmd->func_bh)
 	cur_cmd->ret = cur_cmd->func_bh(cur_cmd);
@@ -1956,7 +1956,7 @@ device_shutdown_cb(struct output_device *device, struct output_session *session,
 
   DPRINTF(E_DBG, L_PLAYER, "CALLBACK shutdown_cb %d\n", status);
 
-  cur_cmd->raop_pending--;
+  cur_cmd->output_requests_pending--;
 
   if (output_sessions)
     output_sessions--;
@@ -1977,7 +1977,7 @@ device_shutdown_cb(struct output_device *device, struct output_session *session,
     device_remove(device);
 
  out:
-  if (cur_cmd->raop_pending == 0)
+  if (cur_cmd->output_requests_pending == 0)
     {
       /* cur_cmd->ret already set
        *  - to 0 (or -2 if password issue) in speaker_set()
@@ -2007,7 +2007,7 @@ device_activate_cb(struct output_device *device, struct output_session *session,
 
   DPRINTF(E_DBG, L_PLAYER, "CALLBACK activate_cb %d %d\n", status, OUTPUT_STATE_F_STARTUP);
 
-  cur_cmd->raop_pending--;
+  cur_cmd->output_requests_pending--;
 
   ret = device_check(device);
   if (ret < 0)
@@ -2062,7 +2062,7 @@ device_activate_cb(struct output_device *device, struct output_session *session,
   outputs_status_cb(session, device_streaming_cb);
 
  out:
-  if (cur_cmd->raop_pending == 0)
+  if (cur_cmd->output_requests_pending == 0)
     {
       /* cur_cmd->ret already set
        *  - to 0 in speaker_set() (default)
@@ -2080,7 +2080,7 @@ device_probe_cb(struct output_device *device, struct output_session *session, en
 
   DPRINTF(E_DBG, L_PLAYER, "CALLBACK probe_cb %d\n", status);
 
-  cur_cmd->raop_pending--;
+  cur_cmd->output_requests_pending--;
 
   ret = device_check(device);
   if (ret < 0)
@@ -2111,7 +2111,7 @@ device_probe_cb(struct output_device *device, struct output_session *session, en
     }
 
  out:
-  if (cur_cmd->raop_pending == 0)
+  if (cur_cmd->output_requests_pending == 0)
     {
       /* cur_cmd->ret already set
        *  - to 0 in speaker_set() (default)
@@ -2129,7 +2129,7 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
 
   DPRINTF(E_DBG, L_PLAYER, "CALLBACK restart_cb %d %d\n", status, OUTPUT_STATE_F_STARTUP);
 
-  cur_cmd->raop_pending--;
+  cur_cmd->output_requests_pending--;
 
   ret = device_check(device);
   if (ret < 0)
@@ -2158,7 +2158,7 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
   outputs_status_cb(session, device_streaming_cb);
 
  out:
-  if (cur_cmd->raop_pending == 0)
+  if (cur_cmd->output_requests_pending == 0)
     {
       cur_cmd->ret = cur_cmd->func_bh(cur_cmd);
 
@@ -2348,7 +2348,7 @@ playback_stop(struct player_command *cmd)
    * full stop just yet; this saves time when restarting, which is nicer
    * for the user.
    */
-  cmd->raop_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  cmd->output_requests_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
   pb_timer_stop();
 
@@ -2367,7 +2367,7 @@ playback_stop(struct player_command *cmd)
   metadata_purge();
 
   /* We're async if we need to flush RAOP devices */
-  if (cmd->raop_pending > 0)
+  if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
   return 0;
@@ -2517,7 +2517,7 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
     }
 
   /* Start RAOP sessions on selected devices if needed */
-  cmd->raop_pending = 0;
+  cmd->output_requests_pending = 0;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -2530,12 +2530,13 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
 	      continue;
 	    }
 
-	  cmd->raop_pending++;
+	  DPRINTF(E_INFO, L_PLAYER, "Using selected %s device '%s'\n", device->type_name, device->name);
+	  cmd->output_requests_pending++;
 	}
     }
 
   /* Try to autoselect a non-selected RAOP device if the above failed */
-  if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (output_sessions == 0))
+  if ((laudio_status == LAUDIO_CLOSED) && (cmd->output_requests_pending == 0) && (output_sessions == 0))
     for (device = dev_list; device; device = device->next)
       {
         if (!device->session)
@@ -2550,13 +2551,13 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
 	      }
 
 	    DPRINTF(E_INFO, L_PLAYER, "Autoselecting %s device '%s'\n", device->type_name, device->name);
-	    cmd->raop_pending++;
+	    cmd->output_requests_pending++;
 	    break;
 	  }
       }
 
   /* No luck finding valid output */
-  if ((laudio_status == LAUDIO_CLOSED) && (cmd->raop_pending == 0) && (output_sessions == 0))
+  if ((laudio_status == LAUDIO_CLOSED) && (cmd->output_requests_pending == 0) && (output_sessions == 0))
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
 
@@ -2565,7 +2566,7 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
     }
 
   /* We're async if we need to start RAOP devices */
-  if (cmd->raop_pending > 0)
+  if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
   /* Otherwise, just run the bottom half */
@@ -2809,7 +2810,7 @@ playback_pause(struct player_command *cmd)
   if (player_state == PLAY_STOPPED)
     return -1;
 
-  cmd->raop_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+  cmd->output_requests_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
   if (laudio_status != LAUDIO_CLOSED)
     laudio_stop();
@@ -2823,7 +2824,7 @@ playback_pause(struct player_command *cmd)
   metadata_purge();
 
   /* We're async if we need to flush RAOP devices */
-  if (cmd->raop_pending > 0)
+  if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
   /* Otherwise, just run the bottom half */
@@ -3006,7 +3007,7 @@ speaker_set(struct player_command *cmd)
 
   DPRINTF(E_DBG, L_PLAYER, "Speaker set: %d speakers\n", nspk);
 
-  cmd->raop_pending = 0;
+  cmd->output_requests_pending = 0;
   cmd->ret = 0;
 
   for (device = dev_list; device; device = device->next)
@@ -3048,7 +3049,7 @@ speaker_set(struct player_command *cmd)
 		}
 
 	      /* ret = 1 if RAOP needs to take action */
-	      cmd->raop_pending += ret;
+	      cmd->output_requests_pending += ret;
 	    }
 	}
       else
@@ -3070,7 +3071,7 @@ speaker_set(struct player_command *cmd)
 		}
 
 	      /* ret = 1 if RAOP needs to take action */
-	      cmd->raop_pending += ret;
+	      cmd->output_requests_pending += ret;
 	    }
 	}
     }
@@ -3125,7 +3126,7 @@ speaker_set(struct player_command *cmd)
 
   listener_notify(LISTENER_SPEAKER);
 
-  if (cmd->raop_pending > 0)
+  if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
   return cmd->ret;
@@ -3154,7 +3155,7 @@ volume_set(struct player_command *cmd)
 #endif
     }
 
-  cmd->raop_pending = 0;
+  cmd->output_requests_pending = 0;
 
   for (device = dev_list; device; device = device->next)
     {
@@ -3168,12 +3169,12 @@ volume_set(struct player_command *cmd)
 #endif
 
       if (device->session)
-	cmd->raop_pending += outputs_device_volume_set(device, device_command_cb);
+	cmd->output_requests_pending += outputs_device_volume_set(device, device_command_cb);
     }
 
   listener_notify(LISTENER_VOLUME);
 
-  if (cmd->raop_pending > 0)
+  if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
   return 0;
@@ -3217,7 +3218,7 @@ volume_setrel_speaker(struct player_command *cmd)
 #endif
 
 	  if (device->session)
-	    cmd->raop_pending = outputs_device_volume_set(device, device_command_cb);
+	    cmd->output_requests_pending = outputs_device_volume_set(device, device_command_cb);
 
 	  break;
         }
@@ -3225,7 +3226,7 @@ volume_setrel_speaker(struct player_command *cmd)
 
   listener_notify(LISTENER_VOLUME);
 
-  if (cmd->raop_pending > 0)
+  if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
   return 0;
@@ -3280,13 +3281,13 @@ volume_setabs_speaker(struct player_command *cmd)
 #endif
 
 	  if (device->session)
-	    cmd->raop_pending = outputs_device_volume_set(device, device_command_cb);
+	    cmd->output_requests_pending = outputs_device_volume_set(device, device_command_cb);
 	}
     }
 
   listener_notify(LISTENER_VOLUME);
 
-  if (cmd->raop_pending > 0)
+  if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
   return 0;
@@ -4524,13 +4525,13 @@ player(void *arg)
   /* Save selected devices */
   db_speaker_clear_all();
 
-  ret = db_speaker_save(0, laudio_selected, laudio_volume);
+  ret = db_speaker_save(0, laudio_selected, laudio_volume, "Local audio");
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Could not save state for local audio\n");
 
   for (device = dev_list; device; device = device->next)
     {
-      ret = db_speaker_save(device->id, device->selected, device->volume);
+      ret = db_speaker_save(device->id, device->selected, device->volume, device->name);
       if (ret < 0)
 	DPRINTF(E_LOG, L_PLAYER, "Could not save state for %s device '%s'\n", device->type_name, device->name);
     }
