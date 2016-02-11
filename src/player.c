@@ -75,6 +75,10 @@
 
 // Default volume (must be from 0 - 100)
 #define PLAYER_DEFAULT_VOLUME 50
+// Used to keep the player from getting ahead of a rate limited source (see below)
+#define PLAYER_TICKS_MAX_DELAY 2
+// Skips ticks for about 2 secs (seems to bring us back in sync for about 20 min)
+#define PLAYER_TICKS_SKIP 126
 
 struct player_source
 {
@@ -259,9 +263,15 @@ timer_t pb_timer;
 static struct event *pb_timer_ev;
 static struct timespec pb_timer_last;
 static struct timespec packet_timer_last;
-static uint64_t MINIMUM_STREAM_PERIOD;
-static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
+
+// How often the playback timer triggers player_playback_cb
+static struct timespec tick_interval;
+// Timer resolution
 static struct timespec timer_res;
+// Time between two packets
+static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
+// Will be positive if we need to skip some source reads (see below)
+static int ticks_skip;
 
 /* Sync source */
 static enum player_sync_source pb_sync_source;
@@ -555,41 +565,25 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 }
 
 static int
-pb_timer_start(struct timespec *ts)
+pb_timer_start(void)
 {
-  struct itimerspec next;
+  struct itimerspec tick;
   int ret;
 
-  next.it_interval.tv_sec = 0;
-  next.it_interval.tv_nsec = 0;
-  next.it_value.tv_sec = ts->tv_sec;
-  next.it_value.tv_nsec = ts->tv_nsec;
+  tick.it_interval = tick_interval;
+  tick.it_value = tick_interval;
 
 #if defined(__linux__)
-  ret = timerfd_settime(pb_timer_fd, TFD_TIMER_ABSTIME, &next, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not arm playback timer: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  ret = event_add(pb_timer_ev, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Could not add playback timer event\n");
-
-      return -1;
-    }
+  ret = timerfd_settime(pb_timer_fd, 0, &tick, NULL);
 #else
-  ret = timer_settime(pb_timer, TIMER_ABSTIME, &next, NULL);
+  ret = timer_settime(pb_timer, 0, &tick, NULL);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not arm playback timer: %s\n", strerror(errno));
 
       return -1;
     }
-#endif
 
   return 0;
 }
@@ -597,17 +591,15 @@ pb_timer_start(struct timespec *ts)
 static int
 pb_timer_stop(void)
 {
-  struct itimerspec next;
+  struct itimerspec tick;
   int ret;
 
-  memset(&next, 0, sizeof(struct itimerspec));
+  memset(&tick, 0, sizeof(struct itimerspec));
 
 #if defined(__linux__)
-  ret = timerfd_settime(pb_timer_fd, TFD_TIMER_ABSTIME, &next, NULL);
-
-  event_del(pb_timer_ev);
+  ret = timerfd_settime(pb_timer_fd, 0, &tick, NULL);
 #else
-  ret = timer_settime(pb_timer, TIMER_ABSTIME, &next, NULL);
+  ret = timer_settime(pb_timer, 0, &tick, NULL);
 #endif
   if (ret < 0)
     {
@@ -1620,24 +1612,59 @@ playback_write(void)
 static void
 player_playback_cb(int fd, short what, void *arg)
 {
-  uint32_t packet_send_count = 0;
   struct timespec next_tick;
-  struct timespec stream_period  = { 0, MINIMUM_STREAM_PERIOD };
-  int ret;
-#if defined(__linux__)
   uint64_t ticks;
+  uint32_t packet_send_count;
+  int ret;
 
-  /* Acknowledge timer */
+  // Check if we missed any timer expirations
+  ticks = 0;
+#if defined(__linux__)
   ret = read(fd, &ticks, sizeof(ticks));
   if (ret <= 0)
-    DPRINTF(E_WARN, L_PLAYER, "Error reading timer.\n");
+    DPRINTF(E_LOG, L_PLAYER, "Error reading timer\n");
+  else
+    ticks--;
+#else
+  ret = timer_getoverrun(pb_timer);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_PLAYER, "Error getting timer overrun\n");
+  else
+    ticks = ret;
 #endif /* __linux__ */
 
-  /* Decide how many packets to send */
-  next_tick = timespec_add(pb_timer_last, stream_period);
+  // The reason we get behind the playback timer may be that we are playing a 
+  // network stream. We might be consuming faster than the stream delivers, so
+  // when ffmpeg's buffer empties (might take a few hours) our av_read_frame()
+  // in transcode.c will begin to block, because ffmpeg has to wait for new data
+  // from the stream server. In that situation we will skip reading data every
+  // second tick until we have skipt PLAYER_TICKS_SKIP ticks. That should make
+  // the source catch up. RTP destinations should be able to handle this
+  // gracefully if we just give them an rtptime that lets them know that some
+  // packets were "lost".
+  if (ticks > PLAYER_TICKS_MAX_DELAY)
+    {
+      DPRINTF(E_WARN, L_PLAYER, "Behind the playback timer with %" PRIu64 " ticks, initiating catch up\n", ticks);
+      ticks_skip = 2 * PLAYER_TICKS_SKIP + 1;
+    }
+  else if (ticks_skip > 0)
+    ticks_skip--;
+
+  // Decide how many packets to send
+  next_tick = timespec_add(pb_timer_last, tick_interval);
+  for (; ticks > 0; ticks--)
+    next_tick = timespec_add(next_tick, tick_interval);
+
+  packet_send_count = 0;
+
   do
     {
-      playback_write();
+      // Skip reading and writing every second tick if we are behind the source
+      if (ticks_skip % 2 == 0)
+	playback_write();
+      else
+	last_rtptime += AIRTUNES_V2_PACKET_SAMPLES;
+
       packet_timer_last = timespec_add(packet_timer_last, packet_time);
       packet_send_count++;
       /* not possible to have more than 126 audio packets per second */
@@ -1655,11 +1682,7 @@ player_playback_cb(int fd, short what, void *arg)
   if (player_state == PLAY_STOPPED)
     return;
 
-  pb_timer_last = timespec_add(pb_timer_last, stream_period);
-
-  ret = pb_timer_start(&pb_timer_last);
-  if (ret < 0)
-    playback_abort();
+  pb_timer_last = next_tick;
 }
 
 static void
@@ -2407,7 +2430,7 @@ playback_start_bh(struct player_command *cmd)
   pb_timer_last.tv_sec = pb_pos_stamp.tv_sec;
   pb_timer_last.tv_nsec = pb_pos_stamp.tv_nsec;
 
-  ret = pb_timer_start(&pb_timer_last);
+  ret = pb_timer_start();
   if (ret < 0)
     goto out_fail;
 
@@ -4750,6 +4773,7 @@ exit_cb(int fd, short what, void *arg)
 int
 player_init(void)
 {
+  uint64_t interval;
   uint32_t rnd;
   int raop_v6enabled;
   int mdns_flags;
@@ -4800,11 +4824,13 @@ player_init(void)
     timer_res.tv_nsec = 2 * AIRTUNES_V2_STREAM_PERIOD;
 #endif
 
-  MINIMUM_STREAM_PERIOD = MAX(timer_res.tv_nsec, AIRTUNES_V2_STREAM_PERIOD);
+  // Set the tick interval for the playback timer
+  interval = MAX(timer_res.tv_nsec, AIRTUNES_V2_STREAM_PERIOD);
+  tick_interval.tv_nsec = interval;
 
-  /* Create a timer */
+  // Create the playback timer
 #if defined(__linux__)
-  pb_timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC);
+  pb_timer_fd = timerfd_create(CLOCK_MONOTONIC, TFD_CLOEXEC | TFD_NONBLOCK);
   ret = pb_timer_fd;
 #else
   ret = timer_create(CLOCK_MONOTONIC, NULL, &pb_timer);
@@ -4816,7 +4842,7 @@ player_init(void)
       return -1;
     }
 
-  /* Random RTP time start */
+  // Random RTP time start
   gcry_randomize(&rnd, sizeof(rnd), GCRY_STRONG_RANDOM);
   last_rtptime = ((uint64_t)1 << 32) | rnd;
 
@@ -4824,7 +4850,7 @@ player_init(void)
   if (ret < 0)
     laudio_volume = PLAYER_DEFAULT_VOLUME;
   else if (laudio_selected)
-    speaker_select_laudio(); /* Run the select helper */
+    speaker_select_laudio(); // Run the select helper
 
   audio_buf = evbuffer_new();
   if (!audio_buf)
@@ -4875,9 +4901,9 @@ player_init(void)
     }
 
 #if defined(__linux__)
-  pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ, player_playback_cb, NULL);
+  pb_timer_ev = event_new(evbase_player, pb_timer_fd, EV_READ | EV_PERSIST, player_playback_cb, NULL);
 #else
-  pb_timer_ev = evsignal_new(evbase_player, SIGALRM, player_playback_cb, NULL);
+  pb_timer_ev = event_new(evbase_player, SIGALRM, EV_SIGNAL | EV_PERSIST, player_playback_cb, NULL);
 #endif
   if (!pb_timer_ev)
     {
@@ -4887,10 +4913,7 @@ player_init(void)
 
   event_add(exitev, NULL);
   event_add(cmdev, NULL);
-
-#ifndef __linux__
   event_add(pb_timer_ev, NULL);
-#endif
 
   ret = laudio_init(player_laudio_status_cb);
   if (ret < 0)
