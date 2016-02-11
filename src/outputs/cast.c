@@ -1440,8 +1440,6 @@ cast_device_start(struct output_device *device, output_status_cb cb, uint64_t rt
   struct cast_session *cs;
   int ret;
 
-  DPRINTF(E_LOG, L_CAST, "Got start request for %s\n", device->name);
-
   cs = cast_session_make(device, AF_INET6, cb);
   if (cs)
     {
