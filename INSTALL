@@ -144,6 +144,12 @@ Libraries:
         from <https://developer.spotify.com>
  - libcurl (optional - LastFM support)
         from <http://curl.haxx.se/libcurl/>
+ - libjson-c (optional - Chromecast support)
+        from <https://github.com/json-c/json-c/wiki>
+ - libgnutls (optional - Chromecast support)
+        from <http://www.gnutls.org/>
+ - libprotobuf-c (optional - Chromecast support)
+        from <https://github.com/protobuf-c/protobuf-c/wiki>
 
 If using binary packages, remember that you need the development packages to
 build forked-daapd (usually named -dev or -devel).
@@ -194,8 +200,11 @@ feature.
 Support for iTunes Music Library XML format is optional. Use --enable-itunes
 to enable this feature.
 
-Support for the MPD protocol is optional. Use --enable-mpd to enable this
+Support for the MPD protocol is optional. Use --disable-mpd to disable this
 feature.
+
+Support for Chromecast devices is optional. Use --enable-chromecast to enable
+this feature.
 
 Recommended build settings:
  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var

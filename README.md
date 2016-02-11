@@ -4,8 +4,8 @@ forked-daapd is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
 RSP (Roku) media server.
 
 It has support for AirPlay devices/speakers, Apple Remote (and compatibles),
-MPD clients, network streaming, internet radio, Spotify and LastFM. It does not
-support AirPlay video.
+MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.
+It does not support AirPlay nor Chromecast video.
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
@@ -30,6 +30,7 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 - [Supported clients](#supported-clients)
 - [Using Remote](#using-remote)
 - [AirPlay devices/speakers](#airplay-devicesspeakers)
+- [Chromecast](#chromecast)
 - [Local audio output](#local-audio-output)
 - [MP3 network streaming (streaming to iOS)](#MP3-network-streaming-(streaming-to-iOS))
 - [Supported formats](#supported-formats)
@@ -64,6 +65,7 @@ forked-daapd supports these kinds of clients:
 - DAAP clients, like iTunes or Rhythmbox
 - Remote clients, like Apple Remote or compatibles for Android/Windows Phone
 - AirPlay devices, like AirPort Express, Shairport and various AirPlay speakers
+- Chromecast devices
 - MPD clients, like mpc (see [mpd-clients](#mpd-clients))
 - MP3 network stream clients, like VLC and almost any other music player
 - RSP clients, like Roku Soundbridge
@@ -214,6 +216,17 @@ forked-daapd will discover the AirPlay devices available on your network. For
 devices that are password-protected, the device's AirPlay name and password
 must be given in the configuration file. See the sample configuration file
 for the syntax.
+
+
+## Chromecast
+
+Chromecast support is currently experimental. It requires that forked-daapd was
+built with "--enable-chromecast".
+
+forked-daapd will discover Chromecast devices available on your network. There
+is no configuration to be done. This feature relies on streaming the audio in
+mp3 to your Chromecast device, which means that mp3 encoding must be supported
+by your ffmpeg/libav. See [MP3 network streaming](#MP3-network-streaming-(streaming-to-iOS)).
 
 
 ## Local audio output
