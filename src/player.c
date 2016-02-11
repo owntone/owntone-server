@@ -76,7 +76,7 @@
 // Default volume (must be from 0 - 100)
 #define PLAYER_DEFAULT_VOLUME 50
 // Used to keep the player from getting ahead of a rate limited source (see below)
-#define PLAYER_TICKS_MAX_DELAY 2
+#define PLAYER_TICKS_MAX_OVERRUN 2
 // Skips ticks for about 2 secs (seems to bring us back in sync for about 20 min)
 #define PLAYER_TICKS_SKIP 126
 
@@ -1613,24 +1613,24 @@ static void
 player_playback_cb(int fd, short what, void *arg)
 {
   struct timespec next_tick;
-  uint64_t ticks;
+  uint64_t overrun;
   uint32_t packet_send_count;
   int ret;
 
   // Check if we missed any timer expirations
-  ticks = 0;
+  overrun = 0;
 #if defined(__linux__)
-  ret = read(fd, &ticks, sizeof(ticks));
+  ret = read(fd, &overrun, sizeof(overrun));
   if (ret <= 0)
     DPRINTF(E_LOG, L_PLAYER, "Error reading timer\n");
-  else
-    ticks--;
+  else if (overrun > 0)
+    overrun--;
 #else
   ret = timer_getoverrun(pb_timer);
   if (ret < 0)
     DPRINTF(E_LOG, L_PLAYER, "Error getting timer overrun\n");
   else
-    ticks = ret;
+    overrun = ret;
 #endif /* __linux__ */
 
   // The reason we get behind the playback timer may be that we are playing a 
@@ -1642,9 +1642,9 @@ player_playback_cb(int fd, short what, void *arg)
   // the source catch up. RTP destinations should be able to handle this
   // gracefully if we just give them an rtptime that lets them know that some
   // packets were "lost".
-  if (ticks > PLAYER_TICKS_MAX_DELAY)
+  if (overrun > PLAYER_TICKS_MAX_OVERRUN)
     {
-      DPRINTF(E_WARN, L_PLAYER, "Behind the playback timer with %" PRIu64 " ticks, initiating catch up\n", ticks);
+      DPRINTF(E_WARN, L_PLAYER, "Behind the playback timer with %" PRIu64 " ticks, initiating catch up\n", overrun);
       ticks_skip = 2 * PLAYER_TICKS_SKIP + 1;
     }
   else if (ticks_skip > 0)
@@ -1652,7 +1652,7 @@ player_playback_cb(int fd, short what, void *arg)
 
   // Decide how many packets to send
   next_tick = timespec_add(pb_timer_last, tick_interval);
-  for (; ticks > 0; ticks--)
+  for (; overrun > 0; overrun--)
     next_tick = timespec_add(next_tick, tick_interval);
 
   packet_send_count = 0;
