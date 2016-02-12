@@ -1643,10 +1643,11 @@ cast_init(void)
 	}
     }
 
-  // TODO Setting the cert file may not be required
-  if ( ((ret = gnutls_global_init()) != GNUTLS_E_SUCCESS) ||
-       ((ret = gnutls_certificate_allocate_credentials(&tls_credentials)) != GNUTLS_E_SUCCESS) ||
-       ((ret = gnutls_certificate_set_x509_trust_file(tls_credentials, CAFILE, GNUTLS_X509_FMT_PEM)) < 0) )
+  // Setting the cert file seems not to be required
+  if ( ((ret = gnutls_global_init()) != GNUTLS_E_SUCCESS)
+       || ((ret = gnutls_certificate_allocate_credentials(&tls_credentials)) != GNUTLS_E_SUCCESS)
+//     || ((ret = gnutls_certificate_set_x509_trust_file(tls_credentials, CAFILE, GNUTLS_X509_FMT_PEM)) < 0)
+     )
     {
       DPRINTF(E_LOG, L_CAST, "Could not initialize GNUTLS: %s\n", gnutls_strerror(ret));
       return -1;
