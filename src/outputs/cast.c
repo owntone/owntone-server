@@ -836,7 +836,8 @@ cast_status(struct cast_session *cs)
     }
 
   cs->status_cb = NULL;
-  status_cb(cs->device, cs->output_session, state);
+  if (status_cb)
+    status_cb(cs->device, cs->output_session, state);
 }
 
 /* cast_cb_stop*: Callback chain for shutting down a session */
@@ -1487,8 +1488,6 @@ cast_device_probe(struct output_device *device, output_status_cb cb)
 {
   struct cast_session *cs;
   int ret;
-
-  DPRINTF(E_LOG, L_CAST, "Got probe request for %s\n", device->name);
 
   cs = cast_session_make(device, AF_INET6, cb);
   if (cs)
