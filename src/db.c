@@ -2538,7 +2538,7 @@ db_file_add(struct media_file_info *mfi)
                " media_kind, tv_series_name, tv_episode_num_str, tv_network_name, tv_episode_sort, tv_season_num, " \
                " songartistid, songalbumid, " \
                " title_sort, artist_sort, album_sort, composer_sort, album_artist_sort, virtual_path," \
-               " directory_id) " \
+               " directory_id, date_released) " \
                " VALUES (NULL, '%q', '%q', TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, TRIM(%Q)," \
                " TRIM(%Q), TRIM(%Q), TRIM(%Q), %Q, %d, %d, %d, %" PRIi64 ", %d, %d," \
                " %d, %d, %d, %d, %d, %d, %d, %d, %d, %d, %d," \
@@ -2546,7 +2546,7 @@ db_file_add(struct media_file_info *mfi)
                " %Q, %d, %d, %d, %d, TRIM(%Q)," \
                " %d, TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d," \
                " daap_songalbumid(LOWER(TRIM(%Q)), ''), daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q))), " \
-               " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %d);"
+               " TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), TRIM(%Q), %d, %d);"
 
   char *query;
   char *errmsg;
@@ -2581,7 +2581,7 @@ db_file_add(struct media_file_info *mfi)
 			  mfi->media_kind, mfi->tv_series_name, mfi->tv_episode_num_str,
 			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
 			  mfi->album_artist, mfi->album_artist, mfi->album, mfi->title_sort, mfi->artist_sort, mfi->album_sort,
-			  mfi->composer_sort, mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id);
+			  mfi->composer_sort, mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id, mfi->date_released);
 
   if (!query)
     {
@@ -2626,7 +2626,7 @@ db_file_update(struct media_file_info *mfi)
 	       " tv_network_name = TRIM(%Q), tv_episode_sort = %d, tv_season_num = %d," \
 	       " songartistid = daap_songalbumid(LOWER(TRIM(%Q)), ''), songalbumid = daap_songalbumid(LOWER(TRIM(%Q)), LOWER(TRIM(%Q)))," \
 	       " title_sort = TRIM(%Q), artist_sort = TRIM(%Q), album_sort = TRIM(%Q), composer_sort = TRIM(%Q), album_artist_sort = TRIM(%Q)," \
-	       " virtual_path = TRIM(%Q), directory_id = %d" \
+	       " virtual_path = TRIM(%Q), directory_id = %d, date_released = %d" \
 	       " WHERE id = %d;"
 
   char *query;
@@ -2658,7 +2658,8 @@ db_file_update(struct media_file_info *mfi)
 			  mfi->tv_network_name, mfi->tv_episode_sort, mfi->tv_season_num,
 			  mfi->album_artist, mfi->album_artist, mfi->album,
 			  mfi->title_sort, mfi->artist_sort, mfi->album_sort,
-			  mfi->composer_sort, mfi->album_artist_sort, mfi->virtual_path, mfi->directory_id,
+			  mfi->composer_sort, mfi->album_artist_sort,
+			  mfi->virtual_path, mfi->directory_id, mfi->date_released,
 			  mfi->id);
 
   if (!query)

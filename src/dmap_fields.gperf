@@ -67,34 +67,36 @@ static const struct dmap_field_map dfm_dmap_asaa = { dbmfi_offsetof(album_artist
 static const struct dmap_field_map dfm_dmap_asac = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asar = { dbmfi_offsetof(artist),                  -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asri = { dbmfi_offsetof(songartistid),            -1,                            dbgri_offsetof(songartistid) };
-static const struct dmap_field_map dfm_dmap_asbt = { dbmfi_offsetof(bpm),                     -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asbr = { dbmfi_offsetof(bitrate),                 -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asbt = { dbmfi_offsetof(bpm),                     -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_ascm = { dbmfi_offsetof(comment),                 -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asco = { dbmfi_offsetof(compilation),             -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_ascp = { dbmfi_offsetof(composer),                -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asda = { dbmfi_offsetof(time_added),              -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_asdm = { dbmfi_offsetof(time_modified),           -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_asdc = { dbmfi_offsetof(total_discs),             -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_asdn = { dbmfi_offsetof(disc),                    -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asdb = { dbmfi_offsetof(disabled),                -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdc = { dbmfi_offsetof(total_discs),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdm = { dbmfi_offsetof(time_modified),           -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdn = { dbmfi_offsetof(disc),                    -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdk = { dbmfi_offsetof(data_kind),               -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdr = { dbmfi_offsetof(date_released),           -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asdt = { dbmfi_offsetof(description),             -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_ased = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aseq = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asfm = { dbmfi_offsetof(type),                    -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asgn = { dbmfi_offsetof(genre),                   -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_asdt = { dbmfi_offsetof(description),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_ashp = { dbmfi_offsetof(play_count),              -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aspc = { dbmfi_offsetof(play_count),              -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_asrv = { -1,                                      -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_assr = { dbmfi_offsetof(samplerate),              -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_assz = { dbmfi_offsetof(file_size),               -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_asst = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_assp = { -1,                                      -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_astm = { dbmfi_offsetof(song_length),             -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assr = { dbmfi_offsetof(samplerate),              -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asst = { -1,                                      -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_assz = { dbmfi_offsetof(file_size),               -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asrv = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_astc = { dbmfi_offsetof(total_tracks),            -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_astm = { dbmfi_offsetof(song_length),             -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_astn = { dbmfi_offsetof(track),                   -1,                            -1 };
+static const struct dmap_field_map dfm_dmap_asul = { dbmfi_offsetof(url),                     -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asur = { dbmfi_offsetof(rating),                  -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_asyr = { dbmfi_offsetof(year),                    -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_asdk = { dbmfi_offsetof(data_kind),               -1,                            -1 };
-static const struct dmap_field_map dfm_dmap_asul = { dbmfi_offsetof(url),                     -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_aply = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_abpl = { -1,                                      -1,                            -1 };
 static const struct dmap_field_map dfm_dmap_apso = { -1,                                      -1,                            -1 };
@@ -198,11 +200,13 @@ struct dmap_field;
 "daap.songdatakind",                         "asdk", &dfm_dmap_asdk, DMAP_TYPE_UBYTE
 "daap.songdatemodified",                     "asdm", &dfm_dmap_asdm, DMAP_TYPE_DATE
 "daap.songdiscnumber",                       "asdn", &dfm_dmap_asdn, DMAP_TYPE_USHORT
+"daap.songdatereleased",                     "asdr", &dfm_dmap_asdr, DMAP_TYPE_DATE
 "daap.songdescription",                      "asdt", &dfm_dmap_asdt, DMAP_TYPE_STRING
 "daap.songextradata",                        "ased", &dfm_dmap_ased, DMAP_TYPE_USHORT
 "daap.songeqpreset",                         "aseq", &dfm_dmap_aseq, DMAP_TYPE_STRING
 "daap.songformat",                           "asfm", &dfm_dmap_asfm, DMAP_TYPE_STRING
 "daap.songgenre",                            "asgn", &dfm_dmap_asgn, DMAP_TYPE_STRING
+"daap.songhasbeenplayed",                    "ashp", &dfm_dmap_ashp, DMAP_TYPE_UBYTE
 "daap.songkeywords",                         "asky", &dfm_dmap_asky, DMAP_TYPE_STRING
 "daap.songlongcontentdescription",           "aslc", &dfm_dmap_aslc, DMAP_TYPE_STRING
 "daap.songuserplaycount",                    "aspc", &dfm_dmap_aspc, DMAP_TYPE_UINT
@@ -296,9 +300,7 @@ struct dmap_field;
 "daap.bookmarkable",                         "asbk", &dfm_dmap_asbk, DMAP_TYPE_UBYTE
 "daap.songbookmark",                         "asbo", &dfm_dmap_asbo, DMAP_TYPE_UINT
 "daap.songdatepurchased",                    "asdp", &dfm_dmap_asdp, DMAP_TYPE_DATE
-"daap.songdatereleased",                     "asdr", &dfm_dmap_asdr, DMAP_TYPE_DATE
 "daap.songgapless",                          "asgp", &dfm_dmap_asgp, DMAP_TYPE_UBYTE
-"daap.songhasbeenplayed",                    "ashp", &dfm_dmap_ashp, DMAP_TYPE_UBYTE
 "daap.songlongsize",                         "asls", &dfm_dmap_asls, DMAP_TYPE_ULONG
 "daap.songpodcasturl",                       "aspu", &dfm_dmap_aspu, DMAP_TYPE_STRING
 "daap.sortseriesname",                       "asss", &dfm_dmap_asss, DMAP_TYPE_STRING

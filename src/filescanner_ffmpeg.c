@@ -23,6 +23,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 
 #include <errno.h>
 
@@ -86,6 +87,26 @@ parse_disc(struct media_file_info *mfi, char *disc_string)
   return parse_slash_separated_ints(disc_string, disc, total_discs);
 }
 
+static int
+parse_date(struct media_file_info *mfi, char *date_string)
+{
+  struct tm tm;
+
+  memset(&tm, 0, sizeof(struct tm));
+
+  if ( strptime(date_string, "%FT%T%z", &tm) // ISO 8601, %F=%Y-%m-%d, %T=%H:%M:%S
+       || strptime(date_string, "%F %T", &tm)
+       || strptime(date_string, "%F %H:%M", &tm)
+       || strptime(date_string, "%F", &tm)
+       || strptime(date_string, "%Y", &tm)
+     )
+    mfi->date_released = (uint32_t)mktime(&tm);
+  else
+    return 0;
+
+  return 1;
+}
+
 /* Lookup is case-insensitive, first occurrence takes precedence */
 static const struct metadata_map md_map_generic[] =
   {
@@ -104,7 +125,7 @@ static const struct metadata_map md_map_generic[] =
     { "track",        1, mfi_offsetof(track),              parse_track },
     { "disc",         1, mfi_offsetof(disc),               parse_disc },
     { "year",         1, mfi_offsetof(year),               NULL },
-    { "date",         1, mfi_offsetof(year),               NULL },
+    { "date",         1, mfi_offsetof(date_released),      parse_date },
     { "title-sort",   0, mfi_offsetof(title_sort),         NULL },
     { "artist-sort",  0, mfi_offsetof(artist_sort),        NULL },
     { "album-sort",   0, mfi_offsetof(album_sort),         NULL },
@@ -177,7 +198,9 @@ static const struct metadata_map md_map_id3[] =
     { "TPOS",                1, mfi_offsetof(disc),                  parse_disc },        /* ID3v2.3 */
     { "TYE",                 1, mfi_offsetof(year),                  NULL },              /* ID3v2.2 */
     { "TYER",                1, mfi_offsetof(year),                  NULL },              /* ID3v2.3 */
-    { "TDRC",                1, mfi_offsetof(year),                  NULL },              /* ID3v2.4 */
+    { "TDA",                 1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.2 */
+    { "TDAT",                1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.3 */
+    { "TDRL",                1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.4 */
     { "TSOA",                0, mfi_offsetof(album_sort),            NULL },              /* ID3v2.4 */
     { "XSOA",                0, mfi_offsetof(album_sort),            NULL },              /* ID3v2.3 */
     { "TSOP",                0, mfi_offsetof(artist_sort),           NULL },              /* ID3v2.4 */
