@@ -32,35 +32,18 @@ enum output_types
 };
 
 /* Output session state */
-
-// Session is starting up
-#define OUTPUT_STATE_F_STARTUP    (1 << 14)
-// Streaming is up (connection established)
-#define OUTPUT_STATE_F_CONNECTED  (1 << 15)
 enum output_device_state
 {
+  // Device is stopped (no session)
   OUTPUT_STATE_STOPPED   = 0,
-
-  // Session startup
-  // TODO Make this less RAOP-specific
-  OUTPUT_STATE_OPTIONS   = OUTPUT_STATE_F_STARTUP | 0x01,
-  OUTPUT_STATE_ANNOUNCE  = OUTPUT_STATE_F_STARTUP | 0x02,
-  OUTPUT_STATE_SETUP     = OUTPUT_STATE_F_STARTUP | 0x03,
-  OUTPUT_STATE_RECORD    = OUTPUT_STATE_F_STARTUP | 0x04,
-
-  OUTPUT_STATE_STARTUP   = OUTPUT_STATE_F_STARTUP,
-
-  // Session established
-  // - streaming ready (RECORD sent and acked, connection established)
-  // - commands (SET_PARAMETER) are possible
-  OUTPUT_STATE_CONNECTED = OUTPUT_STATE_F_CONNECTED,
-
-  // Audio data is being sent
-  OUTPUT_STATE_STREAMING = OUTPUT_STATE_F_CONNECTED | 0x01,
-
+  // Device is starting up
+  OUTPUT_STATE_STARTUP   = 1,
+  // Session established (streaming ready and commands are possible)
+  OUTPUT_STATE_CONNECTED = 2,
+  // Media data is being sent
+  OUTPUT_STATE_STREAMING = 3,
   // Session is failed, couldn't startup or error occurred
   OUTPUT_STATE_FAILED    = -1,
-
   // Password issue: unknown password or bad password
   OUTPUT_STATE_PASSWORD  = -2,
 };

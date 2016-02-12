@@ -117,6 +117,32 @@ enum raop_devtype {
   RAOP_DEV_OTHER,
 };
 
+// Session is starting up
+#define RAOP_STATE_F_STARTUP    (1 << 14)
+// Streaming is up (connection established)
+#define RAOP_STATE_F_CONNECTED  (1 << 15)
+
+enum raop_state {
+  // Device is stopped (no session)
+  RAOP_STATE_STOPPED   = 0,
+  // Session startup
+  RAOP_STATE_STARTUP   = RAOP_STATE_F_STARTUP,
+  RAOP_STATE_OPTIONS   = RAOP_STATE_F_STARTUP | 0x01,
+  RAOP_STATE_ANNOUNCE  = RAOP_STATE_F_STARTUP | 0x02,
+  RAOP_STATE_SETUP     = RAOP_STATE_F_STARTUP | 0x03,
+  RAOP_STATE_RECORD    = RAOP_STATE_F_STARTUP | 0x04,
+  // Session established
+  // - streaming ready (RECORD sent and acked, connection established)
+  // - commands (SET_PARAMETER) are possible
+  RAOP_STATE_CONNECTED = RAOP_STATE_F_CONNECTED,
+  // Media data is being sent
+  RAOP_STATE_STREAMING = RAOP_STATE_F_CONNECTED | 0x01,
+  // Session is failed, couldn't startup or error occurred
+  RAOP_STATE_FAILED    = -1,
+  // Password issue: unknown password or bad password
+  RAOP_STATE_PASSWORD  = -2,
+};
+
 // Info about the device, which is not required by the player, only internally
 struct raop_extra
 {
@@ -130,7 +156,7 @@ struct raop_session
 {
   struct evrtsp_connection *ctrl;
 
-  enum output_device_state state;
+  enum raop_state state;
   unsigned req_has_auth:1;
   unsigned encrypt:1;
   unsigned auth_quirk_itunes:1;
@@ -1172,7 +1198,7 @@ raop_add_headers(struct raop_session *rs, struct evrtsp_request *req, enum evrts
       DPRINTF(E_LOG, L_RAOP, "Could not add Authorization header\n");
 
       if (ret == -2)
-	rs->state = OUTPUT_STATE_PASSWORD;
+	rs->state = RAOP_STATE_PASSWORD;
 
       return -1;
     }
@@ -1665,6 +1691,45 @@ raop_send_req_options(struct raop_session *rs, evrtsp_req_cb cb)
   return 0;
 }
 
+/* Maps our internal state to the generic output state and then makes a callback
+ * to the player to tell that state
+ */
+static void
+raop_status(struct raop_session *rs)
+{
+  output_status_cb status_cb = rs->status_cb;
+  enum output_device_state state;
+
+  switch (rs->state)
+    {
+      case RAOP_STATE_PASSWORD:
+	state = OUTPUT_STATE_PASSWORD;
+	break;
+      case RAOP_STATE_FAILED:
+	state = OUTPUT_STATE_FAILED;
+	break;
+      case RAOP_STATE_STOPPED:
+	state = OUTPUT_STATE_STOPPED;
+	break;
+      case RAOP_STATE_STARTUP ... RAOP_STATE_RECORD:
+	state = OUTPUT_STATE_STARTUP;
+	break;
+      case RAOP_STATE_CONNECTED:
+	state = OUTPUT_STATE_CONNECTED;
+	break;
+      case RAOP_STATE_STREAMING:
+	state = OUTPUT_STATE_STREAMING;
+	break;
+      default:
+	DPRINTF(E_LOG, L_RAOP, "Bug! Unhandled state in cast_status()\n");
+	state = OUTPUT_STATE_FAILED;
+    }
+
+  rs->status_cb = NULL;
+  if (status_cb)
+    status_cb(rs->device, rs->output_session, state);
+}
+
 static void
 raop_session_free(struct raop_session *rs)
 {
@@ -1739,9 +1804,10 @@ static void
 raop_session_failure(struct raop_session *rs)
 {
   /* Session failed, let our user know */
-  if (rs->state != OUTPUT_STATE_PASSWORD)
-    rs->state = OUTPUT_STATE_FAILED;
-  rs->status_cb(rs->device, rs->output_session, rs->state);
+  if (rs->state != RAOP_STATE_PASSWORD)
+    rs->state = RAOP_STATE_FAILED;
+
+  raop_status(rs);
 
   raop_session_cleanup(rs);
 }
@@ -1768,7 +1834,7 @@ raop_rtsp_close_cb(struct evrtsp_connection *evcon, void *arg)
 
   DPRINTF(E_LOG, L_RAOP, "ApEx %s closed RTSP connection\n", rs->devname);
 
-  rs->state = OUTPUT_STATE_FAILED;
+  rs->state = RAOP_STATE_FAILED;
 
   evutil_timerclear(&tv);
   evtimer_add(rs->deferredev, &tv);
@@ -1822,7 +1888,7 @@ raop_session_make(struct output_device *rd, int family, output_status_cb cb)
   os->type = rd->type;
 
   rs->output_session = os;
-  rs->state = OUTPUT_STATE_STOPPED;
+  rs->state = RAOP_STATE_STOPPED;
   rs->reqs_in_flight = 0;
   rs->cseq = 1;
 
@@ -2230,7 +2296,7 @@ raop_metadata_send(void *metadata, uint64_t rtptime, uint64_t offset, int startu
     {
       next = rs->next;
 
-      if (!(rs->state & OUTPUT_STATE_F_CONNECTED))
+      if (!(rs->state & RAOP_STATE_F_CONNECTED))
 	continue;
 
       if (!rs->wants_metadata)
@@ -2322,7 +2388,6 @@ raop_set_volume_internal(struct raop_session *rs, int volume, evrtsp_req_cb cb)
 static void
 raop_cb_set_volume(struct evrtsp_request *req, void *arg)
 {
-  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -2345,9 +2410,7 @@ raop_cb_set_volume(struct evrtsp_request *req, void *arg)
     goto error;
 
   /* Let our user know */
-  status_cb = rs->status_cb;
-  rs->status_cb = NULL;
-  status_cb(rs->device, rs->output_session, rs->state);
+  raop_status(rs);
 
   if (!rs->reqs_in_flight)
     evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
@@ -2370,7 +2433,7 @@ raop_set_volume_one(struct output_device *rd, output_status_cb cb)
 
   rs = rd->session->session;
 
-  if (!(rs->state & OUTPUT_STATE_F_CONNECTED))
+  if (!(rs->state & RAOP_STATE_F_CONNECTED))
     return 0;
 
   ret = raop_set_volume_internal(rs, rd->volume, raop_cb_set_volume);
@@ -2389,7 +2452,6 @@ raop_set_volume_one(struct output_device *rd, output_status_cb cb)
 static void
 raop_cb_flush(struct evrtsp_request *req, void *arg)
 {
-  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -2411,12 +2473,10 @@ raop_cb_flush(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto error;
 
-  rs->state = OUTPUT_STATE_CONNECTED;
+  rs->state = RAOP_STATE_CONNECTED;
 
   /* Let our user know */
-  status_cb = rs->status_cb;
-  rs->status_cb = NULL;
-  status_cb(rs->device, rs->output_session, rs->state);
+  raop_status(rs);
 
   if (!rs->reqs_in_flight)
     evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
@@ -2440,7 +2500,7 @@ raop_flush_timer_cb(int fd, short what, void *arg)
 
   for (rs = sessions; rs; rs = rs->next)
     {
-      if (!(rs->state & OUTPUT_STATE_F_CONNECTED))
+      if (!(rs->state & RAOP_STATE_F_CONNECTED))
 	continue;
 
       raop_device_stop(rs->output_session);
@@ -2461,7 +2521,7 @@ raop_flush(output_status_cb cb, uint64_t rtptime)
     {
       next = rs->next;
 
-      if (rs->state != OUTPUT_STATE_STREAMING)
+      if (rs->state != RAOP_STATE_STREAMING)
 	continue;
 
       ret = raop_send_req_flush(rs, rtptime, raop_cb_flush);
@@ -2833,7 +2893,7 @@ raop_v2_control_send_sync(uint64_t next_pkt, struct timespec *init)
 
   for (rs = sessions; rs; rs = rs->next)
     {
-      if (rs->state != OUTPUT_STATE_STREAMING)
+      if (rs->state != RAOP_STATE_STREAMING)
 	continue;
 
       switch (rs->sa.ss.ss_family)
@@ -3300,7 +3360,7 @@ raop_v2_write(uint8_t *buf, uint64_t rtptime)
       // raop_v2_send_packet may free rs on failure, so save rs->next now
       next = rs->next;
 
-      if (rs->state != OUTPUT_STATE_STREAMING)
+      if (rs->state != RAOP_STATE_STREAMING)
 	continue;
 
       raop_v2_send_packet(rs, pkt);
@@ -3417,9 +3477,9 @@ raop_v2_stream_open(struct raop_session *rs)
    * playback is in progress.
    */
   if (sync_counter != 0)
-    rs->state = OUTPUT_STATE_STREAMING;
+    rs->state = RAOP_STATE_STREAMING;
   else
-    rs->state = OUTPUT_STATE_CONNECTED;
+    rs->state = RAOP_STATE_CONNECTED;
 
   return 0;
 
@@ -3445,7 +3505,6 @@ raop_startup_cancel(struct raop_session *rs)
 static void
 raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
 {
-  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -3478,10 +3537,7 @@ raop_cb_startup_volume(struct evrtsp_request *req, void *arg)
     }
 
   /* Session startup and setup is done, tell our user */
-  status_cb = rs->status_cb;
-  rs->status_cb = NULL;
-
-  status_cb(rs->device, rs->output_session, rs->state);
+  raop_status(rs);
 
   if (!rs->reqs_in_flight)
     evrtsp_connection_set_closecb(rs->ctrl, raop_rtsp_close_cb, rs);
@@ -3524,7 +3580,7 @@ raop_cb_startup_record(struct evrtsp_request *req, void *arg)
   else
     DPRINTF(E_DBG, L_RAOP, "RAOP audio latency is %s\n", param);
 
-  rs->state = OUTPUT_STATE_RECORD;
+  rs->state = RAOP_STATE_RECORD;
 
   /* Set initial volume */
   raop_set_volume_internal(rs, rs->volume, raop_cb_startup_volume);
@@ -3672,7 +3728,7 @@ raop_cb_startup_setup(struct evrtsp_request *req, void *arg)
 
   DPRINTF(E_DBG, L_RAOP, "Negotiated AirTunes v2 UDP streaming session %s; ports s=%u c=%u t=%u\n", rs->session, rs->server_port, rs->control_port, rs->timing_port);
 
-  rs->state = OUTPUT_STATE_SETUP;
+  rs->state = RAOP_STATE_SETUP;
 
   /* Send RECORD */
   ret = raop_send_req_record(rs, raop_cb_startup_record);
@@ -3709,7 +3765,7 @@ raop_cb_startup_announce(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto cleanup;
 
-  rs->state = OUTPUT_STATE_ANNOUNCE;
+  rs->state = RAOP_STATE_ANNOUNCE;
 
   /* Send SETUP */
   ret = raop_send_req_setup(rs, raop_cb_startup_setup);
@@ -3752,7 +3808,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 	{
 	  DPRINTF(E_LOG, L_RAOP, "Bad password for device %s\n", rs->devname);
 
-	  rs->state = OUTPUT_STATE_PASSWORD;
+	  rs->state = RAOP_STATE_PASSWORD;
 	  goto cleanup;
 	}
 
@@ -3771,7 +3827,7 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
       return;
     }
 
-  rs->state = OUTPUT_STATE_OPTIONS;
+  rs->state = RAOP_STATE_OPTIONS;
 
   /* Send ANNOUNCE */
   ret = raop_send_req_announce(rs, raop_cb_startup_announce);
@@ -3788,7 +3844,6 @@ raop_cb_startup_options(struct evrtsp_request *req, void *arg)
 static void
 raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
 {
-  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -3810,13 +3865,10 @@ raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
   if (ret < 0)
     goto error;
 
-  rs->state = OUTPUT_STATE_STOPPED;
+  rs->state = RAOP_STATE_STOPPED;
 
   /* Session shut down, tell our user */
-  status_cb = rs->status_cb;
-  rs->status_cb = NULL;
-
-  status_cb(rs->device, rs->output_session, rs->state);
+  raop_status(rs);
 
   raop_session_cleanup(rs);
 
@@ -3829,7 +3881,6 @@ raop_cb_shutdown_teardown(struct evrtsp_request *req, void *arg)
 static void
 raop_cb_probe_options(struct evrtsp_request *req, void *arg)
 {
-  output_status_cb status_cb;
   struct raop_session *rs;
   int ret;
 
@@ -3857,7 +3908,7 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
 	{
 	  DPRINTF(E_LOG, L_RAOP, "Bad password for device %s\n", rs->devname);
 
-	  rs->state = OUTPUT_STATE_PASSWORD;
+	  rs->state = RAOP_STATE_PASSWORD;
 	  goto cleanup;
 	}
 
@@ -3876,13 +3927,10 @@ raop_cb_probe_options(struct evrtsp_request *req, void *arg)
       return;
     }
 
-  rs->state = OUTPUT_STATE_OPTIONS;
+  rs->state = RAOP_STATE_OPTIONS;
 
   /* Device probed successfully, tell our user */
-  status_cb = rs->status_cb;
-  rs->status_cb = NULL;
-
-  status_cb(rs->device, rs->output_session, rs->state);
+  raop_status(rs);
 
   /* We're not going further with this session */
   raop_session_cleanup(rs);
@@ -4189,7 +4237,7 @@ raop_device_stop(struct output_session *session)
 {
   struct raop_session *rs = session->session;
 
-  if (!(rs->state & OUTPUT_STATE_F_CONNECTED))
+  if (!(rs->state & RAOP_STATE_F_CONNECTED))
     raop_session_cleanup(rs);
   else
     raop_send_req_teardown(rs, raop_cb_shutdown_teardown);
@@ -4213,8 +4261,8 @@ raop_playback_start(uint64_t next_pkt, struct timespec *ts)
 
   for (rs = sessions; rs; rs = rs->next)
     {
-      if (rs->state == OUTPUT_STATE_CONNECTED)
-	rs->state = OUTPUT_STATE_STREAMING;
+      if (rs->state == RAOP_STATE_CONNECTED)
+	rs->state = RAOP_STATE_STREAMING;
     }
 
   /* Send initial playback sync */
