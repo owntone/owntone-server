@@ -90,9 +90,13 @@ parse_disc(struct media_file_info *mfi, char *disc_string)
 static int
 parse_date(struct media_file_info *mfi, char *date_string)
 {
-  struct tm tm;
+  uint32_t *year = (uint32_t *) ((char *) mfi + mfi_offsetof(year));
+  uint32_t *date_released = (uint32_t *) ((char *) mfi + mfi_offsetof(date_released));
+  struct tm tm = { 0 };
+  int ret = 0;
 
-  memset(&tm, 0, sizeof(struct tm));
+  if ((*year == 0) && (safe_atou32(date_string, year) == 0))
+    ret++;
 
   if ( strptime(date_string, "%FT%T%z", &tm) // ISO 8601, %F=%Y-%m-%d, %T=%H:%M:%S
        || strptime(date_string, "%F %T", &tm)
@@ -100,11 +104,12 @@ parse_date(struct media_file_info *mfi, char *date_string)
        || strptime(date_string, "%F", &tm)
        || strptime(date_string, "%Y", &tm)
      )
-    mfi->date_released = (uint32_t)mktime(&tm);
-  else
-    return 0;
+    {
+      *date_released = (uint32_t)mktime(&tm);
+      ret++;
+    }
 
-  return 1;
+  return ret;
 }
 
 /* Lookup is case-insensitive, first occurrence takes precedence */
