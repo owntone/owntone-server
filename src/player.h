@@ -170,6 +170,9 @@ int
 player_queue_move_bypos(int ps_pos_from, int ps_pos_to);
 
 int
+player_queue_move_byindex(int pos_from, int pos_to);
+
+int
 player_queue_move_byitemid(uint32_t item_id, int pos_to);
 
 int

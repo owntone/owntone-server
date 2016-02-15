@@ -1773,9 +1773,55 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return 0;
 }
 
+//Moves the song at FROM or range of songs at START:END to TO in the playlist.
 static int
 mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
+  int start_pos;
+  int end_pos;
+  int count;
+  uint32_t to_pos;
+  int ret;
+
+  if (argc < 3)
+    {
+      ret = asprintf(errmsg, "Missing argument for command 'move'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = mpd_pars_range_arg(argv[1], &start_pos, &end_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer or range: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  count = end_pos - start_pos;
+  if (count > 1)
+    DPRINTF(E_WARN, L_MPD, "Moving ranges is not supported, only the first item will be moved\n");
+
+  ret = safe_atou32(argv[2], &to_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[2]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = player_queue_move_byindex(start_pos, to_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Failed to move song at position %d to %d", start_pos, to_pos);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
   return 0;
 }
 

@@ -3449,6 +3449,21 @@ playerqueue_move_bypos(struct player_command *cmd)
 }
 
 static int
+playerqueue_move_byindex(struct player_command *cmd)
+{
+  DPRINTF(E_DBG, L_PLAYER, "Moving song from index %d to be the next song after %d\n",
+      cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos);
+
+  queue_move_byindex(queue, cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos, 0);
+
+  cur_plversion++;
+
+  listener_notify(LISTENER_PLAYLIST);
+
+  return 0;
+}
+
+static int
 playerqueue_move_byitemid(struct player_command *cmd)
 {
   DPRINTF(E_DBG, L_PLAYER, "Moving song with item-id %d to be the next song after index %d\n",
@@ -4254,6 +4269,26 @@ player_queue_move_bypos(int pos_from, int pos_to)
   command_init(&cmd);
 
   cmd.func = playerqueue_move_bypos;
+  cmd.func_bh = NULL;
+  cmd.arg.queue_move_param.from_pos = pos_from;
+  cmd.arg.queue_move_param.to_pos = pos_to;
+
+  ret = sync_command(&cmd);
+
+  command_deinit(&cmd);
+
+  return ret;
+}
+
+int
+player_queue_move_byindex(int pos_from, int pos_to)
+{
+  struct player_command cmd;
+  int ret;
+
+  command_init(&cmd);
+
+  cmd.func = playerqueue_move_byindex;
   cmd.func_bh = NULL;
   cmd.arg.queue_move_param.from_pos = pos_from;
   cmd.arg.queue_move_param.to_pos = pos_to;
