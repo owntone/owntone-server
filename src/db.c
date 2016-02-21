@@ -1698,7 +1698,7 @@ db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi)
 }
 
 int
-db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
+db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli, int with_itemcount)
 {
   int ncols;
   char **strcol;
@@ -1751,43 +1751,46 @@ db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli)
       *strcol = (char *)sqlite3_column_text(qp->stmt, i);
     }
 
-  type = sqlite3_column_int(qp->stmt, 2);
-
-  switch (type)
+  if (with_itemcount)
     {
-      case PL_PLAIN:
-      case PL_FOLDER:
-	id = sqlite3_column_int(qp->stmt, 0);
-	nitems = db_pl_count_items(id, 0);
-	nstreams = db_pl_count_items(id, 1);
-	break;
+      type = sqlite3_column_int(qp->stmt, 2);
 
-      case PL_SPECIAL:
-      case PL_SMART:
-	nitems = db_smartpl_count_items(dbpli->query);
-	nstreams = 0;
-	break;
+      switch (type)
+	{
+	  case PL_PLAIN:
+	  case PL_FOLDER:
+	    id = sqlite3_column_int(qp->stmt, 0);
+	    nitems = db_pl_count_items(id, 0);
+	    nstreams = db_pl_count_items(id, 1);
+	    break;
 
-      default:
-	DPRINTF(E_LOG, L_DB, "Unknown playlist type %d while fetching playlist\n", type);
-	return -1;
-    }
+	  case PL_SPECIAL:
+	  case PL_SMART:
+	    nitems = db_smartpl_count_items(dbpli->query);
+	    nstreams = 0;
+	    break;
 
-  dbpli->items = qp->buf1;
-  ret = snprintf(qp->buf1, sizeof(qp->buf1), "%d", nitems);
-  if ((ret < 0) || (ret >= sizeof(qp->buf1)))
-    {
-      DPRINTF(E_LOG, L_DB, "Could not convert item count, buffer too small\n");
+	  default:
+	    DPRINTF(E_LOG, L_DB, "Unknown playlist type %d while fetching playlist\n", type);
+	    return -1;
+	}
 
-      strcpy(qp->buf1, "0");
-    }
-  dbpli->streams = qp->buf2;
-  ret = snprintf(qp->buf2, sizeof(qp->buf2), "%d", nstreams);
-  if ((ret < 0) || (ret >= sizeof(qp->buf2)))
-    {
-      DPRINTF(E_LOG, L_DB, "Could not convert stream count, buffer too small\n");
+      dbpli->items = qp->buf1;
+      ret = snprintf(qp->buf1, sizeof(qp->buf1), "%d", nitems);
+      if ((ret < 0) || (ret >= sizeof(qp->buf1)))
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not convert item count, buffer too small\n");
 
-      strcpy(qp->buf2, "0");
+	  strcpy(qp->buf1, "0");
+	}
+      dbpli->streams = qp->buf2;
+      ret = snprintf(qp->buf2, sizeof(qp->buf2), "%d", nstreams);
+      if ((ret < 0) || (ret >= sizeof(qp->buf2)))
+	{
+	  DPRINTF(E_LOG, L_DB, "Could not convert stream count, buffer too small\n");
+
+	  strcpy(qp->buf2, "0");
+	}
     }
 
   return 0;

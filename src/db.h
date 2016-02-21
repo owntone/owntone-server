@@ -417,7 +417,7 @@ int
 db_query_fetch_file(struct query_params *qp, struct db_media_file_info *dbmfi);
 
 int
-db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli);
+db_query_fetch_pl(struct query_params *qp, struct db_playlist_info *dbpli, int with_itemcount);
 
 int
 db_query_fetch_group(struct query_params *qp, struct db_group_info *dbgri);

@@ -394,7 +394,7 @@ rsp_reply_db(struct evhttp_request *req, char **uri, struct evkeyvalq *query)
   mxmlNewTextf(node, 0, "%d", qp.results);
 
   /* Playlists block (all playlists) */
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli, 1)) == 0) && (dbpli.id))
     {
       /* Playlist block (one playlist) */
       pl = mxmlNewElement(pls, "playlist");
