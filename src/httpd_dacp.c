@@ -1068,6 +1068,9 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	{
 	  /* Play from Up Next queue */
 	  pos += status.pos_pl;
+
+	  if (status.status == PLAY_STOPPED && pos > 0)
+	    pos--;
 	}
     }
 
