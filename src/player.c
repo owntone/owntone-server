@@ -244,6 +244,9 @@ static struct event *exitev;
 static struct event *cmdev;
 static pthread_t tid_player;
 
+/* Config values */
+static int clear_queue_on_stop_disabled;
+
 /* Player status */
 static enum play_status player_state;
 static enum repeat_mode repeat;
@@ -2167,9 +2170,10 @@ playback_abort(void)
 
   source_stop();
 
-  playerqueue_clear(NULL);
-
   evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
+
+  if (!clear_queue_on_stop_disabled)
+    playerqueue_clear(NULL);
 
   status_update(PLAY_STOPPED);
 
@@ -4589,6 +4593,8 @@ player_init(void)
   int ret;
 
   player_exit = 0;
+
+  clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
 
   dev_autoselect = 1;
   dev_list = NULL;
