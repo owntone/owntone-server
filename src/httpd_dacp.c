@@ -1015,7 +1015,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	  return;
 	}
 
-      player_queue_add(items);
+      player_queue_add(items, NULL);
     }
   else
     {
@@ -1253,7 +1253,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     player_playback_stop();
 
   player_queue_clear();
-  player_queue_add(items);
+  player_queue_add(items, NULL);
   player_queue_plid(plid);
 
   if (shuffle)
@@ -1787,7 +1787,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
       }
       else
       {
-        player_queue_add(items);
+        player_queue_add(items, NULL);
       }
     }
   else

@@ -165,6 +165,8 @@ struct playerqueue_add_param
 {
   struct queue_item *items;
   int pos;
+
+  uint32_t *item_id_ptr;
 };
 
 struct playerqueue_move_param
@@ -2196,6 +2198,7 @@ get_status(struct player_command *cmd)
 
   status->plid = cur_plid;
   status->plversion = cur_plversion;
+  status->playlistlength = queue_count(queue);
 
   switch (player_state)
     {
@@ -2273,7 +2276,6 @@ get_status(struct player_command *cmd)
 	    status->next_pos_pl = 0;
 	  }
 
-	status->playlistlength = queue_count(queue);
 	break;
     }
 
@@ -3376,8 +3378,10 @@ playerqueue_add(struct player_command *cmd)
 {
   struct queue_item *items;
   uint32_t cur_id;
+  uint32_t *item_id;
 
   items = cmd->arg.queue_add_param.items;
+  item_id = cmd->arg.queue_add_param.item_id_ptr;
 
   queue_add(queue, items);
 
@@ -3386,6 +3390,9 @@ playerqueue_add(struct player_command *cmd)
       cur_id = cur_streaming ? cur_streaming->item_id : 0;
       queue_shuffle(queue, cur_id);
     }
+
+  if (item_id)
+    *item_id = queueitem_item_id(items);
 
   cur_plid = 0;
   cur_plversion++;
@@ -4209,7 +4216,7 @@ player_queue_get_byindex(int index, int count)
  * Appends the given media items to the queue
  */
 int
-player_queue_add(struct queue_item *items)
+player_queue_add(struct queue_item *items, uint32_t *item_id)
 {
   struct player_command cmd;
   int ret;
@@ -4219,6 +4226,7 @@ player_queue_add(struct queue_item *items)
   cmd.func = playerqueue_add;
   cmd.func_bh = NULL;
   cmd.arg.queue_add_param.items = items;
+  cmd.arg.queue_add_param.item_id_ptr = item_id;
 
   ret = sync_command(&cmd);
 
