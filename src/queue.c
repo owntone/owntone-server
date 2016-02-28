@@ -763,6 +763,65 @@ queue_move_bypos(struct queue *queue, unsigned int item_id, unsigned int from_po
     }
 }
 
+void
+queue_move_byindex(struct queue *queue, unsigned int from_pos, unsigned int to_pos, char shuffle)
+{
+  struct queue_item *item;
+  struct queue_item *itemnext;
+
+  if (from_pos == to_pos)
+    return;
+
+  // Get the item to be moved
+  item = queueitem_get_byindex(queue, from_pos, shuffle);
+  if (!item)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Invalid position given to move items\n");
+      return;
+    }
+
+  // Get the item at the target position
+  itemnext = queueitem_get_byindex(queue, to_pos, shuffle);
+  if (!itemnext)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Invalid position given to move items\n");
+      return;
+    }
+
+  if (to_pos > from_pos)
+    itemnext = item_next(itemnext, shuffle);
+
+  // Remove item from the queue
+  if (shuffle)
+    {
+      item->shuffle_prev->shuffle_next = item->shuffle_next;
+      item->shuffle_next->shuffle_prev = item->shuffle_prev;
+    }
+  else
+    {
+      item->prev->next = item->next;
+      item->next->prev = item->prev;
+    }
+
+  // Insert item into the queue before the item at the target postion
+  if (shuffle)
+    {
+      itemnext->shuffle_prev->shuffle_next = item;
+      item->shuffle_prev = itemnext->shuffle_prev;
+
+      itemnext->shuffle_prev = item;
+      item->shuffle_next = itemnext;
+    }
+  else
+    {
+      itemnext->prev->next = item;
+      item->prev = itemnext->prev;
+
+      itemnext->prev = item;
+      item->next = itemnext;
+    }
+}
+
 /*
  * Moves the item with the given item-id to the index to_pos in the play-queue (shuffle = 0)
  * or shuffle-queue (shuffle = 1)
