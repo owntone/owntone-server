@@ -2237,7 +2237,7 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
       return ACK_ERROR_UNKNOWN;
     }
 
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli, 0)) == 0) && (dbpli.id))
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
         {
@@ -2752,7 +2752,7 @@ mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int lis
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
       return ACK_ERROR_UNKNOWN;
     }
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli, 0)) == 0) && (dbpli.id))
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
 	{
