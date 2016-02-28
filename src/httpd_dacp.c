@@ -1564,28 +1564,24 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       player_get_status(&status);
 
-      /* Get queue and make songlist only if playing or paused */
-      if (status.status != PLAY_STOPPED)
+      queue = player_queue_get_bypos(abs(span));
+      if (queue)
 	{
-	  queue = player_queue_get_bypos(abs(span));
-	  if (queue)
+	  i = 0;
+	  count = queue_count(queue);
+	  for (n = 0; (n < count) && (n < abs(span)); n++)
 	    {
-	      i = 0;
-	      count = queue_count(queue);
-	      for (n = 0; (n < count) && (n < abs(span)); n++)
+	      item = queue_get_byindex(queue, n, 0);
+	      ret = playqueuecontents_add_source(songlist, queueitem_id(item), (n + i + 1), status.plid);
+	      if (ret < 0)
 		{
-		  item = queue_get_byindex(queue, n, 0);
-		  ret = playqueuecontents_add_source(songlist, queueitem_id(item), (n + i + 1), status.plid);
-		  if (ret < 0)
-		    {
-		      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+		  DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
 
-		      dmap_send_error(req, "ceQR", "Out of memory");
-		      return;
-		    }
+		  dmap_send_error(req, "ceQR", "Out of memory");
+		  return;
 		}
-	      queue_free(queue);
 	    }
+	  queue_free(queue);
 	}
     }
 
