@@ -1608,7 +1608,6 @@ player_playback_cb(int fd, short what, void *arg)
 {
   struct timespec next_tick;
   uint64_t overrun;
-  uint32_t packet_send_count;
   int ret;
 
   // Check if we missed any timer expirations
@@ -1628,18 +1627,28 @@ player_playback_cb(int fd, short what, void *arg)
 #endif /* __linux__ */
 
   // The reason we get behind the playback timer may be that we are playing a 
-  // network stream. We might be consuming faster than the stream delivers, so
+  // network stream OR that the source is slow to open OR some interruption.
+  // For streams, we might be consuming faster than the stream delivers, so
   // when ffmpeg's buffer empties (might take a few hours) our av_read_frame()
   // in transcode.c will begin to block, because ffmpeg has to wait for new data
-  // from the stream server. In that situation we will skip reading data every
-  // second tick until we have skipt PLAYER_TICKS_SKIP ticks. That should make
-  // the source catch up. RTP destinations should be able to handle this
-  // gracefully if we just give them an rtptime that lets them know that some
-  // packets were "lost".
+  // from the stream server.
+  //
+  // Our strategy to catch up with the timer depends on the source:
+  //   - streams: We will skip reading data every second tick until we have
+  //              skipt PLAYER_TICKS_SKIP ticks. That should make the source
+  //              catch up. RTP destinations should be able to handle this
+  //              gracefully if we just give them an rtptime that lets them know
+  //              that some packets were "lost".
+  //   - files:   Just read and write like crazy until we have caught up.
+
   if (overrun > PLAYER_TICKS_MAX_OVERRUN)
     {
       DPRINTF(E_WARN, L_PLAYER, "Behind the playback timer with %" PRIu64 " ticks, initiating catch up\n", overrun);
-      ticks_skip = 2 * PLAYER_TICKS_SKIP + 1;
+
+      if (cur_streaming->data_kind == DATA_KIND_FILE)
+	ticks_skip = 0;
+      else
+        ticks_skip = 2 * PLAYER_TICKS_SKIP + 1;
     }
   else if (ticks_skip > 0)
     ticks_skip--;
@@ -1649,26 +1658,15 @@ player_playback_cb(int fd, short what, void *arg)
   for (; overrun > 0; overrun--)
     next_tick = timespec_add(next_tick, tick_interval);
 
-  packet_send_count = 0;
-
   do
     {
-      // Skip reading and writing every second tick if we are behind the source
+      // Skip reading and writing every second tick if we are behind a nonfile source
       if (ticks_skip % 2 == 0)
 	playback_write();
       else
 	last_rtptime += AIRTUNES_V2_PACKET_SAMPLES;
 
       packet_timer_last = timespec_add(packet_timer_last, packet_time);
-      packet_send_count++;
-      /* not possible to have more than 126 audio packets per second */
-      if (packet_send_count > 126)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Timing error detected during playback! Aborting.\n");
-
-	  playback_abort();
-	  return;
-	}
     }
   while (timespec_cmp(packet_timer_last, next_tick) < 0);
 
