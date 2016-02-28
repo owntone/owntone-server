@@ -1606,12 +1606,6 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   player_queue_add(items, NULL);
 
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
-
   return 0;
 }
 
@@ -1658,12 +1652,6 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   evbuffer_add_printf(evbuf,
       "Id: %d\n",
       item_id);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
 
   return 0;
 }
@@ -2362,12 +2350,6 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   player_queue_add(items, NULL);
 
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
-
   return 0;
 }
 
@@ -2627,12 +2609,6 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
     }
 
   player_queue_add(items, NULL);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
 
   return 0;
 }
@@ -3262,12 +3238,6 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
     }
 
   player_queue_add(items, NULL);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
 
   return 0;
 }
