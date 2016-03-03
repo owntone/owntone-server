@@ -336,15 +336,11 @@ file_type_get(const char *path) {
   if (strcasecmp(ext, ".remote") == 0)
     return FILE_CTRL_REMOTE;
 
-#ifdef LASTFM
   if (strcasecmp(ext, ".lastfm") == 0)
     return FILE_CTRL_LASTFM;
-#endif
 
-#ifdef HAVE_SPOTIFY_H
   if (strcasecmp(ext, ".spotify") == 0)
     return FILE_CTRL_SPOTIFY;
-#endif
 
   if (strcasecmp(ext, ".init-rescan") == 0)
     return FILE_CTRL_INITSCAN;
@@ -896,17 +892,21 @@ process_file(char *file, time_t mtime, off_t size, int type, int flags, int dir_
 	remote_pairing_read_pin(file);
 	break;
 
-#ifdef LASTFM
       case FILE_CTRL_LASTFM:
+#ifdef LASTFM
 	lastfm_login(file);
-	break;
+#else
+	DPRINTF(E_LOG, L_SCAN, "Detected LastFM file, but this version was built without LastFM support\n");
 #endif
+	break;
 
-#ifdef HAVE_SPOTIFY_H
       case FILE_CTRL_SPOTIFY:
+#ifdef HAVE_SPOTIFY_H
 	spotify_login(file);
-	break;
+#else
+	DPRINTF(E_LOG, L_SCAN, "Detected Spotify file, but this version was built without Spotify support\n");
 #endif
+	break;
 
       case FILE_CTRL_INITSCAN:
 	if (flags & F_SCAN_BULK)
