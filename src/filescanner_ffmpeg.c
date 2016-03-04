@@ -90,6 +90,7 @@ parse_disc(struct media_file_info *mfi, char *disc_string)
 static int
 parse_date(struct media_file_info *mfi, char *date_string)
 {
+  char year_string[21];
   uint32_t *year = (uint32_t *) ((char *) mfi + mfi_offsetof(year));
   uint32_t *date_released = (uint32_t *) ((char *) mfi + mfi_offsetof(date_released));
   struct tm tm = { 0 };
@@ -102,11 +103,20 @@ parse_date(struct media_file_info *mfi, char *date_string)
        || strptime(date_string, "%F %T", &tm)
        || strptime(date_string, "%F %H:%M", &tm)
        || strptime(date_string, "%F", &tm)
-       || strptime(date_string, "%Y", &tm)
      )
     {
       *date_released = (uint32_t)mktime(&tm);
       ret++;
+    }
+
+  if ((*date_released == 0) && (*year != 0))
+    {
+      snprintf(year_string, sizeof(year_string), "%" PRIu32 "-01-01T12:00:00", *year);
+      if (strptime(year_string, "%FT%T", &tm))
+	{
+	  *date_released = (uint32_t)mktime(&tm);
+	  ret++;
+	}
     }
 
   return ret;
@@ -205,6 +215,7 @@ static const struct metadata_map md_map_id3[] =
     { "TYER",                1, mfi_offsetof(year),                  NULL },              /* ID3v2.3 */
     { "TDA",                 1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.2 */
     { "TDAT",                1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.3 */
+    { "TDR",                 1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.2 */
     { "TDRL",                1, mfi_offsetof(date_released),         parse_date },        /* ID3v2.4 */
     { "TSOA",                0, mfi_offsetof(album_sort),            NULL },              /* ID3v2.4 */
     { "XSOA",                0, mfi_offsetof(album_sort),            NULL },              /* ID3v2.3 */
