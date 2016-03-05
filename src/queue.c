@@ -336,7 +336,7 @@ queueitem_get_bypos(struct queue *queue, unsigned int item_id, unsigned int pos,
     return NULL;
 
   i = 0;
-  for (item = item_base; item != queue->head && i < pos; item = item_next(item, shuffle))
+  for (item = item_base; i < pos; item = item_next(item, shuffle))
     {
       i++;
     }

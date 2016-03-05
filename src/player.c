@@ -3429,6 +3429,7 @@ static int
 playerqueue_move_bypos(struct player_command *cmd)
 {
   struct player_source *ps_playing;
+  uint32_t item_id;
 
   DPRINTF(E_DBG, L_PLAYER, "Moving song from position %d to be the next song after %d\n",
       cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos);
@@ -3437,11 +3438,13 @@ playerqueue_move_bypos(struct player_command *cmd)
 
   if (!ps_playing)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Can't move item, no playing item found\n");
-      return -1;
+      DPRINTF(E_DBG, L_PLAYER, "No playing item found for move by pos\n");
+      item_id = 0;
     }
+  else
+    item_id = ps_playing->item_id;
 
-  queue_move_bypos(queue, ps_playing->item_id, cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos, shuffle);
+  queue_move_bypos(queue, item_id, cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos, shuffle);
 
   cur_plversion++;
 
