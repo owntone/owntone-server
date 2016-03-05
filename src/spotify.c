@@ -489,9 +489,7 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi, const char *p
 {
   cfg_t *spotify_cfg;
   bool artist_override;
-  bool starred_artist_override;
   bool album_override;
-  bool starred_album_override;
   sp_album *album;
   sp_artist *artist;
   sp_albumtype albumtype;
@@ -501,9 +499,7 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi, const char *p
 
   spotify_cfg = cfg_getsec(cfg, "spotify");
   artist_override = cfg_getbool(spotify_cfg, "artist_override");
-  starred_artist_override = cfg_getbool(spotify_cfg, "starred_artist_override");
   album_override = cfg_getbool(spotify_cfg, "album_override");
-  starred_album_override = cfg_getbool(spotify_cfg, "starred_album_override");
 
   album = fptr_sp_track_album(track);
   if (!album)
@@ -523,11 +519,9 @@ spotify_metadata_get(sp_track *track, struct media_file_info *mfi, const char *p
    * - starred_artist_override in config is set to true and track is part of the starred playlist
    */
   compilation = ((albumtype == SP_ALBUMTYPE_COMPILATION)
-		  || (starred && starred_artist_override)
-		  || (!starred && artist_override));
+		  || artist_override);
 
-  if ((starred && starred_album_override)
-      || (!starred && album_override))
+  if (album_override)
     albumname = strdup(pltitle);
   else
     albumname = strdup(fptr_sp_album_name(album));
