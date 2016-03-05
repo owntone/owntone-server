@@ -47,6 +47,7 @@
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <sys/time.h>
 # include <sys/event.h>
+# include <pthread_np.h>
 #endif
 
 #ifdef HAVE_REGEX_H
@@ -2312,6 +2313,12 @@ filescanner_init(void)
 
       goto thread_fail;
     }
+
+#if defined(__linux__)
+  pthread_setname_np(tid_scan, "filescanner");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_scan, "filescanner");
+#endif
 
   return 0;
 

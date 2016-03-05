@@ -37,6 +37,9 @@
 #include <sys/queue.h>
 #include <time.h>
 #include <pthread.h>
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+# include <pthread_np.h>
+#endif
 
 #include <dlfcn.h>
 #include <libspotify/api.h>
@@ -2273,6 +2276,12 @@ spotify_init(void)
       DPRINTF(E_FATAL, L_SPOTIFY, "Could not spawn Spotify thread: %s\n", strerror(errno));
       goto thread_fail;
     }
+
+#if defined(__linux__)
+  pthread_setname_np(tid_spotify, "spotify");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_spotify, "spotify");
+#endif
 
   DPRINTF(E_DBG, L_SPOTIFY, "Spotify init complete\n");
   return 0;

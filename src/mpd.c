@@ -47,6 +47,7 @@
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <netinet/in.h>
+# include <pthread_np.h>
 #endif
 
 #include "logger.h"
@@ -4908,6 +4909,12 @@ int mpd_init(void)
 
       goto thread_fail;
     }
+
+#if defined(__linux__)
+  pthread_setname_np(tid_mpd, "mpd");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_mpd, "mpd");
+#endif
 
   idle_clients = NULL;
   listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_PLAYLIST | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS);

@@ -36,6 +36,7 @@
 # include <sys/timerfd.h>
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <signal.h>
+# include <pthread_np.h>
 #endif
 
 #include <event2/event.h>
@@ -4727,6 +4728,12 @@ player_init(void)
       DPRINTF(E_FATAL, L_PLAYER, "Could not spawn player thread: %s\n", strerror(errno));
       goto thread_fail;
     }
+#if defined(__linux__)
+  pthread_setname_np(tid_player, "player");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_player, "player");
+#endif
+
 
   return 0;
 
