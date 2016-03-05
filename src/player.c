@@ -3488,6 +3488,7 @@ playerqueue_remove_bypos(struct player_command *cmd)
 {
   int pos;
   struct player_source *ps_playing;
+  uint32_t item_id;
 
   pos = cmd->arg.intval;
   if (pos < 1)
@@ -3500,12 +3501,14 @@ playerqueue_remove_bypos(struct player_command *cmd)
 
   if (!ps_playing)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Can't remove item at pos %d, no playing item found\n", pos);
-      return -1;
+      DPRINTF(E_DBG, L_PLAYER, "No playing item for remove by pos\n");
+      item_id = 0;
     }
+  else
+    item_id = ps_playing->item_id;
 
   DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
-  queue_remove_bypos(queue, ps_playing->item_id, pos, shuffle);
+  queue_remove_bypos(queue, item_id, pos, shuffle);
 
   cur_plversion++;
 
