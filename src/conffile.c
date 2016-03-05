@@ -119,9 +119,7 @@ static cfg_opt_t sec_spotify[] =
     CFG_INT("bitrate", 0, CFGF_NONE),
     CFG_BOOL("base_playlist_disable", cfg_false, CFGF_NONE),
     CFG_BOOL("artist_override", cfg_false, CFGF_NONE),
-    CFG_BOOL("starred_artist_override", cfg_false, CFGF_NONE),
     CFG_BOOL("album_override", cfg_false, CFGF_NONE),
-    CFG_BOOL("starred_album_override", cfg_false, CFGF_NONE),
     CFG_END()
   };
 
