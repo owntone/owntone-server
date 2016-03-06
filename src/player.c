@@ -1645,10 +1645,10 @@ player_playback_cb(int fd, short what, void *arg)
     {
       DPRINTF(E_WARN, L_PLAYER, "Behind the playback timer with %" PRIu64 " ticks, initiating catch up\n", overrun);
 
-      if (cur_streaming->data_kind == DATA_KIND_FILE)
-	ticks_skip = 0;
-      else
+      if (cur_streaming->data_kind == DATA_KIND_HTTP || cur_streaming->data_kind == DATA_KIND_PIPE)
         ticks_skip = 2 * PLAYER_TICKS_SKIP + 1;
+      else
+	ticks_skip = 0;
     }
   else if (ticks_skip > 0)
     ticks_skip--;
