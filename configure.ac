@@ -188,9 +188,9 @@ AS_IF([test "x$enable_chromecast" = "xyes"], [
 	AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
 	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c >= 1.0.0 ], , [ protobuf_old="yes" ])
 	PKG_CHECK_MODULES(GNUTLS, [ gnutls ])
-	PKG_CHECK_EXISTS([ json-c ],
+	PKG_CHECK_EXISTS([ json-c >= 0.11 ],
 		[ PKG_CHECK_MODULES(JSON_C, [ json-c ]) ],
-		[ PKG_CHECK_MODULES(JSON_C, [ json ]) ]
+		[ PKG_CHECK_MODULES(JSON_C, [ json ], AC_DEFINE(HAVE_JSON_C_OLD, 1, [Define 1 to if you have json-c < 0.11])) ]
 	)
 ])
 AS_IF([test "x$protobuf_old" = "xyes"], [

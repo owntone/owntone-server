@@ -35,9 +35,13 @@
 #include <fcntl.h>
 #include <endian.h>
 #include <gnutls/gnutls.h>
-#include <json-c/json.h>
-
 #include <event2/event.h>
+
+#ifdef HAVE_JSON_C_OLD
+# include <json/json.h>
+#else
+# include <json-c/json.h>
+#endif
 
 #include "conffile.h"
 #include "mdns.h"
@@ -705,8 +709,12 @@ cast_msg_parse(struct cast_msg_payload *payload, char *s)
 static void
 cast_msg_parse_free(void *haystack)
 {
+#ifdef HAVE_JSON_C_OLD
+  json_object_put((json_object *)haystack);
+#else
   if (json_object_put((json_object *)haystack) != 1)
     DPRINTF(E_LOG, L_CAST, "Memleak: JSON parser did not free object\n");
+#endif
 }
 
 static void
