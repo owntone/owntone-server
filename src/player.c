@@ -3386,9 +3386,7 @@ playerqueue_add(struct player_command *cmd)
       queue_shuffle(queue, cur_id);
     }
 
-  //TODO [refactor] Unnecessary if, always set plid to 0 after adding items
-  if (cur_plid != 0)
-    cur_plid = 0;
+  cur_plid = 0;
   cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
@@ -3411,9 +3409,7 @@ playerqueue_add_next(struct player_command *cmd)
   if (shuffle)
     queue_shuffle(queue, cur_id);
 
-  //TODO [refactor] Unnecessary if, always set plid to 0 after adding items
-  if (cur_plid != 0)
-    cur_plid = 0;
+  cur_plid = 0;
   cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
