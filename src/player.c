@@ -36,6 +36,7 @@
 # include <sys/timerfd.h>
 #elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <signal.h>
+# include <pthread_np.h>
 #endif
 
 #include <event2/event.h>
@@ -3386,9 +3387,7 @@ playerqueue_add(struct player_command *cmd)
       queue_shuffle(queue, cur_id);
     }
 
-  //TODO [refactor] Unnecessary if, always set plid to 0 after adding items
-  if (cur_plid != 0)
-    cur_plid = 0;
+  cur_plid = 0;
   cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
@@ -3411,9 +3410,7 @@ playerqueue_add_next(struct player_command *cmd)
   if (shuffle)
     queue_shuffle(queue, cur_id);
 
-  //TODO [refactor] Unnecessary if, always set plid to 0 after adding items
-  if (cur_plid != 0)
-    cur_plid = 0;
+  cur_plid = 0;
   cur_plversion++;
 
   listener_notify(LISTENER_PLAYLIST);
@@ -4731,6 +4728,12 @@ player_init(void)
       DPRINTF(E_FATAL, L_PLAYER, "Could not spawn player thread: %s\n", strerror(errno));
       goto thread_fail;
     }
+#if defined(__linux__)
+  pthread_setname_np(tid_player, "player");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_player, "player");
+#endif
+
 
   return 0;
 

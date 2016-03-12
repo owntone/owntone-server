@@ -28,6 +28,9 @@
 #include <limits.h>
 #include <errno.h>
 #include <pthread.h>
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+# include <pthread_np.h>
+#endif
 #include <time.h>
 #include <sys/param.h>
 #include <sys/queue.h>
@@ -1393,6 +1396,12 @@ httpd_init(void)
 
       goto thread_fail;
     }
+
+#if defined(__linux__)
+  pthread_setname_np(tid_httpd, "httpd");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_httpd, "httpd");
+#endif
 
   return 0;
 

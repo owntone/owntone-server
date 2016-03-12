@@ -30,6 +30,9 @@
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+# include <pthread_np.h>
+#endif
 
 #include <event2/event.h>
 
@@ -331,6 +334,12 @@ worker_init(void)
 
       goto thread_fail;
     }
+
+#if defined(__linux__)
+  pthread_setname_np(tid_worker, "worker");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_worker, "worker");
+#endif
 
   return 0;
   
