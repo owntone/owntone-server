@@ -215,6 +215,7 @@ typedef int          (*fptr_sp_playlist_num_tracks_t)(sp_playlist *playlist);
 typedef sp_track*    (*fptr_sp_playlist_track_t)(sp_playlist *playlist, int index);
 typedef bool         (*fptr_sp_playlist_is_loaded_t)(sp_playlist *playlist);
 typedef int          (*fptr_sp_playlist_track_create_time_t)(sp_playlist *playlist, int index);
+typedef sp_user*     (*fptr_sp_playlist_owner_t)(sp_playlist *playlist);
 
 typedef sp_error     (*fptr_sp_track_error_t)(sp_track *track);
 typedef bool         (*fptr_sp_track_is_loaded_t)(sp_track *track);
@@ -250,6 +251,9 @@ typedef sp_error     (*fptr_sp_image_release_t)(sp_image *image);
 typedef sp_error     (*fptr_sp_image_add_load_callback_t)(sp_image *image, image_loaded_cb *callback, void *userdata);
 typedef sp_error     (*fptr_sp_image_remove_load_callback_t)(sp_image *image, image_loaded_cb *callback, void *userdata);
 
+typedef const char*  (*fptr_sp_user_display_name_t)(sp_user *user);
+typedef const char*  (*fptr_sp_user_canonical_name_t)(sp_user *user);
+
 /* Define actual function pointers */
 fptr_sp_error_message_t fptr_sp_error_message;
 
@@ -279,6 +283,7 @@ fptr_sp_playlist_num_tracks_t fptr_sp_playlist_num_tracks;
 fptr_sp_playlist_track_t fptr_sp_playlist_track;
 fptr_sp_playlist_is_loaded_t fptr_sp_playlist_is_loaded;
 fptr_sp_playlist_track_create_time_t fptr_sp_playlist_track_create_time;
+fptr_sp_playlist_owner_t fptr_sp_playlist_owner;
 
 fptr_sp_track_error_t fptr_sp_track_error;
 fptr_sp_track_is_loaded_t fptr_sp_track_is_loaded;
@@ -313,6 +318,9 @@ fptr_sp_image_data_t fptr_sp_image_data;
 fptr_sp_image_release_t fptr_sp_image_release;
 fptr_sp_image_add_load_callback_t fptr_sp_image_add_load_callback;
 fptr_sp_image_remove_load_callback_t fptr_sp_image_remove_load_callback;
+
+fptr_sp_user_display_name_t fptr_sp_user_display_name;
+fptr_sp_user_canonical_name_t fptr_sp_user_canonical_name;
 
 /* Assign function pointers to libspotify symbol */
 static int
@@ -350,6 +358,7 @@ fptr_assign_all()
    && (fptr_sp_playlist_track = dlsym(h, "sp_playlist_track"))
    && (fptr_sp_playlist_is_loaded = dlsym(h, "sp_playlist_is_loaded"))
    && (fptr_sp_playlist_track_create_time = dlsym(h, "sp_playlist_track_create_time"))
+   && (fptr_sp_playlist_owner = dlsym(h, "sp_playlist_owner"))
    && (fptr_sp_track_error = dlsym(h, "sp_track_error"))
    && (fptr_sp_track_is_loaded = dlsym(h, "sp_track_is_loaded"))
    && (fptr_sp_track_name = dlsym(h, "sp_track_name"))
@@ -379,6 +388,8 @@ fptr_assign_all()
    && (fptr_sp_image_release = dlsym(h, "sp_image_release"))
    && (fptr_sp_image_add_load_callback = dlsym(h, "sp_image_add_load_callback"))
    && (fptr_sp_image_remove_load_callback = dlsym(h, "sp_image_remove_load_callback"))
+   && (fptr_sp_user_display_name = dlsym(h, "sp_user_display_name"))
+   && (fptr_sp_user_canonical_name = dlsym(h, "sp_user_canonical_name"))
    ;
 
   err = dlerror();
@@ -691,8 +702,10 @@ spotify_playlist_save(sp_playlist *pl)
   struct playlist_info *pli;
   sp_track *track;
   sp_link *link;
+  sp_user *owner;
   char url[1024];
   const char *name;
+  const char *ownername;
   int plid;
   int num_tracks;
   char virtual_path[PATH_MAX];
@@ -741,9 +754,23 @@ spotify_playlist_save(sp_playlist *pl)
     }
   fptr_sp_link_release(link);
 
-  pli = db_pl_fetch_bypath(url);
+  owner = fptr_sp_playlist_owner(pl);
+  if (owner)
+    {
+      DPRINTF(E_DBG, L_SPOTIFY, "Playlist '%s' owner: '%s' (canonical) / '%s' (display)\n",
+	  name, fptr_sp_user_canonical_name(owner), fptr_sp_user_display_name(owner));
 
-  snprintf(virtual_path, PATH_MAX, "/spotify:/%s", name);
+      ownername = fptr_sp_user_canonical_name(owner);
+
+      snprintf(virtual_path, PATH_MAX, "/spotify:/%s (%s)", name, ownername);
+    }
+  else
+    {
+      snprintf(virtual_path, PATH_MAX, "/spotify:/%s", name);
+    }
+
+
+  pli = db_pl_fetch_bypath(url);
 
   if (pli)
     {
@@ -755,6 +782,7 @@ spotify_playlist_save(sp_playlist *pl)
       pli->title = strdup(name);
       free(pli->virtual_path);
       pli->virtual_path = strdup(virtual_path);
+      pli->directory_id = DIR_SPOTIFY;
 
       ret = db_pl_update(pli);
       if (ret < 0)
