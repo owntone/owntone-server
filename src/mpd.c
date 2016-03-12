@@ -1333,13 +1333,13 @@ mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errms
     }
 
   ret = player_playback_start(NULL);
-    if (ret < 0)
-      {
-        ret = asprintf(errmsg, "Player returned an error for start after previtem");
-	if (ret < 0)
-	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-	return ACK_ERROR_UNKNOWN;
-      }
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Player returned an error for start after previtem");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
 
   return 0;
 }
@@ -1465,13 +1465,13 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   ret = player_playback_start(NULL);
-    if (ret < 0)
-      {
-        ret = asprintf(errmsg, "Player returned an error for start after seekcur");
-	if (ret < 0)
-	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-	return ACK_ERROR_UNKNOWN;
-      }
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Player returned an error for start after seekcur");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
 
   return 0;
 }
@@ -1510,13 +1510,13 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
     }
 
   ret = player_playback_start(NULL);
-    if (ret < 0)
-      {
-        ret = asprintf(errmsg, "Player returned an error for start after seekcur");
-	if (ret < 0)
-	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-	return ACK_ERROR_UNKNOWN;
-      }
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Player returned an error for start after seekcur");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
 
   return 0;
 }
