@@ -2287,8 +2287,10 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
         {
-          DPRINTF(E_LOG, L_MPD, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
-          return -1;
+          ret = asprintf(errmsg, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
+          if (ret < 0)
+            DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+          return ACK_ERROR_UNKNOWN;
         }
 
       mpd_time(modified, sizeof(modified), time_modified);
@@ -2918,16 +2920,20 @@ mpd_command_listall(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
 
   if ((ret < 0) || (ret >= sizeof(parent)))
     {
-      DPRINTF(E_INFO, L_MPD, "Parent path exceeds PATH_MAX\n");
-      return -1;
+      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
     }
 
   // Load dir-id from db for parent-path
   dir_id = db_directory_id_byvirtualpath(parent);
   if (dir_id == 0)
     {
-      DPRINTF(E_LOG, L_MPD, "Directory info not found for virtual-path '%s'\n", parent);
-      return -1;
+      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'", parent);
+      if (ret < 0)
+      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_NO_EXIST;
     }
 
   ret = mpd_add_directory(evbuf, dir_id, 1, 0, errmsg);
@@ -2958,20 +2964,20 @@ mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **er
 
   if ((ret < 0) || (ret >= sizeof(parent)))
     {
-      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX\n");
+      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX");
       if (ret < 0)
 	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return -1;
+      return ACK_ERROR_UNKNOWN;
     }
 
   // Load dir-id from db for parent-path
   dir_id = db_directory_id_byvirtualpath(parent);
   if (dir_id == 0)
     {
-      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'\n", parent);
+      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'", parent);
       if (ret < 0)
       	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-      return -1;
+      return ACK_ERROR_NO_EXIST;
     }
 
   ret = mpd_add_directory(evbuf, dir_id, 1, 1, errmsg);
@@ -3007,8 +3013,10 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 
   if ((ret < 0) || (ret >= sizeof(parent)))
     {
-      DPRINTF(E_INFO, L_MPD, "Parent path exceeds PATH_MAX\n");
-      return -1;
+      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX");
+      if (ret < 0)
+      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
     }
 
   print_playlists = 0;
@@ -3027,8 +3035,10 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   dir_id = db_directory_id_byvirtualpath(parent);
   if (dir_id == 0)
     {
-      DPRINTF(E_LOG, L_MPD, "Directory info not found for virtual-path '%s'\n", parent);
-      return -1;
+      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'", parent);
+      if (ret < 0)
+      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_NO_EXIST;
     }
 
   ret = mpd_add_directory(evbuf, dir_id, 0, 1, errmsg);
