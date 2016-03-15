@@ -86,6 +86,8 @@ laudio_alsa_xrun_recover(int err)
   /* Buffer underrun */
   if (err == -EPIPE)
     {
+      DPRINTF(E_WARN, L_LAUDIO, "PCM buffer underrun\n");
+
       pcm_last_error = 0;
 
       ret = snd_pcm_prepare(hdl);
@@ -343,6 +345,8 @@ laudio_alsa_set_volume(int vol)
 static int
 laudio_alsa_start(uint64_t cur_pos, uint64_t next_pkt)
 {
+  snd_output_t *output;
+  char *debug_pcm_cfg;
   int ret;
 
   ret = snd_pcm_prepare(hdl);
@@ -380,6 +384,19 @@ laudio_alsa_start(uint64_t cur_pos, uint64_t next_pkt)
       DPRINTF(E_LOG, L_LAUDIO, "Could not set PCM start threshold for local audio start\n");
 
       return -1;
+    }
+
+  // Dump PCM config data for E_DBG logging
+  ret = snd_output_buffer_open(&output);
+  if (ret == 0)
+    {
+      if (snd_pcm_dump_setup(hdl, output) == 0)
+	{
+	  snd_output_buffer_string(output, &debug_pcm_cfg);
+	  DPRINTF(E_DBG, L_LAUDIO, "Dump of sound device config:\n%s\n", debug_pcm_cfg);
+	}
+
+      snd_output_close(output);
     }
 
   update_status(LAUDIO_STARTED);
