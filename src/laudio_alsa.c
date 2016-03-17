@@ -89,8 +89,6 @@ laudio_alsa_xrun_recover(int err)
     {
       DPRINTF(E_WARN, L_LAUDIO, "PCM buffer underrun\n");
 
-      pcm_last_error = 0;
-
       ret = snd_pcm_prepare(hdl);
       if (ret < 0)
 	{
@@ -263,6 +261,7 @@ laudio_alsa_write(uint8_t *buf, uint64_t rtptime)
 	  return;
 	}
 
+      pcm_last_error = 0;
       pcm_pos += nsamp;
 
       pkt->offset += STOB(nsamp);
@@ -292,6 +291,9 @@ laudio_alsa_get_pos(void)
 
   if (pcm_pos == 0)
     return 0;
+
+  if (pcm_last_error != 0)
+    return pcm_pos;
 
   ret = snd_pcm_delay(hdl, &delay);
   if (ret < 0)
