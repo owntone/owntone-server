@@ -295,6 +295,9 @@ laudio_alsa_get_pos(void)
   if (pcm_last_error != 0)
     return pcm_pos;
 
+  if (snd_pcm_state(hdl) != SND_PCM_STATE_RUNNING)
+    return pcm_pos;
+
   ret = snd_pcm_delay(hdl, &delay);
   if (ret < 0)
     {
