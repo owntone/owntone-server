@@ -4655,7 +4655,11 @@ player_init(void)
       goto audio_fail;
     }
 
+#ifdef HAVE_PIPE2
   ret = pipe2(exit_pipe, O_CLOEXEC);
+#else
+  ret = pipe(exit_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create pipe: %s\n", strerror(errno));
@@ -4663,7 +4667,11 @@ player_init(void)
       goto exit_fail;
     }
 
+#ifdef HAVE_PIPE2
   ret = pipe2(cmd_pipe, O_CLOEXEC);
+#else
+  ret = pipe(cmd_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not create command pipe: %s\n", strerror(errno));

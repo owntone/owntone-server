@@ -1796,14 +1796,22 @@ cache_init(void)
       return 0;
     }
 
+#ifdef HAVE_PIPE2
   ret = pipe2(g_exit_pipe, O_CLOEXEC);
+#else
+  ret = pipe(g_exit_pipe);
+#endif
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_CACHE, "Could not create pipe: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_CACHE, "Could not create exit pipe: %s\n", strerror(errno));
       goto exit_fail;
     }
 
+#ifdef HAVE_PIPE2
   ret = pipe2(g_cmd_pipe, O_CLOEXEC);
+#else
+  ret = pipe(g_cmd_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_CACHE, "Could not create command pipe: %s\n", strerror(errno));

@@ -2663,7 +2663,11 @@ dacp_init(void)
       return -1;
     }
 #else
+# ifdef HAVE_PIPE2
   ret = pipe2(update_pipe, O_CLOEXEC);
+# else
+  ret = pipe(update_pipe);
+# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Could not create update pipe: %s\n", strerror(errno));

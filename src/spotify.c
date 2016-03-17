@@ -2193,21 +2193,33 @@ spotify_init(void)
   if (ret < 0)
     goto assign_fail;
 
+#ifdef HAVE_PIPE2
   ret = pipe2(g_exit_pipe, O_CLOEXEC);
+#else
+  ret = pipe(g_exit_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not create pipe: %s\n", strerror(errno));
       goto exit_fail;
     }
 
+#ifdef HAVE_PIPE2
   ret = pipe2(g_cmd_pipe, O_CLOEXEC);
+#else
+  ret = pipe(g_cmd_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not create command pipe: %s\n", strerror(errno));
       goto cmd_fail;
     }
 
+#ifdef HAVE_PIPE2
   ret = pipe2(g_notify_pipe, O_CLOEXEC);
+#else
+  ret = pipe(g_notify_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SPOTIFY, "Could not notify command pipe: %s\n", strerror(errno));

@@ -1338,7 +1338,11 @@ httpd_init(void)
 
   exitev = event_new(evbase_httpd, exit_efd, EV_READ, exit_cb, NULL);
 #else
+# ifdef HAVE_PIPE2
   ret = pipe2(exit_pipe, O_CLOEXEC);
+# else
+  ret = pipe(exit_pipe);
+# endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create pipe: %s\n", strerror(errno));

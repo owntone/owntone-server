@@ -917,7 +917,16 @@ remote_pairing_init(void)
       return -1;
     }
 #else
+# ifdef HAVE_PIPE2
   ret = pipe2(pairing_pipe, O_CLOEXEC | O_NONBLOCK);
+# else
+  if ( pipe(pairing_pipe) < 0 ||
+       fcntl(pairing_pipe[0], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 ||
+       fcntl(pairing_pipe[1], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 )
+    ret = -1;
+  else
+    ret = 0;
+# endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_REMOTE, "Could not create pairing pipe: %s\n", strerror(errno));

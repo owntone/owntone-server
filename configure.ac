@@ -46,6 +46,7 @@ AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
 AC_CHECK_FUNCS(timegm)
 AC_CHECK_FUNCS(euidaccess)
+AC_CHECK_FUNCS(pipe2)
 
 dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
