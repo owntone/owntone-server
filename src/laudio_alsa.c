@@ -216,11 +216,6 @@ laudio_alsa_write(uint8_t *buf, uint64_t rtptime)
     }
   else if ((pcm_status != LAUDIO_RUNNING) && (pcm_pos >= pcm_start_pos))
     {
-      /* Kill threshold */
-      ret = laudio_alsa_set_start_threshold(0);
-      if (ret < 0)
-	DPRINTF(E_WARN, L_LAUDIO, "Couldn't set PCM start threshold to 0 for output start\n");
-
       update_status(LAUDIO_RUNNING);
     }
 
