@@ -165,6 +165,8 @@ struct playerqueue_add_param
 {
   struct queue_item *items;
   int pos;
+
+  uint32_t *item_id_ptr;
 };
 
 struct playerqueue_move_param
@@ -241,6 +243,9 @@ static int player_exit;
 static struct event *exitev;
 static struct event *cmdev;
 static pthread_t tid_player;
+
+/* Config values */
+static int clear_queue_on_stop_disabled;
 
 /* Player status */
 static enum play_status player_state;
@@ -2165,9 +2170,10 @@ playback_abort(void)
 
   source_stop();
 
-  playerqueue_clear(NULL);
-
   evbuffer_drain(audio_buf, evbuffer_get_length(audio_buf));
+
+  if (!clear_queue_on_stop_disabled)
+    playerqueue_clear(NULL);
 
   status_update(PLAY_STOPPED);
 
@@ -2196,6 +2202,7 @@ get_status(struct player_command *cmd)
 
   status->plid = cur_plid;
   status->plversion = cur_plversion;
+  status->playlistlength = queue_count(queue);
 
   switch (player_state)
     {
@@ -2273,7 +2280,6 @@ get_status(struct player_command *cmd)
 	    status->next_pos_pl = 0;
 	  }
 
-	status->playlistlength = queue_count(queue);
 	break;
     }
 
@@ -3376,8 +3382,10 @@ playerqueue_add(struct player_command *cmd)
 {
   struct queue_item *items;
   uint32_t cur_id;
+  uint32_t *item_id;
 
   items = cmd->arg.queue_add_param.items;
+  item_id = cmd->arg.queue_add_param.item_id_ptr;
 
   queue_add(queue, items);
 
@@ -3386,6 +3394,9 @@ playerqueue_add(struct player_command *cmd)
       cur_id = cur_streaming ? cur_streaming->item_id : 0;
       queue_shuffle(queue, cur_id);
     }
+
+  if (item_id)
+    *item_id = queueitem_item_id(items);
 
   cur_plid = 0;
   cur_plversion++;
@@ -3422,6 +3433,7 @@ static int
 playerqueue_move_bypos(struct player_command *cmd)
 {
   struct player_source *ps_playing;
+  uint32_t item_id;
 
   DPRINTF(E_DBG, L_PLAYER, "Moving song from position %d to be the next song after %d\n",
       cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos);
@@ -3430,11 +3442,13 @@ playerqueue_move_bypos(struct player_command *cmd)
 
   if (!ps_playing)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Can't move item, no playing item found\n");
-      return -1;
+      DPRINTF(E_DBG, L_PLAYER, "No playing item found for move by pos\n");
+      item_id = 0;
     }
+  else
+    item_id = ps_playing->item_id;
 
-  queue_move_bypos(queue, ps_playing->item_id, cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos, shuffle);
+  queue_move_bypos(queue, item_id, cmd->arg.queue_move_param.from_pos, cmd->arg.queue_move_param.to_pos, shuffle);
 
   cur_plversion++;
 
@@ -3478,6 +3492,7 @@ playerqueue_remove_bypos(struct player_command *cmd)
 {
   int pos;
   struct player_source *ps_playing;
+  uint32_t item_id;
 
   pos = cmd->arg.intval;
   if (pos < 1)
@@ -3490,12 +3505,14 @@ playerqueue_remove_bypos(struct player_command *cmd)
 
   if (!ps_playing)
     {
-      DPRINTF(E_LOG, L_PLAYER, "Can't remove item at pos %d, no playing item found\n", pos);
-      return -1;
+      DPRINTF(E_DBG, L_PLAYER, "No playing item for remove by pos\n");
+      item_id = 0;
     }
+  else
+    item_id = ps_playing->item_id;
 
   DPRINTF(E_DBG, L_PLAYER, "Removing item from position %d\n", pos);
-  queue_remove_bypos(queue, ps_playing->item_id, pos, shuffle);
+  queue_remove_bypos(queue, item_id, pos, shuffle);
 
   cur_plversion++;
 
@@ -4209,7 +4226,7 @@ player_queue_get_byindex(int index, int count)
  * Appends the given media items to the queue
  */
 int
-player_queue_add(struct queue_item *items)
+player_queue_add(struct queue_item *items, uint32_t *item_id)
 {
   struct player_command cmd;
   int ret;
@@ -4219,6 +4236,7 @@ player_queue_add(struct queue_item *items)
   cmd.func = playerqueue_add;
   cmd.func_bh = NULL;
   cmd.arg.queue_add_param.items = items;
+  cmd.arg.queue_add_param.item_id_ptr = item_id;
 
   ret = sync_command(&cmd);
 
@@ -4575,6 +4593,8 @@ player_init(void)
   int ret;
 
   player_exit = 0;
+
+  clear_queue_on_stop_disabled = cfg_getbool(cfg_getsec(cfg, "mpd"), "clear_queue_on_stop_disable");
 
   dev_autoselect = 1;
   dev_list = NULL;

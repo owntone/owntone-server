@@ -1604,13 +1604,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  player_queue_add(items);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -1625,6 +1619,7 @@ static int
 mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   struct queue_item *items;
+  uint32_t item_id;
   int ret;
 
   if (argc < 2)
@@ -1652,20 +1647,11 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
 
-  player_queue_add(items);
+  player_queue_add(items, &item_id);
 
-  //TODO [queue] Get queue-item-id for mpd-command addid
   evbuffer_add_printf(evbuf,
-      "addid: %s\n"
       "Id: %d\n",
-      argv[1],
-      0); //ps->id);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+      item_id);
 
   return 0;
 }
@@ -2362,13 +2348,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  player_queue_add(items);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -2628,13 +2608,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
       return ACK_ERROR_UNKNOWN;
     }
 
-  player_queue_add(items);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -3263,13 +3237,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
       return ACK_ERROR_UNKNOWN;
     }
 
-  player_queue_add(items);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+  player_queue_add(items, NULL);
 
   return 0;
 }

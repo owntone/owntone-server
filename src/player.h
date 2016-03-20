@@ -161,7 +161,7 @@ struct queue *
 player_queue_get_byindex(int pos, int count);
 
 int
-player_queue_add(struct queue_item *items);
+player_queue_add(struct queue_item *items, uint32_t *item_id);
 
 int
 player_queue_add_next(struct queue_item *items);
