@@ -1671,6 +1671,9 @@ transcode_raw2frame(uint8_t *data, size_t size)
   frame->nb_samples     = size / 4;
   frame->format         = AV_SAMPLE_FMT_S16;
   frame->channel_layout = AV_CH_LAYOUT_STEREO;
+#ifdef HAVE_FFMPEG
+  frame->channels       = 2;
+#endif
   frame->pts            = AV_NOPTS_VALUE;
   frame->sample_rate    = 44100;
 
