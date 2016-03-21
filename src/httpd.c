@@ -1376,7 +1376,7 @@ httpd_init(void)
       ret = evhttp_bind_socket(evhttpd, "::", port);
       if (ret < 0)
 	{
-	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d, falling back to IPv4\n", port);
+	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", port);
 	  v6enabled = 0;
 	}
     }
