@@ -35,8 +35,8 @@ extern struct output_definition output_raop;
 #ifdef CHROMECAST
 extern struct output_definition output_cast;
 #endif
-/* TODO
 extern struct output_definition output_streaming;
+/* TODO
 #ifdef ALSA
 extern struct output_definition output_alsa;
 #endif
@@ -52,8 +52,8 @@ static struct output_definition *outputs[] = {
 #ifdef CHROMECAST
     &output_cast,
 #endif
-/* TODO
     &output_streaming,
+/* TODO
 #ifdef ALSA
     &output_alsa,
 #endif
@@ -338,6 +338,9 @@ outputs_init(void)
 	  return -1;
 	}
 
+      if (!outputs[i]->init)
+	continue;
+
       ret = outputs[i]->init();
       if (ret < 0)
 	outputs[i]->disabled = 1;
@@ -358,7 +361,10 @@ outputs_deinit(void)
 
   for (i = 0; outputs[i]; i++)
     {
-      if (!outputs[i]->disabled)
+      if (outputs[i]->disabled)
+	continue;
+
+      if (outputs[i]->deinit)
         outputs[i]->deinit();
     }
 }

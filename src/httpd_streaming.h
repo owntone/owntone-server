@@ -10,6 +10,9 @@
  * if a suitable ffmpeg/libav encoder is not present at runtime.
  */
 
+void
+streaming_write(uint8_t *buf, uint64_t rtptime);
+
 int
 streaming_is_request(struct evhttp_request *req, char *uri);
 

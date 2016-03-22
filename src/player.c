@@ -291,9 +291,6 @@ static int laudio_selected;
 static int laudio_volume;
 static int laudio_relvol;
 static int output_sessions;
-static int streaming_selected;
-
-static player_streaming_cb streaming_write;
 
 /* Commands */
 static struct player_command *cur_cmd;
@@ -1606,14 +1603,10 @@ playback_write(void)
       return;
     }
 
-  if (streaming_selected)
-    streaming_write(rawbuf, sizeof(rawbuf));
-
   if (laudio_status & LAUDIO_F_STARTED)
     laudio_write(rawbuf, last_rtptime);
 
-  if (output_sessions > 0)
-    outputs_write(rawbuf, last_rtptime);
+  outputs_write(rawbuf, last_rtptime);
 }
 
 static void
@@ -2170,8 +2163,7 @@ playback_abort(void)
   if (laudio_status != LAUDIO_CLOSED)
     laudio_close();
 
-  if (output_sessions > 0)
-    outputs_playback_stop();
+  outputs_playback_stop();
 
   pb_timer_stop();
 
@@ -2423,8 +2415,7 @@ playback_start_bh(struct player_command *cmd)
     goto out_fail;
 
   /* Everything OK, start outputs */
-  if (output_sessions > 0)
-    outputs_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_pos_stamp);
+  outputs_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_pos_stamp);
 
   status_update(PLAY_PLAYING);
 
@@ -4012,19 +4003,6 @@ player_playback_prev(void)
   command_deinit(&cmd);
 
   return ret;
-}
-
-void
-player_streaming_start(player_streaming_cb cb)
-{
-  streaming_write = cb;
-  streaming_selected = 1;
-}
-
-void
-player_streaming_stop(void)
-{
-  streaming_selected = 0;
 }
 
 

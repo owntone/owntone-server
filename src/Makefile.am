@@ -110,7 +110,7 @@ forked_daapd_SOURCES = main.c \
 	outputs.h outputs.c \
 	laudio_dummy.c \
 	laudio.c laudio.h \
-	outputs/raop.c \
+	outputs/raop.c outputs/streaming.c \
 	evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \

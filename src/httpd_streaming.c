@@ -52,7 +52,7 @@ extern struct event_base *evbase_httpd;
 // Should prevent that we keep transcoding to dead connections
 #define STREAMING_CONNECTION_TIMEOUT 60
 
-// Linked list of Icecast requests
+// Linked list of mp3 streaming requests
 struct streaming_session {
   struct evhttp_request *req;
   struct streaming_session *next;
@@ -108,7 +108,6 @@ streaming_fail_cb(struct evhttp_connection *evcon, void *arg)
     {
       DPRINTF(E_INFO, L_STREAMING, "No more clients, will stop streaming\n");
       event_del(streamingev);
-      player_streaming_stop();
     }
 }
 
@@ -122,14 +121,14 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
   int len;
   int ret;
 
-  if (!streaming_sessions)
-    return;
-
-  // Callback from player (EV_READ)
+  // Player wrote data to the pipe (EV_READ)
   if (event & EV_READ)
     {
       ret = read(streaming_pipe[0], &streaming_rawbuf, STREAMING_RAWBUF_SIZE);
       if (ret < 0)
+	return;
+
+      if (!streaming_sessions)
 	return;
 
       decoded = transcode_raw2frame(streaming_rawbuf, STREAMING_RAWBUF_SIZE);
@@ -152,6 +151,9 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
 	  streaming_player_changed = 0;
 	  player_get_status(&streaming_player_status);
 	}
+
+      if (!streaming_sessions)
+	return;
 
       if (streaming_player_status.status != PLAY_PAUSED)
 	return;
@@ -177,27 +179,25 @@ streaming_send_cb(evutil_socket_t fd, short event, void *arg)
   evbuffer_free(evbuf);
 }
 
-// Thread: player
-static int
-streaming_cb(uint8_t *rawbuf, size_t size)
-{
-  if (size != STREAMING_RAWBUF_SIZE)
-    {
-      DPRINTF(E_LOG, L_STREAMING, "Bug! Buffer size in streaming_cb does not equal input from player\n");
-      return -1;
-    }
-
-  if (write(streaming_pipe[1], rawbuf, size) < 0)
-    return -1;
-
-  return 0;
-}
-
 // Thread: player (not fully thread safe, but hey...)
 static void
 player_change_cb(enum listener_event_type type)
 {
   streaming_player_changed = 1;
+}
+
+// Thread: player (also prone to race conditions, mostly during deinit)
+void
+streaming_write(uint8_t *buf, uint64_t rtptime)
+{
+  int ret;
+
+  if (!streaming_sessions)
+    return;
+
+  ret = write(streaming_pipe[1], buf, STREAMING_RAWBUF_SIZE);
+  if (ret < 0)
+    DPRINTF(E_LOG, L_STREAMING, "Error writing to streaming pipe\n");
 }
 
 int
@@ -268,8 +268,6 @@ streaming_request(struct evhttp_request *req)
 
   evhttp_connection_set_timeout(evcon, STREAMING_CONNECTION_TIMEOUT);
   evhttp_connection_set_closecb(evcon, streaming_fail_cb, session);
-
-  player_streaming_start(streaming_cb);
 
   return 0;
 }
@@ -403,17 +401,19 @@ streaming_deinit(void)
   if (!streaming_initialized)
     return;
 
-  player_streaming_stop();
-
-  event_free(streamingev);
+  session = streaming_sessions;
+  streaming_sessions = NULL; // Stops writing and sending
 
   next = NULL;
-  for (session = streaming_sessions; session; session = next)
+  while (session)
     {
       evhttp_send_reply_end(session->req);
       next = session->next;
       free(session);
+      session = next;
     }
+
+  event_free(streamingev);
 
   listener_remove(player_change_cb);
 
