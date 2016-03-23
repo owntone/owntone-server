@@ -156,6 +156,16 @@ static struct dacp_update_request *update_requests;
 static struct event *seek_timer;
 static int seek_target;
 
+/* If an item is removed from the library while in the queue, we replace it with this */
+static struct media_file_info dummy_mfi =
+{
+  .id = 9999999,
+  .title = "(unknown title)",
+  .artist = "(unknown artist)",
+  .album = "(unknown album)",
+  .genre = "(unknown genre)",
+};
+
 
 /* DACP helpers */
 static void
@@ -240,7 +250,7 @@ make_playstatusupdate(struct evbuffer *evbuf)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not fetch file id %d\n", status.id);
 
-	  return -1;
+	  mfi = &dummy_mfi;
 	}
     }
   else
@@ -272,7 +282,8 @@ make_playstatusupdate(struct evbuffer *evbuf)
 
       dacp_playingtime(psu, &status, mfi);
 
-      free_mfi(mfi, 0);
+      if (mfi != &dummy_mfi)
+	free_mfi(mfi, 0);
     }
 
   dmap_add_char(psu, "casu", 1);              /*  9 */ /* unknown */
@@ -1453,7 +1464,7 @@ playqueuecontents_add_source(struct evbuffer *songlist, uint32_t source_id, int 
   if (!mfi)
     {
       DPRINTF(E_LOG, L_DACP, "Could not fetch file id %d\n", source_id);
-      return -1;
+      mfi = &dummy_mfi;
     }
   dmap_add_container(song, "ceQs", 16);
   dmap_add_raw_uint32(song, 1); /* Database */
@@ -1476,7 +1487,8 @@ playqueuecontents_add_source(struct evbuffer *songlist, uint32_t source_id, int 
 
   ret = evbuffer_add_buffer(songlist, song);
   evbuffer_free(song);
-  free_mfi(mfi, 0);
+  if (mfi != &dummy_mfi)
+    free_mfi(mfi, 0);
 
   if (ret < 0)
     {
