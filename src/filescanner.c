@@ -967,7 +967,7 @@ create_virtual_path(char *path, char *virtual_path, int virtual_path_len)
 }
 
 static void
-process_directory(char *path, int flags, int parent_id)
+process_directory(char *path, int parent_id, int flags)
 {
   DIR *dirp;
   struct dirent buf;
@@ -1189,14 +1189,14 @@ process_directories(char *root, int parent_id, int flags)
 {
   struct stacked_dir *dir;
 
-  process_directory(root, flags, parent_id);
+  process_directory(root, parent_id, flags);
 
   if (scan_exit)
     return;
 
   while ((dir = pop_dir(&dirstack)))
     {
-      process_directory(dir->path, flags, dir->parent_id);
+      process_directory(dir->path, dir->parent_id, flags);
 
       free(dir->path);
       free(dir);
@@ -2065,7 +2065,7 @@ kqueue_cb(int fd, short event, void *arg)
 
   while ((d = pop_dir(&rescan)))
     {
-      process_directories(d->path, 0, d->parent_id);
+      process_directories(d->path, d->parent_id, 0);
 
       free(d->path);
       free(d);
