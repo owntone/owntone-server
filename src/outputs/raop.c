@@ -2551,13 +2551,11 @@ raop_flush(output_status_cb cb, uint64_t rtptime)
 static void
 raop_v2_timing_cb(int fd, short what, void *arg)
 {
-  char address[INET6_ADDRSTRLEN];
   union sockaddr_all sa;
   uint8_t req[32];
   uint8_t res[32];
   struct ntp_stamp recv_stamp;
   struct ntp_stamp xmit_stamp;
-  struct raop_session *rs;
   struct raop_service *svc;
   int len;
   int ret;
@@ -2584,55 +2582,6 @@ raop_v2_timing_cb(int fd, short what, void *arg)
   if (ret != 32)
     {
       DPRINTF(E_DBG, L_RAOP, "Got timing request with size %d\n", ret);
-
-      goto readd;
-    }
-
-  switch (sa.ss.ss_family)
-    {
-      case AF_INET:
-	if (svc != &timing_4svc)
-	  goto readd;
-
-	for (rs = sessions; rs; rs = rs->next)
-	  {
-	    if ((rs->sa.ss.ss_family == AF_INET)
-		&& (sa.sin.sin_addr.s_addr == rs->sa.sin.sin_addr.s_addr))
-	      break;
-	  }
-
-	if (!rs)
-	  ret = (inet_ntop(AF_INET, &sa.sin.sin_addr.s_addr, address, sizeof(address)) != NULL);
-
-	break;
-
-      case AF_INET6:
-	if (svc != &timing_6svc)
-	  goto readd;
-
-	for (rs = sessions; rs; rs = rs->next)
-	  {
-	    if ((rs->sa.ss.ss_family == AF_INET6)
-		&& IN6_ARE_ADDR_EQUAL(&sa.sin6.sin6_addr, &rs->sa.sin6.sin6_addr))
-	      break;
-	  }
-
-	if (!rs)
-	  ret = (inet_ntop(AF_INET6, &sa.sin6.sin6_addr.s6_addr, address, sizeof(address)) != NULL);
-
-	break;
-
-      default:
-	DPRINTF(E_LOG, L_RAOP, "Time sync: Unknown address family %d\n", sa.ss.ss_family);
-	goto readd;
-    }
-
-  if (!rs)
-    {
-      if (!ret)
-	DPRINTF(E_LOG, L_RAOP, "Time sync request from [error: %s]; not a RAOP client\n", strerror(errno));
-      else
-	DPRINTF(E_LOG, L_RAOP, "Time sync request from %s; not a RAOP client\n", address);
 
       goto readd;
     }
