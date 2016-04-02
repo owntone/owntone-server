@@ -54,7 +54,6 @@
 
 /* Audio outputs */
 #include "outputs.h"
-#include "laudio.h"
 
 /* Audio inputs */
 #include "transcode.h"
@@ -286,10 +285,6 @@ static int dev_autoselect; //TODO [player] Is this still necessary?
 static struct output_device *dev_list;
 
 /* Output status */
-static enum laudio_state laudio_status;
-static int laudio_selected;
-static int laudio_volume;
-static int laudio_relvol;
 static int output_sessions;
 
 /* Commands */
@@ -388,9 +383,6 @@ volume_master_update(int newvol)
 
   master_volume = newvol;
 
-  if (laudio_selected)
-    laudio_relvol = vol_to_rel(laudio_volume);
-
   for (device = dev_list; device; device = device->next)
     {
       if (device->selected)
@@ -406,9 +398,6 @@ volume_master_find(void)
 
   newmaster = -1;
 
-  if (laudio_selected)
-    newmaster = laudio_volume;
-
   for (device = dev_list; device; device = device->next)
     {
       if (device->selected && (device->volume > newmaster))
@@ -420,22 +409,6 @@ volume_master_find(void)
 
 
 /* Device select/deselect hooks */
-static void
-speaker_select_laudio(void)
-{
-  laudio_selected = 1;
-
-  if (laudio_volume > master_volume)
-    {
-      if (player_state == PLAY_STOPPED || master_volume == -1)
-	volume_master_update(laudio_volume);
-      else
-	laudio_volume = master_volume;
-    }
-
-  laudio_relvol = vol_to_rel(laudio_volume);
-}
-
 static void
 speaker_select_output(struct output_device *device)
 {
@@ -450,15 +423,6 @@ speaker_select_output(struct output_device *device)
     }
 
   device->relvol = vol_to_rel(device->volume);
-}
-
-static void
-speaker_deselect_laudio(void)
-{
-  laudio_selected = 0;
-
-  if (laudio_volume == master_volume)
-    volume_master_find();
 }
 
 static void
@@ -514,36 +478,6 @@ player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
   return 0;
 }
 
-static int
-player_get_current_pos_laudio(uint64_t *pos, struct timespec *ts, int commit)
-{
-  int ret;
-
-  *pos = laudio_get_pos();
-
-  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  if (commit)
-    {
-      pb_pos = *pos;
-
-      pb_pos_stamp.tv_sec = ts->tv_sec;
-      pb_pos_stamp.tv_nsec = ts->tv_nsec;
-
-#ifdef DEBUG_SYNC
-      DPRINTF(E_DBG, L_PLAYER, "Pos: %" PRIu64 " (laudio)\n", *pos);
-#endif
-    }
-
-  return 0;
-}
-
 int
 player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 {
@@ -552,8 +486,8 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
       case PLAYER_SYNC_CLOCK:
 	return player_get_current_pos_clock(pos, ts, commit);
 
-      case PLAYER_SYNC_LAUDIO:
-	return player_get_current_pos_laudio(pos, ts, commit);
+      default:
+	DPRINTF(E_LOG, L_PLAYER, "Bug! player_get_current_pos called with unknown source\n");
     }
 
   return -1;
@@ -615,54 +549,6 @@ playerqueue_clear(struct player_command *cmd);
 
 static void
 player_metadata_send(struct player_metadata *pmd);
-
-static void
-player_laudio_status_cb(enum laudio_state status)
-{
-  struct timespec ts;
-  uint64_t pos;
-
-  switch (status)
-    {
-      /* Switch sync to clock sync */
-      case LAUDIO_STOPPING:
-	DPRINTF(E_DBG, L_PLAYER, "Local audio stopping\n");
-
-	laudio_status = status;
-
-	/* Synchronize pb_pos and pb_pos_stamp before laudio stops entirely */
-	player_get_current_pos_laudio(&pos, &ts, 1);
-
-	pb_sync_source = PLAYER_SYNC_CLOCK;
-	break;
-
-      /* Switch sync to laudio sync */
-      case LAUDIO_RUNNING:
-	DPRINTF(E_DBG, L_PLAYER, "Local audio running\n");
-
-	laudio_status = status;
-
-	pb_sync_source = PLAYER_SYNC_LAUDIO;
-	break;
-
-      case LAUDIO_FAILED:
-	DPRINTF(E_DBG, L_PLAYER, "Local audio failed\n");
-
-	pb_sync_source = PLAYER_SYNC_CLOCK;
-
-	laudio_close();
-
-	if (output_sessions == 0)
-	  playback_abort();
-
-	speaker_deselect_laudio();
-	break;
-
-      default:
-      	laudio_status = status;
-	break;
-    }
-}
 
 /* Callback from the worker thread (async operation as it may block) */
 static void
@@ -1603,9 +1489,6 @@ playback_write(void)
       return;
     }
 
-  if (laudio_status & LAUDIO_F_STARTED)
-    laudio_write(rawbuf, last_rtptime);
-
   outputs_write(rawbuf, last_rtptime);
 }
 
@@ -2160,9 +2043,6 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
 static void
 playback_abort(void)
 {
-  if (laudio_status != LAUDIO_CLOSED)
-    laudio_close();
-
   outputs_playback_stop();
 
   pb_timer_stop();
@@ -2331,9 +2211,6 @@ playback_stop(struct player_command *cmd)
 {
   struct player_source *ps_playing;
 
-  if (laudio_status != LAUDIO_CLOSED)
-    laudio_close();
-
   /* We may be restarting very soon, so we don't bring the devices to a
    * full stop just yet; this saves time when restarting, which is nicer
    * for the user.
@@ -2369,25 +2246,11 @@ playback_start_bh(struct player_command *cmd)
 {
   int ret;
 
-  if ((laudio_status == LAUDIO_CLOSED) && (output_sessions == 0))
+  if (output_sessions == 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Cannot start playback: no output started\n");
 
       goto out_fail;
-    }
-
-  /* Start laudio first as it can fail, but can be stopped easily if needed */
-  if (laudio_status == LAUDIO_OPEN)
-    {
-      laudio_set_volume(laudio_volume);
-
-      ret = laudio_start(pb_pos, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Local audio failed to start\n");
-
-	  goto out_fail;
-	}
     }
 
   ret = clock_gettime_with_res(CLOCK_MONOTONIC, &pb_pos_stamp, &timer_res);
@@ -2496,16 +2359,7 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
 
   metadata_trigger(1);
 
-
-  /* Start local audio if needed */
-  if (laudio_selected && (laudio_status == LAUDIO_CLOSED))
-    {
-      ret = laudio_open();
-      if (ret < 0)
-	DPRINTF(E_LOG, L_PLAYER, "Could not open local audio, will try AirPlay\n");
-    }
-
-  /* Start RAOP sessions on selected devices if needed */
+  /* Start sessions on selected devices */
   cmd->output_requests_pending = 0;
 
   for (device = dev_list; device; device = device->next)
@@ -2524,8 +2378,8 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
 	}
     }
 
-  /* Try to autoselect a non-selected RAOP device if the above failed */
-  if ((laudio_status == LAUDIO_CLOSED) && (cmd->output_requests_pending == 0) && (output_sessions == 0))
+  /* Try to autoselect a non-selected device if the above failed */
+  if ((cmd->output_requests_pending == 0) && (output_sessions == 0))
     for (device = dev_list; device; device = device->next)
       {
         if (!device->session)
@@ -2546,7 +2400,7 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
       }
 
   /* No luck finding valid output */
-  if ((laudio_status == LAUDIO_CLOSED) && (cmd->output_requests_pending == 0) && (output_sessions == 0))
+  if ((cmd->output_requests_pending == 0) && (output_sessions == 0))
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
 
@@ -2801,9 +2655,6 @@ playback_pause(struct player_command *cmd)
 
   cmd->output_requests_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
-  if (laudio_status != LAUDIO_CLOSED)
-    laudio_stop();
-
   pb_timer_stop();
 
   source_pause(pos);
@@ -2826,25 +2677,11 @@ speaker_enumerate(struct player_command *cmd)
   struct output_device *device;
   struct spk_enum *spk_enum;
   struct spk_flags flags;
-  char *laudio_name;
 
   spk_enum = cmd->arg.spk_enum;
 
-  laudio_name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
-
-  /* Auto-select local audio if there are no other output devices */
-  if (!dev_list && !laudio_selected)
-    speaker_select_laudio();
-
-  flags.selected = laudio_selected;
-  flags.has_password = 0;
-  flags.has_video = 0;
-
-  spk_enum->cb(0, laudio_name, laudio_relvol, flags, spk_enum->arg);
-
 #ifdef DEBUG_RELVOL
   DPRINTF(E_DBG, L_PLAYER, "*** master: %d\n", master_volume);
-  DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
 #endif
 
   for (device = dev_list; device; device = device->next)
@@ -2869,113 +2706,49 @@ speaker_enumerate(struct player_command *cmd)
 static int
 speaker_activate(struct output_device *device)
 {
-  struct timespec ts;
-  uint64_t pos;
   int ret;
 
   if (!device)
     {
-      /* Local */
-      DPRINTF(E_DBG, L_PLAYER, "Activating local audio\n");
+      DPRINTF(E_LOG, L_PLAYER, "Bug! speaker_activate called with device\n");
+      return -1;
+    }
 
-      if (laudio_status == LAUDIO_CLOSED)
+  if (player_state == PLAY_PLAYING)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Activating %s device '%s'\n", device->type_name, device->name);
+
+      ret = outputs_device_start(device, device_activate_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+      if (ret < 0)
 	{
-	  ret = laudio_open();
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not open local audio\n");
-
-	      return -1;
-	    }
+	  DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
+	  return -1;
 	}
-
-      if (player_state == PLAY_PLAYING)
-	{
-	  laudio_set_volume(laudio_volume);
-
-	  ret = player_get_current_pos(&pos, &ts, 0);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not get current stream position for local audio start\n");
-
-	      laudio_close();
-	      return -1;
-	    }
-
-	  ret = laudio_start(pos, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Local playback failed to start\n");
-
-	      laudio_close();
-	      return -1;
-	    }
-	}
-
-      return 0;
     }
   else
     {
-      if (player_state == PLAY_PLAYING)
+      DPRINTF(E_DBG, L_PLAYER, "Probing %s device '%s'\n", device->type_name, device->name);
+
+      ret = outputs_device_probe(device, device_probe_cb);
+      if (ret < 0)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Activating %s device '%s'\n", device->type_name, device->name);
-
-	  ret = outputs_device_start(device, device_activate_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
-
-	      return -1;
-	    }
+	  DPRINTF(E_LOG, L_PLAYER, "Could not probe %s device '%s'\n", device->type_name, device->name);
+	  return -1;
 	}
-      else
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "Probing %s device '%s'\n", device->type_name, device->name);
-
-	  ret = outputs_device_probe(device, device_probe_cb);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not probe %s device '%s'\n", device->type_name, device->name);
-
-	      return -1;
-	    }
-	}
-
-      return 1;
     }
 
-  return -1;
+  return 0;
 }
 
 static int
 speaker_deactivate(struct output_device *device)
 {
-  if (!device)
-    {
-      /* Local */
-      DPRINTF(E_DBG, L_PLAYER, "Deactivating local audio\n");
+  DPRINTF(E_DBG, L_PLAYER, "Deactivating %s device '%s'\n", device->type_name, device->name);
 
-      if (laudio_status == LAUDIO_CLOSED)
-	return 0;
+  outputs_status_cb(device->session, device_shutdown_cb);
+  outputs_device_stop(device->session);
 
-      if (laudio_status & LAUDIO_F_STARTED)
-	laudio_stop();
-
-      laudio_close();
-
-      return 0;
-    }
-  else
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Deactivating %s device '%s'\n", device->type_name, device->name);
-
-      outputs_status_cb(device->session, device_shutdown_cb);
-      outputs_device_stop(device->session);
-
-      return 1;
-    }
-
-  return -1;
+  return 0;
 }
 
 static int
@@ -3037,8 +2810,7 @@ speaker_set(struct player_command *cmd)
 		    cmd->ret = -1;
 		}
 
-	      /* ret = 1 if RAOP needs to take action */
-	      cmd->output_requests_pending += ret;
+	      cmd->output_requests_pending += 1;
 	    }
 	}
       else
@@ -3059,56 +2831,7 @@ speaker_set(struct player_command *cmd)
 		    cmd->ret = -1;
 		}
 
-	      /* ret = 1 if RAOP needs to take action */
-	      cmd->output_requests_pending += ret;
-	    }
-	}
-    }
-
-  /* Local audio */
-  for (i = 1; i <= nspk; i++)
-    {
-      if (ids[i] == 0)
-	break;
-    }
-
-  if (i <= nspk)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Local audio selected\n");
-
-      if (!laudio_selected)
-	speaker_select_laudio();
-
-      if (!(laudio_status & LAUDIO_F_STARTED))
-	{
-	  ret = speaker_activate(NULL);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not activate local audio output\n");
-
-	      speaker_deselect_laudio();
-
-	      if (cmd->ret != -2)
-		cmd->ret = -1;
-	    }
-	}
-    }
-  else
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Local audio NOT selected\n");
-
-      if (laudio_selected)
-	speaker_deselect_laudio();
-
-      if (laudio_status != LAUDIO_CLOSED)
-	{
-	  ret = speaker_deactivate(NULL);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not deactivate local audio output\n");
-
-	      if (cmd->ret != -2)
-		cmd->ret = -1;
+	      cmd->output_requests_pending += 1;
 	    }
 	}
     }
@@ -3133,16 +2856,6 @@ volume_set(struct player_command *cmd)
     return 0;
 
   master_volume = volume;
-
-  if (laudio_selected)
-    {
-      laudio_volume = rel_to_vol(laudio_relvol);
-      laudio_set_volume(laudio_volume);
-
-#ifdef DEBUG_RELVOL
-      DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
-#endif
-    }
 
   cmd->output_requests_pending = 0;
 
@@ -3179,38 +2892,25 @@ volume_setrel_speaker(struct player_command *cmd)
   id = cmd->arg.vol_param.spk_id;
   relvol = cmd->arg.vol_param.volume;
 
-  if (id == 0)
+  for (device = dev_list; device; device = device->next)
     {
-      laudio_relvol = relvol;
-      laudio_volume = rel_to_vol(relvol);
-      laudio_set_volume(laudio_volume);
+      if (device->id != id)
+	continue;
+
+      if (!device->selected)
+	return 0;
+
+      device->relvol = relvol;
+      device->volume = rel_to_vol(relvol);
 
 #ifdef DEBUG_RELVOL
-      DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
-#endif
-    }
-  else
-    {
-      for (device = dev_list; device; device = device->next)
-        {
-	  if (device->id != id)
-	    continue;
-
-	  if (!device->selected)
-	    return 0;
-
-	  device->relvol = relvol;
-	  device->volume = rel_to_vol(relvol);
-
-#ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
+      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
 #endif
 
-	  if (device->session)
-	    cmd->output_requests_pending = outputs_device_volume_set(device, device_command_cb);
+      if (device->session)
+	cmd->output_requests_pending = outputs_device_volume_set(device, device_command_cb);
 
-	  break;
-        }
+      break;
     }
 
   listener_notify(LISTENER_VOLUME);
@@ -3232,19 +2932,6 @@ volume_setabs_speaker(struct player_command *cmd)
   volume = cmd->arg.vol_param.volume;
 
   master_volume = volume;
-
-  if (id == 0)
-    {
-      laudio_relvol = 100;
-      laudio_volume = volume;
-      laudio_set_volume(laudio_volume);
-    }
-  else
-    laudio_relvol = vol_to_rel(laudio_volume);
-
-#ifdef DEBUG_RELVOL
-  DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
-#endif
 
   for (device = dev_list; device; device = device->next)
     {
@@ -4544,10 +4231,6 @@ player(void *arg)
   /* Save selected devices */
   db_speaker_clear_all();
 
-  ret = db_speaker_save(0, laudio_selected, laudio_volume, "Local audio");
-  if (ret < 0)
-    DPRINTF(E_LOG, L_PLAYER, "Could not save state for local audio\n");
-
   for (device = dev_list; device; device = device->next)
     {
       ret = db_speaker_save(device->id, device->selected, device->volume, device->name);
@@ -4586,8 +4269,6 @@ player_init(void)
 
   master_volume = -1;
 
-  laudio_selected = 0;
-  laudio_status = LAUDIO_CLOSED;
   output_sessions = 0;
 
   cur_cmd = NULL;
@@ -4645,12 +4326,6 @@ player_init(void)
   // Random RTP time start
   gcry_randomize(&rnd, sizeof(rnd), GCRY_STRONG_RANDOM);
   last_rtptime = ((uint64_t)1 << 32) | rnd;
-
-  ret = db_speaker_get(0, &laudio_selected, &laudio_volume);
-  if (ret < 0)
-    laudio_volume = PLAYER_DEFAULT_VOLUME;
-  else if (laudio_selected)
-    speaker_select_laudio(); // Run the select helper
 
   audio_buf = evbuffer_new();
   if (!audio_buf)
@@ -4721,13 +4396,6 @@ player_init(void)
   event_add(cmdev, NULL);
   event_add(pb_timer_ev, NULL);
 
-  ret = laudio_init(player_laudio_status_cb);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Local audio init failed\n");
-      goto laudio_fail;
-    }
-
   ret = outputs_init();
   if (ret < 0)
     {
@@ -4753,8 +4421,6 @@ player_init(void)
  thread_fail:
   outputs_deinit();
  outputs_fail:
-  laudio_deinit();
- laudio_fail:
  evnew_fail:
   event_base_free(evbase_player);
  evbase_fail:
@@ -4810,7 +4476,6 @@ player_deinit(void)
 
   evbuffer_free(audio_buf);
 
-  laudio_deinit();
   outputs_deinit();
 
   close(exit_pipe[0]);
