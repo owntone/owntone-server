@@ -1568,6 +1568,40 @@ player_playback_cb(int fd, short what, void *arg)
 
 /* Helpers */
 static void
+device_list_sort(void)
+{
+  struct output_device *device;
+  struct output_device *next;
+  struct output_device *prev;
+  int swaps;
+
+  // Swap sorting since even the most inefficient sorting should do fine here
+  do
+    {
+      swaps = 0;
+      prev = NULL;
+      for (device = dev_list; device && device->next; device = device->next)
+	{
+	  next = device->next;
+	  if ( (outputs_priority(device) > outputs_priority(next)) ||
+	       (outputs_priority(device) == outputs_priority(next) && strcasecmp(device->name, next->name) > 0) )
+	    {
+	      if (device == dev_list)
+		dev_list = next;
+	      if (prev)
+		prev->next = next;
+
+	      device->next = next->next;
+	      next->next = device;
+	      swaps++;
+	    }
+	  prev = device;
+	}
+    }
+  while (swaps > 0);
+}
+
+static void
 device_remove(struct output_device *remove)
 {
   struct output_device *device;
@@ -1692,6 +1726,8 @@ device_add(struct player_command *cmd)
 
       outputs_device_free(add);
     }
+
+  device_list_sort();
 
   return 0;
 }
@@ -2396,21 +2432,21 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
   if ((cmd->output_requests_pending == 0) && (output_sessions == 0))
     for (device = dev_list; device; device = device->next)
       {
-        if (!device->session)
-	  {
-	    speaker_select_output(device);
-	    ret = outputs_device_start(device, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
-	    if (ret < 0)
-	      {
-		DPRINTF(E_DBG, L_PLAYER, "Could not autoselect %s device '%s'\n", device->type_name, device->name);
-		speaker_deselect_output(device);
-		continue;
-	      }
+	if ((outputs_priority(device) == 0) || device->session)
+	  continue;
 
-	    DPRINTF(E_INFO, L_PLAYER, "Autoselecting %s device '%s'\n", device->type_name, device->name);
-	    cmd->output_requests_pending++;
-	    break;
+	speaker_select_output(device);
+	ret = outputs_device_start(device, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+	if (ret < 0)
+	  {
+	    DPRINTF(E_DBG, L_PLAYER, "Could not autoselect %s device '%s'\n", device->type_name, device->name);
+	    speaker_deselect_output(device);
+	    continue;
 	  }
+
+	DPRINTF(E_INFO, L_PLAYER, "Autoselecting %s device '%s'\n", device->type_name, device->name);
+	cmd->output_requests_pending++;
+	break;
       }
 
   /* No luck finding valid output */

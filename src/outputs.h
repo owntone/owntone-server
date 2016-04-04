@@ -147,7 +147,6 @@ struct output_definition
 
   // Priority to give this output when autoselecting an output, 1 is highest
   // 1 = highest priority, 0 = don't autoselect
-  // TODO Not implemented yet
   int priority;
 
   // Set to 1 if the output initialization failed
@@ -239,6 +238,9 @@ outputs_metadata_prune(uint64_t rtptime);
 
 void
 outputs_metadata_free(struct output_metadata *omd);
+
+int
+outputs_priority(struct output_device *device);
 
 const char *
 outputs_name(enum output_types type);

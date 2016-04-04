@@ -315,6 +315,11 @@ outputs_metadata_free(struct output_metadata *omd)
     }
 }
 
+int
+outputs_priority(struct output_device *device)
+{
+  return outputs[device->type]->priority;
+}
 
 const char *
 outputs_name(enum output_types type)
