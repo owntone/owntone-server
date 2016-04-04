@@ -212,18 +212,19 @@ AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
 dnl --- End options ---
 
 dnl Selection of local audio sound system
+dnl TODO exchange oss4 with Pulseaudio
 case "$host" in
 	*-*-linux-*)
 		use_alsa=true
 		use_oss4=false
 		;;
 	*-*-kfreebsd*-*|*-*-freebsd*)
-		use_alsa=false
-		use_oss4=true
+		use_alsa=true
+		use_oss4=false
 		;;
 esac
 
-AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default Linux=yes, FreeBSD=no)]), [
+AC_ARG_WITH(alsa, AS_HELP_STRING([--with-alsa], [use ALSA (default yes)]), [
 	AS_IF([test "x$with_alsa" = "xyes"], [use_alsa=true], [use_alsa=false])
 ])
 if test x$use_alsa = xtrue; then
@@ -231,15 +232,6 @@ if test x$use_alsa = xtrue; then
 	PKG_CHECK_MODULES(ALSA, [ alsa ])
 fi
 AM_CONDITIONAL(COND_ALSA, test x$use_alsa = xtrue)
-
-AC_ARG_WITH(oss4, AS_HELP_STRING([--with-oss4], [use OSS4 (default Linux=no, FreeBSD=yes)]), [
-	AS_IF([test "x$with_oss4" = "xyes"], [use_oss4=true], [use_oss4=false])
-])
-if test x$use_oss4 = xtrue; then
-	CPPFLAGS="${CPPFLAGS} -DOSS4"
-	AC_CHECK_HEADER(sys/soundcard.h, , AC_MSG_ERROR([sys/soundcard.h not found]))
-fi
-AM_CONDITIONAL(COND_OSS4, test x$use_oss4 = xtrue)
 
 dnl Checks for header files.
 AC_HEADER_STDC

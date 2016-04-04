@@ -49,16 +49,13 @@ enum output_types
 {
   OUTPUT_TYPE_RAOP,
   OUTPUT_TYPE_STREAMING,
-#ifdef CHROMECAST
-  OUTPUT_TYPE_CAST,
-#endif
+  OUTPUT_TYPE_DUMMY,
 #ifdef ALSA
   OUTPUT_TYPE_ALSA,
 #endif
-/* TODO
-  OUTPUT_TYPE_OSS,
-  OUTPUT_TYPE_DUMMY,
-*/
+#ifdef CHROMECAST
+  OUTPUT_TYPE_CAST,
+#endif
 };
 
 /* Output session state */
