@@ -37,7 +37,6 @@
 #include "player.h"
 #include "outputs.h"
 
-#define ALSA_PACKETS_WRITE_MAX 10
 #define PACKET_SIZE STOB(AIRTUNES_V2_PACKET_SAMPLES)
 
 // TODO Unglobalise these and add support for multiple sound cards
@@ -749,12 +748,12 @@ alsa_device_volume_set(struct output_device *device, output_status_cb cb)
   as = device->session->session;
 
   if (!mixer_hdl || !vol_elem)
-    return -1;
+    return 0;
 
   snd_mixer_handle_events(mixer_hdl);
 
   if (!snd_mixer_selem_is_active(vol_elem))
-    return -1;
+    return 0;
 
   switch (device->volume)
     {
@@ -775,9 +774,10 @@ alsa_device_volume_set(struct output_device *device, output_status_cb cb)
 
   snd_mixer_selem_set_playback_volume_all(vol_elem, pcm_vol);
 
+  as->status_cb = cb;
   alsa_status(as);
 
-  return 0;
+  return 1;
 }
 
 static void
