@@ -33,9 +33,6 @@
 #include "player.h"
 #include "laudio.h"
 
-#ifdef ALSA
-extern audio_output audio_alsa;
-#endif
 #ifdef OSS4
 extern audio_output audio_oss4;
 #endif
@@ -43,9 +40,6 @@ extern audio_output audio_oss4;
 extern audio_output audio_dummy;
 
 static audio_output *outputs[] = {
-#ifdef ALSA
-    &audio_alsa,
-#endif
 #ifdef OSS4
     &audio_oss4,
 #endif

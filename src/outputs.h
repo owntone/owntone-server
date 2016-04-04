@@ -14,18 +14,48 @@
  * When a device is started the output backend will typically create a session.
  * This session is only passed around as an opaque object in this interface.
  *
+ * Here is the sequence of commands from the player to the outputs, and the
+ * callback from the output once the command has been executed. Commands marked
+ * with * may make multiple callbacks if multiple sessions are affected.
+ * (TODO should callbacks always be deferred?)
+ *
+ * PLAYER              OUTPUT               PLAYER CB
+ * speaker_activate    -> device_start      -> device_activate_cb
+ *   -> (if playback)  -> playback_start    -> device_streaming_cb* (or no cb)
+ *   -> (else if playback not active)       -> device_streaming_cb
+ *   -> (fail)         -> device_stop       -> device_lost_cb
+ * speaker_activate    -> device_probe      -> device_probe_cb
+ * speaker_deactivate  -> device_stop       -> device_shutdown_cb
+ * volume_set          -> device_volume_set -> device_command_cb
+ *   ->                                     -> device_streaming_cb
+ * (volume_setrel/abs_speaker is the same)
+ * playback_start_item -> device_start      -> device_restart_cb
+ *   -> (success)                           -> device_streaming_cb
+ *   -> (fail)         -> device_stop       -> device_lost_cb
+ * playback_start_bh   -> playback_start    -> device_streaming_cb* (or no cb)
+ * playback_stop       -> flush             -> device_command_cb*
+ *   ->                                     -> device_streaming_cb*
+ *   ->                -> playback_stop     -> device_streaming_cb*
+ * playback_pause      -> flush             -> device_command_cb*
+ *   ->                                     -> device_streaming_cb*
+ *   ->                -> playback_stop     -> device_streaming_cb*
+ * playback_abort      -> playback_stop     -> device_streaming_cb* (or no cb)
+ * device_streaming_cb                      -> device_streaming_cb (re-add)
+ *
  */
 
 // Must be in sync with outputs[] in outputs.c
 enum output_types
 {
   OUTPUT_TYPE_RAOP,
+  OUTPUT_TYPE_STREAMING,
 #ifdef CHROMECAST
   OUTPUT_TYPE_CAST,
 #endif
-  OUTPUT_TYPE_STREAMING,
-/* TODO
+#ifdef ALSA
   OUTPUT_TYPE_ALSA,
+#endif
+/* TODO
   OUTPUT_TYPE_OSS,
   OUTPUT_TYPE_DUMMY,
 */

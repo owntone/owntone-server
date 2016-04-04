@@ -32,14 +32,14 @@
 #include "outputs.h"
 
 extern struct output_definition output_raop;
+extern struct output_definition output_streaming;
 #ifdef CHROMECAST
 extern struct output_definition output_cast;
 #endif
-extern struct output_definition output_streaming;
-/* TODO
 #ifdef ALSA
 extern struct output_definition output_alsa;
 #endif
+/* TODO
 #ifdef OSS4
 extern struct output_definition output_oss4;
 #endif
@@ -49,14 +49,14 @@ extern struct output_definition output_dummy;
 // Must be in sync with enum output_types
 static struct output_definition *outputs[] = {
     &output_raop,
+    &output_streaming,
 #ifdef CHROMECAST
     &output_cast,
 #endif
-    &output_streaming,
-/* TODO
 #ifdef ALSA
     &output_alsa,
 #endif
+/* TODO
 #ifdef OSS4
     &output_oss4,
 #endif

@@ -1770,6 +1770,8 @@ device_streaming_cb(struct output_device *device, struct output_session *session
 {
   int ret;
 
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_streaming_cb\n", outputs_name(device->type));
+
   ret = device_check(device);
   if (ret < 0)
     {
@@ -1814,6 +1816,8 @@ device_streaming_cb(struct output_device *device, struct output_session *session
 static void
 device_command_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_command_cb\n", outputs_name(device->type));
+
   cur_cmd->output_requests_pending--;
 
   outputs_status_cb(session, device_streaming_cb);
@@ -1836,6 +1840,8 @@ static void
 device_shutdown_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   int ret;
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_shutdown_cb\n", outputs_name(device->type));
 
   cur_cmd->output_requests_pending--;
 
@@ -1871,6 +1877,8 @@ device_shutdown_cb(struct output_device *device, struct output_session *session,
 static void
 device_lost_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_lost_cb\n", outputs_name(device->type));
+
   /* We lost that device during startup for some reason, not much we can do here */
   if (status == OUTPUT_STATE_FAILED)
     DPRINTF(E_WARN, L_PLAYER, "Failed to stop lost device\n");
@@ -1883,6 +1891,8 @@ device_activate_cb(struct output_device *device, struct output_session *session,
 {
   struct timespec ts;
   int ret;
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_activate_cb\n", outputs_name(device->type));
 
   cur_cmd->output_requests_pending--;
 
@@ -1955,6 +1965,8 @@ device_probe_cb(struct output_device *device, struct output_session *session, en
 {
   int ret;
 
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_probe_cb\n", outputs_name(device->type));
+
   cur_cmd->output_requests_pending--;
 
   ret = device_check(device);
@@ -2001,6 +2013,8 @@ static void
 device_restart_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   int ret;
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_restart_cb\n", outputs_name(device->type));
 
   cur_cmd->output_requests_pending--;
 
@@ -2233,7 +2247,7 @@ playback_stop(struct player_command *cmd)
 
   metadata_purge();
 
-  /* We're async if we need to flush RAOP devices */
+  /* We're async if we need to flush devices */
   if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
@@ -2408,7 +2422,7 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
       return -1;
     }
 
-  /* We're async if we need to start RAOP devices */
+  /* We're async if we need to start devices */
   if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
@@ -2663,7 +2677,7 @@ playback_pause(struct player_command *cmd)
 
   metadata_purge();
 
-  /* We're async if we need to flush RAOP devices */
+  /* We're async if we need to flush devices */
   if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
@@ -2809,8 +2823,8 @@ speaker_set(struct player_command *cmd)
 		  if (cmd->ret != -2)
 		    cmd->ret = -1;
 		}
-
-	      cmd->output_requests_pending += 1;
+	      else
+		cmd->output_requests_pending++;
 	    }
 	}
       else
@@ -2830,8 +2844,8 @@ speaker_set(struct player_command *cmd)
 		  if (cmd->ret != -2)
 		    cmd->ret = -1;
 		}
-
-	      cmd->output_requests_pending += 1;
+	      else
+		cmd->output_requests_pending++;
 	    }
 	}
     }

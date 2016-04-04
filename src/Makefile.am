@@ -26,7 +26,7 @@ MPD_SRC=mpd.c mpd.h
 endif
 
 if COND_ALSA
-ALSA_SRC=laudio_alsa.c
+ALSA_SRC=outputs/alsa.c
 endif
 
 if COND_OSS4
