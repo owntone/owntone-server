@@ -1340,6 +1340,7 @@ raop_send_req_teardown(struct raop_session *rs, evrtsp_req_cb cb)
       return -1;
     }
 
+  rs->state = RAOP_STATE_CONNECTED;
   rs->reqs_in_flight++;
 
   evrtsp_connection_set_closecb(rs->ctrl, NULL, NULL);
