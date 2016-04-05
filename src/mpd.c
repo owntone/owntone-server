@@ -2995,7 +2995,7 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   print_playlists = 0;
-  if (argc > 1 && (strncmp(parent, "/", 1) == 0 && strlen(parent) == 1))
+  if ((strncmp(parent, "/", 1) == 0 && strlen(parent) == 1))
     {
       /*
        * Special handling necessary if the root directory '/' is given.
