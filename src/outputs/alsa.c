@@ -92,6 +92,7 @@ struct alsa_session
 extern struct event_base *evbase_player;
 
 static struct alsa_session *sessions;
+static int sync_counter;
 
 /* Forwards */
 static void
@@ -382,7 +383,7 @@ mixer_open(void)
 }
 
 static int
-device_open(void)
+device_open(struct alsa_session *as)
 {
   snd_pcm_hw_params_t *hw_params;
   snd_pcm_uframes_t bufsize;
@@ -548,7 +549,7 @@ playback_start(struct alsa_session *as, uint64_t pos, uint64_t start_pos)
     }
 
   as->pos = pos;
-  as->start_pos = start_pos;
+  as->start_pos = start_pos - AIRTUNES_V2_PACKET_SAMPLES;
 
   // Dump PCM config data for E_DBG logging
   ret = snd_output_buffer_open(&output);
@@ -571,11 +572,17 @@ playback_write(struct alsa_session *as, uint8_t *buf, uint64_t rtptime)
 {
   snd_pcm_sframes_t ret;
   snd_pcm_sframes_t avail;
+  snd_pcm_sframes_t delay;
   snd_pcm_sframes_t nsamp;
+  struct timespec now;
+  uint64_t pb_pos;
+  uint64_t cur_pos;
   uint8_t *pkt;
   int prebuffering;
   int prebuf_empty;
   int npackets;
+  int latency;
+  int diff;
 
   prebuffering = (as->pos < as->start_pos);
   prebuf_empty = (as->prebuf_head == as->prebuf_tail);
@@ -596,13 +603,34 @@ playback_write(struct alsa_session *as, uint8_t *buf, uint64_t rtptime)
   if (prebuffering)
     return;
 
-  ret = snd_pcm_avail_update(hdl);
+  ret = snd_pcm_avail_delay(hdl, &avail, &delay);
   if (ret < 0)
     goto alsa_error;
 
-  avail = ret;
   if (avail < AIRTUNES_V2_PACKET_SAMPLES)
     return;
+
+  sync_counter++;
+  if (sync_counter >= 126)
+    {
+      sync_counter = 0;
+
+      if (!prebuf_empty)
+	npackets = (as->prebuf_head - (as->prebuf_tail + 1) + as->prebuf_len) % as->prebuf_len + 1;
+      else
+	npackets = 0;
+
+      pb_pos = rtptime - delay - AIRTUNES_V2_PACKET_SAMPLES * npackets;
+      ret = player_get_current_pos(&cur_pos, &now, 0); // TODO commit?
+      if (ret == 0)
+	latency = cur_pos - pb_pos;
+      else
+	latency = 0;
+
+      diff = cur_pos - as->pos;
+      if (latency)
+	DPRINTF(E_DBG, L_LAUDIO, "Sync to cur_pos %" PRIu64 ", pb_pos %" PRIu64 " (diff %d, delay %li), pos %" PRIu64 " (diff %d)\n", cur_pos, pb_pos, latency, delay, as->pos, diff);
+    }
 
   // If we have data in prebuf we send as much as we can
   if (!prebuf_empty)
@@ -690,7 +718,7 @@ alsa_device_start(struct output_device *device, output_status_cb cb, uint64_t rt
   if (!as)
     return -1;
 
-  ret = device_open();
+  ret = device_open(as);
   if (ret < 0)
     return -1;
 
@@ -721,7 +749,7 @@ alsa_device_probe(struct output_device *device, output_status_cb cb)
   if (!as)
     return -1;
 
-  ret = device_open();
+  ret = device_open(as);
   if (ret < 0)
     {
       alsa_session_cleanup(as);
