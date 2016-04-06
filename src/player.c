@@ -80,8 +80,6 @@
 #define PLAYER_DEFAULT_VOLUME 50
 // Used to keep the player from getting ahead of a rate limited source (see below)
 #define PLAYER_TICKS_MAX_OVERRUN 2
-// Skips ticks for about 2 secs (seems to bring us back in sync for about 20 min)
-#define PLAYER_TICKS_SKIP 126
 
 struct player_source
 {
@@ -270,6 +268,8 @@ static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
 // Will be positive if we need to skip some source reads (see below)
 static int ticks_skip;
 
+static int debug_counter;
+
 /* Sync source */
 static enum player_sync_source pb_sync_source;
 
@@ -298,7 +298,10 @@ static struct player_source *cur_playing;
 static struct player_source *cur_streaming;
 static uint32_t cur_plid;
 static uint32_t cur_plversion;
+
 static struct evbuffer *audio_buf;
+static uint8_t rawbuf[STOB(AIRTUNES_V2_PACKET_SAMPLES)];
+
 
 /* Play queue */
 static struct queue *queue;
@@ -1207,6 +1210,9 @@ source_play()
 
   ret = stream_play(cur_streaming);
 
+  ticks_skip = 0;
+  memset(rawbuf, 0, sizeof(rawbuf));
+
   return ret;
 }
 
@@ -1463,11 +1469,9 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   return nbytes;
 }
 
-
 static void
-playback_write(void)
+playback_write(int read_skip)
 {
-  uint8_t rawbuf[STOB(AIRTUNES_V2_PACKET_SAMPLES)];
   int ret;
 
   source_check();
@@ -1478,16 +1482,19 @@ playback_write(void)
 
   last_rtptime += AIRTUNES_V2_PACKET_SAMPLES;
 
-  memset(rawbuf, 0, sizeof(rawbuf));
-
-  ret = source_read(rawbuf, sizeof(rawbuf), last_rtptime);
-  if (ret < 0)
+  if (!read_skip)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Error reading from source, aborting playback\n");
+      ret = source_read(rawbuf, sizeof(rawbuf), last_rtptime);
+      if (ret < 0)
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Error reading from source, aborting playback\n");
 
-      playback_abort();
-      return;
+	  playback_abort();
+	  return;
+	}
     }
+  else
+    DPRINTF(E_SPAM, L_PLAYER, "Skipping read\n");
 
   outputs_write(rawbuf, last_rtptime);
 }
@@ -1498,6 +1505,8 @@ player_playback_cb(int fd, short what, void *arg)
   struct timespec next_tick;
   uint64_t overrun;
   int ret;
+  int skip;
+  int skip_first;
 
   // Check if we missed any timer expirations
   overrun = 0;
@@ -1515,6 +1524,14 @@ player_playback_cb(int fd, short what, void *arg)
     overrun = ret;
 #endif /* __linux__ */
 
+/*debug_counter++;
+if (debug_counter % 2000 == 0)
+{
+  DPRINTF(E_LOG, L_PLAYER, "Sleep a bit!!\n");
+  usleep(5 * AIRTUNES_V2_STREAM_PERIOD / 1000);
+  DPRINTF(E_LOG, L_PLAYER, "Wake again\n");
+}*/
+
   // The reason we get behind the playback timer may be that we are playing a 
   // network stream OR that the source is slow to open OR some interruption.
   // For streams, we might be consuming faster than the stream delivers, so
@@ -1523,24 +1540,28 @@ player_playback_cb(int fd, short what, void *arg)
   // from the stream server.
   //
   // Our strategy to catch up with the timer depends on the source:
-  //   - streams: We will skip reading data every second tick until we have
-  //              skipt PLAYER_TICKS_SKIP ticks. That should make the source
-  //              catch up. RTP destinations should be able to handle this
-  //              gracefully if we just give them an rtptime that lets them know
-  //              that some packets were "lost".
+  //   - streams: We will skip reading data every second until we have countered
+  //              the overrun by skipping reads for a number of ticks that is
+  //              3 times the overrun. That should make the source catch up. To
+  //              keep the output happy we resend the previous rawbuf when we
+  //              have skipped a read.
   //   - files:   Just read and write like crazy until we have caught up.
 
+  skip_first = 0;
   if (overrun > PLAYER_TICKS_MAX_OVERRUN)
     {
       DPRINTF(E_WARN, L_PLAYER, "Behind the playback timer with %" PRIu64 " ticks, initiating catch up\n", overrun);
 
       if (cur_streaming->data_kind == DATA_KIND_HTTP || cur_streaming->data_kind == DATA_KIND_PIPE)
-        ticks_skip = 2 * PLAYER_TICKS_SKIP + 1;
+	{
+          ticks_skip = 3 * overrun;
+	  // We always skip after a timer overrun, since another read will
+	  // probably just give another time overrun
+	  skip_first = 1;
+	}
       else
 	ticks_skip = 0;
     }
-  else if (ticks_skip > 0)
-    ticks_skip--;
 
   // Decide how many packets to send
   next_tick = timespec_add(pb_timer_last, tick_interval);
@@ -1549,11 +1570,13 @@ player_playback_cb(int fd, short what, void *arg)
 
   do
     {
-      // Skip reading and writing every second tick if we are behind a nonfile source
-      if (ticks_skip % 2 == 0)
-	playback_write();
-      else
-	last_rtptime += AIRTUNES_V2_PACKET_SAMPLES;
+	skip = skip_first || ((ticks_skip > 0) && ((last_rtptime / AIRTUNES_V2_PACKET_SAMPLES) % 126 == 0));
+
+	playback_write(skip);
+
+	skip_first = 0;
+	if (skip)
+	  ticks_skip--;
 
       packet_timer_last = timespec_add(packet_timer_last, packet_time);
     }
