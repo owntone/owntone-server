@@ -38,6 +38,13 @@
 #include "outputs.h"
 
 #define PACKET_SIZE STOB(AIRTUNES_V2_PACKET_SAMPLES)
+// The maximum number of samples that the output is allowed to get behind (or
+// ahead) of the player position, before compensation is attempted
+#define ALSA_MAX_LATENCY 352
+// If latency is jumping up and down we don't do compensation since we probably
+// wouldn't do a good job. This sets the maximum the latency is allowed to vary
+// within the 10 seconds where we measure latency each second.
+#define ALSA_MAX_LATENCY_VARIANCE 100
 
 // TODO Unglobalise these and add support for multiple sound cards
 static char *card_name;
@@ -59,6 +66,13 @@ enum alsa_state
   ALSA_STATE_FAILED    = -1,
 };
 
+enum alsa_sync_state
+{
+  ALSA_SYNC_OK,
+  ALSA_SYNC_AHEAD,
+  ALSA_SYNC_BEHIND,
+};
+
 struct alsa_session
 {
   enum alsa_state state;
@@ -67,6 +81,9 @@ struct alsa_session
 
   uint64_t pos;
   uint64_t start_pos;
+
+  int32_t last_latency;
+  int sync_counter;
 
   // An array that will hold the packets we prebuffer. The length of the array
   // is prebuf_len (measured in rtp_packets)
@@ -92,7 +109,6 @@ struct alsa_session
 extern struct event_base *evbase_player;
 
 static struct alsa_session *sessions;
-static int sync_counter;
 
 /* Forwards */
 static void
@@ -567,74 +583,33 @@ playback_start(struct alsa_session *as, uint64_t pos, uint64_t start_pos)
   as->state = ALSA_STATE_STREAMING;
 }
 
-static void
-playback_write(struct alsa_session *as, uint8_t *buf, uint64_t rtptime)
+
+// This function writes the sample buf into either the prebuffer or directly to
+// ALSA, depending on how much room there is in ALSA, and whether we are
+// prebuffering or not. It also transfers from the the prebuffer to ALSA, if
+// needed. Returns 0 on success, negative on error.
+static int
+buffer_write(struct alsa_session *as, uint8_t *buf, snd_pcm_sframes_t *avail, int prebuffering, int prebuf_empty)
 {
-  snd_pcm_sframes_t ret;
-  snd_pcm_sframes_t avail;
-  snd_pcm_sframes_t delay;
-  snd_pcm_sframes_t nsamp;
-  struct timespec now;
-  uint64_t pb_pos;
-  uint64_t cur_pos;
   uint8_t *pkt;
-  int prebuffering;
-  int prebuf_empty;
   int npackets;
-  int latency;
-  int diff;
+  snd_pcm_sframes_t nsamp;
+  snd_pcm_sframes_t ret;
 
-  prebuffering = (as->pos < as->start_pos);
-  prebuf_empty = (as->prebuf_head == as->prebuf_tail);
+  nsamp = AIRTUNES_V2_PACKET_SAMPLES;
 
-  as->pos += AIRTUNES_V2_PACKET_SAMPLES;
-
-  // We need to copy to the prebuffer if we are prebuffering OR if the
-  // prebuffer has not been emptied yet
-  if (prebuffering || !prebuf_empty)
+  if (prebuffering || !prebuf_empty || *avail < AIRTUNES_V2_PACKET_SAMPLES)
     {
       pkt = &as->prebuf[as->prebuf_head * PACKET_SIZE];
 
       memcpy(pkt, buf, PACKET_SIZE);
 
       as->prebuf_head = (as->prebuf_head + 1) % as->prebuf_len;
-    }
 
-  if (prebuffering)
-    return;
+      if (prebuffering || *avail < AIRTUNES_V2_PACKET_SAMPLES)
+	return 0; // No actual writing
 
-  ret = snd_pcm_avail_delay(hdl, &avail, &delay);
-  if (ret < 0)
-    goto alsa_error;
-
-  if (avail < AIRTUNES_V2_PACKET_SAMPLES)
-    return;
-
-  sync_counter++;
-  if (sync_counter >= 126)
-    {
-      sync_counter = 0;
-
-      if (!prebuf_empty)
-	npackets = (as->prebuf_head - (as->prebuf_tail + 1) + as->prebuf_len) % as->prebuf_len + 1;
-      else
-	npackets = 0;
-
-      pb_pos = rtptime - delay - AIRTUNES_V2_PACKET_SAMPLES * npackets;
-      ret = player_get_current_pos(&cur_pos, &now, 0); // TODO commit?
-      if (ret == 0)
-	latency = cur_pos - pb_pos;
-      else
-	latency = 0;
-
-      diff = cur_pos - as->pos;
-      if (latency)
-	DPRINTF(E_DBG, L_LAUDIO, "Sync to cur_pos %" PRIu64 ", pb_pos %" PRIu64 " (diff %d, delay %li), pos %" PRIu64 " (diff %d)\n", cur_pos, pb_pos, latency, delay, as->pos, diff);
-    }
-
-  // If we have data in prebuf we send as much as we can
-  if (!prebuf_empty)
-    {
+      // We will now set buf so that we will transfer as much as possible to ALSA
       buf = &as->prebuf[as->prebuf_tail * PACKET_SIZE];
 
       if (as->prebuf_head > as->prebuf_tail)
@@ -643,7 +618,7 @@ playback_write(struct alsa_session *as, uint8_t *buf, uint64_t rtptime)
 	npackets = as->prebuf_len - as->prebuf_tail;
 
       nsamp = npackets * AIRTUNES_V2_PACKET_SAMPLES;
-      while (nsamp > avail)
+      while (nsamp > *avail)
 	{
 	  npackets -= 1;
 	  nsamp -= AIRTUNES_V2_PACKET_SAMPLES;
@@ -651,14 +626,110 @@ playback_write(struct alsa_session *as, uint8_t *buf, uint64_t rtptime)
 
       as->prebuf_tail = (as->prebuf_tail + npackets) % as->prebuf_len;
     }
-  else
-    nsamp = AIRTUNES_V2_PACKET_SAMPLES;
 
   ret = snd_pcm_writei(hdl, buf, nsamp);
   if (ret < 0)
-    goto alsa_error;
-  else if (ret != nsamp)
+    return ret;
+
+  if (ret != nsamp)
     DPRINTF(E_WARN, L_LAUDIO, "ALSA partial write detected\n");
+
+  *avail -= ret;
+
+  return 0;
+}
+
+// Checks if ALSA's playback position is ahead or behind the player's
+enum alsa_sync_state
+sync_check(struct alsa_session *as, uint64_t rtptime, snd_pcm_sframes_t delay, int prebuf_empty)
+{
+  enum alsa_sync_state sync;
+  struct timespec now;
+  uint64_t cur_pos;
+  uint64_t pb_pos;
+  int32_t latency;
+  int npackets;
+
+  sync = ALSA_SYNC_OK;
+
+  if (player_get_current_pos(&cur_pos, &now, 0) != 0)
+    return sync;
+
+  if (!prebuf_empty)
+    npackets = (as->prebuf_head - (as->prebuf_tail + 1) + as->prebuf_len) % as->prebuf_len + 1;
+  else
+    npackets = 0;
+
+  pb_pos = rtptime - delay - AIRTUNES_V2_PACKET_SAMPLES * npackets;
+  latency = cur_pos - pb_pos;
+
+  // If the latency is low or very different from our last measurement, we reset the sync_counter
+  if (abs(latency) < ALSA_MAX_LATENCY || abs(as->last_latency - latency) > ALSA_MAX_LATENCY_VARIANCE)
+    {
+      as->sync_counter = 0;
+      sync = ALSA_SYNC_OK;
+    }
+  // If we have measured a consistent latency for 10 seconds, then we take action
+  else if (as->sync_counter >= 10 * 126)
+    {
+      DPRINTF(E_INFO, L_LAUDIO, "Taking action to compensate for ALSA latency of %d samples\n", latency);
+
+      as->sync_counter = 0;
+      if (latency > 0)
+	sync = ALSA_SYNC_BEHIND;
+      else
+	sync = ALSA_SYNC_AHEAD;
+    }
+
+  as->last_latency = latency;
+
+  if (latency)
+    DPRINTF(E_DBG, L_LAUDIO, "Sync %d cur_pos %" PRIu64 ", pb_pos %" PRIu64 " (diff %d, delay %li), pos %" PRIu64 "\n", sync, cur_pos, pb_pos, latency, delay, as->pos);
+
+  return sync;
+}
+
+static void
+playback_write(struct alsa_session *as, uint8_t *buf, uint64_t rtptime)
+{
+  snd_pcm_sframes_t ret;
+  snd_pcm_sframes_t avail;
+  snd_pcm_sframes_t delay;
+  enum alsa_sync_state sync;
+  int prebuffering;
+  int prebuf_empty;
+
+  prebuffering = (as->pos < as->start_pos);
+  prebuf_empty = (as->prebuf_head == as->prebuf_tail);
+
+  as->pos += AIRTUNES_V2_PACKET_SAMPLES;
+
+  if (prebuffering)
+    {
+      buffer_write(as, buf, NULL, prebuffering, prebuf_empty);
+      return;
+    }
+
+  ret = snd_pcm_avail_delay(hdl, &avail, &delay);
+  if (ret < 0)
+    goto alsa_error;
+
+  // Every second we do a sync check
+  sync = ALSA_SYNC_OK;
+  as->sync_counter++;
+  if (as->sync_counter % 126 == 0)
+    sync = sync_check(as, rtptime, delay, prebuf_empty);
+
+  // Skip write -> reduce the delay
+  if (sync == ALSA_SYNC_BEHIND)
+    return;
+
+  ret = buffer_write(as, buf, &avail, prebuffering, prebuf_empty);
+  // Double write -> increase the delay
+  if (sync == ALSA_SYNC_AHEAD && (ret == 0))
+    ret = buffer_write(as, buf, &avail, prebuffering, prebuf_empty);
+  if (ret < 0)
+    goto alsa_error;
 
   return;
 
