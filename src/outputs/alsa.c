@@ -44,7 +44,7 @@
 // If latency is jumping up and down we don't do compensation since we probably
 // wouldn't do a good job. This sets the maximum the latency is allowed to vary
 // within the 10 seconds where we measure latency each second.
-#define ALSA_MAX_LATENCY_VARIANCE 100
+#define ALSA_MAX_LATENCY_VARIANCE 352
 
 // TODO Unglobalise these and add support for multiple sound cards
 static char *card_name;
