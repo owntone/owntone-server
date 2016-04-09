@@ -638,7 +638,10 @@ get_query_params(struct evkeyvalq *query, int *sort_headers, struct query_params
   else
     qp->limit = (high - low) + 1;
 
-  qp->idx_type = I_SUB;
+  if (qp->limit == -1 && qp->offset == 0)
+    qp->idx_type = I_NONE;
+  else
+    qp->idx_type = I_SUB;
 
   qp->sort = S_NONE;
   param = evhttp_find_header(query, "sort");
