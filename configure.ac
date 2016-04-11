@@ -1,6 +1,6 @@
 dnl Process this file with autoconf to produce a configure script.
 
-AC_INIT([forked-daapd], [23.3])
+AC_INIT([forked-daapd], [23.4])
 AC_CONFIG_SRCDIR([config.h.in])
 AC_CONFIG_MACRO_DIR([m4])
 AC_CONFIG_HEADERS([config.h])
@@ -46,6 +46,7 @@ AC_CHECK_FUNCS(strptime)
 AC_CHECK_FUNCS(strtok_r)
 AC_CHECK_FUNCS(timegm)
 AC_CHECK_FUNCS(euidaccess)
+AC_CHECK_FUNCS(pipe2)
 
 dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
@@ -96,6 +97,8 @@ AC_CHECK_LIB([avfilter], [av_buffersink_get_frame],
 	AC_DEFINE(HAVE_LIBAV_BUFFERSINK_GET_FRAME, 1, [Define to 1 if you have ffmpeg/libav with av_buffersink_get_frame]))
 AC_CHECK_LIB([avfilter], [avfilter_graph_parse_ptr],
 	AC_DEFINE(HAVE_LIBAV_GRAPH_PARSE_PTR, 1, [Define to 1 if you have ffmpeg/libav with avfilter_graph_parse_ptr]))
+AC_CHECK_LIB([avcodec], [av_packet_unref],
+	AC_DEFINE(HAVE_LIBAV_PACKET_UNREF, 1, [Define to 1 if you have ffmpeg/libav with av_packet_unref]),,[-lavutil])
 AC_CHECK_LIB([avcodec], [av_packet_rescale_ts],
 	AC_DEFINE(HAVE_LIBAV_PACKET_RESCALE_TS, 1, [Define to 1 if you have ffmpeg/libav with av_packet_rescale_ts]),,[-lavutil])
 AC_CHECK_LIB([avformat], [avformat_alloc_output_context2],
@@ -104,6 +107,10 @@ AC_CHECK_LIB([avutil], [av_frame_alloc],
 	AC_DEFINE(HAVE_LIBAV_FRAME_ALLOC, 1, [Define to 1 if you have ffmpeg/libav with av_frame_alloc]))
 AC_CHECK_LIB([avutil], [av_frame_get_best_effort_timestamp],
 	AC_DEFINE(HAVE_LIBAV_BEST_EFFORT_TIMESTAMP, 1, [Define to 1 if you have ffmpeg/libav with av_frame_get_best_effort_timestamp]))
+AC_CHECK_LIB([avutil], [av_image_fill_arrays],
+	AC_DEFINE(HAVE_LIBAV_IMAGE_FILL_ARRAYS, 1, [Define to 1 if you have ffmpeg/libav with av_image_fill_arrays]))
+AC_CHECK_LIB([avutil], [av_image_get_buffer_size],
+	AC_DEFINE(HAVE_LIBAV_IMAGE_GET_BUFFER_SIZE, 1, [Define to 1 if you have ffmpeg/libav with av_image_get_buffer_size]))
 
 AC_CHECK_HEADERS([libavutil/channel_layout.h])
 AC_CHECK_HEADERS([libavutil/mathematics.h])
@@ -176,12 +183,30 @@ AS_IF([test "x$enable_lastfm" = "xyes"], [
 ])
 AM_CONDITIONAL(COND_LASTFM, [test "x$enable_lastfm" = "xyes"])
 
+dnl ChromeCast support with libprotobuf-c
+AC_ARG_ENABLE(chromecast, AS_HELP_STRING([--enable-chromecast], [enable ChromeCast support (default=no)]))
+AS_IF([test "x$enable_chromecast" = "xyes"], [
+	AC_DEFINE(CHROMECAST, 1, [Define to 1 to enable Chromecast support])
+	PKG_CHECK_MODULES(LIBPROTOBUF_C, [ libprotobuf-c >= 1.0.0 ], , [ protobuf_old="yes" ])
+	PKG_CHECK_MODULES(GNUTLS, [ gnutls ])
+	PKG_CHECK_EXISTS([ json-c >= 0.11 ],
+		[ PKG_CHECK_MODULES(JSON_C, [ json-c ]) ],
+		[ PKG_CHECK_MODULES(JSON_C, [ json ], AC_DEFINE(HAVE_JSON_C_OLD, 1, [Define 1 to if you have json-c < 0.11])) ]
+	)
+])
+AS_IF([test "x$protobuf_old" = "xyes"], [
+	AC_DEFINE(HAVE_PROTOBUF_OLD, 1, [Define to 1 if you have libprotobuf < 1.0.0])
+	LDFLAGS="${LDFLAGS} -lprotobuf-c"
+])
+AM_CONDITIONAL(COND_CHROMECAST, [test "x$enable_chromecast" = "xyes"])
+AM_CONDITIONAL(COND_PROTOBUF_OLD, [test "x$protobuf_old" = "xyes"])
+
 dnl MPD support
-AC_ARG_ENABLE(mpd, AS_HELP_STRING([--enable-mpd], [enable MPD client protocol support (default=no)]))
-AS_IF([test "x$enable_mpd" = "xyes"], [
+AC_ARG_ENABLE(mpd, AS_HELP_STRING([--disable-mpd], [disable MPD client protocol support (default=no)]))
+AS_IF([test "x$enable_mpd" != "xno"], [
 	CPPFLAGS="${CPPFLAGS} -DMPD"
 ])
-AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" = "xyes"])
+AM_CONDITIONAL(COND_MPD, [test "x$enable_mpd" != "xno"])
 dnl --- End options ---
 
 dnl Selection of local audio sound system

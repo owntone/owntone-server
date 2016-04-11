@@ -161,13 +161,16 @@ struct queue *
 player_queue_get_byindex(int pos, int count);
 
 int
-player_queue_add(struct queue_item *items);
+player_queue_add(struct queue_item *items, uint32_t *item_id);
 
 int
 player_queue_add_next(struct queue_item *items);
 
 int
 player_queue_move_bypos(int ps_pos_from, int ps_pos_to);
+
+int
+player_queue_move_byindex(int pos_from, int pos_to);
 
 int
 player_queue_move_byitemid(uint32_t item_id, int pos_to);
@@ -190,6 +193,11 @@ player_queue_clear_history(void);
 void
 player_queue_plid(uint32_t plid);
 
+int
+player_device_add(void *device);
+
+int
+player_device_remove(void *device);
 
 struct player_history *
 player_history_get(void);

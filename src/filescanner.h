@@ -19,7 +19,7 @@ void
 filescanner_deinit(void);
 
 void
-filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi);
+filescanner_process_media(char *path, time_t mtime, off_t size, int type, struct media_file_info *external_mfi, int dir_id);
 
 /* Actual scanners */
 int
@@ -29,10 +29,10 @@ int
 scan_metadata_icy(char *url, struct media_file_info *mfi);
 
 void
-scan_playlist(char *file, time_t mtime);
+scan_playlist(char *file, time_t mtime, int dir_id);
 
 void
-scan_smartpl(char *file, time_t mtime);
+scan_smartpl(char *file, time_t mtime, int dir_id);
 
 #ifdef ITUNES
 void

@@ -36,7 +36,7 @@
 #ifdef HAVE_LIBAVFILTER
 # include <libavfilter/avcodec.h>
 #else
-# include "ffmpeg-compat.c"
+# include "ffmpeg-compat.h"
 #endif
 
 #include "logger.h"
@@ -52,7 +52,7 @@
 // Maximum number of times we retry when we encounter bad packets
 #define MAX_BAD_PACKETS 5
 // How long to wait (in microsec) before interrupting av_read_frame
-#define READ_TIMEOUT 10000000
+#define READ_TIMEOUT 15000000
 
 static char *default_codecs = "mpeg,wav";
 static char *roku_codecs = "mpeg,mp4a,wma,wav";
@@ -285,7 +285,7 @@ static int decode_interrupt_cb(void *arg)
  *                packet will be updated, and packet->data is pointed to the data
  *                returned by av_read_frame(). The packet struct is owned by the
  *                caller, but *not* packet->data, so don't free the packet with
- *                av_free_packet()
+ *                av_free_packet()/av_packet_unref()
  * @out stream    Set to the input AVStream corresponding to the packet
  * @out stream_index
  *                Set to the input stream index corresponding to the packet
@@ -314,7 +314,7 @@ read_packet(AVPacket *packet, AVStream **stream, unsigned int *stream_index, str
 	{
 	  // We are going to read a new packet from source, so now it is safe to
 	  // discard the previous packet and reset resume_offset
-	  av_free_packet(&ctx->packet);
+	  av_packet_unref(&ctx->packet);
 
 	  ctx->resume_offset = 0;
 	  ctx->timestamp = av_gettime();
@@ -578,7 +578,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
 {
   AVDictionary *options;
   AVCodec *decoder;
-  unsigned int stream_index;
+  int stream_index;
   int ret;
 
   options = NULL;
@@ -644,7 +644,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
   ret = avcodec_open2(ctx->ifmt_ctx->streams[stream_index]->codec, decoder, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%u\n", stream_index);
+      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d\n", stream_index);
       goto out_fail;
     }
 
@@ -665,7 +665,7 @@ open_input(struct decode_ctx *ctx, struct media_file_info *mfi, int decode_video
   ret = avcodec_open2(ctx->ifmt_ctx->streams[stream_index]->codec, decoder, NULL);
   if (ret < 0)
     {
-      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%u\n", stream_index);
+      DPRINTF(E_LOG, L_XCODE, "Failed to open decoder for stream #%d\n", stream_index);
       return 0;
     }
 
@@ -725,7 +725,7 @@ open_output(struct encode_ctx *ctx, struct decode_ctx *src_ctx)
       goto out_fail_evbuf;
     }
 
-  ctx->ofmt_ctx->pb = avio_evbuffer_open(ctx->obuf);
+  ctx->ofmt_ctx->pb = avio_output_evbuffer_open(ctx->obuf);
   if (!ctx->ofmt_ctx->pb)
     {
       DPRINTF(E_LOG, L_XCODE, "Could not create output avio pb\n");
@@ -1441,7 +1441,7 @@ transcode_needed(const char *user_agent, const char *client_codecs, char *file_c
 void
 transcode_decode_cleanup(struct decode_ctx *ctx)
 {
-  av_free_packet(&ctx->packet);
+  av_packet_unref(&ctx->packet);
   close_input(ctx);
   free(ctx);
 }
@@ -1671,6 +1671,9 @@ transcode_raw2frame(uint8_t *data, size_t size)
   frame->nb_samples     = size / 4;
   frame->format         = AV_SAMPLE_FMT_S16;
   frame->channel_layout = AV_CH_LAYOUT_STEREO;
+#ifdef HAVE_FFMPEG
+  frame->channels       = 2;
+#endif
   frame->pts            = AV_NOPTS_VALUE;
   frame->sample_rate    = 44100;
 
@@ -1735,7 +1738,7 @@ transcode_seek(struct transcode_ctx *ctx, int ms)
   in_stream->codec->skip_frame = AVDISCARD_NONREF;
   while (1)
     {
-      av_free_packet(&decode_ctx->packet);
+      av_packet_unref(&decode_ctx->packet);
 
       decode_ctx->timestamp = av_gettime();
 

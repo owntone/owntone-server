@@ -28,6 +28,9 @@
 #include <limits.h>
 #include <errno.h>
 #include <pthread.h>
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+# include <pthread_np.h>
+#endif
 #include <time.h>
 #include <sys/param.h>
 #include <sys/queue.h>
@@ -1284,7 +1287,7 @@ httpd_basic_auth(struct evhttp_request *req, char *user, char *passwd, char *rea
 int
 httpd_init(void)
 {
-  const char *addr;
+  int v6enabled;
   unsigned short port;
   int ret;
 
@@ -1335,7 +1338,11 @@ httpd_init(void)
 
   exitev = event_new(evbase_httpd, exit_efd, EV_READ, exit_cb, NULL);
 #else
+# ifdef HAVE_PIPE2
   ret = pipe2(exit_pipe, O_CLOEXEC);
+# else
+  ret = pipe(exit_pipe);
+# endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_HTTPD, "Could not create pipe: %s\n", strerror(errno));
@@ -1361,19 +1368,27 @@ httpd_init(void)
       goto event_fail;
     }
 
-  if (cfg_getbool(cfg_getsec(cfg, "general"), "ipv6"))
-    addr = "::";
-  else
-    addr = "0.0.0.0";
-
+  v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
   port = cfg_getint(cfg_getsec(cfg, "library"), "port");
 
-  ret = evhttp_bind_socket(evhttpd, addr, port);
-  if (ret < 0)
+  if (v6enabled)
     {
-      DPRINTF(E_FATAL, L_HTTPD, "Could not bind %s:%d\n", addr, port);
+      ret = evhttp_bind_socket(evhttpd, "::", port);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_HTTPD, "Could not bind to port %d with IPv6, falling back to IPv4\n", port);
+	  v6enabled = 0;
+	}
+    }
 
-      goto bind_fail;
+  if (!v6enabled)
+    {
+      ret = evhttp_bind_socket(evhttpd, "0.0.0.0", port);
+      if (ret < 0)
+	{
+	  DPRINTF(E_FATAL, L_HTTPD, "Could not bind to port %d (forked-daapd already running?)\n", port);
+	  goto bind_fail;
+	}
     }
 
   evhttp_set_gencb(evhttpd, httpd_gen_cb, NULL);
@@ -1385,6 +1400,12 @@ httpd_init(void)
 
       goto thread_fail;
     }
+
+#if defined(__linux__)
+  pthread_setname_np(tid_httpd, "httpd");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_httpd, "httpd");
+#endif
 
   return 0;
 

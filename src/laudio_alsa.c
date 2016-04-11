@@ -52,6 +52,7 @@ static uint64_t pcm_start_pos;
 static int pcm_last_error;
 static int pcm_recovery;
 static int pcm_buf_threshold;
+static int pcm_period_size;
 
 static struct pcm_packet *pcm_pkt_head;
 static struct pcm_packet *pcm_pkt_tail;
@@ -86,7 +87,7 @@ laudio_alsa_xrun_recover(int err)
   /* Buffer underrun */
   if (err == -EPIPE)
     {
-      pcm_last_error = 0;
+      DPRINTF(E_WARN, L_LAUDIO, "PCM buffer underrun\n");
 
       ret = snd_pcm_prepare(hdl);
       if (ret < 0)
@@ -211,13 +212,8 @@ laudio_alsa_write(uint8_t *buf, uint64_t rtptime)
 
       return;
     }
-  else if ((pcm_status != LAUDIO_RUNNING) && (pcm_pos + pcm_buf_threshold >= pcm_start_pos))
+  else if ((pcm_status != LAUDIO_RUNNING) && (pcm_pos >= pcm_start_pos))
     {
-      /* Kill threshold */
-      ret = laudio_alsa_set_start_threshold(0);
-      if (ret < 0)
-	DPRINTF(E_WARN, L_LAUDIO, "Couldn't set PCM start threshold to 0 for output start\n");
-
       update_status(LAUDIO_RUNNING);
     }
 
@@ -265,6 +261,7 @@ laudio_alsa_write(uint8_t *buf, uint64_t rtptime)
 	  return;
 	}
 
+      pcm_last_error = 0;
       pcm_pos += nsamp;
 
       pkt->offset += STOB(nsamp);
@@ -281,9 +278,8 @@ laudio_alsa_write(uint8_t *buf, uint64_t rtptime)
 	}
 
       /* Don't let ALSA fill up the buffer too much */
-// Disabled - seems to cause buffer underruns
-//      if (nsamp == AIRTUNES_V2_PACKET_SAMPLES)
-//	return;
+      if (nsamp == AIRTUNES_V2_PACKET_SAMPLES)
+	return;
     }
 }
 
@@ -295,6 +291,12 @@ laudio_alsa_get_pos(void)
 
   if (pcm_pos == 0)
     return 0;
+
+  if (pcm_last_error != 0)
+    return pcm_pos;
+
+  if (snd_pcm_state(hdl) != SND_PCM_STATE_RUNNING)
+    return pcm_pos;
 
   ret = snd_pcm_delay(hdl, &delay);
   if (ret < 0)
@@ -343,6 +345,8 @@ laudio_alsa_set_volume(int vol)
 static int
 laudio_alsa_start(uint64_t cur_pos, uint64_t next_pkt)
 {
+  snd_output_t *output;
+  char *debug_pcm_cfg;
   int ret;
 
   ret = snd_pcm_prepare(hdl);
@@ -354,17 +358,16 @@ laudio_alsa_start(uint64_t cur_pos, uint64_t next_pkt)
     }
 
   DPRINTF(E_DBG, L_LAUDIO, "Start local audio curpos %" PRIu64 ", next_pkt %" PRIu64 "\n", cur_pos, next_pkt);
-  DPRINTF(E_DBG, L_LAUDIO, "PCM will start after %d samples (%d packets)\n", pcm_buf_threshold, pcm_buf_threshold / AIRTUNES_V2_PACKET_SAMPLES);
 
   /* Make pcm_pos the rtptime of the packet containing cur_pos */
   pcm_pos = next_pkt;
   while (pcm_pos > cur_pos)
     pcm_pos -= AIRTUNES_V2_PACKET_SAMPLES;
 
-  pcm_start_pos = next_pkt + pcm_buf_threshold;
+  pcm_start_pos = next_pkt + pcm_period_size;
 
-  /* Compensate threshold, as it's taken into account by snd_pcm_delay() */
-  //pcm_pos += pcm_buf_threshold;
+  /* Compensate period size, otherwise get_pos won't be correct */
+  pcm_pos += pcm_period_size;
 
   DPRINTF(E_DBG, L_LAUDIO, "PCM pos %" PRIu64 ", start pos %" PRIu64 "\n", pcm_pos, pcm_start_pos);
 
@@ -374,12 +377,26 @@ laudio_alsa_start(uint64_t cur_pos, uint64_t next_pkt)
   pcm_last_error = 0;
   pcm_recovery = 0;
 
+  // alsa doesn't actually seem to wait for this threshold?
   ret = laudio_alsa_set_start_threshold(pcm_buf_threshold);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Could not set PCM start threshold for local audio start\n");
 
       return -1;
+    }
+
+  // Dump PCM config data for E_DBG logging
+  ret = snd_output_buffer_open(&output);
+  if (ret == 0)
+    {
+      if (snd_pcm_dump_setup(hdl, output) == 0)
+	{
+	  snd_output_buffer_string(output, &debug_pcm_cfg);
+	  DPRINTF(E_DBG, L_LAUDIO, "Dump of sound device config:\n%s\n", debug_pcm_cfg);
+	}
+
+      snd_output_close(output);
     }
 
   update_status(LAUDIO_STARTED);
@@ -515,6 +532,7 @@ laudio_alsa_open(void)
 {
   snd_pcm_hw_params_t *hw_params;
   snd_pcm_uframes_t bufsize;
+  snd_pcm_uframes_t period_size;
   int ret;
 
   hw_params = NULL;
@@ -594,7 +612,24 @@ laudio_alsa_open(void)
       goto out_fail;
     }
 
-  DPRINTF(E_DBG, L_LAUDIO, "Buffer size is %lu samples\n", bufsize);
+  // With a small period size we seem to get underruns because the period time
+  // passes before we manage to feed with samples (if the player is slightly
+  // behind - especially critical during startup when the buffer is low)
+  // Internet suggests period_size should be /2 bufsize, but default seems to be
+  // much lower, so compromise on /4 (but not more than 65536 frames = almost 2 sec).
+  period_size = bufsize / 4;
+  if (period_size > 65536)
+    period_size = 65536;
+
+  ret = snd_pcm_hw_params_set_period_size_near(hdl, hw_params, &period_size, NULL);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "Could not set period size: %s\n", snd_strerror(ret));
+
+      goto out_fail;
+    }
+
+  DPRINTF(E_DBG, L_LAUDIO, "Buffer size is %lu samples, period size is %lu samples\n", bufsize, period_size);
 
   ret = snd_pcm_hw_params(hdl, hw_params);
   if (ret < 0)
@@ -610,7 +645,8 @@ laudio_alsa_open(void)
   pcm_pos = 0;
   pcm_last_error = 0;
   pcm_recovery = 0;
-  pcm_buf_threshold = (bufsize / AIRTUNES_V2_PACKET_SAMPLES) * AIRTUNES_V2_PACKET_SAMPLES;
+  pcm_buf_threshold = ((bufsize - period_size) / AIRTUNES_V2_PACKET_SAMPLES) * AIRTUNES_V2_PACKET_SAMPLES;
+  pcm_period_size = period_size;
 
   ret = mixer_open();
   if (ret < 0)

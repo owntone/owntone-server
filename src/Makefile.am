@@ -13,6 +13,14 @@ if COND_LASTFM
 LASTFM_SRC=lastfm.c lastfm.h
 endif
 
+if COND_CHROMECAST
+if COND_PROTOBUF_OLD
+CHROMECAST_SRC=outputs/cast.c outputs/cast_channel.v0.pb-c.h outputs/cast_channel.v0.pb-c.c
+else
+CHROMECAST_SRC=outputs/cast.c outputs/cast_channel.pb-c.h outputs/cast_channel.pb-c.c
+endif
+endif
+
 if COND_MPD
 MPD_SRC=mpd.c mpd.h
 endif
@@ -60,17 +68,18 @@ forked_daapd_CFLAGS = \
 	@ZLIB_CFLAGS@ @AVAHI_CFLAGS@ @SQLITE3_CFLAGS@ @LIBAV_CFLAGS@ \
 	@CONFUSE_CFLAGS@ @MINIXML_CFLAGS@ @LIBPLIST_CFLAGS@ \
 	@LIBGCRYPT_CFLAGS@ @GPG_ERROR_CFLAGS@ @ALSA_CFLAGS@ @SPOTIFY_CFLAGS@ \
-	@LIBCURL_CFLAGS@
+	@LIBCURL_CFLAGS@ @LIBPROTOBUF_C_CFLAGS@ @GNUTLS_CFLAGS@ @JSON_C_CFLAGS@
 
 forked_daapd_LDADD = -lrt \
 	@ZLIB_LIBS@ @AVAHI_LIBS@ @SQLITE3_LIBS@ @LIBAV_LIBS@ \
 	@CONFUSE_LIBS@ @LIBEVENT_LIBS@ \
 	@MINIXML_LIBS@ @ANTLR3C_LIBS@ @LIBPLIST_LIBS@ \
 	@LIBGCRYPT_LIBS@ @GPG_ERROR_LIBS@ @ALSA_LIBS@ @LIBUNISTRING@ @SPOTIFY_LIBS@ \
-	@LIBCURL_LIBS@
+	@LIBCURL_LIBS@ @LIBPROTOBUF_C_LIBS@ @GNUTLS_LIBS@ @JSON_C_LIBS@
 
 forked_daapd_SOURCES = main.c \
 	db.c db.h \
+	db_upgrade.c db_upgrade.h \
 	logger.c logger.h \
 	conffile.c conffile.h \
 	cache.c cache.h \
@@ -98,12 +107,14 @@ forked_daapd_SOURCES = main.c \
 	queue.c queue.h \
 	worker.c worker.h \
 	$(ALSA_SRC) $(OSS4_SRC) \
+	outputs.h outputs.c \
 	laudio_dummy.c \
 	laudio.c laudio.h \
-	raop.c raop.h \
+	outputs/raop.c \
 	evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \
+	$(CHROMECAST_SRC) \
 	$(MPD_SRC) \
 	listener.c listener.h
 

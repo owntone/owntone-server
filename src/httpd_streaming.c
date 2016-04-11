@@ -298,7 +298,16 @@ streaming_init(void)
     }
 
   // Non-blocking because otherwise httpd and player thread may deadlock
+#ifdef HAVE_PIPE2
   ret = pipe2(streaming_pipe, O_CLOEXEC | O_NONBLOCK);
+#else
+  if ( pipe(streaming_pipe) < 0 ||
+       fcntl(streaming_pipe[0], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 ||
+       fcntl(streaming_pipe[1], F_SETFL, O_CLOEXEC | O_NONBLOCK) < 0 )
+    ret = -1;
+  else
+    ret = 0;
+#endif
   if (ret < 0)
     {
       DPRINTF(E_FATAL, L_STREAMING, "Could not create pipe: %s\n", strerror(errno));

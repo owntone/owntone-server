@@ -47,6 +47,7 @@
 
 #if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <netinet/in.h>
+# include <pthread_np.h>
 #endif
 
 #include "logger.h"
@@ -1333,13 +1334,13 @@ mpd_command_previous(struct evbuffer *evbuf, int argc, char **argv, char **errms
     }
 
   ret = player_playback_start(NULL);
-    if (ret < 0)
-      {
-        ret = asprintf(errmsg, "Player returned an error for start after previtem");
-	if (ret < 0)
-	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-	return ACK_ERROR_UNKNOWN;
-      }
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Player returned an error for start after previtem");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
 
   return 0;
 }
@@ -1465,13 +1466,13 @@ mpd_command_seekid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
   ret = player_playback_start(NULL);
-    if (ret < 0)
-      {
-        ret = asprintf(errmsg, "Player returned an error for start after seekcur");
-	if (ret < 0)
-	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-	return ACK_ERROR_UNKNOWN;
-      }
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Player returned an error for start after seekcur");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
 
   return 0;
 }
@@ -1510,13 +1511,13 @@ mpd_command_seekcur(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
     }
 
   ret = player_playback_start(NULL);
-    if (ret < 0)
-      {
-        ret = asprintf(errmsg, "Player returned an error for start after seekcur");
-	if (ret < 0)
-	  DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-	return ACK_ERROR_UNKNOWN;
-      }
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Player returned an error for start after seekcur");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
 
   return 0;
 }
@@ -1557,13 +1558,13 @@ mpd_queueitem_make(char *path, int recursive)
 
   if (recursive)
     {
-      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q%%'", path);
+      qp.filter = sqlite3_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q%%'", path);
       if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
   else
     {
-      qp.filter = sqlite3_mprintf("f.virtual_path LIKE '/%q'", path);
+      qp.filter = sqlite3_mprintf("f.disabled = 0 AND f.virtual_path LIKE '/%q'", path);
       if (!qp.filter)
 	DPRINTF(E_DBG, L_PLAYER, "Out of memory\n");
     }
@@ -1603,13 +1604,7 @@ mpd_command_add(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  player_queue_add(items);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -1624,6 +1619,7 @@ static int
 mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
   struct queue_item *items;
+  uint32_t item_id;
   int ret;
 
   if (argc < 2)
@@ -1651,20 +1647,11 @@ mpd_command_addid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
 
 
-  player_queue_add(items);
+  player_queue_add(items, &item_id);
 
-  //TODO [queue] Get queue-item-id for mpd-command addid
   evbuffer_add_printf(evbuf,
-      "addid: %s\n"
       "Id: %d\n",
-      argv[1],
-      0); //ps->id);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+      item_id);
 
   return 0;
 }
@@ -1773,9 +1760,55 @@ mpd_command_deleteid(struct evbuffer *evbuf, int argc, char **argv, char **errms
   return 0;
 }
 
+//Moves the song at FROM or range of songs at START:END to TO in the playlist.
 static int
 mpd_command_move(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
+  int start_pos;
+  int end_pos;
+  int count;
+  uint32_t to_pos;
+  int ret;
+
+  if (argc < 3)
+    {
+      ret = asprintf(errmsg, "Missing argument for command 'move'");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = mpd_pars_range_arg(argv[1], &start_pos, &end_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer or range: '%s'", argv[1]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  count = end_pos - start_pos;
+  if (count > 1)
+    DPRINTF(E_WARN, L_MPD, "Moving ranges is not supported, only the first item will be moved\n");
+
+  ret = safe_atou32(argv[2], &to_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Argument doesn't convert to integer: '%s'", argv[2]);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_ARG;
+    }
+
+  ret = player_queue_move_byindex(start_pos, to_pos);
+  if (ret < 0)
+    {
+      ret = asprintf(errmsg, "Failed to move song at position %d to %d", start_pos, to_pos);
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
   return 0;
 }
 
@@ -2021,6 +2054,46 @@ mpd_command_plchanges(struct evbuffer *evbuf, int argc, char **argv, char **errm
 }
 
 /*
+ * Command handler function for 'plchangesposid'
+ * Lists all changed songs in the queue since the given playlist version in argv[1] without metadata.
+ */
+static int
+mpd_command_plchangesposid(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  struct queue *queue;
+  struct queue_item *item;
+  int count;
+  int i;
+
+  /*
+   * forked-daapd does not keep track of changes in the queue based on the playlist version,
+   * therefor plchangesposid returns all songs in the queue as changed ignoring the given version.
+   */
+  queue = player_queue_get_byindex(0, 0);
+
+  if (!queue)
+    {
+      // Queue is emtpy
+      return 0;
+    }
+
+  count = queue_count(queue);
+  for (i = 0; i < count; i++)
+    {
+      item = queue_get_byindex(queue, i, 0);
+
+      evbuffer_add_printf(evbuf,
+      	  "cpos: %d\n"
+      	  "Id: %d\n",
+      	  i,
+	  queueitem_item_id(item));
+    }
+
+  queue_free(queue);
+  return 0;
+}
+
+/*
  * Command handler function for 'listplaylist'
  * Lists all songs in the playlist given by virtual-path in argv[1].
  */
@@ -2197,12 +2270,14 @@ mpd_command_listplaylists(struct evbuffer *evbuf, int argc, char **argv, char **
       return ACK_ERROR_UNKNOWN;
     }
 
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli, 0)) == 0) && (dbpli.id))
     {
       if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
         {
-          DPRINTF(E_LOG, L_MPD, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
-          return -1;
+          ret = asprintf(errmsg, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
+          if (ret < 0)
+            DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+          return ACK_ERROR_UNKNOWN;
         }
 
       mpd_time(modified, sizeof(modified), time_modified);
@@ -2273,13 +2348,7 @@ mpd_command_load(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       return ACK_ERROR_UNKNOWN;
     }
 
-  player_queue_add(items);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -2539,13 +2608,7 @@ mpd_command_findadd(struct evbuffer *evbuf, int argc, char **argv, char **errmsg
       return ACK_ERROR_UNKNOWN;
     }
 
-  player_queue_add(items);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -2685,6 +2748,218 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
   return 0;
 }
 
+static int
+mpd_add_directory(struct evbuffer *evbuf, int directory_id, int listall, int listinfo, char **errmsg)
+{
+  struct directory_info subdir;
+  struct query_params qp;
+  struct directory_enum dir_enum;
+  struct db_playlist_info dbpli;
+  char modified[32];
+  uint32_t time_modified;
+  struct db_media_file_info dbmfi;
+  int ret;
+
+  // Load playlists for dir-id
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_PL;
+  qp.sort = S_PLAYLIST;
+  qp.idx_type = I_NONE;
+  qp.filter = sqlite3_mprintf("(f.directory_id = %d AND (f.type = %d OR f.type = %d))", directory_id, PL_PLAIN, PL_SMART);
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+  while (((ret = db_query_fetch_pl(&qp, &dbpli, 0)) == 0) && (dbpli.id))
+    {
+      if (safe_atou32(dbpli.db_timestamp, &time_modified) != 0)
+	{
+	  DPRINTF(E_LOG, L_MPD, "Error converting time modified to uint32_t: %s\n", dbpli.db_timestamp);
+	  return -1;
+	}
+
+      if (listinfo)
+	{
+	  mpd_time(modified, sizeof(modified), time_modified);
+	  evbuffer_add_printf(evbuf,
+	    "playlist: %s\n"
+	    "Last-Modified: %s\n",
+	    (dbpli.virtual_path + 1),
+	    modified);
+	}
+      else
+	{
+	  evbuffer_add_printf(evbuf,
+	    "playlist: %s\n",
+	    (dbpli.virtual_path + 1));
+	}
+    }
+  db_query_end(&qp);
+  sqlite3_free(qp.filter);
+
+  // Load sub directories for dir-id
+  memset(&dir_enum, 0, sizeof(struct directory_enum));
+  dir_enum.parent_id = directory_id;
+  ret = db_directory_enum_start(&dir_enum);
+  if (ret < 0)
+    {
+      DPRINTF(E_LOG, L_MPD, "Failed to start directory enum for parent_id %d\n", directory_id);
+      return -1;
+    }
+  while ((ret = db_directory_enum_fetch(&dir_enum, &subdir)) == 0 && subdir.id > 0)
+    {
+      if (listinfo)
+	{
+	  evbuffer_add_printf(evbuf,
+	    "directory: %s\n"
+	    "Last-Modified: %s\n",
+	    (subdir.virtual_path + 1),
+	    "2015-12-01 00:00");
+	}
+      else
+	{
+	  evbuffer_add_printf(evbuf,
+	    "directory: %s\n",
+	    (subdir.virtual_path + 1));
+	}
+
+      if (listall)
+	{
+	  mpd_add_directory(evbuf, subdir.id, listall, listinfo, errmsg);
+	}
+    }
+  db_directory_enum_end(&dir_enum);
+
+  // Load files for dir-id
+  memset(&qp, 0, sizeof(struct query_params));
+  qp.type = Q_ITEMS;
+  qp.sort = S_ARTIST;
+  qp.idx_type = I_NONE;
+  qp.filter = sqlite3_mprintf("(f.directory_id = %d)", directory_id);
+  ret = db_query_start(&qp);
+  if (ret < 0)
+    {
+      db_query_end(&qp);
+      ret = asprintf(errmsg, "Could not start query");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+  while (((ret = db_query_fetch_file(&qp, &dbmfi)) == 0) && (dbmfi.id))
+    {
+      if (listinfo)
+	{
+	  ret = mpd_add_db_media_file_info(evbuf, &dbmfi);
+	  if (ret < 0)
+	    {
+	      DPRINTF(E_LOG, L_MPD, "Error adding song to the evbuffer, song id: %s\n", dbmfi.id);
+	    }
+	}
+      else
+	{
+	  evbuffer_add_printf(evbuf,
+	    "file: %s\n",
+	    (dbmfi.virtual_path + 1));
+	}
+    }
+  db_query_end(&qp);
+
+  return 0;
+}
+
+static int
+mpd_command_listall(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  int dir_id;
+  char parent[PATH_MAX];
+  int ret;
+
+  if (argc < 2 || strlen(argv[1]) == 0
+      || (strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1))
+    {
+      ret = snprintf(parent, sizeof(parent), "/");
+    }
+  else if (strncmp(argv[1], "/", 1) == 0)
+    {
+      ret = snprintf(parent, sizeof(parent), "%s/", argv[1]);
+    }
+  else
+    {
+      ret = snprintf(parent, sizeof(parent), "/%s", argv[1]);
+    }
+
+  if ((ret < 0) || (ret >= sizeof(parent)))
+    {
+      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  // Load dir-id from db for parent-path
+  dir_id = db_directory_id_byvirtualpath(parent);
+  if (dir_id == 0)
+    {
+      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'", parent);
+      if (ret < 0)
+      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_NO_EXIST;
+    }
+
+  ret = mpd_add_directory(evbuf, dir_id, 1, 0, errmsg);
+
+  return ret;
+}
+
+static int
+mpd_command_listallinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
+{
+  int dir_id;
+  char parent[PATH_MAX];
+  int ret;
+
+  if (argc < 2 || strlen(argv[1]) == 0
+      || (strncmp(argv[1], "/", 1) == 0 && strlen(argv[1]) == 1))
+    {
+      ret = snprintf(parent, sizeof(parent), "/");
+    }
+  else if (strncmp(argv[1], "/", 1) == 0)
+    {
+      ret = snprintf(parent, sizeof(parent), "%s/", argv[1]);
+    }
+  else
+    {
+      ret = snprintf(parent, sizeof(parent), "/%s", argv[1]);
+    }
+
+  if ((ret < 0) || (ret >= sizeof(parent)))
+    {
+      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX");
+      if (ret < 0)
+	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
+    }
+
+  // Load dir-id from db for parent-path
+  dir_id = db_directory_id_byvirtualpath(parent);
+  if (dir_id == 0)
+    {
+      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'", parent);
+      if (ret < 0)
+      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_NO_EXIST;
+    }
+
+  ret = mpd_add_directory(evbuf, dir_id, 1, 1, errmsg);
+
+  return ret;
+}
+
 /*
  * Command handler function for 'lsinfo'
  * Lists the contents of the directory given in argv[1].
@@ -2692,11 +2967,8 @@ mpd_command_list(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 static int
 mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
 {
-  struct query_params qp;
+  int dir_id;
   char parent[PATH_MAX];
-  struct filelist_info *fi;
-  struct media_file_info *mfi;
-  char modified[32];
   int print_playlists;
   int ret;
 
@@ -2711,17 +2983,19 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
     }
   else
     {
-      ret = snprintf(parent, sizeof(parent), "/%s/", argv[1]);
+      ret = snprintf(parent, sizeof(parent), "/%s", argv[1]);
     }
 
   if ((ret < 0) || (ret >= sizeof(parent)))
     {
-      DPRINTF(E_INFO, L_MPD, "Parent path exceeds PATH_MAX\n");
-      return -1;
+      ret = asprintf(errmsg, "Parent path exceeds PATH_MAX");
+      if (ret < 0)
+      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_UNKNOWN;
     }
 
   print_playlists = 0;
-  if (argc > 1 && (strncmp(parent, "/", 1) == 0 && strlen(parent) == 1))
+  if ((strncmp(parent, "/", 1) == 0 && strlen(parent) == 1))
     {
       /*
        * Special handling necessary if the root directory '/' is given.
@@ -2731,76 +3005,26 @@ mpd_command_lsinfo(struct evbuffer *evbuf, int argc, char **argv, char **errmsg)
       print_playlists = 1;
     }
 
-  fi = (struct filelist_info*)malloc(sizeof(struct filelist_info));
-  if (!fi)
-    {
-      DPRINTF(E_LOG, L_MPD, "Out of memory for fi\n");
-      return ACK_ERROR_UNKNOWN;
-    }
 
-  memset(&qp, 0, sizeof(struct query_params));
-
-  ret = db_mpd_start_query_filelist(&qp, parent);
-  if (ret < 0)
+  // Load dir-id from db for parent-path
+  dir_id = db_directory_id_byvirtualpath(parent);
+  if (dir_id == 0)
     {
-      ret = asprintf(errmsg, "Could not start query for path '%s'", argv[1]);
+      ret = asprintf(errmsg, "Directory info not found for virtual-path '%s'", parent);
       if (ret < 0)
-	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
-
-      free_fi(fi, 0);
-      return ACK_ERROR_UNKNOWN;
+      	DPRINTF(E_LOG, L_MPD, "Out of memory\n");
+      return ACK_ERROR_NO_EXIST;
     }
 
-  while (((ret = db_mpd_query_fetch_filelist(&qp, fi)) == 0) && (fi->virtual_path))
+  ret = mpd_add_directory(evbuf, dir_id, 0, 1, errmsg);
+
+  // If the root directory was passed as argument add the stored playlists to the response
+  if (ret == 0 && print_playlists)
     {
-      if (fi->type == F_DIR)
-	{
-	  mpd_time(modified, sizeof(modified), fi->time_modified);
-
-	  evbuffer_add_printf(evbuf,
-	    "directory: %s\n"
-	    "Last-Modified: %s\n",
-	    (fi->virtual_path + 1),
-	    modified);
-	}
-      else if (fi->type == F_PLAYLIST)
-	{
-	  mpd_time(modified, sizeof(modified), fi->time_modified);
-
-	  evbuffer_add_printf(evbuf,
-	    "playlist: %s\n"
-	    "Last-Modified: %s\n",
-	    (fi->virtual_path + 1),
-	    modified);
-	}
-      else if (fi->type == F_FILE)
-	{
-	  mfi = db_file_fetch_byvirtualpath(fi->virtual_path);
-	  if (mfi)
-	    {
-	      ret = mpd_add_mediainfo(evbuf, mfi, 0, -1);
-	      if (ret < 0)
-		{
-		  DPRINTF(E_LOG, L_MPD, "Could not add mediainfo for path '%s'\n", fi->virtual_path);
-		}
-
-	      free_mfi(mfi, 0);
-	    }
-	}
-    }
-
-  db_query_end(&qp);
-
-  if (fi)
-    free_fi(fi, 0);
-
-  if (print_playlists)
-    {
-      // If the root directory was passed as argument add the stored playlists to the response
       return mpd_command_listplaylists(evbuf, argc, argv, errmsg);
     }
 
-  return 0;
+  return ret;
 }
 
 static int
@@ -3013,13 +3237,7 @@ mpd_command_searchadd(struct evbuffer *evbuf, int argc, char **argv, char **errm
       return ACK_ERROR_UNKNOWN;
     }
 
-  player_queue_add(items);
-
-  ret = player_playback_start(NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not start playback\n");
-    }
+  player_queue_add(items, NULL);
 
   return 0;
 }
@@ -3674,11 +3892,11 @@ static struct command mpd_handlers[] =
       .mpdcommand = "plchanges",
       .handler = mpd_command_plchanges
     },
-    /*
     {
       .mpdcommand = "plchangesposid",
       .handler = mpd_command_plchangesposid
     },
+    /*
     {
       .mpdcommand = "prio",
       .handler = mpd_command_prio
@@ -3782,7 +4000,6 @@ static struct command mpd_handlers[] =
       .mpdcommand = "list",
       .handler = mpd_command_list
     },
-    /*
     {
       .mpdcommand = "listall",
       .handler = mpd_command_listall
@@ -3791,6 +4008,7 @@ static struct command mpd_handlers[] =
       .mpdcommand = "listallinfo",
       .handler = mpd_command_listallinfo
     },
+    /*
     {
       .mpdcommand = "listfiles",
       .handler = mpd_command_listfiles
@@ -4541,14 +4759,22 @@ int mpd_init(void)
 
   v6enabled = cfg_getbool(cfg_getsec(cfg, "general"), "ipv6");
 
+#ifdef HAVE_PIPE2
   ret = pipe2(g_exit_pipe, O_CLOEXEC);
+#else
+  ret = pipe(g_exit_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Could not create pipe: %s\n", strerror(errno));
       goto exit_fail;
     }
 
+#ifdef HAVE_PIPE2
   ret = pipe2(g_cmd_pipe, O_CLOEXEC);
+#else
+  ret = pipe(g_cmd_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MPD, "Could not create command pipe: %s\n", strerror(errno));
@@ -4588,8 +4814,24 @@ int mpd_init(void)
       sin6.sin6_family = AF_INET6;
       sin6.sin6_port = htons(port);
       saddr = (struct sockaddr *)&sin6;
+
+      listener = evconnlistener_new_bind(
+	  evbase_mpd,
+	  mpd_accept_conn_cb,
+	  NULL,
+	  LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
+	  -1,
+	  saddr,
+	  saddr_length);
+
+      if (!listener)
+      	{
+      	  DPRINTF(E_LOG, L_MPD, "Could not bind to port %d, falling back to IPv4\n", port);
+      	  v6enabled = 0;
+      	}
     }
-  else
+
+  if (!v6enabled)
     {
       saddr_length = sizeof(struct sockaddr_in);
       memset(&sin, 0, saddr_length);
@@ -4597,23 +4839,24 @@ int mpd_init(void)
       sin.sin_addr.s_addr = htonl(0);
       sin.sin_port = htons(port);
       saddr = (struct sockaddr *)&sin;
+
+      listener = evconnlistener_new_bind(
+          evbase_mpd,
+          mpd_accept_conn_cb,
+          NULL,
+          LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
+          -1,
+          saddr,
+          saddr_length);
+
+      if (!listener)
+        {
+          DPRINTF(E_LOG, L_MPD, "Could not create connection listener for mpd clients on port %d\n", port);
+
+          goto connew_fail;
+        }
     }
 
-  listener = evconnlistener_new_bind(
-      evbase_mpd,
-      mpd_accept_conn_cb,
-      NULL,
-      LEV_OPT_CLOSE_ON_FREE | LEV_OPT_REUSEABLE,
-      -1,
-      saddr,
-      saddr_length);
-
-  if (!listener)
-    {
-      DPRINTF(E_LOG, L_MPD, "Could not create connection listener for mpd clients on port %d\n", port);
-
-      goto connew_fail;
-    }
   evconnlistener_set_error_cb(listener, mpd_accept_error_cb);
 
   http_port = cfg_getint(cfg_getsec(cfg, "mpd"), "http_port");
@@ -4652,6 +4895,12 @@ int mpd_init(void)
 
       goto thread_fail;
     }
+
+#if defined(__linux__)
+  pthread_setname_np(tid_mpd, "mpd");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_mpd, "mpd");
+#endif
 
   idle_clients = NULL;
   listener_add(mpd_listener_cb, LISTENER_PLAYER | LISTENER_PLAYLIST | LISTENER_VOLUME | LISTENER_SPEAKER | LISTENER_OPTIONS);

@@ -638,7 +638,10 @@ get_query_params(struct evkeyvalq *query, int *sort_headers, struct query_params
   else
     qp->limit = (high - low) + 1;
 
-  qp->idx_type = I_SUB;
+  if (qp->limit == -1 && qp->offset == 0)
+    qp->idx_type = I_NONE;
+  else
+    qp->idx_type = I_SUB;
 
   qp->sort = S_NONE;
   param = evhttp_find_header(query, "sort");
@@ -1670,7 +1673,7 @@ daap_reply_playlists(struct evhttp_request *req, struct evbuffer *evbuf, char **
     }
 
   npls = 0;
-  while (((ret = db_query_fetch_pl(&qp, &dbpli)) == 0) && (dbpli.id))
+  while (((ret = db_query_fetch_pl(&qp, &dbpli, 1)) == 0) && (dbpli.id))
     {
       plid = 1;
       if (safe_atoi32(dbpli.id, &plid) != 0)

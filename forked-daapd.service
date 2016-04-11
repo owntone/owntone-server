@@ -1,0 +1,15 @@
+[Unit]
+Description=DAAP/DACP (iTunes), RSP and MPD server, supports AirPlay and Remote
+After=network.target
+
+[Service]
+ExecStart=/usr/sbin/forked-daapd -f
+
+# Restart, but not more than once every 10 minutes
+Restart=on-failure
+StartLimitBurst=2
+StartLimitInterval=600
+
+[Install]
+WantedBy=multi-user.target
+

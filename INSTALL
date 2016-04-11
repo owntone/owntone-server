@@ -63,16 +63,19 @@ sudo yum install \
  sqlite-devel libconfuse-devel libunistring-devel mxml-devel libevent-devel \
  avahi-devel libgcrypt-devel zlib-devel alsa-lib-devel ffmpeg-devel
 
+Clone the forked-daapd repo:
+
+ git clone https://github.com/ejurgensen/forked-daapd.git
+ cd forked-daapd
+
 Now you need to install ANTLR3, but you probably can't use the version that
 comes with the package manager (but do try that first). Instead you can install
 it by running this script:
 
-scripts/antlr34_install.sh
+ scripts/antlr35_install.sh
 
 Then run the following:
 
- git clone https://github.com/ejurgensen/forked-daapd.git
- cd forked-daapd
  autoreconf -i
  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
  make
@@ -141,6 +144,12 @@ Libraries:
         from <https://developer.spotify.com>
  - libcurl (optional - LastFM support)
         from <http://curl.haxx.se/libcurl/>
+ - libjson-c (optional - Chromecast support)
+        from <https://github.com/json-c/json-c/wiki>
+ - libgnutls (optional - Chromecast support)
+        from <http://www.gnutls.org/>
+ - libprotobuf-c (optional - Chromecast support)
+        from <https://github.com/protobuf-c/protobuf-c/wiki>
 
 If using binary packages, remember that you need the development packages to
 build forked-daapd (usually named -dev or -devel).
@@ -191,8 +200,11 @@ feature.
 Support for iTunes Music Library XML format is optional. Use --enable-itunes
 to enable this feature.
 
-Support for the MPD protocol is optional. Use --enable-mpd to enable this
+Support for the MPD protocol is optional. Use --disable-mpd to disable this
 feature.
+
+Support for Chromecast devices is optional. Use --enable-chromecast to enable
+this feature.
 
 Recommended build settings:
  ./configure --prefix=/usr --sysconfdir=/etc --localstatedir=/var
@@ -214,7 +226,10 @@ this and make the user a member of the group, for instance) and read/write
 permissions on the database location ($localstatedir/cache/forked-daapd by
 default).
 
-You'll need an init script if you want to start forked-daapd at boot. A simple
+If your system uses systemd then you might be able to use the service file
+included, see forked-daapd.service.
+
+Otherwise you might need an init script to start forked-daapd at boot. A simple
 init script will do, forked-daapd daemonizes all by itself and creates a
 pidfile under /var/run. Different distributions have different standards for
 init scripts and some do not use init scripts anymore; check the documentation

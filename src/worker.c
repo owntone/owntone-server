@@ -30,6 +30,9 @@
 #include <string.h>
 #include <errno.h>
 #include <pthread.h>
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+# include <pthread_np.h>
+#endif
 
 #include <event2/event.h>
 
@@ -286,14 +289,22 @@ worker_init(void)
 {
   int ret;
 
+#ifdef HAVE_PIPE2
   ret = pipe2(g_exit_pipe, O_CLOEXEC);
+#else
+  ret = pipe(g_exit_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MAIN, "Could not create pipe: %s\n", strerror(errno));
       goto exit_fail;
     }
 
+#ifdef HAVE_PIPE2
   ret = pipe2(g_cmd_pipe, O_CLOEXEC);
+#else
+  ret = pipe(g_cmd_pipe);
+#endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_MAIN, "Could not create command pipe: %s\n", strerror(errno));
@@ -331,6 +342,12 @@ worker_init(void)
 
       goto thread_fail;
     }
+
+#if defined(__linux__)
+  pthread_setname_np(tid_worker, "worker");
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  pthread_set_name_np(tid_worker, "worker");
+#endif
 
   return 0;
   

@@ -61,7 +61,7 @@ export CLASSPATH
 CLASSPATH=\$CLASSPATH:/usr/local/share/java/antlr-3.4-complete.jar:/usr/local/share/java
 /usr/local/bin/java org.antlr.Tool \$*
 " > antlr3
-	sudo install --mode=755 antlr3 /usr/local/bin
+	sudo install -m 755 antlr3 /usr/local/bin
 
 	tar xzf libantlr3c-3.4.tar.gz
 	cd libantlr3c-3.4
@@ -106,7 +106,7 @@ if [ "$yn" = "y" ]; then
 			echo "Could not find FreeBSD startup script"
 			exit
 		fi
-		sudo install --mode=755 scripts/freebsd_start_10.1.sh /usr/local/etc/rc.d/forked-daapd
+		sudo install -m 755 scripts/freebsd_start_10.1.sh /usr/local/etc/rc.d/forked-daapd
 
 		service forked-daapd enabled
 		if [ $? -ne 0 ]; then

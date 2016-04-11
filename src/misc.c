@@ -560,9 +560,9 @@ trimwhitespace(const char *str)
 }
 
 uint32_t
-djb_hash(void *data, size_t len)
+djb_hash(const void *data, size_t len)
 {
-  unsigned char *bytes = data;
+  const unsigned char *bytes = data;
   uint32_t hash = 5381;
 
   while (len--)

@@ -32,8 +32,9 @@
 #define L_CACHE       23
 #define L_MPD         24
 #define L_STREAMING   25
+#define L_CAST        26
 
-#define N_LOGDOMAINS  26
+#define N_LOGDOMAINS  27
 
 /* Severities */
 #define E_FATAL   0

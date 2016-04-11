@@ -171,7 +171,7 @@ smartpl_parse_file(const char *file, struct playlist_info *pli)
 }
 
 void
-scan_smartpl(char *file, time_t mtime)
+scan_smartpl(char *file, time_t mtime, int dir_id)
 {
   struct playlist_info *pli;
   int pl_id;
@@ -202,6 +202,8 @@ scan_smartpl(char *file, time_t mtime)
     }
   else
     pl_id = pli->id;
+
+  pli->directory_id = dir_id;
 
   ret = smartpl_parse_file(file, pli);
   if (ret < 0)

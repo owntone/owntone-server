@@ -1,6 +1,16 @@
 ChangeLog for forked-daapd
 --------------------------
 
+version 23.4:
+	- fix freeze problem on network stream disconnects
+	- support for mp3 streaming
+	- better ipv6 handling
+	- option to hide singles from album/artist lists
+	- misc MPD improvements, incl. new commands and zeroconf support
+	- queue handling and transcoding refactored
+	- libavresample/libswresample dependency changed to libavfilter
+	- improved pairinghelper.sh script
+
 version 23.3:
 	- fix issue where volume gets set to -1 on startup of raop devices
 	- plug various minor memleaks

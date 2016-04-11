@@ -4,8 +4,8 @@ forked-daapd is a Linux/FreeBSD DAAP (iTunes), MPD (Music Player Daemon) and
 RSP (Roku) media server.
 
 It has support for AirPlay devices/speakers, Apple Remote (and compatibles),
-MPD clients, network streaming, internet radio, Spotify and LastFM. It does not
-support AirPlay video.
+MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.
+It does not support AirPlay nor Chromecast video.
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
@@ -30,6 +30,7 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 - [Supported clients](#supported-clients)
 - [Using Remote](#using-remote)
 - [AirPlay devices/speakers](#airplay-devicesspeakers)
+- [Chromecast](#chromecast)
 - [Local audio output](#local-audio-output)
 - [MP3 network streaming (streaming to iOS)](#MP3-network-streaming-(streaming-to-iOS))
 - [Supported formats](#supported-formats)
@@ -64,6 +65,7 @@ forked-daapd supports these kinds of clients:
 - DAAP clients, like iTunes or Rhythmbox
 - Remote clients, like Apple Remote or compatibles for Android/Windows Phone
 - AirPlay devices, like AirPort Express, Shairport and various AirPlay speakers
+- Chromecast devices
 - MPD clients, like mpc (see [mpd-clients](#mpd-clients))
 - MP3 network stream clients, like VLC and almost any other music player
 - RSP clients, like Roku Soundbridge
@@ -97,14 +99,21 @@ probably obsolete when you read it :-)
 
 ## Using Remote
 
-If you plan to use Remote with forked-daapd, read the following sections
-carefully. The pairing process described is similar for other controllers, but
-some do not require pairing.
+If you plan to use Remote for iPod/iPhone/iPad with forked-daapd, read the
+following sections. The pairing process described is similar for other
+controllers/remotes (e.g. Retune), but some do not require pairing.
 
 ### Pairing with Remote on iPod/iPhone
 
-forked-daapd can be paired with Apple's Remote application for iPod/iPhone/iPad;
-this is how the pairing process works:
+If you just started forked-daapd for the first time, then wait til the library
+scan completes before pairing with Remote (see [library](#library)). Otherwise
+you risk timeouts. Then do the following.
+
+The Quick Way:
+
+ 1. Download and run the helper script from [here](https://raw.githubusercontent.com/ejurgensen/forked-daapd/master/scripts/pairinghelper.sh)
+
+Or, if that doesn't work:
 
  1. Start forked-daapd
  2. Start Remote, go to Settings, Add Library
@@ -207,6 +216,17 @@ forked-daapd will discover the AirPlay devices available on your network. For
 devices that are password-protected, the device's AirPlay name and password
 must be given in the configuration file. See the sample configuration file
 for the syntax.
+
+
+## Chromecast
+
+Chromecast support is currently experimental. It requires that forked-daapd was
+built with "--enable-chromecast".
+
+forked-daapd will discover Chromecast devices available on your network. There
+is no configuration to be done. This feature relies on streaming the audio in
+mp3 to your Chromecast device, which means that mp3 encoding must be supported
+by your ffmpeg/libav. See [MP3 network streaming](#MP3-network-streaming-(streaming-to-iOS)).
 
 
 ## Local audio output
@@ -340,12 +360,12 @@ informations.
 
 The library is scanned in bulk mode at startup, but the server will be available
 even while this scan is in progress. You can follow the progress of the scan in
-the log file.
+the log file. When the scan is complete you will see the log message: "Bulk
+library scan completed in X sec".
 
-Of course, if files have gone missing while the server was not running a request
-for these files will produce an error until the scan has completed and the file
-is no longer offered. Similarly, new files added while the server was not
-running won't be offered until they've been scanned.
+The very first scan will take longer than subsequent startup scans, since every
+file gets analyzed. At the following startups the server looks for changed files
+and only analyzis those.
 
 Changes to the library are reflected in real time after the initial scan. The
 directories are monitored for changes and rescanned on the fly. Note that if you

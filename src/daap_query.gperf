@@ -26,6 +26,7 @@ struct dmap_query_field_map;
 "daap.songdataurl",           "f.url",              0
 "daap.songdateadded",         "f.time_added",       1
 "daap.songdatemodified",      "f.time_modified",    1
+"daap.songdatereleased",      "f.date_released",    1
 "daap.songdescription",       "f.description",      0
 "daap.songdisccount",         "f.total_discs",      1
 "daap.songdiscnumber",        "f.disc",             1

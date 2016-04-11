@@ -156,6 +156,16 @@ static struct dacp_update_request *update_requests;
 static struct event *seek_timer;
 static int seek_target;
 
+/* If an item is removed from the library while in the queue, we replace it with this */
+static struct media_file_info dummy_mfi =
+{
+  .id = 9999999,
+  .title = "(unknown title)",
+  .artist = "(unknown artist)",
+  .album = "(unknown album)",
+  .genre = "(unknown genre)",
+};
+
 
 /* DACP helpers */
 static void
@@ -240,7 +250,7 @@ make_playstatusupdate(struct evbuffer *evbuf)
 	{
 	  DPRINTF(E_LOG, L_DACP, "Could not fetch file id %d\n", status.id);
 
-	  return -1;
+	  mfi = &dummy_mfi;
 	}
     }
   else
@@ -272,7 +282,8 @@ make_playstatusupdate(struct evbuffer *evbuf)
 
       dacp_playingtime(psu, &status, mfi);
 
-      free_mfi(mfi, 0);
+      if (mfi != &dummy_mfi)
+	free_mfi(mfi, 0);
     }
 
   dmap_add_char(psu, "casu", 1);              /*  9 */ /* unknown */
@@ -1015,7 +1026,7 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	  return;
 	}
 
-      player_queue_add(items);
+      player_queue_add(items, NULL);
     }
   else
     {
@@ -1068,6 +1079,9 @@ dacp_reply_cue_play(struct evhttp_request *req, struct evbuffer *evbuf, char **u
 	{
 	  /* Play from Up Next queue */
 	  pos += status.pos_pl;
+
+	  if (status.status == PLAY_STOPPED && pos > 0)
+	    pos--;
 	}
     }
 
@@ -1253,7 +1267,7 @@ dacp_reply_playspec(struct evhttp_request *req, struct evbuffer *evbuf, char **u
     player_playback_stop();
 
   player_queue_clear();
-  player_queue_add(items);
+  player_queue_add(items, NULL);
   player_queue_plid(plid);
 
   if (shuffle)
@@ -1450,7 +1464,7 @@ playqueuecontents_add_source(struct evbuffer *songlist, uint32_t source_id, int 
   if (!mfi)
     {
       DPRINTF(E_LOG, L_DACP, "Could not fetch file id %d\n", source_id);
-      return -1;
+      mfi = &dummy_mfi;
     }
   dmap_add_container(song, "ceQs", 16);
   dmap_add_raw_uint32(song, 1); /* Database */
@@ -1473,7 +1487,8 @@ playqueuecontents_add_source(struct evbuffer *songlist, uint32_t source_id, int 
 
   ret = evbuffer_add_buffer(songlist, song);
   evbuffer_free(song);
-  free_mfi(mfi, 0);
+  if (mfi != &dummy_mfi)
+    free_mfi(mfi, 0);
 
   if (ret < 0)
     {
@@ -1564,28 +1579,24 @@ dacp_reply_playqueuecontents(struct evhttp_request *req, struct evbuffer *evbuf,
     {
       player_get_status(&status);
 
-      /* Get queue and make songlist only if playing or paused */
-      if (status.status != PLAY_STOPPED)
+      queue = player_queue_get_bypos(abs(span));
+      if (queue)
 	{
-	  queue = player_queue_get_bypos(abs(span));
-	  if (queue)
+	  i = 0;
+	  count = queue_count(queue);
+	  for (n = 0; (n < count) && (n < abs(span)); n++)
 	    {
-	      i = 0;
-	      count = queue_count(queue);
-	      for (n = 0; (n < count) && (n < abs(span)); n++)
+	      item = queue_get_byindex(queue, n, 0);
+	      ret = playqueuecontents_add_source(songlist, queueitem_id(item), (n + i + 1), status.plid);
+	      if (ret < 0)
 		{
-		  item = queue_get_byindex(queue, n, 0);
-		  ret = playqueuecontents_add_source(songlist, queueitem_id(item), (n + i + 1), status.plid);
-		  if (ret < 0)
-		    {
-		      DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
+		  DPRINTF(E_LOG, L_DACP, "Could not add song to songlist for playqueue-contents\n");
 
-		      dmap_send_error(req, "ceQR", "Out of memory");
-		      return;
-		    }
+		  dmap_send_error(req, "ceQR", "Out of memory");
+		  return;
 		}
-	      queue_free(queue);
 	    }
+	  queue_free(queue);
 	}
     }
 
@@ -1787,7 +1798,7 @@ dacp_reply_playqueueedit_add(struct evhttp_request *req, struct evbuffer *evbuf,
       }
       else
       {
-        player_queue_add(items);
+        player_queue_add(items, NULL);
       }
     }
   else
@@ -2663,7 +2674,11 @@ dacp_init(void)
       return -1;
     }
 #else
+# ifdef HAVE_PIPE2
   ret = pipe2(update_pipe, O_CLOEXEC);
+# else
+  ret = pipe(update_pipe);
+# endif
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_DACP, "Could not create update pipe: %s\n", strerror(errno));
