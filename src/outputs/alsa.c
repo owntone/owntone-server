@@ -531,14 +531,22 @@ static void
 playback_start(struct alsa_session *as, uint64_t pos, uint64_t start_pos)
 {
   snd_output_t *output;
+  snd_pcm_state_t state;
   char *debug_pcm_cfg;
   int ret;
 
-  ret = snd_pcm_prepare(hdl);
-  if (ret < 0)
+  state = snd_pcm_state(hdl);
+  if (state != SND_PCM_STATE_PREPARED)
     {
-      DPRINTF(E_LOG, L_LAUDIO, "Could not prepare ALSA device '%s': %s\n", as->devname, snd_strerror(ret));
-      return;
+      if (state == SND_PCM_STATE_RUNNING)
+	snd_pcm_drop(hdl);
+
+      ret = snd_pcm_prepare(hdl);
+      if (ret < 0)
+	{
+	  DPRINTF(E_LOG, L_LAUDIO, "Could not prepare ALSA device '%s' (state %d): %s\n", as->devname, state, snd_strerror(ret));
+	  return;
+	}
     }
 
   // Clear prebuffer in case start somehow got called twice without a stop in between
