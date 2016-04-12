@@ -48,6 +48,8 @@ AC_CHECK_FUNCS(timegm)
 AC_CHECK_FUNCS(euidaccess)
 AC_CHECK_FUNCS(pipe2)
 
+AC_SEARCH_LIBS([inotify_add_watch], [inotify], [], AC_MSG_ERROR([inotify not found]))
+
 dnl Large File Support (LFS)
 AC_SYS_LARGEFILE
 AC_TYPE_OFF_T

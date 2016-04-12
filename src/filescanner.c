@@ -34,6 +34,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/inotify.h>
 #include <fcntl.h>
 #include <dirent.h>
 #include <pthread.h>
@@ -42,19 +43,15 @@
 #include <unictype.h>
 #include <uninorm.h>
 
-#if defined(__linux__)
-# include <sys/inotify.h>
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-# include <sys/time.h>
-# include <sys/event.h>
+#include <event2/event.h>
+
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 # include <pthread_np.h>
 #endif
 
 #ifdef HAVE_REGEX_H
 # include <regex.h>
 #endif
-
-#include <event2/event.h>
 
 #include "logger.h"
 #include "db.h"
@@ -72,7 +69,6 @@
 #ifdef HAVE_SPOTIFY_H
 # include "spotify.h"
 #endif
-
 
 struct filescanner_command;
 
@@ -134,6 +130,20 @@ static struct event *cmdev;
 static pthread_t tid_scan;
 static struct deferred_pl *playlists;
 static struct stacked_dir *dirstack;
+
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+struct deferred_file
+{
+  struct watch_info wi;
+  struct inotify_event ie;
+  char path[PATH_MAX];
+
+  struct deferred_file *next;
+};
+
+static struct deferred_file *filestack;
+static struct event *deferred_inoev;
+#endif
 
 /* Count of files scanned during a bulk scan */
 static int counter;
@@ -976,9 +986,6 @@ process_directory(char *path, int parent_id, int flags)
   char *deref;
   struct stat sb;
   struct watch_info wi;
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-  struct kevent kev;
-#endif
   int type;
   char virtual_path[PATH_MAX];
   int dir_id;
@@ -1099,9 +1106,13 @@ process_directory(char *path, int parent_id, int flags)
 
   memset(&wi, 0, sizeof(struct watch_info));
 
+  // Add inotify watch (for FreeBSD we limit the flags so only dirs will be
+  // opened, otherwise we will be opening way too many files)
 #if defined(__linux__)
-  /* Add inotify watch */
   wi.wd = inotify_add_watch(inofd, path, IN_ATTRIB | IN_CREATE | IN_DELETE | IN_CLOSE_WRITE | IN_MOVE | IN_DELETE | IN_MOVE_SELF);
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  wi.wd = inotify_add_watch(inofd, path, IN_CREATE | IN_DELETE | IN_MOVE);
+#endif
   if (wi.wd < 0)
     {
       DPRINTF(E_WARN, L_SCAN, "Could not create inotify watch for %s: %s\n", path, strerror(errno));
@@ -1116,39 +1127,9 @@ process_directory(char *path, int parent_id, int flags)
 
       db_watch_add(&wi);
     }
-
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-  memset(&kev, 0, sizeof(struct kevent));
-
-  wi.wd = open(path, O_RDONLY | O_NONBLOCK);
-  if (wi.wd < 0)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Could not open directory %s for watching: %s\n", path, strerror(errno));
-
-      return;
-    }
-
-  /* Add kevent */
-  EV_SET(&kev, wi.wd, EVFILT_VNODE, EV_ADD | EV_CLEAR, NOTE_DELETE | NOTE_WRITE | NOTE_RENAME, 0, NULL);
-
-  ret = kevent(inofd, &kev, 1, NULL, 0, NULL);
-  if (ret < 0)
-    {
-      DPRINTF(E_WARN, L_SCAN, "Could not add kevent for %s: %s\n", path, strerror(errno));
-
-      close(wi.wd);
-      return;
-    }
-
-  wi.cookie = 0;
-  wi.path = path;
-
-  db_watch_add(&wi);
-#endif
 }
 
 /* Thread: scan */
-
 static int
 process_parent_directories(char *path)
 {
@@ -1403,8 +1384,6 @@ get_parent_dir_id(const char *path)
   return parent_id;
 }
 
-
-#if defined(__linux__)
 static int
 watches_clear(uint32_t wd, char *path)
 {
@@ -1446,7 +1425,7 @@ process_inotify_dir(struct watch_info *wi, char *path, struct inotify_event *ie)
   int ret;
   int parent_id;
 
-  DPRINTF(E_SPAM, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+  DPRINTF(E_DBG, L_SCAN, "Directory event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   if (ie->mask & IN_UNMOUNT)
     {
@@ -1591,7 +1570,7 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
   char *ptr;
   int ret;
 
-  DPRINTF(E_SPAM, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
+  DPRINTF(E_DBG, L_SCAN, "File event: 0x%x, cookie 0x%x, wd %d\n", ie->mask, ie->cookie, wi->wd);
 
   path_hash = djb_hash(path, strlen(path));
 
@@ -1778,20 +1757,73 @@ process_inotify_file(struct watch_info *wi, char *path, struct inotify_event *ie
     }
 }
 
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+/* Since FreeBSD doesn't really have inotify we only get a IN_CREATE. That is
+ * a bit too soon to start scanning the file, so we defer it for 10 seconds.
+ */
+static void
+inotify_deferred_cb(int fd, short what, void *arg)
+{
+  struct deferred_file *f;
+  struct deferred_file *next;
+
+  for (f = filestack; f; f = next)
+    {
+      next = f->next;
+
+      DPRINTF(E_DBG, L_SCAN, "Processing deferred file %s\n", f->path);
+      process_inotify_file(&f->wi, f->path, &f->ie);
+      free(f->wi.path);
+      free(f);
+    }
+
+  filestack = NULL;
+}
+
+static void
+process_inotify_file_defer(struct watch_info *wi, char *path, struct inotify_event *ie)
+{
+  struct deferred_file *f;
+  struct timeval tv = { 10, 0 };
+
+  if (!(ie->mask & IN_CREATE))
+    {
+      process_inotify_file(wi, path, ie);
+      return;
+    }
+
+  DPRINTF(E_INFO, L_SCAN, "Deferring scan of newly created file %s\n", path);
+
+  ie->mask = IN_CLOSE_WRITE;
+  f = calloc(1, sizeof(struct deferred_file));
+  f->wi = *wi;
+  f->wi.path = strdup(wi->path);
+  f->ie = *ie;
+  strcpy(f->path, path);
+
+  f->next = filestack;
+  filestack = f;
+
+  event_add(deferred_inoev, &tv);
+}
+#endif
+
+
 /* Thread: scan */
 static void
 inotify_cb(int fd, short event, void *arg)
 {
-  struct inotify_event *buf;
   struct inotify_event *ie;
   struct watch_info wi;
+  uint8_t *buf;
+  uint8_t *ptr;
   char path[PATH_MAX];
-  int qsize;
+  int size;
   int namelen;
   int ret;
 
-  /* Determine the size of the inotify queue */
-  ret = ioctl(fd, FIONREAD, &qsize);
+  /* Determine the amount of bytes to read from inotify */
+  ret = ioctl(fd, FIONREAD, &size);
   if (ret < 0)
     {
       DPRINTF(E_LOG, L_SCAN, "Could not determine inotify queue size: %s\n", strerror(errno));
@@ -1799,29 +1831,27 @@ inotify_cb(int fd, short event, void *arg)
       return;
     }
 
-  buf = (struct inotify_event *)malloc(qsize);
+  buf = malloc(size);
   if (!buf)
     {
-      DPRINTF(E_LOG, L_SCAN, "Could not allocate %d bytes for inotify events\n", qsize);
+      DPRINTF(E_LOG, L_SCAN, "Could not allocate %d bytes for inotify events\n", size);
 
       return;
     }
 
-  ret = read(fd, buf, qsize);
-  if (ret < 0)
+  ret = read(fd, buf, size);
+  if (ret < 0 || ret != size)
     {
-      DPRINTF(E_LOG, L_SCAN, "inotify read failed: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "inotify read failed: %s (ret was %d, size %d)\n", strerror(errno), ret, size);
 
       free(buf);
       return;
     }
 
-  /* ioctl(FIONREAD) returns the number of bytes, now we need the number of elements */
-  qsize /= sizeof(struct inotify_event);
-
-  /* Loop through all the events we got */
-  for (ie = buf; (ie - buf) < qsize; ie += (1 + (ie->len / sizeof(struct inotify_event))))
+  for (ptr = buf; ptr < buf + size; ptr += ie->len + sizeof(struct inotify_event))
     {
+      ie = (struct inotify_event *)ptr;
+
       memset(&wi, 0, sizeof(struct watch_info));
 
       /* ie[0] contains the inotify event information
@@ -1879,8 +1909,11 @@ inotify_cb(int fd, short event, void *arg)
       if ((ie->mask & IN_ISDIR) || (ie->len == 0))
 	process_inotify_dir(&wi, path, ie);
       else
+#if defined(__linux__)
 	process_inotify_file(&wi, path, ie);
-
+#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+	process_inotify_file_defer(&wi, path, ie);
+#endif
       free(wi.path);
     }
 
@@ -1888,201 +1921,11 @@ inotify_cb(int fd, short event, void *arg)
 
   event_add(inoev, NULL);
 }
-#endif /* __linux__ */
-
-
-#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-/* Thread: scan */
-static void
-kqueue_cb(int fd, short event, void *arg)
-{
-  struct kevent kev;
-  struct timespec ts;
-  struct watch_info wi;
-  struct watch_enum we;
-  struct stacked_dir *rescan;
-  struct stacked_dir *d;
-  struct stacked_dir *dprev;
-  uint32_t wd;
-  int d_len;
-  int w_len;
-  int need_rescan;
-  int ret;
-  int parent_id;
-
-  ts.tv_sec = 0;
-  ts.tv_nsec = 0;
-
-  we.cookie = 0;
-
-  rescan = NULL;
-
-  DPRINTF(E_DBG, L_SCAN, "Library changed!\n");
-
-  /* We can only monitor directories with kqueue; to monitor files, we'd need
-   * to have an open fd on every file in the library, which is totally insane.
-   * Unfortunately, that means we only know when directories get renamed,
-   * deleted or changed. We don't get directory/file names when directories/files
-   * are created/deleted/renamed in the directory, so we have to rescan.
-   */
-  while (kevent(fd, NULL, 0, &kev, 1, &ts) > 0)
-    {
-      /* This should not happen, and if it does, we'll end up in
-       * an infinite loop.
-       */
-      if (kev.filter != EVFILT_VNODE)
-	continue;
-
-      wi.wd = kev.ident;
-
-      ret = db_watch_get_bywd(&wi);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "Found no matching watch for kevent, killing this event\n");
-
-	  close(kev.ident);
-	  continue;
-	}
-
-      /* Whatever the type of event that happened, disable matching watches and
-       * files before we trigger an eventual rescan.
-       */
-      we.match = wi.path;
-
-      ret = db_watch_enum_start(&we);
-      if (ret < 0)
-	{
-	  free(wi.path);
-	  continue;
-	}
-
-      while ((db_watch_enum_fetchwd(&we, &wd) == 0) && (wd))
-	{
-	  close(wd);
-	}
-
-      db_watch_enum_end(&we);
-
-      db_watch_delete_bymatch(wi.path);
-
-      close(wi.wd);
-      db_watch_delete_bywd(wi.wd);
-
-      /* Disable files */
-      db_file_disable_bymatch(wi.path, "", 0);
-      db_pl_disable_bymatch(wi.path, "", 0);
-      db_directory_disable_bymatch(wi.path, "", 0);
-
-      if (kev.flags & EV_ERROR)
-	{
-	  DPRINTF(E_LOG, L_SCAN, "kevent reports EV_ERROR (%s): %s\n", wi.path, strerror(kev.data));
-
-	  ret = access(wi.path, F_OK);
-	  if (ret != 0)
-	    {
-	      free(wi.path);
-	      continue;
-	    }
-
-	  /* The directory still exists, so try to add it back to the library */
-	  kev.fflags |= NOTE_WRITE;
-	}
-
-      /* No further action on NOTE_DELETE & NOTE_RENAME; NOTE_WRITE on the
-       * parent directory will trigger a rescan in both cases and the
-       * renamed directory will be picked up then.
-       */
-
-      if (kev.fflags & NOTE_WRITE)
-	{
-          DPRINTF(E_DBG, L_SCAN, "Got NOTE_WRITE (%s)\n", wi.path);
-
-	  need_rescan = 1;
-	  w_len = strlen(wi.path);
-
-	  /* Abusing stacked_dir a little bit here */
-	  dprev = NULL;
-	  d = rescan;
-	  while (d)
-	    {
-	      d_len = strlen(d->path);
-
-	      if (d_len > w_len)
-		{
-		  /* Stacked dir child of watch dir? */
-		  if ((d->path[w_len] == '/') && (strncmp(d->path, wi.path, w_len) == 0))
-		    {
-		      DPRINTF(E_DBG, L_SCAN, "Watched directory is a parent\n");
-
-		      if (dprev)
-			dprev->next = d->next;
-		      else
-			rescan = d->next;
-
-		      free(d->path);
-		      free(d);
-
-		      if (dprev)
-			d = dprev->next;
-		      else
-			d = rescan;
-
-		      continue;
-		    }
-		}
-	      else if (w_len > d_len)
-		{
-		  /* Watch dir child of stacked dir? */
-		  if ((wi.path[d_len] == '/') && (strncmp(wi.path, d->path, d_len) == 0))
-		    {
-		      DPRINTF(E_DBG, L_SCAN, "Watched directory is a child\n");
-
-		      need_rescan = 0;
-		      break;
-		    }
-		}
-	      else if (strcmp(wi.path, d->path) == 0)
-		{
-		  DPRINTF(E_DBG, L_SCAN, "Watched directory already listed\n");
-
-		  need_rescan = 0;
-		  break;
-		}
-
-	      dprev = d;
-	      d = d->next;
-	    }
-
-	  if (need_rescan)
-	    {
-	      parent_id = get_parent_dir_id(wi.path);
-	      push_dir(&rescan, wi.path, parent_id);
-	    }
-	}
-
-      free(wi.path);
-    }
-
-  while ((d = pop_dir(&rescan)))
-    {
-      process_directories(d->path, d->parent_id, 0);
-
-      free(d->path);
-      free(d);
-
-      if (rescan)
-	DPRINTF(E_LOG, L_SCAN, "WARNING: unhandled leftover directories\n");
-    }
-
-  event_add(inoev, NULL);
-}
-#endif /* __FreeBSD__ || __FreeBSD_kernel__ */
 
 /* Thread: main & scan */
 static int
 inofd_event_set(void)
 {
-#if defined(__linux__)
   inofd = inotify_init1(IN_CLOEXEC);
   if (inofd < 0)
     {
@@ -2093,17 +1936,14 @@ inofd_event_set(void)
 
   inoev = event_new(evbase_scan, inofd, EV_READ, inotify_cb, NULL);
 
-#elif defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
-
-  inofd = kqueue();
-  if (inofd < 0)
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  deferred_inoev = evtimer_new(evbase_scan, inotify_deferred_cb, NULL);
+  if (!deferred_inoev)
     {
-      DPRINTF(E_FATAL, L_SCAN, "Could not create kqueue: %s\n", strerror(errno));
+      DPRINTF(E_LOG, L_SCAN, "Could not create deferred inotify event\n");
 
       return -1;
     }
-
-  inoev = event_new(evbase_scan, inofd, EV_READ, kqueue_cb, NULL);
 #endif
 
   return 0;
@@ -2113,6 +1953,9 @@ inofd_event_set(void)
 static void
 inofd_event_unset(void)
 {
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
+  event_free(deferred_inoev);
+#endif
   event_free(inoev);
   close(inofd);
 }
