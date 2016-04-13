@@ -54,6 +54,7 @@ static snd_mixer_t *mixer_hdl;
 static snd_mixer_elem_t *vol_elem;
 static long vol_min;
 static long vol_max;
+static int offset;
 
 #define ALSA_F_STARTED  (1 << 15)
 
@@ -552,13 +553,16 @@ playback_start(struct alsa_session *as, uint64_t pos, uint64_t start_pos)
   // Clear prebuffer in case start somehow got called twice without a stop in between
   prebuf_free(as);
 
+  // Adjust the starting position with the configured value
+  start_pos -= offset;
+
   // The difference between pos and start_pos should match the 2 second
   // buffer that AirPlay uses. We will not use alsa's buffer for the initial
   // buffering, because my sound card's start_threshold is not to be counted on.
   // Instead we allocate our own buffer, and when it is time to play we write as
   // much as we can to alsa's buffer.
   as->prebuf_len = (start_pos - pos) / AIRTUNES_V2_PACKET_SAMPLES + 1;
-  if (as->prebuf_len > 2*126)
+  if (as->prebuf_len > (3 * 44100 - offset) / AIRTUNES_V2_PACKET_SAMPLES)
     {
       DPRINTF(E_LOG, L_LAUDIO, "Sanity check of prebuf_len (%" PRIu32 " packets) failed\n", as->prebuf_len);
       return;
@@ -669,7 +673,7 @@ sync_check(struct alsa_session *as, uint64_t rtptime, snd_pcm_sframes_t delay, i
     npackets = 0;
 
   pb_pos = rtptime - delay - AIRTUNES_V2_PACKET_SAMPLES * npackets;
-  latency = cur_pos - pb_pos;
+  latency = cur_pos - (pb_pos - offset);
 
   // If the latency is low or very different from our last measurement, we reset the sync_counter
   if (abs(latency) < ALSA_MAX_LATENCY || abs(as->last_latency - latency) > ALSA_MAX_LATENCY_VARIANCE)
@@ -692,7 +696,7 @@ sync_check(struct alsa_session *as, uint64_t rtptime, snd_pcm_sframes_t delay, i
   as->last_latency = latency;
 
   if (latency)
-    DPRINTF(E_DBG, L_LAUDIO, "Sync %d cur_pos %" PRIu64 ", pb_pos %" PRIu64 " (diff %d, delay %li), pos %" PRIu64 "\n", sync, cur_pos, pb_pos, latency, delay, as->pos);
+    DPRINTF(E_SPAM, L_LAUDIO, "Sync %d cur_pos %" PRIu64 ", pb_pos %" PRIu64 " (diff %d, delay %li), pos %" PRIu64 "\n", sync, cur_pos, pb_pos, latency, delay, as->pos);
 
   return sync;
 }
@@ -987,6 +991,12 @@ alsa_init(void)
   card_name = cfg_getstr(cfg_audio, "card");
   mixer_name = cfg_getstr(cfg_audio, "mixer");
   nickname = cfg_getstr(cfg_audio, "nickname");
+  offset = cfg_getint(cfg_audio, "offset");
+  if (abs(offset) > 44100)
+    {
+      DPRINTF(E_LOG, L_LAUDIO, "The ALSA offset (%d) set in the configuration is out of bounds\n", offset);
+      offset = 44100 * (offset/abs(offset));
+    }
 
   device = calloc(1, sizeof(struct output_device));
   if (!device)
