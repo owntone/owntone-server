@@ -268,8 +268,6 @@ static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
 // Will be positive if we need to skip some source reads (see below)
 static int ticks_skip;
 
-static int debug_counter;
-
 /* Sync source */
 static enum player_sync_source pb_sync_source;
 
