@@ -32,36 +32,26 @@
 #include "outputs.h"
 
 extern struct output_definition output_raop;
-#ifdef CHROMECAST
-extern struct output_definition output_cast;
-#endif
-/* TODO
 extern struct output_definition output_streaming;
+extern struct output_definition output_dummy;
 #ifdef ALSA
 extern struct output_definition output_alsa;
 #endif
-#ifdef OSS4
-extern struct output_definition output_oss4;
+#ifdef CHROMECAST
+extern struct output_definition output_cast;
 #endif
-extern struct output_definition output_dummy;
-*/
 
 // Must be in sync with enum output_types
 static struct output_definition *outputs[] = {
     &output_raop,
-#ifdef CHROMECAST
-    &output_cast,
-#endif
-/* TODO
     &output_streaming,
+    &output_dummy,
 #ifdef ALSA
     &output_alsa,
 #endif
-#ifdef OSS4
-    &output_oss4,
+#ifdef CHROMECAST
+    &output_cast,
 #endif
-    &output_dummy,
-*/
     NULL
 };
 
@@ -315,6 +305,11 @@ outputs_metadata_free(struct output_metadata *omd)
     }
 }
 
+int
+outputs_priority(struct output_device *device)
+{
+  return outputs[device->type]->priority;
+}
 
 const char *
 outputs_name(enum output_types type)
@@ -338,6 +333,9 @@ outputs_init(void)
 	  return -1;
 	}
 
+      if (!outputs[i]->init)
+	continue;
+
       ret = outputs[i]->init();
       if (ret < 0)
 	outputs[i]->disabled = 1;
@@ -358,7 +356,10 @@ outputs_deinit(void)
 
   for (i = 0; outputs[i]; i++)
     {
-      if (!outputs[i]->disabled)
+      if (outputs[i]->disabled)
+	continue;
+
+      if (outputs[i]->deinit)
         outputs[i]->deinit();
     }
 }

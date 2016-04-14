@@ -54,7 +54,6 @@
 
 /* Audio outputs */
 #include "outputs.h"
-#include "laudio.h"
 
 /* Audio inputs */
 #include "transcode.h"
@@ -81,8 +80,6 @@
 #define PLAYER_DEFAULT_VOLUME 50
 // Used to keep the player from getting ahead of a rate limited source (see below)
 #define PLAYER_TICKS_MAX_OVERRUN 2
-// Skips ticks for about 2 secs (seems to bring us back in sync for about 20 min)
-#define PLAYER_TICKS_SKIP 126
 
 struct player_source
 {
@@ -271,6 +268,8 @@ static struct timespec packet_time = { 0, AIRTUNES_V2_STREAM_PERIOD };
 // Will be positive if we need to skip some source reads (see below)
 static int ticks_skip;
 
+static int debug_counter;
+
 /* Sync source */
 static enum player_sync_source pb_sync_source;
 
@@ -286,14 +285,7 @@ static int dev_autoselect; //TODO [player] Is this still necessary?
 static struct output_device *dev_list;
 
 /* Output status */
-static enum laudio_state laudio_status;
-static int laudio_selected;
-static int laudio_volume;
-static int laudio_relvol;
 static int output_sessions;
-static int streaming_selected;
-
-static player_streaming_cb streaming_write;
 
 /* Commands */
 static struct player_command *cur_cmd;
@@ -306,7 +298,10 @@ static struct player_source *cur_playing;
 static struct player_source *cur_streaming;
 static uint32_t cur_plid;
 static uint32_t cur_plversion;
+
 static struct evbuffer *audio_buf;
+static uint8_t rawbuf[STOB(AIRTUNES_V2_PACKET_SAMPLES)];
+
 
 /* Play queue */
 static struct queue *queue;
@@ -391,9 +386,6 @@ volume_master_update(int newvol)
 
   master_volume = newvol;
 
-  if (laudio_selected)
-    laudio_relvol = vol_to_rel(laudio_volume);
-
   for (device = dev_list; device; device = device->next)
     {
       if (device->selected)
@@ -409,9 +401,6 @@ volume_master_find(void)
 
   newmaster = -1;
 
-  if (laudio_selected)
-    newmaster = laudio_volume;
-
   for (device = dev_list; device; device = device->next)
     {
       if (device->selected && (device->volume > newmaster))
@@ -423,22 +412,6 @@ volume_master_find(void)
 
 
 /* Device select/deselect hooks */
-static void
-speaker_select_laudio(void)
-{
-  laudio_selected = 1;
-
-  if (laudio_volume > master_volume)
-    {
-      if (player_state == PLAY_STOPPED || master_volume == -1)
-	volume_master_update(laudio_volume);
-      else
-	laudio_volume = master_volume;
-    }
-
-  laudio_relvol = vol_to_rel(laudio_volume);
-}
-
 static void
 speaker_select_output(struct output_device *device)
 {
@@ -453,15 +426,6 @@ speaker_select_output(struct output_device *device)
     }
 
   device->relvol = vol_to_rel(device->volume);
-}
-
-static void
-speaker_deselect_laudio(void)
-{
-  laudio_selected = 0;
-
-  if (laudio_volume == master_volume)
-    volume_master_find();
 }
 
 static void
@@ -517,36 +481,6 @@ player_get_current_pos_clock(uint64_t *pos, struct timespec *ts, int commit)
   return 0;
 }
 
-static int
-player_get_current_pos_laudio(uint64_t *pos, struct timespec *ts, int commit)
-{
-  int ret;
-
-  *pos = laudio_get_pos();
-
-  ret = clock_gettime_with_res(CLOCK_MONOTONIC, ts, &timer_res);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Couldn't get clock: %s\n", strerror(errno));
-
-      return -1;
-    }
-
-  if (commit)
-    {
-      pb_pos = *pos;
-
-      pb_pos_stamp.tv_sec = ts->tv_sec;
-      pb_pos_stamp.tv_nsec = ts->tv_nsec;
-
-#ifdef DEBUG_SYNC
-      DPRINTF(E_DBG, L_PLAYER, "Pos: %" PRIu64 " (laudio)\n", *pos);
-#endif
-    }
-
-  return 0;
-}
-
 int
 player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
 {
@@ -555,8 +489,8 @@ player_get_current_pos(uint64_t *pos, struct timespec *ts, int commit)
       case PLAYER_SYNC_CLOCK:
 	return player_get_current_pos_clock(pos, ts, commit);
 
-      case PLAYER_SYNC_LAUDIO:
-	return player_get_current_pos_laudio(pos, ts, commit);
+      default:
+	DPRINTF(E_LOG, L_PLAYER, "Bug! player_get_current_pos called with unknown source\n");
     }
 
   return -1;
@@ -618,54 +552,6 @@ playerqueue_clear(struct player_command *cmd);
 
 static void
 player_metadata_send(struct player_metadata *pmd);
-
-static void
-player_laudio_status_cb(enum laudio_state status)
-{
-  struct timespec ts;
-  uint64_t pos;
-
-  switch (status)
-    {
-      /* Switch sync to clock sync */
-      case LAUDIO_STOPPING:
-	DPRINTF(E_DBG, L_PLAYER, "Local audio stopping\n");
-
-	laudio_status = status;
-
-	/* Synchronize pb_pos and pb_pos_stamp before laudio stops entirely */
-	player_get_current_pos_laudio(&pos, &ts, 1);
-
-	pb_sync_source = PLAYER_SYNC_CLOCK;
-	break;
-
-      /* Switch sync to laudio sync */
-      case LAUDIO_RUNNING:
-	DPRINTF(E_DBG, L_PLAYER, "Local audio running\n");
-
-	laudio_status = status;
-
-	pb_sync_source = PLAYER_SYNC_LAUDIO;
-	break;
-
-      case LAUDIO_FAILED:
-	DPRINTF(E_DBG, L_PLAYER, "Local audio failed\n");
-
-	pb_sync_source = PLAYER_SYNC_CLOCK;
-
-	laudio_close();
-
-	if (output_sessions == 0)
-	  playback_abort();
-
-	speaker_deselect_laudio();
-	break;
-
-      default:
-      	laudio_status = status;
-	break;
-    }
-}
 
 /* Callback from the worker thread (async operation as it may block) */
 static void
@@ -1324,6 +1210,9 @@ source_play()
 
   ret = stream_play(cur_streaming);
 
+  ticks_skip = 0;
+  memset(rawbuf, 0, sizeof(rawbuf));
+
   return ret;
 }
 
@@ -1580,11 +1469,9 @@ source_read(uint8_t *buf, int len, uint64_t rtptime)
   return nbytes;
 }
 
-
 static void
-playback_write(void)
+playback_write(int read_skip)
 {
-  uint8_t rawbuf[STOB(AIRTUNES_V2_PACKET_SAMPLES)];
   int ret;
 
   source_check();
@@ -1595,25 +1482,21 @@ playback_write(void)
 
   last_rtptime += AIRTUNES_V2_PACKET_SAMPLES;
 
-  memset(rawbuf, 0, sizeof(rawbuf));
-
-  ret = source_read(rawbuf, sizeof(rawbuf), last_rtptime);
-  if (ret < 0)
+  if (!read_skip)
     {
-      DPRINTF(E_DBG, L_PLAYER, "Error reading from source, aborting playback\n");
+      ret = source_read(rawbuf, sizeof(rawbuf), last_rtptime);
+      if (ret < 0)
+	{
+	  DPRINTF(E_DBG, L_PLAYER, "Error reading from source, aborting playback\n");
 
-      playback_abort();
-      return;
+	  playback_abort();
+	  return;
+	}
     }
+  else
+    DPRINTF(E_SPAM, L_PLAYER, "Skipping read\n");
 
-  if (streaming_selected)
-    streaming_write(rawbuf, sizeof(rawbuf));
-
-  if (laudio_status & LAUDIO_F_STARTED)
-    laudio_write(rawbuf, last_rtptime);
-
-  if (output_sessions > 0)
-    outputs_write(rawbuf, last_rtptime);
+  outputs_write(rawbuf, last_rtptime);
 }
 
 static void
@@ -1622,6 +1505,8 @@ player_playback_cb(int fd, short what, void *arg)
   struct timespec next_tick;
   uint64_t overrun;
   int ret;
+  int skip;
+  int skip_first;
 
   // Check if we missed any timer expirations
   overrun = 0;
@@ -1639,6 +1524,14 @@ player_playback_cb(int fd, short what, void *arg)
     overrun = ret;
 #endif /* __linux__ */
 
+/*debug_counter++;
+if (debug_counter % 2000 == 0)
+{
+  DPRINTF(E_LOG, L_PLAYER, "Sleep a bit!!\n");
+  usleep(5 * AIRTUNES_V2_STREAM_PERIOD / 1000);
+  DPRINTF(E_LOG, L_PLAYER, "Wake again\n");
+}*/
+
   // The reason we get behind the playback timer may be that we are playing a 
   // network stream OR that the source is slow to open OR some interruption.
   // For streams, we might be consuming faster than the stream delivers, so
@@ -1647,24 +1540,28 @@ player_playback_cb(int fd, short what, void *arg)
   // from the stream server.
   //
   // Our strategy to catch up with the timer depends on the source:
-  //   - streams: We will skip reading data every second tick until we have
-  //              skipt PLAYER_TICKS_SKIP ticks. That should make the source
-  //              catch up. RTP destinations should be able to handle this
-  //              gracefully if we just give them an rtptime that lets them know
-  //              that some packets were "lost".
+  //   - streams: We will skip reading data every second until we have countered
+  //              the overrun by skipping reads for a number of ticks that is
+  //              3 times the overrun. That should make the source catch up. To
+  //              keep the output happy we resend the previous rawbuf when we
+  //              have skipped a read.
   //   - files:   Just read and write like crazy until we have caught up.
 
+  skip_first = 0;
   if (overrun > PLAYER_TICKS_MAX_OVERRUN)
     {
       DPRINTF(E_WARN, L_PLAYER, "Behind the playback timer with %" PRIu64 " ticks, initiating catch up\n", overrun);
 
       if (cur_streaming->data_kind == DATA_KIND_HTTP || cur_streaming->data_kind == DATA_KIND_PIPE)
-        ticks_skip = 2 * PLAYER_TICKS_SKIP + 1;
+	{
+          ticks_skip = 3 * overrun;
+	  // We always skip after a timer overrun, since another read will
+	  // probably just give another time overrun
+	  skip_first = 1;
+	}
       else
 	ticks_skip = 0;
     }
-  else if (ticks_skip > 0)
-    ticks_skip--;
 
   // Decide how many packets to send
   next_tick = timespec_add(pb_timer_last, tick_interval);
@@ -1673,11 +1570,13 @@ player_playback_cb(int fd, short what, void *arg)
 
   do
     {
-      // Skip reading and writing every second tick if we are behind a nonfile source
-      if (ticks_skip % 2 == 0)
-	playback_write();
-      else
-	last_rtptime += AIRTUNES_V2_PACKET_SAMPLES;
+	skip = skip_first || ((ticks_skip > 0) && ((last_rtptime / AIRTUNES_V2_PACKET_SAMPLES) % 126 == 0));
+
+	playback_write(skip);
+
+	skip_first = 0;
+	if (skip)
+	  ticks_skip--;
 
       packet_timer_last = timespec_add(packet_timer_last, packet_time);
     }
@@ -1691,6 +1590,40 @@ player_playback_cb(int fd, short what, void *arg)
 }
 
 /* Helpers */
+static void
+device_list_sort(void)
+{
+  struct output_device *device;
+  struct output_device *next;
+  struct output_device *prev;
+  int swaps;
+
+  // Swap sorting since even the most inefficient sorting should do fine here
+  do
+    {
+      swaps = 0;
+      prev = NULL;
+      for (device = dev_list; device && device->next; device = device->next)
+	{
+	  next = device->next;
+	  if ( (outputs_priority(device) > outputs_priority(next)) ||
+	       (outputs_priority(device) == outputs_priority(next) && strcasecmp(device->name, next->name) > 0) )
+	    {
+	      if (device == dev_list)
+		dev_list = next;
+	      if (prev)
+		prev->next = next;
+
+	      device->next = next->next;
+	      next->next = device;
+	      swaps++;
+	    }
+	  prev = device;
+	}
+    }
+  while (swaps > 0);
+}
+
 static void
 device_remove(struct output_device *remove)
 {
@@ -1817,6 +1750,8 @@ device_add(struct player_command *cmd)
       outputs_device_free(add);
     }
 
+  device_list_sort();
+
   return 0;
 }
 
@@ -1894,6 +1829,8 @@ device_streaming_cb(struct output_device *device, struct output_session *session
 {
   int ret;
 
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_streaming_cb\n", outputs_name(device->type));
+
   ret = device_check(device);
   if (ret < 0)
     {
@@ -1938,6 +1875,8 @@ device_streaming_cb(struct output_device *device, struct output_session *session
 static void
 device_command_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_command_cb\n", outputs_name(device->type));
+
   cur_cmd->output_requests_pending--;
 
   outputs_status_cb(session, device_streaming_cb);
@@ -1960,6 +1899,8 @@ static void
 device_shutdown_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
   int ret;
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_shutdown_cb\n", outputs_name(device->type));
 
   cur_cmd->output_requests_pending--;
 
@@ -1995,6 +1936,8 @@ device_shutdown_cb(struct output_device *device, struct output_session *session,
 static void
 device_lost_cb(struct output_device *device, struct output_session *session, enum output_device_state status)
 {
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_lost_cb\n", outputs_name(device->type));
+
   /* We lost that device during startup for some reason, not much we can do here */
   if (status == OUTPUT_STATE_FAILED)
     DPRINTF(E_WARN, L_PLAYER, "Failed to stop lost device\n");
@@ -2007,6 +1950,8 @@ device_activate_cb(struct output_device *device, struct output_session *session,
 {
   struct timespec ts;
   int ret;
+
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_activate_cb\n", outputs_name(device->type));
 
   cur_cmd->output_requests_pending--;
 
@@ -2079,6 +2024,8 @@ device_probe_cb(struct output_device *device, struct output_session *session, en
 {
   int ret;
 
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_probe_cb\n", outputs_name(device->type));
+
   cur_cmd->output_requests_pending--;
 
   ret = device_check(device);
@@ -2126,6 +2073,8 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
 {
   int ret;
 
+  DPRINTF(E_DBG, L_PLAYER, "Callback from %s to device_restart_cb\n", outputs_name(device->type));
+
   cur_cmd->output_requests_pending--;
 
   ret = device_check(device);
@@ -2167,11 +2116,7 @@ device_restart_cb(struct output_device *device, struct output_session *session, 
 static void
 playback_abort(void)
 {
-  if (laudio_status != LAUDIO_CLOSED)
-    laudio_close();
-
-  if (output_sessions > 0)
-    outputs_playback_stop();
+  outputs_playback_stop();
 
   pb_timer_stop();
 
@@ -2339,9 +2284,6 @@ playback_stop(struct player_command *cmd)
 {
   struct player_source *ps_playing;
 
-  if (laudio_status != LAUDIO_CLOSED)
-    laudio_close();
-
   /* We may be restarting very soon, so we don't bring the devices to a
    * full stop just yet; this saves time when restarting, which is nicer
    * for the user.
@@ -2364,7 +2306,7 @@ playback_stop(struct player_command *cmd)
 
   metadata_purge();
 
-  /* We're async if we need to flush RAOP devices */
+  /* We're async if we need to flush devices */
   if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
@@ -2377,25 +2319,11 @@ playback_start_bh(struct player_command *cmd)
 {
   int ret;
 
-  if ((laudio_status == LAUDIO_CLOSED) && (output_sessions == 0))
+  if (output_sessions == 0)
     {
       DPRINTF(E_LOG, L_PLAYER, "Cannot start playback: no output started\n");
 
       goto out_fail;
-    }
-
-  /* Start laudio first as it can fail, but can be stopped easily if needed */
-  if (laudio_status == LAUDIO_OPEN)
-    {
-      laudio_set_volume(laudio_volume);
-
-      ret = laudio_start(pb_pos, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
-      if (ret < 0)
-	{
-	  DPRINTF(E_LOG, L_PLAYER, "Local audio failed to start\n");
-
-	  goto out_fail;
-	}
     }
 
   ret = clock_gettime_with_res(CLOCK_MONOTONIC, &pb_pos_stamp, &timer_res);
@@ -2423,8 +2351,7 @@ playback_start_bh(struct player_command *cmd)
     goto out_fail;
 
   /* Everything OK, start outputs */
-  if (output_sessions > 0)
-    outputs_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_pos_stamp);
+  outputs_playback_start(last_rtptime + AIRTUNES_V2_PACKET_SAMPLES, &pb_pos_stamp);
 
   status_update(PLAY_PLAYING);
 
@@ -2505,16 +2432,7 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
 
   metadata_trigger(1);
 
-
-  /* Start local audio if needed */
-  if (laudio_selected && (laudio_status == LAUDIO_CLOSED))
-    {
-      ret = laudio_open();
-      if (ret < 0)
-	DPRINTF(E_LOG, L_PLAYER, "Could not open local audio, will try AirPlay\n");
-    }
-
-  /* Start RAOP sessions on selected devices if needed */
+  /* Start sessions on selected devices */
   cmd->output_requests_pending = 0;
 
   for (device = dev_list; device; device = device->next)
@@ -2533,29 +2451,29 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
 	}
     }
 
-  /* Try to autoselect a non-selected RAOP device if the above failed */
-  if ((laudio_status == LAUDIO_CLOSED) && (cmd->output_requests_pending == 0) && (output_sessions == 0))
+  /* Try to autoselect a non-selected device if the above failed */
+  if ((cmd->output_requests_pending == 0) && (output_sessions == 0))
     for (device = dev_list; device; device = device->next)
       {
-        if (!device->session)
-	  {
-	    speaker_select_output(device);
-	    ret = outputs_device_start(device, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
-	    if (ret < 0)
-	      {
-		DPRINTF(E_DBG, L_PLAYER, "Could not autoselect %s device '%s'\n", device->type_name, device->name);
-		speaker_deselect_output(device);
-		continue;
-	      }
+	if ((outputs_priority(device) == 0) || device->session)
+	  continue;
 
-	    DPRINTF(E_INFO, L_PLAYER, "Autoselecting %s device '%s'\n", device->type_name, device->name);
-	    cmd->output_requests_pending++;
-	    break;
+	speaker_select_output(device);
+	ret = outputs_device_start(device, device_restart_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+	if (ret < 0)
+	  {
+	    DPRINTF(E_DBG, L_PLAYER, "Could not autoselect %s device '%s'\n", device->type_name, device->name);
+	    speaker_deselect_output(device);
+	    continue;
 	  }
+
+	DPRINTF(E_INFO, L_PLAYER, "Autoselecting %s device '%s'\n", device->type_name, device->name);
+	cmd->output_requests_pending++;
+	break;
       }
 
   /* No luck finding valid output */
-  if ((laudio_status == LAUDIO_CLOSED) && (cmd->output_requests_pending == 0) && (output_sessions == 0))
+  if ((cmd->output_requests_pending == 0) && (output_sessions == 0))
     {
       DPRINTF(E_LOG, L_PLAYER, "Could not start playback: no output selected or couldn't start any output\n");
 
@@ -2563,7 +2481,7 @@ playback_start_item(struct player_command *cmd, struct queue_item *qii)
       return -1;
     }
 
-  /* We're async if we need to start RAOP devices */
+  /* We're async if we need to start devices */
   if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
@@ -2810,9 +2728,6 @@ playback_pause(struct player_command *cmd)
 
   cmd->output_requests_pending = outputs_flush(device_command_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
 
-  if (laudio_status != LAUDIO_CLOSED)
-    laudio_stop();
-
   pb_timer_stop();
 
   source_pause(pos);
@@ -2821,7 +2736,7 @@ playback_pause(struct player_command *cmd)
 
   metadata_purge();
 
-  /* We're async if we need to flush RAOP devices */
+  /* We're async if we need to flush devices */
   if (cmd->output_requests_pending > 0)
     return 1; /* async */
 
@@ -2835,25 +2750,11 @@ speaker_enumerate(struct player_command *cmd)
   struct output_device *device;
   struct spk_enum *spk_enum;
   struct spk_flags flags;
-  char *laudio_name;
 
   spk_enum = cmd->arg.spk_enum;
 
-  laudio_name = cfg_getstr(cfg_getsec(cfg, "audio"), "nickname");
-
-  /* Auto-select local audio if there are no other output devices */
-  if (!dev_list && !laudio_selected)
-    speaker_select_laudio();
-
-  flags.selected = laudio_selected;
-  flags.has_password = 0;
-  flags.has_video = 0;
-
-  spk_enum->cb(0, laudio_name, laudio_relvol, flags, spk_enum->arg);
-
 #ifdef DEBUG_RELVOL
   DPRINTF(E_DBG, L_PLAYER, "*** master: %d\n", master_volume);
-  DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
 #endif
 
   for (device = dev_list; device; device = device->next)
@@ -2878,113 +2779,49 @@ speaker_enumerate(struct player_command *cmd)
 static int
 speaker_activate(struct output_device *device)
 {
-  struct timespec ts;
-  uint64_t pos;
   int ret;
 
   if (!device)
     {
-      /* Local */
-      DPRINTF(E_DBG, L_PLAYER, "Activating local audio\n");
+      DPRINTF(E_LOG, L_PLAYER, "Bug! speaker_activate called with device\n");
+      return -1;
+    }
 
-      if (laudio_status == LAUDIO_CLOSED)
+  if (player_state == PLAY_PLAYING)
+    {
+      DPRINTF(E_DBG, L_PLAYER, "Activating %s device '%s'\n", device->type_name, device->name);
+
+      ret = outputs_device_start(device, device_activate_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
+      if (ret < 0)
 	{
-	  ret = laudio_open();
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not open local audio\n");
-
-	      return -1;
-	    }
+	  DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
+	  return -1;
 	}
-
-      if (player_state == PLAY_PLAYING)
-	{
-	  laudio_set_volume(laudio_volume);
-
-	  ret = player_get_current_pos(&pos, &ts, 0);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not get current stream position for local audio start\n");
-
-	      laudio_close();
-	      return -1;
-	    }
-
-	  ret = laudio_start(pos, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Local playback failed to start\n");
-
-	      laudio_close();
-	      return -1;
-	    }
-	}
-
-      return 0;
     }
   else
     {
-      if (player_state == PLAY_PLAYING)
+      DPRINTF(E_DBG, L_PLAYER, "Probing %s device '%s'\n", device->type_name, device->name);
+
+      ret = outputs_device_probe(device, device_probe_cb);
+      if (ret < 0)
 	{
-	  DPRINTF(E_DBG, L_PLAYER, "Activating %s device '%s'\n", device->type_name, device->name);
-
-	  ret = outputs_device_start(device, device_activate_cb, last_rtptime + AIRTUNES_V2_PACKET_SAMPLES);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not start %s device '%s'\n", device->type_name, device->name);
-
-	      return -1;
-	    }
+	  DPRINTF(E_LOG, L_PLAYER, "Could not probe %s device '%s'\n", device->type_name, device->name);
+	  return -1;
 	}
-      else
-	{
-	  DPRINTF(E_DBG, L_PLAYER, "Probing %s device '%s'\n", device->type_name, device->name);
-
-	  ret = outputs_device_probe(device, device_probe_cb);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not probe %s device '%s'\n", device->type_name, device->name);
-
-	      return -1;
-	    }
-	}
-
-      return 1;
     }
 
-  return -1;
+  return 0;
 }
 
 static int
 speaker_deactivate(struct output_device *device)
 {
-  if (!device)
-    {
-      /* Local */
-      DPRINTF(E_DBG, L_PLAYER, "Deactivating local audio\n");
+  DPRINTF(E_DBG, L_PLAYER, "Deactivating %s device '%s'\n", device->type_name, device->name);
 
-      if (laudio_status == LAUDIO_CLOSED)
-	return 0;
+  outputs_status_cb(device->session, device_shutdown_cb);
+  outputs_device_stop(device->session);
 
-      if (laudio_status & LAUDIO_F_STARTED)
-	laudio_stop();
-
-      laudio_close();
-
-      return 0;
-    }
-  else
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Deactivating %s device '%s'\n", device->type_name, device->name);
-
-      outputs_status_cb(device->session, device_shutdown_cb);
-      outputs_device_stop(device->session);
-
-      return 1;
-    }
-
-  return -1;
+  return 0;
 }
 
 static int
@@ -3045,9 +2882,8 @@ speaker_set(struct player_command *cmd)
 		  if (cmd->ret != -2)
 		    cmd->ret = -1;
 		}
-
-	      /* ret = 1 if RAOP needs to take action */
-	      cmd->output_requests_pending += ret;
+	      else
+		cmd->output_requests_pending++;
 	    }
 	}
       else
@@ -3067,57 +2903,8 @@ speaker_set(struct player_command *cmd)
 		  if (cmd->ret != -2)
 		    cmd->ret = -1;
 		}
-
-	      /* ret = 1 if RAOP needs to take action */
-	      cmd->output_requests_pending += ret;
-	    }
-	}
-    }
-
-  /* Local audio */
-  for (i = 1; i <= nspk; i++)
-    {
-      if (ids[i] == 0)
-	break;
-    }
-
-  if (i <= nspk)
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Local audio selected\n");
-
-      if (!laudio_selected)
-	speaker_select_laudio();
-
-      if (!(laudio_status & LAUDIO_F_STARTED))
-	{
-	  ret = speaker_activate(NULL);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not activate local audio output\n");
-
-	      speaker_deselect_laudio();
-
-	      if (cmd->ret != -2)
-		cmd->ret = -1;
-	    }
-	}
-    }
-  else
-    {
-      DPRINTF(E_DBG, L_PLAYER, "Local audio NOT selected\n");
-
-      if (laudio_selected)
-	speaker_deselect_laudio();
-
-      if (laudio_status != LAUDIO_CLOSED)
-	{
-	  ret = speaker_deactivate(NULL);
-	  if (ret < 0)
-	    {
-	      DPRINTF(E_LOG, L_PLAYER, "Could not deactivate local audio output\n");
-
-	      if (cmd->ret != -2)
-		cmd->ret = -1;
+	      else
+		cmd->output_requests_pending++;
 	    }
 	}
     }
@@ -3142,16 +2929,6 @@ volume_set(struct player_command *cmd)
     return 0;
 
   master_volume = volume;
-
-  if (laudio_selected)
-    {
-      laudio_volume = rel_to_vol(laudio_relvol);
-      laudio_set_volume(laudio_volume);
-
-#ifdef DEBUG_RELVOL
-      DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
-#endif
-    }
 
   cmd->output_requests_pending = 0;
 
@@ -3188,38 +2965,25 @@ volume_setrel_speaker(struct player_command *cmd)
   id = cmd->arg.vol_param.spk_id;
   relvol = cmd->arg.vol_param.volume;
 
-  if (id == 0)
+  for (device = dev_list; device; device = device->next)
     {
-      laudio_relvol = relvol;
-      laudio_volume = rel_to_vol(relvol);
-      laudio_set_volume(laudio_volume);
+      if (device->id != id)
+	continue;
+
+      if (!device->selected)
+	return 0;
+
+      device->relvol = relvol;
+      device->volume = rel_to_vol(relvol);
 
 #ifdef DEBUG_RELVOL
-      DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
-#endif
-    }
-  else
-    {
-      for (device = dev_list; device; device = device->next)
-        {
-	  if (device->id != id)
-	    continue;
-
-	  if (!device->selected)
-	    return 0;
-
-	  device->relvol = relvol;
-	  device->volume = rel_to_vol(relvol);
-
-#ifdef DEBUG_RELVOL
-	  DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
+      DPRINTF(E_DBG, L_PLAYER, "*** %s: abs %d rel %d\n", device->name, device->volume, device->relvol);
 #endif
 
-	  if (device->session)
-	    cmd->output_requests_pending = outputs_device_volume_set(device, device_command_cb);
+      if (device->session)
+	cmd->output_requests_pending = outputs_device_volume_set(device, device_command_cb);
 
-	  break;
-        }
+      break;
     }
 
   listener_notify(LISTENER_VOLUME);
@@ -3241,19 +3005,6 @@ volume_setabs_speaker(struct player_command *cmd)
   volume = cmd->arg.vol_param.volume;
 
   master_volume = volume;
-
-  if (id == 0)
-    {
-      laudio_relvol = 100;
-      laudio_volume = volume;
-      laudio_set_volume(laudio_volume);
-    }
-  else
-    laudio_relvol = vol_to_rel(laudio_volume);
-
-#ifdef DEBUG_RELVOL
-  DPRINTF(E_DBG, L_PLAYER, "*** laudio: abs %d rel %d\n", laudio_volume, laudio_relvol);
-#endif
 
   for (device = dev_list; device; device = device->next)
     {
@@ -4014,19 +3765,6 @@ player_playback_prev(void)
   return ret;
 }
 
-void
-player_streaming_start(player_streaming_cb cb)
-{
-  streaming_write = cb;
-  streaming_selected = 1;
-}
-
-void
-player_streaming_stop(void)
-{
-  streaming_selected = 0;
-}
-
 
 void
 player_speaker_enumerate(spk_enum_cb cb, void *arg)
@@ -4566,10 +4304,6 @@ player(void *arg)
   /* Save selected devices */
   db_speaker_clear_all();
 
-  ret = db_speaker_save(0, laudio_selected, laudio_volume, "Local audio");
-  if (ret < 0)
-    DPRINTF(E_LOG, L_PLAYER, "Could not save state for local audio\n");
-
   for (device = dev_list; device; device = device->next)
     {
       ret = db_speaker_save(device->id, device->selected, device->volume, device->name);
@@ -4608,8 +4342,6 @@ player_init(void)
 
   master_volume = -1;
 
-  laudio_selected = 0;
-  laudio_status = LAUDIO_CLOSED;
   output_sessions = 0;
 
   cur_cmd = NULL;
@@ -4667,12 +4399,6 @@ player_init(void)
   // Random RTP time start
   gcry_randomize(&rnd, sizeof(rnd), GCRY_STRONG_RANDOM);
   last_rtptime = ((uint64_t)1 << 32) | rnd;
-
-  ret = db_speaker_get(0, &laudio_selected, &laudio_volume);
-  if (ret < 0)
-    laudio_volume = PLAYER_DEFAULT_VOLUME;
-  else if (laudio_selected)
-    speaker_select_laudio(); // Run the select helper
 
   audio_buf = evbuffer_new();
   if (!audio_buf)
@@ -4743,13 +4469,6 @@ player_init(void)
   event_add(cmdev, NULL);
   event_add(pb_timer_ev, NULL);
 
-  ret = laudio_init(player_laudio_status_cb);
-  if (ret < 0)
-    {
-      DPRINTF(E_LOG, L_PLAYER, "Local audio init failed\n");
-      goto laudio_fail;
-    }
-
   ret = outputs_init();
   if (ret < 0)
     {
@@ -4775,8 +4494,6 @@ player_init(void)
  thread_fail:
   outputs_deinit();
  outputs_fail:
-  laudio_deinit();
- laudio_fail:
  evnew_fail:
   event_base_free(evbase_player);
  evbase_fail:
@@ -4832,7 +4549,6 @@ player_deinit(void)
 
   evbuffer_free(audio_buf);
 
-  laudio_deinit();
   outputs_deinit();
 
   close(exit_pipe[0]);

@@ -26,11 +26,7 @@ MPD_SRC=mpd.c mpd.h
 endif
 
 if COND_ALSA
-ALSA_SRC=laudio_alsa.c
-endif
-
-if COND_OSS4
-OSS4_SRC=laudio_oss4.c
+ALSA_SRC=outputs/alsa.c
 endif
 
 GPERF_FILES = \
@@ -106,15 +102,12 @@ forked_daapd_SOURCES = main.c \
 	player.c player.h \
 	queue.c queue.h \
 	worker.c worker.h \
-	$(ALSA_SRC) $(OSS4_SRC) \
 	outputs.h outputs.c \
-	laudio_dummy.c \
-	laudio.c laudio.h \
-	outputs/raop.c \
+	outputs/raop.c outputs/streaming.c outputs/dummy.c \
+	$(ALSA_SRC) $(CHROMECAST_SRC) \
 	evrtsp/rtsp.c evrtp/evrtsp.h evrtsp/rtsp-internal.h evrtsp/log.h \
 	$(SPOTIFY_SRC) \
 	$(LASTFM_SRC) \
-	$(CHROMECAST_SRC) \
 	$(MPD_SRC) \
 	listener.c listener.h
 

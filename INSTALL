@@ -136,8 +136,8 @@ Libraries:
         from <http://zlib.net/>
  - libunistring 0.9.3+
         from <http://www.gnu.org/software/libunistring/#downloading>
- - libasound (optional - ALSA support, recommended for Linux)
-	normally already installed as part of your distro
+ - libasound (optional - local audio)
+	often already installed as part of your distro
  - libplist 0.16+ (optional - iTunes XML support)
         from <http://github.com/JonathanBeck/libplist/downloads>
  - libspotify (optional - Spotify support)
