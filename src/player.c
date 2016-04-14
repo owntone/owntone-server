@@ -1438,6 +1438,13 @@ source_check(void)
       return 0;
     }
 
+  if (player_state == PLAY_STOPPED)
+    {
+      DPRINTF(E_LOG, L_PLAYER, "Bug! source_check called but playback has already stopped\n");
+
+      return pos;
+    }
+
   /* If cur_playing is NULL, we are still in the first two seconds after starting the stream */
   if (!cur_playing)
     {
@@ -1674,7 +1681,7 @@ player_playback_cb(int fd, short what, void *arg)
 
       packet_timer_last = timespec_add(packet_timer_last, packet_time);
     }
-  while (timespec_cmp(packet_timer_last, next_tick) < 0);
+  while ((timespec_cmp(packet_timer_last, next_tick) < 0) && (player_state == PLAY_PLAYING));
 
   /* Make sure playback is still running */
   if (player_state == PLAY_STOPPED)
