@@ -5,21 +5,11 @@ RSP (Roku) media server.
 
 It has support for AirPlay devices/speakers, Apple Remote (and compatibles),
 MPD clients, Chromecast, network streaming, internet radio, Spotify and LastFM.
-It does not support AirPlay nor Chromecast video.
+
+It does not support streaming video by AirPlay nor Chromecast.
 
 DAAP stands for Digital Audio Access Protocol, and is the protocol used
 by iTunes and friends to share/stream media libraries over the network.
-
-RSP is Roku's own media sharing protocol. Roku are the makers of the
-SoundBridge devices. See http://www.roku.com.
-
-The source for this version of forked-daapd can be found here:
-
-  https://github.com/ejurgensen/forked-daapd.git
-
-The original (now unmaintained) source can be found here:
-
-  http://git.debian.org/?p=users/jblache/forked-daapd.git
 
 forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 
@@ -42,7 +32,7 @@ forked-daapd is a complete rewrite of mt-daapd (Firefly Media Server).
 - [Spotify](#spotify)
 - [LastFM](#lastfm)
 - [MPD clients](#mpd-clients)
-
+- [References](#references)
 
 ## Getting started
 
@@ -55,7 +45,7 @@ do the following:
  3. Wait for the library scan to complete. You can follow the progress with
     `tail -f /var/log/forked-daapd.log`
  4. If you are going to use a remote app, pair it following the procedure
-    described below
+    [described below](#using-remote)
 
 
 ## Supported clients
@@ -206,8 +196,7 @@ AirPlay speaker.
 
 forked-daapd remembers your selection and the individual volume for each
 output device; selected devices will be automatically re-selected at the next
-server startup, provided they appear in the 5 minutes following the startup
-and no playback has occured yet.
+server startup, provided no playback has occured yet.
 
 
 ## AirPlay devices/speakers
@@ -231,12 +220,9 @@ by your ffmpeg/libav. See [MP3 network streaming](#MP3-network-streaming-(stream
 
 ## Local audio output
 
-The audio section of the configuration file supports 2 parameters for the local
-audio device:
- - nickname: this is the name that will be used in the speakers list in Remote
- - card: this is the name/device string (ALSA) or device node (OSS4) to be used
-   as the local audio device. Defaults to "default" for ALSA and "/dev/dsp" for
-   OSS4.
+forked-daapd supports local audio output through ALSA. The server will try to
+syncronize playback with AirPlay. You can adjust the syncronization in the
+config file.
 
 
 ## MP3 network streaming (streaming to iOS)
@@ -275,33 +261,6 @@ added. Currently supported:
  - WMA: wma (WMA Pro), wmal (WMA Lossless), wmav (WMA video)
  - AIFF: aif
  - WAV: wav
-
-
-## Streaming MPEG4
-
-Depending on the client application, you may need to optimize your MPEG4 files
-for streaming. Stream-optimized MPEG4 files have their metadata at the beginning
-of the file, whereas non-optimized files have them at the end.
-
-Not all clients need this; if you're having trouble playing your MPEG4 files,
-this is the most probable cause. iTunes, in particular, doesn't handle files
-that aren't optimized, though FrontRow does.
-
-Files produced by iTunes are always optimized by default. Files produced by
-FAAC and a lot of other encoders are not, though some encoders have an option
-for that.
-
-The mp4creator tool from the mpeg4ip suite can be used to optimize MPEG4 files,
-with the -optimize option:
-```
-  $ mp4creator -optimize foo.m4a
-```
-
-Don't forget to make a backup copy of your file, just in case.
-
-Note that not all tag/metadata editors know about stream optimization and will
-happily write the metadata back at the end of the file after you've modified
-them. Watch out for that.
 
 
 ## Playlists and internet radio
@@ -349,7 +308,7 @@ configuration file. Here you can also enable/disable support for individual
 file artwork (instead of using the same artwork for all tracks in an entire
 album).
 
-You can use symlinks for the artwork files; the artwork is not scanned/indexed.
+You can use symlinks for the artwork files.
 
 forked-daapd caches artwork in a separate cache file. The default path is 
 `/var/cache/forked-daapd/cache.db` and can be configured in the configuration 
@@ -515,8 +474,10 @@ session key. The session key does not expire.
 To stop scrobbling from forked-daapd, add an empty ".lastfm" file to your
 library.
 
+
 ## MPD clients
-If forked-daapd was build with support for the [Music Player Deamon](http://musicpd.org/) 
+
+If forked-daapd was built with support for the [Music Player Deamon](http://musicpd.org/) 
 protocol (see the [INSTALL](https://github.com/ejurgensen/forked-daapd/blob/master/INSTALL)
 file) you can - to some extent - use clients for MPD to control forked-daapd. 
 By default forked-daapd listens on port 6600 for MPD clients. You can change
@@ -541,5 +502,12 @@ Following table shows what is working for a selection of MPD clients:
 | [ympd](http://www.ympd.org/)                  | Web    | Everything except "add stream" should work |
 
 
+## References
 
+The source for this version of forked-daapd can be found here:
 
+  https://github.com/ejurgensen/forked-daapd.git
+
+The original (now unmaintained) source can be found here:
+
+  http://git.debian.org/?p=users/jblache/forked-daapd.git
